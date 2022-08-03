@@ -13,3 +13,37 @@
 
 # Dependency directories (remove the comment below to include it)
 # vendor/
+
+
+.idea/
+
+
+.idea/
+.env
+
+database.yml
+database.yaml
+
+environment.yml
+environment.yaml
+
+cache.yml
+cache.yaml
+
+log.yml
+log.yaml
+
+.DS_Store
+
+configs/
+powerX
+powerX-dev
+powerX-dev-linux
+powerX-migrate-dev
+powerX-migrate-linux
+powerX-seed-dev
+powerX-seed-linux
+
+*.log
+
+temp/**

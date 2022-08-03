@@ -1,0 +1,29 @@
+cache:
+
+  default: "redis"
+
+  connections:
+    redis:
+      maxIdle:
+      maxActive:
+      protocol:
+      host: "127.0.0.1:6379"
+      password:
+      db: 1
+      expiration:
+      timeoutConnect:
+      timeoutRead:
+      timeoutWrite:
+      timeoutIdle:
+
+    memory:
+      maxIdle:
+      maxActive:
+      protocol:
+      host:
+      password:
+      expiration:
+      timeoutConnect:
+      timeoutRead:
+      timeoutWrite:
+      timeoutIdle:

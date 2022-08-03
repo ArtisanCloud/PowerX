@@ -1,0 +1,38 @@
+database:
+
+  default: "postgres"
+
+  connections:
+    pgsql:
+      driver: pgsql
+      url:
+      host: localhost
+      port: 5432
+      database: database
+      username: postgres
+      password:
+      charset: utf8
+      prefix:
+      prefix_indexes:
+      schemas:
+        default: public
+        option: schema
+      search_path: "public"
+      sslmode: prefer
+
+    mysql:
+      driver: mysql
+      url:
+      host:
+      port:
+      database:
+      username:
+      password:
+      unix_socket:
+      charset:
+      collation:
+      prefix:
+      prefix_indexes:
+      strict:
+      engine:
+      options:

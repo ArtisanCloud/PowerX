@@ -1,0 +1,17 @@
+name: "APP_NAME"
+env: local
+locale: zh_CN
+server:
+  host: localhost
+  port: 8080
+ssh:
+  public_key_file:
+  private_key_file:
+
+system:
+  maintenance: false
+
+soaService:
+  notification:
+    url: localhost
+    port: 8090

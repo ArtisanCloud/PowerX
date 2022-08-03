@@ -1,0 +1,19 @@
+version: "3.3"
+services:
+  powerx:
+    restart: always
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    environment: 
+      - GIN_MODE=release
+    ports:
+      - ${PORT:-8001}:8080
+    volumes:
+      - ./configs:/app/configs
+      - ./.env:/app/.env
+      - ./resources:/app/resources
+      - ../certs:/certs
+      - /var/log/ArtisanCloud:/var/log/ArtisanCloud
+    env_file:
+      - ./.env
