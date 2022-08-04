@@ -105,8 +105,8 @@ func InitServices() (err error) {
 		}
 	}
 
-	if wecom.MiniProgramApp == nil {
-		wecom.MiniProgramApp, err = miniProgram.NewMiniProgramService(nil)
+	if miniProgram.MiniProgramApp == nil {
+		miniProgram.MiniProgramApp, err = miniProgram.NewMiniProgramService(nil)
 		if err != nil {
 			panic(err)
 		}

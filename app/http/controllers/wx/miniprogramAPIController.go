@@ -8,7 +8,6 @@ import (
 	"github.com/ArtisanCloud/PowerX/app/models"
 	"github.com/ArtisanCloud/PowerX/app/service"
 	"github.com/ArtisanCloud/PowerX/app/service/wx/miniProgram"
-	"github.com/ArtisanCloud/PowerX/app/service/wx/wecom"
 	"github.com/ArtisanCloud/PowerX/config"
 	"github.com/ArtisanCloud/PowerX/database"
 	"github.com/gin-gonic/gin"
@@ -24,7 +23,7 @@ func NewMiniProgramAPIController(context *gin.Context) (ctl *MiniProgramAPIContr
 
 	return &MiniProgramAPIController{
 		APIController:      api.NewAPIController(context),
-		ServiceMiniProgram: wecom.MiniProgramApp,
+		ServiceMiniProgram: miniProgram.MiniProgramApp,
 	}
 }
 

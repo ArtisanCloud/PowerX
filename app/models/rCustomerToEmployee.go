@@ -32,7 +32,7 @@ type RCustomerToEmployee struct {
 	AddWay         *int           `json:"add_way"`
 	CreateTime     *int           `json:"createtime"`
 	Description    *string        `json:"description"`
-	OperUserID     *string        `json:"oper_userid"`
+	OperatorUserID *string        `json:"oper_userid"`
 	Remark         *string        `json:"remark"`
 	RemarkMobiles  datatypes.JSON `json:"remark_mobiles"`
 	State          *string        `json:"state"`
@@ -104,7 +104,7 @@ func (mdl *RCustomerToEmployee) UpsertPivotByFollowUser(db *gorm.DB, customer *C
 		AddWay:          &followUser.AddWay,
 		CreateTime:      &followUser.CreateTime,
 		Description:     &followUser.Description,
-		OperUserID:      &followUser.OperUserID,
+		OperatorUserID:  &followUser.OperUserID,
 		Remark:          &followUser.Remark,
 		RemarkMobiles:   datatypes.JSON(remarkMobiles),
 		State:           &followUser.State,
