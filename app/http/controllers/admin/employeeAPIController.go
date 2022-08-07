@@ -2,6 +2,7 @@ package admin
 
 import (
 	database2 "github.com/ArtisanCloud/PowerLibs/v2/database"
+	"github.com/ArtisanCloud/PowerLibs/v2/object"
 	models2 "github.com/ArtisanCloud/PowerSocialite/v2/src/models"
 	"github.com/ArtisanCloud/PowerX/app/http/controllers/api"
 	"github.com/ArtisanCloud/PowerX/app/http/request"
@@ -10,6 +11,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/app/service/wx/wecom"
 	"github.com/ArtisanCloud/PowerX/config"
 	"github.com/ArtisanCloud/PowerX/database"
+	logger "github.com/ArtisanCloud/PowerX/loggerManager"
 	"github.com/gin-gonic/gin"
 )
 
@@ -24,6 +26,60 @@ func NewEmployeeAPIController(context *gin.Context) (ctl *EmployeeAPIController)
 		APIController:   api.NewAPIController(context),
 		ServiceEmployee: service.NewEmployeeService(context),
 	}
+}
+
+func APISyncWXEmployees(context *gin.Context) {
+	ctl := NewEmployeeAPIController(context)
+
+	defer api.RecoverResponse(context, "wx.api.employee.sync")
+
+	var err error
+	// sync departments
+	serviceDepartment := service.NewDepartmentService(context)
+	err = serviceDepartment.SyncDepartments()
+	if err != nil {
+		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_UPSERT_DEPARTMENT, config.API_RETURN_CODE_ERROR, "", err.Error())
+		panic(ctl.RS)
+		return
+	}
+
+	// sync employees
+	err = ctl.ServiceEmployee.SyncEmployees()
+	if err != nil {
+		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_UPSERT_EMPLOYEE, config.API_RETURN_CODE_ERROR, "", err.Error())
+		panic(ctl.RS)
+		return
+	}
+
+	ctl.RS.Success(context, err)
+
+}
+
+func APISyncEmployeeAndWXAccount(context *gin.Context) {
+	ctl := NewEmployeeAPIController(context)
+
+	defer api.RecoverResponse(context, "wx.api.customer.sync")
+
+	var err error
+	// sync employees
+	err = ctl.ServiceEmployee.SyncEmployees()
+	if err != nil {
+		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_UPSERT_EMPLOYEE, config.API_RETURN_CODE_ERROR, "", err.Error())
+		panic(ctl.RS)
+		return
+	}
+
+	// sync accounts
+	customerService := service.NewCustomerService(context)
+	err = customerService.SyncCustomers(nil, "")
+	if err != nil {
+		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_UPSERT_ACCOUNT, config.API_RETURN_CODE_ERROR, "", err.Error())
+		panic(ctl.RS)
+		return
+	}
+
+	ctl.RS.Success(context, err)
+
 }
 
 func APIGetEmployeeList(context *gin.Context) {
@@ -163,6 +219,37 @@ func APIUnbindCustomerToEmployee(context *gin.Context) {
 	_ = (&database2.PowerOperationLog{}).SaveOps(database.DBConnection, customer.Name, customer,
 		service.MODULE_CUSTOMER, "系统解绑外部联系人与员工", database2.OPERATION_EVENT_DELETE,
 		employee.Name, employee, database2.OPERATION_RESULT_SUCCESS)
+
+	ctl.RS.Success(context, err)
+}
+
+func APIEmployeeBindSyncedWXDepartments(context *gin.Context) {
+	ctl := NewEmployeeAPIController(context)
+
+	defer api.RecoverResponse(context, "api.admin.employee.bind.syncedWXDepartments")
+
+	employees, err := ctl.ServiceEmployee.GetAllEmployees(database.DBConnection, nil)
+	if err != nil {
+		panic(ctl.RS)
+		return
+	}
+
+	for _, employee := range employees {
+		if employee.WXEmployee.WXDepartments != "" {
+			departmentIDs := []int{}
+			err = object.JsonDecode([]byte(employee.WXEmployee.WXDepartments), &departmentIDs)
+			if err != nil {
+				logger.Logger.Error(err.Error())
+				continue
+			}
+
+			err = ctl.ServiceEmployee.SyncDepartmentIDsToEmployee(database.DBConnection, employee, departmentIDs)
+			if err != nil {
+				logger.Logger.Error(err.Error())
+				continue
+			}
+		}
+	}
 
 	ctl.RS.Success(context, err)
 }

@@ -1,10 +1,10 @@
 package boostrap
 
 import (
-	service "github.com/ArtisanCloud/PowerX/app/service"
+	"github.com/ArtisanCloud/PowerX/app/service"
 	"github.com/ArtisanCloud/PowerX/app/service/wx/miniProgram"
 	"github.com/ArtisanCloud/PowerX/app/service/wx/wecom"
-	"github.com/ArtisanCloud/PowerX/cache"
+	"github.com/ArtisanCloud/PowerX/boostrap/cache"
 	"github.com/ArtisanCloud/PowerX/config"
 	"github.com/ArtisanCloud/PowerX/database"
 	logger "github.com/ArtisanCloud/PowerX/loggerManager"
@@ -76,6 +76,7 @@ func InitProject() (err error) {
 
 func InitServices() (err error) {
 
+	// defined singleton located in app/service/wx/wecom/singleton.go
 	if wecom.WeComApp == nil {
 		wecom.WeComApp, err = wecom.NewWeComService(nil)
 		if err != nil {
@@ -83,6 +84,7 @@ func InitServices() (err error) {
 		}
 	}
 
+	// defined singleton located in app/service/wx/wecom/singleton.go
 	if wecom.WeComEmployee == nil {
 		ctx := &gin.Context{}
 		ctx.Set("messageToken", os.Getenv("employee_message_token"))
@@ -94,6 +96,7 @@ func InitServices() (err error) {
 		}
 	}
 
+	// defined singleton located in app/service/wx/wecom/singleton.go
 	if wecom.WeComCustomer == nil {
 		ctx := &gin.Context{}
 		ctx.Set("messageToken", os.Getenv("customer_message_token"))
@@ -105,17 +108,18 @@ func InitServices() (err error) {
 		}
 	}
 
+	// defined singleton located in app/service/wx/miniprogram/singleton.go
 	if miniProgram.MiniProgramApp == nil {
 		miniProgram.MiniProgramApp, err = miniProgram.NewMiniProgramService(nil)
 		if err != nil {
-			panic(err)
+			return err
 		}
 	}
 
 	//if global.PaymentApp == nil {
 	//	global.PaymentApp, err = wecom.NewPaymentService(nil)
 	//	if err != nil {
-	//		panic(err)
+	//		return err
 	//	}
 	//}
 

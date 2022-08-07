@@ -3,7 +3,7 @@ package tests
 import (
 	"bytes"
 	service "github.com/ArtisanCloud/PowerX/app/service"
-	"github.com/ArtisanCloud/PowerX/cache"
+	"github.com/ArtisanCloud/PowerX/boostrap/cache"
 	"github.com/ArtisanCloud/PowerX/config"
 	"github.com/ArtisanCloud/PowerX/database"
 	logger "github.com/ArtisanCloud/PowerX/loggerManager"

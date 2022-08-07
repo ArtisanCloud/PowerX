@@ -2,12 +2,11 @@ package routes
 
 import (
 	apis "github.com/ArtisanCloud/PowerX/routes/api"
-	"github.com/gin-gonic/gin"
 )
 
-func InitializeAPIRoutes(router *gin.Engine) {
+func InitializeAPIRoutes() {
 
-	apis.InitAdminAPIRoutes(router)
-	apis.InitWXRoutes(router)
+	apis.InitAdminAPIRoutes()
+	apis.InitWXRoutes()
 
 }

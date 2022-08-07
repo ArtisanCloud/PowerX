@@ -191,7 +191,7 @@ func (srv *WXTagService) ClearObjectWXTags(db *gorm.DB, obj database2.ModelInter
 	err = database2.ClearPivots(db, &wx.RWXTagToObject{
 		TaggableOwnerType: object2.NewNullString(obj.GetTableName(true), true),
 		TaggableObjectID:  object2.NewNullString(obj.GetForeignReferValue(), true),
-	})
+	}, true, false)
 	return err
 }
 

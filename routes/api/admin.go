@@ -16,14 +16,14 @@ import (
 	groupChat2 "github.com/ArtisanCloud/PowerX/app/http/request/admin/tag/groupChat"
 	"github.com/ArtisanCloud/PowerX/app/http/request/admin/wx/wecom/media"
 	wxTag "github.com/ArtisanCloud/PowerX/app/http/request/admin/wx/wecom/tag"
-	"github.com/gin-gonic/gin"
+	"github.com/ArtisanCloud/PowerX/routes/global"
 )
 
 /* ------------------------------------------ admin api ------------------------------------------*/
 
-func InitAdminAPIRoutes(router *gin.Engine) {
+func InitAdminAPIRoutes() {
 
-	apiRouter := router.Group("/admin/api")
+	apiRouter := global.Router.Group("/admin/api")
 	{
 		apiRouter.Use(middleware.Maintenance, middleware.AuthEmployeeAPI)
 		{
@@ -38,6 +38,8 @@ func InitAdminAPIRoutes(router *gin.Engine) {
 			apiRouter.GET("/wxPlatform/wecom/customer/detail", customer.ValidateCustomerDetail, admin.APIGetCustomerDetailOnWXPlatform)
 
 			//  Employee - 企微员工接口
+			apiRouter.POST("/employee/sync", admin.APISyncWXEmployees)
+			apiRouter.POST("/employee/sync/customers", admin.APISyncEmployeeAndWXAccount)
 			apiRouter.GET("/employee/list", request.ValidateList, admin.APIGetEmployeeList)
 			apiRouter.GET("/employee/detail", employee.ValidateEmployeeDetail, admin.APIGetEmployeeDetail)
 			apiRouter.POST("/employee/bind/customer", employee.ValidateBindCustomerToEmployee, admin.APIBindCustomerToEmployee)

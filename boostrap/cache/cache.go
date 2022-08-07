@@ -3,17 +3,13 @@ package cache
 import (
 	"github.com/ArtisanCloud/PowerLibs/v2/cache"
 	"github.com/ArtisanCloud/PowerLibs/v2/object"
+	"github.com/ArtisanCloud/PowerX/boostrap/cache/global"
 	"github.com/ArtisanCloud/PowerX/config"
-)
-
-var (
-	CacheConnection *cache.GRedis
 )
 
 func SetupCache() (err error) {
 
 	c := config.CacheConn
-	//fmt.Dump(c)
 
 	options := cache.RedisOptions{
 		Addr:       c.Host,
@@ -22,10 +18,8 @@ func SetupCache() (err error) {
 		SSLEnabled: c.SSLEnabled,
 	}
 
-	CacheConnection = cache.NewGRedis(&options)
-	//fmt2.Printf("CacheConnection:%+v \r\n", CacheConnection.Pool.String())
-
-	//CacheMapLockers = make(map[string]*sync.Mutex)
+	// use redis as default cache connection
+	global.CacheConnection = cache.NewGRedis(&options)
 
 	return nil
 

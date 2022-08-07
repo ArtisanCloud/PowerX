@@ -80,6 +80,15 @@ func (srv *EmployeeService) SyncEmployees() (err error) {
 	return err
 }
 
+func (srv *EmployeeService) SyncDepartmentIDsToEmployee(db *gorm.DB, employee *models.Employee, departmentIDs []int) (err error) {
+	pivots, err := (&models.REmployeeToDepartment{}).MakePivotsFromEmployeeAndDepartmentIDs(employee, departmentIDs)
+	if err != nil {
+		return err
+	}
+	err = databasePowerLib.SyncPivots(db, pivots)
+	return err
+}
+
 func (srv *EmployeeService) GetList(db *gorm.DB, conditions *map[string]interface{}, page int, pageSize int) (pagination *databasePowerLib.Pagination, err error) {
 
 	arrayEmployees := []*models.Employee{}

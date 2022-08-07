@@ -11,7 +11,7 @@ replace github.com/ArtisanCloud/PowerLibs/v2 => ../PowerLibs
 //replace github.com/ArtisanCloud/PowerSocialite/v2 => ../PowerSocialite
 
 require (
-	github.com/ArtisanCloud/PowerLibs/v2 v2.0.25
+	github.com/ArtisanCloud/PowerLibs/v2 v2.0.26
 	github.com/ArtisanCloud/PowerSocialite/v2 v2.0.6
 	github.com/ArtisanCloud/PowerWeChat/v2 v2.0.1-beta36
 	github.com/ArtisanCloud/ubt-go v1.0.6

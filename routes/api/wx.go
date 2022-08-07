@@ -4,12 +4,12 @@ import (
 	apiWX "github.com/ArtisanCloud/PowerX/app/http/controllers/wx"
 	"github.com/ArtisanCloud/PowerX/app/http/middleware"
 	requestWX "github.com/ArtisanCloud/PowerX/app/http/request/wx"
-	"github.com/gin-gonic/gin"
+	"github.com/ArtisanCloud/PowerX/routes/global"
 )
 
-func InitWXRoutes(router *gin.Engine) {
+func InitWXRoutes() {
 	/* ------------------------------------------ wx api ------------------------------------------*/
-	apiRouter := router.Group("/wx/api")
+	apiRouter := global.Router.Group("/wx/api")
 	{
 
 		// ------

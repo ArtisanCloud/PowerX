@@ -141,7 +141,7 @@ func (mdl *RCustomerToEmployee) ClearPivot(db *gorm.DB, customerExternalUserID s
 	mdl.CustomerReferID = object.NewNullString(customerExternalUserID, true)
 	mdl.EmployeeReferID = object.NewNullString(employeeUserID, true)
 
-	err := database.ClearPivots(db, mdl)
+	err := database.ClearPivots(db, mdl, true, false)
 
 	return mdl, err
 }
