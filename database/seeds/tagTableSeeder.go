@@ -5,7 +5,6 @@ import (
 	"github.com/ArtisanCloud/PowerLibs/v2/database/tag"
 	"github.com/ArtisanCloud/PowerLibs/v2/object"
 	service "github.com/ArtisanCloud/PowerX/app/service"
-	"github.com/ArtisanCloud/PowerX/database"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 	"reflect"
@@ -38,7 +37,7 @@ func (seeder *TagTableSeeder) Run(ctx *gin.Context) (err error) {
 		"无意向客户",
 	}
 
-	err = database.DBConnection.Transaction(func(tx *gorm.DB) error {
+	err = global.DBConnection.Transaction(func(tx *gorm.DB) error {
 		tags := []*tag.Tag{}
 		for _, strTag := range arrayTags {
 			tag := tag.NewTag(object.NewCollection(&object.HashMap{
@@ -55,7 +54,7 @@ func (seeder *TagTableSeeder) Run(ctx *gin.Context) (err error) {
 			}
 		}
 
-		err = serviceTag.UpsertTags(database.DBConnection, tag.TAG_UNIQUE_ID, tags, nil)
+		err = serviceTag.UpsertTags(global.DBConnection, tag.TAG_UNIQUE_ID, tags, nil)
 		return nil
 	})
 

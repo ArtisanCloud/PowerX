@@ -10,8 +10,8 @@ import (
 	"github.com/ArtisanCloud/PowerX/app/models"
 	"github.com/ArtisanCloud/PowerX/app/service"
 	"github.com/ArtisanCloud/PowerX/app/service/wx/wecom"
+	"github.com/ArtisanCloud/PowerX/boostrap/global"
 	"github.com/ArtisanCloud/PowerX/config"
-	"github.com/ArtisanCloud/PowerX/database"
 	"github.com/gin-gonic/gin"
 	"io/ioutil"
 	"net/http"
@@ -439,7 +439,7 @@ func WeComAuthorizedCustomer(context *gin.Context) {
 	}
 
 	account = models.NewCustomer(object.NewCollection(customer.GetAttributes()))
-	err = service.NewCustomerService(context).UpsertCustomers(database.DBConnection, models.ACCOUNT_UNIQUE_ID, []*models.Customer{account}, nil)
+	err = service.NewCustomerService(context).UpsertCustomers(global.DBConnection, models.ACCOUNT_UNIQUE_ID, []*models.Customer{account}, nil)
 	if err != nil {
 		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_UPSERT_ACCOUNT, config.API_RETURN_CODE_ERROR, "", "")
 		panic(ctl.RS)
@@ -537,7 +537,7 @@ func WeComGetEmployeeToken(context *gin.Context, user *providers.User) (strToken
 		employee.WXEmployee.WXOpenID = object.NewNullString(responseOpenID.OpenID, true)
 	}
 	serviceWeComEmployee := wecom.NewWeComEmployeeService(nil)
-	err := serviceWeComEmployee.UpsertEmployeeByWXEmployee(database.DBConnection, employee.WXEmployee)
+	err := serviceWeComEmployee.UpsertEmployeeByWXEmployee(global.DBConnection, employee.WXEmployee)
 	if err != nil {
 		return "", config.API_ERR_CODE_FAIL_TO_UPSERT_EMPLOYEE
 

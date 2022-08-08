@@ -76,7 +76,7 @@ func InitProject() (err error) {
 
 func InitServices() (err error) {
 
-	// defined singleton located in app/service/wx/wecom/singleton.go
+	// defined singleton located in app/service/wx/wecom/cache.go
 	if wecom.WeComApp == nil {
 		wecom.WeComApp, err = wecom.NewWeComService(nil)
 		if err != nil {
@@ -84,7 +84,7 @@ func InitServices() (err error) {
 		}
 	}
 
-	// defined singleton located in app/service/wx/wecom/singleton.go
+	// defined singleton located in app/service/wx/wecom/cache.go
 	if wecom.WeComEmployee == nil {
 		ctx := &gin.Context{}
 		ctx.Set("messageToken", os.Getenv("employee_message_token"))
@@ -96,7 +96,7 @@ func InitServices() (err error) {
 		}
 	}
 
-	// defined singleton located in app/service/wx/wecom/singleton.go
+	// defined singleton located in app/service/wx/wecom/cache.go
 	if wecom.WeComCustomer == nil {
 		ctx := &gin.Context{}
 		ctx.Set("messageToken", os.Getenv("customer_message_token"))
@@ -108,7 +108,7 @@ func InitServices() (err error) {
 		}
 	}
 
-	// defined singleton located in app/service/wx/miniprogram/singleton.go
+	// defined singleton located in app/service/wx/miniprogram/cache.go
 	if miniProgram.MiniProgramApp == nil {
 		miniProgram.MiniProgramApp, err = miniProgram.NewMiniProgramService(nil)
 		if err != nil {

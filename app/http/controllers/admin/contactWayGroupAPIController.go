@@ -6,8 +6,8 @@ import (
 	"github.com/ArtisanCloud/PowerX/app/http/request"
 	"github.com/ArtisanCloud/PowerX/app/models"
 	"github.com/ArtisanCloud/PowerX/app/service"
+	"github.com/ArtisanCloud/PowerX/boostrap/global"
 	"github.com/ArtisanCloud/PowerX/config"
-	"github.com/ArtisanCloud/PowerX/database"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
@@ -30,7 +30,7 @@ func APIGetContactWayGroupList(context *gin.Context) {
 
 	defer api.RecoverResponse(context, "api.admin.contactWayGroup.list")
 
-	arrayList, err := ctl.ServiceContactWayGroup.GetList(database.DBConnection, nil)
+	arrayList, err := ctl.ServiceContactWayGroup.GetList(global.DBConnection, nil)
 	if err != nil {
 		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_GET_CONTACT_WAY_GROUP_LIST, config.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
@@ -48,13 +48,13 @@ func APIGetContactWayGroupDetail(context *gin.Context) {
 	fmt.Dump(para)
 	defer api.RecoverResponse(context, "api.admin.contactWayGroup.detail")
 
-	contactWayGroup, err := ctl.ServiceContactWayGroup.GetContactWayGroup(database.DBConnection, para.UUID)
+	contactWayGroup, err := ctl.ServiceContactWayGroup.GetContactWayGroup(global.DBConnection, para.UUID)
 	if err != nil {
 		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_GET_CONTACT_WAY_GROUP_DETAIL, config.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
 		return
 	}
-	_, err = contactWayGroup.LoadContactWays(database.DBConnection, nil)
+	_, err = contactWayGroup.LoadContactWays(global.DBConnection, nil)
 	if err != nil {
 		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_GET_CONTACT_WAY_GROUP_DETAIL, config.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
@@ -73,7 +73,7 @@ func APIUpsertContactWayGroup(context *gin.Context) {
 	defer api.RecoverResponse(context, "api.admin.contactWayGroup.upsert")
 
 	var err error
-	contactWayGroup, err = ctl.ServiceContactWayGroup.UpsertContactWayGroup(database.DBConnection, contactWayGroup, false)
+	contactWayGroup, err = ctl.ServiceContactWayGroup.UpsertContactWayGroup(global.DBConnection, contactWayGroup, false)
 
 	if err != nil {
 		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_UPSERT_CONTACT_WAY_GROUP, config.API_RETURN_CODE_ERROR, "", err.Error())
@@ -94,13 +94,13 @@ func APIDeleteContactWayGroups(context *gin.Context) {
 	defer api.RecoverResponse(context, "api.admin.contactWayGroup.delete")
 
 	var err error
-	err = database.DBConnection.Transaction(func(tx *gorm.DB) error {
+	err = global.DBConnection.Transaction(func(tx *gorm.DB) error {
 		serviceContactWay := service.NewContactWayService(context)
 		err = serviceContactWay.DetachContactWayGroup(tx, uuids)
 		if err != nil {
 			return err
 		}
-		err = ctl.ServiceContactWayGroup.DeleteContactWayGroups(database.DBConnection, uuids)
+		err = ctl.ServiceContactWayGroup.DeleteContactWayGroups(global.DBConnection, uuids)
 		if err != nil {
 			return err
 		}

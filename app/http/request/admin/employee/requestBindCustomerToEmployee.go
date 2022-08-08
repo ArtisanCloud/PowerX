@@ -7,9 +7,8 @@ import (
 	"github.com/ArtisanCloud/PowerX/app/http/request"
 	"github.com/ArtisanCloud/PowerX/app/models"
 	"github.com/ArtisanCloud/PowerX/app/service"
+	"github.com/ArtisanCloud/PowerX/boostrap/global"
 	"github.com/ArtisanCloud/PowerX/config"
-	"github.com/ArtisanCloud/PowerX/database"
-
 	"github.com/gin-gonic/gin"
 )
 
@@ -52,7 +51,7 @@ func ValidateBindCustomerToEmployee(context *gin.Context) {
 func convertParaToBindCustomerToEmployee(form *ParaBindCustomerToEmployee) (customer *models.Customer, employee *models.Employee, followInfo *models2.FollowUser, err error) {
 
 	serviceCustomer := service.NewCustomerService(nil)
-	customer, err = serviceCustomer.GetCustomerByExternalUserID(database.DBConnection, form.CustomerExternalUserID)
+	customer, err = serviceCustomer.GetCustomerByExternalUserID(global.DBConnection, form.CustomerExternalUserID)
 	if err != nil {
 		return customer, employee, followInfo, err
 	}
@@ -61,7 +60,7 @@ func convertParaToBindCustomerToEmployee(form *ParaBindCustomerToEmployee) (cust
 	}
 
 	serviceEmployee := service.NewEmployeeService(nil)
-	employee, err = serviceEmployee.GetEmployeeByUserID(database.DBConnection, form.EmployeeWXUserID)
+	employee, err = serviceEmployee.GetEmployeeByUserID(global.DBConnection, form.EmployeeWXUserID)
 	if err != nil {
 		return customer, employee, followInfo, err
 	}

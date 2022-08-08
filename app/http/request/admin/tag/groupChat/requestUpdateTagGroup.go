@@ -7,8 +7,8 @@ import (
 	"github.com/ArtisanCloud/PowerX/app/http"
 	"github.com/ArtisanCloud/PowerX/app/http/request"
 	"github.com/ArtisanCloud/PowerX/app/service"
+	"github.com/ArtisanCloud/PowerX/boostrap/global"
 	"github.com/ArtisanCloud/PowerX/config"
-	database "github.com/ArtisanCloud/PowerX/database"
 	"github.com/gin-gonic/gin"
 )
 
@@ -41,7 +41,7 @@ func ValidateUpdateTagGroup(context *gin.Context) {
 func convertParaToTagGroupForUpdate(form *ParaUpdateTagGroup) (tagGroup *tag.TagGroup, tags []*tag.Tag, err error) {
 
 	serviceTag := service.NewTagService(nil)
-	tagGroup, err = serviceTag.GetTagGroupByID(database.DBConnection, form.GroupID)
+	tagGroup, err = serviceTag.GetTagGroupByID(global.DBConnection, form.GroupID)
 	if err != nil {
 		return tagGroup, tags, err
 	}

@@ -2,16 +2,13 @@ package database
 
 import (
 	"context"
+	"github.com/ArtisanCloud/PowerX/boostrap/global"
 	"github.com/ArtisanCloud/PowerX/config"
 	"github.com/golang-module/carbon"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 	"log"
-)
-
-var (
-	DBConnection *gorm.DB
 )
 
 func SetupDatabase() (err error) {
@@ -34,7 +31,7 @@ func SetupDatabase() (err error) {
 	if config.DatabaseConn.Debug {
 		logMode = logger.Default.LogMode(logger.Info)
 	}
-	DBConnection, err = gorm.Open(postgres.Open(dsn), &gorm.Config{
+	global.DBConnection, err = gorm.Open(postgres.Open(dsn), &gorm.Config{
 		Logger:                                   logMode,
 		DisableForeignKeyConstraintWhenMigrating: true,
 	})
@@ -69,5 +66,5 @@ func SetupDatabase() (err error) {
 //}
 func GetDBWithContext(ctx context.Context) *gorm.DB {
 	//var newCTX context.Context
-	return DBConnection.WithContext(ctx)
+	return global.DBConnection.WithContext(ctx)
 }

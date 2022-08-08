@@ -6,9 +6,8 @@ import (
 	"github.com/ArtisanCloud/PowerX/app/http/request"
 	"github.com/ArtisanCloud/PowerX/app/models"
 	"github.com/ArtisanCloud/PowerX/app/service"
+	"github.com/ArtisanCloud/PowerX/boostrap/global"
 	"github.com/ArtisanCloud/PowerX/config"
-	"github.com/ArtisanCloud/PowerX/database"
-
 	"github.com/gin-gonic/gin"
 )
 
@@ -38,7 +37,7 @@ func ValidateBindTagsToCustomerToEmployeeByContactWayTags(context *gin.Context) 
 
 func convertParaToBindTagsToCustomerToEmployeeByContactWayTags(form *ParaBindTagsToCustomerToEmployeeByContactWayTags) (pivot *models.RCustomerToEmployee, contactWay *models.ContactWay, err error) {
 
-	pivot, err = (&models.RCustomerToEmployee{}).GetPivot(database.DBConnection, form.CustomerExternalUserID, form.EmployeeWXUserID)
+	pivot, err = (&models.RCustomerToEmployee{}).GetPivot(global.DBConnection, form.CustomerExternalUserID, form.EmployeeWXUserID)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -47,12 +46,12 @@ func convertParaToBindTagsToCustomerToEmployeeByContactWayTags(form *ParaBindTag
 	}
 
 	serviceContactWay := service.NewContactWayService(nil)
-	contactWay, err = serviceContactWay.GetContactWayByConfigID(database.DBConnection, form.ContactWayConfigID)
+	contactWay, err = serviceContactWay.GetContactWayByConfigID(global.DBConnection, form.ContactWayConfigID)
 	if contactWay == nil {
 		return pivot, contactWay, errors.New("contactWay not found")
 	}
 
-	contactWay.WXTags, err = contactWay.LoadWXTags(database.DBConnection, nil)
+	contactWay.WXTags, err = contactWay.LoadWXTags(global.DBConnection, nil)
 	if err != nil {
 		return pivot, contactWay, err
 	}

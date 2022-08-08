@@ -9,8 +9,8 @@ import (
 	"github.com/ArtisanCloud/PowerX/app/models"
 	"github.com/ArtisanCloud/PowerX/app/models/wx"
 	serviceWX "github.com/ArtisanCloud/PowerX/app/service/wx/wecom"
+	"github.com/ArtisanCloud/PowerX/boostrap/global"
 	"github.com/ArtisanCloud/PowerX/config"
-	"github.com/ArtisanCloud/PowerX/database"
 	"github.com/gin-gonic/gin"
 	"gorm.io/datatypes"
 )
@@ -115,7 +115,7 @@ func convertParaToContactWayForCreate(form ParaCreateContactWay) (contactWay *mo
 
 	// load wxTagIDs
 	wxTagService := serviceWX.NewWXTagService(nil)
-	wxTags, err := wxTagService.GetWXTagsByIDs(database.DBConnection, form.WXTagIDs)
+	wxTags, err := wxTagService.GetWXTagsByIDs(global.DBConnection, form.WXTagIDs)
 	if err != nil {
 		return nil, err
 	}

@@ -5,8 +5,8 @@ import (
 	"github.com/ArtisanCloud/PowerX/app/http/controllers/api"
 	modelWX "github.com/ArtisanCloud/PowerX/app/models/wx"
 	"github.com/ArtisanCloud/PowerX/app/service/wx/wecom"
+	"github.com/ArtisanCloud/PowerX/boostrap/global"
 	"github.com/ArtisanCloud/PowerX/config"
-	"github.com/ArtisanCloud/PowerX/database"
 	"github.com/gin-gonic/gin"
 )
 
@@ -54,7 +54,7 @@ func APIGetWXTagGroupList(context *gin.Context) {
 
 	defer api.RecoverResponse(context, "api.admin.wxTagGroup.list")
 
-	arrayList, err := ctl.ServiceWXTagGroup.GetList(database.DBConnection, wxDepartmentID)
+	arrayList, err := ctl.ServiceWXTagGroup.GetList(global.DBConnection, wxDepartmentID)
 	if err != nil {
 		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_GET_WX_TAG_GROUP_LIST, config.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
@@ -72,7 +72,7 @@ func APIGetWXTagGroupDetail(context *gin.Context) {
 
 	defer api.RecoverResponse(context, "api.admin.wxTagGroup.detail")
 
-	wxTagGroup, err := ctl.ServiceWXTagGroup.GetWXTagGroup(database.DBConnection, wxGroupID)
+	wxTagGroup, err := ctl.ServiceWXTagGroup.GetWXTagGroup(global.DBConnection, wxGroupID)
 	if err != nil {
 		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_GET_WX_TAG_GROUP_DETAIL, config.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
@@ -109,11 +109,11 @@ func APIInsertWXTagGroup(context *gin.Context) {
 		return
 	}
 
-	// convert wx tag group response to wx tag group model
+	// convert wx tag group response to wx tag group foundation
 	wxTagGroup, err = ctl.ServiceWXTagGroup.ConvertResponseToWXTagGroup(result, wxTagGroup.WXDepartmentID)
 
 	// upsert wx tag group
-	err = ctl.ServiceWXTagGroup.UpsertWXTagGroups(database.DBConnection, modelWX.WX_TAG_GROUP_UNIQUE_ID, []*modelWX.WXTagGroup{wxTagGroup}, nil)
+	err = ctl.ServiceWXTagGroup.UpsertWXTagGroups(global.DBConnection, modelWX.WX_TAG_GROUP_UNIQUE_ID, []*modelWX.WXTagGroup{wxTagGroup}, nil)
 	if err != nil {
 		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_INSERT_WX_TAG_GROUP, config.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
@@ -142,7 +142,7 @@ func APIUpdateWXTagGroup(context *gin.Context) {
 	}
 
 	// update wx tag group
-	err = ctl.ServiceWXTagGroup.UpsertWXTagGroups(database.DBConnection, modelWX.WX_TAG_GROUP_UNIQUE_ID, []*modelWX.WXTagGroup{wxTagGroup}, []string{
+	err = ctl.ServiceWXTagGroup.UpsertWXTagGroups(global.DBConnection, modelWX.WX_TAG_GROUP_UNIQUE_ID, []*modelWX.WXTagGroup{wxTagGroup}, []string{
 		"group_name",
 		"order",
 	})

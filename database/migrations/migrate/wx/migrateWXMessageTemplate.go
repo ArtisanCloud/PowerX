@@ -1,45 +1,45 @@
 package wx
 
 import (
-	"github.com/ArtisanCloud/PowerX/app/models"
-	"github.com/ArtisanCloud/PowerX/database/migrations/migrate"
+	"github.com/ArtisanCloud/PowerX/app/models/wx"
+	"github.com/ArtisanCloud/PowerX/database/migrations/migrate/foundation"
 )
 
 type MigrateWXMessageTemplate struct {
-	*migrate.Migration
-	migrate.MigrationInterface
+	*foundation.Migration
+	foundation.MigrationInterface
 }
 
 type MigrateWXMessageTemplateTask struct {
-	*migrate.Migration
-	migrate.MigrationInterface
+	*foundation.Migration
+	foundation.MigrationInterface
 }
 
 type MigrateWXMessageTemplateSend struct {
-	*migrate.Migration
-	migrate.MigrationInterface
+	*foundation.Migration
+	foundation.MigrationInterface
 }
 
 func NewMigrateWXMessageTemplate() *MigrateWXMessageTemplate {
 	return &MigrateWXMessageTemplate{
-		Migration: &migrate.Migration{
-			Model: &models.WXMessageTemplate{},
+		Migration: &foundation.Migration{
+			Model: &wx.WXMessageTemplate{},
 		},
 	}
 }
 
 func NewMigrateWXMessageTemplateTask() *MigrateWXMessageTemplateTask {
 	return &MigrateWXMessageTemplateTask{
-		Migration: &migrate.Migration{
-			Model: &models.WXMessageTemplateTask{},
+		Migration: &foundation.Migration{
+			Model: &wx.WXMessageTemplateTask{},
 		},
 	}
 }
 
 func NewMigrateWXMessageTemplateSend() *MigrateWXMessageTemplateSend {
 	return &MigrateWXMessageTemplateSend{
-		Migration: &migrate.Migration{
-			Model: &models.WXMessageTemplateSend{},
+		Migration: &foundation.Migration{
+			Model: &wx.WXMessageTemplateSend{},
 		},
 	}
 }

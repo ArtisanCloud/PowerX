@@ -6,9 +6,8 @@ import (
 	"github.com/ArtisanCloud/PowerX/app/http/request"
 	"github.com/ArtisanCloud/PowerX/app/models"
 	"github.com/ArtisanCloud/PowerX/app/service"
+	"github.com/ArtisanCloud/PowerX/boostrap/global"
 	"github.com/ArtisanCloud/PowerX/config"
-	"github.com/ArtisanCloud/PowerX/database"
-
 	"github.com/gin-gonic/gin"
 )
 
@@ -38,13 +37,13 @@ func ValidateBindTagsToGroupChats(context *gin.Context) {
 func convertParaToBindTagsToGroupChat(form *ParaBindTagsToGroupChats) (groupChats []*models.GroupChat, tags []*tag.Tag, err error) {
 
 	serviceGroupChat := service.NewGroupChatService(nil)
-	groupChats, err = serviceGroupChat.GetGroupChatsByChatIDs(database.DBConnection, form.GroupChatIDs)
+	groupChats, err = serviceGroupChat.GetGroupChatsByChatIDs(global.DBConnection, form.GroupChatIDs)
 	if err != nil {
 		return groupChats, tags, err
 	}
 
 	serviceTag := service.NewTagService(nil)
-	tags, err = serviceTag.GetTagsByIDs(database.DBConnection, form.TagIDs)
+	tags, err = serviceTag.GetTagsByIDs(global.DBConnection, form.TagIDs)
 
 	return groupChats, tags, err
 }

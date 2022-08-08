@@ -5,8 +5,8 @@ import (
 	"github.com/ArtisanCloud/PowerX/app/http/request/admin/groupChat"
 	"github.com/ArtisanCloud/PowerX/app/service"
 	"github.com/ArtisanCloud/PowerX/app/service/wx/wecom"
+	"github.com/ArtisanCloud/PowerX/boostrap/global"
 	"github.com/ArtisanCloud/PowerX/config"
-	"github.com/ArtisanCloud/PowerX/database"
 	"github.com/gin-gonic/gin"
 )
 
@@ -49,7 +49,7 @@ func APIGetGroupChatList(context *gin.Context) {
 
 	defer api.RecoverResponse(context, "api.admin.groupChat.list")
 
-	arrayList, err := ctl.ServiceGroupChat.GetQueryList(database.DBConnection,
+	arrayList, err := ctl.ServiceGroupChat.GetQueryList(global.DBConnection,
 		para.AdminUserID, para.Name,
 		para.TagIDs,
 		para.SortBy, para.Ascend,
@@ -71,7 +71,7 @@ func APIGetGroupChatDetail(context *gin.Context) {
 
 	defer api.RecoverResponse(context, "api.admin.groupChat.detail")
 
-	groupChat, err := ctl.ServiceGroupChat.GetGroupChatByChatID(database.DBConnection, chatID)
+	groupChat, err := ctl.ServiceGroupChat.GetGroupChatByChatID(global.DBConnection, chatID)
 	if err != nil {
 		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_GET_GROUP_CHAT_DETAIL, config.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
@@ -83,21 +83,21 @@ func APIGetGroupChatDetail(context *gin.Context) {
 		return
 	}
 
-	groupChat.Tags, err = groupChat.LoadTags(database.DBConnection, nil)
+	groupChat.Tags, err = groupChat.LoadTags(global.DBConnection, nil)
 	if err != nil {
 		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_GET_GROUP_CHAT_DETAIL, config.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
 		return
 	}
 
-	groupChat.WXGroupChatMembers, err = groupChat.LoadWXGroupChatMembers(database.DBConnection, nil)
+	groupChat.WXGroupChatMembers, err = groupChat.LoadWXGroupChatMembers(global.DBConnection, nil)
 	if err != nil {
 		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_GET_GROUP_CHAT_DETAIL, config.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
 		return
 	}
 
-	groupChat.WXGroupChatAdmins, err = groupChat.LoadWXGroupChatAdmins(database.DBConnection, nil)
+	groupChat.WXGroupChatAdmins, err = groupChat.LoadWXGroupChatAdmins(global.DBConnection, nil)
 	if err != nil {
 		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_GET_GROUP_CHAT_DETAIL, config.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)

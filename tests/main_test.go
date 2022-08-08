@@ -4,6 +4,7 @@ import (
 	"bytes"
 	service "github.com/ArtisanCloud/PowerX/app/service"
 	"github.com/ArtisanCloud/PowerX/boostrap/cache"
+	"github.com/ArtisanCloud/PowerX/boostrap/global"
 	"github.com/ArtisanCloud/PowerX/config"
 	"github.com/ArtisanCloud/PowerX/database"
 	logger "github.com/ArtisanCloud/PowerX/loggerManager"
@@ -80,7 +81,7 @@ func SetupTestEnv(t *testing.M) {
 	}
 
 	// Initialize the database
-	if database.DBConnection == nil {
+	if global.DBConnection == nil {
 		// Initialize the database
 
 		configName := "database"
@@ -91,7 +92,7 @@ func SetupTestEnv(t *testing.M) {
 	}
 
 	// Initialize the cache
-	if cache.CacheConnection == nil {
+	if global.CacheConnection == nil {
 
 		configName := "cache"
 		config.LoadCacheConfig(&envPath, &configName, nil)

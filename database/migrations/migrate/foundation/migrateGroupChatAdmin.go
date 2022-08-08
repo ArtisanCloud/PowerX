@@ -1,19 +1,18 @@
 package foundation
 
 import (
-	"github.com/ArtisanCloud/PowerX/app/models"
-	"github.com/ArtisanCloud/PowerX/database/migrations/migrate"
+	"github.com/ArtisanCloud/PowerX/app/models/wx"
 )
 
 type MigrateGroupChatAdmin struct {
-	*migrate.Migration
-	migrate.MigrationInterface
+	*Migration
+	MigrationInterface
 }
 
 func NewMigrateGroupChatAdmin() *MigrateGroupChatAdmin {
 	return &MigrateGroupChatAdmin{
-		Migration: &migrate.Migration{
-			Model: &models.WXGroupChatAdmin{},
+		Migration: &Migration{
+			Model: &wx.WXGroupChatAdmin{},
 		},
 	}
 }

@@ -15,7 +15,7 @@ func (mdl *Employee) TableName() string {
 type Employee struct {
 	*database.PowerModel
 
-	PivotEmployees    []*RCustomerToEmployee `gorm:"ForeignKey:EmployeeReferID;references:WXEmployeeID" json:"pivotEmployees"`
+	PivotCustomers    []*RCustomerToEmployee `gorm:"ForeignKey:EmployeeReferID;references:WXUserID" json:"pivotCustomers"`
 	FollowedEmployees []*Employee            `gorm:"many2many:public.r_customer_to_employee;foreignKey:UUID;joinForeignKey:EmployeeReferID;References:UUID;JoinReferences:EmployeeReferID" json:"FollowedEmployees"`
 	WXDepartments     []*wx.WXDepartment     `gorm:"many2many:r_employee_to_department;foreignKey:ID;joinForeignKey:employee_id;References:ID;JoinReferences:department_id"`
 	//WXTags            []*wx.WXTag        `gorm:"many2many:public.r_wx_tag_to_object;foreignKey:UUID;joinForeignKey:EmployeeReferID;References:ID;JoinReferences:WXTagReferID" json:"wxTags"`

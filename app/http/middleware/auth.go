@@ -5,8 +5,8 @@ import (
 	"github.com/ArtisanCloud/PowerX/app/models"
 	service "github.com/ArtisanCloud/PowerX/app/service"
 	"github.com/ArtisanCloud/PowerX/app/service/wx/wecom"
+	"github.com/ArtisanCloud/PowerX/boostrap/global"
 	"github.com/ArtisanCloud/PowerX/config"
-	"github.com/ArtisanCloud/PowerX/database"
 	"github.com/gin-gonic/gin"
 )
 
@@ -40,7 +40,7 @@ func AuthCustomerAPI(c *gin.Context) {
 				if openID == "" {
 					apiResponse.SetCode(config.API_ERR_CODE_LACK_OF_WX_EXTERNAL_USER_ID, config.API_RETURN_CODE_ERROR, "", "")
 				}
-				customer, err = serviceWeComCustomer.GetCustomerByOpenID(database.DBConnection, openID)
+				customer, err = serviceWeComCustomer.GetCustomerByOpenID(global.DBConnection, openID)
 
 				// set auth open id
 				wecom.SetAuthOpenID(c, openID)
@@ -50,7 +50,7 @@ func AuthCustomerAPI(c *gin.Context) {
 				if externalUserID == "" {
 					apiResponse.SetCode(config.API_ERR_CODE_LACK_OF_WX_EXTERNAL_USER_ID, config.API_RETURN_CODE_ERROR, "", "")
 				}
-				customer, err = serviceWeComCustomer.GetCustomerByWXExternalUserID(database.DBConnection, externalUserID)
+				customer, err = serviceWeComCustomer.GetCustomerByWXExternalUserID(global.DBConnection, externalUserID)
 			}
 
 			if err != nil || customer.PowerModel == nil {
@@ -101,7 +101,7 @@ func AuthEmployeeAPI(c *gin.Context) {
 		if err != nil || wxUserID == "" {
 			apiResponse.SetCode(config.API_ERR_CODE_LACK_OF_WX_USER_ID, config.API_RETURN_CODE_ERROR, "", "")
 		} else {
-			employee, err = serviceWeComEmployee.GetEmployeeByUserID(database.DBConnection, wxUserID)
+			employee, err = serviceWeComEmployee.GetEmployeeByUserID(global.DBConnection, wxUserID)
 			if err != nil || employee == nil {
 				apiResponse.SetCode(config.API_ERR_CODE_EMPLOYEE_UNREGISTER, config.API_RETURN_CODE_ERROR, "", "")
 			} else {

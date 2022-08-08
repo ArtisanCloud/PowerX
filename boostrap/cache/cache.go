@@ -3,7 +3,7 @@ package cache
 import (
 	"github.com/ArtisanCloud/PowerLibs/v2/cache"
 	"github.com/ArtisanCloud/PowerLibs/v2/object"
-	"github.com/ArtisanCloud/PowerX/boostrap/cache/global"
+	"github.com/ArtisanCloud/PowerX/boostrap/global"
 	"github.com/ArtisanCloud/PowerX/config"
 )
 

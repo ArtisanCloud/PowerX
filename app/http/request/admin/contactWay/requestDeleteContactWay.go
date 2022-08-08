@@ -6,8 +6,8 @@ import (
 	"github.com/ArtisanCloud/PowerX/app/http/request"
 	"github.com/ArtisanCloud/PowerX/app/models"
 	"github.com/ArtisanCloud/PowerX/app/service"
+	"github.com/ArtisanCloud/PowerX/boostrap/global"
 	"github.com/ArtisanCloud/PowerX/config"
-	"github.com/ArtisanCloud/PowerX/database"
 	"github.com/gin-gonic/gin"
 )
 
@@ -37,7 +37,7 @@ func ValidateDeleteContactWay(context *gin.Context) {
 func convertParaDeleteContactWayForDelete(form *ParaDeleteContactWay) (contactWay *models.ContactWay, err error) {
 
 	serviceContactWay := service.NewContactWayService(nil)
-	contactWay, err = serviceContactWay.GetContactWayByConfigID(database.DBConnection, form.ConfigID)
+	contactWay, err = serviceContactWay.GetContactWayByConfigID(global.DBConnection, form.ConfigID)
 
 	if err != nil {
 		return contactWay, err

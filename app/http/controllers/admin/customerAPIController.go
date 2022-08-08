@@ -4,9 +4,9 @@ import (
 	"github.com/ArtisanCloud/PowerX/app/http/controllers/api"
 	"github.com/ArtisanCloud/PowerX/app/http/request"
 	"github.com/ArtisanCloud/PowerX/app/service"
-	"github.com/ArtisanCloud/PowerX/app/service/wx/wecom"
+	global2 "github.com/ArtisanCloud/PowerX/app/service/wx/wecom"
+	"github.com/ArtisanCloud/PowerX/boostrap/global"
 	"github.com/ArtisanCloud/PowerX/config"
-	"github.com/ArtisanCloud/PowerX/database"
 	"github.com/gin-gonic/gin"
 )
 
@@ -52,7 +52,7 @@ func APIGetCustomerList(context *gin.Context) {
 
 	defer api.RecoverResponse(context, "api.admin.customer.list")
 
-	arrayList, err := ctl.ServiceCustomer.GetList(database.DBConnection, nil, para.Page, para.PageSize)
+	arrayList, err := ctl.ServiceCustomer.GetList(global.DBConnection, nil, para.Page, para.PageSize)
 	if err != nil {
 		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_GET_ACCOUNT_LIST, config.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
@@ -70,7 +70,7 @@ func APIGetCustomerDetail(context *gin.Context) {
 
 	defer api.RecoverResponse(context, "api.admin.customer.detail")
 
-	account, err := ctl.ServiceCustomer.GetCustomerByExternalUserID(database.DBConnection, externalUserID)
+	account, err := ctl.ServiceCustomer.GetCustomerByExternalUserID(global.DBConnection, externalUserID)
 	if err != nil {
 		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_GET_ACCOUNT_DETAIL, config.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
@@ -89,7 +89,7 @@ func APIGetCustomerListOnWXPlatform(context *gin.Context) {
 
 	defer api.RecoverResponse(context, "api.admin.employee.list")
 
-	arrayList, err := wecom.WeComCustomer.App.ExternalContact.List(userID)
+	arrayList, err := global2.WeComCustomer.App.ExternalContact.List(userID)
 	if err != nil {
 		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_GET_EMPLOYEE_LIST, config.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
@@ -107,7 +107,7 @@ func APIGetCustomerDetailOnWXPlatform(context *gin.Context) {
 
 	defer api.RecoverResponse(context, "api.admin.employee.detail")
 
-	result, err := wecom.WeComCustomer.App.ExternalContact.Get(externalUserID, "")
+	result, err := global2.WeComCustomer.App.ExternalContact.Get(externalUserID, "")
 	if err != nil {
 		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_GET_EMPLOYEE_DETAIL, config.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)

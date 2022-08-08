@@ -12,8 +12,8 @@ import (
 	modelsPowerWechatWork "github.com/ArtisanCloud/PowerWeChat/v2/src/work/server/handlers/models"
 	"github.com/ArtisanCloud/PowerX/app/models"
 	modelWX "github.com/ArtisanCloud/PowerX/app/models/wx"
-	"github.com/ArtisanCloud/PowerX/app/service/wx/wecom"
-	database "github.com/ArtisanCloud/PowerX/database"
+	global2 "github.com/ArtisanCloud/PowerX/app/service/wx/wecom"
+	"github.com/ArtisanCloud/PowerX/boostrap/global"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-module/carbon"
 	"gorm.io/datatypes"
@@ -65,11 +65,11 @@ func (srv *GroupChatService) SyncGroupChatFromWXPlatform(statusFilter int, owner
 	// sync group chats
 	for _, groupChat := range result.GroupChatList {
 
-		responseGroupChat, err := wecom.WeComApp.App.ExternalContactGroupChat.Get(groupChat.ChatID, 1)
+		responseGroupChat, err := global2.WeComApp.App.ExternalContactGroupChat.Get(groupChat.ChatID, 1)
 		if err != nil || responseGroupChat.ErrCode != 0 {
 			continue
 		}
-		err = srv.UpsertGroupChats(database.DBConnection, modelWX.WX_GROUP_CHAT_UNIQUE_ID, []*models.GroupChat{
+		err = srv.UpsertGroupChats(global.DBConnection, modelWX.WX_GROUP_CHAT_UNIQUE_ID, []*models.GroupChat{
 			&models.GroupChat{
 				PowerCompactModel: databasePowerLib.NewPowerCompactModel(),
 				WXGroupChat: &modelWX.WXGroupChat{
@@ -106,7 +106,7 @@ func (srv *GroupChatService) SyncGroupChatFromWXPlatform(statusFilter int, owner
 				UnionID:       &member.UnionID,
 			}
 			groupChatMember.UniqueID = groupChatMember.GetComposedUniqueID()
-			err = srv.UpsertGroupChatMembers(database.DBConnection, modelWX.WX_GROUP_CHAT_MEMBER_UNIQUE_ID, []*modelWX.WXGroupChatMember{groupChatMember}, []string{
+			err = srv.UpsertGroupChatMembers(global.DBConnection, modelWX.WX_GROUP_CHAT_MEMBER_UNIQUE_ID, []*modelWX.WXGroupChatMember{groupChatMember}, []string{
 				"wx_group_chat_id",
 				"user_id",
 				"type",
@@ -129,7 +129,7 @@ func (srv *GroupChatService) SyncGroupChatFromWXPlatform(statusFilter int, owner
 				UserID:        &member.UserID,
 			}
 			groupChatAdmin.UniqueID = groupChatAdmin.GetComposedUniqueID()
-			err = srv.UpsertGroupChatAdmins(database.DBConnection, modelWX.WX_GROUP_CHAT_ADMIN_UNIQUE_ID, []*modelWX.WXGroupChatAdmin{groupChatAdmin}, []string{
+			err = srv.UpsertGroupChatAdmins(global.DBConnection, modelWX.WX_GROUP_CHAT_ADMIN_UNIQUE_ID, []*modelWX.WXGroupChatAdmin{groupChatAdmin}, []string{
 				"wx_group_chat_id",
 				"user_id",
 			})
@@ -165,8 +165,8 @@ func (srv *GroupChatService) GetQueryList(db *gorm.DB,
 		// select result
 		Distinct(
 			"group_chats.*",
-			"wxGroupChatMembers.*",
-			"rTagToObject.tag_id",
+			//"wxGroupChatMembers.*",
+			//"rTagToObject.tag_id",
 		).
 
 		// Join group chat members
@@ -359,7 +359,7 @@ func (srv *GroupChatService) GetGroupChatListOnWXPlatform(statusFilter int, owne
 	}
 
 	// get group chat list from wechat platform
-	result, err := wecom.WeComApp.App.ExternalContactGroupChat.List(request)
+	result, err := global2.WeComApp.App.ExternalContactGroupChat.List(request)
 
 	return result, err
 }

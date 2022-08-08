@@ -13,7 +13,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/app/models"
 	modelWX "github.com/ArtisanCloud/PowerX/app/models/wx"
 	"github.com/ArtisanCloud/PowerX/app/service/wx/wecom"
-	"github.com/ArtisanCloud/PowerX/database"
+	"github.com/ArtisanCloud/PowerX/boostrap/global"
 	logger "github.com/ArtisanCloud/PowerX/loggerManager"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -74,7 +74,7 @@ func (srv *EmployeeService) SyncEmployees() (err error) {
 
 		//time.Sleep(time.Second * 30)
 		// batch upsert employees
-		err = serviceWeComEmployee.UpsertEmployeeByWXEmployee(database.DBConnection, employee.WXEmployee)
+		err = serviceWeComEmployee.UpsertEmployeeByWXEmployee(global.DBConnection, employee.WXEmployee)
 	}
 
 	return err
@@ -143,7 +143,7 @@ func (srv *EmployeeService) SaveEmployee(db *gorm.DB, employee *models.Employee)
 func (srv *EmployeeService) UpdateEmployee(db *gorm.DB, employee *models.Employee) (*models.Employee, error) {
 
 	// clear relationship between from employee to department
-	database.DBConnection.Where("employee_id=?", employee.ID).Delete(models.REmployeeToDepartment{})
+	global.DBConnection.Where("employee_id=?", employee.ID).Delete(models.REmployeeToDepartment{})
 
 	db = db.Updates(employee)
 
@@ -303,7 +303,7 @@ func (srv *EmployeeService) NewEmployeeFromWXEmployee(wxEmployee *modelSocialite
 
 	// attach departments to employee
 	serviceDepartment := NewDepartmentService(nil)
-	arrayDepartments, err := serviceDepartment.GetDepartmentsByIDs(database.DBConnection, arrayDepartmentIDs)
+	arrayDepartments, err := serviceDepartment.GetDepartmentsByIDs(global.DBConnection, arrayDepartmentIDs)
 	if err == nil {
 		employee.WXDepartments = arrayDepartments
 	}
@@ -333,7 +333,7 @@ func (srv *EmployeeService) HandleAddCustomer(context *gin.Context, event contra
 	}
 	serviceCustomer := NewCustomerService(context)
 	customer := serviceCustomer.NewCustomerFromWXContact(rs.ExternalContact)
-	err = serviceCustomer.UpsertCustomers(database.DBConnection, models.ACCOUNT_UNIQUE_ID, []*models.Customer{customer}, nil)
+	err = serviceCustomer.UpsertCustomers(global.DBConnection, models.ACCOUNT_UNIQUE_ID, []*models.Customer{customer}, nil)
 	if err != nil {
 		return err
 	}
@@ -341,13 +341,13 @@ func (srv *EmployeeService) HandleAddCustomer(context *gin.Context, event contra
 	// --------------------------------------------------
 	// load contact way
 	serviceContactWay := NewContactWayService(nil)
-	contactWay, err := serviceContactWay.GetContactWayByState(database.DBConnection, msg.State)
+	contactWay, err := serviceContactWay.GetContactWayByState(global.DBConnection, msg.State)
 	if err != nil {
 		return err
 	}
 	tagIDs := []string{}
 	if contactWay != nil {
-		contactWay.WXTags, err = contactWay.LoadWXTags(database.DBConnection, nil)
+		contactWay.WXTags, err = contactWay.LoadWXTags(global.DBConnection, nil)
 		if err != nil {
 			return err
 		}
@@ -362,7 +362,7 @@ func (srv *EmployeeService) HandleAddCustomer(context *gin.Context, event contra
 			return err
 		}
 		// save operation log
-		_ = (&databasePowerLib.PowerOperationLog{}).SaveOps(database.DBConnection, customer.Name, customer,
+		_ = (&databasePowerLib.PowerOperationLog{}).SaveOps(global.DBConnection, customer.Name, customer,
 			MODULE_CUSTOMER, "外部联系人绑定员工", databasePowerLib.OPERATION_EVENT_CREATE,
 			pivot.EmployeeReferID.String, pivot, databasePowerLib.OPERATION_RESULT_SUCCESS)
 
@@ -375,7 +375,7 @@ func (srv *EmployeeService) HandleAddCustomer(context *gin.Context, event contra
 		}
 		_, err = wecom.WeComCustomer.App.ExternalContactTag.MarkTag(req)
 
-		err = serviceWXTag.SyncWXTagsToObject(database.DBConnection, pivot, contactWay.WXTags)
+		err = serviceWXTag.SyncWXTagsToObject(global.DBConnection, pivot, contactWay.WXTags)
 		if err != nil {
 			return err
 		}
@@ -409,33 +409,33 @@ func (srv *EmployeeService) HandleEditCustomer(context *gin.Context, event contr
 	}
 	serviceCustomer := NewCustomerService(context)
 	customer := serviceCustomer.NewCustomerFromWXContact(rs.ExternalContact)
-	err = serviceCustomer.UpsertCustomerByWXCustomer(database.DBConnection, customer.WXCustomer)
+	err = serviceCustomer.UpsertCustomerByWXCustomer(global.DBConnection, customer.WXCustomer)
 	if err != nil {
 		return err
 	}
 
 	// get employee from event
-	employee, err := srv.GetEmployeeByUserID(database.DBConnection, msg.UserID)
+	employee, err := srv.GetEmployeeByUserID(global.DBConnection, msg.UserID)
 	if err != nil {
 		return err
 	}
 
 	// save operation log
-	_ = (&databasePowerLib.PowerOperationLog{}).SaveOps(database.DBConnection, employee.Name, employee,
+	_ = (&databasePowerLib.PowerOperationLog{}).SaveOps(global.DBConnection, employee.Name, employee,
 		MODULE_CUSTOMER, "员工修改外部联系人", databasePowerLib.OPERATION_EVENT_UPDATE,
 		customer.Name, customer, databasePowerLib.OPERATION_RESULT_SUCCESS)
 
 	// sync wx tags to customer
 	if len(rs.FollowUsers) > 0 {
 		for _, followInfo := range rs.FollowUsers {
-			pivot, err := (&models.RCustomerToEmployee{}).UpsertPivotByFollowUser(database.DBConnection, customer, followInfo)
+			pivot, err := (&models.RCustomerToEmployee{}).UpsertPivotByFollowUser(global.DBConnection, customer, followInfo)
 			if err != nil {
 				fmt.Dump(err.Error())
 				continue
 			}
 			if len(followInfo.Tags) > 0 {
 				serviceWXTag := wecom.NewWXTagService(nil)
-				err = serviceWXTag.SyncWXTagsByFollowInfos(database.DBConnection, pivot, followInfo)
+				err = serviceWXTag.SyncWXTagsByFollowInfos(global.DBConnection, pivot, followInfo)
 
 			}
 		}
@@ -472,7 +472,7 @@ func (srv *EmployeeService) HandleDelCustomer(context *gin.Context, event contra
 		return err
 	}
 	// save operation log
-	_ = (&databasePowerLib.PowerOperationLog{}).SaveOps(database.DBConnection, employee.Name, employee,
+	_ = (&databasePowerLib.PowerOperationLog{}).SaveOps(global.DBConnection, employee.Name, employee,
 		MODULE_CUSTOMER, "员工删除外部联系人", databasePowerLib.OPERATION_EVENT_DELETE,
 		customer.Name, customer, databasePowerLib.OPERATION_RESULT_SUCCESS)
 
@@ -496,7 +496,7 @@ func (srv *EmployeeService) HandleDelFollowEmployee(context *gin.Context, event 
 		return msg, err
 	}
 	// save operation log
-	_ = (&databasePowerLib.PowerOperationLog{}).SaveOps(database.DBConnection, customer.Name, customer,
+	_ = (&databasePowerLib.PowerOperationLog{}).SaveOps(global.DBConnection, customer.Name, customer,
 		MODULE_CUSTOMER, "外部联系人删除员工", databasePowerLib.OPERATION_EVENT_DELETE,
 		employee.Name, employee, databasePowerLib.OPERATION_RESULT_SUCCESS)
 	//fmt.Dump(msg)
@@ -574,14 +574,14 @@ func (srv *EmployeeService) BindCustomerToEmployee(UserExternalID string, follow
 	serviceCustomer := NewCustomerService(nil)
 
 	// get customer from event
-	customer, err := serviceCustomer.GetCustomerByExternalUserID(database.DBConnection, UserExternalID)
+	customer, err := serviceCustomer.GetCustomerByExternalUserID(global.DBConnection, UserExternalID)
 	if err != nil {
 		return pivot, err
 	}
 
 	// follow customer to employees
-	pivot, err = serviceCustomer.SyncFollowEmployee(database.DBConnection, customer, followInfo)
-	//_, err = serviceCustomer.FollowEmployees(database.DBConnection, customer, followInfos)
+	pivot, err = serviceCustomer.SyncFollowEmployee(global.DBConnection, customer, followInfo)
+	//_, err = serviceCustomer.FollowEmployees(global.DBConnection, customer, followInfos)
 	if err != nil {
 		return pivot, err
 	}
@@ -596,19 +596,19 @@ func (srv *EmployeeService) UnbindCustomerToEmployee(UserExternalID string, User
 	serviceCustomer := NewCustomerService(nil)
 
 	// get employee from event
-	employee, err = srv.GetEmployeeByUserID(database.DBConnection, UserID)
+	employee, err = srv.GetEmployeeByUserID(global.DBConnection, UserID)
 	if err != nil {
 		return customer, employee, err
 	}
 
 	// get customer from event
-	customer, err = serviceCustomer.GetCustomerByExternalUserID(database.DBConnection, UserExternalID)
+	customer, err = serviceCustomer.GetCustomerByExternalUserID(global.DBConnection, UserExternalID)
 	if err != nil {
 		return customer, employee, err
 	}
 
 	// clear tags from RWXCustomerToEmployee
-	pivot, err := (&models.RCustomerToEmployee{}).GetPivot(database.DBConnection, UserExternalID, UserID)
+	pivot, err := (&models.RCustomerToEmployee{}).GetPivot(global.DBConnection, UserExternalID, UserID)
 	if err != nil {
 		return customer, employee, err
 	}
@@ -616,13 +616,13 @@ func (srv *EmployeeService) UnbindCustomerToEmployee(UserExternalID string, User
 		return nil, nil, errors.New("pivot not found")
 	}
 
-	err = serviceWXTag.ClearObjectWXTags(database.DBConnection, pivot)
+	err = serviceWXTag.ClearObjectWXTags(global.DBConnection, pivot)
 	if err != nil {
 		return customer, employee, err
 	}
 
 	// detach customer to employees
-	err = serviceCustomer.UnfollowEmployee(database.DBConnection, customer, []*models.Employee{employee})
+	err = serviceCustomer.UnfollowEmployee(global.DBConnection, customer, []*models.Employee{employee})
 	if err != nil {
 		return customer, employee, err
 	}

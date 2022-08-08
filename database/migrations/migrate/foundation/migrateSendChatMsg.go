@@ -2,17 +2,16 @@ package foundation
 
 import (
 	"github.com/ArtisanCloud/PowerX/app/models"
-	"github.com/ArtisanCloud/PowerX/database/migrations/migrate"
 )
 
 type MigrateSendChatMsg struct {
-	*migrate.Migration
-	migrate.MigrationInterface
+	*Migration
+	MigrationInterface
 }
 
 func NewMigrateSendChatMsg() *MigrateSendChatMsg {
 	return &MigrateSendChatMsg{
-		Migration: &migrate.Migration{
+		Migration: &Migration{
 			Model: &models.SendChatMsg{},
 		},
 	}

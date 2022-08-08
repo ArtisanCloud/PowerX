@@ -7,8 +7,8 @@ import (
 	"github.com/ArtisanCloud/PowerX/app/models"
 	"github.com/ArtisanCloud/PowerX/app/models/wx"
 	serviceWX "github.com/ArtisanCloud/PowerX/app/service/wx/wecom"
+	"github.com/ArtisanCloud/PowerX/boostrap/global"
 	"github.com/ArtisanCloud/PowerX/config"
-	"github.com/ArtisanCloud/PowerX/database"
 	"github.com/gin-gonic/gin"
 )
 
@@ -38,7 +38,7 @@ func ValidateBindTagsToCustomerToEmployee(context *gin.Context) {
 
 func convertParaToBindTagsToCustomerToEmployee(form *ParaBindTagsToCustomerToEmployee) (pivot *models.RCustomerToEmployee, wxTags []*wx.WXTag, err error) {
 
-	pivot, err = (&models.RCustomerToEmployee{}).GetPivot(database.DBConnection, form.CustomerExternalUserID, form.EmployeeWXUserID)
+	pivot, err = (&models.RCustomerToEmployee{}).GetPivot(global.DBConnection, form.CustomerExternalUserID, form.EmployeeWXUserID)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -47,7 +47,7 @@ func convertParaToBindTagsToCustomerToEmployee(form *ParaBindTagsToCustomerToEmp
 	}
 
 	serviceWXTag := serviceWX.NewWXTagService(nil)
-	wxTags, err = serviceWXTag.GetWXTagsByIDs(database.DBConnection, form.TagWXIDs)
+	wxTags, err = serviceWXTag.GetWXTagsByIDs(global.DBConnection, form.TagWXIDs)
 
 	return pivot, wxTags, err
 }

@@ -6,8 +6,8 @@ import (
 	modelWX "github.com/ArtisanCloud/PowerX/app/models/wx"
 	"github.com/ArtisanCloud/PowerX/app/service"
 	"github.com/ArtisanCloud/PowerX/app/service/wx/wecom"
+	"github.com/ArtisanCloud/PowerX/boostrap/global"
 	"github.com/ArtisanCloud/PowerX/config"
-	"github.com/ArtisanCloud/PowerX/database"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-module/carbon"
 	"gorm.io/gorm/clause"
@@ -58,7 +58,7 @@ func APIGetContactWayList(context *gin.Context) {
 
 	defer api.RecoverResponse(context, "api.admin.contactWay.list")
 
-	arrayList, err := ctl.ServiceContactWay.GetList(database.DBConnection, groupUUID)
+	arrayList, err := ctl.ServiceContactWay.GetList(global.DBConnection, groupUUID)
 	if err != nil {
 		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_GET_CONTACT_WAY_LIST, config.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
@@ -76,7 +76,7 @@ func APIGetContactWayDetail(context *gin.Context) {
 
 	defer api.RecoverResponse(context, "api.admin.contactWay.detail")
 
-	contactWay, err := ctl.ServiceContactWay.GetContactWayByConfigID(database.DBConnection, configID)
+	contactWay, err := ctl.ServiceContactWay.GetContactWayByConfigID(global.DBConnection, configID)
 	if err != nil {
 		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_GET_CONTACT_WAY_DETAIL, config.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
@@ -88,7 +88,7 @@ func APIGetContactWayDetail(context *gin.Context) {
 		return
 	}
 
-	contactWay.WXTags, err = contactWay.LoadWXTags(database.DBConnection, nil)
+	contactWay.WXTags, err = contactWay.LoadWXTags(global.DBConnection, nil)
 	if err != nil {
 		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_GET_CONTACT_WAY_DETAIL, config.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
@@ -120,14 +120,14 @@ func APICreateContactWay(context *gin.Context) {
 	//contactWay.ConfigID = "3495QhQRnTDdkOBwtBsmwLmNaC9plvlnQayZgb4k"
 
 	// insert contact way
-	err = ctl.ServiceContactWay.UpsertContactWays(database.DBConnection.Omit(clause.Associations), modelWX.WX_CONTACT_WAY_UNIQUE_ID, []*models.ContactWay{contactWay}, nil)
+	err = ctl.ServiceContactWay.UpsertContactWays(global.DBConnection.Omit(clause.Associations), modelWX.WX_CONTACT_WAY_UNIQUE_ID, []*models.ContactWay{contactWay}, nil)
 	if err != nil {
 		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_CREATE_CONTACT_WAY, config.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
 		return
 	}
-	//err = ctl.ServiceWXTag.SyncWXTagsToObject(database.DBConnection, contactWay, contactWay.WXTags)
-	err = ctl.ServiceWXTag.AppendWXTagsToObject(database.DBConnection, contactWay, contactWay.WXTags)
+	//err = ctl.ServiceWXTag.SyncWXTagsToObject(global.DBConnection, contactWay, contactWay.WXTags)
+	err = ctl.ServiceWXTag.AppendWXTagsToObject(global.DBConnection, contactWay, contactWay.WXTags)
 	if err != nil {
 		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_SYNC_WX_TAG, config.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
@@ -159,7 +159,7 @@ func APIUpdateContactWay(context *gin.Context) {
 	}
 
 	// update contact way
-	err = ctl.ServiceContactWay.UpsertContactWays(database.DBConnection, modelWX.WX_CONTACT_WAY_UNIQUE_ID, []*models.ContactWay{contactWay}, nil)
+	err = ctl.ServiceContactWay.UpsertContactWays(global.DBConnection, modelWX.WX_CONTACT_WAY_UNIQUE_ID, []*models.ContactWay{contactWay}, nil)
 
 	if err != nil {
 		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_UPDATE_CONTACT_WAY, config.API_RETURN_CODE_ERROR, "", err.Error())
@@ -168,7 +168,7 @@ func APIUpdateContactWay(context *gin.Context) {
 	}
 
 	// replace wx contact way tags
-	err = ctl.ServiceWXTag.SyncWXTagsToObject(database.DBConnection, contactWay, updateTags)
+	err = ctl.ServiceWXTag.SyncWXTagsToObject(global.DBConnection, contactWay, updateTags)
 	if err != nil {
 		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_SYNC_WX_TAG_ON_WX_PLATFORM, config.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
@@ -197,7 +197,7 @@ func APIDeleteContactWays(context *gin.Context) {
 	}
 
 	// clear contact way tags
-	err = ctl.ServiceWXTag.ClearObjectWXTags(database.DBConnection, contactWay)
+	err = ctl.ServiceWXTag.ClearObjectWXTags(global.DBConnection, contactWay)
 	if err != nil {
 		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_DELETE_TAG, config.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
@@ -205,7 +205,7 @@ func APIDeleteContactWays(context *gin.Context) {
 	}
 
 	// delete contact way
-	err = ctl.ServiceContactWay.DeleteContactWayByConfigID(database.DBConnection, contactWay.ConfigID)
+	err = ctl.ServiceContactWay.DeleteContactWayByConfigID(global.DBConnection, contactWay.ConfigID)
 	if err != nil {
 		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_DELETE_CONTACT_WAY, config.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)

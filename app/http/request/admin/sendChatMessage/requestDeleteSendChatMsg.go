@@ -6,8 +6,8 @@ import (
 	"github.com/ArtisanCloud/PowerX/app/http/request"
 	"github.com/ArtisanCloud/PowerX/app/models"
 	"github.com/ArtisanCloud/PowerX/app/service"
+	"github.com/ArtisanCloud/PowerX/boostrap/global"
 	"github.com/ArtisanCloud/PowerX/config"
-	database2 "github.com/ArtisanCloud/PowerX/database"
 	"github.com/gin-gonic/gin"
 )
 
@@ -37,7 +37,7 @@ func ValidateDeleteSendChatMsg(context *gin.Context) {
 func convertParaDeleteSendChatMsgForDelete(form *ParaDeleteSendChatMsg) (sendChatMsg *models.SendChatMsg, err error) {
 
 	serviceSendChatMsg := service.NewSendChatMsgService(nil)
-	sendChatMsg, err = serviceSendChatMsg.GetSendChatMsgByUUID(database2.DBConnection, form.UUID)
+	sendChatMsg, err = serviceSendChatMsg.GetSendChatMsgByUUID(global.DBConnection, form.UUID)
 
 	if err != nil {
 		return sendChatMsg, err

@@ -18,4 +18,3 @@ func ValidateRequestOAuthCallback(context *gin.Context) {
 
 	context.Next()
 }
-

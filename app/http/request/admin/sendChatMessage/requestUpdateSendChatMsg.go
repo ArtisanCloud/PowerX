@@ -5,7 +5,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/app/models"
 	"github.com/ArtisanCloud/PowerX/app/models/wx"
 	"github.com/ArtisanCloud/PowerX/app/service"
-	"github.com/ArtisanCloud/PowerX/database"
+	"github.com/ArtisanCloud/PowerX/boostrap/global"
 	"github.com/gin-gonic/gin"
 )
 
@@ -54,7 +54,7 @@ func ValidateUpdateSendChatMsg(context *gin.Context) {
 func convertParaToSendChatMsgForUpdate(form ParaUpdateSendChatMsg) (sendChatMsg *models.SendChatMsg, updateTags []*wx.WXTag, err error) {
 
 	sendChatMsgService := service.NewSendChatMsgService(nil)
-	sendChatMsg, err = sendChatMsgService.GetSendChatMsgByUUID(database.DBConnection, form.UUID)
+	sendChatMsg, err = sendChatMsgService.GetSendChatMsgByUUID(global.DBConnection, form.UUID)
 	if err != nil {
 		return nil, nil, err
 	}

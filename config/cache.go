@@ -15,12 +15,12 @@ type CacheConnection struct {
 }
 
 type RedisConnection struct {
-	Connection *CacheConnection
-	Protocol   string
-	Host       string
-	Password   string
-	DB         int
-	SSLEnabled  bool
+	Connection     *CacheConnection
+	Protocol       string
+	Host           string
+	Password       string
+	DB             int
+	SSLEnabled     bool
 	TimeoutConnect int
 }
 
@@ -39,8 +39,6 @@ func init() {
 func LoadCacheConfig(configPath *string, configName *string, configType *string) (err error) {
 	//Info("load cache config", nil)
 
-
-
 	err = LoadConfigFile(configPath, configName, configType)
 	parseCacheConfig()
 
@@ -49,15 +47,13 @@ func LoadCacheConfig(configPath *string, configName *string, configType *string)
 	return err
 }
 
-
 func parseCacheConfig() {
 
 	//log.Printf("default connection: %v", MapConnection["cache"].(map[string]interface{})["default"])
 	//Info("default connection:"+viper.GetString("cache.default"), nil)
 
-
 	strCacheConnection := "cache.connections.redis."
-	viper.SetDefault(strCacheConnection + "timeoutConnect", 3000)
+	viper.SetDefault(strCacheConnection+"timeoutConnect", 3000)
 	CacheConn = &RedisConnection{
 		&CacheConnection{
 			viper.GetInt(strCacheConnection + "maxIdle"),

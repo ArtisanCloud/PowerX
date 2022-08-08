@@ -10,8 +10,8 @@ import (
 	"github.com/ArtisanCloud/PowerX/app/models"
 	"github.com/ArtisanCloud/PowerX/app/models/wx"
 	"github.com/ArtisanCloud/PowerX/app/service"
+	"github.com/ArtisanCloud/PowerX/boostrap/global"
 	"github.com/ArtisanCloud/PowerX/config"
-	database2 "github.com/ArtisanCloud/PowerX/database"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-module/carbon"
 	"gorm.io/datatypes"
@@ -62,7 +62,7 @@ func convertParaToSendChatMsgForCreate(context *gin.Context, form ParaCreateSend
 		conditions := &map[string]interface{}{
 			"wx_status": wx.WX_EMPLOYEE_STATUS_ACTIVE,
 		}
-		employees, err := serviceEmployee.GetAllEmployees(database2.DBConnection, conditions)
+		employees, err := serviceEmployee.GetAllEmployees(global.DBConnection, conditions)
 		if err != nil {
 			return nil, err
 		}

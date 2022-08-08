@@ -6,7 +6,7 @@ import (
 	request2 "github.com/ArtisanCloud/PowerWeChat/v2/src/work/externalContact/tag/request"
 	"github.com/ArtisanCloud/PowerWeChat/v2/src/work/externalContact/tag/response"
 	"github.com/ArtisanCloud/PowerX/app/models/wx"
-	"github.com/ArtisanCloud/PowerX/database"
+	"github.com/ArtisanCloud/PowerX/boostrap/global"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -79,21 +79,21 @@ func (srv *WXTagGroupService) UpsertWXTagGroups(db *gorm.DB, uniqueName string, 
 }
 
 func (srv *WXTagGroupService) DeleteWXTagGroups(tagIDs []string, groupIDs []string) (err error) {
-	err = database.DBConnection.Transaction(func(tx *gorm.DB) error {
+	err = global.DBConnection.Transaction(func(tx *gorm.DB) error {
 		serviceWXTag := NewWXTagService(nil)
 		if len(groupIDs) > 0 {
-			err = serviceWXTag.DeleteWXTagsByGroupIDs(database.DBConnection, groupIDs)
+			err = serviceWXTag.DeleteWXTagsByGroupIDs(global.DBConnection, groupIDs)
 			if err != nil {
 				return err
 			}
-			err = srv.DeleteWXTagGroupsByIDs(database.DBConnection, groupIDs)
+			err = srv.DeleteWXTagGroupsByIDs(global.DBConnection, groupIDs)
 			if err != nil {
 				return err
 			}
 		}
 
 		if len(tagIDs) > 0 {
-			err = serviceWXTag.DeleteWXTagsByIDs(database.DBConnection, tagIDs)
+			err = serviceWXTag.DeleteWXTagsByIDs(global.DBConnection, tagIDs)
 			if err != nil {
 				return err
 			}
@@ -172,7 +172,7 @@ func (srv *WXTagGroupService) SyncWXTagGroupsFromWXPlatform(tagIDs []string, gro
 		return errors.New(result.ErrMSG)
 	}
 
-	err = database.DBConnection.Transaction(func(tx *gorm.DB) error {
+	err = global.DBConnection.Transaction(func(tx *gorm.DB) error {
 		serviceWXTag := NewWXTagService(nil)
 		// sync tag groups
 		for _, group := range result.TagGroups {

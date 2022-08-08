@@ -2,17 +2,16 @@ package foundation
 
 import (
 	"github.com/ArtisanCloud/PowerX/app/models"
-	"github.com/ArtisanCloud/PowerX/database/migrations/migrate"
 )
 
 type MigrateContactWayGroup struct {
-	*migrate.Migration
-	migrate.MigrationInterface
+	*Migration
+	MigrationInterface
 }
 
 func NewMigrateContactWayGroup() *MigrateContactWayGroup {
 	return &MigrateContactWayGroup{
-		Migration: &migrate.Migration{
+		Migration: &Migration{
 			Model: &models.ContactWayGroup{},
 		},
 	}

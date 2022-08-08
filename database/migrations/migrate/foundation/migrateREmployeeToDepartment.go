@@ -2,17 +2,16 @@ package foundation
 
 import (
 	"github.com/ArtisanCloud/PowerX/app/models"
-	"github.com/ArtisanCloud/PowerX/database/migrations/migrate"
 )
 
 type MigrateREmployeeToDepartment struct {
-	*migrate.Migration
-	migrate.MigrationInterface
+	*Migration
+	MigrationInterface
 }
 
 func NewMigrateREmployeeToDepartment() *MigrateREmployeeToDepartment {
 	return &MigrateREmployeeToDepartment{
-		Migration: &migrate.Migration{
+		Migration: &Migration{
 			Model: &models.REmployeeToDepartment{},
 		},
 	}

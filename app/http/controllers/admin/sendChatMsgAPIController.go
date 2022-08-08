@@ -9,8 +9,8 @@ import (
 	modelWX "github.com/ArtisanCloud/PowerX/app/models/wx"
 	"github.com/ArtisanCloud/PowerX/app/service"
 	serviceWX "github.com/ArtisanCloud/PowerX/app/service/wx/wecom"
+	"github.com/ArtisanCloud/PowerX/boostrap/global"
 	"github.com/ArtisanCloud/PowerX/config"
-	"github.com/ArtisanCloud/PowerX/database"
 	logger "github.com/ArtisanCloud/PowerX/loggerManager"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-module/carbon"
@@ -43,7 +43,7 @@ func APISendChatMsgSync(context *gin.Context) {
 	limitInterface, _ := context.Get("limit")
 	limit := limitInterface.(int)
 
-	rs, err := ctl.ServiceSendChatMsg.SyncSendChatMsgFromWXPlatform(database.DBConnection, startDatetime, endDatetime, limit, "")
+	rs, err := ctl.ServiceSendChatMsg.SyncSendChatMsgFromWXPlatform(global.DBConnection, startDatetime, endDatetime, limit, "")
 	if err != nil {
 		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_SYNC_SEND_CHAT_MSG_ON_WX_PLATFORM, config.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
@@ -72,7 +72,7 @@ func APIGetSendChatMsgList(context *gin.Context) {
 
 	defer api.RecoverResponse(context, "api.admin.sendChatMsg.list")
 
-	arrayList, err := ctl.ServiceSendChatMsg.GetQueryList(database.DBConnection, creatorUserIDs, filterStartDate, filterEndDate, para.Page, para.PageSize)
+	arrayList, err := ctl.ServiceSendChatMsg.GetQueryList(global.DBConnection, creatorUserIDs, filterStartDate, filterEndDate, para.Page, para.PageSize)
 	if err != nil {
 		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_GET_SEND_CHAT_MSG_LIST, config.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
@@ -90,7 +90,7 @@ func APIGetSendChatMsgDetail(context *gin.Context) {
 
 	defer api.RecoverResponse(context, "api.admin.sendChatMsg.detail")
 
-	sendChatMsg, err := ctl.ServiceSendChatMsg.GetSendChatMsgByUUID(database.DBConnection, uuid)
+	sendChatMsg, err := ctl.ServiceSendChatMsg.GetSendChatMsgByUUID(global.DBConnection, uuid)
 	if err != nil {
 		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_GET_SEND_CHAT_MSG_DETAIL, config.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
@@ -142,7 +142,7 @@ func APICreateSendChatMsg(context *gin.Context) {
 
 	var err error
 
-	err = database.DBConnection.Transaction(func(tx *gorm.DB) error {
+	err = global.DBConnection.Transaction(func(tx *gorm.DB) error {
 		// insert send chat msg
 		err = ctl.ServiceSendChatMsg.UpsertSendChatMsgs(tx.Omit(clause.Associations), models.SEND_CHAT_MSG_UNIQUE_ID, []*models.SendChatMsg{sendChatMsg}, nil)
 		if err != nil {
@@ -208,7 +208,7 @@ func APIDoSendChatMsgs(context *gin.Context) {
 		SetMillisecond(0)
 	endDatetime := now.AddMinute()
 
-	toSendList, err := ctl.ServiceSendChatMsg.GetToDoSendList(database.DBConnection, &now, &endDatetime)
+	toSendList, err := ctl.ServiceSendChatMsg.GetToDoSendList(global.DBConnection, &now, &endDatetime)
 	if err != nil {
 		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_GET_SEND_CHAT_MSG_LIST, config.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
@@ -224,7 +224,7 @@ func APIDoSendChatMsgs(context *gin.Context) {
 
 		for _, wxMessageTemplate := range sendChatMsg.WXMessageTemplates {
 
-			err = database.DBConnection.Transaction(func(tx *gorm.DB) error {
+			err = global.DBConnection.Transaction(func(tx *gorm.DB) error {
 
 				// send chat msg
 				result, err := ctl.ServiceSendChatMsg.DoSendChatMsg(wxMessageTemplate)

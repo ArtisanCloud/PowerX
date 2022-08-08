@@ -13,7 +13,7 @@ func ValidateList(context *gin.Context) {
 	var form ParaList
 
 	err := ValidatePara(context, &form)
-	if err!=nil{
+	if err != nil {
 		return
 	}
 
