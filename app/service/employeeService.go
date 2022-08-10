@@ -169,41 +169,10 @@ func (srv *EmployeeService) GetEmployeeUserIDs(db *gorm.DB) (userIDs []string, e
 	result := db.
 		//Debug().
 		Model(srv.Employee).
-		Pluck("age", &userIDs)
+		Pluck("wx_user_id", &userIDs)
 
 	return userIDs, result.Error
 
-}
-
-func (srv *EmployeeService) GetEmployees(db *gorm.DB, uuids []string) (employees []*models.Employee, err error) {
-
-	employees = []*models.Employee{}
-
-	db = db.Where("uuid in (?)", uuids)
-	result := db.Find(&employees)
-	return employees, result.Error
-}
-
-func (srv *EmployeeService) GetEmployee(db *gorm.DB, uuid string) (employee *models.Employee, err error) {
-
-	employee = &models.Employee{}
-
-	db = db.Scopes(
-		databasePowerLib.WhereUUID(uuid),
-	)
-	result := db.First(employee)
-	return employee, result.Error
-}
-
-func (srv *EmployeeService) GetEmployeesByIDs(db *gorm.DB, arrayIDs []int) (departments []*models.Employee, err error) {
-	departments = []*models.Employee{}
-
-	if len(arrayIDs) > 0 {
-		db = db.Table(modelWX.TABLE_NAME_DEPARTMENT).Where("id in (?)", arrayIDs).Find(&departments)
-		err = db.Error
-	}
-
-	return departments, err
 }
 
 func (srv *EmployeeService) GetEmployeesByUserIDs(db *gorm.DB, userIDs []string) (employees []*models.Employee, err error) {
@@ -234,7 +203,7 @@ func (srv *EmployeeService) GetEmployeeByUserID(db *gorm.DB, userID string) (emp
 
 }
 
-func (srv *EmployeeService) GetEmployeeByWXUserID(ctx *gin.Context, userID string) (employee *models.Employee, err error) {
+func (srv *EmployeeService) GetEmployeeByUserIDOnWXPlatform(ctx *gin.Context, userID string) (employee *models.Employee, err error) {
 	responseGetEmployeeByID, err := wecom.WeComEmployee.App.OAuth.Provider.Detailed().GetUserByID(userID)
 	if err != nil {
 		return nil, err

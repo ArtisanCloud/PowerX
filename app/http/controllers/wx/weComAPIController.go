@@ -525,7 +525,7 @@ func WeComGetEmployeeToken(context *gin.Context, user *providers.User) (strToken
 	}
 
 	serviceEmployee := service.NewEmployeeService(context)
-	employee, _ = serviceEmployee.GetEmployeeByWXUserID(context, userID)
+	employee, _ = serviceEmployee.GetEmployeeByUserIDOnWXPlatform(context, userID)
 
 	// query user detail by user id
 	if user.GetOpenID() == "" {
