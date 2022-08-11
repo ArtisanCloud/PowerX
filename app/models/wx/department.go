@@ -3,7 +3,7 @@ package wx
 import (
 	"database/sql"
 	"github.com/ArtisanCloud/PowerLibs/v2/object"
-	"github.com/ArtisanCloud/PowerX/config"
+	"github.com/ArtisanCloud/PowerX/config/database"
 	"gorm.io/gorm"
 )
 
@@ -36,7 +36,7 @@ func NewWXDepartment(mapObject *object.Collection) *WXDepartment {
 func (mdl *WXDepartment) GetTableName(needFull bool) string {
 	tableName := TABLE_NAME_DEPARTMENT
 	if needFull {
-		tableName = config.DatabaseConn.Schemas["option"] + "." + tableName
+		tableName = database.G_DBConfig.Schemas["option"] + "." + tableName
 	}
 	return tableName
 }

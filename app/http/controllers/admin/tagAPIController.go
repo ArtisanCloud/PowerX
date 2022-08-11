@@ -7,8 +7,8 @@ import (
 	requestTag "github.com/ArtisanCloud/PowerX/app/http/request/admin/tag"
 	"github.com/ArtisanCloud/PowerX/app/models"
 	"github.com/ArtisanCloud/PowerX/app/service"
-	"github.com/ArtisanCloud/PowerX/boostrap/global"
-	"github.com/ArtisanCloud/PowerX/config"
+	"github.com/ArtisanCloud/PowerX/config/global"
+	globalDatabase "github.com/ArtisanCloud/PowerX/database/global"
 	"github.com/gin-gonic/gin"
 )
 
@@ -36,9 +36,9 @@ func APIGetGroupChatTagGroupList(context *gin.Context) {
 	conditions := &map[string]interface{}{
 		"owner_type": (&models.GroupChat{}).GetTableName(true),
 	}
-	arrayList, err := ctl.ServiceTag.GetGroupList(global.DBConnection, conditions, para.Page, para.PageSize)
+	arrayList, err := ctl.ServiceTag.GetGroupList(globalDatabase.G_DBConnection, conditions, para.Page, para.PageSize)
 	if err != nil {
-		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_GET_WX_TAG_LIST, config.API_RETURN_CODE_ERROR, "", err.Error())
+		ctl.RS.SetCode(global.API_ERR_CODE_FAIL_TO_GET_WX_TAG_LIST, global.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
 		return
 	}
@@ -56,9 +56,9 @@ func APIGetTagGroupList(context *gin.Context) {
 
 	defer api.RecoverResponse(context, "api.admin.tag.group.list")
 
-	arrayList, err := ctl.ServiceTag.QueryTagList(global.DBConnection, para.Type, para.GroupID)
+	arrayList, err := ctl.ServiceTag.QueryTagList(globalDatabase.G_DBConnection, para.Type, para.GroupID)
 	if err != nil {
-		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_GET_WX_TAG_LIST, config.API_RETURN_CODE_ERROR, "", err.Error())
+		ctl.RS.SetCode(global.API_ERR_CODE_FAIL_TO_GET_WX_TAG_LIST, global.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
 		return
 	}
@@ -74,9 +74,9 @@ func APIGetTagGroupDetail(context *gin.Context) {
 
 	defer api.RecoverResponse(context, "api.admin.tag.group.detail")
 
-	account, err := ctl.ServiceTag.GetTagGroupByID(global.DBConnection, groupID)
+	account, err := ctl.ServiceTag.GetTagGroupByID(globalDatabase.G_DBConnection, groupID)
 	if err != nil {
-		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_GET_WX_TAG_DETAIL, config.API_RETURN_CODE_ERROR, "", err.Error())
+		ctl.RS.SetCode(global.API_ERR_CODE_FAIL_TO_GET_WX_TAG_DETAIL, global.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
 		return
 	}
@@ -98,9 +98,9 @@ func APIInsertTagGroup(context *gin.Context) {
 
 	// upsert wx tag group
 
-	err = ctl.ServiceTag.CreateTagGroupWithTags(global.DBConnection, tagGroup, tags)
+	err = ctl.ServiceTag.CreateTagGroupWithTags(globalDatabase.G_DBConnection, tagGroup, tags)
 	if err != nil {
-		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_INSERT_WX_TAG_GROUP, config.API_RETURN_CODE_ERROR, "", err.Error())
+		ctl.RS.SetCode(global.API_ERR_CODE_FAIL_TO_INSERT_WX_TAG_GROUP, global.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
 		return
 	}
@@ -125,9 +125,9 @@ func APIUpdateTagGroup(context *gin.Context) {
 
 	// upsert wx tag group
 
-	err = ctl.ServiceTag.UpdateTagGroupWithTags(global.DBConnection, tagGroup, tags)
+	err = ctl.ServiceTag.UpdateTagGroupWithTags(globalDatabase.G_DBConnection, tagGroup, tags)
 	if err != nil {
-		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_INSERT_WX_TAG_GROUP, config.API_RETURN_CODE_ERROR, "", err.Error())
+		ctl.RS.SetCode(global.API_ERR_CODE_FAIL_TO_INSERT_WX_TAG_GROUP, global.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
 		return
 	}
@@ -150,9 +150,9 @@ func APIDeleteTagGroups(context *gin.Context) {
 	var err error
 
 	// delete wx tag group
-	err = ctl.ServiceTag.DeleteTagGroupsWithTags(global.DBConnection, groupIDs, tagIDs)
+	err = ctl.ServiceTag.DeleteTagGroupsWithTags(globalDatabase.G_DBConnection, groupIDs, tagIDs)
 	if err != nil {
-		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_DELETE_WX_TAG_GROUP, config.API_RETURN_CODE_ERROR, "", err.Error())
+		ctl.RS.SetCode(global.API_ERR_CODE_FAIL_TO_DELETE_WX_TAG_GROUP, global.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
 		return
 	}
@@ -173,9 +173,9 @@ func APIBindTagsToGroupChat(context *gin.Context) {
 
 	var err error
 	for _, groupChat := range groupChats {
-		err = ctl.ServiceTag.SyncTagsToObject(global.DBConnection, groupChat, tags)
+		err = ctl.ServiceTag.SyncTagsToObject(globalDatabase.G_DBConnection, groupChat, tags)
 		if err != nil {
-			ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_SYNC_TAG, config.API_RETURN_CODE_ERROR, "", err.Error())
+			ctl.RS.SetCode(global.API_ERR_CODE_FAIL_TO_SYNC_TAG, global.API_RETURN_CODE_ERROR, "", err.Error())
 			panic(ctl.RS)
 			return
 		}

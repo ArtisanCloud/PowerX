@@ -6,7 +6,7 @@ import (
 	"github.com/ArtisanCloud/PowerWeChat/v2/src/work/externalContact/contactWay/request"
 	requestMessageTemplate "github.com/ArtisanCloud/PowerWeChat/v2/src/work/externalContact/messageTemplate/request"
 	"github.com/ArtisanCloud/PowerX/app/models/wx"
-	"github.com/ArtisanCloud/PowerX/config"
+	database2 "github.com/ArtisanCloud/PowerX/config/database"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
@@ -46,7 +46,7 @@ const CONTACT_WAY_TYPE_CHANNEL = 1
 func (mdl *ContactWay) GetTableName(needFull bool) string {
 	tableName := TABLE_NAME_CONTACT_WAY
 	if needFull {
-		tableName = config.DatabaseConn.Schemas["option"] + "." + tableName
+		tableName = database2.G_DBConfig.Schemas["option"] + "." + tableName
 	}
 	return tableName
 }

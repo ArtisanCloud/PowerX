@@ -5,7 +5,7 @@ import (
 	"github.com/ArtisanCloud/PowerLibs/v2/object"
 	"github.com/ArtisanCloud/PowerLibs/v2/security"
 	"github.com/ArtisanCloud/PowerWeChat/v2/src/work/externalContact/messageTemplate/response"
-	"github.com/ArtisanCloud/PowerX/config"
+	globalConfig "github.com/ArtisanCloud/PowerX/config/database"
 	"gorm.io/datatypes"
 )
 
@@ -126,7 +126,7 @@ func NewWXMessageTemplateSendResult(msgID string, result *response.SendResult) *
 func (mdl *WXMessageTemplate) GetTableName(needFull bool) string {
 	tableName := TABLE_NAME_WX_MESSAGE_TEMPLATE
 	if needFull {
-		tableName = config.DatabaseConn.Schemas["option"] + "." + tableName
+		tableName = globalConfig.G_DBConfig.Schemas["option"] + "." + tableName
 	}
 	return tableName
 }

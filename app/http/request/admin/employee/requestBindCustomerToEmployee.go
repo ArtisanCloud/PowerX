@@ -7,8 +7,8 @@ import (
 	"github.com/ArtisanCloud/PowerX/app/http/request"
 	"github.com/ArtisanCloud/PowerX/app/models"
 	"github.com/ArtisanCloud/PowerX/app/service"
-	"github.com/ArtisanCloud/PowerX/boostrap/global"
-	"github.com/ArtisanCloud/PowerX/config"
+	"github.com/ArtisanCloud/PowerX/config/global"
+	globalDatabase "github.com/ArtisanCloud/PowerX/database/global"
 	"github.com/gin-gonic/gin"
 )
 
@@ -39,7 +39,7 @@ func ValidateBindCustomerToEmployee(context *gin.Context) {
 	apiResponse := http.NewAPIResponse(context)
 	customer, employee, followInfo, err := convertParaToBindCustomerToEmployee(&form)
 	if err != nil {
-		apiResponse.SetCode(config.API_ERR_CODE_REQUEST_PARAM_ERROR, config.API_RETURN_CODE_ERROR, "", err.Error()).ThrowJSONResponse(context)
+		apiResponse.SetCode(global.API_ERR_CODE_REQUEST_PARAM_ERROR, global.API_RETURN_CODE_ERROR, "", err.Error()).ThrowJSONResponse(context)
 		return
 	}
 	context.Set("customer", customer)
@@ -51,7 +51,7 @@ func ValidateBindCustomerToEmployee(context *gin.Context) {
 func convertParaToBindCustomerToEmployee(form *ParaBindCustomerToEmployee) (customer *models.Customer, employee *models.Employee, followInfo *models2.FollowUser, err error) {
 
 	serviceCustomer := service.NewCustomerService(nil)
-	customer, err = serviceCustomer.GetCustomerByExternalUserID(global.DBConnection, form.CustomerExternalUserID)
+	customer, err = serviceCustomer.GetCustomerByExternalUserID(globalDatabase.G_DBConnection, form.CustomerExternalUserID)
 	if err != nil {
 		return customer, employee, followInfo, err
 	}
@@ -60,7 +60,7 @@ func convertParaToBindCustomerToEmployee(form *ParaBindCustomerToEmployee) (cust
 	}
 
 	serviceEmployee := service.NewEmployeeService(nil)
-	employee, err = serviceEmployee.GetEmployeeByUserID(global.DBConnection, form.EmployeeWXUserID)
+	employee, err = serviceEmployee.GetEmployeeByUserID(globalDatabase.G_DBConnection, form.EmployeeWXUserID)
 	if err != nil {
 		return customer, employee, followInfo, err
 	}

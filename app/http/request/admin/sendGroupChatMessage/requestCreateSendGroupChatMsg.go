@@ -9,7 +9,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/app/models"
 	"github.com/ArtisanCloud/PowerX/app/models/wx"
 	"github.com/ArtisanCloud/PowerX/app/service"
-	"github.com/ArtisanCloud/PowerX/config"
+	"github.com/ArtisanCloud/PowerX/config/global"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-module/carbon"
 	"gorm.io/datatypes"
@@ -35,7 +35,7 @@ func ValidateCreateSendGroupChatMsg(context *gin.Context) {
 
 	sendGroupChatMsg, err := convertParaToSendGroupChatForCreate(context, form)
 	if err != nil {
-		apiResponse.SetCode(config.API_ERR_CODE_REQUEST_PARAM_ERROR, config.API_RETURN_CODE_ERROR, "", err.Error()).
+		apiResponse.SetCode(global.API_ERR_CODE_REQUEST_PARAM_ERROR, global.API_RETURN_CODE_ERROR, "", err.Error()).
 			ThrowJSONResponse(context)
 		return
 	}

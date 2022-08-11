@@ -7,7 +7,7 @@ import (
 	"github.com/ArtisanCloud/PowerLibs/v2/security"
 	"github.com/ArtisanCloud/PowerSocialite/v2/src/models"
 	"github.com/ArtisanCloud/PowerX/app/models/wx"
-	"github.com/ArtisanCloud/PowerX/config"
+	database2 "github.com/ArtisanCloud/PowerX/config/database"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -50,7 +50,7 @@ const R_CUSTOMER_TO_EMPLOYEE_JOIN_KEY = "employee_refer_id"
 func (mdl *RCustomerToEmployee) GetTableName(needFull bool) string {
 	tableName := TABLE_NAME_R_CUSTOMER_TO_EMPLOYEE
 	if needFull {
-		tableName = config.DatabaseConn.Schemas["option"] + "." + tableName
+		tableName = database2.G_DBConfig.Schemas["option"] + "." + tableName
 	}
 	return tableName
 }

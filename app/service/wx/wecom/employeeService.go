@@ -24,7 +24,7 @@ func NewWeComEmployeeService(ctx *gin.Context) (r *WeComEmployeeService) {
 		weComConfig["secret"] = weComConfig["contact_secret"]
 	}
 	r = &WeComEmployeeService{
-		WeComService: WeComEmployee,
+		WeComService: G_WeComEmployee,
 		Employee:     models.NewEmployee(nil),
 	}
 	return r

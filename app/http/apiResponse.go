@@ -4,6 +4,7 @@ import (
 	fmt2 "fmt"
 	"github.com/ArtisanCloud/PowerX/app/service"
 	. "github.com/ArtisanCloud/PowerX/config"
+	. "github.com/ArtisanCloud/PowerX/config/global"
 	"github.com/gin-gonic/gin"
 	"golang.org/x/text/language"
 	"golang.org/x/text/message"

@@ -2,7 +2,7 @@ package wx
 
 import (
 	"github.com/ArtisanCloud/PowerLibs/v2/object"
-	"github.com/ArtisanCloud/PowerX/config"
+	"github.com/ArtisanCloud/PowerX/config/database"
 )
 
 // TableName overrides the table name used by WXEmployee to `profiles`
@@ -58,7 +58,7 @@ func NewWXEmployee(mapObject *object.Collection) *WXEmployee {
 func (mdl *WXEmployee) GetTableName(needFull bool) string {
 	tableName := TABLE_NAME_EMPLOYEE
 	if needFull {
-		tableName = config.DatabaseConn.Schemas["option"] + "." + tableName
+		tableName = database.G_DBConfig.Schemas["option"] + "." + tableName
 	}
 	return tableName
 }

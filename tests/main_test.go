@@ -4,9 +4,12 @@ import (
 	"bytes"
 	service "github.com/ArtisanCloud/PowerX/app/service"
 	"github.com/ArtisanCloud/PowerX/boostrap/cache"
-	"github.com/ArtisanCloud/PowerX/boostrap/global"
+	"github.com/ArtisanCloud/PowerX/boostrap/cache/global"
 	"github.com/ArtisanCloud/PowerX/config"
+	cacheConfig "github.com/ArtisanCloud/PowerX/config/cache"
+	databaseConfig "github.com/ArtisanCloud/PowerX/config/database"
 	"github.com/ArtisanCloud/PowerX/database"
+	globalDatabase "github.com/ArtisanCloud/PowerX/database/global"
 	logger "github.com/ArtisanCloud/PowerX/loggerManager"
 	"github.com/ArtisanCloud/PowerX/resources/lang"
 	"github.com/gin-gonic/gin"
@@ -81,11 +84,11 @@ func SetupTestEnv(t *testing.M) {
 	}
 
 	// Initialize the database
-	if global.DBConnection == nil {
+	if globalDatabase.G_DBConnection == nil {
 		// Initialize the database
 
 		configName := "database"
-		config.LoadDatabaseConfig(&envPath, &configName, nil)
+		databaseConfig.LoadDatabaseConfig(&envPath, &configName, nil)
 
 		_ = database.SetupDatabase()
 		//_ = SetupMockDatabase()
@@ -95,19 +98,9 @@ func SetupTestEnv(t *testing.M) {
 	if global.CacheConnection == nil {
 
 		configName := "cache"
-		config.LoadCacheConfig(&envPath, &configName, nil)
+		cacheConfig.LoadCacheConfig(&envPath, &configName, nil)
 
 		_ = cache.SetupCache()
-
-	}
-
-	// Initialize the log
-	if logger.UBTHandler == nil {
-
-		configName := "log"
-		config.LoadLogConfig(&envPath, &configName, nil)
-
-		_ = logger.SetupLog()
 
 	}
 

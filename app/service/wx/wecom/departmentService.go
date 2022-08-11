@@ -21,7 +21,7 @@ func NewWeComDepartmentService(ctx *gin.Context) (r *WeComDepartmentService) {
 		weComConfig["secret"] = weComConfig["contact_secret"]
 	}
 	r = &WeComDepartmentService{
-		Service:    WeComEmployee,
+		Service:    G_WeComEmployee,
 		Department: modelWX.NewWXDepartment(nil),
 	}
 	return r

@@ -3,7 +3,7 @@ package foundation
 import (
 	"fmt"
 	"github.com/ArtisanCloud/PowerX/boostrap"
-	"github.com/ArtisanCloud/PowerX/boostrap/global"
+	"github.com/ArtisanCloud/PowerX/database/global"
 	"gorm.io/gorm"
 	"reflect"
 )
@@ -35,7 +35,7 @@ func (m *Migration) Migrate(db *gorm.DB) error {
 
 	// force drop tables if it has this table
 	if NeedRefresh && hasTable {
-		err := global.DBConnection.Migrator().DropTable(m.Model)
+		err := global.G_DBConnection.Migrator().DropTable(m.Model)
 		if err != nil {
 			println(err.Error())
 			return err
@@ -46,8 +46,8 @@ func (m *Migration) Migrate(db *gorm.DB) error {
 	}
 
 	if !hasTable {
-		err := global.DBConnection.Migrator().CreateTable(m.Model)
-		//err := global.DBConnection.Migrator().AutoMigrate(table)
+		err := global.G_DBConnection.Migrator().CreateTable(m.Model)
+		//err := global.G_DBConnection.Migrator().AutoMigrate(table)
 		if err != nil {
 			println("create table error: ", err.Error())
 			return err

@@ -4,16 +4,9 @@ import (
 	"github.com/ArtisanCloud/PowerX/boostrap"
 	"github.com/ArtisanCloud/PowerX/config"
 	logger "github.com/ArtisanCloud/PowerX/loggerManager"
+	"github.com/ArtisanCloud/PowerX/routes"
 	"github.com/ArtisanCloud/PowerX/routes/global"
 )
-import _ "github.com/ArtisanCloud/PowerX/config"
-import "github.com/ArtisanCloud/PowerX/routes"
-
-import (
-	"github.com/gin-gonic/gin"
-)
-
-var Router *gin.Engine
 
 func main() {
 

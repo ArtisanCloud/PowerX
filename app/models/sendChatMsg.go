@@ -4,7 +4,7 @@ import (
 	"github.com/ArtisanCloud/PowerLibs/v2/database"
 	"github.com/ArtisanCloud/PowerLibs/v2/object"
 	"github.com/ArtisanCloud/PowerX/app/models/wx"
-	"github.com/ArtisanCloud/PowerX/config"
+	globalConfig "github.com/ArtisanCloud/PowerX/config/database"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 	"time"
@@ -55,7 +55,7 @@ const SEND_CHAT_MSG_TYPE_CHANNEL = 1
 func (mdl *SendChatMsg) GetTableName(needFull bool) string {
 	tableName := TABLE_NAME_SEND_CHAT_MSG
 	if needFull {
-		tableName = config.DatabaseConn.Schemas["option"] + "." + tableName
+		tableName = globalConfig.G_DBConfig.Schemas["option"] + "." + tableName
 	}
 	return tableName
 }

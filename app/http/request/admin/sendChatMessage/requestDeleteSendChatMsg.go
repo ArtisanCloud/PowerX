@@ -6,8 +6,8 @@ import (
 	"github.com/ArtisanCloud/PowerX/app/http/request"
 	"github.com/ArtisanCloud/PowerX/app/models"
 	"github.com/ArtisanCloud/PowerX/app/service"
-	"github.com/ArtisanCloud/PowerX/boostrap/global"
-	"github.com/ArtisanCloud/PowerX/config"
+	"github.com/ArtisanCloud/PowerX/config/global"
+	globalDatabase "github.com/ArtisanCloud/PowerX/database/global"
 	"github.com/gin-gonic/gin"
 )
 
@@ -27,7 +27,7 @@ func ValidateDeleteSendChatMsg(context *gin.Context) {
 
 	sendChatMsg, err := convertParaDeleteSendChatMsgForDelete(&form)
 	if err != nil {
-		apiResponse.SetCode(config.API_ERR_CODE_REQUEST_PARAM_ERROR, config.API_RETURN_CODE_ERROR, "", err.Error()).ThrowJSONResponse(context)
+		apiResponse.SetCode(global.API_ERR_CODE_REQUEST_PARAM_ERROR, global.API_RETURN_CODE_ERROR, "", err.Error()).ThrowJSONResponse(context)
 	}
 
 	context.Set("sendChatMsg", sendChatMsg)
@@ -37,7 +37,7 @@ func ValidateDeleteSendChatMsg(context *gin.Context) {
 func convertParaDeleteSendChatMsgForDelete(form *ParaDeleteSendChatMsg) (sendChatMsg *models.SendChatMsg, err error) {
 
 	serviceSendChatMsg := service.NewSendChatMsgService(nil)
-	sendChatMsg, err = serviceSendChatMsg.GetSendChatMsgByUUID(global.DBConnection, form.UUID)
+	sendChatMsg, err = serviceSendChatMsg.GetSendChatMsgByUUID(globalDatabase.G_DBConnection, form.UUID)
 
 	if err != nil {
 		return sendChatMsg, err

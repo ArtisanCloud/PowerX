@@ -1,5 +1,5 @@
 package wecom
 
-var WeComApp *WeComService
-var WeComEmployee *WeComService
-var WeComCustomer *WeComService
+var G_WeComApp *WeComService
+var G_WeComEmployee *WeComService
+var G_WeComCustomer *WeComService

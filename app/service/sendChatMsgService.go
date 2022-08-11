@@ -42,7 +42,7 @@ func (srv *SendChatMsgService) SyncSendChatMsgFromWXPlatform(db *gorm.DB, startD
 		Limit:     limit,
 		Cursor:    cursor,
 	}
-	rs, err = wecom.WeComCustomer.App.ExternalContactMessageTemplate.GetGroupMsgListV2(req)
+	rs, err = wecom.G_WeComCustomer.App.ExternalContactMessageTemplate.GetGroupMsgListV2(req)
 	if err != nil {
 		return rs, err
 	}
@@ -118,7 +118,7 @@ func (srv *SendChatMsgService) SyncWXMessageTemplateFromWXPlatform(db *gorm.DB, 
 
 func (srv *SendChatMsgService) SyncWXMessageTemplateTasksFromWXPlatform(db *gorm.DB, msgID string, limit int, cursor string) (err error) {
 
-	responseGroupMsgTask, err := wecom.WeComCustomer.App.ExternalContactMessageTemplate.GetGroupMsgTask(msgID, limit, cursor)
+	responseGroupMsgTask, err := wecom.G_WeComCustomer.App.ExternalContactMessageTemplate.GetGroupMsgTask(msgID, limit, cursor)
 	if err != nil {
 		return err
 	}
@@ -142,7 +142,7 @@ func (srv *SendChatMsgService) SyncWXMessageTemplateTasksFromWXPlatform(db *gorm
 
 func (srv *SendChatMsgService) SyncWXMessageTemplateSendResultsFromWXPlatform(db *gorm.DB, msgID string, userID string, limit int, cursor string) (err error) {
 
-	responseGroupMsgSendResult, err := wecom.WeComCustomer.App.ExternalContactMessageTemplate.GetGroupMsgSendResult(msgID, userID, limit, cursor)
+	responseGroupMsgSendResult, err := wecom.G_WeComCustomer.App.ExternalContactMessageTemplate.GetGroupMsgSendResult(msgID, userID, limit, cursor)
 	if err != nil {
 		return err
 	}
@@ -318,12 +318,12 @@ func (srv *SendChatMsgService) GetSendChatMsgByUUID(db *gorm.DB, uuid string) (s
 
 func (srv *SendChatMsgService) CreateSendChatMsgOnWXPlatform(msg *modelWX.WXMessageTemplate) (result *response.ResponseAddMessageTemplate, err error) {
 
-	request, err := wecom.WeComEmployee.ConvertAttachmentsToMessageTemplate(msg)
+	request, err := wecom.G_WeComEmployee.ConvertAttachmentsToMessageTemplate(msg)
 	if err != nil {
 		return nil, err
 	}
 
-	result, err = wecom.WeComCustomer.App.ExternalContactMessageTemplate.AddMsgTemplate(request)
+	result, err = wecom.G_WeComCustomer.App.ExternalContactMessageTemplate.AddMsgTemplate(request)
 	if err != nil {
 		return nil, err
 	}

@@ -3,7 +3,7 @@ package wx
 import (
 	"database/sql"
 	"github.com/ArtisanCloud/PowerLibs/v2/object"
-	"github.com/ArtisanCloud/PowerX/config"
+	"github.com/ArtisanCloud/PowerX/config/database"
 	"gorm.io/gorm"
 )
 
@@ -108,7 +108,7 @@ func NewWXCustomer(mapObject *object.Collection) *WXCustomer {
 func (mdl *WXCustomer) GetTableName(needFull bool) string {
 	tableName := TABLE_NAME_WX_CUSTOMER
 	if needFull {
-		tableName = config.DatabaseConn.Schemas["option"] + "." + tableName
+		tableName = database.G_DBConfig.Schemas["option"] + "." + tableName
 	}
 	return tableName
 }

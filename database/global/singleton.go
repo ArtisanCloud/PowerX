@@ -2,4 +2,4 @@ package global
 
 import "gorm.io/gorm"
 
-var DBConnection *gorm.DB
+var G_DBConnection *gorm.DB

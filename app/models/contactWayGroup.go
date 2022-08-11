@@ -3,7 +3,7 @@ package models
 import (
 	"github.com/ArtisanCloud/PowerLibs/v2/database"
 	"github.com/ArtisanCloud/PowerLibs/v2/object"
-	"github.com/ArtisanCloud/PowerX/config"
+	database2 "github.com/ArtisanCloud/PowerX/config/database"
 	"gorm.io/gorm"
 )
 
@@ -25,7 +25,7 @@ const TABLE_NAME_CONTACT_WAY_GROUP = "contact_way_groups"
 func (mdl *ContactWayGroup) GetTableName(needFull bool) string {
 	tableName := TABLE_NAME_CONTACT_WAY_GROUP
 	if needFull {
-		tableName = config.DatabaseConn.Schemas["option"] + "." + tableName
+		tableName = database2.G_DBConfig.Schemas["option"] + "." + tableName
 	}
 	return tableName
 }

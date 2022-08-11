@@ -40,7 +40,7 @@ func (seeder *WXContactWayGroupTableSeeder) SeedWXContactWayForEvent() (err erro
 	}))
 	wxContactWayGroup.UUID = SEED_WX_CONTACT_WAY_UUID
 
-	wxContactWayGroup, err = seeder.ServiceWXContactWayGroup.UpsertContactWayGroup(global.DBConnection, wxContactWayGroup, false)
+	wxContactWayGroup, err = seeder.ServiceWXContactWayGroup.UpsertContactWayGroup(global.G_DBConnection, wxContactWayGroup, false)
 
 	return err
 }

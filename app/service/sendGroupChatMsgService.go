@@ -42,7 +42,7 @@ func (srv *SendGroupChatMsgService) SyncSendGroupChatMsgFromWXPlatform(db *gorm.
 		Limit:     limit,
 		Cursor:    cursor,
 	}
-	rs, err = wecom.WeComCustomer.App.ExternalContactMessageTemplate.GetGroupMsgListV2(req)
+	rs, err = wecom.G_WeComCustomer.App.ExternalContactMessageTemplate.GetGroupMsgListV2(req)
 	if err != nil {
 		return rs, err
 	}
@@ -240,11 +240,11 @@ func (srv *SendGroupChatMsgService) GetSendGroupChatMsgByUUID(db *gorm.DB, uuid 
 
 func (srv *SendGroupChatMsgService) CreateSendGroupChatMsgOnWXPlatform(msg *wx.WXMessageTemplate) (result *response.ResponseAddMessageTemplate, err error) {
 
-	request, err := wecom.WeComEmployee.ConvertAttachmentsToMessageTemplate(msg)
+	request, err := wecom.G_WeComEmployee.ConvertAttachmentsToMessageTemplate(msg)
 	if err != nil {
 		return nil, err
 	}
-	result, err = wecom.WeComCustomer.App.ExternalContactMessageTemplate.AddMsgTemplate(request)
+	result, err = wecom.G_WeComCustomer.App.ExternalContactMessageTemplate.AddMsgTemplate(request)
 	if err != nil {
 		return nil, err
 	}

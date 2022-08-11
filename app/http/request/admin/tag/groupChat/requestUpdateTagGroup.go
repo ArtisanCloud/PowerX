@@ -7,8 +7,8 @@ import (
 	"github.com/ArtisanCloud/PowerX/app/http"
 	"github.com/ArtisanCloud/PowerX/app/http/request"
 	"github.com/ArtisanCloud/PowerX/app/service"
-	"github.com/ArtisanCloud/PowerX/boostrap/global"
-	"github.com/ArtisanCloud/PowerX/config"
+	"github.com/ArtisanCloud/PowerX/config/global"
+	globalDatabase "github.com/ArtisanCloud/PowerX/database/global"
 	"github.com/gin-gonic/gin"
 )
 
@@ -29,7 +29,7 @@ func ValidateUpdateTagGroup(context *gin.Context) {
 
 	tagGroup, tags, err := convertParaToTagGroupForUpdate(&form)
 	if err != nil {
-		apiResponse.SetCode(config.API_ERR_CODE_REQUEST_PARAM_ERROR, config.API_RETURN_CODE_ERROR, "", err.Error()).ThrowJSONResponse(context)
+		apiResponse.SetCode(global.API_ERR_CODE_REQUEST_PARAM_ERROR, global.API_RETURN_CODE_ERROR, "", err.Error()).ThrowJSONResponse(context)
 		return
 	}
 
@@ -41,7 +41,7 @@ func ValidateUpdateTagGroup(context *gin.Context) {
 func convertParaToTagGroupForUpdate(form *ParaUpdateTagGroup) (tagGroup *tag.TagGroup, tags []*tag.Tag, err error) {
 
 	serviceTag := service.NewTagService(nil)
-	tagGroup, err = serviceTag.GetTagGroupByID(global.DBConnection, form.GroupID)
+	tagGroup, err = serviceTag.GetTagGroupByID(globalDatabase.G_DBConnection, form.GroupID)
 	if err != nil {
 		return tagGroup, tags, err
 	}

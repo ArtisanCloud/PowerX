@@ -63,7 +63,7 @@ func (srv *WXMessageTemplateService) SyncWXMessageTemplateFromWXPlatform(db *gor
 
 func (srv *WXMessageTemplateService) SyncWXMessageTemplateTasksFromWXPlatform(db *gorm.DB, msgID string, limit int, cursor string) (err error) {
 
-	responseGroupMsgTask, err := WeComCustomer.App.ExternalContactMessageTemplate.GetGroupMsgTask(msgID, limit, cursor)
+	responseGroupMsgTask, err := G_WeComCustomer.App.ExternalContactMessageTemplate.GetGroupMsgTask(msgID, limit, cursor)
 	if err != nil {
 		return err
 	}
@@ -87,7 +87,7 @@ func (srv *WXMessageTemplateService) SyncWXMessageTemplateTasksFromWXPlatform(db
 
 func (srv *WXMessageTemplateService) SyncWXMessageTemplateSendResultsFromWXPlatform(db *gorm.DB, msgID string, userID string, limit int, cursor string) (err error) {
 
-	responseGroupMsgSendResult, err := WeComCustomer.App.ExternalContactMessageTemplate.GetGroupMsgSendResult(msgID, userID, limit, cursor)
+	responseGroupMsgSendResult, err := G_WeComCustomer.App.ExternalContactMessageTemplate.GetGroupMsgSendResult(msgID, userID, limit, cursor)
 	if err != nil {
 		return err
 	}

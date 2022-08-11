@@ -5,7 +5,7 @@ import (
 	"github.com/ArtisanCloud/PowerLibs/v2/database/tag"
 	"github.com/ArtisanCloud/PowerX/app/http"
 	"github.com/ArtisanCloud/PowerX/app/http/request"
-	"github.com/ArtisanCloud/PowerX/config"
+	"github.com/ArtisanCloud/PowerX/config/global"
 	"github.com/gin-gonic/gin"
 )
 
@@ -25,7 +25,7 @@ func ValidateInsertTagGroup(context *gin.Context) {
 	tagGroup, tags, err := convertParaToTagGroupForUpsert(&form)
 	if err != nil {
 		apiResponse := http.NewAPIResponse(context)
-		apiResponse.SetCode(config.API_ERR_CODE_REQUEST_PARAM_ERROR, config.API_RETURN_CODE_ERROR, "", err.Error()).ThrowJSONResponse(context)
+		apiResponse.SetCode(global.API_ERR_CODE_REQUEST_PARAM_ERROR, global.API_RETURN_CODE_ERROR, "", err.Error()).ThrowJSONResponse(context)
 		return
 	}
 	context.Set("tagGroup", tagGroup)

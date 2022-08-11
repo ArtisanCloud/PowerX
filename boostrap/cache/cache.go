@@ -3,13 +3,14 @@ package cache
 import (
 	"github.com/ArtisanCloud/PowerLibs/v2/cache"
 	"github.com/ArtisanCloud/PowerLibs/v2/object"
-	"github.com/ArtisanCloud/PowerX/boostrap/global"
+	globalBootstrap "github.com/ArtisanCloud/PowerX/boostrap/cache/global"
 	"github.com/ArtisanCloud/PowerX/config"
+	cacheConfig "github.com/ArtisanCloud/PowerX/config/cache"
 )
 
 func SetupCache() (err error) {
 
-	c := config.CacheConn
+	c := cacheConfig.G_RedisConfig
 
 	options := cache.RedisOptions{
 		Addr:       c.Host,
@@ -19,7 +20,7 @@ func SetupCache() (err error) {
 	}
 
 	// use redis as default cache connection
-	global.CacheConnection = cache.NewGRedis(&options)
+	globalBootstrap.G_CacheConnection = cache.NewGRedis(&options)
 
 	return nil
 

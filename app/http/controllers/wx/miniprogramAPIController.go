@@ -8,8 +8,8 @@ import (
 	"github.com/ArtisanCloud/PowerX/app/models"
 	"github.com/ArtisanCloud/PowerX/app/service"
 	"github.com/ArtisanCloud/PowerX/app/service/wx/miniProgram"
-	"github.com/ArtisanCloud/PowerX/boostrap/global"
-	"github.com/ArtisanCloud/PowerX/config"
+	"github.com/ArtisanCloud/PowerX/config/global"
+	globalDatabase "github.com/ArtisanCloud/PowerX/database/global"
 	"github.com/gin-gonic/gin"
 	"net/http"
 )
@@ -34,18 +34,18 @@ func APIMiniProgramCode2Session(context *gin.Context) {
 	code := codeInterface.(*requestWX.ParaMiniProgramCode2Session)
 	rs, err := ctl.ServiceMiniProgram.App.Auth.Session(code.Code)
 	if err != nil {
-		ctl.RS.SetCode(http.StatusExpectationFailed, config.API_RETURN_CODE_ERROR, "", err.Error())
+		ctl.RS.SetCode(http.StatusExpectationFailed, global.API_RETURN_CODE_ERROR, "", err.Error())
 		ctl.RS.ThrowJSONResponse(context)
 		return
 	}
 	if rs.OpenID == "" {
-		ctl.RS.SetCode(http.StatusExpectationFailed, config.API_RETURN_CODE_ERROR, "", rs.ErrMSG)
+		ctl.RS.SetCode(http.StatusExpectationFailed, global.API_RETURN_CODE_ERROR, "", rs.ErrMSG)
 		ctl.RS.ThrowJSONResponse(context)
 		return
 	}
 
 	serviceCustomer := service.NewCustomerService(context)
-	customer, err := serviceCustomer.GetCustomerByOpenID(global.DBConnection, rs.OpenID)
+	customer, err := serviceCustomer.GetCustomerByOpenID(globalDatabase.G_DBConnection, rs.OpenID)
 	appID := ctl.ServiceMiniProgram.App.GetConfig().GetString("app_id", "")
 	if err != nil || customer == nil {
 		customer = models.NewCustomer(object.NewCollection(&object.HashMap{
@@ -58,9 +58,9 @@ func APIMiniProgramCode2Session(context *gin.Context) {
 		customer.AppID = object.NewNullString(appID, true)
 		customer.SessionKey = rs.SessionKey
 	}
-	err = serviceCustomer.UpsertCustomers(global.DBConnection, models.ACCOUNT_UNIQUE_ID, []*models.Customer{customer}, nil)
+	err = serviceCustomer.UpsertCustomers(globalDatabase.G_DBConnection, models.ACCOUNT_UNIQUE_ID, []*models.Customer{customer}, nil)
 	if err != nil {
-		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_UPSERT_ACCOUNT, config.API_RETURN_CODE_ERROR, "", "failed to save employee")
+		ctl.RS.SetCode(global.API_ERR_CODE_FAIL_TO_UPSERT_ACCOUNT, global.API_RETURN_CODE_ERROR, "", "failed to save employee")
 		panic(ctl.RS)
 		return
 	}
@@ -95,12 +95,12 @@ func APIUpdateCustomer(context *gin.Context) {
 	userInfo := &object.HashMap{}
 	err = object.JsonDecode(userData, userInfo)
 	if err != nil {
-		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_GET_ACCOUNT_INFO, config.API_RETURN_CODE_ERROR, "", err.Error())
+		ctl.RS.SetCode(global.API_ERR_CODE_FAIL_TO_GET_ACCOUNT_INFO, global.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
 		return
 	}
 	if (*userInfo)["nickName"] == nil {
-		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_GET_ACCOUNT_INFO, config.API_RETURN_CODE_ERROR, "", "nick name is empty")
+		ctl.RS.SetCode(global.API_ERR_CODE_FAIL_TO_GET_ACCOUNT_INFO, global.API_RETURN_CODE_ERROR, "", "nick name is empty")
 		panic(ctl.RS)
 		return
 	}
@@ -109,10 +109,10 @@ func APIUpdateCustomer(context *gin.Context) {
 	customer.Name = (*userInfo)["nickName"].(string)
 
 	serviceCustomer := service.NewCustomerService(context)
-	customer, err = serviceCustomer.UpdateCustomer(global.DBConnection, customer, true)
+	customer, err = serviceCustomer.UpdateCustomer(globalDatabase.G_DBConnection, customer, true)
 
 	if err != nil {
-		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_UPSERT_ACCOUNT, config.API_RETURN_CODE_ERROR, "", err.Error())
+		ctl.RS.SetCode(global.API_ERR_CODE_FAIL_TO_UPSERT_ACCOUNT, global.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
 		return
 	}

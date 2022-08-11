@@ -4,7 +4,7 @@ import (
 	"github.com/ArtisanCloud/PowerWeChat/v2/src/kernel/power"
 	"github.com/ArtisanCloud/PowerX/app/http/controllers/api"
 	"github.com/ArtisanCloud/PowerX/app/service/wx/wecom"
-	"github.com/ArtisanCloud/PowerX/config"
+	"github.com/ArtisanCloud/PowerX/config/global"
 	"github.com/gin-gonic/gin"
 	"io"
 	"os"
@@ -35,7 +35,7 @@ func APIWeComMediaUploadImage(context *gin.Context) {
 
 	arrayList, err := ctl.ServiceWeComMedia.UploadImage(path, data)
 	if err != nil {
-		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_WECOM_MEDIA_UPLOAD_IMAGE, config.API_RETURN_CODE_ERROR, "", err.Error())
+		ctl.RS.SetCode(global.API_ERR_CODE_FAIL_TO_WECOM_MEDIA_UPLOAD_IMAGE, global.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
 		return
 	}
@@ -55,7 +55,7 @@ func APIWeComMediaGetMedia(context *gin.Context) {
 
 	result, err := ctl.ServiceWeComMedia.GetMedia(mediaID)
 	if err != nil {
-		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_WECOM_MEDIA_GET_MEDIA, config.API_RETURN_CODE_ERROR, "", err.Error())
+		ctl.RS.SetCode(global.API_ERR_CODE_FAIL_TO_WECOM_MEDIA_GET_MEDIA, global.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
 		return
 	}
@@ -76,7 +76,7 @@ func APIWeComMediaUploadTempImage(context *gin.Context) {
 
 	result, err := ctl.ServiceWeComMedia.UploadTempImage(path, data)
 	if err != nil {
-		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_WECOM_MEDIA_UPLOAD_MEDIA, config.API_RETURN_CODE_ERROR, "", err.Error())
+		ctl.RS.SetCode(global.API_ERR_CODE_FAIL_TO_WECOM_MEDIA_UPLOAD_MEDIA, global.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
 		return
 	}
@@ -98,7 +98,7 @@ func APIWeComMediaUploadTempVoice(context *gin.Context) {
 
 	result, err := ctl.ServiceWeComMedia.UploadTempVoice(path, data)
 	if err != nil {
-		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_WECOM_MEDIA_UPLOAD_MEDIA, config.API_RETURN_CODE_ERROR, "", err.Error())
+		ctl.RS.SetCode(global.API_ERR_CODE_FAIL_TO_WECOM_MEDIA_UPLOAD_MEDIA, global.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
 		return
 	}
@@ -120,7 +120,7 @@ func APIWeComMediaUploadTempVideo(context *gin.Context) {
 
 	result, err := ctl.ServiceWeComMedia.UploadTempVideo(path, data)
 	if err != nil {
-		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_WECOM_MEDIA_UPLOAD_MEDIA, config.API_RETURN_CODE_ERROR, "", err.Error())
+		ctl.RS.SetCode(global.API_ERR_CODE_FAIL_TO_WECOM_MEDIA_UPLOAD_MEDIA, global.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
 		return
 	}
@@ -142,7 +142,7 @@ func APIWeComMediaUploadTempFile(context *gin.Context) {
 
 	result, err := ctl.ServiceWeComMedia.UploadTempFile(path, data)
 	if err != nil {
-		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_WECOM_MEDIA_UPLOAD_MEDIA, config.API_RETURN_CODE_ERROR, "", err.Error())
+		ctl.RS.SetCode(global.API_ERR_CODE_FAIL_TO_WECOM_MEDIA_UPLOAD_MEDIA, global.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
 		return
 	}

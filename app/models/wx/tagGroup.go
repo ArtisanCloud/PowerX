@@ -3,7 +3,7 @@ package wx
 import (
 	"database/sql"
 	"github.com/ArtisanCloud/PowerLibs/v2/object"
-	"github.com/ArtisanCloud/PowerX/config"
+	"github.com/ArtisanCloud/PowerX/config/database"
 	"gorm.io/gorm"
 )
 
@@ -54,7 +54,7 @@ func NewWXTagGroup(mapObject *object.Collection) *WXTagGroup {
 func (mdl *WXTagGroup) GetTableName(needFull bool) string {
 	tableName := TABLE_NAME_TAG_GROUP
 	if needFull {
-		tableName = config.DatabaseConn.Schemas["option"] + "." + tableName
+		tableName = database.G_DBConfig.Schemas["option"] + "." + tableName
 	}
 	return tableName
 }

@@ -8,7 +8,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/app/models/wx"
 	"github.com/ArtisanCloud/PowerX/app/service"
 	serviceWX "github.com/ArtisanCloud/PowerX/app/service/wx/wecom"
-	"github.com/ArtisanCloud/PowerX/boostrap/global"
+	"github.com/ArtisanCloud/PowerX/database/global"
 	"github.com/gin-gonic/gin"
 	"gorm.io/datatypes"
 )
@@ -58,7 +58,7 @@ func ValidateUpdateContactWay(context *gin.Context) {
 func convertParaToContactWayForUpdate(form ParaUpdateContactWay) (contactWay *models.ContactWay, updateTags []*wx.WXTag, err error) {
 
 	contactWayService := service.NewContactWayService(nil)
-	contactWay, err = contactWayService.GetContactWayByConfigID(global.DBConnection, form.ConfigID)
+	contactWay, err = contactWayService.GetContactWayByConfigID(global.G_DBConnection, form.ConfigID)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -94,7 +94,7 @@ func convertParaToContactWayForUpdate(form ParaUpdateContactWay) (contactWay *mo
 
 	// load wxTagIDs
 	wxTagService := serviceWX.NewWXTagService(nil)
-	updateTags, err = wxTagService.GetWXTagsByIDs(global.DBConnection, form.WXTagIDs)
+	updateTags, err = wxTagService.GetWXTagsByIDs(global.G_DBConnection, form.WXTagIDs)
 	if err != nil {
 		return nil, nil, err
 	}

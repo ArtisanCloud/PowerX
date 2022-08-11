@@ -6,7 +6,7 @@ import (
 	request2 "github.com/ArtisanCloud/PowerWeChat/v2/src/work/externalContact/tag/request"
 	"github.com/ArtisanCloud/PowerWeChat/v2/src/work/externalContact/tag/response"
 	"github.com/ArtisanCloud/PowerX/app/models/wx"
-	"github.com/ArtisanCloud/PowerX/boostrap/global"
+	"github.com/ArtisanCloud/PowerX/database/global"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -19,7 +19,7 @@ type WXTagGroupService struct {
 
 func NewWXTagGroupService(ctx *gin.Context) (r *WXTagGroupService) {
 	r = &WXTagGroupService{
-		WeComService: WeComEmployee,
+		WeComService: G_WeComEmployee,
 		WXTagGroup:   wx.NewWXTagGroup(nil),
 	}
 	return r
@@ -79,21 +79,21 @@ func (srv *WXTagGroupService) UpsertWXTagGroups(db *gorm.DB, uniqueName string, 
 }
 
 func (srv *WXTagGroupService) DeleteWXTagGroups(tagIDs []string, groupIDs []string) (err error) {
-	err = global.DBConnection.Transaction(func(tx *gorm.DB) error {
+	err = global.G_DBConnection.Transaction(func(tx *gorm.DB) error {
 		serviceWXTag := NewWXTagService(nil)
 		if len(groupIDs) > 0 {
-			err = serviceWXTag.DeleteWXTagsByGroupIDs(global.DBConnection, groupIDs)
+			err = serviceWXTag.DeleteWXTagsByGroupIDs(global.G_DBConnection, groupIDs)
 			if err != nil {
 				return err
 			}
-			err = srv.DeleteWXTagGroupsByIDs(global.DBConnection, groupIDs)
+			err = srv.DeleteWXTagGroupsByIDs(global.G_DBConnection, groupIDs)
 			if err != nil {
 				return err
 			}
 		}
 
 		if len(tagIDs) > 0 {
-			err = serviceWXTag.DeleteWXTagsByIDs(global.DBConnection, tagIDs)
+			err = serviceWXTag.DeleteWXTagsByIDs(global.G_DBConnection, tagIDs)
 			if err != nil {
 				return err
 			}
@@ -162,7 +162,7 @@ func (srv *WXTagGroupService) GetWXTagGroupsByIDs(db *gorm.DB, arrayIDs []int) (
 func (srv *WXTagGroupService) SyncWXTagGroupsFromWXPlatform(tagIDs []string, groupIDs []string, needForceSync bool) (err error) {
 
 	// get tag group list from wechat platform
-	result, err := WeComApp.App.ExternalContactTag.GetCorpTagList(tagIDs, groupIDs)
+	result, err := G_WeComApp.App.ExternalContactTag.GetCorpTagList(tagIDs, groupIDs)
 
 	if err != nil {
 		return err
@@ -172,7 +172,7 @@ func (srv *WXTagGroupService) SyncWXTagGroupsFromWXPlatform(tagIDs []string, gro
 		return errors.New(result.ErrMSG)
 	}
 
-	err = global.DBConnection.Transaction(func(tx *gorm.DB) error {
+	err = global.G_DBConnection.Transaction(func(tx *gorm.DB) error {
 		serviceWXTag := NewWXTagService(nil)
 		// sync tag groups
 		for _, group := range result.TagGroups {
@@ -229,7 +229,7 @@ func (srv *WXTagGroupService) CreateWXTagGroupOnWXPlatform(requestTagGroup *wx.W
 		AgentID:   agentID,
 	}
 
-	result, err = WeComApp.App.ExternalContactTag.AddCorpTag(request)
+	result, err = G_WeComApp.App.ExternalContactTag.AddCorpTag(request)
 
 	if err != nil {
 		return nil, err
@@ -251,7 +251,7 @@ func (srv *WXTagGroupService) UpdateWXTagGroupOnWXPlatform(requestTagGroup *wx.W
 		AgentID: agentID,
 	}
 
-	result, err := WeComApp.App.ExternalContactTag.EditCorpTag(request)
+	result, err := G_WeComApp.App.ExternalContactTag.EditCorpTag(request)
 
 	if err != nil {
 		return err
@@ -272,7 +272,7 @@ func (srv *WXTagGroupService) DeleteWXTagGroupOnWXPlatform(groupIDs []string, ta
 		AgentID: agentID,
 	}
 
-	result, err := WeComApp.App.ExternalContactTag.DelCorpTag(request)
+	result, err := G_WeComApp.App.ExternalContactTag.DelCorpTag(request)
 
 	if err != nil {
 		return err
