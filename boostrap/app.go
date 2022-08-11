@@ -6,6 +6,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/app/service/wx/wecom"
 	cache2 "github.com/ArtisanCloud/PowerX/boostrap/cache"
 	"github.com/ArtisanCloud/PowerX/config"
+	"github.com/ArtisanCloud/PowerX/config/app"
 	"github.com/ArtisanCloud/PowerX/config/cache"
 	database2 "github.com/ArtisanCloud/PowerX/config/database"
 	"github.com/ArtisanCloud/PowerX/database"
@@ -21,7 +22,7 @@ func InitProject() (err error) {
 	dbConfigName := "database"
 	cacheConfigName := "cache"
 
-	err = config.LoadEnvConfig(nil, &envConfigName, nil)
+	err = app.LoadEnvConfig(nil, &envConfigName, nil)
 	if err != nil {
 		return err
 	}
@@ -48,7 +49,7 @@ func InitProject() (err error) {
 	lang.LoadLanguages()
 
 	// setup ssh key path
-	service.SetupSSHKeyPath(config.AppConfigure.SSH)
+	service.SetupSSHKeyPath(app.G_AppConfigure.SSH)
 
 	// Initialize the cache
 	err = cache2.SetupCache()

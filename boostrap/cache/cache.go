@@ -4,7 +4,7 @@ import (
 	"github.com/ArtisanCloud/PowerLibs/v2/cache"
 	"github.com/ArtisanCloud/PowerLibs/v2/object"
 	globalBootstrap "github.com/ArtisanCloud/PowerX/boostrap/cache/global"
-	"github.com/ArtisanCloud/PowerX/config"
+	"github.com/ArtisanCloud/PowerX/config/app"
 	cacheConfig "github.com/ArtisanCloud/PowerX/config/cache"
 )
 
@@ -27,6 +27,6 @@ func SetupCache() (err error) {
 }
 
 func GetKeyPrefix() string {
-	strAppName := object.Snake(config.AppConfigure.Name, "_")
+	strAppName := object.Snake(app.G_AppConfigure.Name, "_")
 	return strAppName + "_database_" + strAppName + "_cache:"
 }

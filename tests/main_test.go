@@ -6,6 +6,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/boostrap/cache"
 	"github.com/ArtisanCloud/PowerX/boostrap/cache/global"
 	"github.com/ArtisanCloud/PowerX/config"
+	"github.com/ArtisanCloud/PowerX/config/app"
 	cacheConfig "github.com/ArtisanCloud/PowerX/config/cache"
 	databaseConfig "github.com/ArtisanCloud/PowerX/config/database"
 	"github.com/ArtisanCloud/PowerX/database"
@@ -75,7 +76,7 @@ func SetupTestEnv(t *testing.M) {
 	if config.AppConfigure == nil {
 
 		configName := "environment"
-		config.LoadEnvConfig(&envPath, &configName, nil)
+		app.LoadEnvConfig(&envPath, &configName, nil)
 		if config.AppConfigure == nil {
 			logger.Logger.Error("app configure failed")
 		}

@@ -6,7 +6,7 @@ import (
 	"github.com/ArtisanCloud/PowerLibs/v2/object"
 	"github.com/ArtisanCloud/PowerWeChat/v2/src/work/externalContact/messageTemplate/response"
 	"github.com/ArtisanCloud/PowerX/app/models/wx"
-	"github.com/ArtisanCloud/PowerX/config"
+	"github.com/ArtisanCloud/PowerX/config/app"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -17,7 +17,7 @@ type WXMessageTemplateService struct {
 }
 
 func NewWXMessageTemplateService(ctx *gin.Context) (r *WXMessageTemplateService) {
-	weComConfig, _ := object.StructToMap(config.AppConfigure.Wechat["wecom"])
+	weComConfig, _ := object.StructToMap(app.G_AppConfigure.Wechat["wecom"])
 	if weComConfig["contact_secret"] != nil {
 		weComConfig["secret"] = weComConfig["contact_secret"]
 	}

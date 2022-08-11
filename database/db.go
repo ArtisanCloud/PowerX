@@ -2,7 +2,7 @@ package database
 
 import (
 	"context"
-	"github.com/ArtisanCloud/PowerX/config"
+	"github.com/ArtisanCloud/PowerX/config/app"
 	globalConfig "github.com/ArtisanCloud/PowerX/config/database"
 	"github.com/ArtisanCloud/PowerX/database/global"
 	"github.com/golang-module/carbon"
@@ -16,7 +16,7 @@ func SetupDatabase() (err error) {
 
 	d := globalConfig.G_DBConfig
 	c := d.BaseConfig
-	timezone := config.AppConfigure.Timezone
+	timezone := app.G_AppConfigure.Timezone
 	if timezone == "" {
 		timezone = carbon.UTC
 	}

@@ -4,7 +4,7 @@ import (
 	"errors"
 	"github.com/ArtisanCloud/PowerLibs/v2/object"
 	"github.com/ArtisanCloud/PowerSocialite/v2/src/providers"
-	"github.com/ArtisanCloud/PowerX/config"
+	"github.com/ArtisanCloud/PowerX/config/app"
 	"gorm.io/gorm"
 
 	"github.com/ArtisanCloud/PowerWeChat/v2/src/work/externalContact"
@@ -18,7 +18,7 @@ type WeComCustomerService struct {
 }
 
 func NewWeComCustomerService(ctx *gin.Context) (r *WeComCustomerService) {
-	weComConfig, _ := object.StructToMap(config.AppConfigure.Wechat["wecom"])
+	weComConfig, _ := object.StructToMap(app.G_AppConfigure.Wechat["wecom"])
 	if weComConfig["contact_secret"] != nil {
 		weComConfig["secret"] = weComConfig["contact_secret"]
 		weComConfig["oauth.scopes"] = []string{"snsapi_base"}

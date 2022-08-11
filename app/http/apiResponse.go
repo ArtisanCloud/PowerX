@@ -4,6 +4,7 @@ import (
 	fmt2 "fmt"
 	"github.com/ArtisanCloud/PowerX/app/service"
 	. "github.com/ArtisanCloud/PowerX/config"
+	"github.com/ArtisanCloud/PowerX/config/app"
 	. "github.com/ArtisanCloud/PowerX/config/global"
 	"github.com/gin-gonic/gin"
 	"golang.org/x/text/language"
@@ -160,8 +161,8 @@ func (rs *APIResponse) getJsonResponseBody() map[string]interface{} {
 			"return_message": rtMsg,
 			"result_code":    rs.Meta.ResultCode,
 			"result_message": rsMsg,
-			"timezone":       AppConfigure.Timezone,
-			"locale":         AppConfigure.Locale,
+			"timezone":       app.G_AppConfigure.Timezone,
+			"locale":         app.G_AppConfigure.Locale,
 		},
 		"data": rs.Data,
 	}

@@ -2,7 +2,7 @@ package main
 
 import (
 	"github.com/ArtisanCloud/PowerX/boostrap"
-	"github.com/ArtisanCloud/PowerX/config"
+	"github.com/ArtisanCloud/PowerX/config/app"
 	logger "github.com/ArtisanCloud/PowerX/loggerManager"
 	"github.com/ArtisanCloud/PowerX/routes"
 	"github.com/ArtisanCloud/PowerX/routes/global"
@@ -29,7 +29,7 @@ func main() {
 
 	// Start serving the application
 	// listen and serve on 0.0.0.0:8080 (for windows "localhost:8080®")
-	err = global.Router.Run(config.AppConfigure.Server.Host + ":" + config.AppConfigure.Server.Port)
+	err = global.Router.Run(app.G_AppConfigure.Server.Host + ":" + app.G_AppConfigure.Server.Port)
 	if err != nil {
 		logger.Logger.Error("run router error:", err)
 		panic(err)

@@ -4,7 +4,7 @@ import (
 	database2 "github.com/ArtisanCloud/PowerLibs/v2/database"
 	"github.com/ArtisanCloud/PowerLibs/v2/object"
 	modelWX "github.com/ArtisanCloud/PowerX/app/models/wx"
-	"github.com/ArtisanCloud/PowerX/config"
+	"github.com/ArtisanCloud/PowerX/config/app"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -16,7 +16,7 @@ type WeComDepartmentService struct {
 }
 
 func NewWeComDepartmentService(ctx *gin.Context) (r *WeComDepartmentService) {
-	weComConfig, _ := object.StructToMap(config.AppConfigure.Wechat["wecom"])
+	weComConfig, _ := object.StructToMap(app.G_AppConfigure.Wechat["wecom"])
 	if weComConfig["contact_secret"] != nil {
 		weComConfig["secret"] = weComConfig["contact_secret"]
 	}

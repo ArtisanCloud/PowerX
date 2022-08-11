@@ -18,7 +18,7 @@ import (
 	modelPowerWechat "github.com/ArtisanCloud/PowerWeChat/v2/src/work/server/handlers/models"
 	"github.com/ArtisanCloud/PowerX/app/models"
 	modelWX "github.com/ArtisanCloud/PowerX/app/models/wx"
-	"github.com/ArtisanCloud/PowerX/config"
+	"github.com/ArtisanCloud/PowerX/config/app"
 	"github.com/ArtisanCloud/PowerX/config/cache"
 	logger "github.com/ArtisanCloud/PowerX/loggerManager"
 	"github.com/gin-gonic/gin"
@@ -151,7 +151,7 @@ func (srv *WeComService) SendMessageToEmployee(ctx *gin.Context, msgType string,
 		return errors.New("have to offer the sendable object from toUserID,toPart,ToTag")
 	}
 
-	weComConfig := config.AppConfigure.Wechat["wecom"].(map[string]interface{})
+	weComConfig := app.G_AppConfigure.Wechat["wecom"].(map[string]interface{})
 	agentID := weComConfig["agent_id"].(int)
 
 	if msgType == "text" {
