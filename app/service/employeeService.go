@@ -302,7 +302,7 @@ func (srv *EmployeeService) HandleAddCustomer(context *gin.Context, event contra
 	}
 	serviceCustomer := NewCustomerService(context)
 	customer := serviceCustomer.NewCustomerFromWXContact(rs.ExternalContact)
-	err = serviceCustomer.UpsertCustomers(global.G_DBConnection, models.ACCOUNT_UNIQUE_ID, []*models.Customer{customer}, nil)
+	err = serviceCustomer.UpsertCustomers(global.G_DBConnection, []*models.Customer{customer}, nil)
 	if err != nil {
 		return err
 	}

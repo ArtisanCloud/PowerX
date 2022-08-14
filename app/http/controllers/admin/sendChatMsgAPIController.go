@@ -144,7 +144,7 @@ func APICreateSendChatMsg(context *gin.Context) {
 
 	err = globalDatabase.G_DBConnection.Transaction(func(tx *gorm.DB) error {
 		// insert send chat msg
-		err = ctl.ServiceSendChatMsg.UpsertSendChatMsgs(tx.Omit(clause.Associations), models.SEND_CHAT_MSG_UNIQUE_ID, []*models.SendChatMsg{sendChatMsg}, nil)
+		err = ctl.ServiceSendChatMsg.UpsertSendChatMsgs(tx.Omit(clause.Associations), []*models.SendChatMsg{sendChatMsg}, nil)
 		if err != nil {
 			ctl.RS.SetCode(global.API_ERR_CODE_FAIL_TO_CREATE_SEND_CHAT_MSG, global.API_RETURN_CODE_ERROR, "", err.Error())
 			return err
@@ -171,7 +171,7 @@ func APICreateSendChatMsg(context *gin.Context) {
 			}
 
 			// save the wx message template
-			err = serviceWXMessageTemplate.UpsertWXMessageTemplates(tx.Omit(clause.Associations), modelWX.WX_MESSAGE_TEMPLATE_UNIQUE_ID, []*modelWX.WXMessageTemplate{messageTemplate}, nil)
+			err = serviceWXMessageTemplate.UpsertWXMessageTemplates(tx.Omit(clause.Associations), []*modelWX.WXMessageTemplate{messageTemplate}, nil)
 			if err != nil {
 				return err
 			}
@@ -242,7 +242,7 @@ func APIDoSendChatMsgs(context *gin.Context) {
 				}
 
 				// save the wx message template
-				err = serviceWXMessageTemplate.UpsertWXMessageTemplates(tx.Omit(clause.Associations), modelWX.WX_MESSAGE_TEMPLATE_UNIQUE_ID, []*modelWX.WXMessageTemplate{wxMessageTemplate}, nil)
+				err = serviceWXMessageTemplate.UpsertWXMessageTemplates(tx.Omit(clause.Associations), []*modelWX.WXMessageTemplate{wxMessageTemplate}, nil)
 				if err != nil {
 					return err
 				}

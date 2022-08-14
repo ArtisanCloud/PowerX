@@ -120,7 +120,7 @@ func APICreateContactWay(context *gin.Context) {
 	//contactWay.ConfigID = "3495QhQRnTDdkOBwtBsmwLmNaC9plvlnQayZgb4k"
 
 	// insert contact way
-	err = ctl.ServiceContactWay.UpsertContactWays(global.G_DBConnection.Omit(clause.Associations), modelWX.WX_CONTACT_WAY_UNIQUE_ID, []*models.ContactWay{contactWay}, nil)
+	err = ctl.ServiceContactWay.UpsertContactWays(global.G_DBConnection.Omit(clause.Associations), []*models.ContactWay{contactWay}, nil)
 	if err != nil {
 		ctl.RS.SetCode(global2.API_ERR_CODE_FAIL_TO_CREATE_CONTACT_WAY, global2.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
@@ -159,7 +159,7 @@ func APIUpdateContactWay(context *gin.Context) {
 	}
 
 	// update contact way
-	err = ctl.ServiceContactWay.UpsertContactWays(global.G_DBConnection, modelWX.WX_CONTACT_WAY_UNIQUE_ID, []*models.ContactWay{contactWay}, nil)
+	err = ctl.ServiceContactWay.UpsertContactWays(global.G_DBConnection, []*models.ContactWay{contactWay}, nil)
 
 	if err != nil {
 		ctl.RS.SetCode(global2.API_ERR_CODE_FAIL_TO_UPDATE_CONTACT_WAY, global2.API_RETURN_CODE_ERROR, "", err.Error())

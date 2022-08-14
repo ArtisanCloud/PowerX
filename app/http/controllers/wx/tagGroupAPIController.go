@@ -113,7 +113,7 @@ func APIInsertWXTagGroup(context *gin.Context) {
 	wxTagGroup, err = ctl.ServiceWXTagGroup.ConvertResponseToWXTagGroup(result, wxTagGroup.WXDepartmentID)
 
 	// upsert wx tag group
-	err = ctl.ServiceWXTagGroup.UpsertWXTagGroups(globalDatabase.G_DBConnection, modelWX.WX_TAG_GROUP_UNIQUE_ID, []*modelWX.WXTagGroup{wxTagGroup}, nil)
+	err = ctl.ServiceWXTagGroup.UpsertWXTagGroups(globalDatabase.G_DBConnection, []*modelWX.WXTagGroup{wxTagGroup}, nil)
 	if err != nil {
 		ctl.RS.SetCode(global.API_ERR_CODE_FAIL_TO_INSERT_WX_TAG_GROUP, global.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
@@ -142,7 +142,7 @@ func APIUpdateWXTagGroup(context *gin.Context) {
 	}
 
 	// update wx tag group
-	err = ctl.ServiceWXTagGroup.UpsertWXTagGroups(globalDatabase.G_DBConnection, modelWX.WX_TAG_GROUP_UNIQUE_ID, []*modelWX.WXTagGroup{wxTagGroup}, []string{
+	err = ctl.ServiceWXTagGroup.UpsertWXTagGroups(globalDatabase.G_DBConnection, []*modelWX.WXTagGroup{wxTagGroup}, []string{
 		"group_name",
 		"order",
 	})

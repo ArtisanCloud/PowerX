@@ -58,7 +58,7 @@ func APIMiniProgramCode2Session(context *gin.Context) {
 		customer.AppID = object.NewNullString(appID, true)
 		customer.SessionKey = rs.SessionKey
 	}
-	err = serviceCustomer.UpsertCustomers(globalDatabase.G_DBConnection, models.ACCOUNT_UNIQUE_ID, []*models.Customer{customer}, nil)
+	err = serviceCustomer.UpsertCustomers(globalDatabase.G_DBConnection, []*models.Customer{customer}, nil)
 	if err != nil {
 		ctl.RS.SetCode(global.API_ERR_CODE_FAIL_TO_UPSERT_ACCOUNT, global.API_RETURN_CODE_ERROR, "", "failed to save employee")
 		panic(ctl.RS)

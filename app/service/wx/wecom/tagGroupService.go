@@ -2,14 +2,13 @@ package wecom
 
 import (
 	"errors"
-	database2 "github.com/ArtisanCloud/PowerLibs/v2/database"
+	databasePowerLib "github.com/ArtisanCloud/PowerLibs/v2/database"
 	request2 "github.com/ArtisanCloud/PowerWeChat/v2/src/work/externalContact/tag/request"
 	"github.com/ArtisanCloud/PowerWeChat/v2/src/work/externalContact/tag/response"
 	"github.com/ArtisanCloud/PowerX/app/models/wx"
 	"github.com/ArtisanCloud/PowerX/database/global"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 )
 
 type WXTagGroupService struct {
@@ -36,13 +35,13 @@ func (srv *WXTagGroupService) GetList(db *gorm.DB, wxDepartmentID int) (arrayWXT
 		}
 	}
 
-	err = database2.GetAllList(db, conditions, &arrayWXTagGroups, []string{"WXTags"})
+	err = databasePowerLib.GetAllList(db, conditions, &arrayWXTagGroups, []string{"WXTags"})
 
 	return arrayWXTagGroups, err
 }
 
 func (srv *WXTagGroupService) UpsertWXTagGroupsByCorpTagGroup(db *gorm.DB, group *response.CorpTagGroup) (err error) {
-	err = srv.UpsertWXTagGroups(db, wx.WX_TAG_GROUP_UNIQUE_ID, []*wx.WXTagGroup{
+	err = srv.UpsertWXTagGroups(db, []*wx.WXTagGroup{
 		&wx.WXTagGroup{
 			GroupID:    group.GroupID,
 			GroupName:  &group.GroupName,
@@ -60,22 +59,9 @@ func (srv *WXTagGroupService) UpsertWXTagGroupsByCorpTagGroup(db *gorm.DB, group
 	return err
 }
 
-func (srv *WXTagGroupService) UpsertWXTagGroups(db *gorm.DB, uniqueName string, tagGroups []*wx.WXTagGroup, fieldsToUpdate []string) error {
+func (srv *WXTagGroupService) UpsertWXTagGroups(db *gorm.DB, tagGroups []*wx.WXTagGroup, fieldsToUpdate []string) error {
 
-	if len(tagGroups) <= 0 {
-		return nil
-	}
-
-	if len(fieldsToUpdate) <= 0 {
-		fieldsToUpdate = database2.GetModelFields(&wx.WXTagGroup{})
-	}
-
-	result := db.Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: uniqueName}},
-		DoUpdates: clause.AssignmentColumns(fieldsToUpdate),
-	}).Create(&tagGroups)
-
-	return result.Error
+	return databasePowerLib.UpsertModelsOnUniqueID(db, &wx.WXTagGroup{}, wx.WX_TAG_GROUP_UNIQUE_ID, tagGroups, fieldsToUpdate)
 }
 
 func (srv *WXTagGroupService) DeleteWXTagGroups(tagIDs []string, groupIDs []string) (err error) {

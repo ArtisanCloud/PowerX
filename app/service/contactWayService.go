@@ -57,7 +57,7 @@ func (srv *ContactWayService) SyncContactWayFromWXPlatform(startDatetime *carbon
 		parties, _ := object.JsonEncode(responseContactWay.ContactWay.Party)
 		conclusions, _ := object.JsonEncode(responseContactWay.ContactWay.Conclusions)
 
-		err = srv.UpsertContactWays(global.G_DBConnection, wx.WX_CONTACT_WAY_UNIQUE_ID, []*models.ContactWay{
+		err = srv.UpsertContactWays(global.G_DBConnection, []*models.ContactWay{
 			&models.ContactWay{
 				PowerModel: database.NewPowerModel(),
 				CodeURL:    responseContactWay.ContactWay.QrCode,
@@ -117,22 +117,9 @@ func (srv *ContactWayService) GetList(db *gorm.DB, groupUUID string) (contactWay
 	return contactWays, err
 }
 
-func (srv *ContactWayService) UpsertContactWays(db *gorm.DB, uniqueName string, contactWays []*models.ContactWay, fieldsToUpdate []string) error {
+func (srv *ContactWayService) UpsertContactWays(db *gorm.DB, contactWays []*models.ContactWay, fieldsToUpdate []string) error {
 
-	if len(contactWays) <= 0 {
-		return nil
-	}
-
-	if len(fieldsToUpdate) <= 0 {
-		fieldsToUpdate = database.GetModelFields(&models.ContactWay{})
-	}
-
-	result := db.Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: uniqueName}},
-		DoUpdates: clause.AssignmentColumns(fieldsToUpdate),
-	}).Create(&contactWays)
-
-	return result.Error
+	return database.UpsertModelsOnUniqueID(db, &models.ContactWay{}, wx.WX_CONTACT_WAY_UNIQUE_ID, contactWays, fieldsToUpdate)
 }
 
 func (srv *ContactWayService) SaveContactWay(db *gorm.DB, contactWay *models.ContactWay) (*models.ContactWay, error) {

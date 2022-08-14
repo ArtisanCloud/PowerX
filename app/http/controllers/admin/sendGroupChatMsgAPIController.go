@@ -150,7 +150,7 @@ func APICreateSendGroupChatMsg(context *gin.Context) {
 
 	err = globalDatabase.G_DBConnection.Transaction(func(tx *gorm.DB) error {
 		// insert send chat msg
-		err = ctl.ServiceSendGroupChatMsg.UpsertSendGroupChatMsgs(tx.Omit(clause.Associations), models.SEND_GROUP_CHAT_MSG_UNIQUE_ID, []*models.SendGroupChatMsg{sendGroupChatMsg}, nil)
+		err = ctl.ServiceSendGroupChatMsg.UpsertSendGroupChatMsgs(tx.Omit(clause.Associations), []*models.SendGroupChatMsg{sendGroupChatMsg}, nil)
 		if err != nil {
 			ctl.RS.SetCode(global.API_ERR_CODE_FAIL_TO_CREATE_SEND_GROUP_CHAT_MSG, global.API_RETURN_CODE_ERROR, "", err.Error())
 			return err
@@ -176,7 +176,7 @@ func APICreateSendGroupChatMsg(context *gin.Context) {
 				// 如果二开团队有自己的触发延时事件机制，可以在这里的block实现
 			}
 
-			err = serviceWXMessageTemplate.UpsertWXMessageTemplates(tx.Omit(clause.Associations), modelWX.WX_MESSAGE_TEMPLATE_UNIQUE_ID, []*modelWX.WXMessageTemplate{messageTemplate}, nil)
+			err = serviceWXMessageTemplate.UpsertWXMessageTemplates(tx.Omit(clause.Associations), []*modelWX.WXMessageTemplate{messageTemplate}, nil)
 			if err != nil {
 				return err
 			}
@@ -246,7 +246,7 @@ func APIDoSendGroupChatMsgs(context *gin.Context) {
 				}
 
 				// save the wx message template
-				err = serviceWXMessageTemplate.UpsertWXMessageTemplates(tx.Omit(clause.Associations), modelWX.WX_MESSAGE_TEMPLATE_UNIQUE_ID, []*modelWX.WXMessageTemplate{wxMessageTemplate}, nil)
+				err = serviceWXMessageTemplate.UpsertWXMessageTemplates(tx.Omit(clause.Associations), []*modelWX.WXMessageTemplate{wxMessageTemplate}, nil)
 				if err != nil {
 					return err
 				}

@@ -9,7 +9,6 @@ import (
 	"github.com/ArtisanCloud/PowerX/config/app"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 )
 
 type WXMessageTemplateService struct {
@@ -43,7 +42,7 @@ func (srv *WXMessageTemplateService) SyncWXMessageTemplateFromWXPlatform(db *gor
 		updateFields = append(updateFields, "creator")
 	}
 
-	err = srv.UpsertWXMessageTemplates(db, wx.WX_MESSAGE_TEMPLATE_UNIQUE_ID, []*wx.WXMessageTemplate{wxMessageTemplate}, updateFields)
+	err = srv.UpsertWXMessageTemplates(db, []*wx.WXMessageTemplate{wxMessageTemplate}, updateFields)
 	if err != nil {
 		return err
 	}
@@ -79,7 +78,7 @@ func (srv *WXMessageTemplateService) SyncWXMessageTemplateTasksFromWXPlatform(db
 	// upsert wx message templates tasks
 	for _, rs := range responseGroupMsgTask.TaskList {
 		task := wx.NewWXMessageTemplateTask(msgID, rs)
-		err = serviceMessageTemplate.UpsertWXMessageTemplateTasks(db, wx.WX_MESSAGE_TEMPLATE_TASK_UNIQUE_ID, []*wx.WXMessageTemplateTask{task}, nil)
+		err = serviceMessageTemplate.UpsertWXMessageTemplateTasks(db, []*wx.WXMessageTemplateTask{task}, nil)
 	}
 
 	return err
@@ -103,7 +102,7 @@ func (srv *WXMessageTemplateService) SyncWXMessageTemplateSendResultsFromWXPlatf
 	serviceMessageTemplate := NewWXMessageTemplateService(nil)
 	for _, rs := range responseGroupMsgSendResult.SendList {
 		sendResult := wx.NewWXMessageTemplateSendResult(msgID, rs)
-		err = serviceMessageTemplate.UpsertWXMessageTemplateSendResults(db, wx.WX_MESSAGE_TEMPLATE_SEND_RESULT_UNIQUE_ID, []*wx.WXMessageTemplateSend{sendResult}, nil)
+		err = serviceMessageTemplate.UpsertWXMessageTemplateSendResults(db, []*wx.WXMessageTemplateSend{sendResult}, nil)
 	}
 	return err
 }
@@ -122,54 +121,16 @@ func (srv *WXMessageTemplateService) GetWXMessageTemplateByMsgID(db *gorm.DB, ms
 	return messageTemplate, err
 }
 
-func (srv *WXMessageTemplateService) UpsertWXMessageTemplates(db *gorm.DB, uniqueName string, messageTemplates []*wx.WXMessageTemplate, fieldsToUpdate []string) error {
+func (srv *WXMessageTemplateService) UpsertWXMessageTemplates(db *gorm.DB, messageTemplates []*wx.WXMessageTemplate, fieldsToUpdate []string) error {
 
-	if len(messageTemplates) <= 0 {
-		return nil
-	}
-
-	if len(fieldsToUpdate) <= 0 {
-		fieldsToUpdate = databasePowerLib.GetModelFields(&wx.WXMessageTemplate{})
-	}
-
-	result := db.Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: uniqueName}},
-		DoUpdates: clause.AssignmentColumns(fieldsToUpdate),
-	}).Create(&messageTemplates)
-
-	return result.Error
+	return databasePowerLib.UpsertModelsOnUniqueID(db, &wx.WXMessageTemplate{}, wx.WX_MESSAGE_TEMPLATE_UNIQUE_ID, messageTemplates, fieldsToUpdate)
 }
 
-func (srv *WXMessageTemplateService) UpsertWXMessageTemplateTasks(db *gorm.DB, uniqueName string, tasks []*wx.WXMessageTemplateTask, fieldsToUpdate []string) error {
-	if len(tasks) <= 0 {
-		return nil
-	}
-
-	if len(fieldsToUpdate) <= 0 {
-		fieldsToUpdate = databasePowerLib.GetModelFields(&wx.WXMessageTemplateTask{})
-	}
-
-	result := db.Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: uniqueName}},
-		DoUpdates: clause.AssignmentColumns(fieldsToUpdate),
-	}).Create(&tasks)
-
-	return result.Error
+func (srv *WXMessageTemplateService) UpsertWXMessageTemplateTasks(db *gorm.DB, tasks []*wx.WXMessageTemplateTask, fieldsToUpdate []string) error {
+	return databasePowerLib.UpsertModelsOnUniqueID(db, wx.WXMessageTemplateTask{}, wx.WX_MESSAGE_TEMPLATE_TASK_UNIQUE_ID, tasks, fieldsToUpdate)
 }
 
-func (srv *WXMessageTemplateService) UpsertWXMessageTemplateSendResults(db *gorm.DB, uniqueName string, tasks []*wx.WXMessageTemplateSend, fieldsToUpdate []string) error {
-	if len(tasks) <= 0 {
-		return nil
-	}
+func (srv *WXMessageTemplateService) UpsertWXMessageTemplateSendResults(db *gorm.DB, tasks []*wx.WXMessageTemplateSend, fieldsToUpdate []string) error {
 
-	if len(fieldsToUpdate) <= 0 {
-		fieldsToUpdate = databasePowerLib.GetModelFields(&wx.WXMessageTemplateSend{})
-	}
-
-	result := db.Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: uniqueName}},
-		DoUpdates: clause.AssignmentColumns(fieldsToUpdate),
-	}).Create(&tasks)
-
-	return result.Error
+	return databasePowerLib.UpsertModelsOnUniqueID(db, &wx.WXMessageTemplateSend{}, wx.WX_MESSAGE_TEMPLATE_SEND_RESULT_UNIQUE_ID, tasks, fieldsToUpdate)
 }

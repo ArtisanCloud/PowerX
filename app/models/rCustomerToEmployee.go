@@ -10,7 +10,6 @@ import (
 	database2 "github.com/ArtisanCloud/PowerX/config/database"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 )
 
 // TableName overrides the table name used by RCustomerToEmployee to `profiles`
@@ -121,20 +120,7 @@ func (mdl *RCustomerToEmployee) UpsertPivotByFollowUser(db *gorm.DB, customer *C
 
 func (mdl *RCustomerToEmployee) UpsertPivots(db *gorm.DB, pivots []*RCustomerToEmployee, fieldsToUpdate []string) error {
 
-	if len(pivots) <= 0 {
-		return nil
-	}
-
-	if len(fieldsToUpdate) <= 0 {
-		fieldsToUpdate = database.GetModelFields(&RCustomerToEmployee{})
-	}
-
-	result := db.Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: R_CUSTOMER_TO_EMPLOYEE_UNIQUE_ID}},
-		DoUpdates: clause.AssignmentColumns(fieldsToUpdate),
-	}).Create(&pivots)
-
-	return result.Error
+	return database.UpsertModelsOnUniqueID(db, mdl, R_CUSTOMER_TO_EMPLOYEE_UNIQUE_ID, pivots, fieldsToUpdate)
 }
 
 func (mdl *RCustomerToEmployee) ClearPivot(db *gorm.DB, customerExternalUserID string, employeeUserID string) (*RCustomerToEmployee, error) {

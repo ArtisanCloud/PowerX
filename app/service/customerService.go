@@ -46,7 +46,7 @@ func (srv *CustomerService) GetList(db *gorm.DB, conditions *map[string]interfac
 }
 
 func (srv *CustomerService) UpsertCustomerByWXCustomer(db *gorm.DB, customer *modelWX.WXCustomer) (err error) {
-	err = srv.UpsertCustomers(db, models.ACCOUNT_UNIQUE_ID, []*models.Customer{
+	err = srv.UpsertCustomers(db, []*models.Customer{
 		&models.Customer{
 			PowerModel: databasePoweLib.NewPowerModel(),
 			WXCustomer: &modelWX.WXCustomer{
@@ -75,22 +75,8 @@ func (srv *CustomerService) UpsertCustomerByWXCustomer(db *gorm.DB, customer *mo
 	return err
 }
 
-func (srv *CustomerService) UpsertCustomers(db *gorm.DB, uniqueName string, customers []*models.Customer, fieldsToUpdate []string) error {
-
-	if len(customers) <= 0 {
-		return nil
-	}
-
-	if len(fieldsToUpdate) <= 0 {
-		fieldsToUpdate = databasePoweLib.GetModelFields(&models.Customer{})
-	}
-
-	result := db.Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: uniqueName}},
-		DoUpdates: clause.AssignmentColumns(fieldsToUpdate),
-	}).Create(&customers)
-
-	return result.Error
+func (srv *CustomerService) UpsertCustomers(db *gorm.DB, customers []*models.Customer, fieldsToUpdate []string) error {
+	return databasePoweLib.UpsertModelsOnUniqueID(db, &models.Customer{}, models.ACCOUNT_UNIQUE_ID, customers, fieldsToUpdate)
 }
 
 func (srv *CustomerService) UpsertCustomer(db *gorm.DB, customer *models.Customer, withAssociation bool) (savedCustomer *models.Customer, err error) {

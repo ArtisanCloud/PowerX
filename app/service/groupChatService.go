@@ -69,7 +69,7 @@ func (srv *GroupChatService) SyncGroupChatFromWXPlatform(statusFilter int, owner
 		if err != nil || responseGroupChat.ErrCode != 0 {
 			continue
 		}
-		err = srv.UpsertGroupChats(global.G_DBConnection, modelWX.WX_GROUP_CHAT_UNIQUE_ID, []*models.GroupChat{
+		err = srv.UpsertGroupChats(global.G_DBConnection, []*models.GroupChat{
 			&models.GroupChat{
 				PowerCompactModel: databasePowerLib.NewPowerCompactModel(),
 				WXGroupChat: &modelWX.WXGroupChat{
@@ -106,7 +106,7 @@ func (srv *GroupChatService) SyncGroupChatFromWXPlatform(statusFilter int, owner
 				UnionID:       &member.UnionID,
 			}
 			groupChatMember.UniqueID = groupChatMember.GetComposedUniqueID()
-			err = srv.UpsertGroupChatMembers(global.G_DBConnection, modelWX.WX_GROUP_CHAT_MEMBER_UNIQUE_ID, []*modelWX.WXGroupChatMember{groupChatMember}, []string{
+			err = srv.UpsertGroupChatMembers(global.G_DBConnection, []*modelWX.WXGroupChatMember{groupChatMember}, []string{
 				"wx_group_chat_id",
 				"user_id",
 				"type",
@@ -129,7 +129,7 @@ func (srv *GroupChatService) SyncGroupChatFromWXPlatform(statusFilter int, owner
 				UserID:        &member.UserID,
 			}
 			groupChatAdmin.UniqueID = groupChatAdmin.GetComposedUniqueID()
-			err = srv.UpsertGroupChatAdmins(global.G_DBConnection, modelWX.WX_GROUP_CHAT_ADMIN_UNIQUE_ID, []*modelWX.WXGroupChatAdmin{groupChatAdmin}, []string{
+			err = srv.UpsertGroupChatAdmins(global.G_DBConnection, []*modelWX.WXGroupChatAdmin{groupChatAdmin}, []string{
 				"wx_group_chat_id",
 				"user_id",
 			})
@@ -227,58 +227,19 @@ func (srv *GroupChatService) SubQueryOfGroupChatMemberCount(db *gorm.DB) *gorm.D
 
 }
 
-func (srv *GroupChatService) UpsertGroupChats(db *gorm.DB, uniqueName string, groupChats []*models.GroupChat, fieldsToUpdate []string) error {
+func (srv *GroupChatService) UpsertGroupChats(db *gorm.DB, groupChats []*models.GroupChat, fieldsToUpdate []string) error {
 
-	if len(groupChats) <= 0 {
-		return nil
-	}
-
-	if len(fieldsToUpdate) <= 0 {
-		fieldsToUpdate = databasePowerLib.GetModelFields(&models.GroupChat{})
-	}
-
-	result := db.Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: uniqueName}},
-		DoUpdates: clause.AssignmentColumns(fieldsToUpdate),
-	}).Create(&groupChats)
-
-	return result.Error
+	return databasePowerLib.UpsertModelsOnUniqueID(db, &models.GroupChat{}, modelWX.WX_GROUP_CHAT_UNIQUE_ID, groupChats, fieldsToUpdate)
 }
 
-func (srv *GroupChatService) UpsertGroupChatMembers(db *gorm.DB, uniqueName string, groupChatMembers []*modelWX.WXGroupChatMember, fieldsToUpdate []string) error {
+func (srv *GroupChatService) UpsertGroupChatMembers(db *gorm.DB, groupChatMembers []*modelWX.WXGroupChatMember, fieldsToUpdate []string) error {
 
-	if len(groupChatMembers) <= 0 {
-		return nil
-	}
-
-	if len(fieldsToUpdate) <= 0 {
-		fieldsToUpdate = databasePowerLib.GetModelFields(&models.GroupChat{})
-	}
-
-	result := db.Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: uniqueName}},
-		DoUpdates: clause.AssignmentColumns(fieldsToUpdate),
-	}).Create(&groupChatMembers)
-
-	return result.Error
+	return databasePowerLib.UpsertModelsOnUniqueID(db, &modelWX.WXGroupChatMember{}, modelWX.WX_GROUP_CHAT_MEMBER_UNIQUE_ID, groupChatMembers, fieldsToUpdate)
 }
 
-func (srv *GroupChatService) UpsertGroupChatAdmins(db *gorm.DB, uniqueName string, groupChatAdmins []*modelWX.WXGroupChatAdmin, fieldsToUpdate []string) error {
+func (srv *GroupChatService) UpsertGroupChatAdmins(db *gorm.DB, groupChatAdmins []*modelWX.WXGroupChatAdmin, fieldsToUpdate []string) error {
 
-	if len(groupChatAdmins) <= 0 {
-		return nil
-	}
-
-	if len(fieldsToUpdate) <= 0 {
-		fieldsToUpdate = databasePowerLib.GetModelFields(&models.GroupChat{})
-	}
-
-	result := db.Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: uniqueName}},
-		DoUpdates: clause.AssignmentColumns(fieldsToUpdate),
-	}).Create(&groupChatAdmins)
-
-	return result.Error
+	return databasePowerLib.UpsertModelsOnUniqueID(db, &modelWX.WXGroupChatAdmin{}, modelWX.WX_GROUP_CHAT_ADMIN_UNIQUE_ID, groupChatAdmins, fieldsToUpdate)
 }
 
 func (srv *GroupChatService) SaveGroupChat(db *gorm.DB, groupChat *models.GroupChat) (*models.GroupChat, error) {

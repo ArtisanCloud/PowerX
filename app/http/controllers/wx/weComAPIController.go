@@ -439,7 +439,7 @@ func WeComAuthorizedCustomer(context *gin.Context) {
 	}
 
 	account = models.NewCustomer(object.NewCollection(customer.GetAttributes()))
-	err = service.NewCustomerService(context).UpsertCustomers(globalDatabase.G_DBConnection, models.ACCOUNT_UNIQUE_ID, []*models.Customer{account}, nil)
+	err = service.NewCustomerService(context).UpsertCustomers(globalDatabase.G_DBConnection, []*models.Customer{account}, nil)
 	if err != nil {
 		ctl.RS.SetCode(global.API_ERR_CODE_FAIL_TO_UPSERT_ACCOUNT, global.API_RETURN_CODE_ERROR, "", "")
 		panic(ctl.RS)

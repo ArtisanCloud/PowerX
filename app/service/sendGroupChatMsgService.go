@@ -153,22 +153,9 @@ func (srv *SendGroupChatMsgService) GetToDoSendList(db *gorm.DB, filterStartDate
 	return sendGroupChatMsgs, result.Error
 }
 
-func (srv *SendGroupChatMsgService) UpsertSendGroupChatMsgs(db *gorm.DB, uniqueName string, sendGroupChatMsgs []*models.SendGroupChatMsg, fieldsToUpdate []string) error {
+func (srv *SendGroupChatMsgService) UpsertSendGroupChatMsgs(db *gorm.DB, sendGroupChatMsgs []*models.SendGroupChatMsg, fieldsToUpdate []string) error {
 
-	if len(sendGroupChatMsgs) <= 0 {
-		return nil
-	}
-
-	if len(fieldsToUpdate) <= 0 {
-		fieldsToUpdate = databasePowerLib.GetModelFields(&models.SendGroupChatMsg{})
-	}
-
-	result := db.Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: uniqueName}},
-		DoUpdates: clause.AssignmentColumns(fieldsToUpdate),
-	}).Create(&sendGroupChatMsgs)
-
-	return result.Error
+	return databasePowerLib.UpsertModelsOnUniqueID(db, &models.SendGroupChatMsg{}, models.SEND_GROUP_CHAT_MSG_UNIQUE_ID, sendGroupChatMsgs, fieldsToUpdate)
 }
 
 func (srv *SendGroupChatMsgService) SaveSendGroupChatMsg(db *gorm.DB, sendGroupChatMsg *models.SendGroupChatMsg) (*models.SendGroupChatMsg, error) {

@@ -5,6 +5,7 @@ import (
 	"github.com/ArtisanCloud/PowerLibs/v2/database/tag"
 	"github.com/ArtisanCloud/PowerLibs/v2/object"
 	service "github.com/ArtisanCloud/PowerX/app/service"
+	"github.com/ArtisanCloud/PowerX/database/global"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 	"reflect"
@@ -54,7 +55,7 @@ func (seeder *TagTableSeeder) Run(ctx *gin.Context) (err error) {
 			}
 		}
 
-		err = serviceTag.UpsertTags(global.G_DBConnection, tag.TAG_UNIQUE_ID, tags, nil)
+		err = serviceTag.UpsertTags(global.G_DBConnection, tags, nil)
 		return nil
 	})
 

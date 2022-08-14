@@ -10,7 +10,6 @@ import (
 	"github.com/ArtisanCloud/PowerX/config/app"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 )
 
 type WeComEmployeeService struct {
@@ -31,7 +30,7 @@ func NewWeComEmployeeService(ctx *gin.Context) (r *WeComEmployeeService) {
 }
 
 func (srv *WeComEmployeeService) UpsertEmployeeByWXEmployee(db *gorm.DB, employee *wx.WXEmployee) (err error) {
-	err = srv.UpsertEmployees(db, models.EMPLOYEE_UNIQUE_ID, []*models.Employee{
+	err = srv.UpsertEmployees(db, []*models.Employee{
 		&models.Employee{
 			PowerModel: databasePowerLib.NewPowerModel(),
 			WXEmployee: &wx.WXEmployee{
@@ -93,22 +92,9 @@ func (srv *WeComEmployeeService) UpsertEmployeeByWXEmployee(db *gorm.DB, employe
 	return err
 }
 
-func (srv *WeComEmployeeService) UpsertEmployees(db *gorm.DB, uniqueName string, employees []*models.Employee, fieldsToUpdate []string) error {
+func (srv *WeComEmployeeService) UpsertEmployees(db *gorm.DB, employees []*models.Employee, fieldsToUpdate []string) error {
 
-	if len(employees) <= 0 {
-		return nil
-	}
-
-	if len(fieldsToUpdate) <= 0 {
-		fieldsToUpdate = databasePowerLib.GetModelFields(&models.Employee{})
-	}
-
-	result := db.Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: uniqueName}},
-		DoUpdates: clause.AssignmentColumns(fieldsToUpdate),
-	}).Create(&employees)
-
-	return result.Error
+	return databasePowerLib.UpsertModelsOnUniqueID(db, &models.Employee{}, models.EMPLOYEE_UNIQUE_ID, employees, fieldsToUpdate)
 }
 
 func (srv *WeComEmployeeService) GetEmployees(db *gorm.DB) (employees []*models.Employee, err error) {
