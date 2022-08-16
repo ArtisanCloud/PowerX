@@ -7,7 +7,7 @@ import (
 	"github.com/ArtisanCloud/PowerLibs/v2/security"
 	"github.com/ArtisanCloud/PowerSocialite/v2/src/models"
 	"github.com/ArtisanCloud/PowerX/app/models/wx"
-	database2 "github.com/ArtisanCloud/PowerX/config/database"
+	database2 "github.com/ArtisanCloud/PowerX/configs/database"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )

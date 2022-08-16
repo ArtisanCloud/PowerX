@@ -4,7 +4,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/app/http/controllers/api"
 	"github.com/ArtisanCloud/PowerX/app/service"
 	global2 "github.com/ArtisanCloud/PowerX/app/service/wx/wecom"
-	"github.com/ArtisanCloud/PowerX/config/global"
+	"github.com/ArtisanCloud/PowerX/configs/global"
 	globalDatabase "github.com/ArtisanCloud/PowerX/database/global"
 	"github.com/gin-gonic/gin"
 )

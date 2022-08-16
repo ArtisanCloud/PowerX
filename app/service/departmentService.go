@@ -7,7 +7,7 @@ import (
 	models2 "github.com/ArtisanCloud/PowerWeChat/v2/src/work/server/handlers/models"
 	"github.com/ArtisanCloud/PowerX/app/models/wx"
 	"github.com/ArtisanCloud/PowerX/app/service/wx/wecom"
-	global2 "github.com/ArtisanCloud/PowerX/config/global"
+	global2 "github.com/ArtisanCloud/PowerX/configs/global"
 	"github.com/ArtisanCloud/PowerX/database/global"
 	logger "github.com/ArtisanCloud/PowerX/loggerManager"
 	"github.com/gin-gonic/gin"

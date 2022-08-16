@@ -7,7 +7,7 @@ import (
 	"github.com/ArtisanCloud/PowerSocialite/v2/src/providers"
 	"github.com/ArtisanCloud/PowerX/app/models"
 	"github.com/ArtisanCloud/PowerX/app/models/wx"
-	"github.com/ArtisanCloud/PowerX/config/app"
+	"github.com/ArtisanCloud/PowerX/configs/app"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )

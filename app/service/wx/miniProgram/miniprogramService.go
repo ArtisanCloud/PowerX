@@ -4,7 +4,7 @@ import (
 	"github.com/ArtisanCloud/PowerWeChat/v2/src/kernel"
 	"github.com/ArtisanCloud/PowerWeChat/v2/src/kernel/response"
 	"github.com/ArtisanCloud/PowerWeChat/v2/src/miniProgram"
-	"github.com/ArtisanCloud/PowerX/config/cache"
+	"github.com/ArtisanCloud/PowerX/configs/cache"
 	"github.com/gin-gonic/gin"
 	"log"
 	"os"

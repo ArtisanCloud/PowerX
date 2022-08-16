@@ -2,7 +2,7 @@ package en_US
 
 import (
 	fmt2 "fmt"
-	"github.com/ArtisanCloud/PowerX/config/global"
+	"github.com/ArtisanCloud/PowerX/configs/global"
 	"golang.org/x/text/language"
 	"golang.org/x/text/message"
 )

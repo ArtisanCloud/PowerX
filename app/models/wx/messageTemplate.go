@@ -5,7 +5,7 @@ import (
 	"github.com/ArtisanCloud/PowerLibs/v2/object"
 	"github.com/ArtisanCloud/PowerLibs/v2/security"
 	"github.com/ArtisanCloud/PowerWeChat/v2/src/work/externalContact/messageTemplate/response"
-	globalConfig "github.com/ArtisanCloud/PowerX/config/database"
+	globalConfig "github.com/ArtisanCloud/PowerX/configs/database"
 	"gorm.io/datatypes"
 )
 

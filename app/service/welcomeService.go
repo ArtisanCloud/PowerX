@@ -2,7 +2,7 @@ package service
 
 import (
 	"github.com/ArtisanCloud/PowerX/app/models"
-	"github.com/ArtisanCloud/PowerX/config"
+	"github.com/ArtisanCloud/PowerX/configs"
 )
 
 type WelcomeService struct {

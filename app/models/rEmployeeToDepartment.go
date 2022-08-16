@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"github.com/ArtisanCloud/PowerLibs/v2/database"
 	"github.com/ArtisanCloud/PowerX/app/models/wx"
-	database2 "github.com/ArtisanCloud/PowerX/config/database"
+	database2 "github.com/ArtisanCloud/PowerX/configs/database"
 )
 
 // TableName overrides the table name used by REmployeeToDepartment to `profiles`

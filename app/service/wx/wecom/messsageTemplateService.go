@@ -6,7 +6,7 @@ import (
 	"github.com/ArtisanCloud/PowerLibs/v2/object"
 	"github.com/ArtisanCloud/PowerWeChat/v2/src/work/externalContact/messageTemplate/response"
 	"github.com/ArtisanCloud/PowerX/app/models/wx"
-	"github.com/ArtisanCloud/PowerX/config/app"
+	"github.com/ArtisanCloud/PowerX/configs/app"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )

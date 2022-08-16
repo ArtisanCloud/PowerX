@@ -3,7 +3,7 @@ package wx
 import (
 	"database/sql"
 	"github.com/ArtisanCloud/PowerLibs/v2/object"
-	"github.com/ArtisanCloud/PowerX/config/database"
+	"github.com/ArtisanCloud/PowerX/configs/database"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )

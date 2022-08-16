@@ -4,7 +4,7 @@ import (
 	"github.com/ArtisanCloud/PowerWeChat/v2/src/kernel/power"
 	"github.com/ArtisanCloud/PowerX/app/http/controllers/api"
 	"github.com/ArtisanCloud/PowerX/app/service/wx/wecom"
-	"github.com/ArtisanCloud/PowerX/config/global"
+	"github.com/ArtisanCloud/PowerX/configs/global"
 	"github.com/gin-gonic/gin"
 	"io"
 	"os"

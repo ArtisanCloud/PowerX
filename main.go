@@ -2,7 +2,7 @@ package main
 
 import (
 	"github.com/ArtisanCloud/PowerX/boostrap"
-	"github.com/ArtisanCloud/PowerX/config/app"
+	"github.com/ArtisanCloud/PowerX/configs/app"
 	logger "github.com/ArtisanCloud/PowerX/loggerManager"
 	"github.com/ArtisanCloud/PowerX/routes"
 	"github.com/ArtisanCloud/PowerX/routes/global"

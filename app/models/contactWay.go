@@ -6,7 +6,7 @@ import (
 	"github.com/ArtisanCloud/PowerWeChat/v2/src/work/externalContact/contactWay/request"
 	requestMessageTemplate "github.com/ArtisanCloud/PowerWeChat/v2/src/work/externalContact/messageTemplate/request"
 	"github.com/ArtisanCloud/PowerX/app/models/wx"
-	database2 "github.com/ArtisanCloud/PowerX/config/database"
+	database2 "github.com/ArtisanCloud/PowerX/configs/database"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )

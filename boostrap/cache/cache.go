@@ -4,8 +4,8 @@ import (
 	"github.com/ArtisanCloud/PowerLibs/v2/cache"
 	"github.com/ArtisanCloud/PowerLibs/v2/object"
 	globalBootstrap "github.com/ArtisanCloud/PowerX/boostrap/cache/global"
-	"github.com/ArtisanCloud/PowerX/config/app"
-	cacheConfig "github.com/ArtisanCloud/PowerX/config/cache"
+	"github.com/ArtisanCloud/PowerX/configs/app"
+	cacheConfig "github.com/ArtisanCloud/PowerX/configs/cache"
 )
 
 func SetupCache() (err error) {

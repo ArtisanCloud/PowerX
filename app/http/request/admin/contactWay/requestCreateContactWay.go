@@ -9,7 +9,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/app/models"
 	"github.com/ArtisanCloud/PowerX/app/models/wx"
 	serviceWX "github.com/ArtisanCloud/PowerX/app/service/wx/wecom"
-	globalConfig "github.com/ArtisanCloud/PowerX/config/global"
+	globalConfig "github.com/ArtisanCloud/PowerX/configs/global"
 	"github.com/ArtisanCloud/PowerX/database/global"
 	"github.com/gin-gonic/gin"
 	"gorm.io/datatypes"
