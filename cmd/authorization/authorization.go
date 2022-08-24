@@ -6,10 +6,10 @@ import (
 	"github.com/ArtisanCloud/PowerLibs/v2/database"
 	"github.com/ArtisanCloud/PowerLibs/v2/fmt"
 	"github.com/ArtisanCloud/PowerLibs/v2/object"
-	service "github.com/ArtisanCloud/PowerX/app/services"
-	"github.com/ArtisanCloud/PowerX/bootstrap"
-	"github.com/ArtisanCloud/PowerX/bootstrap/rbac/global"
-	global2 "github.com/ArtisanCloud/PowerX/database/global"
+	"github.com/ArtisanCloud/PowerX/app/service"
+	"github.com/ArtisanCloud/PowerX/boostrap"
+	globalRBAC "github.com/ArtisanCloud/PowerX/boostrap/rbac/global"
+	globalDatabase "github.com/ArtisanCloud/PowerX/database/global"
 	logger "github.com/ArtisanCloud/PowerX/loggerManager"
 	"github.com/ArtisanCloud/PowerX/routes"
 	"go.uber.org/zap"
@@ -24,9 +24,16 @@ var rbacPermissionDataPath = path.Join("configs", "rbac_permission.json")
 var rbacPolicyRuleDataPath = path.Join("configs", "rbac_policy_rule.json")
 
 func init() {
+	var err error
 	// Initialize the routes
-	bootstrap.InitProject()
-	routes.InitializeRoutes()
+	err = boostrap.InitProject()
+	if err != nil {
+		panic(err)
+	}
+	err = routes.InitializeRoutes()
+	if err != nil {
+		panic(err)
+	}
 }
 
 func main() {
@@ -45,48 +52,48 @@ func main() {
 
 	// permissions
 	case "importRBACData":
-		err = ImportRBACData(global2.G_DBConnection)
+		err = ImportRBACData(globalDatabase.G_DBConnection)
 
 		break
 	case "dumpRBACData":
-		err = DumpRBACData(global2.G_DBConnection)
+		err = DumpRBACData(globalDatabase.G_DBConnection)
 
 		break
 	case "importPermissionModules":
-		err = ImportPermissionModules(global2.G_DBConnection)
+		err = ImportPermissionModules(globalDatabase.G_DBConnection)
 
 		break
 	case "dumpPermissionModules":
-		err = DumpPermissionModules(global2.G_DBConnection)
+		err = DumpPermissionModules(globalDatabase.G_DBConnection)
 
 		break
 	case "importPermissions":
-		err = ImportPermissions(global2.G_DBConnection)
+		err = ImportPermissions(globalDatabase.G_DBConnection)
 
 		break
 	case "dumpPermissions":
-		err = DumpPermissions(global2.G_DBConnection)
+		err = DumpPermissions(globalDatabase.G_DBConnection)
 
 		break
 	case "importPolicyRules":
-		err = ImportPolicyRules(global2.G_DBConnection)
+		err = ImportPolicyRules(globalDatabase.G_DBConnection)
 
 		break
 	case "dumpPolicyRules":
-		err = DumpPolicyRules(global2.G_DBConnection)
+		err = DumpPolicyRules(globalDatabase.G_DBConnection)
 
 		break
 	case "initRBACRolesAndPermissions":
-		err = InitRBACRolesAndPermissions(global2.G_DBConnection)
+		err = InitRBACRolesAndPermissions(globalDatabase.G_DBConnection)
 
 		break
 	case "initSystemRoles":
-		err = InitSystemRoles(global2.G_DBConnection)
+		err = InitSystemRoles(globalDatabase.G_DBConnection)
 
 		break
 
 	case "initPoliciesByRBACPermissions":
-		err = InitPoliciesByRBACPermissions(global2.G_DBConnection)
+		err = InitPoliciesByRBACPermissions(globalDatabase.G_DBConnection)
 
 		break
 
@@ -422,9 +429,9 @@ func initRolePoliciesByRBACPermissions(role *modelPowerLib.Role, permissionModul
 				//fmt.Dump(role.GetRBACRuleName(), thirdModule.GetRBACRuleName())
 
 				// 删除已有的权限
-				existedRules := global.Enforcer.GetFilteredPolicy(0, role.GetRBACRuleName(), thirdModule.GetRBACRuleName())
+				existedRules := globalRBAC.G_Enforcer.GetFilteredPolicy(0, role.GetRBACRuleName(), thirdModule.GetRBACRuleName())
 				for _, existedRule := range existedRules {
-					_, err = global.Enforcer.RemovePolicy(existedRule)
+					_, err = globalRBAC.G_Enforcer.RemovePolicy(existedRule)
 					if err != nil {
 						logger.Logger.Error("删除已有规则" + err.Error())
 					}
@@ -439,7 +446,7 @@ func initRolePoliciesByRBACPermissions(role *modelPowerLib.Role, permissionModul
 
 	//fmt.Dump(rules)
 
-	result, err = global.Enforcer.AddPolicies(rules)
+	result, err = globalRBAC.G_Enforcer.AddPolicies(rules)
 	if err != nil {
 		err = errors.New("添加角色权限规则失败：" + err.Error())
 		return err

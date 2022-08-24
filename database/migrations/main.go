@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/ArtisanCloud/PowerLibs/v2/object"
+	globalDatabase "github.com/ArtisanCloud/PowerX/database/global"
 	"github.com/ArtisanCloud/PowerX/database/migrations/migrate"
 	"os"
 )
@@ -14,7 +15,7 @@ func main() {
 	//arrayTables := getFoundationTables()
 	//arrayTables = appendIndustryTables("education", arrayTables)
 
-	err := migrate.Run(global.G_DBConnection)
+	err := migrate.Run(globalDatabase.G_DBConnection)
 
 	if err != nil {
 		println("migrate error: ", err.Error())

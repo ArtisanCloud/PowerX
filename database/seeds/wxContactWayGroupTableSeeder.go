@@ -5,6 +5,7 @@ import (
 	"github.com/ArtisanCloud/PowerLibs/v2/object"
 	"github.com/ArtisanCloud/PowerX/app/models"
 	"github.com/ArtisanCloud/PowerX/app/service"
+	globalDatabase "github.com/ArtisanCloud/PowerX/database/global"
 	"github.com/gin-gonic/gin"
 	"reflect"
 )
@@ -40,7 +41,7 @@ func (seeder *WXContactWayGroupTableSeeder) SeedWXContactWayForEvent() (err erro
 	}))
 	wxContactWayGroup.UUID = SEED_WX_CONTACT_WAY_UUID
 
-	wxContactWayGroup, err = seeder.ServiceWXContactWayGroup.UpsertContactWayGroup(global.G_DBConnection, wxContactWayGroup, false)
+	wxContactWayGroup, err = seeder.ServiceWXContactWayGroup.UpsertContactWayGroup(globalDatabase.G_DBConnection, wxContactWayGroup, false)
 
 	return err
 }

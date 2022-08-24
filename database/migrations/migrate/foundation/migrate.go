@@ -14,7 +14,11 @@ var (
 )
 
 func init() {
-	boostrap.InitProject()
+	var err error
+	err = boostrap.InitProject()
+	if err != nil {
+		panic(err)
+	}
 }
 
 type MigrationInterface interface {

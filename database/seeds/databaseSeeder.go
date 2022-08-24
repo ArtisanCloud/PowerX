@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/ArtisanCloud/PowerX/boostrap"
+	globalDatabase "github.com/ArtisanCloud/PowerX/database/global"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 	"os"
@@ -26,7 +27,7 @@ func NewDatabaseSeeder(ctx *gin.Context) *DatabaseSeeder {
 
 func (seeder *DatabaseSeeder) Run(ctx *gin.Context) (err error) {
 
-	err = global.G_DBConnection.Transaction(func(tx *gorm.DB) error {
+	err = globalDatabase.G_DBConnection.Transaction(func(tx *gorm.DB) error {
 		// run seeders here
 		err = NewTagTableSeeder(ctx).Run(ctx)
 		//err = NewUserTableSeeder(ctx).Run(ctx)

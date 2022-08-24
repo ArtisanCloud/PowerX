@@ -1,6 +1,7 @@
 package wx
 
 import (
+	databasePowerLib "github.com/ArtisanCloud/PowerLibs/v2/database"
 	"github.com/ArtisanCloud/PowerLibs/v2/object"
 	"github.com/ArtisanCloud/PowerX/configs/database"
 )
@@ -50,7 +51,7 @@ func NewWXGroupChat(mapObject *object.Collection) *WXGroupChat {
 func (mdl *WXGroupChat) GetTableName(needFull bool) string {
 	tableName := TABLE_NAME_WX_GROUP_CHAT
 	if needFull {
-		tableName = database.G_DBConfig.Schemas["default"] + "." + database.G_DBConfig.BaseConfig.Prefix + tableName
+		tableName = databasePowerLib.GetTableFullName(database.G_DBConfig.Schemas["default"], database.G_DBConfig.BaseConfig.Prefix, tableName)
 	}
 	return tableName
 }

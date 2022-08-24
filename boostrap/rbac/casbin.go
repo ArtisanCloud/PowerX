@@ -1,7 +1,8 @@
 package rbac
 
 import (
-	"github.com/ArtisanCloud/PowerX/bootstrap/rbac/global"
+	"github.com/ArtisanCloud/PowerX/boostrap/rbac/global"
+	"github.com/casbin/casbin/v2"
 	"github.com/casbin/casbin/v2/model"
 	"gorm.io/gorm"
 )
@@ -34,32 +35,32 @@ func InitCasbin(db *gorm.DB) (err error) {
 		return err
 	}
 
-	global.Enforcer, err = casbin.NewEnforcer(mdl, adapter)
+	global.G_Enforcer, err = casbin.NewEnforcer(mdl, adapter)
 	if err != nil {
 		return err
 	}
 	// 开启权限认证日志
-	global.Enforcer.EnableLog(true)
+	global.G_Enforcer.EnableLog(true)
 
-	//err = global.Enforcer.LoadPolicy()
+	//err = global.G_Enforcer.LoadPolicy()
 	//if err != nil {
 	//	return err
 	//}
 
-	//allPolicies := global.Enforcer.GetPolicy()
+	//allPolicies := global.G_Enforcer.GetPolicy()
 	//fmt.Dump(allPolicies)
 
 	// 加载角色分组规则
-	//_, err = global.Enforcer.AddRoleForUser("123", "admin", "123", "321")
+	//_, err = global.G_Enforcer.AddRoleForUser("123", "admin", "123", "321")
 	//if err != nil {
 	//	logger.Logger.Error("AddRoleForUser error:", zap.Any("err", err))
 	//	return err
 	//}
 
-	//_, err = global.Enforcer.AddPolicy("matrix", "url/list", "write")
-	//_, err = global.Enforcer.AddPolicy("matrix", "url/list", "read", "uuid", "sourceName")
+	//_, err = global.G_Enforcer.AddPolicy("matrix", "url/list", "write")
+	//_, err = global.G_Enforcer.AddPolicy("matrix", "url/list", "read", "uuid", "sourceName")
 
-	//filterd := global.Enforcer.GetFilteredPolicy(3, "uuid")
+	//filterd := global.G_Enforcer.GetFilteredPolicy(3, "uuid")
 	//fmt.DD("filter;", filterd)
 
 	return err

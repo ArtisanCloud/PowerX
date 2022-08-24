@@ -1,10 +1,10 @@
 package models
 
 import (
-	"github.com/ArtisanCloud/PowerLibs/v2/database"
+	databasePowerLib "github.com/ArtisanCloud/PowerLibs/v2/database"
 	"github.com/ArtisanCloud/PowerLibs/v2/object"
 	"github.com/ArtisanCloud/PowerX/app/models/wx"
-	database2 "github.com/ArtisanCloud/PowerX/configs/database"
+	databaseConfig "github.com/ArtisanCloud/PowerX/configs/database"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 	"time"
@@ -16,7 +16,7 @@ func (mdl *SendGroupChatMsg) TableName() string {
 }
 
 type SendGroupChatMsg struct {
-	*database.PowerModel
+	*databasePowerLib.PowerModel
 
 	WXMessageTemplates []*wx.WXMessageTemplate `gorm:"ForeignKey:SendChatMsgUUID;references:UUID" json:"wxMessageTemplates"`
 
@@ -38,7 +38,7 @@ const SEND_GROUP_CHAT_MSG_TYPE_CHANNEL = 1
 func (mdl *SendGroupChatMsg) GetTableName(needFull bool) string {
 	tableName := TABLE_NAME_SEND_GROUP_CHAT_MSG
 	if needFull {
-		tableName = database2.G_DBConfig.Schemas["default"] + "." + database2.G_DBConfig.BaseConfig.Prefix + tableName
+		tableName = databasePowerLib.GetTableFullName(databaseConfig.G_DBConfig.Schemas["default"], databaseConfig.G_DBConfig.BaseConfig.Prefix, tableName)
 	}
 	return tableName
 }
@@ -62,7 +62,7 @@ func NewSendGroupChatMsg(mapObject *object.Collection) *SendGroupChatMsg {
 	Senders, _ := object.JsonEncode(mapObject.GetStringArray("Senders", nil))
 
 	return &SendGroupChatMsg{
-		PowerModel: database.NewPowerModel(),
+		PowerModel: databasePowerLib.NewPowerModel(),
 
 		GroupChatMsgName: mapObject.GetString("groupChatMsgName", ""),
 		Senders:          datatypes.JSON(Senders),
@@ -74,7 +74,7 @@ func NewSendGroupChatMsg(mapObject *object.Collection) *SendGroupChatMsg {
 func (mdl *SendGroupChatMsg) LoadWXMessageTemplates(db *gorm.DB, conditions *map[string]interface{}) ([]*wx.WXMessageTemplate, error) {
 	mdl.WXMessageTemplates = []*wx.WXMessageTemplate{}
 
-	err := database.AssociationRelationship(db, conditions, mdl, "WXMessageTemplates", false).Find(&mdl.WXMessageTemplates)
+	err := databasePowerLib.AssociationRelationship(db, conditions, mdl, "WXMessageTemplates", false).Find(&mdl.WXMessageTemplates)
 	if err != nil {
 		return nil, err
 	}

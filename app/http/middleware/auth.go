@@ -138,7 +138,7 @@ func AuthorizeAPI(c *gin.Context) {
 	employee := service.GetAuthEmployee(c)
 
 	// 验证接口的访问权限
-	isPass, err := globalRBAC.Enforcer.Enforce(employee.Role.GetRBACRuleName(), permission.PermissionModule.GetRBACRuleName(), modelPowerLib.RBAC_CONTROL_ALL)
+	isPass, err := globalRBAC.G_Enforcer.Enforce(employee.Role.GetRBACRuleName(), permission.PermissionModule.GetRBACRuleName(), modelPowerLib.RBAC_CONTROL_ALL)
 	if err != nil {
 		apiResponse.SetCode(globalConfig.API_ERR_CODE_FAIL_TO_AUTHORIZATE_ROLE, globalConfig.API_RETURN_CODE_ERROR, "", err.Error())
 		apiResponse.ThrowJSONResponse(c)

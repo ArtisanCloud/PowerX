@@ -2,8 +2,8 @@ package main
 
 import (
 	"github.com/ArtisanCloud/PowerLibs/v2/fmt"
-	service "github.com/ArtisanCloud/PowerX/app/services"
-	global2 "github.com/ArtisanCloud/PowerX/database/global"
+	"github.com/ArtisanCloud/PowerX/app/service"
+	globalDatabase "github.com/ArtisanCloud/PowerX/database/global"
 	"github.com/ArtisanCloud/PowerX/routes/global"
 	"os"
 	"path"
@@ -49,7 +49,7 @@ func ConvertOpenAPI2Permissions() (err error) {
 		return err
 	}
 	serviceRBAC := service.NewRBACService(nil)
-	err = serviceRBAC.UpsertPermissions(global2.G_DBConnection, permissions, []string{
+	err = serviceRBAC.UpsertPermissions(globalDatabase.G_DBConnection, permissions, []string{
 		"updated_at",
 		"object_value",
 		"action",
@@ -72,7 +72,7 @@ func ConvertPermissions2OpenAPI() (err error) {
 	fmt.Dump("convert permissions to openapi")
 
 	serviceRBAC := service.NewRBACService(nil)
-	permission, err := serviceRBAC.GetPermissionList(global2.G_DBConnection)
+	permission, err := serviceRBAC.GetPermissionList(globalDatabase.G_DBConnection, nil)
 	if err != nil {
 		return err
 	}

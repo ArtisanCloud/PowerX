@@ -2,18 +2,18 @@ package models
 
 import (
 	"fmt"
-	"github.com/ArtisanCloud/PowerLibs/v2/database"
+	databasePowerLib "github.com/ArtisanCloud/PowerLibs/v2/database"
 	"github.com/ArtisanCloud/PowerX/app/models/wx"
-	database2 "github.com/ArtisanCloud/PowerX/configs/database"
+	databaseConfig "github.com/ArtisanCloud/PowerX/configs/database"
 )
 
 // TableName overrides the table name used by REmployeeToDepartment to `profiles`
-func (*REmployeeToDepartment) TableName() string {
-	return database2.G_DBConfig.Schemas["default"] + "." + TABLE_NAME_R_EMPLOY_TO_DEPARTMENT
+func (mdl *REmployeeToDepartment) TableName() string {
+	return mdl.GetTableName(true)
 }
 
 type REmployeeToDepartment struct {
-	*database.PowerPivot
+	*databasePowerLib.PowerPivot
 
 	LeaderID          string `gorm:"column:leader_id" json:"leaderID"`
 	EmployeeReferID   string `gorm:"column:employee_id" json:"employeeID"`
@@ -28,7 +28,7 @@ const R_EMPLOYEE_TO_DEPARTMNET_JOIN_KEY = "department_id"
 func (mdl *REmployeeToDepartment) GetTableName(needFull bool) string {
 	tableName := TABLE_NAME_R_EMPLOY_TO_DEPARTMENT
 	if needFull {
-		tableName = database2.G_DBConfig.Schemas["default"] + "." + tableName
+		tableName = databasePowerLib.GetTableFullName(databaseConfig.G_DBConfig.Schemas["default"], databaseConfig.G_DBConfig.BaseConfig.Prefix, tableName)
 	}
 	return tableName
 }
@@ -49,8 +49,8 @@ func (mdl *REmployeeToDepartment) GetJoinValue() string {
 	return fmt.Sprintf("%d", mdl.DepartmentReferID)
 }
 
-func (mdl *REmployeeToDepartment) MakePivotsFromEmployeeAndDepartmentIDs(employee *Employee, departmentIDs []int) ([]database.PivotInterface, error) {
-	pivots := []database.PivotInterface{}
+func (mdl *REmployeeToDepartment) MakePivotsFromEmployeeAndDepartmentIDs(employee *Employee, departmentIDs []int) ([]databasePowerLib.PivotInterface, error) {
+	pivots := []databasePowerLib.PivotInterface{}
 	for _, departmentID := range departmentIDs {
 		pivot := &REmployeeToDepartment{
 			EmployeeReferID:   employee.WXUserID.String,
@@ -61,8 +61,8 @@ func (mdl *REmployeeToDepartment) MakePivotsFromEmployeeAndDepartmentIDs(employe
 	return pivots, nil
 }
 
-func (mdl *REmployeeToDepartment) MakePivotsFromEmployeeAndDepartments(employee *Employee, departments []*wx.WXDepartment) ([]database.PivotInterface, error) {
-	pivots := []database.PivotInterface{}
+func (mdl *REmployeeToDepartment) MakePivotsFromEmployeeAndDepartments(employee *Employee, departments []*wx.WXDepartment) ([]databasePowerLib.PivotInterface, error) {
+	pivots := []databasePowerLib.PivotInterface{}
 	for _, department := range departments {
 		pivot := &REmployeeToDepartment{
 			EmployeeReferID:   employee.WXUserID.String,

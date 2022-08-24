@@ -1,11 +1,11 @@
 package models
 
 import (
-	"github.com/ArtisanCloud/PowerLibs/v2/database"
+	databasePowerLib "github.com/ArtisanCloud/PowerLibs/v2/database"
 	"github.com/ArtisanCloud/PowerLibs/v2/database/tag"
 	"github.com/ArtisanCloud/PowerLibs/v2/object"
 	"github.com/ArtisanCloud/PowerX/app/models/wx"
-	database2 "github.com/ArtisanCloud/PowerX/configs/database"
+	databaseConfig "github.com/ArtisanCloud/PowerX/configs/database"
 	"gorm.io/gorm"
 )
 
@@ -15,7 +15,7 @@ func (mdl *GroupChat) TableName() string {
 }
 
 type GroupChat struct {
-	*database.PowerCompactModel
+	*databasePowerLib.PowerCompactModel
 
 	Tags []*tag.Tag `gorm:"many2many:public.ac_r_tag_to_object;foreignKey:ChatID;joinForeignKey:TaggableObjectID;References:index_tag_id;JoinReferences:tag_id" json:"TaggableID"`
 
@@ -34,7 +34,7 @@ const GROUP_CHAT_TYPE_CHANNEL = 1
 func (mdl *GroupChat) GetTableName(needFull bool) string {
 	tableName := TABLE_NAME_GROUP_CHAT
 	if needFull {
-		tableName = database2.G_DBConfig.Schemas["default"] + "." + database2.G_DBConfig.BaseConfig.Prefix + tableName
+		tableName = databasePowerLib.GetTableFullName(databaseConfig.G_DBConfig.Schemas["default"], databaseConfig.G_DBConfig.BaseConfig.Prefix, tableName)
 	}
 	return tableName
 }
@@ -56,7 +56,7 @@ func NewGroupChat(mapObject *object.Collection) *GroupChat {
 	}
 
 	return &GroupChat{
-		PowerCompactModel: database.NewPowerCompactModel(),
+		PowerCompactModel: databasePowerLib.NewPowerCompactModel(),
 		WXGroupChat:       wx.NewWXGroupChat(mapObject),
 	}
 }
@@ -64,7 +64,7 @@ func NewGroupChat(mapObject *object.Collection) *GroupChat {
 func (mdl *GroupChat) LoadTags(db *gorm.DB, conditions *map[string]interface{}) ([]*tag.Tag, error) {
 	mdl.Tags = []*tag.Tag{}
 
-	err := database.AssociationRelationship(db, conditions, mdl, "Tags", false).Find(&mdl.Tags)
+	err := databasePowerLib.AssociationRelationship(db, conditions, mdl, "Tags", false).Find(&mdl.Tags)
 	if err != nil {
 		return nil, err
 	}
@@ -74,7 +74,7 @@ func (mdl *GroupChat) LoadTags(db *gorm.DB, conditions *map[string]interface{}) 
 func (mdl *GroupChat) LoadWXGroupChatMembers(db *gorm.DB, conditions *map[string]interface{}) ([]*wx.WXGroupChatMember, error) {
 	mdl.WXGroupChatMembers = []*wx.WXGroupChatMember{}
 
-	err := database.AssociationRelationship(db, conditions, mdl, "WXGroupChatMembers", false).Find(&mdl.WXGroupChatMembers)
+	err := databasePowerLib.AssociationRelationship(db, conditions, mdl, "WXGroupChatMembers", false).Find(&mdl.WXGroupChatMembers)
 	if err != nil {
 		return nil, err
 	}
@@ -84,7 +84,7 @@ func (mdl *GroupChat) LoadWXGroupChatMembers(db *gorm.DB, conditions *map[string
 func (mdl *GroupChat) LoadWXGroupChatAdmins(db *gorm.DB, conditions *map[string]interface{}) ([]*wx.WXGroupChatAdmin, error) {
 	mdl.WXGroupChatAdmins = []*wx.WXGroupChatAdmin{}
 
-	err := database.AssociationRelationship(db, conditions, mdl, "WXGroupChatAdmins", false).Find(&mdl.WXGroupChatAdmins)
+	err := databasePowerLib.AssociationRelationship(db, conditions, mdl, "WXGroupChatAdmins", false).Find(&mdl.WXGroupChatAdmins)
 	if err != nil {
 		return nil, err
 	}

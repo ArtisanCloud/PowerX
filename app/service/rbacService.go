@@ -213,9 +213,9 @@ func (srv *RBACService) GetPolicyListGroupedByRole(role *modelPowerLib.Role) (po
 	policies = map[string][]*modelPowerLib.RolePolicy{}
 	var arrayPolicies [][]string
 	if role != nil {
-		arrayPolicies = global.Enforcer.GetFilteredPolicy(0, role.GetRBACRuleName())
+		arrayPolicies = global.G_Enforcer.GetFilteredPolicy(0, role.GetRBACRuleName())
 	} else {
-		arrayPolicies = global.Enforcer.GetPolicy()
+		arrayPolicies = global.G_Enforcer.GetPolicy()
 	}
 
 	for _, policyItem := range arrayPolicies {
@@ -238,9 +238,9 @@ func (srv *RBACService) GetPolicyList(role *modelPowerLib.Role) (policies []*mod
 	policies = []*modelPowerLib.RolePolicy{}
 	var arrayPolicies [][]string
 	if role != nil {
-		arrayPolicies = global.Enforcer.GetFilteredPolicy(0, role.GetRBACRuleName())
+		arrayPolicies = global.G_Enforcer.GetFilteredPolicy(0, role.GetRBACRuleName())
 	} else {
-		arrayPolicies = global.Enforcer.GetPolicy()
+		arrayPolicies = global.G_Enforcer.GetPolicy()
 	}
 
 	for _, policyItem := range arrayPolicies {
@@ -309,20 +309,20 @@ func (srv *RBACService) UpsertPolicies(policies []*modelPowerLib.RolePolicy) (er
 
 	for _, policy := range policies {
 
-		existPolicies := global.Enforcer.GetFilteredPolicy(0, policy.RoleID, policy.ObjectID)
+		existPolicies := global.G_Enforcer.GetFilteredPolicy(0, policy.RoleID, policy.ObjectID)
 
 		rule := []string{policy.RoleID, policy.ObjectID, policy.Control}
-		if global.Enforcer.HasPolicy(rule) {
+		if global.G_Enforcer.HasPolicy(rule) {
 			for _, existPolicy := range existPolicies {
 				if existPolicy[2] != policy.Control {
-					_, err = global.Enforcer.UpdatePolicy(existPolicy, []string{policy.RoleID, policy.ObjectID, policy.Control})
+					_, err = global.G_Enforcer.UpdatePolicy(existPolicy, []string{policy.RoleID, policy.ObjectID, policy.Control})
 					if err != nil {
 						return err
 					}
 				}
 			}
 		} else {
-			_, err = global.Enforcer.AddPolicy(rule)
+			_, err = global.G_Enforcer.AddPolicy(rule)
 			if err != nil {
 				return err
 			}

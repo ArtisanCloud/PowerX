@@ -2,6 +2,7 @@ package wx
 
 import (
 	"database/sql"
+	databasePowerLib "github.com/ArtisanCloud/PowerLibs/v2/database"
 	"github.com/ArtisanCloud/PowerLibs/v2/object"
 	"github.com/ArtisanCloud/PowerX/configs/database"
 	"gorm.io/gorm"
@@ -108,7 +109,7 @@ func NewWXCustomer(mapObject *object.Collection) *WXCustomer {
 func (mdl *WXCustomer) GetTableName(needFull bool) string {
 	tableName := TABLE_NAME_WX_CUSTOMER
 	if needFull {
-		tableName = database.G_DBConfig.Schemas["default"] + "." + database.G_DBConfig.BaseConfig.Prefix + tableName
+		tableName = databasePowerLib.GetTableFullName(database.G_DBConfig.Schemas["default"], database.G_DBConfig.BaseConfig.Prefix, tableName)
 	}
 	return tableName
 }

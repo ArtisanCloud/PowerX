@@ -2,6 +2,7 @@ package wx
 
 import (
 	"database/sql"
+	databasePowerLib "github.com/ArtisanCloud/PowerLibs/v2/database"
 	"github.com/ArtisanCloud/PowerLibs/v2/object"
 	"github.com/ArtisanCloud/PowerX/configs/database"
 	"github.com/google/uuid"
@@ -50,7 +51,7 @@ func NewWXTag(mapObject *object.Collection) *WXTag {
 func (mdl *WXTag) GetTableName(needFull bool) string {
 	tableName := TABLE_NAME_TAG
 	if needFull {
-		tableName = database.G_DBConfig.Schemas["default"] + "." + database.G_DBConfig.BaseConfig.Prefix + tableName
+		tableName = databasePowerLib.GetTableFullName(database.G_DBConfig.Schemas["default"], database.G_DBConfig.BaseConfig.Prefix, tableName)
 	}
 	return tableName
 }

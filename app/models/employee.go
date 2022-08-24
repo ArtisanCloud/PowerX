@@ -5,12 +5,12 @@ import (
 	"github.com/ArtisanCloud/PowerLibs/v2/database"
 	"github.com/ArtisanCloud/PowerLibs/v2/object"
 	"github.com/ArtisanCloud/PowerX/app/models/wx"
-	database2 "github.com/ArtisanCloud/PowerX/configs/database"
+	databaseConfig "github.com/ArtisanCloud/PowerX/configs/database"
 )
 
 // TableName overrides the table name used by Employee to `profiles`
 func (mdl *Employee) TableName() string {
-	return database2.G_DBConfig.Schemas["default"] + "." + TABLE_NAME_EMPLOYEE
+	return mdl.GetTableName(true)
 }
 
 type Employee struct {
@@ -39,7 +39,7 @@ const EMPLOYEE_UNIQUE_ID = "wx_user_id"
 func (mdl *Employee) GetTableName(needFull bool) string {
 	tableName := TABLE_NAME_EMPLOYEE
 	if needFull {
-		tableName = database2.G_DBConfig.Schemas["default"] + "." + tableName
+		tableName = database.GetTableFullName(databaseConfig.G_DBConfig.Schemas["default"], databaseConfig.G_DBConfig.BaseConfig.Prefix, tableName)
 	}
 	return tableName
 }

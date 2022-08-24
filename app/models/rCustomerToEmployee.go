@@ -2,12 +2,12 @@ package models
 
 import (
 	"errors"
-	"github.com/ArtisanCloud/PowerLibs/v2/database"
+	databasePowerLib "github.com/ArtisanCloud/PowerLibs/v2/database"
 	"github.com/ArtisanCloud/PowerLibs/v2/object"
 	"github.com/ArtisanCloud/PowerLibs/v2/security"
 	"github.com/ArtisanCloud/PowerSocialite/v2/src/models"
 	"github.com/ArtisanCloud/PowerX/app/models/wx"
-	database2 "github.com/ArtisanCloud/PowerX/configs/database"
+	databaseConfig "github.com/ArtisanCloud/PowerX/configs/database"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
@@ -19,7 +19,7 @@ func (mdl *RCustomerToEmployee) TableName() string {
 
 // r_customer_to_employee 数据表结构
 type RCustomerToEmployee struct {
-	*database.PowerPivot
+	*databasePowerLib.PowerPivot
 
 	PivotWXTags []*wx.RWXTagToObject `gorm:"ForeignKey:TaggableObjectID;references:UniqueID" json:"pivotWXTags"`
 
@@ -49,7 +49,7 @@ const R_CUSTOMER_TO_EMPLOYEE_JOIN_KEY = "employee_refer_id"
 func (mdl *RCustomerToEmployee) GetTableName(needFull bool) string {
 	tableName := TABLE_NAME_R_CUSTOMER_TO_EMPLOYEE
 	if needFull {
-		tableName = database2.G_DBConfig.Schemas["default"] + "." + database2.G_DBConfig.BaseConfig.Prefix + tableName
+		tableName = databasePowerLib.GetTableFullName(databaseConfig.G_DBConfig.Schemas["default"], databaseConfig.G_DBConfig.BaseConfig.Prefix, tableName)
 	}
 	return tableName
 }
@@ -120,14 +120,14 @@ func (mdl *RCustomerToEmployee) UpsertPivotByFollowUser(db *gorm.DB, customer *C
 
 func (mdl *RCustomerToEmployee) UpsertPivots(db *gorm.DB, pivots []*RCustomerToEmployee, fieldsToUpdate []string) error {
 
-	return database.UpsertModelsOnUniqueID(db, mdl, R_CUSTOMER_TO_EMPLOYEE_UNIQUE_ID, pivots, fieldsToUpdate)
+	return databasePowerLib.UpsertModelsOnUniqueID(db, mdl, R_CUSTOMER_TO_EMPLOYEE_UNIQUE_ID, pivots, fieldsToUpdate)
 }
 
 func (mdl *RCustomerToEmployee) ClearPivot(db *gorm.DB, customerExternalUserID string, employeeUserID string) (*RCustomerToEmployee, error) {
 	mdl.CustomerReferID = object.NewNullString(customerExternalUserID, true)
 	mdl.EmployeeReferID = object.NewNullString(employeeUserID, true)
 
-	err := database.ClearPivots(db, mdl, true, false)
+	err := databasePowerLib.ClearPivots(db, mdl, true, false)
 
 	return mdl, err
 }
@@ -154,7 +154,7 @@ func (mdl *RCustomerToEmployee) GetPivotsByCustomerUserID(db *gorm.DB, customerE
 
 	mdl.CustomerReferID = object.NewNullString(customerExternalUserID, true)
 
-	result := database.SelectPivots(db, mdl, true, false).Find(&pivots)
+	result := databasePowerLib.SelectPivots(db, mdl, true, false).Find(&pivots)
 
 	if result.Error != nil {
 		return nil, result.Error
@@ -167,7 +167,7 @@ func (mdl *RCustomerToEmployee) GetPivotsByEmployeeUserID(db *gorm.DB, employeeU
 
 	mdl.EmployeeReferID = object.NewNullString(employeeUserID, true)
 
-	result := database.SelectPivots(db, mdl, false, true).Find(&pivots)
+	result := databasePowerLib.SelectPivots(db, mdl, false, true).Find(&pivots)
 
 	if result.Error != nil {
 		return nil, result.Error
@@ -181,7 +181,7 @@ func (mdl *RCustomerToEmployee) GetPivot(db *gorm.DB, customerExternalUserID str
 	mdl.CustomerReferID = object.NewNullString(customerExternalUserID, true)
 	mdl.EmployeeReferID = object.NewNullString(employeeUserID, true)
 
-	result := database.SelectPivot(db, mdl).First(mdl)
+	result := databasePowerLib.SelectPivot(db, mdl).First(mdl)
 
 	if result.Error != nil && !errors.Is(result.Error, gorm.ErrRecordNotFound) {
 		return nil, result.Error
