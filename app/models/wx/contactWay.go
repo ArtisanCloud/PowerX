@@ -2,8 +2,10 @@ package wx
 
 import (
 	"database/sql"
+	databasePowerLib "github.com/ArtisanCloud/PowerLibs/v2/database"
 	"github.com/ArtisanCloud/PowerLibs/v2/object"
-	"github.com/ArtisanCloud/PowerX/config"
+	"github.com/ArtisanCloud/PowerX/configs/database"
+	"github.com/ArtisanCloud/PowerX/configs/global"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
@@ -71,8 +73,8 @@ func NewWXContactWay(mapObject *object.Collection) *WXContactWay {
 		User:          datatypes.JSON([]byte(users)),
 		Party:         datatypes.JSON([]byte(parties)),
 		IsTemp:        mapObject.GetBoolPointer("isTemp", false),
-		ExpiresIn:     mapObject.GetIntPointer("expiresIn", 7*config.DAY),
-		ChatExpiresIn: mapObject.GetIntPointer("chatExpiresIn", 24*config.HOUR),
+		ExpiresIn:     mapObject.GetIntPointer("expiresIn", 7*global.DAY),
+		ChatExpiresIn: mapObject.GetIntPointer("chatExpiresIn", 24*global.HOUR),
 		UnionID:       mapObject.GetStringPointer("unionID", ""),
 		Conclusions:   datatypes.JSON([]byte(conclusions)),
 		//ConclusionsContent: mapObject.GetStringPointer("conclusionsContent", ""),
@@ -84,7 +86,7 @@ func NewWXContactWay(mapObject *object.Collection) *WXContactWay {
 func (mdl *WXContactWay) GetTableName(needFull bool) string {
 	tableName := TABLE_NAME_WX_CONTACT_WAY
 	if needFull {
-		tableName = config.DatabaseConn.Schemas["option"] + "." + tableName
+		tableName = databasePowerLib.GetTableFullName(database.G_DBConfig.Schemas["default"], database.G_DBConfig.BaseConfig.Prefix, tableName)
 	}
 	return tableName
 }

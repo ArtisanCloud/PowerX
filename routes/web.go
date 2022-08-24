@@ -3,17 +3,16 @@ package routes
 import (
 	"github.com/ArtisanCloud/PowerX/app/http/controllers/web"
 	"github.com/ArtisanCloud/PowerX/app/http/middleware"
+	"github.com/ArtisanCloud/PowerX/routes/global"
 	"github.com/gin-gonic/gin"
 	"net/http"
 )
 
-func InitializeWebRoutes(router *gin.Engine) {
+func InitializeWebRoutes() {
 
-	//println("%T", router)
-
-	apiRouter := router.Group("/")
+	apiRouter := global.Router.Group("/")
 	{
-		apiRouter.Use(middleware.Maintenance, middleware.AuthWeb)
+		apiRouter.Use(middleware.Maintenance)
 		{
 			// wx
 			apiRouter.GET("/", web.WebGetHome)

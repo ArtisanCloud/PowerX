@@ -4,11 +4,11 @@ import (
 	"errors"
 	"github.com/ArtisanCloud/PowerLibs/v2/object"
 	"github.com/ArtisanCloud/PowerSocialite/v2/src/providers"
+	"github.com/ArtisanCloud/PowerX/configs/app"
 	"gorm.io/gorm"
 
 	"github.com/ArtisanCloud/PowerWeChat/v2/src/work/externalContact"
 	"github.com/ArtisanCloud/PowerX/app/models"
-	"github.com/ArtisanCloud/PowerX/config"
 	"github.com/gin-gonic/gin"
 )
 
@@ -18,13 +18,13 @@ type WeComCustomerService struct {
 }
 
 func NewWeComCustomerService(ctx *gin.Context) (r *WeComCustomerService) {
-	weComConfig, _ := object.StructToMap(config.AppConfigure.Wechat["wecom"])
+	weComConfig, _ := object.StructToMap(app.G_AppConfigure.Wechat["wecom"])
 	if weComConfig["contact_secret"] != nil {
 		weComConfig["secret"] = weComConfig["contact_secret"]
 		weComConfig["oauth.scopes"] = []string{"snsapi_base"}
 	}
 	r = &WeComCustomerService{
-		Service:  WeComCustomer,
+		Service:  G_WeComCustomer,
 		Customer: models.NewCustomer(nil),
 	}
 	return r
@@ -66,14 +66,14 @@ func (srv *WeComCustomerService) GetCustomerByWXExternalUserID(db *gorm.DB, exte
 }
 
 func (srv *WeComCustomerService) GetContactByExternalUserID(ctx *gin.Context, externalUserID string) (user *providers.User, err error) {
-	externalClient := WeComCustomer.App.GetComponent("Customer").(*externalContact.Client)
+	externalClient := G_WeComCustomer.App.GetComponent("Customer").(*externalContact.Client)
 	responseGetUserByID, err := externalClient.Get(externalUserID, "0")
 	if responseGetUserByID == nil {
 		return nil, errors.New("get wx contract error")
 	}
 
 	if responseGetUserByID.ErrCode == 0 {
-		user = WeComCustomer.App.OAuth.Provider.Detailed().MapUserToContact(responseGetUserByID)
+		user = G_WeComCustomer.App.OAuth.Provider.Detailed().MapUserToContact(responseGetUserByID)
 	} else {
 		return nil, errors.New(responseGetUserByID.ErrMSG)
 	}

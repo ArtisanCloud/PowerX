@@ -1,8 +1,9 @@
 package wx
 
 import (
-	"github.com/ArtisanCloud/PowerLibs/v2/database"
+	databasePowerLib "github.com/ArtisanCloud/PowerLibs/v2/database"
 	"github.com/ArtisanCloud/PowerLibs/v2/object"
+	"github.com/ArtisanCloud/PowerX/configs/database"
 	"gorm.io/gorm"
 )
 
@@ -13,7 +14,7 @@ func (mdl *RWXTagToObject) TableName() string {
 
 // r_tag_to_object 数据表结构
 type RWXTagToObject struct {
-	*database.PowerPivot
+	*databasePowerLib.PowerPivot
 
 	//common fields
 	UniqueID          object.NullString `gorm:"index:index_taggable_object_id;index:index_taggable_id;index;column:index_tag_to_object_id;unique"`
@@ -33,7 +34,7 @@ const R_WX_TAG_TO_OJECT_JOIN_KEY = "tag_id"
 func (mdl *RWXTagToObject) GetTableName(needFull bool) string {
 	tableName := TABLE_NAME_R_WX_TAG_TO_OBJECT
 	if needFull {
-		tableName = "public" + "." + tableName
+		tableName = databasePowerLib.GetTableFullName(database.G_DBConfig.Schemas["default"], database.G_DBConfig.BaseConfig.Prefix, tableName)
 	}
 	return tableName
 }
@@ -71,7 +72,7 @@ func (mdl *RWXTagToObject) GetPivotComposedUniqueID() string {
 func (mdl *RWXTagToObject) GetPivots(db *gorm.DB) ([]*RWXTagToObject, error) {
 	pivots := []*RWXTagToObject{}
 
-	db = database.SelectMorphPivot(db, mdl)
+	db = databasePowerLib.SelectMorphPivot(db, mdl)
 
 	result := db.Find(&pivots)
 
@@ -80,8 +81,8 @@ func (mdl *RWXTagToObject) GetPivots(db *gorm.DB) ([]*RWXTagToObject, error) {
 }
 
 // --------------------------------------------------------------------
-func (mdl *RWXTagToObject) MakePivotsFromObjectAndTags(obj database.ModelInterface, tags []*WXTag) ([]database.PivotInterface, error) {
-	pivots := []database.PivotInterface{}
+func (mdl *RWXTagToObject) MakePivotsFromObjectAndTags(obj databasePowerLib.ModelInterface, tags []*WXTag) ([]databasePowerLib.PivotInterface, error) {
+	pivots := []databasePowerLib.PivotInterface{}
 	for _, tag := range tags {
 		pivot := &RWXTagToObject{
 			TaggableOwnerType: object.NewNullString(obj.GetTableName(true), true),

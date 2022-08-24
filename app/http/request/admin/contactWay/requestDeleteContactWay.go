@@ -6,8 +6,8 @@ import (
 	"github.com/ArtisanCloud/PowerX/app/http/request"
 	"github.com/ArtisanCloud/PowerX/app/models"
 	"github.com/ArtisanCloud/PowerX/app/service"
-	"github.com/ArtisanCloud/PowerX/config"
-	"github.com/ArtisanCloud/PowerX/database"
+	"github.com/ArtisanCloud/PowerX/configs/global"
+	globalDatabase "github.com/ArtisanCloud/PowerX/database/global"
 	"github.com/gin-gonic/gin"
 )
 
@@ -27,7 +27,7 @@ func ValidateDeleteContactWay(context *gin.Context) {
 
 	contactWay, err := convertParaDeleteContactWayForDelete(&form)
 	if err != nil {
-		apiResponse.SetCode(config.API_ERR_CODE_REQUEST_PARAM_ERROR, config.API_RETURN_CODE_ERROR, "", err.Error()).ThrowJSONResponse(context)
+		apiResponse.SetCode(global.API_ERR_CODE_REQUEST_PARAM_ERROR, global.API_RETURN_CODE_ERROR, "", err.Error()).ThrowJSONResponse(context)
 	}
 
 	context.Set("contactWay", contactWay)
@@ -37,7 +37,7 @@ func ValidateDeleteContactWay(context *gin.Context) {
 func convertParaDeleteContactWayForDelete(form *ParaDeleteContactWay) (contactWay *models.ContactWay, err error) {
 
 	serviceContactWay := service.NewContactWayService(nil)
-	contactWay, err = serviceContactWay.GetContactWayByConfigID(database.DBConnection, form.ConfigID)
+	contactWay, err = serviceContactWay.GetContactWayByConfigID(globalDatabase.G_DBConnection, form.ConfigID)
 
 	if err != nil {
 		return contactWay, err

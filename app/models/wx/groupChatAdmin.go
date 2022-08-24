@@ -1,9 +1,10 @@
 package wx
 
 import (
+	databasePowerLib "github.com/ArtisanCloud/PowerLibs/v2/database"
 	"github.com/ArtisanCloud/PowerLibs/v2/object"
 	"github.com/ArtisanCloud/PowerLibs/v2/security"
-	"github.com/ArtisanCloud/PowerX/config"
+	"github.com/ArtisanCloud/PowerX/configs/database"
 )
 
 // TableName overrides the table name used by WXGroupChatAdmin to `profiles`
@@ -39,7 +40,7 @@ func NewWXGroupChatAdmin(mapObject *object.Collection) *WXGroupChatAdmin {
 func (mdl *WXGroupChatAdmin) GetTableName(needFull bool) string {
 	tableName := TABLE_NAME_WX_GROUP_CHAT_ADMIN
 	if needFull {
-		tableName = config.DatabaseConn.Schemas["option"] + "." + tableName
+		tableName = databasePowerLib.GetTableFullName(database.G_DBConfig.Schemas["default"], database.G_DBConfig.BaseConfig.Prefix, tableName)
 	}
 	return tableName
 }

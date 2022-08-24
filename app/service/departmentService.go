@@ -6,9 +6,9 @@ import (
 	"github.com/ArtisanCloud/PowerWeChat/v2/src/kernel/contract"
 	models2 "github.com/ArtisanCloud/PowerWeChat/v2/src/work/server/handlers/models"
 	"github.com/ArtisanCloud/PowerX/app/models/wx"
-	wx2 "github.com/ArtisanCloud/PowerX/app/service/wx/wecom"
-	"github.com/ArtisanCloud/PowerX/config"
-	"github.com/ArtisanCloud/PowerX/database"
+	"github.com/ArtisanCloud/PowerX/app/service/wx/wecom"
+	global2 "github.com/ArtisanCloud/PowerX/configs/global"
+	"github.com/ArtisanCloud/PowerX/database/global"
 	logger "github.com/ArtisanCloud/PowerX/loggerManager"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
@@ -31,7 +31,7 @@ func NewDepartmentService(ctx *gin.Context) (r *DepartmentService) {
 
 func (srv *DepartmentService) SyncDepartments() (err error) {
 
-	response, err := wx2.WeComEmployee.App.Department.List(0)
+	response, err := wecom.G_WeComEmployee.App.Department.List(0)
 	if err != nil {
 		return err
 	}
@@ -52,7 +52,7 @@ func (srv *DepartmentService) SyncDepartments() (err error) {
 
 		arrayDepartments = append(arrayDepartments, department)
 	}
-	err = srv.UpsertDepartments(database.DBConnection, wx.DEPARTMENT_UNIQUE_ID, arrayDepartments)
+	err = srv.UpsertDepartments(global.G_DBConnection, wx.DEPARTMENT_UNIQUE_ID, arrayDepartments)
 
 	return err
 }
@@ -70,10 +70,10 @@ func (srv *DepartmentService) GetDepartment(db *gorm.DB, departmentName string) 
 
 	if result.RowsAffected > 0 {
 		//fmt.Printf("department: %v", department.Account)
-		return department, config.API_RESULT_CODE_INIT
+		return department, global2.API_RESULT_CODE_INIT
 
 	} else {
-		return nil, config.API_ERR_CODE_USER_UNREGISTER
+		return nil, global2.API_ERR_CODE_USER_UNREGISTER
 	}
 
 }

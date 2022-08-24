@@ -4,7 +4,7 @@ import (
 	"crypto/rsa"
 	"fmt"
 	"github.com/ArtisanCloud/PowerX/app/models"
-	"github.com/ArtisanCloud/PowerX/config"
+	"github.com/ArtisanCloud/PowerX/configs/app"
 	logger "github.com/ArtisanCloud/PowerX/loggerManager"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
@@ -37,7 +37,7 @@ func init() {
 
 }
 
-func SetupSSHKeyPath(ssh *config.SSHConfig) {
+func SetupSSHKeyPath(ssh *app.SSHConfig) {
 	StrPublicKeyPath = ssh.PublicKeyFile
 	StrPrivateKeyPath = ssh.PrivateKeyFile
 }

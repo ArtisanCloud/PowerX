@@ -8,7 +8,6 @@ import (
 	modelWX "github.com/ArtisanCloud/PowerX/app/models/wx"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 )
 
 type TagService struct {
@@ -63,12 +62,12 @@ func (srv *TagService) CreateTagGroupWithTags(db *gorm.DB, group *tag.TagGroup, 
 
 	err = db.Transaction(func(tx *gorm.DB) error {
 
-		err = srv.UpsertTagGroups(tx, tag.TAG_GROUP_UNIQUE_ID, []*tag.TagGroup{group}, nil)
+		err = srv.UpsertTagGroups(tx, []*tag.TagGroup{group}, nil)
 		if err != nil {
 			return err
 		}
 
-		err = srv.UpsertTags(tx, tag.TAG_UNIQUE_ID, tags, nil)
+		err = srv.UpsertTags(tx, tags, nil)
 		if err != nil {
 			return err
 		}
@@ -113,7 +112,7 @@ func (srv *TagService) UpdateTagGroupWithTags(db *gorm.DB, group *tag.TagGroup, 
 			return err
 		}
 
-		err = srv.UpsertTagGroups(tx, tag.TAG_GROUP_UNIQUE_ID, []*tag.TagGroup{group}, nil)
+		err = srv.UpsertTagGroups(tx, []*tag.TagGroup{group}, nil)
 		if err != nil {
 			return err
 		}
@@ -122,7 +121,7 @@ func (srv *TagService) UpdateTagGroupWithTags(db *gorm.DB, group *tag.TagGroup, 
 		if err != nil {
 			return err
 		}
-		err = srv.UpsertTags(tx, tag.TAG_UNIQUE_ID, tags, nil)
+		err = srv.UpsertTags(tx, tags, nil)
 		if err != nil {
 			return err
 		}
@@ -132,42 +131,14 @@ func (srv *TagService) UpdateTagGroupWithTags(db *gorm.DB, group *tag.TagGroup, 
 	return err
 }
 
-func (srv *TagService) UpsertTagGroups(db *gorm.DB, uniqueName string, tagGroups []*tag.TagGroup, fieldsToUpdate []string) error {
+func (srv *TagService) UpsertTagGroups(db *gorm.DB, tagGroups []*tag.TagGroup, fieldsToUpdate []string) error {
 
-	if len(tagGroups) <= 0 {
-		return nil
-	}
-
-	if len(fieldsToUpdate) <= 0 {
-		fieldsToUpdate = database.GetModelFields(&tag.TagGroup{})
-	}
-
-	result := db.Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: uniqueName}},
-		DoUpdates: clause.AssignmentColumns(fieldsToUpdate),
-	}).
-		//Debug().
-		Create(&tagGroups)
-
-	return result.Error
+	return database.UpsertModelsOnUniqueID(db, &tag.TagGroup{}, tag.TAG_GROUP_UNIQUE_ID, tagGroups, fieldsToUpdate)
 }
 
-func (srv *TagService) UpsertTags(db *gorm.DB, uniqueName string, tags []*tag.Tag, fieldsToUpdate []string) error {
+func (srv *TagService) UpsertTags(db *gorm.DB, tags []*tag.Tag, fieldsToUpdate []string) error {
 
-	if len(tags) <= 0 {
-		return nil
-	}
-
-	if len(fieldsToUpdate) <= 0 {
-		fieldsToUpdate = database.GetModelFields(&tag.Tag{})
-	}
-
-	result := db.Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: uniqueName}},
-		DoUpdates: clause.AssignmentColumns(fieldsToUpdate),
-	}).Create(&tags)
-
-	return result.Error
+	return database.UpsertModelsOnUniqueID(db, &tag.Tag{}, tag.TAG_UNIQUE_ID, tags, fieldsToUpdate)
 }
 
 func (srv *TagService) DeleteTagGroupsWithTags(db *gorm.DB, groupUniqueIDs []string, tagUniqueIDs []string) (err error) {
@@ -306,6 +277,6 @@ func (srv *TagService) ClearObjectTags(db *gorm.DB, obj database.ModelInterface)
 	err = database.ClearPivots(db, &modelWX.RWXTagToObject{
 		TaggableOwnerType: object2.NewNullString(obj.GetTableName(true), true),
 		TaggableObjectID:  object2.NewNullString(obj.GetForeignReferValue(), true),
-	})
+	}, true, false)
 	return err
 }

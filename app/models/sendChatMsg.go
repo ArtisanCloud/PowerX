@@ -1,10 +1,10 @@
 package models
 
 import (
-	"github.com/ArtisanCloud/PowerLibs/v2/database"
+	databasePowerLib "github.com/ArtisanCloud/PowerLibs/v2/database"
 	"github.com/ArtisanCloud/PowerLibs/v2/object"
 	"github.com/ArtisanCloud/PowerX/app/models/wx"
-	"github.com/ArtisanCloud/PowerX/config"
+	databaseConfig "github.com/ArtisanCloud/PowerX/configs/database"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 	"time"
@@ -27,7 +27,7 @@ type FilterCustomers struct {
 }
 
 type SendChatMsg struct {
-	*database.PowerModel
+	*databasePowerLib.PowerModel
 
 	WXMessageTemplates []*wx.WXMessageTemplate `gorm:"ForeignKey:SendChatMsgUUID;references:UUID" json:"wxMessageTemplates"`
 
@@ -55,7 +55,7 @@ const SEND_CHAT_MSG_TYPE_CHANNEL = 1
 func (mdl *SendChatMsg) GetTableName(needFull bool) string {
 	tableName := TABLE_NAME_SEND_CHAT_MSG
 	if needFull {
-		tableName = config.DatabaseConn.Schemas["option"] + "." + tableName
+		tableName = databasePowerLib.GetTableFullName(databaseConfig.G_DBConfig.Schemas["default"], databaseConfig.G_DBConfig.BaseConfig.Prefix, tableName)
 	}
 	return tableName
 }
@@ -83,7 +83,7 @@ func NewSendChatMsg(mapObject *object.Collection) *SendChatMsg {
 	filterExcludedWXTagIDs, _ := object.JsonEncode(mapObject.GetStringArray("filterExcludedTagIDs", nil))
 
 	return &SendChatMsg{
-		PowerModel: database.NewPowerModel(),
+		PowerModel: databasePowerLib.NewPowerModel(),
 
 		Senders: datatypes.JSON(Senders),
 		FilterCustomers: &FilterCustomers{
@@ -104,7 +104,7 @@ func NewSendChatMsg(mapObject *object.Collection) *SendChatMsg {
 func (mdl *SendChatMsg) LoadWXMessageTemplates(db *gorm.DB, conditions *map[string]interface{}) ([]*wx.WXMessageTemplate, error) {
 	mdl.WXMessageTemplates = []*wx.WXMessageTemplate{}
 
-	err := database.AssociationRelationship(db, conditions, mdl, "WXMessageTemplates", false).Find(&mdl.WXMessageTemplates)
+	err := databasePowerLib.AssociationRelationship(db, conditions, mdl, "WXMessageTemplates", false).Find(&mdl.WXMessageTemplates)
 	if err != nil {
 		return nil, err
 	}

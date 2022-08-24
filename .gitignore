@@ -35,7 +35,7 @@ log.yaml
 
 .DS_Store
 
-configs/
+config/
 powerX
 powerX-dev
 powerX-dev-linux

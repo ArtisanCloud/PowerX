@@ -2,7 +2,7 @@ package wecom
 
 import (
 	"errors"
-	database2 "github.com/ArtisanCloud/PowerLibs/v2/database"
+	databasePowerLib "github.com/ArtisanCloud/PowerLibs/v2/database"
 	"github.com/ArtisanCloud/PowerLibs/v2/fmt"
 	object2 "github.com/ArtisanCloud/PowerLibs/v2/object"
 	models3 "github.com/ArtisanCloud/PowerSocialite/v2/src/models"
@@ -15,7 +15,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 )
 
 type WXTagService struct {
@@ -29,16 +28,16 @@ func NewWXTagService(ctx *gin.Context) (r *WXTagService) {
 	return r
 }
 
-func (srv *WXTagService) GetList(db *gorm.DB, conditions *map[string]interface{}, page int, pageSize int) (pagination *database2.Pagination, err error) {
+func (srv *WXTagService) GetList(db *gorm.DB, conditions *map[string]interface{}, page int, pageSize int) (pagination *databasePowerLib.Pagination, err error) {
 
 	arrayWXTags := []*wx.WXTag{}
-	pagination, err = database2.GetList(db, conditions, &arrayWXTags, nil, page, pageSize)
+	pagination, err = databasePowerLib.GetList(db, conditions, &arrayWXTags, nil, page, pageSize)
 
 	return pagination, err
 }
 
 func (srv *WXTagService) UpsertWXTagByCorpTag(db *gorm.DB, group *response.CorpTagGroup, tag *response.Tag) (err error) {
-	err = srv.UpsertWXTags(db, wx.WX_TAG_UNIQUE_ID, []*wx.WXTag{
+	err = srv.UpsertWXTags(db, []*wx.WXTag{
 		&wx.WXTag{
 			ID:           tag.ID,
 			WXTagGroupID: &group.GroupID,
@@ -58,22 +57,9 @@ func (srv *WXTagService) UpsertWXTagByCorpTag(db *gorm.DB, group *response.CorpT
 	return err
 }
 
-func (srv *WXTagService) UpsertWXTags(db *gorm.DB, uniqueName string, tags []*wx.WXTag, fieldsToUpdate []string) error {
+func (srv *WXTagService) UpsertWXTags(db *gorm.DB, tags []*wx.WXTag, fieldsToUpdate []string) error {
 
-	if len(tags) <= 0 {
-		return nil
-	}
-
-	if len(fieldsToUpdate) <= 0 {
-		fieldsToUpdate = database2.GetModelFields(&wx.WXTagGroup{})
-	}
-
-	result := db.Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: uniqueName}},
-		DoUpdates: clause.AssignmentColumns(fieldsToUpdate),
-	}).Create(&tags)
-
-	return result.Error
+	return databasePowerLib.UpsertModelsOnUniqueID(db, &wx.WXTag{}, wx.WX_TAG_UNIQUE_ID, tags, fieldsToUpdate)
 }
 
 func (srv *WXTagService) DeleteWXTagsByGroupIDs(db *gorm.DB, groupIDs []string) error {
@@ -118,7 +104,7 @@ func (srv *WXTagService) GetWXTag(db *gorm.DB, uuid string) (department *wx.WXTa
 	department = &wx.WXTag{}
 
 	db = db.Scopes(
-		database2.WhereUUID(uuid),
+		databasePowerLib.WhereUUID(uuid),
 	)
 
 	result := db.First(department)
@@ -164,17 +150,17 @@ func (srv *WXTagService) SyncWXTagsByFollowInfos(db *gorm.DB, pivot *models.RCus
 }
 
 // ---------------------------------------------------------
-func (srv *WXTagService) AppendWXTagsToObject(db *gorm.DB, obj database2.ModelInterface, tags []*wx.WXTag) (err error) {
+func (srv *WXTagService) AppendWXTagsToObject(db *gorm.DB, obj databasePowerLib.ModelInterface, tags []*wx.WXTag) (err error) {
 
 	pivots, err := (&wx.RWXTagToObject{}).MakePivotsFromObjectAndTags(obj, tags)
 	if err != nil {
 		return err
 	}
-	err = database2.AppendMorphPivots(db, pivots)
+	err = databasePowerLib.AppendMorphPivots(db, pivots)
 	return err
 }
 
-func (srv *WXTagService) SyncWXTagsToObject(db *gorm.DB, obj database2.ModelInterface, tags []*wx.WXTag) (err error) {
+func (srv *WXTagService) SyncWXTagsToObject(db *gorm.DB, obj databasePowerLib.ModelInterface, tags []*wx.WXTag) (err error) {
 
 	if tags == nil || len(tags) == 0 {
 		return nil
@@ -183,15 +169,15 @@ func (srv *WXTagService) SyncWXTagsToObject(db *gorm.DB, obj database2.ModelInte
 	if err != nil {
 		return err
 	}
-	err = database2.SyncMorphPivots(db, pivots)
+	err = databasePowerLib.SyncMorphPivots(db, pivots)
 	return err
 }
 
-func (srv *WXTagService) ClearObjectWXTags(db *gorm.DB, obj database2.ModelInterface) (err error) {
-	err = database2.ClearPivots(db, &wx.RWXTagToObject{
+func (srv *WXTagService) ClearObjectWXTags(db *gorm.DB, obj databasePowerLib.ModelInterface) (err error) {
+	err = databasePowerLib.ClearPivots(db, &wx.RWXTagToObject{
 		TaggableOwnerType: object2.NewNullString(obj.GetTableName(true), true),
 		TaggableObjectID:  object2.NewNullString(obj.GetForeignReferValue(), true),
-	})
+	}, true, false)
 	return err
 }
 

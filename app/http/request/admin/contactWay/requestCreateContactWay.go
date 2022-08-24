@@ -9,8 +9,8 @@ import (
 	"github.com/ArtisanCloud/PowerX/app/models"
 	"github.com/ArtisanCloud/PowerX/app/models/wx"
 	serviceWX "github.com/ArtisanCloud/PowerX/app/service/wx/wecom"
-	"github.com/ArtisanCloud/PowerX/config"
-	"github.com/ArtisanCloud/PowerX/database"
+	globalConfig "github.com/ArtisanCloud/PowerX/configs/global"
+	"github.com/ArtisanCloud/PowerX/database/global"
 	"github.com/gin-gonic/gin"
 	"gorm.io/datatypes"
 )
@@ -50,7 +50,7 @@ func ValidateCreateContactWay(context *gin.Context) {
 
 	contactWay, err := convertParaToContactWayForCreate(form)
 	if err != nil {
-		apiResponse.SetCode(config.API_ERR_CODE_REQUEST_PARAM_ERROR, config.API_RETURN_CODE_ERROR, "", err.Error()).
+		apiResponse.SetCode(globalConfig.API_ERR_CODE_REQUEST_PARAM_ERROR, globalConfig.API_RETURN_CODE_ERROR, "", err.Error()).
 			ThrowJSONResponse(context)
 		return
 	}
@@ -81,8 +81,8 @@ func convertParaToContactWayForCreate(form ParaCreateContactWay) (contactWay *mo
 	}
 
 	isTemp := false
-	expiresIn := 7 * config.DAY
-	chatExpiresIn := 24 * config.HOUR
+	expiresIn := 7 * globalConfig.DAY
+	chatExpiresIn := 24 * globalConfig.HOUR
 	state := object.RandStringBytesMask(30)
 	contactWay = &models.ContactWay{
 		PowerModel:                      databasePowerLib.NewPowerModel(),
@@ -115,7 +115,7 @@ func convertParaToContactWayForCreate(form ParaCreateContactWay) (contactWay *mo
 
 	// load wxTagIDs
 	wxTagService := serviceWX.NewWXTagService(nil)
-	wxTags, err := wxTagService.GetWXTagsByIDs(database.DBConnection, form.WXTagIDs)
+	wxTags, err := wxTagService.GetWXTagsByIDs(global.G_DBConnection, form.WXTagIDs)
 	if err != nil {
 		return nil, err
 	}

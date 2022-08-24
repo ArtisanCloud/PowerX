@@ -2,17 +2,16 @@ package foundation
 
 import (
 	"github.com/ArtisanCloud/PowerLibs/v2/database"
-	"github.com/ArtisanCloud/PowerX/database/migrations/migrate"
 )
 
 type MigratePowerOperationLog struct {
-	*migrate.Migration
-	migrate.MigrationInterface
+	*Migration
+	MigrationInterface
 }
 
 func NewMigratePowerOperationLog() *MigratePowerOperationLog {
 	return &MigratePowerOperationLog{
-		Migration: &migrate.Migration{
+		Migration: &Migration{
 			Model: &database.PowerOperationLog{},
 		},
 	}

@@ -7,10 +7,9 @@ import (
 	"github.com/ArtisanCloud/PowerSocialite/v2/src/providers"
 	"github.com/ArtisanCloud/PowerX/app/models"
 	"github.com/ArtisanCloud/PowerX/app/models/wx"
-	"github.com/ArtisanCloud/PowerX/config"
+	"github.com/ArtisanCloud/PowerX/configs/app"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 )
 
 type WeComEmployeeService struct {
@@ -19,19 +18,19 @@ type WeComEmployeeService struct {
 }
 
 func NewWeComEmployeeService(ctx *gin.Context) (r *WeComEmployeeService) {
-	weComConfig, _ := object.StructToMap(config.AppConfigure.Wechat["wecom"])
+	weComConfig, _ := object.StructToMap(app.G_AppConfigure.Wechat["wecom"])
 	if weComConfig["contact_secret"] != nil {
 		weComConfig["secret"] = weComConfig["contact_secret"]
 	}
 	r = &WeComEmployeeService{
-		WeComService: WeComEmployee,
+		WeComService: G_WeComEmployee,
 		Employee:     models.NewEmployee(nil),
 	}
 	return r
 }
 
 func (srv *WeComEmployeeService) UpsertEmployeeByWXEmployee(db *gorm.DB, employee *wx.WXEmployee) (err error) {
-	err = srv.UpsertEmployees(db, models.EMPLOYEE_UNIQUE_ID, []*models.Employee{
+	err = srv.UpsertEmployees(db, []*models.Employee{
 		&models.Employee{
 			PowerModel: databasePowerLib.NewPowerModel(),
 			WXEmployee: &wx.WXEmployee{
@@ -93,22 +92,9 @@ func (srv *WeComEmployeeService) UpsertEmployeeByWXEmployee(db *gorm.DB, employe
 	return err
 }
 
-func (srv *WeComEmployeeService) UpsertEmployees(db *gorm.DB, uniqueName string, employees []*models.Employee, fieldsToUpdate []string) error {
+func (srv *WeComEmployeeService) UpsertEmployees(db *gorm.DB, employees []*models.Employee, fieldsToUpdate []string) error {
 
-	if len(employees) <= 0 {
-		return nil
-	}
-
-	if len(fieldsToUpdate) <= 0 {
-		fieldsToUpdate = databasePowerLib.GetModelFields(&models.Employee{})
-	}
-
-	result := db.Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: uniqueName}},
-		DoUpdates: clause.AssignmentColumns(fieldsToUpdate),
-	}).Create(&employees)
-
-	return result.Error
+	return databasePowerLib.UpsertModelsOnUniqueID(db, &models.Employee{}, models.EMPLOYEE_UNIQUE_ID, employees, fieldsToUpdate)
 }
 
 func (srv *WeComEmployeeService) GetEmployees(db *gorm.DB) (employees []*models.Employee, err error) {
@@ -129,7 +115,8 @@ func (srv *WeComEmployeeService) GetEmployeeByUserID(db *gorm.DB, userID string)
 	condition := &map[string]interface{}{
 		"wx_user_id": userID,
 	}
-	err = databasePowerLib.GetFirst(db, condition, employee, nil)
+	preload := []string{"Role"}
+	err = databasePowerLib.GetFirst(db, condition, employee, preload)
 	if err != nil && errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
 	}

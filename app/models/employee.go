@@ -1,31 +1,34 @@
 package models
 
 import (
+	"github.com/ArtisanCloud/PowerLibs/v2/authorization/rbac/models"
 	"github.com/ArtisanCloud/PowerLibs/v2/database"
 	"github.com/ArtisanCloud/PowerLibs/v2/object"
 	"github.com/ArtisanCloud/PowerX/app/models/wx"
-	"github.com/ArtisanCloud/PowerX/config"
+	databaseConfig "github.com/ArtisanCloud/PowerX/configs/database"
 )
 
 // TableName overrides the table name used by Employee to `profiles`
 func (mdl *Employee) TableName() string {
-	return config.DatabaseConn.Schemas["default"] + "." + TABLE_NAME_EMPLOYEE
+	return mdl.GetTableName(true)
 }
 
 type Employee struct {
 	*database.PowerModel
 
-	PivotEmployees    []*RCustomerToEmployee `gorm:"ForeignKey:EmployeeReferID;references:WXEmployeeID" json:"pivotEmployees"`
-	FollowedEmployees []*Employee            `gorm:"many2many:public.r_customer_to_employee;foreignKey:UUID;joinForeignKey:EmployeeReferID;References:UUID;JoinReferences:EmployeeReferID" json:"FollowedEmployees"`
+	Role              *models.Role           `gorm:"ForeignKey:RoleID;references:UniqueID" json:"role"`
+	PivotCustomers    []*RCustomerToEmployee `gorm:"ForeignKey:EmployeeReferID;references:WXUserID" json:"pivotCustomers"`
+	FollowedEmployees []*Employee            `gorm:"many2many:public.ac_r_customer_to_employee;foreignKey:UUID;joinForeignKey:EmployeeReferID;References:UUID;JoinReferences:EmployeeReferID" json:"FollowedEmployees"`
 	WXDepartments     []*wx.WXDepartment     `gorm:"many2many:r_employee_to_department;foreignKey:ID;joinForeignKey:employee_id;References:ID;JoinReferences:department_id"`
-	//WXTags            []*wx.WXTag        `gorm:"many2many:public.r_wx_tag_to_object;foreignKey:UUID;joinForeignKey:EmployeeReferID;References:ID;JoinReferences:WXTagReferID" json:"wxTags"`
+	//WXTags            []*wx.WXTag        `gorm:"many2many:public.ac_r_wx_tag_to_object;foreignKey:UUID;joinForeignKey:EmployeeReferID;References:ID;JoinReferences:WXTagReferID" json:"wxTags"`
 
-	Locale    string `gorm:"column:locale" json:"locale"`
-	Email     string `gorm:"column:email" json:"email"`
-	FirstName string `gorm:"column:firstname" json:"firstname"`
-	Lastname  string `gorm:"column:lastname" json:"lastname"`
-	Name      string `gorm:"column:name" json:"name"`
-	Mobile    string `gorm:"column:mobile" json:"mobile"`
+	RoleID    *string `gorm:"column:role_id;index" json:"roleID"`
+	Locale    string  `gorm:"column:locale" json:"locale"`
+	Email     string  `gorm:"column:email" json:"email"`
+	FirstName string  `gorm:"column:firstname" json:"firstname"`
+	Lastname  string  `gorm:"column:lastname" json:"lastname"`
+	Name      string  `gorm:"column:name" json:"name"`
+	Mobile    string  `gorm:"column:mobile" json:"mobile"`
 
 	*wx.WXEmployee
 }
@@ -36,7 +39,7 @@ const EMPLOYEE_UNIQUE_ID = "wx_user_id"
 func (mdl *Employee) GetTableName(needFull bool) string {
 	tableName := TABLE_NAME_EMPLOYEE
 	if needFull {
-		tableName = config.DatabaseConn.Schemas["default"] + "." + tableName
+		tableName = database.GetTableFullName(databaseConfig.G_DBConfig.Schemas["default"], databaseConfig.G_DBConfig.BaseConfig.Prefix, tableName)
 	}
 	return tableName
 }
@@ -72,6 +75,7 @@ func NewEmployee(mapObject *object.Collection) *Employee {
 	return &Employee{
 		PowerModel: database.NewPowerModel(),
 
+		RoleID:    mapObject.GetStringPointer("roleID", ""),
 		Email:     mapObject.GetString("email", ""),
 		FirstName: mapObject.GetString("firstName", ""),
 		Lastname:  mapObject.GetString("lastName", ""),

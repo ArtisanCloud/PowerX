@@ -1,130 +1,80 @@
 package migrate
 
 import (
-	"fmt"
 	"github.com/ArtisanCloud/PowerX/boostrap"
-	"github.com/ArtisanCloud/PowerX/database"
 	"github.com/ArtisanCloud/PowerX/database/migrations/migrate/foundation"
-	"github.com/ArtisanCloud/PowerX/database/migrations/migrate/foundation/wx"
-	"reflect"
+	"github.com/ArtisanCloud/PowerX/database/migrations/migrate/wx"
+	"gorm.io/gorm"
 )
 
 var (
 	NeedRefresh bool
-	Industry    string
+	//Industry    string
 )
 
 func init() {
-	boostrap.InitProject()
+	err := boostrap.InitProject()
+	if err != nil {
+		panic(err)
+	}
 }
 
-type MigrationInterface interface {
-	GetModel() interface{}
-	GetTableName() string
-}
-
-type Migration struct {
-	Model     interface{}
-	TableName string
-}
-
-func (m *Migration) Run() (err error) {
+func Run(db *gorm.DB) (err error) {
 
 	if err != nil {
 		return err
 	}
 	// Power tables
-	err = foundation.NewMigratePowerOperationLog().Migrate()
+	err = foundation.NewMigratePowerOperationLog().Migrate(db)
 
 	// marketX tables
-	err = foundation.NewMigrateAccount().Migrate()
-	//err = NewMigrateCommission().Migrate()
-	//err = NewMigrateCoupon().Migrate()
-	//err = NewMigrateCouponItem().Migrate()
-	err = foundation.NewMigrateDepartment().Migrate()
-	err = foundation.NewMigrateEmployee().Migrate()
-	//err = NewMigrateFission().Migrate()
-	//err = NewMigrateFissionLog().Migrate()
-	//err = NewMigrateRFissionToAward().Migrate()
-	//err = NewMigrateRFissionToCampaign().Migrate()
-	//err = NewMigrateRFissionToExperience().Migrate()
-	//err = NewMigrateMembership().Migrate()
-	//err = NewMigrateNotification().Migrate()
-	//err = NewMigrateMerchant().Migrate()
-	//err = NewMigrateOrder().Migrate()
-	//err = NewMigrateOrderItem().Migrate()
-	//err = NewMigratePayment().Migrate()
-	//err = NewMigratePicklistOption().Migrate()
-	//err = NewMigratePriceConfig().Migrate()
-	//err = NewMigrateProduct().Migrate()
-	//err = NewMigratePriceBookEntry().Migrate()
-	//err = NewMigratePriceBook().Migrate()
-	//err = NewMigrateReseller().Migrate()
-	//err = NewMigrateRCouponToProduct().Migrate()
-	err = foundation.NewMigrateREmployeeToDepartment().Migrate()
-	err = foundation.NewMigrateUser().Migrate()
-	err = foundation.NewMigrateTag().Migrate()
-	err = foundation.NewMigrateTagGroup().Migrate()
-	err = foundation.NewMigrateRTagToObject().Migrate()
-	err = foundation.NewMigrateContactWay().Migrate()
-	err = foundation.NewMigrateContactWayGroup().Migrate()
-	err = foundation.NewMigrateGroupChat().Migrate()
-	err = foundation.NewMigrateGroupChatMember().Migrate()
-	err = foundation.NewMigrateGroupChatAdmin().Migrate()
-	err = foundation.NewMigrateSendChatMsg().Migrate()
-	err = foundation.NewMigrateSendGroupChatMsg().Migrate()
+	err = foundation.NewMigrateCustomer().Migrate(db)
+	err = foundation.NewMigrateDepartment().Migrate(db)
+	err = foundation.NewMigrateEmployee().Migrate(db)
+	err = foundation.NewMigrateRole().Migrate(db)
+	err = foundation.NewMigratePermissionModule().Migrate(db)
+	err = foundation.NewMigratePermission().Migrate(db)
+	err = foundation.NewMigrateREmployeeToDepartment().Migrate(db)
+	//err = migrate.NewMigrateCommission().Migrate(db)
+	//err = migrate.NewMigrateCoupon().Migrate(db)
+	//err = migrate.NewMigrateCouponItem().Migrate(db)
+	//err = migrate.NewMigrateFission().Migrate(db)
+	//err = migrate.NewMigrateFissionLog().Migrate(db)
+	//err = migrate.NewMigrateRFissionToAward().Migrate(db)
+	//err = migrate.NewMigrateRFissionToCampaign().Migrate(db)
+	//err = migrate.NewMigrateRFissionToExperience().Migrate(db)
+	//err = migrate.NewMigrateMembership().Migrate(db)
+	//err = migrate.NewMigrateNotification().Migrate(db)
+	//err = migrate.NewMigrateMerchant().Migrate(db)
+	//err = migrate.NewMigrateOrder().Migrate(db)
+	//err = migrate.NewMigrateOrderItem().Migrate(db)
+	//err = migrate.NewMigratePayment().Migrate(db)
+	//err = migrate.NewMigratePicklistOption().Migrate(db)
+	//err = migrate.NewMigratePriceConfig().Migrate(db)
+	//err = migrate.NewMigrateProduct().Migrate(db)
+	//err = migrate.NewMigratePriceBookEntry().Migrate(db)
+	//err = migrate.NewMigratePriceBook().Migrate(db)
+	//err = migrate.NewMigrateReseller().Migrate(db)
+	//err = migrate.NewMigrateRCouponToProduct().Migrate(db)
+	err = foundation.NewMigrateTag().Migrate(db)
+	err = foundation.NewMigrateTagGroup().Migrate(db)
+	err = foundation.NewMigrateRTagToObject().Migrate(db)
+	err = foundation.NewMigrateContactWay().Migrate(db)
+	err = foundation.NewMigrateContactWayGroup().Migrate(db)
+	err = foundation.NewMigrateGroupChat().Migrate(db)
+	err = foundation.NewMigrateGroupChatMember().Migrate(db)
+	err = foundation.NewMigrateGroupChatAdmin().Migrate(db)
+	err = foundation.NewMigrateSendChatMsg().Migrate(db)
+	err = foundation.NewMigrateSendGroupChatMsg().Migrate(db)
+	err = foundation.NewMigrateCustomerToEmployee().Migrate(db)
 
 	// wx tables
-	err = foundation.NewMigrateCustomerToEmployee().Migrate()
-	err = wx.NewMigrateWXTag().Migrate()
-	err = foundation.NewMigrateRWXTagToObject().Migrate()
-	err = wx.NewMigrateWXMessageTemplate().Migrate()
-	err = wx.NewMigrateWXMessageTemplateTask().Migrate()
-	err = wx.NewMigrateWXMessageTemplateSend().Migrate()
+	err = wx.NewMigrateWXTag().Migrate(db)
+	err = wx.NewMigrateRWXTagToObject().Migrate(db)
+	err = wx.NewMigrateWXMessageTemplate().Migrate(db)
+	err = wx.NewMigrateWXMessageTemplateTask().Migrate(db)
+	err = wx.NewMigrateWXMessageTemplateSend().Migrate(db)
 	return err
-}
-
-func (m *Migration) Migrate() error {
-
-	hasTable := database.DBConnection.Migrator().HasTable(m.Model)
-
-	m.TableName = m.GetTableName()
-
-	// force drop tables if it has this table
-	if NeedRefresh && hasTable {
-		err := database.DBConnection.Migrator().DropTable(m.Model)
-		if err != nil {
-			println(err.Error())
-			return err
-		} else {
-			hasTable = false
-			fmt.Printf("has dropped table:%s \n", m.TableName)
-		}
-	}
-
-	if !hasTable {
-		err := database.DBConnection.Migrator().CreateTable(m.Model)
-		//err := database.DBConnection.Migrator().AutoMigrate(table)
-		if err != nil {
-			println("create table error: ", err.Error())
-			return err
-		} else {
-			fmt.Printf("has created table:%s \n\n", m.TableName)
-		}
-
-	}
-	return nil
-}
-
-func (m *Migration) GetModel() interface{} {
-	return m.Model
-}
-
-func (m *Migration) GetTableName() string {
-
-	tableName := reflect.TypeOf(m.Model).String()
-
-	return tableName
 }
 
 func appendIndustryTables(industry string, arrayTables []interface{}) []interface{} {

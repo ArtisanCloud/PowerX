@@ -18,7 +18,8 @@ import (
 	modelPowerWechat "github.com/ArtisanCloud/PowerWeChat/v2/src/work/server/handlers/models"
 	"github.com/ArtisanCloud/PowerX/app/models"
 	modelWX "github.com/ArtisanCloud/PowerX/app/models/wx"
-	"github.com/ArtisanCloud/PowerX/config"
+	"github.com/ArtisanCloud/PowerX/configs/app"
+	"github.com/ArtisanCloud/PowerX/configs/cache"
 	logger "github.com/ArtisanCloud/PowerX/loggerManager"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
@@ -85,9 +86,9 @@ func NewWeComService(ctx *gin.Context) (*WeComService, error) {
 			Scopes:   []string{"snsapi_base"},
 		},
 		Cache: kernel.NewRedisClient(&kernel.RedisOptions{
-			Addr:     config.CacheConn.Host,
-			Password: config.CacheConn.Password,
-			DB:       config.CacheConn.DB,
+			Addr:     cache.G_RedisConfig.Host,
+			Password: cache.G_RedisConfig.Password,
+			DB:       cache.G_RedisConfig.DB,
 		}),
 		HttpDebug: true,
 	})
@@ -150,7 +151,7 @@ func (srv *WeComService) SendMessageToEmployee(ctx *gin.Context, msgType string,
 		return errors.New("have to offer the sendable object from toUserID,toPart,ToTag")
 	}
 
-	weComConfig := config.AppConfigure.Wechat["wecom"].(map[string]interface{})
+	weComConfig := app.G_AppConfigure.Wechat["wecom"].(map[string]interface{})
 	agentID := weComConfig["agent_id"].(int)
 
 	if msgType == "text" {

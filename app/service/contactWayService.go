@@ -11,8 +11,8 @@ import (
 	models2 "github.com/ArtisanCloud/PowerWeChat/v2/src/work/server/handlers/models"
 	"github.com/ArtisanCloud/PowerX/app/models"
 	"github.com/ArtisanCloud/PowerX/app/models/wx"
-	serviceWX "github.com/ArtisanCloud/PowerX/app/service/wx/wecom"
-	database2 "github.com/ArtisanCloud/PowerX/database"
+	"github.com/ArtisanCloud/PowerX/app/service/wx/wecom"
+	"github.com/ArtisanCloud/PowerX/database/global"
 	logger "github.com/ArtisanCloud/PowerX/loggerManager"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-module/carbon"
@@ -51,13 +51,13 @@ func (srv *ContactWayService) SyncContactWayFromWXPlatform(startDatetime *carbon
 	// sync contact ways
 	for _, contactWayID := range result.ContactWayIDs {
 
-		responseContactWay, err := serviceWX.WeComEmployee.App.ExternalContactContactWay.Get(contactWayID.ConfigID)
+		responseContactWay, err := wecom.G_WeComEmployee.App.ExternalContactContactWay.Get(contactWayID.ConfigID)
 
 		users, _ := object.JsonEncode(responseContactWay.ContactWay.User)
 		parties, _ := object.JsonEncode(responseContactWay.ContactWay.Party)
 		conclusions, _ := object.JsonEncode(responseContactWay.ContactWay.Conclusions)
 
-		err = srv.UpsertContactWays(database2.DBConnection, wx.WX_CONTACT_WAY_UNIQUE_ID, []*models.ContactWay{
+		err = srv.UpsertContactWays(global.G_DBConnection, []*models.ContactWay{
 			&models.ContactWay{
 				PowerModel: database.NewPowerModel(),
 				CodeURL:    responseContactWay.ContactWay.QrCode,
@@ -117,22 +117,9 @@ func (srv *ContactWayService) GetList(db *gorm.DB, groupUUID string) (contactWay
 	return contactWays, err
 }
 
-func (srv *ContactWayService) UpsertContactWays(db *gorm.DB, uniqueName string, contactWays []*models.ContactWay, fieldsToUpdate []string) error {
+func (srv *ContactWayService) UpsertContactWays(db *gorm.DB, contactWays []*models.ContactWay, fieldsToUpdate []string) error {
 
-	if len(contactWays) <= 0 {
-		return nil
-	}
-
-	if len(fieldsToUpdate) <= 0 {
-		fieldsToUpdate = database.GetModelFields(&models.ContactWay{})
-	}
-
-	result := db.Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: uniqueName}},
-		DoUpdates: clause.AssignmentColumns(fieldsToUpdate),
-	}).Create(&contactWays)
-
-	return result.Error
+	return database.UpsertModelsOnUniqueID(db, &models.ContactWay{}, wx.WX_CONTACT_WAY_UNIQUE_ID, contactWays, fieldsToUpdate)
 }
 
 func (srv *ContactWayService) SaveContactWay(db *gorm.DB, contactWay *models.ContactWay) (*models.ContactWay, error) {
@@ -246,7 +233,7 @@ func (srv *ContactWayService) GetContactWayListOnWXPlatform(startDatetime *carbo
 	}
 
 	// get tag group list from wechat platform
-	result, err := serviceWX.WeComEmployee.App.ExternalContactContactWay.List(request)
+	result, err := wecom.G_WeComEmployee.App.ExternalContactContactWay.List(request)
 
 	return result, err
 }
@@ -286,7 +273,7 @@ func (srv *ContactWayService) CreateContactWayOnWXPlatform(contactWay *models.Co
 		Conclusions: conclusions,
 	}
 
-	result, err = serviceWX.WeComEmployee.App.ExternalContactContactWay.Add(request)
+	result, err = wecom.G_WeComEmployee.App.ExternalContactContactWay.Add(request)
 
 	if err != nil {
 		return nil, err
@@ -332,7 +319,7 @@ func (srv *ContactWayService) UpdateContactWayOnWXPlatform(contactWay *models.Co
 		Conclusions: conclusions,
 	}
 
-	result, err := serviceWX.WeComEmployee.App.ExternalContactContactWay.Update(request)
+	result, err := wecom.G_WeComEmployee.App.ExternalContactContactWay.Update(request)
 
 	if err != nil {
 		return err
@@ -347,7 +334,7 @@ func (srv *ContactWayService) UpdateContactWayOnWXPlatform(contactWay *models.Co
 
 func (srv *ContactWayService) DeleteContactWayOnWXPlatform(configID string) (err error) {
 
-	result, err := serviceWX.WeComEmployee.App.ExternalContactContactWay.Delete(configID)
+	result, err := wecom.G_WeComEmployee.App.ExternalContactContactWay.Delete(configID)
 
 	if err != nil {
 		return err

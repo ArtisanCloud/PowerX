@@ -4,7 +4,7 @@ import (
 	"github.com/ArtisanCloud/PowerWeChat/v2/src/kernel"
 	"github.com/ArtisanCloud/PowerWeChat/v2/src/kernel/response"
 	"github.com/ArtisanCloud/PowerWeChat/v2/src/miniProgram"
-	"github.com/ArtisanCloud/PowerX/config"
+	"github.com/ArtisanCloud/PowerX/configs/cache"
 	"github.com/gin-gonic/gin"
 	"log"
 	"os"
@@ -28,9 +28,9 @@ func NewMiniProgramService(ctx *gin.Context) (*MiniProgramService, error) {
 			File:  "./wechat.log",
 		},
 		Cache: kernel.NewRedisClient(&kernel.RedisOptions{
-			Addr:     config.CacheConn.Host,
-			Password: config.CacheConn.Password,
-			DB:       config.CacheConn.DB,
+			Addr:     cache.G_RedisConfig.Host,
+			Password: cache.G_RedisConfig.Password,
+			DB:       cache.G_RedisConfig.DB,
 		}),
 		HttpDebug: true,
 		Debug:     false,

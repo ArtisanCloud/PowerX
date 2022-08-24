@@ -3,9 +3,14 @@ package tests
 import (
 	"bytes"
 	service "github.com/ArtisanCloud/PowerX/app/service"
-	"github.com/ArtisanCloud/PowerX/cache"
-	"github.com/ArtisanCloud/PowerX/config"
+	"github.com/ArtisanCloud/PowerX/boostrap/cache"
+	"github.com/ArtisanCloud/PowerX/boostrap/cache/global"
+	"github.com/ArtisanCloud/PowerX/configs"
+	"github.com/ArtisanCloud/PowerX/configs/app"
+	cacheConfig "github.com/ArtisanCloud/PowerX/configs/cache"
+	databaseConfig "github.com/ArtisanCloud/PowerX/configs/database"
 	"github.com/ArtisanCloud/PowerX/database"
+	globalDatabase "github.com/ArtisanCloud/PowerX/database/global"
 	logger "github.com/ArtisanCloud/PowerX/loggerManager"
 	"github.com/ArtisanCloud/PowerX/resources/lang"
 	"github.com/gin-gonic/gin"
@@ -71,7 +76,7 @@ func SetupTestEnv(t *testing.M) {
 	if config.AppConfigure == nil {
 
 		configName := "environment"
-		config.LoadEnvConfig(&envPath, &configName, nil)
+		app.LoadEnvConfig(&envPath, &configName, nil)
 		if config.AppConfigure == nil {
 			logger.Logger.Error("app configure failed")
 		}
@@ -80,33 +85,23 @@ func SetupTestEnv(t *testing.M) {
 	}
 
 	// Initialize the database
-	if database.DBConnection == nil {
+	if globalDatabase.G_DBConnection == nil {
 		// Initialize the database
 
 		configName := "database"
-		config.LoadDatabaseConfig(&envPath, &configName, nil)
+		databaseConfig.LoadDatabaseConfig(&envPath, &configName, nil)
 
 		_ = database.SetupDatabase()
 		//_ = SetupMockDatabase()
 	}
 
 	// Initialize the cache
-	if cache.CacheConnection == nil {
+	if global.CacheConnection == nil {
 
 		configName := "cache"
-		config.LoadCacheConfig(&envPath, &configName, nil)
+		cacheConfig.LoadCacheConfig(&envPath, &configName, nil)
 
 		_ = cache.SetupCache()
-
-	}
-
-	// Initialize the log
-	if logger.UBTHandler == nil {
-
-		configName := "log"
-		config.LoadLogConfig(&envPath, &configName, nil)
-
-		_ = logger.SetupLog()
 
 	}
 

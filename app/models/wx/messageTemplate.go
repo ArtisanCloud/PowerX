@@ -1,11 +1,11 @@
 package wx
 
 import (
-	"github.com/ArtisanCloud/PowerLibs/v2/database"
+	databasePowerLib "github.com/ArtisanCloud/PowerLibs/v2/database"
 	"github.com/ArtisanCloud/PowerLibs/v2/object"
 	"github.com/ArtisanCloud/PowerLibs/v2/security"
 	"github.com/ArtisanCloud/PowerWeChat/v2/src/work/externalContact/messageTemplate/response"
-	"github.com/ArtisanCloud/PowerX/config"
+	"github.com/ArtisanCloud/PowerX/configs/database"
 	"gorm.io/datatypes"
 )
 
@@ -15,7 +15,7 @@ func (mdl *WXMessageTemplate) TableName() string {
 }
 
 type WXMessageTemplateTask struct {
-	*database.PowerCompactModel
+	*databasePowerLib.PowerCompactModel
 
 	UniqueID      string `gorm:"column:index_task_id;index:,unique" json:"taskID"`
 	MsgTemplateID string `gorm:"column:msg_template_id; index" json:"msgTemplateID"`
@@ -24,8 +24,20 @@ type WXMessageTemplateTask struct {
 	SendTime      int    `gorm:"column:send_time" json:"sendTime"`
 }
 
+func (mdl *WXMessageTemplateTask) TableName() string {
+	return mdl.GetTableName(true)
+}
+
+func (mdl *WXMessageTemplateTask) GetTableName(needFull bool) string {
+	tableName := TABLE_NAME_WX_MESSAGE_TEMPLATE_TASK
+	if needFull {
+		tableName = databasePowerLib.GetTableFullName(database.G_DBConfig.Schemas["default"], database.G_DBConfig.BaseConfig.Prefix, tableName)
+	}
+	return tableName
+}
+
 type WXMessageTemplateSend struct {
-	*database.PowerCompactModel
+	*databasePowerLib.PowerCompactModel
 
 	UniqueID       string `gorm:"column:index_result_id;index:,unique" json:"resultID"`
 	MsgTemplateID  string `gorm:"column:msg_template_id; index" json:"msgTemplateID"`
@@ -36,8 +48,20 @@ type WXMessageTemplateSend struct {
 	SendTime       int    `gorm:"column:send_time" json:"sendTime"`
 }
 
+func (mdl *WXMessageTemplateSend) TableName() string {
+	return mdl.GetTableName(true)
+}
+
+func (mdl *WXMessageTemplateSend) GetTableName(needFull bool) string {
+	tableName := TABLE_NAME_WX_MESSAGE_TEMPLATE_SEND
+	if needFull {
+		tableName = databasePowerLib.GetTableFullName(database.G_DBConfig.Schemas["default"], database.G_DBConfig.BaseConfig.Prefix, tableName)
+	}
+	return tableName
+}
+
 type WXMessageTemplate struct {
-	*database.PowerCompactModel
+	*databasePowerLib.PowerCompactModel
 
 	WXMessageTemplateTasks []*WXMessageTemplateTask `gorm:"ForeignKey:MsgTemplateID;references:MsgID" json:"wxMessageTemplateTasks"`
 	WXMessageTemplateSends []*WXMessageTemplateSend `gorm:"ForeignKey:MsgTemplateID;references:MsgID" json:"wxMessageTemplateSends"`
@@ -57,6 +81,8 @@ type WXMessageTemplate struct {
 }
 
 const TABLE_NAME_WX_MESSAGE_TEMPLATE = "wx_message_templates"
+const TABLE_NAME_WX_MESSAGE_TEMPLATE_TASK = "wx_message_template_tasks"
+const TABLE_NAME_WX_MESSAGE_TEMPLATE_SEND = "wx_message_template_sends"
 const WX_MESSAGE_TEMPLATE_UNIQUE_ID = "index_msg_template_id"
 const WX_MESSAGE_TEMPLATE_TASK_UNIQUE_ID = "index_task_id"
 const WX_MESSAGE_TEMPLATE_SEND_RESULT_UNIQUE_ID = "index_result_id"
@@ -80,7 +106,7 @@ func NewWXMessageTemplate(mapObject *object.Collection) *WXMessageTemplate {
 	failList, _ := object.JsonEncode(mapObject.Get("failList", nil))
 
 	tag := &WXMessageTemplate{
-		PowerCompactModel: database.NewPowerCompactModel(),
+		PowerCompactModel: databasePowerLib.NewPowerCompactModel(),
 		MsgID:             mapObject.GetString("msgID", ""),
 		ChatType:          mapObject.GetString("chat_type", ""),
 		ExternalUserIDs:   datatypes.JSON([]byte(externalUserIDs)),
@@ -95,7 +121,7 @@ func NewWXMessageTemplate(mapObject *object.Collection) *WXMessageTemplate {
 
 func NewWXMessageTemplateTask(msgID string, taskResult *response.Task) *WXMessageTemplateTask {
 	task := &WXMessageTemplateTask{
-		PowerCompactModel: database.NewPowerCompactModel(),
+		PowerCompactModel: databasePowerLib.NewPowerCompactModel(),
 		MsgTemplateID:     msgID,
 		UserID:            taskResult.UserID,
 		Status:            taskResult.Status,
@@ -109,7 +135,7 @@ func NewWXMessageTemplateTask(msgID string, taskResult *response.Task) *WXMessag
 
 func NewWXMessageTemplateSendResult(msgID string, result *response.SendResult) *WXMessageTemplateSend {
 	sendResult := &WXMessageTemplateSend{
-		PowerCompactModel: database.NewPowerCompactModel(),
+		PowerCompactModel: databasePowerLib.NewPowerCompactModel(),
 		MsgTemplateID:     msgID,
 		ExternalUserID:    result.ExternalUserID,
 		ChatID:            result.ChatID,
@@ -126,7 +152,7 @@ func NewWXMessageTemplateSendResult(msgID string, result *response.SendResult) *
 func (mdl *WXMessageTemplate) GetTableName(needFull bool) string {
 	tableName := TABLE_NAME_WX_MESSAGE_TEMPLATE
 	if needFull {
-		tableName = config.DatabaseConn.Schemas["option"] + "." + tableName
+		tableName = databasePowerLib.GetTableFullName(database.G_DBConfig.Schemas["default"], database.G_DBConfig.BaseConfig.Prefix, tableName)
 	}
 	return tableName
 }

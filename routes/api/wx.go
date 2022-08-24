@@ -4,12 +4,12 @@ import (
 	apiWX "github.com/ArtisanCloud/PowerX/app/http/controllers/wx"
 	"github.com/ArtisanCloud/PowerX/app/http/middleware"
 	requestWX "github.com/ArtisanCloud/PowerX/app/http/request/wx"
-	"github.com/gin-gonic/gin"
+	"github.com/ArtisanCloud/PowerX/routes/global"
 )
 
-func InitWXRoutes(router *gin.Engine) {
+func InitWXRoutes() {
 	/* ------------------------------------------ wx api ------------------------------------------*/
-	apiRouter := router.Group("/wx/api")
+	apiRouter := global.Router.Group("/wx/api")
 	{
 
 		// ------
@@ -44,7 +44,7 @@ func InitWXRoutes(router *gin.Engine) {
 		// --- 网页授权客户登陆，code换取访问token ---
 		apiRouter.GET("/wecom/callback/authorized/customer/", requestWX.ValidateRequestOAuthCallback, apiWX.WeComAuthorizedCustomer)
 
-		apiRouter.Use(middleware.Maintenance, middleware.AuthEmployeeAPI)
+		apiRouter.Use(middleware.Maintenance, middleware.AuthenticateEmployeeAPI)
 		{
 			// 获取企业微信回调IP地址
 			apiRouter.GET("/getCallbackIPs", apiWX.APIGetCallbackIPs)

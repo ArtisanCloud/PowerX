@@ -6,8 +6,8 @@ import (
 	"github.com/ArtisanCloud/PowerX/app/models"
 	"github.com/ArtisanCloud/PowerX/app/models/wx"
 	"github.com/ArtisanCloud/PowerX/app/service/wx/wecom"
-	"github.com/ArtisanCloud/PowerX/config"
-	"github.com/ArtisanCloud/PowerX/database"
+	"github.com/ArtisanCloud/PowerX/configs/global"
+	globalDatabase "github.com/ArtisanCloud/PowerX/database/global"
 	"github.com/gin-gonic/gin"
 )
 
@@ -32,9 +32,9 @@ func APIGetWXTagList(context *gin.Context) {
 
 	defer api.RecoverResponse(context, "api.admin.customer.list")
 
-	arrayList, err := ctl.ServiceWXTag.GetList(database.DBConnection, nil, para.Page, para.PageSize)
+	arrayList, err := ctl.ServiceWXTag.GetList(globalDatabase.G_DBConnection, nil, para.Page, para.PageSize)
 	if err != nil {
-		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_GET_WX_TAG_LIST, config.API_RETURN_CODE_ERROR, "", err.Error())
+		ctl.RS.SetCode(global.API_ERR_CODE_FAIL_TO_GET_WX_TAG_LIST, global.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
 		return
 	}
@@ -50,9 +50,9 @@ func APIGetWXTagDetail(context *gin.Context) {
 
 	defer api.RecoverResponse(context, "api.admin.customer.detail")
 
-	account, err := ctl.ServiceWXTag.GetWXTag(database.DBConnection, para.UUID)
+	account, err := ctl.ServiceWXTag.GetWXTag(globalDatabase.G_DBConnection, para.UUID)
 	if err != nil {
-		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_GET_WX_TAG_DETAIL, config.API_RETURN_CODE_ERROR, "", err.Error())
+		ctl.RS.SetCode(global.API_ERR_CODE_FAIL_TO_GET_WX_TAG_DETAIL, global.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
 		return
 	}
@@ -70,9 +70,9 @@ func APIBindWXTagsToCustomerToEmployeeByContactWayTags(context *gin.Context) {
 	contactWayInterface, _ := context.Get("contactWay")
 	contactWay := contactWayInterface.(*models.ContactWay)
 
-	err := ctl.ServiceWXTag.SyncWXTagsToObject(database.DBConnection, pivot, contactWay.WXTags)
+	err := ctl.ServiceWXTag.SyncWXTagsToObject(globalDatabase.G_DBConnection, pivot, contactWay.WXTags)
 	if err != nil {
-		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_SYNC_WX_TAG, config.API_RETURN_CODE_ERROR, "", err.Error())
+		ctl.RS.SetCode(global.API_ERR_CODE_FAIL_TO_SYNC_WX_TAG, global.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
 		return
 	}
@@ -92,10 +92,10 @@ func APIBindWXTagsToCustomerToEmployee(context *gin.Context) {
 
 	defer api.RecoverResponse(context, "api.admin.customer.bind.tags")
 
-	//err := ctl.ServiceWXTag.AppendWXTagsToPivotCustomerToEmployee(database.DBConnection, customer, tags)
-	err := ctl.ServiceWXTag.SyncWXTagsToObject(database.DBConnection, pivot, tags)
+	//err := ctl.ServiceWXTag.AppendWXTagsToPivotCustomerToEmployee(globalDatabase.G_DBConnection, customer, tags)
+	err := ctl.ServiceWXTag.SyncWXTagsToObject(globalDatabase.G_DBConnection, pivot, tags)
 	if err != nil {
-		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_SYNC_WX_TAG, config.API_RETURN_CODE_ERROR, "", err.Error())
+		ctl.RS.SetCode(global.API_ERR_CODE_FAIL_TO_SYNC_WX_TAG, global.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
 		return
 	}

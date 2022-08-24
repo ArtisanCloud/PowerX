@@ -6,9 +6,8 @@ import (
 	"github.com/ArtisanCloud/PowerX/app/http/request"
 	"github.com/ArtisanCloud/PowerX/app/models"
 	"github.com/ArtisanCloud/PowerX/app/service"
-	"github.com/ArtisanCloud/PowerX/config"
-	"github.com/ArtisanCloud/PowerX/database"
-
+	"github.com/ArtisanCloud/PowerX/configs/global"
+	globalDatabase "github.com/ArtisanCloud/PowerX/database/global"
 	"github.com/gin-gonic/gin"
 )
 
@@ -28,7 +27,7 @@ func ValidateBindTagsToGroupChats(context *gin.Context) {
 	apiResponse := http.NewAPIResponse(context)
 	groupChat, wxTags, err := convertParaToBindTagsToGroupChat(&form)
 	if err != nil {
-		apiResponse.SetCode(config.API_ERR_CODE_REQUEST_PARAM_ERROR, config.API_RETURN_CODE_ERROR, "", err.Error()).ThrowJSONResponse(context)
+		apiResponse.SetCode(global.API_ERR_CODE_REQUEST_PARAM_ERROR, global.API_RETURN_CODE_ERROR, "", err.Error()).ThrowJSONResponse(context)
 	}
 	context.Set("groupChats", groupChat)
 	context.Set("tags", wxTags)
@@ -38,13 +37,13 @@ func ValidateBindTagsToGroupChats(context *gin.Context) {
 func convertParaToBindTagsToGroupChat(form *ParaBindTagsToGroupChats) (groupChats []*models.GroupChat, tags []*tag.Tag, err error) {
 
 	serviceGroupChat := service.NewGroupChatService(nil)
-	groupChats, err = serviceGroupChat.GetGroupChatsByChatIDs(database.DBConnection, form.GroupChatIDs)
+	groupChats, err = serviceGroupChat.GetGroupChatsByChatIDs(globalDatabase.G_DBConnection, form.GroupChatIDs)
 	if err != nil {
 		return groupChats, tags, err
 	}
 
 	serviceTag := service.NewTagService(nil)
-	tags, err = serviceTag.GetTagsByIDs(database.DBConnection, form.TagIDs)
+	tags, err = serviceTag.GetTagsByIDs(globalDatabase.G_DBConnection, form.TagIDs)
 
 	return groupChats, tags, err
 }

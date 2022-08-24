@@ -2,7 +2,9 @@ package database
 
 import (
 	"context"
-	"github.com/ArtisanCloud/PowerX/config"
+	"github.com/ArtisanCloud/PowerX/configs/app"
+	globalConfig "github.com/ArtisanCloud/PowerX/configs/database"
+	"github.com/ArtisanCloud/PowerX/database/global"
 	"github.com/golang-module/carbon"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -10,15 +12,11 @@ import (
 	"log"
 )
 
-var (
-	DBConnection *gorm.DB
-)
-
 func SetupDatabase() (err error) {
 
-	d := config.DatabaseConn
-	c := d.Connection
-	timezone := config.AppConfigure.Timezone
+	d := globalConfig.G_DBConfig
+	c := d.BaseConfig
+	timezone := app.G_AppConfigure.Timezone
 	if timezone == "" {
 		timezone = carbon.UTC
 	}
@@ -31,14 +29,14 @@ func SetupDatabase() (err error) {
 	dsn += " TimeZone=" + timezone
 
 	logMode := logger.Default.LogMode(logger.Error)
-	if config.DatabaseConn.Debug {
+	if globalConfig.G_DBConfig.Debug {
 		logMode = logger.Default.LogMode(logger.Info)
 	}
-	DBConnection, err = gorm.Open(postgres.Open(dsn), &gorm.Config{
+	global.G_DBConnection, err = gorm.Open(postgres.Open(dsn), &gorm.Config{
 		Logger:                                   logMode,
 		DisableForeignKeyConstraintWhenMigrating: true,
 	})
-	//DBConnection.Exec("SET search_path TO " + d.SearchPath)
+	//G_DBConnection.Exec("SET search_path TO " + d.SearchPath)
 
 	if err != nil {
 		// throw a exception here
@@ -48,17 +46,17 @@ func SetupDatabase() (err error) {
 
 	//// works with Take
 	//result := map[string]interface{}{}
-	//DBConnection.Table("migrations").Take(&result)
+	//G_DBConnection.Table("migrations").Take(&result)
 	//fmt.Printf("%+v\r\n", result)
 
 	//println("setup with database")
-	//DBConnection.DB().SetMaxIdleConns(10)
-	//DBConnection.DB().SetMaxOpenConns(100)
-	//DBConnection.DB().SetConnMaxLifetime(time.Hour)
+	//G_DBConnection.DB().SetMaxIdleConns(10)
+	//G_DBConnection.DB().SetMaxOpenConns(100)
+	//G_DBConnection.DB().SetConnMaxLifetime(time.Hour)
 
-	//DBConnection.Logger.LogMode()
-	//DBConnection.Session(&gorm.Session{NewDB: true})
-	//fmt.Printf("init database address:%p\r\n", DBConnection)
+	//G_DBConnection.Logger.LogMode()
+	//G_DBConnection.Session(&gorm.Session{NewDB: true})
+	//fmt.Printf("init database address:%p\r\n", G_DBConnection)
 
 	return err
 
@@ -69,5 +67,5 @@ func SetupDatabase() (err error) {
 //}
 func GetDBWithContext(ctx context.Context) *gorm.DB {
 	//var newCTX context.Context
-	return DBConnection.WithContext(ctx)
+	return global.G_DBConnection.WithContext(ctx)
 }

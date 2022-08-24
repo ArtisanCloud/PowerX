@@ -9,7 +9,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/app/models"
 	modelWX "github.com/ArtisanCloud/PowerX/app/models/wx"
 	"github.com/ArtisanCloud/PowerX/app/service/wx/wecom"
-	database2 "github.com/ArtisanCloud/PowerX/database"
+	"github.com/ArtisanCloud/PowerX/database/global"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -46,7 +46,7 @@ func (srv *CustomerService) GetList(db *gorm.DB, conditions *map[string]interfac
 }
 
 func (srv *CustomerService) UpsertCustomerByWXCustomer(db *gorm.DB, customer *modelWX.WXCustomer) (err error) {
-	err = srv.UpsertCustomers(db, models.ACCOUNT_UNIQUE_ID, []*models.Customer{
+	err = srv.UpsertCustomers(db, []*models.Customer{
 		&models.Customer{
 			PowerModel: databasePoweLib.NewPowerModel(),
 			WXCustomer: &modelWX.WXCustomer{
@@ -75,22 +75,8 @@ func (srv *CustomerService) UpsertCustomerByWXCustomer(db *gorm.DB, customer *mo
 	return err
 }
 
-func (srv *CustomerService) UpsertCustomers(db *gorm.DB, uniqueName string, customers []*models.Customer, fieldsToUpdate []string) error {
-
-	if len(customers) <= 0 {
-		return nil
-	}
-
-	if len(fieldsToUpdate) <= 0 {
-		fieldsToUpdate = databasePoweLib.GetModelFields(&models.Customer{})
-	}
-
-	result := db.Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: uniqueName}},
-		DoUpdates: clause.AssignmentColumns(fieldsToUpdate),
-	}).Create(&customers)
-
-	return result.Error
+func (srv *CustomerService) UpsertCustomers(db *gorm.DB, customers []*models.Customer, fieldsToUpdate []string) error {
+	return databasePoweLib.UpsertModelsOnUniqueID(db, &models.Customer{}, models.ACCOUNT_UNIQUE_ID, customers, fieldsToUpdate)
 }
 
 func (srv *CustomerService) UpsertCustomer(db *gorm.DB, customer *models.Customer, withAssociation bool) (savedCustomer *models.Customer, err error) {
@@ -361,14 +347,14 @@ func (srv *CustomerService) SyncCustomers(employeeUserIDs []string, cursor strin
 	serviceEmployee := NewEmployeeService(nil)
 
 	if len(employeeUserIDs) <= 0 {
-		employeeUserIDs, err = serviceEmployee.GetEmployeeUserIDs(database2.DBConnection)
+		employeeUserIDs, err = serviceEmployee.GetEmployeeUserIDs(global.G_DBConnection)
 		if err != nil {
 			return err
 		}
 	}
 
 	// sync employee's contacts with userid from wx
-	response, _ := wecom.WeComApp.App.ExternalContact.BatchGet(employeeUserIDs, cursor, 200)
+	response, _ := wecom.G_WeComApp.App.ExternalContact.BatchGet(employeeUserIDs, cursor, 200)
 	if response.ErrCode != 0 {
 		return errors.New(response.ErrMSG)
 	}
@@ -377,16 +363,16 @@ func (srv *CustomerService) SyncCustomers(employeeUserIDs []string, cursor strin
 	for _, contact := range response.ExternalContactList {
 		// parse contacts from wx
 		customer := srv.NewCustomerFromWXContact(contact.ExternalContact)
-		err = srv.UpsertCustomerByWXCustomer(database2.DBConnection, customer.WXCustomer)
+		err = srv.UpsertCustomerByWXCustomer(global.G_DBConnection, customer.WXCustomer)
 
 		// sync follow user info
-		employee, err := serviceEmployee.GetEmployeeByUserID(database2.DBConnection, contact.FollowInfo.UserID)
+		employee, err := serviceEmployee.GetEmployeeByUserID(global.G_DBConnection, contact.FollowInfo.UserID)
 		if err != nil || employee == nil {
 			fmt.Dump(err.Error())
 		}
 		//fmt.Dump(contact.FollowInfo)
 
-		pivot, err := (&models.RCustomerToEmployee{}).UpsertPivotByFollowUser(database2.DBConnection, customer, contact.FollowInfo)
+		pivot, err := (&models.RCustomerToEmployee{}).UpsertPivotByFollowUser(global.G_DBConnection, customer, contact.FollowInfo)
 		if err != nil {
 			fmt.Dump(err.Error())
 		}
@@ -394,7 +380,7 @@ func (srv *CustomerService) SyncCustomers(employeeUserIDs []string, cursor strin
 		// sync wx tags to employee
 		if len(contact.FollowInfo.TagIDs) > 0 {
 			serviceWXTag := wecom.NewWXTagService(nil)
-			err = serviceWXTag.SyncWXTagsByFollowInfos(database2.DBConnection, pivot, contact.FollowInfo)
+			err = serviceWXTag.SyncWXTagsByFollowInfos(global.G_DBConnection, pivot, contact.FollowInfo)
 
 		}
 
@@ -443,7 +429,7 @@ func (srv *CustomerService) NewCustomerFromWXContact(contact *modelSocialite.Ext
 func (srv *CustomerService) GetCustomerIDsByFilters(employeeUserID string, filter *models.FilterCustomers) (customerUserIDs []string, err error) {
 	customerUserIDs = []string{}
 	mdl := &models.RCustomerToEmployee{}
-	pivots, err := mdl.GetPivotsByEmployeeUserID(database2.DBConnection, employeeUserID)
+	pivots, err := mdl.GetPivotsByEmployeeUserID(global.G_DBConnection, employeeUserID)
 	if err != nil {
 		return nil, err
 	}
@@ -451,7 +437,7 @@ func (srv *CustomerService) GetCustomerIDsByFilters(employeeUserID string, filte
 	customerUserIDs = mdl.ConvertCustomerUserIDs(pivots)
 
 	if filter.ToFilterCustomers {
-		customerUserIDs, err = srv.GetCustomerIDsByExternalUserIDsAndFilters(database2.DBConnection, employeeUserID, customerUserIDs, filter)
+		customerUserIDs, err = srv.GetCustomerIDsByExternalUserIDsAndFilters(global.G_DBConnection, employeeUserID, customerUserIDs, filter)
 		if err != nil {
 			return customerUserIDs, err
 		}

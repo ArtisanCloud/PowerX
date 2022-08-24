@@ -6,7 +6,7 @@ import (
 	"github.com/ArtisanCloud/PowerWeChat/v2/src/work/externalContact/contactWay/request"
 	requestMessageTemplate "github.com/ArtisanCloud/PowerWeChat/v2/src/work/externalContact/messageTemplate/request"
 	"github.com/ArtisanCloud/PowerX/app/models/wx"
-	"github.com/ArtisanCloud/PowerX/config"
+	databaseConfig "github.com/ArtisanCloud/PowerX/configs/database"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
@@ -19,7 +19,7 @@ func (mdl *ContactWay) TableName() string {
 type ContactWay struct {
 	*database.PowerModel
 
-	WXTags []*wx.WXTag `gorm:"many2many:public.r_wx_tag_to_object;foreignKey:ConfigID;joinForeignKey:TaggableObjectID;References:ID;JoinReferences:TagID" json:"wxTags"`
+	WXTags []*wx.WXTag `gorm:"many2many:public.ac_r_wx_tag_to_object;foreignKey:ConfigID;joinForeignKey:TaggableObjectID;References:ID;JoinReferences:TagID" json:"wxTags"`
 
 	Name                            string         `gorm:"column:name" json:"name"`
 	GroupUUID                       string         `gorm:"column:group_uuid" json:"groupUUID"`
@@ -46,7 +46,7 @@ const CONTACT_WAY_TYPE_CHANNEL = 1
 func (mdl *ContactWay) GetTableName(needFull bool) string {
 	tableName := TABLE_NAME_CONTACT_WAY
 	if needFull {
-		tableName = config.DatabaseConn.Schemas["option"] + "." + tableName
+		tableName = database.GetTableFullName(databaseConfig.G_DBConfig.Schemas["default"], databaseConfig.G_DBConfig.BaseConfig.Prefix, tableName)
 	}
 	return tableName
 }
