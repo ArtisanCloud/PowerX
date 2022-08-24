@@ -108,7 +108,7 @@ func NewWXCustomer(mapObject *object.Collection) *WXCustomer {
 func (mdl *WXCustomer) GetTableName(needFull bool) string {
 	tableName := TABLE_NAME_WX_CUSTOMER
 	if needFull {
-		tableName = database.G_DBConfig.Schemas["option"] + "." + tableName
+		tableName = database.G_DBConfig.Schemas["default"] + "." + database.G_DBConfig.BaseConfig.Prefix + tableName
 	}
 	return tableName
 }

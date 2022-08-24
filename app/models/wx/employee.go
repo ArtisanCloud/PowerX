@@ -58,7 +58,7 @@ func NewWXEmployee(mapObject *object.Collection) *WXEmployee {
 func (mdl *WXEmployee) GetTableName(needFull bool) string {
 	tableName := TABLE_NAME_EMPLOYEE
 	if needFull {
-		tableName = database.G_DBConfig.Schemas["option"] + "." + tableName
+		tableName = database.G_DBConfig.Schemas["default"] + "." + database.G_DBConfig.BaseConfig.Prefix + tableName
 	}
 	return tableName
 }

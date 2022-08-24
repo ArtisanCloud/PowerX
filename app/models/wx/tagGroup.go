@@ -54,7 +54,7 @@ func NewWXTagGroup(mapObject *object.Collection) *WXTagGroup {
 func (mdl *WXTagGroup) GetTableName(needFull bool) string {
 	tableName := TABLE_NAME_TAG_GROUP
 	if needFull {
-		tableName = database.G_DBConfig.Schemas["option"] + "." + tableName
+		tableName = database.G_DBConfig.Schemas["default"] + "." + database.G_DBConfig.BaseConfig.Prefix + tableName
 	}
 	return tableName
 }

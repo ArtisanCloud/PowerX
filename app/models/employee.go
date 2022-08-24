@@ -16,9 +16,9 @@ type Employee struct {
 	*database.PowerModel
 
 	PivotCustomers    []*RCustomerToEmployee `gorm:"ForeignKey:EmployeeReferID;references:WXUserID" json:"pivotCustomers"`
-	FollowedEmployees []*Employee            `gorm:"many2many:public.r_customer_to_employee;foreignKey:UUID;joinForeignKey:EmployeeReferID;References:UUID;JoinReferences:EmployeeReferID" json:"FollowedEmployees"`
+	FollowedEmployees []*Employee            `gorm:"many2many:public.ac_r_customer_to_employee;foreignKey:UUID;joinForeignKey:EmployeeReferID;References:UUID;JoinReferences:EmployeeReferID" json:"FollowedEmployees"`
 	WXDepartments     []*wx.WXDepartment     `gorm:"many2many:r_employee_to_department;foreignKey:ID;joinForeignKey:employee_id;References:ID;JoinReferences:department_id"`
-	//WXTags            []*wx.WXTag        `gorm:"many2many:public.r_wx_tag_to_object;foreignKey:UUID;joinForeignKey:EmployeeReferID;References:ID;JoinReferences:WXTagReferID" json:"wxTags"`
+	//WXTags            []*wx.WXTag        `gorm:"many2many:public.ac_r_wx_tag_to_object;foreignKey:UUID;joinForeignKey:EmployeeReferID;References:ID;JoinReferences:WXTagReferID" json:"wxTags"`
 
 	Locale    string `gorm:"column:locale" json:"locale"`
 	Email     string `gorm:"column:email" json:"email"`

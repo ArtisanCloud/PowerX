@@ -50,7 +50,7 @@ func NewWXTag(mapObject *object.Collection) *WXTag {
 func (mdl *WXTag) GetTableName(needFull bool) string {
 	tableName := TABLE_NAME_TAG
 	if needFull {
-		tableName = database.G_DBConfig.Schemas["option"] + "." + tableName
+		tableName = database.G_DBConfig.Schemas["default"] + "." + database.G_DBConfig.BaseConfig.Prefix + tableName
 	}
 	return tableName
 }

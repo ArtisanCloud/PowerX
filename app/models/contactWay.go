@@ -19,7 +19,7 @@ func (mdl *ContactWay) TableName() string {
 type ContactWay struct {
 	*database.PowerModel
 
-	WXTags []*wx.WXTag `gorm:"many2many:public.r_wx_tag_to_object;foreignKey:ConfigID;joinForeignKey:TaggableObjectID;References:ID;JoinReferences:TagID" json:"wxTags"`
+	WXTags []*wx.WXTag `gorm:"many2many:public.ac_r_wx_tag_to_object;foreignKey:ConfigID;joinForeignKey:TaggableObjectID;References:ID;JoinReferences:TagID" json:"wxTags"`
 
 	Name                            string         `gorm:"column:name" json:"name"`
 	GroupUUID                       string         `gorm:"column:group_uuid" json:"groupUUID"`
@@ -46,7 +46,7 @@ const CONTACT_WAY_TYPE_CHANNEL = 1
 func (mdl *ContactWay) GetTableName(needFull bool) string {
 	tableName := TABLE_NAME_CONTACT_WAY
 	if needFull {
-		tableName = database2.G_DBConfig.Schemas["option"] + "." + tableName
+		tableName = database2.G_DBConfig.Schemas["default"] + "." + database2.G_DBConfig.BaseConfig.Prefix + tableName
 	}
 	return tableName
 }

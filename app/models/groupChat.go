@@ -17,7 +17,7 @@ func (mdl *GroupChat) TableName() string {
 type GroupChat struct {
 	*database.PowerCompactModel
 
-	Tags []*tag.Tag `gorm:"many2many:public.r_tag_to_object;foreignKey:ChatID;joinForeignKey:TaggableObjectID;References:index_tag_id;JoinReferences:tag_id" json:"TaggableID"`
+	Tags []*tag.Tag `gorm:"many2many:public.ac_r_tag_to_object;foreignKey:ChatID;joinForeignKey:TaggableObjectID;References:index_tag_id;JoinReferences:tag_id" json:"TaggableID"`
 
 	*wx.WXGroupChat
 }
@@ -34,7 +34,7 @@ const GROUP_CHAT_TYPE_CHANNEL = 1
 func (mdl *GroupChat) GetTableName(needFull bool) string {
 	tableName := TABLE_NAME_GROUP_CHAT
 	if needFull {
-		tableName = database2.G_DBConfig.Schemas["option"] + "." + tableName
+		tableName = database2.G_DBConfig.Schemas["default"] + "." + database2.G_DBConfig.BaseConfig.Prefix + tableName
 	}
 	return tableName
 }

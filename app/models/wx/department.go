@@ -36,7 +36,7 @@ func NewWXDepartment(mapObject *object.Collection) *WXDepartment {
 func (mdl *WXDepartment) GetTableName(needFull bool) string {
 	tableName := TABLE_NAME_DEPARTMENT
 	if needFull {
-		tableName = database.G_DBConfig.Schemas["option"] + "." + tableName
+		tableName = database.G_DBConfig.Schemas["default"] + "." + database.G_DBConfig.BaseConfig.Prefix + tableName
 	}
 	return tableName
 }

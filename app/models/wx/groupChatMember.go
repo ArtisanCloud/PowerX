@@ -57,7 +57,7 @@ func NewWXGroupChatMember(mapObject *object.Collection) *WXGroupChatMember {
 func (mdl *WXGroupChatMember) GetTableName(needFull bool) string {
 	tableName := TABLE_NAME_WX_GROUP_CHAT_MEMBER
 	if needFull {
-		tableName = database.G_DBConfig.Schemas["option"] + "." + tableName
+		tableName = database.G_DBConfig.Schemas["default"] + "." + database.G_DBConfig.BaseConfig.Prefix + tableName
 	}
 	return tableName
 }

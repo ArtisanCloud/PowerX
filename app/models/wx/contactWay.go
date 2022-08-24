@@ -85,7 +85,7 @@ func NewWXContactWay(mapObject *object.Collection) *WXContactWay {
 func (mdl *WXContactWay) GetTableName(needFull bool) string {
 	tableName := TABLE_NAME_WX_CONTACT_WAY
 	if needFull {
-		tableName = database.G_DBConfig.Schemas["option"] + "." + tableName
+		tableName = database.G_DBConfig.Schemas["default"] + "." + database.G_DBConfig.BaseConfig.Prefix + tableName
 	}
 	return tableName
 }

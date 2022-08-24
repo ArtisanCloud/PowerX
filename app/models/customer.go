@@ -18,7 +18,7 @@ type Customer struct {
 	*database.PowerModel
 
 	PivotEmployees []*RCustomerToEmployee `gorm:"ForeignKey:CustomerReferID;references:ExternalUserID" json:"pivotEmployees"`
-	FollowUsers    []*Employee            `gorm:"many2many:public.r_customer_to_employee;foreignKey:ExternalUserID;joinForeignKey:CustomerReferID;References:WXUserID;JoinReferences:EmployeeReferID" json:"followUsers"`
+	FollowUsers    []*Employee            `gorm:"many2many:public.ac_r_customer_to_employee;foreignKey:ExternalUserID;joinForeignKey:CustomerReferID;References:WXUserID;JoinReferences:EmployeeReferID" json:"followUsers"`
 
 	//AnnualMemberships      []*Membership     `gorm:"-" json:"annualMemberships"`
 	*wx.WXCustomer
@@ -42,7 +42,7 @@ func NewCustomer(mapObject *object.Collection) *Customer {
 func (mdl *Customer) GetTableName(needFull bool) string {
 	tableName := TABLE_NAME_ACCOUNT
 	if needFull {
-		tableName = database2.G_DBConfig.Schemas["option"] + "." + tableName
+		tableName = database2.G_DBConfig.Schemas["default"] + "." + database2.G_DBConfig.BaseConfig.Prefix + tableName
 	}
 	return tableName
 }

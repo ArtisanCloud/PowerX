@@ -49,7 +49,7 @@ const R_CUSTOMER_TO_EMPLOYEE_JOIN_KEY = "employee_refer_id"
 func (mdl *RCustomerToEmployee) GetTableName(needFull bool) string {
 	tableName := TABLE_NAME_R_CUSTOMER_TO_EMPLOYEE
 	if needFull {
-		tableName = database2.G_DBConfig.Schemas["option"] + "." + tableName
+		tableName = database2.G_DBConfig.Schemas["default"] + "." + database2.G_DBConfig.BaseConfig.Prefix + tableName
 	}
 	return tableName
 }
