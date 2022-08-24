@@ -6,6 +6,7 @@ import (
 
 func InitializeAPIRoutes() {
 
+	apis.InitRootAPIRoutes()
 	apis.InitAdminAPIRoutes()
 	apis.InitWXRoutes()
 
