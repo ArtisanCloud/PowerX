@@ -12,7 +12,7 @@ func InitializeWebRoutes() {
 
 	apiRouter := global.Router.Group("/")
 	{
-		apiRouter.Use(middleware.Maintenance, middleware.AuthWeb)
+		apiRouter.Use(middleware.Maintenance)
 		{
 			// wx
 			apiRouter.GET("/", web.WebGetHome)

@@ -69,61 +69,57 @@ func AuthCustomerAPI(c *gin.Context) {
 
 }
 
-func AuthEmployeeAPI(c *gin.Context) {
+func AuthenticateEmployeeAPI(c *gin.Context) {
 
 	apiResponse := http.NewAPIResponse(c)
+	var (
+		employee *models.Employee
+		err      error
+	)
+
+	// 获取token
 	strAuthorization := c.GetHeader("Authorization")
 	if strAuthorization == "" {
 		apiResponse.SetCode(global2.API_ERR_CODE_TOKEN_NOT_IN_HEADER, global2.API_RETURN_CODE_ERROR, "", "")
-
-	} else {
-		var (
-			employee *models.Employee
-			err      error
-		)
-		ptrClaims, err := service.ParseAuthorization(strAuthorization)
-		if ptrClaims == nil || err != nil {
-			apiResponse.SetCode(global2.API_ERR_CODE_ACCOUNT_INVALID_TOKEN, global2.API_RETURN_CODE_ERROR, "", "")
-			apiResponse.ThrowJSONResponse(c)
-			return
-		}
-		claims := *ptrClaims
-		//fmt.Dump(claims)
-		if claims["WXUserID"] == nil {
-			apiResponse.SetCode(global2.API_ERR_CODE_LACK_OF_WX_USER_ID, global2.API_RETURN_CODE_ERROR, "", "")
-			apiResponse.ThrowJSONResponse(c)
-			return
-		}
-		wxUserID := claims["WXUserID"].(string)
-
-		serviceWeComEmployee := wecom.NewWeComEmployeeService(c)
-
-		if err != nil || wxUserID == "" {
-			apiResponse.SetCode(global2.API_ERR_CODE_LACK_OF_WX_USER_ID, global2.API_RETURN_CODE_ERROR, "", "")
-		} else {
-			employee, err = serviceWeComEmployee.GetEmployeeByUserID(global.G_DBConnection, wxUserID)
-			if err != nil || employee == nil {
-				apiResponse.SetCode(global2.API_ERR_CODE_EMPLOYEE_UNREGISTER, global2.API_RETURN_CODE_ERROR, "", "")
-			} else {
-				service.SetAuthEmployee(c, employee)
-			}
-		}
-	}
-
-	if !apiResponse.IsNoError() {
 		apiResponse.ThrowJSONResponse(c)
+		return
 	}
+
+	// 解析jwt token信息
+	ptrClaims, err := service.ParseAuthorization(strAuthorization)
+	if ptrClaims == nil || err != nil {
+		apiResponse.SetCode(global2.API_ERR_CODE_ACCOUNT_INVALID_TOKEN, global2.API_RETURN_CODE_ERROR, "", "")
+		apiResponse.ThrowJSONResponse(c)
+		return
+	}
+	claims := *ptrClaims
+	if claims["WXUserID"] == nil {
+		apiResponse.SetCode(global2.API_ERR_CODE_LACK_OF_WX_USER_ID, global2.API_RETURN_CODE_ERROR, "", "")
+		apiResponse.ThrowJSONResponse(c)
+		return
+	}
+	wxUserID := claims["WXUserID"].(string)
+	if err != nil || wxUserID == "" {
+		apiResponse.SetCode(global2.API_ERR_CODE_LACK_OF_WX_USER_ID, global2.API_RETURN_CODE_ERROR, "", "")
+		apiResponse.ThrowJSONResponse(c)
+		return
+	}
+
+	// 获取企业员工身份
+	serviceWeComEmployee := wecom.NewWeComEmployeeService(c)
+	employee, err = serviceWeComEmployee.GetEmployeeByUserID(global.G_DBConnection, wxUserID)
+	if err != nil || employee == nil {
+		apiResponse.SetCode(global2.API_ERR_CODE_EMPLOYEE_UNREGISTER, global2.API_RETURN_CODE_ERROR, "", "")
+		apiResponse.ThrowJSONResponse(c)
+		return
+	}
+
+	service.SetAuthEmployee(c, employee)
+
 	return
 
 }
 
-func AuthAdminAPI(c *gin.Context) {
-
-}
-
-// --------------------------------------------------------------------------------------------
-func AuthWeb(c *gin.Context) {
-	//resp := map[string]string{"hello":"world web"}
-	//c.JSON(200, resp)
+func AuthorizeAPI(c *gin.Context) {
 
 }

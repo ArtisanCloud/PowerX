@@ -44,7 +44,7 @@ func InitWXRoutes() {
 		// --- 网页授权客户登陆，code换取访问token ---
 		apiRouter.GET("/wecom/callback/authorized/customer/", requestWX.ValidateRequestOAuthCallback, apiWX.WeComAuthorizedCustomer)
 
-		apiRouter.Use(middleware.Maintenance, middleware.AuthEmployeeAPI)
+		apiRouter.Use(middleware.Maintenance, middleware.AuthenticateEmployeeAPI)
 		{
 			// 获取企业微信回调IP地址
 			apiRouter.GET("/getCallbackIPs", apiWX.APIGetCallbackIPs)

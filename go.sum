@@ -1,5 +1,5 @@
-github.com/ArtisanCloud/PowerSocialite/v2 v2.0.9 h1:nqWiXC1Zno17vPlpOyjtlfbWvTs3TRYLQ2jqd4dsIWM=
-github.com/ArtisanCloud/PowerSocialite/v2 v2.0.9/go.mod h1:JlnbbIduRl3yGFKq3Oer7Ly+7W/0+B/xwnxeOAigGk8=
+github.com/ArtisanCloud/PowerSocialite/v2 v2.0.13 h1:3tA6SAb/WDCMTpgw7YE2y7DRHGWicxFhDKWeF9a5yBM=
+github.com/ArtisanCloud/PowerSocialite/v2 v2.0.13/go.mod h1:6406NDAlkaf2JacZ+7a0/XT8TIjt5ple76sVsYxMnBo=
 github.com/ArtisanCloud/ubt-go v1.0.6 h1:dBoyIB486Q7X/KdXbdS/GySniMA/f3J+pnNXJYIFFd8=
 github.com/ArtisanCloud/ubt-go v1.0.6/go.mod h1:eQJ8xHNbsYhMc1N353bDSCw2hHKPGfWV3UIwCMsg4uQ=
 github.com/Azure/azure-sdk-for-go/sdk/azcore v0.19.0/go.mod h1:h6H6c8enJmmocHUbLiiGY6sx7f9i+X3m1CHdd5c6Rdw=

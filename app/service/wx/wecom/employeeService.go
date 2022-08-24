@@ -115,7 +115,8 @@ func (srv *WeComEmployeeService) GetEmployeeByUserID(db *gorm.DB, userID string)
 	condition := &map[string]interface{}{
 		"wx_user_id": userID,
 	}
-	err = databasePowerLib.GetFirst(db, condition, employee, nil)
+	preload := []string{"Role"}
+	err = databasePowerLib.GetFirst(db, condition, employee, preload)
 	if err != nil && errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
 	}

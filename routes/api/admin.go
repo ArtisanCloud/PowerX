@@ -25,7 +25,7 @@ func InitAdminAPIRoutes() {
 
 	apiRouter := global.Router.Group("/admin/api")
 	{
-		apiRouter.Use(middleware.Maintenance, middleware.AuthEmployeeAPI)
+		apiRouter.Use(middleware.Maintenance, middleware.AuthenticateEmployeeAPI, middleware.AuthorizeAPI)
 		{
 
 			//  Customer - 企微客户接口
