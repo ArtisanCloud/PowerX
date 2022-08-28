@@ -1,11 +1,10 @@
 github.com/ArtisanCloud/PowerLibs/v2 v2.0.34/go.mod h1:J4tjhrGFOUByNk5rmwQftYoJ1mU7xaKF1ztjj7H8fa4=
-github.com/ArtisanCloud/PowerLibs/v2 v2.0.36/go.mod h1:J4tjhrGFOUByNk5rmwQftYoJ1mU7xaKF1ztjj7H8fa4=
-github.com/ArtisanCloud/PowerLibs/v2 v2.0.37 h1:eCy03L5qklSA7p44ug6vNk/eQ6QAKe12vIUgRQkSDHg=
-github.com/ArtisanCloud/PowerLibs/v2 v2.0.37/go.mod h1:J4tjhrGFOUByNk5rmwQftYoJ1mU7xaKF1ztjj7H8fa4=
+github.com/ArtisanCloud/PowerLibs/v2 v2.0.38 h1:rrPKwn8yJLSyzGF0FJCrU6XTIIrFM00lpGvEdTfObS8=
+github.com/ArtisanCloud/PowerLibs/v2 v2.0.38/go.mod h1:J4tjhrGFOUByNk5rmwQftYoJ1mU7xaKF1ztjj7H8fa4=
 github.com/ArtisanCloud/PowerSocialite/v2 v2.0.13 h1:3tA6SAb/WDCMTpgw7YE2y7DRHGWicxFhDKWeF9a5yBM=
 github.com/ArtisanCloud/PowerSocialite/v2 v2.0.13/go.mod h1:6406NDAlkaf2JacZ+7a0/XT8TIjt5ple76sVsYxMnBo=
-github.com/ArtisanCloud/PowerWeChat/v2 v2.0.3-beta06 h1:6/aLYSUhW07Yclk1t8qpbW6HmbqvBsb+e7AeY14+gaQ=
-github.com/ArtisanCloud/PowerWeChat/v2 v2.0.3-beta06/go.mod h1:bSGaXy2qAIMp4SUEGQQiOc8N4IXyBDwnx6smNLc8dow=
+github.com/ArtisanCloud/PowerWeChat/v2 v2.0.4 h1:yvp+Lg4HFEAmI6ebY2W1hukyFWQdHf841D5ZwwWqYZY=
+github.com/ArtisanCloud/PowerWeChat/v2 v2.0.4/go.mod h1:E6TqdukWDYy67gnxqFCY1EPLxCZsR1IHfUocHMJRTIc=
 github.com/ArtisanCloud/ubt-go v1.0.6 h1:dBoyIB486Q7X/KdXbdS/GySniMA/f3J+pnNXJYIFFd8=
 github.com/ArtisanCloud/ubt-go v1.0.6/go.mod h1:eQJ8xHNbsYhMc1N353bDSCw2hHKPGfWV3UIwCMsg4uQ=
 github.com/Azure/azure-sdk-for-go/sdk/azcore v0.19.0/go.mod h1:h6H6c8enJmmocHUbLiiGY6sx7f9i+X3m1CHdd5c6Rdw=

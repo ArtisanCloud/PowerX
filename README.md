@@ -1,4 +1,4 @@
-# PowerX 系统
+# PowerX 私域开放系统
 
 你的[Star](https://github.com/ArtisanCloud/PowerWeChat/stargazers "Star")，是对我们最好的支持！也是我们坚持的动力！
 

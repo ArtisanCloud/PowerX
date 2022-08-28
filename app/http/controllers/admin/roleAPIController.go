@@ -174,7 +174,7 @@ func APIBindRoleToEmployees(context *gin.Context) {
 
 	err := ctl.ServiceRole.BindRoleToEmployeesByEmployeeIDs(global.G_DBConnection, role, employeeIDs)
 	if err != nil {
-		ctl.RS.SetCode(globalConfig.API_ERR_CODE_FAIL_TO_BINDE_ROLE_TO_EMPLOYEE, globalConfig.API_RETURN_CODE_ERROR, "", err.Error())
+		ctl.RS.SetCode(globalConfig.API_ERR_CODE_FAIL_TO_BIND_ROLE_TO_EMPLOYEE, globalConfig.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
 		return
 	}

@@ -205,4 +205,29 @@ func LoadLang() {
 
 	message.SetString(lang, fmt2.Sprintf("%d", global.API_ERR_CODE_FAIL_TO_SYNC_SEND_CHAT_MSG_ON_WX_PLATFORM), "删除客户群发失败")
 
+	message.SetString(lang, fmt2.Sprintf("%d", global.API_ERR_CODE_FAIL_TO_GET_ROLE_LIST), "获取角色列表失败")
+	message.SetString(lang, fmt2.Sprintf("%d", global.API_ERR_CODE_FAIL_TO_GET_ROLE_DETAIL), "获取角色失败")
+	message.SetString(lang, fmt2.Sprintf("%d", global.API_ERR_CODE_FAIL_TO_INSERT_ROLE), "新增角色失败")
+	message.SetString(lang, fmt2.Sprintf("%d", global.API_ERR_CODE_FAIL_TO_UPDATE_ROLE), "更新角色失败")
+	message.SetString(lang, fmt2.Sprintf("%d", global.API_ERR_CODE_FAIL_TO_DELETE_ROLE), "删除角色失败")
+	message.SetString(lang, fmt2.Sprintf("%d", global.API_ERR_CODE_FAIL_TO_BIND_ROLE_TO_EMPLOYEE), "角色绑定员工失败")
+	message.SetString(lang, fmt2.Sprintf("%d", global.API_ERR_CODE_EMPLOYEE_HAS_NO_ROLE), "员工未分配角色")
+
+	message.SetString(lang, fmt2.Sprintf("%d", global.API_ERR_CODE_FAIL_TO_GET_PERMISSION_LIST), "获取权限列表失败")
+	message.SetString(lang, fmt2.Sprintf("%d", global.API_ERR_CODE_FAIL_TO_GET_PERMISSION_DETAIL), "获取权限失败")
+	message.SetString(lang, fmt2.Sprintf("%d", global.API_ERR_CODE_FAIL_TO_INSERT_PERMISSION), "新增权限失败")
+	message.SetString(lang, fmt2.Sprintf("%d", global.API_ERR_CODE_FAIL_TO_UPDATE_PERMISSION), "更新权限失败")
+	message.SetString(lang, fmt2.Sprintf("%d", global.API_ERR_CODE_FAIL_TO_DELETE_PERMISSION), "删除权限失败")
+
+	message.SetString(lang, fmt2.Sprintf("%d", global.API_ERR_CODE_FAIL_TO_GET_PERMISSION_MODULE_LIST), "获取权限模块列表失败")
+	message.SetString(lang, fmt2.Sprintf("%d", global.API_ERR_CODE_FAIL_TO_GET_PERMISSION_MODULE_DETAIL), "获取权限模块失败")
+	message.SetString(lang, fmt2.Sprintf("%d", global.API_ERR_CODE_FAIL_TO_INSERT_PERMISSION_MODULE), "新增权限模块失败")
+	message.SetString(lang, fmt2.Sprintf("%d", global.API_ERR_CODE_FAIL_TO_UPDATE_PERMISSION_MODULE), "更新权限模块失败")
+	message.SetString(lang, fmt2.Sprintf("%d", global.API_ERR_CODE_FAIL_TO_DELETE_PERMISSION_MODULE), "删除权限模块失败")
+
+	message.SetString(lang, fmt2.Sprintf("%d", global.API_ERR_CODE_FAIL_TO_GET_ROLE_POLICY_LIST), "获取权角色限策略列表失败")
+	message.SetString(lang, fmt2.Sprintf("%d", global.API_ERR_CODE_FAIL_TO_UPDATE_ROLE_POLICY), "更新角色权限策略失败")
+	message.SetString(lang, fmt2.Sprintf("%d", global.API_ERR_CODE_FAIL_TO_AUTHORIZATE_ROLE), "该登陆角色无操作权限")
+	message.SetString(lang, fmt2.Sprintf("%d", global.API_ERR_CODE_FAIL_TO_CLEAR_CACHE_ROLE_POLICY), "清除角色权限缓存失败")
+
 }
