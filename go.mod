@@ -11,9 +11,9 @@ go 1.17
 //replace github.com/ArtisanCloud/PowerSocialite/v2 => ../PowerSocialite
 
 require (
-	github.com/ArtisanCloud/PowerLibs/v2 v2.0.37
+	github.com/ArtisanCloud/PowerLibs/v2 v2.0.38
 	github.com/ArtisanCloud/PowerSocialite/v2 v2.0.13
-	github.com/ArtisanCloud/PowerWeChat/v2 v2.0.3-beta06
+	github.com/ArtisanCloud/PowerWeChat/v2 v2.0.4
 	github.com/ArtisanCloud/ubt-go v1.0.6
 	github.com/casbin/casbin/v2 v2.52.2
 	github.com/casbin/gorm-adapter/v3 v3.8.0

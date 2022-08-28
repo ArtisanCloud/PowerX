@@ -247,8 +247,8 @@ func APIGetPolicyList(context *gin.Context) {
 
 	defer api.RecoverResponse(context, "api.admin.policy.list")
 
+	policies, err := ctl.ServiceRBAC.GetPolicyList(nil)
 	//policies, err := ctl.ServiceRBAC.GetPolicyList(nil)
-	policies, err := ctl.ServiceRBAC.GetCachedPolicyListGroupedByRole(nil)
 
 	if err != nil {
 		ctl.RS.SetCode(globalConfig.API_ERR_CODE_FAIL_TO_GET_ROLE_POLICY_LIST, globalConfig.API_RETURN_CODE_ERROR, "", err.Error())

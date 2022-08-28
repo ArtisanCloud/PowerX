@@ -10,6 +10,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/app/http/request/admin/department"
 	"github.com/ArtisanCloud/PowerX/app/http/request/admin/employee"
 	"github.com/ArtisanCloud/PowerX/app/http/request/admin/groupChat"
+	"github.com/ArtisanCloud/PowerX/app/http/request/admin/permission/policy"
 	sendChatMsg "github.com/ArtisanCloud/PowerX/app/http/request/admin/sendChatMessage"
 	sendGroupChatMsg "github.com/ArtisanCloud/PowerX/app/http/request/admin/sendGroupChatMessage"
 	"github.com/ArtisanCloud/PowerX/app/http/request/admin/tag"
@@ -134,6 +135,9 @@ func InitAdminAPIRoutes() {
 			apiRouter.GET("/sendGroupChatMessage/detail", sendGroupChatMsg.ValidateSendGroupChatMsgDetail, admin.APIGetSendGroupChatMsgDetail)
 			apiRouter.POST("/sendGroupChatMessage/create", sendGroupChatMsg.ValidateCreateSendGroupChatMsg, admin.APICreateSendGroupChatMsg)
 			apiRouter.POST("/sendGroupChatMessage/estimateExternalUsers", sendGroupChatMsg.ValidateCreateSendGroupChatMsg, admin.APIEstimateSendGroupChatCustomersCount)
+
+			apiRouter.GET("/permission/policy/list", policy.ValidatePolicyList, admin.APIGetPolicyList)
+			apiRouter.PUT("/permission/policy/update", policy.ValidateUpdatePolicy, admin.APIUpdatePolicy)
 
 		}
 	}

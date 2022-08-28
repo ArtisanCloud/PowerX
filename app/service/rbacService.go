@@ -280,6 +280,31 @@ func (srv *RBACService) GetCachedPolicyListGroupedByRole(role *modelPowerLib.Rol
 
 }
 
+func (srv *RBACService) GetCachedPolicyList(role *modelPowerLib.Role) (policies []*modelPowerLib.RolePolicy, err error) {
+
+	policies = []*modelPowerLib.RolePolicy{}
+	cacheKey := srv.GetPolicyListCacheKey(role)
+
+	result, err := globalBootstrap.G_CacheConnection.Remember(cacheKey, cache.SYSTEM_CACHE_TIMEOUT_MONTH*time.Second, func() (interface{}, error) {
+		list, err := srv.GetPolicyList(role)
+		logger.Logger.Info("cached GetPolicyList")
+		return list, err
+	})
+
+	if err == cache.ErrCacheMiss {
+		policies = result.([]*modelPowerLib.RolePolicy)
+
+	} else if err == nil {
+		strCacheObject, err := json.Marshal(result)
+		err = json.Unmarshal([]byte(strCacheObject), &policies)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return policies, err
+
+}
+
 func (srv *RBACService) ClearCachedPolicyList(role *modelPowerLib.Role) (err error) {
 
 	cacheKey := srv.GetPolicyListCacheKey(role)

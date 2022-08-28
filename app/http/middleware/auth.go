@@ -135,10 +135,23 @@ func AuthorizeAPI(c *gin.Context) {
 	serviceRBAC := service.NewRBACService(c)
 	permission, err := serviceRBAC.GetCachedPermissionByResource(global.G_DBConnection, c.Request.URL.Path, c.Request.Method)
 
+	// 员工未分配角色
 	employee := service.GetAuthEmployee(c)
+	if employee.Role == nil && *employee.RoleID == "" {
+		apiResponse.SetCode(globalConfig.API_ERR_CODE_EMPLOYEE_HAS_NO_ROLE, globalConfig.API_RETURN_CODE_ERROR, "", err.Error())
+		apiResponse.ThrowJSONResponse(c)
+		return
+	}
+
+	// 该接口未被分配权限控制
+	isPass := false
+	if permission == nil || permission.PermissionModule == nil {
+		c.Next()
+		return
+	}
 
 	// 验证接口的访问权限
-	isPass, err := globalRBAC.G_Enforcer.Enforce(employee.Role.GetRBACRuleName(), permission.PermissionModule.GetRBACRuleName(), modelPowerLib.RBAC_CONTROL_ALL)
+	isPass, err = globalRBAC.G_Enforcer.Enforce(employee.Role.GetRBACRuleName(), permission.PermissionModule.GetRBACRuleName(), modelPowerLib.RBAC_CONTROL_ALL)
 	if err != nil {
 		apiResponse.SetCode(globalConfig.API_ERR_CODE_FAIL_TO_AUTHORIZATE_ROLE, globalConfig.API_RETURN_CODE_ERROR, "", err.Error())
 		apiResponse.ThrowJSONResponse(c)
