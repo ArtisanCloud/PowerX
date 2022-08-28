@@ -57,10 +57,9 @@ func LoadConfigFile(configPath *string, configName *string, configType *string) 
 		viper.SetConfigType(*configType)
 	}
 
-	viper.AddConfigPath("./config") // k82  loading config path
-	viper.AddConfigPath("./config") // k82  loading config path
-	viper.AddConfigPath("./")       // path to look for the config file in
-	viper.AddConfigPath("$HOME/")   // call multiple times to add many search paths
+	viper.AddConfigPath("./configs") // loading config path
+	viper.AddConfigPath("./")        // path to look for the config file in
+	viper.AddConfigPath("$HOME/")    // call multiple times to add many search paths
 	//viper.AddConfigPath(".")        // optionally look for config in the working directory
 	if configPath != nil {
 		viper.AddConfigPath(*configPath)
