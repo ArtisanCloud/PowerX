@@ -10,7 +10,7 @@ services:
     ports:
       - ${PORT:-8001}:8080
     volumes:
-      - ./config:/app/config
+      - ./configs:/app/configs
       - ./.env:/app/.env
       - ./resources:/app/resources
       - ../certs:/certs

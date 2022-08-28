@@ -48,6 +48,14 @@ PowerX是基于Apache2.0开源，企业可以完全免费商用，同时根据�
 
 <br/><br/>
 
+
+<!-- CONTRIBUTORS -->
+## Contributors
+
+<a href="https://github.com/ArtisanCloud/PowerX/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=ArtisanCloud/PowerX" />
+</a >
+
 ## 联系我们
 
 如果有任何意见，欢迎在Github Issue上提供意见反馈。同时，也欢迎扫描下方二维码加入企业微信讨论群。
