@@ -4,12 +4,11 @@ import (
 	"errors"
 	"github.com/ArtisanCloud/PowerLibs/v2/object"
 	"github.com/ArtisanCloud/PowerSocialite/v2/src/providers"
-	"github.com/ArtisanCloud/PowerX/config/app"
-	"gorm.io/gorm"
-
 	"github.com/ArtisanCloud/PowerWeChat/v2/src/work/externalContact"
 	"github.com/ArtisanCloud/PowerX/app/models"
+	"github.com/ArtisanCloud/PowerX/config/app"
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 type WeComCustomerService struct {
