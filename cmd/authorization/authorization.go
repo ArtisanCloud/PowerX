@@ -426,7 +426,7 @@ func initRolePoliciesByRBACPermissions(role *modelPowerLib.Role, permissionModul
 			thirdModules := secondModule.Children
 			for _, thirdModule := range thirdModules {
 				// 功能模块
-				//fmt.Dump(role.GetRBACRuleName(), thirdModule.GetRBACRuleName())
+				fmt.Dump(role.GetRBACRuleName(), thirdModule.GetRBACRuleName())
 
 				// 删除已有的权限
 				existedRules := globalRBAC.G_Enforcer.GetFilteredPolicy(0, role.GetRBACRuleName(), thirdModule.GetRBACRuleName())

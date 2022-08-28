@@ -5,8 +5,10 @@ import (
 	"github.com/ArtisanCloud/PowerX/app/service/wx/miniProgram"
 	"github.com/ArtisanCloud/PowerX/app/service/wx/wecom"
 	cache2 "github.com/ArtisanCloud/PowerX/boostrap/cache"
+	"github.com/ArtisanCloud/PowerX/boostrap/rbac"
 	"github.com/ArtisanCloud/PowerX/config"
 	"github.com/ArtisanCloud/PowerX/database"
+	"github.com/ArtisanCloud/PowerX/database/global"
 	logger "github.com/ArtisanCloud/PowerX/loggerManager"
 	"github.com/ArtisanCloud/PowerX/resources/lang"
 	"github.com/gin-gonic/gin"
@@ -55,6 +57,12 @@ func InitProject() (err error) {
 	err = database.SetupDatabase()
 	if err != nil {
 		return err
+	}
+
+	// Initialize the RBAC Enforcer
+	err = rbac.InitCasbin(global.G_DBConnection)
+	if err != nil {
+		panic(err)
 	}
 
 	err = InitServices()

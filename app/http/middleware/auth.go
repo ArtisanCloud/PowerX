@@ -135,10 +135,16 @@ func AuthorizeAPI(c *gin.Context) {
 	serviceRBAC := service.NewRBACService(c)
 	permission, err := serviceRBAC.GetCachedPermissionByResource(global.G_DBConnection, c.Request.URL.Path, c.Request.Method)
 
-	// 员工未分配角色
 	employee := service.GetAuthEmployee(c)
-	if employee.Role == nil && *employee.RoleID == "" {
-		apiResponse.SetCode(globalConfig.API_ERR_CODE_EMPLOYEE_HAS_NO_ROLE, globalConfig.API_RETURN_CODE_ERROR, "", err.Error())
+	// 为登陆员工
+	if employee == nil {
+		apiResponse.SetCode(globalConfig.API_ERR_CODE_FAIL_TO_GET_EMPLOYEE_DETAIL, globalConfig.API_RETURN_CODE_ERROR, "", err.Error())
+		apiResponse.ThrowJSONResponse(c)
+		return
+	}
+	// 员工未分配角色
+	if employee.RoleID == nil || employee.Role == nil {
+		apiResponse.SetCode(globalConfig.API_ERR_CODE_EMPLOYEE_HAS_NO_ROLE, globalConfig.API_RETURN_CODE_ERROR, "", "")
 		apiResponse.ThrowJSONResponse(c)
 		return
 	}

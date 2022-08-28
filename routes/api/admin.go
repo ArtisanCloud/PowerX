@@ -11,6 +11,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/app/http/request/admin/employee"
 	"github.com/ArtisanCloud/PowerX/app/http/request/admin/groupChat"
 	"github.com/ArtisanCloud/PowerX/app/http/request/admin/permission/policy"
+	"github.com/ArtisanCloud/PowerX/app/http/request/admin/role"
 	sendChatMsg "github.com/ArtisanCloud/PowerX/app/http/request/admin/sendChatMessage"
 	sendGroupChatMsg "github.com/ArtisanCloud/PowerX/app/http/request/admin/sendGroupChatMessage"
 	"github.com/ArtisanCloud/PowerX/app/http/request/admin/tag"
@@ -135,6 +136,14 @@ func InitAdminAPIRoutes() {
 			apiRouter.GET("/sendGroupChatMessage/detail", sendGroupChatMsg.ValidateSendGroupChatMsgDetail, admin.APIGetSendGroupChatMsgDetail)
 			apiRouter.POST("/sendGroupChatMessage/create", sendGroupChatMsg.ValidateCreateSendGroupChatMsg, admin.APICreateSendGroupChatMsg)
 			apiRouter.POST("/sendGroupChatMessage/estimateExternalUsers", sendGroupChatMsg.ValidateCreateSendGroupChatMsg, admin.APIEstimateSendGroupChatCustomersCount)
+
+			//  Role
+			apiRouter.GET("/role/list", role.ValidateRoleList, admin.APIGetRoleList)
+			apiRouter.GET("/role/detail", role.ValidateRoleDetail, admin.APIGetRoleDetail)
+			apiRouter.POST("/role/create", role.ValidateInsertRole, admin.APIInsertRole)
+			apiRouter.PUT("/role/update", role.ValidateUpdateRole, admin.APIUpdateRole)
+			apiRouter.DELETE("/role/delete", role.ValidateDeleteRole, admin.APIDeleteRoles)
+			apiRouter.POST("/role/bind/employee", role.ValidateBindRoleToEmployees, admin.APIBindRoleToEmployees)
 
 			apiRouter.GET("/permission/policy/list", policy.ValidatePolicyList, admin.APIGetPolicyList)
 			apiRouter.PUT("/permission/policy/update", policy.ValidateUpdatePolicy, admin.APIUpdatePolicy)
