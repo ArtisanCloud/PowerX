@@ -3,7 +3,7 @@ package logger
 import (
 	logger2 "github.com/ArtisanCloud/PowerLibs/v2/logger"
 	"github.com/ArtisanCloud/PowerLibs/v2/object"
-	"github.com/ArtisanCloud/PowerX/configs/app"
+	"github.com/ArtisanCloud/PowerX/config/app"
 	UBT "github.com/ArtisanCloud/ubt-go"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"

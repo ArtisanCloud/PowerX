@@ -9,7 +9,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/app/models"
 	"github.com/ArtisanCloud/PowerX/app/models/wx"
 	serviceWX "github.com/ArtisanCloud/PowerX/app/service/wx/wecom"
-	globalConfig "github.com/ArtisanCloud/PowerX/configs/global"
+	global2 "github.com/ArtisanCloud/PowerX/config/global"
 	"github.com/ArtisanCloud/PowerX/database/global"
 	"github.com/gin-gonic/gin"
 	"gorm.io/datatypes"
@@ -50,7 +50,7 @@ func ValidateCreateContactWay(context *gin.Context) {
 
 	contactWay, err := convertParaToContactWayForCreate(form)
 	if err != nil {
-		apiResponse.SetCode(globalConfig.API_ERR_CODE_REQUEST_PARAM_ERROR, globalConfig.API_RETURN_CODE_ERROR, "", err.Error()).
+		apiResponse.SetCode(global2.API_ERR_CODE_REQUEST_PARAM_ERROR, global2.API_RETURN_CODE_ERROR, "", err.Error()).
 			ThrowJSONResponse(context)
 		return
 	}
@@ -81,8 +81,8 @@ func convertParaToContactWayForCreate(form ParaCreateContactWay) (contactWay *mo
 	}
 
 	isTemp := false
-	expiresIn := 7 * globalConfig.DAY
-	chatExpiresIn := 24 * globalConfig.HOUR
+	expiresIn := 7 * global2.DAY
+	chatExpiresIn := 24 * global2.HOUR
 	state := object.RandStringBytesMask(30)
 	contactWay = &models.ContactWay{
 		PowerModel:                      databasePowerLib.NewPowerModel(),

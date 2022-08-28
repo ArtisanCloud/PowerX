@@ -7,7 +7,7 @@ import (
 	service "github.com/ArtisanCloud/PowerX/app/service"
 	"github.com/ArtisanCloud/PowerX/app/service/wx/wecom"
 	globalRBAC "github.com/ArtisanCloud/PowerX/boostrap/rbac/global"
-	globalConfig "github.com/ArtisanCloud/PowerX/configs/global"
+	globalConfig "github.com/ArtisanCloud/PowerX/config/global"
 	"github.com/ArtisanCloud/PowerX/database/global"
 	"github.com/gin-gonic/gin"
 )

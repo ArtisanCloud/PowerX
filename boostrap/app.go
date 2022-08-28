@@ -5,10 +5,10 @@ import (
 	"github.com/ArtisanCloud/PowerX/app/service/wx/miniProgram"
 	"github.com/ArtisanCloud/PowerX/app/service/wx/wecom"
 	cache2 "github.com/ArtisanCloud/PowerX/boostrap/cache"
-	"github.com/ArtisanCloud/PowerX/configs"
-	"github.com/ArtisanCloud/PowerX/configs/app"
-	"github.com/ArtisanCloud/PowerX/configs/cache"
-	database2 "github.com/ArtisanCloud/PowerX/configs/database"
+	"github.com/ArtisanCloud/PowerX/config"
+	app2 "github.com/ArtisanCloud/PowerX/config/app"
+	"github.com/ArtisanCloud/PowerX/config/cache"
+	database2 "github.com/ArtisanCloud/PowerX/config/database"
 	"github.com/ArtisanCloud/PowerX/database"
 	logger "github.com/ArtisanCloud/PowerX/loggerManager"
 	"github.com/ArtisanCloud/PowerX/resources/lang"
@@ -22,7 +22,7 @@ func InitProject() (err error) {
 	dbConfigName := "database"
 	cacheConfigName := "cache"
 
-	err = app.LoadEnvConfig(nil, &envConfigName, nil)
+	err = app2.LoadEnvConfig(nil, &envConfigName, nil)
 	if err != nil {
 		return err
 	}
@@ -49,7 +49,7 @@ func InitProject() (err error) {
 	lang.LoadLanguages()
 
 	// setup ssh key path
-	service.SetupSSHKeyPath(app.G_AppConfigure.SSH)
+	service.SetupSSHKeyPath(app2.G_AppConfigure.SSH)
 
 	// Initialize the cache
 	err = cache2.SetupCache()

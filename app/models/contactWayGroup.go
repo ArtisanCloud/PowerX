@@ -3,7 +3,7 @@ package models
 import (
 	"github.com/ArtisanCloud/PowerLibs/v2/database"
 	"github.com/ArtisanCloud/PowerLibs/v2/object"
-	databaseConfig "github.com/ArtisanCloud/PowerX/configs/database"
+	databaseConfig "github.com/ArtisanCloud/PowerX/config/database"
 	"gorm.io/gorm"
 )
 

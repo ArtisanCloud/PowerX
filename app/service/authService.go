@@ -4,7 +4,7 @@ import (
 	"crypto/rsa"
 	"fmt"
 	"github.com/ArtisanCloud/PowerX/app/models"
-	"github.com/ArtisanCloud/PowerX/configs/app"
+	"github.com/ArtisanCloud/PowerX/config/app"
 	logger "github.com/ArtisanCloud/PowerX/loggerManager"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"

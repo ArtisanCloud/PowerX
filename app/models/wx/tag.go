@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	databasePowerLib "github.com/ArtisanCloud/PowerLibs/v2/database"
 	"github.com/ArtisanCloud/PowerLibs/v2/object"
-	"github.com/ArtisanCloud/PowerX/configs/database"
+	"github.com/ArtisanCloud/PowerX/config/database"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )

@@ -3,7 +3,7 @@ package wx
 import (
 	databasePowerLib "github.com/ArtisanCloud/PowerLibs/v2/database"
 	"github.com/ArtisanCloud/PowerLibs/v2/object"
-	"github.com/ArtisanCloud/PowerX/configs/database"
+	"github.com/ArtisanCloud/PowerX/config/database"
 )
 
 // TableName overrides the table name used by WXGroupChat to `profiles`

@@ -3,7 +3,7 @@ package sendChatMsg
 import (
 	"github.com/ArtisanCloud/PowerX/app/http"
 	"github.com/ArtisanCloud/PowerX/app/http/request"
-	"github.com/ArtisanCloud/PowerX/configs/global"
+	"github.com/ArtisanCloud/PowerX/config/global"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-module/carbon"
 )

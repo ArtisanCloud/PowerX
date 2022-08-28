@@ -2,8 +2,8 @@ package database
 
 import (
 	"context"
-	"github.com/ArtisanCloud/PowerX/configs/app"
-	globalConfig "github.com/ArtisanCloud/PowerX/configs/database"
+	"github.com/ArtisanCloud/PowerX/config/app"
+	globalConfig "github.com/ArtisanCloud/PowerX/config/database"
 	"github.com/ArtisanCloud/PowerX/database/global"
 	"github.com/golang-module/carbon"
 	"gorm.io/driver/postgres"

@@ -4,7 +4,7 @@ import (
 	"errors"
 	"github.com/ArtisanCloud/PowerLibs/v2/object"
 	"github.com/ArtisanCloud/PowerSocialite/v2/src/providers"
-	"github.com/ArtisanCloud/PowerX/configs/app"
+	"github.com/ArtisanCloud/PowerX/config/app"
 	"gorm.io/gorm"
 
 	"github.com/ArtisanCloud/PowerWeChat/v2/src/work/externalContact"

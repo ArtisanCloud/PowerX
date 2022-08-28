@@ -2,7 +2,7 @@ package zh_CN
 
 import (
 	fmt2 "fmt"
-	"github.com/ArtisanCloud/PowerX/configs/global"
+	"github.com/ArtisanCloud/PowerX/config/global"
 	"golang.org/x/text/language"
 	"golang.org/x/text/message"
 )
