@@ -3,7 +3,7 @@ package wx
 import (
 	databasePowerLib "github.com/ArtisanCloud/PowerLibs/v2/database"
 	"github.com/ArtisanCloud/PowerLibs/v2/object"
-	"github.com/ArtisanCloud/PowerX/config/database"
+	"github.com/ArtisanCloud/PowerX/config"
 	"gorm.io/gorm"
 )
 
@@ -34,7 +34,7 @@ const R_WX_TAG_TO_OJECT_JOIN_KEY = "tag_id"
 func (mdl *RWXTagToObject) GetTableName(needFull bool) string {
 	tableName := TABLE_NAME_R_WX_TAG_TO_OBJECT
 	if needFull {
-		tableName = databasePowerLib.GetTableFullName(database.G_DBConfig.Schemas["default"], database.G_DBConfig.BaseConfig.Prefix, tableName)
+		tableName = databasePowerLib.GetTableFullName(config.G_DBConfig.Schemas.Default, config.G_DBConfig.Prefix, tableName)
 	}
 	return tableName
 }

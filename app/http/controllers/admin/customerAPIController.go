@@ -5,7 +5,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/app/http/request"
 	"github.com/ArtisanCloud/PowerX/app/service"
 	globalWecom "github.com/ArtisanCloud/PowerX/app/service/wx/wecom"
-	"github.com/ArtisanCloud/PowerX/config/global"
+	"github.com/ArtisanCloud/PowerX/config"
 	globalDatabase "github.com/ArtisanCloud/PowerX/database/global"
 	"github.com/gin-gonic/gin"
 )
@@ -35,7 +35,7 @@ func APIWXCustomerSync(context *gin.Context) {
 	err = ctl.ServiceCustomer.SyncCustomers(employeeUserIDs, "")
 
 	if err != nil {
-		ctl.RS.SetCode(global.API_ERR_CODE_FAIL_TO_UPSERT_ACCOUNT, global.API_RETURN_CODE_ERROR, "", err.Error())
+		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_UPSERT_ACCOUNT, config.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
 		return
 	}
@@ -54,7 +54,7 @@ func APIGetCustomerList(context *gin.Context) {
 
 	arrayList, err := ctl.ServiceCustomer.GetList(globalDatabase.G_DBConnection, nil, para.Page, para.PageSize)
 	if err != nil {
-		ctl.RS.SetCode(global.API_ERR_CODE_FAIL_TO_GET_ACCOUNT_LIST, global.API_RETURN_CODE_ERROR, "", err.Error())
+		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_GET_ACCOUNT_LIST, config.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
 		return
 	}
@@ -72,7 +72,7 @@ func APIGetCustomerDetail(context *gin.Context) {
 
 	account, err := ctl.ServiceCustomer.GetCustomerByExternalUserID(globalDatabase.G_DBConnection, externalUserID)
 	if err != nil {
-		ctl.RS.SetCode(global.API_ERR_CODE_FAIL_TO_GET_ACCOUNT_DETAIL, global.API_RETURN_CODE_ERROR, "", err.Error())
+		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_GET_ACCOUNT_DETAIL, config.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
 		return
 	}
@@ -80,7 +80,7 @@ func APIGetCustomerDetail(context *gin.Context) {
 	ctl.RS.Success(context, account)
 }
 
-// ----------------------------- wx platform   -------------------------------------------------
+// ----------------------------- wechat platform   -------------------------------------------------
 func APIGetCustomerListOnWXPlatform(context *gin.Context) {
 	ctl := NewCustomerAPIController(context)
 
@@ -91,7 +91,7 @@ func APIGetCustomerListOnWXPlatform(context *gin.Context) {
 
 	arrayList, err := globalWecom.G_WeComCustomer.App.ExternalContact.List(userID)
 	if err != nil {
-		ctl.RS.SetCode(global.API_ERR_CODE_FAIL_TO_GET_EMPLOYEE_LIST, global.API_RETURN_CODE_ERROR, "", err.Error())
+		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_GET_EMPLOYEE_LIST, config.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
 		return
 	}
@@ -109,7 +109,7 @@ func APIGetCustomerDetailOnWXPlatform(context *gin.Context) {
 
 	result, err := globalWecom.G_WeComCustomer.App.ExternalContact.Get(externalUserID, "")
 	if err != nil {
-		ctl.RS.SetCode(global.API_ERR_CODE_FAIL_TO_GET_EMPLOYEE_DETAIL, global.API_RETURN_CODE_ERROR, "", err.Error())
+		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_GET_EMPLOYEE_DETAIL, config.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
 		return
 	}

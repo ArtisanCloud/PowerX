@@ -10,10 +10,8 @@ services:
     ports:
       - ${PORT:-8001}:8080
     volumes:
+      - ./environment.yml:/app/environment.yml
       - ./configs:/app/configs
-      - ./.env:/app/.env
       - ./resources:/app/resources
       - ../certs:/certs
       - /var/log/ArtisanCloud:/var/log/ArtisanCloud
-    env_file:
-      - ./.env

@@ -230,7 +230,7 @@ func (srv *CustomerService) GetCustomerIDsByExternalUserIDsAndFilters(db *gorm.D
 			Where("rCustomerToEmployeeCreateTime.create_time BETWEEN ? AND ?", filter.FilterStartDate.Unix(), filter.FilterEndDate.Unix())
 	}
 
-	// filtered by customers' wx tags
+	// filtered by customers' wechat tags
 	filterWXTagIDs := []string{}
 	err = object.JsonDecode(filter.FilterWXTagIDs, &filterWXTagIDs)
 	if len(filterWXTagIDs) > 0 {
@@ -353,15 +353,15 @@ func (srv *CustomerService) SyncCustomers(employeeUserIDs []string, cursor strin
 		}
 	}
 
-	// sync employee's contacts with userid from wx
+	// sync employee's contacts with userid from wechat
 	response, _ := wecom.G_WeComApp.App.ExternalContact.BatchGet(employeeUserIDs, cursor, 200)
 	if response.ErrCode != 0 {
 		return errors.New(response.ErrMSG)
 	}
 
-	// parse the result of employees from wx
+	// parse the result of employees from wechat
 	for _, contact := range response.ExternalContactList {
-		// parse contacts from wx
+		// parse contacts from wechat
 		customer := srv.NewCustomerFromWXContact(contact.ExternalContact)
 		err = srv.UpsertCustomerByWXCustomer(global.G_DBConnection, customer.WXCustomer)
 
@@ -377,7 +377,7 @@ func (srv *CustomerService) SyncCustomers(employeeUserIDs []string, cursor strin
 			fmt.Dump(err.Error())
 		}
 
-		// sync wx tags to employee
+		// sync wechat tags to employee
 		if len(contact.FollowInfo.TagIDs) > 0 {
 			serviceWXTag := wecom.NewWXTagService(nil)
 			err = serviceWXTag.SyncWXTagsByFollowInfos(global.G_DBConnection, pivot, contact.FollowInfo)

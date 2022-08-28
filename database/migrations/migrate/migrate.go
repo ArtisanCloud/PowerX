@@ -68,7 +68,7 @@ func Run(db *gorm.DB) (err error) {
 	err = foundation.NewMigrateSendGroupChatMsg().Migrate(db)
 	err = foundation.NewMigrateCustomerToEmployee().Migrate(db)
 
-	// wx tables
+	// wechat tables
 	err = wx.NewMigrateWXTag().Migrate(db)
 	err = wx.NewMigrateRWXTagToObject().Migrate(db)
 	err = wx.NewMigrateWXMessageTemplate().Migrate(db)

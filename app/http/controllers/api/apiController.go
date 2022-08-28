@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/ArtisanCloud/PowerX/app/http"
 	"github.com/ArtisanCloud/PowerX/app/service"
-	"github.com/ArtisanCloud/PowerX/config/global"
+	"github.com/ArtisanCloud/PowerX/config"
 	"github.com/gin-gonic/gin"
 	"runtime"
 	"runtime/debug"
@@ -50,7 +50,7 @@ func RecoverResponse(context *gin.Context, action string) {
 			fmt.Printf("Unknown panic: %v \r\n", err.Error())
 			fmt.Printf("err stack: %v \r\n", string(debug.Stack()))
 
-			apiResponse.SetReturnCode(global.API_RETURN_CODE_ERROR, "Inner Error")
+			apiResponse.SetReturnCode(config.API_RETURN_CODE_ERROR, "Inner Error")
 			apiResponse.ThrowJSONResponse(context)
 		}
 

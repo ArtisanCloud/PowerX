@@ -34,7 +34,7 @@ func InitAdminAPIRoutes() {
 			apiRouter.GET("/customer/list", request.ValidateList, admin.APIGetCustomerList)
 			apiRouter.GET("/customer/detail", customer.ValidateCustomerDetail, admin.APIGetCustomerDetail)
 
-			//  Customer - wx platform - 客户微信平台直连接口
+			//  Customer - wechat platform - 客户微信平台直连接口
 			apiRouter.GET("/wxPlatform/wecom/customer/list", customer.ValidateWXPlatformCustomerList, admin.APIGetCustomerListOnWXPlatform)
 			apiRouter.GET("/wxPlatform/wecom/customer/detail", customer.ValidateCustomerDetail, admin.APIGetCustomerDetailOnWXPlatform)
 
@@ -46,7 +46,7 @@ func InitAdminAPIRoutes() {
 			apiRouter.POST("/employee/bind/customer", employee.ValidateBindCustomerToEmployee, admin.APIBindCustomerToEmployee)
 			apiRouter.POST("/employee/unbind/customer", employee.ValidateBindCustomerToEmployee, admin.APIUnbindCustomerToEmployee)
 
-			//  Employee - wx platform - 企微部门微信平台直连接口
+			//  Employee - wechat platform - 企微部门微信平台直连接口
 			apiRouter.GET("/wxPlatform/wecom/employee/list", employee.ValidateWXPlatformEmployeeList, admin.APIGetEmployeeListOnWXPlatform)
 			apiRouter.GET("/wxPlatform/wecom/employee/detail", employee.ValidateEmployeeDetail, admin.APIGetEmployeeDetailOnWXPlatform)
 			apiRouter.DELETE("/wxPlatform/wecom/employee/delete", employee.ValidateWXPlatformDeleteEmployee, admin.APIDeleteEmployeesOnWXPlatform)
@@ -60,16 +60,16 @@ func InitAdminAPIRoutes() {
 			apiRouter.GET("/wxPlatform/wecom/department/list", department.ValidateWXPlatformDepartmentList, wx.APIGetDepartmentListOnWXPlatform)
 
 			//  WX Tag Group - 微信标签组接口
-			apiRouter.GET("/wx/tag/group/sync", wxTag.ValidateWXTagGroupSync, wx.APIGetWXTagGroupSync)
-			apiRouter.GET("/wx/tag/group/list", wxTag.ValidateWXTagGroupList, wx.APIGetWXTagGroupList)
-			apiRouter.GET("/wx/tag/group/detail", wxTag.ValidateWXTagGroupDetail, wx.APIGetWXTagGroupDetail)
-			apiRouter.POST("/wx/tag/group/create", wxTag.ValidateInsertWXTagGroup, wx.APIInsertWXTagGroup)
-			apiRouter.PUT("/wx/tag/group/update", wxTag.ValidateUpdateWXTagGroup, wx.APIUpdateWXTagGroup)
-			apiRouter.DELETE("/wx/tag/group/delete", wxTag.ValidateDeleteWXTagGroup, wx.APIDeleteWXTagGroups)
+			apiRouter.GET("/wechat/tag/group/sync", wxTag.ValidateWXTagGroupSync, wx.APIGetWXTagGroupSync)
+			apiRouter.GET("/wechat/tag/group/list", wxTag.ValidateWXTagGroupList, wx.APIGetWXTagGroupList)
+			apiRouter.GET("/wechat/tag/group/detail", wxTag.ValidateWXTagGroupDetail, wx.APIGetWXTagGroupDetail)
+			apiRouter.POST("/wechat/tag/group/create", wxTag.ValidateInsertWXTagGroup, wx.APIInsertWXTagGroup)
+			apiRouter.PUT("/wechat/tag/group/update", wxTag.ValidateUpdateWXTagGroup, wx.APIUpdateWXTagGroup)
+			apiRouter.DELETE("/wechat/tag/group/delete", wxTag.ValidateDeleteWXTagGroup, wx.APIDeleteWXTagGroups)
 
 			//  WX Tag - 打企业标签接口
-			apiRouter.POST("/wx/tag/bind/customerToEmployee/by/contactWay", wxTag.ValidateBindTagsToCustomerToEmployeeByContactWayTags, wx.APIBindWXTagsToCustomerToEmployeeByContactWayTags)
-			apiRouter.POST("/wx/tag/bind/customerToEmployee", wxTag.ValidateBindTagsToCustomerToEmployee, wx.APIBindWXTagsToCustomerToEmployee)
+			apiRouter.POST("/wechat/tag/bind/customerToEmployee/by/contactWay", wxTag.ValidateBindTagsToCustomerToEmployeeByContactWayTags, wx.APIBindWXTagsToCustomerToEmployeeByContactWayTags)
+			apiRouter.POST("/wechat/tag/bind/customerToEmployee", wxTag.ValidateBindTagsToCustomerToEmployee, wx.APIBindWXTagsToCustomerToEmployee)
 
 			//  Tag Group - 标签组接口
 			apiRouter.GET("/tag/group/list", tag.ValidateTagGroupList, admin.APIGetTagGroupList)

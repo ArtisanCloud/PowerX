@@ -5,7 +5,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/app/http/request/admin/groupChat"
 	"github.com/ArtisanCloud/PowerX/app/service"
 	"github.com/ArtisanCloud/PowerX/app/service/wx/wecom"
-	"github.com/ArtisanCloud/PowerX/config/global"
+	"github.com/ArtisanCloud/PowerX/config"
 	globalDatabase "github.com/ArtisanCloud/PowerX/database/global"
 	"github.com/gin-gonic/gin"
 )
@@ -30,10 +30,10 @@ func APIGroupChatSync(context *gin.Context) {
 
 	defer api.RecoverResponse(context, "api.admin.groupChat.sync")
 
-	// sync wx tag group from wx platform for a month
+	// sync wechat tag group from wechat platform for a month
 	err := ctl.ServiceGroupChat.SyncGroupChatFromWXPlatform(0, nil, "", 1000)
 	if err != nil {
-		ctl.RS.SetCode(global.API_ERR_CODE_FAIL_TO_SYNC_GROUP_CHAT_ON_WX_PLATFORM, global.API_RETURN_CODE_ERROR, "", err.Error())
+		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_SYNC_GROUP_CHAT_ON_WX_PLATFORM, config.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
 		return
 	}
@@ -55,7 +55,7 @@ func APIGetGroupChatList(context *gin.Context) {
 		para.SortBy, para.Ascend,
 		para.StartDate, para.Status)
 	if err != nil {
-		ctl.RS.SetCode(global.API_ERR_CODE_FAIL_TO_GET_GROUP_CHAT_LIST, global.API_RETURN_CODE_ERROR, "", err.Error())
+		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_GET_GROUP_CHAT_LIST, config.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
 		return
 	}
@@ -73,33 +73,33 @@ func APIGetGroupChatDetail(context *gin.Context) {
 
 	groupChat, err := ctl.ServiceGroupChat.GetGroupChatByChatID(globalDatabase.G_DBConnection, chatID)
 	if err != nil {
-		ctl.RS.SetCode(global.API_ERR_CODE_FAIL_TO_GET_GROUP_CHAT_DETAIL, global.API_RETURN_CODE_ERROR, "", err.Error())
+		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_GET_GROUP_CHAT_DETAIL, config.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
 		return
 	}
 	if groupChat == nil {
-		ctl.RS.SetCode(global.API_ERR_CODE_FAIL_TO_GET_GROUP_CHAT_DETAIL, global.API_RETURN_CODE_ERROR, "", "")
+		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_GET_GROUP_CHAT_DETAIL, config.API_RETURN_CODE_ERROR, "", "")
 		panic(ctl.RS)
 		return
 	}
 
 	groupChat.Tags, err = groupChat.LoadTags(globalDatabase.G_DBConnection, nil)
 	if err != nil {
-		ctl.RS.SetCode(global.API_ERR_CODE_FAIL_TO_GET_GROUP_CHAT_DETAIL, global.API_RETURN_CODE_ERROR, "", err.Error())
+		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_GET_GROUP_CHAT_DETAIL, config.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
 		return
 	}
 
 	groupChat.WXGroupChatMembers, err = groupChat.LoadWXGroupChatMembers(globalDatabase.G_DBConnection, nil)
 	if err != nil {
-		ctl.RS.SetCode(global.API_ERR_CODE_FAIL_TO_GET_GROUP_CHAT_DETAIL, global.API_RETURN_CODE_ERROR, "", err.Error())
+		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_GET_GROUP_CHAT_DETAIL, config.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
 		return
 	}
 
 	groupChat.WXGroupChatAdmins, err = groupChat.LoadWXGroupChatAdmins(globalDatabase.G_DBConnection, nil)
 	if err != nil {
-		ctl.RS.SetCode(global.API_ERR_CODE_FAIL_TO_GET_GROUP_CHAT_DETAIL, global.API_RETURN_CODE_ERROR, "", err.Error())
+		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_GET_GROUP_CHAT_DETAIL, config.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
 		return
 	}
@@ -119,7 +119,7 @@ func APIGetGroupChatListOnWXPlatform(context *gin.Context) {
 
 	arrayList, err := ctl.ServiceGroupChat.GetGroupChatListOnWXPlatform(para.StatusFilter, para.OwnerFilter, para.Cursor, para.Limit)
 	if err != nil {
-		ctl.RS.SetCode(global.API_ERR_CODE_FAIL_TO_GET_GROUP_CHAT_LIST, global.API_RETURN_CODE_ERROR, "", err.Error())
+		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_GET_GROUP_CHAT_LIST, config.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
 		return
 	}
@@ -136,7 +136,7 @@ func APIGetGroupChatDetailOnWXPlatform(context *gin.Context) {
 	responseGroupChat, err := wecom.G_WeComApp.App.ExternalContactGroupChat.Get(para.ChatID, para.NeedName)
 
 	if err != nil {
-		ctl.RS.SetCode(global.API_ERR_CODE_FAIL_TO_GET_GROUP_CHAT_DETAIL, global.API_RETURN_CODE_ERROR, "", err.Error())
+		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_GET_GROUP_CHAT_DETAIL, config.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
 		return
 	}

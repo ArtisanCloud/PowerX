@@ -5,7 +5,7 @@ import (
 	"github.com/ArtisanCloud/PowerLibs/v2/object"
 	"github.com/ArtisanCloud/PowerLibs/v2/security"
 	"github.com/ArtisanCloud/PowerWeChat/v2/src/work/externalContact/messageTemplate/response"
-	"github.com/ArtisanCloud/PowerX/config/database"
+	"github.com/ArtisanCloud/PowerX/config"
 	"gorm.io/datatypes"
 )
 
@@ -31,7 +31,7 @@ func (mdl *WXMessageTemplateTask) TableName() string {
 func (mdl *WXMessageTemplateTask) GetTableName(needFull bool) string {
 	tableName := TABLE_NAME_WX_MESSAGE_TEMPLATE_TASK
 	if needFull {
-		tableName = databasePowerLib.GetTableFullName(database.G_DBConfig.Schemas["default"], database.G_DBConfig.BaseConfig.Prefix, tableName)
+		tableName = databasePowerLib.GetTableFullName(config.G_DBConfig.Schemas.Default, config.G_DBConfig.Prefix, tableName)
 	}
 	return tableName
 }
@@ -55,7 +55,7 @@ func (mdl *WXMessageTemplateSend) TableName() string {
 func (mdl *WXMessageTemplateSend) GetTableName(needFull bool) string {
 	tableName := TABLE_NAME_WX_MESSAGE_TEMPLATE_SEND
 	if needFull {
-		tableName = databasePowerLib.GetTableFullName(database.G_DBConfig.Schemas["default"], database.G_DBConfig.BaseConfig.Prefix, tableName)
+		tableName = databasePowerLib.GetTableFullName(config.G_DBConfig.Schemas.Default, config.G_DBConfig.Prefix, tableName)
 	}
 	return tableName
 }
@@ -152,7 +152,7 @@ func NewWXMessageTemplateSendResult(msgID string, result *response.SendResult) *
 func (mdl *WXMessageTemplate) GetTableName(needFull bool) string {
 	tableName := TABLE_NAME_WX_MESSAGE_TEMPLATE
 	if needFull {
-		tableName = databasePowerLib.GetTableFullName(database.G_DBConfig.Schemas["default"], database.G_DBConfig.BaseConfig.Prefix, tableName)
+		tableName = databasePowerLib.GetTableFullName(config.G_DBConfig.Schemas.Default, config.G_DBConfig.Prefix, tableName)
 	}
 	return tableName
 }

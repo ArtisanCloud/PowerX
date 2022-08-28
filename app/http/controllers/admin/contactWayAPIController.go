@@ -6,7 +6,7 @@ import (
 	modelWX "github.com/ArtisanCloud/PowerX/app/models/wx"
 	"github.com/ArtisanCloud/PowerX/app/service"
 	"github.com/ArtisanCloud/PowerX/app/service/wx/wecom"
-	global2 "github.com/ArtisanCloud/PowerX/config/global"
+	global2 "github.com/ArtisanCloud/PowerX/config"
 	"github.com/ArtisanCloud/PowerX/database/global"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-module/carbon"
@@ -108,7 +108,7 @@ func APICreateContactWay(context *gin.Context) {
 
 	var err error
 
-	// upload wx contact way
+	// upload wechat contact way
 	result, err := ctl.ServiceContactWay.CreateContactWayOnWXPlatform(contactWay)
 	if err != nil {
 		ctl.RS.SetCode(global2.API_ERR_CODE_FAIL_TO_CREATE_CONTACT_WAY_ON_WX_PLATFORM, global2.API_RETURN_CODE_ERROR, "", err.Error())
@@ -150,7 +150,7 @@ func APIUpdateContactWay(context *gin.Context) {
 
 	var err error
 
-	// upload wx contact way
+	// upload wechat contact way
 	err = ctl.ServiceContactWay.UpdateContactWayOnWXPlatform(contactWay)
 	if err != nil {
 		ctl.RS.SetCode(global2.API_ERR_CODE_FAIL_TO_UPDATE_CONTACT_WAY_ON_WX_PLATFORM, global2.API_RETURN_CODE_ERROR, "", err.Error())
@@ -167,7 +167,7 @@ func APIUpdateContactWay(context *gin.Context) {
 		return
 	}
 
-	// replace wx contact way tags
+	// replace wechat contact way tags
 	err = ctl.ServiceWXTag.SyncWXTagsToObject(global.G_DBConnection, contactWay, updateTags)
 	if err != nil {
 		ctl.RS.SetCode(global2.API_ERR_CODE_FAIL_TO_SYNC_WX_TAG_ON_WX_PLATFORM, global2.API_RETURN_CODE_ERROR, "", err.Error())
@@ -188,7 +188,7 @@ func APIDeleteContactWays(context *gin.Context) {
 	defer api.RecoverResponse(context, "api.admin.contactWay.delete")
 
 	var err error
-	// upload delete wx contact way
+	// upload delete wechat contact way
 	err = ctl.ServiceContactWay.DeleteContactWayOnWXPlatform(contactWay.ConfigID)
 	if err != nil {
 		ctl.RS.SetCode(global2.API_ERR_CODE_FAIL_TO_DELETE_CONTACT_WAY_ON_WX_PLATFORM, global2.API_RETURN_CODE_ERROR, "", err.Error())
@@ -266,7 +266,7 @@ func APIDeleteContactWaysOnWXPlatform(context *gin.Context) {
 	defer api.RecoverResponse(context, "api.admin.contactWay.delete")
 
 	var err error
-	// upload delete wx contact way
+	// upload delete wechat contact way
 	err = ctl.ServiceContactWay.DeleteContactWayOnWXPlatform(configID)
 	if err != nil {
 		ctl.RS.SetCode(global2.API_ERR_CODE_FAIL_TO_DELETE_CONTACT_WAY_ON_WX_PLATFORM, global2.API_RETURN_CODE_ERROR, "", err.Error())

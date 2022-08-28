@@ -34,7 +34,7 @@ func NewSendChatMsgService(ctx *gin.Context) (r *SendChatMsgService) {
 
 func (srv *SendChatMsgService) SyncSendChatMsgFromWXPlatform(db *gorm.DB, startDatetime *carbon.Carbon, endDatetime *carbon.Carbon, limit int, cursor string) (rs *response.ResponseGetGroupMsgListV2, err error) {
 
-	// get wx single message templates from wx platform
+	// get wechat single message templates from wechat platform
 	req := &requestMessageTemplate.RequestGetGroupMsgListV2{
 		ChatType:  "single",
 		StartTime: startDatetime.Timestamp(),
@@ -50,7 +50,7 @@ func (srv *SendChatMsgService) SyncSendChatMsgFromWXPlatform(db *gorm.DB, startD
 		return rs, errors.New(rs.ErrMSG)
 	}
 
-	// sync wx message template from wx platform
+	// sync wechat message template from wechat platform
 	err = db.Transaction(func(tx *gorm.DB) error {
 		serviceWXMessageTemplate := wecom.NewWXMessageTemplateService(nil)
 		for _, groupMsg := range rs.GroupMsgList {
@@ -60,7 +60,7 @@ func (srv *SendChatMsgService) SyncSendChatMsgFromWXPlatform(db *gorm.DB, startD
 				continue
 			}
 			if wxMessageTemplate == nil {
-				logger.Logger.Error(errors.New("wx message template not found").Error())
+				logger.Logger.Error(errors.New("wechat message template not found").Error())
 				continue
 			}
 			err = serviceWXMessageTemplate.SyncWXMessageTemplateFromWXPlatform(tx, groupMsg, wxMessageTemplate.Sender)
@@ -131,7 +131,7 @@ func (srv *SendChatMsgService) SyncWXMessageTemplateTasksFromWXPlatform(db *gorm
 	}
 
 	serviceMessageTemplate := wecom.NewWXMessageTemplateService(nil)
-	// upsert wx message templates tasks
+	// upsert wechat message templates tasks
 	for _, rs := range responseGroupMsgTask.TaskList {
 		task := modelWX.NewWXMessageTemplateTask(msgID, rs)
 		err = serviceMessageTemplate.UpsertWXMessageTemplateTasks(db, []*modelWX.WXMessageTemplateTask{task}, nil)
@@ -154,7 +154,7 @@ func (srv *SendChatMsgService) SyncWXMessageTemplateSendResultsFromWXPlatform(db
 		err = srv.SyncWXMessageTemplateSendResultsFromWXPlatform(db, msgID, userID, limit, responseGroupMsgSendResult.NextCursor)
 	}
 
-	// upsert wx message templates send results
+	// upsert wechat message templates send results
 	serviceMessageTemplate := wecom.NewWXMessageTemplateService(nil)
 	for _, rs := range responseGroupMsgSendResult.SendList {
 		sendResult := modelWX.NewWXMessageTemplateSendResult(msgID, rs)
@@ -164,7 +164,7 @@ func (srv *SendChatMsgService) SyncWXMessageTemplateSendResultsFromWXPlatform(db
 }
 
 func (srv *SendChatMsgService) DoSendChatMsg(messageTemplate *modelWX.WXMessageTemplate) (result *response.ResponseAddMessageTemplate, err error) {
-	// upload wx send chat msg
+	// upload wechat send chat msg
 	result, err = srv.CreateSendChatMsgOnWXPlatform(messageTemplate)
 	if err != nil {
 		return result, err

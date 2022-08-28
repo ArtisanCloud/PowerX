@@ -58,11 +58,11 @@ func (srv *EmployeeService) SyncEmployees() (err error) {
 		return errors.New("corp id is empty")
 	}
 
-	// parse the result of employees from wx
+	// parse the result of employees from wechat
 
 	serviceWeComEmployee := wecom.NewWeComEmployeeService(nil)
 	for _, userDetail := range response.UserList {
-		// get employees from wx
+		// get employees from wechat
 		responseOpenID, err := wecom.G_WeComEmployee.App.User.UserIdToOpenID(userDetail.UserID)
 		if err != nil {
 			return err
@@ -295,7 +295,7 @@ func (srv *EmployeeService) HandleAddCustomer(context *gin.Context, event contra
 	logger.Logger.Info("Handle Add External Contact", zap.Any("msg", msg))
 
 	// --------------------------------------------------
-	// sync customer from wx
+	// sync customer from wechat
 	rs, err := wecom.G_WeComApp.App.ExternalContact.Get(msg.ExternalUserID, "")
 	if err != nil {
 		return err
@@ -335,7 +335,7 @@ func (srv *EmployeeService) HandleAddCustomer(context *gin.Context, event contra
 			MODULE_CUSTOMER, "外部联系人绑定员工", databasePowerLib.OPERATION_EVENT_CREATE,
 			pivot.EmployeeReferID.String, pivot, databasePowerLib.OPERATION_RESULT_SUCCESS)
 
-		// upload sync wx platform tags
+		// upload sync wechat platform tags
 		req := &request.RequestTagMarkTag{
 			UserID:         pivot.EmployeeReferID.String,
 			ExternalUserID: pivot.CustomerReferID.String,
@@ -371,7 +371,7 @@ func (srv *EmployeeService) HandleEditCustomer(context *gin.Context, event contr
 	logger.Logger.Info("Handle Edit External Contact", zap.Any("msg", msg))
 
 	// --------------------------------------------------
-	// sync customer from wx
+	// sync customer from wechat
 	rs, err := wecom.G_WeComApp.App.ExternalContact.Get(msg.ExternalUserID, "")
 	if err != nil {
 		return err
@@ -394,7 +394,7 @@ func (srv *EmployeeService) HandleEditCustomer(context *gin.Context, event contr
 		MODULE_CUSTOMER, "员工修改外部联系人", databasePowerLib.OPERATION_EVENT_UPDATE,
 		customer.Name, customer, databasePowerLib.OPERATION_RESULT_SUCCESS)
 
-	// sync wx tags to customer
+	// sync wechat tags to customer
 	if len(rs.FollowUsers) > 0 {
 		for _, followInfo := range rs.FollowUsers {
 			pivot, err := (&models.RCustomerToEmployee{}).UpsertPivotByFollowUser(global.G_DBConnection, customer, followInfo)

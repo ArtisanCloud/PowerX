@@ -3,7 +3,7 @@ package logger
 import (
 	logger2 "github.com/ArtisanCloud/PowerLibs/v2/logger"
 	"github.com/ArtisanCloud/PowerLibs/v2/object"
-	"github.com/ArtisanCloud/PowerX/config/app"
+	"github.com/ArtisanCloud/PowerX/config"
 	UBT "github.com/ArtisanCloud/ubt-go"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -22,7 +22,7 @@ func SetupLog() (err error) {
 	//	return errors.New("init ubt error")
 	//}
 
-	strArtisanCloudPath := os.Getenv("log_path")
+	strArtisanCloudPath := config.G_AppConfigure.LogConfig.LogPath
 	strOutputPath := strArtisanCloudPath + "/output.log"
 	strErrorPath := strArtisanCloudPath + "/errors.log"
 	//fmt.Dump(strOutputPath)
@@ -32,7 +32,7 @@ func SetupLog() (err error) {
 	}
 
 	Logger, err = logger2.NewLogger("", &object.HashMap{
-		"env":        app.G_AppConfigure.Env,
+		"env":        config.G_AppConfigure.Env,
 		"outputPath": strOutputPath,
 		"errorPath":  strErrorPath,
 	})

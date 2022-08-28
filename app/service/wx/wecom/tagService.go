@@ -140,7 +140,7 @@ func (srv *WXTagService) SyncWXTagsByFollowInfos(db *gorm.DB, pivot *models.RCus
 		}
 	}
 
-	// sync wx tags to custmer and employee pivot table
+	// sync wechat tags to custmer and employee pivot table
 	tags, _ := srv.GetWXTagsByIDs(db, tagIDs)
 	err = srv.SyncWXTagsToObject(db, pivot, tags)
 	if err != nil {

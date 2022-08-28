@@ -7,7 +7,7 @@ import (
 	requestTag "github.com/ArtisanCloud/PowerX/app/http/request/admin/tag"
 	"github.com/ArtisanCloud/PowerX/app/models"
 	"github.com/ArtisanCloud/PowerX/app/service"
-	"github.com/ArtisanCloud/PowerX/config/global"
+	"github.com/ArtisanCloud/PowerX/config"
 	globalDatabase "github.com/ArtisanCloud/PowerX/database/global"
 	"github.com/gin-gonic/gin"
 )
@@ -38,7 +38,7 @@ func APIGetGroupChatTagGroupList(context *gin.Context) {
 	}
 	arrayList, err := ctl.ServiceTag.GetGroupList(globalDatabase.G_DBConnection, conditions, para.Page, para.PageSize)
 	if err != nil {
-		ctl.RS.SetCode(global.API_ERR_CODE_FAIL_TO_GET_WX_TAG_LIST, global.API_RETURN_CODE_ERROR, "", err.Error())
+		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_GET_WX_TAG_LIST, config.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
 		return
 	}
@@ -58,7 +58,7 @@ func APIGetTagGroupList(context *gin.Context) {
 
 	arrayList, err := ctl.ServiceTag.QueryTagList(globalDatabase.G_DBConnection, para.Type, para.GroupID)
 	if err != nil {
-		ctl.RS.SetCode(global.API_ERR_CODE_FAIL_TO_GET_WX_TAG_LIST, global.API_RETURN_CODE_ERROR, "", err.Error())
+		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_GET_WX_TAG_LIST, config.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
 		return
 	}
@@ -76,7 +76,7 @@ func APIGetTagGroupDetail(context *gin.Context) {
 
 	account, err := ctl.ServiceTag.GetTagGroupByID(globalDatabase.G_DBConnection, groupID)
 	if err != nil {
-		ctl.RS.SetCode(global.API_ERR_CODE_FAIL_TO_GET_WX_TAG_DETAIL, global.API_RETURN_CODE_ERROR, "", err.Error())
+		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_GET_WX_TAG_DETAIL, config.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
 		return
 	}
@@ -96,11 +96,11 @@ func APIInsertTagGroup(context *gin.Context) {
 	//fmt.Dump(tagGroup, tags)
 	var err error
 
-	// upsert wx tag group
+	// upsert wechat tag group
 
 	err = ctl.ServiceTag.CreateTagGroupWithTags(globalDatabase.G_DBConnection, tagGroup, tags)
 	if err != nil {
-		ctl.RS.SetCode(global.API_ERR_CODE_FAIL_TO_INSERT_WX_TAG_GROUP, global.API_RETURN_CODE_ERROR, "", err.Error())
+		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_INSERT_WX_TAG_GROUP, config.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
 		return
 	}
@@ -123,11 +123,11 @@ func APIUpdateTagGroup(context *gin.Context) {
 	//fmt.Dump(tagGroup, tags)
 	var err error
 
-	// upsert wx tag group
+	// upsert wechat tag group
 
 	err = ctl.ServiceTag.UpdateTagGroupWithTags(globalDatabase.G_DBConnection, tagGroup, tags)
 	if err != nil {
-		ctl.RS.SetCode(global.API_ERR_CODE_FAIL_TO_INSERT_WX_TAG_GROUP, global.API_RETURN_CODE_ERROR, "", err.Error())
+		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_INSERT_WX_TAG_GROUP, config.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
 		return
 	}
@@ -149,10 +149,10 @@ func APIDeleteTagGroups(context *gin.Context) {
 
 	var err error
 
-	// delete wx tag group
+	// delete wechat tag group
 	err = ctl.ServiceTag.DeleteTagGroupsWithTags(globalDatabase.G_DBConnection, groupIDs, tagIDs)
 	if err != nil {
-		ctl.RS.SetCode(global.API_ERR_CODE_FAIL_TO_DELETE_WX_TAG_GROUP, global.API_RETURN_CODE_ERROR, "", err.Error())
+		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_DELETE_WX_TAG_GROUP, config.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
 		return
 	}
@@ -175,7 +175,7 @@ func APIBindTagsToGroupChat(context *gin.Context) {
 	for _, groupChat := range groupChats {
 		err = ctl.ServiceTag.SyncTagsToObject(globalDatabase.G_DBConnection, groupChat, tags)
 		if err != nil {
-			ctl.RS.SetCode(global.API_ERR_CODE_FAIL_TO_SYNC_TAG, global.API_RETURN_CODE_ERROR, "", err.Error())
+			ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_SYNC_TAG, config.API_RETURN_CODE_ERROR, "", err.Error())
 			panic(ctl.RS)
 			return
 		}

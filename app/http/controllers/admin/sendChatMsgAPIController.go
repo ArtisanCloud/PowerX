@@ -9,7 +9,7 @@ import (
 	modelWX "github.com/ArtisanCloud/PowerX/app/models/wx"
 	"github.com/ArtisanCloud/PowerX/app/service"
 	serviceWX "github.com/ArtisanCloud/PowerX/app/service/wx/wecom"
-	"github.com/ArtisanCloud/PowerX/config/global"
+	"github.com/ArtisanCloud/PowerX/config"
 	globalDatabase "github.com/ArtisanCloud/PowerX/database/global"
 	logger "github.com/ArtisanCloud/PowerX/loggerManager"
 	"github.com/gin-gonic/gin"
@@ -45,12 +45,12 @@ func APISendChatMsgSync(context *gin.Context) {
 
 	rs, err := ctl.ServiceSendChatMsg.SyncSendChatMsgFromWXPlatform(globalDatabase.G_DBConnection, startDatetime, endDatetime, limit, "")
 	if err != nil {
-		ctl.RS.SetCode(global.API_ERR_CODE_FAIL_TO_SYNC_SEND_CHAT_MSG_ON_WX_PLATFORM, global.API_RETURN_CODE_ERROR, "", err.Error())
+		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_SYNC_SEND_CHAT_MSG_ON_WX_PLATFORM, config.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
 		return
 	}
 	if rs.ErrCode != 0 {
-		ctl.RS.SetCode(global.API_ERR_CODE_FAIL_TO_SYNC_SEND_CHAT_MSG_ON_WX_PLATFORM, global.API_RETURN_CODE_ERROR, "", errors.New(rs.ErrMSG).Error())
+		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_SYNC_SEND_CHAT_MSG_ON_WX_PLATFORM, config.API_RETURN_CODE_ERROR, "", errors.New(rs.ErrMSG).Error())
 		panic(ctl.RS)
 		return
 	}
@@ -74,7 +74,7 @@ func APIGetSendChatMsgList(context *gin.Context) {
 
 	arrayList, err := ctl.ServiceSendChatMsg.GetQueryList(globalDatabase.G_DBConnection, creatorUserIDs, filterStartDate, filterEndDate, para.Page, para.PageSize)
 	if err != nil {
-		ctl.RS.SetCode(global.API_ERR_CODE_FAIL_TO_GET_SEND_CHAT_MSG_LIST, global.API_RETURN_CODE_ERROR, "", err.Error())
+		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_GET_SEND_CHAT_MSG_LIST, config.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
 		return
 	}
@@ -92,12 +92,12 @@ func APIGetSendChatMsgDetail(context *gin.Context) {
 
 	sendChatMsg, err := ctl.ServiceSendChatMsg.GetSendChatMsgByUUID(globalDatabase.G_DBConnection, uuid)
 	if err != nil {
-		ctl.RS.SetCode(global.API_ERR_CODE_FAIL_TO_GET_SEND_CHAT_MSG_DETAIL, global.API_RETURN_CODE_ERROR, "", err.Error())
+		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_GET_SEND_CHAT_MSG_DETAIL, config.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
 		return
 	}
 	if sendChatMsg == nil {
-		ctl.RS.SetCode(global.API_ERR_CODE_FAIL_TO_GET_SEND_CHAT_MSG_DETAIL, global.API_RETURN_CODE_ERROR, "", "")
+		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_GET_SEND_CHAT_MSG_DETAIL, config.API_RETURN_CODE_ERROR, "", "")
 		panic(ctl.RS)
 		return
 	}
@@ -120,7 +120,7 @@ func APIEstimateSendChatCustomersCount(context *gin.Context) {
 		err = object.JsonDecode(messageTemplate.ExternalUserIDs, &arrayExternalUserIDs)
 		if err != nil {
 			if err != nil {
-				ctl.RS.SetCode(global.API_ERR_CODE_FAIL_TO_ESTIMATE_SEND_CHAT_MSG_CUSTOMERS_COUNT, global.API_RETURN_CODE_ERROR, "", err.Error())
+				ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_ESTIMATE_SEND_CHAT_MSG_CUSTOMERS_COUNT, config.API_RETURN_CODE_ERROR, "", err.Error())
 				panic(ctl.RS)
 				return
 			}
@@ -146,19 +146,19 @@ func APICreateSendChatMsg(context *gin.Context) {
 		// insert send chat msg
 		err = ctl.ServiceSendChatMsg.UpsertSendChatMsgs(tx.Omit(clause.Associations), []*models.SendChatMsg{sendChatMsg}, nil)
 		if err != nil {
-			ctl.RS.SetCode(global.API_ERR_CODE_FAIL_TO_CREATE_SEND_CHAT_MSG, global.API_RETURN_CODE_ERROR, "", err.Error())
+			ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_CREATE_SEND_CHAT_MSG, config.API_RETURN_CODE_ERROR, "", err.Error())
 			return err
 		}
 
 		serviceWXMessageTemplate := serviceWX.NewWXMessageTemplateService(nil)
 		for _, messageTemplate := range sendChatMsg.WXMessageTemplates {
-			// upload wx send chat msg
+			// upload wechat send chat msg
 			if sendChatMsg.SendImmediately {
 				result, err := ctl.ServiceSendChatMsg.DoSendChatMsg(messageTemplate)
 				messageTemplate, err = ctl.ServiceSendChatMsg.ConvertResponseToMessageTemplate(messageTemplate, result)
 				logger.Logger.Info("create message template unique id:", messageTemplate.UniqueID)
 				if err != nil {
-					ctl.RS.SetCode(global.API_ERR_CODE_FAIL_TO_DO_SEND_CHAT_MSG_ON_WX_PLATFORM, global.API_RETURN_CODE_ERROR, "", err.Error())
+					ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_DO_SEND_CHAT_MSG_ON_WX_PLATFORM, config.API_RETURN_CODE_ERROR, "", err.Error())
 					return err
 				}
 			} else {
@@ -170,7 +170,7 @@ func APICreateSendChatMsg(context *gin.Context) {
 
 			}
 
-			// save the wx message template
+			// save the wechat message template
 			err = serviceWXMessageTemplate.UpsertWXMessageTemplates(tx.Omit(clause.Associations), []*modelWX.WXMessageTemplate{messageTemplate}, nil)
 			if err != nil {
 				return err
@@ -210,7 +210,7 @@ func APIDoSendChatMsgs(context *gin.Context) {
 
 	toSendList, err := ctl.ServiceSendChatMsg.GetToDoSendList(globalDatabase.G_DBConnection, &now, &endDatetime)
 	if err != nil {
-		ctl.RS.SetCode(global.API_ERR_CODE_FAIL_TO_GET_SEND_CHAT_MSG_LIST, global.API_RETURN_CODE_ERROR, "", err.Error())
+		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_GET_SEND_CHAT_MSG_LIST, config.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
 		return
 	}
@@ -241,7 +241,7 @@ func APIDoSendChatMsgs(context *gin.Context) {
 					return err
 				}
 
-				// save the wx message template
+				// save the wechat message template
 				err = serviceWXMessageTemplate.UpsertWXMessageTemplates(tx.Omit(clause.Associations), []*modelWX.WXMessageTemplate{wxMessageTemplate}, nil)
 				if err != nil {
 					return err

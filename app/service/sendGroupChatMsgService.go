@@ -34,7 +34,7 @@ func NewSendGroupChatMsgService(ctx *gin.Context) (r *SendGroupChatMsgService) {
 
 func (srv *SendGroupChatMsgService) SyncSendGroupChatMsgFromWXPlatform(db *gorm.DB, startDatetime *carbon.Carbon, endDatetime *carbon.Carbon, limit int, cursor string) (rs *response.ResponseGetGroupMsgListV2, err error) {
 
-	// get wx single message templates from wx platform
+	// get wechat single message templates from wechat platform
 	req := &requestMessageTemplate.RequestGetGroupMsgListV2{
 		ChatType:  "group",
 		StartTime: startDatetime.Timestamp(),
@@ -50,7 +50,7 @@ func (srv *SendGroupChatMsgService) SyncSendGroupChatMsgFromWXPlatform(db *gorm.
 		return rs, errors.New(rs.ErrMSG)
 	}
 
-	// sync wx message template from wx platform
+	// sync wechat message template from wechat platform
 	err = db.Transaction(func(tx *gorm.DB) error {
 		serviceWXMessageTemplate := wecom.NewWXMessageTemplateService(nil)
 		for _, groupMsg := range rs.GroupMsgList {
@@ -60,7 +60,7 @@ func (srv *SendGroupChatMsgService) SyncSendGroupChatMsgFromWXPlatform(db *gorm.
 				continue
 			}
 			if wxMessageTemplate == nil {
-				logger.Logger.Error(errors.New("wx message template not found").Error())
+				logger.Logger.Error(errors.New("wechat message template not found").Error())
 				continue
 			}
 			err = serviceWXMessageTemplate.SyncWXMessageTemplateFromWXPlatform(tx, groupMsg, wxMessageTemplate.Sender)
@@ -82,7 +82,7 @@ func (srv *SendGroupChatMsgService) SyncSendGroupChatMsgFromWXPlatform(db *gorm.
 }
 
 func (srv *SendGroupChatMsgService) DoSendGroupChatMsg(messageTemplate *wx.WXMessageTemplate) (result *response.ResponseAddMessageTemplate, err error) {
-	// upload wx send chat msg
+	// upload wechat send chat msg
 	result, err = srv.CreateSendGroupChatMsgOnWXPlatform(messageTemplate)
 	if err != nil {
 		return result, err

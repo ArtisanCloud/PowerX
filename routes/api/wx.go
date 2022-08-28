@@ -8,8 +8,8 @@ import (
 )
 
 func InitWXRoutes() {
-	/* ------------------------------------------ wx api ------------------------------------------*/
-	apiRouter := global.Router.Group("/wx/api")
+	/* ------------------------------------------ wechat api ------------------------------------------*/
+	apiRouter := global.Router.Group("/wechat/api")
 	{
 
 		// ------

@@ -6,7 +6,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/app/http/request"
 	"github.com/ArtisanCloud/PowerX/app/models"
 	"github.com/ArtisanCloud/PowerX/app/service"
-	"github.com/ArtisanCloud/PowerX/config/global"
+	"github.com/ArtisanCloud/PowerX/config"
 	globalDatabase "github.com/ArtisanCloud/PowerX/database/global"
 	"github.com/gin-gonic/gin"
 )
@@ -28,7 +28,7 @@ func ValidateBindTagsToCustomerToEmployeeByContactWayTags(context *gin.Context) 
 	apiResponse := http.NewAPIResponse(context)
 	pivot, contactWay, err := convertParaToBindTagsToCustomerToEmployeeByContactWayTags(&form)
 	if err != nil {
-		apiResponse.SetCode(global.API_ERR_CODE_REQUEST_PARAM_ERROR, global.API_RETURN_CODE_ERROR, "", err.Error()).ThrowJSONResponse(context)
+		apiResponse.SetCode(config.API_ERR_CODE_REQUEST_PARAM_ERROR, config.API_RETURN_CODE_ERROR, "", err.Error()).ThrowJSONResponse(context)
 	}
 	context.Set("pivot", pivot)
 	context.Set("contactWay", contactWay)

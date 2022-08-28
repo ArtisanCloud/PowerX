@@ -4,7 +4,7 @@ import (
 	databasePowerLib "github.com/ArtisanCloud/PowerLibs/v2/database"
 	"github.com/ArtisanCloud/PowerLibs/v2/object"
 	"github.com/ArtisanCloud/PowerLibs/v2/security"
-	"github.com/ArtisanCloud/PowerX/config/database"
+	"github.com/ArtisanCloud/PowerX/config"
 	"gorm.io/datatypes"
 )
 
@@ -58,7 +58,7 @@ func NewWXGroupChatMember(mapObject *object.Collection) *WXGroupChatMember {
 func (mdl *WXGroupChatMember) GetTableName(needFull bool) string {
 	tableName := TABLE_NAME_WX_GROUP_CHAT_MEMBER
 	if needFull {
-		tableName = databasePowerLib.GetTableFullName(database.G_DBConfig.Schemas["default"], database.G_DBConfig.BaseConfig.Prefix, tableName)
+		tableName = databasePowerLib.GetTableFullName(config.G_DBConfig.Schemas.Default, config.G_DBConfig.Prefix, tableName)
 	}
 	return tableName
 }

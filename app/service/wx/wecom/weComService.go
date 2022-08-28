@@ -5,7 +5,6 @@ import (
 	"fmt"
 	fmt2 "github.com/ArtisanCloud/PowerLibs/v2/fmt"
 	"github.com/ArtisanCloud/PowerLibs/v2/object"
-	os2 "github.com/ArtisanCloud/PowerLibs/v2/os"
 	"github.com/ArtisanCloud/PowerSocialite/v2/src/providers"
 	"github.com/ArtisanCloud/PowerWeChat/v2/src/kernel"
 	"github.com/ArtisanCloud/PowerWeChat/v2/src/kernel/power"
@@ -18,13 +17,11 @@ import (
 	modelPowerWechat "github.com/ArtisanCloud/PowerWeChat/v2/src/work/server/handlers/models"
 	"github.com/ArtisanCloud/PowerX/app/models"
 	modelWX "github.com/ArtisanCloud/PowerX/app/models/wx"
-	"github.com/ArtisanCloud/PowerX/config/app"
-	"github.com/ArtisanCloud/PowerX/config/cache"
+	"github.com/ArtisanCloud/PowerX/config"
 	logger "github.com/ArtisanCloud/PowerX/loggerManager"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 	"net/http"
-	"os"
 	"reflect"
 	"time"
 )
@@ -41,13 +38,14 @@ var IsBuffing bool
 func NewWeComService(ctx *gin.Context) (*WeComService, error) {
 
 	var err error
-	wecomCorpID := os.Getenv("corp_id")
-	wecomAgentID, err := os2.GetEnvInt("wecom_agent_id")
-	wecomSecret := os.Getenv("wecom_secret")
-	messageToken := os.Getenv("app_message_token")
-	messageAESKey := os.Getenv("app_message_aes_key")
-	messageCallbackURL := os.Getenv("app_message_callback_url")
-	appOauthCallbackURL := os.Getenv("app_oauth_callback_url")
+
+	wecomCorpID := config.G_AppConfigure.WecomConfig.CorpID
+	wecomAgentID := config.G_AppConfigure.WecomConfig.WecomAgentID
+	wecomSecret := config.G_AppConfigure.WecomConfig.WecomSecret
+	messageToken := config.G_AppConfigure.WecomConfig.AppMessageToken
+	messageAESKey := config.G_AppConfigure.WecomConfig.AppMessageAesKey
+	messageCallbackURL := config.G_AppConfigure.WecomConfig.AppMessageCallbackURL
+	appOauthCallbackURL := config.G_AppConfigure.WecomConfig.AppOauthCallbackURL
 
 	if ctx != nil {
 		if ctx.GetString("wecomCorpID") != "" {
@@ -86,9 +84,9 @@ func NewWeComService(ctx *gin.Context) (*WeComService, error) {
 			Scopes:   []string{"snsapi_base"},
 		},
 		Cache: kernel.NewRedisClient(&kernel.RedisOptions{
-			Addr:     cache.G_RedisConfig.Host,
-			Password: cache.G_RedisConfig.Password,
-			DB:       cache.G_RedisConfig.DB,
+			Addr:     config.G_RedisConfig.Host,
+			Password: config.G_RedisConfig.Password,
+			DB:       config.G_RedisConfig.DB,
 		}),
 		HttpDebug: true,
 	})
@@ -151,8 +149,8 @@ func (srv *WeComService) SendMessageToEmployee(ctx *gin.Context, msgType string,
 		return errors.New("have to offer the sendable object from toUserID,toPart,ToTag")
 	}
 
-	weComConfig := app.G_AppConfigure.Wechat["wecom"].(map[string]interface{})
-	agentID := weComConfig["agent_id"].(int)
+	weComConfig := config.G_AppConfigure.WecomConfig
+	agentID := weComConfig.WecomAgentID
 
 	if msgType == "text" {
 

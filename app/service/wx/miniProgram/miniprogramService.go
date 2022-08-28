@@ -4,10 +4,9 @@ import (
 	"github.com/ArtisanCloud/PowerWeChat/v2/src/kernel"
 	"github.com/ArtisanCloud/PowerWeChat/v2/src/kernel/response"
 	"github.com/ArtisanCloud/PowerWeChat/v2/src/miniProgram"
-	"github.com/ArtisanCloud/PowerX/config/cache"
+	"github.com/ArtisanCloud/PowerX/config"
 	"github.com/gin-gonic/gin"
 	"log"
-	"os"
 )
 
 type MiniProgramService struct {
@@ -16,11 +15,11 @@ type MiniProgramService struct {
 
 func NewMiniProgramService(ctx *gin.Context) (*MiniProgramService, error) {
 
-	log.Printf("MiniProgram app id: %s", os.Getenv("miniprogram_app_id"))
+	log.Printf("MiniProgram app id: %s", config.G_AppConfigure.WXMiniProgramConfig.MiniProgramAppID)
 
 	app, err := miniProgram.NewMiniProgram(&miniProgram.UserConfig{
-		AppID:  os.Getenv("miniprogram_app_id"), // 小程序、公众号或者企业微信的appid
-		Secret: os.Getenv("miniprogram_secret"), // 商户号 appID
+		AppID:  config.G_AppConfigure.WXMiniProgramConfig.MiniProgramAppID,  // 小程序、公众号或者企业微信的appid
+		Secret: config.G_AppConfigure.WXMiniProgramConfig.MiniProgramSecret, // 商户号 appID
 
 		ResponseType: response.TYPE_MAP,
 		Log: miniProgram.Log{
@@ -28,9 +27,9 @@ func NewMiniProgramService(ctx *gin.Context) (*MiniProgramService, error) {
 			File:  "./wechat.log",
 		},
 		Cache: kernel.NewRedisClient(&kernel.RedisOptions{
-			Addr:     cache.G_RedisConfig.Host,
-			Password: cache.G_RedisConfig.Password,
-			DB:       cache.G_RedisConfig.DB,
+			Addr:     config.G_RedisConfig.Host,
+			Password: config.G_RedisConfig.Password,
+			DB:       config.G_RedisConfig.DB,
 		}),
 		HttpDebug: true,
 		Debug:     false,

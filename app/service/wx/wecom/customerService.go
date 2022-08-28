@@ -2,11 +2,9 @@ package wecom
 
 import (
 	"errors"
-	"github.com/ArtisanCloud/PowerLibs/v2/object"
 	"github.com/ArtisanCloud/PowerSocialite/v2/src/providers"
 	"github.com/ArtisanCloud/PowerWeChat/v2/src/work/externalContact"
 	"github.com/ArtisanCloud/PowerX/app/models"
-	"github.com/ArtisanCloud/PowerX/config/app"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
@@ -17,11 +15,11 @@ type WeComCustomerService struct {
 }
 
 func NewWeComCustomerService(ctx *gin.Context) (r *WeComCustomerService) {
-	weComConfig, _ := object.StructToMap(app.G_AppConfigure.Wechat["wecom"])
-	if weComConfig["contact_secret"] != nil {
-		weComConfig["secret"] = weComConfig["contact_secret"]
-		weComConfig["oauth.scopes"] = []string{"snsapi_base"}
-	}
+	//weComConfig, _ := object.StructToMap()
+	//if weComConfig["contact_secret"] != nil {
+	//	weComConfig["secret"] = weComConfig["contact_secret"]
+	//	weComConfig["oauth.scopes"] = []string{"snsapi_base"}
+	//}
 	r = &WeComCustomerService{
 		Service:  G_WeComCustomer,
 		Customer: models.NewCustomer(nil),
@@ -68,7 +66,7 @@ func (srv *WeComCustomerService) GetContactByExternalUserID(ctx *gin.Context, ex
 	externalClient := G_WeComCustomer.App.GetComponent("Customer").(*externalContact.Client)
 	responseGetUserByID, err := externalClient.Get(externalUserID, "0")
 	if responseGetUserByID == nil {
-		return nil, errors.New("get wx contract error")
+		return nil, errors.New("get wechat contract error")
 	}
 
 	if responseGetUserByID.ErrCode == 0 {

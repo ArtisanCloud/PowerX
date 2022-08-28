@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	databasePowerLib "github.com/ArtisanCloud/PowerLibs/v2/database"
 	"github.com/ArtisanCloud/PowerLibs/v2/object"
-	"github.com/ArtisanCloud/PowerX/config/database"
+	"github.com/ArtisanCloud/PowerX/config"
 	"gorm.io/gorm"
 )
 
@@ -55,7 +55,7 @@ func NewWXTagGroup(mapObject *object.Collection) *WXTagGroup {
 func (mdl *WXTagGroup) GetTableName(needFull bool) string {
 	tableName := TABLE_NAME_TAG_GROUP
 	if needFull {
-		tableName = databasePowerLib.GetTableFullName(database.G_DBConfig.Schemas["default"], database.G_DBConfig.BaseConfig.Prefix, tableName)
+		tableName = databasePowerLib.GetTableFullName(config.G_DBConfig.Schemas.Default, config.G_DBConfig.Prefix, tableName)
 	}
 	return tableName
 }

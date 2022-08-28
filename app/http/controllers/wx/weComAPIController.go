@@ -10,7 +10,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/app/models"
 	"github.com/ArtisanCloud/PowerX/app/service"
 	"github.com/ArtisanCloud/PowerX/app/service/wx/wecom"
-	"github.com/ArtisanCloud/PowerX/config/global"
+	"github.com/ArtisanCloud/PowerX/config"
 	globalDatabase "github.com/ArtisanCloud/PowerX/database/global"
 	"github.com/gin-gonic/gin"
 	"io/ioutil"
@@ -43,7 +43,7 @@ func APICallbackValidationEmployee(context *gin.Context) {
 
 	response, err := wecom.G_WeComEmployee.App.Server.Serve(context.Request)
 	if err != nil {
-		ctl.RS.Error(context, global.API_RETURN_CODE_ERROR, err.Error(), "")
+		ctl.RS.Error(context, config.API_RETURN_CODE_ERROR, err.Error(), "")
 		return
 	}
 
@@ -117,7 +117,7 @@ func APICallbackValidationCustomer(context *gin.Context) {
 
 	response, err := wecom.G_WeComCustomer.App.Server.Serve(context.Request)
 	if err != nil {
-		ctl.RS.Error(context, global.API_RETURN_CODE_ERROR, err.Error(), "")
+		ctl.RS.Error(context, config.API_RETURN_CODE_ERROR, err.Error(), "")
 		return
 	}
 
@@ -401,7 +401,7 @@ func WeComAuthorizedCustomer(context *gin.Context) {
 	// get customer info from code
 	customer, err := wecom.G_WeComCustomer.AuthorizedCustomer(context)
 	if err != nil {
-		ctl.RS.SetCode(http.StatusExpectationFailed, global.API_RETURN_CODE_ERROR, "", err.Error())
+		ctl.RS.SetCode(http.StatusExpectationFailed, config.API_RETURN_CODE_ERROR, "", err.Error())
 		ctl.RS.ThrowJSONResponse(context)
 		return
 	}
@@ -432,8 +432,8 @@ func WeComAuthorizedCustomer(context *gin.Context) {
 		customer.SetAttribute("appID", appID)
 
 	} else {
-		// invalid wx customer
-		ctl.RS.SetCode(http.StatusExpectationFailed, global.API_RETURN_CODE_ERROR, "", "invalid wx customer")
+		// invalid wechat customer
+		ctl.RS.SetCode(http.StatusExpectationFailed, config.API_RETURN_CODE_ERROR, "", "invalid wechat customer")
 		ctl.RS.ThrowJSONResponse(context)
 		return
 	}
@@ -441,7 +441,7 @@ func WeComAuthorizedCustomer(context *gin.Context) {
 	account = models.NewCustomer(object.NewCollection(customer.GetAttributes()))
 	err = service.NewCustomerService(context).UpsertCustomers(globalDatabase.G_DBConnection, []*models.Customer{account}, nil)
 	if err != nil {
-		ctl.RS.SetCode(global.API_ERR_CODE_FAIL_TO_UPSERT_ACCOUNT, global.API_RETURN_CODE_ERROR, "", "")
+		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_UPSERT_ACCOUNT, config.API_RETURN_CODE_ERROR, "", "")
 		panic(ctl.RS)
 		return
 	}
@@ -466,14 +466,14 @@ func WeComAuthorizedEmployee(context *gin.Context) {
 	// get user info from code
 	user, err := wecom.G_WeComEmployee.AuthorizedEmployee(context)
 	if err != nil {
-		ctl.RS.SetCode(http.StatusExpectationFailed, global.API_RETURN_CODE_ERROR, "", err.Error())
+		ctl.RS.SetCode(http.StatusExpectationFailed, config.API_RETURN_CODE_ERROR, "", err.Error())
 		ctl.RS.ThrowJSONResponse(context)
 		return
 	}
 
 	strToken, rsCode := WeComGetEmployeeToken(context, user)
-	if rsCode != global.API_RESULT_CODE_INIT {
-		ctl.RS.SetCode(rsCode, global.API_RETURN_CODE_ERROR, "", "")
+	if rsCode != config.API_RESULT_CODE_INIT {
+		ctl.RS.SetCode(rsCode, config.API_RETURN_CODE_ERROR, "", "")
 		ctl.RS.ThrowJSONResponse(context)
 		return
 	}
@@ -494,14 +494,14 @@ func WeComAuthorizedEmployeeQR(context *gin.Context) {
 	// get user info from code
 	user, err := wecom.G_WeComEmployee.AuthorizedEmployeeQR(context)
 	if err != nil {
-		ctl.RS.SetCode(http.StatusExpectationFailed, global.API_RETURN_CODE_ERROR, "", err.Error())
+		ctl.RS.SetCode(http.StatusExpectationFailed, config.API_RETURN_CODE_ERROR, "", err.Error())
 		ctl.RS.ThrowJSONResponse(context)
 		return
 	}
 
 	strToken, rsCode := WeComGetEmployeeToken(context, user)
-	if rsCode != global.API_RESULT_CODE_INIT {
-		ctl.RS.SetCode(rsCode, global.API_RETURN_CODE_ERROR, "", "")
+	if rsCode != config.API_RESULT_CODE_INIT {
+		ctl.RS.SetCode(rsCode, config.API_RETURN_CODE_ERROR, "", "")
 		ctl.RS.ThrowJSONResponse(context)
 		return
 	}
@@ -521,7 +521,7 @@ func WeComGetEmployeeToken(context *gin.Context, user *providers.User) (strToken
 	var employee *models.Employee
 	userID := user.GetID()
 	if userID == "" {
-		return "", global.API_ERR_CODE_FAIL_TO_GET_EMPLOYEE_DETAIL
+		return "", config.API_ERR_CODE_FAIL_TO_GET_EMPLOYEE_DETAIL
 	}
 
 	serviceEmployee := service.NewEmployeeService(context)
@@ -531,7 +531,7 @@ func WeComGetEmployeeToken(context *gin.Context, user *providers.User) (strToken
 	if user.GetOpenID() == "" {
 		responseOpenID, err := wecom.G_WeComEmployee.App.User.UserIdToOpenID(userID)
 		if err != nil || responseOpenID.OpenID == "" {
-			return "", global.API_ERR_CODE_LACK_OF_WX_OPEN_ID
+			return "", config.API_ERR_CODE_LACK_OF_WX_OPEN_ID
 		}
 		employee.WXEmployee.WXCorpID = object.NewNullString(wecom.G_WeComEmployee.App.Config.GetString("corp_id", ""), true)
 		employee.WXEmployee.WXOpenID = object.NewNullString(responseOpenID.OpenID, true)
@@ -539,12 +539,12 @@ func WeComGetEmployeeToken(context *gin.Context, user *providers.User) (strToken
 	serviceWeComEmployee := wecom.NewWeComEmployeeService(nil)
 	err := serviceWeComEmployee.UpsertEmployeeByWXEmployee(globalDatabase.G_DBConnection, employee.WXEmployee)
 	if err != nil {
-		return "", global.API_ERR_CODE_FAIL_TO_UPSERT_EMPLOYEE
+		return "", config.API_ERR_CODE_FAIL_TO_UPSERT_EMPLOYEE
 
 	}
 
 	serviceAuth := service.NewAuthService(context)
 	strToken, _ = serviceAuth.CreateTokenForEmployee(employee)
 
-	return strToken, global.API_RESULT_CODE_INIT
+	return strToken, config.API_RESULT_CODE_INIT
 }

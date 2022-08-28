@@ -5,7 +5,7 @@ import (
 	"github.com/ArtisanCloud/PowerLibs/v2/database"
 	"github.com/ArtisanCloud/PowerLibs/v2/object"
 	"github.com/ArtisanCloud/PowerX/app/models/wx"
-	databaseConfig "github.com/ArtisanCloud/PowerX/config/database"
+	databaseConfig "github.com/ArtisanCloud/PowerX/config"
 )
 
 // TableName overrides the table name used by Employee to `profiles`
@@ -20,7 +20,7 @@ type Employee struct {
 	PivotCustomers    []*RCustomerToEmployee `gorm:"ForeignKey:EmployeeReferID;references:WXUserID" json:"pivotCustomers"`
 	FollowedEmployees []*Employee            `gorm:"many2many:public.ac_r_customer_to_employee;foreignKey:UUID;joinForeignKey:EmployeeReferID;References:UUID;JoinReferences:EmployeeReferID" json:"FollowedEmployees"`
 	WXDepartments     []*wx.WXDepartment     `gorm:"many2many:r_employee_to_department;foreignKey:ID;joinForeignKey:employee_id;References:ID;JoinReferences:department_id"`
-	//WXTags            []*wx.WXTag        `gorm:"many2many:public.ac_r_wx_tag_to_object;foreignKey:UUID;joinForeignKey:EmployeeReferID;References:ID;JoinReferences:WXTagReferID" json:"wxTags"`
+	//WXTags            []*wechat.WXTag        `gorm:"many2many:public.ac_r_wx_tag_to_object;foreignKey:UUID;joinForeignKey:EmployeeReferID;References:ID;JoinReferences:WXTagReferID" json:"wxTags"`
 
 	RoleID    *string `gorm:"column:role_id;index" json:"roleID"`
 	Locale    string  `gorm:"column:locale" json:"locale"`
@@ -39,7 +39,7 @@ const EMPLOYEE_UNIQUE_ID = "wx_user_id"
 func (mdl *Employee) GetTableName(needFull bool) string {
 	tableName := TABLE_NAME_EMPLOYEE
 	if needFull {
-		tableName = database.GetTableFullName(databaseConfig.G_DBConfig.Schemas["default"], databaseConfig.G_DBConfig.BaseConfig.Prefix, tableName)
+		tableName = database.GetTableFullName(databaseConfig.G_DBConfig.Schemas.Default, databaseConfig.G_DBConfig.Prefix, tableName)
 	}
 	return tableName
 }

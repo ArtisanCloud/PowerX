@@ -5,7 +5,7 @@ import (
 	"github.com/ArtisanCloud/PowerLibs/v2/database"
 	"github.com/ArtisanCloud/PowerLibs/v2/object"
 	"github.com/ArtisanCloud/PowerX/app/models/wx"
-	databaseConfig "github.com/ArtisanCloud/PowerX/config/database"
+	databaseConfig "github.com/ArtisanCloud/PowerX/config"
 	"gorm.io/gorm"
 )
 
@@ -42,7 +42,7 @@ func NewCustomer(mapObject *object.Collection) *Customer {
 func (mdl *Customer) GetTableName(needFull bool) string {
 	tableName := TABLE_NAME_ACCOUNT
 	if needFull {
-		tableName = database.GetTableFullName(databaseConfig.G_DBConfig.Schemas["default"], databaseConfig.G_DBConfig.BaseConfig.Prefix, tableName)
+		tableName = database.GetTableFullName(databaseConfig.G_DBConfig.Schemas.Default, databaseConfig.G_DBConfig.Prefix, tableName)
 	}
 	return tableName
 }

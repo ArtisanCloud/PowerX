@@ -7,7 +7,6 @@ import (
 	"github.com/ArtisanCloud/PowerSocialite/v2/src/providers"
 	"github.com/ArtisanCloud/PowerX/app/models"
 	"github.com/ArtisanCloud/PowerX/app/models/wx"
-	"github.com/ArtisanCloud/PowerX/config/app"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
@@ -18,10 +17,6 @@ type WeComEmployeeService struct {
 }
 
 func NewWeComEmployeeService(ctx *gin.Context) (r *WeComEmployeeService) {
-	weComConfig, _ := object.StructToMap(app.G_AppConfigure.Wechat["wecom"])
-	if weComConfig["contact_secret"] != nil {
-		weComConfig["secret"] = weComConfig["contact_secret"]
-	}
 	r = &WeComEmployeeService{
 		WeComService: G_WeComEmployee,
 		Employee:     models.NewEmployee(nil),

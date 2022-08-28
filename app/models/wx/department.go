@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	databasePowerLib "github.com/ArtisanCloud/PowerLibs/v2/database"
 	"github.com/ArtisanCloud/PowerLibs/v2/object"
-	"github.com/ArtisanCloud/PowerX/config/database"
+	"github.com/ArtisanCloud/PowerX/config"
 	"gorm.io/gorm"
 )
 
@@ -37,7 +37,7 @@ func NewWXDepartment(mapObject *object.Collection) *WXDepartment {
 func (mdl *WXDepartment) GetTableName(needFull bool) string {
 	tableName := TABLE_NAME_DEPARTMENT
 	if needFull {
-		tableName = databasePowerLib.GetTableFullName(database.G_DBConfig.Schemas["default"], database.G_DBConfig.BaseConfig.Prefix, tableName)
+		tableName = databasePowerLib.GetTableFullName(config.G_DBConfig.Schemas.Default, config.G_DBConfig.Prefix, tableName)
 	}
 	return tableName
 }

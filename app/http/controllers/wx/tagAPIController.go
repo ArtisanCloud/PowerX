@@ -6,7 +6,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/app/models"
 	"github.com/ArtisanCloud/PowerX/app/models/wx"
 	"github.com/ArtisanCloud/PowerX/app/service/wx/wecom"
-	"github.com/ArtisanCloud/PowerX/config/global"
+	"github.com/ArtisanCloud/PowerX/config"
 	globalDatabase "github.com/ArtisanCloud/PowerX/database/global"
 	"github.com/gin-gonic/gin"
 )
@@ -34,7 +34,7 @@ func APIGetWXTagList(context *gin.Context) {
 
 	arrayList, err := ctl.ServiceWXTag.GetList(globalDatabase.G_DBConnection, nil, para.Page, para.PageSize)
 	if err != nil {
-		ctl.RS.SetCode(global.API_ERR_CODE_FAIL_TO_GET_WX_TAG_LIST, global.API_RETURN_CODE_ERROR, "", err.Error())
+		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_GET_WX_TAG_LIST, config.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
 		return
 	}
@@ -52,7 +52,7 @@ func APIGetWXTagDetail(context *gin.Context) {
 
 	account, err := ctl.ServiceWXTag.GetWXTag(globalDatabase.G_DBConnection, para.UUID)
 	if err != nil {
-		ctl.RS.SetCode(global.API_ERR_CODE_FAIL_TO_GET_WX_TAG_DETAIL, global.API_RETURN_CODE_ERROR, "", err.Error())
+		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_GET_WX_TAG_DETAIL, config.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
 		return
 	}
@@ -72,7 +72,7 @@ func APIBindWXTagsToCustomerToEmployeeByContactWayTags(context *gin.Context) {
 
 	err := ctl.ServiceWXTag.SyncWXTagsToObject(globalDatabase.G_DBConnection, pivot, contactWay.WXTags)
 	if err != nil {
-		ctl.RS.SetCode(global.API_ERR_CODE_FAIL_TO_SYNC_WX_TAG, global.API_RETURN_CODE_ERROR, "", err.Error())
+		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_SYNC_WX_TAG, config.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
 		return
 	}
@@ -95,7 +95,7 @@ func APIBindWXTagsToCustomerToEmployee(context *gin.Context) {
 	//err := ctl.ServiceWXTag.AppendWXTagsToPivotCustomerToEmployee(globalDatabase.G_DBConnection, customer, tags)
 	err := ctl.ServiceWXTag.SyncWXTagsToObject(globalDatabase.G_DBConnection, pivot, tags)
 	if err != nil {
-		ctl.RS.SetCode(global.API_ERR_CODE_FAIL_TO_SYNC_WX_TAG, global.API_RETURN_CODE_ERROR, "", err.Error())
+		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_SYNC_WX_TAG, config.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
 		return
 	}
