@@ -8,7 +8,7 @@ services:
     environment: 
       - GIN_MODE=release
     ports:
-      - ${PORT:-8001}:8080
+      - ${PORT:-8003}:8080
     volumes:
       - ./environment.yml:/app/environment.yml
       - ./configs:/app/configs

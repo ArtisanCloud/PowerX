@@ -21,17 +21,8 @@
 .idea/
 .env
 
-database.yml
-database.yaml
-
 environment.yml
 environment.yaml
-
-cache.yml
-cache.yaml
-
-log.yml
-log.yaml
 
 .DS_Store
 

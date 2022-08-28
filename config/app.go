@@ -1,7 +1,6 @@
 package config
 
 import (
-	"github.com/ArtisanCloud/PowerLibs/v2/fmt"
 	"gopkg.in/yaml.v3"
 	"io/ioutil"
 )
@@ -49,7 +48,7 @@ func LoadEnvConfig(configPath *string) (err error) {
 	if err != nil {
 		return err
 	}
-	fmt.Dump(G_AppConfigure)
+	//fmt.Dump(G_AppConfigure)
 	//err = parseAppConfig()
 
 	return err
