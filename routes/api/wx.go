@@ -21,11 +21,13 @@ func InitWXRoutes() {
 		// ------
 		// ------------------------------------------------------------ WeCom ------------------------------------------------------------
 		// ------
-		// --- customer callback url ---
+		// --- 客户回调请求地址 ---
+		// https://developer.work.weixin.qq.com/document/path/92129
 		apiRouter.GET("/wecom/customer", apiWX.APICallbackValidationCustomer)
 		apiRouter.POST("/wecom/customer", apiWX.APICallbackCustomer)
 
-		// --- employee callback url ---
+		// --- 员工回调地址 ---
+		// https://developer.work.weixin.qq.com/document/path/90967
 		apiRouter.GET("/wecom/employee", apiWX.APICallbackValidationEmployee)
 		apiRouter.POST("/wecom/employee", apiWX.APICallbackEmployee)
 
@@ -44,7 +46,7 @@ func InitWXRoutes() {
 		// --- 网页授权客户登陆，code换取访问token ---
 		apiRouter.GET("/wecom/callback/authorized/customer/", requestWX.ValidateRequestOAuthCallback, apiWX.WeComAuthorizedCustomer)
 
-		apiRouter.Use(middleware.Maintenance, middleware.AuthenticateEmployeeAPI)
+		apiRouter.Use(middleware.Maintenance, middleware.AuthenticateEmployeeByHeader)
 		{
 			// 获取企业微信回调IP地址
 			apiRouter.GET("/getCallbackIPs", apiWX.APIGetCallbackIPs)

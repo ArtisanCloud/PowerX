@@ -181,7 +181,7 @@ func APIBindCustomerToEmployee(context *gin.Context) {
 		panic(ctl.RS)
 		return
 	}
-	// save operation log
+	// 保存操作日志
 	_ = (&database2.PowerOperationLog{}).SaveOps(globalDatabase.G_DBConnection, customer.Name, customer,
 		service.MODULE_CUSTOMER, "系统绑定外部联系人与员工", database2.OPERATION_EVENT_CREATE,
 		employee.Name, employee, database2.OPERATION_RESULT_SUCCESS)
@@ -215,7 +215,7 @@ func APIUnbindCustomerToEmployee(context *gin.Context) {
 		panic(ctl.RS)
 		return
 	}
-	// save operation log
+	// 保存操作日志
 	_ = (&database2.PowerOperationLog{}).SaveOps(globalDatabase.G_DBConnection, customer.Name, customer,
 		service.MODULE_CUSTOMER, "系统解绑外部联系人与员工", database2.OPERATION_EVENT_DELETE,
 		employee.Name, employee, database2.OPERATION_RESULT_SUCCESS)

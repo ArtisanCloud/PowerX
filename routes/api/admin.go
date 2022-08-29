@@ -27,7 +27,7 @@ func InitAdminAPIRoutes() {
 
 	apiRouter := global.Router.Group("/admin/api")
 	{
-		apiRouter.Use(middleware.Maintenance, middleware.AuthenticateEmployeeAPI, middleware.AuthorizeAPI)
+		apiRouter.Use(middleware.Maintenance, middleware.AuthenticateEmployeeByHeader, middleware.AuthorizeAPI)
 		{
 
 			//  Customer - 企微客户接口
@@ -111,7 +111,6 @@ func InitAdminAPIRoutes() {
 			apiRouter.POST("/wxPlatform/wecom/media/upload/tempVoice", media.ValidateUploadMedia, wx.APIWeComMediaUploadTempVoice)
 			apiRouter.POST("/wxPlatform/wecom/media/upload/tempVideo", media.ValidateUploadMedia, wx.APIWeComMediaUploadTempVideo)
 			apiRouter.POST("/wxPlatform/wecom/media/upload/tempFile", media.ValidateUploadMedia, wx.APIWeComMediaUploadTempFile)
-			apiRouter.GET("/wxPlatform/wecom/media/detail", media.ValidateGetMedia, wx.APIWeComMediaGetMedia)
 
 			//  WeCom group chat - 企微的群聊接口
 			apiRouter.GET("/groupChat/sync", wx.APIGroupChatSync)
@@ -151,4 +150,11 @@ func InitAdminAPIRoutes() {
 		}
 	}
 
+	apiRouterByQuery := global.Router.Group("/admin/api")
+	{
+		apiRouterByQuery.Use(middleware.Maintenance, middleware.AuthenticateEmployeeByQuery)
+		{
+			apiRouterByQuery.GET("/wxPlatform/wecom/media/detail", media.ValidateGetMedia, wx.APIWeComMediaGetMedia)
+		}
+	}
 }

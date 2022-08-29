@@ -5,7 +5,8 @@ import (
 	"github.com/ArtisanCloud/PowerSocialite/v2/src/providers"
 	"github.com/ArtisanCloud/PowerWeChat/v2/src/kernel"
 	"github.com/ArtisanCloud/PowerWeChat/v2/src/kernel/contract"
-	modelPowerWechatEvent "github.com/ArtisanCloud/PowerWeChat/v2/src/work/server/handlers/models"
+	modelPowerWechat "github.com/ArtisanCloud/PowerWeChat/v2/src/kernel/models"
+	modelWecomEvent "github.com/ArtisanCloud/PowerWeChat/v2/src/work/server/handlers/models"
 	"github.com/ArtisanCloud/PowerX/app/http/controllers/api"
 	"github.com/ArtisanCloud/PowerX/app/models"
 	"github.com/ArtisanCloud/PowerX/app/service"
@@ -53,6 +54,7 @@ func APICallbackValidationEmployee(context *gin.Context) {
 
 }
 
+// https://developer.work.weixin.qq.com/document/path/90967
 func APICallbackEmployee(context *gin.Context) {
 	ctl := NewWeComAPIController(context)
 
@@ -65,11 +67,17 @@ func APICallbackEmployee(context *gin.Context) {
 		result = kernel.SUCCESS_EMPTY_RESPONSE
 
 		switch event.GetMsgType() {
-		case "event":
+		case modelPowerWechat.CALLBACK_MSG_TYPE_EVENT:
 			{
 				ctl.HandleEmployeeEvent(context, event)
 			}
 			break
+		case modelPowerWechat.CALLBACK_MSG_TYPE_TEXT:
+		case modelPowerWechat.CALLBACK_MSG_TYPE_IMAGE:
+		case modelPowerWechat.CALLBACK_MSG_TYPE_VOICE:
+		case modelPowerWechat.CALLBACK_MSG_TYPE_VIDEO:
+		case modelPowerWechat.CALLBACK_MSG_TYPE_LOCATION:
+		case modelPowerWechat.CALLBACK_MSG_TYPE_LINK:
 
 		default:
 
@@ -94,11 +102,24 @@ func (ctl *WeComAPIController) HandleEmployeeEvent(context *gin.Context, event c
 
 	var err error
 	switch event.GetEvent() {
-	case modelPowerWechatEvent.CALLBACK_EVENT_CHANGE_CONTACT:
+	case modelWecomEvent.CALLBACK_EVENT_CHANGE_CONTACT:
 		{
 			err = ctl.HandleEventChangeContact(context, event)
 			break
 		}
+
+	case modelWecomEvent.CALLBACK_EVENT_SUBSCRIBE:
+	case modelWecomEvent.CALLBACK_EVENT_ENTER_AGENT:
+	case modelWecomEvent.CALLBACK_EVENT_LOCATION:
+	case modelWecomEvent.CALLBACK_EVENT_BATCH_JOB_RESULT:
+	case modelWecomEvent.CALLBACK_EVENT_CLICK:
+	case modelWecomEvent.CALLBACK_EVENT_VIEW:
+	case modelWecomEvent.CALLBACK_EVENT_SCANCODE_PUSH:
+	case modelWecomEvent.CALLBACK_EVENT_SCANCODE_WAITMSG:
+	case modelWecomEvent.CALLBACK_EVENT_PIC_SYSPHOTO:
+	case modelWecomEvent.CALLBACK_EVENT_PIC_PHOTO_OR_ALBUM:
+	case modelWecomEvent.CALLBACK_EVENT_PIC_WEIXIN:
+
 	default:
 
 	}
@@ -127,6 +148,7 @@ func APICallbackValidationCustomer(context *gin.Context) {
 
 }
 
+// // https://developer.work.weixin.qq.com/document/path/92129
 func APICallbackCustomer(context *gin.Context) {
 	ctl := NewWeComAPIController(context)
 
@@ -139,11 +161,17 @@ func APICallbackCustomer(context *gin.Context) {
 		result = kernel.SUCCESS_EMPTY_RESPONSE
 
 		switch event.GetMsgType() {
-		case "event":
+		case modelPowerWechat.CALLBACK_MSG_TYPE_EVENT:
 			{
 				ctl.HandleCustomerEvent(context, event)
 			}
 			break
+		case modelPowerWechat.CALLBACK_MSG_TYPE_TEXT:
+		case modelPowerWechat.CALLBACK_MSG_TYPE_IMAGE:
+		case modelPowerWechat.CALLBACK_MSG_TYPE_VOICE:
+		case modelPowerWechat.CALLBACK_MSG_TYPE_VIDEO:
+		case modelPowerWechat.CALLBACK_MSG_TYPE_LOCATION:
+		case modelPowerWechat.CALLBACK_MSG_TYPE_LINK:
 
 		default:
 
@@ -169,17 +197,17 @@ func (ctl *WeComAPIController) HandleCustomerEvent(context *gin.Context, event c
 
 	var err error
 	switch event.GetEvent() {
-	case modelPowerWechatEvent.CALLBACK_EVENT_CHANGE_EXTERNAL_CONTACT:
+	case modelWecomEvent.CALLBACK_EVENT_CHANGE_EXTERNAL_CONTACT:
 		{
 			err = ctl.HandleEventChangeCustomer(context, event)
 			break
 		}
-	case modelPowerWechatEvent.CALLBACK_EVENT_CHANGE_EXTERNAL_CHAT:
+	case modelWecomEvent.CALLBACK_EVENT_CHANGE_EXTERNAL_CHAT:
 		{
 			err = ctl.HandleEventChangeExternalChat(context, event)
 			break
 		}
-	case modelPowerWechatEvent.CALLBACK_EVENT_CHANGE_EXTERNAL_TAG:
+	case modelWecomEvent.CALLBACK_EVENT_CHANGE_EXTERNAL_TAG:
 		{
 			err = ctl.HandleEventChangeExternalTag(context, event)
 			break
@@ -198,32 +226,32 @@ func (ctl *WeComAPIController) HandleEventChangeCustomer(context *gin.Context, e
 
 	serviceEmployee := service.NewEmployeeService(context)
 	switch event.GetChangeType() {
-	case modelPowerWechatEvent.CALLBACK_EVENT_CHANGE_TYPE_ADD_EXTERNAL_CONTACT:
+	case modelWecomEvent.CALLBACK_EVENT_CHANGE_TYPE_ADD_EXTERNAL_CONTACT:
 		err = serviceEmployee.HandleAddCustomer(context, event)
 		break
 
-	case modelPowerWechatEvent.CALLBACK_EVENT_CHANGE_TYPE_EDIT_EXTERNAL_CONTACT:
+	case modelWecomEvent.CALLBACK_EVENT_CHANGE_TYPE_EDIT_EXTERNAL_CONTACT:
 		err = serviceEmployee.HandleEditCustomer(context, event)
 		if err != nil {
 			return err
 		}
 		break
 
-	case modelPowerWechatEvent.CALLBACK_EVENT_CHANGE_TYPE_ADD_HALF_EXTERNAL_CONTACT:
+	case modelWecomEvent.CALLBACK_EVENT_CHANGE_TYPE_ADD_HALF_EXTERNAL_CONTACT:
 		err = serviceEmployee.HandleAddHalfCustomer(context, event)
 		if err != nil {
 			return err
 		}
 		break
 
-	case modelPowerWechatEvent.CALLBACK_EVENT_CHANGE_TYPE_DEL_EXTERNAL_CONTACT:
+	case modelWecomEvent.CALLBACK_EVENT_CHANGE_TYPE_DEL_EXTERNAL_CONTACT:
 		err = serviceEmployee.HandleDelCustomer(context, event)
 		if err != nil {
 			return err
 		}
 		break
 
-	case modelPowerWechatEvent.CALLBACK_EVENT_CHANGE_TYPE_DEL_FOLLOW_USER:
+	case modelWecomEvent.CALLBACK_EVENT_CHANGE_TYPE_DEL_FOLLOW_USER:
 		msg, err := serviceEmployee.HandleDelFollowEmployee(context, event)
 		if err != nil {
 			return err
@@ -236,7 +264,7 @@ func (ctl *WeComAPIController) HandleEventChangeCustomer(context *gin.Context, e
 
 		break
 
-	case modelPowerWechatEvent.CALLBACK_EVENT_CHANGE_TYPE_TRANSFER_FAIL:
+	case modelWecomEvent.CALLBACK_EVENT_CHANGE_TYPE_TRANSFER_FAIL:
 		err = serviceEmployee.HandleTransferFail(context, event)
 		if err != nil {
 			return err
@@ -254,21 +282,21 @@ func (ctl *WeComAPIController) HandleEventChangeExternalChat(context *gin.Contex
 	serviceGroupChat := service.NewGroupChatService(context)
 	switch event.GetChangeType() {
 
-	case modelPowerWechatEvent.CALLBACK_EVENT_CHANGE_TYPE_CREATE:
+	case modelWecomEvent.CALLBACK_EVENT_CHANGE_TYPE_CREATE:
 		err = serviceGroupChat.HandleChatCreate(context, event)
 		if err != nil {
 			return err
 		}
 		break
 
-	case modelPowerWechatEvent.CALLBACK_EVENT_CHANGE_TYPE_UPDATE:
+	case modelWecomEvent.CALLBACK_EVENT_CHANGE_TYPE_UPDATE:
 		err = serviceGroupChat.HandleChatUpdate(context, event)
 		if err != nil {
 			return err
 		}
 		break
 
-	case modelPowerWechatEvent.CALLBACK_EVENT_CHANGE_TYPE_DISMISS:
+	case modelWecomEvent.CALLBACK_EVENT_CHANGE_TYPE_DISMISS:
 		err = serviceGroupChat.HandleChatDismiss(context, event)
 		if err != nil {
 			return err
@@ -285,28 +313,28 @@ func (ctl *WeComAPIController) HandleEventChangeExternalTag(context *gin.Context
 
 	switch event.GetChangeType() {
 
-	case modelPowerWechatEvent.CALLBACK_EVENT_CHANGE_TYPE_CREATE:
+	case modelWecomEvent.CALLBACK_EVENT_CHANGE_TYPE_CREATE:
 		err = serviceTag.HandleTagCreate(context, event)
 		if err != nil {
 			return err
 		}
 		break
 
-	case modelPowerWechatEvent.CALLBACK_EVENT_CHANGE_TYPE_UPDATE:
+	case modelWecomEvent.CALLBACK_EVENT_CHANGE_TYPE_UPDATE:
 		err = serviceTag.HandleTagUpdate(context, event)
 		if err != nil {
 			return err
 		}
 		break
 
-	case modelPowerWechatEvent.CALLBACK_EVENT_CHANGE_TYPE_DELETE:
+	case modelWecomEvent.CALLBACK_EVENT_CHANGE_TYPE_DELETE:
 		err = serviceTag.HandleTagDelete(context, event)
 		if err != nil {
 			return err
 		}
 		break
 
-	case modelPowerWechatEvent.CALLBACK_EVENT_CHANGE_TYPE_SHUFFLE:
+	case modelWecomEvent.CALLBACK_EVENT_CHANGE_TYPE_SHUFFLE:
 		err = serviceTag.HandleTagShuffle(context, event)
 		if err != nil {
 			return err
@@ -323,49 +351,49 @@ func (ctl *WeComAPIController) HandleEventChangeContact(context *gin.Context, ev
 	serviceDepartment := service.NewDepartmentService(context)
 	switch event.GetChangeType() {
 
-	case modelPowerWechatEvent.CALLBACK_EVENT_CHANGE_TYPE_CREATE_USER:
+	case modelWecomEvent.CALLBACK_EVENT_CHANGE_TYPE_CREATE_USER:
 		err = serviceEmployee.HandleEmployeeCreate(context, event)
 		if err != nil {
 			return err
 		}
 		break
 
-	case modelPowerWechatEvent.CALLBACK_EVENT_CHANGE_TYPE_UPDATE_USER:
+	case modelWecomEvent.CALLBACK_EVENT_CHANGE_TYPE_UPDATE_USER:
 		err = serviceEmployee.HandleEmployeeUpdate(context, event)
 		if err != nil {
 			return err
 		}
 		break
 
-	case modelPowerWechatEvent.CALLBACK_EVENT_CHANGE_TYPE_DELETE_USER:
+	case modelWecomEvent.CALLBACK_EVENT_CHANGE_TYPE_DELETE_USER:
 		err = serviceEmployee.HandleEmployeeDelete(context, event)
 		if err != nil {
 			return err
 		}
 		break
 
-	case modelPowerWechatEvent.CALLBACK_EVENT_CHANGE_TYPE_CREATE_PARTY:
+	case modelWecomEvent.CALLBACK_EVENT_CHANGE_TYPE_CREATE_PARTY:
 		err = serviceDepartment.HandleDepartmentCreate(context, event)
 		if err != nil {
 			return err
 		}
 		break
 
-	case modelPowerWechatEvent.CALLBACK_EVENT_CHANGE_TYPE_UPDATE_PARTY:
+	case modelWecomEvent.CALLBACK_EVENT_CHANGE_TYPE_UPDATE_PARTY:
 		err = serviceDepartment.HandleDepartmentUpdate(context, event)
 		if err != nil {
 			return err
 		}
 		break
 
-	case modelPowerWechatEvent.CALLBACK_EVENT_CHANGE_TYPE_DELETE_PARTY:
+	case modelWecomEvent.CALLBACK_EVENT_CHANGE_TYPE_DELETE_PARTY:
 		err = serviceDepartment.HandleDepartmentDelete(context, event)
 		if err != nil {
 			return err
 		}
 		break
 
-	case modelPowerWechatEvent.CALLBACK_EVENT_CHANGE_TYPE_UPDATE_TAG:
+	case modelWecomEvent.CALLBACK_EVENT_CHANGE_TYPE_UPDATE_TAG:
 		err = serviceEmployee.HandleContactTagUpdate(context, event)
 		if err != nil {
 			return err

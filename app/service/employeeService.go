@@ -9,7 +9,7 @@ import (
 	modelSocialite "github.com/ArtisanCloud/PowerSocialite/v2/src/models"
 	"github.com/ArtisanCloud/PowerWeChat/v2/src/kernel/contract"
 	"github.com/ArtisanCloud/PowerWeChat/v2/src/work/externalContact/tag/request"
-	modelPowerWechat "github.com/ArtisanCloud/PowerWeChat/v2/src/work/server/handlers/models"
+	modelWecomEvent "github.com/ArtisanCloud/PowerWeChat/v2/src/work/server/handlers/models"
 	"github.com/ArtisanCloud/PowerX/app/models"
 	modelWX "github.com/ArtisanCloud/PowerX/app/models/wx"
 	"github.com/ArtisanCloud/PowerX/app/service/wx/wecom"
@@ -286,7 +286,7 @@ func (srv *EmployeeService) HandleAddCustomer(context *gin.Context, event contra
 
 	serviceWXTag := wecom.NewWXTagService(context)
 
-	msg := &modelPowerWechat.EventExternalUserAdd{}
+	msg := &modelWecomEvent.EventExternalUserAdd{}
 	err = event.ReadMessage(msg)
 	if err != nil {
 		return err
@@ -295,7 +295,7 @@ func (srv *EmployeeService) HandleAddCustomer(context *gin.Context, event contra
 	logger.Logger.Info("Handle Add External Contact", zap.Any("msg", msg))
 
 	// --------------------------------------------------
-	// sync customer from wechat
+	// 同步客户的信息
 	rs, err := wecom.G_WeComApp.App.ExternalContact.Get(msg.ExternalUserID, "")
 	if err != nil {
 		return err
@@ -308,12 +308,14 @@ func (srv *EmployeeService) HandleAddCustomer(context *gin.Context, event contra
 	}
 
 	// --------------------------------------------------
-	// load contact way
+	// 加载客户联系
 	serviceContactWay := NewContactWayService(nil)
 	contactWay, err := serviceContactWay.GetContactWayByState(global.G_DBConnection, msg.State)
 	if err != nil {
 		return err
 	}
+
+	// 获取客户联系配置的微信标签
 	tagIDs := []string{}
 	if contactWay != nil {
 		contactWay.WXTags, err = contactWay.LoadWXTags(global.G_DBConnection, nil)
@@ -321,21 +323,20 @@ func (srv *EmployeeService) HandleAddCustomer(context *gin.Context, event contra
 			return err
 		}
 		tagIDs = serviceWXTag.WXTag.GetTagIDsFromTags(contactWay.WXTags)
-
 	}
 
-	// bind customer to employee
 	for _, followInfo := range rs.FollowUsers {
+		// 绑定客户与员工关系
 		pivot, err := srv.BindCustomerToEmployee(msg.ExternalUserID, followInfo)
 		if err != nil {
 			return err
 		}
-		// save operation log
+		// 保存操作日志
 		_ = (&databasePowerLib.PowerOperationLog{}).SaveOps(global.G_DBConnection, customer.Name, customer,
 			MODULE_CUSTOMER, "外部联系人绑定员工", databasePowerLib.OPERATION_EVENT_CREATE,
 			pivot.EmployeeReferID.String, pivot, databasePowerLib.OPERATION_RESULT_SUCCESS)
 
-		// upload sync wechat platform tags
+		// 上传同步微信平台的微信标签
 		req := &request.RequestTagMarkTag{
 			UserID:         pivot.EmployeeReferID.String,
 			ExternalUserID: pivot.CustomerReferID.String,
@@ -351,6 +352,7 @@ func (srv *EmployeeService) HandleAddCustomer(context *gin.Context, event contra
 	}
 
 	// --------------------------------------------------
+	// 发送在联系客户中配置的欢迎语
 	err = wecom.G_WeComApp.SendAddCustomerWelcomeMsg(context, contactWay, msg)
 	if err != nil {
 		return err
@@ -362,7 +364,7 @@ func (srv *EmployeeService) HandleAddCustomer(context *gin.Context, event contra
 // -------------------------------------------------------------------------------
 
 func (srv *EmployeeService) HandleEditCustomer(context *gin.Context, event contract.EventInterface) (err error) {
-	msg := &modelPowerWechat.EventExternalUserEdit{}
+	msg := &modelWecomEvent.EventExternalUserEdit{}
 	err = event.ReadMessage(msg)
 	if err != nil {
 		return err
@@ -371,11 +373,13 @@ func (srv *EmployeeService) HandleEditCustomer(context *gin.Context, event contr
 	logger.Logger.Info("Handle Edit External Contact", zap.Any("msg", msg))
 
 	// --------------------------------------------------
-	// sync customer from wechat
+	// 从微信平台上获取客户信息
 	rs, err := wecom.G_WeComApp.App.ExternalContact.Get(msg.ExternalUserID, "")
 	if err != nil {
 		return err
 	}
+
+	// 修改客户信息
 	serviceCustomer := NewCustomerService(context)
 	customer := serviceCustomer.NewCustomerFromWXContact(rs.ExternalContact)
 	err = serviceCustomer.UpsertCustomerByWXCustomer(global.G_DBConnection, customer.WXCustomer)
@@ -383,29 +387,30 @@ func (srv *EmployeeService) HandleEditCustomer(context *gin.Context, event contr
 		return err
 	}
 
-	// get employee from event
+	// 从Event中的UserID获取员工
 	employee, err := srv.GetEmployeeByUserID(global.G_DBConnection, msg.UserID)
 	if err != nil {
 		return err
 	}
 
-	// save operation log
+	// 保存操作日志
 	_ = (&databasePowerLib.PowerOperationLog{}).SaveOps(global.G_DBConnection, employee.Name, employee,
 		MODULE_CUSTOMER, "员工修改外部联系人", databasePowerLib.OPERATION_EVENT_UPDATE,
 		customer.Name, customer, databasePowerLib.OPERATION_RESULT_SUCCESS)
 
-	// sync wechat tags to customer
 	if len(rs.FollowUsers) > 0 {
 		for _, followInfo := range rs.FollowUsers {
+			// 修正客户与员工之间的关系
 			pivot, err := (&models.RCustomerToEmployee{}).UpsertPivotByFollowUser(global.G_DBConnection, customer, followInfo)
 			if err != nil {
 				fmt.Dump(err.Error())
 				continue
 			}
+
+			// 同步微信标签给客户
 			if len(followInfo.Tags) > 0 {
 				serviceWXTag := wecom.NewWXTagService(nil)
 				err = serviceWXTag.SyncWXTagsByFollowInfos(global.G_DBConnection, pivot, followInfo)
-
 			}
 		}
 	}
@@ -414,7 +419,7 @@ func (srv *EmployeeService) HandleEditCustomer(context *gin.Context, event contr
 }
 func (srv *EmployeeService) HandleAddHalfCustomer(context *gin.Context, event contract.EventInterface) (err error) {
 
-	msg := &modelPowerWechat.EventExternalUserAddHalf{}
+	msg := &modelWecomEvent.EventExternalUserAddHalf{}
 	err = event.ReadMessage(&msg)
 	if err != nil {
 		return err
@@ -422,11 +427,21 @@ func (srv *EmployeeService) HandleAddHalfCustomer(context *gin.Context, event co
 
 	logger.Logger.Info("Handle Add Half External Contact", zap.Any("msg", msg))
 
+	// 加载客户联系
+	serviceContactWay := NewContactWayService(nil)
+	contactWay, err := serviceContactWay.GetContactWayByState(global.G_DBConnection, msg.State)
+	if err != nil {
+		return err
+	}
+	if *contactWay.WXContactWay.SkipVerify {
+		err = srv.HandleAddCustomer(context, event)
+	}
+
 	return err
 }
 func (srv *EmployeeService) HandleDelCustomer(context *gin.Context, event contract.EventInterface) (err error) {
 
-	msg := &modelPowerWechat.EventExternalUserDel{}
+	msg := &modelWecomEvent.EventExternalUserDel{}
 	err = event.ReadMessage(&msg)
 	if err != nil {
 		return err
@@ -434,13 +449,13 @@ func (srv *EmployeeService) HandleDelCustomer(context *gin.Context, event contra
 
 	logger.Logger.Info("Handle Del External Contact", zap.Any("msg", msg))
 
-	// unbind customer from employee
+	// 解绑客户与员工关系
 	customer, employee, err := srv.UnbindCustomerToEmployee(msg.ExternalUserID, msg.UserID)
 	if err != nil {
 		wecom.G_WeComApp.App.Logger.Error(err.Error())
 		return err
 	}
-	// save operation log
+	// 保存操作日志
 	_ = (&databasePowerLib.PowerOperationLog{}).SaveOps(global.G_DBConnection, employee.Name, employee,
 		MODULE_CUSTOMER, "员工删除外部联系人", databasePowerLib.OPERATION_EVENT_DELETE,
 		customer.Name, customer, databasePowerLib.OPERATION_RESULT_SUCCESS)
@@ -450,21 +465,21 @@ func (srv *EmployeeService) HandleDelCustomer(context *gin.Context, event contra
 	return err
 
 }
-func (srv *EmployeeService) HandleDelFollowEmployee(context *gin.Context, event contract.EventInterface) (msg *modelPowerWechat.EventExternalUserDelFollowUser, err error) {
-	msg = &modelPowerWechat.EventExternalUserDelFollowUser{}
+func (srv *EmployeeService) HandleDelFollowEmployee(context *gin.Context, event contract.EventInterface) (msg *modelWecomEvent.EventExternalUserDelFollowUser, err error) {
+	msg = &modelWecomEvent.EventExternalUserDelFollowUser{}
 	err = event.ReadMessage(&msg)
 	if err != nil {
 		return msg, err
 	}
 	logger.Logger.Info("Handle Del Follow User", zap.Any("msg", msg))
 
-	// unbind customer from employee
+	// 解绑客户与员工关系
 	customer, employee, err := srv.UnbindCustomerToEmployee(msg.ExternalUserID, msg.UserID)
 	if err != nil {
 		wecom.G_WeComApp.App.Logger.Error(err.Error())
 		return msg, err
 	}
-	// save operation log
+	// 保存操作日志
 	_ = (&databasePowerLib.PowerOperationLog{}).SaveOps(global.G_DBConnection, customer.Name, customer,
 		MODULE_CUSTOMER, "外部联系人删除员工", databasePowerLib.OPERATION_EVENT_DELETE,
 		employee.Name, employee, databasePowerLib.OPERATION_RESULT_SUCCESS)
@@ -474,7 +489,30 @@ func (srv *EmployeeService) HandleDelFollowEmployee(context *gin.Context, event 
 
 }
 func (srv *EmployeeService) HandleTransferFail(context *gin.Context, event contract.EventInterface) (err error) {
-	fmt.Dump("Handle Transfer Fail")
+	msg := &modelWecomEvent.EventExternalTransferFail{}
+	err = event.ReadMessage(&msg)
+	if err != nil {
+		return err
+	}
+	logger.Logger.Info("Handle Transfer Fail", zap.Any("msg", msg))
+
+	// 获取重分配的客户
+	serviceCustomer := NewCustomerService(context)
+	customer, err := serviceCustomer.GetCustomerByExternalUserID(global.G_DBConnection, msg.ExternalUserID)
+	if err != nil {
+		return err
+	}
+	// 获取重分配的员工
+	employee, err := srv.GetEmployeeByUserID(global.G_DBConnection, msg.UserID)
+	if err != nil {
+		return err
+	}
+
+	// 保存操作记录
+	_ = (&databasePowerLib.PowerOperationLog{}).SaveOps(global.G_DBConnection, customer.Name, customer,
+		MODULE_CUSTOMER, "客户重新绑定员工失败", databasePowerLib.OPERATION_EVENT_UPDATE,
+		employee.WXName, employee, databasePowerLib.OPERATION_RESULT_FAILED)
+
 	return err
 }
 
@@ -484,39 +522,51 @@ func (srv *EmployeeService) HandleTransferFail(context *gin.Context, event contr
 
 func (srv *EmployeeService) HandleEmployeeCreate(context *gin.Context, event contract.EventInterface) (err error) {
 
-	msg := &modelPowerWechat.EventExternalUserAdd{}
+	msg := &modelWecomEvent.EventUserCreate{}
 	err = event.ReadMessage(msg)
 	if err != nil {
 		return err
 	}
 
-	logger.Logger.Info("Handle Create Contact", zap.Any("msg", msg))
+	serviceWeComEmployee := wecom.NewWeComEmployeeService(nil)
+	newEmployee := models.NewEmployee(object.NewCollection(&object.HashMap{
+		"userID": msg.UserID,
+	}))
+	newEmployee.WXEmployee.WXDepartments = msg.Department
+
+	err = serviceWeComEmployee.UpsertEmployees(global.G_DBConnection, []*models.Employee{
+		newEmployee,
+	},
+		[]string{"wx_user_id", "wx_department"},
+	)
+
+	logger.Logger.Info("Handle Create Employee", zap.Any("msg", msg))
 
 	return err
 }
 
 func (srv *EmployeeService) HandleEmployeeUpdate(context *gin.Context, event contract.EventInterface) (err error) {
 
-	msg := &modelPowerWechat.EventExternalUserAdd{}
+	msg := &modelWecomEvent.EventUserUpdate{}
 	err = event.ReadMessage(msg)
 	if err != nil {
 		return err
 	}
 
-	logger.Logger.Info("Handle Update Contact", zap.Any("msg", msg))
+	logger.Logger.Info("Handle Update Employee", zap.Any("msg", msg))
 
 	return err
 }
 
 func (srv *EmployeeService) HandleEmployeeDelete(context *gin.Context, event contract.EventInterface) (err error) {
 
-	msg := &modelPowerWechat.EventExternalUserAdd{}
+	msg := &modelWecomEvent.EventUserDelete{}
 	err = event.ReadMessage(msg)
 	if err != nil {
 		return err
 	}
 
-	logger.Logger.Info("Handle Delete Contact", zap.Any("msg", msg))
+	logger.Logger.Info("Handle Delete Employee", zap.Any("msg", msg))
 
 	return err
 }
@@ -527,7 +577,7 @@ func (srv *EmployeeService) HandleEmployeeDelete(context *gin.Context, event con
 
 func (srv *EmployeeService) HandleContactTagUpdate(context *gin.Context, event contract.EventInterface) (err error) {
 
-	msg := &modelPowerWechat.EventExternalUserAdd{}
+	msg := &modelWecomEvent.EventExternalUserAdd{}
 	err = event.ReadMessage(msg)
 	if err != nil {
 		return err
