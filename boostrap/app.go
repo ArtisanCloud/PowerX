@@ -14,17 +14,20 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func InitProject() (err error) {
+func InitConfig() (err error) {
+
 	// Initialize the global config
 	envConfigPath := "config.yml"
 
 	err = config.LoadEnvConfig(&envConfigPath)
-	if err != nil {
-		return err
-	}
 
-	if config.G_AppConfigure.SystemConfig.installed {
+	return err
+}
 
+func InitProject() (err error) {
+
+	if config.G_AppConfigure.SystemConfig.Installed {
+		return nil
 	}
 
 	// Initialize the logger

@@ -11,12 +11,22 @@ import (
 func main() {
 
 	var err error
-	// init project
-	err = boostrap.InitProject()
+
+	err = boostrap.InitConfig()
 	if err != nil {
-		logger.Logger.Error("InitProject error:", err)
 		panic(err)
 		return
+	}
+
+	// 模拟系统已经安装成功
+	if config.G_AppConfigure.SystemConfig.Installed {
+		// init project
+		err = boostrap.InitProject()
+		if err != nil {
+			logger.Logger.Error("InitProject error:", err)
+			panic(err)
+			return
+		}
 	}
 
 	// Initialize the routes

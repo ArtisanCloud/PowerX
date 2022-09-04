@@ -36,6 +36,7 @@ type JWTConfig struct {
 
 type SystemConfig struct {
 	Maintenance bool
+	Installed   bool
 }
 
 type LogConfig struct {

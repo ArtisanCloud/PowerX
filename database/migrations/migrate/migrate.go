@@ -2,6 +2,7 @@ package migrate
 
 import (
 	"github.com/ArtisanCloud/PowerX/boostrap"
+	"github.com/ArtisanCloud/PowerX/config"
 	"github.com/ArtisanCloud/PowerX/database/migrations/migrate/foundation"
 	"github.com/ArtisanCloud/PowerX/database/migrations/migrate/wx"
 	"gorm.io/gorm"
@@ -13,7 +14,15 @@ var (
 )
 
 func init() {
-	err := boostrap.InitProject()
+	err := boostrap.InitConfig()
+	if err != nil {
+		panic(err)
+	}
+
+	// 模拟系统已经安装成功
+	config.G_AppConfigure.SystemConfig.Installed = true
+
+	err = boostrap.InitProject()
 	if err != nil {
 		panic(err)
 	}

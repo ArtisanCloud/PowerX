@@ -3,6 +3,7 @@ package foundation
 import (
 	"fmt"
 	"github.com/ArtisanCloud/PowerX/boostrap"
+	"github.com/ArtisanCloud/PowerX/config"
 	"github.com/ArtisanCloud/PowerX/database/global"
 	"gorm.io/gorm"
 	"reflect"
@@ -15,6 +16,15 @@ var (
 
 func init() {
 	var err error
+
+	err = boostrap.InitConfig()
+	if err != nil {
+		panic(err)
+	}
+
+	// 模拟系统已经安装成功
+	config.G_AppConfigure.SystemConfig.Installed = true
+
 	err = boostrap.InitProject()
 	if err != nil {
 		panic(err)

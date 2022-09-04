@@ -12,7 +12,7 @@ func InitializeWebRoutes() {
 
 	apiRouter := global.Router.Group("/")
 	{
-		apiRouter.Use(middleware.Maintenance)
+		apiRouter.Use(middleware.Installed, middleware.Maintenance)
 		{
 			// wechat
 			apiRouter.GET("/", web.WebGetHome)

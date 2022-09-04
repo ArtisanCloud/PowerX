@@ -18,6 +18,7 @@ func LoadLang() {
 
 	message.SetString(lang, fmt2.Sprintf("%d", config.API_RESULT_CODE_SUCCESS_RESET_PASSWORD), "密码修改成功")
 
+	message.SetString(lang, fmt2.Sprintf("%d", config.API_WARNING_CODE_SYSTEM_NOT_INSTALLED), "请先安装本系统")
 	message.SetString(lang, fmt2.Sprintf("%d", config.API_WARNING_CODE_IN_MAINTENANCE), "系统维护中")
 	message.SetString(lang, fmt2.Sprintf("%d", config.API_WARNING_CODE_NEED_UPDATE), "推出新版本，请更新最新的版本")
 
