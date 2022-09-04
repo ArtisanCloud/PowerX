@@ -4,7 +4,7 @@ import (
 	"errors"
 	database2 "github.com/ArtisanCloud/PowerLibs/v2/database"
 	"github.com/ArtisanCloud/PowerWeChat/v2/src/kernel/contract"
-	models2 "github.com/ArtisanCloud/PowerWeChat/v2/src/work/server/handlers/models"
+	modelWecom "github.com/ArtisanCloud/PowerWeChat/v2/src/work/server/handlers/models"
 	"github.com/ArtisanCloud/PowerX/app/models/wx"
 	"github.com/ArtisanCloud/PowerX/app/service/wx/wecom"
 	global2 "github.com/ArtisanCloud/PowerX/config"
@@ -14,6 +14,7 @@ import (
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
+	"strconv"
 )
 
 type DepartmentService struct {
@@ -29,9 +30,9 @@ func NewDepartmentService(ctx *gin.Context) (r *DepartmentService) {
 	return r
 }
 
-func (srv *DepartmentService) SyncDepartments() (err error) {
+func (srv *DepartmentService) SyncDepartments(departmentID int) (err error) {
 
-	response, err := wecom.G_WeComEmployee.App.Department.List(0)
+	response, err := wecom.G_WeComEmployee.App.Department.List(departmentID)
 	if err != nil {
 		return err
 	}
@@ -118,7 +119,7 @@ func (srv *DepartmentService) UpsertDepartments(db *gorm.DB, uniqueName string, 
 
 func (srv *DepartmentService) HandleDepartmentCreate(context *gin.Context, event contract.EventInterface) (err error) {
 
-	msg := &models2.EventExternalUserAdd{}
+	msg := &modelWecom.EventPartyCreate{}
 	err = event.ReadMessage(msg)
 	if err != nil {
 		return err
@@ -126,12 +127,27 @@ func (srv *DepartmentService) HandleDepartmentCreate(context *gin.Context, event
 
 	logger.Logger.Info("Handle Create Party", zap.Any("msg", msg))
 
+	serviceDepartment := NewDepartmentService(context)
+	departmentID, err := strconv.Atoi(msg.ID)
+	if err != nil {
+		return err
+	}
+	// 同步该新部门及自部门
+	err = serviceDepartment.SyncDepartments(departmentID)
+	if err != nil {
+		return err
+	}
+
+	serviceEmployee := NewEmployeeService(context)
+	// 同步该部门下的员工
+	err = serviceEmployee.SyncEmployees(departmentID, 1)
+
 	return err
 }
 
 func (srv *DepartmentService) HandleDepartmentUpdate(context *gin.Context, event contract.EventInterface) (err error) {
 
-	msg := &models2.EventExternalUserAdd{}
+	msg := &modelWecom.EventExternalUserAdd{}
 	err = event.ReadMessage(msg)
 	if err != nil {
 		return err
@@ -139,18 +155,26 @@ func (srv *DepartmentService) HandleDepartmentUpdate(context *gin.Context, event
 
 	logger.Logger.Info("Handle Update Party", zap.Any("msg", msg))
 
+	// 同步该部门下的员工
+
+	// 同步该部门及自部门的信息
+
 	return err
 }
 
 func (srv *DepartmentService) HandleDepartmentDelete(context *gin.Context, event contract.EventInterface) (err error) {
 
-	msg := &models2.EventExternalUserAdd{}
+	msg := &modelWecom.EventExternalUserAdd{}
 	err = event.ReadMessage(msg)
 	if err != nil {
 		return err
 	}
 
 	logger.Logger.Info("Handle Delete Party", zap.Any("msg", msg))
+
+	// 同步该部门下的员工
+
+	// 删除该部门
 
 	return err
 }

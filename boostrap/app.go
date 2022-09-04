@@ -16,11 +16,15 @@ import (
 
 func InitProject() (err error) {
 	// Initialize the global config
-	envConfigPath := "environment.yml"
+	envConfigPath := "config.yml"
 
 	err = config.LoadEnvConfig(&envConfigPath)
 	if err != nil {
 		return err
+	}
+
+	if config.G_AppConfigure.SystemConfig.installed {
+
 	}
 
 	// Initialize the logger
@@ -45,7 +49,7 @@ func InitProject() (err error) {
 	lang.LoadLanguages()
 
 	// setup ssh key path
-	service.SetupSSHKeyPath(&config.G_AppConfigure.SSHConfig)
+	service.SetupSSHKeyPath(&config.G_AppConfigure.JWTConfig)
 
 	// Initialize the cache
 	err = cache2.SetupCache()

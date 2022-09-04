@@ -123,11 +123,25 @@ func (mdl *RCustomerToEmployee) UpsertPivots(db *gorm.DB, pivots []*RCustomerToE
 	return databasePowerLib.UpsertModelsOnUniqueID(db, mdl, R_CUSTOMER_TO_EMPLOYEE_UNIQUE_ID, pivots, fieldsToUpdate)
 }
 
+func (mdl *RCustomerToEmployee) ClearPivotsByCustomerExternalUserID(db *gorm.DB, customerExternalUserID string) (err error) {
+	mdl.CustomerReferID = object.NewNullString(customerExternalUserID, true)
+
+	err = databasePowerLib.ClearPivots(db, mdl, true, false)
+
+	return err
+}
+func (mdl *RCustomerToEmployee) ClearPivotsByEmployeeID(db *gorm.DB, employeeUserID string) (err error) {
+	mdl.EmployeeReferID = object.NewNullString(employeeUserID, true)
+	err = databasePowerLib.ClearPivots(db, mdl, false, true)
+
+	return err
+}
+
 func (mdl *RCustomerToEmployee) ClearPivot(db *gorm.DB, customerExternalUserID string, employeeUserID string) (*RCustomerToEmployee, error) {
 	mdl.CustomerReferID = object.NewNullString(customerExternalUserID, true)
 	mdl.EmployeeReferID = object.NewNullString(employeeUserID, true)
 
-	err := databasePowerLib.ClearPivots(db, mdl, true, false)
+	err := databasePowerLib.ClearPivots(db, mdl, true, true)
 
 	return mdl, err
 }

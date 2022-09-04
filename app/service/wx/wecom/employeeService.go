@@ -4,6 +4,7 @@ import (
 	"errors"
 	databasePowerLib "github.com/ArtisanCloud/PowerLibs/v2/database"
 	"github.com/ArtisanCloud/PowerLibs/v2/object"
+	models2 "github.com/ArtisanCloud/PowerSocialite/v2/src/models"
 	"github.com/ArtisanCloud/PowerSocialite/v2/src/providers"
 	"github.com/ArtisanCloud/PowerX/app/models"
 	"github.com/ArtisanCloud/PowerX/app/models/wx"
@@ -117,6 +118,22 @@ func (srv *WeComEmployeeService) GetEmployeeByUserID(db *gorm.DB, userID string)
 	}
 
 	return employee, err
+}
+
+func (srv *WeComEmployeeService) IsActive(employee *models.Employee) bool {
+	return employee.WXEmployee.WXStatus == models2.EMPLOYEE_STATUS_ACTIVE
+}
+
+func (srv *WeComEmployeeService) IsProhibited(employee *models.Employee) bool {
+	return employee.WXEmployee.WXStatus == models2.EMPLOYEE_STATUS_PROHIBITED
+}
+
+func (srv *WeComEmployeeService) IsInActive(employee *models.Employee) bool {
+	return employee.WXEmployee.WXStatus == models2.EMPLOYEE_STATUS_INACTIVE
+}
+
+func (srv *WeComEmployeeService) IsQuit(employee *models.Employee) bool {
+	return employee.WXEmployee.WXStatus == models2.EMPLOYEE_STATUS_QUIT
 }
 
 func GetMockWXUser() (user *providers.User) {

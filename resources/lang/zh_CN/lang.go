@@ -31,13 +31,14 @@ func LoadLang() {
 	message.SetString(lang, fmt2.Sprintf("%d", config.API_ERR_CODE_FAIL_TO_UPSERT_REPORT), "新增或更新客户列表失败")
 	message.SetString(lang, fmt2.Sprintf("%d", config.API_ERR_CODE_FAIL_TO_DELETE_REPORT), "删除客户列表失败")
 
-	message.SetString(lang, fmt2.Sprintf("%d", config.API_ERR_CODE_EMPLOYEE_UNREGISTER), "员工未注册")
 	message.SetString(lang, fmt2.Sprintf("%d", config.API_ERR_CODE_FAIL_TO_GET_EMPLOYEE_LIST), "获取员工列表失败")
 	message.SetString(lang, fmt2.Sprintf("%d", config.API_ERR_CODE_FAIL_TO_UPSERT_EMPLOYEE), "新增或更新员工列表失败")
 	message.SetString(lang, fmt2.Sprintf("%d", config.API_ERR_CODE_FAIL_TO_GET_EMPLOYEE_DETAIL), "获取员工失败")
 	message.SetString(lang, fmt2.Sprintf("%d", config.API_ERR_CODE_FAIL_TO_DELETE_EMPLOYEE), "删除员工列表失败")
 	message.SetString(lang, fmt2.Sprintf("%d", config.API_ERR_CODE_FAIL_TO_GET_CORD_ID), "获取CordID失败")
 	message.SetString(lang, fmt2.Sprintf("%d", config.API_ERR_CODE_FAIL_TO_BIND_CUSOTMER_TO_EMPLOYEE), "绑定客户到员工失败")
+	message.SetString(lang, fmt2.Sprintf("%d", config.API_ERR_CODE_EMPLOYEE_UNREGISTER), "员工未注册")
+	message.SetString(lang, fmt2.Sprintf("%d", config.API_ERR_CODE_EMPLOYEE_STATUS_NOT_ACTIVE), "员工在微信状态未激活")
 
 	message.SetString(lang, fmt2.Sprintf("%d", config.API_ERR_CODE_FAIL_TO_GET_DEPARTMENT_LIST), "获取部门列表失败")
 	message.SetString(lang, fmt2.Sprintf("%d", config.API_ERR_CODE_FAIL_TO_GET_DEPARTMENT_DETAIL), "获取部门失败")

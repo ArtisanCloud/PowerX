@@ -36,7 +36,7 @@ func APISyncWXEmployees(context *gin.Context) {
 	var err error
 	// sync departments
 	serviceDepartment := service.NewDepartmentService(context)
-	err = serviceDepartment.SyncDepartments()
+	err = serviceDepartment.SyncDepartments(0)
 	if err != nil {
 		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_UPSERT_DEPARTMENT, config.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
@@ -44,7 +44,7 @@ func APISyncWXEmployees(context *gin.Context) {
 	}
 
 	// sync employees
-	err = ctl.ServiceEmployee.SyncEmployees()
+	err = ctl.ServiceEmployee.SyncEmployees(1, 1)
 	if err != nil {
 		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_UPSERT_EMPLOYEE, config.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
@@ -62,7 +62,7 @@ func APISyncEmployeeAndWXAccount(context *gin.Context) {
 
 	var err error
 	// sync employees
-	err = ctl.ServiceEmployee.SyncEmployees()
+	err = ctl.ServiceEmployee.SyncEmployees(1, 1)
 	if err != nil {
 		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_UPSERT_EMPLOYEE, config.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)

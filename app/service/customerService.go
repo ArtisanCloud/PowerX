@@ -314,17 +314,7 @@ func (srv *CustomerService) FollowEmployee(db *gorm.DB, customer *models.Custome
 	return pivot, err
 }
 
-func (srv *CustomerService) SyncFollowEmployee(db *gorm.DB, customer *models.Customer, followInfo *modelSocialite.FollowUser) (pivots *models.RCustomerToEmployee, err error) {
-
-	err = srv.ClearEmployees(db, customer)
-	if err != nil {
-		return nil, err
-	}
-	return srv.FollowEmployee(db, customer, followInfo)
-
-}
-
-func (srv *CustomerService) UnfollowEmployee(db *gorm.DB, customer *models.Customer, employees []*models.Employee) (err error) {
+func (srv *CustomerService) UnfollowEmployees(db *gorm.DB, customer *models.Customer, employees []*models.Employee) (err error) {
 	err = db.Model(customer).
 		//Debug().
 		Association("FollowUsers").
@@ -361,11 +351,11 @@ func (srv *CustomerService) SyncCustomers(employeeUserIDs []string, cursor strin
 
 	// parse the result of employees from wechat
 	for _, contact := range response.ExternalContactList {
-		// parse contacts from wechat
+		// 从客户的信息中获取客户对象
 		customer := srv.NewCustomerFromWXContact(contact.ExternalContact)
 		err = srv.UpsertCustomerByWXCustomer(global.G_DBConnection, customer.WXCustomer)
 
-		// sync follow user info
+		// 同步客户和员工之间的关系
 		employee, err := serviceEmployee.GetEmployeeByUserID(global.G_DBConnection, contact.FollowInfo.UserID)
 		if err != nil || employee == nil {
 			fmt.Dump(err.Error())
@@ -377,7 +367,7 @@ func (srv *CustomerService) SyncCustomers(employeeUserIDs []string, cursor strin
 			fmt.Dump(err.Error())
 		}
 
-		// sync wechat tags to employee
+		// 同步微信的关系
 		if len(contact.FollowInfo.TagIDs) > 0 {
 			serviceWXTag := wecom.NewWXTagService(nil)
 			err = serviceWXTag.SyncWXTagsByFollowInfos(global.G_DBConnection, pivot, contact.FollowInfo)

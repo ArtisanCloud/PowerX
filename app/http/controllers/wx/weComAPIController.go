@@ -67,6 +67,7 @@ func APICallbackEmployee(context *gin.Context) {
 		result = kernel.SUCCESS_EMPTY_RESPONSE
 
 		switch event.GetMsgType() {
+		// 事件通知
 		case modelPowerWechat.CALLBACK_MSG_TYPE_EVENT:
 			{
 				ctl.HandleEmployeeEvent(context, event)
@@ -102,6 +103,8 @@ func (ctl *WeComAPIController) HandleEmployeeEvent(context *gin.Context, event c
 
 	var err error
 	switch event.GetEvent() {
+
+	// 员工变更事件
 	case modelWecomEvent.CALLBACK_EVENT_CHANGE_CONTACT:
 		{
 			err = ctl.HandleEventChangeContact(context, event)
@@ -161,6 +164,7 @@ func APICallbackCustomer(context *gin.Context) {
 		result = kernel.SUCCESS_EMPTY_RESPONSE
 
 		switch event.GetMsgType() {
+		// 事件通知
 		case modelPowerWechat.CALLBACK_MSG_TYPE_EVENT:
 			{
 				ctl.HandleCustomerEvent(context, event)
@@ -197,16 +201,25 @@ func (ctl *WeComAPIController) HandleCustomerEvent(context *gin.Context, event c
 
 	var err error
 	switch event.GetEvent() {
+	// 企业客户变更
+	// https://developer.work.weixin.qq.com/document/path/92130
+	//
 	case modelWecomEvent.CALLBACK_EVENT_CHANGE_EXTERNAL_CONTACT:
 		{
 			err = ctl.HandleEventChangeCustomer(context, event)
 			break
 		}
+	// 客户群变更
+	// https://developer.work.weixin.qq.com/document/path/92130
+	//
 	case modelWecomEvent.CALLBACK_EVENT_CHANGE_EXTERNAL_CHAT:
 		{
 			err = ctl.HandleEventChangeExternalChat(context, event)
 			break
 		}
+	// 客户标签变更
+	// https://developer.work.weixin.qq.com/document/path/92130
+	//
 	case modelWecomEvent.CALLBACK_EVENT_CHANGE_EXTERNAL_TAG:
 		{
 			err = ctl.HandleEventChangeExternalTag(context, event)
@@ -226,10 +239,13 @@ func (ctl *WeComAPIController) HandleEventChangeCustomer(context *gin.Context, e
 
 	serviceEmployee := service.NewEmployeeService(context)
 	switch event.GetChangeType() {
+
+	// 客户新增
 	case modelWecomEvent.CALLBACK_EVENT_CHANGE_TYPE_ADD_EXTERNAL_CONTACT:
 		err = serviceEmployee.HandleAddCustomer(context, event)
 		break
 
+	// 客户更新
 	case modelWecomEvent.CALLBACK_EVENT_CHANGE_TYPE_EDIT_EXTERNAL_CONTACT:
 		err = serviceEmployee.HandleEditCustomer(context, event)
 		if err != nil {
@@ -237,6 +253,7 @@ func (ctl *WeComAPIController) HandleEventChangeCustomer(context *gin.Context, e
 		}
 		break
 
+	// 客户无验证新增
 	case modelWecomEvent.CALLBACK_EVENT_CHANGE_TYPE_ADD_HALF_EXTERNAL_CONTACT:
 		err = serviceEmployee.HandleAddHalfCustomer(context, event)
 		if err != nil {
@@ -244,13 +261,16 @@ func (ctl *WeComAPIController) HandleEventChangeCustomer(context *gin.Context, e
 		}
 		break
 
+	// 客户删除
 	case modelWecomEvent.CALLBACK_EVENT_CHANGE_TYPE_DEL_EXTERNAL_CONTACT:
 		err = serviceEmployee.HandleDelCustomer(context, event)
 		if err != nil {
 			return err
 		}
+
 		break
 
+	// 客户去关联员工
 	case modelWecomEvent.CALLBACK_EVENT_CHANGE_TYPE_DEL_FOLLOW_USER:
 		msg, err := serviceEmployee.HandleDelFollowEmployee(context, event)
 		if err != nil {
@@ -264,11 +284,13 @@ func (ctl *WeComAPIController) HandleEventChangeCustomer(context *gin.Context, e
 
 		break
 
+	// 客户转交员工失败
 	case modelWecomEvent.CALLBACK_EVENT_CHANGE_TYPE_TRANSFER_FAIL:
 		err = serviceEmployee.HandleTransferFail(context, event)
 		if err != nil {
 			return err
 		}
+
 		break
 
 	}
@@ -282,6 +304,7 @@ func (ctl *WeComAPIController) HandleEventChangeExternalChat(context *gin.Contex
 	serviceGroupChat := service.NewGroupChatService(context)
 	switch event.GetChangeType() {
 
+	// 客户群新建
 	case modelWecomEvent.CALLBACK_EVENT_CHANGE_TYPE_CREATE:
 		err = serviceGroupChat.HandleChatCreate(context, event)
 		if err != nil {
@@ -289,6 +312,7 @@ func (ctl *WeComAPIController) HandleEventChangeExternalChat(context *gin.Contex
 		}
 		break
 
+	// 客户群更新
 	case modelWecomEvent.CALLBACK_EVENT_CHANGE_TYPE_UPDATE:
 		err = serviceGroupChat.HandleChatUpdate(context, event)
 		if err != nil {
@@ -296,6 +320,7 @@ func (ctl *WeComAPIController) HandleEventChangeExternalChat(context *gin.Contex
 		}
 		break
 
+	// 客户群解散
 	case modelWecomEvent.CALLBACK_EVENT_CHANGE_TYPE_DISMISS:
 		err = serviceGroupChat.HandleChatDismiss(context, event)
 		if err != nil {
@@ -313,6 +338,7 @@ func (ctl *WeComAPIController) HandleEventChangeExternalTag(context *gin.Context
 
 	switch event.GetChangeType() {
 
+	// 客户标签创建
 	case modelWecomEvent.CALLBACK_EVENT_CHANGE_TYPE_CREATE:
 		err = serviceTag.HandleTagCreate(context, event)
 		if err != nil {
@@ -320,6 +346,7 @@ func (ctl *WeComAPIController) HandleEventChangeExternalTag(context *gin.Context
 		}
 		break
 
+	// 客户标签修改
 	case modelWecomEvent.CALLBACK_EVENT_CHANGE_TYPE_UPDATE:
 		err = serviceTag.HandleTagUpdate(context, event)
 		if err != nil {
@@ -327,6 +354,7 @@ func (ctl *WeComAPIController) HandleEventChangeExternalTag(context *gin.Context
 		}
 		break
 
+	// 客户标签删除
 	case modelWecomEvent.CALLBACK_EVENT_CHANGE_TYPE_DELETE:
 		err = serviceTag.HandleTagDelete(context, event)
 		if err != nil {
@@ -334,6 +362,7 @@ func (ctl *WeComAPIController) HandleEventChangeExternalTag(context *gin.Context
 		}
 		break
 
+	// 客户标签重排
 	case modelWecomEvent.CALLBACK_EVENT_CHANGE_TYPE_SHUFFLE:
 		err = serviceTag.HandleTagShuffle(context, event)
 		if err != nil {
@@ -351,20 +380,25 @@ func (ctl *WeComAPIController) HandleEventChangeContact(context *gin.Context, ev
 	serviceDepartment := service.NewDepartmentService(context)
 	switch event.GetChangeType() {
 
+	// 成员变更
+	// https://developer.work.weixin.qq.com/document/path/90970
+	// -----------------------------------------------------------------------------
+
+	// 员工新建
 	case modelWecomEvent.CALLBACK_EVENT_CHANGE_TYPE_CREATE_USER:
 		err = serviceEmployee.HandleEmployeeCreate(context, event)
 		if err != nil {
 			return err
 		}
 		break
-
+	// 员工更新
 	case modelWecomEvent.CALLBACK_EVENT_CHANGE_TYPE_UPDATE_USER:
 		err = serviceEmployee.HandleEmployeeUpdate(context, event)
 		if err != nil {
 			return err
 		}
 		break
-
+	// 员工删除
 	case modelWecomEvent.CALLBACK_EVENT_CHANGE_TYPE_DELETE_USER:
 		err = serviceEmployee.HandleEmployeeDelete(context, event)
 		if err != nil {
@@ -372,6 +406,11 @@ func (ctl *WeComAPIController) HandleEventChangeContact(context *gin.Context, ev
 		}
 		break
 
+	// 部门变更
+	// https://developer.work.weixin.qq.com/document/path/90971
+	// -----------------------------------------------------------------------------
+
+	// 部门新建
 	case modelWecomEvent.CALLBACK_EVENT_CHANGE_TYPE_CREATE_PARTY:
 		err = serviceDepartment.HandleDepartmentCreate(context, event)
 		if err != nil {
@@ -379,6 +418,7 @@ func (ctl *WeComAPIController) HandleEventChangeContact(context *gin.Context, ev
 		}
 		break
 
+	// 部门更新
 	case modelWecomEvent.CALLBACK_EVENT_CHANGE_TYPE_UPDATE_PARTY:
 		err = serviceDepartment.HandleDepartmentUpdate(context, event)
 		if err != nil {
@@ -386,6 +426,7 @@ func (ctl *WeComAPIController) HandleEventChangeContact(context *gin.Context, ev
 		}
 		break
 
+	// 部门删除
 	case modelWecomEvent.CALLBACK_EVENT_CHANGE_TYPE_DELETE_PARTY:
 		err = serviceDepartment.HandleDepartmentDelete(context, event)
 		if err != nil {
@@ -393,6 +434,11 @@ func (ctl *WeComAPIController) HandleEventChangeContact(context *gin.Context, ev
 		}
 		break
 
+	// 部门变更
+	// https://developer.work.weixin.qq.com/document/path/90972
+	// -----------------------------------------------------------------------------
+
+	// 员工标签更新
 	case modelWecomEvent.CALLBACK_EVENT_CHANGE_TYPE_UPDATE_TAG:
 		err = serviceEmployee.HandleContactTagUpdate(context, event)
 		if err != nil {

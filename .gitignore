@@ -14,15 +14,10 @@
 # Dependency directories (remove the comment below to include it)
 # vendor/
 
-
-.idea/
-
-
 .idea/
 .env
 
-environment.yml
-environment.yaml
+config.yml
 
 .DS_Store
 

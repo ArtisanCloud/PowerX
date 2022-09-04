@@ -29,7 +29,7 @@ func APISyncWXDepartments(context *gin.Context) {
 
 	var err error
 
-	err = ctl.ServiceDepartment.SyncDepartments()
+	err = ctl.ServiceDepartment.SyncDepartments(0)
 	if err != nil {
 		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_UPSERT_DEPARTMENT, config.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)

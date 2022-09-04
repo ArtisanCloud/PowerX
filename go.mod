@@ -5,14 +5,14 @@ go 1.17
 replace github.com/ArtisanCloud/PowerWeChat/v2 => ../PowerWeChat
 
 //
-//replace github.com/ArtisanCloud/PowerLibs/v2 => ../PowerLibs
+replace github.com/ArtisanCloud/PowerLibs/v2 => ../PowerLibs
 
 //
-//replace github.com/ArtisanCloud/PowerSocialite/v2 => ../PowerSocialite
+replace github.com/ArtisanCloud/PowerSocialite/v2 => ../PowerSocialite
 
 require (
-	github.com/ArtisanCloud/PowerLibs/v2 v2.0.38
-	github.com/ArtisanCloud/PowerSocialite/v2 v2.0.13
+	github.com/ArtisanCloud/PowerLibs/v2 v2.0.40
+	github.com/ArtisanCloud/PowerSocialite/v2 v2.0.14
 	github.com/ArtisanCloud/PowerWeChat/v2 v2.0.4
 	github.com/ArtisanCloud/ubt-go v1.0.6
 	github.com/casbin/casbin/v2 v2.52.2
@@ -25,6 +25,7 @@ require (
 	github.com/google/uuid v1.3.0
 	go.uber.org/zap v1.21.0
 	golang.org/x/text v0.3.7
+	gopkg.in/yaml.v3 v3.0.1
 	gorm.io/datatypes v1.0.7
 	gorm.io/driver/postgres v1.3.9
 	gorm.io/gorm v1.23.8
@@ -51,7 +52,7 @@ require (
 	github.com/goccy/go-json v0.9.7 // indirect
 	github.com/golang-sql/civil v0.0.0-20220223132316-b832511892a9 // indirect
 	github.com/golang-sql/sqlexp v0.1.0 // indirect
-	github.com/guonaihong/gout v0.2.12 // indirect
+	github.com/guonaihong/gout v0.3.1 // indirect
 	github.com/invopop/yaml v0.2.0 // indirect
 	github.com/jackc/chunkreader/v2 v2.0.1 // indirect
 	github.com/jackc/pgconn v1.13.0 // indirect
@@ -84,7 +85,6 @@ require (
 	golang.org/x/sys v0.0.0-20220823224334-20c2bfdbfe24 // indirect
 	google.golang.org/protobuf v1.28.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
-	gopkg.in/yaml.v3 v3.0.1 // indirect
 	gorm.io/driver/mysql v1.3.6 // indirect
 	gorm.io/driver/sqlserver v1.3.2 // indirect
 	gorm.io/plugin/dbresolver v1.2.3 // indirect

@@ -137,7 +137,17 @@ func AuthenticateEmployee(c *gin.Context, strToken string) (errCode int) {
 	if err != nil || employee == nil {
 		return globalConfig.API_ERR_CODE_EMPLOYEE_UNREGISTER
 	}
+	// 确认企业员工的微信状态是否被激活
+	if !serviceWeComEmployee.IsActive(employee) {
+		return globalConfig.API_ERR_CODE_EMPLOYEE_STATUS_NOT_ACTIVE
+	}
 
+	// 员工未分配角色
+	if employee.Role == nil && *employee.RoleID == "" {
+		return globalConfig.API_ERR_CODE_EMPLOYEE_HAS_NO_ROLE
+	}
+
+	// 确认员工是否有角色，否则视为未激活
 	service.SetAuthEmployee(c, employee)
 
 	return globalConfig.API_RESULT_CODE_INIT
@@ -157,15 +167,16 @@ func AuthorizeAPI(c *gin.Context) {
 	permission, err := serviceRBAC.GetCachedPermissionByResource(global.G_DBConnection, c.Request.URL.Path, c.Request.Method)
 
 	employee := service.GetAuthEmployee(c)
-	// 为登陆员工
+	// 员工未登陆
 	if employee == nil {
 		apiResponse.SetCode(globalConfig.API_ERR_CODE_FAIL_TO_GET_EMPLOYEE_DETAIL, globalConfig.API_RETURN_CODE_ERROR, "", err.Error())
 		apiResponse.ThrowJSONResponse(c)
 		return
 	}
+
 	// 员工未分配角色
-	if employee.RoleID == nil || employee.Role == nil {
-		apiResponse.SetCode(globalConfig.API_ERR_CODE_EMPLOYEE_HAS_NO_ROLE, globalConfig.API_RETURN_CODE_ERROR, "", "")
+	if employee.Role == nil && *employee.RoleID == "" {
+		apiResponse.SetCode(globalConfig.API_ERR_CODE_EMPLOYEE_HAS_NO_ROLE, globalConfig.API_RETURN_CODE_ERROR, "", err.Error())
 		apiResponse.ThrowJSONResponse(c)
 		return
 	}

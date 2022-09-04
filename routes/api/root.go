@@ -4,6 +4,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/app/http/controllers/admin"
 	"github.com/ArtisanCloud/PowerX/app/http/controllers/wx"
 	"github.com/ArtisanCloud/PowerX/app/http/middleware"
+	"github.com/ArtisanCloud/PowerX/app/http/request"
 	"github.com/ArtisanCloud/PowerX/app/http/request/admin/permission"
 	"github.com/ArtisanCloud/PowerX/app/http/request/admin/permission/permissionModule"
 	"github.com/ArtisanCloud/PowerX/routes/global"
@@ -17,6 +18,10 @@ func InitRootAPIRoutes() {
 	{
 		apiRouter.Use(middleware.Maintenance, middleware.AuthRootAPI)
 		{
+			// 系统 - 启动安装
+			apiRouter.GET("/system/install", request.ValidateList, admin.APIGetCustomerList)
+			apiRouter.GET("/system/install/check", request.ValidateList, admin.APIGetCustomerList)
+
 			// root
 			apiRouter.POST("/department/sync", wx.APISyncWXDepartments)
 			apiRouter.POST("/employee/sync", admin.APISyncWXEmployees)

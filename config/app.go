@@ -12,7 +12,7 @@ type AppConfig struct {
 	Timezone string `yaml:"timezone"`
 
 	ServerConfig ServerConfig `yaml:"server"`
-	SSHConfig    SSHConfig    `yaml:"ssh"`
+	JWTConfig    JWTConfig    `yaml:"jwt"`
 	SystemConfig SystemConfig `yaml:"system"`
 	LogConfig    LogConfig    `yaml:"log"`
 
@@ -29,7 +29,7 @@ type ServerConfig struct {
 	Port string `yaml:"port" binding:"required"`
 }
 
-type SSHConfig struct {
+type JWTConfig struct {
 	PublicKeyFile  string `yaml:"public_key_file" binding:"required"`
 	PrivateKeyFile string `yaml:"private_key_file" binding:"required"`
 }

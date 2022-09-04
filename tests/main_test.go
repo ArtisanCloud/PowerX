@@ -79,7 +79,7 @@ func SetupTestEnv(t *testing.M) {
 		if config.G_AppConfigure == nil {
 			logger.Logger.Error("app configure failed")
 		}
-		// setup ssh key path
+		// setup jwt key path
 		service.SetupSSHKeyPath(&config.G_AppConfigure.SSHConfig)
 	}
 

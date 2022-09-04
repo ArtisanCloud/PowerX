@@ -37,9 +37,9 @@ func init() {
 
 }
 
-func SetupSSHKeyPath(ssh *config.SSHConfig) {
-	StrPublicKeyPath = ssh.PublicKeyFile
-	StrPrivateKeyPath = ssh.PrivateKeyFile
+func SetupSSHKeyPath(jwt *config.JWTConfig) {
+	StrPublicKeyPath = jwt.PublicKeyFile
+	StrPrivateKeyPath = jwt.PrivateKeyFile
 }
 
 func NewAuthService(context *gin.Context) (r *AuthService) {

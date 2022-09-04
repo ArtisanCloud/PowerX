@@ -45,10 +45,10 @@ func NewEmployeeService(ctx *gin.Context) (r *EmployeeService) {
 	return r
 }
 
-func (srv *EmployeeService) SyncEmployees() (err error) {
+func (srv *EmployeeService) SyncEmployees(departmentID int, fetchChild int) (err error) {
 
 	// get root department
-	response, err := wecom.G_WeComEmployee.App.User.GetDetailedDepartmentUsers(1, 1)
+	response, err := wecom.G_WeComEmployee.App.User.GetDetailedDepartmentUsers(departmentID, fetchChild)
 	if response.ErrCode != 0 {
 		return errors.New(response.ErrMSG)
 	}
@@ -190,7 +190,7 @@ func (srv *EmployeeService) GetEmployeeByUserID(db *gorm.DB, userID string) (emp
 
 	employee = &models.Employee{}
 
-	preloads := []string{"WXDepartments"}
+	preloads := []string{"WXDepartments", "Role"}
 
 	condition := &map[string]interface{}{
 		"wx_user_id": userID,
@@ -568,6 +568,29 @@ func (srv *EmployeeService) HandleEmployeeDelete(context *gin.Context, event con
 
 	logger.Logger.Info("Handle Delete Employee", zap.Any("msg", msg))
 
+	employee, err := srv.GetEmployeeByUserID(global.G_DBConnection, msg.UserID)
+
+	err = global.G_DBConnection.Transaction(func(tx *gorm.DB) error {
+		// 解绑员工和当前客户的关系
+		err = (&models.RCustomerToEmployee{}).ClearPivotsByEmployeeID(tx, msg.UserID)
+		if err != nil {
+			return err
+		}
+
+		// 删除员工
+		err = srv.DeleteEmployee(tx, employee)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	})
+
+	// 保存操作记录
+	_ = (&databasePowerLib.PowerOperationLog{}).SaveOps(global.G_DBConnection, "system", nil,
+		MODULE_EMPLOYEE, "删除员工记录", databasePowerLib.OPERATION_EVENT_DELETE,
+		employee.WXName, employee, databasePowerLib.OPERATION_RESULT_SUCCESS)
+
 	return err
 }
 
@@ -599,8 +622,7 @@ func (srv *EmployeeService) BindCustomerToEmployee(UserExternalID string, follow
 	}
 
 	// follow customer to employees
-	pivot, err = serviceCustomer.SyncFollowEmployee(global.G_DBConnection, customer, followInfo)
-	//_, err = serviceCustomer.FollowEmployees(global.G_DBConnection, customer, followInfos)
+	_, err = serviceCustomer.FollowEmployee(global.G_DBConnection, customer, followInfo)
 	if err != nil {
 		return pivot, err
 	}
@@ -635,13 +657,14 @@ func (srv *EmployeeService) UnbindCustomerToEmployee(UserExternalID string, User
 		return nil, nil, errors.New("pivot not found")
 	}
 
+	// 删除客户和员工关系的微信标签
 	err = serviceWXTag.ClearObjectWXTags(global.G_DBConnection, pivot)
 	if err != nil {
 		return customer, employee, err
 	}
 
-	// detach customer to employees
-	err = serviceCustomer.UnfollowEmployee(global.G_DBConnection, customer, []*models.Employee{employee})
+	// 解除客户和员工的关系
+	err = serviceCustomer.UnfollowEmployees(global.G_DBConnection, customer, []*models.Employee{employee})
 	if err != nil {
 		return customer, employee, err
 	}
