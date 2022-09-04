@@ -2,18 +2,18 @@ module github.com/ArtisanCloud/PowerX
 
 go 1.17
 
-replace github.com/ArtisanCloud/PowerWeChat/v2 => ../PowerWeChat
-
+//replace github.com/ArtisanCloud/PowerWeChat/v2 => ../PowerWeChat
 //
-replace github.com/ArtisanCloud/PowerLibs/v2 => ../PowerLibs
-
+////
+//replace github.com/ArtisanCloud/PowerLibs/v2 => ../PowerLibs
 //
-replace github.com/ArtisanCloud/PowerSocialite/v2 => ../PowerSocialite
+////
+//replace github.com/ArtisanCloud/PowerSocialite/v2 => ../PowerSocialite
 
 require (
 	github.com/ArtisanCloud/PowerLibs/v2 v2.0.40
 	github.com/ArtisanCloud/PowerSocialite/v2 v2.0.14
-	github.com/ArtisanCloud/PowerWeChat/v2 v2.0.4
+	github.com/ArtisanCloud/PowerWeChat/v2 v2.0.7
 	github.com/ArtisanCloud/ubt-go v1.0.6
 	github.com/casbin/casbin/v2 v2.52.2
 	github.com/casbin/gorm-adapter/v3 v3.8.0

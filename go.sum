@@ -1,3 +1,10 @@
+github.com/ArtisanCloud/PowerLibs/v2 v2.0.39/go.mod h1:J4tjhrGFOUByNk5rmwQftYoJ1mU7xaKF1ztjj7H8fa4=
+github.com/ArtisanCloud/PowerLibs/v2 v2.0.40 h1:OINoefF+M8HjO8aoxb7BD6BSNjdz1CBlMc0+egNkU6s=
+github.com/ArtisanCloud/PowerLibs/v2 v2.0.40/go.mod h1:d13Xz4I57htBopbQ8kArvoKBopXGGi6nw9ggRB/DLbQ=
+github.com/ArtisanCloud/PowerSocialite/v2 v2.0.14 h1:tlJiA4gjveUYDW9Ix8UMK+Up/Dyk/OrYqTZ4M5HsP3g=
+github.com/ArtisanCloud/PowerSocialite/v2 v2.0.14/go.mod h1:2vUPuyiQi4k4aMBbJE8jEM36hjB9jx1YOY0ML+25lSU=
+github.com/ArtisanCloud/PowerWeChat/v2 v2.0.7 h1:jgs0rYMsQlEbALnihy4+Hw2fOP1DG+7SMVsZPQZiJlM=
+github.com/ArtisanCloud/PowerWeChat/v2 v2.0.7/go.mod h1:JyG6ZkR63w6ytCtGBPTX24EQe55OPnhzu2CUy4UL/HA=
 github.com/ArtisanCloud/ubt-go v1.0.6 h1:dBoyIB486Q7X/KdXbdS/GySniMA/f3J+pnNXJYIFFd8=
 github.com/ArtisanCloud/ubt-go v1.0.6/go.mod h1:eQJ8xHNbsYhMc1N353bDSCw2hHKPGfWV3UIwCMsg4uQ=
 github.com/Azure/azure-sdk-for-go/sdk/azcore v0.19.0/go.mod h1:h6H6c8enJmmocHUbLiiGY6sx7f9i+X3m1CHdd5c6Rdw=
