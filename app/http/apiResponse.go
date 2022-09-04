@@ -3,9 +3,7 @@ package http
 import (
 	fmt2 "fmt"
 	"github.com/ArtisanCloud/PowerX/app/service"
-	. "github.com/ArtisanCloud/PowerX/configs"
-	"github.com/ArtisanCloud/PowerX/configs/app"
-	. "github.com/ArtisanCloud/PowerX/configs/global"
+	. "github.com/ArtisanCloud/PowerX/config"
 	"github.com/gin-gonic/gin"
 	"golang.org/x/text/language"
 	"golang.org/x/text/message"
@@ -161,8 +159,8 @@ func (rs *APIResponse) getJsonResponseBody() map[string]interface{} {
 			"return_message": rtMsg,
 			"result_code":    rs.Meta.ResultCode,
 			"result_message": rsMsg,
-			"timezone":       app.G_AppConfigure.Timezone,
-			"locale":         app.G_AppConfigure.Locale,
+			"timezone":       G_AppConfigure.Timezone,
+			"locale":         G_AppConfigure.Locale,
 		},
 		"data": rs.Data,
 	}

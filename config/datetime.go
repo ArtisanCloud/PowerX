@@ -1,4 +1,4 @@
-package global
+package config
 
 const MINUTE = 60
 const HOUR = 60 * MINUTE

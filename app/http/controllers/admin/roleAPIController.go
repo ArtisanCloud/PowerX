@@ -5,7 +5,7 @@ import (
 	modelsPowerLib "github.com/ArtisanCloud/PowerLibs/v2/authorization/rbac/models"
 	"github.com/ArtisanCloud/PowerX/app/http/controllers/api"
 	"github.com/ArtisanCloud/PowerX/app/service"
-	globalConfig "github.com/ArtisanCloud/PowerX/configs/global"
+	globalConfig "github.com/ArtisanCloud/PowerX/config"
 	"github.com/ArtisanCloud/PowerX/database/global"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"

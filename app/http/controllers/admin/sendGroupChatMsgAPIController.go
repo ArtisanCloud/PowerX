@@ -9,7 +9,7 @@ import (
 	modelWX "github.com/ArtisanCloud/PowerX/app/models/wx"
 	"github.com/ArtisanCloud/PowerX/app/service"
 	"github.com/ArtisanCloud/PowerX/app/service/wx/wecom"
-	"github.com/ArtisanCloud/PowerX/configs/global"
+	"github.com/ArtisanCloud/PowerX/config"
 	globalDatabase "github.com/ArtisanCloud/PowerX/database/global"
 	logger "github.com/ArtisanCloud/PowerX/loggerManager"
 	"github.com/gin-gonic/gin"
@@ -45,12 +45,12 @@ func APISendGroupChatMsgSync(context *gin.Context) {
 
 	rs, err := ctl.ServiceSendGroupChatMsg.SyncSendGroupChatMsgFromWXPlatform(globalDatabase.G_DBConnection, startDatetime, endDatetime, limit, "")
 	if err != nil {
-		ctl.RS.SetCode(global.API_ERR_CODE_FAIL_TO_SYNC_SEND_CHAT_MSG_ON_WX_PLATFORM, global.API_RETURN_CODE_ERROR, "", err.Error())
+		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_SYNC_SEND_CHAT_MSG_ON_WX_PLATFORM, config.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
 		return
 	}
 	if rs.ErrCode != 0 {
-		ctl.RS.SetCode(global.API_ERR_CODE_FAIL_TO_SYNC_SEND_CHAT_MSG_ON_WX_PLATFORM, global.API_RETURN_CODE_ERROR, "", errors.New(rs.ErrMSG).Error())
+		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_SYNC_SEND_CHAT_MSG_ON_WX_PLATFORM, config.API_RETURN_CODE_ERROR, "", errors.New(rs.ErrMSG).Error())
 		panic(ctl.RS)
 		return
 	}
@@ -80,7 +80,7 @@ func APIGetSendGroupChatMsgList(context *gin.Context) {
 		para.Page, para.PageSize,
 	)
 	if err != nil {
-		ctl.RS.SetCode(global.API_ERR_CODE_FAIL_TO_GET_SEND_GROUP_CHAT_MSG_LIST, global.API_RETURN_CODE_ERROR, "", err.Error())
+		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_GET_SEND_GROUP_CHAT_MSG_LIST, config.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
 		return
 	}
@@ -98,12 +98,12 @@ func APIGetSendGroupChatMsgDetail(context *gin.Context) {
 
 	sendGroupChatMsg, err := ctl.ServiceSendGroupChatMsg.GetSendGroupChatMsgByUUID(globalDatabase.G_DBConnection, uuid)
 	if err != nil {
-		ctl.RS.SetCode(global.API_ERR_CODE_FAIL_TO_GET_SEND_GROUP_CHAT_MSG_DETAIL, global.API_RETURN_CODE_ERROR, "", err.Error())
+		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_GET_SEND_GROUP_CHAT_MSG_DETAIL, config.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
 		return
 	}
 	if sendGroupChatMsg == nil {
-		ctl.RS.SetCode(global.API_ERR_CODE_FAIL_TO_GET_SEND_GROUP_CHAT_MSG_DETAIL, global.API_RETURN_CODE_ERROR, "", "")
+		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_GET_SEND_GROUP_CHAT_MSG_DETAIL, config.API_RETURN_CODE_ERROR, "", "")
 		panic(ctl.RS)
 		return
 	}
@@ -126,7 +126,7 @@ func APIEstimateSendGroupChatCustomersCount(context *gin.Context) {
 		err = object.JsonDecode(messageTemplate.ExternalUserIDs, &arrayExternalUserIDs)
 		if err != nil {
 			if err != nil {
-				ctl.RS.SetCode(global.API_ERR_CODE_FAIL_TO_ESTIMATE_SEND_GROUP_CHAT_MSG_CUSTOMERS_COUNT, global.API_RETURN_CODE_ERROR, "", err.Error())
+				ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_ESTIMATE_SEND_GROUP_CHAT_MSG_CUSTOMERS_COUNT, config.API_RETURN_CODE_ERROR, "", err.Error())
 				panic(ctl.RS)
 				return
 			}
@@ -152,7 +152,7 @@ func APICreateSendGroupChatMsg(context *gin.Context) {
 		// insert send chat msg
 		err = ctl.ServiceSendGroupChatMsg.UpsertSendGroupChatMsgs(tx.Omit(clause.Associations), []*models.SendGroupChatMsg{sendGroupChatMsg}, nil)
 		if err != nil {
-			ctl.RS.SetCode(global.API_ERR_CODE_FAIL_TO_CREATE_SEND_GROUP_CHAT_MSG, global.API_RETURN_CODE_ERROR, "", err.Error())
+			ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_CREATE_SEND_GROUP_CHAT_MSG, config.API_RETURN_CODE_ERROR, "", err.Error())
 			return err
 		}
 
@@ -162,7 +162,7 @@ func APICreateSendGroupChatMsg(context *gin.Context) {
 			if sendGroupChatMsg.SendImmediately {
 				result, err := ctl.ServiceSendGroupChatMsg.DoSendGroupChatMsg(messageTemplate)
 				if err != nil {
-					ctl.RS.SetCode(global.API_ERR_CODE_FAIL_TO_DO_SEND_GROUP_CHAT_MSG, global.API_RETURN_CODE_ERROR, "", err.Error())
+					ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_DO_SEND_GROUP_CHAT_MSG, config.API_RETURN_CODE_ERROR, "", err.Error())
 					return err
 				}
 				messageTemplate, err = ctl.ServiceSendGroupChatMsg.ConvertResponseToMessageTemplate(messageTemplate, result)
@@ -214,7 +214,7 @@ func APIDoSendGroupChatMsgs(context *gin.Context) {
 
 	toSendList, err := ctl.ServiceSendGroupChatMsg.GetToDoSendList(globalDatabase.G_DBConnection, &now, &endDatetime)
 	if err != nil {
-		ctl.RS.SetCode(global.API_ERR_CODE_FAIL_TO_GET_SEND_GROUP_CHAT_MSG_LIST, global.API_RETURN_CODE_ERROR, "", err.Error())
+		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_GET_SEND_GROUP_CHAT_MSG_LIST, config.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
 		return
 	}
@@ -245,7 +245,7 @@ func APIDoSendGroupChatMsgs(context *gin.Context) {
 					return err
 				}
 
-				// save the wx message template
+				// save the wechat message template
 				err = serviceWXMessageTemplate.UpsertWXMessageTemplates(tx.Omit(clause.Associations), []*modelWX.WXMessageTemplate{wxMessageTemplate}, nil)
 				if err != nil {
 					return err

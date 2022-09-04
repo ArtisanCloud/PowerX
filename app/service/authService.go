@@ -4,7 +4,7 @@ import (
 	"crypto/rsa"
 	"fmt"
 	"github.com/ArtisanCloud/PowerX/app/models"
-	"github.com/ArtisanCloud/PowerX/configs/app"
+	"github.com/ArtisanCloud/PowerX/config"
 	logger "github.com/ArtisanCloud/PowerX/loggerManager"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
@@ -37,9 +37,9 @@ func init() {
 
 }
 
-func SetupSSHKeyPath(ssh *app.SSHConfig) {
-	StrPublicKeyPath = ssh.PublicKeyFile
-	StrPrivateKeyPath = ssh.PrivateKeyFile
+func SetupSSHKeyPath(jwt *config.JWTConfig) {
+	StrPublicKeyPath = jwt.PublicKeyFile
+	StrPrivateKeyPath = jwt.PrivateKeyFile
 }
 
 func NewAuthService(context *gin.Context) (r *AuthService) {
@@ -68,7 +68,7 @@ func (srv *AuthService) CreateTokenForEmployee(employee *models.Employee) (strin
 	claims := make(jwt.MapClaims)
 	claims["AccessToken"] = "bar"
 	claims["EmployeeUUID"] = employee.UUID
-	claims["WXEmployeeID"] = employee.WXUserID.String
+	claims["WXUserID"] = employee.WXUserID.String
 	claims["OpenID"] = employee.WXOpenID.String
 	claims["exp"] = time.Now().Add(time.Second * time.Duration(InExpiredSecond)).Unix()
 

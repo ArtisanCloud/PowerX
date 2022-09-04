@@ -9,7 +9,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/app/models"
 	"github.com/ArtisanCloud/PowerX/app/service"
 	"github.com/ArtisanCloud/PowerX/app/service/wx/wecom"
-	"github.com/ArtisanCloud/PowerX/configs/global"
+	"github.com/ArtisanCloud/PowerX/config"
 	globalDatabase "github.com/ArtisanCloud/PowerX/database/global"
 	logger "github.com/ArtisanCloud/PowerX/loggerManager"
 	"github.com/gin-gonic/gin"
@@ -31,22 +31,22 @@ func NewEmployeeAPIController(context *gin.Context) (ctl *EmployeeAPIController)
 func APISyncWXEmployees(context *gin.Context) {
 	ctl := NewEmployeeAPIController(context)
 
-	defer api.RecoverResponse(context, "wx.api.employee.sync")
+	defer api.RecoverResponse(context, "wechat.api.employee.sync")
 
 	var err error
 	// sync departments
 	serviceDepartment := service.NewDepartmentService(context)
-	err = serviceDepartment.SyncDepartments()
+	err = serviceDepartment.SyncDepartments(0)
 	if err != nil {
-		ctl.RS.SetCode(global.API_ERR_CODE_FAIL_TO_UPSERT_DEPARTMENT, global.API_RETURN_CODE_ERROR, "", err.Error())
+		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_UPSERT_DEPARTMENT, config.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
 		return
 	}
 
 	// sync employees
-	err = ctl.ServiceEmployee.SyncEmployees()
+	err = ctl.ServiceEmployee.SyncEmployees(1, 1)
 	if err != nil {
-		ctl.RS.SetCode(global.API_ERR_CODE_FAIL_TO_UPSERT_EMPLOYEE, global.API_RETURN_CODE_ERROR, "", err.Error())
+		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_UPSERT_EMPLOYEE, config.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
 		return
 	}
@@ -58,13 +58,13 @@ func APISyncWXEmployees(context *gin.Context) {
 func APISyncEmployeeAndWXAccount(context *gin.Context) {
 	ctl := NewEmployeeAPIController(context)
 
-	defer api.RecoverResponse(context, "wx.api.customer.sync")
+	defer api.RecoverResponse(context, "wechat.api.customer.sync")
 
 	var err error
 	// sync employees
-	err = ctl.ServiceEmployee.SyncEmployees()
+	err = ctl.ServiceEmployee.SyncEmployees(1, 1)
 	if err != nil {
-		ctl.RS.SetCode(global.API_ERR_CODE_FAIL_TO_UPSERT_EMPLOYEE, global.API_RETURN_CODE_ERROR, "", err.Error())
+		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_UPSERT_EMPLOYEE, config.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
 		return
 	}
@@ -73,7 +73,7 @@ func APISyncEmployeeAndWXAccount(context *gin.Context) {
 	customerService := service.NewCustomerService(context)
 	err = customerService.SyncCustomers(nil, "")
 	if err != nil {
-		ctl.RS.SetCode(global.API_ERR_CODE_FAIL_TO_UPSERT_ACCOUNT, global.API_RETURN_CODE_ERROR, "", err.Error())
+		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_UPSERT_ACCOUNT, config.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
 		return
 	}
@@ -92,7 +92,7 @@ func APIGetEmployeeList(context *gin.Context) {
 
 	arrayList, err := ctl.ServiceEmployee.GetList(globalDatabase.G_DBConnection, nil, para.Page, para.PageSize)
 	if err != nil {
-		ctl.RS.SetCode(global.API_ERR_CODE_FAIL_TO_GET_EMPLOYEE_LIST, global.API_RETURN_CODE_ERROR, "", err.Error())
+		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_GET_EMPLOYEE_LIST, config.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
 		return
 	}
@@ -110,7 +110,7 @@ func APIGetEmployeeDetail(context *gin.Context) {
 
 	employee, err := ctl.ServiceEmployee.GetEmployeeByUserID(globalDatabase.G_DBConnection, userID)
 	if err != nil {
-		ctl.RS.SetCode(global.API_ERR_CODE_FAIL_TO_GET_EMPLOYEE_DETAIL, global.API_RETURN_CODE_ERROR, "", err.Error())
+		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_GET_EMPLOYEE_DETAIL, config.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
 		return
 	}
@@ -130,7 +130,7 @@ func APIUpsertEmployee(context *gin.Context) {
 	employee, err = ctl.ServiceEmployee.UpsertEmployee(globalDatabase.G_DBConnection, employee)
 
 	if err != nil {
-		ctl.RS.SetCode(global.API_ERR_CODE_FAIL_TO_UPSERT_EMPLOYEE, global.API_RETURN_CODE_ERROR, "", err.Error())
+		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_UPSERT_EMPLOYEE, config.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
 		return
 	}
@@ -148,14 +148,14 @@ func APIDeleteEmployees(context *gin.Context) {
 
 	employees, err := ctl.ServiceEmployee.GetEmployeesByUserIDs(globalDatabase.G_DBConnection, uuids.([]string))
 	if len(employees) <= 0 {
-		ctl.RS.SetCode(global.API_ERR_CODE_FAIL_TO_GET_EMPLOYEE_LIST, global.API_RETURN_CODE_ERROR, "", "")
+		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_GET_EMPLOYEE_LIST, config.API_RETURN_CODE_ERROR, "", "")
 		panic(ctl.RS)
 		return
 	}
 
 	err = ctl.ServiceEmployee.DeleteEmployees(globalDatabase.G_DBConnection, employees)
 	if err != nil {
-		ctl.RS.SetCode(global.API_ERR_CODE_FAIL_TO_DELETE_EMPLOYEE, global.API_RETURN_CODE_ERROR, "", err.Error())
+		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_DELETE_EMPLOYEE, config.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
 		return
 	}
@@ -177,11 +177,11 @@ func APIBindCustomerToEmployee(context *gin.Context) {
 
 	pivot, err := ctl.ServiceEmployee.BindCustomerToEmployee(customer.ExternalUserID.String, followInfo)
 	if err != nil {
-		ctl.RS.SetCode(global.API_ERR_CODE_FAIL_TO_BIND_CUSOTMER_TO_EMPLOYEE, global.API_RETURN_CODE_ERROR, "", "")
+		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_BIND_CUSOTMER_TO_EMPLOYEE, config.API_RETURN_CODE_ERROR, "", "")
 		panic(ctl.RS)
 		return
 	}
-	// save operation log
+	// 保存操作日志
 	_ = (&database2.PowerOperationLog{}).SaveOps(globalDatabase.G_DBConnection, customer.Name, customer,
 		service.MODULE_CUSTOMER, "系统绑定外部联系人与员工", database2.OPERATION_EVENT_CREATE,
 		employee.Name, employee, database2.OPERATION_RESULT_SUCCESS)
@@ -190,7 +190,7 @@ func APIBindCustomerToEmployee(context *gin.Context) {
 		serviceWXTag := wecom.NewWXTagService(nil)
 		err = serviceWXTag.SyncWXTagsByFollowInfos(globalDatabase.G_DBConnection, pivot, followInfo)
 		if err != nil {
-			ctl.RS.SetCode(global.API_ERR_CODE_FAIL_TO_SYNC_WX_TAG, global.API_RETURN_CODE_ERROR, "", "")
+			ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_SYNC_WX_TAG, config.API_RETURN_CODE_ERROR, "", "")
 			panic(ctl.RS)
 			return
 		}
@@ -211,11 +211,11 @@ func APIUnbindCustomerToEmployee(context *gin.Context) {
 
 	_, _, err := ctl.ServiceEmployee.UnbindCustomerToEmployee(customer.ExternalUserID.String, employee.WXUserID.String)
 	if err != nil {
-		ctl.RS.SetCode(global.API_ERR_CODE_FAIL_TO_BIND_CUSOTMER_TO_EMPLOYEE, global.API_RETURN_CODE_ERROR, "", "")
+		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_BIND_CUSOTMER_TO_EMPLOYEE, config.API_RETURN_CODE_ERROR, "", "")
 		panic(ctl.RS)
 		return
 	}
-	// save operation log
+	// 保存操作日志
 	_ = (&database2.PowerOperationLog{}).SaveOps(globalDatabase.G_DBConnection, customer.Name, customer,
 		service.MODULE_CUSTOMER, "系统解绑外部联系人与员工", database2.OPERATION_EVENT_DELETE,
 		employee.Name, employee, database2.OPERATION_RESULT_SUCCESS)
@@ -266,7 +266,7 @@ func APIGetEmployeeListOnWXPlatform(context *gin.Context) {
 
 	arrayList, err := wecom.G_WeComEmployee.App.User.GetDepartmentUsers(departmentID, 1)
 	if err != nil {
-		ctl.RS.SetCode(global.API_ERR_CODE_FAIL_TO_GET_EMPLOYEE_LIST, global.API_RETURN_CODE_ERROR, "", err.Error())
+		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_GET_EMPLOYEE_LIST, config.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
 		return
 	}
@@ -284,7 +284,7 @@ func APIGetEmployeeDetailOnWXPlatform(context *gin.Context) {
 
 	result, err := wecom.G_WeComEmployee.App.User.Get(userID)
 	if err != nil {
-		ctl.RS.SetCode(global.API_ERR_CODE_FAIL_TO_GET_EMPLOYEE_DETAIL, global.API_RETURN_CODE_ERROR, "", err.Error())
+		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_GET_EMPLOYEE_DETAIL, config.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
 		return
 	}
@@ -302,7 +302,7 @@ func APIDeleteEmployeesOnWXPlatform(context *gin.Context) {
 
 	result, err := wecom.G_WeComEmployee.App.User.Delete(userID)
 	if err != nil {
-		ctl.RS.SetCode(global.API_ERR_CODE_FAIL_TO_DELETE_EMPLOYEE, global.API_RETURN_CODE_ERROR, "", err.Error())
+		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_DELETE_EMPLOYEE, config.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
 		return
 	}

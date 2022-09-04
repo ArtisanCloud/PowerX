@@ -4,7 +4,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/app/http/controllers/api"
 	"github.com/ArtisanCloud/PowerX/app/service"
 	global2 "github.com/ArtisanCloud/PowerX/app/service/wx/wecom"
-	"github.com/ArtisanCloud/PowerX/configs/global"
+	"github.com/ArtisanCloud/PowerX/config"
 	globalDatabase "github.com/ArtisanCloud/PowerX/database/global"
 	"github.com/gin-gonic/gin"
 )
@@ -29,9 +29,9 @@ func APISyncWXDepartments(context *gin.Context) {
 
 	var err error
 
-	err = ctl.ServiceDepartment.SyncDepartments()
+	err = ctl.ServiceDepartment.SyncDepartments(0)
 	if err != nil {
-		ctl.RS.SetCode(global.API_ERR_CODE_FAIL_TO_UPSERT_DEPARTMENT, global.API_RETURN_CODE_ERROR, "", err.Error())
+		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_UPSERT_DEPARTMENT, config.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
 		return
 	}
@@ -47,7 +47,7 @@ func APIGetDepartmentList(context *gin.Context) {
 
 	arrayList, err := ctl.ServiceDepartment.GetDepartments(globalDatabase.G_DBConnection)
 	if err != nil {
-		ctl.RS.SetCode(global.API_ERR_CODE_FAIL_TO_GET_DEPARTMENT_LIST, global.API_RETURN_CODE_ERROR, "", err.Error())
+		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_GET_DEPARTMENT_LIST, config.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
 		return
 	}
@@ -65,7 +65,7 @@ func APIGetDepartmentDetail(context *gin.Context) {
 
 	department, err := ctl.ServiceDepartment.GetDepartmentsByIDs(globalDatabase.G_DBConnection, []int{*departmentID})
 	if err != nil {
-		ctl.RS.SetCode(global.API_ERR_CODE_FAIL_TO_GET_DEPARTMENT_DETAIL, global.API_RETURN_CODE_ERROR, "", err.Error())
+		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_GET_DEPARTMENT_DETAIL, config.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
 		return
 	}
@@ -85,7 +85,7 @@ func APIGetDepartmentSimpleListOnWXPlatform(context *gin.Context) {
 
 	arrayList, err := global2.G_WeComEmployee.App.Department.SimpleList(*departmentID)
 	if err != nil {
-		ctl.RS.SetCode(global.API_ERR_CODE_FAIL_TO_GET_DEPARTMENT_LIST, global.API_RETURN_CODE_ERROR, "", err.Error())
+		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_GET_DEPARTMENT_LIST, config.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
 		return
 	}
@@ -103,7 +103,7 @@ func APIGetDepartmentListOnWXPlatform(context *gin.Context) {
 
 	result, err := global2.G_WeComEmployee.App.Department.List(*departmentID)
 	if err != nil {
-		ctl.RS.SetCode(global.API_ERR_CODE_FAIL_TO_GET_DEPARTMENT_DETAIL, global.API_RETURN_CODE_ERROR, "", err.Error())
+		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_GET_DEPARTMENT_DETAIL, config.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
 		return
 	}

@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/ArtisanCloud/PowerX/boostrap"
+	"github.com/ArtisanCloud/PowerX/config"
 	globalDatabase "github.com/ArtisanCloud/PowerX/database/global"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -9,7 +10,19 @@ import (
 )
 
 func init() {
-	boostrap.InitProject()
+
+	err := boostrap.InitConfig()
+	if err != nil {
+		panic(err)
+	}
+
+	// 模拟系统已经安装成功
+	config.G_AppConfigure.SystemConfig.Installed = true
+
+	err = boostrap.InitProject()
+	if err != nil {
+		panic(err)
+	}
 
 }
 

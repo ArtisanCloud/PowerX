@@ -8,12 +8,10 @@ services:
     environment: 
       - GIN_MODE=release
     ports:
-      - ${PORT:-8001}:8080
+      - ${PORT:-8003}:8080
     volumes:
-      - ./config:/app/config
-      - ./.env:/app/.env
+      - ./config.yml:/app/config.yml
+      - ./configs:/app/configs
       - ./resources:/app/resources
       - ../certs:/certs
       - /var/log/ArtisanCloud:/var/log/ArtisanCloud
-    env_file:
-      - ./.env

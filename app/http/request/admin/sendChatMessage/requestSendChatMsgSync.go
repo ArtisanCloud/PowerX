@@ -3,7 +3,7 @@ package sendChatMsg
 import (
 	"github.com/ArtisanCloud/PowerX/app/http"
 	"github.com/ArtisanCloud/PowerX/app/http/request"
-	"github.com/ArtisanCloud/PowerX/configs/global"
+	"github.com/ArtisanCloud/PowerX/config"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-module/carbon"
 )
@@ -25,7 +25,7 @@ func ValidateSendChatMsgSync(context *gin.Context) {
 	startDatetime, endDatetime, limit, err := convertParaSendChatMsgSync(form)
 	apiResponse := http.NewAPIResponse(context)
 	if err != nil {
-		apiResponse.SetCode(global.API_ERR_CODE_REQUEST_PARAM_ERROR, global.API_RETURN_CODE_ERROR, "", err.Error()).
+		apiResponse.SetCode(config.API_ERR_CODE_REQUEST_PARAM_ERROR, config.API_RETURN_CODE_ERROR, "", err.Error()).
 			ThrowJSONResponse(context)
 		return
 	}

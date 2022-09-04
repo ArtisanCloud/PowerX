@@ -51,7 +51,7 @@ func (srv *GroupChatService) GetSortListForQuery(index int8) string {
 
 func (srv *GroupChatService) SyncGroupChatFromWXPlatform(statusFilter int, ownerFilter *power.HashMap, cursor string, limit int) (err error) {
 
-	// get all group chat from wx platform
+	// get all group chat from wechat platform
 	result, err := srv.GetGroupChatListOnWXPlatform(statusFilter, ownerFilter, cursor, limit)
 
 	if err != nil {

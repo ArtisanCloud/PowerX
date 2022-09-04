@@ -1,0 +1,133 @@
+# 应用配置
+name: "PowerX"
+env: local
+locale: zh_CN
+server:
+  host: 0.0.0.0
+  port: 8080
+
+# JWT 配置
+jwt:
+  public_key_file: /Users/user/.ssh/jwt-public-key.pem
+  private_key_file: /Users/user/.ssh/jwt-private-key.pem
+
+# 系统运行状态配置
+system:
+  maintenance: false
+  installed: false
+
+log:
+  log_path: /var/log/ArtisanCloud/PowerX-dev
+
+# 数据库配置
+database:
+  # 我们开发团队现阶段是以Postgres为数据库
+  default: "postgres"
+  debug: false
+
+  connections:
+    # postgres 配置
+    pgsql:
+      driver: pgsql
+      url:
+
+      # localhost
+      host: localhost
+      port: 5432
+      database: powerx
+      username: user
+      password: 123456
+      charset: utf8
+      prefix: ac_
+      prefix_indexes:
+      schemas:
+        default: public
+        option: public
+      search_path: "public"
+      ssl_mode: prefer
+    # mysql 配置
+    mysql:
+      driver: mysql
+      url:
+      host:
+      port:
+      database:
+      username:
+      password:
+      unix_socket:
+      charset:
+      collation:
+      prefix:
+      prefix_indexes:
+      strict:
+      engine:
+      options:
+
+# 缓存配置
+cache:
+  default: "redis"
+  connections:
+    # Redis 配置，作者推荐使用redis，我们开发团队现以redis为基础进行开发
+    redis:
+      max_idle:
+      maxActive:
+      protocol:
+      host: "127.0.0.1:6379"
+      password:
+      db: 1
+      expiration:
+      timeout_connect:
+      timeout_read:
+      timeout_write:
+      timeout_idle:
+
+    memory:
+      max_idle:
+      max_active:
+      protocol:
+      host:
+      password:
+      expiration:
+      timeout_connect:
+      timeout_read:
+      timeout_write:
+      timeout_idle:
+
+# 微信配置
+wx:
+  # 授权回调配置
+  auth_callback_host: "http://powerx-dev.artisancloud.cn"
+
+#企业微信配置
+wecom:
+  # 企业微信基础配置
+  corp_id: "ww45xxxxxxxxxxxxxxx"
+  wecom_agent_id: 10000001
+  wecom_secret: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+
+  # 企业微信应用配置
+  app_cert_public_key: "xxxxx/appCertPublicKey_2021002192687399.crt"
+  app_message_aes_key: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+  app_message_callback_url: "https://powerx.artisancloud.cn/wechat/api/wecom/app"
+  app_message_token: "xxxxxxxxxxxxxxxxxxxxxxxxx"
+  app_oauth_callback_url: "http://power.artisancloud.cn"
+
+  # 企业微信客户联系人配置
+  customer_message_aes_key: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+  customer_message_callback_url: "https://powerx.artisancloud.cn/wechat/api/wecom/customer"
+  customer_message_token: "xxxxxxxxxxxxxxx"
+
+  # 企业微信内部联系人配置
+  employee_message_aes_key: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+  employee_message_callback_url: "https://powerx.artisancloud.cn/wechat/api/wecom/employee"
+  employee_message_token: "xxxxxxxxxxxxxxx"
+
+  # 商户号支付配置
+  mch_id: "1620xxxxx"
+  mch_api_v3_key: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+  wx_cert_path: "xxxxx/cert/apiclient_cert.pem"
+  wx_key_path: "xxxxx/cert/apiclient_key.pem"
+  wx_pay_notify_url: "https://powerx.artisancloud.cn/wechat/notify"
+  notify_url: "https://www.weixin.qq.com/wxpay/pay.php"
+
+

@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	databasePowerLib "github.com/ArtisanCloud/PowerLibs/v2/database"
 	"github.com/ArtisanCloud/PowerLibs/v2/object"
-	"github.com/ArtisanCloud/PowerX/configs/database"
+	"github.com/ArtisanCloud/PowerX/config"
 	"gorm.io/gorm"
 )
 
@@ -74,7 +74,7 @@ func NewWXCustomer(mapObject *object.Collection) *WXCustomer {
 		appID = object.NewNullString(strAppID, true)
 
 	} else {
-		// invalid wx customer
+		// invalid wechat customer
 		return nil
 	}
 
@@ -109,7 +109,7 @@ func NewWXCustomer(mapObject *object.Collection) *WXCustomer {
 func (mdl *WXCustomer) GetTableName(needFull bool) string {
 	tableName := TABLE_NAME_WX_CUSTOMER
 	if needFull {
-		tableName = databasePowerLib.GetTableFullName(database.G_DBConfig.Schemas["default"], database.G_DBConfig.BaseConfig.Prefix, tableName)
+		tableName = databasePowerLib.GetTableFullName(config.G_DBConfig.Schemas.Default, config.G_DBConfig.Prefix, tableName)
 	}
 	return tableName
 }

@@ -1,0 +1,11 @@
+log:
+
+  default: "elastic_search"
+  drivers:
+    elastic_search:
+      ubtServer: "localhost"
+      appName: "powerX"
+      appVersion: "go-1.0.3"
+      debugMode: false
+
+

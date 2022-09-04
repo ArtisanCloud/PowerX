@@ -37,7 +37,7 @@ func NewContactWayService(ctx *gin.Context) (r *ContactWayService) {
 
 func (srv *ContactWayService) SyncContactWayFromWXPlatform(startDatetime *carbon.Carbon, endDatetime *carbon.Carbon, limit int) (err error) {
 
-	// get all contact way from wx platform
+	// get all contact way from wechat platform
 	result, err := srv.GetContactWayListOnWXPlatform(startDatetime, endDatetime, limit)
 
 	if err != nil {

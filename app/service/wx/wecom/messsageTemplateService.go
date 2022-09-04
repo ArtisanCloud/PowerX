@@ -3,10 +3,8 @@ package wecom
 import (
 	"errors"
 	databasePowerLib "github.com/ArtisanCloud/PowerLibs/v2/database"
-	"github.com/ArtisanCloud/PowerLibs/v2/object"
 	"github.com/ArtisanCloud/PowerWeChat/v2/src/work/externalContact/messageTemplate/response"
 	"github.com/ArtisanCloud/PowerX/app/models/wx"
-	"github.com/ArtisanCloud/PowerX/configs/app"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
@@ -16,10 +14,6 @@ type WXMessageTemplateService struct {
 }
 
 func NewWXMessageTemplateService(ctx *gin.Context) (r *WXMessageTemplateService) {
-	weComConfig, _ := object.StructToMap(app.G_AppConfigure.Wechat["wecom"])
-	if weComConfig["contact_secret"] != nil {
-		weComConfig["secret"] = weComConfig["contact_secret"]
-	}
 	r = &WXMessageTemplateService{
 		wxMessageTemplate: wx.NewWXMessageTemplate(nil),
 	}
@@ -75,7 +69,7 @@ func (srv *WXMessageTemplateService) SyncWXMessageTemplateTasksFromWXPlatform(db
 	}
 
 	serviceMessageTemplate := NewWXMessageTemplateService(nil)
-	// upsert wx message templates tasks
+	// upsert wechat message templates tasks
 	for _, rs := range responseGroupMsgTask.TaskList {
 		task := wx.NewWXMessageTemplateTask(msgID, rs)
 		err = serviceMessageTemplate.UpsertWXMessageTemplateTasks(db, []*wx.WXMessageTemplateTask{task}, nil)
@@ -98,7 +92,7 @@ func (srv *WXMessageTemplateService) SyncWXMessageTemplateSendResultsFromWXPlatf
 		err = srv.SyncWXMessageTemplateSendResultsFromWXPlatform(db, msgID, userID, limit, responseGroupMsgSendResult.NextCursor)
 	}
 
-	// upsert wx message templates send results
+	// upsert wechat message templates send results
 	serviceMessageTemplate := NewWXMessageTemplateService(nil)
 	for _, rs := range responseGroupMsgSendResult.SendList {
 		sendResult := wx.NewWXMessageTemplateSendResult(msgID, rs)

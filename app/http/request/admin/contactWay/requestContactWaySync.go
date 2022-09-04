@@ -22,7 +22,7 @@ func ValidateContactWaySync(context *gin.Context) {
 
 	startDatetime := carbon.Parse(form.StartDatetime)
 	if startDatetime.IsZero() {
-		// sync wx tag group from wx platform for a month
+		// sync wechat tag group from wechat platform for a month
 		startDatetime = carbon.Now().AddDays(-30)
 	}
 	endDatetime := carbon.Parse(form.EndDatetime)

@@ -4,13 +4,12 @@ import (
 	"github.com/ArtisanCloud/PowerLibs/v2/cache"
 	"github.com/ArtisanCloud/PowerLibs/v2/object"
 	globalBootstrap "github.com/ArtisanCloud/PowerX/boostrap/cache/global"
-	"github.com/ArtisanCloud/PowerX/configs/app"
-	cacheConfig "github.com/ArtisanCloud/PowerX/configs/cache"
+	"github.com/ArtisanCloud/PowerX/config"
 )
 
 func SetupCache() (err error) {
 
-	c := cacheConfig.G_RedisConfig
+	c := config.G_RedisConfig
 
 	options := cache.RedisOptions{
 		Addr:       c.Host,
@@ -27,6 +26,6 @@ func SetupCache() (err error) {
 }
 
 func GetKeyPrefix() string {
-	strAppName := object.Snake(app.G_AppConfigure.Name, "_")
+	strAppName := object.Snake(config.G_AppConfigure.Name, "_")
 	return strAppName + "_database_" + strAppName + "_cache:"
 }

@@ -7,7 +7,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/app/models"
 	"github.com/ArtisanCloud/PowerX/app/models/wx"
 	serviceWX "github.com/ArtisanCloud/PowerX/app/service/wx/wecom"
-	"github.com/ArtisanCloud/PowerX/configs/global"
+	"github.com/ArtisanCloud/PowerX/config"
 	globalDatabase "github.com/ArtisanCloud/PowerX/database/global"
 	"github.com/gin-gonic/gin"
 )
@@ -29,7 +29,7 @@ func ValidateBindTagsToCustomerToEmployee(context *gin.Context) {
 	apiResponse := http.NewAPIResponse(context)
 	pivot, wxTags, err := convertParaToBindTagsToCustomerToEmployee(&form)
 	if err != nil {
-		apiResponse.SetCode(global.API_ERR_CODE_REQUEST_PARAM_ERROR, global.API_RETURN_CODE_ERROR, "", err.Error()).ThrowJSONResponse(context)
+		apiResponse.SetCode(config.API_ERR_CODE_REQUEST_PARAM_ERROR, config.API_RETURN_CODE_ERROR, "", err.Error()).ThrowJSONResponse(context)
 	}
 	context.Set("pivot", pivot)
 	context.Set("tags", wxTags)

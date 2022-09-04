@@ -5,7 +5,7 @@ import (
 	"github.com/ArtisanCloud/PowerWeChat/v2/src/kernel/power"
 	"github.com/ArtisanCloud/PowerX/app/http"
 	"github.com/ArtisanCloud/PowerX/app/http/request"
-	"github.com/ArtisanCloud/PowerX/configs/global"
+	"github.com/ArtisanCloud/PowerX/config"
 	"github.com/gin-gonic/gin"
 	"io/ioutil"
 	"mime/multipart"
@@ -30,7 +30,7 @@ func ValidateUploadMedia(context *gin.Context) {
 
 	path, data, err := convertParaUploadMediaForUpload(context, &form)
 	if err != nil {
-		apiResponse.SetCode(global.API_ERR_CODE_REQUEST_PARAM_ERROR, global.API_RETURN_CODE_ERROR, "", err.Error()).
+		apiResponse.SetCode(config.API_ERR_CODE_REQUEST_PARAM_ERROR, config.API_RETURN_CODE_ERROR, "", err.Error()).
 			ThrowJSONResponse(context)
 		return
 	}

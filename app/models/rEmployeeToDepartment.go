@@ -4,7 +4,7 @@ import (
 	"fmt"
 	databasePowerLib "github.com/ArtisanCloud/PowerLibs/v2/database"
 	"github.com/ArtisanCloud/PowerX/app/models/wx"
-	databaseConfig "github.com/ArtisanCloud/PowerX/configs/database"
+	databaseConfig "github.com/ArtisanCloud/PowerX/config"
 )
 
 // TableName overrides the table name used by REmployeeToDepartment to `profiles`
@@ -28,7 +28,7 @@ const R_EMPLOYEE_TO_DEPARTMNET_JOIN_KEY = "department_id"
 func (mdl *REmployeeToDepartment) GetTableName(needFull bool) string {
 	tableName := TABLE_NAME_R_EMPLOY_TO_DEPARTMENT
 	if needFull {
-		tableName = databasePowerLib.GetTableFullName(databaseConfig.G_DBConfig.Schemas["default"], databaseConfig.G_DBConfig.BaseConfig.Prefix, tableName)
+		tableName = databasePowerLib.GetTableFullName(databaseConfig.G_DBConfig.Schemas.Default, databaseConfig.G_DBConfig.Prefix, tableName)
 	}
 	return tableName
 }

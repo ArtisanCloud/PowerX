@@ -2,21 +2,18 @@ package database
 
 import (
 	"context"
-	"github.com/ArtisanCloud/PowerX/configs/app"
-	globalConfig "github.com/ArtisanCloud/PowerX/configs/database"
+	globalConfig "github.com/ArtisanCloud/PowerX/config"
 	"github.com/ArtisanCloud/PowerX/database/global"
 	"github.com/golang-module/carbon"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
-	"log"
 )
 
 func SetupDatabase() (err error) {
 
-	d := globalConfig.G_DBConfig
-	c := d.BaseConfig
-	timezone := app.G_AppConfigure.Timezone
+	c := globalConfig.G_DBConfig
+	timezone := globalConfig.G_AppConfigure.Timezone
 	if timezone == "" {
 		timezone = carbon.UTC
 	}
@@ -25,7 +22,7 @@ func SetupDatabase() (err error) {
 	dsn += " password=" + c.Password
 	dsn += " dbname=" + c.Database
 	dsn += " port=" + c.Port
-	dsn += " sslmode=" + d.SSLMode
+	dsn += " sslmode=" + c.SSLMode
 	dsn += " TimeZone=" + timezone
 
 	logMode := logger.Default.LogMode(logger.Error)
@@ -40,8 +37,7 @@ func SetupDatabase() (err error) {
 
 	if err != nil {
 		// throw a exception here
-		log.Fatal("Database init error: ", err)
-		return
+		return err
 	}
 
 	//// works with Take
@@ -62,9 +58,6 @@ func SetupDatabase() (err error) {
 
 }
 
-//func NewContext()  context.Context {
-//	return context.Context{}
-//}
 func GetDBWithContext(ctx context.Context) *gorm.DB {
 	//var newCTX context.Context
 	return global.G_DBConnection.WithContext(ctx)

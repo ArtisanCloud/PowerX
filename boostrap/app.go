@@ -5,26 +5,29 @@ import (
 	"github.com/ArtisanCloud/PowerX/app/service/wx/miniProgram"
 	"github.com/ArtisanCloud/PowerX/app/service/wx/wecom"
 	cache2 "github.com/ArtisanCloud/PowerX/boostrap/cache"
-	"github.com/ArtisanCloud/PowerX/configs"
-	"github.com/ArtisanCloud/PowerX/configs/app"
-	"github.com/ArtisanCloud/PowerX/configs/cache"
-	database2 "github.com/ArtisanCloud/PowerX/configs/database"
+	"github.com/ArtisanCloud/PowerX/boostrap/rbac"
+	"github.com/ArtisanCloud/PowerX/config"
 	"github.com/ArtisanCloud/PowerX/database"
+	"github.com/ArtisanCloud/PowerX/database/global"
 	logger "github.com/ArtisanCloud/PowerX/loggerManager"
 	"github.com/ArtisanCloud/PowerX/resources/lang"
 	"github.com/gin-gonic/gin"
-	"os"
 )
 
-func InitProject() (err error) {
-	// Initialize the global config
-	envConfigName := "environment"
-	dbConfigName := "database"
-	cacheConfigName := "cache"
+func InitConfig() (err error) {
 
-	err = app.LoadEnvConfig(nil, &envConfigName, nil)
-	if err != nil {
-		return err
+	// Initialize the global config
+	envConfigPath := "config.yml"
+
+	err = config.LoadEnvConfig(&envConfigPath)
+
+	return err
+}
+
+func InitProject() (err error) {
+
+	if config.G_AppConfigure.SystemConfig.Installed {
+		return nil
 	}
 
 	// Initialize the logger
@@ -33,12 +36,12 @@ func InitProject() (err error) {
 		return err
 	}
 
-	err = database2.LoadDatabaseConfig(nil, &dbConfigName, nil)
+	err = config.LoadDatabaseConfig()
 	if err != nil {
 		return err
 	}
 
-	err = cache.LoadCacheConfig(nil, &cacheConfigName, nil)
+	err = config.LoadCacheConfig()
 	if err != nil {
 		return err
 	}
@@ -49,7 +52,7 @@ func InitProject() (err error) {
 	lang.LoadLanguages()
 
 	// setup ssh key path
-	service.SetupSSHKeyPath(app.G_AppConfigure.SSH)
+	service.SetupSSHKeyPath(&config.G_AppConfigure.JWTConfig)
 
 	// Initialize the cache
 	err = cache2.SetupCache()
@@ -63,6 +66,12 @@ func InitProject() (err error) {
 		return err
 	}
 
+	// Initialize the RBAC Enforcer
+	err = rbac.InitCasbin(global.G_DBConnection)
+	if err != nil {
+		panic(err)
+	}
+
 	err = InitServices()
 	if err != nil {
 		return err
@@ -73,7 +82,7 @@ func InitProject() (err error) {
 
 func InitServices() (err error) {
 
-	// defined singleton located in app/service/wx/wecom/datetime.go
+	// defined singleton located in app/service/wechat/wecom/datetime.go
 	if wecom.G_WeComApp == nil {
 		wecom.G_WeComApp, err = wecom.NewWeComService(nil)
 		if err != nil {
@@ -81,31 +90,31 @@ func InitServices() (err error) {
 		}
 	}
 
-	// defined singleton located in app/service/wx/wecom/datetime.go
+	// defined singleton located in app/service/wechat/wecom/datetime.go
 	if wecom.G_WeComEmployee == nil {
 		ctx := &gin.Context{}
-		ctx.Set("messageToken", os.Getenv("employee_message_token"))
-		ctx.Set("messageAESKey", os.Getenv("employee_message_aes_key"))
-		ctx.Set("messageCallbackURL", os.Getenv("employee_message_callback_url"))
+		ctx.Set("messageToken", config.G_AppConfigure.WecomConfig.EmployeeMessageToken)
+		ctx.Set("messageAESKey", config.G_AppConfigure.WecomConfig.EmployeeMessageAesKey)
+		ctx.Set("messageCallbackURL", config.G_AppConfigure.WecomConfig.EmployeeMessageCallbackURL)
 		wecom.G_WeComEmployee, err = wecom.NewWeComService(ctx)
 		if err != nil {
 			return err
 		}
 	}
 
-	// defined singleton located in app/service/wx/wecom/datetime.go
+	// defined singleton located in app/service/wechat/wecom/datetime.go
 	if wecom.G_WeComCustomer == nil {
 		ctx := &gin.Context{}
-		ctx.Set("messageToken", os.Getenv("customer_message_token"))
-		ctx.Set("messageAESKey", os.Getenv("customer_message_aes_key"))
-		ctx.Set("messageCallbackURL", os.Getenv("customer_message_callback_url"))
+		ctx.Set("messageToken", config.G_AppConfigure.WecomConfig.CustomerMessageToken)
+		ctx.Set("messageAESKey", config.G_AppConfigure.WecomConfig.CustomerMessageAesKey)
+		ctx.Set("messageCallbackURL", config.G_AppConfigure.WecomConfig.CustomerMessageCallbackURL)
 		wecom.G_WeComCustomer, err = wecom.NewWeComService(ctx)
 		if err != nil {
 			return err
 		}
 	}
 
-	// defined singleton located in app/service/wx/miniprogram/datetime.go
+	// defined singleton located in app/service/wechat/miniprogram/datetime.go
 	if miniProgram.MiniProgramApp == nil {
 		miniProgram.MiniProgramApp, err = miniProgram.NewMiniProgramService(nil)
 		if err != nil {

@@ -5,7 +5,7 @@ import (
 	"github.com/ArtisanCloud/PowerLibs/v2/object"
 	"github.com/ArtisanCloud/PowerX/app/http"
 	"github.com/ArtisanCloud/PowerX/app/http/request"
-	globalConfig "github.com/ArtisanCloud/PowerX/configs/global"
+	globalConfig "github.com/ArtisanCloud/PowerX/config"
 	"github.com/gin-gonic/gin"
 )
 

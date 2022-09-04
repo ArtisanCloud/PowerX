@@ -1,1 +1,540 @@
-{"components":{},"info":{"title":"MarketX API","version":"0.1"},"openapi":"3.0","paths":{"/":{"get":{"responses":null}},"/WW_verify_UTeyopi6l6j9FVgK.txt":{"get":{"responses":null}},"/admin/api/contactWay/create":{"post":{"responses":null}},"/admin/api/contactWay/delete":{"delete":{"responses":null}},"/admin/api/contactWay/detail":{"get":{"responses":null}},"/admin/api/contactWay/group/create":{"post":{"responses":null}},"/admin/api/contactWay/group/delete":{"delete":{"responses":null}},"/admin/api/contactWay/group/detail":{"get":{"responses":null}},"/admin/api/contactWay/group/list":{"get":{"responses":null}},"/admin/api/contactWay/group/update":{"put":{"responses":null}},"/admin/api/contactWay/list":{"get":{"responses":null}},"/admin/api/contactWay/sync":{"get":{"responses":null}},"/admin/api/contactWay/update":{"put":{"responses":null}},"/admin/api/customer/detail":{"get":{"responses":null}},"/admin/api/customer/list":{"get":{"responses":null}},"/admin/api/customer/sync":{"post":{"responses":null}},"/admin/api/department/list":{"get":{"responses":null}},"/admin/api/department/sync":{"get":{"responses":null}},"/admin/api/employee/bind/customer":{"post":{"responses":null}},"/admin/api/employee/detail":{"get":{"responses":null}},"/admin/api/employee/list":{"get":{"responses":null}},"/admin/api/employee/sync":{"post":{"responses":null}},"/admin/api/employee/sync/customers":{"post":{"responses":null}},"/admin/api/employee/unbind/customer":{"post":{"responses":null}},"/admin/api/groupChat/detail":{"get":{"responses":null}},"/admin/api/groupChat/list":{"post":{"responses":null}},"/admin/api/groupChat/sync":{"get":{"responses":null}},"/admin/api/sendChatMessage/create":{"post":{"responses":null}},"/admin/api/sendChatMessage/detail":{"get":{"responses":null}},"/admin/api/sendChatMessage/doSend":{"get":{"responses":null}},"/admin/api/sendChatMessage/estimateExternalUsers":{"post":{"responses":null}},"/admin/api/sendChatMessage/list":{"post":{"responses":null}},"/admin/api/sendChatMessage/sync":{"post":{"responses":null}},"/admin/api/sendGroupChatMessage/create":{"post":{"responses":null}},"/admin/api/sendGroupChatMessage/detail":{"get":{"responses":null}},"/admin/api/sendGroupChatMessage/doSend":{"get":{"responses":null}},"/admin/api/sendGroupChatMessage/estimateExternalUsers":{"post":{"responses":null}},"/admin/api/sendGroupChatMessage/list":{"post":{"responses":null}},"/admin/api/sendGroupChatMessage/sync":{"post":{"responses":null}},"/admin/api/tag/bind/groupChat":{"post":{"responses":null}},"/admin/api/tag/group/create":{"post":{"responses":null}},"/admin/api/tag/group/delete":{"delete":{"responses":null}},"/admin/api/tag/group/detail":{"get":{"responses":null}},"/admin/api/tag/group/groupChat/create":{"post":{"responses":null}},"/admin/api/tag/group/groupChat/list":{"get":{"responses":null}},"/admin/api/tag/group/groupChat/update":{"put":{"responses":null}},"/admin/api/tag/group/list":{"get":{"responses":null}},"/admin/api/tag/group/update":{"put":{"responses":null}},"/admin/api/wx/tag/bind/customerToEmployee":{"post":{"responses":null}},"/admin/api/wx/tag/bind/customerToEmployee/by/contactWay":{"post":{"responses":null}},"/admin/api/wx/tag/group/create":{"post":{"responses":null}},"/admin/api/wx/tag/group/delete":{"delete":{"responses":null}},"/admin/api/wx/tag/group/detail":{"get":{"responses":null}},"/admin/api/wx/tag/group/list":{"get":{"responses":null}},"/admin/api/wx/tag/group/sync":{"get":{"responses":null}},"/admin/api/wx/tag/group/update":{"put":{"responses":null}},"/admin/api/wxPlatform/wecom/contactWay/delete":{"delete":{"responses":null}},"/admin/api/wxPlatform/wecom/contactWay/detail":{"get":{"responses":null}},"/admin/api/wxPlatform/wecom/contactWay/list":{"get":{"responses":null}},"/admin/api/wxPlatform/wecom/customer/detail":{"get":{"responses":null}},"/admin/api/wxPlatform/wecom/customer/list":{"get":{"responses":null}},"/admin/api/wxPlatform/wecom/department/list":{"get":{"responses":null}},"/admin/api/wxPlatform/wecom/department/simpleList":{"get":{"responses":null}},"/admin/api/wxPlatform/wecom/employee/delete":{"delete":{"responses":null}},"/admin/api/wxPlatform/wecom/employee/detail":{"get":{"responses":null}},"/admin/api/wxPlatform/wecom/employee/list":{"get":{"responses":null}},"/admin/api/wxPlatform/wecom/groupChat/detail":{"post":{"responses":null}},"/admin/api/wxPlatform/wecom/groupChat/list":{"get":{"responses":null}},"/admin/api/wxPlatform/wecom/media/detail":{"get":{"responses":null}},"/admin/api/wxPlatform/wecom/media/upload/image":{"post":{"responses":null}},"/admin/api/wxPlatform/wecom/media/upload/tempFile":{"post":{"responses":null}},"/admin/api/wxPlatform/wecom/media/upload/tempImage":{"post":{"responses":null}},"/admin/api/wxPlatform/wecom/media/upload/tempVideo":{"post":{"responses":null}},"/admin/api/wxPlatform/wecom/media/upload/tempVoice":{"post":{"responses":null}},"/pay.html":{"get":{"responses":null}},"/root/api/customer/sync":{"post":{"responses":null}},"/root/api/department/sync":{"post":{"responses":null}},"/root/api/employee/sync":{"post":{"responses":null}},"/root/api/permission/create":{"post":{"responses":null}},"/root/api/permission/delete":{"delete":{"responses":null}},"/root/api/permission/detail":{"get":{"responses":null}},"/root/api/permission/list":{"get":{"responses":null}},"/root/api/permission/module/create":{"post":{"responses":null}},"/root/api/permission/module/delete":{"delete":{"responses":null}},"/root/api/permission/module/detail":{"get":{"responses":null}},"/root/api/permission/module/list":{"get":{"responses":null}},"/root/api/permission/module/update":{"put":{"responses":null}},"/root/api/permission/update":{"put":{"responses":null}},"/wx/api/getCallbackIPs":{"get":{"responses":null}},"/wx/api/miniporgram/oauth2/authorize/customer":{"get":{"responses":null}},"/wx/api/wecom/callback/authorized/customer/":{"get":{"responses":null}},"/wx/api/wecom/callback/authorized/employee":{"get":{"responses":null}},"/wx/api/wecom/callback/authorized/qr/employee":{"get":{"responses":null}},"/wx/api/wecom/customer":{"post":{"responses":null}},"/wx/api/wecom/employee":{"post":{"responses":null}},"/wx/api/wecom/oauth2/authorize/customer":{"get":{"responses":null}},"/wx/api/wecom/oauth2/authorize/employee":{"get":{"responses":null}},"/wx/api/wecom/oauth2/authorize/qr/employee":{"get":{"responses":null}}}}
+{
+  "components": {},
+  "info": {
+    "title": "MarketX API",
+    "version": "0.1"
+  },
+  "openapi": "3.0",
+  "paths": {
+    "/": {
+      "get": {
+        "responses": null
+      }
+    },
+    "/WW_verify_UTeyopi6l6j9FVgK.txt": {
+      "get": {
+        "responses": null
+      }
+    },
+    "/admin/api/contactWay/create": {
+      "post": {
+        "responses": null
+      }
+    },
+    "/admin/api/contactWay/delete": {
+      "delete": {
+        "responses": null
+      }
+    },
+    "/admin/api/contactWay/detail": {
+      "get": {
+        "responses": null
+      }
+    },
+    "/admin/api/contactWay/group/create": {
+      "post": {
+        "responses": null
+      }
+    },
+    "/admin/api/contactWay/group/delete": {
+      "delete": {
+        "responses": null
+      }
+    },
+    "/admin/api/contactWay/group/detail": {
+      "get": {
+        "responses": null
+      }
+    },
+    "/admin/api/contactWay/group/list": {
+      "get": {
+        "responses": null
+      }
+    },
+    "/admin/api/contactWay/group/update": {
+      "put": {
+        "responses": null
+      }
+    },
+    "/admin/api/contactWay/list": {
+      "get": {
+        "responses": null
+      }
+    },
+    "/admin/api/contactWay/sync": {
+      "get": {
+        "responses": null
+      }
+    },
+    "/admin/api/contactWay/update": {
+      "put": {
+        "responses": null
+      }
+    },
+    "/admin/api/customer/detail": {
+      "get": {
+        "responses": null
+      }
+    },
+    "/admin/api/customer/list": {
+      "get": {
+        "responses": null
+      }
+    },
+    "/admin/api/customer/sync": {
+      "post": {
+        "responses": null
+      }
+    },
+    "/admin/api/department/list": {
+      "get": {
+        "responses": null
+      }
+    },
+    "/admin/api/department/sync": {
+      "get": {
+        "responses": null
+      }
+    },
+    "/admin/api/employee/bind/customer": {
+      "post": {
+        "responses": null
+      }
+    },
+    "/admin/api/employee/detail": {
+      "get": {
+        "responses": null
+      }
+    },
+    "/admin/api/employee/list": {
+      "get": {
+        "responses": null
+      }
+    },
+    "/admin/api/employee/sync": {
+      "post": {
+        "responses": null
+      }
+    },
+    "/admin/api/employee/sync/customers": {
+      "post": {
+        "responses": null
+      }
+    },
+    "/admin/api/employee/unbind/customer": {
+      "post": {
+        "responses": null
+      }
+    },
+    "/admin/api/groupChat/detail": {
+      "get": {
+        "responses": null
+      }
+    },
+    "/admin/api/groupChat/list": {
+      "post": {
+        "responses": null
+      }
+    },
+    "/admin/api/groupChat/sync": {
+      "get": {
+        "responses": null
+      }
+    },
+    "/admin/api/permission/policy/list": {
+      "get": {
+        "responses": null
+      }
+    },
+    "/admin/api/permission/policy/update": {
+      "put": {
+        "responses": null
+      }
+    },
+    "/admin/api/role/bind/employee": {
+      "post": {
+        "responses": null
+      }
+    },
+    "/admin/api/role/create": {
+      "post": {
+        "responses": null
+      }
+    },
+    "/admin/api/role/delete": {
+      "delete": {
+        "responses": null
+      }
+    },
+    "/admin/api/role/detail": {
+      "get": {
+        "responses": null
+      }
+    },
+    "/admin/api/role/list": {
+      "get": {
+        "responses": null
+      }
+    },
+    "/admin/api/role/update": {
+      "put": {
+        "responses": null
+      }
+    },
+    "/admin/api/sendChatMessage/create": {
+      "post": {
+        "responses": null
+      }
+    },
+    "/admin/api/sendChatMessage/detail": {
+      "get": {
+        "responses": null
+      }
+    },
+    "/admin/api/sendChatMessage/doSend": {
+      "get": {
+        "responses": null
+      }
+    },
+    "/admin/api/sendChatMessage/estimateExternalUsers": {
+      "post": {
+        "responses": null
+      }
+    },
+    "/admin/api/sendChatMessage/list": {
+      "post": {
+        "responses": null
+      }
+    },
+    "/admin/api/sendChatMessage/sync": {
+      "post": {
+        "responses": null
+      }
+    },
+    "/admin/api/sendGroupChatMessage/create": {
+      "post": {
+        "responses": null
+      }
+    },
+    "/admin/api/sendGroupChatMessage/detail": {
+      "get": {
+        "responses": null
+      }
+    },
+    "/admin/api/sendGroupChatMessage/doSend": {
+      "get": {
+        "responses": null
+      }
+    },
+    "/admin/api/sendGroupChatMessage/estimateExternalUsers": {
+      "post": {
+        "responses": null
+      }
+    },
+    "/admin/api/sendGroupChatMessage/list": {
+      "post": {
+        "responses": null
+      }
+    },
+    "/admin/api/sendGroupChatMessage/sync": {
+      "post": {
+        "responses": null
+      }
+    },
+    "/admin/api/tag/bind/groupChat": {
+      "post": {
+        "responses": null
+      }
+    },
+    "/admin/api/tag/group/create": {
+      "post": {
+        "responses": null
+      }
+    },
+    "/admin/api/tag/group/delete": {
+      "delete": {
+        "responses": null
+      }
+    },
+    "/admin/api/tag/group/detail": {
+      "get": {
+        "responses": null
+      }
+    },
+    "/admin/api/tag/group/groupChat/create": {
+      "post": {
+        "responses": null
+      }
+    },
+    "/admin/api/tag/group/groupChat/list": {
+      "get": {
+        "responses": null
+      }
+    },
+    "/admin/api/tag/group/groupChat/update": {
+      "put": {
+        "responses": null
+      }
+    },
+    "/admin/api/tag/group/list": {
+      "get": {
+        "responses": null
+      }
+    },
+    "/admin/api/tag/group/update": {
+      "put": {
+        "responses": null
+      }
+    },
+    "/admin/api/wechat/tag/bind/customerToEmployee": {
+      "post": {
+        "responses": null
+      }
+    },
+    "/admin/api/wechat/tag/bind/customerToEmployee/by/contactWay": {
+      "post": {
+        "responses": null
+      }
+    },
+    "/admin/api/wechat/tag/group/create": {
+      "post": {
+        "responses": null
+      }
+    },
+    "/admin/api/wechat/tag/group/delete": {
+      "delete": {
+        "responses": null
+      }
+    },
+    "/admin/api/wechat/tag/group/detail": {
+      "get": {
+        "responses": null
+      }
+    },
+    "/admin/api/wechat/tag/group/list": {
+      "get": {
+        "responses": null
+      }
+    },
+    "/admin/api/wechat/tag/group/sync": {
+      "get": {
+        "responses": null
+      }
+    },
+    "/admin/api/wechat/tag/group/update": {
+      "put": {
+        "responses": null
+      }
+    },
+    "/admin/api/wxPlatform/wecom/contactWay/delete": {
+      "delete": {
+        "responses": null
+      }
+    },
+    "/admin/api/wxPlatform/wecom/contactWay/detail": {
+      "get": {
+        "responses": null
+      }
+    },
+    "/admin/api/wxPlatform/wecom/contactWay/list": {
+      "get": {
+        "responses": null
+      }
+    },
+    "/admin/api/wxPlatform/wecom/customer/detail": {
+      "get": {
+        "responses": null
+      }
+    },
+    "/admin/api/wxPlatform/wecom/customer/list": {
+      "get": {
+        "responses": null
+      }
+    },
+    "/admin/api/wxPlatform/wecom/department/list": {
+      "get": {
+        "responses": null
+      }
+    },
+    "/admin/api/wxPlatform/wecom/department/simpleList": {
+      "get": {
+        "responses": null
+      }
+    },
+    "/admin/api/wxPlatform/wecom/employee/delete": {
+      "delete": {
+        "responses": null
+      }
+    },
+    "/admin/api/wxPlatform/wecom/employee/detail": {
+      "get": {
+        "responses": null
+      }
+    },
+    "/admin/api/wxPlatform/wecom/employee/list": {
+      "get": {
+        "responses": null
+      }
+    },
+    "/admin/api/wxPlatform/wecom/groupChat/detail": {
+      "post": {
+        "responses": null
+      }
+    },
+    "/admin/api/wxPlatform/wecom/groupChat/list": {
+      "get": {
+        "responses": null
+      }
+    },
+    "/admin/api/wxPlatform/wecom/media/detail": {
+      "get": {
+        "responses": null
+      }
+    },
+    "/admin/api/wxPlatform/wecom/media/upload/image": {
+      "post": {
+        "responses": null
+      }
+    },
+    "/admin/api/wxPlatform/wecom/media/upload/tempFile": {
+      "post": {
+        "responses": null
+      }
+    },
+    "/admin/api/wxPlatform/wecom/media/upload/tempImage": {
+      "post": {
+        "responses": null
+      }
+    },
+    "/admin/api/wxPlatform/wecom/media/upload/tempVideo": {
+      "post": {
+        "responses": null
+      }
+    },
+    "/admin/api/wxPlatform/wecom/media/upload/tempVoice": {
+      "post": {
+        "responses": null
+      }
+    },
+    "/pay.html": {
+      "get": {
+        "responses": null
+      }
+    },
+    "/root/api/customer/sync": {
+      "post": {
+        "responses": null
+      }
+    },
+    "/root/api/department/sync": {
+      "post": {
+        "responses": null
+      }
+    },
+    "/root/api/employee/sync": {
+      "post": {
+        "responses": null
+      }
+    },
+    "/root/api/permission/create": {
+      "post": {
+        "responses": null
+      }
+    },
+    "/root/api/permission/delete": {
+      "delete": {
+        "responses": null
+      }
+    },
+    "/root/api/permission/detail": {
+      "get": {
+        "responses": null
+      }
+    },
+    "/root/api/permission/list": {
+      "get": {
+        "responses": null
+      }
+    },
+    "/root/api/permission/module/create": {
+      "post": {
+        "responses": null
+      }
+    },
+    "/root/api/permission/module/delete": {
+      "delete": {
+        "responses": null
+      }
+    },
+    "/root/api/permission/module/detail": {
+      "get": {
+        "responses": null
+      }
+    },
+    "/root/api/permission/module/list": {
+      "get": {
+        "responses": null
+      }
+    },
+    "/root/api/permission/module/update": {
+      "put": {
+        "responses": null
+      }
+    },
+    "/root/api/permission/update": {
+      "put": {
+        "responses": null
+      }
+    },
+    "/wechat/api/getCallbackIPs": {
+      "get": {
+        "responses": null
+      }
+    },
+    "/wechat/api/miniporgram/oauth2/authorize/customer": {
+      "get": {
+        "responses": null
+      }
+    },
+    "/wechat/api/wecom/callback/authorized/customer/": {
+      "get": {
+        "responses": null
+      }
+    },
+    "/wechat/api/wecom/callback/authorized/employee": {
+      "get": {
+        "responses": null
+      }
+    },
+    "/wechat/api/wecom/callback/authorized/qr/employee": {
+      "get": {
+        "responses": null
+      }
+    },
+    "/wechat/api/wecom/customer": {
+      "post": {
+        "responses": null
+      }
+    },
+    "/wechat/api/wecom/employee": {
+      "post": {
+        "responses": null
+      }
+    },
+    "/wechat/api/wecom/oauth2/authorize/customer": {
+      "get": {
+        "responses": null
+      }
+    },
+    "/wechat/api/wecom/oauth2/authorize/employee": {
+      "get": {
+        "responses": null
+      }
+    },
+    "/wechat/api/wecom/oauth2/authorize/qr/employee": {
+      "get": {
+        "responses": null
+      }
+    }
+  }
+}

@@ -230,7 +230,7 @@ func (srv *CustomerService) GetCustomerIDsByExternalUserIDsAndFilters(db *gorm.D
 			Where("rCustomerToEmployeeCreateTime.create_time BETWEEN ? AND ?", filter.FilterStartDate.Unix(), filter.FilterEndDate.Unix())
 	}
 
-	// filtered by customers' wx tags
+	// filtered by customers' wechat tags
 	filterWXTagIDs := []string{}
 	err = object.JsonDecode(filter.FilterWXTagIDs, &filterWXTagIDs)
 	if len(filterWXTagIDs) > 0 {
@@ -314,17 +314,7 @@ func (srv *CustomerService) FollowEmployee(db *gorm.DB, customer *models.Custome
 	return pivot, err
 }
 
-func (srv *CustomerService) SyncFollowEmployee(db *gorm.DB, customer *models.Customer, followInfo *modelSocialite.FollowUser) (pivots *models.RCustomerToEmployee, err error) {
-
-	err = srv.ClearEmployees(db, customer)
-	if err != nil {
-		return nil, err
-	}
-	return srv.FollowEmployee(db, customer, followInfo)
-
-}
-
-func (srv *CustomerService) UnfollowEmployee(db *gorm.DB, customer *models.Customer, employees []*models.Employee) (err error) {
+func (srv *CustomerService) UnfollowEmployees(db *gorm.DB, customer *models.Customer, employees []*models.Employee) (err error) {
 	err = db.Model(customer).
 		//Debug().
 		Association("FollowUsers").
@@ -353,19 +343,19 @@ func (srv *CustomerService) SyncCustomers(employeeUserIDs []string, cursor strin
 		}
 	}
 
-	// sync employee's contacts with userid from wx
+	// sync employee's contacts with userid from wechat
 	response, _ := wecom.G_WeComApp.App.ExternalContact.BatchGet(employeeUserIDs, cursor, 200)
 	if response.ErrCode != 0 {
 		return errors.New(response.ErrMSG)
 	}
 
-	// parse the result of employees from wx
+	// parse the result of employees from wechat
 	for _, contact := range response.ExternalContactList {
-		// parse contacts from wx
+		// 从客户的信息中获取客户对象
 		customer := srv.NewCustomerFromWXContact(contact.ExternalContact)
 		err = srv.UpsertCustomerByWXCustomer(global.G_DBConnection, customer.WXCustomer)
 
-		// sync follow user info
+		// 同步客户和员工之间的关系
 		employee, err := serviceEmployee.GetEmployeeByUserID(global.G_DBConnection, contact.FollowInfo.UserID)
 		if err != nil || employee == nil {
 			fmt.Dump(err.Error())
@@ -377,7 +367,7 @@ func (srv *CustomerService) SyncCustomers(employeeUserIDs []string, cursor strin
 			fmt.Dump(err.Error())
 		}
 
-		// sync wx tags to employee
+		// 同步微信的关系
 		if len(contact.FollowInfo.TagIDs) > 0 {
 			serviceWXTag := wecom.NewWXTagService(nil)
 			err = serviceWXTag.SyncWXTagsByFollowInfos(global.G_DBConnection, pivot, contact.FollowInfo)

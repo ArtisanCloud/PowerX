@@ -5,12 +5,13 @@ import (
 	"github.com/ArtisanCloud/PowerSocialite/v2/src/providers"
 	"github.com/ArtisanCloud/PowerWeChat/v2/src/kernel"
 	"github.com/ArtisanCloud/PowerWeChat/v2/src/kernel/contract"
-	modelPowerWechatEvent "github.com/ArtisanCloud/PowerWeChat/v2/src/work/server/handlers/models"
+	modelPowerWechat "github.com/ArtisanCloud/PowerWeChat/v2/src/kernel/models"
+	modelWecomEvent "github.com/ArtisanCloud/PowerWeChat/v2/src/work/server/handlers/models"
 	"github.com/ArtisanCloud/PowerX/app/http/controllers/api"
 	"github.com/ArtisanCloud/PowerX/app/models"
 	"github.com/ArtisanCloud/PowerX/app/service"
 	"github.com/ArtisanCloud/PowerX/app/service/wx/wecom"
-	"github.com/ArtisanCloud/PowerX/configs/global"
+	"github.com/ArtisanCloud/PowerX/config"
 	globalDatabase "github.com/ArtisanCloud/PowerX/database/global"
 	"github.com/gin-gonic/gin"
 	"io/ioutil"
@@ -43,7 +44,7 @@ func APICallbackValidationEmployee(context *gin.Context) {
 
 	response, err := wecom.G_WeComEmployee.App.Server.Serve(context.Request)
 	if err != nil {
-		ctl.RS.Error(context, global.API_RETURN_CODE_ERROR, err.Error(), "")
+		ctl.RS.Error(context, config.API_RETURN_CODE_ERROR, err.Error(), "")
 		return
 	}
 
@@ -53,6 +54,7 @@ func APICallbackValidationEmployee(context *gin.Context) {
 
 }
 
+// https://developer.work.weixin.qq.com/document/path/90967
 func APICallbackEmployee(context *gin.Context) {
 	ctl := NewWeComAPIController(context)
 
@@ -65,11 +67,18 @@ func APICallbackEmployee(context *gin.Context) {
 		result = kernel.SUCCESS_EMPTY_RESPONSE
 
 		switch event.GetMsgType() {
-		case "event":
+		// 事件通知
+		case modelPowerWechat.CALLBACK_MSG_TYPE_EVENT:
 			{
 				ctl.HandleEmployeeEvent(context, event)
 			}
 			break
+		case modelPowerWechat.CALLBACK_MSG_TYPE_TEXT:
+		case modelPowerWechat.CALLBACK_MSG_TYPE_IMAGE:
+		case modelPowerWechat.CALLBACK_MSG_TYPE_VOICE:
+		case modelPowerWechat.CALLBACK_MSG_TYPE_VIDEO:
+		case modelPowerWechat.CALLBACK_MSG_TYPE_LOCATION:
+		case modelPowerWechat.CALLBACK_MSG_TYPE_LINK:
 
 		default:
 
@@ -94,11 +103,26 @@ func (ctl *WeComAPIController) HandleEmployeeEvent(context *gin.Context, event c
 
 	var err error
 	switch event.GetEvent() {
-	case modelPowerWechatEvent.CALLBACK_EVENT_CHANGE_CONTACT:
+
+	// 员工变更事件
+	case modelWecomEvent.CALLBACK_EVENT_CHANGE_CONTACT:
 		{
 			err = ctl.HandleEventChangeContact(context, event)
 			break
 		}
+
+	case modelWecomEvent.CALLBACK_EVENT_SUBSCRIBE:
+	case modelWecomEvent.CALLBACK_EVENT_ENTER_AGENT:
+	case modelWecomEvent.CALLBACK_EVENT_LOCATION:
+	case modelWecomEvent.CALLBACK_EVENT_BATCH_JOB_RESULT:
+	case modelWecomEvent.CALLBACK_EVENT_CLICK:
+	case modelWecomEvent.CALLBACK_EVENT_VIEW:
+	case modelWecomEvent.CALLBACK_EVENT_SCANCODE_PUSH:
+	case modelWecomEvent.CALLBACK_EVENT_SCANCODE_WAITMSG:
+	case modelWecomEvent.CALLBACK_EVENT_PIC_SYSPHOTO:
+	case modelWecomEvent.CALLBACK_EVENT_PIC_PHOTO_OR_ALBUM:
+	case modelWecomEvent.CALLBACK_EVENT_PIC_WEIXIN:
+
 	default:
 
 	}
@@ -117,7 +141,7 @@ func APICallbackValidationCustomer(context *gin.Context) {
 
 	response, err := wecom.G_WeComCustomer.App.Server.Serve(context.Request)
 	if err != nil {
-		ctl.RS.Error(context, global.API_RETURN_CODE_ERROR, err.Error(), "")
+		ctl.RS.Error(context, config.API_RETURN_CODE_ERROR, err.Error(), "")
 		return
 	}
 
@@ -127,6 +151,7 @@ func APICallbackValidationCustomer(context *gin.Context) {
 
 }
 
+// // https://developer.work.weixin.qq.com/document/path/92129
 func APICallbackCustomer(context *gin.Context) {
 	ctl := NewWeComAPIController(context)
 
@@ -139,11 +164,18 @@ func APICallbackCustomer(context *gin.Context) {
 		result = kernel.SUCCESS_EMPTY_RESPONSE
 
 		switch event.GetMsgType() {
-		case "event":
+		// 事件通知
+		case modelPowerWechat.CALLBACK_MSG_TYPE_EVENT:
 			{
 				ctl.HandleCustomerEvent(context, event)
 			}
 			break
+		case modelPowerWechat.CALLBACK_MSG_TYPE_TEXT:
+		case modelPowerWechat.CALLBACK_MSG_TYPE_IMAGE:
+		case modelPowerWechat.CALLBACK_MSG_TYPE_VOICE:
+		case modelPowerWechat.CALLBACK_MSG_TYPE_VIDEO:
+		case modelPowerWechat.CALLBACK_MSG_TYPE_LOCATION:
+		case modelPowerWechat.CALLBACK_MSG_TYPE_LINK:
 
 		default:
 
@@ -169,17 +201,26 @@ func (ctl *WeComAPIController) HandleCustomerEvent(context *gin.Context, event c
 
 	var err error
 	switch event.GetEvent() {
-	case modelPowerWechatEvent.CALLBACK_EVENT_CHANGE_EXTERNAL_CONTACT:
+	// 企业客户变更
+	// https://developer.work.weixin.qq.com/document/path/92130
+	//
+	case modelWecomEvent.CALLBACK_EVENT_CHANGE_EXTERNAL_CONTACT:
 		{
 			err = ctl.HandleEventChangeCustomer(context, event)
 			break
 		}
-	case modelPowerWechatEvent.CALLBACK_EVENT_CHANGE_EXTERNAL_CHAT:
+	// 客户群变更
+	// https://developer.work.weixin.qq.com/document/path/92130
+	//
+	case modelWecomEvent.CALLBACK_EVENT_CHANGE_EXTERNAL_CHAT:
 		{
 			err = ctl.HandleEventChangeExternalChat(context, event)
 			break
 		}
-	case modelPowerWechatEvent.CALLBACK_EVENT_CHANGE_EXTERNAL_TAG:
+	// 客户标签变更
+	// https://developer.work.weixin.qq.com/document/path/92130
+	//
+	case modelWecomEvent.CALLBACK_EVENT_CHANGE_EXTERNAL_TAG:
 		{
 			err = ctl.HandleEventChangeExternalTag(context, event)
 			break
@@ -198,32 +239,39 @@ func (ctl *WeComAPIController) HandleEventChangeCustomer(context *gin.Context, e
 
 	serviceEmployee := service.NewEmployeeService(context)
 	switch event.GetChangeType() {
-	case modelPowerWechatEvent.CALLBACK_EVENT_CHANGE_TYPE_ADD_EXTERNAL_CONTACT:
+
+	// 客户新增
+	case modelWecomEvent.CALLBACK_EVENT_CHANGE_TYPE_ADD_EXTERNAL_CONTACT:
 		err = serviceEmployee.HandleAddCustomer(context, event)
 		break
 
-	case modelPowerWechatEvent.CALLBACK_EVENT_CHANGE_TYPE_EDIT_EXTERNAL_CONTACT:
+	// 客户更新
+	case modelWecomEvent.CALLBACK_EVENT_CHANGE_TYPE_EDIT_EXTERNAL_CONTACT:
 		err = serviceEmployee.HandleEditCustomer(context, event)
 		if err != nil {
 			return err
 		}
 		break
 
-	case modelPowerWechatEvent.CALLBACK_EVENT_CHANGE_TYPE_ADD_HALF_EXTERNAL_CONTACT:
+	// 客户无验证新增
+	case modelWecomEvent.CALLBACK_EVENT_CHANGE_TYPE_ADD_HALF_EXTERNAL_CONTACT:
 		err = serviceEmployee.HandleAddHalfCustomer(context, event)
 		if err != nil {
 			return err
 		}
 		break
 
-	case modelPowerWechatEvent.CALLBACK_EVENT_CHANGE_TYPE_DEL_EXTERNAL_CONTACT:
+	// 客户删除
+	case modelWecomEvent.CALLBACK_EVENT_CHANGE_TYPE_DEL_EXTERNAL_CONTACT:
 		err = serviceEmployee.HandleDelCustomer(context, event)
 		if err != nil {
 			return err
 		}
+
 		break
 
-	case modelPowerWechatEvent.CALLBACK_EVENT_CHANGE_TYPE_DEL_FOLLOW_USER:
+	// 客户去关联员工
+	case modelWecomEvent.CALLBACK_EVENT_CHANGE_TYPE_DEL_FOLLOW_USER:
 		msg, err := serviceEmployee.HandleDelFollowEmployee(context, event)
 		if err != nil {
 			return err
@@ -236,11 +284,13 @@ func (ctl *WeComAPIController) HandleEventChangeCustomer(context *gin.Context, e
 
 		break
 
-	case modelPowerWechatEvent.CALLBACK_EVENT_CHANGE_TYPE_TRANSFER_FAIL:
+	// 客户转交员工失败
+	case modelWecomEvent.CALLBACK_EVENT_CHANGE_TYPE_TRANSFER_FAIL:
 		err = serviceEmployee.HandleTransferFail(context, event)
 		if err != nil {
 			return err
 		}
+
 		break
 
 	}
@@ -254,21 +304,24 @@ func (ctl *WeComAPIController) HandleEventChangeExternalChat(context *gin.Contex
 	serviceGroupChat := service.NewGroupChatService(context)
 	switch event.GetChangeType() {
 
-	case modelPowerWechatEvent.CALLBACK_EVENT_CHANGE_TYPE_CREATE:
+	// 客户群新建
+	case modelWecomEvent.CALLBACK_EVENT_CHANGE_TYPE_CREATE:
 		err = serviceGroupChat.HandleChatCreate(context, event)
 		if err != nil {
 			return err
 		}
 		break
 
-	case modelPowerWechatEvent.CALLBACK_EVENT_CHANGE_TYPE_UPDATE:
+	// 客户群更新
+	case modelWecomEvent.CALLBACK_EVENT_CHANGE_TYPE_UPDATE:
 		err = serviceGroupChat.HandleChatUpdate(context, event)
 		if err != nil {
 			return err
 		}
 		break
 
-	case modelPowerWechatEvent.CALLBACK_EVENT_CHANGE_TYPE_DISMISS:
+	// 客户群解散
+	case modelWecomEvent.CALLBACK_EVENT_CHANGE_TYPE_DISMISS:
 		err = serviceGroupChat.HandleChatDismiss(context, event)
 		if err != nil {
 			return err
@@ -285,28 +338,32 @@ func (ctl *WeComAPIController) HandleEventChangeExternalTag(context *gin.Context
 
 	switch event.GetChangeType() {
 
-	case modelPowerWechatEvent.CALLBACK_EVENT_CHANGE_TYPE_CREATE:
+	// 客户标签创建
+	case modelWecomEvent.CALLBACK_EVENT_CHANGE_TYPE_CREATE:
 		err = serviceTag.HandleTagCreate(context, event)
 		if err != nil {
 			return err
 		}
 		break
 
-	case modelPowerWechatEvent.CALLBACK_EVENT_CHANGE_TYPE_UPDATE:
+	// 客户标签修改
+	case modelWecomEvent.CALLBACK_EVENT_CHANGE_TYPE_UPDATE:
 		err = serviceTag.HandleTagUpdate(context, event)
 		if err != nil {
 			return err
 		}
 		break
 
-	case modelPowerWechatEvent.CALLBACK_EVENT_CHANGE_TYPE_DELETE:
+	// 客户标签删除
+	case modelWecomEvent.CALLBACK_EVENT_CHANGE_TYPE_DELETE:
 		err = serviceTag.HandleTagDelete(context, event)
 		if err != nil {
 			return err
 		}
 		break
 
-	case modelPowerWechatEvent.CALLBACK_EVENT_CHANGE_TYPE_SHUFFLE:
+	// 客户标签重排
+	case modelWecomEvent.CALLBACK_EVENT_CHANGE_TYPE_SHUFFLE:
 		err = serviceTag.HandleTagShuffle(context, event)
 		if err != nil {
 			return err
@@ -323,49 +380,66 @@ func (ctl *WeComAPIController) HandleEventChangeContact(context *gin.Context, ev
 	serviceDepartment := service.NewDepartmentService(context)
 	switch event.GetChangeType() {
 
-	case modelPowerWechatEvent.CALLBACK_EVENT_CHANGE_TYPE_CREATE_USER:
+	// 成员变更
+	// https://developer.work.weixin.qq.com/document/path/90970
+	// -----------------------------------------------------------------------------
+
+	// 员工新建
+	case modelWecomEvent.CALLBACK_EVENT_CHANGE_TYPE_CREATE_USER:
 		err = serviceEmployee.HandleEmployeeCreate(context, event)
 		if err != nil {
 			return err
 		}
 		break
-
-	case modelPowerWechatEvent.CALLBACK_EVENT_CHANGE_TYPE_UPDATE_USER:
+	// 员工更新
+	case modelWecomEvent.CALLBACK_EVENT_CHANGE_TYPE_UPDATE_USER:
 		err = serviceEmployee.HandleEmployeeUpdate(context, event)
 		if err != nil {
 			return err
 		}
 		break
-
-	case modelPowerWechatEvent.CALLBACK_EVENT_CHANGE_TYPE_DELETE_USER:
+	// 员工删除
+	case modelWecomEvent.CALLBACK_EVENT_CHANGE_TYPE_DELETE_USER:
 		err = serviceEmployee.HandleEmployeeDelete(context, event)
 		if err != nil {
 			return err
 		}
 		break
 
-	case modelPowerWechatEvent.CALLBACK_EVENT_CHANGE_TYPE_CREATE_PARTY:
+	// 部门变更
+	// https://developer.work.weixin.qq.com/document/path/90971
+	// -----------------------------------------------------------------------------
+
+	// 部门新建
+	case modelWecomEvent.CALLBACK_EVENT_CHANGE_TYPE_CREATE_PARTY:
 		err = serviceDepartment.HandleDepartmentCreate(context, event)
 		if err != nil {
 			return err
 		}
 		break
 
-	case modelPowerWechatEvent.CALLBACK_EVENT_CHANGE_TYPE_UPDATE_PARTY:
+	// 部门更新
+	case modelWecomEvent.CALLBACK_EVENT_CHANGE_TYPE_UPDATE_PARTY:
 		err = serviceDepartment.HandleDepartmentUpdate(context, event)
 		if err != nil {
 			return err
 		}
 		break
 
-	case modelPowerWechatEvent.CALLBACK_EVENT_CHANGE_TYPE_DELETE_PARTY:
+	// 部门删除
+	case modelWecomEvent.CALLBACK_EVENT_CHANGE_TYPE_DELETE_PARTY:
 		err = serviceDepartment.HandleDepartmentDelete(context, event)
 		if err != nil {
 			return err
 		}
 		break
 
-	case modelPowerWechatEvent.CALLBACK_EVENT_CHANGE_TYPE_UPDATE_TAG:
+	// 部门变更
+	// https://developer.work.weixin.qq.com/document/path/90972
+	// -----------------------------------------------------------------------------
+
+	// 员工标签更新
+	case modelWecomEvent.CALLBACK_EVENT_CHANGE_TYPE_UPDATE_TAG:
 		err = serviceEmployee.HandleContactTagUpdate(context, event)
 		if err != nil {
 			return err
@@ -401,7 +475,7 @@ func WeComAuthorizedCustomer(context *gin.Context) {
 	// get customer info from code
 	customer, err := wecom.G_WeComCustomer.AuthorizedCustomer(context)
 	if err != nil {
-		ctl.RS.SetCode(http.StatusExpectationFailed, global.API_RETURN_CODE_ERROR, "", err.Error())
+		ctl.RS.SetCode(http.StatusExpectationFailed, config.API_RETURN_CODE_ERROR, "", err.Error())
 		ctl.RS.ThrowJSONResponse(context)
 		return
 	}
@@ -432,8 +506,8 @@ func WeComAuthorizedCustomer(context *gin.Context) {
 		customer.SetAttribute("appID", appID)
 
 	} else {
-		// invalid wx customer
-		ctl.RS.SetCode(http.StatusExpectationFailed, global.API_RETURN_CODE_ERROR, "", "invalid wx customer")
+		// invalid wechat customer
+		ctl.RS.SetCode(http.StatusExpectationFailed, config.API_RETURN_CODE_ERROR, "", "invalid wechat customer")
 		ctl.RS.ThrowJSONResponse(context)
 		return
 	}
@@ -441,7 +515,7 @@ func WeComAuthorizedCustomer(context *gin.Context) {
 	account = models.NewCustomer(object.NewCollection(customer.GetAttributes()))
 	err = service.NewCustomerService(context).UpsertCustomers(globalDatabase.G_DBConnection, []*models.Customer{account}, nil)
 	if err != nil {
-		ctl.RS.SetCode(global.API_ERR_CODE_FAIL_TO_UPSERT_ACCOUNT, global.API_RETURN_CODE_ERROR, "", "")
+		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_UPSERT_ACCOUNT, config.API_RETURN_CODE_ERROR, "", "")
 		panic(ctl.RS)
 		return
 	}
@@ -466,14 +540,14 @@ func WeComAuthorizedEmployee(context *gin.Context) {
 	// get user info from code
 	user, err := wecom.G_WeComEmployee.AuthorizedEmployee(context)
 	if err != nil {
-		ctl.RS.SetCode(http.StatusExpectationFailed, global.API_RETURN_CODE_ERROR, "", err.Error())
+		ctl.RS.SetCode(http.StatusExpectationFailed, config.API_RETURN_CODE_ERROR, "", err.Error())
 		ctl.RS.ThrowJSONResponse(context)
 		return
 	}
 
 	strToken, rsCode := WeComGetEmployeeToken(context, user)
-	if rsCode != global.API_RESULT_CODE_INIT {
-		ctl.RS.SetCode(rsCode, global.API_RETURN_CODE_ERROR, "", "")
+	if rsCode != config.API_RESULT_CODE_INIT {
+		ctl.RS.SetCode(rsCode, config.API_RETURN_CODE_ERROR, "", "")
 		ctl.RS.ThrowJSONResponse(context)
 		return
 	}
@@ -494,14 +568,14 @@ func WeComAuthorizedEmployeeQR(context *gin.Context) {
 	// get user info from code
 	user, err := wecom.G_WeComEmployee.AuthorizedEmployeeQR(context)
 	if err != nil {
-		ctl.RS.SetCode(http.StatusExpectationFailed, global.API_RETURN_CODE_ERROR, "", err.Error())
+		ctl.RS.SetCode(http.StatusExpectationFailed, config.API_RETURN_CODE_ERROR, "", err.Error())
 		ctl.RS.ThrowJSONResponse(context)
 		return
 	}
 
 	strToken, rsCode := WeComGetEmployeeToken(context, user)
-	if rsCode != global.API_RESULT_CODE_INIT {
-		ctl.RS.SetCode(rsCode, global.API_RETURN_CODE_ERROR, "", "")
+	if rsCode != config.API_RESULT_CODE_INIT {
+		ctl.RS.SetCode(rsCode, config.API_RETURN_CODE_ERROR, "", "")
 		ctl.RS.ThrowJSONResponse(context)
 		return
 	}
@@ -521,7 +595,7 @@ func WeComGetEmployeeToken(context *gin.Context, user *providers.User) (strToken
 	var employee *models.Employee
 	userID := user.GetID()
 	if userID == "" {
-		return "", global.API_ERR_CODE_FAIL_TO_GET_EMPLOYEE_DETAIL
+		return "", config.API_ERR_CODE_FAIL_TO_GET_EMPLOYEE_DETAIL
 	}
 
 	serviceEmployee := service.NewEmployeeService(context)
@@ -531,7 +605,7 @@ func WeComGetEmployeeToken(context *gin.Context, user *providers.User) (strToken
 	if user.GetOpenID() == "" {
 		responseOpenID, err := wecom.G_WeComEmployee.App.User.UserIdToOpenID(userID)
 		if err != nil || responseOpenID.OpenID == "" {
-			return "", global.API_ERR_CODE_LACK_OF_WX_OPEN_ID
+			return "", config.API_ERR_CODE_LACK_OF_WX_OPEN_ID
 		}
 		employee.WXEmployee.WXCorpID = object.NewNullString(wecom.G_WeComEmployee.App.Config.GetString("corp_id", ""), true)
 		employee.WXEmployee.WXOpenID = object.NewNullString(responseOpenID.OpenID, true)
@@ -539,12 +613,12 @@ func WeComGetEmployeeToken(context *gin.Context, user *providers.User) (strToken
 	serviceWeComEmployee := wecom.NewWeComEmployeeService(nil)
 	err := serviceWeComEmployee.UpsertEmployeeByWXEmployee(globalDatabase.G_DBConnection, employee.WXEmployee)
 	if err != nil {
-		return "", global.API_ERR_CODE_FAIL_TO_UPSERT_EMPLOYEE
+		return "", config.API_ERR_CODE_FAIL_TO_UPSERT_EMPLOYEE
 
 	}
 
 	serviceAuth := service.NewAuthService(context)
 	strToken, _ = serviceAuth.CreateTokenForEmployee(employee)
 
-	return strToken, global.API_RESULT_CODE_INIT
+	return strToken, config.API_RESULT_CODE_INIT
 }
