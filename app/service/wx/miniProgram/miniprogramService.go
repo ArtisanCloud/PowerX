@@ -6,7 +6,6 @@ import (
 	"github.com/ArtisanCloud/PowerWeChat/v2/src/miniProgram"
 	"github.com/ArtisanCloud/PowerX/config"
 	"github.com/gin-gonic/gin"
-	"log"
 )
 
 type MiniProgramService struct {
@@ -15,7 +14,7 @@ type MiniProgramService struct {
 
 func NewMiniProgramService(ctx *gin.Context) (*MiniProgramService, error) {
 
-	log.Printf("MiniProgram app id: %s", config.G_AppConfigure.WXMiniProgramConfig.MiniProgramAppID)
+	//log.Printf("MiniProgram app id: %s", config.G_AppConfigure.WXMiniProgramConfig.MiniProgramAppID)
 
 	app, err := miniProgram.NewMiniProgram(&miniProgram.UserConfig{
 		AppID:  config.G_AppConfigure.WXMiniProgramConfig.MiniProgramAppID,  // 小程序、公众号或者企业微信的appid

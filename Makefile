@@ -18,14 +18,21 @@ build-dev-linux:
 	cp ./{environment.yml,cache.yml,database.yml,log.yml} ./configs/
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o marketX-dev-linux main.go
 
+
+build-authorization:
+	go build -o powerX-authorization cmd/authorization/main.go cmd/authorization/openAPI.go
+
+build-migrate:
+	go build -o powerX-migrate cmd/database/migrations/main.go
+
 build-migrate-dev:
-	go build -o powerX-migrate-dev database/migrations/migrate.go
+	go build -o powerX-migrate-dev cmd/database/migrations/migrate.go
 
 build-seed-dev:
-	go build -o powerX-seed-dev database/seeds/*
+	go build -o powerX-seed-dev cmd/database/seeds/*
 
 build-migrate-linux:
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o powerX-migrate-linux database/migrations/migrate.go
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o powerX-migrate-linux cmd/database/migrations/migrate.go
 
 build-env-example:
 	mkdir -p ./configs_example/
@@ -37,55 +44,56 @@ change-version:
 # ------------------------------------------------------------------------------------------------------------------------
 
 migrate-tables:
-	go run database/migrations/main.go
+	./powerX-migrate
 
 migrate-tables-refresh:
-	go run database/migrations/main.go refresh
+	./powerX-migrate refresh
 
 migrate-tables-refresh-seeds: migrate-tables-refresh seed-tables
 
 seed-tables:
-	go run database/seeds/*
+	go run cmd/database/seeds/*
 
 
 # ------------------------------------------------------------------------------------------------------------------------
 
+
 convert-routes-to-openapi:
-	go run cmd/authorization/authorization.go cmd/authorization/openAPI.go convertRouts2OpenAPI
+	./powerX-authorization convertRouts2OpenAPI
 
 convert-openapi-to-permissions:
-	go run cmd/authorization/authorization.go cmd/authorization/openAPI.go convertOpenAPI2Permissions
+	./powerX-authorization convertOpenAPI2Permissions
 
 convert-routes-to-permissions:
-	go run cmd/authorization/authorization.go cmd/authorization/openAPI.go convertRoutes2Permissions
+	./powerX-authorization convertRoutes2Permissions
 
 convert-permissions-to-openapi:
-	go run cmd/authorization/authorization.go cmd/authorization/openAPI.go convertPermissions2OpenAPI
+	./powerX-authorization convertPermissions2OpenAPI
 
 
 import-rbac-data:
-	go run cmd/authorization/authorization.go cmd/authorization/openAPI.go importRBACData
+	./powerX-authorization importRBACData
 dump-rbac-data:
-	go run cmd/authorization/authorization.go cmd/authorization/openAPI.go dumpRBACData
+	./powerX-authorization dumpRBACData
 
 import-permission-modules:
-	go run cmd/authorization/authorization.go cmd/authorization/openAPI.go importPermissionModules
+	./powerX-authorization importPermissionModules
 dump-permission-modules:
-	go run cmd/authorization/authorization.go cmd/authorization/openAPI.go dumpPermissionModules
+	./powerX-authorization dumpPermissionModules
 
 import-policy-rules:
-	go run cmd/authorization/authorization.go cmd/authorization/openAPI.go importPolicyRules
+	./powerX-authorization importPolicyRules
 dump-policy-rules:
-	go run cmd/authorization/authorization.go cmd/authorization/openAPI.go dumpPolicyRules
+	./powerX-authorization dumpPolicyRules
 
 
 init-rbac-roles-permission:
-	go run cmd/authorization/authorization.go cmd/authorization/openAPI.go initRBACRolesAndPermissions
+	./powerX-authorization initRBACRolesAndPermissions
 init-system-roles:
-	go run cmd/authorization/authorization.go cmd/authorization/openAPI.go initSystemRoles
+	./powerX-authorization initSystemRoles
 
 init-policies-byRBACPermissions:
-	go run cmd/authorization/authorization.go cmd/authorization/openAPI.go initPoliciesByRBACPermissions
+	./powerX-authorization initPoliciesByRBACPermissions
 
 
 # ------------------------------------------------------------------------------------------------------------------------
