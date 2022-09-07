@@ -12,7 +12,7 @@ func InitWXRoutes() {
 	apiWechatRouter := global.Router.Group("/wechat/api")
 	{
 
-		apiWechatRouter.Use(middleware.Installed, middleware.Maintenance)
+		apiWechatRouter.Use(middleware.CheckInstalled, middleware.Maintenance)
 		{
 			// ------
 			// ------------------------------------------------------------ Mini Program ------------------------------------------------------------

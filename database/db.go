@@ -10,9 +10,8 @@ import (
 	"gorm.io/gorm/logger"
 )
 
-func SetupDatabase() (err error) {
+func SetupDatabase(c *globalConfig.PostgresConfig) (err error) {
 
-	c := globalConfig.G_DBConfig
 	timezone := globalConfig.G_AppConfigure.Timezone
 	if timezone == "" {
 		timezone = carbon.UTC
@@ -26,7 +25,7 @@ func SetupDatabase() (err error) {
 	dsn += " TimeZone=" + timezone
 
 	logMode := logger.Default.LogMode(logger.Error)
-	if globalConfig.G_DBConfig.Debug {
+	if c.Debug {
 		logMode = logger.Default.LogMode(logger.Info)
 	}
 	global.G_DBConnection, err = gorm.Open(postgres.Open(dsn), &gorm.Config{

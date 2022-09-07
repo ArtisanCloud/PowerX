@@ -26,10 +26,6 @@ func InitConfig() (err error) {
 
 func InitProject() (err error) {
 
-	if config.G_AppConfigure.SystemConfig.Installed {
-		return nil
-	}
-
 	// Initialize the logger
 	err = logger.SetupLog()
 	if err != nil {
@@ -61,7 +57,7 @@ func InitProject() (err error) {
 	}
 
 	// Initialize the database
-	err = database.SetupDatabase()
+	err = database.SetupDatabase(config.G_DBConfig)
 	if err != nil {
 		return err
 	}

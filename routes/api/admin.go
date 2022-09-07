@@ -27,7 +27,7 @@ func InitAdminAPIRoutes() {
 
 	apiAdminRouter := global.Router.Group("/admin/api")
 	{
-		apiAdminRouter.Use(middleware.Installed, middleware.Maintenance, middleware.AuthenticateEmployeeByHeader, middleware.AuthorizeAPI)
+		apiAdminRouter.Use(middleware.CheckInstalled, middleware.Maintenance, middleware.AuthenticateEmployeeByHeader, middleware.AuthorizeAPI)
 		{
 
 			//  Customer - 企微客户接口
