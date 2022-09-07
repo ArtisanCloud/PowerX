@@ -1,0 +1,32 @@
+[
+ {
+  "createdAt": "2022-08-20T13:10:26.95057+08:00",
+  "updatedAt": "2022-08-20T15:01:33.178442+08:00",
+  "parent": null,
+  "children": null,
+  "roleID": "05d869bdf8bc5a74e1d96ad46dc8cd2e",
+  "name": "超级管理员",
+  "parentID": "",
+  "type": 1
+ },
+ {
+  "createdAt": "2022-08-20T13:10:26.950578+08:00",
+  "updatedAt": "2022-08-20T15:01:33.178472+08:00",
+  "parent": null,
+  "children": null,
+  "roleID": "b4b5e9a4e08200c01f31edf483377c1e",
+  "name": "管理员",
+  "parentID": "",
+  "type": 1
+ },
+ {
+  "createdAt": "2022-08-20T13:10:26.95058+08:00",
+  "updatedAt": "2022-08-20T15:01:33.178475+08:00",
+  "parent": null,
+  "children": null,
+  "roleID": "dc4f5f71f5541020d4e092e5ba965b24",
+  "name": "普通员工",
+  "parentID": "",
+  "type": 1
+ }
+]

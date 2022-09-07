@@ -4,7 +4,7 @@ import (
 	os2 "github.com/ArtisanCloud/PowerLibs/v2/os"
 	"github.com/ArtisanCloud/PowerX/app/http/controllers/api"
 	modelWX "github.com/ArtisanCloud/PowerX/app/models/wx"
-	"github.com/ArtisanCloud/PowerX/app/service/wx/wecom"
+	"github.com/ArtisanCloud/PowerX/app/service/wx/weCom"
 	"github.com/ArtisanCloud/PowerX/config"
 	globalDatabase "github.com/ArtisanCloud/PowerX/database/global"
 	"github.com/gin-gonic/gin"
@@ -12,16 +12,16 @@ import (
 
 type WXTagGroupAPIController struct {
 	*api.APIController
-	ServiceWXTagGroup *wecom.WXTagGroupService
-	ServiceWXTag      *wecom.WXTagService
+	ServiceWXTagGroup *weCom.WXTagGroupService
+	ServiceWXTag      *weCom.WXTagService
 }
 
 func NewWXTagGroupAPIController(context *gin.Context) (ctl *WXTagGroupAPIController) {
 
 	return &WXTagGroupAPIController{
 		APIController:     api.NewAPIController(context),
-		ServiceWXTagGroup: wecom.NewWXTagGroupService(context),
-		ServiceWXTag:      wecom.NewWXTagService(context),
+		ServiceWXTagGroup: weCom.NewWXTagGroupService(context),
+		ServiceWXTag:      weCom.NewWXTagService(context),
 	}
 }
 
@@ -92,8 +92,8 @@ func APIInsertWXTagGroup(context *gin.Context) {
 
 	var err error
 
-	// get wecome agent id
-	agentIDENV, err := os2.GetEnvInt("wecom_agent_id")
+	// get weCome agent id
+	agentIDENV, err := os2.GetEnvInt("weCom_agent_id")
 	agentID := int64(agentIDENV)
 	if err != nil {
 		ctl.RS.SetCode(config.API_ERR_CODE_WECOM_AGENT_ID_INVALID, config.API_RETURN_CODE_ERROR, "", err.Error())

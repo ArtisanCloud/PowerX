@@ -6,22 +6,22 @@ import (
 )
 
 type AppConfig struct {
-	Name     string `yaml:"name"`
-	Env      string `yaml:"env"`
-	Locale   string `yaml:"locale"`
-	Timezone string `yaml:"timezone"`
+	Name     string `yaml:"name" json:"name"`
+	Env      string `yaml:"env" json:"env"`
+	Locale   string `yaml:"locale" json:"locale"`
+	Timezone string `yaml:"timezone" json:"timezone"`
 
-	ServerConfig ServerConfig `yaml:"server"`
-	JWTConfig    JWTConfig    `yaml:"jwt"`
-	SystemConfig SystemConfig `yaml:"system"`
-	LogConfig    LogConfig    `yaml:"log"`
+	ServerConfig ServerConfig `yaml:"server" json:"server"`
+	JWTConfig    JWTConfig    `yaml:"jwt" json:"jwt"`
+	SystemConfig SystemConfig `yaml:"system" json:"system"`
+	LogConfig    LogConfig    `yaml:"log" json:"log"`
 
-	DatabaseConfig DatabaseConfig `yaml:"database"`
-	CacheConfig    CacheConfig    `yaml:"cache"`
+	DatabaseConfig DatabaseConfig `yaml:"database" json:"database"`
+	CacheConfig    CacheConfig    `yaml:"cache" json:"cache"`
 
-	WXConfig            WXConfig            `yaml:"wx"`
-	WecomConfig         WecomConfig         `yaml:"wecom"`
-	WXMiniProgramConfig WXMiniProgramConfig `yaml:"wx_miniprogram"`
+	WXConfig            WXConfig            `yaml:"wx" json:"wx"`
+	WecomConfig         WecomConfig         `yaml:"weCom" json:"weCom"`
+	WXMiniProgramConfig WXMiniProgramConfig `yaml:"wx_miniprogram" json:"wx_miniprogram"`
 }
 
 type ServerConfig struct {
@@ -30,17 +30,17 @@ type ServerConfig struct {
 }
 
 type JWTConfig struct {
-	PublicKeyFile  string `yaml:"public_key_file" binding:"required"`
-	PrivateKeyFile string `yaml:"private_key_file" binding:"required"`
+	PublicKey  string `yaml:"public_key" json:"public_key" binding:"required"`
+	PrivateKey string `yaml:"private_key" json:"private_key" binding:"required"`
 }
 
 type SystemConfig struct {
-	Maintenance bool
+	Maintenance bool `yaml:"maintenance" json:"maintenance"`
 	Installed   bool
 }
 
 type LogConfig struct {
-	LogPath string `yaml:"log_path" binding:"required"`
+	LogPath string `yaml:"log_path" json:"log_path" binding:"required"`
 }
 
 func LoadEnvConfig(configPath *string) (err error) {

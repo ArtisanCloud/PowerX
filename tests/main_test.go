@@ -80,25 +80,34 @@ func SetupTestEnv(t *testing.M) {
 			logger.Logger.Error("app configure failed")
 		}
 		// setup jwt key path
-		service.SetupSSHKeyPath(&config.G_AppConfigure.SSHConfig)
+		err = service.SetupJWTKeyPairs(&config.G_AppConfigure.JWTConfig)
 	}
 
 	// Initialize the database
 	if globalDatabase.G_DBConnection == nil {
 		// Initialize the database
 
-		config.LoadDatabaseConfig()
+		err := config.LoadDatabaseConfig()
+		if err != nil {
+			panic(err)
+		}
 
-		_ = database.SetupDatabase()
+		_ = database.SetupDatabase(config.G_DBConfig)
 		//_ = SetupMockDatabase()
 	}
 
 	// Initialize the cache
 	if global.G_CacheConnection == nil {
 
-		config.LoadCacheConfig()
+		err := config.LoadCacheConfig()
+		if err != nil {
+			panic(err)
+		}
 
-		_ = cache.SetupCache()
+		err = cache.SetupCache(&config.G_AppConfigure.CacheConfig.CacheConnections.RedisConfig)
+		if err != nil {
+			panic(err)
+		}
 
 	}
 

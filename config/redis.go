@@ -8,10 +8,10 @@ type RedisConfig struct {
 	cache.CacheInterface
 	CacheBaseConfig
 
-	Protocol       string `yaml:"protocol"`
-	Host           string `yaml:"host"`
-	Password       string `yaml:"password"`
-	DB             int    `yaml:"db"`
-	SSLEnabled     bool   `yaml:"ssl_enabled"`
-	TimeoutConnect int    `yaml:"timeout_connect"`
+	Protocol       string `yaml:"protocol" json:"protocol"`
+	Host           string `yaml:"host" json:"host"`
+	Password       string `yaml:"password" json:"password"`
+	DB             int    `yaml:"db" json:"db"`
+	SSLEnabled     bool   `yaml:"ssl_enabled" json:"ssl_enabled"`
+	TimeoutConnect int    `yaml:"timeout_connect" json:"timeout_connect"`
 }

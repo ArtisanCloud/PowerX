@@ -11,7 +11,7 @@ import (
 	models2 "github.com/ArtisanCloud/PowerWeChat/v2/src/work/server/handlers/models"
 	"github.com/ArtisanCloud/PowerX/app/models"
 	"github.com/ArtisanCloud/PowerX/app/models/wx"
-	"github.com/ArtisanCloud/PowerX/app/service/wx/wecom"
+	"github.com/ArtisanCloud/PowerX/app/service/wx/weCom"
 	"github.com/ArtisanCloud/PowerX/database/global"
 	logger "github.com/ArtisanCloud/PowerX/loggerManager"
 	"github.com/gin-gonic/gin"
@@ -51,7 +51,7 @@ func (srv *ContactWayService) SyncContactWayFromWXPlatform(startDatetime *carbon
 	// sync contact ways
 	for _, contactWayID := range result.ContactWayIDs {
 
-		responseContactWay, err := wecom.G_WeComEmployee.App.ExternalContactContactWay.Get(contactWayID.ConfigID)
+		responseContactWay, err := weCom.G_WeComEmployee.App.ExternalContactContactWay.Get(contactWayID.ConfigID)
 
 		users, _ := object.JsonEncode(responseContactWay.ContactWay.User)
 		parties, _ := object.JsonEncode(responseContactWay.ContactWay.Party)
@@ -233,7 +233,7 @@ func (srv *ContactWayService) GetContactWayListOnWXPlatform(startDatetime *carbo
 	}
 
 	// get tag group list from wechat platform
-	result, err := wecom.G_WeComEmployee.App.ExternalContactContactWay.List(request)
+	result, err := weCom.G_WeComEmployee.App.ExternalContactContactWay.List(request)
 
 	return result, err
 }
@@ -273,7 +273,7 @@ func (srv *ContactWayService) CreateContactWayOnWXPlatform(contactWay *models.Co
 		Conclusions: conclusions,
 	}
 
-	result, err = wecom.G_WeComEmployee.App.ExternalContactContactWay.Add(request)
+	result, err = weCom.G_WeComEmployee.App.ExternalContactContactWay.Add(request)
 
 	if err != nil {
 		return nil, err
@@ -319,7 +319,7 @@ func (srv *ContactWayService) UpdateContactWayOnWXPlatform(contactWay *models.Co
 		Conclusions: conclusions,
 	}
 
-	result, err := wecom.G_WeComEmployee.App.ExternalContactContactWay.Update(request)
+	result, err := weCom.G_WeComEmployee.App.ExternalContactContactWay.Update(request)
 
 	if err != nil {
 		return err
@@ -334,7 +334,7 @@ func (srv *ContactWayService) UpdateContactWayOnWXPlatform(contactWay *models.Co
 
 func (srv *ContactWayService) DeleteContactWayOnWXPlatform(configID string) (err error) {
 
-	result, err := wecom.G_WeComEmployee.App.ExternalContactContactWay.Delete(configID)
+	result, err := weCom.G_WeComEmployee.App.ExternalContactContactWay.Delete(configID)
 
 	if err != nil {
 		return err

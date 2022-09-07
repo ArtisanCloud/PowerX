@@ -9,7 +9,7 @@ import (
 	"github.com/ArtisanCloud/PowerWeChat/v2/src/work/externalContact/messageTemplate/response"
 	"github.com/ArtisanCloud/PowerX/app/models"
 	"github.com/ArtisanCloud/PowerX/app/models/wx"
-	"github.com/ArtisanCloud/PowerX/app/service/wx/wecom"
+	"github.com/ArtisanCloud/PowerX/app/service/wx/weCom"
 	logger "github.com/ArtisanCloud/PowerX/loggerManager"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-module/carbon"
@@ -42,7 +42,7 @@ func (srv *SendGroupChatMsgService) SyncSendGroupChatMsgFromWXPlatform(db *gorm.
 		Limit:     limit,
 		Cursor:    cursor,
 	}
-	rs, err = wecom.G_WeComCustomer.App.ExternalContactMessageTemplate.GetGroupMsgListV2(req)
+	rs, err = weCom.G_WeComCustomer.App.ExternalContactMessageTemplate.GetGroupMsgListV2(req)
 	if err != nil {
 		return rs, err
 	}
@@ -52,7 +52,7 @@ func (srv *SendGroupChatMsgService) SyncSendGroupChatMsgFromWXPlatform(db *gorm.
 
 	// sync wechat message template from wechat platform
 	err = db.Transaction(func(tx *gorm.DB) error {
-		serviceWXMessageTemplate := wecom.NewWXMessageTemplateService(nil)
+		serviceWXMessageTemplate := weCom.NewWXMessageTemplateService(nil)
 		for _, groupMsg := range rs.GroupMsgList {
 			wxMessageTemplate, err := serviceWXMessageTemplate.GetWXMessageTemplateByMsgID(tx, groupMsg.MsgID)
 			if err != nil {
@@ -227,11 +227,11 @@ func (srv *SendGroupChatMsgService) GetSendGroupChatMsgByUUID(db *gorm.DB, uuid 
 
 func (srv *SendGroupChatMsgService) CreateSendGroupChatMsgOnWXPlatform(msg *wx.WXMessageTemplate) (result *response.ResponseAddMessageTemplate, err error) {
 
-	request, err := wecom.G_WeComEmployee.ConvertAttachmentsToMessageTemplate(msg)
+	request, err := weCom.G_WeComEmployee.ConvertAttachmentsToMessageTemplate(msg)
 	if err != nil {
 		return nil, err
 	}
-	result, err = wecom.G_WeComCustomer.App.ExternalContactMessageTemplate.AddMsgTemplate(request)
+	result, err = weCom.G_WeComCustomer.App.ExternalContactMessageTemplate.AddMsgTemplate(request)
 	if err != nil {
 		return nil, err
 	}

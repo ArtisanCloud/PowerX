@@ -11,10 +11,9 @@ go 1.17
 //replace github.com/ArtisanCloud/PowerSocialite/v2 => ../PowerSocialite
 
 require (
-	github.com/ArtisanCloud/PowerLibs/v2 v2.0.40
-	github.com/ArtisanCloud/PowerSocialite/v2 v2.0.14
+	github.com/ArtisanCloud/PowerLibs/v2 v2.0.41
+	github.com/ArtisanCloud/PowerSocialite/v2 v2.0.15
 	github.com/ArtisanCloud/PowerWeChat/v2 v2.0.7
-	github.com/ArtisanCloud/ubt-go v1.0.6
 	github.com/casbin/casbin/v2 v2.52.2
 	github.com/casbin/gorm-adapter/v3 v3.8.0
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible

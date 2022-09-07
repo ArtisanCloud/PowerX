@@ -5,7 +5,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/app/http"
 	"github.com/ArtisanCloud/PowerX/app/models"
 	service "github.com/ArtisanCloud/PowerX/app/service"
-	"github.com/ArtisanCloud/PowerX/app/service/wx/wecom"
+	"github.com/ArtisanCloud/PowerX/app/service/wx/weCom"
 	globalRBAC "github.com/ArtisanCloud/PowerX/boostrap/rbac/global"
 	globalConfig "github.com/ArtisanCloud/PowerX/config"
 	"github.com/ArtisanCloud/PowerX/database/global"
@@ -36,7 +36,7 @@ func AuthCustomerByHeader(c *gin.Context) {
 		if claims["OpenID"] == nil && claims["ExternalUserID"] == nil {
 			apiResponse.SetCode(globalConfig.API_ERR_CODE_ACCOUNT_INVALID_TOKEN, globalConfig.API_RETURN_CODE_ERROR, "", "")
 		} else {
-			serviceWeComCustomer := wecom.NewWeComCustomerService(c)
+			serviceWeComCustomer := weCom.NewWeComCustomerService(c)
 			if claims["OpenID"] != nil {
 				openID := claims["OpenID"].(string)
 				if openID == "" {
@@ -45,7 +45,7 @@ func AuthCustomerByHeader(c *gin.Context) {
 				customer, err = serviceWeComCustomer.GetCustomerByOpenID(global.G_DBConnection, openID)
 
 				// set auth open id
-				wecom.SetAuthOpenID(c, openID)
+				weCom.SetAuthOpenID(c, openID)
 
 			} else if claims["ExternalUserID"] != nil {
 				externalUserID := claims["ExternalUserID"].(string)
@@ -132,7 +132,7 @@ func AuthenticateEmployee(c *gin.Context, strToken string) (errCode int) {
 	}
 
 	// 获取企业员工身份
-	serviceWeComEmployee := wecom.NewWeComEmployeeService(c)
+	serviceWeComEmployee := weCom.NewWeComEmployeeService(c)
 	employee, err := serviceWeComEmployee.GetEmployeeByUserID(global.G_DBConnection, wxUserID)
 	if err != nil || employee == nil {
 		return globalConfig.API_ERR_CODE_EMPLOYEE_UNREGISTER

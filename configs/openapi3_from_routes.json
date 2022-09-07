@@ -326,92 +326,92 @@
         "responses": null
       }
     },
-    "/admin/api/wxPlatform/wecom/contactWay/delete": {
+    "/admin/api/wxPlatform/weCom/contactWay/delete": {
       "delete": {
         "responses": null
       }
     },
-    "/admin/api/wxPlatform/wecom/contactWay/detail": {
+    "/admin/api/wxPlatform/weCom/contactWay/detail": {
       "get": {
         "responses": null
       }
     },
-    "/admin/api/wxPlatform/wecom/contactWay/list": {
+    "/admin/api/wxPlatform/weCom/contactWay/list": {
       "get": {
         "responses": null
       }
     },
-    "/admin/api/wxPlatform/wecom/customer/detail": {
+    "/admin/api/wxPlatform/weCom/customer/detail": {
       "get": {
         "responses": null
       }
     },
-    "/admin/api/wxPlatform/wecom/customer/list": {
+    "/admin/api/wxPlatform/weCom/customer/list": {
       "get": {
         "responses": null
       }
     },
-    "/admin/api/wxPlatform/wecom/department/list": {
+    "/admin/api/wxPlatform/weCom/department/list": {
       "get": {
         "responses": null
       }
     },
-    "/admin/api/wxPlatform/wecom/department/simpleList": {
+    "/admin/api/wxPlatform/weCom/department/simpleList": {
       "get": {
         "responses": null
       }
     },
-    "/admin/api/wxPlatform/wecom/employee/delete": {
+    "/admin/api/wxPlatform/weCom/employee/delete": {
       "delete": {
         "responses": null
       }
     },
-    "/admin/api/wxPlatform/wecom/employee/detail": {
+    "/admin/api/wxPlatform/weCom/employee/detail": {
       "get": {
         "responses": null
       }
     },
-    "/admin/api/wxPlatform/wecom/employee/list": {
+    "/admin/api/wxPlatform/weCom/employee/list": {
       "get": {
         "responses": null
       }
     },
-    "/admin/api/wxPlatform/wecom/groupChat/detail": {
+    "/admin/api/wxPlatform/weCom/groupChat/detail": {
       "post": {
         "responses": null
       }
     },
-    "/admin/api/wxPlatform/wecom/groupChat/list": {
+    "/admin/api/wxPlatform/weCom/groupChat/list": {
       "get": {
         "responses": null
       }
     },
-    "/admin/api/wxPlatform/wecom/media/detail": {
+    "/admin/api/wxPlatform/weCom/media/detail": {
       "get": {
         "responses": null
       }
     },
-    "/admin/api/wxPlatform/wecom/media/upload/image": {
+    "/admin/api/wxPlatform/weCom/media/upload/image": {
       "post": {
         "responses": null
       }
     },
-    "/admin/api/wxPlatform/wecom/media/upload/tempFile": {
+    "/admin/api/wxPlatform/weCom/media/upload/tempFile": {
       "post": {
         "responses": null
       }
     },
-    "/admin/api/wxPlatform/wecom/media/upload/tempImage": {
+    "/admin/api/wxPlatform/weCom/media/upload/tempImage": {
       "post": {
         "responses": null
       }
     },
-    "/admin/api/wxPlatform/wecom/media/upload/tempVideo": {
+    "/admin/api/wxPlatform/weCom/media/upload/tempVideo": {
       "post": {
         "responses": null
       }
     },
-    "/admin/api/wxPlatform/wecom/media/upload/tempVoice": {
+    "/admin/api/wxPlatform/weCom/media/upload/tempVoice": {
       "post": {
         "responses": null
       }
@@ -496,42 +496,42 @@
         "responses": null
       }
     },
-    "/wechat/api/wecom/callback/authorized/customer/": {
+    "/wechat/api/weCom/callback/authorized/customer/": {
       "get": {
         "responses": null
       }
     },
-    "/wechat/api/wecom/callback/authorized/employee": {
+    "/wechat/api/weCom/callback/authorized/employee": {
       "get": {
         "responses": null
       }
     },
-    "/wechat/api/wecom/callback/authorized/qr/employee": {
+    "/wechat/api/weCom/callback/authorized/qr/employee": {
       "get": {
         "responses": null
       }
     },
-    "/wechat/api/wecom/customer": {
+    "/wechat/api/weCom/customer": {
       "post": {
         "responses": null
       }
     },
-    "/wechat/api/wecom/employee": {
+    "/wechat/api/weCom/employee": {
       "post": {
         "responses": null
       }
     },
-    "/wechat/api/wecom/oauth2/authorize/customer": {
+    "/wechat/api/weCom/oauth2/authorize/customer": {
       "get": {
         "responses": null
       }
     },
-    "/wechat/api/wecom/oauth2/authorize/employee": {
+    "/wechat/api/weCom/oauth2/authorize/employee": {
       "get": {
         "responses": null
       }
     },
-    "/wechat/api/wecom/oauth2/authorize/qr/employee": {
+    "/wechat/api/weCom/oauth2/authorize/qr/employee": {
       "get": {
         "responses": null
       }

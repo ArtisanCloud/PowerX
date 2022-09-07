@@ -12,7 +12,7 @@ import (
 	modelWecomEvent "github.com/ArtisanCloud/PowerWeChat/v2/src/work/server/handlers/models"
 	"github.com/ArtisanCloud/PowerX/app/models"
 	modelWX "github.com/ArtisanCloud/PowerX/app/models/wx"
-	"github.com/ArtisanCloud/PowerX/app/service/wx/wecom"
+	"github.com/ArtisanCloud/PowerX/app/service/wx/weCom"
 	"github.com/ArtisanCloud/PowerX/database/global"
 	logger "github.com/ArtisanCloud/PowerX/loggerManager"
 	"github.com/gin-gonic/gin"
@@ -48,22 +48,22 @@ func NewEmployeeService(ctx *gin.Context) (r *EmployeeService) {
 func (srv *EmployeeService) SyncEmployees(departmentID int, fetchChild int) (err error) {
 
 	// get root department
-	response, err := wecom.G_WeComEmployee.App.User.GetDetailedDepartmentUsers(departmentID, fetchChild)
+	response, err := weCom.G_WeComEmployee.App.User.GetDetailedDepartmentUsers(departmentID, fetchChild)
 	if response.ErrCode != 0 {
 		return errors.New(response.ErrMSG)
 	}
 
-	strCorpID := wecom.G_WeComEmployee.App.Config.GetString("corp_id", "")
+	strCorpID := weCom.G_WeComEmployee.App.Config.GetString("corp_id", "")
 	if strCorpID == "" {
 		return errors.New("corp id is empty")
 	}
 
 	// parse the result of employees from wechat
 
-	serviceWeComEmployee := wecom.NewWeComEmployeeService(nil)
+	serviceWeComEmployee := weCom.NewWeComEmployeeService(nil)
 	for _, userDetail := range response.UserList {
 		// get employees from wechat
-		responseOpenID, err := wecom.G_WeComEmployee.App.User.UserIdToOpenID(userDetail.UserID)
+		responseOpenID, err := weCom.G_WeComEmployee.App.User.UserIdToOpenID(userDetail.UserID)
 		if err != nil {
 			return err
 		}
@@ -204,7 +204,7 @@ func (srv *EmployeeService) GetEmployeeByUserID(db *gorm.DB, userID string) (emp
 }
 
 func (srv *EmployeeService) GetEmployeeByUserIDOnWXPlatform(ctx *gin.Context, userID string) (employee *models.Employee, err error) {
-	responseGetEmployeeByID, err := wecom.G_WeComEmployee.App.OAuth.Provider.Detailed().GetUserByID(userID)
+	responseGetEmployeeByID, err := weCom.G_WeComEmployee.App.OAuth.Provider.Detailed().GetUserByID(userID)
 	if err != nil {
 		return nil, err
 	}
@@ -284,7 +284,7 @@ func (srv *EmployeeService) NewEmployeeFromWXEmployee(wxEmployee *modelSocialite
 
 func (srv *EmployeeService) HandleAddCustomer(context *gin.Context, event contract.EventInterface) (err error) {
 
-	serviceWXTag := wecom.NewWXTagService(context)
+	serviceWXTag := weCom.NewWXTagService(context)
 
 	msg := &modelWecomEvent.EventExternalUserAdd{}
 	err = event.ReadMessage(msg)
@@ -296,7 +296,7 @@ func (srv *EmployeeService) HandleAddCustomer(context *gin.Context, event contra
 
 	// --------------------------------------------------
 	// 同步客户的信息
-	rs, err := wecom.G_WeComApp.App.ExternalContact.Get(msg.ExternalUserID, "")
+	rs, err := weCom.G_WeComApp.App.ExternalContact.Get(msg.ExternalUserID, "")
 	if err != nil {
 		return err
 	}
@@ -343,7 +343,7 @@ func (srv *EmployeeService) HandleAddCustomer(context *gin.Context, event contra
 			AddTag:         tagIDs,
 			RemoveTag:      []string{},
 		}
-		_, err = wecom.G_WeComCustomer.App.ExternalContactTag.MarkTag(req)
+		_, err = weCom.G_WeComCustomer.App.ExternalContactTag.MarkTag(req)
 
 		err = serviceWXTag.SyncWXTagsToObject(global.G_DBConnection, pivot, contactWay.WXTags)
 		if err != nil {
@@ -353,7 +353,7 @@ func (srv *EmployeeService) HandleAddCustomer(context *gin.Context, event contra
 
 	// --------------------------------------------------
 	// 发送在联系客户中配置的欢迎语
-	err = wecom.G_WeComApp.SendAddCustomerWelcomeMsg(context, contactWay, msg)
+	err = weCom.G_WeComApp.SendAddCustomerWelcomeMsg(context, contactWay, msg)
 	if err != nil {
 		return err
 	}
@@ -374,7 +374,7 @@ func (srv *EmployeeService) HandleEditCustomer(context *gin.Context, event contr
 
 	// --------------------------------------------------
 	// 从微信平台上获取客户信息
-	rs, err := wecom.G_WeComApp.App.ExternalContact.Get(msg.ExternalUserID, "")
+	rs, err := weCom.G_WeComApp.App.ExternalContact.Get(msg.ExternalUserID, "")
 	if err != nil {
 		return err
 	}
@@ -409,7 +409,7 @@ func (srv *EmployeeService) HandleEditCustomer(context *gin.Context, event contr
 
 			// 同步微信标签给客户
 			if len(followInfo.Tags) > 0 {
-				serviceWXTag := wecom.NewWXTagService(nil)
+				serviceWXTag := weCom.NewWXTagService(nil)
 				err = serviceWXTag.SyncWXTagsByFollowInfos(global.G_DBConnection, pivot, followInfo)
 			}
 		}
@@ -452,7 +452,7 @@ func (srv *EmployeeService) HandleDelCustomer(context *gin.Context, event contra
 	// 解绑客户与员工关系
 	customer, employee, err := srv.UnbindCustomerToEmployee(msg.ExternalUserID, msg.UserID)
 	if err != nil {
-		wecom.G_WeComApp.App.Logger.Error(err.Error())
+		weCom.G_WeComApp.App.Logger.Error(err.Error())
 		return err
 	}
 	// 保存操作日志
@@ -476,7 +476,7 @@ func (srv *EmployeeService) HandleDelFollowEmployee(context *gin.Context, event 
 	// 解绑客户与员工关系
 	customer, employee, err := srv.UnbindCustomerToEmployee(msg.ExternalUserID, msg.UserID)
 	if err != nil {
-		wecom.G_WeComApp.App.Logger.Error(err.Error())
+		weCom.G_WeComApp.App.Logger.Error(err.Error())
 		return msg, err
 	}
 	// 保存操作日志
@@ -528,7 +528,7 @@ func (srv *EmployeeService) HandleEmployeeCreate(context *gin.Context, event con
 		return err
 	}
 
-	serviceWeComEmployee := wecom.NewWeComEmployeeService(nil)
+	serviceWeComEmployee := weCom.NewWeComEmployeeService(nil)
 	newEmployee := models.NewEmployee(object.NewCollection(&object.HashMap{
 		"userID": msg.UserID,
 	}))
@@ -633,7 +633,7 @@ func (srv *EmployeeService) BindCustomerToEmployee(UserExternalID string, follow
 
 func (srv *EmployeeService) UnbindCustomerToEmployee(UserExternalID string, UserID string) (customer *models.Customer, employee *models.Employee, err error) {
 
-	serviceWXTag := wecom.NewWXTagService(nil)
+	serviceWXTag := weCom.NewWXTagService(nil)
 	serviceCustomer := NewCustomerService(nil)
 
 	// get employee from event

@@ -4,7 +4,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/app/http/controllers/api"
 	"github.com/ArtisanCloud/PowerX/app/http/request/admin/groupChat"
 	"github.com/ArtisanCloud/PowerX/app/service"
-	"github.com/ArtisanCloud/PowerX/app/service/wx/wecom"
+	"github.com/ArtisanCloud/PowerX/app/service/wx/weCom"
 	"github.com/ArtisanCloud/PowerX/config"
 	globalDatabase "github.com/ArtisanCloud/PowerX/database/global"
 	"github.com/gin-gonic/gin"
@@ -13,7 +13,7 @@ import (
 type GroupChatAPIController struct {
 	*api.APIController
 	ServiceGroupChat *service.GroupChatService
-	ServiceWXTag     *wecom.WXTagService
+	ServiceWXTag     *weCom.WXTagService
 }
 
 func NewGroupChatAPIController(context *gin.Context) (ctl *GroupChatAPIController) {
@@ -21,7 +21,7 @@ func NewGroupChatAPIController(context *gin.Context) (ctl *GroupChatAPIControlle
 	return &GroupChatAPIController{
 		APIController:    api.NewAPIController(context),
 		ServiceGroupChat: service.NewGroupChatService(context),
-		ServiceWXTag:     wecom.NewWXTagService(context),
+		ServiceWXTag:     weCom.NewWXTagService(context),
 	}
 }
 
@@ -133,7 +133,7 @@ func APIGetGroupChatDetailOnWXPlatform(context *gin.Context) {
 	params, _ := context.Get("params")
 	para := params.(*groupChat.ParaWXPlatformGroupChatDetail)
 
-	responseGroupChat, err := wecom.G_WeComApp.App.ExternalContactGroupChat.Get(para.ChatID, para.NeedName)
+	responseGroupChat, err := weCom.G_WeComApp.App.ExternalContactGroupChat.Get(para.ChatID, para.NeedName)
 
 	if err != nil {
 		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_GET_GROUP_CHAT_DETAIL, config.API_RETURN_CODE_ERROR, "", err.Error())

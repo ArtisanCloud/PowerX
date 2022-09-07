@@ -8,7 +8,7 @@ import (
 	modelSocialite "github.com/ArtisanCloud/PowerSocialite/v2/src/models"
 	"github.com/ArtisanCloud/PowerX/app/models"
 	modelWX "github.com/ArtisanCloud/PowerX/app/models/wx"
-	"github.com/ArtisanCloud/PowerX/app/service/wx/wecom"
+	"github.com/ArtisanCloud/PowerX/app/service/wx/weCom"
 	"github.com/ArtisanCloud/PowerX/database/global"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -344,7 +344,7 @@ func (srv *CustomerService) SyncCustomers(employeeUserIDs []string, cursor strin
 	}
 
 	// sync employee's contacts with userid from wechat
-	response, _ := wecom.G_WeComApp.App.ExternalContact.BatchGet(employeeUserIDs, cursor, 200)
+	response, _ := weCom.G_WeComApp.App.ExternalContact.BatchGet(employeeUserIDs, cursor, 200)
 	if response.ErrCode != 0 {
 		return errors.New(response.ErrMSG)
 	}
@@ -369,7 +369,7 @@ func (srv *CustomerService) SyncCustomers(employeeUserIDs []string, cursor strin
 
 		// 同步微信的关系
 		if len(contact.FollowInfo.TagIDs) > 0 {
-			serviceWXTag := wecom.NewWXTagService(nil)
+			serviceWXTag := weCom.NewWXTagService(nil)
 			err = serviceWXTag.SyncWXTagsByFollowInfos(global.G_DBConnection, pivot, contact.FollowInfo)
 
 		}

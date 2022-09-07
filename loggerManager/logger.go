@@ -4,25 +4,17 @@ import (
 	logger2 "github.com/ArtisanCloud/PowerLibs/v2/logger"
 	"github.com/ArtisanCloud/PowerLibs/v2/object"
 	"github.com/ArtisanCloud/PowerX/config"
-	UBT "github.com/ArtisanCloud/ubt-go"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"os"
 )
 
 var zapLogger *zap.Logger
-var UBTHandler *UBT.UBT
 var Logger *logger2.Logger
 
-func SetupLog() (err error) {
+func SetupLog(logConfig *config.LogConfig) (err error) {
 
-	//UBTHandler = UBT.Init(config2.UBTConfig)
-	////fmt.Dump(config2.UBTConfig)
-	//if UBTHandler == nil {
-	//	return errors.New("init ubt error")
-	//}
-
-	strArtisanCloudPath := config.G_AppConfigure.LogConfig.LogPath
+	strArtisanCloudPath := logConfig.LogPath
 	strOutputPath := strArtisanCloudPath + "/output.log"
 	strErrorPath := strArtisanCloudPath + "/errors.log"
 	//fmt.Dump(strOutputPath)
@@ -38,7 +30,7 @@ func SetupLog() (err error) {
 	})
 
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	return err

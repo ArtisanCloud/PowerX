@@ -5,7 +5,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/app/http/request"
 	"github.com/ArtisanCloud/PowerX/app/models"
 	"github.com/ArtisanCloud/PowerX/app/models/wx"
-	"github.com/ArtisanCloud/PowerX/app/service/wx/wecom"
+	"github.com/ArtisanCloud/PowerX/app/service/wx/weCom"
 	"github.com/ArtisanCloud/PowerX/config"
 	globalDatabase "github.com/ArtisanCloud/PowerX/database/global"
 	"github.com/gin-gonic/gin"
@@ -13,14 +13,14 @@ import (
 
 type WXTagAPIController struct {
 	*api.APIController
-	ServiceWXTag *wecom.WXTagService
+	ServiceWXTag *weCom.WXTagService
 }
 
 func NewWXTagAPIController(context *gin.Context) (ctl *WXTagAPIController) {
 
 	return &WXTagAPIController{
 		APIController: api.NewAPIController(context),
-		ServiceWXTag:  wecom.NewWXTagService(context),
+		ServiceWXTag:  weCom.NewWXTagService(context),
 	}
 }
 

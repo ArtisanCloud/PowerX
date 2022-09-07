@@ -2,11 +2,12 @@ package api
 
 import (
 	"github.com/ArtisanCloud/PowerX/app/http/controllers/admin"
+	rootAPI "github.com/ArtisanCloud/PowerX/app/http/controllers/root"
 	"github.com/ArtisanCloud/PowerX/app/http/controllers/wx"
 	"github.com/ArtisanCloud/PowerX/app/http/middleware"
-	"github.com/ArtisanCloud/PowerX/app/http/request"
 	"github.com/ArtisanCloud/PowerX/app/http/request/admin/permission"
 	"github.com/ArtisanCloud/PowerX/app/http/request/admin/permission/permissionModule"
+	root "github.com/ArtisanCloud/PowerX/app/http/request/root/install"
 	"github.com/ArtisanCloud/PowerX/routes/global"
 )
 
@@ -16,18 +17,17 @@ func InitRootAPIRoutes() {
 
 	apiInstallRouter := global.Router.Group("/root/api")
 	{
-		apiInstallRouter.Use(middleware.Installed, middleware.AuthRootAPI)
+		apiInstallRouter.Use(middleware.CheckNotInstalled, middleware.AuthRootAPI)
 		{
 			// 系统 - 启动安装
-			apiInstallRouter.GET("/system/install", request.ValidateList, admin.APIGetCustomerList)
-			apiInstallRouter.GET("/system/install/check", request.ValidateList, admin.APIGetCustomerList)
-
+			apiInstallRouter.POST("/system/install", root.ValidateSystemInstall, rootAPI.APISystemInstall)
+			apiInstallRouter.GET("/system/install/check", rootAPI.APISystemCheckInstallation)
 		}
 	}
 
 	apiRootRouter := global.Router.Group("/root/api")
 	{
-		apiRootRouter.Use(middleware.Installed, middleware.Maintenance, middleware.AuthRootAPI)
+		apiRootRouter.Use(middleware.CheckInstalled, middleware.Maintenance, middleware.AuthRootAPI)
 		{
 
 			// root

@@ -1,4 +1,4 @@
-package wecom
+package weCom
 
 import (
 	"github.com/ArtisanCloud/PowerLibs/v2/http/contract"

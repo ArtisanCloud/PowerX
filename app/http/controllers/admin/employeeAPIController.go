@@ -8,7 +8,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/app/http/request"
 	"github.com/ArtisanCloud/PowerX/app/models"
 	"github.com/ArtisanCloud/PowerX/app/service"
-	"github.com/ArtisanCloud/PowerX/app/service/wx/wecom"
+	"github.com/ArtisanCloud/PowerX/app/service/wx/weCom"
 	"github.com/ArtisanCloud/PowerX/config"
 	globalDatabase "github.com/ArtisanCloud/PowerX/database/global"
 	logger "github.com/ArtisanCloud/PowerX/loggerManager"
@@ -187,7 +187,7 @@ func APIBindCustomerToEmployee(context *gin.Context) {
 		employee.Name, employee, database2.OPERATION_RESULT_SUCCESS)
 
 	if len(followInfo.Tags) > 0 {
-		serviceWXTag := wecom.NewWXTagService(nil)
+		serviceWXTag := weCom.NewWXTagService(nil)
 		err = serviceWXTag.SyncWXTagsByFollowInfos(globalDatabase.G_DBConnection, pivot, followInfo)
 		if err != nil {
 			ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_SYNC_WX_TAG, config.API_RETURN_CODE_ERROR, "", "")
@@ -264,7 +264,7 @@ func APIGetEmployeeListOnWXPlatform(context *gin.Context) {
 
 	defer api.RecoverResponse(context, "api.admin.employee.list")
 
-	arrayList, err := wecom.G_WeComEmployee.App.User.GetDepartmentUsers(departmentID, 1)
+	arrayList, err := weCom.G_WeComEmployee.App.User.GetDepartmentUsers(departmentID, 1)
 	if err != nil {
 		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_GET_EMPLOYEE_LIST, config.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
@@ -282,7 +282,7 @@ func APIGetEmployeeDetailOnWXPlatform(context *gin.Context) {
 
 	defer api.RecoverResponse(context, "api.admin.employee.detail")
 
-	result, err := wecom.G_WeComEmployee.App.User.Get(userID)
+	result, err := weCom.G_WeComEmployee.App.User.Get(userID)
 	if err != nil {
 		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_GET_EMPLOYEE_DETAIL, config.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
@@ -300,7 +300,7 @@ func APIDeleteEmployeesOnWXPlatform(context *gin.Context) {
 
 	defer api.RecoverResponse(context, "api.admin.employee.delete")
 
-	result, err := wecom.G_WeComEmployee.App.User.Delete(userID)
+	result, err := weCom.G_WeComEmployee.App.User.Delete(userID)
 	if err != nil {
 		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_DELETE_EMPLOYEE, config.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)

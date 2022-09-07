@@ -1,4 +1,4 @@
-package wecom
+package weCom
 
 import (
 	database2 "github.com/ArtisanCloud/PowerLibs/v2/database"

@@ -19,8 +19,10 @@ func LoadLang() {
 	message.SetString(lang, fmt2.Sprintf("%d", config.API_RESULT_CODE_SUCCESS_RESET_PASSWORD), "密码修改成功")
 
 	message.SetString(lang, fmt2.Sprintf("%d", config.API_WARNING_CODE_SYSTEM_NOT_INSTALLED), "请先安装本系统")
+	message.SetString(lang, fmt2.Sprintf("%d", config.API_WARNING_CODE_SYSTEM_INSTALLED), "系统已经安装过，请咨询系统开发者")
 	message.SetString(lang, fmt2.Sprintf("%d", config.API_WARNING_CODE_IN_MAINTENANCE), "系统维护中")
 	message.SetString(lang, fmt2.Sprintf("%d", config.API_WARNING_CODE_NEED_UPDATE), "推出新版本，请更新最新的版本")
+	message.SetString(lang, fmt2.Sprintf("%d", config.API_ERR_CODE_FAIL_TO_INSTALL_SYSTEM), "按转系统失败")
 
 	message.SetString(lang, fmt2.Sprintf("%d", config.API_ERR_CODE_REQUEST_PARAM_ERROR), "请求参数错误")
 	message.SetString(lang, fmt2.Sprintf("%d", config.API_ERR_CODE_HEADER_RESELLER), "请求参数错误-销售渠道")

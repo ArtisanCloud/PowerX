@@ -1,0 +1,167 @@
+[
+ {
+  "roleID": "超级管理员-05d86",
+  "objectID": "渠道活码-8a715",
+  "control": "all"
+ },
+ {
+  "roleID": "超级管理员-05d86",
+  "objectID": "客户群发-28719",
+  "control": "all"
+ },
+ {
+  "roleID": "超级管理员-05d86",
+  "objectID": "客户群群发-bd54c",
+  "control": "all"
+ },
+ {
+  "roleID": "超级管理员-05d86",
+  "objectID": "客户标签-f3eb6",
+  "control": "all"
+ },
+ {
+  "roleID": "超级管理员-05d86",
+  "objectID": "标签治理-be1f5",
+  "control": "all"
+ },
+ {
+  "roleID": "超级管理员-05d86",
+  "objectID": "客户管理-b6b6e",
+  "control": "all"
+ },
+ {
+  "roleID": "超级管理员-05d86",
+  "objectID": "客户迁移-3017a",
+  "control": "all"
+ },
+ {
+  "roleID": "超级管理员-05d86",
+  "objectID": "客户群列表-45de2",
+  "control": "all"
+ },
+ {
+  "roleID": "超级管理员-05d86",
+  "objectID": "客户群标签-2786a",
+  "control": "all"
+ },
+ {
+  "roleID": "超级管理员-05d86",
+  "objectID": "员工管理-df989",
+  "control": "all"
+ },
+ {
+  "roleID": "超级管理员-05d86",
+  "objectID": "权限管理-b64ff",
+  "control": "all"
+ },
+ {
+  "roleID": "管理员-b4b5e",
+  "objectID": "渠道活码-8a715",
+  "control": "all"
+ },
+ {
+  "roleID": "管理员-b4b5e",
+  "objectID": "客户群发-28719",
+  "control": "all"
+ },
+ {
+  "roleID": "管理员-b4b5e",
+  "objectID": "客户群群发-bd54c",
+  "control": "all"
+ },
+ {
+  "roleID": "管理员-b4b5e",
+  "objectID": "客户标签-f3eb6",
+  "control": "all"
+ },
+ {
+  "roleID": "管理员-b4b5e",
+  "objectID": "标签治理-be1f5",
+  "control": "all"
+ },
+ {
+  "roleID": "管理员-b4b5e",
+  "objectID": "客户管理-b6b6e",
+  "control": "all"
+ },
+ {
+  "roleID": "管理员-b4b5e",
+  "objectID": "客户迁移-3017a",
+  "control": "all"
+ },
+ {
+  "roleID": "管理员-b4b5e",
+  "objectID": "客户群列表-45de2",
+  "control": "all"
+ },
+ {
+  "roleID": "管理员-b4b5e",
+  "objectID": "客户群标签-2786a",
+  "control": "all"
+ },
+ {
+  "roleID": "管理员-b4b5e",
+  "objectID": "员工管理-df989",
+  "control": "all"
+ },
+ {
+  "roleID": "管理员-b4b5e",
+  "objectID": "权限管理-b64ff",
+  "control": "all"
+ },
+ {
+  "roleID": "普通员工-dc4f5",
+  "objectID": "渠道活码-8a715",
+  "control": "none"
+ },
+ {
+  "roleID": "普通员工-dc4f5",
+  "objectID": "客户群发-28719",
+  "control": "none"
+ },
+ {
+  "roleID": "普通员工-dc4f5",
+  "objectID": "客户群群发-bd54c",
+  "control": "all"
+ },
+ {
+  "roleID": "普通员工-dc4f5",
+  "objectID": "客户标签-f3eb6",
+  "control": "none"
+ },
+ {
+  "roleID": "普通员工-dc4f5",
+  "objectID": "标签治理-be1f5",
+  "control": "read"
+ },
+ {
+  "roleID": "普通员工-dc4f5",
+  "objectID": "客户管理-b6b6e",
+  "control": "all"
+ },
+ {
+  "roleID": "普通员工-dc4f5",
+  "objectID": "客户迁移-3017a",
+  "control": "all"
+ },
+ {
+  "roleID": "普通员工-dc4f5",
+  "objectID": "客户群列表-45de2",
+  "control": "all"
+ },
+ {
+  "roleID": "普通员工-dc4f5",
+  "objectID": "客户群标签-2786a",
+  "control": "all"
+ },
+ {
+  "roleID": "普通员工-dc4f5",
+  "objectID": "员工管理-df989",
+  "control": "all"
+ },
+ {
+  "roleID": "普通员工-dc4f5",
+  "objectID": "权限管理-b64ff",
+  "control": "all"
+ }
+]

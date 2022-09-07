@@ -5,7 +5,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/app/models"
 	modelWX "github.com/ArtisanCloud/PowerX/app/models/wx"
 	"github.com/ArtisanCloud/PowerX/app/service"
-	"github.com/ArtisanCloud/PowerX/app/service/wx/wecom"
+	"github.com/ArtisanCloud/PowerX/app/service/wx/weCom"
 	global2 "github.com/ArtisanCloud/PowerX/config"
 	"github.com/ArtisanCloud/PowerX/database/global"
 	"github.com/gin-gonic/gin"
@@ -16,7 +16,7 @@ import (
 type ContactWayAPIController struct {
 	*api.APIController
 	ServiceContactWay *service.ContactWayService
-	ServiceWXTag      *wecom.WXTagService
+	ServiceWXTag      *weCom.WXTagService
 }
 
 func NewContactWayAPIController(context *gin.Context) (ctl *ContactWayAPIController) {
@@ -24,7 +24,7 @@ func NewContactWayAPIController(context *gin.Context) (ctl *ContactWayAPIControl
 	return &ContactWayAPIController{
 		APIController:     api.NewAPIController(context),
 		ServiceContactWay: service.NewContactWayService(context),
-		ServiceWXTag:      wecom.NewWXTagService(context),
+		ServiceWXTag:      weCom.NewWXTagService(context),
 	}
 }
 
@@ -245,7 +245,7 @@ func APIGetContactWayDetailOnWXPlatform(context *gin.Context) {
 	configIDInterface, _ := context.Get("configID")
 	configID := configIDInterface.(string)
 
-	responseContactWay, err := wecom.G_WeComApp.App.ExternalContactContactWay.Get(configID)
+	responseContactWay, err := weCom.G_WeComApp.App.ExternalContactContactWay.Get(configID)
 
 	if err != nil {
 		ctl.RS.SetCode(global2.API_ERR_CODE_FAIL_TO_GET_CONTACT_WAY_DETAIL, global2.API_RETURN_CODE_ERROR, "", err.Error())

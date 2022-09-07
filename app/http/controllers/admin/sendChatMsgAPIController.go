@@ -8,7 +8,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/app/models"
 	modelWX "github.com/ArtisanCloud/PowerX/app/models/wx"
 	"github.com/ArtisanCloud/PowerX/app/service"
-	serviceWX "github.com/ArtisanCloud/PowerX/app/service/wx/wecom"
+	serviceWX "github.com/ArtisanCloud/PowerX/app/service/wx/weCom"
 	"github.com/ArtisanCloud/PowerX/config"
 	globalDatabase "github.com/ArtisanCloud/PowerX/database/global"
 	logger "github.com/ArtisanCloud/PowerX/loggerManager"

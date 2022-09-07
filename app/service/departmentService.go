@@ -6,7 +6,7 @@ import (
 	"github.com/ArtisanCloud/PowerWeChat/v2/src/kernel/contract"
 	modelWecom "github.com/ArtisanCloud/PowerWeChat/v2/src/work/server/handlers/models"
 	"github.com/ArtisanCloud/PowerX/app/models/wx"
-	"github.com/ArtisanCloud/PowerX/app/service/wx/wecom"
+	"github.com/ArtisanCloud/PowerX/app/service/wx/weCom"
 	global2 "github.com/ArtisanCloud/PowerX/config"
 	"github.com/ArtisanCloud/PowerX/database/global"
 	logger "github.com/ArtisanCloud/PowerX/loggerManager"
@@ -32,7 +32,7 @@ func NewDepartmentService(ctx *gin.Context) (r *DepartmentService) {
 
 func (srv *DepartmentService) SyncDepartments(departmentID int) (err error) {
 
-	response, err := wecom.G_WeComEmployee.App.Department.List(departmentID)
+	response, err := weCom.G_WeComEmployee.App.Department.List(departmentID)
 	if err != nil {
 		return err
 	}

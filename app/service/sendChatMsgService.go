@@ -9,7 +9,7 @@ import (
 	"github.com/ArtisanCloud/PowerWeChat/v2/src/work/externalContact/messageTemplate/response"
 	"github.com/ArtisanCloud/PowerX/app/models"
 	modelWX "github.com/ArtisanCloud/PowerX/app/models/wx"
-	"github.com/ArtisanCloud/PowerX/app/service/wx/wecom"
+	"github.com/ArtisanCloud/PowerX/app/service/wx/weCom"
 	logger "github.com/ArtisanCloud/PowerX/loggerManager"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-module/carbon"
@@ -42,7 +42,7 @@ func (srv *SendChatMsgService) SyncSendChatMsgFromWXPlatform(db *gorm.DB, startD
 		Limit:     limit,
 		Cursor:    cursor,
 	}
-	rs, err = wecom.G_WeComCustomer.App.ExternalContactMessageTemplate.GetGroupMsgListV2(req)
+	rs, err = weCom.G_WeComCustomer.App.ExternalContactMessageTemplate.GetGroupMsgListV2(req)
 	if err != nil {
 		return rs, err
 	}
@@ -52,7 +52,7 @@ func (srv *SendChatMsgService) SyncSendChatMsgFromWXPlatform(db *gorm.DB, startD
 
 	// sync wechat message template from wechat platform
 	err = db.Transaction(func(tx *gorm.DB) error {
-		serviceWXMessageTemplate := wecom.NewWXMessageTemplateService(nil)
+		serviceWXMessageTemplate := weCom.NewWXMessageTemplateService(nil)
 		for _, groupMsg := range rs.GroupMsgList {
 			wxMessageTemplate, err := serviceWXMessageTemplate.GetWXMessageTemplateByMsgID(tx, groupMsg.MsgID)
 			if err != nil {
@@ -82,7 +82,7 @@ func (srv *SendChatMsgService) SyncSendChatMsgFromWXPlatform(db *gorm.DB, startD
 }
 
 func (srv *SendChatMsgService) SyncWXMessageTemplateFromWXPlatform(db *gorm.DB, groupMsg *response.GroupMsg, sender string) (err error) {
-	serviceWXMessageTemplate := wecom.NewWXMessageTemplateService(nil)
+	serviceWXMessageTemplate := weCom.NewWXMessageTemplateService(nil)
 
 	wxMessageTemplate := &modelWX.WXMessageTemplate{
 		MsgID:      groupMsg.MsgID,
@@ -118,7 +118,7 @@ func (srv *SendChatMsgService) SyncWXMessageTemplateFromWXPlatform(db *gorm.DB, 
 
 func (srv *SendChatMsgService) SyncWXMessageTemplateTasksFromWXPlatform(db *gorm.DB, msgID string, limit int, cursor string) (err error) {
 
-	responseGroupMsgTask, err := wecom.G_WeComCustomer.App.ExternalContactMessageTemplate.GetGroupMsgTask(msgID, limit, cursor)
+	responseGroupMsgTask, err := weCom.G_WeComCustomer.App.ExternalContactMessageTemplate.GetGroupMsgTask(msgID, limit, cursor)
 	if err != nil {
 		return err
 	}
@@ -130,7 +130,7 @@ func (srv *SendChatMsgService) SyncWXMessageTemplateTasksFromWXPlatform(db *gorm
 		err = srv.SyncWXMessageTemplateTasksFromWXPlatform(db, msgID, limit, responseGroupMsgTask.NextCursor)
 	}
 
-	serviceMessageTemplate := wecom.NewWXMessageTemplateService(nil)
+	serviceMessageTemplate := weCom.NewWXMessageTemplateService(nil)
 	// upsert wechat message templates tasks
 	for _, rs := range responseGroupMsgTask.TaskList {
 		task := modelWX.NewWXMessageTemplateTask(msgID, rs)
@@ -142,7 +142,7 @@ func (srv *SendChatMsgService) SyncWXMessageTemplateTasksFromWXPlatform(db *gorm
 
 func (srv *SendChatMsgService) SyncWXMessageTemplateSendResultsFromWXPlatform(db *gorm.DB, msgID string, userID string, limit int, cursor string) (err error) {
 
-	responseGroupMsgSendResult, err := wecom.G_WeComCustomer.App.ExternalContactMessageTemplate.GetGroupMsgSendResult(msgID, userID, limit, cursor)
+	responseGroupMsgSendResult, err := weCom.G_WeComCustomer.App.ExternalContactMessageTemplate.GetGroupMsgSendResult(msgID, userID, limit, cursor)
 	if err != nil {
 		return err
 	}
@@ -155,7 +155,7 @@ func (srv *SendChatMsgService) SyncWXMessageTemplateSendResultsFromWXPlatform(db
 	}
 
 	// upsert wechat message templates send results
-	serviceMessageTemplate := wecom.NewWXMessageTemplateService(nil)
+	serviceMessageTemplate := weCom.NewWXMessageTemplateService(nil)
 	for _, rs := range responseGroupMsgSendResult.SendList {
 		sendResult := modelWX.NewWXMessageTemplateSendResult(msgID, rs)
 		err = serviceMessageTemplate.UpsertWXMessageTemplateSendResults(db, []*modelWX.WXMessageTemplateSend{sendResult}, nil)
@@ -305,12 +305,12 @@ func (srv *SendChatMsgService) GetSendChatMsgByUUID(db *gorm.DB, uuid string) (s
 
 func (srv *SendChatMsgService) CreateSendChatMsgOnWXPlatform(msg *modelWX.WXMessageTemplate) (result *response.ResponseAddMessageTemplate, err error) {
 
-	request, err := wecom.G_WeComEmployee.ConvertAttachmentsToMessageTemplate(msg)
+	request, err := weCom.G_WeComEmployee.ConvertAttachmentsToMessageTemplate(msg)
 	if err != nil {
 		return nil, err
 	}
 
-	result, err = wecom.G_WeComCustomer.App.ExternalContactMessageTemplate.AddMsgTemplate(request)
+	result, err = weCom.G_WeComCustomer.App.ExternalContactMessageTemplate.AddMsgTemplate(request)
 	if err != nil {
 		return nil, err
 	}

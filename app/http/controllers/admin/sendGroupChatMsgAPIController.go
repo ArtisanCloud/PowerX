@@ -8,7 +8,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/app/models"
 	modelWX "github.com/ArtisanCloud/PowerX/app/models/wx"
 	"github.com/ArtisanCloud/PowerX/app/service"
-	"github.com/ArtisanCloud/PowerX/app/service/wx/wecom"
+	"github.com/ArtisanCloud/PowerX/app/service/wx/weCom"
 	"github.com/ArtisanCloud/PowerX/config"
 	globalDatabase "github.com/ArtisanCloud/PowerX/database/global"
 	logger "github.com/ArtisanCloud/PowerX/loggerManager"
@@ -156,7 +156,7 @@ func APICreateSendGroupChatMsg(context *gin.Context) {
 			return err
 		}
 
-		serviceWXMessageTemplate := wecom.NewWXMessageTemplateService(nil)
+		serviceWXMessageTemplate := weCom.NewWXMessageTemplateService(nil)
 		for _, messageTemplate := range sendGroupChatMsg.WXMessageTemplates {
 
 			if sendGroupChatMsg.SendImmediately {
@@ -219,7 +219,7 @@ func APIDoSendGroupChatMsgs(context *gin.Context) {
 		return
 	}
 
-	serviceWXMessageTemplate := wecom.NewWXMessageTemplateService(context)
+	serviceWXMessageTemplate := weCom.NewWXMessageTemplateService(context)
 	for _, sendGroupChatMsg := range toSendList {
 
 		if sendGroupChatMsg.WXMessageTemplates == nil {
