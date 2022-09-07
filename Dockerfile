@@ -7,7 +7,7 @@ WORKDIR /source/
 
 RUN go build -o powerX main.go
 RUN go build -o powerX-migrate cmd/database/migrations/main.go
-RUN go build -o powerX-authorization cmd/authorization/main.go
+RUN go build -o powerX-authorization cmd/authorization/main.go cmd/authorization/openAPI.go
 
 FROM alpine
 # China mirrors
