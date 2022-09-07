@@ -1,6 +1,7 @@
 package service
 
 import (
+	"bytes"
 	"errors"
 	fmt2 "fmt"
 	"github.com/ArtisanCloud/PowerLibs/v2/corountine/locker"
@@ -8,6 +9,8 @@ import (
 	"github.com/ArtisanCloud/PowerX/config"
 	"github.com/ArtisanCloud/PowerX/database"
 	"github.com/gin-gonic/gin"
+	"os/exec"
+	"strings"
 	"sync"
 )
 
@@ -129,20 +132,29 @@ func TaskInstallDatabase() func(taskChannel chan error, appConfig *config.AppCon
 		}
 
 		// migrate 数据库
-		//err = migrate.Run(globalDatabase.G_DBConnection)
-		//if err != nil {
-		//	rsTask.ErrMsg = err.Error()
-		//	taskChannel <- err
-		//	return
-		//}
+		cmd := exec.Command("make", "./Makefile", "migrate-tables")
+		cmd.Stdin = strings.NewReader("and old falcon")
+
+		var out bytes.Buffer
+		cmd.Stdout = &out
+		err = cmd.Run()
+		if err != nil {
+			rsTask.ErrMsg = err.Error()
+			taskChannel <- err
+			return
+		}
 
 		// 导入原始系统数据
-		//err = ImportRBACData(globalDatabase.G_DBConnection)
-		//if err != nil {
-		//	rsTask.ErrMsg = err.Error()
-		//	taskChannel <- err
-		//	return
-		//}
+		cmd = exec.Command("make", "./Makefile", "import-rbac-data")
+		cmd.Stdin = strings.NewReader("and old falcon")
+
+		cmd.Stdout = &out
+		err = cmd.Run()
+		if err != nil {
+			rsTask.ErrMsg = err.Error()
+			taskChannel <- err
+			return
+		}
 
 		rsTask.Status = "success"
 		taskChannel <- err
