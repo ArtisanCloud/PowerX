@@ -2,8 +2,8 @@ package main
 
 import (
 	"github.com/ArtisanCloud/PowerLibs/v2/object"
+	"github.com/ArtisanCloud/PowerX/cmd/database/migrations/migrate"
 	globalDatabase "github.com/ArtisanCloud/PowerX/database/global"
-	"github.com/ArtisanCloud/PowerX/database/migrations/migrate"
 	"os"
 )
 

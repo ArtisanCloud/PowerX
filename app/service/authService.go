@@ -8,7 +8,6 @@ import (
 	logger "github.com/ArtisanCloud/PowerX/loggerManager"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
-	"io/ioutil"
 	"time"
 )
 
@@ -17,8 +16,8 @@ type AuthService struct {
 }
 
 var (
-	StrPublicKeyPath  string
-	StrPrivateKeyPath string
+	StrPublicKey  string
+	StrPrivateKey string
 )
 
 const InExpiredMonths = 3
@@ -37,9 +36,22 @@ func init() {
 
 }
 
-func SetupSSHKeyPath(jwt *config.JWTConfig) {
-	StrPublicKeyPath = jwt.PublicKeyFile
-	StrPrivateKeyPath = jwt.PrivateKeyFile
+func SetupJWTKeyPairs(jwt *config.JWTConfig) (err error) {
+	StrPublicKey = jwt.PublicKey
+	StrPrivateKey = jwt.PrivateKey
+
+	_, err = LoadPublicKey()
+	if err != nil {
+		return err
+	}
+
+	_, err = LoadPrivateKey()
+	if err != nil {
+		return err
+	}
+
+	return err
+
 }
 
 func NewAuthService(context *gin.Context) (r *AuthService) {
@@ -166,11 +178,11 @@ func ParseAuthorization(authHeader string) (ptrClaims *jwt.MapClaims, err error)
 }
 
 func LoadPublicKey() (*rsa.PublicKey, error) {
-	publicKey, err := ioutil.ReadFile(StrPublicKeyPath)
-	if err != nil {
-		return nil, fmt.Errorf("error reading public key file: %v\n", err)
-	}
-
+	//publicKey, err := ioutil.ReadFile(StrPublicKeyPath)
+	//if err != nil {
+	//	return nil, fmt.Errorf("error reading public key file: %v\n", err)
+	//}
+	publicKey := []byte(StrPublicKey)
 	key, err := jwt.ParseRSAPublicKeyFromPEM(publicKey)
 	if err != nil {
 		return nil, fmt.Errorf("error parsing RSA public key: %v\n", err)
@@ -180,12 +192,14 @@ func LoadPublicKey() (*rsa.PublicKey, error) {
 }
 
 func LoadPrivateKey() (*rsa.PrivateKey, error) {
-	signKey, err := ioutil.ReadFile(StrPrivateKeyPath)
-	//signKey, err := ioutil.ReadFile(strPublicKeyPath)
-	if err != nil {
-		fmt.Println("Error reading private key %x", err)
-		return nil, err
-	}
+	//signKey, err := ioutil.ReadFile(StrPrivateKeyPath)
+	////signKey, err := ioutil.ReadFile(strPublicKeyPath)
+	//if err != nil {
+	//	fmt.Println("Error reading private key %x", err)
+	//	return nil, err
+	//}
+
+	signKey := []byte(StrPrivateKey)
 
 	key, err := jwt.ParseRSAPrivateKeyFromPEM(signKey)
 

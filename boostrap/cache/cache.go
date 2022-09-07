@@ -7,9 +7,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/config"
 )
 
-func SetupCache() (err error) {
-
-	c := config.G_RedisConfig
+func SetupCache(c *config.RedisConfig) (err error) {
 
 	options := cache.RedisOptions{
 		Addr:       c.Host,

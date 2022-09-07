@@ -27,7 +27,7 @@ func InitConfig() (err error) {
 func InitProject() (err error) {
 
 	// Initialize the logger
-	err = logger.SetupLog()
+	err = logger.SetupLog(&config.G_AppConfigure.LogConfig)
 	if err != nil {
 		return err
 	}
@@ -48,10 +48,13 @@ func InitProject() (err error) {
 	lang.LoadLanguages()
 
 	// setup ssh key path
-	service.SetupSSHKeyPath(&config.G_AppConfigure.JWTConfig)
+	err = service.SetupJWTKeyPairs(&config.G_AppConfigure.JWTConfig)
+	if err != nil {
+		return err
+	}
 
 	// Initialize the cache
-	err = cache2.SetupCache()
+	err = cache2.SetupCache(&config.G_AppConfigure.CacheConfig.CacheConnections.RedisConfig)
 	if err != nil {
 		return err
 	}
@@ -80,7 +83,7 @@ func InitServices() (err error) {
 
 	// defined singleton located in app/service/wechat/wecom/datetime.go
 	if wecom.G_WeComApp == nil {
-		wecom.G_WeComApp, err = wecom.NewWeComService(nil)
+		wecom.G_WeComApp, err = wecom.NewWeComService(nil, &config.G_AppConfigure.WecomConfig)
 		if err != nil {
 			return err
 		}
@@ -92,7 +95,7 @@ func InitServices() (err error) {
 		ctx.Set("messageToken", config.G_AppConfigure.WecomConfig.EmployeeMessageToken)
 		ctx.Set("messageAESKey", config.G_AppConfigure.WecomConfig.EmployeeMessageAesKey)
 		ctx.Set("messageCallbackURL", config.G_AppConfigure.WecomConfig.EmployeeMessageCallbackURL)
-		wecom.G_WeComEmployee, err = wecom.NewWeComService(ctx)
+		wecom.G_WeComEmployee, err = wecom.NewWeComService(ctx, &config.G_AppConfigure.WecomConfig)
 		if err != nil {
 			return err
 		}
@@ -104,7 +107,7 @@ func InitServices() (err error) {
 		ctx.Set("messageToken", config.G_AppConfigure.WecomConfig.CustomerMessageToken)
 		ctx.Set("messageAESKey", config.G_AppConfigure.WecomConfig.CustomerMessageAesKey)
 		ctx.Set("messageCallbackURL", config.G_AppConfigure.WecomConfig.CustomerMessageCallbackURL)
-		wecom.G_WeComCustomer, err = wecom.NewWeComService(ctx)
+		wecom.G_WeComCustomer, err = wecom.NewWeComService(ctx, &config.G_AppConfigure.WecomConfig)
 		if err != nil {
 			return err
 		}

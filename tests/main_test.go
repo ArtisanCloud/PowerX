@@ -80,7 +80,7 @@ func SetupTestEnv(t *testing.M) {
 			logger.Logger.Error("app configure failed")
 		}
 		// setup jwt key path
-		service.SetupSSHKeyPath(&config.G_AppConfigure.JWTConfig)
+		err = service.SetupJWTKeyPairs(&config.G_AppConfigure.JWTConfig)
 	}
 
 	// Initialize the database
@@ -104,7 +104,7 @@ func SetupTestEnv(t *testing.M) {
 			panic(err)
 		}
 
-		err = cache.SetupCache()
+		err = cache.SetupCache(&config.G_AppConfigure.CacheConfig.CacheConnections.RedisConfig)
 		if err != nil {
 			panic(err)
 		}

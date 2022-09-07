@@ -35,17 +35,17 @@ var timer *time.Timer
 var Ticker *time.Ticker = time.NewTicker(time.Second)
 var IsBuffing bool
 
-func NewWeComService(ctx *gin.Context) (*WeComService, error) {
+func NewWeComService(ctx *gin.Context, wecomConfig *config.WecomConfig) (*WeComService, error) {
 
 	var err error
 
-	wecomCorpID := config.G_AppConfigure.WecomConfig.CorpID
-	wecomAgentID := config.G_AppConfigure.WecomConfig.WecomAgentID
-	wecomSecret := config.G_AppConfigure.WecomConfig.WecomSecret
-	messageToken := config.G_AppConfigure.WecomConfig.AppMessageToken
-	messageAESKey := config.G_AppConfigure.WecomConfig.AppMessageAesKey
-	messageCallbackURL := config.G_AppConfigure.WecomConfig.AppMessageCallbackURL
-	appOauthCallbackURL := config.G_AppConfigure.WecomConfig.AppOauthCallbackURL
+	wecomCorpID := wecomConfig.CorpID
+	wecomAgentID := wecomConfig.WecomAgentID
+	wecomSecret := wecomConfig.WecomSecret
+	messageToken := wecomConfig.AppMessageToken
+	messageAESKey := wecomConfig.AppMessageAesKey
+	messageCallbackURL := wecomConfig.AppMessageCallbackURL
+	appOauthCallbackURL := wecomConfig.AppOauthCallbackURL
 
 	if ctx != nil {
 		if ctx.GetString("wecomCorpID") != "" {

@@ -2,9 +2,9 @@ package migrate
 
 import (
 	"github.com/ArtisanCloud/PowerX/boostrap"
+	foundation2 "github.com/ArtisanCloud/PowerX/cmd/database/migrations/migrate/foundation"
+	wx2 "github.com/ArtisanCloud/PowerX/cmd/database/migrations/migrate/wx"
 	"github.com/ArtisanCloud/PowerX/config"
-	"github.com/ArtisanCloud/PowerX/database/migrations/migrate/foundation"
-	"github.com/ArtisanCloud/PowerX/database/migrations/migrate/wx"
 	"gorm.io/gorm"
 )
 
@@ -34,16 +34,16 @@ func Run(db *gorm.DB) (err error) {
 		return err
 	}
 	// Power tables
-	err = foundation.NewMigratePowerOperationLog().Migrate(db)
+	err = foundation2.NewMigratePowerOperationLog().Migrate(db)
 
 	// marketX tables
-	err = foundation.NewMigrateCustomer().Migrate(db)
-	err = foundation.NewMigrateDepartment().Migrate(db)
-	err = foundation.NewMigrateEmployee().Migrate(db)
-	err = foundation.NewMigrateRole().Migrate(db)
-	err = foundation.NewMigratePermissionModule().Migrate(db)
-	err = foundation.NewMigratePermission().Migrate(db)
-	err = foundation.NewMigrateREmployeeToDepartment().Migrate(db)
+	err = foundation2.NewMigrateCustomer().Migrate(db)
+	err = foundation2.NewMigrateDepartment().Migrate(db)
+	err = foundation2.NewMigrateEmployee().Migrate(db)
+	err = foundation2.NewMigrateRole().Migrate(db)
+	err = foundation2.NewMigratePermissionModule().Migrate(db)
+	err = foundation2.NewMigratePermission().Migrate(db)
+	err = foundation2.NewMigrateREmployeeToDepartment().Migrate(db)
 	//err = migrate.NewMigrateCommission().Migrate(db)
 	//err = migrate.NewMigrateCoupon().Migrate(db)
 	//err = migrate.NewMigrateCouponItem().Migrate(db)
@@ -65,24 +65,24 @@ func Run(db *gorm.DB) (err error) {
 	//err = migrate.NewMigratePriceBook().Migrate(db)
 	//err = migrate.NewMigrateReseller().Migrate(db)
 	//err = migrate.NewMigrateRCouponToProduct().Migrate(db)
-	err = foundation.NewMigrateTag().Migrate(db)
-	err = foundation.NewMigrateTagGroup().Migrate(db)
-	err = foundation.NewMigrateRTagToObject().Migrate(db)
-	err = foundation.NewMigrateContactWay().Migrate(db)
-	err = foundation.NewMigrateContactWayGroup().Migrate(db)
-	err = foundation.NewMigrateGroupChat().Migrate(db)
-	err = foundation.NewMigrateGroupChatMember().Migrate(db)
-	err = foundation.NewMigrateGroupChatAdmin().Migrate(db)
-	err = foundation.NewMigrateSendChatMsg().Migrate(db)
-	err = foundation.NewMigrateSendGroupChatMsg().Migrate(db)
-	err = foundation.NewMigrateCustomerToEmployee().Migrate(db)
+	err = foundation2.NewMigrateTag().Migrate(db)
+	err = foundation2.NewMigrateTagGroup().Migrate(db)
+	err = foundation2.NewMigrateRTagToObject().Migrate(db)
+	err = foundation2.NewMigrateContactWay().Migrate(db)
+	err = foundation2.NewMigrateContactWayGroup().Migrate(db)
+	err = foundation2.NewMigrateGroupChat().Migrate(db)
+	err = foundation2.NewMigrateGroupChatMember().Migrate(db)
+	err = foundation2.NewMigrateGroupChatAdmin().Migrate(db)
+	err = foundation2.NewMigrateSendChatMsg().Migrate(db)
+	err = foundation2.NewMigrateSendGroupChatMsg().Migrate(db)
+	err = foundation2.NewMigrateCustomerToEmployee().Migrate(db)
 
 	// wechat tables
-	err = wx.NewMigrateWXTag().Migrate(db)
-	err = wx.NewMigrateRWXTagToObject().Migrate(db)
-	err = wx.NewMigrateWXMessageTemplate().Migrate(db)
-	err = wx.NewMigrateWXMessageTemplateTask().Migrate(db)
-	err = wx.NewMigrateWXMessageTemplateSend().Migrate(db)
+	err = wx2.NewMigrateWXTag().Migrate(db)
+	err = wx2.NewMigrateRWXTagToObject().Migrate(db)
+	err = wx2.NewMigrateWXMessageTemplate().Migrate(db)
+	err = wx2.NewMigrateWXMessageTemplateTask().Migrate(db)
+	err = wx2.NewMigrateWXMessageTemplateSend().Migrate(db)
 	return err
 }
 

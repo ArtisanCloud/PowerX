@@ -6,8 +6,12 @@ import (
 	fmt2 "fmt"
 	"github.com/ArtisanCloud/PowerLibs/v2/corountine/locker"
 	"github.com/ArtisanCloud/PowerLibs/v2/fmt"
+	"github.com/ArtisanCloud/PowerWeChat/v2/src/work"
+	"github.com/ArtisanCloud/PowerX/boostrap/cache"
+	globalBootstrap "github.com/ArtisanCloud/PowerX/boostrap/cache/global"
 	"github.com/ArtisanCloud/PowerX/config"
 	"github.com/ArtisanCloud/PowerX/database"
+	logger "github.com/ArtisanCloud/PowerX/loggerManager"
 	"github.com/gin-gonic/gin"
 	"os/exec"
 	"strings"
@@ -39,8 +43,11 @@ var _InstallTasks []func(taskChannel chan error, appConfig *config.AppConfig, rs
 func init() {
 
 	// 压栈安装任务
-	_InstallTasks = append(_InstallTasks, TaskInstallDatabase())
-	_InstallTasks = append(_InstallTasks, TaskInstallCache())
+	//_InstallTasks = append(_InstallTasks, TaskInstallDatabase())
+	//_InstallTasks = append(_InstallTasks, TaskInstallCache())
+	_InstallTasks = append(_InstallTasks, TaskInstallLog())
+	_InstallTasks = append(_InstallTasks, TaskInstallJWT())
+	_InstallTasks = append(_InstallTasks, TaskInstallWechat())
 
 }
 
@@ -86,7 +93,7 @@ func (srv *InstallService) InstallSystem(config *config.AppConfig) (installStatu
 	// 如果当前的任务完成数量，没有达到任务总数，阻赛等待
 	//time.Sleep(1 * time.Second)
 	for len(taskChannel) < n {
-		fmt2.Printf("waiting taskChannel length:%d, cap:%d \r\n", len(taskChannel), cap(taskChannel))
+		//fmt2.Printf("waiting taskChannel length:%d, cap:%d \r\n", len(taskChannel), cap(taskChannel))
 	}
 
 	// 如果任务都完成了，关闭任务通道
@@ -167,11 +174,118 @@ func TaskInstallCache() func(taskChannel chan error, appConfig *config.AppConfig
 	return func(taskChannel chan error, appConfig *config.AppConfig, rsTask *ResponseTask) {
 		var err error
 		rsTask.Name = "cache"
+		rsTask.Status = "failed"
+
 		fmt.Dump("run task cache")
-		//fmt.Dump(appConfig.CacheConfig.CacheConnections.RedisConfig.Host)
 
+		err = cache.SetupCache(&appConfig.CacheConfig.CacheConnections.RedisConfig)
+		if err != nil {
+			rsTask.ErrMsg = err.Error()
+			taskChannel <- err
+			return
+		}
+
+		_, err = globalBootstrap.G_CacheConnection.Keys()
+		if err != nil {
+			rsTask.ErrMsg = err.Error()
+			taskChannel <- err
+			return
+		}
+
+		rsTask.Status = "success"
 		taskChannel <- err
+		return
+	}
+}
 
+func TaskInstallLog() func(taskChannel chan error, appConfig *config.AppConfig, rsTask *ResponseTask) {
+
+	return func(taskChannel chan error, appConfig *config.AppConfig, rsTask *ResponseTask) {
+		var err error
+		rsTask.Name = "log"
+		rsTask.Status = "failed"
+
+		fmt.Dump("run task log")
+
+		//fmt.Dump(appConfig.LogConfig.LogPath)
+		err = logger.SetupLog(&appConfig.LogConfig)
+		if err != nil {
+			rsTask.ErrMsg = err.Error()
+			taskChannel <- err
+			return
+		}
+
+		rsTask.Status = "success"
+		taskChannel <- err
+		return
+	}
+}
+
+func TaskInstallJWT() func(taskChannel chan error, appConfig *config.AppConfig, rsTask *ResponseTask) {
+
+	return func(taskChannel chan error, appConfig *config.AppConfig, rsTask *ResponseTask) {
+		var err error
+		rsTask.Name = "jwt"
+		rsTask.Status = "failed"
+
+		fmt.Dump("run task jwt")
+
+		err = SetupJWTKeyPairs(&appConfig.JWTConfig)
+		if err != nil {
+			rsTask.ErrMsg = err.Error()
+			taskChannel <- err
+			return
+		}
+
+		rsTask.Status = "success"
+		taskChannel <- err
+		return
+	}
+}
+
+func TaskInstallWechat() func(taskChannel chan error, appConfig *config.AppConfig, rsTask *ResponseTask) {
+
+	return func(taskChannel chan error, appConfig *config.AppConfig, rsTask *ResponseTask) {
+		var err error
+		rsTask.Name = "wechat"
+		rsTask.Status = "failed"
+
+		fmt.Dump("run task wechat")
+
+		fmt.Dump(appConfig.WecomConfig)
+		weComApp, err := work.NewWork(&work.UserConfig{
+			CorpID:      appConfig.WecomConfig.CorpID,                // 企业微信的corp id，所有企业微信共用一个。
+			AgentID:     appConfig.WecomConfig.WecomAgentID,          // 内部应用的app id
+			Secret:      appConfig.WecomConfig.WecomSecret,           // 默认内部应用的app secret
+			CallbackURL: appConfig.WecomConfig.AppMessageCallbackURL, // 内部应用的场景回调设置
+			OAuth: work.OAuth{
+				Callback: appConfig.WecomConfig.AppOauthCallbackURL, // 内部应用的app oauth url
+				Scopes:   []string{"snsapi_base"},
+			},
+			HttpDebug: true,
+		})
+		if err != nil {
+			rsTask.ErrMsg = err.Error()
+			taskChannel <- err
+			return
+		}
+
+		rs, err := weComApp.Base.GetCallbackIP()
+		if err != nil {
+			rsTask.ErrMsg = err.Error()
+			taskChannel <- err
+			return
+		}
+
+		if rs.ErrCode != 0 {
+			err = errors.New(rs.ErrMSG)
+			rsTask.ErrMsg = err.Error()
+			taskChannel <- err
+			return
+		}
+
+		rsTask.Status = "success"
+		taskChannel <- err
 		return
 	}
 }

@@ -30,8 +30,8 @@ type ServerConfig struct {
 }
 
 type JWTConfig struct {
-	PublicKeyFile  string `yaml:"public_key_file" json:"public_key_file" binding:"required"`
-	PrivateKeyFile string `yaml:"private_key_file" json:"private_key_file" binding:"required"`
+	PublicKey  string `yaml:"public_key" json:"public_key" binding:"required"`
+	PrivateKey string `yaml:"private_key" json:"private_key" binding:"required"`
 }
 
 type SystemConfig struct {
