@@ -43,8 +43,9 @@ var _InstallTasks []func(taskChannel chan error, appConfig *config.AppConfig, rs
 func init() {
 
 	// 压栈安装任务
-	//_InstallTasks = append(_InstallTasks, TaskInstallDatabase())
-	//_InstallTasks = append(_InstallTasks, TaskInstallCache())
+	_InstallTasks = append(_InstallTasks, TaskInstallApp())
+	_InstallTasks = append(_InstallTasks, TaskInstallDatabase())
+	_InstallTasks = append(_InstallTasks, TaskInstallCache())
 	_InstallTasks = append(_InstallTasks, TaskInstallLog())
 	_InstallTasks = append(_InstallTasks, TaskInstallJWT())
 	_InstallTasks = append(_InstallTasks, TaskInstallWechat())
@@ -122,6 +123,18 @@ func (srv *InstallService) CheckSystemInstallation() (installStatusList []*Respo
 
 }
 
+func TaskInstallApp() func(taskChannel chan error, appConfig *config.AppConfig, rsTask *ResponseTask) {
+	return func(taskChannel chan error, appConfig *config.AppConfig, rsTask *ResponseTask) {
+		var err error
+		fmt.Dump("run task app")
+		rsTask.Name = "app"
+		rsTask.Status = "failed"
+
+		rsTask.Status = "success"
+		taskChannel <- err
+		return
+	}
+}
 func TaskInstallDatabase() func(taskChannel chan error, appConfig *config.AppConfig, rsTask *ResponseTask) {
 
 	return func(taskChannel chan error, appConfig *config.AppConfig, rsTask *ResponseTask) {
@@ -247,7 +260,7 @@ func TaskInstallWechat() func(taskChannel chan error, appConfig *config.AppConfi
 
 	return func(taskChannel chan error, appConfig *config.AppConfig, rsTask *ResponseTask) {
 		var err error
-		rsTask.Name = "wechat"
+		rsTask.Name = "weCom"
 		rsTask.Status = "failed"
 
 		fmt.Dump("run task wechat")

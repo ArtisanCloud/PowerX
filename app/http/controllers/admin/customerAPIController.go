@@ -4,7 +4,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/app/http/controllers/api"
 	"github.com/ArtisanCloud/PowerX/app/http/request"
 	"github.com/ArtisanCloud/PowerX/app/service"
-	globalWecom "github.com/ArtisanCloud/PowerX/app/service/wx/wecom"
+	globalWecom "github.com/ArtisanCloud/PowerX/app/service/wx/weCom"
 	"github.com/ArtisanCloud/PowerX/config"
 	globalDatabase "github.com/ArtisanCloud/PowerX/database/global"
 	"github.com/gin-gonic/gin"
@@ -29,7 +29,7 @@ func APIWXCustomerSync(context *gin.Context) {
 	employeeUserIDsInterface, _ := context.Get("employeeUserIDs")
 	employeeUserIDs := employeeUserIDsInterface.([]string)
 
-	defer api.RecoverResponse(context, "api.admin.wecom.customer.upsert")
+	defer api.RecoverResponse(context, "api.admin.weCom.customer.upsert")
 
 	var err error
 	err = ctl.ServiceCustomer.SyncCustomers(employeeUserIDs, "")

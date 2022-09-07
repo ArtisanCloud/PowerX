@@ -3,7 +3,7 @@ package wx
 import (
 	"github.com/ArtisanCloud/PowerWeChat/v2/src/kernel/power"
 	"github.com/ArtisanCloud/PowerX/app/http/controllers/api"
-	"github.com/ArtisanCloud/PowerX/app/service/wx/wecom"
+	"github.com/ArtisanCloud/PowerX/app/service/wx/weCom"
 	"github.com/ArtisanCloud/PowerX/config"
 	"github.com/gin-gonic/gin"
 	"io"
@@ -12,14 +12,14 @@ import (
 
 type WeComMediaAPIController struct {
 	*api.APIController
-	ServiceWeComMedia *wecom.WeComMediaService
+	ServiceWeComMedia *weCom.WeComMediaService
 }
 
 func NewWeComMediaAPIController(context *gin.Context) (ctl *WeComMediaAPIController) {
 
 	return &WeComMediaAPIController{
 		APIController:     api.NewAPIController(context),
-		ServiceWeComMedia: wecom.NewWeComMediaService(context),
+		ServiceWeComMedia: weCom.NewWeComMediaService(context),
 	}
 }
 
@@ -31,7 +31,7 @@ func APIWeComMediaUploadImage(context *gin.Context) {
 	dataInterface, _ := context.Get("data")
 	data := dataInterface.(*power.HashMap)
 
-	defer api.RecoverResponse(context, "api.admin.wecomMedia.list")
+	defer api.RecoverResponse(context, "api.admin.weComMedia.list")
 
 	arrayList, err := ctl.ServiceWeComMedia.UploadImage(path, data)
 	if err != nil {
@@ -51,7 +51,7 @@ func APIWeComMediaGetMedia(context *gin.Context) {
 	mediaIDInterface, _ := context.Get("mediaID")
 	mediaID := mediaIDInterface.(string)
 
-	defer api.RecoverResponse(context, "api.admin.wecomMedia.list")
+	defer api.RecoverResponse(context, "api.admin.weComMedia.list")
 
 	result, err := ctl.ServiceWeComMedia.GetMedia(mediaID)
 	if err != nil {
@@ -72,7 +72,7 @@ func APIWeComMediaUploadTempImage(context *gin.Context) {
 	dataInterface, _ := context.Get("data")
 	data := dataInterface.(*power.HashMap)
 
-	defer api.RecoverResponse(context, "api.admin.wecomMedia.uppload.tempImage")
+	defer api.RecoverResponse(context, "api.admin.weComMedia.uppload.tempImage")
 
 	result, err := ctl.ServiceWeComMedia.UploadTempImage(path, data)
 	if err != nil {
@@ -94,7 +94,7 @@ func APIWeComMediaUploadTempVoice(context *gin.Context) {
 	dataInterface, _ := context.Get("data")
 	data := dataInterface.(*power.HashMap)
 
-	defer api.RecoverResponse(context, "api.admin.wecomMedia.uppload.tempVoice")
+	defer api.RecoverResponse(context, "api.admin.weComMedia.uppload.tempVoice")
 
 	result, err := ctl.ServiceWeComMedia.UploadTempVoice(path, data)
 	if err != nil {
@@ -116,7 +116,7 @@ func APIWeComMediaUploadTempVideo(context *gin.Context) {
 	dataInterface, _ := context.Get("data")
 	data := dataInterface.(*power.HashMap)
 
-	defer api.RecoverResponse(context, "api.admin.wecomMedia.uppload.tempVideo")
+	defer api.RecoverResponse(context, "api.admin.weComMedia.uppload.tempVideo")
 
 	result, err := ctl.ServiceWeComMedia.UploadTempVideo(path, data)
 	if err != nil {
@@ -138,7 +138,7 @@ func APIWeComMediaUploadTempFile(context *gin.Context) {
 	dataInterface, _ := context.Get("data")
 	data := dataInterface.(*power.HashMap)
 
-	defer api.RecoverResponse(context, "api.admin.wecomMedia.uppload.tempFile")
+	defer api.RecoverResponse(context, "api.admin.weComMedia.uppload.tempFile")
 
 	result, err := ctl.ServiceWeComMedia.UploadTempFile(path, data)
 	if err != nil {

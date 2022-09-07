@@ -1,4 +1,4 @@
-package wecom
+package weCom
 
 import (
 	"errors"

@@ -3,7 +3,7 @@ package boostrap
 import (
 	"github.com/ArtisanCloud/PowerX/app/service"
 	"github.com/ArtisanCloud/PowerX/app/service/wx/miniProgram"
-	"github.com/ArtisanCloud/PowerX/app/service/wx/wecom"
+	"github.com/ArtisanCloud/PowerX/app/service/wx/weCom"
 	cache2 "github.com/ArtisanCloud/PowerX/boostrap/cache"
 	"github.com/ArtisanCloud/PowerX/boostrap/rbac"
 	"github.com/ArtisanCloud/PowerX/config"
@@ -81,33 +81,33 @@ func InitProject() (err error) {
 
 func InitServices() (err error) {
 
-	// defined singleton located in app/service/wechat/wecom/datetime.go
-	if wecom.G_WeComApp == nil {
-		wecom.G_WeComApp, err = wecom.NewWeComService(nil, &config.G_AppConfigure.WecomConfig)
+	// defined singleton located in app/service/wechat/weCom/datetime.go
+	if weCom.G_WeComApp == nil {
+		weCom.G_WeComApp, err = weCom.NewWeComService(nil, &config.G_AppConfigure.WecomConfig)
 		if err != nil {
 			return err
 		}
 	}
 
-	// defined singleton located in app/service/wechat/wecom/datetime.go
-	if wecom.G_WeComEmployee == nil {
+	// defined singleton located in app/service/wechat/weCom/datetime.go
+	if weCom.G_WeComEmployee == nil {
 		ctx := &gin.Context{}
 		ctx.Set("messageToken", config.G_AppConfigure.WecomConfig.EmployeeMessageToken)
 		ctx.Set("messageAESKey", config.G_AppConfigure.WecomConfig.EmployeeMessageAesKey)
 		ctx.Set("messageCallbackURL", config.G_AppConfigure.WecomConfig.EmployeeMessageCallbackURL)
-		wecom.G_WeComEmployee, err = wecom.NewWeComService(ctx, &config.G_AppConfigure.WecomConfig)
+		weCom.G_WeComEmployee, err = weCom.NewWeComService(ctx, &config.G_AppConfigure.WecomConfig)
 		if err != nil {
 			return err
 		}
 	}
 
-	// defined singleton located in app/service/wechat/wecom/datetime.go
-	if wecom.G_WeComCustomer == nil {
+	// defined singleton located in app/service/wechat/weCom/datetime.go
+	if weCom.G_WeComCustomer == nil {
 		ctx := &gin.Context{}
 		ctx.Set("messageToken", config.G_AppConfigure.WecomConfig.CustomerMessageToken)
 		ctx.Set("messageAESKey", config.G_AppConfigure.WecomConfig.CustomerMessageAesKey)
 		ctx.Set("messageCallbackURL", config.G_AppConfigure.WecomConfig.CustomerMessageCallbackURL)
-		wecom.G_WeComCustomer, err = wecom.NewWeComService(ctx, &config.G_AppConfigure.WecomConfig)
+		weCom.G_WeComCustomer, err = weCom.NewWeComService(ctx, &config.G_AppConfigure.WecomConfig)
 		if err != nil {
 			return err
 		}
@@ -122,7 +122,7 @@ func InitServices() (err error) {
 	}
 
 	//if global.PaymentApp == nil {
-	//	global.PaymentApp, err = wecom.NewPaymentService(nil)
+	//	global.PaymentApp, err = weCom.NewPaymentService(nil)
 	//	if err != nil {
 	//		return err
 	//	}

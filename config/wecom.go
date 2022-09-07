@@ -4,8 +4,8 @@ type WecomConfig struct {
 
 	// 企业微信基础配置
 	CorpID       string `yaml:"corp_id" json:"corp_id"`
-	WecomAgentID int    `yaml:"wecom_agent_id" json:"wecom_agent_id"`
-	WecomSecret  string `yaml:"wecom_secret" json:"wecom_secret"`
+	WecomAgentID int    `yaml:"weCom_agent_id" json:"weCom_agent_id"`
+	WecomSecret  string `yaml:"weCom_secret" json:"weCom_secret"`
 
 	// 企业微信应用配置
 	AppCertPublicKey      string `yaml:"app_cert_public_key" json:"app_cert_public_key"`

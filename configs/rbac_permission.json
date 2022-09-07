@@ -192,7 +192,7 @@
   "permissionModule": null,
   "permissionID": "dbf0f5d795d4f4562d393f23cfdcb099",
   "objectAlias": "",
-  "objectValue": "/admin/api/wxPlatform/wecom/employee/detail",
+  "objectValue": "/admin/api/wxPlatform/weCom/employee/detail",
   "action": "GET",
   "description": "",
   "moduleID": ""
@@ -203,7 +203,7 @@
   "permissionModule": null,
   "permissionID": "a0aa02206a3049af217b09edbadd2abe",
   "objectAlias": "",
-  "objectValue": "/wx/api/wecom/oauth2/authorize/user",
+  "objectValue": "/wx/api/weCom/oauth2/authorize/user",
   "action": "GET",
   "description": "",
   "moduleID": ""
@@ -225,7 +225,7 @@
   "permissionModule": null,
   "permissionID": "eee07c54ef58f03f832b9ed668e8d13a",
   "objectAlias": "",
-  "objectValue": "/admin/api/wxPlatform/wecom/media/upload/tempVoice",
+  "objectValue": "/admin/api/wxPlatform/weCom/media/upload/tempVoice",
   "action": "POST",
   "description": "",
   "moduleID": ""
@@ -654,7 +654,7 @@
   "permissionModule": null,
   "permissionID": "532c3f9d344233ac75d8ba1ae9998a2c",
   "objectAlias": "",
-  "objectValue": "/admin/api/wxPlatform/wecom/media/upload/tempFile",
+  "objectValue": "/admin/api/wxPlatform/weCom/media/upload/tempFile",
   "action": "POST",
   "description": "",
   "moduleID": ""
@@ -687,7 +687,7 @@
   "permissionModule": null,
   "permissionID": "8ee4538047d669c727b46d39bd78e669",
   "objectAlias": "",
-  "objectValue": "/admin/api/wxPlatform/wecom/media/upload/image",
+  "objectValue": "/admin/api/wxPlatform/weCom/media/upload/image",
   "action": "POST",
   "description": "",
   "moduleID": ""
@@ -698,7 +698,7 @@
   "permissionModule": null,
   "permissionID": "90bb6b557ebfbe8216d146d83a2f46b0",
   "objectAlias": "",
-  "objectValue": "/wx/api/wecom/callback/authorized/user",
+  "objectValue": "/wx/api/weCom/callback/authorized/user",
   "action": "GET",
   "description": "",
   "moduleID": ""
@@ -775,7 +775,7 @@
   "permissionModule": null,
   "permissionID": "cffadfb001ea449d6098e6e0d64246dd",
   "objectAlias": "",
-  "objectValue": "/admin/api/wxPlatform/wecom/contactWay/delete",
+  "objectValue": "/admin/api/wxPlatform/weCom/contactWay/delete",
   "action": "DELETE",
   "description": "",
   "moduleID": ""
@@ -808,7 +808,7 @@
   "permissionModule": null,
   "permissionID": "b2cd276e54ba970d6f9ca77f83c14124",
   "objectAlias": "",
-  "objectValue": "/admin/api/wxPlatform/wecom/employee/delete",
+  "objectValue": "/admin/api/wxPlatform/weCom/employee/delete",
   "action": "DELETE",
   "description": "",
   "moduleID": ""
@@ -907,7 +907,7 @@
   "permissionModule": null,
   "permissionID": "4955dcf7af73281d092ff96034be676a",
   "objectAlias": "",
-  "objectValue": "/admin/api/wxPlatform/wecom/media/upload/tempImage",
+  "objectValue": "/admin/api/wxPlatform/weCom/media/upload/tempImage",
   "action": "POST",
   "description": "",
   "moduleID": ""
@@ -1006,7 +1006,7 @@
   "permissionModule": null,
   "permissionID": "cf5195eb63f194db876cb826cc67371d",
   "objectAlias": "",
-  "objectValue": "/admin/api/wxPlatform/wecom/customer/list",
+  "objectValue": "/admin/api/wxPlatform/weCom/customer/list",
   "action": "GET",
   "description": "",
   "moduleID": ""
@@ -1050,7 +1050,7 @@
   "permissionModule": null,
   "permissionID": "d963d98b84f2b452eafb99093bcef0fa",
   "objectAlias": "",
-  "objectValue": "/admin/api/wxPlatform/wecom/groupChat/list",
+  "objectValue": "/admin/api/wxPlatform/weCom/groupChat/list",
   "action": "GET",
   "description": "",
   "moduleID": ""
@@ -1061,7 +1061,7 @@
   "permissionModule": null,
   "permissionID": "897582a767eeb7bcdab0bb5069b8d4e3",
   "objectAlias": "",
-  "objectValue": "/wx/api/wecom/user",
+  "objectValue": "/wx/api/weCom/user",
   "action": "POST",
   "description": "",
   "moduleID": ""
@@ -1138,7 +1138,7 @@
   "permissionModule": null,
   "permissionID": "17e43f2c2682675beefb35d977ca8c99",
   "objectAlias": "",
-  "objectValue": "/wx/api/wecom/callback/authorized/customer/",
+  "objectValue": "/wx/api/weCom/callback/authorized/customer/",
   "action": "GET",
   "description": "",
   "moduleID": ""
@@ -1204,7 +1204,7 @@
   "permissionModule": null,
   "permissionID": "92555db41037c65879ca6da1cef6186e",
   "objectAlias": "",
-  "objectValue": "/admin/api/wxPlatform/wecom/groupChat/detail",
+  "objectValue": "/admin/api/wxPlatform/weCom/groupChat/detail",
   "action": "POST",
   "description": "",
   "moduleID": ""
@@ -1237,7 +1237,7 @@
   "permissionModule": null,
   "permissionID": "e37cb2c2324f025e32d6ffac6848d156",
   "objectAlias": "",
-  "objectValue": "/admin/api/wxPlatform/wecom/contactWay/detail",
+  "objectValue": "/admin/api/wxPlatform/weCom/contactWay/detail",
   "action": "GET",
   "description": "",
   "moduleID": ""
@@ -1380,7 +1380,7 @@
   "permissionModule": null,
   "permissionID": "8fab1d9bc7c3633d8fbc3f830c014f74",
   "objectAlias": "",
-  "objectValue": "/wx/api/wecom/oauth2/authorize/qr/user",
+  "objectValue": "/wx/api/weCom/oauth2/authorize/qr/user",
   "action": "GET",
   "description": "",
   "moduleID": ""
@@ -1468,7 +1468,7 @@
   "permissionModule": null,
   "permissionID": "f2dcdcd48eb49b3c5949e0ba6fa74e9a",
   "objectAlias": "",
-  "objectValue": "/admin/api/wxPlatform/wecom/media/detail",
+  "objectValue": "/admin/api/wxPlatform/weCom/media/detail",
   "action": "GET",
   "description": "",
   "moduleID": ""
@@ -1479,7 +1479,7 @@
   "permissionModule": null,
   "permissionID": "84c32400cb08c77bbee5803ae190a622",
   "objectAlias": "",
-  "objectValue": "/admin/api/wxPlatform/wecom/media/upload/tempVideo",
+  "objectValue": "/admin/api/wxPlatform/weCom/media/upload/tempVideo",
   "action": "POST",
   "description": "",
   "moduleID": ""
@@ -1490,7 +1490,7 @@
   "permissionModule": null,
   "permissionID": "527e8f3aff1f2d772b1c02597f01c99a",
   "objectAlias": "",
-  "objectValue": "/wx/api/wecom/oauth2/authorize/customer",
+  "objectValue": "/wx/api/weCom/oauth2/authorize/customer",
   "action": "GET",
   "description": "",
   "moduleID": ""
@@ -1567,7 +1567,7 @@
   "permissionModule": null,
   "permissionID": "2ff4ae1adb51535eb578d393610c838d",
   "objectAlias": "",
-  "objectValue": "/wx/api/wecom/callback/authorized/qr/user",
+  "objectValue": "/wx/api/weCom/callback/authorized/qr/user",
   "action": "GET",
   "description": "",
   "moduleID": ""
@@ -1897,7 +1897,7 @@
   "permissionModule": null,
   "permissionID": "7a8bd6b012bb0155c995b8a81ea0a6f2",
   "objectAlias": "",
-  "objectValue": "/admin/api/wxPlatform/wecom/contactWay/list",
+  "objectValue": "/admin/api/wxPlatform/weCom/contactWay/list",
   "action": "GET",
   "description": "",
   "moduleID": ""
@@ -1996,7 +1996,7 @@
   "permissionModule": null,
   "permissionID": "52cc18584cafaf0076d7bf21126ab153",
   "objectAlias": "",
-  "objectValue": "/wx/api/wecom/customer",
+  "objectValue": "/wx/api/weCom/customer",
   "action": "POST",
   "description": "",
   "moduleID": ""
@@ -2095,7 +2095,7 @@
   "permissionModule": null,
   "permissionID": "6a1f6f6586d2473b1047056f2a9c9c1d",
   "objectAlias": "",
-  "objectValue": "/admin/api/wxPlatform/wecom/department/list",
+  "objectValue": "/admin/api/wxPlatform/weCom/department/list",
   "action": "GET",
   "description": "",
   "moduleID": ""
@@ -2106,7 +2106,7 @@
   "permissionModule": null,
   "permissionID": "3f21e8654ed12193faa3f5ca13e89003",
   "objectAlias": "",
-  "objectValue": "/admin/api/wxPlatform/wecom/department/simpleList",
+  "objectValue": "/admin/api/wxPlatform/weCom/department/simpleList",
   "action": "GET",
   "description": "",
   "moduleID": ""
@@ -2161,7 +2161,7 @@
   "permissionModule": null,
   "permissionID": "ee64de252ba398309404e8099e722c83",
   "objectAlias": "",
-  "objectValue": "/admin/api/wxPlatform/wecom/customer/detail",
+  "objectValue": "/admin/api/wxPlatform/weCom/customer/detail",
   "action": "GET",
   "description": "",
   "moduleID": ""
@@ -2172,7 +2172,7 @@
   "permissionModule": null,
   "permissionID": "a0afb60c78ab4c709240553540b22dfb",
   "objectAlias": "",
-  "objectValue": "/admin/api/wxPlatform/wecom/employee/list",
+  "objectValue": "/admin/api/wxPlatform/weCom/employee/list",
   "action": "GET",
   "description": "",
   "moduleID": ""

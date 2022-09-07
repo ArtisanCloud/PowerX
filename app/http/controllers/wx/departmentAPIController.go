@@ -3,7 +3,7 @@ package wx
 import (
 	"github.com/ArtisanCloud/PowerX/app/http/controllers/api"
 	"github.com/ArtisanCloud/PowerX/app/service"
-	global2 "github.com/ArtisanCloud/PowerX/app/service/wx/wecom"
+	global2 "github.com/ArtisanCloud/PowerX/app/service/wx/weCom"
 	"github.com/ArtisanCloud/PowerX/config"
 	globalDatabase "github.com/ArtisanCloud/PowerX/database/global"
 	"github.com/gin-gonic/gin"
@@ -25,7 +25,7 @@ func NewDepartmentAPIController(context *gin.Context) (ctl *DepartmentAPIControl
 func APISyncWXDepartments(context *gin.Context) {
 	ctl := NewDepartmentAPIController(context)
 
-	defer api.RecoverResponse(context, "wecom.api.department.sync")
+	defer api.RecoverResponse(context, "weCom.api.department.sync")
 
 	var err error
 

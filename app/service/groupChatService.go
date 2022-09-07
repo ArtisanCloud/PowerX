@@ -12,7 +12,7 @@ import (
 	modelsPowerWechatWork "github.com/ArtisanCloud/PowerWeChat/v2/src/work/server/handlers/models"
 	"github.com/ArtisanCloud/PowerX/app/models"
 	modelWX "github.com/ArtisanCloud/PowerX/app/models/wx"
-	global2 "github.com/ArtisanCloud/PowerX/app/service/wx/wecom"
+	global2 "github.com/ArtisanCloud/PowerX/app/service/wx/weCom"
 	"github.com/ArtisanCloud/PowerX/database/global"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-module/carbon"

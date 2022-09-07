@@ -1,4 +1,4 @@
-package wecom
+package weCom
 
 import (
 	"errors"
@@ -35,27 +35,27 @@ var timer *time.Timer
 var Ticker *time.Ticker = time.NewTicker(time.Second)
 var IsBuffing bool
 
-func NewWeComService(ctx *gin.Context, wecomConfig *config.WecomConfig) (*WeComService, error) {
+func NewWeComService(ctx *gin.Context, weComConfig *config.WecomConfig) (*WeComService, error) {
 
 	var err error
 
-	wecomCorpID := wecomConfig.CorpID
-	wecomAgentID := wecomConfig.WecomAgentID
-	wecomSecret := wecomConfig.WecomSecret
-	messageToken := wecomConfig.AppMessageToken
-	messageAESKey := wecomConfig.AppMessageAesKey
-	messageCallbackURL := wecomConfig.AppMessageCallbackURL
-	appOauthCallbackURL := wecomConfig.AppOauthCallbackURL
+	weComCorpID := weComConfig.CorpID
+	weComAgentID := weComConfig.WecomAgentID
+	weComSecret := weComConfig.WecomSecret
+	messageToken := weComConfig.AppMessageToken
+	messageAESKey := weComConfig.AppMessageAesKey
+	messageCallbackURL := weComConfig.AppMessageCallbackURL
+	appOauthCallbackURL := weComConfig.AppOauthCallbackURL
 
 	if ctx != nil {
-		if ctx.GetString("wecomCorpID") != "" {
-			wecomCorpID = ctx.GetString("wecomCorpID")
+		if ctx.GetString("weComCorpID") != "" {
+			weComCorpID = ctx.GetString("weComCorpID")
 		}
-		if ctx.GetInt("wecomAgentID") != 0 {
-			wecomAgentID = ctx.GetInt("wecomAgentID")
+		if ctx.GetInt("weComAgentID") != 0 {
+			weComAgentID = ctx.GetInt("weComAgentID")
 		}
-		if ctx.GetString("wecomSecret") != "" {
-			wecomSecret = ctx.GetString("wecomSecret")
+		if ctx.GetString("weComSecret") != "" {
+			weComSecret = ctx.GetString("weComSecret")
 		}
 		if ctx.GetString("messageToken") != "" {
 			messageToken = ctx.GetString("messageToken")
@@ -71,11 +71,11 @@ func NewWeComService(ctx *gin.Context, wecomConfig *config.WecomConfig) (*WeComS
 		}
 	}
 
-	logger.Logger.Info(fmt.Sprintf("init wecom", zap.Any("corpID", wecomCorpID), zap.Any("wecomAgentID", wecomAgentID)))
+	logger.Logger.Info(fmt.Sprintf("init weCom", zap.Any("corpID", weComCorpID), zap.Any("weComAgentID", weComAgentID)))
 	app, err := work.NewWork(&work.UserConfig{
-		CorpID:      wecomCorpID,        // 企业微信的corp id，所有企业微信共用一个。
-		AgentID:     wecomAgentID,       // 内部应用的app id
-		Secret:      wecomSecret,        // 默认内部应用的app secret
+		CorpID:      weComCorpID,        // 企业微信的corp id，所有企业微信共用一个。
+		AgentID:     weComAgentID,       // 内部应用的app id
+		Secret:      weComSecret,        // 默认内部应用的app secret
 		Token:       messageToken,       // 默认内部应用的app token
 		AESKey:      messageAESKey,      // 默认内部应用的app aeskey
 		CallbackURL: messageCallbackURL, // 内部应用的场景回调设置

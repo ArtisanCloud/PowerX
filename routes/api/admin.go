@@ -16,8 +16,8 @@ import (
 	sendGroupChatMsg "github.com/ArtisanCloud/PowerX/app/http/request/admin/sendGroupChatMessage"
 	"github.com/ArtisanCloud/PowerX/app/http/request/admin/tag"
 	groupChat2 "github.com/ArtisanCloud/PowerX/app/http/request/admin/tag/groupChat"
-	"github.com/ArtisanCloud/PowerX/app/http/request/admin/wx/wecom/media"
-	wxTag "github.com/ArtisanCloud/PowerX/app/http/request/admin/wx/wecom/tag"
+	"github.com/ArtisanCloud/PowerX/app/http/request/admin/wx/weCom/media"
+	wxTag "github.com/ArtisanCloud/PowerX/app/http/request/admin/wx/weCom/tag"
 	"github.com/ArtisanCloud/PowerX/routes/global"
 )
 
@@ -36,8 +36,8 @@ func InitAdminAPIRoutes() {
 			apiAdminRouter.GET("/customer/detail", customer.ValidateCustomerDetail, admin.APIGetCustomerDetail)
 
 			//  Customer - wechat platform - 客户微信平台直连接口
-			apiAdminRouter.GET("/wxPlatform/wecom/customer/list", customer.ValidateWXPlatformCustomerList, admin.APIGetCustomerListOnWXPlatform)
-			apiAdminRouter.GET("/wxPlatform/wecom/customer/detail", customer.ValidateCustomerDetail, admin.APIGetCustomerDetailOnWXPlatform)
+			apiAdminRouter.GET("/wxPlatform/weCom/customer/list", customer.ValidateWXPlatformCustomerList, admin.APIGetCustomerListOnWXPlatform)
+			apiAdminRouter.GET("/wxPlatform/weCom/customer/detail", customer.ValidateCustomerDetail, admin.APIGetCustomerDetailOnWXPlatform)
 
 			//  Employee - 企微员工接口
 			apiAdminRouter.POST("/employee/sync", admin.APISyncWXEmployees)
@@ -48,17 +48,17 @@ func InitAdminAPIRoutes() {
 			apiAdminRouter.POST("/employee/unbind/customer", employee.ValidateBindCustomerToEmployee, admin.APIUnbindCustomerToEmployee)
 
 			//  Employee - wechat platform - 企微部门微信平台直连接口
-			apiAdminRouter.GET("/wxPlatform/wecom/employee/list", employee.ValidateWXPlatformEmployeeList, admin.APIGetEmployeeListOnWXPlatform)
-			apiAdminRouter.GET("/wxPlatform/wecom/employee/detail", employee.ValidateEmployeeDetail, admin.APIGetEmployeeDetailOnWXPlatform)
-			apiAdminRouter.DELETE("/wxPlatform/wecom/employee/delete", employee.ValidateWXPlatformDeleteEmployee, admin.APIDeleteEmployeesOnWXPlatform)
+			apiAdminRouter.GET("/wxPlatform/weCom/employee/list", employee.ValidateWXPlatformEmployeeList, admin.APIGetEmployeeListOnWXPlatform)
+			apiAdminRouter.GET("/wxPlatform/weCom/employee/detail", employee.ValidateEmployeeDetail, admin.APIGetEmployeeDetailOnWXPlatform)
+			apiAdminRouter.DELETE("/wxPlatform/weCom/employee/delete", employee.ValidateWXPlatformDeleteEmployee, admin.APIDeleteEmployeesOnWXPlatform)
 
 			// Department - 企微部门接口
 			apiAdminRouter.GET("/department/sync", wx.APISyncWXDepartments)
 			apiAdminRouter.GET("/department/list", wx.APIGetDepartmentList)
 
 			// Department - 企微部门微信平台直连接口
-			apiAdminRouter.GET("/wxPlatform/wecom/department/simpleList", department.ValidateWXPlatformDepartmentList, wx.APIGetDepartmentSimpleListOnWXPlatform)
-			apiAdminRouter.GET("/wxPlatform/wecom/department/list", department.ValidateWXPlatformDepartmentList, wx.APIGetDepartmentListOnWXPlatform)
+			apiAdminRouter.GET("/wxPlatform/weCom/department/simpleList", department.ValidateWXPlatformDepartmentList, wx.APIGetDepartmentSimpleListOnWXPlatform)
+			apiAdminRouter.GET("/wxPlatform/weCom/department/list", department.ValidateWXPlatformDepartmentList, wx.APIGetDepartmentListOnWXPlatform)
 
 			//  WX Tag Group - 微信标签组接口
 			apiAdminRouter.GET("/wechat/tag/group/sync", wxTag.ValidateWXTagGroupSync, wx.APIGetWXTagGroupSync)
@@ -101,24 +101,24 @@ func InitAdminAPIRoutes() {
 			apiAdminRouter.DELETE("/contactWay/delete", contactWay.ValidateDeleteContactWay, admin.APIDeleteContactWays)
 
 			// Contact way 渠道码 - 微信平台直连接口
-			apiAdminRouter.GET("/wxPlatform/wecom/contactWay/list", contactWay.ValidateWXPlatformContactWayList, admin.APIGetContactWayListOnWXPlatform)
-			apiAdminRouter.GET("/wxPlatform/wecom/contactWay/detail", contactWay.ValidateContactWayDetail, admin.APIGetContactWayDetailOnWXPlatform)
-			apiAdminRouter.DELETE("/wxPlatform/wecom/contactWay/delete", contactWay.ValidateWXPlatformDeleteContactWay, admin.APIDeleteContactWaysOnWXPlatform)
+			apiAdminRouter.GET("/wxPlatform/weCom/contactWay/list", contactWay.ValidateWXPlatformContactWayList, admin.APIGetContactWayListOnWXPlatform)
+			apiAdminRouter.GET("/wxPlatform/weCom/contactWay/detail", contactWay.ValidateContactWayDetail, admin.APIGetContactWayDetailOnWXPlatform)
+			apiAdminRouter.DELETE("/wxPlatform/weCom/contactWay/delete", contactWay.ValidateWXPlatformDeleteContactWay, admin.APIDeleteContactWaysOnWXPlatform)
 
 			// WeCom media - 企微的媒体接口
-			apiAdminRouter.POST("/wxPlatform/wecom/media/upload/image", media.ValidateUploadMedia, wx.APIWeComMediaUploadImage)
-			apiAdminRouter.POST("/wxPlatform/wecom/media/upload/tempImage", media.ValidateUploadMedia, wx.APIWeComMediaUploadTempImage)
-			apiAdminRouter.POST("/wxPlatform/wecom/media/upload/tempVoice", media.ValidateUploadMedia, wx.APIWeComMediaUploadTempVoice)
-			apiAdminRouter.POST("/wxPlatform/wecom/media/upload/tempVideo", media.ValidateUploadMedia, wx.APIWeComMediaUploadTempVideo)
-			apiAdminRouter.POST("/wxPlatform/wecom/media/upload/tempFile", media.ValidateUploadMedia, wx.APIWeComMediaUploadTempFile)
+			apiAdminRouter.POST("/wxPlatform/weCom/media/upload/image", media.ValidateUploadMedia, wx.APIWeComMediaUploadImage)
+			apiAdminRouter.POST("/wxPlatform/weCom/media/upload/tempImage", media.ValidateUploadMedia, wx.APIWeComMediaUploadTempImage)
+			apiAdminRouter.POST("/wxPlatform/weCom/media/upload/tempVoice", media.ValidateUploadMedia, wx.APIWeComMediaUploadTempVoice)
+			apiAdminRouter.POST("/wxPlatform/weCom/media/upload/tempVideo", media.ValidateUploadMedia, wx.APIWeComMediaUploadTempVideo)
+			apiAdminRouter.POST("/wxPlatform/weCom/media/upload/tempFile", media.ValidateUploadMedia, wx.APIWeComMediaUploadTempFile)
 
 			//  WeCom group chat - 企微的群聊接口
 			apiAdminRouter.GET("/groupChat/sync", wx.APIGroupChatSync)
 			apiAdminRouter.POST("/groupChat/list", groupChat.ValidateGroupChatList, wx.APIGetGroupChatList)
 			apiAdminRouter.GET("/groupChat/detail", groupChat.ValidateGroupChatDetail, wx.APIGetGroupChatDetail)
 
-			apiAdminRouter.GET("/wxPlatform/wecom/groupChat/list", groupChat.ValidateWXPlatformGroupChatList, wx.APIGetGroupChatListOnWXPlatform)
-			apiAdminRouter.POST("/wxPlatform/wecom/groupChat/detail", groupChat.ValidateWXPlatformGroupChatDetail, wx.APIGetGroupChatDetailOnWXPlatform)
+			apiAdminRouter.GET("/wxPlatform/weCom/groupChat/list", groupChat.ValidateWXPlatformGroupChatList, wx.APIGetGroupChatListOnWXPlatform)
+			apiAdminRouter.POST("/wxPlatform/weCom/groupChat/detail", groupChat.ValidateWXPlatformGroupChatDetail, wx.APIGetGroupChatDetailOnWXPlatform)
 
 			//  send chat message - 发送客户群发消息接口
 			apiAdminRouter.GET("/sendChatMessage/doSend", admin.APIDoSendChatMsgs)
@@ -154,7 +154,7 @@ func InitAdminAPIRoutes() {
 	{
 		apiAdminRouterByQuery.Use(middleware.Maintenance, middleware.AuthenticateEmployeeByQuery)
 		{
-			apiAdminRouterByQuery.GET("/wxPlatform/wecom/media/detail", media.ValidateGetMedia, wx.APIWeComMediaGetMedia)
+			apiAdminRouterByQuery.GET("/wxPlatform/weCom/media/detail", media.ValidateGetMedia, wx.APIWeComMediaGetMedia)
 		}
 	}
 }

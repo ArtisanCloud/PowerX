@@ -20,7 +20,7 @@ type AppConfig struct {
 	CacheConfig    CacheConfig    `yaml:"cache" json:"cache"`
 
 	WXConfig            WXConfig            `yaml:"wx" json:"wx"`
-	WecomConfig         WecomConfig         `yaml:"wecom" json:"wecom"`
+	WecomConfig         WecomConfig         `yaml:"weCom" json:"weCom"`
 	WXMiniProgramConfig WXMiniProgramConfig `yaml:"wx_miniprogram" json:"wx_miniprogram"`
 }
 

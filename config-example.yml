@@ -99,27 +99,27 @@ wx:
   auth_callback_host: "http://powerx-dev.artisancloud.cn"
 
 #企业微信配置
-wecom:
+weCom:
   # 企业微信基础配置
   corp_id: "ww45xxxxxxxxxxxxxxx"
-  wecom_agent_id: 10000001
-  wecom_secret: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+  weCom_agent_id: 10000001
+  weCom_secret: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 
   # 企业微信应用配置
   app_cert_public_key: "xxxxx/appCertPublicKey_2021002192687399.crt"
   app_message_aes_key: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-  app_message_callback_url: "https://powerx.artisancloud.cn/wechat/api/wecom/app"
+  app_message_callback_url: "https://powerx.artisancloud.cn/wechat/api/weCom/app"
   app_message_token: "xxxxxxxxxxxxxxxxxxxxxxxxx"
   app_oauth_callback_url: "http://power.artisancloud.cn"
 
   # 企业微信客户联系人配置
   customer_message_aes_key: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-  customer_message_callback_url: "https://powerx.artisancloud.cn/wechat/api/wecom/customer"
+  customer_message_callback_url: "https://powerx.artisancloud.cn/wechat/api/weCom/customer"
   customer_message_token: "xxxxxxxxxxxxxxx"
 
   # 企业微信内部联系人配置
   employee_message_aes_key: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-  employee_message_callback_url: "https://powerx.artisancloud.cn/wechat/api/wecom/employee"
+  employee_message_callback_url: "https://powerx.artisancloud.cn/wechat/api/weCom/employee"
   employee_message_token: "xxxxxxxxxxxxxxx"
 
   # 商户号支付配置
