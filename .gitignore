@@ -29,6 +29,8 @@ powerX-migrate-dev
 powerX-migrate-linux
 powerX-seed-dev
 powerX-seed-linux
+powerX-authorization
+powerX-migrate
 
 *.log
 
