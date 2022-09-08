@@ -268,7 +268,7 @@ func APIUpdatePolicy(context *gin.Context) {
 
 	defer api.RecoverResponse(context, "api.admin.policy.update")
 
-	err := ctl.ServiceRBAC.UpsertPolicies(policies)
+	err := ctl.ServiceRBAC.UpsertPolicies(policies, true)
 
 	if err != nil {
 		ctl.RS.SetCode(globalConfig.API_ERR_CODE_FAIL_TO_UPDATE_ROLE_POLICY, globalConfig.API_RETURN_CODE_ERROR, "", err.Error())

@@ -6,14 +6,15 @@ go 1.17
 //
 ////
 //replace github.com/ArtisanCloud/PowerLibs/v2 => ../PowerLibs
+
 //
 ////
 //replace github.com/ArtisanCloud/PowerSocialite/v2 => ../PowerSocialite
 
 require (
-	github.com/ArtisanCloud/PowerLibs/v2 v2.0.41
-	github.com/ArtisanCloud/PowerSocialite/v2 v2.0.15
-	github.com/ArtisanCloud/PowerWeChat/v2 v2.0.7
+	github.com/ArtisanCloud/PowerLibs/v2 v2.0.42
+	github.com/ArtisanCloud/PowerSocialite/v2 v2.0.17
+	github.com/ArtisanCloud/PowerWeChat/v2 v2.0.10
 	github.com/casbin/casbin/v2 v2.52.2
 	github.com/casbin/gorm-adapter/v3 v3.8.0
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
@@ -24,7 +25,6 @@ require (
 	github.com/google/uuid v1.3.0
 	go.uber.org/zap v1.21.0
 	golang.org/x/text v0.3.7
-	gopkg.in/yaml.v3 v3.0.1
 	gorm.io/datatypes v1.0.7
 	gorm.io/driver/postgres v1.3.9
 	gorm.io/gorm v1.23.8
@@ -84,6 +84,7 @@ require (
 	golang.org/x/sys v0.0.0-20220823224334-20c2bfdbfe24 // indirect
 	google.golang.org/protobuf v1.28.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
 	gorm.io/driver/mysql v1.3.6 // indirect
 	gorm.io/driver/sqlserver v1.3.2 // indirect
 	gorm.io/plugin/dbresolver v1.2.3 // indirect

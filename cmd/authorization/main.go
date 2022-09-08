@@ -8,11 +8,12 @@ import (
 	"github.com/ArtisanCloud/PowerLibs/v2/object"
 	"github.com/ArtisanCloud/PowerX/app/service"
 	"github.com/ArtisanCloud/PowerX/boostrap"
+	"github.com/ArtisanCloud/PowerX/boostrap/rbac"
 	globalRBAC "github.com/ArtisanCloud/PowerX/boostrap/rbac/global"
 	"github.com/ArtisanCloud/PowerX/config"
+	database2 "github.com/ArtisanCloud/PowerX/database"
 	globalDatabase "github.com/ArtisanCloud/PowerX/database/global"
 	logger "github.com/ArtisanCloud/PowerX/loggerManager"
-	"github.com/ArtisanCloud/PowerX/routes"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 	"os"
@@ -32,16 +33,25 @@ func init() {
 		panic(err)
 	}
 
-	// 模拟系统已经安装成功
-	config.G_AppConfigure.SystemConfig.Installed = true
-
-	// Initialize the routes
-	err = boostrap.InitProject()
+	// Initialize the logger
+	err = logger.SetupLog(&config.G_AppConfigure.LogConfig)
 	if err != nil {
 		panic(err)
 	}
 
-	err = routes.InitializeRoutes()
+	err = config.LoadDatabaseConfig()
+	if err != nil {
+		panic(err)
+	}
+
+	// Initialize the database
+	err = database2.SetupDatabase(config.G_DBConfig)
+	if err != nil {
+		panic(err)
+	}
+
+	// Initialize the RBAC Enforcer
+	err = rbac.InitCasbin(globalDatabase.G_DBConnection)
 	if err != nil {
 		panic(err)
 	}
@@ -313,7 +323,7 @@ func ImportPolicyRules(db *gorm.DB) (err error) {
 	}
 
 	serviceRBAC := service.NewRBACService(nil)
-	err = serviceRBAC.UpsertPolicies(policyList)
+	err = serviceRBAC.UpsertPolicies(policyList, false)
 
 	return err
 

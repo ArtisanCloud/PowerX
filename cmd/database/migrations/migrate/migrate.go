@@ -5,6 +5,8 @@ import (
 	foundation2 "github.com/ArtisanCloud/PowerX/cmd/database/migrations/migrate/foundation"
 	wx2 "github.com/ArtisanCloud/PowerX/cmd/database/migrations/migrate/wx"
 	"github.com/ArtisanCloud/PowerX/config"
+	database2 "github.com/ArtisanCloud/PowerX/database"
+	logger "github.com/ArtisanCloud/PowerX/loggerManager"
 	"gorm.io/gorm"
 )
 
@@ -14,18 +16,29 @@ var (
 )
 
 func init() {
-	err := boostrap.InitConfig()
+	var err error
+	err = boostrap.InitConfig()
 	if err != nil {
 		panic(err)
 	}
 
-	// 模拟系统已经安装成功
-	config.G_AppConfigure.SystemConfig.Installed = true
-
-	err = boostrap.InitProject()
+	// Initialize the logger
+	err = logger.SetupLog(&config.G_AppConfigure.LogConfig)
 	if err != nil {
 		panic(err)
 	}
+
+	err = config.LoadDatabaseConfig()
+	if err != nil {
+		panic(err)
+	}
+
+	// Initialize the database
+	err = database2.SetupDatabase(config.G_DBConfig)
+	if err != nil {
+		panic(err)
+	}
+
 }
 
 func Run(db *gorm.DB) (err error) {

@@ -440,6 +440,17 @@
   "moduleID": ""
  },
  {
+  "createdAt": "2022-08-20T15:01:33.088637+08:00",
+  "updatedAt": "2022-08-20T15:01:33.088637+08:00",
+  "permissionModule": null,
+  "permissionID": "4c87522ce4c623010a3ad9eba4dc51dc",
+  "objectAlias": "",
+  "objectValue": "/wx/api/customer/get",
+  "action": "GET",
+  "description": "",
+  "moduleID": ""
+ },
+ {
   "createdAt": "2022-08-20T15:01:33.088325+08:00",
   "updatedAt": "2022-08-20T15:01:33.088325+08:00",
   "permissionModule": null,
@@ -1910,17 +1921,6 @@
   "objectAlias": "",
   "objectValue": "/root/api/permission/create",
   "action": "POST",
-  "description": "",
-  "moduleID": ""
- },
- {
-  "createdAt": "2022-08-20T15:01:33.088637+08:00",
-  "updatedAt": "2022-08-20T15:01:33.088637+08:00",
-  "permissionModule": null,
-  "permissionID": "4c87522ce4c623010a3ad9eba4dc51dc",
-  "objectAlias": "",
-  "objectValue": "/wx/api/customer/get",
-  "action": "GET",
   "description": "",
   "moduleID": ""
  },

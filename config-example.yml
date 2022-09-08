@@ -8,8 +8,16 @@ server:
 
 # JWT 配置
 jwt:
-  public_key_file: /Users/user/.ssh/jwt-public-key.pem
-  private_key_file: /Users/user/.ssh/jwt-private-key.pem
+  public_key_file: |
+    xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+    xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+    xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+    xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+  private_key_file: |
+    xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+    xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+    xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+    xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
 # 系统运行状态配置
 system:
@@ -36,7 +44,7 @@ database:
       port: 5432
       database: powerx
       username: user
-      password: 123456
+      password:
       charset: utf8
       prefix: ac_
       prefix_indexes:
