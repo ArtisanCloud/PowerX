@@ -19,6 +19,7 @@ RUN apk add --no-cache tzdata
 ENV TZ Asia/Shanghai
 COPY --from=builder /source/powerX /app/powerX
 COPY --from=builder /source/powerX-migrate /app/powerX-migrate
+COPY --from=builder /source/powerX-authorization /app/powerX-authorization
 
 RUN chmod +x /app/powerX
 RUN chmod +x /app/powerX-migrate
