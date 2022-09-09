@@ -172,7 +172,7 @@ func TaskInstallDatabase() func(taskChannel chan error, appConfig *config.AppCon
 		}
 
 		// migrate 数据库
-		cmd := exec.Command("make", "./Makefile", "migrate-tables")
+		cmd := exec.Command(config.COMMAND_ROOT, "db", "migrate-tables")
 		cmd.Stdin = strings.NewReader("and old falcon")
 
 		var out bytes.Buffer
@@ -185,7 +185,7 @@ func TaskInstallDatabase() func(taskChannel chan error, appConfig *config.AppCon
 		}
 
 		// 导入原始系统数据
-		cmd = exec.Command("make", "./Makefile", "import-rbac-data")
+		cmd = exec.Command(config.COMMAND_ROOT, "rbac", "import-rbac-data")
 		cmd.Stdin = strings.NewReader("and old falcon")
 
 		cmd.Stdout = &out

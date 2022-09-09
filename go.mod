@@ -18,7 +18,7 @@ require (
 	github.com/gin-gonic/gin v1.8.1
 	github.com/golang-module/carbon v1.5.5
 	github.com/google/uuid v1.3.0
-	github.com/spf13/cobra v0.0.5
+	github.com/spf13/cobra v1.5.0
 	go.uber.org/zap v1.21.0
 	golang.org/x/text v0.3.7
 	gorm.io/datatypes v1.0.7
@@ -73,7 +73,7 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20200410134404-eec4a21b6bb0 // indirect
 	github.com/rogpeppe/go-internal v1.8.0 // indirect
-	github.com/spf13/pflag v1.0.3 // indirect
+	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/ugorji/go/codec v1.2.7 // indirect
 	go.uber.org/atomic v1.7.0 // indirect
 	go.uber.org/multierr v1.6.0 // indirect

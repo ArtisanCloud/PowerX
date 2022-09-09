@@ -2,7 +2,7 @@ package wx
 
 import (
 	"github.com/ArtisanCloud/PowerX/app/models/wx"
-	"github.com/ArtisanCloud/PowerX/cmd/database/migrations/migrate/foundation"
+	"github.com/ArtisanCloud/PowerX/cmd/database/migrations/foundation"
 )
 
 type MigrateRWXTagToObject struct {

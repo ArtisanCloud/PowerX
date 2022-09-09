@@ -1,4 +1,4 @@
-package main
+package authorization
 
 import (
 	"errors"
@@ -14,9 +14,9 @@ import (
 	database2 "github.com/ArtisanCloud/PowerX/database"
 	globalDatabase "github.com/ArtisanCloud/PowerX/database/global"
 	logger "github.com/ArtisanCloud/PowerX/loggerManager"
+	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
-	"os"
 	"path"
 )
 
@@ -57,16 +57,7 @@ func init() {
 	}
 }
 
-func main() {
-
-	args := os.Args[1:]
-
-	if len(args) <= 0 {
-		printPrompt()
-		return
-	}
-
-	command := args[0]
+func RunAuthorization(cmd *cobra.Command, command string) {
 
 	var err error
 	switch command {
