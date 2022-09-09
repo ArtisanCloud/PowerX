@@ -10,7 +10,7 @@ import (
 
 func InitializeWebRoutes() {
 
-	apiRouter := global.Router.Group("/")
+	apiRouter := global.G_Router.Group("/")
 	{
 		apiRouter.Use(middleware.CheckInstalled, middleware.Maintenance)
 		{

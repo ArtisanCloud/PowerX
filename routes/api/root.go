@@ -15,7 +15,7 @@ import (
 
 func InitRootAPIRoutes() {
 
-	apiInstallRouter := global.Router.Group("/root/api")
+	apiInstallRouter := global.G_Router.Group("/root/api")
 	{
 		apiInstallRouter.Use(middleware.CheckNotInstalled, middleware.AuthRootAPI)
 		{
@@ -26,7 +26,7 @@ func InitRootAPIRoutes() {
 		}
 	}
 
-	apiRootRouter := global.Router.Group("/root/api")
+	apiRootRouter := global.G_Router.Group("/root/api")
 	{
 		apiRootRouter.Use(middleware.CheckInstalled, middleware.Maintenance, middleware.AuthRootAPI)
 		{

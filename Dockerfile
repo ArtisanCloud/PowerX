@@ -5,9 +5,7 @@ ENV GOPROXY https://goproxy.cn,direct
 COPY ./ /source/
 WORKDIR /source/
 
-RUN go build -o powerX main.go
-RUN go build -o powerX-migrate cmd/database/migrations/main.go
-RUN go build -o powerX-authorization cmd/authorization/main.go cmd/authorization/openAPI.go
+RUN go build -o powerx main.go
 
 FROM alpine
 # China mirrors
@@ -17,15 +15,12 @@ RUN apk update --no-cache
 RUN apk add --no-cache ca-certificates
 RUN apk add --no-cache tzdata
 ENV TZ Asia/Shanghai
-COPY --from=builder /source/powerX /app/powerX
-COPY --from=builder /source/powerX-migrate /app/powerX-migrate
-COPY --from=builder /source/powerX-authorization /app/powerX-authorization
+COPY --from=builder /source/powerx /app/powerx
 
-RUN chmod +x /app/powerX
-RUN chmod +x /app/powerX-migrate
+RUN chmod +x /app/powerx
 
 WORKDIR /app
 EXPOSE 80
 
 
-ENTRYPOINT ["/app/powerX"]
+ENTRYPOINT ["/app/powerx","serve"]

@@ -5,8 +5,8 @@ import (
 	root "github.com/ArtisanCloud/PowerX/app/http/request/root/install"
 	"github.com/ArtisanCloud/PowerX/app/service"
 	globalConfig "github.com/ArtisanCloud/PowerX/config"
+	"github.com/ArtisanCloud/PowerX/routes/global"
 	"github.com/gin-gonic/gin"
-	"os"
 )
 
 type InstallAPIController struct {
@@ -22,8 +22,20 @@ func NewInstallAPIController(context *gin.Context) (ctl *InstallAPIController) {
 	}
 }
 
-func APISystemShutDown(c *gin.Context) {
-	os.Exit(1)
+func APISystemShutDown(context *gin.Context) {
+	ctl := NewInstallAPIController(context)
+
+	defer api.RecoverResponse(context, "api.root.system.shutDown")
+	err := global.G_Server.Shutdown(context)
+
+	if err != nil {
+		ctl.RS.SetCode(globalConfig.API_ERR_CODE_FAIL_TO_SHUT_DOWN_SYSTEM, globalConfig.API_RETURN_CODE_ERROR, "", err.Error())
+		panic(ctl.RS)
+		return
+	}
+
+	ctl.RS.Success(context, err)
+
 }
 func APISystemInstall(context *gin.Context) {
 	ctl := NewInstallAPIController(context)

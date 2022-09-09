@@ -9,7 +9,7 @@ import (
 
 func InitWXRoutes() {
 	/* ------------------------------------------ wechat api ------------------------------------------*/
-	apiWechatRouter := global.Router.Group("/wechat/api")
+	apiWechatRouter := global.G_Router.Group("/wechat/api")
 	{
 
 		apiWechatRouter.Use(middleware.CheckInstalled, middleware.Maintenance)
