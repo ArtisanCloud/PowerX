@@ -9,6 +9,9 @@ import (
 const CONFIG_FILE_LOCATION = "config.yml"
 const CONFIG_EXAMPLE_FILE_LOCATION = "config-example.yml"
 
+const CODE_SHUTDOWN = 1
+const CODE_REBOOT = 2
+
 type AppConfig struct {
 	Name     string `yaml:"name" json:"name"`
 	Env      string `yaml:"env" json:"env"`
