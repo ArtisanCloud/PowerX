@@ -17,7 +17,7 @@ func ConvertRouts2OpenAPI() (err error) {
 	fmt.Dump("convert routes to openapi")
 
 	serviceOpenAPI := service.NewOpenAPIService(nil)
-	arrayRoutes := global.Router.Routes()
+	arrayRoutes := global.G_Router.Routes()
 	openAPI, err := serviceOpenAPI.ConvertRoutesToOpenAPI(&arrayRoutes)
 	if err != nil {
 		return err

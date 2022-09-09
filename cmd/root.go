@@ -39,9 +39,7 @@ var versionCmd = &cobra.Command{
 var serverCmd = &cobra.Command{
 	Use:   "serve",
 	Short: "启动web服务",
-	Long: `启动web服务，默认地址localhost, 默认端口8080, 可在安装服务或者后台系统功能中修改
-请访问 http://localhost:8080
-`,
+	Long:  `启动web服务，默认地址localhost, 默认端口8080, 可在安装服务或者后台系统功能中修改`,
 	Run: func(cmd *cobra.Command, args []string) {
 		server.LaunchServer(cmd, args)
 	},

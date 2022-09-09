@@ -25,7 +25,7 @@ import (
 
 func InitAdminAPIRoutes() {
 
-	apiAdminRouter := global.Router.Group("/admin/api")
+	apiAdminRouter := global.G_Router.Group("/admin/api")
 	{
 		apiAdminRouter.Use(middleware.CheckInstalled, middleware.Maintenance, middleware.AuthenticateEmployeeByHeader, middleware.AuthorizeAPI)
 		{
@@ -150,7 +150,7 @@ func InitAdminAPIRoutes() {
 		}
 	}
 
-	apiAdminRouterByQuery := global.Router.Group("/admin/api")
+	apiAdminRouterByQuery := global.G_Router.Group("/admin/api")
 	{
 		apiAdminRouterByQuery.Use(middleware.Maintenance, middleware.AuthenticateEmployeeByQuery)
 		{

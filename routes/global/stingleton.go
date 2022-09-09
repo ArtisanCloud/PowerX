@@ -1,5 +1,9 @@
 package global
 
-import "github.com/gin-gonic/gin"
+import (
+	"github.com/gin-gonic/gin"
+	"net/http"
+)
 
-var Router *gin.Engine
+var G_Server *http.Server
+var G_Router *gin.Engine
