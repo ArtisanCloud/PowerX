@@ -72,7 +72,7 @@ func SetupTestEnv(t *testing.M) {
 	// Initialize the global config
 	if config.G_AppConfigure == nil {
 
-		err := config.LoadEnvConfig(&envPath)
+		err := config.LoadConfigFile(&envPath)
 		if err != nil {
 			logger.Logger.Error(err.Error())
 		}

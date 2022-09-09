@@ -3,9 +3,9 @@ package service
 import (
 	"bytes"
 	"errors"
-	fmt2 "fmt"
 	"github.com/ArtisanCloud/PowerLibs/v2/corountine/locker"
 	"github.com/ArtisanCloud/PowerLibs/v2/fmt"
+	"github.com/ArtisanCloud/PowerLibs/v2/object"
 	"github.com/ArtisanCloud/PowerWeChat/v2/src/work"
 	"github.com/ArtisanCloud/PowerX/boostrap/cache"
 	globalBootstrap "github.com/ArtisanCloud/PowerX/boostrap/cache/global"
@@ -59,9 +59,9 @@ func NewInstallService(ctx *gin.Context) (r *InstallService) {
 	return r
 }
 
-func (srv *InstallService) InstallSystem(config *config.AppConfig) (installStatusList []*ResponseTask, err error) {
+func (srv *InstallService) InstallSystem(appConfig *config.AppConfig) (installStatusList []*ResponseTask, err error) {
 
-	//fmt.Dump(config)
+	//fmt.Dump(appConfig)
 	installStatusList = []*ResponseTask{}
 
 	// 检查是否安装任务是否被锁
@@ -80,14 +80,13 @@ func (srv *InstallService) InstallSystem(config *config.AppConfig) (installStatu
 
 	// 创建安装任务通道
 	taskChannel := make(chan error, n)
-	fmt2.Printf("length:%d, cap:%d \r\n", len(taskChannel), cap(taskChannel))
+	//fmt2.Printf("length:%d, cap:%d \r\n", len(taskChannel), cap(taskChannel))
 
 	for i, task := range _InstallTasks {
-
 		installStatusList = append(installStatusList, NewResponseTask())
 
 		//协程方式去并发检测安装执行
-		go task(taskChannel, config, installStatusList[i])
+		go task(taskChannel, appConfig, installStatusList[i])
 
 	}
 
@@ -102,10 +101,22 @@ func (srv *InstallService) InstallSystem(config *config.AppConfig) (installStatu
 	//fmt2.Printf("length:%d, cap:%d \r\n", len(taskChannel), cap(taskChannel))
 	close(taskChannel)
 
+	allSuccess := true
 	// 遍历任务通道，检查通道返回值
 	for chError := range taskChannel {
 		if chError != nil {
+			allSuccess = false
 			fmt.Dump(chError.Error())
+		}
+	}
+
+	if allSuccess {
+		// install status set true
+		appConfig.SystemConfig.Installed = true
+		// save the config file
+		err = object.SaveYMLFile(appConfig, config.CONFIG_FILE_LOCATION, 0644)
+		if err != nil {
+			return nil, err
 		}
 	}
 
@@ -151,8 +162,17 @@ func TaskInstallDatabase() func(taskChannel chan error, appConfig *config.AppCon
 			return
 		}
 
+		// 创建数据库配置信息
+		config.G_AppConfigure.DatabaseConfig.DatabaseConnections.PostgresConfig = appConfig.DatabaseConfig.DatabaseConnections.PostgresConfig
+		err = object.SaveYMLFile(config.G_AppConfigure, config.CONFIG_FILE_LOCATION, 0644)
+		if err != nil {
+			rsTask.ErrMsg = err.Error()
+			taskChannel <- err
+			return
+		}
+
 		// migrate 数据库
-		cmd := exec.Command("make", "./Makefile", "migrate-tables")
+		cmd := exec.Command(config.COMMAND_ROOT, "db", "migrate-tables")
 		cmd.Stdin = strings.NewReader("and old falcon")
 
 		var out bytes.Buffer
@@ -165,7 +185,7 @@ func TaskInstallDatabase() func(taskChannel chan error, appConfig *config.AppCon
 		}
 
 		// 导入原始系统数据
-		cmd = exec.Command("make", "./Makefile", "import-rbac-data")
+		cmd = exec.Command(config.COMMAND_ROOT, "rbac", "import-rbac-data")
 		cmd.Stdin = strings.NewReader("and old falcon")
 
 		cmd.Stdout = &out

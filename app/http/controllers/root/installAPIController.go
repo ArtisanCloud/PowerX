@@ -6,6 +6,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/app/service"
 	globalConfig "github.com/ArtisanCloud/PowerX/config"
 	"github.com/gin-gonic/gin"
+	"os"
 )
 
 type InstallAPIController struct {
@@ -21,6 +22,9 @@ func NewInstallAPIController(context *gin.Context) (ctl *InstallAPIController) {
 	}
 }
 
+func APISystemShutDown(c *gin.Context) {
+	os.Exit(1)
+}
 func APISystemInstall(context *gin.Context) {
 	ctl := NewInstallAPIController(context)
 

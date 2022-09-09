@@ -330,7 +330,7 @@ func (srv *RBACService) GetPolicyListCacheKey(role *modelPowerLib.Role) (cacheKe
 	return cacheKey
 }
 
-func (srv *RBACService) UpsertPolicies(policies []*modelPowerLib.RolePolicy) (err error) {
+func (srv *RBACService) UpsertPolicies(policies []*modelPowerLib.RolePolicy, needRefresh bool) (err error) {
 
 	for _, policy := range policies {
 
@@ -355,7 +355,9 @@ func (srv *RBACService) UpsertPolicies(policies []*modelPowerLib.RolePolicy) (er
 
 	}
 
-	err = srv.ClearCachedPolicyList(nil)
+	if needRefresh {
+		err = srv.ClearCachedPolicyList(nil)
+	}
 
 	return err
 }

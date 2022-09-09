@@ -21,6 +21,7 @@ func InitRootAPIRoutes() {
 		{
 			// 系统 - 启动安装
 			apiInstallRouter.POST("/system/install", root.ValidateSystemInstall, rootAPI.APISystemInstall)
+			apiInstallRouter.GET("/system/shutDown", rootAPI.APISystemShutDown)
 			apiInstallRouter.GET("/system/install/check", rootAPI.APISystemCheckInstallation)
 		}
 	}

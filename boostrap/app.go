@@ -17,9 +17,8 @@ import (
 func InitConfig() (err error) {
 
 	// Initialize the global config
-	envConfigPath := "config.yml"
 
-	err = config.LoadEnvConfig(&envConfigPath)
+	err = config.LoadConfigFile(config.CONFIG_FILE_LOCATION)
 
 	return err
 }

@@ -20,7 +20,6 @@ import (
 	"github.com/ArtisanCloud/PowerX/config"
 	logger "github.com/ArtisanCloud/PowerX/loggerManager"
 	"github.com/gin-gonic/gin"
-	"go.uber.org/zap"
 	"net/http"
 	"reflect"
 	"time"
@@ -71,7 +70,7 @@ func NewWeComService(ctx *gin.Context, weComConfig *config.WecomConfig) (*WeComS
 		}
 	}
 
-	logger.Logger.Info(fmt.Sprintf("init weCom", zap.Any("corpID", weComCorpID), zap.Any("weComAgentID", weComAgentID)))
+	//logger.Logger.Info(fmt.Sprintf("init weCom", zap.Any("corpID", weComCorpID), zap.Any("weComAgentID", weComAgentID)))
 	app, err := work.NewWork(&work.UserConfig{
 		CorpID:      weComCorpID,        // 企业微信的corp id，所有企业微信共用一个。
 		AgentID:     weComAgentID,       // 内部应用的app id

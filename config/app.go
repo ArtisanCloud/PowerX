@@ -1,9 +1,18 @@
 package config
 
 import (
-	"gopkg.in/yaml.v3"
-	"io/ioutil"
+	"github.com/ArtisanCloud/PowerLibs/v2/object"
+	osPowerLib "github.com/ArtisanCloud/PowerLibs/v2/os"
+	"os"
 )
+
+const CONFIG_FILE_LOCATION = "config.yml"
+const CONFIG_EXAMPLE_FILE_LOCATION = "config-example.yml"
+
+const COMMAND_ROOT string = "powerx"
+
+const CODE_SHUTDOWN = 1
+const CODE_REBOOT = 2
 
 type AppConfig struct {
 	Name     string `yaml:"name" json:"name"`
@@ -43,27 +52,30 @@ type LogConfig struct {
 	LogPath string `yaml:"log_path" json:"log_path" binding:"required"`
 }
 
-func LoadEnvConfig(configPath *string) (err error) {
+func LoadConfigFile(configPath string) (err error) {
 
-	err = LoadConfigFile(configPath)
-	if err != nil {
-		return err
-	}
-	//fmt.Dump(G_AppConfigure)
-	//err = parseAppConfig()
+	// 检查是否存在配置文件
+	if _, err = os.Stat(configPath); os.IsNotExist(err) {
 
-	return err
-}
+		//  检查config-example是否存在
+		if _, err = os.Stat(CONFIG_EXAMPLE_FILE_LOCATION); os.IsNotExist(err) {
+			return err
+		} else if os.IsPermission(err) {
+			return err
+		}
 
-func LoadConfigFile(configPath *string) (err error) {
+		// 从config-example生成新的config文件
+		err = osPowerLib.CopyFile(CONFIG_EXAMPLE_FILE_LOCATION, configPath)
+		if err != nil {
+			return err
+		}
 
-	yamlFile, err := ioutil.ReadFile(*configPath)
-	if err != nil {
+	} else if os.IsPermission(err) {
 		return err
 	}
 
 	G_AppConfigure = &AppConfig{}
-	err = yaml.Unmarshal(yamlFile, G_AppConfigure)
+	err = object.OpenYMLFile(configPath, G_AppConfigure)
 	if err != nil {
 		return err
 	}

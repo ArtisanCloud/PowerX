@@ -1,4 +1,4 @@
-package main
+package authorization
 
 import (
 	"github.com/ArtisanCloud/PowerLibs/v2/fmt"
