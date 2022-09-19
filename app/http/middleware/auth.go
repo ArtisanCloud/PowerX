@@ -143,7 +143,7 @@ func AuthenticateEmployee(c *gin.Context, strToken string) (errCode int) {
 	}
 
 	// 员工未分配角色
-	if employee.Role == nil && *employee.RoleID == "" {
+	if employee.Role == nil && employee.RoleID == nil {
 		return globalConfig.API_ERR_CODE_EMPLOYEE_HAS_NO_ROLE
 	}
 

@@ -29,6 +29,8 @@ func InitAdminAPIRoutes() {
 	{
 		apiAdminRouter.Use(middleware.CheckInstalled, middleware.Maintenance, middleware.AuthenticateEmployeeByHeader, middleware.AuthorizeAPI)
 		{
+			// Me - 当前登陆用户信息
+			apiAdminRouter.GET("/me/detail", admin.APIMeDetail)
 
 			//  Customer - 企微客户接口
 			apiAdminRouter.POST("/customer/sync", customer.ValidateSyncCustomer, admin.APIWXCustomerSync)
