@@ -25,9 +25,12 @@ func InitializeRoutes() (err error) {
 	}
 
 	global.G_Router.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"*"},
-		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
+		AllowOrigins: []string{"*"},
+		AllowMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowHeaders: []string{
+			"Origin", "Content-Type", "Authorization",
+			"x-requested-with", "Access-Control-Allow-Origin",
+		},
 		AllowCredentials: true,
 		AllowOriginFunc: func(origin string) bool {
 			logger.Logger.Info("origin: ", origin)
