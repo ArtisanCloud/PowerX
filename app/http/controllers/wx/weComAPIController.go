@@ -539,6 +539,7 @@ func WeComAuthorizedEmployee(context *gin.Context) {
 
 	// get user info from code
 	user, err := weCom.G_WeComEmployee.AuthorizedEmployee(context)
+
 	if err != nil {
 		ctl.RS.SetCode(http.StatusExpectationFailed, config.API_RETURN_CODE_ERROR, "", err.Error())
 		ctl.RS.ThrowJSONResponse(context)
@@ -558,7 +559,7 @@ func WeComAuthorizedEmployee(context *gin.Context) {
 		"refresh_token": "",
 	}
 
-	//// 正常返回json
+	// 正常返回json
 	ctl.RS.Success(context, res)
 }
 
@@ -587,7 +588,7 @@ func WeComAuthorizedEmployeeQR(context *gin.Context) {
 		"refresh_token": "",
 	}
 
-	//// 正常返回json
+	// 正常返回json
 	ctl.RS.Success(context, res)
 }
 

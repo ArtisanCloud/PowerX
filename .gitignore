@@ -22,15 +22,8 @@ config.yml
 .DS_Store
 
 config/
-powerX
-powerX-dev
-powerX-dev-linux
-powerX-migrate-dev
-powerX-migrate-linux
-powerX-seed-dev
-powerX-seed-linux
-powerX-authorization
-powerX-migrate
+powerx
+
 
 *.log
 

@@ -30,6 +30,9 @@ func InitRootAPIRoutes() {
 	{
 		apiRootRouter.Use(middleware.CheckInstalled, middleware.Maintenance, middleware.AuthRootAPI)
 		{
+			apiRootRouter.GET("/ping", rootAPI.APIPing)
+			apiRootRouter.GET("/detect/get", rootAPI.APIGetDetect)
+			apiRootRouter.POST("/detect/post", rootAPI.APIPostDetect)
 
 			// root
 			apiRootRouter.POST("/department/sync", wx.APISyncWXDepartments)
