@@ -17,12 +17,16 @@ func InitRootAPIRoutes() {
 
 	apiInstallRouter := global.G_Router.Group("/root/api")
 	{
+		// 检查是否系统被安装过
+		apiInstallRouter.GET("/system/install/check", rootAPI.APISystemCheckInstallation)
+
+		// 安装系统接口
 		apiInstallRouter.Use(middleware.CheckNotInstalled, middleware.AuthRootAPI)
 		{
 			// 系统 - 启动安装
 			apiInstallRouter.POST("/system/install", root.ValidateSystemInstall, rootAPI.APISystemInstall)
 			apiInstallRouter.GET("/system/shutDown", rootAPI.APISystemShutDown)
-			apiInstallRouter.GET("/system/install/check", rootAPI.APISystemCheckInstallation)
+
 		}
 	}
 

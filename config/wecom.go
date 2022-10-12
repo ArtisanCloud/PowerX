@@ -23,12 +23,4 @@ type WecomConfig struct {
 	EmployeeMessageAesKey      string `yaml:"employee_message_aes_key" json:"employee_message_aes_key"`
 	EmployeeMessageCallbackURL string `yaml:"employee_message_callback_url" json:"employee_message_callback_url"`
 	EmployeeMessageToken       string `yaml:"employee_message_token" json:"employee_message_token"`
-
-	// 商户号支付配置
-	MchID          string `yaml:"mch_id" json:"mch_id"`
-	MchApiV3Key    string `yaml:"mch_api_v3_key" json:"mch_api_v3_key"`
-	WXCertPath     string `yaml:"wx_cert_path" json:"wx_cert_path"`
-	WXKeyPath      string `yaml:"wx_key_path" json:"wx_key_path"`
-	WXPayNotifyURL string `yaml:"wx_pay_notify_url" json:"wx_pay_notify_url"`
-	NotifyURL      string `yaml:"notify_url" json:"notify_url"`
 }

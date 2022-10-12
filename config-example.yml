@@ -106,6 +106,22 @@ wx:
   # 授权回调配置
   auth_callback_host: "http://powerx-dev.artisancloud.cn"
 
+  # 商户号支付配置
+  mch_id: "1620xxxxx"
+  mch_api_v3_key: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+  wx_cert_path: |
+    xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+    xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+    xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+    xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+  wx_key_path: |
+    xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+    xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+    xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+    xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+  wx_pay_notify_url: "https://powerx.artisancloud.cn/wechat/notify"
+  notify_url: "https://www.weixin.qq.com/wxpay/pay.php"
+
 #企业微信配置
 weCom:
   # 企业微信基础配置
@@ -114,7 +130,11 @@ weCom:
   weCom_secret: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 
   # 企业微信应用配置
-  app_cert_public_key: "xxxxx/appCertPublicKey_2021002192687399.crt"
+  app_cert_public_key: |
+    xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+    xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+    xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+    xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
   app_message_aes_key: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
   app_message_callback_url: "https://powerx.artisancloud.cn/wechat/api/weCom/app"
   app_message_token: "xxxxxxxxxxxxxxxxxxxxxxxxx"
@@ -130,12 +150,5 @@ weCom:
   employee_message_callback_url: "https://powerx.artisancloud.cn/wechat/api/weCom/employee"
   employee_message_token: "xxxxxxxxxxxxxxx"
 
-  # 商户号支付配置
-  mch_id: "1620xxxxx"
-  mch_api_v3_key: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-  wx_cert_path: "xxxxx/cert/apiclient_cert.pem"
-  wx_key_path: "xxxxx/cert/apiclient_key.pem"
-  wx_pay_notify_url: "https://powerx.artisancloud.cn/wechat/notify"
-  notify_url: "https://www.weixin.qq.com/wxpay/pay.php"
 
 

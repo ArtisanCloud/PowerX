@@ -23,9 +23,9 @@ type InstallService struct {
 }
 
 type ResponseTask struct {
-	Name   string
-	Status string
-	ErrMsg string
+	Name   string `json:"name"`
+	Status string `json:"status"`
+	ErrMsg string `json:"errMsg"`
 }
 
 func NewResponseTask() *ResponseTask {
@@ -129,6 +129,17 @@ func (srv *InstallService) InstallSystem(appConfig *config.AppConfig) (installSt
 func (srv *InstallService) CheckSystemInstallation() (installStatusList []*ResponseTask, err error) {
 
 	installStatusList = []*ResponseTask{}
+
+	status := "not installed"
+	if config.G_AppConfigure.SystemConfig.Installed {
+		status = "installed"
+	}
+
+	sysTask := &ResponseTask{
+		Name:   "system",
+		Status: status,
+	}
+	installStatusList = append(installStatusList, sysTask)
 
 	return installStatusList, err
 
