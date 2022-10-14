@@ -296,14 +296,14 @@ func TaskInstallWechat() func(taskChannel chan error, appConfig *config.AppConfi
 
 		fmt.Dump("run task wechat")
 
-		fmt.Dump(appConfig.WecomConfig)
+		fmt.Dump(appConfig.WeComConfig)
 		weComApp, err := work.NewWork(&work.UserConfig{
-			CorpID:      appConfig.WecomConfig.CorpID,                // 企业微信的corp id，所有企业微信共用一个。
-			AgentID:     appConfig.WecomConfig.WecomAgentID,          // 内部应用的app id
-			Secret:      appConfig.WecomConfig.WecomSecret,           // 默认内部应用的app secret
-			CallbackURL: appConfig.WecomConfig.AppMessageCallbackURL, // 内部应用的场景回调设置
+			CorpID:      appConfig.WeComConfig.CorpID,                // 企业微信的corp id，所有企业微信共用一个。
+			AgentID:     appConfig.WeComConfig.WeComAgentID,          // 内部应用的app id
+			Secret:      appConfig.WeComConfig.WeComSecret,           // 默认内部应用的app secret
+			CallbackURL: appConfig.WeComConfig.AppMessageCallbackURL, // 内部应用的场景回调设置
 			OAuth: work.OAuth{
-				Callback: appConfig.WecomConfig.AppOauthCallbackURL, // 内部应用的app oauth url
+				Callback: appConfig.WeComConfig.AppOauthCallbackURL, // 内部应用的app oauth url
 				Scopes:   []string{"snsapi_base"},
 			},
 			HttpDebug: true,

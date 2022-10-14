@@ -82,7 +82,7 @@ func InitServices() (err error) {
 
 	// defined singleton located in app/service/wechat/weCom/datetime.go
 	if weCom.G_WeComApp == nil {
-		weCom.G_WeComApp, err = weCom.NewWeComService(nil, &config.G_AppConfigure.WecomConfig)
+		weCom.G_WeComApp, err = weCom.NewWeComService(nil, &config.G_AppConfigure.WeComConfig)
 		if err != nil {
 			return err
 		}
@@ -91,10 +91,10 @@ func InitServices() (err error) {
 	// defined singleton located in app/service/wechat/weCom/datetime.go
 	if weCom.G_WeComEmployee == nil {
 		ctx := &gin.Context{}
-		ctx.Set("messageToken", config.G_AppConfigure.WecomConfig.EmployeeMessageToken)
-		ctx.Set("messageAESKey", config.G_AppConfigure.WecomConfig.EmployeeMessageAesKey)
-		ctx.Set("messageCallbackURL", config.G_AppConfigure.WecomConfig.EmployeeMessageCallbackURL)
-		weCom.G_WeComEmployee, err = weCom.NewWeComService(ctx, &config.G_AppConfigure.WecomConfig)
+		ctx.Set("messageToken", config.G_AppConfigure.WeComConfig.EmployeeMessageToken)
+		ctx.Set("messageAESKey", config.G_AppConfigure.WeComConfig.EmployeeMessageAesKey)
+		ctx.Set("messageCallbackURL", config.G_AppConfigure.WeComConfig.EmployeeMessageCallbackURL)
+		weCom.G_WeComEmployee, err = weCom.NewWeComService(ctx, &config.G_AppConfigure.WeComConfig)
 		if err != nil {
 			return err
 		}
@@ -103,10 +103,10 @@ func InitServices() (err error) {
 	// defined singleton located in app/service/wechat/weCom/datetime.go
 	if weCom.G_WeComCustomer == nil {
 		ctx := &gin.Context{}
-		ctx.Set("messageToken", config.G_AppConfigure.WecomConfig.CustomerMessageToken)
-		ctx.Set("messageAESKey", config.G_AppConfigure.WecomConfig.CustomerMessageAesKey)
-		ctx.Set("messageCallbackURL", config.G_AppConfigure.WecomConfig.CustomerMessageCallbackURL)
-		weCom.G_WeComCustomer, err = weCom.NewWeComService(ctx, &config.G_AppConfigure.WecomConfig)
+		ctx.Set("messageToken", config.G_AppConfigure.WeComConfig.CustomerMessageToken)
+		ctx.Set("messageAESKey", config.G_AppConfigure.WeComConfig.CustomerMessageAesKey)
+		ctx.Set("messageCallbackURL", config.G_AppConfigure.WeComConfig.CustomerMessageCallbackURL)
+		weCom.G_WeComCustomer, err = weCom.NewWeComService(ctx, &config.G_AppConfigure.WeComConfig)
 		if err != nil {
 			return err
 		}
