@@ -24,6 +24,7 @@ func LoadLang() {
 	message.SetString(lang, fmt2.Sprintf("%d", config.API_WARNING_CODE_NEED_UPDATE), "推出新版本，请更新最新的版本")
 	message.SetString(lang, fmt2.Sprintf("%d", config.API_ERR_CODE_FAIL_TO_INSTALL_SYSTEM), "安装系统失败")
 	message.SetString(lang, fmt2.Sprintf("%d", config.API_ERR_CODE_FAIL_TO_SHUT_DOWN_SYSTEM), "关闭系统失败")
+	message.SetString(lang, fmt2.Sprintf("%d", config.API_ERR_CODE_FAIL_TO_CHECK_ROOT), "检查Root初始化失败")
 
 	message.SetString(lang, fmt2.Sprintf("%d", config.API_ERR_CODE_REQUEST_PARAM_ERROR), "请求参数错误")
 	message.SetString(lang, fmt2.Sprintf("%d", config.API_ERR_CODE_HEADER_RESELLER), "请求参数错误-销售渠道")

@@ -7,10 +7,12 @@ import (
 	"github.com/ArtisanCloud/PowerLibs/v2/fmt"
 	"github.com/ArtisanCloud/PowerLibs/v2/object"
 	"github.com/ArtisanCloud/PowerWeChat/v2/src/work"
+	"github.com/ArtisanCloud/PowerX/app/models"
 	"github.com/ArtisanCloud/PowerX/boostrap/cache"
 	globalBootstrap "github.com/ArtisanCloud/PowerX/boostrap/cache/global"
 	"github.com/ArtisanCloud/PowerX/config"
 	"github.com/ArtisanCloud/PowerX/database"
+	"github.com/ArtisanCloud/PowerX/database/global"
 	logger "github.com/ArtisanCloud/PowerX/loggerManager"
 	"github.com/gin-gonic/gin"
 	"os/exec"
@@ -332,4 +334,19 @@ func TaskInstallWechat() func(taskChannel chan error, appConfig *config.AppConfi
 		taskChannel <- err
 		return
 	}
+}
+
+func (srv *InstallService) InitializeRoot(context *gin.Context, userID string) (root *models.Employee, err error) {
+
+	return
+
+}
+
+func (srv *InstallService) CheckRootInitialization(context *gin.Context) (root *models.Employee, err error) {
+
+	serviceEmployee := NewEmployeeService(context)
+
+	root, err = serviceEmployee.GetRoot(global.G_DBConnection)
+
+	return root, err
 }

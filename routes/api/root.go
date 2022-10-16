@@ -21,17 +21,26 @@ func InitRootAPIRoutes() {
 		apiInstallRouter.GET("/system/install/check", rootAPI.APISystemCheckInstallation)
 
 		// 安装系统接口
-		apiInstallRouter.Use(middleware.CheckNotInstalled, middleware.AuthRootAPI)
+		apiInstallRouter.Use(middleware.CheckNotInstalled)
 		{
 			// 系统 - 启动安装
 			apiInstallRouter.POST("/system/install", root.ValidateSystemInstall, rootAPI.APISystemInstall)
 			apiInstallRouter.GET("/system/shutDown", rootAPI.APISystemShutDown)
 
 		}
+
 	}
 
 	apiRootRouter := global.G_Router.Group("/root/api")
 	{
+		apiRootRouter.Use(middleware.CheckInstalled)
+		{
+			// 检查是否初始化过Root
+			apiRootRouter.GET("/system/root/init/check", rootAPI.APIRootCheckInitialization)
+			// 初始化Root
+			//apiInstallRouter.POST("/system/root/init", root.ValidateSystemInstall, rootAPI.APISystemInstall)
+		}
+
 		apiRootRouter.Use(middleware.CheckInstalled, middleware.Maintenance, middleware.AuthRootAPI)
 		{
 			apiRootRouter.GET("/ping", rootAPI.APIPing)

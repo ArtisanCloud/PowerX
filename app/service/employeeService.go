@@ -3,6 +3,7 @@ package service
 import (
 	"encoding/json"
 	"errors"
+	models2 "github.com/ArtisanCloud/PowerLibs/v2/authorization/rbac/models"
 	databasePowerLib "github.com/ArtisanCloud/PowerLibs/v2/database"
 	"github.com/ArtisanCloud/PowerLibs/v2/fmt"
 	"github.com/ArtisanCloud/PowerLibs/v2/object"
@@ -671,4 +672,26 @@ func (srv *EmployeeService) UnbindCustomerToEmployee(UserExternalID string, User
 
 	return customer, employee, err
 
+}
+
+func (srv *EmployeeService) SetRoot(db *gorm.DB, root *models.Employee) (err error) {
+
+	return
+}
+
+func (srv *EmployeeService) GetRoot(db *gorm.DB) (root *models.Employee, err error) {
+	root = &models.Employee{}
+	tbEmployee := root.GetTableName(true)
+	tbRoles := (&models2.Role{}).GetTableName(true)
+	db = db.Model(root).
+		//Debug().
+		Joins("LEFT JOIN "+tbRoles+" AS tbRole ON tbRole.index_role_id = "+tbEmployee+".role_id").
+		Where("tbRole.name = ?", models2.ROLE_SUPER_ADMIN_NAME)
+
+	result := db.First(root)
+	err = result.Error
+	if err != nil && errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	return root, err
 }
