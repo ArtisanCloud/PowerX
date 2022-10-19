@@ -305,7 +305,7 @@ func TaskInstallWechat() func(taskChannel chan error, appConfig *config.AppConfi
 			Secret:      appConfig.WeComConfig.WeComSecret,           // 默认内部应用的app secret
 			CallbackURL: appConfig.WeComConfig.AppMessageCallbackURL, // 内部应用的场景回调设置
 			OAuth: work.OAuth{
-				Callback: appConfig.WeComConfig.AppOauthCallbackURL, // 内部应用的app oauth url
+				Callback: appConfig.WeComConfig.AppOAuthCallbackURL, // 内部应用的app oauth url
 				Scopes:   []string{"snsapi_base"},
 			},
 			HttpDebug: true,

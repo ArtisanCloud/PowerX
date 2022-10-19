@@ -44,7 +44,7 @@ func NewWeComService(ctx *gin.Context, weComConfig *config.WeComConfig) (*WeComS
 	messageToken := weComConfig.AppMessageToken
 	messageAESKey := weComConfig.AppMessageAesKey
 	messageCallbackURL := weComConfig.AppMessageCallbackURL
-	appOauthCallbackURL := weComConfig.AppOauthCallbackURL
+	appOauthCallbackURL := weComConfig.AppOAuthCallbackURL
 
 	if ctx != nil {
 		if ctx.GetString("weComCorpID") != "" {

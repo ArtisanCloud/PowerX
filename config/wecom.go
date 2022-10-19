@@ -12,7 +12,7 @@ type WeComConfig struct {
 	AppMessageAesKey      string `yaml:"app_message_aes_key" json:"app_message_aes_key"`
 	AppMessageCallbackURL string `yaml:"app_message_callback_url" json:"app_message_callback_url"`
 	AppMessageToken       string `yaml:"app_message_token" json:"app_message_token"`
-	AppOauthCallbackURL   string `yaml:"app_oauth_callback_url" json:"app_oauth_callback_url"`
+	AppOAuthCallbackURL   string `yaml:"app_oauth_callback_url" json:"app_oauth_callback_url"`
 
 	// 企业微信客户联系人配置
 	CustomerMessageAesKey      string `yaml:"customer_message_aes_key" json:"customer_message_aes_key"`

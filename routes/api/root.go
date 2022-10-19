@@ -37,6 +37,7 @@ func InitRootAPIRoutes() {
 		{
 			// 检查是否初始化过Root
 			apiRootRouter.GET("/system/root/init/check", rootAPI.APIRootCheckInitialization)
+			apiRootRouter.GET("/system/wx/config", rootAPI.APIWXConfig)
 			// 初始化Root
 			//apiInstallRouter.POST("/system/root/init", root.ValidateSystemInstall, rootAPI.APISystemInstall)
 		}
