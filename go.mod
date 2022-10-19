@@ -7,7 +7,7 @@ go 1.17
 //replace github.com/ArtisanCloud/PowerSocialite/v2 => ../PowerSocialite
 
 require (
-	github.com/ArtisanCloud/PowerLibs/v2 v2.0.43
+	github.com/ArtisanCloud/PowerLibs/v2 v2.0.44
 	github.com/ArtisanCloud/PowerSocialite/v2 v2.0.18
 	github.com/ArtisanCloud/PowerWeChat/v2 v2.0.13
 	github.com/casbin/casbin/v2 v2.52.2

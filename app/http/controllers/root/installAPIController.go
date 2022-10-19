@@ -69,3 +69,18 @@ func APISystemCheckInstallation(context *gin.Context) {
 
 	ctl.RS.Success(context, arrayList)
 }
+
+func APIRootCheckInitialization(context *gin.Context) {
+	ctl := NewInstallAPIController(context)
+
+	defer api.RecoverResponse(context, "api.root.system.root.init.check")
+
+	rootEmployee, err := ctl.ServiceInstall.CheckRootInitialization(context)
+	if err != nil {
+		ctl.RS.SetCode(globalConfig.API_ERR_CODE_FAIL_TO_CHECK_ROOT, globalConfig.API_RETURN_CODE_ERROR, "", err.Error())
+		panic(ctl.RS)
+		return
+	}
+
+	ctl.RS.Success(context, rootEmployee)
+}

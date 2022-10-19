@@ -34,17 +34,17 @@ var timer *time.Timer
 var Ticker *time.Ticker = time.NewTicker(time.Second)
 var IsBuffing bool
 
-func NewWeComService(ctx *gin.Context, weComConfig *config.WecomConfig) (*WeComService, error) {
+func NewWeComService(ctx *gin.Context, weComConfig *config.WeComConfig) (*WeComService, error) {
 
 	var err error
 
 	weComCorpID := weComConfig.CorpID
-	weComAgentID := weComConfig.WecomAgentID
-	weComSecret := weComConfig.WecomSecret
+	weComAgentID := weComConfig.WeComAgentID
+	weComSecret := weComConfig.WeComSecret
 	messageToken := weComConfig.AppMessageToken
 	messageAESKey := weComConfig.AppMessageAesKey
 	messageCallbackURL := weComConfig.AppMessageCallbackURL
-	appOauthCallbackURL := weComConfig.AppOauthCallbackURL
+	appOauthCallbackURL := weComConfig.AppOAuthCallbackURL
 
 	if ctx != nil {
 		if ctx.GetString("weComCorpID") != "" {
@@ -148,8 +148,8 @@ func (srv *WeComService) SendMessageToEmployee(ctx *gin.Context, msgType string,
 		return errors.New("have to offer the sendable object from toUserID,toPart,ToTag")
 	}
 
-	weComConfig := config.G_AppConfigure.WecomConfig
-	agentID := weComConfig.WecomAgentID
+	weComConfig := config.G_AppConfigure.WeComConfig
+	agentID := weComConfig.WeComAgentID
 
 	if msgType == "text" {
 

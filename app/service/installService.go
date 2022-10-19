@@ -7,10 +7,12 @@ import (
 	"github.com/ArtisanCloud/PowerLibs/v2/fmt"
 	"github.com/ArtisanCloud/PowerLibs/v2/object"
 	"github.com/ArtisanCloud/PowerWeChat/v2/src/work"
+	"github.com/ArtisanCloud/PowerX/app/models"
 	"github.com/ArtisanCloud/PowerX/boostrap/cache"
 	globalBootstrap "github.com/ArtisanCloud/PowerX/boostrap/cache/global"
 	"github.com/ArtisanCloud/PowerX/config"
 	"github.com/ArtisanCloud/PowerX/database"
+	"github.com/ArtisanCloud/PowerX/database/global"
 	logger "github.com/ArtisanCloud/PowerX/loggerManager"
 	"github.com/gin-gonic/gin"
 	"os/exec"
@@ -23,9 +25,9 @@ type InstallService struct {
 }
 
 type ResponseTask struct {
-	Name   string
-	Status string
-	ErrMsg string
+	Name   string `json:"name"`
+	Status string `json:"status"`
+	ErrMsg string `json:"errMsg"`
 }
 
 func NewResponseTask() *ResponseTask {
@@ -129,6 +131,17 @@ func (srv *InstallService) InstallSystem(appConfig *config.AppConfig) (installSt
 func (srv *InstallService) CheckSystemInstallation() (installStatusList []*ResponseTask, err error) {
 
 	installStatusList = []*ResponseTask{}
+
+	status := "not installed"
+	if config.G_AppConfigure.SystemConfig.Installed {
+		status = "installed"
+	}
+
+	sysTask := &ResponseTask{
+		Name:   "system",
+		Status: status,
+	}
+	installStatusList = append(installStatusList, sysTask)
 
 	return installStatusList, err
 
@@ -285,14 +298,14 @@ func TaskInstallWechat() func(taskChannel chan error, appConfig *config.AppConfi
 
 		fmt.Dump("run task wechat")
 
-		fmt.Dump(appConfig.WecomConfig)
+		fmt.Dump(appConfig.WeComConfig)
 		weComApp, err := work.NewWork(&work.UserConfig{
-			CorpID:      appConfig.WecomConfig.CorpID,                // 企业微信的corp id，所有企业微信共用一个。
-			AgentID:     appConfig.WecomConfig.WecomAgentID,          // 内部应用的app id
-			Secret:      appConfig.WecomConfig.WecomSecret,           // 默认内部应用的app secret
-			CallbackURL: appConfig.WecomConfig.AppMessageCallbackURL, // 内部应用的场景回调设置
+			CorpID:      appConfig.WeComConfig.CorpID,                // 企业微信的corp id，所有企业微信共用一个。
+			AgentID:     appConfig.WeComConfig.WeComAgentID,          // 内部应用的app id
+			Secret:      appConfig.WeComConfig.WeComSecret,           // 默认内部应用的app secret
+			CallbackURL: appConfig.WeComConfig.AppMessageCallbackURL, // 内部应用的场景回调设置
 			OAuth: work.OAuth{
-				Callback: appConfig.WecomConfig.AppOauthCallbackURL, // 内部应用的app oauth url
+				Callback: appConfig.WeComConfig.AppOAuthCallbackURL, // 内部应用的app oauth url
 				Scopes:   []string{"snsapi_base"},
 			},
 			HttpDebug: true,
@@ -321,4 +334,19 @@ func TaskInstallWechat() func(taskChannel chan error, appConfig *config.AppConfi
 		taskChannel <- err
 		return
 	}
+}
+
+func (srv *InstallService) InitializeRoot(context *gin.Context, userID string) (root *models.Employee, err error) {
+
+	return
+
+}
+
+func (srv *InstallService) CheckRootInitialization(context *gin.Context) (root *models.Employee, err error) {
+
+	serviceEmployee := NewEmployeeService(context)
+
+	root, err = serviceEmployee.GetRoot(global.G_DBConnection)
+
+	return root, err
 }

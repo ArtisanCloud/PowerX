@@ -39,6 +39,10 @@ func init() {
 		panic(err)
 	}
 
+	if !config.G_AppConfigure.SystemConfig.Installed {
+		return
+	}
+
 	err = config.LoadDatabaseConfig()
 	if err != nil {
 		panic(err)
