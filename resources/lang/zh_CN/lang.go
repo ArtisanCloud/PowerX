@@ -25,6 +25,8 @@ func LoadLang() {
 	message.SetString(lang, fmt2.Sprintf("%d", config.API_ERR_CODE_FAIL_TO_INSTALL_SYSTEM), "安装系统失败")
 	message.SetString(lang, fmt2.Sprintf("%d", config.API_ERR_CODE_FAIL_TO_SHUT_DOWN_SYSTEM), "关闭系统失败")
 	message.SetString(lang, fmt2.Sprintf("%d", config.API_ERR_CODE_FAIL_TO_CHECK_ROOT), "检查Root初始化失败")
+	message.SetString(lang, fmt2.Sprintf("%d", config.API_ERR_CODE_ROOT_HAS_BEEN_INITIALIZED), "Root已经被初始化过")
+	message.SetString(lang, fmt2.Sprintf("%d", config.API_ERR_CODE_FAIL_TO_INIT_ROOT), "Root初始化失败")
 
 	message.SetString(lang, fmt2.Sprintf("%d", config.API_ERR_CODE_REQUEST_PARAM_ERROR), "请求参数错误")
 	message.SetString(lang, fmt2.Sprintf("%d", config.API_ERR_CODE_HEADER_RESELLER), "请求参数错误-销售渠道")
@@ -218,6 +220,7 @@ func LoadLang() {
 	message.SetString(lang, fmt2.Sprintf("%d", config.API_ERR_CODE_FAIL_TO_DELETE_ROLE), "删除角色失败")
 	message.SetString(lang, fmt2.Sprintf("%d", config.API_ERR_CODE_FAIL_TO_BIND_ROLE_TO_EMPLOYEE), "角色绑定员工失败")
 	message.SetString(lang, fmt2.Sprintf("%d", config.API_ERR_CODE_EMPLOYEE_HAS_NO_ROLE), "员工未分配角色")
+	message.SetString(lang, fmt2.Sprintf("%d", config.API_ERR_CODE_FAIL_TO_GET_ROLE_SUPER_ADMIN_ID), "未找到超级管理员的角色ID")
 
 	message.SetString(lang, fmt2.Sprintf("%d", config.API_ERR_CODE_FAIL_TO_GET_PERMISSION_LIST), "获取权限列表失败")
 	message.SetString(lang, fmt2.Sprintf("%d", config.API_ERR_CODE_FAIL_TO_GET_PERMISSION_DETAIL), "获取权限失败")
