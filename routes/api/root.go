@@ -39,7 +39,9 @@ func InitRootAPIRoutes() {
 			apiRootRouter.GET("/system/root/init/check", rootAPI.APIRootCheckInitialization)
 			apiRootRouter.GET("/system/wx/config", rootAPI.APIWXConfig)
 			// 初始化Root
-			//apiInstallRouter.POST("/system/root/init", root.ValidateSystemInstall, rootAPI.APISystemInstall)
+			// --- 网页授权Root登陆，code换取访问token ---
+			apiRootRouter.GET("/system/weCom/callback/authorized/root", root.ValidateInitRoot, rootAPI.APIInitRoot)
+
 		}
 
 		apiRootRouter.Use(middleware.CheckInstalled, middleware.Maintenance, middleware.AuthRootAPI)

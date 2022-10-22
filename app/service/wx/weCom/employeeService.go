@@ -25,38 +25,38 @@ func NewWeComEmployeeService(ctx *gin.Context) (r *WeComEmployeeService) {
 	return r
 }
 
-func (srv *WeComEmployeeService) UpsertEmployeeByWXEmployee(db *gorm.DB, employee *wx.WXEmployee) (err error) {
+func (srv *WeComEmployeeService) UpsertEmployeeByWXEmployee(db *gorm.DB, employee *models.Employee) (err error) {
+
+	employee.PowerModel = databasePowerLib.NewPowerModel()
+	employee.WXEmployee = &wx.WXEmployee{
+		WXAlias:           employee.WXEmployee.WXAlias,
+		WXAvatar:          employee.WXEmployee.WXAvatar,
+		WXDepartments:     employee.WXEmployee.WXDepartments,
+		WXEmail:           employee.WXEmployee.WXEmail,
+		WXEnable:          employee.WXEmployee.WXEnable,
+		WXEnglishName:     employee.WXEmployee.WXEnglishName,
+		WXExtAttr:         employee.WXEmployee.WXExtAttr,
+		WXExternalProfile: employee.WXEmployee.WXExternalProfile,
+		WXGender:          employee.WXEmployee.WXGender,
+		WXHideMobile:      employee.WXEmployee.WXHideMobile,
+		WXIsLeader:        employee.WXEmployee.WXIsLeader,
+		WXIsLeaderInDept:  employee.WXEmployee.WXIsLeaderInDept,
+		WXMainDepartment:  employee.WXEmployee.WXMainDepartment,
+		WXMobile:          employee.WXEmployee.WXMobile,
+		WXName:            employee.WXEmployee.WXName,
+		WXOrder:           employee.WXEmployee.WXOrder,
+		WXPosition:        employee.WXEmployee.WXPosition,
+		WXQrCode:          employee.WXEmployee.WXQrCode,
+		WXStatus:          employee.WXEmployee.WXStatus,
+		WXTelephone:       employee.WXEmployee.WXTelephone,
+		WXThumbAvatar:     employee.WXEmployee.WXThumbAvatar,
+		WXCorpID:          employee.WXEmployee.WXCorpID,
+		WXOpenUserID:      employee.WXEmployee.WXOpenUserID,
+		WXUserID:          employee.WXEmployee.WXUserID,
+		WXOpenID:          employee.WXEmployee.WXOpenID,
+	}
 	err = srv.UpsertEmployees(db, []*models.Employee{
-		&models.Employee{
-			PowerModel: databasePowerLib.NewPowerModel(),
-			WXEmployee: &wx.WXEmployee{
-				WXAlias:           employee.WXAlias,
-				WXAvatar:          employee.WXAvatar,
-				WXDepartments:     employee.WXDepartments,
-				WXEmail:           employee.WXEmail,
-				WXEnable:          employee.WXEnable,
-				WXEnglishName:     employee.WXEnglishName,
-				WXExtAttr:         employee.WXExtAttr,
-				WXExternalProfile: employee.WXExternalProfile,
-				WXGender:          employee.WXGender,
-				WXHideMobile:      employee.WXHideMobile,
-				WXIsLeader:        employee.WXIsLeader,
-				WXIsLeaderInDept:  employee.WXIsLeaderInDept,
-				WXMainDepartment:  employee.WXMainDepartment,
-				WXMobile:          employee.WXMobile,
-				WXName:            employee.WXName,
-				WXOrder:           employee.WXOrder,
-				WXPosition:        employee.WXPosition,
-				WXQrCode:          employee.WXQrCode,
-				WXStatus:          employee.WXStatus,
-				WXTelephone:       employee.WXTelephone,
-				WXThumbAvatar:     employee.WXThumbAvatar,
-				WXCorpID:          employee.WXCorpID,
-				WXOpenUserID:      employee.WXOpenUserID,
-				WXUserID:          employee.WXUserID,
-				WXOpenID:          employee.WXOpenID,
-			},
-		},
+		employee,
 	}, []string{
 		"updated_at",
 		"wx_alias",

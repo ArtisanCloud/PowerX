@@ -75,7 +75,7 @@ func (srv *EmployeeService) SyncEmployees(departmentID int, fetchChild int) (err
 
 		//time.Sleep(time.Second * 30)
 		// batch upsert employees
-		err = serviceWeComEmployee.UpsertEmployeeByWXEmployee(global.G_DBConnection, employee.WXEmployee)
+		err = serviceWeComEmployee.UpsertEmployeeByWXEmployee(global.G_DBConnection, employee)
 	}
 
 	return err
@@ -694,4 +694,22 @@ func (srv *EmployeeService) GetRoot(db *gorm.DB) (root *models.Employee, err err
 		return nil, nil
 	}
 	return root, err
+}
+
+func (srv *EmployeeService) GetRootRoleID(db *gorm.DB) (id string, err error) {
+
+	role := &models2.Role{}
+	db = db.Model(role).
+		//Debug().
+		Where("name = ?", models2.ROLE_SUPER_ADMIN_NAME)
+
+	result := db.First(role)
+	err = result.Error
+	if err != nil {
+		return id, err
+	}
+
+	id = role.UniqueID
+	
+	return id, err
 }

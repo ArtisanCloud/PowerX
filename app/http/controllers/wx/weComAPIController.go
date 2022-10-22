@@ -612,7 +612,7 @@ func WeComGetEmployeeToken(context *gin.Context, user *providers.User) (strToken
 		employee.WXEmployee.WXOpenID = object.NewNullString(responseOpenID.OpenID, true)
 	}
 	serviceWeComEmployee := weCom.NewWeComEmployeeService(nil)
-	err := serviceWeComEmployee.UpsertEmployeeByWXEmployee(globalDatabase.G_DBConnection, employee.WXEmployee)
+	err := serviceWeComEmployee.UpsertEmployeeByWXEmployee(globalDatabase.G_DBConnection, employee)
 	if err != nil {
 		return "", config.API_ERR_CODE_FAIL_TO_UPSERT_EMPLOYEE
 
