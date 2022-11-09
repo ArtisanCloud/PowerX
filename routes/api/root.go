@@ -42,13 +42,13 @@ func InitRootAPIRoutes() {
 			// --- 网页授权Root登陆，code换取访问token ---
 			apiRootRouter.GET("/system/weCom/callback/authorized/root", root.ValidateInitRoot, rootAPI.APIInitRoot)
 
-		}
-
-		apiRootRouter.Use(middleware.CheckInstalled, middleware.Maintenance, middleware.AuthRootAPI)
-		{
 			apiRootRouter.GET("/ping", rootAPI.APIPing)
 			apiRootRouter.GET("/detect/get", rootAPI.APIGetDetect)
 			apiRootRouter.POST("/detect/post", rootAPI.APIPostDetect)
+		}
+
+		apiRootRouter.Use(middleware.CheckInstalled, middleware.Maintenance, middleware.AuthenticateRootByHeader)
+		{
 
 			// root
 			apiRootRouter.POST("/department/sync", wx.APISyncWXDepartments)

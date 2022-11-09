@@ -115,20 +115,51 @@ func AuthenticateEmployeeByHeader(c *gin.Context) {
 	return
 }
 
-func AuthenticateEmployee(c *gin.Context, strToken string) (errCode int) {
+func AuthenticateRootByHeader(c *gin.Context) {
 
+	apiResponse := http.NewAPIResponse(c)
+
+	// 获取token
+	strToken := c.GetHeader("Authorization")
+	if strToken == "" {
+		apiResponse.SetCode(globalConfig.API_ERR_CODE_TOKEN_NOT_IN_HEADER, globalConfig.API_RETURN_CODE_ERROR, "", "")
+		apiResponse.ThrowJSONResponse(c)
+		return
+	}
+
+	resultCode := AuthenticateRoot(c, strToken)
+	if resultCode != globalConfig.API_RESULT_CODE_INIT {
+		apiResponse.SetCode(resultCode, globalConfig.API_RETURN_CODE_ERROR, "", "")
+		apiResponse.ThrowJSONResponse(c)
+		return
+	}
+
+	return
+}
+
+func ParseUserByToken(c *gin.Context, strToken string) (wxUserID string, errCode int) {
 	// 解析jwt token信息
 	ptrClaims, err := service.ParseAuthorization(strToken)
 	if ptrClaims == nil || err != nil {
-		return globalConfig.API_ERR_CODE_ACCOUNT_INVALID_TOKEN
+		return wxUserID, globalConfig.API_ERR_CODE_ACCOUNT_INVALID_TOKEN
 	}
 	claims := *ptrClaims
 	if claims["WXUserID"] == nil {
-		return globalConfig.API_ERR_CODE_LACK_OF_WX_USER_ID
+		return wxUserID, globalConfig.API_ERR_CODE_LACK_OF_WX_USER_ID
 	}
-	wxUserID := claims["WXUserID"].(string)
+	wxUserID = claims["WXUserID"].(string)
 	if err != nil || wxUserID == "" {
-		return globalConfig.API_ERR_CODE_LACK_OF_WX_USER_ID
+		return wxUserID, globalConfig.API_ERR_CODE_LACK_OF_WX_USER_ID
+	}
+
+	return wxUserID, errCode
+}
+
+func AuthenticateEmployee(c *gin.Context, strToken string) (errCode int) {
+
+	wxUserID, errCode := ParseUserByToken(c, strToken)
+	if errCode != globalConfig.API_RESULT_CODE_INIT {
+		return errCode
 	}
 
 	// 获取企业员工身份
@@ -153,8 +184,31 @@ func AuthenticateEmployee(c *gin.Context, strToken string) (errCode int) {
 	return globalConfig.API_RESULT_CODE_INIT
 }
 
-func AuthRootAPI(c *gin.Context) {
+func AuthenticateRoot(c *gin.Context, strToken string) (errCode int) {
+	wxUserID, errCode := ParseUserByToken(c, strToken)
+	if errCode != globalConfig.API_RESULT_CODE_INIT {
+		return errCode
+	}
+	if errCode != globalConfig.API_RESULT_CODE_INIT {
+		return errCode
+	}
 
+	// 获取Root身份
+	serviceEmployee := service.NewEmployeeService(c)
+	root, err := serviceEmployee.GetRoot(global.G_DBConnection)
+	if err != nil || root == nil {
+		return globalConfig.API_ERR_CODE_FAIL_TO_GET_ROOT
+	}
+
+	// 员工未分配角色
+	if root.WXUserID.String == "" || root.WXUserID.String != wxUserID {
+		return globalConfig.API_ERR_CODE_CURRENT_LOGIN_IS_NOT_ROOT
+	}
+
+	// 确认员工是否有角色，否则视为未激活
+	service.SetAuthEmployee(c, root)
+
+	return globalConfig.API_RESULT_CODE_INIT
 }
 
 // ------------------------------------------------------------------------------------------------------------------------------------------------
@@ -187,7 +241,6 @@ func AuthorizeAPI(c *gin.Context) {
 		c.Next()
 		return
 	}
-
 	// 验证接口的访问权限
 	isPass, err = globalRBAC.G_Enforcer.Enforce(employee.Role.GetRBACRuleName(), permission.PermissionModule.GetRBACRuleName(), modelPowerLib.RBAC_CONTROL_ALL)
 	if err != nil {
