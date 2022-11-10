@@ -7,6 +7,7 @@ import (
 
 type ParaRoleList struct {
 	//RoleID *string `form:"roleID" json:"roleID" binding:"required"`
+	WithEmployees bool `form:"withEmployees" json:"withEmployees"`
 }
 
 func ValidateRoleList(context *gin.Context) {
