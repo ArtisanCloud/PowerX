@@ -14,6 +14,9 @@ import (
 type ParaUpdatePermissionModule struct {
 	PermissionModuleID string  `form:"permissionModuleID" json:"permissionModuleID" binding:"required"`
 	Name               string  `form:"name" json:"name" binding:"required"`
+	URI                string  `form:"uri" json:"uri"`
+	Component          string  `form:"component" json:"component"`
+	Icon               string  `form:"icon" json:"icon"`
 	Description        string  `form:"description" json:"description"`
 	ParentID           *string `form:"parentID" json:"parentID"`
 }
@@ -48,6 +51,9 @@ func convertParaToPermissionModuleForUpdate(form *ParaUpdatePermissionModule) (p
 	}
 
 	permissionModule.Name = form.Name
+	permissionModule.URI = form.URI
+	permissionModule.Component = form.Component
+	permissionModule.Icon = form.Icon
 	permissionModule.Description = form.Description
 	permissionModule.ParentID = form.ParentID
 

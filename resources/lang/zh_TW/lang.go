@@ -12,7 +12,7 @@ var lang = language.Chinese
 func LoadLang() {
 	message.SetString(lang, fmt2.Sprintf("%d", config.API_RETURN_CODE_INIT), "")
 	message.SetString(lang, fmt2.Sprintf("%d", config.API_RETURN_CODE_WARNING), "警告訊息")
-	message.SetString(lang, fmt2.Sprintf("%d", config.API_RETURN_CODE_ERROR), "錯誤訊息")
+	message.SetString(lang, fmt2.Sprintf("%d", config.API_RETURN_CODE_ERROR), "错误信息")
 
 	message.SetString(lang, fmt2.Sprintf("%d", config.API_RESULT_CODE_INIT), "")
 

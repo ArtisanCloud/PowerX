@@ -90,6 +90,16 @@ func (srv *RoleService) GetRoleByID(db *gorm.DB, roleID string) (role *modelPowe
 
 }
 
+func (srv *RoleService) GetEmployeesByRoleIDs(db *gorm.DB, roleIDs []string) (employees []*models.Employee, err error) {
+	employees = []*models.Employee{}
+	result := db.Model(models.Employee{}).
+		//Debug().
+		Where("role_id in (?)", roleIDs).
+		Find(&employees)
+
+	return employees, result.Error
+}
+
 func (srv *RoleService) GetEmployeeIDsByRoleIDs(db *gorm.DB, roleIDs []string) (employeeIDs []string, err error) {
 	employeeIDs = []string{}
 	result := db.Model(models.Employee{}).

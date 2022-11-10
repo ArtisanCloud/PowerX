@@ -27,6 +27,8 @@ func LoadLang() {
 	message.SetString(lang, fmt2.Sprintf("%d", config.API_ERR_CODE_FAIL_TO_CHECK_ROOT), "检查Root初始化失败")
 	message.SetString(lang, fmt2.Sprintf("%d", config.API_ERR_CODE_ROOT_HAS_BEEN_INITIALIZED), "Root已经被初始化过")
 	message.SetString(lang, fmt2.Sprintf("%d", config.API_ERR_CODE_FAIL_TO_INIT_ROOT), "Root初始化失败")
+	message.SetString(lang, fmt2.Sprintf("%d", config.API_ERR_CODE_FAIL_TO_GET_ROOT), "无法获取root数据")
+	message.SetString(lang, fmt2.Sprintf("%d", config.API_ERR_CODE_CURRENT_LOGIN_IS_NOT_ROOT), "当前登录身份，不是Root身份")
 
 	message.SetString(lang, fmt2.Sprintf("%d", config.API_ERR_CODE_REQUEST_PARAM_ERROR), "请求参数错误")
 	message.SetString(lang, fmt2.Sprintf("%d", config.API_ERR_CODE_HEADER_RESELLER), "请求参数错误-销售渠道")

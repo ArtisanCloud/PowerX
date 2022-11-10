@@ -11,6 +11,9 @@ import (
 
 type ParaInsertPermissionModule struct {
 	Name        string `form:"name" json:"name" binding:"required"`
+	URI         string `form:"uri" json:"uri"`
+	Component   string `form:"component" json:"component"`
+	Icon        string `form:"icon" json:"icon"`
 	Description string `form:"description" json:"description"`
 	ParentID    string `form:"parentID" json:"parentID"`
 }
@@ -34,9 +37,11 @@ func ValidateInsertPermissionModule(context *gin.Context) {
 }
 
 func convertParaToPermissionModuleForInsert(form *ParaInsertPermissionModule) (permissionModule *models.PermissionModule, err error) {
-
 	permissionModule = models.NewPermissionModule(object.NewCollection(&object.HashMap{
 		"name":        form.Name,
+		"uri":         form.URI,
+		"component":   form.Component,
+		"icon":        form.Icon,
 		"description": form.Description,
 		"parentID":    form.ParentID,
 	}))

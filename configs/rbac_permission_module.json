@@ -7,6 +7,9 @@
   "permissions": null,
   "permissionModuleID": "6605ded8fa8ae1840ed316058fa2d3ab",
   "name": "SCRM基础功能",
+  "uri": "/crm",
+  "component": "",
+  "icon": "",
   "description": "",
   "parentID": ""
  },
@@ -18,6 +21,9 @@
   "permissions": null,
   "permissionModuleID": "5a5705adbc43396e49d40ba5b8294bc5",
   "name": "营销获客",
+  "uri": "/crm/channel",
+  "component": "",
+  "icon": "",
   "description": "",
   "parentID": "6605ded8fa8ae1840ed316058fa2d3ab"
  },
@@ -29,6 +35,9 @@
   "permissions": null,
   "permissionModuleID": "8a715b4812bde45168aecba3edc2bfbe",
   "name": "渠道活码",
+  "uri": "/crm/channel/contactWay",
+  "component": "/Customer/ContactWay",
+  "icon": "",
   "description": "",
   "parentID": "5a5705adbc43396e49d40ba5b8294bc5"
  },
@@ -39,7 +48,10 @@
   "children": null,
   "permissions": null,
   "permissionModuleID": "b5fc5745c9eb9479d843371ae48f0198",
-  "name": "客户运营",
+  "name": "客户维护",
+  "uri": "/crm/maintance",
+  "component": "",
+  "icon": "",
   "description": "",
   "parentID": "6605ded8fa8ae1840ed316058fa2d3ab"
  },
@@ -51,6 +63,9 @@
   "permissions": null,
   "permissionModuleID": "28719c38a024ca2c417ba7f8027158c9",
   "name": "客户群发",
+  "uri": "/crm/maintenance/sendChatMessage",
+  "component": "/Customer/SendChatMessage",
+  "icon": "",
   "description": "",
   "parentID": "b5fc5745c9eb9479d843371ae48f0198"
  },
@@ -62,6 +77,9 @@
   "permissions": null,
   "permissionModuleID": "bd54c0a7f94ae5e71ac533508cebef6a",
   "name": "客户群群发",
+  "uri": "/crm/maintenance/sendGroupChatMessage",
+  "component": "/Customer/SendGroupChatMessage",
+  "icon": "",
   "description": "",
   "parentID": "b5fc5745c9eb9479d843371ae48f0198"
  },
@@ -73,6 +91,9 @@
   "permissions": null,
   "permissionModuleID": "4b591751a6f10fd3b22f562cfb6cdecf",
   "name": "客户管理",
+  "uri": "/crm/customer",
+  "component": "",
+  "icon": "",
   "description": "",
   "parentID": "6605ded8fa8ae1840ed316058fa2d3ab"
  },
@@ -84,6 +105,9 @@
   "permissions": null,
   "permissionModuleID": "f3eb6445144d83aa9b95266a2a08fa18",
   "name": "客户标签",
+  "uri": "/crm/customer/tag",
+  "component": "/Customer/Tag",
+  "icon": "",
   "description": "",
   "parentID": "4b591751a6f10fd3b22f562cfb6cdecf"
  },
@@ -95,8 +119,11 @@
   "permissions": null,
   "permissionModuleID": "be1f570e3cf499f2ea729d432b3a4c0c",
   "name": "标签治理",
+  "uri": "/crm/tag",
+  "component": "/Tag",
+  "icon": "",
   "description": "",
-  "parentID": "4b591751a6f10fd3b22f562cfb6cdecf"
+  "parentID": "6605ded8fa8ae1840ed316058fa2d3ab"
  },
  {
   "createdAt": "2022-08-20T15:14:12.376979+08:00",
@@ -106,6 +133,9 @@
   "permissions": null,
   "permissionModuleID": "b6b6e30dce5709e68ccb98e1c21863cb",
   "name": "客户管理",
+  "uri": "/crm/customer/index",
+  "component": "/Customer",
+  "icon": "",
   "description": "",
   "parentID": "4b591751a6f10fd3b22f562cfb6cdecf"
  },
@@ -117,6 +147,9 @@
   "permissions": null,
   "permissionModuleID": "3017aa5b9244e56ec5061cbc87f3d01f",
   "name": "客户迁移",
+  "uri": "/crm/customer/transfer",
+  "component": "/Customer/Transfer",
+  "icon": "",
   "description": "",
   "parentID": "4b591751a6f10fd3b22f562cfb6cdecf"
  },
@@ -128,6 +161,9 @@
   "permissions": null,
   "permissionModuleID": "d85adcda0bb694be3b2988280be6b262",
   "name": "客户群管理",
+  "uri": "/crm/customer/group",
+  "component": "",
+  "icon": "",
   "description": "",
   "parentID": "6605ded8fa8ae1840ed316058fa2d3ab"
  },
@@ -139,6 +175,9 @@
   "permissions": null,
   "permissionModuleID": "45de2d9d4ac3739b819e32a353c7bcda",
   "name": "客户群列表",
+  "uri": "/crm/customer/group/list",
+  "component": "/Customer/Group",
+  "icon": "",
   "description": "",
   "parentID": "d85adcda0bb694be3b2988280be6b262"
  },
@@ -150,6 +189,9 @@
   "permissions": null,
   "permissionModuleID": "2786a129f0128de1bd57db2958bdba85",
   "name": "客户群标签",
+  "uri": "/crm/customer/group/tag",
+  "component": "/Customer/Group/Tag",
+  "icon": "",
   "description": "",
   "parentID": "d85adcda0bb694be3b2988280be6b262"
  },
@@ -161,6 +203,9 @@
   "permissions": null,
   "permissionModuleID": "753e8388212cfb674abdcba9aa503d78",
   "name": "配置中心",
+  "uri": "/setting",
+  "component": "/setting",
+  "icon": "",
   "description": "",
   "parentID": "6605ded8fa8ae1840ed316058fa2d3ab"
  },
@@ -172,6 +217,9 @@
   "permissions": null,
   "permissionModuleID": "df9892a8fb3cf9b16892fb7d1d00241f",
   "name": "员工管理",
+  "uri": "/setting/employee",
+  "component": "/Setting/Employee",
+  "icon": "",
   "description": "",
   "parentID": "753e8388212cfb674abdcba9aa503d78"
  },
@@ -183,7 +231,24 @@
   "permissions": null,
   "permissionModuleID": "b64ffa1739d90be2070449ba78aa8c23",
   "name": "权限管理",
+  "uri": "/setting/permission",
+  "component": "/Setting/Permission",
+  "icon": "HomeOutlined",
   "description": "",
+  "parentID": "753e8388212cfb674abdcba9aa503d78"
+ },
+ {
+  "createdAt": "2022-10-27T14:25:04.92502+08:00",
+  "updatedAt": "2022-10-27T14:25:04.92502+08:00",
+  "parent": null,
+  "children": null,
+  "permissions": null,
+  "permissionModuleID": "6f30e7e5f2b09a7d600a80adaf6bb86b",
+  "name": "菜单配置",
+  "uri": "/setting/menu",
+  "component": "/Setting/Menu",
+  "icon": "EditOutlined",
+  "description": "现阶段，以Root身份可以配置系统菜单",
   "parentID": "753e8388212cfb674abdcba9aa503d78"
  }
 ]

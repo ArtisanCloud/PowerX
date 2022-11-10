@@ -3,7 +3,9 @@ package admin
 import (
 	"errors"
 	modelsPowerLib "github.com/ArtisanCloud/PowerLibs/v2/authorization/rbac/models"
+	"github.com/ArtisanCloud/PowerLibs/v2/object"
 	"github.com/ArtisanCloud/PowerX/app/http/controllers/api"
+	"github.com/ArtisanCloud/PowerX/app/http/request/admin/role"
 	"github.com/ArtisanCloud/PowerX/app/service"
 	globalConfig "github.com/ArtisanCloud/PowerX/config"
 	"github.com/ArtisanCloud/PowerX/database/global"
@@ -49,17 +51,31 @@ func APIInsertRole(context *gin.Context) {
 func APIGetRoleList(context *gin.Context) {
 	ctl := NewRoleAPIController(context)
 
-	//params, _ := context.Get("params")
-	//para := params.(request.ParaList)
+	params, _ := context.Get("params")
+	para := params.(*role.ParaRoleList)
 
 	defer api.RecoverResponse(context, "api.admin.role.list")
 
 	// 当前版本，只需要给予一级角色
-	arrayList, err := ctl.ServiceRole.GetTreeList(global.G_DBConnection, nil, false)
+	roleList, err := ctl.ServiceRole.GetTreeList(global.G_DBConnection, nil, false)
 	if err != nil {
 		ctl.RS.SetCode(globalConfig.API_ERR_CODE_FAIL_TO_GET_ROLE_LIST, globalConfig.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
 		return
+	}
+	arrayList := []*object.HashMap{}
+	for _, role := range roleList {
+		data, _ := object.StructToHashMap(role)
+		if para.WithEmployees {
+			employees, err := ctl.ServiceRole.GetEmployeesByRoleIDs(global.G_DBConnection, []string{role.UniqueID})
+			if err != nil {
+				ctl.RS.SetCode(globalConfig.API_ERR_CODE_FAIL_TO_GET_EMPLOYEE_LIST, globalConfig.API_RETURN_CODE_ERROR, "", err.Error())
+				panic(ctl.RS)
+				return
+			}
+			(*data)["employees"] = employees
+		}
+		arrayList = append(arrayList, data)
 	}
 
 	ctl.RS.Success(context, arrayList)

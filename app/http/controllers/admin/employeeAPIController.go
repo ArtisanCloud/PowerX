@@ -90,7 +90,12 @@ func APIGetEmployeeList(context *gin.Context) {
 
 	defer api.RecoverResponse(context, "api.admin.employee.list")
 
-	arrayList, err := ctl.ServiceEmployee.GetList(globalDatabase.G_DBConnection, nil, para.Page, para.PageSize)
+	conditions := &map[string]interface{}{}
+	if para.RoleID != "" {
+		(*conditions)["role_id"] = para.RoleID
+	}
+
+	arrayList, err := ctl.ServiceEmployee.GetList(globalDatabase.G_DBConnection, conditions, para.Page, para.PageSize)
 	if err != nil {
 		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_GET_EMPLOYEE_LIST, config.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
