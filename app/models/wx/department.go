@@ -14,6 +14,8 @@ func (mdl *WXDepartment) TableName() string {
 }
 
 type WXDepartment struct {
+	SubDepartments []*WXDepartment `gorm:"ForeignKey:ParentID;references:id" json:"subDepartments"`
+
 	ID       int    `json:"id"`
 	Name     string `json:"name"`
 	NameEN   string `json:"name_en"`
@@ -45,6 +47,20 @@ func (mdl *WXDepartment) GetTableName(needFull bool) string {
 /**
  *  Relationships
  */
+
+/**
+ * Association belongings
+ */
+
+// -- SubDepartments
+func (mdl *WXDepartment) LoadSubDepartments(db *gorm.DB, conditions *map[string]interface{}) ([]*WXDepartment, error) {
+	mdl.SubDepartments = []*WXDepartment{}
+	err := databasePowerLib.AssociationRelationship(db, conditions, mdl, "SubDepartments", false).Find(&mdl.SubDepartments)
+	if err != nil {
+		panic(err)
+	}
+	return mdl.SubDepartments, err
+}
 
 /**
  * Scope Where Conditions

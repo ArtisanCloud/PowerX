@@ -45,7 +45,10 @@ func APIGetDepartmentList(context *gin.Context) {
 
 	defer api.RecoverResponse(context, "api.admin.department.list")
 
-	arrayList, err := ctl.ServiceDepartment.GetDepartments(globalDatabase.G_DBConnection)
+	departmentIDInterface, _ := context.Get("departmentID")
+	departmentID := departmentIDInterface.(*int)
+
+	arrayList, err := ctl.ServiceDepartment.GetTreeDepartments(globalDatabase.G_DBConnection, nil, departmentID)
 	if err != nil {
 		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_GET_DEPARTMENT_LIST, config.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)

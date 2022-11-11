@@ -79,10 +79,48 @@ func (srv *DepartmentService) GetDepartment(db *gorm.DB, departmentName string) 
 
 }
 
-func (srv *DepartmentService) GetDepartments(db *gorm.DB) (departments []*wx.WXDepartment, err error) {
+func (srv *DepartmentService) GetTreeDepartments(db *gorm.DB, conditions *map[string]interface{}, departmentID *int) (departments []*wx.WXDepartment, err error) {
 	departments = []*wx.WXDepartment{}
 
-	db = db.Table(wx.TABLE_NAME_DEPARTMENT).Find(&departments)
+	if conditions == nil {
+		conditions = &map[string]interface{}{}
+	}
+
+	if departmentID == nil {
+		*departmentID = 0
+	}
+	(*conditions)["parent_id"] = departmentID
+
+	departments, err = srv.GetDepartments(db, departmentID)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, department := range departments {
+		department.SubDepartments, err = srv.GetTreeDepartments(db, nil, &department.ID)
+	}
+
+	return departments, err
+
+}
+
+func (srv *DepartmentService) GetDepartments(db *gorm.DB, parentID *int) (departments []*wx.WXDepartment, err error) {
+	departments = []*wx.WXDepartment{}
+
+	db = db.Table(srv.Department.GetTableName(true))
+
+	var conditions *map[string]interface{} = nil
+	if parentID != nil {
+		conditions = &map[string]interface{}{
+			"parent_id": *parentID,
+		}
+	}
+
+	if conditions != nil {
+		db = db.Where(*conditions)
+	}
+
+	db = db.Find(&departments)
 	err = db.Error
 
 	return departments, err
@@ -92,7 +130,7 @@ func (srv *DepartmentService) GetDepartmentsByIDs(db *gorm.DB, arrayIDs []int) (
 	departments = []*wx.WXDepartment{}
 
 	if len(arrayIDs) > 0 {
-		db = db.Table(wx.TABLE_NAME_DEPARTMENT).Where("id in (?)", arrayIDs).Find(&departments)
+		db = db.Table(srv.Department.GetTableName(true)).Where("id in (?)", arrayIDs).Find(&departments)
 		err = db.Error
 	}
 

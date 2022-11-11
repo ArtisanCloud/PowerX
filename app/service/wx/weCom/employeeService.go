@@ -31,7 +31,7 @@ func (srv *WeComEmployeeService) UpsertEmployeeByWXEmployee(db *gorm.DB, employe
 	employee.WXEmployee = &wx.WXEmployee{
 		WXAlias:           employee.WXEmployee.WXAlias,
 		WXAvatar:          employee.WXEmployee.WXAvatar,
-		WXDepartments:     employee.WXEmployee.WXDepartments,
+		WXDepartment:      employee.WXEmployee.WXDepartment,
 		WXEmail:           employee.WXEmployee.WXEmail,
 		WXEnable:          employee.WXEmployee.WXEnable,
 		WXEnglishName:     employee.WXEmployee.WXEnglishName,

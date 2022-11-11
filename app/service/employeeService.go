@@ -75,7 +75,24 @@ func (srv *EmployeeService) SyncEmployees(departmentID int, fetchChild int) (err
 
 		//time.Sleep(time.Second * 30)
 		// batch upsert employees
-		err = serviceWeComEmployee.UpsertEmployeeByWXEmployee(global.G_DBConnection, employee)
+		err = global.G_DBConnection.Transaction(func(tx *gorm.DB) error {
+			err = serviceWeComEmployee.UpsertEmployeeByWXEmployee(tx, employee)
+			// upsert associates
+			if len(employee.WXEmployee.WXDepartment) > 0 {
+				departmentIDs := []int{}
+				err = object.JsonDecode([]byte(employee.WXEmployee.WXDepartment), &departmentIDs)
+				if err != nil {
+					return err
+				}
+				err = srv.SyncDepartmentIDsToEmployee(tx, employee, departmentIDs)
+
+			}
+			return err
+		})
+		if err != nil {
+			logger.Logger.Error(err.Error())
+			continue
+		}
 	}
 
 	return err
@@ -222,7 +239,7 @@ func (srv *EmployeeService) GetEmployeeByUserIDOnWXPlatform(ctx *gin.Context, us
 func (srv *EmployeeService) NewEmployeeFromWXEmployee(wxEmployee *modelSocialite.Employee) *models.Employee {
 
 	arrayDepartmentIDs := wxEmployee.Department
-	//wxDepartments, _ := json.Marshal(arrayDepartmentIDs)
+	wxDepartments, _ := json.Marshal(arrayDepartmentIDs)
 	wxIsLeaderInDept, _ := json.Marshal(wxEmployee.IsLeaderInDept)
 	wxOrder, _ := json.Marshal(wxEmployee.Order)
 	//wxExtAttr, _ := json.Marshal(wxEmployee.ExtAttr)
@@ -243,9 +260,9 @@ func (srv *EmployeeService) NewEmployeeFromWXEmployee(wxEmployee *modelSocialite
 
 		WXEmployee: &modelWX.WXEmployee{
 
-			WXAlias:  wxEmployee.Alias,
-			WXAvatar: wxEmployee.Avatar,
-			//WXDepartments:,
+			WXAlias:       wxEmployee.Alias,
+			WXAvatar:      wxEmployee.Avatar,
+			WXDepartment:  string(wxDepartments),
 			WXEmail:       wxEmployee.Email,
 			WXEnable:      wxEmployee.Enable,
 			WXEnglishName: wxEmployee.EnglishName,
@@ -533,7 +550,7 @@ func (srv *EmployeeService) HandleEmployeeCreate(context *gin.Context, event con
 	newEmployee := models.NewEmployee(object.NewCollection(&object.HashMap{
 		"userID": msg.UserID,
 	}))
-	newEmployee.WXEmployee.WXDepartments = msg.Department
+	newEmployee.WXEmployee.WXDepartment = msg.Department
 
 	err = serviceWeComEmployee.UpsertEmployees(global.G_DBConnection, []*models.Employee{
 		newEmployee,
@@ -710,6 +727,6 @@ func (srv *EmployeeService) GetRootRoleID(db *gorm.DB) (id string, err error) {
 	}
 
 	id = role.UniqueID
-	
+
 	return id, err
 }
