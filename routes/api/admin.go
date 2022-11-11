@@ -56,7 +56,7 @@ func InitAdminAPIRoutes() {
 
 			// Department - 企微部门接口
 			apiAdminRouter.GET("/department/sync", wx.APISyncWXDepartments)
-			apiAdminRouter.GET("/department/list", wx.APIGetDepartmentList)
+			apiAdminRouter.GET("/department/list", department.ValidateWXPlatformDepartmentList, wx.APIGetDepartmentList)
 
 			// Department - 企微部门微信平台直连接口
 			apiAdminRouter.GET("/wxPlatform/weCom/department/simpleList", department.ValidateWXPlatformDepartmentList, wx.APIGetDepartmentSimpleListOnWXPlatform)

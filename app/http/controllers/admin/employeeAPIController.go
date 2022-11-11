@@ -240,9 +240,9 @@ func APIEmployeeBindSyncedWXDepartments(context *gin.Context) {
 	}
 
 	for _, employee := range employees {
-		if employee.WXEmployee.WXDepartments != "" {
+		if employee.WXEmployee.WXDepartment != "" {
 			departmentIDs := []int{}
-			err = object.JsonDecode([]byte(employee.WXEmployee.WXDepartments), &departmentIDs)
+			err = object.JsonDecode([]byte(employee.WXEmployee.WXDepartment), &departmentIDs)
 			if err != nil {
 				logger.Logger.Error(err.Error())
 				continue

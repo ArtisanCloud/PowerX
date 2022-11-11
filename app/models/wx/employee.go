@@ -14,7 +14,7 @@ func (mdl *WXEmployee) TableName() string {
 type WXEmployee struct {
 	WXAlias           string            `gorm:"column:wx_alias" json:"wxAlias"`
 	WXAvatar          string            `gorm:"column:wx_avatar" json:"wxAvatar"`
-	WXDepartments     string            `gorm:"column:wx_department" json:"wxDepartment"`
+	WXDepartment      string            `gorm:"column:wx_department" json:"wxDepartment"`
 	WXEmail           string            `gorm:"column:wx_email" json:"wxEmail"`
 	WXEnable          int               `gorm:"column:wx_enable" json:"wxEnable"`
 	WXEnglishName     string            `gorm:"column:wx_englishName" json:"wxEnglishName"`
