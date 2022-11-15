@@ -567,7 +567,11 @@ func WeComAuthorizedEmployeeQR(context *gin.Context) {
 	ctl := NewWeComAPIController(context)
 
 	// get user info from code
+	var err error = nil
 	user, err := weCom.G_WeComEmployee.AuthorizedEmployeeQR(context)
+	//fmt.Dump(user)
+	//user := mock.GetProviderUser()
+
 	if err != nil {
 		ctl.RS.SetCode(http.StatusExpectationFailed, config.API_RETURN_CODE_ERROR, "", err.Error())
 		ctl.RS.ThrowJSONResponse(context)
