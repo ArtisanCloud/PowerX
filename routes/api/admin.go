@@ -147,6 +147,7 @@ func InitAdminAPIRoutes() {
 			apiAdminRouter.POST("/role/bind/employee", role.ValidateBindRoleToEmployees, admin.APIBindRoleToEmployees)
 
 			apiAdminRouter.GET("/permission/policy/list", policy.ValidatePolicyList, admin.APIGetPolicyList)
+			apiAdminRouter.GET("/permission/policy/group/list", policy.ValidatePolicyList, admin.APIGetPolicyGroupList)
 			apiAdminRouter.PUT("/permission/policy/update", policy.ValidateUpdatePolicy, admin.APIUpdatePolicy)
 
 		}

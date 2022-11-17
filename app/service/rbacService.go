@@ -6,6 +6,7 @@ import (
 	modelPowerLib "github.com/ArtisanCloud/PowerLibs/v2/authorization/rbac/models"
 	"github.com/ArtisanCloud/PowerLibs/v2/cache"
 	"github.com/ArtisanCloud/PowerLibs/v2/database"
+	"github.com/ArtisanCloud/PowerLibs/v2/object"
 	globalBootstrap "github.com/ArtisanCloud/PowerX/boostrap/cache/global"
 	"github.com/ArtisanCloud/PowerX/boostrap/rbac/global"
 	logger "github.com/ArtisanCloud/PowerX/loggerManager"
@@ -208,9 +209,8 @@ func (srv *RBACService) GetPermissionByID(db *gorm.DB, permissionID string) (per
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
-
-func (srv *RBACService) GetPolicyListGroupedByRole(role *modelPowerLib.Role) (policies map[string][]*modelPowerLib.RolePolicy, err error) {
-	policies = map[string][]*modelPowerLib.RolePolicy{}
+func (srv *RBACService) GetPolicyListGroupedByRole(role *modelPowerLib.Role) (policies *object.HashMap, err error) {
+	policies = &object.HashMap{}
 	var arrayPolicies [][]string
 	if role != nil {
 		arrayPolicies = global.G_Enforcer.GetFilteredPolicy(0, role.GetRBACRuleName())
@@ -219,16 +219,26 @@ func (srv *RBACService) GetPolicyListGroupedByRole(role *modelPowerLib.Role) (po
 	}
 
 	for _, policyItem := range arrayPolicies {
-		if policies[policyItem[0]] == nil {
-			policies[policyItem[0]] = []*modelPowerLib.RolePolicy{}
+
+		keyRole := policyItem[0]
+		keyObject := policyItem[1]
+
+		// 第一层角色，初始化
+		if (*policies)[keyRole] == nil {
+			(*policies)[keyRole] = &object.HashMap{}
 		}
 
-		policy := &modelPowerLib.RolePolicy{
-			RoleID:   policyItem[0],
-			ObjectID: policyItem[1],
-			Control:  policyItem[2],
+		// 获取当前记录对应的对象
+		layerRole := (*policies)[keyRole].(*object.HashMap)
+		if (*layerRole)[keyObject] == nil {
+			(*layerRole)[keyObject] = &object.HashMap{}
 		}
-		policies[policyItem[0]] = append(policies[policyItem[0]], policy)
+
+		// 当前角色对象的权限控制
+		(*layerRole)[keyObject] = &object.HashMap{
+			"control": policyItem[2],
+		}
+
 	}
 
 	return policies, err

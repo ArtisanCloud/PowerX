@@ -7,6 +7,7 @@ import (
 
 type ParaPolicyList struct {
 	//ParentID *string `form:"permissionID" json:"permissionID"`
+	RoleID *string `form:"roleID" json:"roleID"`
 }
 
 func ValidatePolicyList(context *gin.Context) {
