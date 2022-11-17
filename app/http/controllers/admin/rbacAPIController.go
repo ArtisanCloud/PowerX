@@ -242,13 +242,29 @@ func APIDeletePermissions(context *gin.Context) {
 
 // ------------------------------------------------------------
 
+func APIGetPolicyGroupList(context *gin.Context) {
+	ctl := NewRBACAPIController(context)
+
+	defer api.RecoverResponse(context, "api.admin.policy.list")
+
+	policies, err := ctl.ServiceRBAC.GetPolicyListGroupedByRole(nil)
+
+	if err != nil {
+		ctl.RS.SetCode(globalConfig.API_ERR_CODE_FAIL_TO_GET_ROLE_POLICY_LIST, globalConfig.API_RETURN_CODE_ERROR, "", err.Error())
+		panic(ctl.RS)
+		return
+
+	}
+
+	ctl.RS.Success(context, policies)
+}
+
 func APIGetPolicyList(context *gin.Context) {
 	ctl := NewRBACAPIController(context)
 
 	defer api.RecoverResponse(context, "api.admin.policy.list")
 
 	policies, err := ctl.ServiceRBAC.GetPolicyList(nil)
-	//policies, err := ctl.ServiceRBAC.GetPolicyList(nil)
 
 	if err != nil {
 		ctl.RS.SetCode(globalConfig.API_ERR_CODE_FAIL_TO_GET_ROLE_POLICY_LIST, globalConfig.API_RETURN_CODE_ERROR, "", err.Error())
