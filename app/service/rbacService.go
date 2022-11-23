@@ -346,8 +346,11 @@ func (srv *RBACService) UpsertPolicies(policies []*modelPowerLib.RolePolicy, nee
 
 		existPolicies := global.G_Enforcer.GetFilteredPolicy(0, policy.RoleID, policy.ObjectID)
 
-		rule := []string{policy.RoleID, policy.ObjectID, policy.Control}
-		if global.G_Enforcer.HasPolicy(rule) {
+		if global.G_Enforcer.HasPolicy(policy.RoleID, policy.ObjectID, modelPowerLib.RBAC_CONTROL_ALL) ||
+			global.G_Enforcer.HasPolicy(policy.RoleID, policy.ObjectID, modelPowerLib.RBAC_CONTROL_WRITE) ||
+			global.G_Enforcer.HasPolicy(policy.RoleID, policy.ObjectID, modelPowerLib.RBAC_CONTROL_READ) ||
+			global.G_Enforcer.HasPolicy(policy.RoleID, policy.ObjectID, modelPowerLib.RBAC_CONTROL_DELETE) ||
+			global.G_Enforcer.HasPolicy(policy.RoleID, policy.ObjectID, modelPowerLib.RBAC_CONTROL_NONE) {
 			for _, existPolicy := range existPolicies {
 				if existPolicy[2] != policy.Control {
 					_, err = global.G_Enforcer.UpdatePolicy(existPolicy, []string{policy.RoleID, policy.ObjectID, policy.Control})
@@ -357,7 +360,7 @@ func (srv *RBACService) UpsertPolicies(policies []*modelPowerLib.RolePolicy, nee
 				}
 			}
 		} else {
-			_, err = global.G_Enforcer.AddPolicy(rule)
+			_, err = global.G_Enforcer.AddPolicy(policy.RoleID, policy.ObjectID, policy.Control)
 			if err != nil {
 				return err
 			}
