@@ -2,11 +2,14 @@ package admin
 
 import (
 	modelsPowerLib "github.com/ArtisanCloud/PowerLibs/v2/authorization/rbac/models"
+	"github.com/ArtisanCloud/PowerLibs/v2/object"
 	"github.com/ArtisanCloud/PowerX/app/http/controllers/api"
+	"github.com/ArtisanCloud/PowerX/app/http/request/admin/permission/policy"
 	"github.com/ArtisanCloud/PowerX/app/service"
 	globalConfig "github.com/ArtisanCloud/PowerX/config"
 	"github.com/ArtisanCloud/PowerX/database/global"
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
 
@@ -288,6 +291,37 @@ func APIUpdatePolicy(context *gin.Context) {
 
 	if err != nil {
 		ctl.RS.SetCode(globalConfig.API_ERR_CODE_FAIL_TO_UPDATE_ROLE_POLICY, globalConfig.API_RETURN_CODE_ERROR, "", err.Error())
+		panic(ctl.RS)
+		return
+	}
+
+	ctl.RS.Success(context, err)
+}
+
+func APICreateRolePolicies(context *gin.Context) {
+	ctl := NewRBACAPIController(context)
+
+	paramsInterface, _ := context.Get("rolePolicies")
+	rolePolicies := paramsInterface.(*policy.ParaCreateRolePolicies)
+
+	defer api.RecoverResponse(context, "api.admin.role.policy.create")
+
+	err := global.G_DBConnection.Transaction(func(tx *gorm.DB) error {
+		serviceRole := service.NewRoleService(context)
+		role := modelsPowerLib.NewRole(object.NewCollection(&object.HashMap{
+			"name": rolePolicies.Name,
+		}))
+		err := serviceRole.UpsertRoles(global.G_DBConnection.Omit(clause.Associations), []*modelsPowerLib.Role{role}, nil)
+		if err != nil {
+			return err
+		}
+		err = ctl.ServiceRBAC.UpsertPolicies(rolePolicies.Policies, true)
+
+		return err
+	})
+
+	if err != nil {
+		ctl.RS.SetCode(globalConfig.API_ERR_CODE_FAIL_TO_CREATE_ROLE_POLICIES, globalConfig.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
 		return
 	}

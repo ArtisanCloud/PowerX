@@ -149,6 +149,7 @@ func InitAdminAPIRoutes() {
 			apiAdminRouter.GET("/permission/policy/list", policy.ValidatePolicyList, admin.APIGetPolicyList)
 			apiAdminRouter.GET("/permission/policy/group/list", policy.ValidatePolicyList, admin.APIGetPolicyGroupList)
 			apiAdminRouter.PUT("/permission/policy/update", policy.ValidateUpdatePolicy, admin.APIUpdatePolicy)
+			apiAdminRouter.POST("/permission/role/policy/create", policy.ValidateCreateRolePolicies, admin.APICreateRolePolicies)
 
 		}
 	}
