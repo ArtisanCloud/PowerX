@@ -157,12 +157,12 @@
  {
   "roleID": "普通员工-dc4f5",
   "objectID": "员工管理-df989",
-  "control": "none"
+  "control": "read"
  },
  {
   "roleID": "普通员工-dc4f5",
   "objectID": "权限管理-b64ff",
-  "control": "none"
+  "control": "read"
  },
  {
   "roleID": "普通员工-dc4f5",

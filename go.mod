@@ -3,7 +3,7 @@ module github.com/ArtisanCloud/PowerX
 go 1.17
 
 //replace github.com/ArtisanCloud/PowerWeChat/v2 => ../PowerWeChat
-//replace github.com/ArtisanCloud/PowerLibs/v2 => ../PowerLibs
+replace github.com/ArtisanCloud/PowerLibs/v2 => ../PowerLibs
 //replace github.com/ArtisanCloud/PowerSocialite/v2 => ../PowerSocialite
 
 require (

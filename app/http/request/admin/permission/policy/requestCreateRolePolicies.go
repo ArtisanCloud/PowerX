@@ -1,6 +1,7 @@
 package policy
 
 import (
+	"errors"
 	"github.com/ArtisanCloud/PowerLibs/v2/authorization/rbac/models"
 	"github.com/ArtisanCloud/PowerLibs/v2/object"
 	"github.com/ArtisanCloud/PowerX/app/http"
@@ -11,7 +12,7 @@ import (
 )
 
 type ParaCreateRolePolicies struct {
-	Name     string  `form:"name" json:"name"`
+	Name     string  `form:"roleName" json:"roleName" binding:"required""`
 	ParentID *string `form:"parentID" json:"parentID"`
 
 	Policies []*models.RolePolicy `form:"policies" json:"policies" binding:"required,min=1"`
@@ -43,9 +44,13 @@ func convertParaToRoleForInsert(form *ParaCreateRolePolicies) (role *models.Role
 		//"parentID": form.ParentID,
 	}))
 
-	err = role.CheckRoleNameAvailable(global.G_DBConnection)
+	existed, err := role.DoesRoleExist(global.G_DBConnection)
 	if err != nil {
 		return nil, err
+	}
+
+	if existed {
+		return nil, errors.New("role existed")
 	}
 
 	return role, err

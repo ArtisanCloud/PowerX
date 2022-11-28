@@ -50,9 +50,12 @@ func convertParaToRoleForUpdate(form *ParaUpdateRole) (role *models.Role, err er
 	role.Name = form.Name
 	role.UpdatedAt = time.Now()
 
-	err = role.CheckRoleNameAvailable(global.G_DBConnection)
+	existed, err := role.DoesRoleExist(global.G_DBConnection)
 	if err != nil {
 		return nil, err
+	}
+	if !existed {
+		return nil, errors.New("role not existed")
 	}
 
 	return role, err
