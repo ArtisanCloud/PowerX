@@ -15,6 +15,7 @@ func (mdl *WXDepartment) TableName() string {
 
 type WXDepartment struct {
 	SubDepartments []*WXDepartment `gorm:"ForeignKey:ParentID;references:id" json:"subDepartments"`
+	Employees      []*WXEmployee   `gorm:"many2many:public.ac_r_employee_to_department;foreignKey:ID;joinForeignKey:department_id;References:WXUserID;JoinReferences:employee_id" json:"employees"`
 
 	ID       int    `json:"id"`
 	Name     string `json:"name"`
@@ -60,6 +61,16 @@ func (mdl *WXDepartment) LoadSubDepartments(db *gorm.DB, conditions *map[string]
 		panic(err)
 	}
 	return mdl.SubDepartments, err
+}
+
+// -- SubDepartments
+func (mdl *WXDepartment) LoadEmployees(db *gorm.DB, conditions *map[string]interface{}) ([]*WXEmployee, error) {
+	mdl.Employees = []*WXEmployee{}
+	err := databasePowerLib.AssociationRelationship(db, conditions, mdl, "Employees", false).Find(&mdl.Employees)
+	if err != nil {
+		panic(err)
+	}
+	return mdl.Employees, err
 }
 
 /**

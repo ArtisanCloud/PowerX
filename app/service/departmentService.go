@@ -98,6 +98,9 @@ func (srv *DepartmentService) GetTreeDepartments(db *gorm.DB, conditions *map[st
 
 	for _, department := range departments {
 		department.SubDepartments, err = srv.GetTreeDepartments(db, nil, &department.ID)
+
+		// load employees
+		department.Employees, err = department.LoadEmployees(db, nil)
 	}
 
 	return departments, err
