@@ -3,13 +3,13 @@ module github.com/ArtisanCloud/PowerX
 go 1.17
 
 //replace github.com/ArtisanCloud/PowerWeChat/v2 => ../PowerWeChat
-replace github.com/ArtisanCloud/PowerLibs/v2 => ../PowerLibs
+//replace github.com/ArtisanCloud/PowerLibs/v2 => ../PowerLibs
 //replace github.com/ArtisanCloud/PowerSocialite/v2 => ../PowerSocialite
 
 require (
-	github.com/ArtisanCloud/PowerLibs/v2 v2.0.48
+	github.com/ArtisanCloud/PowerLibs/v2 v2.0.49
 	github.com/ArtisanCloud/PowerSocialite/v2 v2.0.18
-	github.com/ArtisanCloud/PowerWeChat/v2 v2.0.30
+	github.com/ArtisanCloud/PowerWeChat/v2 v2.0.37
 	github.com/casbin/casbin/v2 v2.52.2
 	github.com/casbin/gorm-adapter/v3 v3.8.0
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
