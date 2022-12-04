@@ -39,7 +39,7 @@ type WXEmployee struct {
 	WXOpenID          object.NullString `gorm:"index:index_wx_open_id;column:wx_open_id;" json:"wxOpenID"`
 }
 
-const TABLE_NAME_EMPLOYEE = "wx_employees"
+const TABLE_NAME_EMPLOYEE = "employees"
 
 const WX_EMPLOYEE_STATUS_ACTIVE = 1   // 已激活
 const WX_EMPLOYEE_STATUS_BLOCK = 2    // 已禁用

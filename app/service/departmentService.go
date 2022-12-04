@@ -5,6 +5,7 @@ import (
 	database2 "github.com/ArtisanCloud/PowerLibs/v2/database"
 	"github.com/ArtisanCloud/PowerWeChat/v2/src/kernel/contract"
 	modelWecom "github.com/ArtisanCloud/PowerWeChat/v2/src/work/server/handlers/models"
+	"github.com/ArtisanCloud/PowerX/app/models"
 	"github.com/ArtisanCloud/PowerX/app/models/wx"
 	"github.com/ArtisanCloud/PowerX/app/service/wx/weCom"
 	global2 "github.com/ArtisanCloud/PowerX/config"
@@ -19,13 +20,13 @@ import (
 
 type DepartmentService struct {
 	*Service
-	Department *wx.WXDepartment
+	Department *models.Department
 }
 
 func NewDepartmentService(ctx *gin.Context) (r *DepartmentService) {
 	r = &DepartmentService{
 		Service:    NewService(ctx),
-		Department: wx.NewWXDepartment(nil),
+		Department: models.NewDepartment(nil),
 	}
 	return r
 }
@@ -41,14 +42,16 @@ func (srv *DepartmentService) SyncDepartments(departmentID int) (err error) {
 		return errors.New(response.ErrMSG)
 	}
 
-	arrayDepartments := []*wx.WXDepartment{}
+	arrayDepartments := []*models.Department{}
 	for _, wxDepartment := range response.Departments {
-		department := &wx.WXDepartment{
-			ID:       wxDepartment.ID,
-			Name:     wxDepartment.Name,
-			NameEN:   wxDepartment.NameEN,
-			ParentID: wxDepartment.ParentID,
-			Order:    wxDepartment.Order,
+		department := &models.Department{
+			WXDepartment: &wx.WXDepartment{
+				ID:       wxDepartment.ID,
+				Name:     wxDepartment.Name,
+				NameEN:   wxDepartment.NameEN,
+				ParentID: wxDepartment.ParentID,
+				Order:    wxDepartment.Order,
+			},
 		}
 
 		arrayDepartments = append(arrayDepartments, department)
@@ -79,8 +82,8 @@ func (srv *DepartmentService) GetDepartment(db *gorm.DB, departmentName string) 
 
 }
 
-func (srv *DepartmentService) GetTreeDepartments(db *gorm.DB, conditions *map[string]interface{}, departmentID *int) (departments []*wx.WXDepartment, err error) {
-	departments = []*wx.WXDepartment{}
+func (srv *DepartmentService) GetTreeDepartments(db *gorm.DB, conditions *map[string]interface{}, departmentID *int) (departments []*models.Department, err error) {
+	departments = []*models.Department{}
 
 	if conditions == nil {
 		conditions = &map[string]interface{}{}
@@ -98,14 +101,17 @@ func (srv *DepartmentService) GetTreeDepartments(db *gorm.DB, conditions *map[st
 
 	for _, department := range departments {
 		department.SubDepartments, err = srv.GetTreeDepartments(db, nil, &department.ID)
+
+		// load employees
+		department.Employees, err = department.LoadEmployees(db, nil)
 	}
 
 	return departments, err
 
 }
 
-func (srv *DepartmentService) GetDepartments(db *gorm.DB, parentID *int) (departments []*wx.WXDepartment, err error) {
-	departments = []*wx.WXDepartment{}
+func (srv *DepartmentService) GetDepartments(db *gorm.DB, parentID *int) (departments []*models.Department, err error) {
+	departments = []*models.Department{}
 
 	db = db.Table(srv.Department.GetTableName(true))
 
@@ -137,7 +143,7 @@ func (srv *DepartmentService) GetDepartmentsByIDs(db *gorm.DB, arrayIDs []int) (
 	return departments, err
 }
 
-func (srv *DepartmentService) UpsertDepartments(db *gorm.DB, uniqueName string, departments []*wx.WXDepartment) error {
+func (srv *DepartmentService) UpsertDepartments(db *gorm.DB, uniqueName string, departments []*models.Department) error {
 
 	if len(departments) <= 0 {
 		return nil
@@ -145,7 +151,7 @@ func (srv *DepartmentService) UpsertDepartments(db *gorm.DB, uniqueName string, 
 
 	result := db.Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: uniqueName}},
-		DoUpdates: clause.AssignmentColumns(database2.GetModelFields(wx.WXDepartment{})),
+		DoUpdates: clause.AssignmentColumns(database2.GetModelFields(models.Department{})),
 	}).Create(&departments)
 
 	return result.Error

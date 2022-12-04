@@ -1,6 +1,7 @@
 package role
 
 import (
+	"errors"
 	"github.com/ArtisanCloud/PowerLibs/v2/authorization/rbac/models"
 	"github.com/ArtisanCloud/PowerLibs/v2/object"
 	"github.com/ArtisanCloud/PowerX/app/http"
@@ -41,9 +42,13 @@ func convertParaToRoleForInsert(form *ParaInsertRole) (role *models.Role, err er
 		//"parentID": form.ParentID,
 	}))
 
-	err = role.CheckRoleNameAvailable(global.G_DBConnection)
+	existed, err := role.DoesRoleExist(global.G_DBConnection)
 	if err != nil {
 		return nil, err
+	}
+
+	if existed {
+		return nil, errors.New("role existed")
 	}
 
 	return role, err

@@ -110,6 +110,10 @@ func (srv *RoleService) GetEmployeeIDsByRoleIDs(db *gorm.DB, roleIDs []string) (
 	return employeeIDs, result.Error
 }
 
+func (srv *RoleService) GetCompactRoleIDByRole(role *modelPowerLib.Role) string {
+	return role.Name + "-" + role.UniqueID[0:5]
+}
+
 func (srv *RoleService) BindRoleToEmployeesByEmployeeIDs(db *gorm.DB, role *modelPowerLib.Role, employeeIDs []string) (err error) {
 
 	result := db.Model(models.Employee{}).

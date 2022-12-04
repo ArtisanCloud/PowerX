@@ -1,7 +1,7 @@
 package foundation
 
 import (
-	"github.com/ArtisanCloud/PowerX/app/models/wx"
+	"github.com/ArtisanCloud/PowerX/app/models"
 )
 
 type MigrateDepartment struct {
@@ -12,7 +12,7 @@ type MigrateDepartment struct {
 func NewMigrateDepartment() *MigrateDepartment {
 	return &MigrateDepartment{
 		Migration: &Migration{
-			Model: &wx.WXDepartment{},
+			Model: &models.Department{},
 		},
 	}
 }

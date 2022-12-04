@@ -315,6 +315,11 @@ func APICreateRolePolicies(context *gin.Context) {
 		if err != nil {
 			return err
 		}
+		strRoleCompactID := serviceRole.GetCompactRoleIDByRole(role)
+		for _, policy := range rolePolicies.Policies {
+			policy.RoleID = strRoleCompactID
+		}
+
 		err = ctl.ServiceRBAC.UpsertPolicies(rolePolicies.Policies, true)
 
 		return err
