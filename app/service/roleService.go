@@ -105,7 +105,7 @@ func (srv *RoleService) GetEmployeeIDsByRoleIDs(db *gorm.DB, roleIDs []string) (
 	result := db.Model(models.Employee{}).
 		Debug().
 		Where("role_id in (?)", roleIDs).
-		Pluck("wx_user_id", &employeeIDs)
+		Pluck("employeeID", &employeeIDs)
 
 	return employeeIDs, result.Error
 }
@@ -118,7 +118,7 @@ func (srv *RoleService) BindRoleToEmployeesByEmployeeIDs(db *gorm.DB, role *mode
 
 	result := db.Model(models.Employee{}).
 		Debug().
-		Where("wx_user_id in (?)", employeeIDs).
+		Where("employeeID in (?)", employeeIDs).
 		Update("role_id", role.UniqueID)
 
 	return result.Error

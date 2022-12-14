@@ -17,14 +17,16 @@ import (
 
 type InstallAPIController struct {
 	*api.APIController
-	ServiceInstall *service.InstallService
+	ServiceInstall  *service.InstallService
+	ServiceEmployee *service.EmployeeService
 }
 
 func NewInstallAPIController(context *gin.Context) (ctl *InstallAPIController) {
 
 	return &InstallAPIController{
-		APIController:  api.NewAPIController(context),
-		ServiceInstall: service.NewInstallService(context),
+		APIController:   api.NewAPIController(context),
+		ServiceInstall:  service.NewInstallService(context),
+		ServiceEmployee: service.NewEmployeeService(context),
 	}
 }
 
@@ -109,6 +111,36 @@ func APIInitRoot(context *gin.Context) {
 		ctl.RS.ThrowJSONResponse(context)
 		return
 	}
+	res := map[string]interface{}{
+		"token_type":    "Bearer",
+		"expires_in":    service.InExpiredSecond,
+		"access_token":  strToken,
+		"refresh_token": "",
+	}
+
+	// 正常返回json
+	ctl.RS.Success(context, res)
+
+}
+
+func APIRegisterRoot(context *gin.Context) {
+
+	ctl := NewInstallAPIController(context)
+	// upsert  employee as root
+
+	params, _ := context.Get("rootEmployee")
+	rootEmployee := params.(*models.Employee)
+
+	err := ctl.ServiceEmployee.UpsertEmployees(globalDatabase.G_DBConnection, []*models.Employee{rootEmployee}, nil)
+
+	if err != nil {
+		ctl.RS.SetCode(http.StatusExpectationFailed, globalConfig.API_RETURN_CODE_ERROR, "", err.Error())
+		ctl.RS.ThrowJSONResponse(context)
+		return
+	}
+
+	serviceAuth := service.NewAuthService(context)
+	strToken, _ := serviceAuth.CreateTokenForEmployee(rootEmployee)
 	res := map[string]interface{}{
 		"token_type":    "Bearer",
 		"expires_in":    service.InExpiredSecond,

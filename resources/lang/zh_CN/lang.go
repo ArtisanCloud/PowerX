@@ -41,7 +41,8 @@ func LoadLang() {
 	message.SetString(lang, fmt2.Sprintf("%d", config.API_ERR_CODE_FAIL_TO_DELETE_REPORT), "删除客户列表失败")
 
 	message.SetString(lang, fmt2.Sprintf("%d", config.API_ERR_CODE_FAIL_TO_GET_EMPLOYEE_LIST), "获取员工列表失败")
-	message.SetString(lang, fmt2.Sprintf("%d", config.API_ERR_CODE_FAIL_TO_UPSERT_EMPLOYEE), "新增或更新员工列表失败")
+	message.SetString(lang, fmt2.Sprintf("%d", config.API_ERR_CODE_FAIL_TO_UPSERT_EMPLOYEE), "新增或更新员工失败")
+	message.SetString(lang, fmt2.Sprintf("%d", config.API_ERR_CODE_FAIL_TO_CREATE_EMPLOYEE), "创建员工失败")
 	message.SetString(lang, fmt2.Sprintf("%d", config.API_ERR_CODE_FAIL_TO_GET_EMPLOYEE_DETAIL), "获取员工失败")
 	message.SetString(lang, fmt2.Sprintf("%d", config.API_ERR_CODE_FAIL_TO_DELETE_EMPLOYEE), "删除员工列表失败")
 	message.SetString(lang, fmt2.Sprintf("%d", config.API_ERR_CODE_FAIL_TO_GET_CORD_ID), "获取CordID失败")

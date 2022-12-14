@@ -4,6 +4,7 @@ import (
 	"github.com/ArtisanCloud/PowerLibs/v2/authorization/rbac/models"
 	"github.com/ArtisanCloud/PowerLibs/v2/database"
 	"github.com/ArtisanCloud/PowerLibs/v2/object"
+	"github.com/ArtisanCloud/PowerLibs/v2/security"
 	"github.com/ArtisanCloud/PowerX/app/models/wx"
 	databaseConfig "github.com/ArtisanCloud/PowerX/config"
 )
@@ -15,7 +16,7 @@ func (mdl *Employee) TableName() string {
 
 type Employee struct {
 	*database.PowerModel
-
+	UniqueID          string                 `gorm:"column:employee_id;index:,unique" json:"employeeID"`
 	Role              *models.Role           `gorm:"ForeignKey:RoleID;references:UniqueID" json:"role"`
 	PivotCustomers    []*RCustomerToEmployee `gorm:"ForeignKey:EmployeeReferID;references:WXUserID" json:"pivotCustomers"`
 	FollowedEmployees []*Employee            `gorm:"many2many:public.ac_r_customer_to_employee;foreignKey:UUID;joinForeignKey:EmployeeReferID;References:UUID;JoinReferences:EmployeeReferID" json:"followedEmployees"`
@@ -25,6 +26,7 @@ type Employee struct {
 	RoleID    *string `gorm:"column:role_id;index" json:"roleID"`
 	Locale    string  `gorm:"column:locale" json:"locale"`
 	Email     string  `gorm:"column:email" json:"email"`
+	Password  *string `gorm:"column:password" json:"password"`
 	FirstName string  `gorm:"column:firstname" json:"firstname"`
 	Lastname  string  `gorm:"column:lastname" json:"lastname"`
 	Name      string  `gorm:"column:name" json:"name"`
@@ -34,7 +36,7 @@ type Employee struct {
 }
 
 const TABLE_NAME_EMPLOYEE = "employees"
-const EMPLOYEE_UNIQUE_ID = "wx_user_id"
+const EMPLOYEE_UNIQUE_ID = "employee_id"
 
 func (mdl *Employee) GetTableName(needFull bool) string {
 	tableName := TABLE_NAME_EMPLOYEE
@@ -45,10 +47,17 @@ func (mdl *Employee) GetTableName(needFull bool) string {
 }
 
 func (mdl *Employee) GetForeignRefer() string {
-	return "wx_user_id"
+	return "employeeID"
 }
 func (mdl *Employee) GetForeignReferValue() string {
 	return mdl.WXUserID.String
+}
+
+func (mdl *Employee) GetComposedUniqueID() string {
+	strID := mdl.WXUserID.String + "-" + mdl.WXCorpID.String + "-" + mdl.WXOpenID.String + "-" + mdl.Email + mdl.Mobile
+	hashedID := security.HashStringData(strID)
+
+	return hashedID
 }
 
 func NewEmployee(mapObject *object.Collection) *Employee {
@@ -63,8 +72,9 @@ func NewEmployee(mapObject *object.Collection) *Employee {
 	strUserID := mapObject.GetString("userID", "")
 	strCorpID := mapObject.GetString("corpID", "")
 	strOpenID := mapObject.GetString("openID", "")
+	strEmail := mapObject.GetString("email", "")
 
-	if strOpenID == "" || strCorpID == "" || strUserID == "" {
+	if (strOpenID == "" || strCorpID == "" || strUserID == "") && strEmail == "" {
 		return nil
 	}
 
@@ -72,11 +82,11 @@ func NewEmployee(mapObject *object.Collection) *Employee {
 	corpID := object.NewNullString(strCorpID, true)
 	openID := object.NewNullString(strOpenID, true)
 
-	return &Employee{
+	newEmployee := &Employee{
 		PowerModel: database.NewPowerModel(),
 
 		RoleID:    mapObject.GetStringPointer("roleID", ""),
-		Email:     mapObject.GetString("email", ""),
+		Email:     strEmail,
 		FirstName: mapObject.GetString("firstName", ""),
 		Lastname:  mapObject.GetString("lastName", ""),
 		Name:      mapObject.GetString("name", ""),
@@ -109,6 +119,10 @@ func NewEmployee(mapObject *object.Collection) *Employee {
 			WXOpenID:          openID,
 		},
 	}
+
+	newEmployee.UniqueID = newEmployee.GetComposedUniqueID()
+
+	return newEmployee
 }
 
 func (mdl *Employee) GetEmployeeUUIDsFromEmployees(employees []*Employee) []string {

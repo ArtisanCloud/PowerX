@@ -20,7 +20,6 @@ import (
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 	"time"
 )
 
@@ -124,18 +123,9 @@ func (srv *EmployeeService) GetAllEmployees(db *gorm.DB, conditions *map[string]
 	return arrayEmployees, err
 }
 
-func (srv *EmployeeService) UpsertEmployees(db *gorm.DB, uniqueName string, employees []*models.Employee) error {
+func (srv *EmployeeService) UpsertEmployees(db *gorm.DB, employees []*models.Employee, fieldsToUpdate []string) error {
 
-	if len(employees) <= 0 {
-		return nil
-	}
-
-	result := db.Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: uniqueName}},
-		DoUpdates: clause.AssignmentColumns(databasePowerLib.GetModelFields(models.Employee{})),
-	}).Create(&employees)
-
-	return result.Error
+	return databasePowerLib.UpsertModelsOnUniqueID(db, &models.Employee{}, models.EMPLOYEE_UNIQUE_ID, employees, fieldsToUpdate)
 }
 
 func (srv *EmployeeService) UpsertEmployee(db *gorm.DB, employee *models.Employee) (savedEmployee *models.Employee, err error) {
@@ -161,7 +151,7 @@ func (srv *EmployeeService) SaveEmployee(db *gorm.DB, employee *models.Employee)
 func (srv *EmployeeService) UpdateEmployee(db *gorm.DB, employee *models.Employee) (*models.Employee, error) {
 
 	// clear relationship between from employee to department
-	global.G_DBConnection.Where("employee_id=?", employee.ID).Delete(models.REmployeeToDepartment{})
+	global.G_DBConnection.Where("employee_id=?", employee.UniqueID).Delete(models.REmployeeToDepartment{})
 
 	db = db.Updates(employee)
 
@@ -187,7 +177,7 @@ func (srv *EmployeeService) GetEmployeeUserIDs(db *gorm.DB) (userIDs []string, e
 	result := db.
 		//Debug().
 		Model(srv.Employee).
-		Pluck("wx_user_id", &userIDs)
+		Pluck("employeeID", &userIDs)
 
 	return userIDs, result.Error
 
@@ -199,7 +189,7 @@ func (srv *EmployeeService) GetEmployeesByUserIDs(db *gorm.DB, userIDs []string)
 
 	db = db.
 		Preload("WXDepartments").
-		Where("wx_user_id in (?)", userIDs)
+		Where("employeeID in (?)", userIDs)
 	result := db.Find(&employees)
 	return employees, result.Error
 }
@@ -211,7 +201,7 @@ func (srv *EmployeeService) GetEmployeeByUserID(db *gorm.DB, userID string) (emp
 	preloads := []string{"WXDepartments", "Role"}
 
 	condition := &map[string]interface{}{
-		"wx_user_id": userID,
+		"employeeID": userID,
 	}
 	err = databasePowerLib.GetFirst(db, condition, employee, preloads)
 	if err != nil && errors.Is(err, gorm.ErrRecordNotFound) {
@@ -555,7 +545,7 @@ func (srv *EmployeeService) HandleEmployeeCreate(context *gin.Context, event con
 	err = serviceWeComEmployee.UpsertEmployees(global.G_DBConnection, []*models.Employee{
 		newEmployee,
 	},
-		[]string{"wx_user_id", "wx_department"},
+		[]string{"employeeID", "wx_department"},
 	)
 
 	logger.Logger.Info("Handle Create Employee", zap.Any("msg", msg))

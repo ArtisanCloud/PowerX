@@ -35,7 +35,7 @@ type WXEmployee struct {
 	WXThumbAvatar     string            `gorm:"column:wx_thumbAvatar" json:"wxThumbAvatar"`
 	WXCorpID          object.NullString `gorm:"index:index_wx_corp_id;column:wx_corp_id" json:"wxCorpID"`
 	WXOpenUserID      object.NullString `gorm:"column:wx_open_user_id;" json:"wxOpenUserID"`
-	WXUserID          object.NullString `gorm:"index:index_user_id; column:wx_user_id;index:,unique;" json:"wxUserID"`
+	WXUserID          object.NullString `gorm:"index:index_user_id; column:employeeID;index:,unique;" json:"wxUserID"`
 	WXOpenID          object.NullString `gorm:"index:index_wx_open_id;column:wx_open_id;" json:"wxOpenID"`
 }
 

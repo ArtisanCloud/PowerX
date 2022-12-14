@@ -9,7 +9,7 @@ import (
 const CONFIG_FILE_LOCATION = "config.yml"
 const CONFIG_EXAMPLE_FILE_LOCATION = "config-example.yml"
 
-const COMMAND_ROOT string = "powerx"
+const COMMAND_ROOT string = "PowerX"
 
 const CODE_SHUTDOWN = 1
 const CODE_REBOOT = 2

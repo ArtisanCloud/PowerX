@@ -109,7 +109,7 @@ func (srv *WeComEmployeeService) GetEmployeeByUserID(db *gorm.DB, userID string)
 	employee = &models.Employee{}
 
 	condition := &map[string]interface{}{
-		"wx_user_id": userID,
+		"employeeID": userID,
 	}
 	preload := []string{"Role"}
 	err = databasePowerLib.GetFirst(db, condition, employee, preload)

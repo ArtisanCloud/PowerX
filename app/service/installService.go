@@ -171,6 +171,7 @@ func TaskInstallDatabase() func(taskChannel chan error, appConfig *config.AppCon
 		err = database.SetupDatabase(&appConfig.DatabaseConfig.DatabaseConnections.PostgresConfig)
 		if err != nil {
 			rsTask.ErrMsg = err.Error()
+			fmt.Dump("db parse error:", rsTask.ErrMsg)
 			taskChannel <- err
 			return
 		}
@@ -180,6 +181,7 @@ func TaskInstallDatabase() func(taskChannel chan error, appConfig *config.AppCon
 		err = object.SaveYMLFile(config.G_AppConfigure, config.CONFIG_FILE_LOCATION, 0644)
 		if err != nil {
 			rsTask.ErrMsg = err.Error()
+			fmt.Dump("save db yml error:", rsTask.ErrMsg)
 			taskChannel <- err
 			return
 		}
@@ -193,6 +195,7 @@ func TaskInstallDatabase() func(taskChannel chan error, appConfig *config.AppCon
 		err = cmd.Run()
 		if err != nil {
 			rsTask.ErrMsg = err.Error()
+			fmt.Dump("db migrate error:", rsTask.ErrMsg)
 			taskChannel <- err
 			return
 		}
@@ -205,6 +208,7 @@ func TaskInstallDatabase() func(taskChannel chan error, appConfig *config.AppCon
 		err = cmd.Run()
 		if err != nil {
 			rsTask.ErrMsg = err.Error()
+			fmt.Dump("db import error:", rsTask.ErrMsg)
 			taskChannel <- err
 			return
 		}

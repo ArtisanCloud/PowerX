@@ -1,6 +1,7 @@
 package database
 
 import (
+	"github.com/ArtisanCloud/PowerLibs/v2/fmt"
 	"github.com/ArtisanCloud/PowerX/boostrap"
 	"github.com/ArtisanCloud/PowerX/cmd/database/migrations"
 	"github.com/ArtisanCloud/PowerX/cmd/database/seeds"
@@ -30,20 +31,35 @@ func init() {
 		return
 	}
 
-	err = config.LoadDatabaseConfig()
-	if err != nil {
-		panic(err)
-	}
-
-	// Initialize the database
-	err = database2.SetupDatabase(config.G_DBConfig)
+	err = InitDatabase()
 	if err != nil {
 		panic(err)
 	}
 
 }
 
+func InitDatabase() error {
+	var err error
+	err = config.LoadDatabaseConfig()
+	if err != nil {
+		return err
+	}
+
+	// Initialize the database
+	err = database2.SetupDatabase(config.G_DBConfig)
+	if err != nil {
+		return err
+	}
+
+	return err
+}
+
 func RunDatabase(cmd *cobra.Command, command string) {
+
+	err := InitDatabase()
+	if err != nil {
+		panic(err)
+	}
 
 	switch command {
 	case "migrate":
@@ -63,7 +79,7 @@ func RunMigrate(cmd *cobra.Command) {
 
 	//arrayTables := getFoundationTables()
 	//arrayTables = appendIndustryTables("education", arrayTables)
-
+	fmt.Dump("globalDatabase.G_DBConnection:", globalDatabase.G_DBConnection.Name())
 	err := migrations.Run(globalDatabase.G_DBConnection)
 
 	if err != nil {
