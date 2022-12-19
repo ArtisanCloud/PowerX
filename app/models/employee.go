@@ -20,7 +20,7 @@ type Employee struct {
 	Role              *models.Role           `gorm:"ForeignKey:RoleID;references:UniqueID" json:"role"`
 	PivotCustomers    []*RCustomerToEmployee `gorm:"ForeignKey:EmployeeReferID;references:WXUserID" json:"pivotCustomers"`
 	FollowedEmployees []*Employee            `gorm:"many2many:public.ac_r_customer_to_employee;foreignKey:UUID;joinForeignKey:EmployeeReferID;References:UUID;JoinReferences:EmployeeReferID" json:"followedEmployees"`
-	WXDepartments     []*wx.WXDepartment     `gorm:"many2many:ac_r_employee_to_department;foreignKey:ID;joinForeignKey:employee_id;References:ID;JoinReferences:department_id" json:"wxDepartments"`
+	WXDepartments     []*wx.WXDepartment     `gorm:"many2many:ac_r_employee_to_department;foreignKey:WXUserID;joinForeignKey:employee_id;References:ID;JoinReferences:department_id" json:"wxDepartments"`
 	//WXTags            []*wechat.WXTag        `gorm:"many2many:public.ac_r_wx_tag_to_object;foreignKey:UUID;joinForeignKey:EmployeeReferID;References:ID;JoinReferences:WXTagReferID" json:"wxTags"`
 
 	RoleID    *string `gorm:"column:role_id;index" json:"roleID"`
@@ -47,7 +47,7 @@ func (mdl *Employee) GetTableName(needFull bool) string {
 }
 
 func (mdl *Employee) GetForeignRefer() string {
-	return "employeeID"
+	return EMPLOYEE_UNIQUE_ID
 }
 func (mdl *Employee) GetForeignReferValue() string {
 	return mdl.WXUserID.String
@@ -87,6 +87,7 @@ func NewEmployee(mapObject *object.Collection) *Employee {
 
 		RoleID:    mapObject.GetStringPointer("roleID", ""),
 		Email:     strEmail,
+		Password:  mapObject.GetStringPointer("password", ""),
 		FirstName: mapObject.GetString("firstName", ""),
 		Lastname:  mapObject.GetString("lastName", ""),
 		Name:      mapObject.GetString("name", ""),

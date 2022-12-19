@@ -7,7 +7,7 @@ go 1.17
 //replace github.com/ArtisanCloud/PowerSocialite/v2 => ../PowerSocialite
 
 require (
-	github.com/ArtisanCloud/PowerLibs/v2 v2.0.49
+	github.com/ArtisanCloud/PowerLibs/v2 v2.0.50
 	github.com/ArtisanCloud/PowerSocialite/v2 v2.0.18
 	github.com/ArtisanCloud/PowerWeChat/v2 v2.0.37
 	github.com/casbin/casbin/v2 v2.52.2
@@ -15,7 +15,6 @@ require (
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/getkin/kin-openapi v0.98.0
 	github.com/gin-contrib/cors v1.3.1
-	github.com/gin-gonic/contrib v0.0.0-20221130124618-7e01895a63f2
 	github.com/gin-gonic/gin v1.8.1
 	github.com/golang-module/carbon v1.5.5
 	github.com/google/uuid v1.3.0

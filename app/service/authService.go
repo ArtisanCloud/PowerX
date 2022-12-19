@@ -79,9 +79,7 @@ func (srv *AuthService) CreateTokenForEmployee(employee *models.Employee) (strin
 
 	claims := make(jwt.MapClaims)
 	claims["AccessToken"] = "bar"
-	claims["EmployeeUUID"] = employee.UUID
-	claims["WXUserID"] = employee.WXUserID.String
-	claims["OpenID"] = employee.WXOpenID.String
+	claims["EmployeeID"] = employee.UniqueID
 	claims["exp"] = time.Now().Add(time.Second * time.Duration(InExpiredSecond)).Unix()
 
 	return srv.CreateToken(claims)

@@ -137,44 +137,39 @@ func AuthenticateRootByHeader(c *gin.Context) {
 	return
 }
 
-func ParseUserByToken(c *gin.Context, strToken string) (wxUserID string, errCode int) {
+func ParseUserIDByToken(c *gin.Context, strToken string) (uniqueID string, errCode int) {
 	// 解析jwt token信息
 	ptrClaims, err := service.ParseAuthorization(strToken)
 	if ptrClaims == nil || err != nil {
-		return wxUserID, globalConfig.API_ERR_CODE_ACCOUNT_INVALID_TOKEN
+		return uniqueID, globalConfig.API_ERR_CODE_ACCOUNT_INVALID_TOKEN
 	}
 	claims := *ptrClaims
-	if claims["WXUserID"] == nil {
-		return wxUserID, globalConfig.API_ERR_CODE_LACK_OF_WX_USER_ID
+	if claims["EmployeeID"] == nil {
+		return uniqueID, globalConfig.API_ERR_CODE_LACK_OF_EMPLOYEE_ID
 	}
-	wxUserID = claims["WXUserID"].(string)
-	if err != nil || wxUserID == "" {
-		return wxUserID, globalConfig.API_ERR_CODE_LACK_OF_WX_USER_ID
+	uniqueID = claims["EmployeeID"].(string)
+	if err != nil || uniqueID == "" {
+		return uniqueID, globalConfig.API_ERR_CODE_LACK_OF_EMPLOYEE_ID
 	}
 
-	return wxUserID, errCode
+	return uniqueID, errCode
 }
 
 func AuthenticateEmployee(c *gin.Context, strToken string) (errCode int) {
 
-	wxUserID, errCode := ParseUserByToken(c, strToken)
-	if errCode != globalConfig.API_RESULT_CODE_INIT {
-		return errCode
-	}
+	employeeID, errCode := ParseUserIDByToken(c, strToken)
+	//if errCode != globalConfig.API_RESULT_CODE_INIT {
+	//	return errCode
+	//}
 
 	// 获取企业员工身份
-	serviceWeComEmployee := weCom.NewWeComEmployeeService(c)
-	employee, err := serviceWeComEmployee.GetEmployeeByUserID(global.G_DBConnection, wxUserID)
+	serviceEmployee := service.NewEmployeeService(c)
+	employee, err := serviceEmployee.GetEmployeeByEmployeeID(global.G_DBConnection, employeeID)
 	if err != nil || employee == nil {
 		return globalConfig.API_ERR_CODE_EMPLOYEE_UNREGISTER
 	}
-	// 确认企业员工的微信状态是否被激活
-	if !serviceWeComEmployee.IsActive(employee) {
-		return globalConfig.API_ERR_CODE_EMPLOYEE_STATUS_NOT_ACTIVE
-	}
-
-	// 员工未分配角色
-	if employee.Role == nil && employee.RoleID == nil {
+	// 员工未分配角色 确认企业员工的状态是否被激活
+	if !serviceEmployee.IsActive(employee) {
 		return globalConfig.API_ERR_CODE_EMPLOYEE_HAS_NO_ROLE
 	}
 
@@ -185,10 +180,7 @@ func AuthenticateEmployee(c *gin.Context, strToken string) (errCode int) {
 }
 
 func AuthenticateRoot(c *gin.Context, strToken string) (errCode int) {
-	wxUserID, errCode := ParseUserByToken(c, strToken)
-	if errCode != globalConfig.API_RESULT_CODE_INIT {
-		return errCode
-	}
+	employeeID, errCode := ParseUserIDByToken(c, strToken)
 	if errCode != globalConfig.API_RESULT_CODE_INIT {
 		return errCode
 	}
@@ -201,7 +193,7 @@ func AuthenticateRoot(c *gin.Context, strToken string) (errCode int) {
 	}
 
 	// 员工未分配角色
-	if root.WXUserID.String == "" || root.WXUserID.String != wxUserID {
+	if root.UniqueID == "" || root.UniqueID != employeeID {
 		return globalConfig.API_ERR_CODE_CURRENT_LOGIN_IS_NOT_ROOT
 	}
 
@@ -228,8 +220,9 @@ func AuthorizeAPI(c *gin.Context) {
 		return
 	}
 
+	serviceEmployee := service.NewEmployeeService(c)
 	// 员工未分配角色
-	if employee.Role == nil && *employee.RoleID == "" {
+	if !serviceEmployee.IsActive(employee) {
 		apiResponse.SetCode(globalConfig.API_ERR_CODE_EMPLOYEE_HAS_NO_ROLE, globalConfig.API_RETURN_CODE_ERROR, "", err.Error())
 		apiResponse.ThrowJSONResponse(c)
 		return

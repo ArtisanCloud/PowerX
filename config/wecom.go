@@ -8,7 +8,7 @@ type WeComConfig struct {
 	WeComSecret  string `yaml:"weCom_secret" json:"weCom_secret"`
 
 	// 企业微信应用配置
-	AppCertPublicKey      string `yaml:"app_cert_public_key" json:"app_cert_public_key"`
+	//AppCertPublicKey      string `yaml:"app_cert_public_key" json:"app_cert_public_key"`
 	AppMessageAesKey      string `yaml:"app_message_aes_key" json:"app_message_aes_key"`
 	AppMessageCallbackURL string `yaml:"app_message_callback_url" json:"app_message_callback_url"`
 	AppMessageToken       string `yaml:"app_message_token" json:"app_message_token"`

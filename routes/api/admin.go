@@ -18,6 +18,7 @@ import (
 	groupChat2 "github.com/ArtisanCloud/PowerX/app/http/request/admin/tag/groupChat"
 	"github.com/ArtisanCloud/PowerX/app/http/request/admin/wx/weCom/media"
 	wxTag "github.com/ArtisanCloud/PowerX/app/http/request/admin/wx/weCom/tag"
+	"github.com/ArtisanCloud/PowerX/app/http/request/auth"
 	"github.com/ArtisanCloud/PowerX/routes/global"
 )
 
@@ -161,4 +162,6 @@ func InitAdminAPIRoutes() {
 			apiAdminRouterByQuery.GET("/wxPlatform/weCom/media/detail", media.ValidateGetMedia, wx.APIWeComMediaGetMedia)
 		}
 	}
+
+	global.G_Router.POST("/admin/api/auth/employee/login", auth.ValidateLoginEmployee, admin.APILoginEmployee)
 }

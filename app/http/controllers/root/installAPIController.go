@@ -139,17 +139,8 @@ func APIRegisterRoot(context *gin.Context) {
 		return
 	}
 
-	serviceAuth := service.NewAuthService(context)
-	strToken, _ := serviceAuth.CreateTokenForEmployee(rootEmployee)
-	res := map[string]interface{}{
-		"token_type":    "Bearer",
-		"expires_in":    service.InExpiredSecond,
-		"access_token":  strToken,
-		"refresh_token": "",
-	}
-
 	// 正常返回json
-	ctl.RS.Success(context, res)
+	ctl.RS.Success(context, err)
 
 }
 

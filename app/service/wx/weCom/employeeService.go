@@ -90,7 +90,7 @@ func (srv *WeComEmployeeService) UpsertEmployeeByWXEmployee(db *gorm.DB, employe
 
 func (srv *WeComEmployeeService) UpsertEmployees(db *gorm.DB, employees []*models.Employee, fieldsToUpdate []string) error {
 
-	return databasePowerLib.UpsertModelsOnUniqueID(db, &models.Employee{}, models.EMPLOYEE_UNIQUE_ID, employees, fieldsToUpdate)
+	return databasePowerLib.UpsertModelsOnUniqueID(db, &models.Employee{}, wx.WX_EMPLOYEE_UNIQUE_ID, employees, fieldsToUpdate)
 }
 
 func (srv *WeComEmployeeService) GetEmployees(db *gorm.DB) (employees []*models.Employee, err error) {
@@ -109,7 +109,7 @@ func (srv *WeComEmployeeService) GetEmployeeByUserID(db *gorm.DB, userID string)
 	employee = &models.Employee{}
 
 	condition := &map[string]interface{}{
-		"employeeID": userID,
+		"wx_user_id": userID,
 	}
 	preload := []string{"Role"}
 	err = databasePowerLib.GetFirst(db, condition, employee, preload)

@@ -13,6 +13,7 @@ import (
 )
 
 type ParaRegisterRoot struct {
+	Name     string `form:"name" json:"name"  binding:"required"`
 	Email    string `form:"email" json:"email"  binding:"required"`
 	Password string `form:"password" json:"password"  binding:"required"`
 }
@@ -39,9 +40,12 @@ func ValidateRegisterRoot(context *gin.Context) {
 		return
 	}
 
+	hashedPassword, _ := helper.HashPassword(form.Password)
+
 	rootEmployee := models.NewEmployee(object.NewCollection(&object.HashMap{
+		"name":     form.Name,
 		"email":    form.Email,
-		"password": helper.EncodePassword(form.Password),
+		"password": hashedPassword,
 		"roleID":   (&models2.Role{}).GetRootComposedUniqueID(),
 	}))
 
