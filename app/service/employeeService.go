@@ -20,7 +20,6 @@ import (
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 	"time"
 )
 
@@ -124,18 +123,30 @@ func (srv *EmployeeService) GetAllEmployees(db *gorm.DB, conditions *map[string]
 	return arrayEmployees, err
 }
 
-func (srv *EmployeeService) UpsertEmployees(db *gorm.DB, uniqueName string, employees []*models.Employee) error {
+func (srv *EmployeeService) GetEmployeesWithNoDepartments(db *gorm.DB) (arrayEmployees []*models.Employee, err error) {
 
-	if len(employees) <= 0 {
-		return nil
+	arrayEmployees = []*models.Employee{}
+
+	db = db.Model(&models.Employee{}).
+		Debug().
+		Where("wx_department = '[]'")
+	//Select("ac_employees.*", "rEmployeeToDepartment.*")
+
+	//db = db.Joins("LEFT JOIN ac_r_employee_to_department AS rEmployeeToDepartment ON rEmployeeToDepartment.employee_id = ac_employees.employee_id").
+	//	Where("rEmployeeToDepartment.department_id IS NULL")
+
+	result := db.Find(&arrayEmployees)
+
+	if result.Error != nil {
+		return nil, result.Error
 	}
 
-	result := db.Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: uniqueName}},
-		DoUpdates: clause.AssignmentColumns(databasePowerLib.GetModelFields(models.Employee{})),
-	}).Create(&employees)
+	return arrayEmployees, err
+}
 
-	return result.Error
+func (srv *EmployeeService) UpsertEmployees(db *gorm.DB, employees []*models.Employee, fieldsToUpdate []string) error {
+
+	return databasePowerLib.UpsertModelsOnUniqueID(db, &models.Employee{}, models.EMPLOYEE_UNIQUE_ID, employees, fieldsToUpdate)
 }
 
 func (srv *EmployeeService) UpsertEmployee(db *gorm.DB, employee *models.Employee) (savedEmployee *models.Employee, err error) {
@@ -161,7 +172,7 @@ func (srv *EmployeeService) SaveEmployee(db *gorm.DB, employee *models.Employee)
 func (srv *EmployeeService) UpdateEmployee(db *gorm.DB, employee *models.Employee) (*models.Employee, error) {
 
 	// clear relationship between from employee to department
-	global.G_DBConnection.Where("employee_id=?", employee.ID).Delete(models.REmployeeToDepartment{})
+	global.G_DBConnection.Where("employee_id=?", employee.UniqueID).Delete(models.REmployeeToDepartment{})
 
 	db = db.Updates(employee)
 
@@ -180,6 +191,35 @@ func (srv *EmployeeService) DeleteEmployee(db *gorm.DB, employee *models.Employe
 	db = db.Delete(employee)
 
 	return db.Error
+}
+
+func (srv *EmployeeService) GetEmployeeByEmail(db *gorm.DB, email string) (employee *models.Employee, err error) {
+	employee = &models.Employee{}
+
+	condition := &map[string]interface{}{
+		"email": email,
+	}
+	err = databasePowerLib.GetFirst(db, condition, employee, nil)
+	if err != nil && errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+
+	return employee, err
+}
+
+func (srv *EmployeeService) GetEmployeeByEmployeeID(db *gorm.DB, employeeID string) (employee *models.Employee, err error) {
+	employee = &models.Employee{}
+
+	condition := &map[string]interface{}{
+		"employee_id": employeeID,
+	}
+	preload := []string{"Role"}
+	err = databasePowerLib.GetFirst(db, condition, employee, preload)
+	if err != nil && errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+
+	return employee, err
 }
 
 func (srv *EmployeeService) GetEmployeeUserIDs(db *gorm.DB) (userIDs []string, err error) {
@@ -211,7 +251,7 @@ func (srv *EmployeeService) GetEmployeeByUserID(db *gorm.DB, userID string) (emp
 	preloads := []string{"WXDepartments", "Role"}
 
 	condition := &map[string]interface{}{
-		"wx_user_id": userID,
+		"employee_id": userID,
 	}
 	err = databasePowerLib.GetFirst(db, condition, employee, preloads)
 	if err != nil && errors.Is(err, gorm.ErrRecordNotFound) {
@@ -287,6 +327,7 @@ func (srv *EmployeeService) NewEmployeeFromWXEmployee(wxEmployee *modelSocialite
 			WXCorpID:         object.NewNullString(wxEmployee.CorpID, true),
 		},
 	}
+	employee.UniqueID = employee.GetComposedUniqueID()
 
 	// attach departments to employee
 	serviceDepartment := NewDepartmentService(nil)
@@ -555,7 +596,7 @@ func (srv *EmployeeService) HandleEmployeeCreate(context *gin.Context, event con
 	err = serviceWeComEmployee.UpsertEmployees(global.G_DBConnection, []*models.Employee{
 		newEmployee,
 	},
-		[]string{"wx_user_id", "wx_department"},
+		[]string{"employee_id", "wx_department"},
 	)
 
 	logger.Logger.Info("Handle Create Employee", zap.Any("msg", msg))
@@ -729,4 +770,8 @@ func (srv *EmployeeService) GetRootRoleID(db *gorm.DB) (id string, err error) {
 	id = role.UniqueID
 
 	return id, err
+}
+
+func (srv *EmployeeService) IsActive(employee *models.Employee) bool {
+	return employee.RoleID != nil && *employee.RoleID != ""
 }

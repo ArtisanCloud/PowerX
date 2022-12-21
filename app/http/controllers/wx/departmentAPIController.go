@@ -2,6 +2,8 @@ package wx
 
 import (
 	"github.com/ArtisanCloud/PowerX/app/http/controllers/api"
+	"github.com/ArtisanCloud/PowerX/app/models"
+	"github.com/ArtisanCloud/PowerX/app/models/wx"
 	"github.com/ArtisanCloud/PowerX/app/service"
 	global2 "github.com/ArtisanCloud/PowerX/app/service/wx/weCom"
 	"github.com/ArtisanCloud/PowerX/config"
@@ -48,7 +50,18 @@ func APIGetDepartmentList(context *gin.Context) {
 	departmentIDInterface, _ := context.Get("departmentID")
 	departmentID := departmentIDInterface.(*int)
 
+	serviceEmployee := service.NewEmployeeService(context)
+	noneDepartmentsEmployees, _ := serviceEmployee.GetEmployeesWithNoDepartments(globalDatabase.G_DBConnection)
+
 	arrayList, err := ctl.ServiceDepartment.GetTreeDepartments(globalDatabase.G_DBConnection, nil, departmentID)
+	arrayList = append(arrayList, &models.Department{
+		Employees: noneDepartmentsEmployees,
+		WXDepartment: &wx.WXDepartment{
+			ID:       0,
+			Name:     "未分类",
+			ParentID: 0,
+		},
+	})
 	if err != nil {
 		ctl.RS.SetCode(config.API_ERR_CODE_FAIL_TO_GET_DEPARTMENT_LIST, config.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)

@@ -58,6 +58,7 @@ func NewAPIResponse(ctx *gin.Context) (rs *APIResponse) {
 		Printer: p,
 		locale:  local,
 	}
+
 	return rs
 }
 
@@ -150,7 +151,7 @@ func (rs *APIResponse) getJsonResponseBody() map[string]interface{} {
 	if rsMsg == "" {
 		rsMsg = rs.Printer.Sprintf(fmt2.Sprintf("%d", rs.Meta.ResultCode))
 	}
-	//fmt2.Printf("local:%s %d %s, %d %s", local, rs.Meta.ReturnCode, rtMsg, rs.Meta.ResultCode, rsMsg)
+	//fmt.Dump(rs.Printer, rs.Meta.ReturnCode, rtMsg, rs.Meta.ResultCode, rsMsg)
 
 	// return map
 	return map[string]interface{}{

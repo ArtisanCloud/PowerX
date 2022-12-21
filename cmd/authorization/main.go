@@ -39,31 +39,48 @@ func init() {
 		panic(err)
 	}
 
+	// 如果没有安装好系统，则无需在
 	if !config.G_AppConfigure.SystemConfig.Installed {
 		return
 	}
 
-	err = config.LoadDatabaseConfig()
+	err = InitDatabase()
 	if err != nil {
 		panic(err)
+	}
+
+}
+
+func InitDatabase() error {
+	var err error
+	err = config.LoadDatabaseConfig()
+	if err != nil {
+		return err
 	}
 
 	// Initialize the database
 	err = database2.SetupDatabase(config.G_DBConfig)
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	// Initialize the RBAC Enforcer
 	err = rbac.InitCasbin(globalDatabase.G_DBConnection)
 	if err != nil {
-		panic(err)
+		return err
 	}
+
+	return err
 }
 
 func RunAuthorization(cmd *cobra.Command, command string) {
 
 	var err error
+	err = InitDatabase()
+	if err != nil {
+		panic(err)
+	}
+
 	switch command {
 
 	// permissions

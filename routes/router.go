@@ -23,7 +23,6 @@ func InitializeRoutes() (err error) {
 		logger.Logger.Error("SetTrustedProxies error:", err)
 		return err
 	}
-
 	global.G_Router.Use(cors.New(cors.Config{
 		AllowOrigins: []string{"*"},
 		AllowMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
@@ -38,7 +37,7 @@ func InitializeRoutes() (err error) {
 		},
 	}))
 
-	global.G_Router.LoadHTMLGlob("resources/html/*")
+	//global.G_Router.LoadHTMLGlob("resources/html/*")
 
 	InitializeWebRoutes()
 	InitializeAPIRoutes()

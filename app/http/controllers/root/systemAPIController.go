@@ -23,6 +23,8 @@ func NewSystemAPIController(context *gin.Context) (ctl *SystemAPIController) {
 func APIPing(context *gin.Context) {
 	ctl := NewSystemAPIController(context)
 
+	defer api.RecoverResponse(context, "api.root.system.ping")
+
 	// 正常返回json
 	ctl.RS.Success(context, "accepted")
 	return
@@ -30,6 +32,8 @@ func APIPing(context *gin.Context) {
 
 func APIPostDetect(context *gin.Context) {
 	ctl := NewSystemAPIController(context)
+
+	defer api.RecoverResponse(context, "api.root.system.post.detect")
 
 	postForm := &object.HashMap{}
 	err := request.ValidatePara(context, postForm)
@@ -44,6 +48,8 @@ func APIPostDetect(context *gin.Context) {
 
 func APIGetDetect(context *gin.Context) {
 	ctl := NewSystemAPIController(context)
+
+	defer api.RecoverResponse(context, "api.root.system.get.detect")
 
 	values := context.Request.URL.Query()
 	getQuery := object.StringMap{}
@@ -61,6 +67,8 @@ func APIGetDetect(context *gin.Context) {
 
 func APIWXConfig(context *gin.Context) {
 	ctl := NewSystemAPIController(context)
+
+	defer api.RecoverResponse(context, "api.root.system.wx.config")
 
 	serviceWX := wx.NewWXService(context)
 

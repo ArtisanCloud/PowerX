@@ -34,14 +34,23 @@ func LoadLang() {
 	message.SetString(lang, fmt2.Sprintf("%d", config.API_ERR_CODE_HEADER_RESELLER), "请求参数错误-销售渠道")
 	message.SetString(lang, fmt2.Sprintf("%d", config.API_ERR_CODE_TOKEN_NOT_IN_HEADER), "请求参数错误-请求token")
 
+	message.SetString(lang, fmt2.Sprintf("%d", config.API_ERR_CODE_TOKEN_NOT_IN_HEADER), "Header里没有带Token")
+	message.SetString(lang, fmt2.Sprintf("%d", config.API_ERR_CODE_TOKEN_NOT_IN_QUERY), "Query里没有带Token")
+	message.SetString(lang, fmt2.Sprintf("%d", config.API_ERR_CODE_TOKEN_NOT_MATCH_PROVIDER), "Token里没有Provider信息")
+	message.SetString(lang, fmt2.Sprintf("%d", config.API_ERR_CODE_GRANT_TYPE_ERROR), "Grand type错误")
+	message.SetString(lang, fmt2.Sprintf("%d", config.API_ERR_CODE_TOKEN_REVOKED), "重新唤起token失败")
+	message.SetString(lang, fmt2.Sprintf("%d", config.API_ERR_CODE_FAIL_TO_CREATE_TOKEN), "创建Token失败")
+
 	message.SetString(lang, fmt2.Sprintf("%d", config.API_ERR_CODE_USER_UNREGISTER), "user未注册")
+	message.SetString(lang, fmt2.Sprintf("%d", config.API_ERR_CODE_INVALID_PASSWORD), "密码不正确")
 
 	message.SetString(lang, fmt2.Sprintf("%d", config.API_ERR_CODE_FAIL_TO_GET_REPORT_LIST), "获取客户列表失败")
 	message.SetString(lang, fmt2.Sprintf("%d", config.API_ERR_CODE_FAIL_TO_UPSERT_REPORT), "新增或更新客户列表失败")
 	message.SetString(lang, fmt2.Sprintf("%d", config.API_ERR_CODE_FAIL_TO_DELETE_REPORT), "删除客户列表失败")
 
 	message.SetString(lang, fmt2.Sprintf("%d", config.API_ERR_CODE_FAIL_TO_GET_EMPLOYEE_LIST), "获取员工列表失败")
-	message.SetString(lang, fmt2.Sprintf("%d", config.API_ERR_CODE_FAIL_TO_UPSERT_EMPLOYEE), "新增或更新员工列表失败")
+	message.SetString(lang, fmt2.Sprintf("%d", config.API_ERR_CODE_FAIL_TO_UPSERT_EMPLOYEE), "新增或更新员工失败")
+	message.SetString(lang, fmt2.Sprintf("%d", config.API_ERR_CODE_FAIL_TO_CREATE_EMPLOYEE), "创建员工失败")
 	message.SetString(lang, fmt2.Sprintf("%d", config.API_ERR_CODE_FAIL_TO_GET_EMPLOYEE_DETAIL), "获取员工失败")
 	message.SetString(lang, fmt2.Sprintf("%d", config.API_ERR_CODE_FAIL_TO_DELETE_EMPLOYEE), "删除员工列表失败")
 	message.SetString(lang, fmt2.Sprintf("%d", config.API_ERR_CODE_FAIL_TO_GET_CORD_ID), "获取CordID失败")

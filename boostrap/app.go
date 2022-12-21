@@ -20,6 +20,11 @@ func InitConfig() (err error) {
 
 	err = config.LoadConfigFile(config.CONFIG_FILE_LOCATION)
 
+	config.LoadVersion()
+
+	// load locale
+	lang.LoadLanguages()
+
 	return err
 }
 
@@ -41,10 +46,10 @@ func InitProject() (err error) {
 		return err
 	}
 
-	config.LoadVersion()
+	//config.LoadVersion()
 
-	// load locale
-	lang.LoadLanguages()
+	//// load locale
+	//lang.LoadLanguages()
 
 	// setup ssh key path
 	err = service.SetupJWTKeyPairs(&config.G_AppConfigure.JWTConfig)
