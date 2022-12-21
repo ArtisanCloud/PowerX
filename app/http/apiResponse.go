@@ -2,7 +2,6 @@ package http
 
 import (
 	fmt2 "fmt"
-	"github.com/ArtisanCloud/PowerLibs/v2/fmt"
 	"github.com/ArtisanCloud/PowerX/app/service"
 	. "github.com/ArtisanCloud/PowerX/config"
 	"github.com/gin-gonic/gin"
@@ -60,7 +59,6 @@ func NewAPIResponse(ctx *gin.Context) (rs *APIResponse) {
 		locale:  local,
 	}
 
-	fmt.Dump(rs.Printer, p.Sprintf("400"))
 	return rs
 }
 
@@ -153,7 +151,7 @@ func (rs *APIResponse) getJsonResponseBody() map[string]interface{} {
 	if rsMsg == "" {
 		rsMsg = rs.Printer.Sprintf(fmt2.Sprintf("%d", rs.Meta.ResultCode))
 	}
-	fmt.Dump(rs.Printer, rs.Meta.ReturnCode, rtMsg, rs.Meta.ResultCode, rsMsg)
+	//fmt.Dump(rs.Printer, rs.Meta.ReturnCode, rtMsg, rs.Meta.ResultCode, rsMsg)
 
 	// return map
 	return map[string]interface{}{
