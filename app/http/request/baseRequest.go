@@ -11,7 +11,7 @@ func ValidatePara(context *gin.Context, form interface{}) (err error) {
 	if err = context.ShouldBind(form); err != nil {
 		if err = context.ShouldBindJSON(form); err != nil {
 			apiResponse := http.NewAPIResponse(context)
-			apiResponse.SetCode(config.API_ERR_CODE_REQUEST_PARAM_ERROR, config.API_RETURN_CODE_ERROR, "", err.Error()).ThrowJSONResponse(context)
+			apiResponse.SetCode(config.API_ERR_CODE_REQUEST_PARAM_ERROR, config.API_RETURN_CODE_ERROR, "", "请求参数结构不完整或缺失必填字段").ThrowJSONResponse(context)
 			return err
 		}
 	}

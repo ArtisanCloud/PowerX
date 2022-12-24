@@ -1,6 +1,8 @@
 package root
 
 import (
+	"fmt"
+	"github.com/ArtisanCloud/PowerLibs/v2/cache"
 	"github.com/ArtisanCloud/PowerLibs/v2/object"
 	"github.com/ArtisanCloud/PowerSocialite/v2/src/providers"
 	"github.com/ArtisanCloud/PowerX/app/http/controllers/api"
@@ -12,6 +14,8 @@ import (
 	globalDatabase "github.com/ArtisanCloud/PowerX/database/global"
 	"github.com/ArtisanCloud/PowerX/routes/global"
 	"github.com/gin-gonic/gin"
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
 	"net/http"
 )
 
@@ -41,6 +45,8 @@ func APISystemShutDown(context *gin.Context) {
 		panic(ctl.RS)
 		return
 	}
+
+	defer global.G_Server.Shutdown(context)
 
 	ctl.RS.Success(context, err)
 
@@ -179,4 +185,74 @@ func WeComGetRootToken(context *gin.Context, user *providers.User) (strToken str
 	strToken, _ = serviceAuth.CreateTokenForEmployee(root)
 
 	return strToken, globalConfig.API_RESULT_CODE_INIT
+}
+
+func APISystemValidateDatabase(context *gin.Context) {
+
+	ctl := NewInstallAPIController(context)
+	// upsert  employee as root
+
+	params, _ := context.Get("params")
+	param := params.(*root.ParaValidateDatabase)
+
+	host := param.Database.DatabaseConnections.PostgresConfig.Host
+	port := param.Database.DatabaseConnections.PostgresConfig.Port
+	username := param.Database.DatabaseConnections.PostgresConfig.Username
+	password := param.Database.DatabaseConnections.PostgresConfig.Password
+	//sslMode := context.Query("sslMode")
+
+	dsn := fmt.Sprintf("host=%s user=%s dbname=postgres password=%s port=%s", host, username, password, port)
+
+	db, err := gorm.Open(postgres.Open(dsn))
+
+	if err != nil {
+		ctl.RS.SetCode(globalConfig.API_ERR_CODE_VALIDATE_DATABASE, globalConfig.API_RETURN_CODE_ERROR, "", err.Error())
+		ctl.RS.ThrowJSONResponse(context)
+		return
+	}
+
+	db = db.Exec("select * from pg_catalog.pg_tables;")
+	if db.Error != nil {
+		ctl.RS.SetCode(globalConfig.API_ERR_CODE_VALIDATE_DATABASE, globalConfig.API_RETURN_CODE_ERROR, "", err.Error())
+		ctl.RS.ThrowJSONResponse(context)
+		return
+	}
+
+	// 正常返回json
+	ctl.RS.Success(context, true)
+
+}
+
+func APISystemValidateRedis(context *gin.Context) {
+
+	ctl := NewInstallAPIController(context)
+	// upsert  employee as root
+
+	params, _ := context.Get("params")
+	param := params.(*root.ParaValidateRedis)
+
+	host := param.Redis.Host
+	db := param.Redis.DB
+	password := param.Redis.Password
+	sslEnabled := param.Redis.SSLEnabled
+
+	options := cache.RedisOptions{
+		Addr:       host,
+		Password:   password,
+		DB:         db,
+		SSLEnabled: sslEnabled,
+	}
+
+	// use redis as default cache connection
+	conn := cache.NewGRedis(&options)
+	keys, err := conn.Keys()
+	if err != nil {
+		ctl.RS.SetCode(http.StatusExpectationFailed, globalConfig.API_RETURN_CODE_ERROR, "", err.Error())
+		ctl.RS.ThrowJSONResponse(context)
+		return
+	}
+
+	// 正常返回json
+	ctl.RS.Success(context, keys)
+
 }
