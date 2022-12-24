@@ -19,6 +19,8 @@ func InitRootAPIRoutes() {
 	{
 		// 检查是否系统被安装过
 		apiInstallRouter.GET("/system/install/check", rootAPI.APISystemCheckInstallation)
+		apiInstallRouter.POST("/system/validate/database", root.ValidateDatabase, rootAPI.APISystemValidateDatabase)
+		apiInstallRouter.POST("/system/validate/redis", root.ValidateRedis, rootAPI.APISystemValidateRedis)
 
 		// 安装系统接口
 		apiInstallRouter.Use(middleware.CheckNotInstalled)
