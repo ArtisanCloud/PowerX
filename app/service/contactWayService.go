@@ -101,18 +101,38 @@ func (srv *ContactWayService) SyncContactWayFromWXPlatform(startDatetime *carbon
 	return nil
 }
 
-func (srv *ContactWayService) GetList(db *gorm.DB, groupUUID string) (contactWays []*models.ContactWay, err error) {
+func (srv *ContactWayService) GetList(db *gorm.DB, groupUUID string, name string, userID string) (contactWays []*models.ContactWay, err error) {
 
 	contactWays = []*models.ContactWay{}
 
-	var conditions *map[string]interface{}
-	if groupUUID != "" {
-		conditions = &map[string]interface{}{
-			"group_uuid": groupUUID,
+	db = db.
+		Debug().
+		Model(&models.ContactWay{})
+
+	preloads := []string{"WXTags"}
+	if len(preloads) > 0 {
+		for _, preload := range preloads {
+			if preload != "" {
+				db = db.Preload(preload)
+			}
 		}
 	}
 
-	err = database.GetAllList(db, conditions, &contactWays, []string{"WXTags"})
+	if groupUUID != "" {
+		db.Where("group_uuid", groupUUID)
+	}
+
+	if name != "" {
+		db.Where("name LIKE ?", "%"+name+"%")
+	}
+
+	if userID != "" {
+		db.Where("user LIKE ?", "%"+userID+"%")
+	}
+
+	result := db.Order("id ASC").
+		Find(&contactWays)
+	err = result.Error
 
 	return contactWays, err
 }

@@ -7,6 +7,8 @@ import (
 
 type ParaContactWayList struct {
 	GroupUUID string `form:"groupUUID" json:"groupUUID" xml:"groupUUID"`
+	Name      string `form:"name" json:"name" xml:"name"`
+	UserID    string `form:"userID" json:"userID" xml:"userID"`
 }
 
 func ValidateContactWayList(context *gin.Context) {
@@ -17,6 +19,6 @@ func ValidateContactWayList(context *gin.Context) {
 		return
 	}
 
-	context.Set("groupUUID", form.GroupUUID)
+	context.Set("params", &form)
 	context.Next()
 }

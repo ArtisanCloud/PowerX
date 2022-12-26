@@ -158,9 +158,9 @@ func ParseUserIDByToken(c *gin.Context, strToken string) (uniqueID string, errCo
 func AuthenticateEmployee(c *gin.Context, strToken string) (errCode int) {
 
 	employeeID, errCode := ParseUserIDByToken(c, strToken)
-	//if errCode != globalConfig.API_RESULT_CODE_INIT {
-	//	return errCode
-	//}
+	if errCode != globalConfig.API_RESULT_CODE_INIT {
+		return errCode
+	}
 
 	// 获取企业员工身份
 	serviceEmployee := service.NewEmployeeService(c)
@@ -235,12 +235,16 @@ func AuthorizeAPI(c *gin.Context) {
 		return
 	}
 	// 验证接口的访问权限
-	isPass, err = globalRBAC.G_Enforcer.Enforce(employee.Role.GetRBACRuleName(), permission.PermissionModule.GetRBACRuleName(), modelPowerLib.RBAC_CONTROL_ALL)
+	// 该角色的规则名
+	subject := employee.Role.GetRBACRuleName()
+	// 改接口的父模块规则名ID
+	object := permission.PermissionModule.GetRBACRuleName()
+	action := modelPowerLib.RBAC_CONTROL_ALL
+	isPass, err = globalRBAC.G_Enforcer.Enforce(subject, object, action)
 	if err != nil {
 		apiResponse.SetCode(globalConfig.API_ERR_CODE_FAIL_TO_AUTHORIZATE_ROLE, globalConfig.API_RETURN_CODE_ERROR, "", err.Error())
 		apiResponse.ThrowJSONResponse(c)
 		return
-
 	}
 	// 传递结果
 	if isPass {

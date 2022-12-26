@@ -1,13 +1,16 @@
 package contactWay
 
 import (
+	"errors"
 	"github.com/ArtisanCloud/PowerLibs/v2/object"
 	request2 "github.com/ArtisanCloud/PowerWeChat/v2/src/work/externalContact/contactWay/request"
+	"github.com/ArtisanCloud/PowerX/app/http"
 	"github.com/ArtisanCloud/PowerX/app/http/request"
 	"github.com/ArtisanCloud/PowerX/app/models"
 	"github.com/ArtisanCloud/PowerX/app/models/wx"
 	"github.com/ArtisanCloud/PowerX/app/service"
 	serviceWX "github.com/ArtisanCloud/PowerX/app/service/wx/weCom"
+	"github.com/ArtisanCloud/PowerX/config"
 	"github.com/ArtisanCloud/PowerX/database/global"
 	"github.com/gin-gonic/gin"
 	"gorm.io/datatypes"
@@ -45,8 +48,11 @@ func ValidateUpdateContactWay(context *gin.Context) {
 		return
 	}
 
+	apiResponse := http.NewAPIResponse(context)
+
 	contactWay, updateTags, err := convertParaToContactWayForUpdate(form)
 	if err != nil {
+		apiResponse.SetCode(config.API_ERR_CODE_REQUEST_PARAM_ERROR, config.API_RETURN_CODE_ERROR, "", err.Error()).ThrowJSONResponse(context)
 		return
 	}
 
@@ -61,6 +67,10 @@ func convertParaToContactWayForUpdate(form ParaUpdateContactWay) (contactWay *mo
 	contactWay, err = contactWayService.GetContactWayByConfigID(global.G_DBConnection, form.ConfigID)
 	if err != nil {
 		return nil, nil, err
+	}
+
+	if contactWay == nil {
+		return nil, nil, errors.New("未找该到渠道码")
 	}
 
 	users, err := object.JsonEncode(form.User)
