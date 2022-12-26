@@ -29,7 +29,7 @@ func (srv *ContactWayGroupService) GetList(db *gorm.DB, conditions *map[string]i
 
 	arrayContactWayGroups = []*models.ContactWayGroup{}
 
-	err = database.GetAllList(db, conditions, &arrayContactWayGroups, nil)
+	err = database.GetAllList(db, conditions, &arrayContactWayGroups, []string{"ContactWays"})
 
 	return arrayContactWayGroups, err
 }

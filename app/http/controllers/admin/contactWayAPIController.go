@@ -2,6 +2,7 @@ package admin
 
 import (
 	"github.com/ArtisanCloud/PowerX/app/http/controllers/api"
+	"github.com/ArtisanCloud/PowerX/app/http/request/admin/contactWay"
 	"github.com/ArtisanCloud/PowerX/app/models"
 	modelWX "github.com/ArtisanCloud/PowerX/app/models/wx"
 	"github.com/ArtisanCloud/PowerX/app/service"
@@ -53,12 +54,12 @@ func APIContactWaySync(context *gin.Context) {
 func APIGetContactWayList(context *gin.Context) {
 	ctl := NewContactWayAPIController(context)
 
-	params, _ := context.Get("groupUUID")
-	groupUUID := params.(string)
+	params, _ := context.Get("params")
+	param := params.(*contactWay.ParaContactWayList)
 
 	defer api.RecoverResponse(context, "api.admin.contactWay.list")
 
-	arrayList, err := ctl.ServiceContactWay.GetList(global.G_DBConnection, groupUUID)
+	arrayList, err := ctl.ServiceContactWay.GetList(global.G_DBConnection, param.GroupUUID, param.Name, param.UserID)
 	if err != nil {
 		ctl.RS.SetCode(global2.API_ERR_CODE_FAIL_TO_GET_CONTACT_WAY_LIST, global2.API_RETURN_CODE_ERROR, "", err.Error())
 		panic(ctl.RS)
