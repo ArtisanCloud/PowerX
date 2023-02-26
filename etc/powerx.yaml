@@ -1,0 +1,15 @@
+Server:
+  Name: PowerX
+  Host: 0.0.0.0
+  Port: 8888
+  Timeout: 30000
+JWTSecret: dev
+Casbin:
+  SelfHosted: true
+PowerXDatabase:
+  DSN: postgresql://postgres:postgres@localhost:5432/powerx
+WeWork:
+  CropId:
+  AgentId:
+  Secret:
+  HttpDebug: true

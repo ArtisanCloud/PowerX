@@ -1,0 +1,20 @@
+@server(
+    group: auth
+)
+
+service PowerX {
+    @doc "登录"
+    @handler Login
+    post /api/auth/v1/op/login/basic (LoginRequest) returns (LoginReply)
+}
+
+type LoginRequest {
+    UserName string `json:"userName,optional"`
+    PhoneNumber string `json:"phoneNumber,optional"`
+    Email string `json:"email,optional"`
+    Password string `json:"password"`
+}
+
+type LoginReply {
+    Token string `json:"token"`
+}

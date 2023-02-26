@@ -1,0 +1,90 @@
+@server(
+    group: permission
+)
+
+service PowerX {
+    @doc "查询角色"
+    @handler ListRoles
+    get /api/permission/v1/roles returns (ListRolesReply)
+
+    @doc "创建角色"
+    @handler CreateRole
+    post /api/permission/v1/roles (CreateRoleRequest) returns (CreateRoleReply)
+
+    @doc "查询资源"
+    @handler ListRecourses
+    get /api/permission/v1/recourses returns (ListRecoursesReply)
+
+    @doc "授权操作"
+    @handler AssignAuth
+    post /api/permission/v1/op/assign-auth (AssignAuthRequest)
+}
+
+type (
+    AuthRole {
+        RoleCode string `json:"roleCode"`
+        Name string `json:"name"`
+        Desc string `json:"desc"`
+        IsReserved bool `json:"isReserved"`
+    }
+
+    ListRolesReply {
+        List []AuthRole `json:"list"`
+    }
+)
+
+type (
+    CreateRoleRequest {
+        RoleCode string `json:"roleCode"`
+        Name string `json:"name"`
+        Desc string `json:"desc"`
+    }
+
+    CreateRoleReply {
+        RoleCode string `json:"roleCode"`
+    }
+)
+
+type (
+    AuthResAct {
+        ResCode string `json:"resCode"`
+        Action string `json:"action"`
+        Desc string `json:"desc"`
+    }
+
+    AuthRes {
+        ResCode string `json:"resCode"`
+        ResName string `json:"resName"`
+        Type string `json:"type"`
+        Desc string `json:"desc"`
+        Acts []AuthResAct `json:"acts"`
+    }
+
+    ListRecoursesReply {
+        List []AuthRes `json:"list"`
+    }
+)
+
+type (
+    AssignResAct {
+        ResCode string `json:"resCode"`
+        Action string `json:"action"`
+    }
+
+    RoleAssignRes {
+        RoleCodes []string `json:"roleCodes"`
+        Acts []AssignResAct `json:"acts"`
+        IsReplace bool `json:"isReplace"`
+    }
+
+    UsersAssignRes {
+        UserIds []int64 `json:"userIds"`
+        RoleCodes []string `json:"roleCodes"`
+        IsReplace bool `json:"isReplace"`
+    }
+
+    AssignAuthRequest {
+        UserAssignRes *UsersAssignRes `json:"userAssignRes,optional"`
+        RoleAssignRes *RoleAssignRes `json:"roleAssignRes,optional"`
+    }
+)

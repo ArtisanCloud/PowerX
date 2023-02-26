@@ -1,0 +1,7 @@
+r, employee, 员工, DATA, 员工数据
+r, consumer, 客户, DATA, 客户数据
+
+a, employee, *, read, 读取员工信息
+a, employee, *, write, 写入员工信息
+a, consumer, *, read, 读取客户信息
+a, consumer, *, write, 写入客户信息

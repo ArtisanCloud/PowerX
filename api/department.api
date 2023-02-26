@@ -1,0 +1,45 @@
+import "basetype.api"
+
+@server(
+    group: department
+)
+
+service PowerX {
+    @doc "查询组织架构"
+    @handler GetDepartmentTree
+    get /api/department/v1/department-tree/:depId (GetDepartmentTreeRequest) returns (GetDepartmentTreeReply)
+
+    @doc "创建新部门"
+    @handler CreateDepartment
+    post /api/department/v1/departments (CreateDepartmentRequest) returns (CreateDepartmentReply)
+}
+
+type (
+    DepartmentNode {
+        Id int64 `json:"id"`
+        DepName string `json:"depName"`
+        Leaders []SimpleEmployee `json:"leaders"`
+        Children []DepartmentNode `json:"children"`
+    }
+
+    GetDepartmentTreeRequest {
+        DepId int64 `path:"depId"`
+    }
+
+    GetDepartmentTreeReply {
+        DepTree DepartmentNode `json:"depTree"`
+    }
+)
+
+type (
+    CreateDepartmentRequest {
+        DepName string `json:"depName"`
+        LeaderIds []int64 `json:"leaderIds"`
+        PId int64 `json:"pId"`
+        Desc string `json:"desc"`
+    }
+
+    CreateDepartmentReply {
+        Id int64 `json:"id"`
+    }
+)

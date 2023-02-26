@@ -1,0 +1,21 @@
+@server (
+	group: customer
+)
+
+service PowerX {
+	@doc "查询客户"
+	@handler GetCustomer
+	get /api/customer/v1/customers/:id(GetCustomerRequest) returns(GetCustomerReply)
+
+	@doc "批量同步客户"
+	@handler BatchSyncCustomers
+	post /api/customer/v1/op/sync-customers
+}
+
+type GetCustomerRequest {
+    Id int64 `path:"id"`
+}
+
+type GetCustomerReply {
+    Id int64 `json:"id"`
+}

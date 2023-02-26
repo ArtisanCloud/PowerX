@@ -1,0 +1,14 @@
+type SimpleEmployee {
+    Id int64 `json:"id"`
+    Name string `json:"name"`
+}
+
+type SimpleDepartment {
+    Id int64 `json:"id"`
+    DepName string `json:"depName"`
+}
+
+type SimpleRole {
+    RoleCode string `json:"roleCode"`
+    RoleName string `json:"roleName"`
+}

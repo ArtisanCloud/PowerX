@@ -1,0 +1,6 @@
+p, admin, consumer, read
+p, admin, consumer, write
+p, admin, employee, read
+p, admin, employee, write
+
+p, common_employee, consumer, read

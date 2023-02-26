@@ -1,0 +1,19 @@
+@server(
+    group: public
+)
+
+service PowerX {
+    @doc "活码"
+    @handler AccessLiveQRCode
+    get /api/public/v1/live-qr-code/:uid (AccessLiveQRCodeRequest) returns (AccessLiveQRCodeReply)
+}
+
+type (
+    AccessLiveQRCodeRequest {
+        Uid string `path:"uid"`
+    }
+
+    AccessLiveQRCodeReply {
+        RedirectTo string `json:"redirectTo"`
+    }
+)
