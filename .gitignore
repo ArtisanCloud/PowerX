@@ -1,1 +1,13 @@
-/.idea/
+.idea
+.idea/
+*.iml
+.DS_Store
+**/.DS_Store
+.var
+.run
+
+
+PowerX
+config.yml
+logs/
+wechat.log
