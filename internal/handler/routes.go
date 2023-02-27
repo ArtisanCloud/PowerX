@@ -21,129 +21,136 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 		[]rest.Route{
 			{
 				Method:  http.MethodGet,
-				Path:    "/api/customer/v1/customers/:id",
+				Path:    "/customers/:id",
 				Handler: customer.GetCustomerHandler(serverCtx),
 			},
 			{
 				Method:  http.MethodPost,
-				Path:    "/api/customer/v1/op/sync-customers",
+				Path:    "/op/sync-customers",
 				Handler: customer.BatchSyncCustomersHandler(serverCtx),
 			},
 		},
+		rest.WithPrefix("/api/customer/v1"),
 	)
 
 	server.AddRoutes(
 		[]rest.Route{
 			{
 				Method:  http.MethodGet,
-				Path:    "/api/department/v1/department-tree/:depId",
+				Path:    "/department-tree/:depId",
 				Handler: department.GetDepartmentTreeHandler(serverCtx),
 			},
 			{
 				Method:  http.MethodPost,
-				Path:    "/api/department/v1/departments",
+				Path:    "/departments",
 				Handler: department.CreateDepartmentHandler(serverCtx),
 			},
 		},
+		rest.WithPrefix("/api/department/v1"),
 	)
 
 	server.AddRoutes(
 		[]rest.Route{
 			{
 				Method:  http.MethodPost,
-				Path:    "/api/employee/v1/op/sync-employees/:source/:target",
+				Path:    "/op/sync-employees/:source/:target",
 				Handler: employee.SyncEmployeesHandler(serverCtx),
 			},
 			{
 				Method:  http.MethodGet,
-				Path:    "/api/employee/v1/employees/:id",
+				Path:    "/employees/:id",
 				Handler: employee.GetEmployeeHandler(serverCtx),
 			},
 			{
 				Method:  http.MethodGet,
-				Path:    "/api/employee/v1/employees",
+				Path:    "/employees",
 				Handler: employee.ListEmployeesHandler(serverCtx),
 			},
 			{
 				Method:  http.MethodPost,
-				Path:    "/api/employee/v1/employees",
+				Path:    "/employees",
 				Handler: employee.CreateEmployeeHandler(serverCtx),
 			},
 			{
 				Method:  http.MethodGet,
-				Path:    "/api/employee/v1/options",
+				Path:    "/options",
 				Handler: employee.GetEmployeeOptionsHandler(serverCtx),
 			},
 			{
 				Method:  http.MethodPatch,
-				Path:    "/api/employee/v1/employees/:id",
+				Path:    "/employees/:id",
 				Handler: employee.UpdateEmployeeHandler(serverCtx),
 			},
 			{
 				Method:  http.MethodDelete,
-				Path:    "/api/employee/v1/employees/:id",
+				Path:    "/employees/:id",
 				Handler: employee.DeleteEmployeeHandler(serverCtx),
 			},
 		},
+		rest.WithPrefix("/api/employee/v1"),
 	)
 
 	server.AddRoutes(
 		[]rest.Route{
 			{
 				Method:  http.MethodGet,
-				Path:    "/api/permission/v1/roles",
+				Path:    "/roles",
 				Handler: permission.ListRolesHandler(serverCtx),
 			},
 			{
 				Method:  http.MethodPost,
-				Path:    "/api/permission/v1/roles",
+				Path:    "/roles",
 				Handler: permission.CreateRoleHandler(serverCtx),
 			},
 			{
 				Method:  http.MethodGet,
-				Path:    "/api/permission/v1/recourses",
+				Path:    "/recourses",
 				Handler: permission.ListRecoursesHandler(serverCtx),
 			},
 			{
 				Method:  http.MethodPost,
-				Path:    "/api/permission/v1/op/assign-auth",
+				Path:    "/op/assign-auth",
 				Handler: permission.AssignAuthHandler(serverCtx),
 			},
 		},
+		rest.WithPrefix("/api/permission/v1"),
 	)
 
 	server.AddRoutes(
 		[]rest.Route{
 			{
 				Method:  http.MethodPost,
-				Path:    "/api/auth/v1/op/login/basic",
+				Path:    "/op/login/basic",
 				Handler: auth.LoginHandler(serverCtx),
 			},
 		},
+		rest.WithPrefix("/api/auth/v1"),
 	)
 
 	server.AddRoutes(
 		[]rest.Route{
 			{
 				Method:  http.MethodPost,
-				Path:    "/api/contact/v1/live-qr-codes",
+				Path:    "/live-qr-codes",
 				Handler: contact.CreateLiveQRCodeHandler(serverCtx),
 			},
 			{
 				Method:  http.MethodGet,
-				Path:    "/api/contact/v1/live-qr-codes",
+				Path:    "/live-qr-codes",
 				Handler: contact.ListLiveQRCodeHandler(serverCtx),
 			},
 		},
+		rest.WithPrefix("/api/contact/v1"),
 	)
 
 	server.AddRoutes(
 		[]rest.Route{
 			{
 				Method:  http.MethodGet,
-				Path:    "/api/public/v1/live-qr-code/:uid",
+				Path:    "/live-qr-code/:uid",
 				Handler: public.AccessLiveQRCodeHandler(serverCtx),
 			},
 		},
+		rest.WithPrefix("/api/public/v1"),
 	)
 }

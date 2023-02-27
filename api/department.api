@@ -2,16 +2,17 @@ import "basetype.api"
 
 @server(
     group: department
+    prefix: /api/department/v1
 )
 
 service PowerX {
     @doc "查询组织架构"
     @handler GetDepartmentTree
-    get /api/department/v1/department-tree/:depId (GetDepartmentTreeRequest) returns (GetDepartmentTreeReply)
+    get /department-tree/:depId (GetDepartmentTreeRequest) returns (GetDepartmentTreeReply)
 
     @doc "创建新部门"
     @handler CreateDepartment
-    post /api/department/v1/departments (CreateDepartmentRequest) returns (CreateDepartmentReply)
+    post /departments (CreateDepartmentRequest) returns (CreateDepartmentReply)
 }
 
 type (

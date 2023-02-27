@@ -1,11 +1,12 @@
 @server(
     group: public
+    prefix: /api/public/v1
 )
 
 service PowerX {
     @doc "活码"
     @handler AccessLiveQRCode
-    get /api/public/v1/live-qr-code/:uid (AccessLiveQRCodeRequest) returns (AccessLiveQRCodeReply)
+    get /live-qr-code/:uid (AccessLiveQRCodeRequest) returns (AccessLiveQRCodeReply)
 }
 
 type (

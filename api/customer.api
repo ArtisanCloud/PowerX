@@ -1,15 +1,16 @@
-@server (
-	group: customer
+@server(
+    group: customer
+    prefix: /api/customer/v1
 )
 
 service PowerX {
-	@doc "查询客户"
-	@handler GetCustomer
-	get /api/customer/v1/customers/:id(GetCustomerRequest) returns(GetCustomerReply)
+    @doc "查询客户"
+    @handler GetCustomer
+    get /customers/:id (GetCustomerRequest) returns (GetCustomerReply)
 
-	@doc "批量同步客户"
-	@handler BatchSyncCustomers
-	post /api/customer/v1/op/sync-customers
+    @doc "批量同步客户"
+    @handler BatchSyncCustomers
+    post /op/sync-customers
 }
 
 type GetCustomerRequest {
