@@ -47,6 +47,10 @@ func (l *LoginLogic) Login(req *types.LoginRequest) (resp *types.LoginReply, err
 		return nil, errorx.WithCause(errorx.ErrBadRequest, "账户或密码错误")
 	}
 
+	if !l.svcCtx.UC.Employee.VerifyPassword(employee.Password, req.Password) {
+		return nil, errorx.WithCause(errorx.ErrBadRequest, "账户或密码错误")
+	}
+
 	roles, _ := l.svcCtx.UC.Auth.Casbin.GetRolesForUser(employee.Account)
 
 	claims := types.TokenClaims{

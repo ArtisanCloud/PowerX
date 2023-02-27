@@ -4,6 +4,7 @@ import (
 	"PowerX/internal/uc"
 	"context"
 	"fmt"
+	"github.com/pkg/errors"
 
 	"PowerX/internal/svc"
 	"PowerX/internal/types"
@@ -40,6 +41,11 @@ func (l *UpdateEmployeeLogic) UpdateEmployee(req *types.UpdateEmployeeRequest) (
 		Avatar:        req.Avatar,
 		Password:      req.Password,
 		Status:        (*uc.EmployeeStatus)(req.Status),
+	}
+
+	err = employee.HashPassword()
+	if err != nil {
+		panic(errors.Wrap(err, "update employee hash password failed"))
 	}
 
 	l.svcCtx.UC.Employee.UpdateEmployeeById(l.ctx, &employee)

@@ -41,9 +41,19 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Handler: department.GetDepartmentTreeHandler(serverCtx),
 			},
 			{
+				Method:  http.MethodGet,
+				Path:    "/departments/:id",
+				Handler: department.GetDepartmentHandler(serverCtx),
+			},
+			{
 				Method:  http.MethodPost,
 				Path:    "/departments",
 				Handler: department.CreateDepartmentHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodDelete,
+				Path:    "/departments/:id",
+				Handler: department.DeleteDepartmentHandler(serverCtx),
 			},
 		},
 		rest.WithPrefix("/api/department/v1"),
@@ -53,7 +63,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 		[]rest.Route{
 			{
 				Method:  http.MethodPost,
-				Path:    "/op/sync-employees/:source/:target",
+				Path:    "/op/sync-employees",
 				Handler: employee.SyncEmployeesHandler(serverCtx),
 			},
 			{
@@ -86,6 +96,11 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Path:    "/employees/:id",
 				Handler: employee.DeleteEmployeeHandler(serverCtx),
 			},
+			{
+				Method:  http.MethodPost,
+				Path:    "/op/reset-password",
+				Handler: employee.ResetPasswordHandler(serverCtx),
+			},
 		},
 		rest.WithPrefix("/api/employee/v1"),
 	)
@@ -101,6 +116,21 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Method:  http.MethodPost,
 				Path:    "/roles",
 				Handler: permission.CreateRoleHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodGet,
+				Path:    "/roles/:roleCode",
+				Handler: permission.GetRoleHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodPut,
+				Path:    "/roles/:roleCode",
+				Handler: permission.PutRoleHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodGet,
+				Path:    "/role-employee-ids/:roleCode",
+				Handler: permission.GetRoleEmployeeIdsHandler(serverCtx),
 			},
 			{
 				Method:  http.MethodGet,
@@ -122,6 +152,16 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Method:  http.MethodPost,
 				Path:    "/op/login/basic",
 				Handler: auth.LoginHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodGet,
+				Path:    "/user-info",
+				Handler: auth.GetUserInfoHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodGet,
+				Path:    "/menu-roles",
+				Handler: auth.GetMenuRolesHandler(serverCtx),
 			},
 		},
 		rest.WithPrefix("/api/auth/v1"),

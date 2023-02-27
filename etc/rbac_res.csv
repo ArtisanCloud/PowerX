@@ -1,7 +1,4 @@
-r, employee, 员工, DATA, 员工数据
-r, consumer, 客户, DATA, 客户数据
-
-a, employee, *, read, 读取员工信息
-a, employee, *, write, 写入员工信息
-a, consumer, *, read, 读取客户信息
-a, consumer, *, write, 写入客户信息
+r, employee, 员工, API, 员工API
+r, permission, 权限, API, 权限API
+r, department, 部门, API, 部门API
+r, auth, 鉴权, API, 鉴权API
