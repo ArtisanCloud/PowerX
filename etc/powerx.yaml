@@ -11,5 +11,5 @@ PowerXDatabase:
 WeWork:
   CropId:
   AgentId:
-  Secret:
+  Secret: 
   HttpDebug: true

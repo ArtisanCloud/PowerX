@@ -1,11 +1,12 @@
 @server(
     group: auth
+    prefix: /api/auth/v1
 )
 
 service PowerX {
     @doc "登录"
     @handler Login
-    post /api/auth/v1/op/login/basic (LoginRequest) returns (LoginReply)
+    post /op/login/basic (LoginRequest) returns (LoginReply)
 }
 
 type LoginRequest {

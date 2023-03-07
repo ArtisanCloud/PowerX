@@ -2,36 +2,37 @@ import "basetype.api"
 
 @server(
     group: employee
+    prefix: /api/employee/v1
 )
 
 service PowerX {
     @doc "同步员工"
     @handler SyncEmployees
-    post /api/employee/v1/op/sync-employees/:source/:target (SyncEmployeesRequest) returns (SyncEmployeesReply)
+    post /op/sync-employees/:source/:target (SyncEmployeesRequest) returns (SyncEmployeesReply)
 
     @doc "查询员工"
     @handler GetEmployee
-    get /api/employee/v1/employees/:id (GetEmployeeRequest) returns (GetEmployeeReply)
+    get /employees/:id (GetEmployeeRequest) returns (GetEmployeeReply)
 
     @doc "List员工"
     @handler ListEmployees
-    get /api/employee/v1/employees (ListEmployeesRequest) returns (ListEmployeesReply)
+    get /employees (ListEmployeesRequest) returns (ListEmployeesReply)
 
     @doc "创建员工"
     @handler CreateEmployee
-    post /api/employee/v1/employees (CreateEmployeeRequest) returns (CreateEmployeeReply)
+    post /employees (CreateEmployeeRequest) returns (CreateEmployeeReply)
 
     @doc "员工Options"
     @handler GetEmployeeOptions
-    get /api/employee/v1/options (GetEmployeeOptionsRequest) returns (GetEmployeeOptionsReply)
+    get /options (GetEmployeeOptionsRequest) returns (GetEmployeeOptionsReply)
 
     @doc "编辑员工信息"
     @handler UpdateEmployee
-    patch /api/employee/v1/employees/:id (UpdateEmployeeRequest) returns (UpdateEmployeeReply)
+    patch /employees/:id (UpdateEmployeeRequest) returns (UpdateEmployeeReply)
 
     @doc "删除员工"
     @handler DeleteEmployee
-    delete /api/employee/v1/employees/:id (DeleteEmployeeRequest) returns (DeleteEmployeeReply)
+    delete /employees/:id (DeleteEmployeeRequest) returns (DeleteEmployeeReply)
 }
 
 
