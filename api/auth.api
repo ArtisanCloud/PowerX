@@ -7,6 +7,14 @@ service PowerX {
     @doc "登录"
     @handler Login
     post /op/login/basic (LoginRequest) returns (LoginReply)
+
+    @doc "获取用户信息"
+    @handler GetUserInfo
+    get /user-info returns (GetUserInfoReply)
+
+    @doc "获取菜单角色"
+    @handler GetMenuRoles
+    get /menu-roles returns (GetMenuRolesReply)
 }
 
 type LoginRequest {
@@ -19,3 +27,34 @@ type LoginRequest {
 type LoginReply {
     Token string `json:"token"`
 }
+
+type GetUserInfoReply {
+    Id int64 `json:"id"`
+    Account string `json:"account"`
+    Name string `json:"name"`
+    Email string `json:"email"`
+    MobilePhone string `json:"mobilePhone"`
+    Gender int8 `json:"gender"`
+    NickName string `json:"nickName"`
+    Desc string `json:"desc"`
+    Avatar string `json:"avatar"`
+    ExternalEmail string `json:"externalEmail"`
+    DepIds []int64 `json:"depIds"`
+    Position string `json:"position"`
+    JobTitle string `json:"jobTitle"`
+    IsEnabled bool `json:"isEnabled"`
+    CreatedAt string `json:"createdAt"`
+    Roles []string `json:"roles"`
+}
+
+
+type (
+    MenuRoles {
+        MenuName string `json:"menuName"`
+        AllowRoleCodes []string `json:"allowRoleCodes"`
+    }
+
+    GetMenuRolesReply {
+        MenuRoles []MenuRoles `json:"menuRoles"`
+    }
+)

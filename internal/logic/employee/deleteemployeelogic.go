@@ -24,8 +24,8 @@ func NewDeleteEmployeeLogic(ctx context.Context, svcCtx *svc.ServiceContext) *De
 }
 
 func (l *DeleteEmployeeLogic) DeleteEmployee(req *types.DeleteEmployeeRequest) (resp *types.DeleteEmployeeReply, err error) {
-	l.svcCtx.UC.Employee.DeleteEmployee(l.ctx, req.Id)
+	err = l.svcCtx.UC.Employee.DeleteEmployee(l.ctx, req.Id)
 	return &types.DeleteEmployeeReply{
 		Id: req.Id,
-	}, nil
+	}, err
 }

@@ -12,7 +12,19 @@ service PowerX {
     @handler CreateRole
     post /roles (CreateRoleRequest) returns (CreateRoleReply)
 
-    @doc "查询资源"
+    @doc "获取角色详情"
+    @handler GetRole
+    get /roles/:roleCode (GetRoleRequest) returns (GetRoleReply)
+
+    @doc "更新角色详情"
+    @handler PutRole
+    put /roles/:roleCode (PutRoleReqeust) returns (PutRoleReply)
+
+    @doc "获取角色的用户Id列表"
+    @handler GetRoleEmployeeIds
+    get /role-employee-ids/:roleCode (GetRoleEmployeeIdsReqeust) returns (GetRoleEmployeeIdsReply)
+
+    @doc "查询Rest资源"
     @handler ListRecourses
     get /recourses returns (ListRecoursesReply)
 
@@ -27,6 +39,8 @@ type (
         Name string `json:"name"`
         Desc string `json:"desc"`
         IsReserved bool `json:"isReserved"`
+        ActIds []int64 `json:"actIds"`
+        MenuNames []string `json:"menuNames"`
     }
 
     ListRolesReply {
@@ -47,13 +61,40 @@ type (
 )
 
 type (
+    GetRoleRequest {
+        RoleCode string `path:"roleCode"`
+    }
+
+    GetRoleReply {
+        *AuthRole
+    }
+)
+
+type (
+    PutRoleReqeust {
+        RoleCode string `path:"roleCode"`
+        Name string `json:"name"`
+        Desc string `json:"desc"`
+        ActIds []int64 `json:"actIds"`
+        MenuNames []string `json:"menuNames"`
+    }
+
+    PutRoleReply {
+        *AuthRole
+    }
+)
+
+type (
     AuthResAct {
-        ResCode string `json:"resCode"`
+        Id int64 `json:"id"`
+        Version string `json:"version"`
+        RestPath string `json:"restPath"`
         Action string `json:"action"`
         Desc string `json:"desc"`
     }
 
     AuthRes {
+        Id int64 `json:"id"`
         ResCode string `json:"resCode"`
         ResName string `json:"resName"`
         Type string `json:"type"`
@@ -67,25 +108,37 @@ type (
 )
 
 type (
-    AssignResAct {
-        ResCode string `json:"resCode"`
-        Action string `json:"action"`
-    }
-
     RoleAssignRes {
         RoleCodes []string `json:"roleCodes"`
-        Acts []AssignResAct `json:"acts"`
+        ActIds []int64 `json:"actIds"`
         IsReplace bool `json:"isReplace"`
     }
 
-    UsersAssignRes {
+    UsersAssignRole {
         UserIds []int64 `json:"userIds"`
         RoleCodes []string `json:"roleCodes"`
         IsReplace bool `json:"isReplace"`
     }
 
+    RoleAssignUsers {
+        RoleCode string `json:"roleCode"`
+        UserIds []int64 `json:"userIds"`
+        IsReplace bool `json:"isReplace"`
+    }
+
     AssignAuthRequest {
-        UserAssignRes *UsersAssignRes `json:"userAssignRes,optional"`
+        UserAssignRole *UsersAssignRole `json:"userAssignRole,optional"`
         RoleAssignRes *RoleAssignRes `json:"roleAssignRes,optional"`
+        RoleAssignUsers *RoleAssignUsers `json:"roleAssignUsers,optional"`
+    }
+)
+
+type (
+    GetRoleEmployeeIdsReqeust {
+        RoleCode string `path:"roleCode"`
+    }
+
+    GetRoleEmployeeIdsReply {
+        EmployeeIds []int64 `json:"employeeIds"`
     }
 )

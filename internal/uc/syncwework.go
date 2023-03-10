@@ -211,7 +211,7 @@ func (s *SyncWeWorkUseCase) SyncDepartmentsToSystem(ctx context.Context) {
 	}
 	sysDepTree := copyTree(*depTree)
 	if sysDepTree.Elem.PId == 0 {
-		department, err := s.department.FindOneDepartment(ctx, FindOneDepartmentOption{})
+		department, err := s.department.FindOneDepartment(ctx, &FindOneDepartmentOption{})
 		if err != nil {
 			panic(errors.Wrap(err, "dep init?"))
 		}
@@ -228,7 +228,7 @@ func (s *SyncWeWorkUseCase) SyncDepartmentsToSystem(ctx context.Context) {
 				panic(errors.Wrap(err, "save wework dep relation failed"))
 			}
 		} else {
-			node.Elem, err = s.department.FindOneDepartment(ctx, FindOneDepartmentOption{Id: &relationDep.RelationDepartmentId})
+			node.Elem, err = s.department.FindOneDepartment(ctx, &FindOneDepartmentOption{Id: &relationDep.RelationDepartmentId})
 			if err != nil {
 				panic(errors.Wrap(err, "save wework dep relation failed"))
 			}
@@ -306,6 +306,12 @@ func (s *SyncWeWorkUseCase) SyncEmployeeToSystem(ctx context.Context) {
 				Status:        &status,
 				Password:      "123456",
 			}
+
+			err := ie.HashPassword()
+			if err != nil {
+				panic(errors.Wrap(err, "sync wework employee failed"))
+			}
+
 			relationMap[&ie] = e
 			if e.RelationEmployeeId != 0 {
 				ie.Model = &types.Model{
