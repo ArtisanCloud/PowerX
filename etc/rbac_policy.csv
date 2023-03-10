@@ -1,6 +1,4 @@
-p, admin, consumer, read
-p, admin, consumer, write
-p, admin, employee, read
-p, admin, employee, write
+p, admin, /api/employee/v1/employees, (GET)|(POST)
+p, admin, /api/employee/v1/employees/:id, (GET)|(POST)|(PUT)|(PATCH)|(DELETE)
 
-p, common_employee, consumer, read
+p, common_employee, /employees, (GET)

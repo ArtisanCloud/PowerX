@@ -6,7 +6,6 @@ import (
 	"github.com/pkg/errors"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
-	"gorm.io/gorm/logger"
 )
 
 type PowerXUseCase struct {
@@ -24,7 +23,7 @@ type PowerXUseCase struct {
 func NewPowerXUseCase(conf *config.Config) (uc *PowerXUseCase, clean func()) {
 	// 启动数据库并测试连通性
 	db, err := gorm.Open(postgres.Open(conf.PowerXDatabase.DSN), &gorm.Config{
-		Logger: logger.Default.LogMode(logger.Info),
+		//Logger: logger.Default.LogMode(logger.Info),
 	})
 	if err != nil {
 		panic(errors.Wrap(err, "connect database failed"))
@@ -60,7 +59,7 @@ func NewPowerXUseCase(conf *config.Config) (uc *PowerXUseCase, clean func()) {
 }
 
 func (p *PowerXUseCase) AutoMigrate(ctx context.Context) {
-	p.db.AutoMigrate(&CasbinPolicy{}, &AuthRole{}, &AuthRecourseAction{}, &AuthRecourse{})
+	p.db.AutoMigrate(&CasbinPolicy{}, &AuthRole{}, &AuthRestAction{}, &AuthRecourse{})
 	p.db.AutoMigrate(&Department{}, &Employee{}, &LiveQRCode{})
 	p.db.AutoMigrate(&WeWorkDepartment{}, &WeWorkEmployee{})
 }
@@ -68,8 +67,4 @@ func (p *PowerXUseCase) AutoMigrate(ctx context.Context) {
 func (p *PowerXUseCase) AutoInit() {
 	p.Auth.Init()
 	p.Department.Init()
-}
-
-func (p *PowerXUseCase) FindManyRoles(ctx context.Context) {
-
 }

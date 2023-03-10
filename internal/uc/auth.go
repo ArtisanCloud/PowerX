@@ -2,16 +2,20 @@ package uc
 
 import (
 	"PowerX/internal/types"
+	"PowerX/internal/types/errorx"
 	"context"
 	"encoding/csv"
 	"fmt"
 	sqladapter "github.com/Blank-Xu/sql-adapter"
 	"github.com/casbin/casbin/v2"
 	fileadapter "github.com/casbin/casbin/v2/persist/file-adapter"
+	"github.com/lib/pq"
 	"github.com/pkg/errors"
 	"github.com/zeromicro/go-zero/core/logx"
 	"gorm.io/gorm"
 	"os"
+	"path"
+	"strings"
 )
 
 type AuthUseCase struct {
@@ -42,12 +46,21 @@ type AuthRecourse struct {
 	*types.Model
 }
 
-type AuthRecourseAction struct {
-	ResCode string `gorm:"index"`
-	Scope   string
-	Action  string
-	Desc    string
+type AuthRestAction struct {
+	ResCode      string `gorm:"index"`
+	Version      string
+	RestPath     string
+	Action       string
+	FullRestPath string
+	Key          string
+	Desc         string
 	*types.Model
+}
+
+func (a *AuthRestAction) AutoSetField() *AuthRestAction {
+	a.FullRestPath = FormatAuthRestObj(a.ResCode, a.Version, a.RestPath)
+	a.Key = fmt.Sprintf("%s_%s", a.FullRestPath, a.Action)
+	return a
 }
 
 type AuthRole struct {
@@ -55,6 +68,7 @@ type AuthRole struct {
 	Name       string
 	Desc       string
 	IsReserved bool
+	MenuNames  pq.StringArray `gorm:"type:text[]"`
 	*types.Model
 }
 
@@ -62,7 +76,35 @@ type AuthRole struct {
 
 type AuthResWithAct struct {
 	*AuthRecourse `gorm:"embedded"`
-	Acts          []*AuthRecourseAction `gorm:"foreignKey:ResCode;references:ResCode"`
+	Acts          []*AuthRestAction `gorm:"foreignKey:ResCode;references:ResCode"`
+}
+
+func FormatAuthRestObj(resCode string, version string, restPath string, params ...string) string {
+	ss := strings.Split(restPath, "/")
+	for i, item := range ss {
+		ss[i] = item
+		if !strings.HasPrefix(item, ":") {
+			continue
+		}
+		if len(params) == 0 {
+			continue
+		}
+		ss[i] = params[0]
+	}
+	return fmt.Sprintf("/api/%s/%s/", resCode, version) + path.Join(ss...)
+}
+
+func FormatRestAction(actions ...string) string {
+	var b strings.Builder
+	for i, s := range actions {
+		b.WriteString("(")
+		b.WriteString(s)
+		b.WriteString(")")
+		if i != 0 && i != len(actions)-1 {
+			b.WriteString("|")
+		}
+	}
+	return b.String()
 }
 
 func newCasbinUseCase(db *gorm.DB, md *MetadataCtx, employee *EmployeeUseCase) *AuthUseCase {
@@ -114,9 +156,8 @@ func (a *AuthUseCase) Init() {
 	if err := a.db.Model(&AuthRecourse{}).Count(&count).Error; err != nil {
 		panic(errors.Wrap(err, "init res failed"))
 	}
-	fmt.Println(count)
 	if count == 0 {
-		do := func() {
+		do1 := func() {
 			file, err := os.OpenFile("etc/rbac_res.csv", os.O_RDONLY, 0644)
 			if err != nil {
 				logx.Error(err)
@@ -128,25 +169,16 @@ func (a *AuthUseCase) Init() {
 				return
 			}
 			var resSlice []*AuthRecourse
-			var actSlice []*AuthRecourseAction
 			for _, row := range rows {
 				if len(row) == 0 {
 					continue
 				}
 				if row[0] == "r" && len(row) == 5 {
 					resSlice = append(resSlice, &AuthRecourse{
-						ResCode: row[1],
-						ResName: row[2],
-						Type:    row[3],
-						Desc:    row[4],
-					})
-				}
-				if row[0] == "a" && len(row) == 5 {
-					actSlice = append(actSlice, &AuthRecourseAction{
-						ResCode: row[1],
-						Scope:   row[2],
-						Action:  row[3],
-						Desc:    row[4],
+						ResCode: strings.TrimSpace(row[1]),
+						ResName: strings.TrimSpace(row[2]),
+						Type:    strings.TrimSpace(row[3]),
+						Desc:    strings.TrimSpace(row[4]),
 					})
 				}
 			}
@@ -155,14 +187,44 @@ func (a *AuthUseCase) Init() {
 					panic(errors.Wrap(err, "init auth res failed"))
 				}
 			}
+		}
+
+		do2 := func() {
+			file, err := os.OpenFile("etc/rbac_action.csv", os.O_RDONLY, 0644)
+			if err != nil {
+				logx.Error(err)
+				return
+			}
+			rows, err := csv.NewReader(file).ReadAll()
+			if err != nil {
+				logx.Error(err)
+				return
+			}
+			var actSlice []*AuthRestAction
+			for _, row := range rows {
+				if len(row) == 0 {
+					continue
+				}
+				if row[0] == "a" && len(row) == 6 {
+					act := AuthRestAction{
+						ResCode:  strings.TrimSpace(row[1]),
+						Version:  strings.TrimSpace(row[2]),
+						RestPath: strings.TrimSpace(row[3]),
+						Action:   strings.TrimSpace(row[4]),
+						Desc:     strings.TrimSpace(row[5]),
+					}
+					actSlice = append(actSlice, act.AutoSetField())
+				}
+			}
 			if len(actSlice) > 0 {
-				if err := a.db.Model(&AuthRecourseAction{}).Create(&actSlice).Error; err != nil {
+				if err := a.db.Model(&AuthRestAction{}).Create(&actSlice).Error; err != nil {
 					panic(errors.Wrap(err, "init auth act failed"))
 				}
 			}
 		}
 
-		do()
+		do1()
+		do2()
 	}
 
 	// 初始化用户
@@ -178,6 +240,7 @@ func (a *AuthUseCase) Init() {
 			Status:     &status,
 			IsReserved: true,
 		}
+		root.HashPassword()
 		if err := a.db.Model(&Employee{}).Create(&root).Error; err != nil {
 			panic(errors.Wrap(err, "init root failed"))
 		}
@@ -202,10 +265,11 @@ func (a *AuthUseCase) FindManyAuthResWithActs(ctx context.Context) []*AuthResWit
 	}
 	resMap := make(map[string]*AuthResWithAct)
 	for _, res := range resSlices {
+		res.Acts = make([]*AuthRestAction, 0)
 		resMap[res.ResCode] = res
 	}
-	var acts []*AuthRecourseAction
-	if err := a.db.WithContext(ctx).Model(&AuthRecourseAction{}).Find(&acts).Error; err != nil {
+	var acts []*AuthRestAction
+	if err := a.db.WithContext(ctx).Model(&AuthRestAction{}).Find(&acts).Error; err != nil {
 		panic(errors.Wrap(err, "find res acts failed"))
 	}
 	for _, act := range acts {
@@ -224,6 +288,36 @@ func (a *AuthUseCase) FindManyAuthRoles(ctx context.Context) []*AuthRole {
 	return roles
 }
 
+func (a *AuthUseCase) FindManyAuthRolesByIds(ctx context.Context, ids []int64) []*AuthRole {
+	var roles []*AuthRole
+	if err := a.db.WithContext(ctx).Model(&AuthRole{}).Where("id in ?", ids).Find(&roles).Error; err != nil {
+		panic(errors.Wrap(err, "find roles failed"))
+	}
+	return roles
+}
+
+func (a *AuthUseCase) FindOneAuthRoleById(ctx context.Context, id int64) (*AuthRole, error) {
+	var role AuthRole
+	if err := a.db.WithContext(ctx).Model(&AuthRole{}).Where(id).Find(&role).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errorx.WithCause(errorx.ErrBadRequest, "未查找到角色")
+		}
+		panic(errors.Wrap(err, "find roles failed"))
+	}
+	return &role, nil
+}
+
+func (a *AuthUseCase) FindOneAuthRoleByCode(ctx context.Context, roleCode string) (*AuthRole, error) {
+	var role AuthRole
+	if err := a.db.WithContext(ctx).Where(AuthRole{RoleCode: roleCode}).Find(&role).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errorx.WithCause(errorx.ErrBadRequest, "未查找到角色")
+		}
+		panic(errors.Wrap(err, "find roles failed"))
+	}
+	return &role, nil
+}
+
 func (a *AuthUseCase) AddRolesForEmployee(ctx context.Context, account string, roleCodes []string) {
 	_, err := a.Casbin.AddRolesForUser(account, roleCodes)
 	if err != nil {
@@ -239,5 +333,30 @@ func (a *AuthUseCase) UpdateRolesForEmployee(ctx context.Context, account string
 	_, err = a.Casbin.AddRolesForUser(account, roleCodes)
 	if err != nil {
 		panic(errors.Wrap(err, "update roles failed"))
+	}
+}
+
+func (a *AuthUseCase) FindManyRestActsByIds(ctx context.Context, ids []int64) []*AuthRestAction {
+	var acts []*AuthRestAction
+	err := a.db.WithContext(ctx).Model(&AuthRestAction{}).Where("id in ?", ids).Find(&acts).Error
+	if err != nil {
+		panic(errors.Wrap(err, "find acts failed"))
+	}
+	return acts
+}
+
+func (a *AuthUseCase) FindManyRestActsByKeys(ctx context.Context, keys []string) []*AuthRestAction {
+	var acts []*AuthRestAction
+	err := a.db.WithContext(ctx).Model(&AuthRestAction{}).Where("key in ?", keys).Find(&acts).Error
+	if err != nil {
+		panic(errors.Wrap(err, "find acts failed"))
+	}
+	return acts
+}
+
+func (a *AuthUseCase) PatchRoleByRoleCode(ctx context.Context, roleCode string, role *AuthRole) {
+	err := a.db.WithContext(ctx).Where(AuthRole{RoleCode: roleCode}).Updates(role).Error
+	if err != nil {
+		panic(errors.Wrap(err, "update role failed"))
 	}
 }

@@ -13,8 +13,6 @@ type DepartmentUseCase struct {
 	db *gorm.DB
 }
 
-const _DepartmentTableName = "departments"
-
 func newDepartmentUseCase(db *gorm.DB) *DepartmentUseCase {
 	return &DepartmentUseCase{
 		db: db,
@@ -27,14 +25,19 @@ type Department struct {
 	AncestorIds pq.Int64Array `gorm:"type:bigint[]"`
 	LeaderIds   pq.Int64Array `gorm:"type:bigint[]"`
 	Desc        string
+	PhoneNumber string
+	Email       string
+	Remark      string
+	IsReserved  bool
 	*types.Model
 }
 
 func defaultDepartment() *Department {
 	return &Department{
-		Name: "组织架构",
-		PId:  0,
-		Desc: "根节点, 别删除",
+		Name:       "组织架构",
+		PId:        0,
+		Desc:       "根节点, 别删除",
+		IsReserved: true,
 	}
 }
 
@@ -131,7 +134,7 @@ type FindOneDepartmentOption struct {
 	DepName string
 }
 
-func (d *DepartmentUseCase) FindOneDepartment(ctx context.Context, option FindOneDepartmentOption) (*Department, error) {
+func (d *DepartmentUseCase) FindOneDepartment(ctx context.Context, option *FindOneDepartmentOption) (*Department, error) {
 	var dep Department
 	query := d.db.WithContext(ctx).Model(&Department{})
 	if option.Id != nil {
@@ -142,9 +145,29 @@ func (d *DepartmentUseCase) FindOneDepartment(ctx context.Context, option FindOn
 	}
 	if err := query.First(&dep).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errors.New("no dep")
+			return nil, errors.New("未查找到部门")
 		}
 		panic(errors.Wrap(err, "find dep failed"))
 	}
 	return &dep, nil
+}
+
+func (d *DepartmentUseCase) DeleteDepartmentById(ctx context.Context, id int64) error {
+	err := d.db.Transaction(func(tx *gorm.DB) error {
+		result := tx.WithContext(ctx).Delete(&Department{}, id).Where(Department{IsReserved: false})
+		if err := result.Error; err != nil {
+			return err
+		}
+		if result.RowsAffected == 0 {
+			return gorm.ErrRecordNotFound
+		}
+		return tx.WithContext(ctx).Where("? = ANY (ancestor_ids)", id).Delete(&Department{}).Error
+	})
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return errorx.WithCause(errorx.ErrBadRequest, "未查找到要删除的部门")
+		}
+		panic(errors.Wrap(err, "delete department failed"))
+	}
+	return nil
 }

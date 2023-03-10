@@ -32,7 +32,16 @@ func main() {
 	// error 5xx
 	server.Use(recovery.RecoverMiddleware())
 	// 设置鉴权中间件
-	server.Use(authmd.AuthMiddleware(ctx, authmd.WithPublicPrefix("/api/auth/v1/op/login")))
+	publicPath := []string{
+		"/api/auth/v1/op/login",
+		"/api/auth/v1/menu-roles",
+	}
+	whitePath := []string{
+		"/api/auth/v1/user-info",
+	}
+	server.Use(authmd.AuthMiddleware(ctx,
+		authmd.WithPublicPrefix(publicPath...),
+		authmd.WithWhiteListPrefix(whitePath...)))
 
 	// 设置自定义错误处理逻辑 3xx 4xx default: 400
 	httpx.SetErrorHandler(handler.ErrorHandle)

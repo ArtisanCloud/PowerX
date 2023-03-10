@@ -5,6 +5,7 @@ import (
 	"PowerX/internal/types"
 	"PowerX/internal/uc"
 	"context"
+	"github.com/pkg/errors"
 	"github.com/zeromicro/go-zero/core/logx"
 )
 
@@ -40,6 +41,10 @@ func (l *CreateEmployeeLogic) CreateEmployee(req *types.CreateEmployeeRequest) (
 		Avatar:        req.Avatar,
 		Password:      "123456",
 		Status:        &status,
+	}
+	err = employee.HashPassword()
+	if err != nil {
+		panic(errors.Wrap(err, "create employee hash password failed"))
 	}
 	l.svcCtx.UC.Employee.CreateEmployees(l.ctx, []*uc.Employee{&employee})
 

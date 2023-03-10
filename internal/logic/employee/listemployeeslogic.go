@@ -4,7 +4,6 @@ import (
 	"PowerX/internal/svc"
 	"PowerX/internal/types"
 	"PowerX/internal/uc"
-	"PowerX/pkg/mapx"
 	"context"
 	"github.com/zeromicro/go-zero/core/logx"
 	"time"
@@ -64,26 +63,9 @@ func (l *ListEmployeesLogic) ListEmployees(req *types.ListEmployeesRequest) (res
 		depIds = append(depIds, employee.DepartmentIds...)
 	}
 
-	// find deps
-	depPage := l.svcCtx.UC.Department.FindManyDepartments(l.ctx, &uc.FindManyDepartmentsOption{
-		DepIds: depIds,
-	})
-	depMap := mapx.MapByFunc(depPage.List, func(item *uc.Department) (int64, *uc.Department) {
-		return item.ID, item
-	})
-
 	// build vo
 	var vos []types.Employee
 	for _, employee := range employeePage.List {
-		var deps []types.SimpleDepartment
-		for _, id := range employee.DepartmentIds {
-			if dep, ok := depMap[id]; ok {
-				deps = append(deps, types.SimpleDepartment{
-					Id:      dep.ID,
-					DepName: dep.Name,
-				})
-			}
-		}
 		roles, _ := l.svcCtx.UC.Auth.Casbin.GetRolesForUser(employee.Account)
 
 		isEnabled := *employee.Status > 0
@@ -93,6 +75,7 @@ func (l *ListEmployeesLogic) ListEmployees(req *types.ListEmployeesRequest) (res
 		}
 		vos = append(vos, types.Employee{
 			Id:            employee.ID,
+			Account:       employee.Account,
 			Name:          employee.Name,
 			Email:         employee.Email,
 			MobilePhone:   employee.MobilePhone,
@@ -101,7 +84,7 @@ func (l *ListEmployeesLogic) ListEmployees(req *types.ListEmployeesRequest) (res
 			Desc:          employee.Desc,
 			Avatar:        employee.Avatar,
 			ExternalEmail: employee.ExternalEmail,
-			Deps:          deps,
+			DepIds:        employee.DepartmentIds,
 			Roles:         roles,
 			Position:      employee.Position,
 			JobTitle:      employee.JobTitle,

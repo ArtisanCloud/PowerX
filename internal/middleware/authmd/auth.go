@@ -12,22 +12,31 @@ import (
 	"github.com/zeromicro/go-zero/rest"
 	"github.com/zeromicro/go-zero/rest/httpx"
 	"net/http"
-	"regexp"
 	"strings"
 )
 
 type option struct {
 	public      []string
+	whiteList   []string
 	disableAuth bool
 }
 
 type optionFunc func(opt *option)
 
+// WithPublicPrefix 公开访问前缀
 func WithPublicPrefix(path ...string) optionFunc {
 	return func(opt *option) {
 		opt.public = path
 	}
 }
+
+// WithWhiteListPrefix 无需权限验证前缀
+func WithWhiteListPrefix(path ...string) optionFunc {
+	return func(opt *option) {
+		opt.whiteList = path
+	}
+}
+
 func DisableToken(b bool) func(opt *option) {
 	return func(opt *option) {
 		opt.disableAuth = b
@@ -48,7 +57,10 @@ func AuthMiddleware(ctx *svc.ServiceContext, opts ...optionFunc) rest.Middleware
 		publicRouter.NewRoute().PathPrefix(s)
 	}
 
-	resPrefixReg, _ := regexp.Compile(`^/api/\w+`)
+	whiteRouter := mux.NewRouter()
+	for _, s := range opt.whiteList {
+		whiteRouter.NewRoute().PathPrefix(s)
+	}
 
 	return func(next http.HandlerFunc) http.HandlerFunc {
 		return func(writer http.ResponseWriter, request *http.Request) {
@@ -90,26 +102,23 @@ func AuthMiddleware(ctx *svc.ServiceContext, opts ...optionFunc) rest.Middleware
 			}
 
 			// temp method map to act
-			var op string
-			switch request.Method {
-			case http.MethodGet:
-				op = "read"
-				break
-			case http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete:
-				op = "write"
-				break
-			}
+			obj := request.URL.Path
+			act := strings.ToUpper(request.Method)
 
-			// 权限验证
-			prefix := strings.TrimPrefix(resPrefixReg.FindString(request.URL.Path), "/api/")
-			ok, err := ctx.UC.Auth.Casbin.Enforce(claims.Subject, prefix, op)
-			if err != nil {
-				httpx.Error(writer, unKnow)
-				return
-			}
-			if !ok {
-				httpx.Error(writer, errorx.WithCause(unAuth, "权限不足"))
-				return
+			// 无需验证
+			if whiteRouter.Match(request, &match) {
+				// next
+			} else {
+				// 权限验证
+				ok, err := ctx.UC.Auth.Casbin.Enforce(claims.Subject, obj, act)
+				if err != nil {
+					httpx.Error(writer, unKnow)
+					return
+				}
+				if !ok {
+					httpx.Error(writer, errorx.WithCause(unAuth, "权限不足"))
+					return
+				}
 			}
 			request = request.WithContext(ctx.UC.MetadataCtx.WithAuthMetadataCtxValue(request.Context(), &uc.AuthMetadata{
 				UID: claims.UID,

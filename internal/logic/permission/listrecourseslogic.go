@@ -32,12 +32,15 @@ func (l *ListRecoursesLogic) ListRecourses() (resp *types.ListRecoursesReply, er
 		var acts []types.AuthResAct
 		for _, act := range res.Acts {
 			acts = append(acts, types.AuthResAct{
-				ResCode: act.ResCode,
-				Action:  act.Action,
-				Desc:    act.Desc,
+				Id:       act.ID,
+				Version:  act.Version,
+				RestPath: act.RestPath,
+				Action:   act.Action,
+				Desc:     act.Desc,
 			})
 		}
 		list = append(list, types.AuthRes{
+			Id:      res.ID,
 			ResCode: res.ResCode,
 			ResName: res.ResName,
 			Type:    res.Type,

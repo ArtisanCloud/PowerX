@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
+	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
 
@@ -62,7 +63,19 @@ type Employee struct {
 	Password      string
 	Status        *EmployeeStatus
 	IsReserved    bool
+	IsActivated   bool
 	*types.Model
+}
+
+func (e *Employee) HashPassword() (err error) {
+	if e.Password != "" {
+		e.Password, err = hashPassword(e.Password)
+	}
+	return nil
+}
+
+func (e *EmployeeUseCase) VerifyPassword(hashedPwd string, pwd string) bool {
+	return verifyPassword(hashedPwd, pwd)
 }
 
 func (e *EmployeeUseCase) CreateEmployees(ctx context.Context, employees []*Employee) {
@@ -82,7 +95,7 @@ func (e *EmployeeUseCase) CreateEmployees(ctx context.Context, employees []*Empl
 func (e *EmployeeUseCase) UpdateEmployeeById(ctx context.Context, employee *Employee) {
 	err := e.db.WithContext(ctx).Model(&Employee{}).Where(employee.ID).Updates(&employee).Error
 	if err != nil {
-		panic(errors.Wrap(err, "batch insert employees failed"))
+		panic(errors.Wrap(err, "update employees failed"))
 	}
 	return
 }
@@ -140,7 +153,7 @@ func buildFindQueryNoPage(query *gorm.DB, opt *FindEmployeeOption) *gorm.DB {
 		query.Where("account in ?", opt.Accounts)
 	}
 	if len(opt.DepIds) > 0 {
-		query.Where("department_ids in ?", opt.DepIds)
+		query.Where("? && department_ids", pq.Int64Array(opt.DepIds))
 	}
 	if len(opt.Statuses) > 0 {
 		query.Where("status in ?", opt.Statuses)
@@ -184,11 +197,16 @@ func (e *EmployeeUseCase) FindOneEmployee(ctx context.Context, opt *FindEmployee
 	return employee, nil
 }
 
-func (e *EmployeeUseCase) DeleteEmployee(ctx context.Context, id int64) {
-	err := e.db.WithContext(ctx).Delete(&Employee{}, id).Error
+func (e *EmployeeUseCase) DeleteEmployee(ctx context.Context, id int64) error {
+	result := e.db.WithContext(ctx).Where(Employee{IsReserved: false}, "is_reserved").Delete(&Employee{}, id)
+	err := result.Error
 	if err != nil {
 		panic(errors.Wrap(err, "delete employee failed"))
 	}
+	if result.RowsAffected == 0 {
+		return errorx.WithCause(errorx.ErrBadRequest, "删除失败")
+	}
+	return nil
 }
 
 func (e *EmployeeUseCase) GetAllPositions(ctx context.Context) []string {
@@ -198,4 +216,21 @@ func (e *EmployeeUseCase) GetAllPositions(ctx context.Context) []string {
 		panic(errors.Wrap(err, "pluck employee position failed"))
 	}
 	return positions
+}
+
+const defaultCost = bcrypt.MinCost
+
+// 生成哈希密码
+func hashPassword(password string) (hashedPwd string, err error) {
+	newPassword, err := bcrypt.GenerateFromPassword([]byte(password), defaultCost)
+	if err != nil {
+		return "", errors.Wrap(err, "gen pwd failed")
+	}
+	return string(newPassword), nil
+}
+
+// 校验密码
+func verifyPassword(hashedPwd string, pwd string) bool {
+	err := bcrypt.CompareHashAndPassword([]byte(hashedPwd), []byte(pwd))
+	return err == nil
 }
