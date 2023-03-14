@@ -1,0 +1,82 @@
+@server(
+    group: clue
+    prefix: /api/clue/v1
+)
+
+service PowerX {
+    @doc "查询线索列表"
+    @handler ListClues
+    get /clues (ListCluesRequest) returns (ListCluesReply)
+
+    @doc "创建线索"
+    @handler CreateClues
+    post /clues (CreateCluesRequest) returns (CreateCluesReply)
+
+    @doc "编辑线索"
+    @handler PatchClue
+    patch /clues/:id (PatchClueRequest) returns (PatchClueReply)
+
+    @doc "删除线索"
+    @handler DeleteClue
+    delete /clues/:id returns (DeleteClueReply)
+}
+
+type Clue {
+    Id int64 `json:"id"`
+    Title string `json:"title"`
+    PhoneNumber string `json:"phoneNumber,optional"`
+    Email string `json:"email,optional"`
+    Source string `json:"source"`
+    Status string `json:"status"`
+    CreatedAt string `json:"createdAt"`
+}
+
+type (
+    ListCluesRequest {
+        LikeTitle string `json:"likeTitle"`
+        LikePhoneNumber string `json:"likePhoneNumber"`
+        Sources []string `json:"sources"`
+        Statuses []string `json:"statuses"`
+    }
+
+    ListCluesReply {
+        List []Clue `json:"list"`
+        PageIndex int32 `json:"pageIndex"`
+        PageSize int32 `json:"pageSize"`
+        Total int64 `json:"total"`
+    }
+)
+
+type (
+    CreateCluesRequest {
+        List []Clue `json:"list"`
+    }
+
+    CreateCluesReply {
+        List []Clue `json:"list"`
+        PageIndex int32 `json:"pageIndex"`
+        PageSize int32 `json:"pageSize"`
+        Total int64 `json:"total"`
+    }
+)
+
+type (
+    PatchClueRequest {
+        Id int64 `path:"id"`
+        Title string `json:"title,optional"`
+        PhoneNumber string `json:"phoneNumber,optional"`
+        Email string `json:"email,optional"`
+        Source string `json:"source,optional"`
+        Status string `json:"status,optional"`
+    }
+
+    PatchClueReply {
+        Clue
+    }
+)
+
+type (
+    DeleteClueReply {
+        Id int64 `json:"id"`
+    }
+)

@@ -362,10 +362,16 @@ cloud.google.com/go/workflows v1.9.0/go.mod h1:ZGkj1aFIOd9c8Gerkjjq7OW7I5+l6cSvT
 dmitri.shuralyov.com/gpu/mtl v0.0.0-20190408044501-666a987793e9/go.mod h1:H6x//7gZCb22OMCxBHrMx7a5I7Hp++hsVxbQ4BYO7hU=
 github.com/ArtisanCloud/PowerLibs/v3 v3.0.0-beta9 h1:wdIptFbnN7owKpgCPDnngl7ZDn1cDfJTyZUXTuOt9Tc=
 github.com/ArtisanCloud/PowerLibs/v3 v3.0.0-beta9/go.mod h1:6/cNm8Dv8wdogyB5yPZGTm9KhaXIifiOw8a2IuD07hw=
+github.com/ArtisanCloud/PowerLibs/v3 v3.0.2 h1:uf7XXZC+0Q7TSP6FD7QVgk5ORUs85RQPtL/LtPT2Ldg=
+github.com/ArtisanCloud/PowerLibs/v3 v3.0.2/go.mod h1:6/cNm8Dv8wdogyB5yPZGTm9KhaXIifiOw8a2IuD07hw=
 github.com/ArtisanCloud/PowerSocialite/v3 v3.0.0-beta3 h1:OVNR0Sr7dpVkIzOZMOQV9JPQgfZD02V637CnAbT5DVY=
 github.com/ArtisanCloud/PowerSocialite/v3 v3.0.0-beta3/go.mod h1:WvvFoSdzukuIyJnjOeAxxM3QdxzgPJJYM4dc3eP7uhk=
+github.com/ArtisanCloud/PowerSocialite/v3 v3.0.4 h1:JNW9I8ekzmluA9BdggMxiqX8XStc5M9FSfU7jEcbilk=
+github.com/ArtisanCloud/PowerSocialite/v3 v3.0.4/go.mod h1:NFb5yNX6Q/967tqbJHGTCJu7jJ5LFz6qXN70TbMmD/k=
 github.com/ArtisanCloud/PowerWeChat/v3 v3.0.1 h1:1ajRvHrCrecu75LMqNmB/9TNzk9kqR7rd1d3ZAK7CfA=
 github.com/ArtisanCloud/PowerWeChat/v3 v3.0.1/go.mod h1:0w0bzBgAOGRt4rVcg5b4cq6UPSs3HT/6msB/sUuDSrA=
+github.com/ArtisanCloud/PowerWeChat/v3 v3.0.14 h1:ILVH4OySJ/sidePMPYBXWDyj2AybaFrocgMxkI8cugw=
+github.com/ArtisanCloud/PowerWeChat/v3 v3.0.14/go.mod h1:20t5Npk/P23cntR+rFYMDrZEinhDk7njcFfkZtJEI6E=
 github.com/Azure/go-autorest v14.2.0+incompatible/go.mod h1:r+4oMnoxhatjLLJ6zxSWATqVooLgysK6ZNox3g/xq24=
 github.com/Azure/go-autorest/autorest v0.11.18/go.mod h1:dSiJPy22c3u0OtOKDNttNgqpNFY/GeWa7GH/Pz56QRA=
 github.com/Azure/go-autorest/autorest/adal v0.9.13/go.mod h1:W/MM4U6nLxnIskrw4UwWzlHfGjwUS50aOsc/I3yuU8M=
@@ -411,6 +417,7 @@ github.com/casbin/casbin/v2 v2.60.0/go.mod h1:vByNa/Fchek0KZUgG5wEsl7iFsiviAYKRt
 github.com/cenkalti/backoff/v4 v4.1.3 h1:cFAlzYUlVYDysBEH2T5hyJZMh3+5+WCBvSnK6Q8UtC4=
 github.com/cenkalti/backoff/v4 v4.1.3/go.mod h1:scbssz8iZGpm3xbr14ovlUdkxfGXNInqkPWOWmG2CLw=
 github.com/census-instrumentation/opencensus-proto v0.2.1/go.mod h1:f6KPmirojxKA12rnyqOA5BBL4O983OfeGPqjHWSTneU=
+github.com/cespare/xxhash v1.1.0 h1:a6HrQnmkObjyL+Gs60czilIUGqrzKutQD6XZog3p+ko=
 github.com/cespare/xxhash v1.1.0/go.mod h1:XrSqR1VqqWfGrhpAt58auRo0WTKS1nRRg3ghfAqPWnc=
 github.com/cespare/xxhash/v2 v2.1.1/go.mod h1:VGX0DQ3Q6kWi7AoAeZDth3/j3BFtOZR5XLFGgcrjCOs=
 github.com/cespare/xxhash/v2 v2.1.2/go.mod h1:VGX0DQ3Q6kWi7AoAeZDth3/j3BFtOZR5XLFGgcrjCOs=
@@ -882,6 +889,8 @@ go.uber.org/multierr v1.6.0/go.mod h1:cdWPpRnG4AhwMwsgIHip0KRBQjJy5kYEpYjJxpXp9i
 go.uber.org/multierr v1.8.0/go.mod h1:7EAYxJLBy9rStEaz58O2t4Uvip6FSURkq8/ppBp95ak=
 go.uber.org/multierr v1.9.0 h1:7fIwc/ZtS0q++VgcfqFDxSBZVv/Xo49/SYnDFupUwlI=
 go.uber.org/multierr v1.9.0/go.mod h1:X2jQV1h+kxSjClGpnseKVIxpmcjrj7MNnI0bnlfKTVQ=
+go.uber.org/multierr v1.10.0 h1:S0h4aNzvfcFsC3dRF1jLoaov7oRaKqRGC/pUEJ2yvPQ=
+go.uber.org/multierr v1.10.0/go.mod h1:20+QtiLqy0Nd6FdQB9TLXag12DsQkrbs3htMFfDN80Y=
 go.uber.org/zap v1.17.0/go.mod h1:MXVU+bhUf/A7Xi2HNOnopQOrmycQ5Ih87HtOu4q5SSo=
 go.uber.org/zap v1.21.0/go.mod h1:wjWOCqI0f2ZZrJF/UufIOkiC8ii6tm1iqIsLo76RfJw=
 go.uber.org/zap v1.24.0 h1:FiJd5l1UOLj0wCgbSE0rwwXHzEdAZS6hiiSnxJN/D60=

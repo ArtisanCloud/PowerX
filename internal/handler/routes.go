@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	auth "PowerX/internal/handler/auth"
+	clue "PowerX/internal/handler/clue"
 	contact "PowerX/internal/handler/contact"
 	customer "PowerX/internal/handler/customer"
 	department "PowerX/internal/handler/department"
@@ -17,22 +18,6 @@ import (
 )
 
 func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
-	server.AddRoutes(
-		[]rest.Route{
-			{
-				Method:  http.MethodGet,
-				Path:    "/customers/:id",
-				Handler: customer.GetCustomerHandler(serverCtx),
-			},
-			{
-				Method:  http.MethodPost,
-				Path:    "/op/sync-customers",
-				Handler: customer.BatchSyncCustomersHandler(serverCtx),
-			},
-		},
-		rest.WithPrefix("/api/customer/v1"),
-	)
-
 	server.AddRoutes(
 		[]rest.Route{
 			{
@@ -154,6 +139,11 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Handler: auth.LoginHandler(serverCtx),
 			},
 			{
+				Method:  http.MethodPost,
+				Path:    "/op/login/exchange/:type",
+				Handler: auth.ExchangeHandler(serverCtx),
+			},
+			{
 				Method:  http.MethodGet,
 				Path:    "/user-info",
 				Handler: auth.GetUserInfoHandler(serverCtx),
@@ -192,5 +182,47 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			},
 		},
 		rest.WithPrefix("/api/public/v1"),
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
+			{
+				Method:  http.MethodGet,
+				Path:    "/customers/:id",
+				Handler: customer.GetCustomerHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodPost,
+				Path:    "/op/sync-customers",
+				Handler: customer.BatchSyncCustomersHandler(serverCtx),
+			},
+		},
+		rest.WithPrefix("/api/customer/v1"),
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
+			{
+				Method:  http.MethodGet,
+				Path:    "/clues",
+				Handler: clue.ListCluesHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodPost,
+				Path:    "/clues",
+				Handler: clue.CreateCluesHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodPatch,
+				Path:    "/clues/:id",
+				Handler: clue.PatchClueHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodDelete,
+				Path:    "/clues/:id",
+				Handler: clue.DeleteClueHandler(serverCtx),
+			},
+		},
+		rest.WithPrefix("/api/clue/v1"),
 	)
 }

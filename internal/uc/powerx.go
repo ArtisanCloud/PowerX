@@ -16,7 +16,6 @@ type PowerXUseCase struct {
 	Tag         *TagUseCase
 	Contact     *ContactUseCase
 	WeWork      *WeWorkUseCase
-	SyncWeWork  *SyncWeWorkUseCase
 	MetadataCtx *MetadataCtx
 }
 
@@ -47,8 +46,7 @@ func NewPowerXUseCase(conf *config.Config) (uc *PowerXUseCase, clean func()) {
 	uc.Department = newDepartmentUseCase(db)
 	uc.Tag = newTagUseCase(db)
 	uc.Contact = newContactUseCase(db)
-	uc.WeWork = newWeWorkUseCase(conf)
-	uc.SyncWeWork = newSyncWeWorkUseCase(db, uc.WeWork, uc.Employee, uc.Department, uc.Auth, uc.Tag)
+	uc.WeWork = newWeWorkUseCase(conf, db, uc.Employee, uc.Department, uc.Auth, uc.Tag)
 
 	uc.AutoMigrate(context.Background())
 	uc.AutoInit()

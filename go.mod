@@ -3,7 +3,7 @@ module PowerX
 go 1.19
 
 require (
-	github.com/ArtisanCloud/PowerWeChat/v3 v3.0.1
+	github.com/ArtisanCloud/PowerWeChat/v3 v3.0.14
 	github.com/Blank-Xu/sql-adapter v0.0.0-20210714092925-0bdd0d548758
 	github.com/casbin/casbin/v2 v2.60.0
 	github.com/golang-jwt/jwt/v4 v4.4.3
@@ -15,8 +15,8 @@ require (
 )
 
 require (
-	github.com/ArtisanCloud/PowerLibs/v3 v3.0.0-beta9 // indirect
-	github.com/ArtisanCloud/PowerSocialite/v3 v3.0.0-beta3 // indirect
+	github.com/ArtisanCloud/PowerLibs/v3 v3.0.2 // indirect
+	github.com/ArtisanCloud/PowerSocialite/v3 v3.0.4 // indirect
 	github.com/Knetic/govaluate v3.0.1-0.20171022003610-9aa49832a739+incompatible // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cenkalti/backoff/v4 v4.1.3 // indirect
@@ -60,7 +60,7 @@ require (
 	go.opentelemetry.io/proto/otlp v0.19.0 // indirect
 	go.uber.org/atomic v1.10.0 // indirect
 	go.uber.org/automaxprocs v1.5.1 // indirect
-	go.uber.org/multierr v1.9.0 // indirect
+	go.uber.org/multierr v1.10.0 // indirect
 	go.uber.org/zap v1.24.0 // indirect
 	golang.org/x/crypto v0.4.0 // indirect
 	golang.org/x/net v0.3.0 // indirect
