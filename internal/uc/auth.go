@@ -9,6 +9,7 @@ import (
 	sqladapter "github.com/Blank-Xu/sql-adapter"
 	"github.com/casbin/casbin/v2"
 	fileadapter "github.com/casbin/casbin/v2/persist/file-adapter"
+	"github.com/google/uuid"
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
 	"github.com/zeromicro/go-zero/core/logx"
@@ -16,6 +17,7 @@ import (
 	"os"
 	"path"
 	"strings"
+	"time"
 )
 
 type AuthUseCase struct {
@@ -359,4 +361,29 @@ func (a *AuthUseCase) PatchRoleByRoleCode(ctx context.Context, roleCode string, 
 	if err != nil {
 		panic(errors.Wrap(err, "update role failed"))
 	}
+}
+
+type OpenAppCertificate struct {
+	AppId       string
+	Secret      string
+	AccessToken string
+	ExpiredAt   time.Time
+	*types.Model
+}
+
+const defaultExpired = time.Hour * 24 * 3
+
+func (a *AuthUseCase) SignOpenAppAccessToken(ctx context.Context, appId string, secret string) (accessToken string, err error) {
+	var cert OpenAppCertificate
+	err = a.db.WithContext(ctx).Find(OpenAppCertificate{AppId: appId}).Scan(&cert).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return "", errorx.WithCause(errorx.ErrBadRequest, "AppId不存在或Secret错误")
+		}
+		panic(errors.Wrap(err, "find open app by app id failed"))
+	}
+	if cert.Secret != secret {
+		return "", errorx.WithCause(errorx.ErrBadRequest, "AppId不存在或Secret错误")
+	}
+	cert.AccessToken = uuid.New().String()
 }

@@ -16,8 +16,18 @@ func newCustomerUseCase(db *gorm.DB) *CustomerUseCase {
 }
 
 type Customer struct {
-	Name   string
-	Avatar string
+	Name                  string
+	Avatar                string
+	MiniProgramOpenId     string
+	OfficialAccountOpenId string
+	WeWorkOpenId          string
+	PhoneNumber           string
+	Email                 string
+	InviterCustomerId     string
+	Source                string
+	Status                string
+	Type                  string
+	IsActivated           bool
 }
 
 func (c *CustomerUseCase) CreateCustomers(ctx context.Context) {
