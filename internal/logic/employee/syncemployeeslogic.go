@@ -27,10 +27,10 @@ func (l *SyncEmployeesLogic) SyncEmployees(req *types.SyncEmployeesRequest) (res
 	syncCase := req.Source + "-" + req.Target
 	switch syncCase {
 	case "wework-system":
-		l.svcCtx.UC.SyncWeWork.FetchDepartments(l.ctx)
-		l.svcCtx.UC.SyncWeWork.FetchEmployees(l.ctx)
-		l.svcCtx.UC.SyncWeWork.SyncDepartmentsToSystem(l.ctx)
-		l.svcCtx.UC.SyncWeWork.SyncEmployeeToSystem(l.ctx)
+		l.svcCtx.UC.WeWork.FetchDepartments(l.ctx)
+		l.svcCtx.UC.WeWork.FetchEmployees(l.ctx)
+		l.svcCtx.UC.WeWork.SyncDepartmentsToSystem(l.ctx)
+		l.svcCtx.UC.WeWork.SyncEmployeeToSystem(l.ctx)
 		//l.svcCtx.UC.SyncWeWork.SyncDepartmentsLeadersToSystem(l.ctx)
 		return &types.SyncEmployeesReply{
 			Status: true,

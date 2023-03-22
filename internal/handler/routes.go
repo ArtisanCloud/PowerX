@@ -139,6 +139,11 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Handler: auth.LoginHandler(serverCtx),
 			},
 			{
+				Method:  http.MethodPost,
+				Path:    "/op/login/exchange/:type",
+				Handler: auth.ExchangeHandler(serverCtx),
+			},
+			{
 				Method:  http.MethodGet,
 				Path:    "/user-info",
 				Handler: auth.GetUserInfoHandler(serverCtx),

@@ -300,7 +300,18 @@ type LoginRequest struct {
 }
 
 type LoginReply struct {
-	Token string `json:"token"`
+	Token        string `json:"token"`
+	RefreshToken string `json:"refreshToken"`
+}
+
+type ExchangeRequest struct {
+	Type string `path:"type,optional=wechat"`
+	Code string `json:"code"`
+}
+
+type ExchangeReply struct {
+	Token        string `json:"token"`
+	RefreshToken string `json:"refreshToken"`
 }
 
 type GetUserInfoReply struct {

@@ -2,6 +2,7 @@ package uc
 
 import (
 	"context"
+	"github.com/pkg/errors"
 	"gorm.io/gorm"
 )
 
@@ -18,6 +19,8 @@ type Clue struct {
 	*gorm.Model
 }
 
-func (c *ClueUseCase) CreateClues(ctx context.Context, clues []Clue) (id []int64) {
-	c.db.WithContext(ctx).Create(clues)
+func (c *ClueUseCase) CreateClues(ctx context.Context, clues []Clue) {
+	if err := c.db.WithContext(ctx).Create(&clues).Error; err != nil {
+		panic(errors.Wrap(err, "create clues failed"))
+	}
 }
