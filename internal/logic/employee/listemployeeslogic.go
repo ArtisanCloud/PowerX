@@ -3,7 +3,7 @@ package employee
 import (
 	"PowerX/internal/svc"
 	"PowerX/internal/types"
-	"PowerX/internal/uc"
+	"PowerX/internal/uc/powerx"
 	"context"
 	"github.com/zeromicro/go-zero/core/logx"
 	"time"
@@ -24,7 +24,7 @@ func NewListEmployeesLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Lis
 }
 
 func (l *ListEmployeesLogic) ListEmployees(req *types.ListEmployeesRequest) (resp *types.ListEmployeesReply, err error) {
-	opt := uc.FindEmployeeOption{
+	opt := powerx.FindEmployeeOption{
 		Ids:             req.Ids,
 		LikeName:        req.LikeName,
 		LikeEmail:       req.LikeEmail,
@@ -48,9 +48,9 @@ func (l *ListEmployeesLogic) ListEmployees(req *types.ListEmployeesRequest) (res
 	}
 	if req.IsEnabled != nil {
 		if *req.IsEnabled {
-			opt.Statuses = append(opt.Statuses, uc.EmployeeStatusEnable)
+			opt.Statuses = append(opt.Statuses, powerx.EmployeeStatusEnable)
 		} else {
-			opt.Statuses = append(opt.Statuses, uc.EmployeeStatusDisable)
+			opt.Statuses = append(opt.Statuses, powerx.EmployeeStatusDisable)
 		}
 	}
 

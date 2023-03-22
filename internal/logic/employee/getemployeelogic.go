@@ -1,7 +1,7 @@
 package employee
 
 import (
-	"PowerX/internal/uc"
+	"PowerX/internal/uc/powerx"
 	"context"
 	"time"
 
@@ -26,7 +26,7 @@ func NewGetEmployeeLogic(ctx context.Context, svcCtx *svc.ServiceContext) *GetEm
 }
 
 func (l *GetEmployeeLogic) GetEmployee(req *types.GetEmployeeRequest) (resp *types.GetEmployeeReply, err error) {
-	employee, err := l.svcCtx.UC.Employee.FindOneEmployee(l.ctx, &uc.FindEmployeeOption{
+	employee, err := l.svcCtx.UC.Employee.FindOneEmployee(l.ctx, &powerx.FindEmployeeOption{
 		Ids: []int64{req.Id},
 	})
 	if err != nil {

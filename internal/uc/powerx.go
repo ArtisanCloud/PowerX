@@ -2,6 +2,7 @@ package uc
 
 import (
 	"PowerX/internal/config"
+	"PowerX/internal/uc/powerx"
 	"context"
 	"github.com/pkg/errors"
 	"gorm.io/driver/postgres"
@@ -10,13 +11,13 @@ import (
 
 type PowerXUseCase struct {
 	db          *gorm.DB
-	Auth        *AuthUseCase
-	Employee    *EmployeeUseCase
-	Department  *DepartmentUseCase
-	Tag         *TagUseCase
-	Contact     *ContactUseCase
-	WeWork      *WeWorkUseCase
-	MetadataCtx *MetadataCtx
+	Auth        *powerx.AuthUseCase
+	Employee    *powerx.EmployeeUseCase
+	Department  *powerx.DepartmentUseCase
+	Tag         *powerx.TagUseCase
+	Contact     *powerx.ContactUseCase
+	WeWork      *powerx.WeWorkUseCase
+	MetadataCtx *powerx.MetadataCtx
 }
 
 func NewPowerXUseCase(conf *config.Config) (uc *PowerXUseCase, clean func()) {
@@ -40,13 +41,13 @@ func NewPowerXUseCase(conf *config.Config) (uc *PowerXUseCase, clean func()) {
 		db: db,
 	}
 	// 加载子UseCase
-	uc.MetadataCtx = newMetadataCtx()
-	uc.Employee = newEmployeeUseCase(db)
-	uc.Auth = newCasbinUseCase(db, uc.MetadataCtx, uc.Employee)
-	uc.Department = newDepartmentUseCase(db)
-	uc.Tag = newTagUseCase(db)
-	uc.Contact = newContactUseCase(db)
-	uc.WeWork = newWeWorkUseCase(conf, db, uc.Employee, uc.Department, uc.Auth, uc.Tag)
+	uc.MetadataCtx = powerx.NewMetadataCtx()
+	uc.Employee = powerx.NewEmployeeUseCase(db)
+	uc.Auth = powerx.NewCasbinUseCase(db, uc.MetadataCtx, uc.Employee)
+	uc.Department = powerx.NewDepartmentUseCase(db)
+	uc.Tag = powerx.NewTagUseCase(db)
+	uc.Contact = powerx.NewContactUseCase(db)
+	uc.WeWork = powerx.NewWeWorkUseCase(conf, db, uc.Employee, uc.Department, uc.Auth, uc.Tag)
 
 	uc.AutoMigrate(context.Background())
 	uc.AutoInit()
@@ -57,9 +58,9 @@ func NewPowerXUseCase(conf *config.Config) (uc *PowerXUseCase, clean func()) {
 }
 
 func (p *PowerXUseCase) AutoMigrate(ctx context.Context) {
-	p.db.AutoMigrate(&CasbinPolicy{}, &AuthRole{}, &AuthRestAction{}, &AuthRecourse{})
-	p.db.AutoMigrate(&Department{}, &Employee{}, &LiveQRCode{})
-	p.db.AutoMigrate(&WeWorkDepartment{}, &WeWorkEmployee{})
+	p.db.AutoMigrate(&powerx.CasbinPolicy{}, &powerx.AuthRole{}, &powerx.AuthRestAction{}, &powerx.AuthRecourse{})
+	p.db.AutoMigrate(&powerx.Department{}, &powerx.Employee{}, &powerx.LiveQRCode{})
+	p.db.AutoMigrate(&powerx.WeWorkDepartment{}, &powerx.WeWorkEmployee{})
 }
 
 func (p *PowerXUseCase) AutoInit() {

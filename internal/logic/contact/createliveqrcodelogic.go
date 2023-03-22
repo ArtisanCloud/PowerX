@@ -1,7 +1,7 @@
 package contact
 
 import (
-	"PowerX/internal/uc"
+	"PowerX/internal/uc/powerx"
 	"context"
 	"fmt"
 
@@ -26,7 +26,7 @@ func NewCreateLiveQRCodeLogic(ctx context.Context, svcCtx *svc.ServiceContext) *
 }
 
 func (l *CreateLiveQRCodeLogic) CreateLiveQRCode(req *types.CreateLiveQRCodeRequest) (resp *types.CreateLiveQRCodeReply, err error) {
-	var code uc.LiveQRCode
+	var code powerx.LiveQRCode
 	switch req.Type {
 	case "WEB":
 		code.RedirectTo = req.Web.Url

@@ -1,0 +1,36 @@
+@server(
+    group: admin/auth
+    prefix: /api/admin/auth/v1
+)
+
+service PowerX {
+    @doc "登录"
+    @handler Login
+    post /access/actions/basic-login (LoginRequest) returns (LoginReply)
+
+    @doc "Exchange"
+    @handler Exchange
+    post /access/actions/exchange-token (ExchangeRequest) returns (ExchangeReply)
+}
+
+type LoginRequest {
+    UserName string `json:"userName,optional"`
+    PhoneNumber string `json:"phoneNumber,optional"`
+    Email string `json:"email,optional"`
+    Password string `json:"password"`
+}
+
+type LoginReply {
+    Token string `json:"token"`
+    RefreshToken string `json:"refreshToken"`
+}
+
+type ExchangeRequest {
+    Type string `path:"type,optional=wechat"`
+    Code string `json:"code"`
+}
+
+type ExchangeReply {
+    Token string `json:"token"`
+    RefreshToken string `json:"refreshToken"`
+}

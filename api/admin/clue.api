@@ -1,6 +1,6 @@
 @server(
-    group: clue
-    prefix: /api/clue/v1
+    group: admin/clue
+    prefix: /api/admin/v1
 )
 
 service PowerX {

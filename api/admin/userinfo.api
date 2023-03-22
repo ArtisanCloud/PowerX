@@ -1,22 +1,19 @@
-@server(
-    group: auth
-    prefix: /api/auth/v1
+syntax = "v1"
+
+info(
+    title: "用户中心"
+    desc: "用户中心"
+    author: "Northseadl"
+    email: "northseadl@outlook.com"
+    version: "v1"
 )
 
 service PowerX {
-    @doc "登录"
-    @handler Login
-    post /op/login/basic (LoginRequest) returns (LoginReply)
-
-    @doc "Exchange"
-    @handler Exchange
-    post /op/login/exchange/:type (ExchangeRequest) returns (ExchangeReply)
-
     @doc "获取用户信息"
     @handler GetUserInfo
     get /user-info returns (GetUserInfoReply)
 
-    @doc "获取菜单角色"
+    @doc "获取用户可见菜单"
     @handler GetMenuRoles
     get /menu-roles returns (GetMenuRolesReply)
 }
@@ -27,22 +24,6 @@ type LoginRequest {
     Email string `json:"email,optional"`
     Password string `json:"password"`
 }
-
-type LoginReply {
-    Token string `json:"token"`
-    RefreshToken string `json:"refreshToken"`
-}
-
-type ExchangeRequest {
-    Type string `path:"type,optional=wechat"`
-    Code string `json:"code"`
-}
-
-type ExchangeReply {
-    Token string `json:"token"`
-    RefreshToken string `json:"refreshToken"`
-}
-
 
 type GetUserInfoReply {
     Id int64 `json:"id"`

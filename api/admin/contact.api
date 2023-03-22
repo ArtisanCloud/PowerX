@@ -1,6 +1,6 @@
 @server(
-    group: contact
-    prefix: /api/contact/v1
+    group: admin/contact
+    prefix: /api/admin/v1
 )
 
 service PowerX {

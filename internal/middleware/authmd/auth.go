@@ -4,7 +4,7 @@ import (
 	"PowerX/internal/svc"
 	"PowerX/internal/types"
 	"PowerX/internal/types/errorx"
-	"PowerX/internal/uc"
+	"PowerX/internal/uc/powerx"
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
@@ -120,7 +120,7 @@ func AuthMiddleware(ctx *svc.ServiceContext, opts ...optionFunc) rest.Middleware
 					return
 				}
 			}
-			request = request.WithContext(ctx.UC.MetadataCtx.WithAuthMetadataCtxValue(request.Context(), &uc.AuthMetadata{
+			request = request.WithContext(ctx.UC.MetadataCtx.WithAuthMetadataCtxValue(request.Context(), &powerx.AuthMetadata{
 				UID: claims.UID,
 			}))
 			next(writer, request)

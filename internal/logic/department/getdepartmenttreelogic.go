@@ -4,7 +4,7 @@ import (
 	"PowerX/internal/svc"
 	"PowerX/internal/types"
 	"PowerX/internal/types/errorx"
-	"PowerX/internal/uc"
+	"PowerX/internal/uc/powerx"
 	"context"
 	"github.com/zeromicro/go-zero/core/logx"
 )
@@ -25,7 +25,7 @@ func NewGetDepartmentTreeLogic(ctx context.Context, svcCtx *svc.ServiceContext) 
 
 func (l *GetDepartmentTreeLogic) GetDepartmentTree(req *types.GetDepartmentTreeRequest) (resp *types.GetDepartmentTreeReply, err error) {
 	var userIds []int64
-	depPage := l.svcCtx.UC.Department.FindManyDepartments(l.ctx, &uc.FindManyDepartmentsOption{
+	depPage := l.svcCtx.UC.Department.FindManyDepartments(l.ctx, &powerx.FindManyDepartmentsOption{
 		RootId: req.DepId,
 	})
 

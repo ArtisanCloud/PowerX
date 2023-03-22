@@ -3,7 +3,7 @@ package employee
 import (
 	"PowerX/internal/svc"
 	"PowerX/internal/types"
-	"PowerX/internal/uc"
+	"PowerX/internal/uc/powerx"
 	"context"
 	"github.com/pkg/errors"
 	"github.com/zeromicro/go-zero/core/logx"
@@ -24,10 +24,10 @@ func NewCreateEmployeeLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Cr
 }
 
 func (l *CreateEmployeeLogic) CreateEmployee(req *types.CreateEmployeeRequest) (resp *types.CreateEmployeeReply, err error) {
-	gender := (*uc.Gender)(req.Gender)
-	status := uc.EmployeeStatusEnable
+	gender := (*powerx.Gender)(req.Gender)
+	status := powerx.EmployeeStatusEnable
 	// create employee
-	employee := uc.Employee{
+	employee := powerx.Employee{
 		Account:       req.Account,
 		Name:          req.Name,
 		NickName:      req.NickName,
@@ -46,7 +46,7 @@ func (l *CreateEmployeeLogic) CreateEmployee(req *types.CreateEmployeeRequest) (
 	if err != nil {
 		panic(errors.Wrap(err, "create employee hash password failed"))
 	}
-	l.svcCtx.UC.Employee.CreateEmployees(l.ctx, []*uc.Employee{&employee})
+	l.svcCtx.UC.Employee.CreateEmployees(l.ctx, []*powerx.Employee{&employee})
 
 	return &types.CreateEmployeeReply{
 		Id: employee.ID,

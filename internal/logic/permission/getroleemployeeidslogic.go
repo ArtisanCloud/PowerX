@@ -3,7 +3,7 @@ package permission
 import (
 	"PowerX/internal/svc"
 	"PowerX/internal/types"
-	"PowerX/internal/uc"
+	"PowerX/internal/uc/powerx"
 	"PowerX/pkg/slicex"
 	"context"
 
@@ -31,10 +31,10 @@ func (l *GetRoleEmployeeIdsLogic) GetRoleEmployeeIds(req *types.GetRoleEmployeeI
 			EmployeeIds: []int64{},
 		}, nil
 	}
-	employeePage := l.svcCtx.UC.Employee.FindManyEmployees(l.ctx, &uc.FindEmployeeOption{
+	employeePage := l.svcCtx.UC.Employee.FindManyEmployees(l.ctx, &powerx.FindEmployeeOption{
 		Accounts: accounts,
 	})
-	ids := slicex.SlicePluck(employeePage.List, func(item *uc.Employee) int64 {
+	ids := slicex.SlicePluck(employeePage.List, func(item *powerx.Employee) int64 {
 		return item.ID
 	})
 	return &types.GetRoleEmployeeIdsReply{

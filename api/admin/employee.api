@@ -1,14 +1,22 @@
-import "basetype.api"
+syntax = "v1"
+
+info(
+    title: "用户中心"
+    desc: "用户中心"
+    author: "Northseadl"
+    email: "northseadl@outlook.com"
+    version: "v1"
+)
 
 @server(
-    group: employee
-    prefix: /api/employee/v1
+    group: admin/employee
+    prefix: /api/admin/employee/v1
 )
 
 service PowerX {
     @doc "同步员工"
     @handler SyncEmployees
-    post /op/sync-employees (SyncEmployeesRequest) returns (SyncEmployeesReply)
+    post /employees/actions/sync (SyncEmployeesRequest) returns (SyncEmployeesReply)
 
     @doc "查询员工"
     @handler GetEmployee

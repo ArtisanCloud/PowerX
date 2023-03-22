@@ -1,10 +1,20 @@
+syntax = "v1"
+
+info(
+    title: "权限管理"
+    desc: "权限管理"
+    author: "Northseadl"
+    email: "northseadl@outlook.com"
+    version: "v1"
+)
+
 @server(
-    group: permission
-    prefix: /api/permission/v1
+    group: admin/permission
+    prefix: /api/admin/permission/v1
 )
 
 service PowerX {
-    @doc "查询角色"
+    @doc "查询角色列表"
     @handler ListRoles
     get /roles returns (ListRolesReply)
 
@@ -20,17 +30,21 @@ service PowerX {
     @handler PutRole
     put /roles/:roleCode (PutRoleReqeust) returns (PutRoleReply)
 
-    @doc "获取角色的用户Id列表"
+    @doc "获取角色的用户列表"
     @handler GetRoleEmployeeIds
-    get /role-employee-ids/:roleCode (GetRoleEmployeeIdsReqeust) returns (GetRoleEmployeeIdsReply)
+    get /roles/:roleCode/users (GetRoleEmployeeIdsReqeust) returns (GetRoleEmployeeIdsReply)
 
-    @doc "查询Rest资源"
-    @handler ListRecourses
-    get /recourses returns (ListRecoursesReply)
+    @doc "为角色授予API权限"
+    @handler SetRolePermissions
+    post /roles/:roleCode/actions/set-permissions
 
-    @doc "授权操作"
-    @handler AssignAuth
-    post /op/assign-auth (AssignAuthRequest)
+    @doc "查询API权限"
+    @handler ListPermissiom
+    get /permissions returns (ListRecoursesReply)
+
+    @doc "为用户授予角色"
+    @handler SetUserRoles
+    post /users/:userId/actions/set-roles
 }
 
 type (
@@ -104,32 +118,6 @@ type (
 
     ListRecoursesReply {
         List []AuthRes `json:"list"`
-    }
-)
-
-type (
-    RoleAssignRes {
-        RoleCodes []string `json:"roleCodes"`
-        ActIds []int64 `json:"actIds"`
-        IsReplace bool `json:"isReplace"`
-    }
-
-    UsersAssignRole {
-        UserIds []int64 `json:"userIds"`
-        RoleCodes []string `json:"roleCodes"`
-        IsReplace bool `json:"isReplace"`
-    }
-
-    RoleAssignUsers {
-        RoleCode string `json:"roleCode"`
-        UserIds []int64 `json:"userIds"`
-        IsReplace bool `json:"isReplace"`
-    }
-
-    AssignAuthRequest {
-        UserAssignRole *UsersAssignRole `json:"userAssignRole,optional"`
-        RoleAssignRes *RoleAssignRes `json:"roleAssignRes,optional"`
-        RoleAssignUsers *RoleAssignUsers `json:"roleAssignUsers,optional"`
     }
 )
 

@@ -4,7 +4,7 @@ import (
 	"PowerX/internal/svc"
 	"PowerX/internal/types"
 	"PowerX/internal/types/errorx"
-	"PowerX/internal/uc"
+	"PowerX/internal/uc/powerx"
 	"context"
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/pkg/errors"
@@ -31,7 +31,7 @@ func (l *LoginLogic) Login(req *types.LoginRequest) (resp *types.LoginReply, err
 	if err != nil {
 		panic(err)
 	}
-	opt := uc.FindEmployeeOption{}
+	opt := powerx.FindEmployeeOption{}
 	if req.Email != "" {
 		opt.Emails = []string{req.Email}
 	}

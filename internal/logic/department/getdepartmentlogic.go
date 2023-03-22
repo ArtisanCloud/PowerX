@@ -1,7 +1,7 @@
 package department
 
 import (
-	"PowerX/internal/uc"
+	"PowerX/internal/uc/powerx"
 	"context"
 
 	"PowerX/internal/svc"
@@ -25,7 +25,7 @@ func NewGetDepartmentLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Get
 }
 
 func (l *GetDepartmentLogic) GetDepartment(req *types.GetDepartmentRequest) (resp *types.GetDepartmentReply, err error) {
-	department, err := l.svcCtx.UC.Department.FindOneDepartment(l.ctx, &uc.FindOneDepartmentOption{
+	department, err := l.svcCtx.UC.Department.FindOneDepartment(l.ctx, &powerx.FindOneDepartmentOption{
 		Id: &req.Id,
 	})
 	if err != nil {

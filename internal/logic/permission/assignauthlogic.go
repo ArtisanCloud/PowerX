@@ -3,7 +3,7 @@ package permission
 import (
 	"PowerX/internal/svc"
 	"PowerX/internal/types"
-	"PowerX/internal/uc"
+	"PowerX/internal/uc/powerx"
 	"PowerX/pkg/slicex"
 	"context"
 	"github.com/pkg/errors"
@@ -29,7 +29,7 @@ func (l *AssignAuthLogic) AssignAuth(req *types.AssignAuthRequest) error {
 		acts := l.svcCtx.UC.Auth.FindManyRestActsByIds(l.ctx, req.RoleAssignRes.ActIds)
 		for _, code := range req.RoleAssignRes.RoleCodes {
 			for _, act := range acts {
-				_, err := l.svcCtx.UC.Auth.Casbin.AddPolicy(code, uc.FormatAuthRestObj(act.ResCode, act.Version, act.RestPath), act.Action)
+				_, err := l.svcCtx.UC.Auth.Casbin.AddPolicy(code, powerx.FormatAuthRestObj(act.ResCode, act.Version, act.RestPath), act.Action)
 				if err != nil {
 					panic(errors.Wrap(err, "add policy failed"))
 				}
@@ -41,13 +41,13 @@ func (l *AssignAuthLogic) AssignAuth(req *types.AssignAuthRequest) error {
 	}
 
 	if req.UserAssignRole != nil {
-		userPage := l.svcCtx.UC.Employee.FindManyEmployees(l.ctx, &uc.FindEmployeeOption{
+		userPage := l.svcCtx.UC.Employee.FindManyEmployees(l.ctx, &powerx.FindEmployeeOption{
 			Ids: req.UserAssignRole.UserIds,
 		})
 		if len(userPage.List) == 0 {
 			return nil
 		}
-		accounts := slicex.SlicePluck(userPage.List, func(item *uc.Employee) string {
+		accounts := slicex.SlicePluck(userPage.List, func(item *powerx.Employee) string {
 			return item.Account
 		})
 
@@ -68,13 +68,13 @@ func (l *AssignAuthLogic) AssignAuth(req *types.AssignAuthRequest) error {
 		if len(req.RoleAssignUsers.UserIds) == 0 {
 			return nil
 		}
-		userPage := l.svcCtx.UC.Employee.FindManyEmployees(l.ctx, &uc.FindEmployeeOption{
+		userPage := l.svcCtx.UC.Employee.FindManyEmployees(l.ctx, &powerx.FindEmployeeOption{
 			Ids: req.RoleAssignUsers.UserIds,
 		})
 		if len(userPage.List) == 0 {
 			return nil
 		}
-		accounts := slicex.SlicePluck(userPage.List, func(item *uc.Employee) string {
+		accounts := slicex.SlicePluck(userPage.List, func(item *powerx.Employee) string {
 			return item.Account
 		})
 		if len(accounts) > 0 {

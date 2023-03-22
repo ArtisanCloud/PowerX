@@ -2,7 +2,7 @@ package department
 
 import (
 	"PowerX/internal/types/errorx"
-	"PowerX/internal/uc"
+	"PowerX/internal/uc/powerx"
 	"context"
 
 	"PowerX/internal/svc"
@@ -27,7 +27,7 @@ func NewDeleteDepartmentLogic(ctx context.Context, svcCtx *svc.ServiceContext) *
 
 func (l *DeleteDepartmentLogic) DeleteDepartment(req *types.DeleteDepartmentRequest) (resp *types.DeleteDepartmentReply, err error) {
 	// 检查部门下是否还有员工
-	depPage := l.svcCtx.UC.Department.FindManyDepartments(l.ctx, &uc.FindManyDepartmentsOption{
+	depPage := l.svcCtx.UC.Department.FindManyDepartments(l.ctx, &powerx.FindManyDepartmentsOption{
 		RootId: req.Id,
 	})
 	var depIds []int64
@@ -35,7 +35,7 @@ func (l *DeleteDepartmentLogic) DeleteDepartment(req *types.DeleteDepartmentRequ
 		depIds = append(depIds, department.ID)
 	}
 
-	count := l.svcCtx.UC.Employee.CountEmployees(l.ctx, &uc.FindEmployeeOption{
+	count := l.svcCtx.UC.Employee.CountEmployees(l.ctx, &powerx.FindEmployeeOption{
 		DepIds: depIds,
 	})
 	if count > 0 {

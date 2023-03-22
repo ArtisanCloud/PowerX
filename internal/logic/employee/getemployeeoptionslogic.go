@@ -1,7 +1,7 @@
 package employee
 
 import (
-	"PowerX/internal/uc"
+	"PowerX/internal/uc/powerx"
 	"PowerX/pkg/slicex"
 	"context"
 
@@ -54,7 +54,7 @@ func (l *GetEmployeeOptionsLogic) GetEmployeeOptions(req *types.GetEmployeeOptio
 		resp.Roles = vos
 	}
 	if slicex.Contains(req.Scopes, GetEmployeeOptionScopeDepartment) {
-		deps := l.svcCtx.UC.Department.FindManyDepartments(l.ctx, &uc.FindManyDepartmentsOption{})
+		deps := l.svcCtx.UC.Department.FindManyDepartments(l.ctx, &powerx.FindManyDepartmentsOption{})
 		var vos []types.SimpleDepartment
 		for _, department := range deps.List {
 			vos = append(vos, types.SimpleDepartment{

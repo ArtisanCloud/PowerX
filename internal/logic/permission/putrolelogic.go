@@ -1,7 +1,7 @@
 package permission
 
 import (
-	"PowerX/internal/uc"
+	"PowerX/internal/uc/powerx"
 	"PowerX/pkg/slicex"
 	"context"
 	"github.com/pkg/errors"
@@ -31,7 +31,7 @@ func (l *PutRoleLogic) PutRole(req *types.PutRoleReqeust) (resp *types.PutRoleRe
 	if err != nil {
 		return nil, err
 	}
-	patch := uc.AuthRole{
+	patch := powerx.AuthRole{
 		Name:      req.Name,
 		Desc:      req.Desc,
 		MenuNames: req.MenuNames,
@@ -52,7 +52,7 @@ func (l *PutRoleLogic) PutRole(req *types.PutRoleReqeust) (resp *types.PutRoleRe
 
 	l.svcCtx.UC.Auth.PatchRoleByRoleCode(l.ctx, role.RoleCode, &patch)
 
-	actIds := slicex.SlicePluck(acts, func(item *uc.AuthRestAction) int64 {
+	actIds := slicex.SlicePluck(acts, func(item *powerx.AuthRestAction) int64 {
 		return item.ID
 	})
 

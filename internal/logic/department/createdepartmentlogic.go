@@ -2,7 +2,7 @@ package department
 
 import (
 	"PowerX/internal/types/errorx"
-	"PowerX/internal/uc"
+	"PowerX/internal/uc/powerx"
 	"context"
 
 	"PowerX/internal/svc"
@@ -27,14 +27,14 @@ func NewCreateDepartmentLogic(ctx context.Context, svcCtx *svc.ServiceContext) *
 
 func (l *CreateDepartmentLogic) CreateDepartment(req *types.CreateDepartmentRequest) (resp *types.CreateDepartmentReply, err error) {
 	// 校验leaderIds是否全部存在
-	count := l.svcCtx.UC.Employee.CountEmployees(l.ctx, &uc.FindEmployeeOption{
+	count := l.svcCtx.UC.Employee.CountEmployees(l.ctx, &powerx.FindEmployeeOption{
 		Ids: req.LeaderIds,
 	})
 	if count != int64(len(req.LeaderIds)) {
 		return nil, errorx.WithCause(errorx.ErrBadRequest, "部分部门负责人不存在")
 	}
 
-	dep := uc.Department{
+	dep := powerx.Department{
 		Name:      req.DepName,
 		LeaderIds: req.LeaderIds,
 		Desc:      req.Desc,

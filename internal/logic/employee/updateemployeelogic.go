@@ -1,7 +1,7 @@
 package employee
 
 import (
-	"PowerX/internal/uc"
+	"PowerX/internal/uc/powerx"
 	"context"
 	"fmt"
 	"github.com/pkg/errors"
@@ -27,7 +27,7 @@ func NewUpdateEmployeeLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Up
 }
 
 func (l *UpdateEmployeeLogic) UpdateEmployee(req *types.UpdateEmployeeRequest) (resp *types.UpdateEmployeeReply, err error) {
-	employee := uc.Employee{
+	employee := powerx.Employee{
 		Model:         &types.Model{ID: req.Id},
 		Name:          req.Name,
 		NickName:      req.NickName,
@@ -35,12 +35,12 @@ func (l *UpdateEmployeeLogic) UpdateEmployee(req *types.UpdateEmployeeRequest) (
 		Position:      req.Position,
 		DepartmentIds: req.DepIds,
 		MobilePhone:   req.MobilePhone,
-		Gender:        (*uc.Gender)(req.Gender),
+		Gender:        (*powerx.Gender)(req.Gender),
 		Email:         req.Email,
 		ExternalEmail: req.ExternalEmail,
 		Avatar:        req.Avatar,
 		Password:      req.Password,
-		Status:        (*uc.EmployeeStatus)(req.Status),
+		Status:        (*powerx.EmployeeStatus)(req.Status),
 	}
 
 	err = employee.HashPassword()

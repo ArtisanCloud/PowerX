@@ -1,7 +1,7 @@
 package auth
 
 import (
-	"PowerX/internal/uc"
+	"PowerX/internal/uc/powerx"
 	"context"
 	"github.com/pkg/errors"
 	"time"
@@ -32,7 +32,7 @@ func (l *GetUserInfoLogic) GetUserInfo() (resp *types.GetUserInfoReply, err erro
 		panic(errors.Wrap(err, "get user metadata failed"))
 	}
 
-	employee, err := l.svcCtx.UC.Employee.FindOneEmployee(l.ctx, &uc.FindEmployeeOption{
+	employee, err := l.svcCtx.UC.Employee.FindOneEmployee(l.ctx, &powerx.FindEmployeeOption{
 		Ids: []int64{cred.UID},
 	})
 	if err != nil {
