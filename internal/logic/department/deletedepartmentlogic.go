@@ -27,7 +27,7 @@ func NewDeleteDepartmentLogic(ctx context.Context, svcCtx *svc.ServiceContext) *
 
 func (l *DeleteDepartmentLogic) DeleteDepartment(req *types.DeleteDepartmentRequest) (resp *types.DeleteDepartmentReply, err error) {
 	// 检查部门下是否还有员工
-	depPage := l.svcCtx.UC.Department.FindManyDepartments(l.ctx, &powerx.FindManyDepartmentsOption{
+	depPage := l.svcCtx.UC.Department.FindManyDepartments(l.ctx, &powerx.FindManyDepartmentsPageOption{
 		RootId: req.Id,
 	})
 	var depIds []int64
@@ -35,7 +35,7 @@ func (l *DeleteDepartmentLogic) DeleteDepartment(req *types.DeleteDepartmentRequ
 		depIds = append(depIds, department.ID)
 	}
 
-	count := l.svcCtx.UC.Employee.CountEmployees(l.ctx, &powerx.FindEmployeeOption{
+	count := l.svcCtx.UC.Employee.CountEmployees(l.ctx, &powerx.FindManyEmployeeOption{
 		DepIds: depIds,
 	})
 	if count > 0 {

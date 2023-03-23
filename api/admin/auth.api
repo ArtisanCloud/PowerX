@@ -1,3 +1,13 @@
+syntax = "v1"
+
+info(
+    title: "公开接口-登录相关"
+    desc: "公开接口-登录相关"
+    author: "Northseadl"
+    email: "northseadl@outlook.com"
+    version: "v1"
+)
+
 @server(
     group: admin/auth
     prefix: /api/admin/auth/v1

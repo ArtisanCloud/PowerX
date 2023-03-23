@@ -25,7 +25,7 @@ func NewGetDepartmentTreeLogic(ctx context.Context, svcCtx *svc.ServiceContext) 
 
 func (l *GetDepartmentTreeLogic) GetDepartmentTree(req *types.GetDepartmentTreeRequest) (resp *types.GetDepartmentTreeReply, err error) {
 	var userIds []int64
-	depPage := l.svcCtx.UC.Department.FindManyDepartments(l.ctx, &powerx.FindManyDepartmentsOption{
+	depPage := l.svcCtx.UC.Department.FindManyDepartments(l.ctx, &powerx.FindManyDepartmentsPageOption{
 		RootId: req.DepId,
 	})
 

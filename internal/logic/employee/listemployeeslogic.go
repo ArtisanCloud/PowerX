@@ -24,7 +24,7 @@ func NewListEmployeesLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Lis
 }
 
 func (l *ListEmployeesLogic) ListEmployees(req *types.ListEmployeesRequest) (resp *types.ListEmployeesReply, err error) {
-	opt := powerx.FindEmployeeOption{
+	opt := powerx.FindManyEmployeeOption{
 		Ids:             req.Ids,
 		LikeName:        req.LikeName,
 		LikeEmail:       req.LikeEmail,

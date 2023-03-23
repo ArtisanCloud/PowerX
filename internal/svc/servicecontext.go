@@ -7,14 +7,14 @@ import (
 
 type ServiceContext struct {
 	Config config.Config
-	UC     *uc.PowerXUseCase
+	PowerX *uc.PowerXUseCase
 }
 
 func NewServiceContext(c config.Config) *ServiceContext {
-	uc, _ := uc.NewPowerXUseCase(&c)
+	powerx, _ := uc.NewPowerXUseCase(&c)
 
 	return &ServiceContext{
 		Config: c,
-		UC:     uc,
+		PowerX: powerx,
 	}
 }

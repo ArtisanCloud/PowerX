@@ -1,8 +1,6 @@
-import "basetype.api"
-
 @server(
-    group: department
-    prefix: /api/department/v1
+    group: admin/department
+    prefix: /api/admin/department/v1
 )
 
 service PowerX {

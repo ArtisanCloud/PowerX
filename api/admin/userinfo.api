@@ -8,6 +8,11 @@ info(
     version: "v1"
 )
 
+@server (
+    group: admin/userinfo
+    prefix: /api/admin/v1
+)
+
 service PowerX {
     @doc "获取用户信息"
     @handler GetUserInfo
@@ -16,6 +21,10 @@ service PowerX {
     @doc "获取用户可见菜单"
     @handler GetMenuRoles
     get /menu-roles returns (GetMenuRolesReply)
+
+    @doc "修改密码"
+    @handler ModifyUserPassword
+    post /users/actions/modify-password
 }
 
 type LoginRequest {

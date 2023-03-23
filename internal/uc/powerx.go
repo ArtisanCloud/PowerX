@@ -12,8 +12,7 @@ import (
 type PowerXUseCase struct {
 	db          *gorm.DB
 	Auth        *powerx.AuthUseCase
-	Employee    *powerx.EmployeeUseCase
-	Department  *powerx.DepartmentUseCase
+	Employee    *powerx.OrganizationUseCase
 	Tag         *powerx.TagUseCase
 	Contact     *powerx.ContactUseCase
 	WeWork      *powerx.WeWorkUseCase

@@ -1,8 +1,8 @@
 syntax = "v1"
 
 info(
-    title: "用户中心"
-    desc: "用户中心"
+    title: "员工管理"
+    desc: "员工管理"
     author: "Northseadl"
     email: "northseadl@outlook.com"
     version: "v1"
@@ -30,7 +30,7 @@ service PowerX {
     @handler CreateEmployee
     post /employees (CreateEmployeeRequest) returns (CreateEmployeeReply)
 
-    @doc "员工Options"
+    @doc "查询员工过滤条件"
     @handler GetEmployeeOptions
     get /options (GetEmployeeOptionsRequest) returns (GetEmployeeOptionsReply)
 
@@ -44,7 +44,7 @@ service PowerX {
 
     @doc "重设密码"
     @handler ResetPassword
-    post /op/reset-password (ResetPasswordRequest) returns (ResetPasswordReply)
+    post /employees/actions/reset-password (ResetPasswordRequest) returns (ResetPasswordReply)
 }
 
 
@@ -161,10 +161,20 @@ type (
         Scopes []string `form:"scopes,options=position|role|department,optional"`
     }
 
+    RoleOption {
+        RoleCode string `json:"roleCode"`
+        RoleName string `json:"roleName"`
+    }
+
+    DepartmentOption {
+        DepartmentId int64 `json:"departmentId"`
+        DepartmentName string `json:"departmentName"`
+    }
+
     GetEmployeeOptionsReply {
         Positions []string `json:"positions"`
-        Roles []SimpleRole `json:"roles"`
-        Departments []SimpleDepartment `json:"departments"`
+        Roles []RoleOption `json:"roles"`
+        Departments []DepartmentOption `json:"departments"`
     }
 )
 

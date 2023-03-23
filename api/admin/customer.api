@@ -1,22 +1,24 @@
+syntax = "v1"
+
+info(
+    title: "客户管理"
+    desc: "客户管理"
+    author: "Northseadl"
+    email: "northseadl@outlook.com"
+    version: "v1"
+)
+
 @server(
-    group: customer
-    prefix: /api/customer/v1
+    group: admin/customer
+    prefix: /api/admin/customer/v1
 )
 
 service PowerX {
     @doc "查询客户"
     @handler GetCustomer
-    get /customers/:id (GetCustomerRequest) returns (GetCustomerReply)
+    get /customers/:id
 
-    @doc "批量同步客户"
-    @handler BatchSyncCustomers
-    post /op/sync-customers
-}
-
-type GetCustomerRequest {
-    Id int64 `path:"id"`
-}
-
-type GetCustomerReply {
-    Id int64 `json:"id"`
+    @doc "获取客户列表"
+    @handler ListCustomers
+    get /customers
 }

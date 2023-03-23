@@ -31,7 +31,7 @@ func (l *GetRoleEmployeeIdsLogic) GetRoleEmployeeIds(req *types.GetRoleEmployeeI
 			EmployeeIds: []int64{},
 		}, nil
 	}
-	employeePage := l.svcCtx.UC.Employee.FindManyEmployees(l.ctx, &powerx.FindEmployeeOption{
+	employeePage := l.svcCtx.UC.Employee.FindManyEmployees(l.ctx, &powerx.FindManyEmployeeOption{
 		Accounts: accounts,
 	})
 	ids := slicex.SlicePluck(employeePage.List, func(item *powerx.Employee) int64 {

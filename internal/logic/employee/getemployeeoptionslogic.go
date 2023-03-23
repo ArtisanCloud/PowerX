@@ -54,7 +54,7 @@ func (l *GetEmployeeOptionsLogic) GetEmployeeOptions(req *types.GetEmployeeOptio
 		resp.Roles = vos
 	}
 	if slicex.Contains(req.Scopes, GetEmployeeOptionScopeDepartment) {
-		deps := l.svcCtx.UC.Department.FindManyDepartments(l.ctx, &powerx.FindManyDepartmentsOption{})
+		deps := l.svcCtx.UC.Department.FindManyDepartments(l.ctx, &powerx.FindManyDepartmentsPageOption{})
 		var vos []types.SimpleDepartment
 		for _, department := range deps.List {
 			vos = append(vos, types.SimpleDepartment{

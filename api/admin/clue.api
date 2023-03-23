@@ -1,6 +1,17 @@
+syntax = "v1"
+
+info(
+    title: "线索管理"
+    desc: "线索管理"
+    author: "Northseadl"
+    email: "northseadl@outlook.com"
+    version: "v1"
+)
+
+
 @server(
     group: admin/clue
-    prefix: /api/admin/v1
+    prefix: /api/admin/clue/v1
 )
 
 service PowerX {

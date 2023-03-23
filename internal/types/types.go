@@ -58,21 +58,6 @@ type GetDepartmentReply struct {
 	*Department
 }
 
-type SimpleEmployee struct {
-	Id   int64  `json:"id"`
-	Name string `json:"name"`
-}
-
-type SimpleDepartment struct {
-	Id      int64  `json:"id"`
-	DepName string `json:"depName"`
-}
-
-type SimpleRole struct {
-	RoleCode string `json:"roleCode"`
-	RoleName string `json:"roleName"`
-}
-
 type GetEmployeeRequest struct {
 	Id int64 `path:"id"`
 }
@@ -174,10 +159,20 @@ type GetEmployeeOptionsRequest struct {
 	Scopes []string `form:"scopes,options=position|role|department,optional"`
 }
 
+type RoleOption struct {
+	RoleCode string `json:"roleCode"`
+	RoleName string `json:"roleName"`
+}
+
+type DepartmentOption struct {
+	DepartmentId   int64  `json:"departmentId"`
+	DepartmentName string `json:"departmentName"`
+}
+
 type GetEmployeeOptionsReply struct {
 	Positions   []string           `json:"positions"`
-	Roles       []SimpleRole       `json:"roles"`
-	Departments []SimpleDepartment `json:"departments"`
+	Roles       []RoleOption       `json:"roles"`
+	Departments []DepartmentOption `json:"departments"`
 }
 
 type DeleteEmployeeRequest struct {
@@ -260,30 +255,6 @@ type ListRecoursesReply struct {
 	List []AuthRes `json:"list"`
 }
 
-type RoleAssignRes struct {
-	RoleCodes []string `json:"roleCodes"`
-	ActIds    []int64  `json:"actIds"`
-	IsReplace bool     `json:"isReplace"`
-}
-
-type UsersAssignRole struct {
-	UserIds   []int64  `json:"userIds"`
-	RoleCodes []string `json:"roleCodes"`
-	IsReplace bool     `json:"isReplace"`
-}
-
-type RoleAssignUsers struct {
-	RoleCode  string  `json:"roleCode"`
-	UserIds   []int64 `json:"userIds"`
-	IsReplace bool    `json:"isReplace"`
-}
-
-type AssignAuthRequest struct {
-	UserAssignRole  *UsersAssignRole `json:"userAssignRole,optional"`
-	RoleAssignRes   *RoleAssignRes   `json:"roleAssignRes,optional"`
-	RoleAssignUsers *RoleAssignUsers `json:"roleAssignUsers,optional"`
-}
-
 type GetRoleEmployeeIdsReqeust struct {
 	RoleCode string `path:"roleCode"`
 }
@@ -312,103 +283,6 @@ type ExchangeRequest struct {
 type ExchangeReply struct {
 	Token        string `json:"token"`
 	RefreshToken string `json:"refreshToken"`
-}
-
-type GetUserInfoReply struct {
-	Id            int64    `json:"id"`
-	Account       string   `json:"account"`
-	Name          string   `json:"name"`
-	Email         string   `json:"email"`
-	MobilePhone   string   `json:"mobilePhone"`
-	Gender        int8     `json:"gender"`
-	NickName      string   `json:"nickName"`
-	Desc          string   `json:"desc"`
-	Avatar        string   `json:"avatar"`
-	ExternalEmail string   `json:"externalEmail"`
-	DepIds        []int64  `json:"depIds"`
-	Position      string   `json:"position"`
-	JobTitle      string   `json:"jobTitle"`
-	IsEnabled     bool     `json:"isEnabled"`
-	CreatedAt     string   `json:"createdAt"`
-	Roles         []string `json:"roles"`
-}
-
-type MenuRoles struct {
-	MenuName       string   `json:"menuName"`
-	AllowRoleCodes []string `json:"allowRoleCodes"`
-}
-
-type GetMenuRolesReply struct {
-	MenuRoles []MenuRoles `json:"menuRoles"`
-}
-
-type LiveQRCodeWebForm struct {
-	Url string `json:"url"`
-}
-
-type LiveQRCodeWeWorkContactMeForm struct {
-	Typ          string   `json:"typ,options=SINGLE|MULTI"`
-	Remark       string   `json:"remark"`
-	IsSkipVerify bool     `json:"isSkipVerify"`
-	State        string   `json:"state"`
-	Users        []string `json:"user"`
-}
-
-type LiveQRCodeWeWorkGroupChatForm struct {
-	Remark         string   `json:"remark"`
-	IsFullCreate   bool     `json:"isFullCreate"`
-	CreateBaseName string   `json:"createBaseName"`
-	CreateBaseId   int      `json:"createBaseId"`
-	ChatIdList     []string `json:"chatIdList"`
-	State          string   `json:"state"`
-}
-
-type CreateLiveQRCodeRequest struct {
-	Name            string                        `json:"name"`
-	Desc            string                        `json:"desc"`
-	Type            string                        `json:"type,options=WEB|WEWORK_CONTACT_ME|WEWORK_GROUP_CHAT"`
-	Web             LiveQRCodeWebForm             `json:"web,optional"`
-	WeWorkContactMe LiveQRCodeWeWorkContactMeForm `json:"weWorkContactMe,optional"`
-	WeWorkGroupChat LiveQRCodeWeWorkGroupChatForm `json:"weWorkGroupChat,optional"`
-	IconUrl         string                        `json:"iconUrl,optional"`
-}
-
-type CreateLiveQRCodeReply struct {
-	Uri     string `json:"url"`
-	IconUrl string `json:"iconUrl"`
-}
-
-type ListLiveQRCodeRequest struct {
-	Type     string  `json:"type,options=WEB|WEWORK_CONTACT_ME|WEWORK_GROUP_CHAT,optional"`
-	CreateBy []int64 `json:"createBy,optional"`
-}
-
-type LiveQRCodeItem struct {
-	Uri     string `json:"url"`
-	IconUrl string `json:"iconUrl"`
-}
-
-type ListLiveQRCodeReply struct {
-	List      LiveQRCodeItem `json:"list"`
-	PageIndex int            `json:"pageIndex"`
-	PageSize  int            `json:"pageSize"`
-	Total     int64          `json:"total"`
-}
-
-type AccessLiveQRCodeRequest struct {
-	Uid string `path:"uid"`
-}
-
-type AccessLiveQRCodeReply struct {
-	RedirectTo string `json:"redirectTo"`
-}
-
-type GetCustomerRequest struct {
-	Id int64 `path:"id"`
-}
-
-type GetCustomerReply struct {
-	Id int64 `json:"id"`
 }
 
 type Clue struct {

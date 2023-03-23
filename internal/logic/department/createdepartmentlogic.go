@@ -27,7 +27,7 @@ func NewCreateDepartmentLogic(ctx context.Context, svcCtx *svc.ServiceContext) *
 
 func (l *CreateDepartmentLogic) CreateDepartment(req *types.CreateDepartmentRequest) (resp *types.CreateDepartmentReply, err error) {
 	// 校验leaderIds是否全部存在
-	count := l.svcCtx.UC.Employee.CountEmployees(l.ctx, &powerx.FindEmployeeOption{
+	count := l.svcCtx.UC.Employee.CountEmployees(l.ctx, &powerx.FindManyEmployeeOption{
 		Ids: req.LeaderIds,
 	})
 	if count != int64(len(req.LeaderIds)) {

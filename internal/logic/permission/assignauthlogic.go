@@ -41,7 +41,7 @@ func (l *AssignAuthLogic) AssignAuth(req *types.AssignAuthRequest) error {
 	}
 
 	if req.UserAssignRole != nil {
-		userPage := l.svcCtx.UC.Employee.FindManyEmployees(l.ctx, &powerx.FindEmployeeOption{
+		userPage := l.svcCtx.UC.Employee.FindManyEmployees(l.ctx, &powerx.FindManyEmployeeOption{
 			Ids: req.UserAssignRole.UserIds,
 		})
 		if len(userPage.List) == 0 {
@@ -68,7 +68,7 @@ func (l *AssignAuthLogic) AssignAuth(req *types.AssignAuthRequest) error {
 		if len(req.RoleAssignUsers.UserIds) == 0 {
 			return nil
 		}
-		userPage := l.svcCtx.UC.Employee.FindManyEmployees(l.ctx, &powerx.FindEmployeeOption{
+		userPage := l.svcCtx.UC.Employee.FindManyEmployees(l.ctx, &powerx.FindManyEmployeeOption{
 			Ids: req.RoleAssignUsers.UserIds,
 		})
 		if len(userPage.List) == 0 {

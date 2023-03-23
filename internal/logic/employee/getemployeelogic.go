@@ -26,7 +26,7 @@ func NewGetEmployeeLogic(ctx context.Context, svcCtx *svc.ServiceContext) *GetEm
 }
 
 func (l *GetEmployeeLogic) GetEmployee(req *types.GetEmployeeRequest) (resp *types.GetEmployeeReply, err error) {
-	employee, err := l.svcCtx.UC.Employee.FindOneEmployee(l.ctx, &powerx.FindEmployeeOption{
+	employee, err := l.svcCtx.UC.Employee.FindOneEmployee(l.ctx, &powerx.FindManyEmployeeOption{
 		Ids: []int64{req.Id},
 	})
 	if err != nil {
