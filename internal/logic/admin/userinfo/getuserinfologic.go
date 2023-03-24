@@ -1,4 +1,4 @@
-package auth
+package userinfo
 
 import (
 	"PowerX/internal/uc/powerx"
@@ -27,46 +27,39 @@ func NewGetUserInfoLogic(ctx context.Context, svcCtx *svc.ServiceContext) *GetUs
 }
 
 func (l *GetUserInfoLogic) GetUserInfo() (resp *types.GetUserInfoReply, err error) {
-	cred, err := l.svcCtx.UC.MetadataCtx.AuthMetadataFromContext(l.ctx)
+	cred, err := l.svcCtx.PowerX.MetadataCtx.AuthMetadataFromContext(l.ctx)
 	if err != nil {
 		panic(errors.Wrap(err, "get user metadata failed"))
 	}
 
-	employee, err := l.svcCtx.UC.Employee.FindOneEmployee(l.ctx, &powerx.FindManyEmployeeOption{
-		Ids: []int64{cred.UID},
-	})
+	employee, err := l.svcCtx.PowerX.Employee.FindOneEmployeeById(l.ctx, cred.UID)
 	if err != nil {
 		return nil, err
 	}
 
-	gender := int8(0)
-	if employee.Gender != nil {
-		gender = int8(*employee.Gender)
-	}
+	roles, _ := l.svcCtx.PowerX.Auth.Casbin.GetRolesForUser(employee.Account)
 
-	isEnabled := false
-	if employee.Status != nil {
-		isEnabled = *(employee.Status) > 0
-	}
-
-	roles, _ := l.svcCtx.UC.Auth.Casbin.GetRolesForUser(employee.Account)
-
-	return &types.GetUserInfoReply{
+	resp = &types.GetUserInfoReply{
 		Id:            employee.ID,
 		Account:       employee.Account,
 		Name:          employee.Name,
 		Email:         employee.Email,
 		MobilePhone:   employee.MobilePhone,
-		Gender:        gender,
+		Gender:        employee.Gender,
 		NickName:      employee.NickName,
 		Desc:          employee.NickName,
 		Avatar:        employee.Avatar,
 		ExternalEmail: employee.ExternalEmail,
-		DepIds:        employee.DepartmentIds,
 		Roles:         roles,
 		Position:      employee.Position,
 		JobTitle:      employee.JobTitle,
-		IsEnabled:     isEnabled,
 		CreatedAt:     employee.CreatedAt.Format(time.RFC3339),
-	}, nil
+	}
+	if employee.Department != nil {
+		resp.DepName = employee.Department.Name
+	}
+	if employee.Status == powerx.EmployeeStatusEnabled {
+		resp.IsEnabled = true
+	}
+	return
 }

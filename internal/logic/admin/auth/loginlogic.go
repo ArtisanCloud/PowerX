@@ -1,7 +1,12 @@
 package auth
 
 import (
+	"PowerX/internal/types/errorx"
+	"PowerX/internal/uc/powerx"
 	"context"
+	"github.com/golang-jwt/jwt/v4"
+	"github.com/pkg/errors"
+	"time"
 
 	"PowerX/internal/svc"
 	"PowerX/internal/types"
@@ -24,7 +29,44 @@ func NewLoginLogic(ctx context.Context, svcCtx *svc.ServiceContext) *LoginLogic 
 }
 
 func (l *LoginLogic) Login(req *types.LoginRequest) (resp *types.LoginReply, err error) {
-	// todo: add your logic here and delete this line
+	if err != nil {
+		panic(err)
+	}
+	opt := powerx.EmployeeLoginOption{
+		Account:     req.UserName,
+		PhoneNumber: req.PhoneNumber,
+		Email:       req.Email,
+	}
 
-	return
+	employee, err := l.svcCtx.PowerX.Employee.FindOneEmployeeByLoginOption(l.ctx, &opt)
+	if err != nil {
+		return nil, errorx.WithCause(errorx.ErrBadRequest, "账户或密码错误")
+	}
+
+	if !l.svcCtx.PowerX.Employee.VerifyPassword(employee.Password, req.Password) {
+		return nil, errorx.WithCause(errorx.ErrBadRequest, "账户或密码错误")
+	}
+
+	roles, _ := l.svcCtx.PowerX.Auth.Casbin.GetRolesForUser(employee.Account)
+
+	claims := types.TokenClaims{
+		UID:     employee.ID,
+		Account: employee.Account,
+		Roles:   roles,
+		RegisteredClaims: &jwt.RegisteredClaims{
+			Issuer:    "powerx",
+			Subject:   employee.Account,
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour * 72)),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+		},
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	signedToken, err := token.SignedString([]byte(l.svcCtx.Config.JWTSecret))
+	if err != nil {
+		return nil, errors.Wrap(err, "sign token failed")
+	}
+
+	return &types.LoginReply{
+		Token: signedToken,
+	}, nil
 }

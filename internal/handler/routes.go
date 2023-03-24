@@ -10,6 +10,7 @@ import (
 	admindepartment "PowerX/internal/handler/admin/department"
 	adminemployee "PowerX/internal/handler/admin/employee"
 	adminpermission "PowerX/internal/handler/admin/permission"
+	adminuserinfo "PowerX/internal/handler/admin/userinfo"
 	"PowerX/internal/svc"
 
 	"github.com/zeromicro/go-zero/rest"
@@ -190,5 +191,26 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			},
 		},
 		rest.WithPrefix("/api/admin/clue/v1"),
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
+			{
+				Method:  http.MethodGet,
+				Path:    "/user-info",
+				Handler: adminuserinfo.GetUserInfoHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodGet,
+				Path:    "/menu-roles",
+				Handler: adminuserinfo.GetMenuRolesHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodPost,
+				Path:    "/users/actions/modify-password",
+				Handler: adminuserinfo.ModifyUserPasswordHandler(serverCtx),
+			},
+		},
+		rest.WithPrefix("/api/admin/v1"),
 	)
 }

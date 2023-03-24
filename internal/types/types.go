@@ -336,3 +336,35 @@ type PatchClueReply struct {
 type DeleteClueReply struct {
 	Id int64 `json:"id"`
 }
+
+type GetUserInfoReply struct {
+	Id            int64    `json:"id"`
+	Account       string   `json:"account"`
+	Name          string   `json:"name"`
+	Email         string   `json:"email"`
+	MobilePhone   string   `json:"mobilePhone"`
+	Gender        string   `json:"gender"`
+	NickName      string   `json:"nickName"`
+	Desc          string   `json:"desc"`
+	Avatar        string   `json:"avatar"`
+	ExternalEmail string   `json:"externalEmail"`
+	DepName       string   `json:"depName"`
+	Position      string   `json:"position"`
+	JobTitle      string   `json:"jobTitle"`
+	IsEnabled     bool     `json:"isEnabled"`
+	CreatedAt     string   `json:"createdAt"`
+	Roles         []string `json:"roles"`
+}
+
+type MenuRoles struct {
+	MenuName       string   `json:"menuName"`
+	AllowRoleCodes []string `json:"allowRoleCodes"`
+}
+
+type GetMenuRolesReply struct {
+	MenuRoles []MenuRoles `json:"menuRoles"`
+}
+
+type ModifyPasswordReqeust struct {
+	Password string `json:"password"`
+}

@@ -32,7 +32,7 @@ service PowerX {
 
     @doc "查询员工过滤条件"
     @handler GetEmployeeOptions
-    get /options (GetEmployeeOptionsRequest) returns (GetEmployeeOptionsReply)
+    get /options returns (GetEmployeeOptionsReply)
 
     @doc "编辑员工信息"
     @handler UpdateEmployee
@@ -73,6 +73,11 @@ type (
         PageSize int `form:"pageSize,optional"`
     }
 
+    EmployeeDepartment {
+        DepId int64 `json:"depId"`
+        DepName string `json:"depName"`
+    }
+
     Employee {
         Id int64 `json:"id"`
         Account string `json:"account"`
@@ -84,8 +89,8 @@ type (
         Desc string `json:"desc,optional"`
         Avatar string `json:"avatar,optional"`
         ExternalEmail string `json:"externalEmail,optional"`
-        DepIds []int64 `json:"depIds"`
         Roles []string `json:"roles"`
+        Department EmployeeDepartment `json:"department"`
         Position string `json:"position"`
         JobTitle string `json:"jobTitle"`
         IsEnabled bool `json:"isEnabled"`
@@ -121,8 +126,8 @@ type (
         Avatar string `json:"avatar,optional"`
         ExternalEmail string `json:"externalEmail,optional"`
         MobilePhone string `json:"mobilePhone,optional"`
-        Gender *int8 `json:"gender,optional"`
-        DepIds []int64 `json:"depIds"`
+        Gender string `json:"gender,optional=male|female|un_know"`
+        DepId int64 `json:"depId"`
         Position string `json:"position,optional"`
         JobTitle string `json:"jobTitle,optional"`
         Password string `json:"password,optional"`
@@ -143,8 +148,8 @@ type (
         Avatar string `json:"avatar,optional"`
         ExternalEmail string `json:"externalEmail,optional"`
         MobilePhone string `json:"mobilePhone,optional"`
-        Gender *int8 `json:"gender,optional"`
-        DepIds []int64 `json:"depIds,optional"`
+        Gender string `json:"gender,options=male|female|un_know"`
+        DepId int64 `json:"depId,optional"`
         Position string `json:"position,optional"`
         JobTitle string `json:"jobTitle,optional"`
         Password string `json:"password,optional"`
@@ -157,10 +162,6 @@ type (
 )
 
 type (
-    GetEmployeeOptionsRequest {
-        Scopes []string `form:"scopes,options=position|role|department,optional"`
-    }
-
     RoleOption {
         RoleCode string `json:"roleCode"`
         RoleName string `json:"roleName"`

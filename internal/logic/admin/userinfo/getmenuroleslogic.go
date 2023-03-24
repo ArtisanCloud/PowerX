@@ -1,4 +1,4 @@
-package auth
+package userinfo
 
 import (
 	"PowerX/pkg/setx"
@@ -25,15 +25,15 @@ func NewGetMenuRolesLogic(ctx context.Context, svcCtx *svc.ServiceContext) *GetM
 }
 
 func (l *GetMenuRolesLogic) GetMenuRoles() (resp *types.GetMenuRolesReply, err error) {
-	roles := l.svcCtx.UC.Auth.FindManyAuthRoles(l.ctx)
+	roles := l.svcCtx.PowerX.Auth.FindAllRoles(l.ctx)
 
 	rolesMapByMenu := make(map[string]setx.Set[string])
 	for _, role := range roles {
-		for _, name := range role.MenuNames {
-			if set, ok := rolesMapByMenu[name]; ok {
+		for _, roleMenuName := range role.MenuNames {
+			if set, ok := rolesMapByMenu[roleMenuName.MenuName]; ok {
 				set.Add(role.RoleCode)
 			} else {
-				rolesMapByMenu[name] = setx.NewHashSet[string](role.RoleCode)
+				rolesMapByMenu[roleMenuName.MenuName] = setx.NewHashSet[string](role.RoleCode)
 			}
 		}
 	}

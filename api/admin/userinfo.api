@@ -8,7 +8,7 @@ info(
     version: "v1"
 )
 
-@server (
+@server(
     group: admin/userinfo
     prefix: /api/admin/v1
 )
@@ -24,14 +24,7 @@ service PowerX {
 
     @doc "修改密码"
     @handler ModifyUserPassword
-    post /users/actions/modify-password
-}
-
-type LoginRequest {
-    UserName string `json:"userName,optional"`
-    PhoneNumber string `json:"phoneNumber,optional"`
-    Email string `json:"email,optional"`
-    Password string `json:"password"`
+    post /users/actions/modify-password (ModifyPasswordReqeust)
 }
 
 type GetUserInfoReply {
@@ -40,12 +33,12 @@ type GetUserInfoReply {
     Name string `json:"name"`
     Email string `json:"email"`
     MobilePhone string `json:"mobilePhone"`
-    Gender int8 `json:"gender"`
+    Gender string `json:"gender"`
     NickName string `json:"nickName"`
     Desc string `json:"desc"`
     Avatar string `json:"avatar"`
     ExternalEmail string `json:"externalEmail"`
-    DepIds []int64 `json:"depIds"`
+    DepName string `json:"depName"`
     Position string `json:"position"`
     JobTitle string `json:"jobTitle"`
     IsEnabled bool `json:"isEnabled"`
@@ -62,5 +55,11 @@ type (
 
     GetMenuRolesReply {
         MenuRoles []MenuRoles `json:"menuRoles"`
+    }
+)
+
+type (
+    ModifyPasswordReqeust {
+        Password string `json:"password"`
     }
 )
