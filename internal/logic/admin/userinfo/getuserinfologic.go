@@ -32,7 +32,7 @@ func (l *GetUserInfoLogic) GetUserInfo() (resp *types.GetUserInfoReply, err erro
 		panic(errors.Wrap(err, "get user metadata failed"))
 	}
 
-	employee, err := l.svcCtx.PowerX.Employee.FindOneEmployeeById(l.ctx, cred.UID)
+	employee, err := l.svcCtx.PowerX.Organization.FindOneEmployeeById(l.ctx, cred.UID)
 	if err != nil {
 		return nil, err
 	}

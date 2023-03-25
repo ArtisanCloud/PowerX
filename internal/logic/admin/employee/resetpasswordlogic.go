@@ -1,7 +1,9 @@
 package employee
 
 import (
+	"PowerX/internal/uc/powerx"
 	"context"
+	"github.com/pkg/errors"
 
 	"PowerX/internal/svc"
 	"PowerX/internal/types"
@@ -24,7 +26,21 @@ func NewResetPasswordLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Res
 }
 
 func (l *ResetPasswordLogic) ResetPassword(req *types.ResetPasswordRequest) (resp *types.ResetPasswordReply, err error) {
-	// todo: add your logic here and delete this line
+	employee := powerx.Employee{
+		Model: types.Model{
+			ID: req.UserId,
+		},
+		Password: "123456",
+	}
 
-	return
+	err = employee.HashPassword()
+	if err != nil {
+		panic(errors.Wrap(err, "create employee hash password failed"))
+	}
+
+	l.svcCtx.PowerX.Organization.UpdateEmployeeById(l.ctx, &employee, req.UserId)
+
+	return &types.ResetPasswordReply{
+		Status: "ok",
+	}, nil
 }

@@ -26,29 +26,26 @@ func NewCreateEmployeeLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Cr
 }
 
 func (l *CreateEmployeeLogic) CreateEmployee(req *types.CreateEmployeeRequest) (resp *types.CreateEmployeeReply, err error) {
-	gender := (*powerx.Gender)(req.Gender)
-	status := powerx.EmployeeStatusEnable
-	// create employee
 	employee := powerx.Employee{
 		Account:       req.Account,
 		Name:          req.Name,
 		NickName:      req.NickName,
 		Desc:          req.Desc,
 		Position:      req.Position,
-		DepartmentIds: req.DepIds,
+		DepartmentId:  req.DepId,
 		MobilePhone:   req.MobilePhone,
-		Gender:        gender,
+		Gender:        req.Gender,
 		Email:         req.Email,
 		ExternalEmail: req.ExternalEmail,
 		Avatar:        req.Avatar,
 		Password:      "123456",
-		Status:        &status,
+		Status:        powerx.EmployeeStatusEnabled,
 	}
 	err = employee.HashPassword()
 	if err != nil {
 		panic(errors.Wrap(err, "create employee hash password failed"))
 	}
-	l.svcCtx.UC.Employee.CreateEmployees(l.ctx, []*powerx.Employee{&employee})
+	l.svcCtx.PowerX.Organization.CreateEmployee(l.ctx, &employee)
 
 	return &types.CreateEmployeeReply{
 		Id: employee.ID,

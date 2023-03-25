@@ -23,8 +23,25 @@ func NewGetEmployeeOptionsLogic(ctx context.Context, svcCtx *svc.ServiceContext)
 	}
 }
 
-func (l *GetEmployeeOptionsLogic) GetEmployeeOptions(req *types.GetEmployeeOptionsRequest) (resp *types.GetEmployeeOptionsReply, err error) {
-	// todo: add your logic here and delete this line
+func (l *GetEmployeeOptionsLogic) GetEmployeeOptions() (resp *types.GetEmployeeOptionsReply, err error) {
+	resp = &types.GetEmployeeOptionsReply{}
 
+	resp.Positions = l.svcCtx.PowerX.Organization.FindAllPositions(l.ctx)
+
+	roles := l.svcCtx.PowerX.Auth.FindAllRoles(l.ctx)
+	for _, role := range roles {
+		resp.Roles = append(resp.Roles, types.RoleOption{
+			RoleCode: role.RoleCode,
+			RoleName: role.Name,
+		})
+	}
+
+	deps := l.svcCtx.PowerX.Organization.FindAllDepartments(l.ctx)
+	for _, dep := range deps {
+		resp.Departments = append(resp.Departments, types.DepartmentOption{
+			DepartmentId:   dep.ID,
+			DepartmentName: dep.Name,
+		})
+	}
 	return
 }

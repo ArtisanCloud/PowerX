@@ -24,7 +24,11 @@ func NewDeleteEmployeeLogic(ctx context.Context, svcCtx *svc.ServiceContext) *De
 }
 
 func (l *DeleteEmployeeLogic) DeleteEmployee(req *types.DeleteEmployeeRequest) (resp *types.DeleteEmployeeReply, err error) {
-	// todo: add your logic here and delete this line
-
-	return
+	err = l.svcCtx.PowerX.Organization.DeleteEmployeeById(l.ctx, req.Id)
+	if err != nil {
+		return nil, err
+	}
+	return &types.DeleteEmployeeReply{
+		Id: req.Id,
+	}, nil
 }

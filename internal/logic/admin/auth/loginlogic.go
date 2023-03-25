@@ -38,12 +38,12 @@ func (l *LoginLogic) Login(req *types.LoginRequest) (resp *types.LoginReply, err
 		Email:       req.Email,
 	}
 
-	employee, err := l.svcCtx.PowerX.Employee.FindOneEmployeeByLoginOption(l.ctx, &opt)
+	employee, err := l.svcCtx.PowerX.Organization.FindOneEmployeeByLoginOption(l.ctx, &opt)
 	if err != nil {
 		return nil, errorx.WithCause(errorx.ErrBadRequest, "账户或密码错误")
 	}
 
-	if !l.svcCtx.PowerX.Employee.VerifyPassword(employee.Password, req.Password) {
+	if !l.svcCtx.PowerX.Organization.VerifyPassword(employee.Password, req.Password) {
 		return nil, errorx.WithCause(errorx.ErrBadRequest, "账户或密码错误")
 	}
 

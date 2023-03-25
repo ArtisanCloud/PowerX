@@ -84,7 +84,7 @@ type (
         Name string `json:"name"`
         Email string `json:"email"`
         MobilePhone string `json:"mobilePhone"`
-        Gender int8 `json:"gender"`
+        Gender string `json:"gender"`
         NickName string `json:"nickName,optional"`
         Desc string `json:"desc,optional"`
         Avatar string `json:"avatar,optional"`
@@ -126,7 +126,7 @@ type (
         Avatar string `json:"avatar,optional"`
         ExternalEmail string `json:"externalEmail,optional"`
         MobilePhone string `json:"mobilePhone,optional"`
-        Gender string `json:"gender,optional=male|female|un_know"`
+        Gender string `json:"gender,options=male|female|un_know"`
         DepId int64 `json:"depId"`
         Position string `json:"position,optional"`
         JobTitle string `json:"jobTitle,optional"`
@@ -153,7 +153,7 @@ type (
         Position string `json:"position,optional"`
         JobTitle string `json:"jobTitle,optional"`
         Password string `json:"password,optional"`
-        Status *int8 `json:"status,optional"`
+        Status string `json:"status,options=enabled|disabled|un_actived"`
     }
 
     UpdateEmployeeReply {

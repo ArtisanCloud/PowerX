@@ -1,6 +1,7 @@
 package department
 
 import (
+	"PowerX/internal/uc/powerx"
 	"context"
 
 	"PowerX/internal/svc"
@@ -24,7 +25,19 @@ func NewCreateDepartmentLogic(ctx context.Context, svcCtx *svc.ServiceContext) *
 }
 
 func (l *CreateDepartmentLogic) CreateDepartment(req *types.CreateDepartmentRequest) (resp *types.CreateDepartmentReply, err error) {
+	dep := powerx.Department{
+		Name:     req.DepName,
+		LeaderId: req.LeaderId,
+		Desc:     req.Desc,
+		PId:      req.PId,
+	}
 
+	err = l.svcCtx.PowerX.Organization.CreateDepartment(l.ctx, &dep)
+	if err != nil {
+		return nil, err
+	}
 
-	return
+	return &types.CreateDepartmentReply{
+		Id: dep.ID,
+	}, nil
 }

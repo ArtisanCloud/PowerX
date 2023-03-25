@@ -10,13 +10,13 @@ import (
 )
 
 type PowerXUseCase struct {
-	db          *gorm.DB
-	Auth        *powerx.AuthUseCase
-	Employee    *powerx.OrganizationUseCase
-	Tag         *powerx.TagUseCase
-	Contact     *powerx.ContactUseCase
-	WeWork      *powerx.WeWorkUseCase
-	MetadataCtx *powerx.MetadataCtx
+	db           *gorm.DB
+	Auth         *powerx.AuthUseCase
+	Organization *powerx.OrganizationUseCase
+	Tag          *powerx.TagUseCase
+	Contact      *powerx.ContactUseCase
+	WeWork       *powerx.WeWorkUseCase
+	MetadataCtx  *powerx.MetadataCtx
 }
 
 func NewPowerXUseCase(conf *config.Config) (uc *PowerXUseCase, clean func()) {
@@ -41,12 +41,11 @@ func NewPowerXUseCase(conf *config.Config) (uc *PowerXUseCase, clean func()) {
 	}
 	// 加载子UseCase
 	uc.MetadataCtx = powerx.NewMetadataCtx()
-	uc.Employee = powerx.NewEmployeeUseCase(db)
-	uc.Auth = powerx.NewCasbinUseCase(db, uc.MetadataCtx, uc.Employee)
-	uc.Department = powerx.NewDepartmentUseCase(db)
+	uc.Organization = powerx.NewOrganizationUseCase(db)
+	uc.Auth = powerx.NewCasbinUseCase(db, uc.MetadataCtx, uc.Organization)
 	uc.Tag = powerx.NewTagUseCase(db)
 	uc.Contact = powerx.NewContactUseCase(db)
-	uc.WeWork = powerx.NewWeWorkUseCase(conf, db, uc.Employee, uc.Department, uc.Auth, uc.Tag)
+	uc.WeWork = powerx.NewWeWorkUseCase(conf, db, uc.Organization, uc.Department, uc.Auth, uc.Tag)
 
 	uc.AutoMigrate(context.Background())
 	uc.AutoInit()
@@ -57,12 +56,12 @@ func NewPowerXUseCase(conf *config.Config) (uc *PowerXUseCase, clean func()) {
 }
 
 func (p *PowerXUseCase) AutoMigrate(ctx context.Context) {
-	p.db.AutoMigrate(&powerx.CasbinPolicy{}, &powerx.AuthRole{}, &powerx.AuthRestAction{}, &powerx.AuthRecourse{})
+	p.db.AutoMigrate(&powerx.CasbinPolicy{}, powerx.Role{}, powerx.API{})
 	p.db.AutoMigrate(&powerx.Department{}, &powerx.Employee{}, &powerx.LiveQRCode{})
 	p.db.AutoMigrate(&powerx.WeWorkDepartment{}, &powerx.WeWorkEmployee{})
 }
 
 func (p *PowerXUseCase) AutoInit() {
 	p.Auth.Init()
-	p.Department.Init()
+	p.Organization.Init()
 }

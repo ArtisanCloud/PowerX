@@ -22,10 +22,17 @@ service PowerX {
 }
 
 type (
+    DepartmentLeader {
+        Id int64 `json:"id"`
+        Name string `json:"name"`
+        NickName string `json:"nickName"`
+        Avatar string `json:"avatar"`
+    }
+
     DepartmentNode {
         Id int64 `json:"id"`
         DepName string `json:"depName"`
-        LeaderIds []int64 `json:"leaderIds"`
+        Leader DepartmentLeader `json:"leader"`
         PhoneNumber string `json:"phoneNumber"`
         Email string `json:"email"`
         Remark string `json:"remark"`
@@ -44,7 +51,7 @@ type (
 type (
     CreateDepartmentRequest {
         DepName string `json:"depName"`
-        LeaderIds []int64 `json:"leaderIds"`
+        LeaderId int64 `json:"leaderId"`
         PId int64 `json:"pId"`
         Desc string `json:"desc,optional"`
         PhoneNumber string `json:"phoneNumber,optional"`
@@ -71,7 +78,7 @@ type (
     Department {
         Id int64 `json:"id"`
         DepName string `json:"depName"`
-        LeaderIds []int64 `json:"leaderIds"`
+        Leader DepartmentLeader `json:"leader"`
         PhoneNumber string `json:"phoneNumber"`
         Email string `json:"email"`
         Remark string `json:"remark"`

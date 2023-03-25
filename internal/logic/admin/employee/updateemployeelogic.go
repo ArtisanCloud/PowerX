@@ -1,7 +1,10 @@
 package employee
 
 import (
+	"PowerX/internal/uc/powerx"
 	"context"
+	"github.com/pkg/errors"
+	"time"
 
 	"PowerX/internal/svc"
 	"PowerX/internal/types"
@@ -24,7 +27,55 @@ func NewUpdateEmployeeLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Up
 }
 
 func (l *UpdateEmployeeLogic) UpdateEmployee(req *types.UpdateEmployeeRequest) (resp *types.UpdateEmployeeReply, err error) {
-	// todo: add your logic here and delete this line
+	employee := powerx.Employee{
+		Model: types.Model{
+			ID: req.Id,
+		},
+		Name:          req.Name,
+		NickName:      req.NickName,
+		Desc:          req.Desc,
+		Position:      req.Position,
+		JobTitle:      req.JobTitle,
+		DepartmentId:  req.DepId,
+		MobilePhone:   req.MobilePhone,
+		Gender:        req.Gender,
+		Email:         req.Email,
+		ExternalEmail: req.ExternalEmail,
+		Avatar:        req.Avatar,
+		Password:      req.Password,
+		Status:        req.Status,
+	}
 
-	return
+	err = employee.HashPassword()
+	if err != nil {
+		panic(errors.Wrap(err, "create employee hash password failed"))
+	}
+
+	l.svcCtx.PowerX.Organization.UpdateEmployeeById(l.ctx, &employee, req.Id)
+
+	roles, _ := l.svcCtx.PowerX.Auth.Casbin.GetRolesForUser(employee.Account)
+
+	return &types.UpdateEmployeeReply{
+		Employee: &types.Employee{
+			Id:            employee.ID,
+			Account:       employee.Account,
+			Name:          employee.Name,
+			Email:         employee.Email,
+			MobilePhone:   employee.MobilePhone,
+			Gender:        employee.Gender,
+			NickName:      employee.NickName,
+			Desc:          employee.Desc,
+			Avatar:        employee.Avatar,
+			ExternalEmail: employee.ExternalEmail,
+			Roles:         roles,
+			Department: types.EmployeeDepartment{
+				DepId:   employee.DepartmentId,
+				DepName: employee.Name,
+			},
+			Position:  employee.Position,
+			JobTitle:  employee.JobTitle,
+			IsEnabled: employee.Status == powerx.EmployeeStatusEnabled,
+			CreatedAt: employee.CreatedAt.Format(time.RFC3339),
+		},
+	}, nil
 }

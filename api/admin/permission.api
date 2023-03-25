@@ -31,8 +31,8 @@ service PowerX {
     put /roles/:roleCode (PutRoleReqeust) returns (PutRoleReply)
 
     @doc "获取角色的用户列表"
-    @handler GetRoleEmployeeIds
-    get /roles/:roleCode/users (GetRoleEmployeeIdsReqeust) returns (GetRoleEmployeeIdsReply)
+    @handler GetRoleEmployees
+    get /roles/:roleCode/users (GetRoleEmployeesReqeust) returns (GetRoleEmployeesReply)
 
     @doc "为角色授予API权限"
     @handler SetRolePermissions
@@ -122,11 +122,16 @@ type (
 )
 
 type (
-    GetRoleEmployeeIdsReqeust {
+    GetRoleEmployeesReqeust {
         RoleCode string `path:"roleCode"`
+        PageIndex int `json:"pageIndex"`
+        PageSize int `json:"pageSize"`
     }
 
-    GetRoleEmployeeIdsReply {
+    GetRoleEmployeesReply {
         EmployeeIds []int64 `json:"employeeIds"`
+        PageIndex int `json:"pageIndex"`
+        PageSize int `json:"pageSize"`
+        Total int64 `json:"total"`
     }
 )

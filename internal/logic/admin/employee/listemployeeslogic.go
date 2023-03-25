@@ -1,7 +1,9 @@
 package employee
 
 import (
+	"PowerX/internal/uc/powerx"
 	"context"
+	"time"
 
 	"PowerX/internal/svc"
 	"PowerX/internal/types"
@@ -24,7 +26,69 @@ func NewListEmployeesLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Lis
 }
 
 func (l *ListEmployeesLogic) ListEmployees(req *types.ListEmployeesRequest) (resp *types.ListEmployeesReply, err error) {
-	// todo: add your logic here and delete this line
+	opt := powerx.FindManyEmployeesOption{
+		Ids:             req.Ids,
+		LikeName:        req.LikeName,
+		LikeEmail:       req.LikeEmail,
+		DepIds:          req.DepIds,
+		Positions:       req.Positions,
+		LikePhoneNumber: req.LikePhoneNumber,
+		PageIndex:       req.PageIndex,
+		PageSize:        req.PageSize,
+	}
 
-	return
+	if len(req.RoleCodes) > 0 {
+		// bind roles opt, todo improve performance or remove it
+		var accounts []string
+		for _, code := range req.RoleCodes {
+			as, _ := l.svcCtx.PowerX.Auth.Casbin.GetUsersForRole(code)
+			accounts = append(accounts, as...)
+		}
+		// 涉及角色查询, root账户会出现在所有角色筛选中
+		accounts = append(accounts, "root")
+		opt.Accounts = accounts
+	}
+	if req.IsEnabled != nil {
+		if *req.IsEnabled {
+			opt.Statuses = append(opt.Statuses, powerx.EmployeeStatusEnabled)
+		} else {
+			opt.Statuses = append(opt.Statuses, powerx.EmployeeStatusDisabled, powerx.EmployeeStatusUnActivated)
+		}
+	}
+
+	employeePage := l.svcCtx.PowerX.Organization.FindManyEmployeesPage(l.ctx, &opt)
+
+	// build vo
+	var vos []types.Employee
+	for _, employee := range employeePage.List {
+		roles, _ := l.svcCtx.PowerX.Auth.Casbin.GetRolesForUser(employee.Account)
+		vos = append(vos, types.Employee{
+			Id:            employee.ID,
+			Account:       employee.Account,
+			Name:          employee.Name,
+			Email:         employee.Email,
+			MobilePhone:   employee.MobilePhone,
+			Gender:        employee.Gender,
+			NickName:      employee.NickName,
+			Desc:          employee.Desc,
+			Avatar:        employee.Avatar,
+			ExternalEmail: employee.ExternalEmail,
+			Department: types.EmployeeDepartment{
+				DepId:   employee.Department.ID,
+				DepName: employee.Department.Name,
+			},
+			Roles:     roles,
+			Position:  employee.Position,
+			JobTitle:  employee.JobTitle,
+			IsEnabled: employee.Status == powerx.EmployeeStatusEnabled,
+			CreatedAt: employee.CreatedAt.Format(time.RFC3339),
+		})
+	}
+
+	return &types.ListEmployeesReply{
+		List:      vos,
+		PageIndex: employeePage.PageIndex,
+		PageSize:  employeePage.PageSize,
+		Total:     employeePage.Total,
+	}, nil
 }

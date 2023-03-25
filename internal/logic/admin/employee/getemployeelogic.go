@@ -1,7 +1,9 @@
 package employee
 
 import (
+	"PowerX/internal/uc/powerx"
 	"context"
+	"time"
 
 	"PowerX/internal/svc"
 	"PowerX/internal/types"
@@ -24,7 +26,34 @@ func NewGetEmployeeLogic(ctx context.Context, svcCtx *svc.ServiceContext) *GetEm
 }
 
 func (l *GetEmployeeLogic) GetEmployee(req *types.GetEmployeeRequest) (resp *types.GetEmployeeReply, err error) {
-	// todo: add your logic here and delete this line
+	employee, err := l.svcCtx.PowerX.Organization.FindOneEmployeeById(l.ctx, req.Id)
+	if err != nil {
+		return nil, err
+	}
 
-	return
+	roles, _ := l.svcCtx.PowerX.Auth.Casbin.GetRolesForUser(employee.Account)
+
+	return &types.GetEmployeeReply{
+		Employee: &types.Employee{
+			Id:            employee.ID,
+			Account:       employee.Account,
+			Name:          employee.Name,
+			Email:         employee.Email,
+			MobilePhone:   employee.MobilePhone,
+			Gender:        employee.Gender,
+			NickName:      employee.NickName,
+			Desc:          employee.NickName,
+			Avatar:        employee.Avatar,
+			ExternalEmail: employee.ExternalEmail,
+			Department: types.EmployeeDepartment{
+				DepId:   employee.Department.ID,
+				DepName: employee.Department.Name,
+			},
+			Roles:     roles,
+			Position:  employee.Position,
+			JobTitle:  employee.JobTitle,
+			IsEnabled: employee.Status == powerx.EmployeeStatusEnabled,
+			CreatedAt: employee.CreatedAt.Format(time.RFC3339),
+		},
+	}, nil
 }

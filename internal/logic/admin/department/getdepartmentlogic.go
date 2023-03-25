@@ -24,7 +24,24 @@ func NewGetDepartmentLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Get
 }
 
 func (l *GetDepartmentLogic) GetDepartment(req *types.GetDepartmentRequest) (resp *types.GetDepartmentReply, err error) {
-	// todo: add your logic here and delete this line
+	department, err := l.svcCtx.PowerX.Organization.FindOneDepartment(l.ctx, req.Id)
+	if err != nil {
+		return nil, err
+	}
 
-	return
+	return &types.GetDepartmentReply{
+		Department: &types.Department{
+			Id:      department.ID,
+			DepName: department.Name,
+			Leader: types.DepartmentLeader{
+				Id:       department.Leader.ID,
+				Name:     department.Leader.Name,
+				NickName: department.Leader.NickName,
+				Avatar:   department.Leader.Avatar,
+			},
+			PhoneNumber: department.PhoneNumber,
+			Email:       department.Email,
+			Remark:      department.Remark,
+		},
+	}, nil
 }
