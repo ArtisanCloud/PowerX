@@ -16,9 +16,101 @@ info(
 service PowerX {
     @doc "查询客户"
     @handler GetCustomer
-    get /customers/:id
+    get /customers/:id (GetCustomerReqeuest) returns (GetCustomerReply)
 
     @doc "获取客户列表"
     @handler ListCustomers
-    get /customers
+    get /customers (ListCustomersRequest) returns (ListCustomersReply)
+
+    @doc "创建客户"
+    @handler CreateCustomer
+    post /customers (CreateCustomerRequest) returns (CreateCustomerReply)
+
+    @doc "更新客户"
+    @handler PatchCustomer
+    patch /customers/:id (PatchCustomerRequest) returns (PatchCustomerReply)
+
+    @doc "删除客户"
+    @handler DeleteCustomer
+    delete /customers/:id (DeleteCustomerRequest) returns (DeleteCustomerReply)
 }
+
+type Customer {
+    Id int64 `json:"id"`
+    Name string `json:"name"`
+    PhoneNumber string `json:"phoneNumber"`
+    OpenId string `json:"openId"`
+    InviteByCustomerId int64 `json:"inviteByCustomerId"`
+    Source string `json:"source,options=tiktok|ad|miniprogram|wechat|other"`
+    Type string `json:"type,options=personal|company"`
+    Status string `json:"status"`
+    CreatedAt time.Time `json:"createdAt"`
+}
+
+type (
+    GetCustomerReqeuest {
+        Id string `path:"id"`
+    }
+
+    GetCustomerReply {
+        Customer Customer `json:"customer"`
+    }
+)
+
+type (
+    ListCustomersRequest {
+        LikeName string `form:"likeName"`
+        Sources []string `form:"sources"`
+        LikePhoneNumber string `form:"likePhoneNumber"`
+        Statuses []string `form:"statuses"`
+        PageIndex int `form:"page"`
+        PageSize int `form:"pageSize"`
+    }
+
+    ListCustomersReply {
+        Customers []Customer `json:"customers"`
+    }
+)
+
+type (
+    CreateCustomerRequest {
+        Name string `json:"name"`
+        PhoneNumber string `json:"phoneNumber"`
+        OpenId string `json:"openId"`
+        InviteByCustomerId int64 `json:"inviteByCustomerId,optional"`
+        Source string `json:"source,options=tiktok|ad|miniprogram|wechat|other"`
+        Type string `json:"type,options=personal|company"`
+        Status string `json:"status"`
+    }
+
+    CreateCustomerReply {
+        CustomerId int64 `json:"customerId"`
+    }
+)
+
+type (
+    PatchCustomerRequest {
+        Id string `path:"id"`
+        Name string `json:"name,optional"`
+        PhoneNumber string `json:"phoneNumber,optional"`
+        OpenId string `json:"openId,optional"`
+        InviteByCustomerId int64 `json:"inviteByCustomerId,optional"`
+        Source string `json:"source,options=tiktok|ad|miniprogram|wechat|other,optional"`
+        Type string `json:"type,options=personal|company,optional"`
+        Status string `json:"status,optional"`
+    }
+
+    PatchCustomerReply {
+        Customer Customer `json:"customer"`
+    }
+)
+
+type (
+    DeleteCustomerRequest {
+        Id string `path:"id"`
+    }
+
+    DeleteCustomerReply {
+        CustomerId int64 `json:"customerId"`
+    }
+)
