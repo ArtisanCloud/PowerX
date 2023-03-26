@@ -30,6 +30,10 @@ service PowerX {
     @doc "删除线索"
     @handler DeleteClue
     delete /clues/:id returns (DeleteClueReply)
+
+    @doc "分配线索给员工"
+    @handler AssignClueToEmployee
+    post /clues/:id/actions/assign-to-employee (AssignClueToEmployeeRequest) returns (AssignClueToEmployeeReply)
 }
 
 type Clue {
@@ -89,5 +93,16 @@ type (
 type (
     DeleteClueReply {
         Id int64 `json:"id"`
+    }
+)
+
+type (
+    AssignClueToEmployeeRequest {
+        Id int64 `path:"id"`
+        EmployeeId int64 `json:"employeeId"`
+    }
+
+    AssignClueToEmployeeReply {
+        Clue
     }
 )
