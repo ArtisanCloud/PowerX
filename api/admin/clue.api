@@ -48,10 +48,10 @@ type Clue {
 
 type (
     ListCluesRequest {
-        LikeTitle string `json:"likeTitle"`
-        LikePhoneNumber string `json:"likePhoneNumber"`
-        Sources []string `json:"sources"`
-        Statuses []string `json:"statuses"`
+        LikeTitle string `json:"likeTitle,optional"`
+        LikePhoneNumber string `json:"likePhoneNumber,optional"`
+        Sources []string `json:"sources,optional"`
+        Statuses []string `json:"statuses,optional"`
     }
 
     ListCluesReply {
