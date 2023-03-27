@@ -298,6 +298,76 @@ type ExchangeReply struct {
 	RefreshToken string `json:"refreshToken"`
 }
 
+type Customer struct {
+	Id                 int64  `json:"id"`
+	Name               string `json:"name"`
+	PhoneNumber        string `json:"phoneNumber"`
+	OpenId             string `json:"openId"`
+	InviteByCustomerId int64  `json:"inviteByCustomerId"`
+	Source             string `json:"source,options=tiktok|ad|miniprogram|wechat|other"`
+	Type               string `json:"type,options=personal|company"`
+	Status             string `json:"status"`
+	CreatedAt          string `json:"createdAt"`
+}
+
+type GetCustomerReqeuest struct {
+	Id string `path:"id"`
+}
+
+type GetCustomerReply struct {
+	Customer Customer `json:"customer"`
+}
+
+type ListCustomersRequest struct {
+	LikeName        string   `form:"likeName"`
+	Sources         []string `form:"sources"`
+	LikePhoneNumber string   `form:"likePhoneNumber"`
+	Statuses        []string `form:"statuses"`
+	PageIndex       int      `form:"page"`
+	PageSize        int      `form:"pageSize"`
+}
+
+type ListCustomersReply struct {
+	Customers []Customer `json:"customers"`
+}
+
+type CreateCustomerRequest struct {
+	Name               string `json:"name"`
+	PhoneNumber        string `json:"phoneNumber"`
+	OpenId             string `json:"openId"`
+	InviteByCustomerId int64  `json:"inviteByCustomerId,optional"`
+	Source             string `json:"source,options=tiktok|ad|miniprogram|wechat|other"`
+	Type               string `json:"type,options=personal|company"`
+	Status             string `json:"status"`
+}
+
+type CreateCustomerReply struct {
+	CustomerId int64 `json:"customerId"`
+}
+
+type PatchCustomerRequest struct {
+	Id                 string `path:"id"`
+	Name               string `json:"name,optional"`
+	PhoneNumber        string `json:"phoneNumber,optional"`
+	OpenId             string `json:"openId,optional"`
+	InviteByCustomerId int64  `json:"inviteByCustomerId,optional"`
+	Source             string `json:"source,options=tiktok|ad|miniprogram|wechat|other,optional"`
+	Type               string `json:"type,options=personal|company,optional"`
+	Status             string `json:"status,optional"`
+}
+
+type PatchCustomerReply struct {
+	Customer Customer `json:"customer"`
+}
+
+type DeleteCustomerRequest struct {
+	Id string `path:"id"`
+}
+
+type DeleteCustomerReply struct {
+	CustomerId int64 `json:"customerId"`
+}
+
 type Clue struct {
 	Id          int64  `json:"id"`
 	Title       string `json:"title"`
@@ -309,10 +379,10 @@ type Clue struct {
 }
 
 type ListCluesRequest struct {
-	LikeTitle       string   `json:"likeTitle"`
-	LikePhoneNumber string   `json:"likePhoneNumber"`
-	Sources         []string `json:"sources"`
-	Statuses        []string `json:"statuses"`
+	LikeTitle       string   `json:"likeTitle,optional"`
+	LikePhoneNumber string   `json:"likePhoneNumber,optional"`
+	Sources         []string `json:"sources,optional"`
+	Statuses        []string `json:"statuses,optional"`
 }
 
 type ListCluesReply struct {
@@ -348,6 +418,15 @@ type PatchClueReply struct {
 
 type DeleteClueReply struct {
 	Id int64 `json:"id"`
+}
+
+type AssignClueToEmployeeRequest struct {
+	Id         int64 `path:"id"`
+	EmployeeId int64 `json:"employeeId"`
+}
+
+type AssignClueToEmployeeReply struct {
+	Clue
 }
 
 type GetUserInfoReply struct {

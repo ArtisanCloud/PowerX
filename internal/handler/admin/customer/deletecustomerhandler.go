@@ -1,24 +1,24 @@
-package permission
+package customer
 
 import (
 	"net/http"
 
-	"PowerX/internal/logic/permission"
+	"PowerX/internal/logic/admin/customer"
 	"PowerX/internal/svc"
 	"PowerX/internal/types"
 	"github.com/zeromicro/go-zero/rest/httpx"
 )
 
-func PutRoleHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
+func DeleteCustomerHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var req types.PutRoleReqeust
+		var req types.DeleteCustomerRequest
 		if err := httpx.Parse(r, &req); err != nil {
 			httpx.ErrorCtx(r.Context(), w, err)
 			return
 		}
 
-		l := permission.NewPutRoleLogic(r.Context(), svcCtx)
-		resp, err := l.PutRole(&req)
+		l := customer.NewDeleteCustomerLogic(r.Context(), svcCtx)
+		resp, err := l.DeleteCustomer(&req)
 		if err != nil {
 			httpx.ErrorCtx(r.Context(), w, err)
 		} else {

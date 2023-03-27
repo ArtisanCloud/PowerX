@@ -163,6 +163,21 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Path:    "/customers",
 				Handler: admincustomer.ListCustomersHandler(serverCtx),
 			},
+			{
+				Method:  http.MethodPost,
+				Path:    "/customers",
+				Handler: admincustomer.CreateCustomerHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodPatch,
+				Path:    "/customers/:id",
+				Handler: admincustomer.PatchCustomerHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodDelete,
+				Path:    "/customers/:id",
+				Handler: admincustomer.DeleteCustomerHandler(serverCtx),
+			},
 		},
 		rest.WithPrefix("/api/admin/customer/v1"),
 	)
@@ -189,6 +204,11 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Path:    "/clues/:id",
 				Handler: adminclue.DeleteClueHandler(serverCtx),
 			},
+			{
+				Method:  http.MethodPost,
+				Path:    "/clues/:id/actions/assign-to-employee",
+				Handler: adminclue.AssignClueToEmployeeHandler(serverCtx),
+			},
 		},
 		rest.WithPrefix("/api/admin/clue/v1"),
 	)
@@ -211,6 +231,6 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Handler: adminuserinfo.ModifyUserPasswordHandler(serverCtx),
 			},
 		},
-		rest.WithPrefix("/api/admin/v1"),
+		rest.WithPrefix("/api/admin/user-center/v1"),
 	)
 }

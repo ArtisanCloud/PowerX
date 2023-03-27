@@ -11,7 +11,7 @@ import (
 
 func GetRoleEmployeesHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var req types.GetRoleEmployeeIdsReqeust
+		var req types.GetRoleEmployeesReqeust
 		if err := httpx.Parse(r, &req); err != nil {
 			httpx.ErrorCtx(r.Context(), w, err)
 			return

@@ -1,24 +1,24 @@
-package employee
+package clue
 
 import (
 	"net/http"
 
-	"PowerX/internal/logic/employee"
+	"PowerX/internal/logic/admin/clue"
 	"PowerX/internal/svc"
 	"PowerX/internal/types"
 	"github.com/zeromicro/go-zero/rest/httpx"
 )
 
-func DeleteEmployeeHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
+func AssignClueToEmployeeHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var req types.DeleteEmployeeRequest
+		var req types.AssignClueToEmployeeRequest
 		if err := httpx.Parse(r, &req); err != nil {
 			httpx.ErrorCtx(r.Context(), w, err)
 			return
 		}
 
-		l := employee.NewDeleteEmployeeLogic(r.Context(), svcCtx)
-		resp, err := l.DeleteEmployee(&req)
+		l := clue.NewAssignClueToEmployeeLogic(r.Context(), svcCtx)
+		resp, err := l.AssignClueToEmployee(&req)
 		if err != nil {
 			httpx.ErrorCtx(r.Context(), w, err)
 		} else {
