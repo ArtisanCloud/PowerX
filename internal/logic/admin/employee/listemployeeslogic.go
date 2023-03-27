@@ -52,7 +52,7 @@ func (l *ListEmployeesLogic) ListEmployees(req *types.ListEmployeesRequest) (res
 		if *req.IsEnabled {
 			opt.Statuses = append(opt.Statuses, powerx.EmployeeStatusEnabled)
 		} else {
-			opt.Statuses = append(opt.Statuses, powerx.EmployeeStatusDisabled, powerx.EmployeeStatusUnActivated)
+			opt.Statuses = append(opt.Statuses, powerx.EmployeeStatusDisabled)
 		}
 	}
 
