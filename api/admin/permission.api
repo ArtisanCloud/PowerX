@@ -39,27 +39,34 @@ service PowerX {
     @handler SetRolePermissions
     post /roles/:roleCode/actions/set-permissions
 
-    @doc "查询API权限"
-    @handler ListPermissiom
-    get /permissions returns (ListRecoursesReply)
+    @doc "查询API列表"
+    @handler ListAPI
+    get /api-list (ListAPIRequest) returns (ListAPIReply)
 
     @doc "为用户授予角色"
     @handler SetUserRoles
     post /users/:userId/actions/set-roles
 }
 
-type (
-    AuthRole {
-        RoleCode string `json:"roleCode"`
-        Name string `json:"name"`
-        Desc string `json:"desc"`
-        IsReserved bool `json:"isReserved"`
-        ActIds []int64 `json:"actIds"`
-        MenuNames []string `json:"menuNames"`
-    }
+type AdminAPI {
+    Id int64 `json:"id"`
+    API string `json:"api"`
+    Name string `json:"name"`
+    Desc string `json:"desc"`
+}
 
+type AdminRole {
+    RoleCode string `json:"roleCode"`
+    Name string `json:"name"`
+    Desc string `json:"desc"`
+    IsReserved bool `json:"isReserved"`
+    APIList []AdminAPI `json:"apiList"`
+    MenuNames []string `json:"menuNames"`
+}
+
+type (
     ListRolesReply {
-        List []AuthRole `json:"list"`
+        List []AdminRole `json:"list"`
     }
 )
 
@@ -68,6 +75,8 @@ type (
         RoleCode string `json:"roleCode"`
         Name string `json:"name"`
         Desc string `json:"desc"`
+        APIIds []int64 `json:"apiIds"`
+        MenuNames []string `json:"menuNames"`
     }
 
     CreateRoleReply {
@@ -81,7 +90,7 @@ type (
     }
 
     GetRoleReply {
-        *AuthRole
+        *AdminRole
     }
 )
 
@@ -90,35 +99,22 @@ type (
         RoleCode string `path:"roleCode"`
         Name string `json:"name"`
         Desc string `json:"desc"`
-        ActIds []int64 `json:"actIds"`
+        APIIds []int64 `json:"apiIds"`
         MenuNames []string `json:"menuNames"`
     }
 
     PutRoleReply {
-        *AuthRole
+        *AdminRole
     }
 )
 
 type (
-    AuthResAct {
-        Id int64 `json:"id"`
-        Version string `json:"version"`
-        RestPath string `json:"restPath"`
-        Action string `json:"action"`
-        Desc string `json:"desc"`
+    ListAPIRequest {
+        GroupId int64 `json:"groupId"`
     }
 
-    AuthRes {
-        Id int64 `json:"id"`
-        ResCode string `json:"resCode"`
-        ResName string `json:"resName"`
-        Type string `json:"type"`
-        Desc string `json:"desc"`
-        Acts []AuthResAct `json:"acts"`
-    }
-
-    ListRecoursesReply {
-        List []AuthRes `json:"list"`
+    ListAPIReply {
+        List []AdminAPI `json:"list"`
     }
 )
 

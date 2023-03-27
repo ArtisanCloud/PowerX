@@ -41,11 +41,12 @@ func (l *CreateEmployeeLogic) CreateEmployee(req *types.CreateEmployeeRequest) (
 		Password:      "123456",
 		Status:        powerx.EmployeeStatusEnabled,
 	}
-	err = employee.HashPassword()
-	if err != nil {
+	if err = employee.HashPassword(); err != nil {
 		panic(errors.Wrap(err, "create employee hash password failed"))
 	}
-	l.svcCtx.PowerX.Organization.CreateEmployee(l.ctx, &employee)
+	if err = l.svcCtx.PowerX.Organization.CreateEmployee(l.ctx, &employee); err != nil {
+		return nil, err
+	}
 
 	return &types.CreateEmployeeReply{
 		Id: employee.ID,

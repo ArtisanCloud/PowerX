@@ -38,12 +38,14 @@ func (l *GetDepartmentTreeLogic) GetDepartmentTree(req *types.GetDepartmentTreeR
 		node := types.DepartmentNode{
 			Id:      department.ID,
 			DepName: department.Name,
-			Leader: types.DepartmentLeader{
+		}
+		if department.Leader != nil {
+			node.Leader = types.DepartmentLeader{
 				Id:       department.Leader.ID,
 				Name:     department.Leader.Name,
 				NickName: department.Leader.NickName,
 				Avatar:   department.Leader.Avatar,
-			},
+			}
 		}
 		voSlice = append(voSlice, node)
 		if node.Id == req.DepId {

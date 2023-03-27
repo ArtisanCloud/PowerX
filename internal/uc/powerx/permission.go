@@ -52,6 +52,7 @@ type AdminRole struct {
 	Name       string
 	Desc       string
 	IsReserved bool
+	AdminAPI   []AdminAPI `gorm:"many2many:admin_role_apis"`
 	MenuNames  []AdminRoleMenuName
 }
 

@@ -131,8 +131,8 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				},
 				{
 					Method:  http.MethodGet,
-					Path:    "/permissions",
-					Handler: adminpermission.ListPermissiomHandler(serverCtx),
+					Path:    "/api-list",
+					Handler: adminpermission.ListAPIHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPost,

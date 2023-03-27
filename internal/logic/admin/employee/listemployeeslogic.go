@@ -62,6 +62,13 @@ func (l *ListEmployeesLogic) ListEmployees(req *types.ListEmployeesRequest) (res
 	var vos []types.Employee
 	for _, employee := range employeePage.List {
 		roles, _ := l.svcCtx.PowerX.Auth.Casbin.GetRolesForUser(employee.Account)
+		var dep *types.EmployeeDepartment
+		if employee.Department != nil {
+			dep = &types.EmployeeDepartment{
+				DepId:   employee.Department.ID,
+				DepName: employee.Department.Name,
+			}
+		}
 		vos = append(vos, types.Employee{
 			Id:            employee.ID,
 			Account:       employee.Account,
@@ -73,15 +80,12 @@ func (l *ListEmployeesLogic) ListEmployees(req *types.ListEmployeesRequest) (res
 			Desc:          employee.Desc,
 			Avatar:        employee.Avatar,
 			ExternalEmail: employee.ExternalEmail,
-			Department: types.EmployeeDepartment{
-				DepId:   employee.Department.ID,
-				DepName: employee.Department.Name,
-			},
-			Roles:     roles,
-			Position:  employee.Position,
-			JobTitle:  employee.JobTitle,
-			IsEnabled: employee.Status == powerx.EmployeeStatusEnabled,
-			CreatedAt: employee.CreatedAt.Format(time.RFC3339),
+			Department:    dep,
+			Roles:         roles,
+			Position:      employee.Position,
+			JobTitle:      employee.JobTitle,
+			IsEnabled:     employee.Status == powerx.EmployeeStatusEnabled,
+			CreatedAt:     employee.CreatedAt.Format(time.RFC3339),
 		})
 	}
 

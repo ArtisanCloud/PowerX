@@ -38,7 +38,9 @@ func (l *ResetPasswordLogic) ResetPassword(req *types.ResetPasswordRequest) (res
 		panic(errors.Wrap(err, "create employee hash password failed"))
 	}
 
-	l.svcCtx.PowerX.Organization.UpdateEmployeeById(l.ctx, &employee, req.UserId)
+	if err := l.svcCtx.PowerX.Organization.UpdateEmployeeById(l.ctx, &employee, req.UserId); err != nil {
+		return nil, err
+	}
 
 	return &types.ResetPasswordReply{
 		Status: "ok",

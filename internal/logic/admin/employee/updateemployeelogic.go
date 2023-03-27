@@ -46,12 +46,13 @@ func (l *UpdateEmployeeLogic) UpdateEmployee(req *types.UpdateEmployeeRequest) (
 		Status:        req.Status,
 	}
 
-	err = employee.HashPassword()
-	if err != nil {
+	if err = employee.HashPassword(); err != nil {
 		panic(errors.Wrap(err, "create employee hash password failed"))
 	}
 
-	l.svcCtx.PowerX.Organization.UpdateEmployeeById(l.ctx, &employee, req.Id)
+	if err := l.svcCtx.PowerX.Organization.UpdateEmployeeById(l.ctx, &employee, req.Id); err != nil {
+		return nil, err
+	}
 
 	roles, _ := l.svcCtx.PowerX.Auth.Casbin.GetRolesForUser(employee.Account)
 
@@ -68,14 +69,10 @@ func (l *UpdateEmployeeLogic) UpdateEmployee(req *types.UpdateEmployeeRequest) (
 			Avatar:        employee.Avatar,
 			ExternalEmail: employee.ExternalEmail,
 			Roles:         roles,
-			Department: types.EmployeeDepartment{
-				DepId:   employee.DepartmentId,
-				DepName: employee.Name,
-			},
-			Position:  employee.Position,
-			JobTitle:  employee.JobTitle,
-			IsEnabled: employee.Status == powerx.EmployeeStatusEnabled,
-			CreatedAt: employee.CreatedAt.Format(time.RFC3339),
+			Position:      employee.Position,
+			JobTitle:      employee.JobTitle,
+			IsEnabled:     employee.Status == powerx.EmployeeStatusEnabled,
+			CreatedAt:     employee.CreatedAt.Format(time.RFC3339),
 		},
 	}, nil
 }

@@ -91,7 +91,7 @@ type (
         Avatar string `json:"avatar,optional"`
         ExternalEmail string `json:"externalEmail,optional"`
         Roles []string `json:"roles"`
-        Department EmployeeDepartment `json:"department"`
+        Department *EmployeeDepartment `json:"department"`
         Position string `json:"position"`
         JobTitle string `json:"jobTitle"`
         IsEnabled bool `json:"isEnabled"`
@@ -149,12 +149,12 @@ type (
         Avatar string `json:"avatar,optional"`
         ExternalEmail string `json:"externalEmail,optional"`
         MobilePhone string `json:"mobilePhone,optional"`
-        Gender string `json:"gender,options=male|female|un_know"`
+        Gender string `json:"gender,optional,options=male|female|un_know"`
         DepId int64 `json:"depId,optional"`
         Position string `json:"position,optional"`
         JobTitle string `json:"jobTitle,optional"`
         Password string `json:"password,optional"`
-        Status string `json:"status,options=enabled|disabled|un_actived"`
+        Status string `json:"status,optional,options=enabled|disabled|un_actived"`
     }
 
     UpdateEmployeeReply {

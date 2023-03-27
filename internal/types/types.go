@@ -92,22 +92,22 @@ type EmployeeDepartment struct {
 }
 
 type Employee struct {
-	Id            int64              `json:"id"`
-	Account       string             `json:"account"`
-	Name          string             `json:"name"`
-	Email         string             `json:"email"`
-	MobilePhone   string             `json:"mobilePhone"`
-	Gender        string             `json:"gender"`
-	NickName      string             `json:"nickName,optional"`
-	Desc          string             `json:"desc,optional"`
-	Avatar        string             `json:"avatar,optional"`
-	ExternalEmail string             `json:"externalEmail,optional"`
-	Roles         []string           `json:"roles"`
-	Department    EmployeeDepartment `json:"department"`
-	Position      string             `json:"position"`
-	JobTitle      string             `json:"jobTitle"`
-	IsEnabled     bool               `json:"isEnabled"`
-	CreatedAt     string             `json:"createdAt"`
+	Id            int64               `json:"id"`
+	Account       string              `json:"account"`
+	Name          string              `json:"name"`
+	Email         string              `json:"email"`
+	MobilePhone   string              `json:"mobilePhone"`
+	Gender        string              `json:"gender"`
+	NickName      string              `json:"nickName,optional"`
+	Desc          string              `json:"desc,optional"`
+	Avatar        string              `json:"avatar,optional"`
+	ExternalEmail string              `json:"externalEmail,optional"`
+	Roles         []string            `json:"roles"`
+	Department    *EmployeeDepartment `json:"department"`
+	Position      string              `json:"position"`
+	JobTitle      string              `json:"jobTitle"`
+	IsEnabled     bool                `json:"isEnabled"`
+	CreatedAt     string              `json:"createdAt"`
 }
 
 type ListEmployeesReply struct {
@@ -155,12 +155,12 @@ type UpdateEmployeeRequest struct {
 	Avatar        string `json:"avatar,optional"`
 	ExternalEmail string `json:"externalEmail,optional"`
 	MobilePhone   string `json:"mobilePhone,optional"`
-	Gender        string `json:"gender,options=male|female|un_know"`
+	Gender        string `json:"gender,optional,options=male|female|un_know"`
 	DepId         int64  `json:"depId,optional"`
 	Position      string `json:"position,optional"`
 	JobTitle      string `json:"jobTitle,optional"`
 	Password      string `json:"password,optional"`
-	Status        string `json:"status,options=enabled|disabled|un_actived"`
+	Status        string `json:"status,optional,options=enabled|disabled|un_actived"`
 }
 
 type UpdateEmployeeReply struct {
@@ -199,23 +199,32 @@ type ResetPasswordReply struct {
 	Status string `json:"status"`
 }
 
-type AuthRole struct {
-	RoleCode   string   `json:"roleCode"`
-	Name       string   `json:"name"`
-	Desc       string   `json:"desc"`
-	IsReserved bool     `json:"isReserved"`
-	ActIds     []int64  `json:"actIds"`
-	MenuNames  []string `json:"menuNames"`
+type AdminAPI struct {
+	Id   int64  `json:"id"`
+	API  string `json:"api"`
+	Name string `json:"name"`
+	Desc string `json:"desc"`
+}
+
+type AdminRole struct {
+	RoleCode   string     `json:"roleCode"`
+	Name       string     `json:"name"`
+	Desc       string     `json:"desc"`
+	IsReserved bool       `json:"isReserved"`
+	APIList    []AdminAPI `json:"apiList"`
+	MenuNames  []string   `json:"menuNames"`
 }
 
 type ListRolesReply struct {
-	List []AuthRole `json:"list"`
+	List []AdminRole `json:"list"`
 }
 
 type CreateRoleRequest struct {
-	RoleCode string `json:"roleCode"`
-	Name     string `json:"name"`
-	Desc     string `json:"desc"`
+	RoleCode  string   `json:"roleCode"`
+	Name      string   `json:"name"`
+	Desc      string   `json:"desc"`
+	APIIds    []int64  `json:"apiIds"`
+	MenuNames []string `json:"menuNames"`
 }
 
 type CreateRoleReply struct {
@@ -227,40 +236,27 @@ type GetRoleRequest struct {
 }
 
 type GetRoleReply struct {
-	*AuthRole
+	*AdminRole
 }
 
 type PutRoleReqeust struct {
 	RoleCode  string   `path:"roleCode"`
 	Name      string   `json:"name"`
 	Desc      string   `json:"desc"`
-	ActIds    []int64  `json:"actIds"`
+	APIIds    []int64  `json:"apiIds"`
 	MenuNames []string `json:"menuNames"`
 }
 
 type PutRoleReply struct {
-	*AuthRole
+	*AdminRole
 }
 
-type AuthResAct struct {
-	Id       int64  `json:"id"`
-	Version  string `json:"version"`
-	RestPath string `json:"restPath"`
-	Action   string `json:"action"`
-	Desc     string `json:"desc"`
+type ListAPIRequest struct {
+	GroupId int64 `json:"groupId"`
 }
 
-type AuthRes struct {
-	Id      int64        `json:"id"`
-	ResCode string       `json:"resCode"`
-	ResName string       `json:"resName"`
-	Type    string       `json:"type"`
-	Desc    string       `json:"desc"`
-	Acts    []AuthResAct `json:"acts"`
-}
-
-type ListRecoursesReply struct {
-	List []AuthRes `json:"list"`
+type ListAPIReply struct {
+	List []AdminAPI `json:"list"`
 }
 
 type GetRoleEmployeesReqeust struct {

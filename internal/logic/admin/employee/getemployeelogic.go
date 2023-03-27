@@ -33,6 +33,14 @@ func (l *GetEmployeeLogic) GetEmployee(req *types.GetEmployeeRequest) (resp *typ
 
 	roles, _ := l.svcCtx.PowerX.Auth.Casbin.GetRolesForUser(employee.Account)
 
+	var dep *types.EmployeeDepartment
+	if employee.Department != nil {
+		dep = &types.EmployeeDepartment{
+			DepId:   employee.Department.ID,
+			DepName: employee.Department.Name,
+		}
+	}
+
 	return &types.GetEmployeeReply{
 		Employee: &types.Employee{
 			Id:            employee.ID,
@@ -45,15 +53,12 @@ func (l *GetEmployeeLogic) GetEmployee(req *types.GetEmployeeRequest) (resp *typ
 			Desc:          employee.NickName,
 			Avatar:        employee.Avatar,
 			ExternalEmail: employee.ExternalEmail,
-			Department: types.EmployeeDepartment{
-				DepId:   employee.Department.ID,
-				DepName: employee.Department.Name,
-			},
-			Roles:     roles,
-			Position:  employee.Position,
-			JobTitle:  employee.JobTitle,
-			IsEnabled: employee.Status == powerx.EmployeeStatusEnabled,
-			CreatedAt: employee.CreatedAt.Format(time.RFC3339),
+			Department:    dep,
+			Roles:         roles,
+			Position:      employee.Position,
+			JobTitle:      employee.JobTitle,
+			IsEnabled:     employee.Status == powerx.EmployeeStatusEnabled,
+			CreatedAt:     employee.CreatedAt.Format(time.RFC3339),
 		},
 	}, nil
 }
