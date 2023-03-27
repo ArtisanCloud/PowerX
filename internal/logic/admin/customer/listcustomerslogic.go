@@ -4,6 +4,8 @@ import (
 	"context"
 
 	"PowerX/internal/svc"
+	"PowerX/internal/types"
+
 	"github.com/zeromicro/go-zero/core/logx"
 )
 
@@ -21,8 +23,8 @@ func NewListCustomersLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Lis
 	}
 }
 
-func (l *ListCustomersLogic) ListCustomers() error {
+func (l *ListCustomersLogic) ListCustomers(req *types.ListCustomersRequest) (resp *types.ListCustomersReply, err error) {
 	// todo: add your logic here and delete this line
 
-	return nil
+	return
 }

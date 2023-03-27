@@ -7,22 +7,21 @@ import (
 	"github.com/pkg/errors"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
 type PowerXUseCase struct {
 	db           *gorm.DB
 	Auth         *powerx.AuthUseCase
 	Organization *powerx.OrganizationUseCase
-	Tag          *powerx.TagUseCase
-	Contact      *powerx.ContactUseCase
-	WeWork       *powerx.WeWorkUseCase
 	MetadataCtx  *powerx.MetadataCtx
 }
 
 func NewPowerXUseCase(conf *config.Config) (uc *PowerXUseCase, clean func()) {
 	// 启动数据库并测试连通性
 	db, err := gorm.Open(postgres.Open(conf.PowerXDatabase.DSN), &gorm.Config{
-		//Logger: logger.Default.LogMode(logger.Info),
+		Logger:                                   logger.Default.LogMode(logger.Info),
+		DisableForeignKeyConstraintWhenMigrating: true,
 	})
 	if err != nil {
 		panic(errors.Wrap(err, "connect database failed"))
@@ -43,9 +42,6 @@ func NewPowerXUseCase(conf *config.Config) (uc *PowerXUseCase, clean func()) {
 	uc.MetadataCtx = powerx.NewMetadataCtx()
 	uc.Organization = powerx.NewOrganizationUseCase(db)
 	uc.Auth = powerx.NewCasbinUseCase(db, uc.MetadataCtx, uc.Organization)
-	uc.Tag = powerx.NewTagUseCase(db)
-	uc.Contact = powerx.NewContactUseCase(db)
-	uc.WeWork = powerx.NewWeWorkUseCase(conf, db, uc.Organization, uc.Department, uc.Auth, uc.Tag)
 
 	uc.AutoMigrate(context.Background())
 	uc.AutoInit()
@@ -56,9 +52,9 @@ func NewPowerXUseCase(conf *config.Config) (uc *PowerXUseCase, clean func()) {
 }
 
 func (p *PowerXUseCase) AutoMigrate(ctx context.Context) {
-	p.db.AutoMigrate(&powerx.CasbinPolicy{}, powerx.Role{}, powerx.API{})
-	p.db.AutoMigrate(&powerx.Department{}, &powerx.Employee{}, &powerx.LiveQRCode{})
-	p.db.AutoMigrate(&powerx.WeWorkDepartment{}, &powerx.WeWorkEmployee{})
+	p.db.AutoMigrate(&powerx.Department{}, &powerx.Employee{})
+	p.db.AutoMigrate(&powerx.EmployeeCasbinPolicy{}, powerx.AdminRole{}, powerx.AdminAPI{})
+	p.db.AutoMigrate(&powerx.Clue{}, &powerx.Customer{})
 }
 
 func (p *PowerXUseCase) AutoInit() {

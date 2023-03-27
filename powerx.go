@@ -1,7 +1,6 @@
 package main
 
 import (
-	"PowerX/internal/middleware/authmd"
 	"PowerX/internal/middleware/recovery"
 	"flag"
 	"fmt"
@@ -31,17 +30,6 @@ func main() {
 
 	// error 5xx
 	server.Use(recovery.RecoverMiddleware())
-	// 设置鉴权中间件
-	publicPath := []string{
-		"/api/auth/v1/op/login",
-		"/api/auth/v1/menu-roles",
-	}
-	whitePath := []string{
-		"/api/auth/v1/user-info",
-	}
-	server.Use(authmd.AuthMiddleware(ctx,
-		authmd.WithPublicPrefix(publicPath...),
-		authmd.WithWhiteListPrefix(whitePath...)))
 
 	// 设置自定义错误处理逻辑 3xx 4xx default: 400
 	httpx.SetErrorHandler(handler.ErrorHandle)

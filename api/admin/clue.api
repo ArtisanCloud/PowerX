@@ -12,6 +12,7 @@ info(
 @server(
     group: admin/clue
     prefix: /api/admin/clue/v1
+    middleware: EmployeeJWTAuth
 )
 
 service PowerX {

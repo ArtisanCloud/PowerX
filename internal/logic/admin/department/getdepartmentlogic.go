@@ -29,19 +29,24 @@ func (l *GetDepartmentLogic) GetDepartment(req *types.GetDepartmentRequest) (res
 		return nil, err
 	}
 
-	return &types.GetDepartmentReply{
+	resp = &types.GetDepartmentReply{
 		Department: &types.Department{
-			Id:      department.ID,
-			DepName: department.Name,
-			Leader: types.DepartmentLeader{
-				Id:       department.Leader.ID,
-				Name:     department.Leader.Name,
-				NickName: department.Leader.NickName,
-				Avatar:   department.Leader.Avatar,
-			},
+			Id:          department.ID,
+			DepName:     department.Name,
 			PhoneNumber: department.PhoneNumber,
 			Email:       department.Email,
 			Remark:      department.Remark,
 		},
-	}, nil
+	}
+
+	if department.Leader != nil {
+		resp.Leader = types.DepartmentLeader{
+			Id:       department.Leader.ID,
+			Name:     department.Leader.Name,
+			NickName: department.Leader.NickName,
+			Avatar:   department.Leader.Avatar,
+		}
+	}
+
+	return resp, nil
 }

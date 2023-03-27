@@ -14,7 +14,7 @@ type AuthMetadata struct {
 	UID int64
 }
 
-func newMetadataCtx() *MetadataCtx {
+func NewMetadataCtx() *MetadataCtx {
 	return &MetadataCtx{}
 }
 

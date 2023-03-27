@@ -18,120 +18,129 @@ import (
 
 func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 	server.AddRoutes(
-		[]rest.Route{
-			{
-				Method:  http.MethodGet,
-				Path:    "/department-tree/:depId",
-				Handler: admindepartment.GetDepartmentTreeHandler(serverCtx),
-			},
-			{
-				Method:  http.MethodGet,
-				Path:    "/departments/:id",
-				Handler: admindepartment.GetDepartmentHandler(serverCtx),
-			},
-			{
-				Method:  http.MethodPost,
-				Path:    "/departments",
-				Handler: admindepartment.CreateDepartmentHandler(serverCtx),
-			},
-			{
-				Method:  http.MethodDelete,
-				Path:    "/departments/:id",
-				Handler: admindepartment.DeleteDepartmentHandler(serverCtx),
-			},
-		},
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Route{
+				{
+					Method:  http.MethodGet,
+					Path:    "/department-tree/:depId",
+					Handler: admindepartment.GetDepartmentTreeHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/departments/:id",
+					Handler: admindepartment.GetDepartmentHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/departments",
+					Handler: admindepartment.CreateDepartmentHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodDelete,
+					Path:    "/departments/:id",
+					Handler: admindepartment.DeleteDepartmentHandler(serverCtx),
+				},
+			}...,
+		),
 		rest.WithPrefix("/api/admin/department/v1"),
 	)
 
 	server.AddRoutes(
-		[]rest.Route{
-			{
-				Method:  http.MethodPost,
-				Path:    "/employees/actions/sync",
-				Handler: adminemployee.SyncEmployeesHandler(serverCtx),
-			},
-			{
-				Method:  http.MethodGet,
-				Path:    "/employees/:id",
-				Handler: adminemployee.GetEmployeeHandler(serverCtx),
-			},
-			{
-				Method:  http.MethodGet,
-				Path:    "/employees",
-				Handler: adminemployee.ListEmployeesHandler(serverCtx),
-			},
-			{
-				Method:  http.MethodPost,
-				Path:    "/employees",
-				Handler: adminemployee.CreateEmployeeHandler(serverCtx),
-			},
-			{
-				Method:  http.MethodGet,
-				Path:    "/options",
-				Handler: adminemployee.GetEmployeeOptionsHandler(serverCtx),
-			},
-			{
-				Method:  http.MethodPatch,
-				Path:    "/employees/:id",
-				Handler: adminemployee.UpdateEmployeeHandler(serverCtx),
-			},
-			{
-				Method:  http.MethodDelete,
-				Path:    "/employees/:id",
-				Handler: adminemployee.DeleteEmployeeHandler(serverCtx),
-			},
-			{
-				Method:  http.MethodPost,
-				Path:    "/employees/actions/reset-password",
-				Handler: adminemployee.ResetPasswordHandler(serverCtx),
-			},
-		},
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Route{
+				{
+					Method:  http.MethodPost,
+					Path:    "/employees/actions/sync",
+					Handler: adminemployee.SyncEmployeesHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/employees/:id",
+					Handler: adminemployee.GetEmployeeHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/employees",
+					Handler: adminemployee.ListEmployeesHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/employees",
+					Handler: adminemployee.CreateEmployeeHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/options",
+					Handler: adminemployee.GetEmployeeOptionsHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPatch,
+					Path:    "/employees/:id",
+					Handler: adminemployee.UpdateEmployeeHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodDelete,
+					Path:    "/employees/:id",
+					Handler: adminemployee.DeleteEmployeeHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/employees/actions/reset-password",
+					Handler: adminemployee.ResetPasswordHandler(serverCtx),
+				},
+			}...,
+		),
 		rest.WithPrefix("/api/admin/employee/v1"),
 	)
 
 	server.AddRoutes(
-		[]rest.Route{
-			{
-				Method:  http.MethodGet,
-				Path:    "/roles",
-				Handler: adminpermission.ListRolesHandler(serverCtx),
-			},
-			{
-				Method:  http.MethodPost,
-				Path:    "/roles",
-				Handler: adminpermission.CreateRoleHandler(serverCtx),
-			},
-			{
-				Method:  http.MethodGet,
-				Path:    "/roles/:roleCode",
-				Handler: adminpermission.GetRoleHandler(serverCtx),
-			},
-			{
-				Method:  http.MethodPut,
-				Path:    "/roles/:roleCode",
-				Handler: adminpermission.PutRoleHandler(serverCtx),
-			},
-			{
-				Method:  http.MethodGet,
-				Path:    "/roles/:roleCode/users",
-				Handler: adminpermission.GetRoleEmployeesHandler(serverCtx),
-			},
-			{
-				Method:  http.MethodPost,
-				Path:    "/roles/:roleCode/actions/set-permissions",
-				Handler: adminpermission.SetRolePermissionsHandler(serverCtx),
-			},
-			{
-				Method:  http.MethodGet,
-				Path:    "/permissions",
-				Handler: adminpermission.ListPermissiomHandler(serverCtx),
-			},
-			{
-				Method:  http.MethodPost,
-				Path:    "/users/:userId/actions/set-roles",
-				Handler: adminpermission.SetUserRolesHandler(serverCtx),
-			},
-		},
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Route{
+				{
+					Method:  http.MethodGet,
+					Path:    "/roles",
+					Handler: adminpermission.ListRolesHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/roles",
+					Handler: adminpermission.CreateRoleHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/roles/:roleCode",
+					Handler: adminpermission.GetRoleHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPut,
+					Path:    "/roles/:roleCode",
+					Handler: adminpermission.PutRoleHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/roles/:roleCode/users",
+					Handler: adminpermission.GetRoleEmployeesHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/roles/:roleCode/actions/set-permissions",
+					Handler: adminpermission.SetRolePermissionsHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/permissions",
+					Handler: adminpermission.ListPermissiomHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/users/:userId/actions/set-roles",
+					Handler: adminpermission.SetUserRolesHandler(serverCtx),
+				},
+			}...,
+		),
 		rest.WithPrefix("/api/admin/permission/v1"),
 	)
 
@@ -152,85 +161,94 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 	)
 
 	server.AddRoutes(
-		[]rest.Route{
-			{
-				Method:  http.MethodGet,
-				Path:    "/customers/:id",
-				Handler: admincustomer.GetCustomerHandler(serverCtx),
-			},
-			{
-				Method:  http.MethodGet,
-				Path:    "/customers",
-				Handler: admincustomer.ListCustomersHandler(serverCtx),
-			},
-			{
-				Method:  http.MethodPost,
-				Path:    "/customers",
-				Handler: admincustomer.CreateCustomerHandler(serverCtx),
-			},
-			{
-				Method:  http.MethodPatch,
-				Path:    "/customers/:id",
-				Handler: admincustomer.PatchCustomerHandler(serverCtx),
-			},
-			{
-				Method:  http.MethodDelete,
-				Path:    "/customers/:id",
-				Handler: admincustomer.DeleteCustomerHandler(serverCtx),
-			},
-		},
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Route{
+				{
+					Method:  http.MethodGet,
+					Path:    "/customers/:id",
+					Handler: admincustomer.GetCustomerHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/customers",
+					Handler: admincustomer.ListCustomersHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/customers",
+					Handler: admincustomer.CreateCustomerHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPatch,
+					Path:    "/customers/:id",
+					Handler: admincustomer.PatchCustomerHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodDelete,
+					Path:    "/customers/:id",
+					Handler: admincustomer.DeleteCustomerHandler(serverCtx),
+				},
+			}...,
+		),
 		rest.WithPrefix("/api/admin/customer/v1"),
 	)
 
 	server.AddRoutes(
-		[]rest.Route{
-			{
-				Method:  http.MethodGet,
-				Path:    "/clues",
-				Handler: adminclue.ListCluesHandler(serverCtx),
-			},
-			{
-				Method:  http.MethodPost,
-				Path:    "/clues",
-				Handler: adminclue.CreateCluesHandler(serverCtx),
-			},
-			{
-				Method:  http.MethodPatch,
-				Path:    "/clues/:id",
-				Handler: adminclue.PatchClueHandler(serverCtx),
-			},
-			{
-				Method:  http.MethodDelete,
-				Path:    "/clues/:id",
-				Handler: adminclue.DeleteClueHandler(serverCtx),
-			},
-			{
-				Method:  http.MethodPost,
-				Path:    "/clues/:id/actions/assign-to-employee",
-				Handler: adminclue.AssignClueToEmployeeHandler(serverCtx),
-			},
-		},
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Route{
+				{
+					Method:  http.MethodGet,
+					Path:    "/clues",
+					Handler: adminclue.ListCluesHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/clues",
+					Handler: adminclue.CreateCluesHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPatch,
+					Path:    "/clues/:id",
+					Handler: adminclue.PatchClueHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodDelete,
+					Path:    "/clues/:id",
+					Handler: adminclue.DeleteClueHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/clues/:id/actions/assign-to-employee",
+					Handler: adminclue.AssignClueToEmployeeHandler(serverCtx),
+				},
+			}...,
+		),
 		rest.WithPrefix("/api/admin/clue/v1"),
 	)
 
 	server.AddRoutes(
-		[]rest.Route{
-			{
-				Method:  http.MethodGet,
-				Path:    "/user-info",
-				Handler: adminuserinfo.GetUserInfoHandler(serverCtx),
-			},
-			{
-				Method:  http.MethodGet,
-				Path:    "/menu-roles",
-				Handler: adminuserinfo.GetMenuRolesHandler(serverCtx),
-			},
-			{
-				Method:  http.MethodPost,
-				Path:    "/users/actions/modify-password",
-				Handler: adminuserinfo.ModifyUserPasswordHandler(serverCtx),
-			},
-		},
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Route{
+				{
+					Method:  http.MethodGet,
+					Path:    "/user-info",
+					Handler: adminuserinfo.GetUserInfoHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/menu-roles",
+					Handler: adminuserinfo.GetMenuRolesHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/users/actions/modify-password",
+					Handler: adminuserinfo.ModifyUserPasswordHandler(serverCtx),
+				},
+			}...,
+		),
 		rest.WithPrefix("/api/admin/user-center/v1"),
 	)
 }

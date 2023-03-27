@@ -1,0 +1,220 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "用户中心",
+    "description": "用户中心",
+    "version": "v1"
+  },
+  "schemes": [
+    "http",
+    "https"
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "paths": {
+    "/api/admin/user-center/v1/menu-roles": {
+      "get": {
+        "summary": "获取用户可见菜单",
+        "operationId": "GetMenuRoles",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/GetMenuRolesReply"
+            }
+          }
+        },
+        "requestBody": {},
+        "tags": [
+          "admin/userinfo"
+        ]
+      }
+    },
+    "/api/admin/user-center/v1/user-info": {
+      "get": {
+        "summary": "获取用户信息",
+        "operationId": "GetUserInfo",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/GetUserInfoReply"
+            }
+          }
+        },
+        "requestBody": {},
+        "tags": [
+          "admin/userinfo"
+        ]
+      }
+    },
+    "/api/admin/user-center/v1/users/actions/modify-password": {
+      "post": {
+        "summary": "修改密码",
+        "operationId": "ModifyUserPassword",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {}
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/ModifyPasswordReqeust"
+            }
+          }
+        ],
+        "requestBody": {},
+        "tags": [
+          "admin/userinfo"
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "GetMenuRolesReply": {
+      "type": "object",
+      "properties": {
+        "menuRoles": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/MenuRoles"
+          }
+        }
+      },
+      "title": "GetMenuRolesReply",
+      "required": [
+        "menuRoles"
+      ]
+    },
+    "GetUserInfoReply": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "account": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "email": {
+          "type": "string"
+        },
+        "mobilePhone": {
+          "type": "string"
+        },
+        "gender": {
+          "type": "string"
+        },
+        "nickName": {
+          "type": "string"
+        },
+        "desc": {
+          "type": "string"
+        },
+        "avatar": {
+          "type": "string"
+        },
+        "externalEmail": {
+          "type": "string"
+        },
+        "depName": {
+          "type": "string"
+        },
+        "position": {
+          "type": "string"
+        },
+        "jobTitle": {
+          "type": "string"
+        },
+        "isEnabled": {
+          "type": "boolean",
+          "format": "boolean"
+        },
+        "createdAt": {
+          "type": "string"
+        },
+        "roles": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "title": "GetUserInfoReply",
+      "required": [
+        "id",
+        "account",
+        "name",
+        "email",
+        "mobilePhone",
+        "gender",
+        "nickName",
+        "desc",
+        "avatar",
+        "externalEmail",
+        "depName",
+        "position",
+        "jobTitle",
+        "isEnabled",
+        "createdAt",
+        "roles"
+      ]
+    },
+    "MenuRoles": {
+      "type": "object",
+      "properties": {
+        "menuName": {
+          "type": "string"
+        },
+        "allowRoleCodes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "title": "MenuRoles",
+      "required": [
+        "menuName",
+        "allowRoleCodes"
+      ]
+    },
+    "ModifyPasswordReqeust": {
+      "type": "object",
+      "properties": {
+        "password": {
+          "type": "string"
+        }
+      },
+      "title": "ModifyPasswordReqeust",
+      "required": [
+        "password"
+      ]
+    }
+  },
+  "securityDefinitions": {
+    "apiKey": {
+      "type": "apiKey",
+      "description": "Enter JWT Bearer token **_only_**",
+      "name": "Authorization",
+      "in": "header"
+    }
+  },
+  "security": [
+    {
+      "apiKey": []
+    }
+  ]
+}

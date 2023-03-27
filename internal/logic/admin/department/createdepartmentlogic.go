@@ -26,10 +26,13 @@ func NewCreateDepartmentLogic(ctx context.Context, svcCtx *svc.ServiceContext) *
 
 func (l *CreateDepartmentLogic) CreateDepartment(req *types.CreateDepartmentRequest) (resp *types.CreateDepartmentReply, err error) {
 	dep := powerx.Department{
-		Name:     req.DepName,
-		LeaderId: req.LeaderId,
-		Desc:     req.Desc,
-		PId:      req.PId,
+		Name:        req.DepName,
+		PId:         req.PId,
+		LeaderId:    req.LeaderId,
+		Desc:        req.Desc,
+		PhoneNumber: req.PhoneNumber,
+		Email:       req.Email,
+		Remark:      req.Remark,
 	}
 
 	err = l.svcCtx.PowerX.Organization.CreateDepartment(l.ctx, &dep)

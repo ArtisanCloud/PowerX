@@ -11,6 +11,7 @@ info(
 @server(
     group: admin/permission
     prefix: /api/admin/permission/v1
+    middleware: EmployeeJWTAuth
 )
 
 service PowerX {

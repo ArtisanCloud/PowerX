@@ -91,17 +91,18 @@ func (e *Employee) HashPassword() (err error) {
 }
 
 type Department struct {
+	types.Model
 	Name        string
 	PId         int64
+	PDep        *Department `gorm:"foreignKey:PId"`
 	LeaderId    int64
 	Leader      *Employee     `gorm:"foreignKey:LeaderId"`
-	Ancestors   []*Department `gorm:"many2many:department_ancestors"`
+	Ancestors   []*Department `gorm:"many2many:department_ancestors;"`
 	Desc        string
 	PhoneNumber string
 	Email       string
 	Remark      string
 	IsReserved  bool
-	*types.Model
 }
 
 func defaultDepartment() *Department {
@@ -285,6 +286,7 @@ func (e *OrganizationUseCase) FindAllPositions(ctx context.Context) (positions [
 }
 
 func (e *OrganizationUseCase) FindOneDepartment(ctx context.Context, id int64) (department *Department, err error) {
+	department = &Department{}
 	if err := e.db.WithContext(ctx).Preload("Leader").First(department, id).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errorx.WithCause(errorx.ErrBadRequest, "部门未找到")
@@ -307,11 +309,11 @@ func (e *OrganizationUseCase) CreateDepartment(ctx context.Context, dep *Departm
 		}
 		panic(errors.Wrap(err, "query parent Dep failed"))
 	}
-	var ancestorIds []int64
 	for _, ancestor := range pDep.Ancestors {
-		ancestorIds = append(ancestorIds, ancestor.ID)
+		dep.Ancestors = append(dep.Ancestors, ancestor)
 	}
-	ancestorIds = append(ancestorIds, pDep.ID)
+	dep.Ancestors = append(dep.Ancestors, pDep)
+
 	if err := db.Create(dep).Error; err != nil {
 		panic(errors.Wrap(err, "create dep failed"))
 	}
@@ -349,7 +351,8 @@ func (e *OrganizationUseCase) FindManyDepartmentsPage(ctx context.Context, optio
 }
 
 func (e *OrganizationUseCase) FindManyDepartmentsByRootId(ctx context.Context, rootId int64) (departments []*Department, err error) {
-	if err := e.db.WithContext(ctx).Preload("Leader").Where("ancestor_id = ?", rootId).Association("Ancestors").Find(&departments); err != nil {
+	if err := e.db.WithContext(ctx).Model(Department{}).Preload("Leader").Preload("Ancestors").
+		Joins("Ancestors").Find(&departments); err != nil {
 		panic(err)
 	}
 	if len(departments) == 0 {

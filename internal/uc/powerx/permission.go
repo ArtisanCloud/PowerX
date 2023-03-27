@@ -20,7 +20,7 @@ type AuthUseCase struct {
 	employee    *OrganizationUseCase
 }
 
-type CasbinPolicy struct {
+type EmployeeCasbinPolicy struct {
 	ID    int64 `gorm:"primarykey"`
 	PType string
 	V0    string
@@ -31,37 +31,37 @@ type CasbinPolicy struct {
 	V5    string
 }
 
-type API struct {
+type AdminAPI struct {
 	types.Model
 	API     string
 	Name    string
 	Desc    string
 	GroupId int64
-	Group   APIGroup
+	Group   AdminAPIGroup
 }
 
-type APIGroup struct {
+type AdminAPIGroup struct {
 	types.Model
 	Name string
 	Desc string
 }
 
-type Role struct {
+type AdminRole struct {
 	types.Model
 	RoleCode   string `gorm:"unique"`
 	Name       string
 	Desc       string
 	IsReserved bool
-	MenuNames  []RoleMenuName
+	MenuNames  []AdminRoleMenuName
 }
 
-type RoleMenuName struct {
+type AdminRoleMenuName struct {
 	types.Model
-	RoleId   int64
-	MenuName string
+	AdminRoleId int64
+	MenuName    string
 }
 
-func newCasbinUseCase(db *gorm.DB, md *MetadataCtx, employee *OrganizationUseCase) *AuthUseCase {
+func NewCasbinUseCase(db *gorm.DB, md *MetadataCtx, employee *OrganizationUseCase) *AuthUseCase {
 	//casbin适配器
 	sqlDB, _ := db.DB()
 	a, err := sqladapter.NewAdapter(sqlDB, "postgres", "casbin_policies")
@@ -86,23 +86,23 @@ func newCasbinUseCase(db *gorm.DB, md *MetadataCtx, employee *OrganizationUseCas
 func (a *AuthUseCase) Init() {
 	var count int64
 	// 初始化角色
-	if err := a.db.Model(&Role{}).Count(&count).Error; err != nil {
+	if err := a.db.Model(&AdminRole{}).Count(&count).Error; err != nil {
 		panic(errors.Wrap(err, "init role failed"))
 	}
 	if count == 0 {
-		var roles []Role
-		roles = append(roles, Role{
+		var roles []AdminRole
+		roles = append(roles, AdminRole{
 			RoleCode:   "admin",
 			Name:       "管理员",
 			Desc:       "管理员",
 			IsReserved: true,
-		}, Role{
+		}, AdminRole{
 			RoleCode:   "common_employee",
 			Name:       "普通员工",
 			Desc:       "普通员工",
 			IsReserved: true,
 		})
-		if err := a.db.Model(&Role{}).Create(&roles).Error; err != nil {
+		if err := a.db.Model(&AdminRole{}).Create(&roles).Error; err != nil {
 			panic(errors.Wrap(err, "init roles failed"))
 		}
 	}
@@ -128,7 +128,7 @@ func (a *AuthUseCase) Init() {
 	}
 
 	// 初始化casbin策略
-	if err := a.db.Model(&CasbinPolicy{}).Count(&count).Error; err != nil {
+	if err := a.db.Model(&EmployeeCasbinPolicy{}).Count(&count).Error; err != nil {
 		panic(errors.Wrap(err, "init casbin policy failed"))
 	}
 	if count == 0 {
@@ -139,8 +139,8 @@ func (a *AuthUseCase) Init() {
 	}
 }
 
-func (a *AuthUseCase) FindOneRoleByRoleCode(ctx context.Context, roleCode string) (role *Role, err error) {
-	err = a.db.WithContext(ctx).Where(Role{RoleCode: roleCode}).First(role).Error
+func (a *AuthUseCase) FindOneRoleByRoleCode(ctx context.Context, roleCode string) (role *AdminRole, err error) {
+	err = a.db.WithContext(ctx).Where(AdminRole{RoleCode: roleCode}).First(role).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errorx.WithCause(errorx.ErrBadRequest, "未查找到角色")
@@ -150,53 +150,53 @@ func (a *AuthUseCase) FindOneRoleByRoleCode(ctx context.Context, roleCode string
 	return
 }
 
-func (a *AuthUseCase) FindAllRoles(ctx context.Context) (roles []*Role) {
-	if err := a.db.WithContext(ctx).Model(Role{}).Preload("MenuNames").Find(&roles).Error; err != nil {
+func (a *AuthUseCase) FindAllRoles(ctx context.Context) (roles []*AdminRole) {
+	if err := a.db.WithContext(ctx).Model(AdminRole{}).Preload("MenuNames").Find(&roles).Error; err != nil {
 		panic(err)
 	}
 	return
 }
 
-func (a *AuthUseCase) CreateRole(ctx context.Context, role *Role) {
+func (a *AuthUseCase) CreateRole(ctx context.Context, role *AdminRole) {
 	if err := a.db.WithContext(ctx).Create(&role).Error; err != nil {
 		panic(err)
 	}
 	return
 }
 
-func (a *AuthUseCase) PatchRoleByRoleId(ctx context.Context, role *Role, roleId int64) {
+func (a *AuthUseCase) PatchRoleByRoleId(ctx context.Context, role *AdminRole, roleId int64) {
 	if err := a.db.WithContext(ctx).Updates(&role).Where(roleId).Error; err != nil {
 		panic(err)
 	}
 }
 
-func (a *AuthUseCase) PatchRoleByRoleCode(ctx context.Context, role *Role, roleCode string) {
-	if err := a.db.WithContext(ctx).Updates(&role).Where(Role{RoleCode: roleCode}).Error; err != nil {
+func (a *AuthUseCase) PatchRoleByRoleCode(ctx context.Context, role *AdminRole, roleCode string) {
+	if err := a.db.WithContext(ctx).Updates(&role).Where(AdminRole{RoleCode: roleCode}).Error; err != nil {
 		panic(err)
 	}
 }
 
-func (a *AuthUseCase) CreateAPI(ctx context.Context, api *API) {
+func (a *AuthUseCase) CreateAPI(ctx context.Context, api *AdminAPI) {
 	if err := a.db.WithContext(ctx).Create(&api).Error; err != nil {
 		panic(err)
 	}
 	return
 }
 
-func (a *AuthUseCase) PatchAPIByAPIId(ctx context.Context, api *API, apiId int64) {
+func (a *AuthUseCase) PatchAPIByAPIId(ctx context.Context, api *AdminAPI, apiId int64) {
 	if err := a.db.WithContext(ctx).Updates(&api).Where(apiId).Error; err != nil {
 		panic(err)
 	}
 }
 
-func (a *AuthUseCase) CreateAPIGroup(ctx context.Context, group *APIGroup) {
+func (a *AuthUseCase) CreateAPIGroup(ctx context.Context, group *AdminAPIGroup) {
 	if err := a.db.WithContext(ctx).Create(&group).Error; err != nil {
 		panic(err)
 	}
 	return
 }
 
-func (a *AuthUseCase) PatchAPIGroupByAPIGroupId(ctx context.Context, group *APIGroup, groupId int64) {
+func (a *AuthUseCase) PatchAPIGroupByAPIGroupId(ctx context.Context, group *AdminAPIGroup, groupId int64) {
 	if err := a.db.WithContext(ctx).Updates(&group).Where(groupId).Error; err != nil {
 		panic(err)
 	}
