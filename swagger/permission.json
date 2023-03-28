@@ -16,18 +16,27 @@
     "application/json"
   ],
   "paths": {
-    "/api/admin/permission/v1/permissions": {
+    "/api/admin/permission/v1/api-list": {
       "get": {
-        "summary": "查询API权限",
-        "operationId": "ListPermissiom",
+        "summary": "查询API列表",
+        "operationId": "ListAPI",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/ListRecoursesReply"
+              "$ref": "#/definitions/ListAPIReply"
             }
           }
         },
+        "parameters": [
+          {
+            "name": "groupId",
+            "in": "query",
+            "required": true,
+            "type": "integer",
+            "format": "int64"
+          }
+        ],
         "requestBody": {},
         "tags": [
           "admin/permission"
@@ -143,7 +152,9 @@
         "responses": {
           "200": {
             "description": "A successful response.",
-            "schema": {}
+            "schema": {
+              "$ref": "#/definitions/SetRolePermissionsReply"
+            }
           }
         },
         "parameters": [
@@ -152,6 +163,14 @@
             "in": "path",
             "required": true,
             "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/SetRolePermissionsRequest"
+            }
           }
         ],
         "requestBody": {},
@@ -207,7 +226,9 @@
         "responses": {
           "200": {
             "description": "A successful response.",
-            "schema": {}
+            "schema": {
+              "$ref": "#/definitions/SetUserRolesReply"
+            }
           }
         },
         "parameters": [
@@ -216,6 +237,14 @@
             "in": "path",
             "required": true,
             "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/SetUserRolesRequest"
+            }
           }
         ],
         "requestBody": {},
@@ -226,72 +255,36 @@
     }
   },
   "definitions": {
-    "AuthRes": {
+    "AdminAPI": {
       "type": "object",
       "properties": {
         "id": {
           "type": "integer",
           "format": "int64"
         },
-        "resCode": {
+        "api": {
           "type": "string"
         },
-        "resName": {
+        "method": {
           "type": "string"
         },
-        "type": {
-          "type": "string"
-        },
-        "desc": {
-          "type": "string"
-        },
-        "acts": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/AuthResAct"
-          }
-        }
-      },
-      "title": "AuthRes",
-      "required": [
-        "id",
-        "resCode",
-        "resName",
-        "type",
-        "desc",
-        "acts"
-      ]
-    },
-    "AuthResAct": {
-      "type": "object",
-      "properties": {
-        "id": {
-          "type": "integer",
-          "format": "int64"
-        },
-        "version": {
-          "type": "string"
-        },
-        "restPath": {
-          "type": "string"
-        },
-        "action": {
+        "name": {
           "type": "string"
         },
         "desc": {
           "type": "string"
         }
       },
-      "title": "AuthResAct",
+      "title": "AdminAPI",
       "required": [
         "id",
-        "version",
-        "restPath",
-        "action",
+        "api",
+        "method",
+        "name",
         "desc"
       ]
     },
-    "AuthRole": {
+    "AdminRole": {
       "type": "object",
       "properties": {
         "roleCode": {
@@ -307,11 +300,10 @@
           "type": "boolean",
           "format": "boolean"
         },
-        "actIds": {
+        "apiList": {
           "type": "array",
           "items": {
-            "type": "integer",
-            "format": "int64"
+            "$ref": "#/definitions/AdminAPI"
           }
         },
         "menuNames": {
@@ -321,13 +313,13 @@
           }
         }
       },
-      "title": "AuthRole",
+      "title": "AdminRole",
       "required": [
         "roleCode",
         "name",
         "desc",
         "isReserved",
-        "actIds",
+        "apiList",
         "menuNames"
       ]
     },
@@ -354,23 +346,37 @@
         },
         "desc": {
           "type": "string"
+        },
+        "apiIds": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        "menuNames": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         }
       },
       "title": "CreateRoleRequest",
       "required": [
         "roleCode",
         "name",
-        "desc"
+        "desc",
+        "apiIds",
+        "menuNames"
       ]
     },
     "GetRoleEmployeesReply": {
       "type": "object",
       "properties": {
-        "employeeIds": {
+        "list": {
           "type": "array",
           "items": {
-            "type": "integer",
-            "format": "int64"
+            "$ref": "#/definitions/RoleEmployee"
           }
         },
         "pageIndex": {
@@ -388,7 +394,7 @@
       },
       "title": "GetRoleEmployeesReply",
       "required": [
-        "employeeIds",
+        "list",
         "pageIndex",
         "pageSize",
         "total"
@@ -420,7 +426,7 @@
       "type": "object",
       "properties": {
         "": {
-          "$ref": "#/definitions/AuthRole"
+          "$ref": "#/definitions/AdminRole"
         }
       },
       "title": "GetRoleReply"
@@ -437,19 +443,32 @@
         "roleCode"
       ]
     },
-    "ListRecoursesReply": {
+    "ListAPIReply": {
       "type": "object",
       "properties": {
         "list": {
           "type": "array",
           "items": {
-            "$ref": "#/definitions/AuthRes"
+            "$ref": "#/definitions/AdminAPI"
           }
         }
       },
-      "title": "ListRecoursesReply",
+      "title": "ListAPIReply",
       "required": [
         "list"
+      ]
+    },
+    "ListAPIRequest": {
+      "type": "object",
+      "properties": {
+        "groupId": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "title": "ListAPIRequest",
+      "required": [
+        "groupId"
       ]
     },
     "ListRolesReply": {
@@ -458,7 +477,7 @@
         "list": {
           "type": "array",
           "items": {
-            "$ref": "#/definitions/AuthRole"
+            "$ref": "#/definitions/AdminRole"
           }
         }
       },
@@ -471,7 +490,7 @@
       "type": "object",
       "properties": {
         "": {
-          "$ref": "#/definitions/AuthRole"
+          "$ref": "#/definitions/AdminRole"
         }
       },
       "title": "PutRoleReply"
@@ -488,7 +507,7 @@
         "desc": {
           "type": "string"
         },
-        "actIds": {
+        "apiIds": {
           "type": "array",
           "items": {
             "type": "integer",
@@ -507,8 +526,126 @@
         "roleCode",
         "name",
         "desc",
-        "actIds",
+        "apiIds",
         "menuNames"
+      ]
+    },
+    "RoleEmployee": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "name": {
+          "type": "string"
+        },
+        "nickname": {
+          "type": "string"
+        },
+        "account": {
+          "type": "string"
+        },
+        "phoneNumber": {
+          "type": "string"
+        },
+        "department": {
+          "$ref": "#/definitions/RoleEmployeeDepartment"
+        },
+        "email": {
+          "type": "string"
+        }
+      },
+      "title": "RoleEmployee",
+      "required": [
+        "id",
+        "name",
+        "nickname",
+        "account",
+        "phoneNumber",
+        "department",
+        "email"
+      ]
+    },
+    "RoleEmployeeDepartment": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "title": "RoleEmployeeDepartment",
+      "required": [
+        "id",
+        "name"
+      ]
+    },
+    "SetRolePermissionsReply": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string"
+        }
+      },
+      "title": "SetRolePermissionsReply",
+      "required": [
+        "status"
+      ]
+    },
+    "SetRolePermissionsRequest": {
+      "type": "object",
+      "properties": {
+        "roleCode": {
+          "type": "string"
+        },
+        "apiIds": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "title": "SetRolePermissionsRequest",
+      "required": [
+        "roleCode",
+        "apiIds"
+      ]
+    },
+    "SetUserRolesReply": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string"
+        }
+      },
+      "title": "SetUserRolesReply",
+      "required": [
+        "status"
+      ]
+    },
+    "SetUserRolesRequest": {
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "roleCodes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "title": "SetUserRolesRequest",
+      "required": [
+        "userId",
+        "roleCodes"
       ]
     }
   },

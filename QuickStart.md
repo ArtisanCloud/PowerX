@@ -13,3 +13,12 @@ doc
 ```
 goctl api doc --dir ./api --o ./api/doc
 ```
+
+
+```
+// install swagger plugin
+go install github.com/zeromicro/goctl-swagger@latest
+
+// generate swagger file
+goctl api plugin -plugin goctl-swagger="swagger -filename auth.json" -api auth.api -dir .
+```

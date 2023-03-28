@@ -43,8 +43,9 @@ type AdminAPI struct {
 
 type AdminAPIGroup struct {
 	types.Model
-	Name string
-	Desc string
+	GroupCode string `gorm:"unique"`
+	Name      string
+	Desc      string
 }
 
 type AdminRole struct {
