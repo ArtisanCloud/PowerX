@@ -154,7 +154,7 @@ type (
         Position string `json:"position,optional"`
         JobTitle string `json:"jobTitle,optional"`
         Password string `json:"password,optional"`
-        Status string `json:"status,optional,options=enabled|disabled|un_actived"`
+        Status string `json:"status,optional,options=enabled|disabled"`
     }
 
     UpdateEmployeeReply {

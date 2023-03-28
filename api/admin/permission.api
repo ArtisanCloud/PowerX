@@ -37,7 +37,7 @@ service PowerX {
 
     @doc "为角色授予API权限"
     @handler SetRolePermissions
-    post /roles/:roleCode/actions/set-permissions
+    post /roles/:roleCode/actions/set-permissions (SetRolePermissionsRequest) returns (SetRolePermissionsReply)
 
     @doc "查询API列表"
     @handler ListAPI
@@ -45,12 +45,13 @@ service PowerX {
 
     @doc "为用户授予角色"
     @handler SetUserRoles
-    post /users/:userId/actions/set-roles
+    post /users/:userId/actions/set-roles (SetUserRolesRequest) returns (SetUserRolesReply)
 }
 
 type AdminAPI {
     Id int64 `json:"id"`
     API string `json:"api"`
+    Method string `json:"method"`
     Name string `json:"name"`
     Desc string `json:"desc"`
 }
@@ -109,6 +110,17 @@ type (
 )
 
 type (
+    SetRolePermissionsRequest {
+        RoleCode string `path:"roleCode"`
+        APIIds []int64 `json:"apiIds"`
+    }
+
+    SetRolePermissionsReply {
+        Status string `json:"status"`
+    }
+)
+
+type (
     ListAPIRequest {
         GroupId int64 `json:"groupId"`
     }
@@ -125,10 +137,36 @@ type (
         PageSize int `json:"pageSize"`
     }
 
+    RoleEmployeeDepartment {
+        Id int64 `json:"id"`
+        Name string `json:"name"`
+    }
+
+    RoleEmployee {
+        Id int64 `json:"id"`
+        Name string `json:"name"`
+        Nickname string `json:"nickname"`
+        Account string `json:"account"`
+        PhoneNumber string `json:"phoneNumber"`
+        Department *RoleEmployeeDepartment `json:"department"`
+        Email string `json:"email"`
+    }
+
     GetRoleEmployeesReply {
-        EmployeeIds []int64 `json:"employeeIds"`
+        List []RoleEmployee `json:"list"`
         PageIndex int `json:"pageIndex"`
         PageSize int `json:"pageSize"`
         Total int64 `json:"total"`
+    }
+)
+
+type (
+    SetUserRolesRequest {
+        UserId int64 `path:"userId"`
+        RoleCodes []string `json:"roleCodes"`
+    }
+
+    SetUserRolesReply {
+        Status string `json:"status"`
     }
 )

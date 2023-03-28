@@ -1,6 +1,7 @@
 package permission
 
 import (
+	"PowerX/internal/uc/powerx"
 	"context"
 
 	"PowerX/internal/svc"
@@ -24,7 +25,39 @@ func NewPutRoleLogic(ctx context.Context, svcCtx *svc.ServiceContext) *PutRoleLo
 }
 
 func (l *PutRoleLogic) PutRole(req *types.PutRoleReqeust) (resp *types.PutRoleReply, err error) {
-	// todo: add your logic here and delete this line
+	var adminAPI []*powerx.AdminAPI
+	for _, id := range req.APIIds {
+		adminAPI = append(adminAPI, &powerx.AdminAPI{
+			Model: types.Model{
+				ID: id,
+			},
+		})
+	}
 
-	return
+	var menuNames []*powerx.AdminRoleMenuName
+	for _, menuName := range req.MenuNames {
+		menuNames = append(menuNames, &powerx.AdminRoleMenuName{
+			MenuName: menuName,
+		})
+	}
+
+	role := powerx.AdminRole{
+		RoleCode:   req.RoleCode,
+		Name:       req.Name,
+		Desc:       req.Desc,
+		IsReserved: false,
+		AdminAPI:   adminAPI,
+		MenuNames:  menuNames,
+	}
+
+	l.svcCtx.PowerX.Auth.PatchRoleByRoleCode(l.ctx, &role, req.RoleCode)
+
+	return &types.PutRoleReply{
+		AdminRole: &types.AdminRole{
+			RoleCode:   role.RoleCode,
+			Name:       role.Name,
+			Desc:       role.Desc,
+			IsReserved: role.IsReserved,
+		},
+	}, nil
 }

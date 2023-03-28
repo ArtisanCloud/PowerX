@@ -160,7 +160,7 @@ type UpdateEmployeeRequest struct {
 	Position      string `json:"position,optional"`
 	JobTitle      string `json:"jobTitle,optional"`
 	Password      string `json:"password,optional"`
-	Status        string `json:"status,optional,options=enabled|disabled|un_actived"`
+	Status        string `json:"status,optional,options=enabled|disabled"`
 }
 
 type UpdateEmployeeReply struct {
@@ -200,10 +200,11 @@ type ResetPasswordReply struct {
 }
 
 type AdminAPI struct {
-	Id   int64  `json:"id"`
-	API  string `json:"api"`
-	Name string `json:"name"`
-	Desc string `json:"desc"`
+	Id     int64  `json:"id"`
+	API    string `json:"api"`
+	Method string `json:"method"`
+	Name   string `json:"name"`
+	Desc   string `json:"desc"`
 }
 
 type AdminRole struct {
@@ -251,6 +252,15 @@ type PutRoleReply struct {
 	*AdminRole
 }
 
+type SetRolePermissionsRequest struct {
+	RoleCode string  `path:"roleCode"`
+	APIIds   []int64 `json:"apiIds"`
+}
+
+type SetRolePermissionsReply struct {
+	Status string `json:"status"`
+}
+
 type ListAPIRequest struct {
 	GroupId int64 `json:"groupId"`
 }
@@ -265,11 +275,35 @@ type GetRoleEmployeesReqeust struct {
 	PageSize  int    `json:"pageSize"`
 }
 
+type RoleEmployeeDepartment struct {
+	Id   int64  `json:"id"`
+	Name string `json:"name"`
+}
+
+type RoleEmployee struct {
+	Id          int64                   `json:"id"`
+	Name        string                  `json:"name"`
+	Nickname    string                  `json:"nickname"`
+	Account     string                  `json:"account"`
+	PhoneNumber string                  `json:"phoneNumber"`
+	Department  *RoleEmployeeDepartment `json:"department"`
+	Email       string                  `json:"email"`
+}
+
 type GetRoleEmployeesReply struct {
-	EmployeeIds []int64 `json:"employeeIds"`
-	PageIndex   int     `json:"pageIndex"`
-	PageSize    int     `json:"pageSize"`
-	Total       int64   `json:"total"`
+	List      []RoleEmployee `json:"list"`
+	PageIndex int            `json:"pageIndex"`
+	PageSize  int            `json:"pageSize"`
+	Total     int64          `json:"total"`
+}
+
+type SetUserRolesRequest struct {
+	UserId    int64    `path:"userId"`
+	RoleCodes []string `json:"roleCodes"`
+}
+
+type SetUserRolesReply struct {
+	Status string `json:"status"`
 }
 
 type LoginRequest struct {

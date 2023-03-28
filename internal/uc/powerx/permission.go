@@ -34,6 +34,7 @@ type EmployeeCasbinPolicy struct {
 type AdminAPI struct {
 	types.Model
 	API     string
+	Method  string
 	Name    string
 	Desc    string
 	GroupId int64
@@ -52,8 +53,8 @@ type AdminRole struct {
 	Name       string
 	Desc       string
 	IsReserved bool
-	AdminAPI   []AdminAPI `gorm:"many2many:admin_role_apis"`
-	MenuNames  []AdminRoleMenuName
+	AdminAPI   []*AdminAPI `gorm:"many2many:admin_role_apis"`
+	MenuNames  []*AdminRoleMenuName
 }
 
 type AdminRoleMenuName struct {
@@ -201,4 +202,11 @@ func (a *AuthUseCase) PatchAPIGroupByAPIGroupId(ctx context.Context, group *Admi
 	if err := a.db.WithContext(ctx).Updates(&group).Where(groupId).Error; err != nil {
 		panic(err)
 	}
+}
+
+func (a *AuthUseCase) FindAllAPI(ctx context.Context) (apis []*AdminAPI) {
+	if err := a.db.WithContext(ctx).Model(AdminAPI{}).Find(&apis).Error; err != nil {
+		panic(err)
+	}
+	return
 }

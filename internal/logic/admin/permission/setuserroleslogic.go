@@ -4,6 +4,8 @@ import (
 	"context"
 
 	"PowerX/internal/svc"
+	"PowerX/internal/types"
+
 	"github.com/zeromicro/go-zero/core/logx"
 )
 
@@ -21,8 +23,23 @@ func NewSetUserRolesLogic(ctx context.Context, svcCtx *svc.ServiceContext) *SetU
 	}
 }
 
-func (l *SetUserRolesLogic) SetUserRoles() error {
-	// todo: add your logic here and delete this line
+func (l *SetUserRolesLogic) SetUserRoles(req *types.SetUserRolesRequest) (resp *types.SetUserRolesReply, err error) {
+	employee, err := l.svcCtx.PowerX.Organization.FindOneEmployeeById(l.ctx, req.UserId)
+	if err != nil {
+		return nil, err
+	}
 
-	return nil
+	_, err = l.svcCtx.PowerX.Auth.Casbin.DeleteRolesForUser(employee.Account)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = l.svcCtx.PowerX.Auth.Casbin.AddRolesForUser(employee.Account, req.RoleCodes)
+	if err != nil {
+		return nil, err
+	}
+
+	return &types.SetUserRolesReply{
+		Status: "ok",
+	}, nil
 }

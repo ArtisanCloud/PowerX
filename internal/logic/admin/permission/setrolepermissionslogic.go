@@ -1,9 +1,12 @@
 package permission
 
 import (
+	"PowerX/internal/uc/powerx"
 	"context"
 
 	"PowerX/internal/svc"
+	"PowerX/internal/types"
+
 	"github.com/zeromicro/go-zero/core/logx"
 )
 
@@ -21,8 +24,23 @@ func NewSetRolePermissionsLogic(ctx context.Context, svcCtx *svc.ServiceContext)
 	}
 }
 
-func (l *SetRolePermissionsLogic) SetRolePermissions() error {
-	// todo: add your logic here and delete this line
+func (l *SetRolePermissionsLogic) SetRolePermissions(req *types.SetRolePermissionsRequest) (resp *types.SetRolePermissionsReply, err error) {
+	var role powerx.AdminRole
 
-	return nil
+	var api []*powerx.AdminAPI
+	for _, id := range req.APIIds {
+		api = append(api, &powerx.AdminAPI{
+			Model: types.Model{
+				ID: id,
+			},
+		})
+	}
+
+	role.AdminAPI = api
+
+	l.svcCtx.PowerX.Auth.PatchRoleByRoleCode(l.ctx, &role, req.RoleCode)
+
+	return &types.SetRolePermissionsReply{
+		Status: "ok",
+	}, nil
 }
