@@ -262,7 +262,7 @@ type SetRolePermissionsReply struct {
 }
 
 type ListAPIRequest struct {
-	GroupId int64 `json:"groupId"`
+	GroupId int64 `form:"groupId"`
 }
 
 type ListAPIReply struct {

@@ -24,14 +24,14 @@ func NewCreateRoleLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Create
 }
 
 func (l *CreateRoleLogic) CreateRole(req *types.CreateRoleRequest) (resp *types.CreateRoleReply, err error) {
-	var apiList []powerx.AdminAPI
+	var apiList []*powerx.AdminAPI
 	for _, id := range req.APIIds {
-		apiList = append(apiList, powerx.AdminAPI{Model: types.Model{ID: id}})
+		apiList = append(apiList, &powerx.AdminAPI{Model: types.Model{ID: id}})
 	}
 
-	var menuList []powerx.AdminRoleMenuName
+	var menuList []*powerx.AdminRoleMenuName
 	for _, name := range req.MenuNames {
-		menuList = append(menuList, powerx.AdminRoleMenuName{MenuName: name})
+		menuList = append(menuList, &powerx.AdminRoleMenuName{MenuName: name})
 	}
 
 	role := powerx.AdminRole{

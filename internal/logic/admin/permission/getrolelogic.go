@@ -32,10 +32,11 @@ func (l *GetRoleLogic) GetRole(req *types.GetRoleRequest) (resp *types.GetRoleRe
 	var api []types.AdminAPI
 	for _, adminAPI := range role.AdminAPI {
 		api = append(api, types.AdminAPI{
-			Id:   adminAPI.ID,
-			API:  adminAPI.API,
-			Name: adminAPI.Name,
-			Desc: adminAPI.Desc,
+			Id:     adminAPI.ID,
+			API:    adminAPI.API,
+			Method: adminAPI.Method,
+			Name:   adminAPI.Name,
+			Desc:   adminAPI.Desc,
 		})
 	}
 

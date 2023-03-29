@@ -3,12 +3,17 @@ package powerx
 import (
 	"PowerX/internal/types"
 	"PowerX/internal/types/errorx"
+	"PowerX/pkg/mapx"
+	"PowerX/pkg/slicex"
 	"context"
+	"encoding/csv"
 	sqladapter "github.com/Blank-Xu/sql-adapter"
 	"github.com/casbin/casbin/v2"
 	fileadapter "github.com/casbin/casbin/v2/persist/file-adapter"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
+	"os"
+	"strings"
 )
 
 type AuthUseCase struct {
@@ -44,6 +49,7 @@ type AdminAPI struct {
 type AdminAPIGroup struct {
 	types.Model
 	GroupCode string `gorm:"unique"`
+	Prefix    string
 	Name      string
 	Desc      string
 }
@@ -88,29 +94,83 @@ func NewCasbinUseCase(db *gorm.DB, md *MetadataCtx, employee *OrganizationUseCas
 
 func (a *AuthUseCase) Init() {
 	var count int64
-	// 初始化角色
-	if err := a.db.Model(&AdminRole{}).Count(&count).Error; err != nil {
-		panic(errors.Wrap(err, "init role failed"))
+
+	// 初始化API
+	if err := a.db.Model(&AdminAPI{}).Count(&count).Error; err != nil {
+		panic(errors.Wrap(err, "init api failed"))
 	}
 	if count == 0 {
-		var roles []AdminRole
-		roles = append(roles, AdminRole{
-			RoleCode:   "admin",
-			Name:       "管理员",
-			Desc:       "管理员",
-			IsReserved: true,
-		}, AdminRole{
-			RoleCode:   "common_employee",
-			Name:       "普通员工",
-			Desc:       "普通员工",
-			IsReserved: true,
-		})
-		if err := a.db.Model(&AdminRole{}).Create(&roles).Error; err != nil {
-			panic(errors.Wrap(err, "init roles failed"))
-		}
-	}
+		// api group
+		initAPIGroup := func() {
+			file, err := os.Open("etc/admin_api_group.csv")
+			if err != nil {
+				panic(err)
+			}
+			csvReader := csv.NewReader(file)
+			records, err := csvReader.ReadAll()
+			if err != nil {
+				panic(err)
+			}
 
-	// todo init api
+			var groups []AdminAPIGroup
+			for _, record := range records {
+				groups = append(groups, AdminAPIGroup{
+					GroupCode: record[0],
+					Prefix:    record[1],
+					Name:      record[2],
+					Desc:      record[3],
+				})
+			}
+
+			if err := a.db.Model(&AdminAPIGroup{}).Create(&groups).Error; err != nil {
+				panic(errors.Wrap(err, "init api group failed"))
+			}
+		}
+
+		// api
+		initAPI := func() {
+			file, err := os.Open("etc/admin_api.csv")
+			if err != nil {
+				panic(err)
+			}
+			csvReader := csv.NewReader(file)
+			records, err := csvReader.ReadAll()
+			if err != nil {
+				panic(err)
+			}
+
+			var groups []*AdminAPIGroup
+			if err := a.db.Model(&AdminAPIGroup{}).Find(&groups).Error; err != nil {
+				panic(errors.Wrap(err, "init api failed"))
+			}
+
+			groupMap := mapx.MapByFunc(groups, func(item *AdminAPIGroup) (string, int64) {
+				return item.GroupCode, item.ID
+			})
+
+			var apis []AdminAPI
+			for _, record := range records {
+				var groupId int64
+				if id, ok := groupMap[record[0]]; ok {
+					groupId = id
+				}
+				apis = append(apis, AdminAPI{
+					API:     record[1],
+					Method:  strings.ToUpper(record[2]),
+					Name:    record[3],
+					GroupId: groupId,
+				})
+			}
+
+			if err := a.db.Model(&AdminAPI{}).Create(&apis).Error; err != nil {
+				panic(errors.Wrap(err, "init api failed"))
+			}
+
+		}
+
+		initAPIGroup()
+		initAPI()
+	}
 
 	// 初始化用户
 	if err := a.db.Model(&Employee{}).Count(&count).Error; err != nil {
@@ -140,10 +200,50 @@ func (a *AuthUseCase) Init() {
 		a.Casbin.SetAdapter(a.sqlAdapter)
 		a.Casbin.SavePolicy()
 	}
+
+	// 初始化角色
+	if err := a.db.Model(&AdminRole{}).Count(&count).Error; err != nil {
+		panic(errors.Wrap(err, "init role failed"))
+	}
+	if count == 0 {
+		var roles []AdminRole
+
+		var apis []*AdminAPI
+		if err := a.db.Model(&AdminAPI{}).Find(&apis).Error; err != nil {
+			panic(errors.Wrap(err, "init role failed"))
+		}
+
+		roles = append(roles, AdminRole{
+			RoleCode:   "admin",
+			Name:       "管理员",
+			Desc:       "管理员",
+			AdminAPI:   apis,
+			IsReserved: true,
+		}, AdminRole{
+			RoleCode:   "common_employee",
+			Name:       "普通员工",
+			Desc:       "普通员工",
+			IsReserved: true,
+		})
+		if err := a.db.Model(&AdminRole{}).Create(&roles).Error; err != nil {
+			panic(errors.Wrap(err, "init roles failed"))
+		}
+
+		var adminPolicies [][]string
+		for _, api := range apis {
+			adminPolicies = append(adminPolicies, []string{"admin", api.API, api.Method})
+		}
+		if _, err := a.Casbin.AddPolicies(adminPolicies); err != nil {
+			panic(errors.Wrap(err, "init casbin policy failed"))
+		}
+	}
 }
 
 func (a *AuthUseCase) FindOneRoleByRoleCode(ctx context.Context, roleCode string) (role *AdminRole, err error) {
-	err = a.db.WithContext(ctx).Where(AdminRole{RoleCode: roleCode}).First(role).Error
+	err = a.db.WithContext(ctx).Where(AdminRole{RoleCode: roleCode}).
+		Preload("AdminAPI").
+		Preload("MenuNames").
+		First(&role).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errorx.WithCause(errorx.ErrBadRequest, "未查找到角色")
@@ -168,13 +268,44 @@ func (a *AuthUseCase) CreateRole(ctx context.Context, role *AdminRole) {
 }
 
 func (a *AuthUseCase) PatchRoleByRoleId(ctx context.Context, role *AdminRole, roleId int64) {
-	if err := a.db.WithContext(ctx).Updates(&role).Where(roleId).Error; err != nil {
+	var dbRole AdminRole
+	if err := a.db.Find(&dbRole, roleId).Error; err != nil {
 		panic(err)
 	}
+	a.PatchRoleByRoleCode(ctx, role, dbRole.RoleCode)
 }
 
 func (a *AuthUseCase) PatchRoleByRoleCode(ctx context.Context, role *AdminRole, roleCode string) {
-	if err := a.db.WithContext(ctx).Updates(&role).Where(AdminRole{RoleCode: roleCode}).Error; err != nil {
+	err := a.db.Transaction(func(tx *gorm.DB) error {
+		if err := a.db.WithContext(ctx).Updates(&role).Where(AdminRole{RoleCode: roleCode}).Error; err != nil {
+			return err
+		}
+		_, err := a.Casbin.DeleteRole(roleCode)
+		if err != nil {
+			return err
+		}
+
+		apiIds := slicex.SlicePluck(role.AdminAPI, func(item *AdminAPI) int64 {
+			return item.ID
+		})
+
+		var apis []*AdminAPI
+		if err := a.db.Model(&AdminAPI{}).Find(&apis, apiIds).Error; err != nil {
+			panic(errors.Wrap(err, "find api failed"))
+		}
+
+		var policies [][]string
+		for _, api := range apis {
+			policies = append(policies, []string{role.RoleCode, api.API, api.Method})
+		}
+
+		_, err = a.Casbin.AddPolicies(policies)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	if err != nil {
 		panic(err)
 	}
 }

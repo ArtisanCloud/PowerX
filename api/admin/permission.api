@@ -122,7 +122,7 @@ type (
 
 type (
     ListAPIRequest {
-        GroupId int64 `json:"groupId"`
+        GroupId int64 `form:"groupId"`
     }
 
     ListAPIReply {
