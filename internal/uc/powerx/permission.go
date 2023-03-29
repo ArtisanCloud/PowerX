@@ -12,6 +12,7 @@ import (
 	fileadapter "github.com/casbin/casbin/v2/persist/file-adapter"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 	"os"
 	"strings"
 )
@@ -268,19 +269,14 @@ func (a *AuthUseCase) CreateRole(ctx context.Context, role *AdminRole) {
 }
 
 func (a *AuthUseCase) PatchRoleByRoleId(ctx context.Context, role *AdminRole, roleId int64) {
-	var dbRole AdminRole
-	if err := a.db.Find(&dbRole, roleId).Error; err != nil {
-		panic(err)
-	}
-	a.PatchRoleByRoleCode(ctx, role, dbRole.RoleCode)
-}
-
-func (a *AuthUseCase) PatchRoleByRoleCode(ctx context.Context, role *AdminRole, roleCode string) {
-	err := a.db.Transaction(func(tx *gorm.DB) error {
-		if err := a.db.WithContext(ctx).Updates(&role).Where(AdminRole{RoleCode: roleCode}).Error; err != nil {
+	role.ID = roleId
+	err := a.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		tx.Model(&AdminRole{}).Association("AdminAPI").Clear()
+		if err := tx.Omit("AdminAPI.*").Where(roleId).Clauses(clause.Returning{}).
+			Updates(&role).Error; err != nil {
 			return err
 		}
-		_, err := a.Casbin.DeleteRole(roleCode)
+		_, err := a.Casbin.DeleteRole(role.RoleCode)
 		if err != nil {
 			return err
 		}
@@ -290,8 +286,8 @@ func (a *AuthUseCase) PatchRoleByRoleCode(ctx context.Context, role *AdminRole, 
 		})
 
 		var apis []*AdminAPI
-		if err := a.db.Model(&AdminAPI{}).Find(&apis, apiIds).Error; err != nil {
-			panic(errors.Wrap(err, "find api failed"))
+		if err := tx.Model(&AdminAPI{}).Where(apiIds).Find(&apis).Error; err != nil {
+			return err
 		}
 
 		var policies [][]string
@@ -308,6 +304,14 @@ func (a *AuthUseCase) PatchRoleByRoleCode(ctx context.Context, role *AdminRole, 
 	if err != nil {
 		panic(err)
 	}
+}
+
+func (a *AuthUseCase) PatchRoleByRoleCode(ctx context.Context, role *AdminRole, roleCode string) {
+	var dbRole AdminRole
+	if err := a.db.Where(&AdminRole{RoleCode: roleCode}).Find(&dbRole).Error; err != nil {
+		panic(err)
+	}
+	a.PatchRoleByRoleId(ctx, role, dbRole.ID)
 }
 
 func (a *AuthUseCase) CreateAPI(ctx context.Context, api *AdminAPI) {
