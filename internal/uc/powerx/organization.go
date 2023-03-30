@@ -243,7 +243,7 @@ func (e *OrganizationUseCase) FindOneEmployeeByLoginOption(ctx context.Context, 
 		queryEmployee.MobilePhone = option.PhoneNumber
 	}
 
-	if err = e.db.WithContext(ctx).Where(queryEmployee).First(&employee).Error; err != nil {
+	if err = e.db.WithContext(ctx).Model(&Employee{}).Where(&queryEmployee).First(&employee).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errorx.WithCause(errorx.ErrBadRequest, "用户不存在, 请检查登录信息")
 		}
