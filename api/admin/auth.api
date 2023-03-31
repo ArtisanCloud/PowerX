@@ -10,7 +10,7 @@ info(
 
 @server(
     group: admin/auth
-    prefix: /api/admin/auth/v1
+    prefix: /api/v1/admin/auth
 )
 
 service PowerX {

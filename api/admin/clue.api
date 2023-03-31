@@ -11,7 +11,7 @@ info(
 
 @server(
     group: admin/clue
-    prefix: /api/admin/clue/v1
+    prefix: /api/v1/admin/clue
     middleware: EmployeeJWTAuth
 )
 

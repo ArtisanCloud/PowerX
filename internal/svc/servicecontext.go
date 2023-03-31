@@ -20,6 +20,6 @@ func NewServiceContext(c config.Config) *ServiceContext {
 	return &ServiceContext{
 		Config:          c,
 		PowerX:          powerx,
-		EmployeeJWTAuth: middleware.NewEmployeeJWTAuthMiddleware(&c, powerx, middleware.DisableToken(true)).Handle,
+		EmployeeJWTAuth: middleware.NewEmployeeJWTAuthMiddleware(&c, powerx).Handle,
 	}
 }

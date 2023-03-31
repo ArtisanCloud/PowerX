@@ -1,6 +1,6 @@
 @server(
     group: admin/department
-    prefix: /api/admin/department/v1
+    prefix: /api/v1/admin/department
     middleware: EmployeeJWTAuth
 )
 

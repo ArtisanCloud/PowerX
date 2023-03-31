@@ -10,7 +10,7 @@ info(
 
 @server(
     group: admin/employee
-    prefix: /api/admin/employee/v1
+    prefix: /api/v1/admin/employee
     middleware: EmployeeJWTAuth
 )
 
