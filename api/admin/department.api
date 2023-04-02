@@ -17,6 +17,10 @@ service PowerX {
     @handler CreateDepartment
     post /departments (CreateDepartmentRequest) returns (CreateDepartmentReply)
 
+    @doc "更新部门信息(可选更新)"
+    @handler PatchDepartment
+    patch /departments/:id (PatchDepartmentRequest) returns (PatchDepartmentReply)
+
     @doc "删除部门"
     @handler DeleteDepartment
     delete /departments/:id (DeleteDepartmentRequest) returns (DeleteDepartmentReply)
@@ -72,6 +76,23 @@ type (
 
     DeleteDepartmentReply {
         Id int64 `json:"id"`
+    }
+)
+
+type (
+    PatchDepartmentRequest {
+        Id int64 `path:"id"`
+        DepName string `json:"depName,optional"`
+        LeaderId int64 `json:"leaderId,optional"`
+        PId int64 `json:"pId,optional"`
+        Desc string `json:"desc,optional"`
+        PhoneNumber string `json:"phoneNumber,optional"`
+        Email string `json:"email,optional"`
+        Remark string `json:"remark,optional"`
+    }
+
+    PatchDepartmentReply {
+        *Department
     }
 )
 

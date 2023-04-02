@@ -6,6 +6,7 @@ import (
 
 	adminauth "PowerX/internal/handler/admin/auth"
 	adminclue "PowerX/internal/handler/admin/clue"
+	admincommon "PowerX/internal/handler/admin/common"
 	admincustomer "PowerX/internal/handler/admin/customer"
 	admindepartment "PowerX/internal/handler/admin/department"
 	adminemployee "PowerX/internal/handler/admin/employee"
@@ -17,6 +18,30 @@ import (
 )
 
 func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Route{
+				{
+					Method:  http.MethodGet,
+					Path:    "/options/employees",
+					Handler: admincommon.GetEmployeeOptionsHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/options/employee-query",
+					Handler: admincommon.GetEmployeeQueryOptionsHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/options/departments",
+					Handler: admincommon.GetDepartmentOptionsHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithPrefix("/api/v1/admin/common"),
+	)
+
 	server.AddRoutes(
 		rest.WithMiddlewares(
 			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
@@ -35,6 +60,11 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 					Method:  http.MethodPost,
 					Path:    "/departments",
 					Handler: admindepartment.CreateDepartmentHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPatch,
+					Path:    "/departments/:id",
+					Handler: admindepartment.PatchDepartmentHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodDelete,
@@ -69,11 +99,6 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 					Method:  http.MethodPost,
 					Path:    "/employees",
 					Handler: adminemployee.CreateEmployeeHandler(serverCtx),
-				},
-				{
-					Method:  http.MethodGet,
-					Path:    "/options",
-					Handler: adminemployee.GetEmployeeOptionsHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPatch,

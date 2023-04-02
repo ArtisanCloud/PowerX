@@ -1,7 +1,1 @@
-import "admin/department.api"
-import "admin/employee.api"
-import "admin/permission.api"
-import "admin/auth.api"
-import "admin/customer.api"
-import "admin/clue.api"
-import "admin/userinfo.api"
+import "admin.api"

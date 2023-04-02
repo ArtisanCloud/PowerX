@@ -31,10 +31,6 @@ service PowerX {
     @handler CreateEmployee
     post /employees (CreateEmployeeRequest) returns (CreateEmployeeReply)
 
-    @doc "查询员工过滤条件"
-    @handler GetEmployeeOptions
-    get /options returns (GetEmployeeOptionsReply)
-
     @doc "编辑员工信息"
     @handler UpdateEmployee
     patch /employees/:id (UpdateEmployeeRequest) returns (UpdateEmployeeReply)
@@ -159,24 +155,6 @@ type (
 
     UpdateEmployeeReply {
         *Employee
-    }
-)
-
-type (
-    RoleOption {
-        RoleCode string `json:"roleCode"`
-        RoleName string `json:"roleName"`
-    }
-
-    DepartmentOption {
-        DepartmentId int64 `json:"departmentId"`
-        DepartmentName string `json:"departmentName"`
-    }
-
-    GetEmployeeOptionsReply {
-        Positions []string `json:"positions"`
-        Roles []RoleOption `json:"roles"`
-        Departments []DepartmentOption `json:"departments"`
     }
 )
 
