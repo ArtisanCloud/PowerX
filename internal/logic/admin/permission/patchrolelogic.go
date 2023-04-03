@@ -10,21 +10,21 @@ import (
 	"github.com/zeromicro/go-zero/core/logx"
 )
 
-type PutRoleLogic struct {
+type PatchRoleLogic struct {
 	logx.Logger
 	ctx    context.Context
 	svcCtx *svc.ServiceContext
 }
 
-func NewPutRoleLogic(ctx context.Context, svcCtx *svc.ServiceContext) *PutRoleLogic {
-	return &PutRoleLogic{
+func NewPatchRoleLogic(ctx context.Context, svcCtx *svc.ServiceContext) *PatchRoleLogic {
+	return &PatchRoleLogic{
 		Logger: logx.WithContext(ctx),
 		ctx:    ctx,
 		svcCtx: svcCtx,
 	}
 }
 
-func (l *PutRoleLogic) PutRole(req *types.PutRoleReqeust) (resp *types.PutRoleReply, err error) {
+func (l *PatchRoleLogic) PatchRole(req *types.PatchRoleReqeust) (resp *types.PatchRoleReply, err error) {
 	var adminAPI []*powerx.AdminAPI
 	for _, id := range req.APIIds {
 		adminAPI = append(adminAPI, &powerx.AdminAPI{
@@ -52,7 +52,7 @@ func (l *PutRoleLogic) PutRole(req *types.PutRoleReqeust) (resp *types.PutRoleRe
 
 	l.svcCtx.PowerX.Auth.PatchRoleByRoleCode(l.ctx, &role, req.RoleCode)
 
-	return &types.PutRoleReply{
+	return &types.PatchRoleReply{
 		AdminRole: &types.AdminRole{
 			RoleCode:   role.RoleCode,
 			Name:       role.Name,

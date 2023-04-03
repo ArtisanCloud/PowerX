@@ -258,11 +258,13 @@ type ResetPasswordReply struct {
 }
 
 type AdminAPI struct {
-	Id     int64  `json:"id"`
-	API    string `json:"api"`
-	Method string `json:"method"`
-	Name   string `json:"name"`
-	Desc   string `json:"desc"`
+	Id        int64  `json:"id"`
+	API       string `json:"api"`
+	Method    string `json:"method"`
+	Name      string `json:"name"`
+	GroupId   int64  `json:"groupId"`
+	GroupName string `json:"groupName"`
+	Desc      string `json:"desc"`
 }
 
 type AdminRole struct {
@@ -298,7 +300,7 @@ type GetRoleReply struct {
 	*AdminRole
 }
 
-type PutRoleReqeust struct {
+type PatchRoleReqeust struct {
 	RoleCode  string   `path:"roleCode"`
 	Name      string   `json:"name"`
 	Desc      string   `json:"desc"`
@@ -306,7 +308,7 @@ type PutRoleReqeust struct {
 	MenuNames []string `json:"menuNames"`
 }
 
-type PutRoleReply struct {
+type PatchRoleReply struct {
 	*AdminRole
 }
 
@@ -320,7 +322,7 @@ type SetRolePermissionsReply struct {
 }
 
 type ListAPIRequest struct {
-	GroupId int64 `form:"groupId"`
+	GroupId int64 `form:"groupId,optional"`
 }
 
 type ListAPIReply struct {

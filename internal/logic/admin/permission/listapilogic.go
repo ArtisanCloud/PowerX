@@ -29,11 +29,13 @@ func (l *ListAPILogic) ListAPI(req *types.ListAPIRequest) (resp *types.ListAPIRe
 	var apiList []types.AdminAPI
 	for _, api := range apis {
 		apiList = append(apiList, types.AdminAPI{
-			Id:     api.ID,
-			API:    api.API,
-			Method: api.Method,
-			Name:   api.Name,
-			Desc:   api.Desc,
+			Id:        api.ID,
+			API:       api.API,
+			Method:    api.Method,
+			Name:      api.Name,
+			GroupId:   api.GroupId,
+			GroupName: api.Group.Name,
+			Desc:      api.Desc,
 		})
 	}
 

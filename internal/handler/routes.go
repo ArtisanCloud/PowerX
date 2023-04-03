@@ -140,9 +140,9 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 					Handler: adminpermission.GetRoleHandler(serverCtx),
 				},
 				{
-					Method:  http.MethodPut,
+					Method:  http.MethodPatch,
 					Path:    "/roles/:roleCode",
-					Handler: adminpermission.PutRoleHandler(serverCtx),
+					Handler: adminpermission.PatchRoleHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodGet,

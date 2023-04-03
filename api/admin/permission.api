@@ -28,8 +28,8 @@ service PowerX {
     get /roles/:roleCode (GetRoleRequest) returns (GetRoleReply)
 
     @doc "更新角色详情"
-    @handler PutRole
-    put /roles/:roleCode (PutRoleReqeust) returns (PutRoleReply)
+    @handler PatchRole
+    patch /roles/:roleCode (PatchRoleReqeust) returns (PatchRoleReply)
 
     @doc "获取角色的用户列表"
     @handler GetRoleEmployees
@@ -53,6 +53,8 @@ type AdminAPI {
     API string `json:"api"`
     Method string `json:"method"`
     Name string `json:"name"`
+    GroupId int64 `json:"groupId"`
+    GroupName string `json:"groupName"`
     Desc string `json:"desc"`
 }
 
@@ -96,7 +98,7 @@ type (
 )
 
 type (
-    PutRoleReqeust {
+    PatchRoleReqeust {
         RoleCode string `path:"roleCode"`
         Name string `json:"name"`
         Desc string `json:"desc"`
@@ -104,7 +106,7 @@ type (
         MenuNames []string `json:"menuNames"`
     }
 
-    PutRoleReply {
+    PatchRoleReply {
         *AdminRole
     }
 )
@@ -122,7 +124,7 @@ type (
 
 type (
     ListAPIRequest {
-        GroupId int64 `form:"groupId"`
+        GroupId int64 `form:"groupId,optional"`
     }
 
     ListAPIReply {
