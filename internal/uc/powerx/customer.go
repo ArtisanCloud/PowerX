@@ -7,10 +7,10 @@ import (
 
 type CustomerUseCase struct {
 	db   *gorm.DB
-	clue *ClueUseCase
+	clue *LeadUseCase
 }
 
-func NewCustomerUseCase(db *gorm.DB, clueUseCase *ClueUseCase) *CustomerUseCase {
+func NewCustomerUseCase(db *gorm.DB, clueUseCase *LeadUseCase) *CustomerUseCase {
 	return &CustomerUseCase{
 		db:   db,
 		clue: clueUseCase,

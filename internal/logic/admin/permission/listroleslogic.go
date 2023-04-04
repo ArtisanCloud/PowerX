@@ -24,7 +24,7 @@ func NewListRolesLogic(ctx context.Context, svcCtx *svc.ServiceContext) *ListRol
 }
 
 func (l *ListRolesLogic) ListRoles() (resp *types.ListRolesReply, err error) {
-	roles := l.svcCtx.PowerX.Auth.FindAllRoles(l.ctx)
+	roles := l.svcCtx.PowerX.AdminAuthorization.FindAllRoles(l.ctx)
 
 	var roleList []types.AdminRole
 	for _, role := range roles {

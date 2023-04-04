@@ -24,7 +24,7 @@ func NewListAPILogic(ctx context.Context, svcCtx *svc.ServiceContext) *ListAPILo
 }
 
 func (l *ListAPILogic) ListAPI(req *types.ListAPIRequest) (resp *types.ListAPIReply, err error) {
-	apis := l.svcCtx.PowerX.Auth.FindAllAPI(l.ctx)
+	apis := l.svcCtx.PowerX.AdminAuthorization.FindAllAPI(l.ctx)
 
 	var apiList []types.AdminAPI
 	for _, api := range apis {

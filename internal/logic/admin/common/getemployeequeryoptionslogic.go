@@ -28,7 +28,7 @@ func (l *GetEmployeeQueryOptionsLogic) GetEmployeeQueryOptions() (resp *types.Ge
 
 	resp.Positions = l.svcCtx.PowerX.Organization.FindAllPositions(l.ctx)
 
-	roles := l.svcCtx.PowerX.Auth.FindAllRoles(l.ctx)
+	roles := l.svcCtx.PowerX.AdminAuthorization.FindAllRoles(l.ctx)
 	for _, role := range roles {
 		resp.Roles = append(resp.Roles, types.EmployeeQueryRoleOption{
 			RoleCode: role.RoleCode,

@@ -31,7 +31,7 @@ func (l *GetEmployeeLogic) GetEmployee(req *types.GetEmployeeRequest) (resp *typ
 		return nil, err
 	}
 
-	roles, _ := l.svcCtx.PowerX.Auth.Casbin.GetRolesForUser(employee.Account)
+	roles, _ := l.svcCtx.PowerX.AdminAuthorization.Casbin.GetRolesForUser(employee.Account)
 
 	var dep *types.EmployeeDepartment
 	if employee.Department != nil {

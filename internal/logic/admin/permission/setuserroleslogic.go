@@ -29,12 +29,12 @@ func (l *SetUserRolesLogic) SetUserRoles(req *types.SetUserRolesRequest) (resp *
 		return nil, err
 	}
 
-	_, err = l.svcCtx.PowerX.Auth.Casbin.DeleteRolesForUser(employee.Account)
+	_, err = l.svcCtx.PowerX.AdminAuthorization.Casbin.DeleteRolesForUser(employee.Account)
 	if err != nil {
 		return nil, err
 	}
 
-	_, err = l.svcCtx.PowerX.Auth.Casbin.AddRolesForUser(employee.Account, req.RoleCodes)
+	_, err = l.svcCtx.PowerX.AdminAuthorization.Casbin.AddRolesForUser(employee.Account, req.RoleCodes)
 	if err != nil {
 		return nil, err
 	}

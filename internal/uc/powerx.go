@@ -11,10 +11,13 @@ import (
 )
 
 type PowerXUseCase struct {
-	db           *gorm.DB
-	Auth         *powerx.AuthUseCase
-	Organization *powerx.OrganizationUseCase
-	MetadataCtx  *powerx.MetadataCtx
+	db                    *gorm.DB
+	AdminAuthorization    *powerx.AdminPermsUseCase
+	CustomerAuthorization *powerx.AuthorizationCustomerUseCase
+	Organization          *powerx.OrganizationUseCase
+	Customer              *powerx.CustomerUseCase
+	WechatMP              *powerx.WechatMiniProgramUseCase
+	WechatOA              *powerx.WechatOfficialAccountUseCase
 }
 
 func NewPowerXUseCase(conf *config.Config) (uc *PowerXUseCase, clean func()) {
@@ -39,11 +42,11 @@ func NewPowerXUseCase(conf *config.Config) (uc *PowerXUseCase, clean func()) {
 		db: db,
 	}
 	// 加载子UseCase
-	uc.MetadataCtx = powerx.NewMetadataCtx()
 	uc.Organization = powerx.NewOrganizationUseCase(db)
-	uc.Auth = powerx.NewCasbinUseCase(db, uc.MetadataCtx, uc.Organization)
+	uc.AdminAuthorization = powerx.NewAdminPermsUseCase(db, uc.Organization)
+	uc.WechatMP = powerx.NewWechatMiniProgramUseCase(db, conf)
+	uc.WechatOA = powerx.NewWechatOfficialAccountUseCase(db, conf)
 
-	uc.AutoMigrate(context.Background())
 	uc.AutoInit()
 
 	return uc, func() {
@@ -54,10 +57,10 @@ func NewPowerXUseCase(conf *config.Config) (uc *PowerXUseCase, clean func()) {
 func (p *PowerXUseCase) AutoMigrate(ctx context.Context) {
 	p.db.AutoMigrate(&powerx.Department{}, &powerx.Employee{})
 	p.db.AutoMigrate(&powerx.EmployeeCasbinPolicy{}, powerx.AdminRole{}, powerx.AdminRoleMenuName{}, powerx.AdminAPI{})
-	p.db.AutoMigrate(&powerx.Clue{}, &powerx.Customer{})
+	p.db.AutoMigrate(&powerx.Lead{}, &powerx.Customer{})
 }
 
 func (p *PowerXUseCase) AutoInit() {
-	p.Auth.Init()
+	p.AdminAuthorization.Init()
 	p.Organization.Init()
 }

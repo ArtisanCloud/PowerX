@@ -7,15 +7,15 @@ import (
 	"gorm.io/gorm"
 )
 
-type ClueUseCase struct {
+type LeadUseCase struct {
 	db *gorm.DB
 }
 
-func NewClueUseCase(db *gorm.DB) *ClueUseCase {
-	return &ClueUseCase{db: db}
+func NewLeadUseCase(db *gorm.DB) *LeadUseCase {
+	return &LeadUseCase{db: db}
 }
 
-type Clue struct {
+type Lead struct {
 	types.Model
 	Title       string
 	PhoneNumber string
@@ -24,27 +24,27 @@ type Clue struct {
 	Status      string
 }
 
-func (c *ClueUseCase) CreateClue(ctx context.Context, clue *Clue) {
+func (c *LeadUseCase) CreateClue(ctx context.Context, clue *Lead) {
 	if err := c.db.WithContext(ctx).Create(clue).Error; err != nil {
 		panic(err)
 	}
 }
 
-func (c *ClueUseCase) GetClue(ctx context.Context, id uint) (clue *Clue, err error) {
+func (c *LeadUseCase) GetClue(ctx context.Context, id uint) (clue *Lead, err error) {
 	if err := c.db.WithContext(ctx).First(&clue, id).Error; err != nil {
 		return nil, errorx.WithCause(errorx.ErrBadRequest, "未找到线索")
 	}
 	return
 }
 
-func (c *ClueUseCase) UpdateClue(ctx context.Context, clue *Clue) {
+func (c *LeadUseCase) UpdateClue(ctx context.Context, clue *Lead) {
 	if err := c.db.WithContext(ctx).Save(clue).Error; err != nil {
 		panic(err)
 	}
 }
 
-func (c *ClueUseCase) DeleteClue(ctx context.Context, id uint) error {
-	result := c.db.WithContext(ctx).Delete(&Clue{}, id)
+func (c *LeadUseCase) DeleteClue(ctx context.Context, id uint) error {
+	result := c.db.WithContext(ctx).Delete(&Lead{}, id)
 	if err := result.Error; err != nil {
 		panic(err)
 	}

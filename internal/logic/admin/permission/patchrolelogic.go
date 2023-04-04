@@ -50,7 +50,7 @@ func (l *PatchRoleLogic) PatchRole(req *types.PatchRoleReqeust) (resp *types.Pat
 		MenuNames:  menuNames,
 	}
 
-	l.svcCtx.PowerX.Auth.PatchRoleByRoleCode(l.ctx, &role, req.RoleCode)
+	l.svcCtx.PowerX.AdminAuthorization.PatchRoleByRoleCode(l.ctx, &role, req.RoleCode)
 
 	return &types.PatchRoleReply{
 		AdminRole: &types.AdminRole{

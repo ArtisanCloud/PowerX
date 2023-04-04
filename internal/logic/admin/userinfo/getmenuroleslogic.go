@@ -25,7 +25,7 @@ func NewGetMenuRolesLogic(ctx context.Context, svcCtx *svc.ServiceContext) *GetM
 }
 
 func (l *GetMenuRolesLogic) GetMenuRoles() (resp *types.GetMenuRolesReply, err error) {
-	roles := l.svcCtx.PowerX.Auth.FindAllRoles(l.ctx)
+	roles := l.svcCtx.PowerX.AdminAuthorization.FindAllRoles(l.ctx)
 
 	rolesMapByMenu := make(map[string]setx.Set[string])
 	for _, role := range roles {

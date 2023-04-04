@@ -24,7 +24,7 @@ func NewGetRoleLogic(ctx context.Context, svcCtx *svc.ServiceContext) *GetRoleLo
 }
 
 func (l *GetRoleLogic) GetRole(req *types.GetRoleRequest) (resp *types.GetRoleReply, err error) {
-	role, err := l.svcCtx.PowerX.Auth.FindOneRoleByRoleCode(l.ctx, req.RoleCode)
+	role, err := l.svcCtx.PowerX.AdminAuthorization.FindOneRoleByRoleCode(l.ctx, req.RoleCode)
 	if err != nil {
 		return nil, err
 	}

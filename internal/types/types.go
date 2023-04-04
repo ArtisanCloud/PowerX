@@ -550,3 +550,30 @@ type GetMenuRolesReply struct {
 type ModifyPasswordReqeust struct {
 	Password string `json:"password"`
 }
+
+type MPCustomerLoginRequest struct {
+	Code string `json:"code"`
+}
+
+type MPCustomerAuthRequest struct {
+	Code          string `json:"code"`
+	IV            string `json:"iv"`
+	EncryptedData string `json:"encryptedData"`
+}
+
+type MPCustomerLoginAuthReply struct {
+	OpenID      string `json:"openID"`
+	UnionID     string `json:"unionID"`
+	PhoneNumber string `json:"phoneNumber"`
+	NickName    string `json:"nickName"`
+	AvatarURL   string `json:"avatarURL"`
+	Gender      string `json:"gender"`
+	Token       Token  `json:"token"`
+}
+
+type Token struct {
+	TokenType    string `json:"tokenType"`
+	ExpiresIn    string `json:"expiresIn"`
+	AccessToken  string `json:"accessToken"`
+	RefreshToken string `json:"refreshToken"`
+}

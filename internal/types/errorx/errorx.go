@@ -11,11 +11,6 @@ type Error struct {
 	Msg        string
 }
 
-var ErrUnKnow = NewError(500, "UN_KNOW", "未知错误, 请联系开发团队")
-var ErrBadRequest = NewError(400, "BAD_REQUEST", "违规请求")
-
-var ErrUnAuthorization = NewError(401, "UN_AUTHORIZATION", "未授权")
-
 type ResponseErr struct {
 	Reason string `json:"reason"`
 	Msg    string `json:"msg"`

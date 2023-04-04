@@ -124,7 +124,7 @@ func (m *EmployeeJWTAuthMiddleware) Handle(next http.HandlerFunc) http.HandlerFu
 			// next
 		} else {
 			// 权限验证
-			ok, err := m.px.Auth.Casbin.Enforce(claims.Subject, obj, act)
+			ok, err := m.px.AdminAuthorization.Casbin.Enforce(claims.Subject, obj, act)
 			if err != nil {
 				httpx.Error(writer, unKnow)
 				return
@@ -134,7 +134,7 @@ func (m *EmployeeJWTAuthMiddleware) Handle(next http.HandlerFunc) http.HandlerFu
 				return
 			}
 		}
-		request = request.WithContext(m.px.MetadataCtx.WithAuthMetadataCtxValue(request.Context(), &powerx.AuthMetadata{
+		request = request.WithContext(m.px.AdminAuthorization.WithAuthMetadataCtxValue(request.Context(), &powerx.AdminAuthMetadata{
 			UID: claims.UID,
 		}))
 		next(writer, request)

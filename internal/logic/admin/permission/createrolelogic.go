@@ -42,7 +42,7 @@ func (l *CreateRoleLogic) CreateRole(req *types.CreateRoleRequest) (resp *types.
 		MenuNames: menuList,
 	}
 
-	l.svcCtx.PowerX.Auth.CreateRole(l.ctx, &role)
+	l.svcCtx.PowerX.AdminAuthorization.CreateRole(l.ctx, &role)
 
 	return &types.CreateRoleReply{
 		RoleCode: role.RoleCode,

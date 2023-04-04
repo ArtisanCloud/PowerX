@@ -47,7 +47,7 @@ func (l *LoginLogic) Login(req *types.LoginRequest) (resp *types.LoginReply, err
 		return nil, errorx.WithCause(errorx.ErrBadRequest, "账户或密码错误")
 	}
 
-	roles, _ := l.svcCtx.PowerX.Auth.Casbin.GetRolesForUser(employee.Account)
+	roles, _ := l.svcCtx.PowerX.AdminAuthorization.Casbin.GetRolesForUser(employee.Account)
 
 	claims := types.TokenClaims{
 		UID:     employee.ID,

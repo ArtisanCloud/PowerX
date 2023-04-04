@@ -1,1 +1,2 @@
 import "admin.api"
+import "mp.api"

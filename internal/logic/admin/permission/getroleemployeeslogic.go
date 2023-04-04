@@ -25,7 +25,7 @@ func NewGetRoleEmployeesLogic(ctx context.Context, svcCtx *svc.ServiceContext) *
 }
 
 func (l *GetRoleEmployeesLogic) GetRoleEmployees(req *types.GetRoleEmployeesReqeust) (resp *types.GetRoleEmployeesReply, err error) {
-	accounts, _ := l.svcCtx.PowerX.Auth.Casbin.GetUsersForRole(req.RoleCode)
+	accounts, _ := l.svcCtx.PowerX.AdminAuthorization.Casbin.GetUsersForRole(req.RoleCode)
 
 	employeePage := l.svcCtx.PowerX.Organization.FindManyEmployeesPage(l.ctx, &powerx.FindManyEmployeesOption{
 		Accounts:  accounts,

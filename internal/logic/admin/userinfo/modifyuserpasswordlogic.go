@@ -26,7 +26,7 @@ func NewModifyUserPasswordLogic(ctx context.Context, svcCtx *svc.ServiceContext)
 }
 
 func (l *ModifyUserPasswordLogic) ModifyUserPassword(req *types.ModifyPasswordReqeust) error {
-	cred, err := l.svcCtx.PowerX.MetadataCtx.AuthMetadataFromContext(l.ctx)
+	cred, err := l.svcCtx.PowerX.AdminAuthorization.AuthMetadataFromContext(l.ctx)
 	if err != nil {
 		panic(errors.Wrap(err, "get user metadata failed"))
 	}

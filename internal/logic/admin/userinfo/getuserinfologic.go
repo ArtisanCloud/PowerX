@@ -27,7 +27,7 @@ func NewGetUserInfoLogic(ctx context.Context, svcCtx *svc.ServiceContext) *GetUs
 }
 
 func (l *GetUserInfoLogic) GetUserInfo() (resp *types.GetUserInfoReply, err error) {
-	cred, err := l.svcCtx.PowerX.MetadataCtx.AuthMetadataFromContext(l.ctx)
+	cred, err := l.svcCtx.PowerX.AdminAuthorization.AuthMetadataFromContext(l.ctx)
 	if err != nil {
 		panic(errors.Wrap(err, "get user metadata failed"))
 	}
@@ -37,7 +37,7 @@ func (l *GetUserInfoLogic) GetUserInfo() (resp *types.GetUserInfoReply, err erro
 		return nil, err
 	}
 
-	roles, _ := l.svcCtx.PowerX.Auth.Casbin.GetRolesForUser(employee.Account)
+	roles, _ := l.svcCtx.PowerX.AdminAuthorization.Casbin.GetRolesForUser(employee.Account)
 
 	resp = &types.GetUserInfoReply{
 		Id:            employee.ID,

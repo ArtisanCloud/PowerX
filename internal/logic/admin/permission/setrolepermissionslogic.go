@@ -38,7 +38,7 @@ func (l *SetRolePermissionsLogic) SetRolePermissions(req *types.SetRolePermissio
 
 	role.AdminAPI = api
 
-	l.svcCtx.PowerX.Auth.PatchRoleByRoleCode(l.ctx, &role, req.RoleCode)
+	l.svcCtx.PowerX.AdminAuthorization.PatchRoleByRoleCode(l.ctx, &role, req.RoleCode)
 
 	return &types.SetRolePermissionsReply{
 		Status: "ok",

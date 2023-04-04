@@ -41,7 +41,7 @@ func (l *ListEmployeesLogic) ListEmployees(req *types.ListEmployeesRequest) (res
 		// bind roles opt, todo improve performance or remove it
 		var accounts []string
 		for _, code := range req.RoleCodes {
-			as, _ := l.svcCtx.PowerX.Auth.Casbin.GetUsersForRole(code)
+			as, _ := l.svcCtx.PowerX.AdminAuthorization.Casbin.GetUsersForRole(code)
 			accounts = append(accounts, as...)
 		}
 		// 涉及角色查询, root账户会出现在所有角色筛选中
@@ -61,7 +61,7 @@ func (l *ListEmployeesLogic) ListEmployees(req *types.ListEmployeesRequest) (res
 	// build vo
 	var vos []types.Employee
 	for _, employee := range employeePage.List {
-		roles, _ := l.svcCtx.PowerX.Auth.Casbin.GetRolesForUser(employee.Account)
+		roles, _ := l.svcCtx.PowerX.AdminAuthorization.Casbin.GetRolesForUser(employee.Account)
 		var dep *types.EmployeeDepartment
 		if employee.Department != nil {
 			dep = &types.EmployeeDepartment{
