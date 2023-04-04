@@ -1,6 +1,7 @@
 package main
 
 import (
+	"PowerX/cmd/ctl/gen"
 	"fmt"
 	"github.com/urfave/cli/v2"
 	"os"
@@ -24,7 +25,7 @@ func main() {
 				},
 				Action: func(c *cli.Context) error {
 					dir := c.String("dir")
-					files, err := findAPIFiles(dir)
+					files, err := gen.FindAPIFiles(dir)
 					if err != nil {
 						fmt.Println("Error finding .api files:", err)
 						return err
@@ -34,7 +35,7 @@ func main() {
 						defer file.Close()
 					}
 
-					genAPICsv(files)
+					gen.GenAPICsv(files)
 
 					return nil
 				},

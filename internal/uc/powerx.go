@@ -15,7 +15,6 @@ type PowerXUseCase struct {
 	AdminAuthorization    *powerx.AdminPermsUseCase
 	CustomerAuthorization *powerx.AuthorizationCustomerUseCase
 	Organization          *powerx.OrganizationUseCase
-	Customer              *powerx.CustomerUseCase
 	WechatMP              *powerx.WechatMiniProgramUseCase
 	WechatOA              *powerx.WechatOfficialAccountUseCase
 }
@@ -44,6 +43,7 @@ func NewPowerXUseCase(conf *config.Config) (uc *PowerXUseCase, clean func()) {
 	// 加载子UseCase
 	uc.Organization = powerx.NewOrganizationUseCase(db)
 	uc.AdminAuthorization = powerx.NewAdminPermsUseCase(db, uc.Organization)
+	uc.CustomerAuthorization = powerx.NewAuthorizationCustomerUseCase(db)
 	uc.WechatMP = powerx.NewWechatMiniProgramUseCase(db, conf)
 	uc.WechatOA = powerx.NewWechatOfficialAccountUseCase(db, conf)
 
@@ -57,7 +57,6 @@ func NewPowerXUseCase(conf *config.Config) (uc *PowerXUseCase, clean func()) {
 func (p *PowerXUseCase) AutoMigrate(ctx context.Context) {
 	p.db.AutoMigrate(&powerx.Department{}, &powerx.Employee{})
 	p.db.AutoMigrate(&powerx.EmployeeCasbinPolicy{}, powerx.AdminRole{}, powerx.AdminRoleMenuName{}, powerx.AdminAPI{})
-	p.db.AutoMigrate(&powerx.Lead{}, &powerx.Customer{})
 }
 
 func (p *PowerXUseCase) AutoInit() {

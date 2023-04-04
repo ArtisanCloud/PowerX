@@ -1,11 +1,10 @@
 package department
 
 import (
-	"PowerX/internal/uc/powerx"
-	"context"
-
 	"PowerX/internal/svc"
 	"PowerX/internal/types"
+	"PowerX/internal/uc/powerx"
+	"context"
 
 	"github.com/zeromicro/go-zero/core/logx"
 )

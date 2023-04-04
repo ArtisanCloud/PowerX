@@ -17,7 +17,7 @@ type ResponseErr struct {
 }
 
 func (e *Error) Error() string {
-	return e.Msg
+	return e.Reason
 }
 
 func (e *Error) WithCause(cause string) error {

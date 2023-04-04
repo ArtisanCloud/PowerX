@@ -1,4 +1,4 @@
-package main
+package gen
 
 import (
 	"encoding/csv"
@@ -22,7 +22,7 @@ type Route struct {
 	Path   string
 }
 
-func genAPICsv(files []*os.File) {
+func GenAPICsv(files []*os.File) {
 	apiFile, err := os.OpenFile("api.csv", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		log.Fatalln(err)
@@ -90,7 +90,7 @@ func extractRoutes(text string) []Route {
 	return routes
 }
 
-func findAPIFiles(dir string) ([]*os.File, error) {
+func FindAPIFiles(dir string) ([]*os.File, error) {
 	var files []*os.File
 	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
