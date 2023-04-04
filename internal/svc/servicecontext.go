@@ -11,15 +11,17 @@ type ServiceContext struct {
 	Config config.Config
 	PowerX *uc.PowerXUseCase
 
-	EmployeeJWTAuth rest.Middleware
+	EmployeeJWTAuth       rest.Middleware
+	EmployeeNoPermJWTAuth rest.Middleware
 }
 
 func NewServiceContext(c config.Config) *ServiceContext {
 	powerx, _ := uc.NewPowerXUseCase(&c)
 
 	return &ServiceContext{
-		Config:          c,
-		PowerX:          powerx,
-		EmployeeJWTAuth: middleware.NewEmployeeJWTAuthMiddleware(&c, powerx).Handle,
+		Config:                c,
+		PowerX:                powerx,
+		EmployeeJWTAuth:       middleware.NewEmployeeJWTAuthMiddleware(&c, powerx).Handle,
+		EmployeeNoPermJWTAuth: middleware.NewEmployeeNoPermJWTAuthMiddleware(&c, powerx).Handle,
 	}
 }

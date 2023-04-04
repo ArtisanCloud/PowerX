@@ -20,7 +20,7 @@ import (
 func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 	server.AddRoutes(
 		rest.WithMiddlewares(
-			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Middleware{serverCtx.EmployeeNoPermJWTAuth},
 			[]rest.Route{
 				{
 					Method:  http.MethodGet,
