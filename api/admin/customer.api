@@ -34,19 +34,41 @@ service PowerX {
     @doc "删除客户"
     @handler DeleteCustomer
     delete /customers/:id (DeleteCustomerRequest) returns (DeleteCustomerReply)
+
+    @doc "为客户分配员工"
+    @handler AssignCustomerToEmployee
+    post /customers/:id/actions/employees (AssignCustomerToEmployeeRequest) returns (AssignCustomerToEmployeeReply)
 }
 
-type Customer {
-    Id int64 `json:"id"`
-    Name string `json:"name"`
-    PhoneNumber string `json:"phoneNumber"`
-    OpenId string `json:"openId"`
-    InviteByCustomerId int64 `json:"inviteByCustomerId"`
-    Source string `json:"source,options=tiktok|ad|miniprogram|wechat|other"`
-    Type string `json:"type,options=personal|company"`
-    Status string `json:"status"`
-    CreatedAt string `json:"createdAt"`
-}
+type (
+    CustomerExternalId {
+        OpenIDInMiniProgram string `json:"openIdInMiniProgram,optional"`
+        OpenIDInWeChatOfficialAccount string `json:"openIdInWeChatOfficialAccount,optional"`
+        OpenIDInWeCom string `json:"openIdInWeCom,optional"`
+    }
+)
+
+type (
+    CustomerInviter {
+        Id int64 `json:"id"`
+        Name string `json:"name"`
+        Mobile string `json:"mobile"`
+        Email string `json:"email"`
+    }
+
+    Customer {
+        Id int64 `json:"id"`
+        Name string `json:"name"`
+        Mobile string `json:"mobile"`
+        Email string `json:"email"`
+        Inviter CustomerInviter `json:"inviter"`
+        Source string `json:"source"`
+        Type string `json:"type"`
+        IsActivated bool `json:"isActivated"`
+        CreatedAt string `json:"createdAt"`
+        CustomerExternalId
+    }
+)
 
 type (
     GetCustomerReqeuest {
@@ -62,7 +84,7 @@ type (
     ListCustomersRequest {
         LikeName string `form:"likeName"`
         Sources []string `form:"sources"`
-        LikePhoneNumber string `form:"likePhoneNumber"`
+        LikeMobile string `form:"likeMobile"`
         Statuses []string `form:"statuses"`
         PageIndex int `form:"page"`
         PageSize int `form:"pageSize"`
@@ -76,12 +98,13 @@ type (
 type (
     CreateCustomerRequest {
         Name string `json:"name"`
-        PhoneNumber string `json:"phoneNumber"`
-        OpenId string `json:"openId"`
-        InviteByCustomerId int64 `json:"inviteByCustomerId,optional"`
-        Source string `json:"source,options=tiktok|ad|miniprogram|wechat|other"`
-        Type string `json:"type,options=personal|company"`
-        Status string `json:"status"`
+        Mobile string `json:"mobile,optional"`
+        Email string `json:"email,optional"`
+        InviterId int64 `json:"inviterId,optional"`
+        Source string `json:"source,optional,options=tiktok|ad|miniprogram|wechat|other"`
+        Type string `json:"type,optional,options=personal|company"`
+        IsActivated *bool `json:"isActivated,optional"`
+        CustomerExternalId
     }
 
     CreateCustomerReply {
@@ -93,12 +116,13 @@ type (
     PatchCustomerRequest {
         Id string `path:"id"`
         Name string `json:"name,optional"`
-        PhoneNumber string `json:"phoneNumber,optional"`
-        OpenId string `json:"openId,optional"`
-        InviteByCustomerId int64 `json:"inviteByCustomerId,optional"`
-        Source string `json:"source,options=tiktok|ad|miniprogram|wechat|other,optional"`
-        Type string `json:"type,options=personal|company,optional"`
-        Status string `json:"status,optional"`
+        Mobile string `json:"mobile,optional"`
+        Email string `json:"email,optional"`
+        InviterId int64 `json:"inviterId,optional"`
+        Source string `json:"source,optional,options=tiktok|ad|miniprogram|wechat|other"`
+        Type string `json:"type,optional,options=personal|company"`
+        IsActivated *bool `json:"isActivated,optional"`
+        CustomerExternalId
     }
 
     PatchCustomerReply {
@@ -112,6 +136,17 @@ type (
     }
 
     DeleteCustomerReply {
+        CustomerId int64 `json:"customerId"`
+    }
+)
+
+type (
+    AssignCustomerToEmployeeRequest {
+        Id string `path:"id"`
+        EmployeeId int64 `json:"employeeId"`
+    }
+
+    AssignCustomerToEmployeeReply {
         CustomerId int64 `json:"customerId"`
     }
 )

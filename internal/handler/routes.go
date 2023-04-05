@@ -5,11 +5,14 @@ import (
 	"net/http"
 
 	adminauth "PowerX/internal/handler/admin/auth"
-	adminclue "PowerX/internal/handler/admin/clue"
 	admincommon "PowerX/internal/handler/admin/common"
 	admincustomer "PowerX/internal/handler/admin/customer"
 	admindepartment "PowerX/internal/handler/admin/department"
+	admindictionary "PowerX/internal/handler/admin/dictionary"
 	adminemployee "PowerX/internal/handler/admin/employee"
+	adminlead "PowerX/internal/handler/admin/lead"
+	adminmedia "PowerX/internal/handler/admin/media"
+	adminopportunity "PowerX/internal/handler/admin/opportunity"
 	adminpermission "PowerX/internal/handler/admin/permission"
 	adminuserinfo "PowerX/internal/handler/admin/userinfo"
 	mpcustomer "PowerX/internal/handler/mp/customer"
@@ -192,6 +195,40 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			[]rest.Route{
 				{
 					Method:  http.MethodGet,
+					Path:    "/leads",
+					Handler: adminlead.ListLeadsHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/leads",
+					Handler: adminlead.CreateLeadHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPatch,
+					Path:    "/leads/:id",
+					Handler: adminlead.PatchLeadHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodDelete,
+					Path:    "/leads/:id",
+					Handler: adminlead.DeleteLeadHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/leads/:id/actions/assign-to-employee",
+					Handler: adminlead.AssignLeadToEmployeeHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithPrefix("/api/v1/admin/lead"),
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Route{
+				{
+					Method:  http.MethodGet,
 					Path:    "/customers/:id",
 					Handler: admincustomer.GetCustomerHandler(serverCtx),
 				},
@@ -215,6 +252,11 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 					Path:    "/customers/:id",
 					Handler: admincustomer.DeleteCustomerHandler(serverCtx),
 				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/customers/:id/actions/employees",
+					Handler: admincustomer.AssignCustomerToEmployeeHandler(serverCtx),
+				},
 			}...,
 		),
 		rest.WithPrefix("/api/v1/admin/customer"),
@@ -226,32 +268,115 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			[]rest.Route{
 				{
 					Method:  http.MethodGet,
-					Path:    "/clues",
-					Handler: adminclue.ListCluesHandler(serverCtx),
+					Path:    "/medias",
+					Handler: adminmedia.GetMediaListHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPost,
-					Path:    "/clues",
-					Handler: adminclue.CreateCluesHandler(serverCtx),
+					Path:    "/medias/actions/create-upload-url",
+					Handler: adminmedia.CreateMediaUploadRequestHandler(serverCtx),
 				},
 				{
-					Method:  http.MethodPatch,
-					Path:    "/clues/:id",
-					Handler: adminclue.PatchClueHandler(serverCtx),
+					Method:  http.MethodPut,
+					Path:    "/medias/:mediaKey",
+					Handler: adminmedia.CreateOrUpdateMediaHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/medias/:key",
+					Handler: adminmedia.GetMediaByKeyHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodDelete,
-					Path:    "/clues/:id",
-					Handler: adminclue.DeleteClueHandler(serverCtx),
-				},
-				{
-					Method:  http.MethodPost,
-					Path:    "/clues/:id/actions/assign-to-employee",
-					Handler: adminclue.AssignClueToEmployeeHandler(serverCtx),
+					Path:    "/medias/:key",
+					Handler: adminmedia.DeleteMediaHandler(serverCtx),
 				},
 			}...,
 		),
-		rest.WithPrefix("/api/v1/admin/clue"),
+		rest.WithPrefix("/api/v1/admin/media"),
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Route{
+				{
+					Method:  http.MethodGet,
+					Path:    "/types",
+					Handler: admindictionary.GetDictionaryTypesHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/types",
+					Handler: admindictionary.CreateDictionaryTypeHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPut,
+					Path:    "/types/:id",
+					Handler: admindictionary.UpdateDictionaryTypeHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodDelete,
+					Path:    "/types/:id",
+					Handler: admindictionary.DeleteDictionaryTypeHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/items",
+					Handler: admindictionary.GetDictionaryItemsHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/items",
+					Handler: admindictionary.CreateDictionaryItemHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPut,
+					Path:    "/items/:id",
+					Handler: admindictionary.UpdateDictionaryItemHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodDelete,
+					Path:    "/items/:id",
+					Handler: admindictionary.DeleteDictionaryItemHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithPrefix("/api/v1/admin/dictionary"),
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Route{
+				{
+					Method:  http.MethodGet,
+					Path:    "/opportunities",
+					Handler: adminopportunity.GetOpportunityListHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/opportunities",
+					Handler: adminopportunity.CreateOpportunityHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPut,
+					Path:    "/opportunities/:id/assign-employee",
+					Handler: adminopportunity.AssignEmployeeToOpportunityHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPut,
+					Path:    "/opportunities/:id",
+					Handler: adminopportunity.UpdateOpportunityHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodDelete,
+					Path:    "/opportunities/:id",
+					Handler: adminopportunity.DeleteOpportunityHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithPrefix("/api/v1/admin/opportunity"),
 	)
 
 	server.AddRoutes(

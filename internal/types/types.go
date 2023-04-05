@@ -388,16 +388,127 @@ type ExchangeReply struct {
 	RefreshToken string `json:"refreshToken"`
 }
 
+type LeadExternalId struct {
+	OpenIDInMiniProgram           string `json:"openIdInMiniProgram,optional"`
+	OpenIDInWeChatOfficialAccount string `json:"openIdInWeChatOfficialAccount,optional"`
+	OpenIDInWeCom                 string `json:"openIdInWeCom,optional"`
+}
+
+type LeadInviter struct {
+	Id     int64  `json:"id"`
+	Name   string `json:"name"`
+	Mobile string `json:"mobile"`
+	Email  string `json:"email"`
+}
+
+type Lead struct {
+	Id        int64       `json:"id"`
+	Name      string      `json:"name"`
+	Mobile    string      `json:"mobile"`
+	Email     string      `json:"email"`
+	Inviter   LeadInviter `json:"inviter"`
+	Source    string      `json:"source"`
+	Status    string      `json:"status"`
+	CreatedAt string      `json:"createdAt"`
+	LeadExternalId
+}
+
+type ListLeadsRequest struct {
+	LikeTitle       string   `json:"likeTitle,optional"`
+	LikePhoneNumber string   `json:"likePhoneNumber,optional"`
+	Sources         []string `json:"sources,optional"`
+	Statuses        []string `json:"statuses,optional"`
+}
+
+type ListLeadsReply struct {
+	List      []Lead `json:"list"`
+	PageIndex int32  `json:"pageIndex"`
+	PageSize  int32  `json:"pageSize"`
+	Total     int64  `json:"total"`
+}
+
+type CreateLeadRecord struct {
+	Id        int64  `json:"id"`
+	Name      string `json:"name"`
+	Mobile    string `json:"mobile,optional"`
+	Email     string `json:"email,optional"`
+	InviterId int64  `json:"inviterId,optional"`
+	Source    string `json:"source,optional,options=mini_program|tiktok|h5|ad"`
+	Status    string `json:"status,optional,options=open|following|closed_lost|closed_won"`
+	Type      string `json:"type,optional,options=personal|company"`
+	IsActived *bool  `json:"isActived,optional"`
+	LeadExternalId
+}
+
+type CreateLeadRequest struct {
+	List []CreateLeadRecord `json:"list"`
+}
+
+type CreateLeadReply struct {
+	List      []Lead `json:"list"`
+	PageIndex int32  `json:"pageIndex"`
+	PageSize  int32  `json:"pageSize"`
+	Total     int64  `json:"total"`
+}
+
+type PatchLeadRequest struct {
+	Id        int64  `path:"id"`
+	Name      string `json:"name,optional"`
+	Mobile    string `json:"mobile,optional"`
+	Email     string `json:"email,optional"`
+	InviterId int64  `json:"inviterId,optional"`
+	Source    string `json:"source,optional,options=mini_program|tiktok|h5|advertisement"`
+	Status    string `json:"status,optional,options=open|following|closed_lost|closed_won"`
+	Type      string `json:"type,optional,options=personal|company"`
+	IsActived *bool  `json:"isActived,optional"`
+	LeadExternalId
+}
+
+type PatchLeadReply struct {
+	Lead
+}
+
+type DeleteLeadRequest struct {
+	Id int64 `json:"id"`
+}
+
+type DeleteLeadReply struct {
+	Id int64 `json:"id"`
+}
+
+type AssignLeadToEmployeeRequest struct {
+	Id         int64 `path:"id"`
+	EmployeeId int64 `json:"employeeId"`
+}
+
+type AssignLeadToEmployeeReply struct {
+	Lead
+}
+
+type CustomerExternalId struct {
+	OpenIDInMiniProgram           string `json:"openIdInMiniProgram,optional"`
+	OpenIDInWeChatOfficialAccount string `json:"openIdInWeChatOfficialAccount,optional"`
+	OpenIDInWeCom                 string `json:"openIdInWeCom,optional"`
+}
+
+type CustomerInviter struct {
+	Id     int64  `json:"id"`
+	Name   string `json:"name"`
+	Mobile string `json:"mobile"`
+	Email  string `json:"email"`
+}
+
 type Customer struct {
-	Id                 int64  `json:"id"`
-	Name               string `json:"name"`
-	PhoneNumber        string `json:"phoneNumber"`
-	OpenId             string `json:"openId"`
-	InviteByCustomerId int64  `json:"inviteByCustomerId"`
-	Source             string `json:"source,options=tiktok|ad|miniprogram|wechat|other"`
-	Type               string `json:"type,options=personal|company"`
-	Status             string `json:"status"`
-	CreatedAt          string `json:"createdAt"`
+	Id          int64           `json:"id"`
+	Name        string          `json:"name"`
+	Mobile      string          `json:"mobile"`
+	Email       string          `json:"email"`
+	Inviter     CustomerInviter `json:"inviter"`
+	Source      string          `json:"source"`
+	Type        string          `json:"type"`
+	IsActivated bool            `json:"isActivated"`
+	CreatedAt   string          `json:"createdAt"`
+	CustomerExternalId
 }
 
 type GetCustomerReqeuest struct {
@@ -409,12 +520,12 @@ type GetCustomerReply struct {
 }
 
 type ListCustomersRequest struct {
-	LikeName        string   `form:"likeName"`
-	Sources         []string `form:"sources"`
-	LikePhoneNumber string   `form:"likePhoneNumber"`
-	Statuses        []string `form:"statuses"`
-	PageIndex       int      `form:"page"`
-	PageSize        int      `form:"pageSize"`
+	LikeName   string   `form:"likeName"`
+	Sources    []string `form:"sources"`
+	LikeMobile string   `form:"likeMobile"`
+	Statuses   []string `form:"statuses"`
+	PageIndex  int      `form:"page"`
+	PageSize   int      `form:"pageSize"`
 }
 
 type ListCustomersReply struct {
@@ -422,13 +533,14 @@ type ListCustomersReply struct {
 }
 
 type CreateCustomerRequest struct {
-	Name               string `json:"name"`
-	PhoneNumber        string `json:"phoneNumber"`
-	OpenId             string `json:"openId"`
-	InviteByCustomerId int64  `json:"inviteByCustomerId,optional"`
-	Source             string `json:"source,options=tiktok|ad|miniprogram|wechat|other"`
-	Type               string `json:"type,options=personal|company"`
-	Status             string `json:"status"`
+	Name        string `json:"name"`
+	Mobile      string `json:"mobile,optional"`
+	Email       string `json:"email,optional"`
+	InviterId   int64  `json:"inviterId,optional"`
+	Source      string `json:"source,optional,options=tiktok|ad|miniprogram|wechat|other"`
+	Type        string `json:"type,optional,options=personal|company"`
+	IsActivated *bool  `json:"isActivated,optional"`
+	CustomerExternalId
 }
 
 type CreateCustomerReply struct {
@@ -436,14 +548,15 @@ type CreateCustomerReply struct {
 }
 
 type PatchCustomerRequest struct {
-	Id                 string `path:"id"`
-	Name               string `json:"name,optional"`
-	PhoneNumber        string `json:"phoneNumber,optional"`
-	OpenId             string `json:"openId,optional"`
-	InviteByCustomerId int64  `json:"inviteByCustomerId,optional"`
-	Source             string `json:"source,options=tiktok|ad|miniprogram|wechat|other,optional"`
-	Type               string `json:"type,options=personal|company,optional"`
-	Status             string `json:"status,optional"`
+	Id          string `path:"id"`
+	Name        string `json:"name,optional"`
+	Mobile      string `json:"mobile,optional"`
+	Email       string `json:"email,optional"`
+	InviterId   int64  `json:"inviterId,optional"`
+	Source      string `json:"source,optional,options=tiktok|ad|miniprogram|wechat|other"`
+	Type        string `json:"type,optional,options=personal|company"`
+	IsActivated *bool  `json:"isActivated,optional"`
+	CustomerExternalId
 }
 
 type PatchCustomerReply struct {
@@ -458,65 +571,252 @@ type DeleteCustomerReply struct {
 	CustomerId int64 `json:"customerId"`
 }
 
-type Clue struct {
+type AssignCustomerToEmployeeRequest struct {
+	Id         string `path:"id"`
+	EmployeeId int64  `json:"employeeId"`
+}
+
+type AssignCustomerToEmployeeReply struct {
+	CustomerId int64 `json:"customerId"`
+}
+
+type GetMediaListRequest struct {
+	MediaType string   `form:"mediaType,optional"`
+	Keys      []string `form:"keys,optional"`
+	DescBy    string   `form:"descBy,optional,options=createdAt|updatedAt"`
+	PageIndex int      `form:"pageIndex,optional"`
+	PageSize  int      `form:"pageSize,optional"`
+}
+
+type Media struct {
+	Key       string `json:"key"`
+	MediaType string `json:"mediaType"`
+	Meta      string `json:"meta"`
+	Remark    string `json:"remark"`
+	CreatedAt string `json:"createdAt"`
+	UpdatedAt string `json:"updatedAt"`
+}
+
+type GetMediaListReply struct {
+	List      []Media `json:"list"`
+	PageIndex int     `json:"pageIndex"`
+	PageSize  int     `json:"pageSize"`
+	Total     int64   `json:"total"`
+}
+
+type CreateMediaUploadRequest struct {
+	FileName string `json:"fileName"`
+}
+
+type CreateMediaUploadRequestReply struct {
+	MediaKey  string `json:"mediaKey"`
+	UploadURL string `json:"uploadURL"`
+	ExpiresAt int64  `json:"expiresAt"`
+}
+
+type CreateOrUpdateMediaRequest struct {
+	MediaKey  string `path:"mediaKey"`
+	MediaType string `json:"mediaType,optional"`
+	Meta      string `json:"meta,optional"`
+	Remark    string `json:"remark,optional"`
+}
+
+type CreateOrUpdateMediaReply struct {
+	MediaKey string `json:"mediaKey"`
+}
+
+type GetMediaByKeyRequest struct {
+	MediaKey string `path:"mediaKey"`
+}
+
+type GetMediaByKeyReply struct {
+	*Media
+}
+
+type DeleteMediaRequest struct {
+	Key string `path:"key"`
+}
+
+type DeleteMediaReply struct {
+	Key string `json:"key"`
+}
+
+type GetDictionaryTypesRequest struct {
+	PageIndex int `form:"pageIndex,optional"`
+	PageSize  int `form:"pageSize,optional"`
+}
+
+type DictionaryType struct {
 	Id          int64  `json:"id"`
-	Title       string `json:"title"`
-	PhoneNumber string `json:"phoneNumber,optional"`
-	Email       string `json:"email,optional"`
-	Source      string `json:"source"`
-	Status      string `json:"status"`
-	CreatedAt   string `json:"createdAt"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
 }
 
-type ListCluesRequest struct {
-	LikeTitle       string   `json:"likeTitle,optional"`
-	LikePhoneNumber string   `json:"likePhoneNumber,optional"`
-	Sources         []string `json:"sources,optional"`
-	Statuses        []string `json:"statuses,optional"`
+type GetDictionaryTypesReply struct {
+	List      []DictionaryType `json:"list"`
+	PageIndex int              `json:"pageIndex"`
+	PageSize  int              `json:"pageSize"`
+	Total     int64            `json:"total"`
 }
 
-type ListCluesReply struct {
-	List      []Clue `json:"list"`
-	PageIndex int32  `json:"pageIndex"`
-	PageSize  int32  `json:"pageSize"`
-	Total     int64  `json:"total"`
+type CreateDictionaryTypeRequest struct {
+	Name        string `json:"name"`
+	Description string `json:"description,optional"`
 }
 
-type CreateCluesRequest struct {
-	List []Clue `json:"list"`
-}
-
-type CreateCluesReply struct {
-	List      []Clue `json:"list"`
-	PageIndex int32  `json:"pageIndex"`
-	PageSize  int32  `json:"pageSize"`
-	Total     int64  `json:"total"`
-}
-
-type PatchClueRequest struct {
-	Id          int64  `path:"id"`
-	Title       string `json:"title,optional"`
-	PhoneNumber string `json:"phoneNumber,optional"`
-	Email       string `json:"email,optional"`
-	Source      string `json:"source,optional"`
-	Status      string `json:"status,optional"`
-}
-
-type PatchClueReply struct {
-	Clue
-}
-
-type DeleteClueReply struct {
+type CreateDictionaryTypeReply struct {
 	Id int64 `json:"id"`
 }
 
-type AssignClueToEmployeeRequest struct {
+type UpdateDictionaryTypeRequest struct {
+	Id          int64  `path:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description,optional"`
+}
+
+type UpdateDictionaryTypeReply struct {
+	*DictionaryType
+}
+
+type DeleteDictionaryTypeRequest struct {
+	Id int64 `path:"id"`
+}
+
+type DeleteDictionaryTypeReply struct {
+	Id int64 `json:"id"`
+}
+
+type GetDictionaryItemsRequest struct {
+	TypeId    int64 `form:"typeId"`
+	PageIndex int   `form:"pageIndex,optional"`
+	PageSize  int   `form:"pageSize,optional"`
+}
+
+type DictionaryItem struct {
+	Id          int64  `json:"id"`
+	TypeId      int64  `json:"typeId"`
+	Name        string `json:"name"`
+	Value       string `json:"value"`
+	Description string `json:"description"`
+}
+
+type GetDictionaryItemsReply struct {
+	List      []DictionaryItem `json:"list"`
+	PageIndex int              `json:"pageIndex"`
+	PageSize  int              `json:"pageSize"`
+	Total     int64            `json:"total"`
+}
+
+type CreateDictionaryItemRequest struct {
+	TypeId      int64  `json:"typeId"`
+	Name        string `json:"name"`
+	Value       string `json:"value"`
+	Description string `json:"description,optional"`
+}
+
+type CreateDictionaryItemReply struct {
+	Id int64 `json:"id"`
+}
+
+type UpdateDictionaryItemRequest struct {
+	Id          int64  `path:"id"`
+	TypeId      int64  `json:"typeId"`
+	Name        string `json:"name"`
+	Value       string `json:"value"`
+	Description string `json:"description,optional"`
+}
+
+type UpdateDictionaryItemReply struct {
+	*DictionaryItem
+}
+
+type DeleteDictionaryItemRequest struct {
+	Id int64 `path:"id"`
+}
+
+type DeleteDictionaryItemReply struct {
+	Id int64 `json:"id"`
+}
+
+type GetOpportunityListRequest struct {
+	Name      string `form:"name,optional"`
+	Source    string `form:"source,optional"`
+	Type      string `form:"type,optional"`
+	Stage     string `form:"stage,optional"`
+	DescBy    string `form:"descBy,optional,options=createdAt|updatedAt|closedAt"`
+	PageIndex int    `form:"pageIndex,optional"`
+	PageSize  int    `form:"pageSize,optional"`
+}
+
+type Opportunity struct {
+	Id          int64   `json:"id"`
+	Name        string  `json:"name"`
+	Requirement string  `json:"requirement"`
+	CustomerId  int64   `json:"customerId"`
+	Probability float32 `json:"probability"`
+	Source      string  `json:"source"`
+	Type        string  `json:"type"`
+	EmployeeId  int64   `json:"employeeId"`
+	Stage       string  `json:"stage"`
+	ClosedDate  string  `json:"closedDate"`
+	CreatedAt   string  `json:"createdAt"`
+	UpdatedAt   string  `json:"updatedAt"`
+}
+
+type GetOpportunityListReply struct {
+	List      []Opportunity `json:"list"`
+	PageIndex int           `json:"pageIndex"`
+	PageSize  int           `json:"pageSize"`
+	Total     int64         `json:"total"`
+}
+
+type CreateOpportunityRequest struct {
+	Name        string  `json:"name"`
+	Requirement string  `json:"requirement"`
+	CustomerId  int64   `json:"customerId"`
+	Probability float32 `json:"probability,optional"`
+	Source      string  `json:"source,options=new_customer|old_customer_new_purchase|old_customer_repurchase|old_customer_upgrade"`
+	Type        string  `json:"type,options=trial_requirement|requirement_match|detailed_requirement_analysis|solution_provided|quotation|negotiation|closed_unsuccessful|closed_successful"`
+	EmployeeId  int64   `json:"employeeId"`
+	Stage       string  `json:"stage"`
+}
+
+type CreateOpportunityReply struct {
+	Id int64 `json:"id"`
+}
+
+type AssignEmployeeToOpportunityRequest struct {
 	Id         int64 `path:"id"`
 	EmployeeId int64 `json:"employeeId"`
 }
 
-type AssignClueToEmployeeReply struct {
-	Clue
+type AssignEmployeeToOpportunityReply struct {
+	Id int64 `json:"id"`
+}
+
+type UpdateOpportunityRequest struct {
+	Id          int64   `path:"id"`
+	Name        string  `json:"name,optional"`
+	Requirement string  `json:"requirement,optional"`
+	CustomerId  int64   `json:"customerId,optional"`
+	Probability float32 `json:"probability,optional"`
+	Source      string  `json:"source,optional,options=new_customer|old_customer_new_purchase|old_customer_repurchase|old_customer_upgrade"`
+	Type        string  `json:"type,optional,options=trial_requirement|requirement_match|detailed_requirement_analysis|solution_provided|quotation|negotiation|closed_unsuccessful|closed_successful"`
+	EmployeeId  int64   `json:"employeeId,optional"`
+	Stage       string  `json:"stage,optional"`
+	ClosedDate  string  `json:"closedDate,optional"`
+}
+
+type UpdateOpportunityReply struct {
+	*Opportunity
+}
+
+type DeleteOpportunityRequest struct {
+	Id int64 `path:"id"`
+}
+
+type DeleteOpportunityReply struct {
+	Id int64 `json:"id"`
 }
 
 type GetUserInfoReply struct {
