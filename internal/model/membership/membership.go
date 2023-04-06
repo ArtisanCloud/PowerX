@@ -2,12 +2,12 @@ package membership
 
 import (
 	"PowerX/internal/model"
-	"PowerX/internal/model/customer"
+	"PowerX/internal/model/customerdomain"
 	"time"
 )
 
 type Membership struct {
-	Customer *customer.Customer `gorm:"foreignKey:CustomerID;references:id"`
+	Customer *customerdomain.Customer `gorm:"foreignKey:CustomerID;references:id"`
 
 	MainMembership *Membership   `gorm:"foreignKey:MainMembershipID;references:id"`
 	SubMemberships []*Membership `gorm:"foreignKey:MainMembershipID;references:id"`

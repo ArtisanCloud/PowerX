@@ -1,4 +1,4 @@
-package powerx
+package customerdomain
 
 import (
 	"PowerX/internal/model"
@@ -12,12 +12,12 @@ import (
 const CustomerTokenExpiredDuration = 60 * 60 * 24 * 3 * time.Second
 const CustomerAccessTokenType = "Bearer"
 
-type AuthorizationCustomerUseCase struct {
+type AuthorizationCustomerDomainUseCase struct {
 	db *gorm.DB
 }
 
-func NewAuthorizationCustomerUseCase(db *gorm.DB) *AuthorizationCustomerUseCase {
-	return &AuthorizationCustomerUseCase{
+func NewAuthorizationCustomerDomainUseCase(db *gorm.DB) *AuthorizationCustomerDomainUseCase {
+	return &AuthorizationCustomerDomainUseCase{
 		db: db,
 	}
 }
@@ -30,7 +30,7 @@ type CustomerJWTToken struct {
 	jwt.RegisteredClaims
 }
 
-func (uc *AuthorizationCustomerUseCase) SignToken(mpCustomer *model.WechatMPCustomer, jwtSecret string) oauth2.Token {
+func (uc *AuthorizationCustomerDomainUseCase) SignToken(mpCustomer *model.WechatMPCustomer, jwtSecret string) oauth2.Token {
 
 	now := time.Now()
 	expiresAt := now.Add(CustomerTokenExpiredDuration)

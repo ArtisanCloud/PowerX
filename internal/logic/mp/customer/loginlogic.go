@@ -5,7 +5,7 @@ import (
 	"PowerX/internal/svc"
 	"PowerX/internal/types"
 	"PowerX/internal/types/errorx"
-	"PowerX/internal/uc/powerx"
+	"PowerX/internal/uc/powerx/customerdomain"
 	"context"
 	"fmt"
 	"github.com/pkg/errors"
@@ -67,7 +67,7 @@ func (l *LoginLogic) Login(req *types.MPCustomerLoginRequest) (resp *types.MPCus
 		Gender:      mpCustomer.Gender,
 		Token: types.Token{
 			TokenType:    token.TokenType,
-			ExpiresIn:    fmt.Sprintf("%d", powerx.CustomerTokenExpiredDuration),
+			ExpiresIn:    fmt.Sprintf("%d", customerdomain.CustomerTokenExpiredDuration),
 			AccessToken:  token.AccessToken,
 			RefreshToken: token.RefreshToken,
 		},
