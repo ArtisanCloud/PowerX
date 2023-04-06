@@ -3,21 +3,23 @@ package uc
 import (
 	"PowerX/internal/config"
 	"PowerX/internal/model"
-	"PowerX/internal/model/customer"
+	"PowerX/internal/model/customerdomain"
 	"PowerX/internal/model/membership"
 	"PowerX/internal/uc/powerx"
+	customerdomainUC "PowerX/internal/uc/powerx/customerdomain"
 	"context"
 	"github.com/pkg/errors"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
-	"gorm.io/gorm/logger"
 )
 
 type PowerXUseCase struct {
 	db                    *gorm.DB
 	AdminAuthorization    *powerx.AdminPermsUseCase
-	CustomerAuthorization *powerx.AuthorizationCustomerUseCase
+	CustomerAuthorization *customerdomainUC.AuthorizationCustomerDomainUseCase
 	Organization          *powerx.OrganizationUseCase
+	Customer              *customerdomainUC.CustomerUseCase
+	Lead                  *customerdomainUC.LeadUseCase
 	WechatMP              *powerx.WechatMiniProgramUseCase
 	WechatOA              *powerx.WechatOfficialAccountUseCase
 }
@@ -25,7 +27,7 @@ type PowerXUseCase struct {
 func NewPowerXUseCase(conf *config.Config) (uc *PowerXUseCase, clean func()) {
 	// 启动数据库并测试连通性
 	db, err := gorm.Open(postgres.Open(conf.PowerXDatabase.DSN), &gorm.Config{
-		Logger:                                   logger.Default.LogMode(logger.Info),
+		//Logger:                                   logger.Default.LogMode(logger.Info),
 		DisableForeignKeyConstraintWhenMigrating: true,
 	})
 	if err != nil {
@@ -46,7 +48,9 @@ func NewPowerXUseCase(conf *config.Config) (uc *PowerXUseCase, clean func()) {
 	// 加载子UseCase
 	uc.Organization = powerx.NewOrganizationUseCase(db)
 	uc.AdminAuthorization = powerx.NewAdminPermsUseCase(db, uc.Organization)
-	uc.CustomerAuthorization = powerx.NewAuthorizationCustomerUseCase(db)
+	uc.CustomerAuthorization = customerdomainUC.NewAuthorizationCustomerDomainUseCase(db)
+	uc.Customer = customerdomainUC.NewCustomerUseCase(db)
+	uc.Lead = customerdomainUC.NewLeadUseCase(db)
 	uc.WechatMP = powerx.NewWechatMiniProgramUseCase(db, conf)
 	uc.WechatOA = powerx.NewWechatOfficialAccountUseCase(db, conf)
 
@@ -62,12 +66,12 @@ func (p *PowerXUseCase) AutoMigrate(ctx context.Context) {
 	p.db.AutoMigrate(&powerx.Department{}, &powerx.Employee{})
 	p.db.AutoMigrate(&powerx.EmployeeCasbinPolicy{}, powerx.AdminRole{}, powerx.AdminRoleMenuName{}, powerx.AdminAPI{})
 
-	// customer domain
-	p.db.AutoMigrate(&customer.Lead{}, &customer.Contact{}, &customer.Customer{}, &membership.Membership{})
+	// customerdomain domain
+	p.db.AutoMigrate(&customerdomain.Lead{}, &customerdomain.Contact{}, &customerdomain.Customer{}, &membership.Membership{})
 	p.db.AutoMigrate(&model.WechatOACustomer{}, &model.WechatMPCustomer{}, &model.WeWorkExternalContact{})
 	p.db.AutoMigrate(
-		&customer.PivotCustomerToWechatMPCustomer{},
-		&customer.PivotLeadToWechatMPCustomer{},
+		&customerdomain.PivotCustomerToWechatMPCustomer{},
+		&customerdomain.PivotLeadToWechatMPCustomer{},
 	)
 }
 
