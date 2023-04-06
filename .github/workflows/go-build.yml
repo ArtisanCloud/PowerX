@@ -12,5 +12,5 @@ jobs:
           go-version: 1.19
 
       - name: Build
-        run: go build -o cmd/server
+        run: cd cmd/server && go build
 
