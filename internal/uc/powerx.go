@@ -47,6 +47,7 @@ func NewPowerXUseCase(conf *config.Config) (uc *PowerXUseCase, clean func()) {
 	uc.WechatMP = powerx.NewWechatMiniProgramUseCase(db, conf)
 	uc.WechatOA = powerx.NewWechatOfficialAccountUseCase(db, conf)
 
+	uc.AutoMigrate(context.Background())
 	uc.AutoInit()
 
 	return uc, func() {
@@ -57,6 +58,7 @@ func NewPowerXUseCase(conf *config.Config) (uc *PowerXUseCase, clean func()) {
 func (p *PowerXUseCase) AutoMigrate(ctx context.Context) {
 	p.db.AutoMigrate(&powerx.Department{}, &powerx.Employee{})
 	p.db.AutoMigrate(&powerx.EmployeeCasbinPolicy{}, powerx.AdminRole{}, powerx.AdminRoleMenuName{}, powerx.AdminAPI{})
+
 }
 
 func (p *PowerXUseCase) AutoInit() {
