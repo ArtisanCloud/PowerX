@@ -303,9 +303,9 @@ type GetRoleReply struct {
 type PatchRoleReqeust struct {
 	RoleCode  string   `path:"roleCode"`
 	Name      string   `json:"name"`
-	Desc      string   `json:"desc"`
-	APIIds    []int64  `json:"apiIds"`
-	MenuNames []string `json:"menuNames"`
+	Desc      string   `json:"desc,optional"`
+	APIIds    []int64  `json:"apiIds,optional"`
+	MenuNames []string `json:"menuNames,optional"`
 }
 
 type PatchRoleReply struct {

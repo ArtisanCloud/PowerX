@@ -14,6 +14,8 @@ import (
 type ServerInfo struct {
 	Group  string
 	Prefix string
+	Title  string
+	Desc   string
 }
 
 type Route struct {
@@ -35,13 +37,14 @@ func GenAPICsv(files []*os.File) {
 	groupWriter := csv.NewWriter(groupFile)
 
 	for _, file := range files {
+		log.Printf("正在处理文件: %s", file.Name())
 		apiText, err := io.ReadAll(file)
 		if err != nil {
 			log.Fatalln(err)
 		}
 
 		serverInfo, routes := parseApiText(string(apiText))
-		groupWriter.Write([]string{serverInfo.Group, serverInfo.Prefix, "NAME", "DESC"})
+		groupWriter.Write([]string{serverInfo.Group, serverInfo.Prefix, serverInfo.Title, serverInfo.Desc})
 		for _, route := range routes {
 			apiWriter.Write([]string{serverInfo.Group, path.Join(serverInfo.Prefix, route.Path), route.Method, route.Doc})
 		}
@@ -63,9 +66,28 @@ func extractServerInfo(text string) ServerInfo {
 	group := strings.TrimSpace(groupRegex.FindStringSubmatch(text)[1])
 	prefix := strings.TrimSpace(prefixRegex.FindStringSubmatch(text)[1])
 
+	titlePattern := regexp.MustCompile(`title:\s*"(.*?)"`)
+	descPattern := regexp.MustCompile(`desc:\s*"(.*?)"`)
+
+	titleMatches := titlePattern.FindStringSubmatch(text)
+	descMatches := descPattern.FindStringSubmatch(text)
+
+	title := "待命名分组"
+	desc := "待描述"
+
+	if len(titleMatches) > 1 {
+		title = titleMatches[1]
+	}
+
+	if len(descMatches) > 1 {
+		desc = descMatches[1]
+	}
+
 	return ServerInfo{
 		Group:  group,
 		Prefix: prefix,
+		Title:  title,
+		Desc:   desc,
 	}
 }
 

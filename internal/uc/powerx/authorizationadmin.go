@@ -277,11 +277,15 @@ func (uc *AdminPermsUseCase) FindAllRoles(ctx context.Context) (roles []*AdminRo
 	return
 }
 
-func (uc *AdminPermsUseCase) CreateRole(ctx context.Context, role *AdminRole) {
+func (uc *AdminPermsUseCase) CreateRole(ctx context.Context, role *AdminRole) error {
 	if err := uc.db.WithContext(ctx).Create(&role).Error; err != nil {
+		// todo update when gorm release err feature
+		if strings.Contains(err.Error(), "duplicate key value violates unique constraint") {
+			return errorx.WithCause(errorx.ErrBadRequest, "角色编码已存在")
+		}
 		panic(err)
 	}
-	return
+	return nil
 }
 
 func (uc *AdminPermsUseCase) PatchRoleByRoleId(ctx context.Context, role *AdminRole, roleId int64) {
@@ -357,7 +361,7 @@ func (uc *AdminPermsUseCase) PatchAPIGroupByAPIGroupId(ctx context.Context, grou
 }
 
 func (uc *AdminPermsUseCase) FindAllAPI(ctx context.Context) (apis []*AdminAPI) {
-	if err := uc.db.WithContext(ctx).Model(AdminAPI{}).Find(&apis).Error; err != nil {
+	if err := uc.db.WithContext(ctx).Model(AdminAPI{}).Preload("Group").Find(&apis).Error; err != nil {
 		panic(err)
 	}
 	return
