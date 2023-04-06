@@ -1,0 +1,168 @@
+syntax = "v1"
+
+info(
+    title: "Contract Way Management"
+    desc: "Contract Way Management"
+    author: "YourName"
+    email: "your@email.com"
+    version: "v1"
+)
+
+@server(
+    group: admin/contract-way
+    prefix: /api/v1/admin/contract-way
+    middleware: EmployeeJWTAuth
+)
+
+service ContractWay {
+    @doc "获取渠道活码分组树"
+    @handler GetContractWayGroupTree
+    get /group-tree (GetContractWayGroupTreeRequest) returns (GetContractWayGroupTreeReply)
+
+    @doc "查询渠道活码分组列表"
+    @handler GetContractWayGroupList
+    get /groups (GetContractWayGroupListRequest) returns (GetContractWayGroupListReply)
+
+    @doc "查询渠道活码"
+    @handler GetContractWays
+    get / (GetContractWaysRequest) returns (GetContractWaysReply)
+
+    @doc "创建活码"
+    @handler CreateContractWay
+    post / (CreateContractWayRequest) returns (CreateContractWayReply)
+
+    @doc "修改活码"
+    @handler UpdateContractWay
+    put /:id (UpdateContractWayRequest) returns (UpdateContractWayReply)
+
+    @doc "删除活码"
+    @handler DeleteContractWay
+    delete /:id (DeleteContractWayRequest) returns (DeleteContractWayReply)
+}
+
+type (
+    ContractWayGroupNode {
+        Id int64 `json:"id"`
+        GroupName string `json:"groupName"`
+        Children []ContractWayGroupNode `json:"children"`
+    }
+
+    GetContractWayGroupTreeRequest {
+    }
+
+    GetContractWayGroupTreeReply {
+        GroupTree ContractWayGroupNode `json:"tree"`
+    }
+)
+
+type (
+    ContractWayGroup {
+        Id int64 `json:"id"`
+        GroupName string `json:"groupName"`
+    }
+
+    GetContractWayGroupListRequest {
+        GroupName string `form:"groupName,optional"`
+    }
+
+    GetContractWayGroupListReply {
+        Groups []ContractWayGroup `json:"groups"`
+    }
+)
+
+type (
+    GetContractWaysRequest {
+        EmployeeId int64 `form:"employeeId,optional"`
+        Name string `form:"name,optional"`
+        StartDate string `form:"startDate,optional"`
+        EndDate string `form:"endDate,optional"`
+        PageIndex int `form:"pageIndex"`
+        PageSize int `form:"pageSize"`
+    }
+
+    GetContractWaysReply {
+        list []ContractWay `json:"list"`
+        PageIndex int `json:"pageIndex"`
+        PageSize int `json:"pageSize"`
+        Total int64 `json:"total"`
+    }
+)
+
+type (
+    ContractWay {
+        Id int64 `json:"id"`
+        Type int `json:"type"`
+        Scene int `json:"scene"`
+        Style string `json:"style,optional"`
+        Remark string `json:"remark,optional"`
+        SkipVerify bool `json:"skipVerify,optional"`
+        State string `json:"state,optional"`
+        Users []string `json:"users,optional"`
+        Parties []int64 `json:"parties,optional"`
+        IsTemp bool `json:"isTemp,optional"`
+        ExpiresIn int `json:"expiresIn,optional"`
+        ChatExpiresIn int `json:"chatExpiresIn,optional"`
+        UnionId string `json:"unionId,optional"`
+        IsExclusive bool `json:"isExclusive,optional"`
+        Conclusions string `json:"conclusions,optional"`
+    }
+)
+
+type (
+    CreateContractWayRequest {
+        Type int `json:"type"`
+        Scene int `json:"scene"`
+        Style string `json:"style,optional"`
+        Remark string `json:"remark,optional"`
+        SkipVerify bool `json:"skipVerify,optional"`
+        State string `json:"state,optional"`
+        Users []string `json:"users,optional"`
+        Parties []int64 `json:"parties,optional"`
+        IsTemp bool `json:"isTemp,optional"`
+        ExpiresIn int `json:"expiresIn,optional"`
+        ChatExpiresIn int `json:"chatExpiresIn,optional"`
+        UnionId string `json:"unionId,optional"`
+        IsExclusive bool `json:"isExclusive,optional"`
+        Conclusions string `json:"conclusions,optional"`
+    }
+
+    CreateContractWayReply {
+        Id int64 `json:"id"`
+    }
+)
+
+
+type (
+    UpdateContractWayRequest {
+        Id int64 `path:"id"`
+        Type int `json:"type,optional"`
+        Scene int `json:"scene,optional"`
+        Style string `json:"style,optional"`
+        Remark string `json:"remark,optional"`
+        SkipVerify bool `json:"skipVerify,optional"`
+        State string `json:"state,optional"`
+        Users []string `json:"users,optional"`
+        Parties []int64 `json:"parties,optional"`
+        IsTemp bool `json:"isTemp,optional"`
+        ExpiresIn int `json:"expiresIn,optional"`
+        ChatExpiresIn int `json:"chatExpiresIn,optional"`
+        UnionId string `json:"unionId,optional"`
+        IsExclusive bool `json:"isExclusive,optional"`
+        Conclusions string `json:"conclusions,optional"`
+    }
+
+    UpdateContractWayReply {
+        ContractWayUpdated ContractWay `json:"contractWayUpdated"`
+    }
+)
+
+type (
+    DeleteContractWayRequest {
+        Id int64 `path:"id"`
+    }
+
+    DeleteContractWayReply {
+        Id int64 `json:"id"`
+    }
+)
+
