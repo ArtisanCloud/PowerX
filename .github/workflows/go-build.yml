@@ -12,5 +12,5 @@ jobs:
           go-version: 1.19
 
       - name: Build
-        run: go build cmd/server
+        run: go mod init && go build cmd/server
 
