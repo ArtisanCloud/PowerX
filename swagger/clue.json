@@ -1,0 +1,408 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "线索管理",
+    "description": "线索管理",
+    "version": "v1"
+  },
+  "schemes": [
+    "http",
+    "https"
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "paths": {
+    "/api/admin/clue/v1/clues": {
+      "get": {
+        "summary": "查询线索列表",
+        "operationId": "ListClues",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/ListCluesReply"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "likeTitle",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "likePhoneNumber",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "sources",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "statuses",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "requestBody": {},
+        "tags": [
+          "admin/clue"
+        ]
+      },
+      "post": {
+        "summary": "创建线索",
+        "operationId": "CreateClues",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/CreateCluesReply"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/CreateCluesRequest"
+            }
+          }
+        ],
+        "requestBody": {},
+        "tags": [
+          "admin/clue"
+        ]
+      }
+    },
+    "/api/admin/clue/v1/clues/{id}": {
+      "delete": {
+        "summary": "删除线索",
+        "operationId": "DeleteClue",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/DeleteClueReply"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "requestBody": {},
+        "tags": [
+          "admin/clue"
+        ]
+      },
+      "patch": {
+        "summary": "编辑线索",
+        "operationId": "PatchClue",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/PatchClueReply"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/PatchClueRequest"
+            }
+          }
+        ],
+        "requestBody": {},
+        "tags": [
+          "admin/clue"
+        ]
+      }
+    },
+    "/api/admin/clue/v1/clues/{id}/actions/assign-to-employee": {
+      "post": {
+        "summary": "分配线索给员工",
+        "operationId": "AssignClueToEmployee",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/AssignClueToEmployeeReply"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/AssignClueToEmployeeRequest"
+            }
+          }
+        ],
+        "requestBody": {},
+        "tags": [
+          "admin/clue"
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "AssignClueToEmployeeReply": {
+      "type": "object",
+      "properties": {
+        "": {
+          "$ref": "#/definitions/Clue"
+        }
+      },
+      "title": "AssignClueToEmployeeReply"
+    },
+    "AssignClueToEmployeeRequest": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "employeeId": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "title": "AssignClueToEmployeeRequest",
+      "required": [
+        "id",
+        "employeeId"
+      ]
+    },
+    "Clue": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "title": {
+          "type": "string"
+        },
+        "phoneNumber": {
+          "type": "string"
+        },
+        "email": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "string"
+        }
+      },
+      "title": "Clue",
+      "required": [
+        "id",
+        "title",
+        "source",
+        "status",
+        "createdAt"
+      ]
+    },
+    "CreateCluesReply": {
+      "type": "object",
+      "properties": {
+        "list": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Clue"
+          }
+        },
+        "pageIndex": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "pageSize": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "total": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "title": "CreateCluesReply",
+      "required": [
+        "list",
+        "pageIndex",
+        "pageSize",
+        "total"
+      ]
+    },
+    "CreateCluesRequest": {
+      "type": "object",
+      "properties": {
+        "list": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Clue"
+          }
+        }
+      },
+      "title": "CreateCluesRequest",
+      "required": [
+        "list"
+      ]
+    },
+    "DeleteClueReply": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "title": "DeleteClueReply",
+      "required": [
+        "id"
+      ]
+    },
+    "ListCluesReply": {
+      "type": "object",
+      "properties": {
+        "list": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Clue"
+          }
+        },
+        "pageIndex": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "pageSize": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "total": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "title": "ListCluesReply",
+      "required": [
+        "list",
+        "pageIndex",
+        "pageSize",
+        "total"
+      ]
+    },
+    "ListCluesRequest": {
+      "type": "object",
+      "properties": {
+        "likeTitle": {
+          "type": "string"
+        },
+        "likePhoneNumber": {
+          "type": "string"
+        },
+        "sources": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "statuses": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "title": "ListCluesRequest"
+    },
+    "PatchClueReply": {
+      "type": "object",
+      "properties": {
+        "": {
+          "$ref": "#/definitions/Clue"
+        }
+      },
+      "title": "PatchClueReply"
+    },
+    "PatchClueRequest": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "title": {
+          "type": "string"
+        },
+        "phoneNumber": {
+          "type": "string"
+        },
+        "email": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        }
+      },
+      "title": "PatchClueRequest",
+      "required": [
+        "id"
+      ]
+    }
+  },
+  "securityDefinitions": {
+    "apiKey": {
+      "type": "apiKey",
+      "description": "Enter JWT Bearer token **_only_**",
+      "name": "Authorization",
+      "in": "header"
+    }
+  },
+  "security": [
+    {
+      "apiKey": []
+    }
+  ]
+}

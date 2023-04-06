@@ -1,0 +1,665 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "权限管理",
+    "description": "权限管理",
+    "version": "v1"
+  },
+  "schemes": [
+    "http",
+    "https"
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "paths": {
+    "/api/admin/permission/v1/api-list": {
+      "get": {
+        "summary": "查询API列表",
+        "operationId": "ListAPI",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/ListAPIReply"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "groupId",
+            "in": "query",
+            "required": true,
+            "type": "integer",
+            "format": "int64"
+          }
+        ],
+        "requestBody": {},
+        "tags": [
+          "admin/permission"
+        ]
+      }
+    },
+    "/api/admin/permission/v1/roles": {
+      "get": {
+        "summary": "查询角色列表",
+        "operationId": "ListRoles",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/ListRolesReply"
+            }
+          }
+        },
+        "requestBody": {},
+        "tags": [
+          "admin/permission"
+        ]
+      },
+      "post": {
+        "summary": "创建角色",
+        "operationId": "CreateRole",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/CreateRoleReply"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/CreateRoleRequest"
+            }
+          }
+        ],
+        "requestBody": {},
+        "tags": [
+          "admin/permission"
+        ]
+      }
+    },
+    "/api/admin/permission/v1/roles/{roleCode}": {
+      "get": {
+        "summary": "获取角色详情",
+        "operationId": "GetRole",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/GetRoleReply"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "roleCode",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "requestBody": {},
+        "tags": [
+          "admin/permission"
+        ]
+      },
+      "put": {
+        "summary": "更新角色详情",
+        "operationId": "PutRole",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/PutRoleReply"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "roleCode",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/PutRoleReqeust"
+            }
+          }
+        ],
+        "requestBody": {},
+        "tags": [
+          "admin/permission"
+        ]
+      }
+    },
+    "/api/admin/permission/v1/roles/{roleCode}/actions/set-permissions": {
+      "post": {
+        "summary": "为角色授予API权限",
+        "operationId": "SetRolePermissions",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/SetRolePermissionsReply"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "roleCode",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/SetRolePermissionsRequest"
+            }
+          }
+        ],
+        "requestBody": {},
+        "tags": [
+          "admin/permission"
+        ]
+      }
+    },
+    "/api/admin/permission/v1/roles/{roleCode}/users": {
+      "get": {
+        "summary": "获取角色的用户列表",
+        "operationId": "GetRoleEmployees",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/GetRoleEmployeesReply"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "roleCode",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "pageIndex",
+            "in": "query",
+            "required": true,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "required": true,
+            "type": "integer",
+            "format": "int32"
+          }
+        ],
+        "requestBody": {},
+        "tags": [
+          "admin/permission"
+        ]
+      }
+    },
+    "/api/admin/permission/v1/users/{userId}/actions/set-roles": {
+      "post": {
+        "summary": "为用户授予角色",
+        "operationId": "SetUserRoles",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/SetUserRolesReply"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/SetUserRolesRequest"
+            }
+          }
+        ],
+        "requestBody": {},
+        "tags": [
+          "admin/permission"
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "AdminAPI": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "api": {
+          "type": "string"
+        },
+        "method": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "desc": {
+          "type": "string"
+        }
+      },
+      "title": "AdminAPI",
+      "required": [
+        "id",
+        "api",
+        "method",
+        "name",
+        "desc"
+      ]
+    },
+    "AdminRole": {
+      "type": "object",
+      "properties": {
+        "roleCode": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "desc": {
+          "type": "string"
+        },
+        "isReserved": {
+          "type": "boolean",
+          "format": "boolean"
+        },
+        "apiList": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/AdminAPI"
+          }
+        },
+        "menuNames": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "title": "AdminRole",
+      "required": [
+        "roleCode",
+        "name",
+        "desc",
+        "isReserved",
+        "apiList",
+        "menuNames"
+      ]
+    },
+    "CreateRoleReply": {
+      "type": "object",
+      "properties": {
+        "roleCode": {
+          "type": "string"
+        }
+      },
+      "title": "CreateRoleReply",
+      "required": [
+        "roleCode"
+      ]
+    },
+    "CreateRoleRequest": {
+      "type": "object",
+      "properties": {
+        "roleCode": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "desc": {
+          "type": "string"
+        },
+        "apiIds": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        "menuNames": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "title": "CreateRoleRequest",
+      "required": [
+        "roleCode",
+        "name",
+        "desc",
+        "apiIds",
+        "menuNames"
+      ]
+    },
+    "GetRoleEmployeesReply": {
+      "type": "object",
+      "properties": {
+        "list": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/RoleEmployee"
+          }
+        },
+        "pageIndex": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "pageSize": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "total": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "title": "GetRoleEmployeesReply",
+      "required": [
+        "list",
+        "pageIndex",
+        "pageSize",
+        "total"
+      ]
+    },
+    "GetRoleEmployeesReqeust": {
+      "type": "object",
+      "properties": {
+        "roleCode": {
+          "type": "string"
+        },
+        "pageIndex": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "pageSize": {
+          "type": "integer",
+          "format": "int32"
+        }
+      },
+      "title": "GetRoleEmployeesReqeust",
+      "required": [
+        "roleCode",
+        "pageIndex",
+        "pageSize"
+      ]
+    },
+    "GetRoleReply": {
+      "type": "object",
+      "properties": {
+        "": {
+          "$ref": "#/definitions/AdminRole"
+        }
+      },
+      "title": "GetRoleReply"
+    },
+    "GetRoleRequest": {
+      "type": "object",
+      "properties": {
+        "roleCode": {
+          "type": "string"
+        }
+      },
+      "title": "GetRoleRequest",
+      "required": [
+        "roleCode"
+      ]
+    },
+    "ListAPIReply": {
+      "type": "object",
+      "properties": {
+        "list": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/AdminAPI"
+          }
+        }
+      },
+      "title": "ListAPIReply",
+      "required": [
+        "list"
+      ]
+    },
+    "ListAPIRequest": {
+      "type": "object",
+      "properties": {
+        "groupId": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "title": "ListAPIRequest",
+      "required": [
+        "groupId"
+      ]
+    },
+    "ListRolesReply": {
+      "type": "object",
+      "properties": {
+        "list": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/AdminRole"
+          }
+        }
+      },
+      "title": "ListRolesReply",
+      "required": [
+        "list"
+      ]
+    },
+    "PutRoleReply": {
+      "type": "object",
+      "properties": {
+        "": {
+          "$ref": "#/definitions/AdminRole"
+        }
+      },
+      "title": "PutRoleReply"
+    },
+    "PutRoleReqeust": {
+      "type": "object",
+      "properties": {
+        "roleCode": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "desc": {
+          "type": "string"
+        },
+        "apiIds": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        "menuNames": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "title": "PutRoleReqeust",
+      "required": [
+        "roleCode",
+        "name",
+        "desc",
+        "apiIds",
+        "menuNames"
+      ]
+    },
+    "RoleEmployee": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "name": {
+          "type": "string"
+        },
+        "nickname": {
+          "type": "string"
+        },
+        "account": {
+          "type": "string"
+        },
+        "phoneNumber": {
+          "type": "string"
+        },
+        "department": {
+          "$ref": "#/definitions/RoleEmployeeDepartment"
+        },
+        "email": {
+          "type": "string"
+        }
+      },
+      "title": "RoleEmployee",
+      "required": [
+        "id",
+        "name",
+        "nickname",
+        "account",
+        "phoneNumber",
+        "department",
+        "email"
+      ]
+    },
+    "RoleEmployeeDepartment": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "title": "RoleEmployeeDepartment",
+      "required": [
+        "id",
+        "name"
+      ]
+    },
+    "SetRolePermissionsReply": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string"
+        }
+      },
+      "title": "SetRolePermissionsReply",
+      "required": [
+        "status"
+      ]
+    },
+    "SetRolePermissionsRequest": {
+      "type": "object",
+      "properties": {
+        "roleCode": {
+          "type": "string"
+        },
+        "apiIds": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "title": "SetRolePermissionsRequest",
+      "required": [
+        "roleCode",
+        "apiIds"
+      ]
+    },
+    "SetUserRolesReply": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string"
+        }
+      },
+      "title": "SetUserRolesReply",
+      "required": [
+        "status"
+      ]
+    },
+    "SetUserRolesRequest": {
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "roleCodes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "title": "SetUserRolesRequest",
+      "required": [
+        "userId",
+        "roleCodes"
+      ]
+    }
+  },
+  "securityDefinitions": {
+    "apiKey": {
+      "type": "apiKey",
+      "description": "Enter JWT Bearer token **_only_**",
+      "name": "Authorization",
+      "in": "header"
+    }
+  },
+  "security": [
+    {
+      "apiKey": []
+    }
+  ]
+}

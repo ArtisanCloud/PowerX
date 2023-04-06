@@ -2,19 +2,26 @@ package svc
 
 import (
 	"PowerX/internal/config"
+	"PowerX/internal/middleware"
 	"PowerX/internal/uc"
+	"github.com/zeromicro/go-zero/rest"
 )
 
 type ServiceContext struct {
 	Config config.Config
-	UC     *uc.PowerXUseCase
+	PowerX *uc.PowerXUseCase
+
+	EmployeeJWTAuth       rest.Middleware
+	EmployeeNoPermJWTAuth rest.Middleware
 }
 
 func NewServiceContext(c config.Config) *ServiceContext {
-	uc, _ := uc.NewPowerXUseCase(&c)
+	powerx, _ := uc.NewPowerXUseCase(&c)
 
 	return &ServiceContext{
-		Config: c,
-		UC:     uc,
+		Config:                c,
+		PowerX:                powerx,
+		EmployeeJWTAuth:       middleware.NewEmployeeJWTAuthMiddleware(&c, powerx).Handle,
+		EmployeeNoPermJWTAuth: middleware.NewEmployeeNoPermJWTAuthMiddleware(&c, powerx).Handle,
 	}
 }

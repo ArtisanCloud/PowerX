@@ -1,0 +1,108 @@
+syntax = "v1"
+
+info(
+    title: "媒资管理"
+    desc: "媒资管理"
+    author: "northseadl"
+    email: "northseadl@outlook.com"
+    version: "v1"
+)
+
+@server(
+    group: admin/media
+    prefix: /api/v1/admin/media
+    middleware: EmployeeJWTAuth
+)
+
+service PowerX {
+    @doc "查询媒资列表"
+    @handler GetMediaList
+    get /medias (GetMediaListRequest) returns (GetMediaListReply)
+
+    @doc "请求媒资上传链接"
+    @handler CreateMediaUploadRequest
+    post /medias/actions/create-upload-url (CreateMediaUploadRequest) returns (CreateMediaUploadRequestReply)
+
+    @doc "创建或更新媒资"
+    @handler CreateOrUpdateMedia
+    put /medias/:mediaKey (CreateOrUpdateMediaRequest) returns (CreateOrUpdateMediaReply)
+
+    @doc "根据媒资key获取媒资"
+    @handler GetMediaByKey
+    get /medias/:key (GetMediaByKeyRequest) returns (GetMediaByKeyReply)
+
+    @doc "删除媒资"
+    @handler DeleteMedia
+    delete /medias/:key (DeleteMediaRequest) returns (DeleteMediaReply)
+}
+
+type (
+    GetMediaListRequest struct {
+        MediaType string `form:"mediaType,optional"`
+        Keys []string `form:"keys,optional"`
+        DescBy string `form:"descBy,optional,options=createdAt|updatedAt"`
+        PageIndex int `form:"pageIndex,optional"`
+        PageSize int `form:"pageSize,optional"`
+    }
+
+    Media struct {
+        Key string `json:"key"`
+        MediaType string `json:"mediaType"`
+        Meta string `json:"meta"`
+        Remark string `json:"remark"`
+        CreatedAt string `json:"createdAt"`
+        UpdatedAt string `json:"updatedAt"`
+    }
+
+    GetMediaListReply struct {
+        List []Media `json:"list"`
+        PageIndex int `json:"pageIndex"`
+        PageSize int `json:"pageSize"`
+        Total int64 `json:"total"`
+    }
+)
+
+type (
+    CreateMediaUploadRequest struct {
+        FileName string `json:"fileName"`
+    }
+
+    CreateMediaUploadRequestReply struct {
+        MediaKey string `json:"mediaKey"`
+        UploadURL string `json:"uploadURL"`
+        ExpiresAt int64 `json:"expiresAt"`
+    }
+)
+
+type (
+    CreateOrUpdateMediaRequest struct {
+        MediaKey string `path:"mediaKey"`
+        MediaType string `json:"mediaType,optional"`
+        Meta string `json:"meta,optional"`
+        Remark string `json:"remark,optional"`
+    }
+
+    CreateOrUpdateMediaReply struct {
+        MediaKey string `json:"mediaKey"`
+    }
+)
+
+type (
+    GetMediaByKeyRequest struct {
+        MediaKey string `path:"mediaKey"`
+    }
+
+    GetMediaByKeyReply struct {
+        *Media
+    }
+)
+
+type (
+    DeleteMediaRequest struct {
+        Key string `path:"key"`
+    }
+
+    DeleteMediaReply struct {
+        Key string `json:"key"`
+    }
+)

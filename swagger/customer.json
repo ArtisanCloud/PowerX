@@ -1,0 +1,456 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "客户管理",
+    "description": "客户管理",
+    "version": "v1"
+  },
+  "schemes": [
+    "http",
+    "https"
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "paths": {
+    "/api/admin/customer/v1/customers": {
+      "get": {
+        "summary": "获取客户列表",
+        "operationId": "ListCustomers",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/ListCustomersReply"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "likeName",
+            "in": "query",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "sources",
+            "in": "query",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "likePhoneNumber",
+            "in": "query",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "statuses",
+            "in": "query",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": true,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "required": true,
+            "type": "integer",
+            "format": "int32"
+          }
+        ],
+        "requestBody": {},
+        "tags": [
+          "admin/customer"
+        ]
+      },
+      "post": {
+        "summary": "创建客户",
+        "operationId": "CreateCustomer",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/CreateCustomerReply"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/CreateCustomerRequest"
+            }
+          }
+        ],
+        "requestBody": {},
+        "tags": [
+          "admin/customer"
+        ]
+      }
+    },
+    "/api/admin/customer/v1/customers/{id}": {
+      "get": {
+        "summary": "查询客户",
+        "operationId": "GetCustomer",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/GetCustomerReply"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "requestBody": {},
+        "tags": [
+          "admin/customer"
+        ]
+      },
+      "delete": {
+        "summary": "删除客户",
+        "operationId": "DeleteCustomer",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/DeleteCustomerReply"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/DeleteCustomerRequest"
+            }
+          }
+        ],
+        "requestBody": {},
+        "tags": [
+          "admin/customer"
+        ]
+      },
+      "patch": {
+        "summary": "更新客户",
+        "operationId": "PatchCustomer",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/PatchCustomerReply"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/PatchCustomerRequest"
+            }
+          }
+        ],
+        "requestBody": {},
+        "tags": [
+          "admin/customer"
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "CreateCustomerReply": {
+      "type": "object",
+      "properties": {
+        "customerId": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "title": "CreateCustomerReply",
+      "required": [
+        "customerId"
+      ]
+    },
+    "CreateCustomerRequest": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "phoneNumber": {
+          "type": "string"
+        },
+        "openId": {
+          "type": "string"
+        },
+        "inviteByCustomerId": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "source": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        }
+      },
+      "title": "CreateCustomerRequest",
+      "required": [
+        "name",
+        "phoneNumber",
+        "openId",
+        "source",
+        "type",
+        "status"
+      ]
+    },
+    "Customer": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "name": {
+          "type": "string"
+        },
+        "phoneNumber": {
+          "type": "string"
+        },
+        "openId": {
+          "type": "string"
+        },
+        "inviteByCustomerId": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "source": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "string"
+        }
+      },
+      "title": "Customer",
+      "required": [
+        "id",
+        "name",
+        "phoneNumber",
+        "openId",
+        "inviteByCustomerId",
+        "source",
+        "type",
+        "status",
+        "createdAt"
+      ]
+    },
+    "DeleteCustomerReply": {
+      "type": "object",
+      "properties": {
+        "customerId": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "title": "DeleteCustomerReply",
+      "required": [
+        "customerId"
+      ]
+    },
+    "DeleteCustomerRequest": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        }
+      },
+      "title": "DeleteCustomerRequest",
+      "required": [
+        "id"
+      ]
+    },
+    "GetCustomerReply": {
+      "type": "object",
+      "properties": {
+        "customer": {
+          "$ref": "#/definitions/Customer"
+        }
+      },
+      "title": "GetCustomerReply",
+      "required": [
+        "customer"
+      ]
+    },
+    "GetCustomerReqeuest": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        }
+      },
+      "title": "GetCustomerReqeuest",
+      "required": [
+        "id"
+      ]
+    },
+    "ListCustomersReply": {
+      "type": "object",
+      "properties": {
+        "customers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Customer"
+          }
+        }
+      },
+      "title": "ListCustomersReply",
+      "required": [
+        "customers"
+      ]
+    },
+    "ListCustomersRequest": {
+      "type": "object",
+      "properties": {
+        "likeName": {
+          "type": "string"
+        },
+        "sources": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "likePhoneNumber": {
+          "type": "string"
+        },
+        "statuses": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "page": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "pageSize": {
+          "type": "integer",
+          "format": "int32"
+        }
+      },
+      "title": "ListCustomersRequest",
+      "required": [
+        "likeName",
+        "sources",
+        "likePhoneNumber",
+        "statuses",
+        "page",
+        "pageSize"
+      ]
+    },
+    "PatchCustomerReply": {
+      "type": "object",
+      "properties": {
+        "customer": {
+          "$ref": "#/definitions/Customer"
+        }
+      },
+      "title": "PatchCustomerReply",
+      "required": [
+        "customer"
+      ]
+    },
+    "PatchCustomerRequest": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "phoneNumber": {
+          "type": "string"
+        },
+        "openId": {
+          "type": "string"
+        },
+        "inviteByCustomerId": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "source": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        }
+      },
+      "title": "PatchCustomerRequest",
+      "required": [
+        "id",
+        "source",
+        "type"
+      ]
+    }
+  },
+  "securityDefinitions": {
+    "apiKey": {
+      "type": "apiKey",
+      "description": "Enter JWT Bearer token **_only_**",
+      "name": "Authorization",
+      "in": "header"
+    }
+  },
+  "security": [
+    {
+      "apiKey": []
+    }
+  ]
+}

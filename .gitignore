@@ -11,3 +11,4 @@ PowerX
 config.yml
 logs/
 wechat.log
+/powerx.go

@@ -1,0 +1,162 @@
+syntax = "v1"
+
+info(
+    title: "字典管理API"
+    desc: "字典管理API"
+    author: "Northseadl"
+    email: "northseadl@outlook.com"
+    version: "v1"
+)
+
+@server(
+    group: admin/dictionary
+    prefix: /api/v1/admin/dictionary
+    middleware: EmployeeJWTAuth
+)
+
+service PowerX {
+    @doc "获取字典类型列表"
+    @handler GetDictionaryTypes
+    get /types (GetDictionaryTypesRequest) returns (GetDictionaryTypesReply)
+
+    @doc "创建字典类型"
+    @handler CreateDictionaryType
+    post /types (CreateDictionaryTypeRequest) returns (CreateDictionaryTypeReply)
+
+    @doc "更新字典类型"
+    @handler UpdateDictionaryType
+    put /types/:id (UpdateDictionaryTypeRequest) returns (UpdateDictionaryTypeReply)
+
+    @doc "删除字典类型"
+    @handler DeleteDictionaryType
+    delete /types/:id (DeleteDictionaryTypeRequest) returns (DeleteDictionaryTypeReply)
+
+    @doc "获取字典项列表"
+    @handler GetDictionaryItems
+    get /items (GetDictionaryItemsRequest) returns (GetDictionaryItemsReply)
+
+    @doc "创建字典项"
+    @handler CreateDictionaryItem
+    post /items (CreateDictionaryItemRequest) returns (CreateDictionaryItemReply)
+
+    @doc "更新字典项"
+    @handler UpdateDictionaryItem
+    put /items/:id (UpdateDictionaryItemRequest) returns (UpdateDictionaryItemReply)
+
+    @doc "删除字典项"
+    @handler DeleteDictionaryItem
+    delete /items/:id (DeleteDictionaryItemRequest) returns (DeleteDictionaryItemReply)
+}
+
+type (
+    GetDictionaryTypesRequest struct {
+        PageIndex int `form:"pageIndex,optional"`
+        PageSize int `form:"pageSize,optional"`
+    }
+
+    DictionaryType struct {
+        Id int64 `json:"id"`
+        Name string `json:"name"`
+        Description string `json:"description"`
+    }
+
+    GetDictionaryTypesReply struct {
+        List []DictionaryType `json:"list"`
+        PageIndex int `json:"pageIndex"`
+        PageSize int `json:"pageSize"`
+        Total int64 `json:"total"`
+    }
+)
+
+type (
+    CreateDictionaryTypeRequest struct {
+        Name string `json:"name"`
+        Description string `json:"description,optional"`
+    }
+
+    CreateDictionaryTypeReply struct {
+        Id int64 `json:"id"`
+    }
+)
+
+type (
+    UpdateDictionaryTypeRequest struct {
+        Id int64 `path:"id"`
+        Name string `json:"name"`
+        Description string `json:"description,optional"`
+    }
+
+    UpdateDictionaryTypeReply struct {
+        *DictionaryType
+    }
+)
+
+type (
+    DeleteDictionaryTypeRequest struct {
+        Id int64 `path:"id"`
+    }
+
+    DeleteDictionaryTypeReply struct {
+        Id int64 `json:"id"`
+    }
+)
+
+type (
+    GetDictionaryItemsRequest struct {
+        TypeId int64 `form:"typeId"`
+        PageIndex int `form:"pageIndex,optional"`
+        PageSize int `form:"pageSize,optional"`
+    }
+
+    DictionaryItem struct {
+        Id int64 `json:"id"`
+        TypeId int64 `json:"typeId"`
+        Name string `json:"name"`
+        Value string `json:"value"`
+        Description string `json:"description"`
+    }
+
+    GetDictionaryItemsReply struct {
+        List []DictionaryItem `json:"list"`
+        PageIndex int `json:"pageIndex"`
+        PageSize int `json:"pageSize"`
+        Total int64 `json:"total"`
+    }
+)
+
+type (
+    CreateDictionaryItemRequest struct {
+        TypeId int64 `json:"typeId"`
+        Name string `json:"name"`
+        Value string `json:"value"`
+        Description string `json:"description,optional"`
+    }
+
+    CreateDictionaryItemReply struct {
+        Id int64 `json:"id"`
+    }
+)
+
+type (
+    UpdateDictionaryItemRequest struct {
+        Id int64 `path:"id"`
+        TypeId int64 `json:"typeId"`
+        Name string `json:"name"`
+        Value string `json:"value"`
+        Description string `json:"description,optional"`
+    }
+
+    UpdateDictionaryItemReply struct {
+        *DictionaryItem
+    }
+)
+
+type (
+    DeleteDictionaryItemRequest struct {
+        Id int64 `path:"id"`
+    }
+
+    DeleteDictionaryItemReply struct {
+        Id int64 `json:"id"`
+    }
+)
