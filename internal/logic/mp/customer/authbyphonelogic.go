@@ -1,9 +1,9 @@
 package customer
 
 import (
+	"PowerX/internal/model"
 	"PowerX/internal/svc"
 	"PowerX/internal/types"
-	"PowerX/internal/types/models"
 	"PowerX/internal/uc/powerx"
 	"context"
 	"fmt"
@@ -50,14 +50,14 @@ func (l *AuthByPhoneLogic) AuthByPhone(req *types.MPCustomerAuthRequest) (resp *
 
 	println(string(msgData))
 	// 解析手机信息
-	mpPhoneInfo := &models.MPPhoneInfo{}
+	mpPhoneInfo := &model.MPPhoneInfo{}
 	err = object.JsonDecode(msgData, mpPhoneInfo)
 	if err != nil {
 		panic(err.Error())
 		return
 	}
 
-	mpCustomer := &models.WechatMPCustomer{
+	mpCustomer := &model.WechatMPCustomer{
 		OpenID:     rs.OpenID,
 		SessionKey: rs.SessionKey,
 		UnionID:    rs.UnionID,

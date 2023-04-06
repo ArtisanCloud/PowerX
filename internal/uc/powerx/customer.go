@@ -1,7 +1,7 @@
 package powerx
 
 import (
-	"PowerX/internal/types"
+	"PowerX/internal/model"
 	"PowerX/internal/types/errorx"
 	"context"
 	"github.com/pkg/errors"
@@ -25,7 +25,7 @@ type ExternalId struct {
 }
 
 type Customer struct {
-	types.Model
+	model.Model
 	Name        string
 	Mobile      string `gorm:"unique"`
 	Email       string `gorm:"unique"`
@@ -38,7 +38,7 @@ type Customer struct {
 }
 
 type Lead struct {
-	types.Model
+	model.Model
 	Name        string
 	Mobile      string `gorm:"unique"`
 	Email       string `gorm:"unique"`

@@ -1,6 +1,7 @@
 package powerx
 
 import (
+	"PowerX/internal/model"
 	"PowerX/internal/types"
 	"PowerX/internal/types/errorx"
 	"context"
@@ -47,7 +48,7 @@ const (
 )
 
 type Employee struct {
-	types.Model
+	model.Model
 	Account       string `gorm:"unique"`
 	Name          string
 	NickName      string
@@ -92,7 +93,7 @@ func (e *Employee) HashPassword() (err error) {
 }
 
 type Department struct {
-	types.Model
+	model.Model
 	Name        string
 	PId         int64
 	PDep        *Department `gorm:"foreignKey:PId"`
@@ -264,7 +265,7 @@ func (uc *OrganizationUseCase) FindOneEmployeeById(ctx context.Context, id int64
 
 func (uc *OrganizationUseCase) UpdateEmployeeById(ctx context.Context, employee *Employee, employeeId int64) error {
 	whereCase := Employee{
-		Model: types.Model{
+		Model: model.Model{
 			ID: employeeId,
 		},
 		IsReserved: false,

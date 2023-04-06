@@ -279,7 +279,7 @@ func UpsertModelsOnUniqueID(db *gorm.DB, mdl interface{}, uniqueName string,
 }
 
 /**
- * models methods
+ * model methods
  */
 
 func GetTableFullName(schema string, prefix string, tableName string) (fullName string) {
@@ -298,7 +298,7 @@ func GetModelFields(model interface{}) (fields []string) {
 		return (*ArrayModelFields)[modelName].([]string)
 	}
 
-	//fmt.Printf("parse object ~%s~ models fields \n", modelName)
+	//fmt.Printf("parse object ~%s~ model fields \n", modelName)
 	gormSchema, err := schema.Parse(model, &sync.Map{}, schema.NamingStrategy{})
 	if err != nil {
 		println(err)
@@ -312,14 +312,14 @@ func GetModelFields(model interface{}) (fields []string) {
 		}
 	}
 	(*ArrayModelFields)[modelName] = fields
-	//fmt.Printf("parsed object ~%s~ models fields and fields count is %d \n\n", modelName, len(fields))
+	//fmt.Printf("parsed object ~%s~ model fields and fields count is %d \n\n", modelName, len(fields))
 
 	return fields
 }
 
 func GetModelFieldValues(model interface{}) (mapFields *object.HashMap, err error) {
 
-	//fmt.Printf("parse object ~%s~ models fields \n", modelName)
+	//fmt.Printf("parse object ~%s~ model fields \n", modelName)
 	gormSchema, err := schema.Parse(model, &sync.Map{}, schema.NamingStrategy{})
 	if err != nil {
 		println(err)

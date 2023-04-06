@@ -1,7 +1,7 @@
 package powerx
 
 import (
-	"PowerX/internal/types"
+	"PowerX/internal/model"
 	"PowerX/internal/types/errorx"
 	"PowerX/pkg/mapx"
 	"PowerX/pkg/slicex"
@@ -76,7 +76,7 @@ type EmployeeCasbinPolicy struct {
 }
 
 type AdminAPI struct {
-	types.Model
+	model.Model
 	API     string
 	Method  string
 	Name    string
@@ -86,7 +86,7 @@ type AdminAPI struct {
 }
 
 type AdminAPIGroup struct {
-	types.Model
+	model.Model
 	GroupCode string `gorm:"unique"`
 	Prefix    string
 	Name      string
@@ -94,7 +94,7 @@ type AdminAPIGroup struct {
 }
 
 type AdminRole struct {
-	types.Model
+	model.Model
 	RoleCode   string `gorm:"unique"`
 	Name       string
 	Desc       string
@@ -104,7 +104,7 @@ type AdminRole struct {
 }
 
 type AdminRoleMenuName struct {
-	types.Model
+	model.Model
 	AdminRoleId int64
 	MenuName    string
 }

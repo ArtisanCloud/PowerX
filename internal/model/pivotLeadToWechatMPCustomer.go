@@ -1,6 +1,8 @@
-package models
+package model
 
-import "PowerX/internal/types/models/powerModel"
+import (
+	"PowerX/internal/model/powerModel"
+)
 
 // Table Name
 func (mdl *PivotCustomerToWechatMPCustomer) TableName() string {

@@ -1,4 +1,4 @@
-package models
+package model
 
 type Customer struct {
 	//Sources []*DataDictionary `gorm:"foreignKey:AccountUUID;references:UUID"`
