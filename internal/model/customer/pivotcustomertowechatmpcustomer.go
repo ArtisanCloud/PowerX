@@ -1,6 +1,8 @@
-package models
+package customer
 
-import "PowerX/internal/types/models/powerModel"
+import (
+	"PowerX/internal/model/powermodel"
+)
 
 // Table Name
 func (mdl *PivotLeadToWechatMPCustomer) TableName() string {
@@ -9,7 +11,7 @@ func (mdl *PivotLeadToWechatMPCustomer) TableName() string {
 
 // 数据表结构
 type PivotLeadToWechatMPCustomer struct {
-	*powerModel.PowerPivot
+	*powermodel.PowerPivot
 
 	LeadID             int64 `gorm:"column:lead_id; not null;index:index_lead_id" json:"leadID"`
 	WechatMPCustomerID int64 `gorm:"column:wechat_mp_lead_id; not null;index:index_wechat_mp_lead_id" json:"wechatMPCustomerID"`

@@ -1,13 +1,14 @@
 package employee
 
 import (
+	"PowerX/internal/types"
 	"PowerX/internal/uc/powerx"
 	"context"
 	"github.com/pkg/errors"
 	"time"
 
+	"PowerX/internal/model"
 	"PowerX/internal/svc"
-	"PowerX/internal/types"
 
 	"github.com/zeromicro/go-zero/core/logx"
 )
@@ -28,7 +29,7 @@ func NewUpdateEmployeeLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Up
 
 func (l *UpdateEmployeeLogic) UpdateEmployee(req *types.UpdateEmployeeRequest) (resp *types.UpdateEmployeeReply, err error) {
 	employee := powerx.Employee{
-		Model: types.Model{
+		Model: model.Model{
 			ID: req.Id,
 		},
 		Name:          req.Name,

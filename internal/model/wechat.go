@@ -1,8 +1,8 @@
-package models
+package model
 
 import "gorm.io/datatypes"
 
-// models
+// model
 // 公众号的客户信息
 // https://developers.weixin.qq.com/doc/offiaccount/User_Management/Get_users_basic_information_UnionID.html#UinonId
 type WechatOACustomer struct {

@@ -4,6 +4,7 @@ import (
 	"PowerX/internal/uc/powerx"
 	"context"
 
+	"PowerX/internal/model"
 	"PowerX/internal/svc"
 	"PowerX/internal/types"
 
@@ -30,7 +31,7 @@ func (l *SetRolePermissionsLogic) SetRolePermissions(req *types.SetRolePermissio
 	var api []*powerx.AdminAPI
 	for _, id := range req.APIIds {
 		api = append(api, &powerx.AdminAPI{
-			Model: types.Model{
+			Model: model.Model{
 				ID: id,
 			},
 		})

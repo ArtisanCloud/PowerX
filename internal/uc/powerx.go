@@ -2,6 +2,9 @@ package uc
 
 import (
 	"PowerX/internal/config"
+	"PowerX/internal/model"
+	"PowerX/internal/model/customer"
+	"PowerX/internal/model/membership"
 	"PowerX/internal/uc/powerx"
 	"context"
 	"github.com/pkg/errors"
@@ -47,6 +50,7 @@ func NewPowerXUseCase(conf *config.Config) (uc *PowerXUseCase, clean func()) {
 	uc.WechatMP = powerx.NewWechatMiniProgramUseCase(db, conf)
 	uc.WechatOA = powerx.NewWechatOfficialAccountUseCase(db, conf)
 
+	uc.AutoMigrate(context.Background())
 	uc.AutoInit()
 
 	return uc, func() {
@@ -57,6 +61,14 @@ func NewPowerXUseCase(conf *config.Config) (uc *PowerXUseCase, clean func()) {
 func (p *PowerXUseCase) AutoMigrate(ctx context.Context) {
 	p.db.AutoMigrate(&powerx.Department{}, &powerx.Employee{})
 	p.db.AutoMigrate(&powerx.EmployeeCasbinPolicy{}, powerx.AdminRole{}, powerx.AdminRoleMenuName{}, powerx.AdminAPI{})
+
+	// customer domain
+	p.db.AutoMigrate(&customer.Lead{}, &customer.Contact{}, &customer.Customer{}, &membership.Membership{})
+	p.db.AutoMigrate(&model.WechatOACustomer{}, &model.WechatMPCustomer{}, &model.WeWorkExternalContact{})
+	p.db.AutoMigrate(
+		&customer.PivotCustomerToWechatMPCustomer{},
+		&customer.PivotLeadToWechatMPCustomer{},
+	)
 }
 
 func (p *PowerXUseCase) AutoInit() {

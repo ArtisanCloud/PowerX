@@ -1,6 +1,7 @@
-package models
+package product
 
 import (
+	"PowerX/internal/model"
 	"time"
 )
 
@@ -9,7 +10,7 @@ type Product struct {
 	PriceBookEntries []*PriceBookEntry `gorm:"foreignKey:ProductUUID;references:UUID" json:"priceBookEntries"`
 	//Coupons          []*Coupon         `gorm:"many2many:public.r_product_to_coupon;foreignKey:UUID;joinForeignKey:ProductUUID;References:UUID;JoinReferences:CouponUUID" json:"coupons"`
 
-	*Model
+	*model.Model
 
 	Name               string
 	Type               int8

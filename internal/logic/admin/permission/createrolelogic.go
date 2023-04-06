@@ -1,6 +1,7 @@
 package permission
 
 import (
+	"PowerX/internal/model"
 	"PowerX/internal/svc"
 	"PowerX/internal/types"
 	"PowerX/internal/uc/powerx"
@@ -26,7 +27,7 @@ func NewCreateRoleLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Create
 func (l *CreateRoleLogic) CreateRole(req *types.CreateRoleRequest) (resp *types.CreateRoleReply, err error) {
 	var apiList []*powerx.AdminAPI
 	for _, id := range req.APIIds {
-		apiList = append(apiList, &powerx.AdminAPI{Model: types.Model{ID: id}})
+		apiList = append(apiList, &powerx.AdminAPI{Model: model.Model{ID: id}})
 	}
 
 	var menuList []*powerx.AdminRoleMenuName

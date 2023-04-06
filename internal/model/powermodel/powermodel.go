@@ -1,4 +1,4 @@
-package powerModel
+package powermodel
 
 import (
 	"database/sql"
@@ -14,9 +14,9 @@ import (
 	"time"
 )
 
-const PAGE_DEFAULT_SIZE = 20
+const PageDefaultSize = 20
 
-var TABLE_PREFIX string
+var TablePrefix string
 
 type ModelInterface interface {
 	GetTableName(needFull bool) string
@@ -45,19 +45,19 @@ type PowerCompactModel struct {
 	DeletedAt gorm.DeletedAt `gorm:"index"`
 }
 
-const UNIQUE_ID = "uuid"
-const COMPACT_UNIQUE_ID = "id"
+const UniqueId = "uuid"
+const CompactUniqueId = "id"
 
-const MODEL_STATUS_DRAFT int8 = 0
-const MODEL_STATUS_ACTIVE int8 = 1
-const MODEL_STATUS_CANCELED int8 = 2
-const MODEL_STATUS_PENDING int8 = 3
-const MODEL_STATUS_INACTIVE int8 = 4
+const ModelStatusDraft int8 = 0
+const ModelStatusActive int8 = 1
+const ModelStatusCanceled int8 = 2
+const ModelStatusPending int8 = 3
+const ModelStatusInactive int8 = 4
 
-const APPROVAL_STATUS_DRAFT int8 = 0
-const APPROVAL_STATUS_PENDING int8 = 1
-const APPROVAL_STATUS_APPROVED int8 = 3
-const APPROVAL_STATUS_REJECTED int8 = 4
+const ApprovalStatusDraft int8 = 0
+const ApprovalStatusPending int8 = 1
+const ApprovalStatusApproved int8 = 3
+const ApprovalStatusRejected int8 = 4
 
 var ArrayModelFields *object.HashMap = &object.HashMap{}
 
@@ -178,7 +178,7 @@ func GetList(db *gorm.DB, conditions *map[string]interface{},
 		page = 0
 	}
 	if pageSize <= 0 {
-		pageSize = PAGE_DEFAULT_SIZE
+		pageSize = PageDefaultSize
 	}
 
 	// add pagination
@@ -279,7 +279,7 @@ func UpsertModelsOnUniqueID(db *gorm.DB, mdl interface{}, uniqueName string,
 }
 
 /**
- * models methods
+ * model methods
  */
 
 func GetTableFullName(schema string, prefix string, tableName string) (fullName string) {
@@ -298,7 +298,7 @@ func GetModelFields(model interface{}) (fields []string) {
 		return (*ArrayModelFields)[modelName].([]string)
 	}
 
-	//fmt.Printf("parse object ~%s~ models fields \n", modelName)
+	//fmt.Printf("parse object ~%s~ model fields \n", modelName)
 	gormSchema, err := schema.Parse(model, &sync.Map{}, schema.NamingStrategy{})
 	if err != nil {
 		println(err)
@@ -312,14 +312,14 @@ func GetModelFields(model interface{}) (fields []string) {
 		}
 	}
 	(*ArrayModelFields)[modelName] = fields
-	//fmt.Printf("parsed object ~%s~ models fields and fields count is %d \n\n", modelName, len(fields))
+	//fmt.Printf("parsed object ~%s~ model fields and fields count is %d \n\n", modelName, len(fields))
 
 	return fields
 }
 
 func GetModelFieldValues(model interface{}) (mapFields *object.HashMap, err error) {
 
-	//fmt.Printf("parse object ~%s~ models fields \n", modelName)
+	//fmt.Printf("parse object ~%s~ model fields \n", modelName)
 	gormSchema, err := schema.Parse(model, &sync.Map{}, schema.NamingStrategy{})
 	if err != nil {
 		println(err)

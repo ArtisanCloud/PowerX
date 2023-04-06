@@ -1,7 +1,9 @@
-package models
+package customer
+
+import "PowerX/internal/model"
 
 type Contact struct {
-	*Model
+	*model.Model
 	Name   string
 	Mobile string
 	Email  string

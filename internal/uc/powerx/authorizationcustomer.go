@@ -1,7 +1,7 @@
 package powerx
 
 import (
-	"PowerX/internal/types/models"
+	"PowerX/internal/model"
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/pkg/errors"
 	"golang.org/x/oauth2"
@@ -30,7 +30,7 @@ type CustomerJWTToken struct {
 	jwt.RegisteredClaims
 }
 
-func (uc *AuthorizationCustomerUseCase) SignToken(mpCustomer *models.WechatMPCustomer, jwtSecret string) oauth2.Token {
+func (uc *AuthorizationCustomerUseCase) SignToken(mpCustomer *model.WechatMPCustomer, jwtSecret string) oauth2.Token {
 
 	now := time.Now()
 	expiresAt := now.Add(CustomerTokenExpiredDuration)
