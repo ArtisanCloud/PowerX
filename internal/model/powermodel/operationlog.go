@@ -35,7 +35,7 @@ type PowerOperationLog struct {
 }
 
 const TABLE_NAME_OPERATION_LOG = "power_operation_log"
-const OPERAION_LOG_UNIQUE_ID = COMPACT_UNIQUE_ID
+const OPERAION_LOG_UNIQUE_ID = CompactUniqueId
 
 func NewPowerOperationLog(mapObject *object.Collection) *PowerOperationLog {
 
