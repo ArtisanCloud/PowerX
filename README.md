@@ -32,10 +32,14 @@
 
 ## PowerX社区交流群
 
-<img src="./resources/images/contact_me_qr.jpg" alt="请扫我" style="display:inline; width: 150px;"/>
+<img src="./resource/images/contact_me_qr.jpg" alt="请扫我" style="display:inline; width: 150px;"/>
 
 ## 企业微信主要维护者
 
 Matrix-X
 
-<img src="./resources/images/contact-qr-matrix-x.png" alt="请扫我" style="display:inline; width: 150px;"/>
+<img src="./resource/images/contact-qr-matrix-x.png" alt="请扫我" style="display:inline; width: 150px;"/>
+
+North
+
+<img src="./resource/images/contact_qr_north.png" alt="请扫我" style="display:inline; width: 150px;"/>
