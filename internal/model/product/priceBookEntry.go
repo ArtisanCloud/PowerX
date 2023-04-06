@@ -1,4 +1,4 @@
-package model
+package product
 
 import (
 	"github.com/ArtisanCloud/PowerLibs/v3/database"

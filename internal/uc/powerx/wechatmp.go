@@ -3,7 +3,7 @@ package powerx
 import (
 	"PowerX/internal/config"
 	"PowerX/internal/model"
-	"PowerX/internal/model/powerModel"
+	"PowerX/internal/model/powermodel"
 	"PowerX/internal/types"
 	"PowerX/internal/types/errorx"
 	"context"
@@ -126,7 +126,7 @@ func (uc *WechatMiniProgramUseCase) UpsertMPCustomer(ctx context.Context, custom
 
 func (uc *WechatMiniProgramUseCase) UpsertMPCustomers(ctx context.Context, customers []*model.WechatMPCustomer) ([]*model.WechatMPCustomer, error) {
 
-	err := powerModel.UpsertModelsOnUniqueID(uc.db.WithContext(ctx), &model.WechatMPCustomer{}, model.WECHAT_MP_CUSTOMER_UNIQUE_ID, customers, nil)
+	err := powermodel.UpsertModelsOnUniqueID(uc.db.WithContext(ctx), &model.WechatMPCustomer{}, model.WECHAT_MP_CUSTOMER_UNIQUE_ID, customers, nil)
 
 	if err != nil {
 		panic(errors.Wrap(err, "batch upsert mp customers failed"))

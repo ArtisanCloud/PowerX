@@ -1,16 +1,18 @@
-package model
+package membership
 
 import (
+	"PowerX/internal/model"
+	"PowerX/internal/model/customer"
 	"time"
 )
 
 type Membership struct {
-	Customer *Customer `gorm:"foreignKey:CustomerID;references:id"`
+	Customer *customer.Customer `gorm:"foreignKey:CustomerID;references:id"`
 
 	MainMembership *Membership   `gorm:"foreignKey:MainMembershipID;references:id"`
 	SubMemberships []*Membership `gorm:"foreignKey:MainMembershipID;references:id"`
 
-	*Model
+	*model.Model
 
 	CustomerID       string    `gorm:"column:account_id" json:"accountID"`
 	StartDate        time.Time `gorm:"column:start_date" json:"startDate"`

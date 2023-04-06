@@ -1,4 +1,4 @@
-package powerModel
+package powermodel
 
 import (
 	"database/sql"

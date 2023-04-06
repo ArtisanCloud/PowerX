@@ -1,4 +1,4 @@
-package powerModel
+package powermodel
 
 import (
 	"github.com/ArtisanCloud/PowerLibs/v3/object"

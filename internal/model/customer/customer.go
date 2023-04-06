@@ -1,8 +1,10 @@
-package model
+package customer
+
+import "PowerX/internal/model"
 
 type Customer struct {
 	//Sources []*DataDictionary `gorm:"foreignKey:AccountUUID;references:UUID"`
-	*Model
+	*model.Model
 
 	Name      string
 	Mobile    string
