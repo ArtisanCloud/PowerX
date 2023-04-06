@@ -1,0 +1,364 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "",
+    "version": ""
+  },
+  "schemes": [
+    "http",
+    "https"
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "paths": {
+    "/api/admin/department/v1/department-tree/{depId}": {
+      "get": {
+        "summary": "查询组织架构",
+        "operationId": "GetDepartmentTree",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/GetDepartmentTreeReply"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "depId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "requestBody": {},
+        "tags": [
+          "admin/department"
+        ]
+      }
+    },
+    "/api/admin/department/v1/departments": {
+      "post": {
+        "summary": "创建新部门",
+        "operationId": "CreateDepartment",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/CreateDepartmentReply"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/CreateDepartmentRequest"
+            }
+          }
+        ],
+        "requestBody": {},
+        "tags": [
+          "admin/department"
+        ]
+      }
+    },
+    "/api/admin/department/v1/departments/{id}": {
+      "get": {
+        "summary": "获取单个部门详情",
+        "operationId": "GetDepartment",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/GetDepartmentReply"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "requestBody": {},
+        "tags": [
+          "admin/department"
+        ]
+      },
+      "delete": {
+        "summary": "删除部门",
+        "operationId": "DeleteDepartment",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/DeleteDepartmentReply"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/DeleteDepartmentRequest"
+            }
+          }
+        ],
+        "requestBody": {},
+        "tags": [
+          "admin/department"
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "CreateDepartmentReply": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "title": "CreateDepartmentReply",
+      "required": [
+        "id"
+      ]
+    },
+    "CreateDepartmentRequest": {
+      "type": "object",
+      "properties": {
+        "depName": {
+          "type": "string"
+        },
+        "leaderId": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "pId": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "desc": {
+          "type": "string"
+        },
+        "phoneNumber": {
+          "type": "string"
+        },
+        "email": {
+          "type": "string"
+        },
+        "remark": {
+          "type": "string"
+        }
+      },
+      "title": "CreateDepartmentRequest",
+      "required": [
+        "depName",
+        "leaderId",
+        "pId"
+      ]
+    },
+    "DeleteDepartmentReply": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "title": "DeleteDepartmentReply",
+      "required": [
+        "id"
+      ]
+    },
+    "DeleteDepartmentRequest": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "title": "DeleteDepartmentRequest",
+      "required": [
+        "id"
+      ]
+    },
+    "Department": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "depName": {
+          "type": "string"
+        },
+        "leader": {
+          "$ref": "#/definitions/DepartmentLeader"
+        },
+        "phoneNumber": {
+          "type": "string"
+        },
+        "email": {
+          "type": "string"
+        },
+        "remark": {
+          "type": "string"
+        }
+      },
+      "title": "Department",
+      "required": [
+        "id",
+        "depName",
+        "leader",
+        "phoneNumber",
+        "email",
+        "remark"
+      ]
+    },
+    "DepartmentLeader": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "name": {
+          "type": "string"
+        },
+        "nickName": {
+          "type": "string"
+        },
+        "avatar": {
+          "type": "string"
+        }
+      },
+      "title": "DepartmentLeader",
+      "required": [
+        "id",
+        "name",
+        "nickName",
+        "avatar"
+      ]
+    },
+    "DepartmentNode": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "depName": {
+          "type": "string"
+        },
+        "leader": {
+          "$ref": "#/definitions/DepartmentLeader"
+        },
+        "phoneNumber": {
+          "type": "string"
+        },
+        "email": {
+          "type": "string"
+        },
+        "remark": {
+          "type": "string"
+        },
+        "children": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/DepartmentNode"
+          }
+        }
+      },
+      "title": "DepartmentNode",
+      "required": [
+        "id",
+        "depName",
+        "leader",
+        "phoneNumber",
+        "email",
+        "remark",
+        "children"
+      ]
+    },
+    "GetDepartmentReply": {
+      "type": "object",
+      "properties": {
+        "": {
+          "$ref": "#/definitions/Department"
+        }
+      },
+      "title": "GetDepartmentReply"
+    },
+    "GetDepartmentRequest": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "title": "GetDepartmentRequest",
+      "required": [
+        "id"
+      ]
+    },
+    "GetDepartmentTreeReply": {
+      "type": "object",
+      "properties": {
+        "depTree": {
+          "$ref": "#/definitions/DepartmentNode"
+        }
+      },
+      "title": "GetDepartmentTreeReply",
+      "required": [
+        "depTree"
+      ]
+    },
+    "GetDepartmentTreeRequest": {
+      "type": "object",
+      "properties": {
+        "depId": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "title": "GetDepartmentTreeRequest",
+      "required": [
+        "depId"
+      ]
+    }
+  },
+  "securityDefinitions": {
+    "apiKey": {
+      "type": "apiKey",
+      "description": "Enter JWT Bearer token **_only_**",
+      "name": "Authorization",
+      "in": "header"
+    }
+  },
+  "security": [
+    {
+      "apiKey": []
+    }
+  ]
+}

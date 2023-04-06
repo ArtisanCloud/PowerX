@@ -1,0 +1,116 @@
+@server(
+    group: admin/department
+    prefix: /api/v1/admin/department
+    middleware: EmployeeJWTAuth
+)
+
+service PowerX {
+    @doc "查询组织架构"
+    @handler GetDepartmentTree
+    get /department-tree/:depId (GetDepartmentTreeRequest) returns (GetDepartmentTreeReply)
+
+    @doc "获取单个部门详情"
+    @handler GetDepartment
+    get /departments/:id (GetDepartmentRequest) returns (GetDepartmentReply)
+
+    @doc "创建新部门"
+    @handler CreateDepartment
+    post /departments (CreateDepartmentRequest) returns (CreateDepartmentReply)
+
+    @doc "更新部门信息(可选更新)"
+    @handler PatchDepartment
+    patch /departments/:id (PatchDepartmentRequest) returns (PatchDepartmentReply)
+
+    @doc "删除部门"
+    @handler DeleteDepartment
+    delete /departments/:id (DeleteDepartmentRequest) returns (DeleteDepartmentReply)
+}
+
+type (
+    DepartmentLeader {
+        Id int64 `json:"id"`
+        Name string `json:"name"`
+        NickName string `json:"nickName"`
+        Avatar string `json:"avatar"`
+    }
+
+    DepartmentNode {
+        Id int64 `json:"id"`
+        DepName string `json:"depName"`
+        Leader DepartmentLeader `json:"leader"`
+        PhoneNumber string `json:"phoneNumber"`
+        Email string `json:"email"`
+        Remark string `json:"remark"`
+        Children []DepartmentNode `json:"children"`
+    }
+
+    GetDepartmentTreeRequest {
+        DepId int64 `path:"depId"`
+    }
+
+    GetDepartmentTreeReply {
+        DepTree DepartmentNode `json:"depTree"`
+    }
+)
+
+type (
+    CreateDepartmentRequest {
+        DepName string `json:"depName"`
+        LeaderId int64 `json:"leaderId"`
+        PId int64 `json:"pId"`
+        Desc string `json:"desc,optional"`
+        PhoneNumber string `json:"phoneNumber,optional"`
+        Email string `json:"email,optional"`
+        Remark string `json:"remark,optional"`
+    }
+
+    CreateDepartmentReply {
+        Id int64 `json:"id"`
+    }
+)
+
+type (
+    DeleteDepartmentRequest {
+        Id int64 `path:"id"`
+    }
+
+    DeleteDepartmentReply {
+        Id int64 `json:"id"`
+    }
+)
+
+type (
+    PatchDepartmentRequest {
+        Id int64 `path:"id"`
+        DepName string `json:"depName,optional"`
+        LeaderId int64 `json:"leaderId,optional"`
+        PId int64 `json:"pId,optional"`
+        Desc string `json:"desc,optional"`
+        PhoneNumber string `json:"phoneNumber,optional"`
+        Email string `json:"email,optional"`
+        Remark string `json:"remark,optional"`
+    }
+
+    PatchDepartmentReply {
+        *Department
+    }
+)
+
+type (
+    Department {
+        Id int64 `json:"id"`
+        DepName string `json:"depName"`
+        Leader DepartmentLeader `json:"leader"`
+        PhoneNumber string `json:"phoneNumber"`
+        Email string `json:"email"`
+        Remark string `json:"remark"`
+    }
+
+    GetDepartmentRequest {
+        Id int64 `path:"id"`
+    }
+
+    GetDepartmentReply {
+        *Department
+    }
+)

@@ -1,0 +1,61 @@
+syntax = "v1"
+
+
+info(
+    title: "小程序客户模块"
+    desc: "小程序客户模块接口集合"
+    author: "MichaelHu"
+    email: "matrix-x@artisan-cloud.com"
+    version: "v1"
+)
+
+@server(
+    group: mp/customer
+    prefix: /api/v1/mp/customer
+)
+
+
+service PowerX {
+    @doc "微信小程序登录"
+    @handler Login
+    post /login (MPCustomerLoginRequest) returns (MPCustomerLoginAuthReply)
+
+    @doc "客户手机授权"
+    @handler AuthByPhone
+    post /authByPhone (MPCustomerAuthRequest) returns (MPCustomerLoginAuthReply)
+
+    @doc "客户信息授权"
+    @handler AuthByProfile
+    post /authByProfile returns (MPCustomerLoginAuthReply)
+}
+
+
+
+type (
+    MPCustomerLoginRequest {
+        Code string `json:"code"`
+    }
+
+    MPCustomerAuthRequest {
+        Code string `json:"code"`
+        IV string `json:"iv"`
+        EncryptedData string `json:"encryptedData"`
+    }
+
+    MPCustomerLoginAuthReply {
+        OpenID string `json:"openID"`
+        UnionID string `json:"unionID"`
+        PhoneNumber string `json:"phoneNumber"`
+        NickName string `json:"nickName"`
+        AvatarURL string `json:"avatarURL"`
+        Gender string `json:"gender"`
+        Token Token `json:"token"`
+    }
+
+    Token {
+        TokenType string `json:"tokenType"`
+        ExpiresIn string `json:"expiresIn"`
+        AccessToken string `json:"accessToken"`
+        RefreshToken string `json:"refreshToken"`
+    }
+)

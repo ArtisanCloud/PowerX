@@ -1,0 +1,7 @@
+admin/auth,/api/admin/auth/v1,NAME,DESC
+admin/clue,/api/admin/clue/v1,NAME,DESC
+admin/customer,/api/admin/customer/v1,NAME,DESC
+admin/department,/api/admin/department/v1,NAME,DESC
+admin/employee,/api/admin/employee/v1,NAME,DESC
+admin/permission,/api/admin/permission/v1,NAME,DESC
+admin/userinfo,/api/admin/user-center/v1,NAME,DESC

@@ -1,0 +1,152 @@
+syntax = "v1"
+
+info(
+    title: "客户管理"
+    desc: "客户管理"
+    author: "Northseadl"
+    email: "northseadl@outlook.com"
+    version: "v1"
+)
+
+@server(
+    group: admin/customer
+    prefix: /api/v1/admin/customer
+    middleware: EmployeeJWTAuth
+)
+
+service PowerX {
+    @doc "查询客户"
+    @handler GetCustomer
+    get /customers/:id (GetCustomerReqeuest) returns (GetCustomerReply)
+
+    @doc "获取客户列表"
+    @handler ListCustomers
+    get /customers (ListCustomersRequest) returns (ListCustomersReply)
+
+    @doc "创建客户"
+    @handler CreateCustomer
+    post /customers (CreateCustomerRequest) returns (CreateCustomerReply)
+
+    @doc "更新客户"
+    @handler PatchCustomer
+    patch /customers/:id (PatchCustomerRequest) returns (PatchCustomerReply)
+
+    @doc "删除客户"
+    @handler DeleteCustomer
+    delete /customers/:id (DeleteCustomerRequest) returns (DeleteCustomerReply)
+
+    @doc "为客户分配员工"
+    @handler AssignCustomerToEmployee
+    post /customers/:id/actions/employees (AssignCustomerToEmployeeRequest) returns (AssignCustomerToEmployeeReply)
+}
+
+type (
+    CustomerExternalId {
+        OpenIDInMiniProgram string `json:"openIdInMiniProgram,optional"`
+        OpenIDInWeChatOfficialAccount string `json:"openIdInWeChatOfficialAccount,optional"`
+        OpenIDInWeCom string `json:"openIdInWeCom,optional"`
+    }
+)
+
+type (
+    CustomerInviter {
+        Id int64 `json:"id"`
+        Name string `json:"name"`
+        Mobile string `json:"mobile"`
+        Email string `json:"email"`
+    }
+
+    Customer {
+        Id int64 `json:"id"`
+        Name string `json:"name"`
+        Mobile string `json:"mobile"`
+        Email string `json:"email"`
+        Inviter CustomerInviter `json:"inviter"`
+        Source string `json:"source"`
+        Type string `json:"type"`
+        IsActivated bool `json:"isActivated"`
+        CreatedAt string `json:"createdAt"`
+        CustomerExternalId
+    }
+)
+
+type (
+    GetCustomerReqeuest {
+        Id string `path:"id"`
+    }
+
+    GetCustomerReply {
+        Customer Customer `json:"customer"`
+    }
+)
+
+type (
+    ListCustomersRequest {
+        LikeName string `form:"likeName"`
+        Sources []string `form:"sources"`
+        LikeMobile string `form:"likeMobile"`
+        Statuses []string `form:"statuses"`
+        PageIndex int `form:"page"`
+        PageSize int `form:"pageSize"`
+    }
+
+    ListCustomersReply {
+        Customers []Customer `json:"customers"`
+    }
+)
+
+type (
+    CreateCustomerRequest {
+        Name string `json:"name"`
+        Mobile string `json:"mobile,optional"`
+        Email string `json:"email,optional"`
+        InviterId int64 `json:"inviterId,optional"`
+        Source string `json:"source,optional,options=tiktok|ad|miniprogram|wechat|other"`
+        Type string `json:"type,optional,options=personal|company"`
+        IsActivated *bool `json:"isActivated,optional"`
+        CustomerExternalId
+    }
+
+    CreateCustomerReply {
+        CustomerId int64 `json:"customerId"`
+    }
+)
+
+type (
+    PatchCustomerRequest {
+        Id string `path:"id"`
+        Name string `json:"name,optional"`
+        Mobile string `json:"mobile,optional"`
+        Email string `json:"email,optional"`
+        InviterId int64 `json:"inviterId,optional"`
+        Source string `json:"source,optional,options=tiktok|ad|miniprogram|wechat|other"`
+        Type string `json:"type,optional,options=personal|company"`
+        IsActivated *bool `json:"isActivated,optional"`
+        CustomerExternalId
+    }
+
+    PatchCustomerReply {
+        Customer Customer `json:"customer"`
+    }
+)
+
+type (
+    DeleteCustomerRequest {
+        Id string `path:"id"`
+    }
+
+    DeleteCustomerReply {
+        CustomerId int64 `json:"customerId"`
+    }
+)
+
+type (
+    AssignCustomerToEmployeeRequest {
+        Id string `path:"id"`
+        EmployeeId int64 `json:"employeeId"`
+    }
+
+    AssignCustomerToEmployeeReply {
+        CustomerId int64 `json:"customerId"`
+    }
+)

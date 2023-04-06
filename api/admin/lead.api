@@ -1,0 +1,149 @@
+syntax = "v1"
+
+info(
+    title: "线索池"
+    desc: "线索池"
+    author: "Northseadl"
+    email: "northseadl@outlook.com"
+    version: "v1"
+)
+
+
+@server(
+    group: admin/lead
+    prefix: /api/v1/admin/lead
+    middleware: EmployeeJWTAuth
+)
+
+service PowerX {
+    @doc "查询线索列表"
+    @handler ListLeads
+    get /leads (ListLeadsRequest) returns (ListLeadsReply)
+
+    @doc "创建线索"
+    @handler CreateLead
+    post /leads (CreateLeadRequest) returns (CreateLeadReply)
+
+    @doc "编辑线索"
+    @handler PatchLead
+    patch /leads/:id (PatchLeadRequest) returns (PatchLeadReply)
+
+    @doc "删除线索"
+    @handler DeleteLead
+    delete /leads/:id (DeleteLeadRequest) returns (DeleteLeadReply)
+
+    @doc "分配线索给员工"
+    @handler AssignLeadToEmployee
+    post /leads/:id/actions/assign-to-employee (AssignLeadToEmployeeRequest) returns (AssignLeadToEmployeeReply)
+}
+
+type (
+    LeadExternalId {
+        OpenIDInMiniProgram string `json:"openIdInMiniProgram,optional"`
+        OpenIDInWeChatOfficialAccount string `json:"openIdInWeChatOfficialAccount,optional"`
+        OpenIDInWeCom string `json:"openIdInWeCom,optional"`
+    }
+)
+
+type (
+    LeadInviter {
+        Id int64 `json:"id"`
+        Name string `json:"name"`
+        Mobile string `json:"mobile"`
+        Email string `json:"email"`
+    }
+
+    Lead {
+        Id int64 `json:"id"`
+        Name string `json:"name"`
+        Mobile string `json:"mobile"`
+        Email string `json:"email"`
+        Inviter LeadInviter `json:"inviter"`
+        Source string `json:"source"`
+        Status string `json:"status"`
+        CreatedAt string `json:"createdAt"`
+        LeadExternalId
+    }
+)
+
+type (
+    ListLeadsRequest {
+        LikeTitle string `json:"likeTitle,optional"`
+        LikePhoneNumber string `json:"likePhoneNumber,optional"`
+        Sources []string `json:"sources,optional"`
+        Statuses []string `json:"statuses,optional"`
+    }
+
+    ListLeadsReply {
+        List []Lead `json:"list"`
+        PageIndex int32 `json:"pageIndex"`
+        PageSize int32 `json:"pageSize"`
+        Total int64 `json:"total"`
+    }
+)
+
+type (
+    CreateLeadRecord {
+        Id int64 `json:"id"`
+        Name string `json:"name"`
+        Mobile string `json:"mobile,optional"`
+        Email string `json:"email,optional"`
+        InviterId int64 `json:"inviterId,optional"`
+        Source string `json:"source,optional,options=mini_program|tiktok|h5|ad"`
+        Status string `json:"status,optional,options=open|following|closed_lost|closed_won"`
+        Type string `json:"type,optional,options=personal|company"`
+        IsActived *bool `json:"isActived,optional"`
+        LeadExternalId
+    }
+
+    CreateLeadRequest {
+        List []CreateLeadRecord `json:"list"`
+    }
+
+    CreateLeadReply {
+        List []Lead `json:"list"`
+        PageIndex int32 `json:"pageIndex"`
+        PageSize int32 `json:"pageSize"`
+        Total int64 `json:"total"`
+    }
+)
+
+type (
+    PatchLeadRequest {
+        Id int64 `path:"id"`
+        Name string `json:"name,optional"`
+        Mobile string `json:"mobile,optional"`
+        Email string `json:"email,optional"`
+        InviterId int64 `json:"inviterId,optional"`
+        Source string `json:"source,optional,options=mini_program|tiktok|h5|advertisement"`
+        Status string `json:"status,optional,options=open|following|closed_lost|closed_won"`
+        Type string `json:"type,optional,options=personal|company"`
+        IsActived *bool `json:"isActived,optional"`
+        LeadExternalId
+    }
+
+    PatchLeadReply {
+        Lead
+    }
+)
+
+type (
+    DeleteLeadRequest {
+        Id int64 `json:"id"`
+    }
+
+    DeleteLeadReply {
+        Id int64 `json:"id"`
+    }
+)
+
+type (
+    AssignLeadToEmployeeRequest {
+        Id int64 `path:"id"`
+        EmployeeId int64 `json:"employeeId"`
+    }
+
+    AssignLeadToEmployeeReply {
+        Lead
+    }
+)
