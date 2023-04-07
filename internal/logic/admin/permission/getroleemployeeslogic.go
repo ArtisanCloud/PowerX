@@ -26,6 +26,14 @@ func NewGetRoleEmployeesLogic(ctx context.Context, svcCtx *svc.ServiceContext) *
 
 func (l *GetRoleEmployeesLogic) GetRoleEmployees(req *types.GetRoleEmployeesReqeust) (resp *types.GetRoleEmployeesReply, err error) {
 	accounts, _ := l.svcCtx.PowerX.AdminAuthorization.Casbin.GetUsersForRole(req.RoleCode)
+	if len(accounts) == 0 {
+		return &types.GetRoleEmployeesReply{
+			PageIndex: req.PageIndex,
+			PageSize:  req.PageSize,
+			Total:     0,
+			List:      make([]types.RoleEmployee, 0),
+		}, nil
+	}
 
 	employeePage := l.svcCtx.PowerX.Organization.FindManyEmployeesPage(l.ctx, &powerx.FindManyEmployeesOption{
 		Accounts:  accounts,
@@ -58,6 +66,7 @@ func (l *GetRoleEmployeesLogic) GetRoleEmployees(req *types.GetRoleEmployeesReqe
 			Email:       employee.Email,
 		})
 	}
+	resp.List = list
 
-	return
+	return resp, nil
 }

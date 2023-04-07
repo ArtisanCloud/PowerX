@@ -165,6 +165,11 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				},
 				{
 					Method:  http.MethodPost,
+					Path:    "/roles/:roleCode/actions/set-employees",
+					Handler: adminpermission.SetRoleEmployeesHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
 					Path:    "/users/:userId/actions/set-roles",
 					Handler: adminpermission.SetUserRolesHandler(serverCtx),
 				},

@@ -43,6 +43,10 @@ service PowerX {
     @handler ListAPI
     get /api-list (ListAPIRequest) returns (ListAPIReply)
 
+    @doc "为角色分配用户"
+    @handler SetRoleEmployees
+    post /roles/:roleCode/actions/set-employees (SetRoleEmployeesRequest) returns (SetRoleEmployeesReply)
+
     @doc "为用户授予角色"
     @handler SetUserRoles
     post /users/:userId/actions/set-roles (SetUserRolesRequest) returns (SetUserRolesReply)
@@ -101,9 +105,9 @@ type (
     PatchRoleReqeust {
         RoleCode string `path:"roleCode"`
         Name string `json:"name"`
-        Desc string `json:"desc"`
-        APIIds []int64 `json:"apiIds"`
-        MenuNames []string `json:"menuNames"`
+        Desc string `json:"desc,optional"`
+        APIIds []int64 `json:"apiIds,optional"`
+        MenuNames []string `json:"menuNames,optional"`
     }
 
     PatchRoleReply {
@@ -123,6 +127,17 @@ type (
 )
 
 type (
+    SetRoleEmployeesRequest {
+        RoleCode string `path:"roleCode"`
+        EmployeeIds []int64 `json:"employeeIds"`
+    }
+
+    SetRoleEmployeesReply {
+        Status string `json:"status"`
+    }
+)
+
+type (
     ListAPIRequest {
         GroupId int64 `form:"groupId,optional"`
     }
@@ -135,8 +150,8 @@ type (
 type (
     GetRoleEmployeesReqeust {
         RoleCode string `path:"roleCode"`
-        PageIndex int `json:"pageIndex"`
-        PageSize int `json:"pageSize"`
+        PageIndex int `form:"pageIndex"`
+        PageSize int `form:"pageSize"`
     }
 
     RoleEmployeeDepartment {

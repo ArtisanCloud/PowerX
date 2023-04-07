@@ -223,35 +223,29 @@ func (uc *AdminPermsUseCase) Init() {
 		panic(errors.Wrap(err, "init role failed"))
 	}
 	if count == 0 {
-		var roles []AdminRole
+		var roles []*AdminRole
 
 		var apis []*AdminAPI
 		if err := uc.db.Model(&AdminAPI{}).Find(&apis).Error; err != nil {
 			panic(errors.Wrap(err, "init role failed"))
 		}
 
-		roles = append(roles, AdminRole{
+		roles = append(roles, &AdminRole{
 			RoleCode:   "admin",
 			Name:       "管理员",
 			Desc:       "管理员",
 			AdminAPI:   apis,
 			IsReserved: true,
-		}, AdminRole{
+		}, &AdminRole{
 			RoleCode:   "common_employee",
 			Name:       "普通员工",
 			Desc:       "普通员工",
 			IsReserved: true,
 		})
-		if err := uc.db.Model(&AdminRole{}).Create(&roles).Error; err != nil {
-			panic(errors.Wrap(err, "init roles failed"))
-		}
-
-		var adminPolicies [][]string
-		for _, api := range apis {
-			adminPolicies = append(adminPolicies, []string{"admin", api.API, api.Method})
-		}
-		if _, err := uc.Casbin.AddPolicies(adminPolicies); err != nil {
-			panic(errors.Wrap(err, "init casbin policy failed"))
+		for _, role := range roles {
+			if err := uc.CreateRole(context.Background(), role); err != nil {
+				panic(errors.Wrap(err, "init role failed"))
+			}
 		}
 	}
 }
@@ -277,24 +271,18 @@ func (uc *AdminPermsUseCase) FindAllRoles(ctx context.Context) (roles []*AdminRo
 	return
 }
 
-func (uc *AdminPermsUseCase) CreateRole(ctx context.Context, role *AdminRole) {
-	if err := uc.db.WithContext(ctx).Create(&role).Error; err != nil {
-		panic(err)
+// CreateRole 创建角色
+func (uc *AdminPermsUseCase) CreateRole(ctx context.Context, role *AdminRole) error {
+	var count int64
+	if uc.db.Model(&AdminRole{}).Where(AdminRole{RoleCode: role.RoleCode}).Count(&count); count > 0 {
+		return errorx.WithCause(errorx.ErrBadRequest, "角色已存在")
 	}
-	return
-}
 
-func (uc *AdminPermsUseCase) PatchRoleByRoleId(ctx context.Context, role *AdminRole, roleId int64) {
-	role.ID = roleId
 	err := uc.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		tx.Model(&AdminRole{}).Association("AdminAPI").Clear()
-		if err := tx.Omit("AdminAPI.*").Where(roleId).Clauses(clause.Returning{}).
-			Updates(&role).Error; err != nil {
-			return err
-		}
-		_, err := uc.Casbin.DeleteRole(role.RoleCode)
-		if err != nil {
-			return err
+		tx.Model(&AdminRole{}).Create(role)
+
+		if len(role.AdminAPI) == 0 {
+			return nil
 		}
 
 		apiIds := slicex.SlicePluck(role.AdminAPI, func(item *AdminAPI) int64 {
@@ -311,12 +299,70 @@ func (uc *AdminPermsUseCase) PatchRoleByRoleId(ctx context.Context, role *AdminR
 			policies = append(policies, []string{role.RoleCode, api.API, api.Method})
 		}
 
-		_, err = uc.Casbin.AddPolicies(policies)
-		if err != nil {
+		if _, err := uc.Casbin.AddPolicies(policies); err != nil {
 			return err
 		}
+
 		return nil
 	})
+
+	if err != nil {
+		panic(err)
+	}
+
+	return nil
+}
+
+// PatchRoleByRoleId 通过角色ID更新角色
+func (uc *AdminPermsUseCase) PatchRoleByRoleId(ctx context.Context, role *AdminRole, roleId int64) {
+	role.ID = roleId
+
+	err := uc.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// 清除旧的关联关系
+		if err := tx.Model(&AdminRole{}).Where(&AdminRole{RoleCode: role.RoleCode}).
+			Association("AdminAPI").Clear(); err != nil {
+			return err
+		}
+
+		// 更新角色信息
+		if err := tx.Omit("AdminAPI.*").Where(roleId).Clauses(clause.Returning{}).
+			Updates(&role).Error; err != nil {
+			return err
+		}
+
+		// 如果没有关联的 AdminAPI，返回
+		if len(role.AdminAPI) == 0 {
+			return nil
+		}
+
+		// 删除旧的权限策略
+		if _, err := uc.Casbin.DeleteRole(role.RoleCode); err != nil {
+			return err
+		}
+
+		apiIds := slicex.SlicePluck(role.AdminAPI, func(item *AdminAPI) int64 {
+			return item.ID
+		})
+
+		var apis []*AdminAPI
+		if err := tx.Model(&AdminAPI{}).Where(apiIds).Find(&apis).Error; err != nil {
+			return err
+		}
+
+		// 生成新的权限策略
+		var policies [][]string
+		for _, api := range apis {
+			policies = append(policies, []string{role.RoleCode, api.API, api.Method})
+		}
+
+		// 添加新的权限策略
+		if _, err := uc.Casbin.AddPolicies(policies); err != nil {
+			return err
+		}
+
+		return nil
+	})
+
 	if err != nil {
 		panic(err)
 	}
@@ -350,6 +396,31 @@ func (uc *AdminPermsUseCase) CreateAPIGroup(ctx context.Context, group *AdminAPI
 	return
 }
 
+func (uc *AdminPermsUseCase) SetRoleEmployeesByRoleCode(ctx context.Context, employeeIds []int64, roleCode string) error {
+	_, err := uc.FindOneRoleByRoleCode(ctx, roleCode)
+	if err != nil {
+		return err
+	}
+
+	accounts := uc.employee.FindAccountsByIds(ctx, employeeIds)
+	if len(accounts) == 0 {
+		return nil
+	}
+
+	var policies [][]string
+	for _, account := range accounts {
+		policies = append(policies, []string{account, roleCode})
+	}
+
+	if _, err := uc.Casbin.RemoveFilteredGroupingPolicy(1, roleCode); err != nil {
+		panic(err)
+	}
+	if _, err := uc.Casbin.AddGroupingPolicies(policies); err != nil {
+		panic(err)
+	}
+	return nil
+}
+
 func (uc *AdminPermsUseCase) PatchAPIGroupByAPIGroupId(ctx context.Context, group *AdminAPIGroup, groupId int64) {
 	if err := uc.db.WithContext(ctx).Updates(&group).Where(groupId).Error; err != nil {
 		panic(err)
@@ -357,7 +428,7 @@ func (uc *AdminPermsUseCase) PatchAPIGroupByAPIGroupId(ctx context.Context, grou
 }
 
 func (uc *AdminPermsUseCase) FindAllAPI(ctx context.Context) (apis []*AdminAPI) {
-	if err := uc.db.WithContext(ctx).Model(AdminAPI{}).Find(&apis).Error; err != nil {
+	if err := uc.db.WithContext(ctx).Model(AdminAPI{}).Preload("Group").Find(&apis).Error; err != nil {
 		panic(err)
 	}
 	return

@@ -131,6 +131,14 @@ func (uc *OrganizationUseCase) CreateEmployee(ctx context.Context, employee *Emp
 	return nil
 }
 
+func (uc *OrganizationUseCase) FindAccountsByIds(ctx context.Context, employeeIds []int64) (accounts []string) {
+	err := uc.db.WithContext(ctx).Model(&Employee{}).Where("id in ?", employeeIds).Pluck("account", &accounts).Error
+	if err != nil {
+		panic(errors.Wrap(err, "find accounts by ids failed"))
+	}
+	return accounts
+}
+
 func (uc *OrganizationUseCase) PatchEmployeeByUserId(ctx context.Context, employee *Employee, employeeId int64) error {
 	result := uc.db.WithContext(ctx).Model(&Employee{}).Where(employee.ID).Updates(&employee)
 	if result.Error != nil {
