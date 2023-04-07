@@ -43,6 +43,10 @@ service PowerX {
     @handler ListAPI
     get /api-list (ListAPIRequest) returns (ListAPIReply)
 
+    @doc "为角色分配用户"
+    @handler SetRoleEmployees
+    post /roles/:roleCode/actions/set-employees (SetRoleEmployeesRequest) returns (SetRoleEmployeesReply)
+
     @doc "为用户授予角色"
     @handler SetUserRoles
     post /users/:userId/actions/set-roles (SetUserRolesRequest) returns (SetUserRolesReply)
@@ -123,6 +127,17 @@ type (
 )
 
 type (
+    SetRoleEmployeesRequest {
+        RoleCode string `path:"roleCode"`
+        EmployeeIds []int64 `json:"employeeIds"`
+    }
+
+    SetRoleEmployeesReply {
+        Status string `json:"status"`
+    }
+)
+
+type (
     ListAPIRequest {
         GroupId int64 `form:"groupId,optional"`
     }
@@ -135,8 +150,8 @@ type (
 type (
     GetRoleEmployeesReqeust {
         RoleCode string `path:"roleCode"`
-        PageIndex int `json:"pageIndex"`
-        PageSize int `json:"pageSize"`
+        PageIndex int `form:"pageIndex"`
+        PageSize int `form:"pageSize"`
     }
 
     RoleEmployeeDepartment {

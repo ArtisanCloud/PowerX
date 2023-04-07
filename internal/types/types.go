@@ -321,6 +321,15 @@ type SetRolePermissionsReply struct {
 	Status string `json:"status"`
 }
 
+type SetRoleEmployeesRequest struct {
+	RoleCode    string  `path:"roleCode"`
+	EmployeeIds []int64 `json:"employeeIds"`
+}
+
+type SetRoleEmployeesReply struct {
+	Status string `json:"status"`
+}
+
 type ListAPIRequest struct {
 	GroupId int64 `form:"groupId,optional"`
 }
@@ -331,8 +340,8 @@ type ListAPIReply struct {
 
 type GetRoleEmployeesReqeust struct {
 	RoleCode  string `path:"roleCode"`
-	PageIndex int    `json:"pageIndex"`
-	PageSize  int    `json:"pageSize"`
+	PageIndex int    `form:"pageIndex"`
+	PageSize  int    `form:"pageSize"`
 }
 
 type RoleEmployeeDepartment struct {

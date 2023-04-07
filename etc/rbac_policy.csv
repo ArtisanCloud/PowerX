@@ -1,4 +1,0 @@
-p, admin, /api/employee/v1/employees, GET
-p, admin, /api/employee/v1/employees/:id, GET
-
-p, common_employee, /employees, (GET)
