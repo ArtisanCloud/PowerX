@@ -1,9 +1,12 @@
 package customerdomain
 
-import "PowerX/internal/model"
+import (
+	"PowerX/internal/model/powermodel"
+)
 
 type Contact struct {
-	*model.Model
+	powermodel.PowerCompactModel
+
 	Name   string
 	Mobile string
 	Email  string

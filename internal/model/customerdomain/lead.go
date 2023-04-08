@@ -1,11 +1,13 @@
 package customerdomain
 
-import "PowerX/internal/model"
+import (
+	"PowerX/internal/model/powermodel"
+)
 
 type Lead struct {
 	//Inviter *Customer
 
-	model.Model
+	powermodel.PowerCompactModel
 	Name        string
 	Mobile      string `gorm:"unique"`
 	Email       string

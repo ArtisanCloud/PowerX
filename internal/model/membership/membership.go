@@ -1,8 +1,8 @@
 package membership
 
 import (
-	"PowerX/internal/model"
 	"PowerX/internal/model/customerdomain"
+	"github.com/ArtisanCloud/PowerLibs/v3/database"
 	"time"
 )
 
@@ -12,7 +12,7 @@ type Membership struct {
 	MainMembership *Membership   `gorm:"foreignKey:MainMembershipID;references:id"`
 	SubMemberships []*Membership `gorm:"foreignKey:MainMembershipID;references:id"`
 
-	*model.Model
+	database.PowerModel
 
 	CustomerID       string    `gorm:"column:account_id" json:"accountID"`
 	StartDate        time.Time `gorm:"column:start_date" json:"startDate"`

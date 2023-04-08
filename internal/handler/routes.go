@@ -409,23 +409,26 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 	)
 
 	server.AddRoutes(
-		[]rest.Route{
-			{
-				Method:  http.MethodPost,
-				Path:    "/login",
-				Handler: mpcustomer.LoginHandler(serverCtx),
-			},
-			{
-				Method:  http.MethodPost,
-				Path:    "/authByPhone",
-				Handler: mpcustomer.AuthByPhoneHandler(serverCtx),
-			},
-			{
-				Method:  http.MethodPost,
-				Path:    "/authByProfile",
-				Handler: mpcustomer.AuthByProfileHandler(serverCtx),
-			},
-		},
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.MPCustomerJWTAuth},
+			[]rest.Route{
+				{
+					Method:  http.MethodPost,
+					Path:    "/login",
+					Handler: mpcustomer.LoginHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/authByPhone",
+					Handler: mpcustomer.AuthByPhoneHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/authByProfile",
+					Handler: mpcustomer.AuthByProfileHandler(serverCtx),
+				},
+			}...,
+		),
 		rest.WithPrefix("/api/v1/mp/customer"),
 	)
 }

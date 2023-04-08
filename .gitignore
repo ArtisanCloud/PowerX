@@ -7,7 +7,6 @@
 .run
 
 etc/powerx-*
-PowerX
 config.yml
 logs/
 wechat.log

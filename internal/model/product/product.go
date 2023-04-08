@@ -1,7 +1,8 @@
 package product
 
 import (
-	"PowerX/internal/model"
+	"PowerX/internal/model/powermodel"
+	"github.com/ArtisanCloud/PowerLibs/v3/database"
 	"time"
 )
 
@@ -10,7 +11,7 @@ type Product struct {
 	PriceBookEntries []*PriceBookEntry `gorm:"foreignKey:ProductUUID;references:UUID" json:"priceBookEntries"`
 	//Coupons          []*Coupon         `gorm:"many2many:public.r_product_to_coupon;foreignKey:UUID;joinForeignKey:ProductUUID;References:UUID;JoinReferences:CouponUUID" json:"coupons"`
 
-	*model.Model
+	database.PowerModel
 
 	Name               string
 	Type               int8
@@ -33,3 +34,5 @@ type Product struct {
 	AvailableStartDate time.Time
 	AvailableEndDate   time.Time
 }
+
+const ProductUniqueId = powermodel.UniqueId

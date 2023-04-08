@@ -2,22 +2,22 @@ syntax = "v1"
 
 
 info(
-    title: "小程序客户模块"
-    desc: "小程序客户模块接口集合"
+    title: "小程序产品模块"
+    desc: "小程序产品模块接口集合"
     author: "MichaelHu"
     email: "matrix-x@artisan-cloud.com"
     version: "v1"
 )
 
 @server(
-    group: mp/customer
-    prefix: /api/v1/mp/customer
+    group: mp/product
+    prefix: /api/v1/mp/product
     middleware: MPCustomerJWTAuth
 )
 
 
 service PowerX {
-    @doc "微信小程序登录"
+    @doc "产品列表"
     @handler Login
     post /login (MPCustomerLoginRequest) returns (MPCustomerLoginAuthReply)
 

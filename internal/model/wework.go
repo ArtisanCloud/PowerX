@@ -3,7 +3,7 @@ package model
 import "github.com/ArtisanCloud/PowerLibs/v3/object"
 
 type WeWorkExternalContact struct {
-	*Model
+	Model
 	CorpID         object.NullString `gorm:"index:index_corp_id;column:corp_id" json:"corpID"`
 	AppID          object.NullString `gorm:"index:index_app_id;column:app_id" json:"appID"`
 	ExternalUserID object.NullString `gorm:"index:index_external_user_id;column:external_user_id;not null;index:,unique" json:"externalUserID"`

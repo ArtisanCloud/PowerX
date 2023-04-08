@@ -15,14 +15,14 @@ type PriceConfig struct {
 	PriceBookEntryUUID string    `gorm:"column:price_book_entry_uuid" json:"priceBookEntryUUID"`
 }
 
-const TABLE_NAME_PRICE_CONFIG = "price_configs"
-const OBJECT_NAME_PRICE_CONFIG = "Price_Config"
+const TableNamePriceConfig = "price_configs"
+const ObjectNamePriceConfig = "Price_Config"
 
-const TYPE_LIST_PRICE = "List_Price" //这条不是真实的recordtype，不要加入 ARRAY_RECORD_TYPE
-const TYPE_MEMBER = "Member"
-const TYPE_MEMBER_EARLY_BIRD = "Member_Early_Bird"
-const TYPE_EARLY_BIRD = "Early_Bird"
-const TYPE_NEWNEW = "Newnew"
+const TypeListPrice = "List_Price" //这条不是真实的recordtype，不要加入 ARRAY_RECORD_TYPE
+const TypeMember = "Member"
+const TypeMemberEarlyBird = "Member_Early_Bird"
+const TypeEarlyBird = "Early_Bird"
+const TypeNewNew = "NewNew"
 
 func NewPriceConfig() *PriceConfig {
 	return &PriceConfig{}
