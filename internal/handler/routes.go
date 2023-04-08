@@ -6,6 +6,7 @@ import (
 
 	adminauth "PowerX/internal/handler/admin/auth"
 	admincommon "PowerX/internal/handler/admin/common"
+	admincontractway "PowerX/internal/handler/admin/contractway"
 	admincustomer "PowerX/internal/handler/admin/customer"
 	admindepartment "PowerX/internal/handler/admin/department"
 	admindictionary "PowerX/internal/handler/admin/dictionary"
@@ -14,6 +15,8 @@ import (
 	adminmedia "PowerX/internal/handler/admin/media"
 	adminopportunity "PowerX/internal/handler/admin/opportunity"
 	adminpermission "PowerX/internal/handler/admin/permission"
+	adminscrmcontact "PowerX/internal/handler/admin/scrm/contact"
+	adminscrmcustomer "PowerX/internal/handler/admin/scrm/customer"
 	adminuserinfo "PowerX/internal/handler/admin/userinfo"
 	mpcustomer "PowerX/internal/handler/mp/customer"
 	"PowerX/internal/svc"
@@ -317,12 +320,12 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				},
 				{
 					Method:  http.MethodPut,
-					Path:    "/types/:id",
+					Path:    "/types/:type",
 					Handler: admindictionary.UpdateDictionaryTypeHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodDelete,
-					Path:    "/types/:id",
+					Path:    "/types/:type",
 					Handler: admindictionary.DeleteDictionaryTypeHandler(serverCtx),
 				},
 				{
@@ -337,12 +340,12 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				},
 				{
 					Method:  http.MethodPut,
-					Path:    "/items/:id",
+					Path:    "/items/:type/:key",
 					Handler: admindictionary.UpdateDictionaryItemHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodDelete,
-					Path:    "/items/:id",
+					Path:    "/items/:type/:key",
 					Handler: admindictionary.DeleteDictionaryItemHandler(serverCtx),
 				},
 			}...,
@@ -406,6 +409,93 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			}...,
 		),
 		rest.WithPrefix("/api/v1/admin/user-center"),
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Route{
+				{
+					Method:  http.MethodGet,
+					Path:    "/group-tree",
+					Handler: admincontractway.GetContractWayGroupTreeHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/groups",
+					Handler: admincontractway.GetContractWayGroupListHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/",
+					Handler: admincontractway.GetContractWaysHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/",
+					Handler: admincontractway.CreateContractWayHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPut,
+					Path:    "/:id",
+					Handler: admincontractway.UpdateContractWayHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodDelete,
+					Path:    "/:id",
+					Handler: admincontractway.DeleteContractWayHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithPrefix("/api/v1/admin/contract-way"),
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Route{
+				{
+					Method:  http.MethodGet,
+					Path:    "/customers/:id",
+					Handler: adminscrmcustomer.GetWeWorkCustomerHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/customers",
+					Handler: adminscrmcustomer.ListWeWorkCustomersHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPatch,
+					Path:    "/customers/:id",
+					Handler: adminscrmcustomer.PatchWeWorkCustomerHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/customers/actions/sync",
+					Handler: adminscrmcustomer.SyncWeWorkCustomerHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithPrefix("/api/v1/admin/scrm/customer"),
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Route{
+				{
+					Method:  http.MethodPost,
+					Path:    "/contacts/actions/sync",
+					Handler: adminscrmcontact.SyncWeWorkContactHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/employees",
+					Handler: adminscrmcontact.ListWeWorkEmployeeHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithPrefix("/api/v1/admin/scrm/contact"),
 	)
 
 	server.AddRoutes(

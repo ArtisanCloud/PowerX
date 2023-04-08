@@ -1,9 +1,18 @@
 package model
 
-type DataDictionary struct {
-	*Model
-	Key         string `gorm:"uniqueIndex"`
+type DataDictionaryItem struct {
+	Model
+	Key         string `gorm:"index:idx_key_type"`
+	Type        string `gorm:"index:idx_key_type"`
+	Name        string
 	Value       string
+	Sort        int `gorm:"default:0"`
 	Description string
-	Type        string `gorm:"index"`
+}
+
+type DataDictionaryType struct {
+	Model
+	Type        string `gorm:"unique"`
+	Name        string
+	Description string
 }

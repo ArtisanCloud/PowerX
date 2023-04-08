@@ -1,0 +1,3 @@
+import "admin/scrm/contactway.api"
+import "admin/scrm/customer.api"
+import "admin/scrm/contact.api"

@@ -319,7 +319,7 @@ func (uc *AdminPermsUseCase) PatchRoleByRoleId(ctx context.Context, role *AdminR
 
 	err := uc.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		// 清除旧的关联关系
-		if err := tx.Model(&AdminRole{}).Where(&AdminRole{RoleCode: role.RoleCode}).
+		if err := tx.Model(&role).Where(&AdminRole{RoleCode: role.RoleCode}).
 			Association("AdminAPI").Clear(); err != nil {
 			return err
 		}
