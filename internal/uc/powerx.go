@@ -5,8 +5,10 @@ import (
 	"PowerX/internal/model"
 	"PowerX/internal/model/customerdomain"
 	"PowerX/internal/model/membership"
+	"PowerX/internal/model/product"
 	"PowerX/internal/uc/powerx"
 	customerdomainUC "PowerX/internal/uc/powerx/customerdomain"
+	productUC "PowerX/internal/uc/powerx/product"
 	"context"
 	"github.com/pkg/errors"
 	"gorm.io/driver/postgres"
@@ -20,6 +22,9 @@ type PowerXUseCase struct {
 	Organization          *powerx.OrganizationUseCase
 	Customer              *customerdomainUC.CustomerUseCase
 	Lead                  *customerdomainUC.LeadUseCase
+	Product               *productUC.ProductUseCase
+	ProductCategory       *productUC.ProductCategoryUseCase
+	PriceBook             *productUC.PriceBookUseCase
 	WechatMP              *powerx.WechatMiniProgramUseCase
 	WechatOA              *powerx.WechatOfficialAccountUseCase
 }
@@ -51,6 +56,9 @@ func NewPowerXUseCase(conf *config.Config) (uc *PowerXUseCase, clean func()) {
 	uc.CustomerAuthorization = customerdomainUC.NewAuthorizationCustomerDomainUseCase(db)
 	uc.Customer = customerdomainUC.NewCustomerUseCase(db)
 	uc.Lead = customerdomainUC.NewLeadUseCase(db)
+	uc.Product = productUC.NewProductUseCase(db)
+	uc.ProductCategory = productUC.NewProductCategoryUseCase(db)
+	uc.PriceBook = productUC.NewPriceBookUseCase(db)
 	uc.WechatMP = powerx.NewWechatMiniProgramUseCase(db, conf)
 	uc.WechatOA = powerx.NewWechatOfficialAccountUseCase(db, conf)
 
@@ -70,9 +78,11 @@ func (p *PowerXUseCase) AutoMigrate(ctx context.Context) {
 	p.db.AutoMigrate(&customerdomain.Lead{}, &customerdomain.Contact{}, &customerdomain.Customer{}, &membership.Membership{})
 	p.db.AutoMigrate(&model.WechatOACustomer{}, &model.WechatMPCustomer{}, &model.WeWorkExternalContact{})
 	p.db.AutoMigrate(
-		&customerdomain.PivotCustomerToWechatMPCustomer{},
-		&customerdomain.PivotLeadToWechatMPCustomer{},
+		&product.PivotProductToProductCategory{},
 	)
+	// product
+	p.db.AutoMigrate(&product.Product{}, &product.ProductCategory{})
+	p.db.AutoMigrate(&product.PriceBook{}, &product.PriceBookEntry{}, &product.PriceConfig{})
 }
 
 func (p *PowerXUseCase) AutoInit() {

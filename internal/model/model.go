@@ -19,6 +19,12 @@ type SyncModel struct {
 	DeletedAt gorm.DeletedAt `gorm:"index"`
 }
 
+type ImageAbleInfo struct {
+	Icon            string
+	BackgroundColor string
+	ImageURL        string
+}
+
 // Int64Slice 是int64切片, 为了通用持久化, 在数据库保存为以`,`为分隔符的string类型
 type Int64Slice []int64
 

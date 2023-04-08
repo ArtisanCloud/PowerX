@@ -5,13 +5,13 @@ import (
 	"gorm.io/gorm"
 )
 
-const OPERATION_EVENT_CREATE = 1
-const OPERATION_EVENT_UPDATE = 2
-const OPERATION_EVENT_DELETE = 3
+const OperationEventCreate = 1
+const OperationEventUpdate = 2
+const OperationEventDelete = 3
 
-const OPERATION_RESULT_SUCCESS = 1
-const OPERATION_RESULT_FAILED = 2
-const OPERATION_RESULT_CANCEL = 3
+const OperationResultSuccess = 1
+const OperationResultFailed = 2
+const OperationResultCancel = 3
 
 // TableName overrides the table name used by price_book to `profiles`
 func (mdl *PowerOperationLog) TableName() string {
@@ -34,8 +34,8 @@ type PowerOperationLog struct {
 	Result        *int8   `gorm:"column:result" json:"result"`
 }
 
-const TABLE_NAME_OPERATION_LOG = "power_operation_log"
-const OPERAION_LOG_UNIQUE_ID = CompactUniqueId
+const TableNameOperationLog = "power_operation_log"
+const OperationLogUniqueId = CompactUniqueId
 
 func NewPowerOperationLog(mapObject *object.Collection) *PowerOperationLog {
 
@@ -60,7 +60,7 @@ func NewPowerOperationLog(mapObject *object.Collection) *PowerOperationLog {
 
 // 获取当前 Model 的数据库表名称
 func (mdl *PowerOperationLog) GetTableName(needFull bool) string {
-	tableName := TABLE_NAME_OPERATION_LOG
+	tableName := TableNameOperationLog
 	if needFull {
 		tableName = "public.ac_" + tableName
 	}

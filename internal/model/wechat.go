@@ -6,7 +6,7 @@ import "gorm.io/datatypes"
 // 公众号的客户信息
 // https://developers.weixin.qq.com/doc/offiaccount/User_Management/Get_users_basic_information_UnionID.html#UinonId
 type WechatOACustomer struct {
-	*Model
+	Model
 	Subscribe      int            `json:"subscribe"`
 	SessionKey     string         `json:"-"`
 	OpenID         string         `json:"openid"`
@@ -23,7 +23,7 @@ type WechatOACustomer struct {
 
 // 小程序客户信息
 type WechatMPCustomer struct {
-	*Model
+	Model
 	SessionKey string `json:"-"`
 	OpenID     string `gorm:"unique" json:"openid"`
 	UnionID    string `gorm:"unique" json:"unionid"`

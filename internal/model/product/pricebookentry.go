@@ -8,7 +8,7 @@ import (
 
 // PriceBookEntry 数据表结构
 type PriceBookEntry struct {
-	*database.PowerModel
+	database.PowerModel
 
 	//belongsTo
 	Product      *Product       `gorm:"foreignKey:ProductUUID;references:UUID" json:"product"`
@@ -21,8 +21,8 @@ type PriceBookEntry struct {
 	UnitPrice     float64           `gorm:"column:unit_price" json:"unitPrice"`
 }
 
-const TABLE_NAME_PRICE_BOOK_ENTRY = "price_book_entries"
-const PRICE_BOOK_ENTRY_UNIQUE_ID = "index_price_book_entry_uuid"
+const TableNamePriceBookEntry = "price_book_entries"
+const PriceBookEntryUniqueId = "index_price_book_entry_uuid"
 
 func (mdl *PriceBookEntry) GetComposedUniqueID() object.NullString {
 	if mdl.PriceBookUUID.String != "" && mdl.ProductUUID.String != "" {

@@ -1,7 +1,7 @@
 package model
 
 type DataDictionary struct {
-	*Model
+	Model
 	Key         string `gorm:"uniqueIndex"`
 	Value       string
 	Description string
