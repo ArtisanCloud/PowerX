@@ -20,9 +20,9 @@ type SyncModel struct {
 }
 
 type ImageAbleInfo struct {
-	Icon            string
-	BackgroundColor string
-	ImageURL        string
+	Icon            string `gorm:"comment:图标"`
+	BackgroundColor string `gorm:"comment:背景色"`
+	ImageURL        string `gorm:"comment:封面图地址"`
 }
 
 // Int64Slice 是int64切片, 为了通用持久化, 在数据库保存为以`,`为分隔符的string类型

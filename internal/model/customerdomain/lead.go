@@ -7,7 +7,7 @@ import (
 type Lead struct {
 	//Inviter *Customer
 
-	powermodel.PowerCompactModel
+	powermodel.PowerModel
 	Name        string
 	Mobile      string `gorm:"unique"`
 	Email       string

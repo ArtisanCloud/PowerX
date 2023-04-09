@@ -1,0 +1,134 @@
+syntax = "v1"
+
+info(
+    title: "价格手册"
+    desc: "价格手册"
+    author: "MichaelHu"
+    email: "matrix-x@artisan-cloud.com"
+    version: "v1"
+)
+
+
+@server(
+    group: admin/product
+    prefix: /api/v1/admin/product
+    middleware: EmployeeJWTAuth
+)
+
+service PowerX {
+    @doc "查询价格手册列表"
+    @handler ListPirceBooks
+    get /price-books (ListPirceBooksRequest) returns (ListPirceBooksReply)
+
+    @doc "创建价格手册"
+    @handler CreatePriceBook
+    post /price-books (CreatePriceBookRequest) returns (CreatePriceBookReply)
+
+    @doc "编辑价格手册"
+    @handler PatchPriceBook
+    patch /price-books/:id (PatchPriceBookRequest) returns (PatchPriceBookReply)
+
+    @doc "删除价格手册"
+    @handler DeletePriceBook
+    delete /price-books/:id (DeletePriceBookRequest) returns (DeletePriceBookReply)
+
+    @doc "配置价格手册条目"
+    @handler ConfigPriceBook
+    post /products/:id (ConfigPriceBookEntryRequest) returns (ConfigPriceBookEntryReply)
+
+}
+
+type (
+
+    PriceBook {
+        Id int64 `json:"id"`
+        Name string `json:"name"`
+        Mobile string `json:"mobile"`
+        Email string `json:"email"`
+        Source string `json:"source"`
+        Status string `json:"status"`
+        CreatedAt string `json:"createdAt"`
+        
+    }
+)
+
+type (
+    ListPirceBooksRequest {
+        LikeTitle string `json:"likeTitle,optional"`
+        LikePhoneNumber string `json:"likePhoneNumber,optional"`
+        Sources []string `json:"sources,optional"`
+        Statuses []string `json:"statuses,optional"`
+    }
+
+    ListPirceBooksReply {
+        List []PriceBook `json:"list"`
+        PageIndex int32 `json:"pageIndex"`
+        PageSize int32 `json:"pageSize"`
+        Total int64 `json:"total"`
+    }
+)
+
+type (
+    CreatePriceBookRecord {
+        Id int64 `json:"id"`
+        Name string `json:"name"`
+        Mobile string `json:"mobile,optional"`
+        Email string `json:"email,optional"`
+        InviterId int64 `json:"inviterId,optional"`
+        Source string `json:"source,optional,options=mini_program|tiktok|h5|ad"`
+        Status string `json:"status,optional,options=open|following|closed_lost|closed_won"`
+        Type string `json:"type,optional,options=personal|company"`
+        IsActived *bool `json:"isActived,optional"`
+        
+    }
+
+    CreatePriceBookRequest {
+        List []CreatePriceBookRecord `json:"list"`
+    }
+
+    CreatePriceBookReply {
+        List []PriceBook `json:"list"`
+        PageIndex int32 `json:"pageIndex"`
+        PageSize int32 `json:"pageSize"`
+        Total int64 `json:"total"`
+    }
+)
+
+type (
+    PatchPriceBookRequest {
+        Id int64 `path:"id"`
+        Name string `json:"name,optional"`
+        Mobile string `json:"mobile,optional"`
+        Email string `json:"email,optional"`
+        InviterId int64 `json:"inviterId,optional"`
+        Source string `json:"source,optional,options=mini_program|tiktok|h5|advertisement"`
+        Status string `json:"status,optional,options=open|following|closed_lost|closed_won"`
+        Type string `json:"type,optional,options=personal|company"`
+        IsActived *bool `json:"isActived,optional"`
+        
+    }
+
+    PatchPriceBookReply {
+        PriceBook
+    }
+)
+
+type (
+    DeletePriceBookRequest {
+        Id int64 `json:"id"`
+    }
+
+    DeletePriceBookReply {
+        Id int64 `json:"id"`
+    }
+)
+
+type (
+    ConfigPriceBookEntryRequest {
+        Id int64 `json:"id"`
+    }
+
+    ConfigPriceBookEntryReply {
+        Id int64 `json:"id"`
+    }
+)

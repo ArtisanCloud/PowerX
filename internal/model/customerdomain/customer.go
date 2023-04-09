@@ -1,7 +1,7 @@
 package customerdomain
 
 import (
-	"github.com/ArtisanCloud/PowerLibs/v3/database"
+	"PowerX/internal/model/powermodel"
 )
 
 const SourceFromMP = "mini-program"
@@ -19,7 +19,7 @@ const CustomerUniqueId = "mobile"
 type Customer struct {
 	//Inviter     *Customer
 
-	database.PowerModel
+	powermodel.PowerModel
 	Name        string
 	Mobile      string `gorm:"unique"`
 	Email       string

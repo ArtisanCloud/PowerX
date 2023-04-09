@@ -1,0 +1,136 @@
+syntax = "v1"
+
+info(
+    title: "产品服务"
+    desc: "产品服务"
+    author: "MichaelHu"
+    email: "matrix-x@artisan-cloud.com"
+    version: "v1"
+)
+
+
+@server(
+    group: admin/product
+    prefix: /api/v1/admin/product
+    middleware: EmployeeJWTAuth
+)
+
+service PowerX {
+    @doc "查询产品列表"
+    @handler ListProducts
+    get /products (ListProductsRequest) returns (ListProductsReply)
+
+    @doc "创建产品"
+    @handler CreateProduct
+    post /products (CreateProductRequest) returns (CreateProductReply)
+
+    @doc "编辑产品"
+    @handler PatchProduct
+    patch /products/:id (PatchProductRequest) returns (PatchProductReply)
+
+    @doc "删除产品"
+    @handler DeleteProduct
+    delete /products/:id (DeleteProductRequest) returns (DeleteProductReply)
+
+    @doc "分配产品品类给产品品类分类"
+    @handler AssignProductToProductCategory
+    post /products/:id/actions/assign-to-product-categroy (AssignProductToProductCategoryRequest) returns (AssignProductToProductCategoryReply)
+
+}
+
+type (
+
+    Product {
+        Id int64 `json:"id"`
+        Name string `json:"name"`
+        Mobile string `json:"mobile"`
+        Email string `json:"email"`
+        Source string `json:"source"`
+        Status string `json:"status"`
+        CreatedAt string `json:"createdAt"`
+        
+    }
+)
+
+type (
+    ListProductsRequest {
+        LikeTitle string `json:"likeTitle,optional"`
+        LikePhoneNumber string `json:"likePhoneNumber,optional"`
+        Sources []string `json:"sources,optional"`
+        Statuses []string `json:"statuses,optional"`
+    }
+
+    ListProductsReply {
+        List []Product `json:"list"`
+        PageIndex int32 `json:"pageIndex"`
+        PageSize int32 `json:"pageSize"`
+        Total int64 `json:"total"`
+    }
+)
+
+type (
+    CreateProductRecord {
+        Id int64 `json:"id"`
+        Name string `json:"name"`
+        Mobile string `json:"mobile,optional"`
+        Email string `json:"email,optional"`
+        InviterId int64 `json:"inviterId,optional"`
+        Source string `json:"source,optional,options=mini_program|tiktok|h5|ad"`
+        Status string `json:"status,optional,options=open|following|closed_lost|closed_won"`
+        Type string `json:"type,optional,options=personal|company"`
+        IsActived *bool `json:"isActived,optional"`
+        
+    }
+
+    CreateProductRequest {
+        List []CreateProductRecord `json:"list"`
+    }
+
+    CreateProductReply {
+        List []Product `json:"list"`
+        PageIndex int32 `json:"pageIndex"`
+        PageSize int32 `json:"pageSize"`
+        Total int64 `json:"total"`
+    }
+)
+
+type (
+    PatchProductRequest {
+        Id int64 `path:"id"`
+        Name string `json:"name,optional"`
+        Mobile string `json:"mobile,optional"`
+        Email string `json:"email,optional"`
+        InviterId int64 `json:"inviterId,optional"`
+        Source string `json:"source,optional,options=mini_program|tiktok|h5|advertisement"`
+        Status string `json:"status,optional,options=open|following|closed_lost|closed_won"`
+        Type string `json:"type,optional,options=personal|company"`
+        IsActived *bool `json:"isActived,optional"`
+        
+    }
+
+    PatchProductReply {
+        Product
+    }
+)
+
+type (
+    DeleteProductRequest {
+        Id int64 `json:"id"`
+    }
+
+    DeleteProductReply {
+        Id int64 `json:"id"`
+    }
+)
+
+
+type (
+    AssignProductToProductCategoryRequest {
+        Id int64 `path:"id"`
+        ProductCategoryId int64 `json:"productCategoryId"`
+    }
+
+    AssignProductToProductCategoryReply {
+        Product
+    }
+)

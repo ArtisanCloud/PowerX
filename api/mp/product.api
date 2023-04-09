@@ -18,45 +18,10 @@ info(
 
 service PowerX {
     @doc "产品列表"
-    @handler Login
-    post /login (MPCustomerLoginRequest) returns (MPCustomerLoginAuthReply)
+    @handler Product
+    post /list (MPCustomerLoginRequest) returns (MPCustomerLoginAuthReply)
 
-    @doc "客户手机授权"
-    @handler AuthByPhone
-    post /authByPhone (MPCustomerAuthRequest) returns (MPCustomerLoginAuthReply)
 
-    @doc "客户信息授权"
-    @handler AuthByProfile
-    post /authByProfile returns (MPCustomerLoginAuthReply)
 }
 
 
-
-type (
-    MPCustomerLoginRequest {
-        Code string `json:"code"`
-    }
-
-    MPCustomerAuthRequest {
-        Code string `json:"code"`
-        IV string `json:"iv"`
-        EncryptedData string `json:"encryptedData"`
-    }
-
-    MPCustomerLoginAuthReply {
-        OpenID string `json:"openID"`
-        UnionID string `json:"unionID"`
-        PhoneNumber string `json:"phoneNumber"`
-        NickName string `json:"nickName"`
-        AvatarURL string `json:"avatarURL"`
-        Gender string `json:"gender"`
-        Token Token `json:"token"`
-    }
-
-    Token {
-        TokenType string `json:"tokenType"`
-        ExpiresIn string `json:"expiresIn"`
-        AccessToken string `json:"accessToken"`
-        RefreshToken string `json:"refreshToken"`
-    }
-)
