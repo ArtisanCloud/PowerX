@@ -21,7 +21,7 @@ var TablePrefix string
 type ModelInterface interface {
 	GetTableName(needFull bool) string
 	GetPowerModel() ModelInterface
-	GetID() int32
+	GetID() int64
 	GetUUID() string
 	GetPrimaryKey() string
 	GetForeignRefer() string
@@ -29,24 +29,23 @@ type ModelInterface interface {
 }
 
 type PowerModel struct {
-	ID   int32  `gorm:"autoIncrement:true;unique; column:id; ->;<-:create" json:"-"`
-	UUID string `gorm:"primaryKey;autoIncrement:false;unique; column:uuid; ->;<-:create " json:"uuid" sql:"index"`
+	Id int64 `gorm:"autoIncrement:true;unique; column:id; ->;<-:create" json:"-"`
 
 	CreatedAt time.Time      `gorm:"column:created_at; ->;<-:create " json:"createdAt"`
 	UpdatedAt time.Time      `gorm:"column:updated_at" json:"updatedAt"`
 	DeletedAt gorm.DeletedAt `gorm:"index"`
 }
 
-type PowerCompactModel struct {
-	ID int32 `gorm:"primaryKey;autoIncrement:true;unique; column:id; ->;<-:create" json:"-"`
-
+type PowerUUIDModel struct {
+	ID        int64          `gorm:"autoIncrement:true;unique; column:id; ->;<-:create" json:"-"`
+	UUID      string         `gorm:"primaryKey;autoIncrement:false;unique; column:uuid; ->;<-:create " json:"uuid" sql:"index"`
 	CreatedAt time.Time      `gorm:"column:created_at; ->;<-:create " json:"createdAt"`
 	UpdatedAt time.Time      `gorm:"column:updated_at" json:"updatedAt"`
 	DeletedAt gorm.DeletedAt `gorm:"index"`
 }
 
-const UniqueId = "uuid"
-const CompactUniqueId = "id"
+const UniqueId = "id"
+const UniqueUuid = "uuid"
 
 const ModelStatusDraft int8 = 0
 const ModelStatusActive int8 = 1
@@ -61,26 +60,53 @@ const ApprovalStatusRejected int8 = 4
 
 var ArrayModelFields *object.HashMap = &object.HashMap{}
 
-func NewPowerModel() *PowerModel {
+func NewPowerUUIDModel() *PowerUUIDModel {
 	now := time.Now()
-	return &PowerModel{
+	return &PowerUUIDModel{
 		UUID:      uuid.New().String(),
 		CreatedAt: now,
 		UpdatedAt: now,
 	}
 }
 
-func NewPowerCompactModel() *PowerCompactModel {
+func NewPowerModel() *PowerModel {
 	now := time.Now()
-	return &PowerCompactModel{
+	return &PowerModel{
 		CreatedAt: now,
 		UpdatedAt: now,
 	}
 }
 
-func (mdl *PowerModel) GetID() int32 {
+func (mdl *PowerUUIDModel) GetID() int64 {
 	return mdl.ID
 }
+
+func (mdl *PowerUUIDModel) GetTableName(needFull bool) string {
+	return ""
+}
+
+func (mdl *PowerUUIDModel) GetPowerModel() ModelInterface {
+	return mdl
+}
+
+func (mdl *PowerUUIDModel) GetUUID() string {
+	return mdl.UUID
+}
+
+func (mdl *PowerUUIDModel) GetPrimaryKey() string {
+	return "uuid"
+}
+
+func (mdl *PowerUUIDModel) GetForeignRefer() string {
+	return "uuid"
+}
+func (mdl *PowerUUIDModel) GetForeignReferValue() string {
+	return mdl.UUID
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// PowerModel
+// ---------------------------------------------------------------------------------------------------------------------
 
 func (mdl *PowerModel) GetTableName(needFull bool) string {
 	return ""
@@ -90,49 +116,22 @@ func (mdl *PowerModel) GetPowerModel() ModelInterface {
 	return mdl
 }
 
+func (mdl *PowerModel) GetID() int64 {
+	return mdl.Id
+}
 func (mdl *PowerModel) GetUUID() string {
-	return mdl.UUID
+	return ""
 }
 
 func (mdl *PowerModel) GetPrimaryKey() string {
-	return "uuid"
+	return "id"
 }
 
 func (mdl *PowerModel) GetForeignRefer() string {
-	return "uuid"
+	return "id"
 }
 func (mdl *PowerModel) GetForeignReferValue() string {
-	return mdl.UUID
-}
-
-// ---------------------------------------------------------------------------------------------------------------------
-// PowerCompactModel
-// ---------------------------------------------------------------------------------------------------------------------
-
-func (mdl *PowerCompactModel) GetTableName(needFull bool) string {
-	return ""
-}
-
-func (mdl *PowerCompactModel) GetPowerModel() ModelInterface {
-	return mdl
-}
-
-func (mdl *PowerCompactModel) GetID() int32 {
-	return mdl.ID
-}
-func (mdl *PowerCompactModel) GetUUID() string {
-	return ""
-}
-
-func (mdl *PowerCompactModel) GetPrimaryKey() string {
-	return "id"
-}
-
-func (mdl *PowerCompactModel) GetForeignRefer() string {
-	return "id"
-}
-func (mdl *PowerCompactModel) GetForeignReferValue() string {
-	return fmt.Sprintf("%d", mdl.ID)
+	return fmt.Sprintf("%d", mdl.Id)
 }
 
 /**

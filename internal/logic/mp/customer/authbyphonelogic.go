@@ -2,9 +2,11 @@ package customer
 
 import (
 	"PowerX/internal/model"
+	"PowerX/internal/model/customerdomain"
+	"PowerX/internal/model/powermodel"
 	"PowerX/internal/svc"
 	"PowerX/internal/types"
-	"PowerX/internal/uc/powerx"
+	customerdomain2 "PowerX/internal/uc/powerx/customerdomain"
 	"context"
 	"fmt"
 	"github.com/ArtisanCloud/PowerLibs/v3/object"
@@ -48,7 +50,7 @@ func (l *AuthByPhoneLogic) AuthByPhone(req *types.MPCustomerAuthRequest) (resp *
 		return
 	}
 
-	println(string(msgData))
+	//println(string(msgData))
 	// 解析手机信息
 	mpPhoneInfo := &model.MPPhoneInfo{}
 	err = object.JsonDecode(msgData, mpPhoneInfo)
@@ -58,16 +60,31 @@ func (l *AuthByPhoneLogic) AuthByPhone(req *types.MPCustomerAuthRequest) (resp *
 	}
 
 	mpCustomer := &model.WechatMPCustomer{
-		OpenID:     rs.OpenID,
-		SessionKey: rs.SessionKey,
-		UnionID:    rs.UnionID,
+		OpenID:      rs.OpenID,
+		SessionKey:  rs.SessionKey,
+		UnionID:     rs.UnionID,
+		MPPhoneInfo: *mpPhoneInfo,
 	}
-
-	// 转化手机信息给小程序客户记录
-	mpCustomer = l.svcCtx.PowerX.WechatMP.ConvertMPPhoneInfoToMPCustomer(l.ctx, mpPhoneInfo, mpCustomer)
 
 	// upsert 小程序客户记录
 	mpCustomer, err = l.svcCtx.PowerX.WechatMP.UpsertMPCustomer(l.ctx, mpCustomer)
+	if err != nil {
+		panic(err)
+		return
+	}
+
+	// upsert 线索
+	lead := &customerdomain.Lead{
+		Name:        mpCustomer.NickName,
+		Mobile:      mpCustomer.PhoneNumber,
+		Source:      customerdomain.SourceFromMP,
+		Status:      powermodel.ModelStatusActive,
+		IsActivated: true,
+		ExternalId: customerdomain.ExternalId{
+			OpenIDInMiniProgram: mpCustomer.OpenID,
+		},
+	}
+	lead, err = l.svcCtx.PowerX.Lead.UpsertLead(l.ctx, lead)
 	if err != nil {
 		panic(err)
 		return
@@ -84,7 +101,7 @@ func (l *AuthByPhoneLogic) AuthByPhone(req *types.MPCustomerAuthRequest) (resp *
 		Gender:      mpCustomer.Gender,
 		Token: types.Token{
 			TokenType:    token.TokenType,
-			ExpiresIn:    fmt.Sprintf("%d", powerx.CustomerTokenExpiredDuration),
+			ExpiresIn:    fmt.Sprintf("%d", customerdomain2.CustomerTokenExpiredDuration),
 			AccessToken:  token.AccessToken,
 			RefreshToken: token.RefreshToken,
 		},

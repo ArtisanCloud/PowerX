@@ -6,7 +6,7 @@ import "gorm.io/datatypes"
 // 公众号的客户信息
 // https://developers.weixin.qq.com/doc/offiaccount/User_Management/Get_users_basic_information_UnionID.html#UinonId
 type WechatOACustomer struct {
-	*Model
+	Model
 	Subscribe      int            `json:"subscribe"`
 	SessionKey     string         `json:"-"`
 	OpenID         string         `json:"openid"`
@@ -23,22 +23,24 @@ type WechatOACustomer struct {
 
 // 小程序客户信息
 type WechatMPCustomer struct {
-	*Model
-	SessionKey         string `json:"-"`
-	OpenID             string `gorm:"unique" json:"openid"`
-	UnionID            string `gorm:"unique" json:"unionid"`
-	PhoneNumber        string `json:"phoneNumber"`
-	PurePhoneNumber    string `json:"purePhoneNumber"`
-	CountryCode        string `json:"countryCode"`
-	WatermarkTimestamp int    `json:"watermarkTimestamp"`
-	WatermarkAppID     string `json:"watermarkAppID"`
-	NickName           string `json:"nickName"`
-	AvatarURL          string `json:"avatarUrl"`
-	Gender             string `json:"gender"`
-	Country            string `json:"country"`
-	Province           string `json:"province"`
-	City               string `json:"city"`
-	Language           string `json:"language"`
+	Model
+	SessionKey string `json:"-"`
+	OpenID     string `gorm:"unique" json:"openid"`
+	UnionID    string `gorm:"unique" json:"unionid"`
+	MPPhoneInfo
+	MPUserInfo
+	//PhoneNumber        string `json:"phoneNumber"`
+	//PurePhoneNumber    string `json:"purePhoneNumber"`
+	//CountryCode        string `json:"countryCode"`
+	//WatermarkTimestamp int    `json:"watermarkTimestamp"`
+	//WatermarkAppID     string `json:"watermarkAppID"`
+	//NickName           string `json:"nickName"`
+	//AvatarURL          string `json:"avatarUrl"`
+	//Gender             string `json:"gender"`
+	//Country            string `json:"country"`
+	//Province           string `json:"province"`
+	//City               string `json:"city"`
+	//Language           string `json:"language"`
 }
 
 const WECHAT_MP_CUSTOMER_UNIQUE_ID = "open_id"
@@ -67,10 +69,12 @@ type MPPhoneInfo struct {
 	PhoneNumber     string `json:"phoneNumber"`
 	PurePhoneNumber string `json:"purePhoneNumber"`
 	CountryCode     string `json:"countryCode"`
-	Watermark       struct {
-		Timestamp int    `json:"timestamp"`
-		Appid     string `json:"appid"`
-	} `json:"watermark"`
+	MPWater
+}
+
+type MPWater struct {
+	Timestamp int    `gorm:"column:watermark_timestamp" json:"watermarkTimestamp"`
+	Appid     string `gorm:"column:watermark_appid" json:"watermarkAppId"`
 }
 
 // 小程序客户信息

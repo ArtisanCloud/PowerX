@@ -1,81 +1,67 @@
 syntax = "v1"
 
 info(
-    title: "线索池"
-    desc: "线索池"
-    author: "Northseadl"
-    email: "northseadl@outlook.com"
+    title: "价格手册"
+    desc: "价格手册"
+    author: "MichaelHu"
+    email: "matrix-x@artisan-cloud.com"
     version: "v1"
 )
 
 
 @server(
-    group: admin/lead
-    prefix: /api/v1/admin/lead
+    group: admin/product
+    prefix: /api/v1/admin/product
     middleware: EmployeeJWTAuth
 )
 
 service PowerX {
-    @doc "查询线索列表"
-    @handler ListLeads
-    get /leads (ListLeadsRequest) returns (ListLeadsReply)
+    @doc "查询价格手册列表"
+    @handler ListPirceBooks
+    get /price-books (ListPirceBooksRequest) returns (ListPirceBooksReply)
 
-    @doc "创建线索"
-    @handler CreateLead
-    post /leads (CreateLeadRequest) returns (CreateLeadReply)
+    @doc "创建价格手册"
+    @handler CreatePriceBook
+    post /price-books (CreatePriceBookRequest) returns (CreatePriceBookReply)
 
-    @doc "编辑线索"
-    @handler PatchLead
-    patch /leads/:id (PatchLeadRequest) returns (PatchLeadReply)
+    @doc "编辑价格手册"
+    @handler PatchPriceBook
+    patch /price-books/:id (PatchPriceBookRequest) returns (PatchPriceBookReply)
 
-    @doc "删除线索"
-    @handler DeleteLead
-    delete /leads/:id (DeleteLeadRequest) returns (DeleteLeadReply)
+    @doc "删除价格手册"
+    @handler DeletePriceBook
+    delete /price-books/:id (DeletePriceBookRequest) returns (DeletePriceBookReply)
 
-    @doc "分配线索给员工"
-    @handler AssignLeadToEmployee
-    post /leads/:id/actions/assign-to-employee (AssignLeadToEmployeeRequest) returns (AssignLeadToEmployeeReply)
+    @doc "配置价格手册条目"
+    @handler ConfigPriceBook
+    post /products/:id (ConfigPriceBookEntryRequest) returns (ConfigPriceBookEntryReply)
+
 }
 
 type (
-    LeadExternalId {
-        OpenIDInMiniProgram string `json:"openIdInMiniProgram,optional"`
-        OpenIDInWeChatOfficialAccount string `json:"openIdInWeChatOfficialAccount,optional"`
-        OpenIDInWeCom string `json:"openIdInWeCom,optional"`
-    }
-)
 
-type (
-    LeadInviter {
+    PriceBook {
         Id int64 `json:"id"`
         Name string `json:"name"`
         Mobile string `json:"mobile"`
         Email string `json:"email"`
-    }
-
-    Lead {
-        Id int64 `json:"id"`
-        Name string `json:"name"`
-        Mobile string `json:"mobile"`
-        Email string `json:"email"`
-        Inviter LeadInviter `json:"inviter"`
         Source string `json:"source"`
         Status string `json:"status"`
         CreatedAt string `json:"createdAt"`
-        LeadExternalId
+        
     }
 )
 
 type (
-    ListLeadsRequest {
+    ListPirceBooksRequest {
         LikeTitle string `json:"likeTitle,optional"`
         LikePhoneNumber string `json:"likePhoneNumber,optional"`
         Sources []string `json:"sources,optional"`
         Statuses []string `json:"statuses,optional"`
     }
 
-    ListLeadsReply {
-        List []Lead `json:"list"`
+    ListPirceBooksReply {
+        List []PriceBook `json:"list"`
         PageIndex int32 `json:"pageIndex"`
         PageSize int32 `json:"pageSize"`
         Total int64 `json:"total"`
@@ -83,7 +69,7 @@ type (
 )
 
 type (
-    CreateLeadRecord {
+    CreatePriceBookRecord {
         Id int64 `json:"id"`
         Name string `json:"name"`
         Mobile string `json:"mobile,optional"`
@@ -93,15 +79,15 @@ type (
         Status string `json:"status,optional,options=open|following|closed_lost|closed_won"`
         Type string `json:"type,optional,options=personal|company"`
         IsActive *bool `json:"IsActive,optional"`
-        LeadExternalId
+        
     }
 
-    CreateLeadRequest {
-        List []CreateLeadRecord `json:"list"`
+    CreatePriceBookRequest {
+        List []CreatePriceBookRecord `json:"list"`
     }
 
-    CreateLeadReply {
-        List []Lead `json:"list"`
+    CreatePriceBookReply {
+        List []PriceBook `json:"list"`
         PageIndex int32 `json:"pageIndex"`
         PageSize int32 `json:"pageSize"`
         Total int64 `json:"total"`
@@ -109,7 +95,7 @@ type (
 )
 
 type (
-    PatchLeadRequest {
+    PatchPriceBookRequest {
         Id int64 `path:"id"`
         Name string `json:"name,optional"`
         Mobile string `json:"mobile,optional"`
@@ -119,31 +105,30 @@ type (
         Status string `json:"status,optional,options=open|following|closed_lost|closed_won"`
         Type string `json:"type,optional,options=personal|company"`
         IsActive *bool `json:"IsActive,optional"`
-        LeadExternalId
+        
     }
 
-    PatchLeadReply {
-        Lead
-    }
-)
-
-type (
-    DeleteLeadRequest {
-        Id int64 `json:"id"`
-    }
-
-    DeleteLeadReply {
-        Id int64 `json:"id"`
+    PatchPriceBookReply {
+        PriceBook
     }
 )
 
 type (
-    AssignLeadToEmployeeRequest {
-        Id int64 `path:"id"`
-        EmployeeId int64 `json:"employeeId"`
+    DeletePriceBookRequest {
+        Id int64 `json:"id"`
     }
 
-    AssignLeadToEmployeeReply {
-        Lead
+    DeletePriceBookReply {
+        Id int64 `json:"id"`
+    }
+)
+
+type (
+    ConfigPriceBookEntryRequest {
+        Id int64 `json:"id"`
+    }
+
+    ConfigPriceBookEntryReply {
+        Id int64 `json:"id"`
     }
 )
