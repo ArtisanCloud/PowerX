@@ -7,7 +7,7 @@ import (
 	"PowerX/internal/model/membership"
 	"PowerX/internal/model/product"
 	"PowerX/internal/uc/powerx"
-	customerdomainUC "PowerX/internal/uc/powerx/customerdomain"
+	customerDomainUC "PowerX/internal/uc/powerx/customerdomain"
 	productUC "PowerX/internal/uc/powerx/product"
 	"context"
 	"github.com/pkg/errors"
@@ -18,10 +18,10 @@ import (
 type PowerXUseCase struct {
 	db                    *gorm.DB
 	AdminAuthorization    *powerx.AdminPermsUseCase
-	CustomerAuthorization *customerdomainUC.AuthorizationCustomerDomainUseCase
 	Organization          *powerx.OrganizationUseCase
-	Customer              *customerdomainUC.CustomerUseCase
-	Lead                  *customerdomainUC.LeadUseCase
+	CustomerAuthorization *customerDomainUC.AuthorizationCustomerDomainUseCase
+	Customer              *customerDomainUC.CustomerUseCase
+	Lead                  *customerDomainUC.LeadUseCase
 	Product               *productUC.ProductUseCase
 	ProductCategory       *productUC.ProductCategoryUseCase
 	PriceBook             *productUC.PriceBookUseCase
@@ -50,15 +50,21 @@ func NewPowerXUseCase(conf *config.Config) (uc *PowerXUseCase, clean func()) {
 	uc = &PowerXUseCase{
 		db: db,
 	}
-	// 加载子UseCase
+	// 加载组织架构UseCase
 	uc.Organization = powerx.NewOrganizationUseCase(db)
 	uc.AdminAuthorization = powerx.NewAdminPermsUseCase(db, uc.Organization)
-	uc.CustomerAuthorization = customerdomainUC.NewAuthorizationCustomerDomainUseCase(db)
-	uc.Customer = customerdomainUC.NewCustomerUseCase(db)
-	uc.Lead = customerdomainUC.NewLeadUseCase(db)
+
+	// 加载客域UseCase
+	uc.CustomerAuthorization = customerDomainUC.NewAuthorizationCustomerDomainUseCase(db)
+	uc.Customer = customerDomainUC.NewCustomerUseCase(db)
+	uc.Lead = customerDomainUC.NewLeadUseCase(db)
+
+	// 加载产品服务UseCase
 	uc.Product = productUC.NewProductUseCase(db)
 	uc.ProductCategory = productUC.NewProductCategoryUseCase(db)
 	uc.PriceBook = productUC.NewPriceBookUseCase(db)
+
+	// 加载微信UseCase
 	uc.WechatMP = powerx.NewWechatMiniProgramUseCase(db, conf)
 	uc.WechatOA = powerx.NewWechatOfficialAccountUseCase(db, conf)
 
