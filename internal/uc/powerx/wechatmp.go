@@ -134,14 +134,3 @@ func (uc *WechatMiniProgramUseCase) UpsertMPCustomers(ctx context.Context, custo
 
 	return customers, err
 }
-
-func (uc *WechatMiniProgramUseCase) ConvertMPPhoneInfoToMPCustomer(ctx context.Context, mpPhoneInfo *model.MPPhoneInfo, mpCustomer *model.WechatMPCustomer) *model.WechatMPCustomer {
-
-	mpCustomer.PhoneNumber = mpPhoneInfo.PhoneNumber
-	mpCustomer.PurePhoneNumber = mpPhoneInfo.PurePhoneNumber
-	mpCustomer.CountryCode = mpPhoneInfo.CountryCode
-	mpCustomer.WatermarkTimestamp = mpPhoneInfo.Watermark.Timestamp
-	mpCustomer.WatermarkAppID = mpPhoneInfo.Watermark.Appid
-
-	return mpCustomer
-}

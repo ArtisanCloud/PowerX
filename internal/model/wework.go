@@ -3,11 +3,11 @@ package model
 import "github.com/ArtisanCloud/PowerLibs/v3/object"
 
 type WeWorkExternalContact struct {
-	*Model
+	Model
 	CorpID         object.NullString `gorm:"index:index_corp_id;column:corp_id" json:"corpID"`
 	AppID          object.NullString `gorm:"index:index_app_id;column:app_id" json:"appID"`
-	ExternalUserID object.NullString `gorm:"index:index_external_user_id;column:external_user_id;not null;index:,unique" json:"externalUserID"`
-	OpenID         object.NullString `gorm:"index:index_customer_open_id;column:open_id;index:,unique" json:"openID"`
+	ExternalUserID object.NullString `gorm:"index:index_external_user_id;column:external_user_id;not null;" json:"externalUserID"`
+	OpenID         object.NullString `gorm:"index:index_customer_open_id;column:open_id;" json:"openID"`
 	UnionID        object.NullString `gorm:"index:index_union_id;column:union_id" json:"unionID"`
 
 	Name            string `gorm:"column:name" json:"name"`

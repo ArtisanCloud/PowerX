@@ -5,13 +5,13 @@ import (
 	"gorm.io/gorm"
 )
 
-const OPERATION_EVENT_CREATE = 1
-const OPERATION_EVENT_UPDATE = 2
-const OPERATION_EVENT_DELETE = 3
+const OperationEventCreate = 1
+const OperationEventUpdate = 2
+const OperationEventDelete = 3
 
-const OPERATION_RESULT_SUCCESS = 1
-const OPERATION_RESULT_FAILED = 2
-const OPERATION_RESULT_CANCEL = 3
+const OperationResultSuccess = 1
+const OperationResultFailed = 2
+const OperationResultCancel = 3
 
 // TableName overrides the table name used by price_book to `profiles`
 func (mdl *PowerOperationLog) TableName() string {
@@ -20,22 +20,22 @@ func (mdl *PowerOperationLog) TableName() string {
 
 // PowerOperationLog 数据表结构
 type PowerOperationLog struct {
-	*PowerCompactModel
+	*PowerModel
 
 	OperatorName  *string `gorm:"column:operatorName" json:"operatorName"`
 	OperatorTable *string `gorm:"column:operatorTable" json:"operatorTable"`
-	OperatorID    *int32  `gorm:"column:operatorID;index" json:"operatorID"`
+	OperatorID    *int64  `gorm:"column:operatorID;index" json:"operatorID"`
 	Module        *int16  `gorm:"column:module" json:"module"`
 	Operate       *string `gorm:"column:operate" json:"operate"`
 	Event         *int8   `gorm:"column:event" json:"event"`
 	ObjectName    *string `gorm:"column:objectName" json:"objectName"`
 	ObjectTable   *string `gorm:"column:objectTable" json:"objectTable"`
-	ObjectID      *int32  `gorm:"column:objectID;index" json:"objectID"`
+	ObjectID      *int64  `gorm:"column:objectID;index" json:"objectID"`
 	Result        *int8   `gorm:"column:result" json:"result"`
 }
 
-const TABLE_NAME_OPERATION_LOG = "power_operation_log"
-const OPERAION_LOG_UNIQUE_ID = CompactUniqueId
+const TableNameOperationLog = "power_operation_log"
+const OperationLogUniqueId = UniqueId
 
 func NewPowerOperationLog(mapObject *object.Collection) *PowerOperationLog {
 
@@ -44,23 +44,23 @@ func NewPowerOperationLog(mapObject *object.Collection) *PowerOperationLog {
 	}
 
 	return &PowerOperationLog{
-		PowerCompactModel: NewPowerCompactModel(),
-		OperatorName:      mapObject.GetStringPointer("operatorName", ""),
-		OperatorTable:     mapObject.GetStringPointer("operatorTable", ""),
-		OperatorID:        mapObject.GetInt32Pointer("operatorID", 0),
-		Module:            mapObject.GetInt16Pointer("module", 0),
-		Operate:           mapObject.GetStringPointer("operate", ""),
-		Event:             mapObject.GetInt8Pointer("event", 0),
-		ObjectName:        mapObject.GetStringPointer("objectName", ""),
-		ObjectTable:       mapObject.GetStringPointer("objectTable", ""),
-		ObjectID:          mapObject.GetInt32Pointer("objectID", 0),
-		Result:            mapObject.GetInt8Pointer("result", 0),
+		PowerModel:    NewPowerModel(),
+		OperatorName:  mapObject.GetStringPointer("operatorName", ""),
+		OperatorTable: mapObject.GetStringPointer("operatorTable", ""),
+		OperatorID:    mapObject.GetInt64Pointer("operatorID", 0),
+		Module:        mapObject.GetInt16Pointer("module", 0),
+		Operate:       mapObject.GetStringPointer("operate", ""),
+		Event:         mapObject.GetInt8Pointer("event", 0),
+		ObjectName:    mapObject.GetStringPointer("objectName", ""),
+		ObjectTable:   mapObject.GetStringPointer("objectTable", ""),
+		ObjectID:      mapObject.GetInt64Pointer("objectID", 0),
+		Result:        mapObject.GetInt8Pointer("result", 0),
 	}
 }
 
 // 获取当前 Model 的数据库表名称
 func (mdl *PowerOperationLog) GetTableName(needFull bool) string {
-	tableName := TABLE_NAME_OPERATION_LOG
+	tableName := TableNameOperationLog
 	if needFull {
 		tableName = "public.ac_" + tableName
 	}
@@ -75,7 +75,7 @@ func (mdl *PowerOperationLog) SaveOps(db *gorm.DB,
 ) error {
 
 	operatorTable := ""
-	var operatorID int32 = 0
+	var operatorID int64 = 0
 	if operator != nil {
 		operatorTable = operator.GetTableName(true)
 		operatorID = operator.GetID()
@@ -88,17 +88,17 @@ func (mdl *PowerOperationLog) SaveOps(db *gorm.DB,
 	objectID := object.GetID()
 
 	ops := &PowerOperationLog{
-		PowerCompactModel: NewPowerCompactModel(),
-		OperatorName:      &operatorName,
-		OperatorTable:     &operatorTable,
-		OperatorID:        &operatorID,
-		Module:            &module,
-		Operate:           &operate,
-		Event:             &event,
-		ObjectName:        &objectName,
-		ObjectTable:       &objectTable,
-		ObjectID:          &objectID,
-		Result:            &result,
+		PowerModel:    NewPowerModel(),
+		OperatorName:  &operatorName,
+		OperatorTable: &operatorTable,
+		OperatorID:    &operatorID,
+		Module:        &module,
+		Operate:       &operate,
+		Event:         &event,
+		ObjectName:    &objectName,
+		ObjectTable:   &objectTable,
+		ObjectID:      &objectID,
+		Result:        &result,
 	}
 
 	db = db.Save(ops)

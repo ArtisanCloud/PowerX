@@ -21,7 +21,7 @@ type PivotInterface interface {
 }
 
 type PowerPivot struct {
-	ID        int32     `gorm:"AUTO_INCREMENT;PRIMARY_KEY;not null" json:"id"`
+	ID        int64     `gorm:"AUTO_INCREMENT;PRIMARY_KEY;not null" json:"id"`
 	CreatedAt time.Time `gorm:"column:created_at; ->;<-:create " json:"createdAt"`
 	UpdatedAt time.Time `gorm:"column:updated_at" json:"updatedAt"`
 }
@@ -42,7 +42,7 @@ func (mdl *PowerPivot) GetTableName(needFull bool) string {
 func (mdl *PowerPivot) GetPowerModel() ModelInterface {
 	return mdl
 }
-func (mdl *PowerPivot) GetID() int32 {
+func (mdl *PowerPivot) GetID() int64 {
 	return mdl.ID
 }
 

@@ -1,0 +1,27 @@
+syntax = "v1"
+
+
+info(
+    title: "小程序产品模块"
+    desc: "小程序产品模块接口集合"
+    author: "MichaelHu"
+    email: "matrix-x@artisan-cloud.com"
+    version: "v1"
+)
+
+@server(
+    group: mp/product
+    prefix: /api/v1/mp/product
+    middleware: MPCustomerJWTAuth
+)
+
+
+service PowerX {
+    @doc "产品列表"
+    @handler Product
+    post /list (MPCustomerLoginRequest) returns (MPCustomerLoginAuthReply)
+
+
+}
+
+

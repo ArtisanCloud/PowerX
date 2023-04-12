@@ -1,81 +1,64 @@
 syntax = "v1"
 
 info(
-    title: "线索池"
-    desc: "线索池"
-    author: "Northseadl"
-    email: "northseadl@outlook.com"
+    title: "产品品类"
+    desc: "产品品类"
+    author: "MichaelHu"
+    email: "matrix-x@artisan-cloud.com"
     version: "v1"
 )
 
 
 @server(
-    group: admin/lead
-    prefix: /api/v1/admin/lead
+    group: admin/product
+    prefix: /api/v1/admin/product/category
     middleware: EmployeeJWTAuth
 )
 
 service PowerX {
-    @doc "查询线索列表"
-    @handler ListLeads
-    get /leads (ListLeadsRequest) returns (ListLeadsReply)
+    @doc "查询产品品类列表"
+    @handler ListProductCategories
+    get /categories (ListProductCategoriesRequest) returns (ListProductCategoriesReply)
 
-    @doc "创建线索"
-    @handler CreateLead
-    post /leads (CreateLeadRequest) returns (CreateLeadReply)
+    @doc "创建产品品类"
+    @handler CreateProductCategory
+    post /categories(CreateProductCategoryRequest) returns (CreateProductCategoryReply)
 
-    @doc "编辑线索"
-    @handler PatchLead
-    patch /leads/:id (PatchLeadRequest) returns (PatchLeadReply)
+    @doc "编辑产品品类"
+    @handler PatchProductCategory
+    patch /categories/:id (PatchProductCategoryRequest) returns (PatchProductCategoryReply)
 
-    @doc "删除线索"
-    @handler DeleteLead
-    delete /leads/:id (DeleteLeadRequest) returns (DeleteLeadReply)
+    @doc "删除产品品类"
+    @handler DeleteProductCategory
+    delete /categories/:id (DeleteProductCategoryRequest) returns (DeleteProductCategoryReply)
 
-    @doc "分配线索给员工"
-    @handler AssignLeadToEmployee
-    post /leads/:id/actions/assign-to-employee (AssignLeadToEmployeeRequest) returns (AssignLeadToEmployeeReply)
+
 }
 
 type (
-    LeadExternalId {
-        OpenIDInMiniProgram string `json:"openIdInMiniProgram,optional"`
-        OpenIDInWeChatOfficialAccount string `json:"openIdInWeChatOfficialAccount,optional"`
-        OpenIDInWeCom string `json:"openIdInWeCom,optional"`
-    }
-)
 
-type (
-    LeadInviter {
+    Product {
         Id int64 `json:"id"`
         Name string `json:"name"`
         Mobile string `json:"mobile"`
         Email string `json:"email"`
-    }
-
-    Lead {
-        Id int64 `json:"id"`
-        Name string `json:"name"`
-        Mobile string `json:"mobile"`
-        Email string `json:"email"`
-        Inviter LeadInviter `json:"inviter"`
         Source string `json:"source"`
         Status string `json:"status"`
         CreatedAt string `json:"createdAt"`
-        LeadExternalId
+        
     }
 )
 
 type (
-    ListLeadsRequest {
+    ListProductCategoriesRequest {
         LikeTitle string `json:"likeTitle,optional"`
         LikePhoneNumber string `json:"likePhoneNumber,optional"`
         Sources []string `json:"sources,optional"`
         Statuses []string `json:"statuses,optional"`
     }
 
-    ListLeadsReply {
-        List []Lead `json:"list"`
+    ListProductCategoriesReply {
+        List []Product `json:"list"`
         PageIndex int32 `json:"pageIndex"`
         PageSize int32 `json:"pageSize"`
         Total int64 `json:"total"`
@@ -83,7 +66,7 @@ type (
 )
 
 type (
-    CreateLeadRecord {
+    CreateProductRecord {
         Id int64 `json:"id"`
         Name string `json:"name"`
         Mobile string `json:"mobile,optional"`
@@ -93,15 +76,15 @@ type (
         Status string `json:"status,optional,options=open|following|closed_lost|closed_won"`
         Type string `json:"type,optional,options=personal|company"`
         IsActive *bool `json:"IsActive,optional"`
-        LeadExternalId
+        
     }
 
-    CreateLeadRequest {
-        List []CreateLeadRecord `json:"list"`
+    CreateProductCategoryRequest {
+        List []CreateProductRecord `json:"list"`
     }
 
-    CreateLeadReply {
-        List []Lead `json:"list"`
+    CreateProductCategoryReply {
+        List []Product `json:"list"`
         PageIndex int32 `json:"pageIndex"`
         PageSize int32 `json:"pageSize"`
         Total int64 `json:"total"`
@@ -109,7 +92,7 @@ type (
 )
 
 type (
-    PatchLeadRequest {
+    PatchProductCategoryRequest {
         Id int64 `path:"id"`
         Name string `json:"name,optional"`
         Mobile string `json:"mobile,optional"`
@@ -119,31 +102,20 @@ type (
         Status string `json:"status,optional,options=open|following|closed_lost|closed_won"`
         Type string `json:"type,optional,options=personal|company"`
         IsActive *bool `json:"IsActive,optional"`
-        LeadExternalId
+        
     }
 
-    PatchLeadReply {
-        Lead
-    }
-)
-
-type (
-    DeleteLeadRequest {
-        Id int64 `json:"id"`
-    }
-
-    DeleteLeadReply {
-        Id int64 `json:"id"`
+    PatchProductCategoryReply {
+        Product
     }
 )
 
 type (
-    AssignLeadToEmployeeRequest {
-        Id int64 `path:"id"`
-        EmployeeId int64 `json:"employeeId"`
+    DeleteProductCategoryRequest {
+        Id int64 `json:"id"`
     }
 
-    AssignLeadToEmployeeReply {
-        Lead
+    DeleteProductCategoryReply {
+        Id int64 `json:"id"`
     }
 )
