@@ -48,7 +48,7 @@ func NewPowerXUseCase(conf *config.Config) (uc *PowerXUseCase, clean func()) {
 	// 加载子UseCase
 	uc.DataDictionaryUserCase = powerx.NewDataDictionaryUseCase(db)
 	uc.Organization = powerx.NewOrganizationUseCase(db)
-	uc.AdminAuthorization = powerx.NewAdminPermsUseCase(db, uc.Organization)
+	uc.AdminAuthorization = powerx.NewAdminPermsUseCase(conf, db, uc.Organization)
 	uc.CustomerAuthorization = powerx.NewAuthorizationCustomerUseCase(db)
 	uc.WechatMP = powerx.NewWechatMiniProgramUseCase(db, conf)
 	uc.WechatOA = powerx.NewWechatOfficialAccountUseCase(db, conf)

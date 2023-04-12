@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"github.com/zeromicro/go-zero/rest/httpx"
+	"path"
 
 	"PowerX/internal/config"
 	"PowerX/internal/handler"
@@ -21,6 +22,8 @@ func main() {
 
 	var c config.Config
 	conf.MustLoad(*configFile, &c)
+
+	c.EtcDir = path.Dir(*configFile)
 
 	server := rest.MustNewServer(c.Server)
 	defer server.Stop()

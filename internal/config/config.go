@@ -39,6 +39,7 @@ type WechatMP struct {
 
 type Config struct {
 	Server         rest.RestConf
+	EtcDir         string `json:",optional"`
 	JWTSecret      string
 	PowerXDatabase Database
 
