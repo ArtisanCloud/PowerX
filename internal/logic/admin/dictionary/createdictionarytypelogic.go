@@ -1,6 +1,7 @@
 package dictionary
 
 import (
+	"PowerX/internal/model"
 	"context"
 
 	"PowerX/internal/svc"
@@ -24,7 +25,17 @@ func NewCreateDictionaryTypeLogic(ctx context.Context, svcCtx *svc.ServiceContex
 }
 
 func (l *CreateDictionaryTypeLogic) CreateDictionaryType(req *types.CreateDictionaryTypeRequest) (resp *types.CreateDictionaryTypeReply, err error) {
-	// todo: add your logic here and delete this line
+	typ := model.DataDictionaryType{
+		Type:        req.Type,
+		Name:        req.Name,
+		Description: req.Description,
+	}
 
-	return
+	if err := l.svcCtx.PowerX.DataDictionaryUserCase.CreateDataDictionaryType(l.ctx, &typ); err != nil {
+		return nil, err
+	}
+
+	return &types.CreateDictionaryTypeReply{
+		Type: typ.Type,
+	}, nil
 }

@@ -24,7 +24,8 @@ func NewDeleteDictionaryItemLogic(ctx context.Context, svcCtx *svc.ServiceContex
 }
 
 func (l *DeleteDictionaryItemLogic) DeleteDictionaryItem(req *types.DeleteDictionaryItemRequest) (resp *types.DeleteDictionaryItemReply, err error) {
-	// todo: add your logic here and delete this line
-
-	return
+	return &types.DeleteDictionaryItemReply{
+		Key:  req.Key,
+		Type: req.Type,
+	}, nil
 }

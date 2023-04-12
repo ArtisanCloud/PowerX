@@ -16,7 +16,7 @@
     "application/json"
   ],
   "paths": {
-    "/api/admin/permission/v1/api-list": {
+    "/api/v1/admin/permission/api-list": {
       "get": {
         "summary": "查询API列表",
         "operationId": "ListAPI",
@@ -32,7 +32,7 @@
           {
             "name": "groupId",
             "in": "query",
-            "required": true,
+            "required": false,
             "type": "integer",
             "format": "int64"
           }
@@ -43,7 +43,7 @@
         ]
       }
     },
-    "/api/admin/permission/v1/roles": {
+    "/api/v1/admin/permission/roles": {
       "get": {
         "summary": "查询角色列表",
         "operationId": "ListRoles",
@@ -87,7 +87,7 @@
         ]
       }
     },
-    "/api/admin/permission/v1/roles/{roleCode}": {
+    "/api/v1/admin/permission/roles/{roleCode}": {
       "get": {
         "summary": "获取角色详情",
         "operationId": "GetRole",
@@ -112,14 +112,14 @@
           "admin/permission"
         ]
       },
-      "put": {
+      "patch": {
         "summary": "更新角色详情",
-        "operationId": "PutRole",
+        "operationId": "PatchRole",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/PutRoleReply"
+              "$ref": "#/definitions/PatchRoleReply"
             }
           }
         },
@@ -135,7 +135,7 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/PutRoleReqeust"
+              "$ref": "#/definitions/PatchRoleReqeust"
             }
           }
         ],
@@ -145,7 +145,41 @@
         ]
       }
     },
-    "/api/admin/permission/v1/roles/{roleCode}/actions/set-permissions": {
+    "/api/v1/admin/permission/roles/{roleCode}/actions/set-employees": {
+      "post": {
+        "summary": "为角色分配用户",
+        "operationId": "SetRoleEmployees",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/SetRoleEmployeesReply"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "roleCode",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/SetRoleEmployeesRequest"
+            }
+          }
+        ],
+        "requestBody": {},
+        "tags": [
+          "admin/permission"
+        ]
+      }
+    },
+    "/api/v1/admin/permission/roles/{roleCode}/actions/set-permissions": {
       "post": {
         "summary": "为角色授予API权限",
         "operationId": "SetRolePermissions",
@@ -179,7 +213,7 @@
         ]
       }
     },
-    "/api/admin/permission/v1/roles/{roleCode}/users": {
+    "/api/v1/admin/permission/roles/{roleCode}/users": {
       "get": {
         "summary": "获取角色的用户列表",
         "operationId": "GetRoleEmployees",
@@ -219,7 +253,7 @@
         ]
       }
     },
-    "/api/admin/permission/v1/users/{userId}/actions/set-roles": {
+    "/api/v1/admin/permission/users/{userId}/actions/set-roles": {
       "post": {
         "summary": "为用户授予角色",
         "operationId": "SetUserRoles",
@@ -271,6 +305,13 @@
         "name": {
           "type": "string"
         },
+        "groupId": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "groupName": {
+          "type": "string"
+        },
         "desc": {
           "type": "string"
         }
@@ -281,6 +322,8 @@
         "api",
         "method",
         "name",
+        "groupId",
+        "groupName",
         "desc"
       ]
     },
@@ -466,10 +509,7 @@
           "format": "int64"
         }
       },
-      "title": "ListAPIRequest",
-      "required": [
-        "groupId"
-      ]
+      "title": "ListAPIRequest"
     },
     "ListRolesReply": {
       "type": "object",
@@ -486,16 +526,16 @@
         "list"
       ]
     },
-    "PutRoleReply": {
+    "PatchRoleReply": {
       "type": "object",
       "properties": {
         "": {
           "$ref": "#/definitions/AdminRole"
         }
       },
-      "title": "PutRoleReply"
+      "title": "PatchRoleReply"
     },
-    "PutRoleReqeust": {
+    "PatchRoleReqeust": {
       "type": "object",
       "properties": {
         "roleCode": {
@@ -521,13 +561,10 @@
           }
         }
       },
-      "title": "PutRoleReqeust",
+      "title": "PatchRoleReqeust",
       "required": [
         "roleCode",
-        "name",
-        "desc",
-        "apiIds",
-        "menuNames"
+        "name"
       ]
     },
     "RoleEmployee": {
@@ -582,6 +619,38 @@
       "required": [
         "id",
         "name"
+      ]
+    },
+    "SetRoleEmployeesReply": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string"
+        }
+      },
+      "title": "SetRoleEmployeesReply",
+      "required": [
+        "status"
+      ]
+    },
+    "SetRoleEmployeesRequest": {
+      "type": "object",
+      "properties": {
+        "roleCode": {
+          "type": "string"
+        },
+        "employeeIds": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "title": "SetRoleEmployeesRequest",
+      "required": [
+        "roleCode",
+        "employeeIds"
       ]
     },
     "SetRolePermissionsReply": {

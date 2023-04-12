@@ -15,6 +15,20 @@ func (p *PageOption[T]) DefaultPageIfNotSet() {
 	}
 }
 
+type PageEmbedOption struct {
+	PageIndex int
+	PageSize  int
+}
+
+func (p *PageEmbedOption) DefaultPageIfNotSet() {
+	if p.PageIndex == 0 {
+		p.PageIndex = 1
+	}
+	if p.PageSize == 0 {
+		p.PageSize = 20
+	}
+}
+
 type Page[T any] struct {
 	List      []T
 	PageIndex int

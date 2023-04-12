@@ -1,10 +1,11 @@
 package dictionary
 
 import (
-	"context"
-
+	"PowerX/internal/model"
 	"PowerX/internal/svc"
 	"PowerX/internal/types"
+	"context"
+	"fmt"
 
 	"github.com/zeromicro/go-zero/core/logx"
 )
@@ -24,7 +25,22 @@ func NewUpdateDictionaryTypeLogic(ctx context.Context, svcCtx *svc.ServiceContex
 }
 
 func (l *UpdateDictionaryTypeLogic) UpdateDictionaryType(req *types.UpdateDictionaryTypeRequest) (resp *types.UpdateDictionaryTypeReply, err error) {
-	// todo: add your logic here and delete this line
+	newModel := model.DataDictionaryType{
+		Name:        req.Name,
+		Description: req.Description,
+	}
 
-	return
+	if err := l.svcCtx.PowerX.DataDictionaryUserCase.PatchDataDictionaryType(l.ctx, req.Type, &newModel); err != nil {
+		return nil, err
+	}
+
+	fmt.Println(newModel)
+
+	return &types.UpdateDictionaryTypeReply{
+		DictionaryType: &types.DictionaryType{
+			Type:        req.Type,
+			Name:        newModel.Name,
+			Description: newModel.Description,
+		},
+	}, nil
 }

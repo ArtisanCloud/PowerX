@@ -16,7 +16,7 @@
     "application/json"
   ],
   "paths": {
-    "/api/admin/user-center/v1/menu-roles": {
+    "/api/v1/admin/user-center/menu-roles": {
       "get": {
         "summary": "获取用户可见菜单",
         "operationId": "GetMenuRoles",
@@ -34,7 +34,7 @@
         ]
       }
     },
-    "/api/admin/user-center/v1/user-info": {
+    "/api/v1/admin/user-center/user-info": {
       "get": {
         "summary": "获取用户信息",
         "operationId": "GetUserInfo",
@@ -52,7 +52,7 @@
         ]
       }
     },
-    "/api/admin/user-center/v1/users/actions/modify-password": {
+    "/api/v1/admin/user-center/users/actions/modify-password": {
       "post": {
         "summary": "修改密码",
         "operationId": "ModifyUserPassword",

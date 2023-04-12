@@ -13,26 +13,31 @@ import (
 	"github.com/pkg/errors"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
 type PowerXUseCase struct {
-	db                    *gorm.DB
-	AdminAuthorization    *powerx.AdminPermsUseCase
-	Organization          *powerx.OrganizationUseCase
+	db                     *gorm.DB
+	DataDictionaryUserCase *powerx.DataDictionaryUseCase
+	AdminAuthorization     *powerx.AdminPermsUseCase
+
+	Organization           *powerx.OrganizationUseCase
+
 	CustomerAuthorization *customerDomainUC.AuthorizationCustomerDomainUseCase
 	Customer              *customerDomainUC.CustomerUseCase
 	Lead                  *customerDomainUC.LeadUseCase
 	Product               *productUC.ProductUseCase
 	ProductCategory       *productUC.ProductCategoryUseCase
 	PriceBook             *productUC.PriceBookUseCase
-	WechatMP              *powerx.WechatMiniProgramUseCase
-	WechatOA              *powerx.WechatOfficialAccountUseCase
+	WechatMP               *powerx.WechatMiniProgramUseCase
+	WechatOA               *powerx.WechatOfficialAccountUseCase
+	SCRM                   *powerx.SCRMUseCase
 }
 
 func NewPowerXUseCase(conf *config.Config) (uc *PowerXUseCase, clean func()) {
 	// 启动数据库并测试连通性
 	db, err := gorm.Open(postgres.Open(conf.PowerXDatabase.DSN), &gorm.Config{
-		//Logger:                                   logger.Default.LogMode(logger.Info),
+		Logger:                                   logger.Default.LogMode(logger.Info),
 		DisableForeignKeyConstraintWhenMigrating: true,
 	})
 	if err != nil {
@@ -50,9 +55,12 @@ func NewPowerXUseCase(conf *config.Config) (uc *PowerXUseCase, clean func()) {
 	uc = &PowerXUseCase{
 		db: db,
 	}
+	// 加载基础UseCase
+	uc.DataDictionaryUserCase = powerx.NewDataDictionaryUseCase(db)
+
 	// 加载组织架构UseCase
 	uc.Organization = powerx.NewOrganizationUseCase(db)
-	uc.AdminAuthorization = powerx.NewAdminPermsUseCase(db, uc.Organization)
+	uc.AdminAuthorization = powerx.NewAdminPermsUseCase(conf, db, uc.Organization)
 
 	// 加载客域UseCase
 	uc.CustomerAuthorization = customerDomainUC.NewAuthorizationCustomerDomainUseCase(db)
@@ -68,6 +76,9 @@ func NewPowerXUseCase(conf *config.Config) (uc *PowerXUseCase, clean func()) {
 	uc.WechatMP = powerx.NewWechatMiniProgramUseCase(db, conf)
 	uc.WechatOA = powerx.NewWechatOfficialAccountUseCase(db, conf)
 
+	// 加载SCRM UseCase
+	uc.SCRM = powerx.NewSCRMUseCase(db, conf)
+
 	uc.AutoMigrate(context.Background())
 	uc.AutoInit()
 
@@ -77,6 +88,7 @@ func NewPowerXUseCase(conf *config.Config) (uc *PowerXUseCase, clean func()) {
 }
 
 func (p *PowerXUseCase) AutoMigrate(ctx context.Context) {
+	p.db.AutoMigrate(&model.DataDictionaryType{}, &model.DataDictionaryItem{})
 	p.db.AutoMigrate(&powerx.Department{}, &powerx.Employee{})
 	p.db.AutoMigrate(&powerx.EmployeeCasbinPolicy{}, powerx.AdminRole{}, powerx.AdminRoleMenuName{}, powerx.AdminAPI{})
 

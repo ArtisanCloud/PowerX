@@ -1,0 +1,371 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "通用接口",
+    "description": "通用接口",
+    "version": "v1"
+  },
+  "schemes": [
+    "http",
+    "https"
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "paths": {
+    "/api/v1/admin/common/options/departments": {
+      "get": {
+        "summary": "部门Options远程搜索",
+        "operationId": "GetDepartmentOptions",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/GetDepartmentOptionsReply"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "ids",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int64"
+          },
+          {
+            "name": "likeName",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "pageIndex",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          }
+        ],
+        "requestBody": {},
+        "tags": [
+          "admin/common"
+        ]
+      }
+    },
+    "/api/v1/admin/common/options/employee-query": {
+      "get": {
+        "summary": "查询员工过滤条件",
+        "operationId": "GetEmployeeQueryOptions",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/GetEmployeeQueryOptionsReply"
+            }
+          }
+        },
+        "requestBody": {},
+        "tags": [
+          "admin/common"
+        ]
+      }
+    },
+    "/api/v1/admin/common/options/employees": {
+      "get": {
+        "summary": "员工Options远程搜索",
+        "operationId": "GetEmployeeOptions",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/GetEmployeeOptionsReply"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "likeName",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "likeEmail",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "likePhoneNumber",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "pageIndex",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          }
+        ],
+        "requestBody": {},
+        "tags": [
+          "admin/common"
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "DepartmentOption": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "title": "DepartmentOption",
+      "required": [
+        "id",
+        "name"
+      ]
+    },
+    "EmployeeOption": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "avatar": {
+          "type": "string"
+        },
+        "account": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "email": {
+          "type": "string"
+        },
+        "phoneNumber": {
+          "type": "string"
+        }
+      },
+      "title": "EmployeeOption",
+      "required": [
+        "id",
+        "avatar",
+        "account",
+        "name",
+        "email",
+        "phoneNumber"
+      ]
+    },
+    "EmployeeQueryDepartmentOption": {
+      "type": "object",
+      "properties": {
+        "departmentId": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "departmentName": {
+          "type": "string"
+        }
+      },
+      "title": "EmployeeQueryDepartmentOption",
+      "required": [
+        "departmentId",
+        "departmentName"
+      ]
+    },
+    "EmployeeQueryRoleOption": {
+      "type": "object",
+      "properties": {
+        "roleCode": {
+          "type": "string"
+        },
+        "roleName": {
+          "type": "string"
+        }
+      },
+      "title": "EmployeeQueryRoleOption",
+      "required": [
+        "roleCode",
+        "roleName"
+      ]
+    },
+    "GetDepartmentOptionsReply": {
+      "type": "object",
+      "properties": {
+        "list": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/DepartmentOption"
+          }
+        },
+        "pageIndex": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "pageSize": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "total": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "title": "GetDepartmentOptionsReply",
+      "required": [
+        "list",
+        "pageIndex",
+        "pageSize",
+        "total"
+      ]
+    },
+    "GetDepartmentOptionsRequest": {
+      "type": "object",
+      "properties": {
+        "ids": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        "likeName": {
+          "type": "string"
+        },
+        "pageIndex": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "pageSize": {
+          "type": "integer",
+          "format": "int32"
+        }
+      },
+      "title": "GetDepartmentOptionsRequest"
+    },
+    "GetEmployeeOptionsReply": {
+      "type": "object",
+      "properties": {
+        "list": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/EmployeeOption"
+          }
+        },
+        "pageIndex": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "pageSize": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "total": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "title": "GetEmployeeOptionsReply",
+      "required": [
+        "list",
+        "pageIndex",
+        "pageSize",
+        "total"
+      ]
+    },
+    "GetEmployeeOptionsRequest": {
+      "type": "object",
+      "properties": {
+        "likeName": {
+          "type": "string"
+        },
+        "likeEmail": {
+          "type": "string"
+        },
+        "likePhoneNumber": {
+          "type": "string"
+        },
+        "pageIndex": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "pageSize": {
+          "type": "integer",
+          "format": "int32"
+        }
+      },
+      "title": "GetEmployeeOptionsRequest"
+    },
+    "GetEmployeeQueryOptionsReply": {
+      "type": "object",
+      "properties": {
+        "positions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "roles": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/EmployeeQueryRoleOption"
+          }
+        },
+        "departments": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/EmployeeQueryDepartmentOption"
+          }
+        }
+      },
+      "title": "GetEmployeeQueryOptionsReply",
+      "required": [
+        "positions",
+        "roles",
+        "departments"
+      ]
+    }
+  },
+  "securityDefinitions": {
+    "apiKey": {
+      "type": "apiKey",
+      "description": "Enter JWT Bearer token **_only_**",
+      "name": "Authorization",
+      "in": "header"
+    }
+  },
+  "security": [
+    {
+      "apiKey": []
+    }
+  ]
+}

@@ -1,0 +1,46 @@
+syntax = "v1"
+
+info(
+    title: "企业微信员工管理"
+    desc: "企业微信员工管理"
+    author: "Northseadl"
+    email: "northseadl@outlook.com"
+    version: "v1"
+)
+
+@server(
+    group: admin/scrm/contact
+    prefix: /api/v1/admin/scrm/contact
+    middleware: EmployeeJWTAuth
+)
+
+service PowerX {
+    @doc "同步通讯录"
+    @handler SyncWeWorkContact
+    post /contacts/actions/sync returns (SyncWeWorkContactReply)
+
+    @doc "获取员工列表"
+    @handler ListWeWorkEmployee
+    get /employees (ListWeWorkEmployeeReqeust) returns (ListWeWorkEmployeeReply)
+}
+
+type (
+    SyncWeWorkContactReply struct {
+        Status string `json:"status"`
+    }
+)
+
+type (
+    ListWeWorkEmployeeReqeust {
+        PageIndex int `form:"pageIndex"`
+        PageSize int `form:"pageSize"`
+    }
+
+    ListWeWorkEmployeeReply {
+        PageIndex int `json:"pageIndex"`
+        PageSize int `json:"pageSize"`
+        Total int `json:"total"`
+    }
+)
+
+

@@ -1,0 +1,29 @@
+syntax = "v1"
+
+info(
+    title: "企业微信员工管理"
+    desc: "企业微信员工管理"
+    author: "Northseadl"
+    email: "northseadl@outlook.com"
+    version: "v1"
+)
+
+@server(
+    group: admin/scrm/setting
+    prefix: /api/v1/admin/scrm/setting
+    middleware: EmployeeJWTAuth
+)
+
+service PowerX {
+    @doc "同步通讯录"
+    @handler SyncWeWorkContact
+    get /contacts/actions/sync returns (SyncWeWorkContactReply)
+}
+
+type (
+    SyncWeWorkContactReply struct {
+        Status string `json:"status"`
+    }
+)
+
+

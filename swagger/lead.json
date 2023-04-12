@@ -1,0 +1,539 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "线索池",
+    "description": "线索池",
+    "version": "v1"
+  },
+  "schemes": [
+    "http",
+    "https"
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "paths": {
+    "/api/v1/admin/lead/leads": {
+      "get": {
+        "summary": "查询线索列表",
+        "operationId": "ListLeads",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/ListLeadsReply"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "likeTitle",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "likePhoneNumber",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "sources",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "statuses",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "requestBody": {},
+        "tags": [
+          "admin/lead"
+        ]
+      },
+      "post": {
+        "summary": "创建线索",
+        "operationId": "CreateLead",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/CreateLeadReply"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/CreateLeadRequest"
+            }
+          }
+        ],
+        "requestBody": {},
+        "tags": [
+          "admin/lead"
+        ]
+      }
+    },
+    "/api/v1/admin/lead/leads/{id}": {
+      "delete": {
+        "summary": "删除线索",
+        "operationId": "DeleteLead",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/DeleteLeadReply"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/DeleteLeadRequest"
+            }
+          }
+        ],
+        "requestBody": {},
+        "tags": [
+          "admin/lead"
+        ]
+      },
+      "patch": {
+        "summary": "编辑线索",
+        "operationId": "PatchLead",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/PatchLeadReply"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/PatchLeadRequest"
+            }
+          }
+        ],
+        "requestBody": {},
+        "tags": [
+          "admin/lead"
+        ]
+      }
+    },
+    "/api/v1/admin/lead/leads/{id}/actions/assign-to-employee": {
+      "post": {
+        "summary": "分配线索给员工",
+        "operationId": "AssignLeadToEmployee",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/AssignLeadToEmployeeReply"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/AssignLeadToEmployeeRequest"
+            }
+          }
+        ],
+        "requestBody": {},
+        "tags": [
+          "admin/lead"
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "AssignLeadToEmployeeReply": {
+      "type": "object",
+      "properties": {
+        "": {
+          "$ref": "#/definitions/Lead"
+        }
+      },
+      "title": "AssignLeadToEmployeeReply"
+    },
+    "AssignLeadToEmployeeRequest": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "employeeId": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "title": "AssignLeadToEmployeeRequest",
+      "required": [
+        "id",
+        "employeeId"
+      ]
+    },
+    "CreateLeadRecord": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "name": {
+          "type": "string"
+        },
+        "mobile": {
+          "type": "string"
+        },
+        "email": {
+          "type": "string"
+        },
+        "inviterId": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "source": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "isActived": {
+          "$ref": "#/definitions/bool"
+        },
+        "": {
+          "$ref": "#/definitions/LeadExternalId"
+        }
+      },
+      "title": "CreateLeadRecord",
+      "required": [
+        "id",
+        "name",
+        "source",
+        "status",
+        "type"
+      ]
+    },
+    "CreateLeadReply": {
+      "type": "object",
+      "properties": {
+        "list": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Lead"
+          }
+        },
+        "pageIndex": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "pageSize": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "total": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "title": "CreateLeadReply",
+      "required": [
+        "list",
+        "pageIndex",
+        "pageSize",
+        "total"
+      ]
+    },
+    "CreateLeadRequest": {
+      "type": "object",
+      "properties": {
+        "list": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/CreateLeadRecord"
+          }
+        }
+      },
+      "title": "CreateLeadRequest",
+      "required": [
+        "list"
+      ]
+    },
+    "DeleteLeadReply": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "title": "DeleteLeadReply",
+      "required": [
+        "id"
+      ]
+    },
+    "DeleteLeadRequest": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "title": "DeleteLeadRequest",
+      "required": [
+        "id"
+      ]
+    },
+    "Lead": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "name": {
+          "type": "string"
+        },
+        "mobile": {
+          "type": "string"
+        },
+        "email": {
+          "type": "string"
+        },
+        "inviter": {
+          "$ref": "#/definitions/LeadInviter"
+        },
+        "source": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "string"
+        },
+        "": {
+          "$ref": "#/definitions/LeadExternalId"
+        }
+      },
+      "title": "Lead",
+      "required": [
+        "id",
+        "name",
+        "mobile",
+        "email",
+        "inviter",
+        "source",
+        "status",
+        "createdAt"
+      ]
+    },
+    "LeadExternalId": {
+      "type": "object",
+      "properties": {
+        "openIdInMiniProgram": {
+          "type": "string"
+        },
+        "openIdInWeChatOfficialAccount": {
+          "type": "string"
+        },
+        "openIdInWeCom": {
+          "type": "string"
+        }
+      },
+      "title": "LeadExternalId"
+    },
+    "LeadInviter": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "name": {
+          "type": "string"
+        },
+        "mobile": {
+          "type": "string"
+        },
+        "email": {
+          "type": "string"
+        }
+      },
+      "title": "LeadInviter",
+      "required": [
+        "id",
+        "name",
+        "mobile",
+        "email"
+      ]
+    },
+    "ListLeadsReply": {
+      "type": "object",
+      "properties": {
+        "list": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Lead"
+          }
+        },
+        "pageIndex": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "pageSize": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "total": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "title": "ListLeadsReply",
+      "required": [
+        "list",
+        "pageIndex",
+        "pageSize",
+        "total"
+      ]
+    },
+    "ListLeadsRequest": {
+      "type": "object",
+      "properties": {
+        "likeTitle": {
+          "type": "string"
+        },
+        "likePhoneNumber": {
+          "type": "string"
+        },
+        "sources": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "statuses": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "title": "ListLeadsRequest"
+    },
+    "PatchLeadReply": {
+      "type": "object",
+      "properties": {
+        "": {
+          "$ref": "#/definitions/Lead"
+        }
+      },
+      "title": "PatchLeadReply"
+    },
+    "PatchLeadRequest": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "name": {
+          "type": "string"
+        },
+        "mobile": {
+          "type": "string"
+        },
+        "email": {
+          "type": "string"
+        },
+        "inviterId": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "source": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "isActived": {
+          "$ref": "#/definitions/bool"
+        },
+        "": {
+          "$ref": "#/definitions/LeadExternalId"
+        }
+      },
+      "title": "PatchLeadRequest",
+      "required": [
+        "id",
+        "source",
+        "status",
+        "type"
+      ]
+    }
+  },
+  "securityDefinitions": {
+    "apiKey": {
+      "type": "apiKey",
+      "description": "Enter JWT Bearer token **_only_**",
+      "name": "Authorization",
+      "in": "header"
+    }
+  },
+  "security": [
+    {
+      "apiKey": []
+    }
+  ]
+}
