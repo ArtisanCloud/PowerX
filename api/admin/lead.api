@@ -92,7 +92,7 @@ type (
         Source string `json:"source,optional,options=mini_program|tiktok|h5|ad"`
         Status string `json:"status,optional,options=open|following|closed_lost|closed_won"`
         Type string `json:"type,optional,options=personal|company"`
-        IsActived *bool `json:"isActived,optional"`
+        IsActive *bool `json:"IsActive,optional"`
         LeadExternalId
     }
 
@@ -118,7 +118,7 @@ type (
         Source string `json:"source,optional,options=mini_program|tiktok|h5|advertisement"`
         Status string `json:"status,optional,options=open|following|closed_lost|closed_won"`
         Type string `json:"type,optional,options=personal|company"`
-        IsActived *bool `json:"isActived,optional"`
+        IsActive *bool `json:"IsActive,optional"`
         LeadExternalId
     }
 

@@ -4,7 +4,6 @@ import (
 	"PowerX/internal/model/powermodel"
 	"fmt"
 	"github.com/ArtisanCloud/PowerLibs/v3/object"
-	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
@@ -20,14 +19,10 @@ type PriceBookEntry struct {
 	UniqueID    object.NullString `gorm:"index:index_price_book_entry_price_book_id;index:index_price_book_entry_product_id;index;column:index_price_book_entry_id;unique"`
 	PriceBookId int64             `gorm:"index:index_price_book_entry_price_book_id;column:price_book_id;not null;" json:"priceBookId"`
 	ProductId   int64             `gorm:"index:index_price_book_entry_product_id;column:product_id;not null;" json:"productId"`
-	UnitPrice   float64           `gorm:"column:unit_price" json:"unitPrice"`
-	RetailPrice float64           `gorm:"column:retail_price" json:"retailPrice"`
-	Inventory   int16             `gorm:"column:inventory" json:"inventory"`
-	Weight      float32           `gorm:"column:weight" json:"weight"`
-	Volume      float32           `gorm:"column:volume" json:"volume"`
-	Encode      string            `gorm:"column:encode" json:"encode"`
-	BarCode     string            `gorm:"column:bar_code" json:"barCode"`
-	Extra       datatypes.JSON    `gorm:"column:extra" json:"extra"`
+	UnitPrice   float64           `gorm:"column:unit_price; comment:单价" json:"unitPrice"`
+	RetailPrice float64           `gorm:"column:retail_price; comment:零售价" json:"retailPrice"`
+	IsActive    bool              `gorm:"column:is_active; comment:是否激活" json:"isActive"`
+	ProductSpecific
 }
 
 const TableNamePriceBookEntry = "price_book_entries"
