@@ -1,8 +1,8 @@
 {
   "swagger": "2.0",
   "info": {
-    "title": "客户管理",
-    "description": "客户管理",
+    "title": "线索池",
+    "description": "线索池",
     "version": "v1"
   },
   "schemes": [
@@ -16,71 +16,57 @@
     "application/json"
   ],
   "paths": {
-    "/api/v1/admin/customer/customers": {
+    "/api/v1/admin/lead/leads": {
       "get": {
-        "summary": "获取客户列表",
-        "operationId": "ListCustomers",
+        "summary": "查询线索列表",
+        "operationId": "ListLeads",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/ListCustomersReply"
+              "$ref": "#/definitions/ListLeadsReply"
             }
           }
         },
         "parameters": [
           {
-            "name": "likeName",
+            "name": "likeTitle",
             "in": "query",
-            "required": true,
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "likePhoneNumber",
+            "in": "query",
+            "required": false,
             "type": "string"
           },
           {
             "name": "sources",
             "in": "query",
-            "required": true,
-            "type": "string"
-          },
-          {
-            "name": "likeMobile",
-            "in": "query",
-            "required": true,
+            "required": false,
             "type": "string"
           },
           {
             "name": "statuses",
             "in": "query",
-            "required": true,
+            "required": false,
             "type": "string"
-          },
-          {
-            "name": "page",
-            "in": "query",
-            "required": true,
-            "type": "integer",
-            "format": "int32"
-          },
-          {
-            "name": "pageSize",
-            "in": "query",
-            "required": true,
-            "type": "integer",
-            "format": "int32"
           }
         ],
         "requestBody": {},
         "tags": [
-          "admin/customer"
+          "admin/lead"
         ]
       },
       "post": {
-        "summary": "创建客户",
-        "operationId": "CreateCustomer",
+        "summary": "创建线索",
+        "operationId": "CreateLead",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/CreateCustomerReply"
+              "$ref": "#/definitions/CreateLeadReply"
             }
           }
         },
@@ -90,49 +76,25 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/CreateCustomerRequest"
+              "$ref": "#/definitions/CreateLeadRequest"
             }
           }
         ],
         "requestBody": {},
         "tags": [
-          "admin/customer"
+          "admin/lead"
         ]
       }
     },
-    "/api/v1/admin/customer/customers/{id}": {
-      "get": {
-        "summary": "查询客户",
-        "operationId": "GetCustomer",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/GetCustomerReply"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          }
-        ],
-        "requestBody": {},
-        "tags": [
-          "admin/customer"
-        ]
-      },
+    "/api/v1/admin/lead/leads/{id}": {
       "delete": {
-        "summary": "删除客户",
-        "operationId": "DeleteCustomer",
+        "summary": "删除线索",
+        "operationId": "DeleteLead",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/DeleteCustomerReply"
+              "$ref": "#/definitions/DeleteLeadReply"
             }
           }
         },
@@ -148,23 +110,23 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/DeleteCustomerRequest"
+              "$ref": "#/definitions/DeleteLeadRequest"
             }
           }
         ],
         "requestBody": {},
         "tags": [
-          "admin/customer"
+          "admin/lead"
         ]
       },
       "patch": {
-        "summary": "更新客户",
-        "operationId": "PatchCustomer",
+        "summary": "编辑线索",
+        "operationId": "PatchLead",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/PatchCustomerReply"
+              "$ref": "#/definitions/PatchLeadReply"
             }
           }
         },
@@ -180,25 +142,25 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/PatchCustomerRequest"
+              "$ref": "#/definitions/PatchLeadRequest"
             }
           }
         ],
         "requestBody": {},
         "tags": [
-          "admin/customer"
+          "admin/lead"
         ]
       }
     },
-    "/api/v1/admin/customer/customers/{id}/actions/employees": {
+    "/api/v1/admin/lead/leads/{id}/actions/assign-to-employee": {
       "post": {
-        "summary": "为客户分配员工",
-        "operationId": "AssignCustomerToEmployee",
+        "summary": "分配线索给员工",
+        "operationId": "AssignLeadToEmployee",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/AssignCustomerToEmployeeReply"
+              "$ref": "#/definitions/AssignLeadToEmployeeReply"
             }
           }
         },
@@ -214,64 +176,52 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/AssignCustomerToEmployeeRequest"
+              "$ref": "#/definitions/AssignLeadToEmployeeRequest"
             }
           }
         ],
         "requestBody": {},
         "tags": [
-          "admin/customer"
+          "admin/lead"
         ]
       }
     }
   },
   "definitions": {
-    "AssignCustomerToEmployeeReply": {
+    "AssignLeadToEmployeeReply": {
       "type": "object",
       "properties": {
-        "customerId": {
-          "type": "integer",
-          "format": "int64"
+        "": {
+          "$ref": "#/definitions/Lead"
         }
       },
-      "title": "AssignCustomerToEmployeeReply",
-      "required": [
-        "customerId"
-      ]
+      "title": "AssignLeadToEmployeeReply"
     },
-    "AssignCustomerToEmployeeRequest": {
+    "AssignLeadToEmployeeRequest": {
       "type": "object",
       "properties": {
         "id": {
-          "type": "string"
+          "type": "integer",
+          "format": "int64"
         },
         "employeeId": {
           "type": "integer",
           "format": "int64"
         }
       },
-      "title": "AssignCustomerToEmployeeRequest",
+      "title": "AssignLeadToEmployeeRequest",
       "required": [
         "id",
         "employeeId"
       ]
     },
-    "CreateCustomerReply": {
+    "CreateLeadRecord": {
       "type": "object",
       "properties": {
-        "customerId": {
+        "id": {
           "type": "integer",
           "format": "int64"
-        }
-      },
-      "title": "CreateCustomerReply",
-      "required": [
-        "customerId"
-      ]
-    },
-    "CreateCustomerRequest": {
-      "type": "object",
-      "properties": {
+        },
         "name": {
           "type": "string"
         },
@@ -288,24 +238,100 @@
         "source": {
           "type": "string"
         },
+        "status": {
+          "type": "string"
+        },
         "type": {
           "type": "string"
         },
-        "isActivated": {
+        "isActived": {
           "$ref": "#/definitions/bool"
         },
         "": {
-          "$ref": "#/definitions/CustomerExternalId"
+          "$ref": "#/definitions/LeadExternalId"
         }
       },
-      "title": "CreateCustomerRequest",
+      "title": "CreateLeadRecord",
       "required": [
+        "id",
         "name",
         "source",
+        "status",
         "type"
       ]
     },
-    "Customer": {
+    "CreateLeadReply": {
+      "type": "object",
+      "properties": {
+        "list": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Lead"
+          }
+        },
+        "pageIndex": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "pageSize": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "total": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "title": "CreateLeadReply",
+      "required": [
+        "list",
+        "pageIndex",
+        "pageSize",
+        "total"
+      ]
+    },
+    "CreateLeadRequest": {
+      "type": "object",
+      "properties": {
+        "list": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/CreateLeadRecord"
+          }
+        }
+      },
+      "title": "CreateLeadRequest",
+      "required": [
+        "list"
+      ]
+    },
+    "DeleteLeadReply": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "title": "DeleteLeadReply",
+      "required": [
+        "id"
+      ]
+    },
+    "DeleteLeadRequest": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "title": "DeleteLeadRequest",
+      "required": [
+        "id"
+      ]
+    },
+    "Lead": {
       "type": "object",
       "properties": {
         "id": {
@@ -322,26 +348,22 @@
           "type": "string"
         },
         "inviter": {
-          "$ref": "#/definitions/CustomerInviter"
+          "$ref": "#/definitions/LeadInviter"
         },
         "source": {
           "type": "string"
         },
-        "type": {
+        "status": {
           "type": "string"
-        },
-        "isActivated": {
-          "type": "boolean",
-          "format": "boolean"
         },
         "createdAt": {
           "type": "string"
         },
         "": {
-          "$ref": "#/definitions/CustomerExternalId"
+          "$ref": "#/definitions/LeadExternalId"
         }
       },
-      "title": "Customer",
+      "title": "Lead",
       "required": [
         "id",
         "name",
@@ -349,12 +371,11 @@
         "email",
         "inviter",
         "source",
-        "type",
-        "isActivated",
+        "status",
         "createdAt"
       ]
     },
-    "CustomerExternalId": {
+    "LeadExternalId": {
       "type": "object",
       "properties": {
         "openIdInMiniProgram": {
@@ -367,9 +388,9 @@
           "type": "string"
         }
       },
-      "title": "CustomerExternalId"
+      "title": "LeadExternalId"
     },
-    "CustomerInviter": {
+    "LeadInviter": {
       "type": "object",
       "properties": {
         "id": {
@@ -386,7 +407,7 @@
           "type": "string"
         }
       },
-      "title": "CustomerInviter",
+      "title": "LeadInviter",
       "required": [
         "id",
         "name",
@@ -394,74 +415,43 @@
         "email"
       ]
     },
-    "DeleteCustomerReply": {
+    "ListLeadsReply": {
       "type": "object",
       "properties": {
-        "customerId": {
+        "list": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Lead"
+          }
+        },
+        "pageIndex": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "pageSize": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "total": {
           "type": "integer",
           "format": "int64"
         }
       },
-      "title": "DeleteCustomerReply",
+      "title": "ListLeadsReply",
       "required": [
-        "customerId"
+        "list",
+        "pageIndex",
+        "pageSize",
+        "total"
       ]
     },
-    "DeleteCustomerRequest": {
+    "ListLeadsRequest": {
       "type": "object",
       "properties": {
-        "id": {
+        "likeTitle": {
           "type": "string"
-        }
-      },
-      "title": "DeleteCustomerRequest",
-      "required": [
-        "id"
-      ]
-    },
-    "GetCustomerReply": {
-      "type": "object",
-      "properties": {
-        "customer": {
-          "$ref": "#/definitions/Customer"
-        }
-      },
-      "title": "GetCustomerReply",
-      "required": [
-        "customer"
-      ]
-    },
-    "GetCustomerReqeuest": {
-      "type": "object",
-      "properties": {
-        "id": {
-          "type": "string"
-        }
-      },
-      "title": "GetCustomerReqeuest",
-      "required": [
-        "id"
-      ]
-    },
-    "ListCustomersReply": {
-      "type": "object",
-      "properties": {
-        "customers": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/Customer"
-          }
-        }
-      },
-      "title": "ListCustomersReply",
-      "required": [
-        "customers"
-      ]
-    },
-    "ListCustomersRequest": {
-      "type": "object",
-      "properties": {
-        "likeName": {
+        },
+        "likePhoneNumber": {
           "type": "string"
         },
         "sources": {
@@ -470,51 +460,30 @@
             "type": "string"
           }
         },
-        "likeMobile": {
-          "type": "string"
-        },
         "statuses": {
           "type": "array",
           "items": {
             "type": "string"
           }
-        },
-        "page": {
-          "type": "integer",
-          "format": "int32"
-        },
-        "pageSize": {
-          "type": "integer",
-          "format": "int32"
         }
       },
-      "title": "ListCustomersRequest",
-      "required": [
-        "likeName",
-        "sources",
-        "likeMobile",
-        "statuses",
-        "page",
-        "pageSize"
-      ]
+      "title": "ListLeadsRequest"
     },
-    "PatchCustomerReply": {
+    "PatchLeadReply": {
       "type": "object",
       "properties": {
-        "customer": {
-          "$ref": "#/definitions/Customer"
+        "": {
+          "$ref": "#/definitions/Lead"
         }
       },
-      "title": "PatchCustomerReply",
-      "required": [
-        "customer"
-      ]
+      "title": "PatchLeadReply"
     },
-    "PatchCustomerRequest": {
+    "PatchLeadRequest": {
       "type": "object",
       "properties": {
         "id": {
-          "type": "string"
+          "type": "integer",
+          "format": "int64"
         },
         "name": {
           "type": "string"
@@ -532,20 +501,24 @@
         "source": {
           "type": "string"
         },
+        "status": {
+          "type": "string"
+        },
         "type": {
           "type": "string"
         },
-        "isActivated": {
+        "isActived": {
           "$ref": "#/definitions/bool"
         },
         "": {
-          "$ref": "#/definitions/CustomerExternalId"
+          "$ref": "#/definitions/LeadExternalId"
         }
       },
-      "title": "PatchCustomerRequest",
+      "title": "PatchLeadRequest",
       "required": [
         "id",
         "source",
+        "status",
         "type"
       ]
     }

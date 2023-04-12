@@ -16,7 +16,7 @@
     "application/json"
   ],
   "paths": {
-    "/api/admin/employee/v1/employees": {
+    "/api/v1/admin/employee/employees": {
       "get": {
         "summary": "List员工",
         "operationId": "ListEmployees",
@@ -127,7 +127,7 @@
         ]
       }
     },
-    "/api/admin/employee/v1/employees/actions/reset-password": {
+    "/api/v1/admin/employee/employees/actions/reset-password": {
       "post": {
         "summary": "重设密码",
         "operationId": "ResetPassword",
@@ -155,7 +155,7 @@
         ]
       }
     },
-    "/api/admin/employee/v1/employees/actions/sync": {
+    "/api/v1/admin/employee/employees/actions/sync": {
       "post": {
         "summary": "同步员工",
         "operationId": "SyncEmployees",
@@ -183,7 +183,7 @@
         ]
       }
     },
-    "/api/admin/employee/v1/employees/{id}": {
+    "/api/v1/admin/employee/employees/{id}": {
       "get": {
         "summary": "查询员工",
         "operationId": "GetEmployee",
@@ -267,24 +267,6 @@
             }
           }
         ],
-        "requestBody": {},
-        "tags": [
-          "admin/employee"
-        ]
-      }
-    },
-    "/api/admin/employee/v1/options": {
-      "get": {
-        "summary": "查询员工过滤条件",
-        "operationId": "GetEmployeeOptions",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/GetEmployeeOptionsReply"
-            }
-          }
-        },
         "requestBody": {},
         "tags": [
           "admin/employee"
@@ -385,23 +367,6 @@
         "id"
       ]
     },
-    "DepartmentOption": {
-      "type": "object",
-      "properties": {
-        "departmentId": {
-          "type": "integer",
-          "format": "int64"
-        },
-        "departmentName": {
-          "type": "string"
-        }
-      },
-      "title": "DepartmentOption",
-      "required": [
-        "departmentId",
-        "departmentName"
-      ]
-    },
     "Employee": {
       "type": "object",
       "properties": {
@@ -490,35 +455,6 @@
       "required": [
         "depId",
         "depName"
-      ]
-    },
-    "GetEmployeeOptionsReply": {
-      "type": "object",
-      "properties": {
-        "positions": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "roles": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/RoleOption"
-          }
-        },
-        "departments": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/DepartmentOption"
-          }
-        }
-      },
-      "title": "GetEmployeeOptionsReply",
-      "required": [
-        "positions",
-        "roles",
-        "departments"
       ]
     },
     "GetEmployeeReply": {
@@ -648,22 +584,6 @@
       "title": "ResetPasswordRequest",
       "required": [
         "userId"
-      ]
-    },
-    "RoleOption": {
-      "type": "object",
-      "properties": {
-        "roleCode": {
-          "type": "string"
-        },
-        "roleName": {
-          "type": "string"
-        }
-      },
-      "title": "RoleOption",
-      "required": [
-        "roleCode",
-        "roleName"
       ]
     },
     "SyncEmployeesReply": {

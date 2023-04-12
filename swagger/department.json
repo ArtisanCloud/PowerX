@@ -15,7 +15,7 @@
     "application/json"
   ],
   "paths": {
-    "/api/admin/department/v1/department-tree/{depId}": {
+    "/api/v1/admin/department/department-tree/{depId}": {
       "get": {
         "summary": "查询组织架构",
         "operationId": "GetDepartmentTree",
@@ -41,7 +41,7 @@
         ]
       }
     },
-    "/api/admin/department/v1/departments": {
+    "/api/v1/admin/department/departments": {
       "post": {
         "summary": "创建新部门",
         "operationId": "CreateDepartment",
@@ -69,7 +69,7 @@
         ]
       }
     },
-    "/api/admin/department/v1/departments/{id}": {
+    "/api/v1/admin/department/departments/{id}": {
       "get": {
         "summary": "获取单个部门详情",
         "operationId": "GetDepartment",
@@ -118,6 +118,38 @@
             "required": true,
             "schema": {
               "$ref": "#/definitions/DeleteDepartmentRequest"
+            }
+          }
+        ],
+        "requestBody": {},
+        "tags": [
+          "admin/department"
+        ]
+      },
+      "patch": {
+        "summary": "更新部门信息(可选更新)",
+        "operationId": "PatchDepartment",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/PatchDepartmentReply"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/PatchDepartmentRequest"
             }
           }
         ],
@@ -345,6 +377,51 @@
       "title": "GetDepartmentTreeRequest",
       "required": [
         "depId"
+      ]
+    },
+    "PatchDepartmentReply": {
+      "type": "object",
+      "properties": {
+        "": {
+          "$ref": "#/definitions/Department"
+        }
+      },
+      "title": "PatchDepartmentReply"
+    },
+    "PatchDepartmentRequest": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "depName": {
+          "type": "string"
+        },
+        "leaderId": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "pId": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "desc": {
+          "type": "string"
+        },
+        "phoneNumber": {
+          "type": "string"
+        },
+        "email": {
+          "type": "string"
+        },
+        "remark": {
+          "type": "string"
+        }
+      },
+      "title": "PatchDepartmentRequest",
+      "required": [
+        "id"
       ]
     }
   },

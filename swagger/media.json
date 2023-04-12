@@ -1,8 +1,8 @@
 {
   "swagger": "2.0",
   "info": {
-    "title": "线索管理",
-    "description": "线索管理",
+    "title": "媒资管理",
+    "description": "媒资管理",
     "version": "v1"
   },
   "schemes": [
@@ -16,57 +16,67 @@
     "application/json"
   ],
   "paths": {
-    "/api/admin/clue/v1/clues": {
+    "/api/v1/admin/media/medias": {
       "get": {
-        "summary": "查询线索列表",
-        "operationId": "ListClues",
+        "summary": "查询媒资列表",
+        "operationId": "GetMediaList",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/ListCluesReply"
+              "$ref": "#/definitions/GetMediaListReply"
             }
           }
         },
         "parameters": [
           {
-            "name": "likeTitle",
+            "name": "mediaType",
             "in": "query",
             "required": false,
             "type": "string"
           },
           {
-            "name": "likePhoneNumber",
+            "name": "keys",
             "in": "query",
             "required": false,
             "type": "string"
           },
           {
-            "name": "sources",
+            "name": "descBy",
             "in": "query",
-            "required": false,
+            "required": true,
             "type": "string"
           },
           {
-            "name": "statuses",
+            "name": "pageIndex",
             "in": "query",
             "required": false,
-            "type": "string"
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
           }
         ],
         "requestBody": {},
         "tags": [
-          "admin/clue"
+          "admin/media"
         ]
-      },
+      }
+    },
+    "/api/v1/admin/media/medias/actions/create-upload-url": {
       "post": {
-        "summary": "创建线索",
-        "operationId": "CreateClues",
+        "summary": "请求媒资上传链接",
+        "operationId": "CreateMediaUploadRequest",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/CreateCluesReply"
+              "$ref": "#/definitions/CreateMediaUploadRequestReply"
             }
           }
         },
@@ -76,55 +86,55 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/CreateCluesRequest"
+              "$ref": "#/definitions/CreateMediaUploadRequest"
             }
           }
         ],
         "requestBody": {},
         "tags": [
-          "admin/clue"
+          "admin/media"
         ]
       }
     },
-    "/api/admin/clue/v1/clues/{id}": {
+    "/api/v1/admin/media/medias/{key}": {
+      "get": {
+        "summary": "根据媒资key获取媒资",
+        "operationId": "GetMediaByKey",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/GetMediaByKeyReply"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "requestBody": {},
+        "tags": [
+          "admin/media"
+        ]
+      },
       "delete": {
-        "summary": "删除线索",
-        "operationId": "DeleteClue",
+        "summary": "删除媒资",
+        "operationId": "DeleteMedia",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/DeleteClueReply"
+              "$ref": "#/definitions/DeleteMediaReply"
             }
           }
         },
         "parameters": [
           {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          }
-        ],
-        "requestBody": {},
-        "tags": [
-          "admin/clue"
-        ]
-      },
-      "patch": {
-        "summary": "编辑线索",
-        "operationId": "PatchClue",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/PatchClueReply"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "id",
+            "name": "key",
             "in": "path",
             "required": true,
             "type": "string"
@@ -134,31 +144,31 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/PatchClueRequest"
+              "$ref": "#/definitions/DeleteMediaRequest"
             }
           }
         ],
         "requestBody": {},
         "tags": [
-          "admin/clue"
+          "admin/media"
         ]
       }
     },
-    "/api/admin/clue/v1/clues/{id}/actions/assign-to-employee": {
-      "post": {
-        "summary": "分配线索给员工",
-        "operationId": "AssignClueToEmployee",
+    "/api/v1/admin/media/medias/{mediaKey}": {
+      "put": {
+        "summary": "创建或更新媒资",
+        "operationId": "CreateOrUpdateMedia",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/AssignClueToEmployeeReply"
+              "$ref": "#/definitions/CreateOrUpdateMediaReply"
             }
           }
         },
         "parameters": [
           {
-            "name": "id",
+            "name": "mediaKey",
             "in": "path",
             "required": true,
             "type": "string"
@@ -168,227 +178,218 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/AssignClueToEmployeeRequest"
+              "$ref": "#/definitions/CreateOrUpdateMediaRequest"
             }
           }
         ],
         "requestBody": {},
         "tags": [
-          "admin/clue"
+          "admin/media"
         ]
       }
     }
   },
   "definitions": {
-    "AssignClueToEmployeeReply": {
+    "CreateMediaUploadRequest": {
+      "type": "object",
+      "properties": {
+        "fileName": {
+          "type": "string"
+        }
+      },
+      "title": "CreateMediaUploadRequest",
+      "required": [
+        "fileName"
+      ]
+    },
+    "CreateMediaUploadRequestReply": {
+      "type": "object",
+      "properties": {
+        "mediaKey": {
+          "type": "string"
+        },
+        "uploadURL": {
+          "type": "string"
+        },
+        "expiresAt": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "title": "CreateMediaUploadRequestReply",
+      "required": [
+        "mediaKey",
+        "uploadURL",
+        "expiresAt"
+      ]
+    },
+    "CreateOrUpdateMediaReply": {
+      "type": "object",
+      "properties": {
+        "mediaKey": {
+          "type": "string"
+        }
+      },
+      "title": "CreateOrUpdateMediaReply",
+      "required": [
+        "mediaKey"
+      ]
+    },
+    "CreateOrUpdateMediaRequest": {
+      "type": "object",
+      "properties": {
+        "mediaKey": {
+          "type": "string"
+        },
+        "mediaType": {
+          "type": "string"
+        },
+        "meta": {
+          "type": "string"
+        },
+        "remark": {
+          "type": "string"
+        }
+      },
+      "title": "CreateOrUpdateMediaRequest",
+      "required": [
+        "mediaKey"
+      ]
+    },
+    "DeleteMediaReply": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string"
+        }
+      },
+      "title": "DeleteMediaReply",
+      "required": [
+        "key"
+      ]
+    },
+    "DeleteMediaRequest": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string"
+        }
+      },
+      "title": "DeleteMediaRequest",
+      "required": [
+        "key"
+      ]
+    },
+    "GetMediaByKeyReply": {
       "type": "object",
       "properties": {
         "": {
-          "$ref": "#/definitions/Clue"
+          "$ref": "#/definitions/Media"
         }
       },
-      "title": "AssignClueToEmployeeReply"
+      "title": "GetMediaByKeyReply"
     },
-    "AssignClueToEmployeeRequest": {
+    "GetMediaByKeyRequest": {
       "type": "object",
       "properties": {
-        "id": {
-          "type": "integer",
-          "format": "int64"
-        },
-        "employeeId": {
-          "type": "integer",
-          "format": "int64"
+        "mediaKey": {
+          "type": "string"
         }
       },
-      "title": "AssignClueToEmployeeRequest",
+      "title": "GetMediaByKeyRequest",
       "required": [
-        "id",
-        "employeeId"
+        "mediaKey"
       ]
     },
-    "Clue": {
+    "GetMediaListReply": {
       "type": "object",
       "properties": {
-        "id": {
+        "list": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Media"
+          }
+        },
+        "pageIndex": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "pageSize": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "total": {
           "type": "integer",
           "format": "int64"
-        },
-        "title": {
+        }
+      },
+      "title": "GetMediaListReply",
+      "required": [
+        "list",
+        "pageIndex",
+        "pageSize",
+        "total"
+      ]
+    },
+    "GetMediaListRequest": {
+      "type": "object",
+      "properties": {
+        "mediaType": {
           "type": "string"
         },
-        "phoneNumber": {
+        "keys": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "descBy": {
           "type": "string"
         },
-        "email": {
+        "pageIndex": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "pageSize": {
+          "type": "integer",
+          "format": "int32"
+        }
+      },
+      "title": "GetMediaListRequest",
+      "required": [
+        "descBy"
+      ]
+    },
+    "Media": {
+      "type": "object",
+      "properties": {
+        "key": {
           "type": "string"
         },
-        "source": {
+        "mediaType": {
           "type": "string"
         },
-        "status": {
+        "meta": {
+          "type": "string"
+        },
+        "remark": {
           "type": "string"
         },
         "createdAt": {
           "type": "string"
+        },
+        "updatedAt": {
+          "type": "string"
         }
       },
-      "title": "Clue",
+      "title": "Media",
       "required": [
-        "id",
-        "title",
-        "source",
-        "status",
-        "createdAt"
-      ]
-    },
-    "CreateCluesReply": {
-      "type": "object",
-      "properties": {
-        "list": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/Clue"
-          }
-        },
-        "pageIndex": {
-          "type": "integer",
-          "format": "int32"
-        },
-        "pageSize": {
-          "type": "integer",
-          "format": "int32"
-        },
-        "total": {
-          "type": "integer",
-          "format": "int64"
-        }
-      },
-      "title": "CreateCluesReply",
-      "required": [
-        "list",
-        "pageIndex",
-        "pageSize",
-        "total"
-      ]
-    },
-    "CreateCluesRequest": {
-      "type": "object",
-      "properties": {
-        "list": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/Clue"
-          }
-        }
-      },
-      "title": "CreateCluesRequest",
-      "required": [
-        "list"
-      ]
-    },
-    "DeleteClueReply": {
-      "type": "object",
-      "properties": {
-        "id": {
-          "type": "integer",
-          "format": "int64"
-        }
-      },
-      "title": "DeleteClueReply",
-      "required": [
-        "id"
-      ]
-    },
-    "ListCluesReply": {
-      "type": "object",
-      "properties": {
-        "list": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/Clue"
-          }
-        },
-        "pageIndex": {
-          "type": "integer",
-          "format": "int32"
-        },
-        "pageSize": {
-          "type": "integer",
-          "format": "int32"
-        },
-        "total": {
-          "type": "integer",
-          "format": "int64"
-        }
-      },
-      "title": "ListCluesReply",
-      "required": [
-        "list",
-        "pageIndex",
-        "pageSize",
-        "total"
-      ]
-    },
-    "ListCluesRequest": {
-      "type": "object",
-      "properties": {
-        "likeTitle": {
-          "type": "string"
-        },
-        "likePhoneNumber": {
-          "type": "string"
-        },
-        "sources": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "statuses": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        }
-      },
-      "title": "ListCluesRequest"
-    },
-    "PatchClueReply": {
-      "type": "object",
-      "properties": {
-        "": {
-          "$ref": "#/definitions/Clue"
-        }
-      },
-      "title": "PatchClueReply"
-    },
-    "PatchClueRequest": {
-      "type": "object",
-      "properties": {
-        "id": {
-          "type": "integer",
-          "format": "int64"
-        },
-        "title": {
-          "type": "string"
-        },
-        "phoneNumber": {
-          "type": "string"
-        },
-        "email": {
-          "type": "string"
-        },
-        "source": {
-          "type": "string"
-        },
-        "status": {
-          "type": "string"
-        }
-      },
-      "title": "PatchClueRequest",
-      "required": [
-        "id"
+        "key",
+        "mediaType",
+        "meta",
+        "remark",
+        "createdAt",
+        "updatedAt"
       ]
     }
   },

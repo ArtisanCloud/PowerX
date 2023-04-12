@@ -1,0 +1,647 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "字典管理API",
+    "description": "字典管理API",
+    "version": "v1"
+  },
+  "schemes": [
+    "http",
+    "https"
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "paths": {
+    "/api/v1/admin/dictionary/items": {
+      "get": {
+        "summary": "获取字典项列表",
+        "operationId": "GetDictionaryItems",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/GetDictionaryItemsReply"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "type",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "pageIndex",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          }
+        ],
+        "requestBody": {},
+        "tags": [
+          "admin/dictionary"
+        ]
+      },
+      "post": {
+        "summary": "创建字典项",
+        "operationId": "CreateDictionaryItem",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/CreateDictionaryItemReply"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/CreateDictionaryItemRequest"
+            }
+          }
+        ],
+        "requestBody": {},
+        "tags": [
+          "admin/dictionary"
+        ]
+      }
+    },
+    "/api/v1/admin/dictionary/items/{type}/{key}": {
+      "delete": {
+        "summary": "删除字典项",
+        "operationId": "DeleteDictionaryItem",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/DeleteDictionaryItemReply"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "type",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/DeleteDictionaryItemRequest"
+            }
+          }
+        ],
+        "requestBody": {},
+        "tags": [
+          "admin/dictionary"
+        ]
+      },
+      "put": {
+        "summary": "更新字典项",
+        "operationId": "UpdateDictionaryItem",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/UpdateDictionaryItemReply"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "type",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/UpdateDictionaryItemRequest"
+            }
+          }
+        ],
+        "requestBody": {},
+        "tags": [
+          "admin/dictionary"
+        ]
+      }
+    },
+    "/api/v1/admin/dictionary/types": {
+      "get": {
+        "summary": "获取字典类型列表",
+        "operationId": "GetDictionaryTypes",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/GetDictionaryTypesReply"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "pageIndex",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          }
+        ],
+        "requestBody": {},
+        "tags": [
+          "admin/dictionary"
+        ]
+      },
+      "post": {
+        "summary": "创建字典类型",
+        "operationId": "CreateDictionaryType",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/CreateDictionaryTypeReply"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/CreateDictionaryTypeRequest"
+            }
+          }
+        ],
+        "requestBody": {},
+        "tags": [
+          "admin/dictionary"
+        ]
+      }
+    },
+    "/api/v1/admin/dictionary/types/{type}": {
+      "delete": {
+        "summary": "删除字典类型",
+        "operationId": "DeleteDictionaryType",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/DeleteDictionaryTypeReply"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "type",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/DeleteDictionaryTypeRequest"
+            }
+          }
+        ],
+        "requestBody": {},
+        "tags": [
+          "admin/dictionary"
+        ]
+      },
+      "put": {
+        "summary": "更新字典类型",
+        "operationId": "UpdateDictionaryType",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/UpdateDictionaryTypeReply"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "type",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/UpdateDictionaryTypeRequest"
+            }
+          }
+        ],
+        "requestBody": {},
+        "tags": [
+          "admin/dictionary"
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "CreateDictionaryItemReply": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        }
+      },
+      "title": "CreateDictionaryItemReply",
+      "required": [
+        "key",
+        "type"
+      ]
+    },
+    "CreateDictionaryItemRequest": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        },
+        "sort": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "description": {
+          "type": "string"
+        }
+      },
+      "title": "CreateDictionaryItemRequest",
+      "required": [
+        "key",
+        "type",
+        "name",
+        "value",
+        "sort"
+      ]
+    },
+    "CreateDictionaryTypeReply": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string"
+        }
+      },
+      "title": "CreateDictionaryTypeReply",
+      "required": [
+        "type"
+      ]
+    },
+    "CreateDictionaryTypeRequest": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        }
+      },
+      "title": "CreateDictionaryTypeRequest",
+      "required": [
+        "type",
+        "name"
+      ]
+    },
+    "DeleteDictionaryItemReply": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        }
+      },
+      "title": "DeleteDictionaryItemReply",
+      "required": [
+        "key",
+        "type"
+      ]
+    },
+    "DeleteDictionaryItemRequest": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        }
+      },
+      "title": "DeleteDictionaryItemRequest",
+      "required": [
+        "key",
+        "type"
+      ]
+    },
+    "DeleteDictionaryTypeReply": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string"
+        }
+      },
+      "title": "DeleteDictionaryTypeReply",
+      "required": [
+        "type"
+      ]
+    },
+    "DeleteDictionaryTypeRequest": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string"
+        }
+      },
+      "title": "DeleteDictionaryTypeRequest",
+      "required": [
+        "type"
+      ]
+    },
+    "DictionaryItem": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        }
+      },
+      "title": "DictionaryItem",
+      "required": [
+        "key",
+        "type",
+        "name",
+        "value",
+        "description"
+      ]
+    },
+    "DictionaryType": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        }
+      },
+      "title": "DictionaryType",
+      "required": [
+        "type",
+        "name",
+        "description"
+      ]
+    },
+    "GetDictionaryItemsReply": {
+      "type": "object",
+      "properties": {
+        "list": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/DictionaryItem"
+          }
+        },
+        "pageIndex": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "pageSize": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "total": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "title": "GetDictionaryItemsReply",
+      "required": [
+        "list",
+        "pageIndex",
+        "pageSize",
+        "total"
+      ]
+    },
+    "GetDictionaryItemsRequest": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "pageIndex": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "pageSize": {
+          "type": "integer",
+          "format": "int32"
+        }
+      },
+      "title": "GetDictionaryItemsRequest"
+    },
+    "GetDictionaryTypesReply": {
+      "type": "object",
+      "properties": {
+        "list": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/DictionaryType"
+          }
+        },
+        "pageIndex": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "pageSize": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "total": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "title": "GetDictionaryTypesReply",
+      "required": [
+        "list",
+        "pageIndex",
+        "pageSize",
+        "total"
+      ]
+    },
+    "GetDictionaryTypesRequest": {
+      "type": "object",
+      "properties": {
+        "pageIndex": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "pageSize": {
+          "type": "integer",
+          "format": "int32"
+        }
+      },
+      "title": "GetDictionaryTypesRequest"
+    },
+    "UpdateDictionaryItemReply": {
+      "type": "object",
+      "properties": {
+        "": {
+          "$ref": "#/definitions/DictionaryItem"
+        }
+      },
+      "title": "UpdateDictionaryItemReply"
+    },
+    "UpdateDictionaryItemRequest": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        },
+        "sort": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "description": {
+          "type": "string"
+        }
+      },
+      "title": "UpdateDictionaryItemRequest",
+      "required": [
+        "key",
+        "type"
+      ]
+    },
+    "UpdateDictionaryTypeReply": {
+      "type": "object",
+      "properties": {
+        "": {
+          "$ref": "#/definitions/DictionaryType"
+        }
+      },
+      "title": "UpdateDictionaryTypeReply"
+    },
+    "UpdateDictionaryTypeRequest": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        }
+      },
+      "title": "UpdateDictionaryTypeRequest",
+      "required": [
+        "type"
+      ]
+    }
+  },
+  "securityDefinitions": {
+    "apiKey": {
+      "type": "apiKey",
+      "description": "Enter JWT Bearer token **_only_**",
+      "name": "Authorization",
+      "in": "header"
+    }
+  },
+  "security": [
+    {
+      "apiKey": []
+    }
+  ]
+}
