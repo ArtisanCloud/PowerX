@@ -8,8 +8,11 @@ import (
 type Reservation struct {
 	powermodel.PowerModel
 
+	//Channel *model.DataDictionary `gorm:"comment:渠道"`
+
 	CustomerId          int64     `gorm:"comment:客户Id"`
 	ConsumedPoints      float32   `gorm:"comment:消耗点数，非必填"`
+	ReservedTime        time.Time `gorm:"comment:已预约时间"`
 	CancelTime          time.Time `gorm:"comment:取消时间"`
 	CheckinTime         time.Time `gorm:"comment:签到时间"`
 	ConsumedDate        time.Time `gorm:"comment:抵扣点数时间"`
@@ -40,5 +43,5 @@ const OperationStatusReservedPlace = 9
 
 const ReservationStatusDraft = 1
 const ReservationStatusConfirmed = 2
-const ReservationStatusWaitList = 3
+const ReservationStatusCancelled = 3
 const ReservationStatusFailed = 4

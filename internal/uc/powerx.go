@@ -6,6 +6,7 @@ import (
 	"PowerX/internal/model/customerdomain"
 	"PowerX/internal/model/membership"
 	"PowerX/internal/model/product"
+	"PowerX/internal/model/reservationcenter"
 	"PowerX/internal/uc/powerx"
 	customerDomainUC "PowerX/internal/uc/powerx/customerdomain"
 	productUC "PowerX/internal/uc/powerx/product"
@@ -98,6 +99,9 @@ func (p *PowerXUseCase) AutoMigrate(ctx context.Context) {
 	// product
 	p.db.AutoMigrate(&product.Product{}, &product.ProductCategory{})
 	p.db.AutoMigrate(&product.PriceBook{}, &product.PriceBookEntry{}, &product.PriceConfig{})
+
+	// reservation center
+	p.db.AutoMigrate(&reservationcenter.Artisan{}, &reservationcenter.Reservation{}, &reservationcenter.CheckinLog{})
 }
 
 func (p *PowerXUseCase) AutoInit() {
