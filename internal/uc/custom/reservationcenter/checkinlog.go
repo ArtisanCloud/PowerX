@@ -1,8 +1,8 @@
 package reservationcenter
 
 import (
+	"PowerX/internal/model/custom/reservationcenter"
 	"PowerX/internal/model/powermodel"
-	"PowerX/internal/model/reservationcenter"
 	"PowerX/internal/types/errorx"
 	"context"
 	"github.com/pkg/errors"

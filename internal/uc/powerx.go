@@ -3,14 +3,15 @@ package uc
 import (
 	"PowerX/internal/config"
 	"PowerX/internal/model"
+	reservationcenter3 "PowerX/internal/model/custom/reservationcenter"
 	"PowerX/internal/model/customerdomain"
 	"PowerX/internal/model/membership"
 	"PowerX/internal/model/product"
-	"PowerX/internal/model/reservationcenter"
+	productCustomUC "PowerX/internal/uc/custom/product"
+	reservationCenterCustomUC "PowerX/internal/uc/custom/reservationcenter"
 	"PowerX/internal/uc/powerx"
 	customerDomainUC "PowerX/internal/uc/powerx/customerdomain"
 	productUC "PowerX/internal/uc/powerx/product"
-	reservationCenterUC "PowerX/internal/uc/powerx/reservationcenter"
 	"context"
 	"github.com/pkg/errors"
 	"gorm.io/driver/postgres"
@@ -29,9 +30,10 @@ type PowerXUseCase struct {
 	PriceBook             *productUC.PriceBookUseCase
 	WechatMP              *powerx.WechatMiniProgramUseCase
 	WechatOA              *powerx.WechatOfficialAccountUseCase
-	Artisan               *reservationCenterUC.ArtisanUseCase
-	Reservation           *reservationCenterUC.ReservationUseCase
-	CheckinLog            *reservationCenterUC.CheckinLogUseCase
+	Artisan               *reservationCenterCustomUC.ArtisanUseCase
+	Reservation           *reservationCenterCustomUC.ReservationUseCase
+	CheckinLog            *reservationCenterCustomUC.CheckinLogUseCase
+	Service               *productCustomUC.ServiceSpecificUseCase
 }
 
 func NewPowerXUseCase(conf *config.Config) (uc *PowerXUseCase, clean func()) {
@@ -74,9 +76,12 @@ func NewPowerXUseCase(conf *config.Config) (uc *PowerXUseCase, clean func()) {
 	uc.WechatOA = powerx.NewWechatOfficialAccountUseCase(db, conf)
 
 	// 加载预约中心UseCase
-	uc.Artisan = reservationCenterUC.NewArtisanUseCase(db)
-	uc.Reservation = reservationCenterUC.NewReservationUseCase(db)
-	uc.CheckinLog = reservationCenterUC.NewCheckinLogUseCase(db)
+	uc.Artisan = reservationCenterCustomUC.NewArtisanUseCase(db)
+	uc.Reservation = reservationCenterCustomUC.NewReservationUseCase(db)
+	uc.CheckinLog = reservationCenterCustomUC.NewCheckinLogUseCase(db)
+
+	// 加载服务UseCase
+	uc.Service = productCustomUC.NewServiceSpecificUseCase(db)
 
 	uc.AutoMigrate(context.Background())
 	uc.AutoInit()
@@ -101,7 +106,7 @@ func (p *PowerXUseCase) AutoMigrate(ctx context.Context) {
 	p.db.AutoMigrate(&product.PriceBook{}, &product.PriceBookEntry{}, &product.PriceConfig{})
 
 	// reservation center
-	p.db.AutoMigrate(&reservationcenter.Artisan{}, &reservationcenter.Reservation{}, &reservationcenter.CheckinLog{})
+	p.db.AutoMigrate(&reservationcenter3.Artisan{}, &reservationcenter3.Reservation{}, &reservationcenter3.CheckinLog{})
 }
 
 func (p *PowerXUseCase) AutoInit() {
