@@ -1,0 +1,135 @@
+syntax = "v1"
+
+info(
+    title: "门店"
+    desc: "门店"
+    author: "MichaelHu"
+    email: "matrix-x@artisan-cloud.com"
+    version: "v1"
+)
+
+
+@server(
+    group: admin/store
+    prefix: /api/v1/admin/store
+    middleware: EmployeeJWTAuth
+)
+
+service PowerX {
+    @doc "查询产品列表"
+    @handler ListStores
+    get /stores (ListStoresRequest) returns (ListStoresReply)
+
+    @doc "创建产品"
+    @handler CreateStore
+    post /stores (CreateStoreRequest) returns (CreateStoreReply)
+
+    @doc "编辑产品"
+    @handler PatchStore
+    patch /stores/:id (PatchStoreRequest) returns (PatchStoreReply)
+
+    @doc "删除产品"
+    @handler DeleteStore
+    delete /stores/:id (DeleteStoreRequest) returns (DeleteStoreReply)
+
+    @doc "分配门店店长"
+    @handler AssignStoreManager
+    post /stores/:id/actions/assign-store-manager (AssignStoreManagerRequest) returns (AssignStoreManagerReply)
+
+}
+type (
+
+    Store {
+        Id int64 `json:"id"`
+        Name string `json:"name"`
+        Mobile string `json:"mobile"`
+        Email string `json:"email"`
+        Source string `json:"source"`
+        Status string `json:"status"`
+        CreatedAt string `json:"createdAt"`
+
+    }
+)
+
+type (
+    ListStoresRequest {
+        LikeTitle string `json:"likeTitle,optional"`
+        LikePhoneNumber string `json:"likePhoneNumber,optional"`
+        Sources []string `json:"sources,optional"`
+        Statuses []string `json:"statuses,optional"`
+    }
+
+    ListStoresReply {
+        List []Store `json:"list"`
+        PageIndex int32 `json:"pageIndex"`
+        PageSize int32 `json:"pageSize"`
+        Total int64 `json:"total"`
+    }
+)
+
+type (
+    CreateStoreRecord {
+        Id int64 `json:"id"`
+        Name string `json:"name"`
+        Mobile string `json:"mobile,optional"`
+        Email string `json:"email,optional"`
+        InviterId int64 `json:"inviterId,optional"`
+        Source string `json:"source,optional,options=mini_program|tiktok|h5|ad"`
+        Status string `json:"status,optional,options=open|following|closed_lost|closed_won"`
+        Type string `json:"type,optional,options=personal|company"`
+        IsActive *bool `json:"IsActive,optional"`
+
+    }
+
+    CreateStoreRequest {
+        List []CreateStoreRecord `json:"list"`
+    }
+
+    CreateStoreReply {
+        List []Store `json:"list"`
+        PageIndex int32 `json:"pageIndex"`
+        PageSize int32 `json:"pageSize"`
+        Total int64 `json:"total"`
+    }
+)
+
+type (
+    PatchStoreRequest {
+        Id int64 `path:"id"`
+        Name string `json:"name,optional"`
+        Mobile string `json:"mobile,optional"`
+        Email string `json:"email,optional"`
+        InviterId int64 `json:"inviterId,optional"`
+        Source string `json:"source,optional,options=mini_program|tiktok|h5|advertisement"`
+        Status string `json:"status,optional,options=open|following|closed_lost|closed_won"`
+        Type string `json:"type,optional,options=personal|company"`
+        IsActive *bool `json:"IsActive,optional"`
+
+    }
+
+    PatchStoreReply {
+        Store
+    }
+)
+
+type (
+    DeleteStoreRequest {
+        Id int64 `json:"id"`
+    }
+
+    DeleteStoreReply {
+        Id int64 `json:"id"`
+    }
+)
+
+
+type (
+    AssignStoreManagerRequest {
+        Id int64 `path:"id"`
+        EmployeeId int64 `json:"employeeId"`
+    }
+
+    AssignStoreManagerReply {
+        Store
+    }
+)
