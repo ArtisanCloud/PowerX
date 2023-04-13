@@ -3,13 +3,9 @@ package uc
 import (
 	"PowerX/internal/config"
 	"PowerX/internal/model"
-	productCustomModel "PowerX/internal/model/custom/product"
-	reservationCenterCustomModel "PowerX/internal/model/custom/reservationcenter"
 	"PowerX/internal/model/customerdomain"
 	"PowerX/internal/model/membership"
 	"PowerX/internal/model/product"
-	productCustomUC "PowerX/internal/uc/custom/product"
-	reservationCenterCustomUC "PowerX/internal/uc/custom/reservationcenter"
 	"PowerX/internal/uc/powerx"
 	customerDomainUC "PowerX/internal/uc/powerx/customerdomain"
 	productUC "PowerX/internal/uc/powerx/product"
@@ -17,7 +13,6 @@ import (
 	"github.com/pkg/errors"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
-	"gorm.io/gorm/logger"
 )
 
 type PowerXUseCase struct {
@@ -38,10 +33,6 @@ type PowerXUseCase struct {
 	SCRM                  *powerx.SCRMUseCase
 
 	// custom here
-	Artisan     *reservationCenterCustomUC.ArtisanUseCase
-	Reservation *reservationCenterCustomUC.ReservationUseCase
-	CheckinLog  *reservationCenterCustomUC.CheckinLogUseCase
-	Service     *productCustomUC.ServiceSpecificUseCase
 
 	// plugin here
 }
@@ -49,7 +40,7 @@ type PowerXUseCase struct {
 func NewPowerXUseCase(conf *config.Config) (uc *PowerXUseCase, clean func()) {
 	// 启动数据库并测试连通性
 	db, err := gorm.Open(postgres.Open(conf.PowerXDatabase.DSN), &gorm.Config{
-		Logger:                                   logger.Default.LogMode(logger.Info),
+		//Logger:                                   logger.Default.LogMode(logger.Info),
 		DisableForeignKeyConstraintWhenMigrating: true,
 	})
 	if err != nil {
@@ -91,14 +82,6 @@ func NewPowerXUseCase(conf *config.Config) (uc *PowerXUseCase, clean func()) {
 	// 加载SCRM UseCase
 	uc.SCRM = powerx.NewSCRMUseCase(db, conf)
 
-	// 加载预约中心UseCase
-	uc.Artisan = reservationCenterCustomUC.NewArtisanUseCase(db)
-	uc.Reservation = reservationCenterCustomUC.NewReservationUseCase(db)
-	uc.CheckinLog = reservationCenterCustomUC.NewCheckinLogUseCase(db)
-
-	// 加载服务UseCase
-	uc.Service = productCustomUC.NewServiceSpecificUseCase(db)
-
 	uc.AutoMigrate(context.Background())
 	uc.AutoInit()
 
@@ -123,13 +106,9 @@ func (p *PowerXUseCase) AutoMigrate(ctx context.Context) {
 	p.db.AutoMigrate(&product.PriceBook{}, &product.PriceBookEntry{}, &product.PriceConfig{})
 
 	// custom here
-	// product
-	p.db.AutoMigrate(&productCustomModel.ServiceSpecific{})
-
-	// reservation center
-	p.db.AutoMigrate(&reservationCenterCustomModel.Artisan{}, &reservationCenterCustomModel.Reservation{}, &reservationCenterCustomModel.CheckinLog{})
 
 	// plugin here
+
 }
 
 func (p *PowerXUseCase) AutoInit() {
