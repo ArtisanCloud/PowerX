@@ -41,6 +41,7 @@ func NewAdminPermsUseCase(conf *config.Config, db *gorm.DB, employee *Organizati
 		panic(err)
 	}
 	return &AdminPermsUseCase{
+		conf:        conf,
 		db:          db,
 		Casbin:      e,
 		sqlAdapter:  a,
