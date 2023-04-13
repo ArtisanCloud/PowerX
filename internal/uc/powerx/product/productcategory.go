@@ -19,50 +19,50 @@ func NewProductCategoryUseCase(db *gorm.DB) *ProductCategoryUseCase {
 	}
 }
 
-func (uc *ProductCategoryUseCase) CreateProductCategory(ctx context.Context, lead *product.ProductCategory) {
-	if err := uc.db.WithContext(ctx).Create(&lead).Error; err != nil {
+func (uc *ProductCategoryUseCase) CreateProductCategory(ctx context.Context, productCategory *product.ProductCategory) {
+	if err := uc.db.WithContext(ctx).Create(&productCategory).Error; err != nil {
 		panic(err)
 	}
 }
 
-func (uc *ProductCategoryUseCase) UpsertProductCategory(ctx context.Context, lead *product.ProductCategory) (*product.ProductCategory, error) {
+func (uc *ProductCategoryUseCase) UpsertProductCategory(ctx context.Context, productCategory *product.ProductCategory) (*product.ProductCategory, error) {
 
-	leads := []*product.ProductCategory{lead}
+	productCategorys := []*product.ProductCategory{productCategory}
 
-	_, err := uc.UpsertProductCategorys(ctx, leads)
+	_, err := uc.UpsertProductCategorys(ctx, productCategorys)
 	if err != nil {
-		panic(errors.Wrap(err, "upsert lead failed"))
+		panic(errors.Wrap(err, "upsert productCategory failed"))
 	}
 
-	return lead, err
+	return productCategory, err
 }
 
-func (uc *ProductCategoryUseCase) UpsertProductCategorys(ctx context.Context, leads []*product.ProductCategory) ([]*product.ProductCategory, error) {
+func (uc *ProductCategoryUseCase) UpsertProductCategorys(ctx context.Context, productCategorys []*product.ProductCategory) ([]*product.ProductCategory, error) {
 
-	err := powermodel.UpsertModelsOnUniqueID(uc.db.WithContext(ctx), &product.ProductCategory{}, product.ProductCategoryUniqueId, leads, nil)
+	err := powermodel.UpsertModelsOnUniqueID(uc.db.WithContext(ctx), &product.ProductCategory{}, product.ProductCategoryUniqueId, productCategorys, nil)
 
 	if err != nil {
-		panic(errors.Wrap(err, "batch upsert leads failed"))
+		panic(errors.Wrap(err, "batch upsert productCategorys failed"))
 	}
 
-	return leads, err
+	return productCategorys, err
 }
 
-func (uc *ProductCategoryUseCase) PatchProductCategory(ctx context.Context, id int64, lead *product.ProductCategory) {
-	if err := uc.db.WithContext(ctx).Model(&product.ProductCategory{}).Where(id).Updates(&lead).Error; err != nil {
+func (uc *ProductCategoryUseCase) PatchProductCategory(ctx context.Context, id int64, productCategory *product.ProductCategory) {
+	if err := uc.db.WithContext(ctx).Model(&product.ProductCategory{}).Where(id).Updates(&productCategory).Error; err != nil {
 		panic(err)
 	}
 }
 
 func (uc *ProductCategoryUseCase) GetProductCategory(ctx context.Context, id int64) (*product.ProductCategory, error) {
-	var lead product.ProductCategory
-	if err := uc.db.WithContext(ctx).First(&lead, id).Error; err != nil {
+	var productCategory product.ProductCategory
+	if err := uc.db.WithContext(ctx).First(&productCategory, id).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errorx.WithCause(errorx.ErrBadRequest, "未找到产品")
 		}
 		panic(err)
 	}
-	return &lead, nil
+	return &productCategory, nil
 }
 
 func (uc *ProductCategoryUseCase) DeleteProductCategory(ctx context.Context, id int64) error {

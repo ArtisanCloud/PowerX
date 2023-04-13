@@ -19,50 +19,50 @@ func NewPriceBookUseCase(db *gorm.DB) *PriceBookUseCase {
 	}
 }
 
-func (uc *PriceBookUseCase) CreatePriceBook(ctx context.Context, lead *product.PriceBook) {
-	if err := uc.db.WithContext(ctx).Create(&lead).Error; err != nil {
+func (uc *PriceBookUseCase) CreatePriceBook(ctx context.Context, priceBook *product.PriceBook) {
+	if err := uc.db.WithContext(ctx).Create(&priceBook).Error; err != nil {
 		panic(err)
 	}
 }
 
-func (uc *PriceBookUseCase) UpsertPriceBook(ctx context.Context, lead *product.PriceBook) (*product.PriceBook, error) {
+func (uc *PriceBookUseCase) UpsertPriceBook(ctx context.Context, priceBook *product.PriceBook) (*product.PriceBook, error) {
 
-	leads := []*product.PriceBook{lead}
+	priceBooks := []*product.PriceBook{priceBook}
 
-	_, err := uc.UpsertPriceBooks(ctx, leads)
+	_, err := uc.UpsertPriceBooks(ctx, priceBooks)
 	if err != nil {
-		panic(errors.Wrap(err, "upsert lead failed"))
+		panic(errors.Wrap(err, "upsert priceBook failed"))
 	}
 
-	return lead, err
+	return priceBook, err
 }
 
-func (uc *PriceBookUseCase) UpsertPriceBooks(ctx context.Context, leads []*product.PriceBook) ([]*product.PriceBook, error) {
+func (uc *PriceBookUseCase) UpsertPriceBooks(ctx context.Context, priceBooks []*product.PriceBook) ([]*product.PriceBook, error) {
 
-	err := powermodel.UpsertModelsOnUniqueID(uc.db.WithContext(ctx), &product.PriceBook{}, product.PriceBookUniqueId, leads, nil)
+	err := powermodel.UpsertModelsOnUniqueID(uc.db.WithContext(ctx), &product.PriceBook{}, product.PriceBookUniqueId, priceBooks, nil)
 
 	if err != nil {
-		panic(errors.Wrap(err, "batch upsert leads failed"))
+		panic(errors.Wrap(err, "batch upsert priceBooks failed"))
 	}
 
-	return leads, err
+	return priceBooks, err
 }
 
-func (uc *PriceBookUseCase) PatchPriceBook(ctx context.Context, id int64, lead *product.PriceBook) {
-	if err := uc.db.WithContext(ctx).Model(&product.PriceBook{}).Where(id).Updates(&lead).Error; err != nil {
+func (uc *PriceBookUseCase) PatchPriceBook(ctx context.Context, id int64, priceBook *product.PriceBook) {
+	if err := uc.db.WithContext(ctx).Model(&product.PriceBook{}).Where(id).Updates(&priceBook).Error; err != nil {
 		panic(err)
 	}
 }
 
 func (uc *PriceBookUseCase) GetPriceBook(ctx context.Context, id int64) (*product.PriceBook, error) {
-	var lead product.PriceBook
-	if err := uc.db.WithContext(ctx).First(&lead, id).Error; err != nil {
+	var priceBook product.PriceBook
+	if err := uc.db.WithContext(ctx).First(&priceBook, id).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errorx.WithCause(errorx.ErrBadRequest, "未找到产品")
 		}
 		panic(err)
 	}
-	return &lead, nil
+	return &priceBook, nil
 }
 
 func (uc *PriceBookUseCase) DeletePriceBook(ctx context.Context, id int64) error {
