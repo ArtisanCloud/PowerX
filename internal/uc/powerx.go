@@ -32,10 +32,6 @@ type PowerXUseCase struct {
 	WechatMP              *powerx.WechatMiniProgramUseCase
 	WechatOA              *powerx.WechatOfficialAccountUseCase
 	SCRM                  *powerx.SCRMUseCase
-
-	// custom here
-
-	// plugin here
 }
 
 func NewPowerXUseCase(conf *config.Config) (uc *PowerXUseCase, clean func()) {
@@ -106,10 +102,6 @@ func (p *PowerXUseCase) AutoMigrate(ctx context.Context) {
 	p.db.AutoMigrate(&product.Product{}, &product.ProductCategory{})
 	p.db.AutoMigrate(&product.PriceBook{}, &product.PriceBookEntry{}, &product.PriceConfig{})
 
-	// custom here
-
-	// plugin here
-	
 }
 
 func (p *PowerXUseCase) AutoInit() {
