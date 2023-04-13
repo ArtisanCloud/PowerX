@@ -1,35 +1,35 @@
-package reservationcenter
+package market
 
 import (
+	"PowerX/internal/model/market"
 	"PowerX/internal/model/powermodel"
-	"PowerX/internal/model/reservationcenter"
 	"PowerX/internal/types/errorx"
 	"context"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
 )
 
-type ArtisanUseCase struct {
+type StoreUseCase struct {
 	db *gorm.DB
 }
 
-func NewArtisanUseCase(db *gorm.DB) *ArtisanUseCase {
-	return &ArtisanUseCase{
+func NewStoreUseCase(db *gorm.DB) *StoreUseCase {
+	return &StoreUseCase{
 		db: db,
 	}
 }
 
-func (uc *ArtisanUseCase) CreateArtisan(ctx context.Context, lead *reservationcenter.Artisan) {
+func (uc *StoreUseCase) CreateStore(ctx context.Context, lead *market.Store) {
 	if err := uc.db.WithContext(ctx).Create(&lead).Error; err != nil {
 		panic(err)
 	}
 }
 
-func (uc *ArtisanUseCase) UpsertArtisan(ctx context.Context, lead *reservationcenter.Artisan) (*reservationcenter.Artisan, error) {
+func (uc *StoreUseCase) UpsertStore(ctx context.Context, lead *market.Store) (*market.Store, error) {
 
-	leads := []*reservationcenter.Artisan{lead}
+	leads := []*market.Store{lead}
 
-	_, err := uc.UpsertArtisans(ctx, leads)
+	_, err := uc.UpsertStores(ctx, leads)
 	if err != nil {
 		panic(errors.Wrap(err, "upsert lead failed"))
 	}
@@ -37,9 +37,9 @@ func (uc *ArtisanUseCase) UpsertArtisan(ctx context.Context, lead *reservationce
 	return lead, err
 }
 
-func (uc *ArtisanUseCase) UpsertArtisans(ctx context.Context, leads []*reservationcenter.Artisan) ([]*reservationcenter.Artisan, error) {
+func (uc *StoreUseCase) UpsertStores(ctx context.Context, leads []*market.Store) ([]*market.Store, error) {
 
-	err := powermodel.UpsertModelsOnUniqueID(uc.db.WithContext(ctx), &reservationcenter.Artisan{}, reservationcenter.ArtisanUniqueId, leads, nil)
+	err := powermodel.UpsertModelsOnUniqueID(uc.db.WithContext(ctx), &market.Store{}, market.StoreUniqueId, leads, nil)
 
 	if err != nil {
 		panic(errors.Wrap(err, "batch upsert leads failed"))
@@ -48,14 +48,14 @@ func (uc *ArtisanUseCase) UpsertArtisans(ctx context.Context, leads []*reservati
 	return leads, err
 }
 
-func (uc *ArtisanUseCase) PatchArtisan(ctx context.Context, id int64, lead *reservationcenter.Artisan) {
-	if err := uc.db.WithContext(ctx).Model(&reservationcenter.Artisan{}).Where(id).Updates(&lead).Error; err != nil {
+func (uc *StoreUseCase) PatchStore(ctx context.Context, id int64, lead *market.Store) {
+	if err := uc.db.WithContext(ctx).Model(&market.Store{}).Where(id).Updates(&lead).Error; err != nil {
 		panic(err)
 	}
 }
 
-func (uc *ArtisanUseCase) GetArtisan(ctx context.Context, id int64) (*reservationcenter.Artisan, error) {
-	var lead reservationcenter.Artisan
+func (uc *StoreUseCase) GetStore(ctx context.Context, id int64) (*market.Store, error) {
+	var lead market.Store
 	if err := uc.db.WithContext(ctx).First(&lead, id).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errorx.WithCause(errorx.ErrBadRequest, "未找到产品")
@@ -65,8 +65,8 @@ func (uc *ArtisanUseCase) GetArtisan(ctx context.Context, id int64) (*reservatio
 	return &lead, nil
 }
 
-func (uc *ArtisanUseCase) DeleteArtisan(ctx context.Context, id int64) error {
-	result := uc.db.WithContext(ctx).Delete(&reservationcenter.Artisan{}, id)
+func (uc *StoreUseCase) DeleteStore(ctx context.Context, id int64) error {
+	result := uc.db.WithContext(ctx).Delete(&market.Store{}, id)
 	if err := result.Error; err != nil {
 		panic(err)
 	}

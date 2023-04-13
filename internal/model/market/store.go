@@ -1,4 +1,4 @@
-package reservationcenter
+package market
 
 import (
 	"PowerX/internal/model/powermodel"
