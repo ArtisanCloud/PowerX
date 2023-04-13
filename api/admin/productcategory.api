@@ -37,7 +37,7 @@ service PowerX {
 
 type (
 
-    Product {
+    ProductCategory {
         Id int64 `json:"id"`
         Name string `json:"name"`
         Mobile string `json:"mobile"`

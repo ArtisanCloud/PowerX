@@ -445,7 +445,7 @@ type CreateLeadRecord struct {
 	Source    string `json:"source,optional,options=mini_program|tiktok|h5|ad"`
 	Status    string `json:"status,optional,options=open|following|closed_lost|closed_won"`
 	Type      string `json:"type,optional,options=personal|company"`
-	IsActive *bool  `json:"IsActive,optional"`
+	IsActive  *bool  `json:"IsActive,optional"`
 	LeadExternalId
 }
 
@@ -469,7 +469,7 @@ type PatchLeadRequest struct {
 	Source    string `json:"source,optional,options=mini_program|tiktok|h5|advertisement"`
 	Status    string `json:"status,optional,options=open|following|closed_lost|closed_won"`
 	Type      string `json:"type,optional,options=personal|company"`
-	IsActive *bool  `json:"IsActive,optional"`
+	IsActive  *bool  `json:"IsActive,optional"`
 	LeadExternalId
 }
 
