@@ -1,6 +1,7 @@
 package powerx
 
 import (
+	"PowerX/internal/config"
 	"PowerX/internal/model"
 	"PowerX/internal/types/errorx"
 	"PowerX/pkg/mapx"
@@ -14,10 +15,12 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	"os"
+	"path"
 	"strings"
 )
 
 type AdminPermsUseCase struct {
+	conf        *config.Config
 	db          *gorm.DB
 	Casbin      *casbin.Enforcer
 	sqlAdapter  *sqladapter.Adapter
@@ -25,15 +28,15 @@ type AdminPermsUseCase struct {
 	employee    *OrganizationUseCase
 }
 
-func NewAdminPermsUseCase(db *gorm.DB, employee *OrganizationUseCase) *AdminPermsUseCase {
+func NewAdminPermsUseCase(conf *config.Config, db *gorm.DB, employee *OrganizationUseCase) *AdminPermsUseCase {
 	//casbin适配器
 	sqlDB, _ := db.DB()
 	a, err := sqladapter.NewAdapter(sqlDB, "postgres", "casbin_policies")
 	if err != nil {
 		panic(err)
 	}
-	f := fileadapter.NewAdapter("etc/rbac_policy.csv")
-	e, err := casbin.NewEnforcer("etc/rbac_model.conf", a)
+	f := fileadapter.NewAdapter(path.Join(conf.EtcDir, "rbac_policy.csv"))
+	e, err := casbin.NewEnforcer(path.Join(conf.EtcDir, "rbac_model.conf"), a)
 	if err != nil {
 		panic(err)
 	}
@@ -119,7 +122,7 @@ func (uc *AdminPermsUseCase) Init() {
 	if count == 0 {
 		// api group
 		initAPIGroup := func() {
-			file, err := os.Open("etc/admin_api_group.csv")
+			file, err := os.Open(path.Join(uc.conf.EtcDir, "admin_api_group.csv"))
 			if err != nil {
 				panic(err)
 			}
@@ -146,7 +149,7 @@ func (uc *AdminPermsUseCase) Init() {
 
 		// api
 		initAPI := func() {
-			file, err := os.Open("etc/admin_api.csv")
+			file, err := os.Open(path.Join(uc.conf.EtcDir, "admin_api.csv"))
 			if err != nil {
 				panic(err)
 			}
@@ -319,7 +322,7 @@ func (uc *AdminPermsUseCase) PatchRoleByRoleId(ctx context.Context, role *AdminR
 
 	err := uc.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		// 清除旧的关联关系
-		if err := tx.Model(&AdminRole{}).Where(&AdminRole{RoleCode: role.RoleCode}).
+		if err := tx.Model(&role).Where(&AdminRole{RoleCode: role.RoleCode}).
 			Association("AdminAPI").Clear(); err != nil {
 			return err
 		}

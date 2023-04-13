@@ -656,7 +656,7 @@ type GetDictionaryTypesRequest struct {
 }
 
 type DictionaryType struct {
-	Id          int64  `json:"id"`
+	Type        string `json:"type"`
 	Name        string `json:"name"`
 	Description string `json:"description"`
 }
@@ -669,17 +669,18 @@ type GetDictionaryTypesReply struct {
 }
 
 type CreateDictionaryTypeRequest struct {
+	Type        string `json:"type"`
 	Name        string `json:"name"`
 	Description string `json:"description,optional"`
 }
 
 type CreateDictionaryTypeReply struct {
-	Id int64 `json:"id"`
+	Type string `json:"type"`
 }
 
 type UpdateDictionaryTypeRequest struct {
-	Id          int64  `path:"id"`
-	Name        string `json:"name"`
+	Type        string `path:"type"`
+	Name        string `json:"name,optional"`
 	Description string `json:"description,optional"`
 }
 
@@ -688,22 +689,22 @@ type UpdateDictionaryTypeReply struct {
 }
 
 type DeleteDictionaryTypeRequest struct {
-	Id int64 `path:"id"`
+	Type string `path:"type"`
 }
 
 type DeleteDictionaryTypeReply struct {
-	Id int64 `json:"id"`
+	Type string `json:"type"`
 }
 
 type GetDictionaryItemsRequest struct {
-	TypeId    int64 `form:"typeId"`
-	PageIndex int   `form:"pageIndex,optional"`
-	PageSize  int   `form:"pageSize,optional"`
+	Types     []string `form:"type,optional"`
+	PageIndex int      `form:"pageIndex,optional"`
+	PageSize  int      `form:"pageSize,optional"`
 }
 
 type DictionaryItem struct {
-	Id          int64  `json:"id"`
-	TypeId      int64  `json:"typeId"`
+	Key         string `json:"key"`
+	Type        string `json:"type"`
 	Name        string `json:"name"`
 	Value       string `json:"value"`
 	Description string `json:"description"`
@@ -717,21 +718,25 @@ type GetDictionaryItemsReply struct {
 }
 
 type CreateDictionaryItemRequest struct {
-	TypeId      int64  `json:"typeId"`
+	Key         string `json:"key"`
+	Type        string `json:"type"`
 	Name        string `json:"name"`
 	Value       string `json:"value"`
+	Sort        int    `json:"sort"`
 	Description string `json:"description,optional"`
 }
 
 type CreateDictionaryItemReply struct {
-	Id int64 `json:"id"`
+	Key  string `json:"key"`
+	Type string `json:"type"`
 }
 
 type UpdateDictionaryItemRequest struct {
-	Id          int64  `path:"id"`
-	TypeId      int64  `json:"typeId"`
-	Name        string `json:"name"`
-	Value       string `json:"value"`
+	Key         string `path:"key"`
+	Type        string `path:"type"`
+	Name        string `json:"name,optional"`
+	Value       string `json:"value,optional"`
+	Sort        int    `json:"sort,optional"`
 	Description string `json:"description,optional"`
 }
 
@@ -740,11 +745,13 @@ type UpdateDictionaryItemReply struct {
 }
 
 type DeleteDictionaryItemRequest struct {
-	Id int64 `path:"id"`
+	Key  string `path:"key"`
+	Type string `path:"type"`
 }
 
 type DeleteDictionaryItemReply struct {
-	Id int64 `json:"id"`
+	Key  string `json:"key"`
+	Type string `json:"type"`
 }
 
 type GetOpportunityListRequest struct {
@@ -858,6 +865,193 @@ type GetMenuRolesReply struct {
 
 type ModifyPasswordReqeust struct {
 	Password string `json:"password"`
+}
+
+type ContractWayGroupNode struct {
+	Id        int64                  `json:"id"`
+	GroupName string                 `json:"groupName"`
+	Children  []ContractWayGroupNode `json:"children"`
+}
+
+type GetContractWayGroupTreeRequest struct {
+}
+
+type GetContractWayGroupTreeReply struct {
+	GroupTree ContractWayGroupNode `json:"tree"`
+}
+
+type ContractWayGroup struct {
+	Id        int64  `json:"id"`
+	GroupName string `json:"groupName"`
+}
+
+type GetContractWayGroupListRequest struct {
+	GroupName string `form:"groupName,optional"`
+}
+
+type GetContractWayGroupListReply struct {
+	Groups []ContractWayGroup `json:"groups"`
+}
+
+type GetContractWaysRequest struct {
+	EmployeeId int64  `form:"employeeId,optional"`
+	Name       string `form:"name,optional"`
+	StartDate  string `form:"startDate,optional"`
+	EndDate    string `form:"endDate,optional"`
+	PageIndex  int    `form:"pageIndex"`
+	PageSize   int    `form:"pageSize"`
+}
+
+type GetContractWaysReply struct {
+	List      []ContractWay `json:"list"`
+	PageIndex int           `json:"pageIndex"`
+	PageSize  int           `json:"pageSize"`
+	Total     int64         `json:"total"`
+}
+
+type ContractWay struct {
+	Id            int64    `json:"id"`
+	Type          int      `json:"type"`
+	Scene         int      `json:"scene"`
+	Style         string   `json:"style,optional"`
+	Remark        string   `json:"remark,optional"`
+	SkipVerify    bool     `json:"skipVerify,optional"`
+	State         string   `json:"state,optional"`
+	Users         []string `json:"users,optional"`
+	Parties       []int64  `json:"parties,optional"`
+	IsTemp        bool     `json:"isTemp,optional"`
+	ExpiresIn     int      `json:"expiresIn,optional"`
+	ChatExpiresIn int      `json:"chatExpiresIn,optional"`
+	UnionId       string   `json:"unionId,optional"`
+	IsExclusive   bool     `json:"isExclusive,optional"`
+	Conclusions   string   `json:"conclusions,optional"`
+}
+
+type CreateContractWayRequest struct {
+	Type          int      `json:"type"`
+	Scene         int      `json:"scene"`
+	Style         string   `json:"style,optional"`
+	Remark        string   `json:"remark,optional"`
+	SkipVerify    bool     `json:"skipVerify,optional"`
+	State         string   `json:"state,optional"`
+	Users         []string `json:"users,optional"`
+	Parties       []int64  `json:"parties,optional"`
+	IsTemp        bool     `json:"isTemp,optional"`
+	ExpiresIn     int      `json:"expiresIn,optional"`
+	ChatExpiresIn int      `json:"chatExpiresIn,optional"`
+	UnionId       string   `json:"unionId,optional"`
+	IsExclusive   bool     `json:"isExclusive,optional"`
+	Conclusions   string   `json:"conclusions,optional"`
+}
+
+type CreateContractWayReply struct {
+	Id int64 `json:"id"`
+}
+
+type UpdateContractWayRequest struct {
+	Id            int64    `path:"id"`
+	Type          int      `json:"type,optional"`
+	Scene         int      `json:"scene,optional"`
+	Style         string   `json:"style,optional"`
+	Remark        string   `json:"remark,optional"`
+	SkipVerify    bool     `json:"skipVerify,optional"`
+	State         string   `json:"state,optional"`
+	Users         []string `json:"users,optional"`
+	Parties       []int64  `json:"parties,optional"`
+	IsTemp        bool     `json:"isTemp,optional"`
+	ExpiresIn     int      `json:"expiresIn,optional"`
+	ChatExpiresIn int      `json:"chatExpiresIn,optional"`
+	UnionId       string   `json:"unionId,optional"`
+	IsExclusive   bool     `json:"isExclusive,optional"`
+	Conclusions   string   `json:"conclusions,optional"`
+}
+
+type UpdateContractWayReply struct {
+	ContractWayUpdated ContractWay `json:"contractWayUpdated"`
+}
+
+type DeleteContractWayRequest struct {
+	Id int64 `path:"id"`
+}
+
+type DeleteContractWayReply struct {
+	Id int64 `json:"id"`
+}
+
+type WeWorkCustomer struct {
+	Name            string   `json:"name"`
+	AdderId         int64    `json:"adderId"`
+	AddTime         string   `json:"addTime"`
+	PatchTime       string   `json:"updateTime"`
+	AddChannel      string   `json:"addChannel"`
+	TagGroupIdList  []int64  `json:"tagGroupIdList"`
+	TagIdList       []int64  `json:"tagIdList"`
+	PersonalTagList []string `json:"personalTagList"`
+	Age             int      `json:"age"`
+	Email           string   `json:"email"`
+	PhoneNumber     string   `json:"phoneNumber"`
+	Address         string   `json:"address"`
+	Birthday        string   `json:"birthday"`
+	Remark          string   `json:"remark"`
+	GroupChatId     int64    `json:"groupChatId"`
+}
+
+type GetWeWorkCustomerRequest struct {
+	Id string `path:"id"`
+}
+
+type GetWeWorkCustomerReply struct {
+	WeWorkCustomer
+}
+
+type ListWeWorkCustomersRequest struct {
+	LikeName     string `form:"likeName,optional"`
+	FollowUserId string `form:"followUserId,optional"`
+	AddWay       int    `form:"addWay,optional"`
+	PageIndex    int    `form:"pageIndex,optional"`
+	PageSize     int    `form:"pageSize,optional"`
+}
+
+type ListWeWorkCustomersReply struct {
+	List      []GetWeWorkCustomerReply `json:"list"`
+	PageIndex int                      `json:"pageIndex"`
+	PageSize  int                      `json:"pageSize"`
+	Total     int64                    `json:"total"`
+}
+
+type PatchWeWorkCustomerRequest struct {
+	Id          string `path:"id"`
+	Name        string `json:"name,optional"`
+	Age         int    `json:"age,optional"`
+	Email       string `json:"email,optional"`
+	PhoneNumber string `json:"phoneNumber,optional"`
+	Address     string `json:"address,optional"`
+	Birthday    string `json:"birthday,optional"`
+	Remark      string `json:"remark,optional"`
+	GroupChatId int64  `json:"groupChatId,optional"`
+}
+
+type PatchWeWorkCustomerReply struct {
+	WeWorkCustomer
+}
+
+type SyncWeWorkCustomerReply struct {
+	Status string `json:"status"`
+}
+
+type SyncWeWorkContactReply struct {
+	Status string `json:"status"`
+}
+
+type ListWeWorkEmployeeReqeust struct {
+	PageIndex int `form:"pageIndex"`
+	PageSize  int `form:"pageSize"`
+}
+
+type ListWeWorkEmployeeReply struct {
+	PageIndex int `json:"pageIndex"`
+	PageSize  int `json:"pageSize"`
+	Total     int `json:"total"`
 }
 
 type MPCustomerLoginRequest struct {

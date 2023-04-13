@@ -14,46 +14,54 @@ info(
     middleware: EmployeeJWTAuth
 )
 
-service CustomerManagement {
+service PowerX {
     @doc "查询客户详情"
-    @handler GetCustomer
-    get /customers/:id (GetCustomerRequest) returns (GetCustomerReply)
+    @handler GetWeWorkCustomer
+    get /customers/:id (GetWeWorkCustomerRequest) returns (GetWeWorkCustomerReply)
 
     @doc "查询客户详情列表"
-    @handler ListCustomers
-    get /customers (ListCustomersRequest) returns (ListCustomersReply)
+    @handler ListWeWorkCustomers
+    get /customers (ListWeWorkCustomersRequest) returns (ListWeWorkCustomersReply)
 
     @doc "修改客户信息"
-    @handler UpdateCustomer
-    patch /customers/:id (UpdateCustomerRequest) returns (UpdateCustomerReply)
+    @handler PatchWeWorkCustomer
+    patch /customers/:id (PatchWeWorkCustomerRequest) returns (PatchWeWorkCustomerReply)
+
+    @doc "同步客户"
+    @handler SyncWeWorkCustomer
+    post /customers/actions/sync returns (SyncWeWorkCustomerReply)
+}
+
+type WeWorkCustomer {
+    Name string `json:"name"`
+    AdderId int64 `json:"adderId"`
+    AddTime string `json:"addTime"`
+    PatchTime string `json:"updateTime"`
+    AddChannel string `json:"addChannel"`
+    TagGroupIdList []int64 `json:"tagGroupIdList"`
+    TagIdList []int64 `json:"tagIdList"`
+    PersonalTagList []string `json:"personalTagList"`
+    Age int `json:"age"`
+    Email string `json:"email"`
+    PhoneNumber string `json:"phoneNumber"`
+    Address string `json:"address"`
+    Birthday string `json:"birthday"`
+    Remark string `json:"remark"`
+    GroupChatId int64 `json:"groupChatId"`
 }
 
 type (
-    GetCustomerRequest {
+    GetWeWorkCustomerRequest {
         Id string `path:"id"`
     }
 
-    GetCustomerReply {
-        Name string `json:"name"`
-        AdderId int64 `json:"adderId"`
-        AddTime string `json:"addTime"`
-        UpdateTime string `json:"updateTime"`
-        AddChannel string `json:"addChannel"`
-        TagGroupIdList []int64 `json:"tagGroupIdList"`
-        TagIdList []int64 `json:"tagIdList"`
-        PersonalTagList []string `json:"personalTagList"`
-        Age int `json:"age"`
-        Email string `json:"email"`
-        PhoneNumber string `json:"phoneNumber"`
-        Address string `json:"address"`
-        Birthday string `json:"birthday"`
-        Remark string `json:"remark"`
-        GroupChatId int64 `json:"groupChatId"`
+    GetWeWorkCustomerReply {
+        WeWorkCustomer
     }
 )
 
 type (
-    ListCustomersRequest {
+    ListWeWorkCustomersRequest {
         LikeName string `form:"likeName,optional"`
         FollowUserId string `form:"followUserId,optional"`
         AddWay int `form:"addWay,optional"`
@@ -61,8 +69,8 @@ type (
         PageSize int `form:"pageSize,optional"`
     }
 
-    ListCustomersReply {
-        List []GetCustomerReply `json:"list"`
+    ListWeWorkCustomersReply {
+        List []GetWeWorkCustomerReply `json:"list"`
         PageIndex int `json:"pageIndex"`
         PageSize int `json:"pageSize"`
         Total int64 `json:"total"`
@@ -70,7 +78,7 @@ type (
 )
 
 type (
-    UpdateCustomerRequest {
+    PatchWeWorkCustomerRequest {
         Id string `path:"id"`
         Name string `json:"name,optional"`
         Age int `json:"age,optional"`
@@ -82,6 +90,13 @@ type (
         GroupChatId int64 `json:"groupChatId,optional"`
     }
 
-    UpdateCustomerReply {
+    PatchWeWorkCustomerReply {
+        WeWorkCustomer
+    }
+)
+
+type (
+    SyncWeWorkCustomerReply {
+        Status string `json:"status"`
     }
 )

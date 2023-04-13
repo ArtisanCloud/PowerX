@@ -1,6 +1,8 @@
 package dictionary
 
 import (
+	"PowerX/internal/model"
+	"PowerX/internal/types/errorx"
 	"context"
 
 	"PowerX/internal/svc"
@@ -24,7 +26,25 @@ func NewCreateDictionaryItemLogic(ctx context.Context, svcCtx *svc.ServiceContex
 }
 
 func (l *CreateDictionaryItemLogic) CreateDictionaryItem(req *types.CreateDictionaryItemRequest) (resp *types.CreateDictionaryItemReply, err error) {
-	// todo: add your logic here and delete this line
+	if !l.svcCtx.PowerX.DataDictionaryUserCase.TypeIsExist(l.ctx, req.Type) {
+		return nil, errorx.WithCause(errorx.ErrBadRequest, "类型不存在")
+	}
 
-	return
+	item := model.DataDictionaryItem{
+		Key:         req.Key,
+		Type:        req.Type,
+		Name:        req.Name,
+		Value:       req.Value,
+		Sort:        req.Sort,
+		Description: req.Description,
+	}
+
+	if err := l.svcCtx.PowerX.DataDictionaryUserCase.CreateDataDictionaryItem(l.ctx, &item); err != nil {
+		return nil, err
+	}
+
+	return &types.CreateDictionaryItemReply{
+		Key:  item.Key,
+		Type: item.Type,
+	}, nil
 }

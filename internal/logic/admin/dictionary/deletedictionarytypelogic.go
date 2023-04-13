@@ -24,7 +24,11 @@ func NewDeleteDictionaryTypeLogic(ctx context.Context, svcCtx *svc.ServiceContex
 }
 
 func (l *DeleteDictionaryTypeLogic) DeleteDictionaryType(req *types.DeleteDictionaryTypeRequest) (resp *types.DeleteDictionaryTypeReply, err error) {
-	// todo: add your logic here and delete this line
+	if err := l.svcCtx.PowerX.DataDictionaryUserCase.DeleteDataDictionaryType(l.ctx, req.Type); err != nil {
+		return nil, err
+	}
 
-	return
+	return &types.DeleteDictionaryTypeReply{
+		Type: req.Type,
+	}, nil
 }

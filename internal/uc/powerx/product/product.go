@@ -2,7 +2,7 @@ package product
 
 import (
 	"PowerX/internal/model/powermodel"
-	"PowerX/internal/model/product"
+	model "PowerX/internal/model/product"
 	"PowerX/internal/types/errorx"
 	"context"
 	"github.com/pkg/errors"
@@ -19,54 +19,54 @@ func NewProductUseCase(db *gorm.DB) *ProductUseCase {
 	}
 }
 
-func (uc *ProductUseCase) CreateProduct(ctx context.Context, lead *product.Product) {
-	if err := uc.db.WithContext(ctx).Create(&lead).Error; err != nil {
+func (uc *ProductUseCase) CreateProduct(ctx context.Context, product *model.Product) {
+	if err := uc.db.WithContext(ctx).Create(&product).Error; err != nil {
 		panic(err)
 	}
 }
 
-func (uc *ProductUseCase) UpsertProduct(ctx context.Context, lead *product.Product) (*product.Product, error) {
+func (uc *ProductUseCase) UpsertProduct(ctx context.Context, product *model.Product) (*model.Product, error) {
 
-	leads := []*product.Product{lead}
+	products := []*model.Product{product}
 
-	_, err := uc.UpsertProducts(ctx, leads)
+	_, err := uc.UpsertProducts(ctx, products)
 	if err != nil {
-		panic(errors.Wrap(err, "upsert lead failed"))
+		panic(errors.Wrap(err, "upsert product failed"))
 	}
 
-	return lead, err
+	return product, err
 }
 
-func (uc *ProductUseCase) UpsertProducts(ctx context.Context, leads []*product.Product) ([]*product.Product, error) {
+func (uc *ProductUseCase) UpsertProducts(ctx context.Context, products []*model.Product) ([]*model.Product, error) {
 
-	err := powermodel.UpsertModelsOnUniqueID(uc.db.WithContext(ctx), &product.Product{}, product.ProductUniqueId, leads, nil)
+	err := powermodel.UpsertModelsOnUniqueID(uc.db.WithContext(ctx), &model.Product{}, model.ProductUniqueId, products, nil)
 
 	if err != nil {
-		panic(errors.Wrap(err, "batch upsert leads failed"))
+		panic(errors.Wrap(err, "batch upsert products failed"))
 	}
 
-	return leads, err
+	return products, err
 }
 
-func (uc *ProductUseCase) PatchProduct(ctx context.Context, id int64, lead *product.Product) {
-	if err := uc.db.WithContext(ctx).Model(&product.Product{}).Where(id).Updates(&lead).Error; err != nil {
+func (uc *ProductUseCase) PatchProduct(ctx context.Context, id int64, product *model.Product) {
+	if err := uc.db.WithContext(ctx).Model(&model.Product{}).Where(id).Updates(&product).Error; err != nil {
 		panic(err)
 	}
 }
 
-func (uc *ProductUseCase) GetProduct(ctx context.Context, id int64) (*product.Product, error) {
-	var lead product.Product
-	if err := uc.db.WithContext(ctx).First(&lead, id).Error; err != nil {
+func (uc *ProductUseCase) GetProduct(ctx context.Context, id int64) (*model.Product, error) {
+	var product model.Product
+	if err := uc.db.WithContext(ctx).First(&product, id).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errorx.WithCause(errorx.ErrBadRequest, "未找到产品")
 		}
 		panic(err)
 	}
-	return &lead, nil
+	return &product, nil
 }
 
 func (uc *ProductUseCase) DeleteProduct(ctx context.Context, id int64) error {
-	result := uc.db.WithContext(ctx).Delete(&product.Product{}, id)
+	result := uc.db.WithContext(ctx).Delete(&model.Product{}, id)
 	if err := result.Error; err != nil {
 		panic(err)
 	}

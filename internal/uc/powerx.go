@@ -3,7 +3,8 @@ package uc
 import (
 	"PowerX/internal/config"
 	"PowerX/internal/model"
-	reservationcenter3 "PowerX/internal/model/custom/reservationcenter"
+	productCustomModel "PowerX/internal/model/custom/product"
+	reservationCenterCustomModel "PowerX/internal/model/custom/reservationcenter"
 	"PowerX/internal/model/customerdomain"
 	"PowerX/internal/model/membership"
 	"PowerX/internal/model/product"
@@ -16,12 +17,16 @@ import (
 	"github.com/pkg/errors"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
 type PowerXUseCase struct {
-	db                    *gorm.DB
-	AdminAuthorization    *powerx.AdminPermsUseCase
-	Organization          *powerx.OrganizationUseCase
+	db                     *gorm.DB
+	DataDictionaryUserCase *powerx.DataDictionaryUseCase
+	AdminAuthorization     *powerx.AdminPermsUseCase
+
+	Organization *powerx.OrganizationUseCase
+
 	CustomerAuthorization *customerDomainUC.AuthorizationCustomerDomainUseCase
 	Customer              *customerDomainUC.CustomerUseCase
 	Lead                  *customerDomainUC.LeadUseCase
@@ -30,16 +35,21 @@ type PowerXUseCase struct {
 	PriceBook             *productUC.PriceBookUseCase
 	WechatMP              *powerx.WechatMiniProgramUseCase
 	WechatOA              *powerx.WechatOfficialAccountUseCase
-	Artisan               *reservationCenterCustomUC.ArtisanUseCase
-	Reservation           *reservationCenterCustomUC.ReservationUseCase
-	CheckinLog            *reservationCenterCustomUC.CheckinLogUseCase
-	Service               *productCustomUC.ServiceSpecificUseCase
+	SCRM                  *powerx.SCRMUseCase
+
+	// custom here
+	Artisan     *reservationCenterCustomUC.ArtisanUseCase
+	Reservation *reservationCenterCustomUC.ReservationUseCase
+	CheckinLog  *reservationCenterCustomUC.CheckinLogUseCase
+	Service     *productCustomUC.ServiceSpecificUseCase
+
+	// plugin here
 }
 
 func NewPowerXUseCase(conf *config.Config) (uc *PowerXUseCase, clean func()) {
 	// 启动数据库并测试连通性
 	db, err := gorm.Open(postgres.Open(conf.PowerXDatabase.DSN), &gorm.Config{
-		//Logger:                                   logger.Default.LogMode(logger.Info),
+		Logger:                                   logger.Default.LogMode(logger.Info),
 		DisableForeignKeyConstraintWhenMigrating: true,
 	})
 	if err != nil {
@@ -57,9 +67,12 @@ func NewPowerXUseCase(conf *config.Config) (uc *PowerXUseCase, clean func()) {
 	uc = &PowerXUseCase{
 		db: db,
 	}
+	// 加载基础UseCase
+	uc.DataDictionaryUserCase = powerx.NewDataDictionaryUseCase(db)
+
 	// 加载组织架构UseCase
 	uc.Organization = powerx.NewOrganizationUseCase(db)
-	uc.AdminAuthorization = powerx.NewAdminPermsUseCase(db, uc.Organization)
+	uc.AdminAuthorization = powerx.NewAdminPermsUseCase(conf, db, uc.Organization)
 
 	// 加载客域UseCase
 	uc.CustomerAuthorization = customerDomainUC.NewAuthorizationCustomerDomainUseCase(db)
@@ -74,6 +87,9 @@ func NewPowerXUseCase(conf *config.Config) (uc *PowerXUseCase, clean func()) {
 	// 加载微信UseCase
 	uc.WechatMP = powerx.NewWechatMiniProgramUseCase(db, conf)
 	uc.WechatOA = powerx.NewWechatOfficialAccountUseCase(db, conf)
+
+	// 加载SCRM UseCase
+	uc.SCRM = powerx.NewSCRMUseCase(db, conf)
 
 	// 加载预约中心UseCase
 	uc.Artisan = reservationCenterCustomUC.NewArtisanUseCase(db)
@@ -92,6 +108,7 @@ func NewPowerXUseCase(conf *config.Config) (uc *PowerXUseCase, clean func()) {
 }
 
 func (p *PowerXUseCase) AutoMigrate(ctx context.Context) {
+	p.db.AutoMigrate(&model.DataDictionaryType{}, &model.DataDictionaryItem{})
 	p.db.AutoMigrate(&powerx.Department{}, &powerx.Employee{})
 	p.db.AutoMigrate(&powerx.EmployeeCasbinPolicy{}, powerx.AdminRole{}, powerx.AdminRoleMenuName{}, powerx.AdminAPI{})
 
@@ -105,8 +122,14 @@ func (p *PowerXUseCase) AutoMigrate(ctx context.Context) {
 	p.db.AutoMigrate(&product.Product{}, &product.ProductCategory{})
 	p.db.AutoMigrate(&product.PriceBook{}, &product.PriceBookEntry{}, &product.PriceConfig{})
 
+	// custom here
+	// product
+	p.db.AutoMigrate(&productCustomModel.ServiceSpecific{})
+
 	// reservation center
-	p.db.AutoMigrate(&reservationcenter3.Artisan{}, &reservationcenter3.Reservation{}, &reservationcenter3.CheckinLog{})
+	p.db.AutoMigrate(&reservationCenterCustomModel.Artisan{}, &reservationCenterCustomModel.Reservation{}, &reservationCenterCustomModel.CheckinLog{})
+
+	// plugin here
 }
 
 func (p *PowerXUseCase) AutoInit() {

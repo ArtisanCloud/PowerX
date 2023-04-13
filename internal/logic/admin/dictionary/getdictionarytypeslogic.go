@@ -1,6 +1,7 @@
 package dictionary
 
 import (
+	"PowerX/internal/uc/powerx"
 	"context"
 
 	"PowerX/internal/svc"
@@ -24,7 +25,30 @@ func NewGetDictionaryTypesLogic(ctx context.Context, svcCtx *svc.ServiceContext)
 }
 
 func (l *GetDictionaryTypesLogic) GetDictionaryTypes(req *types.GetDictionaryTypesRequest) (resp *types.GetDictionaryTypesReply, err error) {
-	// todo: add your logic here and delete this line
+	page, err := l.svcCtx.PowerX.DataDictionaryUserCase.FindManyDataDictionaryType(l.ctx, &powerx.FindManyDataDictTypeOption{
+		PageEmbedOption: types.PageEmbedOption{
+			PageIndex: req.PageIndex,
+			PageSize:  req.PageSize,
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
 
-	return
+	// list
+	list := make([]types.DictionaryType, 0, len(page.List))
+	for _, item := range page.List {
+		list = append(list, types.DictionaryType{
+			Type:        item.Type,
+			Name:        item.Name,
+			Description: item.Description,
+		})
+	}
+
+	return &types.GetDictionaryTypesReply{
+		List:      list,
+		PageIndex: page.PageIndex,
+		PageSize:  page.PageSize,
+		Total:     page.Total,
+	}, nil
 }

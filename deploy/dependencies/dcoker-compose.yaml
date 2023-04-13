@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:latest
+    container_name: mysql-powerx
+    environment:
+      MYSQL_ROOT_PASSWORD: powerxpw
+      MYSQL_USER: powerx
+      MYSQL_PASSWORD: powerxpw
+    volumes:
+      - ./etc/mysql.cnf:/etc/mysql/conf.d/mysql.cnf
+      - ./data/mysql:/var/lib/mysql
+    ports:
+      - "3306:3306"
+
+  minio:
+    image: minio/minio:latest
+    container_name: minio-powerx
+    command: server --console-address ":9090" /mnt/data
+    environment:
+      MINIO_CONFIG_ENV_FILE: /etc/config.env
+    volumes:
+      - ./data/minio:/mnt/data
+      - ./etc/minio.env:/etc/config.env
+    ports:
+      - "9000:9000"
+      - "9090:9090"

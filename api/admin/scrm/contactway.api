@@ -9,12 +9,12 @@ info(
 )
 
 @server(
-    group: admin/contract-way
-    prefix: /api/v1/admin/contract-way
+    group: admin/contractway
+        prefix: /api/v1/admin/contract-way
     middleware: EmployeeJWTAuth
 )
 
-service ContractWay {
+service PowerX {
     @doc "获取渠道活码分组树"
     @handler GetContractWayGroupTree
     get /group-tree (GetContractWayGroupTreeRequest) returns (GetContractWayGroupTreeReply)

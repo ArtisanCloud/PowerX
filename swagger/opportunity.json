@@ -1,0 +1,513 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "商机管理",
+    "description": "商机管理",
+    "version": "v1"
+  },
+  "schemes": [
+    "http",
+    "https"
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "paths": {
+    "/api/v1/admin/opportunity/opportunities": {
+      "get": {
+        "summary": "查询商机列表",
+        "operationId": "GetOpportunityList",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/GetOpportunityListReply"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "name",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "source",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "stage",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "descBy",
+            "in": "query",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "pageIndex",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          }
+        ],
+        "requestBody": {},
+        "tags": [
+          "admin/opportunity"
+        ]
+      },
+      "post": {
+        "summary": "创建商机",
+        "operationId": "CreateOpportunity",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/CreateOpportunityReply"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/CreateOpportunityRequest"
+            }
+          }
+        ],
+        "requestBody": {},
+        "tags": [
+          "admin/opportunity"
+        ]
+      }
+    },
+    "/api/v1/admin/opportunity/opportunities/{id}": {
+      "delete": {
+        "summary": "删除商机",
+        "operationId": "DeleteOpportunity",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/DeleteOpportunityReply"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/DeleteOpportunityRequest"
+            }
+          }
+        ],
+        "requestBody": {},
+        "tags": [
+          "admin/opportunity"
+        ]
+      },
+      "put": {
+        "summary": "修改商机信息",
+        "operationId": "UpdateOpportunity",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/UpdateOpportunityReply"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/UpdateOpportunityRequest"
+            }
+          }
+        ],
+        "requestBody": {},
+        "tags": [
+          "admin/opportunity"
+        ]
+      }
+    },
+    "/api/v1/admin/opportunity/opportunities/{id}/assign-employee": {
+      "put": {
+        "summary": "为商机分配员工",
+        "operationId": "AssignEmployeeToOpportunity",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/AssignEmployeeToOpportunityReply"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/AssignEmployeeToOpportunityRequest"
+            }
+          }
+        ],
+        "requestBody": {},
+        "tags": [
+          "admin/opportunity"
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "AssignEmployeeToOpportunityReply": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "title": "AssignEmployeeToOpportunityReply",
+      "required": [
+        "id"
+      ]
+    },
+    "AssignEmployeeToOpportunityRequest": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "employeeId": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "title": "AssignEmployeeToOpportunityRequest",
+      "required": [
+        "id",
+        "employeeId"
+      ]
+    },
+    "CreateOpportunityReply": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "title": "CreateOpportunityReply",
+      "required": [
+        "id"
+      ]
+    },
+    "CreateOpportunityRequest": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "requirement": {
+          "type": "string"
+        },
+        "customerId": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "probability": {
+          "type": "number",
+          "format": "float"
+        },
+        "source": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "employeeId": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "stage": {
+          "type": "string"
+        }
+      },
+      "title": "CreateOpportunityRequest",
+      "required": [
+        "name",
+        "requirement",
+        "customerId",
+        "source",
+        "type",
+        "employeeId",
+        "stage"
+      ]
+    },
+    "DeleteOpportunityReply": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "title": "DeleteOpportunityReply",
+      "required": [
+        "id"
+      ]
+    },
+    "DeleteOpportunityRequest": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "title": "DeleteOpportunityRequest",
+      "required": [
+        "id"
+      ]
+    },
+    "GetOpportunityListReply": {
+      "type": "object",
+      "properties": {
+        "list": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Opportunity"
+          }
+        },
+        "pageIndex": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "pageSize": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "total": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "title": "GetOpportunityListReply",
+      "required": [
+        "list",
+        "pageIndex",
+        "pageSize",
+        "total"
+      ]
+    },
+    "GetOpportunityListRequest": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "stage": {
+          "type": "string"
+        },
+        "descBy": {
+          "type": "string"
+        },
+        "pageIndex": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "pageSize": {
+          "type": "integer",
+          "format": "int32"
+        }
+      },
+      "title": "GetOpportunityListRequest",
+      "required": [
+        "descBy"
+      ]
+    },
+    "Opportunity": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "name": {
+          "type": "string"
+        },
+        "requirement": {
+          "type": "string"
+        },
+        "customerId": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "probability": {
+          "type": "number",
+          "format": "float"
+        },
+        "source": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "employeeId": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "stage": {
+          "type": "string"
+        },
+        "closedDate": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "string"
+        },
+        "updatedAt": {
+          "type": "string"
+        }
+      },
+      "title": "Opportunity",
+      "required": [
+        "id",
+        "name",
+        "requirement",
+        "customerId",
+        "probability",
+        "source",
+        "type",
+        "employeeId",
+        "stage",
+        "closedDate",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "UpdateOpportunityReply": {
+      "type": "object",
+      "properties": {
+        "": {
+          "$ref": "#/definitions/Opportunity"
+        }
+      },
+      "title": "UpdateOpportunityReply"
+    },
+    "UpdateOpportunityRequest": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "name": {
+          "type": "string"
+        },
+        "requirement": {
+          "type": "string"
+        },
+        "customerId": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "probability": {
+          "type": "number",
+          "format": "float"
+        },
+        "source": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "employeeId": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "stage": {
+          "type": "string"
+        },
+        "closedDate": {
+          "type": "string"
+        }
+      },
+      "title": "UpdateOpportunityRequest",
+      "required": [
+        "id",
+        "source",
+        "type"
+      ]
+    }
+  },
+  "securityDefinitions": {
+    "apiKey": {
+      "type": "apiKey",
+      "description": "Enter JWT Bearer token **_only_**",
+      "name": "Authorization",
+      "in": "header"
+    }
+  },
+  "security": [
+    {
+      "apiKey": []
+    }
+  ]
+}
