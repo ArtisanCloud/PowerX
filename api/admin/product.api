@@ -18,15 +18,26 @@ info(
 service PowerX {
     @doc "查询产品列表"
     @handler ListProducts
-    get /products (ListProductsRequest) returns (ListProductsReply)
+    get /products (GetProductListRequest) returns (GetProductListReply)
+
+    @doc "查询产品详情"
+    @handler GetProduct
+    get /products/:id (GetProductRequest) returns (GetProductReply)
+
 
     @doc "创建产品"
     @handler CreateProduct
     post /products (CreateProductRequest) returns (CreateProductReply)
 
-    @doc "编辑产品"
+
+    @doc "全量产品"
+    @handler PutProduct
+    put /products/:id (PutProductRequest) returns (PutProductReply)
+
+    @doc "增量产品"
     @handler PatchProduct
     patch /products/:id (PatchProductRequest) returns (PatchProductReply)
+
 
     @doc "删除产品"
     @handler DeleteProduct
@@ -35,98 +46,114 @@ service PowerX {
     @doc "分配产品品类给产品品类分类"
     @handler AssignProductToProductCategory
     post /products/:id/actions/assign-to-product-categroy (AssignProductToProductCategoryRequest) returns (AssignProductToProductCategoryReply)
-
 }
 
 type (
+    ProductSpecific {
+        Inventory string `json:"inventory"`
+        Weight string `json:"weight"`
+        Volume string `json:"volume"`
+        Encode string `json:"encode"`
+        BarCode string `json:"barCode"`
+        Extra string `json:"extra"`
+    }
 
     Product {
-        Id int64 `json:"id"`
+        Id int64 `json:"id,optional"`
         Name string `json:"name"`
-        Mobile string `json:"mobile"`
-        Email string `json:"email"`
-        Source string `json:"source"`
-        Status string `json:"status"`
-        CreatedAt string `json:"createdAt"`
-        
+        Type string `json:"type"`
+        Plan string `json:"plan"`
+        AccountingCategory string `json:"accountingCategory"`
+        CanSellOnline string `json:"canSellOnline"`
+        CanUseForDeduct string `json:"canUseForDeduct"`
+        ApprovalStatus string `json:"approvalStatus"`
+        IsActivated string `json:"isActivated"`
+        Description string `json:"description"`
+        CoverURL string `json:"coverURL"`
+        PurchasedQuantity string `json:"purchasedQuantity"`
+        ValidityPeriodDays string `json:"validityPeriodDays"`
+        SaleStartDate string `json:"saleStartDate"`
+        SaleEndDate string `json:"saleEndDate"`
+        CreatedAt string `json:"createdAt,optional"`
+        ProductSpecific
     }
 )
-
 type (
-    ListProductsRequest {
-        LikeTitle string `json:"likeTitle,optional"`
-        LikePhoneNumber string `json:"likePhoneNumber,optional"`
-        Sources []string `json:"sources,optional"`
-        Statuses []string `json:"statuses,optional"`
+    GetProductListRequest struct {
+        ProductType string `form:"productType,optional"`
+        Keys []string `form:"keys,optional"`
+        DescBy string `form:"descBy,optional,options=createdAt|updatedAt"`
+        PageIndex int `form:"pageIndex,optional"`
+        PageSize int `form:"pageSize,optional"`
     }
 
-    ListProductsReply {
+
+    GetProductListReply struct {
         List []Product `json:"list"`
-        PageIndex int32 `json:"pageIndex"`
-        PageSize int32 `json:"pageSize"`
+        PageIndex int `json:"pageIndex"`
+        PageSize int `json:"pageSize"`
         Total int64 `json:"total"`
     }
 )
 
 type (
-    CreateProductRecord {
-        Id int64 `json:"id"`
-        Name string `json:"name"`
-        Mobile string `json:"mobile,optional"`
-        Email string `json:"email,optional"`
-        InviterId int64 `json:"inviterId,optional"`
-        Source string `json:"source,optional,options=mini_program|tiktok|h5|ad"`
-        Status string `json:"status,optional,options=open|following|closed_lost|closed_won"`
-        Type string `json:"type,optional,options=personal|company"`
-        IsActive *bool `json:"IsActive,optional"`
-        
-    }
-
-    CreateProductRequest {
-        List []CreateProductRecord `json:"list"`
-    }
-
-    CreateProductReply {
-        List []Product `json:"list"`
-        PageIndex int32 `json:"pageIndex"`
-        PageSize int32 `json:"pageSize"`
-        Total int64 `json:"total"`
-    }
-)
-
-type (
-    PatchProductRequest {
-        Id int64 `path:"id"`
-        Name string `json:"name,optional"`
-        Mobile string `json:"mobile,optional"`
-        Email string `json:"email,optional"`
-        InviterId int64 `json:"inviterId,optional"`
-        Source string `json:"source,optional,options=mini_program|tiktok|h5|advertisement"`
-        Status string `json:"status,optional,options=open|following|closed_lost|closed_won"`
-        Type string `json:"type,optional,options=personal|company"`
-        IsActive *bool `json:"IsActive,optional"`
-        
-    }
-
-    PatchProductReply {
+    CreateProductRequest struct {
         Product
     }
+
+    CreateProductReply struct {
+        ProductKey int64 `json:"productId"`
+    }
 )
 
 type (
-    DeleteProductRequest {
-        Id int64 `json:"id"`
+    GetProductRequest struct {
+        ProductId int64 `json:"productId"`
     }
 
-    DeleteProductReply {
-        Id int64 `json:"id"`
+    GetProductReply struct {
+        *Product
+    }
+)
+
+
+type (
+    PutProductRequest struct {
+        ProductId int64 `json:"productId"`
+        Product
+    }
+
+    PutProductReply struct {
+        *Product
+    }
+)
+
+type (
+    PatchProductRequest struct {
+        ProductId int64 `json:"productId"`
+        Product
+    }
+
+    PatchProductReply struct {
+        *Product
+    }
+)
+
+
+type (
+    DeleteProductRequest struct {
+        ProductId int64 `path:"productId"`
+    }
+
+    DeleteProductReply struct {
+        ProductId int64 `json:"productId"`
     }
 )
 
 
 type (
     AssignProductToProductCategoryRequest {
-        Id int64 `path:"id"`
+        Id int64 `json:"id"`
         ProductCategoryId int64 `json:"productCategoryId"`
     }
 

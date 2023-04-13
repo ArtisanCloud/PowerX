@@ -93,3 +93,92 @@ Response.body = {
   "message": "user not found, invalid userId"
 }
 ```
+
+
+
+---
+
+# API 基础CRUD定义
+
+## List
+
+```api
+
+@doc "查询对象列表"
+@handler ListObjects
+get /objects (ListObjectsRequest) returns (ListObjectsReply)
+
+```
+
+## Get 获取对象
+
+```api 
+@doc "获取对象"
+@handler GetObject
+get /objects/:id (GetObjectRequest) returns (GetObjectReply)
+
+```
+
+## Create 创建对象
+
+```api
+
+@doc "创建对象"
+@handler CreateObject
+post /objects (CreateObjectRequest) returns (CreateObjectReply)
+
+```
+
+
+## Upsert 创建或更新对象
+
+```api
+
+@doc "创建或更新对象"
+@handler UpsertObject
+post /objects (UpsertObjectRequest) returns (UpsertObjectReply)
+
+```
+
+## Update
+
+### Put 全量更新对象
+
+```api
+@doc "全量更新对象"
+@handler PutObject
+put /objects/:id (PutObjectRequest) returns (PutObjectReply)
+
+```
+
+### Patch 增量更新对象
+
+```api
+@doc "增量更新对象"
+@handler PatchObject
+patch /objects/:id (PatchObjectRequest) returns (PatchObjectReply)
+
+```
+
+
+## Delete 删除对象
+
+
+```api
+
+@doc "删除对象"
+@handler DeleteObject
+delete /objects/:id (DeleteObjectRequest) returns (DeleteObjectReply)
+
+```
+
+
+
+
+
+
+
+
+
+
+

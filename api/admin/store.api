@@ -1,0 +1,146 @@
+syntax = "v1"
+
+info(
+    title: "门店"
+    desc: "门店"
+    author: "MichaelHu"
+    email: "matrix-x@artisan-cloud.com"
+    version: "v1"
+)
+
+
+@server(
+    group: admin/store
+    prefix: /api/v1/admin/store
+    middleware: EmployeeJWTAuth
+)
+
+service PowerX {
+    @doc "查询产品列表"
+    @handler ListStores
+    get /stores (GetStoreListRequest) returns (GetStoreListReply)
+
+    @doc "查询产品详情"
+    @handler GetStore
+    get /stores/:id (GetStoreRequest) returns (GetStoreReply)
+
+
+    @doc "创建产品"
+    @handler CreateStore
+    post /stores (CreateStoreRequest) returns (CreateStoreReply)
+
+
+    @doc "全量产品"
+    @handler PutStore
+    put /stores/:id (PutStoreRequest) returns (PutStoreReply)
+
+    @doc "增量产品"
+    @handler PatchStore
+    patch /stores/:id (PatchStoreRequest) returns (PatchStoreReply)
+
+
+    @doc "删除产品"
+    @handler DeleteStore
+    delete /stores/:id (DeleteStoreRequest) returns (DeleteStoreReply)
+
+    @doc "分配产品品类给产品品类分类"
+    @handler AssignStoreToStoreCategory
+    post /stores/:id/actions/assign-to-store-categroy (AssignStoreManagerRequest) returns (AssignStoreManagerReply)
+}
+
+type (
+    Store {
+        Id int64 `json:"id,optional"`
+        Name string `json:"name"`
+        EmployeeID int64 `json:"employeeID"`
+        ContactNumber string `json:"contactNumber"`
+        CoverURL string `json:"coverURL"`
+        Address string `json:"address"`
+        Longitude float32 `json:"longitude"`
+        Latitude float32 `json:"latitude"`
+        CreatedAt string `json:"createdAt,optional"`
+    }
+)
+type (
+    GetStoreListRequest struct {
+        StoreType string `form:"storeType,optional"`
+        Keys []string `form:"keys,optional"`
+        DescBy string `form:"descBy,optional,options=createdAt|updatedAt"`
+        PageIndex int `form:"pageIndex,optional"`
+        PageSize int `form:"pageSize,optional"`
+    }
+
+
+    GetStoreListReply struct {
+        List []Store `json:"list"`
+        PageIndex int `json:"pageIndex"`
+        PageSize int `json:"pageSize"`
+        Total int64 `json:"total"`
+    }
+)
+
+type (
+    CreateStoreRequest struct {
+        Store
+    }
+
+    CreateStoreReply struct {
+        StoreId string `json:"storeId"`
+    }
+)
+
+type (
+    GetStoreRequest struct {
+        StoreId string `path:"storeId"`
+    }
+
+    GetStoreReply struct {
+        *Store
+    }
+)
+
+
+type (
+    PutStoreRequest struct {
+        StoreId string `path:"storeId"`
+        Store
+    }
+
+    PutStoreReply struct {
+        *Store
+    }
+)
+
+type (
+    PatchStoreRequest struct {
+        StoreId string `path:"storeId"`
+        Store
+    }
+
+    PatchStoreReply struct {
+        *Store
+    }
+)
+
+
+type (
+    DeleteStoreRequest struct {
+        StoreId string `path:"storeId"`
+    }
+
+    DeleteStoreReply struct {
+        StoreId string `json:"storeId"`
+    }
+)
+
+
+type (
+    AssignStoreManagerRequest {
+        Id int64 `path:"id"`
+        EmployeeId int64 `json:"employeeId"`
+    }
+
+    AssignStoreManagerReply {
+        Store
+    }
+)

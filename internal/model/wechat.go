@@ -43,7 +43,7 @@ type WechatMPCustomer struct {
 	//Language           string `json:"language"`
 }
 
-const WECHAT_MP_CUSTOMER_UNIQUE_ID = "open_id"
+const WechatMpCustomerUniqueId = "open_id"
 
 type FindMPCustomerOption struct {
 	Ids             []int64
