@@ -25,8 +25,8 @@ service PowerX {
     post /price-books (CreatePriceBookRequest) returns (CreatePriceBookReply)
 
     @doc "编辑价格手册"
-    @handler UpdatePriceBook
-    patch /price-books/:id (UpdatePriceBookRequest) returns (UpdatePriceBookReply)
+    @handler PatchPriceBook
+    patch /price-books/:id (PatchPriceBookRequest) returns (PatchPriceBookReply)
 
     @doc "删除价格手册"
     @handler DeletePriceBook
@@ -95,7 +95,7 @@ type (
 )
 
 type (
-    UpdatePriceBookRequest {
+    PatchPriceBookRequest {
         Id int64 `path:"id"`
         Name string `json:"name,optional"`
         Mobile string `json:"mobile,optional"`
@@ -108,7 +108,7 @@ type (
         
     }
 
-    UpdatePriceBookReply {
+    PatchPriceBookReply {
         PriceBook
     }
 )

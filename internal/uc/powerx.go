@@ -17,9 +17,9 @@ import (
 )
 
 type PowerXUseCase struct {
-	db                     *gorm.DB
-	DataDictionaryUserCase *powerx.DataDictionaryUseCase
-	AdminAuthorization     *powerx.AdminPermsUseCase
+	db                 *gorm.DB
+	DataDictionary     *powerx.DataDictionaryUseCase
+	AdminAuthorization *powerx.AdminPermsUseCase
 
 	Organization *powerx.OrganizationUseCase
 
@@ -56,7 +56,7 @@ func NewPowerXUseCase(conf *config.Config) (uc *PowerXUseCase, clean func()) {
 		db: db,
 	}
 	// 加载基础UseCase
-	uc.DataDictionaryUserCase = powerx.NewDataDictionaryUseCase(db)
+	uc.DataDictionary = powerx.NewDataDictionaryUseCase(db)
 
 	// 加载组织架构UseCase
 	uc.Organization = powerx.NewOrganizationUseCase(db)

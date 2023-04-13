@@ -867,6 +867,233 @@ type ModifyPasswordReqeust struct {
 	Password string `json:"password"`
 }
 
+type ProductSpecific struct {
+	Inventory string `json:"inventory"`
+	Weight    string `json:"weight"`
+	Volume    string `json:"volume"`
+	Encode    string `json:"encode"`
+	BarCode   string `json:"barCode"`
+	Extra     string `json:"extra"`
+}
+
+type Product struct {
+	Id                 int64  `json:"id,optional"`
+	Name               string `json:"name"`
+	Type               string `json:"type"`
+	Plan               string `json:"plan"`
+	AccountingCategory string `json:"accountingCategory"`
+	CanSellOnline      string `json:"canSellOnline"`
+	CanUseForDeduct    string `json:"canUseForDeduct"`
+	ApprovalStatus     string `json:"approvalStatus"`
+	IsActivated        string `json:"isActivated"`
+	Description        string `json:"description"`
+	CoverURL           string `json:"coverURL"`
+	PurchasedQuantity  string `json:"purchasedQuantity"`
+	ValidityPeriodDays string `json:"validityPeriodDays"`
+	SaleStartDate      string `json:"saleStartDate"`
+	SaleEndDate        string `json:"saleEndDate"`
+	CreatedAt          string `json:"createdAt,optional"`
+	ProductSpecific
+}
+
+type GetProductListRequest struct {
+	ProductType string   `form:"productType,optional"`
+	Keys        []string `form:"keys,optional"`
+	DescBy      string   `form:"descBy,optional,options=createdAt|updatedAt"`
+	PageIndex   int      `form:"pageIndex,optional"`
+	PageSize    int      `form:"pageSize,optional"`
+}
+
+type GetProductListReply struct {
+	List      []Product `json:"list"`
+	PageIndex int       `json:"pageIndex"`
+	PageSize  int       `json:"pageSize"`
+	Total     int64     `json:"total"`
+}
+
+type CreateProductRequest struct {
+	Product
+}
+
+type CreateProductReply struct {
+	ProductKey int64 `json:"productId"`
+}
+
+type GetProductRequest struct {
+	ProductId int64 `json:"productId"`
+}
+
+type GetProductReply struct {
+	*Product
+}
+
+type PutProductRequest struct {
+	ProductId int64 `json:"productId"`
+	Product
+}
+
+type PutProductReply struct {
+	*Product
+}
+
+type PatchProductRequest struct {
+	ProductId int64 `json:"productId"`
+	Product
+}
+
+type PatchProductReply struct {
+	*Product
+}
+
+type DeleteProductRequest struct {
+	ProductId int64 `path:"productId"`
+}
+
+type DeleteProductReply struct {
+	ProductId int64 `json:"productId"`
+}
+
+type AssignProductToProductCategoryRequest struct {
+	Id                int64 `json:"id"`
+	ProductCategoryId int64 `json:"productCategoryId"`
+}
+
+type AssignProductToProductCategoryReply struct {
+	Product
+}
+
+type ImageAbleInfo struct {
+	Icon            string `json:"icon"`
+	BackgroundColor string `json:"backgroundColor"`
+	ImageURL        string `json:"imageURL"`
+}
+
+type ProductCategory struct {
+	Id          int64  `json:"id,optional"`
+	PId         int64  `json:"pId"`
+	Name        string `json:"name"`
+	Sort        int    `json:"sort"`
+	ViceName    string `json:"viceName"`
+	Description string `json:"description"`
+	CreatedAt   string `json:"createdAt,optional"`
+	ImageAbleInfo
+}
+
+type GetProductCategoryListRequest struct {
+	DescBy    string `form:"descBy,optional,options=createdAt|updatedAt"`
+	PageIndex int    `form:"pageIndex,optional"`
+	PageSize  int    `form:"pageSize,optional"`
+}
+
+type GetProductCategoryListReply struct {
+	List      []ProductCategory `json:"list"`
+	PageIndex int               `json:"pageIndex"`
+	PageSize  int               `json:"pageSize"`
+	Total     int64             `json:"total"`
+}
+
+type UpsertProductCategoryRequest struct {
+	ProductCategory
+}
+
+type UpsertProductCategoryReply struct {
+	*ProductCategory
+}
+
+type GetProductCategoryRequest struct {
+	ProductCategoryId int64 `json:"productCategoryId"`
+}
+
+type GetProductCategoryReply struct {
+	*ProductCategory
+}
+
+type DeleteProductCategoryRequest struct {
+	ProductCategoryId int64 `json:"productCategoryId"`
+}
+
+type DeleteProductCategoryReply struct {
+	ProductCategoryId int64 `json:"productCategoryId"`
+}
+
+type Store struct {
+	Id            int64   `json:"id,optional"`
+	Name          string  `json:"name"`
+	EmployeeID    int64   `json:"employeeID"`
+	ContactNumber string  `json:"contactNumber"`
+	CoverURL      string  `json:"coverURL"`
+	Address       string  `json:"address"`
+	Longitude     float32 `json:"longitude"`
+	Latitude      float32 `json:"latitude"`
+	CreatedAt     string  `json:"createdAt,optional"`
+}
+
+type GetStoreListRequest struct {
+	StoreType string   `form:"storeType,optional"`
+	Keys      []string `form:"keys,optional"`
+	DescBy    string   `form:"descBy,optional,options=createdAt|updatedAt"`
+	PageIndex int      `form:"pageIndex,optional"`
+	PageSize  int      `form:"pageSize,optional"`
+}
+
+type GetStoreListReply struct {
+	List      []Store `json:"list"`
+	PageIndex int     `json:"pageIndex"`
+	PageSize  int     `json:"pageSize"`
+	Total     int64   `json:"total"`
+}
+
+type CreateStoreRequest struct {
+	Store
+}
+
+type CreateStoreReply struct {
+	StoreId string `json:"storeId"`
+}
+
+type GetStoreRequest struct {
+	StoreId string `path:"storeId"`
+}
+
+type GetStoreReply struct {
+	*Store
+}
+
+type PutStoreRequest struct {
+	StoreId string `path:"storeId"`
+	Store
+}
+
+type PutStoreReply struct {
+	*Store
+}
+
+type PatchStoreRequest struct {
+	StoreId string `path:"storeId"`
+	Store
+}
+
+type PatchStoreReply struct {
+	*Store
+}
+
+type DeleteStoreRequest struct {
+	StoreId string `path:"storeId"`
+}
+
+type DeleteStoreReply struct {
+	StoreId string `json:"storeId"`
+}
+
+type AssignStoreManagerRequest struct {
+	Id         int64 `path:"id"`
+	EmployeeId int64 `json:"employeeId"`
+}
+
+type AssignStoreManagerReply struct {
+	Store
+}
+
 type ContractWayGroupNode struct {
 	Id        int64                  `json:"id"`
 	GroupName string                 `json:"groupName"`

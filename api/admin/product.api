@@ -20,13 +20,24 @@ service PowerX {
     @handler ListProducts
     get /products (GetProductListRequest) returns (GetProductListReply)
 
+    @doc "查询产品详情"
+    @handler GetProduct
+    get /products/:id (GetProductRequest) returns (GetProductReply)
+
+
     @doc "创建产品"
     @handler CreateProduct
-    post /products (UpsertProductRequest) returns (UpsertProductReply)
+    post /products (CreateProductRequest) returns (CreateProductReply)
 
-    @doc "编辑产品"
-    @handler UpdateProduct
-    patch /products/:id (UpdateProductRequest) returns (UpdateProductReply)
+
+    @doc "全量产品"
+    @handler PutProduct
+    put /products/:id (PutProductRequest) returns (PutProductReply)
+
+    @doc "增量产品"
+    @handler PatchProduct
+    patch /products/:id (PatchProductRequest) returns (PatchProductReply)
+
 
     @doc "删除产品"
     @handler DeleteProduct
@@ -48,7 +59,7 @@ type (
     }
 
     Product {
-        Id int64 `json:"id"`
+        Id int64 `json:"id,optional"`
         Name string `json:"name"`
         Type string `json:"type"`
         Plan string `json:"plan"`
@@ -63,7 +74,7 @@ type (
         ValidityPeriodDays string `json:"validityPeriodDays"`
         SaleStartDate string `json:"saleStartDate"`
         SaleEndDate string `json:"saleEndDate"`
-        CreatedAt string `json:"createdAt"`
+        CreatedAt string `json:"createdAt,optional"`
         ProductSpecific
     }
 )
@@ -86,54 +97,63 @@ type (
 )
 
 type (
-    CreateProductUploadRequest struct {
-        FileName string `json:"fileName"`
+    CreateProductRequest struct {
+        Product
     }
 
-    CreateProductUploadRequestReply struct {
-        ProductKey string `json:"productKey"`
-        UploadURL string `json:"uploadURL"`
-        ExpiresAt int64 `json:"expiresAt"`
+    CreateProductReply struct {
+        ProductKey int64 `json:"productId"`
     }
 )
 
 type (
-    UpsertProductRequest struct {
-        ProductKey string `path:"productKey"`
-        ProductType string `json:"productType,optional"`
-        Meta string `json:"meta,optional"`
-        Remark string `json:"remark,optional"`
+    GetProductRequest struct {
+        ProductId int64 `json:"productId"`
     }
 
-    UpsertProductReply struct {
-        ProductKey string `json:"productKey"`
+    GetProductReply struct {
+        *Product
     }
 )
 
+
 type (
-    GetProductByKeyRequest struct {
-        ProductKey string `path:"productKey"`
+    PutProductRequest struct {
+        ProductId int64 `json:"productId"`
+        Product
     }
 
-    GetProductByKeyReply struct {
+    PutProductReply struct {
         *Product
     }
 )
 
 type (
+    PatchProductRequest struct {
+        ProductId int64 `json:"productId"`
+        Product
+    }
+
+    PatchProductReply struct {
+        *Product
+    }
+)
+
+
+type (
     DeleteProductRequest struct {
-        Key string `path:"key"`
+        ProductId int64 `path:"productId"`
     }
 
     DeleteProductReply struct {
-        Key string `json:"key"`
+        ProductId int64 `json:"productId"`
     }
 )
 
 
 type (
     AssignProductToProductCategoryRequest {
-        Id int64 `path:"id"`
+        Id int64 `json:"id"`
         ProductCategoryId int64 `json:"productCategoryId"`
     }
 

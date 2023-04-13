@@ -18,107 +18,118 @@ info(
 service PowerX {
     @doc "查询产品列表"
     @handler ListStores
-    get /stores (ListStoresRequest) returns (ListStoresReply)
+    get /stores (GetStoreListRequest) returns (GetStoreListReply)
+
+    @doc "查询产品详情"
+    @handler GetStore
+    get /stores/:id (GetStoreRequest) returns (GetStoreReply)
+
 
     @doc "创建产品"
     @handler CreateStore
     post /stores (CreateStoreRequest) returns (CreateStoreReply)
 
-    @doc "编辑产品"
+
+    @doc "全量产品"
+    @handler PutStore
+    put /stores/:id (PutStoreRequest) returns (PutStoreReply)
+
+    @doc "增量产品"
     @handler PatchStore
     patch /stores/:id (PatchStoreRequest) returns (PatchStoreReply)
+
 
     @doc "删除产品"
     @handler DeleteStore
     delete /stores/:id (DeleteStoreRequest) returns (DeleteStoreReply)
 
-    @doc "分配门店店长"
-    @handler AssignStoreManager
-    post /stores/:id/actions/assign-store-manager (AssignStoreManagerRequest) returns (AssignStoreManagerReply)
-
+    @doc "分配产品品类给产品品类分类"
+    @handler AssignStoreToStoreCategory
+    post /stores/:id/actions/assign-to-store-categroy (AssignStoreManagerRequest) returns (AssignStoreManagerReply)
 }
-type (
 
+type (
     Store {
-        Id int64 `json:"id"`
+        Id int64 `json:"id,optional"`
         Name string `json:"name"`
-        Mobile string `json:"mobile"`
-        Email string `json:"email"`
-        Source string `json:"source"`
-        Status string `json:"status"`
-        CreatedAt string `json:"createdAt"`
-
+        EmployeeID int64 `json:"employeeID"`
+        ContactNumber string `json:"contactNumber"`
+        CoverURL string `json:"coverURL"`
+        Address string `json:"address"`
+        Longitude float32 `json:"longitude"`
+        Latitude float32 `json:"latitude"`
+        CreatedAt string `json:"createdAt,optional"`
     }
 )
-
 type (
-    ListStoresRequest {
-        LikeTitle string `json:"likeTitle,optional"`
-        LikePhoneNumber string `json:"likePhoneNumber,optional"`
-        Sources []string `json:"sources,optional"`
-        Statuses []string `json:"statuses,optional"`
+    GetStoreListRequest struct {
+        StoreType string `form:"storeType,optional"`
+        Keys []string `form:"keys,optional"`
+        DescBy string `form:"descBy,optional,options=createdAt|updatedAt"`
+        PageIndex int `form:"pageIndex,optional"`
+        PageSize int `form:"pageSize,optional"`
     }
 
-    ListStoresReply {
+
+    GetStoreListReply struct {
         List []Store `json:"list"`
-        PageIndex int32 `json:"pageIndex"`
-        PageSize int32 `json:"pageSize"`
+        PageIndex int `json:"pageIndex"`
+        PageSize int `json:"pageSize"`
         Total int64 `json:"total"`
     }
 )
 
 type (
-    CreateStoreRecord {
-        Id int64 `json:"id"`
-        Name string `json:"name"`
-        Mobile string `json:"mobile,optional"`
-        Email string `json:"email,optional"`
-        InviterId int64 `json:"inviterId,optional"`
-        Source string `json:"source,optional,options=mini_program|tiktok|h5|ad"`
-        Status string `json:"status,optional,options=open|following|closed_lost|closed_won"`
-        Type string `json:"type,optional,options=personal|company"`
-        IsActive *bool `json:"IsActive,optional"`
-
-    }
-
-    CreateStoreRequest {
-        List []CreateStoreRecord `json:"list"`
-    }
-
-    CreateStoreReply {
-        List []Store `json:"list"`
-        PageIndex int32 `json:"pageIndex"`
-        PageSize int32 `json:"pageSize"`
-        Total int64 `json:"total"`
-    }
-)
-
-type (
-    PatchStoreRequest {
-        Id int64 `path:"id"`
-        Name string `json:"name,optional"`
-        Mobile string `json:"mobile,optional"`
-        Email string `json:"email,optional"`
-        InviterId int64 `json:"inviterId,optional"`
-        Source string `json:"source,optional,options=mini_program|tiktok|h5|advertisement"`
-        Status string `json:"status,optional,options=open|following|closed_lost|closed_won"`
-        Type string `json:"type,optional,options=personal|company"`
-        IsActive *bool `json:"IsActive,optional"`
-
-    }
-
-    PatchStoreReply {
+    CreateStoreRequest struct {
         Store
     }
+
+    CreateStoreReply struct {
+        StoreId string `json:"storeId"`
+    }
 )
 
 type (
-    DeleteStoreRequest {
-        Id int64 `json:"id"`
+    GetStoreRequest struct {
+        StoreId string `path:"storeId"`
     }
 
-    DeleteStoreReply {
-        Id int64 `json:"id"`
+    GetStoreReply struct {
+        *Store
+    }
+)
+
+
+type (
+    PutStoreRequest struct {
+        StoreId string `path:"storeId"`
+        Store
+    }
+
+    PutStoreReply struct {
+        *Store
+    }
+)
+
+type (
+    PatchStoreRequest struct {
+        StoreId string `path:"storeId"`
+        Store
+    }
+
+    PatchStoreReply struct {
+        *Store
+    }
+)
+
+
+type (
+    DeleteStoreRequest struct {
+        StoreId string `path:"storeId"`
+    }
+
+    DeleteStoreReply struct {
+        StoreId string `json:"storeId"`
     }
 )
 

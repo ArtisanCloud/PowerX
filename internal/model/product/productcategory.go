@@ -10,7 +10,7 @@ type ProductCategory struct {
 
 	PId         int64  `gorm:"comment:上级品类"`
 	Name        string `gorm:"comment:品类名称"`
-	Sort        int8   `gorm:"comment:排序"`
+	Sort        int    `gorm:"comment:排序"`
 	ViceName    string `gorm:"comment:副标题"`
 	Description string `gorm:"comment:描述"`
 
@@ -18,3 +18,10 @@ type ProductCategory struct {
 }
 
 const ProductCategoryUniqueId = powermodel.UniqueId
+
+type FindProductCategoryOption struct {
+	Ids       []int64
+	Names     []string
+	PageIndex int
+	PageSize  int
+}
