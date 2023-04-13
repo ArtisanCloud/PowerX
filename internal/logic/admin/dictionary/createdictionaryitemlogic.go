@@ -26,7 +26,7 @@ func NewCreateDictionaryItemLogic(ctx context.Context, svcCtx *svc.ServiceContex
 }
 
 func (l *CreateDictionaryItemLogic) CreateDictionaryItem(req *types.CreateDictionaryItemRequest) (resp *types.CreateDictionaryItemReply, err error) {
-	if !l.svcCtx.PowerX.DataDictionaryUserCase.TypeIsExist(l.ctx, req.Type) {
+	if !l.svcCtx.PowerX.DataDictionary.TypeIsExist(l.ctx, req.Type) {
 		return nil, errorx.WithCause(errorx.ErrBadRequest, "类型不存在")
 	}
 
@@ -39,7 +39,7 @@ func (l *CreateDictionaryItemLogic) CreateDictionaryItem(req *types.CreateDictio
 		Description: req.Description,
 	}
 
-	if err := l.svcCtx.PowerX.DataDictionaryUserCase.CreateDataDictionaryItem(l.ctx, &item); err != nil {
+	if err := l.svcCtx.PowerX.DataDictionary.CreateDataDictionaryItem(l.ctx, &item); err != nil {
 		return nil, err
 	}
 

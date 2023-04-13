@@ -25,7 +25,7 @@ func NewGetDictionaryTypesLogic(ctx context.Context, svcCtx *svc.ServiceContext)
 }
 
 func (l *GetDictionaryTypesLogic) GetDictionaryTypes(req *types.GetDictionaryTypesRequest) (resp *types.GetDictionaryTypesReply, err error) {
-	page, err := l.svcCtx.PowerX.DataDictionaryUserCase.FindManyDataDictionaryType(l.ctx, &powerx.FindManyDataDictTypeOption{
+	page, err := l.svcCtx.PowerX.DataDictionary.FindManyDataDictionaryType(l.ctx, &powerx.FindManyDataDictTypeOption{
 		PageEmbedOption: types.PageEmbedOption{
 			PageIndex: req.PageIndex,
 			PageSize:  req.PageSize,

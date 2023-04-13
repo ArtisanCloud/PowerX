@@ -11,111 +11,95 @@ info(
 
 @server(
     group: admin/product
-    prefix: /api/v1/admin/product/category
+    prefix: /api/v1/admin/product
     middleware: EmployeeJWTAuth
 )
 
 service PowerX {
     @doc "查询产品品类列表"
     @handler ListProductCategories
-    get /categories (ListProductCategoriesRequest) returns (ListProductCategoriesReply)
+    get /product-categories (GetProductCategoryListRequest) returns (GetProductCategoryListReply)
 
-    @doc "创建产品品类"
-    @handler CreateProductCategory
-    post /categories(CreateProductCategoryRequest) returns (CreateProductCategoryReply)
+    @doc "查询产品品类详情"
+    @handler GetProductCategory
+    get /product-categories/:id (GetProductCategoryRequest) returns (GetProductCategoryReply)
 
-    @doc "编辑产品品类"
-    @handler PatchProductCategory
-    patch /categories/:id (PatchProductCategoryRequest) returns (PatchProductCategoryReply)
+
+    @doc "创新产品品类"
+    @handler UpsertProductCategory
+    post /product-categories (UpsertProductCategoryRequest) returns (UpsertProductCategoryReply)
+
 
     @doc "删除产品品类"
     @handler DeleteProductCategory
-    delete /categories/:id (DeleteProductCategoryRequest) returns (DeleteProductCategoryReply)
-
-
+    delete /product-categories/:id (DeleteProductCategoryRequest) returns (DeleteProductCategoryReply)
 }
 
 type (
+    ImageAbleInfo {
+        Icon string `json:"icon"`
+        BackgroundColor string `json:"backgroundColor"`
+        ImageURL string `json:"imageURL"`
+    }
 
-    Product {
-        Id int64 `json:"id"`
+    ProductCategory {
+        Id int64 `json:"id,optional"`
+        PId int64 `json:"pId"`
         Name string `json:"name"`
-        Mobile string `json:"mobile"`
-        Email string `json:"email"`
-        Source string `json:"source"`
-        Status string `json:"status"`
-        CreatedAt string `json:"createdAt"`
-        
+        Sort int `json:"sort"`
+        ViceName string `json:"viceName"`
+        Description string `json:"description"`
+        CreatedAt string `json:"createdAt,optional"`
+        ImageAbleInfo
     }
 )
-
 type (
-    ListProductCategoriesRequest {
-        LikeTitle string `json:"likeTitle,optional"`
-        LikePhoneNumber string `json:"likePhoneNumber,optional"`
-        Sources []string `json:"sources,optional"`
-        Statuses []string `json:"statuses,optional"`
+    GetProductCategoryListRequest struct {
+        DescBy string `form:"descBy,optional,options=createdAt|updatedAt"`
+        PageIndex int `form:"pageIndex,optional"`
+        PageSize int `form:"pageSize,optional"`
     }
 
-    ListProductCategoriesReply {
-        List []Product `json:"list"`
-        PageIndex int32 `json:"pageIndex"`
-        PageSize int32 `json:"pageSize"`
+
+    GetProductCategoryListReply struct {
+        List []ProductCategory `json:"list"`
+        PageIndex int `json:"pageIndex"`
+        PageSize int `json:"pageSize"`
         Total int64 `json:"total"`
     }
 )
 
+
 type (
-    CreateProductRecord {
-        Id int64 `json:"id"`
-        Name string `json:"name"`
-        Mobile string `json:"mobile,optional"`
-        Email string `json:"email,optional"`
-        InviterId int64 `json:"inviterId,optional"`
-        Source string `json:"source,optional,options=mini_program|tiktok|h5|ad"`
-        Status string `json:"status,optional,options=open|following|closed_lost|closed_won"`
-        Type string `json:"type,optional,options=personal|company"`
-        IsActive *bool `json:"IsActive,optional"`
-        
+    UpsertProductCategoryRequest struct {
+        ProductCategory
     }
 
-    CreateProductCategoryRequest {
-        List []CreateProductRecord `json:"list"`
-    }
-
-    CreateProductCategoryReply {
-        List []Product `json:"list"`
-        PageIndex int32 `json:"pageIndex"`
-        PageSize int32 `json:"pageSize"`
-        Total int64 `json:"total"`
+    UpsertProductCategoryReply struct {
+        *ProductCategory
     }
 )
 
+
 type (
-    PatchProductCategoryRequest {
-        Id int64 `path:"id"`
-        Name string `json:"name,optional"`
-        Mobile string `json:"mobile,optional"`
-        Email string `json:"email,optional"`
-        InviterId int64 `json:"inviterId,optional"`
-        Source string `json:"source,optional,options=mini_program|tiktok|h5|advertisement"`
-        Status string `json:"status,optional,options=open|following|closed_lost|closed_won"`
-        Type string `json:"type,optional,options=personal|company"`
-        IsActive *bool `json:"IsActive,optional"`
-        
+    GetProductCategoryRequest struct {
+        ProductCategoryId int64 `json:"productCategoryId"`
     }
 
-    PatchProductCategoryReply {
-        Product
+    GetProductCategoryReply struct {
+        *ProductCategory
     }
 )
 
+
 type (
-    DeleteProductCategoryRequest {
-        Id int64 `json:"id"`
+    DeleteProductCategoryRequest struct {
+        ProductCategoryId int64 `json:"productCategoryId"`
     }
 
-    DeleteProductCategoryReply {
-        Id int64 `json:"id"`
+    DeleteProductCategoryReply struct {
+        ProductCategoryId int64 `json:"productCategoryId"`
     }
 )
+
+

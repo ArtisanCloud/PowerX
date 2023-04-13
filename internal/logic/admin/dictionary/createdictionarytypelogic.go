@@ -31,7 +31,7 @@ func (l *CreateDictionaryTypeLogic) CreateDictionaryType(req *types.CreateDictio
 		Description: req.Description,
 	}
 
-	if err := l.svcCtx.PowerX.DataDictionaryUserCase.CreateDataDictionaryType(l.ctx, &typ); err != nil {
+	if err := l.svcCtx.PowerX.DataDictionary.CreateDataDictionaryType(l.ctx, &typ); err != nil {
 		return nil, err
 	}
 

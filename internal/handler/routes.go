@@ -15,8 +15,10 @@ import (
 	adminmedia "PowerX/internal/handler/admin/media"
 	adminopportunity "PowerX/internal/handler/admin/opportunity"
 	adminpermission "PowerX/internal/handler/admin/permission"
+	adminproduct "PowerX/internal/handler/admin/product"
 	adminscrmcontact "PowerX/internal/handler/admin/scrm/contact"
 	adminscrmcustomer "PowerX/internal/handler/admin/scrm/customer"
+	adminstore "PowerX/internal/handler/admin/store"
 	adminuserinfo "PowerX/internal/handler/admin/userinfo"
 	mpcustomer "PowerX/internal/handler/mp/customer"
 	"PowerX/internal/svc"
@@ -409,6 +411,123 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			}...,
 		),
 		rest.WithPrefix("/api/v1/admin/user-center"),
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Route{
+				{
+					Method:  http.MethodGet,
+					Path:    "/products",
+					Handler: adminproduct.ListProductsHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/products/:id",
+					Handler: adminproduct.GetProductHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/products",
+					Handler: adminproduct.CreateProductHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPut,
+					Path:    "/products/:id",
+					Handler: adminproduct.PutProductHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPatch,
+					Path:    "/products/:id",
+					Handler: adminproduct.PatchProductHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodDelete,
+					Path:    "/products/:id",
+					Handler: adminproduct.DeleteProductHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/products/:id/actions/assign-to-product-categroy",
+					Handler: adminproduct.AssignProductToProductCategoryHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithPrefix("/api/v1/admin/product"),
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Route{
+				{
+					Method:  http.MethodGet,
+					Path:    "/product-categories",
+					Handler: adminproduct.ListProductCategoriesHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/product-categories/:id",
+					Handler: adminproduct.GetProductCategoryHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/product-categories",
+					Handler: adminproduct.UpsertProductCategoryHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodDelete,
+					Path:    "/product-categories/:id",
+					Handler: adminproduct.DeleteProductCategoryHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithPrefix("/api/v1/admin/product"),
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Route{
+				{
+					Method:  http.MethodGet,
+					Path:    "/stores",
+					Handler: adminstore.ListStoresHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/stores/:id",
+					Handler: adminstore.GetStoreHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/stores",
+					Handler: adminstore.CreateStoreHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPut,
+					Path:    "/stores/:id",
+					Handler: adminstore.PutStoreHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPatch,
+					Path:    "/stores/:id",
+					Handler: adminstore.PatchStoreHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodDelete,
+					Path:    "/stores/:id",
+					Handler: adminstore.DeleteStoreHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/stores/:id/actions/assign-to-store-categroy",
+					Handler: adminstore.AssignStoreToStoreCategoryHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithPrefix("/api/v1/admin/store"),
 	)
 
 	server.AddRoutes(

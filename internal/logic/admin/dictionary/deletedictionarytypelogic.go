@@ -24,7 +24,7 @@ func NewDeleteDictionaryTypeLogic(ctx context.Context, svcCtx *svc.ServiceContex
 }
 
 func (l *DeleteDictionaryTypeLogic) DeleteDictionaryType(req *types.DeleteDictionaryTypeRequest) (resp *types.DeleteDictionaryTypeReply, err error) {
-	if err := l.svcCtx.PowerX.DataDictionaryUserCase.DeleteDataDictionaryType(l.ctx, req.Type); err != nil {
+	if err := l.svcCtx.PowerX.DataDictionary.DeleteDataDictionaryType(l.ctx, req.Type); err != nil {
 		return nil, err
 	}
 

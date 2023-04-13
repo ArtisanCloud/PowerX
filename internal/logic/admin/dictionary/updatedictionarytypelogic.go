@@ -30,7 +30,7 @@ func (l *UpdateDictionaryTypeLogic) UpdateDictionaryType(req *types.UpdateDictio
 		Description: req.Description,
 	}
 
-	if err := l.svcCtx.PowerX.DataDictionaryUserCase.PatchDataDictionaryType(l.ctx, req.Type, &newModel); err != nil {
+	if err := l.svcCtx.PowerX.DataDictionary.PatchDataDictionaryType(l.ctx, req.Type, &newModel); err != nil {
 		return nil, err
 	}
 

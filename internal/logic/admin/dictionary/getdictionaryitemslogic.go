@@ -25,7 +25,7 @@ func NewGetDictionaryItemsLogic(ctx context.Context, svcCtx *svc.ServiceContext)
 }
 
 func (l *GetDictionaryItemsLogic) GetDictionaryItems(req *types.GetDictionaryItemsRequest) (resp *types.GetDictionaryItemsReply, err error) {
-	page, err := l.svcCtx.PowerX.DataDictionaryUserCase.FindManyDataDictionaryItem(l.ctx, &powerx.FindManyDataDictItemOption{
+	page, err := l.svcCtx.PowerX.DataDictionary.FindManyDataDictionaryItem(l.ctx, &powerx.FindManyDataDictItemOption{
 		Types: req.Types,
 		PageEmbedOption: types.PageEmbedOption{
 			PageIndex: req.PageIndex,

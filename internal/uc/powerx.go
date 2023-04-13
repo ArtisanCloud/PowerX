@@ -17,9 +17,9 @@ import (
 )
 
 type PowerXUseCase struct {
-	db                     *gorm.DB
-	DataDictionaryUserCase *powerx.DataDictionaryUseCase
-	AdminAuthorization     *powerx.AdminPermsUseCase
+	db                 *gorm.DB
+	DataDictionary     *powerx.DataDictionaryUseCase
+	AdminAuthorization *powerx.AdminPermsUseCase
 
 	Organization *powerx.OrganizationUseCase
 
@@ -32,10 +32,6 @@ type PowerXUseCase struct {
 	WechatMP              *powerx.WechatMiniProgramUseCase
 	WechatOA              *powerx.WechatOfficialAccountUseCase
 	SCRM                  *powerx.SCRMUseCase
-
-	// custom here
-
-	// plugin here
 }
 
 func NewPowerXUseCase(conf *config.Config) (uc *PowerXUseCase, clean func()) {
@@ -60,7 +56,7 @@ func NewPowerXUseCase(conf *config.Config) (uc *PowerXUseCase, clean func()) {
 		db: db,
 	}
 	// 加载基础UseCase
-	uc.DataDictionaryUserCase = powerx.NewDataDictionaryUseCase(db)
+	uc.DataDictionary = powerx.NewDataDictionaryUseCase(db)
 
 	// 加载组织架构UseCase
 	uc.Organization = powerx.NewOrganizationUseCase(db)
@@ -106,10 +102,6 @@ func (p *PowerXUseCase) AutoMigrate(ctx context.Context) {
 	p.db.AutoMigrate(&product.Product{}, &product.ProductCategory{})
 	p.db.AutoMigrate(&product.PriceBook{}, &product.PriceBookEntry{}, &product.PriceConfig{})
 
-	// custom here
-
-	// plugin here
-	
 }
 
 func (p *PowerXUseCase) AutoInit() {
