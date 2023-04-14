@@ -3,7 +3,6 @@ package product
 import (
 	"PowerX/internal/model/powermodel"
 	"PowerX/internal/model/product"
-	"PowerX/internal/types"
 	"PowerX/internal/types/errorx"
 	"context"
 	"github.com/pkg/errors"
@@ -27,37 +26,63 @@ func (uc *ProductCategoryUseCase) buildFindQueryNoPage(query *gorm.DB, opt *prod
 	if len(opt.Names) > 0 {
 		query.Where("name in ?", opt.Names)
 	}
+	if opt.OrderBy != "" {
+		query.Order(opt.OrderBy)
+	} else {
+		query.Order("id asc")
+	}
 
 	return query
 }
 
-func (uc *ProductCategoryUseCase) FindManyProductCategories(ctx context.Context, opt *product.FindProductCategoryOption) types.Page[*product.ProductCategory] {
+func (uc *ProductCategoryUseCase) GetProductCategoryTree(ctx context.Context, opt *product.FindProductCategoryOption, pId int64) []*product.ProductCategory {
+	if pId < 0 {
+		panic(errors.New("find productCategories pId invalid"))
+	}
+
+	var categories []*product.ProductCategory
+
+	query := uc.db.WithContext(ctx).Model(&product.ProductCategory{})
+	query = uc.buildFindQueryNoPage(query, opt)
+
+	err := query.Where("p_id", pId).
+		Debug().
+		Find(&categories).
+		Error
+	if err != nil {
+		panic(errors.Wrap(err, "find all productCategories failed"))
+	}
+	var children []*product.ProductCategory
+	for i, category := range categories {
+
+		children = uc.GetProductCategoryTree(ctx, opt, category.Id)
+
+		if len(children) > 0 {
+			categories[i].Children = children
+		}
+	}
+	return categories
+}
+
+func (uc *ProductCategoryUseCase) FindAllProductCategories(ctx context.Context, opt *product.FindProductCategoryOption) []*product.ProductCategory {
 	var productCategories []*product.ProductCategory
 	var count int64
 	query := uc.db.WithContext(ctx).Model(&product.ProductCategory{})
 
-	if opt.PageIndex != 0 && opt.PageSize != 0 {
-		query.Offset((opt.PageIndex - 1) * opt.PageSize).Limit(opt.PageSize)
-	}
 	query = uc.buildFindQueryNoPage(query, opt)
 	if err := query.Count(&count).Error; err != nil {
-		panic(errors.Wrap(err, "find productCategories failed"))
+		panic(errors.Wrap(err, "find all productCategories failed"))
 	}
 	if err := query.Find(&productCategories).Error; err != nil {
-		panic(errors.Wrap(err, "find productCategories failed"))
+		panic(errors.Wrap(err, "find all productCategories failed"))
 	}
-	return types.Page[*product.ProductCategory]{
-		List:  productCategories,
-		Total: count,
-	}
+	return productCategories
 }
 
 func (uc *ProductCategoryUseCase) FindOneMPCustomer(ctx context.Context, opt *product.FindProductCategoryOption) (*product.ProductCategory, error) {
 	var mpCustomer *product.ProductCategory
 	query := uc.db.WithContext(ctx).Model(&product.ProductCategory{})
-	if opt.PageIndex != 0 && opt.PageSize != 0 {
-		query.Offset((opt.PageIndex - 1) * opt.PageSize).Limit(opt.PageSize)
-	}
+
 	query = uc.buildFindQueryNoPage(query, opt)
 	if err := query.First(&mpCustomer).Error; err != nil {
 		return nil, errorx.ErrRecordNotFound
@@ -73,9 +98,24 @@ func (uc *ProductCategoryUseCase) CreateProductCategory(ctx context.Context, pro
 
 func (uc *ProductCategoryUseCase) UpsertProductCategory(ctx context.Context, productCategory *product.ProductCategory) (*product.ProductCategory, error) {
 
-	productCategorys := []*product.ProductCategory{productCategory}
+	// 查询父节点
+	if productCategory.PId > 0 {
+		var pProductCategory *product.ProductCategory
+		err := uc.db.WithContext(ctx).
+			Where(productCategory.PId).First(&pProductCategory).Error
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return nil, errorx.WithCause(errorx.ErrBadRequest, "父品类不存在")
+			}
+			panic(errors.Wrap(err, "query parent product category failed"))
+		}
+	} else if productCategory.PId < 0 {
+		panic(errors.New("query parent product category in invalid"))
+	}
 
-	_, err := uc.UpsertProductCategories(ctx, productCategorys)
+	productCategories := []*product.ProductCategory{productCategory}
+
+	_, err := uc.UpsertProductCategories(ctx, productCategories)
 	if err != nil {
 		panic(errors.Wrap(err, "upsert productCategory failed"))
 	}
@@ -83,19 +123,19 @@ func (uc *ProductCategoryUseCase) UpsertProductCategory(ctx context.Context, pro
 	return productCategory, err
 }
 
-func (uc *ProductCategoryUseCase) UpsertProductCategories(ctx context.Context, productCategorys []*product.ProductCategory) ([]*product.ProductCategory, error) {
+func (uc *ProductCategoryUseCase) UpsertProductCategories(ctx context.Context, productCategories []*product.ProductCategory) ([]*product.ProductCategory, error) {
 
-	err := powermodel.UpsertModelsOnUniqueID(uc.db.WithContext(ctx), &product.ProductCategory{}, product.ProductCategoryUniqueId, productCategorys, nil)
+	err := powermodel.UpsertModelsOnUniqueID(uc.db.WithContext(ctx), &product.ProductCategory{}, product.ProductCategoryUniqueId, productCategories, nil)
 
 	if err != nil {
 		panic(errors.Wrap(err, "batch upsert product categories failed"))
 	}
 
-	return productCategorys, err
+	return productCategories, err
 }
 
 func (uc *ProductCategoryUseCase) PatchProductCategory(ctx context.Context, id int64, productCategory *product.ProductCategory) {
-	if err := uc.db.WithContext(ctx).Model(&product.ProductCategory{}).Where(id).Updates(&productCategory).Error; err != nil {
+	if err := uc.db.WithContext(ctx).Model(&product.ProductCategory{}).Where(id).Updates(productCategory).Error; err != nil {
 		panic(err)
 	}
 }

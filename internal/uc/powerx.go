@@ -13,7 +13,6 @@ import (
 	"github.com/pkg/errors"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
-	"gorm.io/gorm/logger"
 )
 
 type PowerXUseCase struct {
@@ -37,7 +36,7 @@ type PowerXUseCase struct {
 func NewPowerXUseCase(conf *config.Config) (uc *PowerXUseCase, clean func()) {
 	// 启动数据库并测试连通性
 	db, err := gorm.Open(postgres.Open(conf.PowerXDatabase.DSN), &gorm.Config{
-		Logger:                                   logger.Default.LogMode(logger.Info),
+		//Logger:                                   logger.Default.LogMode(logger.Info),
 		DisableForeignKeyConstraintWhenMigrating: true,
 	})
 	if err != nil {

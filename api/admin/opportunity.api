@@ -42,7 +42,7 @@ type (
         Source string `form:"source,optional"`
         Type string `form:"type,optional"`
         Stage string `form:"stage,optional"`
-        DescBy string `form:"descBy,optional,options=createdAt|updatedAt|closedAt"`
+        OrderBy string `form:"orderBy,optional,options=createdAt|updatedAt|closedAt"`
         PageIndex int `form:"pageIndex,optional"`
         PageSize int `form:"pageSize,optional"`
     }
