@@ -40,7 +40,7 @@ type (
     GetMediaListRequest struct {
         MediaType string `form:"mediaType,optional"`
         Keys []string `form:"keys,optional"`
-        DescBy string `form:"descBy,optional,options=createdAt|updatedAt"`
+        OrderBy string `form:"orderBy,optional,options=createdAt|updatedAt"`
         PageIndex int `form:"pageIndex,optional"`
         PageSize int `form:"pageSize,optional"`
     }

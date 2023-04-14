@@ -17,8 +17,8 @@ info(
 
 service PowerX {
     @doc "查询产品品类列表"
-    @handler ListProductCategories
-    get /product-categories (GetProductCategoryListRequest) returns (GetProductCategoryListReply)
+    @handler ListProductCategoryTree
+    get /product-category-tree (GetProductCategoryTreeRequest) returns (GetProductCategoryTreeReply)
 
     @doc "查询产品品类详情"
     @handler GetProductCategory
@@ -28,6 +28,10 @@ service PowerX {
     @doc "创新产品品类"
     @handler UpsertProductCategory
     post /product-categories (UpsertProductCategoryRequest) returns (UpsertProductCategoryReply)
+
+    @doc "修改产品品类"
+    @handler PatchProductCategory
+    put /product-categories/:id (PatchProductCategoryRequest) returns (PatchProductCategoryReply)
 
 
     @doc "删除产品品类"
@@ -51,21 +55,18 @@ type (
         Description string `json:"description"`
         CreatedAt string `json:"createdAt,optional"`
         ImageAbleInfo
+        Children []ProductCategory `json:"children"`
     }
 )
 type (
-    GetProductCategoryListRequest struct {
-        DescBy string `form:"descBy,optional,options=createdAt|updatedAt"`
-        PageIndex int `form:"pageIndex,optional"`
-        PageSize int `form:"pageSize,optional"`
+    GetProductCategoryTreeRequest struct {
+        Names []string `form:"name,optional,options=createdAt|updatedAt"`
+        OrderBy string `form:"orderBy,optional,options=createdAt|updatedAt"`
     }
 
 
-    GetProductCategoryListReply struct {
-        List []ProductCategory `json:"list"`
-        PageIndex int `json:"pageIndex"`
-        PageSize int `json:"pageSize"`
-        Total int64 `json:"total"`
+    GetProductCategoryTreeReply struct {
+        ProductCategories []ProductCategory `json:"Tree"`
     }
 )
 
@@ -80,10 +81,20 @@ type (
     }
 )
 
+type (
+    PatchProductCategoryRequest struct {
+        Id int64 `path:"id"`
+        PId int64 `json:"pId"`
+    }
+
+    PatchProductCategoryReply struct {
+        ProductCategory
+    }
+)
 
 type (
     GetProductCategoryRequest struct {
-        ProductCategoryId int64 `json:"productCategoryId"`
+        ProductCategoryId int64 `path:"id"`
     }
 
     GetProductCategoryReply struct {

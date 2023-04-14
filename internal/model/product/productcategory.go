@@ -8,6 +8,9 @@ import (
 type ProductCategory struct {
 	powermodel.PowerModel
 
+	Parent   *ProductCategory   `gorm:"foreignKey:PId;references:Id" json:"parent"`
+	Children []*ProductCategory `gorm:"foreignKey:PId;references:Id" json:"children"`
+
 	PId         int64  `gorm:"comment:上级品类"`
 	Name        string `gorm:"comment:品类名称"`
 	Sort        int    `gorm:"comment:排序"`
@@ -20,8 +23,7 @@ type ProductCategory struct {
 const ProductCategoryUniqueId = powermodel.UniqueId
 
 type FindProductCategoryOption struct {
-	Ids       []int64
-	Names     []string
-	PageIndex int
-	PageSize  int
+	OrderBy string
+	Ids     []int64
+	Names   []string
 }

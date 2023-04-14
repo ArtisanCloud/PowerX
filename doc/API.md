@@ -100,15 +100,38 @@ Response.body = {
 
 # API 基础CRUD定义
 
+
+## Tree
+
+```api
+
+@doc "查询对象树形列表"
+@handler ListObjectTree
+get /object-tree (ListObjectTreeRequest) returns (ListObjectTreeReply)
+
+```
+
 ## List
 
 ```api
 
-@doc "查询对象列表"
+@doc "查询对象全量列表"
 @handler ListObjects
 get /objects (ListObjectsRequest) returns (ListObjectsReply)
 
 ```
+
+### ListPage
+
+```api
+
+@doc "查询对象分页列表"
+@handler PageListObjectsPage
+get /objects (ListObjectsPageRequest) returns (ListObjectsPageReply)
+
+```
+
+
 
 ## Get 获取对象
 

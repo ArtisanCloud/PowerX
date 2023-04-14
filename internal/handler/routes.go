@@ -463,8 +463,8 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			[]rest.Route{
 				{
 					Method:  http.MethodGet,
-					Path:    "/product-categories",
-					Handler: adminproduct.ListProductCategoriesHandler(serverCtx),
+					Path:    "/product-category-tree",
+					Handler: adminproduct.ListProductCategoryTreeHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodGet,
@@ -475,6 +475,11 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 					Method:  http.MethodPost,
 					Path:    "/product-categories",
 					Handler: adminproduct.UpsertProductCategoryHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPut,
+					Path:    "/product-categories/:id",
+					Handler: adminproduct.PatchProductCategoryHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodDelete,
