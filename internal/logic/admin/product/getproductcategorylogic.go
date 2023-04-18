@@ -1,6 +1,7 @@
 package product
 
 import (
+	"PowerX/internal/types/errorx"
 	"context"
 
 	"PowerX/internal/svc"
@@ -28,8 +29,7 @@ func (l *GetProductCategoryLogic) GetProductCategory(req *types.GetProductCatego
 	productCategory, err := l.svcCtx.PowerX.ProductCategory.GetProductCategory(l.ctx, req.ProductCategoryId)
 
 	if err != nil {
-		panic(err)
-		return
+		return nil, errorx.ErrNotFoundObject
 	}
 
 	return &types.GetProductCategoryReply{

@@ -17,16 +17,18 @@ info(
 
 service PowerX {
     @doc "查询价格手册列表"
-    @handler ListPirceBooks
-    get /price-books (ListPirceBooksRequest) returns (ListPirceBooksReply)
+    @handler ListPriceBooks
+    get /price-books (ListPriceBooksRequest) returns (ListPriceBooksReply)
 
-    @doc "创建价格手册"
-    @handler CreatePriceBook
-    post /price-books (CreatePriceBookRequest) returns (CreatePriceBookReply)
 
-    @doc "编辑价格手册"
-    @handler PatchPriceBook
-    patch /price-books/:id (PatchPriceBookRequest) returns (PatchPriceBookReply)
+    @doc "查询价格手册详情"
+    @handler GetPriceBook
+    get /price-books/:id (GetPriceBookRequest) returns (GetPriceBookReply)
+
+
+    @doc "创新价格手册"
+    @handler UpsertPriceBook
+    post /price-books (UpsertPriceBookRequest) returns (UpsertPriceBookReply)
 
     @doc "删除价格手册"
     @handler DeletePriceBook
@@ -34,88 +36,81 @@ service PowerX {
 
     @doc "配置价格手册条目"
     @handler ConfigPriceBook
-    post /products/:id (ConfigPriceBookEntryRequest) returns (ConfigPriceBookEntryReply)
-
+    post /price-book-entries (ConfigPriceBookEntryRequest) returns (ConfigPriceBookEntryReply)
 }
 
 type (
+    PriceBookEntrySpecific {
+        Inventory int16 `json:"inventory,optional"`
+        Weight float32 `json:"weight,optional"`
+        Volume float32 `json:"volume,optional"`
+        Encode string `json:"encode,optional"`
+        BarCode string `json:"barCode,optional"`
+        Extra string `json:"extra,optional"`
+    }
 
     PriceBook {
-        Id int64 `json:"id"`
+        Id int64 `json:"id,optional"`
+        IsStandard bool `json:"isStandard,optional"`
         Name string `json:"name"`
-        Mobile string `json:"mobile"`
-        Email string `json:"email"`
-        Source string `json:"source"`
-        Status string `json:"status"`
-        CreatedAt string `json:"createdAt"`
-        
+        Description string `json:"description,optional"`
+        StoreId int64 `json:"storeId,optional"`
+        CreatedAt string `json:"createdAt,optional"`
+    }
+
+    PriceBookEntry {
+        UniqueID string `json:"uniqueID,optional"`
+        PriceBookId int64 `json:"priceBookId"`
+        ProductId int64 `json:"productId"`
+        UnitPrice float64 `json:"unitPrice"`
+        RetailPrice float64 `json:"retailPrice,optional"`
+        IsActive bool `json:"isActive"`
+        PriceBookEntrySpecific
     }
 )
 
 type (
-    ListPirceBooksRequest {
-        LikeTitle string `json:"likeTitle,optional"`
-        LikePhoneNumber string `json:"likePhoneNumber,optional"`
-        Sources []string `json:"sources,optional"`
-        Statuses []string `json:"statuses,optional"`
+    ListPriceBooksRequest {
+        LikeName string `json:"likeName,optional"`
+        StoreId int64 `json:"storeId,optional"`
+        PageIndex int `form:"pageIndex,optional"`
+        PageSize int `form:"pageSize,optional"`
     }
 
-    ListPirceBooksReply {
+    ListPriceBooksReply {
         List []PriceBook `json:"list"`
-        PageIndex int32 `json:"pageIndex"`
-        PageSize int32 `json:"pageSize"`
+        PageIndex int `json:"pageIndex"`
+        PageSize int `json:"pageSize"`
         Total int64 `json:"total"`
     }
 )
 
 type (
-    CreatePriceBookRecord {
-        Id int64 `json:"id"`
-        Name string `json:"name"`
-        Mobile string `json:"mobile,optional"`
-        Email string `json:"email,optional"`
-        InviterId int64 `json:"inviterId,optional"`
-        Source string `json:"source,optional,options=mini_program|tiktok|h5|ad"`
-        Status string `json:"status,optional,options=open|following|closed_lost|closed_won"`
-        Type string `json:"type,optional,options=personal|company"`
-        IsActive *bool `json:"IsActive,optional"`
-        
+    GetPriceBookRequest struct {
+        PriceBook int64 `path:"id"`
     }
 
-    CreatePriceBookRequest {
-        List []CreatePriceBookRecord `json:"list"`
-    }
-
-    CreatePriceBookReply {
-        List []PriceBook `json:"list"`
-        PageIndex int32 `json:"pageIndex"`
-        PageSize int32 `json:"pageSize"`
-        Total int64 `json:"total"`
+    GetPriceBookReply struct {
+        *PriceBook
     }
 )
 
-type (
-    PatchPriceBookRequest {
-        Id int64 `path:"id"`
-        Name string `json:"name,optional"`
-        Mobile string `json:"mobile,optional"`
-        Email string `json:"email,optional"`
-        InviterId int64 `json:"inviterId,optional"`
-        Source string `json:"source,optional,options=mini_program|tiktok|h5|advertisement"`
-        Status string `json:"status,optional,options=open|following|closed_lost|closed_won"`
-        Type string `json:"type,optional,options=personal|company"`
-        IsActive *bool `json:"IsActive,optional"`
-        
-    }
 
-    PatchPriceBookReply {
+type (
+    UpsertPriceBookRequest {
         PriceBook
     }
+
+    UpsertPriceBookReply {
+        *PriceBook
+    }
 )
+
+
 
 type (
     DeletePriceBookRequest {
-        Id int64 `json:"id"`
+        Id int64 `path:"id"`
     }
 
     DeletePriceBookReply {
@@ -123,9 +118,11 @@ type (
     }
 )
 
+
+
 type (
     ConfigPriceBookEntryRequest {
-        Id int64 `json:"id"`
+        Id int64 `path:"id"`
     }
 
     ConfigPriceBookEntryReply {

@@ -497,6 +497,40 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			[]rest.Route{
 				{
 					Method:  http.MethodGet,
+					Path:    "/price-books",
+					Handler: adminproduct.ListPriceBooksHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/price-books/:id",
+					Handler: adminproduct.GetPriceBookHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/price-books",
+					Handler: adminproduct.UpsertPriceBookHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodDelete,
+					Path:    "/price-books/:id",
+					Handler: adminproduct.DeletePriceBookHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/price-book-entries",
+					Handler: adminproduct.ConfigPriceBookHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithPrefix("/api/v1/admin/product"),
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Route{
+				{
+					Method:  http.MethodGet,
 					Path:    "/stores",
 					Handler: adminstore.ListStoresHandler(serverCtx),
 				},
