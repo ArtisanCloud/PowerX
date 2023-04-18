@@ -26,11 +26,12 @@ func (uc *ProductCategoryUseCase) buildFindQueryNoPage(query *gorm.DB, opt *prod
 	if len(opt.Names) > 0 {
 		query.Where("name in ?", opt.Names)
 	}
+
+	orderBy := "id, sort asc"
 	if opt.OrderBy != "" {
-		query.Order(opt.OrderBy)
-	} else {
-		query.Order("id asc")
+		orderBy = opt.OrderBy + "," + orderBy
 	}
+	query.Order(orderBy)
 
 	return query
 }
@@ -46,7 +47,7 @@ func (uc *ProductCategoryUseCase) GetProductCategoryTree(ctx context.Context, op
 	query = uc.buildFindQueryNoPage(query, opt)
 
 	err := query.Where("p_id", pId).
-		Debug().
+		//Debug().
 		Find(&categories).
 		Error
 	if err != nil {
