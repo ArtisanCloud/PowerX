@@ -105,11 +105,11 @@ type (
 
 type (
     DeleteProductCategoryRequest struct {
-        ProductCategoryId int64 `json:"productCategoryId"`
+        Id int64 `path:"id"`
     }
 
     DeleteProductCategoryReply struct {
-        ProductCategoryId int64 `json:"productCategoryId"`
+        Id int64 `json:"id"`
     }
 )
 
