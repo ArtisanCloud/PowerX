@@ -1,9 +1,9 @@
 package powermodel
 
 import (
+	fmt2 "PowerX/pkg/printx"
 	"errors"
-	fmt2 "fmt"
-	"github.com/ArtisanCloud/PowerLibs/v3/fmt"
+	"fmt"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	"time"
@@ -57,7 +57,7 @@ func (mdl *PowerPivot) GetForeignRefer() string {
 	return "id"
 }
 func (mdl *PowerPivot) GetForeignReferValue() string {
-	return fmt2.Sprintf("%d", mdl.ID)
+	return fmt.Sprintf("%d", mdl.ID)
 }
 
 func (mdl *PowerPivot) GetForeignKey() string {
@@ -149,7 +149,7 @@ func AppendMorphPivots(db *gorm.DB, pivots []PivotInterface) (err error) {
 
 func SyncMorphPivots(db *gorm.DB, pivots []PivotInterface) (err error) {
 	if len(pivots) <= 0 {
-		fmt.Dump("pivots is empty")
+		fmt2.Dump("pivots is empty")
 		return nil
 	}
 	err = db.Transaction(func(tx *gorm.DB) error {
@@ -228,7 +228,7 @@ func SelectMorphPivot(db *gorm.DB, pivot PivotInterface) (result *gorm.DB) {
 func UpsertPivots(db *gorm.DB, uniqueName string, pivots []PivotInterface, fieldsToUpdate []string) error {
 
 	if len(pivots) <= 0 {
-		fmt.Dump("pivots is empty")
+		fmt2.Dump("pivots is empty")
 		return nil
 	}
 

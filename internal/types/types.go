@@ -592,7 +592,7 @@ type AssignCustomerToEmployeeReply struct {
 type GetMediaListRequest struct {
 	MediaType string   `form:"mediaType,optional"`
 	Keys      []string `form:"keys,optional"`
-	DescBy    string   `form:"descBy,optional,options=createdAt|updatedAt"`
+	OrderBy   string   `form:"orderBy,optional,options=createdAt|updatedAt"`
 	PageIndex int      `form:"pageIndex,optional"`
 	PageSize  int      `form:"pageSize,optional"`
 }
@@ -759,7 +759,7 @@ type GetOpportunityListRequest struct {
 	Source    string `form:"source,optional"`
 	Type      string `form:"type,optional"`
 	Stage     string `form:"stage,optional"`
-	DescBy    string `form:"descBy,optional,options=createdAt|updatedAt|closedAt"`
+	OrderBy   string `form:"orderBy,optional,options=createdAt|updatedAt|closedAt"`
 	PageIndex int    `form:"pageIndex,optional"`
 	PageSize  int    `form:"pageSize,optional"`
 }
@@ -899,7 +899,7 @@ type Product struct {
 type GetProductListRequest struct {
 	ProductType string   `form:"productType,optional"`
 	Keys        []string `form:"keys,optional"`
-	DescBy      string   `form:"descBy,optional,options=createdAt|updatedAt"`
+	OrderBy     string   `form:"orderBy,optional,options=createdAt|updatedAt"`
 	PageIndex   int      `form:"pageIndex,optional"`
 	PageSize    int      `form:"pageSize,optional"`
 }
@@ -977,19 +977,16 @@ type ProductCategory struct {
 	Description string `json:"description"`
 	CreatedAt   string `json:"createdAt,optional"`
 	ImageAbleInfo
+	Children []ProductCategory `json:"children"`
 }
 
-type GetProductCategoryListRequest struct {
-	DescBy    string `form:"descBy,optional,options=createdAt|updatedAt"`
-	PageIndex int    `form:"pageIndex,optional"`
-	PageSize  int    `form:"pageSize,optional"`
+type GetProductCategoryTreeRequest struct {
+	Names   []string `form:"name,optional,options=createdAt|updatedAt"`
+	OrderBy string   `form:"orderBy,optional,options=createdAt|updatedAt"`
 }
 
-type GetProductCategoryListReply struct {
-	List      []ProductCategory `json:"list"`
-	PageIndex int               `json:"pageIndex"`
-	PageSize  int               `json:"pageSize"`
-	Total     int64             `json:"total"`
+type GetProductCategoryTreeReply struct {
+	ProductCategories []ProductCategory `json:"Tree"`
 }
 
 type UpsertProductCategoryRequest struct {
@@ -1000,8 +997,17 @@ type UpsertProductCategoryReply struct {
 	*ProductCategory
 }
 
+type PatchProductCategoryRequest struct {
+	Id  int64 `path:"id"`
+	PId int64 `json:"pId"`
+}
+
+type PatchProductCategoryReply struct {
+	ProductCategory
+}
+
 type GetProductCategoryRequest struct {
-	ProductCategoryId int64 `json:"productCategoryId"`
+	ProductCategoryId int64 `path:"id"`
 }
 
 type GetProductCategoryReply struct {
@@ -1009,11 +1015,11 @@ type GetProductCategoryReply struct {
 }
 
 type DeleteProductCategoryRequest struct {
-	ProductCategoryId int64 `json:"productCategoryId"`
+	Id int64 `path:"id"`
 }
 
 type DeleteProductCategoryReply struct {
-	ProductCategoryId int64 `json:"productCategoryId"`
+	Id int64 `json:"id"`
 }
 
 type Store struct {
@@ -1031,7 +1037,7 @@ type Store struct {
 type GetStoreListRequest struct {
 	StoreType string   `form:"storeType,optional"`
 	Keys      []string `form:"keys,optional"`
-	DescBy    string   `form:"descBy,optional,options=createdAt|updatedAt"`
+	OrderBy   string   `form:"orderBy,optional,options=createdAt|updatedAt"`
 	PageIndex int      `form:"pageIndex,optional"`
 	PageSize  int      `form:"pageSize,optional"`
 }

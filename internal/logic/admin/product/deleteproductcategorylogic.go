@@ -25,13 +25,13 @@ func NewDeleteProductCategoryLogic(ctx context.Context, svcCtx *svc.ServiceConte
 
 func (l *DeleteProductCategoryLogic) DeleteProductCategory(req *types.DeleteProductCategoryRequest) (resp *types.DeleteProductCategoryReply, err error) {
 
-	err = l.svcCtx.PowerX.ProductCategory.DeleteProductCategory(l.ctx, req.ProductCategoryId)
+	err = l.svcCtx.PowerX.ProductCategory.DeleteProductCategory(l.ctx, req.Id)
 	if err != nil {
 		panic(err)
 		return
 	}
 
 	return &types.DeleteProductCategoryReply{
-		ProductCategoryId: req.ProductCategoryId,
+		Id: req.Id,
 	}, nil
 }
