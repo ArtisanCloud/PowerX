@@ -977,7 +977,7 @@ type ProductCategory struct {
 	Description string `json:"description"`
 	CreatedAt   string `json:"createdAt,optional"`
 	ImageAbleInfo
-	Children []ProductCategory `json:"children"`
+	Children []ProductCategory `json:"children,optional"`
 }
 
 type GetProductCategoryTreeRequest struct {
