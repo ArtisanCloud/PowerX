@@ -80,7 +80,7 @@ func (uc *ProductCategoryUseCase) FindAllProductCategories(ctx context.Context, 
 	return productCategories
 }
 
-func (uc *ProductCategoryUseCase) FindOneMPCustomer(ctx context.Context, opt *product.FindProductCategoryOption) (*product.ProductCategory, error) {
+func (uc *ProductCategoryUseCase) FindOneProductCategory(ctx context.Context, opt *product.FindProductCategoryOption) (*product.ProductCategory, error) {
 	var mpCustomer *product.ProductCategory
 	query := uc.db.WithContext(ctx).Model(&product.ProductCategory{})
 

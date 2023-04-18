@@ -13,8 +13,17 @@ type PriceBook struct {
 	IsStandard  bool   `gorm:"column:is_standard; comment:是否是标准手册,标准手册只能有一条" json:"isStandard"`
 	Name        string `gorm:"column:name; comment:价格手册名字" json:"name"`
 	Description string `gorm:"column:description; comment:手册描述" json:"description"`
-	StoreId     string `gorm:"column:storeId; comment:门店Id" json:"storeId"`
+	StoreId     int64  `gorm:"column:storeId; comment:门店Id" json:"storeId"`
 }
 
 const TableNamePriceBook = "price_books"
 const PriceBookUniqueId = powermodel.UniqueId
+
+type FindPriceBookOption struct {
+	OrderBy   string
+	Ids       []int64
+	Names     []string
+	StoreId   int64
+	PageIndex int
+	PageSize  int
+}

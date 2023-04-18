@@ -1022,6 +1022,80 @@ type DeleteProductCategoryReply struct {
 	Id int64 `json:"id"`
 }
 
+type PriceBookEntrySpecific struct {
+	Inventory int16   `json:"inventory,optional"`
+	Weight    float32 `json:"weight,optional"`
+	Volume    float32 `json:"volume,optional"`
+	Encode    string  `json:"encode,optional"`
+	BarCode   string  `json:"barCode,optional"`
+	Extra     string  `json:"extra,optional"`
+}
+
+type PriceBook struct {
+	Id          int64  `json:"id,optional"`
+	IsStandard  bool   `json:"isStandard,optional"`
+	Name        string `json:"name"`
+	Description string `json:"description,optional"`
+	StoreId     int64  `json:"storeId,optional"`
+	CreatedAt   string `json:"createdAt,optional"`
+}
+
+type PriceBookEntry struct {
+	UniqueID    string  `json:"uniqueID,optional"`
+	PriceBookId int64   `json:"priceBookId"`
+	ProductId   int64   `json:"productId"`
+	UnitPrice   float64 `json:"unitPrice"`
+	RetailPrice float64 `json:"retailPrice,optional"`
+	IsActive    bool    `json:"isActive"`
+	PriceBookEntrySpecific
+}
+
+type ListPriceBooksRequest struct {
+	LikeName  string `json:"likeName,optional"`
+	StoreId   int64  `json:"storeId,optional"`
+	PageIndex int    `form:"pageIndex,optional"`
+	PageSize  int    `form:"pageSize,optional"`
+}
+
+type ListPriceBooksReply struct {
+	List      []PriceBook `json:"list"`
+	PageIndex int         `json:"pageIndex"`
+	PageSize  int         `json:"pageSize"`
+	Total     int64       `json:"total"`
+}
+
+type GetPriceBookRequest struct {
+	PriceBook int64 `path:"id"`
+}
+
+type GetPriceBookReply struct {
+	*PriceBook
+}
+
+type UpsertPriceBookRequest struct {
+	PriceBook
+}
+
+type UpsertPriceBookReply struct {
+	*PriceBook
+}
+
+type DeletePriceBookRequest struct {
+	Id int64 `path:"id"`
+}
+
+type DeletePriceBookReply struct {
+	Id int64 `json:"id"`
+}
+
+type ConfigPriceBookEntryRequest struct {
+	Id int64 `path:"id"`
+}
+
+type ConfigPriceBookEntryReply struct {
+	Id int64 `json:"id"`
+}
+
 type Store struct {
 	Id            int64   `json:"id,optional"`
 	Name          string  `json:"name"`
