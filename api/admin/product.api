@@ -82,7 +82,7 @@ type (
     GetProductListRequest struct {
         ProductType string `form:"productType,optional"`
         Keys []string `form:"keys,optional"`
-        OrderBy string `form:"orderBy,optional,options=createdAt|updatedAt"`
+        OrderBy string `form:"orderBy,optional"`
         PageIndex int `form:"pageIndex,optional"`
         PageSize int `form:"pageSize,optional"`
     }
