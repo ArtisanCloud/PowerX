@@ -60,13 +60,13 @@ type (
 )
 type (
     GetProductCategoryTreeRequest struct {
-        Names []string `form:"name,optional,options=createdAt|updatedAt"`
-        OrderBy string `form:"orderBy,optional,options=createdAt|updatedAt"`
+        Names []string `form:"name,optional"`
+        OrderBy string `form:"orderBy,optional"`
     }
 
 
     GetProductCategoryTreeReply struct {
-        ProductCategories []ProductCategory `json:"Tree"`
+        ProductCategories []ProductCategory `json:"tree"`
     }
 )
 
