@@ -124,7 +124,7 @@ func (uc *PriceBookUseCase) GetPriceBook(ctx context.Context, id int64) (*produc
 	var priceBook product.PriceBook
 	if err := uc.db.WithContext(ctx).First(&priceBook, id).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errorx.WithCause(errorx.ErrBadRequest, "未找到产品")
+			return nil, errorx.WithCause(errorx.ErrBadRequest, "未找到价格手册")
 		}
 		panic(err)
 	}
@@ -137,7 +137,7 @@ func (uc *PriceBookUseCase) DeletePriceBook(ctx context.Context, id int64) error
 		panic(err)
 	}
 	if result.RowsAffected == 0 {
-		return errorx.WithCause(errorx.ErrBadRequest, "未找到产品")
+		return errorx.WithCause(errorx.ErrDeleteObjectNotFound, "未找到价格手册")
 	}
 	return nil
 }
