@@ -158,7 +158,7 @@ func (uc *ProductCategoryUseCase) DeleteProductCategory(ctx context.Context, id 
 		panic(err)
 	}
 	if result.RowsAffected == 0 {
-		return errorx.WithCause(errorx.ErrBadRequest, "未找到产品品类")
+		return errorx.WithCause(errorx.ErrDeleteObjectNotFound, "未找到产品品类")
 	}
 	return nil
 }

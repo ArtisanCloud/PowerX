@@ -360,12 +360,12 @@ cloud.google.com/go/workflows v1.7.0/go.mod h1:JhSrZuVZWuiDfKEFxU0/F1PQjmpnpcoIS
 cloud.google.com/go/workflows v1.8.0/go.mod h1:ysGhmEajwZxGn1OhGOGKsTXc5PyxOc0vfKf5Af+to4M=
 cloud.google.com/go/workflows v1.9.0/go.mod h1:ZGkj1aFIOd9c8Gerkjjq7OW7I5+l6cSvT3ujaO/WwSA=
 dmitri.shuralyov.com/gpu/mtl v0.0.0-20190408044501-666a987793e9/go.mod h1:H6x//7gZCb22OMCxBHrMx7a5I7Hp++hsVxbQ4BYO7hU=
-github.com/ArtisanCloud/PowerLibs/v3 v3.0.5 h1:bX2V44VkcR2j4SXu1ywptO6Lj5ydPD3/5YqmhFzFQ40=
-github.com/ArtisanCloud/PowerLibs/v3 v3.0.5/go.mod h1:6/cNm8Dv8wdogyB5yPZGTm9KhaXIifiOw8a2IuD07hw=
+github.com/ArtisanCloud/PowerLibs/v3 v3.0.6 h1:UGBtcciKbvqgN8wXQ3RHxqtBa6wCT2fgxlGXyZ+l0gc=
+github.com/ArtisanCloud/PowerLibs/v3 v3.0.6/go.mod h1:6/cNm8Dv8wdogyB5yPZGTm9KhaXIifiOw8a2IuD07hw=
 github.com/ArtisanCloud/PowerSocialite/v3 v3.0.5 h1:73D92j/SxTdKyvS7+D1Ch+JISDjzJWCwgOy8XTqYxm4=
 github.com/ArtisanCloud/PowerSocialite/v3 v3.0.5/go.mod h1:VZQNCvcK/rldF3QaExiSl1gJEAkyc5/I8RLOd3WFZq4=
-github.com/ArtisanCloud/PowerWeChat/v3 v3.0.22 h1:Bmm5YZVqC/NiAQLgGDeOy+GukZGgs0BuKbsAafQeTkQ=
-github.com/ArtisanCloud/PowerWeChat/v3 v3.0.22/go.mod h1:hvw2lkz6qNLYf37pABjmbxgV7erOZpAo+Jzu0uYsQFs=
+github.com/ArtisanCloud/PowerWeChat/v3 v3.0.26 h1:MZPMq3Eryltq5O+wBkQQ/0eNFPwpeEXsBwN3kC8NfE8=
+github.com/ArtisanCloud/PowerWeChat/v3 v3.0.26/go.mod h1:zwHfYVUMSoC+PoqThDyD0uxmdBvvgWiOXawPvyq3xrw=
 github.com/Azure/go-autorest v14.2.0+incompatible/go.mod h1:r+4oMnoxhatjLLJ6zxSWATqVooLgysK6ZNox3g/xq24=
 github.com/Azure/go-autorest/autorest v0.11.18/go.mod h1:dSiJPy22c3u0OtOKDNttNgqpNFY/GeWa7GH/Pz56QRA=
 github.com/Azure/go-autorest/autorest/adal v0.9.13/go.mod h1:W/MM4U6nLxnIskrw4UwWzlHfGjwUS50aOsc/I3yuU8M=

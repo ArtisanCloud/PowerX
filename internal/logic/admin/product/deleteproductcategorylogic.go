@@ -27,8 +27,7 @@ func (l *DeleteProductCategoryLogic) DeleteProductCategory(req *types.DeleteProd
 
 	err = l.svcCtx.PowerX.ProductCategory.DeleteProductCategory(l.ctx, req.Id)
 	if err != nil {
-		panic(err)
-		return
+		return nil, err
 	}
 
 	return &types.DeleteProductCategoryReply{

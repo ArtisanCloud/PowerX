@@ -3,8 +3,8 @@ module PowerX
 go 1.19
 
 require (
-	github.com/ArtisanCloud/PowerLibs/v3 v3.0.5
-	github.com/ArtisanCloud/PowerWeChat/v3 v3.0.22
+	github.com/ArtisanCloud/PowerLibs/v3 v3.0.6
+	github.com/ArtisanCloud/PowerWeChat/v3 v3.0.26
 	github.com/Blank-Xu/sql-adapter v0.0.0-20210714092925-0bdd0d548758
 	github.com/casbin/casbin/v2 v2.60.0
 	github.com/golang-jwt/jwt/v4 v4.4.3
