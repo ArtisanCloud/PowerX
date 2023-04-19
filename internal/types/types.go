@@ -592,7 +592,7 @@ type AssignCustomerToEmployeeReply struct {
 type GetMediaListRequest struct {
 	MediaType string   `form:"mediaType,optional"`
 	Keys      []string `form:"keys,optional"`
-	OrderBy   string   `form:"orderBy,optional,options=createdAt|updatedAt"`
+	OrderBy   string   `form:"orderBy,optional"`
 	PageIndex int      `form:"pageIndex,optional"`
 	PageSize  int      `form:"pageSize,optional"`
 }
@@ -759,7 +759,7 @@ type GetOpportunityListRequest struct {
 	Source    string `form:"source,optional"`
 	Type      string `form:"type,optional"`
 	Stage     string `form:"stage,optional"`
-	OrderBy   string `form:"orderBy,optional,options=createdAt|updatedAt|closedAt"`
+	OrderBy   string `form:"orderBy,optional"`
 	PageIndex int    `form:"pageIndex,optional"`
 	PageSize  int    `form:"pageSize,optional"`
 }
@@ -899,7 +899,7 @@ type Product struct {
 type GetProductListRequest struct {
 	ProductType string   `form:"productType,optional"`
 	Keys        []string `form:"keys,optional"`
-	OrderBy     string   `form:"orderBy,optional,options=createdAt|updatedAt"`
+	OrderBy     string   `form:"orderBy,optional"`
 	PageIndex   int      `form:"pageIndex,optional"`
 	PageSize    int      `form:"pageSize,optional"`
 }
@@ -981,12 +981,12 @@ type ProductCategory struct {
 }
 
 type GetProductCategoryTreeRequest struct {
-	Names   []string `form:"name,optional,options=createdAt|updatedAt"`
-	OrderBy string   `form:"orderBy,optional,options=createdAt|updatedAt"`
+	Names   []string `form:"name,optional"`
+	OrderBy string   `form:"orderBy,optional"`
 }
 
 type GetProductCategoryTreeReply struct {
-	ProductCategories []ProductCategory `json:"Tree"`
+	ProductCategories []ProductCategory `json:"tree"`
 }
 
 type UpsertProductCategoryRequest struct {
@@ -1111,7 +1111,7 @@ type Store struct {
 type GetStoreListRequest struct {
 	StoreType string   `form:"storeType,optional"`
 	Keys      []string `form:"keys,optional"`
-	OrderBy   string   `form:"orderBy,optional,options=createdAt|updatedAt"`
+	OrderBy   string   `form:"orderBy,optional"`
 	PageIndex int      `form:"pageIndex,optional"`
 	PageSize  int      `form:"pageSize,optional"`
 }

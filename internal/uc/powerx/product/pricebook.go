@@ -46,6 +46,11 @@ func (uc *PriceBookUseCase) FindManyPriceBooks(ctx context.Context, opt *product
 	var count int64
 	query := uc.db.WithContext(ctx).Model(&product.PriceBook{})
 
+	query = uc.buildFindQueryNoPage(query, opt)
+	if err := query.Count(&count).Error; err != nil {
+		panic(errors.Wrap(err, "find many priceBooks failed"))
+	}
+
 	if opt.PageIndex == 0 {
 		opt.PageIndex = 1
 	}
@@ -55,11 +60,7 @@ func (uc *PriceBookUseCase) FindManyPriceBooks(ctx context.Context, opt *product
 	if opt.PageIndex != 0 && opt.PageSize != 0 {
 		query.Offset((opt.PageIndex - 1) * opt.PageSize).Limit(opt.PageSize)
 	}
-
-	query = uc.buildFindQueryNoPage(query, opt)
-	if err := query.Count(&count).Error; err != nil {
-		panic(errors.Wrap(err, "find many priceBooks failed"))
-	}
+	
 	if err := query.
 		Debug().
 		Find(&priceBooks).Error; err != nil {
