@@ -2,6 +2,7 @@ package uc
 
 import (
 	"PowerX/deploy/database/migrate"
+	"PowerX/deploy/database/seed"
 	"PowerX/internal/config"
 	"PowerX/internal/uc/powerx"
 	customerDomainUC "PowerX/internal/uc/powerx/customerdomain"
@@ -85,5 +86,7 @@ func NewPowerXUseCase(conf *config.Config) (uc *PowerXUseCase, clean func()) {
 
 func (uc *PowerXUseCase) AutoInit() {
 	uc.AdminAuthorization.Init()
-	uc.Organization.Init()
+	_ = seed.CreateOrganization(uc.db)
+	_ = seed.CreateDataDictionary(uc.db)
+	_ = seed.CreatePriceBook(uc.db)
 }

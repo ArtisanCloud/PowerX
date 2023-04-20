@@ -1,7 +1,6 @@
 package powerx
 
 import (
-	"PowerX/deploy/database/seed"
 	"PowerX/internal/model"
 	"PowerX/internal/model/scrm/organization"
 	"PowerX/internal/types"
@@ -21,19 +20,6 @@ type OrganizationUseCase struct {
 func NewOrganizationUseCase(db *gorm.DB) *OrganizationUseCase {
 	return &OrganizationUseCase{
 		db: db,
-	}
-}
-
-func (uc *OrganizationUseCase) Init() {
-	var count int64
-	if err := uc.db.Model(&organization.Department{}).Count(&count).Error; err != nil {
-		panic(errors.Wrap(err, "init root dep failed"))
-	}
-	if count == 0 {
-		dep := seed.DefaultDepartment()
-		if err := uc.db.Model(&organization.Department{}).Create(&dep).Error; err != nil {
-			panic(errors.Wrap(err, "init root dep failed"))
-		}
 	}
 }
 
