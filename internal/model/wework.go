@@ -4,11 +4,11 @@ import "github.com/ArtisanCloud/PowerLibs/v3/object"
 
 type WeWorkExternalContact struct {
 	Model
-	CorpID         object.NullString `gorm:"index:index_corp_id;column:corp_id" json:"corpID"`
-	AppID          object.NullString `gorm:"index:index_app_id;column:app_id" json:"appID"`
-	ExternalUserID object.NullString `gorm:"index:index_external_user_id;column:external_user_id;not null;" json:"externalUserID"`
-	OpenID         object.NullString `gorm:"index:index_customer_open_id;column:open_id;" json:"openID"`
-	UnionID        object.NullString `gorm:"index:index_union_id;column:union_id" json:"unionID"`
+	CorpID         object.NullString `gorm:"index:idx_corp_id;column:corp_id" json:"corpID"`
+	AppID          object.NullString `gorm:"index:idx_app_id;column:app_id" json:"appID"`
+	ExternalUserID object.NullString `gorm:"index:idx_external_user_id;column:external_user_id;not null;" json:"externalUserID"`
+	OpenID         object.NullString `gorm:"index:idx_customer_open_id;column:open_id;" json:"openID"`
+	UnionID        object.NullString `gorm:"index:idx_union_id;column:union_id" json:"unionID"`
 
 	Name            string `gorm:"column:name" json:"name"`
 	Mobile          string `gorm:"column:mobile" json:"mobile"`

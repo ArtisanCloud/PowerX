@@ -12,18 +12,18 @@ import (
 )
 
 func AutoMigrate(ctx context.Context, db *gorm.DB) {
-	db.AutoMigrate(&model.DataDictionaryType{}, &model.DataDictionaryItem{}, &model.PivotDataDictionaryToObject{})
-	db.AutoMigrate(&organization.Department{}, &organization.Employee{})
-	db.AutoMigrate(&powerx.EmployeeCasbinPolicy{}, powerx.AdminRole{}, powerx.AdminRoleMenuName{}, powerx.AdminAPI{})
+	_ = db.AutoMigrate(&model.DataDictionaryType{}, &model.DataDictionaryItem{}, &model.PivotDataDictionaryToObject{})
+	_ = db.AutoMigrate(&organization.Department{}, &organization.Employee{})
+	_ = db.AutoMigrate(&powerx.EmployeeCasbinPolicy{}, powerx.AdminRole{}, powerx.AdminRoleMenuName{}, powerx.AdminAPI{})
 
 	// customerdomain domain
-	db.AutoMigrate(&customerdomain.Lead{}, &customerdomain.Contact{}, &customerdomain.Customer{}, &membership.Membership{})
-	db.AutoMigrate(&model.WechatOACustomer{}, &model.WechatMPCustomer{}, &model.WeWorkExternalContact{})
-	db.AutoMigrate(
+	_ = db.AutoMigrate(&customerdomain.Lead{}, &customerdomain.Contact{}, &customerdomain.Customer{}, &membership.Membership{})
+	_ = db.AutoMigrate(&model.WechatOACustomer{}, &model.WechatMPCustomer{}, &model.WeWorkExternalContact{})
+	_ = db.AutoMigrate(
 		&product.PivotProductToProductCategory{},
 	)
 	// product
-	db.AutoMigrate(&product.Product{}, &product.ProductCategory{})
-	db.AutoMigrate(&product.PriceBook{}, &product.PriceBookEntry{}, &product.PriceConfig{})
+	_ = db.AutoMigrate(&product.Product{}, &product.ProductCategory{})
+	_ = db.AutoMigrate(&product.PriceBook{}, &product.PriceBookEntry{}, &product.PriceConfig{})
 
 }
