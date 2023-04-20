@@ -1,7 +1,7 @@
 package employee
 
 import (
-	"PowerX/internal/uc/powerx"
+	"PowerX/internal/model/scrm/organization"
 	"context"
 	"github.com/pkg/errors"
 
@@ -26,7 +26,7 @@ func NewCreateEmployeeLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Cr
 }
 
 func (l *CreateEmployeeLogic) CreateEmployee(req *types.CreateEmployeeRequest) (resp *types.CreateEmployeeReply, err error) {
-	employee := powerx.Employee{
+	employee := organization.Employee{
 		Account:       req.Account,
 		Name:          req.Name,
 		NickName:      req.NickName,
@@ -39,7 +39,7 @@ func (l *CreateEmployeeLogic) CreateEmployee(req *types.CreateEmployeeRequest) (
 		ExternalEmail: req.ExternalEmail,
 		Avatar:        req.Avatar,
 		Password:      "123456",
-		Status:        powerx.EmployeeStatusEnabled,
+		Status:        organization.EmployeeStatusEnabled,
 	}
 	if err = employee.HashPassword(); err != nil {
 		panic(errors.Wrap(err, "create employee hash password failed"))

@@ -1,14 +1,15 @@
 package powerx
 
 import (
+	"PowerX/deploy/database/seed"
 	"PowerX/internal/model"
+	"PowerX/internal/model/scrm/organization"
 	"PowerX/internal/types"
 	"PowerX/internal/types/errorx"
 	"context"
 	"fmt"
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
-	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 	"strings"
 )
@@ -25,102 +26,22 @@ func NewOrganizationUseCase(db *gorm.DB) *OrganizationUseCase {
 
 func (uc *OrganizationUseCase) Init() {
 	var count int64
-	if err := uc.db.Model(&Department{}).Count(&count).Error; err != nil {
+	if err := uc.db.Model(&organization.Department{}).Count(&count).Error; err != nil {
 		panic(errors.Wrap(err, "init root dep failed"))
 	}
 	if count == 0 {
-		dep := defaultDepartment()
-		if err := uc.db.Model(&Department{}).Create(&dep).Error; err != nil {
+		dep := seed.DefaultDepartment()
+		if err := uc.db.Model(&organization.Department{}).Create(&dep).Error; err != nil {
 			panic(errors.Wrap(err, "init root dep failed"))
 		}
 	}
 }
 
-const (
-	GenderMale   = "male"
-	GenderFeMale = "female"
-	GenderUnKnow = "un_know"
-)
-
-const (
-	EmployeeStatusDisabled = "disabled"
-	EmployeeStatusEnabled  = "enabled"
-)
-
-type Employee struct {
-	model.Model
-	Account       string `gorm:"unique"`
-	Name          string
-	NickName      string
-	Desc          string
-	Position      string
-	JobTitle      string
-	DepartmentId  int64
-	Department    *Department
-	MobilePhone   string
-	Gender        string
-	Email         string
-	ExternalEmail string
-	Avatar        string
-	Password      string
-	Status        string `gorm:"index"`
-	IsReserved    bool
-	IsActivated   bool
-}
-
-const defaultCost = bcrypt.MinCost
-
-// 生成哈希密码
-func hashPassword(password string) (hashedPwd string, err error) {
-	newPassword, err := bcrypt.GenerateFromPassword([]byte(password), defaultCost)
-	if err != nil {
-		return "", errors.Wrap(err, "gen pwd failed")
-	}
-	return string(newPassword), nil
-}
-
-// 校验密码
-func verifyPassword(hashedPwd string, pwd string) bool {
-	err := bcrypt.CompareHashAndPassword([]byte(hashedPwd), []byte(pwd))
-	return err == nil
-}
-
-func (e *Employee) HashPassword() (err error) {
-	if e.Password != "" {
-		e.Password, err = hashPassword(e.Password)
-	}
-	return nil
-}
-
-type Department struct {
-	model.Model
-	Name        string
-	PId         int64
-	PDep        *Department `gorm:"foreignKey:PId"`
-	LeaderId    int64
-	Leader      *Employee     `gorm:"foreignKey:LeaderId"`
-	Ancestors   []*Department `gorm:"many2many:department_ancestors;"`
-	Desc        string
-	PhoneNumber string
-	Email       string
-	Remark      string
-	IsReserved  bool
-}
-
-func defaultDepartment() *Department {
-	return &Department{
-		Name:       "组织架构",
-		PId:        0,
-		Desc:       "根节点, 别删除",
-		IsReserved: true,
-	}
-}
-
 func (uc *OrganizationUseCase) VerifyPassword(hashedPwd string, pwd string) bool {
-	return verifyPassword(hashedPwd, pwd)
+	return organization.VerifyPassword(hashedPwd, pwd)
 }
 
-func (uc *OrganizationUseCase) CreateEmployee(ctx context.Context, employee *Employee) (err error) {
+func (uc *OrganizationUseCase) CreateEmployee(ctx context.Context, employee *organization.Employee) (err error) {
 	if err := uc.db.WithContext(ctx).Create(&employee).Error; err != nil {
 		// todo use errors.Is() when gorm update ErrDuplicatedKey
 		if strings.Contains(err.Error(), "duplicate key value violates unique constraint") {
@@ -132,15 +53,15 @@ func (uc *OrganizationUseCase) CreateEmployee(ctx context.Context, employee *Emp
 }
 
 func (uc *OrganizationUseCase) FindAccountsByIds(ctx context.Context, employeeIds []int64) (accounts []string) {
-	err := uc.db.WithContext(ctx).Model(&Employee{}).Where("id in ?", employeeIds).Pluck("account", &accounts).Error
+	err := uc.db.WithContext(ctx).Model(&organization.Employee{}).Where("id in ?", employeeIds).Pluck("account", &accounts).Error
 	if err != nil {
 		panic(errors.Wrap(err, "find accounts by ids failed"))
 	}
 	return accounts
 }
 
-func (uc *OrganizationUseCase) PatchEmployeeByUserId(ctx context.Context, employee *Employee, employeeId int64) error {
-	result := uc.db.WithContext(ctx).Model(&Employee{}).Where(employee.ID).Updates(&employee)
+func (uc *OrganizationUseCase) PatchEmployeeByUserId(ctx context.Context, employee *organization.Employee, employeeId int64) error {
+	result := uc.db.WithContext(ctx).Model(&organization.Employee{}).Where(employee.ID).Updates(&employee)
 	if result.Error != nil {
 		panic(result.Error)
 	}
@@ -200,10 +121,10 @@ func buildFindManyEmployeesQueryNoPage(query *gorm.DB, opt *FindManyEmployeesOpt
 	return query
 }
 
-func (uc *OrganizationUseCase) FindManyEmployeesPage(ctx context.Context, opt *FindManyEmployeesOption) types.Page[*Employee] {
-	var employees []*Employee
+func (uc *OrganizationUseCase) FindManyEmployeesPage(ctx context.Context, opt *FindManyEmployeesOption) types.Page[*organization.Employee] {
+	var employees []*organization.Employee
 	var count int64
-	query := uc.db.WithContext(ctx).Model(&Employee{})
+	query := uc.db.WithContext(ctx).Model(&organization.Employee{})
 
 	if opt.PageIndex == 0 {
 		opt.PageIndex = 1
@@ -222,7 +143,7 @@ func (uc *OrganizationUseCase) FindManyEmployeesPage(ctx context.Context, opt *F
 	if err := query.Find(&employees).Error; err != nil {
 		panic(errors.Wrap(err, "find employees failed"))
 	}
-	return types.Page[*Employee]{
+	return types.Page[*organization.Employee]{
 		List:      employees,
 		PageIndex: opt.PageIndex,
 		PageSize:  opt.PageSize,
@@ -236,12 +157,12 @@ type EmployeeLoginOption struct {
 	Email       string
 }
 
-func (uc *OrganizationUseCase) FindOneEmployeeByLoginOption(ctx context.Context, option *EmployeeLoginOption) (employee *Employee, err error) {
+func (uc *OrganizationUseCase) FindOneEmployeeByLoginOption(ctx context.Context, option *EmployeeLoginOption) (employee *organization.Employee, err error) {
 	if *option == (EmployeeLoginOption{}) {
 		panic(errors.New("option empty"))
 	}
 
-	var queryEmployee Employee
+	var queryEmployee organization.Employee
 	if option.Account != "" {
 		queryEmployee.Account = option.Account
 	}
@@ -252,7 +173,7 @@ func (uc *OrganizationUseCase) FindOneEmployeeByLoginOption(ctx context.Context,
 		queryEmployee.MobilePhone = option.PhoneNumber
 	}
 
-	if err = uc.db.WithContext(ctx).Model(&Employee{}).Where(&queryEmployee).First(&employee).Error; err != nil {
+	if err = uc.db.WithContext(ctx).Model(&organization.Employee{}).Where(&queryEmployee).First(&employee).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errorx.WithCause(errorx.ErrBadRequest, "用户不存在, 请检查登录信息")
 		}
@@ -261,7 +182,7 @@ func (uc *OrganizationUseCase) FindOneEmployeeByLoginOption(ctx context.Context,
 	return
 }
 
-func (uc *OrganizationUseCase) FindOneEmployeeById(ctx context.Context, id int64) (employee *Employee, err error) {
+func (uc *OrganizationUseCase) FindOneEmployeeById(ctx context.Context, id int64) (employee *organization.Employee, err error) {
 	if err = uc.db.WithContext(ctx).Where(id).Preload("Department").First(&employee).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errorx.WithCause(errorx.ErrBadRequest, "用户不存在")
@@ -271,8 +192,8 @@ func (uc *OrganizationUseCase) FindOneEmployeeById(ctx context.Context, id int64
 	return
 }
 
-func (uc *OrganizationUseCase) UpdateEmployeeById(ctx context.Context, employee *Employee, employeeId int64) error {
-	whereCase := Employee{
+func (uc *OrganizationUseCase) UpdateEmployeeById(ctx context.Context, employee *organization.Employee, employeeId int64) error {
+	whereCase := organization.Employee{
 		Model: model.Model{
 			ID: employeeId,
 		},
@@ -290,7 +211,7 @@ func (uc *OrganizationUseCase) UpdateEmployeeById(ctx context.Context, employee 
 }
 
 func (uc *OrganizationUseCase) DeleteEmployeeById(ctx context.Context, id int64) error {
-	result := uc.db.WithContext(ctx).Where(Employee{IsReserved: false}, "is_reserved").Delete(&Employee{}, id)
+	result := uc.db.WithContext(ctx).Where(organization.Employee{IsReserved: false}, "is_reserved").Delete(&organization.Employee{}, id)
 	err := result.Error
 	if err != nil {
 		panic(errors.Wrap(err, "delete employee failed"))
@@ -302,15 +223,15 @@ func (uc *OrganizationUseCase) DeleteEmployeeById(ctx context.Context, id int64)
 }
 
 func (uc *OrganizationUseCase) FindAllPositions(ctx context.Context) (positions []string) {
-	err := uc.db.WithContext(ctx).Model(Employee{}).Pluck("position", &positions).Error
+	err := uc.db.WithContext(ctx).Model(organization.Employee{}).Pluck("position", &positions).Error
 	if err != nil {
 		panic(err)
 	}
 	return positions
 }
 
-func (uc *OrganizationUseCase) FindOneDepartment(ctx context.Context, id int64) (department *Department, err error) {
-	department = &Department{}
+func (uc *OrganizationUseCase) FindOneDepartment(ctx context.Context, id int64) (department *organization.Department, err error) {
+	department = &organization.Department{}
 	if err := uc.db.WithContext(ctx).Preload("Leader").First(department, id).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errorx.WithCause(errorx.ErrBadRequest, "部门未找到")
@@ -320,13 +241,13 @@ func (uc *OrganizationUseCase) FindOneDepartment(ctx context.Context, id int64) 
 	return department, nil
 }
 
-func (uc *OrganizationUseCase) CreateDepartment(ctx context.Context, dep *Department) error {
+func (uc *OrganizationUseCase) CreateDepartment(ctx context.Context, dep *organization.Department) error {
 	if dep.PId == 0 {
 		return errorx.WithCause(errorx.ErrBadRequest, "必须指定父部门Id")
 	}
 	db := uc.db.WithContext(ctx)
 	// 查询父节点
-	var pDep *Department
+	var pDep *organization.Department
 	if err := db.Preload("Ancestors").Where(dep.PId).First(&pDep).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return errorx.WithCause(errorx.ErrBadRequest, "父部门不存在")
@@ -349,10 +270,10 @@ type FindManyDepartmentsOption struct {
 	LikeName string
 }
 
-func (uc *OrganizationUseCase) FindManyDepartmentsPage(ctx context.Context, option *types.PageOption[FindManyDepartmentsOption]) *types.Page[*Department] {
-	var deps []*Department
+func (uc *OrganizationUseCase) FindManyDepartmentsPage(ctx context.Context, option *types.PageOption[FindManyDepartmentsOption]) *types.Page[*organization.Department] {
+	var deps []*organization.Department
 	var count int64
-	query := uc.db.WithContext(ctx).Model(Department{})
+	query := uc.db.WithContext(ctx).Model(organization.Department{})
 
 	if len(option.Option.DepIds) > 0 {
 		query.Where(option.Option.DepIds)
@@ -371,7 +292,7 @@ func (uc *OrganizationUseCase) FindManyDepartmentsPage(ctx context.Context, opti
 	if err := query.Find(&deps).Error; err != nil {
 		panic(errors.Wrap(err, "query deps failed"))
 	}
-	return &types.Page[*Department]{
+	return &types.Page[*organization.Department]{
 		List:      deps,
 		PageIndex: option.PageIndex,
 		PageSize:  option.PageSize,
@@ -379,9 +300,9 @@ func (uc *OrganizationUseCase) FindManyDepartmentsPage(ctx context.Context, opti
 	}
 }
 
-func (uc *OrganizationUseCase) FindManyDepartmentsByRootId(ctx context.Context, rootId int64) (departments []*Department, err error) {
-	departments = []*Department{}
-	if err := uc.db.WithContext(ctx).Model(Department{}).Preload("Leader").Preload("Ancestors").
+func (uc *OrganizationUseCase) FindManyDepartmentsByRootId(ctx context.Context, rootId int64) (departments []*organization.Department, err error) {
+	departments = []*organization.Department{}
+	if err := uc.db.WithContext(ctx).Model(organization.Department{}).Preload("Leader").Preload("Ancestors").
 		Joins("LEFT JOIN department_ancestors ON departments.id = department_ancestors.department_id").
 		Where("department_ancestors.ancestor_id = ?", rootId).Or("departments.id = ?", rootId).
 		Find(&departments).Error; err != nil {
@@ -393,7 +314,7 @@ func (uc *OrganizationUseCase) FindManyDepartmentsByRootId(ctx context.Context, 
 	return
 }
 
-func (uc *OrganizationUseCase) FindAllDepartments(ctx context.Context) (departments []*Department) {
+func (uc *OrganizationUseCase) FindAllDepartments(ctx context.Context) (departments []*organization.Department) {
 	if err := uc.db.WithContext(ctx).Preload("Leader").Find(&departments).Error; err != nil {
 		panic(err)
 	}
@@ -401,14 +322,14 @@ func (uc *OrganizationUseCase) FindAllDepartments(ctx context.Context) (departme
 }
 
 func (uc *OrganizationUseCase) CountEmployeeInDepartmentByIds(ctx context.Context, depIds []int64) (count int64) {
-	if err := uc.db.WithContext(ctx).Model(Employee{}).Where("department_id in ?", depIds).Count(&count).Error; err != nil {
+	if err := uc.db.WithContext(ctx).Model(organization.Employee{}).Where("department_id in ?", depIds).Count(&count).Error; err != nil {
 		panic(err)
 	}
 	return count
 }
 
-func (uc *OrganizationUseCase) PatchDepartmentById(ctx context.Context, id int64, dep *Department) error {
-	result := uc.db.WithContext(ctx).Model(Department{}).Where(Department{IsReserved: false}, "is_reserved").
+func (uc *OrganizationUseCase) PatchDepartmentById(ctx context.Context, id int64, dep *organization.Department) error {
+	result := uc.db.WithContext(ctx).Model(organization.Department{}).Where(organization.Department{IsReserved: false}, "is_reserved").
 		Where("id = ?", id).Updates(&dep)
 	if result.Error != nil {
 		panic(result.Error)
@@ -421,12 +342,12 @@ func (uc *OrganizationUseCase) PatchDepartmentById(ctx context.Context, id int64
 
 func (uc *OrganizationUseCase) DeleteDepartmentById(ctx context.Context, id int64) error {
 	db := uc.db.WithContext(ctx)
-	queryWhere := db.Model(Department{}).
+	queryWhere := db.Model(organization.Department{}).
 		Joins("LEFT JOIN department_ancestors ON departments.id = department_ancestors.department_id").
 		Where("department_ancestors.ancestor_id = ?", id).Or("departments.id = ?", id).
 		Select("id")
-	result := db.Model(Department{}).Where(Department{IsReserved: false}, "is_reserved").
-		Where("id in (?)", queryWhere).Delete(&Department{})
+	result := db.Model(organization.Department{}).Where(organization.Department{IsReserved: false}, "is_reserved").
+		Where("id in (?)", queryWhere).Delete(&organization.Department{})
 	if result.Error != nil {
 		panic(result.Error)
 	}

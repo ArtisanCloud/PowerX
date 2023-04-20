@@ -1,7 +1,7 @@
 package employee
 
 import (
-	"PowerX/internal/uc/powerx"
+	"PowerX/internal/model/scrm/organization"
 	"context"
 	"time"
 
@@ -57,7 +57,7 @@ func (l *GetEmployeeLogic) GetEmployee(req *types.GetEmployeeRequest) (resp *typ
 			Roles:         roles,
 			Position:      employee.Position,
 			JobTitle:      employee.JobTitle,
-			IsEnabled:     employee.Status == powerx.EmployeeStatusEnabled,
+			IsEnabled:     employee.Status == organization.EmployeeStatusEnabled,
 			CreatedAt:     employee.CreatedAt.Format(time.RFC3339),
 		},
 	}, nil

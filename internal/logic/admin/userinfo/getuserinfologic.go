@@ -1,7 +1,7 @@
 package userinfo
 
 import (
-	"PowerX/internal/uc/powerx"
+	"PowerX/internal/model/scrm/organization"
 	"context"
 	"github.com/pkg/errors"
 	"time"
@@ -58,7 +58,7 @@ func (l *GetUserInfoLogic) GetUserInfo() (resp *types.GetUserInfoReply, err erro
 	if employee.Department != nil {
 		resp.DepName = employee.Department.Name
 	}
-	if employee.Status == powerx.EmployeeStatusEnabled {
+	if employee.Status == organization.EmployeeStatusEnabled {
 		resp.IsEnabled = true
 	}
 	return
