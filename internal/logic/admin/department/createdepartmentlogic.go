@@ -1,9 +1,9 @@
 package department
 
 import (
+	"PowerX/internal/model/scrm/organization"
 	"PowerX/internal/svc"
 	"PowerX/internal/types"
-	"PowerX/internal/uc/powerx"
 	"context"
 
 	"github.com/zeromicro/go-zero/core/logx"
@@ -24,7 +24,7 @@ func NewCreateDepartmentLogic(ctx context.Context, svcCtx *svc.ServiceContext) *
 }
 
 func (l *CreateDepartmentLogic) CreateDepartment(req *types.CreateDepartmentRequest) (resp *types.CreateDepartmentReply, err error) {
-	dep := powerx.Department{
+	dep := organization.Department{
 		Name:        req.DepName,
 		PId:         req.PId,
 		LeaderId:    req.LeaderId,
