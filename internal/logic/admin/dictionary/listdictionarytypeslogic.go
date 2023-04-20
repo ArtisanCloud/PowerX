@@ -10,21 +10,21 @@ import (
 	"github.com/zeromicro/go-zero/core/logx"
 )
 
-type GetDictionaryTypesLogic struct {
+type ListDictionaryTypesLogic struct {
 	logx.Logger
 	ctx    context.Context
 	svcCtx *svc.ServiceContext
 }
 
-func NewGetDictionaryTypesLogic(ctx context.Context, svcCtx *svc.ServiceContext) *GetDictionaryTypesLogic {
-	return &GetDictionaryTypesLogic{
+func NewListDictionaryTypesLogic(ctx context.Context, svcCtx *svc.ServiceContext) *ListDictionaryTypesLogic {
+	return &ListDictionaryTypesLogic{
 		Logger: logx.WithContext(ctx),
 		ctx:    ctx,
 		svcCtx: svcCtx,
 	}
 }
 
-func (l *GetDictionaryTypesLogic) GetDictionaryTypes(req *types.GetDictionaryTypesRequest) (resp *types.GetDictionaryTypesReply, err error) {
+func (l *ListDictionaryTypesLogic) ListDictionaryTypes(req *types.ListDictionaryTypesPageRequest) (resp *types.ListDictionaryTypesPageReply, err error) {
 	page, err := l.svcCtx.PowerX.DataDictionary.FindManyDataDictionaryType(l.ctx, &powerx.FindManyDataDictTypeOption{
 		PageEmbedOption: types.PageEmbedOption{
 			PageIndex: req.PageIndex,
@@ -37,18 +37,26 @@ func (l *GetDictionaryTypesLogic) GetDictionaryTypes(req *types.GetDictionaryTyp
 
 	// list
 	list := make([]types.DictionaryType, 0, len(page.List))
-	for _, item := range page.List {
+	for _, itemType := range page.List {
+
+		var items = []*types.DictionaryItem{}
+		if len(itemType.Items) > 0 {
+			items = TransformItemsToItemsReply(itemType.Items)
+		}
+
 		list = append(list, types.DictionaryType{
-			Type:        item.Type,
-			Name:        item.Name,
-			Description: item.Description,
+			Type:        itemType.Type,
+			Name:        itemType.Name,
+			Description: itemType.Description,
+			Items:       items,
 		})
 	}
 
-	return &types.GetDictionaryTypesReply{
+	return &types.ListDictionaryTypesPageReply{
 		List:      list,
 		PageIndex: page.PageIndex,
 		PageSize:  page.PageSize,
 		Total:     page.Total,
 	}, nil
+
 }

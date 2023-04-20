@@ -6,7 +6,7 @@ import (
 	"gorm.io/gorm"
 )
 
-func CreatePriceBook(db *gorm.DB) (err error) {
+func CreatePriceBooks(db *gorm.DB) (err error) {
 
 	var count int64
 	if err = db.Model(&product.PriceBook{}).Count(&count).Error; err != nil {

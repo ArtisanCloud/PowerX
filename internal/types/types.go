@@ -650,22 +650,31 @@ type DeleteMediaReply struct {
 	Key string `json:"key"`
 }
 
-type GetDictionaryTypesRequest struct {
+type ListDictionaryTypesPageRequest struct {
 	PageIndex int `form:"pageIndex,optional"`
 	PageSize  int `form:"pageSize,optional"`
 }
 
 type DictionaryType struct {
-	Type        string `json:"type"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
+	Type        string            `json:"type"`
+	Name        string            `json:"name"`
+	Description string            `json:"description"`
+	Items       []*DictionaryItem `json:"items,optional"`
 }
 
-type GetDictionaryTypesReply struct {
+type ListDictionaryTypesPageReply struct {
 	List      []DictionaryType `json:"list"`
 	PageIndex int              `json:"pageIndex"`
 	PageSize  int              `json:"pageSize"`
 	Total     int64            `json:"total"`
+}
+
+type GetDictionaryTypeRequest struct {
+	DictionaryType string `path:"type"`
+}
+
+type GetDictionaryTypeReply struct {
+	*DictionaryType
 }
 
 type CreateDictionaryTypeRequest struct {
@@ -675,7 +684,9 @@ type CreateDictionaryTypeRequest struct {
 }
 
 type CreateDictionaryTypeReply struct {
-	Type string `json:"type"`
+	Type        string `json:"type"`
+	Name        string `json:"name"`
+	Description string `json:"description,optional"`
 }
 
 type UpdateDictionaryTypeRequest struct {
@@ -696,10 +707,10 @@ type DeleteDictionaryTypeReply struct {
 	Type string `json:"type"`
 }
 
-type GetDictionaryItemsRequest struct {
-	Types     []string `form:"type,optional"`
-	PageIndex int      `form:"pageIndex,optional"`
-	PageSize  int      `form:"pageSize,optional"`
+type ListDictionaryItemsRequest struct {
+	Type      string `form:"type"`
+	PageIndex int    `form:"pageIndex,optional"`
+	PageSize  int    `form:"pageSize,optional"`
 }
 
 type DictionaryItem struct {
@@ -710,11 +721,17 @@ type DictionaryItem struct {
 	Description string `json:"description"`
 }
 
-type GetDictionaryItemsReply struct {
-	List      []DictionaryItem `json:"list"`
-	PageIndex int              `json:"pageIndex"`
-	PageSize  int              `json:"pageSize"`
-	Total     int64            `json:"total"`
+type ListDictionaryItemsReply struct {
+	List []DictionaryItem `json:"list"`
+}
+
+type GetDictionaryItemRequest struct {
+	DictionaryType string `path:"type"`
+	DictionaryItem string `path:"key"`
+}
+
+type GetDictionaryItemReply struct {
+	*DictionaryItem
 }
 
 type CreateDictionaryItemRequest struct {
@@ -722,13 +739,17 @@ type CreateDictionaryItemRequest struct {
 	Type        string `json:"type"`
 	Name        string `json:"name"`
 	Value       string `json:"value"`
-	Sort        int    `json:"sort"`
+	Sort        int    `json:"sort,optional"`
 	Description string `json:"description,optional"`
 }
 
 type CreateDictionaryItemReply struct {
-	Key  string `json:"key"`
-	Type string `json:"type"`
+	Key         string `json:"key"`
+	Type        string `json:"type"`
+	Name        string `json:"name,optional"`
+	Value       string `json:"value,optional"`
+	Sort        int    `json:"sort,optional"`
+	Description string `json:"description,optional"`
 }
 
 type UpdateDictionaryItemRequest struct {
@@ -1050,14 +1071,14 @@ type PriceBookEntry struct {
 	PriceBookEntrySpecific
 }
 
-type ListPriceBooksRequest struct {
+type ListPriceBooksPageRequest struct {
 	LikeName  string `json:"likeName,optional"`
 	StoreId   int64  `json:"storeId,optional"`
 	PageIndex int    `form:"pageIndex,optional"`
 	PageSize  int    `form:"pageSize,optional"`
 }
 
-type ListPriceBooksReply struct {
+type ListPriceBooksPageReply struct {
 	List      []PriceBook `json:"list"`
 	PageIndex int         `json:"pageIndex"`
 	PageSize  int         `json:"pageSize"`

@@ -1,5 +1,9 @@
 package types
 
+import (
+	"PowerX/internal/model/powermodel"
+)
+
 type PageOption[T any] struct {
 	Option    T
 	PageIndex int
@@ -11,7 +15,7 @@ func (p *PageOption[T]) DefaultPageIfNotSet() {
 		p.PageIndex = 1
 	}
 	if p.PageSize == 0 {
-		p.PageSize = 20
+		p.PageSize = powermodel.PageDefaultSize
 	}
 }
 
@@ -25,7 +29,7 @@ func (p *PageEmbedOption) DefaultPageIfNotSet() {
 		p.PageIndex = 1
 	}
 	if p.PageSize == 0 {
-		p.PageSize = 20
+		p.PageSize = powermodel.PageDefaultSize
 	}
 }
 

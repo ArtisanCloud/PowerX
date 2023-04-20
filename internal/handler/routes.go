@@ -313,7 +313,12 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				{
 					Method:  http.MethodGet,
 					Path:    "/types",
-					Handler: admindictionary.GetDictionaryTypesHandler(serverCtx),
+					Handler: admindictionary.ListDictionaryTypesHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/types/:type",
+					Handler: admindictionary.GetDictionaryTypeHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPost,
@@ -333,7 +338,12 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				{
 					Method:  http.MethodGet,
 					Path:    "/items",
-					Handler: admindictionary.GetDictionaryItemsHandler(serverCtx),
+					Handler: admindictionary.ListDictionaryItemsHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/items/:type/:key",
+					Handler: admindictionary.GetDictionaryItemHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPost,

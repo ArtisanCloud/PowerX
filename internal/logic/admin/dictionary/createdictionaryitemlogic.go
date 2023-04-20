@@ -30,6 +30,10 @@ func (l *CreateDictionaryItemLogic) CreateDictionaryItem(req *types.CreateDictio
 		return nil, errorx.WithCause(errorx.ErrBadRequest, "类型不存在")
 	}
 
+	if l.svcCtx.PowerX.DataDictionary.ItemIsExist(l.ctx, req.Type, req.Key) {
+		return nil, errorx.WithCause(errorx.ErrBadRequest, "该类型的数据项key已存在")
+	}
+
 	item := model.DataDictionaryItem{
 		Key:         req.Key,
 		Type:        req.Type,
