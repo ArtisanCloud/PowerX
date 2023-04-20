@@ -24,15 +24,16 @@ func NewListPriceBooksLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Li
 	}
 }
 
-func (l *ListPriceBooksLogic) ListPriceBooks(req *types.ListPriceBooksRequest) (resp *types.ListPriceBooksReply, err error) {
+func (l *ListPriceBooksLogic) ListPriceBooks(req *types.ListPriceBooksPageRequest) (resp *types.ListPriceBooksPageReply, err error) {
 	opt := &product.FindPriceBookOption{
-
-		PageIndex: req.PageIndex,
-		PageSize:  req.PageSize,
+		PageEmbedOption: types.PageEmbedOption{
+			PageIndex: req.PageIndex,
+			PageSize:  req.PageSize,
+		},
 	}
 
 	priceBookPageList := l.svcCtx.PowerX.PriceBook.FindManyPriceBooks(l.ctx, opt)
-	resp = &types.ListPriceBooksReply{}
+	resp = &types.ListPriceBooksPageReply{}
 	for _, priceBook := range priceBookPageList.List {
 		priceBookReply := types.PriceBook{
 			Id:          priceBook.Id,

@@ -31,7 +31,7 @@ func (l *UpdateDictionaryItemLogic) UpdateDictionaryItem(req *types.UpdateDictio
 		Sort:        req.Sort,
 		Description: req.Description,
 	}
-	if err := l.svcCtx.PowerX.DataDictionary.PatchDataDictionaryItem(l.ctx, req.Key, req.Type, &newModel); err != nil {
+	if err := l.svcCtx.PowerX.DataDictionary.PatchDataDictionaryItem(l.ctx, req.Type, req.Key, &newModel); err != nil {
 		return nil, err
 	}
 

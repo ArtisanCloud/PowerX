@@ -31,7 +31,7 @@ func (uc *DataDictionaryUseCase) CreateDataDictionaryItem(ctx context.Context, d
 	return nil
 }
 
-func (uc *DataDictionaryUseCase) PatchDataDictionaryItem(ctx context.Context, key string, dictType string, dd *model.DataDictionaryItem) error {
+func (uc *DataDictionaryUseCase) PatchDataDictionaryItem(ctx context.Context, dictType string, key string, dd *model.DataDictionaryItem) error {
 	result := uc.db.WithContext(ctx).Model(&dd).
 		Clauses(clause.Returning{}).
 		Where("key = ? AND type = ?", key, dictType).
@@ -45,7 +45,7 @@ func (uc *DataDictionaryUseCase) PatchDataDictionaryItem(ctx context.Context, ke
 	return nil
 }
 
-func (uc *DataDictionaryUseCase) GetDataDictionaryItem(ctx context.Context, key string, dictType string) (*model.DataDictionaryItem, error) {
+func (uc *DataDictionaryUseCase) GetDataDictionaryItem(ctx context.Context, dictType string, key string) (*model.DataDictionaryItem, error) {
 	var dd model.DataDictionaryItem
 	if err := uc.db.WithContext(ctx).Where("key = ? AND type = ?", key, dictType).First(&dd).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -63,8 +63,7 @@ type FindManyDataDictItemOption struct {
 	types.PageEmbedOption
 }
 
-func (uc *DataDictionaryUseCase) CountDataDictionaryItems(ctx context.Context, opt *FindManyDataDictItemOption) int64 {
-	db := uc.db.WithContext(ctx).Model(&model.DataDictionaryItem{})
+func (uc *DataDictionaryUseCase) buildFindQueryNoPage(db *gorm.DB, opt *FindManyDataDictItemOption) *gorm.DB {
 	if len(opt.Types) > 0 {
 		db = db.Where("type IN ?", opt.Types)
 	}
@@ -74,6 +73,30 @@ func (uc *DataDictionaryUseCase) CountDataDictionaryItems(ctx context.Context, o
 	if opt.LikeItemName != "" {
 		db = db.Where("name LIKE ?", "%"+opt.LikeItemName+"%")
 	}
+
+	return db
+}
+
+func (uc *DataDictionaryUseCase) FindAllDictionaryItems(ctx context.Context, opt *FindManyDataDictItemOption) (dictionaryItems []*model.DataDictionaryItem, err error) {
+	var count int64
+	query := uc.db.WithContext(ctx).Model(&model.DataDictionaryItem{})
+
+	query = uc.buildFindQueryNoPage(query, opt)
+	if err = query.Count(&count).Error; err != nil {
+		panic(errors.Wrap(err, "find all dictionaryItems failed"))
+	}
+	if err := query.
+		//Debug().
+		Find(&dictionaryItems).Error; err != nil {
+		panic(errors.Wrap(err, "find all dictionaryItems failed"))
+	}
+	return dictionaryItems, err
+}
+
+func (uc *DataDictionaryUseCase) CountDataDictionaryItems(ctx context.Context, opt *FindManyDataDictItemOption) int64 {
+	db := uc.db.WithContext(ctx).Model(&model.DataDictionaryItem{})
+
+	db = uc.buildFindQueryNoPage(db, opt)
 
 	var count int64
 	if err := db.Count(&count).Error; err != nil {
@@ -86,15 +109,8 @@ func (uc *DataDictionaryUseCase) FindManyDataDictionaryItem(ctx context.Context,
 	opt.DefaultPageIfNotSet()
 	var dds []*model.DataDictionaryItem
 	db := uc.db.WithContext(ctx).Model(&model.DataDictionaryItem{})
-	if len(opt.Types) > 0 {
-		db = db.Where("type IN ?", opt.Types)
-	}
-	if len(opt.Keys) > 0 {
-		db = db.Where("key IN ?", opt.Keys)
-	}
-	if opt.LikeItemName != "" {
-		db = db.Where("name LIKE ?", "%"+opt.LikeItemName+"%")
-	}
+
+	db = uc.buildFindQueryNoPage(db, opt)
 
 	var count int64
 	if err := db.Count(&count).Error; err != nil {
@@ -113,9 +129,9 @@ func (uc *DataDictionaryUseCase) FindManyDataDictionaryItem(ctx context.Context,
 	}, nil
 }
 
-func (uc *DataDictionaryUseCase) DeleteDataDictionaryItem(ctx context.Context, key string, dictType string) error {
-	if !uc.TypeIsExist(ctx, dictType) {
-		return errorx.WithCause(errorx.ErrBadRequest, "未找到数据字典类型")
+func (uc *DataDictionaryUseCase) DeleteDataDictionaryItem(ctx context.Context, dictType string, key string) error {
+	if !uc.ItemIsExist(ctx, dictType, key) {
+		return errorx.WithCause(errorx.ErrBadRequest, "未找到数据字典数据项")
 	}
 
 	result := uc.db.WithContext(ctx).Unscoped().Where("key = ? AND type = ?", key, dictType).Delete(&model.DataDictionaryItem{})
@@ -123,16 +139,22 @@ func (uc *DataDictionaryUseCase) DeleteDataDictionaryItem(ctx context.Context, k
 		panic(err)
 	}
 	if result.RowsAffected == 0 {
-		return errorx.WithCause(errorx.ErrBadRequest, "未找到数据字典")
+		return errorx.WithCause(errorx.ErrBadRequest, "未删除该制定数据字典数据项")
 	}
 	return nil
 }
 
 func (uc *DataDictionaryUseCase) TypeIsExist(ctx context.Context, dictType string) bool {
 	var count int64
-	if err := uc.db.WithContext(ctx).Model(&model.DataDictionaryType{}).Where("type = ?", dictType).Count(&count).Error; err != nil {
+	err := uc.db.WithContext(ctx).Model(&model.DataDictionaryType{}).Where("type = ?", dictType).Count(&count).Error
+
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return true
+		}
 		panic(err)
 	}
+
 	return count > 0
 }
 
@@ -163,7 +185,9 @@ func (uc *DataDictionaryUseCase) PatchDataDictionaryType(ctx context.Context, di
 
 func (uc *DataDictionaryUseCase) GetDataDictionaryType(ctx context.Context, dictType string) (*model.DataDictionaryType, error) {
 	var ddt model.DataDictionaryType
-	if err := uc.db.WithContext(ctx).Where("type = ?", dictType).First(&ddt).Error; err != nil {
+	if err := uc.db.WithContext(ctx).Where("type = ?", dictType).
+		Preload("Items").
+		First(&ddt).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errorx.WithCause(errorx.ErrBadRequest, "未找到数据字典类型")
 		}
@@ -189,12 +213,20 @@ func (uc *DataDictionaryUseCase) FindManyDataDictionaryType(ctx context.Context,
 		db = db.Where("name LIKE ?", "%"+opt.LikeTypeName+"%")
 	}
 
+	opt.DefaultPageIfNotSet()
+	if opt.PageIndex != 0 && opt.PageSize != 0 {
+		db.Offset((opt.PageIndex - 1) * opt.PageSize).Limit(opt.PageSize)
+	}
+
 	var count int64
 	if err := db.Count(&count).Error; err != nil {
 		panic(err)
 	}
 
-	if err := db.Order("type").Find(&ddts).Error; err != nil {
+	if err := db.Order("type").
+		Preload("Items").
+		Debug().
+		Find(&ddts).Error; err != nil {
 		panic(err)
 	}
 
@@ -221,4 +253,20 @@ func (uc *DataDictionaryUseCase) DeleteDataDictionaryType(ctx context.Context, d
 		return errorx.WithCause(errorx.ErrBadRequest, "未找到数据字典类型")
 	}
 	return nil
+}
+
+func (uc *DataDictionaryUseCase) ItemIsExist(ctx context.Context, dictType string, key string) bool {
+	var count int64
+	err := uc.db.WithContext(ctx).Model(&model.DataDictionaryItem{}).
+		Where("type = ? AND key = ?", dictType, key).
+		Count(&count).Error
+
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return true
+		}
+		panic(err)
+	}
+
+	return count > 0
 }

@@ -6,7 +6,7 @@ import (
 	"gorm.io/gorm"
 )
 
-func CreateDataDictionary(db *gorm.DB) (err error) {
+func CreateDataDictionaries(db *gorm.DB) (err error) {
 
 	var count int64
 	if err = db.Model(&model.DataDictionaryType{}).Count(&count).Error; err != nil {

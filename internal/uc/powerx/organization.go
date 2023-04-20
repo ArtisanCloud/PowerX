@@ -2,6 +2,7 @@ package powerx
 
 import (
 	"PowerX/internal/model"
+	"PowerX/internal/model/powermodel"
 	"PowerX/internal/model/scrm/organization"
 	"PowerX/internal/types"
 	"PowerX/internal/types/errorx"
@@ -116,7 +117,7 @@ func (uc *OrganizationUseCase) FindManyEmployeesPage(ctx context.Context, opt *F
 		opt.PageIndex = 1
 	}
 	if opt.PageSize == 0 {
-		opt.PageSize = 20
+		opt.PageSize = powermodel.PageDefaultSize
 	}
 
 	if opt.PageIndex != 0 && opt.PageSize != 0 {

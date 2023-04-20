@@ -14,15 +14,15 @@ func (mdl *PivotDataDictionaryToObject) TableName() string {
 type PivotDataDictionaryToObject struct {
 	powermodel.PowerPivot
 
-	ObjectName            string `gorm:"column:object_name; not null;index:idx_object_name" json:"objectName"`
-	ObjectID              int64  `gorm:"column:object_id; not null;index:idx_object_id" json:"objectID"`
-	DataDictionaryType    string `gorm:"column:dd_type; not null;index:idx_dd_type" json:"DataDictionaryType"`
-	DataDictionaryItemKey string `gorm:"column:dd_item_key; not null;index:idx_dd_item_key" json:"dataDictionaryItemKey"`
+	ObjectName            string `gorm:"column:object_name; not null;index:idx_object_name;comment:对象表名称" json:"objectName"`
+	ObjectID              int64  `gorm:"column:object_id; not null;index:idx_object_id;comment:对象Id" json:"objectID"`
+	DataDictionaryType    string `gorm:"column:dd_type; not null;index:idx_dd_type;comment:数据字典类型type" json:"DataDictionaryType"`
+	DataDictionaryItemKey string `gorm:"column:dd_item_key; not null;index:idx_dd_item_key;comment:数据字典数据项key" json:"dataDictionaryItemKey"`
 }
 
 const TableNamePivotDataDictionaryToObject = "pivot_data_dictionary_to_object"
 
-// 数据字典项
+// 数据字典数据项
 type DataDictionaryItem struct {
 	powermodel.PowerModel
 
