@@ -16,8 +16,13 @@ info(
 
 service PowerX {
     @doc "获取字典类型列表"
-    @handler GetDictionaryTypes
-    get /types (GetDictionaryTypesRequest) returns (GetDictionaryTypesReply)
+    @handler ListDictionaryTypes
+    get /types (ListDictionaryTypesPageRequest) returns (ListDictionaryTypesPageReply)
+
+    @doc "获取字典类型"
+    @handler GetDictionaryType
+    get /types/:type (GetDictionaryTypeRequest) returns (GetDictionaryTypeReply)
+
 
     @doc "创建字典类型"
     @handler CreateDictionaryType
@@ -32,8 +37,13 @@ service PowerX {
     delete /types/:type (DeleteDictionaryTypeRequest) returns (DeleteDictionaryTypeReply)
 
     @doc "获取字典项列表"
-    @handler GetDictionaryItems
-    get /items (GetDictionaryItemsRequest) returns (GetDictionaryItemsReply)
+    @handler ListDictionaryItems
+    get /items (ListDictionaryItemsRequest) returns (ListDictionaryItemsReply)
+
+    @doc "获取字典项"
+    @handler GetDictionaryItem
+    get /items/:type/:key (GetDictionaryItemRequest) returns (GetDictionaryItemReply)
+
 
     @doc "创建字典项"
     @handler CreateDictionaryItem
@@ -49,7 +59,7 @@ service PowerX {
 }
 
 type (
-    GetDictionaryTypesRequest struct {
+    ListDictionaryTypesPageRequest struct {
         PageIndex int `form:"pageIndex,optional"`
         PageSize int `form:"pageSize,optional"`
     }
@@ -58,13 +68,22 @@ type (
         Type string `json:"type"`
         Name string `json:"name"`
         Description string `json:"description"`
+        Items []*DictionaryItem `json:"items,optional"`
     }
 
-    GetDictionaryTypesReply struct {
+    ListDictionaryTypesPageReply struct {
         List []DictionaryType `json:"list"`
         PageIndex int `json:"pageIndex"`
         PageSize int `json:"pageSize"`
         Total int64 `json:"total"`
+    }
+
+    GetDictionaryTypeRequest struct{
+        DictionaryType string `path:"type"`
+    }
+
+    GetDictionaryTypeReply struct{
+        *DictionaryType
     }
 )
 
@@ -77,6 +96,8 @@ type (
 
     CreateDictionaryTypeReply struct {
         Type string `json:"type"`
+        Name string `json:"name"`
+        Description string `json:"description,optional"`
     }
 )
 
@@ -103,8 +124,8 @@ type (
 )
 
 type (
-    GetDictionaryItemsRequest struct {
-        Types []string `form:"type,optional"`
+    ListDictionaryItemsRequest struct {
+        Type string `form:"type"`
         PageIndex int `form:"pageIndex,optional"`
         PageSize int `form:"pageSize,optional"`
     }
@@ -117,11 +138,17 @@ type (
         Description string `json:"description"`
     }
 
-    GetDictionaryItemsReply struct {
+    ListDictionaryItemsReply struct {
         List []DictionaryItem `json:"list"`
-        PageIndex int `json:"pageIndex"`
-        PageSize int `json:"pageSize"`
-        Total int64 `json:"total"`
+    }
+
+    GetDictionaryItemRequest struct{
+        DictionaryType string `path:"type"`
+        DictionaryItem string `path:"key"`
+    }
+
+    GetDictionaryItemReply struct{
+        *DictionaryItem
     }
 )
 
@@ -131,13 +158,17 @@ type (
         Type string `json:"type"`
         Name string `json:"name"`
         Value string `json:"value"`
-        Sort int `json:"sort"`
+        Sort int `json:"sort,optional"`
         Description string `json:"description,optional"`
     }
 
     CreateDictionaryItemReply struct {
         Key string `json:"key"`
         Type string `json:"type"`
+        Name string `json:"name,optional"`
+        Value string `json:"value,optional"`
+        Sort int `json:"sort,optional"`
+        Description string `json:"description,optional"`
     }
 )
 

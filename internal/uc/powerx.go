@@ -1,11 +1,9 @@
 package uc
 
 import (
+	"PowerX/deploy/database/migrate"
+	"PowerX/deploy/database/seed"
 	"PowerX/internal/config"
-	"PowerX/internal/model"
-	"PowerX/internal/model/customerdomain"
-	"PowerX/internal/model/membership"
-	"PowerX/internal/model/product"
 	"PowerX/internal/uc/powerx"
 	customerDomainUC "PowerX/internal/uc/powerx/customerdomain"
 	productUC "PowerX/internal/uc/powerx/product"
@@ -78,7 +76,7 @@ func NewPowerXUseCase(conf *config.Config) (uc *PowerXUseCase, clean func()) {
 	// 加载SCRM UseCase
 	uc.SCRM = powerx.NewSCRMUseCase(db, conf)
 
-	uc.AutoMigrate(context.Background())
+	migrate.AutoMigrate(context.Background(), uc.db)
 	uc.AutoInit()
 
 	return uc, func() {
@@ -86,24 +84,9 @@ func NewPowerXUseCase(conf *config.Config) (uc *PowerXUseCase, clean func()) {
 	}
 }
 
-func (p *PowerXUseCase) AutoMigrate(ctx context.Context) {
-	p.db.AutoMigrate(&model.DataDictionaryType{}, &model.DataDictionaryItem{})
-	p.db.AutoMigrate(&powerx.Department{}, &powerx.Employee{})
-	p.db.AutoMigrate(&powerx.EmployeeCasbinPolicy{}, powerx.AdminRole{}, powerx.AdminRoleMenuName{}, powerx.AdminAPI{})
-
-	// customerdomain domain
-	p.db.AutoMigrate(&customerdomain.Lead{}, &customerdomain.Contact{}, &customerdomain.Customer{}, &membership.Membership{})
-	p.db.AutoMigrate(&model.WechatOACustomer{}, &model.WechatMPCustomer{}, &model.WeWorkExternalContact{})
-	p.db.AutoMigrate(
-		&product.PivotProductToProductCategory{},
-	)
-	// product
-	p.db.AutoMigrate(&product.Product{}, &product.ProductCategory{})
-	p.db.AutoMigrate(&product.PriceBook{}, &product.PriceBookEntry{}, &product.PriceConfig{})
-
-}
-
-func (p *PowerXUseCase) AutoInit() {
-	p.AdminAuthorization.Init()
-	p.Organization.Init()
+func (uc *PowerXUseCase) AutoInit() {
+	uc.AdminAuthorization.Init()
+	_ = seed.CreateOrganization(uc.db)
+	_ = seed.CreateDataDictionaries(uc.db)
+	_ = seed.CreatePriceBooks(uc.db)
 }

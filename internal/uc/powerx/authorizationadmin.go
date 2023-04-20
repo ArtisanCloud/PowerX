@@ -3,6 +3,7 @@ package powerx
 import (
 	"PowerX/internal/config"
 	"PowerX/internal/model"
+	"PowerX/internal/model/scrm/organization"
 	"PowerX/internal/types/errorx"
 	"PowerX/pkg/mapx"
 	"PowerX/pkg/slicex"
@@ -194,19 +195,19 @@ func (uc *AdminPermsUseCase) Init() {
 	}
 
 	// 初始化用户
-	if err := uc.db.Model(&Employee{}).Count(&count).Error; err != nil {
+	if err := uc.db.Model(&organization.Employee{}).Count(&count).Error; err != nil {
 		panic(errors.Wrap(err, "init role failed"))
 	}
 	if count == 0 {
-		root := Employee{
+		root := organization.Employee{
 			Account:    "root",
 			Password:   "root",
 			Name:       "超级管理员",
-			Status:     EmployeeStatusEnabled,
+			Status:     organization.EmployeeStatusEnabled,
 			IsReserved: true,
 		}
 		root.HashPassword()
-		if err := uc.db.Model(&Employee{}).Create(&root).Error; err != nil {
+		if err := uc.db.Model(&organization.Employee{}).Create(&root).Error; err != nil {
 			panic(errors.Wrap(err, "init root failed"))
 		}
 	}

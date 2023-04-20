@@ -2,6 +2,7 @@ package product
 
 import (
 	"PowerX/internal/model/powermodel"
+	"PowerX/internal/types"
 )
 
 // PriceBook 数据表结构
@@ -20,10 +21,9 @@ const TableNamePriceBook = "price_books"
 const PriceBookUniqueId = powermodel.UniqueId
 
 type FindPriceBookOption struct {
-	OrderBy   string
-	Ids       []int64
-	Names     []string
-	StoreId   int64
-	PageIndex int
-	PageSize  int
+	OrderBy string
+	Ids     []int64
+	Names   []string
+	StoreId int64
+	types.PageEmbedOption
 }

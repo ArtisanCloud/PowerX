@@ -1,8 +1,8 @@
 package employee
 
 import (
+	"PowerX/internal/model/scrm/organization"
 	"PowerX/internal/types"
-	"PowerX/internal/uc/powerx"
 	"context"
 	"github.com/pkg/errors"
 	"time"
@@ -28,7 +28,7 @@ func NewUpdateEmployeeLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Up
 }
 
 func (l *UpdateEmployeeLogic) UpdateEmployee(req *types.UpdateEmployeeRequest) (resp *types.UpdateEmployeeReply, err error) {
-	employee := powerx.Employee{
+	employee := organization.Employee{
 		Model: model.Model{
 			ID: req.Id,
 		},
@@ -72,7 +72,7 @@ func (l *UpdateEmployeeLogic) UpdateEmployee(req *types.UpdateEmployeeRequest) (
 			Roles:         roles,
 			Position:      employee.Position,
 			JobTitle:      employee.JobTitle,
-			IsEnabled:     employee.Status == powerx.EmployeeStatusEnabled,
+			IsEnabled:     employee.Status == organization.EmployeeStatusEnabled,
 			CreatedAt:     employee.CreatedAt.Format(time.RFC3339),
 		},
 	}, nil

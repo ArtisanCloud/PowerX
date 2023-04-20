@@ -24,6 +24,11 @@ func NewDeleteDictionaryItemLogic(ctx context.Context, svcCtx *svc.ServiceContex
 }
 
 func (l *DeleteDictionaryItemLogic) DeleteDictionaryItem(req *types.DeleteDictionaryItemRequest) (resp *types.DeleteDictionaryItemReply, err error) {
+
+	if err := l.svcCtx.PowerX.DataDictionary.DeleteDataDictionaryItem(l.ctx, req.Type, req.Key); err != nil {
+		return nil, err
+	}
+
 	return &types.DeleteDictionaryItemReply{
 		Key:  req.Key,
 		Type: req.Type,

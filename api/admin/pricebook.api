@@ -18,7 +18,7 @@ info(
 service PowerX {
     @doc "查询价格手册列表"
     @handler ListPriceBooks
-    get /price-books (ListPriceBooksRequest) returns (ListPriceBooksReply)
+    get /price-books (ListPriceBooksPageRequest) returns (ListPriceBooksPageReply)
 
 
     @doc "查询价格手册详情"
@@ -70,14 +70,14 @@ type (
 )
 
 type (
-    ListPriceBooksRequest {
+    ListPriceBooksPageRequest {
         LikeName string `json:"likeName,optional"`
         StoreId int64 `json:"storeId,optional"`
         PageIndex int `form:"pageIndex,optional"`
         PageSize int `form:"pageSize,optional"`
     }
 
-    ListPriceBooksReply {
+    ListPriceBooksPageReply {
         List []PriceBook `json:"list"`
         PageIndex int `json:"pageIndex"`
         PageSize int `json:"pageSize"`

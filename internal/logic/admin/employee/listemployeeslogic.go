@@ -1,6 +1,7 @@
 package employee
 
 import (
+	"PowerX/internal/model/scrm/organization"
 	"PowerX/internal/uc/powerx"
 	"context"
 	"time"
@@ -50,9 +51,9 @@ func (l *ListEmployeesLogic) ListEmployees(req *types.ListEmployeesRequest) (res
 	}
 	if req.IsEnabled != nil {
 		if *req.IsEnabled {
-			opt.Statuses = append(opt.Statuses, powerx.EmployeeStatusEnabled)
+			opt.Statuses = append(opt.Statuses, organization.EmployeeStatusEnabled)
 		} else {
-			opt.Statuses = append(opt.Statuses, powerx.EmployeeStatusDisabled)
+			opt.Statuses = append(opt.Statuses, organization.EmployeeStatusDisabled)
 		}
 	}
 
@@ -84,7 +85,7 @@ func (l *ListEmployeesLogic) ListEmployees(req *types.ListEmployeesRequest) (res
 			Roles:         roles,
 			Position:      employee.Position,
 			JobTitle:      employee.JobTitle,
-			IsEnabled:     employee.Status == powerx.EmployeeStatusEnabled,
+			IsEnabled:     employee.Status == organization.EmployeeStatusEnabled,
 			CreatedAt:     employee.CreatedAt.Format(time.RFC3339),
 		})
 	}
