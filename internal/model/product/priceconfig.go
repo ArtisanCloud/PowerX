@@ -5,8 +5,8 @@ import (
 )
 
 type PriceConfig struct {
-	Discount         float64   `gorm:"column:discount; comment:折扣设置,如打八折设置0.8" json:"discount"`
-	Price            float64   `gorm:"column:price; comment:设定该场景下的价格" json:"price"`
+	Discount         float32   `gorm:"column:discount;  type:decimal(4,2); comment:折扣设置,如打八折设置0.8" json:"discount"`
+	Price            float64   `gorm:"column:price; type:decimal(10,2); comment:设定该场景下的价格" json:"price"`
 	Days             int8      `gorm:"column:days; comment:活动场景的价格有效天数" json:"days"`
 	Type             int8      `gorm:"column:type; comment:类型" json:"type"`
 	ProductId        int64     `gorm:"column:product_id; comment:产品Id" json:"productId"`

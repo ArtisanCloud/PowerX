@@ -213,19 +213,19 @@ func (uc *DataDictionaryUseCase) FindManyDataDictionaryType(ctx context.Context,
 		db = db.Where("name LIKE ?", "%"+opt.LikeTypeName+"%")
 	}
 
+	var count int64
+	if err := db.Count(&count).Error; err != nil {
+		panic(errors.Wrap(err, "find many dictionary types failed"))
+	}
+
 	opt.DefaultPageIfNotSet()
 	if opt.PageIndex != 0 && opt.PageSize != 0 {
 		db.Offset((opt.PageIndex - 1) * opt.PageSize).Limit(opt.PageSize)
 	}
 
-	var count int64
-	if err := db.Count(&count).Error; err != nil {
-		panic(err)
-	}
-
 	if err := db.Order("type").
 		Preload("Items").
-		Debug().
+		//Debug().
 		Find(&ddts).Error; err != nil {
 		panic(err)
 	}
