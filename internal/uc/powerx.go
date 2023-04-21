@@ -89,4 +89,5 @@ func (uc *PowerXUseCase) AutoInit() {
 	_ = seed.CreateOrganization(uc.db)
 	_ = seed.CreateDataDictionaries(uc.db)
 	_ = seed.CreatePriceBooks(uc.db)
+	_ = seed.CreateProductCategories(uc.db)
 }
