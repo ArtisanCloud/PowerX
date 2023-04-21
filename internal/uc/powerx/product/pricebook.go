@@ -57,7 +57,7 @@ func (uc *PriceBookUseCase) FindManyPriceBooks(ctx context.Context, opt *product
 	}
 
 	if err := query.
-		Debug().
+		//Debug().
 		Find(&priceBooks).Error; err != nil {
 		panic(errors.Wrap(err, "find many priceBooks failed"))
 	}

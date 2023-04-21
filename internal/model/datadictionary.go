@@ -29,7 +29,7 @@ type DataDictionaryItem struct {
 	DataDictionaryType *DataDictionaryType `gorm:"foreignKey:Type;references:Type" json:"dataDictionaryType"`
 
 	Key         string `gorm:"index:idx_key_type;comment:数据唯一标识key"`
-	Type        string `gorm:"index:idx_key_type;comment:数据聚合类型标识key"`
+	Type        string `gorm:"index:idx_key_type;comment:数据类型标识"`
 	Name        string `gorm:"comment:数据显示名字"`
 	Value       string `gorm:"comment:数据计算值"`
 	Sort        int    `gorm:"default:0;comment:排序"`

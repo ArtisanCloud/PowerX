@@ -16,7 +16,7 @@
 > PowerXDoc 开源
 
 ## 中台服务端
-[PowerX](https://github.com/ArtisanCloud/PowerX)是后台服务端，基于[Go-Zero](https://go-zero.dev/cn/)微服务框架，开发API接口。
+[PowerX](https://github.com/ArtisanCloud/PowerX)是后台服务端，基于[Go-Zero](https://go-zero.dev/cn/)微服务框架，开发API接口，同时也用到了[PowerWechat](https://github.com/ArtisanCloud/PowerWeChat)作为scrm业务模块的驱动。
 > PowerX 开源
 
 ## 后台管理页面
