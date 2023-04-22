@@ -890,35 +890,39 @@ type ModifyPasswordReqeust struct {
 }
 
 type ProductSpecific struct {
-	Inventory string `json:"inventory"`
-	Weight    string `json:"weight"`
-	Volume    string `json:"volume"`
-	Encode    string `json:"encode"`
-	BarCode   string `json:"barCode"`
-	Extra     string `json:"extra"`
+	Inventory int16   `json:"inventory,optional"`
+	Weight    float32 `json:"weight,optional"`
+	Volume    float32 `json:"volume,optional"`
+	Encode    string  `json:"encode,optional"`
+	BarCode   string  `json:"barCode,optional"`
+	Extra     string  `json:"extra,optional"`
 }
 
 type Product struct {
 	Id                 int64  `json:"id,optional"`
 	Name               string `json:"name"`
-	Type               string `json:"type"`
-	Plan               string `json:"plan"`
+	Type               int8   `json:"type"`
+	Plan               int8   `json:"plan"`
+	SalesChannel       string `json:"salesChannel"`
+	PromoteChannel     string `json:"promoteChannel"`
 	AccountingCategory string `json:"accountingCategory"`
-	CanSellOnline      string `json:"canSellOnline"`
-	CanUseForDeduct    string `json:"canUseForDeduct"`
-	ApprovalStatus     string `json:"approvalStatus"`
-	IsActivated        string `json:"isActivated"`
-	Description        string `json:"description"`
-	CoverURL           string `json:"coverURL"`
-	PurchasedQuantity  string `json:"purchasedQuantity"`
-	ValidityPeriodDays string `json:"validityPeriodDays"`
-	SaleStartDate      string `json:"saleStartDate"`
-	SaleEndDate        string `json:"saleEndDate"`
+	CanSellOnline      bool   `json:"canSellOnline,optional"`
+	CanUseForDeduct    bool   `json:"canUseForDeduct,optional"`
+	Description        string `json:"description,optional"`
+	CoverURL           string `json:"coverURL,optional"`
+	PurchasedQuantity  uint8  `json:"purchasedQuantity,optional"`
+	ValidityPeriodDays uint8  `json:"validityPeriodDays,optional"`
+	SaleStartDate      string `json:"saleStartDate,optional"`
+	SaleEndDate        string `json:"saleEndDate,optional"`
+	ApprovalStatus     int8   `json:"approvalStatus,optional"`
+	IsActivated        bool   `json:"isActivated,optional"`
 	CreatedAt          string `json:"createdAt,optional"`
 	ProductSpecific
+	SalesChannelsItemIds   []int64 `json:"salesChannelsItemIds,optional"`
+	PromoteChannelsItemIds []int64 `json:"promoteChannelsItemIds,optional"`
 }
 
-type GetProductListRequest struct {
+type ListProductsPageRequest struct {
 	ProductType string   `form:"productType,optional"`
 	Keys        []string `form:"keys,optional"`
 	OrderBy     string   `form:"orderBy,optional"`
@@ -926,7 +930,7 @@ type GetProductListRequest struct {
 	PageSize    int      `form:"pageSize,optional"`
 }
 
-type GetProductListReply struct {
+type ListProductsPageReply struct {
 	List      []Product `json:"list"`
 	PageIndex int       `json:"pageIndex"`
 	PageSize  int       `json:"pageSize"`
@@ -938,11 +942,11 @@ type CreateProductRequest struct {
 }
 
 type CreateProductReply struct {
-	ProductKey int64 `json:"productId"`
+	ProductKey int64 `json:"id"`
 }
 
 type GetProductRequest struct {
-	ProductId int64 `json:"productId"`
+	ProductId int64 `path:"id"`
 }
 
 type GetProductReply struct {
@@ -950,7 +954,7 @@ type GetProductReply struct {
 }
 
 type PutProductRequest struct {
-	ProductId int64 `json:"productId"`
+	ProductId int64 `path:"id"`
 	Product
 }
 
@@ -959,7 +963,7 @@ type PutProductReply struct {
 }
 
 type PatchProductRequest struct {
-	ProductId int64 `json:"productId"`
+	ProductId int64 `path:"id"`
 	Product
 }
 
@@ -968,11 +972,11 @@ type PatchProductReply struct {
 }
 
 type DeleteProductRequest struct {
-	ProductId int64 `path:"productId"`
+	ProductId int64 `path:"id"`
 }
 
 type DeleteProductReply struct {
-	ProductId int64 `json:"productId"`
+	ProductId int64 `json:"id"`
 }
 
 type AssignProductToProductCategoryRequest struct {

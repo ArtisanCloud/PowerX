@@ -39,7 +39,7 @@ func (l *GetEmployeeQueryOptionsLogic) GetEmployeeQueryOptions() (resp *types.Ge
 	deps := l.svcCtx.PowerX.Organization.FindAllDepartments(l.ctx)
 	for _, dep := range deps {
 		resp.Departments = append(resp.Departments, types.EmployeeQueryDepartmentOption{
-			DepartmentId:   dep.ID,
+			DepartmentId:   dep.Id,
 			DepartmentName: dep.Name,
 		})
 	}

@@ -29,7 +29,7 @@ func NewResetPasswordLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Res
 func (l *ResetPasswordLogic) ResetPassword(req *types.ResetPasswordRequest) (resp *types.ResetPasswordReply, err error) {
 	employee := organization.Employee{
 		Model: model.Model{
-			ID: req.UserId,
+			Id: req.UserId,
 		},
 		Password: "123456",
 	}

@@ -52,12 +52,12 @@ func (l *GetRoleEmployeesLogic) GetRoleEmployees(req *types.GetRoleEmployeesReqe
 		var dep *types.RoleEmployeeDepartment
 		if employee.Department != nil {
 			dep = &types.RoleEmployeeDepartment{
-				Id:   employee.Department.ID,
+				Id:   employee.Department.Id,
 				Name: employee.Department.Name,
 			}
 		}
 		list = append(list, types.RoleEmployee{
-			Id:          employee.ID,
+			Id:          employee.Id,
 			Name:        employee.Name,
 			Nickname:    employee.NickName,
 			Account:     employee.Account,

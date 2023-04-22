@@ -167,7 +167,7 @@ func (uc *AdminPermsUseCase) Init() {
 			}
 
 			groupMap := mapx.MapByFunc(groups, func(item *AdminAPIGroup) (string, int64) {
-				return item.GroupCode, item.ID
+				return item.GroupCode, item.Id
 			})
 
 			var apis []AdminAPI
@@ -291,7 +291,7 @@ func (uc *AdminPermsUseCase) CreateRole(ctx context.Context, role *AdminRole) er
 		}
 
 		apiIds := slicex.SlicePluck(role.AdminAPI, func(item *AdminAPI) int64 {
-			return item.ID
+			return item.Id
 		})
 
 		var apis []*AdminAPI
@@ -320,7 +320,7 @@ func (uc *AdminPermsUseCase) CreateRole(ctx context.Context, role *AdminRole) er
 
 // PatchRoleByRoleId 通过角色ID更新角色
 func (uc *AdminPermsUseCase) PatchRoleByRoleId(ctx context.Context, role *AdminRole, roleId int64) {
-	role.ID = roleId
+	role.Id = roleId
 
 	err := uc.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		// 清除旧的关联关系
@@ -346,7 +346,7 @@ func (uc *AdminPermsUseCase) PatchRoleByRoleId(ctx context.Context, role *AdminR
 		}
 
 		apiIds := slicex.SlicePluck(role.AdminAPI, func(item *AdminAPI) int64 {
-			return item.ID
+			return item.Id
 		})
 
 		var apis []*AdminAPI
@@ -378,7 +378,7 @@ func (uc *AdminPermsUseCase) PatchRoleByRoleCode(ctx context.Context, role *Admi
 	if err := uc.db.Where(&AdminRole{RoleCode: roleCode}).Find(&dbRole).Error; err != nil {
 		panic(err)
 	}
-	uc.PatchRoleByRoleId(ctx, role, dbRole.ID)
+	uc.PatchRoleByRoleId(ctx, role, dbRole.Id)
 }
 
 func (uc *AdminPermsUseCase) CreateAPI(ctx context.Context, api *AdminAPI) {

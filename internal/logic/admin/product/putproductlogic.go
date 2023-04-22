@@ -1,10 +1,9 @@
 package product
 
 import (
-	"context"
-
 	"PowerX/internal/svc"
 	"PowerX/internal/types"
+	"context"
 
 	"github.com/zeromicro/go-zero/core/logx"
 )
@@ -24,7 +23,13 @@ func NewPutProductLogic(ctx context.Context, svcCtx *svc.ServiceContext) *PutPro
 }
 
 func (l *PutProductLogic) PutProduct(req *types.PutProductRequest) (resp *types.PutProductReply, err error) {
-	// todo: add your logic here and delete this line
 
-	return
+	newModel := TransformProductRequestToProduct(&(req.Product))
+
+	l.svcCtx.PowerX.Product.PatchProduct(l.ctx, req.ProductId, newModel)
+
+	return &types.PutProductReply{
+		Product: TransformProductToProductReply(newModel),
+	}, nil
+
 }
