@@ -49,6 +49,6 @@ func (l *CreateEmployeeLogic) CreateEmployee(req *types.CreateEmployeeRequest) (
 	}
 
 	return &types.CreateEmployeeReply{
-		Id: employee.ID,
+		Id: employee.Id,
 	}, nil
 }

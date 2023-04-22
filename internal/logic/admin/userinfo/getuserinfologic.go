@@ -40,7 +40,7 @@ func (l *GetUserInfoLogic) GetUserInfo() (resp *types.GetUserInfoReply, err erro
 	roles, _ := l.svcCtx.PowerX.AdminAuthorization.Casbin.GetRolesForUser(employee.Account)
 
 	resp = &types.GetUserInfoReply{
-		Id:            employee.ID,
+		Id:            employee.Id,
 		Account:       employee.Account,
 		Name:          employee.Name,
 		Email:         employee.Email,

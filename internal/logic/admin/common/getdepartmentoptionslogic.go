@@ -45,7 +45,7 @@ func (l *GetDepartmentOptionsLogic) GetDepartmentOptions(req *types.GetDepartmen
 	var list []types.DepartmentOption
 	for _, department := range departmentPage.List {
 		list = append(list, types.DepartmentOption{
-			Id:   department.ID,
+			Id:   department.Id,
 			Name: department.Name,
 		})
 	}

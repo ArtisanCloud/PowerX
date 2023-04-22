@@ -57,6 +57,7 @@ func (uc *DataDictionaryUseCase) GetDataDictionaryItem(ctx context.Context, dict
 }
 
 type FindManyDataDictItemOption struct {
+	Ids          []int64
 	Types        []string
 	Keys         []string
 	LikeItemName string
@@ -64,6 +65,9 @@ type FindManyDataDictItemOption struct {
 }
 
 func (uc *DataDictionaryUseCase) buildFindQueryNoPage(db *gorm.DB, opt *FindManyDataDictItemOption) *gorm.DB {
+	if len(opt.Ids) > 0 {
+		db = db.Where("id IN ?", opt.Ids)
+	}
 	if len(opt.Types) > 0 {
 		db = db.Where("type IN ?", opt.Types)
 	}
@@ -78,15 +82,11 @@ func (uc *DataDictionaryUseCase) buildFindQueryNoPage(db *gorm.DB, opt *FindMany
 }
 
 func (uc *DataDictionaryUseCase) FindAllDictionaryItems(ctx context.Context, opt *FindManyDataDictItemOption) (dictionaryItems []*model.DataDictionaryItem, err error) {
-	var count int64
 	query := uc.db.WithContext(ctx).Model(&model.DataDictionaryItem{})
 
 	query = uc.buildFindQueryNoPage(query, opt)
-	if err = query.Count(&count).Error; err != nil {
-		panic(errors.Wrap(err, "find all dictionaryItems failed"))
-	}
 	if err := query.
-		//Debug().
+		Debug().
 		Find(&dictionaryItems).Error; err != nil {
 		panic(errors.Wrap(err, "find all dictionaryItems failed"))
 	}

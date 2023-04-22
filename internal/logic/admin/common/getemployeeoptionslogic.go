@@ -40,7 +40,7 @@ func (l *GetEmployeeOptionsLogic) GetEmployeeOptions(req *types.GetEmployeeOptio
 	var list []types.EmployeeOption
 	for _, employee := range employeePage.List {
 		list = append(list, types.EmployeeOption{
-			Id:          employee.ID,
+			Id:          employee.Id,
 			Avatar:      employee.Avatar,
 			Account:     employee.Account,
 			Name:        employee.Name,

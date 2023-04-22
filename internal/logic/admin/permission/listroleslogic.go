@@ -31,7 +31,7 @@ func (l *ListRolesLogic) ListRoles() (resp *types.ListRolesReply, err error) {
 		var api []types.AdminAPI
 		for _, adminAPI := range role.AdminAPI {
 			api = append(api, types.AdminAPI{
-				Id:   adminAPI.ID,
+				Id:   adminAPI.Id,
 				API:  adminAPI.API,
 				Name: adminAPI.Name,
 				Desc: adminAPI.Desc,

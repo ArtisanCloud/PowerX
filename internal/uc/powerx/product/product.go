@@ -3,6 +3,7 @@ package product
 import (
 	"PowerX/internal/model/powermodel"
 	model "PowerX/internal/model/product"
+	"PowerX/internal/types"
 	"PowerX/internal/types/errorx"
 	"context"
 	"github.com/pkg/errors"
@@ -19,8 +20,56 @@ func NewProductUseCase(db *gorm.DB) *ProductUseCase {
 	}
 }
 
+type FindManyProductsOption struct {
+	Types    []string
+	Plans    []string
+	LikeName string
+	types.PageEmbedOption
+}
+
+func (uc *ProductUseCase) buildFindQueryNoPage(db *gorm.DB, opt *FindManyProductsOption) *gorm.DB {
+	if len(opt.Types) > 0 {
+		db = db.Where("type IN ?", opt.Types)
+	}
+	if len(opt.Plans) > 0 {
+		db = db.Where("plan IN ?", opt.Plans)
+	}
+	if opt.LikeName != "" {
+		db = db.Where("name LIKE ?", "%"+opt.LikeName+"%")
+	}
+
+	return db
+}
+
+func (uc *ProductUseCase) FindManyProducts(ctx context.Context, opt *FindManyProductsOption) (types.Page[*model.Product], error) {
+	opt.DefaultPageIfNotSet()
+	var products []*model.Product
+	db := uc.db.WithContext(ctx).Model(&model.Product{})
+
+	db = uc.buildFindQueryNoPage(db, opt)
+
+	var count int64
+	if err := db.Count(&count).Error; err != nil {
+		panic(err)
+	}
+
+	if err := db.Find(&products).Error; err != nil {
+		panic(err)
+	}
+
+	return types.Page[*model.Product]{
+		List:      products,
+		PageIndex: opt.PageIndex,
+		PageSize:  opt.PageSize,
+		Total:     count,
+	}, nil
+}
+
 func (uc *ProductUseCase) CreateProduct(ctx context.Context, product *model.Product) {
-	if err := uc.db.WithContext(ctx).Create(&product).Error; err != nil {
+
+	if err := uc.db.WithContext(ctx).
+		Debug().
+		Create(&product).Error; err != nil {
 		panic(err)
 	}
 }
