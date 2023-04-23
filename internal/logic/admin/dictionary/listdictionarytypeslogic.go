@@ -45,6 +45,7 @@ func (l *ListDictionaryTypesLogic) ListDictionaryTypes(req *types.ListDictionary
 		}
 
 		list = append(list, types.DictionaryType{
+			Id:          itemType.Id,
 			Type:        itemType.Type,
 			Name:        itemType.Name,
 			Description: itemType.Description,
