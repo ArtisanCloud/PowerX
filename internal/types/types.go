@@ -898,13 +898,16 @@ type ProductSpecific struct {
 	Extra     string  `json:"extra,optional"`
 }
 
+type PivotDataDictionaryToObject struct {
+	DataDictionaryType string `json:"dataDictionaryType,optional"`
+	DataDictionaryKey  string `json:"dataDictionaryKey,optional"`
+}
+
 type Product struct {
 	Id                 int64  `json:"id,optional"`
 	Name               string `json:"name"`
 	Type               int8   `json:"type"`
 	Plan               int8   `json:"plan"`
-	SalesChannel       string `json:"salesChannel"`
-	PromoteChannel     string `json:"promoteChannel"`
 	AccountingCategory string `json:"accountingCategory"`
 	CanSellOnline      bool   `json:"canSellOnline,optional"`
 	CanUseForDeduct    bool   `json:"canUseForDeduct,optional"`
@@ -918,8 +921,10 @@ type Product struct {
 	IsActivated        bool   `json:"isActivated,optional"`
 	CreatedAt          string `json:"createdAt,optional"`
 	ProductSpecific
-	SalesChannelsItemIds   []int64 `json:"salesChannelsItemIds,optional"`
-	PromoteChannelsItemIds []int64 `json:"promoteChannelsItemIds,optional"`
+	PivotSalesChannels     []*PivotDataDictionaryToObject `json:"pivotSalesChannels,optional"`
+	PivotPromoteChannels   []*PivotDataDictionaryToObject `json:"pivotPromoteChannels,optional"`
+	SalesChannelsItemIds   []int64                        `json:"salesChannelsItemIds,optional"`
+	PromoteChannelsItemIds []int64                        `json:"promoteChannelsItemIds,optional"`
 }
 
 type ListProductsPageRequest struct {

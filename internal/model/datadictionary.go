@@ -2,7 +2,6 @@ package model
 
 import (
 	"PowerX/internal/model/powermodel"
-	fmt2 "PowerX/pkg/printx"
 	"PowerX/pkg/securityx"
 	"fmt"
 	"gorm.io/gorm"
@@ -68,12 +67,21 @@ type PivotDataDictionaryToObject struct {
 
 const TableNamePivotDataDictionaryToObject = "pivot_data_dictionary_to_object"
 
-const OwnerKey = "object_type"
+const PivotDataDictionaryToObjectOwnerKey = "object_type"
+const PivotDataDictionaryToObjectForeignKey = "object_id"
 
 func (mdl *PivotDataDictionaryToObject) GetOwnerKey() string {
-	return OwnerKey
+	// 因为是morphy类型，所以外键是Owner
+	return PivotDataDictionaryToObjectOwnerKey
 }
-func (mdl *PivotDataDictionaryToObject) GetOwnerValue() int64 {
+func (mdl *PivotDataDictionaryToObject) GetOwnerValue() string {
+	return mdl.ObjectType
+}
+
+func (mdl *PivotDataDictionaryToObject) GetForeignKey() string {
+	return PivotDataDictionaryToObjectForeignKey
+}
+func (mdl *PivotDataDictionaryToObject) GetForeignValue() int64 {
 	return mdl.ObjectID
 }
 
@@ -84,7 +92,6 @@ func (mdl *PivotDataDictionaryToObject) GetPivotComposedUniqueID() string {
 		mdl.DataDictionaryType,
 		mdl.DataDictionaryKey,
 	)
-	fmt2.Dump(key)
 	hashedId := securityx.HashStringData(key)
 
 	return hashedId

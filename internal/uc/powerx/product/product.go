@@ -41,7 +41,7 @@ func (uc *ProductUseCase) buildFindQueryNoPage(db *gorm.DB, opt *FindManyProduct
 	return db
 }
 
-func (uc *ProductUseCase) FindManyProducts(ctx context.Context, opt *FindManyProductsOption) (types.Page[*model.Product], error) {
+func (uc *ProductUseCase) FindManyProducts(ctx context.Context, opt *FindManyProductsOption) (pageList types.Page[*model.Product], err error) {
 	opt.DefaultPageIfNotSet()
 	var products []*model.Product
 	db := uc.db.WithContext(ctx).Model(&model.Product{})
@@ -55,6 +55,15 @@ func (uc *ProductUseCase) FindManyProducts(ctx context.Context, opt *FindManyPro
 
 	if err := db.Find(&products).Error; err != nil {
 		panic(err)
+	}
+
+	if count > 0 {
+		for i, product := range products {
+			products[i], err = uc.LoadAssociations(product)
+			if err != nil {
+				return pageList, err
+			}
+		}
 	}
 
 	return types.Page[*model.Product]{
@@ -104,14 +113,19 @@ func (uc *ProductUseCase) PatchProduct(ctx context.Context, id int64, product *m
 }
 
 func (uc *ProductUseCase) GetProduct(ctx context.Context, id int64) (*model.Product, error) {
-	var product model.Product
-	if err := uc.db.WithContext(ctx).First(&product, id).Error; err != nil {
+	var product = &model.Product{}
+	if err := uc.db.WithContext(ctx).First(product, id).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errorx.WithCause(errorx.ErrBadRequest, "未找到产品")
 		}
 		panic(err)
 	}
-	return &product, nil
+	product, err := uc.LoadAssociations(product)
+	if err != nil {
+		return product, err
+	}
+
+	return product, nil
 }
 
 func (uc *ProductUseCase) DeleteProduct(ctx context.Context, id int64) error {
@@ -123,4 +137,17 @@ func (uc *ProductUseCase) DeleteProduct(ctx context.Context, id int64) error {
 		return errorx.WithCause(errorx.ErrBadRequest, "未找到产品")
 	}
 	return nil
+}
+
+func (uc *ProductUseCase) LoadAssociations(product *model.Product) (*model.Product, error) {
+	var err error
+	product.PivotSalesChannels, err = product.LoadPivotSalesChannels(uc.db, nil, false)
+	if err != nil {
+		return nil, err
+	}
+	product.PivotPromoteChannels, err = product.LoadPromoteChannels(uc.db, nil, false)
+	if err != nil {
+		return nil, err
+	}
+	return product, err
 }

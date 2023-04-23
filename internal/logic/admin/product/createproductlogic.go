@@ -93,13 +93,13 @@ func TransformProductRequestToProduct(productRequest *types.Product) (mdlProduct
 
 func TransformProductToProductReply(mdlProduct *product.Product) (productReply *types.Product) {
 
-	getItemIds := func(items []*model.DataDictionaryItem) []int64 {
-		arrayIds := []int64{}
-		for _, item := range items {
-			arrayIds = append(arrayIds, item.Id)
-		}
-		return arrayIds
-	}
+	//getItemIds := func(items []*model.DataDictionaryItem) []int64 {
+	//	arrayIds := []int64{}
+	//	for _, item := range items {
+	//		arrayIds = append(arrayIds, item.Id)
+	//	}
+	//	return arrayIds
+	//}
 
 	return &types.Product{
 		Id:                 mdlProduct.Id,
@@ -125,8 +125,25 @@ func TransformProductToProductReply(mdlProduct *product.Product) (productReply *
 			BarCode:   mdlProduct.BarCode,
 			Extra:     mdlProduct.Extra.String(),
 		},
-		SalesChannelsItemIds:   getItemIds(mdlProduct.SalesChannels),
-		PromoteChannelsItemIds: getItemIds(mdlProduct.PromoteChannels),
+		PivotSalesChannels:   TransformDDsToDDsReply(mdlProduct.PivotSalesChannels),
+		PivotPromoteChannels: TransformDDsToDDsReply(mdlProduct.PivotPromoteChannels),
 	}
 
+}
+
+func TransformDDsToDDsReply(dds []*model.PivotDataDictionaryToObject) (ddsReply []*types.PivotDataDictionaryToObject) {
+
+	ddsReply = []*types.PivotDataDictionaryToObject{}
+	for _, dd := range dds {
+		ddReply := TransformDDToDDReply(dd)
+		ddsReply = append(ddsReply, ddReply)
+	}
+	return ddsReply
+}
+
+func TransformDDToDDReply(dd *model.PivotDataDictionaryToObject) (ddReply *types.PivotDataDictionaryToObject) {
+	return &types.PivotDataDictionaryToObject{
+		DataDictionaryType: dd.DataDictionaryType,
+		DataDictionaryKey:  dd.DataDictionaryKey,
+	}
 }
