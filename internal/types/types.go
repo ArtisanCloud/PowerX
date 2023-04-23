@@ -656,6 +656,7 @@ type ListDictionaryTypesPageRequest struct {
 }
 
 type DictionaryType struct {
+	Id          int64             `json:"id,optional"`
 	Type        string            `json:"type"`
 	Name        string            `json:"name"`
 	Description string            `json:"description"`
@@ -714,6 +715,7 @@ type ListDictionaryItemsRequest struct {
 }
 
 type DictionaryItem struct {
+	Id          int64  `json:"id,optional"`
 	Key         string `json:"key"`
 	Type        string `json:"type"`
 	Name        string `json:"name"`
@@ -906,18 +908,18 @@ type PivotDataDictionaryToObject struct {
 type Product struct {
 	Id                 int64  `json:"id,optional"`
 	Name               string `json:"name"`
-	Type               int8   `json:"type"`
-	Plan               int8   `json:"plan"`
+	Type               int    `json:"type"`
+	Plan               int    `json:"plan"`
 	AccountingCategory string `json:"accountingCategory"`
 	CanSellOnline      bool   `json:"canSellOnline,optional"`
 	CanUseForDeduct    bool   `json:"canUseForDeduct,optional"`
 	Description        string `json:"description,optional"`
 	CoverURL           string `json:"coverURL,optional"`
-	PurchasedQuantity  uint8  `json:"purchasedQuantity,optional"`
+	PurchasedQuantity  int    `json:"purchasedQuantity,optional"`
 	ValidityPeriodDays uint8  `json:"validityPeriodDays,optional"`
 	SaleStartDate      string `json:"saleStartDate,optional"`
 	SaleEndDate        string `json:"saleEndDate,optional"`
-	ApprovalStatus     int8   `json:"approvalStatus,optional"`
+	ApprovalStatus     int    `json:"approvalStatus,optional"`
 	IsActivated        bool   `json:"isActivated,optional"`
 	CreatedAt          string `json:"createdAt,optional"`
 	ProductSpecific

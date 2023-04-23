@@ -40,6 +40,7 @@ func (l *GetDictionaryItemLogic) GetDictionaryItem(req *types.GetDictionaryItemR
 func TransformItemToItemReply(item *model.DataDictionaryItem) (itemReply *types.DictionaryItem) {
 
 	return &types.DictionaryItem{
+		Id:          item.Id,
 		Key:         item.Key,
 		Type:        item.Type,
 		Name:        item.Name,

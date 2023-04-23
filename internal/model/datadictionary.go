@@ -7,9 +7,20 @@ import (
 	"gorm.io/gorm"
 )
 
+// System
+const TypeApprovalStatus = "_approval_status"
+
+const ApprovalStatusApply = "_apply"
+const ApprovalStatusReject = "_reject"
+const ApprovalStatusSuccess = "_success"
+
+// Business
 const TypePromoteChannel = "_promote_platform"
 const TypeSalesChannel = "_sales_platform"
 const TypeSourceChannel = "_source_platform"
+
+const TypeProductType = "_product_type"
+const TypeProductPlan = "_product_plan"
 
 const ChannelWechat = "_wechat"
 const ChannelDianPing = "_dian_ping"
@@ -17,6 +28,13 @@ const ChannelMeiTuan = "_mei_tuan"
 const ChannelDingDing = "_ding_ding"
 const ChannelDouYin = "_dou_yin"
 const ChannelAlipay = "_alipay"
+
+// Product
+const ProductTypeGoods = "_goods"
+const ProductTypeService = "_service"
+
+const ProductPlanOnce = "_once"
+const ProductPlanPeriod = "_period"
 
 // 数据字典数据项
 type DataDictionaryItem struct {

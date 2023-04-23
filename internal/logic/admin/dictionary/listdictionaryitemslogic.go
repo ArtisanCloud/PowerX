@@ -36,6 +36,7 @@ func (l *ListDictionaryItemsLogic) ListDictionaryItems(req *types.ListDictionary
 	list := make([]types.DictionaryItem, 0, len(dictionaryTypes))
 	for _, item := range dictionaryTypes {
 		list = append(list, types.DictionaryItem{
+			Id:          item.Id,
 			Key:         item.Key,
 			Type:        item.Type,
 			Name:        item.Name,
