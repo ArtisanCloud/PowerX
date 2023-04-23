@@ -2,25 +2,21 @@ package model
 
 import (
 	"PowerX/internal/model/powermodel"
+	"PowerX/pkg/securityx"
+	"fmt"
+	"gorm.io/gorm"
 )
 
-// Table Name
-func (mdl *PivotDataDictionaryToObject) TableName() string {
-	return TableNamePivotDataDictionaryToObject
-}
+const TypePromoteChannel = "_promote_platform"
+const TypeSalesChannel = "_sales_platform"
+const TypeSourceChannel = "_source_platform"
 
-// 数据表结构
-// Pivot表
-type PivotDataDictionaryToObject struct {
-	powermodel.PowerPivot
-
-	ObjectName            string `gorm:"column:object_name; not null;index:idx_object_name;comment:对象表名称" json:"objectName"`
-	ObjectID              int64  `gorm:"column:object_id; not null;index:idx_object_id;comment:对象Id" json:"objectID"`
-	DataDictionaryType    string `gorm:"column:dd_type; not null;index:idx_dd_type;comment:数据字典类型type" json:"DataDictionaryType"`
-	DataDictionaryItemKey string `gorm:"column:dd_item_key; not null;index:idx_dd_item_key;comment:数据字典数据项key" json:"dataDictionaryItemKey"`
-}
-
-const TableNamePivotDataDictionaryToObject = "pivot_data_dictionary_to_object"
+const ChannelWechat = "_wechat"
+const ChannelDianPing = "_dian_ping"
+const ChannelMeiTuan = "_mei_tuan"
+const ChannelDingDing = "_ding_ding"
+const ChannelDouYin = "_dou_yin"
+const ChannelAlipay = "_alipay"
 
 // 数据字典数据项
 type DataDictionaryItem struct {
@@ -50,3 +46,83 @@ type DataDictionaryType struct {
 }
 
 const DataDictionaryTypeUniqueId = powermodel.UniqueId
+
+// Table Name
+func (mdl *PivotDataDictionaryToObject) TableName() string {
+	return TableNamePivotDataDictionaryToObject
+}
+
+// 数据表结构
+// Pivot表
+type PivotDataDictionaryToObject struct {
+	powermodel.PowerPivot
+
+	DataDictionaryItem *DataDictionaryItem `gorm:"foreignKey:DataDictionaryType,DataDictionaryKey;references:Type,Key" json:"dataDictionaryItem"`
+
+	ObjectType         string `gorm:"column:object_type; not null;index:idx_obj_type;comment:对象表名称" json:"objectOwner"`
+	ObjectID           int64  `gorm:"column:object_id; not null;index:idx_obj_id;comment:对象Id" json:"objectID"`
+	DataDictionaryType string `gorm:"column:data_dictionary_type; not null;index:idx_dd_type;comment:数据字典数据项type" json:"dataDictionaryType"`
+	DataDictionaryKey  string `gorm:"column:data_dictionary_key; not null;index:idx_dd_key;comment:数据字典数据项key" json:"dataDictionaryKey"`
+}
+
+const TableNamePivotDataDictionaryToObject = "pivot_data_dictionary_to_object"
+
+const PivotDataDictionaryToObjectOwnerKey = "object_type"
+const PivotDataDictionaryToObjectForeignKey = "object_id"
+
+func (mdl *PivotDataDictionaryToObject) GetOwnerKey() string {
+	// 因为是morphy类型，所以外键是Owner
+	return PivotDataDictionaryToObjectOwnerKey
+}
+func (mdl *PivotDataDictionaryToObject) GetOwnerValue() string {
+	return mdl.ObjectType
+}
+
+func (mdl *PivotDataDictionaryToObject) GetForeignKey() string {
+	return PivotDataDictionaryToObjectForeignKey
+}
+func (mdl *PivotDataDictionaryToObject) GetForeignValue() int64 {
+	return mdl.ObjectID
+}
+
+func (mdl *PivotDataDictionaryToObject) GetPivotComposedUniqueID() string {
+	key := fmt.Sprintf("%s-%d-%s-%s",
+		mdl.GetOwnerKey(),
+		mdl.GetOwnerValue(),
+		mdl.DataDictionaryType,
+		mdl.DataDictionaryKey,
+	)
+	hashedId := securityx.HashStringData(key)
+
+	return hashedId
+}
+
+//--------------------------------------------------------------------
+
+func (mdl *PivotDataDictionaryToObject) GetMorphPivots(db *gorm.DB, where *map[string]interface{}) ([]*PivotDataDictionaryToObject, error) {
+	pivots := []*PivotDataDictionaryToObject{}
+
+	db = powermodel.SelectMorphPivot(db, mdl, where)
+
+	result := db.Find(&pivots)
+
+	return pivots, result.Error
+
+}
+
+// --------------------------------------------------------------------
+func (mdl *PivotDataDictionaryToObject) MakeMorphPivotsFromObjectToDDs(obj powermodel.ModelInterface, dds []*DataDictionaryItem) ([]*PivotDataDictionaryToObject, error) {
+	pivots := []*PivotDataDictionaryToObject{}
+	for _, dd := range dds {
+		pivot := &PivotDataDictionaryToObject{
+			ObjectType:         obj.GetTableName(true),
+			ObjectID:           obj.GetForeignReferValue(),
+			DataDictionaryType: dd.Type,
+			DataDictionaryKey:  dd.Key,
+		}
+		//pivot.UniqueID = pivot.GetPivotComposedUniqueID()
+
+		pivots = append(pivots, pivot)
+	}
+	return pivots, nil
+}

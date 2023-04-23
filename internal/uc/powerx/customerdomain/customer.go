@@ -39,7 +39,7 @@ func (uc *CustomerUseCase) UpsertCustomer(ctx context.Context, customer *custome
 
 func (uc *CustomerUseCase) UpsertCustomers(ctx context.Context, customers []*customerdomain.Customer) ([]*customerdomain.Customer, error) {
 
-	err := powermodel.UpsertModelsOnUniqueID(uc.db.WithContext(ctx), &customerdomain.Customer{}, customerdomain.CustomerUniqueId, customers, nil)
+	err := powermodel.UpsertModelsOnUniqueID(uc.db.WithContext(ctx), &customerdomain.Customer{}, customerdomain.CustomerUniqueId, customers, nil, false)
 
 	if err != nil {
 		panic(errors.Wrap(err, "batch upsert customers failed"))

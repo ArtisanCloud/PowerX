@@ -25,6 +25,11 @@ func NewDeleteProductLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Del
 
 func (l *DeleteProductLogic) DeleteProduct(req *types.DeleteProductRequest) (resp *types.DeleteProductReply, err error) {
 
+	err = l.svcCtx.PowerX.Product.DeleteProduct(l.ctx, req.ProductId)
+	if err != nil {
+		return nil, err
+	}
+
 	return &types.DeleteProductReply{
 		ProductId: req.ProductId,
 	}, nil

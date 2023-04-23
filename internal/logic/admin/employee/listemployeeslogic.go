@@ -66,12 +66,12 @@ func (l *ListEmployeesLogic) ListEmployees(req *types.ListEmployeesRequest) (res
 		var dep *types.EmployeeDepartment
 		if employee.Department != nil {
 			dep = &types.EmployeeDepartment{
-				DepId:   employee.Department.ID,
+				DepId:   employee.Department.Id,
 				DepName: employee.Department.Name,
 			}
 		}
 		vos = append(vos, types.Employee{
-			Id:            employee.ID,
+			Id:            employee.Id,
 			Account:       employee.Account,
 			Name:          employee.Name,
 			Email:         employee.Email,

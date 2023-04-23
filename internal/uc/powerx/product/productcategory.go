@@ -67,13 +67,9 @@ func (uc *ProductCategoryUseCase) GetProductCategoryTree(ctx context.Context, op
 
 func (uc *ProductCategoryUseCase) FindAllProductCategories(ctx context.Context, opt *product.FindProductCategoryOption) []*product.ProductCategory {
 	var productCategories []*product.ProductCategory
-	var count int64
 	query := uc.db.WithContext(ctx).Model(&product.ProductCategory{})
 
 	query = uc.buildFindQueryNoPage(query, opt)
-	if err := query.Count(&count).Error; err != nil {
-		panic(errors.Wrap(err, "find all productCategories failed"))
-	}
 	if err := query.Find(&productCategories).Error; err != nil {
 		panic(errors.Wrap(err, "find all productCategories failed"))
 	}
@@ -126,7 +122,7 @@ func (uc *ProductCategoryUseCase) UpsertProductCategory(ctx context.Context, pro
 
 func (uc *ProductCategoryUseCase) UpsertProductCategories(ctx context.Context, productCategories []*product.ProductCategory) ([]*product.ProductCategory, error) {
 
-	err := powermodel.UpsertModelsOnUniqueID(uc.db.WithContext(ctx), &product.ProductCategory{}, product.ProductCategoryUniqueId, productCategories, nil)
+	err := powermodel.UpsertModelsOnUniqueID(uc.db.WithContext(ctx), &product.ProductCategory{}, product.ProductCategoryUniqueId, productCategories, nil, false)
 
 	if err != nil {
 		panic(errors.Wrap(err, "batch upsert product categories failed"))

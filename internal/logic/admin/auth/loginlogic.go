@@ -50,7 +50,7 @@ func (l *LoginLogic) Login(req *types.LoginRequest) (resp *types.LoginReply, err
 	roles, _ := l.svcCtx.PowerX.AdminAuthorization.Casbin.GetRolesForUser(employee.Account)
 
 	claims := types.TokenClaims{
-		UID:     employee.ID,
+		UID:     employee.Id,
 		Account: employee.Account,
 		Roles:   roles,
 		RegisteredClaims: &jwt.RegisteredClaims{

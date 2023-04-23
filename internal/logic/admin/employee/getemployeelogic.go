@@ -36,14 +36,14 @@ func (l *GetEmployeeLogic) GetEmployee(req *types.GetEmployeeRequest) (resp *typ
 	var dep *types.EmployeeDepartment
 	if employee.Department != nil {
 		dep = &types.EmployeeDepartment{
-			DepId:   employee.Department.ID,
+			DepId:   employee.Department.Id,
 			DepName: employee.Department.Name,
 		}
 	}
 
 	return &types.GetEmployeeReply{
 		Employee: &types.Employee{
-			Id:            employee.ID,
+			Id:            employee.Id,
 			Account:       employee.Account,
 			Name:          employee.Name,
 			Email:         employee.Email,

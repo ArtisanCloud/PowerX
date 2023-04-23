@@ -40,6 +40,6 @@ func (l *CreateDepartmentLogic) CreateDepartment(req *types.CreateDepartmentRequ
 	}
 
 	return &types.CreateDepartmentReply{
-		Id: dep.ID,
+		Id: dep.Id,
 	}, nil
 }

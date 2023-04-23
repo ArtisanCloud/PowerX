@@ -36,12 +36,12 @@ func (l *GetDepartmentTreeLogic) GetDepartmentTree(req *types.GetDepartmentTreeR
 	voGroupByPid := make(map[int64][]types.DepartmentNode)
 	for _, department := range deps {
 		node := types.DepartmentNode{
-			Id:      department.ID,
+			Id:      department.Id,
 			DepName: department.Name,
 		}
 		if department.Leader != nil {
 			node.Leader = types.DepartmentLeader{
-				Id:       department.Leader.ID,
+				Id:       department.Leader.Id,
 				Name:     department.Leader.Name,
 				NickName: department.Leader.NickName,
 				Avatar:   department.Leader.Avatar,

@@ -48,7 +48,7 @@ func (uc *OrganizationUseCase) FindAccountsByIds(ctx context.Context, employeeId
 }
 
 func (uc *OrganizationUseCase) PatchEmployeeByUserId(ctx context.Context, employee *organization.Employee, employeeId int64) error {
-	result := uc.db.WithContext(ctx).Model(&organization.Employee{}).Where(employee.ID).Updates(&employee)
+	result := uc.db.WithContext(ctx).Model(&organization.Employee{}).Where(employee.Id).Updates(&employee)
 	if result.Error != nil {
 		panic(result.Error)
 	}
@@ -182,7 +182,7 @@ func (uc *OrganizationUseCase) FindOneEmployeeById(ctx context.Context, id int64
 func (uc *OrganizationUseCase) UpdateEmployeeById(ctx context.Context, employee *organization.Employee, employeeId int64) error {
 	whereCase := organization.Employee{
 		Model: model.Model{
-			ID: employeeId,
+			Id: employeeId,
 		},
 		IsReserved: false,
 	}

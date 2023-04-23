@@ -31,7 +31,7 @@ func (l *GetDepartmentLogic) GetDepartment(req *types.GetDepartmentRequest) (res
 
 	resp = &types.GetDepartmentReply{
 		Department: &types.Department{
-			Id:          department.ID,
+			Id:          department.Id,
 			DepName:     department.Name,
 			PhoneNumber: department.PhoneNumber,
 			Email:       department.Email,
@@ -41,7 +41,7 @@ func (l *GetDepartmentLogic) GetDepartment(req *types.GetDepartmentRequest) (res
 
 	if department.Leader != nil {
 		resp.Leader = types.DepartmentLeader{
-			Id:       department.Leader.ID,
+			Id:       department.Leader.Id,
 			Name:     department.Leader.Name,
 			NickName: department.Leader.NickName,
 			Avatar:   department.Leader.Avatar,

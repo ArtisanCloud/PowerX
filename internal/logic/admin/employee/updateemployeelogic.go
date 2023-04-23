@@ -30,7 +30,7 @@ func NewUpdateEmployeeLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Up
 func (l *UpdateEmployeeLogic) UpdateEmployee(req *types.UpdateEmployeeRequest) (resp *types.UpdateEmployeeReply, err error) {
 	employee := organization.Employee{
 		Model: model.Model{
-			ID: req.Id,
+			Id: req.Id,
 		},
 		Name:          req.Name,
 		NickName:      req.NickName,
@@ -59,7 +59,7 @@ func (l *UpdateEmployeeLogic) UpdateEmployee(req *types.UpdateEmployeeRequest) (
 
 	return &types.UpdateEmployeeReply{
 		Employee: &types.Employee{
-			Id:            employee.ID,
+			Id:            employee.Id,
 			Account:       employee.Account,
 			Name:          employee.Name,
 			Email:         employee.Email,

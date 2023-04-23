@@ -32,7 +32,7 @@ func (l *SetRolePermissionsLogic) SetRolePermissions(req *types.SetRolePermissio
 	for _, id := range req.APIIds {
 		api = append(api, &powerx.AdminAPI{
 			Model: model.Model{
-				ID: id,
+				Id: id,
 			},
 		})
 	}

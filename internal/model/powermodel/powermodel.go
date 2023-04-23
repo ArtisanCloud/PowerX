@@ -2,7 +2,6 @@ package powermodel
 
 import (
 	"database/sql"
-	"fmt"
 	"github.com/ArtisanCloud/PowerLibs/v3/object"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -25,7 +24,7 @@ type ModelInterface interface {
 	GetUUID() string
 	GetPrimaryKey() string
 	GetForeignRefer() string
-	GetForeignReferValue() string
+	GetForeignReferValue() int64
 }
 
 type PowerModel struct {
@@ -37,7 +36,7 @@ type PowerModel struct {
 }
 
 type PowerUUIDModel struct {
-	ID        int64          `gorm:"autoIncrement:true;unique; column:id; ->;<-:create" json:"-"`
+	Id        int64          `gorm:"autoIncrement:true;unique; column:id; ->;<-:create" json:"-"`
 	UUID      string         `gorm:"primaryKey;autoIncrement:false;unique; column:uuid; ->;<-:create " json:"uuid" sql:"index"`
 	CreatedAt time.Time      `gorm:"column:created_at; ->;<-:create " json:"createdAt"`
 	UpdatedAt time.Time      `gorm:"column:updated_at" json:"updatedAt"`
@@ -78,7 +77,7 @@ func NewPowerModel() *PowerModel {
 }
 
 func (mdl *PowerUUIDModel) GetID() int64 {
-	return mdl.ID
+	return mdl.Id
 }
 
 func (mdl *PowerUUIDModel) GetTableName(needFull bool) string {
@@ -100,8 +99,8 @@ func (mdl *PowerUUIDModel) GetPrimaryKey() string {
 func (mdl *PowerUUIDModel) GetForeignRefer() string {
 	return "uuid"
 }
-func (mdl *PowerUUIDModel) GetForeignReferValue() string {
-	return mdl.UUID
+func (mdl *PowerUUIDModel) GetForeignReferValue() int64 {
+	return mdl.Id
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -130,8 +129,8 @@ func (mdl *PowerModel) GetPrimaryKey() string {
 func (mdl *PowerModel) GetForeignRefer() string {
 	return "id"
 }
-func (mdl *PowerModel) GetForeignReferValue() string {
-	return fmt.Sprintf("%d", mdl.Id)
+func (mdl *PowerModel) GetForeignReferValue() int64 {
+	return mdl.Id
 }
 
 /**
@@ -259,15 +258,20 @@ func InsertModelsOnUniqueID(db *gorm.DB, mdl interface{}, uniqueName string, mod
 }
 
 func UpsertModelsOnUniqueID(db *gorm.DB, mdl interface{}, uniqueName string,
-	models interface{}, fieldsToUpdate []string) error {
+	models interface{}, fieldsToUpdate []string, withAssociations bool) error {
+
+	db = db.Model(mdl)
 
 	if len(fieldsToUpdate) <= 0 {
 		fieldsToUpdate = GetModelFields(mdl)
 	}
 
-	result := db.Model(mdl).
+	if withAssociations {
+		db = db.Omit(clause.Associations)
+	}
+
+	result := db.
 		//Debug().
-		Omit(clause.Associations).
 		Clauses(clause.OnConflict{
 			Columns:   []clause.Column{{Name: uniqueName}},
 			DoUpdates: clause.AssignmentColumns(fieldsToUpdate),

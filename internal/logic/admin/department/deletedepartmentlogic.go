@@ -32,7 +32,7 @@ func (l *DeleteDepartmentLogic) DeleteDepartment(req *types.DeleteDepartmentRequ
 	}
 	var depIds []int64
 	for _, department := range deps {
-		depIds = append(depIds, department.ID)
+		depIds = append(depIds, department.Id)
 	}
 
 	if l.svcCtx.PowerX.Organization.CountEmployeeInDepartmentByIds(l.ctx, depIds) > 0 {
