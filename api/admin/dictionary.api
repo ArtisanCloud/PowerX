@@ -65,6 +65,7 @@ type (
     }
 
     DictionaryType struct {
+        Id int64 `json:"id,optional"`
         Type string `json:"type"`
         Name string `json:"name"`
         Description string `json:"description"`
@@ -131,6 +132,7 @@ type (
     }
 
     DictionaryItem struct {
+        Id int64 `json:"id,optional"`
         Key string `json:"key"`
         Type string `json:"type"`
         Name string `json:"name"`

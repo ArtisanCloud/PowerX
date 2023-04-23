@@ -30,16 +30,16 @@ type Product struct {
 	powermodel.PowerModel
 
 	Name               string    `gorm:"comment:产品名称"`
-	Type               int8      `gorm:"comment:产品类型，比如商品，还是服务"`
-	Plan               int8      `gorm:"comment:产品计划，比如是周期性产品还是一次性产品"`
+	Type               int       `gorm:"comment:产品类型，比如商品，还是服务"`
+	Plan               int       `gorm:"comment:产品计划，比如是周期性产品还是一次性产品"`
 	AccountingCategory string    `gorm:"comment:财务类别，方便和财务系统对账和审批"`
 	CanSellOnline      bool      `gorm:"comment:是否允许线上销售"`
 	CanUseForDeduct    bool      `gorm:"comment:产品购买，是否可以使用抵扣方式"`
-	ApprovalStatus     int8      `gorm:"comment:产品上架，是否审核通过"`
+	ApprovalStatus     int       `gorm:"comment:产品上架，是否审核通过"`
 	IsActivated        bool      `gorm:"comment:是否被激活"`
 	Description        string    `gorm:"comment:产品描述"`
 	CoverURL           string    `gorm:"comment:产品主图"`
-	PurchasedQuantity  uint8     `gorm:"comment:允许购买数量上限"`
+	PurchasedQuantity  int       `gorm:"comment:允许购买数量上限"`
 	ValidityPeriodDays uint8     `gorm:"comment:售卖时间期限，按天"`
 	SaleStartDate      time.Time `gorm:"comment:售卖开始时间"`
 	SaleEndDate        time.Time `gorm:"comment:售卖结束时间"`
@@ -48,12 +48,6 @@ type Product struct {
 
 const TableNameProduct = "products"
 const ProductUniqueId = powermodel.UniqueId
-
-const ProductTypeGoods = 1
-const ProductTypeService = 2
-
-const ProductPlanOnce = 1
-const ProductPlanPeriod = 2
 
 func (mdl *Product) GetTableName(needFull bool) string {
 	tableName := TableNameProduct

@@ -3,13 +3,12 @@ package product
 import (
 	"PowerX/internal/model"
 	"PowerX/internal/model/product"
-	"PowerX/internal/uc/powerx"
-	"context"
-	"gorm.io/datatypes"
-	"time"
-
 	"PowerX/internal/svc"
 	"PowerX/internal/types"
+	"PowerX/internal/uc/powerx"
+	"context"
+	"github.com/golang-module/carbon"
+	"gorm.io/datatypes"
 
 	"github.com/zeromicro/go-zero/core/logx"
 )
@@ -61,9 +60,8 @@ func (l *CreateProductLogic) CreateProduct(req *types.CreateProductRequest) (res
 
 func TransformProductRequestToProduct(productRequest *types.Product) (mdlProduct *product.Product) {
 
-	saleStartDate, _ := time.Parse("format", productRequest.SaleStartDate)
-	saleEndDate, _ := time.Parse("format", productRequest.SaleEndDate)
-
+	saleStartDate := carbon.Parse(productRequest.SaleStartDate)
+	saleEndDate := carbon.Parse(productRequest.SaleEndDate)
 	mdlProduct = &product.Product{
 		Name:               productRequest.Name,
 		Type:               productRequest.Type,
@@ -77,8 +75,8 @@ func TransformProductRequestToProduct(productRequest *types.Product) (mdlProduct
 		CoverURL:           productRequest.CoverURL,
 		PurchasedQuantity:  productRequest.PurchasedQuantity,
 		ValidityPeriodDays: productRequest.ValidityPeriodDays,
-		SaleStartDate:      saleStartDate,
-		SaleEndDate:        saleEndDate,
+		SaleStartDate:      saleStartDate.Time,
+		SaleEndDate:        saleEndDate.Time,
 		ProductSpecific: product.ProductSpecific{
 			Inventory: productRequest.Inventory,
 			Weight:    productRequest.Weight,
