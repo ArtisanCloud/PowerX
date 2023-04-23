@@ -258,15 +258,20 @@ func InsertModelsOnUniqueID(db *gorm.DB, mdl interface{}, uniqueName string, mod
 }
 
 func UpsertModelsOnUniqueID(db *gorm.DB, mdl interface{}, uniqueName string,
-	models interface{}, fieldsToUpdate []string) error {
+	models interface{}, fieldsToUpdate []string, withAssociations bool) error {
+
+	db = db.Model(mdl)
 
 	if len(fieldsToUpdate) <= 0 {
 		fieldsToUpdate = GetModelFields(mdl)
 	}
 
-	result := db.Model(mdl).
+	if withAssociations {
+		db = db.Omit(clause.Associations)
+	}
+
+	result := db.
 		//Debug().
-		Omit(clause.Associations).
 		Clauses(clause.OnConflict{
 			Columns:   []clause.Column{{Name: uniqueName}},
 			DoUpdates: clause.AssignmentColumns(fieldsToUpdate),

@@ -64,7 +64,7 @@ func TransformProductRequestToProduct(productRequest *types.Product) (mdlProduct
 	saleStartDate, _ := time.Parse("format", productRequest.SaleStartDate)
 	saleEndDate, _ := time.Parse("format", productRequest.SaleEndDate)
 
-	return &product.Product{
+	mdlProduct = &product.Product{
 		Name:               productRequest.Name,
 		Type:               productRequest.Type,
 		Plan:               productRequest.Plan,
@@ -88,6 +88,8 @@ func TransformProductRequestToProduct(productRequest *types.Product) (mdlProduct
 			Extra:     datatypes.JSON(productRequest.Extra),
 		},
 	}
+
+	return mdlProduct
 
 }
 

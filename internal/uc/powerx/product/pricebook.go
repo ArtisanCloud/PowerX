@@ -101,7 +101,7 @@ func (uc *PriceBookUseCase) UpsertPriceBook(ctx context.Context, priceBook *prod
 
 func (uc *PriceBookUseCase) UpsertPriceBooks(ctx context.Context, priceBooks []*product.PriceBook) ([]*product.PriceBook, error) {
 
-	err := powermodel.UpsertModelsOnUniqueID(uc.db.WithContext(ctx), &product.PriceBook{}, product.PriceBookUniqueId, priceBooks, nil)
+	err := powermodel.UpsertModelsOnUniqueID(uc.db.WithContext(ctx), &product.PriceBook{}, product.PriceBookUniqueId, priceBooks, nil, false)
 
 	if err != nil {
 		panic(errors.Wrap(err, "batch upsert priceBooks failed"))

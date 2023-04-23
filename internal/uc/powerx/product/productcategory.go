@@ -122,7 +122,7 @@ func (uc *ProductCategoryUseCase) UpsertProductCategory(ctx context.Context, pro
 
 func (uc *ProductCategoryUseCase) UpsertProductCategories(ctx context.Context, productCategories []*product.ProductCategory) ([]*product.ProductCategory, error) {
 
-	err := powermodel.UpsertModelsOnUniqueID(uc.db.WithContext(ctx), &product.ProductCategory{}, product.ProductCategoryUniqueId, productCategories, nil)
+	err := powermodel.UpsertModelsOnUniqueID(uc.db.WithContext(ctx), &product.ProductCategory{}, product.ProductCategoryUniqueId, productCategories, nil, false)
 
 	if err != nil {
 		panic(errors.Wrap(err, "batch upsert product categories failed"))

@@ -87,17 +87,28 @@ func (uc *ProductUseCase) UpsertProduct(ctx context.Context, product *model.Prod
 
 	products := []*model.Product{product}
 
-	_, err := uc.UpsertProducts(ctx, products)
-	if err != nil {
-		panic(errors.Wrap(err, "upsert product failed"))
-	}
+	err := uc.db.Transaction(func(tx *gorm.DB) error {
+		// 删除产品的相关联对象
+		_, err := uc.ClearAssociations(tx, product)
+		if err != nil {
+			return err
+		}
+
+		// 更新产品对象主体
+		_, err = uc.UpsertProducts(ctx, products)
+		if err != nil {
+			return errors.Wrap(err, "upsert product failed")
+		}
+
+		return err
+	})
 
 	return product, err
 }
 
 func (uc *ProductUseCase) UpsertProducts(ctx context.Context, products []*model.Product) ([]*model.Product, error) {
 
-	err := powermodel.UpsertModelsOnUniqueID(uc.db.WithContext(ctx), &model.Product{}, model.ProductUniqueId, products, nil)
+	err := powermodel.UpsertModelsOnUniqueID(uc.db.WithContext(ctx), &model.Product{}, model.ProductUniqueId, products, nil, false)
 
 	if err != nil {
 		panic(errors.Wrap(err, "batch upsert products failed"))
@@ -107,7 +118,8 @@ func (uc *ProductUseCase) UpsertProducts(ctx context.Context, products []*model.
 }
 
 func (uc *ProductUseCase) PatchProduct(ctx context.Context, id int64, product *model.Product) {
-	if err := uc.db.WithContext(ctx).Model(&model.Product{}).Where(id).Updates(&product).Error; err != nil {
+	if err := uc.db.WithContext(ctx).Model(&model.Product{}).
+		Where(id).Updates(&product).Error; err != nil {
 		panic(err)
 	}
 }
@@ -129,14 +141,31 @@ func (uc *ProductUseCase) GetProduct(ctx context.Context, id int64) (*model.Prod
 }
 
 func (uc *ProductUseCase) DeleteProduct(ctx context.Context, id int64) error {
-	result := uc.db.WithContext(ctx).Delete(&model.Product{}, id)
-	if err := result.Error; err != nil {
-		panic(err)
+
+	// 获取产品相关项
+	product, err := uc.GetProduct(ctx, id)
+	if err != nil {
+		return errorx.ErrNotFoundObject
 	}
-	if result.RowsAffected == 0 {
-		return errorx.WithCause(errorx.ErrBadRequest, "未找到产品")
-	}
-	return nil
+
+	err = uc.db.Transaction(func(tx *gorm.DB) error {
+		// 删除产品相关项
+		_, err = uc.ClearAssociations(tx, product)
+		if err != nil {
+			return err
+		}
+
+		result := tx.Delete(&model.Product{}, id)
+		if err := result.Error; err != nil {
+			panic(err)
+		}
+		if result.RowsAffected == 0 {
+			return errorx.WithCause(errorx.ErrBadRequest, "未找到产品")
+		}
+		return err
+	})
+
+	return err
 }
 
 func (uc *ProductUseCase) LoadAssociations(product *model.Product) (*model.Product, error) {
@@ -146,6 +175,21 @@ func (uc *ProductUseCase) LoadAssociations(product *model.Product) (*model.Produ
 		return nil, err
 	}
 	product.PivotPromoteChannels, err = product.LoadPromoteChannels(uc.db, nil, false)
+	if err != nil {
+		return nil, err
+	}
+	return product, err
+}
+
+func (uc *ProductUseCase) ClearAssociations(db *gorm.DB, product *model.Product) (*model.Product, error) {
+	var err error
+	// 清除销售渠道的关联
+	err = product.ClearPivotSalesChannels(db)
+	if err != nil {
+		return nil, err
+	}
+	// 清除推广渠道的关联
+	err = product.ClearPivotPromoteChannels(db)
 	if err != nil {
 		return nil, err
 	}
