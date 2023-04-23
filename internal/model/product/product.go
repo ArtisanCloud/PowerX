@@ -84,6 +84,15 @@ func (mdl *Product) LoadPivotSalesChannels(db *gorm.DB, conditions *map[string]i
 	return items, err
 }
 
+func (mdl *Product) ClearPivotSalesChannels(db *gorm.DB) error {
+	conditions := &map[string]interface{}{}
+	(*conditions)[model.PivotDataDictionaryToObjectOwnerKey] = TableNameProduct
+	(*conditions)[model.PivotDataDictionaryToObjectForeignKey] = mdl.Id
+	(*conditions)["data_dictionary_type"] = model.TypeSalesChannel
+
+	return powermodel.ClearMorphPivots(db, &model.PivotDataDictionaryToObject{}, false, false, conditions)
+}
+
 func (mdl *Product) LoadPromoteChannels(db *gorm.DB, conditions *map[string]interface{}, withClauseAssociations bool) ([]*model.PivotDataDictionaryToObject, error) {
 	items := []*model.PivotDataDictionaryToObject{}
 	if conditions == nil {
@@ -98,6 +107,15 @@ func (mdl *Product) LoadPromoteChannels(db *gorm.DB, conditions *map[string]inte
 		Find(&items).Error
 
 	return items, err
+}
+
+func (mdl *Product) ClearPivotPromoteChannels(db *gorm.DB) error {
+	conditions := &map[string]interface{}{}
+	(*conditions)[model.PivotDataDictionaryToObjectOwnerKey] = TableNameProduct
+	(*conditions)[model.PivotDataDictionaryToObjectForeignKey] = mdl.Id
+	(*conditions)["data_dictionary_type"] = model.TypePromoteChannel
+
+	return powermodel.ClearMorphPivots(db, &model.PivotDataDictionaryToObject{}, false, false, conditions)
 }
 
 // -- PriceBookEntries

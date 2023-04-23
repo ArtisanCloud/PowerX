@@ -156,7 +156,7 @@ func SyncMorphPivots(db *gorm.DB, pivots []PivotInterface) (err error) {
 	}
 	err = db.Transaction(func(tx *gorm.DB) error {
 
-		err = ClearPivots(db, pivots[0], true, false)
+		err = ClearPivots(db, pivots[0], true, false, nil)
 		if err != nil {
 			return err
 		}
@@ -194,7 +194,7 @@ func SelectPivot(db *gorm.DB, pivot PivotInterface) (result *gorm.DB) {
 // select many pivots with foreign key
 func SelectMorphPivots(db *gorm.DB, pivot PivotInterface, byForeignKey bool, byJoinKey bool, where *map[string]interface{}) *gorm.DB {
 
-	db.Table(pivot.GetTableName(false))
+	//db.Table(pivot.GetTableName(false))
 
 	db = db.
 		Debug().
@@ -268,22 +268,34 @@ func UpdatePivot(db *gorm.DB, pivot PivotInterface) error {
 }
 
 // clear all pivots with foreign key and value
-func ClearPivots(db *gorm.DB, pivot PivotInterface, byForeignKey bool, byJoinKey bool) (err error) {
+func ClearPivots(db *gorm.DB, pivot PivotInterface, byForeignKey bool, byJoinKey bool, where *map[string]interface{}) (err error) {
 
-	if byForeignKey && byJoinKey {
-		// select via foreign key and join key
-		db = db.
-			Where(pivot.GetJoinKey(), pivot.GetJoinValue()).
-			Where(pivot.GetForeignKey(), pivot.GetForeignValue())
-	} else if byJoinKey {
-		// select via join key
-		db = db.Where(pivot.GetJoinKey(), pivot.GetJoinValue())
-	} else {
-		// select via foreign key
+	return ClearMorphPivots(db, pivot, true, false, where)
+
+}
+
+func ClearMorphPivots(db *gorm.DB, pivot PivotInterface, byForeignKey bool, byJoinKey bool, where *map[string]interface{}) (err error) {
+
+	//  有外键需要关联
+	if byForeignKey {
+		// 有Morphy类型需要识别
+		if pivot.GetOwnerKey() != "" {
+			db = db.Where(pivot.GetOwnerKey(), pivot.GetOwnerValue())
+		}
 		db = db.Where(pivot.GetForeignKey(), pivot.GetForeignValue())
 	}
 
-	result := db.
+	//  有关联键需要关联
+	if byJoinKey {
+		// select via join key
+		db = db.Where(pivot.GetJoinKey(), pivot.GetJoinValue())
+	}
+
+	if where != nil {
+		db = db.Where(*where)
+	}
+
+	result := db.Model(pivot).
 		Debug().
 		Delete(pivot)
 

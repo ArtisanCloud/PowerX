@@ -126,7 +126,7 @@ func (uc *WechatMiniProgramUseCase) UpsertMPCustomer(ctx context.Context, custom
 
 func (uc *WechatMiniProgramUseCase) UpsertMPCustomers(ctx context.Context, customers []*model.WechatMPCustomer) ([]*model.WechatMPCustomer, error) {
 
-	err := powermodel.UpsertModelsOnUniqueID(uc.db.WithContext(ctx), &model.WechatMPCustomer{}, model.WechatMpCustomerUniqueId, customers, nil)
+	err := powermodel.UpsertModelsOnUniqueID(uc.db.WithContext(ctx), &model.WechatMPCustomer{}, model.WechatMpCustomerUniqueId, customers, nil, false)
 
 	if err != nil {
 		panic(errors.Wrap(err, "batch upsert mp customers failed"))
