@@ -16,14 +16,15 @@ type PivotInterface interface {
 	GetJoinKey() string
 	GetJoinValue() int64
 	GetOwnerKey() string
-	GetOwnerValue() int64
+	GetOwnerValue() string
 	GetPivotComposedUniqueID() string
 }
 
 type PowerPivot struct {
-	Id        int64     `gorm:"AUTO_INCREMENT;PRIMARY_KEY;not null" json:"id"`
-	CreatedAt time.Time `gorm:"column:created_at; ->;<-:create " json:"createdAt"`
-	UpdatedAt time.Time `gorm:"column:updated_at" json:"updatedAt"`
+	Id        int64          `gorm:"AUTO_INCREMENT;PRIMARY_KEY;not null" json:"id"`
+	CreatedAt time.Time      `gorm:"column:created_at; ->;<-:create " json:"createdAt"`
+	UpdatedAt time.Time      `gorm:"column:updated_at" json:"updatedAt"`
+	DeletedAt gorm.DeletedAt `gorm:"index"`
 }
 
 func NewPowerPivot() *PowerPivot {
@@ -75,7 +76,8 @@ func (mdl *PowerPivot) GetJoinValue() int64 {
 }
 
 func (mdl *PowerPivot) GetOwnerKey() string {
-	return "owner_key"
+	// 如果正常的pivot，是没有ownerKey返回
+	return ""
 }
 func (mdl *PowerPivot) GetOwnerValue() int64 {
 	return 0
@@ -91,7 +93,7 @@ func (mdl *PowerPivot) GetPivotComposedUniqueID() string {
 func AssociationRelationship(db *gorm.DB, conditions *map[string]interface{}, mdl interface{}, relationship string, withClauseAssociations bool) *gorm.Association {
 
 	tx := db.
-		//Debug().
+		Debug().
 		Model(mdl)
 
 	if withClauseAssociations {
@@ -192,30 +194,29 @@ func SelectPivot(db *gorm.DB, pivot PivotInterface) (result *gorm.DB) {
 // select many pivots with foreign key
 func SelectMorphPivots(db *gorm.DB, pivot PivotInterface, byForeignKey bool, byJoinKey bool, where *map[string]interface{}) *gorm.DB {
 
+	db.Table(pivot.GetTableName(false))
+
 	db = db.
-		//Debug().
+		Debug().
 		Model(pivot)
 
-	if byForeignKey && byJoinKey {
-		// select via foreign key and join key
-		db = db.
-			Where(pivot.GetJoinKey(), pivot.GetJoinValue()).
-			Where(pivot.GetForeignKey(), pivot.GetForeignValue())
-	} else if byJoinKey {
-		// select via join key
-		db = db.Where(pivot.GetJoinKey(), pivot.GetJoinValue())
-	} else {
-		// select via foreign key
+	//  有外键需要关联
+	if byForeignKey {
+		// 有Morphy类型需要识别
+		if pivot.GetOwnerKey() != "" {
+			db = db.Where(pivot.GetOwnerKey(), pivot.GetOwnerValue())
+		}
 		db = db.Where(pivot.GetForeignKey(), pivot.GetForeignValue())
 	}
 
-	if where != nil {
-		db = db.Where(where)
+	//  有关联键需要关联
+	if byJoinKey {
+		// select via join key
+		db = db.Where(pivot.GetJoinKey(), pivot.GetJoinValue())
 	}
 
-	// join foreign type if exists
-	if pivot.GetOwnerValue() != 0 {
-		db = db.Where(pivot.GetOwnerKey(), pivot.GetOwnerValue())
+	if where != nil {
+		db = db.Where(*where)
 	}
 
 	return db

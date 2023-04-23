@@ -3,6 +3,7 @@ package product
 import (
 	"PowerX/internal/model"
 	"PowerX/internal/model/powermodel"
+	"github.com/ArtisanCloud/PowerLibs/v3/database"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 	"time"
@@ -20,10 +21,10 @@ type ProductSpecific struct {
 type Product struct {
 	PriceBooks           []*PriceBook                         `gorm:"many2many:public.price_book_entries;foreignKey:Id;joinForeignKey:Id;References:Id;JoinReferences:PriceBookId" json:"priceBooks"`
 	PriceBookEntries     []*PriceBookEntry                    `gorm:"foreignKey:ProductId;references:Id" json:"priceBookEntries"`
-	PivotSalesChannels   []*model.PivotDataDictionaryToObject `gorm:"polymorphic:Object;polymorphicValue:product" json:"pivotSalesChannels"`
-	PivotPromoteChannels []*model.PivotDataDictionaryToObject `gorm:"polymorphic:Object;polymorphicValue:product" json:"pivotPromoteChannels"`
-	SalesChannels        []*model.DataDictionaryItem          `gorm:"-"`
-	PromoteChannels      []*model.DataDictionaryItem          `gorm:"-"`
+	PivotSalesChannels   []*model.PivotDataDictionaryToObject `gorm:"polymorphic:Object;polymorphicValue:products" json:"pivotSalesChannels"`
+	PivotPromoteChannels []*model.PivotDataDictionaryToObject `gorm:"polymorphic:Object;polymorphicValue:products" json:"pivotPromoteChannels"`
+	//SalesChannels        []*model.DataDictionaryItem          `gorm:"-"`
+	//PromoteChannels      []*model.DataDictionaryItem          `gorm:"-"`
 	//Coupons          []*Coupon         `gorm:"many2many:public.r_product_to_coupon;foreignKey:Id;joinForeignKey:ProductId;References:Id;JoinReferences:CouponId" json:"coupons"`
 
 	powermodel.PowerModel
@@ -66,36 +67,45 @@ func (mdl *Product) GetForeignReferValue() int64 {
 	return mdl.Id
 }
 
-func (mdl *Product) LoadSalesChannels(db *gorm.DB, conditions *map[string]interface{}, withClauseAssociations bool) ([]*model.DataDictionaryItem, error) {
-	items := []*model.DataDictionaryItem{}
-
+// -- pivot employees
+func (mdl *Product) LoadPivotSalesChannels(db *gorm.DB, conditions *map[string]interface{}, withClauseAssociations bool) ([]*model.PivotDataDictionaryToObject, error) {
+	items := []*model.PivotDataDictionaryToObject{}
 	if conditions == nil {
 		conditions = &map[string]interface{}{}
 	}
 
-	(*conditions)["object_owner"] = TableNameProduct
-	(*conditions)["data_dictionary_type"] = mdl.PivotSalesChannels
+	(*conditions)[model.PivotDataDictionaryToObjectOwnerKey] = TableNameProduct
+	(*conditions)[model.PivotDataDictionaryToObjectForeignKey] = mdl.Id
+	(*conditions)["data_dictionary_type"] = model.TypeSalesChannel
 
-	err := powermodel.AssociationRelationship(db, conditions, mdl, "PivotSalesChannels.DataDictionaryItem", withClauseAssociations).Find(&items)
-
-	mdl.SalesChannels = items
+	err := powermodel.SelectMorphPivots(db, &model.PivotDataDictionaryToObject{}, false, false, conditions).
+		Find(&items).Error
 
 	return items, err
 }
 
-func (mdl *Product) LoadPromoteChannels(db *gorm.DB, conditions *map[string]interface{}, withClauseAssociations bool) ([]*model.DataDictionaryItem, error) {
-	items := []*model.DataDictionaryItem{}
-
+func (mdl *Product) LoadPromoteChannels(db *gorm.DB, conditions *map[string]interface{}, withClauseAssociations bool) ([]*model.PivotDataDictionaryToObject, error) {
+	items := []*model.PivotDataDictionaryToObject{}
 	if conditions == nil {
 		conditions = &map[string]interface{}{}
 	}
 
-	(*conditions)["object_owner"] = TableNameProduct
-	(*conditions)["data_dictionary_type"] = mdl.PromoteChannels
+	(*conditions)[model.PivotDataDictionaryToObjectOwnerKey] = TableNameProduct
+	(*conditions)[model.PivotDataDictionaryToObjectForeignKey] = mdl.Id
+	(*conditions)["data_dictionary_type"] = model.TypePromoteChannel
 
-	err := powermodel.AssociationRelationship(db, conditions, mdl, "PromoteChannels", withClauseAssociations).Find(&items)
-
-	mdl.PromoteChannels = items
+	err := powermodel.SelectMorphPivots(db, &model.PivotDataDictionaryToObject{}, false, false, conditions).
+		Find(&items).Error
 
 	return items, err
+}
+
+// -- PriceBookEntries
+func (mdl *Product) LoadPriceBookEntries(db *gorm.DB, conditions *map[string]interface{}) ([]*PriceBookEntry, error) {
+	mdl.PriceBookEntries = []*PriceBookEntry{}
+	err := database.AssociationRelationship(db, conditions, mdl, "PriceBookEntries", false).Find(&mdl.PriceBookEntries)
+	if err != nil {
+		panic(err)
+	}
+	return mdl.PriceBookEntries, err
 }
