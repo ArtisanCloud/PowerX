@@ -1420,3 +1420,88 @@ type Token struct {
 	AccessToken  string `json:"accessToken"`
 	RefreshToken string `json:"refreshToken"`
 }
+
+type Reservation struct {
+	Id                 int64  `json:"id,optional"`
+	Name               string `json:"name"`
+	Type               int    `json:"type"`
+	Plan               int    `json:"plan"`
+	AccountingCategory string `json:"accountingCategory"`
+	CanSellOnline      bool   `json:"canSellOnline,optional"`
+	CanUseForDeduct    bool   `json:"canUseForDeduct,optional"`
+	Description        string `json:"description,optional"`
+	CoverURL           string `json:"coverURL,optional"`
+	PurchasedQuantity  int    `json:"purchasedQuantity,optional"`
+	ValidityPeriodDays uint8  `json:"validityPeriodDays,optional"`
+	SaleStartDate      string `json:"saleStartDate,optional"`
+	SaleEndDate        string `json:"saleEndDate,optional"`
+	ApprovalStatus     int    `json:"approvalStatus,optional"`
+	IsActivated        bool   `json:"isActivated,optional"`
+	CreatedAt          string `json:"createdAt,optional"`
+}
+
+type ListReservationsPageRequest struct {
+	ReservationType string   `form:"reservationType,optional"`
+	Keys            []string `form:"keys,optional"`
+	OrderBy         string   `form:"orderBy,optional"`
+	PageIndex       int      `form:"pageIndex,optional"`
+	PageSize        int      `form:"pageSize,optional"`
+}
+
+type ListReservationsPageReply struct {
+	List      []Reservation `json:"list"`
+	PageIndex int           `json:"pageIndex"`
+	PageSize  int           `json:"pageSize"`
+	Total     int64         `json:"total"`
+}
+
+type CreateReservationRequest struct {
+	Reservation
+}
+
+type CreateReservationReply struct {
+	ReservationKey int64 `json:"id"`
+}
+
+type GetReservationRequest struct {
+	ReservationId int64 `path:"id"`
+}
+
+type GetReservationReply struct {
+	*Reservation
+}
+
+type PutReservationRequest struct {
+	ReservationId int64 `path:"id"`
+	Reservation
+}
+
+type PutReservationReply struct {
+	*Reservation
+}
+
+type PatchReservationRequest struct {
+	ReservationId int64 `path:"id"`
+	Reservation
+}
+
+type PatchReservationReply struct {
+	*Reservation
+}
+
+type DeleteReservationRequest struct {
+	ReservationId int64 `path:"id"`
+}
+
+type DeleteReservationReply struct {
+	ReservationId int64 `json:"id"`
+}
+
+type AssignReservationToReservationCategoryRequest struct {
+	Id                    int64 `json:"id"`
+	ReservationCategoryId int64 `json:"reservationCategoryId"`
+}
+
+type AssignReservationToReservationCategoryReply struct {
+	Reservation
+}

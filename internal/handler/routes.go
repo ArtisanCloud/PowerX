@@ -20,6 +20,7 @@ import (
 	adminscrmcustomer "PowerX/internal/handler/admin/scrm/customer"
 	adminstore "PowerX/internal/handler/admin/store"
 	adminuserinfo "PowerX/internal/handler/admin/userinfo"
+	customreservation "PowerX/internal/handler/custom/reservation"
 	mpcustomer "PowerX/internal/handler/mp/customer"
 	"PowerX/internal/svc"
 
@@ -688,5 +689,49 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			}...,
 		),
 		rest.WithPrefix("/api/v1/mp/customer"),
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Route{
+				{
+					Method:  http.MethodGet,
+					Path:    "/reservations",
+					Handler: customreservation.ListReservationsHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/reservations/:id",
+					Handler: customreservation.GetReservationHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/reservations",
+					Handler: customreservation.CreateReservationHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPut,
+					Path:    "/reservations/:id",
+					Handler: customreservation.PutReservationHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPatch,
+					Path:    "/reservations/:id",
+					Handler: customreservation.PatchReservationHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodDelete,
+					Path:    "/reservations/:id",
+					Handler: customreservation.DeleteReservationHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/reservations/:id/actions/assign-to-reservation-categroy",
+					Handler: customreservation.AssignReservationToReservationCategoryHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithPrefix("/api/v1/admin/reservationcenter"),
 	)
 }
