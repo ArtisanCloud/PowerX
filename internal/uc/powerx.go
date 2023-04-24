@@ -86,8 +86,5 @@ func NewPowerXUseCase(conf *config.Config) (uc *PowerXUseCase, clean func()) {
 
 func (uc *PowerXUseCase) AutoInit() {
 	uc.AdminAuthorization.Init()
-	_ = seed.CreateOrganization(uc.db)
-	_ = seed.CreateDataDictionaries(uc.db)
-	_ = seed.CreatePriceBooks(uc.db)
-	_ = seed.CreateProductCategories(uc.db)
+	_ = seed.CreatePowerX(uc.db)
 }

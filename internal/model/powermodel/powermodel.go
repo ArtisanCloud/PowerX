@@ -52,11 +52,6 @@ const ModelStatusCanceled int8 = 2
 const ModelStatusPending int8 = 3
 const ModelStatusInactive int8 = 4
 
-const ApprovalStatusDraft int8 = 0
-const ApprovalStatusPending int8 = 1
-const ApprovalStatusApproved int8 = 3
-const ApprovalStatusRejected int8 = 4
-
 var ArrayModelFields *object.HashMap = &object.HashMap{}
 
 func NewPowerUUIDModel() *PowerUUIDModel {
