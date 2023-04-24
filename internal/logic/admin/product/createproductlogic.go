@@ -93,13 +93,15 @@ func TransformProductRequestToProduct(productRequest *types.Product) (mdlProduct
 
 func TransformProductToProductReply(mdlProduct *product.Product) (productReply *types.Product) {
 
-	//getItemIds := func(items []*model.DataDictionaryItem) []int64 {
-	//	arrayIds := []int64{}
-	//	for _, item := range items {
-	//		arrayIds = append(arrayIds, item.Id)
-	//	}
-	//	return arrayIds
-	//}
+	getItemIds := func(items []*model.PivotDataDictionaryToObject) []int64 {
+		arrayIds := []int64{}
+		for _, item := range items {
+			if item.DataDictionaryItem != nil {
+				arrayIds = append(arrayIds, item.DataDictionaryItem.Id)
+			}
+		}
+		return arrayIds
+	}
 
 	return &types.Product{
 		Id:                 mdlProduct.Id,
@@ -125,8 +127,10 @@ func TransformProductToProductReply(mdlProduct *product.Product) (productReply *
 			BarCode:   mdlProduct.BarCode,
 			Extra:     mdlProduct.Extra.String(),
 		},
-		PivotSalesChannels:   TransformDDsToDDsReply(mdlProduct.PivotSalesChannels),
-		PivotPromoteChannels: TransformDDsToDDsReply(mdlProduct.PivotPromoteChannels),
+		//PivotSalesChannels:   TransformDDsToDDsReply(mdlProduct.PivotSalesChannels),
+		//PivotPromoteChannels: TransformDDsToDDsReply(mdlProduct.PivotPromoteChannels),
+		SalesChannelsItemIds:   getItemIds(mdlProduct.PivotSalesChannels),
+		PromoteChannelsItemIds: getItemIds(mdlProduct.PivotPromoteChannels),
 	}
 
 }
