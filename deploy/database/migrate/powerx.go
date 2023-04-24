@@ -1,24 +1,17 @@
 package migrate
 
 import (
-	"PowerX/deploy/database/cusotm/migrate"
 	"PowerX/internal/model"
 	"PowerX/internal/model/customerdomain"
 	"PowerX/internal/model/membership"
 	"PowerX/internal/model/product"
 	"PowerX/internal/model/scrm/organization"
 	"PowerX/internal/uc/powerx"
-	"context"
 	"gorm.io/gorm"
 )
 
-func AutoMigrate(ctx context.Context, db *gorm.DB) {
+func AutoMigrate(db *gorm.DB) {
 
-	DefaultMigrate(ctx, db)
-	migrate.AutoMigrateCustom(ctx, db)
-}
-
-func DefaultMigrate(ctx context.Context, db *gorm.DB) {
 	_ = db.AutoMigrate(&model.DataDictionaryType{}, &model.DataDictionaryItem{}, &model.PivotDataDictionaryToObject{})
 	_ = db.AutoMigrate(&organization.Department{}, &organization.Employee{})
 	_ = db.AutoMigrate(&powerx.EmployeeCasbinPolicy{}, powerx.AdminRole{}, powerx.AdminRoleMenuName{}, powerx.AdminAPI{})
