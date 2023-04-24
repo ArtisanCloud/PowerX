@@ -7,7 +7,6 @@ import (
 	"PowerX/internal/uc/powerx"
 	customerDomainUC "PowerX/internal/uc/powerx/customerdomain"
 	productUC "PowerX/internal/uc/powerx/product"
-	"context"
 	"github.com/pkg/errors"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -76,7 +75,7 @@ func NewPowerXUseCase(conf *config.Config) (uc *PowerXUseCase, clean func()) {
 	// 加载SCRM UseCase
 	uc.SCRM = powerx.NewSCRMUseCase(db, conf)
 
-	migrate.AutoMigrate(context.Background(), uc.db)
+	migrate.AutoMigrate(uc.db)
 	uc.AutoInit()
 
 	return uc, func() {
