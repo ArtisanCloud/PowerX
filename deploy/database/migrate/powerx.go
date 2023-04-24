@@ -1,6 +1,7 @@
 package migrate
 
 import (
+	"PowerX/deploy/database/cusotm/migrate"
 	"PowerX/internal/model"
 	"PowerX/internal/model/customerdomain"
 	"PowerX/internal/model/membership"
@@ -12,6 +13,12 @@ import (
 )
 
 func AutoMigrate(ctx context.Context, db *gorm.DB) {
+
+	DefaultMigrate(ctx, db)
+	migrate.AutoMigrateCustom(ctx, db)
+}
+
+func DefaultMigrate(ctx context.Context, db *gorm.DB) {
 	_ = db.AutoMigrate(&model.DataDictionaryType{}, &model.DataDictionaryItem{}, &model.PivotDataDictionaryToObject{})
 	_ = db.AutoMigrate(&organization.Department{}, &organization.Employee{})
 	_ = db.AutoMigrate(&powerx.EmployeeCasbinPolicy{}, powerx.AdminRole{}, powerx.AdminRoleMenuName{}, powerx.AdminAPI{})
@@ -25,5 +32,4 @@ func AutoMigrate(ctx context.Context, db *gorm.DB) {
 	// product
 	_ = db.AutoMigrate(&product.Product{}, &product.ProductCategory{})
 	_ = db.AutoMigrate(&product.PriceBook{}, &product.PriceBookEntry{}, &product.PriceConfig{})
-
 }
