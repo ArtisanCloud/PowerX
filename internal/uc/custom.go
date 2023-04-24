@@ -51,6 +51,7 @@ func NewCustomUseCase(conf *config.Config) (uc *CustomUseCase, clean func()) {
 	// 加载服务UseCase
 	uc.Service = productCustomUC.NewServiceSpecificUseCase(db)
 
+	migrate.AutoMigrateCustom(db)
 	uc.AutoInit()
 
 	return uc, func() {
@@ -59,5 +60,5 @@ func NewCustomUseCase(conf *config.Config) (uc *CustomUseCase, clean func()) {
 }
 
 func (uc *CustomUseCase) AutoInit() {
-	_ = migrate.AutoMigrateCustom()
+
 }

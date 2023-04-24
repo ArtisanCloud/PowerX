@@ -11,48 +11,48 @@ info(
 
 @server(
     group: custom/schedule
-    prefix: /api/v1/admin/schedulecenter
+    prefix: /api/v1/admin/reservationcenter
     middleware: EmployeeJWTAuth
 )
 
 service PowerX {
     @doc "查询日程表列表"
-    @handler ListReservations
-    get /schedules (ListReservationsPageRequest) returns (ListReservationsPageReply)
+    @handler ListSchedules
+    get /schedules (ListSchedulesPageRequest) returns (ListSchedulesPageReply)
 
     @doc "查询日程表详情"
-    @handler GetReservation
-    get /schedules/:id (GetReservationRequest) returns (GetReservationReply)
+    @handler GetSchedule
+    get /schedules/:id (GetScheduleRequest) returns (GetScheduleReply)
 
 
     @doc "创建日程表"
-    @handler CreateReservation
-    post /schedules (CreateReservationRequest) returns (CreateReservationReply)
+    @handler CreateSchedule
+    post /schedules (CreateScheduleRequest) returns (CreateScheduleReply)
 
 
     @doc "全量日程表"
-    @handler PutReservation
-    put /schedules/:id (PutReservationRequest) returns (PutReservationReply)
+    @handler PutSchedule
+    put /schedules/:id (PutScheduleRequest) returns (PutScheduleReply)
 
     @doc "增量日程表"
-    @handler PatchReservation
-    patch /schedules/:id (PatchReservationRequest) returns (PatchReservationReply)
+    @handler PatchSchedule
+    patch /schedules/:id (PatchScheduleRequest) returns (PatchScheduleReply)
 
 
     @doc "删除日程表"
-    @handler DeleteReservation
-    delete /schedules/:id (DeleteReservationRequest) returns (DeleteReservationReply)
+    @handler DeleteSchedule
+    delete /schedules/:id (DeleteScheduleRequest) returns (DeleteScheduleReply)
 
     @doc "分配日程表品类给日程表品类分类"
-    @handler AssignReservationToReservationCategory
-    post /schedules/:id/actions/assign-to-schedule-categroy (AssignReservationToReservationCategoryRequest) returns (AssignReservationToReservationCategoryReply)
+    @handler AssignScheduleToScheduleCategory
+    post /schedules/:id/actions/assign-to-schedule-categroy (AssignScheduleToScheduleCategoryRequest) returns (AssignScheduleToScheduleCategoryReply)
 }
 
 type (
 
 
 
-    Reservation {
+    Schedule {
         Id int64 `json:"id,optional"`
 
         Name string `json:"name"`
@@ -74,8 +74,8 @@ type (
     }
 )
 type (
-    ListReservationsPageRequest struct {
-        ReservationType string `form:"scheduleType,optional"`
+    ListSchedulesPageRequest struct {
+        ScheduleType string `form:"scheduleType,optional"`
         Keys []string `form:"keys,optional"`
         OrderBy string `form:"orderBy,optional"`
         PageIndex int `form:"pageIndex,optional"`
@@ -83,8 +83,8 @@ type (
     }
 
 
-    ListReservationsPageReply struct {
-        List []Reservation `json:"list"`
+    ListSchedulesPageReply struct {
+        List []Schedule `json:"list"`
         PageIndex int `json:"pageIndex"`
         PageSize int `json:"pageSize"`
         Total int64 `json:"total"`
@@ -92,67 +92,67 @@ type (
 )
 
 type (
-    CreateReservationRequest struct {
-        Reservation
+    CreateScheduleRequest struct {
+//        currentDate
     }
 
-    CreateReservationReply struct {
-        ReservationKey int64 `json:"id"`
-    }
-)
-
-type (
-    GetReservationRequest struct {
-        ReservationId int64 `path:"id"`
-    }
-
-    GetReservationReply struct {
-        *Reservation
-    }
-)
-
-
-type (
-    PutReservationRequest struct {
-        ReservationId int64 `path:"id"`
-        Reservation
-    }
-
-    PutReservationReply struct {
-        *Reservation
+    CreateScheduleReply struct {
+        ScheduleKey int64 `json:"id"`
     }
 )
 
 type (
-    PatchReservationRequest struct {
-        ReservationId int64 `path:"id"`
-        Reservation
+    GetScheduleRequest struct {
+        ScheduleId int64 `path:"id"`
     }
 
-    PatchReservationReply struct {
-        *Reservation
+    GetScheduleReply struct {
+        *Schedule
     }
 )
 
 
 type (
-    DeleteReservationRequest struct {
-        ReservationId int64 `path:"id"`
+    PutScheduleRequest struct {
+        ScheduleId int64 `path:"id"`
+        Schedule
     }
 
-    DeleteReservationReply struct {
-        ReservationId int64 `json:"id"`
+    PutScheduleReply struct {
+        *Schedule
+    }
+)
+
+type (
+    PatchScheduleRequest struct {
+        ScheduleId int64 `path:"id"`
+        Schedule
+    }
+
+    PatchScheduleReply struct {
+        *Schedule
     }
 )
 
 
 type (
-    AssignReservationToReservationCategoryRequest {
+    DeleteScheduleRequest struct {
+        ScheduleId int64 `path:"id"`
+    }
+
+    DeleteScheduleReply struct {
+        ScheduleId int64 `json:"id"`
+    }
+)
+
+
+type (
+    AssignScheduleToScheduleCategoryRequest {
         Id int64 `json:"id"`
-        ReservationCategoryId int64 `json:"scheduleCategoryId"`
+        ScheduleCategoryId int64 `json:"scheduleCategoryId"`
     }
 
-    AssignReservationToReservationCategoryReply {
-        Reservation
+    AssignScheduleToScheduleCategoryReply {
+        Schedule
     }
 )
