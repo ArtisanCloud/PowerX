@@ -3,6 +3,7 @@ package product
 import (
 	"PowerX/internal/model"
 	"PowerX/internal/model/powermodel"
+	fmt "PowerX/pkg/printx"
 	"github.com/ArtisanCloud/PowerLibs/v3/database"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
@@ -19,12 +20,12 @@ type ProductSpecific struct {
 }
 
 type Product struct {
-	PriceBooks           []*PriceBook                         `gorm:"many2many:public.price_book_entries;foreignKey:Id;joinForeignKey:Id;References:Id;JoinReferences:PriceBookId" json:"priceBooks"`
-	PriceBookEntries     []*PriceBookEntry                    `gorm:"foreignKey:ProductId;references:Id" json:"priceBookEntries"`
-	PivotSalesChannels   []*model.PivotDataDictionaryToObject `gorm:"polymorphic:Object;polymorphicValue:products" json:"pivotSalesChannels"`
-	PivotPromoteChannels []*model.PivotDataDictionaryToObject `gorm:"polymorphic:Object;polymorphicValue:products" json:"pivotPromoteChannels"`
-	//SalesChannels        []*model.DataDictionaryItem          `gorm:"-"`
-	//PromoteChannels      []*model.DataDictionaryItem          `gorm:"-"`
+	PriceBooks             []*PriceBook                         `gorm:"many2many:public.price_book_entries;foreignKey:Id;joinForeignKey:Id;References:Id;JoinReferences:PriceBookId" json:"priceBooks"`
+	PriceBookEntries       []*PriceBookEntry                    `gorm:"foreignKey:ProductId;references:Id" json:"priceBookEntries"`
+	PivotSalesChannels     []*model.PivotDataDictionaryToObject `gorm:"polymorphic:Object;polymorphicValue:products" json:"pivotSalesChannels"`
+	PivotPromoteChannels   []*model.PivotDataDictionaryToObject `gorm:"polymorphic:Object;polymorphicValue:products" json:"pivotPromoteChannels"`
+	SalesChannelsItemIds   []int64                              `gorm:"-"`
+	PromoteChannelsItemIds []int64                              `gorm:"-"`
 	//Coupons          []*Coupon         `gorm:"many2many:public.r_product_to_coupon;foreignKey:Id;joinForeignKey:ProductId;References:Id;JoinReferences:CouponId" json:"coupons"`
 
 	powermodel.PowerModel
@@ -73,8 +74,10 @@ func (mdl *Product) LoadPivotSalesChannels(db *gorm.DB, conditions *map[string]i
 	(*conditions)["data_dictionary_type"] = model.TypeSalesChannel
 
 	err := powermodel.SelectMorphPivots(db, &model.PivotDataDictionaryToObject{}, false, false, conditions).
+		Preload("DataDictionaryItem").
 		Find(&items).Error
 
+	fmt.Dump(items)
 	return items, err
 }
 
@@ -98,6 +101,7 @@ func (mdl *Product) LoadPromoteChannels(db *gorm.DB, conditions *map[string]inte
 	(*conditions)["data_dictionary_type"] = model.TypePromoteChannel
 
 	err := powermodel.SelectMorphPivots(db, &model.PivotDataDictionaryToObject{}, false, false, conditions).
+		Preload("DataDictionaryItem").
 		Find(&items).Error
 
 	return items, err
