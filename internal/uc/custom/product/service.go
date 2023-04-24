@@ -39,7 +39,7 @@ func (uc *ServiceSpecificUseCase) UpsertServiceSpecific(ctx context.Context, lea
 
 func (uc *ServiceSpecificUseCase) UpsertServiceSpecifics(ctx context.Context, leads []*product.ServiceSpecific) ([]*product.ServiceSpecific, error) {
 
-	err := powermodel.UpsertModelsOnUniqueID(uc.db.WithContext(ctx), &product.ServiceSpecific{}, product.ServiceSpecificUniqueId, leads, nil)
+	err := powermodel.UpsertModelsOnUniqueID(uc.db.WithContext(ctx), &product.ServiceSpecific{}, product.ServiceSpecificUniqueId, leads, nil, false)
 
 	if err != nil {
 		panic(errors.Wrap(err, "batch upsert leads failed"))

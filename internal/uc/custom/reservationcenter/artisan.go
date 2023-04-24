@@ -39,7 +39,7 @@ func (uc *ArtisanUseCase) UpsertArtisan(ctx context.Context, lead *reservationce
 
 func (uc *ArtisanUseCase) UpsertArtisans(ctx context.Context, leads []*reservationcenter.Artisan) ([]*reservationcenter.Artisan, error) {
 
-	err := powermodel.UpsertModelsOnUniqueID(uc.db.WithContext(ctx), &reservationcenter.Artisan{}, reservationcenter.ArtisanUniqueId, leads, nil)
+	err := powermodel.UpsertModelsOnUniqueID(uc.db.WithContext(ctx), &reservationcenter.Artisan{}, reservationcenter.ArtisanUniqueId, leads, nil, false)
 
 	if err != nil {
 		panic(errors.Wrap(err, "batch upsert leads failed"))

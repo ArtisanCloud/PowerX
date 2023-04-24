@@ -39,7 +39,7 @@ func (uc *CheckinLogUseCase) UpsertCheckinLog(ctx context.Context, lead *reserva
 
 func (uc *CheckinLogUseCase) UpsertCheckinLogs(ctx context.Context, leads []*reservationcenter.CheckinLog) ([]*reservationcenter.CheckinLog, error) {
 
-	err := powermodel.UpsertModelsOnUniqueID(uc.db.WithContext(ctx), &reservationcenter.CheckinLog{}, reservationcenter.CheckinLogUniqueId, leads, nil)
+	err := powermodel.UpsertModelsOnUniqueID(uc.db.WithContext(ctx), &reservationcenter.CheckinLog{}, reservationcenter.CheckinLogUniqueId, leads, nil, false)
 
 	if err != nil {
 		panic(errors.Wrap(err, "batch upsert leads failed"))
