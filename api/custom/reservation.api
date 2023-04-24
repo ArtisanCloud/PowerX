@@ -1,0 +1,158 @@
+syntax = "v1"
+
+info(
+    title: "预约服务"
+    desc: "预约服务"
+    author: "MichaelHu"
+    email: "matrix-x@artisan-cloud.com"
+    version: "v1"
+)
+
+
+@server(
+    group: custom/reservation
+    prefix: /api/v1/admin/reservationcenter
+    middleware: EmployeeJWTAuth
+)
+
+service PowerX {
+    @doc "查询预约列表"
+    @handler ListReservations
+    get /reservations (ListReservationsPageRequest) returns (ListReservationsPageReply)
+
+    @doc "查询预约详情"
+    @handler GetReservation
+    get /reservations/:id (GetReservationRequest) returns (GetReservationReply)
+
+
+    @doc "创建预约"
+    @handler CreateReservation
+    post /reservations (CreateReservationRequest) returns (CreateReservationReply)
+
+
+    @doc "全量预约"
+    @handler PutReservation
+    put /reservations/:id (PutReservationRequest) returns (PutReservationReply)
+
+    @doc "增量预约"
+    @handler PatchReservation
+    patch /reservations/:id (PatchReservationRequest) returns (PatchReservationReply)
+
+
+    @doc "删除预约"
+    @handler DeleteReservation
+    delete /reservations/:id (DeleteReservationRequest) returns (DeleteReservationReply)
+
+    @doc "分配预约品类给预约品类分类"
+    @handler AssignReservationToReservationCategory
+    post /reservations/:id/actions/assign-to-reservation-categroy (AssignReservationToReservationCategoryRequest) returns (AssignReservationToReservationCategoryReply)
+}
+
+type (
+
+
+
+    Reservation {
+        Id int64 `json:"id,optional"`
+
+        Name string `json:"name"`
+        Type int `json:"type"`
+        Plan int `json:"plan"`
+        AccountingCategory string `json:"accountingCategory"`
+        CanSellOnline bool `json:"canSellOnline,optional"`
+        CanUseForDeduct bool `json:"canUseForDeduct,optional"`
+        Description string `json:"description,optional"`
+        CoverURL string `json:"coverURL,optional"`
+        PurchasedQuantity int `json:"purchasedQuantity,optional"`
+        ValidityPeriodDays uint8 `json:"validityPeriodDays,optional"`
+        SaleStartDate string `json:"saleStartDate,optional"`
+        SaleEndDate string `json:"saleEndDate,optional"`
+        ApprovalStatus int `json:"approvalStatus,optional"`
+        IsActivated bool `json:"isActivated,optional"`
+        CreatedAt string `json:"createdAt,optional"`
+
+    }
+)
+type (
+    ListReservationsPageRequest struct {
+        ReservationType string `form:"reservationType,optional"`
+        Keys []string `form:"keys,optional"`
+        OrderBy string `form:"orderBy,optional"`
+        PageIndex int `form:"pageIndex,optional"`
+        PageSize int `form:"pageSize,optional"`
+    }
+
+
+    ListReservationsPageReply struct {
+        List []Reservation `json:"list"`
+        PageIndex int `json:"pageIndex"`
+        PageSize int `json:"pageSize"`
+        Total int64 `json:"total"`
+    }
+)
+
+type (
+    CreateReservationRequest struct {
+        Reservation
+    }
+
+    CreateReservationReply struct {
+        ReservationKey int64 `json:"id"`
+    }
+)
+
+type (
+    GetReservationRequest struct {
+        ReservationId int64 `path:"id"`
+    }
+
+    GetReservationReply struct {
+        *Reservation
+    }
+)
+
+
+type (
+    PutReservationRequest struct {
+        ReservationId int64 `path:"id"`
+        Reservation
+    }
+
+    PutReservationReply struct {
+        *Reservation
+    }
+)
+
+type (
+    PatchReservationRequest struct {
+        ReservationId int64 `path:"id"`
+        Reservation
+    }
+
+    PatchReservationReply struct {
+        *Reservation
+    }
+)
+
+
+type (
+    DeleteReservationRequest struct {
+        ReservationId int64 `path:"id"`
+    }
+
+    DeleteReservationReply struct {
+        ReservationId int64 `json:"id"`
+    }
+)
+
+
+type (
+    AssignReservationToReservationCategoryRequest {
+        Id int64 `json:"id"`
+        ReservationCategoryId int64 `json:"reservationCategoryId"`
+    }
+
+    AssignReservationToReservationCategoryReply {
+        Reservation
+    }
+)
