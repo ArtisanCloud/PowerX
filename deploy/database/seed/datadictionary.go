@@ -1,6 +1,7 @@
 package seed
 
 import (
+	"PowerX/deploy/database/cusotm/seed"
 	"PowerX/internal/model"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
@@ -14,6 +15,10 @@ func CreateDataDictionaries(db *gorm.DB) (err error) {
 	}
 
 	data := DefaultDataDictionary()
+	customData := seed.CustomDataDictionary()
+	for _, dd := range customData {
+		data = append(data, dd)
+	}
 
 	if count == 0 {
 		if err = db.Model(&model.DataDictionaryType{}).Create(data).Error; err != nil {

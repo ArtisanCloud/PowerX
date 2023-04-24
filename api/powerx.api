@@ -2,5 +2,5 @@ import "admin.api"
 import "admin.scrm.api"
 import "mp.api"
 
-import "custom.api"
+import "seed.api"
 import "plugin.api"

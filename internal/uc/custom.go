@@ -60,5 +60,4 @@ func NewCustomUseCase(conf *config.Config) (uc *CustomUseCase, clean func()) {
 }
 
 func (uc *CustomUseCase) AutoInit() {
-
 }

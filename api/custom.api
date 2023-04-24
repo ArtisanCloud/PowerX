@@ -1,1 +1,1 @@
-import "custom/reservation.api"
+import "seed/reservation.api"

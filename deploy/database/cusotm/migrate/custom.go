@@ -7,7 +7,7 @@ import (
 )
 
 func AutoMigrateCustom(db *gorm.DB) {
-	// migrate your custom models
+	// migrate your seed models
 	// product
 	_ = db.AutoMigrate(&product.ProductSpecific{})
 	// reservation center

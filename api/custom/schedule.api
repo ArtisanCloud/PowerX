@@ -93,7 +93,7 @@ type (
 
 type (
     CreateScheduleRequest struct {
-//        currentDate
+        currentDate time.time
     }
 
     CreateScheduleReply struct {
