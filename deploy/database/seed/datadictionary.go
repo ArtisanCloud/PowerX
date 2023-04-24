@@ -27,6 +27,7 @@ func CreateDataDictionaries(db *gorm.DB) (err error) {
 func DefaultDataDictionary() (data []*model.DataDictionaryType) {
 
 	data = []*model.DataDictionaryType{
+		defaultStatusDataDictionary(),
 		defaultApprovalStatusDataDictionary(),
 		defaultSalesChannelsDataDictionary(),
 		defaultPromoteChannelsDataDictionary(),
@@ -36,6 +37,52 @@ func DefaultDataDictionary() (data []*model.DataDictionaryType) {
 	}
 
 	return data
+
+}
+
+func defaultStatusDataDictionary() *model.DataDictionaryType {
+	return &model.DataDictionaryType{
+		Items: []*model.DataDictionaryItem{
+			&model.DataDictionaryItem{
+				Key:   model.ApprovalStatusDraft,
+				Type:  model.TypeProductType,
+				Name:  "草稿",
+				Value: model.ProductTypeGoods,
+				Sort:  0,
+			},
+			&model.DataDictionaryItem{
+				Key:   model.ApprovalStatusActive,
+				Type:  model.TypeProductType,
+				Name:  "激活",
+				Value: model.ProductTypeService,
+				Sort:  0,
+			},
+			&model.DataDictionaryItem{
+				Key:   model.ApprovalStatusCanceled,
+				Type:  model.TypeProductType,
+				Name:  "取消",
+				Value: model.ProductTypeService,
+				Sort:  0,
+			},
+			&model.DataDictionaryItem{
+				Key:   model.ApprovalStatusPending,
+				Type:  model.TypeProductType,
+				Name:  "代办",
+				Value: model.ProductTypeService,
+				Sort:  0,
+			},
+			&model.DataDictionaryItem{
+				Key:   model.ApprovalStatusInactive,
+				Type:  model.TypeProductType,
+				Name:  "无效",
+				Value: model.ProductTypeService,
+				Sort:  0,
+			},
+		},
+		Type:        model.TypeObjectStatus,
+		Name:        "对象状态",
+		Description: "默认对象的生命状态",
+	}
 
 }
 

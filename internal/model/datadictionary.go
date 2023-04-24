@@ -8,6 +8,14 @@ import (
 )
 
 // System
+const TypeObjectStatus = "_object_status"
+
+const ApprovalStatusDraft = "_draft"
+const ApprovalStatusActive = "_active"
+const ApprovalStatusCanceled = "_canceled"
+const ApprovalStatusPending = "_pending"
+const ApprovalStatusInactive = "_inactive"
+
 const TypeApprovalStatus = "_approval_status"
 
 const ApprovalStatusApply = "_apply"
