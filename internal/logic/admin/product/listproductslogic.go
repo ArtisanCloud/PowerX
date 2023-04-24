@@ -44,7 +44,6 @@ func (l *ListProductsLogic) ListProducts(req *types.ListProductsPageRequest) (re
 		Total:     page.Total,
 	}, nil
 
-	return
 }
 
 func TransformProductsToProductsReply(products []*product.Product) []types.Product {

@@ -15,9 +15,9 @@ const ApprovalStatusReject = "_reject"
 const ApprovalStatusSuccess = "_success"
 
 // Business
-const TypePromoteChannel = "_promote_platform"
-const TypeSalesChannel = "_sales_platform"
-const TypeSourceChannel = "_source_platform"
+const TypePromoteChannel = "_promote_channel"
+const TypeSalesChannel = "_sales_channel"
+const TypeSourceChannel = "_source_channel"
 
 const TypeProductType = "_product_type"
 const TypeProductPlan = "_product_plan"
