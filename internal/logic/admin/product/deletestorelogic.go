@@ -1,4 +1,4 @@
-package store
+package product
 
 import (
 	"context"
@@ -9,21 +9,21 @@ import (
 	"github.com/zeromicro/go-zero/core/logx"
 )
 
-type PatchStoreLogic struct {
+type DeleteStoreLogic struct {
 	logx.Logger
 	ctx    context.Context
 	svcCtx *svc.ServiceContext
 }
 
-func NewPatchStoreLogic(ctx context.Context, svcCtx *svc.ServiceContext) *PatchStoreLogic {
-	return &PatchStoreLogic{
+func NewDeleteStoreLogic(ctx context.Context, svcCtx *svc.ServiceContext) *DeleteStoreLogic {
+	return &DeleteStoreLogic{
 		Logger: logx.WithContext(ctx),
 		ctx:    ctx,
 		svcCtx: svcCtx,
 	}
 }
 
-func (l *PatchStoreLogic) PatchStore(req *types.PatchStoreRequest) (resp *types.PatchStoreReply, err error) {
+func (l *DeleteStoreLogic) DeleteStore(req *types.DeleteStoreRequest) (resp *types.DeleteStoreReply, err error) {
 	// todo: add your logic here and delete this line
 
 	return
