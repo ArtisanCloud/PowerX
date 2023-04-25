@@ -1,8 +1,8 @@
 package market
 
 import (
-	"PowerX/internal/model/market"
 	"PowerX/internal/model/powermodel"
+	"PowerX/internal/model/product"
 	"PowerX/internal/types/errorx"
 	"context"
 	"github.com/pkg/errors"
@@ -19,15 +19,15 @@ func NewStoreUseCase(db *gorm.DB) *StoreUseCase {
 	}
 }
 
-func (uc *StoreUseCase) CreateStore(ctx context.Context, lead *market.Store) {
+func (uc *StoreUseCase) CreateStore(ctx context.Context, lead *product.Store) {
 	if err := uc.db.WithContext(ctx).Create(&lead).Error; err != nil {
 		panic(err)
 	}
 }
 
-func (uc *StoreUseCase) UpsertStore(ctx context.Context, lead *market.Store) (*market.Store, error) {
+func (uc *StoreUseCase) UpsertStore(ctx context.Context, lead *product.Store) (*product.Store, error) {
 
-	leads := []*market.Store{lead}
+	leads := []*product.Store{lead}
 
 	_, err := uc.UpsertStores(ctx, leads)
 	if err != nil {
@@ -37,9 +37,9 @@ func (uc *StoreUseCase) UpsertStore(ctx context.Context, lead *market.Store) (*m
 	return lead, err
 }
 
-func (uc *StoreUseCase) UpsertStores(ctx context.Context, leads []*market.Store) ([]*market.Store, error) {
+func (uc *StoreUseCase) UpsertStores(ctx context.Context, leads []*product.Store) ([]*product.Store, error) {
 
-	err := powermodel.UpsertModelsOnUniqueID(uc.db.WithContext(ctx), &market.Store{}, market.StoreUniqueId, leads, nil)
+	err := powermodel.UpsertModelsOnUniqueID(uc.db.WithContext(ctx), &product.Store{}, product.StoreUniqueId, leads, nil)
 
 	if err != nil {
 		panic(errors.Wrap(err, "batch upsert leads failed"))
@@ -48,14 +48,14 @@ func (uc *StoreUseCase) UpsertStores(ctx context.Context, leads []*market.Store)
 	return leads, err
 }
 
-func (uc *StoreUseCase) PatchStore(ctx context.Context, id int64, lead *market.Store) {
-	if err := uc.db.WithContext(ctx).Model(&market.Store{}).Where(id).Updates(&lead).Error; err != nil {
+func (uc *StoreUseCase) PatchStore(ctx context.Context, id int64, lead *product.Store) {
+	if err := uc.db.WithContext(ctx).Model(&product.Store{}).Where(id).Updates(&lead).Error; err != nil {
 		panic(err)
 	}
 }
 
-func (uc *StoreUseCase) GetStore(ctx context.Context, id int64) (*market.Store, error) {
-	var lead market.Store
+func (uc *StoreUseCase) GetStore(ctx context.Context, id int64) (*product.Store, error) {
+	var lead product.Store
 	if err := uc.db.WithContext(ctx).First(&lead, id).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errorx.WithCause(errorx.ErrBadRequest, "未找到产品")
@@ -66,7 +66,7 @@ func (uc *StoreUseCase) GetStore(ctx context.Context, id int64) (*market.Store, 
 }
 
 func (uc *StoreUseCase) DeleteStore(ctx context.Context, id int64) error {
-	result := uc.db.WithContext(ctx).Delete(&market.Store{}, id)
+	result := uc.db.WithContext(ctx).Delete(&product.Store{}, id)
 	if err := result.Error; err != nil {
 		panic(err)
 	}

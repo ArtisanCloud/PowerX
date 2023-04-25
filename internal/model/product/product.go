@@ -3,7 +3,6 @@ package product
 import (
 	"PowerX/internal/model"
 	"PowerX/internal/model/powermodel"
-	fmt "PowerX/pkg/printx"
 	"github.com/ArtisanCloud/PowerLibs/v3/database"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
@@ -77,7 +76,7 @@ func (mdl *Product) LoadPivotSalesChannels(db *gorm.DB, conditions *map[string]i
 		Preload("DataDictionaryItem").
 		Find(&items).Error
 
-	fmt.Dump(items)
+	//fmt.Dump(items)
 	return items, err
 }
 
