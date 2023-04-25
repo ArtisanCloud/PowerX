@@ -42,7 +42,6 @@ func (uc *ProductUseCase) buildFindQueryNoPage(db *gorm.DB, opt *FindManyProduct
 }
 
 func (uc *ProductUseCase) FindManyProducts(ctx context.Context, opt *FindManyProductsOption) (pageList types.Page[*model.Product], err error) {
-	opt.DefaultPageIfNotSet()
 	var products []*model.Product
 	db := uc.db.WithContext(ctx).Model(&model.Product{})
 
@@ -51,6 +50,11 @@ func (uc *ProductUseCase) FindManyProducts(ctx context.Context, opt *FindManyPro
 	var count int64
 	if err := db.Count(&count).Error; err != nil {
 		panic(err)
+	}
+
+	opt.DefaultPageIfNotSet()
+	if opt.PageIndex != 0 && opt.PageSize != 0 {
+		db.Offset((opt.PageIndex - 1) * opt.PageSize).Limit(opt.PageSize)
 	}
 
 	if err := db.Find(&products).Error; err != nil {
