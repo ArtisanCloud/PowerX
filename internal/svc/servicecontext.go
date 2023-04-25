@@ -22,8 +22,6 @@ type ServiceContext struct {
 func NewServiceContext(c config.Config) *ServiceContext {
 	powerx, _ := uc.NewPowerXUseCase(&c)
 	custom, _ := uc.NewCustomUseCase(&c)
-<<<<<<< HEAD
-=======
 
 	// migrate tables
 	m, _ := migrate.NewPowerMigrator(&c)
@@ -33,7 +31,6 @@ func NewServiceContext(c config.Config) *ServiceContext {
 	// seed tables
 	s, _ := seed.NewPowerSeeder(&c)
 	_ = s.CreatePowerX()
->>>>>>> powerx/develop
 
 	return &ServiceContext{
 		Config:                c,

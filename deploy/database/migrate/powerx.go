@@ -1,7 +1,7 @@
 package migrate
 
 import (
-	"PowerX/deploy/database/cusotm/migrate"
+	"PowerX/deploy/database/custom/migrate"
 	"PowerX/internal/config"
 	"PowerX/internal/model"
 	"PowerX/internal/model/customerdomain"

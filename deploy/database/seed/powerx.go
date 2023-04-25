@@ -1,13 +1,9 @@
 package seed
 
 import (
-<<<<<<< HEAD
 	"PowerX/deploy/database/custom/seed"
-=======
-	"PowerX/deploy/database/cusotm/seed"
 	"PowerX/internal/config"
 	"gorm.io/driver/postgres"
->>>>>>> powerx/develop
 	"gorm.io/gorm"
 )
 
@@ -35,9 +31,6 @@ func (s *PowerSeeder) CreatePowerX() (err error) {
 
 	// custom
 	seed.CreateCustomSeeds(s.db)
-
-	// Custom
-	_ = seed.CreateStore(db)
 
 	return
 }

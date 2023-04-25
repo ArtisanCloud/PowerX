@@ -1,23 +1,16 @@
 package uc
 
 import (
-<<<<<<< HEAD
-	"PowerX/deploy/database/custom/migrate"
 	"PowerX/internal/config"
 	productCustomUC "PowerX/internal/uc/custom/product"
 	reservationCenterCustomUC "PowerX/internal/uc/custom/reservationcenter"
 	"github.com/pkg/errors"
 	"gorm.io/driver/postgres"
-=======
-	"PowerX/internal/config"
->>>>>>> powerx/develop
 	"gorm.io/gorm"
 )
 
 type CustomUseCase struct {
-	db *gorm.DB
-<<<<<<< HEAD
-
+	db              *gorm.DB
 	Schedule        *reservationCenterCustomUC.ScheduleUseCase
 	Reservation     *reservationCenterCustomUC.ReservationUseCase
 	CheckinLog      *reservationCenterCustomUC.CheckinLogUseCase
@@ -56,22 +49,7 @@ func NewCustomUseCase(conf *config.Config) (uc *CustomUseCase, clean func()) {
 	// 加载服务UseCase
 	uc.Service = productCustomUC.NewServiceSpecificUseCase(db)
 
-	migrate.AutoMigrateCustom(db)
-	uc.AutoInit()
-
 	return uc, func() {
 		_ = sqlDB.Close()
 	}
-}
-
-func (uc *CustomUseCase) AutoInit() {
-=======
-}
-
-func NewCustomUseCase(conf *config.Config) (uc *CustomUseCase, clean func()) {
-
-	return uc, func() {
-
-	}
->>>>>>> powerx/develop
 }
