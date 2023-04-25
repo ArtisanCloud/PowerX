@@ -1,8 +1,6 @@
 package uc
 
 import (
-	"PowerX/deploy/database/migrate"
-	"PowerX/deploy/database/seed"
 	"PowerX/internal/config"
 	"PowerX/internal/uc/powerx"
 	customerDomainUC "PowerX/internal/uc/powerx/customerdomain"
@@ -79,15 +77,7 @@ func NewPowerXUseCase(conf *config.Config) (uc *PowerXUseCase, clean func()) {
 	// 加载SCRM UseCase
 	uc.SCRM = powerx.NewSCRMUseCase(db, conf)
 
-	migrate.AutoMigrate(uc.db)
-	uc.AutoInit()
-
 	return uc, func() {
 		_ = sqlDB.Close()
 	}
-}
-
-func (uc *PowerXUseCase) AutoInit() {
-	uc.AdminAuthorization.Init()
-	_ = seed.CreatePowerX(uc.db)
 }
