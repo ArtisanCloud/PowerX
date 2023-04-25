@@ -25,6 +25,8 @@ type PowerXUseCase struct {
 	Product               *productUC.ProductUseCase
 	ProductCategory       *productUC.ProductCategoryUseCase
 	PriceBook             *productUC.PriceBookUseCase
+	Store                 *productUC.StoreUseCase
+	Artisan               *productUC.ArtisanUseCase
 	WechatMP              *powerx.WechatMiniProgramUseCase
 	WechatOA              *powerx.WechatOfficialAccountUseCase
 	SCRM                  *powerx.SCRMUseCase
@@ -67,6 +69,8 @@ func NewPowerXUseCase(conf *config.Config) (uc *PowerXUseCase, clean func()) {
 	uc.Product = productUC.NewProductUseCase(db)
 	uc.ProductCategory = productUC.NewProductCategoryUseCase(db)
 	uc.PriceBook = productUC.NewPriceBookUseCase(db)
+	uc.Store = productUC.NewStoreUseCase(db)
+	uc.Artisan = productUC.NewArtisanUseCase(db)
 
 	// 加载微信UseCase
 	uc.WechatMP = powerx.NewWechatMiniProgramUseCase(db, conf)
