@@ -12,6 +12,7 @@ import (
 type CustomUseCase struct {
 	db              *gorm.DB
 	Schedule        *reservationCenterCustomUC.ScheduleUseCase
+	ScheduleConfig  *reservationCenterCustomUC.ScheduleConfigUseCase
 	Reservation     *reservationCenterCustomUC.ReservationUseCase
 	CheckinLog      *reservationCenterCustomUC.CheckinLogUseCase
 	ArtisanSpecific *productCustomUC.ArtisanSpecificUseCase

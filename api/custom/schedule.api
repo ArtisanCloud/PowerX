@@ -57,7 +57,7 @@ type (
         CopyFromScheduleId int64 `json:"copyFromScheduleId,optional"`
         Name string `json:"name"`
         Description string `json:"description,optional"`
-        IsActive string `json:"isActive,optional"`
+        IsActive bool `json:"isActive,optional"`
         Status string `json:"status,optional"`
         StartTime string `json:"startTime"`
         EndTime string `json:"endTime"`

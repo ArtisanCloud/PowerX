@@ -15,6 +15,7 @@ func AutoMigrateCustom(db *gorm.DB) {
 	_ = db.AutoMigrate(
 		&custom.ArtisanSpecific{},
 		&reservationcenter.Schedule{},
+		&reservationcenter.ScheduleConfig{},
 		&reservationcenter.Reservation{},
 		&reservationcenter.CheckinLog{},
 	)
