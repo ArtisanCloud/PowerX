@@ -5,10 +5,12 @@ import (
 	"time"
 )
 
+// data dictinary types
 const OperationStatusType = "_operation_status"     // 预约操作类型
 const ReservationTypesType = "_reservation_type"    // 预约操作类型
 const ReservationStatusType = "_reservation_status" // 预约操作类型
 
+// data dictinary items
 const OperationStatusNone = "_none"                    // 无操作
 const OperationStatusCancelling = "_cancelling"        // 取消中
 const OperationStatusCancelled = "_cancelled"          // 已取消
@@ -31,19 +33,18 @@ type Reservation struct {
 	powermodel.PowerModel
 
 	ScheduleId          int64     `gorm:"comment:课程表Id" json:"scheduleId"`
-	CustomerId          int64     `gorm:"comment:客户Id"`
-	SourceChannelId     int64     `gorm:"comment:来源渠道Id"`
-	ReservedArtisanId   int64     `gorm:"comment:预约的设计师Id"`
-	Name                string    `gorm:"comment:预约记录名称"`
-	Type                int8      `gorm:"comment:类型，包括在线，线下，电话等"`
-	ReservedTime        time.Time `gorm:"comment:已预约时间"`
-	CancelTime          time.Time `gorm:"comment:取消时间"`
-	CheckinTime         time.Time `gorm:"comment:签到时间"`
-	Description         string    `gorm:"comment:描述"`
-	ConsumedPoints      float32   `gorm:"comment:消耗点数，非必填"`
-	ConsumeMembershipId int64     `gorm:"comment:抵扣会籍Id"`
-	OperationStatus     int       `gorm:"comment:操作状态"`
-	ReservationStatus   int       `gorm:"comment:预约状态"`
+	CustomerId          int64     `gorm:"comment:客户Id"  json:"customerId"`
+	SourceChannelId     int64     `gorm:"comment:来源渠道Id"  json:"sourceChannelId"`
+	ReservedArtisanId   int64     `gorm:"comment:预约的设计师Id"  json:"reservedArtisanId"`
+	Type                int       `gorm:"comment:类型，包括在线，线下，电话等"  json:"type"`
+	ReservedTime        time.Time `gorm:"comment:已预约时间"  json:"reservedTime"`
+	CancelTime          time.Time `gorm:"comment:取消时间"  json:"cancelTime"`
+	CheckinTime         time.Time `gorm:"comment:签到时间"  json:"checkinTime"`
+	Description         string    `gorm:"comment:描述"  json:"description"`
+	ConsumedPoints      int       `gorm:"comment:消耗点数，非必填"  json:"consumedPoints"`
+	ConsumeMembershipId int64     `gorm:"comment:抵扣会籍Id"  json:"consumeMembershipId"`
+	OperationStatus     int       `gorm:"comment:操作状态"  json:"operationStatus"`
+	ReservationStatus   int       `gorm:"comment:预约状态"  json:"reservationStatus"`
 }
 
 const ReservationUniqueId = powermodel.UniqueId

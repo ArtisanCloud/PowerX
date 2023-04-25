@@ -49,28 +49,19 @@ service PowerX {
 }
 
 type (
-
-
-
     Schedule {
         Id int64 `json:"id,optional"`
-
+        StoreId int64 `json:"storeId"`
+        ApprovalStatus string `json:"approvalStatus,optional"`
+        Capacity int32 `json:"capacity"`
+        CopyFromScheduleId int64 `json:"copyFromScheduleId,optional"`
         Name string `json:"name"`
-        Type int `json:"type"`
-        Plan int `json:"plan"`
-        AccountingCategory string `json:"accountingCategory"`
-        CanSellOnline bool `json:"canSellOnline,optional"`
-        CanUseForDeduct bool `json:"canUseForDeduct,optional"`
         Description string `json:"description,optional"`
-        CoverURL string `json:"coverURL,optional"`
-        PurchasedQuantity int `json:"purchasedQuantity,optional"`
-        ValidityPeriodDays uint8 `json:"validityPeriodDays,optional"`
-        SaleStartDate string `json:"saleStartDate,optional"`
-        SaleEndDate string `json:"saleEndDate,optional"`
-        ApprovalStatus int `json:"approvalStatus,optional"`
-        IsActivated bool `json:"isActivated,optional"`
+        IsActive string `json:"isActive,optional"`
+        Status string `json:"status,optional"`
+        StartTime string `json:"startTime"`
+        EndTime string `json:"endTime"`
         CreatedAt string `json:"createdAt,optional"`
-
     }
 )
 type (
@@ -93,11 +84,13 @@ type (
 
 type (
     CreateScheduleRequest struct {
-        currentDate time.time
+        currentDate string
     }
 
     CreateScheduleReply struct {
-        ScheduleKey int64 `json:"id"`
+        Schedules []Schedule `json:"list"`
+        StartDate string `json:"startDate"`
+        EndDate string `json:"endDate"`
     }
 )
 

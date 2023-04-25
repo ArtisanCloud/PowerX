@@ -49,28 +49,24 @@ service PowerX {
 }
 
 type (
-
-
-
     Reservation {
         Id int64 `json:"id,optional"`
 
-        Name string `json:"name"`
-        Type int `json:"type"`
-        Plan int `json:"plan"`
-        AccountingCategory string `json:"accountingCategory"`
-        CanSellOnline bool `json:"canSellOnline,optional"`
-        CanUseForDeduct bool `json:"canUseForDeduct,optional"`
+        ScheduleId int64 `json:"scheduleId"`
+        CustomerId int64 `json:"customerId"`
+        SourceChannelId int64 `json:"sourceChannelId"`
+        ReservedArtisanId int64 `json:"reservedArtisanId,optional"`
+        Name string `json:"name,optional"`
+        Type int `json:"type,optional"`
+        ReservedTime string `json:"reservedTime,optional"`
+        CancelTime string `json:"cancelTime,optional"`
+        CheckinTime string `json:"checkinTime,optional"`
         Description string `json:"description,optional"`
-        CoverURL string `json:"coverURL,optional"`
-        PurchasedQuantity int `json:"purchasedQuantity,optional"`
-        ValidityPeriodDays uint8 `json:"validityPeriodDays,optional"`
-        SaleStartDate string `json:"saleStartDate,optional"`
-        SaleEndDate string `json:"saleEndDate,optional"`
-        ApprovalStatus int `json:"approvalStatus,optional"`
-        IsActivated bool `json:"isActivated,optional"`
+        ConsumedPoints int `json:"consumedPoints,optional"`
+        ConsumeMembershipId float32 `json:"consumeMembershipId,optional"`
+        OperationStatus int64 `json:"operationStatus,optional"`
+        ReservationStatus int `json:"reservationStatus,optional"`
         CreatedAt string `json:"createdAt,optional"`
-
     }
 )
 type (
