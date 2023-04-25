@@ -94,6 +94,9 @@ type (
 
     GetStoreListReply struct {
         List []*Store `json:"list"`
+        PageIndex int `json:"pageIndex"`
+        PageSize int `json:"pageSize"`
+        Total int64 `json:"total"`
     }
 )
 

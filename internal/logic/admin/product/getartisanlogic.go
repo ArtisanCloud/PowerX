@@ -40,6 +40,7 @@ func (l *GetArtisanLogic) GetArtisan(req *types.GetArtisanRequest) (resp *types.
 
 func TransferArtisanToArtisanReply(artisan *product2.Artisan) *types.Artisan {
 	return &types.Artisan{
+		Id:          artisan.Id,
 		EmployeeId:  artisan.EmployeeId,
 		Name:        artisan.Name,
 		Level:       artisan.Level,

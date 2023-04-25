@@ -25,15 +25,32 @@ func NewListArtisansLogic(ctx context.Context, svcCtx *svc.ServiceContext) *List
 }
 
 func (l *ListArtisansLogic) ListArtisans(req *types.GetArtisanListRequest) (resp *types.GetArtisanListReply, err error) {
-	// todo: add your logic here and delete this line
+	page, err := l.svcCtx.PowerX.Artisan.FindManyArtisans(l.ctx, &product2.FindArtisanOption{
+		OrderBy: req.OrderBy,
+		PageEmbedOption: types.PageEmbedOption{
+			PageIndex: req.PageIndex,
+			PageSize:  req.PageSize,
+		},
+	})
 
-	return
+	if err != nil {
+		return nil, err
+	}
+
+	list := TransferArtisansToArtisansReply(page.List)
+	return &types.GetArtisanListReply{
+		List:      list,
+		PageIndex: page.PageIndex,
+		PageSize:  page.PageSize,
+		Total:     page.Total,
+	}, nil
+
 }
 
-func TransferArtisansToArtisansReply(artisans []*product2.Artisan) []*types.StoreArtisan {
-	artisansReply := []*types.StoreArtisan{}
+func TransferArtisansToArtisansReply(artisans []*product2.Artisan) []*types.Artisan {
+	artisansReply := []*types.Artisan{}
 	for _, artisan := range artisans {
-		artisanReply := TransferArtisanToShopArtisan(artisan)
+		artisanReply := TransferArtisanToArtisanReply(artisan)
 		artisansReply = append(artisansReply, artisanReply)
 	}
 	return artisansReply
