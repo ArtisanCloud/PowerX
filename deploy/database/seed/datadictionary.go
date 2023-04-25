@@ -16,7 +16,7 @@ func CreateDataDictionaries(db *gorm.DB) (err error) {
 	}
 
 	data := DefaultDataDictionary()
-	customData := seed.CustomDataDictionary()
+	customData := seed.CustomDataDictionary(db)
 	for _, dd := range customData {
 		data = append(data, dd)
 	}

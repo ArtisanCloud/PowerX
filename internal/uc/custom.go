@@ -1,17 +1,22 @@
 package uc
 
 import (
+<<<<<<< HEAD
 	"PowerX/deploy/database/custom/migrate"
 	"PowerX/internal/config"
 	productCustomUC "PowerX/internal/uc/custom/product"
 	reservationCenterCustomUC "PowerX/internal/uc/custom/reservationcenter"
 	"github.com/pkg/errors"
 	"gorm.io/driver/postgres"
+=======
+	"PowerX/internal/config"
+>>>>>>> powerx/develop
 	"gorm.io/gorm"
 )
 
 type CustomUseCase struct {
 	db *gorm.DB
+<<<<<<< HEAD
 
 	Schedule        *reservationCenterCustomUC.ScheduleUseCase
 	Reservation     *reservationCenterCustomUC.ReservationUseCase
@@ -60,4 +65,13 @@ func NewCustomUseCase(conf *config.Config) (uc *CustomUseCase, clean func()) {
 }
 
 func (uc *CustomUseCase) AutoInit() {
+=======
+}
+
+func NewCustomUseCase(conf *config.Config) (uc *CustomUseCase, clean func()) {
+
+	return uc, func() {
+
+	}
+>>>>>>> powerx/develop
 }
