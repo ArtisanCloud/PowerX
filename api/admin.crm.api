@@ -1,0 +1,8 @@
+import "admin/crm/lead.api"
+import "admin/crm/customer.api"
+import "admin/crm/media.api"
+import "admin/crm/opportunity.api"
+import "admin/crm/product.api"
+import "admin/crm/productcategory.api"
+import "admin/crm/pricebook.api"
+import "admin/crm/store.api"

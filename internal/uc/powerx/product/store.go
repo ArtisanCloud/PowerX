@@ -41,6 +41,18 @@ func (uc *StoreUseCase) buildFindQueryNoPage(db *gorm.DB, opt *FindManyStoresOpt
 	return db
 }
 
+func (uc *StoreUseCase) FindAllShops(ctx context.Context, opt *FindManyStoresOption) (dictionaryItems []*model.Store, err error) {
+	query := uc.db.WithContext(ctx).Model(&model.Store{})
+
+	query = uc.buildFindQueryNoPage(query, opt)
+	if err := query.
+		Debug().
+		Find(&dictionaryItems).Error; err != nil {
+		panic(errors.Wrap(err, "find all dictionaryItems failed"))
+	}
+	return dictionaryItems, err
+}
+
 func (uc *StoreUseCase) FindManyStores(ctx context.Context, opt *FindManyStoresOption) (pageList types.Page[*model.Store], err error) {
 	opt.DefaultPageIfNotSet()
 	var products []*model.Store
