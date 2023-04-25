@@ -27,7 +27,7 @@ func DefaultStore() []*product.Store {
 		&product.Store{
 			Artisans: []*product.Artisan{
 				&product.Artisan{
-					Specific: custom.ArtisanSpecific{
+					ArtisanSpecific: &custom.ArtisanSpecific{
 						MaxServiceDuration: 60,
 						MandatoryDuration:  10,
 					},
@@ -37,7 +37,7 @@ func DefaultStore() []*product.Store {
 				&product.Artisan{
 					Name:        "发型师B",
 					PhoneNumber: "13564674241",
-					Specific: custom.ArtisanSpecific{
+					ArtisanSpecific: &custom.ArtisanSpecific{
 						MaxServiceDuration: 40,
 						MandatoryDuration:  10,
 					},
@@ -45,7 +45,7 @@ func DefaultStore() []*product.Store {
 				&product.Artisan{
 					Name:        "发型师C",
 					PhoneNumber: "13564674242",
-					Specific: custom.ArtisanSpecific{
+					ArtisanSpecific: &custom.ArtisanSpecific{
 						MaxServiceDuration: 30,
 						MandatoryDuration:  10,
 					},
@@ -57,7 +57,7 @@ func DefaultStore() []*product.Store {
 		&product.Store{
 			Artisans: []*product.Artisan{
 				&product.Artisan{
-					Specific: custom.ArtisanSpecific{
+					ArtisanSpecific: &custom.ArtisanSpecific{
 						MaxServiceDuration: 60,
 						MandatoryDuration:  10,
 					},
@@ -65,7 +65,7 @@ func DefaultStore() []*product.Store {
 					PhoneNumber: "13564674243",
 				},
 				&product.Artisan{
-					Specific: custom.ArtisanSpecific{
+					ArtisanSpecific: &custom.ArtisanSpecific{
 						MaxServiceDuration: 40,
 						MandatoryDuration:  10,
 					},
@@ -73,7 +73,7 @@ func DefaultStore() []*product.Store {
 					PhoneNumber: "13564674244",
 				},
 				&product.Artisan{
-					Specific: custom.ArtisanSpecific{
+					ArtisanSpecific: &custom.ArtisanSpecific{
 						MaxServiceDuration: 30,
 						MandatoryDuration:  10,
 					},
@@ -87,7 +87,7 @@ func DefaultStore() []*product.Store {
 		&product.Store{
 			Artisans: []*product.Artisan{
 				&product.Artisan{
-					Specific: custom.ArtisanSpecific{
+					ArtisanSpecific: &custom.ArtisanSpecific{
 						MaxServiceDuration: 60,
 						MandatoryDuration:  10,
 					},
@@ -95,7 +95,7 @@ func DefaultStore() []*product.Store {
 					PhoneNumber: "13564674246",
 				},
 				&product.Artisan{
-					Specific: custom.ArtisanSpecific{
+					ArtisanSpecific: &custom.ArtisanSpecific{
 						MaxServiceDuration: 40,
 						MandatoryDuration:  10,
 					},
@@ -103,7 +103,7 @@ func DefaultStore() []*product.Store {
 					PhoneNumber: "13564674247",
 				},
 				&product.Artisan{
-					Specific: custom.ArtisanSpecific{
+					ArtisanSpecific: &custom.ArtisanSpecific{
 						MaxServiceDuration: 30,
 						MandatoryDuration:  10,
 					},
