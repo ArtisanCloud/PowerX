@@ -17,44 +17,44 @@ info(
 
 service PowerX {
     @doc "查询元匠列表"
-    @handler ListArtisans
-    get /artisans (GetArtisanListRequest) returns (GetArtisanListReply)
+    @handler ListArtisanSpecifics
+    get /artisan-specifics (GetArtisanSpecificListRequest) returns (GetArtisanSpecificListReply)
 
     @doc "查询元匠详情"
-    @handler GetArtisan
-    get /artisans/:id (GetArtisanRequest) returns (GetArtisanReply)
+    @handler GetArtisanSpecific
+    get /artisan-specifics/:id (GetArtisanSpecificRequest) returns (GetArtisanSpecificReply)
 
 
     @doc "创建元匠"
-    @handler CreateArtisan
-    post /artisans (CreateArtisanRequest) returns (CreateArtisanReply)
+    @handler CreateArtisanSpecific
+    post /artisan-specifics (CreateArtisanSpecificRequest) returns (CreateArtisanSpecificReply)
 
 
     @doc "全量元匠"
-    @handler PutArtisan
-    put /artisans/:id (PutArtisanRequest) returns (PutArtisanReply)
+    @handler PutArtisanSpecific
+    put /artisan-specifics/:id (PutArtisanSpecificRequest) returns (PutArtisanSpecificReply)
 
     @doc "增量元匠"
-    @handler PatchArtisan
-    patch /artisans/:id (PatchArtisanRequest) returns (PatchArtisanReply)
+    @handler PatchArtisanSpecific
+    patch /artisan-specifics/:id (PatchArtisanSpecificRequest) returns (PatchArtisanSpecificReply)
 
 
     @doc "删除元匠"
-    @handler DeleteArtisan
-    delete /artisans/:id (DeleteArtisanRequest) returns (DeleteArtisanReply)
+    @handler DeleteArtisanSpecific
+    delete /artisan-specifics/:id (DeleteArtisanSpecificRequest) returns (DeleteArtisanSpecificReply)
 
     @doc "分配元匠品类给元匠品类分类"
-    @handler AssignArtisanToArtisanCategory
-    post /artisans/:id/actions/assign-to-store-categroy (AssignArtisanManagerRequest) returns (AssignArtisanManagerReply)
+    @handler AssignArtisanSpecificToArtisanSpecificCategory
+    post /artisan-specifics/:id/actions/assign-to-store-categroy (AssignArtisanSpecificManagerRequest) returns (AssignArtisanSpecificManagerReply)
 }
 
 type (
 
-    ArtisanSpecific{
-        ArtisanId int64 `json:"artisanId,optional"`
+    ArtisanSpecificSpecific{
+        ArtisanSpecificId int64 `json:"artisanId,optional"`
     }
 
-    Artisan {
+    ArtisanSpecific {
         EmployeeId int64 `json:"employeeId,optional"`
         Name string `json:"name,optional"`
         Level int8 `json:"level,optional"`
@@ -68,86 +68,86 @@ type (
         Specialty string `json:"specialty,optional"`
         Certificate string `json:"certificate,optional"`
         Address string `json:"address,optional"`
-        ArtisanSpecific ArtisanSpecific `json:"artisanSpecific,optional"`
+        ArtisanSpecificSpecific ArtisanSpecificSpecific `json:"artisanSpecific,optional"`
     }
 
 
 )
 type (
-    GetArtisanListRequest struct {
-        ArtisanType string `form:"storeType,optional"`
+    GetArtisanSpecificListRequest struct {
+        ArtisanSpecificType string `form:"storeType,optional"`
         Keys []string `form:"keys,optional"`
         OrderBy string `form:"orderBy,optional"`
     }
 
 
-    GetArtisanListReply struct {
-        List []*Artisan `json:"list"`
+    GetArtisanSpecificListReply struct {
+        List []*ArtisanSpecific `json:"list"`
     }
 )
 
 type (
-    CreateArtisanRequest struct {
-        Artisan
+    CreateArtisanSpecificRequest struct {
+        ArtisanSpecific
     }
 
-    CreateArtisanReply struct {
-        ArtisanId string `json:"id"`
-    }
-)
-
-type (
-    GetArtisanRequest struct {
-        ArtisanId int64 `path:"id"`
-    }
-
-    GetArtisanReply struct {
-        *Artisan
-    }
-)
-
-
-type (
-    PutArtisanRequest struct {
-        ArtisanId int64  `path:"storeId"`
-        Artisan
-    }
-
-    PutArtisanReply struct {
-        *Artisan
+    CreateArtisanSpecificReply struct {
+        ArtisanSpecificId string `json:"id"`
     }
 )
 
 type (
-    PatchArtisanRequest struct {
-        ArtisanId int64  `path:"storeId"`
-        Artisan
+    GetArtisanSpecificRequest struct {
+        ArtisanSpecificId int64 `path:"id"`
     }
 
-    PatchArtisanReply struct {
-        *Artisan
+    GetArtisanSpecificReply struct {
+        *ArtisanSpecific
     }
 )
 
 
 type (
-    DeleteArtisanRequest struct {
-        ArtisanId int64  `path:"storeId"`
+    PutArtisanSpecificRequest struct {
+        ArtisanSpecificId int64  `path:"storeId"`
+        ArtisanSpecific
     }
 
-    DeleteArtisanReply struct {
-        ArtisanId int64  `json:"storeId"`
+    PutArtisanSpecificReply struct {
+        *ArtisanSpecific
+    }
+)
+
+type (
+    PatchArtisanSpecificRequest struct {
+        ArtisanSpecificId int64  `path:"storeId"`
+        ArtisanSpecific
+    }
+
+    PatchArtisanSpecificReply struct {
+        *ArtisanSpecific
     }
 )
 
 
 type (
-    AssignArtisanManagerRequest {
+    DeleteArtisanSpecificRequest struct {
+        ArtisanSpecificId int64  `path:"storeId"`
+    }
+
+    DeleteArtisanSpecificReply struct {
+        ArtisanSpecificId int64  `json:"storeId"`
+    }
+)
+
+
+type (
+    AssignArtisanSpecificManagerRequest {
         Id int64 `path:"id"`
         EmployeeId int64 `json:"employeeId"`
     }
 
-    AssignArtisanManagerReply {
-        Artisan
+    AssignArtisanSpecificManagerReply {
+        ArtisanSpecific
     }
 )

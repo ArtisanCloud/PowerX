@@ -1170,7 +1170,10 @@ type GetStoreListRequest struct {
 }
 
 type GetStoreListReply struct {
-	List []*Store `json:"list"`
+	List      []*Store `json:"list"`
+	PageIndex int      `json:"pageIndex"`
+	PageSize  int      `json:"pageSize"`
+	Total     int64    `json:"total"`
 }
 
 type CreateStoreRequest struct {
@@ -1229,6 +1232,7 @@ type ArtisanSpecific struct {
 }
 
 type Artisan struct {
+	Id              int64           `json:"id,optional"`
 	EmployeeId      int64           `json:"employeeId,optional"`
 	Name            string          `json:"name,optional"`
 	Level           int8            `json:"level,optional"`
@@ -1249,10 +1253,15 @@ type GetArtisanListRequest struct {
 	ArtisanType string   `form:"storeType,optional"`
 	Keys        []string `form:"keys,optional"`
 	OrderBy     string   `form:"orderBy,optional"`
+	PageIndex   int      `form:"pageIndex,optional"`
+	PageSize    int      `form:"pageSize,optional"`
 }
 
 type GetArtisanListReply struct {
-	List []*Artisan `json:"list"`
+	List      []*Artisan `json:"list"`
+	PageIndex int        `json:"pageIndex"`
+	PageSize  int        `json:"pageSize"`
+	Total     int64      `json:"total"`
 }
 
 type CreateArtisanRequest struct {

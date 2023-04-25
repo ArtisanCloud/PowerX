@@ -3,6 +3,7 @@ package product
 import (
 	"PowerX/internal/model/powermodel"
 	"PowerX/internal/model/product"
+	"PowerX/internal/types"
 	"PowerX/internal/types/errorx"
 	"context"
 	"github.com/pkg/errors"
@@ -27,7 +28,7 @@ func (uc *ArtisanUseCase) buildFindQueryNoPage(query *gorm.DB, opt *product.Find
 		query.Where("name in ?", opt.Names)
 	}
 
-	orderBy := "id, sort asc"
+	orderBy := "id asc"
 	if opt.OrderBy != "" {
 		orderBy = opt.OrderBy + "," + orderBy
 	}
@@ -45,6 +46,37 @@ func (uc *ArtisanUseCase) FindAllArtisans(ctx context.Context, opt *product.Find
 		panic(errors.Wrap(err, "find all productCategories failed"))
 	}
 	return productCategories
+}
+
+func (uc *ArtisanUseCase) FindManyArtisans(ctx context.Context, opt *product.FindArtisanOption) (pageList types.Page[*product.Artisan], err error) {
+	var artisans []*product.Artisan
+	db := uc.db.WithContext(ctx).Model(&product.Artisan{})
+
+	db = uc.buildFindQueryNoPage(db, opt)
+
+	var count int64
+	if err := db.Count(&count).Error; err != nil {
+		panic(err)
+	}
+
+	opt.DefaultPageIfNotSet()
+	if opt.PageIndex != 0 && opt.PageSize != 0 {
+		db.Offset((opt.PageIndex - 1) * opt.PageSize).Limit(opt.PageSize)
+	}
+
+	if err := db.
+		Debug().
+		//Preload("ArtisanSpecific").
+		Find(&artisans).Error; err != nil {
+		panic(err)
+	}
+
+	return types.Page[*product.Artisan]{
+		List:      artisans,
+		PageIndex: opt.PageIndex,
+		PageSize:  opt.PageSize,
+		Total:     count,
+	}, nil
 }
 
 func (uc *ArtisanUseCase) FindOneArtisan(ctx context.Context, opt *product.FindArtisanOption) (*product.Artisan, error) {

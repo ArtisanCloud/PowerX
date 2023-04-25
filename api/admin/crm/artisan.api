@@ -49,12 +49,12 @@ service PowerX {
 }
 
 type (
-
-    ArtisanSpecific{
+    ArtisanSpecific {
         ArtisanId int64 `json:"artisanId,optional"`
     }
 
     Artisan {
+        Id int64 `json:"id,optional"`
         EmployeeId int64 `json:"employeeId,optional"`
         Name string `json:"name,optional"`
         Level int8 `json:"level,optional"`
@@ -70,19 +70,22 @@ type (
         Address string `json:"address,optional"`
         ArtisanSpecific ArtisanSpecific `json:"artisanSpecific,optional"`
     }
-
-
 )
 type (
     GetArtisanListRequest struct {
         ArtisanType string `form:"storeType,optional"`
         Keys []string `form:"keys,optional"`
         OrderBy string `form:"orderBy,optional"`
+        PageIndex int `form:"pageIndex,optional"`
+        PageSize int `form:"pageSize,optional"`
     }
 
 
     GetArtisanListReply struct {
         List []*Artisan `json:"list"`
+        PageIndex int `json:"pageIndex"`
+        PageSize int `json:"pageSize"`
+        Total int64 `json:"total"`
     }
 )
 
@@ -109,7 +112,7 @@ type (
 
 type (
     PutArtisanRequest struct {
-        ArtisanId int64  `path:"storeId"`
+        ArtisanId int64 `path:"storeId"`
         Artisan
     }
 
@@ -120,7 +123,7 @@ type (
 
 type (
     PatchArtisanRequest struct {
-        ArtisanId int64  `path:"storeId"`
+        ArtisanId int64 `path:"storeId"`
         Artisan
     }
 
@@ -132,11 +135,11 @@ type (
 
 type (
     DeleteArtisanRequest struct {
-        ArtisanId int64  `path:"storeId"`
+        ArtisanId int64 `path:"storeId"`
     }
 
     DeleteArtisanReply struct {
-        ArtisanId int64  `json:"storeId"`
+        ArtisanId int64 `json:"storeId"`
     }
 )
 

@@ -37,7 +37,6 @@ func (l *ListStoresLogic) ListStores(req *types.GetStoreListRequest) (resp *type
 		List: list,
 	}, nil
 
-	return
 }
 
 func TransferStoresToStoresReply(stores []*product2.Store) []*types.Store {

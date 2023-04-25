@@ -3,13 +3,14 @@ package product
 import (
 	"PowerX/internal/model/custom"
 	"PowerX/internal/model/powermodel"
+	"PowerX/internal/types"
 	"time"
 )
 
 type Artisan struct {
 	powermodel.PowerModel
 
-	Specific custom.ArtisanSpecific `gorm:"foreignKey:ArtisanId;references:Id" json:"specific"`
+	ArtisanSpecific *custom.ArtisanSpecific `gorm:"foreignKey:ArtisanId;references:Id" json:"Specific"`
 
 	EmployeeId  int64     `gorm:"comment:员工Id"`
 	Name        string    `gorm:"comment:Artisan名称"`
@@ -40,4 +41,5 @@ type FindArtisanOption struct {
 	OrderBy string
 	Ids     []int64
 	Names   []string
+	types.PageEmbedOption
 }
