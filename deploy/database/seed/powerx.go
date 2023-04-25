@@ -1,15 +1,36 @@
 package seed
 
 import (
+	"PowerX/deploy/database/cusotm/seed"
+	"PowerX/internal/config"
+	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
-func CreatePowerX(db *gorm.DB) (err error) {
+type PowerSeeder struct {
+	db *gorm.DB
+}
 
-	_ = CreateOrganization(db)
-	_ = CreateDataDictionaries(db)
-	_ = CreatePriceBooks(db)
-	_ = CreateProductCategories(db)
+func NewPowerSeeder(conf *config.Config) (*PowerSeeder, error) {
+	db, err := gorm.Open(postgres.Open(conf.PowerXDatabase.DSN), &gorm.Config{
+		//Logger:                                   logger.Default.LogMode(logger.Info),
+		DisableForeignKeyConstraintWhenMigrating: true,
+	})
+
+	return &PowerSeeder{
+		db: db,
+	}, err
+}
+
+func (s *PowerSeeder) CreatePowerX() (err error) {
+
+	_ = CreateOrganization(s.db)
+	_ = CreateDataDictionaries(s.db)
+	_ = CreatePriceBooks(s.db)
+	_ = CreateProductCategories(s.db)
+
+	// custom
+	seed.CreateCustomSeeds(s.db)
 
 	return
 }
