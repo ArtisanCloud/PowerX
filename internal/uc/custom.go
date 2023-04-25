@@ -1,7 +1,7 @@
 package uc
 
 import (
-	"PowerX/deploy/database/cusotm/migrate"
+	"PowerX/deploy/database/custom/migrate"
 	"PowerX/internal/config"
 	productCustomUC "PowerX/internal/uc/custom/product"
 	reservationCenterCustomUC "PowerX/internal/uc/custom/reservationcenter"
@@ -13,11 +13,11 @@ import (
 type CustomUseCase struct {
 	db *gorm.DB
 
-	Artisan     *reservationCenterCustomUC.ArtisanUseCase
-	Schedule    *reservationCenterCustomUC.ScheduleUseCase
-	Reservation *reservationCenterCustomUC.ReservationUseCase
-	CheckinLog  *reservationCenterCustomUC.CheckinLogUseCase
-	Service     *productCustomUC.ServiceSpecificUseCase
+	Schedule        *reservationCenterCustomUC.ScheduleUseCase
+	Reservation     *reservationCenterCustomUC.ReservationUseCase
+	CheckinLog      *reservationCenterCustomUC.CheckinLogUseCase
+	ArtisanSpecific *productCustomUC.ArtisanSpecificUseCase
+	Service         *productCustomUC.ServiceSpecificUseCase
 }
 
 func NewCustomUseCase(conf *config.Config) (uc *CustomUseCase, clean func()) {
@@ -43,10 +43,10 @@ func NewCustomUseCase(conf *config.Config) (uc *CustomUseCase, clean func()) {
 	}
 
 	// 加载预约中心UseCase
-	uc.Artisan = reservationCenterCustomUC.NewArtisanUseCase(db)
 	uc.Schedule = reservationCenterCustomUC.NewScheduleUseCase(db)
 	uc.Reservation = reservationCenterCustomUC.NewReservationUseCase(db)
 	uc.CheckinLog = reservationCenterCustomUC.NewCheckinLogUseCase(db)
+	uc.ArtisanSpecific = productCustomUC.NewArtisanSpecificUseCase(db)
 
 	// 加载服务UseCase
 	uc.Service = productCustomUC.NewServiceSpecificUseCase(db)

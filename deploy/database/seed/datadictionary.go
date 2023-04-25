@@ -1,7 +1,7 @@
 package seed
 
 import (
-	"PowerX/deploy/database/cusotm/seed"
+	"PowerX/deploy/database/custom/seed"
 	"PowerX/internal/model"
 	"PowerX/internal/model/product"
 	"github.com/pkg/errors"

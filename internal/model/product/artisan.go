@@ -1,12 +1,15 @@
 package product
 
 import (
+	"PowerX/internal/model/custom"
 	"PowerX/internal/model/powermodel"
 	"time"
 )
 
 type Artisan struct {
 	powermodel.PowerModel
+
+	Specific custom.ArtisanSpecific `gorm:"foreignKey:ArtisanId;references:Id" json:"specific"`
 
 	EmployeeId  int64     `gorm:"comment:员工Id"`
 	Name        string    `gorm:"comment:Artisan名称"`
