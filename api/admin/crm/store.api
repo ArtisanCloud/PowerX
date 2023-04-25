@@ -10,40 +10,40 @@ info(
 
 
 @server(
-    group: admin/store
-    prefix: /api/v1/admin/store
+    group: admin/product
+    prefix: /api/v1/admin/product
     middleware: EmployeeJWTAuth
 )
 
 service PowerX {
-    @doc "查询产品列表"
+    @doc "查询门店列表"
     @handler ListStores
     get /stores (GetStoreListRequest) returns (GetStoreListReply)
 
-    @doc "查询产品详情"
+    @doc "查询门店详情"
     @handler GetStore
     get /stores/:id (GetStoreRequest) returns (GetStoreReply)
 
 
-    @doc "创建产品"
+    @doc "创建门店"
     @handler CreateStore
     post /stores (CreateStoreRequest) returns (CreateStoreReply)
 
 
-    @doc "全量产品"
+    @doc "全量门店"
     @handler PutStore
     put /stores/:id (PutStoreRequest) returns (PutStoreReply)
 
-    @doc "增量产品"
+    @doc "增量门店"
     @handler PatchStore
     patch /stores/:id (PatchStoreRequest) returns (PatchStoreReply)
 
 
-    @doc "删除产品"
+    @doc "删除门店"
     @handler DeleteStore
     delete /stores/:id (DeleteStoreRequest) returns (DeleteStoreReply)
 
-    @doc "分配产品品类给产品品类分类"
+    @doc "分配门店品类给门店品类分类"
     @handler AssignStoreToStoreCategory
     post /stores/:id/actions/assign-to-store-categroy (AssignStoreManagerRequest) returns (AssignStoreManagerReply)
 }
@@ -52,7 +52,7 @@ type (
     Store {
         Id int64 `json:"id,optional"`
         Name string `json:"name"`
-        EmployeeID int64 `json:"employeeID"`
+        EmployeeId int64 `json:"employeeId"`
         ContactNumber string `json:"contactNumber"`
         CoverURL string `json:"coverURL"`
         Address string `json:"address"`
@@ -66,16 +66,11 @@ type (
         StoreType string `form:"storeType,optional"`
         Keys []string `form:"keys,optional"`
         OrderBy string `form:"orderBy,optional"`
-        PageIndex int `form:"pageIndex,optional"`
-        PageSize int `form:"pageSize,optional"`
     }
 
 
     GetStoreListReply struct {
         List []Store `json:"list"`
-        PageIndex int `json:"pageIndex"`
-        PageSize int `json:"pageSize"`
-        Total int64 `json:"total"`
     }
 )
 

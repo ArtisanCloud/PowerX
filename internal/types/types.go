@@ -397,6 +397,166 @@ type ExchangeReply struct {
 	RefreshToken string `json:"refreshToken"`
 }
 
+type ListDictionaryTypesPageRequest struct {
+	PageIndex int `form:"pageIndex,optional"`
+	PageSize  int `form:"pageSize,optional"`
+}
+
+type DictionaryType struct {
+	Id          int64             `json:"id,optional"`
+	Type        string            `json:"type"`
+	Name        string            `json:"name"`
+	Description string            `json:"description"`
+	Items       []*DictionaryItem `json:"items,optional"`
+}
+
+type ListDictionaryTypesPageReply struct {
+	List      []DictionaryType `json:"list"`
+	PageIndex int              `json:"pageIndex"`
+	PageSize  int              `json:"pageSize"`
+	Total     int64            `json:"total"`
+}
+
+type GetDictionaryTypeRequest struct {
+	DictionaryType string `path:"type"`
+}
+
+type GetDictionaryTypeReply struct {
+	*DictionaryType
+}
+
+type CreateDictionaryTypeRequest struct {
+	Type        string `json:"type"`
+	Name        string `json:"name"`
+	Description string `json:"description,optional"`
+}
+
+type CreateDictionaryTypeReply struct {
+	Type        string `json:"type"`
+	Name        string `json:"name"`
+	Description string `json:"description,optional"`
+}
+
+type UpdateDictionaryTypeRequest struct {
+	Type        string `path:"type"`
+	Name        string `json:"name,optional"`
+	Description string `json:"description,optional"`
+}
+
+type UpdateDictionaryTypeReply struct {
+	*DictionaryType
+}
+
+type DeleteDictionaryTypeRequest struct {
+	Type string `path:"type"`
+}
+
+type DeleteDictionaryTypeReply struct {
+	Type string `json:"type"`
+}
+
+type ListDictionaryItemsRequest struct {
+	Type      string `form:"type"`
+	PageIndex int    `form:"pageIndex,optional"`
+	PageSize  int    `form:"pageSize,optional"`
+}
+
+type DictionaryItem struct {
+	Id          int64  `json:"id,optional"`
+	Key         string `json:"key"`
+	Type        string `json:"type"`
+	Name        string `json:"name"`
+	Value       string `json:"value"`
+	Sort        int    `json:"sort"`
+	Description string `json:"description"`
+}
+
+type ListDictionaryItemsReply struct {
+	List []DictionaryItem `json:"list"`
+}
+
+type GetDictionaryItemRequest struct {
+	DictionaryType string `path:"type"`
+	DictionaryItem string `path:"key"`
+}
+
+type GetDictionaryItemReply struct {
+	*DictionaryItem
+}
+
+type CreateDictionaryItemRequest struct {
+	Key         string `json:"key"`
+	Type        string `json:"type"`
+	Name        string `json:"name"`
+	Value       string `json:"value"`
+	Sort        int    `json:"sort,optional"`
+	Description string `json:"description,optional"`
+}
+
+type CreateDictionaryItemReply struct {
+	Key         string `json:"key"`
+	Type        string `json:"type"`
+	Name        string `json:"name,optional"`
+	Value       string `json:"value,optional"`
+	Sort        int    `json:"sort,optional"`
+	Description string `json:"description,optional"`
+}
+
+type UpdateDictionaryItemRequest struct {
+	Key         string `path:"key"`
+	Type        string `path:"type"`
+	Name        string `json:"name,optional"`
+	Value       string `json:"value,optional"`
+	Sort        int    `json:"sort,optional"`
+	Description string `json:"description,optional"`
+}
+
+type UpdateDictionaryItemReply struct {
+	*DictionaryItem
+}
+
+type DeleteDictionaryItemRequest struct {
+	Key  string `path:"key"`
+	Type string `path:"type"`
+}
+
+type DeleteDictionaryItemReply struct {
+	Key  string `json:"key"`
+	Type string `json:"type"`
+}
+
+type GetUserInfoReply struct {
+	Id            int64    `json:"id"`
+	Account       string   `json:"account"`
+	Name          string   `json:"name"`
+	Email         string   `json:"email"`
+	MobilePhone   string   `json:"mobilePhone"`
+	Gender        string   `json:"gender"`
+	NickName      string   `json:"nickName"`
+	Desc          string   `json:"desc"`
+	Avatar        string   `json:"avatar"`
+	ExternalEmail string   `json:"externalEmail"`
+	DepName       string   `json:"depName"`
+	Position      string   `json:"position"`
+	JobTitle      string   `json:"jobTitle"`
+	IsEnabled     bool     `json:"isEnabled"`
+	CreatedAt     string   `json:"createdAt"`
+	Roles         []string `json:"roles"`
+}
+
+type MenuRoles struct {
+	MenuName       string   `json:"menuName"`
+	AllowRoleCodes []string `json:"allowRoleCodes"`
+}
+
+type GetMenuRolesReply struct {
+	MenuRoles []MenuRoles `json:"menuRoles"`
+}
+
+type ModifyPasswordReqeust struct {
+	Password string `json:"password"`
+}
+
 type LeadExternalId struct {
 	OpenIDInMiniProgram           string `json:"openIdInMiniProgram,optional"`
 	OpenIDInWeChatOfficialAccount string `json:"openIdInWeChatOfficialAccount,optional"`
@@ -650,134 +810,6 @@ type DeleteMediaReply struct {
 	Key string `json:"key"`
 }
 
-type ListDictionaryTypesPageRequest struct {
-	PageIndex int `form:"pageIndex,optional"`
-	PageSize  int `form:"pageSize,optional"`
-}
-
-type DictionaryType struct {
-	Id          int64             `json:"id,optional"`
-	Type        string            `json:"type"`
-	Name        string            `json:"name"`
-	Description string            `json:"description"`
-	Items       []*DictionaryItem `json:"items,optional"`
-}
-
-type ListDictionaryTypesPageReply struct {
-	List      []DictionaryType `json:"list"`
-	PageIndex int              `json:"pageIndex"`
-	PageSize  int              `json:"pageSize"`
-	Total     int64            `json:"total"`
-}
-
-type GetDictionaryTypeRequest struct {
-	DictionaryType string `path:"type"`
-}
-
-type GetDictionaryTypeReply struct {
-	*DictionaryType
-}
-
-type CreateDictionaryTypeRequest struct {
-	Type        string `json:"type"`
-	Name        string `json:"name"`
-	Description string `json:"description,optional"`
-}
-
-type CreateDictionaryTypeReply struct {
-	Type        string `json:"type"`
-	Name        string `json:"name"`
-	Description string `json:"description,optional"`
-}
-
-type UpdateDictionaryTypeRequest struct {
-	Type        string `path:"type"`
-	Name        string `json:"name,optional"`
-	Description string `json:"description,optional"`
-}
-
-type UpdateDictionaryTypeReply struct {
-	*DictionaryType
-}
-
-type DeleteDictionaryTypeRequest struct {
-	Type string `path:"type"`
-}
-
-type DeleteDictionaryTypeReply struct {
-	Type string `json:"type"`
-}
-
-type ListDictionaryItemsRequest struct {
-	Type      string `form:"type"`
-	PageIndex int    `form:"pageIndex,optional"`
-	PageSize  int    `form:"pageSize,optional"`
-}
-
-type DictionaryItem struct {
-	Id          int64  `json:"id,optional"`
-	Key         string `json:"key"`
-	Type        string `json:"type"`
-	Name        string `json:"name"`
-	Value       string `json:"value"`
-	Sort        int    `json:"sort"`
-	Description string `json:"description"`
-}
-
-type ListDictionaryItemsReply struct {
-	List []DictionaryItem `json:"list"`
-}
-
-type GetDictionaryItemRequest struct {
-	DictionaryType string `path:"type"`
-	DictionaryItem string `path:"key"`
-}
-
-type GetDictionaryItemReply struct {
-	*DictionaryItem
-}
-
-type CreateDictionaryItemRequest struct {
-	Key         string `json:"key"`
-	Type        string `json:"type"`
-	Name        string `json:"name"`
-	Value       string `json:"value"`
-	Sort        int    `json:"sort,optional"`
-	Description string `json:"description,optional"`
-}
-
-type CreateDictionaryItemReply struct {
-	Key         string `json:"key"`
-	Type        string `json:"type"`
-	Name        string `json:"name,optional"`
-	Value       string `json:"value,optional"`
-	Sort        int    `json:"sort,optional"`
-	Description string `json:"description,optional"`
-}
-
-type UpdateDictionaryItemRequest struct {
-	Key         string `path:"key"`
-	Type        string `path:"type"`
-	Name        string `json:"name,optional"`
-	Value       string `json:"value,optional"`
-	Sort        int    `json:"sort,optional"`
-	Description string `json:"description,optional"`
-}
-
-type UpdateDictionaryItemReply struct {
-	*DictionaryItem
-}
-
-type DeleteDictionaryItemRequest struct {
-	Key  string `path:"key"`
-	Type string `path:"type"`
-}
-
-type DeleteDictionaryItemReply struct {
-	Key  string `json:"key"`
-	Type string `json:"type"`
-}
-
 type GetOpportunityListRequest struct {
 	Name      string `form:"name,optional"`
 	Source    string `form:"source,optional"`
@@ -857,38 +889,6 @@ type DeleteOpportunityRequest struct {
 
 type DeleteOpportunityReply struct {
 	Id int64 `json:"id"`
-}
-
-type GetUserInfoReply struct {
-	Id            int64    `json:"id"`
-	Account       string   `json:"account"`
-	Name          string   `json:"name"`
-	Email         string   `json:"email"`
-	MobilePhone   string   `json:"mobilePhone"`
-	Gender        string   `json:"gender"`
-	NickName      string   `json:"nickName"`
-	Desc          string   `json:"desc"`
-	Avatar        string   `json:"avatar"`
-	ExternalEmail string   `json:"externalEmail"`
-	DepName       string   `json:"depName"`
-	Position      string   `json:"position"`
-	JobTitle      string   `json:"jobTitle"`
-	IsEnabled     bool     `json:"isEnabled"`
-	CreatedAt     string   `json:"createdAt"`
-	Roles         []string `json:"roles"`
-}
-
-type MenuRoles struct {
-	MenuName       string   `json:"menuName"`
-	AllowRoleCodes []string `json:"allowRoleCodes"`
-}
-
-type GetMenuRolesReply struct {
-	MenuRoles []MenuRoles `json:"menuRoles"`
-}
-
-type ModifyPasswordReqeust struct {
-	Password string `json:"password"`
 }
 
 type ProductSpecific struct {
@@ -1132,7 +1132,7 @@ type ConfigPriceBookEntryReply struct {
 type Store struct {
 	Id            int64   `json:"id,optional"`
 	Name          string  `json:"name"`
-	EmployeeID    int64   `json:"employeeID"`
+	EmployeeId    int64   `json:"employeeId"`
 	ContactNumber string  `json:"contactNumber"`
 	CoverURL      string  `json:"coverURL"`
 	Address       string  `json:"address"`
@@ -1145,15 +1145,10 @@ type GetStoreListRequest struct {
 	StoreType string   `form:"storeType,optional"`
 	Keys      []string `form:"keys,optional"`
 	OrderBy   string   `form:"orderBy,optional"`
-	PageIndex int      `form:"pageIndex,optional"`
-	PageSize  int      `form:"pageSize,optional"`
 }
 
 type GetStoreListReply struct {
-	List      []Store `json:"list"`
-	PageIndex int     `json:"pageIndex"`
-	PageSize  int     `json:"pageSize"`
-	Total     int64   `json:"total"`
+	List []Store `json:"list"`
 }
 
 type CreateStoreRequest struct {

@@ -18,7 +18,6 @@ import (
 	adminproduct "PowerX/internal/handler/admin/product"
 	adminscrmcontact "PowerX/internal/handler/admin/scrm/contact"
 	adminscrmcustomer "PowerX/internal/handler/admin/scrm/customer"
-	adminstore "PowerX/internal/handler/admin/store"
 	adminuserinfo "PowerX/internal/handler/admin/userinfo"
 	mpcustomer "PowerX/internal/handler/mp/customer"
 	"PowerX/internal/svc"
@@ -205,6 +204,89 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			[]rest.Route{
 				{
 					Method:  http.MethodGet,
+					Path:    "/types",
+					Handler: admindictionary.ListDictionaryTypesHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/types/:type",
+					Handler: admindictionary.GetDictionaryTypeHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/types",
+					Handler: admindictionary.CreateDictionaryTypeHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPut,
+					Path:    "/types/:type",
+					Handler: admindictionary.UpdateDictionaryTypeHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodDelete,
+					Path:    "/types/:type",
+					Handler: admindictionary.DeleteDictionaryTypeHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/items",
+					Handler: admindictionary.ListDictionaryItemsHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/items/:type/:key",
+					Handler: admindictionary.GetDictionaryItemHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/items",
+					Handler: admindictionary.CreateDictionaryItemHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPut,
+					Path:    "/items/:type/:key",
+					Handler: admindictionary.UpdateDictionaryItemHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodDelete,
+					Path:    "/items/:type/:key",
+					Handler: admindictionary.DeleteDictionaryItemHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithPrefix("/api/v1/admin/dictionary"),
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Route{
+				{
+					Method:  http.MethodGet,
+					Path:    "/user-info",
+					Handler: adminuserinfo.GetUserInfoHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/menu-roles",
+					Handler: adminuserinfo.GetMenuRolesHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/users/actions/modify-password",
+					Handler: adminuserinfo.ModifyUserPasswordHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithPrefix("/api/v1/admin/user-center"),
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Route{
+				{
+					Method:  http.MethodGet,
 					Path:    "/leads",
 					Handler: adminlead.ListLeadsHandler(serverCtx),
 				},
@@ -312,65 +394,6 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			[]rest.Route{
 				{
 					Method:  http.MethodGet,
-					Path:    "/types",
-					Handler: admindictionary.ListDictionaryTypesHandler(serverCtx),
-				},
-				{
-					Method:  http.MethodGet,
-					Path:    "/types/:type",
-					Handler: admindictionary.GetDictionaryTypeHandler(serverCtx),
-				},
-				{
-					Method:  http.MethodPost,
-					Path:    "/types",
-					Handler: admindictionary.CreateDictionaryTypeHandler(serverCtx),
-				},
-				{
-					Method:  http.MethodPut,
-					Path:    "/types/:type",
-					Handler: admindictionary.UpdateDictionaryTypeHandler(serverCtx),
-				},
-				{
-					Method:  http.MethodDelete,
-					Path:    "/types/:type",
-					Handler: admindictionary.DeleteDictionaryTypeHandler(serverCtx),
-				},
-				{
-					Method:  http.MethodGet,
-					Path:    "/items",
-					Handler: admindictionary.ListDictionaryItemsHandler(serverCtx),
-				},
-				{
-					Method:  http.MethodGet,
-					Path:    "/items/:type/:key",
-					Handler: admindictionary.GetDictionaryItemHandler(serverCtx),
-				},
-				{
-					Method:  http.MethodPost,
-					Path:    "/items",
-					Handler: admindictionary.CreateDictionaryItemHandler(serverCtx),
-				},
-				{
-					Method:  http.MethodPut,
-					Path:    "/items/:type/:key",
-					Handler: admindictionary.UpdateDictionaryItemHandler(serverCtx),
-				},
-				{
-					Method:  http.MethodDelete,
-					Path:    "/items/:type/:key",
-					Handler: admindictionary.DeleteDictionaryItemHandler(serverCtx),
-				},
-			}...,
-		),
-		rest.WithPrefix("/api/v1/admin/dictionary"),
-	)
-
-	server.AddRoutes(
-		rest.WithMiddlewares(
-			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
-			[]rest.Route{
-				{
-					Method:  http.MethodGet,
 					Path:    "/opportunities",
 					Handler: adminopportunity.GetOpportunityListHandler(serverCtx),
 				},
@@ -397,30 +420,6 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			}...,
 		),
 		rest.WithPrefix("/api/v1/admin/opportunity"),
-	)
-
-	server.AddRoutes(
-		rest.WithMiddlewares(
-			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
-			[]rest.Route{
-				{
-					Method:  http.MethodGet,
-					Path:    "/user-info",
-					Handler: adminuserinfo.GetUserInfoHandler(serverCtx),
-				},
-				{
-					Method:  http.MethodGet,
-					Path:    "/menu-roles",
-					Handler: adminuserinfo.GetMenuRolesHandler(serverCtx),
-				},
-				{
-					Method:  http.MethodPost,
-					Path:    "/users/actions/modify-password",
-					Handler: adminuserinfo.ModifyUserPasswordHandler(serverCtx),
-				},
-			}...,
-		),
-		rest.WithPrefix("/api/v1/admin/user-center"),
 	)
 
 	server.AddRoutes(
@@ -542,41 +541,41 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				{
 					Method:  http.MethodGet,
 					Path:    "/stores",
-					Handler: adminstore.ListStoresHandler(serverCtx),
+					Handler: adminproduct.ListStoresHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodGet,
 					Path:    "/stores/:id",
-					Handler: adminstore.GetStoreHandler(serverCtx),
+					Handler: adminproduct.GetStoreHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPost,
 					Path:    "/stores",
-					Handler: adminstore.CreateStoreHandler(serverCtx),
+					Handler: adminproduct.CreateStoreHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPut,
 					Path:    "/stores/:id",
-					Handler: adminstore.PutStoreHandler(serverCtx),
+					Handler: adminproduct.PutStoreHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPatch,
 					Path:    "/stores/:id",
-					Handler: adminstore.PatchStoreHandler(serverCtx),
+					Handler: adminproduct.PatchStoreHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodDelete,
 					Path:    "/stores/:id",
-					Handler: adminstore.DeleteStoreHandler(serverCtx),
+					Handler: adminproduct.DeleteStoreHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPost,
 					Path:    "/stores/:id/actions/assign-to-store-categroy",
-					Handler: adminstore.AssignStoreToStoreCategoryHandler(serverCtx),
+					Handler: adminproduct.AssignStoreToStoreCategoryHandler(serverCtx),
 				},
 			}...,
 		),
-		rest.WithPrefix("/api/v1/admin/store"),
+		rest.WithPrefix("/api/v1/admin/product"),
 	)
 
 	server.AddRoutes(
