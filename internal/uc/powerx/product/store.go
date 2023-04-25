@@ -47,6 +47,7 @@ func (uc *StoreUseCase) FindAllShops(ctx context.Context, opt *FindManyStoresOpt
 	query = uc.buildFindQueryNoPage(query, opt)
 	if err := query.
 		Debug().
+		Preload("Artisans").
 		Find(&dictionaryItems).Error; err != nil {
 		panic(errors.Wrap(err, "find all dictionaryItems failed"))
 	}

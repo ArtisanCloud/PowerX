@@ -49,6 +49,28 @@ service PowerX {
 }
 
 type (
+
+    StoreArtisanSpecific{
+        ArtisanId int64 `json:"artisanId,optional"`
+    }
+
+    StoreArtisan {
+        EmployeeId int64 `json:"employeeId,optional"`
+        Name string `json:"name,optional"`
+        Level int8 `json:"level,optional"`
+        Gender string `json:"gender,optional"`
+        birthday string `json:"birthday,optional"`
+        PhoneNumber string `json:"phoneNumber,optional"`
+        CoverURL string `json:"coverURL,optional"`
+        WorkNo string `json:"workNo,optional"`
+        Email string `json:"email,optional"`
+        Experience uint `json:"experience,optional"`
+        Specialty string `json:"specialty,optional"`
+        Certificate string `json:"certificate,optional"`
+        Address string `json:"address,optional"`
+        ArtisanSpecific StoreArtisanSpecific `json:"artisanSpecific,optional"`
+    }
+
     Store {
         Id int64 `json:"id,optional"`
         Name string `json:"name"`
@@ -58,6 +80,7 @@ type (
         Address string `json:"address"`
         Longitude float32 `json:"longitude"`
         Latitude float32 `json:"latitude"`
+        Artisans []*StoreArtisan `json:"artisans,optional"`
         CreatedAt string `json:"createdAt,optional"`
     }
 )
@@ -70,7 +93,7 @@ type (
 
 
     GetStoreListReply struct {
-        List []Store `json:"list"`
+        List []*Store `json:"list"`
     }
 )
 
@@ -80,13 +103,13 @@ type (
     }
 
     CreateStoreReply struct {
-        StoreId string `json:"storeId"`
+        StoreId string `json:"id"`
     }
 )
 
 type (
     GetStoreRequest struct {
-        StoreId string `path:"storeId"`
+        StoreId int64 `path:"id"`
     }
 
     GetStoreReply struct {
@@ -97,7 +120,7 @@ type (
 
 type (
     PutStoreRequest struct {
-        StoreId string `path:"storeId"`
+        StoreId int64  `path:"storeId"`
         Store
     }
 
@@ -108,7 +131,7 @@ type (
 
 type (
     PatchStoreRequest struct {
-        StoreId string `path:"storeId"`
+        StoreId int64  `path:"storeId"`
         Store
     }
 
@@ -120,11 +143,11 @@ type (
 
 type (
     DeleteStoreRequest struct {
-        StoreId string `path:"storeId"`
+        StoreId int64  `path:"storeId"`
     }
 
     DeleteStoreReply struct {
-        StoreId string `json:"storeId"`
+        StoreId int64  `json:"storeId"`
     }
 )
 
