@@ -51,8 +51,8 @@ func DefaultStore() []*product.Store {
 					},
 				},
 			},
-			Name:        "店铺1",
-			PhoneNumber: "18616325540",
+			Name:          "店铺1",
+			ContactNumber: "18616325540",
 		},
 		&product.Store{
 			Artisans: []*product.Artisan{
@@ -81,8 +81,8 @@ func DefaultStore() []*product.Store {
 					PhoneNumber: "13564674245",
 				},
 			},
-			Name:        "店铺2",
-			PhoneNumber: "18616325541",
+			Name:          "店铺2",
+			ContactNumber: "18616325541",
 		},
 		&product.Store{
 			Artisans: []*product.Artisan{
@@ -111,8 +111,8 @@ func DefaultStore() []*product.Store {
 					PhoneNumber: "13564674248",
 				},
 			},
-			Name:        "店铺3",
-			PhoneNumber: "18616325542",
+			Name:          "店铺3",
+			ContactNumber: "18616325542",
 		},
 	}
 }
