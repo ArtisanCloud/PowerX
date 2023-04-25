@@ -584,6 +584,50 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			[]rest.Route{
 				{
 					Method:  http.MethodGet,
+					Path:    "/artisans",
+					Handler: adminproduct.ListArtisansHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/artisans/:id",
+					Handler: adminproduct.GetArtisanHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/artisans",
+					Handler: adminproduct.CreateArtisanHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPut,
+					Path:    "/artisans/:id",
+					Handler: adminproduct.PutArtisanHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPatch,
+					Path:    "/artisans/:id",
+					Handler: adminproduct.PatchArtisanHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodDelete,
+					Path:    "/artisans/:id",
+					Handler: adminproduct.DeleteArtisanHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/artisans/:id/actions/assign-to-store-categroy",
+					Handler: adminproduct.AssignArtisanToArtisanCategoryHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithPrefix("/api/v1/admin/product"),
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Route{
+				{
+					Method:  http.MethodGet,
 					Path:    "/group-tree",
 					Handler: admincontractway.GetContractWayGroupTreeHandler(serverCtx),
 				},

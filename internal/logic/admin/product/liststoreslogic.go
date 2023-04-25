@@ -1,6 +1,7 @@
 package product
 
 import (
+	product2 "PowerX/internal/model/product"
 	"PowerX/internal/uc/powerx/product"
 	"context"
 
@@ -30,27 +31,35 @@ func (l *ListStoresLogic) ListStores(req *types.GetStoreListRequest) (resp *type
 	if err != nil {
 		return nil, err
 	}
-
-	list := make([]types.Store, 0, len(stores))
-	for _, item := range stores {
-		list = append(list, types.Store{
-			Id:            item.Id,
-			Name:          item.Name,
-			EmployeeId:    item.EmployeeId,
-			ContactNumber: item.ContactNumber,
-			CoverURL:      item.CoverURL,
-			Address:       item.Address,
-			Longitude:     item.Longitude,
-			Latitude:      item.Latitude,
-			CreatedAt:     item.CreatedAt.String(),
-		})
-	}
+	list := TransferStoresToStoresReply(stores)
 
 	return &types.GetStoreListReply{
 		List: list,
 	}, nil
 
 	return
+}
 
-	return
+func TransferStoresToStoresReply(stores []*product2.Store) []*types.Store {
+	storesReply := []*types.Store{}
+	for _, store := range stores {
+		storeReply := TransferStoreToStoreReply(store)
+		storesReply = append(storesReply, storeReply)
+	}
+	return storesReply
+}
+
+func TransferStoreToStoreReply(artisan *product2.Store) *types.Store {
+	return &types.Store{
+		Id:            artisan.Id,
+		Name:          artisan.Name,
+		EmployeeId:    artisan.EmployeeId,
+		ContactNumber: artisan.ContactNumber,
+		CoverURL:      artisan.CoverURL,
+		Address:       artisan.Address,
+		Longitude:     artisan.Longitude,
+		Latitude:      artisan.Latitude,
+		CreatedAt:     artisan.CreatedAt.String(),
+		Artisans:      TransferArtisansToShopArtisans(artisan.Artisans),
+	}
 }

@@ -11,44 +11,35 @@ import (
 	"github.com/zeromicro/go-zero/core/logx"
 )
 
-type GetStoreLogic struct {
+type GetArtisanLogic struct {
 	logx.Logger
 	ctx    context.Context
 	svcCtx *svc.ServiceContext
 }
 
-func NewGetStoreLogic(ctx context.Context, svcCtx *svc.ServiceContext) *GetStoreLogic {
-	return &GetStoreLogic{
+func NewGetArtisanLogic(ctx context.Context, svcCtx *svc.ServiceContext) *GetArtisanLogic {
+	return &GetArtisanLogic{
 		Logger: logx.WithContext(ctx),
 		ctx:    ctx,
 		svcCtx: svcCtx,
 	}
 }
 
-func (l *GetStoreLogic) GetStore(req *types.GetStoreRequest) (resp *types.GetStoreReply, err error) {
-	mdlStore, err := l.svcCtx.PowerX.Store.GetStore(l.ctx, req.StoreId)
+func (l *GetArtisanLogic) GetArtisan(req *types.GetArtisanRequest) (resp *types.GetArtisanReply, err error) {
+	mdlArtisan, err := l.svcCtx.PowerX.Artisan.GetArtisan(l.ctx, req.ArtisanId)
 
 	if err != nil {
 		return nil, errorx.ErrNotFoundObject
 	}
 
-	return &types.GetStoreReply{
-		Store: TransferStoreToStoreReply(mdlStore),
+	return &types.GetArtisanReply{
+		Artisan: TransferArtisanToArtisanReply(mdlArtisan),
 	}, nil
 
 }
 
-func TransferArtisansToShopArtisans(artisans []*product2.Artisan) []*types.StoreArtisan {
-	artisansReply := []*types.StoreArtisan{}
-	for _, artisan := range artisans {
-		artisanReply := TransferArtisanToShopArtisan(artisan)
-		artisansReply = append(artisansReply, artisanReply)
-	}
-	return artisansReply
-}
-
-func TransferArtisanToShopArtisan(artisan *product2.Artisan) *types.StoreArtisan {
-	return &types.StoreArtisan{
+func TransferArtisanToArtisanReply(artisan *product2.Artisan) *types.Artisan {
+	return &types.Artisan{
 		EmployeeId:  artisan.EmployeeId,
 		Name:        artisan.Name,
 		Level:       artisan.Level,
