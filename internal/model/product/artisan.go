@@ -15,7 +15,7 @@ type Artisan struct {
 	Name        string    `gorm:"comment:Artisan名称"`
 	Level       int8      `gorm:"comment:级别"`
 	Gender      string    `gorm:"comment:性别"`
-	birthday    time.Time `gorm:"comment:生日"`
+	Birthday    time.Time `gorm:"comment:生日"`
 	PhoneNumber string    `gorm:"comment:手机号码"`
 	CoverURL    string    `gorm:"comment:封面图"`
 	WorkNo      string    `gorm:"comment:工号"`

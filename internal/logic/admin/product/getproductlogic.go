@@ -35,5 +35,4 @@ func (l *GetProductLogic) GetProduct(req *types.GetProductRequest) (resp *types.
 		Product: TransformProductToProductReply(mdlProduct),
 	}, nil
 
-	return
 }
