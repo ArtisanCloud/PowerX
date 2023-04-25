@@ -25,4 +25,5 @@ func AutoMigrate(db *gorm.DB) {
 	// product
 	_ = db.AutoMigrate(&product.Product{}, &product.ProductCategory{})
 	_ = db.AutoMigrate(&product.PriceBook{}, &product.PriceBookEntry{}, &product.PriceConfig{})
+	_ = db.AutoMigrate(&product.Store{}, &product.Artisan{}, &product.PivotStoreToArtisan{})
 }
