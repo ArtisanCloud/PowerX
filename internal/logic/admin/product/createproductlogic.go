@@ -75,8 +75,8 @@ func TransformProductRequestToProduct(productRequest *types.Product) (mdlProduct
 		CoverURL:           productRequest.CoverURL,
 		PurchasedQuantity:  productRequest.PurchasedQuantity,
 		ValidityPeriodDays: productRequest.ValidityPeriodDays,
-		SaleStartDate:      saleStartDate.Time,
-		SaleEndDate:        saleEndDate.Time,
+		SaleStartDate:      saleStartDate.ToStdTime(),
+		SaleEndDate:        saleEndDate.ToStdTime(),
 		ProductSpecific: product.ProductSpecific{
 			Inventory: productRequest.Inventory,
 			Weight:    productRequest.Weight,
