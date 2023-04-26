@@ -18,7 +18,7 @@ info(
 service PowerX {
     @doc "查询价格手册列表"
     @handler ListPriceBooks
-    get /price-books (ListPriceBooksPageRequest) returns (ListPriceBooksPageReply)
+    get /price-books/page-list (ListPriceBooksPageRequest) returns (ListPriceBooksPageReply)
 
 
     @doc "查询价格手册详情"
