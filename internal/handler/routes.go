@@ -206,8 +206,8 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			[]rest.Route{
 				{
 					Method:  http.MethodGet,
-					Path:    "/types",
-					Handler: admindictionary.ListDictionaryTypesHandler(serverCtx),
+					Path:    "/types/page-list",
+					Handler: admindictionary.ListDictionaryPageTypesHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodGet,
@@ -430,7 +430,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			[]rest.Route{
 				{
 					Method:  http.MethodGet,
-					Path:    "/products",
+					Path:    "/products/page-list",
 					Handler: adminproduct.ListProductsHandler(serverCtx),
 				},
 				{
@@ -508,7 +508,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			[]rest.Route{
 				{
 					Method:  http.MethodGet,
-					Path:    "/price-books",
+					Path:    "/price-books/page-list",
 					Handler: adminproduct.ListPriceBooksHandler(serverCtx),
 				},
 				{

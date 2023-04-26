@@ -127,7 +127,7 @@ get /objects (ListObjectsRequest) returns (ListObjectsReply)
 
 @doc "查询对象分页列表"
 @handler ListObjectsPage
-get /objects/page (ListObjectsPageRequest) returns (ListObjectsPageReply)
+get /objects/page-list (ListObjectsPageRequest) returns (ListObjectsPageReply)
 
 ```
 
