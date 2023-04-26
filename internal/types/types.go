@@ -1545,12 +1545,12 @@ type Schedule struct {
 }
 
 type ListSchedulesPageRequest struct {
-	ScheduleType string   `form:"scheduleType,optional"`
-	CurrentDate  []string `form:"CurrentDate,optional"`
-	StoreId      []string `form:"StoreId,optional"`
-	OrderBy      string   `form:"orderBy,optional"`
-	PageIndex    int      `form:"pageIndex,optional"`
-	PageSize     int      `form:"pageSize,optional"`
+	ScheduleType string `form:"scheduleType,optional"`
+	CurrentDate  string `form:"CurrentDate,optional"`
+	StoreId      string `form:"StoreId,optional"`
+	OrderBy      string `form:"orderBy,optional"`
+	PageIndex    int    `form:"pageIndex,optional"`
+	PageSize     int    `form:"pageSize,optional"`
 }
 
 type ListSchedulesPageReply struct {

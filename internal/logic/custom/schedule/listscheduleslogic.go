@@ -26,7 +26,11 @@ func NewListSchedulesLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Lis
 
 func (l *ListSchedulesLogic) ListSchedules(req *types.ListSchedulesPageRequest) (resp *types.ListSchedulesPageReply, err error) {
 
-	schedules, err := l.svcCtx.Custom.Schedule.FindAllSchedules(l.ctx, &reservationcenter.FindManySchedulesOption{})
+	schedules, err := l.svcCtx.Custom.Schedule.FindAllSchedules(l.ctx, &reservationcenter.FindManySchedulesOption{
+		Types:       req.ScheduleType,
+		CurrentDate: req.CurrentDate,
+		StoreId:     req.StoreId,
+	})
 
 	if err != nil {
 		return nil, err

@@ -126,8 +126,8 @@ get /objects (ListObjectsRequest) returns (ListObjectsReply)
 ```api
 
 @doc "查询对象分页列表"
-@handler PageListObjectsPage
-get /objects (ListObjectsPageRequest) returns (ListObjectsPageReply)
+@handler ListObjectsPage
+get /objects/page (ListObjectsPageRequest) returns (ListObjectsPageReply)
 
 ```
 
