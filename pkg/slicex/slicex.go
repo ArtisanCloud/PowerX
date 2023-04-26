@@ -31,3 +31,12 @@ func Filter[T any](slice []T, fun func(item T) bool) []T {
 	}
 	return s
 }
+
+func Concatenate[T any](s []T, objs ...[]T) []T {
+	for i := 0; i < len(objs); i++ {
+		for j := 0; j < len(objs[i]); j++ {
+			s = append(s, objs[i][j])
+		}
+	}
+	return s
+}
