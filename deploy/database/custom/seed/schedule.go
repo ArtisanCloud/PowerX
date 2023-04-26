@@ -63,7 +63,7 @@ func GenerateSchedulesBy(currentDate *carbon.Carbon, store *product.Store) []*re
 	// 格式化到10点
 	formatDate := func(d *carbon.Carbon) *carbon.Carbon {
 		d.SetWeekStartsAt(carbon.Sunday)
-		d.SetHour(startWorkHour).SetMinute(0).SetSecond(0)
+		*d = d.SetHour(startWorkHour).SetMinute(0).SetSecond(0)
 		return d
 	}
 

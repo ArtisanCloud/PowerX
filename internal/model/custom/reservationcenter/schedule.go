@@ -21,3 +21,10 @@ type Schedule struct {
 }
 
 const ScheduleUniqueId = powermodel.UniqueId
+
+const ScheduleStatusType = "_schedule_status" // 行程表状态
+
+const ScheduleStatusIdle = "_idle"       // 空闲
+const ScheduleStatusNormal = "_normal"   // 正常
+const ScheduleStatusWarning = "_warning" // 警告
+const ScheduleStatusFull = "_full"       // 已满

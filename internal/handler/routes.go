@@ -741,6 +741,11 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			[]rest.Route{
 				{
 					Method:  http.MethodGet,
+					Path:    "/schedules/page-list",
+					Handler: customschedule.ListSchedulesPageHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
 					Path:    "/schedules",
 					Handler: customschedule.ListSchedulesHandler(serverCtx),
 				},

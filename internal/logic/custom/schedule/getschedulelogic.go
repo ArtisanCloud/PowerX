@@ -1,6 +1,7 @@
 package schedule
 
 import (
+	reservationcenter2 "PowerX/internal/model/custom/reservationcenter"
 	"context"
 
 	"PowerX/internal/svc"
@@ -27,4 +28,21 @@ func (l *GetScheduleLogic) GetSchedule(req *types.GetScheduleRequest) (resp *typ
 	// todo: add your logic here and delete this line
 
 	return
+}
+
+func TransformScheduleToScheduleReply(schedule *reservationcenter2.Schedule) *types.Schedule {
+	return &types.Schedule{
+		Id:                 schedule.Id,
+		StoreId:            schedule.StoreId,
+		ApprovalStatus:     schedule.ApprovalStatus,
+		Capacity:           schedule.Capacity,
+		CopyFromScheduleId: schedule.CopyFromScheduleId,
+		Name:               schedule.Name,
+		Description:        schedule.Description,
+		IsActive:           schedule.IsActive,
+		Status:             schedule.Status,
+		StartTime:          schedule.StartTime.String(),
+		EndTime:            schedule.EndTime.String(),
+		CreatedAt:          schedule.CreatedAt.String(),
+	}
 }

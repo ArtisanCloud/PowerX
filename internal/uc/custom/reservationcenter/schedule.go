@@ -35,12 +35,12 @@ func (uc *ScheduleUseCase) buildFindQueryNoPage(db *gorm.DB, opt *FindManySchedu
 		db = db.Where("type IN ?", opt.Types)
 	}
 	if opt.StoreId > 0 {
-		db = db.Where("storeId = ?", opt.StoreId)
+		db = db.Where("store_id = ?", opt.StoreId)
 	}
 	if !opt.CurrentDate.IsZero() {
 		cDate := carbon.FromStdTime(opt.CurrentDate)
 		startDate, endDate := carbonx.GetWeekDaysFromDay(&cDate, nil)
-		db = db.Where("start_time > ? AND end_time < ?", startDate.Time, endDate.Time)
+		db = db.Where("start_time > ? AND end_time < ?", startDate.String(), endDate.String())
 	}
 
 	return db
@@ -57,6 +57,34 @@ func (uc *ScheduleUseCase) FindAllSchedules(ctx context.Context, opt *FindManySc
 		panic(errors.Wrap(err, "find all schedules failed"))
 	}
 	return schedules, err
+}
+
+func (uc *ScheduleUseCase) FindManySchedules(ctx context.Context, opt *FindManySchedulesOption) (pageList types.Page[*reservationcenter.Schedule], err error) {
+	var schedules []*reservationcenter.Schedule
+	db := uc.db.WithContext(ctx).Model(&reservationcenter.Schedule{})
+
+	db = uc.buildFindQueryNoPage(db, opt)
+
+	var count int64
+	if err := db.Count(&count).Error; err != nil {
+		panic(err)
+	}
+
+	opt.DefaultPageIfNotSet()
+	if opt.PageIndex != 0 && opt.PageSize != 0 {
+		db.Offset((opt.PageIndex - 1) * opt.PageSize).Limit(opt.PageSize)
+	}
+
+	if err := db.Find(&schedules).Error; err != nil {
+		panic(err)
+	}
+
+	return types.Page[*reservationcenter.Schedule]{
+		List:      schedules,
+		PageIndex: opt.PageIndex,
+		PageSize:  opt.PageSize,
+		Total:     count,
+	}, nil
 }
 
 func (uc *ScheduleUseCase) CreateSchedule(ctx context.Context, lead *reservationcenter.Schedule) {

@@ -1,12 +1,11 @@
 package schedule
 
 import (
-	"PowerX/internal/uc/custom/reservationcenter"
-	"context"
-
 	"PowerX/internal/svc"
 	"PowerX/internal/types"
-
+	"PowerX/internal/uc/custom/reservationcenter"
+	"context"
+	"github.com/golang-module/carbon/v2"
 	"github.com/zeromicro/go-zero/core/logx"
 )
 
@@ -24,11 +23,21 @@ func NewListSchedulesLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Lis
 	}
 }
 
-func (l *ListSchedulesLogic) ListSchedules(req *types.ListSchedulesPageRequest) (resp *types.ListSchedulesPageReply, err error) {
+func (l *ListSchedulesLogic) ListSchedules(req *types.ListSchedulesRequest) (resp *types.ListSchedulesReply, err error) {
+
+	now := carbon.Now()
+	var cDate carbon.Carbon
+	if req.CurrentDate != "" {
+		cDate = carbon.Parse(req.CurrentDate)
+		if cDate.IsInvalid() {
+			cDate = now
+		}
+	} else {
+		cDate = now
+	}
 
 	schedules, err := l.svcCtx.Custom.Schedule.FindAllSchedules(l.ctx, &reservationcenter.FindManySchedulesOption{
-		Types:       req.ScheduleType,
-		CurrentDate: req.CurrentDate,
+		CurrentDate: cDate.ToStdTime(),
 		StoreId:     req.StoreId,
 	})
 
@@ -36,8 +45,7 @@ func (l *ListSchedulesLogic) ListSchedules(req *types.ListSchedulesPageRequest) 
 		return nil, err
 	}
 
-	list := []*types.Schedule{}
-	return &types.ListSchedulesPageReply{
-		List: list,
+	return &types.ListSchedulesReply{
+		List: TransformSchedulesToSchedulesReply(schedules),
 	}, nil
 }

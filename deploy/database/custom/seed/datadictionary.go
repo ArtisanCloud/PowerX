@@ -12,6 +12,7 @@ func CustomDataDictionary(db *gorm.DB) (data []*model.DataDictionaryType) {
 		defaultOperationStatusDataDictionary(),
 		defaultReservationTypesDataDictionary(),
 		defaultReservationStatusDataDictionary(),
+		defaultScheduleStatusDataDictionary(),
 	}
 
 	return data
@@ -152,6 +153,45 @@ func defaultReservationStatusDataDictionary() *model.DataDictionaryType {
 		Type:        reservationcenter.ReservationStatusType,
 		Name:        "预约状态字典类型",
 		Description: "预约状态字典类型",
+	}
+
+}
+
+func defaultScheduleStatusDataDictionary() *model.DataDictionaryType {
+	return &model.DataDictionaryType{
+		Items: []*model.DataDictionaryItem{
+			&model.DataDictionaryItem{
+				Key:   reservationcenter.ScheduleStatusIdle,
+				Type:  reservationcenter.ReservationStatusType,
+				Name:  "空闲",
+				Value: reservationcenter.ScheduleStatusIdle,
+				Sort:  0,
+			},
+			&model.DataDictionaryItem{
+				Key:   reservationcenter.ScheduleStatusNormal,
+				Type:  reservationcenter.ScheduleStatusType,
+				Name:  "正常",
+				Value: reservationcenter.ScheduleStatusNormal,
+				Sort:  0,
+			},
+			&model.DataDictionaryItem{
+				Key:   reservationcenter.ScheduleStatusWarning,
+				Type:  reservationcenter.ScheduleStatusType,
+				Name:  "警告",
+				Value: reservationcenter.ScheduleStatusWarning,
+				Sort:  0,
+			},
+			&model.DataDictionaryItem{
+				Key:   reservationcenter.ScheduleStatusFull,
+				Type:  reservationcenter.ScheduleStatusType,
+				Name:  "已满",
+				Value: reservationcenter.ScheduleStatusFull,
+				Sort:  0,
+			},
+		},
+		Type:        reservationcenter.ScheduleStatusType,
+		Name:        "行程表状态",
+		Description: "行程表状态",
 	}
 
 }

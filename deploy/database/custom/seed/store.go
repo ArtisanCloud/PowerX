@@ -51,7 +51,8 @@ func DefaultStore() []*product.Store {
 					},
 				},
 			},
-			Name:          "店铺1",
+			Name:          "816 * Salon (大华店)",
+			Address:       "宝山区 大华二路273号816salon（TB美甲美睫二楼）",
 			ContactNumber: "18616325540",
 		},
 		&product.Store{
@@ -81,7 +82,8 @@ func DefaultStore() []*product.Store {
 					PhoneNumber: "13564674245",
 				},
 			},
-			Name:          "店铺2",
+			Name:          "816 * Salon (松江大学城)",
+			Address:       "松江区 文汇路1028号2层201",
 			ContactNumber: "18616325541",
 		},
 		&product.Store{
@@ -111,7 +113,8 @@ func DefaultStore() []*product.Store {
 					PhoneNumber: "13564674248",
 				},
 			},
-			Name:          "店铺3",
+			Name:          "816 * Salon (九亭店)",
+			Address:       "松江区 涞坊路373号",
 			ContactNumber: "18616325542",
 		},
 	}

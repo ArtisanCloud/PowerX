@@ -1544,10 +1544,20 @@ type Schedule struct {
 	CreatedAt          string `json:"createdAt,optional"`
 }
 
+type ListSchedulesRequest struct {
+	ScheduleType string `form:"scheduleType,optional"`
+	CurrentDate  string `form:"currentDate,optional"`
+	StoreId      int64  `form:"storeId"`
+	OrderBy      string `form:"orderBy,optional"`
+}
+
+type ListSchedulesReply struct {
+	List []*Schedule `json:"list"`
+}
+
 type ListSchedulesPageRequest struct {
 	ScheduleType string `form:"scheduleType,optional"`
-	CurrentDate  string `form:"CurrentDate,optional"`
-	StoreId      string `form:"StoreId,optional"`
+	StoreId      int64  `form:"StoreId,optional"`
 	OrderBy      string `form:"orderBy,optional"`
 	PageIndex    int    `form:"pageIndex,optional"`
 	PageSize     int    `form:"pageSize,optional"`

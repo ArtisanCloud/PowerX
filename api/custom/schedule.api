@@ -19,7 +19,7 @@ service PowerX {
 
     @doc "查询日程表分页列表"
     @handler ListSchedulesPage
-    get /schedules (ListSchedulesPageRequest) returns (ListSchedulesPageReply)
+    get /schedules/page-list (ListSchedulesPageRequest) returns (ListSchedulesPageReply)
 
 
     @doc "查询日程表列表"
@@ -75,8 +75,8 @@ type (
 
     ListSchedulesRequest struct {
         ScheduleType string `form:"scheduleType,optional"`
-        CurrentDate string `form:"CurrentDate,optional"`
-        StoreId string `form:"StoreId,optional"`
+        CurrentDate string `form:"currentDate,optional"`
+        StoreId int64 `form:"storeId"`
         OrderBy string `form:"orderBy,optional"`
     }
     ListSchedulesReply struct {
@@ -85,7 +85,7 @@ type (
 
     ListSchedulesPageRequest struct {
         ScheduleType string `form:"scheduleType,optional"`
-        StoreId string `form:"StoreId,optional"`
+        StoreId int64 `form:"StoreId,optional"`
         OrderBy string `form:"orderBy,optional"`
         PageIndex int `form:"pageIndex,optional"`
         PageSize int `form:"pageSize,optional"`

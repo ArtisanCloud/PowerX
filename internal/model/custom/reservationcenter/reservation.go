@@ -34,8 +34,9 @@ type Reservation struct {
 
 	ScheduleId          int64     `gorm:"comment:课程表Id" json:"scheduleId"`
 	CustomerId          int64     `gorm:"comment:客户Id"  json:"customerId"`
-	SourceChannelId     int64     `gorm:"comment:来源渠道Id"  json:"sourceChannelId"`
 	ReservedArtisanId   int64     `gorm:"comment:预约的设计师Id"  json:"reservedArtisanId"`
+	ServiceId           int64     `gorm:"comment:服务Id"  json:"serviceId"`
+	SourceChannelId     int64     `gorm:"comment:来源渠道Id"  json:"sourceChannelId"`
 	Type                int       `gorm:"comment:类型，包括在线，线下，电话等"  json:"type"`
 	ReservedTime        time.Time `gorm:"comment:已预约时间"  json:"reservedTime"`
 	CancelTime          time.Time `gorm:"comment:取消时间"  json:"cancelTime"`
