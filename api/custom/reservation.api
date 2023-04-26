@@ -11,7 +11,7 @@ info(
 
 @server(
     group: custom/reservation
-    prefix: /api/v1/admin/reservationcenter
+    prefix: /api/v1/admin/reservation-center
     middleware: EmployeeJWTAuth
 )
 

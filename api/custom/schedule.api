@@ -11,7 +11,7 @@ info(
 
 @server(
     group: custom/schedule
-    prefix: /api/v1/admin/reservationcenter
+    prefix: /api/v1/admin/reservation-center
     middleware: EmployeeJWTAuth
 )
 
@@ -67,7 +67,8 @@ type (
 type (
     ListSchedulesPageRequest struct {
         ScheduleType string `form:"scheduleType,optional"`
-        Keys []string `form:"keys,optional"`
+        CurrentDate []string `form:"CurrentDate,optional"`
+        StoreId []string `form:"StoreId,optional"`
         OrderBy string `form:"orderBy,optional"`
         PageIndex int `form:"pageIndex,optional"`
         PageSize int `form:"pageSize,optional"`
@@ -75,7 +76,7 @@ type (
 
 
     ListSchedulesPageReply struct {
-        List []Schedule `json:"list"`
+        List []*Schedule `json:"list"`
         PageIndex int `json:"pageIndex"`
         PageSize int `json:"pageSize"`
         Total int64 `json:"total"`
@@ -84,7 +85,7 @@ type (
 
 type (
     CreateScheduleRequest struct {
-        currentDate string
+        Schedule
     }
 
     CreateScheduleReply struct {

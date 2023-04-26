@@ -20,6 +20,7 @@ import (
 	adminscrmcustomer "PowerX/internal/handler/admin/scrm/customer"
 	adminuserinfo "PowerX/internal/handler/admin/userinfo"
 	customreservation "PowerX/internal/handler/custom/reservation"
+	customschedule "PowerX/internal/handler/custom/schedule"
 	mpcustomer "PowerX/internal/handler/mp/customer"
 	"PowerX/internal/svc"
 
@@ -740,6 +741,50 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			[]rest.Route{
 				{
 					Method:  http.MethodGet,
+					Path:    "/schedules",
+					Handler: customschedule.ListSchedulesHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/schedules/:id",
+					Handler: customschedule.GetScheduleHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/schedules",
+					Handler: customschedule.CreateScheduleHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPut,
+					Path:    "/schedules/:id",
+					Handler: customschedule.PutScheduleHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPatch,
+					Path:    "/schedules/:id",
+					Handler: customschedule.PatchScheduleHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodDelete,
+					Path:    "/schedules/:id",
+					Handler: customschedule.DeleteScheduleHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/schedules/:id/actions/assign-to-schedule-categroy",
+					Handler: customschedule.AssignScheduleToScheduleCategoryHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithPrefix("/api/v1/admin/reservation-center"),
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Route{
+				{
+					Method:  http.MethodGet,
 					Path:    "/reservations",
 					Handler: customreservation.ListReservationsHandler(serverCtx),
 				},
@@ -775,6 +820,6 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				},
 			}...,
 		),
-		rest.WithPrefix("/api/v1/admin/reservationcenter"),
+		rest.WithPrefix("/api/v1/admin/reservation-center"),
 	)
 }

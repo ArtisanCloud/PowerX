@@ -6,9 +6,9 @@ import (
 )
 
 // data dictinary types
-const OperationStatusType = "_operation_status"     // 预约操作类型
-const ReservationTypesType = "_reservation_type"    // 预约操作类型
-const ReservationStatusType = "_reservation_status" // 预约操作类型
+const OperationStatusType = "_operation_status"     // 预约操作字典类型
+const ReservationTypesType = "_reservation_type"    // 预约类型字典类型
+const ReservationStatusType = "_reservation_status" // 预约状态字典类型
 
 // data dictinary items
 const OperationStatusNone = "_none"                    // 无操作

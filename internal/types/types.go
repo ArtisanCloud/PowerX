@@ -1529,23 +1529,107 @@ type Token struct {
 	RefreshToken string `json:"refreshToken"`
 }
 
-type Reservation struct {
+type Schedule struct {
 	Id                 int64  `json:"id,optional"`
+	StoreId            int64  `json:"storeId"`
+	ApprovalStatus     string `json:"approvalStatus,optional"`
+	Capacity           int32  `json:"capacity"`
+	CopyFromScheduleId int64  `json:"copyFromScheduleId,optional"`
 	Name               string `json:"name"`
-	Type               int    `json:"type"`
-	Plan               int    `json:"plan"`
-	AccountingCategory string `json:"accountingCategory"`
-	CanSellOnline      bool   `json:"canSellOnline,optional"`
-	CanUseForDeduct    bool   `json:"canUseForDeduct,optional"`
 	Description        string `json:"description,optional"`
-	CoverURL           string `json:"coverURL,optional"`
-	PurchasedQuantity  int    `json:"purchasedQuantity,optional"`
-	ValidityPeriodDays uint8  `json:"validityPeriodDays,optional"`
-	SaleStartDate      string `json:"saleStartDate,optional"`
-	SaleEndDate        string `json:"saleEndDate,optional"`
-	ApprovalStatus     int    `json:"approvalStatus,optional"`
-	IsActivated        bool   `json:"isActivated,optional"`
+	IsActive           bool   `json:"isActive,optional"`
+	Status             string `json:"status,optional"`
+	StartTime          string `json:"startTime"`
+	EndTime            string `json:"endTime"`
 	CreatedAt          string `json:"createdAt,optional"`
+}
+
+type ListSchedulesPageRequest struct {
+	ScheduleType string   `form:"scheduleType,optional"`
+	CurrentDate  []string `form:"CurrentDate,optional"`
+	StoreId      []string `form:"StoreId,optional"`
+	OrderBy      string   `form:"orderBy,optional"`
+	PageIndex    int      `form:"pageIndex,optional"`
+	PageSize     int      `form:"pageSize,optional"`
+}
+
+type ListSchedulesPageReply struct {
+	List      []*Schedule `json:"list"`
+	PageIndex int         `json:"pageIndex"`
+	PageSize  int         `json:"pageSize"`
+	Total     int64       `json:"total"`
+}
+
+type CreateScheduleRequest struct {
+	Schedule
+}
+
+type CreateScheduleReply struct {
+	Schedules []Schedule `json:"list"`
+	StartDate string     `json:"startDate"`
+	EndDate   string     `json:"endDate"`
+}
+
+type GetScheduleRequest struct {
+	ScheduleId int64 `path:"id"`
+}
+
+type GetScheduleReply struct {
+	*Schedule
+}
+
+type PutScheduleRequest struct {
+	ScheduleId int64 `path:"id"`
+	Schedule
+}
+
+type PutScheduleReply struct {
+	*Schedule
+}
+
+type PatchScheduleRequest struct {
+	ScheduleId int64 `path:"id"`
+	Schedule
+}
+
+type PatchScheduleReply struct {
+	*Schedule
+}
+
+type DeleteScheduleRequest struct {
+	ScheduleId int64 `path:"id"`
+}
+
+type DeleteScheduleReply struct {
+	ScheduleId int64 `json:"id"`
+}
+
+type AssignScheduleToScheduleCategoryRequest struct {
+	Id                 int64 `json:"id"`
+	ScheduleCategoryId int64 `json:"scheduleCategoryId"`
+}
+
+type AssignScheduleToScheduleCategoryReply struct {
+	Schedule
+}
+
+type Reservation struct {
+	Id                  int64   `json:"id,optional"`
+	ScheduleId          int64   `json:"scheduleId"`
+	CustomerId          int64   `json:"customerId"`
+	SourceChannelId     int64   `json:"sourceChannelId"`
+	ReservedArtisanId   int64   `json:"reservedArtisanId,optional"`
+	Name                string  `json:"name,optional"`
+	Type                int     `json:"type,optional"`
+	ReservedTime        string  `json:"reservedTime,optional"`
+	CancelTime          string  `json:"cancelTime,optional"`
+	CheckinTime         string  `json:"checkinTime,optional"`
+	Description         string  `json:"description,optional"`
+	ConsumedPoints      int     `json:"consumedPoints,optional"`
+	ConsumeMembershipId float32 `json:"consumeMembershipId,optional"`
+	OperationStatus     int64   `json:"operationStatus,optional"`
+	ReservationStatus   int     `json:"reservationStatus,optional"`
+	CreatedAt           string  `json:"createdAt,optional"`
 }
 
 type ListReservationsPageRequest struct {
