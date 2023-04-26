@@ -28,7 +28,7 @@ type ModelInterface interface {
 }
 
 type PowerModel struct {
-	Id int64 `gorm:"autoIncrement:true;unique; column:id; ->;<-:create" json:"-"`
+	Id int64 `gorm:"autoIncrement:true;unique; column:id; ->;<-:create" json:"id"`
 
 	CreatedAt time.Time      `gorm:"column:created_at; ->;<-:create " json:"createdAt"`
 	UpdatedAt time.Time      `gorm:"column:updated_at" json:"updatedAt"`

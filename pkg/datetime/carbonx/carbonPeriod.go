@@ -1,8 +1,8 @@
-package carbon
+package carbonx
 
 import (
 	"errors"
-	"github.com/golang-module/carbon"
+	"github.com/golang-module/carbon/v2"
 	"reflect"
 	"time"
 )
@@ -98,15 +98,15 @@ func setDate(toSetDate **carbon.Carbon, date interface{}) (err error) {
 			return err
 		}
 
-	} else if dType == "carbon.Carbon" {
+	} else if dType == "carbonx.Carbon" {
 		// 直接赋值carbon指针
 		ptr := date.(carbon.Carbon)
 		*toSetDate = &ptr
-	} else if dType == "*carbon.Carbon" {
+	} else if dType == "*carbonx.Carbon" {
 		// 直接赋值carbon指针
 		*toSetDate = date.(*carbon.Carbon)
 	} else {
-		// 如果不是string或者*carbon.Carbon， 抛出panic
+		// 如果不是string或者*carbonx.Carbon， 抛出panic
 		err = errors.New("Invalid date.")
 
 	}
@@ -126,11 +126,11 @@ func (period *CarbonPeriod) Overlaps(insideRange *CarbonPeriod) bool {
 }
 
 func (period *CarbonPeriod) calculateStart() int64 {
-	return period.startDatetime.ToTimestamp()
+	return period.startDatetime.Timestamp()
 }
 
 func (period *CarbonPeriod) calculateEnd() int64 {
-	return period.endDatetime.ToTimestamp()
+	return period.endDatetime.Timestamp()
 }
 
 func (period *CarbonPeriod) DiffInDays() int64 {
@@ -143,7 +143,7 @@ func (period *CarbonPeriod) DiffInDays() int64 {
 
 func (period *CarbonPeriod) IsDiffInDays(inDays int64) bool {
 
-	diffDays := period.startDatetime.DiffInDaysWithAbs(*period.endDatetime)
+	diffDays := period.startDatetime.DiffAbsInDays(*period.endDatetime)
 
 	return diffDays <= inDays
 

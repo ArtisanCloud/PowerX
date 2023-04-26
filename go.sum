@@ -523,6 +523,8 @@ github.com/golang-jwt/jwt/v4 v4.4.3 h1:Hxl6lhQFj4AnOX6MLrsCb/+7tCj7DxP7VA+2rDIq5
 github.com/golang-jwt/jwt/v4 v4.4.3/go.mod h1:m21LjoU+eqJr34lmDMbreY2eSTRJ1cv77w39/MY0Ch0=
 github.com/golang-module/carbon v1.5.5 h1:/cv1ZguAe/jsiVsvQl/OZB1DO/trrfiMgAv/IXQ0lqo=
 github.com/golang-module/carbon v1.5.5/go.mod h1:M/TDTYPp3qWtW68u49dLDJOyGmls6L6BXdo/pyvkMaU=
+github.com/golang-module/carbon/v2 v2.2.3 h1:WvGIc5+qzq9drNzH+Gnjh1TZ0JgDY/IA+m2Dvk7Qm4Q=
+github.com/golang-module/carbon/v2 v2.2.3/go.mod h1:LdzRApgmDT/wt0eNT8MEJbHfJdSqCtT46uZhfF30dqI=
 github.com/golang-sql/civil v0.0.0-20220223132316-b832511892a9 h1:au07oEsX2xN0ktxqI+Sida1w446QrXBRJ0nee3SNZlA=
 github.com/golang-sql/sqlexp v0.1.0 h1:ZCD6MBpcuOVfGVqsEmY5/4FtYiKz6tSyUv9LPEDei6A=
 github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b/go.mod h1:SBH7ygxi8pfUlaOkMMuAQtPIUF8ecWP5IEl/CR7VP2Q=

@@ -14,7 +14,7 @@ type Schedule struct {
 	CopyFromScheduleId int64     `gorm:"comment:复制从日程表Id" json:"copyFromScheduleId"`
 	Name               string    `gorm:"comment:名字" json:"name"`
 	Description        string    `gorm:"comment:描述" json:"description"`
-	IsActive           string    `gorm:"comment:开放状态" json:"isActive"`
+	IsActive           bool      `gorm:"comment:开放状态" json:"isActive"`
 	Status             string    `gorm:"comment:记录状态" json:"status"`
 	StartTime          time.Time `gorm:"comment:开始时间" json:"startTime"`
 	EndTime            time.Time `gorm:"comment:结束时间" json:"endTime"`

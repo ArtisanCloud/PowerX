@@ -1,8 +1,7 @@
-package carbon
+package carbonx
 
 import (
-	"github.com/golang-module/carbon"
-	"time"
+	"github.com/golang-module/carbon/v2"
 )
 
 type CarbonDatetime struct {
@@ -37,9 +36,7 @@ func (dt *CarbonDatetime) SetTimezone(timezone string) *CarbonDatetime {
 func GetCarbonNow() carbon.Carbon {
 	now := carbon.Now()
 
-	locProject, _ := time.LoadLocation(DefaultTimeZone)
-
-	now.Time = now.Time.In(locProject)
+	now = now.SetTimezone(DefaultTimeZone)
 
 	return now
 }

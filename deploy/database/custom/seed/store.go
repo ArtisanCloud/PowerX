@@ -13,8 +13,8 @@ func CreateStore(db *gorm.DB) (err error) {
 		panic(errors.Wrap(err, "init root dep failed"))
 	}
 	if count == 0 {
-		dep := DefaultStore()
-		if err := db.Model(&product.Store{}).Create(&dep).Error; err != nil {
+		stores := DefaultStore()
+		if err := db.Model(&product.Store{}).Create(&stores).Error; err != nil {
 			panic(errors.Wrap(err, "init root dep failed"))
 		}
 	}

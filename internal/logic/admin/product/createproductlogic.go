@@ -7,7 +7,7 @@ import (
 	"PowerX/internal/types"
 	"PowerX/internal/uc/powerx"
 	"context"
-	"github.com/golang-module/carbon"
+	"github.com/golang-module/carbon/v2"
 	"gorm.io/datatypes"
 
 	"github.com/zeromicro/go-zero/core/logx"

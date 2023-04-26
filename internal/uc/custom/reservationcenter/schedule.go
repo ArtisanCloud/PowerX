@@ -3,20 +3,60 @@ package reservationcenter
 import (
 	"PowerX/internal/model/custom/reservationcenter"
 	"PowerX/internal/model/powermodel"
+	"PowerX/internal/types"
 	"PowerX/internal/types/errorx"
+	"PowerX/pkg/datetime/carbonx"
 	"context"
+	"github.com/golang-module/carbon/v2"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
+	"time"
 )
 
 type ScheduleUseCase struct {
 	db *gorm.DB
 }
 
+type FindManySchedulesOption struct {
+	Types       []string
+	CurrentDate time.Time
+	StoreId     int64
+	types.PageEmbedOption
+}
+
 func NewScheduleUseCase(db *gorm.DB) *ScheduleUseCase {
 	return &ScheduleUseCase{
 		db: db,
 	}
+}
+
+func (uc *ScheduleUseCase) buildFindQueryNoPage(db *gorm.DB, opt *FindManySchedulesOption) *gorm.DB {
+	if len(opt.Types) > 0 {
+		db = db.Where("type IN ?", opt.Types)
+	}
+	if opt.StoreId > 0 {
+		db = db.Where("storeId = ?", opt.StoreId)
+	}
+	if !opt.CurrentDate.IsZero() {
+		cDate := carbon.FromStdTime(opt.CurrentDate)
+		startDate, endDate := carbonx.GetWeekDaysFromDay(&cDate, nil)
+		db = db.Where("start_time > ? AND end_time < ?", startDate.Time, endDate.Time)
+	}
+
+	return db
+}
+
+func (uc *ScheduleUseCase) FindAllSchedules(ctx context.Context, opt *FindManySchedulesOption) (schedules []*reservationcenter.Schedule, err error) {
+	query := uc.db.WithContext(ctx).Model(&reservationcenter.Schedule{})
+
+	query = uc.buildFindQueryNoPage(query, opt)
+	if err := query.
+		Debug().
+		//Preload("Artisans").
+		Find(&schedules).Error; err != nil {
+		panic(errors.Wrap(err, "find all schedules failed"))
+	}
+	return schedules, err
 }
 
 func (uc *ScheduleUseCase) CreateSchedule(ctx context.Context, lead *reservationcenter.Schedule) {
