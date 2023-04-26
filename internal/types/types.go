@@ -1160,7 +1160,7 @@ type Store struct {
 	Longitude     float32         `json:"longitude"`
 	Latitude      float32         `json:"latitude"`
 	StartWork     float32         `json:"startWork"`
-	SndWork       float32         `json:"sndWork"`
+	EndWork       float32         `json:"sndWork"`
 	Artisans      []*StoreArtisan `json:"artisans,optional"`
 	CreatedAt     string          `json:"createdAt,optional"`
 }
