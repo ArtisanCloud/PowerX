@@ -22,7 +22,7 @@ type Store struct {
 	Longitude     float32   `gorm:"comment:经度" json:"longitude"`
 	Latitude      float32   `gorm:"comment:纬度" json:"latitude"`
 	StartWork     time.Time `gorm:"comment:开始工作时间" json:"startWork"`
-	SndWork       time.Time `gorm:"comment:结束工作时间" json:"endWork"`
+	EndWork       time.Time `gorm:"comment:结束工作时间" json:"endWork"`
 }
 
 const StoreUniqueId = powermodel.UniqueId
