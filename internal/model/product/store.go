@@ -4,6 +4,7 @@ import (
 	"PowerX/internal/model/powermodel"
 	"github.com/ArtisanCloud/PowerLibs/v3/database"
 	"gorm.io/gorm"
+	"time"
 )
 
 type Store struct {
@@ -11,15 +12,17 @@ type Store struct {
 
 	Artisans []*Artisan `gorm:"many2many:public.pivot_store_to_artisan;foreignKey:Id;joinForeignKey:StoreId;References:Id;JoinReferences:ArtisanId" json:"priceBooks"`
 
-	EmployeeId    int64   `gorm:"comment:店长Id" json:"EmployeeId"`
-	Name          string  `gorm:"comment:店铺名称" json:"name"`
-	ContactNumber string  `gorm:"comment:手机号码" json:"contactNumber"`
-	CoverURL      string  `gorm:"comment:封面图" json:"coverURL"`
-	Email         string  `gorm:"comment:邮箱地址" json:"email"`
-	Address       string  `gorm:"comment:工作地址" json:"address"`
-	Description   string  `gorm:"comment:店铺描述" json:"description"`
-	Longitude     float32 `gorm:"comment:经度" json:"longitude"`
-	Latitude      float32 `gorm:"comment:纬度" json:"latitude"`
+	EmployeeId    int64     `gorm:"comment:店长Id" json:"EmployeeId"`
+	Name          string    `gorm:"comment:店铺名称" json:"name"`
+	ContactNumber string    `gorm:"comment:手机号码" json:"contactNumber"`
+	CoverURL      string    `gorm:"comment:封面图" json:"coverURL"`
+	Email         string    `gorm:"comment:邮箱地址" json:"email"`
+	Address       string    `gorm:"comment:工作地址" json:"address"`
+	Description   string    `gorm:"comment:店铺描述" json:"description"`
+	Longitude     float32   `gorm:"comment:经度" json:"longitude"`
+	Latitude      float32   `gorm:"comment:纬度" json:"latitude"`
+	StartWork     time.Time `gorm:"comment:开始工作时间" json:"startWork"`
+	SndWork       time.Time `gorm:"comment:结束工作时间" json:"endWork"`
 }
 
 const StoreUniqueId = powermodel.UniqueId
