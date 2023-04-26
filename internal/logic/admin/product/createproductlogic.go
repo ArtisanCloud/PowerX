@@ -7,7 +7,7 @@ import (
 	"PowerX/internal/types"
 	"PowerX/internal/uc/powerx"
 	"context"
-	"github.com/golang-module/carbon"
+	"github.com/golang-module/carbon/v2"
 	"gorm.io/datatypes"
 
 	"github.com/zeromicro/go-zero/core/logx"
@@ -75,8 +75,8 @@ func TransformProductRequestToProduct(productRequest *types.Product) (mdlProduct
 		CoverURL:           productRequest.CoverURL,
 		PurchasedQuantity:  productRequest.PurchasedQuantity,
 		ValidityPeriodDays: productRequest.ValidityPeriodDays,
-		SaleStartDate:      saleStartDate.Time,
-		SaleEndDate:        saleEndDate.Time,
+		SaleStartDate:      saleStartDate.ToStdTime(),
+		SaleEndDate:        saleEndDate.ToStdTime(),
 		ProductSpecific: product.ProductSpecific{
 			Inventory: productRequest.Inventory,
 			Weight:    productRequest.Weight,

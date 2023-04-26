@@ -4,6 +4,7 @@ import (
 	"PowerX/deploy/database/custom/seed"
 	"PowerX/internal/model"
 	"PowerX/internal/model/product"
+	"PowerX/pkg/slicex"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
 )
@@ -17,9 +18,7 @@ func CreateDataDictionaries(db *gorm.DB) (err error) {
 
 	data := DefaultDataDictionary()
 	customData := seed.CustomDataDictionary(db)
-	for _, dd := range customData {
-		data = append(data, dd)
-	}
+	data = slicex.Concatenate(data, customData)
 
 	if count == 0 {
 		if err = db.Model(&model.DataDictionaryType{}).Create(data).Error; err != nil {

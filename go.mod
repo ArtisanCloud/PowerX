@@ -8,7 +8,7 @@ require (
 	github.com/Blank-Xu/sql-adapter v0.0.0-20210714092925-0bdd0d548758
 	github.com/casbin/casbin/v2 v2.60.0
 	github.com/golang-jwt/jwt/v4 v4.4.3
-	github.com/golang-module/carbon v1.5.5
+	github.com/golang-module/carbon/v2 v2.2.3
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/mux v1.8.0
 	github.com/lib/pq v1.10.7
