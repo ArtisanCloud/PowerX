@@ -8,7 +8,6 @@ import (
 	"PowerX/internal/types"
 	"PowerX/internal/types/errorx"
 	"PowerX/pkg/datetime/carbonx"
-	fmt "PowerX/pkg/printx"
 	"context"
 	"github.com/golang-module/carbon/v2"
 	"github.com/pkg/errors"
@@ -149,30 +148,72 @@ func (uc *ScheduleUseCase) DeleteSchedule(ctx context.Context, id int64) error {
 	return nil
 }
 
-func (uc *ScheduleUseCase) CalculateScheduleAvailable(
+func (uc *ScheduleUseCase) IsScheduleAvailable(
 	ctx context.Context,
 	schedule *reservationcenter.Schedule,
 	artisan *product.Artisan,
 	serviceSpecific *product2.ServiceSpecific,
-) bool {
+) (isAvailable bool, usedTimeResource int) {
 
 	operationStatus := []int{
+		// 操作状态是正常
 		schedule.GetCachedDDId(uc.db.WithContext(ctx), reservationcenter.OperationStatusType, reservationcenter.OperationStatusNone),
-		schedule.GetCachedDDId(uc.db.WithContext(ctx), reservationcenter.OperationStatusType, reservationcenter.OperationStatusSuccess),
+		// 操作正常已经是签到
+		schedule.GetCachedDDId(uc.db.WithContext(ctx), reservationcenter.OperationStatusType, reservationcenter.OperationStatusCheckIn),
 	}
 	reservationStatus := []int{
+		// 预约状态是已经预约成功
 		schedule.GetCachedDDId(uc.db.WithContext(ctx), reservationcenter.ReservationStatusType, reservationcenter.ReservationStatusConfirmed),
 	}
 
-	// 加载已经预约，正在服务的约单列表
+	// 加载该发型师的已经预约，正在服务的约单列表
 	schedule.LoadReservations(uc.db.WithContext(ctx), &map[string]interface{}{
-		"operation_status":   operationStatus,
-		"reservation_status": reservationStatus,
+		"operation_status":    operationStatus,
+		"reservation_status":  reservationStatus,
+		"reserved_artisan_id": artisan.Id,
 	}, false)
-	fmt.Dump(schedule.Reservations)
+	//fmt.Dump(schedule.Reservations)
+	if len(schedule.Reservations) == 0 {
+		return true, 0
+	}
+
 	// 计算当前时间距离schedule的结束时间
+	usedTimeResource, remainedTimeResource := uc.CalTimeResource(schedule.Reservations)
 
 	// 计算当前服务的必须时间是否在剩余时间之内
+	diffTimeResource := remainedTimeResource - serviceSpecific.MandatoryDuration
 
-	return false
+	return diffTimeResource >= 0, usedTimeResource
+}
+
+func (uc *ScheduleUseCase) CalTimeResource(reservations []*reservationcenter.Reservation) (usedTimeResource int, remainedTimeResource int) {
+
+	usedTimeResource = uc.CalUsedTimeResource(reservations)
+	totalTimeResource := reservationcenter.BucketHours * 60
+
+	remainedTimeResource = totalTimeResource - usedTimeResource
+	return
+}
+
+func (uc *ScheduleUseCase) CalUsedTimeResource(reservations []*reservationcenter.Reservation) int {
+	var usedTimeResource int
+	for _, reservation := range reservations {
+		usedTimeResource = usedTimeResource + reservation.ServiceDuration
+	}
+
+	return usedTimeResource
+}
+
+func (uc *ScheduleUseCase) LoadPivotScheduleToArtisan(ctx context.Context, scheduleId int64, ArtisanId int64) (*reservationcenter.PivotScheduleToArtisan, error) {
+	var pivot reservationcenter.PivotScheduleToArtisan
+	if err := uc.db.WithContext(ctx).
+		Where("schedule_id", scheduleId).
+		Where("artisan_id", ArtisanId).
+		First(&pivot).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errorx.WithCause(errorx.ErrNotFoundObject, "未找到Pivot")
+		}
+		panic(err)
+	}
+	return &pivot, nil
 }

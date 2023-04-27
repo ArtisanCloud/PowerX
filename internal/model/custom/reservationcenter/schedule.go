@@ -12,8 +12,9 @@ import (
 type Schedule struct {
 	powermodel.PowerModel
 
-	Store        *product.Store `gorm:"foreignKey:StoreId;references:Id" json:"store"`
-	Reservations []*Reservation `gorm:"foreignKey:ScheduleId;references:Id" json:"reservations"`
+	Store                  *product.Store            `gorm:"foreignKey:StoreId;references:Id" json:"store"`
+	Reservations           []*Reservation            `gorm:"foreignKey:ScheduleId;references:Id" json:"reservations"`
+	PivotScheduleToArtisan []*PivotScheduleToArtisan `gorm:"foreignKey:ScheduleId;references:Id" json:"pivotScheduleToArtisan"`
 
 	StoreId            int64     `gorm:"comment:店铺Id" json:"storeId"`
 	ApprovalStatus     string    `gorm:"comment:审批状态" json:"approvalStatus"`

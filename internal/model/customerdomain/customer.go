@@ -4,10 +4,6 @@ import (
 	"PowerX/internal/model/powermodel"
 )
 
-const SourceFromMP = "mini-program"
-const SourceFromOA = "official-account"
-const SourceFromWeWork = "wework"
-
 type ExternalId struct {
 	OpenIDInMiniProgram           string `gorm:"index"`
 	OpenIDInWeChatOfficialAccount string `gorm:"index"`
@@ -24,7 +20,7 @@ type Customer struct {
 	Mobile      string `gorm:"unique"`
 	Email       string
 	InviterID   int64
-	Source      string
+	Source      int
 	Type        string
 	IsActivated bool
 	ExternalId

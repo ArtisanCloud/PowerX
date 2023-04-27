@@ -1,10 +1,12 @@
 package reservationcenter
 
 import (
+	"PowerX/internal/logic/custom/reservation"
 	"PowerX/internal/model/custom/reservationcenter"
 	"PowerX/internal/model/powermodel"
 	"PowerX/internal/types"
 	"PowerX/internal/types/errorx"
+	fmt "PowerX/pkg/printx"
 	"context"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
@@ -153,4 +155,29 @@ func (uc *ReservationUseCase) DeleteReservation(ctx context.Context, id int64) e
 		return errorx.WithCause(errorx.ErrBadRequest, "未找到产品")
 	}
 	return nil
+}
+
+func (uc *ReservationUseCase) MakeAppointment(ctx context.Context, req *reservation.AppointmentRequest) (reservation *reservationcenter.Reservation, err error) {
+
+	fmt.Dump(req)
+
+	reservation = &reservationcenter.Reservation{
+		PowerModel: powermodel.PowerModel{
+			Id: 1,
+		},
+		ScheduleId:        req.Req.ScheduleId,
+		CustomerId:        req.Req.CustomerId,
+		ReservedArtisanId: req.Req.ReservedArtisanId,
+		ServiceId:         req.Req.ServiceId,
+		ServiceDuration:   req.ServiceSpecific.MandatoryDuration,
+		SourceChannelId:   req.Req.SourceChannelId,
+		Type:              req.Req.Type,
+		//ReservedTime:      reservedTime.ToStdTime(),
+		Description:    req.Req.Description,
+		ConsumedPoints: req.Req.ConsumedPoints,
+		//OperationStatus:   operationStatus,
+		//ReservationStatus: reservationStatus,
+	}
+
+	return reservation, nil
 }

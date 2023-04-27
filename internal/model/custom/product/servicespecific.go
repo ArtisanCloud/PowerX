@@ -17,8 +17,8 @@ type ServiceSpecific struct {
 	ProductId         int64  `gorm:"comment:产品ID" json:"productId"`
 	IsFree            bool   `gorm:"comment:服务是否是空闲" json:"isFree"`
 	Name              string `gorm:"comment:项目名称"`
-	Duration          int32  `gorm:"comment:服务时长" json:"duration"`
-	MandatoryDuration int32  `gorm:"comment:强制服务时长" json:"mandatoryDuration"`
+	Duration          int    `gorm:"comment:服务时长" json:"duration"`
+	MandatoryDuration int    `gorm:"comment:强制服务时长" json:"mandatoryDuration"`
 }
 
 const ServiceSpecificUniqueId = powermodel.UniqueId

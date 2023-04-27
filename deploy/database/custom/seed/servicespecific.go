@@ -185,7 +185,7 @@ func getProduct(name string) *product.Product {
 	}
 }
 
-func getServiceSpecific(product *product.Product, children []*product2.ServiceSpecific, name string, isFree bool, duration int32, mDuration int32) *product2.ServiceSpecific {
+func getServiceSpecific(product *product.Product, children []*product2.ServiceSpecific, name string, isFree bool, duration int, mDuration int) *product2.ServiceSpecific {
 	return &product2.ServiceSpecific{
 		Product:           product,
 		Children:          children,
