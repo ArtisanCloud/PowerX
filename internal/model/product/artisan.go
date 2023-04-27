@@ -10,7 +10,7 @@ import (
 type Artisan struct {
 	powermodel.PowerModel
 
-	ArtisanSpecific *custom.ArtisanSpecific `gorm:"foreignKey:ArtisanId;references:Id" json:"Specific"`
+	ArtisanSpecific *custom.ArtisanSpecific `gorm:"foreignKey:ArtisanId;references:Id" json:"specific"`
 
 	EmployeeId  int64     `gorm:"comment:员工Id"`
 	Name        string    `gorm:"comment:Artisan名称"`
