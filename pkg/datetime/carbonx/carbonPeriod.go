@@ -56,7 +56,7 @@ func CreateCarbonPeriodWithTime(start time.Time, end time.Time) (p *CarbonPeriod
 func CreateCarbonPeriodWithString(start string, end string, format string) (p *CarbonPeriod) {
 
 	if format == "" {
-		format = DATETIME_FORMAT
+		format = DatetimeFormat
 	}
 
 	startDate := carbon.ParseByFormat(start, format)
