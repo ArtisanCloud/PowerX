@@ -1,8 +1,11 @@
 package seed
 
 import (
+	"PowerX/internal/model"
 	product2 "PowerX/internal/model/custom/product"
 	"PowerX/internal/model/product"
+	"PowerX/internal/uc/powerx"
+	"context"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
 )
@@ -13,6 +16,12 @@ func CreateServiceSpecific(db *gorm.DB) (err error) {
 		panic(errors.Wrap(err, "init root dep failed"))
 	}
 	if count == 0 {
+
+		ucDD := powerx.NewDataDictionaryUseCase(db)
+		ctx:=context.Background()
+		 = ucDD.GetDataDictionaryItem(ctx,product.ProductType,product.ProductTypeService )
+		product.ProductPlanOnce
+		options
 
 		configs := DefaultServiceSpecific()
 		if err := db.Model(&product2.ServiceSpecific{}).Create(&configs).Error; err != nil {
@@ -27,13 +36,13 @@ func DefaultServiceSpecific() []*product2.ServiceSpecific {
 
 	configs := []*product2.ServiceSpecific{
 		&product2.ServiceSpecific{
-			Product: *product.Product{
+			Product: &product.Product{
 				Name: "剪发（男）",
-				Type: ProductType,
-				Plan: "",
-				CanSellOnline: "",
-				ApprovalStatus: "",
-				IsActivated: "",
+				Type: ,
+				Plan: ,
+				CanSellOnline: true,
+				ApprovalStatus: model.ApprovalStatusActive,
+				IsActivated: true,
 			},
 			ParentId: 0,
 			IsFree: false,

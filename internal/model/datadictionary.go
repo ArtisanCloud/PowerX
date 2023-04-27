@@ -27,9 +27,6 @@ const TypePromoteChannel = "_promote_channel"
 const TypeSalesChannel = "_sales_channel"
 const TypeSourceChannel = "_source_channel"
 
-const TypeProductType = "_product_type"
-const TypeProductPlan = "_product_plan"
-
 const ChannelWechat = "_wechat"
 const ChannelDianPing = "_dian_ping"
 const ChannelMeiTuan = "_mei_tuan"
