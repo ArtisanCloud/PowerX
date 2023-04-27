@@ -1,17 +1,13 @@
 package seed
 
 import (
-	"PowerX/internal/model"
 	product2 "PowerX/internal/model/custom/product"
 	"PowerX/internal/model/product"
-	"PowerX/internal/uc/powerx"
 	"context"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
 )
 
-var ddProductTypeService *model.DataDictionaryItem
-var ddProductTypeOnce *model.DataDictionaryItem
 var stores []*product.Store
 
 func CreateServiceSpecific(db *gorm.DB) (err error) {
@@ -21,10 +17,9 @@ func CreateServiceSpecific(db *gorm.DB) (err error) {
 	}
 	if count == 0 {
 
-		ucDD := powerx.NewDataDictionaryUseCase(db)
 		ctx := context.Background()
-		ddProductTypeService, _ = ucDD.GetDataDictionaryItem(ctx, product.TypeProductType, product.ProductTypeService)
-		ddProductTypeOnce, _ = ucDD.GetDataDictionaryItem(ctx, product.TypeProductPlan, product.ProductPlanOnce)
+		ddProductTypeService = ucDD.GetCachedDD(ctx, product.TypeProductType, product.ProductTypeService)
+		ddProductTypeOnce = ucDD.GetCachedDD(ctx, product.TypeProductPlan, product.ProductPlanOnce)
 
 		stores, err = GetSeedStores(db)
 		if err != nil {
@@ -178,8 +173,8 @@ func DefaultServiceSpecific() []*product2.ServiceSpecific {
 func getProduct(name string) *product.Product {
 	return &product.Product{
 		Name:          name,
-		Type:          int(ddProductTypeService.Id),
-		Plan:          int(ddProductTypeOnce.Id),
+		Type:          int(ddProductTypeService),
+		Plan:          int(ddProductTypeOnce),
 		CanSellOnline: true,
 		IsActivated:   true,
 	}

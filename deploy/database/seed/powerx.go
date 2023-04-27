@@ -24,7 +24,7 @@ func NewPowerSeeder(conf *config.Config) (*PowerSeeder, error) {
 
 func (s *PowerSeeder) CreatePowerX() (err error) {
 
-	_ = CreateOrganization(s.db)
+	_ = CreateOrganization(s)
 	_ = CreateDataDictionaries(s.db)
 	_ = CreatePriceBooks(s.db)
 	_ = CreateProductCategories(s.db)

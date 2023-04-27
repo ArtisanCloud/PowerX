@@ -1,7 +1,9 @@
 package seed
 
 import (
+	"PowerX/internal/model"
 	"PowerX/internal/model/customerdomain"
+	"context"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
 )
@@ -24,6 +26,8 @@ func CreateCustomer(db *gorm.DB) (err error) {
 
 func DefaultCustomer() (data []*customerdomain.Customer) {
 
+	source := UseCaseDD.GetCachedDD(context.Background(), model.TypeSourceChannel, model.ChannelWechat)
+
 	data = []*customerdomain.Customer{
 		&customerdomain.Customer{
 
@@ -32,7 +36,7 @@ func DefaultCustomer() (data []*customerdomain.Customer) {
 			Email:       "test@test.com",
 			InviterID:   0,
 			Source:      18,
-			Type:        "",
+			Type:        source,
 			IsActivated: true,
 		},
 	}

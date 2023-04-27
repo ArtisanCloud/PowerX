@@ -3,7 +3,6 @@ package customer
 import (
 	"PowerX/internal/model"
 	"PowerX/internal/model/customerdomain"
-	"PowerX/internal/model/powermodel"
 	"PowerX/internal/svc"
 	"PowerX/internal/types"
 	customerdomain2 "PowerX/internal/uc/powerx/customerdomain"
@@ -73,15 +72,16 @@ func (l *AuthByPhoneLogic) AuthByPhone(req *types.MPCustomerAuthRequest) (resp *
 		return
 	}
 
+	source := l.svcCtx.PowerX.DataDictionary.GetCachedDD(l.ctx, model.TypeSourceChannel, model.ChannelWechat)
+
 	// upsert 线索
 	lead := &customerdomain.Lead{
 		Name:        mpCustomer.NickName,
 		Mobile:      mpCustomer.PhoneNumber,
-		Source:      customerdomain.SourceFromMP,
-		Status:      powermodel.ModelStatusActive,
+		Source:      source,
 		IsActivated: true,
 		ExternalId: customerdomain.ExternalId{
-			OpenIDInMiniProgram: mpCustomer.OpenID,
+			OpenIdInMiniProgram: mpCustomer.OpenID,
 		},
 	}
 	lead, err = l.svcCtx.PowerX.Lead.UpsertLead(l.ctx, lead)

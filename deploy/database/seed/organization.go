@@ -3,17 +3,16 @@ package seed
 import (
 	"PowerX/internal/model/scrm/organization"
 	"github.com/pkg/errors"
-	"gorm.io/gorm"
 )
 
-func CreateOrganization(db *gorm.DB) (err error) {
+func CreateOrganization(s *PowerSeeder) (err error) {
 	var count int64
-	if err = db.Model(&organization.Department{}).Count(&count).Error; err != nil {
+	if err = s.db.Model(&organization.Department{}).Count(&count).Error; err != nil {
 		panic(errors.Wrap(err, "init root dep failed"))
 	}
 	if count == 0 {
 		dep := DefaultDepartment()
-		if err := db.Model(&organization.Department{}).Create(&dep).Error; err != nil {
+		if err := s.db.Model(&organization.Department{}).Create(&dep).Error; err != nil {
 			panic(errors.Wrap(err, "init root dep failed"))
 		}
 	}
