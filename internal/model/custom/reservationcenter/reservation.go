@@ -1,7 +1,9 @@
 package reservationcenter
 
 import (
+	"PowerX/internal/model"
 	"PowerX/internal/model/powermodel"
+	"gorm.io/gorm"
 	"time"
 )
 
@@ -19,6 +21,7 @@ const OperationStatusLateCancelled = "_late_cancelled" // 事后取消
 const OperationStatusAutoCancelled = "_auto_cancelled" // 自动取消
 const OperationStatusNoShow = "_no_show"               // 未到场
 const OperationStatusCheckIn = "_checkin"              // 到场
+const OperationStatusSuccess = "_success"              // 完成服务
 
 const ReservationTypeOnSite = "_reserved_by_onsite" // 现场预约
 const ReservationTypeOnline = "_reserved_by_online" // 线上预约
@@ -49,3 +52,12 @@ type Reservation struct {
 }
 
 const ReservationUniqueId = powermodel.UniqueId
+
+// 缓存数据字典
+func (mdl *Reservation) GetCachedDDId(db *gorm.DB, itemType string, itemKey string) int {
+	var item model.DataDictionaryItem
+	if err := db.Model(item).Where("type = ? AND key = ?", itemType, itemKey).First(&item).Error; err != nil {
+		panic(err)
+	}
+	return int(item.Id)
+}

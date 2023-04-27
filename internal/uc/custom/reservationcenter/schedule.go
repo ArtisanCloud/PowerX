@@ -1,11 +1,14 @@
 package reservationcenter
 
 import (
+	product2 "PowerX/internal/model/custom/product"
 	"PowerX/internal/model/custom/reservationcenter"
 	"PowerX/internal/model/powermodel"
+	"PowerX/internal/model/product"
 	"PowerX/internal/types"
 	"PowerX/internal/types/errorx"
 	"PowerX/pkg/datetime/carbonx"
+	fmt "PowerX/pkg/printx"
 	"context"
 	"github.com/golang-module/carbon/v2"
 	"github.com/pkg/errors"
@@ -124,7 +127,9 @@ func (uc *ScheduleUseCase) PatchSchedule(ctx context.Context, id int64, lead *re
 
 func (uc *ScheduleUseCase) GetSchedule(ctx context.Context, id int64) (*reservationcenter.Schedule, error) {
 	var lead reservationcenter.Schedule
-	if err := uc.db.WithContext(ctx).First(&lead, id).Error; err != nil {
+	if err := uc.db.WithContext(ctx).
+		Preload("Store").
+		First(&lead, id).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errorx.WithCause(errorx.ErrBadRequest, "未找到产品")
 		}
@@ -142,4 +147,32 @@ func (uc *ScheduleUseCase) DeleteSchedule(ctx context.Context, id int64) error {
 		return errorx.WithCause(errorx.ErrBadRequest, "未找到产品")
 	}
 	return nil
+}
+
+func (uc *ScheduleUseCase) CalculateScheduleAvailable(
+	ctx context.Context,
+	schedule *reservationcenter.Schedule,
+	artisan *product.Artisan,
+	serviceSpecific *product2.ServiceSpecific,
+) bool {
+
+	operationStatus := []int{
+		schedule.GetCachedDDId(uc.db.WithContext(ctx), reservationcenter.OperationStatusType, reservationcenter.OperationStatusNone),
+		schedule.GetCachedDDId(uc.db.WithContext(ctx), reservationcenter.OperationStatusType, reservationcenter.OperationStatusSuccess),
+	}
+	reservationStatus := []int{
+		schedule.GetCachedDDId(uc.db.WithContext(ctx), reservationcenter.ReservationStatusType, reservationcenter.ReservationStatusConfirmed),
+	}
+
+	// 加载已经预约，正在服务的约单列表
+	schedule.LoadReservations(uc.db.WithContext(ctx), &map[string]interface{}{
+		"operation_status":   operationStatus,
+		"reservation_status": reservationStatus,
+	}, false)
+	fmt.Dump(schedule.Reservations)
+	// 计算当前时间距离schedule的结束时间
+
+	// 计算当前服务的必须时间是否在剩余时间之内
+
+	return false
 }

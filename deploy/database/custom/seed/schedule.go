@@ -53,9 +53,6 @@ func DefaultSchedule(stores []*product.Store) []*reservationcenter.Schedule {
 
 func GenerateSchedulesBy(currentDate *carbon.Carbon, store *product.Store) []*reservationcenter.Schedule {
 
-	startWorkHour := 10
-	bucketHours := 2
-	bucketCount := 6
 	if currentDate.IsInvalid() {
 		*currentDate = carbon.Now()
 	}
@@ -63,7 +60,7 @@ func GenerateSchedulesBy(currentDate *carbon.Carbon, store *product.Store) []*re
 	// 格式化到10点
 	formatDate := func(d *carbon.Carbon) *carbon.Carbon {
 		d.SetWeekStartsAt(carbon.Sunday)
-		*d = d.SetHour(startWorkHour).SetMinute(0).SetSecond(0)
+		*d = d.SetHour(reservationcenter.StartWorkHour).SetMinute(0).SetSecond(0)
 		return d
 	}
 
@@ -83,9 +80,9 @@ func GenerateSchedulesBy(currentDate *carbon.Carbon, store *product.Store) []*re
 	for i := 0; i < workDays; i++ {
 		workDate := startOfWeek.AddDays(i)
 		// 6个bucket
-		for j := 0; j < bucketCount; j++ {
+		for j := 0; j < reservationcenter.BucketCount; j++ {
 			// 每个bucket开始的时间点
-			startDatetime := workDate.AddHours(j * bucketHours)
+			startDatetime := workDate.AddHours(j * reservationcenter.BucketHours)
 			schedule := &reservationcenter.Schedule{
 				StoreId:            store.Id,
 				ApprovalStatus:     "",
@@ -96,7 +93,7 @@ func GenerateSchedulesBy(currentDate *carbon.Carbon, store *product.Store) []*re
 				IsActive:           true,
 				Status:             "",
 				StartTime:          startDatetime.ToStdTime(),
-				EndTime:            startDatetime.AddHours(bucketHours).ToStdTime(),
+				EndTime:            startDatetime.AddHours(reservationcenter.BucketHours).ToStdTime(),
 			}
 			schedules = append(schedules, schedule)
 		}

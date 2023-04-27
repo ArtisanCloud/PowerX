@@ -78,6 +78,13 @@ func defaultOperationStatusDataDictionary() *model.DataDictionaryType {
 				Value: reservationcenter.OperationStatusCheckIn,
 				Sort:  0,
 			},
+			&model.DataDictionaryItem{
+				Key:   reservationcenter.OperationStatusSuccess,
+				Type:  reservationcenter.OperationStatusType,
+				Name:  "完成服务",
+				Value: reservationcenter.OperationStatusSuccess,
+				Sort:  0,
+			},
 		},
 		Type:        reservationcenter.OperationStatusType,
 		Name:        "预约操作字典类型",

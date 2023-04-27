@@ -1,12 +1,19 @@
 package reservationcenter
 
 import (
+	"PowerX/internal/model"
 	"PowerX/internal/model/powermodel"
+	"PowerX/internal/model/product"
+	"github.com/pkg/errors"
+	"gorm.io/gorm"
 	"time"
 )
 
 type Schedule struct {
 	powermodel.PowerModel
+
+	Store        *product.Store `gorm:"foreignKey:StoreId;references:Id" json:"store"`
+	Reservations []*Reservation `gorm:"foreignKey:ScheduleId;references:Id" json:"reservations"`
 
 	StoreId            int64     `gorm:"comment:店铺Id" json:"storeId"`
 	ApprovalStatus     string    `gorm:"comment:审批状态" json:"approvalStatus"`
@@ -28,3 +35,28 @@ const ScheduleStatusIdle = "_idle"       // 空闲
 const ScheduleStatusNormal = "_normal"   // 正常
 const ScheduleStatusWarning = "_warning" // 警告
 const ScheduleStatusFull = "_full"       // 已满
+
+const StartWorkHour = 10
+const BucketHours = 2
+const BucketCount = 6
+
+func (mdl *Schedule) LoadReservations(db *gorm.DB, conditions *map[string]interface{}, withClauseAssociations bool) {
+
+	mdl.Reservations = []*Reservation{}
+	err := powermodel.AssociationRelationship(db, conditions, mdl, "Reservations", false).Find(&mdl.Reservations)
+	if err != nil {
+		panic(errors.Wrap(err, "加载约单失败"))
+	}
+
+}
+
+// 缓存数据字典
+func (mdl *Schedule) GetCachedDDId(db *gorm.DB, itemType string, itemKey string) int {
+	var item model.DataDictionaryItem
+	if err := db.Model(item).
+		//Debug().
+		Where("type = ? AND key = ?", itemType, itemKey).First(&item).Error; err != nil {
+		panic(err)
+	}
+	return int(item.Id)
+}
