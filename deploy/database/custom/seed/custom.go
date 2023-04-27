@@ -4,7 +4,7 @@ import "gorm.io/gorm"
 
 func CreateCustomSeeds(db *gorm.DB) {
 
+	//_ = CreateServiceSpecific(db)
 	_ = CreateStore(db)
-	_ = CreateScheduleConfig(db)
 	_ = CreateSchedule(db)
 }

@@ -12,11 +12,10 @@ import (
 type CustomUseCase struct {
 	db              *gorm.DB
 	Schedule        *reservationCenterCustomUC.ScheduleUseCase
-	ScheduleConfig  *reservationCenterCustomUC.ScheduleConfigUseCase
 	Reservation     *reservationCenterCustomUC.ReservationUseCase
 	CheckinLog      *reservationCenterCustomUC.CheckinLogUseCase
 	ArtisanSpecific *productCustomUC.ArtisanSpecificUseCase
-	Service         *productCustomUC.ServiceSpecificUseCase
+	ServiceSpecific *productCustomUC.ServiceSpecificUseCase
 }
 
 func NewCustomUseCase(conf *config.Config) (uc *CustomUseCase, clean func()) {
@@ -48,7 +47,7 @@ func NewCustomUseCase(conf *config.Config) (uc *CustomUseCase, clean func()) {
 	uc.ArtisanSpecific = productCustomUC.NewArtisanSpecificUseCase(db)
 
 	// 加载服务UseCase
-	uc.Service = productCustomUC.NewServiceSpecificUseCase(db)
+	uc.ServiceSpecific = productCustomUC.NewServiceSpecificUseCase(db)
 
 	return uc, func() {
 		_ = sqlDB.Close()

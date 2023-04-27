@@ -10,12 +10,14 @@ import (
 func AutoMigrateCustom(db *gorm.DB) {
 	// migrate your custom models
 	// product
-	_ = db.AutoMigrate(&product.ProductSpecific{})
+	_ = db.AutoMigrate(
+		&product.ProductSpecific{},
+		&reservationcenter.PivotStoreToService{},
+	)
 	// reservation center
 	_ = db.AutoMigrate(
 		&custom.ArtisanSpecific{},
 		&reservationcenter.Schedule{},
-		&reservationcenter.ScheduleConfig{},
 		&reservationcenter.Reservation{},
 		&reservationcenter.CheckinLog{},
 	)
