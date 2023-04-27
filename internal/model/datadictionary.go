@@ -10,11 +10,11 @@ import (
 // System
 const TypeObjectStatus = "_object_status"
 
-const ApprovalStatusDraft = "_draft"
-const ApprovalStatusActive = "_active"
-const ApprovalStatusCanceled = "_canceled"
-const ApprovalStatusPending = "_pending"
-const ApprovalStatusInactive = "_inactive"
+const StatusDraft = "_draft"
+const StatusActive = "_active"
+const StatusCanceled = "_canceled"
+const StatusPending = "_pending"
+const StatusInactive = "_inactive"
 
 const TypeApprovalStatus = "_approval_status"
 
