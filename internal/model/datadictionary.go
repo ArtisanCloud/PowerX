@@ -27,12 +27,15 @@ const TypePromoteChannel = "_promote_channel"
 const TypeSalesChannel = "_sales_channel"
 const TypeSourceChannel = "_source_channel"
 
-const ChannelWechat = "_wechat"
-const ChannelDianPing = "_dian_ping"
-const ChannelMeiTuan = "_mei_tuan"
-const ChannelDingDing = "_ding_ding"
-const ChannelDouYin = "_dou_yin"
-const ChannelAlipay = "_alipay"
+const ChannelDirect = "_direct"      // 品牌自营
+const ChannelWechat = "_wechat"      // 微信
+const ChannelTaoBao = "_tao_bao"     // 淘宝
+const ChannelJD = "_jd"              // 京东
+const ChannelDianPing = "_dian_ping" // 点评
+const ChannelMeiTuan = "_mei_tuan"   // 美团
+const ChannelDingDing = "_ding_ding" // 钉钉
+const ChannelDouYin = "_dou_yin"     // 抖音
+const ChannelAlipay = "_alipay"      // 支付宝
 
 // 数据字典数据项
 type DataDictionaryItem struct {
