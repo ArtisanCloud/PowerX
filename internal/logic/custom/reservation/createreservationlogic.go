@@ -1,10 +1,7 @@
 package reservation
 
 import (
-	product2 "PowerX/internal/model/custom/product"
-	"PowerX/internal/model/custom/reservationcenter"
-	"PowerX/internal/model/customerdomain"
-	"PowerX/internal/model/product"
+	"PowerX/internal/uc/custom/reservationcenter"
 	"context"
 	"github.com/pkg/errors"
 
@@ -18,14 +15,6 @@ type CreateReservationLogic struct {
 	logx.Logger
 	ctx    context.Context
 	svcCtx *svc.ServiceContext
-}
-
-type AppointmentRequest struct {
-	Schedule        *reservationcenter.Schedule
-	Artisan         *product.Artisan
-	Customer        *customerdomain.Customer
-	ServiceSpecific *product2.ServiceSpecific
-	Req             *types.CreateReservationRequest
 }
 
 func NewCreateReservationLogic(ctx context.Context, svcCtx *svc.ServiceContext) *CreateReservationLogic {
@@ -62,7 +51,7 @@ func (l *CreateReservationLogic) CreateReservation(req *types.CreateReservationR
 		return nil, err
 	}
 
-	request := &AppointmentRequest{
+	request := &reservationcenter.AppointmentRequest{
 		Schedule:        schedule,
 		Artisan:         artisan,
 		Customer:        customer,
@@ -70,7 +59,7 @@ func (l *CreateReservationLogic) CreateReservation(req *types.CreateReservationR
 		Req:             req,
 	}
 
-	reservation, err := l.svcCtx.Custom.Reservation.MakeAppointment(l.ctx, request)
+	reservation, err := l.svcCtx.Custom.Schedule.MakeAppointment(l.ctx, request)
 	if err != nil {
 		return nil, err
 	}

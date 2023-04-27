@@ -30,7 +30,6 @@ func DefaultCustomer() (data []*customerdomain.Customer) {
 
 	data = []*customerdomain.Customer{
 		&customerdomain.Customer{
-
 			Name:        "测试用户",
 			Mobile:      "13574839275",
 			Email:       "test@test.com",

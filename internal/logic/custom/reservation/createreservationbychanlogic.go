@@ -4,6 +4,7 @@ import (
 	"PowerX/internal/model/custom/reservationcenter"
 	"PowerX/internal/svc"
 	"PowerX/internal/types"
+	reservationcenter2 "PowerX/internal/uc/custom/reservationcenter"
 	"context"
 	"github.com/golang-module/carbon/v2"
 	"github.com/pkg/errors"
@@ -27,7 +28,7 @@ type CreateReservationByChanLogic struct {
 	svcCtx *svc.ServiceContext
 
 	// ReservationChannel：预约请求通道，类型为 chan
-	ReservationChannel chan *AppointmentRequest
+	ReservationChannel chan *reservationcenter2.AppointmentRequest
 
 	// 结果通道，类型为 chan *AppointmentResponse，用于返回处理预约请求的结果。
 	ResultChannel chan *AppointmentResponse
@@ -37,7 +38,7 @@ type CreateReservationByChanLogic struct {
 }
 
 func NewCreateReservationByChanLogic(ctx context.Context, svcCtx *svc.ServiceContext) *CreateReservationByChanLogic {
-	reservationChannel := make(chan *AppointmentRequest, ReservationChannelBuff)
+	reservationChannel := make(chan *reservationcenter2.AppointmentRequest, ReservationChannelBuff)
 	resultChan := make(chan *AppointmentResponse)
 	l := &CreateReservationByChanLogic{
 		Logger:             logx.WithContext(ctx),
@@ -86,12 +87,12 @@ func (l *CreateReservationByChanLogic) CreateReservation(req *types.CreateReserv
 		return nil, err
 	}
 
-	request := &AppointmentRequest{
+	request := &reservationcenter2.AppointmentRequest{
 		Schedule: schedule,
 		Artisan:  artisan,
 		//Customer: customer,
 		ServiceSpecific: serviceSpecific,
-		req:             req,
+		Req:             req,
 	}
 
 	select {
@@ -132,7 +133,8 @@ func (l *CreateReservationByChanLogic) ProcessAppointmentRequests() {
 		select {
 		case req := <-l.ReservationChannel:
 			// 处理预约请求
-			isAvailable, usedTimeResource := l.svcCtx.Custom.Schedule.IsScheduleAvailable(l.ctx, req.Schedule, req.Artisan, req.ServiceSpecific)
+
+			isAvailable, usedTimeResource := l.svcCtx.Custom.Schedule.IsScheduleAvailable(nil, req.Schedule, req.Artisan, req.ServiceSpecific)
 			//fmt.Dump(isAvailable, usedTimeResource)
 			if isAvailable {
 				// bucket的开始时间为基准，加上占用的分钟数，为该预约记录的预约时间
@@ -143,16 +145,16 @@ func (l *CreateReservationByChanLogic) ProcessAppointmentRequests() {
 
 				// 可以建立预约记录
 				reservation := &reservationcenter.Reservation{
-					ScheduleId:        req.req.ScheduleId,
-					CustomerId:        req.req.CustomerId,
-					ReservedArtisanId: req.req.ReservedArtisanId,
-					ServiceId:         req.req.ServiceId,
+					ScheduleId:        req.Req.ScheduleId,
+					CustomerId:        req.Req.CustomerId,
+					ReservedArtisanId: req.Req.ReservedArtisanId,
+					ServiceId:         req.Req.ServiceId,
 					ServiceDuration:   req.ServiceSpecific.MandatoryDuration,
-					SourceChannelId:   req.req.SourceChannelId,
-					Type:              req.req.Type,
+					SourceChannelId:   req.Req.SourceChannelId,
+					Type:              req.Req.Type,
 					ReservedTime:      reservedTime.ToStdTime(),
-					Description:       req.req.Description,
-					ConsumedPoints:    req.req.ConsumedPoints,
+					Description:       req.Req.Description,
+					ConsumedPoints:    req.Req.ConsumedPoints,
 					OperationStatus:   operationStatus,
 					ReservationStatus: reservationStatus,
 				}

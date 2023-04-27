@@ -17,10 +17,6 @@ func CreateServiceSpecific(db *gorm.DB) (err error) {
 	}
 	if count == 0 {
 
-		ctx := context.Background()
-		ddProductTypeService = ucDD.GetCachedDD(ctx, product.TypeProductType, product.ProductTypeService)
-		ddProductTypeOnce = ucDD.GetCachedDD(ctx, product.TypeProductPlan, product.ProductPlanOnce)
-
 		stores, err = GetSeedStores(db)
 		if err != nil {
 			panic(errors.Wrap(err, "get stores failed"))
@@ -171,6 +167,10 @@ func DefaultServiceSpecific() []*product2.ServiceSpecific {
 }
 
 func getProduct(name string) *product.Product {
+	ctx := context.Background()
+	ddProductTypeService := UseCaseDD.GetCachedDD(ctx, product.TypeProductType, product.ProductTypeService)
+	ddProductTypeOnce := UseCaseDD.GetCachedDD(ctx, product.TypeProductPlan, product.ProductPlanOnce)
+
 	return &product.Product{
 		Name:          name,
 		Type:          int(ddProductTypeService),

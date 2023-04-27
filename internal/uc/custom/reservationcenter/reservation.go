@@ -1,12 +1,13 @@
 package reservationcenter
 
 import (
-	"PowerX/internal/logic/custom/reservation"
+	product2 "PowerX/internal/model/custom/product"
 	"PowerX/internal/model/custom/reservationcenter"
+	"PowerX/internal/model/customerdomain"
 	"PowerX/internal/model/powermodel"
+	"PowerX/internal/model/product"
 	"PowerX/internal/types"
 	"PowerX/internal/types/errorx"
-	fmt "PowerX/pkg/printx"
 	"context"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
@@ -15,6 +16,14 @@ import (
 
 type ReservationUseCase struct {
 	db *gorm.DB
+}
+
+type AppointmentRequest struct {
+	Schedule        *reservationcenter.Schedule
+	Artisan         *product.Artisan
+	Customer        *customerdomain.Customer
+	ServiceSpecific *product2.ServiceSpecific
+	Req             *types.CreateReservationRequest
 }
 
 type FindManyReservationsOption struct {
@@ -155,29 +164,4 @@ func (uc *ReservationUseCase) DeleteReservation(ctx context.Context, id int64) e
 		return errorx.WithCause(errorx.ErrBadRequest, "未找到产品")
 	}
 	return nil
-}
-
-func (uc *ReservationUseCase) MakeAppointment(ctx context.Context, req *reservation.AppointmentRequest) (reservation *reservationcenter.Reservation, err error) {
-
-	fmt.Dump(req)
-
-	reservation = &reservationcenter.Reservation{
-		PowerModel: powermodel.PowerModel{
-			Id: 1,
-		},
-		ScheduleId:        req.Req.ScheduleId,
-		CustomerId:        req.Req.CustomerId,
-		ReservedArtisanId: req.Req.ReservedArtisanId,
-		ServiceId:         req.Req.ServiceId,
-		ServiceDuration:   req.ServiceSpecific.MandatoryDuration,
-		SourceChannelId:   req.Req.SourceChannelId,
-		Type:              req.Req.Type,
-		//ReservedTime:      reservedTime.ToStdTime(),
-		Description:    req.Req.Description,
-		ConsumedPoints: req.Req.ConsumedPoints,
-		//OperationStatus:   operationStatus,
-		//ReservationStatus: reservationStatus,
-	}
-
-	return reservation, nil
 }

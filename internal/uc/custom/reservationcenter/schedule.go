@@ -7,7 +7,9 @@ import (
 	"PowerX/internal/model/product"
 	"PowerX/internal/types"
 	"PowerX/internal/types/errorx"
+	"PowerX/internal/uc/powerx"
 	"PowerX/pkg/datetime/carbonx"
+	fmt "PowerX/pkg/printx"
 	"context"
 	"github.com/golang-module/carbon/v2"
 	"github.com/pkg/errors"
@@ -148,26 +150,80 @@ func (uc *ScheduleUseCase) DeleteSchedule(ctx context.Context, id int64) error {
 	return nil
 }
 
+func (uc *ScheduleUseCase) MakeAppointment(ctx context.Context, req *AppointmentRequest) (reservation *reservationcenter.Reservation, err error) {
+
+	err = uc.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+
+		isAvailable, usedTimeResource := uc.IsScheduleAvailable(tx, req.Schedule, req.Artisan, req.ServiceSpecific)
+		//fmt.Dump(isAvailable, usedTimeResource)
+		if isAvailable {
+			ucDD := powerx.NewDataDictionaryUseCase(tx)
+
+			// bucket的开始时间为基准，加上占用的分钟数，为该预约记录的预约时间
+			reservedTime := carbon.Time2Carbon(req.Schedule.StartTime).AddMinutes(usedTimeResource)
+			//fmt.Dump(reservedTime)
+			operationStatus := ucDD.GetCachedDD(ctx, reservationcenter.OperationStatusType, reservationcenter.OperationStatusNone)
+			reservationStatus := ucDD.GetCachedDD(ctx, reservationcenter.ReservationStatusType, reservationcenter.ReservationStatusConfirmed)
+
+			// 可以建立预约记录
+			reservation = &reservationcenter.Reservation{
+				ScheduleId:        req.Req.ScheduleId,
+				CustomerId:        req.Req.CustomerId,
+				ReservedArtisanId: req.Req.ReservedArtisanId,
+				ServiceId:         req.Req.ServiceId,
+				ServiceDuration:   req.ServiceSpecific.MandatoryDuration,
+				SourceChannelId:   req.Req.SourceChannelId,
+				Type:              req.Req.Type,
+				ReservedTime:      reservedTime.ToStdTime(),
+				Description:       req.Req.Description,
+				ConsumedPoints:    req.Req.ConsumedPoints,
+				OperationStatus:   operationStatus,
+				ReservationStatus: reservationStatus,
+			}
+
+			ucReservation := NewReservationUseCase(tx)
+			// 创建预约记录
+			err = ucReservation.CreateReservation(ctx, reservation)
+			if err != nil {
+				return err
+			} else {
+				return nil
+			}
+		} else {
+			_, _ = uc.SavePivotScheduleToArtisan(ctx, req.Req.ScheduleId, req.Req.ReservedArtisanId, false)
+
+			return errors.New("当前预约请求无效")
+		}
+
+	})
+
+	return reservation, err
+}
+
 func (uc *ScheduleUseCase) IsScheduleAvailable(
-	ctx context.Context,
+	db *gorm.DB,
 	schedule *reservationcenter.Schedule,
 	artisan *product.Artisan,
 	serviceSpecific *product2.ServiceSpecific,
 ) (isAvailable bool, usedTimeResource int) {
 
+	if db == nil {
+		db = uc.db
+	}
+
 	operationStatus := []int{
 		// 操作状态是正常
-		schedule.GetCachedDDId(uc.db.WithContext(ctx), reservationcenter.OperationStatusType, reservationcenter.OperationStatusNone),
+		schedule.GetCachedDDId(db, reservationcenter.OperationStatusType, reservationcenter.OperationStatusNone),
 		// 操作正常已经是签到
-		schedule.GetCachedDDId(uc.db.WithContext(ctx), reservationcenter.OperationStatusType, reservationcenter.OperationStatusCheckIn),
+		schedule.GetCachedDDId(db, reservationcenter.OperationStatusType, reservationcenter.OperationStatusCheckIn),
 	}
 	reservationStatus := []int{
 		// 预约状态是已经预约成功
-		schedule.GetCachedDDId(uc.db.WithContext(ctx), reservationcenter.ReservationStatusType, reservationcenter.ReservationStatusConfirmed),
+		schedule.GetCachedDDId(db, reservationcenter.ReservationStatusType, reservationcenter.ReservationStatusConfirmed),
 	}
 
 	// 加载该发型师的已经预约，正在服务的约单列表
-	schedule.LoadReservations(uc.db.WithContext(ctx), &map[string]interface{}{
+	schedule.LoadReservations(db, &map[string]interface{}{
 		"operation_status":    operationStatus,
 		"reservation_status":  reservationStatus,
 		"reserved_artisan_id": artisan.Id,
@@ -204,11 +260,37 @@ func (uc *ScheduleUseCase) CalUsedTimeResource(reservations []*reservationcenter
 	return usedTimeResource
 }
 
-func (uc *ScheduleUseCase) LoadPivotScheduleToArtisan(ctx context.Context, scheduleId int64, ArtisanId int64) (*reservationcenter.PivotScheduleToArtisan, error) {
+func (uc *ScheduleUseCase) SavePivotScheduleToArtisan(ctx context.Context, scheduleId int64, artisanId int64, available bool) (*reservationcenter.PivotScheduleToArtisan, error) {
+	var pivot = &reservationcenter.PivotScheduleToArtisan{
+		ScheduleId:  scheduleId,
+		ArtisanId:   artisanId,
+		IsAvailable: available,
+	}
+	db := uc.db.WithContext(ctx)
+
+	db = db.Model(&pivot).
+		Where("schedule_id", scheduleId).
+		Where("artisan_id", artisanId).
+		Update("is_available", available)
+	err := db.Error
+	if err != nil {
+		return nil, err
+	}
+
+	rows := db.RowsAffected
+	fmt.Dump(rows)
+	if rows == 0 {
+		db.Create(&pivot) // create new record from newUser
+	}
+	return pivot, nil
+
+}
+
+func (uc *ScheduleUseCase) LoadPivotScheduleToArtisan(ctx context.Context, scheduleId int64, artisanId int64) (*reservationcenter.PivotScheduleToArtisan, error) {
 	var pivot reservationcenter.PivotScheduleToArtisan
 	if err := uc.db.WithContext(ctx).
 		Where("schedule_id", scheduleId).
-		Where("artisan_id", ArtisanId).
+		Where("artisan_id", artisanId).
 		First(&pivot).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errorx.WithCause(errorx.ErrNotFoundObject, "未找到Pivot")
