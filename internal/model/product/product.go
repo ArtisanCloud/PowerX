@@ -49,7 +49,10 @@ type Product struct {
 const TableNameProduct = "products"
 const ProductUniqueId = powermodel.UniqueId
 
-// Product
+// Data Dictionary
+const TypeProductType = "_product_type"
+const TypeProductPlan = "_product_plan"
+
 const ProductTypeGoods = "_goods"
 const ProductTypeService = "_service"
 
