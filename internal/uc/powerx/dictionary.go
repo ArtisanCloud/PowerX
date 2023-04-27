@@ -12,7 +12,8 @@ import (
 )
 
 type DataDictionaryUseCase struct {
-	db *gorm.DB
+	db     *gorm.DB
+	ddList *[]model.DataDictionaryItem
 }
 
 func NewDataDictionaryUseCase(db *gorm.DB) *DataDictionaryUseCase {
@@ -20,6 +21,19 @@ func NewDataDictionaryUseCase(db *gorm.DB) *DataDictionaryUseCase {
 		db: db,
 	}
 }
+
+// 缓存数据字典
+func (uc *DataDictionaryUseCase) GetCachedDD(ctx context.Context, itemType string, itemKey string) int {
+
+	item, err := uc.GetDataDictionaryItem(ctx, itemType, itemKey)
+
+	if err != nil {
+		panic(errors.Wrap(err, "failed to get dd item type: "+itemType+" key: "+itemKey))
+	}
+
+	return int(item.Id)
+}
+
 func (uc *DataDictionaryUseCase) CreateDataDictionaryItem(ctx context.Context, dd *model.DataDictionaryItem) error {
 	if err := uc.db.WithContext(ctx).Create(&dd).Error; err != nil {
 		// todo use errors.Is() when gorm update ErrDuplicatedKey

@@ -9,16 +9,16 @@ import (
 	"github.com/zeromicro/go-zero/rest/httpx"
 )
 
-func ListReservationsHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
+func ListReservationsPageHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var req types.ListReservationsRequest
+		var req types.ListReservationsPageRequest
 		if err := httpx.Parse(r, &req); err != nil {
 			httpx.ErrorCtx(r.Context(), w, err)
 			return
 		}
 
-		l := reservation.NewListReservationsLogic(r.Context(), svcCtx)
-		resp, err := l.ListReservations(&req)
+		l := reservation.NewListReservationsPageLogic(r.Context(), svcCtx)
+		resp, err := l.ListReservationsPage(&req)
 		if err != nil {
 			httpx.ErrorCtx(r.Context(), w, err)
 		} else {

@@ -1,6 +1,7 @@
 package reservation
 
 import (
+	"PowerX/internal/uc/custom/reservationcenter"
 	"context"
 
 	"PowerX/internal/svc"
@@ -23,8 +24,17 @@ func NewListReservationsLogic(ctx context.Context, svcCtx *svc.ServiceContext) *
 	}
 }
 
-func (l *ListReservationsLogic) ListReservations(req *types.ListReservationsPageRequest) (resp *types.ListReservationsPageReply, err error) {
-	// todo: add your logic here and delete this line
+func (l *ListReservationsLogic) ListReservations(req *types.ListReservationsRequest) (resp *types.ListReservationsReply, err error) {
+	reservations, err := l.svcCtx.Custom.Reservation.FindAllReservations(l.ctx, &reservationcenter.FindManyReservationsOption{
+		ScheduleId: req.ScheduleId,
+	})
 
-	return
+	if err != nil {
+		return nil, err
+	}
+
+	return &types.ListReservationsReply{
+		List: TransformReservationsToReservationsReply(reservations),
+	}, nil
+
 }

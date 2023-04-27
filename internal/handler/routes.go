@@ -795,6 +795,11 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				},
 				{
 					Method:  http.MethodGet,
+					Path:    "/reservations/page-list",
+					Handler: customreservation.ListReservationsPageHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
 					Path:    "/reservations/:id",
 					Handler: customreservation.GetReservationHandler(serverCtx),
 				},

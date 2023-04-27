@@ -1626,37 +1626,50 @@ type AssignScheduleToScheduleCategoryReply struct {
 }
 
 type Reservation struct {
-	Id                  int64   `json:"id,optional"`
-	ScheduleId          int64   `json:"scheduleId"`
-	CustomerId          int64   `json:"customerId"`
-	SourceChannelId     int64   `json:"sourceChannelId"`
-	ReservedArtisanId   int64   `json:"reservedArtisanId,optional"`
-	Name                string  `json:"name,optional"`
-	Type                int     `json:"type,optional"`
-	ReservedTime        string  `json:"reservedTime,optional"`
-	CancelTime          string  `json:"cancelTime,optional"`
-	CheckinTime         string  `json:"checkinTime,optional"`
-	Description         string  `json:"description,optional"`
-	ConsumedPoints      int     `json:"consumedPoints,optional"`
-	ConsumeMembershipId float32 `json:"consumeMembershipId,optional"`
-	OperationStatus     int64   `json:"operationStatus,optional"`
-	ReservationStatus   int     `json:"reservationStatus,optional"`
-	CreatedAt           string  `json:"createdAt,optional"`
+	Id                  int64  `json:"id,optional"`
+	ScheduleId          int64  `json:"scheduleId"`
+	CustomerId          int64  `json:"customerId"`
+	ReservedArtisanId   int64  `json:"reservedArtisanId"`
+	ServiceId           int64  `json:"serviceId"`
+	SourceChannelId     int64  `json:"sourceChannelId"`
+	Type                int    `json:"type"`
+	ReservedTime        string `json:"reservedTime,optional"`
+	CancelTime          string `json:"cancelTime,optional"`
+	CheckinTime         string `json:"checkinTime,optional"`
+	Description         string `json:"description,optional"`
+	ConsumedPoints      int    `json:"consumedPoints,optional"`
+	ConsumeMembershipId int64  `json:"consumeMembershipId,optional"`
+	OperationStatus     int    `json:"operationStatus,optional"`
+	ReservationStatus   int    `json:"reservationStatus,optional"`
+	CreatedAt           string `json:"createdAt,optional"`
+}
+
+type ListReservationsRequest struct {
+	ScheduleId        int64  `form:"scheduleId"`
+	OperationStatus   []int  `form:"operationStatus,optional"`
+	ReservationType   []int  `form:"reservationTypes,optional"`
+	ReservationStatus []int  `form:"reservationStatus,optional"`
+	OrderBy           string `form:"orderBy,optional"`
+}
+
+type ListReservationsReply struct {
+	List []*Reservation `json:"list"`
 }
 
 type ListReservationsPageRequest struct {
-	ReservationType string   `form:"reservationType,optional"`
-	Keys            []string `form:"keys,optional"`
-	OrderBy         string   `form:"orderBy,optional"`
-	PageIndex       int      `form:"pageIndex,optional"`
-	PageSize        int      `form:"pageSize,optional"`
+	OperationStatus   []int  `form:"operationStatus,optional"`
+	ReservationType   []int  `form:"reservationTypes,optional"`
+	ReservationStatus []int  `form:"reservationStatus,optional"`
+	OrderBy           string `form:"orderBy,optional"`
+	PageIndex         int    `form:"pageIndex,optional"`
+	PageSize          int    `form:"pageSize,optional"`
 }
 
 type ListReservationsPageReply struct {
-	List      []Reservation `json:"list"`
-	PageIndex int           `json:"pageIndex"`
-	PageSize  int           `json:"pageSize"`
-	Total     int64         `json:"total"`
+	List      []*Reservation `json:"list"`
+	PageIndex int            `json:"pageIndex"`
+	PageSize  int            `json:"pageSize"`
+	Total     int64          `json:"total"`
 }
 
 type CreateReservationRequest struct {
