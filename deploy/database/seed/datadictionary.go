@@ -134,6 +134,20 @@ func defaultSalesChannelsDataDictionary() *model.DataDictionaryType {
 				Sort:  0,
 			},
 			&model.DataDictionaryItem{
+				Key:   model.ChannelTaoBao,
+				Type:  model.TypeSalesChannel,
+				Name:  "淘宝",
+				Value: model.ChannelTaoBao,
+				Sort:  0,
+			},
+			&model.DataDictionaryItem{
+				Key:   model.ChannelJD,
+				Type:  model.TypeSalesChannel,
+				Name:  "京东",
+				Value: model.ChannelJD,
+				Sort:  0,
+			},
+			&model.DataDictionaryItem{
 				Key:   model.ChannelDianPing,
 				Type:  model.TypeSalesChannel,
 				Name:  "点评网",
@@ -196,6 +210,13 @@ func defaultSourceDataDictionary() *model.DataDictionaryType {
 
 	return &model.DataDictionaryType{
 		Items: []*model.DataDictionaryItem{
+			&model.DataDictionaryItem{
+				Key:   model.ChannelDirect,
+				Type:  model.TypeSourceChannel,
+				Name:  "品牌自营",
+				Value: model.ChannelDirect,
+				Sort:  0,
+			},
 			&model.DataDictionaryItem{
 				Key:   model.ChannelWechat,
 				Type:  model.TypeSourceChannel,
