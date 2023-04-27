@@ -4,10 +4,13 @@ import (
 	"PowerX/deploy/database/custom/seed"
 	"PowerX/internal/model"
 	"PowerX/internal/model/product"
+	"PowerX/internal/uc/powerx"
 	"PowerX/pkg/slicex"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
 )
+
+var UseCaseDD *powerx.DataDictionaryUseCase
 
 func CreateDataDictionaries(db *gorm.DB) (err error) {
 
@@ -16,6 +19,7 @@ func CreateDataDictionaries(db *gorm.DB) (err error) {
 		panic(errors.Wrap(err, "init data dictionary  failed"))
 	}
 
+	UseCaseDD = powerx.NewDataDictionaryUseCase(db)
 	data := DefaultDataDictionary()
 	customData := seed.CustomDataDictionary(db)
 	data = slicex.Concatenate(data, customData)
