@@ -49,6 +49,13 @@ type Product struct {
 const TableNameProduct = "products"
 const ProductUniqueId = powermodel.UniqueId
 
+// Product
+const ProductTypeGoods = "_goods"
+const ProductTypeService = "_service"
+
+const ProductPlanOnce = "_once"
+const ProductPlanPeriod = "_period"
+
 func (mdl *Product) GetTableName(needFull bool) string {
 	tableName := TableNameProduct
 	if needFull {

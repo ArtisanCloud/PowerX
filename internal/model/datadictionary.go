@@ -37,13 +37,6 @@ const ChannelDingDing = "_ding_ding"
 const ChannelDouYin = "_dou_yin"
 const ChannelAlipay = "_alipay"
 
-// Product
-const ProductTypeGoods = "_goods"
-const ProductTypeService = "_service"
-
-const ProductPlanOnce = "_once"
-const ProductPlanPeriod = "_period"
-
 // 数据字典数据项
 type DataDictionaryItem struct {
 	powermodel.PowerModel
