@@ -1,9 +1,14 @@
 package product
 
-import "PowerX/internal/model/powermodel"
+import (
+	"PowerX/internal/model/powermodel"
+	product2 "PowerX/internal/model/product"
+)
 
 type ServiceSpecific struct {
 	powermodel.PowerModel
+
+	Product *product2.Product `gorm:"foreignKey:ProductId;references:Id" json:"product"`
 
 	ParentId          int64 `gorm:"comment:上级服务Id" json:"parentId"`
 	ProductId         int64 `gorm:"comment:产品ID" json:"productId"`

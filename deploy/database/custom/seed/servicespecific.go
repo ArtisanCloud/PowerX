@@ -14,12 +14,7 @@ func CreateServiceSpecific(db *gorm.DB) (err error) {
 	}
 	if count == 0 {
 
-		products := []*product.Product{}
-		if err := db.Model(&product.Store{}).Find(&products).Error; err != nil {
-			panic(errors.Wrap(err, "get init products failed"))
-		}
-
-		configs := DefaultScheduleConfig(products)
+		configs := DefaultServiceSpecific()
 		if err := db.Model(&product2.ServiceSpecific{}).Create(&configs).Error; err != nil {
 			panic(errors.Wrap(err, "init root dep failed"))
 		}
@@ -28,20 +23,26 @@ func CreateServiceSpecific(db *gorm.DB) (err error) {
 	return err
 }
 
-func DefaultScheduleConfig(products []*product.Product) []*product2.ServiceSpecific {
+func DefaultServiceSpecific() []*product2.ServiceSpecific {
 
-	configs := []*product2.ServiceSpecific{}
-	for _, product := range products {
-		config := &product2.ServiceSpecific{
-			ProductId: product.Id,
-			//Capacity:    10,
-			//Name:        store.Name + "-日程配置表",
-			//Description: store.Name + "-日程配置表",
-			//IsActive:    true,
-		}
-
-		configs = append(configs, config)
+	configs := []*product2.ServiceSpecific{
+		&product2.ServiceSpecific{
+			Product: *product.Product{
+				Name: "剪发（男）",
+				Type: ProductType,
+				Plan: "",
+				CanSellOnline: "",
+				ApprovalStatus: "",
+				IsActivated: "",
+			},
+			ParentId: 0,
+			IsFree: false,
+			Duration: ,
+			MandatoryDuration: ,
+		},
 	}
+
+
 
 	return configs
 }
