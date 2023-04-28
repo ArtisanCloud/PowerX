@@ -51,11 +51,11 @@ func (l *CreateProductLogic) CreateProduct(req *types.CreateProductRequest) (res
 		mdlProduct.PivotPromoteChannels, err = (&model.PivotDataDictionaryToObject{}).MakeMorphPivotsFromObjectToDDs(mdlProduct, promoteChannelsItems)
 	}
 
-	l.svcCtx.PowerX.Product.CreateProduct(l.ctx, mdlProduct)
+	err = l.svcCtx.PowerX.Product.CreateProduct(l.ctx, mdlProduct)
 
 	return &types.CreateProductReply{
 		mdlProduct.Id,
-	}, nil
+	}, err
 }
 
 func TransformProductRequestToProduct(productRequest *types.Product) (mdlProduct *product.Product) {

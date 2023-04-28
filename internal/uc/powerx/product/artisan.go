@@ -8,6 +8,7 @@ import (
 	"context"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
+	"strings"
 )
 
 type ArtisanUseCase struct {
@@ -90,10 +91,14 @@ func (uc *ArtisanUseCase) FindOneArtisan(ctx context.Context, opt *product.FindA
 	return mpCustomer, nil
 }
 
-func (uc *ArtisanUseCase) CreateArtisan(ctx context.Context, artisan *product.Artisan) {
+func (uc *ArtisanUseCase) CreateArtisan(ctx context.Context, artisan *product.Artisan) error {
 	if err := uc.db.WithContext(ctx).Create(&artisan).Error; err != nil {
+		if strings.Contains(err.Error(), "duplicate key value violates unique constraint") {
+			return errorx.WithCause(errorx.ErrDuplicatedInsert, "该对象不能重复创建")
+		}
 		panic(err)
 	}
+	return nil
 }
 
 func (uc *ArtisanUseCase) UpsertArtisan(ctx context.Context, artisan *product.Artisan) (*product.Artisan, error) {

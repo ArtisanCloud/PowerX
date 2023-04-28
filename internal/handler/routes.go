@@ -298,14 +298,14 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 					Handler: adminlead.ListLeadsPageHandler(serverCtx),
 				},
 				{
-					Method:  http.MethodGet,
-					Path:    "/leads",
-					Handler: adminlead.ListLeadsHandler(serverCtx),
-				},
-				{
 					Method:  http.MethodPost,
 					Path:    "/leads",
 					Handler: adminlead.CreateLeadHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPut,
+					Path:    "/leads/:id",
+					Handler: adminlead.PutLeadHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPatch,
@@ -324,7 +324,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				},
 			}...,
 		),
-		rest.WithPrefix("/api/v1/admin/lead-domain"),
+		rest.WithPrefix("/api/v1/admin/customer-domain"),
 	)
 
 	server.AddRoutes(

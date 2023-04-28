@@ -571,34 +571,34 @@ type LeadInviter struct {
 }
 
 type Lead struct {
-	Id          int64       `json:"id"`
-	Name        string      `json:"name"`
-	Mobile      string      `json:"mobile"`
-	Email       string      `json:"email,optional"`
-	Inviter     LeadInviter `json:"inviter,optional"`
-	InviterId   int64       `json:"inviter,optional"`
-	Source      int         `json:"source,optional"`
-	Type        int         `json:"type,optional"`
-	IsActivated bool        `json:"isActivated,optional"`
-	CreatedAt   string      `json:"createdAt,optional"`
-	LeadExternalId
+	Id          int64        `json:"id,optional"`
+	Name        string       `json:"name"`
+	Mobile      string       `json:"mobile"`
+	Email       string       `json:"email,optional"`
+	Inviter     *LeadInviter `json:"inviter,optional"`
+	InviterId   int64        `json:"inviter,optional"`
+	Source      int          `json:"source,optional"`
+	Type        int          `json:"type,optional"`
+	IsActivated bool         `json:"isActivated,optional"`
+	CreatedAt   string       `json:"createdAt,optional"`
+	*LeadExternalId
 }
 
 type GetLeadReqeuest struct {
-	Id string `path:"id"`
+	Id int64 `path:"id"`
 }
 
 type GetLeadReply struct {
-	Lead Lead `json:"lead"`
+	Lead *Lead `json:"lead"`
 }
 
 type ListLeadsPageRequest struct {
-	LikeName   string   `form:"likeName,optional"`
-	LikeMobile string   `form:"likeMobile,optional"`
-	Sources    []int    `form:"sources,optional"`
-	Statuses   []string `form:"statuses,optional"`
-	PageIndex  int      `form:"page,optional"`
-	PageSize   int      `form:"pageSize,optional"`
+	LikeName   string `form:"likeName,optional"`
+	LikeMobile string `form:"likeMobile,optional"`
+	Sources    []int  `form:"sources,optional"`
+	Statuses   []int  `form:"statuses,optional"`
+	PageIndex  int    `form:"page,optional"`
+	PageSize   int    `form:"pageSize,optional"`
 }
 
 type ListLeadsPageReply struct {
@@ -606,19 +606,6 @@ type ListLeadsPageReply struct {
 	PageIndex int    `json:"pageIndex,optional"`
 	PageSize  int    `json:"pageSize,optional"`
 	Total     int64  `json:"total,optional"`
-}
-
-type ListLeadsRequest struct {
-	LikeName   string   `form:"likeName,optional"`
-	Sources    []string `form:"sources,optional"`
-	LikeMobile string   `form:"likeMobile,optional"`
-	Statuses   []string `form:"statuses,optional"`
-	PageIndex  int      `form:"page,optional"`
-	PageSize   int      `form:"pageSize,optional"`
-}
-
-type ListLeadsReply struct {
-	List []Lead `json:"list"`
 }
 
 type CreateLeadRequest struct {
@@ -629,24 +616,31 @@ type CreateLeadReply struct {
 	LeadId int64 `json:"id"`
 }
 
+type PutLeadRequest struct {
+	LeadId int64 `path:"id"`
+	Lead
+}
+
+type PutLeadReply struct {
+	*Lead
+}
+
 type PatchLeadRequest struct {
-	Id          string `path:"id"`
+	LeadId      int64  `path:"id"`
 	Name        string `json:"name,optional"`
-	Mobile      string `json:"mobile,optional"`
 	Email       string `json:"email,optional"`
 	InviterId   int64  `json:"inviterId,optional"`
-	Source      string `json:"source,optional,options=tiktok|ad|miniprogram|wechat|other"`
-	Type        string `json:"type,optional,options=personal|company"`
-	IsActivated *bool  `json:"isActivated,optional"`
-	LeadExternalId
+	Source      int    `json:"source,optional"`
+	Type        int    `json:"type,optional"`
+	IsActivated bool   `json:"isActivated,optional"`
 }
 
 type PatchLeadReply struct {
-	Lead Lead `json:"lead"`
+	*Lead
 }
 
 type DeleteLeadRequest struct {
-	Id string `path:"id"`
+	Id int64 `path:"id"`
 }
 
 type DeleteLeadReply struct {

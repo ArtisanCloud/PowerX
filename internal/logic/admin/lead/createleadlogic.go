@@ -2,10 +2,9 @@ package lead
 
 import (
 	"PowerX/internal/model/customerdomain"
-	"context"
-
 	"PowerX/internal/svc"
 	"PowerX/internal/types"
+	"context"
 
 	"github.com/zeromicro/go-zero/core/logx"
 )
@@ -36,10 +35,31 @@ func (l *CreateLeadLogic) CreateLead(req *types.CreateLeadRequest) (resp *types.
 		IsActivated: req.IsActivated,
 	}
 
-	l.svcCtx.PowerX.Lead.CreateLead(l.ctx, lead)
+	err = l.svcCtx.PowerX.Lead.CreateLead(l.ctx, lead)
 
 	return &types.CreateLeadReply{
 		lead.Id,
-	}, nil
+	}, err
+
+}
+
+func TransformLeadRequestToLead(leadRequest *types.Lead) (mdlLead *customerdomain.Lead) {
+
+	mdlLead = &customerdomain.Lead{
+		Name:        leadRequest.Name,
+		Mobile:      leadRequest.Mobile,
+		Email:       leadRequest.Email,
+		InviterId:   leadRequest.InviterId,
+		Source:      leadRequest.Source,
+		Type:        leadRequest.Type,
+		IsActivated: leadRequest.IsActivated,
+		ExternalId: customerdomain.ExternalId{
+			OpenIdInMiniProgram:           leadRequest.LeadExternalId.OpenIdInMiniProgram,
+			OpenIdInWeChatOfficialAccount: leadRequest.LeadExternalId.OpenIdInWeChatOfficialAccount,
+			OpenIdInWeCom:                 leadRequest.LeadExternalId.OpenIdInWeCom,
+		},
+	}
+
+	return mdlLead
 
 }
