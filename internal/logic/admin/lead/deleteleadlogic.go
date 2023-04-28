@@ -24,7 +24,12 @@ func NewDeleteLeadLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Delete
 }
 
 func (l *DeleteLeadLogic) DeleteLead(req *types.DeleteLeadRequest) (resp *types.DeleteLeadReply, err error) {
-	// todo: add your logic here and delete this line
+	err = l.svcCtx.PowerX.Lead.DeleteLead(l.ctx, req.Id)
+	if err != nil {
+		return nil, err
+	}
 
-	return
+	return &types.DeleteLeadReply{
+		LeadId: req.Id,
+	}, nil
 }

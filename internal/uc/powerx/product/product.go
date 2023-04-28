@@ -8,6 +8,7 @@ import (
 	"context"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
+	"strings"
 )
 
 type ProductUseCase struct {
@@ -78,13 +79,17 @@ func (uc *ProductUseCase) FindManyProducts(ctx context.Context, opt *FindManyPro
 	}, nil
 }
 
-func (uc *ProductUseCase) CreateProduct(ctx context.Context, product *model.Product) {
+func (uc *ProductUseCase) CreateProduct(ctx context.Context, product *model.Product) error {
 
 	if err := uc.db.WithContext(ctx).
 		Debug().
 		Create(&product).Error; err != nil {
+		if strings.Contains(err.Error(), "duplicate key value violates unique constraint") {
+			return errorx.WithCause(errorx.ErrDuplicatedInsert, "该对象不能重复创建")
+		}
 		panic(err)
 	}
+	return nil
 }
 
 func (uc *ProductUseCase) UpsertProduct(ctx context.Context, product *model.Product) (*model.Product, error) {
