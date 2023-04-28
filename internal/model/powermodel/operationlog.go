@@ -24,13 +24,13 @@ type PowerOperationLog struct {
 
 	OperatorName  *string `gorm:"column:operatorName" json:"operatorName"`
 	OperatorTable *string `gorm:"column:operatorTable" json:"operatorTable"`
-	OperatorID    *int64  `gorm:"column:operatorID;index" json:"operatorID"`
+	OperatorId    *int64  `gorm:"column:operatorID;index" json:"operatorId"`
 	Module        *int16  `gorm:"column:module" json:"module"`
 	Operate       *string `gorm:"column:operate" json:"operate"`
 	Event         *int8   `gorm:"column:event" json:"event"`
 	ObjectName    *string `gorm:"column:objectName" json:"objectName"`
 	ObjectTable   *string `gorm:"column:objectTable" json:"objectTable"`
-	ObjectID      *int64  `gorm:"column:objectID;index" json:"objectID"`
+	ObjectId      *int64  `gorm:"column:objectID;index" json:"objectId"`
 	Result        *int8   `gorm:"column:result" json:"result"`
 }
 
@@ -47,13 +47,13 @@ func NewPowerOperationLog(mapObject *object.Collection) *PowerOperationLog {
 		PowerModel:    NewPowerModel(),
 		OperatorName:  mapObject.GetStringPointer("operatorName", ""),
 		OperatorTable: mapObject.GetStringPointer("operatorTable", ""),
-		OperatorID:    mapObject.GetInt64Pointer("operatorID", 0),
+		OperatorId:    mapObject.GetInt64Pointer("operatorId", 0),
 		Module:        mapObject.GetInt16Pointer("module", 0),
 		Operate:       mapObject.GetStringPointer("operate", ""),
 		Event:         mapObject.GetInt8Pointer("event", 0),
 		ObjectName:    mapObject.GetStringPointer("objectName", ""),
 		ObjectTable:   mapObject.GetStringPointer("objectTable", ""),
-		ObjectID:      mapObject.GetInt64Pointer("objectID", 0),
+		ObjectId:      mapObject.GetInt64Pointer("objectId", 0),
 		Result:        mapObject.GetInt8Pointer("result", 0),
 	}
 }
@@ -91,13 +91,13 @@ func (mdl *PowerOperationLog) SaveOps(db *gorm.DB,
 		PowerModel:    NewPowerModel(),
 		OperatorName:  &operatorName,
 		OperatorTable: &operatorTable,
-		OperatorID:    &operatorID,
+		OperatorId:    &operatorID,
 		Module:        &module,
 		Operate:       &operate,
 		Event:         &event,
 		ObjectName:    &objectName,
 		ObjectTable:   &objectTable,
-		ObjectID:      &objectID,
+		ObjectId:      &objectID,
 		Result:        &result,
 	}
 

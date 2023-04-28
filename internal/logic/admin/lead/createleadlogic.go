@@ -1,6 +1,7 @@
 package lead
 
 import (
+	"PowerX/internal/model/customerdomain"
 	"context"
 
 	"PowerX/internal/svc"
@@ -24,7 +25,21 @@ func NewCreateLeadLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Create
 }
 
 func (l *CreateLeadLogic) CreateLead(req *types.CreateLeadRequest) (resp *types.CreateLeadReply, err error) {
-	// todo: add your logic here and delete this line
 
-	return
+	lead := &customerdomain.Lead{
+		Name:        req.Name,
+		Mobile:      req.Mobile,
+		Email:       req.Email,
+		InviterId:   req.InviterId,
+		Source:      req.Source,
+		Type:        req.Type,
+		IsActivated: req.IsActivated,
+	}
+
+	l.svcCtx.PowerX.Lead.CreateLead(l.ctx, lead)
+
+	return &types.CreateLeadReply{
+		lead.Id,
+	}, nil
+
 }

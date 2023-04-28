@@ -558,106 +558,114 @@ type ModifyPasswordReqeust struct {
 }
 
 type LeadExternalId struct {
-	OpenIDInMiniProgram           string `json:"openIdInMiniProgram,optional"`
-	OpenIDInWeChatOfficialAccount string `json:"openIdInWeChatOfficialAccount,optional"`
-	OpenIDInWeCom                 string `json:"openIdInWeCom,optional"`
+	OpenIdInMiniProgram           string `json:"openIdInMiniProgram,optional"`
+	OpenIdInWeChatOfficialAccount string `json:"openIdInWeChatOfficialAccount,optional"`
+	OpenIdInWeCom                 string `json:"openIdInWeCom,optional"`
 }
 
 type LeadInviter struct {
 	Id     int64  `json:"id"`
-	Name   string `json:"name"`
-	Mobile string `json:"mobile"`
-	Email  string `json:"email"`
+	Name   string `json:"name,optional"`
+	Mobile string `json:"mobile,optional"`
+	Email  string `json:"email,optional"`
 }
 
 type Lead struct {
-	Id        int64       `json:"id"`
-	Name      string      `json:"name"`
-	Mobile    string      `json:"mobile"`
-	Email     string      `json:"email"`
-	Inviter   LeadInviter `json:"inviter"`
-	Source    string      `json:"source"`
-	Status    string      `json:"status"`
-	CreatedAt string      `json:"createdAt"`
+	Id          int64       `json:"id"`
+	Name        string      `json:"name"`
+	Mobile      string      `json:"mobile"`
+	Email       string      `json:"email,optional"`
+	Inviter     LeadInviter `json:"inviter,optional"`
+	InviterId   int64       `json:"inviter,optional"`
+	Source      int         `json:"source,optional"`
+	Type        int         `json:"type,optional"`
+	IsActivated bool        `json:"isActivated,optional"`
+	CreatedAt   string      `json:"createdAt,optional"`
 	LeadExternalId
+}
+
+type GetLeadReqeuest struct {
+	Id string `path:"id"`
+}
+
+type GetLeadReply struct {
+	Lead Lead `json:"lead"`
+}
+
+type ListLeadsPageRequest struct {
+	LikeName   string   `form:"likeName,optional"`
+	LikeMobile string   `form:"likeMobile,optional"`
+	Sources    []int    `form:"sources,optional"`
+	Statuses   []string `form:"statuses,optional"`
+	PageIndex  int      `form:"page,optional"`
+	PageSize   int      `form:"pageSize,optional"`
+}
+
+type ListLeadsPageReply struct {
+	List      []Lead `json:"list,optional"`
+	PageIndex int    `json:"pageIndex,optional"`
+	PageSize  int    `json:"pageSize,optional"`
+	Total     int64  `json:"total,optional"`
 }
 
 type ListLeadsRequest struct {
-	LikeTitle       string   `json:"likeTitle,optional"`
-	LikePhoneNumber string   `json:"likePhoneNumber,optional"`
-	Sources         []string `json:"sources,optional"`
-	Statuses        []string `json:"statuses,optional"`
+	LikeName   string   `form:"likeName,optional"`
+	Sources    []string `form:"sources,optional"`
+	LikeMobile string   `form:"likeMobile,optional"`
+	Statuses   []string `form:"statuses,optional"`
+	PageIndex  int      `form:"page,optional"`
+	PageSize   int      `form:"pageSize,optional"`
 }
 
 type ListLeadsReply struct {
-	List      []Lead `json:"list"`
-	PageIndex int32  `json:"pageIndex"`
-	PageSize  int32  `json:"pageSize"`
-	Total     int64  `json:"total"`
-}
-
-type CreateLeadRecord struct {
-	Id        int64  `json:"id"`
-	Name      string `json:"name"`
-	Mobile    string `json:"mobile,optional"`
-	Email     string `json:"email,optional"`
-	InviterId int64  `json:"inviterId,optional"`
-	Source    string `json:"source,optional,options=mini_program|tiktok|h5|ad"`
-	Status    string `json:"status,optional,options=open|following|closed_lost|closed_won"`
-	Type      string `json:"type,optional,options=personal|company"`
-	IsActive  *bool  `json:"IsActive,optional"`
-	LeadExternalId
+	List []Lead `json:"list"`
 }
 
 type CreateLeadRequest struct {
-	List []CreateLeadRecord `json:"list"`
+	Lead
 }
 
 type CreateLeadReply struct {
-	List      []Lead `json:"list"`
-	PageIndex int32  `json:"pageIndex"`
-	PageSize  int32  `json:"pageSize"`
-	Total     int64  `json:"total"`
+	LeadId int64 `json:"id"`
 }
 
 type PatchLeadRequest struct {
-	Id        int64  `path:"id"`
-	Name      string `json:"name,optional"`
-	Mobile    string `json:"mobile,optional"`
-	Email     string `json:"email,optional"`
-	InviterId int64  `json:"inviterId,optional"`
-	Source    string `json:"source,optional,options=mini_program|tiktok|h5|advertisement"`
-	Status    string `json:"status,optional,options=open|following|closed_lost|closed_won"`
-	Type      string `json:"type,optional,options=personal|company"`
-	IsActive  *bool  `json:"IsActive,optional"`
+	Id          string `path:"id"`
+	Name        string `json:"name,optional"`
+	Mobile      string `json:"mobile,optional"`
+	Email       string `json:"email,optional"`
+	InviterId   int64  `json:"inviterId,optional"`
+	Source      string `json:"source,optional,options=tiktok|ad|miniprogram|wechat|other"`
+	Type        string `json:"type,optional,options=personal|company"`
+	IsActivated *bool  `json:"isActivated,optional"`
 	LeadExternalId
 }
 
 type PatchLeadReply struct {
-	Lead
+	Lead Lead `json:"lead"`
 }
 
 type DeleteLeadRequest struct {
-	Id int64 `json:"id"`
+	Id string `path:"id"`
 }
 
 type DeleteLeadReply struct {
-	Id int64 `json:"id"`
+	LeadId int64 `json:"leadId"`
 }
 
 type AssignLeadToEmployeeRequest struct {
-	Id         int64 `path:"id"`
-	EmployeeId int64 `json:"employeeId"`
+	Id         string `path:"id"`
+	EmployeeId int64  `json:"employeeId"`
 }
 
 type AssignLeadToEmployeeReply struct {
-	Lead
+	LeadId int64 `json:"leadId"`
 }
 
 type CustomerExternalId struct {
-	OpenIDInMiniProgram           string `json:"openIdInMiniProgram,optional"`
-	OpenIDInWeChatOfficialAccount string `json:"openIdInWeChatOfficialAccount,optional"`
-	OpenIDInWeCom                 string `json:"openIdInWeCom,optional"`
+	OpenIdInMiniProgram           string `json:"openIdInMiniProgram,optional"`
+	OpenIdInWeChatOfficialAccount string `json:"openIdInWeChatOfficialAccount,optional"`
+	OpenIdInWeCom                 string `json:"openIdInWeCom,optional"`
 }
 
 type CustomerInviter struct {
@@ -673,8 +681,8 @@ type Customer struct {
 	Mobile      string          `json:"mobile"`
 	Email       string          `json:"email"`
 	Inviter     CustomerInviter `json:"inviter"`
-	Source      string          `json:"source"`
-	Type        string          `json:"type"`
+	Source      int             `json:"source"`
+	Type        int             `json:"type"`
 	IsActivated bool            `json:"isActivated"`
 	CreatedAt   string          `json:"createdAt"`
 	CustomerExternalId
@@ -688,6 +696,22 @@ type GetCustomerReply struct {
 	Customer Customer `json:"customer"`
 }
 
+type ListCustomersPageRequest struct {
+	LikeName   string   `form:"likeName"`
+	Sources    []string `form:"sources"`
+	LikeMobile string   `form:"likeMobile"`
+	Statuses   []string `form:"statuses"`
+	PageIndex  int      `form:"page"`
+	PageSize   int      `form:"pageSize"`
+}
+
+type ListCustomersPageReply struct {
+	List      []Customer `json:"list"`
+	PageIndex int        `json:"pageIndex"`
+	PageSize  int        `json:"pageSize"`
+	Total     int64      `json:"total"`
+}
+
 type ListCustomersRequest struct {
 	LikeName   string   `form:"likeName"`
 	Sources    []string `form:"sources"`
@@ -698,7 +722,7 @@ type ListCustomersRequest struct {
 }
 
 type ListCustomersReply struct {
-	Customers []Customer `json:"customers"`
+	List []Customer `json:"list"`
 }
 
 type CreateCustomerRequest struct {
@@ -1515,8 +1539,8 @@ type MPCustomerAuthRequest struct {
 }
 
 type MPCustomerLoginAuthReply struct {
-	OpenID      string `json:"openID"`
-	UnionID     string `json:"unionID"`
+	OpenId      string `json:"openId"`
+	UnionId     string `json:"unionId"`
 	PhoneNumber string `json:"phoneNumber"`
 	NickName    string `json:"nickName"`
 	AvatarURL   string `json:"avatarURL"`

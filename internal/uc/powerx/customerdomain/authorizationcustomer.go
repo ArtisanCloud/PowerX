@@ -24,7 +24,7 @@ func NewAuthorizationCustomerDomainUseCase(db *gorm.DB) *AuthorizationCustomerDo
 
 type CustomerJWTToken struct {
 	AccessToken string `json:"AccessToken"`
-	OpenID      string `json:"OpenID"`
+	OpenId      string `json:"OpenId"`
 	NickName    string `json:"NickName"`
 	Exp         int64  `json:"exp"`
 	jwt.RegisteredClaims
@@ -37,12 +37,12 @@ func (uc *AuthorizationCustomerDomainUseCase) SignToken(mpCustomer *model.Wechat
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, CustomerJWTToken{
 		AccessToken: "bar",
-		OpenID:      mpCustomer.OpenID,
+		OpenId:      mpCustomer.OpenId,
 		NickName:    mpCustomer.NickName,
 		Exp:         expiresAt.Unix(),
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    "powerx",
-			Subject:   mpCustomer.OpenID,
+			Subject:   mpCustomer.OpenId,
 			ExpiresAt: jwt.NewNumericDate(expiresAt),
 			IssuedAt:  jwt.NewNumericDate(now),
 		},

@@ -4,13 +4,13 @@ import "gorm.io/datatypes"
 
 // model
 // 公众号的客户信息
-// https://developers.weixin.qq.com/doc/offiaccount/User_Management/Get_users_basic_information_UnionID.html#UinonId
+// https://developers.weixin.qq.com/doc/offiaccount/User_Management/Get_users_basic_information_UnionId.html#UinonId
 type WechatOACustomer struct {
 	Model
 	Subscribe      int            `json:"subscribe"`
 	SessionKey     string         `json:"-"`
-	OpenID         string         `json:"openid"`
-	UnionID        string         `json:"unionid"`
+	OpenId         string         `json:"openid"`
+	UnionId        string         `json:"unionid"`
 	Language       string         `json:"language"`
 	SubscribeTime  int            `json:"subscribe_time"`
 	Remark         string         `json:"remark"`
@@ -25,15 +25,15 @@ type WechatOACustomer struct {
 type WechatMPCustomer struct {
 	Model
 	SessionKey string `json:"-"`
-	OpenID     string `gorm:"unique" json:"openid"`
-	UnionID    string `gorm:"unique" json:"unionid"`
+	OpenId     string `gorm:"unique" json:"openId"`
+	UnionId    string `gorm:"unique" json:"unionId"`
 	MPPhoneInfo
 	MPUserInfo
 	//PhoneNumber        string `json:"phoneNumber"`
 	//PurePhoneNumber    string `json:"purePhoneNumber"`
 	//CountryCode        string `json:"countryCode"`
 	//WatermarkTimestamp int    `json:"watermarkTimestamp"`
-	//WatermarkAppID     string `json:"watermarkAppID"`
+	//WatermarkAppId     string `json:"watermarkAppId"`
 	//NickName           string `json:"nickName"`
 	//AvatarURL          string `json:"avatarUrl"`
 	//Gender             string `json:"gender"`
@@ -48,8 +48,8 @@ const WechatMpCustomerUniqueId = "open_id"
 type FindMPCustomerOption struct {
 	Ids             []int64
 	SessionKey      string
-	OpenIDs         []string
-	UnionIDs        []string
+	OpenIds         []string
+	UnionIds        []string
 	PhoneNumbers    []string
 	PhoneNumberLike string
 	NickNames       []string
