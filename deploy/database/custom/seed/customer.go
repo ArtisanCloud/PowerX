@@ -33,7 +33,7 @@ func DefaultCustomer() (data []*customerdomain.Customer) {
 			Name:        "测试用户",
 			Mobile:      "13574839275",
 			Email:       "test@test.com",
-			InviterID:   0,
+			InviterId:   0,
 			Source:      18,
 			Type:        source,
 			IsActivated: true,
