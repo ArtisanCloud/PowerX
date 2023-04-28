@@ -59,8 +59,8 @@ type (
         Mobile string `json:"mobile"`
         Email string `json:"email"`
         Inviter LeadInviter `json:"inviter"`
-        Source string `json:"source"`
-        Status string `json:"status"`
+        Source int `json:"source"`
+        Status int `json:"status"`
         CreatedAt string `json:"createdAt"`
         LeadExternalId
     }
