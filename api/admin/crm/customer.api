@@ -3,14 +3,14 @@ syntax = "v1"
 info(
     title: "客户管理"
     desc: "客户管理"
-    author: "Northseadl"
-    email: "northseadl@outlook.com"
+    author: "MichaelHu"
+    email: "matrix-x@artisan-cloud.com"
     version: "v1"
 )
 
 @server(
     group: admin/customer
-    prefix: /api/v1/admin/customer
+    prefix: /api/v1/admin/customer-domain
     middleware: EmployeeJWTAuth
 )
 
@@ -18,6 +18,10 @@ service PowerX {
     @doc "查询客户"
     @handler GetCustomer
     get /customers/:id (GetCustomerReqeuest) returns (GetCustomerReply)
+
+    @doc "获取客户分页列表"
+    @handler ListCustomersPage
+    get /customers/page-list (ListCustomersPageRequest) returns (ListCustomersPageReply)
 
     @doc "获取客户列表"
     @handler ListCustomers
@@ -42,9 +46,9 @@ service PowerX {
 
 type (
     CustomerExternalId {
-        OpenIDInMiniProgram string `json:"openIdInMiniProgram,optional"`
-        OpenIDInWeChatOfficialAccount string `json:"openIdInWeChatOfficialAccount,optional"`
-        OpenIDInWeCom string `json:"openIdInWeCom,optional"`
+        OpenIdInMiniProgram string `json:"openIdInMiniProgram,optional"`
+        OpenIdInWeChatOfficialAccount string `json:"openIdInWeChatOfficialAccount,optional"`
+        OpenIdInWeCom string `json:"openIdInWeCom,optional"`
     }
 )
 
@@ -81,6 +85,22 @@ type (
 )
 
 type (
+    ListCustomersPageRequest {
+        LikeName string `form:"likeName"`
+        Sources []string `form:"sources"`
+        LikeMobile string `form:"likeMobile"`
+        Statuses []string `form:"statuses"`
+        PageIndex int `form:"page"`
+        PageSize int `form:"pageSize"`
+    }
+
+    ListCustomersPageReply {
+        List []Customer `json:"list"`
+        PageIndex int `json:"pageIndex"`
+        PageSize int `json:"pageSize"`
+        Total int64 `json:"total"`
+    }
+
     ListCustomersRequest {
         LikeName string `form:"likeName"`
         Sources []string `form:"sources"`
@@ -91,7 +111,7 @@ type (
     }
 
     ListCustomersReply {
-        Customers []Customer `json:"customers"`
+        List []Customer `json:"list"`
     }
 )
 

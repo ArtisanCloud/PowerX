@@ -61,8 +61,8 @@ func (uc *WechatMiniProgramUseCase) buildFindQueryNoPage(query *gorm.DB, opt *mo
 	//} else if opt.LikePhoneNumber != "" {
 	//	query.Where("mobile_phone like ?", fmt.Sprintf("%s%%", opt.LikePhoneNumber))
 	//}
-	if len(opt.OpenIDs) > 0 {
-		query.Where("open_id in ?", opt.OpenIDs)
+	if len(opt.OpenIds) > 0 {
+		query.Where("open_id in ?", opt.OpenIds)
 	}
 	//if len(opt.Accounts) > 0 {
 	//	query.Where("account in ?", opt.Accounts)
