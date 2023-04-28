@@ -664,94 +664,82 @@ type CustomerExternalId struct {
 
 type CustomerInviter struct {
 	Id     int64  `json:"id"`
-	Name   string `json:"name"`
-	Mobile string `json:"mobile"`
-	Email  string `json:"email"`
+	Name   string `json:"name,optional"`
+	Mobile string `json:"mobile,optional"`
+	Email  string `json:"email,optional"`
 }
 
 type Customer struct {
-	Id          int64           `json:"id"`
-	Name        string          `json:"name"`
-	Mobile      string          `json:"mobile"`
-	Email       string          `json:"email"`
-	Inviter     CustomerInviter `json:"inviter"`
-	Source      int             `json:"source"`
-	Type        int             `json:"type"`
-	IsActivated bool            `json:"isActivated"`
-	CreatedAt   string          `json:"createdAt"`
-	CustomerExternalId
+	Id          int64            `json:"id,optional"`
+	Name        string           `json:"name"`
+	Mobile      string           `json:"mobile"`
+	Email       string           `json:"email,optional"`
+	Inviter     *CustomerInviter `json:"inviter,optional"`
+	InviterId   int64            `json:"inviter,optional"`
+	Source      int              `json:"source,optional"`
+	Type        int              `json:"type,optional"`
+	IsActivated bool             `json:"isActivated,optional"`
+	CreatedAt   string           `json:"createdAt,optional"`
+	*CustomerExternalId
 }
 
 type GetCustomerReqeuest struct {
-	Id string `path:"id"`
+	Id int64 `path:"id"`
 }
 
 type GetCustomerReply struct {
-	Customer Customer `json:"customer"`
+	Customer *Customer `json:"customer"`
 }
 
 type ListCustomersPageRequest struct {
-	LikeName   string   `form:"likeName"`
-	Sources    []string `form:"sources"`
-	LikeMobile string   `form:"likeMobile"`
-	Statuses   []string `form:"statuses"`
-	PageIndex  int      `form:"page"`
-	PageSize   int      `form:"pageSize"`
+	LikeName   string `form:"likeName,optional"`
+	LikeMobile string `form:"likeMobile,optional"`
+	Sources    []int  `form:"sources,optional"`
+	Statuses   []int  `form:"statuses,optional"`
+	PageIndex  int    `form:"page,optional"`
+	PageSize   int    `form:"pageSize,optional"`
 }
 
 type ListCustomersPageReply struct {
-	List      []Customer `json:"list"`
-	PageIndex int        `json:"pageIndex"`
-	PageSize  int        `json:"pageSize"`
-	Total     int64      `json:"total"`
-}
-
-type ListCustomersRequest struct {
-	LikeName   string   `form:"likeName"`
-	Sources    []string `form:"sources"`
-	LikeMobile string   `form:"likeMobile"`
-	Statuses   []string `form:"statuses"`
-	PageIndex  int      `form:"page"`
-	PageSize   int      `form:"pageSize"`
-}
-
-type ListCustomersReply struct {
-	List []Customer `json:"list"`
+	List      []Customer `json:"list,optional"`
+	PageIndex int        `json:"pageIndex,optional"`
+	PageSize  int        `json:"pageSize,optional"`
+	Total     int64      `json:"total,optional"`
 }
 
 type CreateCustomerRequest struct {
-	Name        string `json:"name"`
-	Mobile      string `json:"mobile,optional"`
-	Email       string `json:"email,optional"`
-	InviterId   int64  `json:"inviterId,optional"`
-	Source      string `json:"source,optional,options=tiktok|ad|miniprogram|wechat|other"`
-	Type        string `json:"type,optional,options=personal|company"`
-	IsActivated *bool  `json:"isActivated,optional"`
-	CustomerExternalId
+	Customer
 }
 
 type CreateCustomerReply struct {
-	CustomerId int64 `json:"customerId"`
+	CustomerId int64 `json:"id"`
+}
+
+type PutCustomerRequest struct {
+	CustomerId int64 `path:"id"`
+	Customer
+}
+
+type PutCustomerReply struct {
+	*Customer
 }
 
 type PatchCustomerRequest struct {
-	Id          string `path:"id"`
+	CustomerId  int64  `path:"id"`
 	Name        string `json:"name,optional"`
-	Mobile      string `json:"mobile,optional"`
 	Email       string `json:"email,optional"`
 	InviterId   int64  `json:"inviterId,optional"`
-	Source      string `json:"source,optional,options=tiktok|ad|miniprogram|wechat|other"`
-	Type        string `json:"type,optional,options=personal|company"`
-	IsActivated *bool  `json:"isActivated,optional"`
-	CustomerExternalId
+	Source      int    `json:"source,optional"`
+	Type        int    `json:"type,optional"`
+	IsActivated bool   `json:"isActivated,optional"`
 }
 
 type PatchCustomerReply struct {
-	Customer Customer `json:"customer"`
+	*Customer
 }
 
 type DeleteCustomerRequest struct {
-	Id string `path:"id"`
+	Id int64 `path:"id"`
 }
 
 type DeleteCustomerReply struct {
