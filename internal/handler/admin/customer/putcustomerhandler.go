@@ -9,16 +9,16 @@ import (
 	"github.com/zeromicro/go-zero/rest/httpx"
 )
 
-func ListCustomersHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
+func PutCustomerHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var req types.ListCustomersRequest
+		var req types.PutCustomerRequest
 		if err := httpx.Parse(r, &req); err != nil {
 			httpx.ErrorCtx(r.Context(), w, err)
 			return
 		}
 
-		l := customer.NewListCustomersLogic(r.Context(), svcCtx)
-		resp, err := l.ListCustomers(&req)
+		l := customer.NewPutCustomerLogic(r.Context(), svcCtx)
+		resp, err := l.PutCustomer(&req)
 		if err != nil {
 			httpx.ErrorCtx(r.Context(), w, err)
 		} else {

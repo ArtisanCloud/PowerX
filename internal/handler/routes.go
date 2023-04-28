@@ -340,14 +340,14 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 					Handler: admincustomer.ListCustomersPageHandler(serverCtx),
 				},
 				{
-					Method:  http.MethodGet,
-					Path:    "/customers",
-					Handler: admincustomer.ListCustomersHandler(serverCtx),
-				},
-				{
 					Method:  http.MethodPost,
 					Path:    "/customers",
 					Handler: admincustomer.CreateCustomerHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPut,
+					Path:    "/customers/:id",
+					Handler: admincustomer.PutCustomerHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPatch,
