@@ -13,7 +13,7 @@ type ExternalId struct {
 const CustomerUniqueId = "mobile"
 
 type Customer struct {
-	//Inviter     *Customer
+	Inviter *Customer `gorm:"foreignKey:InviterId;references:Id" json:"inviter"`
 
 	powermodel.PowerModel
 	Name        string `gorm:"comment:客户名称" json:"name"`

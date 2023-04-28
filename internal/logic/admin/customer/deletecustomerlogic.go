@@ -24,7 +24,12 @@ func NewDeleteCustomerLogic(ctx context.Context, svcCtx *svc.ServiceContext) *De
 }
 
 func (l *DeleteCustomerLogic) DeleteCustomer(req *types.DeleteCustomerRequest) (resp *types.DeleteCustomerReply, err error) {
-	// todo: add your logic here and delete this line
+	err = l.svcCtx.PowerX.Customer.DeleteCustomer(l.ctx, req.Id)
+	if err != nil {
+		return nil, err
+	}
 
-	return
+	return &types.DeleteCustomerReply{
+		CustomerId: req.Id,
+	}, nil
 }
