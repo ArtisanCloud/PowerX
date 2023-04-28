@@ -1,7 +1,10 @@
 package reservation
 
 import (
+	product2 "PowerX/internal/model/custom/product"
 	reservationcenter2 "PowerX/internal/model/custom/reservationcenter"
+	"PowerX/internal/model/customerdomain"
+	"PowerX/internal/model/product"
 	"context"
 
 	"PowerX/internal/svc"
@@ -46,7 +49,35 @@ func TransformReservationToReservationReply(reservation *reservationcenter2.Rese
 		ConsumeMembershipId: reservation.ConsumeMembershipId,
 		OperationStatus:     reservation.OperationStatus,
 		ReservationStatus:   reservation.ReservationStatus,
+		ReservedCustomer:    TransformCustomerToReservedCustomerReply(reservation.Customer),
+		ReservedArtisan:     TransformArtisanToReservedArtisanReply(reservation.Artisan),
+		ReservedService:     TransformServiceToReservedServiceReply(reservation.Service),
 		CreatedAt:           reservation.CreatedAt.String(),
 	}
 
+}
+
+func TransformCustomerToReservedCustomerReply(customer *customerdomain.Customer) *types.ReservedCustomer {
+	return &types.ReservedCustomer{
+		Name:   customer.Name,
+		Mobile: customer.Mobile,
+		//Avatar: customer..Avatar,
+	}
+}
+
+func TransformArtisanToReservedArtisanReply(artisan *product.Artisan) *types.ReservedArtisan {
+	return &types.ReservedArtisan{
+		Name:        artisan.Name,
+		Gendar:      artisan.Gender,
+		PhoneNumber: artisan.PhoneNumber,
+		CoverURL:    artisan.CoverURL,
+	}
+}
+
+func TransformServiceToReservedServiceReply(service *product2.ServiceSpecific) *types.ReservedService {
+	return &types.ReservedService{
+		Name:              service.Name,
+		Duration:          service.Duration,
+		MandatoryDuration: service.MandatoryDuration,
+	}
 }

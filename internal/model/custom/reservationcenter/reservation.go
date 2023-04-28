@@ -2,7 +2,10 @@ package reservationcenter
 
 import (
 	"PowerX/internal/model"
+	product2 "PowerX/internal/model/custom/product"
+	"PowerX/internal/model/customerdomain"
 	"PowerX/internal/model/powermodel"
+	"PowerX/internal/model/product"
 	"gorm.io/gorm"
 	"time"
 )
@@ -34,6 +37,10 @@ const ReservationStatusFailed = "_failed"       // 预约状态失败
 
 type Reservation struct {
 	powermodel.PowerModel
+
+	Customer *customerdomain.Customer  `gorm:"foreignKey:CustomerId;references:Id" json:"customer"`
+	Artisan  *product.Artisan          `gorm:"foreignKey:ReservedArtisanId;references:Id" json:"artisan"`
+	Service  *product2.ServiceSpecific `gorm:"foreignKey:ServiceId;references:Id" json:"service"`
 
 	ScheduleId          int64     `gorm:"comment:课程表Id" json:"scheduleId"`
 	CustomerId          int64     `gorm:"comment:客户Id"  json:"customerId"`

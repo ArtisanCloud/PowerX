@@ -1,7 +1,7 @@
 package schedule
 
 import (
-	reservationcenter2 "PowerX/internal/model/custom/reservationcenter"
+	"PowerX/internal/model/custom/reservationcenter"
 	"context"
 
 	"PowerX/internal/svc"
@@ -30,19 +30,67 @@ func (l *GetScheduleLogic) GetSchedule(req *types.GetScheduleRequest) (resp *typ
 	return
 }
 
-func TransformScheduleToScheduleReply(schedule *reservationcenter2.Schedule) *types.Schedule {
+func TransformScheduleToScheduleReply(schedule *reservationcenter.Schedule) *types.Schedule {
+
 	return &types.Schedule{
-		Id:                 schedule.Id,
-		StoreId:            schedule.StoreId,
-		ApprovalStatus:     schedule.ApprovalStatus,
-		Capacity:           schedule.Capacity,
-		CopyFromScheduleId: schedule.CopyFromScheduleId,
-		Name:               schedule.Name,
-		Description:        schedule.Description,
-		IsActive:           schedule.IsActive,
-		Status:             schedule.Status,
-		StartTime:          schedule.StartTime.String(),
-		EndTime:            schedule.EndTime.String(),
-		CreatedAt:          schedule.CreatedAt.String(),
+		Id:                     schedule.Id,
+		StoreId:                schedule.StoreId,
+		ApprovalStatus:         schedule.ApprovalStatus,
+		Capacity:               schedule.Capacity,
+		CopyFromScheduleId:     schedule.CopyFromScheduleId,
+		Name:                   schedule.Name,
+		Description:            schedule.Description,
+		IsActive:               schedule.IsActive,
+		Status:                 schedule.Status,
+		StartTime:              schedule.StartTime.String(),
+		EndTime:                schedule.EndTime.String(),
+		CreatedAt:              schedule.CreatedAt.String(),
+		Reservations:           TransformReservationsToScheduleReservationsReply(schedule.Reservations),
+		PivotScheduleToArtisan: TransformPivotsArtisanAvailableReply(schedule.PivotScheduleToArtisan),
 	}
+}
+
+func TransformReservationsToScheduleReservationsReply(reservations []*reservationcenter.Reservation) []*types.ScheduleReservation {
+
+	list := make([]*types.ScheduleReservation, 0, len(reservations))
+	for _, item := range reservations {
+		list = append(list, TransformReservationToScheduleReservationReply(item))
+	}
+
+	return list
+}
+
+func TransformReservationToScheduleReservationReply(reservation *reservationcenter.Reservation) *types.ScheduleReservation {
+	return &types.ScheduleReservation{
+		Id:                reservation.Id,
+		CustomerId:        reservation.CustomerId,
+		ReservedArtisanId: reservation.ReservedArtisanId,
+		ReservedTime:      reservation.ReservedTime.String(),
+		CancelTime:        reservation.CancelTime.String(),
+		CheckinTime:       reservation.CheckinTime.String(),
+		Description:       reservation.Description,
+		OperationStatus:   reservation.OperationStatus,
+		ReservationStatus: reservation.ReservationStatus,
+		CreatedAt:         reservation.CreatedAt.String(),
+	}
+
+}
+
+func TransformPivotsArtisanAvailableReply(pivots []*reservationcenter.PivotScheduleToArtisan) []*types.PivotScheduleToArtisan {
+
+	list := make([]*types.PivotScheduleToArtisan, 0, len(pivots))
+	for _, item := range pivots {
+		list = append(list, TransformPivotArtisanAvailableReply(item))
+	}
+
+	return list
+}
+
+func TransformPivotArtisanAvailableReply(pivot *reservationcenter.PivotScheduleToArtisan) *types.PivotScheduleToArtisan {
+	return &types.PivotScheduleToArtisan{
+		ScheduleId:  pivot.ScheduleId,
+		ArtisanId:   pivot.ArtisanId,
+		IsAvailable: pivot.IsAvailable,
+	}
+
 }

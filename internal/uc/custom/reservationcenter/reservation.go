@@ -69,6 +69,9 @@ func (uc *ReservationUseCase) FindAllReservations(ctx context.Context, opt *Find
 	query = uc.buildFindQueryNoPage(query, opt)
 	if err := query.
 		Debug().
+		Preload("Customer").
+		Preload("Artisan").
+		Preload("Service").
 		//Preload("CheckinLogs").
 		Find(&schedules).Error; err != nil {
 		panic(errors.Wrap(err, "find all schedules failed"))

@@ -54,6 +54,25 @@ service PowerX {
 }
 
 type (
+    ReservedArtisan {
+        Name string `json:"name"`
+        Gendar string `json:"gendar"`
+        PhoneNumber string `json:"phoneNumber"`
+        CoverURL string `json:"coverURL"`
+        WorkNo string `json:"workNo"`
+    }
+
+    ReservedService {
+        Name string `json:"name"`
+        Duration int `json:"duration"`
+        MandatoryDuration int `json:"mandatoryDuration"`
+    }
+    ReservedCustomer {
+        Name string `json:"name"`
+        Mobile string `json:"mobile"`
+        Avatar string `json:"avatar"`
+    }
+
     Reservation {
         Id int64 `json:"id,optional"`
         ScheduleId int64 `json:"scheduleId"`
@@ -71,6 +90,9 @@ type (
         OperationStatus int `json:"operationStatus,optional"`
         ReservationStatus int `json:"reservationStatus,optional"`
         CreatedAt string `json:"createdAt,optional"`
+        ReservedCustomer *ReservedCustomer `json:"reservedCustomer,optional"`
+        ReservedArtisan *ReservedArtisan `json:"reservedArtisan,optional"`
+        ReservedService *ReservedService `json:"reservedService,optional"`
     }
 )
 type (

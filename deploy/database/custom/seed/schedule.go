@@ -5,6 +5,7 @@ import (
 	"PowerX/internal/model/product"
 	carbon2 "PowerX/pkg/datetime/carbonx"
 	"PowerX/pkg/slicex"
+	"context"
 	"fmt"
 	"github.com/golang-module/carbon/v2"
 	"github.com/pkg/errors"
@@ -71,6 +72,7 @@ func GenerateSchedulesBy(currentDate *carbon.Carbon, store *product.Store) []*re
 	//today.SetTimezone()
 
 	//fmt2.Dump(currentDate, startOfWeek, endOfWeek)
+	scheduleStatus := UseCaseDD.GetCachedDD(context.Background(), reservationcenter.ScheduleStatusType, reservationcenter.ScheduleStatusIdle)
 
 	// 工作日
 	workDays := int(startOfWeek.DiffInDays(*endOfWeek)) + 1
@@ -91,7 +93,7 @@ func GenerateSchedulesBy(currentDate *carbon.Carbon, store *product.Store) []*re
 				Name:               fmt.Sprintf("%s-%d-%s", store.Name, i+1, startDatetime.Format("H")),
 				Description:        "",
 				IsActive:           true,
-				Status:             "",
+				Status:             scheduleStatus,
 				StartTime:          startDatetime.ToStdTime(),
 				EndTime:            startDatetime.AddHours(reservationcenter.BucketHours).ToStdTime(),
 			}

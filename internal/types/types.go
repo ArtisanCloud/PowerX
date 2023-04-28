@@ -1531,19 +1531,41 @@ type Token struct {
 	RefreshToken string `json:"refreshToken"`
 }
 
+type PivotScheduleToArtisan struct {
+	ScheduleId  int64 `json:"scheduleId,optional"`
+	ArtisanId   int64 `json:"artisanId,optional"`
+	IsAvailable bool  `json:"isAvailable,optional"`
+}
+
+type ScheduleReservation struct {
+	Id                int64  `json:"id,optional"`
+	CustomerId        int64  `json:"customerId"`
+	ReservedArtisanId int64  `json:"reservedArtisanId"`
+	ServiceId         int64  `json:"serviceId"`
+	ReservedTime      string `json:"reservedTime,optional"`
+	CancelTime        string `json:"cancelTime,optional"`
+	CheckinTime       string `json:"checkinTime,optional"`
+	Description       string `json:"description,optional"`
+	OperationStatus   int    `json:"operationStatus,optional"`
+	ReservationStatus int    `json:"reservationStatus,optional"`
+	CreatedAt         string `json:"createdAt,optional"`
+}
+
 type Schedule struct {
-	Id                 int64  `json:"id,optional"`
-	StoreId            int64  `json:"storeId"`
-	ApprovalStatus     string `json:"approvalStatus,optional"`
-	Capacity           int32  `json:"capacity"`
-	CopyFromScheduleId int64  `json:"copyFromScheduleId,optional"`
-	Name               string `json:"name"`
-	Description        string `json:"description,optional"`
-	IsActive           bool   `json:"isActive,optional"`
-	Status             string `json:"status,optional"`
-	StartTime          string `json:"startTime"`
-	EndTime            string `json:"endTime"`
-	CreatedAt          string `json:"createdAt,optional"`
+	Id                     int64                     `json:"id,optional"`
+	StoreId                int64                     `json:"storeId"`
+	ApprovalStatus         string                    `json:"approvalStatus,optional"`
+	Capacity               int32                     `json:"capacity"`
+	CopyFromScheduleId     int64                     `json:"copyFromScheduleId,optional"`
+	Name                   string                    `json:"name"`
+	Description            string                    `json:"description,optional"`
+	IsActive               bool                      `json:"isActive,optional"`
+	Status                 int                       `json:"status,optional"`
+	StartTime              string                    `json:"startTime"`
+	EndTime                string                    `json:"endTime"`
+	CreatedAt              string                    `json:"createdAt,optional"`
+	Reservations           []*ScheduleReservation    `json:"reservations,optional"`
+	PivotScheduleToArtisan []*PivotScheduleToArtisan `json:"pivotScheduleToArtisan,optional"`
 }
 
 type ListSchedulesRequest struct {
@@ -1625,23 +1647,46 @@ type AssignScheduleToScheduleCategoryReply struct {
 	Schedule
 }
 
+type ReservedArtisan struct {
+	Name        string `json:"name"`
+	Gendar      string `json:"gendar"`
+	PhoneNumber string `json:"phoneNumber"`
+	CoverURL    string `json:"coverURL"`
+	WorkNo      string `json:"workNo"`
+}
+
+type ReservedService struct {
+	Name              string `json:"name"`
+	Duration          int    `json:"duration"`
+	MandatoryDuration int    `json:"mandatoryDuration"`
+}
+
+type ReservedCustomer struct {
+	Name   string `json:"name"`
+	Mobile string `json:"mobile"`
+	Avatar string `json:"avatar"`
+}
+
 type Reservation struct {
-	Id                  int64  `json:"id,optional"`
-	ScheduleId          int64  `json:"scheduleId"`
-	CustomerId          int64  `json:"customerId"`
-	ReservedArtisanId   int64  `json:"reservedArtisanId"`
-	ServiceId           int64  `json:"serviceId"`
-	SourceChannelId     int64  `json:"sourceChannelId"`
-	Type                int    `json:"type"`
-	ReservedTime        string `json:"reservedTime,optional"`
-	CancelTime          string `json:"cancelTime,optional"`
-	CheckinTime         string `json:"checkinTime,optional"`
-	Description         string `json:"description,optional"`
-	ConsumedPoints      int    `json:"consumedPoints,optional"`
-	ConsumeMembershipId int64  `json:"consumeMembershipId,optional"`
-	OperationStatus     int    `json:"operationStatus,optional"`
-	ReservationStatus   int    `json:"reservationStatus,optional"`
-	CreatedAt           string `json:"createdAt,optional"`
+	Id                  int64             `json:"id,optional"`
+	ScheduleId          int64             `json:"scheduleId"`
+	CustomerId          int64             `json:"customerId"`
+	ReservedArtisanId   int64             `json:"reservedArtisanId"`
+	ServiceId           int64             `json:"serviceId"`
+	SourceChannelId     int64             `json:"sourceChannelId"`
+	Type                int               `json:"type"`
+	ReservedTime        string            `json:"reservedTime,optional"`
+	CancelTime          string            `json:"cancelTime,optional"`
+	CheckinTime         string            `json:"checkinTime,optional"`
+	Description         string            `json:"description,optional"`
+	ConsumedPoints      int               `json:"consumedPoints,optional"`
+	ConsumeMembershipId int64             `json:"consumeMembershipId,optional"`
+	OperationStatus     int               `json:"operationStatus,optional"`
+	ReservationStatus   int               `json:"reservationStatus,optional"`
+	CreatedAt           string            `json:"createdAt,optional"`
+	ReservedCustomer    *ReservedCustomer `json:"reservedCustomer,optional"`
+	ReservedArtisan     *ReservedArtisan  `json:"reservedArtisan,optional"`
+	ReservedService     *ReservedService  `json:"reservedService,optional"`
 }
 
 type ListReservationsRequest struct {

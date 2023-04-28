@@ -56,7 +56,8 @@ func (uc *ScheduleUseCase) FindAllSchedules(ctx context.Context, opt *FindManySc
 	query = uc.buildFindQueryNoPage(query, opt)
 	if err := query.
 		Debug().
-		//Preload("Artisans").
+		Preload("Reservations").
+		Preload("PivotScheduleToArtisan").
 		Find(&schedules).Error; err != nil {
 		panic(errors.Wrap(err, "find all schedules failed"))
 	}

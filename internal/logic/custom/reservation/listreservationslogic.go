@@ -2,6 +2,7 @@ package reservation
 
 import (
 	"PowerX/internal/uc/custom/reservationcenter"
+	fmt "PowerX/pkg/printx"
 	"context"
 
 	"PowerX/internal/svc"
@@ -29,6 +30,7 @@ func (l *ListReservationsLogic) ListReservations(req *types.ListReservationsRequ
 		ScheduleId: req.ScheduleId,
 	})
 
+	fmt.Dump(reservations)
 	if err != nil {
 		return nil, err
 	}

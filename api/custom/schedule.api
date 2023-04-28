@@ -56,6 +56,27 @@ service PowerX {
 }
 
 type (
+
+    PivotScheduleToArtisan {
+        ScheduleId  int64 `json:"scheduleId,optional"`
+        ArtisanId   int64 `json:"artisanId,optional"`
+        IsAvailable bool `json:"isAvailable,optional"`
+    }
+
+    ScheduleReservation {
+        Id int64 `json:"id,optional"`
+        CustomerId int64 `json:"customerId"`
+        ReservedArtisanId int64 `json:"reservedArtisanId"`
+        ServiceId int64 `json:"serviceId"`
+        ReservedTime string `json:"reservedTime,optional"`
+        CancelTime string `json:"cancelTime,optional"`
+        CheckinTime string `json:"checkinTime,optional"`
+        Description string `json:"description,optional"`
+        OperationStatus int `json:"operationStatus,optional"`
+        ReservationStatus int `json:"reservationStatus,optional"`
+        CreatedAt string `json:"createdAt,optional"`
+    }
+
     Schedule {
         Id int64 `json:"id,optional"`
         StoreId int64 `json:"storeId"`
@@ -65,10 +86,13 @@ type (
         Name string `json:"name"`
         Description string `json:"description,optional"`
         IsActive bool `json:"isActive,optional"`
-        Status string `json:"status,optional"`
+        Status int `json:"status,optional"`
         StartTime string `json:"startTime"`
         EndTime string `json:"endTime"`
         CreatedAt string `json:"createdAt,optional"`
+        Reservations []*ScheduleReservation `json:"reservations,optional"`
+        PivotScheduleToArtisan []*PivotScheduleToArtisan `json:"pivotScheduleToArtisan,optional"`
+
     }
 )
 type (
