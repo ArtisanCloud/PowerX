@@ -79,7 +79,7 @@ type PivotDataDictionaryToObject struct {
 	DataDictionaryItem *DataDictionaryItem `gorm:"foreignKey:DataDictionaryType,DataDictionaryKey;references:Type,Key" json:"dataDictionaryItem"`
 
 	ObjectType         string `gorm:"column:object_type; not null;index:idx_obj_type;comment:对象表名称" json:"objectOwner"`
-	ObjectID           int64  `gorm:"column:object_id; not null;index:idx_obj_id;comment:对象Id" json:"objectID"`
+	ObjectID           int64  `gorm:"column:object_id; not null;index:idx_obj_id;comment:对象Id" json:"objectId"`
 	DataDictionaryType string `gorm:"column:data_dictionary_type; not null;index:idx_dd_type;comment:数据字典数据项type" json:"dataDictionaryType"`
 	DataDictionaryKey  string `gorm:"column:data_dictionary_key; not null;index:idx_dd_key;comment:数据字典数据项key" json:"dataDictionaryKey"`
 }

@@ -34,12 +34,12 @@ func (l *LoginLogic) Login(req *types.MPCustomerLoginRequest) (resp *types.MPCus
 		return
 	}
 	//rs := &response.ResponseCode2Session{
-	//	OpenID:     "o1IFX5A8sfi5nbkXwOzNLLLiL0OA",
+	//	OpenId:     "o1IFX5A8sfi5nbkXwOzNLLLiL0OA",
 	//	SessionKey: "IHaqJoWvRRCRlfnrRntzcA==",
 	//}
 
 	mpCustomer, err := l.svcCtx.PowerX.WechatMP.FindOneMPCustomer(l.ctx, &model.FindMPCustomerOption{
-		OpenIDs: []string{rs.OpenID},
+		OpenIds: []string{rs.OpenID},
 	})
 
 	if err != nil {
@@ -59,8 +59,8 @@ func (l *LoginLogic) Login(req *types.MPCustomerLoginRequest) (resp *types.MPCus
 	token := l.svcCtx.PowerX.CustomerAuthorization.SignToken(mpCustomer, l.svcCtx.Config.JWTSecret)
 
 	return &types.MPCustomerLoginAuthReply{
-		OpenID:      mpCustomer.OpenID,
-		UnionID:     mpCustomer.UnionID,
+		OpenId:      mpCustomer.OpenId,
+		UnionId:     mpCustomer.UnionId,
 		PhoneNumber: mpCustomer.PhoneNumber,
 		NickName:    mpCustomer.NickName,
 		AvatarURL:   mpCustomer.AvatarURL,

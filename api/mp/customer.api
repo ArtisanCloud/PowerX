@@ -44,8 +44,8 @@ type (
     }
 
     MPCustomerLoginAuthReply {
-        OpenID string `json:"openID"`
-        UnionID string `json:"unionID"`
+        OpenId string `json:"openId"`
+        UnionId string `json:"unionId"`
         PhoneNumber string `json:"phoneNumber"`
         NickName string `json:"nickName"`
         AvatarURL string `json:"avatarURL"`

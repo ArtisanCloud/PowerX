@@ -36,7 +36,7 @@ func (l *AuthByPhoneLogic) AuthByPhone(req *types.MPCustomerAuthRequest) (resp *
 		return
 	}
 	//rs := &response.ResponseCode2Session{
-	//	OpenID:     "o1IFX5A8sfi5nbkXwOzNLLLiL0OA",
+	//	OpenId:     "o1IFX5A8sfi5nbkXwOzNLLLiL0OA",
 	//	SessionKey: "rUoiNCDNWekX68d7TmnNGw==",
 	//}
 
@@ -59,9 +59,9 @@ func (l *AuthByPhoneLogic) AuthByPhone(req *types.MPCustomerAuthRequest) (resp *
 	}
 
 	mpCustomer := &model.WechatMPCustomer{
-		OpenID:      rs.OpenID,
+		OpenId:      rs.OpenID,
 		SessionKey:  rs.SessionKey,
-		UnionID:     rs.UnionID,
+		UnionId:     rs.UnionID,
 		MPPhoneInfo: *mpPhoneInfo,
 	}
 
@@ -81,7 +81,7 @@ func (l *AuthByPhoneLogic) AuthByPhone(req *types.MPCustomerAuthRequest) (resp *
 		Source:      source,
 		IsActivated: true,
 		ExternalId: customerdomain.ExternalId{
-			OpenIdInMiniProgram: mpCustomer.OpenID,
+			OpenIdInMiniProgram: mpCustomer.OpenId,
 		},
 	}
 	lead, err = l.svcCtx.PowerX.Lead.UpsertLead(l.ctx, lead)
@@ -93,8 +93,8 @@ func (l *AuthByPhoneLogic) AuthByPhone(req *types.MPCustomerAuthRequest) (resp *
 	token := l.svcCtx.PowerX.CustomerAuthorization.SignToken(mpCustomer, l.svcCtx.Config.JWTSecret)
 
 	return &types.MPCustomerLoginAuthReply{
-		OpenID:      mpCustomer.OpenID,
-		UnionID:     mpCustomer.UnionID,
+		OpenId:      mpCustomer.OpenId,
+		UnionId:     mpCustomer.UnionId,
 		PhoneNumber: mpCustomer.PhoneNumber,
 		NickName:    mpCustomer.NickName,
 		AvatarURL:   mpCustomer.AvatarURL,

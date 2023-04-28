@@ -287,6 +287,16 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			[]rest.Route{
 				{
 					Method:  http.MethodGet,
+					Path:    "/leads/:id",
+					Handler: adminlead.GetLeadHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/leads/page-list",
+					Handler: adminlead.ListLeadsPageHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
 					Path:    "/leads",
 					Handler: adminlead.ListLeadsHandler(serverCtx),
 				},
@@ -307,12 +317,12 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				},
 				{
 					Method:  http.MethodPost,
-					Path:    "/leads/:id/actions/assign-to-employee",
+					Path:    "/leads/:id/actions/employees",
 					Handler: adminlead.AssignLeadToEmployeeHandler(serverCtx),
 				},
 			}...,
 		),
-		rest.WithPrefix("/api/v1/admin/lead"),
+		rest.WithPrefix("/api/v1/admin/lead-domain"),
 	)
 
 	server.AddRoutes(
@@ -323,6 +333,11 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 					Method:  http.MethodGet,
 					Path:    "/customers/:id",
 					Handler: admincustomer.GetCustomerHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/customers/page-list",
+					Handler: admincustomer.ListCustomersPageHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodGet,
@@ -351,7 +366,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				},
 			}...,
 		),
-		rest.WithPrefix("/api/v1/admin/customer"),
+		rest.WithPrefix("/api/v1/admin/customer-domain"),
 	)
 
 	server.AddRoutes(

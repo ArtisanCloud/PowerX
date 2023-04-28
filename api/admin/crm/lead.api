@@ -1,22 +1,29 @@
 syntax = "v1"
 
 info(
-    title: "线索池"
-    desc: "线索池"
-    author: "Northseadl"
-    email: "northseadl@outlook.com"
+    title: "线索管理"
+    desc: "线索管理"
+    author: "MichaelHu"
+    email: "matrix-x@artisan-cloud.com"
     version: "v1"
 )
 
-
 @server(
     group: admin/lead
-    prefix: /api/v1/admin/lead
+    prefix: /api/v1/admin/lead-domain
     middleware: EmployeeJWTAuth
 )
 
 service PowerX {
-    @doc "查询线索列表"
+    @doc "查询线索"
+    @handler GetLead
+    get /leads/:id (GetLeadReqeuest) returns (GetLeadReply)
+
+    @doc "获取线索分页列表"
+    @handler ListLeadsPage
+    get /leads/page-list (ListLeadsPageRequest) returns (ListLeadsPageReply)
+
+    @doc "获取线索列表"
     @handler ListLeads
     get /leads (ListLeadsRequest) returns (ListLeadsReply)
 
@@ -24,7 +31,7 @@ service PowerX {
     @handler CreateLead
     post /leads (CreateLeadRequest) returns (CreateLeadReply)
 
-    @doc "编辑线索"
+    @doc "更新线索"
     @handler PatchLead
     patch /leads/:id (PatchLeadRequest) returns (PatchLeadReply)
 
@@ -32,118 +39,128 @@ service PowerX {
     @handler DeleteLead
     delete /leads/:id (DeleteLeadRequest) returns (DeleteLeadReply)
 
-    @doc "分配线索给员工"
+    @doc "为线索分配员工"
     @handler AssignLeadToEmployee
-    post /leads/:id/actions/assign-to-employee (AssignLeadToEmployeeRequest) returns (AssignLeadToEmployeeReply)
+    post /leads/:id/actions/employees (AssignLeadToEmployeeRequest) returns (AssignLeadToEmployeeReply)
 }
 
 type (
     LeadExternalId {
-        OpenIDInMiniProgram string `json:"openIdInMiniProgram,optional"`
-        OpenIDInWeChatOfficialAccount string `json:"openIdInWeChatOfficialAccount,optional"`
-        OpenIDInWeCom string `json:"openIdInWeCom,optional"`
+        OpenIdInMiniProgram string `json:"openIdInMiniProgram,optional"`
+        OpenIdInWeChatOfficialAccount string `json:"openIdInWeChatOfficialAccount,optional"`
+        OpenIdInWeCom string `json:"openIdInWeCom,optional"`
     }
 )
 
 type (
     LeadInviter {
         Id int64 `json:"id"`
-        Name string `json:"name"`
-        Mobile string `json:"mobile"`
-        Email string `json:"email"`
+        Name string `json:"name,optional"`
+        Mobile string `json:"mobile,optional"`
+        Email string `json:"email,optional"`
     }
 
     Lead {
         Id int64 `json:"id"`
         Name string `json:"name"`
         Mobile string `json:"mobile"`
-        Email string `json:"email"`
-        Inviter LeadInviter `json:"inviter"`
-        Source int `json:"source"`
-        Status int `json:"status"`
-        CreatedAt string `json:"createdAt"`
+        Email string `json:"email,optional"`
+        Inviter LeadInviter `json:"inviter,optional"`
+        InviterId int64 `json:"inviter,optional"`
+        Source int `json:"source,optional"`
+        Type int `json:"type,optional"`
+        IsActivated bool `json:"isActivated,optional"`
+        CreatedAt string `json:"createdAt,optional"`
         LeadExternalId
     }
 )
 
 type (
+    GetLeadReqeuest {
+        Id string `path:"id"`
+    }
+
+    GetLeadReply {
+        Lead Lead `json:"lead"`
+    }
+)
+
+type (
+    ListLeadsPageRequest {
+        LikeName string `form:"likeName,optional"`
+        LikeMobile string `form:"likeMobile,optional"`
+        Sources []int `form:"sources,optional"`
+        Statuses []string `form:"statuses,optional"`
+        PageIndex int `form:"page,optional"`
+        PageSize int `form:"pageSize,optional"`
+    }
+
+    ListLeadsPageReply {
+        List []Lead `json:"list,optional"`
+        PageIndex int `json:"pageIndex,optional"`
+        PageSize int `json:"pageSize,optional"`
+        Total int64 `json:"total,optional"`
+    }
+
     ListLeadsRequest {
-        LikeTitle string `json:"likeTitle,optional"`
-        LikePhoneNumber string `json:"likePhoneNumber,optional"`
-        Sources []string `json:"sources,optional"`
-        Statuses []string `json:"statuses,optional"`
+        LikeName string `form:"likeName,optional"`
+        Sources []string `form:"sources,optional"`
+        LikeMobile string `form:"likeMobile,optional"`
+        Statuses []string `form:"statuses,optional"`
+        PageIndex int `form:"page,optional"`
+        PageSize int `form:"pageSize,optional"`
     }
 
     ListLeadsReply {
         List []Lead `json:"list"`
-        PageIndex int32 `json:"pageIndex"`
-        PageSize int32 `json:"pageSize"`
-        Total int64 `json:"total"`
     }
 )
 
 type (
-    CreateLeadRecord {
-        Id int64 `json:"id"`
-        Name string `json:"name"`
-        Mobile string `json:"mobile,optional"`
-        Email string `json:"email,optional"`
-        InviterId int64 `json:"inviterId,optional"`
-        Source string `json:"source,optional,options=mini_program|tiktok|h5|ad"`
-        Status string `json:"status,optional,options=open|following|closed_lost|closed_won"`
-        Type string `json:"type,optional,options=personal|company"`
-        IsActive *bool `json:"IsActive,optional"`
-        LeadExternalId
-    }
-
     CreateLeadRequest {
-        List []CreateLeadRecord `json:"list"`
+        Lead
     }
 
     CreateLeadReply {
-        List []Lead `json:"list"`
-        PageIndex int32 `json:"pageIndex"`
-        PageSize int32 `json:"pageSize"`
-        Total int64 `json:"total"`
+        LeadId int64 `json:"id"`
     }
 )
 
 type (
     PatchLeadRequest {
-        Id int64 `path:"id"`
+        Id string `path:"id"`
         Name string `json:"name,optional"`
         Mobile string `json:"mobile,optional"`
         Email string `json:"email,optional"`
         InviterId int64 `json:"inviterId,optional"`
-        Source string `json:"source,optional,options=mini_program|tiktok|h5|advertisement"`
-        Status string `json:"status,optional,options=open|following|closed_lost|closed_won"`
+        Source string `json:"source,optional,options=tiktok|ad|miniprogram|wechat|other"`
         Type string `json:"type,optional,options=personal|company"`
-        IsActive *bool `json:"IsActive,optional"`
+        IsActivated *bool `json:"isActivated,optional"`
         LeadExternalId
     }
 
     PatchLeadReply {
-        Lead
+        Lead Lead `json:"lead"`
     }
 )
 
 type (
     DeleteLeadRequest {
-        Id int64 `json:"id"`
+        Id string `path:"id"`
     }
 
     DeleteLeadReply {
-        Id int64 `json:"id"`
+        LeadId int64 `json:"leadId"`
     }
 )
 
 type (
     AssignLeadToEmployeeRequest {
-        Id int64 `path:"id"`
+        Id string `path:"id"`
         EmployeeId int64 `json:"employeeId"`
     }
 
     AssignLeadToEmployeeReply {
-        Lead
+        LeadId int64 `json:"leadId"`
     }
 )
