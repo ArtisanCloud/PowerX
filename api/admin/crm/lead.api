@@ -10,7 +10,7 @@ info(
 
 @server(
     group: admin/lead
-    prefix: /api/v1/admin/lead-domain
+    prefix: /api/v1/admin/customer-domain
     middleware: EmployeeJWTAuth
 )
 
@@ -23,15 +23,15 @@ service PowerX {
     @handler ListLeadsPage
     get /leads/page-list (ListLeadsPageRequest) returns (ListLeadsPageReply)
 
-    @doc "获取线索列表"
-    @handler ListLeads
-    get /leads (ListLeadsRequest) returns (ListLeadsReply)
-
     @doc "创建线索"
     @handler CreateLead
     post /leads (CreateLeadRequest) returns (CreateLeadReply)
 
-    @doc "更新线索"
+    @doc "全量线索"
+    @handler PutLead
+    put /leads/:id (PutLeadRequest) returns (PutLeadReply)
+
+    @doc "增量线索"
     @handler PatchLead
     patch /leads/:id (PatchLeadRequest) returns (PatchLeadReply)
 
@@ -61,27 +61,27 @@ type (
     }
 
     Lead {
-        Id int64 `json:"id"`
+        Id int64 `json:"id,optional"`
         Name string `json:"name"`
         Mobile string `json:"mobile"`
         Email string `json:"email,optional"`
-        Inviter LeadInviter `json:"inviter,optional"`
+        Inviter *LeadInviter `json:"inviter,optional"`
         InviterId int64 `json:"inviter,optional"`
         Source int `json:"source,optional"`
         Type int `json:"type,optional"`
         IsActivated bool `json:"isActivated,optional"`
         CreatedAt string `json:"createdAt,optional"`
-        LeadExternalId
+        *LeadExternalId
     }
 )
 
 type (
     GetLeadReqeuest {
-        Id string `path:"id"`
+        Id int64 `path:"id"`
     }
 
     GetLeadReply {
-        Lead Lead `json:"lead"`
+        Lead *Lead `json:"lead"`
     }
 )
 
@@ -90,7 +90,7 @@ type (
         LikeName string `form:"likeName,optional"`
         LikeMobile string `form:"likeMobile,optional"`
         Sources []int `form:"sources,optional"`
-        Statuses []string `form:"statuses,optional"`
+        Statuses []int `form:"statuses,optional"`
         PageIndex int `form:"page,optional"`
         PageSize int `form:"pageSize,optional"`
     }
@@ -100,19 +100,6 @@ type (
         PageIndex int `json:"pageIndex,optional"`
         PageSize int `json:"pageSize,optional"`
         Total int64 `json:"total,optional"`
-    }
-
-    ListLeadsRequest {
-        LikeName string `form:"likeName,optional"`
-        Sources []string `form:"sources,optional"`
-        LikeMobile string `form:"likeMobile,optional"`
-        Statuses []string `form:"statuses,optional"`
-        PageIndex int `form:"page,optional"`
-        PageSize int `form:"pageSize,optional"`
-    }
-
-    ListLeadsReply {
-        List []Lead `json:"list"`
     }
 )
 
@@ -126,27 +113,35 @@ type (
     }
 )
 
+type PutLeadRequest {
+    LeadId int64 `path:"id"`
+    Lead
+}
+
+type PutLeadReply {
+    *Lead
+}
+
+
 type (
     PatchLeadRequest {
-        Id string `path:"id"`
+        LeadId int64 `path:"id"`
         Name string `json:"name,optional"`
-        Mobile string `json:"mobile,optional"`
         Email string `json:"email,optional"`
         InviterId int64 `json:"inviterId,optional"`
-        Source string `json:"source,optional,options=tiktok|ad|miniprogram|wechat|other"`
-        Type string `json:"type,optional,options=personal|company"`
-        IsActivated *bool `json:"isActivated,optional"`
-        LeadExternalId
+        Source int `json:"source,optional"`
+        Type int `json:"type,optional"`
+        IsActivated bool `json:"isActivated,optional"`
     }
 
     PatchLeadReply {
-        Lead Lead `json:"lead"`
+        *Lead
     }
 )
 
 type (
     DeleteLeadRequest {
-        Id string `path:"id"`
+        Id int64 `path:"id"`
     }
 
     DeleteLeadReply {

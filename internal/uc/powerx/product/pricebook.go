@@ -8,6 +8,7 @@ import (
 	"context"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
+	"strings"
 )
 
 type PriceBookUseCase struct {
@@ -81,10 +82,14 @@ func (uc *PriceBookUseCase) FindOnePriceBook(ctx context.Context, opt *product.F
 	return mpCustomer, nil
 }
 
-func (uc *PriceBookUseCase) CreatePriceBook(ctx context.Context, priceBook *product.PriceBook) {
+func (uc *PriceBookUseCase) CreatePriceBook(ctx context.Context, priceBook *product.PriceBook) error {
 	if err := uc.db.WithContext(ctx).Create(&priceBook).Error; err != nil {
+		if strings.Contains(err.Error(), "duplicate key value violates unique constraint") {
+			return errorx.WithCause(errorx.ErrDuplicatedInsert, "该对象不能重复创建")
+		}
 		panic(err)
 	}
+	return nil
 }
 
 func (uc *PriceBookUseCase) UpsertPriceBook(ctx context.Context, priceBook *product.PriceBook) (*product.PriceBook, error) {

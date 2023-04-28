@@ -9,21 +9,21 @@ import (
 	"github.com/zeromicro/go-zero/core/logx"
 )
 
-type ListLeadsLogic struct {
+type PutProductLogic struct {
 	logx.Logger
 	ctx    context.Context
 	svcCtx *svc.ServiceContext
 }
 
-func NewListLeadsLogic(ctx context.Context, svcCtx *svc.ServiceContext) *ListLeadsLogic {
-	return &ListLeadsLogic{
+func NewPutProductLogic(ctx context.Context, svcCtx *svc.ServiceContext) *PutProductLogic {
+	return &PutProductLogic{
 		Logger: logx.WithContext(ctx),
 		ctx:    ctx,
 		svcCtx: svcCtx,
 	}
 }
 
-func (l *ListLeadsLogic) ListLeads(req *types.ListLeadsRequest) (resp *types.ListLeadsReply, err error) {
+func (l *PutProductLogic) PutProduct(req *types.PutLeadRequest) (resp *types.PutLeadReply, err error) {
 	// todo: add your logic here and delete this line
 
 	return
