@@ -145,7 +145,7 @@ type (
     }
 
     DeleteCustomerReply {
-        CustomerId int64 `json:"customerId"`
+        CustomerId int64 `json:"id"`
     }
 )
 
