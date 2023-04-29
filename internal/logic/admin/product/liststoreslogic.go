@@ -48,17 +48,17 @@ func TransferStoresToStoresReply(stores []*product2.Store) []*types.Store {
 	return storesReply
 }
 
-func TransferStoreToStoreReply(artisan *product2.Store) *types.Store {
+func TransferStoreToStoreReply(store *product2.Store) *types.Store {
 	return &types.Store{
-		Id:            artisan.Id,
-		Name:          artisan.Name,
-		EmployeeId:    artisan.EmployeeId,
-		ContactNumber: artisan.ContactNumber,
-		CoverURL:      artisan.CoverURL,
-		Address:       artisan.Address,
-		Longitude:     artisan.Longitude,
-		Latitude:      artisan.Latitude,
-		CreatedAt:     artisan.CreatedAt.String(),
-		Artisans:      TransferArtisansToShopArtisans(artisan.Artisans),
+		Id:            store.Id,
+		Name:          store.Name,
+		EmployeeId:    store.EmployeeId,
+		ContactNumber: store.ContactNumber,
+		CoverURL:      store.CoverURL,
+		Address:       store.Address,
+		Longitude:     store.Longitude,
+		Latitude:      store.Latitude,
+		CreatedAt:     store.CreatedAt.String(),
+		Artisans:      TransferArtisansToStoreArtisans(store.Artisans),
 	}
 }

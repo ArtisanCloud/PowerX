@@ -38,17 +38,18 @@ func (l *GetStoreLogic) GetStore(req *types.GetStoreRequest) (resp *types.GetSto
 
 }
 
-func TransferArtisansToShopArtisans(artisans []*product2.Artisan) []*types.StoreArtisan {
+func TransferArtisansToStoreArtisans(artisans []*product2.Artisan) []*types.StoreArtisan {
 	artisansReply := []*types.StoreArtisan{}
 	for _, artisan := range artisans {
-		artisanReply := TransferArtisanToShopArtisan(artisan)
+		artisanReply := TransferArtisanToStoreArtisan(artisan)
 		artisansReply = append(artisansReply, artisanReply)
 	}
 	return artisansReply
 }
 
-func TransferArtisanToShopArtisan(artisan *product2.Artisan) *types.StoreArtisan {
+func TransferArtisanToStoreArtisan(artisan *product2.Artisan) *types.StoreArtisan {
 	return &types.StoreArtisan{
+		Id:          artisan.Id,
 		EmployeeId:  artisan.EmployeeId,
 		Name:        artisan.Name,
 		Level:       artisan.Level,

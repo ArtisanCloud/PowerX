@@ -1140,6 +1140,7 @@ type StoreArtisanSpecific struct {
 }
 
 type StoreArtisan struct {
+	Id              int64                `json:"id,optional"`
 	EmployeeId      int64                `json:"employeeId,optional"`
 	Name            string               `json:"name,optional"`
 	Level           int8                 `json:"level,optional"`

@@ -4,8 +4,10 @@ import (
 	"PowerX/internal/model"
 	"PowerX/internal/model/customerdomain"
 	"context"
+	"fmt"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
+	"math/rand"
 )
 
 func CreateCustomer(db *gorm.DB) (err error) {
@@ -24,22 +26,36 @@ func CreateCustomer(db *gorm.DB) (err error) {
 	return err
 }
 
-func DefaultCustomer() (data []*customerdomain.Customer) {
+func DefaultCustomer() (customers []*customerdomain.Customer) {
 
-	source := UseCaseDD.GetCachedDD(context.Background(), model.TypeSourceChannel, model.ChannelWechat)
+	sourceWechat := UseCaseDD.GetCachedDD(context.Background(), model.TypeSourceChannel, model.ChannelWechat)
+	sourceDouyin := UseCaseDD.GetCachedDD(context.Background(), model.TypeSourceChannel, model.ChannelDouYin)
 
-	data = []*customerdomain.Customer{
-		&customerdomain.Customer{
-			Name:        "测试用户",
-			Mobile:      "13574839275",
-			Email:       "test@test.com",
+	typePersonal := UseCaseDD.GetCachedDD(context.Background(), customerdomain.TypeCustomerType, customerdomain.CustomerPersonal)
+	typeCompany := UseCaseDD.GetCachedDD(context.Background(), customerdomain.TypeCustomerType, customerdomain.CustomerCompany)
+
+	customers = []*customerdomain.Customer{}
+	for i := 0; i < 20; i++ {
+		sourceC := sourceWechat
+		typeC := typeCompany
+		if i%2 == 0 {
+			sourceC = sourceDouyin
+			typeC = typePersonal
+		}
+
+		customer := &customerdomain.Customer{
+			Name:        fmt.Sprintf("test-%d", rand.Int()),
+			Mobile:      fmt.Sprintf("135646742%02d", i),
+			Email:       fmt.Sprintf("test@test.com-%02d", i),
 			InviterId:   0,
-			Source:      18,
-			Type:        source,
+			Source:      sourceC,
+			Type:        typeC,
 			IsActivated: true,
-		},
+		}
+		customers = append(customers, customer)
+
 	}
 
-	return data
+	return customers
 
 }
