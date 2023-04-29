@@ -145,7 +145,7 @@ type (
     }
 
     DeleteLeadReply {
-        LeadId int64 `json:"leadId"`
+        LeadId int64 `json:"id"`
     }
 )
 

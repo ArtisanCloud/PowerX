@@ -629,7 +629,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				},
 				{
 					Method:  http.MethodPost,
-					Path:    "/artisans/:id/actions/assign-to-store-categroy",
+					Path:    "/artisans/:id/actions/assign-to-artisan-categroy",
 					Handler: adminproduct.AssignArtisanToArtisanCategoryHandler(serverCtx),
 				},
 			}...,

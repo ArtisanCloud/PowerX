@@ -644,7 +644,7 @@ type DeleteLeadRequest struct {
 }
 
 type DeleteLeadReply struct {
-	LeadId int64 `json:"leadId"`
+	LeadId int64 `json:"id"`
 }
 
 type AssignLeadToEmployeeRequest struct {
@@ -743,7 +743,7 @@ type DeleteCustomerRequest struct {
 }
 
 type DeleteCustomerReply struct {
-	CustomerId int64 `json:"customerId"`
+	CustomerId int64 `json:"id"`
 }
 
 type AssignCustomerToEmployeeRequest struct {
@@ -809,11 +809,11 @@ type GetMediaByKeyReply struct {
 }
 
 type DeleteMediaRequest struct {
-	Key string `path:"key"`
+	Key string `path:"id"`
 }
 
 type DeleteMediaReply struct {
-	Key string `json:"key"`
+	Key string `json:"id"`
 }
 
 type GetOpportunityListRequest struct {
@@ -1219,11 +1219,11 @@ type PatchStoreReply struct {
 }
 
 type DeleteStoreRequest struct {
-	StoreId int64 `path:"storeId"`
+	StoreId int64 `path:"id"`
 }
 
 type DeleteStoreReply struct {
-	StoreId int64 `json:"storeId"`
+	StoreId int64 `json:"id"`
 }
 
 type AssignStoreManagerRequest struct {
@@ -1258,7 +1258,7 @@ type Artisan struct {
 }
 
 type GetArtisanListRequest struct {
-	ArtisanType string   `form:"storeType,optional"`
+	ArtisanType string   `form:"artisanType,optional"`
 	Keys        []string `form:"keys,optional"`
 	OrderBy     string   `form:"orderBy,optional"`
 	PageIndex   int      `form:"pageIndex,optional"`
@@ -1289,7 +1289,7 @@ type GetArtisanReply struct {
 }
 
 type PutArtisanRequest struct {
-	ArtisanId int64 `path:"storeId"`
+	ArtisanId int64 `path:"artisanId"`
 	Artisan
 }
 
@@ -1298,7 +1298,7 @@ type PutArtisanReply struct {
 }
 
 type PatchArtisanRequest struct {
-	ArtisanId int64 `path:"storeId"`
+	ArtisanId int64 `path:"artisanId"`
 	Artisan
 }
 
@@ -1307,11 +1307,11 @@ type PatchArtisanReply struct {
 }
 
 type DeleteArtisanRequest struct {
-	ArtisanId int64 `path:"storeId"`
+	ArtisanId int64 `path:"id"`
 }
 
 type DeleteArtisanReply struct {
-	ArtisanId int64 `json:"storeId"`
+	ArtisanId int64 `json:"id"`
 }
 
 type AssignArtisanManagerRequest struct {

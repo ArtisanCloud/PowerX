@@ -25,3 +25,8 @@ type Customer struct {
 	IsActivated bool   `gorm:"comment:激活状态" json:"isActivated"`
 	ExternalId
 }
+
+const TypeCustomerType = "_customer_type"
+
+const CustomerPersonal = "_personal"
+const CustomerCompany = "_company"
