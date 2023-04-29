@@ -3,6 +3,7 @@ package seed
 import (
 	"PowerX/deploy/database/custom/seed"
 	"PowerX/internal/model"
+	"PowerX/internal/model/customerdomain"
 	"PowerX/internal/model/product"
 	"PowerX/internal/uc/powerx"
 	"PowerX/pkg/slicex"
@@ -41,6 +42,7 @@ func DefaultDataDictionary() (data []*model.DataDictionaryType) {
 		defaultSalesChannelsDataDictionary(),
 		defaultPromoteChannelsDataDictionary(),
 		defaultSourceDataDictionary(),
+		defaultCustomerTypeDataDictionary(),
 		defaultProductPlanDataDictionary(),
 		defaultProductTypeDataDictionary(),
 		defaultArtisanLevelDataDictionary(),
@@ -253,6 +255,30 @@ func defaultSourceDataDictionary() *model.DataDictionaryType {
 		Type:        model.TypeSourceChannel,
 		Name:        "公域渠道",
 		Description: "获取公域流量的来源",
+	}
+}
+
+func defaultCustomerTypeDataDictionary() *model.DataDictionaryType {
+	return &model.DataDictionaryType{
+		Items: []*model.DataDictionaryItem{
+			&model.DataDictionaryItem{
+				Key:   customerdomain.CustomerPersonal,
+				Type:  customerdomain.TypeCustomerType,
+				Name:  "个人",
+				Value: customerdomain.CustomerPersonal,
+				Sort:  0,
+			},
+			&model.DataDictionaryItem{
+				Key:   customerdomain.CustomerCompany,
+				Type:  customerdomain.TypeCustomerType,
+				Name:  "公司",
+				Value: customerdomain.CustomerCompany,
+				Sort:  0,
+			},
+		},
+		Type:        customerdomain.TypeCustomerType,
+		Name:        "客户类型",
+		Description: "客户类型分个人，公司",
 	}
 }
 

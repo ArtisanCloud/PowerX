@@ -45,7 +45,7 @@ service PowerX {
 
     @doc "分配元匠品类给元匠品类分类"
     @handler AssignArtisanToArtisanCategory
-    post /artisans/:id/actions/assign-to-store-categroy (AssignArtisanManagerRequest) returns (AssignArtisanManagerReply)
+    post /artisans/:id/actions/assign-to-artisan-categroy (AssignArtisanManagerRequest) returns (AssignArtisanManagerReply)
 }
 
 type (
@@ -73,7 +73,7 @@ type (
 )
 type (
     GetArtisanListRequest struct {
-        ArtisanType string `form:"storeType,optional"`
+        ArtisanType string `form:"artisanType,optional"`
         Keys []string `form:"keys,optional"`
         OrderBy string `form:"orderBy,optional"`
         PageIndex int `form:"pageIndex,optional"`
@@ -112,7 +112,7 @@ type (
 
 type (
     PutArtisanRequest struct {
-        ArtisanId int64 `path:"storeId"`
+        ArtisanId int64 `path:"artisanId"`
         Artisan
     }
 
@@ -123,7 +123,7 @@ type (
 
 type (
     PatchArtisanRequest struct {
-        ArtisanId int64 `path:"storeId"`
+        ArtisanId int64 `path:"artisanId"`
         Artisan
     }
 
@@ -135,11 +135,11 @@ type (
 
 type (
     DeleteArtisanRequest struct {
-        ArtisanId int64 `path:"storeId"`
+        ArtisanId int64 `path:"id"`
     }
 
     DeleteArtisanReply struct {
-        ArtisanId int64 `json:"storeId"`
+        ArtisanId int64 `json:"id"`
     }
 )
 

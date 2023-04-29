@@ -147,11 +147,11 @@ type (
 
 type (
     DeleteStoreRequest struct {
-        StoreId int64 `path:"storeId"`
+        StoreId int64 `path:"id"`
     }
 
     DeleteStoreReply struct {
-        StoreId int64 `json:"storeId"`
+        StoreId int64 `json:"id"`
     }
 )
 

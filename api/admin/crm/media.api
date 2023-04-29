@@ -99,10 +99,10 @@ type (
 
 type (
     DeleteMediaRequest struct {
-        Key string `path:"key"`
+        Key string `path:"id"`
     }
 
     DeleteMediaReply struct {
-        Key string `json:"key"`
+        Key string `json:"id"`
     }
 )
