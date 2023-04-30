@@ -53,5 +53,4 @@ func (l *PatchProductCategoryLogic) PatchProductCategory(req *types.PatchProduct
 		},
 	}, nil
 
-	return
 }

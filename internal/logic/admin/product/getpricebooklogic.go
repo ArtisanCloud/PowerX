@@ -41,5 +41,4 @@ func (l *GetPriceBookLogic) GetPriceBook(req *types.GetPriceBookRequest) (resp *
 		},
 	}, nil
 
-	return
 }
