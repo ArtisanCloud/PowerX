@@ -40,7 +40,6 @@ func (l *ListProductCategoryTreeLogic) ListProductCategoryTree(req *types.GetPro
 		ProductCategories: productCategoryReplyList,
 	}, nil
 
-	return
 }
 
 func (l *ListProductCategoryTreeLogic) convertModelToTypeReply(productCategoryList []*product.ProductCategory) []types.ProductCategory {
