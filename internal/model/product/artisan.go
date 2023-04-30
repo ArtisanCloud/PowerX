@@ -1,7 +1,6 @@
 package product
 
 import (
-	"PowerX/internal/model/custom"
 	"PowerX/internal/model/powermodel"
 	"PowerX/internal/types"
 	"time"
@@ -10,7 +9,9 @@ import (
 type Artisan struct {
 	powermodel.PowerModel
 
-	ArtisanSpecific *custom.ArtisanSpecific `gorm:"foreignKey:ArtisanId;references:Id" json:"specific"`
+	// 如果要对元匠对象做特殊扩展开发，请在 /internal/model/custom/artisanspecific.go 中额外开发
+	// 为了避免import Cycle，可以理解Artisan是一个标准的功能模块，基本上要扩展或者二开，是在外部对象去调用该标准对象，所以可以在custom里的model去引用标准对象
+	//ArtisanSpecific *custom.ArtisanSpecific `gorm:"foreignKey:ArtisanId;references:Id" json:"specific"`
 
 	EmployeeId  int64     `gorm:"comment:员工Id"`
 	Name        string    `gorm:"comment:Artisan名称"`
