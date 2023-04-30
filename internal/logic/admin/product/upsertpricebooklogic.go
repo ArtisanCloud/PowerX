@@ -63,5 +63,4 @@ func (l *UpsertPriceBookLogic) UpsertPriceBook(req *types.UpsertPriceBookRequest
 		},
 	}, nil
 
-	return
 }
