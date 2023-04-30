@@ -35,7 +35,7 @@ func (uc *ServiceSpecificUseCase) buildFindQueryNoPage(query *gorm.DB, opt *Find
 		query.Where("name in ?", opt.Names)
 	}
 
-	orderBy := "id, sort asc"
+	orderBy := "id asc"
 	if opt.OrderBy != "" {
 		orderBy = opt.OrderBy + "," + orderBy
 	}
@@ -56,10 +56,13 @@ func (uc *ServiceSpecificUseCase) FindAllServiceSpecifics(ctx context.Context, o
 }
 
 func (uc *ServiceSpecificUseCase) FindManyServiceSpecifics(ctx context.Context, opt *FindServiceSpecificOption) (pageList types.Page[*product.ServiceSpecific], err error) {
-	var artisans []*product.ServiceSpecific
+	var serviceSpecifics []*product.ServiceSpecific
 	db := uc.db.WithContext(ctx).Model(&product.ServiceSpecific{})
 
 	db = uc.buildFindQueryNoPage(db, opt)
+
+	// 只拿第一层服务
+	db = db.Where("parent_id", 0)
 
 	var count int64
 	if err := db.Count(&count).Error; err != nil {
@@ -73,13 +76,14 @@ func (uc *ServiceSpecificUseCase) FindManyServiceSpecifics(ctx context.Context, 
 
 	if err := db.
 		Debug().
-		//Preload("ServiceSpecificSpecific").
-		Find(&artisans).Error; err != nil {
+		Preload("Product").
+		Preload("Children").
+		Find(&serviceSpecifics).Error; err != nil {
 		panic(err)
 	}
 
 	return types.Page[*product.ServiceSpecific]{
-		List:      artisans,
+		List:      serviceSpecifics,
 		PageIndex: opt.PageIndex,
 		PageSize:  opt.PageSize,
 		Total:     count,

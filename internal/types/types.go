@@ -1870,16 +1870,39 @@ type SSRefProduct struct {
 	CoverURL      string `json:"coverURL,optional"`
 }
 
+type SSRefStore struct {
+	Id            int64   `json:"id,optional"`
+	Name          string  `json:"name"`
+	EmployeeId    int64   `json:"employeeId"`
+	ContactNumber string  `json:"contactNumber"`
+	CoverURL      string  `json:"coverURL"`
+	Address       string  `json:"address"`
+	Longitude     float32 `json:"longitude"`
+	Latitude      float32 `json:"latitude"`
+	StartWork     float32 `json:"startWork"`
+	EndWork       float32 `json:"sndWork"`
+}
+
+type ChildSpecific struct {
+	Id                int64  `json:"id,optional"`
+	IsFree            bool   `json:"isFree,optional"`
+	Name              string `json:"name,optional"`
+	Duration          int    `json:"duration,optional"`
+	MandatoryDuration int    `json:"mandatoryDuration,optional"`
+}
+
 type ServiceSpecific struct {
-	Id                int64         `json:"id,optional"`
-	ParentId          int64         `json:"parentId,optional"`
-	ProductId         int64         `json:"productId,optional"`
-	IsFree            bool          `json:"isFree,optional"`
-	Name              string        `json:"name,optional"`
-	Duration          int           `json:"duration,optional"`
-	MandatoryDuration int           `json:"mandatoryDuration,optional"`
-	CreatedAt         string        `json:"createdAt,optional"`
-	Product           *SSRefProduct `json:"serviceSpecific,optional"`
+	Id                int64            `json:"id,optional"`
+	ParentId          int64            `json:"parentId,optional"`
+	ProductId         int64            `json:"productId,optional"`
+	IsFree            bool             `json:"isFree,optional"`
+	Name              string           `json:"name,optional"`
+	Duration          int              `json:"duration,optional"`
+	MandatoryDuration int              `json:"mandatoryDuration,optional"`
+	CreatedAt         string           `json:"createdAt,optional"`
+	Children          []*ChildSpecific `json:"children,optional"`
+	Product           *SSRefProduct    `json:"product,optional"`
+	Stores            []*SSRefStore    `json:"stores,optional"`
 }
 
 type ListServiceSpecificPageRequest struct {
