@@ -19,6 +19,7 @@ import (
 	adminscrmcontact "PowerX/internal/handler/admin/scrm/contact"
 	adminscrmcustomer "PowerX/internal/handler/admin/scrm/customer"
 	adminuserinfo "PowerX/internal/handler/admin/userinfo"
+	customproduct "PowerX/internal/handler/custom/product"
 	customreservation "PowerX/internal/handler/custom/reservation"
 	customschedule "PowerX/internal/handler/custom/schedule"
 	mpcustomer "PowerX/internal/handler/mp/customer"
@@ -846,5 +847,93 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			}...,
 		),
 		rest.WithPrefix("/api/v1/admin/reservation-center"),
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Route{
+				{
+					Method:  http.MethodGet,
+					Path:    "/artisan-specifics",
+					Handler: customproduct.ListArtisanSpecificsHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/artisan-specifics/:id",
+					Handler: customproduct.GetArtisanSpecificHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/artisan-specifics",
+					Handler: customproduct.CreateArtisanSpecificHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPut,
+					Path:    "/artisan-specifics/:id",
+					Handler: customproduct.PutArtisanSpecificHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPatch,
+					Path:    "/artisan-specifics/:id",
+					Handler: customproduct.PatchArtisanSpecificHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodDelete,
+					Path:    "/artisan-specifics/:id",
+					Handler: customproduct.DeleteArtisanSpecificHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/artisan-specifics/:id/actions/assign-to-store-categroy",
+					Handler: customproduct.AssignArtisanSpecificToArtisanSpecificCategoryHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithPrefix("/api/v1/admin/product"),
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Route{
+				{
+					Method:  http.MethodGet,
+					Path:    "/service-specifics/page-list",
+					Handler: customproduct.ListServiceSpecificsPageHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/service-specifics/:id",
+					Handler: customproduct.GetServiceSpecificHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/service-specifics",
+					Handler: customproduct.CreateServiceSpecificHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPut,
+					Path:    "/service-specifics/:id",
+					Handler: customproduct.PutServiceSpecificHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPatch,
+					Path:    "/service-specifics/:id",
+					Handler: customproduct.PatchServiceSpecificHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodDelete,
+					Path:    "/service-specifics/:id",
+					Handler: customproduct.DeleteServiceSpecificHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/service-specifics/:id/actions/assign-to-store-categroy",
+					Handler: customproduct.AssignServiceSpecificToServiceSpecificCategoryHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithPrefix("/api/v1/admin/product"),
 	)
 }

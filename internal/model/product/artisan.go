@@ -1,7 +1,6 @@
 package product
 
 import (
-	"PowerX/internal/model/custom"
 	"PowerX/internal/model/powermodel"
 	"PowerX/internal/types"
 	"time"
@@ -9,8 +8,6 @@ import (
 
 type Artisan struct {
 	powermodel.PowerModel
-
-	ArtisanSpecific *custom.ArtisanSpecific `gorm:"foreignKey:ArtisanId;references:Id" json:"specific"`
 
 	EmployeeId  int64     `gorm:"comment:员工Id"`
 	Name        string    `gorm:"comment:Artisan名称"`

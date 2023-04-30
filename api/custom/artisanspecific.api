@@ -1,8 +1,8 @@
 syntax = "v1"
 
 info(
-    title: "元匠"
-    desc: "元匠"
+    title: "元匠规格"
+    desc: "元匠规格"
     author: "MichaelHu"
     email: "matrix-x@artisan-cloud.com"
     version: "v1"
@@ -10,51 +10,48 @@ info(
 
 
 @server(
-    group: admin/product
+    group: custom/product
     prefix: /api/v1/admin/product
     middleware: EmployeeJWTAuth
 )
 
 service PowerX {
-    @doc "查询元匠列表"
+    @doc "查询元匠规格列表"
     @handler ListArtisanSpecifics
     get /artisan-specifics (GetArtisanSpecificListRequest) returns (GetArtisanSpecificListReply)
 
-    @doc "查询元匠详情"
+    @doc "查询元匠规格详情"
     @handler GetArtisanSpecific
     get /artisan-specifics/:id (GetArtisanSpecificRequest) returns (GetArtisanSpecificReply)
 
 
-    @doc "创建元匠"
+    @doc "创建元匠规格"
     @handler CreateArtisanSpecific
     post /artisan-specifics (CreateArtisanSpecificRequest) returns (CreateArtisanSpecificReply)
 
 
-    @doc "全量元匠"
+    @doc "全量元匠规格"
     @handler PutArtisanSpecific
     put /artisan-specifics/:id (PutArtisanSpecificRequest) returns (PutArtisanSpecificReply)
 
-    @doc "增量元匠"
+    @doc "增量元匠规格"
     @handler PatchArtisanSpecific
     patch /artisan-specifics/:id (PatchArtisanSpecificRequest) returns (PatchArtisanSpecificReply)
 
 
-    @doc "删除元匠"
+    @doc "删除元匠规格"
     @handler DeleteArtisanSpecific
     delete /artisan-specifics/:id (DeleteArtisanSpecificRequest) returns (DeleteArtisanSpecificReply)
 
-    @doc "分配元匠品类给元匠品类分类"
+    @doc "分配元匠规格品类给元匠规格品类分类"
     @handler AssignArtisanSpecificToArtisanSpecificCategory
     post /artisan-specifics/:id/actions/assign-to-store-categroy (AssignArtisanSpecificManagerRequest) returns (AssignArtisanSpecificManagerReply)
 }
 
 type (
 
-    ArtisanSpecificSpecific{
-        ArtisanSpecificId int64 `json:"artisanId,optional"`
-    }
-
-    ArtisanSpecific {
+    ACRefArtisan{
+        Id int64 `json:"id,optional"`
         EmployeeId int64 `json:"employeeId,optional"`
         Name string `json:"name,optional"`
         Level int8 `json:"level,optional"`
@@ -68,7 +65,13 @@ type (
         Specialty string `json:"specialty,optional"`
         Certificate string `json:"certificate,optional"`
         Address string `json:"address,optional"`
-        ArtisanSpecificSpecific ArtisanSpecificSpecific `json:"artisanSpecific,optional"`
+    }
+
+    ArtisanSpecific {
+        ArtisanId int64 `json:"artisanId,optional"`
+        MaxServiceDuration int32  `json:"maxServiceDuration,optional"`
+        MandatoryDuration  int32 `json:"mandatoryDuration,optional"`
+        Artisan ACRefArtisan `json:"artisan,optional"`
     }
 
 

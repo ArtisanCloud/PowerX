@@ -1,4 +1,4 @@
-package custom
+package product
 
 import (
 	"PowerX/internal/model/powermodel"
@@ -13,9 +13,3 @@ type ArtisanSpecific struct {
 }
 
 const ArtisanSpecificUniqueId = powermodel.UniqueId
-
-type FindArtisanSpecificOption struct {
-	OrderBy string
-	Ids     []int64
-	Names   []string
-}

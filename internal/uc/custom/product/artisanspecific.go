@@ -1,7 +1,7 @@
 package product
 
 import (
-	"PowerX/internal/model/custom"
+	"PowerX/internal/model/custom/product"
 	"PowerX/internal/model/powermodel"
 	"PowerX/internal/types/errorx"
 	"context"
@@ -19,7 +19,13 @@ func NewArtisanSpecificUseCase(db *gorm.DB) *ArtisanSpecificUseCase {
 	}
 }
 
-func (uc *ArtisanSpecificUseCase) buildFindQueryNoPage(query *gorm.DB, opt *custom.FindArtisanSpecificOption) *gorm.DB {
+type FindArtisanSpecificOption struct {
+	OrderBy string
+	Ids     []int64
+	Names   []string
+}
+
+func (uc *ArtisanSpecificUseCase) buildFindQueryNoPage(query *gorm.DB, opt *FindArtisanSpecificOption) *gorm.DB {
 	if len(opt.Ids) > 0 {
 		query.Where("id in ?", opt.Ids)
 	}
@@ -36,9 +42,9 @@ func (uc *ArtisanSpecificUseCase) buildFindQueryNoPage(query *gorm.DB, opt *cust
 	return query
 }
 
-func (uc *ArtisanSpecificUseCase) FindAllArtisanSpecifics(ctx context.Context, opt *custom.FindArtisanSpecificOption) []*custom.ArtisanSpecific {
-	var productCategories []*custom.ArtisanSpecific
-	query := uc.db.WithContext(ctx).Model(&custom.ArtisanSpecific{})
+func (uc *ArtisanSpecificUseCase) FindAllArtisanSpecifics(ctx context.Context, opt *FindArtisanSpecificOption) []*product.ArtisanSpecific {
+	var productCategories []*product.ArtisanSpecific
+	query := uc.db.WithContext(ctx).Model(&product.ArtisanSpecific{})
 
 	query = uc.buildFindQueryNoPage(query, opt)
 	if err := query.Find(&productCategories).Error; err != nil {
@@ -47,9 +53,9 @@ func (uc *ArtisanSpecificUseCase) FindAllArtisanSpecifics(ctx context.Context, o
 	return productCategories
 }
 
-func (uc *ArtisanSpecificUseCase) FindOneArtisanSpecific(ctx context.Context, opt *custom.FindArtisanSpecificOption) (*custom.ArtisanSpecific, error) {
-	var mpCustomer *custom.ArtisanSpecific
-	query := uc.db.WithContext(ctx).Model(&custom.ArtisanSpecific{})
+func (uc *ArtisanSpecificUseCase) FindOneArtisanSpecific(ctx context.Context, opt *FindArtisanSpecificOption) (*product.ArtisanSpecific, error) {
+	var mpCustomer *product.ArtisanSpecific
+	query := uc.db.WithContext(ctx).Model(&product.ArtisanSpecific{})
 
 	query = uc.buildFindQueryNoPage(query, opt)
 	if err := query.First(&mpCustomer).Error; err != nil {
@@ -58,15 +64,15 @@ func (uc *ArtisanSpecificUseCase) FindOneArtisanSpecific(ctx context.Context, op
 	return mpCustomer, nil
 }
 
-func (uc *ArtisanSpecificUseCase) CreateArtisanSpecific(ctx context.Context, artisan *custom.ArtisanSpecific) {
+func (uc *ArtisanSpecificUseCase) CreateArtisanSpecific(ctx context.Context, artisan *product.ArtisanSpecific) {
 	if err := uc.db.WithContext(ctx).Create(&artisan).Error; err != nil {
 		panic(err)
 	}
 }
 
-func (uc *ArtisanSpecificUseCase) UpsertArtisanSpecific(ctx context.Context, artisan *custom.ArtisanSpecific) (*custom.ArtisanSpecific, error) {
+func (uc *ArtisanSpecificUseCase) UpsertArtisanSpecific(ctx context.Context, artisan *product.ArtisanSpecific) (*product.ArtisanSpecific, error) {
 
-	productCategories := []*custom.ArtisanSpecific{artisan}
+	productCategories := []*product.ArtisanSpecific{artisan}
 
 	_, err := uc.UpsertArtisanSpecifics(ctx, productCategories)
 	if err != nil {
@@ -76,9 +82,9 @@ func (uc *ArtisanSpecificUseCase) UpsertArtisanSpecific(ctx context.Context, art
 	return artisan, err
 }
 
-func (uc *ArtisanSpecificUseCase) UpsertArtisanSpecifics(ctx context.Context, productCategories []*custom.ArtisanSpecific) ([]*custom.ArtisanSpecific, error) {
+func (uc *ArtisanSpecificUseCase) UpsertArtisanSpecifics(ctx context.Context, productCategories []*product.ArtisanSpecific) ([]*product.ArtisanSpecific, error) {
 
-	err := powermodel.UpsertModelsOnUniqueID(uc.db.WithContext(ctx), &custom.ArtisanSpecific{}, custom.ArtisanSpecificUniqueId, productCategories, nil, false)
+	err := powermodel.UpsertModelsOnUniqueID(uc.db.WithContext(ctx), &product.ArtisanSpecific{}, product.ArtisanSpecificUniqueId, productCategories, nil, false)
 
 	if err != nil {
 		panic(errors.Wrap(err, "batch upsert product categories failed"))
@@ -87,14 +93,14 @@ func (uc *ArtisanSpecificUseCase) UpsertArtisanSpecifics(ctx context.Context, pr
 	return productCategories, err
 }
 
-func (uc *ArtisanSpecificUseCase) PatchArtisanSpecific(ctx context.Context, id int64, artisan *custom.ArtisanSpecific) {
-	if err := uc.db.WithContext(ctx).Model(&custom.ArtisanSpecific{}).Where(id).Updates(artisan).Error; err != nil {
+func (uc *ArtisanSpecificUseCase) PatchArtisanSpecific(ctx context.Context, id int64, artisan *product.ArtisanSpecific) {
+	if err := uc.db.WithContext(ctx).Model(&product.ArtisanSpecific{}).Where(id).Updates(artisan).Error; err != nil {
 		panic(err)
 	}
 }
 
-func (uc *ArtisanSpecificUseCase) GetArtisanSpecific(ctx context.Context, id int64) (*custom.ArtisanSpecific, error) {
-	var artisan custom.ArtisanSpecific
+func (uc *ArtisanSpecificUseCase) GetArtisanSpecific(ctx context.Context, id int64) (*product.ArtisanSpecific, error) {
+	var artisan product.ArtisanSpecific
 	if err := uc.db.WithContext(ctx).First(&artisan, id).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errorx.WithCause(errorx.ErrBadRequest, "未找到元匠")
@@ -105,7 +111,7 @@ func (uc *ArtisanSpecificUseCase) GetArtisanSpecific(ctx context.Context, id int
 }
 
 func (uc *ArtisanSpecificUseCase) DeleteArtisanSpecific(ctx context.Context, id int64) error {
-	result := uc.db.WithContext(ctx).Delete(&custom.ArtisanSpecific{}, id)
+	result := uc.db.WithContext(ctx).Delete(&product.ArtisanSpecific{}, id)
 	if err := result.Error; err != nil {
 		panic(err)
 	}

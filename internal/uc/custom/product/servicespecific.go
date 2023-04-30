@@ -3,6 +3,7 @@ package product
 import (
 	"PowerX/internal/model/custom/product"
 	"PowerX/internal/model/powermodel"
+	"PowerX/internal/types"
 	"PowerX/internal/types/errorx"
 	"context"
 	"github.com/pkg/errors"
@@ -17,6 +18,83 @@ func NewServiceSpecificUseCase(db *gorm.DB) *ServiceSpecificUseCase {
 	return &ServiceSpecificUseCase{
 		db: db,
 	}
+}
+
+type FindServiceSpecificOption struct {
+	OrderBy string
+	Ids     []int64
+	Names   []string
+	types.PageEmbedOption
+}
+
+func (uc *ServiceSpecificUseCase) buildFindQueryNoPage(query *gorm.DB, opt *FindServiceSpecificOption) *gorm.DB {
+	if len(opt.Ids) > 0 {
+		query.Where("id in ?", opt.Ids)
+	}
+	if len(opt.Names) > 0 {
+		query.Where("name in ?", opt.Names)
+	}
+
+	orderBy := "id, sort asc"
+	if opt.OrderBy != "" {
+		orderBy = opt.OrderBy + "," + orderBy
+	}
+	query.Order(orderBy)
+
+	return query
+}
+
+func (uc *ServiceSpecificUseCase) FindAllServiceSpecifics(ctx context.Context, opt *FindServiceSpecificOption) []*product.ServiceSpecific {
+	var productCategories []*product.ServiceSpecific
+	query := uc.db.WithContext(ctx).Model(&product.ServiceSpecific{})
+
+	query = uc.buildFindQueryNoPage(query, opt)
+	if err := query.Find(&productCategories).Error; err != nil {
+		panic(errors.Wrap(err, "find all productCategories failed"))
+	}
+	return productCategories
+}
+
+func (uc *ServiceSpecificUseCase) FindManyServiceSpecifics(ctx context.Context, opt *FindServiceSpecificOption) (pageList types.Page[*product.ServiceSpecific], err error) {
+	var artisans []*product.ServiceSpecific
+	db := uc.db.WithContext(ctx).Model(&product.ServiceSpecific{})
+
+	db = uc.buildFindQueryNoPage(db, opt)
+
+	var count int64
+	if err := db.Count(&count).Error; err != nil {
+		panic(err)
+	}
+
+	opt.DefaultPageIfNotSet()
+	if opt.PageIndex != 0 && opt.PageSize != 0 {
+		db.Offset((opt.PageIndex - 1) * opt.PageSize).Limit(opt.PageSize)
+	}
+
+	if err := db.
+		Debug().
+		//Preload("ServiceSpecificSpecific").
+		Find(&artisans).Error; err != nil {
+		panic(err)
+	}
+
+	return types.Page[*product.ServiceSpecific]{
+		List:      artisans,
+		PageIndex: opt.PageIndex,
+		PageSize:  opt.PageSize,
+		Total:     count,
+	}, nil
+}
+
+func (uc *ServiceSpecificUseCase) FindOneServiceSpecific(ctx context.Context, opt *FindServiceSpecificOption) (*product.ServiceSpecific, error) {
+	var mpCustomer *product.ServiceSpecific
+	query := uc.db.WithContext(ctx).Model(&product.ServiceSpecific{})
+
+	query = uc.buildFindQueryNoPage(query, opt)
+	if err := query.First(&mpCustomer).Error; err != nil {
+		return nil, errorx.ErrRecordNotFound
+	}
+	return mpCustomer, nil
 }
 
 func (uc *ServiceSpecificUseCase) CreateServiceSpecific(ctx context.Context, lead *product.ServiceSpecific) {

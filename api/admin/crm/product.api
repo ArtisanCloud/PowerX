@@ -65,7 +65,6 @@ type (
 
     Product {
         Id int64 `json:"id,optional"`
-
         Name string `json:"name"`
         Type int `json:"type"`
         Plan int `json:"plan"`

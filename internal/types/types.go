@@ -1236,26 +1236,26 @@ type AssignStoreManagerReply struct {
 	Store
 }
 
-type ArtisanSpecific struct {
+type ARefSpecific struct {
 	ArtisanId int64 `json:"artisanId,optional"`
 }
 
 type Artisan struct {
-	Id              int64           `json:"id,optional"`
-	EmployeeId      int64           `json:"employeeId,optional"`
-	Name            string          `json:"name,optional"`
-	Level           int8            `json:"level,optional"`
-	Gender          string          `json:"gender,optional"`
-	Birthday        string          `json:"birthday,optional"`
-	PhoneNumber     string          `json:"phoneNumber,optional"`
-	CoverURL        string          `json:"coverURL,optional"`
-	WorkNo          string          `json:"workNo,optional"`
-	Email           string          `json:"email,optional"`
-	Experience      uint            `json:"experience,optional"`
-	Specialty       string          `json:"specialty,optional"`
-	Certificate     string          `json:"certificate,optional"`
-	Address         string          `json:"address,optional"`
-	ArtisanSpecific ArtisanSpecific `json:"artisanSpecific,optional"`
+	Id              int64        `json:"id,optional"`
+	EmployeeId      int64        `json:"employeeId,optional"`
+	Name            string       `json:"name,optional"`
+	Level           int8         `json:"level,optional"`
+	Gender          string       `json:"gender,optional"`
+	Birthday        string       `json:"birthday,optional"`
+	PhoneNumber     string       `json:"phoneNumber,optional"`
+	CoverURL        string       `json:"coverURL,optional"`
+	WorkNo          string       `json:"workNo,optional"`
+	Email           string       `json:"email,optional"`
+	Experience      uint         `json:"experience,optional"`
+	Specialty       string       `json:"specialty,optional"`
+	Certificate     string       `json:"certificate,optional"`
+	Address         string       `json:"address,optional"`
+	ArtisanSpecific ARefSpecific `json:"artisanSpecific,optional"`
 }
 
 type GetArtisanListRequest struct {
@@ -1773,4 +1773,177 @@ type AssignReservationToReservationCategoryRequest struct {
 
 type AssignReservationToReservationCategoryReply struct {
 	Reservation
+}
+
+type ACRefArtisan struct {
+	Id          int64  `json:"id,optional"`
+	EmployeeId  int64  `json:"employeeId,optional"`
+	Name        string `json:"name,optional"`
+	Level       int8   `json:"level,optional"`
+	Gender      string `json:"gender,optional"`
+	Birthday    string `json:"birthday,optional"`
+	PhoneNumber string `json:"phoneNumber,optional"`
+	CoverURL    string `json:"coverURL,optional"`
+	WorkNo      string `json:"workNo,optional"`
+	Email       string `json:"email,optional"`
+	Experience  uint   `json:"experience,optional"`
+	Specialty   string `json:"specialty,optional"`
+	Certificate string `json:"certificate,optional"`
+	Address     string `json:"address,optional"`
+}
+
+type ArtisanSpecific struct {
+	ArtisanId          int64        `json:"artisanId,optional"`
+	MaxServiceDuration int32        `json:"maxServiceDuration,optional"`
+	MandatoryDuration  int32        `json:"mandatoryDuration,optional"`
+	Artisan            ACRefArtisan `json:"artisan,optional"`
+}
+
+type GetArtisanSpecificListRequest struct {
+	ArtisanSpecificType string   `form:"storeType,optional"`
+	Keys                []string `form:"keys,optional"`
+	OrderBy             string   `form:"orderBy,optional"`
+}
+
+type GetArtisanSpecificListReply struct {
+	List []*ArtisanSpecific `json:"list"`
+}
+
+type CreateArtisanSpecificRequest struct {
+	ArtisanSpecific
+}
+
+type CreateArtisanSpecificReply struct {
+	ArtisanSpecificId string `json:"id"`
+}
+
+type GetArtisanSpecificRequest struct {
+	ArtisanSpecificId int64 `path:"id"`
+}
+
+type GetArtisanSpecificReply struct {
+	*ArtisanSpecific
+}
+
+type PutArtisanSpecificRequest struct {
+	ArtisanSpecificId int64 `path:"storeId"`
+	ArtisanSpecific
+}
+
+type PutArtisanSpecificReply struct {
+	*ArtisanSpecific
+}
+
+type PatchArtisanSpecificRequest struct {
+	ArtisanSpecificId int64 `path:"storeId"`
+	ArtisanSpecific
+}
+
+type PatchArtisanSpecificReply struct {
+	*ArtisanSpecific
+}
+
+type DeleteArtisanSpecificRequest struct {
+	ArtisanSpecificId int64 `path:"storeId"`
+}
+
+type DeleteArtisanSpecificReply struct {
+	ArtisanSpecificId int64 `json:"storeId"`
+}
+
+type AssignArtisanSpecificManagerRequest struct {
+	Id         int64 `path:"id"`
+	EmployeeId int64 `json:"employeeId"`
+}
+
+type AssignArtisanSpecificManagerReply struct {
+	ArtisanSpecific
+}
+
+type SSRefProduct struct {
+	Id            int64  `json:"id,optional"`
+	Name          string `json:"name"`
+	Type          int    `json:"type"`
+	Plan          int    `json:"plan"`
+	CanSellOnline bool   `json:"canSellOnline,optional"`
+	Description   string `json:"description,optional"`
+	CoverURL      string `json:"coverURL,optional"`
+}
+
+type ServiceSpecific struct {
+	Id                int64         `json:"id,optional"`
+	ParentId          int64         `json:"parentId,optional"`
+	ProductId         int64         `json:"productId,optional"`
+	IsFree            bool          `json:"isFree,optional"`
+	Name              string        `json:"name,optional"`
+	Duration          int           `json:"duration,optional"`
+	MandatoryDuration int           `json:"mandatoryDuration,optional"`
+	CreatedAt         string        `json:"createdAt,optional"`
+	Product           *SSRefProduct `json:"serviceSpecific,optional"`
+}
+
+type ListServiceSpecificPageRequest struct {
+	ServiceSpecificType string   `form:"storeType,optional"`
+	Keys                []string `form:"keys,optional"`
+	OrderBy             string   `form:"orderBy,optional"`
+	PageIndex           int      `form:"pageIndex,optional"`
+	PageSize            int      `form:"pageSize,optional"`
+}
+
+type ListServiceSpecificPageReply struct {
+	List      []*ServiceSpecific `json:"list"`
+	PageIndex int                `json:"pageIndex"`
+	PageSize  int                `json:"pageSize"`
+	Total     int64              `json:"total"`
+}
+
+type CreateServiceSpecificRequest struct {
+	ServiceSpecific
+}
+
+type CreateServiceSpecificReply struct {
+	ServiceSpecificId string `json:"id"`
+}
+
+type GetServiceSpecificRequest struct {
+	ServiceSpecificId int64 `path:"id"`
+}
+
+type GetServiceSpecificReply struct {
+	*ServiceSpecific
+}
+
+type PutServiceSpecificRequest struct {
+	ServiceSpecificId int64 `path:"storeId"`
+	ServiceSpecific
+}
+
+type PutServiceSpecificReply struct {
+	*ServiceSpecific
+}
+
+type PatchServiceSpecificRequest struct {
+	ServiceSpecificId int64 `path:"storeId"`
+	ServiceSpecific
+}
+
+type PatchServiceSpecificReply struct {
+	*ServiceSpecific
+}
+
+type DeleteServiceSpecificRequest struct {
+	ServiceSpecificId int64 `path:"storeId"`
+}
+
+type DeleteServiceSpecificReply struct {
+	ServiceSpecificId int64 `json:"storeId"`
+}
+
+type AssignServiceSpecificManagerRequest struct {
+	Id         int64 `path:"id"`
+	EmployeeId int64 `json:"employeeId"`
+}
+
+type AssignServiceSpecificManagerReply struct {
+	ServiceSpecific
 }

@@ -1,7 +1,6 @@
 package migrate
 
 import (
-	"PowerX/internal/model/custom"
 	product2 "PowerX/internal/model/custom/product"
 	"PowerX/internal/model/custom/reservationcenter"
 	"PowerX/internal/model/product"
@@ -18,7 +17,7 @@ func AutoMigrateCustom(db *gorm.DB) {
 	)
 	// reservation center
 	_ = db.AutoMigrate(
-		&custom.ArtisanSpecific{},
+		&product2.ArtisanSpecific{},
 		&reservationcenter.Schedule{},
 		&reservationcenter.PivotScheduleToArtisan{},
 		&reservationcenter.Reservation{},

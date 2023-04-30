@@ -49,7 +49,7 @@ service PowerX {
 }
 
 type (
-    ArtisanSpecific {
+    ARefSpecific {
         ArtisanId int64 `json:"artisanId,optional"`
     }
 
@@ -68,7 +68,7 @@ type (
         Specialty string `json:"specialty,optional"`
         Certificate string `json:"certificate,optional"`
         Address string `json:"address,optional"`
-        ArtisanSpecific ArtisanSpecific `json:"artisanSpecific,optional"`
+        ArtisanSpecific ARefSpecific `json:"artisanSpecific,optional"`
     }
 )
 type (

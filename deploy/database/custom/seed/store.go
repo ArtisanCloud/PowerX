@@ -1,7 +1,6 @@
 package seed
 
 import (
-	"PowerX/internal/model/custom"
 	"PowerX/internal/model/product"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
@@ -27,28 +26,16 @@ func DefaultStore() []*product.Store {
 		&product.Store{
 			Artisans: []*product.Artisan{
 				&product.Artisan{
-					ArtisanSpecific: &custom.ArtisanSpecific{
-						MaxServiceDuration: 60,
-						MandatoryDuration:  10,
-					},
 					Name:        "发型师A",
 					PhoneNumber: "13564674240",
 				},
 				&product.Artisan{
 					Name:        "发型师B",
 					PhoneNumber: "13564674241",
-					ArtisanSpecific: &custom.ArtisanSpecific{
-						MaxServiceDuration: 40,
-						MandatoryDuration:  10,
-					},
 				},
 				&product.Artisan{
 					Name:        "发型师C",
 					PhoneNumber: "13564674242",
-					ArtisanSpecific: &custom.ArtisanSpecific{
-						MaxServiceDuration: 30,
-						MandatoryDuration:  10,
-					},
 				},
 			},
 			Name:          "816 * Salon (大华店)",
@@ -58,26 +45,17 @@ func DefaultStore() []*product.Store {
 		&product.Store{
 			Artisans: []*product.Artisan{
 				&product.Artisan{
-					ArtisanSpecific: &custom.ArtisanSpecific{
-						MaxServiceDuration: 60,
-						MandatoryDuration:  10,
-					},
+
 					Name:        "发型师D",
 					PhoneNumber: "13564674243",
 				},
 				&product.Artisan{
-					ArtisanSpecific: &custom.ArtisanSpecific{
-						MaxServiceDuration: 40,
-						MandatoryDuration:  10,
-					},
+
 					Name:        "发型师E",
 					PhoneNumber: "13564674244",
 				},
 				&product.Artisan{
-					ArtisanSpecific: &custom.ArtisanSpecific{
-						MaxServiceDuration: 30,
-						MandatoryDuration:  10,
-					},
+
 					Name:        "发型师F",
 					PhoneNumber: "13564674245",
 				},
@@ -89,26 +67,17 @@ func DefaultStore() []*product.Store {
 		&product.Store{
 			Artisans: []*product.Artisan{
 				&product.Artisan{
-					ArtisanSpecific: &custom.ArtisanSpecific{
-						MaxServiceDuration: 60,
-						MandatoryDuration:  10,
-					},
+
 					Name:        "发型师G",
 					PhoneNumber: "13564674246",
 				},
 				&product.Artisan{
-					ArtisanSpecific: &custom.ArtisanSpecific{
-						MaxServiceDuration: 40,
-						MandatoryDuration:  10,
-					},
+
 					Name:        "发型师H",
 					PhoneNumber: "13564674247",
 				},
 				&product.Artisan{
-					ArtisanSpecific: &custom.ArtisanSpecific{
-						MaxServiceDuration: 30,
-						MandatoryDuration:  10,
-					},
+
 					Name:        "发型师I",
 					PhoneNumber: "13564674248",
 				},
