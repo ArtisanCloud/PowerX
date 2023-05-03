@@ -72,7 +72,7 @@ func (l *AuthByPhoneLogic) AuthByPhone(req *types.MPCustomerAuthRequest) (resp *
 		return
 	}
 
-	source := l.svcCtx.PowerX.DataDictionary.GetCachedDD(l.ctx, model.TypeSourceChannel, model.ChannelWechat)
+	source := l.svcCtx.PowerX.DataDictionary.GetCachedDDId(l.ctx, model.TypeSourceChannel, model.ChannelWechat)
 
 	// upsert 线索
 	lead := &customerdomain.Lead{
