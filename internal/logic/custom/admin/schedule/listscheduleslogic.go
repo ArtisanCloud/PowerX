@@ -36,6 +36,7 @@ func (l *ListSchedulesLogic) ListSchedules(req *types.ListSchedulesRequest) (res
 	} else {
 		cDate = now
 	}
+	//fmt.Dump(cDate)
 
 	schedules, err := l.svcCtx.Custom.Schedule.FindAllSchedules(l.ctx, &reservationcenter.FindManySchedulesOption{
 		CurrentDate: cDate.ToStdTime(),

@@ -3,8 +3,8 @@ module PowerX
 go 1.19
 
 require (
-	github.com/ArtisanCloud/PowerLibs/v3 v3.0.6
-	github.com/ArtisanCloud/PowerWeChat/v3 v3.0.26
+	github.com/ArtisanCloud/PowerLibs/v3 v3.0.7
+	github.com/ArtisanCloud/PowerWeChat/v3 v3.0.27
 	github.com/Blank-Xu/sql-adapter v0.0.0-20210714092925-0bdd0d548758
 	github.com/casbin/casbin/v2 v2.60.0
 	github.com/golang-jwt/jwt/v4 v4.4.3
@@ -13,13 +13,14 @@ require (
 	github.com/gorilla/mux v1.8.0
 	github.com/lib/pq v1.10.7
 	github.com/pkg/errors v0.9.1
+	github.com/robfig/cron/v3 v3.0.1
 	github.com/urfave/cli/v2 v2.3.0
 	github.com/zeromicro/go-zero v1.4.3
 	golang.org/x/crypto v0.4.0
 	golang.org/x/oauth2 v0.6.0
-	gorm.io/datatypes v1.1.1
+	gorm.io/datatypes v1.0.5
 	gorm.io/driver/postgres v1.4.6
-	gorm.io/gorm v1.24.6
+	gorm.io/gorm v1.24.7-0.20230306060331-85eaf9eeda11
 )
 
 require (
@@ -34,7 +35,6 @@ require (
 	github.com/felixge/fgprof v0.9.3 // indirect
 	github.com/go-logr/logr v1.2.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
-	github.com/go-redis/redis/v8 v8.11.5 // indirect
 	github.com/go-sql-driver/mysql v1.7.0 // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/google/pprof v0.0.0-20211214055906-6f57359322fd // indirect
@@ -54,6 +54,7 @@ require (
 	github.com/prometheus/client_model v0.2.0 // indirect
 	github.com/prometheus/common v0.37.0 // indirect
 	github.com/prometheus/procfs v0.8.0 // indirect
+	github.com/redis/go-redis/v9 v9.0.3 // indirect
 	github.com/russross/blackfriday/v2 v2.0.1 // indirect
 	github.com/shurcooL/sanitized_anchor_name v1.0.0 // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
@@ -80,4 +81,6 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	gorm.io/driver/mysql v1.4.7 // indirect
+	gorm.io/driver/sqlite v1.5.0 // indirect
+	gorm.io/driver/sqlserver v1.4.3 // indirect
 )

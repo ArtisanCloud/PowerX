@@ -314,7 +314,7 @@ func (uc *ScheduleUseCase) InitSchedules() ([]*reservationcenter.Schedule, error
 	now := carbon.Now()
 	firstDayOfWeek, _ := carbonx.GetWeekDaysFromDay(&now, uc.FormatScheduleDateTime)
 	for i := 0; i < 3; i++ {
-		newFirstDayOfWeek := firstDayOfWeek.AddDays(7)
+		newFirstDayOfWeek := firstDayOfWeek.AddDays(i * 7)
 		for _, store := range stores {
 
 			reservedRecord, _ := uc.FindAllSchedules(context.Background(), &FindManySchedulesOption{

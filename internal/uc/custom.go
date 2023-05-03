@@ -4,13 +4,16 @@ import (
 	"PowerX/internal/config"
 	productCustomUC "PowerX/internal/uc/custom/product"
 	reservationCenterCustomUC "PowerX/internal/uc/custom/reservationcenter"
+	fmt "PowerX/pkg/printx"
 	"github.com/pkg/errors"
+	"github.com/robfig/cron/v3"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
 type CustomUseCase struct {
 	db              *gorm.DB
+	Cron            *cron.Cron
 	Schedule        *reservationCenterCustomUC.ScheduleUseCase
 	Reservation     *reservationCenterCustomUC.ReservationUseCase
 	CheckinLog      *reservationCenterCustomUC.CheckinLogUseCase
@@ -36,12 +39,25 @@ func NewCustomUseCase(conf *config.Config) (uc *CustomUseCase, clean func()) {
 		panic(errors.Wrap(err, "ping database failed"))
 	}
 
+	c := cron.New()
 	uc = &CustomUseCase{
-		db: db,
+		db:   db,
+		Cron: c,
 	}
+	uc.Cron.Start()
 
 	// 加载预约中心UseCase
 	uc.Schedule = reservationCenterCustomUC.NewScheduleUseCase(db)
+	eventTriggerPeriod := "@hourly"
+	//eventTriggerPeriod := "@every 1m"
+	uc.Cron.AddFunc(eventTriggerPeriod, func() {
+		_, err := uc.Schedule.InitSchedules()
+		if err != nil {
+			fmt.Dump(errors.Wrap(err, "crontab error occurs on init schedules").Error())
+		}
+	})
+
+	// 加载预约服务
 	uc.Reservation = reservationCenterCustomUC.NewReservationUseCase(db)
 	uc.CheckinLog = reservationCenterCustomUC.NewCheckinLogUseCase(db)
 	uc.ArtisanSpecific = productCustomUC.NewArtisanSpecificUseCase(db)
@@ -51,5 +67,6 @@ func NewCustomUseCase(conf *config.Config) (uc *CustomUseCase, clean func()) {
 
 	return uc, func() {
 		_ = sqlDB.Close()
+		_ = uc.Cron.Stop()
 	}
 }
