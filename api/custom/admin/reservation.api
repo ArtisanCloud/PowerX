@@ -43,8 +43,12 @@ service PowerX {
     @handler PatchReservation
     patch /reservations/:id (PatchReservationRequest) returns (PatchReservationReply)
 
+    @doc "取消预约"
+    @handler CancelReservation
+    post /reservations/:id (CancelReservationRequest) returns (CancelReservationReply)
 
-    @doc "删除预约"
+
+@doc "删除预约"
     @handler DeleteReservation
     delete /reservations/:id (DeleteReservationRequest) returns (DeleteReservationReply)
 
@@ -164,6 +168,16 @@ type (
     }
 
     PatchReservationReply struct {
+        *Reservation
+    }
+)
+
+type (
+    CancelReservationRequest struct {
+        ReservationId int64 `path:"id"`
+    }
+
+    CancelReservationReply struct {
         *Reservation
     }
 )

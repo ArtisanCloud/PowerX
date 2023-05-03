@@ -835,6 +835,11 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 					Handler: customadminreservation.PatchReservationHandler(serverCtx),
 				},
 				{
+					Method:  http.MethodPost,
+					Path:    "/reservations/:id",
+					Handler: customadminreservation.CancelReservationHandler(serverCtx),
+				},
+				{
 					Method:  http.MethodDelete,
 					Path:    "/reservations/:id",
 					Handler: customadminreservation.DeleteReservationHandler(serverCtx),

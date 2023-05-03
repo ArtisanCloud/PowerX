@@ -1758,6 +1758,14 @@ type PatchReservationReply struct {
 	*Reservation
 }
 
+type CancelReservationRequest struct {
+	ReservationId int64 `path:"id"`
+}
+
+type CancelReservationReply struct {
+	*Reservation
+}
+
 type DeleteReservationRequest struct {
 	ReservationId int64 `path:"id"`
 }
