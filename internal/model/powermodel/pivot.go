@@ -93,7 +93,7 @@ func (mdl *PowerPivot) GetPivotComposedUniqueID() string {
 func AssociationRelationship(db *gorm.DB, conditions *map[string]interface{}, mdl interface{}, relationship string, withClauseAssociations bool) *gorm.Association {
 
 	tx := db.
-		Debug().
+		//Debug().
 		Model(mdl)
 
 	if withClauseAssociations {
@@ -197,7 +197,7 @@ func SelectMorphPivots(db *gorm.DB, pivot PivotInterface, byForeignKey bool, byJ
 	//db.Table(pivot.GetTableName(false))
 
 	db = db.
-		Debug().
+		//Debug().
 		Model(pivot)
 
 	//  有外键需要关联
@@ -296,7 +296,7 @@ func ClearMorphPivots(db *gorm.DB, pivot PivotInterface, byForeignKey bool, byJo
 	}
 
 	result := db.Model(pivot).
-		Debug().
+		//Debug().
 		Delete(pivot)
 
 	if result.Error != nil {

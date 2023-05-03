@@ -75,7 +75,7 @@ func (uc *ServiceSpecificUseCase) FindManyServiceSpecifics(ctx context.Context, 
 	}
 
 	if err := db.
-		Debug().
+		//Debug().
 		Preload("Product").
 		Preload("Children").
 		Find(&serviceSpecifics).Error; err != nil {

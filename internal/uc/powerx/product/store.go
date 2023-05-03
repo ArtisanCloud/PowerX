@@ -47,7 +47,7 @@ func (uc *StoreUseCase) FindAllShops(ctx context.Context, opt *FindManyStoresOpt
 
 	query = uc.buildFindQueryNoPage(query, opt)
 	if err := query.
-		Debug().
+		//Debug().
 		Preload("Artisans").
 		Find(&dictionaryItems).Error; err != nil {
 		panic(errors.Wrap(err, "find all dictionaryItems failed"))
@@ -91,7 +91,7 @@ func (uc *StoreUseCase) FindManyStores(ctx context.Context, opt *FindManyStoresO
 func (uc *StoreUseCase) CreateStore(ctx context.Context, product *model.Store) error {
 
 	if err := uc.db.WithContext(ctx).
-		Debug().
+		//Debug().
 		Create(&product).Error; err != nil {
 		if strings.Contains(err.Error(), "duplicate key value violates unique constraint") {
 			return errorx.WithCause(errorx.ErrDuplicatedInsert, "该对象不能重复创建")

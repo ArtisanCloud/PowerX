@@ -1,0 +1,192 @@
+syntax = "v1"
+
+info(
+    title: "预约服务"
+    desc: "预约服务"
+    author: "MichaelHu"
+    email: "matrix-x@artisan-cloud.com"
+    version: "v1"
+)
+
+
+@server(
+    group: custom/admin/reservation
+    prefix: /api/v1/admin/reservation-center
+    middleware: EmployeeJWTAuth
+)
+
+service PowerX {
+    @doc "查询预约列表"
+    @handler ListReservations
+    get /reservations (ListReservationsRequest) returns (ListReservationsReply)
+
+    @doc "查询预约分页列表"
+    @handler ListReservationsPage
+    get /reservations/page-list (ListReservationsPageRequest) returns (ListReservationsPageReply)
+
+
+    @doc "查询预约详情"
+    @handler GetReservation
+    get /reservations/:id (GetReservationRequest) returns (GetReservationReply)
+
+
+    @doc "创建预约"
+    @handler CreateReservation
+    post /reservations (CreateReservationRequest) returns (CreateReservationReply)
+
+
+    @doc "全量预约"
+    @handler PutReservation
+    put /reservations/:id (PutReservationRequest) returns (PutReservationReply)
+
+    @doc "增量预约"
+    @handler PatchReservation
+    patch /reservations/:id (PatchReservationRequest) returns (PatchReservationReply)
+
+
+    @doc "删除预约"
+    @handler DeleteReservation
+    delete /reservations/:id (DeleteReservationRequest) returns (DeleteReservationReply)
+
+    @doc "分配预约品类给预约品类分类"
+    @handler AssignReservationToReservationCategory
+    post /reservations/:id/actions/assign-to-reservation-categroy (AssignReservationToReservationCategoryRequest) returns (AssignReservationToReservationCategoryReply)
+}
+
+type (
+    ReservedArtisan {
+        Name string `json:"name"`
+        Gendar string `json:"gendar"`
+        PhoneNumber string `json:"phoneNumber"`
+        CoverURL string `json:"coverURL"`
+        WorkNo string `json:"workNo"`
+    }
+
+    ReservedService {
+        Name string `json:"name"`
+        Duration int `json:"duration"`
+        MandatoryDuration int `json:"mandatoryDuration"`
+    }
+    ReservedCustomer {
+        Name string `json:"name"`
+        Mobile string `json:"mobile"`
+        Avatar string `json:"avatar"`
+    }
+
+    Reservation {
+        Id int64 `json:"id,optional"`
+        ScheduleId int64 `json:"scheduleId"`
+        CustomerId int64 `json:"customerId"`
+        ReservedArtisanId int64 `json:"reservedArtisanId"`
+        ServiceId int64 `json:"serviceId"`
+        SourceChannelId int64 `json:"sourceChannelId"`
+        Type int `json:"type"`
+        ReservedTime string `json:"reservedTime,optional"`
+        CancelTime string `json:"cancelTime,optional"`
+        CheckinTime string `json:"checkinTime,optional"`
+        Description string `json:"description,optional"`
+        ConsumedPoints int `json:"consumedPoints,optional"`
+        ConsumeMembershipId int64 `json:"consumeMembershipId,optional"`
+        OperationStatus int `json:"operationStatus,optional"`
+        ReservationStatus int `json:"reservationStatus,optional"`
+        CreatedAt string `json:"createdAt,optional"`
+        ReservedCustomer *ReservedCustomer `json:"reservedCustomer,optional"`
+        ReservedArtisan *ReservedArtisan `json:"reservedArtisan,optional"`
+        ReservedService *ReservedService `json:"reservedService,optional"`
+    }
+)
+type (
+    ListReservationsRequest struct {
+        ScheduleId int64 `form:"scheduleId"`
+        OperationStatus []int `form:"operationStatus,optional"`
+        ReservationType []int `form:"reservationTypes,optional"`
+        ReservationStatus []int `form:"reservationStatus,optional"`
+        OrderBy string `form:"orderBy,optional"`
+    }
+    ListReservationsReply struct {
+        List []*Reservation `json:"list"`
+    }
+
+    ListReservationsPageRequest struct {
+        OperationStatus []int `form:"operationStatus,optional"`
+        ReservationType []int `form:"reservationTypes,optional"`
+        ReservationStatus []int `form:"reservationStatus,optional"`
+        OrderBy string `form:"orderBy,optional"`
+        PageIndex int `form:"pageIndex,optional"`
+        PageSize int `form:"pageSize,optional"`
+    }
+
+
+    ListReservationsPageReply struct {
+        List []*Reservation `json:"list"`
+        PageIndex int `json:"pageIndex"`
+        PageSize int `json:"pageSize"`
+        Total int64 `json:"total"`
+    }
+)
+
+type (
+    CreateReservationRequest struct {
+        Reservation
+    }
+
+    CreateReservationReply struct {
+        ReservationKey int64 `json:"id"`
+    }
+)
+
+type (
+    GetReservationRequest struct {
+        ReservationId int64 `path:"id"`
+    }
+
+    GetReservationReply struct {
+        *Reservation
+    }
+)
+
+
+type (
+    PutReservationRequest struct {
+        ReservationId int64 `path:"id"`
+        Reservation
+    }
+
+    PutReservationReply struct {
+        *Reservation
+    }
+)
+
+type (
+    PatchReservationRequest struct {
+        ReservationId int64 `path:"id"`
+        Reservation
+    }
+
+    PatchReservationReply struct {
+        *Reservation
+    }
+)
+
+
+type (
+    DeleteReservationRequest struct {
+        ReservationId int64 `path:"id"`
+    }
+
+    DeleteReservationReply struct {
+        ReservationId int64 `json:"id"`
+    }
+)
+
+
+type (
+    AssignReservationToReservationCategoryRequest {
+        Id int64 `json:"id"`
+        ReservationCategoryId int64 `json:"reservationCategoryId"`
+    }
+
+    AssignReservationToReservationCategoryReply {
+        Reservation
+    }
+)

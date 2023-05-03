@@ -1,0 +1,179 @@
+syntax = "v1"
+
+info(
+    title: "服务"
+    desc: "服务"
+    author: "MichaelHu"
+    email: "matrix-x@artisan-cloud.com"
+    version: "v1"
+)
+
+
+@server(
+    group: custom/admin/product
+    prefix: /api/v1/admin/product
+    middleware: EmployeeJWTAuth
+)
+
+service PowerX {
+    @doc "查询服务列表"
+    @handler ListServiceSpecificsPage
+    get /service-specifics/page-list (ListServiceSpecificPageRequest) returns (ListServiceSpecificPageReply)
+
+    @doc "查询服务详情"
+    @handler GetServiceSpecific
+    get /service-specifics/:id (GetServiceSpecificRequest) returns (GetServiceSpecificReply)
+
+
+    @doc "创建服务"
+    @handler CreateServiceSpecific
+    post /service-specifics (CreateServiceSpecificRequest) returns (CreateServiceSpecificReply)
+
+
+    @doc "全量服务"
+    @handler PutServiceSpecific
+    put /service-specifics/:id (PutServiceSpecificRequest) returns (PutServiceSpecificReply)
+
+    @doc "增量服务"
+    @handler PatchServiceSpecific
+    patch /service-specifics/:id (PatchServiceSpecificRequest) returns (PatchServiceSpecificReply)
+
+
+    @doc "删除服务"
+    @handler DeleteServiceSpecific
+    delete /service-specifics/:id (DeleteServiceSpecificRequest) returns (DeleteServiceSpecificReply)
+
+    @doc "分配服务品类给服务品类分类"
+    @handler AssignServiceSpecificToServiceSpecificCategory
+    post /service-specifics/:id/actions/assign-to-store-categroy (AssignServiceSpecificManagerRequest) returns (AssignServiceSpecificManagerReply)
+}
+
+type (
+    SSRefProduct {
+        Id int64 `json:"id,optional"`
+        Name string `json:"name"`
+        Type int `json:"type"`
+        Plan int `json:"plan"`
+        CanSellOnline bool `json:"canSellOnline,optional"`
+        Description string `json:"description,optional"`
+        CoverURL string `json:"coverURL,optional"`
+    }
+
+    SSRefStore{
+        Id int64 `json:"id,optional"`
+        Name string `json:"name"`
+        EmployeeId int64 `json:"employeeId"`
+        ContactNumber string `json:"contactNumber"`
+        CoverURL string `json:"coverURL"`
+        Address string `json:"address"`
+        Longitude float32 `json:"longitude"`
+        Latitude float32 `json:"latitude"`
+        StartWork float32 `json:"startWork"`
+        EndWork float32 `json:"sndWork"`
+    }
+
+    ChildSpecific {
+        Id int64 `json:"id,optional"`
+        IsFree bool `json:"isFree,optional"`
+        Name string `json:"name,optional"`
+        Duration int `json:"duration,optional"`
+        MandatoryDuration int `json:"mandatoryDuration,optional"`
+    }
+
+    ServiceSpecific {
+        Id int64 `json:"id,optional"`
+        ParentId int64 `json:"parentId,optional"`
+        ProductId int64 `json:"productId,optional"`
+        IsFree bool `json:"isFree,optional"`
+        Name string `json:"name,optional"`
+        Duration int `json:"duration,optional"`
+        MandatoryDuration int `json:"mandatoryDuration,optional"`
+        CreatedAt string `json:"createdAt,optional"`
+        Children []*ChildSpecific `json:"children,optional"`
+        Product *SSRefProduct `json:"product,optional"`
+        Stores []*SSRefStore `json:"stores,optional"`
+    }
+)
+type (
+    ListServiceSpecificPageRequest struct {
+        ServiceSpecificType string `form:"storeType,optional"`
+        Keys []string `form:"keys,optional"`
+        OrderBy string `form:"orderBy,optional"`
+        PageIndex int `form:"pageIndex,optional"`
+        PageSize int `form:"pageSize,optional"`
+    }
+
+
+    ListServiceSpecificPageReply struct {
+        List []*ServiceSpecific `json:"list"`
+        PageIndex int `json:"pageIndex"`
+        PageSize int `json:"pageSize"`
+        Total int64 `json:"total"`
+    }
+)
+
+type (
+    CreateServiceSpecificRequest struct {
+        ServiceSpecific
+    }
+
+    CreateServiceSpecificReply struct {
+        ServiceSpecificId string `json:"id"`
+    }
+)
+
+type (
+    GetServiceSpecificRequest struct {
+        ServiceSpecificId int64 `path:"id"`
+    }
+
+    GetServiceSpecificReply struct {
+        *ServiceSpecific
+    }
+)
+
+
+type (
+    PutServiceSpecificRequest struct {
+        ServiceSpecificId int64 `path:"storeId"`
+        ServiceSpecific
+    }
+
+    PutServiceSpecificReply struct {
+        *ServiceSpecific
+    }
+)
+
+type (
+    PatchServiceSpecificRequest struct {
+        ServiceSpecificId int64 `path:"storeId"`
+        ServiceSpecific
+    }
+
+    PatchServiceSpecificReply struct {
+        *ServiceSpecific
+    }
+)
+
+
+type (
+    DeleteServiceSpecificRequest struct {
+        ServiceSpecificId int64 `path:"storeId"`
+    }
+
+    DeleteServiceSpecificReply struct {
+        ServiceSpecificId int64 `json:"storeId"`
+    }
+)
+
+
+type (
+    AssignServiceSpecificManagerRequest {
+        Id int64 `path:"id"`
+        EmployeeId int64 `json:"employeeId"`
+    }
+
+    AssignServiceSpecificManagerReply {
+        ServiceSpecific
+    }
+)

@@ -63,7 +63,7 @@ func (uc *LeadUseCase) FindManyLeads(ctx context.Context, opt *FindManyLeadsOpti
 	}
 
 	if err := db.
-		Debug().
+		//Debug().
 		Find(&leads).Error; err != nil {
 		panic(err)
 	}

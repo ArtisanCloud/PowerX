@@ -82,7 +82,7 @@ func (uc *ProductUseCase) FindManyProducts(ctx context.Context, opt *FindManyPro
 func (uc *ProductUseCase) CreateProduct(ctx context.Context, product *model.Product) error {
 
 	if err := uc.db.WithContext(ctx).
-		Debug().
+		//Debug().
 		Create(&product).Error; err != nil {
 		if strings.Contains(err.Error(), "duplicate key value violates unique constraint") {
 			return errorx.WithCause(errorx.ErrDuplicatedInsert, "该对象不能重复创建")

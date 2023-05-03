@@ -19,9 +19,9 @@ import (
 	adminscrmcontact "PowerX/internal/handler/admin/scrm/contact"
 	adminscrmcustomer "PowerX/internal/handler/admin/scrm/customer"
 	adminuserinfo "PowerX/internal/handler/admin/userinfo"
-	customproduct "PowerX/internal/handler/custom/product"
-	customreservation "PowerX/internal/handler/custom/reservation"
-	customschedule "PowerX/internal/handler/custom/schedule"
+	customadminproduct "PowerX/internal/handler/custom/admin/product"
+	customadminreservation "PowerX/internal/handler/custom/admin/reservation"
+	customadminschedule "PowerX/internal/handler/custom/admin/schedule"
 	mpcustomer "PowerX/internal/handler/mp/customer"
 	"PowerX/internal/svc"
 
@@ -758,42 +758,42 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				{
 					Method:  http.MethodGet,
 					Path:    "/schedules/page-list",
-					Handler: customschedule.ListSchedulesPageHandler(serverCtx),
+					Handler: customadminschedule.ListSchedulesPageHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodGet,
 					Path:    "/schedules",
-					Handler: customschedule.ListSchedulesHandler(serverCtx),
+					Handler: customadminschedule.ListSchedulesHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodGet,
 					Path:    "/schedules/:id",
-					Handler: customschedule.GetScheduleHandler(serverCtx),
+					Handler: customadminschedule.GetScheduleHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPost,
 					Path:    "/schedules",
-					Handler: customschedule.CreateScheduleHandler(serverCtx),
+					Handler: customadminschedule.CreateScheduleHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPut,
 					Path:    "/schedules/:id",
-					Handler: customschedule.PutScheduleHandler(serverCtx),
+					Handler: customadminschedule.PutScheduleHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPatch,
 					Path:    "/schedules/:id",
-					Handler: customschedule.PatchScheduleHandler(serverCtx),
+					Handler: customadminschedule.PatchScheduleHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodDelete,
 					Path:    "/schedules/:id",
-					Handler: customschedule.DeleteScheduleHandler(serverCtx),
+					Handler: customadminschedule.DeleteScheduleHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPost,
 					Path:    "/schedules/:id/actions/assign-to-schedule-categroy",
-					Handler: customschedule.AssignScheduleToScheduleCategoryHandler(serverCtx),
+					Handler: customadminschedule.AssignScheduleToScheduleCategoryHandler(serverCtx),
 				},
 			}...,
 		),
@@ -807,42 +807,42 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				{
 					Method:  http.MethodGet,
 					Path:    "/reservations",
-					Handler: customreservation.ListReservationsHandler(serverCtx),
+					Handler: customadminreservation.ListReservationsHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodGet,
 					Path:    "/reservations/page-list",
-					Handler: customreservation.ListReservationsPageHandler(serverCtx),
+					Handler: customadminreservation.ListReservationsPageHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodGet,
 					Path:    "/reservations/:id",
-					Handler: customreservation.GetReservationHandler(serverCtx),
+					Handler: customadminreservation.GetReservationHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPost,
 					Path:    "/reservations",
-					Handler: customreservation.CreateReservationHandler(serverCtx),
+					Handler: customadminreservation.CreateReservationHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPut,
 					Path:    "/reservations/:id",
-					Handler: customreservation.PutReservationHandler(serverCtx),
+					Handler: customadminreservation.PutReservationHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPatch,
 					Path:    "/reservations/:id",
-					Handler: customreservation.PatchReservationHandler(serverCtx),
+					Handler: customadminreservation.PatchReservationHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodDelete,
 					Path:    "/reservations/:id",
-					Handler: customreservation.DeleteReservationHandler(serverCtx),
+					Handler: customadminreservation.DeleteReservationHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPost,
 					Path:    "/reservations/:id/actions/assign-to-reservation-categroy",
-					Handler: customreservation.AssignReservationToReservationCategoryHandler(serverCtx),
+					Handler: customadminreservation.AssignReservationToReservationCategoryHandler(serverCtx),
 				},
 			}...,
 		),
@@ -856,37 +856,37 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				{
 					Method:  http.MethodGet,
 					Path:    "/artisan-specifics",
-					Handler: customproduct.ListArtisanSpecificsHandler(serverCtx),
+					Handler: customadminproduct.ListArtisanSpecificsHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodGet,
 					Path:    "/artisan-specifics/:id",
-					Handler: customproduct.GetArtisanSpecificHandler(serverCtx),
+					Handler: customadminproduct.GetArtisanSpecificHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPost,
 					Path:    "/artisan-specifics",
-					Handler: customproduct.CreateArtisanSpecificHandler(serverCtx),
+					Handler: customadminproduct.CreateArtisanSpecificHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPut,
 					Path:    "/artisan-specifics/:id",
-					Handler: customproduct.PutArtisanSpecificHandler(serverCtx),
+					Handler: customadminproduct.PutArtisanSpecificHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPatch,
 					Path:    "/artisan-specifics/:id",
-					Handler: customproduct.PatchArtisanSpecificHandler(serverCtx),
+					Handler: customadminproduct.PatchArtisanSpecificHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodDelete,
 					Path:    "/artisan-specifics/:id",
-					Handler: customproduct.DeleteArtisanSpecificHandler(serverCtx),
+					Handler: customadminproduct.DeleteArtisanSpecificHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPost,
 					Path:    "/artisan-specifics/:id/actions/assign-to-store-categroy",
-					Handler: customproduct.AssignArtisanSpecificToArtisanSpecificCategoryHandler(serverCtx),
+					Handler: customadminproduct.AssignArtisanSpecificToArtisanSpecificCategoryHandler(serverCtx),
 				},
 			}...,
 		),
@@ -900,37 +900,37 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				{
 					Method:  http.MethodGet,
 					Path:    "/service-specifics/page-list",
-					Handler: customproduct.ListServiceSpecificsPageHandler(serverCtx),
+					Handler: customadminproduct.ListServiceSpecificsPageHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodGet,
 					Path:    "/service-specifics/:id",
-					Handler: customproduct.GetServiceSpecificHandler(serverCtx),
+					Handler: customadminproduct.GetServiceSpecificHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPost,
 					Path:    "/service-specifics",
-					Handler: customproduct.CreateServiceSpecificHandler(serverCtx),
+					Handler: customadminproduct.CreateServiceSpecificHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPut,
 					Path:    "/service-specifics/:id",
-					Handler: customproduct.PutServiceSpecificHandler(serverCtx),
+					Handler: customadminproduct.PutServiceSpecificHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPatch,
 					Path:    "/service-specifics/:id",
-					Handler: customproduct.PatchServiceSpecificHandler(serverCtx),
+					Handler: customadminproduct.PatchServiceSpecificHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodDelete,
 					Path:    "/service-specifics/:id",
-					Handler: customproduct.DeleteServiceSpecificHandler(serverCtx),
+					Handler: customadminproduct.DeleteServiceSpecificHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPost,
 					Path:    "/service-specifics/:id/actions/assign-to-store-categroy",
-					Handler: customproduct.AssignServiceSpecificToServiceSpecificCategoryHandler(serverCtx),
+					Handler: customadminproduct.AssignServiceSpecificToServiceSpecificCategoryHandler(serverCtx),
 				},
 			}...,
 		),

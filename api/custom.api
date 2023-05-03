@@ -1,4 +1,4 @@
-import "custom/schedule.api"
-import "custom/reservation.api"
-import "custom/artisanspecific.api"
-import "custom/servicespecific.api"
+import "custom/admin/schedule.api"
+import "custom/admin/reservation.api"
+import "custom/admin/artisanspecific.api"
+import "custom/admin/servicespecific.api"

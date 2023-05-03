@@ -63,7 +63,7 @@ func (uc *CustomerUseCase) FindManyCustomers(ctx context.Context, opt *FindManyC
 	}
 
 	if err := db.
-		Debug().
+		//Debug().
 		Find(&customers).Error; err != nil {
 		panic(err)
 	}

@@ -1,0 +1,156 @@
+syntax = "v1"
+
+info(
+    title: "元匠规格"
+    desc: "元匠规格"
+    author: "MichaelHu"
+    email: "matrix-x@artisan-cloud.com"
+    version: "v1"
+)
+
+
+@server(
+    group: custom/admin/product
+    prefix: /api/v1/admin/product
+    middleware: EmployeeJWTAuth
+)
+
+service PowerX {
+    @doc "查询元匠规格列表"
+    @handler ListArtisanSpecifics
+    get /artisan-specifics (GetArtisanSpecificListRequest) returns (GetArtisanSpecificListReply)
+
+    @doc "查询元匠规格详情"
+    @handler GetArtisanSpecific
+    get /artisan-specifics/:id (GetArtisanSpecificRequest) returns (GetArtisanSpecificReply)
+
+
+    @doc "创建元匠规格"
+    @handler CreateArtisanSpecific
+    post /artisan-specifics (CreateArtisanSpecificRequest) returns (CreateArtisanSpecificReply)
+
+
+    @doc "全量元匠规格"
+    @handler PutArtisanSpecific
+    put /artisan-specifics/:id (PutArtisanSpecificRequest) returns (PutArtisanSpecificReply)
+
+    @doc "增量元匠规格"
+    @handler PatchArtisanSpecific
+    patch /artisan-specifics/:id (PatchArtisanSpecificRequest) returns (PatchArtisanSpecificReply)
+
+
+    @doc "删除元匠规格"
+    @handler DeleteArtisanSpecific
+    delete /artisan-specifics/:id (DeleteArtisanSpecificRequest) returns (DeleteArtisanSpecificReply)
+
+    @doc "分配元匠规格品类给元匠规格品类分类"
+    @handler AssignArtisanSpecificToArtisanSpecificCategory
+    post /artisan-specifics/:id/actions/assign-to-store-categroy (AssignArtisanSpecificManagerRequest) returns (AssignArtisanSpecificManagerReply)
+}
+
+type (
+
+    ACRefArtisan{
+        Id int64 `json:"id,optional"`
+        EmployeeId int64 `json:"employeeId,optional"`
+        Name string `json:"name,optional"`
+        Level int8 `json:"level,optional"`
+        Gender string `json:"gender,optional"`
+        birthday string `json:"birthday,optional"`
+        PhoneNumber string `json:"phoneNumber,optional"`
+        CoverURL string `json:"coverURL,optional"`
+        WorkNo string `json:"workNo,optional"`
+        Email string `json:"email,optional"`
+        Experience uint `json:"experience,optional"`
+        Specialty string `json:"specialty,optional"`
+        Certificate string `json:"certificate,optional"`
+        Address string `json:"address,optional"`
+    }
+
+    ArtisanSpecific {
+        ArtisanId int64 `json:"artisanId,optional"`
+        MaxServiceDuration int32  `json:"maxServiceDuration,optional"`
+        MandatoryDuration  int32 `json:"mandatoryDuration,optional"`
+        Artisan ACRefArtisan `json:"artisan,optional"`
+    }
+
+
+)
+type (
+    GetArtisanSpecificListRequest struct {
+        ArtisanSpecificType string `form:"storeType,optional"`
+        Keys []string `form:"keys,optional"`
+        OrderBy string `form:"orderBy,optional"`
+    }
+
+
+    GetArtisanSpecificListReply struct {
+        List []*ArtisanSpecific `json:"list"`
+    }
+)
+
+type (
+    CreateArtisanSpecificRequest struct {
+        ArtisanSpecific
+    }
+
+    CreateArtisanSpecificReply struct {
+        ArtisanSpecificId string `json:"id"`
+    }
+)
+
+type (
+    GetArtisanSpecificRequest struct {
+        ArtisanSpecificId int64 `path:"id"`
+    }
+
+    GetArtisanSpecificReply struct {
+        *ArtisanSpecific
+    }
+)
+
+
+type (
+    PutArtisanSpecificRequest struct {
+        ArtisanSpecificId int64  `path:"storeId"`
+        ArtisanSpecific
+    }
+
+    PutArtisanSpecificReply struct {
+        *ArtisanSpecific
+    }
+)
+
+type (
+    PatchArtisanSpecificRequest struct {
+        ArtisanSpecificId int64  `path:"storeId"`
+        ArtisanSpecific
+    }
+
+    PatchArtisanSpecificReply struct {
+        *ArtisanSpecific
+    }
+)
+
+
+type (
+    DeleteArtisanSpecificRequest struct {
+        ArtisanSpecificId int64  `path:"storeId"`
+    }
+
+    DeleteArtisanSpecificReply struct {
+        ArtisanSpecificId int64  `json:"storeId"`
+    }
+)
+
+
+type (
+    AssignArtisanSpecificManagerRequest {
+        Id int64 `path:"id"`
+        EmployeeId int64 `json:"employeeId"`
+    }
+
+    AssignArtisanSpecificManagerReply {
+        ArtisanSpecific
+    }
+)
