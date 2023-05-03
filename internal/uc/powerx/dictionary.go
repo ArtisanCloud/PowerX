@@ -23,7 +23,13 @@ func NewDataDictionaryUseCase(db *gorm.DB) *DataDictionaryUseCase {
 }
 
 // 缓存数据字典
-func (uc *DataDictionaryUseCase) GetCachedDD(ctx context.Context, itemType string, itemKey string) int {
+func (uc *DataDictionaryUseCase) GetCachedDDId(ctx context.Context, itemType string, itemKey string) int {
+
+	item := uc.GetCachedDD(ctx, itemType, itemKey)
+	return int(item.Id)
+}
+
+func (uc *DataDictionaryUseCase) GetCachedDD(ctx context.Context, itemType string, itemKey string) *model.DataDictionaryItem {
 
 	item, err := uc.GetDataDictionaryItem(ctx, itemType, itemKey)
 
@@ -31,7 +37,7 @@ func (uc *DataDictionaryUseCase) GetCachedDD(ctx context.Context, itemType strin
 		panic(errors.Wrap(err, "failed to get dd item type: "+itemType+" key: "+itemKey))
 	}
 
-	return int(item.Id)
+	return item
 }
 
 func (uc *DataDictionaryUseCase) CreateDataDictionaryItem(ctx context.Context, dd *model.DataDictionaryItem) error {
