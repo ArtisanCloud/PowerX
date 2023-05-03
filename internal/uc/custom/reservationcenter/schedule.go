@@ -8,9 +8,12 @@ import (
 	"PowerX/internal/types"
 	"PowerX/internal/types/errorx"
 	"PowerX/internal/uc/powerx"
+	product3 "PowerX/internal/uc/powerx/product"
 	"PowerX/pkg/datetime/carbonx"
 	fmt "PowerX/pkg/printx"
+	"PowerX/pkg/slicex"
 	"context"
+	fmt2 "fmt"
 	"github.com/golang-module/carbon/v2"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
@@ -299,4 +302,93 @@ func (uc *ScheduleUseCase) LoadPivotScheduleToArtisan(ctx context.Context, sched
 		panic(err)
 	}
 	return &pivot, nil
+}
+
+func (uc *ScheduleUseCase) InitSchedules() ([]*reservationcenter.Schedule, error) {
+
+	allSchedules := []*reservationcenter.Schedule{}
+
+	ucStore := product3.NewStoreUseCase(uc.db)
+	stores, _ := ucStore.FindAllShops(context.Background(), &product3.FindManyStoresOption{})
+
+	now := carbon.Now()
+	firstDayOfWeek, _ := carbonx.GetWeekDaysFromDay(&now, uc.FormatScheduleDateTime)
+	for i := 0; i < 3; i++ {
+		newFirstDayOfWeek := firstDayOfWeek.AddDays(7)
+		for _, store := range stores {
+
+			reservedRecord, _ := uc.FindAllSchedules(context.Background(), &FindManySchedulesOption{
+				CurrentDate: newFirstDayOfWeek.ToStdTime(),
+				StoreId:     store.Id,
+			})
+			if len(reservedRecord) > 0 {
+				fmt.Dump(newFirstDayOfWeek.ToStdTime(), "week schedule are already initied")
+				continue
+			}
+
+			schedules := uc.GenerateSchedulesBy(&newFirstDayOfWeek, store)
+			allSchedules = slicex.Concatenate(allSchedules, schedules)
+		}
+	}
+
+	if len(allSchedules) > 0 {
+		//fmt2.Dump(schedules)
+		if err := uc.db.Model(&reservationcenter.Schedule{}).Create(&allSchedules).Error; err != nil {
+			panic(errors.Wrap(err, "init schedule failed"))
+		}
+	}
+
+	return allSchedules, nil
+}
+
+func (uc *ScheduleUseCase) GenerateSchedulesBy(currentDate *carbon.Carbon, store *product.Store) []*reservationcenter.Schedule {
+
+	if currentDate.IsInvalid() {
+		*currentDate = carbon.Now()
+	}
+
+	// 格式化到10点
+	startOfWeek, endOfWeek := carbonx.GetWeekDaysFromDay(currentDate, uc.FormatScheduleDateTime)
+
+	//today.SetTimezone()
+
+	//fmt2.Dump(currentDate, startOfWeek, endOfWeek)
+	scheduleStatus := (&reservationcenter.Schedule{}).GetCachedDDId(uc.db, reservationcenter.ScheduleStatusType, reservationcenter.ScheduleStatusIdle)
+
+	// 工作日
+	workDays := int(startOfWeek.DiffInDays(*endOfWeek)) + 1
+	//fmt2.Dump(workDays)
+	schedules := []*reservationcenter.Schedule{}
+	// 7天的工作两
+	for i := 0; i < workDays; i++ {
+		workDate := startOfWeek.AddDays(i)
+		// 6个bucket
+		for j := 0; j < reservationcenter.BucketCount; j++ {
+			// 每个bucket开始的时间点
+			startDatetime := workDate.AddHours(j * reservationcenter.BucketHours)
+			schedule := &reservationcenter.Schedule{
+				StoreId:            store.Id,
+				ApprovalStatus:     "",
+				Capacity:           10,
+				CopyFromScheduleId: 0,
+				Name:               fmt2.Sprintf("%s-%d-%s", store.Name, i+1, startDatetime.Format("H")),
+				Description:        "",
+				IsActive:           true,
+				Status:             scheduleStatus,
+				StartTime:          startDatetime.ToStdTime(),
+				EndTime:            startDatetime.AddHours(reservationcenter.BucketHours).ToStdTime(),
+			}
+			schedules = append(schedules, schedule)
+		}
+
+	}
+
+	return schedules
+
+}
+
+func (uc *ScheduleUseCase) FormatScheduleDateTime(d *carbon.Carbon) *carbon.Carbon {
+	d.SetWeekStartsAt(carbon.Sunday)
+	*d = d.SetHour(reservationcenter.StartWorkHour).SetMinute(0).SetSecond(0)
+	return d
 }

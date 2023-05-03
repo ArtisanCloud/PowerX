@@ -3,6 +3,7 @@ package seed
 import (
 	product2 "PowerX/internal/model/custom/product"
 	"PowerX/internal/model/product"
+	product3 "PowerX/internal/uc/powerx/product"
 	"context"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
@@ -17,7 +18,8 @@ func CreateServiceSpecific(db *gorm.DB) (err error) {
 	}
 	if count == 0 {
 
-		stores, err = GetSeedStores(db)
+		ucStore := product3.NewStoreUseCase(db)
+		stores, _ = ucStore.FindAllShops(context.Background(), &product3.FindManyStoresOption{})
 		if err != nil {
 			panic(errors.Wrap(err, "get stores failed"))
 		}
