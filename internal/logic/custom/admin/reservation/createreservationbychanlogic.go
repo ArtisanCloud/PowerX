@@ -140,8 +140,8 @@ func (l *CreateReservationByChanLogic) ProcessAppointmentRequests() {
 				// bucket的开始时间为基准，加上占用的分钟数，为该预约记录的预约时间
 				reservedTime := carbon.Time2Carbon(req.Schedule.StartTime).AddMinutes(usedTimeResource)
 				//fmt.Dump(reservedTime)
-				operationStatus := l.svcCtx.PowerX.DataDictionary.GetCachedDD(l.ctx, reservationcenter.OperationStatusType, reservationcenter.OperationStatusNone)
-				reservationStatus := l.svcCtx.PowerX.DataDictionary.GetCachedDD(l.ctx, reservationcenter.ReservationStatusType, reservationcenter.ReservationStatusConfirmed)
+				operationStatus := l.svcCtx.PowerX.DataDictionary.GetCachedDDId(l.ctx, reservationcenter.OperationStatusType, reservationcenter.OperationStatusNone)
+				reservationStatus := l.svcCtx.PowerX.DataDictionary.GetCachedDDId(l.ctx, reservationcenter.ReservationStatusType, reservationcenter.ReservationStatusConfirmed)
 
 				// 可以建立预约记录
 				reservation := &reservationcenter.Reservation{

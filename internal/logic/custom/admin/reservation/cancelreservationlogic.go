@@ -38,7 +38,11 @@ func (l *CancelReservationLogic) CancelReservation(req *types.CancelReservationR
 	l.svcCtx.Custom.Reservation.PatchReservation(l.ctx, req.ReservationId, mdlReservation)
 
 	return &types.CancelReservationReply{
-		Reservation: TransformReservationToReservationReply(mdlReservation),
+		Reservation: &types.Reservation{
+			Id:                req.ReservationId,
+			OperationStatus:   mdlReservation.OperationStatus,
+			ReservationStatus: mdlReservation.ReservationStatus,
+		},
 	}, err
 
 }

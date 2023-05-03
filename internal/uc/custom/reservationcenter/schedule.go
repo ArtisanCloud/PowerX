@@ -166,8 +166,8 @@ func (uc *ScheduleUseCase) MakeAppointment(ctx context.Context, req *Appointment
 			// bucket的开始时间为基准，加上占用的分钟数，为该预约记录的预约时间
 			reservedTime := carbon.Time2Carbon(req.Schedule.StartTime).AddMinutes(usedTimeResource)
 			//fmt.Dump(reservedTime)
-			operationStatus := ucDD.GetCachedDD(ctx, reservationcenter.OperationStatusType, reservationcenter.OperationStatusNone)
-			reservationStatus := ucDD.GetCachedDD(ctx, reservationcenter.ReservationStatusType, reservationcenter.ReservationStatusConfirmed)
+			operationStatus := ucDD.GetCachedDDId(ctx, reservationcenter.OperationStatusType, reservationcenter.OperationStatusNone)
+			reservationStatus := ucDD.GetCachedDDId(ctx, reservationcenter.ReservationStatusType, reservationcenter.ReservationStatusConfirmed)
 
 			// 可以建立预约记录
 			reservation = &reservationcenter.Reservation{

@@ -145,7 +145,7 @@ func (uc *ReservationUseCase) PatchReservation(ctx context.Context, id int64, re
 	if err := uc.db.WithContext(ctx).
 		Model(&reservationcenter.Reservation{}).
 		Where(id).
-		Updates(&reservation).Error; err != nil {
+		Updates(reservation).Error; err != nil {
 		panic(err)
 	}
 }
@@ -160,6 +160,21 @@ func (uc *ReservationUseCase) GetReservedRecordsBy(ctx context.Context, customer
 	if schedule != nil {
 		db = db.Where("schedule_id", schedule.Id)
 	}
+
+	operationStatus := []int{
+		// 操作状态是正常
+		schedule.GetCachedDDId(db, reservationcenter.OperationStatusType, reservationcenter.OperationStatusNone),
+		// 操作正常已经是签到
+		schedule.GetCachedDDId(db, reservationcenter.OperationStatusType, reservationcenter.OperationStatusCheckIn),
+	}
+	reservationStatus := []int{
+		// 预约状态是已经预约成功
+		schedule.GetCachedDDId(db, reservationcenter.ReservationStatusType, reservationcenter.ReservationStatusConfirmed),
+	}
+
+	db = db.
+		Where("operation_status in (?)", operationStatus).
+		Where("reservation_status", reservationStatus)
 
 	if err := db.
 		Debug().

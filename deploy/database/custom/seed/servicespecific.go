@@ -170,8 +170,8 @@ func DefaultServiceSpecific() []*product2.ServiceSpecific {
 
 func getProduct(name string) *product.Product {
 	ctx := context.Background()
-	ddProductTypeService := UseCaseDD.GetCachedDD(ctx, product.TypeProductType, product.ProductTypeService)
-	ddProductTypeOnce := UseCaseDD.GetCachedDD(ctx, product.TypeProductPlan, product.ProductPlanOnce)
+	ddProductTypeService := UseCaseDD.GetCachedDDId(ctx, product.TypeProductType, product.ProductTypeService)
+	ddProductTypeOnce := UseCaseDD.GetCachedDDId(ctx, product.TypeProductPlan, product.ProductPlanOnce)
 
 	return &product.Product{
 		Name:          name,

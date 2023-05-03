@@ -28,11 +28,11 @@ func CreateCustomer(db *gorm.DB) (err error) {
 
 func DefaultCustomer() (customers []*customerdomain.Customer) {
 
-	sourceWechat := UseCaseDD.GetCachedDD(context.Background(), model.TypeSourceChannel, model.ChannelWechat)
-	sourceDouyin := UseCaseDD.GetCachedDD(context.Background(), model.TypeSourceChannel, model.ChannelDouYin)
+	sourceWechat := UseCaseDD.GetCachedDDId(context.Background(), model.TypeSourceChannel, model.ChannelWechat)
+	sourceDouyin := UseCaseDD.GetCachedDDId(context.Background(), model.TypeSourceChannel, model.ChannelDouYin)
 
-	typePersonal := UseCaseDD.GetCachedDD(context.Background(), customerdomain.TypeCustomerType, customerdomain.CustomerPersonal)
-	typeCompany := UseCaseDD.GetCachedDD(context.Background(), customerdomain.TypeCustomerType, customerdomain.CustomerCompany)
+	typePersonal := UseCaseDD.GetCachedDDId(context.Background(), customerdomain.TypeCustomerType, customerdomain.CustomerPersonal)
+	typeCompany := UseCaseDD.GetCachedDDId(context.Background(), customerdomain.TypeCustomerType, customerdomain.CustomerCompany)
 
 	customers = []*customerdomain.Customer{}
 	for i := 0; i < 20; i++ {
