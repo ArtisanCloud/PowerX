@@ -2,7 +2,6 @@ package reservation
 
 import (
 	"PowerX/internal/model/custom/reservationcenter"
-	"PowerX/internal/model/customerdomain"
 	"context"
 
 	"PowerX/internal/svc"
@@ -27,18 +26,19 @@ func NewCancelReservationLogic(ctx context.Context, svcCtx *svc.ServiceContext) 
 
 func (l *CancelReservationLogic) CancelReservation(req *types.CancelReservationRequest) (resp *types.CancelReservationReply, err error) {
 
-	ddCancelled := l.svcCtx.PowerX.DataDictionary.GetCachedDD(reservationcenter.OperationStatusType, reservationcenter.OperationStatusCancelled)
+	ddOpsCancelledId := l.svcCtx.PowerX.DataDictionary.GetCachedDDId(l.ctx, reservationcenter.OperationStatusType, reservationcenter.OperationStatusCancelled)
+	ddRsvCancelledId := l.svcCtx.PowerX.DataDictionary.GetCachedDDId(l.ctx, reservationcenter.ReservationStatusType, reservationcenter.ReservationStatusCancelled)
 
 	mdlReservation := &reservationcenter.Reservation{
-		OperationStatus:        req.,
-		ReservationStatus:        req.,
+		OperationStatus:   ddOpsCancelledId,
+		ReservationStatus: ddRsvCancelledId,
 	}
 
 	// 更新产品对象
-	err = l.svcCtx.PowerX.Reservation.UpdateReservation(l.ctx, req.ReservationId, mdlReservation)
+	l.svcCtx.Custom.Reservation.PatchReservation(l.ctx, req.ReservationId, mdlReservation)
 
-	return &types.PatchReservationReply{
+	return &types.CancelReservationReply{
 		Reservation: TransformReservationToReservationReply(mdlReservation),
 	}, err
-	
+
 }

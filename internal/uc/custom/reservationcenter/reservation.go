@@ -142,7 +142,10 @@ func (uc *ReservationUseCase) UpsertReservations(ctx context.Context, reservatio
 }
 
 func (uc *ReservationUseCase) PatchReservation(ctx context.Context, id int64, reservation *reservationcenter.Reservation) {
-	if err := uc.db.WithContext(ctx).Model(&reservationcenter.Reservation{}).Where(id).Updates(&reservation).Error; err != nil {
+	if err := uc.db.WithContext(ctx).
+		Model(&reservationcenter.Reservation{}).
+		Where(id).
+		Updates(&reservation).Error; err != nil {
 		panic(err)
 	}
 }
