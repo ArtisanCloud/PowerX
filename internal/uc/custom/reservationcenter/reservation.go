@@ -154,13 +154,8 @@ func (uc *ReservationUseCase) GetReservedRecordsBy(ctx context.Context, customer
 
 	reservations := []*reservationcenter.Reservation{}
 	db := uc.db.WithContext(ctx)
-	if customer != nil {
-		db = db.Where("customer_id", customer.Id)
-	}
-	if schedule != nil {
-		db = db.Where("schedule_id", schedule.Id)
-	}
 
+	//  db 先处理获取常值数据
 	operationStatus := []int{
 		// 操作状态是正常
 		schedule.GetCachedDDId(db, reservationcenter.OperationStatusType, reservationcenter.OperationStatusNone),
@@ -172,12 +167,19 @@ func (uc *ReservationUseCase) GetReservedRecordsBy(ctx context.Context, customer
 		schedule.GetCachedDDId(db, reservationcenter.ReservationStatusType, reservationcenter.ReservationStatusConfirmed),
 	}
 
+	// 添加过滤条件
+	if customer != nil {
+		db = db.Where("customer_id", customer.Id)
+	}
+	if schedule != nil {
+		db = db.Where("schedule_id", schedule.Id)
+	}
 	db = db.
 		Where("operation_status in (?)", operationStatus).
 		Where("reservation_status", reservationStatus)
 
 	if err := db.
-		Debug().
+		//Debug().
 		Find(&reservations).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errorx.WithCause(errorx.ErrBadRequest, "未找到产品")

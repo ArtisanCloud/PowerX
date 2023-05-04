@@ -836,7 +836,12 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				},
 				{
 					Method:  http.MethodPost,
-					Path:    "/reservations/:id",
+					Path:    "/reservations/checkin/:id",
+					Handler: customadminreservation.CheckInReservationHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/reservations/cancel/:id",
 					Handler: customadminreservation.CancelReservationHandler(serverCtx),
 				},
 				{
