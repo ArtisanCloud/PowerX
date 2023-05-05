@@ -199,10 +199,23 @@ func (uc *AdminPermsUseCase) Init() {
 		panic(errors.Wrap(err, "init role failed"))
 	}
 	if count == 0 {
+
+		rooAccount := uc.conf.Root.Account
+		if rooAccount == "" {
+			rooAccount = "root"
+		}
+		rooPass := uc.conf.Root.Password
+		if rooPass == "" {
+			rooPass = "root"
+		}
+		rooName := uc.conf.Root.Name
+		if rooName == "" {
+			rooName = "超级管理员"
+		}
 		root := organization.Employee{
-			Account:    "root",
-			Password:   "root",
-			Name:       "超级管理员",
+			Account:    rooAccount,
+			Password:   rooPass,
+			Name:       rooName,
 			Status:     organization.EmployeeStatusEnabled,
 			IsReserved: true,
 		}

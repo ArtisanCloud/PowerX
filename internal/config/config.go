@@ -37,11 +37,18 @@ type WechatMP struct {
 	HttpDebug bool
 }
 
+type Root struct {
+	Account  string
+	Password string
+	Name     string
+}
+
 type Config struct {
 	Server         rest.RestConf
 	EtcDir         string `json:",optional"`
 	JWTSecret      string
 	PowerXDatabase Database
+	Root           Root
 
 	WechatOA  WechatOA
 	WechatMP  WechatMP
