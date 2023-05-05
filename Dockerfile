@@ -18,7 +18,7 @@ RUN cd /app/cmd/server && go build -o powerx
 FROM alpine:latest
 
 # 安装编译工具和依赖项
-RUN apt-get update && apt-get install -y build-essential
+RUN apk update && apk add build-base
 
 # 拷贝文件
 COPY --from=builder /app/cmd/server/powerx /app/powerx
