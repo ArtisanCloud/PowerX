@@ -9,6 +9,8 @@ info(
     version: "v1"
 )
 
+import "admin/crm/product.api"
+
 @server(
     group: mp/product
     prefix: /api/v1/mp/product
@@ -19,8 +21,7 @@ info(
 service PowerX {
     @doc "产品列表"
     @handler Product
-    post /list (MPCustomerLoginRequest) returns (MPCustomerLoginAuthReply)
-
+    post /list (ListProductsPageRequest) returns (ListProductsPageReply)
 
 }
 

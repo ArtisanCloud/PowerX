@@ -12,7 +12,6 @@ info(
 @server(
     group: mp/customer
     prefix: /api/v1/mp/customer
-    middleware: MPCustomerJWTAuth
 )
 
 

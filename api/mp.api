@@ -1,1 +1,1 @@
-import "mp/customer.api"
+import "mp/authcustomer.api"
