@@ -1,7 +1,7 @@
 package seed
 
 import (
-	"PowerX/deploy/database/custom/seed"
+	"PowerX/cmd/ctl/database/custom/seed"
 	"PowerX/internal/config"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
