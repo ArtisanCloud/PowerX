@@ -3,6 +3,10 @@ Server:
   Host: 0.0.0.0
   Port: 8888
   Timeout: 30000
+Root:
+  Account: root1
+  Password: root1
+  Name: 超级管理员1
 JWTSecret: dev
 Casbin:
   SelfHosted: true

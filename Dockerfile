@@ -8,11 +8,17 @@ ENV GOPROXY=https://goproxy.cn,direct
 WORKDIR /app
 COPY . .
 
+# 编译安装 powerxctl
+RUN cd /app/cmd/ctl && go install powerxctl.go
+
 # 对cmd/server目录执行go build
-RUN cd cmd/server && go build -o powerx
+RUN cd /app/cmd/server && go build -o powerx
 
 # 第二阶段
 FROM alpine:latest
+
+# 安装编译工具和依赖项
+RUN apt-get update && apt-get install -y build-essential
 
 # 拷贝文件
 COPY --from=builder /app/cmd/server/powerx /app/powerx
@@ -23,4 +29,4 @@ WORKDIR /app
 EXPOSE 8888
 
 # 运行可执行文件
-CMD ["./powerx", "-f", "/app/etc/powerx.yaml"]
+CMD ["make", "-f", "/app/Makefile","-C", "/app", "app-init"]

@@ -1,8 +1,6 @@
 package svc
 
 import (
-	"PowerX/deploy/database/migrate"
-	"PowerX/deploy/database/seed"
 	"PowerX/internal/config"
 	"PowerX/internal/middleware"
 	"PowerX/internal/uc"
@@ -22,15 +20,6 @@ type ServiceContext struct {
 func NewServiceContext(c config.Config) *ServiceContext {
 	powerx, _ := uc.NewPowerXUseCase(&c)
 	custom, _ := uc.NewCustomUseCase(&c)
-
-	// migrate tables
-	m, _ := migrate.NewPowerMigrator(&c)
-	m.AutoMigrate()
-	powerx.AdminAuthorization.Init()
-
-	// seed tables
-	s, _ := seed.NewPowerSeeder(&c)
-	_ = s.CreatePowerX()
 
 	return &ServiceContext{
 		Config:                c,
