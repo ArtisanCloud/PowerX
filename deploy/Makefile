@@ -1,7 +1,9 @@
 CURRENT_DIR := /app
 CONFIG_FILE := $(CURRENT_DIR)/etc/powerx.yaml
 
-BUILD_DIR := $(CURRENT_DIR)/cmd/server/
+# BUILD_DIR := $(CURRENT_DIR)/cmd/server/
+
+# 两个编译后的可执行文件，会被放在容器中的根目录下
 POWERX_EXE_PATH:=$(CURRENT_DIR)/powerx
 POWERX_CTL_EXE_PATH:=$(CURRENT_DIR)/powerxctl
 
