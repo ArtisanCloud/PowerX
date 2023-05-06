@@ -11,7 +11,7 @@
 > docker build -t {powerx}:{latest} -f ./deploy/docker/Dockerfile .
 
 # 编译完后的镜像，直接用docker可以跑起来
-> docker run -p {8888}:{8888} -it powerx:latest
+> docker run -p {8888}:{8888} -it {powerx-dashboard}:{latest}
 
 ```
 
