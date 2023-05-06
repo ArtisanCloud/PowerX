@@ -14,5 +14,4 @@ app-seed:
 	$(POWERX_CTL_EXE_PATH) database seed -f $(CONFIG_FILE)
 
 app-run:
-	go build -o $(POWERX_EXE_PATH) $(BUILD_DIR)
 	$(POWERX_EXE_PATH) -f $(CONFIG_FILE)
