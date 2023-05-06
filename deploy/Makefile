@@ -1,5 +1,5 @@
 CURRENT_DIR := /app
-CONFIG_FILE := $(CURRENT_DIR)/etc/powerx-local.yaml
+CONFIG_FILE := $(CURRENT_DIR)/etc/powerx.yaml
 
 BUILD_DIR := $(CURRENT_DIR)/cmd/server/
 POWERX_EXE_PATH:=$(CURRENT_DIR)/powerx
