@@ -29,4 +29,4 @@ WORKDIR /app
 EXPOSE 8888
 
 # 运行可执行文件
-CMD ["make", "-f", "/app/Makefile","-C", "/app", "app-init"]
+CMD ["make", "-f", "/app/deploy/Makefile","-C", "/app", "app-init"]

@@ -12,3 +12,5 @@ logs/
 wechat.log
 /powerx.go
 /deploy/dependencies/data/
+
+powerx
