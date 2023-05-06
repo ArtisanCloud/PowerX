@@ -2,16 +2,17 @@ CURRENT_DIR := /app
 CONFIG_FILE := $(CURRENT_DIR)/etc/powerx-local.yaml
 
 BUILD_DIR := $(CURRENT_DIR)/cmd/server/
-TARGET_PATH:=$(CURRENT_DIR)/powerx
+POWERX_EXE_PATH:=$(CURRENT_DIR)/powerx
+POWERX_CTL_EXE_PATH:=$(CURRENT_DIR)/powerxctl
 
 app-init: app-migrate app-seed app-run
 
 app-migrate:
-	$(GOPATH)/bin/powerxctl database migrate -f $(CONFIG_FILE)
+	$(POWERX_CTL_EXE_PATH) database migrate -f $(CONFIG_FILE)
 
 app-seed:
-	$(GOPATH)/bin/powerxctl database seed -f $(CONFIG_FILE)
+	$(POWERX_CTL_EXE_PATH) database seed -f $(CONFIG_FILE)
 
 app-run:
-	go build -o $(TARGET_PATH) $(BUILD_DIR)
-	$(TARGET_PATH) -f $(CONFIG_FILE)
+	go build -o $(POWERX_EXE_PATH) $(BUILD_DIR)
+	$(POWERX_EXE_PATH) -f $(CONFIG_FILE)
