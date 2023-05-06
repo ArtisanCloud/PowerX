@@ -9,11 +9,32 @@ Root:
   Name: 超级管理员
 JWTSecret: dev
 Casbin:
-  SelfHosted: true
+    SelfHosted: true
 PowerXDatabase:
-  DSN: postgresql://postgres:postgres@localhost:5432/powerx
+    # DSN: postgresql://postgres:postgres@localhost:5432/powerx
+    DSN: host=localhost user=postgres password=powerx dbname=powerx port=5432 sslmode=disable TimeZone=UTC
+
+WechatOA:
+    AppId: wx93607xxxxxxxxxx
+    Secret: 6ZwxxxtFouxxxxxxxxxxxxxxxxxxx0tgXYw4oh7KI
+    HttpDebug: true
+WechatPay:
+    AppId: wx93607xxxxxxxxxx
+    Secret:
+    MchID:
+    MchApiV3Key:
+    Key:
+    CertPath:
+    KeyPath:
+    RSAPublicKeyPath:
+    SerialNo:
+    HttpDebug: true
+WechatMP:
+    AppId: wx93607xxxxxxxxxx
+    Secret: 188c70xxxxxxxxxx70xxxxxxxxxx56c4
+    HttpDebug: true
 WeWork:
-  CropId:
-  AgentId:
-  Secret: 
-  HttpDebug: true
+    CropId: wx93607xxxxxxxxxx
+    AgentId: 1000005
+    Secret: 6ZwxxxtFouxxxxxxxxxxxxxxxxxxx0tgXYw4oh7KI
+    HttpDebug: true
