@@ -18,3 +18,16 @@ app-run:
 
 build-goctl-powerx-apis:
 	goctl api go -api ./api/powerx.api -dir .
+
+
+
+# ------
+
+IMAGE_NAME := powerx
+IMAGE_TAG := latest
+
+build-image:
+	docker build -t $(IMAGE_NAME):$(IMAGE_TAG) CURRENT_DIR/deploy/docker
+
+run-container:
+	docker run -it $(IMAGE_NAME):$(IMAGE_TAG) /bin/bash

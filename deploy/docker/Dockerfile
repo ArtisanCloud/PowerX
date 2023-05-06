@@ -9,7 +9,7 @@ WORKDIR /app
 COPY . .
 
 # 编译安装 powerxctl
-RUN cd /app/cmd/ctl && go install powerxctl.go
+RUN cd /app/cmd/ctl && go build -o powerxctl
 
 # 对cmd/server目录执行go build
 RUN cd /app/cmd/server && go build -o powerx
@@ -21,6 +21,8 @@ FROM alpine:latest
 RUN apk update && apk add build-base
 
 # 拷贝文件
+COPY --from=builder /app/cmd/ctl/powerxctl /app/powerxctl
+COPY --from=builder /app/deploy/Makefile /app/Makefile
 COPY --from=builder /app/cmd/server/powerx /app/powerx
 COPY --from=builder /app/etc /app/etc
 
@@ -29,4 +31,4 @@ WORKDIR /app
 EXPOSE 8888
 
 # 运行可执行文件
-CMD ["make", "-f", "/app/deploy/Makefile","-C", "/app", "app-init"]
+CMD ["make", "-f", "/app/Makefile","-C", "/app", "app-init"]
