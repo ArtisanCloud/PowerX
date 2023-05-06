@@ -1,4 +1,4 @@
-CURRENT_DIR := $(shell pwd)
+CURRENT_DIR := /app
 CONFIG_FILE := $(CURRENT_DIR)/etc/powerx-local.yaml
 
 BUILD_DIR := $(CURRENT_DIR)/cmd/server/
@@ -15,6 +15,3 @@ app-seed:
 app-run:
 	go build -o $(TARGET_PATH) $(BUILD_DIR)
 	$(TARGET_PATH) -f $(CONFIG_FILE)
-
-build-goctl-powerx-apis:
-	goctl api go -api ./api/powerx.api -dir .
