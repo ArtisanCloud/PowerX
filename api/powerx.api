@@ -1,3 +1,13 @@
+syntax = "v1"
+
+info(
+	title: "统一接口"
+	desc: "统一接口"
+	author: "MichaelHu"
+	email: "matrix-x@artisan-cloud.com"
+	version: "v1"
+)
+
 import "admin.api"
 import "admin.crm.api"
 import "admin.scrm.api"
@@ -5,3 +15,15 @@ import "mp.api"
 
 import "custom.api"
 import "plugin.api"
+
+service PowerX {
+	@doc "根目录访问"
+	@handler GetHome
+	get /  returns (GetHomeReply)
+}
+
+type GetHomeReply {
+	Greet       string `json:"greet,optional"`
+	Description string `json:"description,optional"`
+	Version     string `json:"version,optional"`
+}
