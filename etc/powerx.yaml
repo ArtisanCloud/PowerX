@@ -44,4 +44,6 @@ WeWork:
   CropId: wx93607xxxxxxxxxx  # 企业微信CropID
   AgentId: 1000005           # 企业微信应用AgentID
   Secret: 6ZwxxxtFouxxxxxxxxxxxxxxxxxxx0tgXYw4oh7KI  # 企业微信应用Secret
+  Token: tEBuofHfxxxxxxxxxxxxBPTq9K                      # 企业微信应用的Token，用于处理接收到的消息
+  EncodingAESKey: Gv3T4dP5QBDxxxxxxxxxxxxxxxxxxxxxxxc2vwlmUhY  # 企业微信应用的 EncodingAESKey，用于加密/解密接收和发送的消息
   HttpDebug: true            # 是否启用HTTP调试模式
