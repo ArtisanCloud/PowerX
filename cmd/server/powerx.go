@@ -30,6 +30,7 @@ func main() {
 
 	ctx := svc.NewServiceContext(c)
 	handler.RegisterHandlers(server, ctx)
+	handler.RegisterWebhookHandlers(server, ctx)
 
 	// error 5xx
 	server.Use(recovery.RecoverMiddleware())

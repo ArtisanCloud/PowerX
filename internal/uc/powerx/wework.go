@@ -12,7 +12,7 @@ type WeWorkUseCase struct {
 	db  *gorm.DB
 }
 
-func newWeWorkUseCase(db *gorm.DB, conf *config.Config) *WeWorkUseCase {
+func NewWeWorkUseCase(db *gorm.DB, conf *config.Config) *WeWorkUseCase {
 	// 初始化企业微信API SDK
 	api, err := work.NewWork(&work.UserConfig{
 		CorpID:  conf.WeWork.CropId,
@@ -22,7 +22,8 @@ func newWeWorkUseCase(db *gorm.DB, conf *config.Config) *WeWorkUseCase {
 			Callback: "https://wecom.artisan-cloud.com/callback",
 			Scopes:   nil,
 		},
-		AESKey:    "zUfVSOan3B5a0j66ixBBBBB28MTS9OIXXXXXXLaq3q2PhTG",
+		Token:     conf.WeWork.Token,
+		AESKey:    conf.WeWork.EncodingAESKey,
 		HttpDebug: true,
 	})
 

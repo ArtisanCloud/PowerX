@@ -7,10 +7,12 @@ type Database struct {
 }
 
 type WeWork struct {
-	CropId    string
-	AgentId   int
-	Secret    string
-	HttpDebug bool
+	CropId         string
+	AgentId        int
+	Secret         string
+	Token          string
+	EncodingAESKey string
+	HttpDebug      bool
 }
 
 type WechatOA struct {
