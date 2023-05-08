@@ -29,7 +29,7 @@ func (uc *ArtisanUseCase) buildFindQueryNoPage(query *gorm.DB, opt *product.Find
 		query.Where("name in ?", opt.Names)
 	}
 
-	orderBy := "id asc"
+	orderBy := "id desc"
 	if opt.OrderBy != "" {
 		orderBy = opt.OrderBy + "," + orderBy
 	}

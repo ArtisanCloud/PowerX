@@ -33,7 +33,7 @@ func (uc *PriceBookUseCase) buildFindQueryNoPage(query *gorm.DB, opt *product.Fi
 		query.Where("store_id", opt.StoreId)
 	}
 
-	orderBy := "id asc"
+	orderBy := "id desc"
 	if opt.OrderBy != "" {
 		orderBy = opt.OrderBy + "," + orderBy
 	}

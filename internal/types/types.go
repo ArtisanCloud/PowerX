@@ -603,6 +603,7 @@ type ListLeadsPageRequest struct {
 	LikeMobile string `form:"likeMobile,optional"`
 	Sources    []int  `form:"sources,optional"`
 	Statuses   []int  `form:"statuses,optional"`
+	OrderBy    string `form:"orderBy,optional"`
 	PageIndex  int    `form:"pageIndex,optional"`
 	PageSize   int    `form:"pageSize,optional"`
 }
@@ -702,6 +703,7 @@ type ListCustomersPageRequest struct {
 	LikeMobile string `form:"likeMobile,optional"`
 	Sources    []int  `form:"sources,optional"`
 	Statuses   []int  `form:"statuses,optional"`
+	OrderBy    string `form:"orderBy,optional"`
 	PageIndex  int    `form:"pageIndex,optional"`
 	PageSize   int    `form:"pageSize,optional"`
 }
