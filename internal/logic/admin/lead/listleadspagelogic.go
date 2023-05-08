@@ -32,6 +32,7 @@ func (l *ListLeadsPageLogic) ListLeadsPage(req *types.ListLeadsPageRequest) (res
 		LikeMobile: req.LikeMobile,
 		Statuses:   req.Statuses,
 		Sources:    req.Sources,
+		OrderBy:    req.OrderBy,
 		PageEmbedOption: types.PageEmbedOption{
 			PageIndex: req.PageIndex,
 			PageSize:  req.PageSize,

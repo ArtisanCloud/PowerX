@@ -91,6 +91,7 @@ type (
         LikeMobile string `form:"likeMobile,optional"`
         Sources []int `form:"sources,optional"`
         Statuses []int `form:"statuses,optional"`
+        OrderBy string `form:"orderBy,optional"`
         PageIndex int `form:"pageIndex,optional"`
         PageSize int `form:"pageSize,optional"`
     }

@@ -26,6 +26,7 @@ type FindManyLeadsOption struct {
 	LikeMobile string
 	Statuses   []int
 	Sources    []int
+	OrderBy    string
 	types.PageEmbedOption
 }
 
@@ -42,6 +43,11 @@ func (uc *LeadUseCase) buildFindQueryNoPage(db *gorm.DB, opt *FindManyLeadsOptio
 	if len(opt.Sources) > 0 {
 		db = db.Where("source IN ?", opt.Sources)
 	}
+	orderBy := "id desc"
+	if opt.OrderBy != "" {
+		orderBy = opt.OrderBy + "," + orderBy
+	}
+	db.Order(orderBy)
 
 	return db
 }

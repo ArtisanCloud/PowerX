@@ -32,6 +32,7 @@ func (l *ListCustomersPageLogic) ListCustomersPage(req *types.ListCustomersPageR
 		LikeMobile: req.LikeMobile,
 		Statuses:   req.Statuses,
 		Sources:    req.Sources,
+		OrderBy:    req.OrderBy,
 		PageEmbedOption: types.PageEmbedOption{
 			PageIndex: req.PageIndex,
 			PageSize:  req.PageSize,
