@@ -22,22 +22,22 @@ func NewStoreUseCase(db *gorm.DB) *StoreUseCase {
 }
 
 type FindManyStoresOption struct {
-	Types    []string
-	Plans    []string
 	LikeName string
+	OrderBy  string
 	types.PageEmbedOption
 }
 
 func (uc *StoreUseCase) buildFindQueryNoPage(db *gorm.DB, opt *FindManyStoresOption) *gorm.DB {
-	if len(opt.Types) > 0 {
-		db = db.Where("type IN ?", opt.Types)
-	}
-	if len(opt.Plans) > 0 {
-		db = db.Where("plan IN ?", opt.Plans)
-	}
+
 	if opt.LikeName != "" {
 		db = db.Where("name LIKE ?", "%"+opt.LikeName+"%")
 	}
+
+	orderBy := "id desc"
+	if opt.OrderBy != "" {
+		orderBy = opt.OrderBy + "," + orderBy
+	}
+	db.Order(orderBy)
 
 	return db
 }
