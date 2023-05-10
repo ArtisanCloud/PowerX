@@ -1180,9 +1180,11 @@ type Store struct {
 }
 
 type ListStoresPageRequest struct {
-	StoreType string   `form:"storeType,optional"`
-	Keys      []string `form:"keys,optional"`
-	OrderBy   string   `form:"orderBy,optional"`
+	Ids       []int64 `form:"ids,optional"`
+	LikeName  string  `form:"likeName,optional"`
+	OrderBy   string  `form:"orderBy,optional"`
+	PageIndex int     `json:"pageIndex,optional"`
+	PageSize  int     `json:"pageSize,optional"`
 }
 
 type ListStoresPageReply struct {

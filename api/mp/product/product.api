@@ -20,7 +20,7 @@ import "admin/crm/product.api"
 
 service PowerX {
     @doc "产品列表"
-    @handler Product
+    @handler ListProductsPage
     post /list (ListProductsPageRequest) returns (ListProductsPageReply)
 
 }
