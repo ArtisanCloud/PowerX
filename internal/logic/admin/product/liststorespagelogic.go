@@ -17,7 +17,7 @@ type ListStoresLogic struct {
 	svcCtx *svc.ServiceContext
 }
 
-func NewListStoresLogic(ctx context.Context, svcCtx *svc.ServiceContext) *ListStoresLogic {
+func NewListStoresPageLogic(ctx context.Context, svcCtx *svc.ServiceContext) *ListStoresLogic {
 	return &ListStoresLogic{
 		Logger: logx.WithContext(ctx),
 		ctx:    ctx,
@@ -25,7 +25,7 @@ func NewListStoresLogic(ctx context.Context, svcCtx *svc.ServiceContext) *ListSt
 	}
 }
 
-func (l *ListStoresLogic) ListStores(req *types.GetStoreListRequest) (resp *types.GetStoreListReply, err error) {
+func (l *ListStoresLogic) ListStoresPage(req *types.ListStoresPageRequest) (resp *types.ListStoresPageReply, err error) {
 	stores, err := l.svcCtx.PowerX.Store.FindAllShops(l.ctx, &product.FindManyStoresOption{})
 
 	if err != nil {
@@ -33,7 +33,7 @@ func (l *ListStoresLogic) ListStores(req *types.GetStoreListRequest) (resp *type
 	}
 	list := TransferStoresToStoresReply(stores)
 
-	return &types.GetStoreListReply{
+	return &types.ListStoresPageReply{
 		List: list,
 	}, nil
 

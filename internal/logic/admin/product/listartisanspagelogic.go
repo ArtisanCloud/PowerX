@@ -16,7 +16,7 @@ type ListArtisansLogic struct {
 	svcCtx *svc.ServiceContext
 }
 
-func NewListArtisansLogic(ctx context.Context, svcCtx *svc.ServiceContext) *ListArtisansLogic {
+func NewListArtisansPageLogic(ctx context.Context, svcCtx *svc.ServiceContext) *ListArtisansLogic {
 	return &ListArtisansLogic{
 		Logger: logx.WithContext(ctx),
 		ctx:    ctx,
@@ -24,7 +24,7 @@ func NewListArtisansLogic(ctx context.Context, svcCtx *svc.ServiceContext) *List
 	}
 }
 
-func (l *ListArtisansLogic) ListArtisans(req *types.GetArtisanListRequest) (resp *types.GetArtisanListReply, err error) {
+func (l *ListArtisansLogic) ListArtisansPage(req *types.ListArtisansPageRequest) (resp *types.ListArtisansPageReply, err error) {
 	page, err := l.svcCtx.PowerX.Artisan.FindManyArtisans(l.ctx, &product2.FindArtisanOption{
 		OrderBy: req.OrderBy,
 		PageEmbedOption: types.PageEmbedOption{
@@ -38,7 +38,7 @@ func (l *ListArtisansLogic) ListArtisans(req *types.GetArtisanListRequest) (resp
 	}
 
 	list := TransferArtisansToArtisansReply(page.List)
-	return &types.GetArtisanListReply{
+	return &types.ListArtisansPageReply{
 		List:      list,
 		PageIndex: page.PageIndex,
 		PageSize:  page.PageSize,

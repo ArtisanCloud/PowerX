@@ -763,7 +763,7 @@ type AssignCustomerToEmployeeReply struct {
 	CustomerId int64 `json:"customerId"`
 }
 
-type GetMediaListRequest struct {
+type ListMediasPageRequest struct {
 	MediaType string   `form:"mediaType,optional"`
 	Keys      []string `form:"keys,optional"`
 	OrderBy   string   `form:"orderBy,optional"`
@@ -780,7 +780,7 @@ type Media struct {
 	UpdatedAt string `json:"updatedAt"`
 }
 
-type GetMediaListReply struct {
+type ListMediasPageReply struct {
 	List      []Media `json:"list"`
 	PageIndex int     `json:"pageIndex"`
 	PageSize  int     `json:"pageSize"`
@@ -1027,12 +1027,12 @@ type ProductCategory struct {
 	Children []ProductCategory `json:"children,optional"`
 }
 
-type GetProductCategoryTreeRequest struct {
+type ListProductCategoryTreeRequest struct {
 	Names   []string `form:"name,optional"`
 	OrderBy string   `form:"orderBy,optional"`
 }
 
-type GetProductCategoryTreeReply struct {
+type ListProductCategoryTreeReply struct {
 	ProductCategories []ProductCategory `json:"tree"`
 }
 
@@ -1179,13 +1179,13 @@ type Store struct {
 	CreatedAt     string          `json:"createdAt,optional"`
 }
 
-type GetStoreListRequest struct {
+type ListStoresPageRequest struct {
 	StoreType string   `form:"storeType,optional"`
 	Keys      []string `form:"keys,optional"`
 	OrderBy   string   `form:"orderBy,optional"`
 }
 
-type GetStoreListReply struct {
+type ListStoresPageReply struct {
 	List      []*Store `json:"list"`
 	PageIndex int      `json:"pageIndex"`
 	PageSize  int      `json:"pageSize"`
@@ -1265,7 +1265,7 @@ type Artisan struct {
 	ArtisanSpecific ArtisanSpecific `json:"artisanSpecific,optional"`
 }
 
-type GetArtisanListRequest struct {
+type ListArtisansPageRequest struct {
 	ArtisanType string   `form:"artisanType,optional"`
 	Keys        []string `form:"keys,optional"`
 	OrderBy     string   `form:"orderBy,optional"`
@@ -1273,7 +1273,7 @@ type GetArtisanListRequest struct {
 	PageSize    int      `form:"pageSize,optional"`
 }
 
-type GetArtisanListReply struct {
+type ListArtisansPageReply struct {
 	List      []*Artisan `json:"list"`
 	PageIndex int        `json:"pageIndex"`
 	PageSize  int        `json:"pageSize"`

@@ -14,16 +14,16 @@ type Membership struct {
 
 	powermodel.PowerModel
 
-	CustomerId       string    `gorm:"column:account_id" json:"accountId"`
-	StartDate        time.Time `gorm:"column:start_date" json:"startDate"`
-	EndDate          time.Time `gorm:"column:end_date" json:"endDate"`
-	ExtendPeriod     bool      `gorm:"column:extend_period" json:"extendPeriod"`
-	MainMembershipId string    `gorm:"column:main_membership_id" json:"mainMembershipId"`
-	Name             string    `gorm:"column:name" json:"name"`
-	OrderId          string    `gorm:"column:order_id" json:"orderId"`
-	OrderItemId      string    `gorm:"column:order_item_id" json:"orderItemId"`
-	Level            int8      `gorm:"column:level" json:"level"`
-	Plan             int8      `gorm:"column:plan" json:"plan"`
-	ProductId        string    `gorm:"column:product_id" json:"productId"`
-	Status           int8      `gorm:"column:status" json:"status"`
+	Name             string    `gorm:"comment:会籍名称" json:"name"`
+	MainMembershipId string    `gorm:"comment:主会籍Id" json:"mainMembershipId"`
+	OrderId          string    `gorm:"comment:订单Id" json:"orderId"`
+	OrderItemId      string    `gorm:"comment:订单项Id" json:"orderItemId"`
+	CustomerId       string    `gorm:"comment:客户Id" json:"accountId"`
+	ProductId        string    `gorm:"comment:产品Id" json:"productId"`
+	StartDate        time.Time `gorm:"comment:开始时间" json:"startDate"`
+	EndDate          time.Time `gorm:"comment:结束时间" json:"endDate"`
+	Status           int       `gorm:"comment:会籍状态" json:"status"`
+	ExtendPeriod     bool      `gorm:"comment:是否延续" json:"extendPeriod"`
+	Level            int       `gorm:"comment:级别" json:"level"`
+	Plan             int       `gorm:"comment:计划" json:"plan"`
 }

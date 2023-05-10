@@ -9,21 +9,21 @@ import (
 	"github.com/zeromicro/go-zero/core/logx"
 )
 
-type GetMediaListLogic struct {
+type ListMediasPageLogic struct {
 	logx.Logger
 	ctx    context.Context
 	svcCtx *svc.ServiceContext
 }
 
-func NewGetMediaListLogic(ctx context.Context, svcCtx *svc.ServiceContext) *GetMediaListLogic {
-	return &GetMediaListLogic{
+func NewListMediasPageLogic(ctx context.Context, svcCtx *svc.ServiceContext) *ListMediasPageLogic {
+	return &ListMediasPageLogic{
 		Logger: logx.WithContext(ctx),
 		ctx:    ctx,
 		svcCtx: svcCtx,
 	}
 }
 
-func (l *GetMediaListLogic) GetMediaList(req *types.GetMediaListRequest) (resp *types.GetMediaListReply, err error) {
+func (l *ListMediasPageLogic) ListMediasPage(req *types.ListMediasPageRequest) (resp *types.ListMediasPageReply, err error) {
 	// todo: add your logic here and delete this line
 
 	return

@@ -1,0 +1,132 @@
+syntax = "v1"
+
+info(
+    title: "订单项服务"
+    desc: "订单项服务"
+    author: "MichaelHu"
+    email: "matrix-x@artisan-cloud.com"
+    version: "v1"
+)
+
+
+@server(
+    group: admin/trade
+    prefix: /api/v1/admin/trade
+    middleware: EmployeeJWTAuth
+)
+
+service PowerX {
+    @doc "查询订单项列表"
+    @handler ListOrderItemsPage
+    get /order-item/page-list (ListOrderItemsPageRequest) returns (ListOrderItemsPageReply)
+
+    @doc "查询订单项详情"
+    @handler GetOrderItem
+    get /order-item/:id (GetOrderItemRequest) returns (GetOrderItemReply)
+
+
+    @doc "创建订单项"
+    @handler CreateOrderItem
+    post /order-item (CreateOrderItemRequest) returns (CreateOrderItemReply)
+
+
+    @doc "全量订单项"
+    @handler PutOrderItem
+    put /order-item/:id (PutOrderItemRequest) returns (PutOrderItemReply)
+
+    @doc "增量订单项"
+    @handler PatchOrderItem
+    patch /order-item/:id (PatchOrderItemRequest) returns (PatchOrderItemReply)
+
+
+    @doc "删除订单项"
+    @handler DeleteOrderItem
+    delete /order-item/:id (DeleteOrderItemRequest) returns (DeleteOrderItemReply)
+}
+
+type (
+    OrderItem {
+        Id int64 `json:"id,optional"`
+        OrderId string `json:"orderId,optional"`
+        PriceBookEntryId string `json:"priceBookEntryId,optional"`
+        AccountId string `json:"accountId,optional"`
+        ProductId string `json:"productId,optional"`
+        Quantity int8 `json:"quantity,optional"`
+        UnitPrice float64 `json:"unitPrice,optional"`
+        ListPrice float64 `json:"listPrice,optional"`
+        SellingPrice float64 `json:"sellingPrice,optional"`
+        CreatedAt string `json:"createdAt,optional"`
+    }
+)
+type (
+    ListOrderItemsPageRequest struct {
+        OrderItemType string `form:"orderItemType,optional"`
+        Keys []string `form:"keys,optional"`
+        OrderItemBy string `form:"orderItemBy,optional"`
+        PageIndex int `form:"pageIndex,optional"`
+        PageSize int `form:"pageSize,optional"`
+    }
+
+
+    ListOrderItemsPageReply struct {
+        List []OrderItem `json:"list"`
+        PageIndex int `json:"pageIndex"`
+        PageSize int `json:"pageSize"`
+        Total int64 `json:"total"`
+    }
+)
+
+type (
+    CreateOrderItemRequest struct {
+        OrderItem
+    }
+
+    CreateOrderItemReply struct {
+        OrderItemKey int64 `json:"id"`
+    }
+)
+
+type (
+    GetOrderItemRequest struct {
+        OrderItemId int64 `path:"id"`
+    }
+
+    GetOrderItemReply struct {
+        *OrderItem
+    }
+)
+
+
+type (
+    PutOrderItemRequest struct {
+        OrderItemId int64 `path:"id"`
+        OrderItem
+    }
+
+    PutOrderItemReply struct {
+        *OrderItem
+    }
+)
+
+type (
+    PatchOrderItemRequest struct {
+        OrderItemId int64 `path:"id"`
+        OrderItem
+    }
+
+    PatchOrderItemReply struct {
+        *OrderItem
+    }
+)
+
+
+type (
+    DeleteOrderItemRequest struct {
+        OrderItemId int64 `path:"id"`
+    }
+
+    DeleteOrderItemReply struct {
+        OrderItemId int64 `json:"id"`
+    }
+)
+
