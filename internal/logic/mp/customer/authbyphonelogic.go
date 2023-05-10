@@ -33,8 +33,7 @@ func (l *AuthByPhoneLogic) AuthByPhone(req *types.MPCustomerAuthRequest) (resp *
 	// 获取session数据
 	rs, err := l.svcCtx.PowerX.WechatMP.App.Auth.Session(l.ctx, req.Code)
 	if err != nil {
-		panic(err)
-		return
+		return nil, err
 	}
 	if rs.ErrCode != 0 {
 		return nil, errors.New(rs.ErrMSG)
@@ -49,7 +48,7 @@ func (l *AuthByPhoneLogic) AuthByPhone(req *types.MPCustomerAuthRequest) (resp *
 	msgData, errEncrypt := l.svcCtx.PowerX.WechatMP.App.Encryptor.DecryptData(req.EncryptedData, rs.SessionKey, req.IV)
 
 	if errEncrypt != nil {
-		panic(errEncrypt.ErrMsg)
+		return nil, errors.New(errEncrypt.ErrMsg)
 		return
 	}
 
