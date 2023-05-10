@@ -7,6 +7,7 @@ import (
 	"PowerX/internal/types"
 	customerdomain2 "PowerX/internal/uc/powerx/customerdomain"
 	"context"
+	"errors"
 	"fmt"
 	"github.com/ArtisanCloud/PowerLibs/v3/object"
 	"github.com/zeromicro/go-zero/core/logx"
@@ -34,6 +35,9 @@ func (l *AuthByPhoneLogic) AuthByPhone(req *types.MPCustomerAuthRequest) (resp *
 	if err != nil {
 		panic(err)
 		return
+	}
+	if rs.ErrCode != 0 {
+		return nil, errors.New(rs.ErrMSG)
 	}
 	//rs := &response.ResponseCode2Session{
 	//	OpenId:     "o1IFX5A8sfi5nbkXwOzNLLLiL0OA",
