@@ -386,7 +386,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				{
 					Method:  http.MethodGet,
 					Path:    "/medias",
-					Handler: adminmedia.GetMediaListHandler(serverCtx),
+					Handler: adminmedia.ListMediasHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPost,

@@ -24,19 +24,19 @@ func NewListProductCategoryTreeLogic(ctx context.Context, svcCtx *svc.ServiceCon
 	}
 }
 
-func (l *ListProductCategoryTreeLogic) ListProductCategoryTree(req *types.GetProductCategoryTreeRequest) (resp *types.GetProductCategoryTreeReply, err error) {
+func (l *ListProductCategoryTreeLogic) ListProductCategoryTree(req *types.ListProductCategoryTreeRequest) (resp *types.ListProductCategoryTreeReply, err error) {
 	option := product.FindProductCategoryOption{
 		Names:   req.Names,
 		OrderBy: req.OrderBy,
 	}
 
 	// 获取模型类型的列表
-	productCategoryTree := l.svcCtx.PowerX.ProductCategory.GetProductCategoryTree(l.ctx, &option, 0)
+	productCategoryTree := l.svcCtx.PowerX.ProductCategory.ListProductCategoryTree(l.ctx, &option, 0)
 
 	// 转化返回类型的列表
 	productCategoryReplyList := l.convertModelToTypeReply(productCategoryTree)
 
-	return &types.GetProductCategoryTreeReply{
+	return &types.ListProductCategoryTreeReply{
 		ProductCategories: productCategoryReplyList,
 	}, nil
 

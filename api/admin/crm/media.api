@@ -16,8 +16,8 @@ info(
 
 service PowerX {
     @doc "查询媒资列表"
-    @handler GetMediaList
-    get /medias (GetMediaListRequest) returns (GetMediaListReply)
+    @handler ListMedias
+    get /medias (ListMediasRequest) returns (ListMediasReply)
 
     @doc "请求媒资上传链接"
     @handler CreateMediaUploadRequest
@@ -37,7 +37,7 @@ service PowerX {
 }
 
 type (
-    GetMediaListRequest struct {
+    ListMediasRequest struct {
         MediaType string `form:"mediaType,optional"`
         Keys []string `form:"keys,optional"`
         OrderBy string `form:"orderBy,optional"`
@@ -54,7 +54,7 @@ type (
         UpdatedAt string `json:"updatedAt"`
     }
 
-    GetMediaListReply struct {
+    ListMediasReply struct {
         List []Media `json:"list"`
         PageIndex int `json:"pageIndex"`
         PageSize int `json:"pageSize"`

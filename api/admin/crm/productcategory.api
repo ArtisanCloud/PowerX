@@ -18,7 +18,7 @@ info(
 service PowerX {
     @doc "查询产品品类列表"
     @handler ListProductCategoryTree
-    get /product-category-tree (GetProductCategoryTreeRequest) returns (GetProductCategoryTreeReply)
+    get /product-category-tree (ListProductCategoryTreeRequest) returns (ListProductCategoryTreeReply)
 
     @doc "查询产品品类详情"
     @handler GetProductCategory
@@ -59,13 +59,13 @@ type (
     }
 )
 type (
-    GetProductCategoryTreeRequest struct {
+    ListProductCategoryTreeRequest struct {
         Names []string `form:"name,optional"`
         OrderBy string `form:"orderBy,optional"`
     }
 
 
-    GetProductCategoryTreeReply struct {
+    ListProductCategoryTreeReply struct {
         ProductCategories []ProductCategory `json:"tree"`
     }
 )

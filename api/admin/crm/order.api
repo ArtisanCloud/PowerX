@@ -1,0 +1,139 @@
+syntax = "v1"
+
+info(
+    title: "订单服务"
+    desc: "订单服务"
+    author: "MichaelHu"
+    email: "matrix-x@artisan-cloud.com"
+    version: "v1"
+)
+
+
+import "admin/crm/orderitem.api"
+import "admin/crm/payment.api"
+
+@server(
+    group: admin/trade
+    prefix: /api/v1/admin/trade
+    middleware: EmployeeJWTAuth
+)
+
+service PowerX {
+    @doc "查询订单列表"
+    @handler ListOrders
+    get /orders/page-list (ListOrdersPageRequest) returns (ListOrdersPageReply)
+
+    @doc "查询订单详情"
+    @handler GetOrder
+    get /orders/:id (GetOrderRequest) returns (GetOrderReply)
+
+
+    @doc "创建订单"
+    @handler CreateOrder
+    post /orders (CreateOrderRequest) returns (CreateOrderReply)
+
+
+    @doc "全量订单"
+    @handler PutOrder
+    put /orders/:id (PutOrderRequest) returns (PutOrderReply)
+
+    @doc "增量订单"
+    @handler PatchOrder
+    patch /orders/:id (PatchOrderRequest) returns (PatchOrderReply)
+
+
+    @doc "删除订单"
+    @handler DeleteOrder
+    delete /orders/:id (DeleteOrderRequest) returns (DeleteOrderReply)
+}
+
+type (
+    Order {
+        Id int64 `json:"id,optional"`
+        CustomerId int64 `json:"customerId,optional"`
+        PaymentType int8 `json:"paymentType,optional"`
+        Type int8 `json:"type,optional"`
+        Status int8 `json:"status,optional"`
+        OrderNumber string `json:"orderNumber,optional"`
+        Discount float64 `json:"discount,optional"`
+        ListPrice float64 `json:"listPrice,optional"`
+        SellingPrice float64 `json:"sellingPrice,optional"`
+        Comment string `json:"comment,optional"`
+        OrderItems []OrderItem `json:"orderItems,optional"`
+        Payments []Payment `json:"payments,optional"`
+        //        Memberships []int64 `json:"memberships,optional"`
+        CreatedAt string `json:"createdAt,optional"`
+    }
+)
+type (
+    ListOrdersPageRequest struct {
+        OrderType string `form:"orderType,optional"`
+        Keys []string `form:"keys,optional"`
+        OrderBy string `form:"orderBy,optional"`
+        PageIndex int `form:"pageIndex,optional"`
+        PageSize int `form:"pageSize,optional"`
+    }
+
+
+    ListOrdersPageReply struct {
+        List []Order `json:"list"`
+        PageIndex int `json:"pageIndex"`
+        PageSize int `json:"pageSize"`
+        Total int64 `json:"total"`
+    }
+)
+
+type (
+    CreateOrderRequest struct {
+        Order
+    }
+
+    CreateOrderReply struct {
+        OrderKey int64 `json:"id"`
+    }
+)
+
+type (
+    GetOrderRequest struct {
+        OrderId int64 `path:"id"`
+    }
+
+    GetOrderReply struct {
+        *Order
+    }
+)
+
+
+type (
+    PutOrderRequest struct {
+        OrderId int64 `path:"id"`
+        Order
+    }
+
+    PutOrderReply struct {
+        *Order
+    }
+)
+
+type (
+    PatchOrderRequest struct {
+        OrderId int64 `path:"id"`
+        Order
+    }
+
+    PatchOrderReply struct {
+        *Order
+    }
+)
+
+
+type (
+    DeleteOrderRequest struct {
+        OrderId int64 `path:"id"`
+    }
+
+    DeleteOrderReply struct {
+        OrderId int64 `json:"id"`
+    }
+)
+

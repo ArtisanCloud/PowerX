@@ -1,0 +1,35 @@
+syntax = "v1"
+
+info(
+    title: "订单服务"
+    desc: "订单服务"
+    author: "MichaelHu"
+    email: "matrix-x@artisan-cloud.com"
+    version: "v1"
+)
+
+
+import "admin/crm/order.api"
+
+@server(
+    group: admin/trade
+    prefix: /api/v1/mp/trade
+    middleware: MPCustomerJWTAuth
+)
+
+service PowerX {
+    @doc "查询订单列表"
+    @handler ListOrders
+    get /orders/page-list (ListOrdersPageRequest) returns (ListOrdersPageReply)
+
+    @doc "查询订单详情"
+    @handler GetOrder
+    get /orders/:id (GetOrderRequest) returns (GetOrderReply)
+
+
+    @doc "创建订单"
+    @handler CreateOrder
+    post /orders (CreateOrderRequest) returns (CreateOrderReply)
+
+
+}

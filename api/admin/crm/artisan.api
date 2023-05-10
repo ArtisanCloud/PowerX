@@ -18,7 +18,7 @@ info(
 service PowerX {
     @doc "查询元匠列表"
     @handler ListArtisans
-    get /artisans (GetArtisanListRequest) returns (GetArtisanListReply)
+    get /artisans (ListArtisansRequest) returns (ListArtisansReply)
 
     @doc "查询元匠详情"
     @handler GetArtisan
@@ -72,7 +72,7 @@ type (
     }
 )
 type (
-    GetArtisanListRequest struct {
+    ListArtisansRequest struct {
         ArtisanType string `form:"artisanType,optional"`
         Keys []string `form:"keys,optional"`
         OrderBy string `form:"orderBy,optional"`
@@ -81,7 +81,7 @@ type (
     }
 
 
-    GetArtisanListReply struct {
+    ListArtisansReply struct {
         List []*Artisan `json:"list"`
         PageIndex int `json:"pageIndex"`
         PageSize int `json:"pageSize"`

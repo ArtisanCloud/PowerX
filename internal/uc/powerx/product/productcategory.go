@@ -37,7 +37,7 @@ func (uc *ProductCategoryUseCase) buildFindQueryNoPage(query *gorm.DB, opt *prod
 	return query
 }
 
-func (uc *ProductCategoryUseCase) GetProductCategoryTree(ctx context.Context, opt *product.FindProductCategoryOption, pId int64) []*product.ProductCategory {
+func (uc *ProductCategoryUseCase) ListProductCategoryTree(ctx context.Context, opt *product.FindProductCategoryOption, pId int64) []*product.ProductCategory {
 	if pId < 0 {
 		panic(errors.New("find productCategories pId invalid"))
 	}
@@ -57,7 +57,7 @@ func (uc *ProductCategoryUseCase) GetProductCategoryTree(ctx context.Context, op
 	var children []*product.ProductCategory
 	for i, category := range categories {
 
-		children = uc.GetProductCategoryTree(ctx, opt, category.Id)
+		children = uc.ListProductCategoryTree(ctx, opt, category.Id)
 
 		if len(children) > 0 {
 			categories[i].Children = children

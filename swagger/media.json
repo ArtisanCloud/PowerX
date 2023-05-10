@@ -19,12 +19,12 @@
     "/api/v1/admin/media/medias": {
       "get": {
         "summary": "查询媒资列表",
-        "operationId": "GetMediaList",
+        "operationId": "ListMedias",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/GetMediaListReply"
+              "$ref": "#/definitions/ListMediasReply"
             }
           }
         },
@@ -301,7 +301,7 @@
         "mediaKey"
       ]
     },
-    "GetMediaListReply": {
+    "ListMediasReply": {
       "type": "object",
       "properties": {
         "list": {
@@ -323,7 +323,7 @@
           "format": "int64"
         }
       },
-      "title": "GetMediaListReply",
+      "title": "ListMediasReply",
       "required": [
         "list",
         "pageIndex",
@@ -331,7 +331,7 @@
         "total"
       ]
     },
-    "GetMediaListRequest": {
+    "ListMediasRequest": {
       "type": "object",
       "properties": {
         "mediaType": {
@@ -355,7 +355,7 @@
           "format": "int32"
         }
       },
-      "title": "GetMediaListRequest",
+      "title": "ListMediasRequest",
       "required": [
         "descBy"
       ]
