@@ -386,7 +386,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				{
 					Method:  http.MethodGet,
 					Path:    "/medias",
-					Handler: adminmedia.ListMediasHandler(serverCtx),
+					Handler: adminmedia.ListMediasPageHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPost,
@@ -454,7 +454,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				{
 					Method:  http.MethodGet,
 					Path:    "/products/page-list",
-					Handler: adminproduct.ListProductsHandler(serverCtx),
+					Handler: adminproduct.ListProductsPageHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodGet,
@@ -565,8 +565,8 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			[]rest.Route{
 				{
 					Method:  http.MethodGet,
-					Path:    "/stores",
-					Handler: adminproduct.ListStoresHandler(serverCtx),
+					Path:    "/stores/page-list",
+					Handler: adminproduct.ListStoresPageHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodGet,
@@ -610,7 +610,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				{
 					Method:  http.MethodGet,
 					Path:    "/artisans",
-					Handler: adminproduct.ListArtisansHandler(serverCtx),
+					Handler: adminproduct.ListArtisansPageHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodGet,

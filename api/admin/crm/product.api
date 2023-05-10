@@ -17,7 +17,7 @@ info(
 
 service PowerX {
     @doc "查询产品列表"
-    @handler ListProducts
+    @handler ListProductsPage
     get /products/page-list (ListProductsPageRequest) returns (ListProductsPageReply)
 
     @doc "查询产品详情"

@@ -763,7 +763,7 @@ type AssignCustomerToEmployeeReply struct {
 	CustomerId int64 `json:"customerId"`
 }
 
-type ListMediasRequest struct {
+type ListMediasPageRequest struct {
 	MediaType string   `form:"mediaType,optional"`
 	Keys      []string `form:"keys,optional"`
 	OrderBy   string   `form:"orderBy,optional"`
@@ -780,7 +780,7 @@ type Media struct {
 	UpdatedAt string `json:"updatedAt"`
 }
 
-type ListMediasReply struct {
+type ListMediasPageReply struct {
 	List      []Media `json:"list"`
 	PageIndex int     `json:"pageIndex"`
 	PageSize  int     `json:"pageSize"`
@@ -1179,13 +1179,13 @@ type Store struct {
 	CreatedAt     string          `json:"createdAt,optional"`
 }
 
-type ListStoresRequest struct {
+type ListStoresPageRequest struct {
 	StoreType string   `form:"storeType,optional"`
 	Keys      []string `form:"keys,optional"`
 	OrderBy   string   `form:"orderBy,optional"`
 }
 
-type ListStoresReply struct {
+type ListStoresPageReply struct {
 	List      []*Store `json:"list"`
 	PageIndex int      `json:"pageIndex"`
 	PageSize  int      `json:"pageSize"`
@@ -1265,7 +1265,7 @@ type Artisan struct {
 	ArtisanSpecific ArtisanSpecific `json:"artisanSpecific,optional"`
 }
 
-type ListArtisansRequest struct {
+type ListArtisansPageRequest struct {
 	ArtisanType string   `form:"artisanType,optional"`
 	Keys        []string `form:"keys,optional"`
 	OrderBy     string   `form:"orderBy,optional"`
@@ -1273,7 +1273,7 @@ type ListArtisansRequest struct {
 	PageSize    int      `form:"pageSize,optional"`
 }
 
-type ListArtisansReply struct {
+type ListArtisansPageReply struct {
 	List      []*Artisan `json:"list"`
 	PageIndex int        `json:"pageIndex"`
 	PageSize  int        `json:"pageSize"`

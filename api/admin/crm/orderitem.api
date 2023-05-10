@@ -17,7 +17,7 @@ info(
 
 service PowerX {
     @doc "查询订单项列表"
-    @handler ListOrderItems
+    @handler ListOrderItemsPage
     get /order-item/page-list (ListOrderItemsPageRequest) returns (ListOrderItemsPageReply)
 
     @doc "查询订单项详情"

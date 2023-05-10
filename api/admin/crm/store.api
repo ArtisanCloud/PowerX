@@ -17,8 +17,8 @@ info(
 
 service PowerX {
     @doc "查询门店列表"
-    @handler ListStores
-    get /stores (ListStoresRequest) returns (ListStoresReply)
+    @handler ListStoresPage
+    get /stores/page-list (ListStoresPageRequest) returns (ListStoresPageReply)
 
     @doc "查询门店详情"
     @handler GetStore
@@ -86,14 +86,14 @@ type (
     }
 )
 type (
-    ListStoresRequest struct {
+    ListStoresPageRequest struct {
         StoreType string `form:"storeType,optional"`
         Keys []string `form:"keys,optional"`
         OrderBy string `form:"orderBy,optional"`
     }
 
 
-    ListStoresReply struct {
+    ListStoresPageReply struct {
         List []*Store `json:"list"`
         PageIndex int `json:"pageIndex"`
         PageSize int `json:"pageSize"`

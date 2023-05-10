@@ -16,7 +16,7 @@ type ListProductsLogic struct {
 	svcCtx *svc.ServiceContext
 }
 
-func NewListProductsLogic(ctx context.Context, svcCtx *svc.ServiceContext) *ListProductsLogic {
+func NewListProductsPageLogic(ctx context.Context, svcCtx *svc.ServiceContext) *ListProductsLogic {
 	return &ListProductsLogic{
 		Logger: logx.WithContext(ctx),
 		ctx:    ctx,
@@ -24,7 +24,7 @@ func NewListProductsLogic(ctx context.Context, svcCtx *svc.ServiceContext) *List
 	}
 }
 
-func (l *ListProductsLogic) ListProducts(req *types.ListProductsPageRequest) (resp *types.ListProductsPageReply, err error) {
+func (l *ListProductsLogic) ListProductsPage(req *types.ListProductsPageRequest) (resp *types.ListProductsPageReply, err error) {
 	page, err := l.svcCtx.PowerX.Product.FindManyProducts(l.ctx, &productUC.FindManyProductsOption{
 		PageEmbedOption: types.PageEmbedOption{
 			PageIndex: req.PageIndex,

@@ -17,7 +17,7 @@ info(
 
 service PowerX {
     @doc "查询支付单列表"
-    @handler ListPayments
+    @handler ListPaymentsPage
     get /payment/page-list (ListPaymentsPageRequest) returns (ListPaymentsPageReply)
 
     @doc "查询支付单详情"

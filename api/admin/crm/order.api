@@ -20,7 +20,7 @@ import "admin/crm/payment.api"
 
 service PowerX {
     @doc "查询订单列表"
-    @handler ListOrders
+    @handler ListOrdersPage
     get /orders/page-list (ListOrdersPageRequest) returns (ListOrdersPageReply)
 
     @doc "查询订单详情"
