@@ -1,6 +1,9 @@
 package carbonx
 
-import "github.com/golang-module/carbon/v2"
+import (
+	"github.com/golang-module/carbon/v2"
+	"github.com/pkg/errors"
+)
 
 var DefaultTimeZone = carbon.UTC
 
@@ -50,4 +53,31 @@ func GetWeekDaysFromDay(currentDay *carbon.Carbon, formatDate func(formatD *carb
 	}
 
 	return &startDate, &endDate
+}
+func GetCurrentDaysFromDay(currentDay *carbon.Carbon, formatDate func(formatD *carbon.Carbon) *carbon.Carbon) (*carbon.Carbon, *carbon.Carbon) {
+
+	startDate := currentDay.StartOfDay()
+	endDate := currentDay.EndOfDay()
+
+	if formatDate != nil {
+		startDate = *formatDate(&startDate)
+		endDate = *formatDate(&endDate)
+	}
+
+	return &startDate, &endDate
+}
+
+func ConvertDateStringToDatetime(strDate string) (*carbon.Carbon, error) {
+	now := carbon.Now()
+	var cDate carbon.Carbon
+	if strDate != "" {
+		cDate = carbon.Parse(strDate)
+		if cDate.IsInvalid() {
+			return nil, errors.New("查询的当前时间格式无效")
+		}
+	} else {
+		cDate = now
+	}
+
+	return &cDate, nil
 }
