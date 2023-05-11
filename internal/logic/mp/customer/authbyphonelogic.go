@@ -7,6 +7,7 @@ import (
 	"PowerX/internal/types"
 	customerdomain2 "PowerX/internal/uc/powerx/customerdomain"
 	"context"
+	"errors"
 	"fmt"
 	"github.com/ArtisanCloud/PowerLibs/v3/object"
 	"github.com/zeromicro/go-zero/core/logx"
@@ -32,9 +33,15 @@ func (l *AuthByPhoneLogic) AuthByPhone(req *types.MPCustomerAuthRequest) (resp *
 	// 获取session数据
 	rs, err := l.svcCtx.PowerX.WechatMP.App.Auth.Session(l.ctx, req.Code)
 	if err != nil {
-		panic(err)
-		return
+		return nil, err
 	}
+	if rs.ErrCode != 0 {
+		return nil, errors.New(rs.ErrMSG)
+	}
+	//req = &types.MPCustomerAuthRequest{
+	//	IV:            "TVzwghGb0j7EPlEtEZlObw==",
+	//	EncryptedData: "LOJWoEFniQy36NvQE+d81nA0A7HpgFTzddKjBQ6jCDczMUG0KopprANf+mU7OdsYhjggZ5K9oXg9ZCo/oFvRga6tkUI+memIBYdOR6QT85gFtJSWYY0+8Xy00dot9JKDe2ehGReZEgS24/CsKfoWbSYJdRnVX22Ckn3iYK5ELqR4zZg7MtUfTZzLUI8PpMje3D8SwxldnuB7eqdsrenOpw==",
+	//}
 	//rs := &response.ResponseCode2Session{
 	//	OpenId:     "o1IFX5A8sfi5nbkXwOzNLLLiL0OA",
 	//	SessionKey: "rUoiNCDNWekX68d7TmnNGw==",
@@ -45,7 +52,7 @@ func (l *AuthByPhoneLogic) AuthByPhone(req *types.MPCustomerAuthRequest) (resp *
 	msgData, errEncrypt := l.svcCtx.PowerX.WechatMP.App.Encryptor.DecryptData(req.EncryptedData, rs.SessionKey, req.IV)
 
 	if errEncrypt != nil {
-		panic(errEncrypt.ErrMsg)
+		return nil, errors.New(errEncrypt.ErrMsg)
 		return
 	}
 

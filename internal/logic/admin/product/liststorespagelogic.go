@@ -26,7 +26,7 @@ func NewListStoresPageLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Li
 }
 
 func (l *ListStoresLogic) ListStoresPage(req *types.ListStoresPageRequest) (resp *types.ListStoresPageReply, err error) {
-	stores, err := l.svcCtx.PowerX.Store.FindAllShops(l.ctx, &product.FindManyStoresOption{
+	stores, err := l.svcCtx.PowerX.Store.FindManyStores(l.ctx, &product.FindManyStoresOption{
 		LikeName: req.LikeName,
 		OrderBy:  req.OrderBy,
 		PageEmbedOption: types.PageEmbedOption{
@@ -38,10 +38,13 @@ func (l *ListStoresLogic) ListStoresPage(req *types.ListStoresPageRequest) (resp
 	if err != nil {
 		return nil, err
 	}
-	list := TransferStoresToStoresReply(stores)
+	list := TransferStoresToStoresReply(stores.List)
 
 	return &types.ListStoresPageReply{
-		List: list,
+		List:      list,
+		PageIndex: stores.PageIndex,
+		PageSize:  stores.PageSize,
+		Total:     stores.Total,
 	}, nil
 
 }
