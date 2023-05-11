@@ -761,8 +761,8 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			[]rest.Middleware{serverCtx.MPCustomerJWTAuth},
 			[]rest.Route{
 				{
-					Method:  http.MethodPost,
-					Path:    "/stores/list",
+					Method:  http.MethodGet,
+					Path:    "/stores/page-list",
 					Handler: mpproduct.ListStoresPageHandler(serverCtx),
 				},
 			}...,
