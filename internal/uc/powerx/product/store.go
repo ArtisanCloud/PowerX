@@ -67,6 +67,11 @@ func (uc *StoreUseCase) FindManyStores(ctx context.Context, opt *FindManyStoresO
 		panic(err)
 	}
 
+	opt.DefaultPageIfNotSet()
+	if opt.PageIndex != 0 && opt.PageSize != 0 {
+		db.Offset((opt.PageIndex - 1) * opt.PageSize).Limit(opt.PageSize)
+	}
+
 	if err := db.Find(&products).Error; err != nil {
 		panic(err)
 	}

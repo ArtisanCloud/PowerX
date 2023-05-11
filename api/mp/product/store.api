@@ -21,7 +21,7 @@ import "admin/crm/store.api"
 service PowerX {
     @doc "店铺列表"
     @handler ListStoresPage
-    post /stores/list (ListStoresPageRequest) returns (ListStoresPageReply)
+    get /stores/page-list (ListStoresPageRequest) returns (ListStoresPageReply)
 
 }
 
