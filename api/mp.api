@@ -1,3 +1,4 @@
+import "mp/dictionary.api"
 import "mp/authcustomer.api"
 import "mp/product/store.api"
 import "mp/product/product.api"

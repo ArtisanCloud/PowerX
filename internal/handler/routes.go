@@ -20,6 +20,7 @@ import (
 	adminscrmcustomer "PowerX/internal/handler/admin/scrm/customer"
 	adminuserinfo "PowerX/internal/handler/admin/userinfo"
 	mpcustomer "PowerX/internal/handler/mp/customer"
+	mpdictionary "PowerX/internal/handler/mp/dictionary"
 	mpproduct "PowerX/internal/handler/mp/product"
 	"PowerX/internal/svc"
 
@@ -733,6 +734,35 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			}...,
 		),
 		rest.WithPrefix("/api/v1/admin/scrm/contact"),
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.MPCustomerJWTAuth},
+			[]rest.Route{
+				{
+					Method:  http.MethodGet,
+					Path:    "/types/page-list",
+					Handler: mpdictionary.ListDictionaryPageTypesHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/types/:type",
+					Handler: mpdictionary.GetDictionaryTypeHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/items",
+					Handler: mpdictionary.ListDictionaryItemsHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/items/:type/:key",
+					Handler: mpdictionary.GetDictionaryItemHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithPrefix("/api/v1/mp/dictionary"),
 	)
 
 	server.AddRoutes(
