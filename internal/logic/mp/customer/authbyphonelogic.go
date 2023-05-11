@@ -38,6 +38,10 @@ func (l *AuthByPhoneLogic) AuthByPhone(req *types.MPCustomerAuthRequest) (resp *
 	if rs.ErrCode != 0 {
 		return nil, errors.New(rs.ErrMSG)
 	}
+	//req = &types.MPCustomerAuthRequest{
+	//	IV:            "TVzwghGb0j7EPlEtEZlObw==",
+	//	EncryptedData: "LOJWoEFniQy36NvQE+d81nA0A7HpgFTzddKjBQ6jCDczMUG0KopprANf+mU7OdsYhjggZ5K9oXg9ZCo/oFvRga6tkUI+memIBYdOR6QT85gFtJSWYY0+8Xy00dot9JKDe2ehGReZEgS24/CsKfoWbSYJdRnVX22Ckn3iYK5ELqR4zZg7MtUfTZzLUI8PpMje3D8SwxldnuB7eqdsrenOpw==",
+	//}
 	//rs := &response.ResponseCode2Session{
 	//	OpenId:     "o1IFX5A8sfi5nbkXwOzNLLLiL0OA",
 	//	SessionKey: "rUoiNCDNWekX68d7TmnNGw==",
