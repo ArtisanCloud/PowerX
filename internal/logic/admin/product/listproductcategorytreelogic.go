@@ -34,7 +34,7 @@ func (l *ListProductCategoryTreeLogic) ListProductCategoryTree(req *types.ListPr
 	productCategoryTree := l.svcCtx.PowerX.ProductCategory.ListProductCategoryTree(l.ctx, &option, 0)
 
 	// 转化返回类型的列表
-	productCategoryReplyList := l.convertModelToTypeReply(productCategoryTree)
+	productCategoryReplyList := TransformProductCategoriesToProductCategoriesReply(productCategoryTree)
 
 	return &types.ListProductCategoryTreeReply{
 		ProductCategories: productCategoryReplyList,
@@ -42,7 +42,7 @@ func (l *ListProductCategoryTreeLogic) ListProductCategoryTree(req *types.ListPr
 
 }
 
-func (l *ListProductCategoryTreeLogic) convertModelToTypeReply(productCategoryList []*product.ProductCategory) []types.ProductCategory {
+func TransformProductCategoriesToProductCategoriesReply(productCategoryList []*product.ProductCategory) []types.ProductCategory {
 	var productCategoryReplyList []types.ProductCategory
 	for _, category := range productCategoryList {
 		node := types.ProductCategory{
@@ -61,7 +61,7 @@ func (l *ListProductCategoryTreeLogic) convertModelToTypeReply(productCategoryLi
 			Children: nil,
 		}
 		if len(category.Children) > 0 {
-			node.Children = l.convertModelToTypeReply(category.Children)
+			node.Children = TransformProductCategoriesToProductCategoriesReply(category.Children)
 
 		}
 
