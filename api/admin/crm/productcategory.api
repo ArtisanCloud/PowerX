@@ -55,7 +55,7 @@ type (
         Description string `json:"description"`
         CreatedAt string `json:"createdAt,optional"`
         ImageAbleInfo
-        Children []ProductCategory `json:"children,optional"`
+        Children []*ProductCategory `json:"children,optional"`
     }
 )
 type (
@@ -66,7 +66,7 @@ type (
 
 
     ListProductCategoryTreeReply struct {
-        ProductCategories []ProductCategory `json:"tree"`
+        ProductCategories []*ProductCategory `json:"tree"`
     }
 )
 

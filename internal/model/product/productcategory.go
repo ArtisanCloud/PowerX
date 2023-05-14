@@ -21,9 +21,3 @@ type ProductCategory struct {
 }
 
 const ProductCategoryUniqueId = powermodel.UniqueId
-
-type FindProductCategoryOption struct {
-	OrderBy string
-	Ids     []int64
-	Names   []string
-}

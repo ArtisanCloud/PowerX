@@ -13,7 +13,7 @@ import "admin/crm/productcategory.api"
 @server(
     group: mp/product
     prefix: /api/v1/mp/product
-    middleware: EmployeeJWTAuth
+    middleware: MPCustomerJWTAuth
 )
 
 service PowerX {

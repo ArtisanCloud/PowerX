@@ -9,6 +9,8 @@ info(
 )
 
 
+import "admin/crm/productcategory.api"
+
 @server(
     group: admin/product
     prefix: /api/v1/admin/product
@@ -63,6 +65,7 @@ type (
         DataDictionaryKey string `json:"dataDictionaryKey,optional"`
     }
 
+
     Product {
         Id int64 `json:"id,optional"`
 
@@ -84,8 +87,10 @@ type (
         ProductSpecific
         PivotSalesChannels []*PivotDataDictionaryToObject `json:"pivotSalesChannels,optional"`
         PivotPromoteChannels []*PivotDataDictionaryToObject `json:"pivotPromoteChannels,optional"`
+        ProductCategories []*ProductCategory `json:"productCategories,optional"`
         SalesChannelsItemIds []int64 `json:"salesChannelsItemIds,optional"`
         PromoteChannelsItemIds []int64 `json:"promoteChannelsItemIds,optional"`
+        CategoryIds []int64 `json:"categoryIds,optional"`
     }
 )
 type (

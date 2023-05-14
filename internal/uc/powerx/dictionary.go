@@ -105,7 +105,7 @@ func (uc *DataDictionaryUseCase) FindAllDictionaryItems(ctx context.Context, opt
 
 	query = uc.buildFindQueryNoPage(query, opt)
 	if err := query.
-		Debug().
+		//Debug().
 		Find(&dictionaryItems).Error; err != nil {
 		panic(errors.Wrap(err, "find all dictionaryItems failed"))
 	}

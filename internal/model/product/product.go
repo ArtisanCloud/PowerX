@@ -3,7 +3,6 @@ package product
 import (
 	"PowerX/internal/model"
 	"PowerX/internal/model/powermodel"
-	"github.com/ArtisanCloud/PowerLibs/v3/database"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 	"time"
@@ -19,10 +18,12 @@ type ProductSpecific struct {
 }
 
 type Product struct {
+	ProductCategories      []*ProductCategory                   `gorm:"many2many:public.pivot_product_to_product_category;foreignKey:Id;joinForeignKey:ProductId;References:Id;JoinReferences:ProductCategoryId" json:"productCategories"`
 	PriceBooks             []*PriceBook                         `gorm:"many2many:public.price_book_entries;foreignKey:Id;joinForeignKey:Id;References:Id;JoinReferences:PriceBookId" json:"priceBooks"`
 	PriceBookEntries       []*PriceBookEntry                    `gorm:"foreignKey:ProductId;references:Id" json:"priceBookEntries"`
 	PivotSalesChannels     []*model.PivotDataDictionaryToObject `gorm:"polymorphic:Object;polymorphicValue:products" json:"pivotSalesChannels"`
 	PivotPromoteChannels   []*model.PivotDataDictionaryToObject `gorm:"polymorphic:Object;polymorphicValue:products" json:"pivotPromoteChannels"`
+	ProductCategoryIds     []int64                              `gorm:"-"`
 	SalesChannelsItemIds   []int64                              `gorm:"-"`
 	PromoteChannelsItemIds []int64                              `gorm:"-"`
 	//Coupons          []*Coupon         `gorm:"many2many:public.r_product_to_coupon;foreignKey:Id;joinForeignKey:ProductId;References:Id;JoinReferences:CouponId" json:"coupons"`
@@ -125,10 +126,32 @@ func (mdl *Product) ClearPivotPromoteChannels(db *gorm.DB) error {
 	return powermodel.ClearMorphPivots(db, &model.PivotDataDictionaryToObject{}, false, false, conditions)
 }
 
+// -- Product Category
+func (mdl *Product) LoadProductCategories(db *gorm.DB, conditions *map[string]interface{}) ([]*ProductCategory, error) {
+	mdl.ProductCategories = []*ProductCategory{}
+
+	if conditions == nil {
+		conditions = &map[string]interface{}{}
+	}
+	(*conditions)[TableNamePivotProductToProductCategory+".deleted_at"] = nil
+
+	err := powermodel.AssociationRelationship(db, conditions, mdl, "ProductCategories", false).Find(&mdl.ProductCategories)
+	if err != nil {
+		panic(err)
+	}
+	return mdl.ProductCategories, err
+}
+
+func (mdl *Product) ClearPivotProductCategories(db *gorm.DB) error {
+	conditions := &map[string]interface{}{}
+	(*conditions)[PivotProductToCategoryForeignKey] = mdl.Id
+	return powermodel.ClearMorphPivots(db, &PivotProductToProductCategory{}, false, false, conditions)
+}
+
 // -- PriceBookEntries
 func (mdl *Product) LoadPriceBookEntries(db *gorm.DB, conditions *map[string]interface{}) ([]*PriceBookEntry, error) {
 	mdl.PriceBookEntries = []*PriceBookEntry{}
-	err := database.AssociationRelationship(db, conditions, mdl, "PriceBookEntries", false).Find(&mdl.PriceBookEntries)
+	err := powermodel.AssociationRelationship(db, conditions, mdl, "PriceBookEntries", false).Find(&mdl.PriceBookEntries)
 	if err != nil {
 		panic(err)
 	}

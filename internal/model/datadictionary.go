@@ -105,7 +105,7 @@ func (mdl *PivotDataDictionaryToObject) GetForeignValue() int64 {
 }
 
 func (mdl *PivotDataDictionaryToObject) GetPivotComposedUniqueID() string {
-	key := fmt.Sprintf("%s-%d-%s-%s",
+	key := fmt.Sprintf("%s-%s-%s-%s",
 		mdl.GetOwnerKey(),
 		mdl.GetOwnerValue(),
 		mdl.DataDictionaryType,

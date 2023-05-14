@@ -6,6 +6,7 @@ import (
 	"PowerX/internal/svc"
 	"PowerX/internal/types"
 	"PowerX/internal/uc/powerx"
+	product2 "PowerX/internal/uc/powerx/product"
 	"context"
 	"github.com/golang-module/carbon/v2"
 	"gorm.io/datatypes"
@@ -49,6 +50,13 @@ func (l *CreateProductLogic) CreateProduct(req *types.CreateProductRequest) (res
 			return nil, err
 		}
 		mdlProduct.PivotPromoteChannels, err = (&model.PivotDataDictionaryToObject{}).MakeMorphPivotsFromObjectToDDs(mdlProduct, promoteChannelsItems)
+	}
+
+	if len(req.CategoryIds) > 0 {
+		productCategories := l.svcCtx.PowerX.ProductCategory.FindAllProductCategories(l.ctx, &product2.FindProductCategoryOption{
+			Ids: req.CategoryIds,
+		})
+		mdlProduct.ProductCategories = productCategories
 	}
 
 	err = l.svcCtx.PowerX.Product.CreateProduct(l.ctx, mdlProduct)
@@ -103,6 +111,14 @@ func TransformProductToProductReply(mdlProduct *product.Product) (productReply *
 		return arrayIds
 	}
 
+	getCategoryIds := func(categories []*product.ProductCategory) []int64 {
+		arrayIds := []int64{}
+		for _, category := range categories {
+			arrayIds = append(arrayIds, category.Id)
+		}
+		return arrayIds
+	}
+
 	return &types.Product{
 		Id:                 mdlProduct.Id,
 		Name:               mdlProduct.Name,
@@ -129,8 +145,10 @@ func TransformProductToProductReply(mdlProduct *product.Product) (productReply *
 		},
 		//PivotSalesChannels:   TransformDDsToDDsReply(mdlProduct.PivotSalesChannels),
 		//PivotPromoteChannels: TransformDDsToDDsReply(mdlProduct.PivotPromoteChannels),
+		ProductCategories:      TransformProductCategoriesToProductCategoriesReply(mdlProduct.ProductCategories),
 		SalesChannelsItemIds:   getItemIds(mdlProduct.PivotSalesChannels),
 		PromoteChannelsItemIds: getItemIds(mdlProduct.PivotPromoteChannels),
+		CategoryIds:            getCategoryIds(mdlProduct.ProductCategories),
 	}
 
 }

@@ -939,8 +939,10 @@ type Product struct {
 	ProductSpecific
 	PivotSalesChannels     []*PivotDataDictionaryToObject `json:"pivotSalesChannels,optional"`
 	PivotPromoteChannels   []*PivotDataDictionaryToObject `json:"pivotPromoteChannels,optional"`
+	ProductCategories      []*ProductCategory             `json:"productCategories,optional"`
 	SalesChannelsItemIds   []int64                        `json:"salesChannelsItemIds,optional"`
 	PromoteChannelsItemIds []int64                        `json:"promoteChannelsItemIds,optional"`
+	CategoryIds            []int64                        `json:"categoryIds,optional"`
 }
 
 type ListProductsPageRequest struct {
@@ -1024,7 +1026,7 @@ type ProductCategory struct {
 	Description string `json:"description"`
 	CreatedAt   string `json:"createdAt,optional"`
 	ImageAbleInfo
-	Children []ProductCategory `json:"children,optional"`
+	Children []*ProductCategory `json:"children,optional"`
 }
 
 type ListProductCategoryTreeRequest struct {
@@ -1033,7 +1035,7 @@ type ListProductCategoryTreeRequest struct {
 }
 
 type ListProductCategoryTreeReply struct {
-	ProductCategories []ProductCategory `json:"tree"`
+	ProductCategories []*ProductCategory `json:"tree"`
 }
 
 type UpsertProductCategoryRequest struct {

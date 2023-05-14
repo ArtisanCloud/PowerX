@@ -79,12 +79,12 @@ func (mdl *PowerPivot) GetOwnerKey() string {
 	// 如果正常的pivot，是没有ownerKey返回
 	return ""
 }
-func (mdl *PowerPivot) GetOwnerValue() int64 {
-	return 0
+func (mdl *PowerPivot) GetOwnerValue() string {
+	return ""
 }
 
 func (mdl *PowerPivot) GetPivotComposedUniqueID() string {
-	return fmt.Sprintf("%d-%d-%d", mdl.GetOwnerValue(), mdl.GetForeignValue(), mdl.GetJoinValue())
+	return fmt.Sprintf("%s-%d-%d", mdl.GetOwnerValue(), mdl.GetForeignValue(), mdl.GetJoinValue())
 }
 
 /**

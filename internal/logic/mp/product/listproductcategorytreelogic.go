@@ -2,7 +2,7 @@ package product
 
 import (
 	product2 "PowerX/internal/logic/admin/product"
-	"PowerX/internal/model/product"
+	product3 "PowerX/internal/uc/powerx/product"
 	"context"
 
 	"PowerX/internal/svc"
@@ -26,7 +26,7 @@ func NewListProductCategoryTreeLogic(ctx context.Context, svcCtx *svc.ServiceCon
 }
 
 func (l *ListProductCategoryTreeLogic) ListProductCategoryTree(req *types.ListProductCategoryTreeRequest) (resp *types.ListProductCategoryTreeReply, err error) {
-	option := product.FindProductCategoryOption{
+	option := product3.FindProductCategoryOption{
 		Names:   req.Names,
 		OrderBy: req.OrderBy,
 	}
