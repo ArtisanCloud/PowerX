@@ -5,6 +5,7 @@ import (
 	"PowerX/internal/svc"
 	"PowerX/internal/types"
 	"PowerX/internal/uc/powerx"
+	product2 "PowerX/internal/uc/powerx/product"
 	"context"
 
 	"github.com/zeromicro/go-zero/core/logx"
@@ -50,6 +51,14 @@ func (l *PutProductLogic) PutProduct(req *types.PutProductRequest) (resp *types.
 			return nil, err
 		}
 		mdlProduct.PivotPromoteChannels, err = (&model.PivotDataDictionaryToObject{}).MakeMorphPivotsFromObjectToDDs(mdlProduct, promoteChannelsItems)
+	}
+
+	// 处理产品品类
+	if len(req.CategoryIds) > 0 {
+		productCategories := l.svcCtx.PowerX.ProductCategory.FindAllProductCategories(l.ctx, &product2.FindProductCategoryOption{
+			Ids: req.CategoryIds,
+		})
+		mdlProduct.ProductCategories = productCategories
 	}
 
 	// 更新产品对象

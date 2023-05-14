@@ -20,7 +20,13 @@ func NewProductCategoryUseCase(db *gorm.DB) *ProductCategoryUseCase {
 	}
 }
 
-func (uc *ProductCategoryUseCase) buildFindQueryNoPage(query *gorm.DB, opt *product.FindProductCategoryOption) *gorm.DB {
+type FindProductCategoryOption struct {
+	OrderBy string
+	Ids     []int64
+	Names   []string
+}
+
+func (uc *ProductCategoryUseCase) buildFindQueryNoPage(query *gorm.DB, opt *FindProductCategoryOption) *gorm.DB {
 	if len(opt.Ids) > 0 {
 		query.Where("id in ?", opt.Ids)
 	}
@@ -37,7 +43,7 @@ func (uc *ProductCategoryUseCase) buildFindQueryNoPage(query *gorm.DB, opt *prod
 	return query
 }
 
-func (uc *ProductCategoryUseCase) ListProductCategoryTree(ctx context.Context, opt *product.FindProductCategoryOption, pId int64) []*product.ProductCategory {
+func (uc *ProductCategoryUseCase) ListProductCategoryTree(ctx context.Context, opt *FindProductCategoryOption, pId int64) []*product.ProductCategory {
 	if pId < 0 {
 		panic(errors.New("find productCategories pId invalid"))
 	}
@@ -66,7 +72,7 @@ func (uc *ProductCategoryUseCase) ListProductCategoryTree(ctx context.Context, o
 	return categories
 }
 
-func (uc *ProductCategoryUseCase) FindAllProductCategories(ctx context.Context, opt *product.FindProductCategoryOption) []*product.ProductCategory {
+func (uc *ProductCategoryUseCase) FindAllProductCategories(ctx context.Context, opt *FindProductCategoryOption) []*product.ProductCategory {
 	var productCategories []*product.ProductCategory
 	query := uc.db.WithContext(ctx).Model(&product.ProductCategory{})
 
@@ -77,7 +83,7 @@ func (uc *ProductCategoryUseCase) FindAllProductCategories(ctx context.Context, 
 	return productCategories
 }
 
-func (uc *ProductCategoryUseCase) FindOneProductCategory(ctx context.Context, opt *product.FindProductCategoryOption) (*product.ProductCategory, error) {
+func (uc *ProductCategoryUseCase) FindOneProductCategory(ctx context.Context, opt *FindProductCategoryOption) (*product.ProductCategory, error) {
 	var mpCustomer *product.ProductCategory
 	query := uc.db.WithContext(ctx).Model(&product.ProductCategory{})
 

@@ -2,6 +2,7 @@ package product
 
 import (
 	"PowerX/internal/model/product"
+	product2 "PowerX/internal/uc/powerx/product"
 	"context"
 
 	"PowerX/internal/svc"
@@ -25,7 +26,7 @@ func NewListProductCategoryTreeLogic(ctx context.Context, svcCtx *svc.ServiceCon
 }
 
 func (l *ListProductCategoryTreeLogic) ListProductCategoryTree(req *types.ListProductCategoryTreeRequest) (resp *types.ListProductCategoryTreeReply, err error) {
-	option := product.FindProductCategoryOption{
+	option := product2.FindProductCategoryOption{
 		Names:   req.Names,
 		OrderBy: req.OrderBy,
 	}
@@ -42,10 +43,10 @@ func (l *ListProductCategoryTreeLogic) ListProductCategoryTree(req *types.ListPr
 
 }
 
-func TransformProductCategoriesToProductCategoriesReply(productCategoryList []*product.ProductCategory) []types.ProductCategory {
-	var productCategoryReplyList []types.ProductCategory
+func TransformProductCategoriesToProductCategoriesReply(productCategoryList []*product.ProductCategory) []*types.ProductCategory {
+	var productCategoryReplyList []*types.ProductCategory
 	for _, category := range productCategoryList {
-		node := types.ProductCategory{
+		node := &types.ProductCategory{
 			Id:          category.Id,
 			PId:         category.PId,
 			Name:        category.Name,

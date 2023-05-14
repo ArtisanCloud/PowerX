@@ -187,6 +187,11 @@ func (uc *ProductUseCase) LoadAssociations(product *model.Product) (*model.Produ
 	if err != nil {
 		return nil, err
 	}
+	product.ProductCategories, err = product.LoadProductCategories(uc.db, nil)
+	if err != nil {
+		return nil, err
+	}
+
 	return product, err
 }
 
@@ -199,6 +204,11 @@ func (uc *ProductUseCase) ClearAssociations(db *gorm.DB, product *model.Product)
 	}
 	// 清除推广渠道的关联
 	err = product.ClearPivotPromoteChannels(db)
+	if err != nil {
+		return nil, err
+	}
+	// 清除产品品类记录
+	err = product.ClearPivotProductCategories(db)
 	if err != nil {
 		return nil, err
 	}

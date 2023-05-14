@@ -2,7 +2,6 @@ package product
 
 import (
 	"PowerX/internal/model/powermodel"
-	"github.com/ArtisanCloud/PowerLibs/v3/database"
 	"gorm.io/gorm"
 	"time"
 )
@@ -30,7 +29,7 @@ const StoreUniqueId = powermodel.UniqueId
 func (mdl *Store) LoadArtisans(db *gorm.DB, conditions *map[string]interface{}, withClauseAssociations bool) error {
 
 	mdl.Artisans = []*Artisan{}
-	err := database.AssociationRelationship(db, conditions, mdl, "Artisans", false).Find(&mdl.Artisans)
+	err := powermodel.AssociationRelationship(db, conditions, mdl, "Artisans", false).Find(&mdl.Artisans)
 	//fmt.Dump(mdl.Artisans)
 	return err
 }

@@ -18,3 +18,20 @@ type PivotProductToProductCategory struct {
 }
 
 const TableNamePivotProductToProductCategory = "pivot_product_to_product_category"
+
+const PivotProductToCategoryForeignKey = "product_id"
+const PivotProductToCategoryJoinKey = "product_category_id"
+
+func (mdl *PivotProductToProductCategory) GetForeignKey() string {
+	return PivotProductToCategoryForeignKey
+}
+func (mdl *PivotProductToProductCategory) GetForeignValue() int64 {
+	return mdl.ProductId
+}
+
+func (mdl *PivotProductToProductCategory) GetJoinKey() string {
+	return PivotProductToCategoryJoinKey
+}
+func (mdl *PivotProductToProductCategory) GetJoinValue() int64 {
+	return mdl.ProductCategoryId
+}
