@@ -1,0 +1,46 @@
+syntax = "v1"
+
+info(
+    title: "媒资管理"
+    desc: "媒资管理"
+    author: "MichaelHu"
+    email: "matrix-x@artisa-cloud.com"
+    version: "v1"
+)
+
+@server(
+    group: admin/media
+    prefix: /api/v1/admin/media
+    middleware: EmployeeJWTAuth
+)
+
+service PowerX {
+//    @doc "查询媒资列表"
+//    @handler ListMediaResources
+//    get /media-resources returns (ListMediaResourcesReply)
+
+    @doc "创建媒资"
+    @handler CreateMediaResource
+    post /media-resources (CreateMediaResourceRequest) returns (CreateMediaResourceReply)
+
+//    @doc "获取媒资详情"
+//    @handler GetMediaResource
+//    get /media-resources/:id (GetMediaResourceRequest) returns (GetMediaResourceReply)
+//
+//    @doc "删除媒资"
+//    @handler DeleteMediaResource
+//    delete /media-resources/:id (DeleteMediaResourceRequest) returns (DeleteMediaResourceReply)
+
+
+}
+
+type (
+    CreateMediaResourceRequest struct {
+        File *multipart.FileHeader `form:"file"` // 文件参数
+    }
+
+    CreateMediaResourceReply struct {
+        MediaResourceKey int64 `json:"id"`
+    }
+)
+

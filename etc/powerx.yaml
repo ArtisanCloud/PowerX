@@ -47,3 +47,9 @@ WeWork:
   Token: tEBuofHfxxxxxxxxxxxxBPTq9K                      # 企业微信应用的Token，用于处理接收到的消息
   EncodingAESKey: Gv3T4dP5QBDxxxxxxxxxxxxxxxxxxxxxxxc2vwlmUhY  # 企业微信应用的 EncodingAESKey，用于加密/解密接收和发送的消息
   HttpDebug: true            # 是否启用HTTP调试模式
+
+OSS:
+  Minio:
+    Endpoint : "127.0.0.1:9090"
+    AccessKey : "Oq2MarFTf1BVcqbJ"
+    SecretKey : "ReKXZsyru5q7GEWsm6VmiGg2AhipiV15"

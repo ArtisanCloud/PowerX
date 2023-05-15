@@ -1,6 +1,8 @@
 package config
 
-import "github.com/zeromicro/go-zero/rest"
+import (
+	"github.com/zeromicro/go-zero/rest"
+)
 
 type Database struct {
 	DSN string
@@ -39,6 +41,19 @@ type WechatMP struct {
 	HttpDebug bool
 }
 
+type OSS struct {
+	Minio Minio
+}
+
+type Minio struct {
+	Endpoint    string
+	Credentials struct {
+		AccessKey string
+		SecretKey string
+	}
+	UseSSL bool
+}
+
 type Root struct {
 	Account  string
 	Password string
@@ -56,4 +71,5 @@ type Config struct {
 	WechatMP  WechatMP
 	WechatPay WechatPay
 	WeWork    WeWork
+	OSS       OSS
 }

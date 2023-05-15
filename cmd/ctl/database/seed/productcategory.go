@@ -11,14 +11,14 @@ func CreateProductCategories(db *gorm.DB) (err error) {
 
 	var count int64
 	if err = db.Model(&product.ProductCategory{}).Count(&count).Error; err != nil {
-		panic(errors.Wrap(err, "init price category  failed"))
+		panic(errors.Wrap(err, "init product category  failed"))
 	}
 
 	data := DefaultProductCategory()
 	if count == 0 {
 		for _, item := range data {
 			if err = db.Model(&product.ProductCategory{}).Create(item).Error; err != nil {
-				panic(errors.Wrap(err, "init price category failed"))
+				panic(errors.Wrap(err, "init product category failed"))
 			}
 		}
 	}
