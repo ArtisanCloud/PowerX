@@ -1031,8 +1031,9 @@ type ProductCategory struct {
 }
 
 type ListProductCategoryTreeRequest struct {
-	Names   []string `form:"name,optional"`
-	OrderBy string   `form:"orderBy,optional"`
+	CategoryPID int      `form:"categoryPID,optional"`
+	Names       []string `form:"name,optional"`
+	OrderBy     string   `form:"orderBy,optional"`
 }
 
 type ListProductCategoryTreeReply struct {

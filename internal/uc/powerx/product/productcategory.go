@@ -21,9 +21,10 @@ func NewProductCategoryUseCase(db *gorm.DB) *ProductCategoryUseCase {
 }
 
 type FindProductCategoryOption struct {
-	OrderBy string
-	Ids     []int64
-	Names   []string
+	OrderBy     string
+	CategoryPID int
+	Ids         []int64
+	Names       []string
 }
 
 func (uc *ProductCategoryUseCase) buildFindQueryNoPage(query *gorm.DB, opt *FindProductCategoryOption) *gorm.DB {
@@ -53,8 +54,9 @@ func (uc *ProductCategoryUseCase) ListProductCategoryTree(ctx context.Context, o
 	query := uc.db.WithContext(ctx).Model(&product.ProductCategory{})
 	query = uc.buildFindQueryNoPage(query, opt)
 
-	err := query.Where("p_id", pId).
-		//Debug().
+	err := query.
+		Where("p_id", pId).
+		Debug().
 		Find(&categories).
 		Error
 	if err != nil {

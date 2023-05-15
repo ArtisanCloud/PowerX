@@ -32,6 +32,8 @@ func main() {
 	handler.RegisterHandlers(server, ctx)
 	handler.RegisterWebhookHandlers(server, ctx)
 
+	handler.RegisterStaticHandlers(server, ctx)
+
 	// error 5xx
 	server.Use(recovery.RecoverMiddleware())
 
