@@ -946,11 +946,12 @@ type Product struct {
 }
 
 type ListProductsPageRequest struct {
-	ProductType string   `form:"productType,optional"`
-	Keys        []string `form:"keys,optional"`
-	OrderBy     string   `form:"orderBy,optional"`
-	PageIndex   int      `form:"pageIndex,optional"`
-	PageSize    int      `form:"pageSize,optional"`
+	ProductType       string   `form:"productType,optional"`
+	Keys              []string `form:"keys,optional"`
+	ProductCategoryId int      `form:"productCategoryId,optional"`
+	OrderBy           string   `form:"orderBy,optional"`
+	PageIndex         int      `form:"pageIndex,optional"`
+	PageSize          int      `form:"pageSize,optional"`
 }
 
 type ListProductsPageReply struct {
