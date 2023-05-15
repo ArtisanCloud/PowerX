@@ -71,6 +71,7 @@ func (l *AuthByPhoneLogic) AuthByPhone(req *types.MPCustomerAuthRequest) (resp *
 		UnionId:     rs.UnionID,
 		MPPhoneInfo: *mpPhoneInfo,
 	}
+	mpCustomer.UniqueID = mpCustomer.GetComposedUniqueID()
 
 	// upsert 小程序客户记录
 	mpCustomer, err = l.svcCtx.PowerX.WechatMP.UpsertMPCustomer(l.ctx, mpCustomer)

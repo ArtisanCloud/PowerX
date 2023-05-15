@@ -2,6 +2,7 @@ package model
 
 import (
 	"fmt"
+	"github.com/ArtisanCloud/PowerLibs/v3/security"
 	"gorm.io/datatypes"
 )
 
@@ -29,8 +30,8 @@ type WechatMPCustomer struct {
 	Model
 	UniqueID   string `gorm:"unique" json:"uniqueId"`
 	SessionKey string `json:"-"`
-	OpenId     string `gorm:"unique" json:"openId"`
-	UnionId    string `gorm:"unique" json:"unionId"`
+	OpenId     string `json:"openId"`
+	UnionId    string `json:"unionId"`
 	MPPhoneInfo
 	MPUserInfo
 	//PhoneNumber        string `json:"phoneNumber"`
@@ -94,5 +95,8 @@ type MPUserInfo struct {
 }
 
 func (mdl *WechatMPCustomer) GetComposedUniqueID() string {
-	return fmt.Sprintf("%s-%s", mdl.UniqueID, mdl.OpenId)
+	strKey := fmt.Sprintf("%s-%s", mdl.UniqueID, mdl.OpenId)
+	hashKey := security.HashStringData(strKey)
+
+	return hashKey
 }
