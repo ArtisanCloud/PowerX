@@ -53,10 +53,12 @@ service PowerX {
 type (
     ProductSpecific {
         Inventory int16 `json:"inventory,optional"`
+        SoldAmount int16 `json:"soldAmount,optional"`
         Weight float32 `json:"weight,optional"`
         Volume float32 `json:"volume,optional"`
         Encode string `json:"encode,optional"`
         BarCode string `json:"barCode,optional"`
+
         Extra string `json:"extra,optional"`
     }
 
@@ -77,8 +79,8 @@ type (
         CanUseForDeduct bool `json:"canUseForDeduct,optional"`
         Description string `json:"description,optional"`
         CoverURL string `json:"coverURL,optional"`
-        PurchasedQuantity int `json:"purchasedQuantity,optional"`
-        ValidityPeriodDays uint8 `json:"validityPeriodDays,optional"`
+        AllowedSellQuantity int `json:"purchasedQuantity,optional"`
+        ValidityPeriodDays int `json:"validityPeriodDays,optional"`
         SaleStartDate string `json:"saleStartDate,optional"`
         SaleEndDate string `json:"saleEndDate,optional"`
         ApprovalStatus int `json:"approvalStatus,optional"`
@@ -93,6 +95,7 @@ type (
         CategoryIds []int64 `json:"categoryIds,optional"`
     }
 )
+
 type (
     ListProductsPageRequest struct {
         ProductType string `form:"productType,optional"`

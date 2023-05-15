@@ -906,12 +906,13 @@ type DeleteOpportunityReply struct {
 }
 
 type ProductSpecific struct {
-	Inventory int16   `json:"inventory,optional"`
-	Weight    float32 `json:"weight,optional"`
-	Volume    float32 `json:"volume,optional"`
-	Encode    string  `json:"encode,optional"`
-	BarCode   string  `json:"barCode,optional"`
-	Extra     string  `json:"extra,optional"`
+	Inventory  int16   `json:"inventory,optional"`
+	SoldAmount int16   `json:"soldAmount,optional"`
+	Weight     float32 `json:"weight,optional"`
+	Volume     float32 `json:"volume,optional"`
+	Encode     string  `json:"encode,optional"`
+	BarCode    string  `json:"barCode,optional"`
+	Extra      string  `json:"extra,optional"`
 }
 
 type PivotDataDictionaryToObject struct {
@@ -920,22 +921,22 @@ type PivotDataDictionaryToObject struct {
 }
 
 type Product struct {
-	Id                 int64  `json:"id,optional"`
-	Name               string `json:"name"`
-	Type               int    `json:"type"`
-	Plan               int    `json:"plan"`
-	AccountingCategory string `json:"accountingCategory"`
-	CanSellOnline      bool   `json:"canSellOnline,optional"`
-	CanUseForDeduct    bool   `json:"canUseForDeduct,optional"`
-	Description        string `json:"description,optional"`
-	CoverURL           string `json:"coverURL,optional"`
-	PurchasedQuantity  int    `json:"purchasedQuantity,optional"`
-	ValidityPeriodDays uint8  `json:"validityPeriodDays,optional"`
-	SaleStartDate      string `json:"saleStartDate,optional"`
-	SaleEndDate        string `json:"saleEndDate,optional"`
-	ApprovalStatus     int    `json:"approvalStatus,optional"`
-	IsActivated        bool   `json:"isActivated,optional"`
-	CreatedAt          string `json:"createdAt,optional"`
+	Id                  int64  `json:"id,optional"`
+	Name                string `json:"name"`
+	Type                int    `json:"type"`
+	Plan                int    `json:"plan"`
+	AccountingCategory  string `json:"accountingCategory"`
+	CanSellOnline       bool   `json:"canSellOnline,optional"`
+	CanUseForDeduct     bool   `json:"canUseForDeduct,optional"`
+	Description         string `json:"description,optional"`
+	CoverURL            string `json:"coverURL,optional"`
+	AllowedSellQuantity int    `json:"purchasedQuantity,optional"`
+	ValidityPeriodDays  int    `json:"validityPeriodDays,optional"`
+	SaleStartDate       string `json:"saleStartDate,optional"`
+	SaleEndDate         string `json:"saleEndDate,optional"`
+	ApprovalStatus      int    `json:"approvalStatus,optional"`
+	IsActivated         bool   `json:"isActivated,optional"`
+	CreatedAt           string `json:"createdAt,optional"`
 	ProductSpecific
 	PivotSalesChannels     []*PivotDataDictionaryToObject `json:"pivotSalesChannels,optional"`
 	PivotPromoteChannels   []*PivotDataDictionaryToObject `json:"pivotPromoteChannels,optional"`
