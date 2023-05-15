@@ -563,6 +563,19 @@ type ModifyPasswordReqeust struct {
 	Password string `json:"password"`
 }
 
+type MediaResource struct {
+	Filename     string `json:"id,optional"`
+	Size         int64  `json:"size,optional"`
+	Url          string `json:"url,optional"`
+	ContentType  string `json:"contentType,optional"`
+	ResourceType string `json:"resourceType,optional"`
+}
+
+type CreateMediaResourceReply struct {
+	*MediaResource
+	IsOSS bool `json:"isOSS"`
+}
+
 type LeadExternalId struct {
 	OpenIdInMiniProgram           string `json:"openIdInMiniProgram,optional"`
 	OpenIdInWeChatOfficialAccount string `json:"openIdInWeChatOfficialAccount,optional"`
