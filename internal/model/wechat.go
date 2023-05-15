@@ -1,6 +1,10 @@
 package model
 
-import "gorm.io/datatypes"
+import (
+	"fmt"
+	"github.com/ArtisanCloud/PowerLibs/v3/security"
+	"gorm.io/datatypes"
+)
 
 // model
 // 公众号的客户信息
@@ -24,9 +28,10 @@ type WechatOACustomer struct {
 // 小程序客户信息
 type WechatMPCustomer struct {
 	Model
+	UniqueID   string `gorm:"unique" json:"uniqueId"`
 	SessionKey string `json:"-"`
-	OpenId     string `gorm:"unique" json:"openId"`
-	UnionId    string `gorm:"unique" json:"unionId"`
+	OpenId     string `json:"openId"`
+	UnionId    string `json:"unionId"`
 	MPPhoneInfo
 	MPUserInfo
 	//PhoneNumber        string `json:"phoneNumber"`
@@ -43,7 +48,7 @@ type WechatMPCustomer struct {
 	//Language           string `json:"language"`
 }
 
-const WechatMpCustomerUniqueId = "open_id"
+const WechatMpCustomerUniqueId = "unique_id"
 
 type FindMPCustomerOption struct {
 	Ids             []int64
@@ -87,4 +92,11 @@ type MPUserInfo struct {
 	Province  string `json:"province,omitempty"`
 	City      string `json:"city,omitempty"`
 	Language  string `json:"language,omitempty"`
+}
+
+func (mdl *WechatMPCustomer) GetComposedUniqueID() string {
+	strKey := fmt.Sprintf("%s-%s", mdl.UniqueID, mdl.OpenId)
+	hashKey := security.HashStringData(strKey)
+
+	return hashKey
 }
