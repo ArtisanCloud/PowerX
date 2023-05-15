@@ -93,7 +93,7 @@ func (mdl *PowerPivot) GetPivotComposedUniqueID() string {
 func AssociationRelationship(db *gorm.DB, conditions *map[string]interface{}, mdl interface{}, relationship string, withClauseAssociations bool) *gorm.Association {
 
 	tx := db.
-		Debug().
+		//Debug().
 		Model(mdl)
 
 	if withClauseAssociations {

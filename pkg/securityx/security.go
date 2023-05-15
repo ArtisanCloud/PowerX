@@ -13,10 +13,15 @@ func HashStringData(strData string) string {
 	return fmt.Sprintf("%x", hashKey)
 }
 
-func MaskName(name string) (maskedName string) {
-	nameLen := len(name)
+func MaskName(name string, maskLen int) (maskedName string) {
+	runes := []rune(name)
+	nameLen := len(runes)
 	if nameLen > 2 {
-		maskedName = name[:2] + strings.Repeat("*", nameLen-2)
+		// 是否要定制脱敏长度
+		if maskLen >= 0 && maskLen < nameLen {
+			nameLen = maskLen
+		}
+		maskedName = string(runes[:2]) + strings.Repeat("*", nameLen-2)
 	} else {
 		maskedName = strings.Repeat("*", nameLen)
 	}

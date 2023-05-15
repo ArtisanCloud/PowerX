@@ -298,6 +298,20 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
 			[]rest.Route{
 				{
+					Method:  http.MethodPost,
+					Path:    "/media-resources",
+					Handler: adminmedia.CreateMediaResourceHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithPrefix("/api/v1/admin/media"),
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Route{
+				{
 					Method:  http.MethodGet,
 					Path:    "/leads/:id",
 					Handler: adminlead.GetLeadHandler(serverCtx),
