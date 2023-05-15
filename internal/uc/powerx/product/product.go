@@ -22,9 +22,10 @@ func NewProductUseCase(db *gorm.DB) *ProductUseCase {
 }
 
 type FindManyProductsOption struct {
-	Types    []string
-	Plans    []string
-	LikeName string
+	Types      []string
+	Plans      []string
+	CategoryId int
+	LikeName   string
 	types.PageEmbedOption
 }
 
@@ -35,6 +36,15 @@ func (uc *ProductUseCase) buildFindQueryNoPage(db *gorm.DB, opt *FindManyProduct
 	if len(opt.Plans) > 0 {
 		db = db.Where("plan IN ?", opt.Plans)
 	}
+
+	if opt.CategoryId > 0 {
+		db = db.
+			Joins("LEFT JOIN pivot_product_to_product_category ON pivot_product_to_product_category.product_id = products.id").
+			Joins("LEFT JOIN product_categories ON product_categories.id = pivot_product_to_product_category.product_category_id").
+			Where("product_categories.id = ?", opt.CategoryId).
+			Where("pivot_product_to_product_category.deleted_at IS NULL")
+	}
+
 	if opt.LikeName != "" {
 		db = db.Where("name LIKE ?", "%"+opt.LikeName+"%")
 	}
