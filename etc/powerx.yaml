@@ -50,6 +50,8 @@ WeWork:
 
 OSS:
   Minio:
-    Endpoint : "127.0.0.1:9090"
-    AccessKey : "Oq2MarFTf1BVcqbJ"
-    SecretKey : "ReKXZsyru5q7GEWsm6VmiGg2AhipiV15"
+    Endpoint: "127.0.0.1:9090"
+    Credentials:
+      AccessKey: "Oq2MarFTf1BVcqbJ"
+      SecretKey: "ReKXZsyru5q7GEWsm6VmiGg2AhipiV15"
+    useSSL: false
