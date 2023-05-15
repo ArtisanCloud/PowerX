@@ -31,8 +31,13 @@ func (l *ListProductCategoryTreeLogic) ListProductCategoryTree(req *types.ListPr
 		OrderBy: req.OrderBy,
 	}
 
+	var pId int64 = 0
+	if req.CategoryPID > 0 {
+		pId = int64(req.CategoryPID)
+	}
+
 	// 获取模型类型的列表
-	productCategoryTree := l.svcCtx.PowerX.ProductCategory.ListProductCategoryTree(l.ctx, &option, 0)
+	productCategoryTree := l.svcCtx.PowerX.ProductCategory.ListProductCategoryTree(l.ctx, &option, pId)
 
 	// 转化返回类型的列表
 	productCategoryReplyList := product2.TransformProductCategoriesToProductCategoriesReply(productCategoryTree)
