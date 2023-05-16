@@ -2,6 +2,7 @@ package product
 
 import (
 	"PowerX/internal/model"
+	"PowerX/internal/model/media"
 	"PowerX/internal/model/product"
 	"PowerX/internal/svc"
 	"PowerX/internal/types"
@@ -148,23 +149,23 @@ func TransformProductToProductReply(mdlProduct *product.Product) (productReply *
 		SalesChannelsItemIds:   getItemIds(mdlProduct.PivotSalesChannels),
 		PromoteChannelsItemIds: getItemIds(mdlProduct.PivotPromoteChannels),
 		CategoryIds:            getCategoryIds(mdlProduct.ProductCategories),
+		DetailImages:           TransformProductImagesToImagesReply(mdlProduct.PivotDetailImages),
 	}
 
 }
 
-func TransformDDsToDDsReply(dds []*model.PivotDataDictionaryToObject) (ddsReply []*types.PivotDataDictionaryToObject) {
+func TransformProductImagesToImagesReply(pivots []*media.PivotMediaResourceToObject) (imagesReply []*types.DetailImage) {
 
-	ddsReply = []*types.PivotDataDictionaryToObject{}
-	for _, dd := range dds {
-		ddReply := TransformDDToDDReply(dd)
-		ddsReply = append(ddsReply, ddReply)
+	imagesReply = []*types.DetailImage{}
+	for _, pivot := range pivots {
+		imageReply := TransformProductImageToImageReply(pivot)
+		imagesReply = append(imagesReply, imageReply)
 	}
-	return ddsReply
+	return imagesReply
 }
 
-func TransformDDToDDReply(dd *model.PivotDataDictionaryToObject) (ddReply *types.PivotDataDictionaryToObject) {
-	return &types.PivotDataDictionaryToObject{
-		DataDictionaryType: dd.DataDictionaryType,
-		DataDictionaryKey:  dd.DataDictionaryKey,
+func TransformProductImageToImageReply(pivot *media.PivotMediaResourceToObject) (ddReply *types.DetailImage) {
+	return &types.DetailImage{
+		Url: pivot.MediaResource.Url,
 	}
 }

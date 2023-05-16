@@ -16,6 +16,8 @@ func (mdl *PivotMediaResourceToObject) TableName() string {
 type PivotMediaResourceToObject struct {
 	powermodel.PowerPivot
 
+	MediaResource *MediaResource `gorm:"foreignKey:MediaResourceId;references:Id" json:"mediaResource"`
+
 	// 所属键 owner key and value
 	ObjectType string `gorm:"column:object_type; not null;index:idx_obj_type;comment:对象表名称" json:"objectOwner"`
 	// 外键foreign key and value
@@ -82,7 +84,7 @@ func (mdl *PivotMediaResourceToObject) MakeMorphPivotsFromObjectToMediaResources
 	pivots := []*PivotMediaResourceToObject{}
 	for _, mediaResource := range mediaResources {
 		pivot := &PivotMediaResourceToObject{
-			ObjectType:      obj.GetTableName(true),
+			ObjectType:      obj.GetTableName(false),
 			ObjectID:        obj.GetForeignReferValue(),
 			MediaResourceId: mediaResource.Id,
 		}

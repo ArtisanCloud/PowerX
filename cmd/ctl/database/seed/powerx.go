@@ -8,7 +8,8 @@ import (
 )
 
 type PowerSeeder struct {
-	db *gorm.DB
+	db   *gorm.DB
+	conf *config.Config
 }
 
 func NewPowerSeeder(conf *config.Config) (*PowerSeeder, error) {
@@ -18,7 +19,8 @@ func NewPowerSeeder(conf *config.Config) (*PowerSeeder, error) {
 	})
 
 	return &PowerSeeder{
-		db: db,
+		db:   db,
+		conf: conf,
 	}, err
 }
 
@@ -27,6 +29,7 @@ func (s *PowerSeeder) CreatePowerX() (err error) {
 	_ = CreateOrganization(s.db)
 	_ = CreateDataDictionaries(s.db)
 	_ = CreatePriceBooks(s.db)
+	_ = CreateMediaResources(s.db, s.conf)
 	_ = CreateProductCategories(s.db)
 	_ = CreateProducts(s.db)
 

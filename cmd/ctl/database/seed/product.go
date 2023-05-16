@@ -2,6 +2,7 @@ package seed
 
 import (
 	"PowerX/internal/model"
+	"PowerX/internal/model/media"
 	"PowerX/internal/model/product"
 	"PowerX/internal/uc/powerx"
 	product2 "PowerX/internal/uc/powerx/product"
@@ -40,6 +41,8 @@ func DefaultProduct(db *gorm.DB) (data []*product.Product) {
 	productPlanOnce := ucDD.GetCachedDD(context.Background(), product.TypeProductPlan, product.ProductPlanOnce)
 	approvalStatusSuccess := ucDD.GetCachedDD(context.Background(), model.TypeApprovalStatus, model.ApprovalStatusSuccess)
 
+	coverImage := getCoverImage(db)
+
 	now := carbon.Now()
 	nextYear := now.AddYear()
 	data = []*product.Product{}
@@ -48,7 +51,9 @@ func DefaultProduct(db *gorm.DB) (data []*product.Product) {
 			sCategory := category.Children[0]
 			if len(sCategory.Children) > 0 {
 				tCategory := sCategory.Children[0]
+
 				for i := 0; i < 20; i++ {
+
 					seedProduct := &product.Product{
 						Name:                fmt.Sprintf("%s-%s-%d", category.Name, tCategory.Name, i+1),
 						Type:                int(productTypeGoods.Id),
@@ -68,7 +73,9 @@ func DefaultProduct(db *gorm.DB) (data []*product.Product) {
 						ProductCategories: []*product.ProductCategory{
 							tCategory,
 						},
+						CoverImage: coverImage,
 					}
+					seedProduct.PivotDetailImages = getAllPivotsDetailImages(db, seedProduct)
 
 					data = append(data, seedProduct)
 				}
@@ -78,4 +85,19 @@ func DefaultProduct(db *gorm.DB) (data []*product.Product) {
 	}
 
 	return data
+}
+
+func getCoverImage(db *gorm.DB) *media.MediaResource {
+	resource := &media.MediaResource{}
+	_ = db.Model(&media.MediaResource{}).First(resource).Error
+
+	return resource
+}
+func getAllPivotsDetailImages(db *gorm.DB, p *product.Product) []*media.PivotMediaResourceToObject {
+	var resources = []*media.MediaResource{}
+	_ = db.Model(&media.MediaResource{}).Find(&resources).Error
+
+	pivots, _ := (&media.PivotMediaResourceToObject{}).MakeMorphPivotsFromObjectToMediaResources(p, resources)
+
+	return pivots
 }

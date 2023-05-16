@@ -564,16 +564,48 @@ type ModifyPasswordReqeust struct {
 }
 
 type MediaResource struct {
-	Filename     string `json:"id,optional"`
-	Size         int64  `json:"size,optional"`
-	Url          string `json:"url,optional"`
-	ContentType  string `json:"contentType,optional"`
-	ResourceType string `json:"resourceType,optional"`
+	Filename      string `json:"id,optional"`
+	Size          int64  `json:"size,optional"`
+	Url           string `json:"url,optional"`
+	BucketName    string `json:"bucketName,optional"`
+	IsLocalStored bool   `json:"isLocalStored,optional"`
+	ContentType   string `json:"contentType,optional"`
+	ResourceType  string `json:"resourceType,optional"`
 }
 
 type CreateMediaResourceReply struct {
 	*MediaResource
 	IsOSS bool `json:"isOSS"`
+}
+
+type GetMediaResourceRequest struct {
+	Id int64 `path:"id"`
+}
+
+type GetMediaResourceReply struct {
+	MediaResource *MediaResource `json:"mediaResource"`
+}
+
+type ListMediaResourcesPageRequest struct {
+	LikeName  string `form:"likeName,optional"`
+	OrderBy   string `form:"orderBy,optional"`
+	PageIndex int    `form:"pageIndex,optional"`
+	PageSize  int    `form:"pageSize,optional"`
+}
+
+type ListMediaResourcesPageReply struct {
+	List      []MediaResource `json:"list,optional"`
+	PageIndex int             `json:"pageIndex,optional"`
+	PageSize  int             `json:"pageSize,optional"`
+	Total     int64           `json:"total,optional"`
+}
+
+type DeleteMediaResourceRequest struct {
+	Id int64 `path:"id"`
+}
+
+type DeleteMediaResourceReply struct {
+	MediaResourceId int64 `json:"id"`
 }
 
 type LeadExternalId struct {
@@ -918,6 +950,11 @@ type DeleteOpportunityReply struct {
 	Id int64 `json:"id"`
 }
 
+type DetailImage struct {
+	Url  string `json:"url,optional"`
+	Sort string `json:"sort,optional"`
+}
+
 type ProductSpecific struct {
 	Inventory  int16   `json:"inventory,optional"`
 	SoldAmount int16   `json:"soldAmount,optional"`
@@ -957,6 +994,7 @@ type Product struct {
 	SalesChannelsItemIds   []int64                        `json:"salesChannelsItemIds,optional"`
 	PromoteChannelsItemIds []int64                        `json:"promoteChannelsItemIds,optional"`
 	CategoryIds            []int64                        `json:"categoryIds,optional"`
+	DetailImages           []*DetailImage                 `json:"detailImages,optional"`
 }
 
 type ListProductsPageRequest struct {

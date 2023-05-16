@@ -7,7 +7,7 @@ import (
 
 // PriceBook 数据表结构
 type PriceBook struct {
-	Products []*Product `gorm:"many2many:price_book_entries;foreignKey:Id;joinForeignKey:price_book_id;References:Id;JoinReferences:price_book_id"`
+	//Products []*Product `gorm:"many2many:price_book_entries;foreignKey:Id;joinForeignKey:price_book_id;References:Id;JoinReferences:price_book_id"`
 	//Resellers []*Reseller `gorm:"foreignKey:PriceBookId;references:Id" json:"resellers"`
 
 	powermodel.PowerModel

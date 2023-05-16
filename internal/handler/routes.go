@@ -298,9 +298,24 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
 			[]rest.Route{
 				{
+					Method:  http.MethodGet,
+					Path:    "/media-resources/page-list",
+					Handler: adminmedia.ListMediaResourcesHandler(serverCtx),
+				},
+				{
 					Method:  http.MethodPost,
 					Path:    "/media-resources",
 					Handler: adminmedia.CreateMediaResourceHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/media-resources/:id",
+					Handler: adminmedia.GetMediaResourceHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodDelete,
+					Path:    "/media-resources/:id",
+					Handler: adminmedia.DeleteMediaResourceHandler(serverCtx),
 				},
 			}...,
 		),

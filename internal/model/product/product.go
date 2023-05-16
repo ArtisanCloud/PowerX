@@ -2,6 +2,7 @@ package product
 
 import (
 	"PowerX/internal/model"
+	"PowerX/internal/model/media"
 	"PowerX/internal/model/powermodel"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
@@ -20,6 +21,8 @@ type ProductSpecific struct {
 
 type Product struct {
 	ProductCategories      []*ProductCategory                   `gorm:"many2many:public.pivot_product_to_product_category;foreignKey:Id;joinForeignKey:ProductId;References:Id;JoinReferences:ProductCategoryId" json:"productCategories"`
+	CoverImage             *media.MediaResource                 `gorm:"foreignKey:CoverImageId;references:Id" json:"coverImage"`
+	PivotDetailImages      []*media.PivotMediaResourceToObject  `gorm:"polymorphic:Object;polymorphicValue:products" json:"detailImages"`
 	PriceBooks             []*PriceBook                         `gorm:"many2many:public.price_book_entries;foreignKey:Id;joinForeignKey:Id;References:Id;JoinReferences:PriceBookId" json:"priceBooks"`
 	PriceBookEntries       []*PriceBookEntry                    `gorm:"foreignKey:ProductId;references:Id" json:"priceBookEntries"`
 	PivotSalesChannels     []*model.PivotDataDictionaryToObject `gorm:"polymorphic:Object;polymorphicValue:products" json:"pivotSalesChannels"`
@@ -34,6 +37,7 @@ type Product struct {
 	Name                string    `gorm:"comment:产品名称"`
 	Type                int       `gorm:"comment:产品类型，比如商品，还是服务"`
 	Plan                int       `gorm:"comment:产品计划，比如是周期性产品还是一次性产品"`
+	CoverImageId        int64     `gorm:"comment:头图媒体的Id"`
 	AccountingCategory  string    `gorm:"comment:财务类别，方便和财务系统对账和审批"`
 	CanSellOnline       bool      `gorm:"comment:是否允许线上销售"`
 	CanUseForDeduct     bool      `gorm:"comment:产品购买，是否可以使用抵扣方式"`
@@ -142,10 +146,34 @@ func (mdl *Product) LoadProductCategories(db *gorm.DB, conditions *map[string]in
 	return mdl.ProductCategories, err
 }
 
-func (mdl *Product) ClearPivotProductCategories(db *gorm.DB) error {
+func (mdl *Product) ClearProductCategories(db *gorm.DB) error {
 	conditions := &map[string]interface{}{}
 	(*conditions)[PivotProductToCategoryForeignKey] = mdl.Id
 	return powermodel.ClearMorphPivots(db, &PivotProductToProductCategory{}, false, false, conditions)
+}
+
+func (mdl *Product) LoadPivotDetailImages(db *gorm.DB, conditions *map[string]interface{}) ([]*media.PivotMediaResourceToObject, error) {
+	items := []*media.PivotMediaResourceToObject{}
+	if conditions == nil {
+		conditions = &map[string]interface{}{}
+	}
+
+	(*conditions)[media.PivotMediaResourceToObjectOwnerKey] = TableNameProduct
+	(*conditions)[media.PivotMediaResourceToObjectForeignKey] = mdl.Id
+
+	err := powermodel.SelectMorphPivots(db, &media.PivotMediaResourceToObject{}, false, false, conditions).
+		Preload("MediaResource").
+		Find(&items).Error
+
+	return items, err
+}
+
+func (mdl *Product) ClearPivotDetailImages(db *gorm.DB) error {
+	conditions := &map[string]interface{}{}
+	(*conditions)[media.PivotMediaResourceToObjectOwnerKey] = TableNameProduct
+	(*conditions)[media.PivotMediaResourceToObjectForeignKey] = mdl.Id
+
+	return powermodel.ClearMorphPivots(db, &media.PivotMediaResourceToObject{}, false, false, conditions)
 }
 
 // -- PriceBookEntries
