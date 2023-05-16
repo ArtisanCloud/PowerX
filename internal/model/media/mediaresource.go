@@ -9,5 +9,5 @@ type MediaResource struct {
 	Size         int64  `gorm:"comment:尺寸" json:"size"`
 	Url          string `gorm:"comment:url" json:"url"`
 	ContentType  string `gorm:"comment:内容类型" json:"contentType"`
-	ResourceType string `gorm:"comment:媒体名称" json:"mediaType"`
+	ResourceType string `gorm:"comment:媒体类型" json:"mediaType"`
 }

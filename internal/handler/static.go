@@ -5,21 +5,25 @@ import (
 	"PowerX/internal/svc"
 	"github.com/zeromicro/go-zero/rest"
 	"net/http"
+	"path/filepath"
 )
 
 func RegisterStaticHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 
+	uri := filepath.Join("/", serverCtx.PowerX.MediaResource.LocalStoragePath, ":bucket", ":filename")
+	handlerUri := filepath.Join("./", serverCtx.PowerX.MediaResource.LocalStoragePath)
+	//fmt.Dump(uri, handlerUri)
 	server.AddRoutes(
 		rest.WithMiddlewares(
 			[]rest.Middleware{},
 			[]rest.Route{
 				{
 					Method:  http.MethodGet,
-					Path:    "/images/:filename",
-					Handler: static.FileHandler("./resource/images/mp"),
+					Path:    uri,
+					Handler: static.FileHandler(handlerUri),
 				},
 			}...,
 		),
-		rest.WithPrefix("/static"),
+		//rest.WithPrefix("/static"),
 	)
 }

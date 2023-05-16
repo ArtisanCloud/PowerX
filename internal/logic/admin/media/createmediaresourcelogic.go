@@ -1,7 +1,7 @@
 package media
 
 import (
-	fmt "PowerX/pkg/printx"
+	"PowerX/internal/model/media"
 	"context"
 	"net/http"
 
@@ -40,11 +40,22 @@ func (l *CreateMediaResourceLogic) CreateMediaResource(r *http.Request) (resp *t
 	}
 	defer file.Close()
 
-	resource, err := l.svcCtx.PowerX.MediaResource.CreateProductResource(l.ctx, handler)
+	resource, err := l.svcCtx.PowerX.MediaResource.MakeProductMediaResource(l.ctx, handler)
 	if err != nil {
 		return nil, err
 	}
-	fmt.Dump(resource)
 
-	return
+	return &types.CreateMediaResourceReply{
+		MediaResource: TransformMediaResourceToResourceReply(resource),
+	}, nil
+}
+
+func TransformMediaResourceToResourceReply(resource *media.MediaResource) *types.MediaResource {
+	return &types.MediaResource{
+		Filename:     resource.Filename,
+		Size:         resource.Size,
+		Url:          resource.Url,
+		ContentType:  resource.ContentType,
+		ResourceType: resource.ResourceType,
+	}
 }
