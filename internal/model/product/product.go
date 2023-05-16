@@ -21,8 +21,8 @@ type ProductSpecific struct {
 
 type Product struct {
 	ProductCategories      []*ProductCategory                   `gorm:"many2many:public.pivot_product_to_product_category;foreignKey:Id;joinForeignKey:ProductId;References:Id;JoinReferences:ProductCategoryId" json:"productCategories"`
-	CoverImage             *media.MediaResource                 `gorm:"foreignKey:CoverImageId;references:Id" json:"coverImage"`
-	PivotDetailImages      []*media.PivotMediaResourceToObject  `gorm:"polymorphic:Object;polymorphicValue:products" json:"detailImages"`
+	CoverImage             *media.MediaResource                 `gorm:"foreignKey:CoverImageId;references:Id" json:"pivotCoverImage"`
+	PivotDetailImages      []*media.PivotMediaResourceToObject  `gorm:"polymorphic:Object;polymorphicValue:products" json:"pivotDetailImages"`
 	PriceBooks             []*PriceBook                         `gorm:"many2many:public.price_book_entries;foreignKey:Id;joinForeignKey:Id;References:Id;JoinReferences:PriceBookId" json:"priceBooks"`
 	PriceBookEntries       []*PriceBookEntry                    `gorm:"foreignKey:ProductId;references:Id" json:"priceBookEntries"`
 	PivotSalesChannels     []*model.PivotDataDictionaryToObject `gorm:"polymorphic:Object;polymorphicValue:products" json:"pivotSalesChannels"`

@@ -69,7 +69,7 @@ func (uc *ProductUseCase) FindManyProducts(ctx context.Context, opt *FindManyPro
 	}
 
 	if err := db.
-		Debug().
+		//Debug().
 		Preload("CoverImage").
 		Preload("PivotDetailImages.MediaResource").
 		Preload("ProductCategories").
@@ -78,15 +78,6 @@ func (uc *ProductUseCase) FindManyProducts(ctx context.Context, opt *FindManyPro
 		Find(&products).Error; err != nil {
 		panic(err)
 	}
-
-	//if count > 0 {
-	//	for i, product := range products {
-	//		products[i], err = uc.LoadAssociations(product)
-	//		if err != nil {
-	//			return pageList, err
-	//		}
-	//	}
-	//}
 
 	return types.Page[*model.Product]{
 		List:      products,

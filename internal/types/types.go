@@ -564,7 +564,8 @@ type ModifyPasswordReqeust struct {
 }
 
 type MediaResource struct {
-	Filename      string `json:"id,optional"`
+	Id            int64  `json:"id,optional"`
+	Filename      string `json:"filename,optional"`
 	Size          int64  `json:"size,optional"`
 	Url           string `json:"url,optional"`
 	BucketName    string `json:"bucketName,optional"`
@@ -950,7 +951,9 @@ type DeleteOpportunityReply struct {
 	Id int64 `json:"id"`
 }
 
-type DetailImage struct {
+type ProductImage struct {
+	Id   int64  `json:"id,optional"`
+	Name string `json:"name,optional"`
 	Url  string `json:"url,optional"`
 	Sort string `json:"sort,optional"`
 }
@@ -979,7 +982,6 @@ type Product struct {
 	CanSellOnline       bool   `json:"canSellOnline,optional"`
 	CanUseForDeduct     bool   `json:"canUseForDeduct,optional"`
 	Description         string `json:"description,optional"`
-	CoverURL            string `json:"coverURL,optional"`
 	AllowedSellQuantity int    `json:"purchasedQuantity,optional"`
 	ValidityPeriodDays  int    `json:"validityPeriodDays,optional"`
 	SaleStartDate       string `json:"saleStartDate,optional"`
@@ -994,7 +996,10 @@ type Product struct {
 	SalesChannelsItemIds   []int64                        `json:"salesChannelsItemIds,optional"`
 	PromoteChannelsItemIds []int64                        `json:"promoteChannelsItemIds,optional"`
 	CategoryIds            []int64                        `json:"categoryIds,optional"`
-	DetailImages           []*DetailImage                 `json:"detailImages,optional"`
+	CoverImageId           int64                          `json:"coverImageId,optional"`
+	CoverImage             *ProductImage                  `json:"coverImage,optional"`
+	DetailImageIds         []int64                        `json:"detailImageIds,optional"`
+	DetailImages           []*ProductImage                `json:"detailImages,optional"`
 }
 
 type ListProductsPageRequest struct {

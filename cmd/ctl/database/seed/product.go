@@ -11,6 +11,7 @@ import (
 	carbon "github.com/golang-module/carbon/v2"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
+	"math/rand"
 )
 
 func CreateProducts(db *gorm.DB) (err error) {
@@ -41,8 +42,6 @@ func DefaultProduct(db *gorm.DB) (data []*product.Product) {
 	productPlanOnce := ucDD.GetCachedDD(context.Background(), product.TypeProductPlan, product.ProductPlanOnce)
 	approvalStatusSuccess := ucDD.GetCachedDD(context.Background(), model.TypeApprovalStatus, model.ApprovalStatusSuccess)
 
-	coverImage := getCoverImage(db)
-
 	now := carbon.Now()
 	nextYear := now.AddYear()
 	data = []*product.Product{}
@@ -54,6 +53,7 @@ func DefaultProduct(db *gorm.DB) (data []*product.Product) {
 
 				for i := 0; i < 20; i++ {
 
+					coverImage := getCoverImage(db)
 					seedProduct := &product.Product{
 						Name:                fmt.Sprintf("%s-%s-%d", category.Name, tCategory.Name, i+1),
 						Type:                int(productTypeGoods.Id),
@@ -89,10 +89,14 @@ func DefaultProduct(db *gorm.DB) (data []*product.Product) {
 
 func getCoverImage(db *gorm.DB) *media.MediaResource {
 	resource := &media.MediaResource{}
-	_ = db.Model(&media.MediaResource{}).First(resource).Error
+
+	// 生成1到20之间的随机整数
+	randomNumber := rand.Intn(20) + 1
+	_ = db.Model(&media.MediaResource{}).Where("id=?", randomNumber).Take(resource).Error
 
 	return resource
 }
+
 func getAllPivotsDetailImages(db *gorm.DB, p *product.Product) []*media.PivotMediaResourceToObject {
 	var resources = []*media.MediaResource{}
 	_ = db.Model(&media.MediaResource{}).Find(&resources).Error
