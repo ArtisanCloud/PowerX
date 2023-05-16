@@ -2,6 +2,7 @@ package product
 
 import (
 	"PowerX/internal/model"
+	"PowerX/internal/model/media"
 	"PowerX/internal/svc"
 	"PowerX/internal/types"
 	"PowerX/internal/uc/powerx"
@@ -59,6 +60,16 @@ func (l *PutProductLogic) PutProduct(req *types.PutProductRequest) (resp *types.
 			Ids: req.CategoryIds,
 		})
 		mdlProduct.ProductCategories = productCategories
+	}
+
+	if len(req.DetailImageIds) > 0 {
+		mediaResources, err := l.svcCtx.PowerX.MediaResource.FindAllMediaResources(l.ctx, &powerx.FindManyMediaResourcesOption{
+			Ids: req.DetailImageIds,
+		})
+		if err != nil {
+			return nil, err
+		}
+		mdlProduct.PivotDetailImages, err = (&media.PivotMediaResourceToObject{}).MakeMorphPivotsFromObjectToMediaResources(mdlProduct, mediaResources)
 	}
 
 	// 更新产品对象

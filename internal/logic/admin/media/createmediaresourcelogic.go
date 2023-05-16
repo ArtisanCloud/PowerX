@@ -2,6 +2,7 @@ package media
 
 import (
 	"PowerX/internal/model/media"
+	"PowerX/internal/types/errorx"
 	"context"
 	"net/http"
 
@@ -30,28 +31,31 @@ func NewCreateMediaResourceLogic(ctx context.Context, svcCtx *svc.ServiceContext
 func (l *CreateMediaResourceLogic) CreateMediaResource(r *http.Request) (resp *types.CreateMediaResourceReply, err error) {
 	err = r.ParseMultipartForm(MaxFileSize)
 	if err != nil {
-		return nil, err
+		return nil, errorx.WithCause(errorx.ErrBadRequest, err.Error())
 	}
 
 	file, handler, err := r.FormFile("resource")
 	//fmt.Dump(handler.Filename)
 	if err != nil {
-		return nil, err
+		return nil, errorx.WithCause(errorx.ErrBadRequest, err.Error())
 	}
 	defer file.Close()
 
 	resource, err := l.svcCtx.PowerX.MediaResource.MakeProductMediaResource(l.ctx, handler)
 	if err != nil {
-		return nil, err
+		return nil, errorx.WithCause(errorx.ErrBadRequest, err.Error())
 	}
 
 	return &types.CreateMediaResourceReply{
 		MediaResource: TransformMediaResourceToResourceReply(resource),
+		IsOSS:         !resource.IsLocalStored,
 	}, nil
 }
 
 func TransformMediaResourceToResourceReply(resource *media.MediaResource) *types.MediaResource {
 	return &types.MediaResource{
+		Id:           resource.Id,
+		BucketName:   resource.BucketName,
 		Filename:     resource.Filename,
 		Size:         resource.Size,
 		Url:          resource.Url,
