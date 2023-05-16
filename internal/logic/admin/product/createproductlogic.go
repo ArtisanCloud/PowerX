@@ -2,6 +2,7 @@ package product
 
 import (
 	"PowerX/internal/model"
+	"PowerX/internal/model/media"
 	"PowerX/internal/model/product"
 	"PowerX/internal/svc"
 	"PowerX/internal/types"
@@ -59,6 +60,16 @@ func (l *CreateProductLogic) CreateProduct(req *types.CreateProductRequest) (res
 		mdlProduct.ProductCategories = productCategories
 	}
 
+	if len(req.DetailImageIds) > 0 {
+		mediaResources, err := l.svcCtx.PowerX.MediaResource.FindAllMediaResources(l.ctx, &powerx.FindManyMediaResourcesOption{
+			Ids: req.DetailImageIds,
+		})
+		if err != nil {
+			return nil, err
+		}
+		mdlProduct.PivotDetailImages, err = (&media.PivotMediaResourceToObject{}).MakeMorphPivotsFromObjectToMediaResources(mdlProduct, mediaResources)
+	}
+
 	err = l.svcCtx.PowerX.Product.CreateProduct(l.ctx, mdlProduct)
 
 	return &types.CreateProductReply{
@@ -74,6 +85,7 @@ func TransformProductRequestToProduct(productRequest *types.Product) (mdlProduct
 		Name:                productRequest.Name,
 		Type:                productRequest.Type,
 		Plan:                productRequest.Plan,
+		CoverImageId:        productRequest.CoverImageId,
 		AccountingCategory:  productRequest.AccountingCategory,
 		CanSellOnline:       productRequest.CanSellOnline,
 		CanUseForDeduct:     productRequest.CanUseForDeduct,
@@ -148,23 +160,26 @@ func TransformProductToProductReply(mdlProduct *product.Product) (productReply *
 		SalesChannelsItemIds:   getItemIds(mdlProduct.PivotSalesChannels),
 		PromoteChannelsItemIds: getItemIds(mdlProduct.PivotPromoteChannels),
 		CategoryIds:            getCategoryIds(mdlProduct.ProductCategories),
+		CoverImage:             TransformProductImageToImageReply(mdlProduct.CoverImage),
+		DetailImages:           TransformProductImagesToImagesReply(mdlProduct.PivotDetailImages),
 	}
 
 }
 
-func TransformDDsToDDsReply(dds []*model.PivotDataDictionaryToObject) (ddsReply []*types.PivotDataDictionaryToObject) {
+func TransformProductImagesToImagesReply(pivots []*media.PivotMediaResourceToObject) (imagesReply []*types.ProductImage) {
 
-	ddsReply = []*types.PivotDataDictionaryToObject{}
-	for _, dd := range dds {
-		ddReply := TransformDDToDDReply(dd)
-		ddsReply = append(ddsReply, ddReply)
+	imagesReply = []*types.ProductImage{}
+	for _, pivot := range pivots {
+		imageReply := TransformProductImageToImageReply(pivot.MediaResource)
+		imagesReply = append(imagesReply, imageReply)
 	}
-	return ddsReply
+	return imagesReply
 }
 
-func TransformDDToDDReply(dd *model.PivotDataDictionaryToObject) (ddReply *types.PivotDataDictionaryToObject) {
-	return &types.PivotDataDictionaryToObject{
-		DataDictionaryType: dd.DataDictionaryType,
-		DataDictionaryKey:  dd.DataDictionaryKey,
+func TransformProductImageToImageReply(resource *media.MediaResource) (ddReply *types.ProductImage) {
+	return &types.ProductImage{
+		Id:   resource.Id,
+		Url:  resource.Url,
+		Name: resource.Filename,
 	}
 }

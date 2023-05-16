@@ -134,7 +134,7 @@ func (mdl *PivotDataDictionaryToObject) MakeMorphPivotsFromObjectToDDs(obj power
 	pivots := []*PivotDataDictionaryToObject{}
 	for _, dd := range dds {
 		pivot := &PivotDataDictionaryToObject{
-			ObjectType:         obj.GetTableName(true),
+			ObjectType:         obj.GetTableName(false),
 			ObjectID:           obj.GetForeignReferValue(),
 			DataDictionaryType: dd.Type,
 			DataDictionaryKey:  dd.Key,

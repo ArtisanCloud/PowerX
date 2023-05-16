@@ -2,6 +2,7 @@ package seed
 
 import (
 	"PowerX/internal/model"
+	"PowerX/internal/model/media"
 	"PowerX/internal/model/product"
 	"PowerX/internal/uc/powerx"
 	product2 "PowerX/internal/uc/powerx/product"
@@ -10,6 +11,7 @@ import (
 	carbon "github.com/golang-module/carbon/v2"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
+	"math/rand"
 )
 
 func CreateProducts(db *gorm.DB) (err error) {
@@ -48,7 +50,10 @@ func DefaultProduct(db *gorm.DB) (data []*product.Product) {
 			sCategory := category.Children[0]
 			if len(sCategory.Children) > 0 {
 				tCategory := sCategory.Children[0]
+
 				for i := 0; i < 20; i++ {
+
+					coverImage := getCoverImage(db)
 					seedProduct := &product.Product{
 						Name:                fmt.Sprintf("%s-%s-%d", category.Name, tCategory.Name, i+1),
 						Type:                int(productTypeGoods.Id),
@@ -68,7 +73,9 @@ func DefaultProduct(db *gorm.DB) (data []*product.Product) {
 						ProductCategories: []*product.ProductCategory{
 							tCategory,
 						},
+						CoverImage: coverImage,
 					}
+					seedProduct.PivotDetailImages = getAllPivotsDetailImages(db, seedProduct)
 
 					data = append(data, seedProduct)
 				}
@@ -78,4 +85,23 @@ func DefaultProduct(db *gorm.DB) (data []*product.Product) {
 	}
 
 	return data
+}
+
+func getCoverImage(db *gorm.DB) *media.MediaResource {
+	resource := &media.MediaResource{}
+
+	// 生成1到20之间的随机整数
+	randomNumber := rand.Intn(20) + 1
+	_ = db.Model(&media.MediaResource{}).Where("id=?", randomNumber).Take(resource).Error
+
+	return resource
+}
+
+func getAllPivotsDetailImages(db *gorm.DB, p *product.Product) []*media.PivotMediaResourceToObject {
+	var resources = []*media.MediaResource{}
+	_ = db.Model(&media.MediaResource{}).Find(&resources).Error
+
+	pivots, _ := (&media.PivotMediaResourceToObject{}).MakeMorphPivotsFromObjectToMediaResources(p, resources)
+
+	return pivots
 }

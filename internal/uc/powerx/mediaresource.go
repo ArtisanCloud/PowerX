@@ -3,6 +3,7 @@ package powerx
 import (
 	"PowerX/internal/config"
 	"PowerX/internal/model/media"
+	"PowerX/internal/types"
 	"PowerX/pkg/filex"
 	"PowerX/pkg/httpx"
 	"context"
@@ -25,7 +26,7 @@ type MediaResourceUseCase struct {
 	LocalStorageUrl  string
 }
 
-const BucketProduct = "bucket.product"
+const BucketMediaResource = "bucket.product"
 
 func NewMediaResourceUseCase(db *gorm.DB, conf *config.Config) *MediaResourceUseCase {
 	// 使用Minio API SDK
@@ -57,6 +58,70 @@ func NewMediaResourceUseCase(db *gorm.DB, conf *config.Config) *MediaResourceUse
 	}
 }
 
+type FindManyMediaResourcesOption struct {
+	Ids      []int64
+	LikeName string
+	Types    []string
+	types.PageEmbedOption
+}
+
+func (uc *MediaResourceUseCase) buildFindQueryNoPage(db *gorm.DB, opt *FindManyMediaResourcesOption) *gorm.DB {
+	if len(opt.Ids) > 0 {
+		db = db.Where("id IN ?", opt.Ids)
+	}
+	if len(opt.Types) > 0 {
+		db = db.Where("media_type IN ?", opt.Types)
+	}
+
+	if opt.LikeName != "" {
+		db = db.Where("filename LIKE ?", "%"+opt.LikeName+"%")
+	}
+
+	return db
+}
+
+func (uc *MediaResourceUseCase) FindAllMediaResources(ctx context.Context, opt *FindManyMediaResourcesOption) (mediaResources []*media.MediaResource, err error) {
+	query := uc.db.WithContext(ctx).Model(&media.MediaResource{})
+
+	query = uc.buildFindQueryNoPage(query, opt)
+	if err := query.
+		Debug().
+		Find(&mediaResources).Error; err != nil {
+		panic(errors.Wrap(err, "find all media resources failed"))
+	}
+	return mediaResources, err
+}
+
+func (uc *MediaResourceUseCase) FindManyMediaResources(ctx context.Context, opt *FindManyMediaResourcesOption) (pageList types.Page[*media.MediaResource], err error) {
+	var products []*media.MediaResource
+	db := uc.db.WithContext(ctx).Model(&media.MediaResource{})
+
+	db = uc.buildFindQueryNoPage(db, opt)
+
+	var count int64
+	if err := db.Count(&count).Error; err != nil {
+		panic(err)
+	}
+
+	opt.DefaultPageIfNotSet()
+	if opt.PageIndex != 0 && opt.PageSize != 0 {
+		db.Offset((opt.PageIndex - 1) * opt.PageSize).Limit(opt.PageSize)
+	}
+
+	if err := db.
+		//Debug().
+		Find(&products).Error; err != nil {
+		panic(err)
+	}
+
+	return types.Page[*media.MediaResource]{
+		List:      products,
+		PageIndex: opt.PageIndex,
+		PageSize:  opt.PageSize,
+		Total:     count,
+	}, nil
+}
+
 func (uc *MediaResourceUseCase) CreateMediaResource(ctx context.Context, store *media.MediaResource) {
 	if err := uc.db.WithContext(ctx).Create(&store).Error; err != nil {
 		panic(err)
@@ -64,7 +129,7 @@ func (uc *MediaResourceUseCase) CreateMediaResource(ctx context.Context, store *
 }
 
 func (uc *MediaResourceUseCase) MakeProductMediaResource(ctx context.Context, handle *multipart.FileHeader) (resource *media.MediaResource, err error) {
-	return uc.MakeMediaResource(ctx, BucketProduct, handle)
+	return uc.MakeMediaResource(ctx, BucketMediaResource, handle)
 }
 func (uc *MediaResourceUseCase) MakeMediaResource(ctx context.Context, bucket string, handle *multipart.FileHeader) (resource *media.MediaResource, err error) {
 

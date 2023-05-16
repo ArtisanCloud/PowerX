@@ -68,17 +68,15 @@ func (uc *ProductUseCase) FindManyProducts(ctx context.Context, opt *FindManyPro
 		db.Offset((opt.PageIndex - 1) * opt.PageSize).Limit(opt.PageSize)
 	}
 
-	if err := db.Find(&products).Error; err != nil {
+	if err := db.
+		//Debug().
+		Preload("CoverImage").
+		Preload("PivotDetailImages.MediaResource").
+		Preload("ProductCategories").
+		Preload("PivotSalesChannels.DataDictionaryItem").
+		Preload("PivotPromoteChannels.DataDictionaryItem").
+		Find(&products).Error; err != nil {
 		panic(err)
-	}
-
-	if count > 0 {
-		for i, product := range products {
-			products[i], err = uc.LoadAssociations(product)
-			if err != nil {
-				return pageList, err
-			}
-		}
 	}
 
 	return types.Page[*model.Product]{
@@ -145,7 +143,9 @@ func (uc *ProductUseCase) PatchProduct(ctx context.Context, id int64, product *m
 
 func (uc *ProductUseCase) GetProduct(ctx context.Context, id int64) (*model.Product, error) {
 	var product = &model.Product{}
-	if err := uc.db.WithContext(ctx).First(product, id).Error; err != nil {
+	if err := uc.db.WithContext(ctx).
+		Preload("CoverImage").
+		First(product, id).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errorx.WithCause(errorx.ErrBadRequest, "未找到产品")
 		}
@@ -202,11 +202,17 @@ func (uc *ProductUseCase) LoadAssociations(product *model.Product) (*model.Produ
 		return nil, err
 	}
 
+	product.PivotDetailImages, err = product.LoadPivotDetailImages(uc.db, nil)
+	if err != nil {
+		return nil, err
+	}
+
 	return product, err
 }
 
 func (uc *ProductUseCase) ClearAssociations(db *gorm.DB, product *model.Product) (*model.Product, error) {
 	var err error
+
 	// 清除销售渠道的关联
 	err = product.ClearPivotSalesChannels(db)
 	if err != nil {
@@ -217,10 +223,19 @@ func (uc *ProductUseCase) ClearAssociations(db *gorm.DB, product *model.Product)
 	if err != nil {
 		return nil, err
 	}
-	// 清除产品品类记录
-	err = product.ClearPivotProductCategories(db)
+
+	// --- 清除产品品类记录 ---
+	err = product.ClearProductCategories(db)
 	if err != nil {
 		return nil, err
 	}
+
+	// 清除产品详细图片记录
+	err = product.ClearPivotDetailImages(db)
+	if err != nil {
+		return nil, err
+	}
+
 	return product, err
+
 }

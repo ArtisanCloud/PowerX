@@ -15,28 +15,31 @@ info(
 )
 
 service PowerX {
-    //    @doc "查询媒资列表"
-    //    @handler ListMediaResources
-    //    get /media-resources returns (ListMediaResourcesReply)
+    @doc "查询媒资列表"
+    @handler ListMediaResources
+    get /media-resources/page-list (ListMediaResourcesPageRequest) returns (ListMediaResourcesPageReply)
 
     @doc "创建媒资"
     @handler CreateMediaResource
     post /media-resources returns (CreateMediaResourceReply)
 
-    //    @doc "获取媒资详情"
-    //    @handler GetMediaResource
-    //    get /media-resources/:id (GetMediaResourceRequest) returns (GetMediaResourceReply)
-    //
-    //    @doc "删除媒资"
-    //    @handler DeleteMediaResource
-    //    delete /media-resources/:id (DeleteMediaResourceRequest) returns (DeleteMediaResourceReply)
+    @doc "获取媒资详情"
+    @handler GetMediaResource
+    get /media-resources/:id (GetMediaResourceRequest) returns (GetMediaResourceReply)
+
+    @doc "删除媒资"
+    @handler DeleteMediaResource
+    delete /media-resources/:id (DeleteMediaResourceRequest) returns (DeleteMediaResourceReply)
 }
 
 type (
     MediaResource struct {
-        Filename string `json:"id,optional"`
+        Id int64 `json:"id,optional"`
+        Filename string `json:"filename,optional"`
         Size int64 `json:"size,optional"`
         Url string `json:"url,optional"`
+        BucketName string `json:"bucketName,optional"`
+        IsLocalStored bool `json:"isLocalStored,optional"`
         ContentType string `json:"contentType,optional"`
         ResourceType string `json:"resourceType,optional"`
     }
@@ -47,3 +50,42 @@ type (
     }
 )
 
+
+
+type (
+    GetMediaResourceRequest {
+        Id int64 `path:"id"`
+    }
+
+    GetMediaResourceReply {
+        MediaResource *MediaResource `json:"mediaResource"`
+    }
+)
+
+type (
+    ListMediaResourcesPageRequest {
+        LikeName string `form:"likeName,optional"`
+        OrderBy string `form:"orderBy,optional"`
+        PageIndex int `form:"pageIndex,optional"`
+        PageSize int `form:"pageSize,optional"`
+    }
+
+    ListMediaResourcesPageReply {
+        List []MediaResource `json:"list,optional"`
+        PageIndex int `json:"pageIndex,optional"`
+        PageSize int `json:"pageSize,optional"`
+        Total int64 `json:"total,optional"`
+    }
+)
+
+
+
+type (
+    DeleteMediaResourceRequest {
+        Id int64 `path:"id"`
+    }
+
+    DeleteMediaResourceReply {
+        MediaResourceId int64 `json:"id"`
+    }
+)
