@@ -114,6 +114,9 @@ func TransformProductToProductReply(mdlProduct *product.Product) (productReply *
 
 	getItemIds := func(items []*model.PivotDataDictionaryToObject) []int64 {
 		arrayIds := []int64{}
+		if len(items) <= 0 {
+			return arrayIds
+		}
 		for _, item := range items {
 			if item.DataDictionaryItem != nil {
 				arrayIds = append(arrayIds, item.DataDictionaryItem.Id)
@@ -124,10 +127,29 @@ func TransformProductToProductReply(mdlProduct *product.Product) (productReply *
 
 	getCategoryIds := func(categories []*product.ProductCategory) []int64 {
 		arrayIds := []int64{}
+		if len(categories) <= 0 {
+			return arrayIds
+		}
 		for _, category := range categories {
 			arrayIds = append(arrayIds, category.Id)
 		}
 		return arrayIds
+	}
+
+	getImageIds := func(pivots []*media.PivotMediaResourceToObject) []int64 {
+		arrayIds := []int64{}
+		if len(pivots) <= 0 {
+			return arrayIds
+		}
+		for _, pivot := range pivots {
+			arrayIds = append(arrayIds, pivot.MediaResourceId)
+		}
+		return arrayIds
+	}
+
+	var coverImageId int64 = 0
+	if mdlProduct.CoverImage != nil {
+		coverImageId = mdlProduct.CoverImage.Id
 	}
 
 	return &types.Product{
@@ -160,7 +182,9 @@ func TransformProductToProductReply(mdlProduct *product.Product) (productReply *
 		SalesChannelsItemIds:   getItemIds(mdlProduct.PivotSalesChannels),
 		PromoteChannelsItemIds: getItemIds(mdlProduct.PivotPromoteChannels),
 		CategoryIds:            getCategoryIds(mdlProduct.ProductCategories),
+		CoverImageId:           coverImageId,
 		CoverImage:             TransformProductImageToImageReply(mdlProduct.CoverImage),
+		DetailImageIds:         getImageIds(mdlProduct.PivotDetailImages),
 		DetailImages:           TransformProductImagesToImagesReply(mdlProduct.PivotDetailImages),
 	}
 
@@ -176,7 +200,10 @@ func TransformProductImagesToImagesReply(pivots []*media.PivotMediaResourceToObj
 	return imagesReply
 }
 
-func TransformProductImageToImageReply(resource *media.MediaResource) (ddReply *types.ProductImage) {
+func TransformProductImageToImageReply(resource *media.MediaResource) (imagesReply *types.ProductImage) {
+	if resource == nil {
+		return nil
+	}
 	return &types.ProductImage{
 		Id:   resource.Id,
 		Url:  resource.Url,

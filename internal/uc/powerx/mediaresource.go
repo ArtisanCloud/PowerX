@@ -182,6 +182,7 @@ func (uc *MediaResourceUseCase) MakeLocalResource(ctx context.Context, bucket st
 
 	// 构建媒体资源对象
 	resource = &media.MediaResource{
+		BucketName:   bucket,
 		Filename:     filename,
 		Size:         filesize,
 		Url:          url,
@@ -231,6 +232,7 @@ func (uc *MediaResourceUseCase) MakeOSSResource(ctx context.Context, bucket stri
 	url, _ := httpx.AppendURIs(uc.OSSClient.EndpointURL().String(), bucket, info.Key)
 
 	resource = &media.MediaResource{
+		BucketName:   bucket,
 		Filename:     info.Key,
 		Size:         info.Size,
 		Url:          url,
