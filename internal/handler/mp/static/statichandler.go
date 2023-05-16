@@ -3,6 +3,7 @@ package static
 import (
 	"github.com/zeromicro/go-zero/rest/httpx"
 	"net/http"
+	"strings"
 )
 
 type RequestFile struct {
@@ -17,8 +18,10 @@ func FileHandler(filepath string) http.HandlerFunc {
 			return
 		}
 
-		imagePath := filepath + "/" + req.FileName
-		//fmt.Dump(imagePath)
+		//imagePath := filepath + "/" + req.FileName
+		imagePath := strings.TrimLeft(r.RequestURI, "/")
+		//fmt.Dump(r.RequestURI)
+		//fmt.Dump(filepath, req.FileName, imagePath)
 		http.ServeFile(w, r, imagePath)
 	}
 }

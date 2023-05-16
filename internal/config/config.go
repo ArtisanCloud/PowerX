@@ -41,17 +41,21 @@ type WechatMP struct {
 	HttpDebug bool
 }
 
-type OSS struct {
-	Minio Minio
-}
-
-type Minio struct {
-	Endpoint    string
-	Credentials struct {
-		AccessKey string
-		SecretKey string
+type MediaResource struct {
+	LocalStorage struct {
+		StoragePath string
 	}
-	UseSSL bool
+	OSS struct {
+		Enable bool
+		Minio  struct {
+			Endpoint    string
+			Credentials struct {
+				AccessKey string
+				SecretKey string
+			}
+			UseSSL bool
+		}
+	}
 }
 
 type Root struct {
@@ -67,9 +71,9 @@ type Config struct {
 	PowerXDatabase Database
 	Root           Root
 
-	WechatOA  WechatOA
-	WechatMP  WechatMP
-	WechatPay WechatPay
-	WeWork    WeWork
-	OSS       OSS
+	WechatOA      WechatOA
+	WechatMP      WechatMP
+	WechatPay     WechatPay
+	WeWork        WeWork
+	MediaResource MediaResource
 }

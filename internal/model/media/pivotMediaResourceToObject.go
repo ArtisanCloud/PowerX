@@ -24,7 +24,7 @@ type PivotMediaResourceToObject struct {
 	MediaResourceId int64 `gorm:"column:media_id; not null;index:idx_media_id;comment:媒体资源Id" json:"dataDictionaryType"`
 }
 
-const TableNamePivotMediaResourceToObject = "pivot_data_dictionary_to_object"
+const TableNamePivotMediaResourceToObject = "pivot_media_resource_to_object"
 
 const PivotMediaResourceToObjectOwnerKey = "object_type"
 const PivotMediaResourceToObjectForeignKey = "object_id"

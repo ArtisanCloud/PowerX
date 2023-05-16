@@ -6,6 +6,8 @@
 .var
 .run
 
+resource/static
+
 etc/powerx-*
 config.yml
 logs/
