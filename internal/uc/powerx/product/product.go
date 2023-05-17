@@ -70,9 +70,11 @@ func (uc *ProductUseCase) FindManyProducts(ctx context.Context, opt *FindManyPro
 
 	if err := db.
 		//Debug().
-		Preload("CoverImage").
+		//Preload("SKUs").
+		Preload("PivotCoverImages.MediaResource").
 		Preload("PivotDetailImages.MediaResource").
 		Preload("ProductCategories").
+		Preload("ProductSpecifics.Options").
 		Preload("PivotSalesChannels.DataDictionaryItem").
 		Preload("PivotPromoteChannels.DataDictionaryItem").
 		Find(&products).Error; err != nil {
@@ -144,7 +146,12 @@ func (uc *ProductUseCase) PatchProduct(ctx context.Context, id int64, product *m
 func (uc *ProductUseCase) GetProduct(ctx context.Context, id int64) (*model.Product, error) {
 	var product = &model.Product{}
 	if err := uc.db.WithContext(ctx).
-		Preload("CoverImage").
+		Preload("PivotCoverImages.MediaResource").
+		Preload("PivotDetailImages.MediaResource").
+		Preload("ProductCategories").
+		Preload("ProductSpecifics.Options").
+		Preload("PivotSalesChannels.DataDictionaryItem").
+		Preload("PivotPromoteChannels.DataDictionaryItem").
 		First(product, id).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errorx.WithCause(errorx.ErrBadRequest, "未找到产品")
@@ -238,4 +245,29 @@ func (uc *ProductUseCase) ClearAssociations(db *gorm.DB, product *model.Product)
 
 	return product, err
 
+}
+
+func (uc *ProductUseCase) GenerateSKUsFromSpecifics(ctx context.Context, specifics []*model.ProductSpecific) []*model.SKU {
+	var skus []*model.SKU
+	generateSKURecursively(specifics, 0, &model.SKU{}, &skus)
+	return skus
+}
+
+func generateSKURecursively(specifics []*model.ProductSpecific, index int, currentSKU *model.SKU, skus *[]*model.SKU) {
+	if index == len(specifics) {
+		*skus = append(*skus, currentSKU)
+		return
+	}
+
+	currentSpecific := specifics[index]
+	for _, option := range currentSpecific.Options {
+		newSKU := *currentSKU // 创建新的 SKU 副本
+		newSKU.PivotSKUToSpecificOptions = append(newSKU.PivotSKUToSpecificOptions, &model.PivotSkuToSpecificOption{
+			SpecificId:       currentSpecific.Id,
+			SpecificOptionId: option.Id,
+			IsActivated:      option.IsActivated,
+		})
+
+		generateSKURecursively(specifics, index+1, &newSKU, skus)
+	}
 }

@@ -6,12 +6,12 @@ import (
 	"PowerX/internal/model/product"
 	"PowerX/internal/uc/powerx"
 	product2 "PowerX/internal/uc/powerx/product"
+	"PowerX/pkg/mathx"
 	"context"
 	"fmt"
 	carbon "github.com/golang-module/carbon/v2"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
-	"math/rand"
 )
 
 func CreateProducts(db *gorm.DB) (err error) {
@@ -52,8 +52,6 @@ func DefaultProduct(db *gorm.DB) (data []*product.Product) {
 				tCategory := sCategory.Children[0]
 
 				for i := 0; i < 20; i++ {
-
-					coverImage := getCoverImage(db)
 					seedProduct := &product.Product{
 						Name:                fmt.Sprintf("%s-%s-%d", category.Name, tCategory.Name, i+1),
 						Type:                int(productTypeGoods.Id),
@@ -66,15 +64,16 @@ func DefaultProduct(db *gorm.DB) (data []*product.Product) {
 						ValidityPeriodDays:  360,
 						SaleStartDate:       now.ToStdTime(),
 						SaleEndDate:         nextYear.ToStdTime(),
-						ProductSpecific: product.ProductSpecific{
+						ProductAttribute: product.ProductAttribute{
 							Inventory:  100,
 							SoldAmount: int16(i * 100),
 						},
 						ProductCategories: []*product.ProductCategory{
 							tCategory,
 						},
-						CoverImage: coverImage,
+						ProductSpecifics: DefaultProductSpecific(),
 					}
+					seedProduct.PivotCoverImages = getPivotsCoverImages(db, seedProduct)
 					seedProduct.PivotDetailImages = getAllPivotsDetailImages(db, seedProduct)
 
 					data = append(data, seedProduct)
@@ -87,14 +86,20 @@ func DefaultProduct(db *gorm.DB) (data []*product.Product) {
 	return data
 }
 
-func getCoverImage(db *gorm.DB) *media.MediaResource {
-	resource := &media.MediaResource{}
+func getPivotsCoverImages(db *gorm.DB, p *product.Product) []*media.PivotMediaResourceToObject {
+	resources := []*media.MediaResource{}
 
-	// 生成1到20之间的随机整数
-	randomNumber := rand.Intn(20) + 1
-	_ = db.Model(&media.MediaResource{}).Where("id=?", randomNumber).Take(resource).Error
+	// 生成5个不重复的随机整数
+	randomNumbers := mathx.GenerateRandomNumbers(5, 1, 20)
 
-	return resource
+	_ = db.Model(&media.MediaResource{}).
+		Where("id IN ?", randomNumbers).
+		Limit(5).
+		Find(&resources)
+
+	pivots, _ := (&media.PivotMediaResourceToObject{}).MakeMorphPivotsFromObjectToMediaResources(p, resources)
+
+	return pivots
 }
 
 func getAllPivotsDetailImages(db *gorm.DB, p *product.Product) []*media.PivotMediaResourceToObject {
@@ -104,4 +109,47 @@ func getAllPivotsDetailImages(db *gorm.DB, p *product.Product) []*media.PivotMed
 	pivots, _ := (&media.PivotMediaResourceToObject{}).MakeMorphPivotsFromObjectToMediaResources(p, resources)
 
 	return pivots
+}
+
+func DefaultProductSpecific() (data []*product.ProductSpecific) {
+
+	data = []*product.ProductSpecific{
+		&product.ProductSpecific{
+			Name: "颜色",
+			Options: []*product.SpecificOption{
+				{
+					Name:        "红色",
+					IsActivated: true,
+				},
+				{
+					Name:        "褐色",
+					IsActivated: true,
+				},
+				{
+					Name:        "白色",
+					IsActivated: false,
+				},
+			},
+		},
+		&product.ProductSpecific{
+			Name: "尺码",
+			Options: []*product.SpecificOption{
+				{
+					Name:        "XL",
+					IsActivated: true,
+				},
+				{
+					Name:        "M",
+					IsActivated: true,
+				},
+				{
+					Name:        "XXL",
+					IsActivated: false,
+				},
+			},
+		},
+	}
+
+	return data
+
 }

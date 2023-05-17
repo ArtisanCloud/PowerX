@@ -2,6 +2,10 @@ package seed
 
 import (
 	"PowerX/internal/model/product"
+	"PowerX/internal/types"
+	product2 "PowerX/internal/uc/powerx/product"
+	"PowerX/pkg/slicex"
+	"context"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
 )
@@ -19,6 +23,13 @@ func CreatePriceBooks(db *gorm.DB) (err error) {
 			panic(errors.Wrap(err, "init price book failed"))
 		}
 	}
+
+	if err = db.Model(&product.PriceBookEntry{}).Count(&count).Error; err != nil {
+		panic(errors.Wrap(err, "init price book entry  failed"))
+	}
+	if count == 0 {
+		err = SeedProductPriceBookEntries(db, data[0])
+	}
 	return err
 }
 
@@ -32,7 +43,58 @@ func DefaultPriceBook() (data []*product.PriceBook) {
 			StoreId:     0,
 		},
 	}
-
 	return data
+
+}
+
+func SeedProductPriceBookEntries(db *gorm.DB, book *product.PriceBook) (err error) {
+
+	ucProduct := product2.NewProductUseCase(db)
+
+	products, err := ucProduct.FindManyProducts(context.Background(), &product2.FindManyProductsOption{
+		PageEmbedOption: types.PageEmbedOption{
+			PageSize: 9999,
+		},
+	})
+
+	entries := []*product.PriceBookEntry{}
+	for _, p := range products.List {
+		//  初始化一个产品的标准价格条目
+		standardEntry := &product.PriceBookEntry{
+			PriceBookId: book.Id,
+			ProductId:   p.Id,
+			UnitPrice:   888,
+			RetailPrice: 999,
+			IsActive:    true,
+		}
+
+		//  根据产品规格，计算对应的sku，生成sku
+		skus := ucProduct.GenerateSKUsFromSpecifics(context.Background(), p.ProductSpecifics)
+		if err = db.Model(&product.SKU{}).Create(skus).Error; err != nil {
+			panic(errors.Wrap(err, "init sku failed"))
+		}
+		// 计算sku的价格
+		skuEntries := []*product.PriceBookEntry{}
+		for _, sku := range skus {
+			skuEntry := &product.PriceBookEntry{
+				PriceBookId: book.Id,
+				ProductId:   p.Id,
+				SkuId:       sku.Id,
+				UnitPrice:   878,
+				RetailPrice: 999,
+				IsActive:    true,
+			}
+			skuEntries = append(skuEntries, skuEntry)
+		}
+
+		entries = append(entries, standardEntry)
+		entries = slicex.Concatenate(entries, skuEntries)
+	}
+
+	if err = db.Model(&product.PriceBookEntry{}).Create(entries).Error; err != nil {
+		panic(errors.Wrap(err, "init price book failed"))
+	}
+
+	return err
 
 }

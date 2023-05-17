@@ -976,6 +976,7 @@ type PivotDataDictionaryToObject struct {
 type Product struct {
 	Id                  int64  `json:"id,optional"`
 	Name                string `json:"name"`
+	SPU                 string `json:"spu"`
 	Type                int    `json:"type"`
 	Plan                int    `json:"plan"`
 	AccountingCategory  string `json:"accountingCategory"`
@@ -996,8 +997,8 @@ type Product struct {
 	SalesChannelsItemIds   []int64                        `json:"salesChannelsItemIds,optional"`
 	PromoteChannelsItemIds []int64                        `json:"promoteChannelsItemIds,optional"`
 	CategoryIds            []int64                        `json:"categoryIds,optional"`
-	CoverImageId           int64                          `json:"coverImageId,optional"`
-	CoverImage             *ProductImage                  `json:"coverImage,optional"`
+	CoverImageIds          []int64                        `json:"coverImageIds,optional"`
+	CoverImages            []*ProductImage                `json:"coverImages,optional"`
 	DetailImageIds         []int64                        `json:"detailImageIds,optional"`
 	DetailImages           []*ProductImage                `json:"detailImages,optional"`
 }

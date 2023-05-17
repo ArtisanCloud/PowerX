@@ -28,10 +28,10 @@ func (s *PowerSeeder) CreatePowerX() (err error) {
 
 	_ = CreateOrganization(s.db)
 	_ = CreateDataDictionaries(s.db)
-	_ = CreatePriceBooks(s.db)
 	_ = CreateMediaResources(s.db, s.conf)
 	_ = CreateProductCategories(s.db)
 	_ = CreateProducts(s.db)
+	_ = CreatePriceBooks(s.db)
 
 	// custom
 	seed.CreateCustomSeeds(s.db)

@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-type ProductSpecific struct {
+type ProductAttribute struct {
 	Inventory  int16          `gorm:"comment:库存" json:"inventory"`
 	SoldAmount int16          `gorm:"comment:已售数量" json:"soldAmount"`
 	Weight     float32        `gorm:"comment:重量" json:"weight"`
@@ -20,8 +20,10 @@ type ProductSpecific struct {
 }
 
 type Product struct {
+	SKUs                   []*SKU                               `gorm:"foreignKey:ProductId;references:Id" json:"skus"`
+	ProductSpecifics       []*ProductSpecific                   `gorm:"foreignKey:ProductId;references:Id" json:"productSpecifics"`
 	ProductCategories      []*ProductCategory                   `gorm:"many2many:public.pivot_product_to_product_category;foreignKey:Id;joinForeignKey:ProductId;References:Id;JoinReferences:ProductCategoryId" json:"productCategories"`
-	CoverImage             *media.MediaResource                 `gorm:"foreignKey:CoverImageId;references:Id" json:"pivotCoverImage"`
+	PivotCoverImages       []*media.PivotMediaResourceToObject  `gorm:"polymorphic:Object;polymorphicValue:products" json:"pivotCoverImages"`
 	PivotDetailImages      []*media.PivotMediaResourceToObject  `gorm:"polymorphic:Object;polymorphicValue:products" json:"pivotDetailImages"`
 	PriceBooks             []*PriceBook                         `gorm:"many2many:public.price_book_entries;foreignKey:Id;joinForeignKey:Id;References:Id;JoinReferences:PriceBookId" json:"priceBooks"`
 	PriceBookEntries       []*PriceBookEntry                    `gorm:"foreignKey:ProductId;references:Id" json:"priceBookEntries"`
@@ -35,9 +37,9 @@ type Product struct {
 	powermodel.PowerModel
 
 	Name                string    `gorm:"comment:产品名称"`
+	SPU                 string    `gorm:"comment:产品货号"`
 	Type                int       `gorm:"comment:产品类型，比如商品，还是服务"`
 	Plan                int       `gorm:"comment:产品计划，比如是周期性产品还是一次性产品"`
-	CoverImageId        int64     `gorm:"comment:头图媒体的Id"`
 	AccountingCategory  string    `gorm:"comment:财务类别，方便和财务系统对账和审批"`
 	CanSellOnline       bool      `gorm:"comment:是否允许线上销售"`
 	CanUseForDeduct     bool      `gorm:"comment:产品购买，是否可以使用抵扣方式"`
@@ -48,7 +50,7 @@ type Product struct {
 	ValidityPeriodDays  int       `gorm:"comment:售卖时间期限，按天"`
 	SaleStartDate       time.Time `gorm:"comment:售卖开始时间"`
 	SaleEndDate         time.Time `gorm:"comment:售卖结束时间"`
-	ProductSpecific
+	ProductAttribute
 }
 
 const TableNameProduct = "products"

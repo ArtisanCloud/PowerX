@@ -60,6 +60,16 @@ func (l *CreateProductLogic) CreateProduct(req *types.CreateProductRequest) (res
 		mdlProduct.ProductCategories = productCategories
 	}
 
+	if len(req.CoverImageIds) > 0 {
+		mediaResources, err := l.svcCtx.PowerX.MediaResource.FindAllMediaResources(l.ctx, &powerx.FindManyMediaResourcesOption{
+			Ids: req.CoverImageIds,
+		})
+		if err != nil {
+			return nil, err
+		}
+		mdlProduct.PivotCoverImages, err = (&media.PivotMediaResourceToObject{}).MakeMorphPivotsFromObjectToMediaResources(mdlProduct, mediaResources)
+	}
+
 	if len(req.DetailImageIds) > 0 {
 		mediaResources, err := l.svcCtx.PowerX.MediaResource.FindAllMediaResources(l.ctx, &powerx.FindManyMediaResourcesOption{
 			Ids: req.DetailImageIds,
@@ -85,7 +95,6 @@ func TransformProductRequestToProduct(productRequest *types.Product) (mdlProduct
 		Name:                productRequest.Name,
 		Type:                productRequest.Type,
 		Plan:                productRequest.Plan,
-		CoverImageId:        productRequest.CoverImageId,
 		AccountingCategory:  productRequest.AccountingCategory,
 		CanSellOnline:       productRequest.CanSellOnline,
 		CanUseForDeduct:     productRequest.CanUseForDeduct,
@@ -96,7 +105,7 @@ func TransformProductRequestToProduct(productRequest *types.Product) (mdlProduct
 		ValidityPeriodDays:  productRequest.ValidityPeriodDays,
 		SaleStartDate:       saleStartDate.ToStdTime(),
 		SaleEndDate:         saleEndDate.ToStdTime(),
-		ProductSpecific: product.ProductSpecific{
+		ProductAttribute: product.ProductAttribute{
 			Inventory: productRequest.Inventory,
 			Weight:    productRequest.Weight,
 			Volume:    productRequest.Volume,
@@ -147,11 +156,6 @@ func TransformProductToProductReply(mdlProduct *product.Product) (productReply *
 		return arrayIds
 	}
 
-	var coverImageId int64 = 0
-	if mdlProduct.CoverImage != nil {
-		coverImageId = mdlProduct.CoverImage.Id
-	}
-
 	return &types.Product{
 		Id:                  mdlProduct.Id,
 		Name:                mdlProduct.Name,
@@ -182,10 +186,11 @@ func TransformProductToProductReply(mdlProduct *product.Product) (productReply *
 		SalesChannelsItemIds:   getItemIds(mdlProduct.PivotSalesChannels),
 		PromoteChannelsItemIds: getItemIds(mdlProduct.PivotPromoteChannels),
 		CategoryIds:            getCategoryIds(mdlProduct.ProductCategories),
-		CoverImageId:           coverImageId,
-		CoverImage:             TransformProductImageToImageReply(mdlProduct.CoverImage),
-		DetailImageIds:         getImageIds(mdlProduct.PivotDetailImages),
-		DetailImages:           TransformProductImagesToImagesReply(mdlProduct.PivotDetailImages),
+
+		CoverImageIds:  getImageIds(mdlProduct.PivotCoverImages),
+		DetailImageIds: getImageIds(mdlProduct.PivotDetailImages),
+		CoverImages:    TransformProductImagesToImagesReply(mdlProduct.PivotCoverImages),
+		DetailImages:   TransformProductImagesToImagesReply(mdlProduct.PivotDetailImages),
 	}
 
 }
