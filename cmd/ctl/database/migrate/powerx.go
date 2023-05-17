@@ -43,6 +43,8 @@ func (m *PowerMigrator) AutoMigrate() {
 	)
 	// product
 	_ = m.db.AutoMigrate(&product.Product{}, &product.ProductCategory{})
+	_ = m.db.AutoMigrate(&product.ProductSpecific{}, &product.SpecificOption{})
+	_ = m.db.AutoMigrate(&product.SKU{}, &product.PivotSkuToSpecificOption{})
 	_ = m.db.AutoMigrate(&product.PriceBook{}, &product.PriceBookEntry{}, &product.PriceConfig{})
 	_ = m.db.AutoMigrate(&product.Store{}, &product.Artisan{}, &product.PivotStoreToArtisan{})
 

@@ -24,6 +24,8 @@ type PivotMediaResourceToObject struct {
 	ObjectID int64 `gorm:"column:object_id; not null;index:idx_obj_id;comment:对象Id" json:"objectId"`
 	// 引用键 join key and value
 	MediaResourceId int64 `gorm:"column:media_id; not null;index:idx_media_id;comment:媒体资源Id" json:"dataDictionaryType"`
+
+	MediaUsage string `gorm:"column:media_usage; comment:自定义用途" json:"mediaUsage"`
 }
 
 const TableNamePivotMediaResourceToObject = "pivot_media_resource_to_object"

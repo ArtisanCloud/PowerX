@@ -62,6 +62,16 @@ func (l *PutProductLogic) PutProduct(req *types.PutProductRequest) (resp *types.
 		mdlProduct.ProductCategories = productCategories
 	}
 
+	if len(req.CoverImageIds) > 0 {
+		mediaResources, err := l.svcCtx.PowerX.MediaResource.FindAllMediaResources(l.ctx, &powerx.FindManyMediaResourcesOption{
+			Ids: req.CoverImageIds,
+		})
+		if err != nil {
+			return nil, err
+		}
+		mdlProduct.PivotCoverImages, err = (&media.PivotMediaResourceToObject{}).MakeMorphPivotsFromObjectToMediaResources(mdlProduct, mediaResources)
+	}
+
 	if len(req.DetailImageIds) > 0 {
 		mediaResources, err := l.svcCtx.PowerX.MediaResource.FindAllMediaResources(l.ctx, &powerx.FindManyMediaResourcesOption{
 			Ids: req.DetailImageIds,
