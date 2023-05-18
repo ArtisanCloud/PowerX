@@ -222,6 +222,7 @@ func TransformSpecificOptionToSpecificOptionReplyToMP(option *product.SpecificOp
 		return nil
 	}
 	return &types.SpecificOption{
+		Id:          option.Id,
 		Name:        option.Name,
 		IsActivated: option.IsActivated,
 	}
