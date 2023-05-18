@@ -3,6 +3,7 @@ package product
 import (
 	"PowerX/internal/model"
 	"PowerX/internal/model/media"
+	"PowerX/internal/model/product"
 	"PowerX/internal/svc"
 	"PowerX/internal/types"
 	"PowerX/internal/uc/powerx"
@@ -69,7 +70,7 @@ func (l *PutProductLogic) PutProduct(req *types.PutProductRequest) (resp *types.
 		if err != nil {
 			return nil, err
 		}
-		mdlProduct.PivotCoverImages, err = (&media.PivotMediaResourceToObject{}).MakeMorphPivotsFromObjectToMediaResources(mdlProduct, mediaResources)
+		mdlProduct.PivotCoverImages, err = (&media.PivotMediaResourceToObject{}).MakeMorphPivotsFromObjectToMediaResources(mdlProduct, mediaResources, product.MediaUsageCover)
 	}
 
 	if len(req.DetailImageIds) > 0 {
@@ -79,7 +80,7 @@ func (l *PutProductLogic) PutProduct(req *types.PutProductRequest) (resp *types.
 		if err != nil {
 			return nil, err
 		}
-		mdlProduct.PivotDetailImages, err = (&media.PivotMediaResourceToObject{}).MakeMorphPivotsFromObjectToMediaResources(mdlProduct, mediaResources)
+		mdlProduct.PivotDetailImages, err = (&media.PivotMediaResourceToObject{}).MakeMorphPivotsFromObjectToMediaResources(mdlProduct, mediaResources, product.MediaUsageDetail)
 	}
 
 	// 更新产品对象

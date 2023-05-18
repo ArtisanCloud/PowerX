@@ -54,6 +54,7 @@ func DefaultProduct(db *gorm.DB) (data []*product.Product) {
 				for i := 0; i < 20; i++ {
 					seedProduct := &product.Product{
 						Name:                fmt.Sprintf("%s-%s-%d", category.Name, tCategory.Name, i+1),
+						SPU:                 fmt.Sprintf("SPU%04d", i+1),
 						Type:                int(productTypeGoods.Id),
 						Plan:                int(productPlanOnce.Id),
 						AccountingCategory:  "s-account-category",
@@ -94,19 +95,19 @@ func getPivotsCoverImages(db *gorm.DB, p *product.Product) []*media.PivotMediaRe
 
 	_ = db.Model(&media.MediaResource{}).
 		Where("id IN ?", randomNumbers).
-		Limit(5).
+		Limit(3).
 		Find(&resources)
 
-	pivots, _ := (&media.PivotMediaResourceToObject{}).MakeMorphPivotsFromObjectToMediaResources(p, resources)
+	pivots, _ := (&media.PivotMediaResourceToObject{}).MakeMorphPivotsFromObjectToMediaResources(p, resources, product.MediaUsageCover)
 
 	return pivots
 }
 
 func getAllPivotsDetailImages(db *gorm.DB, p *product.Product) []*media.PivotMediaResourceToObject {
 	var resources = []*media.MediaResource{}
-	_ = db.Model(&media.MediaResource{}).Find(&resources).Error
+	_ = db.Model(&media.MediaResource{}).Limit(6).Find(&resources).Error
 
-	pivots, _ := (&media.PivotMediaResourceToObject{}).MakeMorphPivotsFromObjectToMediaResources(p, resources)
+	pivots, _ := (&media.PivotMediaResourceToObject{}).MakeMorphPivotsFromObjectToMediaResources(p, resources, product.MediaUsageDetail)
 
 	return pivots
 }

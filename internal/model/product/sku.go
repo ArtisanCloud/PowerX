@@ -8,7 +8,8 @@ import (
 type SKU struct {
 	powermodel.PowerModel
 
-	PivotSKUToSpecificOptions []*PivotSkuToSpecificOption `gorm:"foreignKey:SKUId;references:Id" json:"pivotSKUToSpecificOptions"`
+	PivotSkuToSpecificOptions []*PivotSkuToSpecificOption `gorm:"foreignKey:SkuId;references:Id" json:"pivotSkuToSpecificOptions"`
+	PriceBookEntry            *PriceBookEntry             `gorm:"foreignKey:SkuId;references:Id" json:"priceBookEntry"`
 
 	ProductId int64  `gorm:"index:idx_product_id;not null;" json:"productId"`
 	SkuNo     string `gorm:"comment:SKU编号" json:"sku"`

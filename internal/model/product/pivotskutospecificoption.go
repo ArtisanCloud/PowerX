@@ -13,7 +13,7 @@ func (mdl *PivotSkuToSpecificOption) TableName() string {
 type PivotSkuToSpecificOption struct {
 	powermodel.PowerPivot
 
-	SKUId            int64 `gorm:"comment:SKUId; column:sku_id; not null;index:idx_sku_id" json:"storeId"`
+	SkuId            int64 `gorm:"comment:SkuId; column:sku_id; not null;index:idx_sku_id" json:"SkuId"`
 	SpecificId       int64 `gorm:"comment:规格Id; column:specific_id; not null;index:specific_id" json:"specificId"`
 	SpecificOptionId int64 `gorm:"comment:规格项Id; column:specific_option_id; not null;index:specific_option_id" json:"specificOptionId"`
 	IsActivated      bool  `gorm:"comment:是否被激活; column:is_activated;" json:"isActivated,optional"`

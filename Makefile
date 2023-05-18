@@ -10,6 +10,7 @@ POWERX_EXE_PATH:=$(CURRENT_DIR)/powerx
 POWERX_CTL_EXE_PATH:=$(CURRENT_DIR)/powerxctl
 
 app-init: app-migrate app-seed app-run
+app-init-db: app-migrate app-seed
 
 app-migrate:
 	go build -o $(POWERX_CTL_EXE_PATH) $(BUILD_CTL_DIR)
