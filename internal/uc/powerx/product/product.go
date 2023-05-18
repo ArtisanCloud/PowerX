@@ -5,7 +5,9 @@ import (
 	model "PowerX/internal/model/product"
 	"PowerX/internal/types"
 	"PowerX/internal/types/errorx"
+	"PowerX/pkg/slicex"
 	"context"
+	"encoding/json"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
 	"strings"
@@ -58,6 +60,7 @@ func (uc *ProductUseCase) PreloadItems(db *gorm.DB) *gorm.DB {
 		Preload("ProductCategories").
 		Preload("PriceBookEntries").
 		Preload("SKUs.PriceBookEntry").
+		Preload("SKUs.PivotSkuToSpecificOptions").
 		Preload("ProductSpecifics.Options").
 		Preload("PivotSalesChannels.DataDictionaryItem").
 		Preload("PivotPromoteChannels.DataDictionaryItem")
@@ -250,32 +253,66 @@ func (uc *ProductUseCase) ClearAssociations(db *gorm.DB, product *model.Product)
 
 func (uc *ProductUseCase) GenerateSKUsFromSpecifics(ctx context.Context, product *model.Product) []*model.SKU {
 	var skus []*model.SKU
-	GenerateSKURecursively(product.ProductSpecifics, product, 0, &model.SKU{}, &skus)
+	GenerateSKURecursively(product, product.ProductSpecifics, 0, &model.SKU{}, &skus)
 	return skus
 }
 
-func GenerateSKURecursively(specifics []*model.ProductSpecific, product *model.Product, index int, currentSKU *model.SKU, skus *[]*model.SKU) {
-	if index == len(specifics) {
+func GenerateSKURecursively(product *model.Product, specifics []*model.ProductSpecific, currentIndexOfSpecific int, currentSKU *model.SKU, skus *[]*model.SKU) {
+	if currentIndexOfSpecific == len(specifics) {
+		// 如何平行的遍历，已经到达了每个规格，就把sku添加到sku数组里
 		*skus = append(*skus, currentSKU)
 		return
 	}
-
-	currentSpecific := specifics[index]
+	currentSpecific := specifics[currentIndexOfSpecific]
 	for _, option := range currentSpecific.Options {
 		newSKU := *currentSKU // 创建新的 SKU 副本
-		newSKU.PivotSkuToSpecificOptions = append(newSKU.PivotSkuToSpecificOptions, &model.PivotSkuToSpecificOption{
-			SpecificId:       currentSpecific.Id,
-			SpecificOptionId: option.Id,
-			IsActivated:      option.IsActivated,
-		})
-
+		newSKU.OptionIds, _ = json.Marshal([]int64{})
 		newSKU.ProductId = currentSpecific.ProductId
+
+		// 创建sku名字
 		if newSKU.SkuNo == "" {
 			newSKU.SkuNo = product.SPU + "-" + option.Name
 		} else {
 			newSKU.SkuNo = newSKU.SkuNo + "-" + option.Name
 		}
 
-		GenerateSKURecursively(specifics, product, index+1, &newSKU, skus)
+		// 将规格项的ID追加到当前sku副本中
+		var currentOptionIds []int64
+		// 先读取当前SKU到规格项IDs数组，因为这里非常重要，是需要压栈上层记录到SKU
+		_ = json.Unmarshal(currentSKU.OptionIds, &currentOptionIds)
+		// 然后把该规格项到ID，添加到新到复刻到SKU组中
+		currentOptionIds = append(currentOptionIds, option.Id)
+		newSKU.OptionIds, _ = json.Marshal(currentOptionIds)
+
+		GenerateSKURecursively(product, specifics, currentIndexOfSpecific+1, &newSKU, skus)
 	}
+}
+
+func (uc *ProductUseCase) GeneratePivotSKUsFromSpecifics(ctx context.Context, specifics []*model.ProductSpecific, skus []*model.SKU) []*model.PivotSkuToSpecificOption {
+
+	pivots := []*model.PivotSkuToSpecificOption{}
+	for _, sku := range skus {
+		var currentOptionIds []int64
+		_ = json.Unmarshal(sku.OptionIds, &currentOptionIds)
+
+		for _, specific := range specifics {
+			for _, option := range specific.Options {
+
+				isActivated := false
+				if slicex.Contains(currentOptionIds, option.Id) {
+					isActivated = true
+				}
+
+				pivots = append(pivots, &model.PivotSkuToSpecificOption{
+					ProductId:        sku.ProductId,
+					SkuId:            sku.Id,
+					SpecificId:       specific.Id,
+					SpecificOptionId: option.Id,
+					IsActivated:      isActivated,
+				})
+			}
+		}
+	}
+
+	return pivots
 }
