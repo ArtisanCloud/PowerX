@@ -164,6 +164,12 @@ func TransformSkuToSkuReplyToMP(sku *product.SKU) (skuReply *types.SKU) {
 		unitPrice = sku.PriceBookEntry.UnitPrice
 		retailPrice = sku.PriceBookEntry.RetailPrice
 	}
+	var optionsIds = []int64{}
+	for _, pivot := range sku.PivotSkuToSpecificOptions {
+		if pivot.IsActivated {
+			optionsIds = append(optionsIds, pivot.SpecificOptionId)
+		}
+	}
 
 	return &types.SKU{
 		Id:          sku.Id,
@@ -171,6 +177,7 @@ func TransformSkuToSkuReplyToMP(sku *product.SKU) (skuReply *types.SKU) {
 		Inventory:   sku.Inventory,
 		UnitPrice:   unitPrice,
 		RetailPrice: retailPrice,
+		OptionsIds:  optionsIds,
 	}
 }
 
@@ -200,7 +207,9 @@ func TransformSpecificOptionsToSpecificOptionsReplyToMP(options []*product.Speci
 	optionsReply = []*types.SpecificOption{}
 	for _, option := range options {
 		specificReply := TransformSpecificOptionToSpecificOptionReplyToMP(option)
-		optionsReply = append(optionsReply, specificReply)
+		if specificReply != nil {
+			optionsReply = append(optionsReply, specificReply)
+		}
 	}
 	return optionsReply
 }
@@ -213,6 +222,7 @@ func TransformSpecificOptionToSpecificOptionReplyToMP(option *product.SpecificOp
 		return nil
 	}
 	return &types.SpecificOption{
-		Name: option.Name,
+		Name:        option.Name,
+		IsActivated: option.IsActivated,
 	}
 }

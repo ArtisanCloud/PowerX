@@ -7,6 +7,7 @@ import (
 	"context"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
+	"math/rand"
 )
 
 func CreatePriceBooks(db *gorm.DB) (err error) {
@@ -59,11 +60,12 @@ func SeedProductPriceBookEntries(db *gorm.DB, book *product.PriceBook) (err erro
 	entries := []*product.PriceBookEntry{}
 	for _, p := range products.List {
 		//  初始化一个产品的标准价格条目
+		unitPrice := rand.Float64() * 1000
 		standardEntry := &product.PriceBookEntry{
 			PriceBookId: book.Id,
 			ProductId:   p.Id,
-			UnitPrice:   888,
-			RetailPrice: 999,
+			UnitPrice:   unitPrice,
+			RetailPrice: unitPrice + 200,
 			IsActive:    true,
 		}
 
@@ -80,18 +82,26 @@ func SeedProductPriceBookEntries(db *gorm.DB, book *product.PriceBook) (err erro
 		//  根据产品规格，计算对应的sku，生成sku
 		//fmt.Dump(p.ProductSpecifics)
 		skus := ucProduct.GenerateSKUsFromSpecifics(context.Background(), p)
-		if err = db.Model(&product.SKU{}).Create(skus).Error; err != nil {
+		if err = db.Model(&product.SKU{}).Create(&skus).Error; err != nil {
 			panic(errors.Wrap(err, "init sku failed"))
 		}
+
+		pivots := ucProduct.GeneratePivotSKUsFromSpecifics(context.Background(), p.ProductSpecifics, skus)
+		if err = db.Model(&product.PivotSkuToSpecificOption{}).Create(&pivots).Error; err != nil {
+			panic(errors.Wrap(err, "init sku pivots failed"))
+		}
+
 		// 计算sku的价格
 		skuEntries := []*product.PriceBookEntry{}
+
 		for _, sku := range skus {
+			unitPrice := rand.Float64() * 1000
 			skuEntry := &product.PriceBookEntry{
 				PriceBookId: book.Id,
 				ProductId:   p.Id,
 				SkuId:       sku.Id,
-				UnitPrice:   878,
-				RetailPrice: 999,
+				UnitPrice:   unitPrice,
+				RetailPrice: unitPrice + 200,
 				IsActive:    true,
 			}
 			skuEntries = append(skuEntries, skuEntry)

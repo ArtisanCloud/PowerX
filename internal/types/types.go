@@ -988,6 +988,7 @@ type SKU struct {
 	UnitPrice   float64 `json:"unitPrice,optional"`
 	RetailPrice float64 `json:"retailPrice,optional"`
 	IsActive    bool    `json:"isActive,optional"`
+	OptionsIds  []int64 `json:"optionsIds,optional"`
 }
 
 type ProductAttribute struct {

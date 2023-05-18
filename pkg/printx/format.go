@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/kr/pretty"
 	"os"
 	"reflect"
 )
@@ -25,7 +26,6 @@ func PrettyJson(data interface{}) (string, error) {
 	return buffer.String(), nil
 }
 
-
 func DD(datas ...interface{}) {
 	Dump(datas)
 	os.Exit(0)
@@ -33,26 +33,27 @@ func DD(datas ...interface{}) {
 
 func Dump(datas ...interface{}) {
 	for _, data := range datas {
-		dump(data)
+		pretty.Print(data)
+		print("\r\n")
+		//dump(data)
 	}
 }
 
 func dump(data interface{}) {
 	var (
 		prettyJson interface{}
-		strData string
-		err     error
+		strData    string
+		err        error
 	)
-	if data==nil{
+	if data == nil {
 		//fmt.Print("[nil]\r\n")
 
-	}else
-	if reflect.TypeOf(data).Kind() != reflect.String {
-		prettyJson,err = PrettyJson(data)
+	} else if reflect.TypeOf(data).Kind() != reflect.String {
+		prettyJson, err = PrettyJson(data)
 
 	} else {
 		strData = data.(string)
-		prettyJson,err = PrettyJson(strData)
+		prettyJson, err = PrettyJson(strData)
 	}
 
 	if err != nil {
@@ -60,10 +61,6 @@ func dump(data interface{}) {
 	}
 	fmt.Printf("%+v \r\n", prettyJson)
 }
-
-
-
-
 
 func PrintSlice(s []int) {
 	fmt.Printf("len=%d cap=%d %v\n", len(s), cap(s), s)
