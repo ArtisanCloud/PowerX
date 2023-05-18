@@ -965,6 +965,7 @@ type ProductSpecific struct {
 }
 
 type SpecificOption struct {
+	Id          int64  `json:"id,optional"`
 	Name        string `json:"name,optional"`
 	IsActivated bool   `json:"isActivated,optional"`
 }

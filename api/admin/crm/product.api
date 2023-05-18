@@ -62,6 +62,7 @@ type (
         SpecificOptions []*SpecificOption `json:"specificOptions,optional"`
     }
     SpecificOption {
+        Id int64 `json:"id,optional"`
         //        ProductSpecificId int64  `json:"productSpecificId,optional"`
         Name string `json:"name,optional"`
         IsActivated bool `json:"isActivated,optional"`
