@@ -1,7 +1,7 @@
 package product
 
 import (
-	"PowerX/internal/logic/admin/product"
+	product2 "PowerX/internal/model/product"
 	productUC "PowerX/internal/uc/powerx/product"
 	"context"
 
@@ -47,11 +47,21 @@ func (l *ListProductsPageLogic) ListProductsPage(req *types.ListProductsPageRequ
 	}
 
 	// list
-	list := product.TransformProductsToProductsReply(page.List)
+	list := TransformProductsToProductsReplyToMP(page.List)
 	return &types.ListProductsPageReply{
 		List:      list,
 		PageIndex: page.PageIndex,
 		PageSize:  page.PageSize,
 		Total:     page.Total,
 	}, nil
+}
+
+func TransformProductsToProductsReplyToMP(products []*product2.Product) []types.Product {
+	productsReply := []types.Product{}
+	for _, product := range products {
+		productReply := TransformProductToProductReplyToMP(product)
+		productsReply = append(productsReply, *productReply)
+
+	}
+	return productsReply
 }

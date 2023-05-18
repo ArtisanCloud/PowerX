@@ -21,19 +21,21 @@ PowerXDatabase:
 WechatOA:
   AppId: wx93607xxxxxxxxxx  # 微信公众号AppID
   Secret: 6ZwxxxtFouxxxxxxxxxxxxxxxxxxx0tgXYw4oh7KI  # 微信公众号Secret
+  AESKey: PBcwPOp0e6tFou    # 微信公众号AES密钥
   HttpDebug: true           # 是否启用HTTP调试模式
 
 WechatPay:
-  AppId: wx93607xxxxxxxxxx  # 微信支付AppID
-  Secret:                    # 微信支付Secret
-  MchID:                     # 商户号
-  MchApiV3Key:               # 商户API密钥
-  Key:                       # 商户支付密钥
-  CertPath:                  # 商户证书路径
-  KeyPath:                   # 商户证书密钥路径
-  RSAPublicKeyPath:          # 微信支付平台RSA公钥路径
-  SerialNo:                  # 微信支付平台证书序列号
-  HttpDebug: true            # 是否启用HTTP调试模式
+  AppId: wx93607xxxxxxxxxx    # 微信支付AppID
+  Secret:                     # 微信支付Secret
+  AESKey: PBcwPOp0e6tFou      # 微信支付AES密钥
+  MchID:                      # 商户号
+  MchApiV3Key:                # 商户API密钥
+  Key:                        # 商户支付密钥
+  CertPath:                   # 商户证书路径
+  KeyPath:                    # 商户证书密钥路径
+  RSAPublicKeyPath:           # 微信支付平台RSA公钥路径
+  SerialNo:                   # 微信支付平台证书序列号
+  HttpDebug: true             # 是否启用HTTP调试模式
 
 WechatMP:
   AppId: wx93607xxxxxxxxxx  # 微信小程序AppID
@@ -44,6 +46,7 @@ WeWork:
   CropId: wx93607xxxxxxxxxx  # 企业微信CropID
   AgentId: 1000005           # 企业微信应用AgentID
   Secret: 6ZwxxxtFouxxxxxxxxxxxxxxxxxxx0tgXYw4oh7KI  # 企业微信应用Secret
+  AESKey: PBcwPOp0e6tFou      # 企业微信AES密钥
   Token: tEBuofHfxxxxxxxxxxxxBPTq9K                      # 企业微信应用的Token，用于处理接收到的消息
   EncodingAESKey: Gv3T4dP5QBDxxxxxxxxxxxxxxxxxxxxxxxc2vwlmUhY  # 企业微信应用的 EncodingAESKey，用于加密/解密接收和发送的消息
   HttpDebug: true            # 是否启用HTTP调试模式

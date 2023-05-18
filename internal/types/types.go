@@ -959,6 +959,39 @@ type ProductImage struct {
 }
 
 type ProductSpecific struct {
+	Id              int64             `json:"id,optional"`
+	Name            string            `json:"name,optional"`
+	SpecificOptions []*SpecificOption `json:"specificOptions,optional"`
+}
+
+type SpecificOption struct {
+	Name        string `json:"name,optional"`
+	IsActivated bool   `json:"isActivated,optional"`
+}
+
+type PivotDataDictionaryToObject struct {
+	DataDictionaryType string `json:"dataDictionaryType,optional"`
+	DataDictionaryKey  string `json:"dataDictionaryKey,optional"`
+}
+
+type PriceEntry struct {
+	Id          int64   `json:"id,optional"`
+	UnitPrice   float64 `json:"unitPrice,optional"`
+	RetailPrice float64 `json:"retailPrice,optional"`
+	Discount    float64 `json:"discount,optional"`
+}
+
+type SKU struct {
+	Id          int64   `json:"id,optional"`
+	SkuNo       string  `json:"skuNo,optional"`
+	Inventory   int     `json:"inventory,optional"`
+	UnitPrice   float64 `json:"unitPrice,optional"`
+	RetailPrice float64 `json:"retailPrice,optional"`
+	IsActive    bool    `json:"isActive,optional"`
+}
+
+type ProductAttribute struct {
+	Id         int64   `json:"id,optional"`
 	Inventory  int16   `json:"inventory,optional"`
 	SoldAmount int16   `json:"soldAmount,optional"`
 	Weight     float32 `json:"weight,optional"`
@@ -968,29 +1001,24 @@ type ProductSpecific struct {
 	Extra      string  `json:"extra,optional"`
 }
 
-type PivotDataDictionaryToObject struct {
-	DataDictionaryType string `json:"dataDictionaryType,optional"`
-	DataDictionaryKey  string `json:"dataDictionaryKey,optional"`
-}
-
 type Product struct {
-	Id                  int64  `json:"id,optional"`
-	Name                string `json:"name"`
-	SPU                 string `json:"spu"`
-	Type                int    `json:"type"`
-	Plan                int    `json:"plan"`
-	AccountingCategory  string `json:"accountingCategory"`
-	CanSellOnline       bool   `json:"canSellOnline,optional"`
-	CanUseForDeduct     bool   `json:"canUseForDeduct,optional"`
-	Description         string `json:"description,optional"`
-	AllowedSellQuantity int    `json:"purchasedQuantity,optional"`
-	ValidityPeriodDays  int    `json:"validityPeriodDays,optional"`
-	SaleStartDate       string `json:"saleStartDate,optional"`
-	SaleEndDate         string `json:"saleEndDate,optional"`
-	ApprovalStatus      int    `json:"approvalStatus,optional"`
-	IsActivated         bool   `json:"isActivated,optional"`
-	CreatedAt           string `json:"createdAt,optional"`
-	ProductSpecific
+	Id                     int64                          `json:"id,optional"`
+	Name                   string                         `json:"name"`
+	SPU                    string                         `json:"spu"`
+	Type                   int                            `json:"type"`
+	Plan                   int                            `json:"plan"`
+	AccountingCategory     string                         `json:"accountingCategory"`
+	CanSellOnline          bool                           `json:"canSellOnline,optional"`
+	CanUseForDeduct        bool                           `json:"canUseForDeduct,optional"`
+	Description            string                         `json:"description,optional"`
+	AllowedSellQuantity    int                            `json:"purchasedQuantity,optional"`
+	ValidityPeriodDays     int                            `json:"validityPeriodDays,optional"`
+	SaleStartDate          string                         `json:"saleStartDate,optional"`
+	SaleEndDate            string                         `json:"saleEndDate,optional"`
+	ApprovalStatus         int                            `json:"approvalStatus,optional"`
+	IsActivated            bool                           `json:"isActivated,optional"`
+	CreatedAt              string                         `json:"createdAt,optional"`
+	ProductSpecifics       []*ProductSpecific             `json:"productSpecifics,optional"`
 	PivotSalesChannels     []*PivotDataDictionaryToObject `json:"pivotSalesChannels,optional"`
 	PivotPromoteChannels   []*PivotDataDictionaryToObject `json:"pivotPromoteChannels,optional"`
 	ProductCategories      []*ProductCategory             `json:"productCategories,optional"`
@@ -1001,6 +1029,10 @@ type Product struct {
 	CoverImages            []*ProductImage                `json:"coverImages,optional"`
 	DetailImageIds         []int64                        `json:"detailImageIds,optional"`
 	DetailImages           []*ProductImage                `json:"detailImages,optional"`
+	PriceEntry             *PriceEntry                    `json:"priceEntry,optional"`
+	SKUs                   []*SKU                         `json:"skus,optional"`
+	*ProductAttribute
+	ViewedCount int `json:"viewedCount,optional"`
 }
 
 type ListProductsPageRequest struct {

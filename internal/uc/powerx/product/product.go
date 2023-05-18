@@ -52,6 +52,19 @@ func (uc *ProductUseCase) buildFindQueryNoPage(db *gorm.DB, opt *FindManyProduct
 	return db
 }
 
+func (uc *ProductUseCase) PreloadItems(db *gorm.DB) *gorm.DB {
+	db = db.Preload("PivotCoverImages", "media_usage = ?", model.MediaUsageCover).Preload("PivotCoverImages.MediaResource").
+		Preload("PivotDetailImages", "media_usage = ?", model.MediaUsageDetail).Preload("PivotDetailImages.MediaResource").
+		Preload("ProductCategories").
+		Preload("PriceBookEntries").
+		Preload("SKUs.PriceBookEntry").
+		Preload("ProductSpecifics.Options").
+		Preload("PivotSalesChannels.DataDictionaryItem").
+		Preload("PivotPromoteChannels.DataDictionaryItem")
+
+	return db
+}
+
 func (uc *ProductUseCase) FindManyProducts(ctx context.Context, opt *FindManyProductsOption) (pageList types.Page[*model.Product], err error) {
 	var products []*model.Product
 	db := uc.db.WithContext(ctx).Model(&model.Product{})
@@ -68,15 +81,9 @@ func (uc *ProductUseCase) FindManyProducts(ctx context.Context, opt *FindManyPro
 		db.Offset((opt.PageIndex - 1) * opt.PageSize).Limit(opt.PageSize)
 	}
 
+	db = uc.PreloadItems(db)
 	if err := db.
 		//Debug().
-		//Preload("SKUs").
-		Preload("PivotCoverImages.MediaResource").
-		Preload("PivotDetailImages.MediaResource").
-		Preload("ProductCategories").
-		Preload("ProductSpecifics.Options").
-		Preload("PivotSalesChannels.DataDictionaryItem").
-		Preload("PivotPromoteChannels.DataDictionaryItem").
 		Find(&products).Error; err != nil {
 		panic(err)
 	}
@@ -92,7 +99,7 @@ func (uc *ProductUseCase) FindManyProducts(ctx context.Context, opt *FindManyPro
 func (uc *ProductUseCase) CreateProduct(ctx context.Context, product *model.Product) error {
 
 	if err := uc.db.WithContext(ctx).
-		Debug().
+		//Debug().
 		Create(&product).Error; err != nil {
 		if strings.Contains(err.Error(), "duplicate key value violates unique constraint") {
 			return errorx.WithCause(errorx.ErrDuplicatedInsert, "该对象不能重复创建")
@@ -145,22 +152,16 @@ func (uc *ProductUseCase) PatchProduct(ctx context.Context, id int64, product *m
 
 func (uc *ProductUseCase) GetProduct(ctx context.Context, id int64) (*model.Product, error) {
 	var product = &model.Product{}
-	if err := uc.db.WithContext(ctx).
-		Preload("PivotCoverImages.MediaResource").
-		Preload("PivotDetailImages.MediaResource").
-		Preload("ProductCategories").
-		Preload("ProductSpecifics.Options").
-		Preload("PivotSalesChannels.DataDictionaryItem").
-		Preload("PivotPromoteChannels.DataDictionaryItem").
+
+	db := uc.db.WithContext(ctx)
+	db = uc.PreloadItems(db)
+	if err := db.
+		Debug().
 		First(product, id).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errorx.WithCause(errorx.ErrBadRequest, "未找到产品")
 		}
 		panic(err)
-	}
-	product, err := uc.LoadAssociations(product)
-	if err != nil {
-		return product, err
 	}
 
 	return product, nil
@@ -247,13 +248,13 @@ func (uc *ProductUseCase) ClearAssociations(db *gorm.DB, product *model.Product)
 
 }
 
-func (uc *ProductUseCase) GenerateSKUsFromSpecifics(ctx context.Context, specifics []*model.ProductSpecific) []*model.SKU {
+func (uc *ProductUseCase) GenerateSKUsFromSpecifics(ctx context.Context, product *model.Product) []*model.SKU {
 	var skus []*model.SKU
-	generateSKURecursively(specifics, 0, &model.SKU{}, &skus)
+	GenerateSKURecursively(product.ProductSpecifics, product, 0, &model.SKU{}, &skus)
 	return skus
 }
 
-func generateSKURecursively(specifics []*model.ProductSpecific, index int, currentSKU *model.SKU, skus *[]*model.SKU) {
+func GenerateSKURecursively(specifics []*model.ProductSpecific, product *model.Product, index int, currentSKU *model.SKU, skus *[]*model.SKU) {
 	if index == len(specifics) {
 		*skus = append(*skus, currentSKU)
 		return
@@ -262,12 +263,19 @@ func generateSKURecursively(specifics []*model.ProductSpecific, index int, curre
 	currentSpecific := specifics[index]
 	for _, option := range currentSpecific.Options {
 		newSKU := *currentSKU // 创建新的 SKU 副本
-		newSKU.PivotSKUToSpecificOptions = append(newSKU.PivotSKUToSpecificOptions, &model.PivotSkuToSpecificOption{
+		newSKU.PivotSkuToSpecificOptions = append(newSKU.PivotSkuToSpecificOptions, &model.PivotSkuToSpecificOption{
 			SpecificId:       currentSpecific.Id,
 			SpecificOptionId: option.Id,
 			IsActivated:      option.IsActivated,
 		})
 
-		generateSKURecursively(specifics, index+1, &newSKU, skus)
+		newSKU.ProductId = currentSpecific.ProductId
+		if newSKU.SkuNo == "" {
+			newSKU.SkuNo = product.SPU + "-" + option.Name
+		} else {
+			newSKU.SkuNo = newSKU.SkuNo + "-" + option.Name
+		}
+
+		GenerateSKURecursively(specifics, product, index+1, &newSKU, skus)
 	}
 }

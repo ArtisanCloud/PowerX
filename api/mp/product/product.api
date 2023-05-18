@@ -21,7 +21,12 @@ import "admin/crm/product.api"
 service PowerX {
     @doc "产品列表"
     @handler ListProductsPage
-    get /page-list (ListProductsPageRequest) returns (ListProductsPageReply)
+    get /products/page-list (ListProductsPageRequest) returns (ListProductsPageReply)
+
+    @doc "查询产品详情"
+    @handler GetProduct
+    get /products/:id (GetProductRequest) returns (GetProductReply)
+
 
 }
 

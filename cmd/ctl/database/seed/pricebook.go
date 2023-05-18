@@ -4,7 +4,6 @@ import (
 	"PowerX/internal/model/product"
 	"PowerX/internal/types"
 	product2 "PowerX/internal/uc/powerx/product"
-	"PowerX/pkg/slicex"
 	"context"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
@@ -68,8 +67,19 @@ func SeedProductPriceBookEntries(db *gorm.DB, book *product.PriceBook) (err erro
 			IsActive:    true,
 		}
 
+		entries = append(entries, standardEntry)
+
+	}
+
+	if err = db.Model(&product.PriceBookEntry{}).Create(entries).Error; err != nil {
+		panic(errors.Wrap(err, "init price book failed"))
+	}
+
+	// seed skus
+	for _, p := range products.List {
 		//  根据产品规格，计算对应的sku，生成sku
-		skus := ucProduct.GenerateSKUsFromSpecifics(context.Background(), p.ProductSpecifics)
+		//fmt.Dump(p.ProductSpecifics)
+		skus := ucProduct.GenerateSKUsFromSpecifics(context.Background(), p)
 		if err = db.Model(&product.SKU{}).Create(skus).Error; err != nil {
 			panic(errors.Wrap(err, "init sku failed"))
 		}
@@ -87,12 +97,9 @@ func SeedProductPriceBookEntries(db *gorm.DB, book *product.PriceBook) (err erro
 			skuEntries = append(skuEntries, skuEntry)
 		}
 
-		entries = append(entries, standardEntry)
-		entries = slicex.Concatenate(entries, skuEntries)
-	}
-
-	if err = db.Model(&product.PriceBookEntry{}).Create(entries).Error; err != nil {
-		panic(errors.Wrap(err, "init price book failed"))
+		if err = db.Model(&product.PriceBookEntry{}).Create(skuEntries).Error; err != nil {
+			panic(errors.Wrap(err, "init sku price book entries failed"))
+		}
 	}
 
 	return err

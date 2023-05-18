@@ -835,8 +835,13 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			[]rest.Route{
 				{
 					Method:  http.MethodGet,
-					Path:    "/page-list",
+					Path:    "/products/page-list",
 					Handler: mpproduct.ListProductsPageHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/products/:id",
+					Handler: mpproduct.GetProductHandler(serverCtx),
 				},
 			}...,
 		),

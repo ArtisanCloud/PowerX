@@ -82,13 +82,14 @@ func (mdl *PivotMediaResourceToObject) GetMorphPivots(db *gorm.DB, where *map[st
 }
 
 // --------------------------------------------------------------------
-func (mdl *PivotMediaResourceToObject) MakeMorphPivotsFromObjectToMediaResources(obj powermodel.ModelInterface, mediaResources []*MediaResource) ([]*PivotMediaResourceToObject, error) {
+func (mdl *PivotMediaResourceToObject) MakeMorphPivotsFromObjectToMediaResources(obj powermodel.ModelInterface, mediaResources []*MediaResource, mediaUsage string) ([]*PivotMediaResourceToObject, error) {
 	pivots := []*PivotMediaResourceToObject{}
 	for _, mediaResource := range mediaResources {
 		pivot := &PivotMediaResourceToObject{
 			ObjectType:      obj.GetTableName(false),
 			ObjectID:        obj.GetForeignReferValue(),
 			MediaResourceId: mediaResource.Id,
+			MediaUsage:      mediaUsage,
 		}
 		//pivot.UniqueID = pivot.GetPivotComposedUniqueID()
 

@@ -66,6 +66,9 @@ const ProductTypeService = "_service"
 const ProductPlanOnce = "_once"
 const ProductPlanPeriod = "_period"
 
+const MediaUsageCover = "_cover"
+const MediaUsageDetail = "_detail"
+
 func (mdl *Product) GetTableName(needFull bool) string {
 	tableName := TableNameProduct
 	if needFull {

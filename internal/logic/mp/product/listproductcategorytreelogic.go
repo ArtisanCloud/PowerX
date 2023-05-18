@@ -1,7 +1,7 @@
 package product
 
 import (
-	product2 "PowerX/internal/logic/admin/product"
+	"PowerX/internal/model/product"
 	product3 "PowerX/internal/uc/powerx/product"
 	"context"
 
@@ -40,9 +40,38 @@ func (l *ListProductCategoryTreeLogic) ListProductCategoryTree(req *types.ListPr
 	productCategoryTree := l.svcCtx.PowerX.ProductCategory.ListProductCategoryTree(l.ctx, &option, pId)
 
 	// 转化返回类型的列表
-	productCategoryReplyList := product2.TransformProductCategoriesToProductCategoriesReply(productCategoryTree)
+	productCategoryReplyList := TransformProductCategoriesToProductCategoriesReplyToMP(productCategoryTree)
 
 	return &types.ListProductCategoryTreeReply{
 		ProductCategories: productCategoryReplyList,
 	}, nil
+}
+
+func TransformProductCategoriesToProductCategoriesReplyToMP(productCategoryList []*product.ProductCategory) []*types.ProductCategory {
+	var productCategoryReplyList []*types.ProductCategory
+	for _, category := range productCategoryList {
+		node := &types.ProductCategory{
+			Id:          category.Id,
+			PId:         category.PId,
+			Name:        category.Name,
+			Sort:        category.Sort,
+			ViceName:    category.ViceName,
+			Description: category.Description,
+			CreatedAt:   category.CreatedAt.String(),
+			ImageAbleInfo: types.ImageAbleInfo{
+				Icon:            category.Icon,
+				BackgroundColor: category.BackgroundColor,
+				ImageURL:        category.ImageURL,
+			},
+			Children: nil,
+		}
+		if len(category.Children) > 0 {
+			node.Children = TransformProductCategoriesToProductCategoriesReplyToMP(category.Children)
+
+		}
+
+		productCategoryReplyList = append(productCategoryReplyList, node)
+	}
+
+	return productCategoryReplyList
 }
