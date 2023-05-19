@@ -2,7 +2,6 @@ package trade
 
 import (
 	"PowerX/internal/model/customerdomain"
-	"PowerX/internal/model/membership"
 	"PowerX/internal/model/powermodel"
 	"PowerX/internal/model/product"
 	"time"
@@ -12,10 +11,10 @@ import (
 type Order struct {
 	*powermodel.PowerModel
 
-	Customer    *customerdomain.Customer `gorm:"foreignKey:AccountId;references:Id" json:"customerdomain"`
-	OrderItems  []*OrderItem             `gorm:"foreignKey:OrderId;references:Id" json:"orderItems"`
-	Payments    []*Payment               `gorm:"foreignKey:OrderId;references:Id" json:"payments"`
-	Memberships []*membership.Membership `gorm:"foreignKey:OrderId;references:Id" json:"memberships"`
+	Customer   *customerdomain.Customer `gorm:"foreignKey:CustomerId;references:Id" json:"customerdomain"`
+	OrderItems []*OrderItem             `gorm:"foreignKey:OrderId;references:Id" json:"orderItems"`
+	Payments   []*Payment               `gorm:"foreignKey:OrderId;references:Id" json:"payments"`
+	//Memberships []*membership.Membership `gorm:"foreignKey:OrderId;references:Id" json:"memberships"`
 	//Reseller    *Reseller                `gorm:"foreignKey:ResellerId;references:Id" json:"reseller"`
 	//CouponItems []*CouponItem            `gorm:"foreignKey:OrderId;references:Id" json:"couponItems"`
 
@@ -67,10 +66,9 @@ const (
 type OrderItem struct {
 	*powermodel.PowerModel
 
-	Order       *Order                 `gorm:"foreignKey:OrderId;references:Id" json:"order"`
-	Product     *product.Product       `gorm:"foreignKey:ProductId;references:Id" json:"product"`
-	ProductBook *product.PriceBook     `gorm:"foreignKey:PriceBookEntryId;references:Id" json:"priceBook"`
-	Membership  *membership.Membership `gorm:"foreignKey:OrderItemId;references:Id" json:"membership"`
+	Order            *Order                  `gorm:"foreignKey:OrderId;references:Id" json:"order"`
+	ProductBookEntry *product.PriceBookEntry `gorm:"foreignKey:PriceBookEntryId;references:Id" json:"priceBook"`
+	//Membership       *membership.Membership  `gorm:"foreignKey:OrderItemId;references:Id" json:"membership"`
 	//CouponItem  *CouponItem `gorm:"foreignKey:OrderItemId;references:Id" json:"CouponItem"`
 
 	// 正常购买信息

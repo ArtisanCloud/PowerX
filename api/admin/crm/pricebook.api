@@ -64,7 +64,7 @@ type (
         ProductId int64 `json:"productId"`
         UnitPrice float64 `json:"unitPrice"`
         ListPrice float64 `json:"listPrice,optional"`
-        IsActive bool `json:"isActive"`
+        IsActive bool `json:"isActive, omitempty"`
         PriceBookEntrySpecific
     }
 )

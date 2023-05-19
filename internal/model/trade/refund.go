@@ -10,12 +10,12 @@ import (
 type RefundOrder struct {
 	*powermodel.PowerModel
 
-	Customer         *customerdomain.Customer `gorm:"foreignKey:AccountId;references:Id" json:"customerdomain"`
+	Customer         *customerdomain.Customer `gorm:"foreignKey:CustomerId;references:Id" json:"customerdomain"`
 	RefundOrderItems []*RefundOrderItem       `gorm:"foreignKey:RefundOrderId;references:Id" json:"refundOrderItems"`
 
 	//ResellerId     int64   `gorm:"comment:reseller_uuid" json:"resellerId"`
 	CustomerId     int64        `gorm:"comment:客户Id; index" json:"customerId"`
-	OrderId        int64        `gorm:"comment:购物车Id; index" json:"cartId"`
+	OrderId        int64        `gorm:"comment:订单号Id; index" json:"orderId"`
 	RefundNumber   string       `gorm:"comment:退款订单号; index" json:"refundNumber"`
 	RefundStatus   RefundStatus `gorm:"comment:退款状态" json:"refundStatus"`
 	RefundAmount   float64      `gorm:"type:decimal(10,2); comment:退款金额" json:"refundAmount"`
@@ -37,7 +37,7 @@ const (
 type RefundOrderItem struct {
 	*powermodel.PowerModel
 
-	Order *Order `gorm:"foreignKey:OrderId;references:Id" json:"order"`
+	RefundOrder *RefundOrder `gorm:"foreignKey:RefundOrderId;references:Id" json:"order"`
 
 	// 退款项信息
 	RefundOrderId int64        `gorm:"comment:退款订单Id; index" json:"refundOrderId"`

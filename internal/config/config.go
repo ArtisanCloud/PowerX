@@ -38,6 +38,7 @@ type WechatPay struct {
 type WechatMP struct {
 	AppId     string
 	Secret    string
+	AESKey    string
 	HttpDebug bool
 }
 

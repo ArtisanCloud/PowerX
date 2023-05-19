@@ -631,7 +631,7 @@ type Lead struct {
 	InviterId   int64        `json:"inviter,optional"`
 	Source      int          `json:"source,optional"`
 	Type        int          `json:"type,optional"`
-	IsActivated bool         `json:"isActivated,optional"`
+	IsActivated bool         `json:"isActivated,optional,omitempty"`
 	CreatedAt   string       `json:"createdAt,optional"`
 	*LeadExternalId
 }
@@ -685,7 +685,7 @@ type PatchLeadRequest struct {
 	InviterId   int64  `json:"inviterId,optional"`
 	Source      int    `json:"source,optional"`
 	Type        int    `json:"type,optional"`
-	IsActivated bool   `json:"isActivated,optional"`
+	IsActivated bool   `json:"isActivated,optional,omitempty"`
 }
 
 type PatchLeadReply struct {
@@ -731,7 +731,7 @@ type Customer struct {
 	InviterId   int64            `json:"inviter,optional"`
 	Source      int              `json:"source,optional"`
 	Type        int              `json:"type,optional"`
-	IsActivated bool             `json:"isActivated,optional"`
+	IsActivated bool             `json:"isActivated,optional,omitempty"`
 	CreatedAt   string           `json:"createdAt,optional"`
 	*CustomerExternalId
 }
@@ -785,7 +785,7 @@ type PatchCustomerRequest struct {
 	InviterId   int64  `json:"inviterId,optional"`
 	Source      int    `json:"source,optional"`
 	Type        int    `json:"type,optional"`
-	IsActivated bool   `json:"isActivated,optional"`
+	IsActivated bool   `json:"isActivated,optional,omitempty"`
 }
 
 type PatchCustomerReply struct {
@@ -967,7 +967,7 @@ type ProductSpecific struct {
 type SpecificOption struct {
 	Id          int64  `json:"id,optional"`
 	Name        string `json:"name,optional"`
-	IsActivated bool   `json:"isActivated,optional"`
+	IsActivated bool   `json:"isActivated,optional,omitempty"`
 }
 
 type PivotDataDictionaryToObject struct {
@@ -989,7 +989,7 @@ type SKU struct {
 	UnitPrice  float64 `json:"unitPrice,optional"`
 	ListPrice  float64 `json:"listPrice,optional"`
 	IsActive   bool    `json:"isActive,optional"`
-	OptionsIds []int64 `json:"optionsIds,optional"`
+	OptionsIds []int64 `json:"optionsIds,optional, omitempty"`
 }
 
 type ProductAttribute struct {
@@ -1018,7 +1018,7 @@ type Product struct {
 	SaleStartDate          string                         `json:"saleStartDate,optional"`
 	SaleEndDate            string                         `json:"saleEndDate,optional"`
 	ApprovalStatus         int                            `json:"approvalStatus,optional"`
-	IsActivated            bool                           `json:"isActivated,optional"`
+	IsActivated            bool                           `json:"isActivated,optional,omitempty"`
 	CreatedAt              string                         `json:"createdAt,optional"`
 	ProductSpecifics       []*ProductSpecific             `json:"productSpecifics,optional"`
 	PivotSalesChannels     []*PivotDataDictionaryToObject `json:"pivotSalesChannels,optional"`
@@ -1189,7 +1189,7 @@ type PriceBookEntry struct {
 	ProductId   int64   `json:"productId"`
 	UnitPrice   float64 `json:"unitPrice"`
 	ListPrice   float64 `json:"listPrice,optional"`
-	IsActive    bool    `json:"isActive"`
+	IsActive    bool    `json:"isActive, omitempty"`
 	PriceBookEntrySpecific
 }
 
@@ -1654,7 +1654,7 @@ type Warehouse struct {
 	Capacity      int64  `json:"capacity"`
 	ContactPerson string `json:"contactPerson"`
 	ContactPhone  string `json:"contactPhone"`
-	IsActive      bool   `json:"isActive"`
+	IsActive      bool   `json:"isActive, omitempty"`
 }
 
 type ListWarehousesRequest struct {

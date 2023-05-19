@@ -1,0 +1,124 @@
+syntax = "v1"
+
+info(
+    title: "退款单服务"
+    desc: "退款单服务"
+    author: "MichaelHu"
+    email: "matrix-x@artisan-cloud.com"
+    version: "v1"
+)
+
+
+
+@server(
+    group: admin/trade/order
+    prefix: /api/v1/admin/trade
+    middleware: EmployeeJWTAuth
+)
+service PowerX {
+    @doc("查询退款单列表")
+    @handler ListRefundOrdersPage
+    get /refund-order/page-list (ListRefundOrdersPageRequest) returns (ListRefundOrdersPageReply)
+
+    @doc("查询退款单详情")
+    @handler GetRefundOrder
+    get /refund-order/:id (GetRefundOrderRequest) returns (GetRefundOrderReply)
+
+    @doc("创建退款单")
+    @handler CreateRefundOrder
+    post /refund-order (CreateRefundOrderRequest) returns (CreateRefundOrderReply)
+
+    @doc("更新退款单")
+    @handler PutRefundOrder
+    put /refund-order/:id (PutRefundOrderRequest) returns (PutRefundOrderReply)
+
+    @doc("部分更新退款单")
+    @handler PatchRefundOrder
+    patch /refund-order/:id (PatchRefundOrderRequest) returns (PatchRefundOrderReply)
+
+    @doc("删除退款单")
+    @handler DeleteRefundOrder
+    delete /refund-order/:id (DeleteRefundOrderRequest) returns (DeleteRefundOrderReply)
+}
+
+type RefundOrderItem {
+    ID int64 `json:"id,optional"`
+
+    RefundOrderId int64 `json:"refundorderid,optional"`
+    RefundNumber string `json:"refundnumber,optional"`
+    RefundStatus int `json:"refundstatus,optional"`
+    RefundAmount float64 `json:"refundamount,optional"`
+    RefundDate string `json:"refunddate,optional"`
+}
+
+type RefundOrder {
+    ID int64 `json:"id,optional"`
+    CustomerId int64 `json:"customerId,optional"`
+    OrderId int64 `json:"orderId,optional"`
+    RefundNumber string `json:"refundNumber,optional"`
+    RefundStatus int `json:"refundStatus,optional,omitempty"`
+    RefundAmount float64 `json:"refundAmount,optional,omitempty"`
+    RefundReason string `json:"refundReason,optional,omitempty"`
+    RefundApproved bool `json:"refundApproved,optional,omitempty"`
+    RefundDate string `json:"refundDate,optional,omitempty"`
+    RefundOrderItems []RefundOrderItem `json:"orderItems,optional,omitempty"`
+    CreatedAt string `json:"createdAt,optional,omitempty"`
+}
+
+type ListRefundOrdersPageRequest {
+    keys []string `form:"keys,omitempty"`
+    orderType string `form:"orderType,omitempty"`
+    orderBy string `form:"orderBy,omitempty"`
+    pageIndex int `form:"pageIndex,omitempty"`
+    pageSize int `form:"pageSize,omitempty"`
+}
+
+type ListRefundOrdersPageReply {
+    list []RefundOrder `json:"list,omitempty"`
+    pageIndex int `json:"pageIndex,omitempty"`
+    pageSize int `json:"pageSize,omitempty"`
+    total int64 `json:"total,omitempty"`
+}
+
+type CreateRefundOrderRequest {
+    RefundOrder
+}
+
+type CreateRefundOrderReply {
+    orderId int64 `json:"id,omitempty"`
+}
+
+type GetRefundOrderRequest {
+    orderId int64 `path:"id"`
+}
+
+type GetRefundOrderReply {
+    RefundOrder
+}
+
+type PutRefundOrderRequest {
+    orderId int64 `path:"id"`
+    RefundOrder
+}
+
+type PutRefundOrderReply {
+    RefundOrder
+}
+
+type PatchRefundOrderRequest {
+    orderId int64 `path:"id"`
+    RefundOrder
+}
+
+type PatchRefundOrderReply {
+    RefundOrder
+}
+
+type DeleteRefundOrderRequest {
+    orderId int64 `path:"id"`
+}
+
+type DeleteRefundOrderReply {
+    RefundOrderID int64 `path:"id"`
+}
+

@@ -51,7 +51,7 @@ type Warehouse {
     Capacity      int64  `json:"capacity"`
     ContactPerson string `json:"contactPerson"`
     ContactPhone  string `json:"contactPhone"`
-    IsActive      bool   `json:"isActive"`
+    IsActive      bool   `json:"isActive, omitempty"`
 }
 
 type ListWarehousesRequest struct {

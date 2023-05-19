@@ -75,7 +75,6 @@ func NewPowerXUseCase(conf *config.Config) (uc *PowerXUseCase, clean func()) {
 	// 加载微信UseCase
 	uc.WechatMP = powerx.NewWechatMiniProgramUseCase(db, conf)
 	uc.WechatOA = powerx.NewWechatOfficialAccountUseCase(db, conf)
-	uc.WeWork = powerx.NewWeWorkUseCase(db, conf)
 	uc.MediaResource = powerx.NewMediaResourceUseCase(db, conf)
 
 	// 加载SCRM UseCase
