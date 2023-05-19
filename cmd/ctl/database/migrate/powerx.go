@@ -55,7 +55,7 @@ func (m *PowerMigrator) AutoMigrate() {
 
 	// trade
 	_ = m.db.AutoMigrate(&trade.ShippingAddress{}, &trade.DeliveryAddress{}, &trade.BillingAddress{})
-	_ = m.db.AutoMigrate(&trade.Warehouse{}, &trade.Logistics{})
+	_ = m.db.AutoMigrate(&trade.Warehouse{}, &trade.Inventory{}, &trade.Logistics{})
 	_ = m.db.AutoMigrate(&trade.Cart{}, &trade.Order{}, &trade.OrderItem{})
 	_ = m.db.AutoMigrate(&trade.OrderStatusTransition{}, &trade.PivotOrderToInventoryLog{})
 	_ = m.db.AutoMigrate(&trade.Payment{}, &trade.PaymentItem{})
