@@ -10,7 +10,7 @@ info(
 
 
 @server(
-    group: admin/product
+    group: admin/product/store
     prefix: /api/v1/admin/product
     middleware: EmployeeJWTAuth
 )
@@ -43,8 +43,8 @@ service PowerX {
     @handler DeleteStore
     delete /stores/:id (DeleteStoreRequest) returns (DeleteStoreReply)
 
-    @doc "分配门店品类给门店品类分类"
-    @handler AssignStoreToStoreCategory
+    @doc "分配门店经理给门店"
+    @handler AssignStoreToStoreManager
     post /stores/:id/actions/assign-to-store-categroy (AssignStoreManagerRequest) returns (AssignStoreManagerReply)
 }
 

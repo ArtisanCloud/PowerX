@@ -11,7 +11,7 @@ info(
 @server(
     group: mp/trade
     prefix: /api/v1/mp/trade/cart
-    middleware: CustomerJWTAuth
+    middleware: MPCustomerJWTAuth
 )
 
 service PowerX {

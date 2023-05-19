@@ -741,7 +741,7 @@ type GetCustomerReqeuest struct {
 }
 
 type GetCustomerReply struct {
-	Customer *Customer `json:"customer"`
+	Customer *Customer `json:"customerdomain"`
 }
 
 type ListCustomersPageRequest struct {
@@ -1642,6 +1642,74 @@ type DeleteDeliveryAddressRequest struct {
 
 type DeleteDeliveryAddressReply struct {
 	DeliveryAddressId int64 `json:"id"`
+}
+
+type Warehouse struct {
+	Id            int64  `json:"id"`
+	Name          string `json:"name"`
+	Address       string `json:"address"`
+	City          string `json:"city"`
+	Region        string `json:"region"`
+	Type          string `json:"type"`
+	Capacity      int64  `json:"capacity"`
+	ContactPerson string `json:"contactPerson"`
+	ContactPhone  string `json:"contactPhone"`
+	IsActive      bool   `json:"isActive"`
+}
+
+type ListWarehousesRequest struct {
+	NameLike  string `json:"nameLike"`
+	PageIndex int    `json:"pageIndex"`
+	PageSize  int    `json:"pageSize"`
+}
+
+type ListWarehousesResponse struct {
+	List      []*Warehouse `json:"list"`
+	PageIndex int          `json:"pageIndex"`
+	PageSize  int          `json:"pageSize"`
+	Total     int64        `json:"total"`
+}
+
+type GetWarehouseRequest struct {
+	Id int64 `json:"id"`
+}
+
+type GetWarehouseResponse struct {
+	Warehouse *Warehouse `json:"warehouse"`
+}
+
+type CreateWarehouseRequest struct {
+	Warehouse *Warehouse `json:"warehouse"`
+}
+
+type CreateWarehouseResponse struct {
+	WarehouseId int64 `json:"warehouseId"`
+}
+
+type UpdateWarehouseRequest struct {
+	Id        int64      `json:"id"`
+	Warehouse *Warehouse `json:"warehouse"`
+}
+
+type UpdateWarehouseResponse struct {
+	Warehouse *Warehouse `json:"warehouse"`
+}
+
+type PatchWarehouseRequest struct {
+	Id        int64      `json:"id"`
+	Warehouse *Warehouse `json:"warehouse"`
+}
+
+type PatchWarehouseResponse struct {
+	Warehouse *Warehouse `json:"warehouse"`
+}
+
+type DeleteWarehouseRequest struct {
+	Id int64 `json:"id"`
+}
+
+type DeleteWarehouseResponse struct {
+	WarehouseId int64 `json:"warehouseId"`
 }
 
 type ContractWayGroupNode struct {

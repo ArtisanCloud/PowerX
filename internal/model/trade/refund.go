@@ -10,7 +10,7 @@ import (
 type RefundOrder struct {
 	*powermodel.PowerModel
 
-	Customer         *customerdomain.Customer `gorm:"foreignKey:AccountId;references:Id" json:"customer"`
+	Customer         *customerdomain.Customer `gorm:"foreignKey:AccountId;references:Id" json:"customerdomain"`
 	RefundOrderItems []*RefundOrderItem       `gorm:"foreignKey:RefundOrderId;references:Id" json:"refundOrderItems"`
 
 	//ResellerId     int64   `gorm:"comment:reseller_uuid" json:"resellerId"`

@@ -9,6 +9,7 @@ import (
 	"PowerX/internal/model/membership"
 	"PowerX/internal/model/product"
 	"PowerX/internal/model/scrm/organization"
+	"PowerX/internal/model/trade"
 	"PowerX/internal/uc/powerx"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -35,7 +36,7 @@ func (m *PowerMigrator) AutoMigrate() {
 	_ = m.db.AutoMigrate(&organization.Department{}, &organization.Employee{})
 	_ = m.db.AutoMigrate(&powerx.EmployeeCasbinPolicy{}, powerx.AdminRole{}, powerx.AdminRoleMenuName{}, powerx.AdminAPI{})
 
-	// customerdomain domain
+	// customer domain
 	_ = m.db.AutoMigrate(&customerdomain.Lead{}, &customerdomain.Contact{}, &customerdomain.Customer{}, &membership.Membership{})
 	_ = m.db.AutoMigrate(&model.WechatOACustomer{}, &model.WechatMPCustomer{}, &model.WeWorkExternalContact{})
 	_ = m.db.AutoMigrate(
@@ -51,6 +52,9 @@ func (m *PowerMigrator) AutoMigrate() {
 	// media
 	_ = m.db.AutoMigrate(&media.MediaResource{}, &media.PivotMediaResourceToObject{})
 	_ = m.db.AutoMigrate(&media.Media{})
+
+	// trade
+	_ = m.db.AutoMigrate(&trade.Warehouse{}, &trade.ShippingAddress{}, &trade.DeliveryAddress{}, &trade.BillingAddress{})
 
 	// custom
 	migrate.AutoMigrateCustom(m.db)

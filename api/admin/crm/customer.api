@@ -9,8 +9,8 @@ info(
 )
 
 @server(
-    group: admin/customer
-    prefix: /api/v1/admin/customer-domain
+    group: admin/customerdomain/customer
+    prefix: /api/v1/admin/customerdomain
     middleware: EmployeeJWTAuth
 )
 
@@ -81,7 +81,7 @@ type (
     }
 
     GetCustomerReply {
-        Customer *Customer `json:"customer"`
+        Customer *Customer `json:"customerdomain"`
     }
 )
 

@@ -5,20 +5,26 @@ import (
 	"net/http"
 
 	adminauth "PowerX/internal/handler/admin/auth"
+	adminbusinessopportunity "PowerX/internal/handler/admin/business/opportunity"
 	admincommon "PowerX/internal/handler/admin/common"
 	admincontractway "PowerX/internal/handler/admin/contractway"
-	admincustomer "PowerX/internal/handler/admin/customer"
+	admincustomerdomaincustomer "PowerX/internal/handler/admin/customerdomain/customer"
+	admincustomerdomainleader "PowerX/internal/handler/admin/customerdomain/leader"
 	admindepartment "PowerX/internal/handler/admin/department"
 	admindictionary "PowerX/internal/handler/admin/dictionary"
 	adminemployee "PowerX/internal/handler/admin/employee"
-	adminlead "PowerX/internal/handler/admin/lead"
+	adminmarketmedia "PowerX/internal/handler/admin/market/media"
 	adminmedia "PowerX/internal/handler/admin/media"
-	adminopportunity "PowerX/internal/handler/admin/opportunity"
 	adminpermission "PowerX/internal/handler/admin/permission"
 	adminproduct "PowerX/internal/handler/admin/product"
+	adminproductartisan "PowerX/internal/handler/admin/product/artisan"
+	adminproductcategory "PowerX/internal/handler/admin/product/category"
+	adminproductpricebook "PowerX/internal/handler/admin/product/pricebook"
+	adminproductstore "PowerX/internal/handler/admin/product/store"
 	adminscrmcontact "PowerX/internal/handler/admin/scrm/contact"
 	adminscrmcustomer "PowerX/internal/handler/admin/scrm/customer"
-	admintrade "PowerX/internal/handler/admin/trade"
+	admintradeaddress "PowerX/internal/handler/admin/trade/address"
+	admintradewarehouse "PowerX/internal/handler/admin/trade/warehouse"
 	adminuserinfo "PowerX/internal/handler/admin/userinfo"
 	mpcustomer "PowerX/internal/handler/mp/customer"
 	mpdictionary "PowerX/internal/handler/mp/dictionary"
@@ -331,41 +337,41 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				{
 					Method:  http.MethodGet,
 					Path:    "/leads/:id",
-					Handler: adminlead.GetLeadHandler(serverCtx),
+					Handler: admincustomerdomainleader.GetLeadHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodGet,
 					Path:    "/leads/page-list",
-					Handler: adminlead.ListLeadsPageHandler(serverCtx),
+					Handler: admincustomerdomainleader.ListLeadsPageHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPost,
 					Path:    "/leads",
-					Handler: adminlead.CreateLeadHandler(serverCtx),
+					Handler: admincustomerdomainleader.CreateLeadHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPut,
 					Path:    "/leads/:id",
-					Handler: adminlead.PutLeadHandler(serverCtx),
+					Handler: admincustomerdomainleader.PutLeadHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPatch,
 					Path:    "/leads/:id",
-					Handler: adminlead.PatchLeadHandler(serverCtx),
+					Handler: admincustomerdomainleader.PatchLeadHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodDelete,
 					Path:    "/leads/:id",
-					Handler: adminlead.DeleteLeadHandler(serverCtx),
+					Handler: admincustomerdomainleader.DeleteLeadHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPost,
 					Path:    "/leads/:id/actions/employees",
-					Handler: adminlead.AssignLeadToEmployeeHandler(serverCtx),
+					Handler: admincustomerdomainleader.AssignLeadToEmployeeHandler(serverCtx),
 				},
 			}...,
 		),
-		rest.WithPrefix("/api/v1/admin/customer-domain"),
+		rest.WithPrefix("/api/v1/admin/customerdomain"),
 	)
 
 	server.AddRoutes(
@@ -375,41 +381,41 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				{
 					Method:  http.MethodGet,
 					Path:    "/customers/:id",
-					Handler: admincustomer.GetCustomerHandler(serverCtx),
+					Handler: admincustomerdomaincustomer.GetCustomerHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodGet,
 					Path:    "/customers/page-list",
-					Handler: admincustomer.ListCustomersPageHandler(serverCtx),
+					Handler: admincustomerdomaincustomer.ListCustomersPageHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPost,
 					Path:    "/customers",
-					Handler: admincustomer.CreateCustomerHandler(serverCtx),
+					Handler: admincustomerdomaincustomer.CreateCustomerHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPut,
 					Path:    "/customers/:id",
-					Handler: admincustomer.PutCustomerHandler(serverCtx),
+					Handler: admincustomerdomaincustomer.PutCustomerHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPatch,
 					Path:    "/customers/:id",
-					Handler: admincustomer.PatchCustomerHandler(serverCtx),
+					Handler: admincustomerdomaincustomer.PatchCustomerHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodDelete,
 					Path:    "/customers/:id",
-					Handler: admincustomer.DeleteCustomerHandler(serverCtx),
+					Handler: admincustomerdomaincustomer.DeleteCustomerHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPost,
 					Path:    "/customers/:id/actions/employees",
-					Handler: admincustomer.AssignCustomerToEmployeeHandler(serverCtx),
+					Handler: admincustomerdomaincustomer.AssignCustomerToEmployeeHandler(serverCtx),
 				},
 			}...,
 		),
-		rest.WithPrefix("/api/v1/admin/customer-domain"),
+		rest.WithPrefix("/api/v1/admin/customerdomain"),
 	)
 
 	server.AddRoutes(
@@ -419,31 +425,31 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				{
 					Method:  http.MethodGet,
 					Path:    "/medias",
-					Handler: adminmedia.ListMediasPageHandler(serverCtx),
+					Handler: adminmarketmedia.ListMediasPageHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPost,
 					Path:    "/medias/actions/create-upload-url",
-					Handler: adminmedia.CreateMediaUploadRequestHandler(serverCtx),
+					Handler: adminmarketmedia.CreateMediaUploadRequestHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPut,
 					Path:    "/medias/:mediaKey",
-					Handler: adminmedia.CreateOrUpdateMediaHandler(serverCtx),
+					Handler: adminmarketmedia.CreateOrUpdateMediaHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodGet,
 					Path:    "/medias/:key",
-					Handler: adminmedia.GetMediaByKeyHandler(serverCtx),
+					Handler: adminmarketmedia.GetMediaByKeyHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodDelete,
 					Path:    "/medias/:key",
-					Handler: adminmedia.DeleteMediaHandler(serverCtx),
+					Handler: adminmarketmedia.DeleteMediaHandler(serverCtx),
 				},
 			}...,
 		),
-		rest.WithPrefix("/api/v1/admin/media"),
+		rest.WithPrefix("/api/v1/admin/market"),
 	)
 
 	server.AddRoutes(
@@ -453,31 +459,31 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				{
 					Method:  http.MethodGet,
 					Path:    "/opportunities",
-					Handler: adminopportunity.GetOpportunityListHandler(serverCtx),
+					Handler: adminbusinessopportunity.GetOpportunityListHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPost,
 					Path:    "/opportunities",
-					Handler: adminopportunity.CreateOpportunityHandler(serverCtx),
+					Handler: adminbusinessopportunity.CreateOpportunityHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPut,
 					Path:    "/opportunities/:id/assign-employee",
-					Handler: adminopportunity.AssignEmployeeToOpportunityHandler(serverCtx),
+					Handler: adminbusinessopportunity.AssignEmployeeToOpportunityHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPut,
 					Path:    "/opportunities/:id",
-					Handler: adminopportunity.UpdateOpportunityHandler(serverCtx),
+					Handler: adminbusinessopportunity.UpdateOpportunityHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodDelete,
 					Path:    "/opportunities/:id",
-					Handler: adminopportunity.DeleteOpportunityHandler(serverCtx),
+					Handler: adminbusinessopportunity.DeleteOpportunityHandler(serverCtx),
 				},
 			}...,
 		),
-		rest.WithPrefix("/api/v1/admin/opportunity"),
+		rest.WithPrefix("/api/v1/admin/business"),
 	)
 
 	server.AddRoutes(
@@ -531,27 +537,27 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				{
 					Method:  http.MethodGet,
 					Path:    "/product-category-tree",
-					Handler: adminproduct.ListProductCategoryTreeHandler(serverCtx),
+					Handler: adminproductcategory.ListProductCategoryTreeHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodGet,
 					Path:    "/product-categories/:id",
-					Handler: adminproduct.GetProductCategoryHandler(serverCtx),
+					Handler: adminproductcategory.GetProductCategoryHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPost,
 					Path:    "/product-categories",
-					Handler: adminproduct.UpsertProductCategoryHandler(serverCtx),
+					Handler: adminproductcategory.UpsertProductCategoryHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPut,
 					Path:    "/product-categories/:id",
-					Handler: adminproduct.PatchProductCategoryHandler(serverCtx),
+					Handler: adminproductcategory.PatchProductCategoryHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodDelete,
 					Path:    "/product-categories/:id",
-					Handler: adminproduct.DeleteProductCategoryHandler(serverCtx),
+					Handler: adminproductcategory.DeleteProductCategoryHandler(serverCtx),
 				},
 			}...,
 		),
@@ -565,27 +571,27 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				{
 					Method:  http.MethodGet,
 					Path:    "/price-books/page-list",
-					Handler: adminproduct.ListPriceBooksHandler(serverCtx),
+					Handler: adminproductpricebook.ListPriceBooksHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodGet,
 					Path:    "/price-books/:id",
-					Handler: adminproduct.GetPriceBookHandler(serverCtx),
+					Handler: adminproductpricebook.GetPriceBookHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPost,
 					Path:    "/price-books",
-					Handler: adminproduct.UpsertPriceBookHandler(serverCtx),
+					Handler: adminproductpricebook.UpsertPriceBookHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodDelete,
 					Path:    "/price-books/:id",
-					Handler: adminproduct.DeletePriceBookHandler(serverCtx),
+					Handler: adminproductpricebook.DeletePriceBookHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPost,
 					Path:    "/price-book-entries",
-					Handler: adminproduct.ConfigPriceBookHandler(serverCtx),
+					Handler: adminproductpricebook.ConfigPriceBookHandler(serverCtx),
 				},
 			}...,
 		),
@@ -599,37 +605,37 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				{
 					Method:  http.MethodGet,
 					Path:    "/stores/page-list",
-					Handler: adminproduct.ListStoresPageHandler(serverCtx),
+					Handler: adminproductstore.ListStoresPageHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodGet,
 					Path:    "/stores/:id",
-					Handler: adminproduct.GetStoreHandler(serverCtx),
+					Handler: adminproductstore.GetStoreHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPost,
 					Path:    "/stores",
-					Handler: adminproduct.CreateStoreHandler(serverCtx),
+					Handler: adminproductstore.CreateStoreHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPut,
 					Path:    "/stores/:id",
-					Handler: adminproduct.PutStoreHandler(serverCtx),
+					Handler: adminproductstore.PutStoreHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPatch,
 					Path:    "/stores/:id",
-					Handler: adminproduct.PatchStoreHandler(serverCtx),
+					Handler: adminproductstore.PatchStoreHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodDelete,
 					Path:    "/stores/:id",
-					Handler: adminproduct.DeleteStoreHandler(serverCtx),
+					Handler: adminproductstore.DeleteStoreHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPost,
 					Path:    "/stores/:id/actions/assign-to-store-categroy",
-					Handler: adminproduct.AssignStoreToStoreCategoryHandler(serverCtx),
+					Handler: adminproductstore.AssignStoreToStoreManagerHandler(serverCtx),
 				},
 			}...,
 		),
@@ -643,37 +649,37 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				{
 					Method:  http.MethodGet,
 					Path:    "/artisans",
-					Handler: adminproduct.ListArtisansPageHandler(serverCtx),
+					Handler: adminproductartisan.ListArtisansPageHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodGet,
 					Path:    "/artisans/:id",
-					Handler: adminproduct.GetArtisanHandler(serverCtx),
+					Handler: adminproductartisan.GetArtisanHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPost,
 					Path:    "/artisans",
-					Handler: adminproduct.CreateArtisanHandler(serverCtx),
+					Handler: adminproductartisan.CreateArtisanHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPut,
 					Path:    "/artisans/:id",
-					Handler: adminproduct.PutArtisanHandler(serverCtx),
+					Handler: adminproductartisan.PutArtisanHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPatch,
 					Path:    "/artisans/:id",
-					Handler: adminproduct.PatchArtisanHandler(serverCtx),
+					Handler: adminproductartisan.PatchArtisanHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodDelete,
 					Path:    "/artisans/:id",
-					Handler: adminproduct.DeleteArtisanHandler(serverCtx),
+					Handler: adminproductartisan.DeleteArtisanHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPost,
 					Path:    "/artisans/:id/actions/assign-to-artisan-categroy",
-					Handler: adminproduct.AssignArtisanToArtisanCategoryHandler(serverCtx),
+					Handler: adminproductartisan.AssignArtisanToArtisanCategoryHandler(serverCtx),
 				},
 			}...,
 		),
@@ -687,32 +693,32 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				{
 					Method:  http.MethodGet,
 					Path:    "/shipping-addresss",
-					Handler: admintrade.ListShippingAddressesPageHandler(serverCtx),
+					Handler: admintradeaddress.ListShippingAddressesPageHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodGet,
 					Path:    "/shipping-addresss/:id",
-					Handler: admintrade.GetShippingAddressHandler(serverCtx),
+					Handler: admintradeaddress.GetShippingAddressHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPost,
 					Path:    "/shipping-addresss",
-					Handler: admintrade.CreateShippingAddressHandler(serverCtx),
+					Handler: admintradeaddress.CreateShippingAddressHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPut,
 					Path:    "/shipping-addresss/:id",
-					Handler: admintrade.PutShippingAddressHandler(serverCtx),
+					Handler: admintradeaddress.PutShippingAddressHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPatch,
 					Path:    "/shipping-addresss/:id",
-					Handler: admintrade.PatchShippingAddressHandler(serverCtx),
+					Handler: admintradeaddress.PatchShippingAddressHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodDelete,
 					Path:    "/shipping-addresss/:id",
-					Handler: admintrade.DeleteShippingAddressHandler(serverCtx),
+					Handler: admintradeaddress.DeleteShippingAddressHandler(serverCtx),
 				},
 			}...,
 		),
@@ -726,32 +732,32 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				{
 					Method:  http.MethodGet,
 					Path:    "/billing-addresss",
-					Handler: admintrade.ListBillingAddressesPageHandler(serverCtx),
+					Handler: admintradeaddress.ListBillingAddressesPageHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodGet,
 					Path:    "/billing-addresss/:id",
-					Handler: admintrade.GetBillingAddressHandler(serverCtx),
+					Handler: admintradeaddress.GetBillingAddressHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPost,
 					Path:    "/billing-addresss",
-					Handler: admintrade.CreateBillingAddressHandler(serverCtx),
+					Handler: admintradeaddress.CreateBillingAddressHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPut,
 					Path:    "/billing-addresss/:id",
-					Handler: admintrade.PutBillingAddressHandler(serverCtx),
+					Handler: admintradeaddress.PutBillingAddressHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPatch,
 					Path:    "/billing-addresss/:id",
-					Handler: admintrade.PatchBillingAddressHandler(serverCtx),
+					Handler: admintradeaddress.PatchBillingAddressHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodDelete,
 					Path:    "/billing-addresss/:id",
-					Handler: admintrade.DeleteBillingAddressHandler(serverCtx),
+					Handler: admintradeaddress.DeleteBillingAddressHandler(serverCtx),
 				},
 			}...,
 		),
@@ -765,32 +771,71 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				{
 					Method:  http.MethodGet,
 					Path:    "/delivery-addresss",
-					Handler: admintrade.ListDeliveryAddressesPageHandler(serverCtx),
+					Handler: admintradeaddress.ListDeliveryAddressesPageHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodGet,
 					Path:    "/delivery-addresss/:id",
-					Handler: admintrade.GetDeliveryAddressHandler(serverCtx),
+					Handler: admintradeaddress.GetDeliveryAddressHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPost,
 					Path:    "/delivery-addresss",
-					Handler: admintrade.CreateDeliveryAddressHandler(serverCtx),
+					Handler: admintradeaddress.CreateDeliveryAddressHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPut,
 					Path:    "/delivery-addresss/:id",
-					Handler: admintrade.PutDeliveryAddressHandler(serverCtx),
+					Handler: admintradeaddress.PutDeliveryAddressHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPatch,
 					Path:    "/delivery-addresss/:id",
-					Handler: admintrade.PatchDeliveryAddressHandler(serverCtx),
+					Handler: admintradeaddress.PatchDeliveryAddressHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodDelete,
 					Path:    "/delivery-addresss/:id",
-					Handler: admintrade.DeleteDeliveryAddressHandler(serverCtx),
+					Handler: admintradeaddress.DeleteDeliveryAddressHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithPrefix("/api/v1/admin/trade"),
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Route{
+				{
+					Method:  http.MethodGet,
+					Path:    "/warehouses",
+					Handler: admintradewarehouse.ListWarehousesHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/warehouses/:id",
+					Handler: admintradewarehouse.GetWarehouseHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/warehouses",
+					Handler: admintradewarehouse.CreateWarehouseHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPut,
+					Path:    "/warehouses/:id",
+					Handler: admintradewarehouse.UpdateWarehouseHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPatch,
+					Path:    "/warehouses/:id",
+					Handler: admintradewarehouse.PatchWarehouseHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodDelete,
+					Path:    "/warehouses/:id",
+					Handler: admintradewarehouse.DeleteWarehouseHandler(serverCtx),
 				},
 			}...,
 		),
@@ -983,7 +1028,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 
 	server.AddRoutes(
 		rest.WithMiddlewares(
-			[]rest.Middleware{serverCtx.CustomerJWTAuth},
+			[]rest.Middleware{serverCtx.MPCustomerJWTAuth},
 			[]rest.Route{
 				{
 					Method:  http.MethodGet,

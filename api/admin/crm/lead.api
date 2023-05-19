@@ -9,8 +9,8 @@ info(
 )
 
 @server(
-    group: admin/lead
-    prefix: /api/v1/admin/customer-domain
+    group: admin/customerdomain/leader
+    prefix: /api/v1/admin/customerdomain
     middleware: EmployeeJWTAuth
 )
 

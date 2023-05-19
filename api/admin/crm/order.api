@@ -13,7 +13,7 @@ import "admin/crm/orderitem.api"
 import "admin/crm/payment.api"
 
 @server(
-    group: admin/trade
+    group: admin/trade/order
     prefix: /api/v1/admin/trade
     middleware: EmployeeJWTAuth
 )
