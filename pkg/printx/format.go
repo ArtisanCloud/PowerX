@@ -33,8 +33,11 @@ func DD(datas ...interface{}) {
 
 func Dump(datas ...interface{}) {
 	for _, data := range datas {
-		pretty.Print(data)
-		print("\r\n")
+		if data == nil {
+			dump(data)
+		} else {
+			pretty.Println(data)
+		}
 		//dump(data)
 	}
 }

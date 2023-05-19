@@ -63,7 +63,7 @@ func NewEmployeeJWTAuthMiddleware(conf *config.Config, px *uc.PowerXUseCase, opt
 }
 
 func (m *EmployeeJWTAuthMiddleware) Handle(next http.HandlerFunc) http.HandlerFunc {
-	secret := m.conf.JWTSecret
+	secret := m.conf.JWT.JWTSecret
 	unAuth := errorx.ErrUnAuthorization.(*errorx.Error)
 	unKnow := errorx.ErrUnKnow.(*errorx.Error)
 

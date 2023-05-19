@@ -11,7 +11,7 @@ info(
 @server(
     group: mp/trade
     prefix: /api/v1/mp/trade/cart
-    middleware: MPCustomerJWTAuth
+    middleware: MPCustomerJWTAuth, MPCustomerGet
 )
 
 service PowerX {
@@ -60,8 +60,8 @@ type (
 type (
     UpdateCartItemQuantityRequest struct {
         CustomerId int64 `path:"customerId"`
-        ItemId     int64 `path:"itemId"`
-        Quantity   int   `json:"quantity"`
+        ItemId int64 `path:"itemId"`
+        Quantity int `json:"quantity"`
     }
 
     UpdateCartItemQuantityReply struct {
@@ -72,7 +72,7 @@ type (
 type (
     RemoveCartItemRequest struct {
         CustomerId int64 `path:"customerId"`
-        ItemId     int64 `path:"itemId"`
+        ItemId int64 `path:"itemId"`
     }
 
     RemoveCartItemReply struct {
@@ -92,24 +92,24 @@ type (
 
 type (
     Cart struct {
-        Id         int64       `json:"id", optional"`
-        CustomerId int64       `json:"customerId", optional"`
-        Status     int  `json:"status", optional"`
-        Items      []*CartItem `json:"items", optional"`
+        Id int64 `json:"id", optional"`
+        CustomerId int64 `json:"customerId", optional"`
+        Status int `json:"status", optional"`
+        Items []*CartItem `json:"items", optional"`
     }
 
     CartItem struct {
-        Id             int64   `json:"id, optional"`
-        CartId         int64   `json:"cartId, optional"`
-        ProductId      int64   `json:"productId, optional"`
-        SkuId          int64   `json:"skuId, optional"`
-        ProductName    string  `json:"productName, optional"`
-        ListPrice      float64 `json:"listPrice, optional"`
-        UnitPrice      float64 `json:"unitPrice, optional"`
-        Discount       float64 `json:"discount, optional"`
-        Quantity       int     `json:"quantity, optional"`
-        Specifications string  `json:"specifications, optional"`
-        ImageURL       string  `json:"imageUrl, optional"`
+        Id int64 `json:"id, optional"`
+        CartId int64 `json:"cartId, optional"`
+        ProductId int64 `json:"productId, optional"`
+        SkuId int64 `json:"skuId, optional"`
+        ProductName string `json:"productName, optional"`
+        ListPrice float64 `json:"listPrice, optional"`
+        UnitPrice float64 `json:"unitPrice, optional"`
+        Discount float64 `json:"discount, optional"`
+        Quantity int `json:"quantity, optional"`
+        Specifications string `json:"specifications, optional"`
+        ImageURL string `json:"imageUrl, optional"`
     }
 )
 
