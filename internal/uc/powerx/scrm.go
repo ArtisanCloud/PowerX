@@ -21,6 +21,8 @@ func NewSCRMUseCase(db *gorm.DB, conf *config.Config) *SCRMUseCase {
 			Callback: "https://wecom.artisan-cloud.com/callback", //
 			Scopes:   nil,
 		},
+		Token:     conf.WeWork.Token,
+		AESKey:    conf.WeWork.EncodingAESKey,
 		HttpDebug: true,
 	})
 	if err != nil {

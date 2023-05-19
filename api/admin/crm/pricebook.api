@@ -10,7 +10,7 @@ info(
 
 
 @server(
-    group: admin/product
+    group: admin/product/pricebook
     prefix: /api/v1/admin/product
     middleware: EmployeeJWTAuth
 )
@@ -63,8 +63,8 @@ type (
         PriceBookId int64 `json:"priceBookId"`
         ProductId int64 `json:"productId"`
         UnitPrice float64 `json:"unitPrice"`
-        RetailPrice float64 `json:"retailPrice,optional"`
-        IsActive bool `json:"isActive"`
+        ListPrice float64 `json:"listPrice,optional"`
+        IsActive bool `json:"isActive, omitempty"`
         PriceBookEntrySpecific
     }
 )

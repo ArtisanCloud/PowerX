@@ -9,8 +9,8 @@ info(
 )
 
 @server(
-    group: admin/media
-    prefix: /api/v1/admin/media
+    group: admin/market/media
+    prefix: /api/v1/admin/market
     middleware: EmployeeJWTAuth
 )
 

@@ -10,7 +10,7 @@ info(
 
 
 @server(
-    group: admin/trade
+    group: admin/trade/payment
     prefix: /api/v1/admin/trade
     middleware: EmployeeJWTAuth
 )
@@ -45,15 +45,12 @@ service PowerX {
 }
 
 type (
-    Payment {
+    PaymentItem {
         Id int64 `json:"id,optional"`
-        OrderId int64 `json:"orderId,optional"`
-        PaymentDate string `json:"paymentDate,optional"`
-        PaymentType int `json:"paymentType,optional"`
-        PaidAmount float64 `json:"paidAmount,optional"`
-        PaymentNumber string `json:"paymentNumber,optional"`
-        ReferenceNumber string `json:"referenceNumber,optional"`
-        Status int `json:"status,optional"`
+
+        PaymentID int64 `json:"paymentID,optional"`
+        Quantity int `json:"quantity,optional"`
+        UnitPrice float64 `json:"unitPrice,optional"`
         PaymentCustomerName string `json:"paymentCustomerName,optional"`
         BankInformation string `json:"bankInformation,optional"`
         BankResponseCode string `json:"bankResponseCode,optional"`
@@ -65,7 +62,18 @@ type (
         InvoiceNumber string `json:"invoiceNumber,optional"`
         InvoiceTotalAmount float64 `json:"invoiceTotalAmount,optional"`
         TaxIdNumber string `json:"taxIdNumber,optional"`
-        CreatedAt string `json:"createdAt,optional"`
+    }
+    Payment {
+        Id int64 `json:"id,optional"`
+
+        OrderId int64 `json:"orderId,optional"`
+        PaymentDate string `json:"paymentDate,optional"`
+        PaymentType int `json:"paymentType,optional"`
+        PaidAmount float64 `json:"paidAmount,optional"`
+        PaymentNumber string `json:"paymentNumber,optional"`
+        ReferenceNumber string `json:"referenceNumber,optional"`
+        Status int `json:"status,optional"`
+        PaymentItems []*PaymentItem `json:"paymentItems,optional"`
     }
 )
 type (

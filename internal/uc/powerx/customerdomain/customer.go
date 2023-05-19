@@ -98,7 +98,7 @@ func (uc *CustomerUseCase) UpsertCustomer(ctx context.Context, customer *custome
 
 	_, err := uc.UpsertCustomers(ctx, customers)
 	if err != nil {
-		panic(errors.Wrap(err, "upsert customer failed"))
+		panic(errors.Wrap(err, "upsert customerdomain failed"))
 	}
 
 	return customer, err

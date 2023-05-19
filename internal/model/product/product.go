@@ -45,7 +45,7 @@ type Product struct {
 	CanUseForDeduct     bool      `gorm:"comment:产品购买，是否可以使用抵扣方式"`
 	ApprovalStatus      int       `gorm:"comment:产品上架，是否审核通过"`
 	IsActivated         bool      `gorm:"comment:是否被激活"`
-	Description         string    `gorm:"comment:产品描述"`
+	Description         string    `gorm:"comment:产品描述; type:text"`
 	AllowedSellQuantity int       `gorm:"comment:允许购买数量上限"`
 	ValidityPeriodDays  int       `gorm:"comment:售卖时间期限，按天"`
 	SaleStartDate       time.Time `gorm:"comment:售卖开始时间"`

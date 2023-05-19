@@ -9,8 +9,8 @@ info(
 )
 
 @server(
-    group: admin/lead
-    prefix: /api/v1/admin/customer-domain
+    group: admin/customerdomain/leader
+    prefix: /api/v1/admin/customerdomain
     middleware: EmployeeJWTAuth
 )
 
@@ -69,7 +69,7 @@ type (
         InviterId int64 `json:"inviter,optional"`
         Source int `json:"source,optional"`
         Type int `json:"type,optional"`
-        IsActivated bool `json:"isActivated,optional"`
+        IsActivated bool `json:"isActivated,optional,omitempty"`
         CreatedAt string `json:"createdAt,optional"`
         *LeadExternalId
     }
@@ -132,7 +132,7 @@ type (
         InviterId int64 `json:"inviterId,optional"`
         Source int `json:"source,optional"`
         Type int `json:"type,optional"`
-        IsActivated bool `json:"isActivated,optional"`
+        IsActivated bool `json:"isActivated,optional,omitempty"`
     }
 
     PatchLeadReply {

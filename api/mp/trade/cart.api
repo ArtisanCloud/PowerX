@@ -1,0 +1,116 @@
+syntax = "v1"
+
+info(
+    title: "购物车服务"
+    desc: "购物车服务API"
+    author: "MichaelHu"
+    email: "matrix-x@artisan-cloud.com"
+    version: "v1"
+)
+
+@server(
+    group: mp/trade
+    prefix: /api/v1/mp/trade/cart
+    middleware: MPCustomerJWTAuth
+)
+
+service PowerX {
+    @doc "获取购物车详情"
+    @handler GetCart
+    get /:customerId (GetCartRequest) returns (GetCartReply)
+
+    @doc "添加商品到购物车"
+    @handler AddToCart
+    post /:customerId/items (AddToCartRequest) returns (AddToCartReply)
+
+    @doc "更新购物车商品数量"
+    @handler UpdateCartItemQuantity
+    put /:customerId/items/:itemId (UpdateCartItemQuantityRequest) returns (UpdateCartItemQuantityReply)
+
+    @doc "删除购物车商品"
+    @handler RemoveCartItem
+    delete /:customerId/items/:itemId (RemoveCartItemRequest) returns (RemoveCartItemReply)
+
+    @doc "清空购物车"
+    @handler ClearCart
+    delete /:customerId/clear (ClearCartRequest) returns (ClearCartReply)
+}
+
+type (
+    GetCartRequest struct {
+        CustomerId int64 `path:"customerId"`
+    }
+
+    GetCartReply struct {
+        *Cart
+    }
+)
+
+type (
+    AddToCartRequest struct {
+        CustomerId int64 `path:"customerId"`
+        CartItem
+    }
+
+    AddToCartReply struct {
+        *CartItem
+    }
+)
+
+type (
+    UpdateCartItemQuantityRequest struct {
+        CustomerId int64 `path:"customerId"`
+        ItemId     int64 `path:"itemId"`
+        Quantity   int   `json:"quantity"`
+    }
+
+    UpdateCartItemQuantityReply struct {
+        *CartItem
+    }
+)
+
+type (
+    RemoveCartItemRequest struct {
+        CustomerId int64 `path:"customerId"`
+        ItemId     int64 `path:"itemId"`
+    }
+
+    RemoveCartItemReply struct {
+        ItemId int64 `json:"itemId"`
+    }
+)
+
+type (
+    ClearCartRequest struct {
+        CustomerId int64 `path:"customerId"`
+    }
+
+    ClearCartReply struct {
+        Message string `json:"message"`
+    }
+)
+
+type (
+    Cart struct {
+        Id         int64       `json:"id", optional"`
+        CustomerId int64       `json:"customerId", optional"`
+        Status     int  `json:"status", optional"`
+        Items      []*CartItem `json:"items", optional"`
+    }
+
+    CartItem struct {
+        Id             int64   `json:"id, optional"`
+        CartId         int64   `json:"cartId, optional"`
+        ProductId      int64   `json:"productId, optional"`
+        SkuId          int64   `json:"skuId, optional"`
+        ProductName    string  `json:"productName, optional"`
+        ListPrice      float64 `json:"listPrice, optional"`
+        UnitPrice      float64 `json:"unitPrice, optional"`
+        Discount       float64 `json:"discount, optional"`
+        Quantity       int     `json:"quantity, optional"`
+        Specifications string  `json:"specifications, optional"`
+        ImageURL       string  `json:"imageUrl, optional"`
+    }
+)
+
+

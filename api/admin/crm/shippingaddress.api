@@ -1,0 +1,131 @@
+syntax = "v1"
+
+info(
+    title: "收获地址服务"
+    desc: "收获地址服务"
+    author: "MichaelHu"
+    email: "matrix-x@artisan-cloud.com"
+    version: "v1"
+)
+
+
+@server(
+    group: admin/trade/address
+    prefix: /api/v1/admin/trade
+    middleware: EmployeeJWTAuth
+)
+
+service PowerX {
+    @doc("查询收货地址列表")
+    @handler ListShippingAddressesPage
+    get /shipping-addresss (ListShippingAddressesPageRequest) returns (ListShippingAddressesPageReply)
+
+    @doc("查询收货地址详情")
+    @handler GetShippingAddress
+    get /shipping-addresss/:id (GetShippingAddressRequest) returns (GetShippingAddressReply)
+
+    @doc("创建收货地址")
+    @handler CreateShippingAddress
+    post /shipping-addresss (CreateShippingAddressRequest) returns (CreateShippingAddressReply)
+
+    @doc("更新收货地址")
+    @handler PutShippingAddress
+    put /shipping-addresss/:id (PutShippingAddressRequest) returns (PutShippingAddressReply)
+
+    @doc("部分更新收货地址")
+    @handler PatchShippingAddress
+    patch /shipping-addresss/:id (PatchShippingAddressRequest) returns (PatchShippingAddressReply)
+
+    @doc("删除收货地址")
+    @handler DeleteShippingAddress
+    delete /shipping-addresss/:id (DeleteShippingAddressRequest) returns (DeleteShippingAddressReply)
+}
+
+type (
+    ShippingAddress {
+        Id int64 `json:"id,optional"`
+        CustomerId int64 `json:"customerId,optional"`
+        Recipient string `json:"recipient,optional"`
+        AddressLine string `json:"addressLine,optional"`
+        AddressLine2 string `json:"addressLine2,optional"`
+        Street string `json:"street,optional"`
+        City string `json:"city,optional"`
+        Province string `json:"province,optional"`
+        PostalCode string `json:"postalCode,optional"`
+        Country string `json:"country,optional"`
+        PhoneNumber string `json:"phoneNumber,optional"`
+        IsDefault bool `json:"isDefault,optional"`
+    }
+)
+type (
+    ListShippingAddressesPageRequest struct {
+        NameLike []string `form:"nameLike,optional"`
+        OrderBy string `form:"orderBy,optional"`
+        PageIndex int `form:"pageIndex,optional"`
+        PageSize int `form:"pageSize,optional"`
+    }
+
+
+    ListShippingAddressesPageReply struct {
+        List []*ShippingAddress `json:"list"`
+        PageIndex int `json:"pageIndex"`
+        PageSize int `json:"pageSize"`
+        Total int64 `json:"total"`
+    }
+)
+
+type (
+    CreateShippingAddressRequest struct {
+        ShippingAddress
+    }
+
+    CreateShippingAddressReply struct {
+        ShippingAddressId string `json:"id"`
+    }
+)
+
+type (
+    GetShippingAddressRequest struct {
+        ShippingAddressId int64 `path:"id"`
+    }
+
+    GetShippingAddressReply struct {
+        *ShippingAddress
+    }
+)
+
+
+type (
+    PutShippingAddressRequest struct {
+        ShippingAddressId int64 `path:"artisanId"`
+        ShippingAddress
+    }
+
+    PutShippingAddressReply struct {
+        *ShippingAddress
+    }
+)
+
+type (
+    PatchShippingAddressRequest struct {
+        ShippingAddressId int64 `path:"artisanId"`
+        ShippingAddress
+    }
+
+    PatchShippingAddressReply struct {
+        *ShippingAddress
+    }
+)
+
+
+type (
+    DeleteShippingAddressRequest struct {
+        ShippingAddressId int64 `path:"id"`
+    }
+
+    DeleteShippingAddressReply struct {
+        ShippingAddressId int64 `json:"id"`
+    }
+)
+
+

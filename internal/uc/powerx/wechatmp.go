@@ -28,7 +28,7 @@ func NewWechatMiniProgramUseCase(db *gorm.DB, conf *config.Config) *WechatMiniPr
 			Scopes:   nil,
 		},
 		//Token:     "Aj9T3rkHmbzCnpoUgRO3mPgkxFV",
-		//AESKey:    "zUfVSOan3B5ZZZZZZ66ixY6OrB28MTS9OIiBLaq3q2PhNG",
+		AESKey:    conf.WechatMP.AESKey,
 		HttpDebug: true,
 	})
 

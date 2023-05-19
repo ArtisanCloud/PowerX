@@ -65,7 +65,7 @@ type (
         Id int64 `json:"id,optional"`
         //        ProductSpecificId int64  `json:"productSpecificId,optional"`
         Name string `json:"name,optional"`
-        IsActivated bool `json:"isActivated,optional"`
+        IsActivated bool `json:"isActivated,optional,omitempty"`
     }
 
     PivotDataDictionaryToObject {
@@ -78,7 +78,7 @@ type (
     PriceEntry {
         Id int64 `json:"id,optional"`
         UnitPrice float64 `json:"unitPrice,optional"`
-        RetailPrice float64 `json:"retailPrice,optional"`
+        ListPrice float64 `json:"listPrice,optional"`
         Discount float64 `json:"discount,optional"`
     }
 
@@ -87,9 +87,9 @@ type (
         SkuNo string `json:"skuNo,optional"`
         Inventory int `json:"inventory,optional"`
         UnitPrice float64 `json:"unitPrice,optional"`
-        RetailPrice float64 `json:"retailPrice,optional"`
+        ListPrice float64 `json:"listPrice,optional"`
         IsActive bool `json:"isActive,optional"`
-        OptionsIds []int64 `json:"optionsIds,optional"`
+        OptionsIds []int64 `json:"optionsIds,optional, omitempty"`
     }
 
     ProductAttribute {
@@ -119,7 +119,7 @@ type (
         SaleStartDate string `json:"saleStartDate,optional"`
         SaleEndDate string `json:"saleEndDate,optional"`
         ApprovalStatus int `json:"approvalStatus,optional"`
-        IsActivated bool `json:"isActivated,optional"`
+        IsActivated bool `json:"isActivated,optional,omitempty"`
         CreatedAt string `json:"createdAt,optional"`
         ProductSpecifics []*ProductSpecific `json:"productSpecifics,optional"`
         PivotSalesChannels []*PivotDataDictionaryToObject `json:"pivotSalesChannels,optional"`

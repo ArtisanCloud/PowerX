@@ -224,21 +224,21 @@ func TransformSkuToSkuReply(sku *product.SKU) (skuReply *types.SKU) {
 	}
 
 	unitPrice := 0.0
-	retailPrice := 0.0
+	listPrice := 0.0
 	isActive := false
 	if sku.PriceBookEntry != nil {
 		unitPrice = sku.PriceBookEntry.UnitPrice
-		retailPrice = sku.PriceBookEntry.RetailPrice
+		listPrice = sku.PriceBookEntry.ListPrice
 		isActive = sku.PriceBookEntry.IsActive
 	}
 
 	return &types.SKU{
-		Id:          sku.Id,
-		SkuNo:       sku.SkuNo,
-		Inventory:   sku.Inventory,
-		UnitPrice:   unitPrice,
-		RetailPrice: retailPrice,
-		IsActive:    isActive,
+		Id:        sku.Id,
+		SkuNo:     sku.SkuNo,
+		Inventory: sku.Inventory,
+		UnitPrice: unitPrice,
+		ListPrice: listPrice,
+		IsActive:  isActive,
 	}
 }
 
