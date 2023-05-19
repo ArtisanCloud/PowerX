@@ -976,20 +976,20 @@ type PivotDataDictionaryToObject struct {
 }
 
 type PriceEntry struct {
-	Id          int64   `json:"id,optional"`
-	UnitPrice   float64 `json:"unitPrice,optional"`
-	RetailPrice float64 `json:"retailPrice,optional"`
-	Discount    float64 `json:"discount,optional"`
+	Id        int64   `json:"id,optional"`
+	UnitPrice float64 `json:"unitPrice,optional"`
+	ListPrice float64 `json:"listPrice,optional"`
+	Discount  float64 `json:"discount,optional"`
 }
 
 type SKU struct {
-	Id          int64   `json:"id,optional"`
-	SkuNo       string  `json:"skuNo,optional"`
-	Inventory   int     `json:"inventory,optional"`
-	UnitPrice   float64 `json:"unitPrice,optional"`
-	RetailPrice float64 `json:"retailPrice,optional"`
-	IsActive    bool    `json:"isActive,optional"`
-	OptionsIds  []int64 `json:"optionsIds,optional"`
+	Id         int64   `json:"id,optional"`
+	SkuNo      string  `json:"skuNo,optional"`
+	Inventory  int     `json:"inventory,optional"`
+	UnitPrice  float64 `json:"unitPrice,optional"`
+	ListPrice  float64 `json:"listPrice,optional"`
+	IsActive   bool    `json:"isActive,optional"`
+	OptionsIds []int64 `json:"optionsIds,optional"`
 }
 
 type ProductAttribute struct {
@@ -1188,7 +1188,7 @@ type PriceBookEntry struct {
 	PriceBookId int64   `json:"priceBookId"`
 	ProductId   int64   `json:"productId"`
 	UnitPrice   float64 `json:"unitPrice"`
-	RetailPrice float64 `json:"retailPrice,optional"`
+	ListPrice   float64 `json:"listPrice,optional"`
 	IsActive    bool    `json:"isActive"`
 	PriceBookEntrySpecific
 }
@@ -1429,6 +1429,221 @@ type AssignArtisanManagerReply struct {
 	Artisan
 }
 
+type ShippingAddress struct {
+	Id           int64  `json:"id,optional"`
+	CustomerId   int64  `json:"customerId,optional"`
+	Recipient    string `json:"recipient,optional"`
+	AddressLine  string `json:"addressLine,optional"`
+	AddressLine2 string `json:"addressLine2,optional"`
+	Street       string `json:"street,optional"`
+	City         string `json:"city,optional"`
+	Province     string `json:"province,optional"`
+	PostalCode   string `json:"postalCode,optional"`
+	Country      string `json:"country,optional"`
+	PhoneNumber  string `json:"phoneNumber,optional"`
+	IsDefault    bool   `json:"isDefault,optional"`
+}
+
+type ListShippingAddressesPageRequest struct {
+	NameLike  []string `form:"nameLike,optional"`
+	OrderBy   string   `form:"orderBy,optional"`
+	PageIndex int      `form:"pageIndex,optional"`
+	PageSize  int      `form:"pageSize,optional"`
+}
+
+type ListShippingAddressesPageReply struct {
+	List      []*ShippingAddress `json:"list"`
+	PageIndex int                `json:"pageIndex"`
+	PageSize  int                `json:"pageSize"`
+	Total     int64              `json:"total"`
+}
+
+type CreateShippingAddressRequest struct {
+	ShippingAddress
+}
+
+type CreateShippingAddressReply struct {
+	ShippingAddressId string `json:"id"`
+}
+
+type GetShippingAddressRequest struct {
+	ShippingAddressId int64 `path:"id"`
+}
+
+type GetShippingAddressReply struct {
+	*ShippingAddress
+}
+
+type PutShippingAddressRequest struct {
+	ShippingAddressId int64 `path:"artisanId"`
+	ShippingAddress
+}
+
+type PutShippingAddressReply struct {
+	*ShippingAddress
+}
+
+type PatchShippingAddressRequest struct {
+	ShippingAddressId int64 `path:"artisanId"`
+	ShippingAddress
+}
+
+type PatchShippingAddressReply struct {
+	*ShippingAddress
+}
+
+type DeleteShippingAddressRequest struct {
+	ShippingAddressId int64 `path:"id"`
+}
+
+type DeleteShippingAddressReply struct {
+	ShippingAddressId int64 `json:"id"`
+}
+
+type BillingAddress struct {
+	Id           int64  `json:"id,optional"`
+	OrderId      int64  `gorm:"comment:订单Id; index" json:"orderId"`
+	CustomerId   int64  `json:"customerId,optional"`
+	Recipient    string `json:"recipient,optional"`
+	AddressLine  string `json:"addressLine,optional"`
+	AddressLine2 string `json:"addressLine2,optional"`
+	Street       string `json:"street,optional"`
+	City         string `json:"city,optional"`
+	Province     string `json:"province,optional"`
+	PostalCode   string `json:"postalCode,optional"`
+	Country      string `json:"country,optional"`
+	PhoneNumber  string `json:"phoneNumber,optional"`
+	IsDefault    bool   `json:"isDefault,optional"`
+}
+
+type ListBillingAddressesPageRequest struct {
+	NameLike  []string `form:"nameLike,optional"`
+	OrderBy   string   `form:"orderBy,optional"`
+	PageIndex int      `form:"pageIndex,optional"`
+	PageSize  int      `form:"pageSize,optional"`
+}
+
+type ListBillingAddressesPageReply struct {
+	List      []*BillingAddress `json:"list"`
+	PageIndex int               `json:"pageIndex"`
+	PageSize  int               `json:"pageSize"`
+	Total     int64             `json:"total"`
+}
+
+type CreateBillingAddressRequest struct {
+	BillingAddress *BillingAddress `json:"billingAddress"`
+}
+
+type CreateBillingAddressReply struct {
+	BillingAddressId string `json:"id"`
+}
+
+type GetBillingAddressRequest struct {
+	BillingAddressId int64 `path:"id"`
+}
+
+type GetBillingAddressReply struct {
+	BillingAddress *BillingAddress `json:"billingAddress"`
+}
+
+type PutBillingAddressRequest struct {
+	BillingAddressId int64           `path:"id"`
+	BillingAddress   *BillingAddress `json:"billingAddress"`
+}
+
+type PutBillingAddressReply struct {
+	BillingAddress *BillingAddress `json:"billingAddress"`
+}
+
+type PatchBillingAddressRequest struct {
+	BillingAddressId int64           `path:"id"`
+	BillingAddress   *BillingAddress `json:"billingAddress"`
+}
+
+type PatchBillingAddressReply struct {
+	BillingAddress *BillingAddress `json:"billingAddress"`
+}
+
+type DeleteBillingAddressRequest struct {
+	BillingAddressId int64 `path:"id"`
+}
+
+type DeleteBillingAddressReply struct {
+	BillingAddressId int64 `json:"id"`
+}
+
+type DeliveryAddress struct {
+	Id           int64  `json:"id,optional"`
+	OrderId      int64  `gorm:"comment:订单Id; index" json:"orderId"`
+	CustomerId   int64  `json:"customerId,optional"`
+	Recipient    string `json:"recipient,optional"`
+	AddressLine  string `json:"addressLine,optional"`
+	AddressLine2 string `json:"addressLine2,optional"`
+	Street       string `json:"street,optional"`
+	City         string `json:"city,optional"`
+	Province     string `json:"province,optional"`
+	PostalCode   string `json:"postalCode,optional"`
+	Country      string `json:"country,optional"`
+	PhoneNumber  string `json:"phoneNumber,optional"`
+	IsDefault    bool   `json:"isDefault,optional"`
+}
+
+type ListDeliveryAddressesPageRequest struct {
+	NameLike  []string `form:"nameLike,optional"`
+	OrderBy   string   `form:"orderBy,optional"`
+	PageIndex int      `form:"pageIndex,optional"`
+	PageSize  int      `form:"pageSize,optional"`
+}
+
+type ListDeliveryAddressesPageReply struct {
+	List      []*DeliveryAddress `json:"list"`
+	PageIndex int                `json:"pageIndex"`
+	PageSize  int                `json:"pageSize"`
+	Total     int64              `json:"total"`
+}
+
+type CreateDeliveryAddressRequest struct {
+	DeliveryAddress *DeliveryAddress `json:"deliveryAddress"`
+}
+
+type CreateDeliveryAddressReply struct {
+	DeliveryAddressId string `json:"id"`
+}
+
+type GetDeliveryAddressRequest struct {
+	DeliveryAddressId int64 `path:"id"`
+}
+
+type GetDeliveryAddressReply struct {
+	DeliveryAddress *DeliveryAddress `json:"deliveryAddress"`
+}
+
+type PutDeliveryAddressRequest struct {
+	DeliveryAddressId int64            `path:"id"`
+	DeliveryAddress   *DeliveryAddress `json:"deliveryAddress"`
+}
+
+type PutDeliveryAddressReply struct {
+	DeliveryAddress *DeliveryAddress `json:"deliveryAddress"`
+}
+
+type PatchDeliveryAddressRequest struct {
+	DeliveryAddressId int64            `path:"id"`
+	DeliveryAddress   *DeliveryAddress `json:"deliveryAddress"`
+}
+
+type PatchDeliveryAddressReply struct {
+	DeliveryAddress *DeliveryAddress `json:"deliveryAddress"`
+}
+
+type DeleteDeliveryAddressRequest struct {
+	DeliveryAddressId int64 `path:"id"`
+}
+
+type DeleteDeliveryAddressReply struct {
+	DeliveryAddressId int64 `json:"id"`
+}
+
 type ContractWayGroupNode struct {
 	Id        int64                  `json:"id"`
 	GroupName string                 `json:"groupName"`
@@ -1641,4 +1856,69 @@ type Token struct {
 	ExpiresIn    string `json:"expiresIn"`
 	AccessToken  string `json:"accessToken"`
 	RefreshToken string `json:"refreshToken"`
+}
+
+type GetCartRequest struct {
+	CustomerId int64 `path:"customerId"`
+}
+
+type GetCartReply struct {
+	*Cart
+}
+
+type AddToCartRequest struct {
+	CustomerId int64 `path:"customerId"`
+	CartItem
+}
+
+type AddToCartReply struct {
+	*CartItem
+}
+
+type UpdateCartItemQuantityRequest struct {
+	CustomerId int64 `path:"customerId"`
+	ItemId     int64 `path:"itemId"`
+	Quantity   int   `json:"quantity"`
+}
+
+type UpdateCartItemQuantityReply struct {
+	*CartItem
+}
+
+type RemoveCartItemRequest struct {
+	CustomerId int64 `path:"customerId"`
+	ItemId     int64 `path:"itemId"`
+}
+
+type RemoveCartItemReply struct {
+	ItemId int64 `json:"itemId"`
+}
+
+type ClearCartRequest struct {
+	CustomerId int64 `path:"customerId"`
+}
+
+type ClearCartReply struct {
+	Message string `json:"message"`
+}
+
+type Cart struct {
+	Id         int64       `json:"id", optional"`
+	CustomerId int64       `json:"customerId", optional"`
+	Status     int         `json:"status", optional"`
+	Items      []*CartItem `json:"items", optional"`
+}
+
+type CartItem struct {
+	Id             int64   `json:"id, optional"`
+	CartId         int64   `json:"cartId, optional"`
+	ProductId      int64   `json:"productId, optional"`
+	SkuId          int64   `json:"skuId, optional"`
+	ProductName    string  `json:"productName, optional"`
+	ListPrice      float64 `json:"listPrice, optional"`
+	UnitPrice      float64 `json:"unitPrice, optional"`
+	Discount       float64 `json:"discount, optional"`
+	Quantity       int     `json:"quantity, optional"`
+	Specifications string  `json:"specifications, optional"`
+	ImageURL       string  `json:"imageUrl, optional"`
 }

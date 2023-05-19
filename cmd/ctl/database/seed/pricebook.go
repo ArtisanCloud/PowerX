@@ -65,7 +65,7 @@ func SeedProductPriceBookEntries(db *gorm.DB, book *product.PriceBook) (err erro
 			PriceBookId: book.Id,
 			ProductId:   p.Id,
 			UnitPrice:   unitPrice,
-			RetailPrice: unitPrice + 200,
+			ListPrice:   unitPrice + 200,
 			IsActive:    true,
 		}
 
@@ -101,7 +101,7 @@ func SeedProductPriceBookEntries(db *gorm.DB, book *product.PriceBook) (err erro
 				ProductId:   p.Id,
 				SkuId:       sku.Id,
 				UnitPrice:   unitPrice,
-				RetailPrice: unitPrice + 200,
+				ListPrice:   unitPrice + 200,
 				IsActive:    true,
 			}
 			skuEntries = append(skuEntries, skuEntry)

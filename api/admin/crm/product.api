@@ -78,7 +78,7 @@ type (
     PriceEntry {
         Id int64 `json:"id,optional"`
         UnitPrice float64 `json:"unitPrice,optional"`
-        RetailPrice float64 `json:"retailPrice,optional"`
+        ListPrice float64 `json:"listPrice,optional"`
         Discount float64 `json:"discount,optional"`
     }
 
@@ -87,7 +87,7 @@ type (
         SkuNo string `json:"skuNo,optional"`
         Inventory int `json:"inventory,optional"`
         UnitPrice float64 `json:"unitPrice,optional"`
-        RetailPrice float64 `json:"retailPrice,optional"`
+        ListPrice float64 `json:"listPrice,optional"`
         IsActive bool `json:"isActive,optional"`
         OptionsIds []int64 `json:"optionsIds,optional"`
     }

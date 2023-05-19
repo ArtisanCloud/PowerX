@@ -18,10 +18,12 @@ import (
 	adminproduct "PowerX/internal/handler/admin/product"
 	adminscrmcontact "PowerX/internal/handler/admin/scrm/contact"
 	adminscrmcustomer "PowerX/internal/handler/admin/scrm/customer"
+	admintrade "PowerX/internal/handler/admin/trade"
 	adminuserinfo "PowerX/internal/handler/admin/userinfo"
 	mpcustomer "PowerX/internal/handler/mp/customer"
 	mpdictionary "PowerX/internal/handler/mp/dictionary"
 	mpproduct "PowerX/internal/handler/mp/product"
+	mptrade "PowerX/internal/handler/mp/trade"
 	"PowerX/internal/svc"
 
 	"github.com/zeromicro/go-zero/rest"
@@ -684,6 +686,123 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			[]rest.Route{
 				{
 					Method:  http.MethodGet,
+					Path:    "/shipping-addresss",
+					Handler: admintrade.ListShippingAddressesPageHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/shipping-addresss/:id",
+					Handler: admintrade.GetShippingAddressHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/shipping-addresss",
+					Handler: admintrade.CreateShippingAddressHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPut,
+					Path:    "/shipping-addresss/:id",
+					Handler: admintrade.PutShippingAddressHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPatch,
+					Path:    "/shipping-addresss/:id",
+					Handler: admintrade.PatchShippingAddressHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodDelete,
+					Path:    "/shipping-addresss/:id",
+					Handler: admintrade.DeleteShippingAddressHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithPrefix("/api/v1/admin/trade"),
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Route{
+				{
+					Method:  http.MethodGet,
+					Path:    "/billing-addresss",
+					Handler: admintrade.ListBillingAddressesPageHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/billing-addresss/:id",
+					Handler: admintrade.GetBillingAddressHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/billing-addresss",
+					Handler: admintrade.CreateBillingAddressHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPut,
+					Path:    "/billing-addresss/:id",
+					Handler: admintrade.PutBillingAddressHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPatch,
+					Path:    "/billing-addresss/:id",
+					Handler: admintrade.PatchBillingAddressHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodDelete,
+					Path:    "/billing-addresss/:id",
+					Handler: admintrade.DeleteBillingAddressHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithPrefix("/api/v1/admin/trade"),
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Route{
+				{
+					Method:  http.MethodGet,
+					Path:    "/delivery-addresss",
+					Handler: admintrade.ListDeliveryAddressesPageHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/delivery-addresss/:id",
+					Handler: admintrade.GetDeliveryAddressHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/delivery-addresss",
+					Handler: admintrade.CreateDeliveryAddressHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPut,
+					Path:    "/delivery-addresss/:id",
+					Handler: admintrade.PutDeliveryAddressHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPatch,
+					Path:    "/delivery-addresss/:id",
+					Handler: admintrade.PatchDeliveryAddressHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodDelete,
+					Path:    "/delivery-addresss/:id",
+					Handler: admintrade.DeleteDeliveryAddressHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithPrefix("/api/v1/admin/trade"),
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Route{
+				{
+					Method:  http.MethodGet,
 					Path:    "/group-tree",
 					Handler: admincontractway.GetContractWayGroupTreeHandler(serverCtx),
 				},
@@ -860,5 +979,39 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			}...,
 		),
 		rest.WithPrefix("/api/v1/mp/product"),
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.CustomerJWTAuth},
+			[]rest.Route{
+				{
+					Method:  http.MethodGet,
+					Path:    "/:customerId",
+					Handler: mptrade.GetCartHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/:customerId/items",
+					Handler: mptrade.AddToCartHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPut,
+					Path:    "/:customerId/items/:itemId",
+					Handler: mptrade.UpdateCartItemQuantityHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodDelete,
+					Path:    "/:customerId/items/:itemId",
+					Handler: mptrade.RemoveCartItemHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodDelete,
+					Path:    "/:customerId/clear",
+					Handler: mptrade.ClearCartHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithPrefix("/api/v1/mp/trade/cart"),
 	)
 }

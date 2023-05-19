@@ -1,0 +1,112 @@
+syntax = "v1"
+
+info(
+    title: "仓库服务"
+    desc: "仓库服务"
+    author: "MichaelHu"
+    email: "matrix-x@artisan-cloud.com"
+    version: "v1"
+)
+
+
+@server(
+    group: admin/trade
+    prefix: /api/v1/admin/trade
+    middleware: EmployeeJWTAuth
+)
+
+service InventoryX {
+    @doc("查询仓库列表")
+    @handler ListWarehousesPage
+    get /warehouses (ListWarehousesPageRequest) returns (ListWarehousesPageReply)
+
+    @doc("查询仓库详情")
+    @handler GetWarehouse
+    get /warehouses/:id (GetWarehouseRequest) returns (GetWarehouseReply)
+
+    @doc("创建仓库")
+    @handler CreateWarehouse
+    post /warehouses (CreateWarehouseRequest) returns (CreateWarehouseReply)
+
+    @doc("更新仓库")
+    @handler PutWarehouse
+    put /warehouses/:id (PutWarehouseRequest) returns (PutWarehouseReply)
+
+    @doc("部分更新仓库")
+    @handler PatchWarehouse
+    patch /warehouses/:id (PatchWarehouseRequest) returns (PatchWarehouseReply)
+
+    @doc("删除仓库")
+    @handler DeleteWarehouse
+    delete /warehouses/:id (DeleteWarehouseRequest) returns (DeleteWarehouseReply)
+}
+
+type (
+    Warehouse {
+        Name          string `gorm:"comment:仓库名称" json:"name"`
+        Address       string `gorm:"comment:仓库地址" json:"address"`
+        City          string `gorm:"comment:城市" json:"city"`
+        Region        string `gorm:"comment:区域" json:"region"`
+        Type          string `gorm:"comment:仓库类型" json:"type"`
+        Capacity      int    `gorm:"comment:仓库容量" json:"capacity"`
+        ContactPerson string `gorm:"comment:联系人" json:"contactPerson"`
+        ContactPhone  string `gorm:"comment:联系电话" json:"contactPhone"`
+        IsActive      bool   `gorm:"comment:是否活动" json:"isActive"`
+    }
+)
+
+type (
+    ListWarehousesPageRequest struct {
+        NameLike []string `form:"nameLike,optional"`
+        OrderBy  string   `form:"orderBy,optional"`
+        PageIndex int      `form:"pageIndex,optional"`
+        PageSize int      `form:"pageSize,optional"`
+    }
+
+    ListWarehousesPageReply struct {
+        List      []*Warehouse `json:"list"`
+        PageIndex int          `json:"pageIndex"`
+        PageSize  int          `json:"pageSize"`
+        Total     int64        `json:"total"`
+    }
+)
+
+type (
+    CreateWarehouseRequest struct {
+        Warehouse *Warehouse `json:"warehouse"`
+    }
+
+    CreateWarehouseReply struct {
+        WarehouseId string `json:"id"`
+    }
+)
+
+type (
+    GetWarehouseRequest struct {
+        WarehouseId int64 `path:"id"`
+    }
+
+    GetWarehouseReply struct {
+        Warehouse *Warehouse `json:"warehouse"`
+    }
+)
+
+type (
+    PutWarehouseRequest struct {
+        WarehouseId int64      `path:"id"`
+        Warehouse   *Warehouse `json:"warehouse"`
+    }
+
+    PutWarehouseReply struct {
+        Warehouse *Warehouse `json:"warehouse"`
+    }
+)
+
+type (
+    PatchWarehouseRequest struct {
+        WarehouseId int64      `path:"id"`
+        Warehouse   *Warehouse `json:"warehouse"`
+    }
+
+    PatchWarehouseReply struct {
+        Warehouse *Warehouse `json:"warehouse"`

@@ -103,14 +103,14 @@ func TransformPriceEntryToPriceEntryReplyToMP(entries []*product.PriceBookEntry)
 	//fmt.Dump(entries)
 	for _, entry := range entries {
 		if entry.SkuId == 0 && entry.IsActive {
-			discount := (entry.UnitPrice / entry.RetailPrice) * 100
+			discount := (entry.UnitPrice / entry.ListPrice) * 100
 			discount = math.Round(discount*10) / 10 // 四舍五入保留一位小数
 
 			return &types.PriceEntry{
-				Id:          entry.Id,
-				UnitPrice:   entry.UnitPrice,
-				RetailPrice: entry.RetailPrice,
-				Discount:    discount,
+				Id:        entry.Id,
+				UnitPrice: entry.UnitPrice,
+				ListPrice: entry.ListPrice,
+				Discount:  discount,
 			}
 		}
 	}
@@ -159,10 +159,10 @@ func TransformSkuToSkuReplyToMP(sku *product.SKU) (skuReply *types.SKU) {
 	}
 
 	unitPrice := 0.0
-	retailPrice := 0.0
+	listPrice := 0.0
 	if sku.PriceBookEntry != nil {
 		unitPrice = sku.PriceBookEntry.UnitPrice
-		retailPrice = sku.PriceBookEntry.RetailPrice
+		listPrice = sku.PriceBookEntry.ListPrice
 	}
 	var optionsIds = []int64{}
 	for _, pivot := range sku.PivotSkuToSpecificOptions {
@@ -172,12 +172,12 @@ func TransformSkuToSkuReplyToMP(sku *product.SKU) (skuReply *types.SKU) {
 	}
 
 	return &types.SKU{
-		Id:          sku.Id,
-		SkuNo:       sku.SkuNo,
-		Inventory:   sku.Inventory,
-		UnitPrice:   unitPrice,
-		RetailPrice: retailPrice,
-		OptionsIds:  optionsIds,
+		Id:         sku.Id,
+		SkuNo:      sku.SkuNo,
+		Inventory:  sku.Inventory,
+		UnitPrice:  unitPrice,
+		ListPrice:  listPrice,
+		OptionsIds: optionsIds,
 	}
 }
 
