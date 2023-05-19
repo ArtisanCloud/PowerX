@@ -2,6 +2,7 @@ package customerdomain
 
 import (
 	"PowerX/internal/model"
+	"fmt"
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/pkg/errors"
 	"golang.org/x/oauth2"
@@ -11,6 +12,9 @@ import (
 
 const CustomerTokenExpiredDuration = 60 * 60 * 24 * 3 * time.Second
 const CustomerAccessTokenType = "Bearer"
+
+const AuthCustomerOpenIdKey = "OpenId"
+const AuthCustomerKey = "AuthCustomer"
 
 type AuthorizationCustomerDomainUseCase struct {
 	db *gorm.DB
@@ -25,13 +29,13 @@ func NewAuthorizationCustomerDomainUseCase(db *gorm.DB) *AuthorizationCustomerDo
 type CustomerJWTToken struct {
 	AccessToken string `json:"AccessToken"`
 	OpenId      string `json:"OpenId"`
-	NickName    string `json:"NickName"`
+	CustomerId  int64  `json:"CustomerId,omitempty"`
+	NickName    string `json:"NickName,omitempty"`
 	Exp         int64  `json:"exp"`
 	jwt.RegisteredClaims
 }
 
-func (uc *AuthorizationCustomerDomainUseCase) SignToken(mpCustomer *model.WechatMPCustomer, jwtSecret string) oauth2.Token {
-
+func (uc *AuthorizationCustomerDomainUseCase) SignMPToken(mpCustomer *model.WechatMPCustomer, jwtSecret string) oauth2.Token {
 	now := time.Now()
 	expiresAt := now.Add(CustomerTokenExpiredDuration)
 
@@ -47,6 +51,28 @@ func (uc *AuthorizationCustomerDomainUseCase) SignToken(mpCustomer *model.Wechat
 			IssuedAt:  jwt.NewNumericDate(now),
 		},
 	})
+
+	return uc.SignToken(token, jwtSecret, expiresAt)
+}
+
+// 反函数，从 JWT 中提取指定声明信息
+func GetPayloadFromToken(signedToken string) (jwt.MapClaims, error) {
+	// 解析令牌，不验证签名
+	token, _, err := new(jwt.Parser).ParseUnverified(signedToken, jwt.MapClaims{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse token: %v", err)
+	}
+
+	// 提取 payload 数据
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		return nil, fmt.Errorf("failed to extract claims from token")
+	}
+
+	return claims, nil
+}
+
+func (uc *AuthorizationCustomerDomainUseCase) SignToken(token *jwt.Token, jwtSecret string, expiresAt time.Time) oauth2.Token {
 
 	signedToken, err := token.SignedString([]byte(jwtSecret))
 	if err != nil {

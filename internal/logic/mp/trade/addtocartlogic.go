@@ -1,6 +1,8 @@
 package trade
 
 import (
+	"PowerX/internal/uc/powerx/customerdomain"
+	fmt "PowerX/pkg/printx"
 	"context"
 
 	"PowerX/internal/svc"
@@ -24,7 +26,10 @@ func NewAddToCartLogic(ctx context.Context, svcCtx *svc.ServiceContext) *AddToCa
 }
 
 func (l *AddToCartLogic) AddToCart(req *types.AddToCartRequest) (resp *types.AddToCartReply, err error) {
-	// todo: add your logic here and delete this line
+
+	authUser := l.ctx.Value(customerdomain.AuthCustomerKey)
+	openID := l.ctx.Value(customerdomain.AuthCustomerOpenIdKey)
+	fmt.Dump(authUser, openID)
 
 	return
 }

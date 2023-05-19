@@ -61,7 +61,7 @@ func (l *LoginLogic) Login(req *types.LoginRequest) (resp *types.LoginReply, err
 		},
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	signedToken, err := token.SignedString([]byte(l.svcCtx.Config.JWTSecret))
+	signedToken, err := token.SignedString([]byte(l.svcCtx.Config.JWT.JWTSecret))
 	if err != nil {
 		return nil, errors.Wrap(err, "sign token failed")
 	}

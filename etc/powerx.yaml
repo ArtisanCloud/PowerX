@@ -9,7 +9,10 @@ Root:
   Password: root            # 管理员密码
   Name: 超级管理员           # 管理员名称
 
-JWTSecret: dev              # JWT密钥
+JWT:
+  JWTSecret: dev              # Dashboard JWT密钥
+  MPJWTSecret: dev_mp              # 小程序 JWT密钥
+  WebJWTSecret: dev_web              # Web JWT密钥
 
 Casbin:
   SelfHosted: true           # 是否使用自己的Casbin服务

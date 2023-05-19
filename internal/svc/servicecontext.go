@@ -13,6 +13,7 @@ type ServiceContext struct {
 	Custom *uc.CustomUseCase
 
 	MPCustomerJWTAuth     rest.Middleware
+	MPCustomerGet         rest.Middleware
 	EmployeeJWTAuth       rest.Middleware
 	EmployeeNoPermJWTAuth rest.Middleware
 }
@@ -25,6 +26,7 @@ func NewServiceContext(c config.Config) *ServiceContext {
 		Config:                c,
 		PowerX:                powerx,
 		MPCustomerJWTAuth:     middleware.NewMPCustomerJWTAuthMiddleware(&c, powerx).Handle,
+		MPCustomerGet:         middleware.NewMPCustomerGetMiddleware(&c, powerx).Handle,
 		EmployeeJWTAuth:       middleware.NewEmployeeJWTAuthMiddleware(&c, powerx).Handle,
 		EmployeeNoPermJWTAuth: middleware.NewEmployeeNoPermJWTAuthMiddleware(&c, powerx).Handle,
 		Custom:                custom,

@@ -66,9 +66,14 @@ type Root struct {
 }
 
 type Config struct {
-	Server         rest.RestConf
-	EtcDir         string `json:",optional"`
-	JWTSecret      string
+	Server rest.RestConf
+	EtcDir string `json:",optional"`
+	JWT    struct {
+		JWTSecret    string
+		MPJWTSecret  string
+		WebJWTSecret string
+	}
+
 	PowerXDatabase Database
 	Root           Root
 

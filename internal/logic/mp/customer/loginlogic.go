@@ -56,7 +56,7 @@ func (l *LoginLogic) Login(req *types.MPCustomerLoginRequest) (resp *types.MPCus
 	}
 
 	// 生成一个新的token
-	token := l.svcCtx.PowerX.CustomerAuthorization.SignToken(mpCustomer, l.svcCtx.Config.JWTSecret)
+	token := l.svcCtx.PowerX.CustomerAuthorization.SignMPToken(mpCustomer, l.svcCtx.Config.JWT.MPJWTSecret)
 
 	return &types.MPCustomerLoginAuthReply{
 		OpenId:      mpCustomer.OpenId,

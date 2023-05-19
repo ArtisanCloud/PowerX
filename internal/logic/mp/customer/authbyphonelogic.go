@@ -38,13 +38,14 @@ func (l *AuthByPhoneLogic) AuthByPhone(req *types.MPCustomerAuthRequest) (resp *
 	if rs.ErrCode != 0 {
 		return nil, errors.New(rs.ErrMSG)
 	}
+	//fmt2.DD(rs)
 	//req = &types.MPCustomerAuthRequest{
-	//	IV:            "TVzwghGb0j7EPlEtEZlObw==",
-	//	EncryptedData: "LOJWoEFniQy36NvQE+d81nA0A7HpgFTzddKjBQ6jCDczMUG0KopprANf+mU7OdsYhjggZ5K9oXg9ZCo/oFvRga6tkUI+memIBYdOR6QT85gFtJSWYY0+8Xy00dot9JKDe2ehGReZEgS24/CsKfoWbSYJdRnVX22Ckn3iYK5ELqR4zZg7MtUfTZzLUI8PpMje3D8SwxldnuB7eqdsrenOpw==",
+	//	IV:            "aTtAQnVqaC9c9+RlXfXD/g==",
+	//	EncryptedData: "FiqOLRna+IbPruNPK0gNFRSsjnWeoH+UsTZbKKeO7QX/dMHZLZ6YxMu09LnrkAKwrBbid/S+xvtRJoOMelvunfX8j5eiXeLh6DeCXs6UWUQyXOhH9nyxwn0a5uBFxAvza+h0fbtFO19g+NIcPTAQ5pt+p6s/YyvHZYMGp02xmLUW4fLXtcb249YWOks8cb6QVK+OAQHRLCbBYAnqdFJHQg==",
 	//}
 	//rs := &response.ResponseCode2Session{
-	//	OpenId:     "o1IFX5A8sfi5nbkXwOzNLLLiL0OA",
-	//	SessionKey: "rUoiNCDNWekX68d7TmnNGw==",
+	//	OpenID:     "o1IFX5A8sfi5nbkXwOzNLLLiL0OA",
+	//	SessionKey: "0sbPOr+SCS5tQAB7JcYLsQ==",
 	//}
 
 	//fmt.Dump(rs, req)
@@ -98,7 +99,7 @@ func (l *AuthByPhoneLogic) AuthByPhone(req *types.MPCustomerAuthRequest) (resp *
 		return
 	}
 
-	token := l.svcCtx.PowerX.CustomerAuthorization.SignToken(mpCustomer, l.svcCtx.Config.JWTSecret)
+	token := l.svcCtx.PowerX.CustomerAuthorization.SignMPToken(mpCustomer, l.svcCtx.Config.JWT.MPJWTSecret)
 
 	return &types.MPCustomerLoginAuthReply{
 		OpenId:      mpCustomer.OpenId,
