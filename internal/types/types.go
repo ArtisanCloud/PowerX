@@ -1998,3 +1998,184 @@ type ClearCartItemsRequest struct {
 type ClearCartItemsReply struct {
 	Message string `json:"message"`
 }
+
+type CancelOrderRequest struct {
+	OrderId int64 `path:"id"`
+}
+
+type CancelOrderReply struct {
+	OrderId int64 `form:"orderId,optional"`
+}
+
+type OrderItem struct {
+	ID               int64   `json:"id,optional"`
+	OrderId          int64   `json:"orderId,optional"`
+	PriceBookEntryId int64   `json:"priceBookEntryId,optional"`
+	CustomerId       int64   `json:"customerId,optional"`
+	Type             int     `json:"type,optional"`
+	Status           int     `json:"status,optional"`
+	Quantity         int8    `json:"quantity,optional"`
+	UnitPrice        float64 `json:"unitPrice,optional"`
+	ListPrice        float64 `json:"listPrice,optional"`
+	SellingPrice     float64 `json:"sellingPrice,optional"`
+}
+
+type Order struct {
+	ID           int64       `json:"id,optional"`
+	CustomerID   int64       `json:"customerId,optional"`
+	PaymentType  int8        `json:"paymentType,optional"`
+	Type         int8        `json:"type,optional"`
+	Status       int8        `json:"status,optional,omitempty"`
+	OrderNumber  string      `json:"orderNumber,optional,omitempty"`
+	Discount     float64     `json:"discount,optional,omitempty"`
+	ListPrice    float64     `json:"listPrice,optional,omitempty"`
+	SellingPrice float64     `json:"sellingPrice,optional,omitempty"`
+	Comment      string      `json:"comment,optional,omitempty"`
+	OrderItems   []OrderItem `json:"orderItems,optional,omitempty"`
+	Payments     []Payment   `json:"payments,optional,omitempty"`
+	CreatedAt    string      `json:"createdAt,optional,omitempty"`
+}
+
+type ListOrdersPageRequest struct {
+	OrderType string   `form:"orderType,omitempty"`
+	Keys      []string `form:"keys,omitempty"`
+	OrderBy   string   `form:"orderBy,omitempty"`
+	PageIndex int      `form:"pageIndex,omitempty"`
+	PageSize  int      `form:"pageSize,omitempty"`
+}
+
+type ListOrdersPageReply struct {
+	List      []Order `json:"list,omitempty"`
+	PageIndex int     `json:"pageIndex,omitempty"`
+	PageSize  int     `json:"pageSize,omitempty"`
+	Total     int64   `json:"total,omitempty"`
+}
+
+type CreateOrderRequest struct {
+	Order
+}
+
+type CreateOrderReply struct {
+	OrderId int64 `json:"id,omitempty"`
+}
+
+type GetOrderRequest struct {
+	OrderId int64 `path:"id"`
+}
+
+type GetOrderReply struct {
+	Order
+}
+
+type PutOrderRequest struct {
+	OrderId int64 `path:"id"`
+	Order
+}
+
+type PutOrderReply struct {
+	Order
+}
+
+type PatchOrderRequest struct {
+	OrderId int64 `path:"id"`
+	Order
+}
+
+type PatchOrderReply struct {
+	Order
+}
+
+type DeleteOrderRequest struct {
+	OrderId int64 `path:"id"`
+}
+
+type DeleteOrderReply struct {
+	OrderID int64 `path:"id"`
+}
+
+type PaymentItem struct {
+	Id                  int64   `json:"id,optional"`
+	PaymentID           int64   `json:"paymentID,optional"`
+	Quantity            int     `json:"quantity,optional"`
+	UnitPrice           float64 `json:"unitPrice,optional"`
+	PaymentCustomerName string  `json:"paymentCustomerName,optional"`
+	BankInformation     string  `json:"bankInformation,optional"`
+	BankResponseCode    string  `json:"bankResponseCode,optional"`
+	CarrierType         string  `json:"carrierType,optional"`
+	CreditCardNumber    string  `json:"creditCardNumber,optional"`
+	DeductMembershipId  string  `json:"deductMembershipId,optional"`
+	DeductionPoint      int32   `json:"deductionPoint,optional"`
+	InvoiceCreateTime   string  `json:"invoiceCreateTime,optional"`
+	InvoiceNumber       string  `json:"invoiceNumber,optional"`
+	InvoiceTotalAmount  float64 `json:"invoiceTotalAmount,optional"`
+	TaxIdNumber         string  `json:"taxIdNumber,optional"`
+}
+
+type Payment struct {
+	Id              int64          `json:"id,optional"`
+	OrderId         int64          `json:"orderId,optional"`
+	PaymentDate     string         `json:"paymentDate,optional"`
+	PaymentType     int            `json:"paymentType,optional"`
+	PaidAmount      float64        `json:"paidAmount,optional"`
+	PaymentNumber   string         `json:"paymentNumber,optional"`
+	ReferenceNumber string         `json:"referenceNumber,optional"`
+	Status          int            `json:"status,optional"`
+	PaymentItems    []*PaymentItem `json:"paymentItems,optional"`
+}
+
+type ListPaymentsPageRequest struct {
+	PaymentType string   `form:"paymentType,optional"`
+	Keys        []string `form:"keys,optional"`
+	OrderBy     string   `form:"orderBy,optional"`
+	PageIndex   int      `form:"pageIndex,optional"`
+	PageSize    int      `form:"pageSize,optional"`
+}
+
+type ListPaymentsPageReply struct {
+	List      []Payment `json:"list"`
+	PageIndex int       `json:"pageIndex"`
+	PageSize  int       `json:"pageSize"`
+	Total     int64     `json:"total"`
+}
+
+type CreatePaymentRequest struct {
+	Payment
+}
+
+type CreatePaymentReply struct {
+	PaymentKey int64 `json:"id"`
+}
+
+type GetPaymentRequest struct {
+	PaymentId int64 `path:"id"`
+}
+
+type GetPaymentReply struct {
+	*Payment
+}
+
+type PutPaymentRequest struct {
+	PaymentId int64 `path:"id"`
+	Payment
+}
+
+type PutPaymentReply struct {
+	*Payment
+}
+
+type PatchPaymentRequest struct {
+	PaymentId int64 `path:"id"`
+	Payment
+}
+
+type PatchPaymentReply struct {
+	*Payment
+}
+
+type DeletePaymentRequest struct {
+	PaymentId int64 `path:"id"`
+}
+
+type DeletePaymentReply struct {
+	PaymentId int64 `json:"id"`
+}
