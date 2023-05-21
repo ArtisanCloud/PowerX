@@ -1,4 +1,4 @@
-package trade
+package cart
 
 import (
 	"context"
@@ -9,21 +9,21 @@ import (
 	"github.com/zeromicro/go-zero/core/logx"
 )
 
-type RemoveCartItemLogic struct {
+type GetCartLogic struct {
 	logx.Logger
 	ctx    context.Context
 	svcCtx *svc.ServiceContext
 }
 
-func NewRemoveCartItemLogic(ctx context.Context, svcCtx *svc.ServiceContext) *RemoveCartItemLogic {
-	return &RemoveCartItemLogic{
+func NewGetCartLogic(ctx context.Context, svcCtx *svc.ServiceContext) *GetCartLogic {
+	return &GetCartLogic{
 		Logger: logx.WithContext(ctx),
 		ctx:    ctx,
 		svcCtx: svcCtx,
 	}
 }
 
-func (l *RemoveCartItemLogic) RemoveCartItem(req *types.RemoveCartItemRequest) (resp *types.RemoveCartItemReply, err error) {
+func (l *GetCartLogic) GetCart(req *types.GetCartRequest) (resp *types.GetCartReply, err error) {
 	// todo: add your logic here and delete this line
 
 	return

@@ -12,10 +12,13 @@ type Cart struct {
 	Status     CartStatus `gorm:"comment:购物车状态" json:"status"`
 }
 
+const CartUniqueId = powermodel.UniqueId
+
 type CartItem struct {
 	*powermodel.PowerModel
 
 	CartId         int64   `gorm:"comment:购物车Id; index" json:"cartId"`
+	CustomerId     int64   `gorm:"comment:客户Id" json:"customerId"`
 	ProductId      int64   `gorm:"comment:商品Id; index" json:"productId"`
 	SkuId          int64   `gorm:"comment:商品规格Id; index" json:"skuId"`
 	ProductName    string  `gorm:"comment:商品名称" json:"productName"`

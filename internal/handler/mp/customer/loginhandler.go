@@ -1,9 +1,9 @@
 package customer
 
 import (
+	"PowerX/internal/logic/mp/customer/auth"
 	"net/http"
 
-	"PowerX/internal/logic/mp/customer"
 	"PowerX/internal/svc"
 	"PowerX/internal/types"
 	"github.com/zeromicro/go-zero/rest/httpx"
@@ -17,7 +17,7 @@ func LoginHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			return
 		}
 
-		l := customer.NewLoginLogic(r.Context(), svcCtx)
+		l := auth.NewLoginLogic(r.Context(), svcCtx)
 		resp, err := l.Login(&req)
 		if err != nil {
 			httpx.ErrorCtx(r.Context(), w, err)

@@ -10,7 +10,7 @@ info(
 )
 
 @server(
-    group: mp/customer
+    group: mp/customer/auth
     prefix: /api/v1/mp/customer
 )
 

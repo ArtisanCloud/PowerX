@@ -26,10 +26,11 @@ import (
 	admintradeaddress "PowerX/internal/handler/admin/trade/address"
 	admintradewarehouse "PowerX/internal/handler/admin/trade/warehouse"
 	adminuserinfo "PowerX/internal/handler/admin/userinfo"
-	mpcustomer "PowerX/internal/handler/mp/customer"
+	mpcustomerauth "PowerX/internal/handler/mp/customer/auth"
 	mpdictionary "PowerX/internal/handler/mp/dictionary"
 	mpproduct "PowerX/internal/handler/mp/product"
-	mptrade "PowerX/internal/handler/mp/trade"
+	mpproductstore "PowerX/internal/handler/mp/product/store"
+	mptradecart "PowerX/internal/handler/mp/trade/cart"
 	"PowerX/internal/svc"
 
 	"github.com/zeromicro/go-zero/rest"
@@ -963,17 +964,17 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			{
 				Method:  http.MethodPost,
 				Path:    "/login",
-				Handler: mpcustomer.LoginHandler(serverCtx),
+				Handler: mpcustomerauth.LoginHandler(serverCtx),
 			},
 			{
 				Method:  http.MethodPost,
 				Path:    "/authByPhone",
-				Handler: mpcustomer.AuthByPhoneHandler(serverCtx),
+				Handler: mpcustomerauth.AuthByPhoneHandler(serverCtx),
 			},
 			{
 				Method:  http.MethodPost,
 				Path:    "/authByProfile",
-				Handler: mpcustomer.AuthByProfileHandler(serverCtx),
+				Handler: mpcustomerauth.AuthByProfileHandler(serverCtx),
 			},
 		},
 		rest.WithPrefix("/api/v1/mp/customer"),
@@ -986,7 +987,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				{
 					Method:  http.MethodGet,
 					Path:    "/stores/page-list",
-					Handler: mpproduct.ListStoresPageHandler(serverCtx),
+					Handler: mpproductstore.ListStoresPageHandler(serverCtx),
 				},
 			}...,
 		),
@@ -1032,31 +1033,36 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			[]rest.Route{
 				{
 					Method:  http.MethodGet,
-					Path:    "/:customerId",
-					Handler: mptrade.GetCartHandler(serverCtx),
+					Path:    "/cart/items/page-list",
+					Handler: mptradecart.ListCartItemsPageHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/cart/:cartId",
+					Handler: mptradecart.GetCartHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPost,
-					Path:    "/:customerId/items",
-					Handler: mptrade.AddToCartHandler(serverCtx),
+					Path:    "/cart/items",
+					Handler: mptradecart.AddToCartHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPut,
-					Path:    "/:customerId/items/:itemId",
-					Handler: mptrade.UpdateCartItemQuantityHandler(serverCtx),
+					Path:    "/cart/items/:itemId",
+					Handler: mptradecart.UpdateCartItemQuantityHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodDelete,
-					Path:    "/:customerId/items/:itemId",
-					Handler: mptrade.RemoveCartItemHandler(serverCtx),
+					Path:    "/cart/items/:itemId",
+					Handler: mptradecart.RemoveCartItemHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodDelete,
-					Path:    "/:customerId/clear",
-					Handler: mptrade.ClearCartHandler(serverCtx),
+					Path:    "/cart/items/clear",
+					Handler: mptradecart.ClearCartItemsHandler(serverCtx),
 				},
 			}...,
 		),
-		rest.WithPrefix("/api/v1/mp/trade/cart"),
+		rest.WithPrefix("/api/v1/mp/trade"),
 	)
 }

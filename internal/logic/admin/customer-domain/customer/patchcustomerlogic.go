@@ -35,7 +35,7 @@ func (l *PatchCustomerLogic) PatchCustomer(req *types.PatchCustomerRequest) (res
 		IsActivated: req.IsActivated,
 	}
 
-	// 更新产品对象
+	// 更新客户对象
 	err = l.svcCtx.PowerX.Customer.UpdateCustomer(l.ctx, req.CustomerId, mdlCustomer)
 
 	return &types.PatchCustomerReply{

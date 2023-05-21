@@ -1,24 +1,24 @@
-package trade
+package cart
 
 import (
 	"net/http"
 
-	"PowerX/internal/logic/mp/trade"
+	"PowerX/internal/logic/mp/trade/cart"
 	"PowerX/internal/svc"
 	"PowerX/internal/types"
 	"github.com/zeromicro/go-zero/rest/httpx"
 )
 
-func AddToCartHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
+func RemoveCartItemHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var req types.AddToCartRequest
+		var req types.RemoveCartItemRequest
 		if err := httpx.Parse(r, &req); err != nil {
 			httpx.ErrorCtx(r.Context(), w, err)
 			return
 		}
 
-		l := trade.NewAddToCartLogic(r.Context(), svcCtx)
-		resp, err := l.AddToCart(&req)
+		l := cart.NewRemoveCartItemLogic(r.Context(), svcCtx)
+		resp, err := l.RemoveCartItem(&req)
 		if err != nil {
 			httpx.ErrorCtx(r.Context(), w, err)
 		} else {

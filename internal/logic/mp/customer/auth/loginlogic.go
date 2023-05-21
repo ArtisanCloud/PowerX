@@ -1,4 +1,4 @@
-package customer
+package auth
 
 import (
 	"PowerX/internal/model"

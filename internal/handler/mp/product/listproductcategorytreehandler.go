@@ -1,9 +1,9 @@
 package product
 
 import (
+	"PowerX/internal/logic/mp/product"
 	"net/http"
 
-	"PowerX/internal/logic/mp/product"
 	"PowerX/internal/svc"
 	"PowerX/internal/types"
 	"github.com/zeromicro/go-zero/rest/httpx"

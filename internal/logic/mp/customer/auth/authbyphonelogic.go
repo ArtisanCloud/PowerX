@@ -1,4 +1,4 @@
-package customer
+package auth
 
 import (
 	"PowerX/internal/model"
@@ -94,6 +94,22 @@ func (l *AuthByPhoneLogic) AuthByPhone(req *types.MPCustomerAuthRequest) (resp *
 		},
 	}
 	lead, err = l.svcCtx.PowerX.Lead.UpsertLead(l.ctx, lead)
+	if err != nil {
+		panic(err)
+		return
+	}
+
+	// upsert 客户
+	customer := &customerdomain.Customer{
+		Name:        mpCustomer.NickName,
+		Mobile:      mpCustomer.PhoneNumber,
+		Source:      source,
+		IsActivated: true,
+		ExternalId: customerdomain.ExternalId{
+			OpenIdInMiniProgram: mpCustomer.OpenId,
+		},
+	}
+	customer, err = l.svcCtx.PowerX.Customer.UpsertCustomer(l.ctx, customer)
 	if err != nil {
 		panic(err)
 		return

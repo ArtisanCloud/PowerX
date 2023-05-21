@@ -1,4 +1,4 @@
-package product
+package store
 
 import (
 	product2 "PowerX/internal/logic/admin/product"

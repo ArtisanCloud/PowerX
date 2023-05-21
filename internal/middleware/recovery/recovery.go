@@ -3,6 +3,7 @@ package recovery
 import (
 	"PowerX/internal/types/errorx"
 	"fmt"
+	"github.com/kr/pretty"
 	"github.com/zeromicro/go-zero/core/logx"
 	"github.com/zeromicro/go-zero/rest"
 	"github.com/zeromicro/go-zero/rest/httpx"
@@ -16,7 +17,8 @@ func RecoverMiddleware() rest.Middleware {
 			defer func() {
 				if result := recover(); result != nil {
 					unknown := errorx.ErrUnKnow
-					logx.WithContext(r.Context()).Error(formatReq(r, fmt.Sprintf("%v\n%s", result, debug.Stack())))
+					_, _ = pretty.Printf("%v\n%s", result, debug.Stack())
+					logx.WithContext(r.Context()).Error(formatReq(r, fmt.Sprintf("%v\n%x", result, debug.Stack())))
 					httpx.Error(w, unknown)
 				}
 			}()
