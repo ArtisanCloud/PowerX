@@ -24,6 +24,8 @@ import (
 	adminscrmcontact "PowerX/internal/handler/admin/scrm/contact"
 	adminscrmcustomer "PowerX/internal/handler/admin/scrm/customer"
 	admintradeaddress "PowerX/internal/handler/admin/trade/address"
+	admintradeorder "PowerX/internal/handler/admin/trade/order"
+	admintradepayment "PowerX/internal/handler/admin/trade/payment"
 	admintradewarehouse "PowerX/internal/handler/admin/trade/warehouse"
 	adminuserinfo "PowerX/internal/handler/admin/userinfo"
 	mpcustomerauth "PowerX/internal/handler/mp/customer/auth"
@@ -31,6 +33,7 @@ import (
 	mpproduct "PowerX/internal/handler/mp/product"
 	mpproductstore "PowerX/internal/handler/mp/product/store"
 	mptradecart "PowerX/internal/handler/mp/trade/cart"
+	mptradeorder "PowerX/internal/handler/mp/trade/order"
 	"PowerX/internal/svc"
 
 	"github.com/zeromicro/go-zero/rest"
@@ -1064,5 +1067,112 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			}...,
 		),
 		rest.WithPrefix("/api/v1/mp/trade"),
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.MPCustomerJWTAuth},
+			[]rest.Route{
+				{
+					Method:  http.MethodGet,
+					Path:    "/orders/page-list",
+					Handler: mptradeorder.ListOrdersPageHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/orders/:id",
+					Handler: mptradeorder.GetOrderHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/orders",
+					Handler: mptradeorder.CreateOrderHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/orders/cancel/:id",
+					Handler: mptradeorder.CancelOrderHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithPrefix("/api/v1/mp/trade"),
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Route{
+				{
+					Method:  http.MethodGet,
+					Path:    "/orders/page-list",
+					Handler: admintradeorder.ListOrdersPageHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/orders/:id",
+					Handler: admintradeorder.GetOrderHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/orders",
+					Handler: admintradeorder.CreateOrderHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPut,
+					Path:    "/orders/:id",
+					Handler: admintradeorder.PutOrderHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPatch,
+					Path:    "/orders/:id",
+					Handler: admintradeorder.PatchOrderHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodDelete,
+					Path:    "/orders/:id",
+					Handler: admintradeorder.DeleteOrderHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithPrefix("/api/v1/admin/trade"),
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Route{
+				{
+					Method:  http.MethodGet,
+					Path:    "/payment/page-list",
+					Handler: admintradepayment.ListPaymentsPageHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/payment/:id",
+					Handler: admintradepayment.GetPaymentHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/payment",
+					Handler: admintradepayment.CreatePaymentHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPut,
+					Path:    "/payment/:id",
+					Handler: admintradepayment.PutPaymentHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPatch,
+					Path:    "/payment/:id",
+					Handler: admintradepayment.PatchPaymentHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodDelete,
+					Path:    "/payment/:id",
+					Handler: admintradepayment.DeletePaymentHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithPrefix("/api/v1/admin/trade"),
 	)
 }

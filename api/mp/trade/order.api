@@ -32,4 +32,19 @@ service PowerX {
     post /orders (CreateOrderRequest) returns (CreateOrderReply)
 
 
+    @doc "取消订单"
+    @handler CancelOrder
+    post /orders/cancel/:id (CancelOrderRequest) returns (CancelOrderReply)
+
 }
+
+type (
+    CancelOrderRequest struct {
+        OrderId int64 `path:"id"`
+    }
+
+    CancelOrderReply struct {
+        OrderId int64 `form:"orderId,optional"`
+    }
+)
+
