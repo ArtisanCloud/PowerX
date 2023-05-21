@@ -36,7 +36,7 @@ func (m *PowerMigrator) AutoMigrate() {
 	_ = m.db.AutoMigrate(&organization.Department{}, &organization.Employee{})
 	_ = m.db.AutoMigrate(&powerx.EmployeeCasbinPolicy{}, powerx.AdminRole{}, powerx.AdminRoleMenuName{}, powerx.AdminAPI{})
 
-	// customer domain
+	// customerdomain domain
 	_ = m.db.AutoMigrate(&customerdomain.Lead{}, &customerdomain.Contact{}, &customerdomain.Customer{}, &membership.Membership{})
 	_ = m.db.AutoMigrate(&model.WechatOACustomer{}, &model.WechatMPCustomer{}, &model.WeWorkExternalContact{})
 	_ = m.db.AutoMigrate(
@@ -56,7 +56,7 @@ func (m *PowerMigrator) AutoMigrate() {
 	// trade
 	_ = m.db.AutoMigrate(&trade.ShippingAddress{}, &trade.DeliveryAddress{}, &trade.BillingAddress{})
 	_ = m.db.AutoMigrate(&trade.Warehouse{}, &trade.Inventory{}, &trade.Logistics{})
-	_ = m.db.AutoMigrate(&trade.Cart{}, &trade.Order{}, &trade.OrderItem{})
+	_ = m.db.AutoMigrate(&trade.Cart{}, &trade.CartItem{}, &trade.Order{}, &trade.OrderItem{})
 	_ = m.db.AutoMigrate(&trade.OrderStatusTransition{}, &trade.PivotOrderToInventoryLog{})
 	_ = m.db.AutoMigrate(&trade.Payment{}, &trade.PaymentItem{})
 	_ = m.db.AutoMigrate(&trade.RefundOrder{}, &trade.RefundOrderItem{})

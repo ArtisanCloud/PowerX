@@ -46,3 +46,5 @@ type PaymentItem struct {
 	InvoiceTotalAmount  float64   `gorm:"comment:发票开票金额" json:"invoiceTotalAmount"`
 	TaxIdNumber         string    `gorm:"comment:税号" json:"taxIdNumber"`
 }
+
+const PaymentUniqueId = powermodel.UniqueId

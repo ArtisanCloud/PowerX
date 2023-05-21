@@ -1,9 +1,9 @@
-package customer
+package auth
 
 import (
-	"PowerX/internal/logic/mp/customer/auth"
 	"net/http"
 
+	"PowerX/internal/logic/mp/customer/auth"
 	"PowerX/internal/svc"
 	"github.com/zeromicro/go-zero/rest/httpx"
 )

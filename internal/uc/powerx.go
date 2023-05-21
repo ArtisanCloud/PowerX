@@ -5,6 +5,7 @@ import (
 	"PowerX/internal/uc/powerx"
 	customerDomainUC "PowerX/internal/uc/powerx/customerdomain"
 	productUC "PowerX/internal/uc/powerx/product"
+	tradeUC "PowerX/internal/uc/powerx/trade"
 	"github.com/pkg/errors"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -25,6 +26,10 @@ type PowerXUseCase struct {
 	PriceBook             *productUC.PriceBookUseCase
 	Store                 *productUC.StoreUseCase
 	Artisan               *productUC.ArtisanUseCase
+	Cart                  *tradeUC.CartUseCase
+	Order                 *tradeUC.OrderUseCase
+	Payment               *tradeUC.PaymentUseCase
+	RefundOrder           *tradeUC.RefundOrderUseCase
 	WechatMP              *powerx.WechatMiniProgramUseCase
 	WechatOA              *powerx.WechatOfficialAccountUseCase
 	WeWork                *powerx.WeWorkUseCase
@@ -71,6 +76,12 @@ func NewPowerXUseCase(conf *config.Config) (uc *PowerXUseCase, clean func()) {
 	uc.PriceBook = productUC.NewPriceBookUseCase(db)
 	uc.Store = productUC.NewStoreUseCase(db)
 	uc.Artisan = productUC.NewArtisanUseCase(db)
+
+	// 加载交易UseCase
+	uc.Cart = tradeUC.NewCartUseCase(db)
+	uc.Order = tradeUC.NewOrderUseCase(db)
+	uc.Payment = tradeUC.NewPaymentUseCase(db)
+	uc.RefundOrder = tradeUC.NewRefundOrderUseCase(db)
 
 	// 加载微信UseCase
 	uc.WechatMP = powerx.NewWechatMiniProgramUseCase(db, conf)

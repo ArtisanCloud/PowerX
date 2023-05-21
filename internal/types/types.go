@@ -1926,50 +1926,6 @@ type Token struct {
 	RefreshToken string `json:"refreshToken"`
 }
 
-type GetCartRequest struct {
-	CustomerId int64 `path:"customerId"`
-}
-
-type GetCartReply struct {
-	*Cart
-}
-
-type AddToCartRequest struct {
-	CustomerId int64 `path:"customerId"`
-	CartItem
-}
-
-type AddToCartReply struct {
-	*CartItem
-}
-
-type UpdateCartItemQuantityRequest struct {
-	CustomerId int64 `path:"customerId"`
-	ItemId     int64 `path:"itemId"`
-	Quantity   int   `json:"quantity"`
-}
-
-type UpdateCartItemQuantityReply struct {
-	*CartItem
-}
-
-type RemoveCartItemRequest struct {
-	CustomerId int64 `path:"customerId"`
-	ItemId     int64 `path:"itemId"`
-}
-
-type RemoveCartItemReply struct {
-	ItemId int64 `json:"itemId"`
-}
-
-type ClearCartRequest struct {
-	CustomerId int64 `path:"customerId"`
-}
-
-type ClearCartReply struct {
-	Message string `json:"message"`
-}
-
 type Cart struct {
 	Id         int64       `json:"id", optional"`
 	CustomerId int64       `json:"customerId", optional"`
@@ -1979,14 +1935,66 @@ type Cart struct {
 
 type CartItem struct {
 	Id             int64   `json:"id, optional"`
-	CartId         int64   `json:"cartId, optional"`
-	ProductId      int64   `json:"productId, optional"`
-	SkuId          int64   `json:"skuId, optional"`
-	ProductName    string  `json:"productName, optional"`
-	ListPrice      float64 `json:"listPrice, optional"`
-	UnitPrice      float64 `json:"unitPrice, optional"`
-	Discount       float64 `json:"discount, optional"`
-	Quantity       int     `json:"quantity, optional"`
-	Specifications string  `json:"specifications, optional"`
-	ImageURL       string  `json:"imageUrl, optional"`
+	CustomerId     int64   `json:"customerId,omitempty,optional"`
+	CartId         int64   `json:"cartId,omitempty,optional"`
+	ProductId      int64   `json:"productId,omitempty,optional"`
+	SkuId          int64   `json:"skuId,omitempty,optional"`
+	ProductName    string  `json:"productName,omitempty,optional"`
+	ListPrice      float64 `json:"listPrice,omitempty,optional"`
+	UnitPrice      float64 `json:"unitPrice,omitempty,optional"`
+	Discount       float64 `json:"discount,omitempty,optional"`
+	Quantity       int     `json:"quantity,omitempty,optional"`
+	Specifications string  `json:"specifications,omitempty,optional"`
+	ImageURL       string  `json:"imageUrl,omitempty,optional"`
+}
+
+type ListCartItemsPageRequest struct {
+	PageIndex int `form:"pageIndex,optional"`
+	PageSize  int `form:"pageSize,optional"`
+}
+
+type ListCartItemsPageReply struct {
+	List      []*CartItem `json:"list"`
+	PageIndex int         `json:"pageIndex"`
+	PageSize  int         `json:"pageSize"`
+	Total     int64       `json:"total"`
+}
+
+type GetCartRequest struct {
+}
+
+type GetCartReply struct {
+	*Cart
+}
+
+type AddToCartRequest struct {
+	CartItem
+}
+
+type AddToCartReply struct {
+	*CartItem
+}
+
+type UpdateCartItemQuantityRequest struct {
+	ItemId   int64 `path:"itemId"`
+	Quantity int   `json:"quantity"`
+}
+
+type UpdateCartItemQuantityReply struct {
+	*CartItem
+}
+
+type RemoveCartItemRequest struct {
+	ItemId int64 `path:"itemId"`
+}
+
+type RemoveCartItemReply struct {
+	ItemId int64 `json:"itemId"`
+}
+
+type ClearCartItemsRequest struct {
+}
+
+type ClearCartItemsReply struct {
+	Message string `json:"message"`
 }

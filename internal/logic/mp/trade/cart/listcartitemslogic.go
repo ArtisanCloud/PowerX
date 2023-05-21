@@ -1,4 +1,4 @@
-package customer
+package cart
 
 import (
 	"context"
@@ -9,21 +9,21 @@ import (
 	"github.com/zeromicro/go-zero/core/logx"
 )
 
-type AuthByProfileLogic struct {
+type ListCartItemsLogic struct {
 	logx.Logger
 	ctx    context.Context
 	svcCtx *svc.ServiceContext
 }
 
-func NewAuthByProfileLogic(ctx context.Context, svcCtx *svc.ServiceContext) *AuthByProfileLogic {
-	return &AuthByProfileLogic{
+func NewListCartItemsLogic(ctx context.Context, svcCtx *svc.ServiceContext) *ListCartItemsLogic {
+	return &ListCartItemsLogic{
 		Logger: logx.WithContext(ctx),
 		ctx:    ctx,
 		svcCtx: svcCtx,
 	}
 }
 
-func (l *AuthByProfileLogic) AuthByProfile() (resp *types.MPCustomerLoginAuthReply, err error) {
+func (l *ListCartItemsLogic) ListCartItems(req *types.ListCartItemsPageRequest) (resp *types.ListCartItemsPageReply, err error) {
 	// todo: add your logic here and delete this line
 
 	return

@@ -106,7 +106,9 @@ func (uc *WechatMiniProgramUseCase) FindOneMPCustomer(ctx context.Context, opt *
 		query.Offset((opt.PageIndex - 1) * opt.PageSize).Limit(opt.PageSize)
 	}
 	query = uc.buildFindQueryNoPage(query, opt)
-	if err := query.First(&mpCustomer).Error; err != nil {
+	if err := query.
+		Preload("Customer").
+		First(&mpCustomer).Error; err != nil {
 		return nil, errorx.ErrRecordNotFound
 	}
 	return mpCustomer, nil

@@ -1,4 +1,4 @@
-package product
+package category
 
 import (
 	"PowerX/internal/logic/mp/product"
@@ -9,16 +9,16 @@ import (
 	"github.com/zeromicro/go-zero/rest/httpx"
 )
 
-func ListProductsPageHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
+func ListProductCategoryTreeHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var req types.ListProductsPageRequest
+		var req types.ListProductCategoryTreeRequest
 		if err := httpx.Parse(r, &req); err != nil {
 			httpx.ErrorCtx(r.Context(), w, err)
 			return
 		}
 
-		l := product.NewListProductsPageLogic(r.Context(), svcCtx)
-		resp, err := l.ListProductsPage(&req)
+		l := product.NewListProductCategoryTreeLogic(r.Context(), svcCtx)
+		resp, err := l.ListProductCategoryTree(&req)
 		if err != nil {
 			httpx.ErrorCtx(r.Context(), w, err)
 		} else {

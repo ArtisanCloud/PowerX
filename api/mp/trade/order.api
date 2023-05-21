@@ -12,14 +12,14 @@ info(
 import "admin/crm/order.api"
 
 @server(
-    group: mp/trade
+    group: mp/trade/order
     prefix: /api/v1/mp/trade
     middleware: MPCustomerJWTAuth
 )
 
 service PowerX {
     @doc "查询订单列表"
-    @handler ListOrders
+    @handler ListOrdersPage
     get /orders/page-list (ListOrdersPageRequest) returns (ListOrdersPageReply)
 
     @doc "查询订单详情"

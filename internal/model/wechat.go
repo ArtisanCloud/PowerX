@@ -1,6 +1,7 @@
 package model
 
 import (
+	customerdomain2 "PowerX/internal/model/customerdomain"
 	"fmt"
 	"github.com/ArtisanCloud/PowerLibs/v3/security"
 	"gorm.io/datatypes"
@@ -27,6 +28,8 @@ type WechatOACustomer struct {
 
 // 小程序客户信息
 type WechatMPCustomer struct {
+	Customer *customerdomain2.Customer `gorm:"foreignKey:OpenId;references:OpenIdInMiniProgram" json:"customerdomain"`
+
 	Model
 	UniqueID   string `gorm:"unique" json:"uniqueId"`
 	SessionKey string `json:"-"`

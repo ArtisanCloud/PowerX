@@ -11,6 +11,9 @@ type Pagination struct {
 	Data       interface{} `json:"data"`
 }
 
+const DefaultPageSize = 10
+const MaxPageSize = 999
+
 func NewPagination(page int, limit int, sort string) *Pagination {
 
 	p := &Pagination{}

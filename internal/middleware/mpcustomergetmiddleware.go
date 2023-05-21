@@ -39,7 +39,8 @@ func (m *MPCustomerGetMiddleware) Handle(next http.HandlerFunc) http.HandlerFunc
 			return
 		}
 
-		authCustomer, err := m.px.WechatMP.FindOneMPCustomer(r.Context(), &model.FindMPCustomerOption{
+		// 小程序的客户记录是否存在
+		authMPCustomer, err := m.px.WechatMP.FindOneMPCustomer(r.Context(), &model.FindMPCustomerOption{
 			OpenIds: []string{openId},
 		})
 		if err != nil {
@@ -47,7 +48,13 @@ func (m *MPCustomerGetMiddleware) Handle(next http.HandlerFunc) http.HandlerFunc
 			return
 		}
 
-		ctx := context.WithValue(r.Context(), customerdomain.AuthCustomerKey, authCustomer)
+		// 小程序的客户记录是否存在
+		if authMPCustomer.Customer == nil {
+			httpx.Error(w, errorx.WithCause(unAuth, "无效客户记录"))
+			return
+		}
+
+		ctx := context.WithValue(r.Context(), customerdomain.AuthCustomerKey, authMPCustomer.Customer)
 
 		next(w, r.WithContext(ctx))
 	}
