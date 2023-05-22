@@ -2,6 +2,7 @@ package trade
 
 import (
 	"PowerX/internal/model/powermodel"
+	"PowerX/internal/model/product"
 )
 
 type Cart struct {
@@ -16,6 +17,8 @@ const CartUniqueId = powermodel.UniqueId
 
 type CartItem struct {
 	*powermodel.PowerModel
+
+	SKU *product.SKU `gorm:"foreignKey:SkuId" json:"sku"`
 
 	CartId         int64   `gorm:"comment:购物车Id; index" json:"cartId"`
 	CustomerId     int64   `gorm:"comment:客户Id" json:"customerId"`

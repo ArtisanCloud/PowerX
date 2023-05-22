@@ -1,6 +1,7 @@
 package trade
 
 import (
+	customerdomain2 "PowerX/internal/model/customerdomain"
 	"PowerX/internal/model/powermodel"
 	"PowerX/internal/model/trade"
 	"PowerX/internal/types"
@@ -95,6 +96,117 @@ func (uc *OrderUseCase) CreateOrder(ctx context.Context, order *trade.Order) err
 		panic(err)
 	}
 	return nil
+}
+
+func (uc *OrderUseCase) CreateOrderByCartItems(ctx context.Context,
+	customer *customerdomain2.Customer,
+	cartItems []*trade.CartItem,
+	shippingAddress *trade.ShippingAddress,
+	comment string,
+) (*trade.Order, *trade.Cart, error) {
+
+	order := &trade.Order{}
+	// 创建购物车合集
+	cart := &trade.Cart{
+		CustomerId: customer.Id,
+	}
+	db := uc.db.WithContext(ctx)
+
+	err := db.Transaction(func(tx *gorm.DB) error {
+		var err error
+
+		// 这里可以将cartItems和cart进行关联
+		cart.Items = cartItems
+		err = tx.Model(trade.Cart{}).
+			//Debug().
+			Omit("Items.SKU.PriceBookEntry").
+			Omit("Items.SKU").
+			Create(cart).Error
+
+		if err != nil {
+			return err
+		}
+
+		// 创建订单
+		orderItems, totalUnitPrice, totalListPrice := uc.MakeOrderItemsFromCartItems(
+			cartItems,
+			trade.OrderTypeNormal,
+			trade.OrderStatusPending,
+		)
+		order.OrderItems = orderItems
+
+		order.CustomerId = customer.Id
+		order.CartId = cart.Id
+		order.Type = trade.OrderTypeNormal
+		order.Status = trade.OrderStatusPending
+		order.OrderNumber = trade.GenerateOrderNumber()
+		order.UnitPrice = totalUnitPrice
+		order.ListPrice = totalListPrice
+		order.Discount = totalUnitPrice / totalListPrice
+		order.Comment = comment
+
+		err = tx.Model(trade.Order{}).
+			Debug().
+			Create(order).Error
+		if err != nil {
+			return err
+		}
+
+		// 创建发货地址
+		deliveryAddress := &trade.DeliveryAddress{}
+		deliveryAddress.OrderId = order.Id
+		deliveryAddress.ShippingAddress = shippingAddress
+
+		err = tx.Model(trade.DeliveryAddress{}).
+			Debug().
+			Create(deliveryAddress).Error
+
+		return err
+	})
+
+	return order, cart, err
+}
+
+func (uc *OrderUseCase) MakeOrderItemsFromCartItems(
+	cartItems []*trade.CartItem,
+	orderType trade.OrderType,
+	orderStatus trade.OrderStatus,
+) (orderItems []*trade.OrderItem, totalUnitPrice float64, totalListPrice float64) {
+
+	totalUnitPrice = 0.0
+	totalListPrice = 0.0
+	orderItems = []*trade.OrderItem{}
+	for _, cartItem := range cartItems {
+		orderItem, subUnitTotal, subListTotal := uc.MakeOrderItemFromCartItem(cartItem, orderType, orderStatus)
+		orderItems = append(orderItems, orderItem)
+		totalUnitPrice += subUnitTotal
+		totalListPrice += subListTotal
+	}
+	return orderItems, totalUnitPrice, totalListPrice
+}
+
+func (uc *OrderUseCase) MakeOrderItemFromCartItem(
+	cartItem *trade.CartItem,
+	orderType trade.OrderType,
+	orderStatus trade.OrderStatus,
+) (orderItem *trade.OrderItem, subUnitTotal float64, subListTotal float64) {
+
+	subUnitTotal = 0.0
+	subListTotal = 0.0
+	orderItem = &trade.OrderItem{
+		PriceBookEntryId: cartItem.SkuId,
+		CustomerId:       cartItem.CustomerId,
+		Type:             orderType,
+		Status:           orderStatus,
+		Quantity:         cartItem.Quantity,
+		UnitPrice:        cartItem.UnitPrice,
+		ListPrice:        cartItem.ListPrice,
+		Discount:         cartItem.Discount,
+	}
+	subUnitTotal = orderItem.UnitPrice * float64(orderItem.Quantity)
+	subListTotal = orderItem.ListPrice * float64(orderItem.Quantity)
+
+	return orderItem, subUnitTotal, subListTotal
 }
 
 func (uc *OrderUseCase) UpsertOrder(ctx context.Context, order *trade.Order) (*trade.Order, error) {

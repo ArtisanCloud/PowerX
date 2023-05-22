@@ -4,6 +4,8 @@ import (
 	"PowerX/internal/model/customerdomain"
 	"PowerX/internal/model/powermodel"
 	"PowerX/internal/model/product"
+	"github.com/ArtisanCloud/PowerLibs/v3/object"
+	"github.com/golang-module/carbon/v2"
 	"time"
 )
 
@@ -25,9 +27,9 @@ type Order struct {
 	Type           OrderType   `gorm:"comment:订单类型" json:"type"`
 	Status         OrderStatus `gorm:"comment:订单状态" json:"status"`
 	OrderNumber    string      `gorm:"comment:订单号" json:"orderNumber"`
-	Discount       float64     `gorm:"type:decimal(4,2); comment:折扣" json:"discount"`
+	UnitPrice      float64     `gorm:"type:decimal(10,2); comment:是实际交易价格" json:"unitPrice"`
 	ListPrice      float64     `gorm:"type:decimal(10,2); comment:是订单价格" json:"listPrice"`
-	SellingPrice   float64     `gorm:"type:decimal(10,2); comment:是实际交易价格" json:"sellingPrice"`
+	Discount       float64     `gorm:"type:decimal(4,2); comment:折扣" json:"discount"`
 	Comment        string      `gorm:"comment:备注" json:"comment"`
 	CompletedAt    time.Time   `gorm:"comment:订单完成时间" json:"completedAt"`
 	CancelledAt    time.Time   `gorm:"comment:订单取消时间" json:"cancelledAt"`
@@ -77,10 +79,10 @@ type OrderItem struct {
 	CustomerId       int64       `gorm:"comment:客户Id; index" json:"customerId"`
 	Type             OrderType   `gorm:"comment:订单项类型" json:"type"`
 	Status           OrderStatus `gorm:"comment:订单项状态" json:"status"`
-	Quantity         int8        `gorm:"comment:购买数量" json:"quantity"`
+	Quantity         int         `gorm:"comment:购买数量" json:"quantity"`
 	UnitPrice        float64     `gorm:"type:decimal(10,2); comment:是单品价格" json:"unitPrice"`
 	ListPrice        float64     `gorm:"type:decimal(10,2); comment:是商品标价" json:"listPrice"`
-	SellingPrice     float64     `gorm:"type:decimal(10,2); comment:是实际交易价格" json:"sellingPrice"`
+	Discount         float64     `gorm:"type:decimal(10,2); comment:折扣" json:"discount"`
 }
 
 type OrderStatusTransition struct {
@@ -93,4 +95,8 @@ type OrderStatusTransition struct {
 	CreatorId      int64       `gorm:"comment:创建者Id" json:"creatorId"`
 	CreatorName    string      `gorm:"comment:创建者名字" json:"creatorName"`
 	TransitionTime time.Time   `gorm:"comment:状态转换时间" json:"transitionTime"`
+}
+
+func GenerateOrderNumber() string {
+	return "SO" + carbon.Now().Format("YmdHis") + object.QuickRandom(4)
 }

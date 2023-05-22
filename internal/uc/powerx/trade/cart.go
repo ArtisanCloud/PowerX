@@ -23,7 +23,16 @@ func NewCartUseCase(db *gorm.DB) *CartUseCase {
 
 type FindManyCartsOption struct {
 	CustomerId int64
-	CartId     int64
+	Ids        []int64
+	LikeName   string
+	OrderBy    string
+	types.PageEmbedOption
+}
+
+type FindManyCartItemsOption struct {
+	CustomerId int64
+	CartIds    []int64
+	Ids        []int64
 	LikeName   string
 	OrderBy    string
 	types.PageEmbedOption
@@ -35,8 +44,8 @@ func (uc *CartUseCase) buildFindQueryNoPage(db *gorm.DB, opt *FindManyCartsOptio
 		db = db.Where("customer_id = ?", opt.CustomerId)
 	}
 
-	if opt.CartId >= 0 {
-		db = db.Where("cart_id = ?", opt.CartId)
+	if len(opt.Ids) > 0 {
+		db = db.Where("id in (?)", opt.Ids)
 	}
 
 	if opt.LikeName != "" {
@@ -52,17 +61,44 @@ func (uc *CartUseCase) buildFindQueryNoPage(db *gorm.DB, opt *FindManyCartsOptio
 	return db
 }
 
-func (uc *CartUseCase) FindAllCarts(ctx context.Context, opt *FindManyCartsOption) (dictionaryItems []*trade.Cart, err error) {
+func (uc *CartUseCase) buildFindQueryNoPageForCartItems(db *gorm.DB, opt *FindManyCartItemsOption) *gorm.DB {
+
+	if opt.CustomerId > 0 {
+		db = db.Where("customer_id = ?", opt.CustomerId)
+	}
+
+	if len(opt.CartIds) > 0 {
+		db = db.Where("cart_id in (?)", opt.CartIds)
+	}
+
+	if len(opt.Ids) > 0 {
+		db = db.Where("id in (?)", opt.Ids)
+	}
+
+	if opt.LikeName != "" {
+		db = db.Where("name LIKE ?", "%"+opt.LikeName+"%")
+	}
+
+	orderBy := "id desc"
+	if opt.OrderBy != "" {
+		orderBy = opt.OrderBy + "," + orderBy
+	}
+	db.Order(orderBy)
+
+	return db
+}
+
+func (uc *CartUseCase) FindAllCarts(ctx context.Context, opt *FindManyCartsOption) (cartItems []*trade.Cart, err error) {
 	query := uc.db.WithContext(ctx).Model(&trade.Cart{})
 
 	query = uc.buildFindQueryNoPage(query, opt)
 	if err := query.
 		Debug().
 		Preload("Artisans").
-		Find(&dictionaryItems).Error; err != nil {
-		panic(errors.Wrap(err, "find all dictionaryItems failed"))
+		Find(&cartItems).Error; err != nil {
+		panic(errors.Wrap(err, "find all cartItems failed"))
 	}
-	return dictionaryItems, err
+	return cartItems, err
 }
 
 func (uc *CartUseCase) FindManyCarts(ctx context.Context, opt *FindManyCartsOption) (pageList types.Page[*trade.Cart], err error) {
@@ -199,25 +235,25 @@ func (uc *CartUseCase) ClearAssociations(db *gorm.DB, cart *trade.Cart) (*trade.
 	return cart, err
 }
 
-func (uc *CartUseCase) FindAllCartItems(ctx context.Context, opt *FindManyCartsOption) (dictionaryItems []*trade.Cart, err error) {
-	query := uc.db.WithContext(ctx).Model(&trade.Cart{})
+func (uc *CartUseCase) FindAllCartItems(ctx context.Context, opt *FindManyCartItemsOption) (cartItems []*trade.CartItem, err error) {
+	query := uc.db.WithContext(ctx).Model(&trade.CartItem{})
 
-	query = uc.buildFindQueryNoPage(query, opt)
+	query = uc.buildFindQueryNoPageForCartItems(query, opt)
 	if err := query.
 		Debug().
-		Preload("Artisans").
-		Find(&dictionaryItems).Error; err != nil {
-		panic(errors.Wrap(err, "find all dictionaryItems failed"))
+		Preload("SKU.PriceBookEntry").
+		Find(&cartItems).Error; err != nil {
+		panic(errors.Wrap(err, "find all cartItems failed"))
 	}
-	return dictionaryItems, err
+	return cartItems, err
 }
 
-func (uc *CartUseCase) FindManyCartItems(ctx context.Context, opt *FindManyCartsOption) (pageList types.Page[*trade.CartItem], err error) {
+func (uc *CartUseCase) FindManyCartItems(ctx context.Context, opt *FindManyCartItemsOption) (pageList types.Page[*trade.CartItem], err error) {
 	opt.DefaultPageIfNotSet()
 	var cartItems []*trade.CartItem
 	db := uc.db.WithContext(ctx).Model(&trade.CartItem{})
 
-	db = uc.buildFindQueryNoPage(db, opt)
+	db = uc.buildFindQueryNoPageForCartItems(db, opt)
 
 	var count int64
 	if err := db.Count(&count).Error; err != nil {
@@ -229,7 +265,10 @@ func (uc *CartUseCase) FindManyCartItems(ctx context.Context, opt *FindManyCarts
 		db.Offset((opt.PageIndex - 1) * opt.PageSize).Limit(opt.PageSize)
 	}
 
-	if err := db.Find(&cartItems).Error; err != nil {
+	if err := db.
+		Debug().
+		Preload("SKU.PriceBookEntry").
+		Find(&cartItems).Error; err != nil {
 		panic(err)
 	}
 

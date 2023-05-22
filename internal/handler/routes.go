@@ -1076,7 +1076,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 
 	server.AddRoutes(
 		rest.WithMiddlewares(
-			[]rest.Middleware{serverCtx.MPCustomerJWTAuth},
+			[]rest.Middleware{serverCtx.MPCustomerJWTAuth, serverCtx.MPCustomerGet},
 			[]rest.Route{
 				{
 					Method:  http.MethodGet,
@@ -1091,7 +1091,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				{
 					Method:  http.MethodPost,
 					Path:    "/orders",
-					Handler: mptradeorder.CreateOrderHandler(serverCtx),
+					Handler: mptradeorder.CreateOrderByCartItemsHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPost,
