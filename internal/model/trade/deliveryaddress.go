@@ -7,5 +7,5 @@ type DeliveryAddress struct {
 	*powermodel.PowerModel
 
 	OrderId int64 `gorm:"comment:订单Id; index" json:"orderId"`
-	ShippingAddress
+	*ShippingAddress
 }

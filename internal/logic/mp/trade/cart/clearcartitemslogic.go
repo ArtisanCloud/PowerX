@@ -33,9 +33,9 @@ func (l *ClearCartItemsLogic) ClearCartItems(req *types.ClearCartItemsRequest) (
 	vAuthCustomer := l.ctx.Value(customerdomain.AuthCustomerKey)
 	authCustomer := vAuthCustomer.(*customerdomain2.Customer)
 
-	page, err := l.svcCtx.PowerX.Cart.FindManyCartItems(l.ctx, &trade2.FindManyCartsOption{
+	page, err := l.svcCtx.PowerX.Cart.FindManyCartItems(l.ctx, &trade2.FindManyCartItemsOption{
 		CustomerId: authCustomer.Id,
-		CartId:     0,
+		CartIds:    []int64{0},
 		PageEmbedOption: types.PageEmbedOption{
 			PageIndex: 0,
 			PageSize:  powermodel.MaxPageSize,

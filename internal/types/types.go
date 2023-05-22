@@ -2000,6 +2000,17 @@ type ClearCartItemsReply struct {
 	Message string `json:"message"`
 }
 
+type CreateOrderByCartItemsRequest struct {
+	CartItemIds       []int64 `json:"cartItemIds"`
+	ShippingAddressId int64   `json:"shippingAddressId"`
+	Comment           string  `json:"comment"`
+}
+
+type CreateOrderByCartItemsReply struct {
+	OrderId int64 `json:"orderId"`
+	CartId  int64 `json:"cartId"`
+}
+
 type CancelOrderRequest struct {
 	OrderId int64 `path:"id"`
 }

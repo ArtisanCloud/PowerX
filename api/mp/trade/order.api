@@ -9,12 +9,13 @@ info(
 )
 
 
+import "mp/trade/cart.api"
 import "admin/crm/order.api"
 
 @server(
     group: mp/trade/order
     prefix: /api/v1/mp/trade
-    middleware: MPCustomerJWTAuth
+    middleware: MPCustomerJWTAuth, MPCustomerGet
 )
 
 service PowerX {
@@ -28,15 +29,31 @@ service PowerX {
 
 
     @doc "创建订单"
-    @handler CreateOrder
-    post /orders (CreateOrderRequest) returns (CreateOrderReply)
+    @handler CreateOrderByCartItems
+    post /orders (CreateOrderByCartItemsRequest) returns (CreateOrderByCartItemsReply)
 
 
     @doc "取消订单"
     @handler CancelOrder
     post /orders/cancel/:id (CancelOrderRequest) returns (CancelOrderReply)
-
 }
+
+
+
+type (
+    CreateOrderByCartItemsRequest struct {
+        CartItemIds []int64 `json:"cartItemIds"`
+        ShippingAddressId int64 `json:"shippingAddressId"`
+        Comment string `json:"comment"`
+    }
+
+    CreateOrderByCartItemsReply struct {
+        OrderId int64 `json:"orderId"`
+        CartId int64 `json:"cartId"`
+    }
+)
+
+
 
 type (
     CancelOrderRequest struct {

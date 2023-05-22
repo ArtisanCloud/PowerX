@@ -32,8 +32,9 @@ func (l *ListCartItemsPageLogic) ListCartItemsPage(req *types.ListCartItemsPageR
 	vAuthCustomer := l.ctx.Value(customerdomain.AuthCustomerKey)
 	authCustomer := vAuthCustomer.(*customerdomain2.Customer)
 
-	page, err := l.svcCtx.PowerX.Cart.FindManyCartItems(l.ctx, &tradeUC.FindManyCartsOption{
+	page, err := l.svcCtx.PowerX.Cart.FindManyCartItems(l.ctx, &tradeUC.FindManyCartItemsOption{
 		CustomerId: authCustomer.Id,
+		CartIds:    []int64{0},
 		PageEmbedOption: types.PageEmbedOption{
 			PageIndex: req.PageIndex,
 			PageSize:  req.PageSize,
