@@ -10,35 +10,35 @@ info(
 
 
 @server(
-    group: admin/trade/address
-    prefix: /api/v1/admin/trade
+    group: admin/trade/address/shipping
+    prefix: /api/v1/admin/trade/address
     middleware: EmployeeJWTAuth
 )
 
 service PowerX {
     @doc("查询收货地址列表")
     @handler ListShippingAddressesPage
-    get /shipping-addresss (ListShippingAddressesPageRequest) returns (ListShippingAddressesPageReply)
+    get /shipping/page-list (ListShippingAddressesPageRequest) returns (ListShippingAddressesPageReply)
 
     @doc("查询收货地址详情")
     @handler GetShippingAddress
-    get /shipping-addresss/:id (GetShippingAddressRequest) returns (GetShippingAddressReply)
+    get /shipping/:id (GetShippingAddressRequest) returns (GetShippingAddressReply)
 
     @doc("创建收货地址")
     @handler CreateShippingAddress
-    post /shipping-addresss (CreateShippingAddressRequest) returns (CreateShippingAddressReply)
+    post /shipping (CreateShippingAddressRequest) returns (CreateShippingAddressReply)
 
     @doc("更新收货地址")
     @handler PutShippingAddress
-    put /shipping-addresss/:id (PutShippingAddressRequest) returns (PutShippingAddressReply)
+    put /shipping/:id (PutShippingAddressRequest) returns (PutShippingAddressReply)
 
     @doc("部分更新收货地址")
     @handler PatchShippingAddress
-    patch /shipping-addresss/:id (PatchShippingAddressRequest) returns (PatchShippingAddressReply)
+    patch /shipping/:id (PatchShippingAddressRequest) returns (PatchShippingAddressReply)
 
     @doc("删除收货地址")
     @handler DeleteShippingAddress
-    delete /shipping-addresss/:id (DeleteShippingAddressRequest) returns (DeleteShippingAddressReply)
+    delete /shipping/:id (DeleteShippingAddressRequest) returns (DeleteShippingAddressReply)
 }
 
 type (
@@ -80,7 +80,7 @@ type (
     }
 
     CreateShippingAddressReply struct {
-        ShippingAddressId string `json:"id"`
+        ShippingAddressId int64 `json:"id"`
     }
 )
 
@@ -97,7 +97,7 @@ type (
 
 type (
     PutShippingAddressRequest struct {
-        ShippingAddressId int64 `path:"artisanId"`
+        ShippingAddressId int64 `path:"id"`
         ShippingAddress
     }
 
@@ -108,7 +108,7 @@ type (
 
 type (
     PatchShippingAddressRequest struct {
-        ShippingAddressId int64 `path:"artisanId"`
+        ShippingAddressId int64 `path:"id"`
         ShippingAddress
     }
 

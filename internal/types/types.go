@@ -1463,7 +1463,7 @@ type CreateShippingAddressRequest struct {
 }
 
 type CreateShippingAddressReply struct {
-	ShippingAddressId string `json:"id"`
+	ShippingAddressId int64 `json:"id"`
 }
 
 type GetShippingAddressRequest struct {
@@ -1475,7 +1475,7 @@ type GetShippingAddressReply struct {
 }
 
 type PutShippingAddressRequest struct {
-	ShippingAddressId int64 `path:"artisanId"`
+	ShippingAddressId int64 `path:"id"`
 	ShippingAddress
 }
 
@@ -1484,7 +1484,7 @@ type PutShippingAddressReply struct {
 }
 
 type PatchShippingAddressRequest struct {
-	ShippingAddressId int64 `path:"artisanId"`
+	ShippingAddressId int64 `path:"id"`
 	ShippingAddress
 }
 
@@ -1535,7 +1535,7 @@ type CreateBillingAddressRequest struct {
 }
 
 type CreateBillingAddressReply struct {
-	BillingAddressId string `json:"id"`
+	BillingAddressId int64 `json:"id"`
 }
 
 type GetBillingAddressRequest struct {
@@ -1607,7 +1607,7 @@ type CreateDeliveryAddressRequest struct {
 }
 
 type CreateDeliveryAddressReply struct {
-	DeliveryAddressId string `json:"id"`
+	DeliveryAddressId int64 `json:"id"`
 }
 
 type GetDeliveryAddressRequest struct {

@@ -10,35 +10,35 @@ info(
 
 
 @server(
-    group: admin/trade/address
-    prefix: /api/v1/admin/trade
+    group: admin/trade/address/billing
+    prefix: /api/v1/admin/trade/address
     middleware: EmployeeJWTAuth
 )
 
 service PowerX {
     @doc("查询账单地址列表")
     @handler ListBillingAddressesPage
-    get /billing-addresss (ListBillingAddressesPageRequest) returns (ListBillingAddressesPageReply)
+    get /billing/page-list (ListBillingAddressesPageRequest) returns (ListBillingAddressesPageReply)
 
     @doc("查询账单地址详情")
     @handler GetBillingAddress
-    get /billing-addresss/:id (GetBillingAddressRequest) returns (GetBillingAddressReply)
+    get /billing/:id (GetBillingAddressRequest) returns (GetBillingAddressReply)
 
     @doc("创建账单地址")
     @handler CreateBillingAddress
-    post /billing-addresss (CreateBillingAddressRequest) returns (CreateBillingAddressReply)
+    post /billing (CreateBillingAddressRequest) returns (CreateBillingAddressReply)
 
     @doc("更新账单地址")
     @handler PutBillingAddress
-    put /billing-addresss/:id (PutBillingAddressRequest) returns (PutBillingAddressReply)
+    put /billing/:id (PutBillingAddressRequest) returns (PutBillingAddressReply)
 
     @doc("部分更新账单地址")
     @handler PatchBillingAddress
-    patch /billing-addresss/:id (PatchBillingAddressRequest) returns (PatchBillingAddressReply)
+    patch /billing/:id (PatchBillingAddressRequest) returns (PatchBillingAddressReply)
 
     @doc("删除账单地址")
     @handler DeleteBillingAddress
-    delete /billing-addresss/:id (DeleteBillingAddressRequest) returns (DeleteBillingAddressReply)
+    delete /billing/:id (DeleteBillingAddressRequest) returns (DeleteBillingAddressReply)
 }
 
 type (
@@ -82,7 +82,7 @@ type (
     }
 
     CreateBillingAddressReply struct {
-        BillingAddressId string `json:"id"`
+        BillingAddressId int64 `json:"id"`
     }
 )
 

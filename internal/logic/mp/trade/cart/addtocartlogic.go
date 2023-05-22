@@ -29,10 +29,10 @@ func NewAddToCartLogic(ctx context.Context, svcCtx *svc.ServiceContext) *AddToCa
 
 func (l *AddToCartLogic) AddToCart(req *types.AddToCartRequest) (resp *types.AddToCartReply, err error) {
 
-	vAuthUser := l.ctx.Value(customerdomain.AuthCustomerKey)
-	authUser := vAuthUser.(*customerdomain2.Customer)
+	vAuthCustomer := l.ctx.Value(customerdomain.AuthCustomerKey)
+	authCustomer := vAuthCustomer.(*customerdomain2.Customer)
 
-	cartItem := TransformCartItemRequestToCartItemToMP(req, authUser)
+	cartItem := TransformCartItemRequestToCartItemToMP(req, authCustomer)
 
 	cartItem, err = l.svcCtx.PowerX.Cart.AddItemToCart(l.ctx, cartItem)
 

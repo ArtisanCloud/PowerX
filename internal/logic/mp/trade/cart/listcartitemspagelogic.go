@@ -29,11 +29,11 @@ func NewListCartItemsPageLogic(ctx context.Context, svcCtx *svc.ServiceContext) 
 
 func (l *ListCartItemsPageLogic) ListCartItemsPage(req *types.ListCartItemsPageRequest) (resp *types.ListCartItemsPageReply, err error) {
 
-	vAuthUser := l.ctx.Value(customerdomain.AuthCustomerKey)
-	authUser := vAuthUser.(*customerdomain2.Customer)
+	vAuthCustomer := l.ctx.Value(customerdomain.AuthCustomerKey)
+	authCustomer := vAuthCustomer.(*customerdomain2.Customer)
 
 	page, err := l.svcCtx.PowerX.Cart.FindManyCartItems(l.ctx, &tradeUC.FindManyCartsOption{
-		CustomerId: authUser.Id,
+		CustomerId: authCustomer.Id,
 		PageEmbedOption: types.PageEmbedOption{
 			PageIndex: req.PageIndex,
 			PageSize:  req.PageSize,
