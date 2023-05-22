@@ -39,6 +39,7 @@ func (l *PutShippingAddressLogic) PutShippingAddress(req *types.PutShippingAddre
 		return nil, errorx.WithCause(errorx.ErrBadRequest, "您无法修改该地址信息")
 	}
 
+	mdlShippingAddress.Name = req.Name
 	mdlShippingAddress.Recipient = req.Recipient
 	mdlShippingAddress.AddressLine = req.AddressLine
 	mdlShippingAddress.AddressLine2 = req.AddressLine2

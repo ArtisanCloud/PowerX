@@ -40,7 +40,7 @@ func (l *CreateShippingAddressLogic) CreateShippingAddress(req *types.CreateShip
 	}
 
 	return &types.CreateShippingAddressReply{
-		ShippingAddressId: shippingAddress.Id,
+		ShippingAddress: TransformShippingAddressToShippingAddressReplyToMP(shippingAddress),
 	}, nil
 
 }
@@ -49,6 +49,7 @@ func TransformShippingAddressRequestToShippingAddressToMP(req *types.CreateShipp
 
 	return &trade.ShippingAddress{
 		CustomerId:   authCustomer.Id,
+		Name:         req.Name,
 		Recipient:    req.Recipient,
 		AddressLine:  req.AddressLine,
 		AddressLine2: req.AddressLine2,

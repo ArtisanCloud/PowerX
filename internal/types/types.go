@@ -1432,6 +1432,7 @@ type AssignArtisanManagerReply struct {
 type ShippingAddress struct {
 	Id           int64  `json:"id,optional"`
 	CustomerId   int64  `json:"customerId,optional"`
+	Name         string `json:"name,optional"`
 	Recipient    string `json:"recipient,optional"`
 	AddressLine  string `json:"addressLine,optional"`
 	AddressLine2 string `json:"addressLine2,optional"`
@@ -1463,7 +1464,7 @@ type CreateShippingAddressRequest struct {
 }
 
 type CreateShippingAddressReply struct {
-	ShippingAddressId int64 `json:"id"`
+	*ShippingAddress
 }
 
 type GetShippingAddressRequest struct {

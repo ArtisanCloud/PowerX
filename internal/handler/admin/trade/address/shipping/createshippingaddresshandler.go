@@ -3,7 +3,7 @@ package shipping
 import (
 	"net/http"
 
-	"PowerX/internal/logic/admin/trade/address/shipping"
+	"PowerX/internal/logic/admin/trade/address"
 	"PowerX/internal/svc"
 	"PowerX/internal/types"
 	"github.com/zeromicro/go-zero/rest/httpx"
@@ -17,7 +17,7 @@ func CreateShippingAddressHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			return
 		}
 
-		l := shipping.NewCreateShippingAddressLogic(r.Context(), svcCtx)
+		l := address.NewCreateShippingAddressLogic(r.Context(), svcCtx)
 		resp, err := l.CreateShippingAddress(&req)
 		if err != nil {
 			httpx.ErrorCtx(r.Context(), w, err)

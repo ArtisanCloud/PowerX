@@ -66,6 +66,7 @@ func TransformShippingAddressToShippingAddressReplyToMP(address *trade.ShippingA
 	return &types.ShippingAddress{
 		Id:           address.Id,
 		CustomerId:   address.CustomerId,
+		Name:         address.Name,
 		Recipient:    address.Recipient,
 		AddressLine:  address.AddressLine,
 		AddressLine2: address.AddressLine2,
