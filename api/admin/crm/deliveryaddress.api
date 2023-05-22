@@ -10,35 +10,35 @@ info(
 
 
 @server(
-    group: admin/trade/address
-    prefix: /api/v1/admin/trade
+    group: admin/trade/address/delivery
+    prefix: /api/v1/admin/trade/address
     middleware: EmployeeJWTAuth
 )
 
 service PowerX {
     @doc("查询订单发货地址列表")
     @handler ListDeliveryAddressesPage
-    get /delivery-addresss (ListDeliveryAddressesPageRequest) returns (ListDeliveryAddressesPageReply)
+    get /delivery/page-list (ListDeliveryAddressesPageRequest) returns (ListDeliveryAddressesPageReply)
 
     @doc("查询订单发货地址详情")
     @handler GetDeliveryAddress
-    get /delivery-addresss/:id (GetDeliveryAddressRequest) returns (GetDeliveryAddressReply)
+    get /delivery/:id (GetDeliveryAddressRequest) returns (GetDeliveryAddressReply)
 
     @doc("创建订单发货地址")
     @handler CreateDeliveryAddress
-    post /delivery-addresss (CreateDeliveryAddressRequest) returns (CreateDeliveryAddressReply)
+    post /delivery (CreateDeliveryAddressRequest) returns (CreateDeliveryAddressReply)
 
     @doc("更新订单发货地址")
     @handler PutDeliveryAddress
-    put /delivery-addresss/:id (PutDeliveryAddressRequest) returns (PutDeliveryAddressReply)
+    put /delivery/:id (PutDeliveryAddressRequest) returns (PutDeliveryAddressReply)
 
     @doc("部分更新订单发货地址")
     @handler PatchDeliveryAddress
-    patch /delivery-addresss/:id (PatchDeliveryAddressRequest) returns (PatchDeliveryAddressReply)
+    patch /delivery/:id (PatchDeliveryAddressRequest) returns (PatchDeliveryAddressReply)
 
     @doc("删除订单发货地址")
     @handler DeleteDeliveryAddress
-    delete /delivery-addresss/:id (DeleteDeliveryAddressRequest) returns (DeleteDeliveryAddressReply)
+    delete /delivery/:id (DeleteDeliveryAddressRequest) returns (DeleteDeliveryAddressReply)
 }
 
 type (
@@ -82,7 +82,7 @@ type (
     }
 
     CreateDeliveryAddressReply struct {
-        DeliveryAddressId string `json:"id"`
+        DeliveryAddressId int64 `json:"id"`
     }
 )
 

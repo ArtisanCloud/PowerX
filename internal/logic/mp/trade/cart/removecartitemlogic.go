@@ -30,15 +30,15 @@ func NewRemoveCartItemLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Re
 
 func (l *RemoveCartItemLogic) RemoveCartItem(req *types.RemoveCartItemRequest) (resp *types.RemoveCartItemReply, err error) {
 
-	vAuthUser := l.ctx.Value(customerdomain.AuthCustomerKey)
-	authUser := vAuthUser.(*customerdomain2.Customer)
+	vAuthCustomer := l.ctx.Value(customerdomain.AuthCustomerKey)
+	authCustomer := vAuthCustomer.(*customerdomain2.Customer)
 
 	mdlCartItems := []*trade.CartItem{
 		{
 			PowerModel: &powermodel.PowerModel{
 				Id: req.ItemId,
 			},
-			CustomerId: authUser.Id,
+			CustomerId: authCustomer.Id,
 		},
 	}
 

@@ -23,7 +23,9 @@ import (
 	adminproductstore "PowerX/internal/handler/admin/product/store"
 	adminscrmcontact "PowerX/internal/handler/admin/scrm/contact"
 	adminscrmcustomer "PowerX/internal/handler/admin/scrm/customer"
-	admintradeaddress "PowerX/internal/handler/admin/trade/address"
+	admintradeaddressbilling "PowerX/internal/handler/admin/trade/address/billing"
+	admintradeaddressdelivery "PowerX/internal/handler/admin/trade/address/delivery"
+	admintradeaddressshipping "PowerX/internal/handler/admin/trade/address/shipping"
 	admintradeorder "PowerX/internal/handler/admin/trade/order"
 	admintradepayment "PowerX/internal/handler/admin/trade/payment"
 	admintradewarehouse "PowerX/internal/handler/admin/trade/warehouse"
@@ -32,6 +34,9 @@ import (
 	mpdictionary "PowerX/internal/handler/mp/dictionary"
 	mpproduct "PowerX/internal/handler/mp/product"
 	mpproductstore "PowerX/internal/handler/mp/product/store"
+	mptradeaddressbilling "PowerX/internal/handler/mp/trade/address/billing"
+	mptradeaddressdelivery "PowerX/internal/handler/mp/trade/address/delivery"
+	mptradeaddressshipping "PowerX/internal/handler/mp/trade/address/shipping"
 	mptradecart "PowerX/internal/handler/mp/trade/cart"
 	mptradeorder "PowerX/internal/handler/mp/trade/order"
 	"PowerX/internal/svc"
@@ -696,37 +701,37 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			[]rest.Route{
 				{
 					Method:  http.MethodGet,
-					Path:    "/shipping-addresss",
-					Handler: admintradeaddress.ListShippingAddressesPageHandler(serverCtx),
+					Path:    "/shipping/page-list",
+					Handler: admintradeaddressshipping.ListShippingAddressesPageHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodGet,
-					Path:    "/shipping-addresss/:id",
-					Handler: admintradeaddress.GetShippingAddressHandler(serverCtx),
+					Path:    "/shipping/:id",
+					Handler: admintradeaddressshipping.GetShippingAddressHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPost,
-					Path:    "/shipping-addresss",
-					Handler: admintradeaddress.CreateShippingAddressHandler(serverCtx),
+					Path:    "/shipping",
+					Handler: admintradeaddressshipping.CreateShippingAddressHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPut,
-					Path:    "/shipping-addresss/:id",
-					Handler: admintradeaddress.PutShippingAddressHandler(serverCtx),
+					Path:    "/shipping/:id",
+					Handler: admintradeaddressshipping.PutShippingAddressHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPatch,
-					Path:    "/shipping-addresss/:id",
-					Handler: admintradeaddress.PatchShippingAddressHandler(serverCtx),
+					Path:    "/shipping/:id",
+					Handler: admintradeaddressshipping.PatchShippingAddressHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodDelete,
-					Path:    "/shipping-addresss/:id",
-					Handler: admintradeaddress.DeleteShippingAddressHandler(serverCtx),
+					Path:    "/shipping/:id",
+					Handler: admintradeaddressshipping.DeleteShippingAddressHandler(serverCtx),
 				},
 			}...,
 		),
-		rest.WithPrefix("/api/v1/admin/trade"),
+		rest.WithPrefix("/api/v1/admin/trade/address"),
 	)
 
 	server.AddRoutes(
@@ -735,37 +740,37 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			[]rest.Route{
 				{
 					Method:  http.MethodGet,
-					Path:    "/billing-addresss",
-					Handler: admintradeaddress.ListBillingAddressesPageHandler(serverCtx),
+					Path:    "/billing/page-list",
+					Handler: admintradeaddressbilling.ListBillingAddressesPageHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodGet,
-					Path:    "/billing-addresss/:id",
-					Handler: admintradeaddress.GetBillingAddressHandler(serverCtx),
+					Path:    "/billing/:id",
+					Handler: admintradeaddressbilling.GetBillingAddressHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPost,
-					Path:    "/billing-addresss",
-					Handler: admintradeaddress.CreateBillingAddressHandler(serverCtx),
+					Path:    "/billing",
+					Handler: admintradeaddressbilling.CreateBillingAddressHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPut,
-					Path:    "/billing-addresss/:id",
-					Handler: admintradeaddress.PutBillingAddressHandler(serverCtx),
+					Path:    "/billing/:id",
+					Handler: admintradeaddressbilling.PutBillingAddressHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPatch,
-					Path:    "/billing-addresss/:id",
-					Handler: admintradeaddress.PatchBillingAddressHandler(serverCtx),
+					Path:    "/billing/:id",
+					Handler: admintradeaddressbilling.PatchBillingAddressHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodDelete,
-					Path:    "/billing-addresss/:id",
-					Handler: admintradeaddress.DeleteBillingAddressHandler(serverCtx),
+					Path:    "/billing/:id",
+					Handler: admintradeaddressbilling.DeleteBillingAddressHandler(serverCtx),
 				},
 			}...,
 		),
-		rest.WithPrefix("/api/v1/admin/trade"),
+		rest.WithPrefix("/api/v1/admin/trade/address"),
 	)
 
 	server.AddRoutes(
@@ -774,37 +779,37 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			[]rest.Route{
 				{
 					Method:  http.MethodGet,
-					Path:    "/delivery-addresss",
-					Handler: admintradeaddress.ListDeliveryAddressesPageHandler(serverCtx),
+					Path:    "/delivery/page-list",
+					Handler: admintradeaddressdelivery.ListDeliveryAddressesPageHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodGet,
-					Path:    "/delivery-addresss/:id",
-					Handler: admintradeaddress.GetDeliveryAddressHandler(serverCtx),
+					Path:    "/delivery/:id",
+					Handler: admintradeaddressdelivery.GetDeliveryAddressHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPost,
-					Path:    "/delivery-addresss",
-					Handler: admintradeaddress.CreateDeliveryAddressHandler(serverCtx),
+					Path:    "/delivery",
+					Handler: admintradeaddressdelivery.CreateDeliveryAddressHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPut,
-					Path:    "/delivery-addresss/:id",
-					Handler: admintradeaddress.PutDeliveryAddressHandler(serverCtx),
+					Path:    "/delivery/:id",
+					Handler: admintradeaddressdelivery.PutDeliveryAddressHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPatch,
-					Path:    "/delivery-addresss/:id",
-					Handler: admintradeaddress.PatchDeliveryAddressHandler(serverCtx),
+					Path:    "/delivery/:id",
+					Handler: admintradeaddressdelivery.PatchDeliveryAddressHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodDelete,
-					Path:    "/delivery-addresss/:id",
-					Handler: admintradeaddress.DeleteDeliveryAddressHandler(serverCtx),
+					Path:    "/delivery/:id",
+					Handler: admintradeaddressdelivery.DeleteDeliveryAddressHandler(serverCtx),
 				},
 			}...,
 		),
-		rest.WithPrefix("/api/v1/admin/trade"),
+		rest.WithPrefix("/api/v1/admin/trade/address"),
 	)
 
 	server.AddRoutes(
@@ -1174,5 +1179,122 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			}...,
 		),
 		rest.WithPrefix("/api/v1/admin/trade"),
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.MPCustomerJWTAuth, serverCtx.MPCustomerGet},
+			[]rest.Route{
+				{
+					Method:  http.MethodGet,
+					Path:    "/shipping/page-list",
+					Handler: mptradeaddressshipping.ListShippingAddressesPageHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/shipping/:id",
+					Handler: mptradeaddressshipping.GetShippingAddressHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/shipping",
+					Handler: mptradeaddressshipping.CreateShippingAddressHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPut,
+					Path:    "/shipping/:id",
+					Handler: mptradeaddressshipping.PutShippingAddressHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPatch,
+					Path:    "/shipping/:id",
+					Handler: mptradeaddressshipping.PatchShippingAddressHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodDelete,
+					Path:    "/shipping/:id",
+					Handler: mptradeaddressshipping.DeleteShippingAddressHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithPrefix("/api/v1/mp/trade/address"),
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.MPCustomerJWTAuth, serverCtx.MPCustomerGet},
+			[]rest.Route{
+				{
+					Method:  http.MethodGet,
+					Path:    "/delivery/page-list",
+					Handler: mptradeaddressdelivery.ListDeliveryAddressesPageHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/delivery/:id",
+					Handler: mptradeaddressdelivery.GetDeliveryAddressHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/delivery",
+					Handler: mptradeaddressdelivery.CreateDeliveryAddressHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPut,
+					Path:    "/delivery/:id",
+					Handler: mptradeaddressdelivery.PutDeliveryAddressHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPatch,
+					Path:    "/delivery/:id",
+					Handler: mptradeaddressdelivery.PatchDeliveryAddressHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodDelete,
+					Path:    "/delivery/:id",
+					Handler: mptradeaddressdelivery.DeleteDeliveryAddressHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithPrefix("/api/v1/mp/trade/address"),
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.MPCustomerJWTAuth, serverCtx.MPCustomerGet},
+			[]rest.Route{
+				{
+					Method:  http.MethodGet,
+					Path:    "/billing/page-list",
+					Handler: mptradeaddressbilling.ListBillingAddressesPageHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/billing/:id",
+					Handler: mptradeaddressbilling.GetBillingAddressHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/billing",
+					Handler: mptradeaddressbilling.CreateBillingAddressHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPut,
+					Path:    "/billing/:id",
+					Handler: mptradeaddressbilling.PutBillingAddressHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPatch,
+					Path:    "/billing/:id",
+					Handler: mptradeaddressbilling.PatchBillingAddressHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodDelete,
+					Path:    "/billing/:id",
+					Handler: mptradeaddressbilling.DeleteBillingAddressHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithPrefix("/api/v1/mp/trade/address"),
 	)
 }

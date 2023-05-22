@@ -1,0 +1,44 @@
+syntax = "v1"
+
+info(
+    title: "账单地址服务"
+    desc: "账单地址服务"
+    author: "MichaelHu"
+    email: "matrix-x@artisan-cloud.com"
+    version: "v1"
+)
+
+
+import "admin/crm/billingaddress.api"
+
+@server(
+    group: mp/trade/address/billing
+    prefix: /api/v1/mp/trade/address
+    middleware: MPCustomerJWTAuth, MPCustomerGet
+)
+
+service PowerX {
+    @doc("查询账单地址列表")
+    @handler ListBillingAddressesPage
+    get /billing/page-list (ListBillingAddressesPageRequest) returns (ListBillingAddressesPageReply)
+
+    @doc("查询账单地址详情")
+    @handler GetBillingAddress
+    get /billing/:id (GetBillingAddressRequest) returns (GetBillingAddressReply)
+
+    @doc("创建账单地址")
+    @handler CreateBillingAddress
+    post /billing (CreateBillingAddressRequest) returns (CreateBillingAddressReply)
+
+    @doc("更新账单地址")
+    @handler PutBillingAddress
+    put /billing/:id (PutBillingAddressRequest) returns (PutBillingAddressReply)
+
+    @doc("部分更新账单地址")
+    @handler PatchBillingAddress
+    patch /billing/:id (PatchBillingAddressRequest) returns (PatchBillingAddressReply)
+
+    @doc("删除账单地址")
+    @handler DeleteBillingAddress
+    delete /billing/:id (DeleteBillingAddressRequest) returns (DeleteBillingAddressReply)
+}

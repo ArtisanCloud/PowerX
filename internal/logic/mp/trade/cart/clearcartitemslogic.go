@@ -30,11 +30,11 @@ func NewClearCartItemsLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Cl
 }
 
 func (l *ClearCartItemsLogic) ClearCartItems(req *types.ClearCartItemsRequest) (resp *types.ClearCartItemsReply, err error) {
-	vAuthUser := l.ctx.Value(customerdomain.AuthCustomerKey)
-	authUser := vAuthUser.(*customerdomain2.Customer)
+	vAuthCustomer := l.ctx.Value(customerdomain.AuthCustomerKey)
+	authCustomer := vAuthCustomer.(*customerdomain2.Customer)
 
 	page, err := l.svcCtx.PowerX.Cart.FindManyCartItems(l.ctx, &trade2.FindManyCartsOption{
-		CustomerId: authUser.Id,
+		CustomerId: authCustomer.Id,
 		CartId:     0,
 		PageEmbedOption: types.PageEmbedOption{
 			PageIndex: 0,

@@ -1,7 +1,9 @@
 package cart
 
 import (
+	customerdomain2 "PowerX/internal/model/customerdomain"
 	"PowerX/internal/types/errorx"
+	"PowerX/internal/uc/powerx/customerdomain"
 	"context"
 
 	"PowerX/internal/svc"
@@ -25,6 +27,8 @@ func NewUpdateCartItemQuantityLogic(ctx context.Context, svcCtx *svc.ServiceCont
 }
 
 func (l *UpdateCartItemQuantityLogic) UpdateCartItemQuantity(req *types.UpdateCartItemQuantityRequest) (resp *types.UpdateCartItemQuantityReply, err error) {
+	vAuthCustomer := l.ctx.Value(customerdomain.AuthCustomerKey)
+	authCustomer := vAuthCustomer.(*customerdomain2.Customer)
 
 	if req.Quantity <= 0 {
 		return nil, errorx.WithCause(errorx.ErrBadRequest, "修改数量必须大于0")
@@ -34,6 +38,10 @@ func (l *UpdateCartItemQuantityLogic) UpdateCartItemQuantity(req *types.UpdateCa
 	if err != nil {
 		return nil, err
 	}
+	if authCustomer.Id != mdlCartItem.CustomerId {
+		return nil, errorx.WithCause(errorx.ErrBadRequest, "您无法修改该商品信息")
+	}
+	mdlCartItem.Quantity = req.Quantity
 
 	// 更新购物项对象
 	mdlCartItem, err = l.svcCtx.PowerX.Cart.UpsertCartItem(l.ctx, mdlCartItem, []string{"quantity"})
