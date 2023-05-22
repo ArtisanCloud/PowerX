@@ -8,6 +8,7 @@ type ShippingAddress struct {
 
 	CustomerId   int64  `gorm:"comment:客户Id; index" json:"customerId"`
 	Recipient    string `gorm:"comment:收件人姓名" json:"recipient"`
+	Name         string `gorm:"comment:地址名称" json:"name"`
 	AddressLine  string `gorm:"comment:地址第一行" json:"addressLine"`
 	AddressLine2 string `gorm:"comment:地址第二行" json:"addressLine2"`
 	Street       string `gorm:"comment:街道地址" json:"street"`

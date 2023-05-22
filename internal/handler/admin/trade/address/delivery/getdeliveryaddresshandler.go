@@ -3,7 +3,7 @@ package delivery
 import (
 	"net/http"
 
-	"PowerX/internal/logic/admin/trade/address/delivery"
+	"PowerX/internal/logic/admin/trade/address"
 	"PowerX/internal/svc"
 	"PowerX/internal/types"
 	"github.com/zeromicro/go-zero/rest/httpx"
@@ -17,7 +17,7 @@ func GetDeliveryAddressHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			return
 		}
 
-		l := delivery.NewGetDeliveryAddressLogic(r.Context(), svcCtx)
+		l := address.NewGetDeliveryAddressLogic(r.Context(), svcCtx)
 		resp, err := l.GetDeliveryAddress(&req)
 		if err != nil {
 			httpx.ErrorCtx(r.Context(), w, err)

@@ -3,7 +3,7 @@ package billing
 import (
 	"net/http"
 
-	"PowerX/internal/logic/admin/trade/address/billing"
+	"PowerX/internal/logic/admin/trade/address"
 	"PowerX/internal/svc"
 	"PowerX/internal/types"
 	"github.com/zeromicro/go-zero/rest/httpx"
@@ -17,7 +17,7 @@ func PutBillingAddressHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			return
 		}
 
-		l := billing.NewPutBillingAddressLogic(r.Context(), svcCtx)
+		l := address.NewPutBillingAddressLogic(r.Context(), svcCtx)
 		resp, err := l.PutBillingAddress(&req)
 		if err != nil {
 			httpx.ErrorCtx(r.Context(), w, err)
