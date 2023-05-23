@@ -69,6 +69,8 @@ func (uc *CartUseCase) buildFindQueryNoPageForCartItems(db *gorm.DB, opt *FindMa
 
 	if len(opt.CartIds) > 0 {
 		db = db.Where("cart_id in (?)", opt.CartIds)
+	} else {
+		db = db.Where("cart_id", 0)
 	}
 
 	if len(opt.Ids) > 0 {
@@ -235,13 +237,18 @@ func (uc *CartUseCase) ClearAssociations(db *gorm.DB, cart *trade.Cart) (*trade.
 	return cart, err
 }
 
+func (uc *CartUseCase) PreloadItems(db *gorm.DB) *gorm.DB {
+	db = db.Preload("SKU.PriceBookEntry").
+		Preload("Product.PivotCoverImages")
+	return db
+}
 func (uc *CartUseCase) FindAllCartItems(ctx context.Context, opt *FindManyCartItemsOption) (cartItems []*trade.CartItem, err error) {
 	query := uc.db.WithContext(ctx).Model(&trade.CartItem{})
 
 	query = uc.buildFindQueryNoPageForCartItems(query, opt)
+	query = uc.PreloadItems(query)
 	if err := query.
-		Debug().
-		Preload("SKU.PriceBookEntry").
+		//Debug().
 		Find(&cartItems).Error; err != nil {
 		panic(errors.Wrap(err, "find all cartItems failed"))
 	}
@@ -265,9 +272,9 @@ func (uc *CartUseCase) FindManyCartItems(ctx context.Context, opt *FindManyCartI
 		db.Offset((opt.PageIndex - 1) * opt.PageSize).Limit(opt.PageSize)
 	}
 
+	db = uc.PreloadItems(db)
 	if err := db.
 		Debug().
-		Preload("SKU.PriceBookEntry").
 		Find(&cartItems).Error; err != nil {
 		panic(err)
 	}

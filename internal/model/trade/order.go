@@ -4,6 +4,7 @@ import (
 	"PowerX/internal/model/customerdomain"
 	"PowerX/internal/model/powermodel"
 	"PowerX/internal/model/product"
+	"PowerX/internal/types"
 	"github.com/ArtisanCloud/PowerLibs/v3/object"
 	"github.com/golang-module/carbon/v2"
 	"time"
@@ -13,9 +14,9 @@ import (
 type Order struct {
 	*powermodel.PowerModel
 
-	Customer   *customerdomain.Customer `gorm:"foreignKey:CustomerId;references:Id" json:"customerdomain"`
-	OrderItems []*OrderItem             `gorm:"foreignKey:OrderId;references:Id" json:"orderItems"`
-	Payments   []*Payment               `gorm:"foreignKey:OrderId;references:Id" json:"payments"`
+	Customer *customerdomain.Customer `gorm:"foreignKey:CustomerId;references:Id" json:"customerdomain"`
+	Items    []*OrderItem             `gorm:"foreignKey:OrderId;references:Id" json:"items"`
+	Payments []*Payment               `gorm:"foreignKey:OrderId;references:Id" json:"payments"`
 	//Memberships []*membership.Membership `gorm:"foreignKey:OrderId;references:Id" json:"memberships"`
 	//Reseller    *Reseller                `gorm:"foreignKey:ResellerId;references:Id" json:"reseller"`
 	//CouponItems []*CouponItem            `gorm:"foreignKey:OrderId;references:Id" json:"couponItems"`
@@ -71,6 +72,7 @@ type OrderItem struct {
 
 	Order            *Order                  `gorm:"foreignKey:OrderId;references:Id" json:"order"`
 	ProductBookEntry *product.PriceBookEntry `gorm:"foreignKey:PriceBookEntryId;references:Id" json:"priceBook"`
+	CoverImage       *types.MediaResource    `gorm:"foreignKey:CoverImageId;references:Id" json:"coverImage"`
 	//Membership       *membership.Membership  `gorm:"foreignKey:OrderItemId;references:Id" json:"membership"`
 	//CouponItem  *CouponItem `gorm:"foreignKey:OrderItemId;references:Id" json:"CouponItem"`
 
@@ -78,8 +80,11 @@ type OrderItem struct {
 	OrderId          int64       `gorm:"comment:订单Id; index" json:"orderId"`
 	PriceBookEntryId int64       `gorm:"comment:价格条目Id; index" json:"priceBookEntryId"`
 	CustomerId       int64       `gorm:"comment:客户Id; index" json:"customerId"`
+	CoverImageId     int64       `gorm:"comment:头图Id; index" json:"coverImageId"`
 	Type             OrderType   `gorm:"comment:订单项类型" json:"type"`
 	Status           OrderStatus `gorm:"comment:订单项状态" json:"status"`
+	ProductName      string      `gorm:"comment:产品名称" json:"productName"`
+	SkuNo            string      `gorm:"comment:SKU名称" json:"skuNo"`
 	Quantity         int         `gorm:"comment:购买数量" json:"quantity"`
 	UnitPrice        float64     `gorm:"type:decimal(10,2); comment:是单品价格" json:"unitPrice"`
 	ListPrice        float64     `gorm:"type:decimal(10,2); comment:是商品标价" json:"listPrice"`

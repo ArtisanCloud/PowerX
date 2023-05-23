@@ -43,48 +43,52 @@ service PowerX {
 }
 
 type OrderItem {
-    ID int64 `json:"id,optional"`
+    Id int64 `json:"id,optional"`
 
     OrderId int64 `json:"orderId,optional"`
     PriceBookEntryId int64 `json:"priceBookEntryId,optional"`
     CustomerId int64 `json:"customerId,optional"`
     Type int `json:"type,optional"`
     Status int `json:"status,optional"`
-    Quantity int8 `json:"quantity,optional"`
+    Quantity int `json:"quantity,optional"`
     UnitPrice float64 `json:"unitPrice,optional"`
     ListPrice float64 `json:"listPrice,optional"`
     SellingPrice float64 `json:"sellingPrice,optional"`
+    CoverUrl string `json:"coverUrl,optional"`
+    ProdcutName string `json:"productName,optional"`
+    SkuNo string `json:"skuNo,optional"`
 }
 
 type Order {
-    ID int64 `json:"id,optional"`
-    CustomerID int64 `json:"customerId,optional"`
+    Id int64 `json:"id,optional"`
+    CustomerId int64 `json:"customerId,optional"`
     PaymentType int8 `json:"paymentType,optional"`
     Type int8 `json:"type,optional"`
-    Status int8 `json:"status,optional,omitempty"`
-    OrderNumber string `json:"orderNumber,optional,omitempty"`
-    Discount float64 `json:"discount,optional,omitempty"`
-    ListPrice float64 `json:"listPrice,optional,omitempty"`
-    SellingPrice float64 `json:"sellingPrice,optional,omitempty"`
-    Comment string `json:"comment,optional,omitempty"`
-    OrderItems []OrderItem `json:"orderItems,optional,omitempty"`
-    Payments []Payment `json:"payments,optional,omitempty"`
+    Status int8 `json:"status,optional"`
+    OrderNumber string `json:"orderNumber,optional"`
+    Discount float64 `json:"discount,optional"`
+    ListPrice float64 `json:"listPrice,optional"`
+    UnitPrice float64 `json:"unitPrice,optional"`
+    Comment string `json:"comment,optional"`
+    OrderItems []*OrderItem `json:"orderItems,optional"`
+    Payments []*Payment `json:"payments,optional"`
     CreatedAt string `json:"createdAt,optional,omitempty"`
 }
 
 type ListOrdersPageRequest {
-    orderType string `form:"orderType,omitempty"`
-    keys []string `form:"keys,omitempty"`
-    orderBy string `form:"orderBy,omitempty"`
-    pageIndex int `form:"pageIndex,omitempty"`
-    pageSize int `form:"pageSize,omitempty"`
+    orderType []int `form:"orderType,optional,omitempty"`
+    orderStatus []int `form:"orderStatus,optional,omitempty"`
+    keys []string `form:"keys,optional,omitempty"`
+    orderBy string `form:"orderBy,optional,omitempty"`
+    pageIndex int `form:"pageIndex,optional,omitempty"`
+    pageSize int `form:"pageSize,optional,omitempty"`
 }
 
 type ListOrdersPageReply {
-    list []Order `json:"list,omitempty"`
-    pageIndex int `json:"pageIndex,omitempty"`
-    pageSize int `json:"pageSize,omitempty"`
-    total int64 `json:"total,omitempty"`
+    list []*Order `json:"list,optional,omitempty"`
+    pageIndex int `json:"pageIndex,optional,omitempty"`
+    pageSize int `json:"pageSize,optional,omitempty"`
+    total int64 `json:"total,optional,omitempty"`
 }
 
 type CreateOrderRequest {
@@ -126,6 +130,6 @@ type DeleteOrderRequest {
 }
 
 type DeleteOrderReply {
-    OrderID int64 `path:"id"`
+    OrderId int64 `path:"id"`
 }
 

@@ -8,7 +8,8 @@ import (
 type Payment struct {
 	*powermodel.PowerModel
 
-	Order *Order `gorm:"foreignKey:OrderId;references:Id" json:"order"`
+	Order *Order         `gorm:"foreignKey:OrderId;references:Id" json:"order"`
+	Items []*PaymentItem `gorm:"foreignKey:PaymentID;references:Id" json:"items"`
 
 	OrderId         int64         `gorm:"comment:订单Id" json:"orderId"`
 	PaymentDate     time.Time     `gorm:"comment:支付日期" json:"paymentDate"`

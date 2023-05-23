@@ -18,7 +18,8 @@ const CartUniqueId = powermodel.UniqueId
 type CartItem struct {
 	*powermodel.PowerModel
 
-	SKU *product.SKU `gorm:"foreignKey:SkuId" json:"sku"`
+	SKU     *product.SKU     `gorm:"foreignKey:SkuId" json:"sku"`
+	Product *product.Product `gorm:"foreignKey:ProductId" json:"product"`
 
 	CartId         int64   `gorm:"comment:购物车Id; index" json:"cartId"`
 	CustomerId     int64   `gorm:"comment:客户Id" json:"customerId"`

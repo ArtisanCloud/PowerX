@@ -39,6 +39,9 @@ func (l *CreateOrderByCartItemsLogic) CreateOrderByCartItems(req *types.CreateOr
 	if err != nil {
 		return nil, errorx.WithCause(errorx.ErrRecordNotFound, err.Error())
 	}
+	if len(cartItems) <= 0 {
+		return nil, errorx.WithCause(errorx.ErrRecordNotFound, "购物车商品空，请重新添加商品")
+	}
 
 	// 查找收货地址
 	shippingAddress, err := l.svcCtx.PowerX.ShippingAddress.GetShippingAddress(l.ctx, req.ShippingAddressId)
