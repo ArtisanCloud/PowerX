@@ -1090,7 +1090,12 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				},
 				{
 					Method:  http.MethodPost,
-					Path:    "/orders",
+					Path:    "/orders/products",
+					Handler: mptradeorder.CreateOrderByProductsHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/orders/cart-items",
 					Handler: mptradeorder.CreateOrderByCartItemsHandler(serverCtx),
 				},
 				{

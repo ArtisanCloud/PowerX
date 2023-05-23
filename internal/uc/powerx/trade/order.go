@@ -3,6 +3,7 @@ package trade
 import (
 	customerdomain2 "PowerX/internal/model/customerdomain"
 	"PowerX/internal/model/powermodel"
+	"PowerX/internal/model/product"
 	"PowerX/internal/model/trade"
 	"PowerX/internal/types"
 	"PowerX/internal/types/errorx"
@@ -98,6 +99,58 @@ func (uc *OrderUseCase) CreateOrder(ctx context.Context, order *trade.Order) err
 	return nil
 }
 
+func (uc *OrderUseCase) CreateOrderByPriceBookEntries(ctx context.Context,
+	customer *customerdomain2.Customer,
+	entries []*product.PriceBookEntry,
+	quantities []int,
+	shippingAddress *trade.ShippingAddress,
+	comment string,
+) (*trade.Order, error) {
+	order := &trade.Order{}
+	db := uc.db.WithContext(ctx)
+
+	err := db.Transaction(func(tx *gorm.DB) error {
+		var err error
+
+		// 创建订单
+		orderItems, totalUnitPrice, totalListPrice := uc.MakeOrderItemsFromEntries(
+			entries,
+			customer,
+			quantities,
+			trade.OrderTypeNormal,
+			trade.OrderStatusPending,
+		)
+		order.OrderItems = orderItems
+
+		order.CustomerId = customer.Id
+		order.Type = trade.OrderTypeNormal
+		order.Status = trade.OrderStatusPending
+		order.OrderNumber = trade.GenerateOrderNumber()
+		order.UnitPrice = totalUnitPrice
+		order.ListPrice = totalListPrice
+		order.Discount = totalUnitPrice / totalListPrice
+		order.Comment = comment
+
+		err = tx.Model(trade.Order{}).
+			Debug().
+			Create(order).Error
+		if err != nil {
+			return err
+		}
+
+		// 创建发货地址
+		deliveryAddress := shippingAddress.MakeDeliveryAddress()
+		deliveryAddress.OrderId = order.Id
+
+		err = tx.Model(trade.DeliveryAddress{}).
+			Debug().
+			Create(deliveryAddress).Error
+
+		return err
+	})
+
+	return order, err
+}
 func (uc *OrderUseCase) CreateOrderByCartItems(ctx context.Context,
 	customer *customerdomain2.Customer,
 	cartItems []*trade.CartItem,
@@ -130,14 +183,14 @@ func (uc *OrderUseCase) CreateOrderByCartItems(ctx context.Context,
 		// 创建订单
 		orderItems, totalUnitPrice, totalListPrice := uc.MakeOrderItemsFromCartItems(
 			cartItems,
-			trade.OrderTypeNormal,
+			trade.OrderTypeCart,
 			trade.OrderStatusPending,
 		)
 		order.OrderItems = orderItems
 
 		order.CustomerId = customer.Id
 		order.CartId = cart.Id
-		order.Type = trade.OrderTypeNormal
+		order.Type = trade.OrderTypeCart
 		order.Status = trade.OrderStatusPending
 		order.OrderNumber = trade.GenerateOrderNumber()
 		order.UnitPrice = totalUnitPrice
@@ -153,9 +206,8 @@ func (uc *OrderUseCase) CreateOrderByCartItems(ctx context.Context,
 		}
 
 		// 创建发货地址
-		deliveryAddress := &trade.DeliveryAddress{}
+		deliveryAddress := shippingAddress.MakeDeliveryAddress()
 		deliveryAddress.OrderId = order.Id
-		deliveryAddress.ShippingAddress = shippingAddress
 
 		err = tx.Model(trade.DeliveryAddress{}).
 			Debug().
@@ -165,6 +217,52 @@ func (uc *OrderUseCase) CreateOrderByCartItems(ctx context.Context,
 	})
 
 	return order, cart, err
+}
+
+func (uc *OrderUseCase) MakeOrderItemsFromEntries(
+	entries []*product.PriceBookEntry,
+	customer *customerdomain2.Customer,
+	quantities []int,
+	orderType trade.OrderType,
+	orderStatus trade.OrderStatus,
+) (orderItems []*trade.OrderItem, totalUnitPrice float64, totalListPrice float64) {
+
+	totalUnitPrice = 0.0
+	totalListPrice = 0.0
+	orderItems = []*trade.OrderItem{}
+	for i, entry := range entries {
+		orderItem, subUnitTotal, subListTotal := uc.MakeOrderItemFromEntry(entry, customer, quantities[i], orderType, orderStatus)
+		orderItems = append(orderItems, orderItem)
+		totalUnitPrice += subUnitTotal
+		totalListPrice += subListTotal
+	}
+	return orderItems, totalUnitPrice, totalListPrice
+}
+
+func (uc *OrderUseCase) MakeOrderItemFromEntry(
+	entry *product.PriceBookEntry,
+	customer *customerdomain2.Customer,
+	quantity int,
+	orderType trade.OrderType,
+	orderStatus trade.OrderStatus,
+) (orderItem *trade.OrderItem, subUnitTotal float64, subListTotal float64) {
+
+	subUnitTotal = 0.0
+	subListTotal = 0.0
+	orderItem = &trade.OrderItem{
+		PriceBookEntryId: entry.SkuId,
+		CustomerId:       customer.Id,
+		Type:             orderType,
+		Status:           orderStatus,
+		Quantity:         quantity,
+		UnitPrice:        entry.UnitPrice,
+		ListPrice:        entry.ListPrice,
+		Discount:         entry.UnitPrice / entry.ListPrice,
+	}
+	subUnitTotal = orderItem.UnitPrice * float64(orderItem.Quantity)
+	subListTotal = orderItem.ListPrice * float64(orderItem.Quantity)
+
+	return orderItem, subUnitTotal, subListTotal
 }
 
 func (uc *OrderUseCase) MakeOrderItemsFromCartItems(

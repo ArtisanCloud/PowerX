@@ -1,7 +1,7 @@
 package product
 
 import (
-	"PowerX/internal/model/product"
+	product2 "PowerX/internal/uc/powerx/product"
 	"context"
 
 	"PowerX/internal/svc"
@@ -25,7 +25,7 @@ func NewListPriceBooksLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Li
 }
 
 func (l *ListPriceBooksLogic) ListPriceBooks(req *types.ListPriceBooksPageRequest) (resp *types.ListPriceBooksPageReply, err error) {
-	opt := &product.FindPriceBookOption{
+	opt := &product2.FindPriceBookOption{
 		PageEmbedOption: types.PageEmbedOption{
 			PageIndex: req.PageIndex,
 			PageSize:  req.PageSize,

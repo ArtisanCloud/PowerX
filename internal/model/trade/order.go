@@ -52,16 +52,17 @@ const (
 type OrderType int
 
 const (
-	OrderTypeNormal           OrderType = 0 // 普通订单
-	OrderTypePreorder         OrderType = 1 // 预定订单
-	OrderTypeCustom           OrderType = 2 // 定制订单
-	OrderTypeSubscription     OrderType = 3 // 订阅订单
-	OrderTypeWholesale        OrderType = 4 // 批发订单
-	OrderTypeGift             OrderType = 5 // 赠品订单
-	OrderTypeGiftWithPurchase OrderType = 6 // 有赠品的订单
-	OrderTypeReturn           OrderType = 7 // 退货订单
-	OrderTypeExchange         OrderType = 8 // 换货订单
-	OrderTypeReshipment       OrderType = 9 // 补发订单
+	OrderTypeNormal           OrderType = 0  // 普通订单
+	OrderTypePreorder         OrderType = 1  // 预定订单
+	OrderTypeCart             OrderType = 2  // 购物车订单
+	OrderTypeCustom           OrderType = 3  // 定制订单
+	OrderTypeSubscription     OrderType = 4  // 订阅订单
+	OrderTypeWholesale        OrderType = 5  // 批发订单
+	OrderTypeGift             OrderType = 6  // 赠品订单
+	OrderTypeGiftWithPurchase OrderType = 7  // 有赠品的订单
+	OrderTypeReturn           OrderType = 8  // 退货订单
+	OrderTypeExchange         OrderType = 9  // 换货订单
+	OrderTypeReshipment       OrderType = 10 // 补发订单
 )
 
 // 订单项，记录订单中，针对每个产品以及SKU的实际订单详情
