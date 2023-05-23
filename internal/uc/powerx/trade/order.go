@@ -137,13 +137,13 @@ func (uc *OrderUseCase) CreateOrderByPriceBookEntries(ctx context.Context,
 			customer,
 			quantities,
 			trade.OrderTypeNormal,
-			trade.OrderStatusPending,
+			trade.OrderStatusToBePaid,
 		)
 		order.Items = orderItems
 
 		order.CustomerId = customer.Id
 		order.Type = trade.OrderTypeNormal
-		order.Status = trade.OrderStatusPending
+		order.Status = trade.OrderStatusToBePaid
 		order.OrderNumber = trade.GenerateOrderNumber()
 		order.UnitPrice = totalUnitPrice
 		order.ListPrice = totalListPrice
@@ -203,14 +203,14 @@ func (uc *OrderUseCase) CreateOrderByCartItems(ctx context.Context,
 		orderItems, totalUnitPrice, totalListPrice := uc.MakeOrderItemsFromCartItems(
 			cartItems,
 			trade.OrderTypeCart,
-			trade.OrderStatusPending,
+			trade.OrderStatusToBePaid,
 		)
 		order.Items = orderItems
 
 		order.CustomerId = customer.Id
 		order.CartId = cart.Id
 		order.Type = trade.OrderTypeCart
-		order.Status = trade.OrderStatusPending
+		order.Status = trade.OrderStatusToBePaid
 		order.OrderNumber = trade.GenerateOrderNumber()
 		order.UnitPrice = totalUnitPrice
 		order.ListPrice = totalListPrice

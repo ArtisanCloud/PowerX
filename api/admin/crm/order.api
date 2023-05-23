@@ -85,10 +85,10 @@ type ListOrdersPageRequest {
 }
 
 type ListOrdersPageReply {
-    list []*Order `json:"list,optional,omitempty"`
-    pageIndex int `json:"pageIndex,optional,omitempty"`
-    pageSize int `json:"pageSize,optional,omitempty"`
-    total int64 `json:"total,optional,omitempty"`
+    list []*Order `json:"list"`
+    pageIndex int `json:"pageIndex"`
+    pageSize int `json:"pageSize"`
+    total int64 `json:"total"`
 }
 
 type CreateOrderRequest {
