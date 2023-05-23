@@ -40,14 +40,18 @@ type Order struct {
 type OrderStatus int
 
 const (
-	OrderStatusPending    OrderStatus = 0 // 待处理
-	OrderStatusConfirmed  OrderStatus = 1 // 已确认
-	OrderStatusInProgress OrderStatus = 2 // 进行中
-	OrderStatusCompleted  OrderStatus = 3 // 已完成
-	OrderStatusCancelled  OrderStatus = 4 // 已取消
-	OrderStatusFailed     OrderStatus = 5 // 失败
-	OrderStatusRefunded   OrderStatus = 6 // 已退款
-	OrderStatusReturned   OrderStatus = 7 // 已退货
+	OrderStatusPending     OrderStatus = 0  // 待处理
+	OrderStatusToBePaid    OrderStatus = 1  // 待付款
+	OrderStatusConfirmed   OrderStatus = 2  // 已确认
+	OrderStatusToBeShipped OrderStatus = 3  // 待发货
+	OrderStatusShipping    OrderStatus = 4  // 送货中
+	OrderStatusDelivered   OrderStatus = 5  // 已签收
+	OrderStatusCompleted   OrderStatus = 6  // 已完成
+	OrderStatusCancelled   OrderStatus = 7  // 已取消
+	OrderStatusFailed      OrderStatus = 8  // 失败
+	OrderStatusRefunding   OrderStatus = 9  // 退款中
+	OrderStatusRefunded    OrderStatus = 10 // 已退款
+	OrderStatusReturned    OrderStatus = 11 // 已退货
 )
 
 type OrderType int

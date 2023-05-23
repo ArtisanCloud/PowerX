@@ -1099,7 +1099,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 					Handler: mptradeorder.CreateOrderByCartItemsHandler(serverCtx),
 				},
 				{
-					Method:  http.MethodPost,
+					Method:  http.MethodPut,
 					Path:    "/orders/cancel/:id",
 					Handler: mptradeorder.CancelOrderHandler(serverCtx),
 				},

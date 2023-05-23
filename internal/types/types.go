@@ -2029,7 +2029,7 @@ type CancelOrderRequest struct {
 }
 
 type CancelOrderReply struct {
-	OrderId int64 `form:"orderId,optional"`
+	OrderId int64 `json:"orderId,optional"`
 }
 
 type OrderItem struct {
@@ -2074,10 +2074,10 @@ type ListOrdersPageRequest struct {
 }
 
 type ListOrdersPageReply struct {
-	List      []*Order `json:"list,optional,omitempty"`
-	PageIndex int      `json:"pageIndex,optional,omitempty"`
-	PageSize  int      `json:"pageSize,optional,omitempty"`
-	Total     int64    `json:"total,optional,omitempty"`
+	List      []*Order `json:"list"`
+	PageIndex int      `json:"pageIndex"`
+	PageSize  int      `json:"pageSize"`
+	Total     int64    `json:"total"`
 }
 
 type CreateOrderRequest struct {

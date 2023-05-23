@@ -38,7 +38,7 @@ service PowerX {
 
     @doc "取消订单"
     @handler CancelOrder
-    post /orders/cancel/:id (CancelOrderRequest) returns (CancelOrderReply)
+    put /orders/cancel/:id (CancelOrderRequest) returns (CancelOrderReply)
 }
 
 
@@ -77,7 +77,7 @@ type (
     }
 
     CancelOrderReply struct {
-        OrderId int64 `form:"orderId,optional"`
+        OrderId int64 `json:"orderId,optional"`
     }
 )
 
