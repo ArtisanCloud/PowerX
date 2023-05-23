@@ -55,6 +55,13 @@ func (uc *PriceBookEntryUseCase) buildFindQueryNoPage(query *gorm.DB, opt *FindP
 	return query
 }
 
+func (uc *PriceBookEntryUseCase) PreloadItems(db *gorm.DB) *gorm.DB {
+	db = db.
+		Preload("Product.PivotCoverImages").
+		Preload("SKU")
+	return db
+}
+
 func (uc *PriceBookEntryUseCase) FindManyPriceBookEntries(ctx context.Context, opt *FindPriceBookEntryOption) types.Page[*product.PriceBookEntry] {
 	var priceBookEntries []*product.PriceBookEntry
 	var count int64
@@ -70,6 +77,7 @@ func (uc *PriceBookEntryUseCase) FindManyPriceBookEntries(ctx context.Context, o
 		query.Offset((opt.PageIndex - 1) * opt.PageSize).Limit(opt.PageSize)
 	}
 
+	query = uc.PreloadItems(query)
 	if err := query.
 		Debug().
 		Find(&priceBookEntries).Error; err != nil {

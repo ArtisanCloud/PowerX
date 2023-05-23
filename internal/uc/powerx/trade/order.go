@@ -24,8 +24,11 @@ func NewOrderUseCase(db *gorm.DB) *OrderUseCase {
 }
 
 type FindManyOrdersOption struct {
-	LikeName string
-	OrderBy  string
+	CustomerId int64
+	Status     []int
+	Type       []int
+	LikeName   string
+	OrderBy    string
 	types.PageEmbedOption
 }
 
@@ -33,6 +36,17 @@ func (uc *OrderUseCase) buildFindQueryNoPage(db *gorm.DB, opt *FindManyOrdersOpt
 
 	if opt.LikeName != "" {
 		db = db.Where("name LIKE ?", "%"+opt.LikeName+"%")
+	}
+
+	if opt.CustomerId > 0 {
+		db = db.Where("customer_id = ?", opt.CustomerId)
+	}
+
+	if len(opt.Status) > 0 {
+		db = db.Where("status IN ?", opt.Status)
+	}
+	if len(opt.Type) > 0 {
+		db = db.Where("type IN ?", opt.Type)
 	}
 
 	orderBy := "id desc"
@@ -50,7 +64,9 @@ func (uc *OrderUseCase) FindAllOrders(ctx context.Context, opt *FindManyOrdersOp
 	query = uc.buildFindQueryNoPage(query, opt)
 	if err := query.
 		Debug().
-		Preload("Artisans").
+		Preload("Items.ProductBookEntry.SKU").
+		Preload("Items.ProductBookEntry.Product.PivotCoverImages.").
+		Preload("Payments").
 		Find(&dictionaryItems).Error; err != nil {
 		panic(errors.Wrap(err, "find all dictionaryItems failed"))
 	}
@@ -74,7 +90,10 @@ func (uc *OrderUseCase) FindManyOrders(ctx context.Context, opt *FindManyOrdersO
 		db.Offset((opt.PageIndex - 1) * opt.PageSize).Limit(opt.PageSize)
 	}
 
-	if err := db.Find(&orders).Error; err != nil {
+	if err := db.
+		Preload("Items.CoverImage").
+		Preload("Payments").
+		Find(&orders).Error; err != nil {
 		panic(err)
 	}
 
@@ -120,7 +139,7 @@ func (uc *OrderUseCase) CreateOrderByPriceBookEntries(ctx context.Context,
 			trade.OrderTypeNormal,
 			trade.OrderStatusPending,
 		)
-		order.OrderItems = orderItems
+		order.Items = orderItems
 
 		order.CustomerId = customer.Id
 		order.Type = trade.OrderTypeNormal
@@ -186,7 +205,7 @@ func (uc *OrderUseCase) CreateOrderByCartItems(ctx context.Context,
 			trade.OrderTypeCart,
 			trade.OrderStatusPending,
 		)
-		order.OrderItems = orderItems
+		order.Items = orderItems
 
 		order.CustomerId = customer.Id
 		order.CartId = cart.Id
@@ -258,6 +277,9 @@ func (uc *OrderUseCase) MakeOrderItemFromEntry(
 		UnitPrice:        entry.UnitPrice,
 		ListPrice:        entry.ListPrice,
 		Discount:         entry.UnitPrice / entry.ListPrice,
+		ProductName:      entry.Product.Name,
+		SkuNo:            entry.SKU.SkuNo,
+		CoverImageId:     entry.Product.PivotCoverImages[0].Id,
 	}
 	subUnitTotal = orderItem.UnitPrice * float64(orderItem.Quantity)
 	subListTotal = orderItem.ListPrice * float64(orderItem.Quantity)
@@ -300,6 +322,9 @@ func (uc *OrderUseCase) MakeOrderItemFromCartItem(
 		UnitPrice:        cartItem.UnitPrice,
 		ListPrice:        cartItem.ListPrice,
 		Discount:         cartItem.Discount,
+		ProductName:      cartItem.ProductName,
+		SkuNo:            cartItem.Specifications,
+		CoverImageId:     cartItem.Product.PivotCoverImages[0].MediaResourceId,
 	}
 	subUnitTotal = orderItem.UnitPrice * float64(orderItem.Quantity)
 	subListTotal = orderItem.ListPrice * float64(orderItem.Quantity)
