@@ -17,16 +17,16 @@ type PriceBookEntry struct {
 	PriceBook    *PriceBook     `gorm:"foreignKey:PriceBookId;references:Id" json:"priceBook"`
 	PriceConfigs []*PriceConfig `gorm:"foreignKey:PriceBookEntryId;references:Id" json:"priceConfigs"`
 
-	PriceBookId int64   `gorm:"index:idx_price_book_entry_price_book_id;column:price_book_id;not null;" json:"priceBookId"`
-	ProductId   int64   `gorm:"index:idx_price_book_entry_product_id;column:product_id;not null;" json:"productId"`
-	SkuId       int64   `gorm:"index:idx_price_book_entry_sku_id;column:sku_id; comment:产品SKUId" json:"skuId"`
+	PriceBookId int64   `gorm:"index:idx_price_book_entry,priority:3;column:price_book_id;not null;" json:"priceBookId"`
+	ProductId   int64   `gorm:"index:idx_price_book_entry,priority:2;column:product_id;not null;" json:"productId"`
+	SkuId       int64   `gorm:"index:idx_price_book_entry,priority:1;column:sku_id; comment:产品SKUId" json:"skuId"`
 	UnitPrice   float64 `gorm:"type:decimal(10,2); comment:单价" json:"unitPrice"`
 	ListPrice   float64 `gorm:"type:decimal(10,2); comment:零售价" json:"listPrice"`
 	IsActive    bool    `gorm:"comment:是否激活" json:"isActive"`
 }
 
 const TableNamePriceBookEntry = "price_book_entries"
-const PriceBookEntryUniqueId = "idx_price_book_entry_id"
+const PriceBookEntryUniqueId = "idx_price_book_entry"
 
 func (mdl *PriceBookEntry) GetComposedUniqueID() object.NullString {
 	if mdl.PriceBookId > 0 && mdl.ProductId > 0 {

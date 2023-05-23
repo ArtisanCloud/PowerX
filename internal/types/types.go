@@ -2000,6 +2000,19 @@ type ClearCartItemsReply struct {
 	Message string `json:"message"`
 }
 
+type CreateOrderByProductsRequest struct {
+	PriceBookId       int64   `json:"PriceBookId,optional,emptyomit"`
+	ProductIds        []int64 `json:"productIds"`
+	SkuIds            []int64 `json:"skuIds"`
+	Quantities        []int   `json:"quantities"`
+	ShippingAddressId int64   `json:"shippingAddressId,optional,emptyomit"`
+	Comment           string  `json:"comment"`
+}
+
+type CreateOrderByProductsReply struct {
+	OrderId int64 `json:"orderId"`
+}
+
 type CreateOrderByCartItemsRequest struct {
 	CartItemIds       []int64 `json:"cartItemIds"`
 	ShippingAddressId int64   `json:"shippingAddressId"`

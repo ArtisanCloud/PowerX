@@ -19,3 +19,19 @@ type ShippingAddress struct {
 	PhoneNumber  string `gorm:"comment:联系电话" json:"phoneNumber"`
 	IsDefault    bool   `gorm:"comment:是否默认地址" json:"isDefault"`
 }
+
+func (mdl *ShippingAddress) MakeDeliveryAddress() *DeliveryAddress {
+	return &DeliveryAddress{
+		CustomerId:   mdl.CustomerId,
+		Recipient:    mdl.Recipient,
+		Name:         mdl.Name,
+		AddressLine:  mdl.AddressLine,
+		AddressLine2: mdl.AddressLine2,
+		Street:       mdl.Street,
+		City:         mdl.City,
+		Province:     mdl.Province,
+		PostalCode:   mdl.PostalCode,
+		Country:      mdl.Country,
+		PhoneNumber:  mdl.PhoneNumber,
+	}
+}

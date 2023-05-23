@@ -21,7 +21,15 @@ func NewPriceBookUseCase(db *gorm.DB) *PriceBookUseCase {
 	}
 }
 
-func (uc *PriceBookUseCase) buildFindQueryNoPage(query *gorm.DB, opt *product.FindPriceBookOption) *gorm.DB {
+type FindPriceBookOption struct {
+	OrderBy string
+	Ids     []int64
+	Names   []string
+	StoreId int64
+	types.PageEmbedOption
+}
+
+func (uc *PriceBookUseCase) buildFindQueryNoPage(query *gorm.DB, opt *FindPriceBookOption) *gorm.DB {
 	if len(opt.Ids) > 0 {
 		query.Where("id in ?", opt.Ids)
 	}
@@ -42,7 +50,7 @@ func (uc *PriceBookUseCase) buildFindQueryNoPage(query *gorm.DB, opt *product.Fi
 	return query
 }
 
-func (uc *PriceBookUseCase) FindManyPriceBooks(ctx context.Context, opt *product.FindPriceBookOption) types.Page[*product.PriceBook] {
+func (uc *PriceBookUseCase) FindManyPriceBooks(ctx context.Context, opt *FindPriceBookOption) types.Page[*product.PriceBook] {
 	var priceBooks []*product.PriceBook
 	var count int64
 	query := uc.db.WithContext(ctx).Model(&product.PriceBook{})
@@ -71,7 +79,7 @@ func (uc *PriceBookUseCase) FindManyPriceBooks(ctx context.Context, opt *product
 
 }
 
-func (uc *PriceBookUseCase) FindOnePriceBook(ctx context.Context, opt *product.FindPriceBookOption) (*product.PriceBook, error) {
+func (uc *PriceBookUseCase) FindOnePriceBook(ctx context.Context, opt *FindPriceBookOption) (*product.PriceBook, error) {
 	var mpCustomer *product.PriceBook
 	query := uc.db.WithContext(ctx).Model(&product.PriceBook{})
 

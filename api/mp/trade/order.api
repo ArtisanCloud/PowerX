@@ -28,10 +28,13 @@ service PowerX {
     get /orders/:id (GetOrderRequest) returns (GetOrderReply)
 
 
-    @doc "创建订单"
-    @handler CreateOrderByCartItems
-    post /orders (CreateOrderByCartItemsRequest) returns (CreateOrderByCartItemsReply)
+    @doc "创建产品订单"
+    @handler CreateOrderByProducts
+    post /orders/products (CreateOrderByProductsRequest) returns (CreateOrderByProductsReply)
 
+    @doc "创建购物车订单"
+    @handler CreateOrderByCartItems
+    post /orders/cart-items (CreateOrderByCartItemsRequest) returns (CreateOrderByCartItemsReply)
 
     @doc "取消订单"
     @handler CancelOrder
@@ -39,7 +42,20 @@ service PowerX {
 }
 
 
+type (
+    CreateOrderByProductsRequest struct {
+        PriceBookId int64 `json:"PriceBookId,optional,emptyomit"`
+        ProductIds []int64 `json:"productIds"`
+        SkuIds []int64 `json:"skuIds"`
+        Quantities []int `json:"quantities"`
+        ShippingAddressId int64 `json:"shippingAddressId,optional,emptyomit"`
+        Comment string `json:"comment"`
+    }
 
+    CreateOrderByProductsReply struct {
+        OrderId int64 `json:"orderId"`
+    }
+)
 type (
     CreateOrderByCartItemsRequest struct {
         CartItemIds []int64 `json:"cartItemIds"`
