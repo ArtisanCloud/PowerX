@@ -58,15 +58,22 @@ func (uc *OrderUseCase) buildFindQueryNoPage(db *gorm.DB, opt *FindManyOrdersOpt
 	return db
 }
 
+func (uc *OrderUseCase) PreloadItems(db *gorm.DB) *gorm.DB {
+	db = db.
+		Preload("Items.ProductBookEntry.SKU").
+		Preload("Items.ProductBookEntry.Product.PivotCoverImages").
+		Preload("Items.CoverImage").
+		Preload("Payments.Items")
+	return db
+}
+
 func (uc *OrderUseCase) FindAllOrders(ctx context.Context, opt *FindManyOrdersOption) (dictionaryItems []*trade.Order, err error) {
 	query := uc.db.WithContext(ctx).Model(&trade.Order{})
 
 	query = uc.buildFindQueryNoPage(query, opt)
+	query = uc.PreloadItems(query)
 	if err := query.
 		Debug().
-		Preload("Items.ProductBookEntry.SKU").
-		Preload("Items.ProductBookEntry.Product.PivotCoverImages.").
-		Preload("Payments").
 		Find(&dictionaryItems).Error; err != nil {
 		panic(errors.Wrap(err, "find all dictionaryItems failed"))
 	}
@@ -90,9 +97,8 @@ func (uc *OrderUseCase) FindManyOrders(ctx context.Context, opt *FindManyOrdersO
 		db.Offset((opt.PageIndex - 1) * opt.PageSize).Limit(opt.PageSize)
 	}
 
+	db = uc.PreloadItems(db)
 	if err := db.
-		Preload("Items.CoverImage").
-		Preload("Payments").
 		Find(&orders).Error; err != nil {
 		panic(err)
 	}
@@ -375,7 +381,10 @@ func (uc *OrderUseCase) PatchOrder(ctx context.Context, id int64, order *trade.O
 
 func (uc *OrderUseCase) GetOrder(ctx context.Context, id int64) (*trade.Order, error) {
 	var order = &trade.Order{}
-	if err := uc.db.WithContext(ctx).First(order, id).Error; err != nil {
+	db := uc.db.WithContext(ctx)
+	db = uc.PreloadItems(db)
+	if err := db.
+		First(order, id).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errorx.WithCause(errorx.ErrBadRequest, "未找到产品")
 		}

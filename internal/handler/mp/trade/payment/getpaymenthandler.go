@@ -1,24 +1,24 @@
-package order
+package payment
 
 import (
 	"net/http"
 
-	"PowerX/internal/logic/mp/trade/order"
+	"PowerX/internal/logic/mp/trade/payment"
 	"PowerX/internal/svc"
 	"PowerX/internal/types"
 	"github.com/zeromicro/go-zero/rest/httpx"
 )
 
-func CreateOrderHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
+func GetPaymentHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var req types.CreateOrderRequest
+		var req types.GetPaymentRequest
 		if err := httpx.Parse(r, &req); err != nil {
 			httpx.ErrorCtx(r.Context(), w, err)
 			return
 		}
 
-		l := order.NewCreateOrderLogic(r.Context(), svcCtx)
-		resp, err := l.CreateOrder(&req)
+		l := payment.NewGetPaymentLogic(r.Context(), svcCtx)
+		resp, err := l.GetPayment(&req)
 		if err != nil {
 			httpx.ErrorCtx(r.Context(), w, err)
 		} else {

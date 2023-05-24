@@ -25,13 +25,15 @@ type WechatOA struct {
 
 type WechatPay struct {
 	AppId            string
-	MchID            string
+	MchId            string
 	MchApiV3Key      string
 	Key              string
 	CertPath         string
 	KeyPath          string
 	RSAPublicKeyPath string
 	SerialNo         string
+	WechatPaySerial  string
+	NotifyUrl        string
 	HttpDebug        bool
 }
 

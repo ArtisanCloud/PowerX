@@ -1,0 +1,64 @@
+syntax = "v1"
+
+info(
+    title: "支付单服务"
+    desc: "支付单服务"
+    author: "MichaelHu"
+    email: "matrix-x@artisan-cloud.com"
+    version: "v1"
+)
+
+
+import "admin/crm/payment.api"
+
+@server(
+    group: mp/trade/payment
+    prefix: /api/v1/mp/trade
+    middleware: MPCustomerJWTAuth, MPCustomerGet
+)
+
+service PowerX {
+    @doc "查询支付单列表"
+    @handler ListPaymentsPage
+    get /payments/page-list (ListPaymentsPageRequest) returns (ListPaymentsPageReply)
+
+    @doc "查询支付单详情"
+    @handler GetPayment
+    get /payments/:id (GetPaymentRequest) returns (GetPaymentReply)
+
+
+    @doc "创建支付单"
+    @handler CreatePaymentFromOrder
+    post /payments (CreatePaymentFromOrderRequest) returns (CreatePaymentFromOrderRequestReply)
+
+    @doc "修改支付单"
+    @handler UpdatePayment
+    put /payments/:id (UpdatePaymentRequest) returns (UpdatePaymentReply)
+}
+
+
+type (
+    CreatePaymentFromOrderRequest struct {
+        OrderId int64 `json:"orderId"`
+        PaymentType int `json:"paymentType"`
+        Comment string `json:"comment,optional"`
+    }
+
+    CreatePaymentFromOrderRequestReply struct {
+        PaymentId int64 `json:"orderId"`
+        Data interface{} `json:"data"`
+    }
+)
+
+
+type (
+    UpdatePaymentRequest struct {
+        PaymentId int64 `path:"id"`
+        Payment
+    }
+
+    UpdatePaymentReply struct {
+        *Payment
+    }
+)
+

@@ -84,7 +84,7 @@ func NewPowerXUseCase(conf *config.Config) (uc *PowerXUseCase, clean func()) {
 	uc.ShippingAddress = tradeUC.NewShippingAddressUseCase(db)
 	uc.Cart = tradeUC.NewCartUseCase(db)
 	uc.Order = tradeUC.NewOrderUseCase(db)
-	uc.Payment = tradeUC.NewPaymentUseCase(db)
+	uc.Payment = tradeUC.NewPaymentUseCase(db, conf)
 	uc.RefundOrder = tradeUC.NewRefundOrderUseCase(db)
 
 	// 加载微信UseCase

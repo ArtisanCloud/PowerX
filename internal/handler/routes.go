@@ -39,6 +39,7 @@ import (
 	mptradeaddressshipping "PowerX/internal/handler/mp/trade/address/shipping"
 	mptradecart "PowerX/internal/handler/mp/trade/cart"
 	mptradeorder "PowerX/internal/handler/mp/trade/order"
+	mptradepayment "PowerX/internal/handler/mp/trade/payment"
 	"PowerX/internal/svc"
 
 	"github.com/zeromicro/go-zero/rest"
@@ -1301,5 +1302,34 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			}...,
 		),
 		rest.WithPrefix("/api/v1/mp/trade/address"),
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.MPCustomerJWTAuth, serverCtx.MPCustomerGet},
+			[]rest.Route{
+				{
+					Method:  http.MethodGet,
+					Path:    "/payments/page-list",
+					Handler: mptradepayment.ListPaymentsPageHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/payments/:id",
+					Handler: mptradepayment.GetPaymentHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/payments",
+					Handler: mptradepayment.CreatePaymentFromOrderHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPut,
+					Path:    "/payments/:id",
+					Handler: mptradepayment.UpdatePaymentHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithPrefix("/api/v1/mp/trade"),
 	)
 }
