@@ -29,15 +29,16 @@ WechatOA:
 
 WechatPay:
   AppId: wx93607xxxxxxxxxx    # 微信支付AppID
-  Secret:                     # 微信支付Secret
   AESKey: PBcwPOp0e6tFou      # 微信支付AES密钥
-  MchID:                      # 商户号
+  MchId:  "1626253240"        # 商户号
   MchApiV3Key:                # 商户API密钥
   Key:                        # 商户支付密钥
   CertPath:                   # 商户证书路径
   KeyPath:                    # 商户证书密钥路径
   RSAPublicKeyPath:           # 微信支付平台RSA公钥路径
   SerialNo:                   # 微信支付平台证书序列号
+  WechatPaySerial:            # 微信支付序列号
+  NotifyUrl:                  # 微信支付通知URL
   HttpDebug: true             # 是否启用HTTP调试模式
 
 WechatMP:

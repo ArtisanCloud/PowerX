@@ -1,23 +1,54 @@
 package trade
 
 import (
+	"PowerX/internal/config"
+	customerdomain2 "PowerX/internal/model/customerdomain"
 	"PowerX/internal/model/powermodel"
 	"PowerX/internal/model/trade"
 	"PowerX/internal/types"
 	"PowerX/internal/types/errorx"
 	"context"
+	"github.com/ArtisanCloud/PowerWeChat/v3/src/payment"
+	"github.com/ArtisanCloud/PowerWeChat/v3/src/payment/order/request"
+	"github.com/ArtisanCloud/PowerWeChat/v3/src/payment/order/response"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
 	"strings"
 )
 
 type PaymentUseCase struct {
-	db *gorm.DB
+	db        *gorm.DB
+	WXPayment *payment.Payment
 }
 
-func NewPaymentUseCase(db *gorm.DB) *PaymentUseCase {
+const WXCurrencyUnit = 100
+
+func NewPaymentUseCase(db *gorm.DB, conf *config.Config) *PaymentUseCase {
+
+	// 初始化微信公众号API SDK
+	wxPayment, err := payment.NewPayment(&payment.UserConfig{
+		AppID:            conf.WechatPay.AppId,
+		MchID:            conf.WechatPay.MchId,
+		MchApiV3Key:      conf.WechatPay.MchApiV3Key,
+		Key:              conf.WechatPay.Key,
+		CertPath:         conf.WechatPay.CertPath,
+		KeyPath:          conf.WechatPay.KeyPath,
+		RSAPublicKeyPath: conf.WechatPay.RSAPublicKeyPath,
+		SerialNo:         conf.WechatPay.SerialNo,
+		OAuth: payment.OAuth{
+			Callback: "https://wechat-mp.artisan-cloud.com/callback",
+			Scopes:   nil,
+		},
+		HttpDebug: true,
+	})
+
+	if err != nil {
+		panic(errors.Wrap(err, "wechat payment init failed"))
+	}
+
 	return &PaymentUseCase{
-		db: db,
+		db:        db,
+		WXPayment: wxPayment,
 	}
 }
 
@@ -82,6 +113,87 @@ func (uc *PaymentUseCase) FindManyPayments(ctx context.Context, opt *FindManyPay
 		PageSize:  opt.PageSize,
 		Total:     count,
 	}, nil
+}
+
+func (uc *PaymentUseCase) CreatePaymentFromOrderByWechat(ctx context.Context,
+	customer *customerdomain2.Customer, order *trade.Order,
+	openId string, paymentType trade.PaymentType,
+) (payment *trade.Payment, data interface{}, err error) {
+
+	db := uc.db.WithContext(ctx)
+
+	// 创建支付单
+	payment = uc.MakePaymentFromOrder(customer, order, paymentType, trade.PaymentStatusPending)
+	err = db.Transaction(func(tx *gorm.DB) error {
+		// 保存支付单
+		err = db.Create(payment).Error
+		err = db.Model(trade.Payment{}).
+			Debug().
+			Create(payment).Error
+		if err != nil {
+			return err
+		}
+
+		// 创建微信支付单
+		rsOrder, err := uc.MakeWechatOrder(nil, payment, openId)
+		if err != nil {
+			return err
+		}
+
+		if rsOrder.PrepayID == "" {
+			return errors.New("no Prepay Id generated")
+		}
+
+		// config wx Bridge for front end
+		data, err = uc.WXPayment.JSSDK.BridgeConfig(rsOrder.PrepayID, true)
+
+		return err
+	})
+
+	return payment, data, err
+}
+
+func (uc *PaymentUseCase) MakePaymentFromOrder(customer *customerdomain2.Customer, order *trade.Order, paymentType trade.PaymentType, paymentStatus trade.PaymentStatus) (payment *trade.Payment) {
+	payment = &trade.Payment{
+		OrderId:       order.Id,
+		PaymentType:   paymentType,
+		PaidAmount:    order.UnitPrice,
+		PaymentNumber: trade.GeneratePaymentNumber(),
+		Status:        paymentStatus,
+	}
+
+	quantityOfItems := len(order.Items)
+	paymentItems := []*trade.PaymentItem{
+		{
+			Quantity:            quantityOfItems,
+			UnitPrice:           order.UnitPrice,
+			PaymentCustomerName: customer.Name,
+		},
+	}
+	payment.Items = paymentItems
+
+	return payment
+}
+
+func (uc *PaymentUseCase) MakeWechatOrder(ctx context.Context, payment *trade.Payment, openID string) (*response.ResponseUnitfy, error) {
+
+	mapObject := &request.RequestJSAPIPrepay{
+		Amount: &request.JSAPIAmount{
+			Total: int(payment.PaidAmount * WXCurrencyUnit),
+			//Currency: "CNY",
+		},
+		Attach:      "订单支付",
+		Description: payment.Remark,
+		OutTradeNo:  payment.PaymentNumber,
+		Payer: &request.JSAPIPayer{
+			OpenID: openID,
+		},
+	}
+	mapObject.SetNotifyUrl(uc.WXPayment.Config.GetString("notify_url", ""))
+	//mapObject.SetAppID(service.App.Config.GetString("app_id", ""))
+
+	return uc.WXPayment.Order.JSAPITransaction(ctx, mapObject)
+
 }
 
 func (uc *PaymentUseCase) CreatePayment(ctx context.Context, payment *trade.Payment) error {

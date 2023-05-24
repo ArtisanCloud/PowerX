@@ -103,7 +103,7 @@ func TransformPaymentToPaymentReplyToMP(payment *trade.Payment) (paymentReply *t
 		Id:              payment.Id,
 		OrderId:         payment.OrderId,
 		PaymentDate:     payment.PaymentDate.String(),
-		PaymentType:     payment.PaymentType,
+		PaymentType:     int(payment.PaymentType),
 		PaidAmount:      payment.PaidAmount,
 		PaymentNumber:   payment.PaymentNumber,
 		ReferenceNumber: payment.ReferenceNumber,

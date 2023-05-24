@@ -2208,3 +2208,23 @@ type DeletePaymentRequest struct {
 type DeletePaymentReply struct {
 	PaymentId int64 `json:"id"`
 }
+
+type CreatePaymentFromOrderRequest struct {
+	OrderId     int64  `json:"orderId"`
+	PaymentType int    `json:"paymentType"`
+	Comment     string `json:"comment,optional"`
+}
+
+type CreatePaymentFromOrderRequestReply struct {
+	PaymentId int64       `json:"orderId"`
+	Data      interface{} `json:"data"`
+}
+
+type UpdatePaymentRequest struct {
+	PaymentId int64 `path:"id"`
+	Payment
+}
+
+type UpdatePaymentReply struct {
+	*Payment
+}

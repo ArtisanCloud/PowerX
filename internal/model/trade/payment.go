@@ -2,6 +2,8 @@ package trade
 
 import (
 	"PowerX/internal/model/powermodel"
+	"github.com/ArtisanCloud/PowerLibs/v3/object"
+	"github.com/golang-module/carbon/v2"
 	"time"
 )
 
@@ -13,20 +15,31 @@ type Payment struct {
 
 	OrderId         int64         `gorm:"comment:订单Id" json:"orderId"`
 	PaymentDate     time.Time     `gorm:"comment:支付日期" json:"paymentDate"`
-	PaymentType     int           `gorm:"comment:支付方式" json:"paymentType"`
+	PaymentType     PaymentType   `gorm:"comment:支付方式" json:"paymentType"`
 	PaidAmount      float64       `gorm:"type:decimal(10,2); comment:实际支付金额" json:"paidAmount"`
 	PaymentNumber   string        `gorm:"comment:支付单单号" json:"paymentNumber"`
 	ReferenceNumber string        `gorm:"comment:参考单号" json:"referenceNumber"`
+	Remark          string        `gorm:"comment:备注" json:"remark"`
 	Status          PaymentStatus `gorm:"comment:支付单状态" json:"status"`
 }
 
-type PaymentStatus int8
+type PaymentStatus int
 
 const (
 	PaymentStatusPending   PaymentStatus = 0 // 待支付
 	PaymentStatusPaid      PaymentStatus = 1 // 已支付
 	PaymentStatusRefunded  PaymentStatus = 2 // 已退款
 	PaymentStatusCancelled PaymentStatus = 3 // 已取消
+)
+
+type PaymentType int
+
+const (
+	PaymentTypeBank       PaymentType = 0 // 银行
+	PaymentTypeWeChat     PaymentType = 1 // 微信
+	PaymentTypeAlipay     PaymentType = 2 // 支付宝
+	PaymentTypePayPal     PaymentType = 3 // PayPal
+	PaymentTypeCreditCard PaymentType = 4 // 信用卡
 )
 
 type PaymentItem struct {
@@ -49,3 +62,7 @@ type PaymentItem struct {
 }
 
 const PaymentUniqueId = powermodel.UniqueId
+
+func GeneratePaymentNumber() string {
+	return "PO" + carbon.Now().Format("YmdHis") + object.QuickRandom(6)
+}
