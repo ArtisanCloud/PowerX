@@ -66,3 +66,7 @@ const PaymentUniqueId = powermodel.UniqueId
 func GeneratePaymentNumber() string {
 	return "PO" + carbon.Now().Format("YmdHis") + object.QuickRandom(6)
 }
+
+func (mdl *Payment) IsStatusToBePaid() bool {
+	return mdl.Status == PaymentStatusPending
+}

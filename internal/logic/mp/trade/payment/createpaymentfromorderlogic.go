@@ -55,7 +55,7 @@ func (l *CreatePaymentFromOrderLogic) CreatePaymentFromOrder(req *types.CreatePa
 			authCustomer.OpenIdInMiniProgram, trade.PaymentType(req.PaymentType),
 		)
 		if err != nil {
-			return nil, errorx.WithCause(errorx.ErrCreateObject, "创建微信小程序订单失败")
+			return nil, errorx.WithCause(errorx.ErrCreateObject, "创建微信小程序订单失败:"+err.Error())
 		}
 
 	default:

@@ -432,3 +432,29 @@ func (uc *OrderUseCase) ClearAssociations(db *gorm.DB, order *trade.Order) (*tra
 
 	return order, err
 }
+
+func (uc *OrderUseCase) ChangeOrderStatusFromTo(ctx context.Context, order *trade.Order,
+	fromStatus trade.OrderStatus, toStatus trade.OrderStatus,
+) (*trade.Order, error) {
+
+	err := uc.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+
+		// 修改订单的支付状态记录
+		order.Status = toStatus
+		err := tx.Save(order).Error
+		if err != nil {
+			return err
+		}
+
+		// 保存订单状态记录
+		changeLog := &trade.OrderStatusTransition{}
+		changeLog.OrderId = order.Id
+		changeLog.FromStatus = fromStatus
+		changeLog.ToStatus = toStatus
+		err = tx.Create(changeLog).Error
+
+		return err
+	})
+
+	return order, err
+}

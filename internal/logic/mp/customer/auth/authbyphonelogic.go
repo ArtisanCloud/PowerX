@@ -6,6 +6,7 @@ import (
 	"PowerX/internal/svc"
 	"PowerX/internal/types"
 	customerdomain2 "PowerX/internal/uc/powerx/customerdomain"
+	fmt2 "PowerX/pkg/printx"
 	"context"
 	"errors"
 	"fmt"
@@ -40,15 +41,15 @@ func (l *AuthByPhoneLogic) AuthByPhone(req *types.MPCustomerAuthRequest) (resp *
 	}
 	//fmt2.DD(rs)
 	//req = &types.MPCustomerAuthRequest{
-	//	IV:            "aTtAQnVqaC9c9+RlXfXD/g==",
-	//	EncryptedData: "FiqOLRna+IbPruNPK0gNFRSsjnWeoH+UsTZbKKeO7QX/dMHZLZ6YxMu09LnrkAKwrBbid/S+xvtRJoOMelvunfX8j5eiXeLh6DeCXs6UWUQyXOhH9nyxwn0a5uBFxAvza+h0fbtFO19g+NIcPTAQ5pt+p6s/YyvHZYMGp02xmLUW4fLXtcb249YWOks8cb6QVK+OAQHRLCbBYAnqdFJHQg==",
+	//	IV:            "aggABXMAyD1TQa1OS5pjzA==",
+	//	EncryptedData: "VMkaPGYIWUdCwO+MxEBoY6jUs9Ib2uJEQPiDGWnEum9eSHiBEYbGpY+sJn6gPh4PrkyhOMaLH0CuwasVVbaKUS1NHmjEd0Z6pf9W7OyAX4Z3bC8UsEm8PX0YvUPnYnRSMpGdouyOUJu1ie9XCIaqU6j39AZqJfs7bB3aksGN3YHk4EryVIeli9HmrIul9gaa433P/SVJA/34dASdjltv0w==",
 	//}
 	//rs := &response.ResponseCode2Session{
 	//	OpenID:     "o1IFX5A8sfi5nbkXwOzNLLLiL0OA",
-	//	SessionKey: "0sbPOr+SCS5tQAB7JcYLsQ==",
+	//	SessionKey: "+CG6t0FMK1QMLP4IKWNPUw==",
 	//}
 
-	//fmt.Dump(rs, req)
+	fmt2.Dump(rs, req)
 	// 解码手机授权信息
 	msgData, errEncrypt := l.svcCtx.PowerX.WechatMP.App.Encryptor.DecryptData(req.EncryptedData, rs.SessionKey, req.IV)
 
