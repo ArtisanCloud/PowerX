@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"PowerX/internal/handler/webhook/payment"
 	"PowerX/internal/handler/webhook/wework"
 	"PowerX/internal/svc"
 	"github.com/zeromicro/go-zero/rest"
@@ -27,4 +28,20 @@ func RegisterWebhookHandlers(server *rest.Server, serverCtx *svc.ServiceContext)
 		),
 		rest.WithPrefix("/webhook/wework"),
 	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{},
+			[]rest.Route{
+				{
+					Method:  http.MethodPost,
+					Path:    "/pay/",
+					Handler: payment.PostMessageHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithPrefix("/webhook/wx"),
+	)
+
+	// custom
 }

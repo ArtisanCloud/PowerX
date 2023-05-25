@@ -8,6 +8,7 @@ import (
 	"PowerX/internal/types"
 	"PowerX/internal/types/errorx"
 	"context"
+	"fmt"
 	"github.com/ArtisanCloud/PowerWeChat/v3/src/payment"
 	"github.com/ArtisanCloud/PowerWeChat/v3/src/payment/order/request"
 	"github.com/ArtisanCloud/PowerWeChat/v3/src/payment/order/response"
@@ -35,11 +36,12 @@ func NewPaymentUseCase(db *gorm.DB, conf *config.Config) *PaymentUseCase {
 		KeyPath:          conf.WechatPay.KeyPath,
 		RSAPublicKeyPath: conf.WechatPay.RSAPublicKeyPath,
 		SerialNo:         conf.WechatPay.SerialNo,
-		OAuth: payment.OAuth{
-			Callback: "https://wechat-mp.artisan-cloud.com/callback",
-			Scopes:   nil,
+		Http: payment.Http{
+			Timeout: 30.0,
+			BaseURI: "https://api.mch.weixin.qq.com",
 		},
-		HttpDebug: true,
+		NotifyURL: conf.WechatPay.NotifyUrl,
+		HttpDebug: conf.WechatPay.HttpDebug,
 	})
 
 	if err != nil {
@@ -73,13 +75,18 @@ func (uc *PaymentUseCase) buildFindQueryNoPage(db *gorm.DB, opt *FindManyPayment
 	return db
 }
 
+func (uc *PaymentUseCase) PreloadItems(db *gorm.DB) *gorm.DB {
+	db = db.Preload("Items")
+	return db
+}
+
 func (uc *PaymentUseCase) FindAllPayments(ctx context.Context, opt *FindManyPaymentsOption) (dictionaryItems []*trade.Payment, err error) {
 	query := uc.db.WithContext(ctx).Model(&trade.Payment{})
 
 	query = uc.buildFindQueryNoPage(query, opt)
+	query = uc.PreloadItems(query)
 	if err := query.
 		Debug().
-		Preload("Artisans").
 		Find(&dictionaryItems).Error; err != nil {
 		panic(errors.Wrap(err, "find all dictionaryItems failed"))
 	}
@@ -126,8 +133,7 @@ func (uc *PaymentUseCase) CreatePaymentFromOrderByWechat(ctx context.Context,
 	payment = uc.MakePaymentFromOrder(customer, order, paymentType, trade.PaymentStatusPending)
 	err = db.Transaction(func(tx *gorm.DB) error {
 		// 保存支付单
-		err = db.Create(payment).Error
-		err = db.Model(trade.Payment{}).
+		err = tx.Model(trade.Payment{}).
 			Debug().
 			Create(payment).Error
 		if err != nil {
@@ -135,13 +141,14 @@ func (uc *PaymentUseCase) CreatePaymentFromOrderByWechat(ctx context.Context,
 		}
 
 		// 创建微信支付单
-		rsOrder, err := uc.MakeWechatOrder(nil, payment, openId)
+		rsOrder, err := uc.MakeWechatOrder(ctx, payment, openId)
 		if err != nil {
 			return err
 		}
 
 		if rsOrder.PrepayID == "" {
-			return errors.New("no Prepay Id generated")
+			err = errors.New("no Prepay Id generated")
+			return err
 		}
 
 		// config wx Bridge for front end
@@ -177,13 +184,19 @@ func (uc *PaymentUseCase) MakePaymentFromOrder(customer *customerdomain2.Custome
 
 func (uc *PaymentUseCase) MakeWechatOrder(ctx context.Context, payment *trade.Payment, openID string) (*response.ResponseUnitfy, error) {
 
+	description := fmt.Sprintf("%f-%s", payment.PaidAmount, payment.PaymentNumber)
+	if payment.Remark != "" {
+		description = payment.Remark
+	}
+
 	mapObject := &request.RequestJSAPIPrepay{
 		Amount: &request.JSAPIAmount{
-			Total: int(payment.PaidAmount * WXCurrencyUnit),
+			//Total: int(payment.PaidAmount * WXCurrencyUnit),
+			Total: int(0.3 * WXCurrencyUnit),
 			//Currency: "CNY",
 		},
 		Attach:      "订单支付",
-		Description: payment.Remark,
+		Description: description,
 		OutTradeNo:  payment.PaymentNumber,
 		Payer: &request.JSAPIPayer{
 			OpenID: openID,
@@ -214,13 +227,13 @@ func (uc *PaymentUseCase) UpsertPayment(ctx context.Context, payment *trade.Paym
 	payments := []*trade.Payment{payment}
 
 	err := uc.db.Transaction(func(tx *gorm.DB) error {
-		// 删除产品的相关联对象
+		// 删除支付单的相关联对象
 		_, err := uc.ClearAssociations(tx, payment)
 		if err != nil {
 			return err
 		}
 
-		// 更新产品对象主体
+		// 更新支付单对象主体
 		_, err = uc.UpsertPayments(ctx, payments)
 		if err != nil {
 			return errors.Wrap(err, "upsert payment failed")
@@ -251,27 +264,45 @@ func (uc *PaymentUseCase) PatchPayment(ctx context.Context, id int64, payment *t
 }
 
 func (uc *PaymentUseCase) GetPayment(ctx context.Context, id int64) (*trade.Payment, error) {
-	var payment = &trade.Payment{}
-	if err := uc.db.WithContext(ctx).First(payment, id).Error; err != nil {
+	var p = &trade.Payment{}
+	if err := uc.db.WithContext(ctx).First(p, id).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errorx.WithCause(errorx.ErrBadRequest, "未找到产品")
+			return nil, errorx.WithCause(errorx.ErrBadRequest, "未找到支付单")
 		}
 		panic(err)
 	}
 
-	return payment, nil
+	return p, nil
+}
+
+func (uc *PaymentUseCase) GetPaymentByNumber(ctx context.Context, paymentNumber string) (*trade.Payment, error) {
+	var p = &trade.Payment{}
+	db := uc.db.WithContext(ctx)
+	db = uc.PreloadItems(db)
+	err := db.
+		Preload("Order").
+		Where("payment_number", paymentNumber).
+		First(p).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errorx.WithCause(errorx.ErrBadRequest, "未找到支付单")
+		}
+		panic(err)
+	}
+
+	return p, nil
 }
 
 func (uc *PaymentUseCase) DeletePayment(ctx context.Context, id int64) error {
 
-	// 获取产品相关项
+	// 获取支付单相关项
 	payment, err := uc.GetPayment(ctx, id)
 	if err != nil {
 		return errorx.ErrNotFoundObject
 	}
 
 	err = uc.db.Transaction(func(tx *gorm.DB) error {
-		// 删除产品相关项
+		// 删除支付单相关项
 		_, err = uc.ClearAssociations(tx, payment)
 		if err != nil {
 			return err
@@ -282,7 +313,7 @@ func (uc *PaymentUseCase) DeletePayment(ctx context.Context, id int64) error {
 			panic(err)
 		}
 		if result.RowsAffected == 0 {
-			return errorx.WithCause(errorx.ErrBadRequest, "未找到产品")
+			return errorx.WithCause(errorx.ErrBadRequest, "未找到支付单")
 		}
 		return err
 	})
@@ -297,6 +328,16 @@ func (uc *PaymentUseCase) ClearAssociations(db *gorm.DB, payment *trade.Payment)
 	//if err != nil {
 	//	return nil, err
 	//}
+
+	return payment, err
+}
+
+func (uc *PaymentUseCase) ChangePaymentStatusPaid(ctx context.Context, payment *trade.Payment) (*trade.Payment, error) {
+	db := uc.db.WithContext(ctx)
+
+	payment.Status = trade.PaymentStatusPaid
+
+	err := db.Save(payment).Error
 
 	return payment, err
 }

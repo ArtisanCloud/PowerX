@@ -45,7 +45,7 @@ type (
     }
 
     CreatePaymentFromOrderRequestReply struct {
-        PaymentId int64 `json:"orderId"`
+        PaymentId int64 `json:"paymentId"`
         Data interface{} `json:"data"`
     }
 )

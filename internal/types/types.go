@@ -2010,7 +2010,8 @@ type CreateOrderByProductsRequest struct {
 }
 
 type CreateOrderByProductsReply struct {
-	OrderId int64 `json:"orderId"`
+	OrderId       int64   `json:"orderId"`
+	PaymentAmount float64 `json:"paymentAmount"`
 }
 
 type CreateOrderByCartItemsRequest struct {
@@ -2020,8 +2021,9 @@ type CreateOrderByCartItemsRequest struct {
 }
 
 type CreateOrderByCartItemsReply struct {
-	OrderId int64 `json:"orderId"`
-	CartId  int64 `json:"cartId"`
+	OrderId       int64   `json:"orderId"`
+	CartId        int64   `json:"cartId"`
+	PaymentAmount float64 `json:"paymentAmount"`
 }
 
 type CancelOrderRequest struct {
@@ -2085,7 +2087,7 @@ type CreateOrderRequest struct {
 }
 
 type CreateOrderReply struct {
-	OrderId int64 `json:"id,omitempty"`
+	OrderId int64 `json:"orderId,omitempty"`
 }
 
 type GetOrderRequest struct {
@@ -2216,7 +2218,7 @@ type CreatePaymentFromOrderRequest struct {
 }
 
 type CreatePaymentFromOrderRequestReply struct {
-	PaymentId int64       `json:"orderId"`
+	PaymentId int64       `json:"paymentId"`
 	Data      interface{} `json:"data"`
 }
 

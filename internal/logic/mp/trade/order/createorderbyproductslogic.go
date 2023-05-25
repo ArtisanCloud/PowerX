@@ -83,6 +83,7 @@ func (l *CreateOrderByProductsLogic) CreateOrderByProducts(req *types.CreateOrde
 	}
 
 	return &types.CreateOrderByProductsReply{
-		OrderId: order.Id,
+		OrderId:       order.Id,
+		PaymentAmount: order.UnitPrice,
 	}, err
 }

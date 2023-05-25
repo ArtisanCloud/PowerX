@@ -56,8 +56,9 @@ func (l *CreateOrderByCartItemsLogic) CreateOrderByCartItems(req *types.CreateOr
 	}
 
 	return &types.CreateOrderByCartItemsReply{
-		OrderId: order.Id,
-		CartId:  cart.Id,
+		OrderId:       order.Id,
+		CartId:        cart.Id,
+		PaymentAmount: order.UnitPrice,
 	}, err
 
 }

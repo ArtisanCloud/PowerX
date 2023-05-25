@@ -54,6 +54,7 @@ type (
 
     CreateOrderByProductsReply struct {
         OrderId int64 `json:"orderId"`
+        PaymentAmount float64 `json:"paymentAmount"`
     }
 )
 type (
@@ -66,6 +67,7 @@ type (
     CreateOrderByCartItemsReply struct {
         OrderId int64 `json:"orderId"`
         CartId int64 `json:"cartId"`
+        PaymentAmount float64 `json:"paymentAmount"`
     }
 )
 

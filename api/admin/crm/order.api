@@ -96,7 +96,8 @@ type CreateOrderRequest {
 }
 
 type CreateOrderReply {
-    orderId int64 `json:"id,omitempty"`
+    orderId int64 `json:"orderId,omitempty"`
+
 }
 
 type GetOrderRequest {
