@@ -1,6 +1,7 @@
 package product
 
 import (
+	"PowerX/internal/logic/admin/product/category"
 	"PowerX/internal/model"
 	"PowerX/internal/model/media"
 	"PowerX/internal/model/product"
@@ -67,7 +68,7 @@ func (l *CreateProductLogic) CreateProduct(req *types.CreateProductRequest) (res
 		if err != nil {
 			return nil, err
 		}
-		mdlProduct.PivotCoverImages, err = (&media.PivotMediaResourceToObject{}).MakeMorphPivotsFromObjectToMediaResources(mdlProduct, mediaResources, product.MediaUsageCover)
+		mdlProduct.PivotCoverImages, err = (&media.PivotMediaResourceToObject{}).MakeMorphPivotsFromObjectToMediaResources(mdlProduct, mediaResources, media.MediaUsageCover)
 	}
 
 	if len(req.DetailImageIds) > 0 {
@@ -77,7 +78,7 @@ func (l *CreateProductLogic) CreateProduct(req *types.CreateProductRequest) (res
 		if err != nil {
 			return nil, err
 		}
-		mdlProduct.PivotDetailImages, err = (&media.PivotMediaResourceToObject{}).MakeMorphPivotsFromObjectToMediaResources(mdlProduct, mediaResources, product.MediaUsageDetail)
+		mdlProduct.PivotDetailImages, err = (&media.PivotMediaResourceToObject{}).MakeMorphPivotsFromObjectToMediaResources(mdlProduct, mediaResources, media.MediaUsageDetail)
 	}
 
 	err = l.svcCtx.PowerX.Product.CreateProduct(l.ctx, mdlProduct)
@@ -121,41 +122,6 @@ func TransformProductRequestToProduct(productRequest *types.Product) (mdlProduct
 
 func TransformProductToProductReply(mdlProduct *product.Product) (productReply *types.Product) {
 
-	getItemIds := func(items []*model.PivotDataDictionaryToObject) []int64 {
-		arrayIds := []int64{}
-		if len(items) <= 0 {
-			return arrayIds
-		}
-		for _, item := range items {
-			if item.DataDictionaryItem != nil {
-				arrayIds = append(arrayIds, item.DataDictionaryItem.Id)
-			}
-		}
-		return arrayIds
-	}
-
-	getCategoryIds := func(categories []*product.ProductCategory) []int64 {
-		arrayIds := []int64{}
-		if len(categories) <= 0 {
-			return arrayIds
-		}
-		for _, category := range categories {
-			arrayIds = append(arrayIds, category.Id)
-		}
-		return arrayIds
-	}
-
-	getImageIds := func(pivots []*media.PivotMediaResourceToObject) []int64 {
-		arrayIds := []int64{}
-		if len(pivots) <= 0 {
-			return arrayIds
-		}
-		for _, pivot := range pivots {
-			arrayIds = append(arrayIds, pivot.MediaResourceId)
-		}
-		return arrayIds
-	}
-
 	return &types.Product{
 		Id:                  mdlProduct.Id,
 		Name:                mdlProduct.Name,
@@ -173,14 +139,14 @@ func TransformProductToProductReply(mdlProduct *product.Product) (productReply *
 		SaleEndDate:         mdlProduct.SaleEndDate.String(),
 		//PivotSalesChannels:   TransformDDsToDDsReply(mdlProduct.PivotSalesChannels),
 		//PivotPromoteChannels: TransformDDsToDDsReply(mdlProduct.PivotPromoteChannels),
-		ProductCategories:      TransformProductCategoriesToProductCategoriesReply(mdlProduct.ProductCategories),
-		SalesChannelsItemIds:   getItemIds(mdlProduct.PivotSalesChannels),
-		PromoteChannelsItemIds: getItemIds(mdlProduct.PivotPromoteChannels),
-		CategoryIds:            getCategoryIds(mdlProduct.ProductCategories),
+		ProductCategories:      category.TransformProductCategoriesToProductCategoriesReply(mdlProduct.ProductCategories),
+		SalesChannelsItemIds:   model.GetItemIds(mdlProduct.PivotSalesChannels),
+		PromoteChannelsItemIds: model.GetItemIds(mdlProduct.PivotPromoteChannels),
+		CategoryIds:            product.GetCategoryIds(mdlProduct.ProductCategories),
 		ProductSpecifics:       TransformSpecificsToSpecificsReply(mdlProduct.ProductSpecifics),
 		SKUs:                   TransformSkusToSkusReply(mdlProduct.SKUs),
-		CoverImageIds:          getImageIds(mdlProduct.PivotCoverImages),
-		DetailImageIds:         getImageIds(mdlProduct.PivotDetailImages),
+		CoverImageIds:          media.GetImageIds(mdlProduct.PivotCoverImages),
+		DetailImageIds:         media.GetImageIds(mdlProduct.PivotDetailImages),
 		CoverImages:            TransformProductImagesToImagesReply(mdlProduct.PivotCoverImages),
 		DetailImages:           TransformProductImagesToImagesReply(mdlProduct.PivotDetailImages),
 	}
@@ -202,9 +168,9 @@ func TransformProductImageToImageReply(resource *media.MediaResource) (imagesRep
 		return nil
 	}
 	return &types.ProductImage{
-		Id:   resource.Id,
-		Url:  resource.Url,
-		Name: resource.Filename,
+		Id:       resource.Id,
+		Url:      resource.Url,
+		Filename: resource.Filename,
 	}
 }
 

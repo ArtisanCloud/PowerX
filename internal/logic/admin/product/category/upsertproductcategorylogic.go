@@ -1,10 +1,12 @@
 package category
 
 import (
-	"context"
-
+	"PowerX/internal/model"
+	"PowerX/internal/model/powermodel"
+	"PowerX/internal/model/product"
 	"PowerX/internal/svc"
 	"PowerX/internal/types"
+	"context"
 
 	"github.com/zeromicro/go-zero/core/logx"
 )
@@ -24,7 +26,44 @@ func NewUpsertProductCategoryLogic(ctx context.Context, svcCtx *svc.ServiceConte
 }
 
 func (l *UpsertProductCategoryLogic) UpsertProductCategory(req *types.UpsertProductCategoryRequest) (resp *types.UpsertProductCategoryReply, err error) {
-	// todo: add your logic here and delete this line
 
-	return
+	productCategory := &product.ProductCategory{
+		PowerModel: powermodel.PowerModel{
+			Id: req.Id,
+		},
+		PId:         req.PId,
+		Name:        req.Name,
+		Sort:        req.Sort,
+		ViceName:    req.ViceName,
+		Description: req.Description,
+		ImageAbleInfo: model.ImageAbleInfo{
+			Icon:            req.Icon,
+			BackgroundColor: req.BackgroundColor,
+			ImageURL:        req.ImageURL,
+		},
+	}
+
+	productCategory, err = l.svcCtx.PowerX.ProductCategory.UpsertProductCategory(l.ctx, productCategory)
+
+	if err != nil {
+		panic(err)
+		return
+	}
+
+	return &types.UpsertProductCategoryReply{
+		ProductCategory: &types.ProductCategory{
+			Id:          productCategory.Id,
+			PId:         productCategory.PId,
+			Name:        productCategory.Name,
+			Sort:        productCategory.Sort,
+			ViceName:    productCategory.ViceName,
+			Description: productCategory.Description,
+			CreatedAt:   productCategory.CreatedAt.String(),
+			ImageAbleInfo: types.ImageAbleInfo{
+				Icon:            productCategory.Icon,
+				BackgroundColor: productCategory.BackgroundColor,
+				ImageURL:        productCategory.ImageURL,
+			},
+		},
+	}, nil
 }

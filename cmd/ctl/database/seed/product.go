@@ -98,7 +98,7 @@ func getPivotsCoverImages(db *gorm.DB, p *product.Product) []*media.PivotMediaRe
 		Limit(3).
 		Find(&resources)
 
-	pivots, _ := (&media.PivotMediaResourceToObject{}).MakeMorphPivotsFromObjectToMediaResources(p, resources, product.MediaUsageCover)
+	pivots, _ := (&media.PivotMediaResourceToObject{}).MakeMorphPivotsFromObjectToMediaResources(p, resources, media.MediaUsageCover)
 
 	return pivots
 }
@@ -107,7 +107,7 @@ func getAllPivotsDetailImages(db *gorm.DB, p *product.Product) []*media.PivotMed
 	var resources = []*media.MediaResource{}
 	_ = db.Model(&media.MediaResource{}).Limit(6).Find(&resources).Error
 
-	pivots, _ := (&media.PivotMediaResourceToObject{}).MakeMorphPivotsFromObjectToMediaResources(p, resources, product.MediaUsageDetail)
+	pivots, _ := (&media.PivotMediaResourceToObject{}).MakeMorphPivotsFromObjectToMediaResources(p, resources, media.MediaUsageDetail)
 
 	return pivots
 }

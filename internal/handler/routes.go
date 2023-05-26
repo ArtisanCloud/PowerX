@@ -14,7 +14,7 @@ import (
 	admindictionary "PowerX/internal/handler/admin/dictionary"
 	adminemployee "PowerX/internal/handler/admin/employee"
 	adminmarketmedia "PowerX/internal/handler/admin/market/media"
-	adminmedia "PowerX/internal/handler/admin/media"
+	adminmediaresource "PowerX/internal/handler/admin/mediaresource"
 	adminpermission "PowerX/internal/handler/admin/permission"
 	adminproduct "PowerX/internal/handler/admin/product"
 	adminproductartisan "PowerX/internal/handler/admin/product/artisan"
@@ -32,6 +32,7 @@ import (
 	adminuserinfo "PowerX/internal/handler/admin/userinfo"
 	mpcustomerauth "PowerX/internal/handler/mp/customer/auth"
 	mpdictionary "PowerX/internal/handler/mp/dictionary"
+	mpmarketmedia "PowerX/internal/handler/mp/market/media"
 	mpproduct "PowerX/internal/handler/mp/product"
 	mpproductstore "PowerX/internal/handler/mp/product/store"
 	mptradeaddressbilling "PowerX/internal/handler/mp/trade/address/billing"
@@ -317,23 +318,23 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			[]rest.Route{
 				{
 					Method:  http.MethodGet,
-					Path:    "/media-resources/page-list",
-					Handler: adminmedia.ListMediaResourcesHandler(serverCtx),
+					Path:    "/resources/page-list",
+					Handler: adminmediaresource.ListMediaResourcesHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPost,
-					Path:    "/media-resources",
-					Handler: adminmedia.CreateMediaResourceHandler(serverCtx),
+					Path:    "/resources",
+					Handler: adminmediaresource.CreateMediaResourceHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodGet,
-					Path:    "/media-resources/:id",
-					Handler: adminmedia.GetMediaResourceHandler(serverCtx),
+					Path:    "/resources/:id",
+					Handler: adminmediaresource.GetMediaResourceHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodDelete,
-					Path:    "/media-resources/:id",
-					Handler: adminmedia.DeleteMediaResourceHandler(serverCtx),
+					Path:    "/resources/:id",
+					Handler: adminmediaresource.DeleteMediaResourceHandler(serverCtx),
 				},
 			}...,
 		),
@@ -434,27 +435,27 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			[]rest.Route{
 				{
 					Method:  http.MethodGet,
-					Path:    "/medias",
+					Path:    "/medias/page-list",
 					Handler: adminmarketmedia.ListMediasPageHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPost,
-					Path:    "/medias/actions/create-upload-url",
-					Handler: adminmarketmedia.CreateMediaUploadRequestHandler(serverCtx),
+					Path:    "/medias",
+					Handler: adminmarketmedia.CreateMediaHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPut,
-					Path:    "/medias/:mediaKey",
-					Handler: adminmarketmedia.CreateOrUpdateMediaHandler(serverCtx),
+					Path:    "/medias/:id",
+					Handler: adminmarketmedia.UpdateMediaHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodGet,
-					Path:    "/medias/:key",
-					Handler: adminmarketmedia.GetMediaByKeyHandler(serverCtx),
+					Path:    "/medias/:id",
+					Handler: adminmarketmedia.GetMediaHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodDelete,
-					Path:    "/medias/:key",
+					Path:    "/medias/:id",
 					Handler: adminmarketmedia.DeleteMediaHandler(serverCtx),
 				},
 			}...,
@@ -1331,5 +1332,19 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			}...,
 		),
 		rest.WithPrefix("/api/v1/mp/trade"),
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.MPCustomerJWTAuth},
+			[]rest.Route{
+				{
+					Method:  http.MethodGet,
+					Path:    "/medias/page-list",
+					Handler: mpmarketmedia.ListMediasPageHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithPrefix("/api/v1/mp/market"),
 	)
 }

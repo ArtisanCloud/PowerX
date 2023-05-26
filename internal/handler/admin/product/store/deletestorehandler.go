@@ -1,9 +1,9 @@
 package store
 
 import (
+	"PowerX/internal/logic/admin/product/store"
 	"net/http"
 
-	"PowerX/internal/logic/admin/product"
 	"PowerX/internal/svc"
 	"PowerX/internal/types"
 	"github.com/zeromicro/go-zero/rest/httpx"
@@ -17,7 +17,7 @@ func DeleteStoreHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			return
 		}
 
-		l := product.NewDeleteStoreLogic(r.Context(), svcCtx)
+		l := store.NewDeleteStoreLogic(r.Context(), svcCtx)
 		resp, err := l.DeleteStore(&req)
 		if err != nil {
 			httpx.ErrorCtx(r.Context(), w, err)

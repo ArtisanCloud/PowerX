@@ -1,0 +1,26 @@
+syntax = "v1"
+
+info(
+    title: "媒资管理"
+    desc: "媒资管理"
+    author: "MichaelHu"
+    email: "matrix-x@artisan-cloud.com"
+    version: "v1"
+)
+
+import "admin/crm/media.api"
+
+@server(
+    group: mp/market/media
+    prefix: /api/v1/mp/market
+    middleware: MPCustomerJWTAuth
+)
+
+service PowerX {
+    @doc "查询媒资列表"
+    @handler ListMediasPage
+    get /medias/page-list (ListMediasPageRequest) returns (ListMediasPageReply)
+
+
+}
+

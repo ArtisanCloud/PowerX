@@ -13,3 +13,17 @@ type MediaResource struct {
 	ContentType   string `gorm:"comment:内容类型" json:"contentType"`
 	ResourceType  string `gorm:"comment:媒体类型" json:"mediaType"`
 }
+
+const MediaUsageCover = "_cover"
+const MediaUsageDetail = "_detail"
+
+func GetImageIds(pivots []*PivotMediaResourceToObject) []int64 {
+	arrayIds := []int64{}
+	if len(pivots) <= 0 {
+		return arrayIds
+	}
+	for _, pivot := range pivots {
+		arrayIds = append(arrayIds, pivot.MediaResourceId)
+	}
+	return arrayIds
+}

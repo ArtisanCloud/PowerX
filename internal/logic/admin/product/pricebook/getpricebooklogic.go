@@ -1,6 +1,7 @@
 package pricebook
 
 import (
+	"PowerX/internal/types/errorx"
 	"context"
 
 	"PowerX/internal/svc"
@@ -24,7 +25,20 @@ func NewGetPriceBookLogic(ctx context.Context, svcCtx *svc.ServiceContext) *GetP
 }
 
 func (l *GetPriceBookLogic) GetPriceBook(req *types.GetPriceBookRequest) (resp *types.GetPriceBookReply, err error) {
-	// todo: add your logic here and delete this line
+	priceBook, err := l.svcCtx.PowerX.PriceBook.GetPriceBook(l.ctx, req.PriceBook)
 
-	return
+	if err != nil {
+		return nil, errorx.ErrNotFoundObject
+	}
+
+	return &types.GetPriceBookReply{
+		PriceBook: &types.PriceBook{
+			Id:          priceBook.Id,
+			IsStandard:  priceBook.IsStandard,
+			Name:        priceBook.Name,
+			Description: priceBook.Description,
+			CreatedAt:   priceBook.CreatedAt.String(),
+		},
+	}, nil
+
 }

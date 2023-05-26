@@ -4,6 +4,7 @@ import (
 	"PowerX/internal/config"
 	"PowerX/internal/uc/powerx"
 	customerDomainUC "PowerX/internal/uc/powerx/customerdomain"
+	"PowerX/internal/uc/powerx/market"
 	productUC "PowerX/internal/uc/powerx/product"
 	tradeUC "PowerX/internal/uc/powerx/trade"
 	"github.com/pkg/errors"
@@ -37,6 +38,7 @@ type PowerXUseCase struct {
 	WeWork                *powerx.WeWorkUseCase
 	SCRM                  *powerx.SCRMUseCase
 	MediaResource         *powerx.MediaResourceUseCase
+	Media                 *market.MediaUseCase
 }
 
 func NewPowerXUseCase(conf *config.Config) (uc *PowerXUseCase, clean func()) {
@@ -90,6 +92,11 @@ func NewPowerXUseCase(conf *config.Config) (uc *PowerXUseCase, clean func()) {
 	// 加载微信UseCase
 	uc.WechatMP = powerx.NewWechatMiniProgramUseCase(db, conf)
 	uc.WechatOA = powerx.NewWechatOfficialAccountUseCase(db, conf)
+
+	// 加载市场UseCase
+	uc.Media = market.NewMediaUseCase(db)
+
+	// 加载Media Resource UseCase
 	uc.MediaResource = powerx.NewMediaResourceUseCase(db, conf)
 
 	// 加载SCRM UseCase

@@ -1,6 +1,8 @@
 package artisan
 
 import (
+	product2 "PowerX/internal/model/product"
+	"PowerX/internal/types/errorx"
 	"context"
 
 	"PowerX/internal/svc"
@@ -24,7 +26,33 @@ func NewGetArtisanLogic(ctx context.Context, svcCtx *svc.ServiceContext) *GetArt
 }
 
 func (l *GetArtisanLogic) GetArtisan(req *types.GetArtisanRequest) (resp *types.GetArtisanReply, err error) {
-	// todo: add your logic here and delete this line
+	mdlArtisan, err := l.svcCtx.PowerX.Artisan.GetArtisan(l.ctx, req.ArtisanId)
 
-	return
+	if err != nil {
+		return nil, errorx.ErrNotFoundObject
+	}
+
+	return &types.GetArtisanReply{
+		Artisan: TransferArtisanToArtisanReply(mdlArtisan),
+	}, nil
+
+}
+
+func TransferArtisanToArtisanReply(artisan *product2.Artisan) *types.Artisan {
+	return &types.Artisan{
+		Id:          artisan.Id,
+		EmployeeId:  artisan.EmployeeId,
+		Name:        artisan.Name,
+		Level:       artisan.Level,
+		Gender:      artisan.Gender,
+		Birthday:    artisan.Birthday.String(),
+		PhoneNumber: artisan.PhoneNumber,
+		CoverURL:    artisan.CoverURL,
+		WorkNo:      artisan.WorkNo,
+		Email:       artisan.Email,
+		Experience:  artisan.Experience,
+		Specialty:   artisan.Specialty,
+		Certificate: artisan.Certificate,
+		Address:     artisan.Address,
+	}
 }

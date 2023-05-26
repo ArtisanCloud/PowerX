@@ -1,9 +1,9 @@
 package artisan
 
 import (
+	"PowerX/internal/logic/admin/product/artisan"
 	"net/http"
 
-	"PowerX/internal/logic/admin/product"
 	"PowerX/internal/svc"
 	"PowerX/internal/types"
 	"github.com/zeromicro/go-zero/rest/httpx"
@@ -17,7 +17,7 @@ func PutArtisanHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			return
 		}
 
-		l := product.NewPutArtisanLogic(r.Context(), svcCtx)
+		l := artisan.NewPutArtisanLogic(r.Context(), svcCtx)
 		resp, err := l.PutArtisan(&req)
 		if err != nil {
 			httpx.ErrorCtx(r.Context(), w, err)

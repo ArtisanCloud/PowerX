@@ -1,6 +1,8 @@
 package category
 
 import (
+	"PowerX/internal/model/powermodel"
+	"PowerX/internal/model/product"
 	"context"
 
 	"PowerX/internal/svc"
@@ -24,7 +26,31 @@ func NewPatchProductCategoryLogic(ctx context.Context, svcCtx *svc.ServiceContex
 }
 
 func (l *PatchProductCategoryLogic) PatchProductCategory(req *types.PatchProductCategoryRequest) (resp *types.PatchProductCategoryReply, err error) {
-	// todo: add your logic here and delete this line
 
-	return
+	productCategory := &product.ProductCategory{
+		PowerModel: powermodel.PowerModel{
+			Id: req.Id,
+		},
+		PId: req.PId,
+	}
+
+	l.svcCtx.PowerX.ProductCategory.PatchProductCategory(l.ctx, req.Id, productCategory)
+
+	return &types.PatchProductCategoryReply{
+		ProductCategory: types.ProductCategory{
+			Id:          productCategory.Id,
+			PId:         productCategory.PId,
+			Name:        productCategory.Name,
+			Sort:        productCategory.Sort,
+			ViceName:    productCategory.ViceName,
+			Description: productCategory.Description,
+			CreatedAt:   productCategory.CreatedAt.String(),
+			ImageAbleInfo: types.ImageAbleInfo{
+				Icon:            productCategory.Icon,
+				BackgroundColor: productCategory.BackgroundColor,
+				ImageURL:        productCategory.ImageURL,
+			},
+		},
+	}, nil
+
 }

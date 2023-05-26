@@ -1,9 +1,9 @@
 package pricebook
 
 import (
+	"PowerX/internal/logic/admin/product/pricebook"
 	"net/http"
 
-	"PowerX/internal/logic/admin/product"
 	"PowerX/internal/svc"
 	"PowerX/internal/types"
 	"github.com/zeromicro/go-zero/rest/httpx"
@@ -17,7 +17,7 @@ func GetPriceBookHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			return
 		}
 
-		l := product.NewGetPriceBookLogic(r.Context(), svcCtx)
+		l := pricebook.NewGetPriceBookLogic(r.Context(), svcCtx)
 		resp, err := l.GetPriceBook(&req)
 		if err != nil {
 			httpx.ErrorCtx(r.Context(), w, err)

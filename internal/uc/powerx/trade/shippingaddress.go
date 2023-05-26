@@ -139,7 +139,7 @@ func (uc *ShippingAddressUseCase) UpsertShippingAddress(ctx context.Context, add
 
 func (uc *ShippingAddressUseCase) UpsertShippingAddresses(ctx context.Context, addresses []*trade.ShippingAddress, fieldsToUpdate []string) ([]*trade.ShippingAddress, error) {
 
-	err := powermodel.UpsertModelsOnUniqueID(uc.db.WithContext(ctx), &trade.ShippingAddress{}, powermodel.UniqueId, addresses, fieldsToUpdate, false)
+	err := powermodel.UpsertModelsOnUniqueID(uc.db.WithContext(ctx), &trade.ShippingAddress{}, trade.ShippingAddressUniqueId, addresses, fieldsToUpdate, false)
 
 	if err != nil {
 		panic(errors.Wrap(err, "batch upsert addresses failed"))

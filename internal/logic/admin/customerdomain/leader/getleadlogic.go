@@ -1,6 +1,8 @@
 package leader
 
 import (
+	"PowerX/internal/model/customerdomain"
+	"PowerX/internal/types/errorx"
 	"context"
 
 	"PowerX/internal/svc"
@@ -24,7 +26,44 @@ func NewGetLeadLogic(ctx context.Context, svcCtx *svc.ServiceContext) *GetLeadLo
 }
 
 func (l *GetLeadLogic) GetLead(req *types.GetLeadReqeuest) (resp *types.GetLeadReply, err error) {
-	// todo: add your logic here and delete this line
+	mdlLead, err := l.svcCtx.PowerX.Lead.GetLead(l.ctx, req.Id)
 
-	return
+	if err != nil {
+		return nil, errorx.ErrNotFoundObject
+	}
+
+	return &types.GetLeadReply{
+		Lead: TransformLeadToLeadReply(mdlLead),
+	}, nil
+}
+
+func TransformLeadToLeadReply(mdlLead *customerdomain.Lead) (leadReply *types.Lead) {
+
+	var inviter *types.LeadInviter
+	if mdlLead.Inviter != nil {
+		inviter = &types.LeadInviter{
+			Name:   mdlLead.Inviter.Name,
+			Mobile: mdlLead.Inviter.Mobile,
+			Email:  mdlLead.Inviter.Email,
+		}
+	}
+
+	return &types.Lead{
+		Id:          mdlLead.Id,
+		Name:        mdlLead.Name,
+		Mobile:      mdlLead.Mobile,
+		Email:       mdlLead.Email,
+		InviterId:   mdlLead.InviterId,
+		Source:      mdlLead.Source,
+		Type:        mdlLead.Type,
+		IsActivated: mdlLead.IsActivated,
+		CreatedAt:   mdlLead.CreatedAt.String(),
+		Inviter:     inviter,
+		LeadExternalId: &types.LeadExternalId{
+			OpenIdInMiniProgram:           mdlLead.OpenIdInMiniProgram,
+			OpenIdInWeChatOfficialAccount: mdlLead.OpenIdInWeChatOfficialAccount,
+			OpenIdInWeCom:                 mdlLead.OpenIdInWeCom,
+		},
+	}
+
 }

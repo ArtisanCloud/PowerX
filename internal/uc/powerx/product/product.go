@@ -1,6 +1,7 @@
 package product
 
 import (
+	"PowerX/internal/model/media"
 	"PowerX/internal/model/powermodel"
 	model "PowerX/internal/model/product"
 	"PowerX/internal/types"
@@ -30,6 +31,7 @@ type FindManyProductsOption struct {
 	Ids        []int64
 	CategoryId int
 	LikeName   string
+	OrderBy    string
 	types.PageEmbedOption
 }
 
@@ -58,12 +60,18 @@ func (uc *ProductUseCase) buildFindQueryNoPage(db *gorm.DB, opt *FindManyProduct
 		db = db.Where("name LIKE ?", "%"+opt.LikeName+"%")
 	}
 
+	orderBy := "id desc"
+	if opt.OrderBy != "" {
+		orderBy = opt.OrderBy + "," + orderBy
+	}
+	db.Order(orderBy)
+
 	return db
 }
 
 func (uc *ProductUseCase) PreloadItems(db *gorm.DB) *gorm.DB {
-	db = db.Preload("PivotCoverImages", "media_usage = ?", model.MediaUsageCover).Preload("PivotCoverImages.MediaResource").
-		Preload("PivotDetailImages", "media_usage = ?", model.MediaUsageDetail).Preload("PivotDetailImages.MediaResource").
+	db = db.Preload("PivotCoverImages", "media_usage = ?", media.MediaUsageCover).Preload("PivotCoverImages.MediaResource").
+		Preload("PivotDetailImages", "media_usage = ?", media.MediaUsageDetail).Preload("PivotDetailImages.MediaResource").
 		Preload("ProductCategories").
 		Preload("PriceBookEntries").
 		Preload("SKUs.PriceBookEntry").

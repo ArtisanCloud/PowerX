@@ -1,9 +1,9 @@
 package category
 
 import (
+	"PowerX/internal/logic/admin/product/category"
 	"net/http"
 
-	"PowerX/internal/logic/admin/product"
 	"PowerX/internal/svc"
 	"PowerX/internal/types"
 	"github.com/zeromicro/go-zero/rest/httpx"
@@ -17,7 +17,7 @@ func UpsertProductCategoryHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			return
 		}
 
-		l := product.NewUpsertProductCategoryLogic(r.Context(), svcCtx)
+		l := category.NewUpsertProductCategoryLogic(r.Context(), svcCtx)
 		resp, err := l.UpsertProductCategory(&req)
 		if err != nil {
 			httpx.ErrorCtx(r.Context(), w, err)

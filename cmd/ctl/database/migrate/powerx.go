@@ -49,9 +49,11 @@ func (m *PowerMigrator) AutoMigrate() {
 	_ = m.db.AutoMigrate(&product.PriceBook{}, &product.PriceBookEntry{}, &product.PriceConfig{})
 	_ = m.db.AutoMigrate(&product.Store{}, &product.Artisan{}, &product.PivotStoreToArtisan{})
 
+	// market
+	_ = m.db.AutoMigrate(&media.Media{})
+
 	// media
 	_ = m.db.AutoMigrate(&media.MediaResource{}, &media.PivotMediaResourceToObject{})
-	_ = m.db.AutoMigrate(&media.Media{})
 
 	// trade
 	_ = m.db.AutoMigrate(&trade.ShippingAddress{}, &trade.DeliveryAddress{}, &trade.BillingAddress{})

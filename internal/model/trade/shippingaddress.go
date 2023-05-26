@@ -20,6 +20,8 @@ type ShippingAddress struct {
 	IsDefault    bool   `gorm:"comment:是否默认地址" json:"isDefault"`
 }
 
+const ShippingAddressUniqueId = powermodel.UniqueId
+
 func (mdl *ShippingAddress) MakeDeliveryAddress() *DeliveryAddress {
 	return &DeliveryAddress{
 		CustomerId:   mdl.CustomerId,

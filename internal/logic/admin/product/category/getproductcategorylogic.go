@@ -1,6 +1,7 @@
 package category
 
 import (
+	"PowerX/internal/types/errorx"
 	"context"
 
 	"PowerX/internal/svc"
@@ -24,7 +25,27 @@ func NewGetProductCategoryLogic(ctx context.Context, svcCtx *svc.ServiceContext)
 }
 
 func (l *GetProductCategoryLogic) GetProductCategory(req *types.GetProductCategoryRequest) (resp *types.GetProductCategoryReply, err error) {
-	// todo: add your logic here and delete this line
 
-	return
+	productCategory, err := l.svcCtx.PowerX.ProductCategory.GetProductCategory(l.ctx, req.ProductCategoryId)
+
+	if err != nil {
+		return nil, errorx.ErrNotFoundObject
+	}
+
+	return &types.GetProductCategoryReply{
+		ProductCategory: &types.ProductCategory{
+			Id:          productCategory.Id,
+			PId:         productCategory.PId,
+			Name:        productCategory.Name,
+			Sort:        productCategory.Sort,
+			ViceName:    productCategory.ViceName,
+			Description: productCategory.Description,
+			CreatedAt:   productCategory.CreatedAt.String(),
+			ImageAbleInfo: types.ImageAbleInfo{
+				Icon:            productCategory.Icon,
+				BackgroundColor: productCategory.BackgroundColor,
+				ImageURL:        productCategory.ImageURL,
+			},
+		},
+	}, nil
 }

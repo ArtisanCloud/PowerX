@@ -247,7 +247,7 @@ func (uc *PaymentUseCase) UpsertPayment(ctx context.Context, payment *trade.Paym
 
 func (uc *PaymentUseCase) UpsertPayments(ctx context.Context, payments []*trade.Payment) ([]*trade.Payment, error) {
 
-	err := powermodel.UpsertModelsOnUniqueID(uc.db.WithContext(ctx), &trade.Payment{}, powermodel.UniqueId, payments, nil, false)
+	err := powermodel.UpsertModelsOnUniqueID(uc.db.WithContext(ctx), &trade.Payment{}, trade.OrderUniqueId, payments, nil, false)
 
 	if err != nil {
 		panic(errors.Wrap(err, "batch upsert payments failed"))

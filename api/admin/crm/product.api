@@ -52,9 +52,13 @@ service PowerX {
 type (
     ProductImage {
         Id int64 `json:"id,optional"`
-        Name string `json:"name,optional"`
+        Filename string `json:"filename,optional"`
+        Size int64 `json:"size,optional"`
         Url string `json:"url,optional"`
-        Sort string `json:"sort,optional"`
+        BucketName string `json:"bucketName,optional"`
+        IsLocalStored bool `json:"isLocalStored,optional"`
+        ContentType string `json:"contentType,optional"`
+        ResourceType string `json:"resourceType,optional"`
     }
     ProductSpecific {
         Id int64 `json:"id,optional"`

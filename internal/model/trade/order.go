@@ -39,35 +39,36 @@ type Order struct {
 
 type OrderStatus int
 
+const OrderUniqueId = powermodel.UniqueId
 const (
-	OrderStatusPending     OrderStatus = 0  // 待处理
-	OrderStatusToBePaid    OrderStatus = 1  // 待付款
-	OrderStatusConfirmed   OrderStatus = 2  // 已确认
-	OrderStatusToBeShipped OrderStatus = 3  // 待发货
-	OrderStatusShipping    OrderStatus = 4  // 送货中
-	OrderStatusDelivered   OrderStatus = 5  // 已签收
-	OrderStatusCompleted   OrderStatus = 6  // 已完成
-	OrderStatusCancelled   OrderStatus = 7  // 已取消
-	OrderStatusFailed      OrderStatus = 8  // 失败
-	OrderStatusRefunding   OrderStatus = 9  // 退款中
-	OrderStatusRefunded    OrderStatus = 10 // 已退款
-	OrderStatusReturned    OrderStatus = 11 // 已退货
+	OrderStatusPending     OrderStatus = iota // 产品展示  // 待处理
+	OrderStatusToBePaid                       // 待付款
+	OrderStatusConfirmed                      // 已确认
+	OrderStatusToBeShipped                    // 待发货
+	OrderStatusShipping                       // 送货中
+	OrderStatusDelivered                      // 已签收
+	OrderStatusCompleted                      // 已完成
+	OrderStatusCancelled                      // 已取消
+	OrderStatusFailed                         // 失败
+	OrderStatusRefunding                      // 退款中
+	OrderStatusRefunded                       // 已退款
+	OrderStatusReturned                       // 已退货
 )
 
 type OrderType int
 
 const (
-	OrderTypeNormal           OrderType = 0  // 普通订单
-	OrderTypePreorder         OrderType = 1  // 预定订单
-	OrderTypeCart             OrderType = 2  // 购物车订单
-	OrderTypeCustom           OrderType = 3  // 定制订单
-	OrderTypeSubscription     OrderType = 4  // 订阅订单
-	OrderTypeWholesale        OrderType = 5  // 批发订单
-	OrderTypeGift             OrderType = 6  // 赠品订单
-	OrderTypeGiftWithPurchase OrderType = 7  // 有赠品的订单
-	OrderTypeReturn           OrderType = 8  // 退货订单
-	OrderTypeExchange         OrderType = 9  // 换货订单
-	OrderTypeReshipment       OrderType = 10 // 补发订单
+	OrderTypeNormal           OrderType = iota // 普通订单
+	OrderTypePreorder                          // 预定订单
+	OrderTypeCart                              // 购物车订单
+	OrderTypeCustom                            // 定制订单
+	OrderTypeSubscription                      // 订阅订单
+	OrderTypeWholesale                         // 批发订单
+	OrderTypeGift                              // 赠品订单
+	OrderTypeGiftWithPurchase                  // 有赠品的订单
+	OrderTypeReturn                            // 退货订单
+	OrderTypeExchange                          // 换货订单
+	OrderTypeReshipment                        // 补发订单
 )
 
 // 订单项，记录订单中，针对每个产品以及SKU的实际订单详情
