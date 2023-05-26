@@ -1,6 +1,8 @@
 package media
 
 import (
+	"PowerX/internal/model/media"
+	"PowerX/internal/uc/powerx/market"
 	"context"
 
 	"PowerX/internal/svc"
@@ -24,7 +26,32 @@ func NewListMediasPageLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Li
 }
 
 func (l *ListMediasPageLogic) ListMediasPage(req *types.ListMediasPageRequest) (resp *types.ListMediasPageReply, err error) {
-	// todo: add your logic here and delete this line
+	page, err := l.svcCtx.PowerX.Media.FindManyMedias(l.ctx, &market.FindManyMediasOption{
+		PageEmbedOption: types.PageEmbedOption{
+			PageIndex: req.PageIndex,
+			PageSize:  req.PageSize,
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
 
-	return
+	// list
+	list := TransformMediasToMediasReply(page.List)
+	return &types.ListMediasPageReply{
+		List:      list,
+		PageIndex: page.PageIndex,
+		PageSize:  page.PageSize,
+		Total:     page.Total,
+	}, nil
+}
+
+func TransformMediasToMediasReply(medias []*media.Media) (mediasReply []*types.Media) {
+	mediasReply = []*types.Media{}
+	for _, media := range medias {
+		mediaReply := TransformMediaToMediaReply(media)
+		mediasReply = append(mediasReply, mediaReply)
+	}
+	return mediasReply
+
 }

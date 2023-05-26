@@ -26,20 +26,20 @@ type Payment struct {
 type PaymentStatus int
 
 const (
-	PaymentStatusPending   PaymentStatus = 0 // 待支付
-	PaymentStatusPaid      PaymentStatus = 1 // 已支付
-	PaymentStatusRefunded  PaymentStatus = 2 // 已退款
-	PaymentStatusCancelled PaymentStatus = 3 // 已取消
+	PaymentStatusPending   PaymentStatus = iota // 待支付
+	PaymentStatusPaid                           // 已支付
+	PaymentStatusRefunded                       // 已退款
+	PaymentStatusCancelled                      // 已取消
 )
 
 type PaymentType int
 
 const (
-	PaymentTypeBank       PaymentType = 0 // 银行
-	PaymentTypeWeChat     PaymentType = 1 // 微信
-	PaymentTypeAlipay     PaymentType = 2 // 支付宝
-	PaymentTypePayPal     PaymentType = 3 // PayPal
-	PaymentTypeCreditCard PaymentType = 4 // 信用卡
+	PaymentTypeBank       PaymentType = iota // 银行
+	PaymentTypeWeChat                        // 微信
+	PaymentTypeAlipay                        // 支付宝
+	PaymentTypePayPal                        // PayPal
+	PaymentTypeCreditCard                    // 信用卡
 )
 
 type PaymentItem struct {

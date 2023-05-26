@@ -24,7 +24,12 @@ func NewDeleteMediaLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Delet
 }
 
 func (l *DeleteMediaLogic) DeleteMedia(req *types.DeleteMediaRequest) (resp *types.DeleteMediaReply, err error) {
-	// todo: add your logic here and delete this line
+	err = l.svcCtx.PowerX.Media.DeleteMedia(l.ctx, req.MediaId)
+	if err != nil {
+		return nil, err
+	}
 
-	return
+	return &types.DeleteMediaReply{
+		MediaId: req.MediaId,
+	}, nil
 }

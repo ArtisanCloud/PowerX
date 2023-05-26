@@ -122,7 +122,7 @@ func (uc *RefundOrderUseCase) UpsertRefundOrder(ctx context.Context, payment *tr
 
 func (uc *RefundOrderUseCase) UpsertRefundOrders(ctx context.Context, payments []*trade.RefundOrder) ([]*trade.RefundOrder, error) {
 
-	err := powermodel.UpsertModelsOnUniqueID(uc.db.WithContext(ctx), &trade.RefundOrder{}, powermodel.UniqueId, payments, nil, false)
+	err := powermodel.UpsertModelsOnUniqueID(uc.db.WithContext(ctx), &trade.RefundOrder{}, trade.RefundOrderUniqueId, payments, nil, false)
 
 	if err != nil {
 		panic(errors.Wrap(err, "batch upsert payments failed"))

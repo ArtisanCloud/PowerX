@@ -1,6 +1,8 @@
 package customer
 
 import (
+	customerdomain2 "PowerX/internal/model/customerdomain"
+	"PowerX/internal/uc/powerx/customerdomain"
 	"context"
 
 	"PowerX/internal/svc"
@@ -24,7 +26,39 @@ func NewListCustomersPageLogic(ctx context.Context, svcCtx *svc.ServiceContext) 
 }
 
 func (l *ListCustomersPageLogic) ListCustomersPage(req *types.ListCustomersPageRequest) (resp *types.ListCustomersPageReply, err error) {
-	// todo: add your logic here and delete this line
 
-	return
+	page, err := l.svcCtx.PowerX.Customer.FindManyCustomers(l.ctx, &customerdomain.FindManyCustomersOption{
+		LikeName:   req.LikeName,
+		LikeMobile: req.LikeMobile,
+		Statuses:   req.Statuses,
+		Sources:    req.Sources,
+		OrderBy:    req.OrderBy,
+		PageEmbedOption: types.PageEmbedOption{
+			PageIndex: req.PageIndex,
+			PageSize:  req.PageSize,
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	// list
+	list := TransformCustomersToCustomersReply(page.List)
+	return &types.ListCustomersPageReply{
+		List:      list,
+		PageIndex: page.PageIndex,
+		PageSize:  page.PageSize,
+		Total:     page.Total,
+	}, nil
+
+}
+
+func TransformCustomersToCustomersReply(customers []*customerdomain2.Customer) []types.Customer {
+	customersReply := []types.Customer{}
+	for _, customer := range customers {
+		customerReply := TransformCustomerToCustomerReply(customer)
+		customersReply = append(customersReply, *customerReply)
+
+	}
+	return customersReply
 }

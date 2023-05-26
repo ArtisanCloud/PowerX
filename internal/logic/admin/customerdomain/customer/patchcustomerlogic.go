@@ -1,6 +1,7 @@
 package customer
 
 import (
+	"PowerX/internal/model/customerdomain"
 	"context"
 
 	"PowerX/internal/svc"
@@ -24,7 +25,21 @@ func NewPatchCustomerLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Pat
 }
 
 func (l *PatchCustomerLogic) PatchCustomer(req *types.PatchCustomerRequest) (resp *types.PatchCustomerReply, err error) {
-	// todo: add your logic here and delete this line
 
-	return
+	mdlCustomer := &customerdomain.Customer{
+		Name:        req.Name,
+		Email:       req.Email,
+		InviterId:   req.InviterId,
+		Source:      req.Source,
+		Type:        req.Type,
+		IsActivated: req.IsActivated,
+	}
+
+	// 更新客户对象
+	err = l.svcCtx.PowerX.Customer.UpdateCustomer(l.ctx, req.CustomerId, mdlCustomer)
+
+	return &types.PatchCustomerReply{
+		Customer: TransformCustomerToCustomerReply(mdlCustomer),
+	}, err
+
 }

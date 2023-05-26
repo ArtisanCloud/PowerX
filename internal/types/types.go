@@ -810,64 +810,76 @@ type AssignCustomerToEmployeeReply struct {
 }
 
 type ListMediasPageRequest struct {
-	MediaType string   `form:"mediaType,optional"`
-	Keys      []string `form:"keys,optional"`
-	OrderBy   string   `form:"orderBy,optional"`
-	PageIndex int      `form:"pageIndex,optional"`
-	PageSize  int      `form:"pageSize,optional"`
+	MediaTypes []int8   `form:"mediaTypes,optional"`
+	Keys       []string `form:"keys,optional"`
+	OrderBy    string   `form:"orderBy,optional"`
+	PageIndex  int      `form:"pageIndex,optional"`
+	PageSize   int      `form:"pageSize,optional"`
+}
+
+type MediaImage struct {
+	Id            int64  `json:"id,optional"`
+	Filename      string `json:"filename,optional"`
+	Size          int64  `json:"size,optional"`
+	Url           string `json:"url,optional"`
+	BucketName    string `json:"bucketName,optional"`
+	IsLocalStored bool   `json:"isLocalStored,optional"`
+	ContentType   string `json:"contentType,optional"`
+	ResourceType  string `json:"resourceType,optional"`
 }
 
 type Media struct {
-	Key       string `json:"key"`
-	MediaType string `json:"mediaType"`
-	Meta      string `json:"meta"`
-	Remark    string `json:"remark"`
-	CreatedAt string `json:"createdAt"`
-	UpdatedAt string `json:"updatedAt"`
+	Id             int64         `json:"id,optional"`
+	Title          string        `json:"title,optional"`
+	SubTitle       string        `json:"subTitle,optional"`
+	CoverImageId   int64         `json:"coverImageId,optional"`
+	ResourceUrl    string        `json:"resourceUrl,optional"`
+	Description    string        `json:"description,optional"`
+	MediaType      int8          `json:"mediaType,optional"`
+	ViewedCount    int           `json:"viewedCount,optional"`
+	CoverImage     *MediaImage   `json:"coverImage,optional"`
+	DetailImageIds []int64       `json:"detailImageIds,optional"`
+	DetailImages   []*MediaImage `json:"detailImages,optional"`
 }
 
 type ListMediasPageReply struct {
-	List      []Media `json:"list"`
-	PageIndex int     `json:"pageIndex"`
-	PageSize  int     `json:"pageSize"`
-	Total     int64   `json:"total"`
+	List      []*Media `json:"list"`
+	PageIndex int      `json:"pageIndex"`
+	PageSize  int      `json:"pageSize"`
+	Total     int64    `json:"total"`
 }
 
-type CreateMediaUploadRequest struct {
-	FileName string `json:"fileName"`
+type CreateMediaRequest struct {
+	Media
 }
 
-type CreateMediaUploadRequestReply struct {
-	MediaKey  string `json:"mediaKey"`
-	UploadURL string `json:"uploadURL"`
-	ExpiresAt int64  `json:"expiresAt"`
+type CreateMediaReply struct {
+	MediaId int64 `json:"id"`
 }
 
-type CreateOrUpdateMediaRequest struct {
-	MediaKey  string `path:"mediaKey"`
-	MediaType string `json:"mediaType,optional"`
-	Meta      string `json:"meta,optional"`
-	Remark    string `json:"remark,optional"`
+type UpdateMediaRequest struct {
+	MediaId int64 `path:"id"`
+	Media
 }
 
-type CreateOrUpdateMediaReply struct {
-	MediaKey string `json:"mediaKey"`
+type UpdateMediaReply struct {
+	MediaId int64 `json:"id"`
 }
 
-type GetMediaByKeyRequest struct {
-	MediaKey string `path:"mediaKey"`
+type GetMediaRequest struct {
+	MediaId int64 `path:"id"`
 }
 
-type GetMediaByKeyReply struct {
+type GetMediaReply struct {
 	*Media
 }
 
 type DeleteMediaRequest struct {
-	Key string `path:"id"`
+	MediaId int64 `path:"id"`
 }
 
 type DeleteMediaReply struct {
-	Key string `json:"id"`
+	MediaId int64 `json:"id"`
 }
 
 type GetOpportunityListRequest struct {
@@ -952,10 +964,14 @@ type DeleteOpportunityReply struct {
 }
 
 type ProductImage struct {
-	Id   int64  `json:"id,optional"`
-	Name string `json:"name,optional"`
-	Url  string `json:"url,optional"`
-	Sort string `json:"sort,optional"`
+	Id            int64  `json:"id,optional"`
+	Filename      string `json:"filename,optional"`
+	Size          int64  `json:"size,optional"`
+	Url           string `json:"url,optional"`
+	BucketName    string `json:"bucketName,optional"`
+	IsLocalStored bool   `json:"isLocalStored,optional"`
+	ContentType   string `json:"contentType,optional"`
+	ResourceType  string `json:"resourceType,optional"`
 }
 
 type ProductSpecific struct {

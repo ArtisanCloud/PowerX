@@ -26,6 +26,8 @@ type RefundOrder struct {
 
 type RefundStatus int
 
+const RefundOrderUniqueId = powermodel.UniqueId
+
 const (
 	RefundStatusPending   RefundStatus = 0 // 待退款
 	RefundStatusProcessed RefundStatus = 1 // 退款处理中

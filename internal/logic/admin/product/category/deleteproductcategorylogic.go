@@ -24,7 +24,13 @@ func NewDeleteProductCategoryLogic(ctx context.Context, svcCtx *svc.ServiceConte
 }
 
 func (l *DeleteProductCategoryLogic) DeleteProductCategory(req *types.DeleteProductCategoryRequest) (resp *types.DeleteProductCategoryReply, err error) {
-	// todo: add your logic here and delete this line
 
-	return
+	err = l.svcCtx.PowerX.ProductCategory.DeleteProductCategory(l.ctx, req.Id)
+	if err != nil {
+		return nil, err
+	}
+
+	return &types.DeleteProductCategoryReply{
+		Id: req.Id,
+	}, nil
 }

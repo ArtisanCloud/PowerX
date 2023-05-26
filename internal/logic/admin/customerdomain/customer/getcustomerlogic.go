@@ -1,6 +1,8 @@
 package customer
 
 import (
+	"PowerX/internal/model/customerdomain"
+	"PowerX/internal/types/errorx"
 	"context"
 
 	"PowerX/internal/svc"
@@ -24,7 +26,44 @@ func NewGetCustomerLogic(ctx context.Context, svcCtx *svc.ServiceContext) *GetCu
 }
 
 func (l *GetCustomerLogic) GetCustomer(req *types.GetCustomerReqeuest) (resp *types.GetCustomerReply, err error) {
-	// todo: add your logic here and delete this line
+	mdlCustomer, err := l.svcCtx.PowerX.Customer.GetCustomer(l.ctx, req.Id)
 
-	return
+	if err != nil {
+		return nil, errorx.ErrNotFoundObject
+	}
+
+	return &types.GetCustomerReply{
+		Customer: TransformCustomerToCustomerReply(mdlCustomer),
+	}, nil
+}
+
+func TransformCustomerToCustomerReply(mdlCustomer *customerdomain.Customer) (customerReply *types.Customer) {
+
+	var inviter *types.CustomerInviter
+	if mdlCustomer.Inviter != nil {
+		inviter = &types.CustomerInviter{
+			Name:   mdlCustomer.Inviter.Name,
+			Mobile: mdlCustomer.Inviter.Mobile,
+			Email:  mdlCustomer.Inviter.Email,
+		}
+	}
+
+	return &types.Customer{
+		Id:          mdlCustomer.Id,
+		Name:        mdlCustomer.Name,
+		Mobile:      mdlCustomer.Mobile,
+		Email:       mdlCustomer.Email,
+		InviterId:   mdlCustomer.InviterId,
+		Source:      mdlCustomer.Source,
+		Type:        mdlCustomer.Type,
+		IsActivated: mdlCustomer.IsActivated,
+		CreatedAt:   mdlCustomer.CreatedAt.String(),
+		Inviter:     inviter,
+		CustomerExternalId: &types.CustomerExternalId{
+			OpenIdInMiniProgram:           mdlCustomer.OpenIdInMiniProgram,
+			OpenIdInWeChatOfficialAccount: mdlCustomer.OpenIdInWeChatOfficialAccount,
+			OpenIdInWeCom:                 mdlCustomer.OpenIdInWeCom,
+		},
+	}
+
 }

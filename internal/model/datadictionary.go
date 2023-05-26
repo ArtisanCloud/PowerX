@@ -145,3 +145,16 @@ func (mdl *PivotDataDictionaryToObject) MakeMorphPivotsFromObjectToDDs(obj power
 	}
 	return pivots, nil
 }
+
+func GetItemIds(items []*PivotDataDictionaryToObject) []int64 {
+	arrayIds := []int64{}
+	if len(items) <= 0 {
+		return arrayIds
+	}
+	for _, item := range items {
+		if item.DataDictionaryItem != nil {
+			arrayIds = append(arrayIds, item.DataDictionaryItem.Id)
+		}
+	}
+	return arrayIds
+}

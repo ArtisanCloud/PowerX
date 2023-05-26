@@ -1,10 +1,10 @@
 syntax = "v1"
 
 info(
-    title: "媒资管理"
-    desc: "媒资管理"
-    author: "northseadl"
-    email: "northseadl@outlook.com"
+    title: "媒体管理"
+    desc: "媒体管理"
+    author: "MichaelHu"
+    email: "matrix-x@artisan-cloud.com"
     version: "v1"
 )
 
@@ -15,47 +15,65 @@ info(
 )
 
 service PowerX {
-    @doc "查询媒资列表"
+    @doc "查询媒体列表"
     @handler ListMediasPage
-    get /medias (ListMediasPageRequest) returns (ListMediasPageReply)
+    get /medias/page-list (ListMediasPageRequest) returns (ListMediasPageReply)
 
-    @doc "请求媒资上传链接"
-    @handler CreateMediaUploadRequest
-    post /medias/actions/create-upload-url (CreateMediaUploadRequest) returns (CreateMediaUploadRequestReply)
+    @doc "请求媒体上传链接"
+    @handler CreateMedia
+    post /medias (CreateMediaRequest) returns (CreateMediaReply)
 
-    @doc "创建或更新媒资"
-    @handler CreateOrUpdateMedia
-    put /medias/:mediaKey (CreateOrUpdateMediaRequest) returns (CreateOrUpdateMediaReply)
+    @doc "创建或更新媒体"
+    @handler UpdateMedia
+    put /medias/:id (UpdateMediaRequest) returns (UpdateMediaReply)
 
-    @doc "根据媒资key获取媒资"
-    @handler GetMediaByKey
-    get /medias/:key (GetMediaByKeyRequest) returns (GetMediaByKeyReply)
+    @doc "根据媒体key获取媒体"
+    @handler GetMedia
+    get /medias/:id (GetMediaRequest) returns (GetMediaReply)
 
-    @doc "删除媒资"
+    @doc "删除媒体"
     @handler DeleteMedia
-    delete /medias/:key (DeleteMediaRequest) returns (DeleteMediaReply)
+    delete /medias/:id (DeleteMediaRequest) returns (DeleteMediaReply)
 }
 
 type (
     ListMediasPageRequest struct {
-        MediaType string `form:"mediaType,optional"`
+        MediaTypes []int8 `form:"mediaTypes,optional"`
         Keys []string `form:"keys,optional"`
         OrderBy string `form:"orderBy,optional"`
         PageIndex int `form:"pageIndex,optional"`
         PageSize int `form:"pageSize,optional"`
     }
 
+    MediaImage {
+        Id int64 `json:"id,optional"`
+        Filename string `json:"filename,optional"`
+        Size int64 `json:"size,optional"`
+        Url string `json:"url,optional"`
+        BucketName string `json:"bucketName,optional"`
+        IsLocalStored bool `json:"isLocalStored,optional"`
+        ContentType string `json:"contentType,optional"`
+        ResourceType string `json:"resourceType,optional"`
+    }
+
     Media struct {
-        Key string `json:"key"`
-        MediaType string `json:"mediaType"`
-        Meta string `json:"meta"`
-        Remark string `json:"remark"`
-        CreatedAt string `json:"createdAt"`
-        UpdatedAt string `json:"updatedAt"`
+        Id int64 `json:"id,optional"`
+
+        Title string `json:"title,optional"`
+        SubTitle string `json:"subTitle,optional"`
+        CoverImageId int64 `json:"coverImageId,optional"`
+        ResourceUrl string `json:"resourceUrl,optional"`
+        Description string `json:"description,optional"`
+        MediaType int8 `json:"mediaType,optional"`
+        ViewedCount int `json:"viewedCount,optional"`
+
+        CoverImage *MediaImage `json:"coverImage,optional"`
+        DetailImageIds []int64 `json:"detailImageIds,optional"`
+        DetailImages []*MediaImage `json:"detailImages,optional"`
     }
 
     ListMediasPageReply struct {
-        List []Media `json:"list"`
+        List []*Media `json:"list"`
         PageIndex int `json:"pageIndex"`
         PageSize int `json:"pageSize"`
         Total int64 `json:"total"`
@@ -63,46 +81,42 @@ type (
 )
 
 type (
-    CreateMediaUploadRequest struct {
-        FileName string `json:"fileName"`
+    CreateMediaRequest struct {
+        Media
     }
 
-    CreateMediaUploadRequestReply struct {
-        MediaKey string `json:"mediaKey"`
-        UploadURL string `json:"uploadURL"`
-        ExpiresAt int64 `json:"expiresAt"`
+    CreateMediaReply struct {
+        MediaId int64 `json:"id"`
     }
 )
 
 type (
-    CreateOrUpdateMediaRequest struct {
-        MediaKey string `path:"mediaKey"`
-        MediaType string `json:"mediaType,optional"`
-        Meta string `json:"meta,optional"`
-        Remark string `json:"remark,optional"`
+    UpdateMediaRequest struct {
+        MediaId int64 `path:"id"`
+        Media
     }
 
-    CreateOrUpdateMediaReply struct {
-        MediaKey string `json:"mediaKey"`
+    UpdateMediaReply struct {
+        MediaId int64 `json:"id"`
     }
 )
 
 type (
-    GetMediaByKeyRequest struct {
-        MediaKey string `path:"mediaKey"`
+    GetMediaRequest struct {
+        MediaId int64 `path:"id"`
     }
 
-    GetMediaByKeyReply struct {
+    GetMediaReply struct {
         *Media
     }
 )
 
 type (
     DeleteMediaRequest struct {
-        Key string `path:"id"`
+        MediaId int64 `path:"id"`
     }
 
     DeleteMediaReply struct {
-        Key string `json:"id"`
+        MediaId int64 `json:"id"`
     }
 )

@@ -133,9 +133,9 @@ func TransformProductImageToImageReplyToMP(resource *media.MediaResource) (image
 		return nil
 	}
 	return &types.ProductImage{
-		Id:   resource.Id,
-		Url:  resource.Url,
-		Name: resource.Filename,
+		Id:       resource.Id,
+		Url:      resource.Url,
+		Filename: resource.Filename,
 	}
 }
 
