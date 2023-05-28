@@ -1139,9 +1139,10 @@ type ProductCategory struct {
 }
 
 type ListProductCategoryTreeRequest struct {
-	CategoryPID int      `form:"categoryPID,optional"`
-	Names       []string `form:"name,optional"`
-	OrderBy     string   `form:"orderBy,optional"`
+	CategoryPId  int      `form:"categoryPId,optional"`
+	NeedChildren bool     `form:"needChildren,optional"`
+	Names        []string `form:"name,optional"`
+	OrderBy      string   `form:"orderBy,optional"`
 }
 
 type ListProductCategoryTreeReply struct {
@@ -1941,6 +1942,16 @@ type Token struct {
 	ExpiresIn    string `json:"expiresIn"`
 	AccessToken  string `json:"accessToken"`
 	RefreshToken string `json:"refreshToken"`
+}
+
+type ListProductCategoriesRequest struct {
+	CategoryPId  int  `form:"categoryPId,optional"`
+	NeedChildren bool `form:"needChildren,optional"`
+	Limit        int  `form:"limit,optional"`
+}
+
+type ListProductCategoriesReply struct {
+	ProductCategories []*ProductCategory `json:"list"`
 }
 
 type Cart struct {

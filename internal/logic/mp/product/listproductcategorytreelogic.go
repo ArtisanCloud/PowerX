@@ -32,8 +32,8 @@ func (l *ListProductCategoryTreeLogic) ListProductCategoryTree(req *types.ListPr
 	}
 
 	var pId int64 = 0
-	if req.CategoryPID > 0 {
-		pId = int64(req.CategoryPID)
+	if req.CategoryPId > 0 {
+		pId = int64(req.CategoryPId)
 	}
 
 	// 获取模型类型的列表

@@ -22,7 +22,8 @@ func NewProductCategoryUseCase(db *gorm.DB) *ProductCategoryUseCase {
 
 type FindProductCategoryOption struct {
 	OrderBy     string
-	CategoryPID int
+	CategoryPId int
+	Limit       int
 	Ids         []int64
 	Names       []string
 }
@@ -33,6 +34,9 @@ func (uc *ProductCategoryUseCase) buildFindQueryNoPage(query *gorm.DB, opt *Find
 	}
 	if len(opt.Names) > 0 {
 		query.Where("name in ?", opt.Names)
+	}
+	if opt.Limit > 0 {
+		query.Limit(opt.Limit)
 	}
 
 	orderBy := "id, sort asc"
@@ -74,12 +78,33 @@ func (uc *ProductCategoryUseCase) ListProductCategoryTree(ctx context.Context, o
 	return categories
 }
 
-func (uc *ProductCategoryUseCase) FindAllProductCategories(ctx context.Context, opt *FindProductCategoryOption) []*product.ProductCategory {
+func (uc *ProductCategoryUseCase) FindProductCategoriesByParentId(ctx context.Context, opt *FindProductCategoryOption) []*product.ProductCategory {
+	if opt.CategoryPId < 0 {
+		panic(errors.New("find productCategories pId invalid"))
+	}
+
 	var productCategories []*product.ProductCategory
 	query := uc.db.WithContext(ctx).Model(&product.ProductCategory{})
 
 	query = uc.buildFindQueryNoPage(query, opt)
-	if err := query.Find(&productCategories).Error; err != nil {
+
+	if err := query.
+		Where("p_id", opt.CategoryPId).
+		Find(&productCategories).Error; err != nil {
+		panic(errors.Wrap(err, "find all productCategories failed"))
+	}
+	return productCategories
+}
+
+func (uc *ProductCategoryUseCase) FindAllProductCategories(ctx context.Context, opt *FindProductCategoryOption) []*product.ProductCategory {
+
+	var productCategories []*product.ProductCategory
+	query := uc.db.WithContext(ctx).Model(&product.ProductCategory{})
+
+	query = uc.buildFindQueryNoPage(query, opt)
+
+	if err := query.
+		Find(&productCategories).Error; err != nil {
 		panic(errors.Wrap(err, "find all productCategories failed"))
 	}
 	return productCategories

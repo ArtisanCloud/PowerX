@@ -60,7 +60,8 @@ type (
 )
 type (
     ListProductCategoryTreeRequest struct {
-        CategoryPID int `form:"categoryPID,optional"`
+        CategoryPId int `form:"categoryPId,optional"`
+        NeedChildren bool `form:"needChildren,optional"`
         Names []string `form:"name,optional"`
         OrderBy string `form:"orderBy,optional"`
     }
