@@ -1032,6 +1032,11 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 					Path:    "/product-category-tree",
 					Handler: mpproduct.ListProductCategoryTreeHandler(serverCtx),
 				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/product-categories",
+					Handler: mpproduct.ListProductCategoriesHandler(serverCtx),
+				},
 			}...,
 		),
 		rest.WithPrefix("/api/v1/mp/product"),

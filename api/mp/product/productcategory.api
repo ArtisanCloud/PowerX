@@ -17,12 +17,26 @@ import "admin/crm/productcategory.api"
 )
 
 service PowerX {
-    @doc "查询产品品类列表"
+    @doc "查询产品品类树形表"
     @handler ListProductCategoryTree
     get /product-category-tree (ListProductCategoryTreeRequest) returns (ListProductCategoryTreeReply)
 
-
+    @doc "查询产品品类列表"
+    @handler ListProductCategories
+    get /product-categories (ListProductCategoriesRequest) returns (ListProductCategoriesReply)
 }
+
+type (
+    ListProductCategoriesRequest struct{
+        CategoryPId int `form:"categoryPId,optional"`
+        NeedChildren bool `form:"needChildren,optional"`
+        Limit int `form:"limit,optional"`
+    }
+
+    ListProductCategoriesReply struct{
+        ProductCategories []*ProductCategory `json:"list"`
+    }
+)
 
 
 
