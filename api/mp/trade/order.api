@@ -10,7 +10,7 @@ info(
 
 
 import "mp/trade/cart.api"
-import "admin/crm/order.api"
+import "admin/crm/trade/order.api"
 
 @server(
     group: mp/trade/order

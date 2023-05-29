@@ -33,12 +33,12 @@ func (l *GetArtisanLogic) GetArtisan(req *types.GetArtisanRequest) (resp *types.
 	}
 
 	return &types.GetArtisanReply{
-		Artisan: TransferArtisanToArtisanReply(mdlArtisan),
+		Artisan: TransformArtisanToArtisanReply(mdlArtisan),
 	}, nil
 
 }
 
-func TransferArtisanToArtisanReply(artisan *product2.Artisan) *types.Artisan {
+func TransformArtisanToArtisanReply(artisan *product2.Artisan) *types.Artisan {
 	return &types.Artisan{
 		Id:          artisan.Id,
 		EmployeeId:  artisan.EmployeeId,

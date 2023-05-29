@@ -1,6 +1,7 @@
 package media
 
 import (
+	"PowerX/internal/model/market"
 	"PowerX/internal/model/media"
 	"context"
 
@@ -30,7 +31,7 @@ func (l *GetMediaLogic) GetMedia(req *types.GetMediaRequest) (resp *types.GetMed
 	return
 }
 
-func TransformMediaToMediaReply(mdlMedia *media.Media) (mediaReply *types.Media) {
+func TransformMediaToMediaReply(mdlMedia *market.Media) (mediaReply *types.Media) {
 
 	return &types.Media{
 		Id:             mdlMedia.Id,
@@ -63,19 +64,8 @@ func TransformMediaImagesToImagesReply(pivots []*media.PivotMediaResourceToObjec
 
 	imagesReply = []*types.MediaImage{}
 	for _, pivot := range pivots {
-		imageReply := TransformMediaImageToImageReply(pivot.MediaResource)
+		imageReply := TransformMediaImageToMediaImageReply(pivot.MediaResource)
 		imagesReply = append(imagesReply, imageReply)
 	}
 	return imagesReply
-}
-
-func TransformMediaImageToImageReply(resource *media.MediaResource) (imagesReply *types.MediaImage) {
-	if resource == nil {
-		return nil
-	}
-	return &types.MediaImage{
-		Id:       resource.Id,
-		Url:      resource.Url,
-		Filename: resource.Filename,
-	}
 }

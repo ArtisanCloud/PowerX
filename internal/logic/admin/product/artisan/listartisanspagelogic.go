@@ -37,7 +37,7 @@ func (l *ListArtisansLogic) ListArtisansPage(req *types.ListArtisansPageRequest)
 		return nil, err
 	}
 
-	list := TransferArtisansToArtisansReply(page.List)
+	list := TransformArtisansToArtisansReply(page.List)
 	return &types.ListArtisansPageReply{
 		List:      list,
 		PageIndex: page.PageIndex,
@@ -47,10 +47,10 @@ func (l *ListArtisansLogic) ListArtisansPage(req *types.ListArtisansPageRequest)
 
 }
 
-func TransferArtisansToArtisansReply(artisans []*product2.Artisan) []*types.Artisan {
+func TransformArtisansToArtisansReply(artisans []*product2.Artisan) []*types.Artisan {
 	artisansReply := []*types.Artisan{}
 	for _, artisan := range artisans {
-		artisanReply := TransferArtisanToArtisanReply(artisan)
+		artisanReply := TransformArtisanToArtisanReply(artisan)
 		artisansReply = append(artisansReply, artisanReply)
 	}
 	return artisansReply

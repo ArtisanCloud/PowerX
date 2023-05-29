@@ -1,6 +1,7 @@
 package media
 
 import (
+	"PowerX/internal/model/market"
 	"PowerX/internal/model/media"
 	"PowerX/internal/uc/powerx"
 	"context"
@@ -45,14 +46,14 @@ func (l *CreateMediaLogic) CreateMedia(req *types.CreateMediaRequest) (resp *typ
 	}, nil
 }
 
-func TransformMediaRequestToMedia(mediaRequest *types.Media) (mdlMedia *media.Media) {
+func TransformMediaRequestToMedia(mediaRequest *types.Media) (mdlMedia *market.Media) {
 
-	return &media.Media{
+	return &market.Media{
 		Title:        mediaRequest.Title,
 		SubTitle:     mediaRequest.SubTitle,
 		CoverImageId: mediaRequest.CoverImageId,
 		ResourceUrl:  mediaRequest.ResourceUrl,
 		Description:  mediaRequest.Description,
-		MediaType:    media.MediaType(mediaRequest.MediaType),
+		MediaType:    market.MediaType(mediaRequest.MediaType),
 	}
 }

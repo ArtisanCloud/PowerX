@@ -83,12 +83,14 @@ func (l *AuthByPhoneLogic) AuthByPhone(req *types.MPCustomerAuthRequest) (resp *
 	}
 
 	source := l.svcCtx.PowerX.DataDictionary.GetCachedDDId(l.ctx, model.TypeSourceChannel, model.ChannelWechat)
+	personType := l.svcCtx.PowerX.DataDictionary.GetCachedDDId(l.ctx, customerdomain.TypeCustomerType, customerdomain.CustomerPersonal)
 
 	// upsert 线索
 	lead := &customerdomain.Lead{
 		Name:        mpCustomer.NickName,
 		Mobile:      mpCustomer.PhoneNumber,
 		Source:      source,
+		Type:        personType,
 		IsActivated: true,
 		ExternalId: customerdomain.ExternalId{
 			OpenIdInMiniProgram: mpCustomer.OpenId,
@@ -105,6 +107,7 @@ func (l *AuthByPhoneLogic) AuthByPhone(req *types.MPCustomerAuthRequest) (resp *
 		Name:        mpCustomer.NickName,
 		Mobile:      mpCustomer.PhoneNumber,
 		Source:      source,
+		Type:        personType,
 		IsActivated: true,
 		ExternalId: customerdomain.ExternalId{
 			OpenIdInMiniProgram: mpCustomer.OpenId,

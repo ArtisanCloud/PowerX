@@ -1,9 +1,9 @@
 package store
 
 import (
+	"PowerX/internal/logic/mp/market/store"
 	"net/http"
 
-	"PowerX/internal/logic/mp/product/store"
 	"PowerX/internal/svc"
 	"PowerX/internal/types"
 	"github.com/zeromicro/go-zero/rest/httpx"

@@ -1,0 +1,30 @@
+package leader
+
+import (
+	"context"
+
+	"PowerX/internal/svc"
+	"PowerX/internal/types"
+
+	"github.com/zeromicro/go-zero/core/logx"
+)
+
+type PutLeadLogic struct {
+	logx.Logger
+	ctx    context.Context
+	svcCtx *svc.ServiceContext
+}
+
+func NewPutLeadLogic(ctx context.Context, svcCtx *svc.ServiceContext) *PutLeadLogic {
+	return &PutLeadLogic{
+		Logger: logx.WithContext(ctx),
+		ctx:    ctx,
+		svcCtx: svcCtx,
+	}
+}
+
+func (l *PutLeadLogic) PutLead(req *types.PutLeadRequest) (resp *types.PutLeadReply, err error) {
+	// todo: add your logic here and delete this line
+
+	return
+}

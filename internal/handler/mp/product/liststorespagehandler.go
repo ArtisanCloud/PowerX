@@ -1,7 +1,7 @@
 package product
 
 import (
-	"PowerX/internal/logic/mp/product/store"
+	"PowerX/internal/logic/mp/market/store"
 	"net/http"
 
 	"PowerX/internal/svc"
