@@ -654,7 +654,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			[]rest.Route{
 				{
 					Method:  http.MethodGet,
-					Path:    "/artisans",
+					Path:    "/artisans/page-list",
 					Handler: adminproductartisan.ListArtisansPageHandler(serverCtx),
 				},
 				{
@@ -673,19 +673,9 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 					Handler: adminproductartisan.PutArtisanHandler(serverCtx),
 				},
 				{
-					Method:  http.MethodPatch,
-					Path:    "/artisans/:id",
-					Handler: adminproductartisan.PatchArtisanHandler(serverCtx),
-				},
-				{
 					Method:  http.MethodDelete,
 					Path:    "/artisans/:id",
 					Handler: adminproductartisan.DeleteArtisanHandler(serverCtx),
-				},
-				{
-					Method:  http.MethodPost,
-					Path:    "/artisans/:id/actions/assign-to-artisan-categroy",
-					Handler: adminproductartisan.AssignArtisanToArtisanCategoryHandler(serverCtx),
 				},
 			}...,
 		),

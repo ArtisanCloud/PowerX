@@ -1,6 +1,7 @@
 package product
 
 import (
+	"PowerX/internal/model/media"
 	"PowerX/internal/model/powermodel"
 	"PowerX/internal/model/product"
 	"PowerX/internal/types"
@@ -21,7 +22,15 @@ func NewArtisanUseCase(db *gorm.DB) *ArtisanUseCase {
 	}
 }
 
-func (uc *ArtisanUseCase) buildFindQueryNoPage(query *gorm.DB, opt *product.FindArtisanOption) *gorm.DB {
+type FindManyArtisanOption struct {
+	LikeName string
+	OrderBy  string
+	Ids      []int64
+	Names    []string
+	types.PageEmbedOption
+}
+
+func (uc *ArtisanUseCase) buildFindQueryNoPage(query *gorm.DB, opt *FindManyArtisanOption) *gorm.DB {
 	if len(opt.Ids) > 0 {
 		query.Where("id in ?", opt.Ids)
 	}
@@ -38,18 +47,28 @@ func (uc *ArtisanUseCase) buildFindQueryNoPage(query *gorm.DB, opt *product.Find
 	return query
 }
 
-func (uc *ArtisanUseCase) FindAllArtisans(ctx context.Context, opt *product.FindArtisanOption) []*product.Artisan {
+func (uc *ArtisanUseCase) PreloadItems(db *gorm.DB) *gorm.DB {
+	db = db.
+		Preload("PivotDetailImages", "media_usage = ?", media.MediaUsageDetail).Preload("PivotDetailImages.MediaResource").
+		Preload("CoverImage")
+
+	return db
+}
+
+func (uc *ArtisanUseCase) FindAllArtisans(ctx context.Context, opt *FindManyArtisanOption) []*product.Artisan {
 	var productCategories []*product.Artisan
 	query := uc.db.WithContext(ctx).Model(&product.Artisan{})
 
 	query = uc.buildFindQueryNoPage(query, opt)
-	if err := query.Find(&productCategories).Error; err != nil {
+	query = uc.PreloadItems(query)
+	if err := query.
+		Find(&productCategories).Error; err != nil {
 		panic(errors.Wrap(err, "find all productCategories failed"))
 	}
 	return productCategories
 }
 
-func (uc *ArtisanUseCase) FindManyArtisans(ctx context.Context, opt *product.FindArtisanOption) (pageList types.Page[*product.Artisan], err error) {
+func (uc *ArtisanUseCase) FindManyArtisans(ctx context.Context, opt *FindManyArtisanOption) (pageList types.Page[*product.Artisan], err error) {
 	var artisans []*product.Artisan
 	db := uc.db.WithContext(ctx).Model(&product.Artisan{})
 
@@ -65,6 +84,7 @@ func (uc *ArtisanUseCase) FindManyArtisans(ctx context.Context, opt *product.Fin
 		db.Offset((opt.PageIndex - 1) * opt.PageSize).Limit(opt.PageSize)
 	}
 
+	db = uc.PreloadItems(db)
 	if err := db.
 		Debug().
 		//Preload("ArtisanSpecific").
@@ -80,11 +100,12 @@ func (uc *ArtisanUseCase) FindManyArtisans(ctx context.Context, opt *product.Fin
 	}, nil
 }
 
-func (uc *ArtisanUseCase) FindOneArtisan(ctx context.Context, opt *product.FindArtisanOption) (*product.Artisan, error) {
+func (uc *ArtisanUseCase) FindOneArtisan(ctx context.Context, opt *FindManyArtisanOption) (*product.Artisan, error) {
 	var mpCustomer *product.Artisan
 	query := uc.db.WithContext(ctx).Model(&product.Artisan{})
 
 	query = uc.buildFindQueryNoPage(query, opt)
+	query = uc.PreloadItems(query)
 	if err := query.First(&mpCustomer).Error; err != nil {
 		return nil, errorx.ErrRecordNotFound
 	}
@@ -103,12 +124,23 @@ func (uc *ArtisanUseCase) CreateArtisan(ctx context.Context, artisan *product.Ar
 
 func (uc *ArtisanUseCase) UpsertArtisan(ctx context.Context, artisan *product.Artisan) (*product.Artisan, error) {
 
-	productCategories := []*product.Artisan{artisan}
+	artisans := []*product.Artisan{artisan}
 
-	_, err := uc.UpsertArtisans(ctx, productCategories)
-	if err != nil {
-		panic(errors.Wrap(err, "upsert artisan failed"))
-	}
+	err := uc.db.Transaction(func(tx *gorm.DB) error {
+		// 删除产品的相关联对象
+		_, err := uc.ClearAssociations(tx, artisan)
+		if err != nil {
+			return err
+		}
+
+		// 更新产品对象主体
+		_, err = uc.UpsertArtisans(ctx, artisans)
+		if err != nil {
+			return errors.Wrap(err, "upsert store failed")
+		}
+
+		return err
+	})
 
 	return artisan, err
 }
@@ -150,4 +182,16 @@ func (uc *ArtisanUseCase) DeleteArtisan(ctx context.Context, id int64) error {
 		return errorx.WithCause(errorx.ErrDeleteObjectNotFound, "未找到元匠")
 	}
 	return nil
+}
+
+func (uc *ArtisanUseCase) ClearAssociations(db *gorm.DB, artisan *product.Artisan) (*product.Artisan, error) {
+	var err error
+
+	// 清除产品详细图片记录
+	err = artisan.ClearPivotDetailImages(db)
+	if err != nil {
+		return nil, err
+	}
+
+	return artisan, err
 }

@@ -64,13 +64,13 @@ type (
         EmployeeId int64 `json:"employeeId,optional"`
         Name string `json:"name,optional"`
         Level int8 `json:"level,optional"`
-        Gender string `json:"gender,optional"`
+        Gender bool `json:"gender,optional"`
         birthday string `json:"birthday,optional"`
         PhoneNumber string `json:"phoneNumber,optional"`
         CoverURL string `json:"coverURL,optional"`
         WorkNo string `json:"workNo,optional"`
         Email string `json:"email,optional"`
-        Experience uint `json:"experience,optional"`
+        Experience string `json:"experience,optional"`
         Specialty string `json:"specialty,optional"`
         Certificate string `json:"certificate,optional"`
         Address string `json:"address,optional"`
@@ -82,7 +82,6 @@ type (
         Name string `json:"name"`
         StoreEmployeeId int64 `json:"storeEmployeeId,optional"`
         ContactNumber string `json:"contactNumber"`
-        CoverImageId int64 `json:"coverImageId,optional"`
         Email string `json:"email,optional"`
         Address string `json:"address"`
         Description string `json:"description,optional"`
@@ -93,6 +92,7 @@ type (
         Artisans []*StoreArtisan `json:"artisans,optional"`
         CreatedAt string `json:"createdAt,optional"`
 
+        CoverImageId int64 `json:"coverImageId,optional"`
         CoverImage *StoreImage `json:"coverImage,optional"`
         DetailImageIds []int64 `json:"detailImageIds,optional"`
         DetailImages []*StoreImage `json:"detailImages,optional"`
@@ -103,8 +103,8 @@ type (
         Ids []int64 `form:"ids,optional"`
         LikeName string `form:"likeName,optional"`
         OrderBy string `form:"orderBy,optional"`
-        PageIndex int `json:"pageIndex,optional"`
-        PageSize int `json:"pageSize,optional"`
+        PageIndex int `form:"pageIndex,optional"`
+        PageSize int `form:"pageSize,optional"`
     }
 
 
