@@ -67,7 +67,7 @@ func (uc *StoreUseCase) FindAllShops(ctx context.Context, opt *FindManyStoresOpt
 
 func (uc *StoreUseCase) FindManyStores(ctx context.Context, opt *FindManyStoresOption) (pageList types.Page[*model.Store], err error) {
 	opt.DefaultPageIfNotSet()
-	var products []*model.Store
+	var stores []*model.Store
 	db := uc.db.WithContext(ctx).Model(&model.Store{})
 
 	db = uc.buildFindQueryNoPage(db, opt)
@@ -84,13 +84,13 @@ func (uc *StoreUseCase) FindManyStores(ctx context.Context, opt *FindManyStoresO
 
 	db = uc.PreloadItems(db)
 	if err := db.
-		Find(&products).Error; err != nil {
+		Find(&stores).Error; err != nil {
 		panic(err)
 	}
 
 	if count > 0 {
-		for i, product := range products {
-			products[i], err = uc.LoadAssociations(product)
+		for i, store := range stores {
+			stores[i], err = uc.LoadAssociations(store)
 			if err != nil {
 				return pageList, err
 			}
@@ -98,18 +98,18 @@ func (uc *StoreUseCase) FindManyStores(ctx context.Context, opt *FindManyStoresO
 	}
 
 	return types.Page[*model.Store]{
-		List:      products,
+		List:      stores,
 		PageIndex: opt.PageIndex,
 		PageSize:  opt.PageSize,
 		Total:     count,
 	}, nil
 }
 
-func (uc *StoreUseCase) CreateStore(ctx context.Context, product *model.Store) error {
+func (uc *StoreUseCase) CreateStore(ctx context.Context, store *model.Store) error {
 
 	if err := uc.db.WithContext(ctx).
 		Debug().
-		Create(&product).Error; err != nil {
+		Create(&store).Error; err != nil {
 		if strings.Contains(err.Error(), "duplicate key value violates unique constraint") {
 			return errorx.WithCause(errorx.ErrDuplicatedInsert, "该对象不能重复创建")
 		}
@@ -118,74 +118,74 @@ func (uc *StoreUseCase) CreateStore(ctx context.Context, product *model.Store) e
 	return nil
 }
 
-func (uc *StoreUseCase) UpsertStore(ctx context.Context, product *model.Store) (*model.Store, error) {
+func (uc *StoreUseCase) UpsertStore(ctx context.Context, store *model.Store) (*model.Store, error) {
 
-	products := []*model.Store{product}
+	stores := []*model.Store{store}
 
 	err := uc.db.Transaction(func(tx *gorm.DB) error {
 		// 删除产品的相关联对象
-		_, err := uc.ClearAssociations(tx, product)
+		_, err := uc.ClearAssociations(tx, store)
 		if err != nil {
 			return err
 		}
 
 		// 更新产品对象主体
-		_, err = uc.UpsertStores(ctx, products)
+		_, err = uc.UpsertStores(ctx, stores)
 		if err != nil {
-			return errors.Wrap(err, "upsert product failed")
+			return errors.Wrap(err, "upsert store failed")
 		}
 
 		return err
 	})
 
-	return product, err
+	return store, err
 }
 
-func (uc *StoreUseCase) UpsertStores(ctx context.Context, products []*model.Store) ([]*model.Store, error) {
+func (uc *StoreUseCase) UpsertStores(ctx context.Context, stores []*model.Store) ([]*model.Store, error) {
 
-	err := powermodel.UpsertModelsOnUniqueID(uc.db.WithContext(ctx), &model.Store{}, model.StoreUniqueId, products, nil, false)
+	err := powermodel.UpsertModelsOnUniqueID(uc.db.WithContext(ctx), &model.Store{}, model.StoreUniqueId, stores, nil, false)
 
 	if err != nil {
-		panic(errors.Wrap(err, "batch upsert products failed"))
+		panic(errors.Wrap(err, "batch upsert stores failed"))
 	}
 
-	return products, err
+	return stores, err
 }
 
-func (uc *StoreUseCase) PatchStore(ctx context.Context, id int64, product *model.Store) {
+func (uc *StoreUseCase) PatchStore(ctx context.Context, id int64, store *model.Store) {
 	if err := uc.db.WithContext(ctx).Model(&model.Store{}).
-		Where(id).Updates(&product).Error; err != nil {
+		Where(id).Updates(&store).Error; err != nil {
 		panic(err)
 	}
 }
 
 func (uc *StoreUseCase) GetStore(ctx context.Context, id int64) (*model.Store, error) {
-	var product = &model.Store{}
-	if err := uc.db.WithContext(ctx).First(product, id).Error; err != nil {
+	var store = &model.Store{}
+	if err := uc.db.WithContext(ctx).First(store, id).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errorx.WithCause(errorx.ErrBadRequest, "未找到产品")
 		}
 		panic(err)
 	}
-	product, err := uc.LoadAssociations(product)
+	store, err := uc.LoadAssociations(store)
 	if err != nil {
-		return product, err
+		return store, err
 	}
 
-	return product, nil
+	return store, nil
 }
 
 func (uc *StoreUseCase) DeleteStore(ctx context.Context, id int64) error {
 
 	// 获取产品相关项
-	product, err := uc.GetStore(ctx, id)
+	store, err := uc.GetStore(ctx, id)
 	if err != nil {
 		return errorx.ErrNotFoundObject
 	}
 
 	err = uc.db.Transaction(func(tx *gorm.DB) error {
 		// 删除产品相关项
-		_, err = uc.ClearAssociations(tx, product)
+		_, err = uc.ClearAssociations(tx, store)
 		if err != nil {
 			return err
 		}

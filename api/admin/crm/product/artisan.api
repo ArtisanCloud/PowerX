@@ -18,7 +18,7 @@ info(
 service PowerX {
     @doc "查询元匠列表"
     @handler ListArtisansPage
-    get /artisans (ListArtisansPageRequest) returns (ListArtisansPageReply)
+    get /artisans/page-list (ListArtisansPageRequest) returns (ListArtisansPageReply)
 
     @doc "查询元匠详情"
     @handler GetArtisan
@@ -34,47 +34,56 @@ service PowerX {
     @handler PutArtisan
     put /artisans/:id (PutArtisanRequest) returns (PutArtisanReply)
 
-    @doc "增量元匠"
-    @handler PatchArtisan
-    patch /artisans/:id (PatchArtisanRequest) returns (PatchArtisanReply)
-
 
     @doc "删除元匠"
     @handler DeleteArtisan
     delete /artisans/:id (DeleteArtisanRequest) returns (DeleteArtisanReply)
 
-    @doc "分配元匠品类给元匠品类分类"
-    @handler AssignArtisanToArtisanCategory
-    post /artisans/:id/actions/assign-to-artisan-categroy (AssignArtisanManagerRequest) returns (AssignArtisanManagerReply)
+
 }
 
 type (
-    ArtisanSpecific {
+    ArtisanArtisanSpecific {
         ArtisanId int64 `json:"artisanId,optional"`
+    }
+
+    ArtisanImage {
+        Id int64 `json:"id,optional"`
+        Filename string `json:"filename,optional"`
+        Size int64 `json:"size,optional"`
+        Url string `json:"url,optional"`
+        BucketName string `json:"bucketName,optional"`
+        IsLocalArtisand bool `json:"isLocalArtisand,optional"`
+        ContentType string `json:"contentType,optional"`
+        ResourceType string `json:"resourceType,optional"`
     }
 
     Artisan {
         Id int64 `json:"id,optional"`
         EmployeeId int64 `json:"employeeId,optional"`
         Name string `json:"name,optional"`
-        Level int8 `json:"level,optional"`
-        Gender string `json:"gender,optional"`
-        birthday string `json:"birthday,optional"`
+        Level int8 `json:"level"`
+        Gender bool `json:"gender,optional"`
+        Birthday string `json:"birthday,optional"`
         PhoneNumber string `json:"phoneNumber,optional"`
-        CoverURL string `json:"coverURL,optional"`
-        WorkNo string `json:"workNo,optional"`
+        WorkNo string `json:"workNo"`
         Email string `json:"email,optional"`
-        Experience uint `json:"experience,optional"`
+        Experience string `json:"experience,optional"`
         Specialty string `json:"specialty,optional"`
         Certificate string `json:"certificate,optional"`
         Address string `json:"address,optional"`
-        ArtisanSpecific ArtisanSpecific `json:"artisanSpecific,optional"`
+        CreatedAt string `json:"createdAt,optional"`
+
+        CoverImageId int64 `json:"coverImageId,optional"`
+        CoverImage *ArtisanImage `json:"coverImage,optional"`
+        DetailImageIds []int64 `json:"detailImageIds,optional"`
+        DetailImages []*ArtisanImage `json:"detailImages,optional"`
     }
 )
 type (
     ListArtisansPageRequest struct {
-        ArtisanType string `form:"artisanType,optional"`
-        Keys []string `form:"keys,optional"`
+        Ids []int64 `form:"ids,optional"`
+        LikeName string `form:"likeName,optional"`
         OrderBy string `form:"orderBy,optional"`
         PageIndex int `form:"pageIndex,optional"`
         PageSize int `form:"pageSize,optional"`
@@ -95,7 +104,7 @@ type (
     }
 
     CreateArtisanReply struct {
-        ArtisanId string `json:"id"`
+        ArtisanId int64 `json:"id"`
     }
 )
 
@@ -112,22 +121,11 @@ type (
 
 type (
     PutArtisanRequest struct {
-        ArtisanId int64 `path:"artisanId"`
+        ArtisanId int64 `path:"id"`
         Artisan
     }
 
     PutArtisanReply struct {
-        *Artisan
-    }
-)
-
-type (
-    PatchArtisanRequest struct {
-        ArtisanId int64 `path:"artisanId"`
-        Artisan
-    }
-
-    PatchArtisanReply struct {
         *Artisan
     }
 )
@@ -143,14 +141,3 @@ type (
     }
 )
 
-
-type (
-    AssignArtisanManagerRequest {
-        Id int64 `path:"id"`
-        EmployeeId int64 `json:"employeeId"`
-    }
-
-    AssignArtisanManagerReply {
-        Artisan
-    }
-)

@@ -1,6 +1,8 @@
 package artisan
 
 import (
+	"PowerX/internal/model/media"
+	"PowerX/internal/uc/powerx"
 	"context"
 
 	"PowerX/internal/svc"
@@ -24,7 +26,25 @@ func NewPutArtisanLogic(ctx context.Context, svcCtx *svc.ServiceContext) *PutArt
 }
 
 func (l *PutArtisanLogic) PutArtisan(req *types.PutArtisanRequest) (resp *types.PutArtisanReply, err error) {
-	// todo: add your logic here and delete this line
+	mdlArtisan := TransformArtisanRequestToArtisan(&(req.Artisan))
+	mdlArtisan.Id = req.ArtisanId
+	if len(req.DetailImageIds) > 0 {
+		mediaResources, err := l.svcCtx.PowerX.MediaResource.FindAllMediaResources(l.ctx, &powerx.FindManyMediaResourcesOption{
+			Ids: req.DetailImageIds,
+		})
+		if err != nil {
+			return nil, err
+		}
+		mdlArtisan.PivotDetailImages, err = (&media.PivotMediaResourceToObject{}).MakeMorphPivotsFromObjectToMediaResources(mdlArtisan, mediaResources, media.MediaUsageDetail)
+	}
 
-	return
+	// 更新产品对象
+	mdlArtisan, err = l.svcCtx.PowerX.Artisan.UpsertArtisan(l.ctx, mdlArtisan)
+	if err != nil {
+		return nil, err
+	}
+
+	return &types.PutArtisanReply{
+		Artisan: TransformArtisanToArtisanReply(mdlArtisan),
+	}, nil
 }

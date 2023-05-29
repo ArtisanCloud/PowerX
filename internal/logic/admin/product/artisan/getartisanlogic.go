@@ -1,7 +1,6 @@
 package artisan
 
 import (
-	product2 "PowerX/internal/model/product"
 	"PowerX/internal/types/errorx"
 	"context"
 
@@ -35,24 +34,4 @@ func (l *GetArtisanLogic) GetArtisan(req *types.GetArtisanRequest) (resp *types.
 	return &types.GetArtisanReply{
 		Artisan: TransformArtisanToArtisanReply(mdlArtisan),
 	}, nil
-
-}
-
-func TransformArtisanToArtisanReply(artisan *product2.Artisan) *types.Artisan {
-	return &types.Artisan{
-		Id:          artisan.Id,
-		EmployeeId:  artisan.EmployeeId,
-		Name:        artisan.Name,
-		Level:       artisan.Level,
-		Gender:      artisan.Gender,
-		Birthday:    artisan.Birthday.String(),
-		PhoneNumber: artisan.PhoneNumber,
-		CoverURL:    artisan.CoverURL,
-		WorkNo:      artisan.WorkNo,
-		Email:       artisan.Email,
-		Experience:  artisan.Experience,
-		Specialty:   artisan.Specialty,
-		Certificate: artisan.Certificate,
-		Address:     artisan.Address,
-	}
 }

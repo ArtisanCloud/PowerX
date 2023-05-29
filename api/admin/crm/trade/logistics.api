@@ -56,8 +56,8 @@ type Logistics {
 
 type ListLogisticssRequest struct {
     NameLike  string `json:"nameLike"`
-    PageIndex int    `json:"pageIndex"`
-    PageSize  int    `json:"pageSize"`
+    PageIndex int    `form:"pageIndex"`
+    PageSize  int    `form:"pageSize"`
 }
 
 type ListLogisticssResponse struct {

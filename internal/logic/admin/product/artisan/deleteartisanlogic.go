@@ -24,7 +24,12 @@ func NewDeleteArtisanLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Del
 }
 
 func (l *DeleteArtisanLogic) DeleteArtisan(req *types.DeleteArtisanRequest) (resp *types.DeleteArtisanReply, err error) {
-	// todo: add your logic here and delete this line
+	err = l.svcCtx.PowerX.Artisan.DeleteArtisan(l.ctx, req.ArtisanId)
+	if err != nil {
+		return nil, err
+	}
 
-	return
+	return &types.DeleteArtisanReply{
+		ArtisanId: req.ArtisanId,
+	}, nil
 }

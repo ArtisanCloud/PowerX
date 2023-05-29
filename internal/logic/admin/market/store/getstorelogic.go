@@ -55,7 +55,6 @@ func TransformArtisanToShopArtisan(artisan *product2.Artisan) *types.StoreArtisa
 		Gender:      artisan.Gender,
 		Birthday:    artisan.Birthday.String(),
 		PhoneNumber: artisan.PhoneNumber,
-		CoverURL:    artisan.CoverURL,
 		WorkNo:      artisan.WorkNo,
 		Email:       artisan.Email,
 		Experience:  artisan.Experience,
