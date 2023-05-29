@@ -1,7 +1,7 @@
 package media
 
 import (
-	"PowerX/internal/model/media"
+	market2 "PowerX/internal/model/market"
 	"PowerX/internal/uc/powerx/market"
 	"context"
 
@@ -46,7 +46,7 @@ func (l *ListMediasPageLogic) ListMediasPage(req *types.ListMediasPageRequest) (
 	}, nil
 }
 
-func TransformMediasToMediasReply(medias []*media.Media) (mediasReply []*types.Media) {
+func TransformMediasToMediasReply(medias []*market2.Media) (mediasReply []*types.Media) {
 	mediasReply = []*types.Media{}
 	for _, media := range medias {
 		mediaReply := TransformMediaToMediaReply(media)

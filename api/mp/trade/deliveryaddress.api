@@ -8,7 +8,7 @@ info(
     version: "v1"
 )
 
-import "admin/crm/deliveryaddress.api"
+import "admin/crm/trade/deliveryaddress.api"
 
 @server(
     group: mp/trade/address/delivery

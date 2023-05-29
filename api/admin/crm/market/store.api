@@ -1,0 +1,172 @@
+syntax = "v1"
+
+info(
+    title: "门店"
+    desc: "门店"
+    author: "MichaelHu"
+    email: "matrix-x@artisan-cloud.com"
+    version: "v1"
+)
+
+
+@server(
+    group: admin/market/store
+    prefix: /api/v1/admin/market
+    middleware: EmployeeJWTAuth
+)
+
+service PowerX {
+    @doc "查询门店列表"
+    @handler ListStoresPage
+    get /stores/page-list (ListStoresPageRequest) returns (ListStoresPageReply)
+
+    @doc "查询门店详情"
+    @handler GetStore
+    get /stores/:id (GetStoreRequest) returns (GetStoreReply)
+
+
+    @doc "创建门店"
+    @handler CreateStore
+    post /stores (CreateStoreRequest) returns (CreateStoreReply)
+
+
+    @doc "全量门店"
+    @handler PutStore
+    put /stores/:id (PutStoreRequest) returns (PutStoreReply)
+
+
+    @doc "删除门店"
+    @handler DeleteStore
+    delete /stores/:id (DeleteStoreRequest) returns (DeleteStoreReply)
+
+    @doc "分配门店经理给门店"
+    @handler AssignStoreToStoreManager
+    post /stores/:id/actions/assign-to-store-categroy (AssignStoreManagerRequest) returns (AssignStoreManagerReply)
+}
+
+type (
+    StoreArtisanSpecific {
+        ArtisanId int64 `json:"artisanId,optional"`
+    }
+
+    StoreImage {
+        Id int64 `json:"id,optional"`
+        Filename string `json:"filename,optional"`
+        Size int64 `json:"size,optional"`
+        Url string `json:"url,optional"`
+        BucketName string `json:"bucketName,optional"`
+        IsLocalStored bool `json:"isLocalStored,optional"`
+        ContentType string `json:"contentType,optional"`
+        ResourceType string `json:"resourceType,optional"`
+    }
+
+    StoreArtisan {
+        EmployeeId int64 `json:"employeeId,optional"`
+        Name string `json:"name,optional"`
+        Level int8 `json:"level,optional"`
+        Gender string `json:"gender,optional"`
+        birthday string `json:"birthday,optional"`
+        PhoneNumber string `json:"phoneNumber,optional"`
+        CoverURL string `json:"coverURL,optional"`
+        WorkNo string `json:"workNo,optional"`
+        Email string `json:"email,optional"`
+        Experience uint `json:"experience,optional"`
+        Specialty string `json:"specialty,optional"`
+        Certificate string `json:"certificate,optional"`
+        Address string `json:"address,optional"`
+        ArtisanSpecific StoreArtisanSpecific `json:"artisanSpecific,optional"`
+    }
+
+    Store {
+        Id int64 `json:"id,optional"`
+        Name string `json:"name"`
+        StoreEmployeeId int64 `json:"storeEmployeeId,optional"`
+        ContactNumber string `json:"contactNumber"`
+        CoverImageId int64 `json:"coverImageId,optional"`
+        Email string `json:"email,optional"`
+        Address string `json:"address"`
+        Description string `json:"description,optional"`
+        Longitude float32 `json:"longitude,optional"`
+        Latitude float32 `json:"latitude,optional"`
+        StartWork string `json:"startWork,optional"`
+        EndWork string `json:"endWork,optional"`
+        Artisans []*StoreArtisan `json:"artisans,optional"`
+        CreatedAt string `json:"createdAt,optional"`
+
+        CoverImage *StoreImage `json:"coverImage,optional"`
+        DetailImageIds []int64 `json:"detailImageIds,optional"`
+        DetailImages []*StoreImage `json:"detailImages,optional"`
+    }
+)
+type (
+    ListStoresPageRequest struct {
+        Ids []int64 `form:"ids,optional"`
+        LikeName string `form:"likeName,optional"`
+        OrderBy string `form:"orderBy,optional"`
+        PageIndex int `json:"pageIndex,optional"`
+        PageSize int `json:"pageSize,optional"`
+    }
+
+
+    ListStoresPageReply struct {
+        List []*Store `json:"list"`
+        PageIndex int `json:"pageIndex"`
+        PageSize int `json:"pageSize"`
+        Total int64 `json:"total"`
+    }
+)
+
+type (
+    CreateStoreRequest struct {
+        Store
+    }
+
+    CreateStoreReply struct {
+        StoreId int64 `json:"id"`
+    }
+)
+
+type (
+    GetStoreRequest struct {
+        StoreId int64 `path:"id"`
+    }
+
+    GetStoreReply struct {
+        *Store
+    }
+)
+
+
+type (
+    PutStoreRequest struct {
+        StoreId int64 `path:"id"`
+        Store
+    }
+
+    PutStoreReply struct {
+        *Store
+    }
+)
+
+
+type (
+    DeleteStoreRequest struct {
+        StoreId int64 `path:"id"`
+    }
+
+    DeleteStoreReply struct {
+        StoreId int64 `json:"id"`
+    }
+)
+
+
+type (
+    AssignStoreManagerRequest {
+        Id int64 `path:"id"`
+        EmployeeId int64 `json:"employeeId"`
+    }
+
+    AssignStoreManagerReply {
+        Store
+    }
+)

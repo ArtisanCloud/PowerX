@@ -5,6 +5,7 @@ import (
 	"PowerX/internal/config"
 	"PowerX/internal/model"
 	"PowerX/internal/model/customerdomain"
+	"PowerX/internal/model/market"
 	"PowerX/internal/model/media"
 	"PowerX/internal/model/membership"
 	"PowerX/internal/model/product"
@@ -47,10 +48,10 @@ func (m *PowerMigrator) AutoMigrate() {
 	_ = m.db.AutoMigrate(&product.ProductSpecific{}, &product.SpecificOption{})
 	_ = m.db.AutoMigrate(&product.SKU{}, &product.PivotSkuToSpecificOption{})
 	_ = m.db.AutoMigrate(&product.PriceBook{}, &product.PriceBookEntry{}, &product.PriceConfig{})
-	_ = m.db.AutoMigrate(&product.Store{}, &product.Artisan{}, &product.PivotStoreToArtisan{})
+	_ = m.db.AutoMigrate(&market.Store{}, &product.Artisan{}, &product.PivotStoreToArtisan{})
 
 	// market
-	_ = m.db.AutoMigrate(&media.Media{})
+	_ = m.db.AutoMigrate(&market.Media{})
 
 	// media
 	_ = m.db.AutoMigrate(&media.MediaResource{}, &media.PivotMediaResourceToObject{})

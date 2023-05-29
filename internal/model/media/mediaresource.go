@@ -14,6 +14,9 @@ type MediaResource struct {
 	ResourceType  string `gorm:"comment:媒体类型" json:"mediaType"`
 }
 
+type MediaSet struct {
+}
+
 const MediaUsageCover = "_cover"
 const MediaUsageDetail = "_detail"
 

@@ -14,13 +14,13 @@ import (
 	admindictionary "PowerX/internal/handler/admin/dictionary"
 	adminemployee "PowerX/internal/handler/admin/employee"
 	adminmarketmedia "PowerX/internal/handler/admin/market/media"
+	adminmarketstore "PowerX/internal/handler/admin/market/store"
 	adminmediaresource "PowerX/internal/handler/admin/mediaresource"
 	adminpermission "PowerX/internal/handler/admin/permission"
 	adminproduct "PowerX/internal/handler/admin/product"
 	adminproductartisan "PowerX/internal/handler/admin/product/artisan"
 	adminproductcategory "PowerX/internal/handler/admin/product/category"
 	adminproductpricebook "PowerX/internal/handler/admin/product/pricebook"
-	adminproductstore "PowerX/internal/handler/admin/product/store"
 	adminscrmcontact "PowerX/internal/handler/admin/scrm/contact"
 	adminscrmcustomer "PowerX/internal/handler/admin/scrm/customer"
 	admintradeaddressbilling "PowerX/internal/handler/admin/trade/address/billing"
@@ -469,6 +469,45 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			[]rest.Route{
 				{
 					Method:  http.MethodGet,
+					Path:    "/stores/page-list",
+					Handler: adminmarketstore.ListStoresPageHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/stores/:id",
+					Handler: adminmarketstore.GetStoreHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/stores",
+					Handler: adminmarketstore.CreateStoreHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPut,
+					Path:    "/stores/:id",
+					Handler: adminmarketstore.PutStoreHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodDelete,
+					Path:    "/stores/:id",
+					Handler: adminmarketstore.DeleteStoreHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/stores/:id/actions/assign-to-store-categroy",
+					Handler: adminmarketstore.AssignStoreToStoreManagerHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithPrefix("/api/v1/admin/market"),
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Route{
+				{
+					Method:  http.MethodGet,
 					Path:    "/opportunities",
 					Handler: adminbusinessopportunity.GetOpportunityListHandler(serverCtx),
 				},
@@ -603,50 +642,6 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 					Method:  http.MethodPost,
 					Path:    "/price-book-entries",
 					Handler: adminproductpricebook.ConfigPriceBookHandler(serverCtx),
-				},
-			}...,
-		),
-		rest.WithPrefix("/api/v1/admin/product"),
-	)
-
-	server.AddRoutes(
-		rest.WithMiddlewares(
-			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
-			[]rest.Route{
-				{
-					Method:  http.MethodGet,
-					Path:    "/stores/page-list",
-					Handler: adminproductstore.ListStoresPageHandler(serverCtx),
-				},
-				{
-					Method:  http.MethodGet,
-					Path:    "/stores/:id",
-					Handler: adminproductstore.GetStoreHandler(serverCtx),
-				},
-				{
-					Method:  http.MethodPost,
-					Path:    "/stores",
-					Handler: adminproductstore.CreateStoreHandler(serverCtx),
-				},
-				{
-					Method:  http.MethodPut,
-					Path:    "/stores/:id",
-					Handler: adminproductstore.PutStoreHandler(serverCtx),
-				},
-				{
-					Method:  http.MethodPatch,
-					Path:    "/stores/:id",
-					Handler: adminproductstore.PatchStoreHandler(serverCtx),
-				},
-				{
-					Method:  http.MethodDelete,
-					Path:    "/stores/:id",
-					Handler: adminproductstore.DeleteStoreHandler(serverCtx),
-				},
-				{
-					Method:  http.MethodPost,
-					Path:    "/stores/:id/actions/assign-to-store-categroy",
-					Handler: adminproductstore.AssignStoreToStoreManagerHandler(serverCtx),
 				},
 			}...,
 		),

@@ -1,8 +1,8 @@
 package market
 
 import (
+	model "PowerX/internal/model/market"
 	"PowerX/internal/model/media"
-	model "PowerX/internal/model/media"
 	"PowerX/internal/model/powermodel"
 	"PowerX/internal/model/trade"
 	"PowerX/internal/types"
@@ -89,7 +89,7 @@ func (uc *MediaUseCase) FindManyMedias(ctx context.Context, opt *FindManyMediasO
 	}, nil
 }
 
-func (uc *MediaUseCase) CreateMedia(ctx context.Context, m *media.Media) {
+func (uc *MediaUseCase) CreateMedia(ctx context.Context, m *model.Media) {
 	err := uc.db.WithContext(ctx).
 		Debug().
 		Create(m).Error
@@ -99,7 +99,7 @@ func (uc *MediaUseCase) CreateMedia(ctx context.Context, m *media.Media) {
 	}
 }
 
-func (uc *MediaUseCase) UpsertMedia(ctx context.Context, m *media.Media) (*media.Media, error) {
+func (uc *MediaUseCase) UpsertMedia(ctx context.Context, m *model.Media) (*model.Media, error) {
 
 	medias := []*model.Media{m}
 
@@ -122,9 +122,9 @@ func (uc *MediaUseCase) UpsertMedia(ctx context.Context, m *media.Media) (*media
 	return m, err
 }
 
-func (uc *MediaUseCase) UpsertMedias(ctx context.Context, medias []*media.Media) ([]*media.Media, error) {
+func (uc *MediaUseCase) UpsertMedias(ctx context.Context, medias []*model.Media) ([]*model.Media, error) {
 
-	err := powermodel.UpsertModelsOnUniqueID(uc.db.WithContext(ctx), &media.Media{}, trade.RefundOrderUniqueId, medias, nil, false)
+	err := powermodel.UpsertModelsOnUniqueID(uc.db.WithContext(ctx), &model.Media{}, trade.RefundOrderUniqueId, medias, nil, false)
 
 	if err != nil {
 		panic(errors.Wrap(err, "batch upsert medias failed"))
@@ -133,14 +133,14 @@ func (uc *MediaUseCase) UpsertMedias(ctx context.Context, medias []*media.Media)
 	return medias, err
 }
 
-func (uc *MediaUseCase) PatchMedia(ctx context.Context, id int64, m *media.Media) {
-	if err := uc.db.WithContext(ctx).Model(&media.Media{}).Where(id).Updates(m).Error; err != nil {
+func (uc *MediaUseCase) PatchMedia(ctx context.Context, id int64, m *model.Media) {
+	if err := uc.db.WithContext(ctx).Model(&model.Media{}).Where(id).Updates(m).Error; err != nil {
 		panic(err)
 	}
 }
 
-func (uc *MediaUseCase) GetMedia(ctx context.Context, id int64) (*media.Media, error) {
-	var m media.Media
+func (uc *MediaUseCase) GetMedia(ctx context.Context, id int64) (*model.Media, error) {
+	var m model.Media
 	if err := uc.db.WithContext(ctx).First(&m, id).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errorx.WithCause(errorx.ErrBadRequest, "未找到媒体")
@@ -151,7 +151,7 @@ func (uc *MediaUseCase) GetMedia(ctx context.Context, id int64) (*media.Media, e
 }
 
 func (uc *MediaUseCase) DeleteMedia(ctx context.Context, id int64) error {
-	result := uc.db.WithContext(ctx).Delete(&media.Media{}, id)
+	result := uc.db.WithContext(ctx).Delete(&model.Media{}, id)
 	if err := result.Error; err != nil {
 		panic(err)
 	}

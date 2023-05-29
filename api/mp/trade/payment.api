@@ -9,7 +9,7 @@ info(
 )
 
 
-import "admin/crm/payment.api"
+import "admin/crm/trade/payment.api"
 
 @server(
     group: mp/trade/payment
