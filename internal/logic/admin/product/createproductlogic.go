@@ -94,6 +94,7 @@ func TransformProductRequestToProduct(productRequest *types.Product) (mdlProduct
 	saleEndDate := carbon.Parse(productRequest.SaleEndDate)
 	mdlProduct = &product.Product{
 		Name:                productRequest.Name,
+		SPU:                 productRequest.SPU,
 		Type:                productRequest.Type,
 		Plan:                productRequest.Plan,
 		AccountingCategory:  productRequest.AccountingCategory,
@@ -125,6 +126,7 @@ func TransformProductToProductReply(mdlProduct *product.Product) (productReply *
 	return &types.Product{
 		Id:                  mdlProduct.Id,
 		Name:                mdlProduct.Name,
+		SPU:                 mdlProduct.SPU,
 		Type:                mdlProduct.Type,
 		Plan:                mdlProduct.Plan,
 		AccountingCategory:  mdlProduct.AccountingCategory,

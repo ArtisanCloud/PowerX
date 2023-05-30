@@ -79,6 +79,7 @@ func TransformProductToProductReplyToMP(mdlProduct *product.Product) (productRep
 	return &types.Product{
 		Id:                     mdlProduct.Id,
 		Name:                   mdlProduct.Name,
+		SPU:                    mdlProduct.SPU,
 		Description:            mdlProduct.Description,
 		ProductCategories:      TransformProductCategoriesToProductCategoriesReplyToMP(mdlProduct.ProductCategories),
 		SalesChannelsItemIds:   getItemIds(mdlProduct.PivotSalesChannels),

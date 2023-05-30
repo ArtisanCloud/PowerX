@@ -154,6 +154,32 @@ func (mdl *Product) ClearProductCategories(db *gorm.DB) error {
 	return powermodel.ClearMorphPivots(db, &PivotProductToProductCategory{}, false, false, conditions)
 }
 
+func (mdl *Product) LoadPivotCoverImages(db *gorm.DB, conditions *map[string]interface{}) ([]*media.PivotMediaResourceToObject, error) {
+	items := []*media.PivotMediaResourceToObject{}
+	if conditions == nil {
+		conditions = &map[string]interface{}{}
+	}
+
+	(*conditions)[media.PivotMediaResourceToObjectOwnerKey] = TableNameProduct
+	(*conditions)[media.PivotMediaResourceToObjectForeignKey] = mdl.Id
+
+	err := powermodel.SelectMorphPivots(db, &media.PivotMediaResourceToObject{}, false, false, conditions).
+		Preload("MediaResource").
+		Where("media_usage", media.MediaUsageCover).
+		Find(&items).Error
+
+	return items, err
+}
+
+func (mdl *Product) ClearPivotCoverImages(db *gorm.DB) error {
+	conditions := &map[string]interface{}{}
+	(*conditions)[media.PivotMediaResourceToObjectOwnerKey] = TableNameProduct
+	(*conditions)[media.PivotMediaResourceToObjectForeignKey] = mdl.Id
+	(*conditions)["media_usage"] = media.MediaUsageCover
+
+	return powermodel.ClearMorphPivots(db, &media.PivotMediaResourceToObject{}, false, false, conditions)
+}
+
 func (mdl *Product) LoadPivotDetailImages(db *gorm.DB, conditions *map[string]interface{}) ([]*media.PivotMediaResourceToObject, error) {
 	items := []*media.PivotMediaResourceToObject{}
 	if conditions == nil {
@@ -165,6 +191,7 @@ func (mdl *Product) LoadPivotDetailImages(db *gorm.DB, conditions *map[string]in
 
 	err := powermodel.SelectMorphPivots(db, &media.PivotMediaResourceToObject{}, false, false, conditions).
 		Preload("MediaResource").
+		Where("media_usage", media.MediaUsageDetail).
 		Find(&items).Error
 
 	return items, err
@@ -174,6 +201,7 @@ func (mdl *Product) ClearPivotDetailImages(db *gorm.DB) error {
 	conditions := &map[string]interface{}{}
 	(*conditions)[media.PivotMediaResourceToObjectOwnerKey] = TableNameProduct
 	(*conditions)[media.PivotMediaResourceToObjectForeignKey] = mdl.Id
+	(*conditions)["media_usage"] = media.MediaUsageDetail
 
 	return powermodel.ClearMorphPivots(db, &media.PivotMediaResourceToObject{}, false, false, conditions)
 }

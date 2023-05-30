@@ -44,29 +44,34 @@ func (l *ListProductCategoryTreeLogic) ListProductCategoryTree(req *types.ListPr
 }
 
 func TransformProductCategoriesToProductCategoriesReply(productCategoryList []*product.ProductCategory) []*types.ProductCategory {
+	uniqueIds := make(map[int64]bool)
 	var productCategoryReplyList []*types.ProductCategory
 	for _, category := range productCategoryList {
-		node := &types.ProductCategory{
-			Id:          category.Id,
-			PId:         category.PId,
-			Name:        category.Name,
-			Sort:        category.Sort,
-			ViceName:    category.ViceName,
-			Description: category.Description,
-			CreatedAt:   category.CreatedAt.String(),
-			ImageAbleInfo: types.ImageAbleInfo{
-				Icon:            category.Icon,
-				BackgroundColor: category.BackgroundColor,
-				ImageURL:        category.ImageURL,
-			},
-			Children: nil,
-		}
-		if len(category.Children) > 0 {
-			node.Children = TransformProductCategoriesToProductCategoriesReply(category.Children)
+		if !uniqueIds[category.Id] {
+			node := &types.ProductCategory{
+				Id:          category.Id,
+				PId:         category.PId,
+				Name:        category.Name,
+				Sort:        category.Sort,
+				ViceName:    category.ViceName,
+				Description: category.Description,
+				CreatedAt:   category.CreatedAt.String(),
+				ImageAbleInfo: types.ImageAbleInfo{
+					Icon:            category.Icon,
+					BackgroundColor: category.BackgroundColor,
+					ImageURL:        category.ImageURL,
+				},
+				Children: nil,
+			}
+			if len(category.Children) > 0 {
+				node.Children = TransformProductCategoriesToProductCategoriesReply(category.Children)
+
+			}
+
+			productCategoryReplyList = append(productCategoryReplyList, node)
+			uniqueIds[category.Id] = true
 
 		}
-
-		productCategoryReplyList = append(productCategoryReplyList, node)
 	}
 
 	return productCategoryReplyList
