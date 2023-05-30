@@ -1,6 +1,7 @@
 package product
 
 import (
+	model2 "PowerX/internal/model"
 	"PowerX/internal/model/media"
 	"PowerX/internal/model/powermodel"
 	model "PowerX/internal/model/product"
@@ -70,15 +71,16 @@ func (uc *ProductUseCase) buildFindQueryNoPage(db *gorm.DB, opt *FindManyProduct
 }
 
 func (uc *ProductUseCase) PreloadItems(db *gorm.DB) *gorm.DB {
-	db = db.Preload("PivotCoverImages", "media_usage = ?", media.MediaUsageCover).Preload("PivotCoverImages.MediaResource").
+	db = db.
+		Preload("PivotCoverImages", "media_usage = ?", media.MediaUsageCover).Preload("PivotCoverImages.MediaResource").
 		Preload("PivotDetailImages", "media_usage = ?", media.MediaUsageDetail).Preload("PivotDetailImages.MediaResource").
 		Preload("ProductCategories").
 		Preload("PriceBookEntries").
 		Preload("SKUs.PriceBookEntry").
 		Preload("SKUs.PivotSkuToSpecificOptions").
 		Preload("ProductSpecifics.Options").
-		Preload("PivotSalesChannels.DataDictionaryItem").
-		Preload("PivotPromoteChannels.DataDictionaryItem")
+		Preload("PivotSalesChannels.DataDictionaryItem", "type=?", model2.TypeSalesChannel).
+		Preload("PivotPromoteChannels.DataDictionaryItem", "type=?", model2.TypePromoteChannel)
 
 	return db
 }
@@ -252,6 +254,12 @@ func (uc *ProductUseCase) ClearAssociations(db *gorm.DB, product *model.Product)
 
 	// --- 清除产品品类记录 ---
 	err = product.ClearProductCategories(db)
+	if err != nil {
+		return nil, err
+	}
+
+	// 清除产品头图图片记录
+	err = product.ClearPivotCoverImages(db)
 	if err != nil {
 		return nil, err
 	}

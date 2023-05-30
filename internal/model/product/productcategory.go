@@ -23,12 +23,16 @@ type ProductCategory struct {
 const ProductCategoryUniqueId = powermodel.UniqueId
 
 func GetCategoryIds(categories []*ProductCategory) []int64 {
+	uniqueIds := make(map[int64]bool)
 	arrayIds := []int64{}
 	if len(categories) <= 0 {
 		return arrayIds
 	}
 	for _, category := range categories {
-		arrayIds = append(arrayIds, category.Id)
+		if !uniqueIds[category.Id] {
+			arrayIds = append(arrayIds, category.Id)
+			uniqueIds[category.Id] = true
+		}
 	}
 	return arrayIds
 }

@@ -147,12 +147,13 @@ func (mdl *PivotDataDictionaryToObject) MakeMorphPivotsFromObjectToDDs(obj power
 }
 
 func GetItemIds(items []*PivotDataDictionaryToObject) []int64 {
+	uniqueIds := make(map[int64]bool)
 	arrayIds := []int64{}
 	if len(items) <= 0 {
 		return arrayIds
 	}
 	for _, item := range items {
-		if item.DataDictionaryItem != nil {
+		if item.DataDictionaryItem != nil && !uniqueIds[item.DataDictionaryItem.Id] {
 			arrayIds = append(arrayIds, item.DataDictionaryItem.Id)
 		}
 	}
