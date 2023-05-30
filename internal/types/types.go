@@ -1365,7 +1365,7 @@ type ConfigPriceBookEntryReply struct {
 	Id int64 `json:"id"`
 }
 
-type ArtisanArtisanSpecific struct {
+type ArtisanSpecific struct {
 	ArtisanId int64 `json:"artisanId,optional"`
 }
 
