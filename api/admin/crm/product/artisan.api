@@ -43,7 +43,7 @@ service PowerX {
 }
 
 type (
-    ArtisanArtisanSpecific {
+    ArtisanSpecific {
         ArtisanId int64 `json:"artisanId,optional"`
     }
 
