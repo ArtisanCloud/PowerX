@@ -1232,7 +1232,17 @@ type AssignProductToProductCategoryReply struct {
 type ImageAbleInfo struct {
 	Icon            string `json:"icon"`
 	BackgroundColor string `json:"backgroundColor"`
-	ImageURL        string `json:"imageURL"`
+}
+
+type CategoryImage struct {
+	Id              int64  `json:"id,optional"`
+	Filename        string `json:"filename,optional"`
+	Size            int64  `json:"size,optional"`
+	Url             string `json:"url,optional"`
+	BucketName      string `json:"bucketName,optional"`
+	IsLocalArtisand bool   `json:"isLocalArtisand,optional"`
+	ContentType     string `json:"contentType,optional"`
+	ResourceType    string `json:"resourceType,optional"`
 }
 
 type ProductCategory struct {
@@ -1244,7 +1254,9 @@ type ProductCategory struct {
 	Description string `json:"description"`
 	CreatedAt   string `json:"createdAt,optional"`
 	ImageAbleInfo
-	Children []*ProductCategory `json:"children,optional"`
+	CoverImageId int64              `json:"coverImageId,optional"`
+	CoverImage   *CategoryImage     `json:"coverImage,optional"`
+	Children     []*ProductCategory `json:"children,optional"`
 }
 
 type ListProductCategoryTreeRequest struct {
@@ -1258,12 +1270,21 @@ type ListProductCategoryTreeReply struct {
 	ProductCategories []*ProductCategory `json:"tree"`
 }
 
-type UpsertProductCategoryRequest struct {
+type CreateProductCategoryRequest struct {
 	ProductCategory
 }
 
-type UpsertProductCategoryReply struct {
+type CreateProductCategoryReply struct {
 	*ProductCategory
+}
+
+type UpdateProductCategoryRequest struct {
+	Id int64 `path:"id"`
+	ProductCategory
+}
+
+type UpdateProductCategoryReply struct {
+	Id int64 `json:"id"`
 }
 
 type PatchProductCategoryRequest struct {

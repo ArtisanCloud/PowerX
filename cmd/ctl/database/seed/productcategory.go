@@ -28,363 +28,66 @@ func CreateProductCategories(db *gorm.DB) (err error) {
 func DefaultProductCategory() (data []*product.ProductCategory) {
 
 	data = []*product.ProductCategory{
-		&product.ProductCategory{
-			Name:        "女装",
-			Sort:        0,
-			ViceName:    "",
-			Description: "",
+		{
+			Name:         "运动上装",
+			Sort:         0,
+			ViceName:     "",
+			Description:  "",
+			CoverImageId: 1,
+			ImageAbleInfo: model.ImageAbleInfo{
+				Icon:            "icon-person",
+				BackgroundColor: "#EEEEEE",
+			},
 			Children: []*product.ProductCategory{
-				&product.ProductCategory{
-					Name:        "上装",
-					Sort:        0,
-					ViceName:    "",
-					Description: "",
+				{
+					Name:         "运动上衣",
+					Sort:         0,
+					ViceName:     "",
+					Description:  "",
+					CoverImageId: 2,
 					Children: []*product.ProductCategory{
-						&product.ProductCategory{
-							Name:        "T恤",
-							Sort:        0,
-							ViceName:    "",
-							Description: "",
-							ImageAbleInfo: model.ImageAbleInfo{
-								ImageURL: "cate1",
-							},
-						},
-						&product.ProductCategory{
-							Name:        "衬衫",
-							Sort:        1,
-							ViceName:    "",
-							Description: "",
-							ImageAbleInfo: model.ImageAbleInfo{
-								ImageURL: "cate2",
-							},
-						},
-						&product.ProductCategory{
-							Name:        "针织衫",
-							Sort:        2,
-							ViceName:    "",
-							Description: "",
-							ImageAbleInfo: model.ImageAbleInfo{
-								ImageURL: "cate3",
-							},
-						},
-						&product.ProductCategory{
-							Name:        "卫衣",
-							Sort:        3,
-							ViceName:    "",
-							Description: "",
-							ImageAbleInfo: model.ImageAbleInfo{
-								ImageURL: "cate4",
-							},
-						},
-						&product.ProductCategory{
-							Name:        "毛衣",
-							Sort:        4,
-							ViceName:    "",
-							Description: "",
-							ImageAbleInfo: model.ImageAbleInfo{
-								ImageURL: "cate5",
-							},
-						},
-						&product.ProductCategory{
-							Name:        "蕾丝衫",
-							Sort:        5,
-							ViceName:    "",
-							Description: "",
-							ImageAbleInfo: model.ImageAbleInfo{
-								ImageURL: "cate6",
-							},
-						},
-						&product.ProductCategory{
-							Name:        "套头衫",
-							Sort:        6,
-							ViceName:    "",
-							Description: "",
-							ImageAbleInfo: model.ImageAbleInfo{
-								ImageURL: "cate7",
-							},
-						},
-					},
-				},
-				&product.ProductCategory{
-					Name:        "下装",
-					Sort:        1,
-					ViceName:    "",
-					Description: "",
-					Children: []*product.ProductCategory{
-						&product.ProductCategory{
-							Name:        "牛仔裤",
-							Sort:        0,
-							ViceName:    "",
-							Description: "",
-							ImageAbleInfo: model.ImageAbleInfo{
-								ImageURL: "cate7",
-							},
-						},
-						&product.ProductCategory{
-							Name:        "运动裤",
-							Sort:        1,
-							ViceName:    "",
-							Description: "",
-							ImageAbleInfo: model.ImageAbleInfo{
-								ImageURL: "cate8",
-							},
-						},
-						&product.ProductCategory{
-							Name:        "西装裤",
-							Sort:        2,
-							ViceName:    "",
-							Description: "",
-							ImageAbleInfo: model.ImageAbleInfo{
-								ImageURL: "cate9",
-							},
-						},
-						&product.ProductCategory{
-							Name:        "短裤",
-							Sort:        3,
-							ViceName:    "",
-							Description: "",
-							ImageAbleInfo: model.ImageAbleInfo{
-								ImageURL: "cate10",
-							},
-						},
-						&product.ProductCategory{
-							Name:        "裙子",
-							Sort:        4,
-							ViceName:    "",
-							Description: "",
-							ImageAbleInfo: model.ImageAbleInfo{
-								ImageURL: "cate11",
-							},
-						},
-					},
-				},
-				&product.ProductCategory{
-					Name:        "裙装",
-					Sort:        2,
-					ViceName:    "",
-					Description: "",
-					Children: []*product.ProductCategory{
-						&product.ProductCategory{
-							Name:        "连衣裙",
-							Sort:        0,
-							ViceName:    "",
-							Description: "",
-							ImageAbleInfo: model.ImageAbleInfo{
-								ImageURL: "cate12",
-							},
-						},
-						&product.ProductCategory{
-							Name:        "半身裙",
-							Sort:        1,
-							ViceName:    "",
-							Description: "",
-							ImageAbleInfo: model.ImageAbleInfo{
-								ImageURL: "cate12",
-							},
-						},
-						&product.ProductCategory{
-							Name:        "吊带裙",
-							Sort:        2,
-							ViceName:    "",
-							Description: "",
-							ImageAbleInfo: model.ImageAbleInfo{
-								ImageURL: "cate13",
-							},
-						},
-						&product.ProductCategory{
-							Name:        "长裙",
-							Sort:        3,
-							ViceName:    "",
-							Description: "",
-							ImageAbleInfo: model.ImageAbleInfo{
-								ImageURL: "cate14",
-							},
-						},
-					},
-				},
-				&product.ProductCategory{
-					Name:        "内衣",
-					Sort:        3,
-					ViceName:    "",
-					Description: "",
-					Children: []*product.ProductCategory{
-						&product.ProductCategory{
-							Name:        "文胸",
-							Sort:        0,
-							ViceName:    "",
-							Description: "",
-							ImageAbleInfo: model.ImageAbleInfo{
-								ImageURL: "cate15",
-							},
-						},
-						&product.ProductCategory{
-							Name:        "内裤",
-							Sort:        1,
-							ViceName:    "",
-							Description: "",
-							ImageAbleInfo: model.ImageAbleInfo{
-								ImageURL: "cate16",
-							},
-						},
-						&product.ProductCategory{
-							Name:        "塑身内衣",
-							Sort:        2,
-							ViceName:    "",
-							Description: "",
-							ImageAbleInfo: model.ImageAbleInfo{
-								ImageURL: "cate17",
-							},
-						},
-						&product.ProductCategory{
-							Name:        "睡衣",
-							Sort:        3,
-							ViceName:    "",
-							Description: "",
-							ImageAbleInfo: model.ImageAbleInfo{
-								ImageURL: "cate18",
-							},
-						},
-						&product.ProductCategory{
-							Name:        "袜子",
-							Sort:        4,
-							ViceName:    "",
-							Description: "",
-							ImageAbleInfo: model.ImageAbleInfo{
-								ImageURL: "cate19",
-							},
-						},
+						{Name: "短袖T恤", Sort: 0, CoverImageId: 3},
+						{Name: "长袖T恤", Sort: 0, CoverImageId: 3},
+						{Name: "运动背心", Sort: 0, CoverImageId: 3},
+						{Name: "运动长袖衬衫", Sort: 0, CoverImageId: 3},
+						{Name: "运动外套", Sort: 0, CoverImageId: 3},
+						{Name: "运动夹克", Sort: 0, CoverImageId: 3},
 					},
 				},
 			},
 		},
-		&product.ProductCategory{
-			Name:        "男装",
-			Sort:        1,
-			ViceName:    "",
-			Description: "",
+		{
+			Name:         "运动下装",
+			Sort:         0,
+			ViceName:     "",
+			Description:  "",
+			CoverImageId: 7,
 			Children: []*product.ProductCategory{
-				&product.ProductCategory{
-					Name:        "上装",
+				{
+					Name:        "运动裤子",
 					Sort:        0,
 					ViceName:    "",
 					Description: "",
 					Children: []*product.ProductCategory{
-						&product.ProductCategory{
-							Name:        "T恤",
-							Sort:        0,
-							ViceName:    "",
-							Description: "",
-							ImageAbleInfo: model.ImageAbleInfo{
-								ImageURL: "cate20",
-							},
-						},
-						&product.ProductCategory{
-							Name:        "衬衫",
-							Sort:        1,
-							ViceName:    "",
-							Description: "",
-							ImageAbleInfo: model.ImageAbleInfo{
-								ImageURL: "cate21",
-							},
-						},
-						&product.ProductCategory{
-							Name:        "针织衫",
-							Sort:        2,
-							ViceName:    "",
-							Description: "",
-							ImageAbleInfo: model.ImageAbleInfo{
-								ImageURL: "cate22",
-							},
-						},
-						&product.ProductCategory{
-							Name:        "卫衣",
-							Sort:        3,
-							ViceName:    "",
-							Description: "",
-							ImageAbleInfo: model.ImageAbleInfo{
-								ImageURL: "cate23",
-							},
-						},
+						{Name: "运动长裤", Sort: 0, CoverImageId: 4},
+						{Name: "运动短裤", Sort: 0, CoverImageId: 4},
+						{Name: "运动紧身裤", Sort: 0, CoverImageId: 4},
+						{Name: "运动运动裤", Sort: 0, CoverImageId: 4},
+						{Name: "运动牛仔裤", Sort: 0, CoverImageId: 4},
 					},
 				},
-				&product.ProductCategory{
-					Name:        "毛衣",
-					Sort:        4,
-					ViceName:    "",
-					Description: "",
+				{
+					Name:         "运动裙子",
+					Sort:         0,
+					ViceName:     "",
+					Description:  "",
+					CoverImageId: 6,
 					Children: []*product.ProductCategory{
-						&product.ProductCategory{
-							Name:        "针织毛衣",
-							Sort:        0,
-							ViceName:    "",
-							Description: "",
-							ImageAbleInfo: model.ImageAbleInfo{
-								ImageURL: "cate24",
-							},
-						},
-						&product.ProductCategory{
-							Name:        "羊毛衫",
-							Sort:        1,
-							ViceName:    "",
-							Description: "",
-							ImageAbleInfo: model.ImageAbleInfo{
-								ImageURL: "cate25",
-							},
-						},
-						&product.ProductCategory{
-							Name:        "卫衣",
-							Sort:        2,
-							ViceName:    "",
-							Description: "",
-							ImageAbleInfo: model.ImageAbleInfo{
-								ImageURL: "cate26",
-							},
-						},
-					},
-				},
-
-				&product.ProductCategory{
-					Name:        "鞋子",
-					Sort:        6,
-					ViceName:    "",
-					Description: "",
-					Children: []*product.ProductCategory{
-						&product.ProductCategory{
-							Name:        "运动鞋",
-							Sort:        0,
-							ViceName:    "",
-							Description: "",
-							ImageAbleInfo: model.ImageAbleInfo{
-								ImageURL: "cate27",
-							},
-						},
-						&product.ProductCategory{
-							Name:        "休闲鞋",
-							Sort:        1,
-							ViceName:    "",
-							Description: "",
-							ImageAbleInfo: model.ImageAbleInfo{
-								ImageURL: "cate28",
-							},
-						},
-						&product.ProductCategory{
-							Name:        "高跟鞋",
-							Sort:        2,
-							ViceName:    "",
-							Description: "",
-							ImageAbleInfo: model.ImageAbleInfo{
-								ImageURL: "cate29",
-							},
-						},
-						&product.ProductCategory{
-							Name:        "靴子",
-							Sort:        3,
-							ViceName:    "",
-							Description: "",
-							ImageAbleInfo: model.ImageAbleInfo{
-								ImageURL: "cate30",
-							},
-						},
+						{Name: "运动长裤", Sort: 0, CoverImageId: 5},
+						{Name: "运动短裤", Sort: 0, CoverImageId: 5},
+						{Name: "运动紧身裤", Sort: 0, CoverImageId: 5},
+						{Name: "运动运动裤", Sort: 0, CoverImageId: 5},
+						{Name: "运动牛仔裤", Sort: 0, CoverImageId: 5},
 					},
 				},
 			},

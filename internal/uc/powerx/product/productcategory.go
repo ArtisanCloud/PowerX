@@ -48,6 +48,13 @@ func (uc *ProductCategoryUseCase) buildFindQueryNoPage(query *gorm.DB, opt *Find
 	return query
 }
 
+func (uc *ProductCategoryUseCase) PreloadItems(db *gorm.DB) *gorm.DB {
+	db = db.
+		Preload("CoverImage")
+
+	return db
+}
+
 func (uc *ProductCategoryUseCase) ListProductCategoryTree(ctx context.Context, opt *FindProductCategoryOption, pId int64) []*product.ProductCategory {
 	if pId < 0 {
 		panic(errors.New("find productCategories pId invalid"))
@@ -58,6 +65,7 @@ func (uc *ProductCategoryUseCase) ListProductCategoryTree(ctx context.Context, o
 	query := uc.db.WithContext(ctx).Model(&product.ProductCategory{})
 	query = uc.buildFindQueryNoPage(query, opt)
 
+	query = uc.PreloadItems(query)
 	err := query.
 		Where("p_id", pId).
 		//Debug().
@@ -177,12 +185,19 @@ func (uc *ProductCategoryUseCase) PatchProductCategory(ctx context.Context, id i
 
 func (uc *ProductCategoryUseCase) GetProductCategory(ctx context.Context, id int64) (*product.ProductCategory, error) {
 	var productCategory product.ProductCategory
-	if err := uc.db.WithContext(ctx).First(&productCategory, id).Error; err != nil {
+	db := uc.db.WithContext(ctx)
+	db = uc.PreloadItems(db)
+	if err := db.
+		Debug().
+		First(&productCategory, id).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errorx.WithCause(errorx.ErrBadRequest, "未找到产品品类")
 		}
 		panic(err)
 	}
+
+	_ = productCategory.LoadChildren(db, nil, false)
+
 	return &productCategory, nil
 }
 

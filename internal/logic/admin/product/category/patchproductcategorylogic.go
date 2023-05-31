@@ -48,7 +48,6 @@ func (l *PatchProductCategoryLogic) PatchProductCategory(req *types.PatchProduct
 			ImageAbleInfo: types.ImageAbleInfo{
 				Icon:            productCategory.Icon,
 				BackgroundColor: productCategory.BackgroundColor,
-				ImageURL:        productCategory.ImageURL,
 			},
 		},
 	}, nil
