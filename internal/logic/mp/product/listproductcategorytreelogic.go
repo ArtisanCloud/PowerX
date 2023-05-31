@@ -61,7 +61,6 @@ func TransformProductCategoriesToProductCategoriesReplyToMP(productCategoryList 
 			ImageAbleInfo: types.ImageAbleInfo{
 				Icon:            category.Icon,
 				BackgroundColor: category.BackgroundColor,
-				ImageURL:        category.ImageURL,
 			},
 			Children: nil,
 		}

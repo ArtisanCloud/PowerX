@@ -1,6 +1,7 @@
 package category
 
 import (
+	"PowerX/internal/types/errorx"
 	"context"
 
 	"PowerX/internal/svc"
@@ -24,6 +25,14 @@ func NewDeleteProductCategoryLogic(ctx context.Context, svcCtx *svc.ServiceConte
 }
 
 func (l *DeleteProductCategoryLogic) DeleteProductCategory(req *types.DeleteProductCategoryRequest) (resp *types.DeleteProductCategoryReply, err error) {
+
+	productCategory, err := l.svcCtx.PowerX.ProductCategory.GetProductCategory(l.ctx, req.Id)
+	if err != nil {
+		return nil, errorx.ErrNotFoundObject
+	}
+	if len(productCategory.Children) > 0 {
+		return nil, errorx.WithCause(errorx.ErrBadRequest, "该品类包含子子品类，请处理子品类")
+	}
 
 	err = l.svcCtx.PowerX.ProductCategory.DeleteProductCategory(l.ctx, req.Id)
 	if err != nil {

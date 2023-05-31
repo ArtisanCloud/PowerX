@@ -2,20 +2,24 @@ package product
 
 import (
 	"PowerX/internal/model"
+	"PowerX/internal/model/media"
 	"PowerX/internal/model/powermodel"
+	"gorm.io/gorm"
 )
 
 type ProductCategory struct {
 	powermodel.PowerModel
 
-	Parent   *ProductCategory   `gorm:"foreignKey:PId;references:Id" json:"parent"`
-	Children []*ProductCategory `gorm:"foreignKey:PId;references:Id" json:"children"`
+	CoverImage *media.MediaResource `gorm:"foreignKey:CoverImageId;references:Id" json:"coverImage"`
+	Parent     *ProductCategory     `gorm:"foreignKey:PId;references:Id" json:"parent"`
+	Children   []*ProductCategory   `gorm:"foreignKey:PId;references:Id" json:"children"`
 
-	PId         int64  `gorm:"comment:上级品类"`
-	Name        string `gorm:"comment:品类名称"`
-	Sort        int    `gorm:"comment:排序"`
-	ViceName    string `gorm:"comment:副标题"`
-	Description string `gorm:"comment:描述"`
+	PId          int64  `gorm:"comment:上级品类" json:"pId"`
+	Name         string `gorm:"comment:品类名称" json:"name"`
+	Sort         int    `gorm:"comment:排序" json:"sort"`
+	ViceName     string `gorm:"comment:副标题" json:"viceName"`
+	Description  string `gorm:"comment:描述" json:"description"`
+	CoverImageId int64  `gorm:"comment:封面图Id" json:"coverImageId"`
 
 	model.ImageAbleInfo
 }
@@ -35,4 +39,12 @@ func GetCategoryIds(categories []*ProductCategory) []int64 {
 		}
 	}
 	return arrayIds
+}
+
+func (mdl *ProductCategory) LoadChildren(db *gorm.DB, conditions *map[string]interface{}, withClauseAssociations bool) error {
+
+	mdl.Children = []*ProductCategory{}
+	err := powermodel.AssociationRelationship(db, conditions, mdl, "Children", false).Find(&mdl.Children)
+	//fmt.Dump(mdl.Artisans)
+	return err
 }

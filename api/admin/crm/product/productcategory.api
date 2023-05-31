@@ -26,12 +26,17 @@ service PowerX {
 
 
     @doc "创新产品品类"
-    @handler UpsertProductCategory
-    post /product-categories (UpsertProductCategoryRequest) returns (UpsertProductCategoryReply)
+    @handler CreateProductCategory
+    post /product-categories (CreateProductCategoryRequest) returns (CreateProductCategoryReply)
 
     @doc "修改产品品类"
+    @handler UpdateProductCategory
+    put /product-categories/:id (UpdateProductCategoryRequest) returns (UpdateProductCategoryReply)
+
+
+    @doc "修改产品品类父级"
     @handler PatchProductCategory
-    put /product-categories/:id (PatchProductCategoryRequest) returns (PatchProductCategoryReply)
+    patch /product-categories/:id (PatchProductCategoryRequest) returns (PatchProductCategoryReply)
 
 
     @doc "删除产品品类"
@@ -43,7 +48,18 @@ type (
     ImageAbleInfo {
         Icon string `json:"icon"`
         BackgroundColor string `json:"backgroundColor"`
-        ImageURL string `json:"imageURL"`
+
+    }
+
+    CategoryImage {
+        Id int64 `json:"id,optional"`
+        Filename string `json:"filename,optional"`
+        Size int64 `json:"size,optional"`
+        Url string `json:"url,optional"`
+        BucketName string `json:"bucketName,optional"`
+        IsLocalArtisand bool `json:"isLocalArtisand,optional"`
+        ContentType string `json:"contentType,optional"`
+        ResourceType string `json:"resourceType,optional"`
     }
 
     ProductCategory {
@@ -55,6 +71,8 @@ type (
         Description string `json:"description"`
         CreatedAt string `json:"createdAt,optional"`
         ImageAbleInfo
+        CoverImageId int64 `json:"coverImageId,optional"`
+        CoverImage *CategoryImage `json:"coverImage,optional"`
         Children []*ProductCategory `json:"children,optional"`
     }
 )
@@ -74,12 +92,22 @@ type (
 
 
 type (
-    UpsertProductCategoryRequest struct {
+    CreateProductCategoryRequest struct {
         ProductCategory
     }
 
-    UpsertProductCategoryReply struct {
+    CreateProductCategoryReply struct {
         *ProductCategory
+    }
+)
+
+type (
+    UpdateProductCategoryRequest struct {
+        Id int64 `path:"id"`
+        ProductCategory
+    }
+    UpdateProductCategoryReply struct {
+        Id int64 `json:"id"`
     }
 )
 

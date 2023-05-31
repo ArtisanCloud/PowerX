@@ -33,19 +33,6 @@ func (l *GetProductCategoryLogic) GetProductCategory(req *types.GetProductCatego
 	}
 
 	return &types.GetProductCategoryReply{
-		ProductCategory: &types.ProductCategory{
-			Id:          productCategory.Id,
-			PId:         productCategory.PId,
-			Name:        productCategory.Name,
-			Sort:        productCategory.Sort,
-			ViceName:    productCategory.ViceName,
-			Description: productCategory.Description,
-			CreatedAt:   productCategory.CreatedAt.String(),
-			ImageAbleInfo: types.ImageAbleInfo{
-				Icon:            productCategory.Icon,
-				BackgroundColor: productCategory.BackgroundColor,
-				ImageURL:        productCategory.ImageURL,
-			},
-		},
+		ProductCategory: TransformProductCategoryToProductCategoryReply(productCategory),
 	}, nil
 }
