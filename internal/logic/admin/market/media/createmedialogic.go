@@ -54,6 +54,7 @@ func TransformMediaRequestToMedia(mediaRequest *types.Media) (mdlMedia *market.M
 		CoverImageId: mediaRequest.CoverImageId,
 		ResourceUrl:  mediaRequest.ResourceUrl,
 		Description:  mediaRequest.Description,
-		MediaType:    market.MediaType(mediaRequest.MediaType),
+		MediaType:    mediaRequest.MediaType,
+		ViewedCount:  mediaRequest.ViewedCount,
 	}
 }

@@ -40,7 +40,7 @@ func TransformMediaToMediaReply(mdlMedia *market.Media) (mediaReply *types.Media
 		CoverImageId:   mdlMedia.CoverImageId,
 		ResourceUrl:    mdlMedia.ResourceUrl,
 		Description:    mdlMedia.Description,
-		MediaType:      int8(mdlMedia.MediaType),
+		MediaType:      mdlMedia.MediaType,
 		ViewedCount:    mdlMedia.ViewedCount,
 		CoverImage:     TransformMediaImageToMediaImageReply(mdlMedia.CoverImage),
 		DetailImageIds: media.GetImageIds(mdlMedia.PivotDetailImages),
@@ -49,6 +49,9 @@ func TransformMediaToMediaReply(mdlMedia *market.Media) (mediaReply *types.Media
 }
 
 func TransformMediaImageToMediaImageReply(resource *media.MediaResource) *types.MediaImage {
+	if resource == nil {
+		return nil
+	}
 	return &types.MediaImage{
 		Id:           resource.Id,
 		BucketName:   resource.BucketName,

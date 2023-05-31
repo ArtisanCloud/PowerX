@@ -835,7 +835,7 @@ type Media struct {
 	CoverImageId   int64         `json:"coverImageId,optional"`
 	ResourceUrl    string        `json:"resourceUrl,optional"`
 	Description    string        `json:"description,optional"`
-	MediaType      int8          `json:"mediaType,optional"`
+	MediaType      int           `json:"mediaType,optional"`
 	ViewedCount    int           `json:"viewedCount,optional"`
 	CoverImage     *MediaImage   `json:"coverImage,optional"`
 	DetailImageIds []int64       `json:"detailImageIds,optional"`
