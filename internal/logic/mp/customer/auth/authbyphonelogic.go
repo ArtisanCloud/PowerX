@@ -55,7 +55,6 @@ func (l *AuthByPhoneLogic) AuthByPhone(req *types.MPCustomerAuthRequest) (resp *
 
 	if errEncrypt != nil {
 		return nil, errors.New(errEncrypt.ErrMsg)
-		return
 	}
 
 	//println(string(msgData))

@@ -7,6 +7,8 @@ import (
 	"PowerX/internal/model/trade"
 	"PowerX/internal/types"
 	"PowerX/internal/types/errorx"
+	"PowerX/internal/uc/powerx"
+	"PowerX/pkg/slicex"
 	"context"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
@@ -99,6 +101,7 @@ func (uc *OrderUseCase) FindManyOrders(ctx context.Context, opt *FindManyOrdersO
 
 	db = uc.PreloadItems(db)
 	if err := db.
+		Debug().
 		Find(&orders).Error; err != nil {
 		panic(err)
 	}
@@ -134,6 +137,11 @@ func (uc *OrderUseCase) CreateOrderByPriceBookEntries(ctx context.Context,
 	order := &trade.Order{}
 	db := uc.db.WithContext(ctx)
 
+	// 创建订单，类型为 普通订单
+	orderTypeId := uc.GetOrderTypeId(ctx, trade.OrderTypeNormal)
+	// 创建订单，状态为 待处理
+	orderStatusId := uc.GetOrderStatusId(ctx, trade.OrderStatusToBePaid)
+
 	err := db.Transaction(func(tx *gorm.DB) error {
 		var err error
 
@@ -142,14 +150,14 @@ func (uc *OrderUseCase) CreateOrderByPriceBookEntries(ctx context.Context,
 			entries,
 			customer,
 			quantities,
-			trade.OrderTypeNormal,
-			trade.OrderStatusToBePaid,
+			orderTypeId,
+			orderStatusId,
 		)
 		order.Items = orderItems
 
 		order.CustomerId = customer.Id
-		order.Type = trade.OrderTypeNormal
-		order.Status = trade.OrderStatusToBePaid
+		order.Type = orderTypeId
+		order.Status = orderStatusId
 		order.OrderNumber = trade.GenerateOrderNumber()
 		order.UnitPrice = totalUnitPrice
 		order.ListPrice = totalListPrice
@@ -197,6 +205,7 @@ func (uc *OrderUseCase) CreateOrderByCartItems(ctx context.Context,
 		cart.Items = cartItems
 		err = tx.Model(trade.Cart{}).
 			//Debug().
+			// 在生成订单时候，不希望将sku的相关信息再次有数据操作
 			Omit("Items.SKU.PriceBookEntry").
 			Omit("Items.SKU").
 			Create(cart).Error
@@ -205,18 +214,21 @@ func (uc *OrderUseCase) CreateOrderByCartItems(ctx context.Context,
 			return err
 		}
 
+		orderTypeId := uc.GetOrderTypeId(ctx, trade.OrderTypeCart)
+		orderStatusId := uc.GetOrderStatusId(ctx, trade.OrderStatusToBePaid)
+
 		// 创建订单
 		orderItems, totalUnitPrice, totalListPrice := uc.MakeOrderItemsFromCartItems(
 			cartItems,
-			trade.OrderTypeCart,
-			trade.OrderStatusToBePaid,
+			orderTypeId,
+			orderStatusId,
 		)
 		order.Items = orderItems
 
 		order.CustomerId = customer.Id
 		order.CartId = cart.Id
-		order.Type = trade.OrderTypeCart
-		order.Status = trade.OrderStatusToBePaid
+		order.Type = orderTypeId
+		order.Status = orderStatusId
 		order.OrderNumber = trade.GenerateOrderNumber()
 		order.UnitPrice = totalUnitPrice
 		order.ListPrice = totalListPrice
@@ -248,15 +260,15 @@ func (uc *OrderUseCase) MakeOrderItemsFromEntries(
 	entries []*product.PriceBookEntry,
 	customer *customerdomain2.Customer,
 	quantities []int,
-	orderType trade.OrderType,
-	orderStatus trade.OrderStatus,
+	orderType int,
+	orderStatus int,
 ) (orderItems []*trade.OrderItem, totalUnitPrice float64, totalListPrice float64) {
 
 	totalUnitPrice = 0.0
 	totalListPrice = 0.0
 	orderItems = []*trade.OrderItem{}
 	for i, entry := range entries {
-		orderItem, subUnitTotal, subListTotal := uc.MakeOrderItemFromEntry(entry, customer, quantities[i], orderType, orderStatus)
+		orderItem, subUnitTotal, subListTotal := uc.MakeOrderItemFromEntry(i, entry, customer, quantities[i], orderType, orderStatus)
 		orderItems = append(orderItems, orderItem)
 		totalUnitPrice += subUnitTotal
 		totalListPrice += subListTotal
@@ -265,17 +277,18 @@ func (uc *OrderUseCase) MakeOrderItemsFromEntries(
 }
 
 func (uc *OrderUseCase) MakeOrderItemFromEntry(
+	index int,
 	entry *product.PriceBookEntry,
 	customer *customerdomain2.Customer,
 	quantity int,
-	orderType trade.OrderType,
-	orderStatus trade.OrderStatus,
+	orderType int,
+	orderStatus int,
 ) (orderItem *trade.OrderItem, subUnitTotal float64, subListTotal float64) {
 
 	subUnitTotal = 0.0
 	subListTotal = 0.0
 	orderItem = &trade.OrderItem{
-		PriceBookEntryId: entry.SkuId,
+		PriceBookEntryId: entry.Id,
 		CustomerId:       customer.Id,
 		Type:             orderType,
 		Status:           orderStatus,
@@ -285,7 +298,7 @@ func (uc *OrderUseCase) MakeOrderItemFromEntry(
 		Discount:         entry.UnitPrice / entry.ListPrice,
 		ProductName:      entry.Product.Name,
 		SkuNo:            entry.SKU.SkuNo,
-		CoverImageId:     entry.Product.PivotCoverImages[0].Id,
+		CoverImageId:     entry.Product.PivotCoverImages[0].MediaResourceId,
 	}
 	subUnitTotal = orderItem.UnitPrice * float64(orderItem.Quantity)
 	subListTotal = orderItem.ListPrice * float64(orderItem.Quantity)
@@ -295,8 +308,8 @@ func (uc *OrderUseCase) MakeOrderItemFromEntry(
 
 func (uc *OrderUseCase) MakeOrderItemsFromCartItems(
 	cartItems []*trade.CartItem,
-	orderType trade.OrderType,
-	orderStatus trade.OrderStatus,
+	orderType int,
+	orderStatus int,
 ) (orderItems []*trade.OrderItem, totalUnitPrice float64, totalListPrice float64) {
 
 	totalUnitPrice = 0.0
@@ -313,8 +326,8 @@ func (uc *OrderUseCase) MakeOrderItemsFromCartItems(
 
 func (uc *OrderUseCase) MakeOrderItemFromCartItem(
 	cartItem *trade.CartItem,
-	orderType trade.OrderType,
-	orderStatus trade.OrderStatus,
+	orderType int,
+	orderStatus int,
 ) (orderItem *trade.OrderItem, subUnitTotal float64, subListTotal float64) {
 
 	subUnitTotal = 0.0
@@ -384,6 +397,7 @@ func (uc *OrderUseCase) GetOrder(ctx context.Context, id int64) (*trade.Order, e
 	db := uc.db.WithContext(ctx)
 	db = uc.PreloadItems(db)
 	if err := db.
+		Debug().
 		First(order, id).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errorx.WithCause(errorx.ErrBadRequest, "未找到产品")
@@ -434,13 +448,18 @@ func (uc *OrderUseCase) ClearAssociations(db *gorm.DB, order *trade.Order) (*tra
 }
 
 func (uc *OrderUseCase) ChangeOrderStatusFromTo(ctx context.Context, order *trade.Order,
-	fromStatus trade.OrderStatus, toStatus trade.OrderStatus,
+	fromStatus string, toStatus string,
 ) (*trade.Order, error) {
+
+	ucDD := powerx.NewDataDictionaryUseCase(uc.db)
+
+	orderStatusId := ucDD.GetCachedDDId(ctx, trade.TypeOrderStatus, fromStatus)
+	toStatusId := ucDD.GetCachedDDId(ctx, trade.TypeOrderStatus, toStatus)
 
 	err := uc.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 
 		// 修改订单的支付状态记录
-		order.Status = toStatus
+		order.Status = toStatusId
 		err := tx.Save(order).Error
 		if err != nil {
 			return err
@@ -449,12 +468,51 @@ func (uc *OrderUseCase) ChangeOrderStatusFromTo(ctx context.Context, order *trad
 		// 保存订单状态记录
 		changeLog := &trade.OrderStatusTransition{}
 		changeLog.OrderId = order.Id
-		changeLog.FromStatus = fromStatus
-		changeLog.ToStatus = toStatus
+		changeLog.FromStatus = orderStatusId
+		changeLog.ToStatus = toStatusId
 		err = tx.Create(changeLog).Error
 
 		return err
 	})
 
 	return order, err
+}
+
+func (uc *OrderUseCase) CanOrderCancel(ctx context.Context, order *trade.Order) bool {
+	ucDD := powerx.NewDataDictionaryUseCase(uc.db)
+	ddOrderStatus := ucDD.GetCachedDDById(ctx, order.Status)
+	availableStatus := []string{
+		trade.OrderStatusPending,
+		trade.OrderStatusToBePaid,
+		trade.OrderStatusConfirmed,
+		trade.OrderStatusToBeShipped,
+		trade.OrderStatusShipping,
+	}
+	return slicex.Contains(availableStatus, ddOrderStatus.Key)
+
+}
+
+func (uc *OrderUseCase) IsOrderTypeSameAs(ctx context.Context, order *trade.Order, orderType string) bool {
+	ucDD := powerx.NewDataDictionaryUseCase(uc.db)
+
+	return order.Type == ucDD.GetCachedDDId(ctx, trade.TypeOrderType, orderType)
+
+}
+
+func (uc *OrderUseCase) IsOrderStatusSameAs(ctx context.Context, order *trade.Order, orderStatus string) bool {
+	ucDD := powerx.NewDataDictionaryUseCase(uc.db)
+
+	return order.Status == ucDD.GetCachedDDId(ctx, trade.TypeOrderStatus, orderStatus)
+
+}
+
+func (uc *OrderUseCase) GetOrderTypeId(ctx context.Context, orderType string) (orderTypeId int) {
+	ucDD := powerx.NewDataDictionaryUseCase(uc.db)
+	orderTypeId = ucDD.GetCachedDDId(ctx, trade.TypeOrderType, orderType)
+	return orderTypeId
+}
+func (uc *OrderUseCase) GetOrderStatusId(ctx context.Context, orderStatus string) (orderStatusId int) {
+	ucDD := powerx.NewDataDictionaryUseCase(uc.db)
+	orderStatusId = ucDD.GetCachedDDId(ctx, trade.TypeOrderStatus, orderStatus)
+	return orderStatusId
 }

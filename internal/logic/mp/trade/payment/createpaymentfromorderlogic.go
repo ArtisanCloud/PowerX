@@ -38,7 +38,7 @@ func (l *CreatePaymentFromOrderLogic) CreatePaymentFromOrder(req *types.CreatePa
 	if order.CustomerId != authCustomer.Id {
 		return nil, errorx.WithCause(errorx.ErrBadRequest, "无权操作该订单")
 	}
-	if order.Status != trade.OrderStatusToBePaid {
+	if !l.svcCtx.PowerX.Order.IsOrderStatusSameAs(l.ctx, order, trade.OrderStatusToBePaid) {
 		return nil, errorx.WithCause(errorx.ErrBadRequest, "该订单不属于待支付状态")
 	}
 
@@ -47,12 +47,15 @@ func (l *CreatePaymentFromOrderLogic) CreatePaymentFromOrder(req *types.CreatePa
 	// 支付平台的返回信息
 	var data interface{}
 	// 微信支付
-	switch trade.PaymentType(req.PaymentType) {
+
+	ddPaymentType := l.svcCtx.PowerX.DataDictionary.GetCachedDDById(l.ctx, req.PaymentType)
+
+	switch ddPaymentType.Key {
 	case trade.PaymentTypeWeChat:
 		// 创建一条支付单
 		createdPayment, data, err = l.svcCtx.PowerX.Payment.CreatePaymentFromOrderByWechat(l.ctx,
 			authCustomer, order,
-			authCustomer.OpenIdInMiniProgram, trade.PaymentType(req.PaymentType),
+			authCustomer.OpenIdInMiniProgram, req.PaymentType,
 		)
 		if err != nil {
 			return nil, errorx.WithCause(errorx.ErrCreateObject, "创建微信小程序订单失败:"+err.Error())

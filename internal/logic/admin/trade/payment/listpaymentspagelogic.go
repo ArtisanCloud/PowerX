@@ -1,6 +1,8 @@
 package payment
 
 import (
+	"PowerX/internal/model/trade"
+	tradeUC "PowerX/internal/uc/powerx/trade"
 	"context"
 
 	"PowerX/internal/svc"
@@ -24,7 +26,33 @@ func NewListPaymentsPageLogic(ctx context.Context, svcCtx *svc.ServiceContext) *
 }
 
 func (l *ListPaymentsPageLogic) ListPaymentsPage(req *types.ListPaymentsPageRequest) (resp *types.ListPaymentsPageReply, err error) {
-	// todo: add your logic here and delete this line
+	page, err := l.svcCtx.PowerX.Payment.FindManyPayments(l.ctx, &tradeUC.FindManyPaymentsOption{
+		PageEmbedOption: types.PageEmbedOption{
+			PageIndex: req.PageIndex,
+			PageSize:  req.PageSize,
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
 
-	return
+	// list
+	list := TransformPaymentsToPaymentsReply(page.List)
+	return &types.ListPaymentsPageReply{
+		List:      list,
+		PageIndex: page.PageIndex,
+		PageSize:  page.PageSize,
+		Total:     page.Total,
+	}, nil
+}
+
+func TransformPaymentsToPaymentsReply(payments []*trade.Payment) []*types.Payment {
+	paymentsReply := []*types.Payment{}
+	for _, payment := range payments {
+
+		paymentReply := TransformPaymentToPaymentReply(payment)
+		paymentsReply = append(paymentsReply, paymentReply)
+
+	}
+	return paymentsReply
 }

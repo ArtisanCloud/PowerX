@@ -1,6 +1,9 @@
 package order
 
 import (
+	"PowerX/internal/logic/admin/trade/payment"
+	"PowerX/internal/model/trade"
+	"PowerX/internal/types/errorx"
 	"context"
 
 	"PowerX/internal/svc"
@@ -24,7 +27,56 @@ func NewGetOrderLogic(ctx context.Context, svcCtx *svc.ServiceContext) *GetOrder
 }
 
 func (l *GetOrderLogic) GetOrder(req *types.GetOrderRequest) (resp *types.GetOrderReply, err error) {
-	// todo: add your logic here and delete this line
+	mdlOrder, err := l.svcCtx.PowerX.Order.GetOrder(l.ctx, req.OrderId)
 
-	return
+	if err != nil {
+		return nil, errorx.ErrNotFoundObject
+	}
+
+	return &types.GetOrderReply{
+		Order: TransformOrderToOrderReply(mdlOrder),
+	}, nil
+}
+
+func TransformOrderToOrderReply(mdlOrder *trade.Order) (orderReply *types.Order) {
+
+	return &types.Order{
+		Id:          mdlOrder.Id,
+		CustomerId:  mdlOrder.CustomerId,
+		PaymentType: mdlOrder.PaymentType,
+		Type:        int8(mdlOrder.Type),
+		Status:      int8(mdlOrder.Status),
+		OrderNumber: mdlOrder.OrderNumber,
+		Discount:    mdlOrder.Discount,
+		ListPrice:   mdlOrder.ListPrice,
+		UnitPrice:   mdlOrder.UnitPrice,
+		Comment:     mdlOrder.Comment,
+		OrderItems:  TransformOrderItemsToOrderItemsReply(mdlOrder.Items),
+		Payments:    payment.TransformPaymentsToPaymentsReply(mdlOrder.Payments),
+		CreatedAt:   mdlOrder.CreatedAt.String(),
+	}
+
+}
+
+func TransformOrderItemsToOrderItemsReply(orderItems []*trade.OrderItem) (orderItemsReply []*types.OrderItem) {
+
+	orderItemsReply = []*types.OrderItem{}
+	for _, orderItem := range orderItems {
+		orderItemReply := TransformOrderItemToOrderItemReply(orderItem)
+		orderItemsReply = append(orderItemsReply, orderItemReply)
+	}
+	return orderItemsReply
+}
+
+func TransformOrderItemToOrderItemReply(orderItem *trade.OrderItem) (orderItemReply *types.OrderItem) {
+	if orderItem == nil {
+		return nil
+	}
+
+	return &types.OrderItem{
+		Id:        orderItem.Id,
+		SkuNo:     orderItem.SkuNo,
+		UnitPrice: orderItem.UnitPrice,
+		ListPrice: orderItem.ListPrice,
+	}
 }

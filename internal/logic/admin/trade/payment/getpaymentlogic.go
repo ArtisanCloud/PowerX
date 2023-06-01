@@ -1,6 +1,8 @@
 package payment
 
 import (
+	"PowerX/internal/model/trade"
+	"PowerX/internal/types/errorx"
 	"context"
 
 	"PowerX/internal/svc"
@@ -24,7 +26,64 @@ func NewGetPaymentLogic(ctx context.Context, svcCtx *svc.ServiceContext) *GetPay
 }
 
 func (l *GetPaymentLogic) GetPayment(req *types.GetPaymentRequest) (resp *types.GetPaymentReply, err error) {
-	// todo: add your logic here and delete this line
+	mdlPayment, err := l.svcCtx.PowerX.Payment.GetPayment(l.ctx, req.PaymentId)
 
-	return
+	if err != nil {
+		return nil, errorx.ErrNotFoundObject
+	}
+
+	return &types.GetPaymentReply{
+		Payment: TransformPaymentToPaymentReply(mdlPayment),
+	}, nil
+}
+
+func TransformPaymentToPaymentReply(mdlPayment *trade.Payment) (paymentReply *types.Payment) {
+
+	return &types.Payment{
+		Id:              mdlPayment.Id,
+		OrderId:         mdlPayment.OrderId,
+		PaymentDate:     mdlPayment.PaymentDate.String(),
+		PaymentType:     int(mdlPayment.PaymentType),
+		Status:          int(mdlPayment.Status),
+		PaidAmount:      mdlPayment.PaidAmount,
+		PaymentNumber:   mdlPayment.PaymentNumber,
+		ReferenceNumber: mdlPayment.ReferenceNumber,
+
+		PaymentItems: TransformPaymentItemsToPaymentItemsReply(mdlPayment.Items),
+	}
+
+}
+
+func TransformPaymentItemsToPaymentItemsReply(paymentItems []*trade.PaymentItem) (paymentItemsReply []*types.PaymentItem) {
+
+	paymentItemsReply = []*types.PaymentItem{}
+	for _, paymentItem := range paymentItems {
+		paymentItemReply := TransformPaymentItemToPaymentItemReply(paymentItem)
+		paymentItemsReply = append(paymentItemsReply, paymentItemReply)
+	}
+	return paymentItemsReply
+}
+
+func TransformPaymentItemToPaymentItemReply(paymentItem *trade.PaymentItem) (paymentItemReply *types.PaymentItem) {
+	if paymentItem == nil {
+		return nil
+	}
+
+	return &types.PaymentItem{
+		Id:                  paymentItem.Id,
+		PaymentID:           paymentItem.PaymentID,
+		Quantity:            paymentItem.Quantity,
+		UnitPrice:           paymentItem.UnitPrice,
+		PaymentCustomerName: paymentItem.PaymentCustomerName,
+		BankInformation:     paymentItem.BankInformation,
+		BankResponseCode:    paymentItem.BankResponseCode,
+		CarrierType:         paymentItem.CarrierType,
+		CreditCardNumber:    paymentItem.CreditCardNumber,
+		DeductMembershipId:  paymentItem.DeductMembershipId,
+		DeductionPoint:      paymentItem.DeductionPoint,
+		InvoiceCreateTime:   paymentItem.InvoiceCreateTime.String(),
+		InvoiceNumber:       paymentItem.InvoiceNumber,
+		InvoiceTotalAmount:  paymentItem.InvoiceTotalAmount,
+		TaxIdNumber:         paymentItem.TaxIdNumber,
+	}
 }

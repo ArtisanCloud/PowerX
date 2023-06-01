@@ -1,9 +1,9 @@
 package delivery
 
 import (
+	"PowerX/internal/logic/admin/trade/address/delivery"
 	"net/http"
 
-	"PowerX/internal/logic/admin/trade/address"
 	"PowerX/internal/svc"
 	"PowerX/internal/types"
 	"github.com/zeromicro/go-zero/rest/httpx"
@@ -17,7 +17,7 @@ func ListDeliveryAddressesPageHandler(svcCtx *svc.ServiceContext) http.HandlerFu
 			return
 		}
 
-		l := address.NewListDeliveryAddressesPageLogic(r.Context(), svcCtx)
+		l := delivery.NewListDeliveryAddressesPageLogic(r.Context(), svcCtx)
 		resp, err := l.ListDeliveryAddressesPage(&req)
 		if err != nil {
 			httpx.ErrorCtx(r.Context(), w, err)

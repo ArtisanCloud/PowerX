@@ -2102,19 +2102,23 @@ type OrderItem struct {
 }
 
 type Order struct {
-	Id          int64        `json:"id,optional"`
-	CustomerId  int64        `json:"customerId,optional"`
-	PaymentType int8         `json:"paymentType,optional"`
-	Type        int8         `json:"type,optional"`
-	Status      int8         `json:"status,optional"`
-	OrderNumber string       `json:"orderNumber,optional"`
-	Discount    float64      `json:"discount,optional"`
-	ListPrice   float64      `json:"listPrice,optional"`
-	UnitPrice   float64      `json:"unitPrice,optional"`
-	Comment     string       `json:"comment,optional"`
-	OrderItems  []*OrderItem `json:"orderItems,optional"`
-	Payments    []*Payment   `json:"payments,optional"`
-	CreatedAt   string       `json:"createdAt,optional,omitempty"`
+	Id             int64        `json:"id,optional"`
+	CustomerId     int64        `json:"customerId,optional"`
+	CartId         int64        `json:"cartId,optional"`
+	PaymentType    int8         `json:"paymentType,optional"`
+	Type           int8         `json:"type,optional"`
+	Status         int8         `json:"status,optional"`
+	OrderNumber    string       `json:"orderNumber,optional"`
+	Discount       float64      `json:"discount,optional"`
+	ListPrice      float64      `json:"listPrice,optional"`
+	UnitPrice      float64      `json:"unitPrice,optional"`
+	Comment        string       `json:"comment,optional"`
+	CompletedAt    string       `json:"completedAt,optional,omitempty"`
+	CancelledAt    string       `json:"cancelledAt,optional,omitempty"`
+	ShippingMethod string       `json:"shippingMethod,optional,omitempty"`
+	CreatedAt      string       `json:"createdAt,optional,omitempty"`
+	OrderItems     []*OrderItem `json:"orderItems,optional"`
+	Payments       []*Payment   `json:"payments,optional"`
 }
 
 type ListOrdersPageRequest struct {
@@ -2146,7 +2150,7 @@ type GetOrderRequest struct {
 }
 
 type GetOrderReply struct {
-	Order
+	*Order
 }
 
 type PutOrderRequest struct {
@@ -2155,7 +2159,7 @@ type PutOrderRequest struct {
 }
 
 type PutOrderReply struct {
-	Order
+	*Order
 }
 
 type PatchOrderRequest struct {
@@ -2164,7 +2168,7 @@ type PatchOrderRequest struct {
 }
 
 type PatchOrderReply struct {
-	Order
+	*Order
 }
 
 type DeleteOrderRequest struct {
@@ -2214,10 +2218,10 @@ type ListPaymentsPageRequest struct {
 }
 
 type ListPaymentsPageReply struct {
-	List      []Payment `json:"list"`
-	PageIndex int       `json:"pageIndex"`
-	PageSize  int       `json:"pageSize"`
-	Total     int64     `json:"total"`
+	List      []*Payment `json:"list"`
+	PageIndex int        `json:"pageIndex"`
+	PageSize  int        `json:"pageSize"`
+	Total     int64      `json:"total"`
 }
 
 type CreatePaymentRequest struct {

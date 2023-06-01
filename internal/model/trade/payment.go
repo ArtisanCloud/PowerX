@@ -13,33 +13,32 @@ type Payment struct {
 	Order *Order         `gorm:"foreignKey:OrderId;references:Id" json:"order"`
 	Items []*PaymentItem `gorm:"foreignKey:PaymentID;references:Id" json:"items"`
 
-	OrderId         int64         `gorm:"comment:订单Id" json:"orderId"`
-	PaymentDate     time.Time     `gorm:"comment:支付日期" json:"paymentDate"`
-	PaymentType     PaymentType   `gorm:"comment:支付方式" json:"paymentType"`
-	PaidAmount      float64       `gorm:"type:decimal(10,2); comment:实际支付金额" json:"paidAmount"`
-	PaymentNumber   string        `gorm:"comment:支付单单号" json:"paymentNumber"`
-	ReferenceNumber string        `gorm:"comment:参考单号" json:"referenceNumber"`
-	Remark          string        `gorm:"comment:备注" json:"remark"`
-	Status          PaymentStatus `gorm:"comment:支付单状态" json:"status"`
+	OrderId         int64     `gorm:"comment:订单Id" json:"orderId"`
+	PaymentDate     time.Time `gorm:"comment:支付日期" json:"paymentDate"`
+	PaymentType     int       `gorm:"comment:支付方式" json:"paymentType"`
+	PaidAmount      float64   `gorm:"type:decimal(10,2); comment:实际支付金额" json:"paidAmount"`
+	PaymentNumber   string    `gorm:"comment:支付单单号" json:"paymentNumber"`
+	ReferenceNumber string    `gorm:"comment:参考单号" json:"referenceNumber"`
+	Remark          string    `gorm:"comment:备注" json:"remark"`
+	Status          int       `gorm:"comment:支付单状态" json:"status"`
 }
 
-type PaymentStatus int
+const TypePaymentType = "_payment_type"
+const TypePaymentStatus = "_payment_status"
 
 const (
-	PaymentStatusPending   PaymentStatus = iota // 待支付
-	PaymentStatusPaid                           // 已支付
-	PaymentStatusRefunded                       // 已退款
-	PaymentStatusCancelled                      // 已取消
+	PaymentStatusPending   = "_pending"   // 待支付
+	PaymentStatusPaid      = "_paid"      // 已支付
+	PaymentStatusRefunded  = "_refunded"  // 已退款
+	PaymentStatusCancelled = "_cancelled" // 已取消
 )
 
-type PaymentType int
-
 const (
-	PaymentTypeBank       PaymentType = iota // 银行
-	PaymentTypeWeChat                        // 微信
-	PaymentTypeAlipay                        // 支付宝
-	PaymentTypePayPal                        // PayPal
-	PaymentTypeCreditCard                    // 信用卡
+	PaymentTypeBank       = "_bank"        // 银行
+	PaymentTypeWeChat     = "_wechat"      // 微信
+	PaymentTypeAlipay     = "_alipay"      // 支付宝
+	PaymentTypePayPal     = "_paypal"      // PayPal
+	PaymentTypeCreditCard = "_credit_card" // 信用卡
 )
 
 type PaymentItem struct {
@@ -67,6 +66,6 @@ func GeneratePaymentNumber() string {
 	return "PO" + carbon.Now().Format("YmdHis") + object.QuickRandom(6)
 }
 
-func (mdl *Payment) IsStatusToBePaid() bool {
-	return mdl.Status == PaymentStatusPending
-}
+//func (mdl *Payment) IsStatusToBePaid() bool {
+//	return mdl.Status == PaymentStatusPending
+//}
