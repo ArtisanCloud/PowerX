@@ -12,6 +12,7 @@ import "admin.api"
 import "admin.crm.api"
 import "admin.scrm.api"
 import "mp.api"
+import "web.api"
 
 import "custom.api"
 import "plugin.api"

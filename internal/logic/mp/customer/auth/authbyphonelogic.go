@@ -127,7 +127,7 @@ func (l *AuthByPhoneLogic) AuthByPhone(req *types.MPCustomerAuthRequest) (resp *
 		NickName:    mpCustomer.NickName,
 		AvatarURL:   mpCustomer.AvatarURL,
 		Gender:      mpCustomer.Gender,
-		Token: types.Token{
+		Token: types.MPToken{
 			TokenType:    token.TokenType,
 			ExpiresIn:    fmt.Sprintf("%d", customerdomain2.CustomerTokenExpiredDuration),
 			AccessToken:  token.AccessToken,

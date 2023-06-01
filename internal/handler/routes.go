@@ -41,6 +41,7 @@ import (
 	mptradecart "PowerX/internal/handler/mp/trade/cart"
 	mptradeorder "PowerX/internal/handler/mp/trade/order"
 	mptradepayment "PowerX/internal/handler/mp/trade/payment"
+	webcustomerauthoa "PowerX/internal/handler/web/customer/auth/oa"
 	"PowerX/internal/svc"
 
 	"github.com/zeromicro/go-zero/rest"
@@ -1341,5 +1342,55 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			}...,
 		),
 		rest.WithPrefix("/api/v1/mp/market"),
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.WebCustomerJWTAuth},
+			[]rest.Route{
+				{
+					Method:  http.MethodGet,
+					Path:    "/types/page-list",
+					Handler: mpdictionary.ListDictionaryPageTypesHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/types/:type",
+					Handler: mpdictionary.GetDictionaryTypeHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/items",
+					Handler: mpdictionary.ListDictionaryItemsHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/items/:type/:key",
+					Handler: mpdictionary.GetDictionaryItemHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithPrefix("/api/v1/web/dictionary"),
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
+			{
+				Method:  http.MethodPost,
+				Path:    "/oa/login",
+				Handler: webcustomerauthoa.OALoginHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodPost,
+				Path:    "/oa/authByPhone",
+				Handler: webcustomerauthoa.AuthByPhoneHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodPost,
+				Path:    "/oa/authByProfile",
+				Handler: webcustomerauthoa.AuthByProfileHandler(serverCtx),
+			},
+		},
+		rest.WithPrefix("/api/v1/web/customer"),
 	)
 }

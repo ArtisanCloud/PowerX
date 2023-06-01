@@ -25,6 +25,9 @@ WechatOA:
   AppId: wx93607xxxxxxxxxx  # 微信公众号AppID
   Secret: 6ZwxxxtFouxxxxxxxxxxxxxxxxxxx0tgXYw4oh7KI  # 微信公众号Secret
   AESKey: PBcwPOp0e6tFou    # 微信公众号AES密钥
+  OAuth:
+    Callback: "https://wechat-mp.artisan-cloud.com/callback"
+    Scopes:
   HttpDebug: true           # 是否启用HTTP调试模式
 
 WechatPay:
@@ -45,6 +48,9 @@ WechatMP:
   AppId: wx93607xxxxxxxxxx  # 微信小程序AppID
   Secret: 188c70xxxxxxxxxx70xxxxxxxxxx56c4  # 微信小程序Secret
   AESKey: PBcwPOp0e6tFou      # 微信小程序AES密钥
+  OAuth:
+    Callback: "https://wechat-mp.artisan-cloud.com/callback"
+    Scopes:
   HttpDebug: true           # 是否启用HTTP调试模式
 
 WeWork:

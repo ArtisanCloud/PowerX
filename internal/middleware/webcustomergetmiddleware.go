@@ -11,19 +11,19 @@ import (
 	"net/http"
 )
 
-type MPCustomerGetMiddleware struct {
+type WebCustomerGetMiddleware struct {
 	conf *config.Config
 	px   *uc.PowerXUseCase
 }
 
-func NewMPCustomerGetMiddleware(conf *config.Config, px *uc.PowerXUseCase, opts ...optionFunc) *MPCustomerGetMiddleware {
-	return &MPCustomerGetMiddleware{
+func NewWebCustomerGetMiddleware(conf *config.Config, px *uc.PowerXUseCase, opts ...optionFunc) *WebCustomerGetMiddleware {
+	return &WebCustomerGetMiddleware{
 		conf: conf,
 		px:   px,
 	}
 }
 
-func (m *MPCustomerGetMiddleware) Handle(next http.HandlerFunc) http.HandlerFunc {
+func (m *WebCustomerGetMiddleware) Handle(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
 		unAuth := errorx.ErrUnAuthorization.(*errorx.Error)
@@ -40,7 +40,7 @@ func (m *MPCustomerGetMiddleware) Handle(next http.HandlerFunc) http.HandlerFunc
 		}
 
 		// 小程序的客户记录是否存在
-		authMPCustomer, err := m.px.WechatMP.FindOneMPCustomer(r.Context(), &powerx.FindMPCustomerOption{
+		authOACustomer, err := m.px.WechatOA.FindOneOACustomer(r.Context(), &powerx.FindOACustomerOption{
 			OpenIds: []string{openId},
 		})
 		if err != nil {
@@ -49,12 +49,12 @@ func (m *MPCustomerGetMiddleware) Handle(next http.HandlerFunc) http.HandlerFunc
 		}
 
 		// 小程序的客户记录是否存在
-		if authMPCustomer.Customer == nil {
+		if authOACustomer.Customer == nil {
 			httpx.Error(w, errorx.WithCause(unAuth, "无效客户记录"))
 			return
 		}
 
-		ctx := context.WithValue(r.Context(), customerdomain.AuthCustomerKey, authMPCustomer.Customer)
+		ctx := context.WithValue(r.Context(), customerdomain.AuthCustomerKey, authOACustomer.Customer)
 
 		next(w, r.WithContext(ctx))
 	}
