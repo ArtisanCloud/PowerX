@@ -1150,32 +1150,32 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			[]rest.Route{
 				{
 					Method:  http.MethodGet,
-					Path:    "/payment/page-list",
+					Path:    "/payments/page-list",
 					Handler: admintradepayment.ListPaymentsPageHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodGet,
-					Path:    "/payment/:id",
+					Path:    "/payments/:id",
 					Handler: admintradepayment.GetPaymentHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPost,
-					Path:    "/payment",
+					Path:    "/payments",
 					Handler: admintradepayment.CreatePaymentHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPut,
-					Path:    "/payment/:id",
+					Path:    "/payments/:id",
 					Handler: admintradepayment.PutPaymentHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPatch,
-					Path:    "/payment/:id",
+					Path:    "/payments/:id",
 					Handler: admintradepayment.PatchPaymentHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodDelete,
-					Path:    "/payment/:id",
+					Path:    "/payments/:id",
 					Handler: admintradepayment.DeletePaymentHandler(serverCtx),
 				},
 			}...,

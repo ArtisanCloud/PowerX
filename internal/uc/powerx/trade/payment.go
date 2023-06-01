@@ -7,6 +7,7 @@ import (
 	"PowerX/internal/model/trade"
 	"PowerX/internal/types"
 	"PowerX/internal/types/errorx"
+	"PowerX/internal/uc/powerx"
 	"context"
 	"fmt"
 	"github.com/ArtisanCloud/PowerWeChat/v3/src/payment"
@@ -110,6 +111,7 @@ func (uc *PaymentUseCase) FindManyPayments(ctx context.Context, opt *FindManyPay
 		db.Offset((opt.PageIndex - 1) * opt.PageSize).Limit(opt.PageSize)
 	}
 
+	db = uc.PreloadItems(db)
 	if err := db.Find(&payments).Error; err != nil {
 		panic(err)
 	}
@@ -124,13 +126,14 @@ func (uc *PaymentUseCase) FindManyPayments(ctx context.Context, opt *FindManyPay
 
 func (uc *PaymentUseCase) CreatePaymentFromOrderByWechat(ctx context.Context,
 	customer *customerdomain2.Customer, order *trade.Order,
-	openId string, paymentType trade.PaymentType,
+	openId string, paymentType int,
 ) (payment *trade.Payment, data interface{}, err error) {
 
 	db := uc.db.WithContext(ctx)
 
+	paymentStatusId := uc.GetPaymentStatusId(ctx, trade.PaymentStatusPending)
 	// 创建支付单
-	payment = uc.MakePaymentFromOrder(customer, order, paymentType, trade.PaymentStatusPending)
+	payment = uc.MakePaymentFromOrder(customer, order, paymentType, paymentStatusId)
 	err = db.Transaction(func(tx *gorm.DB) error {
 		// 保存支付单
 		err = tx.Model(trade.Payment{}).
@@ -160,7 +163,7 @@ func (uc *PaymentUseCase) CreatePaymentFromOrderByWechat(ctx context.Context,
 	return payment, data, err
 }
 
-func (uc *PaymentUseCase) MakePaymentFromOrder(customer *customerdomain2.Customer, order *trade.Order, paymentType trade.PaymentType, paymentStatus trade.PaymentStatus) (payment *trade.Payment) {
+func (uc *PaymentUseCase) MakePaymentFromOrder(customer *customerdomain2.Customer, order *trade.Order, paymentType int, paymentStatus int) (payment *trade.Payment) {
 	payment = &trade.Payment{
 		OrderId:       order.Id,
 		PaymentType:   paymentType,
@@ -265,7 +268,11 @@ func (uc *PaymentUseCase) PatchPayment(ctx context.Context, id int64, payment *t
 
 func (uc *PaymentUseCase) GetPayment(ctx context.Context, id int64) (*trade.Payment, error) {
 	var p = &trade.Payment{}
-	if err := uc.db.WithContext(ctx).First(p, id).Error; err != nil {
+	db := uc.db.WithContext(ctx)
+	db = uc.PreloadItems(db)
+	if err := db.
+		Debug().
+		First(p, id).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errorx.WithCause(errorx.ErrBadRequest, "未找到支付单")
 		}
@@ -335,9 +342,34 @@ func (uc *PaymentUseCase) ClearAssociations(db *gorm.DB, payment *trade.Payment)
 func (uc *PaymentUseCase) ChangePaymentStatusPaid(ctx context.Context, payment *trade.Payment) (*trade.Payment, error) {
 	db := uc.db.WithContext(ctx)
 
-	payment.Status = trade.PaymentStatusPaid
+	payment.Status = uc.GetPaymentStatusId(ctx, trade.PaymentStatusPaid)
 
 	err := db.Save(payment).Error
 
 	return payment, err
+}
+
+func (uc *PaymentUseCase) IsPaymentTypeSameAs(ctx context.Context, payment *trade.Payment, paymentType string) bool {
+	ucDD := powerx.NewDataDictionaryUseCase(uc.db)
+
+	return payment.PaymentType == ucDD.GetCachedDDId(ctx, trade.TypePaymentType, paymentType)
+
+}
+
+func (uc *PaymentUseCase) IsPaymentStatusSameAs(ctx context.Context, payment *trade.Payment, paymentStatus string) bool {
+	ucDD := powerx.NewDataDictionaryUseCase(uc.db)
+
+	return payment.Status == ucDD.GetCachedDDId(ctx, trade.TypePaymentStatus, paymentStatus)
+
+}
+
+func (uc *PaymentUseCase) GetPaymentTypeId(ctx context.Context, paymentType string) (paymentTypeId int) {
+	ucDD := powerx.NewDataDictionaryUseCase(uc.db)
+	paymentTypeId = ucDD.GetCachedDDId(ctx, trade.TypePaymentType, paymentType)
+	return paymentTypeId
+}
+func (uc *PaymentUseCase) GetPaymentStatusId(ctx context.Context, paymentStatus string) (paymentStatusId int) {
+	ucDD := powerx.NewDataDictionaryUseCase(uc.db)
+	paymentStatusId = ucDD.GetCachedDDId(ctx, trade.TypePaymentStatus, paymentStatus)
+	return paymentStatusId
 }

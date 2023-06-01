@@ -5,6 +5,7 @@ import (
 	"PowerX/internal/types"
 	"PowerX/internal/types/errorx"
 	"context"
+	"fmt"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -39,6 +40,17 @@ func (uc *DataDictionaryUseCase) GetCachedDD(ctx context.Context, itemType strin
 	return item
 }
 
+func (uc *DataDictionaryUseCase) GetCachedDDById(ctx context.Context, id int) *model.DataDictionaryItem {
+
+	item, err := uc.GetDataDictionaryItemById(ctx, id)
+
+	if err != nil {
+		panic(errors.Wrap(err, fmt.Sprintf("failed to get dd id: %d", id)))
+	}
+
+	return item
+}
+
 func (uc *DataDictionaryUseCase) CreateDataDictionaryItem(ctx context.Context, dd *model.DataDictionaryItem) error {
 	if err := uc.db.WithContext(ctx).Create(&dd).Error; err != nil {
 		// todo use errors.Is() when gorm update ErrDuplicatedKey
@@ -67,6 +79,17 @@ func (uc *DataDictionaryUseCase) PatchDataDictionaryItem(ctx context.Context, di
 func (uc *DataDictionaryUseCase) GetDataDictionaryItem(ctx context.Context, dictType string, key string) (*model.DataDictionaryItem, error) {
 	var dd model.DataDictionaryItem
 	if err := uc.db.WithContext(ctx).Where("key = ? AND type = ?", key, dictType).First(&dd).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errorx.WithCause(errorx.ErrBadRequest, "未找到数据字典")
+		}
+		panic(err)
+	}
+	return &dd, nil
+}
+
+func (uc *DataDictionaryUseCase) GetDataDictionaryItemById(ctx context.Context, id int) (*model.DataDictionaryItem, error) {
+	var dd model.DataDictionaryItem
+	if err := uc.db.WithContext(ctx).Where("id", id).First(&dd).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errorx.WithCause(errorx.ErrBadRequest, "未找到数据字典")
 		}

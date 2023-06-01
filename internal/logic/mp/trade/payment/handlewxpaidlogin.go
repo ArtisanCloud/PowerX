@@ -46,7 +46,8 @@ func (srv *HandleWXPaidLogic) HandleWXPaid(w http.ResponseWriter, r *http.Reques
 		}
 
 		// 将该未支付完成的订单，修改状态
-		if payment.IsStatusToBePaid() && message.EventType == "TRANSACTION.SUCCESS" {
+		//if payment.IsStatusToBePaid() && message.EventType == "TRANSACTION.SUCCESS" {
+		if message.EventType == "TRANSACTION.SUCCESS" {
 			payment, err = srv.svcCtx.PowerX.Payment.ChangePaymentStatusPaid(srv.ctx, payment)
 			if err != nil {
 				return err

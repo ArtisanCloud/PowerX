@@ -1,9 +1,9 @@
 package billing
 
 import (
+	"PowerX/internal/logic/admin/trade/address/billing"
 	"net/http"
 
-	"PowerX/internal/logic/admin/trade/address"
 	"PowerX/internal/svc"
 	"PowerX/internal/types"
 	"github.com/zeromicro/go-zero/rest/httpx"
@@ -17,7 +17,7 @@ func ListBillingAddressesPageHandler(svcCtx *svc.ServiceContext) http.HandlerFun
 			return
 		}
 
-		l := address.NewListBillingAddressesPageLogic(r.Context(), svcCtx)
+		l := billing.NewListBillingAddressesPageLogic(r.Context(), svcCtx)
 		resp, err := l.ListBillingAddressesPage(&req)
 		if err != nil {
 			httpx.ErrorCtx(r.Context(), w, err)

@@ -61,7 +61,9 @@ type OrderItem {
 
 type Order {
     Id int64 `json:"id,optional"`
+
     CustomerId int64 `json:"customerId,optional"`
+    CartId int64 `json:"cartId,optional"`
     PaymentType int8 `json:"paymentType,optional"`
     Type int8 `json:"type,optional"`
     Status int8 `json:"status,optional"`
@@ -70,9 +72,12 @@ type Order {
     ListPrice float64 `json:"listPrice,optional"`
     UnitPrice float64 `json:"unitPrice,optional"`
     Comment string `json:"comment,optional"`
+    CompletedAt string `json:"completedAt,optional,omitempty"`
+    CancelledAt string `json:"cancelledAt,optional,omitempty"`
+    ShippingMethod string `json:"shippingMethod,optional,omitempty"`
+    CreatedAt string `json:"createdAt,optional,omitempty"`
     OrderItems []*OrderItem `json:"orderItems,optional"`
     Payments []*Payment `json:"payments,optional"`
-    CreatedAt string `json:"createdAt,optional,omitempty"`
 }
 
 type ListOrdersPageRequest {

@@ -2,6 +2,7 @@ package seed
 
 import (
 	"PowerX/cmd/ctl/database/custom/seed"
+	"PowerX/cmd/ctl/database/seed/datadictionary"
 	"PowerX/internal/config"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -27,7 +28,7 @@ func NewPowerSeeder(conf *config.Config) (*PowerSeeder, error) {
 func (s *PowerSeeder) CreatePowerX() (err error) {
 
 	_ = CreateOrganization(s.db)
-	_ = CreateDataDictionaries(s.db)
+	_ = datadictionary.CreateDataDictionaries(s.db)
 	_ = CreateMediaResources(s.db, s.conf)
 	_ = CreateProductCategories(s.db)
 	_ = CreateProducts(s.db)

@@ -18,30 +18,30 @@ info(
 service PowerX {
     @doc "查询支付单列表"
     @handler ListPaymentsPage
-    get /payment/page-list (ListPaymentsPageRequest) returns (ListPaymentsPageReply)
+    get /payments/page-list (ListPaymentsPageRequest) returns (ListPaymentsPageReply)
 
     @doc "查询支付单详情"
     @handler GetPayment
-    get /payment/:id (GetPaymentRequest) returns (GetPaymentReply)
+    get /payments/:id (GetPaymentRequest) returns (GetPaymentReply)
 
 
     @doc "创建支付单"
     @handler CreatePayment
-    post /payment (CreatePaymentRequest) returns (CreatePaymentReply)
+    post /payments (CreatePaymentRequest) returns (CreatePaymentReply)
 
 
     @doc "全量支付单"
     @handler PutPayment
-    put /payment/:id (PutPaymentRequest) returns (PutPaymentReply)
+    put /payments/:id (PutPaymentRequest) returns (PutPaymentReply)
 
     @doc "增量支付单"
     @handler PatchPayment
-    patch /payment/:id (PatchPaymentRequest) returns (PatchPaymentReply)
+    patch /payments/:id (PatchPaymentRequest) returns (PatchPaymentReply)
 
 
     @doc "删除支付单"
     @handler DeletePayment
-    delete /payment/:id (DeletePaymentRequest) returns (DeletePaymentReply)
+    delete /payments/:id (DeletePaymentRequest) returns (DeletePaymentReply)
 }
 
 type (
@@ -87,7 +87,7 @@ type (
 
 
     ListPaymentsPageReply struct {
-        List []Payment `json:"list"`
+        List []*Payment `json:"list"`
         PageIndex int `json:"pageIndex"`
         PageSize int `json:"pageSize"`
         Total int64 `json:"total"`

@@ -33,14 +33,15 @@ func (l *CancelOrderLogic) CancelOrder(req *types.CancelOrderRequest) (resp *typ
 
 	// 找出相应的Cart Items
 	order, err := l.svcCtx.PowerX.Order.GetOrder(l.ctx, req.OrderId)
-	if order.Status >= trade.OrderStatusCompleted {
+	if l.svcCtx.PowerX.Order.CanOrderCancel(l.ctx, order) {
 		return nil, errorx.WithCause(errorx.ErrBadRequest, "订单状态不能被取消")
 	}
 
 	if order.CustomerId != authCustomer.Id {
 		return nil, errorx.WithCause(errorx.ErrBadRequest, "无权取消该订单")
 	}
-	order.Status = trade.OrderStatusCancelled
+	orderStatusId := l.svcCtx.PowerX.Order.GetOrderStatusId(l.ctx, trade.OrderStatusCancelled)
+	order.Status = orderStatusId
 	l.svcCtx.PowerX.Order.PatchOrder(l.ctx, req.OrderId, order)
 
 	return &types.CancelOrderReply{

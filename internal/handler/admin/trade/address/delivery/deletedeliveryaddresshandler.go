@@ -1,9 +1,9 @@
 package delivery
 
 import (
+	"PowerX/internal/logic/admin/trade/address/delivery"
 	"net/http"
 
-	"PowerX/internal/logic/admin/trade/address"
 	"PowerX/internal/svc"
 	"PowerX/internal/types"
 	"github.com/zeromicro/go-zero/rest/httpx"
@@ -17,7 +17,7 @@ func DeleteDeliveryAddressHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			return
 		}
 
-		l := address.NewDeleteDeliveryAddressLogic(r.Context(), svcCtx)
+		l := delivery.NewDeleteDeliveryAddressLogic(r.Context(), svcCtx)
 		resp, err := l.DeleteDeliveryAddress(&req)
 		if err != nil {
 			httpx.ErrorCtx(r.Context(), w, err)
