@@ -1952,16 +1952,16 @@ type MPCustomerAuthRequest struct {
 }
 
 type MPCustomerLoginAuthReply struct {
-	OpenId      string `json:"openId"`
-	UnionId     string `json:"unionId"`
-	PhoneNumber string `json:"phoneNumber"`
-	NickName    string `json:"nickName"`
-	AvatarURL   string `json:"avatarURL"`
-	Gender      string `json:"gender"`
-	Token       Token  `json:"token"`
+	OpenId      string  `json:"openId"`
+	UnionId     string  `json:"unionId"`
+	PhoneNumber string  `json:"phoneNumber"`
+	NickName    string  `json:"nickName"`
+	AvatarURL   string  `json:"avatarURL"`
+	Gender      string  `json:"gender"`
+	Token       MPToken `json:"token"`
 }
 
-type Token struct {
+type MPToken struct {
 	TokenType    string `json:"tokenType"`
 	ExpiresIn    string `json:"expiresIn"`
 	AccessToken  string `json:"accessToken"`
@@ -2284,4 +2284,31 @@ type UpdatePaymentRequest struct {
 
 type UpdatePaymentReply struct {
 	*Payment
+}
+
+type OACustomerLoginRequest struct {
+	Code string `json:"code"`
+}
+
+type OACustomerAuthRequest struct {
+	Code          string `json:"code"`
+	IV            string `json:"iv"`
+	EncryptedData string `json:"encryptedData"`
+}
+
+type OACustomerLoginAuthReply struct {
+	OpenId      string  `json:"openId"`
+	UnionId     string  `json:"unionId"`
+	PhoneNumber string  `json:"phoneNumber"`
+	NickName    string  `json:"nickName"`
+	AvatarURL   string  `json:"avatarURL"`
+	Gender      string  `json:"gender"`
+	Token       OAToken `json:"token"`
+}
+
+type OAToken struct {
+	TokenType    string `json:"tokenType"`
+	ExpiresIn    string `json:"expiresIn"`
+	AccessToken  string `json:"accessToken"`
+	RefreshToken string `json:"refreshToken"`
 }

@@ -11,24 +11,26 @@ import (
 // 公众号的客户信息
 // https://developers.weixin.qq.com/doc/offiaccount/User_Management/Get_users_basic_information_UnionId.html#UinonId
 type WechatOACustomer struct {
+	Customer *customerdomain2.Customer `gorm:"foreignKey:OpenId;references:OpenIdInWeChatOfficialAccount" json:"customer"`
+
 	Model
 	Subscribe      int            `json:"subscribe"`
 	SessionKey     string         `json:"-"`
-	OpenId         string         `json:"openid"`
-	UnionId        string         `json:"unionid"`
+	OpenId         string         `json:"openId"`
+	UnionId        string         `json:"unionId"`
 	Language       string         `json:"language"`
-	SubscribeTime  int            `json:"subscribe_time"`
+	SubscribeTime  int            `json:"subscribeTime"`
 	Remark         string         `json:"remark"`
-	GroupID        int            `json:"groupid"`
-	TagIDList      datatypes.JSON `json:"tagid_list"`
-	SubscribeScene string         `json:"subscribe_scene"`
-	QrScene        int            `json:"qr_scene"`
-	QrSceneStr     string         `json:"qr_scene_str"`
+	GroupId        int            `json:"groupId"`
+	TagIdList      datatypes.JSON `json:"tagIdList"`
+	SubscribeScene string         `json:"subscribeScene"`
+	QrScene        int            `json:"qrScene"`
+	QrSceneStr     string         `json:"qrSceneStr"`
 }
 
 // 小程序客户信息
 type WechatMPCustomer struct {
-	Customer *customerdomain2.Customer `gorm:"foreignKey:OpenId;references:OpenIdInMiniProgram" json:"customerdomain"`
+	Customer *customerdomain2.Customer `gorm:"foreignKey:OpenId;references:OpenIdInMiniProgram" json:"customer"`
 
 	Model
 	UniqueID   string `gorm:"unique" json:"uniqueId"`
@@ -52,24 +54,6 @@ type WechatMPCustomer struct {
 }
 
 const WechatMpCustomerUniqueId = "unique_id"
-
-type FindMPCustomerOption struct {
-	Ids             []int64
-	SessionKey      string
-	OpenIds         []string
-	UnionIds        []string
-	PhoneNumbers    []string
-	PhoneNumberLike string
-	NickNames       []string
-	NickNameLike    string
-	Gender          int64
-	Country         string
-	Province        string
-	City            string
-	//Statuses        []MPCustomerStatus
-	PageIndex int
-	PageSize  int
-}
 
 // 小程序获取手机号
 // https://developers.weixin.qq.com/miniprogram/dev/OpenApiDoc/user-info/phone-number/getPhoneNumber.html

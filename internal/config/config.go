@@ -18,8 +18,13 @@ type WeWork struct {
 }
 
 type WechatOA struct {
-	AppId     string
-	Secret    string
+	AppId  string
+	Secret string
+	AESKey string
+	OAuth  struct {
+		Callback string
+		Scopes   []string
+	}
 	HttpDebug bool
 }
 
@@ -38,9 +43,13 @@ type WechatPay struct {
 }
 
 type WechatMP struct {
-	AppId     string
-	Secret    string
-	AESKey    string
+	AppId  string
+	Secret string
+	AESKey string
+	OAuth  struct {
+		Callback string
+		Scopes   []string
+	}
 	HttpDebug bool
 }
 

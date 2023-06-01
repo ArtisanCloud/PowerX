@@ -1,10 +1,10 @@
 package auth
 
 import (
-	"PowerX/internal/model"
 	"PowerX/internal/svc"
 	"PowerX/internal/types"
 	"PowerX/internal/types/errorx"
+	"PowerX/internal/uc/powerx"
 	"PowerX/internal/uc/powerx/customerdomain"
 	"context"
 	"fmt"
@@ -38,7 +38,7 @@ func (l *LoginLogic) Login(req *types.MPCustomerLoginRequest) (resp *types.MPCus
 	//	SessionKey: "IHaqJoWvRRCRlfnrRntzcA==",
 	//}
 
-	mpCustomer, err := l.svcCtx.PowerX.WechatMP.FindOneMPCustomer(l.ctx, &model.FindMPCustomerOption{
+	mpCustomer, err := l.svcCtx.PowerX.WechatMP.FindOneMPCustomer(l.ctx, &powerx.FindMPCustomerOption{
 		OpenIds: []string{rs.OpenID},
 	})
 
@@ -65,7 +65,7 @@ func (l *LoginLogic) Login(req *types.MPCustomerLoginRequest) (resp *types.MPCus
 		NickName:    mpCustomer.NickName,
 		AvatarURL:   mpCustomer.AvatarURL,
 		Gender:      mpCustomer.Gender,
-		Token: types.Token{
+		Token: types.MPToken{
 			TokenType:    token.TokenType,
 			ExpiresIn:    fmt.Sprintf("%d", customerdomain.CustomerTokenExpiredDuration),
 			AccessToken:  token.AccessToken,
