@@ -2,6 +2,7 @@ package order
 
 import (
 	"PowerX/internal/model/trade"
+	"PowerX/internal/types/errorx"
 	"context"
 	"math"
 
@@ -26,9 +27,15 @@ func NewGetOrderLogic(ctx context.Context, svcCtx *svc.ServiceContext) *GetOrder
 }
 
 func (l *GetOrderLogic) GetOrder(req *types.GetOrderRequest) (resp *types.GetOrderReply, err error) {
-	// todo: add your logic here and delete this line
+	mdlOrder, err := l.svcCtx.PowerX.Order.GetOrder(l.ctx, req.OrderId)
 
-	return
+	if err != nil {
+		return nil, errorx.ErrNotFoundObject
+	}
+
+	return &types.GetOrderReply{
+		Order: TransformOrderToOrderReplyToMP(mdlOrder),
+	}, nil
 }
 
 func TransformOrderToOrderReplyToMP(order *trade.Order) *types.Order {
@@ -69,6 +76,12 @@ func TransformOrderItemToOrderItemReplyToMP(orderItem *trade.OrderItem) (orderIt
 	if orderItem == nil {
 		return nil
 	}
+
+	coverImageUrl := ""
+	if orderItem.CoverImage != nil {
+		coverImageUrl = orderItem.CoverImage.Url
+	}
+
 	return &types.OrderItem{
 		Id:               orderItem.Id,
 		OrderId:          orderItem.OrderId,
@@ -79,7 +92,7 @@ func TransformOrderItemToOrderItemReplyToMP(orderItem *trade.OrderItem) (orderIt
 		Quantity:         orderItem.Quantity,
 		UnitPrice:        orderItem.UnitPrice,
 		ListPrice:        orderItem.ListPrice,
-		CoverUrl:         orderItem.CoverImage.Url,
+		CoverUrl:         coverImageUrl,
 		ProdcutName:      orderItem.ProductName,
 		SkuNo:            orderItem.SkuNo,
 	}

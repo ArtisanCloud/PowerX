@@ -99,6 +99,7 @@ func (uc *OrderUseCase) FindManyOrders(ctx context.Context, opt *FindManyOrdersO
 
 	db = uc.PreloadItems(db)
 	if err := db.
+		Debug().
 		Find(&orders).Error; err != nil {
 		panic(err)
 	}
@@ -197,6 +198,7 @@ func (uc *OrderUseCase) CreateOrderByCartItems(ctx context.Context,
 		cart.Items = cartItems
 		err = tx.Model(trade.Cart{}).
 			//Debug().
+			// 在生成订单时候，不希望将sku的相关信息再次有数据操作
 			Omit("Items.SKU.PriceBookEntry").
 			Omit("Items.SKU").
 			Create(cart).Error
@@ -256,7 +258,7 @@ func (uc *OrderUseCase) MakeOrderItemsFromEntries(
 	totalListPrice = 0.0
 	orderItems = []*trade.OrderItem{}
 	for i, entry := range entries {
-		orderItem, subUnitTotal, subListTotal := uc.MakeOrderItemFromEntry(entry, customer, quantities[i], orderType, orderStatus)
+		orderItem, subUnitTotal, subListTotal := uc.MakeOrderItemFromEntry(i, entry, customer, quantities[i], orderType, orderStatus)
 		orderItems = append(orderItems, orderItem)
 		totalUnitPrice += subUnitTotal
 		totalListPrice += subListTotal
@@ -265,6 +267,7 @@ func (uc *OrderUseCase) MakeOrderItemsFromEntries(
 }
 
 func (uc *OrderUseCase) MakeOrderItemFromEntry(
+	index int,
 	entry *product.PriceBookEntry,
 	customer *customerdomain2.Customer,
 	quantity int,
@@ -275,7 +278,7 @@ func (uc *OrderUseCase) MakeOrderItemFromEntry(
 	subUnitTotal = 0.0
 	subListTotal = 0.0
 	orderItem = &trade.OrderItem{
-		PriceBookEntryId: entry.SkuId,
+		PriceBookEntryId: entry.Id,
 		CustomerId:       customer.Id,
 		Type:             orderType,
 		Status:           orderStatus,
@@ -285,7 +288,7 @@ func (uc *OrderUseCase) MakeOrderItemFromEntry(
 		Discount:         entry.UnitPrice / entry.ListPrice,
 		ProductName:      entry.Product.Name,
 		SkuNo:            entry.SKU.SkuNo,
-		CoverImageId:     entry.Product.PivotCoverImages[0].Id,
+		CoverImageId:     entry.Product.PivotCoverImages[0].MediaResourceId,
 	}
 	subUnitTotal = orderItem.UnitPrice * float64(orderItem.Quantity)
 	subListTotal = orderItem.ListPrice * float64(orderItem.Quantity)
@@ -384,6 +387,7 @@ func (uc *OrderUseCase) GetOrder(ctx context.Context, id int64) (*trade.Order, e
 	db := uc.db.WithContext(ctx)
 	db = uc.PreloadItems(db)
 	if err := db.
+		Debug().
 		First(order, id).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errorx.WithCause(errorx.ErrBadRequest, "未找到产品")

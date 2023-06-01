@@ -2146,7 +2146,7 @@ type GetOrderRequest struct {
 }
 
 type GetOrderReply struct {
-	Order
+	*Order
 }
 
 type PutOrderRequest struct {
@@ -2155,7 +2155,7 @@ type PutOrderRequest struct {
 }
 
 type PutOrderReply struct {
-	Order
+	*Order
 }
 
 type PatchOrderRequest struct {
@@ -2164,7 +2164,7 @@ type PatchOrderRequest struct {
 }
 
 type PatchOrderReply struct {
-	Order
+	*Order
 }
 
 type DeleteOrderRequest struct {
