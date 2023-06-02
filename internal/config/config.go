@@ -5,7 +5,8 @@ import (
 )
 
 type Database struct {
-	DSN string
+	DSN              string
+	SeedCommerceData bool
 }
 
 type WeWork struct {

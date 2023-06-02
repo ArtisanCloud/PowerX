@@ -18,15 +18,17 @@ Casbin:
   SelfHosted: true           # 是否使用自己的Casbin服务
 
 PowerXDatabase:
-  DSN: host=localhost user=postgres password=powerx dbname=powerx port=5432 sslmode=disable TimeZone=UTC
   # 数据库连接信息
+  DSN: host=localhost user=postgres password=powerx dbname=powerx port=5432 sslmode=disable TimeZone=UTC
+  # 数据库是否初始化定制的种子数据
+  SeedCommerceData: false
 
 WechatOA:
   AppId: wx93607xxxxxxxxxx  # 微信公众号AppID
   Secret: 6ZwxxxtFouxxxxxxxxxxxxxxxxxxx0tgXYw4oh7KI  # 微信公众号Secret
   AESKey: PBcwPOp0e6tFou    # 微信公众号AES密钥
   OAuth:
-    Callback: "https://wechat-mp.artisan-cloud.com/callback"
+    Callback: "https://wechat-oa.artisan-cloud.com/callback"
     Scopes: [ ]
   HttpDebug: true           # 是否启用HTTP调试模式
 
