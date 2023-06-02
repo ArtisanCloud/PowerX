@@ -1,5 +1,6 @@
 import "web/dictionary.api"
-import "web/customerdomain/authoacustomer.api"
+import "web/customerdomain/customer.api"
+import "web/customerdomain/oacustomer.api"
 //import "web/product/store.api"
 //import "web/product/product.api"
 //import "web/product/productcategory.api"

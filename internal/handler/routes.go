@@ -41,6 +41,7 @@ import (
 	mptradecart "PowerX/internal/handler/mp/trade/cart"
 	mptradeorder "PowerX/internal/handler/mp/trade/order"
 	mptradepayment "PowerX/internal/handler/mp/trade/payment"
+	webcustomerauth "PowerX/internal/handler/web/customer/auth"
 	webcustomerauthoa "PowerX/internal/handler/web/customer/auth/oa"
 	"PowerX/internal/svc"
 
@@ -1371,6 +1372,27 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			}...,
 		),
 		rest.WithPrefix("/api/v1/web/dictionary"),
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
+			{
+				Method:  http.MethodPost,
+				Path:    "/login",
+				Handler: webcustomerauth.LoginHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodPost,
+				Path:    "/registerByPhone",
+				Handler: webcustomerauth.RegisterCustomerByPhoneHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodPost,
+				Path:    "/updateCustomerProfile/:id",
+				Handler: webcustomerauth.UpdateCustomerProfileHandler(serverCtx),
+			},
+		},
+		rest.WithPrefix("/api/v1/web/customer"),
 	)
 
 	server.AddRoutes(

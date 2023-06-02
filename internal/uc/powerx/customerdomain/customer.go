@@ -24,6 +24,7 @@ func NewCustomerUseCase(db *gorm.DB) *CustomerUseCase {
 type FindManyCustomersOption struct {
 	LikeName   string
 	LikeMobile string
+	Mobile     string
 	Statuses   []int
 	Sources    []int
 	OrderBy    string
@@ -36,6 +37,9 @@ func (uc *CustomerUseCase) buildFindQueryNoPage(db *gorm.DB, opt *FindManyCustom
 	}
 	if opt.LikeMobile != "" {
 		db = db.Where("mobile LIKE ?", "%"+opt.LikeMobile+"%")
+	}
+	if opt.Mobile != "" {
+		db = db.Where("mobile = ?", opt.Mobile)
 	}
 	if len(opt.Statuses) > 0 {
 		db = db.Where("status IN ?", opt.Statuses)
@@ -131,7 +135,20 @@ func (uc *CustomerUseCase) GetCustomer(ctx context.Context, id int64) (*customer
 	var customer customerdomain.Customer
 	if err := uc.db.WithContext(ctx).First(&customer, id).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errorx.WithCause(errorx.ErrBadRequest, "未找到线索")
+			return nil, errorx.WithCause(errorx.ErrBadRequest, "未找到客户")
+		}
+		panic(err)
+	}
+	return &customer, nil
+}
+
+func (uc *CustomerUseCase) GetCustomerByMobile(ctx context.Context, mobile string) (*customerdomain.Customer, error) {
+	var customer customerdomain.Customer
+	if err := uc.db.WithContext(ctx).
+		Where("mobile", mobile).
+		First(&customer).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errorx.WithCause(errorx.ErrBadRequest, "未找到客户")
 		}
 		panic(err)
 	}
@@ -144,7 +161,27 @@ func (uc *CustomerUseCase) DeleteCustomer(ctx context.Context, id int64) error {
 		panic(err)
 	}
 	if result.RowsAffected == 0 {
-		return errorx.WithCause(errorx.ErrBadRequest, "未找到线索")
+		return errorx.WithCause(errorx.ErrBadRequest, "未找到客户")
 	}
 	return nil
+}
+
+func (uc *CustomerUseCase) CheckRegisterPhoneExist(ctx context.Context, mobile string) bool {
+
+	customer := &customerdomain.Customer{}
+	err := uc.db.WithContext(ctx).
+		Debug().
+		Unscoped().
+		Where("mobile", mobile).
+		First(customer).Error
+
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return false
+		}
+		panic(err)
+	}
+
+	return customer.Id > 0
+
 }

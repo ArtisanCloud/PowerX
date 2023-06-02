@@ -30,8 +30,7 @@ func (l *LoginLogic) Login(req *types.MPCustomerLoginRequest) (resp *types.MPCus
 	// 获取session数据
 	rs, err := l.svcCtx.PowerX.WechatMP.App.Auth.Session(l.ctx, req.Code)
 	if err != nil {
-		panic(err)
-		return
+		return nil, err
 	}
 	//rs := &response.ResponseCode2Session{
 	//	OpenId:     "o1IFX5A8sfi5nbkXwOzNLLLiL0OA",
