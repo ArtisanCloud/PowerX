@@ -56,6 +56,9 @@ func SeedProductPriceBookEntries(db *gorm.DB, book *product.PriceBook) (err erro
 			PageSize: 9999,
 		},
 	})
+	if len(products.List) <= 0 {
+		return
+	}
 
 	entries := []*product.PriceBookEntry{}
 	for _, p := range products.List {
