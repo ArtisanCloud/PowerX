@@ -1,6 +1,7 @@
 package product
 
 import (
+	"PowerX/internal/model/media"
 	"PowerX/internal/model/product"
 	product3 "PowerX/internal/uc/powerx/product"
 	"context"
@@ -49,6 +50,7 @@ func (l *ListProductCategoryTreeLogic) ListProductCategoryTree(req *types.ListPr
 
 func TransformProductCategoriesToProductCategoriesReplyToMP(productCategoryList []*product.ProductCategory) []*types.ProductCategory {
 	var productCategoryReplyList []*types.ProductCategory
+	//fmt.Dump(productCategoryList)
 	for _, category := range productCategoryList {
 		node := &types.ProductCategory{
 			Id:          category.Id,
@@ -58,6 +60,7 @@ func TransformProductCategoriesToProductCategoriesReplyToMP(productCategoryList 
 			ViceName:    category.ViceName,
 			Description: category.Description,
 			CreatedAt:   category.CreatedAt.String(),
+			CoverImage:  TransformCategoryImageToCategoryImageReplyToMP(category.CoverImage),
 			ImageAbleInfo: types.ImageAbleInfo{
 				Icon:            category.Icon,
 				BackgroundColor: category.BackgroundColor,
@@ -73,4 +76,19 @@ func TransformProductCategoriesToProductCategoriesReplyToMP(productCategoryList 
 	}
 
 	return productCategoryReplyList
+}
+
+func TransformCategoryImageToCategoryImageReplyToMP(resource *media.MediaResource) *types.CategoryImage {
+	if resource == nil {
+		return nil
+	}
+	return &types.CategoryImage{
+		Id:           resource.Id,
+		BucketName:   resource.BucketName,
+		Filename:     resource.Filename,
+		Size:         resource.Size,
+		Url:          resource.Url,
+		ContentType:  resource.ContentType,
+		ResourceType: resource.ResourceType,
+	}
 }

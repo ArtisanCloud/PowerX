@@ -24,8 +24,12 @@
 > PowerXDashboard 开源
 
 ## 移动端
-而移动端，我们自身有一个"小裂匠(ArtisanForce)"的产品服务，开发基于[UniApp](https://uniapp.dcloud.net.cn)前端跨平台框架，兼容小程序和H5。
-> 提供基础功能的开源小程序，因为前端的应用比较多样性，所以我们只会开源一部分基础的功能，给予演示。
+[PowerXMP](https://github.com/ArtisanCloud/PowerXMP)
+> PowerXMP 电商小程序开源
+
+我们自身有一个"小裂匠(ArtisanForce)"的产品服务，开发基于[UniApp](https://uniapp.dcloud.net.cn)前端跨平台框架，兼容小程序和H5。
+
+提供基础功能的开源小程序，因为前端的应用比较多样性，所以我们只会开源一部分基础的功能，给予演示。
 
 
 

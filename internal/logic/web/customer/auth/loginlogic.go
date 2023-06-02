@@ -38,6 +38,8 @@ func (l *LoginLogic) Login(req *types.CustomerLoginRequest) (resp *types.Custome
 		return nil, errorx.WithCause(errorx.ErrBadRequest, "密码为空")
 	}
 
+	//hashPassword = securityx.HashPassword()
+
 	if !securityx.CheckPassword(customer.Password, req.Password) {
 		return nil, errorx.WithCause(errorx.ErrBadRequest, "密码不正确")
 	}
