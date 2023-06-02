@@ -1,0 +1,86 @@
+syntax = "v1"
+
+
+info(
+    title: "Web客户模块"
+    desc: "Web客户模块接口集合"
+    registeror: "MichaelHu"
+    email: "matrix-x@artisan-cloud.com"
+    version: "v1"
+)
+
+import "admin/crm/customerdomain/customer.api"
+
+@server(
+    group: web/customer/auth
+    prefix: /api/v1/web/customer
+)
+
+
+service PowerX {
+    @doc "微信Web登录"
+    @handler Login
+    post /login (CustomerLoginRequest) returns (CustomerLoginAuthReply)
+
+    @doc "客户手机注册"
+    @handler RegisterCustomerByPhone
+    post /registerByPhone (CustomerRegisterByPhoneRequest) returns (CustomerRegisterByPhoneReply)
+
+    @doc "客户信息更新"
+    @handler UpdateCustomerProfile
+    post /updateCustomerProfile/:id (UpdateCustomerProfileRequest) returns (UpdateCustomerProfileReply)
+}
+
+
+
+type (
+    CustomerLoginRequest {
+        Account string `json:"account"`
+        Password string `json:"password"`
+    }
+
+    CustomerRegisterRequest {
+        Account string `json:"account"`
+        Password string `json:"password"`
+        VerifyCode string `json:"verifyCode"`
+    }
+
+    CustomerRegisterReply {
+        CustomerId int64 `json:"customerId"`
+    }
+
+    CustomerRegisterByPhoneRequest {
+        Phone string `json:"phone"`
+        Password string `json:"password"`
+        VerifyCode string `json:"verifyCode"`
+    }
+
+    CustomerRegisterByPhoneReply {
+        CustomerId int64 `json:"customerId"`
+    }
+
+    UpdateCustomerProfileRequest{
+        CustomerId int64 `path:"id"`
+        Customer
+    }
+    UpdateCustomerProfileReply{
+        *Customer
+    }
+
+    CustomerLoginAuthReply {
+        OpenId string `json:"openId"`
+        UnionId string `json:"unionId"`
+        PhoneNumber string `json:"phoneNumber"`
+        NickName string `json:"nickName"`
+        AvatarURL string `json:"avatarURL"`
+        Gender string `json:"gender"`
+        Token WebToken `json:"token"`
+    }
+
+    WebToken {
+        TokenType string `json:"tokenType"`
+        ExpiresIn string `json:"expiresIn"`
+        AccessToken string `json:"accessToken"`
+        RefreshToken string `json:"refreshToken"`
+    }
+)

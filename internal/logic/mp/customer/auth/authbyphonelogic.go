@@ -77,8 +77,7 @@ func (l *AuthByPhoneLogic) AuthByPhone(req *types.MPCustomerAuthRequest) (resp *
 	// upsert 小程序客户记录
 	mpCustomer, err = l.svcCtx.PowerX.WechatMP.UpsertMPCustomer(l.ctx, mpCustomer)
 	if err != nil {
-		panic(err)
-		return
+		return nil, err
 	}
 
 	source := l.svcCtx.PowerX.DataDictionary.GetCachedDDId(l.ctx, model.TypeSourceChannel, model.ChannelWechat)
@@ -97,8 +96,7 @@ func (l *AuthByPhoneLogic) AuthByPhone(req *types.MPCustomerAuthRequest) (resp *
 	}
 	lead, err = l.svcCtx.PowerX.Lead.UpsertLead(l.ctx, lead)
 	if err != nil {
-		panic(err)
-		return
+		return nil, err
 	}
 
 	// upsert 客户
@@ -114,8 +112,7 @@ func (l *AuthByPhoneLogic) AuthByPhone(req *types.MPCustomerAuthRequest) (resp *
 	}
 	customer, err = l.svcCtx.PowerX.Customer.UpsertCustomer(l.ctx, customer)
 	if err != nil {
-		panic(err)
-		return
+		return nil, err
 	}
 
 	token := l.svcCtx.PowerX.CustomerAuthorization.SignMPToken(mpCustomer, l.svcCtx.Config.JWT.MPJWTSecret)

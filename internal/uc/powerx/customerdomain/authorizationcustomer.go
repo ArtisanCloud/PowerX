@@ -2,6 +2,7 @@ package customerdomain
 
 import (
 	"PowerX/internal/model"
+	customerdomain2 "PowerX/internal/model/customerdomain"
 	"fmt"
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/pkg/errors"
@@ -33,6 +34,25 @@ type CustomerJWTToken struct {
 	NickName    string `json:"NickName,omitempty"`
 	Exp         int64  `json:"exp"`
 	jwt.RegisteredClaims
+}
+
+func (uc *AuthorizationCustomerDomainUseCase) SignWebToken(customer *customerdomain2.Customer, jwtSecret string) oauth2.Token {
+	now := time.Now()
+	expiresAt := now.Add(CustomerTokenExpiredDuration)
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, CustomerJWTToken{
+		AccessToken: "bar",
+		NickName:    customer.Name,
+		Exp:         expiresAt.Unix(),
+		RegisteredClaims: jwt.RegisteredClaims{
+			Issuer:    "powerx",
+			Subject:   fmt.Sprintf("%d", customer.Id),
+			ExpiresAt: jwt.NewNumericDate(expiresAt),
+			IssuedAt:  jwt.NewNumericDate(now),
+		},
+	})
+
+	return uc.SignToken(token, jwtSecret, expiresAt)
 }
 
 func (uc *AuthorizationCustomerDomainUseCase) SignMPToken(mpCustomer *model.WechatMPCustomer, jwtSecret string) oauth2.Token {

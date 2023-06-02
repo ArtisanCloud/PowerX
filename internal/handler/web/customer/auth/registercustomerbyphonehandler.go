@@ -1,24 +1,24 @@
-package customer
+package auth
 
 import (
-	"PowerX/internal/logic/mp/customer/auth"
 	"net/http"
 
+	"PowerX/internal/logic/web/customer/auth"
 	"PowerX/internal/svc"
 	"PowerX/internal/types"
 	"github.com/zeromicro/go-zero/rest/httpx"
 )
 
-func LoginHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
+func RegisterCustomerByPhoneHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var req types.MPCustomerLoginRequest
+		var req types.CustomerRegisterByPhoneRequest
 		if err := httpx.Parse(r, &req); err != nil {
 			httpx.ErrorCtx(r.Context(), w, err)
 			return
 		}
 
-		l := auth.NewLoginLogic(r.Context(), svcCtx)
-		resp, err := l.Login(&req)
+		l := auth.NewRegisterCustomerByPhoneLogic(r.Context(), svcCtx)
+		resp, err := l.RegisterCustomerByPhone(&req)
 		if err != nil {
 			httpx.ErrorCtx(r.Context(), w, err)
 		} else {

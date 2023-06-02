@@ -46,10 +46,8 @@ func (l *UpsertPriceBookLogic) UpsertPriceBook(req *types.UpsertPriceBookRequest
 	}
 
 	priceBook, err = l.svcCtx.PowerX.PriceBook.UpsertPriceBook(l.ctx, priceBook)
-
 	if err != nil {
-		panic(err)
-		return
+		return nil, err
 	}
 
 	return &types.UpsertPriceBookReply{
