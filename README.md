@@ -23,6 +23,8 @@
 [PowerXDashboard](https://github.com/ArtisanCloud/PowerXDashboard)是对应后台管理页面，基于[Arco Design Vue](https://arco.design)提供一套独立端WebUI，对接admin业务操作。
 > PowerXDashboard 开源
 
+
+
 ## 移动端
 [PowerXMP](https://github.com/ArtisanCloud/PowerXMP)
 > PowerXMP 电商小程序开源
@@ -31,6 +33,11 @@
 
 提供基础功能的开源小程序，因为前端的应用比较多样性，所以我们只会开源一部分基础的功能，给予演示。
 
+## Web端
+[PowerXWeb](https://github.com/ArtisanCloud/PowerXWeb)
+> PowerXWeb 前端开源
+
+暂时用于2C的一些定制开发的场景，需要用到Web UI
 
 
 
