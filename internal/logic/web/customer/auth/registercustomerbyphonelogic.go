@@ -39,7 +39,7 @@ func (l *RegisterCustomerByPhoneLogic) RegisterCustomerByPhone(req *types.Custom
 	}
 
 	// hash password
-	encodedPassword := securityx.EncodePassword(req.Password)
+	hashedPassword := securityx.HashPassword(req.Password)
 
 	// register customer by phone
 	customerSourceId := l.svcCtx.PowerX.DataDictionary.GetCachedDDId(l.ctx, model.TypeSourceChannel, model.ChannelDirect)
@@ -48,7 +48,7 @@ func (l *RegisterCustomerByPhoneLogic) RegisterCustomerByPhone(req *types.Custom
 	// upsert 客户
 	customer := &customerdomain.Customer{
 		Mobile:      req.Phone,
-		Password:    encodedPassword,
+		Password:    hashedPassword,
 		Source:      customerSourceId,
 		Type:        customerTypeId,
 		IsActivated: true,

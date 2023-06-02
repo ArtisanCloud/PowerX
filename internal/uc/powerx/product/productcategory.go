@@ -96,6 +96,7 @@ func (uc *ProductCategoryUseCase) FindProductCategoriesByParentId(ctx context.Co
 
 	query = uc.buildFindQueryNoPage(query, opt)
 
+	query = uc.PreloadItems(query)
 	if err := query.
 		Where("p_id", opt.CategoryPId).
 		Find(&productCategories).Error; err != nil {
