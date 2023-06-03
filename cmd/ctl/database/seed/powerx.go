@@ -29,9 +29,13 @@ func (s *PowerSeeder) CreatePowerX() (err error) {
 
 	_ = CreateOrganization(s.db)
 	_ = datadictionary.CreateDataDictionaries(s.db)
-	_ = CreateMediaResources(s.db, s.conf)
-	_ = CreateProductCategories(s.db)
-	_ = CreateProducts(s.db)
+
+	// 电商数据是否需要造数据
+	if s.conf.PowerXDatabase.SeedCommerceData {
+		_ = CreateMediaResources(s.db, s.conf)
+		_ = CreateProductCategories(s.db)
+		_ = CreateProducts(s.db)
+	}
 	_ = CreatePriceBooks(s.db)
 
 	// custom

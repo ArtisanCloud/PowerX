@@ -18,16 +18,33 @@ type WechatMiniProgramUseCase struct {
 	db  *gorm.DB
 }
 
+type FindMPCustomerOption struct {
+	Ids             []int64
+	SessionKey      string
+	OpenIds         []string
+	UnionIds        []string
+	PhoneNumbers    []string
+	PhoneNumberLike string
+	NickNames       []string
+	NickNameLike    string
+	Gender          int64
+	Country         string
+	Province        string
+	City            string
+	//Statuses        []MPCustomerStatus
+	PageIndex int
+	PageSize  int
+}
+
 func NewWechatMiniProgramUseCase(db *gorm.DB, conf *config.Config) *WechatMiniProgramUseCase {
 	// 初始化微信小程序API SDK
 	app, err := miniProgram.NewMiniProgram(&miniProgram.UserConfig{
 		AppID:  conf.WechatMP.AppId,
 		Secret: conf.WechatMP.Secret,
 		OAuth: miniProgram.OAuth{
-			Callback: "https://wechat-mp.artisan-cloud.com/callback",
-			Scopes:   nil,
+			Callback: conf.WechatMP.OAuth.Callback,
+			Scopes:   conf.WechatMP.OAuth.Scopes,
 		},
-		//Token:     "Aj9T3rkHmbzCnpoUgRO3mPgkxFV",
 		AESKey:    conf.WechatMP.AESKey,
 		HttpDebug: true,
 	})
@@ -42,41 +59,19 @@ func NewWechatMiniProgramUseCase(db *gorm.DB, conf *config.Config) *WechatMiniPr
 	}
 }
 
-func (uc *WechatMiniProgramUseCase) buildFindQueryNoPage(query *gorm.DB, opt *model.FindMPCustomerOption) *gorm.DB {
+func (uc *WechatMiniProgramUseCase) buildFindQueryNoPage(query *gorm.DB, opt *FindMPCustomerOption) *gorm.DB {
 	if len(opt.Ids) > 0 {
 		query.Where("id in ?", opt.Ids)
 	}
-	//if len(opt.Names) > 0 {
-	//	query.Where("name in ?", opt.Names)
-	//} else if opt.LikeName != "" {
-	//	query.Where("name like ?", fmt.Sprintf("%s%%", opt.LikeName))
-	//}
-	//if len(opt.Emails) > 0 {
-	//	query.Where("email in ?", opt.Emails)
-	//} else if opt.LikeEmail != "" {
-	//	query.Where("email like ?", fmt.Sprintf("%s%%", opt.LikeEmail))
-	//}
-	//if len(opt.PhoneNumbers) > 0 {
-	//	query.Where("mobile_phone in ?")
-	//} else if opt.LikePhoneNumber != "" {
-	//	query.Where("mobile_phone like ?", fmt.Sprintf("%s%%", opt.LikePhoneNumber))
-	//}
+
 	if len(opt.OpenIds) > 0 {
 		query.Where("open_id in ?", opt.OpenIds)
 	}
-	//if len(opt.Accounts) > 0 {
-	//	query.Where("account in ?", opt.Accounts)
-	//}
-	//if len(opt.DepIds) > 0 {
-	//	query.Where("? && department_ids", pq.Int64Array(opt.DepIds))
-	//}
-	//if len(opt.Statuses) > 0 {
-	//	query.Where("status in ?", opt.Statuses)
-	//}
+
 	return query
 }
 
-func (uc *WechatMiniProgramUseCase) FindManyMPCustomers(ctx context.Context, opt *model.FindMPCustomerOption) types.Page[*model.WechatMPCustomer] {
+func (uc *WechatMiniProgramUseCase) FindManyMPCustomers(ctx context.Context, opt *FindMPCustomerOption) types.Page[*model.WechatMPCustomer] {
 	var mpCustomers []*model.WechatMPCustomer
 	var count int64
 	query := uc.db.WithContext(ctx).Model(&model.WechatMPCustomer{})
@@ -99,7 +94,7 @@ func (uc *WechatMiniProgramUseCase) FindManyMPCustomers(ctx context.Context, opt
 	}
 }
 
-func (uc *WechatMiniProgramUseCase) FindOneMPCustomer(ctx context.Context, opt *model.FindMPCustomerOption) (*model.WechatMPCustomer, error) {
+func (uc *WechatMiniProgramUseCase) FindOneMPCustomer(ctx context.Context, opt *FindMPCustomerOption) (*model.WechatMPCustomer, error) {
 	var mpCustomer *model.WechatMPCustomer
 	query := uc.db.WithContext(ctx).Model(&model.WechatMPCustomer{})
 	if opt.PageIndex != 0 && opt.PageSize != 0 {

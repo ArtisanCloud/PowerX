@@ -1,0 +1,39 @@
+syntax = "v1"
+
+info(
+    title: "字典管理API"
+    desc: "字典管理API"
+    author: "Northseadl"
+    email: "northseadl@outlook.com"
+    version: "v1"
+)
+
+import "admin/dictionary.api"
+
+@server(
+    group: mp/dictionary
+    prefix: /api/v1/web/dictionary
+    middleware: WebCustomerJWTAuth
+)
+
+service PowerX {
+    @doc "获取字典类型列表"
+    @handler ListDictionaryPageTypes
+    get /types/page-list (ListDictionaryTypesPageRequest) returns (ListDictionaryTypesPageReply)
+
+    @doc "获取字典类型"
+    @handler GetDictionaryType
+    get /types/:type (GetDictionaryTypeRequest) returns (GetDictionaryTypeReply)
+
+
+    @doc "获取字典项列表"
+    @handler ListDictionaryItems
+    get /items (ListDictionaryItemsRequest) returns (ListDictionaryItemsReply)
+
+    @doc "获取字典项"
+    @handler GetDictionaryItem
+    get /items/:type/:key (GetDictionaryItemRequest) returns (GetDictionaryItemReply)
+
+
+}
+

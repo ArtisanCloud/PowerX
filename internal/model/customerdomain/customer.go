@@ -18,6 +18,7 @@ type Customer struct {
 	powermodel.PowerModel
 	Name        string `gorm:"comment:客户名称" json:"name"`
 	Mobile      string `gorm:"unique;not null;comment:店长Id" json:"mobile"`
+	Password    string `gorm:"comment:客户密码" json:"password"`
 	Email       string `gorm:"comment:邮箱地址" json:"email"`
 	InviterId   int64  `gorm:"comment:邀请方" json:"inviterId"`
 	Source      int    `gorm:"comment:注册来源" json:"source"`
