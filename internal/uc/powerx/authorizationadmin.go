@@ -32,7 +32,7 @@ type AdminPermsUseCase struct {
 func NewAdminPermsUseCase(conf *config.Config, db *gorm.DB, employee *OrganizationUseCase) *AdminPermsUseCase {
 	//casbin适配器
 	sqlDB, _ := db.DB()
-	a, err := sqladapter.NewAdapter(sqlDB, "postgres", "casbin_policies")
+	a, err := sqladapter.NewAdapter(sqlDB, conf.PowerXDatabase.Driver, "casbin_policies")
 	if err != nil {
 		panic(err)
 	}
