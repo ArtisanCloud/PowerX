@@ -18,6 +18,10 @@ Casbin:
   SelfHosted: true           # 是否使用自己的Casbin服务
 
 PowerXDatabase:
+  # 数据驱动
+  Driver: postgres # 我们主要使用基于Gorm+postgres
+#  Driver: mysql  # 可以连接，但是我们未基于mysql来开发应用。
+
   # 数据库连接信息
   DSN: host=localhost user=postgres password=powerx dbname=powerx port=5432 sslmode=disable TimeZone=UTC
   # 数据库是否初始化定制的种子数据

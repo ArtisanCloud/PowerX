@@ -8,6 +8,7 @@ import (
 	productUC "PowerX/internal/uc/powerx/product"
 	tradeUC "PowerX/internal/uc/powerx/trade"
 	"github.com/pkg/errors"
+	"gorm.io/driver/mysql"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -43,7 +44,14 @@ type PowerXUseCase struct {
 
 func NewPowerXUseCase(conf *config.Config) (uc *PowerXUseCase, clean func()) {
 	// 启动数据库并测试连通性
-	db, err := gorm.Open(postgres.Open(conf.PowerXDatabase.DSN), &gorm.Config{
+	var dsn gorm.Dialector
+	switch conf.PowerXDatabase.Driver {
+	case "mysql":
+		dsn = mysql.Open(conf.PowerXDatabase.DSN)
+	case "postgres":
+		dsn = postgres.Open(conf.PowerXDatabase.DSN)
+	}
+	db, err := gorm.Open(dsn, &gorm.Config{
 		//Logger:                                   logger.Default.LogMode(logger.Info),
 		DisableForeignKeyConstraintWhenMigrating: true,
 	})

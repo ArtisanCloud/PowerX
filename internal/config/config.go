@@ -5,6 +5,7 @@ import (
 )
 
 type Database struct {
+	Driver           string
 	DSN              string
 	SeedCommerceData bool
 }
