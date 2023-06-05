@@ -46,9 +46,9 @@ func NewPowerXUseCase(conf *config.Config) (uc *PowerXUseCase, clean func()) {
 	// 启动数据库并测试连通性
 	var dsn gorm.Dialector
 	switch conf.PowerXDatabase.Driver {
-	case "mysql":
+	case config.DriverMysql:
 		dsn = mysql.Open(conf.PowerXDatabase.DSN)
-	case "postgres":
+	case config.DriverPostgres:
 		dsn = postgres.Open(conf.PowerXDatabase.DSN)
 	}
 	db, err := gorm.Open(dsn, &gorm.Config{

@@ -12,6 +12,7 @@ import (
 	"PowerX/internal/model/scrm/organization"
 	"PowerX/internal/model/trade"
 	"PowerX/internal/uc/powerx"
+	"gorm.io/driver/mysql"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -21,7 +22,14 @@ type PowerMigrator struct {
 }
 
 func NewPowerMigrator(conf *config.Config) (*PowerMigrator, error) {
-	db, err := gorm.Open(postgres.Open(conf.PowerXDatabase.DSN), &gorm.Config{
+	var dsn gorm.Dialector
+	switch conf.PowerXDatabase.Driver {
+	case config.DriverMysql:
+		dsn = mysql.Open(conf.PowerXDatabase.DSN)
+	case config.DriverPostgres:
+		dsn = postgres.Open(conf.PowerXDatabase.DSN)
+	}
+	db, err := gorm.Open(dsn, &gorm.Config{
 		//Logger:                                   logger.Default.LogMode(logger.Info),
 		DisableForeignKeyConstraintWhenMigrating: true,
 	})

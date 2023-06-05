@@ -4,6 +4,7 @@ import (
 	"PowerX/cmd/ctl/database/custom/seed"
 	"PowerX/cmd/ctl/database/seed/datadictionary"
 	"PowerX/internal/config"
+	"gorm.io/driver/mysql"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -14,7 +15,14 @@ type PowerSeeder struct {
 }
 
 func NewPowerSeeder(conf *config.Config) (*PowerSeeder, error) {
-	db, err := gorm.Open(postgres.Open(conf.PowerXDatabase.DSN), &gorm.Config{
+	var dsn gorm.Dialector
+	switch conf.PowerXDatabase.Driver {
+	case config.DriverMysql:
+		dsn = mysql.Open(conf.PowerXDatabase.DSN)
+	case config.DriverPostgres:
+		dsn = postgres.Open(conf.PowerXDatabase.DSN)
+	}
+	db, err := gorm.Open(dsn, &gorm.Config{
 		//Logger:                                   logger.Default.LogMode(logger.Info),
 		DisableForeignKeyConstraintWhenMigrating: true,
 	})

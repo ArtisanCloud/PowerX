@@ -4,6 +4,9 @@ import (
 	"github.com/zeromicro/go-zero/rest"
 )
 
+const DriverPostgres = "postgres"
+const DriverMysql = "mysql"
+
 type Database struct {
 	Driver           string
 	DSN              string
