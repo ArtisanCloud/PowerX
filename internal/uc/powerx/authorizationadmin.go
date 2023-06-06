@@ -16,7 +16,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	"os"
-	"path"
+	"path/filepath"
 	"strings"
 )
 
@@ -36,8 +36,8 @@ func NewAdminPermsUseCase(conf *config.Config, db *gorm.DB, employee *Organizati
 	if err != nil {
 		panic(err)
 	}
-	f := fileadapter.NewAdapter(path.Join(conf.EtcDir, "rbac_policy.csv"))
-	e, err := casbin.NewEnforcer(path.Join(conf.EtcDir, "rbac_model.conf"), a)
+	f := fileadapter.NewAdapter(filepath.Join(conf.EtcDir, "rbac_policy.csv"))
+	e, err := casbin.NewEnforcer(filepath.Join(conf.EtcDir, "rbac_model.conf"), a)
 	if err != nil {
 		panic(err)
 	}
@@ -124,7 +124,7 @@ func (uc *AdminPermsUseCase) Init() {
 	if count == 0 {
 		// api group
 		initAPIGroup := func() {
-			file, err := os.Open(path.Join(uc.conf.EtcDir, "admin_api_group.csv"))
+			file, err := os.Open(filepath.Join(uc.conf.EtcDir, "admin_api_group.csv"))
 			if err != nil {
 				panic(err)
 			}
@@ -151,7 +151,7 @@ func (uc *AdminPermsUseCase) Init() {
 
 		// api
 		initAPI := func() {
-			file, err := os.Open(path.Join(uc.conf.EtcDir, "admin_api.csv"))
+			file, err := os.Open(filepath.Join(uc.conf.EtcDir, "admin_api.csv"))
 			if err != nil {
 				panic(err)
 			}

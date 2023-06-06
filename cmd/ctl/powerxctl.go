@@ -10,7 +10,7 @@ import (
 	"github.com/urfave/cli/v2"
 	"github.com/zeromicro/go-zero/core/conf"
 	"os"
-	"path"
+	"path/filepath"
 )
 
 func main() {
@@ -92,7 +92,7 @@ func ActionMigrate(cCtx *cli.Context) error {
 
 	var c config.Config
 	conf.MustLoad(configFile, &c)
-	c.EtcDir = path.Dir(configFile)
+	c.EtcDir = filepath.Dir(configFile)
 
 	// migrate tables
 	m, _ := migrate.NewPowerMigrator(&c)
@@ -111,7 +111,7 @@ func ActionSeed(cCtx *cli.Context) error {
 	}
 	var c config.Config
 	conf.MustLoad(configFile, &c)
-	c.EtcDir = path.Dir(configFile)
+	c.EtcDir = filepath.Dir(configFile)
 
 	// seed tables
 	s, _ := seed.NewPowerSeeder(&c)
