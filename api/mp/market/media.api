@@ -8,7 +8,6 @@ info(
     version: "v1"
 )
 
-import "admin/crm/market/media.api"
 
 @server(
     group: mp/market/media

@@ -9,7 +9,7 @@ info(
     version: "v1"
 )
 
-import "admin/crm/customerdomain/customer.api"
+import "../../admin/crm/customerdomain/customer.api"
 
 @server(
     group: web/customer/auth

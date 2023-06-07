@@ -8,7 +8,7 @@ info(
     version: "v1"
 )
 
-import "admin/dictionary.api"
+import "../admin/dictionary.api"
 
 @server(
     group: mp/dictionary

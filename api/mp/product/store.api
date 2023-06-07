@@ -9,7 +9,7 @@ info(
     version: "v1"
 )
 
-import "admin/crm/market/store.api"
+import "../../admin/crm/market/store.api"
 
 @server(
     group: mp/product/store
