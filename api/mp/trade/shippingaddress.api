@@ -8,7 +8,6 @@ info(
     version: "v1"
 )
 
-import "admin/crm/trade/shippingaddress.api"
 
 @server(
     group: mp/trade/address/shipping
