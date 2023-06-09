@@ -26,6 +26,7 @@ type FindManyArtisanOption struct {
 	LikeName string
 	OrderBy  string
 	Ids      []int64
+	StoreId  int64
 	Names    []string
 	types.PageEmbedOption
 }
@@ -36,6 +37,11 @@ func (uc *ArtisanUseCase) buildFindQueryNoPage(query *gorm.DB, opt *FindManyArti
 	}
 	if len(opt.Names) > 0 {
 		query.Where("name in ?", opt.Names)
+	}
+
+	if opt.StoreId > 0 {
+		query.Joins("LEFT JOIN pivot_store_to_artisan ON artisans.id = pivot_store_to_artisan.artisan_id").
+			Where("pivot_store_to_artisan.store_id", opt.StoreId)
 	}
 
 	orderBy := "id desc"
