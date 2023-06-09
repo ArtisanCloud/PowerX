@@ -1424,6 +1424,7 @@ type Artisan struct {
 
 type ListArtisansPageRequest struct {
 	Ids       []int64 `form:"ids,optional"`
+	StoreId   int64   `form:"storeId,optional"`
 	LikeName  string  `form:"likeName,optional"`
 	OrderBy   string  `form:"orderBy,optional"`
 	PageIndex int     `form:"pageIndex,optional"`
