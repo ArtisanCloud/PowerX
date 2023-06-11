@@ -46,7 +46,8 @@ func NewWechatMiniProgramUseCase(db *gorm.DB, conf *config.Config) *WechatMiniPr
 			Scopes:   conf.WechatMP.OAuth.Scopes,
 		},
 		AESKey:    conf.WechatMP.AESKey,
-		HttpDebug: true,
+		HttpDebug: conf.WechatMP.HttpDebug,
+		Debug:     conf.WechatMP.Debug,
 	})
 
 	if err != nil {

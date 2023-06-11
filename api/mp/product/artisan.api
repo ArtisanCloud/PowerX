@@ -1,0 +1,30 @@
+syntax = "v1"
+
+info(
+    title: "元匠"
+    desc: "元匠"
+    author: "MichaelHu"
+    email: "matrix-x@artisan-cloud.com"
+    version: "v1"
+)
+
+import "../../admin/crm/product/artisan.api"
+
+@server(
+    group: mp/product/artisan
+    prefix: /api/v1/mp/product
+    middleware: MPCustomerJWTAuth
+)
+
+service PowerX {
+    @doc "查询元匠列表"
+    @handler ListArtisansPage
+    get /artisans/page-list (ListArtisansPageRequest) returns (ListArtisansPageReply)
+
+    @doc "查询元匠详情"
+    @handler GetArtisan
+    get /artisans/:id (GetArtisanRequest) returns (GetArtisanReply)
+
+
+}
+

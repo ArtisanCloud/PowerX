@@ -56,7 +56,8 @@ func (uc *ArtisanUseCase) buildFindQueryNoPage(query *gorm.DB, opt *FindManyArti
 func (uc *ArtisanUseCase) PreloadItems(db *gorm.DB) *gorm.DB {
 	db = db.
 		Preload("PivotDetailImages", "media_usage = ?", media.MediaUsageDetail).Preload("PivotDetailImages.MediaResource").
-		Preload("CoverImage")
+		Preload("CoverImage").
+		Preload("PivotStoreToArtisans")
 
 	return db
 }
