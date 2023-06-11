@@ -1420,6 +1420,7 @@ type Artisan struct {
 	CoverImage     *ArtisanImage   `json:"coverImage,optional"`
 	DetailImageIds []int64         `json:"detailImageIds,optional"`
 	DetailImages   []*ArtisanImage `json:"detailImages,optional"`
+	StoreIds       []int64         `json:"storeIds,optional"`
 }
 
 type ListArtisansPageRequest struct {

@@ -14,8 +14,9 @@ type Artisan struct {
 	// 为了避免import Cycle，可以理解Artisan是一个标准的功能模块，基本上要扩展或者二开，是在外部对象去调用该标准对象，所以可以在custom里的model去引用标准对象
 	//ArtisanSpecific *custom.ArtisanSpecific `gorm:"foreignKey:ArtisanId;references:Id" json:"specific"`
 
-	PivotDetailImages []*media.PivotMediaResourceToObject `gorm:"polymorphic:Object;polymorphicValue:artisans" json:"pivotDetailImages"`
-	CoverImage        *media.MediaResource                `gorm:"foreignKey:CoverImageId;references:Id" json:"coverImage"`
+	PivotDetailImages    []*media.PivotMediaResourceToObject `gorm:"polymorphic:Object;polymorphicValue:artisans" json:"pivotDetailImages"`
+	CoverImage           *media.MediaResource                `gorm:"foreignKey:CoverImageId;references:Id" json:"coverImage"`
+	PivotStoreToArtisans []*PivotStoreToArtisan              `gorm:"foreignKey:ArtisanId;references:Id" json:"pivotStoreToArtisans"`
 
 	EmployeeId   int64     `gorm:"comment:员工Id"  json:"employeeId"`
 	Name         string    `gorm:"comment:Artisan名称"  json:"name"`

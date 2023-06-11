@@ -79,6 +79,7 @@ func TransformArtisanToArtisanReply(artisan *product.Artisan) *types.Artisan {
 		CoverImage:     TransformArtisanImageToArtisanImageReply(artisan.CoverImage),
 		DetailImageIds: media.GetImageIds(artisan.PivotDetailImages),
 		DetailImages:   TransformArtisanImagesToImagesReply(artisan.PivotDetailImages),
+		StoreIds:       product.GetStoreIds(artisan.PivotStoreToArtisans),
 	}
 }
 
