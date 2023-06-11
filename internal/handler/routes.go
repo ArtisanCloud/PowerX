@@ -33,8 +33,8 @@ import (
 	mpcustomerauth "PowerX/internal/handler/mp/customer/auth"
 	mpdictionary "PowerX/internal/handler/mp/dictionary"
 	mpmarketmedia "PowerX/internal/handler/mp/market/media"
+	mpmarketstore "PowerX/internal/handler/mp/market/store"
 	mpproduct "PowerX/internal/handler/mp/product"
-	mpproductstore "PowerX/internal/handler/mp/product/store"
 	mptradeaddressbilling "PowerX/internal/handler/mp/trade/address/billing"
 	mptradeaddressdelivery "PowerX/internal/handler/mp/trade/address/delivery"
 	mptradeaddressshipping "PowerX/internal/handler/mp/trade/address/shipping"
@@ -989,11 +989,11 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				{
 					Method:  http.MethodGet,
 					Path:    "/stores/page-list",
-					Handler: mpproductstore.ListStoresPageHandler(serverCtx),
+					Handler: mpmarketstore.ListStoresPageHandler(serverCtx),
 				},
 			}...,
 		),
-		rest.WithPrefix("/api/v1/mp/product"),
+		rest.WithPrefix("/api/v1/mp/market"),
 	)
 
 	server.AddRoutes(

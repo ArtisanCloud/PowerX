@@ -12,8 +12,8 @@ info(
 import "../../admin/crm/market/store.api"
 
 @server(
-    group: mp/product/store
-    prefix: /api/v1/mp/product
+    group: mp/market/store
+    prefix: /api/v1/mp/market
     middleware: MPCustomerJWTAuth
 )
 
