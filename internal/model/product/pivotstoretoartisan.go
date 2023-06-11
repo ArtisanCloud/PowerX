@@ -18,3 +18,19 @@ type PivotStoreToArtisan struct {
 }
 
 const TableNamePivotStoreToArtisan = "pivot_store_to_artisan"
+
+func GetStoreIds(pivots []*PivotStoreToArtisan) (storeIds []int64) {
+	storeIds = []int64{}
+	for _, pivot := range pivots {
+		storeIds = append(storeIds, pivot.StoreId)
+	}
+	return
+}
+
+func GetArtisanIds(pivots []*PivotStoreToArtisan) (artisanIds []int64) {
+	artisanIds = []int64{}
+	for _, pivot := range pivots {
+		artisanIds = append(artisanIds, pivot.ArtisanId)
+	}
+	return
+}
