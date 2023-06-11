@@ -30,7 +30,7 @@ func (l *ListArtisansPageLogic) ListArtisansPage(req *types.ListArtisansPageRequ
 	artisans, err := l.svcCtx.PowerX.Artisan.FindManyArtisans(l.ctx, &product3.FindManyArtisanOption{
 		LikeName: req.LikeName,
 		OrderBy:  req.OrderBy,
-		StoreId:  req.StoreId,
+		StoreIds: req.StoreIds,
 		PageEmbedOption: types.PageEmbedOption{
 			PageIndex: req.PageIndex,
 			PageSize:  req.PageSize,
