@@ -35,6 +35,7 @@ import (
 	mpmarketmedia "PowerX/internal/handler/mp/market/media"
 	mpmarketstore "PowerX/internal/handler/mp/market/store"
 	mpproduct "PowerX/internal/handler/mp/product"
+	mpproductartisan "PowerX/internal/handler/mp/product/artisan"
 	mptradeaddressbilling "PowerX/internal/handler/mp/trade/address/billing"
 	mptradeaddressdelivery "PowerX/internal/handler/mp/trade/address/delivery"
 	mptradeaddressshipping "PowerX/internal/handler/mp/trade/address/shipping"
@@ -1002,6 +1003,39 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			[]rest.Route{
 				{
 					Method:  http.MethodGet,
+					Path:    "/medias/page-list",
+					Handler: mpmarketmedia.ListMediasPageHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithPrefix("/api/v1/mp/market"),
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.MPCustomerJWTAuth},
+			[]rest.Route{
+				{
+					Method:  http.MethodGet,
+					Path:    "/artisans/page-list",
+					Handler: mpproductartisan.ListArtisansPageHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/artisans/:id",
+					Handler: mpproductartisan.GetArtisanHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithPrefix("/api/v1/mp/product"),
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.MPCustomerJWTAuth},
+			[]rest.Route{
+				{
+					Method:  http.MethodGet,
 					Path:    "/products/page-list",
 					Handler: mpproduct.ListProductsPageHandler(serverCtx),
 				},
@@ -1329,20 +1363,6 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			}...,
 		),
 		rest.WithPrefix("/api/v1/mp/trade"),
-	)
-
-	server.AddRoutes(
-		rest.WithMiddlewares(
-			[]rest.Middleware{serverCtx.MPCustomerJWTAuth},
-			[]rest.Route{
-				{
-					Method:  http.MethodGet,
-					Path:    "/medias/page-list",
-					Handler: mpmarketmedia.ListMediasPageHandler(serverCtx),
-				},
-			}...,
-		),
-		rest.WithPrefix("/api/v1/mp/market"),
 	)
 
 	server.AddRoutes(

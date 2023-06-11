@@ -43,10 +43,6 @@ service PowerX {
 }
 
 type (
-    ArtisanSpecific {
-        ArtisanId int64 `json:"artisanId,optional"`
-    }
-
     ArtisanImage {
         Id int64 `json:"id,optional"`
         Filename string `json:"filename,optional"`
@@ -77,7 +73,7 @@ type (
         CoverImageId int64 `json:"coverImageId,optional"`
         CoverImage *ArtisanImage `json:"coverImage,optional"`
         DetailImageIds []int64 `json:"detailImageIds,optional"`
-        DetailImages []*ArtisanImage `json:"detailImages,optional"`
+        DetailImages []*ArtisanImage `json:"detailIOmages,optional"`
         StoreIds []int64 `json:"storeIds,optional"`
     }
 )

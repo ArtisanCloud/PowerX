@@ -20,6 +20,7 @@ type WeWork struct {
 	Token          string
 	EncodingAESKey string
 	HttpDebug      bool
+	Debug          bool
 }
 
 type WechatOA struct {
@@ -31,6 +32,7 @@ type WechatOA struct {
 		Scopes   []string
 	}
 	HttpDebug bool
+	Debug     bool
 }
 
 type WechatPay struct {
@@ -45,6 +47,7 @@ type WechatPay struct {
 	WechatPaySerial  string
 	NotifyUrl        string
 	HttpDebug        bool
+	Debug            bool
 }
 
 type WechatMP struct {
@@ -56,6 +59,7 @@ type WechatMP struct {
 		Scopes   []string
 	}
 	HttpDebug bool
+	Debug     bool
 }
 
 type MediaResource struct {
