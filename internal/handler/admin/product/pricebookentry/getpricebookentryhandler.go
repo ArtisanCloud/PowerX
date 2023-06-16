@@ -1,4 +1,4 @@
-package PriceBookEntry
+package pricebookentry
 
 import (
 	"net/http"
@@ -9,16 +9,16 @@ import (
 	"github.com/zeromicro/go-zero/rest/httpx"
 )
 
-func DeletePriceBookEntryHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
+func GetPriceBookEntryHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var req types.DeletePriceBookEntryRequest
+		var req types.GetPriceBookEntryRequest
 		if err := httpx.Parse(r, &req); err != nil {
 			httpx.ErrorCtx(r.Context(), w, err)
 			return
 		}
 
-		l := pricebookentry.NewDeletePriceBookEntryLogic(r.Context(), svcCtx)
-		resp, err := l.DeletePriceBookEntry(&req)
+		l := pricebookentry.NewGetPriceBookEntryLogic(r.Context(), svcCtx)
+		resp, err := l.GetPriceBookEntry(&req)
 		if err != nil {
 			httpx.ErrorCtx(r.Context(), w, err)
 		} else {

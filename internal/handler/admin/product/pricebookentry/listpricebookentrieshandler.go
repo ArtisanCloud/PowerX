@@ -1,4 +1,4 @@
-package PriceBookEntry
+package pricebookentry
 
 import (
 	"net/http"
