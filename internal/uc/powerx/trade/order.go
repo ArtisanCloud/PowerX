@@ -206,7 +206,7 @@ func (uc *OrderUseCase) CreateOrderByCartItems(ctx context.Context,
 		err = tx.Model(trade.Cart{}).
 			//Debug().
 			// 在生成订单时候，不希望将sku的相关信息再次有数据操作
-			Omit("Items.SKU.PriceBookEntry").
+			Omit("Items.SKU.pricebookentry").
 			Omit("Items.SKU").
 			Create(cart).Error
 

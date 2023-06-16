@@ -8,7 +8,6 @@ info(
     version: "v1"
 )
 
-//import "admin/crm/product/productcategory.api"
 import "./productcategory.api"
 
 @server(

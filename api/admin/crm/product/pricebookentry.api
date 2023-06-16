@@ -1,0 +1,121 @@
+syntax = "v1"
+
+info(
+    title: "价格手册条目"
+    desc: "价格手册条目"
+    author: "MichaelHu"
+    email: "matrix-x@artisan-cloud.com"
+    version: "v1"
+)
+
+
+@server(
+    group: admin/product/pricebookentry
+    prefix: /api/v1/admin/product
+    middleware: EmployeeJWTAuth
+)
+
+service PowerX {
+    @doc "查询价格手册条目列表"
+    @handler ListPriceBookEntries
+    get /price-book-entries/page-list (ListPriceBookEntriesPageRequest) returns (ListPriceBookEntriesPageReply)
+
+
+    @doc "查询价格手册条目详情"
+    @handler GetPriceBookEntry
+    get /price-book-entries/:id (GetPriceBookEntryRequest) returns (GetPriceBookEntryReply)
+
+
+    @doc "配置价格手册条目条目"
+    @handler ConfigPriceBookEntry
+    post /price-book-entries/config (ConfigPriceBookEntryEntryRequest) returns (ConfigPriceBookEntryEntryReply)
+
+    @doc "删除价格手册条目"
+    @handler DeletePriceBookEntry
+    delete /price-book-entries/:id (DeletePriceBookEntryRequest) returns (DeletePriceBookEntryReply)
+
+
+}
+
+type (
+    PriceBookEntrySecific {
+        Inventory int16 `json:"inventory,optional"`
+        Weight float32 `json:"weight,optional"`
+        Volume float32 `json:"volume,optional"`
+        Encode string `json:"encode,optional"`
+        BarCode string `json:"barCode,optional"`
+        Extra string `json:"extra,optional"`
+    }
+
+    PriceBookEntry {
+        UniqueID string `json:"uniqueID,optional"`
+        PriceBookEntryId int64 `json:"PriceBookEntryId"`
+        ProductId int64 `json:"productId"`
+        UnitPrice float64 `json:"unitPrice"`
+        ListPrice float64 `json:"listPrice,optional"`
+        IsActive bool `json:"isActive, omitempty"`
+        PriceBookEntrySecific
+    }
+)
+
+type (
+    ListPriceBookEntriesPageRequest {
+        LikeName string `json:"likeName,optional"`
+        StoreId int64 `json:"storeId,optional"`
+        PageIndex int `form:"pageIndex,optional"`
+        PageSize int `form:"pageSize,optional"`
+    }
+
+    ListPriceBookEntriesPageReply {
+        List []PriceBookEntry `json:"list"`
+        PageIndex int `json:"pageIndex"`
+        PageSize int `json:"pageSize"`
+        Total int64 `json:"total"`
+    }
+)
+
+type (
+    GetPriceBookEntryRequest struct {
+        PriceBookEntry int64 `path:"id"`
+    }
+
+    GetPriceBookEntryReply struct {
+        *PriceBookEntry
+    }
+)
+
+
+type (
+    ConfigPriceBookEntryEntryRequest {
+        PriceBookEntries []PriceBookEntry `json:"priceBookEntries"`
+    }
+
+    ConfigPriceBookEntryEntryReply {
+        PriceBookEntries []*PriceBookEntry `json:"list"`
+    }
+)
+
+type (
+    UpsertPriceBookEntryRequest {
+        PriceBookEntry PriceBookEntry `json:"priceBookEntry"`
+    }
+
+    UpsertPriceBookEntryReply {
+        Id int64 `json:"id"`
+    }
+)
+
+
+
+type (
+    DeletePriceBookEntryRequest {
+        Id int64 `path:"id"`
+    }
+
+    DeletePriceBookEntryReply {
+        Id int64 `json:"id"`
+    }
+)
+
+
+

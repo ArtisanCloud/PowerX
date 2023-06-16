@@ -34,20 +34,10 @@ service PowerX {
     @handler DeletePriceBook
     delete /price-books/:id (DeletePriceBookRequest) returns (DeletePriceBookReply)
 
-    @doc "配置价格手册条目"
-    @handler ConfigPriceBook
-    post /price-book-entries (ConfigPriceBookEntryRequest) returns (ConfigPriceBookEntryReply)
 }
 
 type (
-    PriceBookEntrySpecific {
-        Inventory int16 `json:"inventory,optional"`
-        Weight float32 `json:"weight,optional"`
-        Volume float32 `json:"volume,optional"`
-        Encode string `json:"encode,optional"`
-        BarCode string `json:"barCode,optional"`
-        Extra string `json:"extra,optional"`
-    }
+
 
     PriceBook {
         Id int64 `json:"id,optional"`
@@ -56,16 +46,6 @@ type (
         Description string `json:"description,optional"`
         StoreId int64 `json:"storeId,optional"`
         CreatedAt string `json:"createdAt,optional"`
-    }
-
-    PriceBookEntry {
-        UniqueID string `json:"uniqueID,optional"`
-        PriceBookId int64 `json:"priceBookId"`
-        ProductId int64 `json:"productId"`
-        UnitPrice float64 `json:"unitPrice"`
-        ListPrice float64 `json:"listPrice,optional"`
-        IsActive bool `json:"isActive, omitempty"`
-        PriceBookEntrySpecific
     }
 )
 
@@ -114,18 +94,6 @@ type (
     }
 
     DeletePriceBookReply {
-        Id int64 `json:"id"`
-    }
-)
-
-
-
-type (
-    ConfigPriceBookEntryRequest {
-        Id int64 `path:"id"`
-    }
-
-    ConfigPriceBookEntryReply {
         Id int64 `json:"id"`
     }
 )
