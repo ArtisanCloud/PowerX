@@ -21,6 +21,7 @@ import (
 	adminproductartisan "PowerX/internal/handler/admin/product/artisan"
 	adminproductcategory "PowerX/internal/handler/admin/product/category"
 	adminproductpricebook "PowerX/internal/handler/admin/product/pricebook"
+	adminproductpricebookentry "PowerX/internal/handler/admin/product/pricebookentry"
 	adminscrmcontact "PowerX/internal/handler/admin/scrm/contact"
 	adminscrmcustomer "PowerX/internal/handler/admin/scrm/customer"
 	admintradeaddressbilling "PowerX/internal/handler/admin/trade/address/billing"
@@ -646,10 +647,34 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 					Path:    "/price-books/:id",
 					Handler: adminproductpricebook.DeletePriceBookHandler(serverCtx),
 				},
+			}...,
+		),
+		rest.WithPrefix("/api/v1/admin/product"),
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Route{
+				{
+					Method:  http.MethodGet,
+					Path:    "/price-book-entries/page-list",
+					Handler: adminproductpricebookentry.ListPriceBookEntriesHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/price-book-entries/:id",
+					Handler: adminproductpricebookentry.GetPriceBookEntryHandler(serverCtx),
+				},
 				{
 					Method:  http.MethodPost,
-					Path:    "/price-book-entries",
-					Handler: adminproductpricebook.ConfigPriceBookHandler(serverCtx),
+					Path:    "/price-book-entries/config",
+					Handler: adminproductpricebookentry.ConfigPriceBookEntryHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodDelete,
+					Path:    "/price-book-entries/:id",
+					Handler: adminproductpricebookentry.DeletePriceBookEntryHandler(serverCtx),
 				},
 			}...,
 		),

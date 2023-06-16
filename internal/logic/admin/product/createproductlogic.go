@@ -146,6 +146,7 @@ func TransformProductToProductReply(mdlProduct *product.Product) (productReply *
 		PromoteChannelsItemIds: model.GetItemIds(mdlProduct.PivotPromoteChannels),
 		CategoryIds:            product.GetCategoryIds(mdlProduct.ProductCategories),
 		ProductSpecifics:       TransformSpecificsToSpecificsReply(mdlProduct.ProductSpecifics),
+		PriceEntry:             TransformPriceEntryToPriceEntryReply(mdlProduct.PriceBookEntries),
 		SKUs:                   TransformSkusToSkusReply(mdlProduct.SKUs),
 		CoverImageIds:          media.GetImageIds(mdlProduct.PivotCoverImages),
 		DetailImageIds:         media.GetImageIds(mdlProduct.PivotDetailImages),

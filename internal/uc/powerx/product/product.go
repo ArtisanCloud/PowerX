@@ -26,13 +26,14 @@ func NewProductUseCase(db *gorm.DB) *ProductUseCase {
 }
 
 type FindManyProductsOption struct {
-	Types      []string
-	Plans      []string
-	SkuIds     []int64
-	Ids        []int64
-	CategoryId int
-	LikeName   string
-	OrderBy    string
+	Types         []string
+	Plans         []string
+	SkuIds        []int64
+	Ids           []int64
+	NeedActivated bool
+	CategoryId    int
+	LikeName      string
+	OrderBy       string
 	types.PageEmbedOption
 }
 
@@ -47,6 +48,10 @@ func (uc *ProductUseCase) buildFindQueryNoPage(db *gorm.DB, opt *FindManyProduct
 
 	if len(opt.Plans) > 0 {
 		db = db.Where("plan IN ?", opt.Plans)
+	}
+
+	if opt.NeedActivated {
+		db = db.Where("is_activated = ?", true)
 	}
 
 	if opt.CategoryId > 0 {

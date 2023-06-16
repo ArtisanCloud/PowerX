@@ -36,7 +36,8 @@ func (l *ListProductsPageLogic) ListProductsPage(req *types.ListProductsPageRequ
 	}
 
 	page, err := l.svcCtx.PowerX.Product.FindManyProducts(l.ctx, &productUC.FindManyProductsOption{
-		CategoryId: req.ProductCategoryId,
+		CategoryId:    req.ProductCategoryId,
+		NeedActivated: true,
 		PageEmbedOption: types.PageEmbedOption{
 			PageIndex: req.PageIndex,
 			PageSize:  req.PageSize,

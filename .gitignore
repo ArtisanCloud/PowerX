@@ -13,7 +13,7 @@ etc/powerx-*
 config.yml
 logs/
 wechat.log
-/powerx.go
+#/powerx.go
 /deploy/dependencies/data/
 /deploy/powerx
 /deploy/powerxctl
