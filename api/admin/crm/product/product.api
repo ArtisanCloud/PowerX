@@ -9,6 +9,7 @@ info(
 )
 
 import "./productcategory.api"
+import "./pricebookentry.api"
 
 @server(
     group: admin/product
@@ -79,11 +80,11 @@ type (
 
 
 
-    PriceEntry {
+    ActivePriceEntry {
         Id int64 `json:"id,optional"`
         UnitPrice float64 `json:"unitPrice,optional"`
         ListPrice float64 `json:"listPrice,optional"`
-        Discount float64 `json:"discount,optional"`
+        Discount float32 `json:"discount,optional"`
     }
 
     SKU {
@@ -136,7 +137,8 @@ type (
         CoverImages []*ProductImage `json:"coverImages,optional"`
         DetailImageIds []int64 `json:"detailImageIds,optional"`
         DetailImages []*ProductImage `json:"detailImages,optional"`
-        PriceEntry *PriceEntry `json:"priceEntry,optional"`
+        ActivePriceEntry *ActivePriceEntry `json:"activePriceBookEntry,optional"`
+        PriceBookEntries []*PriceBookEntry `json:"priceBookEntries,optional"`
         SKUs []*SKU `json:"skus,optional"`
         *ProductAttribute
         ViewedCount int `json:"viewedCount,optional"`
@@ -145,6 +147,7 @@ type (
 
 type (
     ListProductsPageRequest struct {
+        LikeName string `form:"likeName,optional"`
         ProductType string `form:"productType,optional"`
         Keys []string `form:"keys,optional"`
         ProductCategoryId int `form:"productCategoryId,optional"`
