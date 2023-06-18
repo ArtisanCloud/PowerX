@@ -38,7 +38,20 @@ service PowerX {
 }
 
 type (
-    PriceBookEntrySecific {
+
+    PriceConfig {
+        Discount float32 `json:"discount,optional"`
+        Price float64 `json:"price,optional"`
+        Days int8 `json:"days,optional"`
+        Type int8 `json:"type,optional"`
+        PriceBookEntryId int64 `json:"priceBookEntryId,optional"`
+        StartDate string `json:"startDate,optional"`
+        EndDate string `json:"endDate,optional"`
+    }
+
+
+
+    PriceBookEntrySpecific {
         Inventory int16 `json:"inventory,optional"`
         Weight float32 `json:"weight,optional"`
         Volume float32 `json:"volume,optional"`
@@ -48,13 +61,17 @@ type (
     }
 
     PriceBookEntry {
-        UniqueID string `json:"uniqueID,optional"`
-        PriceBookEntryId int64 `json:"PriceBookEntryId"`
+        Id int64 `json:"id,optional"`
+//        UniqueID string `json:"uniqueID,optional"`
+        PriceBookId int64 `json:"PriceBookEntryId"`
         ProductId int64 `json:"productId"`
+        skuId float64 `json:"skuId"`
         UnitPrice float64 `json:"unitPrice"`
         ListPrice float64 `json:"listPrice,optional"`
-        IsActive bool `json:"isActive, omitempty"`
-        PriceBookEntrySecific
+        IsActive bool `json:"isActive, optional"`
+        PriceConfigs []*PriceConfig `json:"criceConfig, optional"`
+
+        Discount float32 `json:"discount,optional"`
     }
 )
 

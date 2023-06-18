@@ -1,6 +1,7 @@
 package product
 
 import (
+	"PowerX/internal/logic/admin/product/pricebookentry"
 	"PowerX/internal/model"
 	"PowerX/internal/model/media"
 	"PowerX/internal/model/product"
@@ -8,8 +9,6 @@ import (
 	"PowerX/internal/types"
 	"PowerX/internal/types/errorx"
 	"context"
-	"math"
-
 	"github.com/zeromicro/go-zero/core/logx"
 )
 
@@ -86,7 +85,7 @@ func TransformProductToProductReplyToMP(mdlProduct *product.Product) (productRep
 		PromoteChannelsItemIds: getItemIds(mdlProduct.PivotPromoteChannels),
 		CategoryIds:            getCategoryIds(mdlProduct.ProductCategories),
 		ProductSpecifics:       TransformSpecificsToSpecificsReplyToMP(mdlProduct.ProductSpecifics),
-		PriceEntry:             TransformPriceEntryToPriceEntryReplyToMP(mdlProduct.PriceBookEntries),
+		ActivePriceEntry:       TransformPriceEntryToPriceEntryReplyToMP(mdlProduct.PriceBookEntries),
 		SKUs:                   TransformSkusToSkusReplyToMP(mdlProduct.SKUs),
 		ProductAttribute: &types.ProductAttribute{
 			Inventory:  mdlProduct.Inventory,
@@ -100,14 +99,12 @@ func TransformProductToProductReplyToMP(mdlProduct *product.Product) (productRep
 
 }
 
-func TransformPriceEntryToPriceEntryReplyToMP(entries []*product.PriceBookEntry) (entriesReply *types.PriceEntry) {
+func TransformPriceEntryToPriceEntryReplyToMP(entries []*product.PriceBookEntry) (entriesReply *types.ActivePriceEntry) {
 	//fmt.Dump(entries)
 	for _, entry := range entries {
 		if entry.SkuId == 0 && entry.IsActive {
-			discount := (entry.UnitPrice / entry.ListPrice) * 100
-			discount = math.Round(discount*10) / 10 // 四舍五入保留一位小数
-
-			return &types.PriceEntry{
+			discount := pricebookentry.CalDiscount(entry.UnitPrice, entry.ListPrice)
+			return &types.ActivePriceEntry{
 				Id:        entry.Id,
 				UnitPrice: entry.UnitPrice,
 				ListPrice: entry.ListPrice,

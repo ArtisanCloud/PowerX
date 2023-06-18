@@ -1,13 +1,10 @@
 package product
 
 import (
-	"PowerX/internal/model/product"
-	"PowerX/internal/types/errorx"
-	"context"
-	"math"
-
 	"PowerX/internal/svc"
 	"PowerX/internal/types"
+	"PowerX/internal/types/errorx"
+	"context"
 
 	"github.com/zeromicro/go-zero/core/logx"
 )
@@ -37,23 +34,4 @@ func (l *GetProductLogic) GetProduct(req *types.GetProductRequest) (resp *types.
 		Product: TransformProductToProductReply(mdlProduct),
 	}, nil
 
-}
-
-func TransformPriceEntryToPriceEntryReply(entries []*product.PriceBookEntry) (entriesReply *types.PriceEntry) {
-	//fmt.Dump(entries)
-	for _, entry := range entries {
-		if entry.SkuId == 0 && entry.IsActive {
-			discount := (entry.UnitPrice / entry.ListPrice) * 100
-			discount = math.Round(discount*10) / 10 // 四舍五入保留一位小数
-
-			return &types.PriceEntry{
-				Id:        entry.Id,
-				UnitPrice: entry.UnitPrice,
-				ListPrice: entry.ListPrice,
-				Discount:  discount,
-			}
-		}
-	}
-
-	return nil
 }

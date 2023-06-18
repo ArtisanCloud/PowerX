@@ -1072,6 +1072,53 @@ type DeleteOpportunityReply struct {
 	Id int64 `json:"id"`
 }
 
+type PriceBook struct {
+	Id          int64  `json:"id,optional"`
+	IsStandard  bool   `json:"isStandard,optional"`
+	Name        string `json:"name"`
+	Description string `json:"description,optional"`
+	StoreId     int64  `json:"storeId,optional"`
+	CreatedAt   string `json:"createdAt,optional"`
+}
+
+type ListPriceBooksPageRequest struct {
+	LikeName  string `json:"likeName,optional"`
+	StoreId   int64  `json:"storeId,optional"`
+	PageIndex int    `form:"pageIndex,optional"`
+	PageSize  int    `form:"pageSize,optional"`
+}
+
+type ListPriceBooksPageReply struct {
+	List      []PriceBook `json:"list"`
+	PageIndex int         `json:"pageIndex"`
+	PageSize  int         `json:"pageSize"`
+	Total     int64       `json:"total"`
+}
+
+type GetPriceBookRequest struct {
+	PriceBook int64 `path:"id"`
+}
+
+type GetPriceBookReply struct {
+	*PriceBook
+}
+
+type UpsertPriceBookRequest struct {
+	PriceBook
+}
+
+type UpsertPriceBookReply struct {
+	*PriceBook
+}
+
+type DeletePriceBookRequest struct {
+	Id int64 `path:"id"`
+}
+
+type DeletePriceBookReply struct {
+	Id int64 `json:"id"`
+}
+
 type ProductImage struct {
 	Id            int64  `json:"id,optional"`
 	Filename      string `json:"filename,optional"`
@@ -1100,11 +1147,11 @@ type PivotDataDictionaryToObject struct {
 	DataDictionaryKey  string `json:"dataDictionaryKey,optional"`
 }
 
-type PriceEntry struct {
+type ActivePriceEntry struct {
 	Id        int64   `json:"id,optional"`
 	UnitPrice float64 `json:"unitPrice,optional"`
 	ListPrice float64 `json:"listPrice,optional"`
-	Discount  float64 `json:"discount,optional"`
+	Discount  float32 `json:"discount,optional"`
 }
 
 type SKU struct {
@@ -1156,13 +1203,15 @@ type Product struct {
 	CoverImages            []*ProductImage                `json:"coverImages,optional"`
 	DetailImageIds         []int64                        `json:"detailImageIds,optional"`
 	DetailImages           []*ProductImage                `json:"detailImages,optional"`
-	PriceEntry             *PriceEntry                    `json:"priceEntry,optional"`
+	ActivePriceEntry       *ActivePriceEntry              `json:"activePriceBookEntry,optional"`
+	PriceBookEntries       []*PriceBookEntry              `json:"priceBookEntries,optional"`
 	SKUs                   []*SKU                         `json:"skus,optional"`
 	*ProductAttribute
 	ViewedCount int `json:"viewedCount,optional"`
 }
 
 type ListProductsPageRequest struct {
+	LikeName          string   `form:"likeName,optional"`
 	ProductType       string   `form:"productType,optional"`
 	Keys              []string `form:"keys,optional"`
 	ProductCategoryId int      `form:"productCategoryId,optional"`
@@ -1312,54 +1361,17 @@ type DeleteProductCategoryReply struct {
 	Id int64 `json:"id"`
 }
 
-type PriceBook struct {
-	Id          int64  `json:"id,optional"`
-	IsStandard  bool   `json:"isStandard,optional"`
-	Name        string `json:"name"`
-	Description string `json:"description,optional"`
-	StoreId     int64  `json:"storeId,optional"`
-	CreatedAt   string `json:"createdAt,optional"`
+type PriceConfig struct {
+	Discount         float32 `json:"discount,optional"`
+	Price            float64 `json:"price,optional"`
+	Days             int8    `json:"days,optional"`
+	Type             int8    `json:"type,optional"`
+	PriceBookEntryId int64   `json:"priceBookEntryId,optional"`
+	StartDate        string  `json:"startDate,optional"`
+	EndDate          string  `json:"endDate,optional"`
 }
 
-type ListPriceBooksPageRequest struct {
-	LikeName  string `json:"likeName,optional"`
-	StoreId   int64  `json:"storeId,optional"`
-	PageIndex int    `form:"pageIndex,optional"`
-	PageSize  int    `form:"pageSize,optional"`
-}
-
-type ListPriceBooksPageReply struct {
-	List      []PriceBook `json:"list"`
-	PageIndex int         `json:"pageIndex"`
-	PageSize  int         `json:"pageSize"`
-	Total     int64       `json:"total"`
-}
-
-type GetPriceBookRequest struct {
-	PriceBook int64 `path:"id"`
-}
-
-type GetPriceBookReply struct {
-	*PriceBook
-}
-
-type UpsertPriceBookRequest struct {
-	PriceBook
-}
-
-type UpsertPriceBookReply struct {
-	*PriceBook
-}
-
-type DeletePriceBookRequest struct {
-	Id int64 `path:"id"`
-}
-
-type DeletePriceBookReply struct {
-	Id int64 `json:"id"`
-}
-
-type PriceBookEntrySecific struct {
+type PriceBookEntrySpecific struct {
 	Inventory int16   `json:"inventory,optional"`
 	Weight    float32 `json:"weight,optional"`
 	Volume    float32 `json:"volume,optional"`
@@ -1369,13 +1381,15 @@ type PriceBookEntrySecific struct {
 }
 
 type PriceBookEntry struct {
-	UniqueID         string  `json:"uniqueID,optional"`
-	PriceBookEntryId int64   `json:"PriceBookEntryId"`
-	ProductId        int64   `json:"productId"`
-	UnitPrice        float64 `json:"unitPrice"`
-	ListPrice        float64 `json:"listPrice,optional"`
-	IsActive         bool    `json:"isActive, omitempty"`
-	PriceBookEntrySecific
+	Id           int64          `json:"id,optional"`
+	PriceBookId  int64          `json:"PriceBookEntryId"`
+	ProductId    int64          `json:"productId"`
+	SkuId        float64        `json:"skuId"`
+	UnitPrice    float64        `json:"unitPrice"`
+	ListPrice    float64        `json:"listPrice,optional"`
+	IsActive     bool           `json:"isActive, optional"`
+	PriceConfigs []*PriceConfig `json:"criceConfig, optional"`
+	Discount     float32        `json:"discount,optional"`
 }
 
 type ListPriceBookEntriesPageRequest struct {

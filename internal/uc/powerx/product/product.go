@@ -38,6 +38,11 @@ type FindManyProductsOption struct {
 }
 
 func (uc *ProductUseCase) buildFindQueryNoPage(db *gorm.DB, opt *FindManyProductsOption) *gorm.DB {
+
+	if len(opt.LikeName) > 0 {
+		db = db.Where("name LIKE ?", "%"+opt.LikeName+"%")
+	}
+
 	if len(opt.Types) > 0 {
 		db = db.Where("type IN ?", opt.Types)
 	}

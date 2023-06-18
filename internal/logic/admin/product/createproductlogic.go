@@ -2,6 +2,7 @@ package product
 
 import (
 	"PowerX/internal/logic/admin/product/category"
+	"PowerX/internal/logic/admin/product/pricebookentry"
 	"PowerX/internal/model"
 	"PowerX/internal/model/media"
 	"PowerX/internal/model/product"
@@ -146,7 +147,8 @@ func TransformProductToProductReply(mdlProduct *product.Product) (productReply *
 		PromoteChannelsItemIds: model.GetItemIds(mdlProduct.PivotPromoteChannels),
 		CategoryIds:            product.GetCategoryIds(mdlProduct.ProductCategories),
 		ProductSpecifics:       TransformSpecificsToSpecificsReply(mdlProduct.ProductSpecifics),
-		PriceEntry:             TransformPriceEntryToPriceEntryReply(mdlProduct.PriceBookEntries),
+		ActivePriceEntry:       pricebookentry.TransformPriceEntriesToActivePriceEntryReply(mdlProduct.PriceBookEntries),
+		PriceBookEntries:       pricebookentry.TransformPriceBookEntriesToPriceBookEntriesReply(mdlProduct.PriceBookEntries),
 		SKUs:                   TransformSkusToSkusReply(mdlProduct.SKUs),
 		CoverImageIds:          media.GetImageIds(mdlProduct.PivotCoverImages),
 		DetailImageIds:         media.GetImageIds(mdlProduct.PivotDetailImages),

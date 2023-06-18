@@ -546,6 +546,35 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			[]rest.Route{
 				{
 					Method:  http.MethodGet,
+					Path:    "/price-books/page-list",
+					Handler: adminproductpricebook.ListPriceBooksHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/price-books/:id",
+					Handler: adminproductpricebook.GetPriceBookHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/price-books",
+					Handler: adminproductpricebook.UpsertPriceBookHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodDelete,
+					Path:    "/price-books/:id",
+					Handler: adminproductpricebook.DeletePriceBookHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithPrefix("/api/v1/admin/product"),
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Route{
+				{
+					Method:  http.MethodGet,
 					Path:    "/products/page-list",
 					Handler: adminproduct.ListProductsPageHandler(serverCtx),
 				},
@@ -617,35 +646,6 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 					Method:  http.MethodDelete,
 					Path:    "/product-categories/:id",
 					Handler: adminproductcategory.DeleteProductCategoryHandler(serverCtx),
-				},
-			}...,
-		),
-		rest.WithPrefix("/api/v1/admin/product"),
-	)
-
-	server.AddRoutes(
-		rest.WithMiddlewares(
-			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
-			[]rest.Route{
-				{
-					Method:  http.MethodGet,
-					Path:    "/price-books/page-list",
-					Handler: adminproductpricebook.ListPriceBooksHandler(serverCtx),
-				},
-				{
-					Method:  http.MethodGet,
-					Path:    "/price-books/:id",
-					Handler: adminproductpricebook.GetPriceBookHandler(serverCtx),
-				},
-				{
-					Method:  http.MethodPost,
-					Path:    "/price-books",
-					Handler: adminproductpricebook.UpsertPriceBookHandler(serverCtx),
-				},
-				{
-					Method:  http.MethodDelete,
-					Path:    "/price-books/:id",
-					Handler: adminproductpricebook.DeletePriceBookHandler(serverCtx),
 				},
 			}...,
 		),

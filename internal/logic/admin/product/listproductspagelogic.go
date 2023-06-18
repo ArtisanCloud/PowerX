@@ -26,6 +26,7 @@ func NewListProductsPageLogic(ctx context.Context, svcCtx *svc.ServiceContext) *
 
 func (l *ListProductsLogic) ListProductsPage(req *types.ListProductsPageRequest) (resp *types.ListProductsPageReply, err error) {
 	page, err := l.svcCtx.PowerX.Product.FindManyProducts(l.ctx, &productUC.FindManyProductsOption{
+		LikeName: req.LikeName,
 		PageEmbedOption: types.PageEmbedOption{
 			PageIndex: req.PageIndex,
 			PageSize:  req.PageSize,
