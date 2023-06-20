@@ -26,6 +26,7 @@ type FindPriceBookEntryOption struct {
 	Ids         []int64
 	PriceBookId int64
 	ProductIds  []int64
+	DontNeedSku bool
 	SkuIds      []int64
 	types.PageEmbedOption
 }
@@ -42,8 +43,12 @@ func (uc *PriceBookEntryUseCase) buildFindQueryNoPage(query *gorm.DB, opt *FindP
 		query.Where("(product_id IN ? AND sku_id = ?)", opt.ProductIds, 0)
 
 	}
-	if len(opt.SkuIds) > 0 {
-		query.Where("sku_id in ?", opt.SkuIds)
+	if !opt.DontNeedSku {
+		if len(opt.SkuIds) > 0 {
+			query.Where("sku_id in ?", opt.SkuIds)
+		}
+	} else {
+		query.Where("sku_id = ?", 0)
 	}
 
 	orderBy := "id desc"
