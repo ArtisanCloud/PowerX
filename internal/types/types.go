@@ -1381,15 +1381,17 @@ type PriceBookEntrySpecific struct {
 }
 
 type PriceBookEntry struct {
-	Id           int64          `json:"id,optional"`
-	PriceBookId  int64          `json:"PriceBookEntryId"`
-	ProductId    int64          `json:"productId"`
-	SkuId        float64        `json:"skuId"`
-	UnitPrice    float64        `json:"unitPrice"`
-	ListPrice    float64        `json:"listPrice,optional"`
-	IsActive     bool           `json:"isActive, optional"`
-	PriceConfigs []*PriceConfig `json:"criceConfig, optional"`
-	Discount     float32        `json:"discount,optional"`
+	Id           int64             `json:"id,optional"`
+	UniqueID     string            `json:"uniqueID,optional"`
+	PriceBookId  int64             `json:"priceBookId"`
+	ProductId    int64             `json:"productId"`
+	SkuId        int64             `json:"skuId,optional"`
+	UnitPrice    float64           `json:"unitPrice"`
+	ListPrice    float64           `json:"listPrice,optional"`
+	IsActive     bool              `json:"isActive, optional"`
+	PriceConfigs []*PriceConfig    `json:"priceConfigs, optional"`
+	SKUEntries   []*PriceBookEntry `json:"skuEntries, optional"`
+	Discount     float32           `json:"discount,optional"`
 }
 
 type ListPriceBookEntriesPageRequest struct {
@@ -1414,11 +1416,11 @@ type GetPriceBookEntryReply struct {
 	*PriceBookEntry
 }
 
-type ConfigPriceBookEntryEntryRequest struct {
+type ConfigPriceBookEntryRequest struct {
 	PriceBookEntries []PriceBookEntry `json:"priceBookEntries"`
 }
 
-type ConfigPriceBookEntryEntryReply struct {
+type ConfigPriceBookEntryReply struct {
 	PriceBookEntries []*PriceBookEntry `json:"list"`
 }
 

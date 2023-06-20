@@ -28,7 +28,7 @@ service PowerX {
 
     @doc "配置价格手册条目条目"
     @handler ConfigPriceBookEntry
-    post /price-book-entries/config (ConfigPriceBookEntryEntryRequest) returns (ConfigPriceBookEntryEntryReply)
+    post /price-book-entries/config (ConfigPriceBookEntryRequest) returns (ConfigPriceBookEntryReply)
 
     @doc "删除价格手册条目"
     @handler DeletePriceBookEntry
@@ -62,14 +62,16 @@ type (
 
     PriceBookEntry {
         Id int64 `json:"id,optional"`
-//        UniqueID string `json:"uniqueID,optional"`
-        PriceBookId int64 `json:"PriceBookEntryId"`
+        UniqueID string `json:"uniqueID,optional"`
+        PriceBookId int64 `json:"priceBookId"`
         ProductId int64 `json:"productId"`
-        skuId float64 `json:"skuId"`
+        SkuId int64 `json:"skuId,optional"`
         UnitPrice float64 `json:"unitPrice"`
         ListPrice float64 `json:"listPrice,optional"`
         IsActive bool `json:"isActive, optional"`
-        PriceConfigs []*PriceConfig `json:"criceConfig, optional"`
+        PriceConfigs []*PriceConfig `json:"priceConfigs, optional"`
+
+        SKUEntries []*PriceBookEntry `json:"skuEntries, optional"`
 
         Discount float32 `json:"discount,optional"`
     }
@@ -103,11 +105,11 @@ type (
 
 
 type (
-    ConfigPriceBookEntryEntryRequest {
-        PriceBookEntries []PriceBookEntry `json:"priceBookEntries"`
+    ConfigPriceBookEntryRequest {
+         PriceBookEntries []PriceBookEntry `json:"priceBookEntries"`
     }
 
-    ConfigPriceBookEntryEntryReply {
+    ConfigPriceBookEntryReply {
         PriceBookEntries []*PriceBookEntry `json:"list"`
     }
 )
