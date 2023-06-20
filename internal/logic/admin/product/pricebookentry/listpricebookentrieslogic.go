@@ -2,6 +2,7 @@ package pricebookentry
 
 import (
 	"PowerX/internal/model/product"
+	product2 "PowerX/internal/uc/powerx/product"
 	"context"
 	"math"
 
@@ -26,9 +27,25 @@ func NewListPriceBookEntriesLogic(ctx context.Context, svcCtx *svc.ServiceContex
 }
 
 func (l *ListPriceBookEntriesLogic) ListPriceBookEntries(req *types.ListPriceBookEntriesPageRequest) (resp *types.ListPriceBookEntriesPageReply, err error) {
-	// todo: add your logic here and delete this line
 
-	return
+	opt := &product2.FindPriceBookEntryOption{
+		PriceBookId: req.PriceBookId,
+		DontNeedSku: true,
+		PageEmbedOption: types.PageEmbedOption{
+			PageIndex: req.PageIndex,
+			PageSize:  req.PageSize,
+		},
+	}
+
+	priceBookPageEntryList := l.svcCtx.PowerX.PriceBookEntry.FindManyPriceBookEntries(l.ctx, opt)
+	resp = &types.ListPriceBookEntriesPageReply{}
+
+	resp.List = TransformAllPriceBookEntriesToAllPriceBookEntriesReply(priceBookPageEntryList.List)
+	resp.PageIndex = priceBookPageEntryList.PageIndex
+	resp.PageSize = priceBookPageEntryList.PageSize
+	resp.Total = priceBookPageEntryList.Total
+
+	return resp, nil
 }
 
 func TransformPriceEntriesToActivePriceEntryReply(entries []*product.PriceBookEntry) (entryReply *types.ActivePriceEntry) {
@@ -52,6 +69,16 @@ func TransformPriceBookEntriesToPriceBookEntriesReply(entries []*product.PriceBo
 		if entry.SkuId == 0 {
 			entriesReply = append(entriesReply, TransformPriceBookEntryToPriceBookEntryReply(entry))
 		}
+	}
+
+	return entriesReply
+}
+
+func TransformAllPriceBookEntriesToAllPriceBookEntriesReply(entries []*product.PriceBookEntry) (entriesReply []*types.PriceBookEntry) {
+	//fmt.Dump(entries)
+	entriesReply = []*types.PriceBookEntry{}
+	for _, entry := range entries {
+		entriesReply = append(entriesReply, TransformPriceBookEntryToPriceBookEntryReply(entry))
 	}
 
 	return entriesReply

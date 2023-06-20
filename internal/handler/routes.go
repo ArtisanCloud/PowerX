@@ -672,6 +672,11 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 					Handler: adminproductpricebookentry.ConfigPriceBookEntryHandler(serverCtx),
 				},
 				{
+					Method:  http.MethodPost,
+					Path:    "/price-book-entries/:id",
+					Handler: adminproductpricebookentry.UpdatePriceBookEntryHandler(serverCtx),
+				},
+				{
 					Method:  http.MethodDelete,
 					Path:    "/price-book-entries/:id",
 					Handler: adminproductpricebookentry.DeletePriceBookEntryHandler(serverCtx),

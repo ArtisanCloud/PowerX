@@ -30,6 +30,11 @@ service PowerX {
     @handler ConfigPriceBookEntry
     post /price-book-entries/config (ConfigPriceBookEntryRequest) returns (ConfigPriceBookEntryReply)
 
+    @doc "配置价格手册条目条目"
+    @handler UpdatePriceBookEntry
+    post /price-book-entries/:id (UpdatePriceBookEntryRequest) returns (UpdatePriceBookEntryReply)
+
+
     @doc "删除价格手册条目"
     @handler DeletePriceBookEntry
     delete /price-book-entries/:id (DeletePriceBookEntryRequest) returns (DeletePriceBookEntryReply)
@@ -73,20 +78,25 @@ type (
 
         SKUEntries []*PriceBookEntry `json:"skuEntries, optional"`
 
+        ProductName string `json:"productName,optional"`
+        SPU string `json:"spu,optional"`
+
         Discount float32 `json:"discount,optional"`
     }
 )
 
 type (
     ListPriceBookEntriesPageRequest {
-        LikeName string `json:"likeName,optional"`
-        StoreId int64 `json:"storeId,optional"`
+        LikeName string `form:"likeName,optional"`
+        PriceBookId int64 `form:"priceBookId,optional"`
+        ProductId int64 `form:"productId,optional"`
+        SkuId int64 `form:"skuId,optional"`
         PageIndex int `form:"pageIndex,optional"`
         PageSize int `form:"pageSize,optional"`
     }
 
     ListPriceBookEntriesPageReply {
-        List []PriceBookEntry `json:"list"`
+        List []*PriceBookEntry `json:"list"`
         PageIndex int `json:"pageIndex"`
         PageSize int `json:"pageSize"`
         Total int64 `json:"total"`
@@ -115,11 +125,12 @@ type (
 )
 
 type (
-    UpsertPriceBookEntryRequest {
-        PriceBookEntry PriceBookEntry `json:"priceBookEntry"`
+    UpdatePriceBookEntryRequest {
+        Id int64 `path:"id"`
+        PriceBookEntry
     }
 
-    UpsertPriceBookEntryReply {
+    UpdatePriceBookEntryReply {
         Id int64 `json:"id"`
     }
 )

@@ -1391,21 +1391,25 @@ type PriceBookEntry struct {
 	IsActive     bool              `json:"isActive, optional"`
 	PriceConfigs []*PriceConfig    `json:"priceConfigs, optional"`
 	SKUEntries   []*PriceBookEntry `json:"skuEntries, optional"`
+	ProductName  string            `json:"productName,optional"`
+	SPU          string            `json:"spu,optional"`
 	Discount     float32           `json:"discount,optional"`
 }
 
 type ListPriceBookEntriesPageRequest struct {
-	LikeName  string `json:"likeName,optional"`
-	StoreId   int64  `json:"storeId,optional"`
-	PageIndex int    `form:"pageIndex,optional"`
-	PageSize  int    `form:"pageSize,optional"`
+	LikeName    string `form:"likeName,optional"`
+	PriceBookId int64  `form:"priceBookId,optional"`
+	ProductId   int64  `form:"productId,optional"`
+	SkuId       int64  `form:"skuId,optional"`
+	PageIndex   int    `form:"pageIndex,optional"`
+	PageSize    int    `form:"pageSize,optional"`
 }
 
 type ListPriceBookEntriesPageReply struct {
-	List      []PriceBookEntry `json:"list"`
-	PageIndex int              `json:"pageIndex"`
-	PageSize  int              `json:"pageSize"`
-	Total     int64            `json:"total"`
+	List      []*PriceBookEntry `json:"list"`
+	PageIndex int               `json:"pageIndex"`
+	PageSize  int               `json:"pageSize"`
+	Total     int64             `json:"total"`
 }
 
 type GetPriceBookEntryRequest struct {
@@ -1424,11 +1428,12 @@ type ConfigPriceBookEntryReply struct {
 	PriceBookEntries []*PriceBookEntry `json:"list"`
 }
 
-type UpsertPriceBookEntryRequest struct {
-	PriceBookEntry PriceBookEntry `json:"priceBookEntry"`
+type UpdatePriceBookEntryRequest struct {
+	Id int64 `path:"id"`
+	PriceBookEntry
 }
 
-type UpsertPriceBookEntryReply struct {
+type UpdatePriceBookEntryReply struct {
 	Id int64 `json:"id"`
 }
 
