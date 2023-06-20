@@ -71,7 +71,7 @@ func SeedProductPriceBookEntries(db *gorm.DB, book *product.PriceBook) (err erro
 			ListPrice:   unitPrice + 200,
 			IsActive:    true,
 		}
-
+		standardEntry.UniqueID = standardEntry.GetComposedUniqueID()
 		entries = append(entries, standardEntry)
 
 	}
@@ -107,6 +107,7 @@ func SeedProductPriceBookEntries(db *gorm.DB, book *product.PriceBook) (err erro
 				ListPrice:   unitPrice + 200,
 				IsActive:    true,
 			}
+			skuEntry.UniqueID = skuEntry.GetComposedUniqueID()
 			skuEntries = append(skuEntries, skuEntry)
 		}
 

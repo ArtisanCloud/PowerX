@@ -2,6 +2,7 @@ package product
 
 import (
 	"PowerX/internal/model/powermodel"
+	"PowerX/pkg/securityx"
 	"fmt"
 	"github.com/ArtisanCloud/PowerLibs/v3/object"
 	"gorm.io/gorm"
@@ -17,20 +18,22 @@ type PriceBookEntry struct {
 	PriceBook    *PriceBook     `gorm:"foreignKey:PriceBookId;references:Id" json:"priceBook"`
 	PriceConfigs []*PriceConfig `gorm:"foreignKey:PriceBookEntryId;references:Id" json:"priceConfigs"`
 
-	PriceBookId int64   `gorm:"index:idx_price_book_entry,priority:3;column:price_book_id;not null;" json:"priceBookId"`
-	ProductId   int64   `gorm:"index:idx_price_book_entry,priority:2;column:product_id;not null;" json:"productId"`
-	SkuId       int64   `gorm:"index:idx_price_book_entry,priority:1;column:sku_id; comment:产品SKUId" json:"skuId"`
-	UnitPrice   float64 `gorm:"type:decimal(10,2); comment:单价" json:"unitPrice"`
-	ListPrice   float64 `gorm:"type:decimal(10,2); comment:零售价" json:"listPrice"`
-	IsActive    bool    `gorm:"comment:是否激活" json:"isActive"`
+	UniqueID    object.NullString `gorm:"index:idx_price_book_id;index:idx_product_id;index:idx_sku_id;column:index_unique_id;unique;not null"`
+	PriceBookId int64             `gorm:"index:idx_price_book_id;column:price_book_id;not null;" json:"priceBookId"`
+	ProductId   int64             `gorm:"index:idx_product_id;column:product_id;not null;" json:"productId"`
+	SkuId       int64             `gorm:"index:idx_sku_id;column:sku_id; comment:产品SKUId" json:"skuId"`
+	UnitPrice   float64           `gorm:"type:decimal(10,2); comment:单价" json:"unitPrice"`
+	ListPrice   float64           `gorm:"type:decimal(10,2); comment:零售价" json:"listPrice"`
+	IsActive    bool              `gorm:"comment:是否激活" json:"isActive"`
 }
 
 const TableNamePriceBookEntry = "price_book_entries"
-const PriceBookEntryUniqueId = "idx_price_book_entry"
+const PriceBookEntryUniqueId = "index_unique_id"
 
 func (mdl *PriceBookEntry) GetComposedUniqueID() object.NullString {
 	if mdl.PriceBookId > 0 && mdl.ProductId > 0 {
 		strUniqueID := fmt.Sprintf("%d-%d-%d", mdl.PriceBookId, mdl.ProductId, mdl.SkuId)
+		strUniqueID = securityx.HashStringData(strUniqueID)
 		return object.NewNullString(strUniqueID, true)
 	} else {
 		return object.NewNullString("", false)
