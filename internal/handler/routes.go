@@ -22,6 +22,7 @@ import (
 	adminproductcategory "PowerX/internal/handler/admin/product/category"
 	adminproductpricebook "PowerX/internal/handler/admin/product/pricebook"
 	adminproductpricebookentry "PowerX/internal/handler/admin/product/pricebookentry"
+	adminproductproductspecific "PowerX/internal/handler/admin/product/productspecific"
 	adminscrmcontact "PowerX/internal/handler/admin/scrm/contact"
 	adminscrmcustomer "PowerX/internal/handler/admin/scrm/customer"
 	admintradeaddressbilling "PowerX/internal/handler/admin/trade/address/billing"
@@ -555,7 +556,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 					Handler: adminproductpricebook.GetPriceBookHandler(serverCtx),
 				},
 				{
-					Method:  http.MethodPost,
+					Method:  http.MethodPut,
 					Path:    "/price-books",
 					Handler: adminproductpricebook.UpsertPriceBookHandler(serverCtx),
 				},
@@ -646,6 +647,45 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 					Method:  http.MethodDelete,
 					Path:    "/product-categories/:id",
 					Handler: adminproductcategory.DeleteProductCategoryHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithPrefix("/api/v1/admin/product"),
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Route{
+				{
+					Method:  http.MethodGet,
+					Path:    "/product-specifics/page-list",
+					Handler: adminproductproductspecific.ListProductSpecificPageHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/product-specifics/:id",
+					Handler: adminproductproductspecific.GetProductSpecificHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/product-specifics",
+					Handler: adminproductproductspecific.CreateProductSpecificHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPut,
+					Path:    "/product-specifics/:id",
+					Handler: adminproductproductspecific.PutProductSpecificHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPatch,
+					Path:    "/product-specifics/:id",
+					Handler: adminproductproductspecific.PatchProductSpecificHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodDelete,
+					Path:    "/product-specifics/:id",
+					Handler: adminproductproductspecific.DeleteProductSpecificHandler(serverCtx),
 				},
 			}...,
 		),

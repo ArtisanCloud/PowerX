@@ -2,7 +2,6 @@ package pricebookentry
 
 import (
 	"PowerX/internal/model/product"
-	fmt "PowerX/pkg/printx"
 	"context"
 	"github.com/kr/pretty"
 	"github.com/pkg/errors"
@@ -33,7 +32,7 @@ func (l *ConfigPriceBookEntryLogic) ConfigPriceBookEntry(req *types.ConfigPriceB
 	if err != nil {
 		return nil, err
 	}
-	fmt.Dump(entries)
+	//fmt.Dump(entries)
 
 	entries, err = l.svcCtx.PowerX.PriceBookEntry.UpsertPriceBookEntries(l.ctx, entries)
 	if err != nil {

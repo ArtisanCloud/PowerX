@@ -1,0 +1,144 @@
+syntax = "v1"
+
+info(
+    title: "产品规格服务"
+    desc: "产品规格服务"
+    author: "MichaelHu"
+    email: "matrix-x@artisan-cloud.com"
+    version: "v1"
+)
+
+@server(
+    group: admin/product/productspecific
+    prefix: /api/v1/admin/product
+    middleware: EmployeeJWTAuth
+)
+
+service PowerX {
+    @doc "查询产品规格列表"
+    @handler ListProductSpecificPage
+    get /product-specifics/page-list (ListProductSpecificPageRequest) returns (ListProductSpecificPageReply)
+
+    @doc "查询产品规格详情"
+    @handler GetProductSpecific
+    get /product-specifics/:id (GetProductSpecificRequest) returns (GetProductSpecificReply)
+
+
+    @doc "创建产品规格"
+    @handler CreateProductSpecific
+    post /product-specifics (CreateProductSpecificRequest) returns (CreateProductSpecificReply)
+
+
+    @doc "全量产品规格"
+    @handler PutProductSpecific
+    put /product-specifics/:id (PutProductSpecificRequest) returns (PutProductSpecificReply)
+
+    @doc "增量产品规格"
+    @handler PatchProductSpecific
+    patch /product-specifics/:id (PatchProductSpecificRequest) returns (PatchProductSpecificReply)
+
+
+    @doc "删除产品规格"
+    @handler DeleteProductSpecific
+    delete /product-specifics/:id (DeleteProductSpecificRequest) returns (DeleteProductSpecificReply)
+}
+
+type (
+    ProductSpecific {
+        Id int64 `json:"id,optional"`
+        ProductId int64 `json:"productId"`
+        Name string `json:"name"`
+        SpecificOptions []*SpecificOption `json:"specificOptions,optional"`
+    }
+    SpecificOption {
+        Id int64 `json:"id,optional"`
+        ProductSpecificId int64 `json:"ProductSpecificId,optional"`
+        Name string `json:"name,optional"`
+        IsActivated bool `json:"isActivated,optional"`
+    }
+
+
+    SKU {
+        Id int64 `json:"id,optional"`
+        SkuNo string `json:"skuNo,optional"`
+        Inventory int `json:"inventory,optional"`
+        UnitPrice float64 `json:"unitPrice,optional"`
+        ListPrice float64 `json:"listPrice,optional"`
+        IsActive bool `json:"isActive,optional"`
+        OptionsIds []int64 `json:"optionsIds,optional"`
+    }
+)
+
+type (
+    ListProductSpecificPageRequest struct {
+        LikeName string `form:"likeName,optional"`
+        ProductId int64 `form:"productId"`
+        OrderBy string `form:"orderBy,optional"`
+        PageIndex int `form:"pageIndex,optional"`
+        PageSize int `form:"pageSize,optional"`
+    }
+
+
+    ListProductSpecificPageReply struct {
+        List []*ProductSpecific `json:"list"`
+        PageIndex int `json:"pageIndex"`
+        PageSize int `json:"pageSize"`
+        Total int64 `json:"total"`
+    }
+)
+
+type (
+    CreateProductSpecificRequest struct {
+        ProductSpecific
+    }
+
+    CreateProductSpecificReply struct {
+        ProductSpecificId int64 `json:"id"`
+    }
+)
+
+type (
+    GetProductSpecificRequest struct {
+        ProductSpecificId int64 `path:"id"`
+    }
+
+    GetProductSpecificReply struct {
+        *ProductSpecific
+    }
+)
+
+
+type (
+    PutProductSpecificRequest struct {
+        ProductSpecificId int64 `path:"id"`
+        ProductSpecific
+    }
+
+    PutProductSpecificReply struct {
+        *ProductSpecific
+    }
+)
+
+type (
+    PatchProductSpecificRequest struct {
+        ProductSpecificId int64 `path:"id"`
+        ProductSpecific
+    }
+
+    PatchProductSpecificReply struct {
+        *ProductSpecific
+    }
+)
+
+
+type (
+    DeleteProductSpecificRequest struct {
+        ProductSpecificId int64 `path:"id"`
+    }
+
+    DeleteProductSpecificReply struct {
+        ProductSpecificId int64 `json:"id"`
+    }
+)
+
+
