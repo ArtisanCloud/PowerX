@@ -1,7 +1,7 @@
 package productspecific
 
 import (
-	"PowerX/internal/logic/admin/product/ProductSpecific"
+	"PowerX/internal/logic/admin/product/productspecific"
 	"net/http"
 
 	"PowerX/internal/svc"
