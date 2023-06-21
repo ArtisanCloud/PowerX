@@ -113,6 +113,11 @@ func (uc *OrganizationUseCase) FindManyEmployeesPage(ctx context.Context, opt *F
 	var count int64
 	query := uc.db.WithContext(ctx).Model(&organization.Employee{})
 
+	query = buildFindManyEmployeesQueryNoPage(query, opt)
+	if err := query.Count(&count).Error; err != nil {
+		panic(errors.Wrap(err, "find employees failed"))
+	}
+
 	if opt.PageIndex == 0 {
 		opt.PageIndex = 1
 	}
@@ -123,10 +128,7 @@ func (uc *OrganizationUseCase) FindManyEmployeesPage(ctx context.Context, opt *F
 	if opt.PageIndex != 0 && opt.PageSize != 0 {
 		query.Offset((opt.PageIndex - 1) * opt.PageSize).Limit(opt.PageSize)
 	}
-	query = buildFindManyEmployeesQueryNoPage(query, opt)
-	if err := query.Count(&count).Error; err != nil {
-		panic(errors.Wrap(err, "find employees failed"))
-	}
+
 	if err := query.Find(&employees).Error; err != nil {
 		panic(errors.Wrap(err, "find employees failed"))
 	}
