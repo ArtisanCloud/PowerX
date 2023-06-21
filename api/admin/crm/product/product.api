@@ -9,6 +9,7 @@ info(
 )
 
 import "./productcategory.api"
+import "./productspecific.api"
 import "./pricebookentry.api"
 
 @server(
@@ -61,17 +62,7 @@ type (
         ContentType string `json:"contentType,optional"`
         ResourceType string `json:"resourceType,optional"`
     }
-    ProductSpecific {
-        Id int64 `json:"id,optional"`
-        Name string `json:"name,optional"`
-        SpecificOptions []*SpecificOption `json:"specificOptions,optional"`
-    }
-    SpecificOption {
-        Id int64 `json:"id,optional"`
-        //        ProductSpecificId int64  `json:"productSpecificId,optional"`
-        Name string `json:"name,optional"`
-        IsActivated bool `json:"isActivated,optional,omitempty"`
-    }
+
 
     PivotDataDictionaryToObject {
         DataDictionaryType string `json:"dataDictionaryType,optional"`
@@ -79,22 +70,11 @@ type (
     }
 
 
-
     ActivePriceEntry {
         Id int64 `json:"id,optional"`
         UnitPrice float64 `json:"unitPrice,optional"`
         ListPrice float64 `json:"listPrice,optional"`
         Discount float32 `json:"discount,optional"`
-    }
-
-    SKU {
-        Id int64 `json:"id,optional"`
-        SkuNo string `json:"skuNo,optional"`
-        Inventory int `json:"inventory,optional"`
-        UnitPrice float64 `json:"unitPrice,optional"`
-        ListPrice float64 `json:"listPrice,optional"`
-        IsActive bool `json:"isActive,optional"`
-        OptionsIds []int64 `json:"optionsIds,optional, omitempty"`
     }
 
     ProductAttribute {

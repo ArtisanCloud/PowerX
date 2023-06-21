@@ -18,3 +18,5 @@ type SpecificOption struct {
 	Name              string `gorm:"comment: 规格项名称; not null" json:"name"`
 	IsActivated       bool   `gorm:"comment:是否被激活; column:is_activated;" json:"isActivated,optional"`
 }
+
+const ProductSpecificUniqueId = "name"

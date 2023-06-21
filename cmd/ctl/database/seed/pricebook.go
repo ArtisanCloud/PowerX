@@ -53,7 +53,7 @@ func SeedProductPriceBookEntries(db *gorm.DB, book *product.PriceBook) (err erro
 
 	products, err := ucProduct.FindManyProducts(context.Background(), &product2.FindManyProductsOption{
 		PageEmbedOption: types.PageEmbedOption{
-			PageSize: 9999,
+			PageSize: 99,
 		},
 	})
 	if len(products.List) <= 0 {

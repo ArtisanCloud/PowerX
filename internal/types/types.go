@@ -1130,18 +1130,6 @@ type ProductImage struct {
 	ResourceType  string `json:"resourceType,optional"`
 }
 
-type ProductSpecific struct {
-	Id              int64             `json:"id,optional"`
-	Name            string            `json:"name,optional"`
-	SpecificOptions []*SpecificOption `json:"specificOptions,optional"`
-}
-
-type SpecificOption struct {
-	Id          int64  `json:"id,optional"`
-	Name        string `json:"name,optional"`
-	IsActivated bool   `json:"isActivated,optional,omitempty"`
-}
-
 type PivotDataDictionaryToObject struct {
 	DataDictionaryType string `json:"dataDictionaryType,optional"`
 	DataDictionaryKey  string `json:"dataDictionaryKey,optional"`
@@ -1152,16 +1140,6 @@ type ActivePriceEntry struct {
 	UnitPrice float64 `json:"unitPrice,optional"`
 	ListPrice float64 `json:"listPrice,optional"`
 	Discount  float32 `json:"discount,optional"`
-}
-
-type SKU struct {
-	Id         int64   `json:"id,optional"`
-	SkuNo      string  `json:"skuNo,optional"`
-	Inventory  int     `json:"inventory,optional"`
-	UnitPrice  float64 `json:"unitPrice,optional"`
-	ListPrice  float64 `json:"listPrice,optional"`
-	IsActive   bool    `json:"isActive,optional"`
-	OptionsIds []int64 `json:"optionsIds,optional, omitempty"`
 }
 
 type ProductAttribute struct {
@@ -1359,6 +1337,87 @@ type DeleteProductCategoryRequest struct {
 
 type DeleteProductCategoryReply struct {
 	Id int64 `json:"id"`
+}
+
+type ProductSpecific struct {
+	Id              int64             `json:"id,optional"`
+	ProductId       int64             `json:"productId"`
+	Name            string            `json:"name"`
+	SpecificOptions []*SpecificOption `json:"specificOptions,optional"`
+}
+
+type SpecificOption struct {
+	Id                int64  `json:"id,optional"`
+	ProductSpecificId int64  `json:"ProductSpecificId,optional"`
+	Name              string `json:"name,optional"`
+	IsActivated       bool   `json:"isActivated,optional"`
+}
+
+type SKU struct {
+	Id         int64   `json:"id,optional"`
+	SkuNo      string  `json:"skuNo,optional"`
+	Inventory  int     `json:"inventory,optional"`
+	UnitPrice  float64 `json:"unitPrice,optional"`
+	ListPrice  float64 `json:"listPrice,optional"`
+	IsActive   bool    `json:"isActive,optional"`
+	OptionsIds []int64 `json:"optionsIds,optional"`
+}
+
+type ListProductSpecificPageRequest struct {
+	LikeName  string `form:"likeName,optional"`
+	ProductId int64  `form:"productId"`
+	OrderBy   string `form:"orderBy,optional"`
+	PageIndex int    `form:"pageIndex,optional"`
+	PageSize  int    `form:"pageSize,optional"`
+}
+
+type ListProductSpecificPageReply struct {
+	List      []*ProductSpecific `json:"list"`
+	PageIndex int                `json:"pageIndex"`
+	PageSize  int                `json:"pageSize"`
+	Total     int64              `json:"total"`
+}
+
+type CreateProductSpecificRequest struct {
+	ProductSpecific
+}
+
+type CreateProductSpecificReply struct {
+	ProductSpecificId int64 `json:"id"`
+}
+
+type GetProductSpecificRequest struct {
+	ProductSpecificId int64 `path:"id"`
+}
+
+type GetProductSpecificReply struct {
+	*ProductSpecific
+}
+
+type PutProductSpecificRequest struct {
+	ProductSpecificId int64 `path:"id"`
+	ProductSpecific
+}
+
+type PutProductSpecificReply struct {
+	*ProductSpecific
+}
+
+type PatchProductSpecificRequest struct {
+	ProductSpecificId int64 `path:"id"`
+	ProductSpecific
+}
+
+type PatchProductSpecificReply struct {
+	*ProductSpecific
+}
+
+type DeleteProductSpecificRequest struct {
+	ProductSpecificId int64 `path:"id"`
+}
+
+type DeleteProductSpecificReply struct {
+	ProductSpecificId int64 `json:"id"`
 }
 
 type PriceConfig struct {

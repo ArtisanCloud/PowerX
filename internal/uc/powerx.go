@@ -24,6 +24,7 @@ type PowerXUseCase struct {
 	Customer              *customerDomainUC.CustomerUseCase
 	Lead                  *customerDomainUC.LeadUseCase
 	Product               *productUC.ProductUseCase
+	ProductSpecific       *productUC.ProductSpecificUseCase
 	ProductCategory       *productUC.ProductCategoryUseCase
 	PriceBook             *productUC.PriceBookUseCase
 	PriceBookEntry        *productUC.PriceBookEntryUseCase
@@ -83,6 +84,7 @@ func NewPowerXUseCase(conf *config.Config) (uc *PowerXUseCase, clean func()) {
 	uc.Lead = customerDomainUC.NewLeadUseCase(db)
 
 	// 加载产品服务UseCase
+	uc.ProductSpecific = productUC.NewProductSpecificUseCase(db)
 	uc.Product = productUC.NewProductUseCase(db)
 	uc.ProductCategory = productUC.NewProductCategoryUseCase(db)
 	uc.PriceBook = productUC.NewPriceBookUseCase(db)
