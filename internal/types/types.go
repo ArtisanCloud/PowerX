@@ -1386,6 +1386,14 @@ type CreateProductSpecificReply struct {
 	ProductSpecificId int64 `json:"id"`
 }
 
+type ConfigProductSpecificRequest struct {
+	ProductSpecifics []ProductSpecific `json:"productSpecifics"`
+}
+
+type ConfigProductSpecificReply struct {
+	Result bool `json:"result"`
+}
+
 type GetProductSpecificRequest struct {
 	ProductSpecificId int64 `path:"id"`
 }

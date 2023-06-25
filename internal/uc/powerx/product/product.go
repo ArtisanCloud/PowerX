@@ -7,6 +7,7 @@ import (
 	model "PowerX/internal/model/product"
 	"PowerX/internal/types"
 	"PowerX/internal/types/errorx"
+	fmt "PowerX/pkg/printx"
 	"PowerX/pkg/slicex"
 	"context"
 	"encoding/json"
@@ -284,6 +285,31 @@ func (uc *ProductUseCase) ClearAssociations(db *gorm.DB, product *model.Product)
 
 }
 
+func (uc *ProductUseCase) ReFactSKUs(ctx context.Context, product *model.Product) error {
+
+	db := uc.db.WithContext(ctx)
+	err := db.Transaction(func(tx *gorm.DB) error {
+
+		// upsert skus
+		skus := uc.GenerateSKUsFromSpecifics(context.Background(), product)
+		err := db.Model(&model.SKU{}).Create(&skus).Error
+		if err != nil {
+			return err
+		}
+
+		// upsert PivotSKUsFromSpecifics
+		pivots := uc.GeneratePivotSKUsFromSpecifics(context.Background(), product.ProductSpecifics, skus)
+		err = db.Model(&model.PivotSkuToSpecificOption{}).Create(&pivots).Error
+		if err != nil {
+			panic(errors.Wrap(err, "init sku pivots failed"))
+		}
+
+		return err
+	})
+
+	return err
+}
+
 func (uc *ProductUseCase) GenerateSKUsFromSpecifics(ctx context.Context, product *model.Product) []*model.SKU {
 	var skus []*model.SKU
 	GenerateSKURecursively(product, product.ProductSpecifics, 0, &model.SKU{}, &skus)
@@ -316,6 +342,8 @@ func GenerateSKURecursively(product *model.Product, specifics []*model.ProductSp
 		// 然后把该规格项到ID，添加到新到复刻到SKU组中
 		currentOptionIds = append(currentOptionIds, option.Id)
 		newSKU.OptionIds, _ = json.Marshal(currentOptionIds)
+		newSKU.UniqueID = newSKU.GetComposedUniqueID()
+		fmt.Dump(newSKU.OptionIds.String(), newSKU.ProductId, newSKU.UniqueID)
 
 		GenerateSKURecursively(product, specifics, currentIndexOfSpecific+1, &newSKU, skus)
 	}
@@ -336,13 +364,16 @@ func (uc *ProductUseCase) GeneratePivotSKUsFromSpecifics(ctx context.Context, sp
 					isActivated = true
 				}
 
-				pivots = append(pivots, &model.PivotSkuToSpecificOption{
+				pivot := &model.PivotSkuToSpecificOption{
 					ProductId:        sku.ProductId,
 					SkuId:            sku.Id,
 					SpecificId:       specific.Id,
 					SpecificOptionId: option.Id,
 					IsActivated:      isActivated,
-				})
+				}
+				pivot.UniqueID = pivot.GetPivotComposedUniqueID()
+
+				pivots = append(pivots, pivot)
 			}
 		}
 	}

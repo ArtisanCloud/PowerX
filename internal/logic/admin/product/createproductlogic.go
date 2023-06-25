@@ -228,6 +228,8 @@ func TransformSpecificToSpecificReply(specific *product.ProductSpecific) (images
 		return nil
 	}
 	return &types.ProductSpecific{
+		Id:              specific.Id,
+		ProductId:       specific.ProductId,
 		Name:            specific.Name,
 		SpecificOptions: TransformSpecificOptionsToSpecificOptionsReply(specific.Options),
 	}
@@ -248,7 +250,9 @@ func TransformSpecificOptionToSpecificOptionReply(option *product.SpecificOption
 		return nil
 	}
 	return &types.SpecificOption{
-		Name:        option.Name,
-		IsActivated: option.IsActivated,
+		Id:                option.Id,
+		ProductSpecificId: option.ProductSpecificId,
+		Name:              option.Name,
+		IsActivated:       option.IsActivated,
 	}
 }

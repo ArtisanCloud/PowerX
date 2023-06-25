@@ -3,6 +3,7 @@ package productspecific
 import (
 	product2 "PowerX/internal/model/product"
 	"context"
+	"time"
 
 	"PowerX/internal/svc"
 	"PowerX/internal/types"
@@ -40,17 +41,29 @@ func (l *CreateProductSpecificLogic) CreateProductSpecific(req *types.CreateProd
 }
 
 func TransformProductSpecificRequestToProductSpecific(specificRequest types.ProductSpecific) *product2.ProductSpecific {
-	return &product2.ProductSpecific{
+
+	if specificRequest.ProductId <= 0 || specificRequest.Name == "" {
+		return nil
+	}
+	specific := &product2.ProductSpecific{
 		ProductId: specificRequest.ProductId,
 		Name:      specificRequest.Name,
 		Options:   TransformSpecificOptionsRequestToSpecificOptions(specificRequest.SpecificOptions),
 	}
+
+	if specificRequest.Id > 0 {
+		specific.Id = specificRequest.Id
+	}
+	return specific
 }
 
 func TransformSpecificOptionsRequestToSpecificOptions(optionsRequest []*types.SpecificOption) (options []*product2.SpecificOption) {
 	options = []*product2.SpecificOption{}
 	for _, optionRequest := range optionsRequest {
-		options = append(options, TransformSpecificOptionRequestToSpecificOption(optionRequest))
+		option := TransformSpecificOptionRequestToSpecificOption(optionRequest)
+		if option != nil {
+			options = append(options, option)
+		}
 	}
 	return options
 }
@@ -59,9 +72,23 @@ func TransformSpecificOptionRequestToSpecificOption(optionRequest *types.Specifi
 	if optionRequest == nil {
 		return nil
 	}
-	return &product2.SpecificOption{
-		ProductSpecificId: optionRequest.ProductSpecificId,
-		Name:              optionRequest.Name,
-		IsActivated:       optionRequest.IsActivated,
+
+	if optionRequest.ProductSpecificId < 0 || optionRequest.Name == "" {
+		return nil
 	}
+
+	option = &product2.SpecificOption{
+		Name:        optionRequest.Name,
+		IsActivated: optionRequest.IsActivated,
+	}
+	// 前端如果是新建的选项，那么不会有 ProductSpecificId， 但仍需要新建
+	if optionRequest.ProductSpecificId > 0 {
+		option.ProductSpecificId = optionRequest.ProductSpecificId
+	}
+	// 更新已存在的选项
+	if optionRequest.Id > 0 {
+		option.Id = optionRequest.Id
+		option.UpdatedAt = time.Now()
+	}
+	return option
 }

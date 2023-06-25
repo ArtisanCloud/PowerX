@@ -673,6 +673,11 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 					Handler: adminproductproductspecific.CreateProductSpecificHandler(serverCtx),
 				},
 				{
+					Method:  http.MethodPost,
+					Path:    "/product-specifics/config",
+					Handler: adminproductproductspecific.ConfigProductSpecificHandler(serverCtx),
+				},
+				{
 					Method:  http.MethodPut,
 					Path:    "/product-specifics/:id",
 					Handler: adminproductproductspecific.PutProductSpecificHandler(serverCtx),
