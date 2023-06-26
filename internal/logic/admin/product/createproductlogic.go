@@ -11,6 +11,7 @@ import (
 	"PowerX/internal/uc/powerx"
 	product2 "PowerX/internal/uc/powerx/product"
 	"context"
+	"encoding/json"
 	"github.com/golang-module/carbon/v2"
 	"gorm.io/datatypes"
 
@@ -203,13 +204,19 @@ func TransformSkuToSkuReply(sku *product.SKU) (skuReply *types.SKU) {
 		isActive = sku.PriceBookEntry.IsActive
 	}
 
+	optionsIds := []int64{}
+	_ = json.Unmarshal(sku.OptionIds, &optionsIds)
+
 	return &types.SKU{
-		Id:        sku.Id,
-		SkuNo:     sku.SkuNo,
-		Inventory: sku.Inventory,
-		UnitPrice: unitPrice,
-		ListPrice: listPrice,
-		IsActive:  isActive,
+		Id:         sku.Id,
+		UniqueId:   sku.UniqueID.String,
+		SkuNo:      sku.SkuNo,
+		ProductId:  sku.ProductId,
+		Inventory:  sku.Inventory,
+		UnitPrice:  unitPrice,
+		ListPrice:  listPrice,
+		IsActive:   isActive,
+		OptionsIds: optionsIds,
 	}
 }
 

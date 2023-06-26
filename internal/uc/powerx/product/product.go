@@ -7,12 +7,12 @@ import (
 	model "PowerX/internal/model/product"
 	"PowerX/internal/types"
 	"PowerX/internal/types/errorx"
-	fmt "PowerX/pkg/printx"
 	"PowerX/pkg/slicex"
 	"context"
 	"encoding/json"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 	"strings"
 )
 
@@ -292,19 +292,35 @@ func (uc *ProductUseCase) ReFactSKUs(ctx context.Context, product *model.Product
 
 		// upsert skus
 		skus := uc.GenerateSKUsFromSpecifics(context.Background(), product)
-		err := db.Model(&model.SKU{}).Create(&skus).Error
-		if err != nil {
-			return err
+		if len(skus) > 0 {
+			err := db.Model(&model.SKU{}).
+				//Debug().
+				Clauses(clause.OnConflict{
+					Columns:   []clause.Column{{Name: model.SkuUniqueId}},
+					DoUpdates: clause.AssignmentColumns(powermodel.GetModelFields(&model.SKU{})),
+				}).
+				Create(&skus).Error
+			if err != nil {
+				return err
+			}
 		}
 
 		// upsert PivotSKUsFromSpecifics
 		pivots := uc.GeneratePivotSKUsFromSpecifics(context.Background(), product.ProductSpecifics, skus)
-		err = db.Model(&model.PivotSkuToSpecificOption{}).Create(&pivots).Error
-		if err != nil {
-			panic(errors.Wrap(err, "init sku pivots failed"))
+		if len(pivots) > 0 {
+			err := db.Model(&model.PivotSkuToSpecificOption{}).
+				//Debug().
+				Clauses(clause.OnConflict{
+					Columns:   []clause.Column{{Name: model.PivotPivotSkuToSpecificOptionsUniqueId}},
+					DoUpdates: clause.AssignmentColumns(powermodel.GetModelFields(&model.PivotSkuToSpecificOption{})),
+				}).Create(&pivots).Error
+			if err != nil {
+				panic(errors.Wrap(err, "init sku pivots failed"))
+			}
+
 		}
 
-		return err
+		return nil
 	})
 
 	return err
@@ -343,7 +359,7 @@ func GenerateSKURecursively(product *model.Product, specifics []*model.ProductSp
 		currentOptionIds = append(currentOptionIds, option.Id)
 		newSKU.OptionIds, _ = json.Marshal(currentOptionIds)
 		newSKU.UniqueID = newSKU.GetComposedUniqueID()
-		fmt.Dump(newSKU.OptionIds.String(), newSKU.ProductId, newSKU.UniqueID)
+		//fmt.Dump(newSKU.OptionIds.String(), newSKU.ProductId, newSKU.UniqueID)
 
 		GenerateSKURecursively(product, specifics, currentIndexOfSpecific+1, &newSKU, skus)
 	}

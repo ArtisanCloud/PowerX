@@ -26,9 +26,11 @@ type PivotSkuToSpecificOption struct {
 
 const TableNamePivotSkuToSpecificOption = "pivot_sku_to_specific_options"
 
+const PivotPivotSkuToSpecificOptionsUniqueId = "index_unique_id"
+
 func (mdl *PivotSkuToSpecificOption) GetPivotComposedUniqueID() object.NullString {
 	if mdl.ProductId > 0 && mdl.SkuId > 0 && mdl.SpecificId > 0 && mdl.SpecificOptionId > 0 {
-		strUniqueID := fmt.Sprintf("%d-%d-%d-%d", mdl.ProductId, mdl.SkuId, mdl.SpecificId, mdl.SpecificOptionId)
+		strUniqueID := fmt.Sprintf("%d-%d-%d-%d-%d", mdl.ProductId, mdl.SkuId, mdl.SpecificId, mdl.SpecificOptionId, mdl.DeletedAt.Time.Unix())
 		strUniqueID = securityx.HashStringData(strUniqueID)
 		return object.NewNullString(strUniqueID, true)
 	} else {

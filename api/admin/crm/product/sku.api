@@ -1,0 +1,146 @@
+syntax = "v1"
+
+info(
+    title: "SKU服务"
+    desc: "SKU服务"
+    author: "MichaelHu"
+    email: "matrix-x@artisan-cloud.com"
+    version: "v1"
+)
+
+@server(
+    group: admin/product/sku
+    prefix: /api/v1/admin/product
+    middleware: EmployeeJWTAuth
+)
+
+service PowerX {
+    @doc "查询SKU列表"
+    @handler ListSKUPage
+    get /skus/page-list (ListSKUPageRequest) returns (ListSKUPageReply)
+
+    @doc "查询SKU详情"
+    @handler GetSKU
+    get /skus/:id (GetSKURequest) returns (GetSKUReply)
+
+
+    @doc "创建SKU"
+    @handler CreateSKU
+    post /skus (CreateSKURequest) returns (CreateSKUReply)
+
+    @doc "配置SKU"
+    @handler ConfigSKU
+    post /skus/config (ConfigSKURequest) returns (ConfigSKUReply)
+
+
+    @doc "全量SKU"
+    @handler PutSKU
+    put /skus/:id (PutSKURequest) returns (PutSKUReply)
+
+    @doc "增量SKU"
+    @handler PatchSKU
+    patch /skus/:id (PatchSKURequest) returns (PatchSKUReply)
+
+
+    @doc "删除SKU"
+    @handler DeleteSKU
+    delete /skus/:id (DeleteSKURequest) returns (DeleteSKUReply)
+}
+
+type (
+    SKU {
+        Id int64 `json:"id,optional"`
+        UniqueId string `json:"uniqueId,optional"`
+        SkuNo string `json:"skuNo,optional"`
+        ProductId int64 `json:"productId,optional"`
+        Inventory int `json:"inventory,optional"`
+        UnitPrice float64 `json:"unitPrice,optional"`
+        ListPrice float64 `json:"listPrice,optional"`
+        IsActive bool `json:"isActive,optional"`
+        OptionsIds []int64 `json:"optionsIds,optional"`
+    }
+)
+
+type (
+    ListSKUPageRequest struct {
+        LikeName string `form:"likeName,optional"`
+        ProductId int64 `form:"productId"`
+        OrderBy string `form:"orderBy,optional"`
+        PageIndex int `form:"pageIndex,optional"`
+        PageSize int `form:"pageSize,optional"`
+    }
+
+
+    ListSKUPageReply struct {
+        List []*SKU `json:"list"`
+        PageIndex int `json:"pageIndex"`
+        PageSize int `json:"pageSize"`
+        Total int64 `json:"total"`
+    }
+)
+
+type (
+    CreateSKURequest struct {
+        SKU
+    }
+
+    CreateSKUReply struct {
+        SKUId int64 `json:"id"`
+    }
+)
+
+type (
+    ConfigSKURequest struct {
+        SKUs []SKU `json:"skus"`
+    }
+
+    ConfigSKUReply struct {
+        Result bool `json:"result"`
+    }
+)
+
+type (
+    GetSKURequest struct {
+        SKUId int64 `path:"id"`
+    }
+
+    GetSKUReply struct {
+        *SKU
+    }
+)
+
+
+type (
+    PutSKURequest struct {
+        SKUId int64 `path:"id"`
+        SKU
+    }
+
+    PutSKUReply struct {
+        *SKU
+    }
+)
+
+type (
+    PatchSKURequest struct {
+        SKUId int64 `path:"id"`
+        SKU
+    }
+
+    PatchSKUReply struct {
+        *SKU
+    }
+)
+
+
+type (
+    DeleteSKURequest struct {
+        SKUId int64 `path:"id"`
+    }
+
+    DeleteSKUReply struct {
+        SKUId int64 `json:"id"`
+    }
+)
+
+

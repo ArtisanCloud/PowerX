@@ -61,16 +61,6 @@ type (
         IsActivated bool `json:"isActivated,optional"`
     }
 
-
-    SKU {
-        Id int64 `json:"id,optional"`
-        SkuNo string `json:"skuNo,optional"`
-        Inventory int `json:"inventory,optional"`
-        UnitPrice float64 `json:"unitPrice,optional"`
-        ListPrice float64 `json:"listPrice,optional"`
-        IsActive bool `json:"isActive,optional"`
-        OptionsIds []int64 `json:"optionsIds,optional"`
-    }
 )
 
 type (

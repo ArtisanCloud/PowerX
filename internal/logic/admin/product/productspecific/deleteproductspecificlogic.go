@@ -1,6 +1,7 @@
 package productspecific
 
 import (
+	"PowerX/internal/types/errorx"
 	"context"
 
 	"PowerX/internal/svc"
@@ -24,7 +25,20 @@ func NewDeleteProductSpecificLogic(ctx context.Context, svcCtx *svc.ServiceConte
 }
 
 func (l *DeleteProductSpecificLogic) DeleteProductSpecific(req *types.DeleteProductSpecificRequest) (resp *types.DeleteProductSpecificReply, err error) {
-	// todo: add your logic here and delete this line
+	productSpecific, err := l.svcCtx.PowerX.ProductSpecific.GetProductSpecific(l.ctx, req.ProductSpecificId)
+	if err != nil {
+		return nil, errorx.ErrNotFoundObject
+	}
+	//if len(productSpecific.Options) > 0 {
+	//	return nil, errorx.WithCause(errorx.ErrBadRequest, "该品类包含子选项，请处理选项")
+	//}
 
-	return
+	err = l.svcCtx.PowerX.ProductSpecific.DeleteProductSpecific(l.ctx, productSpecific.Id)
+	if err != nil {
+		return nil, err
+	}
+
+	return &types.DeleteProductSpecificReply{
+		ProductSpecificId: productSpecific.Id,
+	}, nil
 }

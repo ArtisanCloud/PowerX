@@ -23,10 +23,11 @@ type SKU struct {
 }
 
 const TableNameSKU = "sku"
+const SkuUniqueId = "index_unique_id"
 
 func (mdl *SKU) GetComposedUniqueID() object.NullString {
 	if len(mdl.OptionIds) > 0 && mdl.ProductId > 0 {
-		strUniqueID := fmt.Sprintf("%d-%s", mdl.ProductId, mdl.OptionIds.String())
+		strUniqueID := fmt.Sprintf("%d-%s-%d", mdl.ProductId, mdl.OptionIds.String(), mdl.DeletedAt.Time.Unix())
 		strUniqueID = securityx.HashStringData(strUniqueID)
 		return object.NewNullString(strUniqueID, true)
 	} else {

@@ -12,7 +12,7 @@ func TestSKU_GetComposedUniqueID(t *testing.T) {
 		OptionIds: []byte(`[235,240]`),
 	}
 
-	expectedUniqueID := "42f065a6a7bdf58e09ad25e9cf5b2031" // 假设使用MD5进行哈希计算
+	expectedUniqueID := "5d162f0fe7eadb42ed51b6863b99d6f3" // 假设使用MD5进行哈希计算
 
 	composedUniqueID := sku.GetComposedUniqueID()
 	assert.True(t, composedUniqueID.Valid)

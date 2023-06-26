@@ -19,6 +19,11 @@ service PowerX {
     @handler ListDictionaryPageTypes
     get /types/page-list (ListDictionaryTypesPageRequest) returns (ListDictionaryTypesPageReply)
 
+    @doc "获取字典类型列表"
+    @handler ListDictionaryTypes
+    get /types (ListDictionaryTypesPageRequest) returns (ListDictionaryTypesPageReply)
+
+
     @doc "获取字典类型"
     @handler GetDictionaryType
     get /types/:type (GetDictionaryTypeRequest) returns (GetDictionaryTypeReply)
