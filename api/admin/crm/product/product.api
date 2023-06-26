@@ -10,6 +10,7 @@ info(
 
 import "./productcategory.api"
 import "./productspecific.api"
+import "./sku.api"
 import "./pricebookentry.api"
 
 @server(

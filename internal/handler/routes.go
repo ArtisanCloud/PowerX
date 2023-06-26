@@ -23,6 +23,7 @@ import (
 	adminproductpricebook "PowerX/internal/handler/admin/product/pricebook"
 	adminproductpricebookentry "PowerX/internal/handler/admin/product/pricebookentry"
 	adminproductproductspecific "PowerX/internal/handler/admin/product/productspecific"
+	adminproductsku "PowerX/internal/handler/admin/product/sku"
 	adminscrmcontact "PowerX/internal/handler/admin/scrm/contact"
 	adminscrmcustomer "PowerX/internal/handler/admin/scrm/customer"
 	admintradeaddressbilling "PowerX/internal/handler/admin/trade/address/billing"
@@ -242,6 +243,11 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 					Method:  http.MethodGet,
 					Path:    "/types/page-list",
 					Handler: admindictionary.ListDictionaryPageTypesHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/types",
+					Handler: admindictionary.ListDictionaryTypesHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodGet,
@@ -673,6 +679,11 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 					Handler: adminproductproductspecific.CreateProductSpecificHandler(serverCtx),
 				},
 				{
+					Method:  http.MethodPost,
+					Path:    "/product-specifics/config",
+					Handler: adminproductproductspecific.ConfigProductSpecificHandler(serverCtx),
+				},
+				{
 					Method:  http.MethodPut,
 					Path:    "/product-specifics/:id",
 					Handler: adminproductproductspecific.PutProductSpecificHandler(serverCtx),
@@ -686,6 +697,50 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 					Method:  http.MethodDelete,
 					Path:    "/product-specifics/:id",
 					Handler: adminproductproductspecific.DeleteProductSpecificHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithPrefix("/api/v1/admin/product"),
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Route{
+				{
+					Method:  http.MethodGet,
+					Path:    "/skus/page-list",
+					Handler: adminproductsku.ListSKUPageHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/skus/:id",
+					Handler: adminproductsku.GetSKUHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/skus",
+					Handler: adminproductsku.CreateSKUHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/skus/config",
+					Handler: adminproductsku.ConfigSKUHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPut,
+					Path:    "/skus/:id",
+					Handler: adminproductsku.PutSKUHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPatch,
+					Path:    "/skus/:id",
+					Handler: adminproductsku.PatchSKUHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodDelete,
+					Path:    "/skus/:id",
+					Handler: adminproductsku.DeleteSKUHandler(serverCtx),
 				},
 			}...,
 		),

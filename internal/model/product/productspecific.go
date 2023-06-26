@@ -16,7 +16,8 @@ type SpecificOption struct {
 
 	ProductSpecificId int64  `gorm:"comment: 产品规格Id; index;not null" json:"productSpecificId"`
 	Name              string `gorm:"comment: 规格项名称; not null" json:"name"`
-	IsActivated       bool   `gorm:"comment:是否被激活; column:is_activated;" json:"isActivated,optional"`
+	IsActivated       bool   `gorm:"comment: 是否被激活;" json:"isActivated"`
 }
 
-const ProductSpecificUniqueId = "name"
+const ProductSpecificUniqueId = powermodel.UniqueId
+const SpecificOptionUniqueId = powermodel.UniqueId

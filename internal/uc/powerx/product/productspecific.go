@@ -1,12 +1,14 @@
 package product
 
 import (
+	"PowerX/internal/model/powermodel"
 	"PowerX/internal/model/product"
 	"PowerX/internal/types"
 	"PowerX/internal/types/errorx"
 	"context"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 	"strings"
 )
 
@@ -93,6 +95,38 @@ func (uc *ProductSpecificUseCase) FindOneProductSpecific(ctx context.Context, op
 	return mpCustomer, nil
 }
 
+func (uc *ProductSpecificUseCase) ConfigProductSpecific(ctx context.Context, ProductSpecifics []*product.ProductSpecific, options []*product.SpecificOption) error {
+	db := uc.db.WithContext(ctx)
+	err := db.Transaction(func(tx *gorm.DB) error {
+
+		// upsert product specifics
+		err := db.
+			//Debug().
+			Clauses(clause.OnConflict{
+				UpdateAll: true,
+			}).Create(ProductSpecifics).Error
+
+		if err != nil {
+			return err
+		}
+
+		// upsert specific options
+		err = db.
+			//Debug().
+			Clauses(clause.OnConflict{
+				UpdateAll: true,
+			}).Create(options).Error
+
+		if err != nil {
+			return err
+		}
+
+		return err
+	})
+
+	return err
+}
+
 func (uc *ProductSpecificUseCase) CreateProductSpecific(ctx context.Context, ProductSpecific *product.ProductSpecific) error {
 	if err := uc.db.WithContext(ctx).Create(&ProductSpecific).Error; err != nil {
 		if strings.Contains(err.Error(), "duplicate key value violates unique constraint") {
@@ -101,6 +135,29 @@ func (uc *ProductSpecificUseCase) CreateProductSpecific(ctx context.Context, Pro
 		panic(err)
 	}
 	return nil
+}
+
+func (uc *ProductSpecificUseCase) UpsertProductSpecific(ctx context.Context, productSpecific *product.ProductSpecific) (*product.ProductSpecific, error) {
+
+	productSpecifics := []*product.ProductSpecific{productSpecific}
+
+	_, err := uc.UpsertProductSpecifics(ctx, productSpecifics)
+	if err != nil {
+		panic(errors.Wrap(err, "upsert productSpecific failed"))
+	}
+
+	return productSpecific, err
+}
+
+func (uc *ProductSpecificUseCase) UpsertProductSpecifics(ctx context.Context, productSpecifics []*product.ProductSpecific) ([]*product.ProductSpecific, error) {
+
+	err := powermodel.UpsertModelsOnUniqueID(uc.db.WithContext(ctx), &product.ProductSpecific{}, product.ProductSpecificUniqueId, productSpecifics, nil, true)
+
+	if err != nil {
+		panic(errors.Wrap(err, "batch upsert productSpecific failed"))
+	}
+
+	return productSpecifics, err
 }
 
 func (uc *ProductSpecificUseCase) PatchProductSpecific(ctx context.Context, id int64, ProductSpecific *product.ProductSpecific) {

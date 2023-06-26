@@ -1353,16 +1353,6 @@ type SpecificOption struct {
 	IsActivated       bool   `json:"isActivated,optional"`
 }
 
-type SKU struct {
-	Id         int64   `json:"id,optional"`
-	SkuNo      string  `json:"skuNo,optional"`
-	Inventory  int     `json:"inventory,optional"`
-	UnitPrice  float64 `json:"unitPrice,optional"`
-	ListPrice  float64 `json:"listPrice,optional"`
-	IsActive   bool    `json:"isActive,optional"`
-	OptionsIds []int64 `json:"optionsIds,optional"`
-}
-
 type ListProductSpecificPageRequest struct {
 	LikeName  string `form:"likeName,optional"`
 	ProductId int64  `form:"productId"`
@@ -1384,6 +1374,14 @@ type CreateProductSpecificRequest struct {
 
 type CreateProductSpecificReply struct {
 	ProductSpecificId int64 `json:"id"`
+}
+
+type ConfigProductSpecificRequest struct {
+	ProductSpecifics []ProductSpecific `json:"productSpecifics"`
+}
+
+type ConfigProductSpecificReply struct {
+	Result bool `json:"result"`
 }
 
 type GetProductSpecificRequest struct {
@@ -1418,6 +1416,83 @@ type DeleteProductSpecificRequest struct {
 
 type DeleteProductSpecificReply struct {
 	ProductSpecificId int64 `json:"id"`
+}
+
+type SKU struct {
+	Id         int64   `json:"id,optional"`
+	UniqueId   string  `json:"uniqueId,optional"`
+	SkuNo      string  `json:"skuNo,optional"`
+	ProductId  int64   `json:"productId,optional"`
+	Inventory  int     `json:"inventory,optional"`
+	UnitPrice  float64 `json:"unitPrice,optional"`
+	ListPrice  float64 `json:"listPrice,optional"`
+	IsActive   bool    `json:"isActive,optional"`
+	OptionsIds []int64 `json:"optionsIds,optional"`
+}
+
+type ListSKUPageRequest struct {
+	LikeName  string `form:"likeName,optional"`
+	ProductId int64  `form:"productId"`
+	OrderBy   string `form:"orderBy,optional"`
+	PageIndex int    `form:"pageIndex,optional"`
+	PageSize  int    `form:"pageSize,optional"`
+}
+
+type ListSKUPageReply struct {
+	List      []*SKU `json:"list"`
+	PageIndex int    `json:"pageIndex"`
+	PageSize  int    `json:"pageSize"`
+	Total     int64  `json:"total"`
+}
+
+type CreateSKURequest struct {
+	SKU
+}
+
+type CreateSKUReply struct {
+	SKUId int64 `json:"id"`
+}
+
+type ConfigSKURequest struct {
+	SKUs []SKU `json:"skus"`
+}
+
+type ConfigSKUReply struct {
+	Result bool `json:"result"`
+}
+
+type GetSKURequest struct {
+	SKUId int64 `path:"id"`
+}
+
+type GetSKUReply struct {
+	*SKU
+}
+
+type PutSKURequest struct {
+	SKUId int64 `path:"id"`
+	SKU
+}
+
+type PutSKUReply struct {
+	*SKU
+}
+
+type PatchSKURequest struct {
+	SKUId int64 `path:"id"`
+	SKU
+}
+
+type PatchSKUReply struct {
+	*SKU
+}
+
+type DeleteSKURequest struct {
+	SKUId int64 `path:"id"`
+}
+
+type DeleteSKUReply struct {
+	SKUId int64 `json:"id"`
 }
 
 type PriceConfig struct {

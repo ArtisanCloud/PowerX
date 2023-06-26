@@ -261,7 +261,7 @@ func UpsertModelsOnUniqueID(db *gorm.DB, mdl interface{}, uniqueName string,
 		fieldsToUpdate = GetModelFields(mdl)
 	}
 
-	if withAssociations {
+	if !withAssociations {
 		db = db.Omit(clause.Associations)
 	}
 

@@ -32,7 +32,7 @@ const PriceBookEntryUniqueId = "index_unique_id"
 
 func (mdl *PriceBookEntry) GetComposedUniqueID() object.NullString {
 	if mdl.PriceBookId > 0 && mdl.ProductId > 0 {
-		strUniqueID := fmt.Sprintf("%d-%d-%d", mdl.PriceBookId, mdl.ProductId, mdl.SkuId)
+		strUniqueID := fmt.Sprintf("%d-%d-%d-%d", mdl.PriceBookId, mdl.ProductId, mdl.SkuId, mdl.DeletedAt.Time.Unix())
 		strUniqueID = securityx.HashStringData(strUniqueID)
 		return object.NewNullString(strUniqueID, true)
 	} else {
