@@ -34,25 +34,30 @@ func TransformPriceBookEntryToPriceBookEntryReply(entry *product.PriceBookEntry)
 		return nil
 	}
 
+	priceBookName := ""
 	productName := ""
 	spu := ""
 	if entry.Product != nil {
 		productName = entry.Product.Name
 		spu = entry.Product.SPU
 	}
+	if entry.PriceBook != nil {
+		priceBookName = entry.PriceBook.Name
+	}
 	//fmt.Dump(entry)
 	discount := CalDiscount(entry.UnitPrice, entry.ListPrice)
 	return &types.PriceBookEntry{
-		PriceBookId:  entry.PriceBookId,
-		ProductId:    entry.ProductId,
-		SkuId:        entry.SkuId,
-		UnitPrice:    entry.UnitPrice,
-		ListPrice:    entry.ListPrice,
-		ProductName:  productName,
-		SPU:          spu,
-		Discount:     discount,
-		IsActive:     entry.IsActive,
-		PriceConfigs: TransformPriceConfigToPriceConfigReply(entry.PriceConfigs),
+		PriceBookId:   entry.PriceBookId,
+		ProductId:     entry.ProductId,
+		SkuId:         entry.SkuId,
+		UnitPrice:     entry.UnitPrice,
+		ListPrice:     entry.ListPrice,
+		PriceBookName: priceBookName,
+		ProductName:   productName,
+		SPU:           spu,
+		Discount:      discount,
+		IsActive:      entry.IsActive,
+		PriceConfigs:  TransformPriceConfigToPriceConfigReply(entry.PriceConfigs),
 	}
 
 }

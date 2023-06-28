@@ -86,7 +86,7 @@ func (uc *ProductUseCase) PreloadItems(db *gorm.DB) *gorm.DB {
 		Preload("PivotCoverImages", "media_usage = ?", media.MediaUsageCover).Preload("PivotCoverImages.MediaResource").
 		Preload("PivotDetailImages", "media_usage = ?", media.MediaUsageDetail).Preload("PivotDetailImages.MediaResource").
 		Preload("ProductCategories").
-		Preload("PriceBookEntries").
+		Preload("PriceBookEntries.PriceBook").
 		Preload("SKUs.PriceBookEntry").
 		Preload("SKUs.PivotSkuToSpecificOptions").
 		Preload("ProductSpecifics.Options").

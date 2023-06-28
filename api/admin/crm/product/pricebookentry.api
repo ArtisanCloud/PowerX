@@ -78,6 +78,7 @@ type (
 
         SKUEntries []*PriceBookEntry `json:"skuEntries, optional"`
 
+        PriceBookName string `json:"priceBookName,optional"`
         ProductName string `json:"productName,optional"`
         SPU string `json:"spu,optional"`
 

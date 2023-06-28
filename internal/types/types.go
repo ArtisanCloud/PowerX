@@ -1515,19 +1515,20 @@ type PriceBookEntrySpecific struct {
 }
 
 type PriceBookEntry struct {
-	Id           int64             `json:"id,optional"`
-	UniqueID     string            `json:"uniqueID,optional"`
-	PriceBookId  int64             `json:"priceBookId"`
-	ProductId    int64             `json:"productId"`
-	SkuId        int64             `json:"skuId,optional"`
-	UnitPrice    float64           `json:"unitPrice"`
-	ListPrice    float64           `json:"listPrice,optional"`
-	IsActive     bool              `json:"isActive, optional"`
-	PriceConfigs []*PriceConfig    `json:"priceConfigs, optional"`
-	SKUEntries   []*PriceBookEntry `json:"skuEntries, optional"`
-	ProductName  string            `json:"productName,optional"`
-	SPU          string            `json:"spu,optional"`
-	Discount     float32           `json:"discount,optional"`
+	Id            int64             `json:"id,optional"`
+	UniqueID      string            `json:"uniqueID,optional"`
+	PriceBookId   int64             `json:"priceBookId"`
+	ProductId     int64             `json:"productId"`
+	SkuId         int64             `json:"skuId,optional"`
+	UnitPrice     float64           `json:"unitPrice"`
+	ListPrice     float64           `json:"listPrice,optional"`
+	IsActive      bool              `json:"isActive, optional"`
+	PriceConfigs  []*PriceConfig    `json:"priceConfigs, optional"`
+	SKUEntries    []*PriceBookEntry `json:"skuEntries, optional"`
+	PriceBookName string            `json:"priceBookName,optional"`
+	ProductName   string            `json:"productName,optional"`
+	SPU           string            `json:"spu,optional"`
+	Discount      float32           `json:"discount,optional"`
 }
 
 type ListPriceBookEntriesPageRequest struct {
