@@ -95,7 +95,7 @@ func (uc *CartUseCase) FindAllCarts(ctx context.Context, opt *FindManyCartsOptio
 
 	query = uc.buildFindQueryNoPage(query, opt)
 	if err := query.
-		Debug().
+		//Debug().
 		Preload("Artisans").
 		Find(&cartItems).Error; err != nil {
 		panic(errors.Wrap(err, "find all cartItems failed"))
@@ -135,7 +135,7 @@ func (uc *CartUseCase) FindManyCarts(ctx context.Context, opt *FindManyCartsOpti
 func (uc *CartUseCase) CreateCart(ctx context.Context, cart *trade.Cart) error {
 
 	if err := uc.db.WithContext(ctx).
-		Debug().
+		//Debug().
 		Create(&cart).Error; err != nil {
 		if strings.Contains(err.Error(), "duplicate key value violates unique constraint") {
 			return errorx.WithCause(errorx.ErrDuplicatedInsert, "该对象不能重复创建")
@@ -274,7 +274,7 @@ func (uc *CartUseCase) FindManyCartItems(ctx context.Context, opt *FindManyCartI
 
 	db = uc.PreloadItems(db)
 	if err := db.
-		Debug().
+		//Debug().
 		Find(&cartItems).Error; err != nil {
 		panic(err)
 	}

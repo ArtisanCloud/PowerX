@@ -73,7 +73,7 @@ func (uc *CustomerUseCase) FindManyCustomers(ctx context.Context, opt *FindManyC
 	}
 
 	if err := db.
-		Debug().
+		//Debug().
 		Find(&customers).Error; err != nil {
 		panic(err)
 	}
@@ -170,7 +170,7 @@ func (uc *CustomerUseCase) CheckRegisterPhoneExist(ctx context.Context, mobile s
 
 	customer := &customerdomain.Customer{}
 	err := uc.db.WithContext(ctx).
-		Debug().
+		//Debug().
 		Unscoped().
 		Where("mobile", mobile).
 		First(customer).Error

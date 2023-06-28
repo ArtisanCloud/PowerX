@@ -47,7 +47,7 @@ func (uc *RefundOrderUseCase) FindAllRefundOrders(ctx context.Context, opt *Find
 
 	query = uc.buildFindQueryNoPage(query, opt)
 	if err := query.
-		Debug().
+		//Debug().
 		Preload("Artisans").
 		Find(&dictionaryItems).Error; err != nil {
 		panic(errors.Wrap(err, "find all dictionaryItems failed"))
@@ -87,7 +87,7 @@ func (uc *RefundOrderUseCase) FindManyRefundOrders(ctx context.Context, opt *Fin
 func (uc *RefundOrderUseCase) CreateRefundOrder(ctx context.Context, payment *trade.RefundOrder) error {
 
 	if err := uc.db.WithContext(ctx).
-		Debug().
+		//Debug().
 		Create(&payment).Error; err != nil {
 		if strings.Contains(err.Error(), "duplicate key value violates unique constraint") {
 			return errorx.WithCause(errorx.ErrDuplicatedInsert, "该对象不能重复创建")

@@ -197,7 +197,7 @@ func SelectMorphPivots(db *gorm.DB, pivot PivotInterface, byForeignKey bool, byJ
 	//db.Table(pivot.GetTableName(false))
 
 	db = db.
-		Debug().
+		//Debug().
 		Model(pivot)
 
 	//  有外键需要关联
@@ -296,7 +296,7 @@ func ClearMorphPivots(db *gorm.DB, pivot PivotInterface, byForeignKey bool, byJo
 	}
 
 	result := db.Model(pivot).
-		Debug().
+		//Debug().
 		// 中间表永久删除,因为在preload里，gorm不能对多对多对中间表进行deleted_at排除
 		Unscoped().
 		Delete(pivot)

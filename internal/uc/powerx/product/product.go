@@ -86,7 +86,7 @@ func (uc *ProductUseCase) PreloadItems(db *gorm.DB) *gorm.DB {
 		Preload("PivotCoverImages", "media_usage = ?", media.MediaUsageCover).Preload("PivotCoverImages.MediaResource").
 		Preload("PivotDetailImages", "media_usage = ?", media.MediaUsageDetail).Preload("PivotDetailImages.MediaResource").
 		Preload("ProductCategories").
-		Preload("PriceBookEntries").
+		Preload("PriceBookEntries.PriceBook").
 		Preload("SKUs.PriceBookEntry").
 		Preload("SKUs.PivotSkuToSpecificOptions").
 		Preload("ProductSpecifics.Options").
@@ -187,7 +187,7 @@ func (uc *ProductUseCase) GetProduct(ctx context.Context, id int64) (*model.Prod
 	db := uc.db.WithContext(ctx)
 	db = uc.PreloadItems(db)
 	if err := db.
-		Debug().
+		//Debug().
 		First(product, id).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errorx.WithCause(errorx.ErrBadRequest, "未找到产品")

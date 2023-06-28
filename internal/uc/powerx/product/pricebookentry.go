@@ -84,7 +84,7 @@ func (uc *PriceBookEntryUseCase) FindManyPriceBookEntries(ctx context.Context, o
 
 	query = uc.PreloadItems(query)
 	if err := query.
-		Debug().
+		//Debug().
 		Find(&priceBookEntries).Error; err != nil {
 		panic(errors.Wrap(err, "find many priceBookEntries failed"))
 	}

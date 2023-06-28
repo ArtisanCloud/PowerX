@@ -71,7 +71,7 @@ func (uc *SKUUseCase) FindManySKUs(ctx context.Context, opt *FindSKUOption) type
 
 	query = uc.PreloadItems(query)
 	if err := query.
-		Debug().
+		//Debug().
 		Find(&SKUs).Error; err != nil {
 		panic(errors.Wrap(err, "find many SKUs failed"))
 	}
@@ -101,7 +101,7 @@ func (uc *SKUUseCase) ConfigSKU(ctx context.Context, SKUs []*product.SKU) error 
 
 		// upsert product specifics
 		err := db.
-			Debug().
+			//Debug().
 			Clauses(clause.OnConflict{
 				Columns:   []clause.Column{{Name: product.SkuUniqueId}},
 				DoUpdates: clause.AssignmentColumns([]string{"sku_no", "inventory"}),
