@@ -85,7 +85,7 @@ func (uc *MediaResourceUseCase) FindAllMediaResources(ctx context.Context, opt *
 
 	query = uc.buildFindQueryNoPage(query, opt)
 	if err := query.
-		Debug().
+		//Debug().
 		Find(&mediaResources).Error; err != nil {
 		panic(errors.Wrap(err, "find all media resources failed"))
 	}

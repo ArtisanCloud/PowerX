@@ -75,7 +75,7 @@ func (uc *OrderUseCase) FindAllOrders(ctx context.Context, opt *FindManyOrdersOp
 	query = uc.buildFindQueryNoPage(query, opt)
 	query = uc.PreloadItems(query)
 	if err := query.
-		Debug().
+		//Debug().
 		Find(&dictionaryItems).Error; err != nil {
 		panic(errors.Wrap(err, "find all dictionaryItems failed"))
 	}
@@ -101,7 +101,7 @@ func (uc *OrderUseCase) FindManyOrders(ctx context.Context, opt *FindManyOrdersO
 
 	db = uc.PreloadItems(db)
 	if err := db.
-		Debug().
+		//Debug().
 		Find(&orders).Error; err != nil {
 		panic(err)
 	}
@@ -117,7 +117,7 @@ func (uc *OrderUseCase) FindManyOrders(ctx context.Context, opt *FindManyOrdersO
 func (uc *OrderUseCase) CreateOrder(ctx context.Context, order *trade.Order) error {
 
 	if err := uc.db.WithContext(ctx).
-		Debug().
+		//Debug().
 		Create(&order).Error; err != nil {
 		if strings.Contains(err.Error(), "duplicate key value violates unique constraint") {
 			return errorx.WithCause(errorx.ErrDuplicatedInsert, "该对象不能重复创建")
@@ -165,7 +165,7 @@ func (uc *OrderUseCase) CreateOrderByPriceBookEntries(ctx context.Context,
 		order.Comment = comment
 
 		err = tx.Model(trade.Order{}).
-			Debug().
+			//Debug().
 			Create(order).Error
 		if err != nil {
 			return err
@@ -176,7 +176,7 @@ func (uc *OrderUseCase) CreateOrderByPriceBookEntries(ctx context.Context,
 		deliveryAddress.OrderId = order.Id
 
 		err = tx.Model(trade.DeliveryAddress{}).
-			Debug().
+			//Debug().
 			Create(deliveryAddress).Error
 
 		return err
@@ -236,7 +236,7 @@ func (uc *OrderUseCase) CreateOrderByCartItems(ctx context.Context,
 		order.Comment = comment
 
 		err = tx.Model(trade.Order{}).
-			Debug().
+			//Debug().
 			Create(order).Error
 		if err != nil {
 			return err
@@ -247,7 +247,7 @@ func (uc *OrderUseCase) CreateOrderByCartItems(ctx context.Context,
 		deliveryAddress.OrderId = order.Id
 
 		err = tx.Model(trade.DeliveryAddress{}).
-			Debug().
+			//Debug().
 			Create(deliveryAddress).Error
 
 		return err
@@ -397,7 +397,7 @@ func (uc *OrderUseCase) GetOrder(ctx context.Context, id int64) (*trade.Order, e
 	db := uc.db.WithContext(ctx)
 	db = uc.PreloadItems(db)
 	if err := db.
-		Debug().
+		//Debug().
 		First(order, id).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errorx.WithCause(errorx.ErrBadRequest, "未找到产品")

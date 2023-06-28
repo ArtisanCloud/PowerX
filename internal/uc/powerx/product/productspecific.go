@@ -71,7 +71,7 @@ func (uc *ProductSpecificUseCase) FindManyProductSpecifics(ctx context.Context, 
 
 	query = uc.PreloadItems(query)
 	if err := query.
-		Debug().
+		//Debug().
 		Find(&ProductSpecifics).Error; err != nil {
 		panic(errors.Wrap(err, "find many ProductSpecifics failed"))
 	}

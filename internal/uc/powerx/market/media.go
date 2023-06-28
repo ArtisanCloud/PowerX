@@ -75,7 +75,7 @@ func (uc *MediaUseCase) FindManyMedias(ctx context.Context, opt *FindManyMediasO
 
 	db = uc.PreloadItems(db)
 	if err := db.
-		Debug().
+		//Debug().
 		Find(&medias).Error; err != nil {
 		panic(err)
 	}
@@ -90,7 +90,7 @@ func (uc *MediaUseCase) FindManyMedias(ctx context.Context, opt *FindManyMediasO
 
 func (uc *MediaUseCase) CreateMedia(ctx context.Context, m *model.Media) {
 	err := uc.db.WithContext(ctx).
-		Debug().
+		//Debug().
 		Create(m).Error
 
 	if err != nil {

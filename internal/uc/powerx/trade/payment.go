@@ -87,7 +87,7 @@ func (uc *PaymentUseCase) FindAllPayments(ctx context.Context, opt *FindManyPaym
 	query = uc.buildFindQueryNoPage(query, opt)
 	query = uc.PreloadItems(query)
 	if err := query.
-		Debug().
+		//Debug().
 		Find(&dictionaryItems).Error; err != nil {
 		panic(errors.Wrap(err, "find all dictionaryItems failed"))
 	}
@@ -137,7 +137,7 @@ func (uc *PaymentUseCase) CreatePaymentFromOrderByWechat(ctx context.Context,
 	err = db.Transaction(func(tx *gorm.DB) error {
 		// 保存支付单
 		err = tx.Model(trade.Payment{}).
-			Debug().
+			//Debug().
 			Create(payment).Error
 		if err != nil {
 			return err
@@ -215,7 +215,7 @@ func (uc *PaymentUseCase) MakeWechatOrder(ctx context.Context, payment *trade.Pa
 func (uc *PaymentUseCase) CreatePayment(ctx context.Context, payment *trade.Payment) error {
 
 	if err := uc.db.WithContext(ctx).
-		Debug().
+		//Debug().
 		Create(&payment).Error; err != nil {
 		if strings.Contains(err.Error(), "duplicate key value violates unique constraint") {
 			return errorx.WithCause(errorx.ErrDuplicatedInsert, "该对象不能重复创建")
@@ -271,7 +271,7 @@ func (uc *PaymentUseCase) GetPayment(ctx context.Context, id int64) (*trade.Paym
 	db := uc.db.WithContext(ctx)
 	db = uc.PreloadItems(db)
 	if err := db.
-		Debug().
+		//Debug().
 		First(p, id).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errorx.WithCause(errorx.ErrBadRequest, "未找到支付单")

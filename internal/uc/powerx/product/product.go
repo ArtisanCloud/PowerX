@@ -187,7 +187,7 @@ func (uc *ProductUseCase) GetProduct(ctx context.Context, id int64) (*model.Prod
 	db := uc.db.WithContext(ctx)
 	db = uc.PreloadItems(db)
 	if err := db.
-		Debug().
+		//Debug().
 		First(product, id).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errorx.WithCause(errorx.ErrBadRequest, "未找到产品")

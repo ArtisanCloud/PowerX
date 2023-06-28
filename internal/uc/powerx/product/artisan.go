@@ -93,7 +93,7 @@ func (uc *ArtisanUseCase) FindManyArtisans(ctx context.Context, opt *FindManyArt
 
 	db = uc.PreloadItems(db)
 	if err := db.
-		Debug().
+		//Debug().
 		//Preload("ArtisanSpecific").
 		Find(&artisans).Error; err != nil {
 		panic(err)
