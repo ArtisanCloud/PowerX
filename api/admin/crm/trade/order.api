@@ -40,6 +40,10 @@ service PowerX {
     @doc("删除订单")
     @handler DeleteOrder
     delete /orders/:id (DeleteOrderRequest) returns (DeleteOrderReply)
+
+    @doc("导出订单")
+    @handler ExportOrders
+    get /orders/export (ExportOrdersRequest) returns (ExportOrdersReply)
 }
 
 type OrderItem {
@@ -64,9 +68,9 @@ type Order {
 
     CustomerId int64 `json:"customerId,optional"`
     CartId int64 `json:"cartId,optional"`
-    PaymentType int8 `json:"paymentType,optional"`
-    Type int8 `json:"type,optional"`
-    Status int8 `json:"status,optional"`
+    PaymentType int `json:"paymentType,optional"`
+    Type int `json:"type,optional"`
+    Status int `json:"status,optional"`
     OrderNumber string `json:"orderNumber,optional"`
     Discount float64 `json:"discount,optional"`
     ListPrice float64 `json:"listPrice,optional"`
@@ -80,62 +84,86 @@ type Order {
     Payments []*Payment `json:"payments,optional"`
 }
 
-type ListOrdersPageRequest {
-    orderType []int `form:"orderType,optional,omitempty"`
-    orderStatus []int `form:"orderStatus,optional,omitempty"`
-    keys []string `form:"keys,optional,omitempty"`
-    orderBy string `form:"orderBy,optional,omitempty"`
-    pageIndex int `form:"pageIndex,optional,omitempty"`
-    pageSize int `form:"pageSize,optional,omitempty"`
-}
+type (
+    ListOrdersPageRequest {
+        OrderType []int `form:"orderType,optional,omitempty"`
+        OrderStatus []int `form:"orderStatus,optional,omitempty"`
+        Keys []string `form:"keys,optional,omitempty"`
+        OrderBy string `form:"orderBy,optional,omitempty"`
+        PageIndex int `form:"pageIndex,optional,omitempty"`
+        PageSize int `form:"pageSize,optional,omitempty"`
+    }
+    ListOrdersPageReply {
+        List []*Order `json:"list"`
+        PageIndex int `json:"pageIndex"`
+        PageSize int `json:"pageSize"`
+        Total int64 `json:"total"`
+    }
+)
+type (
+    ExportOrdersRequest {
+        OrderType []int `form:"orderType,optional,omitempty"`
+        OrderStatus []int `form:"orderStatus,optional,omitempty"`
+        OrderBy string `form:"orderBy,optional"`
+        StartAt string `form:"startAt,optional"`
+        EndAt string `form:"endAt,optional"`
+    }
+    ExportOrdersReply {
+        List []*Order `json:"list"`
+        PageIndex int `json:"pageIndex"`
+        PageSize int `json:"pageSize"`
+        Total int64 `json:"total"`
+    }
+)
 
-type ListOrdersPageReply {
-    list []*Order `json:"list"`
-    pageIndex int `json:"pageIndex"`
-    pageSize int `json:"pageSize"`
-    total int64 `json:"total"`
-}
 
-type CreateOrderRequest {
-    Order
-}
 
-type CreateOrderReply {
-    orderId int64 `json:"orderId,omitempty"`
+type (
+    CreateOrderRequest {
+        Order
+    }
+    CreateOrderReply {
+        orderId int64 `json:"orderId,omitempty"`
+    }
+)
 
-}
+type (
+    GetOrderRequest {
+        orderId int64 `path:"id"`
+    }
 
-type GetOrderRequest {
-    orderId int64 `path:"id"`
-}
+    GetOrderReply {
+        *Order
+    }
+)
 
-type GetOrderReply {
-    *Order
-}
+type (
+    PutOrderRequest {
+        OrderId int64 `path:"id"`
+        Order
+    }
+    PutOrderReply {
+        *Order
+    }
+)
 
-type PutOrderRequest {
-    orderId int64 `path:"id"`
-    Order
-}
+type (
+    PatchOrderRequest {
+        OrderId int64 `path:"id"`
+        Order
+    }
 
-type PutOrderReply {
-    *Order
-}
+    PatchOrderReply {
+        *Order
+    }
+)
 
-type PatchOrderRequest {
-    orderId int64 `path:"id"`
-    Order
-}
+type (
+    DeleteOrderRequest {
+        OrderId int64 `path:"id"`
+    }
 
-type PatchOrderReply {
-    *Order
-}
-
-type DeleteOrderRequest {
-    orderId int64 `path:"id"`
-}
-
-type DeleteOrderReply {
-    OrderId int64 `path:"id"`
-}
-
+    DeleteOrderReply {
+        OrderId int64 `path:"id"`
+    }
+)

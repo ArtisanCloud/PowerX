@@ -24,7 +24,7 @@ type Order struct {
 	//ResellerId     int64   `gorm:"comment:reseller_uuid" json:"resellerId"`
 	CustomerId     int64     `gorm:"comment:客户Id; index" json:"customerId"`
 	CartId         int64     `gorm:"comment:购物车Id; index" json:"cartId"`
-	PaymentType    int8      `gorm:"comment:支付方式" json:"paymentType"`
+	PaymentType    int       `gorm:"comment:支付方式" json:"paymentType"`
 	Type           int       `gorm:"comment:订单类型" json:"type"`
 	Status         int       `gorm:"comment:订单状态" json:"status"`
 	OrderNumber    string    `gorm:"comment:订单号" json:"orderNumber"`
