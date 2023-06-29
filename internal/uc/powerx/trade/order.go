@@ -13,6 +13,7 @@ import (
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
 	"strings"
+	"time"
 )
 
 type OrderUseCase struct {
@@ -31,6 +32,8 @@ type FindManyOrdersOption struct {
 	Type       []int
 	LikeName   string
 	OrderBy    string
+	StartAt    time.Time
+	EndAt      time.Time
 	types.PageEmbedOption
 }
 

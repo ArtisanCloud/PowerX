@@ -2329,6 +2329,21 @@ type ListOrdersPageReply struct {
 	Total     int64    `json:"total"`
 }
 
+type ExportOrdersRequest struct {
+	OrderType   []int  `form:"orderType,optional,omitempty"`
+	OrderStatus []int  `form:"orderStatus,optional,omitempty"`
+	OrderBy     string `form:"orderBy,optional"`
+	StartAt     string `form:"startAt,optional"`
+	EndAt       string `form:"endAt,optional"`
+}
+
+type ExportOrdersReply struct {
+	List      []*Order `json:"list"`
+	PageIndex int      `json:"pageIndex"`
+	PageSize  int      `json:"pageSize"`
+	Total     int64    `json:"total"`
+}
+
 type CreateOrderRequest struct {
 	Order
 }

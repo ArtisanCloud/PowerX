@@ -44,6 +44,7 @@ func (s *PowerSeeder) CreatePowerX() (err error) {
 		_ = CreateProductCategories(s.db)
 		_ = CreateProducts(s.db)
 		_ = CreateOrders(s.db)
+		_ = CreatePayments(s.db)
 	}
 	_ = CreatePriceBooks(s.db)
 
