@@ -2297,9 +2297,9 @@ type Order struct {
 	Id             int64        `json:"id,optional"`
 	CustomerId     int64        `json:"customerId,optional"`
 	CartId         int64        `json:"cartId,optional"`
-	PaymentType    int8         `json:"paymentType,optional"`
-	Type           int8         `json:"type,optional"`
-	Status         int8         `json:"status,optional"`
+	PaymentType    int          `json:"paymentType,optional"`
+	Type           int          `json:"type,optional"`
+	Status         int          `json:"status,optional"`
 	OrderNumber    string       `json:"orderNumber,optional"`
 	Discount       float64      `json:"discount,optional"`
 	ListPrice      float64      `json:"listPrice,optional"`
