@@ -19,7 +19,7 @@ func (this wechatUseCase) AppWechatDetailRequest(agentID int) (reply *response.R
 
     reply, err = this.wework.Agent.Get(this.ctx, agentID)
     if err != nil || reply.ErrCode > 0 {
-        logx.Error(reply.ErrMSG)
+        logx.Errorf(`scrm.wechat.app.detail.error. %v`, reply.ErrMSG)
         err = fmt.Errorf(reply.ErrMSG)
     }
     return reply, err
@@ -37,7 +37,7 @@ func (this wechatUseCase) AppWechatListRequest() (reply *response.ResponseAgentL
 
     reply, err = this.wework.Agent.List(this.ctx)
     if err != nil || reply.ErrCode > 0 {
-        logx.Error(reply.ErrMSG)
+        logx.Errorf(`scrm.wechat.app.list.error. %v`, reply.ErrMSG)
         err = fmt.Errorf(reply.ErrMSG)
     }
     return reply, err

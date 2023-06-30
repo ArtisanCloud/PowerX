@@ -19,8 +19,8 @@ func (this wechatUseCase) AppWechatMessageArticles(opt *request.RequestMessageSe
 
     reply, err := this.wework.Message.SendNews(this.ctx, opt)
     if err != nil || reply.ErrCode > 0 {
-        err = fmt.Errorf(`%v`, reply.ErrMSG)
-        logx.Error(err)
+        logx.Errorf(`scrm.wechat.app.message.articles.error. %v`, reply.ErrMSG)
+        err = fmt.Errorf(reply.ErrMSG)
     }
 
     return reply, err

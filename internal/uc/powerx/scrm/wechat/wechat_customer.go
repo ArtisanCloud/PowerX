@@ -33,7 +33,7 @@ func (this wechatUseCase) CustomerListWechatWorkRequest(userID ...string) ([]*re
     err = this.db.Clauses(
         clause.OnConflict{Columns: []clause.Column{{Name: `external_user_id`}}, UpdateAll: true}).CreateInBatches(&follows, 100).Error
     if err != nil {
-        logx.Errorf(`wechat.customer.contract.error. %v`, err)
+        logx.Errorf(`scrm.wechat.customer.contract.error. %v`, err)
     }
     if info != nil {
         return info.ExternalContactList, nil

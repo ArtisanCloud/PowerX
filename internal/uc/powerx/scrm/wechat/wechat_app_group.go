@@ -21,7 +21,7 @@ func (this wechatUseCase) AppWechatGroupCreate(option *request.RequestAppChatCre
 
     reply, err = this.wework.MessageAppChat.Create(this.ctx, option)
     if err != nil || reply.ErrCode > 0 {
-        logx.Error(reply.ErrMSG)
+        logx.Errorf(`scrm.wechat.app.group.create.error. %v`, reply.ErrMSG)
         err = fmt.Errorf(reply.ErrMSG)
     }
     return reply, err
@@ -39,7 +39,7 @@ func (this wechatUseCase) AppWechatGroupUpdate(option *request.RequestAppChatUpd
 
     reply, err := this.wework.MessageAppChat.Update(this.ctx, option)
     if err != nil || reply.ErrCode > 0 {
-        logx.Error(reply.ErrMSG)
+        logx.Errorf(`scrm.wechat.app.group.update.error. %v`, reply.ErrMSG)
         err = fmt.Errorf(reply.ErrMSG)
     }
     return err
@@ -58,7 +58,7 @@ func (this wechatUseCase) AppWechatGroupDetail(chatID string) (reply *response.R
 
     reply, err = this.wework.MessageAppChat.Get(this.ctx, chatID)
     if err != nil || reply.ErrCode > 0 {
-        logx.Error(reply.ErrMSG)
+        logx.Errorf(`scrm.wechat.app.group.detail.error. %v`, reply.ErrMSG)
         err = fmt.Errorf(reply.ErrMSG)
     }
     return reply, err
@@ -77,7 +77,7 @@ func (this *wechatUseCase) AppWechatGroupMessageArticles(messages *power.HashMap
 
     reply, err = this.wework.MessageAppChat.Send(this.ctx, messages)
     if err != nil || reply.ErrCode > 0 {
-        logx.Error(reply.ErrMSG)
+        logx.Errorf(`scrm.wechat.app.group.message.articles.error. %v`, reply.ErrMSG)
         err = fmt.Errorf(reply.ErrMSG)
     }
     return reply, err

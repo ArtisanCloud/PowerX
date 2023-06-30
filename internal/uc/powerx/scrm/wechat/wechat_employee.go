@@ -30,9 +30,10 @@ func (this *wechatUseCase) SyncDepartmentsAndEmployees(ctx context.Context) erro
     this.gLock.Add(len(list.DepartmentIDs))
     for _, val := range list.DepartmentIDs {
         go func(val response.DepartmentID) {
+            defer this.gLock.Done()
             this.deparment(val)
             this.employee(val)
-            this.gLock.Done()
+
         }(val)
 
     }
@@ -96,7 +97,9 @@ func (this *wechatUseCase) employee(val response.DepartmentID) {
             RefEmployeeId:          0,
         }
         err = this.db.Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "we_work_user_id"}}, UpdateAll: true}).Create(&emp).Error
-        logx.Errorf(`scrm.wechat.sync.organization.employee.sql.error. %v`, err)
+        if err != nil {
+            logx.Errorf(`scrm.wechat.sync.organization.employee.sql.error. %v`, err)
+        }
     }
 
 }
