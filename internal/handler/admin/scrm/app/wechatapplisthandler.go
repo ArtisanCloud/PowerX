@@ -1,17 +1,17 @@
-package customer
+package app
 
 import (
 	"net/http"
 
-	"PowerX/internal/logic/admin/scrm/customer"
+	"PowerX/internal/logic/admin/scrm/app"
 	"PowerX/internal/svc"
 	"github.com/zeromicro/go-zero/rest/httpx"
 )
 
-func SyncWeWorkCustomerHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
+func WechatAppListHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		l := customer.NewSyncWeWorkCustomerLogic(r.Context(), svcCtx)
-		resp, err := l.SyncWeWorkCustomer()
+		l := app.NewWechatAppListLogic(r.Context(), svcCtx)
+		resp, err := l.WechatAppList()
 		if err != nil {
 			httpx.ErrorCtx(r.Context(), w, err)
 		} else {

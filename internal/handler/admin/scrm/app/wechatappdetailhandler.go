@@ -1,24 +1,24 @@
-package customer
+package app
 
 import (
 	"net/http"
 
-	"PowerX/internal/logic/admin/scrm/customer"
+	"PowerX/internal/logic/admin/scrm/app"
 	"PowerX/internal/svc"
 	"PowerX/internal/types"
 	"github.com/zeromicro/go-zero/rest/httpx"
 )
 
-func GetWeWorkCustomerHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
+func WechatAppDetailHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var req types.GetWeWorkCustomerRequest
+		var req types.ApplicationRequest
 		if err := httpx.Parse(r, &req); err != nil {
 			httpx.ErrorCtx(r.Context(), w, err)
 			return
 		}
 
-		l := customer.NewGetWeWorkCustomerLogic(r.Context(), svcCtx)
-		resp, err := l.GetWeWorkCustomer(&req)
+		l := app.NewWechatAppDetailLogic(r.Context(), svcCtx)
+		resp, err := l.WechatAppDetail(&req)
 		if err != nil {
 			httpx.ErrorCtx(r.Context(), w, err)
 		} else {

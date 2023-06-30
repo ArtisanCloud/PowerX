@@ -1,24 +1,24 @@
-package customer
+package organization
 
 import (
 	"net/http"
 
-	"PowerX/internal/logic/admin/scrm/customer"
+	"PowerX/internal/logic/admin/scrm/organization"
 	"PowerX/internal/svc"
 	"PowerX/internal/types"
 	"github.com/zeromicro/go-zero/rest/httpx"
 )
 
-func PatchWeWorkCustomerHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
+func WechatListWorkDepartMentHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var req types.PatchWeWorkCustomerRequest
+		var req types.ListWechatWorkDepartmentReqeust
 		if err := httpx.Parse(r, &req); err != nil {
 			httpx.ErrorCtx(r.Context(), w, err)
 			return
 		}
 
-		l := customer.NewPatchWeWorkCustomerLogic(r.Context(), svcCtx)
-		resp, err := l.PatchWeWorkCustomer(&req)
+		l := organization.NewWechatListWorkDepartMentLogic(r.Context(), svcCtx)
+		resp, err := l.WechatListWorkDepartMent(&req)
 		if err != nil {
 			httpx.ErrorCtx(r.Context(), w, err)
 		} else {
