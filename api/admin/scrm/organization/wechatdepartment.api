@@ -1,0 +1,53 @@
+syntax = "v1"
+
+info(
+    title: "企业微信部门管理"
+    desc: "企业微信部门管理"
+    author: "Eros"
+    email: "smoke.mvp@gmail.com"
+    version: "v1"
+)
+
+@server(
+    group: admin/scrm/organization
+    prefix: /api/v1/admin/scrm/organization/wechat
+    //middleware: EmployeeJWTAuth
+)
+
+service PowerX {
+    @doc "部门列表"
+    @handler WechatListWorkDepartMent
+    post /partments (ListWechatWorkDepartmentReqeust) returns (ListWechatWorkDepartmentReply)
+}
+
+
+type (
+    ListWechatWorkDepartmentReqeust {
+        WeWorkDepId int `json:"weWorkDepId,optional"`
+        Name string `json:"name,optional"`
+        NameEn string `json:"nameEn,optional"`
+        WeWorkParentId int `json:"weWorkParentId,optional"`
+        Order int `json:"order,optional"`
+
+        PageIndex int `form:"pageIndex,optional"`
+        PageSize int `form:"pageSize,optional"`
+    }
+
+    ListWechatWorkDepartmentReply {
+        List []*WechatDepartment `json:"list"`
+        PageIndex int `json:"pageIndex"`
+        PageSize int `json:"pageSize"`
+        Total int64 `json:"total"`
+    }
+        //
+    WechatDepartment {
+
+        WeWorkDepId int `json:"weWorkDepId"`
+        Name string `json:"name"`
+        NameEn string `json:"nameEn"`
+        WeWorkParentId int `json:"weWorkParentId"`
+        Order int `json:"order"`
+        DepartmentLeader []string `json:"departmentLeader"`
+        RefDepartmentId int64 `json:"refDepartmentId"`
+    }
+)

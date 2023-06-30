@@ -26,6 +26,8 @@ PowerXDatabase:
   DSN: host=localhost user=postgres password=powerx dbname=powerx port=5432 sslmode=disable TimeZone=UTC
   # 数据库是否初始化定制的种子数据
   SeedCommerceData: false
+  # sql
+  Debug: true
 
 WechatOA:
   AppId: wx93607xxxxxxxxxx  # 微信公众号AppID

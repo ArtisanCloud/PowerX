@@ -1,3 +1,16 @@
 import "admin/scrm/contactway.api"
-import "admin/scrm/customer.api"
-import "admin/scrm/contact.api"
+//import "admin/scrm/customer.api"
+//import "admin/scrm/contact.api"
+    // organzation
+import "admin/scrm/organization/wechatemployee.api"
+import "admin/scrm/organization/wechatdepartment.api"
+
+    // app
+import "admin/scrm/app/wechatgroup.api"
+import "admin/scrm/app/wechatapp.api"
+import "admin/scrm/app/wechatappmessage.api"
+    // wechat.customer
+import "admin/scrm/customer/wechatcustomer.api"
+import "admin/scrm/customer/wechatcustomergroup.api"
+    // bot
+import "admin/scrm/bot/wechatbot.api"

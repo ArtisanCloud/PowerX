@@ -1,0 +1,77 @@
+syntax = "v1"
+
+info(
+    title: "企业微信客户管理v2"
+    desc: "企业微信客户管理v2"
+    author: "Eros"
+    email: "smoke.mvp@gmail.com"
+    version: "v1"
+)
+
+@server(
+    group: admin/scrm/customer
+    prefix: /api/v1/admin/scrm/customer/wechat
+    //middleware: EmployeeJWTAuth
+)
+
+service PowerX {
+    @doc "客户群列表"
+    @handler WechatListWorkCustomerGroup
+    post /groups (WechatCustomerGroupRequest) returns (WechatListCustomerGroupReply)
+
+
+}
+
+
+
+type (
+
+
+)
+
+type (
+    WechatCustomerGroupRequest {
+        StatusFilter int `json:"status_filter,optional"` // https://developer.work.weixin.qq.com/document/path/92120
+        OwnerFilter OwnerFilter `json:"ownerFilter,optional"`
+        Cursor string `json:"cursor,optional"`
+        Limit  int    `json:"limit,optional"`
+    }
+    OwnerFilter  struct {
+        UseridList []string `json:"userid_list,optional"`
+    }
+
+)
+
+
+type (
+
+    WechatListCustomerGroupReply {
+        List []WechatCustomerGroup `json:"list"` //https://developer.work.weixin.qq.com/document/path/92122
+    }
+    WechatCustomerGroup struct {
+        ChatId     string                          `json:"chat_id"`
+        Name       string                          `json:"name"`
+        Owner      string                          `json:"owner"`
+        CreateTime int                             `json:"create_time"`
+        Notice     string                          `json:"notice"`
+        MemberList []*WechatCustomerGroupMemberList `json:"member_list"`
+        AdminList  []*WechatCustomerGroupAdminList  `json:"admin_list"`
+    }
+    WechatCustomerGroupAdminList struct {
+        Userid string `json:"userid"`
+    }
+
+    WechatCustomerGroupMemberList struct {
+        Userid        string                               `json:"userid"`
+        Type          int                                  `json:"type"`
+        JoinTime      int                                  `json:"join_time"`
+        JoinScene     int                                  `json:"join_scene"`
+        Invitor       WechatCustomerGroupMemberListInvitor `json:"invitor"`
+        GroupNickname string                               `json:"group_nickname"`
+        Name          string                               `json:"name"`
+        Unionid       string                               `json:"unionid,omitempty"`
+    }
+    WechatCustomerGroupMemberListInvitor struct {
+        Userid string `json:"userid"`
+    }
+)

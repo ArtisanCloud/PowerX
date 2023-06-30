@@ -60,10 +60,14 @@ func NewPowerXUseCase(conf *config.Config) (uc *PowerXUseCase, clean func()) {
 	if err != nil {
 		panic(errors.Wrap(err, "connect database failed"))
 	}
+	if conf.PowerXDatabase.Debug {
+		db = db.Debug()
+	}
 	sqlDB, err := db.DB()
 	if err != nil {
 		panic(errors.Wrap(err, "get sql db failed"))
 	}
+
 	err = sqlDB.Ping()
 	if err != nil {
 		panic(errors.Wrap(err, "ping database failed"))

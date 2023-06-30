@@ -1,0 +1,78 @@
+syntax = "v1"
+
+info(
+    title: "企业微信员工管理"
+    desc: "企业微信员工管理"
+    author: "Eros"
+    email: "smoke.mvp@gmail.com"
+    version: "v1"
+)
+
+@server(
+    group: admin/scrm/organization
+    prefix: /api/v1/admin/scrm/organization/wechat
+    //middleware: EmployeeJWTAuth
+)
+
+service PowerX {
+    @doc "员工列表"
+    @handler WechatListWorkEmployee
+    post /employees (ListWechatWorkEmployeeReqeust) returns (ListWechatWorkEmployeeReply)
+
+    @doc "同步组织架构/department&employee"
+    @handler WechatSyncWorkEmployee
+    get /sync returns (SyncWechatWorkOrganizationReply)
+}
+
+
+
+
+type (
+    SyncWechatWorkOrganizationReply struct {
+        Status string `json:"status"`
+    }
+)
+
+
+
+type (
+    ListWechatWorkEmployeeReqeust {
+        Id int64 `json:"id,optional"`                                         // 微信员工ID
+        Name string `json:"name,optional"`                                    // 微信员工名称
+        Alias string `json:"alias,optional"`                                  // 微信员工别称
+        Email string `json:"email,optional"`                                  // 微信员工Email
+        Mobile string `json:"mobile,optional"`                                // 微信员工手机号
+        OpenUserId string `json:"openUserId,optional"`                        // openID
+        WeWorkMainDepartmentId int64 `json:"weWorkMainDepartmentId,optional"` // 微信员工所属部门
+        Status int `json:"status,optional"`                                   // 状态
+        PageIndex int `form:"pageIndex,optional"`
+        PageSize int `form:"pageSize,optional"`
+    }
+
+    ListWechatWorkEmployeeReply {
+        List []*WechatEmployee `json:"list"`
+        PageIndex int `json:"pageIndex"`
+        PageSize int `json:"pageSize"`
+        Total int64 `json:"total"`
+    }
+        //
+    WechatEmployee {
+
+        WeWorkUserId string `json:"weWorkUserId"`
+        Name string `json:"name"`
+        Position string `json:"position"`
+        Mobile string `gorm:"unique"`
+        Gender string `json:"gender"`
+        Email string `gorm:"unique"`
+        BizMail string `json:"bizMail"`
+        Avatar string `json:"avatar"`
+        ThumbAvatar string `json:"thumbAvatar"`
+        Telephone string `json:"telephone"`
+        Alias string `json:"alias"`
+        Address string `json:"address"`
+        OpenUserId string `json:"openUserId"`
+        WeWorkMainDepartmentId int `json:"weWorkMainDepartmentId"`
+        Status int `json:"status"`
+        QrCode string `json:"qrCode"`
+    }
+)
