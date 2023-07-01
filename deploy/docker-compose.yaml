@@ -1,0 +1,97 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:latest
+    container_name: postgres-PowerX
+    environment:
+      POSTGRES_USER: PowerX
+      POSTGRES_PASSWORD: PowerXpw
+      POSTGRES_DB: PowerX
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - PowerX-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U PowerX"]
+      interval: 10s
+      retries: 5
+
+  redis:
+    image: redis:latest
+    container_name: redis-PowerX
+    ports:
+      - "6379:6379"
+    networks:
+      - PowerX-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  minio:
+    image: minio/minio:latest
+    container_name: minio-PowerX
+    command: server --console-address ":9090" /mnt/data
+    environment:
+      MINIO_CONFIG_ENV_FILE: /etc/config.env
+    volumes:
+      - ./data/minio:/mnt/data
+      - ./etc/minio.env:/etc/config.env
+    ports:
+      - "9000:9000"
+      - "9090:9090"
+    networks:
+      - PowerX-network
+
+  server:
+    build:
+      context: ./PowerX
+      dockerfile: deploy/docker/Dockerfile
+    container_name: PowerX-server
+    volumes:
+      - ./etc/powerx.yaml:/app/etc/powerx.yaml
+    ports:
+      - "8888:8888"
+    networks:
+      - PowerX-network
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "8888"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+
+  web:
+    build:
+      context: ./PowerXDashboard
+      dockerfile: deploy/docker/Dockerfile
+    container_name: PowerX-web
+    ports:
+      - "3000:80"
+    networks:
+      - PowerX-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      server:
+        condition: service_healthy
+
+  network-tools:
+    image: nicolaka/netshoot:latest
+    container_name: network-tools
+    command: sleep infinity
+    networks:
+      - PowerX-network
+
+networks:
+  PowerX-network:
+    driver: bridge
