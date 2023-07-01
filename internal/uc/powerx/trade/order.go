@@ -78,7 +78,7 @@ func (uc *OrderUseCase) FindAllOrders(ctx context.Context, opt *FindManyOrdersOp
 	query = uc.buildFindQueryNoPage(query, opt)
 	query = uc.PreloadItems(query)
 	if err := query.
-		//Debug().
+		Debug().
 		Find(&dictionaryItems).Error; err != nil {
 		panic(errors.Wrap(err, "find all dictionaryItems failed"))
 	}

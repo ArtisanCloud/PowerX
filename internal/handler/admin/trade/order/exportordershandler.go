@@ -1,6 +1,7 @@
 package order
 
 import (
+	"fmt"
 	"net/http"
 
 	"PowerX/internal/logic/admin/trade/order"
@@ -19,10 +20,20 @@ func ExportOrdersHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 
 		l := order.NewExportOrdersLogic(r.Context(), svcCtx)
 		resp, err := l.ExportOrders(&req)
+
 		if err != nil {
 			httpx.ErrorCtx(r.Context(), w, err)
-		} else {
-			httpx.OkJsonCtx(r.Context(), w, resp)
+			return
+		}
+
+		// 设置HTTP响应头
+		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s", resp.FileName))
+		w.Header().Set("Content-Type", resp.FileType)
+		w.Header().Set("Content-Length", fmt.Sprint(resp.FileSize))
+
+		_, err = w.Write(resp.Content)
+		if err != nil {
+			httpx.ErrorCtx(r.Context(), w, err)
 		}
 	}
 }

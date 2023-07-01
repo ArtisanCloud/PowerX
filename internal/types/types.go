@@ -2333,15 +2333,15 @@ type ExportOrdersRequest struct {
 	OrderType   []int  `form:"orderType,optional,omitempty"`
 	OrderStatus []int  `form:"orderStatus,optional,omitempty"`
 	OrderBy     string `form:"orderBy,optional"`
-	StartAt     string `form:"startAt,optional"`
-	EndAt       string `form:"endAt,optional"`
+	StartAt     string `form:"startAt"`
+	EndAt       string `form:"endAt"`
 }
 
 type ExportOrdersReply struct {
-	List      []*Order `json:"list"`
-	PageIndex int      `json:"pageIndex"`
-	PageSize  int      `json:"pageSize"`
-	Total     int64    `json:"total"`
+	Content  []byte `json:"content"`
+	FileName string `json:"fileName"`
+	FileSize int    `json:"fileSize"`
+	FileType string `json:"fileType"`
 }
 
 type CreateOrderRequest struct {
