@@ -5,8 +5,8 @@ services:
     image: postgres:latest
     container_name: postgres-powerx
     environment:
-      POSTGRES_USER: powerx
-      POSTGRES_PASSWORD: powerxpw
+      POSTGRES_USER: "powerx"
+      POSTGRES_PASSWORD: "powerxpw"
       POSTGRES_DB: powerx
     volumes:
       - ./data/postgres:/var/lib/postgresql/data
@@ -78,7 +78,7 @@ services:
     container_name: web-powerx
     volumes:
       - ./etc/powerx.yaml:/app/etc/powerx.yaml
-      - ./logs/nginx/:/var/log/
+      - ./logs/nginx/:/var/log/nginx
     ports:
       - "3000:80"
     networks:

@@ -23,6 +23,8 @@ COPY --from=builder /app/dist /usr/share/nginx/html
 COPY --from=builder /app/nginx.conf /etc/nginx/conf.d/default.conf
 
 RUN chmod -R 777 /var/log/
+# RUN touch /var/log/nginx/access.log
+# RUN touch /var/log/nginx/error.log
 
 # 暴露80端口
 EXPOSE 80
