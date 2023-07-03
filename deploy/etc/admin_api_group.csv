@@ -1,0 +1,13 @@
+admin/auth,/api/v1/admin/auth,公开接口-登录相关,公开接口-登录相关
+admin/common,/api/v1/admin/common,通用接口,通用接口
+admin/customer,/api/v1/admin/customer,客户管理,客户管理
+admin/department,/api/v1/admin/department,待命名分组,待描述
+admin/dictionary,/api/v1/admin/dictionary,字典管理API,字典管理API
+admin/employee,/api/v1/admin/employee,员工管理,员工管理
+admin/lead,/api/v1/admin/lead,线索池,线索池
+admin/media,/api/v1/admin/media,媒资管理,媒资管理
+admin/opportunity,/api/v1/admin/opportunity,商机管理,商机管理
+admin/permission,/api/v1/admin/permission,权限管理,权限管理
+admin/contract-way,/api/v1/admin/contract-way,Contract Way Management,Contract Way Management
+admin/scrm/customer,/api/v1/admin/scrm/customer,企业微信客户管理,企业微信客户管理
+admin/userinfo,/api/v1/admin/user-center,用户中心,用户中心
