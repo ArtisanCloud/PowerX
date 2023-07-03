@@ -5,21 +5,28 @@
 **/.DS_Store
 .var
 .run
-.build
 
 resource/static
 temp
 
 etc/powerx-*
-config.yml
-logs/
 wechat.log
-#/powerx.go
-/deploy/dependencies/data/
-/deploy/powerx
-/deploy/powerxctl
-/deploy/powerx.exe
-/deploy/powerxctl.exe
+
+
+.build
+*.log
+logs/
+
+
+deploy/dependencies/data/
+deploy/powerx
+deploy/powerxctl
+deploy/powerx.exe
+deploy/powerxctl.exe
+deploy/data
+deploy/logs/
+deploy/etc/powerx.yaml
+deploy/dashboard/dist/
 
 /powerx
 /powerxctl

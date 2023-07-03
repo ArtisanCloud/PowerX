@@ -7,7 +7,7 @@ ENV GOPROXY=https://goproxy.cn,direct
 # 拷贝当前目录到docker内
 WORKDIR /app
 RUN ls -l 
-COPY ./deploy /app/
+COPY ./ /app/
 COPY ./etc/ /app/etc/
 
 
@@ -24,6 +24,9 @@ COPY --from=builder /app/Makefile /app/Makefile
 COPY --from=builder /app/powerx /app/powerx
 COPY --from=builder /app/etc/ /app/etc/
 
+RUN chmod +x /app/powerxctl
+RUN chmod +x /app/Makefile
+RUN chmod +x /app/powerx
 
 WORKDIR /app
 
