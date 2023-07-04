@@ -77,10 +77,13 @@ services:
       dockerfile: dashboard/docker/Dockerfile
     container_name: web-powerx
     volumes:
-      - ./etc/powerx.yaml:/app/etc/powerx.yaml
-      - ./logs/nginx/:/var/log/nginx
+      - ./logs/nginx/server:/var/log/nginx/server
+      - ./logs/nginx/web:/var/log/nginx/web
+      - ./dashboard/nginx/servers:/etc/nginx/sites-enabled/
+      # - ./dashboard/nginx/servers_ssl:/etc/nginx/sites-enabled/
+      # - ./dashboard/nginx/ssl:/etc/ssl
     ports:
-      - "3000:80"
+      - "80:80"
     networks:
       - powerx-network
     depends_on:
