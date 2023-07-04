@@ -28,5 +28,7 @@ deploy/logs/
 deploy/etc/powerx.yaml
 deploy/dashboard/dist/
 
+etc/powerx.yaml
+
 /powerx
 /powerxctl
