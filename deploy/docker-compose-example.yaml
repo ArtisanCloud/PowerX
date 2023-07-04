@@ -1,0 +1,104 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:latest
+    container_name: postgres-powerx
+    environment:
+      POSTGRES_USER: "powerx"
+      POSTGRES_PASSWORD: "powerxpw"
+      POSTGRES_DB: powerx
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - powerx-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U powerx"]
+      interval: 5s
+      retries: 5
+
+  redis:
+    image: redis:latest
+    container_name: redis-powerx
+    ports:
+      - "6379:6379"
+    networks:
+      - powerx-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 10s
+      retries: 5
+
+  minio:
+    image: minio/minio:latest
+    container_name: minio-powerx
+    command: server --address :9001 --console-address ":9090" /mnt/data
+    environment:
+      MINIO_CONFIG_ENV_FILE: /etc/config.env
+    volumes:
+      - ./data/minio:/mnt/data
+      - ./etc/minio.env:/etc/config.env
+    ports:
+      - "9001:9001"
+      - "9090:9090"
+    networks:
+      - powerx-network
+
+  server:
+    build:
+      context: ./
+      dockerfile: docker/Dockerfile
+    container_name: server-powerx
+    volumes:
+      - ./etc/powerx.yaml:/app/etc/powerx.yaml
+      - ./logs/powerx/:/app/logs/
+    ports:
+      - "8888:8888"
+    networks:
+      - powerx-network
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "8888"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+
+  web:
+    build:
+      context: ./
+      dockerfile: dashboard/docker/Dockerfile
+    container_name: web-powerx
+    volumes:
+      - ./logs/nginx/server:/var/log/nginx/server
+      - ./logs/nginx/web:/var/log/nginx/web
+      - ./dashboard/nginx/servers:/etc/nginx/sites-enabled/
+      # - ./dashboard/nginx/servers_ssl:/etc/nginx/sites-enabled/
+      # - ./dashboard/nginx/ssl:/etc/ssl
+    ports:
+      - "80:80"
+    networks:
+      - powerx-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      server:
+        condition: service_healthy
+
+  network-tools:
+    image: nicolaka/netshoot:latest
+    container_name: network-tools-powerx
+    command: sleep infinity
+    networks:
+      - powerx-network
+
+networks:
+  powerx-network:
+    driver: bridge
