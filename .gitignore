@@ -27,6 +27,7 @@ deploy/data
 deploy/logs/
 deploy/etc/powerx.yaml
 deploy/dashboard/dist/
+deploy/docker-compose.yaml
 
 etc/powerx.yaml
 
