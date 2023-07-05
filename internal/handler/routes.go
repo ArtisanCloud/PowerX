@@ -24,8 +24,10 @@ import (
 	adminproductpricebookentry "PowerX/internal/handler/admin/product/pricebookentry"
 	adminproductproductspecific "PowerX/internal/handler/admin/product/productspecific"
 	adminproductsku "PowerX/internal/handler/admin/product/sku"
-	adminscrmcontact "PowerX/internal/handler/admin/scrm/contact"
+	adminscrmapp "PowerX/internal/handler/admin/scrm/app"
+	adminscrmbot "PowerX/internal/handler/admin/scrm/bot"
 	adminscrmcustomer "PowerX/internal/handler/admin/scrm/customer"
+	adminscrmorganization "PowerX/internal/handler/admin/scrm/organization"
 	admintradeaddressbilling "PowerX/internal/handler/admin/trade/address/billing"
 	admintradeaddressdelivery "PowerX/internal/handler/admin/trade/address/delivery"
 	admintradeaddressshipping "PowerX/internal/handler/admin/trade/address/shipping"
@@ -1011,51 +1013,116 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 	)
 
 	server.AddRoutes(
-		rest.WithMiddlewares(
-			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
-			[]rest.Route{
-				{
-					Method:  http.MethodGet,
-					Path:    "/customers/:id",
-					Handler: adminscrmcustomer.GetWeWorkCustomerHandler(serverCtx),
-				},
-				{
-					Method:  http.MethodGet,
-					Path:    "/customers",
-					Handler: adminscrmcustomer.ListWeWorkCustomersHandler(serverCtx),
-				},
-				{
-					Method:  http.MethodPatch,
-					Path:    "/customers/:id",
-					Handler: adminscrmcustomer.PatchWeWorkCustomerHandler(serverCtx),
-				},
-				{
-					Method:  http.MethodPost,
-					Path:    "/customers/actions/sync",
-					Handler: adminscrmcustomer.SyncWeWorkCustomerHandler(serverCtx),
-				},
-			}...,
-		),
-		rest.WithPrefix("/api/v1/admin/scrm/customer"),
+		[]rest.Route{
+			{
+				Method:  http.MethodPost,
+				Path:    "/employee/page",
+				Handler: adminscrmorganization.ListWeWorkEmployeePageHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodGet,
+				Path:    "/sync",
+				Handler: adminscrmorganization.SyncWeWorkEmployeeHandler(serverCtx),
+			},
+		},
+		rest.WithPrefix("/api/v1/admin/scrm/organization/wechat"),
 	)
 
 	server.AddRoutes(
-		rest.WithMiddlewares(
-			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
-			[]rest.Route{
-				{
-					Method:  http.MethodPost,
-					Path:    "/contacts/actions/sync",
-					Handler: adminscrmcontact.SyncWeWorkContactHandler(serverCtx),
-				},
-				{
-					Method:  http.MethodGet,
-					Path:    "/employees",
-					Handler: adminscrmcontact.ListWeWorkEmployeeHandler(serverCtx),
-				},
-			}...,
-		),
-		rest.WithPrefix("/api/v1/admin/scrm/contact"),
+		[]rest.Route{
+			{
+				Method:  http.MethodPost,
+				Path:    "/partment/page",
+				Handler: adminscrmorganization.ListWeWorkDepartMentPageHandler(serverCtx),
+			},
+		},
+		rest.WithPrefix("/api/v1/admin/scrm/organization/wechat"),
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
+			{
+				Method:  http.MethodGet,
+				Path:    "/group/list",
+				Handler: adminscrmapp.ListWeWorkAppGroupHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodPost,
+				Path:    "/group/create",
+				Handler: adminscrmapp.CreateWeWorkAppGroupHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodPost,
+				Path:    "/group/message/articles",
+				Handler: adminscrmapp.SendWeWorkAppGroupArticleMessageHandler(serverCtx),
+			},
+		},
+		rest.WithPrefix("/api/v1/admin/scrm/app/wechat"),
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
+			{
+				Method:  http.MethodGet,
+				Path:    "/detail",
+				Handler: adminscrmapp.DetailWeWorkAppHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodGet,
+				Path:    "/options",
+				Handler: adminscrmapp.ListWeWorkAppOptionHandler(serverCtx),
+			},
+		},
+		rest.WithPrefix("/api/v1/admin/scrm/app/wechat"),
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
+			{
+				Method:  http.MethodPost,
+				Path:    "/message/articles",
+				Handler: adminscrmapp.SendWeWorkAppArticleMessageHandler(serverCtx),
+			},
+		},
+		rest.WithPrefix("/api/v1/admin/scrm/app/wechat"),
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
+			{
+				Method:  http.MethodPost,
+				Path:    "/sync",
+				Handler: adminscrmcustomer.SyncWeWorkCustomerOptionHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodPost,
+				Path:    "/page",
+				Handler: adminscrmcustomer.ListWeWorkCustomerPageHandler(serverCtx),
+			},
+		},
+		rest.WithPrefix("/api/v1/admin/scrm/customer/wechat"),
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
+			{
+				Method:  http.MethodPost,
+				Path:    "/group/list",
+				Handler: adminscrmcustomer.ListWeWorkCustomerGroupLimitHandler(serverCtx),
+			},
+		},
+		rest.WithPrefix("/api/v1/admin/scrm/customer/wechat"),
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
+			{
+				Method:  http.MethodPost,
+				Path:    "/message/articles",
+				Handler: adminscrmbot.BotWeWorkArticlesHandler(serverCtx),
+			},
+		},
+		rest.WithPrefix("/api/v1/admin/scrm/bot/wechat"),
 	)
 
 	server.AddRoutes(

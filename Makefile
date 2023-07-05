@@ -1,5 +1,5 @@
 CURRENT_DIR := $(shell pwd)
-CONFIG_FILE := $(CURRENT_DIR)/etc/powerx-local.yaml
+CONFIG_FILE := $(CURRENT_DIR)/etc/powerx.yaml
 
 # 设定需要编译的go文件目录
 BUILD_EXE_PATH := $(CURRENT_DIR)/cmd/server/powerx.go
@@ -84,3 +84,5 @@ build-image:
 
 run-container:
 	docker run -it $(IMAGE_NAME):$(IMAGE_TAG) /bin/bash
+
+

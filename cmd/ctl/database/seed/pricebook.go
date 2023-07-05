@@ -22,14 +22,15 @@ func CreatePriceBooks(db *gorm.DB) (err error) {
 		if err = db.Model(&product.PriceBook{}).Create(data).Error; err != nil {
 			panic(errors.Wrap(err, "init price book failed"))
 		}
+
+		if err = db.Model(&product.PriceBookEntry{}).Count(&count).Error; err != nil {
+			panic(errors.Wrap(err, "init price book entry  failed"))
+		}
+		if count == 0 {
+			err = SeedProductPriceBookEntries(db, data[0])
+		}
 	}
 
-	if err = db.Model(&product.PriceBookEntry{}).Count(&count).Error; err != nil {
-		panic(errors.Wrap(err, "init price book entry  failed"))
-	}
-	if count == 0 {
-		err = SeedProductPriceBookEntries(db, data[0])
-	}
 	return err
 }
 

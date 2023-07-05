@@ -1,0 +1,38 @@
+syntax = "v1"
+
+info(
+    title: "企业微信机器人"
+    desc: "企业微信机器人"
+    author: "Eros"
+    email: "smoke.mvp@gmail.com"
+    version: "v1"
+)
+
+@server(
+    group: admin/scrm/bot
+    prefix: /api/v1/admin/scrm/bot/wechat
+    //middleware: EmployeeJWTAuth
+)
+
+service PowerX {
+    @doc "机器人发送图文信息"
+    @handler BotWeWorkArticles
+    post /message/articles (GroupRobotMsgNewsArticlesRequest) returns (GroupRobotMsgNewsArticlesReply)
+}
+
+
+type (
+    //
+    GroupRobotMsgNewsArticlesRequest struct {
+        Key string `json:"key"` // 机器人key
+        Title string `json:"title"`
+        Description string `json:"description,omitempty"`
+        Url string `json:"url"`
+        PicUrl string `json:"picurl,omitempty"`
+    }
+
+        //
+    GroupRobotMsgNewsArticlesReply {
+        Messaage string `json:"messaage"`
+    }
+)
