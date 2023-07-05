@@ -88,27 +88,3 @@ run-container:
 
 
 
-.PHONY: go
-build: ## Compilation main.go to iss file
-	#@go build -o app  main.go
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o app1 cmd/server/powerx.go
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o ctl cmd/ctl/powerxctl.go
-gen:
-	goctl api go -api ./api/powerx.api -dir .
-swag:
-	goctl api plugin -plugin goctl-swagger="swagger -filename weworkdepartment.json" -api api/admin/scrm/organization/weworkdepartment.api -dir swagger
-	goctl api plugin -plugin goctl-swagger="swagger -filename weworkemployee.json" -api api/admin/scrm/organization/weworkemployee.api -dir swagger
-
-	goctl api plugin -plugin goctl-swagger="swagger -filename weworkgroup.json" -api api/admin/scrm/app/weworkgroup.api -dir swagger
-	goctl api plugin -plugin goctl-swagger="swagger -filename weworkappmessage.json" -api api/admin/scrm/app/weworkappmessage.api -dir swagger
-	goctl api plugin -plugin goctl-swagger="swagger -filename weworkapp.json" -api api/admin/scrm/app/weworkapp.api -dir swagger
-	#wechat.bot
-	goctl api plugin -plugin goctl-swagger="swagger -filename weworkbot.json" -api api/admin/scrm/bot/weworkbot.api -dir swagger
-	#wechat.customer
-	goctl api plugin -plugin goctl-swagger="swagger -filename weworkcustomer.json" -api api/admin/scrm/customer/weworkcustomer.api -dir swagger
-	goctl api plugin -plugin goctl-swagger="swagger -filename weworkcustomergroup.json" -api api/admin/scrm/customer/weworkcustomergroup.api -dir swagger
-
-	#goctl api plugin -plugin goctl-swagger="swagger -filename admin.json" -api api/admin.api -dir swagger
-
-
-
