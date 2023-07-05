@@ -1,0 +1,80 @@
+syntax = "v1"
+
+info(
+    title: "企业应用App"
+    desc: "企业应用App"
+    author: "Eros"
+    email: "smoke.mvp@gmail.com"
+    version: "v1"
+)
+
+@server(
+    group: admin/scrm/app
+    prefix: /api/v1/admin/scrm/app/wechat
+    //middleware: EmployeeJWTAuth
+)
+
+service PowerX {
+    @doc "App详情"
+    @handler DetailWeWorkApp
+    get /detail (ApplicationRequest) returns (ApplicationReply)
+
+    @doc "App列表/options"
+    @handler ListWeWorkAppOption
+    get /options returns (AppWeWorkListReply)
+}
+
+
+
+type (
+    ApplicationRequest struct {
+        AgentID int `form:"agentId"`
+    }
+    ApplicationReply struct {
+        Agentid int `json:"agentid"`
+        Name string `json:"name"`
+        SquareLogoUrl string `json:"square_logo_url"`
+        Description string `json:"description"`
+        AllowUserinfos AllowUserinfos `json:"allow_userinfos"`
+        AllowPartys AllowPartys `json:"allow_partys"`
+        AllowTags AllowTags `json:"allow_tags"`
+        Close int `json:"close"`
+        RedirectDomain string `json:"redirect_domain"`
+        ReportLocationFlag int `json:"report_location_flag"`
+        Isreportenter int `json:"isreportenter"`
+        HomeUrl string `json:"home_url"`
+        CustomizedPublishStatus int `json:"customized_publish_status"`
+    }
+    AllowUserinfos struct {
+        User []User `json:"user"`
+    }
+    User struct {
+        Userid string `json:"userid"`
+    }
+
+    AllowPartys struct {
+        Partyid []int `json:"partyid"`
+    }
+    AllowTags struct {
+        Tagid []int `json:"tagid"`
+    }
+)
+
+
+
+
+type (
+    AppWeWorkListReply {
+        List []*AppWechat `json:"list"`
+        //PageIndex int `json:"pageIndex"`
+        //PageSize int `json:"pageSize"`
+        //Total int64 `json:"total"`
+    }
+
+
+    AppWechat struct {
+        Agentid int `json:"agentid"`
+        Name string `json:"name"`
+        SquareLogoUrl string `json:"square_logo_url"`
+    }
+)

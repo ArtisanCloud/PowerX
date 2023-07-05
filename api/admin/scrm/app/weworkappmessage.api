@@ -1,0 +1,57 @@
+syntax = "v1"
+
+info(
+    title: "企业应用App"
+    desc: "企业应用App"
+    author: "Eros"
+    email: "smoke.mvp@gmail.com"
+    version: "v1"
+)
+
+@server(
+    group: admin/scrm/app
+    prefix: /api/v1/admin/scrm/app/wechat
+    //middleware: EmployeeJWTAuth
+)
+
+service PowerX {
+    @doc "App发送图文信息"
+    @handler SendWeWorkAppArticleMessage
+    post /message/articles (AppMessageArticlesRequest) returns (AppMessageBaseReply)
+
+}
+
+
+type (
+
+
+    //
+    AppMessageBaseReply {
+        Message string `json:"message"`
+    }
+
+    AppMessageArticlesRequest struct {
+        ToUser string `json:"touser,optional"`                                      // "UserID1|UserID2|UserID3",
+        ToParty string `json:"toparty,optional"`                                    // "PartyID1|PartyID2",
+        ToTag string `json:"totag,optional"`                                        // "TagID1 | TagID2",
+        MsgType string `json:"msgtype"`                                    // "text",
+        AgentID int `json:"agentid"`                                       // 1,
+        News *AppMessageRequestNews `json:"news"`                                    // 内容
+        SendTime int64 `json:"sendTime,optional"` // 定时发送，不填默认立刻发送
+    }
+
+
+    AppMessageRequestNews struct {
+        Article []*Article `json:"articles"`
+    }
+
+    Article struct {
+        Title string `json:"title"`             // "领奖通知",
+        Description string `json:"description"` // "<div class=\"gray\">2016年9月26日</div> <div class=\"normal\">恭喜你抽中iPhone 7一台，领奖码：xxxx</div><div class=\"highlight\">请于2016年10月10日前联系行政同事领取</div>",
+        URL string `json:"url"`                 // "URL",
+        PicURL string `json:"picurl"`           //
+        AppID string `json:"appid"`
+        PagePath string `json:"pagepath"`
+    }
+)
+

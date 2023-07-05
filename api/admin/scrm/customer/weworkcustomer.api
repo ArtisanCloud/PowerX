@@ -1,0 +1,126 @@
+syntax = "v1"
+
+info(
+    title: "企业微信客户管理"
+    desc: "企业微信客户管理"
+    author: "Eros"
+    email: "smoke.mvp@gmail.com"
+    version: "v1"
+)
+
+@server(
+    group: admin/scrm/customer
+    prefix: /api/v1/admin/scrm/customer/wechat
+    //middleware: EmployeeJWTAuth
+)
+
+service PowerX {
+    @doc "批量同步客户信息(根据员工ID同步/节流)"
+    @handler SyncWeWorkCustomerOption
+    post /sync (WeWorkCustomersRequest) returns (WechatListCustomersReply)
+
+
+    @doc "所有客户列表/page"
+    @handler ListWeWorkCustomerPage
+    post /page (WeWorkCustomersRequest) returns (WechatListCustomersReply)
+}
+
+
+
+type (
+    WeWorkCustomersRequest {
+        UserId string `json:"userId,optional"` //https://developer.work.weixin.qq.com/document/path/92113
+        Name string `json:"name,optional"`
+        Unionid string `json:"unionid,optional"`
+        Sync int `form:"sync,optional"`        // 是否同步(所有客户列表生效，场景：前端复选框勾选后，请求数据都会自动同步)
+        PageIndex int `form:"pageIndex,optional"`
+        PageSize int `form:"pageSize,optional"`
+    }
+
+    WechatListCustomersReply {
+        List []*WechatCustomer `json:"list"`
+        PageIndex int `json:"pageIndex"`
+        PageSize int `json:"pageSize"`
+        Total int64 `json:"total"`
+    }
+)
+
+
+type (
+    WechatSyncCustomerReply {
+        Status string `json:"status"`
+    }
+)
+
+
+type (
+    WechatCustomer struct {
+        ExternalContact WechatCustomersWithExternalContactExternalProfile `json:"external_contact"`
+        FollowUser *WechatCustomersWithFollowUser `json:"follow_user,omitempty"`
+
+        NextCursor string `json:"next_cursor,omitempty"`
+    }
+
+    WechatCustomersWithExternalContactExternalProfile struct {
+        ExternalUserId string `json:"external_user_id"`
+        Name string `json:"name"`
+        Position string `json:"position"`
+        Avatar string `json:"avatar"`
+        CorpName string `json:"corp_name"`
+        CorpFullName string `json:"corp_full_name"`
+        Type int `json:"type"`
+        Gender int `json:"gender"`
+        Unionid string `json:"unionid"`
+        UserId string `json:"user_id"`
+        ExternalProfile ExternalContactExternalProfileWithExternalProfile `json:"external_profile"`
+    }
+
+    ExternalContactExternalProfileWithExternalProfile struct {
+        ExternalAttr []*ExternalContactExternalProfileExternalProfileWithExternalAttr `json:"external_attr"`
+    }
+
+    ExternalContactExternalProfileExternalProfileWithExternalAttr struct {
+        Type int `json:"type"`
+        Name string `json:"name"`
+        Text ExternalContactExternalProfileExternalProfileExternalAttrWithText `json:"text"`
+        Web ExternalContactExternalProfileExternalProfileExternalAttrWithWeb `json:"web"`
+        Miniprogram ExternalContactExternalProfileExternalProfileExternalAttrWithMiniprogram `json:"miniprogram"`
+    }
+    ExternalContactExternalProfileExternalProfileExternalAttrWithText struct {
+        Value string `json:"value"`
+    }
+
+    ExternalContactExternalProfileExternalProfileExternalAttrWithWeb struct {
+        Url string `json:"url"`
+        Title string `json:"title"`
+    }
+    ExternalContactExternalProfileExternalProfileExternalAttrWithMiniprogram struct {
+        Appid string `json:"appid"`
+        Pagepath string `json:"pagepath"`
+        Title string `json:"title"`
+    }
+
+    WechatCustomersWithFollowUser struct {
+        UserId string `json:"user_id"`
+        Remark string `json:"remark"`
+        Description string `json:"description"`
+        Createtime int `json:"createtime"`
+        Tags []WechatCustomersFollowUserWithTags `json:"tags"`
+        WechatChannels WechatCustomersFollowUserWithWechatChannels `json:"wechat_channels"`
+        RemarkCorpName string `json:"remark_corp_name,omitempty"`
+        RemarkMobiles []string `json:"remark_mobiles,omitempty"`
+        OpenUserId string `json:"open_user_id"`
+        AddWay int `json:"add_way"`
+        State string `json:"state,omitempty"`
+    }
+    WechatCustomersFollowUserWithTags struct {
+        GroupName string `json:"group_name"`
+        TagName string `json:"tag_name"`
+        TagId string `json:"tag_id,omitempty"`
+        Type int `json:"type"`
+    }
+    WechatCustomersFollowUserWithWechatChannels struct {
+        Nickname string `json:"nickname"`
+        Source int `json:"source"`
+    }
+)
