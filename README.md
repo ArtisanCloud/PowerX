@@ -54,3 +54,10 @@ Matrix-X
 North
 
 <img src="resource/images/contact_qr_north.png" alt="请扫我" style="display:inline; width: 150px;"/>
+
+***
+非常感谢 Eros, 亮 在上海的团队，对PowerX的SCRM贡献，能够得到用户的肯定和支持，再次给到我们继续走下去的动力。
+
+
+
+

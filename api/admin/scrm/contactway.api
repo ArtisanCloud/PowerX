@@ -10,7 +10,7 @@ info(
 
 @server(
     group: admin/contractway
-    prefix: /api/v1/admin/contract-way
+        prefix: /api/v1/admin/contract-way
     middleware: EmployeeJWTAuth
 )
 

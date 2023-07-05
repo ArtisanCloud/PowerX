@@ -4,7 +4,7 @@ import (
 	"PowerX/internal/config"
 	"PowerX/internal/svc"
 	"github.com/zeromicro/go-zero/core/conf"
-	"path"
+	"path/filepath"
 	"testing"
 )
 
@@ -18,7 +18,7 @@ func TestMain(m *testing.M) {
 	var c config.Config
 
 	conf.MustLoad(configFile, &c)
-	c.EtcDir = path.Dir(configFile)
+	c.EtcDir = filepath.Dir(configFile)
 
 	svcCtx = svc.NewServiceContext(c)
 	m.Run()
