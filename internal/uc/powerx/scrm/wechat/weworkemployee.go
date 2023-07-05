@@ -87,9 +87,8 @@ func (this *wechatUseCase) PullSyncDepartmentsAndEmployeesRequest(ctx context.Co
         panic(err)
     } else {
         err = this.help.error(`scrm.pull.wework.sync.organization.list.error`, list.ResponseWork)
-
     }
-    this.deparment(list.DepartmentIDs[0])
+
     this.gLock.Add(len(list.DepartmentIDs))
     for _, val := range list.DepartmentIDs {
         go func(val response.DepartmentID) {

@@ -118,7 +118,6 @@ func NewPowerXUseCase(conf *config.Config) (uc *PowerXUseCase, clean func()) {
     uc.MediaResource = powerx.NewMediaResourceUseCase(db, conf)
 
     // 加载SCRM UseCase
-    // 加载SCRM UseCase
     c := cron.New()
     uc.SCRM = powerx.NewSCRMUseCase(db, conf, c, uc.redis)
     uc.SCRM.Schedule()
