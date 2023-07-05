@@ -84,3 +84,74 @@ build-image:
 
 run-container:
 	docker run -it $(IMAGE_NAME):$(IMAGE_TAG) /bin/bash
+
+
+
+
+.PHONY: go
+build: ## Compilation main.go to iss file
+	#@go build -o app  main.go
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o app1 cmd/server/powerx.go
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o ctl cmd/ctl/powerxctl.go
+gen:
+	goctl api go -api ./api/powerx.api -dir .
+swag:
+	goctl api plugin -plugin goctl-swagger="swagger -filename weworkdepartment.json" -api api/admin/scrm/organization/weworkdepartment.api -dir swagger
+	goctl api plugin -plugin goctl-swagger="swagger -filename weworkemployee.json" -api api/admin/scrm/organization/weworkemployee.api -dir swagger
+
+	goctl api plugin -plugin goctl-swagger="swagger -filename weworkgroup.json" -api api/admin/scrm/app/weworkgroup.api -dir swagger
+	goctl api plugin -plugin goctl-swagger="swagger -filename weworkappmessage.json" -api api/admin/scrm/app/weworkappmessage.api -dir swagger
+	goctl api plugin -plugin goctl-swagger="swagger -filename weworkapp.json" -api api/admin/scrm/app/weworkapp.api -dir swagger
+	#wechat.bot
+	goctl api plugin -plugin goctl-swagger="swagger -filename weworkbot.json" -api api/admin/scrm/bot/weworkbot.api -dir swagger
+	#wechat.customer
+	goctl api plugin -plugin goctl-swagger="swagger -filename weworkcustomer.json" -api api/admin/scrm/customer/weworkcustomer.api -dir swagger
+	goctl api plugin -plugin goctl-swagger="swagger -filename weworkcustomergroup.json" -api api/admin/scrm/customer/weworkcustomergroup.api -dir swagger
+
+	#goctl api plugin -plugin goctl-swagger="swagger -filename admin.json" -api api/admin.api -dir swagger
+
+
+
+.PHONY: cp
+pro:#
+	scp -r app1 root@101.132.69.159:/www/wwwroot/scrm.site
+	scp -r ctl root@101.132.69.159:/www/wwwroot/scrm.site
+	# Aliyun23120
+conf:
+	scp -r etc root@101.132.69.159:/www/wwwroot/scrm.site
+
+minio:
+	nohup ./minio >> logs/minio.log &
+
+ssh:
+	ssh root@47.103.27.100
+	#Aliyun23629
+
+##################################服务商
+#通讯录
+#地址： https://work.weixin.qq.com/wework_admin/frame#/apps/contactsApi/showAlarm
+#可信IP
+#Secret: 	oZZX1rCLwDLReIXbVju8qZbHSosTWUU1PfWa6t_fXRM
+
+
+
+##################################开发者
+# 客户
+# 地址： https://work.weixin.qq.com/wework_admin/frame#customer/analysis
+# Secret: 2G59kbylNSbItSkhMTEkuZBd_Ai2raSAu4mSWf7CmHo
+
+# 组织架构同步
+# 地址： https://work.weixin.qq.com/wework_admin/frame#/dataMigration/index
+# Secret: R9IhLYZ_03jstM3JnicLMHQDsiagLFX9DhIIVjOcwyU
+
+
+# 配置回调授权码
+#./tunnel config set auth xxxxxxxxxxxxxx
+# 配置本地应用服务的端口
+#./tunnel config set port 8090
+# 配置本地应用服务的指令回调地址
+#./tunnel config set commandCallback http://127.0.0.1:8881/webhook/wework/message
+# 配置本地应用服务的数据回调地址
+#./tunnel config set dataCallback http://127.0.0.1:8881/webhook/wework/callback
+
+# http://127.0.0.1:8881/webhook/wework/message?echostr=dXcIqV7J5CBlqm4GqHsbyUCVGy83WbbayfiJBYo3SIQnifXXdKT2N6d6G3AuLKat5uqtNx2l6KAB8nWk7HnaBw%3D%3D&msg_signature=b456eb27cf5838974971e70225da33903acbea1c&nonce=1687440812&timestamp=1687680674

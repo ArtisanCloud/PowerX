@@ -2057,80 +2057,330 @@ type DeleteContractWayReply struct {
 	Id int64 `json:"id"`
 }
 
-type WeWorkCustomer struct {
-	Name            string   `json:"name"`
-	AdderId         int64    `json:"adderId"`
-	AddTime         string   `json:"addTime"`
-	PatchTime       string   `json:"updateTime"`
-	AddChannel      string   `json:"addChannel"`
-	TagGroupIdList  []int64  `json:"tagGroupIdList"`
-	TagIdList       []int64  `json:"tagIdList"`
-	PersonalTagList []string `json:"personalTagList"`
-	Age             int      `json:"age"`
-	Email           string   `json:"email"`
-	PhoneNumber     string   `json:"phoneNumber"`
-	Address         string   `json:"address"`
-	Birthday        string   `json:"birthday"`
-	Remark          string   `json:"remark"`
-	GroupChatId     int64    `json:"groupChatId"`
-}
-
-type GetWeWorkCustomerRequest struct {
-	Id string `path:"id"`
-}
-
-type GetWeWorkCustomerReply struct {
-	WeWorkCustomer
-}
-
-type ListWeWorkCustomersRequest struct {
-	LikeName     string `form:"likeName,optional"`
-	FollowUserId string `form:"followUserId,optional"`
-	AddWay       int    `form:"addWay,optional"`
-	PageIndex    int    `form:"pageIndex,optional"`
-	PageSize     int    `form:"pageSize,optional"`
-}
-
-type ListWeWorkCustomersReply struct {
-	List      []GetWeWorkCustomerReply `json:"list"`
-	PageIndex int                      `json:"pageIndex"`
-	PageSize  int                      `json:"pageSize"`
-	Total     int64                    `json:"total"`
-}
-
-type PatchWeWorkCustomerRequest struct {
-	Id          string `path:"id"`
-	Name        string `json:"name,optional"`
-	Age         int    `json:"age,optional"`
-	Email       string `json:"email,optional"`
-	PhoneNumber string `json:"phoneNumber,optional"`
-	Address     string `json:"address,optional"`
-	Birthday    string `json:"birthday,optional"`
-	Remark      string `json:"remark,optional"`
-	GroupChatId int64  `json:"groupChatId,optional"`
-}
-
-type PatchWeWorkCustomerReply struct {
-	WeWorkCustomer
-}
-
-type SyncWeWorkCustomerReply struct {
-	Status string `json:"status"`
-}
-
-type SyncWeWorkContactReply struct {
+type SyncWeWorkOrganizationReply struct {
 	Status string `json:"status"`
 }
 
 type ListWeWorkEmployeeReqeust struct {
-	PageIndex int `form:"pageIndex"`
-	PageSize  int `form:"pageSize"`
+	Id                     int64  `json:"id,optional"`                     // 微信员工ID
+	Name                   string `json:"name,optional"`                   // 微信员工名称
+	Alias                  string `json:"alias,optional"`                  // 微信员工别称
+	Email                  string `json:"email,optional"`                  // 微信员工Email
+	Mobile                 string `json:"mobile,optional"`                 // 微信员工手机号
+	OpenUserId             string `json:"openUserId,optional"`             // openID
+	WeWorkMainDepartmentId int64  `json:"weWorkMainDepartmentId,optional"` // 微信员工所属部门
+	Status                 int    `json:"status,optional"`                 // 状态
+	PageIndex              int    `form:"pageIndex,optional"`
+	PageSize               int    `form:"pageSize,optional"`
 }
 
 type ListWeWorkEmployeeReply struct {
-	PageIndex int `json:"pageIndex"`
-	PageSize  int `json:"pageSize"`
-	Total     int `json:"total"`
+	List      []*WechatEmployee `json:"list"`
+	PageIndex int               `json:"pageIndex"`
+	PageSize  int               `json:"pageSize"`
+	Total     int64             `json:"total"`
+}
+
+type WechatEmployee struct {
+	WeWorkUserId           string `json:"weWorkUserId"`
+	Name                   string `json:"name"`
+	Position               string `json:"position"`
+	Mobile                 string `gorm:"unique"`
+	Gender                 string `json:"gender"`
+	Email                  string `gorm:"unique"`
+	BizMail                string `json:"bizMail"`
+	Avatar                 string `json:"avatar"`
+	ThumbAvatar            string `json:"thumbAvatar"`
+	Telephone              string `json:"telephone"`
+	Alias                  string `json:"alias"`
+	Address                string `json:"address"`
+	OpenUserId             string `json:"openUserId"`
+	WeWorkMainDepartmentId int    `json:"weWorkMainDepartmentId"`
+	Status                 int    `json:"status"`
+	QrCode                 string `json:"qrCode"`
+}
+
+type ListWeWorkDepartmentReqeust struct {
+	WeWorkDepId    int    `json:"weWorkDepId,optional"`
+	Name           string `json:"name,optional"`
+	NameEn         string `json:"nameEn,optional"`
+	WeWorkParentId int    `json:"weWorkParentId,optional"`
+	Order          int    `json:"order,optional"`
+	PageIndex      int    `form:"pageIndex,optional"`
+	PageSize       int    `form:"pageSize,optional"`
+}
+
+type ListWeWorkDepartmentReply struct {
+	List      []*WeWorkDepartment `json:"list"`
+	PageIndex int                 `json:"pageIndex"`
+	PageSize  int                 `json:"pageSize"`
+	Total     int64               `json:"total"`
+}
+
+type WeWorkDepartment struct {
+	WeWorkDepId      int      `json:"weWorkDepId"`
+	Name             string   `json:"name"`
+	NameEn           string   `json:"nameEn"`
+	WeWorkParentId   int      `json:"weWorkParentId"`
+	Order            int      `json:"order"`
+	DepartmentLeader []string `json:"departmentLeader"`
+	RefDepartmentId  int64    `json:"refDepartmentId"`
+}
+
+type AppGroupListRequest struct {
+	ChatID string `form:"chatId,optional"`
+}
+
+type AppGroupListReply struct {
+	List interface{} `json:"list"`
+}
+
+type AppGroupCreateRequest struct {
+	Name     string   `json:"name"`     // 名称
+	Owner    string   `json:"owner"`    // owner
+	UserList []string `json:"userlist"` // 用户列表
+	ChatID   string   `json:"chatid,optional"`
+}
+
+type AppGroupCreateReply struct {
+	ChatID string `json:"chatid"`
+}
+
+type AppGroupMessageArticleRequest struct {
+	ChatID      string `json:"chatId"`
+	Title       string `json:"title"`       // "领奖通知",
+	Description string `json:"description"` // "<div class=\"gray\">2016年9月26日</div> <div class=\"normal\">恭喜你抽中iPhone 7一台，领奖码：xxxx</div><div class=\"highlight\">请于2016年10月10日前联系行政同事领取</div>",
+	URL         string `json:"url"`         // "URL",
+	PicURL      string `json:"picurl"`      // 多"
+	AppID       string `json:"appid,optional"`
+	PagePath    string `json:"pagepath,optional"`
+	SendTime    int64  `json:"sendTime,optional"` // 定时发送，不填默认立刻发送
+}
+
+type AppGroupMessageReply struct {
+	ChatID string `json:"chatid"`
+}
+
+type ApplicationRequest struct {
+	AgentID int `form:"agentId"`
+}
+
+type ApplicationReply struct {
+	Agentid                 int            `json:"agentid"`
+	Name                    string         `json:"name"`
+	SquareLogoUrl           string         `json:"square_logo_url"`
+	Description             string         `json:"description"`
+	AllowUserinfos          AllowUserinfos `json:"allow_userinfos"`
+	AllowPartys             AllowPartys    `json:"allow_partys"`
+	AllowTags               AllowTags      `json:"allow_tags"`
+	Close                   int            `json:"close"`
+	RedirectDomain          string         `json:"redirect_domain"`
+	ReportLocationFlag      int            `json:"report_location_flag"`
+	Isreportenter           int            `json:"isreportenter"`
+	HomeUrl                 string         `json:"home_url"`
+	CustomizedPublishStatus int            `json:"customized_publish_status"`
+}
+
+type AllowUserinfos struct {
+	User []User `json:"user"`
+}
+
+type User struct {
+	Userid string `json:"userid"`
+}
+
+type AllowPartys struct {
+	Partyid []int `json:"partyid"`
+}
+
+type AllowTags struct {
+	Tagid []int `json:"tagid"`
+}
+
+type AppWeWorkListReply struct {
+	List []*AppWechat `json:"list"`
+}
+
+type AppWechat struct {
+	Agentid       int    `json:"agentid"`
+	Name          string `json:"name"`
+	SquareLogoUrl string `json:"square_logo_url"`
+}
+
+type AppMessageBaseReply struct {
+	Message string `json:"message"`
+}
+
+type AppMessageArticlesRequest struct {
+	ToUser   string                 `json:"touser,optional"`   // "UserID1|UserID2|UserID3",
+	ToParty  string                 `json:"toparty,optional"`  // "PartyID1|PartyID2",
+	ToTag    string                 `json:"totag,optional"`    // "TagID1 | TagID2",
+	MsgType  string                 `json:"msgtype"`           // "text",
+	AgentID  int                    `json:"agentid"`           // 1,
+	News     *AppMessageRequestNews `json:"news"`              // 内容
+	SendTime int64                  `json:"sendTime,optional"` // 定时发送，不填默认立刻发送
+}
+
+type AppMessageRequestNews struct {
+	Article []*Article `json:"articles"`
+}
+
+type Article struct {
+	Title       string `json:"title"`       // "领奖通知",
+	Description string `json:"description"` // "<div class=\"gray\">2016年9月26日</div> <div class=\"normal\">恭喜你抽中iPhone 7一台，领奖码：xxxx</div><div class=\"highlight\">请于2016年10月10日前联系行政同事领取</div>",
+	URL         string `json:"url"`         // "URL",
+	PicURL      string `json:"picurl"`      //
+	AppID       string `json:"appid"`
+	PagePath    string `json:"pagepath"`
+}
+
+type WeWorkCustomersRequest struct {
+	UserId    string `json:"userId,optional"` //https://developer.work.weixin.qq.com/document/path/92113
+	Name      string `json:"name,optional"`
+	Unionid   string `json:"unionid,optional"`
+	Sync      int    `form:"sync,optional"` // 是否同步(所有客户列表生效，场景：前端复选框勾选后，请求数据都会自动同步)
+	PageIndex int    `form:"pageIndex,optional"`
+	PageSize  int    `form:"pageSize,optional"`
+}
+
+type WechatListCustomersReply struct {
+	List      []*WechatCustomer `json:"list"`
+	PageIndex int               `json:"pageIndex"`
+	PageSize  int               `json:"pageSize"`
+	Total     int64             `json:"total"`
+}
+
+type WechatSyncCustomerReply struct {
+	Status string `json:"status"`
+}
+
+type WechatCustomer struct {
+	ExternalContact WechatCustomersWithExternalContactExternalProfile `json:"external_contact"`
+	FollowUser      *WechatCustomersWithFollowUser                    `json:"follow_user,omitempty"`
+	NextCursor      string                                            `json:"next_cursor,omitempty"`
+}
+
+type WechatCustomersWithExternalContactExternalProfile struct {
+	ExternalUserId  string                                            `json:"external_user_id"`
+	Name            string                                            `json:"name"`
+	Position        string                                            `json:"position"`
+	Avatar          string                                            `json:"avatar"`
+	CorpName        string                                            `json:"corp_name"`
+	CorpFullName    string                                            `json:"corp_full_name"`
+	Type            int                                               `json:"type"`
+	Gender          int                                               `json:"gender"`
+	Unionid         string                                            `json:"unionid"`
+	UserId          string                                            `json:"user_id"`
+	ExternalProfile ExternalContactExternalProfileWithExternalProfile `json:"external_profile"`
+}
+
+type ExternalContactExternalProfileWithExternalProfile struct {
+	ExternalAttr []*ExternalContactExternalProfileExternalProfileWithExternalAttr `json:"external_attr"`
+}
+
+type ExternalContactExternalProfileExternalProfileWithExternalAttr struct {
+	Type        int                                                                      `json:"type"`
+	Name        string                                                                   `json:"name"`
+	Text        ExternalContactExternalProfileExternalProfileExternalAttrWithText        `json:"text"`
+	Web         ExternalContactExternalProfileExternalProfileExternalAttrWithWeb         `json:"web"`
+	Miniprogram ExternalContactExternalProfileExternalProfileExternalAttrWithMiniprogram `json:"miniprogram"`
+}
+
+type ExternalContactExternalProfileExternalProfileExternalAttrWithText struct {
+	Value string `json:"value"`
+}
+
+type ExternalContactExternalProfileExternalProfileExternalAttrWithWeb struct {
+	Url   string `json:"url"`
+	Title string `json:"title"`
+}
+
+type ExternalContactExternalProfileExternalProfileExternalAttrWithMiniprogram struct {
+	Appid    string `json:"appid"`
+	Pagepath string `json:"pagepath"`
+	Title    string `json:"title"`
+}
+
+type WechatCustomersWithFollowUser struct {
+	UserId         string                                      `json:"user_id"`
+	Remark         string                                      `json:"remark"`
+	Description    string                                      `json:"description"`
+	Createtime     int                                         `json:"createtime"`
+	Tags           []WechatCustomersFollowUserWithTags         `json:"tags"`
+	WechatChannels WechatCustomersFollowUserWithWechatChannels `json:"wechat_channels"`
+	RemarkCorpName string                                      `json:"remark_corp_name,omitempty"`
+	RemarkMobiles  []string                                    `json:"remark_mobiles,omitempty"`
+	OpenUserId     string                                      `json:"open_user_id"`
+	AddWay         int                                         `json:"add_way"`
+	State          string                                      `json:"state,omitempty"`
+}
+
+type WechatCustomersFollowUserWithTags struct {
+	GroupName string `json:"group_name"`
+	TagName   string `json:"tag_name"`
+	TagId     string `json:"tag_id,omitempty"`
+	Type      int    `json:"type"`
+}
+
+type WechatCustomersFollowUserWithWechatChannels struct {
+	Nickname string `json:"nickname"`
+	Source   int    `json:"source"`
+}
+
+type WeWorkCustomerGroupRequest struct {
+	StatusFilter int         `json:"status_filter,optional"` // https://developer.work.weixin.qq.com/document/path/92120
+	OwnerFilter  OwnerFilter `json:"ownerFilter,optional"`
+	Cursor       string      `json:"cursor,optional"`
+	Limit        int         `json:"limit,optional"`
+}
+
+type OwnerFilter struct {
+	UseridList []string `json:"userid_list,optional"`
+}
+
+type WeWorkListCustomerGroupReply struct {
+	List []WechatCustomerGroup `json:"list"` //https://developer.work.weixin.qq.com/document/path/92122
+}
+
+type WechatCustomerGroup struct {
+	ChatId     string                           `json:"chat_id"`
+	Name       string                           `json:"name"`
+	Owner      string                           `json:"owner"`
+	CreateTime int                              `json:"create_time"`
+	Notice     string                           `json:"notice"`
+	MemberList []*WechatCustomerGroupMemberList `json:"member_list"`
+	AdminList  []*WechatCustomerGroupAdminList  `json:"admin_list"`
+}
+
+type WechatCustomerGroupAdminList struct {
+	Userid string `json:"userid"`
+}
+
+type WechatCustomerGroupMemberList struct {
+	Userid        string                               `json:"userid"`
+	Type          int                                  `json:"type"`
+	JoinTime      int                                  `json:"join_time"`
+	JoinScene     int                                  `json:"join_scene"`
+	Invitor       WechatCustomerGroupMemberListInvitor `json:"invitor"`
+	GroupNickname string                               `json:"group_nickname"`
+	Name          string                               `json:"name"`
+	Unionid       string                               `json:"unionid,omitempty"`
+}
+
+type WechatCustomerGroupMemberListInvitor struct {
+	Userid string `json:"userid"`
+}
+
+type GroupRobotMsgNewsArticlesRequest struct {
+	Key         string `json:"key"` // 机器人key
+	Title       string `json:"title"`
+	Description string `json:"description,omitempty"`
+	Url         string `json:"url"`
+	PicUrl      string `json:"picurl,omitempty"`
+}
+
+type GroupRobotMsgNewsArticlesReply struct {
+	Messaage string `json:"messaage"`
 }
 
 type MPCustomerLoginRequest struct {

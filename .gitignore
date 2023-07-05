@@ -34,3 +34,4 @@ etc/powerx.yaml
 
 /powerx
 /powerxctl
+/Makefile

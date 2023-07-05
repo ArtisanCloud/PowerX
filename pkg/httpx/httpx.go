@@ -73,8 +73,9 @@ func AppendURIs(baseURL string, uris ...string) (string, error) {
 		// 在基础 URL 的路径后面追加 URI
 		baseURLParsed.Path = strings.TrimSuffix(baseURLParsed.Path, "/") + "/" + uri
 	}
-
-	combinedURL := baseURLParsed.String()
+	// fixme , only return path
+	combinedURL := strings.ReplaceAll(baseURLParsed.Path, `\`, `/`)
+	//combinedURL := baseURLParsed.String()
 
 	return combinedURL, nil
 }

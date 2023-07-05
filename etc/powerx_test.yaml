@@ -18,8 +18,20 @@ Casbin:
   SelfHosted: true           # 是否使用自己的Casbin服务
 
 PowerXDatabase:
-  DSN: host=localhost user=postgres password=powerx dbname=powerx port=5432 sslmode=disable TimeZone=UTC
   # 数据库连接信息
+  #DSN: host=localhost user=pgscrm password=postgres dbname=pgscrm port=5432 sslmode=disable TimeZone=UTC
+  DSN: host=localhost user=postgres password=postgres dbname=scrm port=5433 sslmode=disable TimeZone=UTC
+  #DSN: host=localhost user=postgres password=postgres dbname=scrm port=5432 sslmode=disable TimeZone=UTC
+  #DSN: scrm:root@tcp(localhost)/scrm?charset=utf8&parseTime=True&loc=Local
+  Driver: postgres
+  Debug: true
+  #Driver: mysql
+  # 数据库是否初始化定制的种子数据
+  SeedCommerceData: true
+
+RedisBase:
+  Host: 127.0.0.1:6379
+  Password:
 
 WechatOA:
   AppId: wx93607xxxxxxxxxx  # 微信公众号AppID
@@ -61,7 +73,7 @@ MediaResource:
   OSS:
     Enable: true
     Minio:
-      Endpoint: 127.0.0.1:9001
+      Endpoint: 127.0.0.1:9000
       Credentials:
         AccessKey: powerx
         SecretKey: powerxpwd
