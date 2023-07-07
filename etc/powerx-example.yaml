@@ -23,12 +23,12 @@ PowerXDatabase:
 #  Driver: mysql  # 可以连接，但是我们未基于mysql来开发应用。
 
   # 数据库连接信息
-  DSN: host=host.docker.internal user=powerx password=powerxpw dbname=powerx port=5432 sslmode=disable TimeZone=UTC
+  DSN: host=localhost user=powerx password=powerxpw dbname=powerx port=5432 sslmode=disable TimeZone=UTC
   # 数据库是否初始化定制的种子数据
   SeedCommerceData: false
 
 RedisBase:
-  Host: redis:6379
+  Host: 127.0.0.1:6379
   Password:
 
 WechatOA:
