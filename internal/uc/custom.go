@@ -17,13 +17,13 @@ func NewCustomUseCase(conf *config.Config) (uc *CustomUseCase, clean func()) {
 	uc = &CustomUseCase{}
 
 	// 需要打印当时系统的Timezone
-	uc.CheckSystem()
+	uc.CheckSystemTimeZone()
 	return uc, func() {
 
 	}
 }
 
-func (uc *CustomUseCase) CheckSystem() {
+func (uc *CustomUseCase) CheckSystemTimeZone() {
 
 	// 设置 Golang 的 time 包的默认时区
 	cst := time.FixedZone("CST", 8*60*60)
