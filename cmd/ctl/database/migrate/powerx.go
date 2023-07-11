@@ -84,6 +84,6 @@ func (m *PowerMigrator) AutoMigrate() {
     _ = m.db.AutoMigrate(&customer.WeWorkExternalContacts{}, &customer.WeWorkExternalContactFollow{})
     // wechat resource
     _ = m.db.AutoMigrate(&resource.WeWorkResource{})
-    // app
+    // wechat app
     _ = m.db.AutoMigrate(&app.WeWorkAppGroup{})
 }
