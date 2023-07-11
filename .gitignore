@@ -9,7 +9,7 @@
 resource/static
 temp
 
-etc/powerx-*
+etc/powerx.yaml
 wechat.log
 
 
@@ -30,11 +30,11 @@ deploy/dashboard/dist/
 deploy/dashboard/ssl/
 deploy/docker-compose.yaml
 
-etc/powerx.yaml
 
-/powerx
-/powerxctl
+etc/powerx.yaml
 /scrm.mk
 /app1
 /ctl
-/internal/middleware/employeejwtauthmiddleware.go
+powerx
+powerxctl
+

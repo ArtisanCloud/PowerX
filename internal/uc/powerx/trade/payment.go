@@ -43,6 +43,7 @@ func NewPaymentUseCase(db *gorm.DB, conf *config.Config) *PaymentUseCase {
 		},
 		NotifyURL: conf.WechatPay.NotifyUrl,
 		HttpDebug: conf.WechatPay.HttpDebug,
+		Debug:     false,
 	})
 
 	if err != nil {
