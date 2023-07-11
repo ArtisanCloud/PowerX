@@ -8,14 +8,14 @@ import (
 )
 
 //
-// BotText
+// PushWeWorkBotTextRequest
 //  @Description:
 //  @receiver this
 //  @param key
 //  @param text
 //  @return error
 //
-func (this wechatUseCase) BotText(key string, text *request.GroupRobotMsgText) error {
+func (this wechatUseCase) PushWeWorkBotTextRequest(key string, text *request.GroupRobotMsgText) error {
 
     reply, err := this.wework.GroupRobot.SendText(context.TODO(), key, text)
     logx.Debug(reply, err)
@@ -24,14 +24,14 @@ func (this wechatUseCase) BotText(key string, text *request.GroupRobotMsgText) e
 }
 
 //
-// BotFile
+// PushWeWorkBotFileRequest
 //  @Description:
 //  @receiver this
 //  @param key
 //  @param file
 //  @return error
 //
-func (this wechatUseCase) BotFile(key string, file *request.GroupRobotMsgFile) error {
+func (this wechatUseCase) PushWeWorkBotFileRequest(key string, file *request.GroupRobotMsgFile) error {
 
     reply, err := this.wework.GroupRobotMessenger.SendFile(context.TODO(), key, file)
     logx.Debug(reply, err)
@@ -40,14 +40,14 @@ func (this wechatUseCase) BotFile(key string, file *request.GroupRobotMsgFile) e
 }
 
 //
-// BotImage
+// PushWeWorkBotImageRequest
 //  @Description:
 //  @receiver this
 //  @param key
 //  @param file
 //  @return error
 //
-func (this wechatUseCase) BotImage(key string, image *request.GroupRobotMsgImage) error {
+func (this wechatUseCase) PushWeWorkBotImageRequest(key string, image *request.GroupRobotMsgImage) error {
 
     reply, err := this.wework.GroupRobotMessenger.SendImage(context.TODO(), key, image)
     logx.Debug(reply, err)
@@ -56,14 +56,14 @@ func (this wechatUseCase) BotImage(key string, image *request.GroupRobotMsgImage
 }
 
 //
-// BotMarkdown
+// PushWeWorkBotMarkdownRequest
 //  @Description:
 //  @receiver this
 //  @param key
 //  @param markdown
 //  @return error
 //
-func (this wechatUseCase) BotMarkdown(key string, markdown *request.GroupRobotMsgMarkdown) error {
+func (this wechatUseCase) PushWeWorkBotMarkdownRequest(key string, markdown *request.GroupRobotMsgMarkdown) error {
 
     reply, err := this.wework.GroupRobotMessenger.SendMarkdown(context.TODO(), key, markdown)
     logx.Debug(reply, err)
@@ -93,14 +93,14 @@ func (this wechatUseCase) PushWeWorkBotArticlesRequest(key string, articles []*r
 }
 
 //
-// BotTemplate
+// PushWeWorkBotTemplateRequest
 //  @Description:
 //  @receiver this
 //  @param key
 //  @param template
 //  @return error
 //
-func (this wechatUseCase) BotTemplate(key string, template *request.GroupRobotMsgTemplateCard) error {
+func (this wechatUseCase) PushWeWorkBotTemplateRequest(key string, template *request.GroupRobotMsgTemplateCard) error {
 
     reply, err := this.wework.GroupRobotMessenger.SendTemplateCard(context.TODO(), key, template)
     logx.Debug(reply, err)

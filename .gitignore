@@ -30,5 +30,11 @@ deploy/dashboard/dist/
 deploy/dashboard/ssl/
 deploy/docker-compose.yaml
 
+
+etc/powerx.yaml
+/scrm.mk
+/app1
+/ctl
 powerx
 powerxctl
+

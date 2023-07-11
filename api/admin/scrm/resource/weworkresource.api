@@ -1,0 +1,53 @@
+syntax = "v1"
+
+info(
+    title: "微信资源管理"
+    desc: "微信资源管理"
+    author: "Eros"
+    email: "smoke.mvp@gmail.com"
+    version: "v1"
+)
+
+@server(
+    group: admin/scrm/resource
+    prefix: /api/v1/admin/scrm/resource/wechat
+    middleware: EmployeeJWTAuth
+)
+
+service PowerX {
+    @doc "上传图片到微信"
+    @handler CreateWeWorkImage
+    post /image/upload returns (CreateWeWorkSourceImageReply)
+
+    @doc "微信素材库/page"
+    @handler ListWeWorkImage
+    post /image/page (ListWeWorkResourceImageRequest) returns (ListWeWorkResourceImageReply)
+}
+
+type (
+    CreateWeWorkSourceImageReply struct {
+        Link string `json:"link"`
+    }
+
+
+    ListWeWorkResourceImageRequest struct {
+        ResourceType string `json:"resourceType,optional"`
+        PageIndex int `form:"pageIndex,optional"`
+        PageSize int `form:"pageSize,optional"`
+    }
+
+    ListWeWorkResourceImageReply struct {
+        List []*Resource `json:"list"`
+        PageIndex int `json:"pageIndex"`
+        PageSize int `json:"pageSize"`
+        Total int64 `json:"total"`
+    }
+    Resource struct {
+        Link string `json:"link"`
+        ResourceType string `json:"resourceType"`
+        CreateTime string `json:"createTime"`
+    }
+)
+
+
+

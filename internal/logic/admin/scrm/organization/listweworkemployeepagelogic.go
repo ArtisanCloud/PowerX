@@ -27,17 +27,17 @@ func NewListWeWorkEmployeePageLogic(ctx context.Context, svcCtx *svc.ServiceCont
 
 //
 // ListWeWorkEmployeePage
-//  @Description:
-//  @receiver this
+//  @Description: 员工列表
+//  @receiver employee
 //  @param opt
 //  @return resp
 //  @return err
 //
-func (this *ListWeWorkEmployeePageLogic) ListWeWorkEmployeePage(opt *types.ListWeWorkEmployeeReqeust) (resp *types.ListWeWorkEmployeeReply, err error) {
-    data, err := this.svcCtx.PowerX.SCRM.Wechat.FindManyWechatEmployeesPage(this.ctx, this.OPT(opt))
+func (employee *ListWeWorkEmployeePageLogic) ListWeWorkEmployeePage(opt *types.ListWeWorkEmployeeReqeust) (resp *types.ListWeWorkEmployeeReply, err error) {
+    data, err := employee.svcCtx.PowerX.SCRM.Wechat.FindManyWechatEmployeesPage(employee.ctx, employee.OPT(opt))
 
     return &types.ListWeWorkEmployeeReply{
-        List:      this.DTO(data.List),
+        List:      employee.DTO(data.List),
         PageIndex: data.PageIndex,
         PageSize:  data.PageSize,
         Total:     data.Total,
@@ -47,11 +47,11 @@ func (this *ListWeWorkEmployeePageLogic) ListWeWorkEmployeePage(opt *types.ListW
 //
 // OPT
 //  @Description:
-//  @receiver this
+//  @receiver employee
 //  @param opt
 //  @return *types.PageOption[wechat.FindManyWechatEmployeesOption]
 //
-func (this *ListWeWorkEmployeePageLogic) OPT(opt *types.ListWeWorkEmployeeReqeust) *types.PageOption[wechat.FindManyWechatEmployeesOption] {
+func (employee *ListWeWorkEmployeePageLogic) OPT(opt *types.ListWeWorkEmployeeReqeust) *types.PageOption[wechat.FindManyWechatEmployeesOption] {
 
     option := types.PageOption[wechat.FindManyWechatEmployeesOption]{
         Option:    wechat.FindManyWechatEmployeesOption{},
@@ -91,14 +91,14 @@ func (this *ListWeWorkEmployeePageLogic) OPT(opt *types.ListWeWorkEmployeeReqeus
 //
 // DTO
 //  @Description:
-//  @receiver this
+//  @receiver employee
 //  @param data
 //  @return employees
 //
-func (this *ListWeWorkEmployeePageLogic) DTO(data []*organization.WeWorkEmployee) (employees []*types.WechatEmployee) {
+func (employee *ListWeWorkEmployeePageLogic) DTO(data []*organization.WeWorkEmployee) (employees []*types.WechatEmployee) {
 
     for _, val := range data {
-        employees = append(employees, this.dto(val))
+        employees = append(employees, employee.dto(val))
     }
     return employees
 
@@ -107,11 +107,11 @@ func (this *ListWeWorkEmployeePageLogic) DTO(data []*organization.WeWorkEmployee
 //
 // dto
 //  @Description:
-//  @receiver this
+//  @receiver employee
 //  @param val
 //  @return *types.WechatEmployee
 //
-func (this *ListWeWorkEmployeePageLogic) dto(val *organization.WeWorkEmployee) *types.WechatEmployee {
+func (employee *ListWeWorkEmployeePageLogic) dto(val *organization.WeWorkEmployee) *types.WechatEmployee {
     return &types.WechatEmployee{
         WeWorkUserId:           val.WeWorkUserId,
         Name:                   val.Name,

@@ -3,6 +3,8 @@ package wechat
 import (
     "github.com/ArtisanCloud/PowerWeChat/v3/src/work/externalContact/groupChat/request"
     "github.com/ArtisanCloud/PowerWeChat/v3/src/work/externalContact/groupChat/response"
+    creq "github.com/ArtisanCloud/PowerWeChat/v3/src/work/externalContact/messageTemplate/request"
+    crsp "github.com/ArtisanCloud/PowerWeChat/v3/src/work/externalContact/messageTemplate/response"
 )
 
 //
@@ -27,12 +29,34 @@ func (this *wechatUseCase) PullListWeWorkCustomerGroupRequest(opt *request.Reque
         for _, chat := range reply.GroupChatList {
             go func(chatID string) {
                 get, _ := this.wework.ExternalContactGroupChat.Get(this.ctx, chatID, 1)
-                list = append(list, get)
+                if get.ErrCode == 0 {
+                    list = append(list, get)
+                }
                 this.gLock.Done()
             }(chat.ChatID)
         }
         this.gLock.Wait()
     }
     return list, err
+
+}
+
+//
+// PushWoWorkCustomerTemplateRequest
+//  @Description:
+//  @receiver this
+//  @param opt
+//  @return *crsp.ResponseAddMessageTemplate
+//  @return error
+//
+func (this *wechatUseCase) PushWoWorkCustomerTemplateRequest(opt *creq.RequestAddMsgTemplate) (*crsp.ResponseAddMessageTemplate, error) {
+
+    reply, err := this.wework.ExternalContactMessageTemplate.AddMsgTemplate(this.ctx, opt)
+    if err != nil {
+        panic(err)
+    } else {
+        err = this.help.error(`scrm.push.wowork.customer.message.error.`, reply.ResponseWork)
+    }
+    return reply, err
 
 }

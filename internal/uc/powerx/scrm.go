@@ -26,7 +26,7 @@ func NewSCRMUseCase(db *gorm.DB, conf *config.Config, c *cron.Cron, kv *redis.Re
         AgentID: conf.WeWork.AgentId,
         Secret:  conf.WeWork.Secret,
         OAuth: work.OAuth{
-            Callback: "https://localhost/api/webhook/wework/message", //
+            Callback: "https://scrm.superman.net.cn/api/webhook/wework/message", //
             Scopes:   nil,
         },
         Token:     conf.WeWork.Token,
@@ -51,12 +51,20 @@ func NewSCRMUseCase(db *gorm.DB, conf *config.Config, c *cron.Cron, kv *redis.Re
 func (this *SCRMUseCase) Schedule() {
 
     _, _ = this.Cron.AddFunc(`*/1 * * * *`, func() {
+        var err error
         //  timer 1 minute
         unix := time.Now()
-        count := this.Wechat.InvokeAppGroupMessageCaches(unix.Unix())
 
-        if count > 0 {
-            logx.Info(fmt.Sprintf(`--- [%s] cron.schedule.call -> %d.`, unix.String(), count))
+        //  app group organization message
+        err = this.Wechat.InvokeTimerMessageGrabUniteSend(wechat.AppGroupOrganizationMessageTimerTypeByte, unix.Unix())
+        if err != nil {
+            logx.Info(fmt.Sprintf(`--- [%s] cron.schedule.call.app.group.organization.message.error %v.`, unix.String(), err))
+        }
+
+        //  app message
+        err = this.Wechat.InvokeTimerMessageGrabUniteSend(wechat.AppMessageTimerTypeByte, unix.Unix())
+        if err != nil {
+            logx.Info(fmt.Sprintf(`--- [%s] cron.schedule.call.app.message.error.error %v.`, unix.String(), err))
         }
 
     })

@@ -3,6 +3,7 @@ package wechat
 import (
     "PowerX/internal/model/scrm/customer"
     "PowerX/internal/model/scrm/organization"
+    "PowerX/internal/model/scrm/resource"
     "PowerX/internal/types"
     "context"
     "github.com/ArtisanCloud/PowerWeChat/v3/src/kernel/power"
@@ -10,6 +11,8 @@ import (
     agentResp "github.com/ArtisanCloud/PowerWeChat/v3/src/work/agent/response"
     customerGroupReq "github.com/ArtisanCloud/PowerWeChat/v3/src/work/externalContact/groupChat/request"
     customerGroupResp "github.com/ArtisanCloud/PowerWeChat/v3/src/work/externalContact/groupChat/response"
+    creq "github.com/ArtisanCloud/PowerWeChat/v3/src/work/externalContact/messageTemplate/request"
+    crsp "github.com/ArtisanCloud/PowerWeChat/v3/src/work/externalContact/messageTemplate/response"
     customerResp "github.com/ArtisanCloud/PowerWeChat/v3/src/work/externalContact/response"
     botReq "github.com/ArtisanCloud/PowerWeChat/v3/src/work/groupRobot/request"
     botResp "github.com/ArtisanCloud/PowerWeChat/v3/src/work/groupRobot/response"
@@ -17,6 +20,7 @@ import (
     "github.com/ArtisanCloud/PowerWeChat/v3/src/work/message/appChat/response"
     appReq "github.com/ArtisanCloud/PowerWeChat/v3/src/work/message/request"
     appResp "github.com/ArtisanCloud/PowerWeChat/v3/src/work/message/response"
+    "mime/multipart"
 )
 
 type IWechatInterface interface {
@@ -46,9 +50,14 @@ type IWechatInterface interface {
     iWeWorkBotInterface
 
     //
-    //  @Description:
+    //  @Description: invoke
     //
     iMakeInvokeInterface
+
+    //
+    //  @Description: common
+    //
+    iCommonInterface
 }
 
 //
@@ -129,6 +138,15 @@ type iWeWorkCustomerInterface interface {
     //  @return error
     //
     FindManyWeWorkCustomerPage(ctx context.Context, opt *types.PageOption[FindManyWechatCustomerOption], sync int) (*types.Page[*customer.WeWorkExternalContacts], error)
+
+    //
+    // PushWoWorkCustomerTemplateRequest
+    //  @Description: 发送客户群信息1/day
+    //  @param opt
+    //  @return *crsp.ResponseAddMessageTemplate
+    //  @return error
+    //
+    PushWoWorkCustomerTemplateRequest(opt *creq.RequestAddMsgTemplate) (*crsp.ResponseAddMessageTemplate, error)
 }
 
 //
@@ -176,7 +194,7 @@ type iWeWorkAppInterface interface {
     //  @return *appResp.ResponseMessageSend
     //  @return error
     //
-    PushAppWeWorkMessageArticlesRequest(opt *appReq.RequestMessageSendNews) (*appResp.ResponseMessageSend, error)
+    PushAppWeWorkMessageArticlesRequest(opt *appReq.RequestMessageSendNews, sendTime int64) (reply *appResp.ResponseMessageSend, err error)
 
     iWeWorkAppGroupInterface
 }
@@ -215,10 +233,36 @@ type iWeWorkAppGroupInterface interface {
 //
 type iMakeInvokeInterface interface {
     //
-    // InvokeAppGroupMessageCaches
+    // InvokeTimerMessageGrabUniteSend
     //  @Description:
+    //  @param ttp
     //  @param sendTime
-    //  @return msg
+    //  @return count
     //
-    InvokeAppGroupMessageCaches(sendTime int64) (count int)
+    InvokeTimerMessageGrabUniteSend(ttp TimerTypeByte, sendTime int64) error
+}
+
+//
+//  iCommonInterface
+//  @Description:
+//
+type iCommonInterface interface {
+    //
+    // UploadImageToResourceRequest
+    //  @Description: 上传图片到微信
+    //  @param path
+    //  @param handle
+    //  @return link
+    //  @return err
+    //
+    UploadImageToResourceRequest(path string, handle *multipart.FileHeader) (link string, err error)
+
+    //
+    // FindWeWorkResourceListFromLocalPage
+    //  @Description: FindWeWorkResourceListFromLocalPage
+    //  @param opt
+    //  @return *types.Page[*resource.WeWorkResource]
+    //  @return error
+    //
+    FindWeWorkResourceListFromLocalPage(opt *types.ListWeWorkResourceImageRequest) (*types.Page[*resource.WeWorkResource], error)
 }

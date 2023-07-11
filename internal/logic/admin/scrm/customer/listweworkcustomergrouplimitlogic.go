@@ -1,143 +1,153 @@
 package customer
 
 import (
-	"context"
-	"github.com/ArtisanCloud/PowerWeChat/v3/src/kernel/power"
-	"github.com/ArtisanCloud/PowerWeChat/v3/src/work/externalContact/groupChat/request"
-	"github.com/ArtisanCloud/PowerWeChat/v3/src/work/externalContact/groupChat/response"
+    "context"
+    "github.com/ArtisanCloud/PowerWeChat/v3/src/kernel/power"
+    "github.com/ArtisanCloud/PowerWeChat/v3/src/work/externalContact/groupChat/request"
+    "github.com/ArtisanCloud/PowerWeChat/v3/src/work/externalContact/groupChat/response"
 
-	"PowerX/internal/svc"
-	"PowerX/internal/types"
+    "PowerX/internal/svc"
+    "PowerX/internal/types"
 
-	"github.com/zeromicro/go-zero/core/logx"
+    "github.com/zeromicro/go-zero/core/logx"
 )
 
 type ListWeWorkCustomerGroupLimitLogic struct {
-	logx.Logger
-	ctx    context.Context
-	svcCtx *svc.ServiceContext
+    logx.Logger
+    ctx    context.Context
+    svcCtx *svc.ServiceContext
 }
 
 func NewListWeWorkCustomerGroupLimitLogic(ctx context.Context, svcCtx *svc.ServiceContext) *ListWeWorkCustomerGroupLimitLogic {
-	return &ListWeWorkCustomerGroupLimitLogic{
-		Logger: logx.WithContext(ctx),
-		ctx:    ctx,
-		svcCtx: svcCtx,
-	}
+    return &ListWeWorkCustomerGroupLimitLogic{
+        Logger: logx.WithContext(ctx),
+        ctx:    ctx,
+        svcCtx: svcCtx,
+    }
 }
 
-func (this *ListWeWorkCustomerGroupLimitLogic) ListWeWorkCustomerGroupLimit(opt *types.WeWorkCustomerGroupRequest) (resp *types.WeWorkListCustomerGroupReply, err error) {
+//
+// ListWeWorkCustomerGroupLimit
+//  @Description: 客户群列表
+//  @receiver cGroup
+//  @param opt
+//  @return resp
+//  @return err
+//
+func (cGroup *ListWeWorkCustomerGroupLimitLogic) ListWeWorkCustomerGroupLimit(opt *types.WeWorkCustomerGroupRequest) (resp *types.WeWorkListCustomerGroupReply, err error) {
 
-	newMap, _ := power.StructToHashMap(opt.OwnerFilter)
-	option := &request.RequestGroupChatList{
-		StatusFilter: opt.StatusFilter,
-		OwnerFilter:  newMap,
-		Cursor:       opt.Cursor,
-		Limit:        1000,
-	}
-	if option.Limit == 0 {
-		option.Limit = opt.Limit
-	}
-	list, err := this.svcCtx.PowerX.SCRM.Wechat.PullListWeWorkCustomerGroupRequest(option)
+    newMap, _ := power.StructToHashMap(opt.OwnerFilter)
+    option := &request.RequestGroupChatList{
+        StatusFilter: opt.StatusFilter,
+        OwnerFilter:  newMap,
+        Cursor:       opt.Cursor,
+        Limit:        1000,
+    }
+    if option.Limit == 0 {
+        option.Limit = opt.Limit
+    }
+    list, err := cGroup.svcCtx.PowerX.SCRM.Wechat.PullListWeWorkCustomerGroupRequest(option)
 
-	if list != nil {
-		resp = this.DTO(list)
-	}
+    if list != nil {
+        resp = cGroup.DTO(list)
+    }
 
-	return resp, err
+    return resp, err
 }
 
 //
 // DTO
 //  @Description:
-//  @receiver this
+//  @receiver cGroup
 //  @param data
-//  @return *types.WechatListCustomerGroupReply
+//  @return *types.WeWorkListCustomerGroupReply
 //
-func (this *ListWeWorkCustomerGroupLimitLogic) DTO(data []*response.ResponseGroupChatGet) *types.WeWorkListCustomerGroupReply {
+func (cGroup *ListWeWorkCustomerGroupLimitLogic) DTO(data []*response.ResponseGroupChatGet) *types.WeWorkListCustomerGroupReply {
 
-	reply := types.WeWorkListCustomerGroupReply{}
-	for _, obj := range data {
-		reply.List = append(reply.List, this.dto(obj.GroupChat))
-	}
+    reply := types.WeWorkListCustomerGroupReply{}
+    for _, obj := range data {
+        if obj != nil {
+            reply.List = append(reply.List, cGroup.dto(obj.GroupChat))
+        }
+    }
 
-	return &reply
+    return &reply
 
 }
 
 //
 // dto
 //  @Description:
-//  @receiver this
+//  @receiver cGroup
 //  @param chat
 //  @return types.WechatCustomerGroup
 //
-func (this *ListWeWorkCustomerGroupLimitLogic) dto(chat *response.GroupChat) types.WechatCustomerGroup {
+func (cGroup *ListWeWorkCustomerGroupLimitLogic) dto(chat *response.GroupChat) types.WechatCustomerGroup {
 
-	return types.WechatCustomerGroup{
-		ChatId:     chat.ChatID,
-		Name:       chat.Name,
-		Owner:      chat.Owner,
-		CreateTime: chat.CreateTime,
-		Notice:     chat.Notice,
-		MemberList: this.members(chat.MemberList),
-		AdminList:  this.admins(chat.AdminList),
-	}
+    return types.WechatCustomerGroup{
+        ChatId:     chat.ChatID,
+        Name:       chat.Name,
+        Owner:      chat.Owner,
+        CreateTime: chat.CreateTime,
+        Notice:     chat.Notice,
+        MemberList: cGroup.members(chat.MemberList),
+        AdminList:  cGroup.admins(chat.AdminList),
+    }
 }
 
 //
 // members
 //  @Description:
-//  @receiver this
+//  @receiver cGroup
 //  @param members
 //  @return list
 //
-func (this *ListWeWorkCustomerGroupLimitLogic) members(members []*response.Member) (list []*types.WechatCustomerGroupMemberList) {
+func (cGroup *ListWeWorkCustomerGroupLimitLogic) members(members []*response.Member) (list []*types.WechatCustomerGroupMemberList) {
 
-	for _, val := range members {
-		list = append(list, &types.WechatCustomerGroupMemberList{
-			Userid:        val.UserID,
-			Type:          val.Type,
-			JoinTime:      val.JoinTime,
-			JoinScene:     val.JoinScene,
-			Invitor:       this.weWorkCustomerGroupMemberListInvitor(val.Invitor),
-			GroupNickname: val.GroupNickname,
-			Name:          val.Name,
-			Unionid:       val.UnionID,
-		})
-	}
-	return list
+    for _, val := range members {
+        list = append(list, &types.WechatCustomerGroupMemberList{
+            UserId:        val.UserID,
+            Type:          val.Type,
+            JoinTime:      val.JoinTime,
+            JoinScene:     val.JoinScene,
+            Invitor:       cGroup.weWorkCustomerGroupMemberListInvitor(val.Invitor),
+            GroupNickname: val.GroupNickname,
+            Name:          val.Name,
+            UnionId:       val.UnionID,
+        })
+    }
+    return list
 
 }
 
 //
 // admins
 //  @Description:
-//  @receiver this
+//  @receiver cGroup
 //  @param admins
 //  @return list
 //
-func (this *ListWeWorkCustomerGroupLimitLogic) admins(admins []*response.Admin) (list []*types.WechatCustomerGroupAdminList) {
+func (cGroup *ListWeWorkCustomerGroupLimitLogic) admins(admins []*response.Admin) (list []*types.WechatCustomerGroupAdminList) {
 
-	for _, val := range admins {
-		list = append(list, &types.WechatCustomerGroupAdminList{
-			Userid: val.UserID,
-		})
-	}
-	return list
+    for _, val := range admins {
+        list = append(list, &types.WechatCustomerGroupAdminList{
+            UserId: val.UserID,
+        })
+    }
+    return list
 
 }
 
 //
 // weWorkCustomerGroupMemberListInvitor
 //  @Description:
-//  @receiver this
+//  @receiver cGroup
 //  @param invitor
 //  @return info
 //
-func (this ListWeWorkCustomerGroupLimitLogic) weWorkCustomerGroupMemberListInvitor(invitor *response.Invitor) (info types.WechatCustomerGroupMemberListInvitor) {
-	if invitor != nil {
-		info.Userid = invitor.UserID
-	}
-	return info
+func (cGroup ListWeWorkCustomerGroupLimitLogic) weWorkCustomerGroupMemberListInvitor(invitor *response.Invitor) (info types.WechatCustomerGroupMemberListInvitor) {
+    if invitor != nil {
+        info.UserId = invitor.UserID
+    }
+    return info
 }

@@ -26,22 +26,22 @@ func NewCreateWeWorkAppGroupLogic(ctx context.Context, svcCtx *svc.ServiceContex
 
 //
 // CreateWeWorkAppGroup
-//  @Description:
+//  @Description:   创建企业群
 //  @receiver this
 //  @param opt
 //  @return resp
 //  @return err
 //
-func (this *CreateWeWorkAppGroupLogic) CreateWeWorkAppGroup(opt *types.AppGroupCreateRequest) (resp *types.AppGroupCreateReply, err error) {
+func (group *CreateWeWorkAppGroupLogic) CreateWeWorkAppGroup(opt *types.AppGroupCreateRequest) (resp *types.AppGroupCreateReply, err error) {
 
-    reply, err := this.svcCtx.PowerX.SCRM.Wechat.CreateWeWorkAppGroupRequest(&request.RequestAppChatCreate{
+    reply, err := group.svcCtx.PowerX.SCRM.Wechat.CreateWeWorkAppGroupRequest(&request.RequestAppChatCreate{
         Name:     opt.Name,
         Owner:    opt.Owner,
         UserList: opt.UserList,
-        ChatID:   opt.ChatID,
+        ChatID:   opt.ChatId,
     })
 
     return &types.AppGroupCreateReply{
-        ChatID: reply.ChatID,
+        ChatId: reply.ChatID,
     }, err
 }

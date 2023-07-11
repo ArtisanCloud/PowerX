@@ -1,15 +1,17 @@
 import "admin/scrm/contactway.api"
 //import "admin/scrm/customer.api"
 //import "admin/scrm/contact.api"
-//organzation
+// organzation
 import "admin/scrm/organization/weworkemployee.api"
 import "admin/scrm/organization/weworkdepartment.api"
-//app
+// app
 import "admin/scrm/app/weworkgroup.api"
 import "admin/scrm/app/weworkapp.api"
 import "admin/scrm/app/weworkappmessage.api"
-//wechat.customer
+// wechat.customer
 import "admin/scrm/customer/weworkcustomer.api"
 import "admin/scrm/customer/weworkcustomergroup.api"
-//bot
+// bot
 import "admin/scrm/bot/weworkbot.api"
+// resource
+import "admin/scrm/resource/weworkresource.api"
