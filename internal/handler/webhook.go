@@ -26,9 +26,9 @@ func RegisterWebhookHandlers(server *rest.Server, serverCtx *svc.ServiceContext)
                 },
             }...,
         ),
-        //todo /api/webhook/wework,  Reverse Proxy api
-        //rest.WithPrefix("/api/webhook/wework"),
-        rest.WithPrefix("/webhook/wework"),
+        //fixme /api/webhook/wework,  Reverse Proxy api. [Eros]
+        //rest.WithPrefix("/webhook/wework"),
+        rest.WithPrefix("/api/webhook/wework"),
     )
 
     server.AddRoutes(

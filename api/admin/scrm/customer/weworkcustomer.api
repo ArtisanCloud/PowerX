@@ -11,7 +11,7 @@ info(
 @server(
     group: admin/scrm/customer
     prefix: /api/v1/admin/scrm/customer/wechat
-    //middleware: EmployeeJWTAuth
+    middleware: EmployeeJWTAuth
 )
 
 service PowerX {
@@ -31,7 +31,7 @@ type (
     WeWorkCustomersRequest {
         UserId string `json:"userId,optional"` //https://developer.work.weixin.qq.com/document/path/92113
         Name string `json:"name,optional"`
-        Unionid string `json:"unionid,optional"`
+        UnionId string `json:"unionId,optional"`
         Sync int `form:"sync,optional"`        // 是否同步(所有客户列表生效，场景：前端复选框勾选后，请求数据都会自动同步)
         PageIndex int `form:"pageIndex,optional"`
         PageSize int `form:"pageSize,optional"`
@@ -55,28 +55,28 @@ type (
 
 type (
     WechatCustomer struct {
-        ExternalContact WechatCustomersWithExternalContactExternalProfile `json:"external_contact"`
-        FollowUser *WechatCustomersWithFollowUser `json:"follow_user,omitempty"`
+        ExternalContact WechatCustomersWithExternalContactExternalProfile `json:"externalContact"`
+        FollowUser *WechatCustomersWithFollowUser `json:"followUser,omitempty"`
 
-        NextCursor string `json:"next_cursor,omitempty"`
+        NextCursor string `json:"nextCursor,omitempty"`
     }
 
     WechatCustomersWithExternalContactExternalProfile struct {
-        ExternalUserId string `json:"external_user_id"`
+        ExternalUserId string `json:"externalUserId"`
         Name string `json:"name"`
         Position string `json:"position"`
         Avatar string `json:"avatar"`
-        CorpName string `json:"corp_name"`
-        CorpFullName string `json:"corp_full_name"`
+        CorpName string `json:"corpName"`
+        CorpFullName string `json:"corpFullName"`
         Type int `json:"type"`
         Gender int `json:"gender"`
-        Unionid string `json:"unionid"`
-        UserId string `json:"user_id"`
-        ExternalProfile ExternalContactExternalProfileWithExternalProfile `json:"external_profile"`
+        UnionId string `json:"unionId"`
+        UserId string `json:"userId"`
+        ExternalProfile ExternalContactExternalProfileWithExternalProfile `json:"externalProfile"`
     }
 
     ExternalContactExternalProfileWithExternalProfile struct {
-        ExternalAttr []*ExternalContactExternalProfileExternalProfileWithExternalAttr `json:"external_attr"`
+        ExternalAttr []*ExternalContactExternalProfileExternalProfileWithExternalAttr `json:"externalAttr"`
     }
 
     ExternalContactExternalProfileExternalProfileWithExternalAttr struct {
@@ -101,22 +101,22 @@ type (
     }
 
     WechatCustomersWithFollowUser struct {
-        UserId string `json:"user_id"`
+        UserId string `json:"userId"`
         Remark string `json:"remark"`
         Description string `json:"description"`
         Createtime int `json:"createtime"`
         Tags []WechatCustomersFollowUserWithTags `json:"tags"`
-        WechatChannels WechatCustomersFollowUserWithWechatChannels `json:"wechat_channels"`
-        RemarkCorpName string `json:"remark_corp_name,omitempty"`
-        RemarkMobiles []string `json:"remark_mobiles,omitempty"`
-        OpenUserId string `json:"open_user_id"`
-        AddWay int `json:"add_way"`
+        WechatChannels WechatCustomersFollowUserWithWechatChannels `json:"wechatChannels"`
+        RemarkCorpName string `json:"remarkCorpName,omitempty"`
+        RemarkMobiles []string `json:"remarkMobiles,omitempty"`
+        OpenUserId string `json:"openUserId"`
+        AddWay int `json:"addWay"`
         State string `json:"state,omitempty"`
     }
     WechatCustomersFollowUserWithTags struct {
-        GroupName string `json:"group_name"`
-        TagName string `json:"tag_name"`
-        TagId string `json:"tag_id,omitempty"`
+        GroupName string `json:"groupName"`
+        TagName string `json:"tagName"`
+        TagId string `json:"tagId,omitempty"`
         Type int `json:"type"`
     }
     WechatCustomersFollowUserWithWechatChannels struct {

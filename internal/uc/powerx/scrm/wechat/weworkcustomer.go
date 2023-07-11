@@ -40,13 +40,14 @@ func (this wechatUseCase) FindManyWeWorkCustomerPage(ctx context.Context, opt *t
     if opt.PageSize == 0 {
         opt.PageSize = powermodel.PageDefaultSize
     }
+    query = buildFindManyCustomerQueryNoPage(query, &opt.Option)
+
     if err := query.Count(&count).Error; err != nil {
         return nil, err
     }
     if opt.PageIndex != 0 && opt.PageSize != 0 {
         query.Offset((opt.PageIndex - 1) * opt.PageSize).Limit(opt.PageSize)
     }
-    query = buildFindManyCustomerQueryNoPage(query, &opt.Option)
 
     err := query.Find(&customers).Error
 
@@ -89,6 +90,20 @@ func buildFindManyCustomerQueryNoPage(query *gorm.DB, opt *FindManyWechatCustome
 func (this wechatUseCase) PullListWeWorkCustomerRequest(userID ...string) ([]*response.ResponseExternalContact, error) {
 
     var err error
+
+    // 外部联系人和客户                                     ExternalContact * externalContact.Client
+    // 客户群                                             ExternalContactGroupChat * groupChat.Client
+    // 外部联系人和客户                                     ExternalContactContactWay * contactWay.Client
+    // 规则                                               ExternalContactCustomerStrategy * customerStrategy.Client
+    // 联系客户统计                                        ExternalContactStatistics * statistics.Client
+    // 欢迎语                                             ExternalContactGroupWelcomeTemplate * groupWelcomeTemplate.Client
+    // 学校                                               ExternalContactSchool * school.Client
+    // 朋友圈/发表                                         ExternalContactMoment * moment.Client
+    // 规则组                                             ExternalContactMomentStrategy * momentStrategy.Client
+    // 企业群发                                            ExternalContactMessageTemplate * messageTemplate.Client
+    // 企业标签库                                          ExternalContactTag * tag2.Client
+    // 人事变动                                            ExternalContactTransfer * transfer.Client
+
     info, err := this.wework.ExternalContact.BatchGet(this.ctx, userID, ``, 1000)
     if err != nil {
         panic(err)

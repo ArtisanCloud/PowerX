@@ -28,18 +28,18 @@ func NewListWeWorkDepartMentPageLogic(ctx context.Context, svcCtx *svc.ServiceCo
 
 //
 // ListWeWorkDepartMentPage
-//  @Description:
-//  @receiver this
+//  @Description: 部门列表
+//  @receiver depart
 //  @param opt
 //  @return resp
 //  @return err
 //
-func (this *ListWeWorkDepartMentPageLogic) ListWeWorkDepartMentPage(opt *types.ListWeWorkDepartmentReqeust) (resp *types.ListWeWorkDepartmentReply, err error) {
+func (depart *ListWeWorkDepartMentPageLogic) ListWeWorkDepartMentPage(opt *types.ListWeWorkDepartmentReqeust) (resp *types.ListWeWorkDepartmentReply, err error) {
 
-    data, err := this.svcCtx.PowerX.SCRM.Wechat.FindManyWeWorkDepartmentsPage(this.ctx, this.OPT(opt))
+    data, err := depart.svcCtx.PowerX.SCRM.Wechat.FindManyWeWorkDepartmentsPage(depart.ctx, depart.OPT(opt))
 
     return &types.ListWeWorkDepartmentReply{
-        List:      this.DTO(data.List),
+        List:      depart.DTO(data.List),
         PageIndex: data.PageIndex,
         PageSize:  data.PageSize,
         Total:     data.Total,
@@ -50,11 +50,11 @@ func (this *ListWeWorkDepartMentPageLogic) ListWeWorkDepartMentPage(opt *types.L
 //
 // OPT
 //  @Description:
-//  @receiver this
+//  @receiver depart
 //  @param opt
 //  @return *types.PageOption[wechat.FindManyWechatDepartmentsOption]
 //
-func (this *ListWeWorkDepartMentPageLogic) OPT(opt *types.ListWeWorkDepartmentReqeust) *types.PageOption[wechat.FindManyWechatDepartmentsOption] {
+func (depart *ListWeWorkDepartMentPageLogic) OPT(opt *types.ListWeWorkDepartmentReqeust) *types.PageOption[wechat.FindManyWechatDepartmentsOption] {
 
     option := types.PageOption[wechat.FindManyWechatDepartmentsOption]{
         Option:    wechat.FindManyWechatDepartmentsOption{},
@@ -76,14 +76,14 @@ func (this *ListWeWorkDepartMentPageLogic) OPT(opt *types.ListWeWorkDepartmentRe
 //
 // DTO
 //  @Description:
-//  @receiver this
+//  @receiver depart
 //  @param data
 //  @return departments
 //
-func (this *ListWeWorkDepartMentPageLogic) DTO(data []*organization.WeWorkDepartment) (departments []*types.WeWorkDepartment) {
+func (depart *ListWeWorkDepartMentPageLogic) DTO(data []*organization.WeWorkDepartment) (departments []*types.WeWorkDepartment) {
 
     for _, val := range data {
-        departments = append(departments, this.dto(val))
+        departments = append(departments, depart.dto(val))
     }
     return departments
 
@@ -92,11 +92,11 @@ func (this *ListWeWorkDepartMentPageLogic) DTO(data []*organization.WeWorkDepart
 //
 // dto
 //  @Description:
-//  @receiver this
+//  @receiver depart
 //  @param val
-//  @return *types.WechatDepartment
+//  @return *types.WeWorkDepartment
 //
-func (this *ListWeWorkDepartMentPageLogic) dto(val *organization.WeWorkDepartment) *types.WeWorkDepartment {
+func (depart *ListWeWorkDepartMentPageLogic) dto(val *organization.WeWorkDepartment) *types.WeWorkDepartment {
     var leader []string
     if val.DepartmentLeader != `` {
         leader = strings.Split(val.DepartmentLeader, `,`)
