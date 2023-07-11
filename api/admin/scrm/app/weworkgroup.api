@@ -11,20 +11,20 @@ info(
 @server(
     group: admin/scrm/app
     prefix: /api/v1/admin/scrm/app/wechat
-    //middleware: EmployeeJWTAuth
+    middleware: EmployeeJWTAuth
 )
 
 service PowerX {
-    @doc "App获取群聊/list"
+    @doc "App企业群列表/list"
     @handler ListWeWorkAppGroup
     get /group/list (AppGroupListRequest) returns (AppGroupListReply)
 
 
-    @doc "App创建群聊"
+    @doc "App创建企业群"
     @handler CreateWeWorkAppGroup
     post /group/create (AppGroupCreateRequest) returns (AppGroupCreateReply)
 
-    @doc "App群聊推送图文信息"
+    @doc "App企业群推送图文信息"
     @handler SendWeWorkAppGroupArticleMessage
     post /group/message/articles (AppGroupMessageArticleRequest) returns (AppGroupMessageReply)
 }
@@ -33,7 +33,7 @@ service PowerX {
 type (
     //
     AppGroupListRequest {
-        ChatID string `form:"chatId,optional"`
+        ChatId string `form:"chatId,optional"`
     }
     //
     AppGroupListReply {
@@ -48,13 +48,13 @@ type (
     AppGroupCreateRequest struct {
         Name string `json:"name"`           // 名称
         Owner string `json:"owner"`         // owner
-        UserList []string `json:"userlist"` // 用户列表
-        ChatID string `json:"chatid,optional"`
+        UserList []string `json:"userList"` // 用户列表
+        ChatId string `json:"chatId,optional"`
     }
 
         //
     AppGroupCreateReply {
-        ChatID string `json:"chatid"`
+        ChatId string `json:"chatId"`
     }
 )
 
@@ -62,18 +62,18 @@ type (
 type (
     //
     AppGroupMessageArticleRequest struct {
-        ChatID string `json:"chatId"`
+        ChatIds []string `json:"chatIds"`
         Title       string `json:"title"`       // "领奖通知",
         Description string `json:"description"` // "<div class=\"gray\">2016年9月26日</div> <div class=\"normal\">恭喜你抽中iPhone 7一台，领奖码：xxxx</div><div class=\"highlight\">请于2016年10月10日前联系行政同事领取</div>",
         URL         string `json:"url"`         // "URL",
-        PicURL      string `json:"picurl"`      // 多"
-        AppID       string `json:"appid,optional"`
-        PagePath    string `json:"pagepath,optional"`
+        PicURL      string `json:"picUrl"`      // 多"
+        AppID       string `json:"appId,optional"`
+        PagePath    string `json:"pagePath,optional"`
         SendTime int64 `json:"sendTime,optional"` // 定时发送，不填默认立刻发送
     }
 
         //
     AppGroupMessageReply {
-        ChatID string `json:"chatid"`
+        ChatIds []string `json:"chatIds"`
     }
 )

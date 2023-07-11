@@ -2,6 +2,8 @@ package organization
 
 import (
     "PowerX/internal/model"
+    "gorm.io/gorm"
+    "gorm.io/gorm/clause"
 )
 
 type Department struct {
@@ -17,6 +19,8 @@ type Department struct {
     Email       string        `gorm:"comment:部门邮箱;column:email" json:"email"`
     Remark      string        `gorm:"comment:备注;column:remark" json:"remark"`
     IsReserved  bool          `gorm:"comment:保留;column:is_reserved" json:"is_reserved"`
+    //
+    IsWeWorkArchitecture bool `gorm:"comment:是否启用企微架构;column:is_we_work_architecture" json:"is_we_work_architecture"`
 }
 
 //
@@ -27,4 +31,20 @@ type Department struct {
 //
 func (e Department) TableName() string {
     return `departments`
+}
+
+//
+// Action
+//  @Description:
+//  @receiver e
+//  @param db
+//  @param contacts
+//
+func (e *Department) Action(db *gorm.DB, departments []*Department) {
+
+    err := db.Table(e.TableName()).Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "we_work_user_id"}}, UpdateAll: true}).CreateInBatches(&departments, 100).Error
+    if err != nil {
+        panic(err)
+    }
+
 }

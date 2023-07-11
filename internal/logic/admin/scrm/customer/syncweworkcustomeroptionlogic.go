@@ -27,32 +27,32 @@ func NewSyncWeWorkCustomerOptionLogic(ctx context.Context, svcCtx *svc.ServiceCo
 
 //
 // SyncWeWorkCustomerOption
-//  @Description:
-//  @receiver this
+//  @Description: 同步客户信息
+//  @receiver cMsg
 //  @param opt
 //  @return resp
 //  @return err
 //
-func (this *SyncWeWorkCustomerOptionLogic) SyncWeWorkCustomerOption(opt *types.WeWorkCustomersRequest) (resp *types.WechatListCustomersReply, err error) {
+func (cMsg *SyncWeWorkCustomerOptionLogic) SyncWeWorkCustomerOption(opt *types.WeWorkCustomersRequest) (resp *types.WechatListCustomersReply, err error) {
 
-    data, err := this.svcCtx.PowerX.SCRM.Wechat.PullListWeWorkCustomerRequest(opt.UserId)
+    data, err := cMsg.svcCtx.PowerX.SCRM.Wechat.PullListWeWorkCustomerRequest(opt.UserId)
 
     return &types.WechatListCustomersReply{
-        List: this.DTO(data),
+        List: cMsg.DTO(data),
     }, err
 }
 
 //
 // DTO
 //  @Description:
-//  @receiver this
+//  @receiver cMsg
 //  @param data
 //  @return resp
 //
-func (this *SyncWeWorkCustomerOptionLogic) DTO(data []*response.ResponseExternalContact) (resp []*types.WechatCustomer) {
+func (cMsg *SyncWeWorkCustomerOptionLogic) DTO(data []*response.ResponseExternalContact) (resp []*types.WechatCustomer) {
 
     for _, obj := range data {
-        resp = append(resp, this.dto(obj))
+        resp = append(resp, cMsg.dto(obj))
     }
     return resp
 
@@ -61,14 +61,14 @@ func (this *SyncWeWorkCustomerOptionLogic) DTO(data []*response.ResponseExternal
 //
 // dto
 //  @Description:
-//  @receiver this
+//  @receiver cMsg
 //  @param contact
 //  @return *types.WechatCustomer
 //
-func (this *SyncWeWorkCustomerOptionLogic) dto(contact *response.ResponseExternalContact) *types.WechatCustomer {
+func (cMsg *SyncWeWorkCustomerOptionLogic) dto(contact *response.ResponseExternalContact) *types.WechatCustomer {
     return &types.WechatCustomer{
-        ExternalContact: this.contact(contact.ExternalContact),
-        FollowUser:      this.follow(contact.FollowInfo),
+        ExternalContact: cMsg.contact(contact.ExternalContact),
+        FollowUser:      cMsg.follow(contact.FollowInfo),
         NextCursor:      ``,
     }
 }
@@ -76,11 +76,11 @@ func (this *SyncWeWorkCustomerOptionLogic) dto(contact *response.ResponseExterna
 //
 // contact
 //  @Description:
-//  @receiver this
+//  @receiver cMsg
 //  @param data
 //  @return types.WechatCustomersWithExternalContactExternalProfile
 //
-func (this *SyncWeWorkCustomerOptionLogic) contact(data *models.ExternalContact) types.WechatCustomersWithExternalContactExternalProfile {
+func (cMsg *SyncWeWorkCustomerOptionLogic) contact(data *models.ExternalContact) types.WechatCustomersWithExternalContactExternalProfile {
     return types.WechatCustomersWithExternalContactExternalProfile{
         ExternalUserId: data.ExternalUserID,
         Name:           data.Name,
@@ -90,9 +90,9 @@ func (this *SyncWeWorkCustomerOptionLogic) contact(data *models.ExternalContact)
         CorpFullName:   data.CorpFullName,
         Type:           data.Type,
         Gender:         data.Gender,
-        Unionid:        data.UnionID,
+        UnionId:        data.UnionID,
         ExternalProfile: types.ExternalContactExternalProfileWithExternalProfile{
-            this.contactExternalProfile(data.ExternalProfile),
+            cMsg.contactExternalProfile(data.ExternalProfile),
         },
     }
 }
@@ -100,11 +100,11 @@ func (this *SyncWeWorkCustomerOptionLogic) contact(data *models.ExternalContact)
 //
 // follow
 //  @Description:
-//  @receiver this
+//  @receiver cMsg
 //  @param follow
-//  @return types.WechatCustomersWithFollowUser
+//  @return *types.WechatCustomersWithFollowUser
 //
-func (this *SyncWeWorkCustomerOptionLogic) follow(follow *models.FollowUser) *types.WechatCustomersWithFollowUser {
+func (cMsg *SyncWeWorkCustomerOptionLogic) follow(follow *models.FollowUser) *types.WechatCustomersWithFollowUser {
 
     if follow == nil {
         return nil
@@ -115,7 +115,7 @@ func (this *SyncWeWorkCustomerOptionLogic) follow(follow *models.FollowUser) *ty
         Description:    follow.Description,
         Createtime:     follow.CreateTime,
         Tags:           nil,
-        WechatChannels: this.followWechatChannels(follow.WechatChannels),
+        WechatChannels: cMsg.followWechatChannels(follow.WechatChannels),
         RemarkCorpName: follow.RemarkCorpName,
         RemarkMobiles:  follow.RemarkMobiles,
         OpenUserId:     follow.OperUserID,
@@ -128,11 +128,11 @@ func (this *SyncWeWorkCustomerOptionLogic) follow(follow *models.FollowUser) *ty
 //
 // contactExternalProfile
 //  @Description:
-//  @receiver this
+//  @receiver cMsg
 //  @param profiles
 //  @return externalProfile
 //
-func (this *SyncWeWorkCustomerOptionLogic) contactExternalProfile(profiles *models.ExternalProfile) (externalProfile []*types.ExternalContactExternalProfileExternalProfileWithExternalAttr) {
+func (cMsg *SyncWeWorkCustomerOptionLogic) contactExternalProfile(profiles *models.ExternalProfile) (externalProfile []*types.ExternalContactExternalProfileExternalProfileWithExternalAttr) {
 
     if profiles != nil {
         for _, obj := range profiles.ExternalAttr {
@@ -156,11 +156,11 @@ func (this *SyncWeWorkCustomerOptionLogic) contactExternalProfile(profiles *mode
 //
 // followWechatChannels
 //  @Description:
-//  @receiver this
+//  @receiver cMsg
 //  @param channel
 //  @return data
 //
-func (this *SyncWeWorkCustomerOptionLogic) followWechatChannels(channel *models.WechatChannel) (data types.WechatCustomersFollowUserWithWechatChannels) {
+func (cMsg *SyncWeWorkCustomerOptionLogic) followWechatChannels(channel *models.WechatChannel) (data types.WechatCustomersFollowUserWithWechatChannels) {
     if channel != nil {
         data.Nickname = channel.NickName
         data.Source = channel.Source

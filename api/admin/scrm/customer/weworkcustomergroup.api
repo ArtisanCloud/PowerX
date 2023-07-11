@@ -11,7 +11,7 @@ info(
 @server(
     group: admin/scrm/customer
     prefix: /api/v1/admin/scrm/customer/wechat
-    //middleware: EmployeeJWTAuth
+    middleware: EmployeeJWTAuth
 )
 
 service PowerX {
@@ -19,7 +19,9 @@ service PowerX {
     @handler ListWeWorkCustomerGroupLimit
     post /group/list (WeWorkCustomerGroupRequest) returns (WeWorkListCustomerGroupReply)
 
-
+    @doc "客户群发信息"
+    @handler SendWeWorkCustomerGroupMessage
+    post /group/message/template (WeWorkAddMsgTemplateRequest) returns (WeWorkAddMsgTemplateResponse)
 }
 
 
@@ -27,47 +29,86 @@ service PowerX {
 
 type (
     WeWorkCustomerGroupRequest {
-        StatusFilter int `json:"status_filter,optional"` // https://developer.work.weixin.qq.com/document/path/92120
+        StatusFilter int `json:"statusFilter,optional"` // https://developer.work.weixin.qq.com/document/path/92120
         OwnerFilter OwnerFilter `json:"ownerFilter,optional"`
         Cursor string `json:"cursor,optional"`
-        Limit  int    `json:"limit,optional"`
+        Limit int `json:"limit,optional"`
     }
-    OwnerFilter  struct {
-        UseridList []string `json:"userid_list,optional"`
+    OwnerFilter struct {
+        UseridList []string `json:"useridList,optional"`
     }
-
 )
 
 
 type (
-
     WeWorkListCustomerGroupReply {
         List []WechatCustomerGroup `json:"list"` //https://developer.work.weixin.qq.com/document/path/92122
     }
     WechatCustomerGroup struct {
-        ChatId     string                          `json:"chat_id"`
-        Name       string                          `json:"name"`
-        Owner      string                          `json:"owner"`
-        CreateTime int                             `json:"create_time"`
-        Notice     string                          `json:"notice"`
-        MemberList []*WechatCustomerGroupMemberList `json:"member_list"`
-        AdminList  []*WechatCustomerGroupAdminList  `json:"admin_list"`
+        ChatId string `json:"chatId"`
+        Name string `json:"name"`
+        Owner string `json:"owner"`
+        CreateTime int `json:"createTime"`
+        Notice string `json:"notice"`
+        MemberList []*WechatCustomerGroupMemberList `json:"memberList"`
+        AdminList []*WechatCustomerGroupAdminList `json:"adminList"`
     }
     WechatCustomerGroupAdminList struct {
-        Userid string `json:"userid"`
+        UserId string `json:"userId"`
     }
 
     WechatCustomerGroupMemberList struct {
-        Userid        string                               `json:"userid"`
-        Type          int                                  `json:"type"`
-        JoinTime      int                                  `json:"join_time"`
-        JoinScene     int                                  `json:"join_scene"`
-        Invitor       WechatCustomerGroupMemberListInvitor `json:"invitor"`
-        GroupNickname string                               `json:"group_nickname"`
-        Name          string                               `json:"name"`
-        Unionid       string                               `json:"unionid,omitempty"`
+        UserId string `json:"userId"`
+        Type int `json:"type"`
+        JoinTime int `json:"joinTime"`
+        JoinScene int `json:"joinScene"`
+        Invitor WechatCustomerGroupMemberListInvitor `json:"invitor"`
+        GroupNickname string `json:"groupNickname"`
+        Name string `json:"name"`
+        UnionId string `json:"unionId,omitempty"`
     }
     WechatCustomerGroupMemberListInvitor struct {
-        Userid string `json:"userid"`
+        UserId string `json:"userId"`
     }
 )
+
+
+type (
+    WeWorkAddMsgTemplateRequest struct {
+
+        ChatType string `json:"chatType,optional,options=single|group"`               // 群发任务的类型，默认为single，表示发送给客户，group表示发送给客户群
+        ExternalUserId []string `json:"externalUserId,optional"`                      // chat_type为single时有效，不可与sender同时为空
+        Sender string `json:"sender,optional"`                                        // 发送企业群发消息的成员userid，当类型为发送给客户群时必填
+        Text *WeWorkTextOfMessage `json:"text"`
+        Attachments []Content `json:"attachments,optional"`                           // 附件， 当前仅支持图片
+    }
+
+    WeWorkTextOfMessage struct {
+        Content string `json:"content"` // "内容"
+    }
+
+    Content struct {
+        Link Link `json:"link,optional"`
+        //Image Image `json:"image,optional"`
+    }
+
+    Link struct {
+        MsgType string `json:"msgType,optional"` // 默认:link
+        Title string `json:"title"`              //  "消息标题",
+        PicURL string `json:"picUrl"`            //  "https://example.pic.com/path",
+        Desc string `json:"desc"`                //  "消息描述",
+        URL string `json:"url"`                  //  "https://example.link.com/path"
+    }
+
+    Image struct {
+        MediaId string `json:"mediaId,optional"` // 不填
+        PicUrl string `json:"picUrl,optional"`   // 图片地址
+    }
+
+
+    WeWorkAddMsgTemplateResponse struct {
+        FailList []string `json:"failList"`
+        MsgId string `json:"msgId"`
+    }
+)
+

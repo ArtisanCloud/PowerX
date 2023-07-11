@@ -3,7 +3,6 @@ package wechat
 import (
     "PowerX/internal/model/scrm/app"
     "encoding/json"
-    "fmt"
     "github.com/ArtisanCloud/PowerWeChat/v3/src/kernel/power"
     kresp "github.com/ArtisanCloud/PowerWeChat/v3/src/kernel/response"
     "github.com/ArtisanCloud/PowerWeChat/v3/src/work/message/appChat/request"
@@ -89,11 +88,11 @@ func (this wechatUseCase) PullListWeWorkAppGroupRequest(chatIDs ...string) (repl
             err = this.help.error(`scrm.pull.wework.app.group.detail.error`, reply.ResponseWork)
         }
         // update local
-        group := hash(*reply.ChatInfo).fromHashMapToAppGroup()
-        this.modelWeworkApp.group.Action(this.db, []*app.WeWorkAppGroup{group})
-
-        replys = append(replys, reply.ChatInfo)
-
+        if err == nil {
+            group := hash(*reply.ChatInfo).fromHashMapToAppGroup()
+            this.modelWeworkApp.group.Action(this.db, []*app.WeWorkAppGroup{group})
+            replys = append(replys, reply.ChatInfo)
+        }
     }
 
     return replys, err
@@ -112,16 +111,21 @@ func (this *wechatUseCase) PushAppWeWorkGroupMessageArticlesRequest(messages *po
 
     if sendTime > time.Now().Unix() {
 
-        this.hashPushToAppGroupSendQueue(messages, sendTime)
+        this.pushTimerMessageToKV(AppGroupOrganizationMessageTimerTypeByte, sendTime, messages)
 
     } else {
-        reply, err = this.wework.MessageAppChat.Send(this.ctx, messages)
-        if err != nil {
-            panic(err)
-
-        } else {
-            err = this.help.error(`scrm.push.wework.app.group.message.articles.error`, *reply)
+        msg := *messages
+        chatIds := msg[`chatIds`].([]interface{})
+        for _, id := range chatIds {
+            msg[`chatid`] = id
+            reply, err = this.wework.MessageAppChat.Send(this.ctx, &msg)
+            if err != nil {
+                panic(err)
+            } else {
+                err = this.help.error(`scrm.push.wework.app.group.message.articles.error`, *reply)
+            }
         }
+
     }
 
     return reply, err
@@ -143,59 +147,5 @@ func (hash hash) fromHashMapToAppGroup() *app.WeWorkAppGroup {
         UserList: string(users),
         ChatID:   hash[`chatid`].(string),
     }
-
-}
-
-var (
-    HRedisScrmGroupMessageKey = `scrm:app:group:%d`
-)
-
-//
-// hashPushToAppGroupSendQueue
-//  @Description:
-//  @receiver this
-//  @param message
-//  @param sendTime
-//
-func (this *wechatUseCase) hashPushToAppGroupSendQueue(message *power.HashMap, sendTime int64) {
-
-    key := fmt.Sprintf(HRedisScrmGroupMessageKey, sendTime)
-    val := make(map[string]string)
-    msg, _ := json.Marshal(message)
-    val[(*message)[`chatid`].(string)] = string(msg)
-    err := this.kv.HmsetCtx(this.ctx, key, val)
-    if err != nil {
-        panic(err)
-    }
-
-}
-
-//
-// InvokeAppGroupMessageCaches
-//  @Description:
-//  @receiver this
-//  @param sendTime
-//  @return msg
-//
-func (this *wechatUseCase) InvokeAppGroupMessageCaches(sendTime int64) (count int) {
-
-    key := fmt.Sprintf(HRedisScrmGroupMessageKey, sendTime)
-    vals, err := this.kv.Hgetall(key)
-    if err != nil {
-        panic(err)
-    }
-
-    for _, val := range vals {
-        message := &power.HashMap{}
-        err := json.Unmarshal([]byte(val), &message)
-        if err == nil {
-            _, _ = this.PushAppWeWorkGroupMessageArticlesRequest(message, sendTime)
-            _, _ = this.kv.Hdel(key, (*message)[`chatid`].(string))
-            count++
-        }
-
-    }
-
-    return count
 
 }
