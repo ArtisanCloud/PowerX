@@ -12,6 +12,7 @@ import (
     "PowerX/internal/model/scrm/app"
     "PowerX/internal/model/scrm/customer"
     "PowerX/internal/model/scrm/organization"
+    "PowerX/internal/model/scrm/resource"
     "PowerX/internal/model/trade"
     "PowerX/internal/uc/powerx"
     "gorm.io/driver/mysql"
@@ -81,6 +82,8 @@ func (m *PowerMigrator) AutoMigrate() {
     _ = m.db.AutoMigrate(&organization.WeWorkEmployee{}, &organization.WeWorkDepartment{})
     // wechat customer
     _ = m.db.AutoMigrate(&customer.WeWorkExternalContacts{}, &customer.WeWorkExternalContactFollow{})
+    // wechat resource
+    _ = m.db.AutoMigrate(&resource.WeWorkResource{})
     // app
     _ = m.db.AutoMigrate(&app.WeWorkAppGroup{})
 }

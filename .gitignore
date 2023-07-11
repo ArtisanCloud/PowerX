@@ -34,3 +34,6 @@ etc/powerx.yaml
 
 /powerx
 /powerxctl
+/scrm.mk
+/app1
+/ctl
