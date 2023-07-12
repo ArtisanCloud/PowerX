@@ -80,7 +80,8 @@ type (
         ExternalUserId []string `json:"externalUserId,optional"`                      // chat_type为single时有效，不可与sender同时为空
         Sender string `json:"sender,optional"`                                        // 发送企业群发消息的成员userid，当类型为发送给客户群时必填
         Text *WeWorkTextOfMessage `json:"text"`
-        Attachments []Content `json:"attachments,optional"`                           // 附件， 当前仅支持图片
+        Attachments []Content `json:"attachments,optional"`
+        SendTime int64 `json:"sendTime,optional"` // 定时发送，不填默认立刻发送// 附件， 当前仅支持图片
     }
 
     WeWorkTextOfMessage struct {
