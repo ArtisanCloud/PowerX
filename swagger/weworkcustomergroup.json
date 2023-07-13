@@ -1,0 +1,376 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "企业微信客户管理",
+    "description": "企业微信客户管理",
+    "version": "v1"
+  },
+  "schemes": [
+    "http",
+    "https"
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "paths": {
+    "/api/v1/admin/scrm/customer/wechat/group/list": {
+      "post": {
+        "summary": "客户群列表/limit",
+        "operationId": "ListWeWorkCustomerGroupLimit",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/WeWorkListCustomerGroupReply"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/WeWorkCustomerGroupRequest"
+            }
+          }
+        ],
+        "requestBody": {},
+        "tags": [
+          "admin/scrm/customer"
+        ]
+      }
+    },
+    "/api/v1/admin/scrm/customer/wechat/group/message/template": {
+      "post": {
+        "summary": "客户群发信息",
+        "operationId": "SendWeWorkCustomerGroupMessage",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/WeWorkAddMsgTemplateResponse"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/WeWorkAddMsgTemplateRequest"
+            }
+          }
+        ],
+        "requestBody": {},
+        "tags": [
+          "admin/scrm/customer"
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "Content": {
+      "type": "object",
+      "properties": {
+        "link": {
+          "$ref": "#/definitions/Link"
+        }
+      },
+      "title": "Content"
+    },
+    "Image": {
+      "type": "object",
+      "properties": {
+        "mediaId": {
+          "type": "string",
+          "description": " 不填"
+        },
+        "picUrl": {
+          "type": "string",
+          "description": " 图片地址"
+        }
+      },
+      "title": "Image"
+    },
+    "Link": {
+      "type": "object",
+      "properties": {
+        "msgType": {
+          "type": "string",
+          "description": " 默认:link"
+        },
+        "title": {
+          "type": "string",
+          "description": "  \"消息标题\","
+        },
+        "picUrl": {
+          "type": "string",
+          "description": "  \"https:example.pic.com/path\","
+        },
+        "desc": {
+          "type": "string",
+          "description": "  \"消息描述\","
+        },
+        "url": {
+          "type": "string",
+          "description": "  \"https:example.link.com/path\""
+        }
+      },
+      "title": "Link",
+      "required": [
+        "title",
+        "picUrl",
+        "desc",
+        "url"
+      ]
+    },
+    "OwnerFilter": {
+      "type": "object",
+      "properties": {
+        "useridList": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "title": "OwnerFilter"
+    },
+    "WeWorkAddMsgTemplateRequest": {
+      "type": "object",
+      "properties": {
+        "chatType": {
+          "type": "string",
+          "description": " 群发任务的类型，默认为single，表示发送给客户，group表示发送给客户群"
+        },
+        "externalUserId": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": " chat_type为single时有效，不可与sender同时为空"
+        },
+        "sender": {
+          "type": "string",
+          "description": " 发送企业群发消息的成员userid，当类型为发送给客户群时必填"
+        },
+        "text": {
+          "$ref": "#/definitions/WeWorkTextOfMessage"
+        },
+        "attachments": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Content"
+          }
+        },
+        "sendTime": {
+          "type": "integer",
+          "format": "int64",
+          "description": " 定时发送，不填默认立刻发送 附件， 当前仅支持图片"
+        }
+      },
+      "title": "WeWorkAddMsgTemplateRequest",
+      "required": [
+        "chatType",
+        "text"
+      ]
+    },
+    "WeWorkAddMsgTemplateResponse": {
+      "type": "object",
+      "properties": {
+        "failList": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "msgId": {
+          "type": "string"
+        }
+      },
+      "title": "WeWorkAddMsgTemplateResponse",
+      "required": [
+        "failList",
+        "msgId"
+      ]
+    },
+    "WeWorkCustomerGroupRequest": {
+      "type": "object",
+      "properties": {
+        "statusFilter": {
+          "type": "integer",
+          "format": "int32",
+          "description": " https:developer.work.weixin.qq.com/document/path/92120"
+        },
+        "ownerFilter": {
+          "$ref": "#/definitions/OwnerFilter"
+        },
+        "cursor": {
+          "type": "string"
+        },
+        "limit": {
+          "type": "integer",
+          "format": "int32"
+        }
+      },
+      "title": "WeWorkCustomerGroupRequest"
+    },
+    "WeWorkListCustomerGroupReply": {
+      "type": "object",
+      "properties": {
+        "list": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/WechatCustomerGroup"
+          },
+          "description": "https:developer.work.weixin.qq.com/document/path/92122"
+        }
+      },
+      "title": "WeWorkListCustomerGroupReply",
+      "required": [
+        "list"
+      ]
+    },
+    "WeWorkTextOfMessage": {
+      "type": "object",
+      "properties": {
+        "content": {
+          "type": "string",
+          "description": " \"内容\""
+        }
+      },
+      "title": "WeWorkTextOfMessage",
+      "required": [
+        "content"
+      ]
+    },
+    "WechatCustomerGroup": {
+      "type": "object",
+      "properties": {
+        "chatId": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "owner": {
+          "type": "string"
+        },
+        "createTime": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "notice": {
+          "type": "string"
+        },
+        "memberList": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/WechatCustomerGroupMemberList"
+          }
+        },
+        "adminList": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/WechatCustomerGroupAdminList"
+          }
+        }
+      },
+      "title": "WechatCustomerGroup",
+      "required": [
+        "chatId",
+        "name",
+        "owner",
+        "createTime",
+        "notice",
+        "memberList",
+        "adminList"
+      ]
+    },
+    "WechatCustomerGroupAdminList": {
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string"
+        }
+      },
+      "title": "WechatCustomerGroupAdminList",
+      "required": [
+        "userId"
+      ]
+    },
+    "WechatCustomerGroupMemberList": {
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string"
+        },
+        "type": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "joinTime": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "joinScene": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "invitor": {
+          "$ref": "#/definitions/WechatCustomerGroupMemberListInvitor"
+        },
+        "groupNickname": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "unionId": {
+          "type": "string"
+        }
+      },
+      "title": "WechatCustomerGroupMemberList",
+      "required": [
+        "userId",
+        "type",
+        "joinTime",
+        "joinScene",
+        "invitor",
+        "groupNickname",
+        "name",
+        "unionId"
+      ]
+    },
+    "WechatCustomerGroupMemberListInvitor": {
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string"
+        }
+      },
+      "title": "WechatCustomerGroupMemberListInvitor",
+      "required": [
+        "userId"
+      ]
+    }
+  },
+  "securityDefinitions": {
+    "apiKey": {
+      "type": "apiKey",
+      "description": "Enter JWT Bearer token **_only_**",
+      "name": "Authorization",
+      "in": "header"
+    }
+  },
+  "security": [
+    {
+      "apiKey": []
+    }
+  ]
+}

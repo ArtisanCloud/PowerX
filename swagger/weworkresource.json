@@ -1,0 +1,160 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "微信资源管理",
+    "description": "微信资源管理",
+    "version": "v1"
+  },
+  "schemes": [
+    "http",
+    "https"
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "paths": {
+    "/api/v1/admin/scrm/resource/wechat/image/page": {
+      "post": {
+        "summary": "微信素材库/page",
+        "operationId": "ListWeWorkImage",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/ListWeWorkResourceImageReply"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/ListWeWorkResourceImageRequest"
+            }
+          }
+        ],
+        "requestBody": {},
+        "tags": [
+          "admin/scrm/resource"
+        ]
+      }
+    },
+    "/api/v1/admin/scrm/resource/wechat/image/upload": {
+      "post": {
+        "summary": "上传图片到微信",
+        "operationId": "CreateWeWorkImage",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/CreateWeWorkSourceImageReply"
+            }
+          }
+        },
+        "requestBody": {},
+        "tags": [
+          "admin/scrm/resource"
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "CreateWeWorkSourceImageReply": {
+      "type": "object",
+      "properties": {
+        "link": {
+          "type": "string"
+        }
+      },
+      "title": "CreateWeWorkSourceImageReply",
+      "required": [
+        "link"
+      ]
+    },
+    "ListWeWorkResourceImageReply": {
+      "type": "object",
+      "properties": {
+        "list": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Resource"
+          }
+        },
+        "pageIndex": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "pageSize": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "total": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "title": "ListWeWorkResourceImageReply",
+      "required": [
+        "list",
+        "pageIndex",
+        "pageSize",
+        "total"
+      ]
+    },
+    "ListWeWorkResourceImageRequest": {
+      "type": "object",
+      "properties": {
+        "resourceType": {
+          "type": "string"
+        },
+        "pageIndex": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "pageSize": {
+          "type": "integer",
+          "format": "int32"
+        }
+      },
+      "title": "ListWeWorkResourceImageRequest"
+    },
+    "Resource": {
+      "type": "object",
+      "properties": {
+        "link": {
+          "type": "string"
+        },
+        "resourceType": {
+          "type": "string"
+        },
+        "createTime": {
+          "type": "string"
+        }
+      },
+      "title": "Resource",
+      "required": [
+        "link",
+        "resourceType",
+        "createTime"
+      ]
+    }
+  },
+  "securityDefinitions": {
+    "apiKey": {
+      "type": "apiKey",
+      "description": "Enter JWT Bearer token **_only_**",
+      "name": "Authorization",
+      "in": "header"
+    }
+  },
+  "security": [
+    {
+      "apiKey": []
+    }
+  ]
+}

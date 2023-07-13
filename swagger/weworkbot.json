@@ -1,0 +1,104 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "企业微信机器人",
+    "description": "企业微信机器人",
+    "version": "v1"
+  },
+  "schemes": [
+    "http",
+    "https"
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "paths": {
+    "/api/v1/admin/scrm/bot/wechat/message/articles": {
+      "post": {
+        "summary": "机器人发送图文信息",
+        "operationId": "BotWeWorkArticles",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/GroupRobotMsgNewsArticlesReply"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/GroupRobotMsgNewsArticlesRequest"
+            }
+          }
+        ],
+        "requestBody": {},
+        "tags": [
+          "admin/scrm/bot"
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "GroupRobotMsgNewsArticlesReply": {
+      "type": "object",
+      "properties": {
+        "messaage": {
+          "type": "string"
+        }
+      },
+      "title": "GroupRobotMsgNewsArticlesReply",
+      "required": [
+        "messaage"
+      ]
+    },
+    "GroupRobotMsgNewsArticlesRequest": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string",
+          "description": " 机器人key"
+        },
+        "title": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string"
+        },
+        "picurl": {
+          "type": "string"
+        }
+      },
+      "title": "GroupRobotMsgNewsArticlesRequest",
+      "required": [
+        "key",
+        "title",
+        "description",
+        "url",
+        "picurl"
+      ]
+    }
+  },
+  "securityDefinitions": {
+    "apiKey": {
+      "type": "apiKey",
+      "description": "Enter JWT Bearer token **_only_**",
+      "name": "Authorization",
+      "in": "header"
+    }
+  },
+  "security": [
+    {
+      "apiKey": []
+    }
+  ]
+}
