@@ -24,11 +24,11 @@ POWERX_CTL_PATH_WINDOWS := $(PATH_BUILD_WINDOWS)/powerxctl.exe
 POWERX_EXE_PATH_MAC_OS := $(PATH_BUILD_MAC_OS)/powerx
 POWERX_CTL_PATH_MAC_OS := $(PATH_BUILD_MAC_OS)/powerxctl
 
-DEPLOY_POWERX_EXE_PATH:=$(CURRENT_DIR)/deploy/powerx
-DEPLOY_POWERX_CTL_EXE_PATH:=$(CURRENT_DIR)/deploy/powerxctl
+DEPLOY_POWERX_EXE_PATH:=$(CURRENT_DIR)/../PowerXDocker/powerx
+DEPLOY_POWERX_CTL_EXE_PATH:=$(CURRENT_DIR)/../PowerXDocker/powerxctl
 
-DEPLOY_POWERX_EXE_PATH_WINDOWS:=$(CURRENT_DIR)/deploy/powerx.exe
-DEPLOY_POWERX_CTL_EXE_PATH_WINDOWS:=$(CURRENT_DIR)/deploy/powerxctl.exe
+DEPLOY_POWERX_EXE_PATH_WINDOWS:=$(CURRENT_DIR)/../PowerXDocker/powerx.exe
+DEPLOY_POWERX_CTL_EXE_PATH_WINDOWS:=$(CURRENT_DIR)/../PowerXDocker/powerxctl.exe
 
 
 app-init: app-migrate app-seed app-run
