@@ -58,8 +58,8 @@ func (m *PowerMigrator) AutoMigrate() {
     // product
     _ = m.db.AutoMigrate(&product.Product{}, &product.ProductCategory{})
     _ = m.db.AutoMigrate(&product.ProductSpecific{}, &product.SpecificOption{})
-    //_ = m.db.AutoMigrate(&product.SKU{}, &product.PivotSkuToSpecificOption{})
-    //_ = m.db.AutoMigrate(&product.PriceBook{}, &product.PriceBookEntry{}, &product.PriceConfig{})
+    _ = m.db.AutoMigrate(&product.SKU{}, &product.PivotSkuToSpecificOption{})
+    _ = m.db.AutoMigrate(&product.PriceBook{}, &product.PriceBookEntry{}, &product.PriceConfig{})
     _ = m.db.AutoMigrate(&market.Store{}, &product.Artisan{}, &product.PivotStoreToArtisan{})
 
     // market
@@ -71,7 +71,7 @@ func (m *PowerMigrator) AutoMigrate() {
     // trade
     _ = m.db.AutoMigrate(&trade.ShippingAddress{}, &trade.DeliveryAddress{}, &trade.BillingAddress{})
     _ = m.db.AutoMigrate(&trade.Warehouse{}, &trade.Inventory{}, &trade.Logistics{})
-    //_ = m.db.AutoMigrate(&trade.Cart{}, &trade.CartItem{}, &trade.Order{}, &trade.OrderItem{})
+    _ = m.db.AutoMigrate(&trade.Cart{}, &trade.CartItem{}, &trade.Order{}, &trade.OrderItem{})
     _ = m.db.AutoMigrate(&trade.OrderStatusTransition{}, &trade.PivotOrderToInventoryLog{})
     _ = m.db.AutoMigrate(&trade.Payment{}, &trade.PaymentItem{})
     _ = m.db.AutoMigrate(&trade.RefundOrder{}, &trade.RefundOrderItem{})
