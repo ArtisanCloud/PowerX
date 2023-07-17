@@ -1,0 +1,166 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "企业应用App",
+    "description": "企业应用App",
+    "version": "v1"
+  },
+  "schemes": [
+    "http",
+    "https"
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "paths": {
+    "/api/v1/admin/scrm/app/wechat/message/articles": {
+      "post": {
+        "summary": "App发送图文信息",
+        "operationId": "SendWeWorkAppArticleMessage",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/AppMessageBaseReply"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/AppMessageArticlesRequest"
+            }
+          }
+        ],
+        "requestBody": {},
+        "tags": [
+          "admin/scrm/app"
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "AppMessageArticlesRequest": {
+      "type": "object",
+      "properties": {
+        "toUser": {
+          "type": "string",
+          "description": " \"UserID1|UserID2|UserID3\","
+        },
+        "toParty": {
+          "type": "string",
+          "description": " \"PartyID1|PartyID2\","
+        },
+        "toTag": {
+          "type": "string",
+          "description": " \"TagID1 | TagID2\","
+        },
+        "msgType": {
+          "type": "string",
+          "description": " \"text\","
+        },
+        "agentId": {
+          "type": "integer",
+          "format": "int32",
+          "description": " 1,"
+        },
+        "news": {
+          "$ref": "#/definitions/AppMessageRequestNews",
+          "description": " 内容"
+        },
+        "sendTime": {
+          "type": "integer",
+          "format": "int64",
+          "description": " 定时发送，不填默认立刻发送"
+        }
+      },
+      "title": "AppMessageArticlesRequest",
+      "required": [
+        "msgType",
+        "agentId",
+        "news"
+      ]
+    },
+    "AppMessageBaseReply": {
+      "type": "object",
+      "properties": {
+        "message": {
+          "type": "string"
+        }
+      },
+      "title": "AppMessageBaseReply",
+      "required": [
+        "message"
+      ]
+    },
+    "AppMessageRequestNews": {
+      "type": "object",
+      "properties": {
+        "articles": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Article"
+          }
+        }
+      },
+      "title": "AppMessageRequestNews",
+      "required": [
+        "articles"
+      ]
+    },
+    "Article": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "description": " \"领奖通知\","
+        },
+        "description": {
+          "type": "string",
+          "description": " \"\u003cdiv class=\\\"gray\\\"\u003e2016年9月26日\u003c/div\u003e \u003cdiv class=\\\"normal\\\"\u003e恭喜你抽中iPhone 7一台，领奖码：xxxx\u003c/div\u003e\u003cdiv class=\\\"highlight\\\"\u003e请于2016年10月10日前联系行政同事领取\u003c/div\u003e\","
+        },
+        "url": {
+          "type": "string",
+          "description": " \"URL\","
+        },
+        "picUrl": {
+          "type": "string"
+        },
+        "appId": {
+          "type": "string"
+        },
+        "pagePath": {
+          "type": "string"
+        }
+      },
+      "title": "Article",
+      "required": [
+        "title",
+        "description",
+        "url",
+        "picUrl",
+        "appId",
+        "pagePath"
+      ]
+    }
+  },
+  "securityDefinitions": {
+    "apiKey": {
+      "type": "apiKey",
+      "description": "Enter JWT Bearer token **_only_**",
+      "name": "Authorization",
+      "in": "header"
+    }
+  },
+  "security": [
+    {
+      "apiKey": []
+    }
+  ]
+}

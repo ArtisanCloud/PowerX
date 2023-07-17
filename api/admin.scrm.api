@@ -15,3 +15,5 @@ import "admin/scrm/customer/weworkcustomergroup.api"
 import "admin/scrm/bot/weworkbot.api"
 // resource
 import "admin/scrm/resource/weworkresource.api"
+// qrcode
+import "admin/scrm/qrcode/weworkcustomergroupqrcode.api"

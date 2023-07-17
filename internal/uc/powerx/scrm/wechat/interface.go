@@ -1,6 +1,7 @@
 package wechat
 
 import (
+    "PowerX/internal/model/scene"
     "PowerX/internal/model/scrm/customer"
     "PowerX/internal/model/scrm/organization"
     "PowerX/internal/model/scrm/resource"
@@ -58,12 +59,15 @@ type IWechatInterface interface {
     //  @Description: common
     //
     iCommonInterface
+
+    //
+    //  @Description: qrcode
+    //
+    iQrcodeInterface
 }
 
-//
-//  iWeWorkDepartmentInterface
-//  @Description: 部门
-//
+// iWeWorkDepartmentInterface
+// @Description: 部门
 type iWeWorkDepartmentInterface interface {
     //
     // CreateWechatDepartment
@@ -84,10 +88,8 @@ type iWeWorkDepartmentInterface interface {
     FindManyWeWorkDepartmentsPage(ctx context.Context, option *types.PageOption[FindManyWechatDepartmentsOption]) (*types.Page[*organization.WeWorkDepartment], error)
 }
 
-//
-//  iWeWorkEmployeeInterface
-//  @Description: 员工
-//
+// iWeWorkEmployeeInterface
+// @Description: 员工
 type iWeWorkEmployeeInterface interface {
     //
     // PullSyncDepartmentsAndEmployeesRequest
@@ -106,10 +108,8 @@ type iWeWorkEmployeeInterface interface {
     FindManyWechatEmployeesPage(ctx context.Context, opt *types.PageOption[FindManyWechatEmployeesOption]) (*types.Page[*organization.WeWorkEmployee], error)
 }
 
-//
-//  iWeWorkCustomerInterface
-//  @Description: 客户
-//
+// iWeWorkCustomerInterface
+// @Description: 客户
 type iWeWorkCustomerInterface interface {
     //
     // PullListWeWorkCustomerRequest
@@ -143,16 +143,15 @@ type iWeWorkCustomerInterface interface {
     // PushWoWorkCustomerTemplateRequest
     //  @Description: 发送客户群信息1/day
     //  @param opt
+    //  @param sendTime
     //  @return *crsp.ResponseAddMessageTemplate
     //  @return error
     //
-    PushWoWorkCustomerTemplateRequest(opt *creq.RequestAddMsgTemplate) (*crsp.ResponseAddMessageTemplate, error)
+    PushWoWorkCustomerTemplateRequest(opt *creq.RequestAddMsgTemplate, sendTime int64) (*crsp.ResponseAddMessageTemplate, error)
 }
 
-//
-//  iWeWorkBotInterface
-//  @Description:
-//
+// iWeWorkBotInterface
+// @Description:
 type iWeWorkBotInterface interface {
     //
     // PushWeWorkBotArticlesRequest
@@ -165,10 +164,8 @@ type iWeWorkBotInterface interface {
     PushWeWorkBotArticlesRequest(key string, articles []*botReq.GroupRobotMsgNewsArticles) (resp *botResp.ResponseGroupRobotSend, err error)
 }
 
-//
-//  iWeWorkAppInterface
-//  @Description:
-//
+// iWeWorkAppInterface
+// @Description:
 type iWeWorkAppInterface interface {
     //
     // PullDetailWeWorkAppRequest
@@ -227,10 +224,8 @@ type iWeWorkAppGroupInterface interface {
     PushAppWeWorkGroupMessageArticlesRequest(messages *power.HashMap, sendTime int64) (resp *kresp.ResponseWork, err error)
 }
 
-//
-//  iMakeInvokeInterface
-//  @Description: 消费信息
-//
+// iMakeInvokeInterface
+// @Description: 消费信息
 type iMakeInvokeInterface interface {
     //
     // InvokeTimerMessageGrabUniteSend
@@ -242,10 +237,8 @@ type iMakeInvokeInterface interface {
     InvokeTimerMessageGrabUniteSend(ttp TimerTypeByte, sendTime int64) error
 }
 
-//
-//  iCommonInterface
-//  @Description:
-//
+// iCommonInterface
+// @Description:
 type iCommonInterface interface {
     //
     // UploadImageToResourceRequest
@@ -265,4 +258,52 @@ type iCommonInterface interface {
     //  @return error
     //
     FindWeWorkResourceListFromLocalPage(opt *types.ListWeWorkResourceImageRequest) (*types.Page[*resource.WeWorkResource], error)
+}
+
+//
+//  iQrcodeInterface
+//  @Description: 活码
+//
+type iQrcodeInterface interface {
+
+    //
+    // CreateWeWorkCustomerGroupQrcodeRequest
+    //  @Description: 创建群活码
+    //  @param opt
+    //  @return err
+    //
+    CreateWeWorkCustomerGroupQrcodeRequest(opt *types.QrcodeActiveRequest) (err error)
+    //
+    // UpdateWeWorkCustomerGroupQrcodeRequest
+    //  @Description: 更新群活码
+    //  @param opt
+    //  @return err
+    //
+    UpdateWeWorkCustomerGroupQrcodeRequest(opt *types.QrcodeActiveRequest) (err error)
+    //
+    // FindWeWorkCustomerGroupQrcodePage
+    //  @Description: 客户群活码
+    //  @param opt
+    //  @return reply
+    //  @return err
+    //
+    FindWeWorkCustomerGroupQrcodePage(opt *types.PageOption[types.ListWeWorkGroupQrcodeActiveReqeust]) (reply *types.Page[*scene.SceneQrcode], err error)
+
+    //
+    // ActionCustomerGroupQrcode
+    //  @Description: 启用，禁用，删除
+    //  @param qid
+    //  @param action
+    //  @return error
+    //
+    ActionCustomerGroupQrcode(qid string, action int) error
+
+    //
+    // UpdateSceneQrcodeLink
+    //  @Description: 更新场景码
+    //  @param qid
+    //  @param link
+    //  @return error
+    //
+    UpdateSceneQrcodeLink(qid string, link string) error
 }

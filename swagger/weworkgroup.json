@@ -1,0 +1,240 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "企业应用App",
+    "description": "企业应用App",
+    "version": "v1"
+  },
+  "schemes": [
+    "http",
+    "https"
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "paths": {
+    "/api/v1/admin/scrm/app/wechat/group/create": {
+      "post": {
+        "summary": "App创建企业群",
+        "operationId": "CreateWeWorkAppGroup",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/AppGroupCreateReply"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/AppGroupCreateRequest"
+            }
+          }
+        ],
+        "requestBody": {},
+        "tags": [
+          "admin/scrm/app"
+        ]
+      }
+    },
+    "/api/v1/admin/scrm/app/wechat/group/list": {
+      "get": {
+        "summary": "App企业群列表/list",
+        "operationId": "ListWeWorkAppGroup",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/AppGroupListReply"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "chatId",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "requestBody": {},
+        "tags": [
+          "admin/scrm/app"
+        ]
+      }
+    },
+    "/api/v1/admin/scrm/app/wechat/group/message/articles": {
+      "post": {
+        "summary": "App企业群推送图文信息",
+        "operationId": "SendWeWorkAppGroupArticleMessage",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/AppGroupMessageReply"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/AppGroupMessageArticleRequest"
+            }
+          }
+        ],
+        "requestBody": {},
+        "tags": [
+          "admin/scrm/app"
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "AppGroupCreateReply": {
+      "type": "object",
+      "properties": {
+        "chatId": {
+          "type": "string"
+        }
+      },
+      "title": "AppGroupCreateReply",
+      "required": [
+        "chatId"
+      ]
+    },
+    "AppGroupCreateRequest": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": " 名称"
+        },
+        "owner": {
+          "type": "string",
+          "description": " owner"
+        },
+        "userList": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": " 用户列表"
+        },
+        "chatId": {
+          "type": "string"
+        }
+      },
+      "title": "AppGroupCreateRequest",
+      "required": [
+        "name",
+        "owner",
+        "userList"
+      ]
+    },
+    "AppGroupListReply": {
+      "type": "object",
+      "properties": {
+        "list": {
+          "type": "object"
+        }
+      },
+      "title": "AppGroupListReply",
+      "required": [
+        "list"
+      ]
+    },
+    "AppGroupListRequest": {
+      "type": "object",
+      "properties": {
+        "chatId": {
+          "type": "string"
+        }
+      },
+      "title": "AppGroupListRequest"
+    },
+    "AppGroupMessageArticleRequest": {
+      "type": "object",
+      "properties": {
+        "chatIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "title": {
+          "type": "string",
+          "description": " \"领奖通知\","
+        },
+        "description": {
+          "type": "string",
+          "description": " \"\u003cdiv class=\\\"gray\\\"\u003e2016年9月26日\u003c/div\u003e \u003cdiv class=\\\"normal\\\"\u003e恭喜你抽中iPhone 7一台，领奖码：xxxx\u003c/div\u003e\u003cdiv class=\\\"highlight\\\"\u003e请于2016年10月10日前联系行政同事领取\u003c/div\u003e\","
+        },
+        "url": {
+          "type": "string",
+          "description": " \"URL\","
+        },
+        "picUrl": {
+          "type": "string",
+          "description": " 多\""
+        },
+        "appId": {
+          "type": "string"
+        },
+        "pagePath": {
+          "type": "string"
+        },
+        "sendTime": {
+          "type": "integer",
+          "format": "int64",
+          "description": " 定时发送，不填默认立刻发送"
+        }
+      },
+      "title": "AppGroupMessageArticleRequest",
+      "required": [
+        "chatIds",
+        "title",
+        "description",
+        "url",
+        "picUrl"
+      ]
+    },
+    "AppGroupMessageReply": {
+      "type": "object",
+      "properties": {
+        "chatIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "title": "AppGroupMessageReply",
+      "required": [
+        "chatIds"
+      ]
+    }
+  },
+  "securityDefinitions": {
+    "apiKey": {
+      "type": "apiKey",
+      "description": "Enter JWT Bearer token **_only_**",
+      "name": "Authorization",
+      "in": "header"
+    }
+  },
+  "security": [
+    {
+      "apiKey": []
+    }
+  ]
+}

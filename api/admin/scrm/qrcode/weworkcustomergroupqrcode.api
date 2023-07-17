@@ -1,0 +1,96 @@
+syntax = "v1"
+
+info(
+    title: "企业微信二维码"
+    desc: "企业微信二维码"
+    author: "Eros"
+    email: "smoke.mvp@gmail.com"
+    version: "v1"
+)
+
+@server(
+    group: admin/scrm/qrcode
+    prefix: /api/v1/admin/scrm/qrcode/wechat
+    //middleware: EmployeeJWTAuth
+)
+
+service PowerX {
+    @doc "场景码列表/page"
+    @handler ListWeWorkQrcodePage
+    post /group/page (ListWeWorkGroupQrcodeActiveReqeust) returns (ListWeWorkQrcodeActiveReply)
+    @doc "创建场景码"
+    @handler CreateWeWorkQrcode
+    post /group/create (QrcodeActiveRequest) returns (ActionWeWorkGroupQrcodeActiveReply)
+    @doc "更新场景码"
+    @handler UpdateWeWorkQrcode
+    patch /group/update/:qid (QrcodeActiveRequest) returns (ActionWeWorkGroupQrcodeActiveReply)
+    @doc "启用场景码"
+    @handler EnableWeWorkQrcode
+    patch /group/enable/:qid (ActionRequest) returns (ActionWeWorkGroupQrcodeActiveReply)
+    @doc "禁用场景码"
+    @handler DisableWeWorkQrcode
+    patch /group/disable/:qid (ActionRequest) returns (ActionWeWorkGroupQrcodeActiveReply)
+    @doc "删除场景码"
+    @handler DeleteWeWorkQrcode
+    delete /group/:qid (ActionRequest) returns (ActionWeWorkGroupQrcodeActiveReply)
+    @doc "下载场景码/upload"
+    @handler UpdateActiveQrcodeLink
+    patch /qrcode/:qid (ActionRequest) returns (ActionWeWorkGroupQrcodeActiveReply)
+}
+
+
+type (
+    ActionWeWorkGroupQrcodeActiveReply {
+        Status string `json:"status"`
+    }
+
+    ListWeWorkGroupQrcodeActiveReqeust {
+        UserId string `json:"userId,optional"`                                // 所属人
+        Name string `json:"name,optional"`                                    // 活码名称
+        Qid string `json:"qid,optional"`                                      // 唯一标识
+        State int `json:"state,optional"`                                     // 状态1：启用 2：禁用 3：删除
+        PageIndex int `form:"pageIndex,optional"`
+        PageSize int `form:"pageSize,optional"`
+    }
+
+    ListWeWorkQrcodeActiveReply {
+        List []*WeWorkQrcodeActive `json:"list"`
+        PageIndex int `json:"pageIndex"`
+        PageSize int `json:"pageSize"`
+        Total int64 `json:"total"`
+    }
+
+    WeWorkQrcodeActive {
+
+        QId string `json:"qid"`                                                  // 唯一码
+        Name string `json:"name"`                                                // 活码名称
+        Desc string `json:"desc"`                                                // 描述
+        Owner []string `json:"owner"`                                            // 所属人
+        RealQrcodeLink string `json:"RealQrcodeLink"`                            // 真实二维码地址
+        Platform int `json:"platform"`                                           // 平台
+        Classify int `json:"classify"`                                           // 类型 1: 群 2：客户 3：渠道
+        SceneLink string `json:"sceneLink"`                                      // 场景落地页
+        SafeThresholdValue int `json:"safeThresholdValue"`                       // 安全阈值（默认:0）
+        ExpiryDate int64 `json:"expiryDate"`                                     // 有效期截止日
+        State int `json:"state"`                                                 // 状态1：启用 2：禁用 3：删除
+        ActiveQrcodeLink string `json:"activeQrcodeLink"`                        // 群活码图片地址(可以载入任意媒资文章)
+        CPA int `json:"cpa"`                                                     // 活码打开次数
+    }
+
+    QrcodeActiveRequest {
+        Qid string `path:"qid,optional"`                                      // 更新操作使用
+        Name string `json:"name"`                                             // 活码名称
+        Desc string `json:"desc"`                                             // 描述
+        Owner []string `json:"owner"`                                         // 所属人
+        RealQrcodeLink string `json:"RealQrcodeLink"`                         // 真实二维码地址
+                                                                              // Classify int `json:"classify"`                                // 类型 1: 群 2：客户 3：渠道
+        SceneLink string `json:"sceneLink"`                                   // 场景落地页
+        SafeThresholdValue int `json:"safeThresholdValue,optional"`           // 安全阈值（默认:0）
+        ExpiryDate int64 `json:"expiryDate"`                                  // 有效期截止日(时间戳)
+    }
+
+    ActionRequest {
+        Qid string `path:"qid"`// 唯一标识
+        SceneQrcodeLink string `json:"sceneQrcodeLink,optional"`
+    }
+)

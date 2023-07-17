@@ -2376,7 +2376,8 @@ type WeWorkAddMsgTemplateRequest struct {
 	ExternalUserId []string             `json:"externalUserId,optional"`                // chat_type为single时有效，不可与sender同时为空
 	Sender         string               `json:"sender,optional"`                        // 发送企业群发消息的成员userid，当类型为发送给客户群时必填
 	Text           *WeWorkTextOfMessage `json:"text"`
-	Attachments    []Content            `json:"attachments,optional"` // 附件， 当前仅支持图片
+	Attachments    []Content            `json:"attachments,optional"`
+	SendTime       int64                `json:"sendTime,optional"` // 定时发送，不填默认立刻发送// 附件， 当前仅支持图片
 }
 
 type WeWorkTextOfMessage struct {
@@ -2438,6 +2439,58 @@ type Resource struct {
 	Link         string `json:"link"`
 	ResourceType string `json:"resourceType"`
 	CreateTime   string `json:"createTime"`
+}
+
+type ActionWeWorkGroupQrcodeActiveReply struct {
+	Status string `json:"status"`
+}
+
+type ListWeWorkGroupQrcodeActiveReqeust struct {
+	UserId    string `json:"userId,optional"` // 所属人
+	Name      string `json:"name,optional"`   // 活码名称
+	Qid       string `json:"qid,optional"`    // 唯一标识
+	State     int    `json:"state,optional"`  // 状态1：启用 2：禁用 3：删除
+	PageIndex int    `form:"pageIndex,optional"`
+	PageSize  int    `form:"pageSize,optional"`
+}
+
+type ListWeWorkQrcodeActiveReply struct {
+	List      []*WeWorkQrcodeActive `json:"list"`
+	PageIndex int                   `json:"pageIndex"`
+	PageSize  int                   `json:"pageSize"`
+	Total     int64                 `json:"total"`
+}
+
+type WeWorkQrcodeActive struct {
+	QId                string   `json:"qid"`                // 唯一码
+	Name               string   `json:"name"`               // 活码名称
+	Desc               string   `json:"desc"`               // 描述
+	Owner              []string `json:"owner"`              // 所属人
+	RealQrcodeLink     string   `json:"RealQrcodeLink"`     // 真实二维码地址
+	Platform           int      `json:"platform"`           // 平台
+	Classify           int      `json:"classify"`           // 类型 1: 群 2：客户 3：渠道
+	SceneLink          string   `json:"sceneLink"`          // 场景落地页
+	SafeThresholdValue int      `json:"safeThresholdValue"` // 安全阈值（默认:0）
+	ExpiryDate         int64    `json:"expiryDate"`         // 有效期截止日
+	State              int      `json:"state"`              // 状态1：启用 2：禁用 3：删除
+	ActiveQrcodeLink   string   `json:"activeQrcodeLink"`   // 群活码图片地址(可以载入任意媒资文章)
+	CPA                int      `json:"cpa"`                // 活码打开次数
+}
+
+type QrcodeActiveRequest struct {
+	Qid                string   `path:"qid,optional"`                // 更新操作使用
+	Name               string   `json:"name"`                        // 活码名称
+	Desc               string   `json:"desc"`                        // 描述
+	Owner              []string `json:"owner"`                       // 所属人
+	RealQrcodeLink     string   `json:"RealQrcodeLink"`              // 真实二维码地址
+	SceneLink          string   `json:"sceneLink"`                   // 场景落地页
+	SafeThresholdValue int      `json:"safeThresholdValue,optional"` // 安全阈值（默认:0）
+	ExpiryDate         int64    `json:"expiryDate"`                  // 有效期截止日(时间戳)
+}
+
+type ActionRequest struct {
+	Qid             string `path:"qid"` // 唯一标识
+	SceneQrcodeLink string `json:"sceneQrcodeLink,optional"`
 }
 
 type MPCustomerLoginRequest struct {
@@ -2876,4 +2929,28 @@ type OAToken struct {
 	ExpiresIn    string `json:"expiresIn"`
 	AccessToken  string `json:"accessToken"`
 	RefreshToken string `json:"refreshToken"`
+}
+
+type ActionQrcodeActiveReply struct {
+	Status string `json:"status"`
+}
+
+type SceneQrcodeActiveReply struct {
+	QId                string   `json:"qid"`                // 唯一码
+	Name               string   `json:"name"`               // 活码名称
+	Desc               string   `json:"desc"`               // 描述
+	Owner              []string `json:"owner"`              // 所属人
+	RealQrcodeLink     string   `json:"RealQrcodeLink"`     // 真实二维码地址
+	Platform           int      `json:"platform"`           // 平台
+	Classify           int      `json:"classify"`           // 类型 1: 群 2：客户 3：渠道
+	SceneLink          string   `json:"sceneLink"`          // 场景落地页
+	SafeThresholdValue int      `json:"safeThresholdValue"` // 安全阈值（默认:0）
+	ExpiryDate         int64    `json:"expiryDate"`         // 有效期截止日
+	State              int      `json:"state"`              // 状态1：启用 2：禁用 3：删除
+	ActiveQrcodeLink   string   `json:"activeQrcodeLink"`   // 群活码图片地址(可以载入任意媒资文章)
+	CPA                int      `json:"cpa"`                // 活码打开次数
+}
+
+type SceneRequest struct {
+	Qid string `path:"qid"` // 唯一标识
 }
