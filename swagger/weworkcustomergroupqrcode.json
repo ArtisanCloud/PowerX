@@ -1,0 +1,483 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "企业微信二维码",
+    "description": "企业微信二维码",
+    "version": "v1"
+  },
+  "schemes": [
+    "http",
+    "https"
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "paths": {
+    "/api/v1/admin/scrm/qrcode/wechat/group/create": {
+      "post": {
+        "summary": "创建场景码",
+        "operationId": "CreateWeWorkQrcode",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/ActionWeWorkGroupQrcodeActiveReply"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/QrcodeActiveRequest"
+            }
+          }
+        ],
+        "requestBody": {},
+        "tags": [
+          "admin/scrm/qrcode"
+        ]
+      }
+    },
+    "/api/v1/admin/scrm/qrcode/wechat/group/disable/{qid}": {
+      "patch": {
+        "summary": "禁用场景码",
+        "operationId": "DisableWeWorkQrcode",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/ActionWeWorkGroupQrcodeActiveReply"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "qid",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/ActionRequest"
+            }
+          }
+        ],
+        "requestBody": {},
+        "tags": [
+          "admin/scrm/qrcode"
+        ]
+      }
+    },
+    "/api/v1/admin/scrm/qrcode/wechat/group/enable/{qid}": {
+      "patch": {
+        "summary": "启用场景码",
+        "operationId": "EnableWeWorkQrcode",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/ActionWeWorkGroupQrcodeActiveReply"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "qid",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/ActionRequest"
+            }
+          }
+        ],
+        "requestBody": {},
+        "tags": [
+          "admin/scrm/qrcode"
+        ]
+      }
+    },
+    "/api/v1/admin/scrm/qrcode/wechat/group/page": {
+      "post": {
+        "summary": "场景码列表/page",
+        "operationId": "ListWeWorkQrcodePage",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/ListWeWorkQrcodeActiveReply"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/ListWeWorkGroupQrcodeActiveReqeust"
+            }
+          }
+        ],
+        "requestBody": {},
+        "tags": [
+          "admin/scrm/qrcode"
+        ]
+      }
+    },
+    "/api/v1/admin/scrm/qrcode/wechat/group/update/{qid}": {
+      "patch": {
+        "summary": "更新场景码",
+        "operationId": "UpdateWeWorkQrcode",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/ActionWeWorkGroupQrcodeActiveReply"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "qid",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/QrcodeActiveRequest"
+            }
+          }
+        ],
+        "requestBody": {},
+        "tags": [
+          "admin/scrm/qrcode"
+        ]
+      }
+    },
+    "/api/v1/admin/scrm/qrcode/wechat/group/{qid}": {
+      "delete": {
+        "summary": "删除场景码",
+        "operationId": "DeleteWeWorkQrcode",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/ActionWeWorkGroupQrcodeActiveReply"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "qid",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/ActionRequest"
+            }
+          }
+        ],
+        "requestBody": {},
+        "tags": [
+          "admin/scrm/qrcode"
+        ]
+      }
+    },
+    "/api/v1/admin/scrm/qrcode/wechat/qrcode/{qid}": {
+      "patch": {
+        "summary": "下载场景码/upload",
+        "operationId": "UpdateActiveQrcodeLink",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/ActionWeWorkGroupQrcodeActiveReply"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "qid",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/ActionRequest"
+            }
+          }
+        ],
+        "requestBody": {},
+        "tags": [
+          "admin/scrm/qrcode"
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "ActionRequest": {
+      "type": "object",
+      "properties": {
+        "qid": {
+          "type": "string",
+          "description": " 唯一标识"
+        },
+        "sceneQrcodeLink": {
+          "type": "string"
+        }
+      },
+      "title": "ActionRequest",
+      "required": [
+        "qid"
+      ]
+    },
+    "ActionWeWorkGroupQrcodeActiveReply": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string"
+        }
+      },
+      "title": "ActionWeWorkGroupQrcodeActiveReply",
+      "required": [
+        "status"
+      ]
+    },
+    "ListWeWorkGroupQrcodeActiveReqeust": {
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": " 所属人"
+        },
+        "name": {
+          "type": "string",
+          "description": " 活码名称"
+        },
+        "qid": {
+          "type": "string",
+          "description": " 唯一标识"
+        },
+        "state": {
+          "type": "integer",
+          "format": "int32",
+          "description": " 状态1：启用 2：禁用 3：删除"
+        },
+        "pageIndex": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "pageSize": {
+          "type": "integer",
+          "format": "int32"
+        }
+      },
+      "title": "ListWeWorkGroupQrcodeActiveReqeust"
+    },
+    "ListWeWorkQrcodeActiveReply": {
+      "type": "object",
+      "properties": {
+        "list": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/WeWorkQrcodeActive"
+          }
+        },
+        "pageIndex": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "pageSize": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "total": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "title": "ListWeWorkQrcodeActiveReply",
+      "required": [
+        "list",
+        "pageIndex",
+        "pageSize",
+        "total"
+      ]
+    },
+    "QrcodeActiveRequest": {
+      "type": "object",
+      "properties": {
+        "qid": {
+          "type": "string",
+          "description": " 更新操作使用"
+        },
+        "name": {
+          "type": "string",
+          "description": " 活码名称"
+        },
+        "desc": {
+          "type": "string",
+          "description": " 描述"
+        },
+        "owner": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": " 所属人"
+        },
+        "RealQrcodeLink": {
+          "type": "string",
+          "description": " 真实二维码地址"
+        },
+        "sceneLink": {
+          "type": "string",
+          "description": " 场景落地页"
+        },
+        "safeThresholdValue": {
+          "type": "integer",
+          "format": "int32",
+          "description": " 安全阈值（默认:0）"
+        },
+        "expiryDate": {
+          "type": "integer",
+          "format": "int64",
+          "description": " 有效期截止日(时间戳)"
+        }
+      },
+      "title": "QrcodeActiveRequest",
+      "required": [
+        "name",
+        "desc",
+        "owner",
+        "RealQrcodeLink",
+        "sceneLink",
+        "expiryDate"
+      ]
+    },
+    "WeWorkQrcodeActive": {
+      "type": "object",
+      "properties": {
+        "qid": {
+          "type": "string",
+          "description": " 唯一码"
+        },
+        "name": {
+          "type": "string",
+          "description": " 活码名称"
+        },
+        "desc": {
+          "type": "string",
+          "description": " 描述"
+        },
+        "owner": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": " 所属人"
+        },
+        "RealQrcodeLink": {
+          "type": "string",
+          "description": " 真实二维码地址"
+        },
+        "platform": {
+          "type": "integer",
+          "format": "int32",
+          "description": " 平台"
+        },
+        "classify": {
+          "type": "integer",
+          "format": "int32",
+          "description": " 类型 1: 群 2：客户 3：渠道"
+        },
+        "sceneLink": {
+          "type": "string",
+          "description": " 场景落地页"
+        },
+        "safeThresholdValue": {
+          "type": "integer",
+          "format": "int32",
+          "description": " 安全阈值（默认:0）"
+        },
+        "expiryDate": {
+          "type": "integer",
+          "format": "int64",
+          "description": " 有效期截止日"
+        },
+        "state": {
+          "type": "integer",
+          "format": "int32",
+          "description": " 状态1：启用 2：禁用 3：删除"
+        },
+        "activeQrcodeLink": {
+          "type": "string",
+          "description": " 群活码图片地址(可以载入任意媒资文章)"
+        },
+        "cpa": {
+          "type": "integer",
+          "format": "int32",
+          "description": " 活码打开次数"
+        }
+      },
+      "title": "WeWorkQrcodeActive",
+      "required": [
+        "qid",
+        "name",
+        "desc",
+        "owner",
+        "RealQrcodeLink",
+        "platform",
+        "classify",
+        "sceneLink",
+        "safeThresholdValue",
+        "expiryDate",
+        "state",
+        "activeQrcodeLink",
+        "cpa"
+      ]
+    }
+  },
+  "securityDefinitions": {
+    "apiKey": {
+      "type": "apiKey",
+      "description": "Enter JWT Bearer token **_only_**",
+      "name": "Authorization",
+      "in": "header"
+    }
+  },
+  "security": [
+    {
+      "apiKey": []
+    }
+  ]
+}

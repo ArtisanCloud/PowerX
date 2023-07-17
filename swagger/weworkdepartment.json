@@ -1,0 +1,168 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "企业微信部门管理",
+    "description": "企业微信部门管理",
+    "version": "v1"
+  },
+  "schemes": [
+    "http",
+    "https"
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "paths": {
+    "/api/v1/admin/scrm/organization/wechat/partment/page": {
+      "post": {
+        "summary": "部门列表/page",
+        "operationId": "ListWeWorkDepartMentPage",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/ListWeWorkDepartmentReply"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/ListWeWorkDepartmentReqeust"
+            }
+          }
+        ],
+        "requestBody": {},
+        "tags": [
+          "admin/scrm/organization"
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "ListWeWorkDepartmentReply": {
+      "type": "object",
+      "properties": {
+        "list": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/WeWorkDepartment"
+          }
+        },
+        "pageIndex": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "pageSize": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "total": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "title": "ListWeWorkDepartmentReply",
+      "required": [
+        "list",
+        "pageIndex",
+        "pageSize",
+        "total"
+      ]
+    },
+    "ListWeWorkDepartmentReqeust": {
+      "type": "object",
+      "properties": {
+        "weWorkDepId": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "name": {
+          "type": "string"
+        },
+        "nameEn": {
+          "type": "string"
+        },
+        "weWorkParentId": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "order": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "pageIndex": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "pageSize": {
+          "type": "integer",
+          "format": "int32"
+        }
+      },
+      "title": "ListWeWorkDepartmentReqeust"
+    },
+    "WeWorkDepartment": {
+      "type": "object",
+      "properties": {
+        "weWorkDepId": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "name": {
+          "type": "string"
+        },
+        "nameEn": {
+          "type": "string"
+        },
+        "weWorkParentId": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "order": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "departmentLeader": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "refDepartmentId": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "title": "WeWorkDepartment",
+      "required": [
+        "weWorkDepId",
+        "name",
+        "nameEn",
+        "weWorkParentId",
+        "order",
+        "departmentLeader",
+        "refDepartmentId"
+      ]
+    }
+  },
+  "securityDefinitions": {
+    "apiKey": {
+      "type": "apiKey",
+      "description": "Enter JWT Bearer token **_only_**",
+      "name": "Authorization",
+      "in": "header"
+    }
+  },
+  "security": [
+    {
+      "apiKey": []
+    }
+  ]
+}

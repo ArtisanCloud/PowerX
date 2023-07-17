@@ -1,11 +1,14 @@
 package app
 
 import (
+    "PowerX/internal/model"
     "gorm.io/gorm"
     "gorm.io/gorm/clause"
 )
 
 type WeWorkAppGroup struct {
+    model.Model
+
     Name     string `gorm:"comment:群名称;column:name" json:"name"`
     Owner    string `gorm:"comment:群主;column:owner" json:"owner"`
     UserList string `gorm:"comment:群用户;column:user_list" json:"user_list"`

@@ -1,6 +1,7 @@
 package wechat
 
 import (
+    "PowerX/internal/model/scene"
     "PowerX/internal/model/scrm/app"
     "PowerX/internal/model/scrm/organization"
     "PowerX/internal/model/scrm/resource"
@@ -20,12 +21,41 @@ import (
 var Scrm IWechatInterface = new(wechatUseCase)
 
 type wechatUseCase struct {
+    //
+    //  help
+    //  @Description:
+    //
     help
-    db     *gorm.DB
-    kv     *redis.Redis
+    //
+    //  db
+    //  @Description:
+    //
+    db *gorm.DB
+    //
+    //  kv
+    //  @Description:
+    //
+    kv *redis.Redis
+    //
+    //  wework
+    //  @Description:
+    //
     wework *work.Work
-    ctx    context.Context
-    gLock  *sync.WaitGroup
+    //
+    //  ctx
+    //  @Description:
+    //
+    ctx context.Context
+    //
+    //  gLock
+    //  @Description:
+    //
+    gLock *sync.WaitGroup
+    //
+    //  modelOrganization
+    //  @Description:
+    //
+    modelOrganization
     //
     //  modelWeworkApp
     //  @Description:
@@ -41,10 +71,20 @@ type wechatUseCase struct {
     //  @Description:
     //
     modelWeworkResource
+    //
+    //  modelWeworkQrcode
+    //  @Description:
+    //
+    modelWeworkQrcode
 }
+
 type (
-    help           struct{}
-    hash           power.HashMap
+    help              struct{}
+    hash              power.HashMap
+    modelOrganization struct {
+        employee   organization.Employee
+        department organization.Department
+    }
     modelWeworkApp struct {
         group app.WeWorkAppGroup
     }
@@ -54,6 +94,9 @@ type (
     }
     modelWeworkResource struct {
         resource resource.WeWorkResource
+    }
+    modelWeworkQrcode struct {
+        qrcode scene.SceneQrcode
     }
 )
 

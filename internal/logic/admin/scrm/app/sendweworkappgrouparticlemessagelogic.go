@@ -36,7 +36,7 @@ func NewSendWeWorkAppGroupArticleMessageLogic(ctx context.Context, svcCtx *svc.S
 //
 func (gMsg *SendWeWorkAppGroupArticleMessageLogic) SendWeWorkAppGroupArticleMessage(opt *types.AppGroupMessageArticleRequest) (resp *types.AppGroupMessageReply, err error) {
 
-    option, err := gMsg.DTO(opt)
+    option, err := gMsg.OPT(opt)
     if err != nil {
         return nil, errorx.ErrBadRequest
     }
@@ -49,14 +49,14 @@ func (gMsg *SendWeWorkAppGroupArticleMessageLogic) SendWeWorkAppGroupArticleMess
 }
 
 //
-// DTO
+// OPT
 //  @Description:
 //  @receiver this
 //  @param opt
 //  @return *power.HashMap
 //  @return error
 //
-func (gMsg *SendWeWorkAppGroupArticleMessageLogic) DTO(opt *types.AppGroupMessageArticleRequest) (*power.HashMap, error) {
+func (gMsg *SendWeWorkAppGroupArticleMessageLogic) OPT(opt *types.AppGroupMessageArticleRequest) (*power.HashMap, error) {
     option := wechat.WechatAppRequestBase{
         ChatIds: opt.ChatIds,
         MsgType: `news`,

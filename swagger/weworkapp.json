@@ -1,0 +1,253 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "企业应用App",
+    "description": "企业应用App",
+    "version": "v1"
+  },
+  "schemes": [
+    "http",
+    "https"
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "paths": {
+    "/api/v1/admin/scrm/app/wechat/detail": {
+      "get": {
+        "summary": "App详情",
+        "operationId": "DetailWeWorkApp",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/ApplicationReply"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "agentId",
+            "in": "query",
+            "required": true,
+            "type": "integer",
+            "format": "int32"
+          }
+        ],
+        "requestBody": {},
+        "tags": [
+          "admin/scrm/app"
+        ]
+      }
+    },
+    "/api/v1/admin/scrm/app/wechat/options": {
+      "get": {
+        "summary": "App列表/options",
+        "operationId": "ListWeWorkAppOption",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/AppWeWorkListReply"
+            }
+          }
+        },
+        "requestBody": {},
+        "tags": [
+          "admin/scrm/app"
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "AllowPartys": {
+      "type": "object",
+      "properties": {
+        "partyId": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "title": "AllowPartys",
+      "required": [
+        "partyId"
+      ]
+    },
+    "AllowTags": {
+      "type": "object",
+      "properties": {
+        "tagId": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "title": "AllowTags",
+      "required": [
+        "tagId"
+      ]
+    },
+    "AllowUserinfos": {
+      "type": "object",
+      "properties": {
+        "user": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/User"
+          }
+        }
+      },
+      "title": "AllowUserinfos",
+      "required": [
+        "user"
+      ]
+    },
+    "AppWeWorkListReply": {
+      "type": "object",
+      "properties": {
+        "list": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/AppWechat"
+          }
+        }
+      },
+      "title": "AppWeWorkListReply",
+      "required": [
+        "list"
+      ]
+    },
+    "AppWechat": {
+      "type": "object",
+      "properties": {
+        "agentId": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "name": {
+          "type": "string"
+        },
+        "squareLogoUrl": {
+          "type": "string"
+        }
+      },
+      "title": "AppWechat",
+      "required": [
+        "agentId",
+        "name",
+        "squareLogoUrl"
+      ]
+    },
+    "ApplicationReply": {
+      "type": "object",
+      "properties": {
+        "agentId": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "name": {
+          "type": "string"
+        },
+        "squareLogoUrl": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "allowUserInfos": {
+          "$ref": "#/definitions/AllowUserinfos"
+        },
+        "allowPartys": {
+          "$ref": "#/definitions/AllowPartys"
+        },
+        "allowTags": {
+          "$ref": "#/definitions/AllowTags"
+        },
+        "close": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "redirectDomain": {
+          "type": "string"
+        },
+        "reportLocationFlag": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "isreportenter": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "homeUrl": {
+          "type": "string"
+        },
+        "customizedPublishStatus": {
+          "type": "integer",
+          "format": "int32"
+        }
+      },
+      "title": "ApplicationReply",
+      "required": [
+        "agentId",
+        "name",
+        "squareLogoUrl",
+        "description",
+        "allowUserInfos",
+        "allowPartys",
+        "allowTags",
+        "close",
+        "redirectDomain",
+        "reportLocationFlag",
+        "isreportenter",
+        "homeUrl",
+        "customizedPublishStatus"
+      ]
+    },
+    "ApplicationRequest": {
+      "type": "object",
+      "properties": {
+        "agentId": {
+          "type": "integer",
+          "format": "int32"
+        }
+      },
+      "title": "ApplicationRequest",
+      "required": [
+        "agentId"
+      ]
+    },
+    "User": {
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string"
+        }
+      },
+      "title": "User",
+      "required": [
+        "userId"
+      ]
+    }
+  },
+  "securityDefinitions": {
+    "apiKey": {
+      "type": "apiKey",
+      "description": "Enter JWT Bearer token **_only_**",
+      "name": "Authorization",
+      "in": "header"
+    }
+  },
+  "security": [
+    {
+      "apiKey": []
+    }
+  ]
+}

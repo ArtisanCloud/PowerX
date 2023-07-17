@@ -86,4 +86,3 @@ run-container:
 	docker run -it $(IMAGE_NAME):$(IMAGE_TAG) /bin/bash
 
 
-#include scrm.mk
