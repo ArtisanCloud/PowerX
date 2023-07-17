@@ -69,7 +69,7 @@ func (e WeWorkEmployee) Query(db *gorm.DB) (employees []*WeWorkEmployee) {
 //
 func (e WeWorkEmployee) Action(db *gorm.DB, employees []*WeWorkEmployee) {
 
-    err := db.Table(e.TableName()).Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "we_work_user_id"}}, UpdateAll: true}).CreateInBatches(&employees, 100).Error
+    err := db.Table(e.TableName()).Debug().Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "we_work_user_id"}}, UpdateAll: true}).CreateInBatches(&employees, 100).Error
     if err != nil {
         panic(err)
     }

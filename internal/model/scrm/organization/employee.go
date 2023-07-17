@@ -86,7 +86,11 @@ func (e Employee) TableName() string {
 //
 func (e *Employee) Action(db *gorm.DB, employees []*Employee) {
 
-    err := db.Table(e.TableName()).Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "we_work_user_id"}}, UpdateAll: true}).CreateInBatches(&employees, 100).Error
+    err := db.Table(e.TableName()).Debug().Clauses(
+        clause.OnConflict{Columns: []clause.Column{{Name: `we_work_user_id`}},
+            UpdateAll: true,
+            DoUpdates: clause.AssignmentColumns([]string{`name`, `nick_name`, `desc`, `position`, `department_id`, `mobile_phone`, `gender`, `email`, `external_email`, `avatar`}),
+        }).CreateInBatches(&employees, 100).Error
     if err != nil {
         panic(err)
     }
