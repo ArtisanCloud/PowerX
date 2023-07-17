@@ -9,26 +9,12 @@
 resource/static
 temp
 
-etc/powerx.yaml
 wechat.log
 
 
 .build
 *.log
 logs/
-
-
-
-deploy/powerx
-deploy/powerxctl
-deploy/powerx.exe
-deploy/powerxctl.exe
-deploy/data
-deploy/logs/
-deploy/etc/powerx.yaml
-deploy/dashboard/dist/
-deploy/dashboard/ssl/
-deploy/docker-compose.yaml
 
 
 etc/powerx.yaml

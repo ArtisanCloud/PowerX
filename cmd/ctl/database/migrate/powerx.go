@@ -9,6 +9,7 @@ import (
     "PowerX/internal/model/media"
     "PowerX/internal/model/membership"
     "PowerX/internal/model/product"
+    "PowerX/internal/model/scene"
     "PowerX/internal/model/scrm/app"
     "PowerX/internal/model/scrm/customer"
     "PowerX/internal/model/scrm/organization"
@@ -86,4 +87,7 @@ func (m *PowerMigrator) AutoMigrate() {
     _ = m.db.AutoMigrate(&resource.WeWorkResource{})
     // wechat app
     _ = m.db.AutoMigrate(&app.WeWorkAppGroup{})
+
+    // qrcode
+    _ = m.db.AutoMigrate(&scene.SceneQrcode{})
 }

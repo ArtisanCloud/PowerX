@@ -2,7 +2,7 @@ package uc
 
 import (
 	"PowerX/internal/config"
-	fmt "PowerX/pkg/printx"
+	"fmt"
 	"github.com/golang-module/carbon/v2"
 	"gorm.io/gorm"
 	"time"
@@ -24,7 +24,6 @@ func NewCustomUseCase(conf *config.Config) (uc *CustomUseCase, clean func()) {
 }
 
 func (uc *CustomUseCase) CheckSystemTimeZone() {
-
 	// 设置 Golang 的 time 包的默认时区
 	cst := time.FixedZone("CST", 8*60*60)
 	time.Local = cst
@@ -35,10 +34,9 @@ func (uc *CustomUseCase) CheckSystemTimeZone() {
 
 	// carbon 的timezone
 	carbonTimezone := carbon.Now().Timezone()
-	fmt.Dump("carbon timezone is :", carbonTimezone)
+	fmt.Printf("check carbon datetime: timezone- %s\n", carbonTimezone)
 
 	// 输出系统默认时区
 	defaultTimezone := time.Now().Location()
-	fmt.Dump("System default timezone is:", defaultTimezone.String())
-
+	fmt.Printf("check system datetime: timezone- %s\n", defaultTimezone.String())
 }

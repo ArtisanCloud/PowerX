@@ -1,0 +1,168 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "场景活码",
+    "description": "场景活码",
+    "version": "v1"
+  },
+  "schemes": [
+    "http",
+    "https"
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "paths": {
+    "/api/v1/web/scene/qrcode/detail/{qid}": {
+      "get": {
+        "summary": "获取场景落地页详情",
+        "operationId": "DetailQrcode",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/SceneQrcodeActiveReply"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "qid",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "requestBody": {},
+        "tags": [
+          "web/scene"
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "ActionQrcodeActiveReply": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string"
+        }
+      },
+      "title": "ActionQrcodeActiveReply",
+      "required": [
+        "status"
+      ]
+    },
+    "SceneQrcodeActiveReply": {
+      "type": "object",
+      "properties": {
+        "qid": {
+          "type": "string",
+          "description": " 唯一码"
+        },
+        "name": {
+          "type": "string",
+          "description": " 活码名称"
+        },
+        "desc": {
+          "type": "string",
+          "description": " 描述"
+        },
+        "owner": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": " 所属人"
+        },
+        "RealQrcodeLink": {
+          "type": "string",
+          "description": " 真实二维码地址"
+        },
+        "platform": {
+          "type": "integer",
+          "format": "int32",
+          "description": " 平台"
+        },
+        "classify": {
+          "type": "integer",
+          "format": "int32",
+          "description": " 类型 1: 群 2：客户 3：渠道"
+        },
+        "sceneLink": {
+          "type": "string",
+          "description": " 场景落地页"
+        },
+        "safeThresholdValue": {
+          "type": "integer",
+          "format": "int32",
+          "description": " 安全阈值（默认:0）"
+        },
+        "expiryDate": {
+          "type": "integer",
+          "format": "int64",
+          "description": " 有效期截止日"
+        },
+        "state": {
+          "type": "integer",
+          "format": "int32",
+          "description": " 状态1：启用 2：禁用 3：删除"
+        },
+        "activeQrcodeLink": {
+          "type": "string",
+          "description": " 群活码图片地址(可以载入任意媒资文章)"
+        },
+        "cpa": {
+          "type": "integer",
+          "format": "int32",
+          "description": " 活码打开次数"
+        }
+      },
+      "title": "SceneQrcodeActiveReply",
+      "required": [
+        "qid",
+        "name",
+        "desc",
+        "owner",
+        "RealQrcodeLink",
+        "platform",
+        "classify",
+        "sceneLink",
+        "safeThresholdValue",
+        "expiryDate",
+        "state",
+        "activeQrcodeLink",
+        "cpa"
+      ]
+    },
+    "SceneRequest": {
+      "type": "object",
+      "properties": {
+        "qid": {
+          "type": "string",
+          "description": " 唯一标识"
+        }
+      },
+      "title": "SceneRequest",
+      "required": [
+        "qid"
+      ]
+    }
+  },
+  "securityDefinitions": {
+    "apiKey": {
+      "type": "apiKey",
+      "description": "Enter JWT Bearer token **_only_**",
+      "name": "Authorization",
+      "in": "header"
+    }
+  },
+  "security": [
+    {
+      "apiKey": []
+    }
+  ]
+}

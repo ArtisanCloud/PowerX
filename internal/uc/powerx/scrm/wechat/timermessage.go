@@ -4,6 +4,7 @@ import (
     "encoding/json"
     "fmt"
     "github.com/ArtisanCloud/PowerWeChat/v3/src/kernel/power"
+    creq "github.com/ArtisanCloud/PowerWeChat/v3/src/work/externalContact/messageTemplate/request"
     "github.com/ArtisanCloud/PowerWeChat/v3/src/work/message/request"
     "github.com/zeromicro/go-zero/core/logx"
     "strconv"
@@ -43,8 +44,10 @@ func (this *wechatUseCase) InvokeTimerMessageGrabUniteSend(ttp TimerTypeByte, se
 
     key := fmt.Sprintf(HRedisScrmGroupMessageKey, ttp)
     vals, err := this.kv.Hget(key, strconv.Itoa(int(sendTime)))
-    if err != nil || vals == `` {
+    if err != nil {
         logx.Errorf(`scrm.wework.timer.call.redis.error %v.`, err)
+        return err
+    } else if vals == `` {
         return nil
     }
     switch ttp {
@@ -56,7 +59,7 @@ func (this *wechatUseCase) InvokeTimerMessageGrabUniteSend(ttp TimerTypeByte, se
         err = this.callAppMessage(key, sendTime, vals)
 
     case AppGroupCustomerMessageTimerTypeByte:
-
+        err = this.callCustomerGroupMessage(key, sendTime, vals)
     }
 
     return err
@@ -98,6 +101,28 @@ func (this *wechatUseCase) callAppMessage(key string, sendTime int64, val string
     err := json.Unmarshal([]byte(val), &message)
     if err == nil {
         _, err = this.PushAppWeWorkMessageArticlesRequest(message, sendTime)
+        _, err = this.kv.Hdel(key, strconv.Itoa(int(sendTime)))
+    }
+
+    return err
+
+}
+
+//
+// callCustomerGroupMessage
+//  @Description:
+//  @receiver this
+//  @param key
+//  @param sendTime
+//  @param val
+//  @return error
+//
+func (this *wechatUseCase) callCustomerGroupMessage(key string, sendTime int64, val string) error {
+
+    message := &creq.RequestAddMsgTemplate{}
+    err := json.Unmarshal([]byte(val), &message)
+    if err == nil {
+        _, err = this.PushWoWorkCustomerTemplateRequest(message, sendTime)
         _, err = this.kv.Hdel(key, strconv.Itoa(int(sendTime)))
     }
 

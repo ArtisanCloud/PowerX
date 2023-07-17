@@ -45,6 +45,7 @@ type PowerXUseCase struct {
     SCRM                  *powerx.SCRMUseCase
     MediaResource         *powerx.MediaResourceUseCase
     Media                 *market.MediaUseCase
+    Scene                 *powerx.SceneUseCase
 }
 
 func NewPowerXUseCase(conf *config.Config) (uc *PowerXUseCase, clean func()) {
@@ -121,6 +122,9 @@ func NewPowerXUseCase(conf *config.Config) (uc *PowerXUseCase, clean func()) {
     c := cron.New()
     uc.SCRM = powerx.NewSCRMUseCase(db, conf, c, uc.redis)
     uc.SCRM.Schedule()
+
+    // 加载Scene
+    uc.Scene = powerx.NewSceneUseCase(db, uc.redis)
 
     return uc, func() {
         _ = sqlDB.Close()

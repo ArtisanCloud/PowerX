@@ -28,6 +28,7 @@ import (
 	adminscrmbot "PowerX/internal/handler/admin/scrm/bot"
 	adminscrmcustomer "PowerX/internal/handler/admin/scrm/customer"
 	adminscrmorganization "PowerX/internal/handler/admin/scrm/organization"
+	adminscrmqrcode "PowerX/internal/handler/admin/scrm/qrcode"
 	adminscrmresource "PowerX/internal/handler/admin/scrm/resource"
 	admintradeaddressbilling "PowerX/internal/handler/admin/trade/address/billing"
 	admintradeaddressdelivery "PowerX/internal/handler/admin/trade/address/delivery"
@@ -50,6 +51,7 @@ import (
 	mptradepayment "PowerX/internal/handler/mp/trade/payment"
 	webcustomerauth "PowerX/internal/handler/web/customer/auth"
 	webcustomerauthoa "PowerX/internal/handler/web/customer/auth/oa"
+	webscene "PowerX/internal/handler/web/scene"
 	"PowerX/internal/svc"
 
 	"github.com/zeromicro/go-zero/rest"
@@ -1014,21 +1016,18 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 	)
 
 	server.AddRoutes(
-		rest.WithMiddlewares(
-			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
-			[]rest.Route{
-				{
-					Method:  http.MethodPost,
-					Path:    "/employee/page",
-					Handler: adminscrmorganization.ListWeWorkEmployeePageHandler(serverCtx),
-				},
-				{
-					Method:  http.MethodGet,
-					Path:    "/sync",
-					Handler: adminscrmorganization.SyncWeWorkEmployeeHandler(serverCtx),
-				},
-			}...,
-		),
+		[]rest.Route{
+			{
+				Method:  http.MethodPost,
+				Path:    "/employee/page",
+				Handler: adminscrmorganization.ListWeWorkEmployeePageHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodGet,
+				Path:    "/sync",
+				Handler: adminscrmorganization.SyncWeWorkEmployeeHandler(serverCtx),
+			},
+		},
 		rest.WithPrefix("/api/v1/admin/scrm/organization/wechat"),
 	)
 
@@ -1172,6 +1171,47 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			}...,
 		),
 		rest.WithPrefix("/api/v1/admin/scrm/resource/wechat"),
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
+			{
+				Method:  http.MethodPost,
+				Path:    "/group/page",
+				Handler: adminscrmqrcode.ListWeWorkQrcodePageHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodPost,
+				Path:    "/group/create",
+				Handler: adminscrmqrcode.CreateWeWorkQrcodeHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodPatch,
+				Path:    "/group/update/:qid",
+				Handler: adminscrmqrcode.UpdateWeWorkQrcodeHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodPatch,
+				Path:    "/group/enable/:qid",
+				Handler: adminscrmqrcode.EnableWeWorkQrcodeHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodPatch,
+				Path:    "/group/disable/:qid",
+				Handler: adminscrmqrcode.DisableWeWorkQrcodeHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodDelete,
+				Path:    "/group/:qid",
+				Handler: adminscrmqrcode.DeleteWeWorkQrcodeHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodPatch,
+				Path:    "/qrcode/:qid",
+				Handler: adminscrmqrcode.UpdateActiveQrcodeLinkHandler(serverCtx),
+			},
+		},
+		rest.WithPrefix("/api/v1/admin/scrm/qrcode/wechat"),
 	)
 
 	server.AddRoutes(
@@ -1680,5 +1720,16 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			},
 		},
 		rest.WithPrefix("/api/v1/web/customer"),
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
+			{
+				Method:  http.MethodGet,
+				Path:    "/qrcode/detail/:qid",
+				Handler: webscene.DetailQrcodeHandler(serverCtx),
+			},
+		},
+		rest.WithPrefix("/api/v1/web/scene"),
 	)
 }
