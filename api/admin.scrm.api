@@ -17,3 +17,5 @@ import "admin/scrm/bot/weworkbot.api"
 import "admin/scrm/resource/weworkresource.api"
 // qrcode
 import "admin/scrm/qrcode/weworkcustomergroupqrcode.api"
+// tag
+import "admin/scrm/tag/weworktag.api"

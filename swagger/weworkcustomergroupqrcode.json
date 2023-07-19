@@ -434,6 +434,11 @@
           "format": "int64",
           "description": " 有效期截止日"
         },
+        "expiryState": {
+          "type": "integer",
+          "format": "int32",
+          "description": " 是否过期"
+        },
         "state": {
           "type": "integer",
           "format": "int32",
@@ -461,6 +466,7 @@
         "sceneLink",
         "safeThresholdValue",
         "expiryDate",
+        "expiryState",
         "state",
         "activeQrcodeLink",
         "cpa"

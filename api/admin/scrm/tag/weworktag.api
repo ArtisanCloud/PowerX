@@ -1,0 +1,137 @@
+syntax = "v1"
+
+info(
+    title: "企业微信标签管理"
+    desc: "企业微信标签管理"
+    author: "Eros"
+    email: "smoke.mvp@gmail.com"
+    version: "v1"
+)
+
+@server(
+    group: admin/scrm/tag
+    prefix: /api/v1/admin/scrm/tag/wechat
+    middleware: EmployeeJWTAuth
+)
+
+service PowerX {
+    @doc "标签组列表/option"
+    @handler ListWeWorkTagGroupOption
+    get /group/option returns (ListWeWorkTagGroupReply)
+    @doc "标签列表对象/key=>val"
+    @handler ListWeWorkTagOption
+    get /corp/option returns (ListWeWorkTagOptionReply)
+
+    @doc "标签列表/page"
+    @handler ListWeWorkTagPage
+    post /corp/page (ListWeWorkTagReqeust) returns (ListWeWorkTagReply)
+
+    @doc "全量同步标签/sync"
+    @handler SyncWeWorkGroupTag
+    put /sync returns (StatusWeWorkReply)
+
+    @doc "创建企业标签"
+    @handler CreateWeWorkCropTag
+    post /crop/create (CreateCorpTagRequest) returns (StatusWeWorkReply)
+
+    @doc "编辑企业标签"
+    @handler UpdateWeWorkCropTag
+    patch /crop/update (UpdateCorpTagRequest) returns (StatusWeWorkReply)
+
+    @doc "批量删除企业标签"
+    @handler DeleteWeWorkCropTag
+    delete /crop/delete (DeleteCorpTagRequest) returns (StatusWeWorkReply)
+
+    @doc "编辑/删除客户标签"
+    @handler ActionWeWorkCustomerTag
+    post /customer/action (ActionCustomerTagRequest) returns (StatusWeWorkReply)
+}
+
+
+type (
+    ListWeWorkTagReqeust {
+        TagIds []string `json:"tagIds,optional"`
+        GroupIds []string `json:"groupIds,optional"`
+        Name string `json:"name,optional"`
+        Sync int `from:"sync,optional"`
+        PageIndex int `form:"pageIndex,optional"`
+        PageSize int `form:"pageSize,optional"`
+    }
+
+    StatusWeWorkReply {
+        Status string `json:"status"`
+    }
+
+    ListWeWorkTagReply {
+        List []*Tag `json:"list"`
+        PageIndex int `json:"pageIndex"`
+        PageSize int `json:"pageSize"`
+        Total int64 `json:"total"`
+    }
+
+    ListWeWorkTagOptionReply {
+        List interface{} `json:"list"`
+    }
+    Tag {
+        Type int `json:"type"`
+        TagId string `json:"tagId"`
+        GroupId string `json:"groupId"`
+        GroupName string `json:"groupName"`
+        Name string `json:"name"`
+        Sort int `json:"sort"`
+    }
+
+    ListWeWorkTagGroupReply {
+        List []*TagGroup `json:"list"`
+    }
+
+    TagGroup {
+        GroupId string `json:"groupId"`
+        GroupName string `json:"groupName"`
+    }
+
+)
+
+type (
+    CreateCorpTagRequest struct {
+        GroupId string `json:"groupId"` //et2lz4UgAArZWi6ZKx1X8jo3uxfbC_sA 下拉标签组
+        GroupName string `json:"groupName"`
+        Sort int `json:"Sort,optional"`
+        Tag []*TagFieldTag `json:"tag"`
+        AgentId int64 `json:"agentId"`  //应用列表
+    }
+
+    TagFieldTag struct {
+        Name string `json:"name"`
+        Sort int `json:"sort"`
+    }
+)
+
+type (
+    UpdateCorpTagRequest struct {
+
+        TagId string `json:"tagId"`
+        Name string `json:"name"`
+        Sort int `json:"sort,optional"`
+        AgentId int64 `json:"agentId,optional"`
+    }
+)
+
+
+type (
+    DeleteCorpTagRequest struct {
+        TagIds []string `json:"tagIds,optional"`
+        GroupIds []string `json:"groupIds,optional"`
+        AgentId int64 `json:"agentId,optional"`
+    }
+)
+
+
+type (
+    ActionCustomerTagRequest struct {
+        UserId string `json:"userId"`
+        ExternalUserId string `json:"externalUserId"`
+        AddTag []string `json:"addTag,optional"`
+        RemoveTag []string `json:"removeTag,optional"`
+    }
+)

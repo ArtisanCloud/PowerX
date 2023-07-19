@@ -59,17 +59,6 @@ func (qrcode *CreateWeWorkQrcodeLogic) CreateWeWorkQrcode(opt *types.QrcodeActiv
 //
 func (qrcode *CreateWeWorkQrcodeLogic) OPT(opt *types.QrcodeActiveRequest) (err error) {
 
-    if opt.Name == `` {
-        err = fmt.Errorf(`Name error`)
-    } else if opt.SceneLink == `` {
-        err = fmt.Errorf(`SceneLink error`)
-    } else if opt.RealQrcodeLink == `` {
-        err = fmt.Errorf(`RealQrcodeLink error`)
-    } else if opt.ExpiryDate == 0 {
-        err = fmt.Errorf(`ExpiryDate error`)
-    } else if opt.Owner == nil {
-        err = fmt.Errorf(`Owner error`)
-    }
     generate, err := idx.Generate()
     if err != nil {
         err = fmt.Errorf(`Qid error`)
