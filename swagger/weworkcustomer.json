@@ -333,6 +333,12 @@
             "$ref": "#/definitions/WechatCustomersFollowUserWithTags"
           }
         },
+        "tagIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
         "wechatChannels": {
           "$ref": "#/definitions/WechatCustomersFollowUserWithWechatChannels"
         },
@@ -363,6 +369,7 @@
         "description",
         "createtime",
         "tags",
+        "tagIds",
         "wechatChannels",
         "remarkCorpName",
         "remarkMobiles",
