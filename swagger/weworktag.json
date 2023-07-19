@@ -1,0 +1,506 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "企业微信标签管理",
+    "description": "企业微信标签管理",
+    "version": "v1"
+  },
+  "schemes": [
+    "http",
+    "https"
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "paths": {
+    "/api/v1/admin/scrm/tag/wechat/corp/option": {
+      "get": {
+        "summary": "标签列表对象/key=\u003eval",
+        "operationId": "ListWeWorkTagOption",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/ListWeWorkTagOptionReply"
+            }
+          }
+        },
+        "requestBody": {},
+        "tags": [
+          "admin/scrm/tag"
+        ]
+      }
+    },
+    "/api/v1/admin/scrm/tag/wechat/corp/page": {
+      "post": {
+        "summary": "标签列表/page",
+        "operationId": "ListWeWorkTagPage",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/ListWeWorkTagReply"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/ListWeWorkTagReqeust"
+            }
+          }
+        ],
+        "requestBody": {},
+        "tags": [
+          "admin/scrm/tag"
+        ]
+      }
+    },
+    "/api/v1/admin/scrm/tag/wechat/crop/create": {
+      "post": {
+        "summary": "创建企业标签",
+        "operationId": "CreateWeWorkCropTag",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/StatusWeWorkReply"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/CreateCorpTagRequest"
+            }
+          }
+        ],
+        "requestBody": {},
+        "tags": [
+          "admin/scrm/tag"
+        ]
+      }
+    },
+    "/api/v1/admin/scrm/tag/wechat/crop/delete": {
+      "delete": {
+        "summary": "批量删除企业标签",
+        "operationId": "DeleteWeWorkCropTag",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/StatusWeWorkReply"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/DeleteCorpTagRequest"
+            }
+          }
+        ],
+        "requestBody": {},
+        "tags": [
+          "admin/scrm/tag"
+        ]
+      }
+    },
+    "/api/v1/admin/scrm/tag/wechat/crop/update": {
+      "patch": {
+        "summary": "编辑企业标签",
+        "operationId": "UpdateWeWorkCropTag",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/StatusWeWorkReply"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/UpdateCorpTagRequest"
+            }
+          }
+        ],
+        "requestBody": {},
+        "tags": [
+          "admin/scrm/tag"
+        ]
+      }
+    },
+    "/api/v1/admin/scrm/tag/wechat/customer/action": {
+      "post": {
+        "summary": "编辑/删除客户标签",
+        "operationId": "ActionWeWorkCustomerTag",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/StatusWeWorkReply"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/ActionCustomerTagRequest"
+            }
+          }
+        ],
+        "requestBody": {},
+        "tags": [
+          "admin/scrm/tag"
+        ]
+      }
+    },
+    "/api/v1/admin/scrm/tag/wechat/group/option": {
+      "get": {
+        "summary": "标签组列表/option",
+        "operationId": "ListWeWorkTagGroupOption",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/ListWeWorkTagGroupReply"
+            }
+          }
+        },
+        "requestBody": {},
+        "tags": [
+          "admin/scrm/tag"
+        ]
+      }
+    },
+    "/api/v1/admin/scrm/tag/wechat/sync": {
+      "put": {
+        "summary": "全量同步标签/sync",
+        "operationId": "SyncWeWorkGroupTag",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/StatusWeWorkReply"
+            }
+          }
+        },
+        "requestBody": {},
+        "tags": [
+          "admin/scrm/tag"
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "ActionCustomerTagRequest": {
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string"
+        },
+        "externalUserId": {
+          "type": "string"
+        },
+        "addTag": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "removeTag": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "title": "ActionCustomerTagRequest",
+      "required": [
+        "userId",
+        "externalUserId"
+      ]
+    },
+    "CreateCorpTagRequest": {
+      "type": "object",
+      "properties": {
+        "groupId": {
+          "type": "string",
+          "description": "et2lz4UgAArZWi6ZKx1X8jo3uxfbC_sA 下拉标签组"
+        },
+        "groupName": {
+          "type": "string"
+        },
+        "Sort": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "tag": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/TagFieldTag"
+          }
+        },
+        "agentId": {
+          "type": "integer",
+          "format": "int64",
+          "description": "应用列表"
+        }
+      },
+      "title": "CreateCorpTagRequest",
+      "required": [
+        "groupId",
+        "groupName",
+        "tag",
+        "agentId"
+      ]
+    },
+    "DeleteCorpTagRequest": {
+      "type": "object",
+      "properties": {
+        "tagIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "groupIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "agentId": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "title": "DeleteCorpTagRequest"
+    },
+    "ListWeWorkTagGroupReply": {
+      "type": "object",
+      "properties": {
+        "list": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/TagGroup"
+          }
+        }
+      },
+      "title": "ListWeWorkTagGroupReply",
+      "required": [
+        "list"
+      ]
+    },
+    "ListWeWorkTagOptionReply": {
+      "type": "object",
+      "properties": {
+        "list": {
+          "type": "object"
+        }
+      },
+      "title": "ListWeWorkTagOptionReply",
+      "required": [
+        "list"
+      ]
+    },
+    "ListWeWorkTagReply": {
+      "type": "object",
+      "properties": {
+        "list": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Tag"
+          }
+        },
+        "pageIndex": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "pageSize": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "total": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "title": "ListWeWorkTagReply",
+      "required": [
+        "list",
+        "pageIndex",
+        "pageSize",
+        "total"
+      ]
+    },
+    "ListWeWorkTagReqeust": {
+      "type": "object",
+      "properties": {
+        "tagIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "groupIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "name": {
+          "type": "string"
+        },
+        "Sync": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "pageIndex": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "pageSize": {
+          "type": "integer",
+          "format": "int32"
+        }
+      },
+      "title": "ListWeWorkTagReqeust"
+    },
+    "StatusWeWorkReply": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string"
+        }
+      },
+      "title": "StatusWeWorkReply",
+      "required": [
+        "status"
+      ]
+    },
+    "Tag": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "tagId": {
+          "type": "string"
+        },
+        "groupId": {
+          "type": "string"
+        },
+        "groupName": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "sort": {
+          "type": "integer",
+          "format": "int32"
+        }
+      },
+      "title": "Tag",
+      "required": [
+        "type",
+        "tagId",
+        "groupId",
+        "groupName",
+        "name",
+        "sort"
+      ]
+    },
+    "TagFieldTag": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "sort": {
+          "type": "integer",
+          "format": "int32"
+        }
+      },
+      "title": "TagFieldTag",
+      "required": [
+        "name",
+        "sort"
+      ]
+    },
+    "TagGroup": {
+      "type": "object",
+      "properties": {
+        "groupId": {
+          "type": "string"
+        },
+        "groupName": {
+          "type": "string"
+        }
+      },
+      "title": "TagGroup",
+      "required": [
+        "groupId",
+        "groupName"
+      ]
+    },
+    "UpdateCorpTagRequest": {
+      "type": "object",
+      "properties": {
+        "tagId": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "sort": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "agentId": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "title": "UpdateCorpTagRequest",
+      "required": [
+        "tagId",
+        "name"
+      ]
+    }
+  },
+  "securityDefinitions": {
+    "apiKey": {
+      "type": "apiKey",
+      "description": "Enter JWT Bearer token **_only_**",
+      "name": "Authorization",
+      "in": "header"
+    }
+  },
+  "security": [
+    {
+      "apiKey": []
+    }
+  ]
+}

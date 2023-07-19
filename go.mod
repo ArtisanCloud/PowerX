@@ -4,6 +4,7 @@ go 1.19
 
 require (
 	github.com/ArtisanCloud/PowerLibs/v3 v3.0.6
+	github.com/ArtisanCloud/PowerSocialite/v3 v3.0.5
 	github.com/ArtisanCloud/PowerWeChat/v3 v3.0.26
 	github.com/Blank-Xu/sql-adapter v0.0.0-20210714092925-0bdd0d548758
 	github.com/brianvoe/gofakeit/v6 v6.21.0
@@ -16,6 +17,7 @@ require (
 	github.com/lib/pq v1.10.7
 	github.com/minio/minio-go/v7 v7.0.52
 	github.com/pkg/errors v0.9.1
+	github.com/robfig/cron/v3 v3.0.1
 	github.com/stretchr/testify v1.8.1
 	github.com/urfave/cli/v2 v2.3.0
 	github.com/zeromicro/go-zero v1.4.3
@@ -28,7 +30,6 @@ require (
 )
 
 require (
-	github.com/ArtisanCloud/PowerSocialite/v3 v3.0.5 // indirect
 	github.com/Knetic/govaluate v3.0.1-0.20171022003610-9aa49832a739+incompatible // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cenkalti/backoff/v4 v4.1.3 // indirect
@@ -70,7 +71,6 @@ require (
 	github.com/prometheus/client_model v0.2.0 // indirect
 	github.com/prometheus/common v0.37.0 // indirect
 	github.com/prometheus/procfs v0.8.0 // indirect
-	github.com/robfig/cron/v3 v3.0.1 // indirect
 	github.com/rogpeppe/go-internal v1.6.1 // indirect
 	github.com/rs/xid v1.4.0 // indirect
 	github.com/russross/blackfriday/v2 v2.0.1 // indirect
