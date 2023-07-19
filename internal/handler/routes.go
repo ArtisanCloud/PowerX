@@ -30,6 +30,7 @@ import (
 	adminscrmorganization "PowerX/internal/handler/admin/scrm/organization"
 	adminscrmqrcode "PowerX/internal/handler/admin/scrm/qrcode"
 	adminscrmresource "PowerX/internal/handler/admin/scrm/resource"
+	adminscrmtag "PowerX/internal/handler/admin/scrm/tag"
 	admintradeaddressbilling "PowerX/internal/handler/admin/trade/address/billing"
 	admintradeaddressdelivery "PowerX/internal/handler/admin/trade/address/delivery"
 	admintradeaddressshipping "PowerX/internal/handler/admin/trade/address/shipping"
@@ -1212,6 +1213,52 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			},
 		},
 		rest.WithPrefix("/api/v1/admin/scrm/qrcode/wechat"),
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
+			{
+				Method:  http.MethodGet,
+				Path:    "/group/option",
+				Handler: adminscrmtag.ListWeWorkTagGroupOptionHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodGet,
+				Path:    "/corp/option",
+				Handler: adminscrmtag.ListWeWorkTagOptionHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodPost,
+				Path:    "/corp/page",
+				Handler: adminscrmtag.ListWeWorkTagPageHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodPut,
+				Path:    "/sync",
+				Handler: adminscrmtag.SyncWeWorkGroupTagHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodPost,
+				Path:    "/crop/create",
+				Handler: adminscrmtag.CreateWeWorkCropTagHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodPatch,
+				Path:    "/crop/update",
+				Handler: adminscrmtag.UpdateWeWorkCropTagHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodDelete,
+				Path:    "/crop/delete",
+				Handler: adminscrmtag.DeleteWeWorkCropTagHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodPost,
+				Path:    "/customer/action",
+				Handler: adminscrmtag.ActionWeWorkCustomerTagHandler(serverCtx),
+			},
+		},
+		rest.WithPrefix("/api/v1/admin/scrm/tag/wechat"),
 	)
 
 	server.AddRoutes(

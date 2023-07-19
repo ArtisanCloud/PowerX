@@ -1,17 +1,18 @@
 package wechat
 
 import (
-    "PowerX/internal/model/powermodel"
-    "PowerX/internal/model/scrm/customer"
-    "PowerX/internal/model/scrm/organization"
-    "PowerX/internal/types"
-    "context"
-    "encoding/json"
-    "github.com/ArtisanCloud/PowerSocialite/v3/src/models"
-    "github.com/ArtisanCloud/PowerWeChat/v3/src/work/externalContact/response"
-    "github.com/zeromicro/go-zero/core/logx"
-    "gorm.io/gorm"
-    "gorm.io/gorm/clause"
+	"PowerX/internal/model/powermodel"
+	"PowerX/internal/model/scrm/customer"
+	"PowerX/internal/model/scrm/organization"
+	"PowerX/internal/types"
+	"context"
+	"encoding/json"
+	"github.com/ArtisanCloud/PowerSocialite/v3/src/models"
+	"github.com/ArtisanCloud/PowerWeChat/v3/src/work/externalContact/response"
+	"github.com/zeromicro/go-zero/core/logx"
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
+	"strings"
 )
 
 //
@@ -26,37 +27,37 @@ import (
 //
 func (this wechatUseCase) FindManyWeWorkCustomerPage(ctx context.Context, opt *types.PageOption[FindManyWechatCustomerOption], sync int) (*types.Page[*customer.WeWorkExternalContacts], error) {
 
-    if sync > 0 {
-        this.pullSyncWeWorkCustomerRequest(opt.Option.UserId)
-    }
+	if sync > 0 {
+		this.pullSyncWeWorkCustomerRequest(opt.Option.UserId)
+	}
 
-    var customers []*customer.WeWorkExternalContacts
-    var count int64
-    query := this.db.WithContext(ctx).Model(&customer.WeWorkExternalContacts{})
+	var customers []*customer.WeWorkExternalContacts
+	var count int64
+	query := this.db.WithContext(ctx).Model(&customer.WeWorkExternalContacts{})
 
-    if opt.PageIndex == 0 {
-        opt.PageIndex = 1
-    }
-    if opt.PageSize == 0 {
-        opt.PageSize = powermodel.PageDefaultSize
-    }
-    query = buildFindManyCustomerQueryNoPage(query, &opt.Option)
+	if opt.PageIndex == 0 {
+		opt.PageIndex = 1
+	}
+	if opt.PageSize == 0 {
+		opt.PageSize = powermodel.PageDefaultSize
+	}
+	query = buildFindManyCustomerQueryNoPage(query, &opt.Option)
 
-    if err := query.Count(&count).Error; err != nil {
-        return nil, err
-    }
-    if opt.PageIndex != 0 && opt.PageSize != 0 {
-        query.Offset((opt.PageIndex - 1) * opt.PageSize).Limit(opt.PageSize)
-    }
+	if err := query.Count(&count).Error; err != nil {
+		return nil, err
+	}
+	if opt.PageIndex != 0 && opt.PageSize != 0 {
+		query.Offset((opt.PageIndex - 1) * opt.PageSize).Limit(opt.PageSize)
+	}
 
-    err := query.Find(&customers).Error
+	err := query.Preload(`WeWorkExternalContactFollow`).Find(&customers).Error
 
-    return &types.Page[*customer.WeWorkExternalContacts]{
-        List:      customers,
-        PageIndex: opt.PageIndex,
-        PageSize:  opt.PageSize,
-        Total:     count,
-    }, err
+	return &types.Page[*customer.WeWorkExternalContacts]{
+		List:      customers,
+		PageIndex: opt.PageIndex,
+		PageSize:  opt.PageSize,
+		Total:     count,
+	}, err
 }
 
 //
@@ -68,15 +69,15 @@ func (this wechatUseCase) FindManyWeWorkCustomerPage(ctx context.Context, opt *t
 //
 func buildFindManyCustomerQueryNoPage(query *gorm.DB, opt *FindManyWechatCustomerOption) *gorm.DB {
 
-    if v := opt.UserId; v != `` {
-        query.Where("user_id = ?", v)
-    }
+	if v := opt.UserId; v != `` {
+		query.Where("user_id = ?", v)
+	}
 
-    if v := opt.Name; v != `` {
-        query.Where("name like ?", "%"+v+"%")
-    }
+	if v := opt.Name; v != `` {
+		query.Where("name like ?", "%"+v+"%")
+	}
 
-    return query
+	return query
 }
 
 //
@@ -89,47 +90,47 @@ func buildFindManyCustomerQueryNoPage(query *gorm.DB, opt *FindManyWechatCustome
 //
 func (this wechatUseCase) PullListWeWorkCustomerRequest(userID ...string) ([]*response.ResponseExternalContact, error) {
 
-    var err error
+	var err error
 
-    // 外部联系人和客户                                     ExternalContact * externalContact.Client
-    // 客户群                                             ExternalContactGroupChat * groupChat.Client
-    // 外部联系人和客户                                     ExternalContactContactWay * contactWay.Client
-    // 规则                                               ExternalContactCustomerStrategy * customerStrategy.Client
-    // 联系客户统计                                        ExternalContactStatistics * statistics.Client
-    // 欢迎语                                             ExternalContactGroupWelcomeTemplate * groupWelcomeTemplate.Client
-    // 学校                                               ExternalContactSchool * school.Client
-    // 朋友圈/发表                                         ExternalContactMoment * moment.Client
-    // 规则组                                             ExternalContactMomentStrategy * momentStrategy.Client
-    // 企业群发                                            ExternalContactMessageTemplate * messageTemplate.Client
-    // 企业标签库                                          ExternalContactTag * tag2.Client
-    // 人事变动                                            ExternalContactTransfer * transfer.Client
+	// 外部联系人和客户                                     ExternalContact * externalContact.Client
+	// 客户群                                             ExternalContactGroupChat * groupChat.Client
+	// 外部联系人和客户                                     ExternalContactContactWay * contactWay.Client
+	// 规则                                               ExternalContactCustomerStrategy * customerStrategy.Client
+	// 联系客户统计                                        ExternalContactStatistics * statistics.Client
+	// 欢迎语                                             ExternalContactGroupWelcomeTemplate * groupWelcomeTemplate.Client
+	// 学校                                               ExternalContactSchool * school.Client
+	// 朋友圈/发表                                         ExternalContactMoment * moment.Client
+	// 规则组                                             ExternalContactMomentStrategy * momentStrategy.Client
+	// 企业群发                                            ExternalContactMessageTemplate * messageTemplate.Client
+	// 企业标签库                                          ExternalContactTag * tag2.Client
+	// 人事变动                                            ExternalContactTransfer * transfer.Client
 
-    info, err := this.wework.ExternalContact.BatchGet(this.ctx, userID, ``, 1000)
-    if err != nil {
-        panic(err)
-    } else {
-        err = this.help.error(`scrm.pull.wework.customer.list.error`, info.ResponseWork)
+	info, err := this.wework.ExternalContact.BatchGet(this.ctx, userID, ``, 1000)
+	if err != nil {
+		panic(err)
+	} else {
+		err = this.help.error(`scrm.pull.wework.customer.list.error`, info.ResponseWork)
 
-    }
-    contacts := []customer.WeWorkExternalContacts{}
-    follows := []customer.WeWorkExternalContactFollow{}
+	}
+	contacts := []customer.WeWorkExternalContacts{}
+	follows := []customer.WeWorkExternalContactFollow{}
 
-    for _, val := range info.ExternalContactList {
-        contacts = append(contacts, transferExternalContactToModel(val.ExternalContact, val.FollowInfo.UserID))
-        follows = append(follows, transferExternalContactFollowToModel(val.FollowInfo, val.ExternalContact.ExternalUserID))
-    }
-    err = this.db.Clauses(
-        clause.OnConflict{Columns: []clause.Column{{Name: `external_user_id`}}, UpdateAll: true}).CreateInBatches(&contacts, 100).Error
-    err = this.db.Clauses(
-        clause.OnConflict{Columns: []clause.Column{{Name: `external_user_id`}}, UpdateAll: true}).CreateInBatches(&follows, 100).Error
-    if err != nil {
-        logx.Errorf(`scrm.wework.customer.contract.error. %v`, err)
-    }
-    if info != nil {
-        return info.ExternalContactList, nil
-    }
+	for _, val := range info.ExternalContactList {
+		contacts = append(contacts, transferExternalContactToModel(val.ExternalContact, val.FollowInfo.UserID))
+		follows = append(follows, transferExternalContactFollowToModel(val.FollowInfo, val.ExternalContact.ExternalUserID))
+	}
+	err = this.db.Clauses(
+		clause.OnConflict{Columns: []clause.Column{{Name: `external_user_id`}}, UpdateAll: true}).CreateInBatches(&contacts, 100).Error
+	err = this.db.Clauses(
+		clause.OnConflict{Columns: []clause.Column{{Name: `external_user_id`}}, UpdateAll: true}).CreateInBatches(&follows, 100).Error
+	if err != nil {
+		logx.Errorf(`scrm.wework.customer.contract.error. %v`, err)
+	}
+	if info != nil {
+		return info.ExternalContactList, nil
+	}
 
-    return nil, err
+	return nil, err
 
 }
 
@@ -140,26 +141,26 @@ func (this wechatUseCase) PullListWeWorkCustomerRequest(userID ...string) ([]*re
 //  @return *customer.WeWorkExternalContacts
 //
 func transferExternalContactToModel(contact *models.ExternalContact, userID string) customer.WeWorkExternalContacts {
-    return customer.WeWorkExternalContacts{
+	return customer.WeWorkExternalContacts{
 
-        ExternalUserId:  contact.ExternalUserID,
-        AppId:           ``,
-        CorpId:          ``,
-        OpenId:          ``,
-        UnionId:         contact.UnionID,
-        UserId:          userID,
-        Name:            contact.Name,
-        Mobile:          ``,
-        Position:        contact.Position,
-        Avatar:          contact.Avatar,
-        CorpName:        contact.CorpName,
-        CorpFullName:    contact.CorpFullName,
-        ExternalProfile: ``,
-        Gender:          contact.Gender,
-        WXType:          int8(contact.Type),
-        Status:          1,
-        Active:          true,
-    }
+		ExternalUserId:  contact.ExternalUserID,
+		AppId:           ``,
+		CorpId:          ``,
+		OpenId:          ``,
+		UnionId:         contact.UnionID,
+		UserId:          userID,
+		Name:            contact.Name,
+		Mobile:          ``,
+		Position:        contact.Position,
+		Avatar:          contact.Avatar,
+		CorpName:        contact.CorpName,
+		CorpFullName:    contact.CorpFullName,
+		ExternalProfile: ``,
+		Gender:          contact.Gender,
+		WXType:          int8(contact.Type),
+		Status:          1,
+		Active:          true,
+	}
 }
 
 //
@@ -171,22 +172,23 @@ func transferExternalContactToModel(contact *models.ExternalContact, userID stri
 //
 func transferExternalContactFollowToModel(follow *models.FollowUser, externalUserID string) customer.WeWorkExternalContactFollow {
 
-    tags, _ := json.Marshal(follow.Tags)
-    remarkMobiles, _ := json.Marshal(follow.RemarkMobiles)
-    return customer.WeWorkExternalContactFollow{
-        ExternalUserId: externalUserID,
-        UserId:         follow.UserID,
-        Remark:         follow.Remark,
-        Description:    follow.Description,
-        Createtime:     follow.CreateTime,
-        Tags:           string(tags),
-        WechatChannels: string(remarkMobiles),
-        RemarkCorpName: follow.RemarkCorpName,
-        RemarkMobiles:  ``,
-        OpenUserId:     follow.OperUserID,
-        AddWay:         follow.AddWay,
-        State:          follow.State,
-    }
+	tags, _ := json.Marshal(follow.Tags)
+	remarkMobiles, _ := json.Marshal(follow.RemarkMobiles)
+	return customer.WeWorkExternalContactFollow{
+		ExternalUserId: externalUserID,
+		UserId:         follow.UserID,
+		Remark:         follow.Remark,
+		Description:    follow.Description,
+		Createtime:     follow.CreateTime,
+		Tags:           string(tags),
+		TagIds:         strings.Join(follow.TagIDs, `,`),
+		WechatChannels: string(remarkMobiles),
+		RemarkCorpName: follow.RemarkCorpName,
+		RemarkMobiles:  ``,
+		OpenUserId:     follow.OperUserID,
+		AddWay:         follow.AddWay,
+		State:          follow.State,
+	}
 }
 
 //
@@ -197,16 +199,16 @@ func transferExternalContactFollowToModel(follow *models.FollowUser, externalUse
 //
 func (this *wechatUseCase) pullSyncWeWorkCustomerRequest(ids ...string) {
 
-    if len(ids) > 0 && ids[0] == `` {
-        workEmployees := this.modelWeworkOrganization.employee.Query(this.db)
-        ids = organization.AdapterEmployeeSliceUserIDs(func(employees []*organization.WeWorkEmployee) (ids []string) {
-            for _, employee := range employees {
-                ids = append(ids, employee.WeWorkUserId)
-            }
-            return ids
-        })(workEmployees)
-    }
+	if len(ids) > 0 && ids[0] == `` {
+		workEmployees := this.modelWeworkOrganization.employee.Query(this.db)
+		ids = organization.AdapterEmployeeSliceUserIDs(func(employees []*organization.WeWorkEmployee) (ids []string) {
+			for _, employee := range employees {
+				ids = append(ids, employee.WeWorkUserId)
+			}
+			return ids
+		})(workEmployees)
+	}
 
-    _, _ = this.PullListWeWorkCustomerRequest(ids...)
+	_, _ = this.PullListWeWorkCustomerRequest(ids...)
 
 }

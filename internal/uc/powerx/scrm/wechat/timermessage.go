@@ -1,13 +1,12 @@
 package wechat
 
 import (
-    "encoding/json"
-    "fmt"
-    "github.com/ArtisanCloud/PowerWeChat/v3/src/kernel/power"
-    creq "github.com/ArtisanCloud/PowerWeChat/v3/src/work/externalContact/messageTemplate/request"
-    "github.com/ArtisanCloud/PowerWeChat/v3/src/work/message/request"
-    "github.com/zeromicro/go-zero/core/logx"
-    "strconv"
+	"encoding/json"
+	"fmt"
+	"github.com/ArtisanCloud/PowerWeChat/v3/src/kernel/power"
+	creq "github.com/ArtisanCloud/PowerWeChat/v3/src/work/externalContact/messageTemplate/request"
+	"github.com/ArtisanCloud/PowerWeChat/v3/src/work/message/request"
+	"strconv"
 )
 
 //
@@ -20,15 +19,15 @@ import (
 //
 func (this *wechatUseCase) pushTimerMessageToKV(ttp TimerTypeByte, sendTime int64, message interface{}) {
 
-    val := make(map[string]string)
-    key := fmt.Sprintf(HRedisScrmGroupMessageKey, ttp)
-    msg, _ := json.Marshal(message)
-    val[strconv.Itoa(int(sendTime))] = string(msg)
+	val := make(map[string]string)
+	key := fmt.Sprintf(HRedisScrmGroupMessageKey, ttp)
+	msg, _ := json.Marshal(message)
+	val[strconv.Itoa(int(sendTime))] = string(msg)
 
-    err := this.kv.HmsetCtx(this.ctx, key, val)
-    if err != nil {
-        panic(err)
-    }
+	err := this.kv.HmsetCtx(this.ctx, key, val)
+	if err != nil {
+		panic(err)
+	}
 
 }
 
@@ -40,29 +39,27 @@ func (this *wechatUseCase) pushTimerMessageToKV(ttp TimerTypeByte, sendTime int6
 //  @param sendTime
 //  @return error
 //
-func (this *wechatUseCase) InvokeTimerMessageGrabUniteSend(ttp TimerTypeByte, sendTime int64) error {
+func (this *wechatUseCase) InvokeTimerMessageGrabUniteSend(ttp TimerTypeByte, sendTime int64) (err error) {
 
-    key := fmt.Sprintf(HRedisScrmGroupMessageKey, ttp)
-    vals, err := this.kv.Hget(key, strconv.Itoa(int(sendTime)))
-    if err != nil {
-        logx.Errorf(`scrm.wework.timer.call.redis.error %v.`, err)
-        return err
-    } else if vals == `` {
-        return nil
-    }
-    switch ttp {
+	key := fmt.Sprintf(HRedisScrmGroupMessageKey, ttp)
 
-    case AppGroupOrganizationMessageTimerTypeByte:
-        err = this.callAppGroupOrganizationMessage(key, sendTime, vals)
+	vals, _ := this.kv.Hget(key, strconv.Itoa(int(sendTime)))
+	if vals == `` {
+		return nil
+	}
+	switch ttp {
 
-    case AppMessageTimerTypeByte:
-        err = this.callAppMessage(key, sendTime, vals)
+	case AppGroupOrganizationMessageTimerTypeByte:
+		err = this.callAppGroupOrganizationMessage(key, sendTime, vals)
 
-    case AppGroupCustomerMessageTimerTypeByte:
-        err = this.callCustomerGroupMessage(key, sendTime, vals)
-    }
+	case AppMessageTimerTypeByte:
+		err = this.callAppMessage(key, sendTime, vals)
 
-    return err
+	case AppGroupCustomerMessageTimerTypeByte:
+		err = this.callCustomerGroupMessage(key, sendTime, vals)
+	}
+
+	return err
 
 }
 
@@ -77,13 +74,13 @@ func (this *wechatUseCase) InvokeTimerMessageGrabUniteSend(ttp TimerTypeByte, se
 //
 func (this *wechatUseCase) callAppGroupOrganizationMessage(key string, sendTime int64, val string) error {
 
-    message := &power.HashMap{}
-    err := json.Unmarshal([]byte(val), &message)
-    if err == nil {
-        _, err = this.PushAppWeWorkGroupMessageArticlesRequest(message, sendTime)
-        _, err = this.kv.Hdel(key, strconv.Itoa(int(sendTime)))
-    }
-    return err
+	message := &power.HashMap{}
+	err := json.Unmarshal([]byte(val), &message)
+	if err == nil {
+		_, err = this.PushAppWeWorkGroupMessageArticlesRequest(message, sendTime)
+		_, err = this.kv.Hdel(key, strconv.Itoa(int(sendTime)))
+	}
+	return err
 }
 
 //
@@ -97,14 +94,14 @@ func (this *wechatUseCase) callAppGroupOrganizationMessage(key string, sendTime 
 //
 func (this *wechatUseCase) callAppMessage(key string, sendTime int64, val string) error {
 
-    message := &request.RequestMessageSendNews{}
-    err := json.Unmarshal([]byte(val), &message)
-    if err == nil {
-        _, err = this.PushAppWeWorkMessageArticlesRequest(message, sendTime)
-        _, err = this.kv.Hdel(key, strconv.Itoa(int(sendTime)))
-    }
+	message := &request.RequestMessageSendNews{}
+	err := json.Unmarshal([]byte(val), &message)
+	if err == nil {
+		_, err = this.PushAppWeWorkMessageArticlesRequest(message, sendTime)
+		_, err = this.kv.Hdel(key, strconv.Itoa(int(sendTime)))
+	}
 
-    return err
+	return err
 
 }
 
@@ -119,13 +116,13 @@ func (this *wechatUseCase) callAppMessage(key string, sendTime int64, val string
 //
 func (this *wechatUseCase) callCustomerGroupMessage(key string, sendTime int64, val string) error {
 
-    message := &creq.RequestAddMsgTemplate{}
-    err := json.Unmarshal([]byte(val), &message)
-    if err == nil {
-        _, err = this.PushWoWorkCustomerTemplateRequest(message, sendTime)
-        _, err = this.kv.Hdel(key, strconv.Itoa(int(sendTime)))
-    }
+	message := &creq.RequestAddMsgTemplate{}
+	err := json.Unmarshal([]byte(val), &message)
+	if err == nil {
+		_, err = this.PushWoWorkCustomerTemplateRequest(message, sendTime)
+		_, err = this.kv.Hdel(key, strconv.Itoa(int(sendTime)))
+	}
 
-    return err
+	return err
 
 }

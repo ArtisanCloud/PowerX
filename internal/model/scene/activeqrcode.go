@@ -77,12 +77,11 @@ func (e *SceneQrcode) Action(db *gorm.DB, qrcode []*SceneQrcode) {
 //  @receiver e
 //  @param db
 //  @param qid
-//  @param field
 //  @param value
 //
-func (e *SceneQrcode) UpdateColumn(db *gorm.DB, qid string, field string, value interface{}) {
+func (e *SceneQrcode) UpdateColumn(db *gorm.DB, qid string, value map[string]interface{}) {
 
-    err := db.Table(e.TableName()).Where(`qid = ?`, qid).UpdateColumn(field, value).Error
+    err := db.Table(e.TableName()).Where(`qid = ?`, qid).UpdateColumns(&value).Error
     if err != nil {
         panic(err)
     }

@@ -2307,6 +2307,7 @@ type WechatCustomersWithFollowUser struct {
 	Description    string                                      `json:"description"`
 	Createtime     int                                         `json:"createtime"`
 	Tags           []WechatCustomersFollowUserWithTags         `json:"tags"`
+	TagIds         []string                                    `json:"tagIds"`
 	WechatChannels WechatCustomersFollowUserWithWechatChannels `json:"wechatChannels"`
 	RemarkCorpName string                                      `json:"remarkCorpName,omitempty"`
 	RemarkMobiles  []string                                    `json:"remarkMobiles,omitempty"`
@@ -2472,6 +2473,7 @@ type WeWorkQrcodeActive struct {
 	SceneLink          string   `json:"sceneLink"`          // 场景落地页
 	SafeThresholdValue int      `json:"safeThresholdValue"` // 安全阈值（默认:0）
 	ExpiryDate         int64    `json:"expiryDate"`         // 有效期截止日
+	ExpiryState        int      `json:"expiryState"`        // 是否过期
 	State              int      `json:"state"`              // 状态1：启用 2：禁用 3：删除
 	ActiveQrcodeLink   string   `json:"activeQrcodeLink"`   // 群活码图片地址(可以载入任意媒资文章)
 	CPA                int      `json:"cpa"`                // 活码打开次数
@@ -2491,6 +2493,81 @@ type QrcodeActiveRequest struct {
 type ActionRequest struct {
 	Qid             string `path:"qid"` // 唯一标识
 	SceneQrcodeLink string `json:"sceneQrcodeLink,optional"`
+}
+
+type ListWeWorkTagReqeust struct {
+	TagIds    []string `json:"tagIds,optional"`
+	GroupIds  []string `json:"groupIds,optional"`
+	Name      string   `json:"name,optional"`
+	Sync      int      `from:"sync,optional"`
+	PageIndex int      `form:"pageIndex,optional"`
+	PageSize  int      `form:"pageSize,optional"`
+}
+
+type StatusWeWorkReply struct {
+	Status string `json:"status"`
+}
+
+type ListWeWorkTagReply struct {
+	List      []*Tag `json:"list"`
+	PageIndex int    `json:"pageIndex"`
+	PageSize  int    `json:"pageSize"`
+	Total     int64  `json:"total"`
+}
+
+type ListWeWorkTagOptionReply struct {
+	List interface{} `json:"list"`
+}
+
+type Tag struct {
+	Type      int    `json:"type"`
+	TagId     string `json:"tagId"`
+	GroupId   string `json:"groupId"`
+	GroupName string `json:"groupName"`
+	Name      string `json:"name"`
+	Sort      int    `json:"sort"`
+}
+
+type ListWeWorkTagGroupReply struct {
+	List []*TagGroup `json:"list"`
+}
+
+type TagGroup struct {
+	GroupId   string `json:"groupId"`
+	GroupName string `json:"groupName"`
+}
+
+type CreateCorpTagRequest struct {
+	GroupId   string         `json:"groupId"` //et2lz4UgAArZWi6ZKx1X8jo3uxfbC_sA 下拉标签组
+	GroupName string         `json:"groupName"`
+	Sort      int            `json:"Sort,optional"`
+	Tag       []*TagFieldTag `json:"tag"`
+	AgentId   int64          `json:"agentId"` //应用列表
+}
+
+type TagFieldTag struct {
+	Name string `json:"name"`
+	Sort int    `json:"sort"`
+}
+
+type UpdateCorpTagRequest struct {
+	TagId   string `json:"tagId"`
+	Name    string `json:"name"`
+	Sort    int    `json:"sort,optional"`
+	AgentId int64  `json:"agentId,optional"`
+}
+
+type DeleteCorpTagRequest struct {
+	TagIds   []string `json:"tagIds,optional"`
+	GroupIds []string `json:"groupIds,optional"`
+	AgentId  int64    `json:"agentId,optional"`
+}
+
+type ActionCustomerTagRequest struct {
+	UserId         string   `json:"userId"`
+	ExternalUserId string   `json:"externalUserId"`
+	AddTag         []string `json:"addTag,optional"`
+	RemoveTag      []string `json:"removeTag,optional"`
 }
 
 type MPCustomerLoginRequest struct {
