@@ -36,11 +36,25 @@ func GenAPICsv(files []*os.File) {
 	apiWriter := csv.NewWriter(apiFile)
 	groupWriter := csv.NewWriter(groupFile)
 
+	pattern := `(?s)service\s+.*\s*{.*}`
+	re := regexp.MustCompile(pattern)
+
 	for _, file := range files {
 		log.Printf("正在处理文件: %s", file.Name())
+
+		// 排除 powerx 主文件，主文件不分组，内部也不应该有api
+		if filepath.Base(file.Name()) == "powerx.api" {
+			continue
+		}
+
 		apiText, err := io.ReadAll(file)
 		if err != nil {
 			log.Fatalln(err)
+		}
+
+		if !re.MatchString(string(apiText)) {
+			log.Printf("文件 %s 不是一个有效的 .api 文件, 跳过", file.Name())
+			continue
 		}
 
 		serverInfo, routes := parseApiText(string(apiText))
