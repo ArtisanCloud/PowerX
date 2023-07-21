@@ -37,7 +37,27 @@ admin/scrm/organization,/api/v1/admin/scrm/organization/wechat,企业微信部�
 admin/scrm/organization,/api/v1/admin/scrm/organization/wechat,企业微信员工管理,企业微信员工管理
 admin/scrm/qrcode,/api/v1/admin/scrm/qrcode/wechat,企业微信二维码,企业微信二维码
 admin/scrm/resource,/api/v1/admin/scrm/resource/wechat,微信资源管理,微信资源管理
+admin/scrm/tag,/api/v1/admin/scrm/tag/wechat,企业微信标签管理,企业微信标签管理
 admin/userinfo,/api/v1/admin/user-center,用户中心,用户中心
+mp/customer/auth,/api/v1/mp/customer,小程序客户模块,小程序客户模块接口集合
+mp/dictionary,/api/v1/mp/dictionary,字典管理API,字典管理API
+mp/market/media,/api/v1/mp/market,媒资管理,媒资管理
+mp/market/store,/api/v1/mp/market,小程序店铺模块,小程序店铺模块接口集合
+mp/product/artisan,/api/v1/mp/product,元匠,元匠
+mp/product,/api/v1/mp/product,小程序产品模块,小程序产品模块接口集合
+mp/product,/api/v1/mp/product,产品品类,产品品类
+mp/trade/address/billing,/api/v1/mp/trade/address,账单地址服务,账单地址服务
+mp/trade/cart,/api/v1/mp/trade,购物车服务,购物车服务API
+mp/trade/address/delivery,/api/v1/mp/trade/address,订单发货地址服务,订单发货地址服务
+mp/trade/logistics,/api/v1/mp/trade,物流服务,物流服务
+mp/trade/order,/api/v1/mp/trade,订单服务,订单服务
+mp/trade/payment,/api/v1/mp/trade,支付单服务,支付单服务
+mp/trade/address/shipping,/api/v1/mp/trade/address,收获地址服务,收获地址服务
+web/customer/auth,/api/v1/web/customer,Web客户模块,Web客户模块接口集合
+web/customer/auth/oa,/api/v1/web/customer,公众号客户模块,公众号客户模块接口集合
+mp/dictionary,/api/v1/web/dictionary,字典管理API,字典管理API
+web/scene,/api/v1/web/scene,场景活码,场景活码
+admin/auth,/api/v1/admin/auth,公开接口-登录相关,公开接口-登录相关
 admin/common,/api/v1/admin/common,通用接口,通用接口
 admin/business/opportunity,/api/v1/admin/business,商机管理,商机管理
 admin/customerdomain/customer,/api/v1/admin/customerdomain,客户管理,客户管理
@@ -76,43 +96,5 @@ admin/scrm/organization,/api/v1/admin/scrm/organization/wechat,企业微信部�
 admin/scrm/organization,/api/v1/admin/scrm/organization/wechat,企业微信员工管理,企业微信员工管理
 admin/scrm/qrcode,/api/v1/admin/scrm/qrcode/wechat,企业微信二维码,企业微信二维码
 admin/scrm/resource,/api/v1/admin/scrm/resource/wechat,微信资源管理,微信资源管理
-admin/userinfo,/api/v1/admin/user-center,用户中心,用户中心
-admin/common,/api/v1/admin/common,通用接口,通用接口
-admin/business/opportunity,/api/v1/admin/business,商机管理,商机管理
-admin/customerdomain/customer,/api/v1/admin/customerdomain,客户管理,客户管理
-admin/customerdomain/leader,/api/v1/admin/customerdomain,线索管理,线索管理
-admin/market/media,/api/v1/admin/market,媒体管理,媒体管理
-admin/market/store,/api/v1/admin/market,门店,门店
-admin/product/artisan,/api/v1/admin/product,元匠,元匠
-admin/product/pricebook,/api/v1/admin/product,价格手册,价格手册
-admin/product/pricebookentry,/api/v1/admin/product,价格手册条目,价格手册条目
-admin/product,/api/v1/admin/product,产品服务,产品服务
-admin/product/category,/api/v1/admin/product,产品品类,产品品类
-admin/product/productspecific,/api/v1/admin/product,产品规格服务,产品规格服务
-admin/product/sku,/api/v1/admin/product,SKU服务,SKU服务
-admin/trade/address/billing,/api/v1/admin/trade/address,账单地址服务,账单地址服务
-admin/trade/address/delivery,/api/v1/admin/trade/address,订单发货地址服务,订单发货地址服务
-admin/trade/logistics,/api/v1/admin/trade,物流服务,物流服务
-admin/trade/order,/api/v1/admin/trade,订单服务,订单服务
-admin/trade/payment,/api/v1/admin/trade,支付单服务,支付单服务
-admin/trade/order,/api/v1/admin/trade,退款单服务,退款单服务
-admin/trade/address/shipping,/api/v1/admin/trade/address,收获地址服务,收获地址服务
-admin/trade/warehouse,/api/v1/admin/trade,仓库服务,仓库服务
-admin/department,/api/v1/admin/department,待命名分组,待描述
-admin/dictionary,/api/v1/admin/dictionary,字典管理API,字典管理API
-admin/employee,/api/v1/admin/employee,员工管理,员工管理
-admin/mediaresource,/api/v1/admin/media,媒资管理,媒资管理
-admin/permission,/api/v1/admin/permission,权限管理,权限管理
-admin/scrm/app,/api/v1/admin/scrm/app/wechat,企业应用App,企业应用App
-admin/scrm/app,/api/v1/admin/scrm/app/wechat,企业应用App,企业应用App
-admin/scrm/app,/api/v1/admin/scrm/app/wechat,企业应用App,企业应用App
-admin/scrm/bot,/api/v1/admin/scrm/bot/wechat,企业微信机器人,企业微信机器人
-admin/contractway,/api/v1/admin/contract-way,Contract Way Management,Contract Way Management
-admin/scrm/customer,/api/v1/admin/scrm/customer/wechat,企业微信客户管理,企业微信客户管理
-admin/scrm/customer,/api/v1/admin/scrm/customer/wechat,企业微信客户管理,企业微信客户管理
-admin/scrm/customer,/api/v1/admin/scrm/customer,企业微信客户管理,企业微信客户管理
-admin/scrm/organization,/api/v1/admin/scrm/organization/wechat,企业微信部门管理,企业微信部门管理
-admin/scrm/organization,/api/v1/admin/scrm/organization/wechat,企业微信员工管理,企业微信员工管理
-admin/scrm/qrcode,/api/v1/admin/scrm/qrcode/wechat,企业微信二维码,企业微信二维码
-admin/scrm/resource,/api/v1/admin/scrm/resource/wechat,微信资源管理,微信资源管理
+admin/scrm/tag,/api/v1/admin/scrm/tag/wechat,企业微信标签管理,企业微信标签管理
 admin/userinfo,/api/v1/admin/user-center,用户中心,用户中心
