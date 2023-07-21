@@ -26,7 +26,7 @@ type MediaResourceUseCase struct {
 	LocalStorageUrl  string
 }
 
-const BucketMediaResource = "bucket.product"
+const BucketMediaResourceProduct = "bucket.product"
 
 func NewMediaResourceUseCase(db *gorm.DB, conf *config.Config) *MediaResourceUseCase {
 	// 使用Minio API SDK
@@ -129,7 +129,7 @@ func (uc *MediaResourceUseCase) CreateMediaResource(ctx context.Context, store *
 }
 
 func (uc *MediaResourceUseCase) MakeProductMediaResource(ctx context.Context, handle *multipart.FileHeader) (resource *media.MediaResource, err error) {
-	return uc.MakeMediaResource(ctx, BucketMediaResource, handle)
+	return uc.MakeMediaResource(ctx, BucketMediaResourceProduct, handle)
 }
 func (uc *MediaResourceUseCase) MakeMediaResource(ctx context.Context, bucket string, handle *multipart.FileHeader) (resource *media.MediaResource, err error) {
 
