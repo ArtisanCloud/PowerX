@@ -28,8 +28,8 @@ type Employee struct {
 	IsReserved    bool   `gorm:"comment:保留字段;column:is_reserved" json:"is_reserved"`
 	IsActivated   bool   `gorm:"comment:活跃;column:is_activated" json:"is_activated"`
 	Department    *Department
-	//
-	WeWorkUserId string `gorm:"comment:微信账户;column:we_work_user_id;unique" json:"we_work_user_id"`
+	// comment f9280798048e034c1f4118a2220ade5f847d94b4 该字段不能设置为unique，否则没有关联企业微信账户的员工将会添加失败（null duplicate key)
+	WeWorkUserId string `gorm:"comment:微信账户;column:we_work_user_id" json:"we_work_user_id"`
 }
 
 func (e *Employee) HashPassword() (err error) {
@@ -67,23 +67,21 @@ func VerifyPassword(hashedPwd string, pwd string) bool {
 	return err == nil
 }
 
-//
 // Table
-//  @Description:
-//  @receiver e
-//  @return string
 //
+//	@Description:
+//	@receiver e
+//	@return string
 func (e Employee) TableName() string {
 	return `employees`
 }
 
-//
 // Action
-//  @Description:
-//  @receiver e
-//  @param db
-//  @param contacts
 //
+//	@Description:
+//	@receiver e
+//	@param db
+//	@param contacts
 func (e *Employee) Action(db *gorm.DB, employees []*Employee) {
 
 	err := db.Table(e.TableName()).Debug().Clauses(
