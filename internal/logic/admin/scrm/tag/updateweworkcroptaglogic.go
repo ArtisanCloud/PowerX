@@ -40,9 +40,6 @@ func (tag *UpdateWeWorkCropTagLogic) UpdateWeWorkCropTag(opt *types.UpdateCorpTa
 	}
 	_, err = tag.svcCtx.PowerX.SCRM.Wechat.UpdateWeWorkCorpTagRequest(cropTag)
 
-	if err != nil {
-		return nil, err
-	}
 	return &types.StatusWeWorkReply{
 		Status: `success`,
 	}, err

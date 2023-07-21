@@ -212,6 +212,7 @@ type (
 	FindManyWechatCustomerOption struct {
 		UserId string `json:"user_id"`
 		Name   string `gorm:"column:name" json:"name"`
+		TagId  string `json:"tag_id"`
 		types.PageEmbedOption
 	}
 )

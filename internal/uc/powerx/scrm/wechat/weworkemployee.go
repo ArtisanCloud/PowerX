@@ -5,7 +5,6 @@ import (
 	"PowerX/internal/model/scrm/organization"
 	"PowerX/internal/types"
 	"context"
-	"fmt"
 	"github.com/ArtisanCloud/PowerWeChat/v3/src/work/department/response"
 	"github.com/ArtisanCloud/PowerWeChat/v3/src/work/user/request"
 	"gorm.io/gorm"
@@ -165,7 +164,7 @@ func (this *wechatUseCase) employee(val response.DepartmentID) {
 		err = this.help.error(`scrm.wework.sync.organization.user.error`, users.ResponseWork)
 	}
 
-	if err == nil {
+	if err == nil && len(users.UserList) > 0 {
 		employees := []*organization.WeWorkEmployee{}
 		for _, user := range users.UserList {
 			if user != nil {
@@ -175,7 +174,7 @@ func (this *wechatUseCase) employee(val response.DepartmentID) {
 					Name:                   user.Name,
 					Position:               user.Position,
 					Mobile:                 user.UserID,
-					Email:                  fmt.Sprintf(`%s@todo.com`, user.UserID),
+					Email:                  user.Email,
 					Alias:                  user.Alias,
 					OpenUserId:             open.OpenID,
 					WeWorkMainDepartmentId: user.MainDepartment,

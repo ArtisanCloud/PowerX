@@ -40,9 +40,7 @@ func (tag *DeleteWeWorkCropTagLogic) DeleteWeWorkCropTag(opt *types.DeleteCorpTa
 		return nil, err
 	}
 	_, err = tag.svcCtx.PowerX.SCRM.Wechat.DeleteWeWorkCorpTagRequest(option)
-	if err != nil {
-		return nil, err
-	}
+
 	return &types.StatusWeWorkReply{
 		Status: `success`,
 	}, err
