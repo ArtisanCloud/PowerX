@@ -81,7 +81,7 @@ MediaResource:
   OSS:
     Enable: true
     Minio:
-      Endpoint: 127.0.0.1:9001
+      Endpoint: localhost:9001
       Credentials:
         AccessKey: powerx
         SecretKey: powerxpwd

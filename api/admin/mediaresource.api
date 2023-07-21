@@ -11,25 +11,25 @@ info(
 @server(
     group: admin/mediaresource
     prefix: /api/v1/admin/media
-    middleware: EmployeeJWTAuth
+    middleware: employeejwtauth
 )
 
-service PowerX {
+service powerx {
     @doc "查询媒资列表"
-    @handler ListMediaResources
-    get /resources/page-list (ListMediaResourcesPageRequest) returns (ListMediaResourcesPageReply)
+    @handler listmediaresources
+    get /resources/page-list (listmediaresourcespagerequest) returns (listmediaresourcespagereply)
 
     @doc "创建媒资"
-    @handler CreateMediaResource
-    post /resources returns (CreateMediaResourceReply)
+    @handler createmediaresource
+    post /resources returns (createmediaresourcereply)
 
     @doc "获取媒资详情"
-    @handler GetMediaResource
-    get /resources/:id (GetMediaResourceRequest) returns (GetMediaResourceReply)
+    @handler getmediaresource
+    get /resources/:id (getmediaresourcerequest) returns (getmediaresourcereply)
 
     @doc "删除媒资"
-    @handler DeleteMediaResource
-    delete /resources/:id (DeleteMediaResourceRequest) returns (DeleteMediaResourceReply)
+    @handler deletemediaresource
+    delete /resources/:id (deletemediaresourcerequest) returns (deletemediaresourcereply)
 }
 
 type (
