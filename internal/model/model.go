@@ -19,6 +19,12 @@ type SyncModel struct {
 	DeletedAt gorm.DeletedAt `gorm:"index"`
 }
 
+type CommonModel struct {
+	Id        int64 `gorm:"primarykey"`
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
 type ImageAbleInfo struct {
 	Icon            string `gorm:"comment:图标"`
 	BackgroundColor string `gorm:"comment:背景色"`
