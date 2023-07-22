@@ -81,7 +81,7 @@ type EmployeeCasbinPolicy struct {
 }
 
 type AdminAPI struct {
-	model.Model
+	model.CommonModel
 	API     string
 	Method  string
 	Name    string
@@ -109,7 +109,7 @@ type AdminRole struct {
 }
 
 type AdminRoleMenuName struct {
-	model.Model
+	model.CommonModel
 	AdminRoleId int64
 	MenuName    string
 }
@@ -144,8 +144,8 @@ func (uc *AdminPermsUseCase) Init() {
 				})
 			}
 
-			if err := uc.db.Model(&AdminAPIGroup{}).Create(&groups).Error; err != nil {
-				panic(errors.Wrap(err, "init api group failed"))
+			for _, group := range groups {
+				uc.db.Model(&AdminAPIGroup{}).Where("group_code = ?", group.GroupCode).FirstOrCreate(&group)
 			}
 		}
 
@@ -184,10 +184,9 @@ func (uc *AdminPermsUseCase) Init() {
 				})
 			}
 
-			if err := uc.db.Model(&AdminAPI{}).Create(&apis).Error; err != nil {
-				panic(errors.Wrap(err, "init api failed"))
+			for _, api := range apis {
+				uc.db.Model(&AdminAPI{}).Where(AdminAPI{API: api.API, Method: api.Method}).FirstOrCreate(&api)
 			}
-
 		}
 
 		initAPIGroup()
@@ -273,6 +272,12 @@ func (uc *AdminPermsUseCase) FindOneRoleByRoleCode(ctx context.Context, roleCode
 		Preload("AdminAPI").
 		Preload("MenuNames").
 		First(&role).Error
+	if role.AdminAPI == nil {
+		role.AdminAPI = make([]*AdminAPI, 0)
+	}
+	if role.MenuNames == nil {
+		role.MenuNames = make([]*AdminRoleMenuName, 0)
+	}
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errorx.WithCause(errorx.ErrBadRequest, "未查找到角色")
@@ -336,25 +341,25 @@ func (uc *AdminPermsUseCase) PatchRoleByRoleId(ctx context.Context, role *AdminR
 	role.Id = roleId
 
 	err := uc.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		// 清除旧的关联关系
-		if err := tx.Model(&role).Where(&AdminRole{RoleCode: role.RoleCode}).
-			Association("AdminAPI").Clear(); err != nil {
+		// 获取 db 的 role MenuNames]
+		var dbRole AdminRole
+		if err := tx.Model(&AdminRole{}).Where(roleId).Preload("MenuNames").First(&dbRole).Error; err != nil {
 			return err
 		}
 
-		// 更新角色信息
-		if err := tx.Omit("AdminAPI.*").Where(roleId).Clauses(clause.Returning{}).
-			Updates(&role).Error; err != nil {
-			return err
+		// 根据 db 的 role MenuNames 设置 role MenuNames 已经存在的id，避免重复插入
+		menuNameMap := make(map[string]int64)
+		for _, menuName := range dbRole.MenuNames {
+			menuNameMap[menuName.MenuName] = menuName.Id
 		}
-
-		// 如果没有关联的 AdminAPI，返回
-		if len(role.AdminAPI) == 0 {
-			return nil
+		for i := range role.MenuNames {
+			if id, ok := menuNameMap[role.MenuNames[i].MenuName]; ok {
+				role.MenuNames[i].Id = id
+			}
 		}
 
 		// 删除旧的权限策略
-		if _, err := uc.Casbin.DeleteRole(role.RoleCode); err != nil {
+		if _, err := uc.Casbin.RemoveFilteredNamedPolicy("p", 0, role.RoleCode); err != nil {
 			return err
 		}
 
@@ -375,6 +380,17 @@ func (uc *AdminPermsUseCase) PatchRoleByRoleId(ctx context.Context, role *AdminR
 
 		// 添加新的权限策略
 		if _, err := uc.Casbin.AddPolicies(policies); err != nil {
+			return err
+		}
+
+		// 更新角色信息, 忽略 AdminAPI 字段 ( 稍后replace )
+		if err := tx.Omit("AdminAPI").Clauses(clause.Returning{}).Updates(&role).Error; err != nil {
+			return err
+		}
+
+		// 替换角色的 api 权限展示数据
+		err := tx.Model(&dbRole).Association("AdminAPI").Replace(role.AdminAPI)
+		if err != nil {
 			return err
 		}
 

@@ -29,7 +29,7 @@ func (l *GetRoleLogic) GetRole(req *types.GetRoleRequest) (resp *types.GetRoleRe
 		return nil, err
 	}
 
-	var api []types.AdminAPI
+	api := make([]types.AdminAPI, 0, len(role.AdminAPI))
 	for _, adminAPI := range role.AdminAPI {
 		api = append(api, types.AdminAPI{
 			Id:     adminAPI.Id,
@@ -40,7 +40,7 @@ func (l *GetRoleLogic) GetRole(req *types.GetRoleRequest) (resp *types.GetRoleRe
 		})
 	}
 
-	var menus []string
+	menus := make([]string, 0, len(role.MenuNames))
 	for _, menu := range role.MenuNames {
 		menus = append(menus, menu.MenuName)
 	}
