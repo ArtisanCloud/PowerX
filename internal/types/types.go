@@ -741,7 +741,7 @@ type GetCustomerReqeuest struct {
 }
 
 type GetCustomerReply struct {
-	Customer *Customer `json:"customerdomain"`
+	Customer *Customer `json:"customer"`
 }
 
 type ListCustomersPageRequest struct {
