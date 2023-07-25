@@ -2,9 +2,9 @@ package permission
 
 import (
 	"PowerX/internal/model"
+	"PowerX/internal/model/permission"
 	"PowerX/internal/svc"
 	"PowerX/internal/types"
-	"PowerX/internal/uc/powerx"
 	"context"
 
 	"github.com/zeromicro/go-zero/core/logx"
@@ -25,17 +25,17 @@ func NewCreateRoleLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Create
 }
 
 func (l *CreateRoleLogic) CreateRole(req *types.CreateRoleRequest) (resp *types.CreateRoleReply, err error) {
-	var apiList []*powerx.AdminAPI
+	var apiList []*permission.AdminAPI
 	for _, id := range req.APIIds {
-		apiList = append(apiList, &powerx.AdminAPI{CommonModel: model.CommonModel{Id: id}})
+		apiList = append(apiList, &permission.AdminAPI{CommonModel: model.CommonModel{Id: id}})
 	}
 
-	var menuList []*powerx.AdminRoleMenuName
+	var menuList []*permission.AdminRoleMenuName
 	for _, name := range req.MenuNames {
-		menuList = append(menuList, &powerx.AdminRoleMenuName{MenuName: name})
+		menuList = append(menuList, &permission.AdminRoleMenuName{MenuName: name})
 	}
 
-	role := powerx.AdminRole{
+	role := permission.AdminRole{
 		RoleCode:  req.RoleCode,
 		Name:      req.Name,
 		Desc:      req.Desc,

@@ -1,9 +1,9 @@
 package common
 
 import (
+	option2 "PowerX/internal/model/option"
 	"PowerX/internal/svc"
 	"PowerX/internal/types"
-	"PowerX/internal/uc/powerx"
 	"context"
 
 	"github.com/zeromicro/go-zero/core/logx"
@@ -24,8 +24,8 @@ func NewGetDepartmentOptionsLogic(ctx context.Context, svcCtx *svc.ServiceContex
 }
 
 func (l *GetDepartmentOptionsLogic) GetDepartmentOptions(req *types.GetDepartmentOptionsRequest) (resp *types.GetDepartmentOptionsReply, err error) {
-	option := types.PageOption[powerx.FindManyDepartmentsOption]{
-		Option: powerx.FindManyDepartmentsOption{
+	option := types.PageOption[option2.FindManyDepartmentsOption]{
+		Option: option2.FindManyDepartmentsOption{
 			DepIds:   req.Ids,
 			LikeName: req.LikeName,
 		},

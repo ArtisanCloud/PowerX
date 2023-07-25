@@ -42,7 +42,6 @@ type EmployeeQueryDepartmentOption struct {
 }
 
 type GetEmployeeQueryOptionsReply struct {
-	Positions   []string                        `json:"positions"`
 	Roles       []EmployeeQueryRoleOption       `json:"roles"`
 	Departments []EmployeeQueryDepartmentOption `json:"departments"`
 }
@@ -64,6 +63,15 @@ type GetDepartmentOptionsReply struct {
 	PageIndex int                `json:"pageIndex"`
 	PageSize  int                `json:"pageSize"`
 	Total     int64              `json:"total"`
+}
+
+type GetOptionsRequest struct {
+	Type   string `form:"type,optional"`
+	Search string `form:"search,optional"`
+}
+
+type GetOptionsReply struct {
+	Options []map[string]interface{} `json:"options"`
 }
 
 type DepartmentLeader struct {
@@ -145,6 +153,61 @@ type GetDepartmentReply struct {
 	*Department
 }
 
+type Position struct {
+	Id        int64    `json:"id"`
+	Name      string   `json:"name"`
+	Desc      string   `json:"desc"`
+	Level     string   `json:"level"`
+	RoleCodes []string `json:"roleCodes"`
+}
+
+type CreatePositionRequest struct {
+	Name      string   `json:"name"`
+	Desc      string   `json:"desc,optional"`
+	Level     string   `json:"level"`
+	RoleCodes []string `json:"roleCodes"`
+}
+
+type CreatePositionReply struct {
+	Id int64 `json:"id"`
+}
+
+type PatchPositionRequest struct {
+	Id        int64    `path:"id"`
+	Name      string   `json:"name,optional"`
+	Desc      string   `json:"desc,optional"`
+	Level     string   `json:"level,optional"`
+	RoleCodes []string `json:"roleCodes,optional"`
+}
+
+type PatchPositionReply struct {
+	*Position
+}
+
+type DeletePositionRequest struct {
+	Id int64 `path:"id"`
+}
+
+type DeletePositionReply struct {
+	Id int64 `json:"id"`
+}
+
+type ListPositionsRequest struct {
+	LikeName string `query:"likeName,optional"`
+}
+
+type ListPositionsReply struct {
+	List []Position `json:"list"`
+}
+
+type GetPositionRequest struct {
+	Id int64 `path:"id"`
+}
+
+type GetPositionReply struct {
+	*Position
+}
+
 type GetEmployeeRequest struct {
 	Id int64 `path:"id"`
 }
@@ -158,7 +221,7 @@ type ListEmployeesRequest struct {
 	LikeName        string   `form:"likeName,optional"`
 	LikeEmail       string   `form:"likeEmail,optional"`
 	DepIds          []int64  `form:"depIds,optional"`
-	Positions       []string `form:"positions,optional"`
+	PositionIds     []int64  `form:"positionIds,optional"`
 	LikePhoneNumber string   `form:"likePhoneNumber,optional"`
 	RoleCodes       []string `form:"roleCodes,optional"`
 	IsEnabled       *bool    `form:"isEnable,optional"`
@@ -184,7 +247,8 @@ type Employee struct {
 	ExternalEmail string              `json:"externalEmail,optional"`
 	Roles         []string            `json:"roles"`
 	Department    *EmployeeDepartment `json:"department"`
-	Position      string              `json:"position"`
+	Position      *Position           `json:"position"`
+	PositionId    int64               `json:"positionId"`
 	JobTitle      string              `json:"jobTitle"`
 	IsEnabled     bool                `json:"isEnabled"`
 	CreatedAt     string              `json:"createdAt"`
@@ -217,7 +281,7 @@ type CreateEmployeeRequest struct {
 	MobilePhone   string `json:"mobilePhone,optional"`
 	Gender        string `json:"gender,options=male|female|un_know"`
 	DepId         int64  `json:"depId"`
-	Position      string `json:"position,optional"`
+	PositionId    int64  `json:"positionId,optional"`
 	JobTitle      string `json:"jobTitle,optional"`
 	Password      string `json:"password,optional"`
 }
@@ -237,7 +301,7 @@ type UpdateEmployeeRequest struct {
 	MobilePhone   string `json:"mobilePhone,optional"`
 	Gender        string `json:"gender,optional,options=male|female|un_know"`
 	DepId         int64  `json:"depId,optional"`
-	Position      string `json:"position,optional"`
+	PositionId    int64  `json:"positionId,optional"`
 	JobTitle      string `json:"jobTitle,optional"`
 	Password      string `json:"password,optional"`
 	Status        string `json:"status,optional,options=enabled|disabled"`

@@ -1,7 +1,7 @@
 package common
 
 import (
-	"PowerX/internal/uc/powerx"
+	"PowerX/internal/model/option"
 	"context"
 
 	"PowerX/internal/svc"
@@ -25,7 +25,7 @@ func NewGetEmployeeOptionsLogic(ctx context.Context, svcCtx *svc.ServiceContext)
 }
 
 func (l *GetEmployeeOptionsLogic) GetEmployeeOptions(req *types.GetEmployeeOptionsRequest) (resp *types.GetEmployeeOptionsReply, err error) {
-	employeePage := l.svcCtx.PowerX.Organization.FindManyEmployeesPage(l.ctx, &powerx.FindManyEmployeesOption{
+	employeePage := l.svcCtx.PowerX.Organization.FindManyEmployeesPage(l.ctx, &option.FindManyEmployeesOption{
 		LikeName:        req.LikeName,
 		LikeEmail:       req.LikeEmail,
 		LikePhoneNumber: req.LikePhoneNumber,

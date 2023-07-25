@@ -1,7 +1,7 @@
 package permission
 
 import (
-	"PowerX/internal/uc/powerx"
+	"PowerX/internal/model/permission"
 	"context"
 
 	"PowerX/internal/model"
@@ -26,11 +26,11 @@ func NewSetRolePermissionsLogic(ctx context.Context, svcCtx *svc.ServiceContext)
 }
 
 func (l *SetRolePermissionsLogic) SetRolePermissions(req *types.SetRolePermissionsRequest) (resp *types.SetRolePermissionsReply, err error) {
-	var role powerx.AdminRole
+	var role permission.AdminRole
 
-	var api []*powerx.AdminAPI
+	var api []*permission.AdminAPI
 	for _, id := range req.APIIds {
-		api = append(api, &powerx.AdminAPI{
+		api = append(api, &permission.AdminAPI{
 			CommonModel: model.CommonModel{
 				Id: id,
 			},

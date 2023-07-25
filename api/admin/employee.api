@@ -44,8 +44,6 @@ service PowerX {
     post /employees/actions/reset-password (ResetPasswordRequest) returns (ResetPasswordReply)
 }
 
-
-
 type (
     GetEmployeeRequest {
         Id int64 `path:"id"`
@@ -62,7 +60,7 @@ type (
         LikeName string `form:"likeName,optional"`
         LikeEmail string `form:"likeEmail,optional"`
         DepIds []int64 `form:"depIds,optional"`
-        Positions []string `form:"positions,optional"`
+        PositionIds []int64 `form:"positionIds,optional"`
         LikePhoneNumber string `form:"likePhoneNumber,optional"`
         RoleCodes []string `form:"roleCodes,optional"`
         IsEnabled *bool `form:"isEnable,optional"`
@@ -88,7 +86,8 @@ type (
         ExternalEmail string `json:"externalEmail,optional"`
         Roles []string `json:"roles"`
         Department *EmployeeDepartment `json:"department"`
-        Position string `json:"position"`
+        Position *Position `json:"position"`
+        PositionId int64 `json:"positionId"`
         JobTitle string `json:"jobTitle"`
         IsEnabled bool `json:"isEnabled"`
         CreatedAt string `json:"createdAt"`
@@ -125,7 +124,7 @@ type (
         MobilePhone string `json:"mobilePhone,optional"`
         Gender string `json:"gender,options=male|female|un_know"`
         DepId int64 `json:"depId"`
-        Position string `json:"position,optional"`
+        PositionId int64 `json:"positionId,optional"`
         JobTitle string `json:"jobTitle,optional"`
         Password string `json:"password,optional"`
     }
@@ -147,7 +146,7 @@ type (
         MobilePhone string `json:"mobilePhone,optional"`
         Gender string `json:"gender,optional,options=male|female|un_know"`
         DepId int64 `json:"depId,optional"`
-        Position string `json:"position,optional"`
+        PositionId int64 `json:"positionId,optional"`
         JobTitle string `json:"jobTitle,optional"`
         Password string `json:"password,optional"`
         Status string `json:"status,optional,options=enabled|disabled"`
