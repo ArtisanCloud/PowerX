@@ -1262,14 +1262,14 @@ type ImageAbleInfo struct {
 }
 
 type CategoryImage struct {
-	Id              int64  `json:"id,optional"`
-	Filename        string `json:"filename,optional"`
-	Size            int64  `json:"size,optional"`
-	Url             string `json:"url,optional"`
-	BucketName      string `json:"bucketName,optional"`
-	IsLocalArtisand bool   `json:"isLocalArtisand,optional"`
-	ContentType     string `json:"contentType,optional"`
-	ResourceType    string `json:"resourceType,optional"`
+	Id            int64  `json:"id,optional"`
+	Filename      string `json:"filename,optional"`
+	Size          int64  `json:"size,optional"`
+	Url           string `json:"url,optional"`
+	BucketName    string `json:"bucketName,optional"`
+	IsLocalStored bool   `json:"isLocalStored,optional"`
+	ContentType   string `json:"contentType,optional"`
+	ResourceType  string `json:"resourceType,optional"`
 }
 
 type ProductCategory struct {
@@ -1581,14 +1581,14 @@ type DeletePriceBookEntryReply struct {
 }
 
 type ArtisanImage struct {
-	Id              int64  `json:"id,optional"`
-	Filename        string `json:"filename,optional"`
-	Size            int64  `json:"size,optional"`
-	Url             string `json:"url,optional"`
-	BucketName      string `json:"bucketName,optional"`
-	IsLocalArtisand bool   `json:"isLocalArtisand,optional"`
-	ContentType     string `json:"contentType,optional"`
-	ResourceType    string `json:"resourceType,optional"`
+	Id            int64  `json:"id,optional"`
+	Filename      string `json:"filename,optional"`
+	Size          int64  `json:"size,optional"`
+	Url           string `json:"url,optional"`
+	BucketName    string `json:"bucketName,optional"`
+	IsLocalStored bool   `json:"isLocalStored,optional"`
+	ContentType   string `json:"contentType,optional"`
+	ResourceType  string `json:"resourceType,optional"`
 }
 
 type Artisan struct {
