@@ -30,6 +30,6 @@ func (l *PutLeadLogic) PutLead(req *types.PutLeadRequest) (resp *types.PutLeadRe
 	err = l.svcCtx.PowerX.Lead.UpdateLead(l.ctx, req.LeadId, mdlLead)
 
 	return &types.PutLeadReply{
-		Lead: TransformLeadToLeadReply(mdlLead),
+		Lead: TransformLeadToLeadReply(l.svcCtx, mdlLead),
 	}, err
 }

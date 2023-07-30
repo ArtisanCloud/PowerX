@@ -14,7 +14,7 @@ import (
 type Order struct {
 	*powermodel.PowerModel
 
-	Customer *customerdomain.Customer `gorm:"foreignKey:CustomerId;references:Id" json:"customerdomain"`
+	Customer *customerdomain.Customer `gorm:"foreignKey:CustomerId;references:Id" json:"customer"`
 	Items    []*OrderItem             `gorm:"foreignKey:OrderId;references:Id" json:"items"`
 	Payments []*Payment               `gorm:"foreignKey:OrderId;references:Id" json:"payments"`
 	//Memberships []*membership.Membership `gorm:"foreignKey:OrderId;references:Id" json:"memberships"`

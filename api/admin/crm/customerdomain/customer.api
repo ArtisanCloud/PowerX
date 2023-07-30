@@ -81,7 +81,7 @@ type (
     }
 
     GetCustomerReply {
-        Customer *Customer `json:"customerdomain"`
+        Customer *Customer `json:"customer"`
     }
 )
 

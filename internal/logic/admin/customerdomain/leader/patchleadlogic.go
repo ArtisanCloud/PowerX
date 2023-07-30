@@ -39,7 +39,7 @@ func (l *PatchLeadLogic) PatchLead(req *types.PatchLeadRequest) (resp *types.Pat
 	err = l.svcCtx.PowerX.Lead.UpdateLead(l.ctx, req.LeadId, mdlLead)
 
 	return &types.PatchLeadReply{
-		Lead: TransformLeadToLeadReply(mdlLead),
+		Lead: TransformLeadToLeadReply(l.svcCtx, mdlLead),
 	}, err
 
 }

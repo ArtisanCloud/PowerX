@@ -3,6 +3,7 @@ package customer
 import (
 	"PowerX/internal/model/customerdomain"
 	"PowerX/internal/types/errorx"
+	"PowerX/pkg/securityx"
 	"context"
 
 	"PowerX/internal/svc"
@@ -33,11 +34,11 @@ func (l *GetCustomerLogic) GetCustomer(req *types.GetCustomerReqeuest) (resp *ty
 	}
 
 	return &types.GetCustomerReply{
-		Customer: TransformCustomerToCustomerReply(mdlCustomer),
+		Customer: TransformCustomerToCustomerReply(l.svcCtx, mdlCustomer),
 	}, nil
 }
 
-func TransformCustomerToCustomerReply(mdlCustomer *customerdomain.Customer) (customerReply *types.Customer) {
+func TransformCustomerToCustomerReply(svcCtx *svc.ServiceContext, mdlCustomer *customerdomain.Customer) (customerReply *types.Customer) {
 
 	var inviter *types.CustomerInviter
 	if mdlCustomer.Inviter != nil {
@@ -48,10 +49,17 @@ func TransformCustomerToCustomerReply(mdlCustomer *customerdomain.Customer) (cus
 		}
 	}
 
+	mobile := mdlCustomer.Mobile
+	openIdInMiniProgram := mdlCustomer.OpenIdInMiniProgram
+	if svcCtx.Config.PowerXDatabase.SeedCommerceData {
+		mobile = securityx.MaskMobile(mobile)
+		openIdInMiniProgram = securityx.MaskName(openIdInMiniProgram, 20)
+	}
+
 	return &types.Customer{
 		Id:          mdlCustomer.Id,
 		Name:        mdlCustomer.Name,
-		Mobile:      mdlCustomer.Mobile,
+		Mobile:      mobile,
 		Email:       mdlCustomer.Email,
 		InviterId:   mdlCustomer.InviterId,
 		Source:      mdlCustomer.Source,
@@ -60,7 +68,7 @@ func TransformCustomerToCustomerReply(mdlCustomer *customerdomain.Customer) (cus
 		CreatedAt:   mdlCustomer.CreatedAt.String(),
 		Inviter:     inviter,
 		CustomerExternalId: &types.CustomerExternalId{
-			OpenIdInMiniProgram:           mdlCustomer.OpenIdInMiniProgram,
+			OpenIdInMiniProgram:           openIdInMiniProgram,
 			OpenIdInWeChatOfficialAccount: mdlCustomer.OpenIdInWeChatOfficialAccount,
 			OpenIdInWeCom:                 mdlCustomer.OpenIdInWeCom,
 		},
