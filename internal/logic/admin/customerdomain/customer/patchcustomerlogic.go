@@ -39,7 +39,7 @@ func (l *PatchCustomerLogic) PatchCustomer(req *types.PatchCustomerRequest) (res
 	err = l.svcCtx.PowerX.Customer.UpdateCustomer(l.ctx, req.CustomerId, mdlCustomer)
 
 	return &types.PatchCustomerReply{
-		Customer: TransformCustomerToCustomerReply(mdlCustomer),
+		Customer: TransformCustomerToCustomerReply(l.svcCtx, mdlCustomer),
 	}, err
 
 }

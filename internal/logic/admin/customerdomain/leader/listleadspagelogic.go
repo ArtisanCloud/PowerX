@@ -43,7 +43,7 @@ func (l *ListLeadsPageLogic) ListLeadsPage(req *types.ListLeadsPageRequest) (res
 	}
 
 	// list
-	list := TransformLeadsToLeadsReply(page.List)
+	list := TransformLeadsToLeadsReply(l.svcCtx, page.List)
 	return &types.ListLeadsPageReply{
 		List:      list,
 		PageIndex: page.PageIndex,
@@ -53,10 +53,10 @@ func (l *ListLeadsPageLogic) ListLeadsPage(req *types.ListLeadsPageRequest) (res
 
 }
 
-func TransformLeadsToLeadsReply(leads []*customerdomain2.Lead) []types.Lead {
+func TransformLeadsToLeadsReply(svcCtx *svc.ServiceContext, leads []*customerdomain2.Lead) []types.Lead {
 	leadsReply := []types.Lead{}
 	for _, lead := range leads {
-		leadReply := TransformLeadToLeadReply(lead)
+		leadReply := TransformLeadToLeadReply(svcCtx, lead)
 		leadsReply = append(leadsReply, *leadReply)
 
 	}
