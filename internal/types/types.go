@@ -1163,7 +1163,7 @@ type Product struct {
 	CanSellOnline          bool                           `json:"canSellOnline,optional"`
 	CanUseForDeduct        bool                           `json:"canUseForDeduct,optional"`
 	Description            string                         `json:"description,optional"`
-	AllowedSellQuantity    int                            `json:"purchasedQuantity,optional"`
+	AllowedSellQuantity    int                            `json:"allowedSellQuantity,optional"`
 	ValidityPeriodDays     int                            `json:"validityPeriodDays,optional"`
 	SaleStartDate          string                         `json:"saleStartDate,optional"`
 	SaleEndDate            string                         `json:"saleEndDate,optional"`
