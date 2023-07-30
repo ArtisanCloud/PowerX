@@ -21,6 +21,7 @@ etc/powerx.yaml
 /scrm.mk
 /app1
 /ctl
+powerx.go
 powerx
 powerxctl
 

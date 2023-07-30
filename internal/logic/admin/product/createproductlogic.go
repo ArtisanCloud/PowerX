@@ -174,9 +174,10 @@ func TransformProductImageToImageReply(resource *media.MediaResource) (imagesRep
 		return nil
 	}
 	return &types.ProductImage{
-		Id:       resource.Id,
-		Url:      resource.Url,
-		Filename: resource.Filename,
+		Id:            resource.Id,
+		Url:           resource.Url,
+		IsLocalStored: resource.IsLocalStored,
+		Filename:      resource.Filename,
 	}
 }
 

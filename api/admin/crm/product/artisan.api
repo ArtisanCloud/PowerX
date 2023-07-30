@@ -49,7 +49,7 @@ type (
         Size int64 `json:"size,optional"`
         Url string `json:"url,optional"`
         BucketName string `json:"bucketName,optional"`
-        IsLocalArtisand bool `json:"isLocalArtisand,optional"`
+        IsLocalStored bool `json:"isLocalStored,optional"`
         ContentType string `json:"contentType,optional"`
         ResourceType string `json:"resourceType,optional"`
     }
