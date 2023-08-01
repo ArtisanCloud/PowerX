@@ -238,7 +238,7 @@ func (uc *CartUseCase) ClearAssociations(db *gorm.DB, cart *trade.Cart) (*trade.
 }
 
 func (uc *CartUseCase) PreloadItems(db *gorm.DB) *gorm.DB {
-	db = db.Preload("SKU.pricebookentry").
+	db = db.Preload("SKU.PriceBookEntry").
 		Preload("Product.PivotCoverImages")
 	return db
 }

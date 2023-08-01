@@ -2,9 +2,9 @@ package trade
 
 import (
 	"PowerX/internal/model/customerdomain"
+	"PowerX/internal/model/media"
 	"PowerX/internal/model/powermodel"
 	"PowerX/internal/model/product"
-	"PowerX/internal/types"
 	"github.com/ArtisanCloud/PowerLibs/v3/object"
 	"github.com/golang-module/carbon/v2"
 	"time"
@@ -78,7 +78,7 @@ type OrderItem struct {
 
 	Order            *Order                  `gorm:"foreignKey:OrderId;references:Id" json:"order"`
 	ProductBookEntry *product.PriceBookEntry `gorm:"foreignKey:PriceBookEntryId;references:Id" json:"priceBook"`
-	CoverImage       *types.MediaResource    `gorm:"foreignKey:CoverImageId;references:Id" json:"coverImage"`
+	CoverImage       *media.MediaResource    `gorm:"foreignKey:CoverImageId;references:Id" json:"coverImage"`
 	//Membership       *membership.Membership  `gorm:"foreignKey:OrderItemId;references:Id" json:"membership"`
 	//CouponItem  *CouponItem `gorm:"foreignKey:OrderItemId;references:Id" json:"CouponItem"`
 

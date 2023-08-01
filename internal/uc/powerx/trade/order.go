@@ -491,6 +491,7 @@ func (uc *OrderUseCase) CanOrderCancel(ctx context.Context, order *trade.Order) 
 		trade.OrderStatusToBeShipped,
 		trade.OrderStatusShipping,
 	}
+	//fmt.Dump(ddOrderStatus.Key, availableStatus)
 	return slicex.Contains(availableStatus, ddOrderStatus.Key)
 
 }
