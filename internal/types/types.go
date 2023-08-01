@@ -2715,19 +2715,19 @@ type CancelOrderReply struct {
 }
 
 type OrderItem struct {
-	Id               int64   `json:"id,optional"`
-	OrderId          int64   `json:"orderId,optional"`
-	PriceBookEntryId int64   `json:"priceBookEntryId,optional"`
-	CustomerId       int64   `json:"customerId,optional"`
-	Type             int     `json:"type,optional"`
-	Status           int     `json:"status,optional"`
-	Quantity         int     `json:"quantity,optional"`
-	UnitPrice        float64 `json:"unitPrice,optional"`
-	ListPrice        float64 `json:"listPrice,optional"`
-	SellingPrice     float64 `json:"sellingPrice,optional"`
-	CoverUrl         string  `json:"coverUrl,optional"`
-	ProdcutName      string  `json:"productName,optional"`
-	SkuNo            string  `json:"skuNo,optional"`
+	Id               int64         `json:"id,optional"`
+	OrderId          int64         `json:"orderId,optional"`
+	PriceBookEntryId int64         `json:"priceBookEntryId,optional"`
+	CustomerId       int64         `json:"customerId,optional"`
+	Type             int           `json:"type,optional"`
+	Status           int           `json:"status,optional"`
+	Quantity         int           `json:"quantity,optional"`
+	UnitPrice        float64       `json:"unitPrice,optional"`
+	ListPrice        float64       `json:"listPrice,optional"`
+	SellingPrice     float64       `json:"sellingPrice,optional"`
+	CoverImage       *ProductImage `json:"coverImage,optional"`
+	ProdcutName      string        `json:"productName,optional"`
+	SkuNo            string        `json:"skuNo,optional"`
 }
 
 type Order struct {

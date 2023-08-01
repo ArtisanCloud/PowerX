@@ -33,7 +33,7 @@ func (l *CancelOrderLogic) CancelOrder(req *types.CancelOrderRequest) (resp *typ
 
 	// 找出相应的Cart Items
 	order, err := l.svcCtx.PowerX.Order.GetOrder(l.ctx, req.OrderId)
-	if l.svcCtx.PowerX.Order.CanOrderCancel(l.ctx, order) {
+	if !l.svcCtx.PowerX.Order.CanOrderCancel(l.ctx, order) {
 		return nil, errorx.WithCause(errorx.ErrBadRequest, "订单状态不能被取消")
 	}
 

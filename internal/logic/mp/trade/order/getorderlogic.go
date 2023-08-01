@@ -1,6 +1,7 @@
 package order
 
 import (
+	"PowerX/internal/logic/admin/product"
 	"PowerX/internal/model/trade"
 	"PowerX/internal/types/errorx"
 	"context"
@@ -77,11 +78,6 @@ func TransformOrderItemToOrderItemReplyToMP(orderItem *trade.OrderItem) (orderIt
 		return nil
 	}
 
-	coverImageUrl := ""
-	if orderItem.CoverImage != nil {
-		coverImageUrl = orderItem.CoverImage.Url
-	}
-
 	return &types.OrderItem{
 		Id:               orderItem.Id,
 		OrderId:          orderItem.OrderId,
@@ -92,7 +88,7 @@ func TransformOrderItemToOrderItemReplyToMP(orderItem *trade.OrderItem) (orderIt
 		Quantity:         orderItem.Quantity,
 		UnitPrice:        orderItem.UnitPrice,
 		ListPrice:        orderItem.ListPrice,
-		CoverUrl:         coverImageUrl,
+		CoverImage:       product.TransformProductImageToImageReply(orderItem.CoverImage),
 		ProdcutName:      orderItem.ProductName,
 		SkuNo:            orderItem.SkuNo,
 	}
