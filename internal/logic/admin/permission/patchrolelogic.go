@@ -1,7 +1,7 @@
 package permission
 
 import (
-	"PowerX/internal/uc/powerx"
+	"PowerX/internal/model/permission"
 	"context"
 
 	"PowerX/internal/model"
@@ -26,23 +26,23 @@ func NewPatchRoleLogic(ctx context.Context, svcCtx *svc.ServiceContext) *PatchRo
 }
 
 func (l *PatchRoleLogic) PatchRole(req *types.PatchRoleReqeust) (resp *types.PatchRoleReply, err error) {
-	var adminAPI []*powerx.AdminAPI
+	var adminAPI []*permission.AdminAPI
 	for _, id := range req.APIIds {
-		adminAPI = append(adminAPI, &powerx.AdminAPI{
+		adminAPI = append(adminAPI, &permission.AdminAPI{
 			CommonModel: model.CommonModel{
 				Id: id,
 			},
 		})
 	}
 
-	var menuNames []*powerx.AdminRoleMenuName
+	var menuNames []*permission.AdminRoleMenuName
 	for _, menuName := range req.MenuNames {
-		menuNames = append(menuNames, &powerx.AdminRoleMenuName{
+		menuNames = append(menuNames, &permission.AdminRoleMenuName{
 			MenuName: menuName,
 		})
 	}
 
-	role := powerx.AdminRole{
+	role := permission.AdminRole{
 		RoleCode:   req.RoleCode,
 		Name:       req.Name,
 		Desc:       req.Desc,

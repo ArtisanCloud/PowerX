@@ -1,8 +1,8 @@
 package auth
 
 import (
+	"PowerX/internal/model/option"
 	"PowerX/internal/types/errorx"
-	"PowerX/internal/uc/powerx"
 	"context"
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/pkg/errors"
@@ -32,7 +32,7 @@ func (l *LoginLogic) Login(req *types.LoginRequest) (resp *types.LoginReply, err
 	if err != nil {
 		panic(err)
 	}
-	opt := powerx.EmployeeLoginOption{
+	opt := option.EmployeeLoginOption{
 		Account:     req.UserName,
 		PhoneNumber: req.PhoneNumber,
 		Email:       req.Email,

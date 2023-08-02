@@ -1,7 +1,7 @@
 package employee
 
 import (
-	"PowerX/internal/model/scrm/organization"
+	"PowerX/internal/model/origanzation"
 	"context"
 	"github.com/pkg/errors"
 
@@ -26,12 +26,12 @@ func NewCreateEmployeeLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Cr
 }
 
 func (l *CreateEmployeeLogic) CreateEmployee(req *types.CreateEmployeeRequest) (resp *types.CreateEmployeeReply, err error) {
-	employee := organization.Employee{
+	employee := origanzation.Employee{
 		Account:       req.Account,
 		Name:          req.Name,
 		NickName:      req.NickName,
 		Desc:          req.Desc,
-		Position:      req.Position,
+		PositionID:    req.PositionId,
 		DepartmentId:  req.DepId,
 		MobilePhone:   req.MobilePhone,
 		Gender:        req.Gender,
@@ -39,13 +39,27 @@ func (l *CreateEmployeeLogic) CreateEmployee(req *types.CreateEmployeeRequest) (
 		ExternalEmail: req.ExternalEmail,
 		Avatar:        req.Avatar,
 		Password:      "123456",
-		Status:        organization.EmployeeStatusEnabled,
+		Status:        origanzation.EmployeeStatusEnabled,
 	}
 	if err = employee.HashPassword(); err != nil {
 		panic(errors.Wrap(err, "create employee hash password failed"))
 	}
 	if err = l.svcCtx.PowerX.Organization.CreateEmployee(l.ctx, &employee); err != nil {
 		return nil, err
+	}
+
+	// 根据职位更新角色
+	if employee.PositionID != 0 {
+		codes, err := l.svcCtx.PowerX.Organization.FindEmployeePositionRoleCodes(l.ctx, employee.Id)
+		if err != nil {
+			panic(err)
+		}
+		if _, err := l.svcCtx.PowerX.AdminAuthorization.Casbin.DeleteRolesForUser(employee.Account); err != nil {
+			panic(err)
+		}
+		if _, err := l.svcCtx.PowerX.AdminAuthorization.Casbin.AddRolesForUser(employee.Account, codes); err != nil {
+			panic(err)
+		}
 	}
 
 	return &types.CreateEmployeeReply{

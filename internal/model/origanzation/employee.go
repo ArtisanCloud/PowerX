@@ -1,4 +1,4 @@
-package organization
+package origanzation
 
 import (
 	"PowerX/internal/model"
@@ -15,7 +15,8 @@ type Employee struct {
 	Name          string `gorm:"comment:名称;column:name" json:"name"`
 	NickName      string `gorm:"comment:别称;column:nick_name" json:"nick_name"`
 	Desc          string `gorm:"comment:描述;column:desc" json:"desc"`
-	Position      string `gorm:"comment:位置;column:position" json:"position"`
+	PositionID    int64  `gorm:"comment:职位ID;column:position_id" json:"position_id"`
+	Position      *Position
 	JobTitle      string `gorm:"comment:职务;column:job_title" json:"job_title"`
 	DepartmentId  int64  `gorm:"comment:部门ID;column:department_id" json:"department_id"`
 	MobilePhone   string `gorm:"comment:电话;column:mobile_phone" json:"mobile_phone"`
@@ -52,7 +53,7 @@ const (
 
 const defaultCost = bcrypt.MinCost
 
-// 生成哈希密码
+// HashPassword 生成哈希密码
 func HashPassword(password string) (hashedPwd string, err error) {
 	newPassword, err := bcrypt.GenerateFromPassword([]byte(password), defaultCost)
 	if err != nil {
@@ -61,27 +62,16 @@ func HashPassword(password string) (hashedPwd string, err error) {
 	return string(newPassword), nil
 }
 
-// 校验密码
+// VerifyPassword 校验密码
 func VerifyPassword(hashedPwd string, pwd string) bool {
 	err := bcrypt.CompareHashAndPassword([]byte(hashedPwd), []byte(pwd))
 	return err == nil
 }
 
-// Table
-//
-//	@Description:
-//	@receiver e
-//	@return string
-func (e Employee) TableName() string {
+func (e *Employee) TableName() string {
 	return `employees`
 }
 
-// Action
-//
-//	@Description:
-//	@receiver e
-//	@param db
-//	@param contacts
 func (e *Employee) Action(db *gorm.DB, employees []*Employee) {
 
 	err := db.Table(e.TableName()).Debug().Clauses(
@@ -92,5 +82,4 @@ func (e *Employee) Action(db *gorm.DB, employees []*Employee) {
 	if err != nil {
 		panic(err)
 	}
-
 }
