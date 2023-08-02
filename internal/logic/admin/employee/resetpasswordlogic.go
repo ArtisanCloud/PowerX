@@ -1,7 +1,7 @@
 package employee
 
 import (
-	"PowerX/internal/model/scrm/organization"
+	"PowerX/internal/model/origanzation"
 	"PowerX/internal/types"
 	"context"
 	"github.com/pkg/errors"
@@ -27,7 +27,7 @@ func NewResetPasswordLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Res
 }
 
 func (l *ResetPasswordLogic) ResetPassword(req *types.ResetPasswordRequest) (resp *types.ResetPasswordReply, err error) {
-	employee := organization.Employee{
+	employee := origanzation.Employee{
 		Model: model.Model{
 			Id: req.UserId,
 		},

@@ -1,7 +1,9 @@
 package employee
 
 import (
-	"PowerX/internal/model/scrm/organization"
+	"PowerX/internal/model/origanzation"
+	"PowerX/internal/model/permission"
+	"PowerX/pkg/slicex"
 	"context"
 	"time"
 
@@ -41,24 +43,37 @@ func (l *GetEmployeeLogic) GetEmployee(req *types.GetEmployeeRequest) (resp *typ
 		}
 	}
 
+	vo := types.Employee{
+		Id:            employee.Id,
+		Account:       employee.Account,
+		Name:          employee.Name,
+		Email:         employee.Email,
+		MobilePhone:   employee.MobilePhone,
+		Gender:        employee.Gender,
+		NickName:      employee.NickName,
+		Desc:          employee.NickName,
+		Avatar:        employee.Avatar,
+		ExternalEmail: employee.ExternalEmail,
+		Department:    dep,
+		Roles:         roles,
+		JobTitle:      employee.JobTitle,
+		IsEnabled:     employee.Status == origanzation.EmployeeStatusEnabled,
+		CreatedAt:     employee.CreatedAt.Format(time.RFC3339),
+	}
+	if employee.Position != nil {
+		codes := slicex.SlicePluck(employee.Position.Roles, func(item *permission.AdminRole) string {
+			return item.RoleCode
+		})
+		vo.Position = &types.Position{
+			Id:        employee.Position.Id,
+			Name:      employee.Position.Name,
+			Desc:      employee.Position.Desc,
+			Level:     employee.Position.Level,
+			RoleCodes: codes,
+		}
+		vo.PositionId = employee.Position.Id
+	}
 	return &types.GetEmployeeReply{
-		Employee: &types.Employee{
-			Id:            employee.Id,
-			Account:       employee.Account,
-			Name:          employee.Name,
-			Email:         employee.Email,
-			MobilePhone:   employee.MobilePhone,
-			Gender:        employee.Gender,
-			NickName:      employee.NickName,
-			Desc:          employee.NickName,
-			Avatar:        employee.Avatar,
-			ExternalEmail: employee.ExternalEmail,
-			Department:    dep,
-			Roles:         roles,
-			Position:      employee.Position,
-			JobTitle:      employee.JobTitle,
-			IsEnabled:     employee.Status == organization.EmployeeStatusEnabled,
-			CreatedAt:     employee.CreatedAt.Format(time.RFC3339),
-		},
+		Employee: &vo,
 	}, nil
 }

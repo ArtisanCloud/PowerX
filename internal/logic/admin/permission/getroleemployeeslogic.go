@@ -1,7 +1,7 @@
 package permission
 
 import (
-	"PowerX/internal/uc/powerx"
+	"PowerX/internal/model/option"
 	"context"
 
 	"PowerX/internal/svc"
@@ -35,7 +35,7 @@ func (l *GetRoleEmployeesLogic) GetRoleEmployees(req *types.GetRoleEmployeesReqe
 		}, nil
 	}
 
-	employeePage := l.svcCtx.PowerX.Organization.FindManyEmployeesPage(l.ctx, &powerx.FindManyEmployeesOption{
+	employeePage := l.svcCtx.PowerX.Organization.FindManyEmployeesPage(l.ctx, &option.FindManyEmployeesOption{
 		Accounts:  accounts,
 		PageIndex: req.PageIndex,
 		PageSize:  req.PageSize,

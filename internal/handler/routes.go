@@ -17,6 +17,7 @@ import (
 	adminmarketstore "PowerX/internal/handler/admin/market/store"
 	adminmediaresource "PowerX/internal/handler/admin/mediaresource"
 	adminpermission "PowerX/internal/handler/admin/permission"
+	adminposition "PowerX/internal/handler/admin/position"
 	adminproduct "PowerX/internal/handler/admin/product"
 	adminproductartisan "PowerX/internal/handler/admin/product/artisan"
 	adminproductcategory "PowerX/internal/handler/admin/product/category"
@@ -88,6 +89,11 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 					Path:    "/options/departments",
 					Handler: admincommon.GetDepartmentOptionsHandler(serverCtx),
 				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/options",
+					Handler: admincommon.GetOptionsHandler(serverCtx),
+				},
 			}...,
 		),
 		rest.WithPrefix("/api/v1/admin/common"),
@@ -125,6 +131,40 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			}...,
 		),
 		rest.WithPrefix("/api/v1/admin/department"),
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Route{
+				{
+					Method:  http.MethodPost,
+					Path:    "/positions",
+					Handler: adminposition.CreatePositionHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPatch,
+					Path:    "/positions/:id",
+					Handler: adminposition.PatchPositionHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodDelete,
+					Path:    "/positions/:id",
+					Handler: adminposition.DeletePositionHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/positions",
+					Handler: adminposition.ListPositionsHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/positions/:id",
+					Handler: adminposition.GetPositionHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithPrefix("/api/v1/admin/position"),
 	)
 
 	server.AddRoutes(

@@ -23,14 +23,13 @@ func NewListWeWorkTagPageLogic(ctx context.Context, svcCtx *svc.ServiceContext) 
 	}
 }
 
-//
 // ListWeWorkTagPage
-//  @Description:
-//  @receiver tag
-//  @param req
-//  @return resp
-//  @return err
 //
+//	@Description:
+//	@receiver tag
+//	@param req
+//	@return resp
+//	@return err
 func (tag *ListWeWorkTagPageLogic) ListWeWorkTagPage(opt *types.ListWeWorkTagReqeust) (resp *types.ListWeWorkTagReply, err error) {
 
 	reply, err := tag.svcCtx.PowerX.SCRM.Wechat.FindListWeWorkTagPage(tag.OPT(opt))
@@ -47,13 +46,10 @@ func (tag *ListWeWorkTagPageLogic) ListWeWorkTagPage(opt *types.ListWeWorkTagReq
 
 }
 
-//
-//
-//  @Description:
-//  @receiver tag
-//  @param opt
-//  @return *types.PageOption[types.ListWeWorkTagReqeust]
-//
+// @Description:
+// @receiver tag
+// @param opt
+// @return *types.PageOption[types.ListWeWorkTagReqeust]
 func (tag *ListWeWorkTagPageLogic) OPT(opt *types.ListWeWorkTagReqeust) *types.PageOption[types.ListWeWorkTagReqeust] {
 
 	option := types.PageOption[types.ListWeWorkTagReqeust]{
@@ -75,13 +71,12 @@ func (tag *ListWeWorkTagPageLogic) OPT(opt *types.ListWeWorkTagReqeust) *types.P
 
 }
 
-//
 // DTO
-//  @Description:
-//  @receiver tag
-//  @param tags
-//  @return obj
 //
+//	@Description:
+//	@receiver tag
+//	@param tags
+//	@return obj
 func (tag *ListWeWorkTagPageLogic) DTO(tags []*tag.WeWorkTag) (obj []*types.Tag) {
 
 	if tags != nil {

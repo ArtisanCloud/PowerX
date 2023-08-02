@@ -26,8 +26,6 @@ func NewGetEmployeeQueryOptionsLogic(ctx context.Context, svcCtx *svc.ServiceCon
 func (l *GetEmployeeQueryOptionsLogic) GetEmployeeQueryOptions() (resp *types.GetEmployeeQueryOptionsReply, err error) {
 	resp = &types.GetEmployeeQueryOptionsReply{}
 
-	resp.Positions = l.svcCtx.PowerX.Organization.FindAllPositions(l.ctx)
-
 	roles := l.svcCtx.PowerX.AdminAuthorization.FindAllRoles(l.ctx)
 	for _, role := range roles {
 		resp.Roles = append(resp.Roles, types.EmployeeQueryRoleOption{

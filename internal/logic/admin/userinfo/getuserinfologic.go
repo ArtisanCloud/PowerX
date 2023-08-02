@@ -1,7 +1,7 @@
 package userinfo
 
 import (
-	"PowerX/internal/model/scrm/organization"
+	"PowerX/internal/model/origanzation"
 	"context"
 	"github.com/pkg/errors"
 	"time"
@@ -51,14 +51,17 @@ func (l *GetUserInfoLogic) GetUserInfo() (resp *types.GetUserInfoReply, err erro
 		Avatar:        employee.Avatar,
 		ExternalEmail: employee.ExternalEmail,
 		Roles:         roles,
-		Position:      employee.Position,
 		JobTitle:      employee.JobTitle,
 		CreatedAt:     employee.CreatedAt.Format(time.RFC3339),
 	}
+	if employee.Position != nil {
+		resp.Position = employee.Position.Name
+	}
+
 	if employee.Department != nil {
 		resp.DepName = employee.Department.Name
 	}
-	if employee.Status == organization.EmployeeStatusEnabled {
+	if employee.Status == origanzation.EmployeeStatusEnabled {
 		resp.IsEnabled = true
 	}
 	return

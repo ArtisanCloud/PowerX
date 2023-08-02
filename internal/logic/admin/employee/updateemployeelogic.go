@@ -1,7 +1,7 @@
 package employee
 
 import (
-	"PowerX/internal/model/scrm/organization"
+	"PowerX/internal/model/origanzation"
 	"PowerX/internal/types"
 	"context"
 	"github.com/pkg/errors"
@@ -28,14 +28,14 @@ func NewUpdateEmployeeLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Up
 }
 
 func (l *UpdateEmployeeLogic) UpdateEmployee(req *types.UpdateEmployeeRequest) (resp *types.UpdateEmployeeReply, err error) {
-	employee := organization.Employee{
+	employee := origanzation.Employee{
 		Model: model.Model{
 			Id: req.Id,
 		},
 		Name:          req.Name,
 		NickName:      req.NickName,
 		Desc:          req.Desc,
-		Position:      req.Position,
+		PositionID:    req.PositionId,
 		JobTitle:      req.JobTitle,
 		DepartmentId:  req.DepId,
 		MobilePhone:   req.MobilePhone,
@@ -55,6 +55,20 @@ func (l *UpdateEmployeeLogic) UpdateEmployee(req *types.UpdateEmployeeRequest) (
 		return nil, err
 	}
 
+	// 根据职位更新角色
+	if employee.PositionID != 0 {
+		codes, err := l.svcCtx.PowerX.Organization.FindEmployeePositionRoleCodes(l.ctx, employee.Id)
+		if err != nil {
+			panic(err)
+		}
+		if _, err := l.svcCtx.PowerX.AdminAuthorization.Casbin.DeleteRolesForUser(employee.Account); err != nil {
+			panic(err)
+		}
+		if _, err := l.svcCtx.PowerX.AdminAuthorization.Casbin.AddRolesForUser(employee.Account, codes); err != nil {
+			panic(err)
+		}
+	}
+
 	roles, _ := l.svcCtx.PowerX.AdminAuthorization.Casbin.GetRolesForUser(employee.Account)
 
 	return &types.UpdateEmployeeReply{
@@ -70,9 +84,9 @@ func (l *UpdateEmployeeLogic) UpdateEmployee(req *types.UpdateEmployeeRequest) (
 			Avatar:        employee.Avatar,
 			ExternalEmail: employee.ExternalEmail,
 			Roles:         roles,
-			Position:      employee.Position,
+			PositionId:    employee.PositionID,
 			JobTitle:      employee.JobTitle,
-			IsEnabled:     employee.Status == organization.EmployeeStatusEnabled,
+			IsEnabled:     employee.Status == origanzation.EmployeeStatusEnabled,
 			CreatedAt:     employee.CreatedAt.Format(time.RFC3339),
 		},
 	}, nil

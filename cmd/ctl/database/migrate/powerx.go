@@ -8,6 +8,8 @@ import (
 	"PowerX/internal/model/market"
 	"PowerX/internal/model/media"
 	"PowerX/internal/model/membership"
+	"PowerX/internal/model/origanzation"
+	"PowerX/internal/model/permission"
 	"PowerX/internal/model/product"
 	"PowerX/internal/model/scene"
 	"PowerX/internal/model/scrm/app"
@@ -16,7 +18,6 @@ import (
 	"PowerX/internal/model/scrm/resource"
 	"PowerX/internal/model/scrm/tag"
 	"PowerX/internal/model/trade"
-	"PowerX/internal/uc/powerx"
 	"gorm.io/driver/mysql"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -47,8 +48,8 @@ func NewPowerMigrator(conf *config.Config) (*PowerMigrator, error) {
 func (m *PowerMigrator) AutoMigrate() {
 
 	_ = m.db.AutoMigrate(&model.DataDictionaryType{}, &model.DataDictionaryItem{}, &model.PivotDataDictionaryToObject{})
-	_ = m.db.AutoMigrate(&organization.Department{}, &organization.Employee{})
-	_ = m.db.AutoMigrate(&powerx.EmployeeCasbinPolicy{}, powerx.AdminRole{}, powerx.AdminRoleMenuName{}, powerx.AdminAPI{})
+	_ = m.db.AutoMigrate(&origanzation.Department{}, &origanzation.Employee{}, &origanzation.Position{})
+	_ = m.db.AutoMigrate(&permission.EmployeeCasbinPolicy{}, permission.AdminRole{}, permission.AdminRoleMenuName{}, permission.AdminAPI{})
 
 	// customerdomain domain
 	_ = m.db.AutoMigrate(&customerdomain.Lead{}, &customerdomain.Contact{}, &customerdomain.Customer{}, &membership.Membership{})
