@@ -38,6 +38,11 @@ func (s *PowerSeeder) CreatePowerX() (err error) {
 	_ = CreateOrganization(s.db)
 	_ = datadictionary.CreateDataDictionaries(s.db)
 
+	// 默认的组织架构是否需要生成
+	if s.conf.PowerXDatabase.SeedDepartment {
+		_ = CreateDefaultDepartments(s.db)
+	}
+
 	// 电商数据是否需要造数据
 	if s.conf.PowerXDatabase.SeedCommerceData {
 		_ = CreateMediaResources(s.db, s.conf)
