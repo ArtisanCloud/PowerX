@@ -83,6 +83,7 @@ func (tag *ListWeWorkTagPageLogic) DTO(tags []*tag.WeWorkTag) (obj []*types.Tag)
 		for _, val := range tags {
 			obj = append(obj, &types.Tag{
 				Type:      val.Type,
+				IsSelf:    val.IsSelf,
 				TagId:     val.TagId,
 				GroupId:   val.GroupId,
 				GroupName: val.WeWorkGroup.Name,

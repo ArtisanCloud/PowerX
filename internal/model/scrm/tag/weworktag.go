@@ -11,6 +11,7 @@ type WeWorkTag struct {
 	model.Model
 	WeWorkGroup *WeWorkTagGroup `gorm:"foreignKey:GroupId;references:group_id" json:"WeWorkGroup"`
 	//
+	IsSelf   int    `gorm:"comment:是否自建:1:平台创建:其他：微信创建;column:is_self" json:"is_self"`
 	Type     int    `gorm:"comment:类型:1:企业标签2:策略标签;column:type" json:"type"`
 	TagId    string `gorm:"comment:标签ID;column:tag_id;unique" json:"tag_id"`
 	GroupId  string `gorm:"index:idx_group_id;not null;;comment:标签组ID;column:group_id" json:"group_id"`
@@ -57,10 +58,30 @@ func (e *WeWorkTag) Query(db *gorm.DB) (tags []*WeWorkTag) {
 //
 func (e *WeWorkTag) Action(db *gorm.DB, tags []*WeWorkTag) {
 
-	err := db.Table(e.TableName()).Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "tag_id"}}, UpdateAll: true}).Create(&tags).Error
+	err := db.Table(e.TableName()).Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "tag_id"}},
+		DoUpdates: clause.AssignmentColumns([]string{`type`, `group_id`, `name`, `sort`, `is_delete`}),
+	}).Create(&tags).Error
 	if err != nil {
 		panic(err)
 	}
+
+}
+
+//
+// FindOneByTagGroupId
+//  @Description:
+//  @receiver e
+//  @param db
+//  @param groupId
+//  @return tags
+//
+func (e *WeWorkTag) FindOneByTagGroupId(db *gorm.DB, groupId string) (tags []*WeWorkTag) {
+
+	err := db.Model(e).Where(`is_delete = ? AND group_id = ?`, false, groupId).Find(&tags).Error
+	if err != nil {
+		panic(err)
+	}
+	return tags
 
 }
 
@@ -103,7 +124,7 @@ func (e *WeWorkTag) Delete(db *gorm.DB, groupIds, tagIds []string) error {
 	column := make(map[string]interface{})
 	column[`is_delete`] = true
 	column[`deleted_at`] = time.Now()
-	err := query.UpdateColumns(&column).Error
+	err := query.Debug().UpdateColumns(&column).Error
 	if err != nil {
 		panic(err)
 	}

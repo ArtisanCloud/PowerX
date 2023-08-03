@@ -32,9 +32,6 @@ func NewSyncWeWorkGroupTagLogic(ctx context.Context, svcCtx *svc.ServiceContext)
 func (tag *SyncWeWorkGroupTagLogic) SyncWeWorkGroupTag() (resp *types.StatusWeWorkReply, err error) {
 
 	_, err = tag.svcCtx.PowerX.SCRM.Wechat.PullListWeWorkCorpTagRequest(nil, nil, 1)
-	if err != nil {
-		return nil, err
-	}
 
 	return &types.StatusWeWorkReply{
 		Status: `success`,

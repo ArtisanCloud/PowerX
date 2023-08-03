@@ -1256,51 +1256,58 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 	)
 
 	server.AddRoutes(
-		rest.WithMiddlewares(
-			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
-			[]rest.Route{
-				{
-					Method:  http.MethodGet,
-					Path:    "/group/option",
-					Handler: adminscrmtag.ListWeWorkTagGroupOptionHandler(serverCtx),
-				},
-				{
-					Method:  http.MethodGet,
-					Path:    "/corp/option",
-					Handler: adminscrmtag.ListWeWorkTagOptionHandler(serverCtx),
-				},
-				{
-					Method:  http.MethodPost,
-					Path:    "/corp/page",
-					Handler: adminscrmtag.ListWeWorkTagPageHandler(serverCtx),
-				},
-				{
-					Method:  http.MethodPut,
-					Path:    "/sync",
-					Handler: adminscrmtag.SyncWeWorkGroupTagHandler(serverCtx),
-				},
-				{
-					Method:  http.MethodPost,
-					Path:    "/crop/create",
-					Handler: adminscrmtag.CreateWeWorkCropTagHandler(serverCtx),
-				},
-				{
-					Method:  http.MethodPatch,
-					Path:    "/crop/update",
-					Handler: adminscrmtag.UpdateWeWorkCropTagHandler(serverCtx),
-				},
-				{
-					Method:  http.MethodDelete,
-					Path:    "/crop/delete",
-					Handler: adminscrmtag.DeleteWeWorkCropTagHandler(serverCtx),
-				},
-				{
-					Method:  http.MethodPost,
-					Path:    "/customer/action",
-					Handler: adminscrmtag.ActionWeWorkCustomerTagHandler(serverCtx),
-				},
-			}...,
-		),
+		[]rest.Route{
+			{
+				Method:  http.MethodGet,
+				Path:    "/group/option",
+				Handler: adminscrmtag.ListWeWorkTagGroupOptionHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodPost,
+				Path:    "/group/page",
+				Handler: adminscrmtag.ListWeWorkTagGroupPageHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodGet,
+				Path:    "/corp/option",
+				Handler: adminscrmtag.ListWeWorkTagOptionHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodPost,
+				Path:    "/group/action",
+				Handler: adminscrmtag.ActionWeWorkCropTagGroupHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodPost,
+				Path:    "/corp/page",
+				Handler: adminscrmtag.ListWeWorkTagPageHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodPut,
+				Path:    "/sync",
+				Handler: adminscrmtag.SyncWeWorkGroupTagHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodPost,
+				Path:    "/crop/create",
+				Handler: adminscrmtag.CreateWeWorkCropTagHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodPatch,
+				Path:    "/crop/update",
+				Handler: adminscrmtag.UpdateWeWorkCropTagHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodDelete,
+				Path:    "/crop/delete",
+				Handler: adminscrmtag.DeleteWeWorkCropTagHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodPost,
+				Path:    "/customer/action",
+				Handler: adminscrmtag.ActionWeWorkCustomerTagHandler(serverCtx),
+			},
+		},
 		rest.WithPrefix("/api/v1/admin/scrm/tag/wechat"),
 	)
 

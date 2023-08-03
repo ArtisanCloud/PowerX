@@ -11,16 +11,25 @@ info(
 @server(
     group: admin/scrm/tag
     prefix: /api/v1/admin/scrm/tag/wechat
-    middleware: EmployeeJWTAuth
+    // middleware: EmployeeJWTAuth
 )
 
 service PowerX {
     @doc "标签组列表/option"
     @handler ListWeWorkTagGroupOption
     get /group/option returns (ListWeWorkTagGroupReply)
+
+    @doc "标签组分页/page"
+    @handler ListWeWorkTagGroupPage
+    post /group/page (ListWeWorkTagGroupPageRequest) returns (ListWeWorkTagGroupPageReply)
+
     @doc "标签列表对象/key=>val"
     @handler ListWeWorkTagOption
     get /corp/option returns (ListWeWorkTagOptionReply)
+
+    @doc "添加、删除标签组内的标签"
+    @handler ActionWeWorkCropTagGroup
+    post /group/action (ActionCorpTagGroupRequest) returns (StatusWeWorkReply)
 
     @doc "标签列表/page"
     @handler ListWeWorkTagPage
@@ -34,11 +43,11 @@ service PowerX {
     @handler CreateWeWorkCropTag
     post /crop/create (CreateCorpTagRequest) returns (StatusWeWorkReply)
 
-    @doc "编辑企业标签"
+    @doc "@编辑企业标签"
     @handler UpdateWeWorkCropTag
     patch /crop/update (UpdateCorpTagRequest) returns (StatusWeWorkReply)
 
-    @doc "批量删除企业标签"
+    @doc "@批量删除企业标签"
     @handler DeleteWeWorkCropTag
     delete /crop/delete (DeleteCorpTagRequest) returns (StatusWeWorkReply)
 
@@ -46,7 +55,26 @@ service PowerX {
     @handler ActionWeWorkCustomerTag
     post /customer/action (ActionCustomerTagRequest) returns (StatusWeWorkReply)
 }
+type (
+    ListWeWorkTagGroupPageRequest {
+        GroupId string `json:"groupId,optional"`
+        GroupName string `json:"groupName,optional"`
+        PageIndex int `form:"pageIndex,optional"`
+        PageSize int `form:"pageSize,optional"`
+    }
 
+    ListWeWorkTagGroupPageReply {
+        List []*GroupWithTag `json:"list"`
+        PageIndex int `json:"pageIndex"`
+        PageSize int `json:"pageSize"`
+        Total int64 `json:"total"`
+    }
+    GroupWithTag {
+        GroupId string `json:"groupId"`
+        GroupName string `json:"groupName"`
+        Tags []*Tag `json:"tags"`
+    }
+)
 
 type (
     ListWeWorkTagReqeust {
@@ -73,10 +101,11 @@ type (
         List interface{} `json:"list"`
     }
     Tag {
-        Type int `json:"type"`
+        Type int `json:"type,omitempty"`
+        IsSelf int `json:"isSelf"` //1：自建
         TagId string `json:"tagId"`
-        GroupId string `json:"groupId"`
-        GroupName string `json:"groupName"`
+        GroupId string `json:"groupId,omitempty"`
+        GroupName string `json:"groupName,omitempty"`
         Name string `json:"name"`
         Sort int `json:"sort"`
     }
@@ -85,31 +114,42 @@ type (
         List []*TagGroup `json:"list"`
     }
 
+
+
     TagGroup {
         GroupId string `json:"groupId"`
         GroupName string `json:"groupName"`
     }
-
 )
 
 type (
     CreateCorpTagRequest struct {
-        GroupId string `json:"groupId"` //et2lz4UgAArZWi6ZKx1X8jo3uxfbC_sA 下拉标签组
+        GroupId string `json:"groupId,optional"` //et2lz4UgAArZWi6ZKx1X8jo3uxfbC_sA 下拉标签组
         GroupName string `json:"groupName"`
         Sort int `json:"Sort,optional"`
-        Tag []*TagFieldTag `json:"tag"`
-        AgentId int64 `json:"agentId"`  //应用列表
+        Tag []*TagFieldTag `json:"tag,optional"`
+        AgentId int64 `json:"agentId,optional"`  //应用列表
     }
 
     TagFieldTag struct {
         Name string `json:"name"`
-        Sort int `json:"sort"`
+        Sort int `json:"sort,optional"`
+    }
+
+    ActionCorpTagGroupRequest struct {
+        AgentId *int64 `json:"agentId,optional"`
+        GroupId *string `json:"groupId,optional"`
+        GroupName string `json:"groupName,optional"`
+        Tags []ActionTagGroup `json:"tags"`
+    }
+    ActionTagGroup {
+        TagId string `json:"tagId,optional"`
+        TagName string `json:"tagName,optional"`
     }
 )
 
 type (
     UpdateCorpTagRequest struct {
-
         TagId string `json:"tagId"`
         Name string `json:"name"`
         Sort int `json:"sort,optional"`

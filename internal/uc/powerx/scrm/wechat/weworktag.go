@@ -29,6 +29,46 @@ func (this wechatUseCase) FindListWeWorkTagGroupOption() (reply []*tag.WeWorkTag
 }
 
 //
+// FindListWeWorkTagGroupPage
+//  @Description:
+//  @receiver this
+//  @param option
+//  @return reply
+//  @return err
+//
+func (this wechatUseCase) FindListWeWorkTagGroupPage(option *types.PageOption[types.ListWeWorkTagGroupPageRequest]) (reply *types.Page[*tag.WeWorkTagGroup], err error) {
+
+	var tagGroups []*tag.WeWorkTagGroup
+	var count int64
+	query := this.db.WithContext(this.ctx).Model(tag.WeWorkTagGroup{}).Where(`is_delete = ?`, false)
+
+	if v := option.Option.GroupId; v != `` {
+		query.Where(`group_id = ?`, v)
+	}
+
+	if v := option.Option.GroupName; v != `` {
+		query.Where(`name like ?`, "%"+v+"%")
+	}
+
+	if err := query.Count(&count).Error; err != nil {
+		return nil, err
+	}
+	if option.PageIndex != 0 && option.PageSize != 0 {
+		query.Offset((option.PageIndex - 1) * option.PageSize).Limit(option.PageSize)
+	}
+
+	err = query.Preload(`WeWorkGroupTags`).Find(&tagGroups).Error
+
+	return &types.Page[*tag.WeWorkTagGroup]{
+		List:      tagGroups,
+		PageIndex: option.PageIndex,
+		PageSize:  option.PageSize,
+		Total:     count,
+	}, err
+
+}
+
+//
 // FindListWeWorkTagOption
 //  @Description:
 //  @receiver this
@@ -55,7 +95,7 @@ func (this wechatUseCase) FindListWeWorkTagPage(option *types.PageOption[types.L
 
 	var tags []*tag.WeWorkTag
 	var count int64
-	query := this.db.WithContext(this.ctx).Model(tag.WeWorkTag{}).Where(`is_delete = ?`, false)
+	query := this.db.WithContext(this.ctx).Debug().Model(tag.WeWorkTag{}).Where(`is_delete = ?`, false)
 
 	if v := option.Option.TagIds; len(v) > 0 {
 		query.Where(`tag_id in ?`, v)
@@ -67,14 +107,14 @@ func (this wechatUseCase) FindListWeWorkTagPage(option *types.PageOption[types.L
 	if v := option.Option.Name; v != `` {
 		query.Where(`name like ?`, "%"+v+"%")
 	}
+	if err := query.Count(&count).Error; err != nil {
+		return nil, err
+	}
 	if option.PageIndex != 0 && option.PageSize != 0 {
 		query.Offset((option.PageIndex - 1) * option.PageSize).Limit(option.PageSize)
 	}
 
-	if err := query.Count(&count).Error; err != nil {
-		return nil, err
-	}
-	err = query.Debug().Preload(`WeWorkGroup`).Find(&tags).Error
+	err = query.Preload(`WeWorkGroup`).Find(&tags).Error
 
 	return &types.Page[*tag.WeWorkTag]{
 		List:      tags,
@@ -106,7 +146,7 @@ func (this wechatUseCase) PullListWeWorkCorpTagRequest(tagIds []string, groupIds
 
 	if err == nil && sync > 0 {
 		// sync to local
-		groups, tags := this.transferWeWorkToModel(reply.TagGroups)
+		groups, tags := this.transferWeWorkToModel(reply.TagGroups, nil, 0)
 		if groups != nil {
 			this.modelWeworkTag.group.Action(this.db, groups)
 		}
@@ -125,10 +165,11 @@ func (this wechatUseCase) PullListWeWorkCorpTagRequest(tagIds []string, groupIds
 //  @Description:
 //  @receiver this
 //  @param data
+//  @param agentId
 //  @return groups
 //  @return tags
 //
-func (this wechatUseCase) transferWeWorkToModel(data []*response.CorpTagGroup) (groups []*tag.WeWorkTagGroup, tags []*tag.WeWorkTag) {
+func (this wechatUseCase) transferWeWorkToModel(data []*response.CorpTagGroup, agentId *int64, isSelf int) (groups []*tag.WeWorkTagGroup, tags []*tag.WeWorkTag) {
 
 	if data != nil {
 		for _, val := range data {
@@ -136,6 +177,7 @@ func (this wechatUseCase) transferWeWorkToModel(data []*response.CorpTagGroup) (
 				Model: model.Model{
 					CreatedAt: time.Unix(int64(val.CreateTime), 0),
 				},
+				//AgentId:  int(*agentId),
 				GroupId:  val.GroupID,
 				Name:     val.GroupName,
 				Sort:     val.Order,
@@ -148,6 +190,7 @@ func (this wechatUseCase) transferWeWorkToModel(data []*response.CorpTagGroup) (
 							CreatedAt: time.Unix(int64(value.CreateTime), 0),
 						},
 						Type:     1,
+						IsSelf:   isSelf,
 						TagId:    value.ID,
 						GroupId:  val.GroupID,
 						Name:     value.Name,
@@ -184,6 +227,47 @@ func (this wechatUseCase) PullListWeWorkStrategyTagRequest(options *request.Requ
 }
 
 //
+// ActionWeWorkCorpTagGroupRequest
+//  @Description:
+//  @receiver this
+//  @param options
+//  @return work
+//  @return error
+//
+func (this *wechatUseCase) ActionWeWorkCorpTagGroupRequest(options *types.ActionCorpTagGroupRequest) (work *baseResp.ResponseWork, err error) {
+
+	//tags := this.modelWeworkTag.tag.FindOneByTagGroupId(this.db, *options.GroupId)
+	var addTagGroup []request.RequestTagAddCorpTagFieldTag
+	var delTag []string
+
+	for _, newTag := range options.Tags {
+		if newTag.TagId == `` {
+			addTagGroup = append(addTagGroup, request.RequestTagAddCorpTagFieldTag{
+				Name: newTag.TagName,
+			})
+		} else {
+			delTag = append(delTag, newTag.TagId)
+		}
+	}
+	if delTag != nil {
+		work, err = this.DeleteWeWorkCorpTagRequest(&request.RequestTagDelCorpTag{TagID: delTag})
+	}
+	if len(addTagGroup) > 0 {
+		add, er := this.CreateWeWorkCorpTagRequest(&request.RequestTagAddCorpTag{
+			GroupID:   options.GroupId,
+			GroupName: options.GroupName,
+			Tag:       addTagGroup,
+			AgentID:   options.AgentId,
+		})
+		err = er
+		work = &add.ResponseWork
+	}
+
+	return work, err
+
+}
+
+//
 // CreateWeWorkCorpTagRequest
 //  @Description:
 //  @receiver this
@@ -201,7 +285,7 @@ func (this *wechatUseCase) CreateWeWorkCorpTagRequest(options *request.RequestTa
 	}
 
 	if err == nil {
-		groups, tags := this.transferWeWorkToModel([]*response.CorpTagGroup{corpTag.TagGroups})
+		groups, tags := this.transferWeWorkToModel([]*response.CorpTagGroup{corpTag.TagGroups}, options.AgentID, 1)
 		if groups != nil {
 			this.modelWeworkTag.group.Action(this.db, groups)
 		}
@@ -302,32 +386,34 @@ func (this *wechatUseCase) ActionWeWorkCustomerTagRequest(option *request.Reques
 func (this wechatUseCase) updateCustomerFolowTagIds(option *request.RequestTagMarkTag) {
 
 	follow := this.modelWeworkCustomer.follow.FindFollowByExternalUserId(this.db, option.ExternalUserID)
+	column := make(map[string]string)
 	if follow.TagIds != `` {
-		column := make(map[string]string)
 		for _, val := range strings.Split(follow.TagIds, `,`) {
 			column[val] = val
 		}
-		if option.AddTag != nil {
-			for _, val := range option.AddTag {
-				if _, ok := column[val]; !ok {
-					column[val] = val
-				}
+	}
+
+	if option.AddTag != nil {
+		for _, val := range option.AddTag {
+			if _, ok := column[val]; !ok {
+				column[val] = val
 			}
-		}
-		if option.RemoveTag != nil {
-			for _, val := range option.RemoveTag {
-				if _, ok := column[val]; ok {
-					delete(column, val)
-				}
-			}
-		}
-		if column != nil {
-			var tagIds []string
-			for _, val := range column {
-				tagIds = append(tagIds, val)
-			}
-			follow.TagIds = strings.Join(tagIds, `,`)
-			this.modelWeworkCustomer.follow.Action(this.db, []*customer.WeWorkExternalContactFollow{follow})
 		}
 	}
+	if option.RemoveTag != nil {
+		for _, val := range option.RemoveTag {
+			if _, ok := column[val]; ok {
+				delete(column, val)
+			}
+		}
+	}
+	if column != nil {
+		var tagIds []string
+		for _, val := range column {
+			tagIds = append(tagIds, val)
+		}
+		follow.TagIds = strings.Join(tagIds, `,`)
+		this.modelWeworkCustomer.follow.Action(this.db, []*customer.WeWorkExternalContactFollow{follow})
+	}
+
 }

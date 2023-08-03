@@ -328,6 +328,24 @@ type iTagInterface interface {
 	//
 	FindListWeWorkTagGroupOption() (reply []*tag.WeWorkTagGroup, err error)
 	//
+	// FindListWeWorkTagGroupPage
+	//  @Description: 标签组分页
+	//  @param option
+	//  @return reply
+	//  @return err
+	//
+	FindListWeWorkTagGroupPage(option *types.PageOption[types.ListWeWorkTagGroupPageRequest]) (reply *types.Page[*tag.WeWorkTagGroup], err error)
+
+	//
+	// ActionWeWorkCorpTagGroupRequest
+	//  @Description: 添加，删除标签组内的标签
+	//  @param options
+	//  @return work
+	//  @return err
+	//
+	ActionWeWorkCorpTagGroupRequest(options *types.ActionCorpTagGroupRequest) (work *kresp.ResponseWork, err error)
+
+	//
 	// FindListWeWorkTagOption
 	//  @Description: 标签
 	//  @return reply

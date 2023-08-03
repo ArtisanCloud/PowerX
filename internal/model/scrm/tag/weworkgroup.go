@@ -9,6 +9,7 @@ import (
 type WeWorkTagGroup struct {
 	model.Model
 	WeWorkGroupTags []*WeWorkTag `gorm:"foreignKey:GroupId;references:group_id" json:"WeWorkGroupTags"`
+	AgentId         int          `gorm:"comment:应用ID;column:agent_id" json:"agent_id"`
 	GroupId         string       `gorm:"comment:标签组ID;column:group_id;unique" json:"group_id"`
 	Name            string       `gorm:"comment:标签组名称;column:name" json:"name"`
 	Sort            int          `gorm:"comment:排序;column:sort" json:"sort"`

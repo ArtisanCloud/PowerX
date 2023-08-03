@@ -32,6 +32,7 @@ type (
         UserId string `json:"userId,optional"` //https://developer.work.weixin.qq.com/document/path/92113
         Name string `json:"name,optional"`
         UnionId string `json:"unionId,optional"`
+        TagId string `json:"tagId,optional"`
         Sync int `form:"sync,optional"`        // 是否同步(所有客户列表生效，场景：前端复选框勾选后，请求数据都会自动同步)
         PageIndex int `form:"pageIndex,optional"`
         PageSize int `form:"pageSize,optional"`
