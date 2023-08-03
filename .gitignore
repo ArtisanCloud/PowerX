@@ -23,4 +23,5 @@ etc/powerx.yaml
 /ctl
 powerx
 powerxctl
+powerx.go
 

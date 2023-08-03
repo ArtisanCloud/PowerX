@@ -57,16 +57,15 @@ func (customer *ListWeWorkCustomerPageLogic) ListWeWorkCustomerPage(opt *types.W
 func (customer *ListWeWorkCustomerPageLogic) OPT(opt *types.WeWorkCustomersRequest) *types.PageOption[wechat.FindManyWechatCustomerOption] {
 
 	option := types.PageOption[wechat.FindManyWechatCustomerOption]{
-		Option:    wechat.FindManyWechatCustomerOption{},
+		Option: wechat.FindManyWechatCustomerOption{
+			UserId: opt.UserId,
+			Name:   opt.Name,
+			TagId:  opt.TagId,
+		},
 		PageIndex: opt.PageIndex,
 		PageSize:  opt.PageSize,
 	}
-	if v := opt.Name; v != `` {
-		option.Option.Name = v
-	}
-	if v := opt.UserId; v != `` {
-		option.Option.UserId = v
-	}
+
 	option.DefaultPageIfNotSet()
 
 	return &option

@@ -2238,6 +2238,7 @@ type WeWorkCustomersRequest struct {
 	UserId    string `json:"userId,optional"` //https://developer.work.weixin.qq.com/document/path/92113
 	Name      string `json:"name,optional"`
 	UnionId   string `json:"unionId,optional"`
+	TagId     string `json:"tagId,optional"`
 	Sync      int    `form:"sync,optional"` // 是否同步(所有客户列表生效，场景：前端复选框勾选后，请求数据都会自动同步)
 	PageIndex int    `form:"pageIndex,optional"`
 	PageSize  int    `form:"pageSize,optional"`
@@ -2495,6 +2496,26 @@ type ActionRequest struct {
 	SceneQrcodeLink string `json:"sceneQrcodeLink,optional"`
 }
 
+type ListWeWorkTagGroupPageRequest struct {
+	GroupId   string `json:"groupId,optional"`
+	GroupName string `json:"groupName,optional"`
+	PageIndex int    `form:"pageIndex,optional"`
+	PageSize  int    `form:"pageSize,optional"`
+}
+
+type ListWeWorkTagGroupPageReply struct {
+	List      []*GroupWithTag `json:"list"`
+	PageIndex int             `json:"pageIndex"`
+	PageSize  int             `json:"pageSize"`
+	Total     int64           `json:"total"`
+}
+
+type GroupWithTag struct {
+	GroupId   string `json:"groupId"`
+	GroupName string `json:"groupName"`
+	Tags      []*Tag `json:"tags"`
+}
+
 type ListWeWorkTagReqeust struct {
 	TagIds    []string `json:"tagIds,optional"`
 	GroupIds  []string `json:"groupIds,optional"`
@@ -2520,10 +2541,11 @@ type ListWeWorkTagOptionReply struct {
 }
 
 type Tag struct {
-	Type      int    `json:"type"`
+	Type      int    `json:"type,omitempty"`
+	IsSelf    int    `json:"isSelf"` //1：自建
 	TagId     string `json:"tagId"`
-	GroupId   string `json:"groupId"`
-	GroupName string `json:"groupName"`
+	GroupId   string `json:"groupId,omitempty"`
+	GroupName string `json:"groupName,omitempty"`
 	Name      string `json:"name"`
 	Sort      int    `json:"sort"`
 }
@@ -2538,16 +2560,28 @@ type TagGroup struct {
 }
 
 type CreateCorpTagRequest struct {
-	GroupId   string         `json:"groupId"` //et2lz4UgAArZWi6ZKx1X8jo3uxfbC_sA 下拉标签组
+	GroupId   string         `json:"groupId,optional"` //et2lz4UgAArZWi6ZKx1X8jo3uxfbC_sA 下拉标签组
 	GroupName string         `json:"groupName"`
 	Sort      int            `json:"Sort,optional"`
-	Tag       []*TagFieldTag `json:"tag"`
-	AgentId   int64          `json:"agentId"` //应用列表
+	Tag       []*TagFieldTag `json:"tag,optional"`
+	AgentId   int64          `json:"agentId,optional"` //应用列表
 }
 
 type TagFieldTag struct {
 	Name string `json:"name"`
-	Sort int    `json:"sort"`
+	Sort int    `json:"sort,optional"`
+}
+
+type ActionCorpTagGroupRequest struct {
+	AgentId   *int64           `json:"agentId,optional"`
+	GroupId   *string          `json:"groupId,optional"`
+	GroupName string           `json:"groupName,optional"`
+	Tags      []ActionTagGroup `json:"tags"`
+}
+
+type ActionTagGroup struct {
+	TagId   string `json:"tagId,optional"`
+	TagName string `json:"tagName,optional"`
 }
 
 type UpdateCorpTagRequest struct {

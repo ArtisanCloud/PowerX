@@ -179,6 +179,9 @@
         "unionId": {
           "type": "string"
         },
+        "tagId": {
+          "type": "string"
+        },
         "sync": {
           "type": "integer",
           "format": "int32",

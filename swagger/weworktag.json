@@ -92,7 +92,7 @@
     },
     "/api/v1/admin/scrm/tag/wechat/crop/delete": {
       "delete": {
-        "summary": "批量删除企业标签",
+        "summary": "@批量删除企业标签",
         "operationId": "DeleteWeWorkCropTag",
         "responses": {
           "200": {
@@ -120,7 +120,7 @@
     },
     "/api/v1/admin/scrm/tag/wechat/crop/update": {
       "patch": {
-        "summary": "编辑企业标签",
+        "summary": "@编辑企业标签",
         "operationId": "UpdateWeWorkCropTag",
         "responses": {
           "200": {
@@ -174,6 +174,34 @@
         ]
       }
     },
+    "/api/v1/admin/scrm/tag/wechat/group/action": {
+      "post": {
+        "summary": "添加、删除标签组内的标签",
+        "operationId": "ActionWeWorkCropTagGroup",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/StatusWeWorkReply"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/ActionCorpTagGroupRequest"
+            }
+          }
+        ],
+        "requestBody": {},
+        "tags": [
+          "admin/scrm/tag"
+        ]
+      }
+    },
     "/api/v1/admin/scrm/tag/wechat/group/option": {
       "get": {
         "summary": "标签组列表/option",
@@ -186,6 +214,34 @@
             }
           }
         },
+        "requestBody": {},
+        "tags": [
+          "admin/scrm/tag"
+        ]
+      }
+    },
+    "/api/v1/admin/scrm/tag/wechat/group/page": {
+      "post": {
+        "summary": "标签组分页/page",
+        "operationId": "ListWeWorkTagGroupPage",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/ListWeWorkTagGroupPageReply"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/ListWeWorkTagGroupPageRequest"
+            }
+          }
+        ],
         "requestBody": {},
         "tags": [
           "admin/scrm/tag"
@@ -212,6 +268,30 @@
     }
   },
   "definitions": {
+    "ActionCorpTagGroupRequest": {
+      "type": "object",
+      "properties": {
+        "agentId": {
+          "$ref": "#/definitions/int64"
+        },
+        "groupId": {
+          "$ref": "#/definitions/string"
+        },
+        "groupName": {
+          "type": "string"
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ActionTagGroup"
+          }
+        }
+      },
+      "title": "ActionCorpTagGroupRequest",
+      "required": [
+        "tags"
+      ]
+    },
     "ActionCustomerTagRequest": {
       "type": "object",
       "properties": {
@@ -239,6 +319,18 @@
         "userId",
         "externalUserId"
       ]
+    },
+    "ActionTagGroup": {
+      "type": "object",
+      "properties": {
+        "tagId": {
+          "type": "string"
+        },
+        "tagName": {
+          "type": "string"
+        }
+      },
+      "title": "ActionTagGroup"
     },
     "CreateCorpTagRequest": {
       "type": "object",
@@ -268,10 +360,7 @@
       },
       "title": "CreateCorpTagRequest",
       "required": [
-        "groupId",
-        "groupName",
-        "tag",
-        "agentId"
+        "groupName"
       ]
     },
     "DeleteCorpTagRequest": {
@@ -295,6 +384,79 @@
         }
       },
       "title": "DeleteCorpTagRequest"
+    },
+    "GroupWithTag": {
+      "type": "object",
+      "properties": {
+        "groupId": {
+          "type": "string"
+        },
+        "groupName": {
+          "type": "string"
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Tag"
+          }
+        }
+      },
+      "title": "GroupWithTag",
+      "required": [
+        "groupId",
+        "groupName",
+        "tags"
+      ]
+    },
+    "ListWeWorkTagGroupPageReply": {
+      "type": "object",
+      "properties": {
+        "list": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/GroupWithTag"
+          }
+        },
+        "pageIndex": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "pageSize": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "total": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "title": "ListWeWorkTagGroupPageReply",
+      "required": [
+        "list",
+        "pageIndex",
+        "pageSize",
+        "total"
+      ]
+    },
+    "ListWeWorkTagGroupPageRequest": {
+      "type": "object",
+      "properties": {
+        "groupId": {
+          "type": "string"
+        },
+        "groupName": {
+          "type": "string"
+        },
+        "pageIndex": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "pageSize": {
+          "type": "integer",
+          "format": "int32"
+        }
+      },
+      "title": "ListWeWorkTagGroupPageRequest"
     },
     "ListWeWorkTagGroupReply": {
       "type": "object",
@@ -405,6 +567,11 @@
           "type": "integer",
           "format": "int32"
         },
+        "isSelf": {
+          "type": "integer",
+          "format": "int32",
+          "description": "1：自建"
+        },
         "tagId": {
           "type": "string"
         },
@@ -425,6 +592,7 @@
       "title": "Tag",
       "required": [
         "type",
+        "isSelf",
         "tagId",
         "groupId",
         "groupName",
@@ -445,8 +613,7 @@
       },
       "title": "TagFieldTag",
       "required": [
-        "name",
-        "sort"
+        "name"
       ]
     },
     "TagGroup": {

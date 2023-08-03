@@ -40,9 +40,7 @@ func (customer *ActionWeWorkCustomerTagLogic) ActionWeWorkCustomerTag(opt *types
 		return nil, err
 	}
 	_, err = customer.svcCtx.PowerX.SCRM.Wechat.ActionWeWorkCustomerTagRequest(option)
-	if err != nil {
-		return nil, err
-	}
+
 	return &types.StatusWeWorkReply{
 		Status: `success`,
 	}, err

@@ -29,7 +29,7 @@ func (l *PatchRoleLogic) PatchRole(req *types.PatchRoleReqeust) (resp *types.Pat
 	var adminAPI []*powerx.AdminAPI
 	for _, id := range req.APIIds {
 		adminAPI = append(adminAPI, &powerx.AdminAPI{
-			Model: model.Model{
+			CommonModel: model.CommonModel{
 				Id: id,
 			},
 		})

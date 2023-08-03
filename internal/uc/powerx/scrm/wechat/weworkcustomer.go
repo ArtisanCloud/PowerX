@@ -7,6 +7,7 @@ import (
 	"PowerX/internal/types"
 	"context"
 	"encoding/json"
+	"fmt"
 	"github.com/ArtisanCloud/PowerSocialite/v3/src/models"
 	"github.com/ArtisanCloud/PowerWeChat/v3/src/work/externalContact/response"
 	"github.com/zeromicro/go-zero/core/logx"
@@ -33,7 +34,8 @@ func (this wechatUseCase) FindManyWeWorkCustomerPage(ctx context.Context, opt *t
 
 	var customers []*customer.WeWorkExternalContacts
 	var count int64
-	query := this.db.WithContext(ctx).Model(&customer.WeWorkExternalContacts{})
+	query := this.db.WithContext(ctx).Table(new(customer.WeWorkExternalContacts).TableName() + ` AS a`).
+		Joins(fmt.Sprintf(`LEFT JOIN %s AS b ON a.external_user_id=b.external_user_id`, new(customer.WeWorkExternalContactFollow).TableName()))
 
 	if opt.PageIndex == 0 {
 		opt.PageIndex = 1
@@ -70,13 +72,16 @@ func (this wechatUseCase) FindManyWeWorkCustomerPage(ctx context.Context, opt *t
 func buildFindManyCustomerQueryNoPage(query *gorm.DB, opt *FindManyWechatCustomerOption) *gorm.DB {
 
 	if v := opt.UserId; v != `` {
-		query.Where("user_id = ?", v)
+		query.Where("a.user_id = ?", v)
 	}
 
 	if v := opt.Name; v != `` {
-		query.Where("name like ?", "%"+v+"%")
+		query.Where("a.name like ?", "%"+v+"%")
 	}
 
+	if v := opt.TagId; v != `` {
+		query.Where(`POSITION(? IN b.tag_ids) > 0`, v)
+	}
 	return query
 }
 

@@ -22,6 +22,14 @@ func NewCreateWeWorkCropTagLogic(ctx context.Context, svcCtx *svc.ServiceContext
 	}
 }
 
+//
+// CreateWeWorkCropTag
+//  @Description:
+//  @receiver tag
+//  @param opt
+//  @return resp
+//  @return err
+//
 func (tag *CreateWeWorkCropTagLogic) CreateWeWorkCropTag(opt *types.CreateCorpTagRequest) (resp *types.StatusWeWorkReply, err error) {
 
 	cropTag, err := tag.OPT(opt)
@@ -30,9 +38,6 @@ func (tag *CreateWeWorkCropTagLogic) CreateWeWorkCropTag(opt *types.CreateCorpTa
 	}
 	_, err = tag.svcCtx.PowerX.SCRM.Wechat.CreateWeWorkCorpTagRequest(cropTag)
 
-	if err != nil {
-		return nil, err
-	}
 	return &types.StatusWeWorkReply{
 		Status: `success`,
 	}, err
@@ -49,13 +54,17 @@ func (tag *CreateWeWorkCropTagLogic) CreateWeWorkCropTag(opt *types.CreateCorpTa
 //
 func (tag *CreateWeWorkCropTagLogic) OPT(opt *types.CreateCorpTagRequest) (cropTag *tagReq.RequestTagAddCorpTag, err error) {
 
-	return &tagReq.RequestTagAddCorpTag{
+	cropTag = &tagReq.RequestTagAddCorpTag{
 		GroupID:   &opt.GroupId,
 		GroupName: opt.GroupName,
 		Order:     opt.Sort,
 		Tag:       tag.loadTagField(opt.Tag),
 		AgentID:   &opt.AgentId,
-	}, err
+	}
+	if opt.GroupId == `` {
+		cropTag.GroupID = nil
+	}
+	return cropTag, err
 }
 
 //

@@ -1223,9 +1223,19 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Handler: adminscrmtag.ListWeWorkTagGroupOptionHandler(serverCtx),
 			},
 			{
+				Method:  http.MethodPost,
+				Path:    "/group/page",
+				Handler: adminscrmtag.ListWeWorkTagGroupPageHandler(serverCtx),
+			},
+			{
 				Method:  http.MethodGet,
 				Path:    "/corp/option",
 				Handler: adminscrmtag.ListWeWorkTagOptionHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodPost,
+				Path:    "/group/action",
+				Handler: adminscrmtag.ActionWeWorkCropTagGroupHandler(serverCtx),
 			},
 			{
 				Method:  http.MethodPost,
