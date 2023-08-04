@@ -4,6 +4,13 @@ Server:
   Port: 8888                # 服务器端口
   Timeout: 30000            # 超时时间
 
+Cors:
+  AllowAll: true
+  SupportedDomain: []
+#  SupportedDomain:
+#    - localhost
+#    - api.powerx.cn
+
 Root:
   Account: root             # 管理员账号
   Password: root            # 管理员密码
