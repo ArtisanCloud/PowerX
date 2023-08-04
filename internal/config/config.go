@@ -92,6 +92,7 @@ type Root struct {
 
 type Config struct {
 	Server rest.RestConf
+	Cors   Cors
 	EtcDir string `json:",optional"`
 	JWT    struct {
 		JWTSecret    string
