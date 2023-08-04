@@ -37,7 +37,12 @@ func CreateDefaultDepartments(db *gorm.DB) error {
 	departments := DefaultDepartments()
 	ucOrg := powerx.NewOrganizationUseCase(db)
 	for _, department := range departments {
-		_ = ucOrg.CreateDepartment(context.Background(), department)
+		existDep := &origanzation.Department{}
+		res := db.Model(&origanzation.Department{}).Where(origanzation.Department{Name: department.Name}).First(existDep)
+		//fmt.Dump(existDep, res.Error)
+		if errors.Is(res.Error, gorm.ErrRecordNotFound) {
+			_ = ucOrg.CreateDepartment(context.Background(), department)
+		}
 	}
 	return nil
 }
