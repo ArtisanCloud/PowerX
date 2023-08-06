@@ -195,8 +195,8 @@ func (uc *PaymentUseCase) MakeWechatOrder(ctx context.Context, payment *trade.Pa
 
 	mapObject := &request.RequestJSAPIPrepay{
 		Amount: &request.JSAPIAmount{
-			//Total: int(payment.PaidAmount * WXCurrencyUnit),
-			Total: int(0.3 * WXCurrencyUnit),
+			Total: int(payment.PaidAmount * WXCurrencyUnit),
+			//Total: int(0.3 * WXCurrencyUnit),
 			//Currency: "CNY",
 		},
 		Attach:      "订单支付",
