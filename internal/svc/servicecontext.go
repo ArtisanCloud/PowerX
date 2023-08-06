@@ -22,7 +22,7 @@ type ServiceContext struct {
 
 func NewServiceContext(c config.Config) *ServiceContext {
 	powerx, _ := uc.NewPowerXUseCase(&c)
-	custom, _ := uc.NewCustomUseCase(&c)
+	custom, _ := uc.NewCustomUseCase(&c, powerx)
 
 	return &ServiceContext{
 		Config:                c,

@@ -384,6 +384,11 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 					Handler: adminmediaresource.CreateMediaResourceHandler(serverCtx),
 				},
 				{
+					Method:  http.MethodPost,
+					Path:    "/resources/base64",
+					Handler: adminmediaresource.CreateMediaResourceByBase64Handler(serverCtx),
+				},
+				{
 					Method:  http.MethodGet,
 					Path:    "/resources/:id",
 					Handler: adminmediaresource.GetMediaResourceHandler(serverCtx),
