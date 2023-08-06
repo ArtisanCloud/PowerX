@@ -159,9 +159,9 @@ func TransformProductToProductReply(mdlProduct *product.Product) (productReply *
 
 }
 
-func TransformProductImagesToImagesReply(pivots []*media.PivotMediaResourceToObject) (imagesReply []*types.ProductImage) {
+func TransformProductImagesToImagesReply(pivots []*media.PivotMediaResourceToObject) (imagesReply []*types.MediaResource) {
 
-	imagesReply = []*types.ProductImage{}
+	imagesReply = []*types.MediaResource{}
 	for _, pivot := range pivots {
 		imageReply := TransformProductImageToImageReply(pivot.MediaResource)
 		imagesReply = append(imagesReply, imageReply)
@@ -169,11 +169,11 @@ func TransformProductImagesToImagesReply(pivots []*media.PivotMediaResourceToObj
 	return imagesReply
 }
 
-func TransformProductImageToImageReply(resource *media.MediaResource) (imagesReply *types.ProductImage) {
+func TransformProductImageToImageReply(resource *media.MediaResource) (imagesReply *types.MediaResource) {
 	if resource == nil {
 		return nil
 	}
-	return &types.ProductImage{
+	return &types.MediaResource{
 		Id:            resource.Id,
 		Url:           resource.Url,
 		IsLocalStored: resource.IsLocalStored,

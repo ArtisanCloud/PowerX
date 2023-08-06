@@ -59,7 +59,7 @@ type OrderItem {
     ListPrice float64 `json:"listPrice,optional"`
     SellingPrice float64 `json:"sellingPrice,optional"`
 //    CoverUrl string `json:"coverUrl,optional"`
-    CoverImage *ProductImage `json:"coverImage,optional"`
+    CoverImage *MediaResource `json:"coverImage,optional"`
     ProdcutName string `json:"productName,optional"`
     SkuNo string `json:"skuNo,optional"`
 }
