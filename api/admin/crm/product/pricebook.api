@@ -28,7 +28,7 @@ service PowerX {
 
     @doc "创新价格手册"
     @handler UpsertPriceBook
-    put /price-books (UpsertPriceBookRequest) returns (UpsertPriceBookReply)
+    post /price-books (UpsertPriceBookRequest) returns (UpsertPriceBookReply)
 
     @doc "删除价格手册"
     @handler DeletePriceBook

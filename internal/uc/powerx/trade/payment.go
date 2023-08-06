@@ -156,7 +156,7 @@ func (uc *PaymentUseCase) CreatePaymentFromOrderByWechat(ctx context.Context,
 		}
 
 		// config wx Bridge for front end
-		data, err = uc.WXPayment.JSSDK.BridgeConfig(rsOrder.PrepayID, true)
+		data, err = uc.WXPayment.JSSDK.BridgeConfig(rsOrder.PrepayID, false)
 
 		return err
 	})

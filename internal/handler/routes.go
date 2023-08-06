@@ -608,7 +608,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 					Handler: adminproductpricebook.GetPriceBookHandler(serverCtx),
 				},
 				{
-					Method:  http.MethodPut,
+					Method:  http.MethodPost,
 					Path:    "/price-books",
 					Handler: adminproductpricebook.UpsertPriceBookHandler(serverCtx),
 				},
