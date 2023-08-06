@@ -28,7 +28,8 @@ func NewHandleWXPaidLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Hand
 func (srv *HandleWXPaidLogic) HandleWXPaid(w http.ResponseWriter, r *http.Request) func(message *request.RequestNotify, transaction *models.Transaction, fail func(message string)) interface{} {
 
 	//body, _ := io.ReadAll(r.Body)
-	//fmt.DD(string(body))
+	//r.Body = io.NopCloser(bytes.NewBuffer(body))
+	//fmt2.Dump(string(body))
 	//defer r.Body.Close()
 
 	return func(message *request.RequestNotify, transaction *models.Transaction, fail func(message string)) interface{} {
