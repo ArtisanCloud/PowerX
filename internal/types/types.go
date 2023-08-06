@@ -638,6 +638,12 @@ type MediaResource struct {
 	ResourceType  string `json:"resourceType,optional"`
 }
 
+type CreateMediaResourceByBase64Request struct {
+	MediaName  string `json:"mediaName"`
+	BucketName string `json:"bucketName"`
+	Base64Data string `json:"base64Data"`
+}
+
 type CreateMediaResourceReply struct {
 	*MediaResource
 	IsOSS bool `json:"isOSS"`

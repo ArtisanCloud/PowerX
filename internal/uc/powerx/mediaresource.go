@@ -6,7 +6,10 @@ import (
 	"PowerX/internal/types"
 	"PowerX/pkg/filex"
 	"PowerX/pkg/httpx"
+	"bytes"
 	"context"
+	"encoding/base64"
+	"fmt"
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 	"github.com/pkg/errors"
@@ -14,6 +17,7 @@ import (
 	"mime/multipart"
 	"os"
 	"path/filepath"
+	"time"
 )
 
 const DefaultStoragePath = "resource/static"
@@ -187,40 +191,17 @@ func (uc *MediaResourceUseCase) MakeLocalResource(ctx context.Context, bucket st
 		Size:         filesize,
 		Url:          url,
 		ContentType:  handle.Header.Get("Content-Type"),
-		ResourceType: filex.GetFileType(contentType),
+		ResourceType: filex.GetMediaType(contentType),
 	}
 
 	return resource, nil
 }
 
 func (uc *MediaResourceUseCase) MakeOSSResource(ctx context.Context, bucket string, handle *multipart.FileHeader) (resource *media.MediaResource, err error) {
-	exist, err := uc.OSSClient.BucketExists(ctx, bucket)
+
+	err = uc.CheckBucketExits(ctx, bucket)
 	if err != nil {
 		return nil, err
-	}
-
-	if !exist {
-		location := "us-east-1"
-		err = uc.OSSClient.MakeBucket(ctx, bucket, minio.MakeBucketOptions{Region: location})
-		if err != nil {
-			return nil, err
-		}
-		// 设置存储桶策略
-		policy := `{
-		"Version": "2012-10-17",
-		"Statement": [
-			{
-				"Effect": "Allow",
-				"Principal": "*",
-				"Action": ["s3:GetObject"],
-				"Resource": ["arn:aws:s3:::` + bucket + `/*"]
-			}
-		]
-	}`
-		err = uc.OSSClient.SetBucketPolicy(context.Background(), bucket, policy)
-		if err != nil {
-			return nil, err
-		}
 	}
 
 	// Upload the resource file
@@ -237,8 +218,84 @@ func (uc *MediaResourceUseCase) MakeOSSResource(ctx context.Context, bucket stri
 		Size:         info.Size,
 		Url:          url,
 		ContentType:  contentType,
-		ResourceType: filex.GetFileType(contentType),
+		ResourceType: filex.GetMediaType(contentType),
 	}
 
 	return resource, err
+}
+
+func (uc *MediaResourceUseCase) MakeOSSResourceByBase64(ctx context.Context, bucket string, base64Data string) (resource *media.MediaResource, err error) {
+
+	err = uc.CheckBucketExits(ctx, bucket)
+	if err != nil {
+		return nil, err
+	}
+
+	// 解码base64数据
+	data, err := base64.StdEncoding.DecodeString(base64Data)
+	if err != nil {
+		return nil, fmt.Errorf("base64数据解码失败：%w", err)
+	}
+
+	// 创建一个新的MinIO对象，并使用随机名称
+	objectName := fmt.Sprintf("object_%d", time.Now().UnixNano())
+
+	// 准备对象元数据（可选）
+	objectMetadata := make(map[string]string)
+	objectMetadata["Content-Type"] = "image/jpeg" // 替换为实际内容类型
+
+	// 上传对象到MinIO
+	contentType := objectMetadata["Content-Type"]
+	info, err := uc.OSSClient.PutObject(ctx, bucket, objectName, bytes.NewReader(data), int64(len(data)), minio.PutObjectOptions{ContentType: contentType})
+	if err != nil {
+		return nil, fmt.Errorf("上传对象到MinIO失败：%w", err)
+	}
+
+	// 如果需要，你现在可以创建并返回你的MediaResource结构
+	url := fmt.Sprintf("%s/%s", bucket, objectName)
+	mediaResource := &media.MediaResource{
+
+		BucketName:   bucket,
+		Filename:     info.Key,
+		Size:         info.Size,
+		Url:          url,
+		ContentType:  contentType,
+		ResourceType: filex.GetMediaType(contentType),
+	}
+
+	return mediaResource, nil
+}
+
+func (uc *MediaResourceUseCase) CheckBucketExits(ctx context.Context, bucket string) error {
+
+	exist, err := uc.OSSClient.BucketExists(ctx, bucket)
+	if err != nil {
+		return err
+	}
+
+	if !exist {
+		location := "us-east-1"
+		err = uc.OSSClient.MakeBucket(ctx, bucket, minio.MakeBucketOptions{Region: location})
+		if err != nil {
+			return err
+		}
+		// 设置存储桶策略
+		policy := `{
+		"Version": "2012-10-17",
+		"Statement": [
+			{
+				"Effect": "Allow",
+				"Principal": "*",
+				"Action": ["s3:GetObject"],
+				"Resource": ["arn:aws:s3:::` + bucket + `/*"]
+			}
+		]
+	}`
+		err = uc.OSSClient.SetBucketPolicy(context.Background(), bucket, policy)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
