@@ -116,9 +116,9 @@ func TransformPriceEntryToPriceEntryReplyToMP(entries []*product.PriceBookEntry)
 	return nil
 }
 
-func TransformProductImagesToImagesReplyToMP(pivots []*media.PivotMediaResourceToObject) (imagesReply []*types.ProductImage) {
+func TransformProductImagesToImagesReplyToMP(pivots []*media.PivotMediaResourceToObject) (imagesReply []*types.MediaResource) {
 
-	imagesReply = []*types.ProductImage{}
+	imagesReply = []*types.MediaResource{}
 	for _, pivot := range pivots {
 		imageReply := TransformProductImageToImageReplyToMP(pivot.MediaResource)
 		imagesReply = append(imagesReply, imageReply)
@@ -126,11 +126,11 @@ func TransformProductImagesToImagesReplyToMP(pivots []*media.PivotMediaResourceT
 	return imagesReply
 }
 
-func TransformProductImageToImageReplyToMP(resource *media.MediaResource) (imagesReply *types.ProductImage) {
+func TransformProductImageToImageReplyToMP(resource *media.MediaResource) (imagesReply *types.MediaResource) {
 	if resource == nil {
 		return nil
 	}
-	return &types.ProductImage{
+	return &types.MediaResource{
 		Id:            resource.Id,
 		Url:           resource.Url,
 		IsLocalStored: resource.IsLocalStored,

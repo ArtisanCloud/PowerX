@@ -8,6 +8,7 @@ info(
     version: "v1"
 )
 
+import "../../mediaresource.api"
 import "./productcategory.api"
 import "./productspecific.api"
 import "./sku.api"
@@ -53,16 +54,16 @@ service PowerX {
 }
 
 type (
-    ProductImage {
-        Id int64 `json:"id,optional"`
-        Filename string `json:"filename,optional"`
-        Size int64 `json:"size,optional"`
-        Url string `json:"url,optional"`
-        BucketName string `json:"bucketName,optional"`
-        IsLocalStored bool `json:"isLocalStored,optional"`
-        ContentType string `json:"contentType,optional"`
-        ResourceType string `json:"resourceType,optional"`
-    }
+//    ProductImage {
+//        Id int64 `json:"id,optional"`
+//        Filename string `json:"filename,optional"`
+//        Size int64 `json:"size,optional"`
+//        Url string `json:"url,optional"`
+//        BucketName string `json:"bucketName,optional"`
+//        IsLocalStored bool `json:"isLocalStored,optional"`
+//        ContentType string `json:"contentType,optional"`
+//        ResourceType string `json:"resourceType,optional"`
+//    }
 
 
     PivotDataDictionaryToObject {
@@ -115,9 +116,9 @@ type (
         PromoteChannelsItemIds []int64 `json:"promoteChannelsItemIds,optional"`
         CategoryIds []int64 `json:"categoryIds,optional"`
         CoverImageIds []int64 `json:"coverImageIds,optional"`
-        CoverImages []*ProductImage `json:"coverImages,optional"`
+        CoverImages []*MediaResource `json:"coverImages,optional"`
         DetailImageIds []int64 `json:"detailImageIds,optional"`
-        DetailImages []*ProductImage `json:"detailImages,optional"`
+        DetailImages []*MediaResource `json:"detailImages,optional"`
         ActivePriceEntry *ActivePriceEntry `json:"activePriceBookEntry,optional"`
         PriceBookEntries []*PriceBookEntry `json:"priceBookEntries,optional"`
         SKUs []*SKU `json:"skus,optional"`

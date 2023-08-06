@@ -375,40 +375,6 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			[]rest.Route{
 				{
 					Method:  http.MethodGet,
-					Path:    "/resources/page-list",
-					Handler: adminmediaresource.ListMediaResourcesHandler(serverCtx),
-				},
-				{
-					Method:  http.MethodPost,
-					Path:    "/resources",
-					Handler: adminmediaresource.CreateMediaResourceHandler(serverCtx),
-				},
-				{
-					Method:  http.MethodPost,
-					Path:    "/resources/base64",
-					Handler: adminmediaresource.CreateMediaResourceByBase64Handler(serverCtx),
-				},
-				{
-					Method:  http.MethodGet,
-					Path:    "/resources/:id",
-					Handler: adminmediaresource.GetMediaResourceHandler(serverCtx),
-				},
-				{
-					Method:  http.MethodDelete,
-					Path:    "/resources/:id",
-					Handler: adminmediaresource.DeleteMediaResourceHandler(serverCtx),
-				},
-			}...,
-		),
-		rest.WithPrefix("/api/v1/admin/media"),
-	)
-
-	server.AddRoutes(
-		rest.WithMiddlewares(
-			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
-			[]rest.Route{
-				{
-					Method:  http.MethodGet,
 					Path:    "/leads/:id",
 					Handler: admincustomerdomainleader.GetLeadHandler(serverCtx),
 				},
@@ -669,6 +635,40 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			}...,
 		),
 		rest.WithPrefix("/api/v1/admin/product"),
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Route{
+				{
+					Method:  http.MethodGet,
+					Path:    "/resources/page-list",
+					Handler: adminmediaresource.ListMediaResourcesHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/resources",
+					Handler: adminmediaresource.CreateMediaResourceHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/resources/base64",
+					Handler: adminmediaresource.CreateMediaResourceByBase64Handler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/resources/:id",
+					Handler: adminmediaresource.GetMediaResourceHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodDelete,
+					Path:    "/resources/:id",
+					Handler: adminmediaresource.DeleteMediaResourceHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithPrefix("/api/v1/admin/media"),
 	)
 
 	server.AddRoutes(

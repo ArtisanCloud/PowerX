@@ -627,58 +627,6 @@ type ModifyPasswordReqeust struct {
 	Password string `json:"password"`
 }
 
-type MediaResource struct {
-	Id            int64  `json:"id,optional"`
-	Filename      string `json:"filename,optional"`
-	Size          int64  `json:"size,optional"`
-	Url           string `json:"url,optional"`
-	BucketName    string `json:"bucketName,optional"`
-	IsLocalStored bool   `json:"isLocalStored,optional"`
-	ContentType   string `json:"contentType,optional"`
-	ResourceType  string `json:"resourceType,optional"`
-}
-
-type CreateMediaResourceByBase64Request struct {
-	MediaName  string `json:"mediaName"`
-	BucketName string `json:"bucketName"`
-	Base64Data string `json:"base64Data"`
-}
-
-type CreateMediaResourceReply struct {
-	*MediaResource
-	IsOSS bool `json:"isOSS"`
-}
-
-type GetMediaResourceRequest struct {
-	Id int64 `path:"id"`
-}
-
-type GetMediaResourceReply struct {
-	MediaResource *MediaResource `json:"mediaResource"`
-}
-
-type ListMediaResourcesPageRequest struct {
-	LikeName  string `form:"likeName,optional"`
-	OrderBy   string `form:"orderBy,optional"`
-	PageIndex int    `form:"pageIndex,optional"`
-	PageSize  int    `form:"pageSize,optional"`
-}
-
-type ListMediaResourcesPageReply struct {
-	List      []MediaResource `json:"list,optional"`
-	PageIndex int             `json:"pageIndex,optional"`
-	PageSize  int             `json:"pageSize,optional"`
-	Total     int64           `json:"total,optional"`
-}
-
-type DeleteMediaResourceRequest struct {
-	Id int64 `path:"id"`
-}
-
-type DeleteMediaResourceReply struct {
-	MediaResourceId int64 `json:"id"`
-}
-
 type LeadExternalId struct {
 	OpenIdInMiniProgram           string `json:"openIdInMiniProgram,optional"`
 	OpenIdInWeChatOfficialAccount string `json:"openIdInWeChatOfficialAccount,optional"`
@@ -1189,17 +1137,6 @@ type DeletePriceBookReply struct {
 	Id int64 `json:"id"`
 }
 
-type ProductImage struct {
-	Id            int64  `json:"id,optional"`
-	Filename      string `json:"filename,optional"`
-	Size          int64  `json:"size,optional"`
-	Url           string `json:"url,optional"`
-	BucketName    string `json:"bucketName,optional"`
-	IsLocalStored bool   `json:"isLocalStored,optional"`
-	ContentType   string `json:"contentType,optional"`
-	ResourceType  string `json:"resourceType,optional"`
-}
-
 type PivotDataDictionaryToObject struct {
 	DataDictionaryType string `json:"dataDictionaryType,optional"`
 	DataDictionaryKey  string `json:"dataDictionaryKey,optional"`
@@ -1248,9 +1185,9 @@ type Product struct {
 	PromoteChannelsItemIds []int64                        `json:"promoteChannelsItemIds,optional"`
 	CategoryIds            []int64                        `json:"categoryIds,optional"`
 	CoverImageIds          []int64                        `json:"coverImageIds,optional"`
-	CoverImages            []*ProductImage                `json:"coverImages,optional"`
+	CoverImages            []*MediaResource               `json:"coverImages,optional"`
 	DetailImageIds         []int64                        `json:"detailImageIds,optional"`
-	DetailImages           []*ProductImage                `json:"detailImages,optional"`
+	DetailImages           []*MediaResource               `json:"detailImages,optional"`
 	ActivePriceEntry       *ActivePriceEntry              `json:"activePriceBookEntry,optional"`
 	PriceBookEntries       []*PriceBookEntry              `json:"priceBookEntries,optional"`
 	SKUs                   []*SKU                         `json:"skus,optional"`
@@ -1324,6 +1261,58 @@ type AssignProductToProductCategoryRequest struct {
 
 type AssignProductToProductCategoryReply struct {
 	Product
+}
+
+type MediaResource struct {
+	Id            int64  `json:"id,optional"`
+	Filename      string `json:"filename,optional"`
+	Size          int64  `json:"size,optional"`
+	Url           string `json:"url,optional"`
+	BucketName    string `json:"bucketName,optional"`
+	IsLocalStored bool   `json:"isLocalStored,optional"`
+	ContentType   string `json:"contentType,optional"`
+	ResourceType  string `json:"resourceType,optional"`
+}
+
+type CreateMediaResourceByBase64Request struct {
+	MediaName  string `json:"mediaName"`
+	BucketName string `json:"bucketName"`
+	Base64Data string `json:"base64Data"`
+}
+
+type CreateMediaResourceReply struct {
+	*MediaResource
+	IsOSS bool `json:"isOSS"`
+}
+
+type GetMediaResourceRequest struct {
+	Id int64 `path:"id"`
+}
+
+type GetMediaResourceReply struct {
+	MediaResource *MediaResource `json:"mediaResource"`
+}
+
+type ListMediaResourcesPageRequest struct {
+	LikeName  string `form:"likeName,optional"`
+	OrderBy   string `form:"orderBy,optional"`
+	PageIndex int    `form:"pageIndex,optional"`
+	PageSize  int    `form:"pageSize,optional"`
+}
+
+type ListMediaResourcesPageReply struct {
+	List      []MediaResource `json:"list,optional"`
+	PageIndex int             `json:"pageIndex,optional"`
+	PageSize  int             `json:"pageSize,optional"`
+	Total     int64           `json:"total,optional"`
+}
+
+type DeleteMediaResourceRequest struct {
+	Id int64 `path:"id"`
+}
+
+type DeleteMediaResourceReply struct {
+	MediaResourceId int64 `json:"id"`
 }
 
 type ImageAbleInfo struct {
@@ -2819,19 +2808,19 @@ type CancelOrderReply struct {
 }
 
 type OrderItem struct {
-	Id               int64         `json:"id,optional"`
-	OrderId          int64         `json:"orderId,optional"`
-	PriceBookEntryId int64         `json:"priceBookEntryId,optional"`
-	CustomerId       int64         `json:"customerId,optional"`
-	Type             int           `json:"type,optional"`
-	Status           int           `json:"status,optional"`
-	Quantity         int           `json:"quantity,optional"`
-	UnitPrice        float64       `json:"unitPrice,optional"`
-	ListPrice        float64       `json:"listPrice,optional"`
-	SellingPrice     float64       `json:"sellingPrice,optional"`
-	CoverImage       *ProductImage `json:"coverImage,optional"`
-	ProdcutName      string        `json:"productName,optional"`
-	SkuNo            string        `json:"skuNo,optional"`
+	Id               int64          `json:"id,optional"`
+	OrderId          int64          `json:"orderId,optional"`
+	PriceBookEntryId int64          `json:"priceBookEntryId,optional"`
+	CustomerId       int64          `json:"customerId,optional"`
+	Type             int            `json:"type,optional"`
+	Status           int            `json:"status,optional"`
+	Quantity         int            `json:"quantity,optional"`
+	UnitPrice        float64        `json:"unitPrice,optional"`
+	ListPrice        float64        `json:"listPrice,optional"`
+	SellingPrice     float64        `json:"sellingPrice,optional"`
+	CoverImage       *MediaResource `json:"coverImage,optional"`
+	ProdcutName      string         `json:"productName,optional"`
+	SkuNo            string         `json:"skuNo,optional"`
 }
 
 type Order struct {
