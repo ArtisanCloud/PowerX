@@ -24,7 +24,6 @@ etc/powerx.yaml
 powerx.go
 powerx
 powerxctl
-powerx.go
 
 /deploy/
 /powerx.go
