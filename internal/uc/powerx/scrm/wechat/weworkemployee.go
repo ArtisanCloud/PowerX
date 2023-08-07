@@ -181,7 +181,7 @@ func (this *wechatUseCase) employee(val response.DepartmentID) {
 		}
 		this.modelWeworkOrganization.employee.Action(this.db, employees)
 		// sync to local
-		this.modelOrganization.employee.Action(this.db, this.employeeFromWeWorkSyncToLocal(employees))
+		//this.modelOrganization.employee.Action(this.db, this.employeeFromWeWorkSyncToLocal(employees))
 
 	}
 

@@ -16,6 +16,7 @@ type SCRMUseCase struct {
 	db     *gorm.DB
 	kv     *redis.Redis
 	Cron   *cron.Cron
+	Wework *work.Work
 	Wechat wechat.IWechatInterface
 	//DTalk
 }
@@ -26,12 +27,12 @@ func NewSCRMUseCase(db *gorm.DB, conf *config.Config, c *cron.Cron, kv *redis.Re
 		AgentID: conf.WeWork.AgentId,
 		Secret:  conf.WeWork.Secret,
 		OAuth: work.OAuth{
-			Callback: "https://scrm.superman.net.cn/api/webhook/wework/message", //
-			Scopes:   nil,
+			Callback: conf.WeWork.OAuth.Callback,
+			Scopes:   conf.WeWork.OAuth.Scopes,
 		},
 		Token:     conf.WeWork.Token,
 		AESKey:    conf.WeWork.EncodingAESKey,
-		HttpDebug: true,
+		HttpDebug: conf.WeWork.Debug,
 	})
 	if err != nil {
 		panic(err)
@@ -39,6 +40,7 @@ func NewSCRMUseCase(db *gorm.DB, conf *config.Config, c *cron.Cron, kv *redis.Re
 	return &SCRMUseCase{
 		db:     db,
 		Cron:   c,
+		Wework: wework,
 		Wechat: wechat.Repo(db, wework, kv),
 	}
 }

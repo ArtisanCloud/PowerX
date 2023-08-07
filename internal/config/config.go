@@ -24,8 +24,12 @@ type WeWork struct {
 	Secret         string
 	Token          string
 	EncodingAESKey string
-	HttpDebug      bool
-	Debug          bool
+	OAuth          struct {
+		Callback string
+		Scopes   []string
+	}
+	HttpDebug bool
+	Debug     bool
 }
 
 type WechatOA struct {

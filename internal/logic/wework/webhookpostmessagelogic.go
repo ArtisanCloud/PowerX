@@ -31,7 +31,8 @@ func (l *WebhookPostMessageLogic) WebhookPostMessage(w http.ResponseWriter, r *h
 
 	// 这里使用了PowerWechat的SDK，来处理解密企业微信的消息
 	// 请确保企业微信的相关参数配置已经配置正确
-	rs, err := l.svcCtx.PowerX.WeWork.API.Server.Notify(r, func(event contract.EventInterface) interface{} {
+	//rs, err := l.svcCtx.PowerX.WeWork.API.Server.Notify(r, func(event contract.EventInterface) interface{} {
+	rs, err := l.svcCtx.PowerX.SCRM.Wework.Server.Notify(r, func(event contract.EventInterface) interface{} {
 		fmt.Dump("event", event)
 		//return  "handle callback"
 
