@@ -43,16 +43,16 @@ service PowerX {
 }
 
 type (
-    ArtisanImage {
-        Id int64 `json:"id,optional"`
-        Filename string `json:"filename,optional"`
-        Size int64 `json:"size,optional"`
-        Url string `json:"url,optional"`
-        BucketName string `json:"bucketName,optional"`
-        IsLocalStored bool `json:"isLocalStored,optional"`
-        ContentType string `json:"contentType,optional"`
-        ResourceType string `json:"resourceType,optional"`
-    }
+//    ArtisanImage {
+//        Id int64 `json:"id,optional"`
+//        Filename string `json:"filename,optional"`
+//        Size int64 `json:"size,optional"`
+//        Url string `json:"url,optional"`
+//        BucketName string `json:"bucketName,optional"`
+//        IsLocalStored bool `json:"isLocalStored,optional"`
+//        ContentType string `json:"contentType,optional"`
+//        ResourceType string `json:"resourceType,optional"`
+//    }
 
     Artisan {
         Id int64 `json:"id,optional"`
@@ -71,9 +71,9 @@ type (
         CreatedAt string `json:"createdAt,optional"`
 
         CoverImageId int64 `json:"coverImageId,optional"`
-        CoverImage *ArtisanImage `json:"coverImage,optional"`
+        CoverImage *MediaResource `json:"coverImage,optional"`
         DetailImageIds []int64 `json:"detailImageIds,optional"`
-        DetailImages []*ArtisanImage `json:"detailIOmages,optional"`
+        DetailImages []*MediaResource `json:"detailIOmages,optional"`
         StoreIds []int64 `json:"storeIds,optional"`
     }
 )

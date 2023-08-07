@@ -49,16 +49,16 @@ type (
         ArtisanId int64 `json:"artisanId,optional"`
     }
 
-    StoreImage {
-        Id int64 `json:"id,optional"`
-        Filename string `json:"filename,optional"`
-        Size int64 `json:"size,optional"`
-        Url string `json:"url,optional"`
-        BucketName string `json:"bucketName,optional"`
-        IsLocalStored bool `json:"isLocalStored,optional"`
-        ContentType string `json:"contentType,optional"`
-        ResourceType string `json:"resourceType,optional"`
-    }
+//    StoreImage {
+//        Id int64 `json:"id,optional"`
+//        Filename string `json:"filename,optional"`
+//        Size int64 `json:"size,optional"`
+//        Url string `json:"url,optional"`
+//        BucketName string `json:"bucketName,optional"`
+//        IsLocalStored bool `json:"isLocalStored,optional"`
+//        ContentType string `json:"contentType,optional"`
+//        ResourceType string `json:"resourceType,optional"`
+//    }
 
     StoreArtisan {
         EmployeeId int64 `json:"employeeId,optional"`
@@ -93,9 +93,9 @@ type (
         CreatedAt string `json:"createdAt,optional"`
 
         CoverImageId int64 `json:"coverImageId,optional"`
-        CoverImage *StoreImage `json:"coverImage,optional"`
+        CoverImage *MediaResource `json:"coverImage,optional"`
         DetailImageIds []int64 `json:"detailImageIds,optional"`
-        DetailImages []*StoreImage `json:"detailImages,optional"`
+        DetailImages []*MediaResource `json:"detailImages,optional"`
     }
 )
 type (

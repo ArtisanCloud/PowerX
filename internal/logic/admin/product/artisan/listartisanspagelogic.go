@@ -83,12 +83,13 @@ func TransformArtisanToArtisanReply(artisan *product.Artisan) *types.Artisan {
 	}
 }
 
-func TransformArtisanImageToArtisanImageReply(resource *media.MediaResource) *types.ArtisanImage {
+func TransformArtisanImageToArtisanImageReply(resource *media.MediaResource) *types.MediaResource {
 	if resource == nil {
 		return nil
 	}
-	return &types.ArtisanImage{
+	return &types.MediaResource{
 		Id:            resource.Id,
+		CustomerId:    resource.CustomerId,
 		BucketName:    resource.BucketName,
 		Filename:      resource.Filename,
 		Size:          resource.Size,
@@ -99,9 +100,9 @@ func TransformArtisanImageToArtisanImageReply(resource *media.MediaResource) *ty
 	}
 }
 
-func TransformArtisanImagesToImagesReply(pivots []*media.PivotMediaResourceToObject) (imagesReply []*types.ArtisanImage) {
+func TransformArtisanImagesToImagesReply(pivots []*media.PivotMediaResourceToObject) (imagesReply []*types.MediaResource) {
 
-	imagesReply = []*types.ArtisanImage{}
+	imagesReply = []*types.MediaResource{}
 	for _, pivot := range pivots {
 		imageReply := TransformArtisanImageToArtisanImageReply(pivot.MediaResource)
 		imagesReply = append(imagesReply, imageReply)

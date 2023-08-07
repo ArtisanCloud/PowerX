@@ -904,17 +904,6 @@ type StoreArtisanSpecific struct {
 	ArtisanId int64 `json:"artisanId,optional"`
 }
 
-type StoreImage struct {
-	Id            int64  `json:"id,optional"`
-	Filename      string `json:"filename,optional"`
-	Size          int64  `json:"size,optional"`
-	Url           string `json:"url,optional"`
-	BucketName    string `json:"bucketName,optional"`
-	IsLocalStored bool   `json:"isLocalStored,optional"`
-	ContentType   string `json:"contentType,optional"`
-	ResourceType  string `json:"resourceType,optional"`
-}
-
 type StoreArtisan struct {
 	EmployeeId      int64                `json:"employeeId,optional"`
 	Name            string               `json:"name,optional"`
@@ -933,23 +922,23 @@ type StoreArtisan struct {
 }
 
 type Store struct {
-	Id              int64           `json:"id,optional"`
-	Name            string          `json:"name"`
-	StoreEmployeeId int64           `json:"storeEmployeeId,optional"`
-	ContactNumber   string          `json:"contactNumber"`
-	Email           string          `json:"email,optional"`
-	Address         string          `json:"address"`
-	Description     string          `json:"description,optional"`
-	Longitude       float32         `json:"longitude,optional"`
-	Latitude        float32         `json:"latitude,optional"`
-	StartWork       string          `json:"startWork,optional"`
-	EndWork         string          `json:"endWork,optional"`
-	Artisans        []*StoreArtisan `json:"artisans,optional"`
-	CreatedAt       string          `json:"createdAt,optional"`
-	CoverImageId    int64           `json:"coverImageId,optional"`
-	CoverImage      *StoreImage     `json:"coverImage,optional"`
-	DetailImageIds  []int64         `json:"detailImageIds,optional"`
-	DetailImages    []*StoreImage   `json:"detailImages,optional"`
+	Id              int64            `json:"id,optional"`
+	Name            string           `json:"name"`
+	StoreEmployeeId int64            `json:"storeEmployeeId,optional"`
+	ContactNumber   string           `json:"contactNumber"`
+	Email           string           `json:"email,optional"`
+	Address         string           `json:"address"`
+	Description     string           `json:"description,optional"`
+	Longitude       float32          `json:"longitude,optional"`
+	Latitude        float32          `json:"latitude,optional"`
+	StartWork       string           `json:"startWork,optional"`
+	EndWork         string           `json:"endWork,optional"`
+	Artisans        []*StoreArtisan  `json:"artisans,optional"`
+	CreatedAt       string           `json:"createdAt,optional"`
+	CoverImageId    int64            `json:"coverImageId,optional"`
+	CoverImage      *MediaResource   `json:"coverImage,optional"`
+	DetailImageIds  []int64          `json:"detailImageIds,optional"`
+	DetailImages    []*MediaResource `json:"detailImages,optional"`
 }
 
 type ListStoresPageRequest struct {
@@ -1265,6 +1254,7 @@ type AssignProductToProductCategoryReply struct {
 
 type MediaResource struct {
 	Id            int64  `json:"id,optional"`
+	CustomerId    int64  `json:"customerId,optional"`
 	Filename      string `json:"filename,optional"`
 	Size          int64  `json:"size,optional"`
 	Url           string `json:"url,optional"`
@@ -1320,17 +1310,6 @@ type ImageAbleInfo struct {
 	BackgroundColor string `json:"backgroundColor"`
 }
 
-type CategoryImage struct {
-	Id            int64  `json:"id,optional"`
-	Filename      string `json:"filename,optional"`
-	Size          int64  `json:"size,optional"`
-	Url           string `json:"url,optional"`
-	BucketName    string `json:"bucketName,optional"`
-	IsLocalStored bool   `json:"isLocalStored,optional"`
-	ContentType   string `json:"contentType,optional"`
-	ResourceType  string `json:"resourceType,optional"`
-}
-
 type ProductCategory struct {
 	Id          int64  `json:"id,optional"`
 	PId         int64  `json:"pId"`
@@ -1341,7 +1320,7 @@ type ProductCategory struct {
 	CreatedAt   string `json:"createdAt,optional"`
 	ImageAbleInfo
 	CoverImageId int64              `json:"coverImageId,optional"`
-	CoverImage   *CategoryImage     `json:"coverImage,optional"`
+	CoverImage   *MediaResource     `json:"coverImage,optional"`
 	Children     []*ProductCategory `json:"children,optional"`
 }
 
@@ -1639,37 +1618,26 @@ type DeletePriceBookEntryReply struct {
 	Id int64 `json:"id"`
 }
 
-type ArtisanImage struct {
-	Id            int64  `json:"id,optional"`
-	Filename      string `json:"filename,optional"`
-	Size          int64  `json:"size,optional"`
-	Url           string `json:"url,optional"`
-	BucketName    string `json:"bucketName,optional"`
-	IsLocalStored bool   `json:"isLocalStored,optional"`
-	ContentType   string `json:"contentType,optional"`
-	ResourceType  string `json:"resourceType,optional"`
-}
-
 type Artisan struct {
-	Id             int64           `json:"id,optional"`
-	EmployeeId     int64           `json:"employeeId,optional"`
-	Name           string          `json:"name,optional"`
-	Level          int8            `json:"level"`
-	Gender         bool            `json:"gender,optional"`
-	Birthday       string          `json:"birthday,optional"`
-	PhoneNumber    string          `json:"phoneNumber,optional"`
-	WorkNo         string          `json:"workNo"`
-	Email          string          `json:"email,optional"`
-	Experience     string          `json:"experience,optional"`
-	Specialty      string          `json:"specialty,optional"`
-	Certificate    string          `json:"certificate,optional"`
-	Address        string          `json:"address,optional"`
-	CreatedAt      string          `json:"createdAt,optional"`
-	CoverImageId   int64           `json:"coverImageId,optional"`
-	CoverImage     *ArtisanImage   `json:"coverImage,optional"`
-	DetailImageIds []int64         `json:"detailImageIds,optional"`
-	DetailImages   []*ArtisanImage `json:"detailIOmages,optional"`
-	StoreIds       []int64         `json:"storeIds,optional"`
+	Id             int64            `json:"id,optional"`
+	EmployeeId     int64            `json:"employeeId,optional"`
+	Name           string           `json:"name,optional"`
+	Level          int8             `json:"level"`
+	Gender         bool             `json:"gender,optional"`
+	Birthday       string           `json:"birthday,optional"`
+	PhoneNumber    string           `json:"phoneNumber,optional"`
+	WorkNo         string           `json:"workNo"`
+	Email          string           `json:"email,optional"`
+	Experience     string           `json:"experience,optional"`
+	Specialty      string           `json:"specialty,optional"`
+	Certificate    string           `json:"certificate,optional"`
+	Address        string           `json:"address,optional"`
+	CreatedAt      string           `json:"createdAt,optional"`
+	CoverImageId   int64            `json:"coverImageId,optional"`
+	CoverImage     *MediaResource   `json:"coverImage,optional"`
+	DetailImageIds []int64          `json:"detailImageIds,optional"`
+	DetailImages   []*MediaResource `json:"detailIOmages,optional"`
+	StoreIds       []int64          `json:"storeIds,optional"`
 }
 
 type ListArtisansPageRequest struct {

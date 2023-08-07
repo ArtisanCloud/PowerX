@@ -55,6 +55,7 @@ func (l *CreateMediaResourceLogic) CreateMediaResource(r *http.Request) (resp *t
 func TransformMediaResourceToResourceReply(resource *media.MediaResource) *types.MediaResource {
 	return &types.MediaResource{
 		Id:            resource.Id,
+		CustomerId:    resource.CustomerId,
 		BucketName:    resource.BucketName,
 		Filename:      resource.Filename,
 		Size:          resource.Size,

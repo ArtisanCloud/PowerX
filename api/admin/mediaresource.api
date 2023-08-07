@@ -40,6 +40,7 @@ service PowerX {
 type (
     MediaResource struct {
         Id int64 `json:"id,optional"`
+        CustomerId int64 `json:"customerId,optional"`
         Filename string `json:"filename,optional"`
         Size int64 `json:"size,optional"`
         Url string `json:"url,optional"`

@@ -85,12 +85,13 @@ func TransformProductCategoryToProductCategoryReply(category *product.ProductCat
 	}
 }
 
-func TransformCategoryImageToCategoryImageReply(resource *media.MediaResource) *types.CategoryImage {
+func TransformCategoryImageToCategoryImageReply(resource *media.MediaResource) *types.MediaResource {
 	if resource == nil {
 		return nil
 	}
-	return &types.CategoryImage{
+	return &types.MediaResource{
 		Id:            resource.Id,
+		CustomerId:    resource.CustomerId,
 		BucketName:    resource.BucketName,
 		Filename:      resource.Filename,
 		Size:          resource.Size,
