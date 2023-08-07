@@ -41,11 +41,11 @@ type PowerXUseCase struct {
 	RefundOrder           *tradeUC.RefundOrderUseCase
 	WechatMP              *powerx.WechatMiniProgramUseCase
 	WechatOA              *powerx.WechatOfficialAccountUseCase
-	WeWork                *powerx.WeWorkUseCase
-	SCRM                  *powerx.SCRMUseCase
-	MediaResource         *powerx.MediaResourceUseCase
-	Media                 *market.MediaUseCase
-	Scene                 *powerx.SceneUseCase
+	//WeWork                *powerx.WeWorkUseCase
+	SCRM          *powerx.SCRMUseCase
+	MediaResource *powerx.MediaResourceUseCase
+	Media         *market.MediaUseCase
+	Scene         *powerx.SceneUseCase
 }
 
 func NewPowerXUseCase(conf *config.Config) (uc *PowerXUseCase, clean func()) {
@@ -109,7 +109,7 @@ func NewPowerXUseCase(conf *config.Config) (uc *PowerXUseCase, clean func()) {
 	uc.RefundOrder = tradeUC.NewRefundOrderUseCase(db)
 
 	// 加载微信UseCase
-	uc.WeWork = powerx.NewWeWorkUseCase(db, conf)
+	//uc.WeWork = powerx.NewWeWorkUseCase(db, conf)
 	uc.WechatMP = powerx.NewWechatMiniProgramUseCase(db, conf)
 	uc.WechatOA = powerx.NewWechatOfficialAccountUseCase(db, conf)
 

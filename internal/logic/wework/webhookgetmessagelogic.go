@@ -28,7 +28,8 @@ func (l *WebhookGetMessageLogic) WebhookGetMessage(w http.ResponseWriter, r *htt
 	//fmt.Dump(string(body))
 	//
 	//defer r.Body.Close()
-	rs, err := l.svcCtx.PowerX.WeWork.API.Server.Serve(r)
+	//rs, err := l.svcCtx.PowerX.WeWork.API.Server.Serve(r)
+	rs, err := l.svcCtx.PowerX.SCRM.Wework.Server.Serve(r)
 	if err != nil {
 		panic(err)
 	}
