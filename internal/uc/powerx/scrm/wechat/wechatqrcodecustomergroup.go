@@ -7,13 +7,12 @@ import (
 	"time"
 )
 
-//
 // CreateWeWorkCustomerGroupQrcodeRequest
-//  @Description: 创建客户群活码
-//  @receiver this
-//  @param opt
-//  @return error
 //
+//	@Description: 创建客户群活码
+//	@receiver this
+//	@param opt
+//	@return error
 func (this wechatUseCase) CreateWeWorkCustomerGroupQrcodeRequest(opt *types.QrcodeActiveRequest) (err error) {
 
 	this.qrcode.Action(this.db, []*scene.SceneQrcode{
@@ -36,13 +35,12 @@ func (this wechatUseCase) CreateWeWorkCustomerGroupQrcodeRequest(opt *types.Qrco
 	return err
 }
 
-//
 // UpdateWeWorkCustomerGroupQrcodeRequest
-//  @Description: 更新客户群活码
-//  @receiver this
-//  @param opt
-//  @return error
 //
+//	@Description: 更新客户群活码
+//	@receiver this
+//	@param opt
+//	@return error
 func (this wechatUseCase) UpdateWeWorkCustomerGroupQrcodeRequest(opt *types.QrcodeActiveRequest) (err error) {
 
 	qrcode := this.qrcode.FindByQid(this.db, opt.Qid)
@@ -62,14 +60,13 @@ func (this wechatUseCase) UpdateWeWorkCustomerGroupQrcodeRequest(opt *types.Qrco
 	return err
 }
 
-//
 // FindWeWorkCustomerGroupQrcodePage
-//  @Description: 客户群活码
-//  @receiver this
-//  @param opt
-//  @return reply
-//  @return error
 //
+//	@Description: 客户群活码
+//	@receiver this
+//	@param opt
+//	@return reply
+//	@return error
 func (this *wechatUseCase) FindWeWorkCustomerGroupQrcodePage(option *types.PageOption[types.ListWeWorkGroupQrcodeActiveReqeust]) (reply *types.Page[*scene.SceneQrcode], err error) {
 
 	var code []*scene.SceneQrcode
@@ -104,13 +101,12 @@ func (this *wechatUseCase) FindWeWorkCustomerGroupQrcodePage(option *types.PageO
 	}, err
 }
 
-//
 // ActionCustomerGroupQrcode
-//  @Description:
-//  @receiver this
-//  @param qid
-//  @return error
 //
+//	@Description:
+//	@receiver this
+//	@param qid
+//	@return error
 func (this *wechatUseCase) ActionCustomerGroupQrcode(qid string, action int) error {
 	column := make(map[string]interface{})
 	column[`state`] = action
@@ -122,14 +118,13 @@ func (this *wechatUseCase) ActionCustomerGroupQrcode(qid string, action int) err
 	return nil
 }
 
-//
 // UpdateSceneQrcodeLink
-//  @Description:
-//  @receiver this
-//  @param qid
-//  @param link
-//  @return error
 //
+//	@Description:
+//	@receiver this
+//	@param qid
+//	@param link
+//	@return error
 func (this *wechatUseCase) UpdateSceneQrcodeLink(qid string, link string) error {
 
 	column := make(map[string]interface{})

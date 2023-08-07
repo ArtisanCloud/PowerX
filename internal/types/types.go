@@ -42,7 +42,6 @@ type EmployeeQueryDepartmentOption struct {
 }
 
 type GetEmployeeQueryOptionsReply struct {
-	Positions   []string                        `json:"positions"`
 	Roles       []EmployeeQueryRoleOption       `json:"roles"`
 	Departments []EmployeeQueryDepartmentOption `json:"departments"`
 }
@@ -64,6 +63,15 @@ type GetDepartmentOptionsReply struct {
 	PageIndex int                `json:"pageIndex"`
 	PageSize  int                `json:"pageSize"`
 	Total     int64              `json:"total"`
+}
+
+type GetOptionsRequest struct {
+	Type   string `form:"type,optional"`
+	Search string `form:"search,optional"`
+}
+
+type GetOptionsReply struct {
+	Options []map[string]interface{} `json:"options"`
 }
 
 type DepartmentLeader struct {
@@ -145,6 +153,61 @@ type GetDepartmentReply struct {
 	*Department
 }
 
+type Position struct {
+	Id        int64    `json:"id"`
+	Name      string   `json:"name"`
+	Desc      string   `json:"desc"`
+	Level     string   `json:"level"`
+	RoleCodes []string `json:"roleCodes"`
+}
+
+type CreatePositionRequest struct {
+	Name      string   `json:"name"`
+	Desc      string   `json:"desc,optional"`
+	Level     string   `json:"level"`
+	RoleCodes []string `json:"roleCodes"`
+}
+
+type CreatePositionReply struct {
+	Id int64 `json:"id"`
+}
+
+type PatchPositionRequest struct {
+	Id        int64    `path:"id"`
+	Name      string   `json:"name,optional"`
+	Desc      string   `json:"desc,optional"`
+	Level     string   `json:"level,optional"`
+	RoleCodes []string `json:"roleCodes,optional"`
+}
+
+type PatchPositionReply struct {
+	*Position
+}
+
+type DeletePositionRequest struct {
+	Id int64 `path:"id"`
+}
+
+type DeletePositionReply struct {
+	Id int64 `json:"id"`
+}
+
+type ListPositionsRequest struct {
+	LikeName string `query:"likeName,optional"`
+}
+
+type ListPositionsReply struct {
+	List []Position `json:"list"`
+}
+
+type GetPositionRequest struct {
+	Id int64 `path:"id"`
+}
+
+type GetPositionReply struct {
+	*Position
+}
+
 type GetEmployeeRequest struct {
 	Id int64 `path:"id"`
 }
@@ -158,7 +221,7 @@ type ListEmployeesRequest struct {
 	LikeName        string   `form:"likeName,optional"`
 	LikeEmail       string   `form:"likeEmail,optional"`
 	DepIds          []int64  `form:"depIds,optional"`
-	Positions       []string `form:"positions,optional"`
+	PositionIds     []int64  `form:"positionIds,optional"`
 	LikePhoneNumber string   `form:"likePhoneNumber,optional"`
 	RoleCodes       []string `form:"roleCodes,optional"`
 	IsEnabled       *bool    `form:"isEnable,optional"`
@@ -184,7 +247,8 @@ type Employee struct {
 	ExternalEmail string              `json:"externalEmail,optional"`
 	Roles         []string            `json:"roles"`
 	Department    *EmployeeDepartment `json:"department"`
-	Position      string              `json:"position"`
+	Position      *Position           `json:"position"`
+	PositionId    int64               `json:"positionId"`
 	JobTitle      string              `json:"jobTitle"`
 	IsEnabled     bool                `json:"isEnabled"`
 	CreatedAt     string              `json:"createdAt"`
@@ -217,7 +281,7 @@ type CreateEmployeeRequest struct {
 	MobilePhone   string `json:"mobilePhone,optional"`
 	Gender        string `json:"gender,options=male|female|un_know"`
 	DepId         int64  `json:"depId"`
-	Position      string `json:"position,optional"`
+	PositionId    int64  `json:"positionId,optional"`
 	JobTitle      string `json:"jobTitle,optional"`
 	Password      string `json:"password,optional"`
 }
@@ -237,7 +301,7 @@ type UpdateEmployeeRequest struct {
 	MobilePhone   string `json:"mobilePhone,optional"`
 	Gender        string `json:"gender,optional,options=male|female|un_know"`
 	DepId         int64  `json:"depId,optional"`
-	Position      string `json:"position,optional"`
+	PositionId    int64  `json:"positionId,optional"`
 	JobTitle      string `json:"jobTitle,optional"`
 	Password      string `json:"password,optional"`
 	Status        string `json:"status,optional,options=enabled|disabled"`
@@ -563,52 +627,6 @@ type ModifyPasswordReqeust struct {
 	Password string `json:"password"`
 }
 
-type MediaResource struct {
-	Id            int64  `json:"id,optional"`
-	Filename      string `json:"filename,optional"`
-	Size          int64  `json:"size,optional"`
-	Url           string `json:"url,optional"`
-	BucketName    string `json:"bucketName,optional"`
-	IsLocalStored bool   `json:"isLocalStored,optional"`
-	ContentType   string `json:"contentType,optional"`
-	ResourceType  string `json:"resourceType,optional"`
-}
-
-type CreateMediaResourceReply struct {
-	*MediaResource
-	IsOSS bool `json:"isOSS"`
-}
-
-type GetMediaResourceRequest struct {
-	Id int64 `path:"id"`
-}
-
-type GetMediaResourceReply struct {
-	MediaResource *MediaResource `json:"mediaResource"`
-}
-
-type ListMediaResourcesPageRequest struct {
-	LikeName  string `form:"likeName,optional"`
-	OrderBy   string `form:"orderBy,optional"`
-	PageIndex int    `form:"pageIndex,optional"`
-	PageSize  int    `form:"pageSize,optional"`
-}
-
-type ListMediaResourcesPageReply struct {
-	List      []MediaResource `json:"list,optional"`
-	PageIndex int             `json:"pageIndex,optional"`
-	PageSize  int             `json:"pageSize,optional"`
-	Total     int64           `json:"total,optional"`
-}
-
-type DeleteMediaResourceRequest struct {
-	Id int64 `path:"id"`
-}
-
-type DeleteMediaResourceReply struct {
-	MediaResourceId int64 `json:"id"`
-}
-
 type LeadExternalId struct {
 	OpenIdInMiniProgram           string `json:"openIdInMiniProgram,optional"`
 	OpenIdInWeChatOfficialAccount string `json:"openIdInWeChatOfficialAccount,optional"`
@@ -741,7 +759,7 @@ type GetCustomerReqeuest struct {
 }
 
 type GetCustomerReply struct {
-	Customer *Customer `json:"customerdomain"`
+	Customer *Customer `json:"customer"`
 }
 
 type ListCustomersPageRequest struct {
@@ -1119,17 +1137,6 @@ type DeletePriceBookReply struct {
 	Id int64 `json:"id"`
 }
 
-type ProductImage struct {
-	Id            int64  `json:"id,optional"`
-	Filename      string `json:"filename,optional"`
-	Size          int64  `json:"size,optional"`
-	Url           string `json:"url,optional"`
-	BucketName    string `json:"bucketName,optional"`
-	IsLocalStored bool   `json:"isLocalStored,optional"`
-	ContentType   string `json:"contentType,optional"`
-	ResourceType  string `json:"resourceType,optional"`
-}
-
 type PivotDataDictionaryToObject struct {
 	DataDictionaryType string `json:"dataDictionaryType,optional"`
 	DataDictionaryKey  string `json:"dataDictionaryKey,optional"`
@@ -1163,7 +1170,7 @@ type Product struct {
 	CanSellOnline          bool                           `json:"canSellOnline,optional"`
 	CanUseForDeduct        bool                           `json:"canUseForDeduct,optional"`
 	Description            string                         `json:"description,optional"`
-	AllowedSellQuantity    int                            `json:"purchasedQuantity,optional"`
+	AllowedSellQuantity    int                            `json:"allowedSellQuantity,optional"`
 	ValidityPeriodDays     int                            `json:"validityPeriodDays,optional"`
 	SaleStartDate          string                         `json:"saleStartDate,optional"`
 	SaleEndDate            string                         `json:"saleEndDate,optional"`
@@ -1178,9 +1185,9 @@ type Product struct {
 	PromoteChannelsItemIds []int64                        `json:"promoteChannelsItemIds,optional"`
 	CategoryIds            []int64                        `json:"categoryIds,optional"`
 	CoverImageIds          []int64                        `json:"coverImageIds,optional"`
-	CoverImages            []*ProductImage                `json:"coverImages,optional"`
+	CoverImages            []*MediaResource               `json:"coverImages,optional"`
 	DetailImageIds         []int64                        `json:"detailImageIds,optional"`
-	DetailImages           []*ProductImage                `json:"detailImages,optional"`
+	DetailImages           []*MediaResource               `json:"detailImages,optional"`
 	ActivePriceEntry       *ActivePriceEntry              `json:"activePriceBookEntry,optional"`
 	PriceBookEntries       []*PriceBookEntry              `json:"priceBookEntries,optional"`
 	SKUs                   []*SKU                         `json:"skus,optional"`
@@ -1256,20 +1263,72 @@ type AssignProductToProductCategoryReply struct {
 	Product
 }
 
+type MediaResource struct {
+	Id            int64  `json:"id,optional"`
+	Filename      string `json:"filename,optional"`
+	Size          int64  `json:"size,optional"`
+	Url           string `json:"url,optional"`
+	BucketName    string `json:"bucketName,optional"`
+	IsLocalStored bool   `json:"isLocalStored,optional"`
+	ContentType   string `json:"contentType,optional"`
+	ResourceType  string `json:"resourceType,optional"`
+}
+
+type CreateMediaResourceByBase64Request struct {
+	MediaName  string `json:"mediaName"`
+	BucketName string `json:"bucketName"`
+	Base64Data string `json:"base64Data"`
+}
+
+type CreateMediaResourceReply struct {
+	*MediaResource
+	IsOSS bool `json:"isOSS"`
+}
+
+type GetMediaResourceRequest struct {
+	Id int64 `path:"id"`
+}
+
+type GetMediaResourceReply struct {
+	MediaResource *MediaResource `json:"mediaResource"`
+}
+
+type ListMediaResourcesPageRequest struct {
+	LikeName  string `form:"likeName,optional"`
+	OrderBy   string `form:"orderBy,optional"`
+	PageIndex int    `form:"pageIndex,optional"`
+	PageSize  int    `form:"pageSize,optional"`
+}
+
+type ListMediaResourcesPageReply struct {
+	List      []MediaResource `json:"list,optional"`
+	PageIndex int             `json:"pageIndex,optional"`
+	PageSize  int             `json:"pageSize,optional"`
+	Total     int64           `json:"total,optional"`
+}
+
+type DeleteMediaResourceRequest struct {
+	Id int64 `path:"id"`
+}
+
+type DeleteMediaResourceReply struct {
+	MediaResourceId int64 `json:"id"`
+}
+
 type ImageAbleInfo struct {
 	Icon            string `json:"icon"`
 	BackgroundColor string `json:"backgroundColor"`
 }
 
 type CategoryImage struct {
-	Id              int64  `json:"id,optional"`
-	Filename        string `json:"filename,optional"`
-	Size            int64  `json:"size,optional"`
-	Url             string `json:"url,optional"`
-	BucketName      string `json:"bucketName,optional"`
-	IsLocalArtisand bool   `json:"isLocalArtisand,optional"`
-	ContentType     string `json:"contentType,optional"`
-	ResourceType    string `json:"resourceType,optional"`
+	Id            int64  `json:"id,optional"`
+	Filename      string `json:"filename,optional"`
+	Size          int64  `json:"size,optional"`
+	Url           string `json:"url,optional"`
+	BucketName    string `json:"bucketName,optional"`
+	IsLocalStored bool   `json:"isLocalStored,optional"`
+	ContentType   string `json:"contentType,optional"`
+	ResourceType  string `json:"resourceType,optional"`
 }
 
 type ProductCategory struct {
@@ -1581,14 +1640,14 @@ type DeletePriceBookEntryReply struct {
 }
 
 type ArtisanImage struct {
-	Id              int64  `json:"id,optional"`
-	Filename        string `json:"filename,optional"`
-	Size            int64  `json:"size,optional"`
-	Url             string `json:"url,optional"`
-	BucketName      string `json:"bucketName,optional"`
-	IsLocalArtisand bool   `json:"isLocalArtisand,optional"`
-	ContentType     string `json:"contentType,optional"`
-	ResourceType    string `json:"resourceType,optional"`
+	Id            int64  `json:"id,optional"`
+	Filename      string `json:"filename,optional"`
+	Size          int64  `json:"size,optional"`
+	Url           string `json:"url,optional"`
+	BucketName    string `json:"bucketName,optional"`
+	IsLocalStored bool   `json:"isLocalStored,optional"`
+	ContentType   string `json:"contentType,optional"`
+	ResourceType  string `json:"resourceType,optional"`
 }
 
 type Artisan struct {
@@ -2749,19 +2808,19 @@ type CancelOrderReply struct {
 }
 
 type OrderItem struct {
-	Id               int64   `json:"id,optional"`
-	OrderId          int64   `json:"orderId,optional"`
-	PriceBookEntryId int64   `json:"priceBookEntryId,optional"`
-	CustomerId       int64   `json:"customerId,optional"`
-	Type             int     `json:"type,optional"`
-	Status           int     `json:"status,optional"`
-	Quantity         int     `json:"quantity,optional"`
-	UnitPrice        float64 `json:"unitPrice,optional"`
-	ListPrice        float64 `json:"listPrice,optional"`
-	SellingPrice     float64 `json:"sellingPrice,optional"`
-	CoverUrl         string  `json:"coverUrl,optional"`
-	ProdcutName      string  `json:"productName,optional"`
-	SkuNo            string  `json:"skuNo,optional"`
+	Id               int64          `json:"id,optional"`
+	OrderId          int64          `json:"orderId,optional"`
+	PriceBookEntryId int64          `json:"priceBookEntryId,optional"`
+	CustomerId       int64          `json:"customerId,optional"`
+	Type             int            `json:"type,optional"`
+	Status           int            `json:"status,optional"`
+	Quantity         int            `json:"quantity,optional"`
+	UnitPrice        float64        `json:"unitPrice,optional"`
+	ListPrice        float64        `json:"listPrice,optional"`
+	SellingPrice     float64        `json:"sellingPrice,optional"`
+	CoverImage       *MediaResource `json:"coverImage,optional"`
+	ProdcutName      string         `json:"productName,optional"`
+	SkuNo            string         `json:"skuNo,optional"`
 }
 
 type Order struct {

@@ -8,7 +8,7 @@ info(
     version: "v1"
 )
 
-
+import "../product/product.api"
 import "./payment.api"
 
 @server(
@@ -58,7 +58,8 @@ type OrderItem {
     UnitPrice float64 `json:"unitPrice,optional"`
     ListPrice float64 `json:"listPrice,optional"`
     SellingPrice float64 `json:"sellingPrice,optional"`
-    CoverUrl string `json:"coverUrl,optional"`
+//    CoverUrl string `json:"coverUrl,optional"`
+    CoverImage *MediaResource `json:"coverImage,optional"`
     ProdcutName string `json:"productName,optional"`
     SkuNo string `json:"skuNo,optional"`
 }

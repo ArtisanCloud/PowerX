@@ -3,9 +3,9 @@ module PowerX
 go 1.19
 
 require (
-	github.com/ArtisanCloud/PowerLibs/v3 v3.0.6
-	github.com/ArtisanCloud/PowerSocialite/v3 v3.0.5
-	github.com/ArtisanCloud/PowerWeChat/v3 v3.0.26
+	github.com/ArtisanCloud/PowerLibs/v3 v3.0.11
+	github.com/ArtisanCloud/PowerSocialite/v3 v3.0.6
+	github.com/ArtisanCloud/PowerWeChat/v3 v3.0.54
 	github.com/Blank-Xu/sql-adapter v0.0.0-20210714092925-0bdd0d548758
 	github.com/brianvoe/gofakeit/v6 v6.21.0
 	github.com/casbin/casbin/v2 v2.60.0
@@ -14,7 +14,6 @@ require (
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/mux v1.8.0
 	github.com/kr/pretty v0.3.0
-	github.com/lib/pq v1.10.7
 	github.com/minio/minio-go/v7 v7.0.52
 	github.com/pkg/errors v0.9.1
 	github.com/robfig/cron/v3 v3.0.1
@@ -63,6 +62,7 @@ require (
 	github.com/minio/sha256-simd v1.0.0 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
+	github.com/northseadl/godevx v0.0.0-20230609032238-2918854bbcba // indirect
 	github.com/openzipkin/zipkin-go v0.4.0 // indirect
 	github.com/patrickmn/go-cache v2.1.0+incompatible // indirect
 	github.com/pelletier/go-toml/v2 v2.0.6 // indirect
@@ -71,6 +71,7 @@ require (
 	github.com/prometheus/client_model v0.2.0 // indirect
 	github.com/prometheus/common v0.37.0 // indirect
 	github.com/prometheus/procfs v0.8.0 // indirect
+	github.com/redis/go-redis/v9 v9.0.3 // indirect
 	github.com/rogpeppe/go-internal v1.6.1 // indirect
 	github.com/rs/xid v1.4.0 // indirect
 	github.com/russross/blackfriday/v2 v2.0.1 // indirect

@@ -12,7 +12,7 @@ type CustomUseCase struct {
 	db *gorm.DB
 }
 
-func NewCustomUseCase(conf *config.Config) (uc *CustomUseCase, clean func()) {
+func NewCustomUseCase(conf *config.Config, pxUseCase *PowerXUseCase) (uc *CustomUseCase, clean func()) {
 
 	uc = &CustomUseCase{}
 

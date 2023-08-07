@@ -3,6 +3,7 @@ package leader
 import (
 	"PowerX/internal/model/customerdomain"
 	"PowerX/internal/types/errorx"
+	"PowerX/pkg/securityx"
 	"context"
 
 	"PowerX/internal/svc"
@@ -33,11 +34,11 @@ func (l *GetLeadLogic) GetLead(req *types.GetLeadReqeuest) (resp *types.GetLeadR
 	}
 
 	return &types.GetLeadReply{
-		Lead: TransformLeadToLeadReply(mdlLead),
+		Lead: TransformLeadToLeadReply(l.svcCtx, mdlLead),
 	}, nil
 }
 
-func TransformLeadToLeadReply(mdlLead *customerdomain.Lead) (leadReply *types.Lead) {
+func TransformLeadToLeadReply(svcCtx *svc.ServiceContext, mdlLead *customerdomain.Lead) (leadReply *types.Lead) {
 
 	var inviter *types.LeadInviter
 	if mdlLead.Inviter != nil {
@@ -48,10 +49,17 @@ func TransformLeadToLeadReply(mdlLead *customerdomain.Lead) (leadReply *types.Le
 		}
 	}
 
+	mobile := mdlLead.Mobile
+	openIdInMiniProgram := mdlLead.OpenIdInMiniProgram
+	if svcCtx.Config.PowerXDatabase.SeedCommerceData {
+		mobile = securityx.MaskMobile(mobile)
+		openIdInMiniProgram = securityx.MaskName(openIdInMiniProgram, 20)
+	}
+
 	return &types.Lead{
 		Id:          mdlLead.Id,
 		Name:        mdlLead.Name,
-		Mobile:      mdlLead.Mobile,
+		Mobile:      mobile,
 		Email:       mdlLead.Email,
 		InviterId:   mdlLead.InviterId,
 		Source:      mdlLead.Source,
@@ -60,7 +68,7 @@ func TransformLeadToLeadReply(mdlLead *customerdomain.Lead) (leadReply *types.Le
 		CreatedAt:   mdlLead.CreatedAt.String(),
 		Inviter:     inviter,
 		LeadExternalId: &types.LeadExternalId{
-			OpenIdInMiniProgram:           mdlLead.OpenIdInMiniProgram,
+			OpenIdInMiniProgram:           openIdInMiniProgram,
 			OpenIdInWeChatOfficialAccount: mdlLead.OpenIdInWeChatOfficialAccount,
 			OpenIdInWeCom:                 mdlLead.OpenIdInWeCom,
 		},

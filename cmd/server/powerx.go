@@ -25,7 +25,13 @@ func main() {
 
 	c.EtcDir = filepath.Dir(*configFile)
 
-	server := rest.MustNewServer(c.Server)
+	var server *rest.Server
+	runOpt := config.SetupCors(&c)
+	if runOpt == nil {
+		server = rest.MustNewServer(c.Server)
+	} else {
+		server = rest.MustNewServer(c.Server, runOpt)
+	}
 	defer server.Stop()
 
 	ctx := svc.NewServiceContext(c)

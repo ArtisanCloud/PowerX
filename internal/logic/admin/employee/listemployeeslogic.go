@@ -1,8 +1,10 @@
 package employee
 
 import (
-	"PowerX/internal/model/scrm/organization"
-	"PowerX/internal/uc/powerx"
+	"PowerX/internal/model/option"
+	"PowerX/internal/model/origanzation"
+	"PowerX/internal/model/permission"
+	"PowerX/pkg/slicex"
 	"context"
 	"time"
 
@@ -27,12 +29,12 @@ func NewListEmployeesLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Lis
 }
 
 func (l *ListEmployeesLogic) ListEmployees(req *types.ListEmployeesRequest) (resp *types.ListEmployeesReply, err error) {
-	opt := powerx.FindManyEmployeesOption{
+	opt := option.FindManyEmployeesOption{
 		Ids:             req.Ids,
 		LikeName:        req.LikeName,
 		LikeEmail:       req.LikeEmail,
 		DepIds:          req.DepIds,
-		Positions:       req.Positions,
+		PositionIDs:     req.PositionIds,
 		LikePhoneNumber: req.LikePhoneNumber,
 		PageIndex:       req.PageIndex,
 		PageSize:        req.PageSize,
@@ -51,9 +53,9 @@ func (l *ListEmployeesLogic) ListEmployees(req *types.ListEmployeesRequest) (res
 	}
 	if req.IsEnabled != nil {
 		if *req.IsEnabled {
-			opt.Statuses = append(opt.Statuses, organization.EmployeeStatusEnabled)
+			opt.Statuses = append(opt.Statuses, origanzation.EmployeeStatusEnabled)
 		} else {
-			opt.Statuses = append(opt.Statuses, organization.EmployeeStatusDisabled)
+			opt.Statuses = append(opt.Statuses, origanzation.EmployeeStatusDisabled)
 		}
 	}
 
@@ -70,7 +72,7 @@ func (l *ListEmployeesLogic) ListEmployees(req *types.ListEmployeesRequest) (res
 				DepName: employee.Department.Name,
 			}
 		}
-		vos = append(vos, types.Employee{
+		vo := types.Employee{
 			Id:            employee.Id,
 			Account:       employee.Account,
 			Name:          employee.Name,
@@ -83,11 +85,25 @@ func (l *ListEmployeesLogic) ListEmployees(req *types.ListEmployeesRequest) (res
 			ExternalEmail: employee.ExternalEmail,
 			Department:    dep,
 			Roles:         roles,
-			Position:      employee.Position,
 			JobTitle:      employee.JobTitle,
-			IsEnabled:     employee.Status == organization.EmployeeStatusEnabled,
+			IsEnabled:     employee.Status == origanzation.EmployeeStatusEnabled,
 			CreatedAt:     employee.CreatedAt.Format(time.RFC3339),
-		})
+		}
+		if employee.Position != nil {
+			codes := slicex.SlicePluck(employee.Position.Roles, func(item *permission.AdminRole) string {
+				return item.RoleCode
+			})
+			vo.Position = &types.Position{
+				Id:        employee.Position.Id,
+				Name:      employee.Position.Name,
+				Desc:      employee.Position.Desc,
+				Level:     employee.Position.Level,
+				RoleCodes: codes,
+			}
+			vo.PositionId = employee.Position.Id
+		}
+
+		vos = append(vos, vo)
 	}
 
 	return &types.ListEmployeesReply{

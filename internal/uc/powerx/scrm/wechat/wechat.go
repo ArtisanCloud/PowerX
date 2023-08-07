@@ -1,6 +1,7 @@
 package wechat
 
 import (
+	"PowerX/internal/model/origanzation"
 	"PowerX/internal/model/scene"
 	"PowerX/internal/model/scrm/app"
 	"PowerX/internal/model/scrm/customer"
@@ -94,8 +95,8 @@ type (
 	help              struct{}
 	hash              power.HashMap
 	modelOrganization struct {
-		employee   organization.Employee
-		department organization.Department
+		employee   origanzation.Employee
+		department origanzation.Department
 	}
 	modelWeworkApp struct {
 		group app.WeWorkAppGroup
@@ -119,13 +120,12 @@ type (
 	}
 )
 
-//
 // NewOrganizationUseCase
-//  @Description:
-//  @param db
-//  @param wework
-//  @return iEmployeeInterface
 //
+//	@Description:
+//	@param db
+//	@param wework
+//	@return iEmployeeInterface
 func Repo(db *gorm.DB, wework *work.Work, kv *redis.Redis) IWechatInterface {
 
 	return &wechatUseCase{
@@ -153,19 +153,15 @@ const (
 	AppGroupCustomerMessageTimerTypeByte
 )
 
-//
-//  FindManyWechatDepartmentsOption
-//  @Description:
-//
+// FindManyWechatDepartmentsOption
+// @Description:
 type FindManyWechatDepartmentsOption struct {
 	WeWorkDepId []int
 	Name        string
 }
 
-//
-//  FindManyWechatEmployeesOption
-//  @Description:
-//
+// FindManyWechatEmployeesOption
+// @Description:
 type FindManyWechatEmployeesOption struct {
 	WeWorkUserId           string `json:"we_work_user_id"` //员工唯一ID
 	Ids                    []int64
@@ -217,28 +213,26 @@ type (
 	}
 )
 
-//
 // decode
-//  @Description:
-//  @receiver self
-//  @param str
-//  @param body
-//  @return help
 //
+//	@Description:
+//	@receiver self
+//	@param str
+//	@param body
+//	@return help
 func (self help) decode(str string, body interface{}) help {
 
 	_ = json.Unmarshal([]byte(str), &body)
 	return self
 }
 
-//
 // error
-//  @Description:
-//  @receiver self
-//  @param ps
-//  @param rsp
-//  @return err
 //
+//	@Description:
+//	@receiver self
+//	@param ps
+//	@param rsp
+//	@return err
 func (self help) error(ps string, rsp response.ResponseWork) (err error) {
 
 	if rsp.ErrCode > 0 {

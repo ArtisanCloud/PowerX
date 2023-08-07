@@ -44,14 +44,13 @@ func (tag *CreateWeWorkCropTagLogic) CreateWeWorkCropTag(opt *types.CreateCorpTa
 
 }
 
-//
 // (opt *types.CreateCorpTagRequest)
-//  @Description:
-//  @receiver tag
-//  @param opt
-//  @return cropTag
-//  @return err
 //
+//	@Description:
+//	@receiver tag
+//	@param opt
+//	@return cropTag
+//	@return err
 func (tag *CreateWeWorkCropTagLogic) OPT(opt *types.CreateCorpTagRequest) (cropTag *tagReq.RequestTagAddCorpTag, err error) {
 
 	cropTag = &tagReq.RequestTagAddCorpTag{
@@ -67,13 +66,12 @@ func (tag *CreateWeWorkCropTagLogic) OPT(opt *types.CreateCorpTagRequest) (cropT
 	return cropTag, err
 }
 
-//
 // loadTagFeild
-//  @Description:
-//  @receiver tag
-//  @param tags
-//  @return obj
 //
+//	@Description:
+//	@receiver tag
+//	@param tags
+//	@return obj
 func (tag *CreateWeWorkCropTagLogic) loadTagField(tags []*types.TagFieldTag) (obj []tagReq.RequestTagAddCorpTagFieldTag) {
 	for _, val := range tags {
 		obj = append(obj, tagReq.RequestTagAddCorpTagFieldTag{

@@ -1,6 +1,7 @@
 package wechat
 
 import (
+	"PowerX/internal/model/origanzation"
 	"PowerX/internal/model/powermodel"
 	"PowerX/internal/model/scrm/organization"
 	"PowerX/internal/types"
@@ -11,14 +12,13 @@ import (
 	"strings"
 )
 
-//
 // CreateWeWorkEmployeeRequest
-//  @Description:
-//  @receiver uc
-//  @param ctx
-//  @param dep
-//  @return error
 //
+//	@Description:
+//	@receiver uc
+//	@param ctx
+//	@param dep
+//	@return error
 func (this *wechatUseCase) CreateWeWorkEmployeeRequest(ctx context.Context, employee *organization.WeWorkEmployee) (err error) {
 
 	create, err := this.wework.User.Create(ctx, this.employeeModelToWeWorkRequest(employee))
@@ -36,14 +36,13 @@ func (this *wechatUseCase) CreateWeWorkEmployeeRequest(ctx context.Context, empl
 
 }
 
-//
 // UpdateWeWorkEmployeeRequest
-//  @Description:
-//  @receiver this
-//  @param ctx
-//  @param dep
-//  @return err
 //
+//	@Description:
+//	@receiver this
+//	@param ctx
+//	@param dep
+//	@return err
 func (this *wechatUseCase) UpdateWeWorkEmployeeRequest(ctx context.Context, employee *organization.WeWorkEmployee) (err error) {
 
 	update, err := this.wework.User.Update(ctx, this.employeeModelToWeWorkRequest(employee))
@@ -61,12 +60,11 @@ func (this *wechatUseCase) UpdateWeWorkEmployeeRequest(ctx context.Context, empl
 
 }
 
-//
 // employeeModelToWeWorkRequest
-//  @Description:
-//  @param employee
-//  @return *request.RequestUserDetail
 //
+//	@Description:
+//	@param employee
+//	@return *request.RequestUserDetail
 func (this *wechatUseCase) employeeModelToWeWorkRequest(employee *organization.WeWorkEmployee) *request.RequestUserDetail {
 
 	return &request.RequestUserDetail{
@@ -83,13 +81,12 @@ func (this *wechatUseCase) employeeModelToWeWorkRequest(employee *organization.W
 	}
 }
 
-//
 // PullSyncDepartmentsAndEmployeesRequest
-//  @Description:
-//  @receiver uc
-//  @param ctx
-//  @return error
 //
+//	@Description:
+//	@receiver uc
+//	@param ctx
+//	@return error
 func (this *wechatUseCase) PullSyncDepartmentsAndEmployeesRequest(ctx context.Context) error {
 
 	list, err := this.wework.Department.SimpleList(ctx, 1)
@@ -117,12 +114,11 @@ func (this *wechatUseCase) PullSyncDepartmentsAndEmployeesRequest(ctx context.Co
 	return err
 }
 
-//
 // deparment
-//  @Description:
-//  @receiver this
-//  @param val
 //
+//	@Description:
+//	@receiver this
+//	@param val
 func (this *wechatUseCase) deparment(val response.DepartmentID) {
 
 	department, err := this.wework.Department.Get(this.ctx, val.ID)
@@ -149,12 +145,11 @@ func (this *wechatUseCase) deparment(val response.DepartmentID) {
 
 }
 
-//
 // employee
-//  @Description:
-//  @receiver this
-//  @param val
 //
+//	@Description:
+//	@receiver this
+//	@param val
 func (this *wechatUseCase) employee(val response.DepartmentID) {
 
 	users, err := this.wework.User.GetDetailedDepartmentUsers(this.ctx, val.ID, 0)
@@ -192,13 +187,12 @@ func (this *wechatUseCase) employee(val response.DepartmentID) {
 
 }
 
-//
 // buildFindManyEmployeesQueryNoPage
-//  @Description:
-//  @param query
-//  @param opt
-//  @return *gorm.DB
 //
+//	@Description:
+//	@param query
+//	@param opt
+//	@return *gorm.DB
 func buildFindManyEmployeesQueryNoPage(query *gorm.DB, opt *FindManyWechatEmployeesOption) *gorm.DB {
 	if len(opt.Ids) > 0 {
 		query.Where("id in ?", opt.Ids)
@@ -227,15 +221,14 @@ func buildFindManyEmployeesQueryNoPage(query *gorm.DB, opt *FindManyWechatEmploy
 	return query
 }
 
-//
 // FindManyWechatEmployeesPage
-//  @Description:
-//  @receiver uc
-//  @param ctx
-//  @param opt
-//  @return *types.Page[*organization.WeWorkEmployee]
-//  @return error
 //
+//	@Description:
+//	@receiver uc
+//	@param ctx
+//	@param opt
+//	@return *types.Page[*organization.WeWorkEmployee]
+//	@return error
 func (this *wechatUseCase) FindManyWechatEmployeesPage(ctx context.Context, opt *types.PageOption[FindManyWechatEmployeesOption]) (*types.Page[*organization.WeWorkEmployee], error) {
 
 	var employees []*organization.WeWorkEmployee
@@ -268,15 +261,14 @@ func (this *wechatUseCase) FindManyWechatEmployeesPage(ctx context.Context, opt 
 	}, err
 }
 
-//
 // getWechatEmployeeIDs
-//  @Description:
-//  @receiver uc
-//  @param ctx
-//  @param opt
-//  @return *types.Page[*organization.WeWorkEmployee]
-//  @return error
 //
+//	@Description:
+//	@receiver uc
+//	@param ctx
+//	@param opt
+//	@return *types.Page[*organization.WeWorkEmployee]
+//	@return error
 func (this *wechatUseCase) getWechatEmployeeIDs(ctx context.Context) (ids []string, err error) {
 
 	ids = organization.AdapterEmployeeSliceUserIDs(func(employees []*organization.WeWorkEmployee) (ids []string) {
@@ -290,23 +282,22 @@ func (this *wechatUseCase) getWechatEmployeeIDs(ctx context.Context) (ids []stri
 
 }
 
-//
 // employeeFromWeWorkSyncToLocal
-//  @Description:
-//  @receiver this
-//  @param fromEmployee
-//  @return toEmployee
 //
-func (this *wechatUseCase) employeeFromWeWorkSyncToLocal(fromEmployee []*organization.WeWorkEmployee) (toEmployee []*organization.Employee) {
+//	@Description:
+//	@receiver this
+//	@param fromEmployee
+//	@return toEmployee
+func (this *wechatUseCase) employeeFromWeWorkSyncToLocal(fromEmployee []*organization.WeWorkEmployee) (toEmployee []*origanzation.Employee) {
 
 	if fromEmployee != nil {
-		password, _ := organization.HashPassword(`123456`)
+		password, _ := origanzation.HashPassword(`123456`)
 		for _, employee := range fromEmployee {
-			toEmployee = append(toEmployee, &organization.Employee{
-				Account:       employee.WeWorkUserId,
-				Name:          employee.Name,
-				NickName:      employee.Name,
-				Position:      employee.Position,
+			toEmployee = append(toEmployee, &origanzation.Employee{
+				Account:  employee.WeWorkUserId,
+				Name:     employee.Name,
+				NickName: employee.Name,
+				// todo Position 关联
 				DepartmentId:  int64(employee.WeWorkMainDepartmentId),
 				MobilePhone:   employee.Mobile,
 				Gender:        employee.Gender,

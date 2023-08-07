@@ -4,28 +4,26 @@ import "PowerX/internal/model/scene"
 
 type IsceneInterface interface {
 
-    //
-    //  @Description: qrcode
-    //
-    iQrcodeInterface
+	//
+	//  @Description: qrcode
+	//
+	iQrcodeInterface
 }
 
-//
-//  iQrcodeInterface
-//  @Description:
-//
+// iQrcodeInterface
+// @Description:
 type iQrcodeInterface interface {
-    //
-    // FindOneSceneQrcodeDetail
-    //  @Description: 场景码详情
-    //  @param qid
-    //  @return *qrcode.QrcodeActive
-    //
-    FindOneSceneQrcodeDetail(qid string) *scene.SceneQrcode
-    //
-    // IncreaseSceneCpaNumber
-    //  @Description: CPA+1
-    //  @param qid
-    //
-    IncreaseSceneCpaNumber(qid string)
+	//
+	// FindOneSceneQrcodeDetail
+	//  @Description: 场景码详情
+	//  @param qid
+	//  @return *qrcode.QrcodeActive
+	//
+	FindOneSceneQrcodeDetail(qid string) *scene.SceneQrcode
+	//
+	// IncreaseSceneCpaNumber
+	//  @Description: CPA+1
+	//  @param qid
+	//
+	IncreaseSceneCpaNumber(qid string)
 }

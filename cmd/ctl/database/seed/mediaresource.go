@@ -46,7 +46,8 @@ func ProductCoverImage(url string, name string) []*media.MediaResource {
 	imageUrl, _ := httpx.AppendURIs(url, fmt.Sprintf("%s/0.png", name))
 	return []*media.MediaResource{
 		{
-			Url: imageUrl,
+			Url:           imageUrl,
+			IsLocalStored: true,
 		},
 	}
 }
@@ -57,7 +58,8 @@ func ProductDetailImages(url string, path string) []*media.MediaResource {
 		imageUrl, _ := httpx.AppendURIs(url, path, fmt.Sprintf("%d.png", i+1))
 
 		urls = append(urls, &media.MediaResource{
-			Url: imageUrl,
+			Url:           imageUrl,
+			IsLocalStored: true,
 		})
 	}
 	return urls

@@ -43,7 +43,7 @@ func (l *ListCustomersPageLogic) ListCustomersPage(req *types.ListCustomersPageR
 	}
 
 	// list
-	list := TransformCustomersToCustomersReply(page.List)
+	list := TransformCustomersToCustomersReply(l.svcCtx, page.List)
 	return &types.ListCustomersPageReply{
 		List:      list,
 		PageIndex: page.PageIndex,
@@ -53,10 +53,10 @@ func (l *ListCustomersPageLogic) ListCustomersPage(req *types.ListCustomersPageR
 
 }
 
-func TransformCustomersToCustomersReply(customers []*customerdomain2.Customer) []types.Customer {
+func TransformCustomersToCustomersReply(svcCtx *svc.ServiceContext, customers []*customerdomain2.Customer) []types.Customer {
 	customersReply := []types.Customer{}
 	for _, customer := range customers {
-		customerReply := TransformCustomerToCustomerReply(customer)
+		customerReply := TransformCustomerToCustomerReply(svcCtx, customer)
 		customersReply = append(customersReply, *customerReply)
 
 	}

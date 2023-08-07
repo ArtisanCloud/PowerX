@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-func GetFileType(contentType string) string {
+func GetMediaType(contentType string) string {
 
 	switch {
 	case strings.HasPrefix(contentType, "image/"):

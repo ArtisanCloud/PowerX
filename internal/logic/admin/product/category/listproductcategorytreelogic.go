@@ -90,12 +90,13 @@ func TransformCategoryImageToCategoryImageReply(resource *media.MediaResource) *
 		return nil
 	}
 	return &types.CategoryImage{
-		Id:           resource.Id,
-		BucketName:   resource.BucketName,
-		Filename:     resource.Filename,
-		Size:         resource.Size,
-		Url:          resource.Url,
-		ContentType:  resource.ContentType,
-		ResourceType: resource.ResourceType,
+		Id:            resource.Id,
+		BucketName:    resource.BucketName,
+		Filename:      resource.Filename,
+		Size:          resource.Size,
+		IsLocalStored: resource.IsLocalStored,
+		Url:           resource.Url,
+		ContentType:   resource.ContentType,
+		ResourceType:  resource.ResourceType,
 	}
 }

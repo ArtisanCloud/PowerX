@@ -1,0 +1,94 @@
+@server(
+    group: admin/position
+    prefix: /api/v1/admin/position
+    middleware: EmployeeJWTAuth
+)
+
+service PowerX {
+    @doc "创建新职位"
+    @handler CreatePosition
+    post /positions (CreatePositionRequest) returns (CreatePositionReply)
+
+    @doc "更新职位信息(可选更新)"
+    @handler PatchPosition
+    patch /positions/:id (PatchPositionRequest) returns (PatchPositionReply)
+
+    @doc "删除职位"
+    @handler DeletePosition
+    delete /positions/:id (DeletePositionRequest) returns (DeletePositionReply)
+
+    @doc "获取职位列表"
+    @handler ListPositions
+    get /positions (ListPositionsRequest) returns (ListPositionsReply)
+
+    @doc "获取职位详情"
+    @handler GetPosition
+    get /positions/:id (GetPositionRequest) returns (GetPositionReply)
+}
+
+type (
+    Position {
+        Id int64 `json:"id"`
+        Name string `json:"name"`
+        Desc string `json:"desc"`
+        Level string `json:"level"`
+        RoleCodes []string `json:"roleCodes"`
+    }
+)
+
+type (
+    CreatePositionRequest {
+        Name string `json:"name"`
+        Desc string `json:"desc,optional"`
+        Level string `json:"level"`
+        RoleCodes []string `json:"roleCodes"`
+    }
+
+    CreatePositionReply {
+        Id int64 `json:"id"`
+    }
+)
+
+type (
+    PatchPositionRequest {
+        Id int64 `path:"id"`
+        Name string `json:"name,optional"`
+        Desc string `json:"desc,optional"`
+        Level string `json:"level,optional"`
+        RoleCodes []string `json:"roleCodes,optional"`
+    }
+
+    PatchPositionReply {
+        *Position
+    }
+)
+
+type (
+    DeletePositionRequest {
+        Id int64 `path:"id"`
+    }
+
+    DeletePositionReply {
+        Id int64 `json:"id"`
+    }
+)
+
+type (
+    ListPositionsRequest {
+        LikeName string `query:"likeName,optional"`
+    }
+
+    ListPositionsReply {
+        List []Position `json:"list"`
+    }
+)
+
+type (
+    GetPositionRequest {
+        Id int64 `path:"id"`
+    }
+
+    GetPositionReply {
+        *Position
+    }
+)

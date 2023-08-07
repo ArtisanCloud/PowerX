@@ -53,13 +53,14 @@ func TransformMediaImageToMediaImageReply(resource *media.MediaResource) *types.
 		return nil
 	}
 	return &types.MediaImage{
-		Id:           resource.Id,
-		BucketName:   resource.BucketName,
-		Filename:     resource.Filename,
-		Size:         resource.Size,
-		Url:          resource.Url,
-		ContentType:  resource.ContentType,
-		ResourceType: resource.ResourceType,
+		Id:            resource.Id,
+		BucketName:    resource.BucketName,
+		Filename:      resource.Filename,
+		Size:          resource.Size,
+		IsLocalStored: resource.IsLocalStored,
+		Url:           resource.Url,
+		ContentType:   resource.ContentType,
+		ResourceType:  resource.ResourceType,
 	}
 }
 
