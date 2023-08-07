@@ -5,6 +5,7 @@ import "PowerX/internal/model/powermodel"
 type MediaResource struct {
 	powermodel.PowerModel
 
+	CustomerId    int64  `gorm:"comment:客户Id; index" json:"customerId"`
 	Filename      string `gorm:"comment:名称" json:"filename"`
 	Size          int64  `gorm:"comment:尺寸" json:"size"`
 	Url           string `gorm:"comment:url" json:"url"`
