@@ -33,6 +33,6 @@ func (l *GetDictionaryItemLogic) GetDictionaryItem(req *types.GetDictionaryItemR
 	}
 
 	return &types.GetDictionaryItemReply{
-		DictionaryItem: dictionary.TransformItemToItemReply(item),
+		DictionaryItem: dictionary.TransformItemToReply(item),
 	}, nil
 }

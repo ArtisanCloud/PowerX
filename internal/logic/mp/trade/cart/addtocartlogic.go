@@ -32,7 +32,7 @@ func (l *AddToCartLogic) AddToCart(req *types.AddToCartRequest) (resp *types.Add
 	vAuthCustomer := l.ctx.Value(customerdomain.AuthCustomerKey)
 	authCustomer := vAuthCustomer.(*customerdomain2.Customer)
 
-	cartItem := TransformCartItemRequestToCartItemToMP(req, authCustomer)
+	cartItem := TransformRequestToCartItemForMP(req, authCustomer)
 
 	cartItem, err = l.svcCtx.PowerX.Cart.AddItemToCart(l.ctx, cartItem)
 
@@ -41,11 +41,11 @@ func (l *AddToCartLogic) AddToCart(req *types.AddToCartRequest) (resp *types.Add
 	}
 
 	return &types.AddToCartReply{
-		TransformCartItemToCartItemReplyToMP(cartItem),
+		TransformCartItemToReplyForMP(cartItem),
 	}, nil
 }
 
-func TransformCartItemRequestToCartItemToMP(req *types.AddToCartRequest, customer *customerdomain2.Customer) *trade.CartItem {
+func TransformRequestToCartItemForMP(req *types.AddToCartRequest, customer *customerdomain2.Customer) *trade.CartItem {
 
 	item := &trade.CartItem{
 		CustomerId:     customer.Id,
@@ -63,7 +63,7 @@ func TransformCartItemRequestToCartItemToMP(req *types.AddToCartRequest, custome
 	return item
 }
 
-func TransformCartItemToCartItemReplyToMP(item *trade.CartItem) *types.CartItem {
+func TransformCartItemToReplyForMP(item *trade.CartItem) *types.CartItem {
 
 	return &types.CartItem{
 		Id:             item.Id,

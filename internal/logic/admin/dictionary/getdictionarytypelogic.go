@@ -35,7 +35,7 @@ func (l *GetDictionaryTypeLogic) GetDictionaryType(req *types.GetDictionaryTypeR
 
 	var items = []*types.DictionaryItem{}
 	if len(itemType.Items) > 0 {
-		items = TransformItemsToItemsReply(itemType.Items)
+		items = TransformItemsToReply(itemType.Items)
 	}
 
 	return &types.GetDictionaryTypeReply{
@@ -48,11 +48,11 @@ func (l *GetDictionaryTypeLogic) GetDictionaryType(req *types.GetDictionaryTypeR
 	}, nil
 }
 
-func TransformItemsToItemsReply(Items []*model.DataDictionaryItem) (itemsReply []*types.DictionaryItem) {
+func TransformItemsToReply(Items []*model.DataDictionaryItem) (itemsReply []*types.DictionaryItem) {
 
 	itemsReply = []*types.DictionaryItem{}
 	for _, item := range Items {
-		itemsReply = append(itemsReply, TransformItemToItemReply(item))
+		itemsReply = append(itemsReply, TransformItemToReply(item))
 	}
 	return itemsReply
 }

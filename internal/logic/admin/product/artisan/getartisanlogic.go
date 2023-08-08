@@ -32,6 +32,6 @@ func (l *GetArtisanLogic) GetArtisan(req *types.GetArtisanRequest) (resp *types.
 	}
 
 	return &types.GetArtisanReply{
-		Artisan: TransformArtisanToArtisanReply(mdlArtisan),
+		Artisan: TransformArtisanToReply(mdlArtisan),
 	}, nil
 }

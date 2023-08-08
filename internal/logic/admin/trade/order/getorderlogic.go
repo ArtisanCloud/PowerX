@@ -52,7 +52,7 @@ func TransformOrderToOrderReply(mdlOrder *trade.Order) (orderReply *types.Order)
 		UnitPrice:   mdlOrder.UnitPrice,
 		Comment:     mdlOrder.Comment,
 		OrderItems:  TransformOrderItemsToOrderItemsReply(mdlOrder.Items),
-		Payments:    payment.TransformPaymentsToPaymentsReply(mdlOrder.Payments),
+		Payments:    payment.TransformPaymentsToReply(mdlOrder.Payments),
 		CreatedAt:   mdlOrder.CreatedAt.String(),
 	}
 
@@ -62,13 +62,13 @@ func TransformOrderItemsToOrderItemsReply(orderItems []*trade.OrderItem) (orderI
 
 	orderItemsReply = []*types.OrderItem{}
 	for _, orderItem := range orderItems {
-		orderItemReply := TransformOrderItemToOrderItemReply(orderItem)
+		orderItemReply := TransformOrderItemToReply(orderItem)
 		orderItemsReply = append(orderItemsReply, orderItemReply)
 	}
 	return orderItemsReply
 }
 
-func TransformOrderItemToOrderItemReply(orderItem *trade.OrderItem) (orderItemReply *types.OrderItem) {
+func TransformOrderItemToReply(orderItem *trade.OrderItem) (orderItemReply *types.OrderItem) {
 	if orderItem == nil {
 		return nil
 	}

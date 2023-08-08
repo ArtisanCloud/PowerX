@@ -35,11 +35,11 @@ func (l *GetOrderLogic) GetOrder(req *types.GetOrderRequest) (resp *types.GetOrd
 	}
 
 	return &types.GetOrderReply{
-		Order: TransformOrderToOrderReplyToMP(mdlOrder),
+		Order: TransformOrderToReplyForMP(mdlOrder),
 	}, nil
 }
 
-func TransformOrderToOrderReplyToMP(order *trade.Order) *types.Order {
+func TransformOrderToReplyForMP(order *trade.Order) *types.Order {
 	if order == nil {
 		return nil
 	}
@@ -58,22 +58,22 @@ func TransformOrderToOrderReplyToMP(order *trade.Order) *types.Order {
 		ListPrice:   order.ListPrice,
 		UnitPrice:   order.UnitPrice,
 		Comment:     order.Comment,
-		OrderItems:  TransformOrderItemsToOrderItemsReplyToMP(order.Items),
-		Payments:    TransformPaymentsToPaymentsReplyToMP(order.Payments),
+		OrderItems:  TransformOrderItemsToReplyForMP(order.Items),
+		Payments:    TransformPaymentsToReplyForMP(order.Payments),
 	}
 }
 
-func TransformOrderItemsToOrderItemsReplyToMP(orderItems []*trade.OrderItem) (orderItemsReply []*types.OrderItem) {
+func TransformOrderItemsToReplyForMP(orderItems []*trade.OrderItem) (orderItemsReply []*types.OrderItem) {
 	orderItemsReply = []*types.OrderItem{}
 	for _, orderItem := range orderItems {
-		orderItemReply := TransformOrderItemToOrderItemReplyToMP(orderItem)
+		orderItemReply := TransformOrderItemToReplyForMP(orderItem)
 		orderItemsReply = append(orderItemsReply, orderItemReply)
 
 	}
 	return orderItemsReply
 }
 
-func TransformOrderItemToOrderItemReplyToMP(orderItem *trade.OrderItem) (orderItemReply *types.OrderItem) {
+func TransformOrderItemToReplyForMP(orderItem *trade.OrderItem) (orderItemReply *types.OrderItem) {
 	if orderItem == nil {
 		return nil
 	}
@@ -94,17 +94,17 @@ func TransformOrderItemToOrderItemReplyToMP(orderItem *trade.OrderItem) (orderIt
 	}
 }
 
-func TransformPaymentsToPaymentsReplyToMP(payments []*trade.Payment) (paymentsReply []*types.Payment) {
+func TransformPaymentsToReplyForMP(payments []*trade.Payment) (paymentsReply []*types.Payment) {
 	paymentsReply = []*types.Payment{}
 	for _, payment := range payments {
-		paymentReply := TransformPaymentToPaymentReplyToMP(payment)
+		paymentReply := TransformPaymentToReplyForMP(payment)
 		paymentsReply = append(paymentsReply, paymentReply)
 
 	}
 	return paymentsReply
 }
 
-func TransformPaymentToPaymentReplyToMP(payment *trade.Payment) (paymentReply *types.Payment) {
+func TransformPaymentToReplyForMP(payment *trade.Payment) (paymentReply *types.Payment) {
 	if payment == nil {
 		return nil
 	}
@@ -119,23 +119,23 @@ func TransformPaymentToPaymentReplyToMP(payment *trade.Payment) (paymentReply *t
 		Status:          int(payment.Status),
 	}
 	if len(payment.Items) > 0 {
-		paymentReply.PaymentItems = TransformPaymentItemsToPaymentItemsReplyToMP(payment.Items)
+		paymentReply.PaymentItems = TransformPaymentItemsToReplyForMP(payment.Items)
 	}
 	return paymentReply
 
 }
 
-func TransformPaymentItemsToPaymentItemsReplyToMP(paymentItems []*trade.PaymentItem) (paymentItemsReply []*types.PaymentItem) {
+func TransformPaymentItemsToReplyForMP(paymentItems []*trade.PaymentItem) (paymentItemsReply []*types.PaymentItem) {
 	paymentItemsReply = []*types.PaymentItem{}
 	for _, paymentItem := range paymentItems {
-		paymentItemReply := TransformPaymentItemToPaymentItemReplyToMP(paymentItem)
+		paymentItemReply := TransformPaymentItemToReplyForMP(paymentItem)
 		paymentItemsReply = append(paymentItemsReply, paymentItemReply)
 
 	}
 	return paymentItemsReply
 }
 
-func TransformPaymentItemToPaymentItemReplyToMP(paymentItem *trade.PaymentItem) (paymentItemReply *types.PaymentItem) {
+func TransformPaymentItemToReplyForMP(paymentItem *trade.PaymentItem) (paymentItemReply *types.PaymentItem) {
 	if paymentItem == nil {
 		return nil
 	}

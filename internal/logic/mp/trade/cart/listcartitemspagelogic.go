@@ -45,7 +45,7 @@ func (l *ListCartItemsPageLogic) ListCartItemsPage(req *types.ListCartItemsPageR
 	}
 
 	// list
-	list := TransformCartItemsToCartItemsReplyToMP(page.List)
+	list := TransformCartItemsToReplyForMP(page.List)
 	return &types.ListCartItemsPageReply{
 		List:      list,
 		PageIndex: page.PageIndex,
@@ -54,11 +54,11 @@ func (l *ListCartItemsPageLogic) ListCartItemsPage(req *types.ListCartItemsPageR
 	}, nil
 }
 
-func TransformCartItemsToCartItemsReplyToMP(items []*trade.CartItem) []*types.CartItem {
+func TransformCartItemsToReplyForMP(items []*trade.CartItem) []*types.CartItem {
 
 	itemsReply := []*types.CartItem{}
 	for _, item := range items {
-		itemReply := TransformCartItemToCartItemReplyToMP(item)
+		itemReply := TransformCartItemToReplyForMP(item)
 		itemsReply = append(itemsReply, itemReply)
 	}
 	return itemsReply

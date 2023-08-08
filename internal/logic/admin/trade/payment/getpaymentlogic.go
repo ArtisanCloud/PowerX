@@ -33,11 +33,11 @@ func (l *GetPaymentLogic) GetPayment(req *types.GetPaymentRequest) (resp *types.
 	}
 
 	return &types.GetPaymentReply{
-		Payment: TransformPaymentToPaymentReply(mdlPayment),
+		Payment: TransformPaymentToReply(mdlPayment),
 	}, nil
 }
 
-func TransformPaymentToPaymentReply(mdlPayment *trade.Payment) (paymentReply *types.Payment) {
+func TransformPaymentToReply(mdlPayment *trade.Payment) (paymentReply *types.Payment) {
 
 	return &types.Payment{
 		Id:              mdlPayment.Id,
@@ -49,22 +49,22 @@ func TransformPaymentToPaymentReply(mdlPayment *trade.Payment) (paymentReply *ty
 		PaymentNumber:   mdlPayment.PaymentNumber,
 		ReferenceNumber: mdlPayment.ReferenceNumber,
 
-		PaymentItems: TransformPaymentItemsToPaymentItemsReply(mdlPayment.Items),
+		PaymentItems: TransformPaymentItemsToReply(mdlPayment.Items),
 	}
 
 }
 
-func TransformPaymentItemsToPaymentItemsReply(paymentItems []*trade.PaymentItem) (paymentItemsReply []*types.PaymentItem) {
+func TransformPaymentItemsToReply(paymentItems []*trade.PaymentItem) (paymentItemsReply []*types.PaymentItem) {
 
 	paymentItemsReply = []*types.PaymentItem{}
 	for _, paymentItem := range paymentItems {
-		paymentItemReply := TransformPaymentItemToPaymentItemReply(paymentItem)
+		paymentItemReply := TransformPaymentItemToReply(paymentItem)
 		paymentItemsReply = append(paymentItemsReply, paymentItemReply)
 	}
 	return paymentItemsReply
 }
 
-func TransformPaymentItemToPaymentItemReply(paymentItem *trade.PaymentItem) (paymentItemReply *types.PaymentItem) {
+func TransformPaymentItemToReply(paymentItem *trade.PaymentItem) (paymentItemReply *types.PaymentItem) {
 	if paymentItem == nil {
 		return nil
 	}

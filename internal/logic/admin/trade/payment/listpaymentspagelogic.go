@@ -37,7 +37,7 @@ func (l *ListPaymentsPageLogic) ListPaymentsPage(req *types.ListPaymentsPageRequ
 	}
 
 	// list
-	list := TransformPaymentsToPaymentsReply(page.List)
+	list := TransformPaymentsToReply(page.List)
 	return &types.ListPaymentsPageReply{
 		List:      list,
 		PageIndex: page.PageIndex,
@@ -46,11 +46,11 @@ func (l *ListPaymentsPageLogic) ListPaymentsPage(req *types.ListPaymentsPageRequ
 	}, nil
 }
 
-func TransformPaymentsToPaymentsReply(payments []*trade.Payment) []*types.Payment {
+func TransformPaymentsToReply(payments []*trade.Payment) []*types.Payment {
 	paymentsReply := []*types.Payment{}
 	for _, payment := range payments {
 
-		paymentReply := TransformPaymentToPaymentReply(payment)
+		paymentReply := TransformPaymentToReply(payment)
 		paymentsReply = append(paymentsReply, paymentReply)
 
 	}

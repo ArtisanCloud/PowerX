@@ -39,7 +39,7 @@ func (l *ListArtisansPageLogic) ListArtisansPage(req *types.ListArtisansPageRequ
 	if err != nil {
 		return nil, err
 	}
-	list := artisan.TransformArtisansToArtisansReply(artisans.List)
+	list := artisan.TransformArtisansToReply(artisans.List)
 
 	return &types.ListArtisansPageReply{
 		List:      list,

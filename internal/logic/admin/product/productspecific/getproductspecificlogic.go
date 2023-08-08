@@ -38,22 +38,22 @@ func TransformProductSpecificToProductSpecificReply(specific *product2.ProductSp
 	return &types.ProductSpecific{
 		Id:              specific.Id,
 		Name:            specific.Name,
-		SpecificOptions: TransformSpecificOptionsToSpecificOptionsReply(specific.Options),
+		SpecificOptions: TransformSpecificOptionsToReply(specific.Options),
 	}
 }
 
-func TransformSpecificOptionsToSpecificOptionsReply(options []*product2.SpecificOption) (optionsReply []*types.SpecificOption) {
+func TransformSpecificOptionsToReply(options []*product2.SpecificOption) (optionsReply []*types.SpecificOption) {
 
 	optionsReply = []*types.SpecificOption{}
 	for _, option := range options {
-		optionsReply = append(optionsReply, TransformSpecificOptionToSpecificOptionReply(option))
+		optionsReply = append(optionsReply, TransformSpecificOptionToReply(option))
 
 	}
 
 	return optionsReply
 }
 
-func TransformSpecificOptionToSpecificOptionReply(option *product2.SpecificOption) (optionReply *types.SpecificOption) {
+func TransformSpecificOptionToReply(option *product2.SpecificOption) (optionReply *types.SpecificOption) {
 	if option == nil {
 		return nil
 	}

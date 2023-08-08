@@ -39,7 +39,7 @@ func (l *ListStoresLogic) ListStoresPage(req *types.ListStoresPageRequest) (resp
 	if err != nil {
 		return nil, err
 	}
-	list := TransformStoresToStoresReply(stores.List)
+	list := TransformStoresToReply(stores.List)
 
 	return &types.ListStoresPageReply{
 		List:      list,
@@ -50,16 +50,16 @@ func (l *ListStoresLogic) ListStoresPage(req *types.ListStoresPageRequest) (resp
 
 }
 
-func TransformStoresToStoresReply(stores []*product2.Store) []*types.Store {
+func TransformStoresToReply(stores []*product2.Store) []*types.Store {
 	storesReply := []*types.Store{}
 	for _, store := range stores {
-		storeReply := TransformStoreToStoreReply(store)
+		storeReply := TransformStoreToReply(store)
 		storesReply = append(storesReply, storeReply)
 	}
 	return storesReply
 }
 
-func TransformStoreToStoreReply(store *product2.Store) *types.Store {
+func TransformStoreToReply(store *product2.Store) *types.Store {
 	return &types.Store{
 		Id:              store.Id,
 		Name:            store.Name,
@@ -73,14 +73,14 @@ func TransformStoreToStoreReply(store *product2.Store) *types.Store {
 		EndWork:         store.EndWork.String(),
 		CreatedAt:       store.CreatedAt.String(),
 		CoverImageId:    store.CoverImageId,
-		CoverImage:      TransformStoreImageToStoreImageReply(store.CoverImage),
+		CoverImage:      TransformStoreImageToReply(store.CoverImage),
 		DetailImageIds:  media.GetImageIds(store.PivotDetailImages),
-		DetailImages:    TransformStoreImagesToImagesReply(store.PivotDetailImages),
+		DetailImages:    TransformStoreImagesToReply(store.PivotDetailImages),
 		Artisans:        TransformArtisansToShopArtisans(store.Artisans),
 	}
 }
 
-func TransformStoreImageToStoreImageReply(resource *media.MediaResource) *types.MediaResource {
+func TransformStoreImageToReply(resource *media.MediaResource) *types.MediaResource {
 	if resource == nil {
 		return nil
 	}
@@ -97,11 +97,11 @@ func TransformStoreImageToStoreImageReply(resource *media.MediaResource) *types.
 	}
 }
 
-func TransformStoreImagesToImagesReply(pivots []*media.PivotMediaResourceToObject) (imagesReply []*types.MediaResource) {
+func TransformStoreImagesToReply(pivots []*media.PivotMediaResourceToObject) (imagesReply []*types.MediaResource) {
 
 	imagesReply = []*types.MediaResource{}
 	for _, pivot := range pivots {
-		imageReply := TransformStoreImageToStoreImageReply(pivot.MediaResource)
+		imageReply := TransformStoreImageToReply(pivot.MediaResource)
 		imagesReply = append(imagesReply, imageReply)
 	}
 	return imagesReply

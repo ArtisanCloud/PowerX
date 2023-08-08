@@ -38,7 +38,7 @@ func (l *ListMediasPageLogic) ListMediasPage(req *types.ListMediasPageRequest) (
 	}
 
 	// list
-	list := media.TransformMediasToMediasReply(page.List)
+	list := media.TransformMediasToReply(page.List)
 	return &types.ListMediasPageReply{
 		List:      list,
 		PageIndex: page.PageIndex,

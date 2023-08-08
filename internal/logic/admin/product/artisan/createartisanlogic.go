@@ -28,7 +28,7 @@ func NewCreateArtisanLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Cre
 }
 
 func (l *CreateArtisanLogic) CreateArtisan(req *types.CreateArtisanRequest) (resp *types.CreateArtisanReply, err error) {
-	mdlArtisan := TransformArtisanRequestToArtisan(&req.Artisan)
+	mdlArtisan := TransformRequestToArtisan(&req.Artisan)
 
 	if len(req.DetailImageIds) > 0 {
 		mediaResources, err := l.svcCtx.PowerX.MediaResource.FindAllMediaResources(l.ctx, &powerx.FindManyMediaResourcesOption{
@@ -47,7 +47,7 @@ func (l *CreateArtisanLogic) CreateArtisan(req *types.CreateArtisanRequest) (res
 	}, nil
 }
 
-func TransformArtisanRequestToArtisan(artisanRequest *types.Artisan) (mdlArtisan *product.Artisan) {
+func TransformRequestToArtisan(artisanRequest *types.Artisan) (mdlArtisan *product.Artisan) {
 
 	birthday := carbon.Parse(artisanRequest.Birthday)
 

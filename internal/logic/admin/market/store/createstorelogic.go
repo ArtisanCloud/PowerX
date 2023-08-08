@@ -29,7 +29,7 @@ func NewCreateStoreLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Creat
 }
 
 func (l *CreateStoreLogic) CreateStore(req *types.CreateStoreRequest) (resp *types.CreateStoreReply, err error) {
-	mdlStore := TransformStoreRequestToStore(&req.Store)
+	mdlStore := TransformRequestToStore(&req.Store)
 
 	if len(req.DetailImageIds) > 0 {
 		mediaResources, err := l.svcCtx.PowerX.MediaResource.FindAllMediaResources(l.ctx, &powerx.FindManyMediaResourcesOption{
@@ -48,7 +48,7 @@ func (l *CreateStoreLogic) CreateStore(req *types.CreateStoreRequest) (resp *typ
 	}, nil
 }
 
-func TransformStoreRequestToStore(storeRequest *types.Store) (mdlStore *market.Store) {
+func TransformRequestToStore(storeRequest *types.Store) (mdlStore *market.Store) {
 
 	startWork := carbon.ParseByFormat(storeRequest.StartWork, carbonx.TimeFormat)
 	endWork := carbon.ParseByFormat(storeRequest.EndWork, carbonx.TimeFormat)

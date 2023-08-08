@@ -47,12 +47,12 @@ func (l *CreateMediaResourceLogic) CreateMediaResource(r *http.Request) (resp *t
 	}
 
 	return &types.CreateMediaResourceReply{
-		MediaResource: TransformMediaResourceToResourceReply(resource),
+		MediaResource: TransformMediaResourceToReply(resource),
 		IsOSS:         !resource.IsLocalStored,
 	}, nil
 }
 
-func TransformMediaResourceToResourceReply(resource *media.MediaResource) *types.MediaResource {
+func TransformMediaResourceToReply(resource *media.MediaResource) *types.MediaResource {
 	return &types.MediaResource{
 		Id:            resource.Id,
 		CustomerId:    resource.CustomerId,

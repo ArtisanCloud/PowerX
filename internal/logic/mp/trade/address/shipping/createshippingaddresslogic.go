@@ -31,7 +31,7 @@ func (l *CreateShippingAddressLogic) CreateShippingAddress(req *types.CreateShip
 	vAuthCustomer := l.ctx.Value(customerdomain.AuthCustomerKey)
 	authCustomer := vAuthCustomer.(*customerdomain2.Customer)
 
-	shippingAddress := TransformShippingAddressRequestToShippingAddressToMP(req, authCustomer)
+	shippingAddress := TransformRequestToShippingAddressForMP(req, authCustomer)
 
 	err = l.svcCtx.PowerX.ShippingAddress.CreateShippingAddress(l.ctx, shippingAddress)
 
@@ -40,12 +40,12 @@ func (l *CreateShippingAddressLogic) CreateShippingAddress(req *types.CreateShip
 	}
 
 	return &types.CreateShippingAddressReply{
-		ShippingAddress: TransformShippingAddressToShippingAddressReplyToMP(shippingAddress),
+		ShippingAddress: TransformShippingAddressToReplyForMP(shippingAddress),
 	}, nil
 
 }
 
-func TransformShippingAddressRequestToShippingAddressToMP(req *types.CreateShippingAddressRequest, authCustomer *customerdomain2.Customer) *trade.ShippingAddress {
+func TransformRequestToShippingAddressForMP(req *types.CreateShippingAddressRequest, authCustomer *customerdomain2.Customer) *trade.ShippingAddress {
 
 	return &trade.ShippingAddress{
 		CustomerId:   authCustomer.Id,

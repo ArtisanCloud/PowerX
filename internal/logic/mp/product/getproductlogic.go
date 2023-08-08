@@ -34,11 +34,11 @@ func (l *GetProductLogic) GetProduct(req *types.GetProductRequest) (resp *types.
 	}
 
 	return &types.GetProductReply{
-		Product: TransformProductToProductReplyToMP(mdlProduct),
+		Product: TransformProductToReplyForMP(mdlProduct),
 	}, nil
 }
 
-func TransformProductToProductReplyToMP(mdlProduct *product.Product) (productReply *types.Product) {
+func TransformProductToReplyForMP(mdlProduct *product.Product) (productReply *types.Product) {
 
 	getItemIds := func(items []*model.PivotDataDictionaryToObject) []int64 {
 		arrayIds := []int64{}
@@ -80,26 +80,26 @@ func TransformProductToProductReplyToMP(mdlProduct *product.Product) (productRep
 		Name:                   mdlProduct.Name,
 		SPU:                    mdlProduct.SPU,
 		Description:            mdlProduct.Description,
-		ProductCategories:      TransformProductCategoriesToProductCategoriesReplyToMP(mdlProduct.ProductCategories),
+		ProductCategories:      TransformProductCategoriesToReplyForMP(mdlProduct.ProductCategories),
 		SalesChannelsItemIds:   getItemIds(mdlProduct.PivotSalesChannels),
 		PromoteChannelsItemIds: getItemIds(mdlProduct.PivotPromoteChannels),
 		CategoryIds:            getCategoryIds(mdlProduct.ProductCategories),
-		ProductSpecifics:       TransformSpecificsToSpecificsReplyToMP(mdlProduct.ProductSpecifics),
-		ActivePriceEntry:       TransformPriceEntryToPriceEntryReplyToMP(mdlProduct.PriceBookEntries),
-		SKUs:                   TransformSkusToSkusReplyToMP(mdlProduct.SKUs),
+		ProductSpecifics:       TransformSpecificsToReplyForMP(mdlProduct.ProductSpecifics),
+		ActivePriceEntry:       TransformPriceEntryToReplyForMP(mdlProduct.PriceBookEntries),
+		SKUs:                   TransformSkusToReplyForMP(mdlProduct.SKUs),
 		ProductAttribute: &types.ProductAttribute{
 			Inventory:  mdlProduct.Inventory,
 			SoldAmount: mdlProduct.SoldAmount,
 		},
 		//CoverImageIds:          getImageIds(mdlProduct.PivotCoverImages),
 		//DetailImageIds:         getImageIds(mdlProduct.PivotDetailImages),
-		CoverImages:  TransformProductImagesToImagesReplyToMP(mdlProduct.PivotCoverImages),
-		DetailImages: TransformProductImagesToImagesReplyToMP(mdlProduct.PivotDetailImages),
+		CoverImages:  TransformProductImagesToReplyForMP(mdlProduct.PivotCoverImages),
+		DetailImages: TransformProductImagesToReplyForMP(mdlProduct.PivotDetailImages),
 	}
 
 }
 
-func TransformPriceEntryToPriceEntryReplyToMP(entries []*product.PriceBookEntry) (entriesReply *types.ActivePriceEntry) {
+func TransformPriceEntryToReplyForMP(entries []*product.PriceBookEntry) (entriesReply *types.ActivePriceEntry) {
 	//fmt.Dump(entries)
 	for _, entry := range entries {
 		if entry.SkuId == 0 && entry.IsActive {
@@ -116,17 +116,17 @@ func TransformPriceEntryToPriceEntryReplyToMP(entries []*product.PriceBookEntry)
 	return nil
 }
 
-func TransformProductImagesToImagesReplyToMP(pivots []*media.PivotMediaResourceToObject) (imagesReply []*types.MediaResource) {
+func TransformProductImagesToReplyForMP(pivots []*media.PivotMediaResourceToObject) (imagesReply []*types.MediaResource) {
 
 	imagesReply = []*types.MediaResource{}
 	for _, pivot := range pivots {
-		imageReply := TransformProductImageToImageReplyToMP(pivot.MediaResource)
+		imageReply := TransformProductImageToReplyForMP(pivot.MediaResource)
 		imagesReply = append(imagesReply, imageReply)
 	}
 	return imagesReply
 }
 
-func TransformProductImageToImageReplyToMP(resource *media.MediaResource) (imagesReply *types.MediaResource) {
+func TransformProductImageToReplyForMP(resource *media.MediaResource) (imagesReply *types.MediaResource) {
 	if resource == nil {
 		return nil
 	}
@@ -138,17 +138,17 @@ func TransformProductImageToImageReplyToMP(resource *media.MediaResource) (image
 	}
 }
 
-func TransformSkusToSkusReplyToMP(skus []*product.SKU) (skusReply []*types.SKU) {
+func TransformSkusToReplyForMP(skus []*product.SKU) (skusReply []*types.SKU) {
 
 	skusReply = []*types.SKU{}
 	for _, sku := range skus {
-		skuReply := TransformSkuToSkuReplyToMP(sku)
+		skuReply := TransformSkuToReplyForMP(sku)
 		skusReply = append(skusReply, skuReply)
 	}
 	return skusReply
 }
 
-func TransformSkuToSkuReplyToMP(sku *product.SKU) (skuReply *types.SKU) {
+func TransformSkuToReplyForMP(sku *product.SKU) (skuReply *types.SKU) {
 	if sku == nil {
 		return nil
 	}
@@ -180,32 +180,32 @@ func TransformSkuToSkuReplyToMP(sku *product.SKU) (skuReply *types.SKU) {
 	}
 }
 
-func TransformSpecificsToSpecificsReplyToMP(specifics []*product.ProductSpecific) (specificReplies []*types.ProductSpecific) {
+func TransformSpecificsToReplyForMP(specifics []*product.ProductSpecific) (specificReplies []*types.ProductSpecific) {
 
 	specificReplies = []*types.ProductSpecific{}
 	for _, specific := range specifics {
-		specificReply := TransformSpecificToSpecificReplyToMP(specific)
+		specificReply := TransformSpecificToReplyForMP(specific)
 		specificReplies = append(specificReplies, specificReply)
 	}
 	return specificReplies
 }
 
-func TransformSpecificToSpecificReplyToMP(specific *product.ProductSpecific) (imagesReply *types.ProductSpecific) {
+func TransformSpecificToReplyForMP(specific *product.ProductSpecific) (imagesReply *types.ProductSpecific) {
 	if specific == nil {
 		return nil
 	}
 	return &types.ProductSpecific{
 		Id:              specific.Id,
 		Name:            specific.Name,
-		SpecificOptions: TransformSpecificOptionsToSpecificOptionsReplyToMP(specific.Options),
+		SpecificOptions: TransformSpecificOptionsToReplyForMP(specific.Options),
 	}
 }
 
-func TransformSpecificOptionsToSpecificOptionsReplyToMP(options []*product.SpecificOption) (optionsReply []*types.SpecificOption) {
+func TransformSpecificOptionsToReplyForMP(options []*product.SpecificOption) (optionsReply []*types.SpecificOption) {
 
 	optionsReply = []*types.SpecificOption{}
 	for _, option := range options {
-		specificReply := TransformSpecificOptionToSpecificOptionReplyToMP(option)
+		specificReply := TransformSpecificOptionToReplyForMP(option)
 		if specificReply != nil {
 			optionsReply = append(optionsReply, specificReply)
 		}
@@ -213,7 +213,7 @@ func TransformSpecificOptionsToSpecificOptionsReplyToMP(options []*product.Speci
 	return optionsReply
 }
 
-func TransformSpecificOptionToSpecificOptionReplyToMP(option *product.SpecificOption) (imagesReply *types.SpecificOption) {
+func TransformSpecificOptionToReplyForMP(option *product.SpecificOption) (imagesReply *types.SpecificOption) {
 	if option == nil {
 		return nil
 	}

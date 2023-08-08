@@ -28,7 +28,7 @@ func NewPutProductLogic(ctx context.Context, svcCtx *svc.ServiceContext) *PutPro
 
 func (l *PutProductLogic) PutProduct(req *types.PutProductRequest) (resp *types.PutProductReply, err error) {
 
-	mdlProduct := TransformProductRequestToProduct(&(req.Product))
+	mdlProduct := TransformRequestToProduct(&(req.Product))
 	mdlProduct.Id = req.ProductId
 
 	// 处理销售渠道
@@ -89,7 +89,7 @@ func (l *PutProductLogic) PutProduct(req *types.PutProductRequest) (resp *types.
 	}
 
 	return &types.PutProductReply{
-		Product: TransformProductToProductReply(mdlProduct),
+		Product: TransformProductToReply(mdlProduct),
 	}, nil
 
 }

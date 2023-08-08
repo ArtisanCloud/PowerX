@@ -27,7 +27,7 @@ func NewPutStoreLogic(ctx context.Context, svcCtx *svc.ServiceContext) *PutStore
 
 func (l *PutStoreLogic) PutStore(req *types.PutStoreRequest) (resp *types.PutStoreReply, err error) {
 
-	mdlStore := TransformStoreRequestToStore(&(req.Store))
+	mdlStore := TransformRequestToStore(&(req.Store))
 	mdlStore.Id = req.StoreId
 	if len(req.DetailImageIds) > 0 {
 		mediaResources, err := l.svcCtx.PowerX.MediaResource.FindAllMediaResources(l.ctx, &powerx.FindManyMediaResourcesOption{
@@ -46,7 +46,7 @@ func (l *PutStoreLogic) PutStore(req *types.PutStoreRequest) (resp *types.PutSto
 	}
 
 	return &types.PutStoreReply{
-		Store: TransformStoreToStoreReply(mdlStore),
+		Store: TransformStoreToReply(mdlStore),
 	}, nil
 
 }

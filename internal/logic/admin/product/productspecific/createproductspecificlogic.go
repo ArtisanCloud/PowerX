@@ -27,7 +27,7 @@ func NewCreateProductSpecificLogic(ctx context.Context, svcCtx *svc.ServiceConte
 
 func (l *CreateProductSpecificLogic) CreateProductSpecific(req *types.CreateProductSpecificRequest) (resp *types.CreateProductSpecificReply, err error) {
 
-	specific := TransformProductSpecificRequestToProductSpecific(req.ProductSpecific)
+	specific := TransformRequestToProductSpecific(req.ProductSpecific)
 
 	err = l.svcCtx.PowerX.ProductSpecific.CreateProductSpecific(l.ctx, specific)
 
@@ -40,7 +40,7 @@ func (l *CreateProductSpecificLogic) CreateProductSpecific(req *types.CreateProd
 	}, nil
 }
 
-func TransformProductSpecificRequestToProductSpecific(specificRequest types.ProductSpecific) *product2.ProductSpecific {
+func TransformRequestToProductSpecific(specificRequest types.ProductSpecific) *product2.ProductSpecific {
 
 	if specificRequest.ProductId <= 0 || specificRequest.Name == "" {
 		return nil
@@ -48,7 +48,7 @@ func TransformProductSpecificRequestToProductSpecific(specificRequest types.Prod
 	specific := &product2.ProductSpecific{
 		ProductId: specificRequest.ProductId,
 		Name:      specificRequest.Name,
-		Options:   TransformSpecificOptionsRequestToSpecificOptions(specificRequest.SpecificOptions),
+		Options:   TransformRequestToSpecificOptions(specificRequest.SpecificOptions),
 	}
 
 	if specificRequest.Id > 0 {
@@ -57,10 +57,10 @@ func TransformProductSpecificRequestToProductSpecific(specificRequest types.Prod
 	return specific
 }
 
-func TransformSpecificOptionsRequestToSpecificOptions(optionsRequest []*types.SpecificOption) (options []*product2.SpecificOption) {
+func TransformRequestToSpecificOptions(optionsRequest []*types.SpecificOption) (options []*product2.SpecificOption) {
 	options = []*product2.SpecificOption{}
 	for _, optionRequest := range optionsRequest {
-		option := TransformSpecificOptionRequestToSpecificOption(optionRequest)
+		option := TransformRequestToSpecificOption(optionRequest)
 		if option != nil {
 			options = append(options, option)
 		}
@@ -68,7 +68,7 @@ func TransformSpecificOptionsRequestToSpecificOptions(optionsRequest []*types.Sp
 	return options
 }
 
-func TransformSpecificOptionRequestToSpecificOption(optionRequest *types.SpecificOption) (option *product2.SpecificOption) {
+func TransformRequestToSpecificOption(optionRequest *types.SpecificOption) (option *product2.SpecificOption) {
 	if optionRequest == nil {
 		return nil
 	}

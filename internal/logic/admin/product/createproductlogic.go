@@ -34,7 +34,7 @@ func NewCreateProductLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Cre
 
 func (l *CreateProductLogic) CreateProduct(req *types.CreateProductRequest) (resp *types.CreateProductReply, err error) {
 
-	mdlProduct := TransformProductRequestToProduct(&(req.Product))
+	mdlProduct := TransformRequestToProduct(&(req.Product))
 
 	if len(req.SalesChannelsItemIds) > 0 {
 		salesChannelsItems, err := l.svcCtx.PowerX.DataDictionary.FindAllDictionaryItems(l.ctx, &powerx.FindManyDataDictItemOption{
@@ -90,7 +90,7 @@ func (l *CreateProductLogic) CreateProduct(req *types.CreateProductRequest) (res
 	}, err
 }
 
-func TransformProductRequestToProduct(productRequest *types.Product) (mdlProduct *product.Product) {
+func TransformRequestToProduct(productRequest *types.Product) (mdlProduct *product.Product) {
 
 	saleStartDate := carbon.Parse(productRequest.SaleStartDate)
 	saleEndDate := carbon.Parse(productRequest.SaleEndDate)
@@ -123,7 +123,7 @@ func TransformProductRequestToProduct(productRequest *types.Product) (mdlProduct
 
 }
 
-func TransformProductToProductReply(mdlProduct *product.Product) (productReply *types.Product) {
+func TransformProductToReply(mdlProduct *product.Product) (productReply *types.Product) {
 
 	return &types.Product{
 		Id:                  mdlProduct.Id,
@@ -141,25 +141,25 @@ func TransformProductToProductReply(mdlProduct *product.Product) (productReply *
 		ValidityPeriodDays:  mdlProduct.ValidityPeriodDays,
 		SaleStartDate:       mdlProduct.SaleStartDate.String(),
 		SaleEndDate:         mdlProduct.SaleEndDate.String(),
-		//PivotSalesChannels:   TransformDDsToDDsReply(mdlProduct.PivotSalesChannels),
-		//PivotPromoteChannels: TransformDDsToDDsReply(mdlProduct.PivotPromoteChannels),
-		ProductCategories:      category.TransformProductCategoriesToProductCategoriesReply(mdlProduct.ProductCategories),
+		//PivotSalesChannels:   TransformDDsToReply(mdlProduct.PivotSalesChannels),
+		//PivotPromoteChannels: TransformDDsToReply(mdlProduct.PivotPromoteChannels),
+		ProductCategories:      category.TransformProductCategoriesToReply(mdlProduct.ProductCategories),
 		SalesChannelsItemIds:   model.GetItemIds(mdlProduct.PivotSalesChannels),
 		PromoteChannelsItemIds: model.GetItemIds(mdlProduct.PivotPromoteChannels),
 		CategoryIds:            product.GetCategoryIds(mdlProduct.ProductCategories),
-		ProductSpecifics:       TransformSpecificsToSpecificsReply(mdlProduct.ProductSpecifics),
+		ProductSpecifics:       TransformSpecificsToReply(mdlProduct.ProductSpecifics),
 		ActivePriceEntry:       pricebookentry.TransformPriceEntriesToActivePriceEntryReply(mdlProduct.PriceBookEntries),
 		PriceBookEntries:       pricebookentry.TransformPriceBookEntriesToPriceBookEntriesReply(mdlProduct.PriceBookEntries),
-		SKUs:                   TransformSkusToSkusReply(mdlProduct.SKUs),
+		SKUs:                   TransformSkusToReply(mdlProduct.SKUs),
 		CoverImageIds:          media.GetImageIds(mdlProduct.PivotCoverImages),
 		DetailImageIds:         media.GetImageIds(mdlProduct.PivotDetailImages),
-		CoverImages:            TransformProductImagesToImagesReply(mdlProduct.PivotCoverImages),
-		DetailImages:           TransformProductImagesToImagesReply(mdlProduct.PivotDetailImages),
+		CoverImages:            TransformProductImagesToReply(mdlProduct.PivotCoverImages),
+		DetailImages:           TransformProductImagesToReply(mdlProduct.PivotDetailImages),
 	}
 
 }
 
-func TransformProductImagesToImagesReply(pivots []*media.PivotMediaResourceToObject) (imagesReply []*types.MediaResource) {
+func TransformProductImagesToReply(pivots []*media.PivotMediaResourceToObject) (imagesReply []*types.MediaResource) {
 
 	imagesReply = []*types.MediaResource{}
 	for _, pivot := range pivots {
@@ -181,17 +181,17 @@ func TransformProductImageToImageReply(resource *media.MediaResource) (imagesRep
 	}
 }
 
-func TransformSkusToSkusReply(skus []*product.SKU) (skusReply []*types.SKU) {
+func TransformSkusToReply(skus []*product.SKU) (skusReply []*types.SKU) {
 
 	skusReply = []*types.SKU{}
 	for _, sku := range skus {
-		skuReply := TransformSkuToSkuReply(sku)
+		skuReply := TransformSkuToReply(sku)
 		skusReply = append(skusReply, skuReply)
 	}
 	return skusReply
 }
 
-func TransformSkuToSkuReply(sku *product.SKU) (skuReply *types.SKU) {
+func TransformSkuToReply(sku *product.SKU) (skuReply *types.SKU) {
 	if sku == nil {
 		return nil
 	}
@@ -221,17 +221,17 @@ func TransformSkuToSkuReply(sku *product.SKU) (skuReply *types.SKU) {
 	}
 }
 
-func TransformSpecificsToSpecificsReply(specifics []*product.ProductSpecific) (specificReplies []*types.ProductSpecific) {
+func TransformSpecificsToReply(specifics []*product.ProductSpecific) (specificReplies []*types.ProductSpecific) {
 
 	specificReplies = []*types.ProductSpecific{}
 	for _, specific := range specifics {
-		specificReply := TransformSpecificToSpecificReply(specific)
+		specificReply := TransformSpecificToReply(specific)
 		specificReplies = append(specificReplies, specificReply)
 	}
 	return specificReplies
 }
 
-func TransformSpecificToSpecificReply(specific *product.ProductSpecific) (imagesReply *types.ProductSpecific) {
+func TransformSpecificToReply(specific *product.ProductSpecific) (imagesReply *types.ProductSpecific) {
 	if specific == nil {
 		return nil
 	}
@@ -239,21 +239,21 @@ func TransformSpecificToSpecificReply(specific *product.ProductSpecific) (images
 		Id:              specific.Id,
 		ProductId:       specific.ProductId,
 		Name:            specific.Name,
-		SpecificOptions: TransformSpecificOptionsToSpecificOptionsReply(specific.Options),
+		SpecificOptions: TransformSpecificOptionsToReply(specific.Options),
 	}
 }
 
-func TransformSpecificOptionsToSpecificOptionsReply(options []*product.SpecificOption) (optionsReply []*types.SpecificOption) {
+func TransformSpecificOptionsToReply(options []*product.SpecificOption) (optionsReply []*types.SpecificOption) {
 
 	optionsReply = []*types.SpecificOption{}
 	for _, option := range options {
-		specificReply := TransformSpecificOptionToSpecificOptionReply(option)
+		specificReply := TransformSpecificOptionToReply(option)
 		optionsReply = append(optionsReply, specificReply)
 	}
 	return optionsReply
 }
 
-func TransformSpecificOptionToSpecificOptionReply(option *product.SpecificOption) (imagesReply *types.SpecificOption) {
+func TransformSpecificOptionToReply(option *product.SpecificOption) (imagesReply *types.SpecificOption) {
 	if option == nil {
 		return nil
 	}

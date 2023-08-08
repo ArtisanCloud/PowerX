@@ -31,7 +31,7 @@ func (l *GetProductLogic) GetProduct(req *types.GetProductRequest) (resp *types.
 	}
 
 	return &types.GetProductReply{
-		Product: TransformProductToProductReply(mdlProduct),
+		Product: TransformProductToReply(mdlProduct),
 	}, nil
 
 }

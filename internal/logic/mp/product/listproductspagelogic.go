@@ -48,7 +48,7 @@ func (l *ListProductsPageLogic) ListProductsPage(req *types.ListProductsPageRequ
 	}
 
 	// list
-	list := TransformProductsToProductsReplyToMP(page.List)
+	list := TransformProductsToReplyForMP(page.List)
 	return &types.ListProductsPageReply{
 		List:      list,
 		PageIndex: page.PageIndex,
@@ -57,10 +57,10 @@ func (l *ListProductsPageLogic) ListProductsPage(req *types.ListProductsPageRequ
 	}, nil
 }
 
-func TransformProductsToProductsReplyToMP(products []*product2.Product) []types.Product {
+func TransformProductsToReplyForMP(products []*product2.Product) []types.Product {
 	productsReply := []types.Product{}
 	for _, product := range products {
-		productReply := TransformProductToProductReplyToMP(product)
+		productReply := TransformProductToReplyForMP(product)
 		productsReply = append(productsReply, *productReply)
 
 	}

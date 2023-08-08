@@ -41,14 +41,14 @@ func (l *ListProductCategoryTreeLogic) ListProductCategoryTree(req *types.ListPr
 	productCategoryTree := l.svcCtx.PowerX.ProductCategory.ListProductCategoryTree(l.ctx, &option, pId)
 
 	// 转化返回类型的列表
-	productCategoryReplyList := TransformProductCategoriesToProductCategoriesReplyToMP(productCategoryTree)
+	productCategoryReplyList := TransformProductCategoriesToReplyForMP(productCategoryTree)
 
 	return &types.ListProductCategoryTreeReply{
 		ProductCategories: productCategoryReplyList,
 	}, nil
 }
 
-func TransformProductCategoriesToProductCategoriesReplyToMP(productCategoryList []*product.ProductCategory) []*types.ProductCategory {
+func TransformProductCategoriesToReplyForMP(productCategoryList []*product.ProductCategory) []*types.ProductCategory {
 	var productCategoryReplyList []*types.ProductCategory
 	//fmt.Dump(productCategoryList)
 	for _, category := range productCategoryList {
@@ -60,7 +60,7 @@ func TransformProductCategoriesToProductCategoriesReplyToMP(productCategoryList 
 			ViceName:    category.ViceName,
 			Description: category.Description,
 			CreatedAt:   category.CreatedAt.String(),
-			CoverImage:  TransformCategoryImageToCategoryImageReplyToMP(category.CoverImage),
+			CoverImage:  TransformCategoryImageToReplyForMP(category.CoverImage),
 			ImageAbleInfo: types.ImageAbleInfo{
 				Icon:            category.Icon,
 				BackgroundColor: category.BackgroundColor,
@@ -68,7 +68,7 @@ func TransformProductCategoriesToProductCategoriesReplyToMP(productCategoryList 
 			Children: nil,
 		}
 		if len(category.Children) > 0 {
-			node.Children = TransformProductCategoriesToProductCategoriesReplyToMP(category.Children)
+			node.Children = TransformProductCategoriesToReplyForMP(category.Children)
 
 		}
 
@@ -78,7 +78,7 @@ func TransformProductCategoriesToProductCategoriesReplyToMP(productCategoryList 
 	return productCategoryReplyList
 }
 
-func TransformCategoryImageToCategoryImageReplyToMP(resource *media.MediaResource) *types.MediaResource {
+func TransformCategoryImageToReplyForMP(resource *media.MediaResource) *types.MediaResource {
 	if resource == nil {
 		return nil
 	}

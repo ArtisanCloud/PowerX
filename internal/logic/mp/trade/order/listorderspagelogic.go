@@ -45,7 +45,7 @@ func (l *ListOrdersPageLogic) ListOrdersPage(req *types.ListOrdersPageRequest) (
 	}
 
 	// list
-	list := TransformOrdersToOrdersReplyToMP(page.List)
+	list := TransformOrdersToReplyForMP(page.List)
 	return &types.ListOrdersPageReply{
 		List:      list,
 		PageIndex: page.PageIndex,
@@ -55,10 +55,10 @@ func (l *ListOrdersPageLogic) ListOrdersPage(req *types.ListOrdersPageRequest) (
 
 }
 
-func TransformOrdersToOrdersReplyToMP(orders []*trade.Order) (ordersReply []*types.Order) {
+func TransformOrdersToReplyForMP(orders []*trade.Order) (ordersReply []*types.Order) {
 	ordersReply = []*types.Order{}
 	for _, order := range orders {
-		orderReply := TransformOrderToOrderReplyToMP(order)
+		orderReply := TransformOrderToReplyForMP(order)
 		ordersReply = append(ordersReply, orderReply)
 
 	}

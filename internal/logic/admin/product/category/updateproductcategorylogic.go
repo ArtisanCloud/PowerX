@@ -25,7 +25,7 @@ func NewUpdateProductCategoryLogic(ctx context.Context, svcCtx *svc.ServiceConte
 }
 
 func (l *UpdateProductCategoryLogic) UpdateProductCategory(req *types.UpdateProductCategoryRequest) (resp *types.UpdateProductCategoryReply, err error) {
-	productCategory := TransformProductCategoryRequestToProductCategory(&req.ProductCategory)
+	productCategory := TransformRequestToProductCategory(&req.ProductCategory)
 	productCategory.PowerModel = powermodel.PowerModel{
 		Id: req.Id,
 	}
