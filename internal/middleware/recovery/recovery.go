@@ -17,8 +17,11 @@ func RecoverMiddleware() rest.Middleware {
 			defer func() {
 				if result := recover(); result != nil {
 					unknown := errorx.ErrUnKnow
+
 					_, _ = pretty.Printf("%v\n%s", result, debug.Stack())
+
 					logx.WithContext(r.Context()).Error(formatReq(r, fmt.Sprintf("%v\n%x", result, debug.Stack())))
+
 					httpx.Error(w, unknown)
 				}
 			}()
