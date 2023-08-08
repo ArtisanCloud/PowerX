@@ -34,7 +34,7 @@ func NewCreateProductLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Cre
 
 func (l *CreateProductLogic) CreateProduct(req *types.CreateProductRequest) (resp *types.CreateProductReply, err error) {
 
-	mdlProduct := TransformProductRequestToProduct(&(req.Product))
+	mdlProduct := TransformRequestToProduct(&(req.Product))
 
 	if len(req.SalesChannelsItemIds) > 0 {
 		salesChannelsItems, err := l.svcCtx.PowerX.DataDictionary.FindAllDictionaryItems(l.ctx, &powerx.FindManyDataDictItemOption{
@@ -90,7 +90,7 @@ func (l *CreateProductLogic) CreateProduct(req *types.CreateProductRequest) (res
 	}, err
 }
 
-func TransformProductRequestToProduct(productRequest *types.Product) (mdlProduct *product.Product) {
+func TransformRequestToProduct(productRequest *types.Product) (mdlProduct *product.Product) {
 
 	saleStartDate := carbon.Parse(productRequest.SaleStartDate)
 	saleEndDate := carbon.Parse(productRequest.SaleEndDate)
@@ -153,13 +153,13 @@ func TransformProductToReply(mdlProduct *product.Product) (productReply *types.P
 		SKUs:                   TransformSkusToSkusReply(mdlProduct.SKUs),
 		CoverImageIds:          media.GetImageIds(mdlProduct.PivotCoverImages),
 		DetailImageIds:         media.GetImageIds(mdlProduct.PivotDetailImages),
-		CoverImages:            TransformProductImagesToImagesReply(mdlProduct.PivotCoverImages),
-		DetailImages:           TransformProductImagesToImagesReply(mdlProduct.PivotDetailImages),
+		CoverImages:            TransformProductImagesToReply(mdlProduct.PivotCoverImages),
+		DetailImages:           TransformProductImagesToReply(mdlProduct.PivotDetailImages),
 	}
 
 }
 
-func TransformProductImagesToImagesReply(pivots []*media.PivotMediaResourceToObject) (imagesReply []*types.MediaResource) {
+func TransformProductImagesToReply(pivots []*media.PivotMediaResourceToObject) (imagesReply []*types.MediaResource) {
 
 	imagesReply = []*types.MediaResource{}
 	for _, pivot := range pivots {
@@ -239,21 +239,21 @@ func TransformSpecificToReply(specific *product.ProductSpecific) (imagesReply *t
 		Id:              specific.Id,
 		ProductId:       specific.ProductId,
 		Name:            specific.Name,
-		SpecificOptions: TransformSpecificOptionsToSpecificOptionsReply(specific.Options),
+		SpecificOptions: TransformSpecificOptionsToReply(specific.Options),
 	}
 }
 
-func TransformSpecificOptionsToSpecificOptionsReply(options []*product.SpecificOption) (optionsReply []*types.SpecificOption) {
+func TransformSpecificOptionsToReply(options []*product.SpecificOption) (optionsReply []*types.SpecificOption) {
 
 	optionsReply = []*types.SpecificOption{}
 	for _, option := range options {
-		specificReply := TransformSpecificOptionToSpecificOptionReply(option)
+		specificReply := TransformSpecificOptionToReply(option)
 		optionsReply = append(optionsReply, specificReply)
 	}
 	return optionsReply
 }
 
-func TransformSpecificOptionToSpecificOptionReply(option *product.SpecificOption) (imagesReply *types.SpecificOption) {
+func TransformSpecificOptionToReply(option *product.SpecificOption) (imagesReply *types.SpecificOption) {
 	if option == nil {
 		return nil
 	}

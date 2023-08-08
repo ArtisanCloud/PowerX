@@ -44,7 +44,7 @@ func (l *ConfigPriceBookEntryLogic) ConfigPriceBookEntry(req *types.ConfigPriceB
 	}, err
 }
 
-func TransformPriceBookEntryRequestToPriceBook(entryRequest *types.PriceBookEntry) *product.PriceBookEntry {
+func TransformRequestToPriceBook(entryRequest *types.PriceBookEntry) *product.PriceBookEntry {
 
 	if entryRequest == nil {
 		return nil
@@ -70,13 +70,13 @@ func flattenPriceBookEntries(req *types.ConfigPriceBookEntryRequest) (entries []
 		if entry.PriceBookId <= 0 || entry.ProductId <= 0 {
 			return nil, errors.New(pretty.Sprintf("price book entry index: %d is not valid", i))
 		}
-		entries = append(entries, TransformPriceBookEntryRequestToPriceBook(&entry))
+		entries = append(entries, TransformRequestToPriceBook(&entry))
 		if len(entry.SKUEntries) > 0 {
 			for j, skuEntry := range entry.SKUEntries {
 				if skuEntry.PriceBookId <= 0 || skuEntry.ProductId <= 0 || skuEntry.SkuId <= 0 {
 					return nil, errors.New(pretty.Sprintf("price book sku entry index: [%d %d] is not valid", i, j))
 				}
-				entries = append(entries, TransformPriceBookEntryRequestToPriceBook(skuEntry))
+				entries = append(entries, TransformRequestToPriceBook(skuEntry))
 			}
 		}
 	}

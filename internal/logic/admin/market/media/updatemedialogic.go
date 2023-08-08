@@ -26,7 +26,7 @@ func NewUpdateMediaLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Updat
 }
 
 func (l *UpdateMediaLogic) UpdateMedia(req *types.UpdateMediaRequest) (resp *types.UpdateMediaReply, err error) {
-	mdlMedia := TransformMediaRequestToMedia(&(req.Media))
+	mdlMedia := TransformRequestToMedia(&(req.Media))
 	mdlMedia.Id = req.MediaId
 
 	if len(req.DetailImageIds) > 0 {

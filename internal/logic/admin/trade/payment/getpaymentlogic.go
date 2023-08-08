@@ -33,11 +33,11 @@ func (l *GetPaymentLogic) GetPayment(req *types.GetPaymentRequest) (resp *types.
 	}
 
 	return &types.GetPaymentReply{
-		Payment: TransformPaymentToPaymentReply(mdlPayment),
+		Payment: TransformPaymentToReply(mdlPayment),
 	}, nil
 }
 
-func TransformPaymentToPaymentReply(mdlPayment *trade.Payment) (paymentReply *types.Payment) {
+func TransformPaymentToReply(mdlPayment *trade.Payment) (paymentReply *types.Payment) {
 
 	return &types.Payment{
 		Id:              mdlPayment.Id,

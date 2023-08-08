@@ -26,7 +26,7 @@ func NewConfigSKULogic(ctx context.Context, svcCtx *svc.ServiceContext) *ConfigS
 }
 
 func (l *ConfigSKULogic) ConfigSKU(req *types.ConfigSKURequest) (resp *types.ConfigSKUReply, err error) {
-	skus := TransformSKUsRequestToSKUs(req.SKUs)
+	skus := TransformRequestToSKUs(req.SKUs)
 	//fmt.Dump(skus)
 	err = l.svcCtx.PowerX.SKU.ConfigSKU(l.ctx, skus)
 	if err != nil {
@@ -38,7 +38,7 @@ func (l *ConfigSKULogic) ConfigSKU(req *types.ConfigSKURequest) (resp *types.Con
 	}, nil
 }
 
-func TransformSKUsRequestToSKUs(skusRequest []types.SKU) []*product.SKU {
+func TransformRequestToSKUs(skusRequest []types.SKU) []*product.SKU {
 	skus := []*product.SKU{}
 	for _, skuRequest := range skusRequest {
 		skus = append(skus, TransformSKURequestToSKU(skuRequest))

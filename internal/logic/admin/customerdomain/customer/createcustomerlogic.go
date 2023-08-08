@@ -43,7 +43,7 @@ func (l *CreateCustomerLogic) CreateCustomer(req *types.CreateCustomerRequest) (
 
 }
 
-func TransformCustomerRequestToCustomer(customerRequest *types.Customer) (mdlCustomer *customerdomain.Customer) {
+func TransformRequestToCustomer(customerRequest *types.Customer) (mdlCustomer *customerdomain.Customer) {
 
 	mdlCustomer = &customerdomain.Customer{
 		Name:        customerRequest.Name,

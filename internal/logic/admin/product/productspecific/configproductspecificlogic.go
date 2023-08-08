@@ -55,7 +55,7 @@ func TransformProductSpecificsRequestToProductSpecifics(specificsRequest []types
 
 	specifics := []*product2.ProductSpecific{}
 	for _, specificRequest := range specificsRequest {
-		specifics = append(specifics, TransformProductSpecificRequestToProductSpecific(specificRequest))
+		specifics = append(specifics, TransformRequestToProductSpecific(specificRequest))
 	}
 
 	return specifics

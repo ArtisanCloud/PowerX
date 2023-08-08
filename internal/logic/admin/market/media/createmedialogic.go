@@ -27,7 +27,7 @@ func NewCreateMediaLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Creat
 }
 
 func (l *CreateMediaLogic) CreateMedia(req *types.CreateMediaRequest) (resp *types.CreateMediaReply, err error) {
-	mdlMedia := TransformMediaRequestToMedia(&req.Media)
+	mdlMedia := TransformRequestToMedia(&req.Media)
 
 	if len(req.DetailImageIds) > 0 {
 		mediaResources, err := l.svcCtx.PowerX.MediaResource.FindAllMediaResources(l.ctx, &powerx.FindManyMediaResourcesOption{
@@ -46,7 +46,7 @@ func (l *CreateMediaLogic) CreateMedia(req *types.CreateMediaRequest) (resp *typ
 	}, nil
 }
 
-func TransformMediaRequestToMedia(mediaRequest *types.Media) (mdlMedia *market.Media) {
+func TransformRequestToMedia(mediaRequest *types.Media) (mdlMedia *market.Media) {
 
 	return &market.Media{
 		Title:        mediaRequest.Title,

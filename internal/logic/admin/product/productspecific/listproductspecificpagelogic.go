@@ -42,7 +42,7 @@ func (l *ListProductSpecificPageLogic) ListProductSpecificPage(req *types.ListPr
 	productSpecificList := l.svcCtx.PowerX.ProductSpecific.FindManyProductSpecifics(l.ctx, opt)
 	resp = &types.ListProductSpecificPageReply{}
 
-	resp.List = TransformProductSpecificsToProductSpecificsReply(productSpecificList.List)
+	resp.List = TransformProductSpecificsToReply(productSpecificList.List)
 	resp.PageIndex = productSpecificList.PageIndex
 	resp.PageSize = productSpecificList.PageSize
 	resp.Total = productSpecificList.Total
@@ -50,7 +50,7 @@ func (l *ListProductSpecificPageLogic) ListProductSpecificPage(req *types.ListPr
 	return resp, nil
 }
 
-func TransformProductSpecificsToProductSpecificsReply(specifics []*product2.ProductSpecific) (specificsReply []*types.ProductSpecific) {
+func TransformProductSpecificsToReply(specifics []*product2.ProductSpecific) (specificsReply []*types.ProductSpecific) {
 
 	specificsReply = []*types.ProductSpecific{}
 	for _, entry := range specifics {

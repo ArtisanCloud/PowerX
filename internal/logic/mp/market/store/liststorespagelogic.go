@@ -38,7 +38,7 @@ func (l *ListStoresPageLogic) ListStoresPage(req *types.ListStoresPageRequest) (
 	if err != nil {
 		return nil, err
 	}
-	list := product2.TransformStoresToStoresReply(stores.List)
+	list := product2.TransformStoresToReply(stores.List)
 
 	return &types.ListStoresPageReply{
 		List:      list,

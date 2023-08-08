@@ -50,7 +50,7 @@ func TransformPaymentsToReply(payments []*trade.Payment) []*types.Payment {
 	paymentsReply := []*types.Payment{}
 	for _, payment := range payments {
 
-		paymentReply := TransformPaymentToPaymentReply(payment)
+		paymentReply := TransformPaymentToReply(payment)
 		paymentsReply = append(paymentsReply, paymentReply)
 
 	}

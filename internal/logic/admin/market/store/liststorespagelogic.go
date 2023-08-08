@@ -39,7 +39,7 @@ func (l *ListStoresLogic) ListStoresPage(req *types.ListStoresPageRequest) (resp
 	if err != nil {
 		return nil, err
 	}
-	list := TransformStoresToStoresReply(stores.List)
+	list := TransformStoresToReply(stores.List)
 
 	return &types.ListStoresPageReply{
 		List:      list,
@@ -50,7 +50,7 @@ func (l *ListStoresLogic) ListStoresPage(req *types.ListStoresPageRequest) (resp
 
 }
 
-func TransformStoresToStoresReply(stores []*product2.Store) []*types.Store {
+func TransformStoresToReply(stores []*product2.Store) []*types.Store {
 	storesReply := []*types.Store{}
 	for _, store := range stores {
 		storeReply := TransformStoreToStoreReply(store)

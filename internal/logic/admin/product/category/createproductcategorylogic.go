@@ -26,7 +26,7 @@ func NewCreateProductCategoryLogic(ctx context.Context, svcCtx *svc.ServiceConte
 }
 
 func (l *CreateProductCategoryLogic) CreateProductCategory(req *types.CreateProductCategoryRequest) (resp *types.CreateProductCategoryReply, err error) {
-	productCategory := TransformProductCategoryRequestToProductCategory(&req.ProductCategory)
+	productCategory := TransformRequestToProductCategory(&req.ProductCategory)
 
 	productCategory, err = l.svcCtx.PowerX.ProductCategory.UpsertProductCategory(l.ctx, productCategory)
 	if err != nil {
@@ -38,7 +38,7 @@ func (l *CreateProductCategoryLogic) CreateProductCategory(req *types.CreateProd
 	}, nil
 }
 
-func TransformProductCategoryRequestToProductCategory(req *types.ProductCategory) *product.ProductCategory {
+func TransformRequestToProductCategory(req *types.ProductCategory) *product.ProductCategory {
 	return &product.ProductCategory{
 		PId:          req.PId,
 		Name:         req.Name,

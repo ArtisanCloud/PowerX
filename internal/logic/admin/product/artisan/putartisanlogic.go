@@ -26,7 +26,7 @@ func NewPutArtisanLogic(ctx context.Context, svcCtx *svc.ServiceContext) *PutArt
 }
 
 func (l *PutArtisanLogic) PutArtisan(req *types.PutArtisanRequest) (resp *types.PutArtisanReply, err error) {
-	mdlArtisan := TransformArtisanRequestToArtisan(&(req.Artisan))
+	mdlArtisan := TransformRequestToArtisan(&(req.Artisan))
 	mdlArtisan.Id = req.ArtisanId
 	if len(req.DetailImageIds) > 0 {
 		mediaResources, err := l.svcCtx.PowerX.MediaResource.FindAllMediaResources(l.ctx, &powerx.FindManyMediaResourcesOption{
@@ -45,6 +45,6 @@ func (l *PutArtisanLogic) PutArtisan(req *types.PutArtisanRequest) (resp *types.
 	}
 
 	return &types.PutArtisanReply{
-		Artisan: TransformArtisanToArtisanReply(mdlArtisan),
+		Artisan: TransformArtisanToReply(mdlArtisan),
 	}, nil
 }

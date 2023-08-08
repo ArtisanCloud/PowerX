@@ -53,13 +53,13 @@ func (l *ListArtisansPageLogic) ListArtisansPage(req *types.ListArtisansPageRequ
 func TransformArtisansToArtisansReply(artisans []*product.Artisan) []*types.Artisan {
 	artisansReply := []*types.Artisan{}
 	for _, artisan := range artisans {
-		artisanReply := TransformArtisanToArtisanReply(artisan)
+		artisanReply := TransformArtisanToReply(artisan)
 		artisansReply = append(artisansReply, artisanReply)
 	}
 	return artisansReply
 }
 
-func TransformArtisanToArtisanReply(artisan *product.Artisan) *types.Artisan {
+func TransformArtisanToReply(artisan *product.Artisan) *types.Artisan {
 	return &types.Artisan{
 		Id:             artisan.Id,
 		EmployeeId:     artisan.EmployeeId,
@@ -76,14 +76,14 @@ func TransformArtisanToArtisanReply(artisan *product.Artisan) *types.Artisan {
 		Address:        artisan.Address,
 		CreatedAt:      artisan.CreatedAt.String(),
 		CoverImageId:   artisan.CoverImageId,
-		CoverImage:     TransformArtisanImageToArtisanImageReply(artisan.CoverImage),
+		CoverImage:     TransformArtisanImageToReply(artisan.CoverImage),
 		DetailImageIds: media.GetImageIds(artisan.PivotDetailImages),
-		DetailImages:   TransformArtisanImagesToImagesReply(artisan.PivotDetailImages),
+		DetailImages:   TransformArtisanImagesToReply(artisan.PivotDetailImages),
 		StoreIds:       product.GetStoreIds(artisan.PivotStoreToArtisans),
 	}
 }
 
-func TransformArtisanImageToArtisanImageReply(resource *media.MediaResource) *types.MediaResource {
+func TransformArtisanImageToReply(resource *media.MediaResource) *types.MediaResource {
 	if resource == nil {
 		return nil
 	}
@@ -100,11 +100,11 @@ func TransformArtisanImageToArtisanImageReply(resource *media.MediaResource) *ty
 	}
 }
 
-func TransformArtisanImagesToImagesReply(pivots []*media.PivotMediaResourceToObject) (imagesReply []*types.MediaResource) {
+func TransformArtisanImagesToReply(pivots []*media.PivotMediaResourceToObject) (imagesReply []*types.MediaResource) {
 
 	imagesReply = []*types.MediaResource{}
 	for _, pivot := range pivots {
-		imageReply := TransformArtisanImageToArtisanImageReply(pivot.MediaResource)
+		imageReply := TransformArtisanImageToReply(pivot.MediaResource)
 		imagesReply = append(imagesReply, imageReply)
 	}
 	return imagesReply

@@ -24,7 +24,7 @@ func NewPutCustomerLogic(ctx context.Context, svcCtx *svc.ServiceContext) *PutCu
 }
 
 func (l *PutCustomerLogic) PutCustomer(req *types.PutCustomerRequest) (resp *types.PutCustomerReply, err error) {
-	mdlCustomer := TransformCustomerRequestToCustomer(&(req.Customer))
+	mdlCustomer := TransformRequestToCustomer(&(req.Customer))
 
 	// 更新产品对象
 	err = l.svcCtx.PowerX.Customer.UpdateCustomer(l.ctx, req.CustomerId, mdlCustomer)
