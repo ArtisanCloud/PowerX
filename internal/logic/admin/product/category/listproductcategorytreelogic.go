@@ -1,7 +1,7 @@
 package category
 
 import (
-	"PowerX/internal/model/media"
+	"PowerX/internal/logic/admin/mediaresource"
 	"PowerX/internal/model/product"
 	product2 "PowerX/internal/uc/powerx/product"
 	"context"
@@ -76,28 +76,11 @@ func TransformProductCategoryToReply(category *product.ProductCategory) *types.P
 		Description:  category.Description,
 		CreatedAt:    category.CreatedAt.String(),
 		CoverImageId: category.CoverImageId,
-		CoverImage:   TransformCategoryImageToReply(category.CoverImage),
+		CoverImage:   mediaresource.TransformMediaResourceToReply(category.CoverImage),
 		ImageAbleInfo: types.ImageAbleInfo{
 			Icon:            category.Icon,
 			BackgroundColor: category.BackgroundColor,
 		},
 		Children: nil,
-	}
-}
-
-func TransformCategoryImageToReply(resource *media.MediaResource) *types.MediaResource {
-	if resource == nil {
-		return nil
-	}
-	return &types.MediaResource{
-		Id:            resource.Id,
-		CustomerId:    resource.CustomerId,
-		BucketName:    resource.BucketName,
-		Filename:      resource.Filename,
-		Size:          resource.Size,
-		IsLocalStored: resource.IsLocalStored,
-		Url:           resource.Url,
-		ContentType:   resource.ContentType,
-		ResourceType:  resource.ResourceType,
 	}
 }

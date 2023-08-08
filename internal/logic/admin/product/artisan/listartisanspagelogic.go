@@ -1,6 +1,7 @@
 package artisan
 
 import (
+	"PowerX/internal/logic/admin/mediaresource"
 	"PowerX/internal/model/media"
 	"PowerX/internal/model/product"
 	product3 "PowerX/internal/uc/powerx/product"
@@ -76,36 +77,9 @@ func TransformArtisanToReply(artisan *product.Artisan) *types.Artisan {
 		Address:        artisan.Address,
 		CreatedAt:      artisan.CreatedAt.String(),
 		CoverImageId:   artisan.CoverImageId,
-		CoverImage:     TransformArtisanImageToReply(artisan.CoverImage),
+		CoverImage:     mediaresource.TransformMediaResourceToReply(artisan.CoverImage),
 		DetailImageIds: media.GetImageIds(artisan.PivotDetailImages),
-		DetailImages:   TransformArtisanImagesToReply(artisan.PivotDetailImages),
+		DetailImages:   mediaresource.TransformMediaResourcesToReply(artisan.PivotDetailImages),
 		StoreIds:       product.GetStoreIds(artisan.PivotStoreToArtisans),
 	}
-}
-
-func TransformArtisanImageToReply(resource *media.MediaResource) *types.MediaResource {
-	if resource == nil {
-		return nil
-	}
-	return &types.MediaResource{
-		Id:            resource.Id,
-		CustomerId:    resource.CustomerId,
-		BucketName:    resource.BucketName,
-		Filename:      resource.Filename,
-		Size:          resource.Size,
-		IsLocalStored: resource.IsLocalStored,
-		Url:           resource.Url,
-		ContentType:   resource.ContentType,
-		ResourceType:  resource.ResourceType,
-	}
-}
-
-func TransformArtisanImagesToReply(pivots []*media.PivotMediaResourceToObject) (imagesReply []*types.MediaResource) {
-
-	imagesReply = []*types.MediaResource{}
-	for _, pivot := range pivots {
-		imageReply := TransformArtisanImageToReply(pivot.MediaResource)
-		imagesReply = append(imagesReply, imageReply)
-	}
-	return imagesReply
 }
