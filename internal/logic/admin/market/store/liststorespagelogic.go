@@ -73,14 +73,14 @@ func TransformStoreToStoreReply(store *product2.Store) *types.Store {
 		EndWork:         store.EndWork.String(),
 		CreatedAt:       store.CreatedAt.String(),
 		CoverImageId:    store.CoverImageId,
-		CoverImage:      TransformStoreImageToStoreImageReply(store.CoverImage),
+		CoverImage:      TransformStoreImageToReply(store.CoverImage),
 		DetailImageIds:  media.GetImageIds(store.PivotDetailImages),
 		DetailImages:    TransformStoreImagesToImagesReply(store.PivotDetailImages),
 		Artisans:        TransformArtisansToShopArtisans(store.Artisans),
 	}
 }
 
-func TransformStoreImageToStoreImageReply(resource *media.MediaResource) *types.MediaResource {
+func TransformStoreImageToReply(resource *media.MediaResource) *types.MediaResource {
 	if resource == nil {
 		return nil
 	}
@@ -101,7 +101,7 @@ func TransformStoreImagesToImagesReply(pivots []*media.PivotMediaResourceToObjec
 
 	imagesReply = []*types.MediaResource{}
 	for _, pivot := range pivots {
-		imageReply := TransformStoreImageToStoreImageReply(pivot.MediaResource)
+		imageReply := TransformStoreImageToReply(pivot.MediaResource)
 		imagesReply = append(imagesReply, imageReply)
 	}
 	return imagesReply
