@@ -835,29 +835,18 @@ type ListMediasPageRequest struct {
 	PageSize   int      `form:"pageSize,optional"`
 }
 
-type MediaImage struct {
-	Id            int64  `json:"id,optional"`
-	Filename      string `json:"filename,optional"`
-	Size          int64  `json:"size,optional"`
-	Url           string `json:"url,optional"`
-	BucketName    string `json:"bucketName,optional"`
-	IsLocalStored bool   `json:"isLocalStored,optional"`
-	ContentType   string `json:"contentType,optional"`
-	ResourceType  string `json:"resourceType,optional"`
-}
-
 type Media struct {
-	Id             int64         `json:"id,optional"`
-	Title          string        `json:"title,optional"`
-	SubTitle       string        `json:"subTitle,optional"`
-	CoverImageId   int64         `json:"coverImageId,optional"`
-	ResourceUrl    string        `json:"resourceUrl,optional"`
-	Description    string        `json:"description,optional"`
-	MediaType      int           `json:"mediaType,optional"`
-	ViewedCount    int           `json:"viewedCount,optional"`
-	CoverImage     *MediaImage   `json:"coverImage,optional"`
-	DetailImageIds []int64       `json:"detailImageIds,optional"`
-	DetailImages   []*MediaImage `json:"detailImages,optional"`
+	Id             int64            `json:"id,optional"`
+	Title          string           `json:"title,optional"`
+	SubTitle       string           `json:"subTitle,optional"`
+	CoverImageId   int64            `json:"coverImageId,optional"`
+	ResourceUrl    string           `json:"resourceUrl,optional"`
+	Description    string           `json:"description,optional"`
+	MediaType      int              `json:"mediaType,optional"`
+	ViewedCount    int              `json:"viewedCount,optional"`
+	CoverImage     *MediaResource   `json:"coverImage,optional"`
+	DetailImageIds []int64          `json:"detailImageIds,optional"`
+	DetailImages   []*MediaResource `json:"detailImages,optional"`
 }
 
 type ListMediasPageReply struct {

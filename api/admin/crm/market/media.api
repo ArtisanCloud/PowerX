@@ -45,17 +45,6 @@ type (
         PageSize int `form:"pageSize,optional"`
     }
 
-    MediaImage {
-        Id int64 `json:"id,optional"`
-        Filename string `json:"filename,optional"`
-        Size int64 `json:"size,optional"`
-        Url string `json:"url,optional"`
-        BucketName string `json:"bucketName,optional"`
-        IsLocalStored bool `json:"isLocalStored,optional"`
-        ContentType string `json:"contentType,optional"`
-        ResourceType string `json:"resourceType,optional"`
-    }
-
     Media struct {
         Id int64 `json:"id,optional"`
 
@@ -67,9 +56,9 @@ type (
         MediaType int `json:"mediaType,optional"`
         ViewedCount int `json:"viewedCount,optional"`
 
-        CoverImage *MediaImage `json:"coverImage,optional"`
+        CoverImage *MediaResource `json:"coverImage,optional"`
         DetailImageIds []int64 `json:"detailImageIds,optional"`
-        DetailImages []*MediaImage `json:"detailImages,optional"`
+        DetailImages []*MediaResource `json:"detailImages,optional"`
     }
 
     ListMediasPageReply struct {
