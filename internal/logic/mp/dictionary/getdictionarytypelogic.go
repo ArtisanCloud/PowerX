@@ -34,7 +34,7 @@ func (l *GetDictionaryTypeLogic) GetDictionaryType(req *types.GetDictionaryTypeR
 
 	var items = []*types.DictionaryItem{}
 	if len(itemType.Items) > 0 {
-		items = dictionary.TransformItemsToItemsReply(itemType.Items)
+		items = dictionary.TransformItemsToReply(itemType.Items)
 	}
 
 	return &types.GetDictionaryTypeReply{

@@ -76,7 +76,7 @@ func TransformProductCategoryToReply(category *product.ProductCategory) *types.P
 		Description:  category.Description,
 		CreatedAt:    category.CreatedAt.String(),
 		CoverImageId: category.CoverImageId,
-		CoverImage:   TransformCategoryImageToCategoryImageReply(category.CoverImage),
+		CoverImage:   TransformCategoryImageToReply(category.CoverImage),
 		ImageAbleInfo: types.ImageAbleInfo{
 			Icon:            category.Icon,
 			BackgroundColor: category.BackgroundColor,
@@ -85,7 +85,7 @@ func TransformProductCategoryToReply(category *product.ProductCategory) *types.P
 	}
 }
 
-func TransformCategoryImageToCategoryImageReply(resource *media.MediaResource) *types.MediaResource {
+func TransformCategoryImageToReply(resource *media.MediaResource) *types.MediaResource {
 	if resource == nil {
 		return nil
 	}

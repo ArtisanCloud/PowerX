@@ -34,11 +34,11 @@ func (l *GetCustomerLogic) GetCustomer(req *types.GetCustomerReqeuest) (resp *ty
 	}
 
 	return &types.GetCustomerReply{
-		Customer: TransformCustomerToCustomerReply(l.svcCtx, mdlCustomer),
+		Customer: TransformCustomerToReply(l.svcCtx, mdlCustomer),
 	}, nil
 }
 
-func TransformCustomerToCustomerReply(svcCtx *svc.ServiceContext, mdlCustomer *customerdomain.Customer) (customerReply *types.Customer) {
+func TransformCustomerToReply(svcCtx *svc.ServiceContext, mdlCustomer *customerdomain.Customer) (customerReply *types.Customer) {
 
 	var inviter *types.CustomerInviter
 	if mdlCustomer.Inviter != nil {

@@ -41,7 +41,7 @@ func (l *ListDictionaryTypesLogic) ListDictionaryTypes(req *types.ListDictionary
 
 		var items = []*types.DictionaryItem{}
 		if len(itemType.Items) > 0 {
-			items = TransformItemsToItemsReply(itemType.Items)
+			items = TransformItemsToReply(itemType.Items)
 		}
 
 		list = append(list, types.DictionaryType{

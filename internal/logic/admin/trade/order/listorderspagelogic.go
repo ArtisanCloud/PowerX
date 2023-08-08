@@ -37,7 +37,7 @@ func (l *ListOrdersPageLogic) ListOrdersPage(req *types.ListOrdersPageRequest) (
 	}
 
 	// list
-	list := TransformOrdersToOrdersReply(page.List)
+	list := TransformOrdersToReply(page.List)
 	return &types.ListOrdersPageReply{
 		List:      list,
 		PageIndex: page.PageIndex,
@@ -46,7 +46,7 @@ func (l *ListOrdersPageLogic) ListOrdersPage(req *types.ListOrdersPageRequest) (
 	}, nil
 }
 
-func TransformOrdersToOrdersReply(orders []*trade.Order) []*types.Order {
+func TransformOrdersToReply(orders []*trade.Order) []*types.Order {
 	ordersReply := []*types.Order{}
 	for _, order := range orders {
 		orderReply := TransformOrderToOrderReply(order)

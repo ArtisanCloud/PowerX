@@ -53,13 +53,13 @@ func (l *ListStoresLogic) ListStoresPage(req *types.ListStoresPageRequest) (resp
 func TransformStoresToReply(stores []*product2.Store) []*types.Store {
 	storesReply := []*types.Store{}
 	for _, store := range stores {
-		storeReply := TransformStoreToStoreReply(store)
+		storeReply := TransformStoreToReply(store)
 		storesReply = append(storesReply, storeReply)
 	}
 	return storesReply
 }
 
-func TransformStoreToStoreReply(store *product2.Store) *types.Store {
+func TransformStoreToReply(store *product2.Store) *types.Store {
 	return &types.Store{
 		Id:              store.Id,
 		Name:            store.Name,
@@ -75,7 +75,7 @@ func TransformStoreToStoreReply(store *product2.Store) *types.Store {
 		CoverImageId:    store.CoverImageId,
 		CoverImage:      TransformStoreImageToReply(store.CoverImage),
 		DetailImageIds:  media.GetImageIds(store.PivotDetailImages),
-		DetailImages:    TransformStoreImagesToImagesReply(store.PivotDetailImages),
+		DetailImages:    TransformStoreImagesToReply(store.PivotDetailImages),
 		Artisans:        TransformArtisansToShopArtisans(store.Artisans),
 	}
 }
@@ -97,7 +97,7 @@ func TransformStoreImageToReply(resource *media.MediaResource) *types.MediaResou
 	}
 }
 
-func TransformStoreImagesToImagesReply(pivots []*media.PivotMediaResourceToObject) (imagesReply []*types.MediaResource) {
+func TransformStoreImagesToReply(pivots []*media.PivotMediaResourceToObject) (imagesReply []*types.MediaResource) {
 
 	imagesReply = []*types.MediaResource{}
 	for _, pivot := range pivots {

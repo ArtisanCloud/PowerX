@@ -46,7 +46,7 @@ func (l *PutStoreLogic) PutStore(req *types.PutStoreRequest) (resp *types.PutSto
 	}
 
 	return &types.PutStoreReply{
-		Store: TransformStoreToStoreReply(mdlStore),
+		Store: TransformStoreToReply(mdlStore),
 	}, nil
 
 }

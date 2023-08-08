@@ -150,7 +150,7 @@ func TransformProductToReply(mdlProduct *product.Product) (productReply *types.P
 		ProductSpecifics:       TransformSpecificsToReply(mdlProduct.ProductSpecifics),
 		ActivePriceEntry:       pricebookentry.TransformPriceEntriesToActivePriceEntryReply(mdlProduct.PriceBookEntries),
 		PriceBookEntries:       pricebookentry.TransformPriceBookEntriesToPriceBookEntriesReply(mdlProduct.PriceBookEntries),
-		SKUs:                   TransformSkusToSkusReply(mdlProduct.SKUs),
+		SKUs:                   TransformSkusToReply(mdlProduct.SKUs),
 		CoverImageIds:          media.GetImageIds(mdlProduct.PivotCoverImages),
 		DetailImageIds:         media.GetImageIds(mdlProduct.PivotDetailImages),
 		CoverImages:            TransformProductImagesToReply(mdlProduct.PivotCoverImages),
@@ -181,17 +181,17 @@ func TransformProductImageToImageReply(resource *media.MediaResource) (imagesRep
 	}
 }
 
-func TransformSkusToSkusReply(skus []*product.SKU) (skusReply []*types.SKU) {
+func TransformSkusToReply(skus []*product.SKU) (skusReply []*types.SKU) {
 
 	skusReply = []*types.SKU{}
 	for _, sku := range skus {
-		skuReply := TransformSkuToSkuReply(sku)
+		skuReply := TransformSkuToReply(sku)
 		skusReply = append(skusReply, skuReply)
 	}
 	return skusReply
 }
 
-func TransformSkuToSkuReply(sku *product.SKU) (skuReply *types.SKU) {
+func TransformSkuToReply(sku *product.SKU) (skuReply *types.SKU) {
 	if sku == nil {
 		return nil
 	}

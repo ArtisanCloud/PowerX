@@ -30,6 +30,6 @@ func (l *PutCustomerLogic) PutCustomer(req *types.PutCustomerRequest) (resp *typ
 	err = l.svcCtx.PowerX.Customer.UpdateCustomer(l.ctx, req.CustomerId, mdlCustomer)
 
 	return &types.PutCustomerReply{
-		Customer: TransformCustomerToCustomerReply(l.svcCtx, mdlCustomer),
+		Customer: TransformCustomerToReply(l.svcCtx, mdlCustomer),
 	}, err
 }

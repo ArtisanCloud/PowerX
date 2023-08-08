@@ -33,7 +33,7 @@ func (l *GetStoreLogic) GetStore(req *types.GetStoreRequest) (resp *types.GetSto
 	}
 
 	return &types.GetStoreReply{
-		Store: TransformStoreToStoreReply(mdlStore),
+		Store: TransformStoreToReply(mdlStore),
 	}, nil
 
 }

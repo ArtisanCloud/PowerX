@@ -37,7 +37,7 @@ func (l *ListMediasPageLogic) ListMediasPage(req *types.ListMediasPageRequest) (
 	}
 
 	// list
-	list := TransformMediasToMediasReply(page.List)
+	list := TransformMediasToReply(page.List)
 	return &types.ListMediasPageReply{
 		List:      list,
 		PageIndex: page.PageIndex,
@@ -46,7 +46,7 @@ func (l *ListMediasPageLogic) ListMediasPage(req *types.ListMediasPageRequest) (
 	}, nil
 }
 
-func TransformMediasToMediasReply(medias []*market2.Media) (mediasReply []*types.Media) {
+func TransformMediasToReply(medias []*market2.Media) (mediasReply []*types.Media) {
 	mediasReply = []*types.Media{}
 	for _, media := range medias {
 		mediaReply := TransformMediaToReply(media)

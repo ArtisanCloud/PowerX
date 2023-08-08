@@ -33,11 +33,11 @@ func (l *GetDictionaryItemLogic) GetDictionaryItem(req *types.GetDictionaryItemR
 	}
 
 	return &types.GetDictionaryItemReply{
-		DictionaryItem: TransformItemToItemReply(item),
+		DictionaryItem: TransformItemToReply(item),
 	}, nil
 }
 
-func TransformItemToItemReply(item *model.DataDictionaryItem) (itemReply *types.DictionaryItem) {
+func TransformItemToReply(item *model.DataDictionaryItem) (itemReply *types.DictionaryItem) {
 
 	return &types.DictionaryItem{
 		Id:          item.Id,

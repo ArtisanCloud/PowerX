@@ -40,7 +40,7 @@ func (l *ListArtisansPageLogic) ListArtisansPage(req *types.ListArtisansPageRequ
 	if err != nil {
 		return nil, err
 	}
-	list := TransformArtisansToArtisansReply(artisans.List)
+	list := TransformArtisansToReply(artisans.List)
 
 	return &types.ListArtisansPageReply{
 		List:      list,
@@ -50,7 +50,7 @@ func (l *ListArtisansPageLogic) ListArtisansPage(req *types.ListArtisansPageRequ
 	}, nil
 }
 
-func TransformArtisansToArtisansReply(artisans []*product.Artisan) []*types.Artisan {
+func TransformArtisansToReply(artisans []*product.Artisan) []*types.Artisan {
 	artisansReply := []*types.Artisan{}
 	for _, artisan := range artisans {
 		artisanReply := TransformArtisanToReply(artisan)
