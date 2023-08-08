@@ -47,6 +47,6 @@ func (l *UpdateCartItemQuantityLogic) UpdateCartItemQuantity(req *types.UpdateCa
 	mdlCartItem, err = l.svcCtx.PowerX.Cart.UpsertCartItem(l.ctx, mdlCartItem, []string{"quantity"})
 
 	return &types.UpdateCartItemQuantityReply{
-		CartItem: TransformCartItemToCartItemReplyToMP(mdlCartItem),
+		CartItem: TransformCartItemToReplyForMP(mdlCartItem),
 	}, err
 }

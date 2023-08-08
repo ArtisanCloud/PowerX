@@ -89,7 +89,7 @@ func (l *PutProductLogic) PutProduct(req *types.PutProductRequest) (resp *types.
 	}
 
 	return &types.PutProductReply{
-		Product: TransformProductToProductReply(mdlProduct),
+		Product: TransformProductToReply(mdlProduct),
 	}, nil
 
 }

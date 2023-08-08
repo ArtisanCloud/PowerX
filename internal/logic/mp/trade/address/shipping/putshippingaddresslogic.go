@@ -55,6 +55,6 @@ func (l *PutShippingAddressLogic) PutShippingAddress(req *types.PutShippingAddre
 	l.svcCtx.PowerX.ShippingAddress.PatchShippingAddress(l.ctx, mdlShippingAddress.Id, mdlShippingAddress)
 
 	return &types.PutShippingAddressReply{
-		ShippingAddress: TransformShippingAddressToShippingAddressReplyToMP(mdlShippingAddress),
+		ShippingAddress: TransformShippingAddressToReplyForMP(mdlShippingAddress),
 	}, err
 }

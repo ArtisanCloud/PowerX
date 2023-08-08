@@ -52,7 +52,7 @@ func TransformOrderToOrderReply(mdlOrder *trade.Order) (orderReply *types.Order)
 		UnitPrice:   mdlOrder.UnitPrice,
 		Comment:     mdlOrder.Comment,
 		OrderItems:  TransformOrderItemsToOrderItemsReply(mdlOrder.Items),
-		Payments:    payment.TransformPaymentsToPaymentsReply(mdlOrder.Payments),
+		Payments:    payment.TransformPaymentsToReply(mdlOrder.Payments),
 		CreatedAt:   mdlOrder.CreatedAt.String(),
 	}
 

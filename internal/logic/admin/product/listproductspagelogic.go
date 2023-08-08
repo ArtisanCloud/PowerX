@@ -50,7 +50,7 @@ func (l *ListProductsLogic) ListProductsPage(req *types.ListProductsPageRequest)
 func TransformProductsToProductsReply(products []*product.Product) []types.Product {
 	productsReply := []types.Product{}
 	for _, product := range products {
-		productReply := TransformProductToProductReply(product)
+		productReply := TransformProductToReply(product)
 		productsReply = append(productsReply, *productReply)
 
 	}

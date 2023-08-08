@@ -34,7 +34,7 @@ func (l *CreateProductCategoryLogic) CreateProductCategory(req *types.CreateProd
 	}
 
 	return &types.CreateProductCategoryReply{
-		ProductCategory: TransformProductCategoryToProductCategoryReply(productCategory),
+		ProductCategory: TransformProductCategoryToReply(productCategory),
 	}, nil
 }
 

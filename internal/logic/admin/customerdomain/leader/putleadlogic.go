@@ -24,12 +24,12 @@ func NewPutLeadLogic(ctx context.Context, svcCtx *svc.ServiceContext) *PutLeadLo
 }
 
 func (l *PutLeadLogic) PutLead(req *types.PutLeadRequest) (resp *types.PutLeadReply, err error) {
-	mdlLead := TransformLeadRequestToLead(&(req.Lead))
+	mdlLead := TransformRequestToLead(&(req.Lead))
 
 	// 更新产品对象
 	err = l.svcCtx.PowerX.Lead.UpdateLead(l.ctx, req.LeadId, mdlLead)
 
 	return &types.PutLeadReply{
-		Lead: TransformLeadToLeadReply(l.svcCtx, mdlLead),
+		Lead: TransformLeadToReply(l.svcCtx, mdlLead),
 	}, err
 }

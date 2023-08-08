@@ -31,7 +31,7 @@ func (l *GetMediaLogic) GetMedia(req *types.GetMediaRequest) (resp *types.GetMed
 	return
 }
 
-func TransformMediaToMediaReply(mdlMedia *market.Media) (mediaReply *types.Media) {
+func TransformMediaToReply(mdlMedia *market.Media) (mediaReply *types.Media) {
 
 	return &types.Media{
 		Id:             mdlMedia.Id,
@@ -42,13 +42,13 @@ func TransformMediaToMediaReply(mdlMedia *market.Media) (mediaReply *types.Media
 		Description:    mdlMedia.Description,
 		MediaType:      mdlMedia.MediaType,
 		ViewedCount:    mdlMedia.ViewedCount,
-		CoverImage:     TransformMediaImageToMediaImageReply(mdlMedia.CoverImage),
+		CoverImage:     TransformMediaImageToReply(mdlMedia.CoverImage),
 		DetailImageIds: media.GetImageIds(mdlMedia.PivotDetailImages),
-		DetailImages:   TransformMediaImagesToImagesReply(mdlMedia.PivotDetailImages),
+		DetailImages:   TransformMediaImagesToReply(mdlMedia.PivotDetailImages),
 	}
 }
 
-func TransformMediaImageToMediaImageReply(resource *media.MediaResource) *types.MediaImage {
+func TransformMediaImageToReply(resource *media.MediaResource) *types.MediaImage {
 	if resource == nil {
 		return nil
 	}
@@ -64,11 +64,11 @@ func TransformMediaImageToMediaImageReply(resource *media.MediaResource) *types.
 	}
 }
 
-func TransformMediaImagesToImagesReply(pivots []*media.PivotMediaResourceToObject) (imagesReply []*types.MediaImage) {
+func TransformMediaImagesToReply(pivots []*media.PivotMediaResourceToObject) (imagesReply []*types.MediaImage) {
 
 	imagesReply = []*types.MediaImage{}
 	for _, pivot := range pivots {
-		imageReply := TransformMediaImageToMediaImageReply(pivot.MediaResource)
+		imageReply := TransformMediaImageToReply(pivot.MediaResource)
 		imagesReply = append(imagesReply, imageReply)
 	}
 	return imagesReply

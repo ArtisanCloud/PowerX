@@ -123,7 +123,7 @@ func TransformProductRequestToProduct(productRequest *types.Product) (mdlProduct
 
 }
 
-func TransformProductToProductReply(mdlProduct *product.Product) (productReply *types.Product) {
+func TransformProductToReply(mdlProduct *product.Product) (productReply *types.Product) {
 
 	return &types.Product{
 		Id:                  mdlProduct.Id,
@@ -141,13 +141,13 @@ func TransformProductToProductReply(mdlProduct *product.Product) (productReply *
 		ValidityPeriodDays:  mdlProduct.ValidityPeriodDays,
 		SaleStartDate:       mdlProduct.SaleStartDate.String(),
 		SaleEndDate:         mdlProduct.SaleEndDate.String(),
-		//PivotSalesChannels:   TransformDDsToDDsReply(mdlProduct.PivotSalesChannels),
-		//PivotPromoteChannels: TransformDDsToDDsReply(mdlProduct.PivotPromoteChannels),
-		ProductCategories:      category.TransformProductCategoriesToProductCategoriesReply(mdlProduct.ProductCategories),
+		//PivotSalesChannels:   TransformDDsToReply(mdlProduct.PivotSalesChannels),
+		//PivotPromoteChannels: TransformDDsToReply(mdlProduct.PivotPromoteChannels),
+		ProductCategories:      category.TransformProductCategoriesToReply(mdlProduct.ProductCategories),
 		SalesChannelsItemIds:   model.GetItemIds(mdlProduct.PivotSalesChannels),
 		PromoteChannelsItemIds: model.GetItemIds(mdlProduct.PivotPromoteChannels),
 		CategoryIds:            product.GetCategoryIds(mdlProduct.ProductCategories),
-		ProductSpecifics:       TransformSpecificsToSpecificsReply(mdlProduct.ProductSpecifics),
+		ProductSpecifics:       TransformSpecificsToReply(mdlProduct.ProductSpecifics),
 		ActivePriceEntry:       pricebookentry.TransformPriceEntriesToActivePriceEntryReply(mdlProduct.PriceBookEntries),
 		PriceBookEntries:       pricebookentry.TransformPriceBookEntriesToPriceBookEntriesReply(mdlProduct.PriceBookEntries),
 		SKUs:                   TransformSkusToSkusReply(mdlProduct.SKUs),
@@ -221,17 +221,17 @@ func TransformSkuToSkuReply(sku *product.SKU) (skuReply *types.SKU) {
 	}
 }
 
-func TransformSpecificsToSpecificsReply(specifics []*product.ProductSpecific) (specificReplies []*types.ProductSpecific) {
+func TransformSpecificsToReply(specifics []*product.ProductSpecific) (specificReplies []*types.ProductSpecific) {
 
 	specificReplies = []*types.ProductSpecific{}
 	for _, specific := range specifics {
-		specificReply := TransformSpecificToSpecificReply(specific)
+		specificReply := TransformSpecificToReply(specific)
 		specificReplies = append(specificReplies, specificReply)
 	}
 	return specificReplies
 }
 
-func TransformSpecificToSpecificReply(specific *product.ProductSpecific) (imagesReply *types.ProductSpecific) {
+func TransformSpecificToReply(specific *product.ProductSpecific) (imagesReply *types.ProductSpecific) {
 	if specific == nil {
 		return nil
 	}

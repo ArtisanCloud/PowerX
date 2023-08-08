@@ -49,7 +49,7 @@ func (l *ListMediasPageLogic) ListMediasPage(req *types.ListMediasPageRequest) (
 func TransformMediasToMediasReply(medias []*market2.Media) (mediasReply []*types.Media) {
 	mediasReply = []*types.Media{}
 	for _, media := range medias {
-		mediaReply := TransformMediaToMediaReply(media)
+		mediaReply := TransformMediaToReply(media)
 		mediasReply = append(mediasReply, mediaReply)
 	}
 	return mediasReply

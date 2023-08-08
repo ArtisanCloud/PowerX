@@ -34,7 +34,7 @@ func (l *CreateMediaResourceByBase64Logic) CreateMediaResourceByBase64(req *type
 	l.svcCtx.PowerX.MediaResource.CreateMediaResource(l.ctx, resource)
 
 	return &types.CreateMediaResourceReply{
-		MediaResource: TransformMediaResourceToResourceReply(resource),
+		MediaResource: TransformMediaResourceToReply(resource),
 		IsOSS:         !resource.IsLocalStored,
 	}, nil
 }

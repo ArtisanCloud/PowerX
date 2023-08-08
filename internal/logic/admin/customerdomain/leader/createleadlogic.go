@@ -43,7 +43,7 @@ func (l *CreateLeadLogic) CreateLead(req *types.CreateLeadRequest) (resp *types.
 
 }
 
-func TransformLeadRequestToLead(leadRequest *types.Lead) (mdlLead *customerdomain.Lead) {
+func TransformRequestToLead(leadRequest *types.Lead) (mdlLead *customerdomain.Lead) {
 
 	mdlLead = &customerdomain.Lead{
 		Name:        leadRequest.Name,

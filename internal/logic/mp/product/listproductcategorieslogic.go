@@ -34,7 +34,7 @@ func (l *ListProductCategoriesLogic) ListProductCategories(req *types.ListProduc
 	productCategoryTree := l.svcCtx.PowerX.ProductCategory.FindProductCategoriesByParentId(l.ctx, &option)
 
 	// 转化返回类型的列表
-	productCategoryReplyList := TransformProductCategoriesToProductCategoriesReplyToMP(productCategoryTree)
+	productCategoryReplyList := TransformProductCategoriesToReplyForMP(productCategoryTree)
 
 	return &types.ListProductCategoriesReply{
 		ProductCategories: productCategoryReplyList,

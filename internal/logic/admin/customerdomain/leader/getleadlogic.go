@@ -34,11 +34,11 @@ func (l *GetLeadLogic) GetLead(req *types.GetLeadReqeuest) (resp *types.GetLeadR
 	}
 
 	return &types.GetLeadReply{
-		Lead: TransformLeadToLeadReply(l.svcCtx, mdlLead),
+		Lead: TransformLeadToReply(l.svcCtx, mdlLead),
 	}, nil
 }
 
-func TransformLeadToLeadReply(svcCtx *svc.ServiceContext, mdlLead *customerdomain.Lead) (leadReply *types.Lead) {
+func TransformLeadToReply(svcCtx *svc.ServiceContext, mdlLead *customerdomain.Lead) (leadReply *types.Lead) {
 
 	var inviter *types.LeadInviter
 	if mdlLead.Inviter != nil {

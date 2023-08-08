@@ -33,6 +33,6 @@ func (l *GetProductCategoryLogic) GetProductCategory(req *types.GetProductCatego
 	}
 
 	return &types.GetProductCategoryReply{
-		ProductCategory: TransformProductCategoryToProductCategoryReply(productCategory),
+		ProductCategory: TransformProductCategoryToReply(productCategory),
 	}, nil
 }

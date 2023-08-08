@@ -43,7 +43,7 @@ func (l *ListShippingAddressesPageLogic) ListShippingAddressesPage(req *types.Li
 	}
 
 	// list
-	list := TransformShippingAddressesToShippingAddressesReplyToMP(page.List)
+	list := TransformShippingAddressesToReplyForMP(page.List)
 	return &types.ListShippingAddressesPageReply{
 		List:      list,
 		PageIndex: page.PageIndex,
@@ -53,16 +53,16 @@ func (l *ListShippingAddressesPageLogic) ListShippingAddressesPage(req *types.Li
 
 }
 
-func TransformShippingAddressesToShippingAddressesReplyToMP(addresses []*trade.ShippingAddress) []*types.ShippingAddress {
+func TransformShippingAddressesToReplyForMP(addresses []*trade.ShippingAddress) []*types.ShippingAddress {
 	addressesReply := []*types.ShippingAddress{}
 	for _, address := range addresses {
-		itemReply := TransformShippingAddressToShippingAddressReplyToMP(address)
+		itemReply := TransformShippingAddressToReplyForMP(address)
 		addressesReply = append(addressesReply, itemReply)
 	}
 	return addressesReply
 }
 
-func TransformShippingAddressToShippingAddressReplyToMP(address *trade.ShippingAddress) *types.ShippingAddress {
+func TransformShippingAddressToReplyForMP(address *trade.ShippingAddress) *types.ShippingAddress {
 	return &types.ShippingAddress{
 		Id:           address.Id,
 		CustomerId:   address.CustomerId,
