@@ -1,6 +1,7 @@
 package media
 
 import (
+	"PowerX/internal/logic/admin/mediaresource"
 	"PowerX/internal/model/market"
 	"PowerX/internal/model/media"
 	"context"
@@ -42,34 +43,8 @@ func TransformMediaToReply(mdlMedia *market.Media) (mediaReply *types.Media) {
 		Description:    mdlMedia.Description,
 		MediaType:      mdlMedia.MediaType,
 		ViewedCount:    mdlMedia.ViewedCount,
-		CoverImage:     TransformMediaImageToReply(mdlMedia.CoverImage),
+		CoverImage:     mediaresource.TransformMediaResourceToReply(mdlMedia.CoverImage),
 		DetailImageIds: media.GetImageIds(mdlMedia.PivotDetailImages),
-		DetailImages:   TransformMediaImagesToReply(mdlMedia.PivotDetailImages),
+		DetailImages:   mediaresource.TransformMediaResourcesToReply(mdlMedia.PivotDetailImages),
 	}
-}
-
-func TransformMediaImageToReply(resource *media.MediaResource) *types.MediaImage {
-	if resource == nil {
-		return nil
-	}
-	return &types.MediaImage{
-		Id:            resource.Id,
-		BucketName:    resource.BucketName,
-		Filename:      resource.Filename,
-		Size:          resource.Size,
-		IsLocalStored: resource.IsLocalStored,
-		Url:           resource.Url,
-		ContentType:   resource.ContentType,
-		ResourceType:  resource.ResourceType,
-	}
-}
-
-func TransformMediaImagesToReply(pivots []*media.PivotMediaResourceToObject) (imagesReply []*types.MediaImage) {
-
-	imagesReply = []*types.MediaImage{}
-	for _, pivot := range pivots {
-		imageReply := TransformMediaImageToReply(pivot.MediaResource)
-		imagesReply = append(imagesReply, imageReply)
-	}
-	return imagesReply
 }
