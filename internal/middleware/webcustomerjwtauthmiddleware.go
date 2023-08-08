@@ -12,6 +12,7 @@ import (
 	"github.com/zeromicro/go-zero/core/logx"
 	"github.com/zeromicro/go-zero/rest/httpx"
 	"net/http"
+	"strconv"
 	"strings"
 )
 
@@ -28,7 +29,7 @@ func NewWebCustomerJWTAuthMiddleware(conf *config.Config, px *uc.PowerXUseCase, 
 }
 
 func (m *WebCustomerJWTAuthMiddleware) Handle(next http.HandlerFunc) http.HandlerFunc {
-	secret := m.conf.JWT.MPJWTSecret
+	secret := m.conf.JWT.WebJWTSecret
 	unAuth := errorx.ErrUnAuthorization.(*errorx.Error)
 
 	return func(writer http.ResponseWriter, request *http.Request) {
@@ -64,8 +65,8 @@ func (m *WebCustomerJWTAuthMiddleware) Handle(next http.HandlerFunc) http.Handle
 			httpx.Error(writer, errorx.WithCause(unAuth, "无效客户信息"))
 			return
 		}
-		openId := payload[customerdomain.AuthCustomerOpenIdKey]
-		ctx := context.WithValue(request.Context(), customerdomain.AuthCustomerOpenIdKey, openId)
+		customerId, _ := strconv.ParseInt(payload["sub"].(string), 10, 64)
+		ctx := context.WithValue(request.Context(), customerdomain.AuthCustomerCustomerId, customerId)
 
 		// Pass through to next handler if need
 		next(writer, request.WithContext(ctx))

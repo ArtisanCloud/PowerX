@@ -86,8 +86,8 @@ CompareHashAndPassword 参数说明：
 */
 func CheckPassword(hashedPassword string, encodedPassword string) (isPasswordValid bool) {
 
-	fmt.Printf("hashedPassword %s\r\n", hashedPassword)
-	fmt.Printf("encodedPassword %s\n", encodedPassword)
+	//fmt.Printf("hashedPassword %s\r\n", hashedPassword)
+	//fmt.Printf("encodedPassword %s\n", encodedPassword)
 
 	if err := bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(encodedPassword)); err != nil {
 		fmt.Printf("%x", err)

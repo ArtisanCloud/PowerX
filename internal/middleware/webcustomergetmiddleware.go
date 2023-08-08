@@ -4,7 +4,6 @@ import (
 	"PowerX/internal/config"
 	"PowerX/internal/types/errorx"
 	"PowerX/internal/uc"
-	"PowerX/internal/uc/powerx"
 	"PowerX/internal/uc/powerx/customerdomain"
 	"context"
 	"github.com/zeromicro/go-zero/rest/httpx"
@@ -28,33 +27,39 @@ func (m *WebCustomerGetMiddleware) Handle(next http.HandlerFunc) http.HandlerFun
 
 		unAuth := errorx.ErrUnAuthorization.(*errorx.Error)
 
-		vOpenId := r.Context().Value(customerdomain.AuthCustomerOpenIdKey)
-		if vOpenId == nil {
-			httpx.Error(w, errorx.WithCause(unAuth, "无效授权客户OpenId"))
+		vCustomerId := r.Context().Value(customerdomain.AuthCustomerCustomerId)
+		if vCustomerId == nil {
+			httpx.Error(w, errorx.WithCause(unAuth, "无效授权客户Id"))
 			return
 		}
-		openId := vOpenId.(string)
-		if openId == "" {
-			httpx.Error(w, errorx.WithCause(unAuth, "授权客户OpenId为空"))
+		customerId := vCustomerId.(int64)
+		if customerId <= 0 {
+			httpx.Error(w, errorx.WithCause(unAuth, "授权客户Id为空"))
 			return
 		}
 
-		// 小程序的客户记录是否存在
-		authOACustomer, err := m.px.WechatOA.FindOneOACustomer(r.Context(), &powerx.FindOACustomerOption{
-			OpenIds: []string{openId},
-		})
+		authCustomer, err := m.px.Customer.GetCustomer(r.Context(), customerId)
 		if err != nil {
-			httpx.Error(w, errorx.WithCause(unAuth, "无效微信小程序客户"))
+			httpx.Error(w, errorx.WithCause(unAuth, "无效客户"))
 			return
 		}
 
-		// 小程序的客户记录是否存在
-		if authOACustomer.Customer == nil {
-			httpx.Error(w, errorx.WithCause(unAuth, "无效客户记录"))
-			return
-		}
+		//// 小程序的客户记录是否存在
+		//authOACustomer, err := m.px.WechatOA.FindOneOACustomer(r.Context(), &powerx.FindOACustomerOption{
+		//	Ids: []int64{customerId},
+		//})
+		//if err != nil {
+		//	httpx.Error(w, errorx.WithCause(unAuth, "无效微信公众号客户"))
+		//	return
+		//}
 
-		ctx := context.WithValue(r.Context(), customerdomain.AuthCustomerKey, authOACustomer.Customer)
+		//// 小程序的客户记录是否存在
+		//if authOACustomer.Customer == nil {
+		//	httpx.Error(w, errorx.WithCause(unAuth, "无效客户记录"))
+		//	return
+		//}
+
+		ctx := context.WithValue(r.Context(), customerdomain.AuthCustomerKey, authCustomer)
 
 		next(w, r.WithContext(ctx))
 	}
