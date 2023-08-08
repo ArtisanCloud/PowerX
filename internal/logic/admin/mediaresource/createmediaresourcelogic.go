@@ -53,6 +53,9 @@ func (l *CreateMediaResourceLogic) CreateMediaResource(r *http.Request) (resp *t
 }
 
 func TransformMediaResourceToReply(resource *media.MediaResource) *types.MediaResource {
+	if resource == nil {
+		return nil
+	}
 	return &types.MediaResource{
 		Id:            resource.Id,
 		CustomerId:    resource.CustomerId,

@@ -2,6 +2,7 @@ package product
 
 import (
 	"PowerX/internal/logic/admin/product/pricebookentry"
+	"PowerX/internal/logic/mp/mediaresource"
 	"PowerX/internal/model"
 	"PowerX/internal/model/media"
 	"PowerX/internal/model/product"
@@ -93,8 +94,8 @@ func TransformProductToReplyForMP(mdlProduct *product.Product) (productReply *ty
 		},
 		//CoverImageIds:          getImageIds(mdlProduct.PivotCoverImages),
 		//DetailImageIds:         getImageIds(mdlProduct.PivotDetailImages),
-		CoverImages:  TransformProductImagesToReplyForMP(mdlProduct.PivotCoverImages),
-		DetailImages: TransformProductImagesToReplyForMP(mdlProduct.PivotDetailImages),
+		CoverImages:  mediaresource.TransformResourceMediasToReplyForMP(mdlProduct.PivotCoverImages),
+		DetailImages: mediaresource.TransformResourceMediasToReplyForMP(mdlProduct.PivotDetailImages),
 	}
 
 }
@@ -114,16 +115,6 @@ func TransformPriceEntryToReplyForMP(entries []*product.PriceBookEntry) (entries
 	}
 
 	return nil
-}
-
-func TransformProductImagesToReplyForMP(pivots []*media.PivotMediaResourceToObject) (imagesReply []*types.MediaResource) {
-
-	imagesReply = []*types.MediaResource{}
-	for _, pivot := range pivots {
-		imageReply := TransformProductImageToReplyForMP(pivot.MediaResource)
-		imagesReply = append(imagesReply, imageReply)
-	}
-	return imagesReply
 }
 
 func TransformProductImageToReplyForMP(resource *media.MediaResource) (imagesReply *types.MediaResource) {

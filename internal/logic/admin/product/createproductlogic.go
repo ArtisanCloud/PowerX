@@ -1,6 +1,7 @@
 package product
 
 import (
+	"PowerX/internal/logic/admin/mediaresource"
 	"PowerX/internal/logic/admin/product/category"
 	"PowerX/internal/logic/admin/product/pricebookentry"
 	"PowerX/internal/model"
@@ -153,32 +154,10 @@ func TransformProductToReply(mdlProduct *product.Product) (productReply *types.P
 		SKUs:                   TransformSkusToReply(mdlProduct.SKUs),
 		CoverImageIds:          media.GetImageIds(mdlProduct.PivotCoverImages),
 		DetailImageIds:         media.GetImageIds(mdlProduct.PivotDetailImages),
-		CoverImages:            TransformProductImagesToReply(mdlProduct.PivotCoverImages),
-		DetailImages:           TransformProductImagesToReply(mdlProduct.PivotDetailImages),
+		CoverImages:            mediaresource.TransformMediaResourcesToReply(mdlProduct.PivotCoverImages),
+		DetailImages:           mediaresource.TransformMediaResourcesToReply(mdlProduct.PivotDetailImages),
 	}
 
-}
-
-func TransformProductImagesToReply(pivots []*media.PivotMediaResourceToObject) (imagesReply []*types.MediaResource) {
-
-	imagesReply = []*types.MediaResource{}
-	for _, pivot := range pivots {
-		imageReply := TransformProductImageToImageReply(pivot.MediaResource)
-		imagesReply = append(imagesReply, imageReply)
-	}
-	return imagesReply
-}
-
-func TransformProductImageToImageReply(resource *media.MediaResource) (imagesReply *types.MediaResource) {
-	if resource == nil {
-		return nil
-	}
-	return &types.MediaResource{
-		Id:            resource.Id,
-		Url:           resource.Url,
-		IsLocalStored: resource.IsLocalStored,
-		Filename:      resource.Filename,
-	}
 }
 
 func TransformSkusToReply(skus []*product.SKU) (skusReply []*types.SKU) {

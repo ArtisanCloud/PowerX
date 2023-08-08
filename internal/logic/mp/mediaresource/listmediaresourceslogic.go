@@ -30,12 +30,23 @@ func (l *ListMediaResourcesLogic) ListMediaResources(req *types.ListMediaResourc
 	return
 }
 
-func TransformMediaResourcesToReply(pivots []*media.PivotMediaResourceToObject) (imagesReply []*types.MediaResource) {
+func TransformResourceMediasToReplyForMP(pivots []*media.PivotMediaResourceToObject) (imagesReply []*types.MediaResource) {
 
 	imagesReply = []*types.MediaResource{}
 	for _, pivot := range pivots {
-		imageReply := TransformMediaResourceToReply(pivot.MediaResource)
+		imageReply := TransformMediaResourceToReplyForMP(pivot.MediaResource)
 		imagesReply = append(imagesReply, imageReply)
 	}
 	return imagesReply
+}
+
+func TransformMediaResourceToReplyForMP(resource *media.MediaResource) *types.MediaResource {
+	return &types.MediaResource{
+		Id:            resource.Id,
+		IsLocalStored: resource.IsLocalStored,
+		Url:           resource.Url,
+		Filename:      resource.Filename,
+		ContentType:   resource.ContentType,
+		ResourceType:  resource.ResourceType,
+	}
 }
