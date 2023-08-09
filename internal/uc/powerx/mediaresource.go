@@ -126,8 +126,13 @@ func (uc *MediaResourceUseCase) FindManyMediaResources(ctx context.Context, opt 
 	}, nil
 }
 
-func (uc *MediaResourceUseCase) CreateMediaResource(ctx context.Context, store *media.MediaResource) {
-	if err := uc.db.WithContext(ctx).Create(&store).Error; err != nil {
+func (uc *MediaResourceUseCase) CreateMediaResource(ctx context.Context, resource *media.MediaResource) {
+	if err := uc.db.WithContext(ctx).Create(&resource).Error; err != nil {
+		panic(err)
+	}
+}
+func (uc *MediaResourceUseCase) CreateMediaResources(ctx context.Context, resources []*media.MediaResource) {
+	if err := uc.db.WithContext(ctx).Create(&resources).Error; err != nil {
 		panic(err)
 	}
 }
