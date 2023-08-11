@@ -2,6 +2,7 @@ package main
 
 import (
 	"PowerX/internal/middleware/recovery"
+	"PowerX/pkg/zerox"
 	"flag"
 	"fmt"
 	"github.com/zeromicro/go-zero/rest/httpx"
@@ -33,6 +34,7 @@ func main() {
 		server = rest.MustNewServer(c.Server, runOpt)
 	}
 	defer server.Stop()
+	zerox.MustSetupLog(c.Log)
 
 	ctx := svc.NewServiceContext(c)
 	handler.RegisterHandlers(server, ctx)
