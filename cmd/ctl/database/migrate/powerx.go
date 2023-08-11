@@ -77,6 +77,7 @@ func (m *PowerMigrator) AutoMigrate() {
 	_ = m.db.AutoMigrate(&trade.OrderStatusTransition{}, &trade.PivotOrderToInventoryLog{})
 	_ = m.db.AutoMigrate(&trade.Payment{}, &trade.PaymentItem{})
 	_ = m.db.AutoMigrate(&trade.RefundOrder{}, &trade.RefundOrderItem{})
+	_ = m.db.AutoMigrate(&trade.TokenBalance{}, &trade.ExchangeRatio{}, &trade.ExchangeRecord{})
 
 	// custom
 	migrate.AutoMigrateCustom(m.db)

@@ -49,6 +49,7 @@ func DefaultDataDictionary() (data []*model.DataDictionaryType) {
 		defaultOrderStatusDataDictionary(),
 		defaultPaymentTypeDataDictionary(),
 		defaultPaymentStatusDataDictionary(),
+		defaultTokenCategoryDataDictionary(),
 	}
 
 	return data
