@@ -18,7 +18,7 @@ Log:
   Level: info
   KeepDays: 30
   Console: true
-  Stat: true
+  Stat: false
 
 Root:
   Account: root             # 管理员账号
