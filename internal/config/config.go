@@ -1,6 +1,7 @@
 package config
 
 import (
+	"PowerX/pkg/zerox"
 	"github.com/zeromicro/go-zero/rest"
 )
 
@@ -13,6 +14,7 @@ type Database struct {
 	SeedCommerceData bool
 	SeedDepartment   bool
 }
+
 type RedisBase struct {
 	Host     string
 	Password string
@@ -96,8 +98,9 @@ type Root struct {
 
 type Config struct {
 	Server rest.RestConf
-	Cors   Cors
 	EtcDir string `json:",optional"`
+	Log    zerox.LogConf
+	Cors   Cors
 	JWT    struct {
 		JWTSecret    string
 		MPJWTSecret  string

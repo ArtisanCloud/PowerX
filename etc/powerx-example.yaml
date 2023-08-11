@@ -11,6 +11,15 @@ Cors:
 #    - localhost
 #    - api.powerx.cn
 
+Log:
+  Path: logs
+  Split:
+    - error
+  Level: info
+  KeepDays: 30
+  Console: true
+  Stat: true
+
 Root:
   Account: root             # 管理员账号
   Password: root            # 管理员密码
