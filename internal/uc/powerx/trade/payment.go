@@ -82,17 +82,17 @@ func (uc *PaymentUseCase) PreloadItems(db *gorm.DB) *gorm.DB {
 	return db
 }
 
-func (uc *PaymentUseCase) FindAllPayments(ctx context.Context, opt *FindManyPaymentsOption) (dictionaryItems []*trade.Payment, err error) {
+func (uc *PaymentUseCase) FindAllPayments(ctx context.Context, opt *FindManyPaymentsOption) (payments []*trade.Payment, err error) {
 	query := uc.db.WithContext(ctx).Model(&trade.Payment{})
 
 	query = uc.buildFindQueryNoPage(query, opt)
 	query = uc.PreloadItems(query)
 	if err := query.
 		//Debug().
-		Find(&dictionaryItems).Error; err != nil {
+		Find(&payments).Error; err != nil {
 		panic(errors.Wrap(err, "find all dictionaryItems failed"))
 	}
-	return dictionaryItems, err
+	return payments, err
 }
 
 func (uc *PaymentUseCase) FindManyPayments(ctx context.Context, opt *FindManyPaymentsOption) (pageList types.Page[*trade.Payment], err error) {

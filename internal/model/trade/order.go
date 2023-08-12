@@ -66,6 +66,7 @@ const (
 	OrderTypeSubscription     = "_subscription"       // 订阅订单
 	OrderTypeWholesale        = "_wholesale"          // 批发订单
 	OrderTypeGift             = "_gift"               // 赠品订单
+	OrderTypeBonus            = "_bonus"              // 奖励订单
 	OrderTypeGiftWithPurchase = "_gift_with_purchase" // 有赠品的订单
 	OrderTypeReturn           = "_return"             // 退货订单
 	OrderTypeExchange         = "_exchange"           // 换货订单

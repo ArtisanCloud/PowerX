@@ -9,7 +9,7 @@ import (
 	"PowerX/pkg/mathx"
 	"context"
 	"fmt"
-	carbon "github.com/golang-module/carbon/v2"
+	"github.com/golang-module/carbon/v2"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
 )
@@ -153,4 +153,98 @@ func DefaultProductSpecific() (data []*product.ProductSpecific) {
 
 	return data
 
+}
+
+func CreateTokenProducts(db *gorm.DB) (err error) {
+
+	products := DefaultTokenProduct(db)
+	ucOrg := product2.NewProductUseCase(db)
+	for _, p := range products {
+		existProduct := &product.Product{}
+		res := db.Model(&product.Product{}).Where(product.Product{Name: p.Name}).First(existProduct)
+		//fmt.Dump(existProduct, res.Error)
+		if errors.Is(res.Error, gorm.ErrRecordNotFound) {
+			_ = ucOrg.CreateProduct(context.Background(), p)
+		}
+	}
+	return nil
+}
+
+func DefaultTokenProduct(db *gorm.DB) (products []*product.Product) {
+
+	ucDD := powerx.NewDataDictionaryUseCase(db)
+
+	productTypeTokens := ucDD.GetCachedDD(context.Background(), product.TypeProductType, product.ProductTypeToken)
+	productPlanOnce := ucDD.GetCachedDD(context.Background(), product.TypeProductPlan, product.ProductPlanOnce)
+	approvalStatusSuccess := ucDD.GetCachedDD(context.Background(), model.TypeApprovalStatus, model.ApprovalStatusSuccess)
+
+	products = []*product.Product{
+		{
+			Name:                "30",
+			SPU:                 "token-001",
+			Type:                int(productTypeTokens.Id),
+			Plan:                int(productPlanOnce.Id),
+			AccountingCategory:  "token-account-category",
+			CanSellOnline:       true,
+			CanUseForDeduct:     true,
+			ApprovalStatus:      int(approvalStatusSuccess.Id),
+			IsActivated:         true,
+			Description:         "30元充值",
+			AllowedSellQuantity: -1,
+		},
+		{
+			Name:                "50",
+			SPU:                 "token-001",
+			Type:                int(productTypeTokens.Id),
+			Plan:                int(productPlanOnce.Id),
+			AccountingCategory:  "token-account-category",
+			CanSellOnline:       true,
+			CanUseForDeduct:     true,
+			ApprovalStatus:      int(approvalStatusSuccess.Id),
+			IsActivated:         true,
+			Description:         "50元充值",
+			AllowedSellQuantity: -1,
+		},
+		{
+			Name:                "充100送20",
+			SPU:                 "token-001",
+			Type:                int(productTypeTokens.Id),
+			Plan:                int(productPlanOnce.Id),
+			AccountingCategory:  "token-account-category",
+			CanSellOnline:       true,
+			CanUseForDeduct:     true,
+			ApprovalStatus:      int(approvalStatusSuccess.Id),
+			IsActivated:         true,
+			Description:         "充100送20",
+			AllowedSellQuantity: -1,
+		},
+		{
+			Name:                "充300送70",
+			SPU:                 "token-002",
+			Type:                int(productTypeTokens.Id),
+			Plan:                int(productPlanOnce.Id),
+			AccountingCategory:  "token-account-category",
+			CanSellOnline:       true,
+			CanUseForDeduct:     true,
+			ApprovalStatus:      int(approvalStatusSuccess.Id),
+			IsActivated:         true,
+			Description:         "充300送70",
+			AllowedSellQuantity: -1,
+		},
+		{
+			Name:                "充500送80",
+			SPU:                 "token-003",
+			Type:                int(productTypeTokens.Id),
+			Plan:                int(productPlanOnce.Id),
+			AccountingCategory:  "token-account-category",
+			CanSellOnline:       true,
+			CanUseForDeduct:     true,
+			ApprovalStatus:      int(approvalStatusSuccess.Id),
+			IsActivated:         true,
+			Description:         "充500送80",
+			AllowedSellQuantity: -1,
+		},
+	}
+
+	return products
 }

@@ -72,17 +72,17 @@ func (uc *OrderUseCase) PreloadItems(db *gorm.DB) *gorm.DB {
 	return db
 }
 
-func (uc *OrderUseCase) FindAllOrders(ctx context.Context, opt *FindManyOrdersOption) (dictionaryItems []*trade.Order, err error) {
+func (uc *OrderUseCase) FindAllOrders(ctx context.Context, opt *FindManyOrdersOption) (orders []*trade.Order, err error) {
 	query := uc.db.WithContext(ctx).Model(&trade.Order{})
 
 	query = uc.buildFindQueryNoPage(query, opt)
 	query = uc.PreloadItems(query)
 	if err := query.
 		Debug().
-		Find(&dictionaryItems).Error; err != nil {
+		Find(&orders).Error; err != nil {
 		panic(errors.Wrap(err, "find all dictionaryItems failed"))
 	}
-	return dictionaryItems, err
+	return orders, err
 }
 
 func (uc *OrderUseCase) FindManyOrders(ctx context.Context, opt *FindManyOrdersOption) (pageList types.Page[*trade.Order], err error) {

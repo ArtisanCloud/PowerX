@@ -2,6 +2,7 @@ package trade
 
 import (
 	"PowerX/internal/model/customerdomain"
+	"PowerX/internal/model/powermodel"
 	"github.com/ArtisanCloud/PowerLibs/v3/database"
 )
 
@@ -20,6 +21,8 @@ type TokenBalance struct {
 	CustomerId int64   `gorm:"comment:客户Id; index" json:"customerId"`
 	Balance    float64 `gorm:"comment:代币余额; index" json:"balance"`
 }
+
+const TokenBalanceUniqueId = powermodel.UniqueId
 
 type ExchangeRecord struct {
 	database.PowerModel

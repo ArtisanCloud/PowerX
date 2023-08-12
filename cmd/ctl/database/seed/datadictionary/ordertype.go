@@ -58,6 +58,13 @@ func defaultOrderTypeDataDictionary() *model.DataDictionaryType {
 				Sort:  0,
 			},
 			&model.DataDictionaryItem{
+				Key:   trade.OrderTypeBonus,
+				Type:  trade.TypeOrderType,
+				Name:  "奖励订单",
+				Value: trade.OrderTypeBonus,
+				Sort:  0,
+			},
+			&model.DataDictionaryItem{
 				Key:   trade.OrderTypeGiftWithPurchase,
 				Type:  trade.TypeOrderType,
 				Name:  "有赠品的订单",

@@ -9,6 +9,13 @@ func defaultProductTypeDataDictionary() *model.DataDictionaryType {
 	return &model.DataDictionaryType{
 		Items: []*model.DataDictionaryItem{
 			&model.DataDictionaryItem{
+				Key:   product.ProductTypeToken,
+				Type:  product.TypeProductType,
+				Name:  "代币品类",
+				Value: product.ProductTypeToken,
+				Sort:  0,
+			},
+			&model.DataDictionaryItem{
 				Key:   product.ProductTypeGoods,
 				Type:  product.TypeProductType,
 				Name:  "普通商品",

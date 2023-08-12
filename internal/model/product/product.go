@@ -60,6 +60,7 @@ const ProductUniqueId = powermodel.UniqueId
 const TypeProductType = "_product_type"
 const TypeProductPlan = "_product_plan"
 
+const ProductTypeToken = "_token"
 const ProductTypeGoods = "_goods"
 const ProductTypeService = "_service"
 

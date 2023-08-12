@@ -51,6 +51,8 @@ func (s *PowerSeeder) CreatePowerX() (err error) {
 		_ = CreateOrders(s.db)
 		_ = CreatePayments(s.db)
 	}
+
+	_ = CreateTokenProducts(s.db)
 	_ = CreatePriceBooks(s.db)
 	_ = CreateTokenExchangeRatios(s.db)
 
