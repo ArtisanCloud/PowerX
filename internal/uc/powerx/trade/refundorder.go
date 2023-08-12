@@ -42,17 +42,17 @@ func (uc *RefundOrderUseCase) buildFindQueryNoPage(db *gorm.DB, opt *FindManyRef
 	return db
 }
 
-func (uc *RefundOrderUseCase) FindAllRefundOrders(ctx context.Context, opt *FindManyRefundOrdersOption) (dictionaryItems []*trade.RefundOrder, err error) {
+func (uc *RefundOrderUseCase) FindAllRefundOrders(ctx context.Context, opt *FindManyRefundOrdersOption) (orders []*trade.RefundOrder, err error) {
 	query := uc.db.WithContext(ctx).Model(&trade.RefundOrder{})
 
 	query = uc.buildFindQueryNoPage(query, opt)
 	if err := query.
 		//Debug().
 		Preload("Artisans").
-		Find(&dictionaryItems).Error; err != nil {
+		Find(&orders).Error; err != nil {
 		panic(errors.Wrap(err, "find all dictionaryItems failed"))
 	}
-	return dictionaryItems, err
+	return orders, err
 }
 
 func (uc *RefundOrderUseCase) FindManyRefundOrders(ctx context.Context, opt *FindManyRefundOrdersOption) (pageList types.Page[*trade.RefundOrder], err error) {

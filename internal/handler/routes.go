@@ -37,6 +37,7 @@ import (
 	admintradeaddressshipping "PowerX/internal/handler/admin/trade/address/shipping"
 	admintradeorder "PowerX/internal/handler/admin/trade/order"
 	admintradepayment "PowerX/internal/handler/admin/trade/payment"
+	admintradetoken "PowerX/internal/handler/admin/trade/token"
 	admintradewarehouse "PowerX/internal/handler/admin/trade/warehouse"
 	adminuserinfo "PowerX/internal/handler/admin/userinfo"
 	mpcustomerauth "PowerX/internal/handler/mp/customer/auth"
@@ -864,6 +865,45 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			}...,
 		),
 		rest.WithPrefix("/api/v1/admin/product"),
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Route{
+				{
+					Method:  http.MethodGet,
+					Path:    "/products/page-list",
+					Handler: admintradetoken.ListTokenProductsPageHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/products/:id",
+					Handler: admintradetoken.GetTokenProductHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/products",
+					Handler: admintradetoken.CreateTokenProductHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPut,
+					Path:    "/products/:id",
+					Handler: admintradetoken.PutTokenProductHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPatch,
+					Path:    "/products/:id",
+					Handler: admintradetoken.PatchTokenProductHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodDelete,
+					Path:    "/products/:id",
+					Handler: admintradetoken.DeleteTokenProductHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithPrefix("/api/v1/admin/trade/token"),
 	)
 
 	server.AddRoutes(

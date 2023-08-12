@@ -3,6 +3,7 @@ package seed
 import (
 	"PowerX/internal/model/product"
 	"PowerX/internal/types"
+	"PowerX/internal/uc/powerx"
 	product2 "PowerX/internal/uc/powerx/product"
 	"context"
 	"github.com/pkg/errors"
@@ -81,40 +82,48 @@ func SeedProductPriceBookEntries(db *gorm.DB, book *product.PriceBook) (err erro
 		panic(errors.Wrap(err, "init price book failed"))
 	}
 
+	ucDD := powerx.NewDataDictionaryUseCase(db)
+
+	productTypeTokenId := ucDD.GetCachedDDId(context.Background(), product.TypeProductType, product.ProductTypeToken)
+
 	// seed skus
 	for _, p := range products.List {
-		//  根据产品规格，计算对应的sku，生成sku
-		//fmt.Dump(p.ProductSpecifics)
-		skus := ucProduct.GenerateSKUsFromSpecifics(context.Background(), p)
-		if err = db.Model(&product.SKU{}).Create(&skus).Error; err != nil {
-			panic(errors.Wrap(err, "init sku failed"))
-		}
-
-		pivots := ucProduct.GeneratePivotSKUsFromSpecifics(context.Background(), p.ProductSpecifics, skus)
-		if err = db.Model(&product.PivotSkuToSpecificOption{}).Create(&pivots).Error; err != nil {
-			panic(errors.Wrap(err, "init sku pivots failed"))
-		}
-
-		// 计算sku的价格
-		skuEntries := []*product.PriceBookEntry{}
-
-		for _, sku := range skus {
-			unitPrice := rand.Float64() * 1000
-			skuEntry := &product.PriceBookEntry{
-				PriceBookId: book.Id,
-				ProductId:   p.Id,
-				SkuId:       sku.Id,
-				UnitPrice:   unitPrice,
-				ListPrice:   unitPrice + 200,
-				IsActive:    true,
+		// token 产品暂时不用sku区分
+		if p.Type != productTypeTokenId {
+			//  根据产品规格，计算对应的sku，生成sku
+			//fmt.Dump(p.ProductSpecifics)
+			skus := ucProduct.GenerateSKUsFromSpecifics(context.Background(), p)
+			if err = db.Model(&product.SKU{}).Create(&skus).Error; err != nil {
+				panic(errors.Wrap(err, "init sku failed"))
 			}
-			skuEntry.UniqueID = skuEntry.GetComposedUniqueID()
-			skuEntries = append(skuEntries, skuEntry)
+
+			pivots := ucProduct.GeneratePivotSKUsFromSpecifics(context.Background(), p.ProductSpecifics, skus)
+			if err = db.Model(&product.PivotSkuToSpecificOption{}).Create(&pivots).Error; err != nil {
+				panic(errors.Wrap(err, "init sku pivots failed"))
+			}
+
+			// 计算sku的价格
+			skuEntries := []*product.PriceBookEntry{}
+
+			for _, sku := range skus {
+				unitPrice := rand.Float64() * 1000
+				skuEntry := &product.PriceBookEntry{
+					PriceBookId: book.Id,
+					ProductId:   p.Id,
+					SkuId:       sku.Id,
+					UnitPrice:   unitPrice,
+					ListPrice:   unitPrice + 200,
+					IsActive:    true,
+				}
+				skuEntry.UniqueID = skuEntry.GetComposedUniqueID()
+				skuEntries = append(skuEntries, skuEntry)
+			}
+
+			if err = db.Model(&product.PriceBookEntry{}).Create(skuEntries).Error; err != nil {
+				panic(errors.Wrap(err, "init sku price book entries failed"))
+			}
 		}
 
-		if err = db.Model(&product.PriceBookEntry{}).Create(skuEntries).Error; err != nil {
-			panic(errors.Wrap(err, "init sku price book entries failed"))
-		}
 	}
 
 	return err

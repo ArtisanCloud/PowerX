@@ -25,8 +25,13 @@ func NewListProductsPageLogic(ctx context.Context, svcCtx *svc.ServiceContext) *
 }
 
 func (l *ListProductsLogic) ListProductsPage(req *types.ListProductsPageRequest) (resp *types.ListProductsPageReply, err error) {
+
+	// 去掉代币的产品
+	notInTypeId := l.svcCtx.PowerX.DataDictionary.GetCachedDDId(l.ctx, product.TypeProductType, product.ProductTypeToken)
+
 	page, err := l.svcCtx.PowerX.Product.FindManyProducts(l.ctx, &productUC.FindManyProductsOption{
-		LikeName: req.LikeName,
+		LikeName:   req.LikeName,
+		NotInTypes: []int{notInTypeId},
 		PageEmbedOption: types.PageEmbedOption{
 			PageIndex: req.PageIndex,
 			PageSize:  req.PageSize,

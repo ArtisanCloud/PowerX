@@ -45,16 +45,16 @@ func (uc *ShippingAddressUseCase) buildFindQueryNoPage(db *gorm.DB, opt *FindMan
 	return db
 }
 
-func (uc *ShippingAddressUseCase) FindAllShippingAddresses(ctx context.Context, opt *FindManyShippingAddressesOption) (dictionaryItems []*trade.ShippingAddress, err error) {
+func (uc *ShippingAddressUseCase) FindAllShippingAddresses(ctx context.Context, opt *FindManyShippingAddressesOption) (addresses []*trade.ShippingAddress, err error) {
 	query := uc.db.WithContext(ctx).Model(&trade.ShippingAddress{})
 
 	query = uc.buildFindQueryNoPage(query, opt)
 	if err := query.
 		//Debug().
-		Find(&dictionaryItems).Error; err != nil {
+		Find(&addresses).Error; err != nil {
 		panic(errors.Wrap(err, "find all dictionaryItems failed"))
 	}
-	return dictionaryItems, err
+	return addresses, err
 }
 
 func (uc *ShippingAddressUseCase) FindManyShippingAddresses(ctx context.Context, opt *FindManyShippingAddressesOption) (pageList types.Page[*trade.ShippingAddress], err error) {

@@ -6,12 +6,12 @@ import (
 )
 
 type PivotOrderToInventoryLog struct {
-	*powermodel.PowerModel
+	*powermodel.PowerPivot
 
-	OrderId             int64     `gorm:"comment:订单Id" json:"orderId"`
-	OrderItemId         int64     `gorm:"comment:订单项Id" json:"orderItemId"`
-	ProductId           int64     `gorm:"comment:商品Id" json:"productId"`
-	InventoryId         int64     `gorm:"comment:库存Id" json:"inventoryId"`
+	OrderId             int64     `gorm:"comment:订单Id; not null;index:idx_order_id" json:"orderId"`
+	OrderItemId         int64     `gorm:"comment:订单项Id; not null;index:idx_order_item_id" json:"orderItemId"`
+	ProductId           int64     `gorm:"comment:商品Id; not null;index:idx_product_id" json:"productId"`
+	InventoryId         int64     `gorm:"comment:库存Id; not null;index:idx_inventory_id" json:"inventoryId"`
 	Action              string    `gorm:"comment:操作类型" json:"action"`
 	ActionTime          time.Time `gorm:"comment:操作时间" json:"actionTime"`
 	StockQuantityBefore int       `gorm:"comment:回滚前的库存数量" json:"stockQuantityBefore"`

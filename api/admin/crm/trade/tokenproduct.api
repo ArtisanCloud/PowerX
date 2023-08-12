@@ -1,0 +1,48 @@
+syntax = "v1"
+
+info(
+    title: "代币产品"
+    desc: "代币产品"
+    author: "MichaelHu"
+    email: "matrix-x@artisan-cloud.com"
+    version: "v1"
+)
+
+
+@server(
+    group: admin/trade/token
+    prefix: /api/v1/admin/trade/token
+    middleware: EmployeeJWTAuth
+)
+
+service PowerX {
+    @doc "查询代币产品列表"
+    @handler ListTokenProductsPage
+    get /products/page-list (ListProductsPageRequest) returns (ListProductsPageReply)
+
+    @doc "查询代币产品详情"
+    @handler GetTokenProduct
+    get /products/:id (GetProductRequest) returns (GetProductReply)
+
+
+    @doc "创建代币产品"
+    @handler CreateTokenProduct
+    post /products (CreateProductRequest) returns (CreateProductReply)
+
+
+    @doc "全量代币产品"
+    @handler PutTokenProduct
+    put /products/:id (PutProductRequest) returns (PutProductReply)
+
+    @doc "增量代币产品"
+    @handler PatchTokenProduct
+    patch /products/:id (PatchProductRequest) returns (PatchProductReply)
+
+
+    @doc "删除代币产品"
+    @handler DeleteTokenProduct
+    delete /products/:id (DeleteProductRequest) returns (DeleteProductReply)
+
+}
+
+
