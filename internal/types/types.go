@@ -1154,6 +1154,7 @@ type Product struct {
 	SaleEndDate            string                         `json:"saleEndDate,optional"`
 	ApprovalStatus         int                            `json:"approvalStatus,optional"`
 	IsActivated            bool                           `json:"isActivated,optional,omitempty"`
+	Sort                   int                            `json:"sort,optional,omitempty"`
 	CreatedAt              string                         `json:"createdAt,optional"`
 	ProductSpecifics       []*ProductSpecific             `json:"productSpecifics,optional"`
 	PivotSalesChannels     []*PivotDataDictionaryToObject `json:"pivotSalesChannels,optional"`
