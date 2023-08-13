@@ -50,6 +50,7 @@ type Product struct {
 	ValidityPeriodDays  int       `gorm:"comment:售卖时间期限，按天"`
 	SaleStartDate       time.Time `gorm:"comment:售卖开始时间"`
 	SaleEndDate         time.Time `gorm:"comment:售卖结束时间"`
+	Sort                int       `gorm:"comment:排序，越大约考前"`
 	ProductAttribute
 }
 

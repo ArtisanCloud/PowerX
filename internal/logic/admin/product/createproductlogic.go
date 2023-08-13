@@ -110,6 +110,7 @@ func TransformRequestToProduct(productRequest *types.Product) (mdlProduct *produ
 		ValidityPeriodDays:  productRequest.ValidityPeriodDays,
 		SaleStartDate:       saleStartDate.ToStdTime(),
 		SaleEndDate:         saleEndDate.ToStdTime(),
+		Sort:                productRequest.Sort,
 		ProductAttribute: product.ProductAttribute{
 			Inventory: productRequest.Inventory,
 			Weight:    productRequest.Weight,
@@ -142,6 +143,7 @@ func TransformProductToReply(mdlProduct *product.Product) (productReply *types.P
 		ValidityPeriodDays:  mdlProduct.ValidityPeriodDays,
 		SaleStartDate:       mdlProduct.SaleStartDate.String(),
 		SaleEndDate:         mdlProduct.SaleEndDate.String(),
+		Sort:                mdlProduct.Sort,
 		//PivotSalesChannels:   TransformDDsToReply(mdlProduct.PivotSalesChannels),
 		//PivotPromoteChannels: TransformDDsToReply(mdlProduct.PivotPromoteChannels),
 		ProductCategories:      category.TransformProductCategoriesToReply(mdlProduct.ProductCategories),
