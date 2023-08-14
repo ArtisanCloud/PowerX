@@ -39,7 +39,7 @@ func (uc *ProductCategoryUseCase) buildFindQueryNoPage(query *gorm.DB, opt *Find
 		query.Limit(opt.Limit)
 	}
 
-	orderBy := "id, sort asc"
+	orderBy := "sort desc, id "
 	if opt.OrderBy != "" {
 		orderBy = opt.OrderBy + "," + orderBy
 	}
