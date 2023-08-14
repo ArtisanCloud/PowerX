@@ -77,7 +77,7 @@ func (uc *ProductUseCase) buildFindQueryNoPage(db *gorm.DB, opt *FindManyProduct
 		db = db.Where("name LIKE ?", "%"+opt.LikeName+"%")
 	}
 
-	orderBy := "id desc"
+	orderBy := "sort desc, id "
 	if opt.OrderBy != "" {
 		orderBy = opt.OrderBy + "," + orderBy
 	}
@@ -119,7 +119,7 @@ func (uc *ProductUseCase) FindManyProducts(ctx context.Context, opt *FindManyPro
 
 	db = uc.PreloadItems(db)
 	if err := db.
-		//Debug().
+		Debug().
 		Find(&products).Error; err != nil {
 		panic(err)
 	}
