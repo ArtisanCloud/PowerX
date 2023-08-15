@@ -119,7 +119,7 @@ func (uc *ProductUseCase) FindManyProducts(ctx context.Context, opt *FindManyPro
 
 	db = uc.PreloadItems(db)
 	if err := db.
-		Debug().
+		//Debug().
 		Find(&products).Error; err != nil {
 		panic(err)
 	}

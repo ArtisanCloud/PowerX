@@ -12,14 +12,13 @@ import (
 	"time"
 )
 
-//
 // FindListWeWorkTagPage
-//  @Description:
-//  @receiver this
-//  @param option
-//  @return reply
-//  @return err
 //
+//	@Description:
+//	@receiver this
+//	@param option
+//	@return reply
+//	@return err
 func (this wechatUseCase) FindListWeWorkTagGroupOption() (reply []*tag.WeWorkTagGroup, err error) {
 
 	reply = this.modelWeworkTag.group.Query(this.db)
@@ -28,14 +27,13 @@ func (this wechatUseCase) FindListWeWorkTagGroupOption() (reply []*tag.WeWorkTag
 
 }
 
-//
 // FindListWeWorkTagGroupPage
-//  @Description:
-//  @receiver this
-//  @param option
-//  @return reply
-//  @return err
 //
+//	@Description:
+//	@receiver this
+//	@param option
+//	@return reply
+//	@return err
 func (this wechatUseCase) FindListWeWorkTagGroupPage(option *types.PageOption[types.ListWeWorkTagGroupPageRequest]) (reply *types.Page[*tag.WeWorkTagGroup], err error) {
 
 	var tagGroups []*tag.WeWorkTagGroup
@@ -68,13 +66,12 @@ func (this wechatUseCase) FindListWeWorkTagGroupPage(option *types.PageOption[ty
 
 }
 
-//
 // FindListWeWorkTagOption
-//  @Description:
-//  @receiver this
-//  @return reply
-//  @return err
 //
+//	@Description:
+//	@receiver this
+//	@return reply
+//	@return err
 func (this wechatUseCase) FindListWeWorkTagOption() (reply []*tag.WeWorkTag, err error) {
 
 	reply = this.modelWeworkTag.tag.Query(this.db)
@@ -83,19 +80,20 @@ func (this wechatUseCase) FindListWeWorkTagOption() (reply []*tag.WeWorkTag, err
 
 }
 
-//
 // FindListWeWorkTagPage
-//  @Description:
-//  @receiver this
-//  @param option
-//  @return reply
-//  @return err
 //
+//	@Description:
+//	@receiver this
+//	@param option
+//	@return reply
+//	@return err
 func (this wechatUseCase) FindListWeWorkTagPage(option *types.PageOption[types.ListWeWorkTagReqeust]) (reply *types.Page[*tag.WeWorkTag], err error) {
 
 	var tags []*tag.WeWorkTag
 	var count int64
-	query := this.db.WithContext(this.ctx).Debug().Model(tag.WeWorkTag{}).Where(`is_delete = ?`, false)
+	query := this.db.WithContext(this.ctx).
+		//Debug().
+		Model(tag.WeWorkTag{}).Where(`is_delete = ?`, false)
 
 	if v := option.Option.TagIds; len(v) > 0 {
 		query.Where(`tag_id in ?`, v)
@@ -125,16 +123,15 @@ func (this wechatUseCase) FindListWeWorkTagPage(option *types.PageOption[types.L
 
 }
 
-//
 // PullListWeWorkCorpTagRequest
-//  @Description:
-//  @receiver this
-//  @param tagIds
-//  @param groupIds
-//  @param sync
-//  @return reply
-//  @return err
 //
+//	@Description:
+//	@receiver this
+//	@param tagIds
+//	@param groupIds
+//	@param sync
+//	@return reply
+//	@return err
 func (this wechatUseCase) PullListWeWorkCorpTagRequest(tagIds []string, groupIds []string, sync int) (reply *response.ResponseTagGetCorpTagList, err error) {
 
 	reply, err = this.wework.ExternalContactTag.GetCorpTagList(this.ctx, tagIds, groupIds)
@@ -160,15 +157,14 @@ func (this wechatUseCase) PullListWeWorkCorpTagRequest(tagIds []string, groupIds
 
 }
 
-//
 // transferWeWorkToModel
-//  @Description:
-//  @receiver this
-//  @param data
-//  @param agentId
-//  @return groups
-//  @return tags
 //
+//	@Description:
+//	@receiver this
+//	@param data
+//	@param agentId
+//	@return groups
+//	@return tags
 func (this wechatUseCase) transferWeWorkToModel(data []*response.CorpTagGroup, agentId *int64, isSelf int) (groups []*tag.WeWorkTagGroup, tags []*tag.WeWorkTag) {
 
 	if data != nil {
@@ -206,14 +202,13 @@ func (this wechatUseCase) transferWeWorkToModel(data []*response.CorpTagGroup, a
 
 }
 
-//
 // PullListWeWorkStrategyTagRequest
-//  @Description:
-//  @receiver this
-//  @param options
-//  @return reply
-//  @return err
 //
+//	@Description:
+//	@receiver this
+//	@param options
+//	@return reply
+//	@return err
 func (this wechatUseCase) PullListWeWorkStrategyTagRequest(options *request.RequestTagGetStrategyTagList) (reply *response.ResponseTagGetStrategyTagList, err error) {
 
 	reply, err = this.wework.ExternalContactTag.GetStrategyTagList(this.ctx, options)
@@ -226,14 +221,13 @@ func (this wechatUseCase) PullListWeWorkStrategyTagRequest(options *request.Requ
 
 }
 
-//
 // ActionWeWorkCorpTagGroupRequest
-//  @Description:
-//  @receiver this
-//  @param options
-//  @return work
-//  @return error
 //
+//	@Description:
+//	@receiver this
+//	@param options
+//	@return work
+//	@return error
 func (this *wechatUseCase) ActionWeWorkCorpTagGroupRequest(options *types.ActionCorpTagGroupRequest) (work *baseResp.ResponseWork, err error) {
 
 	//tags := this.modelWeworkTag.tag.FindOneByTagGroupId(this.db, *options.GroupId)
@@ -267,14 +261,13 @@ func (this *wechatUseCase) ActionWeWorkCorpTagGroupRequest(options *types.Action
 
 }
 
-//
 // CreateWeWorkCorpTagRequest
-//  @Description:
-//  @receiver this
-//  @param options
-//  @return *response.ResponseTagAddCorpTag
-//  @return error
 //
+//	@Description:
+//	@receiver this
+//	@param options
+//	@return *response.ResponseTagAddCorpTag
+//	@return error
 func (this *wechatUseCase) CreateWeWorkCorpTagRequest(options *request.RequestTagAddCorpTag) (*response.ResponseTagAddCorpTag, error) {
 
 	corpTag, err := this.wework.ExternalContactTag.AddCorpTag(this.ctx, options)
@@ -298,14 +291,13 @@ func (this *wechatUseCase) CreateWeWorkCorpTagRequest(options *request.RequestTa
 
 }
 
-//
 // UpdateWeWorkCorpTagRequest
-//  @Description:
-//  @receiver this
-//  @param options
-//  @return *baseResp.ResponseWork
-//  @return error
 //
+//	@Description:
+//	@receiver this
+//	@param options
+//	@return *baseResp.ResponseWork
+//	@return error
 func (this *wechatUseCase) UpdateWeWorkCorpTagRequest(options *request.RequestTagEditCorpTag) (*baseResp.ResponseWork, error) {
 
 	corpTag, err := this.wework.ExternalContactTag.EditCorpTag(this.ctx, options)
@@ -328,14 +320,13 @@ func (this *wechatUseCase) UpdateWeWorkCorpTagRequest(options *request.RequestTa
 
 }
 
-//
 // DeleteWeWorkCorpTagRequest
-//  @Description:
-//  @receiver this
-//  @param options
-//  @return *baseResp.ResponseWork
-//  @return error
 //
+//	@Description:
+//	@receiver this
+//	@param options
+//	@return *baseResp.ResponseWork
+//	@return error
 func (this *wechatUseCase) DeleteWeWorkCorpTagRequest(options *request.RequestTagDelCorpTag) (*baseResp.ResponseWork, error) {
 
 	corpTag, err := this.wework.ExternalContactTag.DelCorpTag(this.ctx, options)
@@ -351,14 +342,13 @@ func (this *wechatUseCase) DeleteWeWorkCorpTagRequest(options *request.RequestTa
 
 }
 
-//
 // ActionWeWorkCustomerTagRequest
-//  @Description:
-//  @receiver this
-//  @param options
-//  @return *baseResp.ResponseWork
-//  @return error
 //
+//	@Description:
+//	@receiver this
+//	@param options
+//	@return *baseResp.ResponseWork
+//	@return error
 func (this *wechatUseCase) ActionWeWorkCustomerTagRequest(option *request.RequestTagMarkTag) (*baseResp.ResponseWork, error) {
 
 	customerTag, err := this.wework.ExternalContactTag.MarkTag(this.ctx, option)
@@ -377,12 +367,11 @@ func (this *wechatUseCase) ActionWeWorkCustomerTagRequest(option *request.Reques
 
 }
 
-//
 // updateCustomerFolowTagIds
-//  @Description:
-//  @receiver this
-//  @param option
 //
+//	@Description:
+//	@receiver this
+//	@param option
 func (this wechatUseCase) updateCustomerFolowTagIds(option *request.RequestTagMarkTag) {
 
 	follow := this.modelWeworkCustomer.follow.FindFollowByExternalUserId(this.db, option.ExternalUserID)

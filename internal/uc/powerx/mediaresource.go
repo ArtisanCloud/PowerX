@@ -126,15 +126,17 @@ func (uc *MediaResourceUseCase) FindManyMediaResources(ctx context.Context, opt 
 	}, nil
 }
 
-func (uc *MediaResourceUseCase) CreateMediaResource(ctx context.Context, resource *media.MediaResource) {
+func (uc *MediaResourceUseCase) CreateMediaResource(ctx context.Context, resource *media.MediaResource) error {
 	if err := uc.db.WithContext(ctx).Create(&resource).Error; err != nil {
-		panic(err)
+		return err
 	}
+	return nil
 }
-func (uc *MediaResourceUseCase) CreateMediaResources(ctx context.Context, resources []*media.MediaResource) {
+func (uc *MediaResourceUseCase) CreateMediaResources(ctx context.Context, resources []*media.MediaResource) error {
 	if err := uc.db.WithContext(ctx).Create(&resources).Error; err != nil {
-		panic(err)
+		return err
 	}
+	return nil
 }
 
 func (uc *MediaResourceUseCase) MakeProductMediaResource(ctx context.Context, handle *multipart.FileHeader) (resource *media.MediaResource, err error) {
@@ -152,7 +154,7 @@ func (uc *MediaResourceUseCase) MakeMediaResource(ctx context.Context, bucket st
 		return nil, err
 	}
 
-	uc.CreateMediaResource(ctx, resource)
+	err = uc.CreateMediaResource(ctx, resource)
 
 	return
 }
