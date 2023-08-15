@@ -3,6 +3,10 @@
 
 [http://powerx.artisan-cloud.com](http://powerx.artisan-cloud.com)
 
+在线Demo：https://shop.artisancloud.cn
+
+登陆账号: root  
+密码: root
 
 
 # PowerX的系统方案，组成部分分别包括：
