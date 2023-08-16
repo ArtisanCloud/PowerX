@@ -38,6 +38,12 @@ service PowerX {
 }
 
 type (
+
+    SortIdItem struct {
+        Id int64 `json:"id,optional"`
+        SortIndex  int  `json:"sortIndex,optional"`
+    }
+
     MediaResource struct {
         Id int64 `json:"id,optional"`
         CustomerId int64 `json:"customerId,optional"`
@@ -48,6 +54,7 @@ type (
         IsLocalStored bool `json:"isLocalStored,optional"`
         ContentType string `json:"contentType,optional"`
         ResourceType string `json:"resourceType,optional"`
+        SortIndex int `json:"sortIndex,optional"`
     }
 
     CreateMediaResourceByBase64Request struct {

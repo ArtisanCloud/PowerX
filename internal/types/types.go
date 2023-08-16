@@ -1139,37 +1139,39 @@ type ProductAttribute struct {
 }
 
 type Product struct {
-	Id                     int64                          `json:"id,optional"`
-	Name                   string                         `json:"name"`
-	SPU                    string                         `json:"spu"`
-	Type                   int                            `json:"type"`
-	Plan                   int                            `json:"plan"`
-	AccountingCategory     string                         `json:"accountingCategory"`
-	CanSellOnline          bool                           `json:"canSellOnline,optional"`
-	CanUseForDeduct        bool                           `json:"canUseForDeduct,optional"`
-	Description            string                         `json:"description,optional"`
-	AllowedSellQuantity    int                            `json:"allowedSellQuantity,optional"`
-	ValidityPeriodDays     int                            `json:"validityPeriodDays,optional"`
-	SaleStartDate          string                         `json:"saleStartDate,optional"`
-	SaleEndDate            string                         `json:"saleEndDate,optional"`
-	ApprovalStatus         int                            `json:"approvalStatus,optional"`
-	IsActivated            bool                           `json:"isActivated,optional,omitempty"`
-	Sort                   int                            `json:"sort,optional,omitempty"`
-	CreatedAt              string                         `json:"createdAt,optional"`
-	ProductSpecifics       []*ProductSpecific             `json:"productSpecifics,optional"`
-	PivotSalesChannels     []*PivotDataDictionaryToObject `json:"pivotSalesChannels,optional"`
-	PivotPromoteChannels   []*PivotDataDictionaryToObject `json:"pivotPromoteChannels,optional"`
-	ProductCategories      []*ProductCategory             `json:"productCategories,optional"`
-	SalesChannelsItemIds   []int64                        `json:"salesChannelsItemIds,optional"`
-	PromoteChannelsItemIds []int64                        `json:"promoteChannelsItemIds,optional"`
-	CategoryIds            []int64                        `json:"categoryIds,optional"`
-	CoverImageIds          []int64                        `json:"coverImageIds,optional"`
-	CoverImages            []*MediaResource               `json:"coverImages,optional"`
-	DetailImageIds         []int64                        `json:"detailImageIds,optional"`
-	DetailImages           []*MediaResource               `json:"detailImages,optional"`
-	ActivePriceEntry       *ActivePriceEntry              `json:"activePriceBookEntry,optional"`
-	PriceBookEntries       []*PriceBookEntry              `json:"priceBookEntries,optional"`
-	SKUs                   []*SKU                         `json:"skus,optional"`
+	Id                      int64                          `json:"id,optional"`
+	Name                    string                         `json:"name"`
+	SPU                     string                         `json:"spu"`
+	Type                    int                            `json:"type"`
+	Plan                    int                            `json:"plan"`
+	AccountingCategory      string                         `json:"accountingCategory"`
+	CanSellOnline           bool                           `json:"canSellOnline,optional"`
+	CanUseForDeduct         bool                           `json:"canUseForDeduct,optional"`
+	Description             string                         `json:"description,optional"`
+	AllowedSellQuantity     int                            `json:"allowedSellQuantity,optional"`
+	ValidityPeriodDays      int                            `json:"validityPeriodDays,optional"`
+	SaleStartDate           string                         `json:"saleStartDate,optional"`
+	SaleEndDate             string                         `json:"saleEndDate,optional"`
+	ApprovalStatus          int                            `json:"approvalStatus,optional"`
+	IsActivated             bool                           `json:"isActivated,optional,omitempty"`
+	Sort                    int                            `json:"sort,optional,omitempty"`
+	CreatedAt               string                         `json:"createdAt,optional"`
+	ProductSpecifics        []*ProductSpecific             `json:"productSpecifics,optional"`
+	PivotSalesChannels      []*PivotDataDictionaryToObject `json:"pivotSalesChannels,optional"`
+	PivotPromoteChannels    []*PivotDataDictionaryToObject `json:"pivotPromoteChannels,optional"`
+	ProductCategories       []*ProductCategory             `json:"productCategories,optional"`
+	SalesChannelsItemIds    []int64                        `json:"salesChannelsItemIds,optional"`
+	PromoteChannelsItemIds  []int64                        `json:"promoteChannelsItemIds,optional"`
+	CategoryIds             []int64                        `json:"categoryIds,optional"`
+	CoverImageIds           []int64                        `json:"coverImageIds,optional"`
+	CoverImages             []*MediaResource               `json:"coverImages,optional"`
+	CoverImageIdSortIndexs  []*SortIdItem                  `json:"coverImageSortIndexes,optional"`
+	DetailImageIds          []int64                        `json:"detailImageIds,optional"`
+	DetailImages            []*MediaResource               `json:"detailImages,optional"`
+	DetailImageIdSortIndexs []*SortIdItem                  `json:"detailImageIdSortIndexes,optional"`
+	ActivePriceEntry        *ActivePriceEntry              `json:"activePriceBookEntry,optional"`
+	PriceBookEntries        []*PriceBookEntry              `json:"priceBookEntries,optional"`
+	SKUs                    []*SKU                         `json:"skus,optional"`
 	*ProductAttribute
 	ViewedCount int `json:"viewedCount,optional"`
 }
@@ -1242,6 +1244,11 @@ type AssignProductToProductCategoryReply struct {
 	Product
 }
 
+type SortIdItem struct {
+	Id        int64 `json:"id,optional"`
+	SortIndex int   `json:"sortIndex,optional"`
+}
+
 type MediaResource struct {
 	Id            int64  `json:"id,optional"`
 	CustomerId    int64  `json:"customerId,optional"`
@@ -1252,6 +1259,7 @@ type MediaResource struct {
 	IsLocalStored bool   `json:"isLocalStored,optional"`
 	ContentType   string `json:"contentType,optional"`
 	ResourceType  string `json:"resourceType,optional"`
+	SortIndex     int    `json:"sortIndex,optional"`
 }
 
 type CreateMediaResourceByBase64Request struct {

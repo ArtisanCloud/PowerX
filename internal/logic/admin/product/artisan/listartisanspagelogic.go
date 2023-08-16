@@ -61,6 +61,7 @@ func TransformArtisansToReply(artisans []*product.Artisan) []*types.Artisan {
 }
 
 func TransformArtisanToReply(artisan *product.Artisan) *types.Artisan {
+	arrayDetailImageIds, _ := media.GetImageIds(artisan.PivotDetailImages)
 	return &types.Artisan{
 		Id:             artisan.Id,
 		EmployeeId:     artisan.EmployeeId,
@@ -78,7 +79,7 @@ func TransformArtisanToReply(artisan *product.Artisan) *types.Artisan {
 		CreatedAt:      artisan.CreatedAt.String(),
 		CoverImageId:   artisan.CoverImageId,
 		CoverImage:     mediaresource.TransformMediaResourceToReply(artisan.CoverImage),
-		DetailImageIds: media.GetImageIds(artisan.PivotDetailImages),
+		DetailImageIds: arrayDetailImageIds,
 		DetailImages:   mediaresource.TransformMediaResourcesToReply(artisan.PivotDetailImages),
 		StoreIds:       product.GetStoreIds(artisan.PivotStoreToArtisans),
 	}

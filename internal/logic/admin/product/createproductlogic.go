@@ -72,6 +72,9 @@ func (l *CreateProductLogic) CreateProduct(req *types.CreateProductRequest) (res
 			return nil, err
 		}
 		mdlProduct.PivotCoverImages, err = (&media.PivotMediaResourceToObject{}).MakeMorphPivotsFromObjectToMediaResources(mdlProduct, mediaResources, media.MediaUsageCover)
+		for _, pivot := range mdlProduct.PivotCoverImages {
+			pivot.Sort = media.FindSortIndexById(req.CoverImageIdSortIndexs, pivot.MediaResourceId)
+		}
 	}
 
 	if len(req.DetailImageIds) > 0 {
@@ -82,6 +85,9 @@ func (l *CreateProductLogic) CreateProduct(req *types.CreateProductRequest) (res
 			return nil, err
 		}
 		mdlProduct.PivotDetailImages, err = (&media.PivotMediaResourceToObject{}).MakeMorphPivotsFromObjectToMediaResources(mdlProduct, mediaResources, media.MediaUsageDetail)
+		for _, pivot := range mdlProduct.PivotDetailImages {
+			pivot.Sort = media.FindSortIndexById(req.DetailImageIdSortIndexs, pivot.MediaResourceId)
+		}
 	}
 
 	err = l.svcCtx.PowerX.Product.CreateProduct(l.ctx, mdlProduct)
@@ -127,6 +133,9 @@ func TransformRequestToProduct(productRequest *types.Product) (mdlProduct *produ
 
 func TransformProductToReply(mdlProduct *product.Product) (productReply *types.Product) {
 
+	arrayCoverImageIds, arrayCoverImageIdSortIndexs := media.GetImageIds(mdlProduct.PivotCoverImages)
+	arrayDetailImageIds, arrayDetailImageIdSortIndexs := media.GetImageIds(mdlProduct.PivotDetailImages)
+
 	return &types.Product{
 		Id:                  mdlProduct.Id,
 		Name:                mdlProduct.Name,
@@ -146,18 +155,20 @@ func TransformProductToReply(mdlProduct *product.Product) (productReply *types.P
 		Sort:                mdlProduct.Sort,
 		//PivotSalesChannels:   TransformDDsToReply(mdlProduct.PivotSalesChannels),
 		//PivotPromoteChannels: TransformDDsToReply(mdlProduct.PivotPromoteChannels),
-		ProductCategories:      category.TransformProductCategoriesToReply(mdlProduct.ProductCategories),
-		SalesChannelsItemIds:   model.GetItemIds(mdlProduct.PivotSalesChannels),
-		PromoteChannelsItemIds: model.GetItemIds(mdlProduct.PivotPromoteChannels),
-		CategoryIds:            product.GetCategoryIds(mdlProduct.ProductCategories),
-		ProductSpecifics:       TransformSpecificsToReply(mdlProduct.ProductSpecifics),
-		ActivePriceEntry:       pricebookentry.TransformPriceEntriesToActivePriceEntryReply(mdlProduct.PriceBookEntries),
-		PriceBookEntries:       pricebookentry.TransformPriceBookEntriesToPriceBookEntriesReply(mdlProduct.PriceBookEntries),
-		SKUs:                   TransformSkusToReply(mdlProduct.SKUs),
-		CoverImageIds:          media.GetImageIds(mdlProduct.PivotCoverImages),
-		DetailImageIds:         media.GetImageIds(mdlProduct.PivotDetailImages),
-		CoverImages:            mediaresource.TransformMediaResourcesToReply(mdlProduct.PivotCoverImages),
-		DetailImages:           mediaresource.TransformMediaResourcesToReply(mdlProduct.PivotDetailImages),
+		ProductCategories:       category.TransformProductCategoriesToReply(mdlProduct.ProductCategories),
+		SalesChannelsItemIds:    model.GetItemIds(mdlProduct.PivotSalesChannels),
+		PromoteChannelsItemIds:  model.GetItemIds(mdlProduct.PivotPromoteChannels),
+		CategoryIds:             product.GetCategoryIds(mdlProduct.ProductCategories),
+		ProductSpecifics:        TransformSpecificsToReply(mdlProduct.ProductSpecifics),
+		ActivePriceEntry:        pricebookentry.TransformPriceEntriesToActivePriceEntryReply(mdlProduct.PriceBookEntries),
+		PriceBookEntries:        pricebookentry.TransformPriceBookEntriesToPriceBookEntriesReply(mdlProduct.PriceBookEntries),
+		SKUs:                    TransformSkusToReply(mdlProduct.SKUs),
+		CoverImageIds:           arrayCoverImageIds,
+		DetailImageIds:          arrayDetailImageIds,
+		CoverImageIdSortIndexs:  arrayCoverImageIdSortIndexs,
+		DetailImageIdSortIndexs: arrayDetailImageIdSortIndexs,
+		CoverImages:             mediaresource.TransformMediaResourcesToReply(mdlProduct.PivotCoverImages),
+		DetailImages:            mediaresource.TransformMediaResourcesToReply(mdlProduct.PivotDetailImages),
 	}
 
 }
