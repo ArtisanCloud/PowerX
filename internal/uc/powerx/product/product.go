@@ -87,9 +87,14 @@ func (uc *ProductUseCase) buildFindQueryNoPage(db *gorm.DB, opt *FindManyProduct
 }
 
 func (uc *ProductUseCase) PreloadItems(db *gorm.DB) *gorm.DB {
+
+	mediaResourceSortBy := func(db *gorm.DB) *gorm.DB {
+		return db.Order("updated_at asc")
+	}
+
 	db = db.
-		Preload("PivotCoverImages", "media_usage = ?", media.MediaUsageCover).Preload("PivotCoverImages.MediaResource").
-		Preload("PivotDetailImages", "media_usage = ?", media.MediaUsageDetail).Preload("PivotDetailImages.MediaResource").
+		Preload("PivotCoverImages", "media_usage = ?", media.MediaUsageCover, mediaResourceSortBy).Preload("PivotCoverImages.MediaResource", mediaResourceSortBy).
+		Preload("PivotDetailImages", "media_usage = ?", media.MediaUsageDetail, mediaResourceSortBy).Preload("PivotDetailImages.MediaResource", mediaResourceSortBy).
 		Preload("ProductCategories").
 		Preload("PriceBookEntries.PriceBook").
 		Preload("SKUs.PriceBookEntry").
