@@ -5,6 +5,7 @@ import (
 	"PowerX/internal/types/errorx"
 	"context"
 	"net/http"
+	"strconv"
 
 	"PowerX/internal/svc"
 	"PowerX/internal/types"
@@ -29,6 +30,17 @@ func NewCreateMediaResourceLogic(ctx context.Context, svcCtx *svc.ServiceContext
 }
 
 func (l *CreateMediaResourceLogic) CreateMediaResource(r *http.Request) (resp *types.CreateMediaResourceReply, err error) {
+
+	queryParams := r.URL.Query()
+
+	// 获取特定参数的值
+	strSortIndex := queryParams.Get("sortIndex")
+	//fmt.Dump(strSortIndex)
+	sortIndex, err := strconv.Atoi(strSortIndex)
+	if err != nil {
+		return nil, errorx.WithCause(errorx.ErrBadRequest, err.Error())
+	}
+
 	err = r.ParseMultipartForm(MaxFileSize)
 	if err != nil {
 		return nil, errorx.WithCause(errorx.ErrBadRequest, err.Error())
@@ -46,8 +58,12 @@ func (l *CreateMediaResourceLogic) CreateMediaResource(r *http.Request) (resp *t
 		return nil, errorx.WithCause(errorx.ErrBadRequest, err.Error())
 	}
 
+	resourceReply := TransformMediaResourceToReply(resource)
+	if resourceReply != nil {
+		resourceReply.SortIndex = sortIndex
+	}
 	return &types.CreateMediaResourceReply{
-		MediaResource: TransformMediaResourceToReply(resource),
+		MediaResource: resourceReply,
 		IsOSS:         !resource.IsLocalStored,
 	}, nil
 }

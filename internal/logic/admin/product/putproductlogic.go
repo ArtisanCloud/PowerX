@@ -70,16 +70,26 @@ func (l *PutProductLogic) PutProduct(req *types.PutProductRequest) (resp *types.
 			return nil, err
 		}
 		mdlProduct.PivotCoverImages, err = (&media.PivotMediaResourceToObject{}).MakeMorphPivotsFromObjectToMediaResources(mdlProduct, mediaResources, media.MediaUsageCover)
+		for _, pivot := range mdlProduct.PivotCoverImages {
+			pivot.Sort = media.FindSortIndexById(req.CoverImageIdSortIndexs, pivot.MediaResourceId)
+		}
 	}
 
 	if len(req.DetailImageIds) > 0 {
+		// 查询相关的MediaResource
 		mediaResources, err := l.svcCtx.PowerX.MediaResource.FindAllMediaResources(l.ctx, &powerx.FindManyMediaResourcesOption{
 			Ids: req.DetailImageIds,
 		})
 		if err != nil {
 			return nil, err
 		}
+		//
+		//fmt.Dump(req.DetailImageIds, req.DetailImageIdSortIndexs)
 		mdlProduct.PivotDetailImages, err = (&media.PivotMediaResourceToObject{}).MakeMorphPivotsFromObjectToMediaResources(mdlProduct, mediaResources, media.MediaUsageDetail)
+		for _, pivot := range mdlProduct.PivotDetailImages {
+			pivot.Sort = media.FindSortIndexById(req.DetailImageIdSortIndexs, pivot.MediaResourceId)
+		}
+		//fmt.Dump(mdlProduct.PivotDetailImages)
 	}
 
 	// 更新产品对象

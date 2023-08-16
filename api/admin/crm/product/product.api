@@ -119,8 +119,10 @@ type (
         CategoryIds []int64 `json:"categoryIds,optional"`
         CoverImageIds []int64 `json:"coverImageIds,optional"`
         CoverImages []*MediaResource `json:"coverImages,optional"`
+        CoverImageIdSortIndexs []*SortIdItem `json:"coverImageSortIndexes,optional"`
         DetailImageIds []int64 `json:"detailImageIds,optional"`
         DetailImages []*MediaResource `json:"detailImages,optional"`
+        DetailImageIdSortIndexs []*SortIdItem `json:"detailImageIdSortIndexes,optional"`
         ActivePriceEntry *ActivePriceEntry `json:"activePriceBookEntry,optional"`
         PriceBookEntries []*PriceBookEntry `json:"priceBookEntries,optional"`
         SKUs []*SKU `json:"skus,optional"`

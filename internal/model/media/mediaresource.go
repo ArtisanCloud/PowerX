@@ -1,6 +1,9 @@
 package media
 
-import "PowerX/internal/model/powermodel"
+import (
+	"PowerX/internal/model/powermodel"
+	"PowerX/internal/types"
+)
 
 type MediaResource struct {
 	powermodel.PowerModel
@@ -21,13 +24,18 @@ type MediaSet struct {
 const MediaUsageCover = "_cover"
 const MediaUsageDetail = "_detail"
 
-func GetImageIds(pivots []*PivotMediaResourceToObject) []int64 {
+func GetImageIds(pivots []*PivotMediaResourceToObject) ([]int64, []*types.SortIdItem) {
 	arrayIds := []int64{}
+	arrayIdSortIndexs := []*types.SortIdItem{}
 	if len(pivots) <= 0 {
-		return arrayIds
+		return arrayIds, arrayIdSortIndexs
 	}
 	for _, pivot := range pivots {
 		arrayIds = append(arrayIds, pivot.MediaResourceId)
+		arrayIdSortIndexs = append(arrayIdSortIndexs, &types.SortIdItem{
+			Id:        pivot.MediaResourceId,
+			SortIndex: pivot.Sort,
+		})
 	}
-	return arrayIds
+	return arrayIds, arrayIdSortIndexs
 }

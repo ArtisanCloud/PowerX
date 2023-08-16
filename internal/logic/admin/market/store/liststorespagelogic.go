@@ -61,6 +61,7 @@ func TransformStoresToReply(stores []*product2.Store) []*types.Store {
 }
 
 func TransformStoreToReply(store *product2.Store) *types.Store {
+	arrayDetailImageIds, _ := media.GetImageIds(store.PivotDetailImages)
 	return &types.Store{
 		Id:              store.Id,
 		Name:            store.Name,
@@ -75,7 +76,7 @@ func TransformStoreToReply(store *product2.Store) *types.Store {
 		CreatedAt:       store.CreatedAt.String(),
 		CoverImageId:    store.CoverImageId,
 		CoverImage:      mediaresource.TransformMediaResourceToReply(store.CoverImage),
-		DetailImageIds:  media.GetImageIds(store.PivotDetailImages),
+		DetailImageIds:  arrayDetailImageIds,
 		DetailImages:    mediaresource.TransformMediaResourcesToReply(store.PivotDetailImages),
 		Artisans:        TransformArtisansToShopArtisans(store.Artisans),
 	}

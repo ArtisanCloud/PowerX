@@ -33,7 +33,7 @@ func (l *GetMediaLogic) GetMedia(req *types.GetMediaRequest) (resp *types.GetMed
 }
 
 func TransformMediaToReply(mdlMedia *market.Media) (mediaReply *types.Media) {
-
+	arrayDetailImageIds, _ := media.GetImageIds(mdlMedia.PivotDetailImages)
 	return &types.Media{
 		Id:             mdlMedia.Id,
 		Title:          mdlMedia.Title,
@@ -44,7 +44,7 @@ func TransformMediaToReply(mdlMedia *market.Media) (mediaReply *types.Media) {
 		MediaType:      mdlMedia.MediaType,
 		ViewedCount:    mdlMedia.ViewedCount,
 		CoverImage:     mediaresource.TransformMediaResourceToReply(mdlMedia.CoverImage),
-		DetailImageIds: media.GetImageIds(mdlMedia.PivotDetailImages),
+		DetailImageIds: arrayDetailImageIds,
 		DetailImages:   mediaresource.TransformMediaResourcesToReply(mdlMedia.PivotDetailImages),
 	}
 }
