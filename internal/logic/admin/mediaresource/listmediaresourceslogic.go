@@ -34,7 +34,9 @@ func TransformMediaResourcesToReply(pivots []*media.PivotMediaResourceToObject) 
 
 	imagesReply = []*types.MediaResource{}
 	for _, pivot := range pivots {
+		//fmt.Dump(pivot.UpdatedAt, pivot.MediaResourceId, pivot.MediaResource.Id)
 		imageReply := TransformMediaResourceToReply(pivot.MediaResource)
+		//fmt.Dump(imageReply.Id)
 		imagesReply = append(imagesReply, imageReply)
 	}
 	return imagesReply
