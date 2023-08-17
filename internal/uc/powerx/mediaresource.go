@@ -212,7 +212,8 @@ func (uc *MediaResourceUseCase) MakeOSSResource(ctx context.Context, bucket stri
 	}
 
 	// Upload the resource file
-	objectName := handle.Filename
+	objectName := fmt.Sprintf("%d_%s", handle.Size, handle.Filename)
+	//objectName := handle.Filename
 	filePath, _ := handle.Open()
 	contentType := handle.Header.Get("Content-Type")
 	info, err := uc.OSSClient.PutObject(ctx, bucket, objectName, filePath, handle.Size, minio.PutObjectOptions{ContentType: contentType})

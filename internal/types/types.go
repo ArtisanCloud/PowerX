@@ -1165,7 +1165,7 @@ type Product struct {
 	CategoryIds             []int64                        `json:"categoryIds,optional"`
 	CoverImageIds           []int64                        `json:"coverImageIds,optional"`
 	CoverImages             []*MediaResource               `json:"coverImages,optional"`
-	CoverImageIdSortIndexs  []*SortIdItem                  `json:"coverImageSortIndexes,optional"`
+	CoverImageIdSortIndexs  []*SortIdItem                  `json:"coverImageIdSortIndexes,optional"`
 	DetailImageIds          []int64                        `json:"detailImageIds,optional"`
 	DetailImages            []*MediaResource               `json:"detailImages,optional"`
 	DetailImageIdSortIndexs []*SortIdItem                  `json:"detailImageIdSortIndexes,optional"`
