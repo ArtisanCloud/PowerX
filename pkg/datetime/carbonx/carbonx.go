@@ -10,6 +10,8 @@ var DefaultTimeZone = carbon.UTC
 const DateFormat = "Y-m-d"
 const TimeFormat = "H:i:s"
 const DatetimeFormat = DateFormat + " " + TimeFormat
+const GoDatetimeFormat = "2006-01-02 15:04:05"
+const GoDateFormat = "2006-01-02"
 
 type CarbonDatetime struct {
 	C *carbon.Carbon

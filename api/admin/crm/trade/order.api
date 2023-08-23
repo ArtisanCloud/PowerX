@@ -87,9 +87,11 @@ type Order {
 
 type (
     ListOrdersPageRequest {
-        OrderType []int `form:"orderType,optional,omitempty"`
-        OrderStatus []int `form:"orderStatus,optional,omitempty"`
-        Keys []string `form:"keys,optional,omitempty"`
+        TypeIds []int `form:"typeIds,optional,omitempty"`
+        StatusIds []int `form:"statusIds,optional,omitempty"`
+        Name string `form:"name,optional,omitempty"`
+        StartAt string `form:"startAt,optional,omitempty"`
+        EndAt string `form:"endAt,optional,omitempty"`
         OrderBy string `form:"orderBy,optional,omitempty"`
         PageIndex int `form:"pageIndex,optional,omitempty"`
         PageSize int `form:"pageSize,optional,omitempty"`

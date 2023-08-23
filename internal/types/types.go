@@ -1179,6 +1179,7 @@ type Product struct {
 type ListProductsPageRequest struct {
 	LikeName          string   `form:"likeName,optional"`
 	ProductTypeIds    []int    `form:"productTypeIds,optional"`
+	ProductStatusIds  []int    `form:"productStatusIds,optional"`
 	Keys              []string `form:"keys,optional"`
 	ProductCategoryId int      `form:"productCategoryId,optional"`
 	OrderBy           string   `form:"orderBy,optional"`
@@ -2810,12 +2811,14 @@ type Order struct {
 }
 
 type ListOrdersPageRequest struct {
-	OrderType   []int    `form:"orderType,optional,omitempty"`
-	OrderStatus []int    `form:"orderStatus,optional,omitempty"`
-	Keys        []string `form:"keys,optional,omitempty"`
-	OrderBy     string   `form:"orderBy,optional,omitempty"`
-	PageIndex   int      `form:"pageIndex,optional,omitempty"`
-	PageSize    int      `form:"pageSize,optional,omitempty"`
+	TypeIds   []int  `form:"typeIds,optional,omitempty"`
+	StatusIds []int  `form:"statusIds,optional,omitempty"`
+	Name      string `form:"name,optional,omitempty"`
+	StartAt   string `form:"startAt,optional,omitempty"`
+	EndAt     string `form:"endAt,optional,omitempty"`
+	OrderBy   string `form:"orderBy,optional,omitempty"`
+	PageIndex int    `form:"pageIndex,optional,omitempty"`
+	PageSize  int    `form:"pageSize,optional,omitempty"`
 }
 
 type ListOrdersPageReply struct {

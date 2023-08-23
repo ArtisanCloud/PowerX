@@ -8,6 +8,7 @@ import (
 	"PowerX/internal/types"
 	"PowerX/internal/types/errorx"
 	"PowerX/internal/uc/powerx"
+	"PowerX/pkg/datetime/carbonx"
 	"PowerX/pkg/slicex"
 	"context"
 	"github.com/pkg/errors"
@@ -40,7 +41,7 @@ type FindManyOrdersOption struct {
 func (uc *OrderUseCase) buildFindQueryNoPage(db *gorm.DB, opt *FindManyOrdersOption) *gorm.DB {
 
 	if opt.LikeName != "" {
-		db = db.Where("name LIKE ?", "%"+opt.LikeName+"%")
+		db = db.Where("order_number LIKE ?", "%"+opt.LikeName+"%")
 	}
 
 	if opt.CustomerId > 0 {
@@ -52,6 +53,13 @@ func (uc *OrderUseCase) buildFindQueryNoPage(db *gorm.DB, opt *FindManyOrdersOpt
 	}
 	if len(opt.Type) > 0 {
 		db = db.Where("type IN ?", opt.Type)
+	}
+	//fmt.Dump(opt.StartAt, opt.EndAt)
+	if !opt.StartAt.IsZero() && !opt.EndAt.IsZero() {
+		opt.EndAt = opt.EndAt.Add(time.Hour*24 - time.Second)
+		db = db.
+			Where("created_at >= ? ", opt.StartAt.Format(carbonx.GoDatetimeFormat)).
+			Where("created_at <= ? ", opt.EndAt.Format(carbonx.GoDatetimeFormat))
 	}
 
 	orderBy := "id desc"
@@ -104,7 +112,7 @@ func (uc *OrderUseCase) FindManyOrders(ctx context.Context, opt *FindManyOrdersO
 
 	db = uc.PreloadItems(db)
 	if err := db.
-		//Debug().
+		Debug().
 		Find(&orders).Error; err != nil {
 		panic(err)
 	}
