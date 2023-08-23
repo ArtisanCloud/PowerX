@@ -135,6 +135,7 @@ type (
     ListProductsPageRequest struct {
         LikeName string `form:"likeName,optional"`
         ProductTypeIds []int `form:"productTypeIds,optional"`
+        ProductStatusIds []int `form:"productStatusIds,optional"`
         Keys []string `form:"keys,optional"`
         ProductCategoryId int `form:"productCategoryId,optional"`
         OrderBy string `form:"orderBy,optional"`

@@ -3,7 +3,9 @@ package order
 import (
 	"PowerX/internal/model/trade"
 	tradeUC "PowerX/internal/uc/powerx/trade"
+	"PowerX/pkg/datetime/carbonx"
 	"context"
+	"github.com/golang-module/carbon/v2"
 
 	"PowerX/internal/svc"
 	"PowerX/internal/types"
@@ -26,7 +28,21 @@ func NewListOrdersPageLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Li
 }
 
 func (l *ListOrdersPageLogic) ListOrdersPage(req *types.ListOrdersPageRequest) (resp *types.ListOrdersPageReply, err error) {
+	startAt := carbon.ParseByFormat(req.StartAt, carbonx.DateFormat)
+	endAt := carbon.ParseByFormat(req.EndAt, carbonx.DateFormat)
+	if !startAt.IsZero() && endAt.IsZero() {
+		endAt = startAt.AddDays(30)
+	} else if startAt.IsZero() && !endAt.IsZero() {
+		startAt = endAt.AddDays(-30)
+	}
+	//fmt.Dump(startAt.String(), endAt.String())
+
 	page, err := l.svcCtx.PowerX.Order.FindManyOrders(l.ctx, &tradeUC.FindManyOrdersOption{
+		StartAt:  startAt.ToStdTime(),
+		EndAt:    endAt.ToStdTime(),
+		LikeName: req.Name,
+		Status:   req.StatusIds,
+		Type:     req.TypeIds,
 		PageEmbedOption: types.PageEmbedOption{
 			PageIndex: req.PageIndex,
 			PageSize:  req.PageSize,

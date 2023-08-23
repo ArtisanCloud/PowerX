@@ -33,8 +33,8 @@ func (l *ListOrdersPageLogic) ListOrdersPage(req *types.ListOrdersPageRequest) (
 
 	page, err := l.svcCtx.PowerX.Order.FindManyOrders(l.ctx, &tradeUC.FindManyOrdersOption{
 		CustomerId: authCustomer.Id,
-		Status:     req.OrderStatus,
-		Type:       req.OrderType,
+		Status:     req.StatusIds,
+		Type:       req.TypeIds,
 		PageEmbedOption: types.PageEmbedOption{
 			PageIndex: req.PageIndex,
 			PageSize:  req.PageSize,

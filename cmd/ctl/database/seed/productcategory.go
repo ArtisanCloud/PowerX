@@ -29,6 +29,58 @@ func DefaultProductCategory() (data []*product.ProductCategory) {
 
 	data = []*product.ProductCategory{
 		{
+			Name:         "运动上衣",
+			Sort:         0,
+			ViceName:     "",
+			Description:  "",
+			CoverImageId: 2,
+			Children: []*product.ProductCategory{
+				{Name: "短袖T恤", Sort: 0, CoverImageId: 3},
+				{Name: "长袖T恤", Sort: 0, CoverImageId: 3},
+				{Name: "运动背心", Sort: 0, CoverImageId: 3},
+				{Name: "运动长袖衬衫", Sort: 0, CoverImageId: 3},
+				{Name: "运动外套", Sort: 0, CoverImageId: 3},
+				{Name: "运动夹克", Sort: 0, CoverImageId: 3},
+			},
+		},
+
+		{
+
+			Name:        "运动裤子",
+			Sort:        0,
+			ViceName:    "",
+			Description: "",
+			Children: []*product.ProductCategory{
+				{Name: "运动长裤", Sort: 0, CoverImageId: 4},
+				{Name: "运动短裤", Sort: 0, CoverImageId: 4},
+				{Name: "运动紧身裤", Sort: 0, CoverImageId: 4},
+				{Name: "运动运动裤", Sort: 0, CoverImageId: 4},
+				{Name: "运动牛仔裤", Sort: 0, CoverImageId: 4},
+			},
+		},
+		{
+			Name:         "运动裙子",
+			Sort:         0,
+			ViceName:     "",
+			Description:  "",
+			CoverImageId: 6,
+			Children: []*product.ProductCategory{
+				{Name: "运动长裤", Sort: 0, CoverImageId: 5},
+				{Name: "运动短裤", Sort: 0, CoverImageId: 5},
+				{Name: "运动紧身裤", Sort: 0, CoverImageId: 5},
+				{Name: "运动运动裤", Sort: 0, CoverImageId: 5},
+				{Name: "运动牛仔裤", Sort: 0, CoverImageId: 5},
+			},
+		},
+	}
+
+	return data
+}
+
+func DefaultThreeLevelProductCategory() (data []*product.ProductCategory) {
+
+	data = []*product.ProductCategory{
+		{
 			Name:         "运动上装",
 			Sort:         0,
 			ViceName:     "",

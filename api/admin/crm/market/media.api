@@ -18,7 +18,6 @@ service PowerX {
     @doc "查询媒体列表"
     @handler ListMediasPage
     get /medias/page-list (ListMediasPageRequest) returns (ListMediasPageReply)
-
     @doc "请求媒体上传链接"
     @handler CreateMedia
     post /medias (CreateMediaRequest) returns (CreateMediaReply)
