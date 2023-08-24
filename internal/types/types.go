@@ -2829,14 +2829,25 @@ type ListOrdersPageReply struct {
 }
 
 type ExportOrdersRequest struct {
-	OrderType   []int  `form:"orderType,optional,omitempty"`
-	OrderStatus []int  `form:"orderStatus,optional,omitempty"`
-	OrderBy     string `form:"orderBy,optional"`
-	StartAt     string `form:"startAt"`
-	EndAt       string `form:"endAt"`
+	Name      string `form:"name,optional"`
+	StartAt   string `form:"startAt"`
+	EndAt     string `form:"endAt"`
+	TypeIds   []int  `form:"typeIds,optional"`
+	StatusIds []int  `form:"statusIds,optional"`
 }
 
 type ExportOrdersReply struct {
+	Content  []byte `json:"content"`
+	FileName string `json:"fileName"`
+	FileSize int    `json:"fileSize"`
+	FileType string `json:"fileType"`
+}
+
+type ImportOrdersRequest struct {
+	Content []byte `json:"content"`
+}
+
+type ImportOrdersReply struct {
 	Content  []byte `json:"content"`
 	FileName string `json:"fileName"`
 	FileSize int    `json:"fileSize"`

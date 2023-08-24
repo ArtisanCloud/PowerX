@@ -19,7 +19,7 @@ func ExportOrdersHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		}
 
 		l := order.NewExportOrdersLogic(r.Context(), svcCtx)
-		resp, err := l.ExportOrders(&req)
+		resp, err := l.ExportOrders(r.Context(), &req)
 
 		if err != nil {
 			httpx.ErrorCtx(r.Context(), w, err)

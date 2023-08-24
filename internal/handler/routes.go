@@ -1612,6 +1612,11 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 					Path:    "/orders/export",
 					Handler: admintradeorder.ExportOrdersHandler(serverCtx),
 				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/orders/import",
+					Handler: admintradeorder.ImportOrdersHandler(serverCtx),
+				},
 			}...,
 		),
 		rest.WithPrefix("/api/v1/admin/trade"),

@@ -76,7 +76,9 @@ func (uc *OrderUseCase) PreloadItems(db *gorm.DB) *gorm.DB {
 		Preload("Items.ProductBookEntry.SKU").
 		Preload("Items.ProductBookEntry.Product.PivotCoverImages").
 		Preload("Items.CoverImage").
-		Preload("Payments.Items")
+		Preload("Payments.Items").
+		Preload("DeliveryAddress").
+		Preload("Logistics")
 	return db
 }
 
@@ -112,7 +114,7 @@ func (uc *OrderUseCase) FindManyOrders(ctx context.Context, opt *FindManyOrdersO
 
 	db = uc.PreloadItems(db)
 	if err := db.
-		Debug().
+		//Debug().
 		Find(&orders).Error; err != nil {
 		panic(err)
 	}
