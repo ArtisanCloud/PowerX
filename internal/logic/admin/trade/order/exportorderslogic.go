@@ -1,6 +1,7 @@
 package order
 
 import (
+	trade2 "PowerX/internal/model/trade"
 	"PowerX/internal/svc"
 	"PowerX/internal/types"
 	"PowerX/internal/types/errorx"
@@ -18,6 +19,47 @@ import (
 	"github.com/zeromicro/go-zero/core/logx"
 )
 
+var ExcelDataFields = map[string][]string{
+	"headers": []string{
+		"订单号",
+		"客户名称",
+		"产品名称",
+		"金额",
+		"SKU",
+		"数量",
+		"订单类型",
+		"订单状态",
+		"收货人",
+		"收货人电话",
+		"收货地址",
+		"物流追踪号",
+		//"物流状态",
+		"物流承运商",
+		"预计送达时间",
+		"实际送达时间",
+		"订单创建日期",
+	},
+	"fields": []string{
+		"orders.order_number",
+		"customers.name",
+		"order_items.product_name",
+		"order_items.unit_price",
+		"order_items.sku_no",
+		"order_items.quantity",
+		"orders.type",
+		"orders.status",
+		"delivery_addresses.recipient",
+		"delivery_addresses.phone_number",
+		"delivery_addresses.address_line",
+		"logistics.tracking_code",
+		//"logistics.status",
+		"logistics.carrier",
+		"logistics.estimated_delivery_date",
+		"logistics.actual_delivery_date",
+		"orders.created_at",
+	},
+}
+
 type ExportOrdersLogic struct {
 	logx.Logger
 	ctx    context.Context
@@ -31,7 +73,7 @@ func NewExportOrdersLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Expo
 		svcCtx: svcCtx,
 	}
 }
-func (l *ExportOrdersLogic) ExportOrders(req *types.ExportOrdersRequest) (resp *types.ExportOrdersReply, err error) {
+func (l *ExportOrdersLogic) ExportOrders(ctx context.Context, req *types.ExportOrdersRequest) (resp *types.ExportOrdersReply, err error) {
 
 	// 检查时间段是否在一个月内
 	startAt := carbon.Parse(req.StartAt).ToStdTime()
@@ -62,7 +104,7 @@ func (l *ExportOrdersLogic) ExportOrders(req *types.ExportOrdersRequest) (resp *
 	defer writer.Flush()
 
 	// 写入表头
-	header := []string{"订单号", "金额", "日期"}
+	header := ExcelDataFields["headers"]
 	err = writer.Write(header)
 	if err != nil {
 		log.Fatal("无法写入CSV表头:", err)
@@ -89,13 +131,26 @@ func (l *ExportOrdersLogic) ExportOrders(req *types.ExportOrdersRequest) (resp *
 			break // 数据读取完毕，退出循环
 		}
 
+		ucDD := l.svcCtx.PowerX.DataDictionary
+
 		// 逐行写入订单数据
 		for _, order := range orders {
-			row := []string{order.OrderNumber, fmt2.Sprintf("%f", order.UnitPrice), order.CompletedAt.String()}
-			err := writer.Write(row)
-			if err != nil {
-				log.Fatal("无法写入CSV行:", err)
+			if len(order.Items) > 0 {
+				orderType := ucDD.GetCachedDDById(ctx, order.Type).Name
+				orderStatus := ucDD.GetCachedDDById(ctx, order.Status).Name
+
+				for _, orderItem := range order.Items {
+
+					// 订单的基础信息
+					row := transformRowByOrder(order, orderItem, orderType, orderStatus)
+					err := writer.Write(row)
+					if err != nil {
+						log.Fatal("无法写入CSV行:", err)
+					}
+				}
+
 			}
+
 		}
 
 		writer.Flush() // 刷新缓冲区，将数据写入文件
@@ -148,4 +203,51 @@ func CheckTimeRangeIsValid(from time.Time, to time.Time) error {
 
 func GetExportNameBy(from time.Time, to time.Time) string {
 	return "export_" + from.Format("20060102") + "_to_" + to.Format("20060102") + ".csv"
+}
+
+func transformRowByOrder(order *trade2.Order, orderItem *trade2.OrderItem, orderType string, orderStatus string) []string {
+
+	row := []string{
+		order.OrderNumber,
+	}
+
+	if order.Customer != nil {
+		row = append(row, order.Customer.Name)
+	} else {
+		row = append(row, "")
+	}
+
+	row = append(row, orderItem.ProductName,
+		fmt2.Sprintf("%f", orderItem.UnitPrice),
+		orderItem.SkuNo,
+		fmt2.Sprintf("%d", orderItem.Quantity),
+		orderType,
+		orderStatus,
+	)
+
+	// 订单的收货信息
+	if order.DeliveryAddress != nil {
+		row = append(row, order.DeliveryAddress.Recipient,
+			order.DeliveryAddress.PhoneNumber,
+			order.DeliveryAddress.AddressLine,
+		)
+	} else {
+		row = append(row, "", "", "")
+	}
+
+	// 订单的收货信息
+	if order.Logistics != nil {
+		row = append(row, order.Logistics.TrackingCode,
+			order.Logistics.Carrier,
+			order.Logistics.EstimatedDeliveryDate.String(),
+			order.Logistics.ActualDeliveryDate.String(),
+		)
+	} else {
+		row = append(row, "", "", "", "")
+	}
+
+	// 订单生成时间
+	row = append(row, order.CreatedAt.String())
+
+	return row
 }
