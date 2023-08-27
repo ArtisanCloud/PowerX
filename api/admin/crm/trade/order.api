@@ -47,7 +47,7 @@ service PowerX {
 
     @doc("导入订单")
     @handler ImportOrders
-    post /orders/import (ImportOrdersRequest) returns (ImportOrdersReply)
+    post /orders/import  returns (ImportOrdersReply)
 
 
 }
@@ -66,7 +66,7 @@ type OrderItem {
     SellingPrice float64 `json:"sellingPrice,optional"`
 //    CoverUrl string `json:"coverUrl,optional"`
     CoverImage *MediaResource `json:"coverImage,optional"`
-    ProdcutName string `json:"productName,optional"`
+    ProductName string `json:"productName,optional"`
     SkuNo string `json:"skuNo,optional"`
 }
 
@@ -89,6 +89,7 @@ type Order {
     CreatedAt string `json:"createdAt,optional,omitempty"`
     OrderItems []*OrderItem `json:"orderItems,optional"`
     Payments []*Payment `json:"payments,optional"`
+    Logistics *Logistics `json:"logistics,optional"`
 }
 
 type (
@@ -130,15 +131,13 @@ type (
     }
 
     ImportOrdersReply {
-        Content []byte `json:"content"`
-        FileName string `json:"fileName"`
-        FileSize int `json:"fileSize"`
-        FileType string `json:"fileType"`
+        Total int `json:"total"`
+        Failed int `json:"failed"`
+        Ignored int `json:"ignored"`
+        Success int `json:"success"`
     }
 
 )
-
-
 
 type (
     CreateOrderRequest {
@@ -187,5 +186,17 @@ type (
 
     DeleteOrderReply {
         OrderId int64 `path:"id"`
+    }
+)
+
+
+type (
+    Logistics{
+        OrderId int64 `json:"orderId,optional"`
+        Status string `json:"status,optional"`
+        TrackingCode string `json:"trackingCode,optional"`
+        Carrier string `json:"carrier,optional"`
+        EstimatedDeliveryDate string `json:"estimatedDeliveryDate,optional"`
+        ActualDeliveryDate string `json:"actualDeliveryDate,optional"`
     }
 )

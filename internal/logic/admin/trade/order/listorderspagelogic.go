@@ -65,7 +65,7 @@ func (l *ListOrdersPageLogic) ListOrdersPage(req *types.ListOrdersPageRequest) (
 func TransformOrdersToReply(orders []*trade.Order) []*types.Order {
 	ordersReply := []*types.Order{}
 	for _, order := range orders {
-		orderReply := TransformOrderToOrderReply(order)
+		orderReply := TransformOrderToReply(order)
 		ordersReply = append(ordersReply, orderReply)
 
 	}

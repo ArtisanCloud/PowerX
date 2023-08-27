@@ -1,6 +1,7 @@
 package order
 
 import (
+	"PowerX/internal/logic/admin/mediaresource"
 	"PowerX/internal/logic/admin/trade/payment"
 	"PowerX/internal/model/trade"
 	"PowerX/internal/types/errorx"
@@ -34,11 +35,11 @@ func (l *GetOrderLogic) GetOrder(req *types.GetOrderRequest) (resp *types.GetOrd
 	}
 
 	return &types.GetOrderReply{
-		Order: TransformOrderToOrderReply(mdlOrder),
+		Order: TransformOrderToReply(mdlOrder),
 	}, nil
 }
 
-func TransformOrderToOrderReply(mdlOrder *trade.Order) (orderReply *types.Order) {
+func TransformOrderToReply(mdlOrder *trade.Order) (orderReply *types.Order) {
 
 	return &types.Order{
 		Id:          mdlOrder.Id,
@@ -53,6 +54,7 @@ func TransformOrderToOrderReply(mdlOrder *trade.Order) (orderReply *types.Order)
 		Comment:     mdlOrder.Comment,
 		OrderItems:  TransformOrderItemsToOrderItemsReply(mdlOrder.Items),
 		Payments:    payment.TransformPaymentsToReply(mdlOrder.Payments),
+		Logistics:   TransformLogisticsToReply(mdlOrder.Logistics),
 		CreatedAt:   mdlOrder.CreatedAt.String(),
 	}
 
@@ -74,9 +76,28 @@ func TransformOrderItemToReply(orderItem *trade.OrderItem) (orderItemReply *type
 	}
 
 	return &types.OrderItem{
-		Id:        orderItem.Id,
-		SkuNo:     orderItem.SkuNo,
-		UnitPrice: orderItem.UnitPrice,
-		ListPrice: orderItem.ListPrice,
+		Id:          orderItem.Id,
+		SkuNo:       orderItem.SkuNo,
+		ProductName: orderItem.ProductName,
+		UnitPrice:   orderItem.UnitPrice,
+		ListPrice:   orderItem.ListPrice,
+		Quantity:    orderItem.Quantity,
+		CoverImage:  mediaresource.TransformMediaResourceToReply(orderItem.CoverImage),
 	}
+}
+
+func TransformLogisticsToReply(logistics *trade.Logistics) *types.Logistics {
+	if logistics == nil {
+		return nil
+	}
+
+	return &types.Logistics{
+		OrderId:               logistics.OrderId,
+		Status:                string(logistics.Status),
+		TrackingCode:          logistics.TrackingCode,
+		Carrier:               logistics.Carrier,
+		EstimatedDeliveryDate: logistics.EstimatedDeliveryDate.String(),
+		ActualDeliveryDate:    logistics.ActualDeliveryDate.String(),
+	}
+
 }

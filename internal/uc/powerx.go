@@ -38,6 +38,7 @@ type PowerXUseCase struct {
 	Cart                  *tradeUC.CartUseCase
 	Order                 *tradeUC.OrderUseCase
 	Payment               *tradeUC.PaymentUseCase
+	Logistics             *tradeUC.LogisticsUseCase
 	RefundOrder           *tradeUC.RefundOrderUseCase
 	WechatMP              *powerx.WechatMiniProgramUseCase
 	WechatOA              *powerx.WechatOfficialAccountUseCase
@@ -107,6 +108,7 @@ func NewPowerXUseCase(conf *config.Config) (uc *PowerXUseCase, clean func()) {
 	uc.Order = tradeUC.NewOrderUseCase(db)
 	uc.Payment = tradeUC.NewPaymentUseCase(db, conf)
 	uc.RefundOrder = tradeUC.NewRefundOrderUseCase(db)
+	uc.Logistics = tradeUC.NewLogisticsUseCase(db)
 
 	// 加载微信UseCase
 	//uc.WeWork = powerx.NewWeWorkUseCase(db, conf)
