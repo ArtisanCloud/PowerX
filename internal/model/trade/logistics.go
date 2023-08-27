@@ -26,3 +26,5 @@ const (
 	LogisticsStatusFailed    LogisticsStatus = "failed"     // 运输失败
 	LogisticsStatusReturned  LogisticsStatus = "returned"   // 已退回
 )
+
+const LogisticsUniqueId = powermodel.UniqueId

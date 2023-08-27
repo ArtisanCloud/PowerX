@@ -2786,7 +2786,7 @@ type OrderItem struct {
 	ListPrice        float64        `json:"listPrice,optional"`
 	SellingPrice     float64        `json:"sellingPrice,optional"`
 	CoverImage       *MediaResource `json:"coverImage,optional"`
-	ProdcutName      string         `json:"productName,optional"`
+	ProductName      string         `json:"productName,optional"`
 	SkuNo            string         `json:"skuNo,optional"`
 }
 
@@ -2808,6 +2808,7 @@ type Order struct {
 	CreatedAt      string       `json:"createdAt,optional,omitempty"`
 	OrderItems     []*OrderItem `json:"orderItems,optional"`
 	Payments       []*Payment   `json:"payments,optional"`
+	Logistics      *Logistics   `json:"logistics,optional"`
 }
 
 type ListOrdersPageRequest struct {
@@ -2848,10 +2849,10 @@ type ImportOrdersRequest struct {
 }
 
 type ImportOrdersReply struct {
-	Content  []byte `json:"content"`
-	FileName string `json:"fileName"`
-	FileSize int    `json:"fileSize"`
-	FileType string `json:"fileType"`
+	Total   int `json:"total"`
+	Failed  int `json:"failed"`
+	Ignored int `json:"ignored"`
+	Success int `json:"success"`
 }
 
 type CreateOrderRequest struct {
@@ -2894,6 +2895,15 @@ type DeleteOrderRequest struct {
 
 type DeleteOrderReply struct {
 	OrderId int64 `path:"id"`
+}
+
+type Logistics struct {
+	OrderId               int64  `json:"orderId,optional"`
+	Status                string `json:"status,optional"`
+	TrackingCode          string `json:"trackingCode,optional"`
+	Carrier               string `json:"carrier,optional"`
+	EstimatedDeliveryDate string `json:"estimatedDeliveryDate,optional"`
+	ActualDeliveryDate    string `json:"actualDeliveryDate,optional"`
 }
 
 type PaymentItem struct {

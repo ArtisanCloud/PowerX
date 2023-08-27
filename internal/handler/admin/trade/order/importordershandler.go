@@ -1,24 +1,22 @@
 package order
 
 import (
+	"PowerX/internal/model/trade"
 	"net/http"
 
 	"PowerX/internal/logic/admin/trade/order"
 	"PowerX/internal/svc"
-	"PowerX/internal/types"
 	"github.com/zeromicro/go-zero/rest/httpx"
 )
 
 func ImportOrdersHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var req types.ImportOrdersRequest
-		if err := httpx.Parse(r, &req); err != nil {
-			httpx.ErrorCtx(r.Context(), w, err)
-			return
-		}
-
 		l := order.NewImportOrdersLogic(r.Context(), svcCtx)
-		resp, err := l.ImportOrders(&req)
+
+		l.OrderStatusToBeShippedId = svcCtx.PowerX.DataDictionary.GetCachedDDId(r.Context(), trade.TypeOrderStatus, trade.OrderStatusToBeShipped)
+		l.OrderStatusShippingId = svcCtx.PowerX.DataDictionary.GetCachedDDId(r.Context(), trade.TypeOrderStatus, trade.OrderStatusShipping)
+
+		resp, err := l.ImportOrders(r)
 		if err != nil {
 			httpx.ErrorCtx(r.Context(), w, err)
 		} else {

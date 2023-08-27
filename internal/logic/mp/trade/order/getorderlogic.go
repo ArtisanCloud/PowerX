@@ -89,7 +89,7 @@ func TransformOrderItemToReplyForMP(orderItem *trade.OrderItem) (orderItemReply 
 		UnitPrice:        orderItem.UnitPrice,
 		ListPrice:        orderItem.ListPrice,
 		CoverImage:       mediaresource.TransformMediaResourceToReply(orderItem.CoverImage),
-		ProdcutName:      orderItem.ProductName,
+		ProductName:      orderItem.ProductName,
 		SkuNo:            orderItem.SkuNo,
 	}
 }

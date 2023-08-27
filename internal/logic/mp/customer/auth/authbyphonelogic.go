@@ -37,7 +37,7 @@ func (l *AuthByPhoneLogic) AuthByPhone(req *types.MPCustomerAuthRequest) (resp *
 		return nil, err
 	}
 	if rs.ErrCode != 0 {
-		return nil, errors.New(rs.ErrMSG)
+		return nil, errors.New(rs.ErrMsg)
 	}
 	//fmt2.DD(rs)
 	//req = &types.MPCustomerAuthRequest{

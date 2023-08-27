@@ -5,8 +5,8 @@ import (
 	"PowerX/internal/model/media"
 	"PowerX/internal/model/powermodel"
 	"PowerX/internal/model/product"
-	"github.com/ArtisanCloud/PowerLibs/v3/object"
 	"github.com/golang-module/carbon/v2"
+	"github.com/zeromicro/go-zero/core/stringx"
 	"time"
 )
 
@@ -29,7 +29,7 @@ type Order struct {
 	PaymentType    int       `gorm:"comment:支付方式" json:"paymentType"`
 	Type           int       `gorm:"comment:订单类型" json:"type"`
 	Status         int       `gorm:"comment:订单状态" json:"status"`
-	OrderNumber    string    `gorm:"comment:订单号" json:"orderNumber"`
+	OrderNumber    string    `gorm:"comment:订单号; index;unique" json:"orderNumber"`
 	UnitPrice      float64   `gorm:"type:decimal(10,2); comment:是实际交易价格" json:"unitPrice"`
 	ListPrice      float64   `gorm:"type:decimal(10,2); comment:是订单价格" json:"listPrice"`
 	Discount       float64   `gorm:"type:decimal(4,2); comment:折扣" json:"discount"`
@@ -113,5 +113,8 @@ type OrderStatusTransition struct {
 }
 
 func GenerateOrderNumber() string {
-	return "SO" + carbon.Now().Format("YmdHis") + object.QuickRandom(4)
+
+	//return "SO" + carbon.Now().Format("YmdHis") + object.QuickRandom(4)
+	return "SO" + carbon.Now().Format("YmdHis") + stringx.Randn(4)
+
 }

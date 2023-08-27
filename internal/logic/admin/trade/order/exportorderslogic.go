@@ -138,14 +138,18 @@ func (l *ExportOrdersLogic) ExportOrders(ctx context.Context, req *types.ExportO
 			if len(order.Items) > 0 {
 				orderType := ucDD.GetCachedDDById(ctx, order.Type).Name
 				orderStatus := ucDD.GetCachedDDById(ctx, order.Status).Name
-
+				orderRow := transformRowByOrder(order, orderType, orderStatus)
+				err := writer.Write(orderRow)
+				if err != nil {
+					log.Fatal("订单记录无法写入CSV行:", err)
+				}
 				for _, orderItem := range order.Items {
 
 					// 订单的基础信息
-					row := transformRowByOrder(order, orderItem, orderType, orderStatus)
-					err := writer.Write(row)
+					itemRows := transformRowByOrderItem(order, orderItem)
+					err := writer.Write(itemRows)
 					if err != nil {
-						log.Fatal("无法写入CSV行:", err)
+						log.Fatal("订单详细记录无法写入CSV行:", err)
 					}
 				}
 
@@ -205,8 +209,7 @@ func GetExportNameBy(from time.Time, to time.Time) string {
 	return "export_" + from.Format("20060102") + "_to_" + to.Format("20060102") + ".csv"
 }
 
-func transformRowByOrder(order *trade2.Order, orderItem *trade2.OrderItem, orderType string, orderStatus string) []string {
-
+func transformRowByOrder(order *trade2.Order, orderType string, orderStatus string) []string {
 	row := []string{
 		order.OrderNumber,
 	}
@@ -217,10 +220,7 @@ func transformRowByOrder(order *trade2.Order, orderItem *trade2.OrderItem, order
 		row = append(row, "")
 	}
 
-	row = append(row, orderItem.ProductName,
-		fmt2.Sprintf("%f", orderItem.UnitPrice),
-		orderItem.SkuNo,
-		fmt2.Sprintf("%d", orderItem.Quantity),
+	row = append(row, "", "", "", "",
 		orderType,
 		orderStatus,
 	)
@@ -248,6 +248,37 @@ func transformRowByOrder(order *trade2.Order, orderItem *trade2.OrderItem, order
 
 	// 订单生成时间
 	row = append(row, order.CreatedAt.String())
+
+	return row
+}
+
+func transformRowByOrderItem(order *trade2.Order, orderItem *trade2.OrderItem) []string {
+
+	// 订单号
+	row := []string{
+		"",
+	}
+
+	// 客户名称
+	row = append(row, "")
+
+	// 产品子项信息
+	row = append(row, orderItem.ProductName,
+		fmt2.Sprintf("%.2f", orderItem.UnitPrice),
+		orderItem.SkuNo,
+		fmt2.Sprintf("%d", orderItem.Quantity),
+		"",
+		"",
+	)
+
+	// 订单的收货信息
+	row = append(row, "", "", "")
+
+	// 订单的收货信息
+	row = append(row, "", "", "", "")
+
+	// 订单生成时间
+	row = append(row, orderItem.CreatedAt.String())
 
 	return row
 }

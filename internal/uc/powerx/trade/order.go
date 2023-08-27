@@ -28,13 +28,14 @@ func NewOrderUseCase(db *gorm.DB) *OrderUseCase {
 }
 
 type FindManyOrdersOption struct {
-	CustomerId int64
-	Status     []int
-	Type       []int
-	LikeName   string
-	OrderBy    string
-	StartAt    time.Time
-	EndAt      time.Time
+	CustomerId   int64
+	Status       []int
+	Type         []int
+	OrderNumbers []string
+	LikeName     string
+	OrderBy      string
+	StartAt      time.Time
+	EndAt        time.Time
 	types.PageEmbedOption
 }
 
@@ -46,6 +47,10 @@ func (uc *OrderUseCase) buildFindQueryNoPage(db *gorm.DB, opt *FindManyOrdersOpt
 
 	if opt.CustomerId > 0 {
 		db = db.Where("customer_id = ?", opt.CustomerId)
+	}
+
+	if len(opt.OrderNumbers) > 0 {
+		db = db.Where("order_number IN ?", opt.OrderNumbers)
 	}
 
 	if len(opt.Status) > 0 {
@@ -362,6 +367,25 @@ func (uc *OrderUseCase) MakeOrderItemFromCartItem(
 	subListTotal = orderItem.ListPrice * float64(orderItem.Quantity)
 
 	return orderItem, subUnitTotal, subListTotal
+}
+
+func (uc *OrderUseCase) UpsertOrderWithLogistic(ctx context.Context, order *trade.Order) (*trade.Order, error) {
+	orders := []*trade.Order{order}
+
+	err := uc.db.Transaction(func(tx *gorm.DB) error {
+
+		// 更新产品对象主体
+		_, err := uc.UpsertOrders(ctx, orders)
+		if err != nil {
+			return errors.Wrap(err, "upsert order failed")
+		}
+
+		err = powermodel.UpsertModelsOnUniqueID(tx, &trade.Logistics{}, trade.LogisticsUniqueId, order.Logistics, nil, false)
+
+		return err
+	})
+
+	return order, err
 }
 
 func (uc *OrderUseCase) UpsertOrder(ctx context.Context, order *trade.Order) (*trade.Order, error) {
