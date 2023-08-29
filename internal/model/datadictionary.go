@@ -79,7 +79,7 @@ type PivotDataDictionaryToObject struct {
 	DataDictionaryItem *DataDictionaryItem `gorm:"foreignKey:DataDictionaryType,DataDictionaryKey;references:Type,Key" json:"dataDictionaryItem"`
 
 	ObjectType         string `gorm:"column:object_type; not null;index:idx_obj_type;comment:对象表名称" json:"objectOwner"`
-	ObjectID           int64  `gorm:"column:object_id; not null;index:idx_obj_id;comment:对象Id" json:"objectId"`
+	ObjectId           int64  `gorm:"column:object_id; not null;index:idx_obj_id;comment:对象Id" json:"objectId"`
 	DataDictionaryType string `gorm:"column:data_dictionary_type; not null;index:idx_dd_type;comment:数据字典数据项type" json:"dataDictionaryType"`
 	DataDictionaryKey  string `gorm:"column:data_dictionary_key; not null;index:idx_dd_key;comment:数据字典数据项key" json:"dataDictionaryKey"`
 }
@@ -101,7 +101,7 @@ func (mdl *PivotDataDictionaryToObject) GetForeignKey() string {
 	return PivotDataDictionaryToObjectForeignKey
 }
 func (mdl *PivotDataDictionaryToObject) GetForeignValue() int64 {
-	return mdl.ObjectID
+	return mdl.ObjectId
 }
 
 func (mdl *PivotDataDictionaryToObject) GetPivotComposedUniqueID() string {
@@ -135,7 +135,7 @@ func (mdl *PivotDataDictionaryToObject) MakeMorphPivotsFromObjectToDDs(obj power
 	for _, dd := range dds {
 		pivot := &PivotDataDictionaryToObject{
 			ObjectType:         obj.GetTableName(false),
-			ObjectID:           obj.GetForeignReferValue(),
+			ObjectId:           obj.GetForeignReferValue(),
 			DataDictionaryType: dd.Type,
 			DataDictionaryKey:  dd.Key,
 		}
@@ -155,6 +155,7 @@ func GetItemIds(items []*PivotDataDictionaryToObject) []int64 {
 	for _, item := range items {
 		if item.DataDictionaryItem != nil && !uniqueIds[item.DataDictionaryItem.Id] {
 			arrayIds = append(arrayIds, item.DataDictionaryItem.Id)
+			uniqueIds[item.DataDictionaryItem.Id] = true
 		}
 	}
 	return arrayIds

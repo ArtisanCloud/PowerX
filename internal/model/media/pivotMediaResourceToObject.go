@@ -22,7 +22,7 @@ type PivotMediaResourceToObject struct {
 	// 所属键 owner key and value
 	ObjectType string `gorm:"column:object_type; not null;index:idx_obj_type;comment:对象表名称" json:"objectOwner"`
 	// 外键foreign key and value
-	ObjectID int64 `gorm:"column:object_id; not null;index:idx_obj_id;comment:对象Id" json:"objectId"`
+	ObjectId int64 `gorm:"column:object_id; not null;index:idx_obj_id;comment:对象Id" json:"objectId"`
 	// 引用键 join key and value
 	MediaResourceId int64 `gorm:"column:media_id; not null;index:idx_media_id;comment:媒体资源Id" json:"dataDictionaryType"`
 
@@ -49,7 +49,7 @@ func (mdl *PivotMediaResourceToObject) GetForeignKey() string {
 	return PivotMediaResourceToObjectForeignKey
 }
 func (mdl *PivotMediaResourceToObject) GetForeignValue() int64 {
-	return mdl.ObjectID
+	return mdl.ObjectId
 }
 
 func (mdl *PivotMediaResourceToObject) GetJoinKey() string {
@@ -90,7 +90,7 @@ func (mdl *PivotMediaResourceToObject) MakeMorphPivotsFromObjectToMediaResources
 	for _, mediaResource := range mediaResources {
 		pivot := &PivotMediaResourceToObject{
 			ObjectType:      obj.GetTableName(false),
-			ObjectID:        obj.GetForeignReferValue(),
+			ObjectId:        obj.GetForeignReferValue(),
 			MediaResourceId: mediaResource.Id,
 			MediaUsage:      mediaUsage,
 		}

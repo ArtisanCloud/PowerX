@@ -1,0 +1,129 @@
+syntax = "v1"
+
+info(
+    title: "标签"
+    desc: "标签"
+    author: "MichaelHu"
+    email: "matrix-x@artisan-cloud.com"
+    version: "v1"
+)
+
+
+@server(
+    group: admin/tag
+    prefix: /api/v1/admin/tags
+    middleware: EmployeeJWTAuth
+)
+
+service PowerX {
+    @doc "查询标签列表"
+    @handler ListTagTree
+    get /tag-tree (ListTagTreeRequest) returns (ListTagTreeReply)
+
+    @doc "查询标签详情"
+    @handler GetTag
+    get /:id (GetTagRequest) returns (GetTagReply)
+
+
+    @doc "创新标签"
+    @handler CreateTag
+    post / (CreateTagRequest) returns (CreateTagReply)
+
+    @doc "修改标签"
+    @handler UpdateTag
+    put /:id (UpdateTagRequest) returns (UpdateTagReply)
+
+
+    @doc "修改标签父级"
+    @handler PatchTag
+    patch /:id (PatchTagRequest) returns (PatchTagReply)
+
+
+    @doc "删除标签"
+    @handler DeleteTag
+    delete /:id (DeleteTagRequest) returns (DeleteTagReply)
+}
+
+type (
+
+    Tag {
+        Id int64 `json:"id,optional"`
+        PId int64 `json:"pId"`
+        Name string `json:"name"`
+        Sort int `json:"sort"`
+        ViceName string `json:"viceName"`
+        Description string `json:"description"`
+        CreatedAt string `json:"createdAt,optional"`
+        CoverImageId int64 `json:"coverImageId,optional"`
+        CoverImage *MediaResource `json:"coverImage,optional"`
+        Children []*Tag `json:"children,optional"`
+    }
+)
+type (
+    ListTagTreeRequest struct {
+        TagPId int `form:"tagPId,optional"`
+        NeedChildren bool `form:"needChildren,optional"`
+        Names []string `form:"name,optional"`
+        OrderBy string `form:"orderBy,optional"`
+    }
+
+
+    ListTagTreeReply struct {
+        Tags []*Tag `json:"tree"`
+    }
+)
+
+
+type (
+    CreateTagRequest struct {
+        Tag
+    }
+
+    CreateTagReply struct {
+        *Tag
+    }
+)
+
+type (
+    UpdateTagRequest struct {
+        Id int64 `path:"id"`
+        Tag
+    }
+    UpdateTagReply struct {
+        Id int64 `json:"id"`
+    }
+)
+
+type (
+    PatchTagRequest struct {
+        Id int64 `path:"id"`
+        PId int64 `json:"pId"`
+    }
+
+    PatchTagReply struct {
+        Tag
+    }
+)
+
+type (
+    GetTagRequest struct {
+        TagId int64 `path:"id"`
+    }
+
+    GetTagReply struct {
+        *Tag
+    }
+)
+
+
+type (
+    DeleteTagRequest struct {
+        Id int64 `path:"id"`
+    }
+
+    DeleteTagReply struct {
+        Id int64 `json:"id"`
+    }
+)
+
+
