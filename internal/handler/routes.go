@@ -32,6 +32,7 @@ import (
 	adminscrmqrcode "PowerX/internal/handler/admin/scrm/qrcode"
 	adminscrmresource "PowerX/internal/handler/admin/scrm/resource"
 	adminscrmtag "PowerX/internal/handler/admin/scrm/tag"
+	admintag "PowerX/internal/handler/admin/tag"
 	admintradeaddressbilling "PowerX/internal/handler/admin/trade/address/billing"
 	admintradeaddressdelivery "PowerX/internal/handler/admin/trade/address/delivery"
 	admintradeaddressshipping "PowerX/internal/handler/admin/trade/address/shipping"
@@ -368,6 +369,45 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			}...,
 		),
 		rest.WithPrefix("/api/v1/admin/user-center"),
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Route{
+				{
+					Method:  http.MethodGet,
+					Path:    "/tag-tree",
+					Handler: admintag.ListTagTreeHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/:id",
+					Handler: admintag.GetTagHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/",
+					Handler: admintag.CreateTagHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPut,
+					Path:    "/:id",
+					Handler: admintag.UpdateTagHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPatch,
+					Path:    "/:id",
+					Handler: admintag.PatchTagHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodDelete,
+					Path:    "/:id",
+					Handler: admintag.DeleteTagHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithPrefix("/api/v1/admin/tags"),
 	)
 
 	server.AddRoutes(

@@ -24,14 +24,13 @@ func NewListWeWorkTagGroupPageLogic(ctx context.Context, svcCtx *svc.ServiceCont
 	}
 }
 
-//
 // ListWeWorkTagGroupPage
-//  @Description: 标签组分页
-//  @receiver group
-//  @param req
-//  @return resp
-//  @return err
 //
+//	@Description: 标签组分页
+//	@receiver group
+//	@param req
+//	@return resp
+//	@return err
 func (group *ListWeWorkTagGroupPageLogic) ListWeWorkTagGroupPage(opt *types.ListWeWorkTagGroupPageRequest) (resp *types.ListWeWorkTagGroupPageReply, err error) {
 
 	reply, err := group.svcCtx.PowerX.SCRM.Wechat.FindListWeWorkTagGroupPage(group.OPT(opt))
@@ -45,13 +44,10 @@ func (group *ListWeWorkTagGroupPageLogic) ListWeWorkTagGroupPage(opt *types.List
 
 }
 
-//
-//
-//  @Description:
-//  @receiver group
-//  @param opt
-//  @return *types.PageOption[types.ListWeWorkTagGroupPageRequest]
-//
+// @Description:
+// @receiver group
+// @param opt
+// @return *types.PageOption[types.ListWeWorkTagGroupPageRequest]
 func (group *ListWeWorkTagGroupPageLogic) OPT(opt *types.ListWeWorkTagGroupPageRequest) *types.PageOption[types.ListWeWorkTagGroupPageRequest] {
 
 	option := types.PageOption[types.ListWeWorkTagGroupPageRequest]{
@@ -67,13 +63,12 @@ func (group *ListWeWorkTagGroupPageLogic) OPT(opt *types.ListWeWorkTagGroupPageR
 	return &option
 }
 
-//
 // DTO
-//  @Description:
-//  @receiver group
-//  @param datas
-//  @return groups
 //
+//	@Description:
+//	@receiver group
+//	@param datas
+//	@return groups
 func (group *ListWeWorkTagGroupPageLogic) DTO(datas []*tag.WeWorkTagGroup) (groups []*types.GroupWithTag) {
 
 	if datas == nil {
@@ -90,20 +85,19 @@ func (group *ListWeWorkTagGroupPageLogic) DTO(datas []*tag.WeWorkTagGroup) (grou
 
 }
 
-//
 // tags
-//  @Description:
-//  @receiver group
-//  @param datas
-//  @return tags
 //
-func (group *ListWeWorkTagGroupPageLogic) tags(datas []*tag.WeWorkTag) (tags []*types.Tag) {
+//	@Description:
+//	@receiver group
+//	@param datas
+//	@return tags
+func (group *ListWeWorkTagGroupPageLogic) tags(datas []*tag.WeWorkTag) (tags []*types.WeWorkTag) {
 
 	if datas == nil {
 		return tags
 	}
 	for _, data := range datas {
-		tags = append(tags, &types.Tag{
+		tags = append(tags, &types.WeWorkTag{
 			IsSelf: data.IsSelf,
 			TagId:  data.TagId,
 			Name:   data.Name,

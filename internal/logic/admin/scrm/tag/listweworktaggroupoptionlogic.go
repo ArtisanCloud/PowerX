@@ -23,13 +23,12 @@ func NewListWeWorkTagGroupOptionLogic(ctx context.Context, svcCtx *svc.ServiceCo
 	}
 }
 
-//
 // ListWeWorkTagGroupOption
-//  @Description:
-//  @receiver group
-//  @return resp
-//  @return err
 //
+//	@Description:
+//	@receiver group
+//	@return resp
+//	@return err
 func (group *ListWeWorkTagGroupOptionLogic) ListWeWorkTagGroupOption() (resp *types.ListWeWorkTagGroupReply, err error) {
 
 	reply, _ := group.svcCtx.PowerX.SCRM.Wechat.FindListWeWorkTagGroupOption()
@@ -40,18 +39,17 @@ func (group *ListWeWorkTagGroupOptionLogic) ListWeWorkTagGroupOption() (resp *ty
 
 }
 
-//
 // DTO
-//  @Description:
-//  @receiver group
-//  @param groups
-//  @return obj
 //
-func (group *ListWeWorkTagGroupOptionLogic) DTO(groups []*tag.WeWorkTagGroup) (obj []*types.TagGroup) {
+//	@Description:
+//	@receiver group
+//	@param groups
+//	@return obj
+func (group *ListWeWorkTagGroupOptionLogic) DTO(groups []*tag.WeWorkTagGroup) (obj []*types.WeWorkTagGroup) {
 
 	if groups != nil {
 		for _, g := range groups {
-			obj = append(obj, &types.TagGroup{
+			obj = append(obj, &types.WeWorkTagGroup{
 				GroupId:   g.GroupId,
 				GroupName: g.Name,
 			})

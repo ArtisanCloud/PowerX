@@ -24,13 +24,12 @@ func NewListWeWorkTagOptionLogic(ctx context.Context, svcCtx *svc.ServiceContext
 	}
 }
 
-//
 // ListWeWorkTagOption
-//  @Description:
-//  @receiver tag
-//  @return resp
-//  @return err
 //
+//	@Description:
+//	@receiver tag
+//	@return resp
+//	@return err
 func (tag *ListWeWorkTagOptionLogic) ListWeWorkTagOption() (resp *types.ListWeWorkTagOptionReply, err error) {
 
 	reply, err := tag.svcCtx.PowerX.SCRM.Wechat.FindListWeWorkTagOption()
@@ -39,21 +38,20 @@ func (tag *ListWeWorkTagOptionLogic) ListWeWorkTagOption() (resp *types.ListWeWo
 	}, err
 }
 
-//
 // DTO
-//  @Description:
-//  @receiver tag
-//  @param opt
-//  @return tags
 //
-func (tag *ListWeWorkTagOptionLogic) DTO(opt []*tag.WeWorkTag) (tags map[string]*types.Tag) {
+//	@Description:
+//	@receiver tag
+//	@param opt
+//	@return tags
+func (tag *ListWeWorkTagOptionLogic) DTO(opt []*tag.WeWorkTag) (tags map[string]*types.WeWorkTag) {
 
-	tags = make(map[string]*types.Tag)
+	tags = make(map[string]*types.WeWorkTag)
 	if opt == nil {
 		return nil
 	}
 	for _, val := range opt {
-		tags[val.TagId] = &types.Tag{
+		tags[val.TagId] = &types.WeWorkTag{
 			Type:      val.Type,
 			TagId:     val.TagId,
 			GroupId:   val.GroupId,
