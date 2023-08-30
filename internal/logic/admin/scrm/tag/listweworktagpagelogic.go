@@ -77,11 +77,11 @@ func (tag *ListWeWorkTagPageLogic) OPT(opt *types.ListWeWorkTagReqeust) *types.P
 //	@receiver tag
 //	@param tags
 //	@return obj
-func (tag *ListWeWorkTagPageLogic) DTO(tags []*tag.WeWorkTag) (obj []*types.Tag) {
+func (tag *ListWeWorkTagPageLogic) DTO(tags []*tag.WeWorkTag) (obj []*types.WeWorkTag) {
 
 	if tags != nil {
 		for _, val := range tags {
-			obj = append(obj, &types.Tag{
+			obj = append(obj, &types.WeWorkTag{
 				Type:      val.Type,
 				IsSelf:    val.IsSelf,
 				TagId:     val.TagId,

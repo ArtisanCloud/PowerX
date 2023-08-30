@@ -627,6 +627,72 @@ type ModifyPasswordReqeust struct {
 	Password string `json:"password"`
 }
 
+type Tag struct {
+	Id           int64          `json:"id,optional"`
+	PId          int64          `json:"pId"`
+	Name         string         `json:"name"`
+	Sort         int            `json:"sort"`
+	ViceName     string         `json:"viceName"`
+	Description  string         `json:"description"`
+	CreatedAt    string         `json:"createdAt,optional"`
+	CoverImageId int64          `json:"coverImageId,optional"`
+	CoverImage   *MediaResource `json:"coverImage,optional"`
+	Children     []*Tag         `json:"children,optional"`
+}
+
+type ListTagTreeRequest struct {
+	TagPId       int      `form:"tagPId,optional"`
+	NeedChildren bool     `form:"needChildren,optional"`
+	Names        []string `form:"name,optional"`
+	OrderBy      string   `form:"orderBy,optional"`
+}
+
+type ListTagTreeReply struct {
+	Tags []*Tag `json:"tree"`
+}
+
+type CreateTagRequest struct {
+	Tag
+}
+
+type CreateTagReply struct {
+	*Tag
+}
+
+type UpdateTagRequest struct {
+	Id int64 `path:"id"`
+	Tag
+}
+
+type UpdateTagReply struct {
+	Id int64 `json:"id"`
+}
+
+type PatchTagRequest struct {
+	Id  int64 `path:"id"`
+	PId int64 `json:"pId"`
+}
+
+type PatchTagReply struct {
+	Tag
+}
+
+type GetTagRequest struct {
+	TagId int64 `path:"id"`
+}
+
+type GetTagReply struct {
+	*Tag
+}
+
+type DeleteTagRequest struct {
+	Id int64 `path:"id"`
+}
+
+type DeleteTagReply struct {
+	Id int64 `json:"id"`
+}
+
 type LeadExternalId struct {
 	OpenIdInMiniProgram           string `json:"openIdInMiniProgram,optional"`
 	OpenIdInWeChatOfficialAccount string `json:"openIdInWeChatOfficialAccount,optional"`
@@ -2537,9 +2603,9 @@ type ListWeWorkTagGroupPageReply struct {
 }
 
 type GroupWithTag struct {
-	GroupId   string `json:"groupId"`
-	GroupName string `json:"groupName"`
-	Tags      []*Tag `json:"tags"`
+	GroupId   string       `json:"groupId"`
+	GroupName string       `json:"groupName"`
+	Tags      []*WeWorkTag `json:"tags"`
 }
 
 type ListWeWorkTagReqeust struct {
@@ -2556,17 +2622,17 @@ type StatusWeWorkReply struct {
 }
 
 type ListWeWorkTagReply struct {
-	List      []*Tag `json:"list"`
-	PageIndex int    `json:"pageIndex"`
-	PageSize  int    `json:"pageSize"`
-	Total     int64  `json:"total"`
+	List      []*WeWorkTag `json:"list"`
+	PageIndex int          `json:"pageIndex"`
+	PageSize  int          `json:"pageSize"`
+	Total     int64        `json:"total"`
 }
 
 type ListWeWorkTagOptionReply struct {
 	List interface{} `json:"list"`
 }
 
-type Tag struct {
+type WeWorkTag struct {
 	Type      int    `json:"type,omitempty"`
 	IsSelf    int    `json:"isSelf"` //1：自建
 	TagId     string `json:"tagId"`
@@ -2577,10 +2643,10 @@ type Tag struct {
 }
 
 type ListWeWorkTagGroupReply struct {
-	List []*TagGroup `json:"list"`
+	List []*WeWorkTagGroup `json:"list"`
 }
 
-type TagGroup struct {
+type WeWorkTagGroup struct {
 	GroupId   string `json:"groupId"`
 	GroupName string `json:"groupName"`
 }

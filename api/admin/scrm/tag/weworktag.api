@@ -72,7 +72,7 @@ type (
     GroupWithTag {
         GroupId string `json:"groupId"`
         GroupName string `json:"groupName"`
-        Tags []*Tag `json:"tags"`
+        Tags []*WeWorkTag `json:"tags"`
     }
 )
 
@@ -91,7 +91,7 @@ type (
     }
 
     ListWeWorkTagReply {
-        List []*Tag `json:"list"`
+        List []*WeWorkTag `json:"list"`
         PageIndex int `json:"pageIndex"`
         PageSize int `json:"pageSize"`
         Total int64 `json:"total"`
@@ -100,7 +100,7 @@ type (
     ListWeWorkTagOptionReply {
         List interface{} `json:"list"`
     }
-    Tag {
+    WeWorkTag {
         Type int `json:"type,omitempty"`
         IsSelf int `json:"isSelf"` //1：自建
         TagId string `json:"tagId"`
@@ -111,12 +111,12 @@ type (
     }
 
     ListWeWorkTagGroupReply {
-        List []*TagGroup `json:"list"`
+        List []*WeWorkTagGroup `json:"list"`
     }
 
 
 
-    TagGroup {
+    WeWorkTagGroup {
         GroupId string `json:"groupId"`
         GroupName string `json:"groupName"`
     }
