@@ -19,6 +19,9 @@ type PivotStoreToArtisan struct {
 
 const TableNamePivotStoreToArtisan = "pivot_store_to_artisan"
 
+const PivotStoreToArtisanForeignKey = "store_id"
+const PivotStoreToArtisanJoinKey = "artisan_id"
+
 func GetStoreIds(pivots []*PivotStoreToArtisan) (storeIds []int64) {
 	storeIds = []int64{}
 	for _, pivot := range pivots {

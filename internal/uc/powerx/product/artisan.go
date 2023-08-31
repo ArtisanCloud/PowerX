@@ -1,6 +1,7 @@
 package product
 
 import (
+	"PowerX/internal/model/market"
 	"PowerX/internal/model/media"
 	"PowerX/internal/model/powermodel"
 	"PowerX/internal/model/product"
@@ -201,4 +202,35 @@ func (uc *ArtisanUseCase) ClearAssociations(db *gorm.DB, artisan *product.Artisa
 	}
 
 	return artisan, err
+}
+
+func (uc *ArtisanUseCase) BindArtisansToStores(ctx context.Context, artisans []*product.Artisan, stores []*market.Store) (err error) {
+
+	err = uc.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		for _, artisan := range artisans {
+			err = artisan.ClearPivotStores(tx)
+			if err != nil {
+				return err
+			}
+			pivots := market.MakePivotsFromArtisansToStores([]*product.Artisan{artisan}, stores)
+			if err := tx.Model(&product.PivotStoreToArtisan{}).Create(&pivots).Error; err != nil {
+				return errors.Wrap(err, "创建绑定元匠和门店关系失败")
+			}
+		}
+
+		return err
+	})
+	return err
+}
+
+func (uc *ArtisanUseCase) BindArtisanToStore(ctx context.Context, artisan *product.Artisan, store *market.Store) (err error) {
+
+	db := uc.db.WithContext(ctx)
+
+	pivots := market.MakePivotsFromArtisansToStores([]*product.Artisan{artisan}, []*market.Store{store})
+	if err = db.Model(&product.PivotStoreToArtisan{}).Create(&pivots).Error; err != nil {
+		return errors.Wrap(err, "创建绑定元匠和门店关系失败")
+	}
+
+	return nil
 }

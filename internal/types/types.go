@@ -1754,6 +1754,15 @@ type DeleteArtisanReply struct {
 	ArtisanId int64 `json:"id"`
 }
 
+type BindArtisansToStoresRequest struct {
+	ArtisanIds []int64 `json:"artisanIds"`
+	StoreId    []int64 `json:"storeIds"`
+}
+
+type BindArtisansToStoresReply struct {
+	Pivot []int64 `json:"pivots"`
+}
+
 type ShippingAddress struct {
 	Id           int64  `json:"id,optional"`
 	CustomerId   int64  `json:"customerId,optional"`

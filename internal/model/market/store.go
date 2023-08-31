@@ -70,3 +70,31 @@ func (mdl *Store) ClearPivotDetailImages(db *gorm.DB) error {
 	(*conditions)[media.PivotMediaResourceToObjectForeignKey] = mdl.Id
 	return powermodel.ClearMorphPivots(db, &media.PivotMediaResourceToObject{}, false, false, conditions)
 }
+
+func MakePivotsFromArtisansToStores(artisans []*product.Artisan, stores []*Store) []*product.PivotStoreToArtisan {
+	pivots := []*product.PivotStoreToArtisan{}
+	for _, artisan := range artisans {
+		for _, store := range stores {
+			pivot := &product.PivotStoreToArtisan{
+				ArtisanId: artisan.Id,
+				StoreId:   store.Id,
+			}
+			pivots = append(pivots, pivot)
+		}
+	}
+	return pivots
+}
+
+func MakePivotsFromArtisanIdsToStoreIds(artisanIds []int64, storeIds []int64) []*product.PivotStoreToArtisan {
+	pivots := []*product.PivotStoreToArtisan{}
+	for _, artisanId := range artisanIds {
+		for _, storeId := range storeIds {
+			pivot := &product.PivotStoreToArtisan{
+				ArtisanId: artisanId,
+				StoreId:   storeId,
+			}
+			pivots = append(pivots, pivot)
+		}
+	}
+	return pivots
+}

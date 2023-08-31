@@ -39,20 +39,14 @@ service PowerX {
     @handler DeleteArtisan
     delete /artisans/:id (DeleteArtisanRequest) returns (DeleteArtisanReply)
 
+    @doc "元匠绑定门店"
+    @handler BindArtisanToStore
+    post /artisans/bind/stores (BindArtisansToStoresRequest) returns (BindArtisansToStoresReply)
+
 
 }
 
 type (
-//    ArtisanImage {
-//        Id int64 `json:"id,optional"`
-//        Filename string `json:"filename,optional"`
-//        Size int64 `json:"size,optional"`
-//        Url string `json:"url,optional"`
-//        BucketName string `json:"bucketName,optional"`
-//        IsLocalStored bool `json:"isLocalStored,optional"`
-//        ContentType string `json:"contentType,optional"`
-//        ResourceType string `json:"resourceType,optional"`
-//    }
 
     Artisan {
         Id int64 `json:"id,optional"`
@@ -138,4 +132,18 @@ type (
         ArtisanId int64 `json:"id"`
     }
 )
+
+
+type (
+
+    BindArtisansToStoresRequest struct {
+        ArtisanIds []int64 `json:"artisanIds"`
+        StoreId []int64 `json:"storeIds"`
+    }
+
+    BindArtisansToStoresReply struct {
+        pivotIds []int64 `json:"pivotIds"`
+    }
+)
+
 

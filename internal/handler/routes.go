@@ -902,6 +902,11 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 					Path:    "/artisans/:id",
 					Handler: adminproductartisan.DeleteArtisanHandler(serverCtx),
 				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/artisans/bind/stores",
+					Handler: adminproductartisan.BindArtisanToStoreHandler(serverCtx),
+				},
 			}...,
 		),
 		rest.WithPrefix("/api/v1/admin/product"),
