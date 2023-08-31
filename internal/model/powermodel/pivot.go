@@ -270,7 +270,7 @@ func UpdatePivot(db *gorm.DB, pivot PivotInterface) error {
 // clear all pivots with foreign key and value
 func ClearPivots(db *gorm.DB, pivot PivotInterface, byForeignKey bool, byJoinKey bool, where *map[string]interface{}) (err error) {
 
-	return ClearMorphPivots(db, pivot, true, false, where)
+	return ClearMorphPivots(db, pivot, byForeignKey, byJoinKey, where)
 
 }
 

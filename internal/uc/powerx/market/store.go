@@ -24,6 +24,7 @@ func NewStoreUseCase(db *gorm.DB) *StoreUseCase {
 
 type FindManyStoresOption struct {
 	LikeName string
+	Ids      []int64
 	OrderBy  string
 	types.PageEmbedOption
 }
@@ -32,6 +33,10 @@ func (uc *StoreUseCase) buildFindQueryNoPage(db *gorm.DB, opt *FindManyStoresOpt
 
 	if opt.LikeName != "" {
 		db = db.Where("name LIKE ?", "%"+opt.LikeName+"%")
+	}
+
+	if len(opt.Ids) > 0 {
+		db = db.Where("id in ?", opt.Ids)
 	}
 
 	orderBy := "id desc"
@@ -66,14 +71,17 @@ func (uc *StoreUseCase) FindAllShops(ctx context.Context, opt *FindManyStoresOpt
 }
 
 func (uc *StoreUseCase) FindManyStores(ctx context.Context, opt *FindManyStoresOption) (pageList types.Page[*model.Store], err error) {
-	opt.DefaultPageIfNotSet()
+
 	var stores []*model.Store
 	db := uc.db.WithContext(ctx).Model(&model.Store{})
 
 	db = uc.buildFindQueryNoPage(db, opt)
 
 	var count int64
-	if err := db.Count(&count).Error; err != nil {
+	if err := db.
+		//Debug().
+		Count(&count).
+		Error; err != nil {
 		panic(err)
 	}
 

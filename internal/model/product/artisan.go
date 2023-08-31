@@ -66,3 +66,9 @@ func (mdl *Artisan) ClearPivotDetailImages(db *gorm.DB) error {
 	(*conditions)[media.PivotMediaResourceToObjectForeignKey] = mdl.Id
 	return powermodel.ClearMorphPivots(db, &media.PivotMediaResourceToObject{}, false, false, conditions)
 }
+
+func (mdl *Artisan) ClearPivotStores(db *gorm.DB) error {
+	conditions := &map[string]interface{}{}
+	(*conditions)[PivotStoreToArtisanJoinKey] = mdl.Id
+	return powermodel.ClearPivots(db, &PivotStoreToArtisan{}, false, false, conditions)
+}
