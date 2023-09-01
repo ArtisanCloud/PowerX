@@ -19,7 +19,7 @@ type PivotObjectToTag struct {
 	Tag *Tag `gorm:"foreignKey:TagId,DataDictionaryKey;references:Id" json:"tag"`
 
 	ObjectType string `gorm:"column:object_type; not null;index:idx_obj_type;comment:对象表名称" json:"objectOwner"`
-	ObjectId   int64  `gorm:"column:object_id; not null;index:idx_object_id" json:"objectId"`
+	ObjectID   int64  `gorm:"column:object_id; not null;index:idx_object_id" json:"objectId"`
 	TagId      int64  `gorm:"column:tag_id; not null;index:idx_tag_id" json:"tagId"`
 }
 
@@ -42,7 +42,7 @@ func (mdl *PivotObjectToTag) GetForeignKey() string {
 	return PivotObjectToTagForeignKey
 }
 func (mdl *PivotObjectToTag) GetForeignValue() int64 {
-	return mdl.ObjectId
+	return mdl.ObjectID
 }
 
 func (mdl *PivotObjectToTag) GetJoinKey() string {
@@ -85,7 +85,7 @@ func (mdl *PivotObjectToTag) MakeMorphPivotsFromObjectToDDs(obj powermodel.Model
 	for _, tag := range tags {
 		pivot := &PivotObjectToTag{
 			ObjectType: obj.GetTableName(false),
-			ObjectId:   obj.GetForeignReferValue(),
+			ObjectID:   obj.GetForeignReferValue(),
 			TagId:      tag.Id,
 		}
 		//pivot.UniqueID = pivot.GetPivotComposedUniqueID()

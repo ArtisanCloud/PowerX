@@ -30,7 +30,7 @@ type PowerOperationLog struct {
 	Event         *int8   `gorm:"column:event" json:"event"`
 	ObjectName    *string `gorm:"column:objectName" json:"objectName"`
 	ObjectTable   *string `gorm:"column:objectTable" json:"objectTable"`
-	ObjectId      *int64  `gorm:"column:objectID;index" json:"objectId"`
+	ObjectID      *int64  `gorm:"column:objectID;index" json:"objectId"`
 	Result        *int8   `gorm:"column:result" json:"result"`
 }
 
@@ -53,7 +53,7 @@ func NewPowerOperationLog(mapObject *object.Collection) *PowerOperationLog {
 		Event:         mapObject.GetInt8Pointer("event", 0),
 		ObjectName:    mapObject.GetStringPointer("objectName", ""),
 		ObjectTable:   mapObject.GetStringPointer("objectTable", ""),
-		ObjectId:      mapObject.GetInt64Pointer("objectId", 0),
+		ObjectID:      mapObject.GetInt64Pointer("objectId", 0),
 		Result:        mapObject.GetInt8Pointer("result", 0),
 	}
 }
@@ -97,7 +97,7 @@ func (mdl *PowerOperationLog) SaveOps(db *gorm.DB,
 		Event:         &event,
 		ObjectName:    &objectName,
 		ObjectTable:   &objectTable,
-		ObjectId:      &objectID,
+		ObjectID:      &objectID,
 		Result:        &result,
 	}
 
