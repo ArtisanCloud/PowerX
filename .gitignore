@@ -22,10 +22,10 @@ etc/powerx.yaml
 /app1
 /ctl
 ./powerx.go
-powerx
+./powerxctl
+./powerx
 #!internal/uc/powerx
 #!cmd/server/powerx.go
-powerxctl
 
 /deploy/
 /powerx.go
