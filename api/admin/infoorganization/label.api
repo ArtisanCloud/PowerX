@@ -1,0 +1,130 @@
+syntax = "v1"
+
+info(
+    title: "框架标签"
+    desc: "框架标签"
+    author: "MichaelHu"
+    email: "matrix-x@artisan-cloud.com"
+    version: "v1"
+)
+
+
+@server(
+    group: admin/infoorganization/label
+    prefix: /api/v1/admin/info-organization
+    middleware: EmployeeJWTAuth
+)
+
+service PowerX {
+    @doc "查询框架标签列表"
+    @handler ListLabelTree
+    get /label-tree (ListLabelTreeRequest) returns (ListLabelTreeReply)
+
+    @doc "查询框架标签详情"
+    @handler GetLabel
+    get /labels/:id (GetLabelRequest) returns (GetLabelReply)
+
+
+    @doc "创新框架标签"
+    @handler CreateLabel
+    post /labels (CreateLabelRequest) returns (CreateLabelReply)
+
+    @doc "修改框架标签"
+    @handler UpdateLabel
+    put /labels/:id (UpdateLabelRequest) returns (UpdateLabelReply)
+
+
+    @doc "修改框架标签父级"
+    @handler PatchLabel
+    patch /labels/:id (PatchLabelRequest) returns (PatchLabelReply)
+
+
+    @doc "删除框架标签"
+    @handler DeleteLabel
+    delete /labels/:id (DeleteLabelRequest) returns (DeleteLabelReply)
+}
+
+type (
+
+    Label {
+        Id int64 `json:"id,optional"`
+        PId int64 `json:"pId"`
+        Name string `json:"name"`
+        Sort int `json:"sort"`
+        ViceName string `json:"viceName"`
+        Description string `json:"description"`
+        CreatedAt string `json:"createdAt,optional"`
+        ImageAbleInfo
+        CoverImageId int64 `json:"coverImageId,optional"`
+        CoverImage *MediaResource `json:"coverImage,optional"`
+        Children []*Label `json:"children,optional"`
+    }
+)
+type (
+    ListLabelTreeRequest struct {
+        LabelPId int `form:"labelPId,optional"`
+        NeedChildren bool `form:"needChildren,optional"`
+        Names []string `form:"name,optional"`
+        OrderBy string `form:"orderBy,optional"`
+    }
+
+
+    ListLabelTreeReply struct {
+        ProductCategories []*Label `json:"tree"`
+    }
+)
+
+
+type (
+    CreateLabelRequest struct {
+        Label
+    }
+
+    CreateLabelReply struct {
+        *Label
+    }
+)
+
+type (
+    UpdateLabelRequest struct {
+        Id int64 `path:"id"`
+        Label
+    }
+    UpdateLabelReply struct {
+        Id int64 `json:"id"`
+    }
+)
+
+type (
+    PatchLabelRequest struct {
+        Id int64 `path:"id"`
+        PId int64 `json:"pId"`
+    }
+
+    PatchLabelReply struct {
+        Label
+    }
+)
+
+type (
+    GetLabelRequest struct {
+        LabelId int64 `path:"id"`
+    }
+
+    GetLabelReply struct {
+        *Label
+    }
+)
+
+
+type (
+    DeleteLabelRequest struct {
+        Id int64 `path:"id"`
+    }
+
+    DeleteLabelReply struct {
+        Id int64 `json:"id"`
+    }
+)
+
+

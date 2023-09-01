@@ -5,6 +5,7 @@ import (
 	"PowerX/internal/config"
 	"PowerX/internal/model"
 	"PowerX/internal/model/customerdomain"
+	infoorganizatoin "PowerX/internal/model/infoorganization"
 	"PowerX/internal/model/market"
 	"PowerX/internal/model/media"
 	"PowerX/internal/model/membership"
@@ -50,6 +51,9 @@ func (m *PowerMigrator) AutoMigrate() {
 	_ = m.db.AutoMigrate(&model.DataDictionaryType{}, &model.DataDictionaryItem{}, &model.PivotDataDictionaryToObject{})
 	_ = m.db.AutoMigrate(&origanzation.Department{}, &origanzation.Employee{}, &origanzation.Position{})
 	_ = m.db.AutoMigrate(&permission.EmployeeCasbinPolicy{}, permission.AdminRole{}, permission.AdminRoleMenuName{}, permission.AdminAPI{})
+
+	// info organization
+	_ = m.db.AutoMigrate(&infoorganizatoin.Category{}, &infoorganizatoin.Label{}, &infoorganizatoin.Tag{})
 
 	// customer domain
 	_ = m.db.AutoMigrate(&customerdomain.Lead{}, &customerdomain.Contact{}, &customerdomain.Customer{}, &membership.Membership{})
