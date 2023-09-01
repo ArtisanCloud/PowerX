@@ -4,6 +4,7 @@ import (
 	"PowerX/internal/config"
 	"PowerX/internal/uc/powerx"
 	customerDomainUC "PowerX/internal/uc/powerx/customerdomain"
+	"PowerX/internal/uc/powerx/infoorganization"
 	"PowerX/internal/uc/powerx/market"
 	productUC "PowerX/internal/uc/powerx/product"
 	tradeUC "PowerX/internal/uc/powerx/trade"
@@ -22,6 +23,10 @@ type PowerXUseCase struct {
 	AdminAuthorization *powerx.AdminPermsUseCase
 
 	Organization *powerx.OrganizationUseCase
+
+	Label    *infoorganization.LabelUseCase
+	Tag      *infoorganization.TagUseCase
+	Category *infoorganization.CategoryUseCase
 
 	CustomerAuthorization *customerDomainUC.AuthorizationCustomerDomainUseCase
 	Customer              *customerDomainUC.CustomerUseCase
@@ -86,6 +91,11 @@ func NewPowerXUseCase(conf *config.Config) (uc *PowerXUseCase, clean func()) {
 	// 加载组织架构UseCase
 	uc.Organization = powerx.NewOrganizationUseCase(db)
 	uc.AdminAuthorization = powerx.NewAdminPermsUseCase(conf, db, uc.Organization)
+
+	// 加载信息组织UseCase
+	uc.Label = infoorganization.NewLabelUseCase(db)
+	uc.Tag = infoorganization.NewTagUseCase(db)
+	uc.Category = infoorganization.NewCategoryUseCase(db)
 
 	// 加载客域UseCase
 	uc.CustomerAuthorization = customerDomainUC.NewAuthorizationCustomerDomainUseCase(db)

@@ -13,6 +13,7 @@ import (
 	admindepartment "PowerX/internal/handler/admin/department"
 	admindictionary "PowerX/internal/handler/admin/dictionary"
 	adminemployee "PowerX/internal/handler/admin/employee"
+	admininfoorganizationcategory "PowerX/internal/handler/admin/infoorganization/category"
 	adminmarketmedia "PowerX/internal/handler/admin/market/media"
 	adminmarketstore "PowerX/internal/handler/admin/market/store"
 	adminmediaresource "PowerX/internal/handler/admin/mediaresource"
@@ -408,6 +409,45 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			}...,
 		),
 		rest.WithPrefix("/api/v1/admin/tags"),
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Route{
+				{
+					Method:  http.MethodGet,
+					Path:    "/category-tree",
+					Handler: admininfoorganizationcategory.ListCategoryTreeHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/categories/:id",
+					Handler: admininfoorganizationcategory.GetCategoryHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/categories",
+					Handler: admininfoorganizationcategory.CreateCategoryHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPut,
+					Path:    "/categories/:id",
+					Handler: admininfoorganizationcategory.UpdateCategoryHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPatch,
+					Path:    "/categories/:id",
+					Handler: admininfoorganizationcategory.PatchCategoryHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodDelete,
+					Path:    "/categories/:id",
+					Handler: admininfoorganizationcategory.DeleteCategoryHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithPrefix("/api/v1/admin/info-organization"),
 	)
 
 	server.AddRoutes(

@@ -693,6 +693,73 @@ type DeleteTagReply struct {
 	Id int64 `json:"id"`
 }
 
+type Category struct {
+	Id          int64  `json:"id,optional"`
+	PId         int64  `json:"pId"`
+	Name        string `json:"name"`
+	Sort        int    `json:"sort"`
+	ViceName    string `json:"viceName"`
+	Description string `json:"description"`
+	CreatedAt   string `json:"createdAt,optional"`
+	ImageAbleInfo
+	CoverImageId int64          `json:"coverImageId,optional"`
+	CoverImage   *MediaResource `json:"coverImage,optional"`
+	Children     []*Category    `json:"children,optional"`
+}
+
+type ListCategoryTreeRequest struct {
+	CategoryPId  int      `form:"categoryPId,optional"`
+	NeedChildren bool     `form:"needChildren,optional"`
+	Names        []string `form:"name,optional"`
+	OrderBy      string   `form:"orderBy,optional"`
+}
+
+type ListCategoryTreeReply struct {
+	ProductCategories []*Category `json:"tree"`
+}
+
+type CreateCategoryRequest struct {
+	Category
+}
+
+type CreateCategoryReply struct {
+	*Category
+}
+
+type UpdateCategoryRequest struct {
+	Id int64 `path:"id"`
+	Category
+}
+
+type UpdateCategoryReply struct {
+	Id int64 `json:"id"`
+}
+
+type PatchCategoryRequest struct {
+	Id  int64 `path:"id"`
+	PId int64 `json:"pId"`
+}
+
+type PatchCategoryReply struct {
+	Category
+}
+
+type GetCategoryRequest struct {
+	CategoryId int64 `path:"id"`
+}
+
+type GetCategoryReply struct {
+	*Category
+}
+
+type DeleteCategoryRequest struct {
+	Id int64 `path:"id"`
+}
+
+type DeleteCategoryReply struct {
+	Id int64 `json:"id"`
+}
+
 type LeadExternalId struct {
 	OpenIdInMiniProgram           string `json:"openIdInMiniProgram,optional"`
 	OpenIdInWeChatOfficialAccount string `json:"openIdInWeChatOfficialAccount,optional"`
@@ -1760,7 +1827,7 @@ type BindArtisansToStoresRequest struct {
 }
 
 type BindArtisansToStoresReply struct {
-	Pivot []int64 `json:"pivots"`
+	PivotIds []int64 `json:"pivotIds"`
 }
 
 type ShippingAddress struct {

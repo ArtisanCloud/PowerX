@@ -1,0 +1,130 @@
+syntax = "v1"
+
+info(
+    title: "类别"
+    desc: "类别"
+    author: "MichaelHu"
+    email: "matrix-x@artisan-cloud.com"
+    version: "v1"
+)
+
+
+@server(
+    group: admin/infoorganization/category
+    prefix: /api/v1/admin/info-organization
+    middleware: EmployeeJWTAuth
+)
+
+service PowerX {
+    @doc "查询类别列表"
+    @handler ListCategoryTree
+    get /category-tree (ListCategoryTreeRequest) returns (ListCategoryTreeReply)
+
+    @doc "查询类别详情"
+    @handler GetCategory
+    get /categories/:id (GetCategoryRequest) returns (GetCategoryReply)
+
+
+    @doc "创新类别"
+    @handler CreateCategory
+    post /categories (CreateCategoryRequest) returns (CreateCategoryReply)
+
+    @doc "修改类别"
+    @handler UpdateCategory
+    put /categories/:id (UpdateCategoryRequest) returns (UpdateCategoryReply)
+
+
+    @doc "修改类别父级"
+    @handler PatchCategory
+    patch /categories/:id (PatchCategoryRequest) returns (PatchCategoryReply)
+
+
+    @doc "删除类别"
+    @handler DeleteCategory
+    delete /categories/:id (DeleteCategoryRequest) returns (DeleteCategoryReply)
+}
+
+type (
+
+    Category {
+        Id int64 `json:"id,optional"`
+        PId int64 `json:"pId"`
+        Name string `json:"name"`
+        Sort int `json:"sort"`
+        ViceName string `json:"viceName"`
+        Description string `json:"description"`
+        CreatedAt string `json:"createdAt,optional"`
+        ImageAbleInfo
+        CoverImageId int64 `json:"coverImageId,optional"`
+        CoverImage *MediaResource `json:"coverImage,optional"`
+        Children []*Category `json:"children,optional"`
+    }
+)
+type (
+    ListCategoryTreeRequest struct {
+        CategoryPId int `form:"categoryPId,optional"`
+        NeedChildren bool `form:"needChildren,optional"`
+        Names []string `form:"name,optional"`
+        OrderBy string `form:"orderBy,optional"`
+    }
+
+
+    ListCategoryTreeReply struct {
+        ProductCategories []*Category `json:"tree"`
+    }
+)
+
+
+type (
+    CreateCategoryRequest struct {
+        Category
+    }
+
+    CreateCategoryReply struct {
+        *Category
+    }
+)
+
+type (
+    UpdateCategoryRequest struct {
+        Id int64 `path:"id"`
+        Category
+    }
+    UpdateCategoryReply struct {
+        Id int64 `json:"id"`
+    }
+)
+
+type (
+    PatchCategoryRequest struct {
+        Id int64 `path:"id"`
+        PId int64 `json:"pId"`
+    }
+
+    PatchCategoryReply struct {
+        Category
+    }
+)
+
+type (
+    GetCategoryRequest struct {
+        CategoryId int64 `path:"id"`
+    }
+
+    GetCategoryReply struct {
+        *Category
+    }
+)
+
+
+type (
+    DeleteCategoryRequest struct {
+        Id int64 `path:"id"`
+    }
+
+    DeleteCategoryReply struct {
+        Id int64 `json:"id"`
+    }
+)
+
+
