@@ -1933,12 +1933,26 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Path:    "/registerByPhone",
 				Handler: webcustomerauth.RegisterCustomerByPhoneHandler(serverCtx),
 			},
-			{
-				Method:  http.MethodPost,
-				Path:    "/updateCustomerProfile/:id",
-				Handler: webcustomerauth.UpdateCustomerProfileHandler(serverCtx),
-			},
 		},
+		rest.WithPrefix("/api/v1/web/customer"),
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.WebCustomerJWTAuth, serverCtx.WebCustomerGet},
+			[]rest.Route{
+				{
+					Method:  http.MethodPost,
+					Path:    "/updateCustomerProfile/:id",
+					Handler: webcustomerauth.UpdateCustomerProfileHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/user-info",
+					Handler: webcustomerauth.GetUserInfoHandler(serverCtx),
+				},
+			}...,
+		),
 		rest.WithPrefix("/api/v1/web/customer"),
 	)
 

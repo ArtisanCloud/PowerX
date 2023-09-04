@@ -3206,6 +3206,10 @@ type WebToken struct {
 	RefreshToken string `json:"refreshToken"`
 }
 
+type GetUserInfoReplyToWeb struct {
+	*Customer
+}
+
 type OACustomerLoginRequest struct {
 	Code string `json:"code"`
 }
