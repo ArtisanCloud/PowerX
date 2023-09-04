@@ -14,56 +14,30 @@ import "../../admin/crm/customerdomain/customer.api"
 @server(
     group: web/customer/auth
     prefix: /api/v1/web/customer
+    middleware: WebCustomerJWTAuth, WebCustomerGet
 )
 
 
 service PowerX {
-    @doc "微信Web登录"
-    @handler Login
-    post /login (CustomerLoginRequest) returns (CustomerLoginAuthReply)
-
-    @doc "客户手机注册"
-    @handler RegisterCustomerByPhone
-    post /registerByPhone (CustomerRegisterByPhoneRequest) returns (CustomerRegisterByPhoneReply)
 
     @doc "客户信息更新"
     @handler UpdateCustomerProfile
     post /updateCustomerProfile/:id (UpdateCustomerProfileRequest) returns (UpdateCustomerProfileReply)
+
+    @doc "获取用户信息"
+    @handler GetUserInfo
+    get /user-info returns (GetUserInfoReplyToWeb)
 }
 
 
 
 type (
-    CustomerLoginRequest {
-        Account string `json:"account"`
-        Password string `json:"password"`
-    }
 
-    CustomerRegisterRequest {
-        Account string `json:"account"`
-        Password string `json:"password"`
-        VerifyCode string `json:"verifyCode"`
-    }
-
-    CustomerRegisterReply {
-        CustomerId int64 `json:"customerId"`
-    }
-
-    CustomerRegisterByPhoneRequest {
-        Phone string `json:"phone"`
-        Password string `json:"password"`
-        VerifyCode string `json:"verifyCode"`
-    }
-
-    CustomerRegisterByPhoneReply {
-        CustomerId int64 `json:"customerId"`
-    }
-
-    UpdateCustomerProfileRequest{
+    UpdateCustomerProfileRequest {
         CustomerId int64 `path:"id"`
         Customer
     }
-    UpdateCustomerProfileReply{
+    UpdateCustomerProfileReply {
         *Customer
     }
 
@@ -82,5 +56,10 @@ type (
         ExpiresIn string `json:"expiresIn"`
         AccessToken string `json:"accessToken"`
         RefreshToken string `json:"refreshToken"`
+    }
+
+
+    GetUserInfoReplyToWeb {
+        *Customer
     }
 )
