@@ -158,7 +158,7 @@ func TransformProductToReply(mdlProduct *product.Product) (productReply *types.P
 		ProductCategories:       category.TransformProductCategoriesToReply(mdlProduct.ProductCategories),
 		SalesChannelsItemIds:    model.GetItemIds(mdlProduct.PivotSalesChannels),
 		PromoteChannelsItemIds:  model.GetItemIds(mdlProduct.PivotPromoteChannels),
-		CategoryIds:             product.GetCategoryIds(mdlProduct.ProductCategories),
+		CategoryIds:             (&product.ProductCategory{}).GetCategoryIds(mdlProduct.ProductCategories),
 		ProductSpecifics:        TransformSpecificsToReply(mdlProduct.ProductSpecifics),
 		ActivePriceEntry:        pricebookentry.TransformPriceEntriesToActivePriceEntryReply(mdlProduct.PriceBookEntries),
 		PriceBookEntries:        pricebookentry.TransformPriceBookEntriesToPriceBookEntriesReply(mdlProduct.PriceBookEntries),

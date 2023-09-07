@@ -26,7 +26,7 @@ type ProductCategory struct {
 
 const ProductCategoryUniqueId = powermodel.UniqueId
 
-func GetCategoryIds(categories []*ProductCategory) []int64 {
+func (mdl *ProductCategory) GetCategoryIds(categories []*ProductCategory) []int64 {
 	uniqueIds := make(map[int64]bool)
 	arrayIds := []int64{}
 	if len(categories) <= 0 {
