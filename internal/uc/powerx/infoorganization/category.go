@@ -68,7 +68,7 @@ func (uc *CategoryUseCase) ListCategoryTree(ctx context.Context, opt *FindCatego
 	query = uc.PreloadItems(query)
 	err := query.
 		Where("p_id", pId).
-		//Debug().
+		Debug().
 		Find(&categories).
 		Error
 	if err != nil {

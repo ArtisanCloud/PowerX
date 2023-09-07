@@ -1,0 +1,47 @@
+syntax = "v1"
+
+info(
+    title: "框架标签"
+    desc: "框架标签"
+    author: "MichaelHu"
+    email: "matrix-x@artisan-cloud.com"
+    version: "v1"
+)
+
+
+
+@server(
+    group: web/infoorganization/label
+    prefix: /api/v1/web/info-organization
+    middleware: WebCustomerJWTAuth
+)
+
+service PowerX {
+    @doc "查询框架标签列表"
+    @handler ListLabelTree
+    get /label-tree (ListLabelTreeRequest) returns (ListLabelTreeReply)
+
+    @doc "查询框架标签详情"
+    @handler GetLabel
+    get /labels/:id (GetLabelRequest) returns (GetLabelReply)
+
+
+    @doc "创新框架标签"
+    @handler CreateLabel
+    post /labels (CreateLabelRequest) returns (CreateLabelReply)
+
+    @doc "修改框架标签"
+    @handler UpdateLabel
+    put /labels/:id (UpdateLabelRequest) returns (UpdateLabelReply)
+
+
+    @doc "修改框架标签父级"
+    @handler PatchLabel
+    patch /labels/:id (PatchLabelRequest) returns (PatchLabelReply)
+
+
+    @doc "删除框架标签"
+    @handler DeleteLabel
+    delete /labels/:id (DeleteLabelRequest) returns (DeleteLabelReply)
+}
+

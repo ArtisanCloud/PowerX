@@ -56,6 +56,7 @@ import (
 	mptradepayment "PowerX/internal/handler/mp/trade/payment"
 	webcustomerauth "PowerX/internal/handler/web/customer/auth"
 	webcustomerauthoa "PowerX/internal/handler/web/customer/auth/oa"
+	webinfoorganizationcategory "PowerX/internal/handler/web/infoorganization/category"
 	webscene "PowerX/internal/handler/web/scene"
 	"PowerX/internal/svc"
 
@@ -1986,5 +1987,44 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			},
 		},
 		rest.WithPrefix("/api/v1/web/scene"),
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.WebCustomerJWTAuth},
+			[]rest.Route{
+				{
+					Method:  http.MethodGet,
+					Path:    "/category-tree",
+					Handler: webinfoorganizationcategory.ListCategoryTreeHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/categories/:id",
+					Handler: webinfoorganizationcategory.GetCategoryHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/categories",
+					Handler: webinfoorganizationcategory.CreateCategoryHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPut,
+					Path:    "/categories/:id",
+					Handler: webinfoorganizationcategory.UpdateCategoryHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPatch,
+					Path:    "/categories/:id",
+					Handler: webinfoorganizationcategory.PatchCategoryHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodDelete,
+					Path:    "/categories/:id",
+					Handler: webinfoorganizationcategory.DeleteCategoryHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithPrefix("/api/v1/web/info-organization"),
 	)
 }
