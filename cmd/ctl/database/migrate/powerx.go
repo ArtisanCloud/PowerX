@@ -54,6 +54,7 @@ func (m *PowerMigrator) AutoMigrate() {
 
 	// info organization
 	_ = m.db.AutoMigrate(&infoorganizatoin.Category{}, &infoorganizatoin.Label{}, &infoorganizatoin.Tag{})
+	_ = m.db.AutoMigrate(&infoorganizatoin.PivotCategoryToObject{})
 
 	// customer domain
 	_ = m.db.AutoMigrate(&customerdomain.Lead{}, &customerdomain.Contact{}, &customerdomain.Customer{}, &membership.Membership{})
