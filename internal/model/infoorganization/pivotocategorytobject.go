@@ -81,7 +81,7 @@ func (mdl *PivotCategoryToObject) GetMorphPivots(db *gorm.DB, where *map[string]
 }
 
 // --------------------------------------------------------------------
-func (mdl *PivotCategoryToObject) MakeMorphPivotsFromObjectToCategorys(obj powermodel.ModelInterface, categories []*Category) ([]*PivotCategoryToObject, error) {
+func (mdl *PivotCategoryToObject) MakeMorphPivotsFromObjectToCategories(obj powermodel.ModelInterface, categories []*Category) ([]*PivotCategoryToObject, error) {
 	pivots := []*PivotCategoryToObject{}
 	for _, category := range categories {
 		pivot := &PivotCategoryToObject{

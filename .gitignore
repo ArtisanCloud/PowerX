@@ -21,11 +21,11 @@ etc/powerx.yaml
 /scrm.mk
 /app1
 /ctl
-./powerx.go
-./powerxctl
-./powerx
-#!internal/uc/powerx
-#!cmd/server/powerx.go
+powerx.go
+powerxctl
+powerx
+!internal/uc/powerx
+!cmd/server/powerx.go
 
 /deploy/
 /powerx.go
