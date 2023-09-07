@@ -17,6 +17,8 @@ func (mdl *PivotCategoryToObject) TableName() string {
 type PivotCategoryToObject struct {
 	powermodel.PowerPivot
 
+	Category *Category `gorm:"foreignKey:CategoryId;references:Id" json:"category"`
+
 	// 所属键 owner key and value
 	ObjectType string `gorm:"column:object_type; not null;index:idx_obj_type;comment:对象表名称" json:"objectOwner"`
 	// 外键foreign key and value
@@ -103,4 +105,12 @@ func (mdl *PivotCategoryToObject) FindSortIndexById(items []*types.SortIdItem, t
 		}
 	}
 	return -1 // 如果没有找到匹配的ID，则返回-1表示未找到
+}
+
+func GetCategoryIds(pivots []*PivotCategoryToObject) (categoryIds []int64) {
+	categoryIds = []int64{}
+	for _, pivot := range pivots {
+		categoryIds = append(categoryIds, pivot.CategoryId)
+	}
+	return
 }
