@@ -44,6 +44,12 @@
 暂时用于2C的一些定制开发的场景，需要用到Web UI
 
 
+## [案例](https://powerx.artisan-cloud.com/zh/v1/case/ecommerce/LitBim/)
+
+<img src="https://powerx.artisan-cloud.com/assets/home.184906f3.png" width=120>
+<img src="https://powerx.artisan-cloud.com/assets/dashboard-home.c5de8a5f.png" width=320>
+
+[更多案例](https://powerx.artisan-cloud.com/zh/v1/case/ecommerce/LitBim/)
 
 ## PowerX社区交流群
 
