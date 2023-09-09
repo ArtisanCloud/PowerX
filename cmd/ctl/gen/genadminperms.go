@@ -29,7 +29,7 @@ func GenAPICsv(files []*os.File) {
 	if err != nil {
 		log.Fatalln(err)
 	}
-	groupFile, err := os.OpenFile("group.csv", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	groupFile, err := os.OpenFile("api_group.csv", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		log.Fatalln(err)
 	}

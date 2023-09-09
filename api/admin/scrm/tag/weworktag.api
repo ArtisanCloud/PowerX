@@ -43,11 +43,11 @@ service PowerX {
     @handler CreateWeWorkCropTag
     post /crop/create (CreateCorpTagRequest) returns (StatusWeWorkReply)
 
-    @doc "@编辑企业标签"
+    @doc "编辑企业标签"
     @handler UpdateWeWorkCropTag
     patch /crop/update (UpdateCorpTagRequest) returns (StatusWeWorkReply)
 
-    @doc "@批量删除企业标签"
+    @doc "批量删除企业标签"
     @handler DeleteWeWorkCropTag
     delete /crop/delete (DeleteCorpTagRequest) returns (StatusWeWorkReply)
 
