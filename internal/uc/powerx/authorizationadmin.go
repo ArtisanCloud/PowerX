@@ -73,7 +73,7 @@ func (uc *AdminPermsUseCase) Init() {
 	if count == 0 {
 		// api group
 		initAPIGroup := func() {
-			file, err := os.Open(filepath.Join(uc.conf.EtcDir, "admin_api_group.csv"))
+			file, err := os.Open(filepath.Join(uc.conf.EtcDir, "api_group.csv"))
 			if err != nil {
 				panic(err)
 			}
@@ -100,7 +100,7 @@ func (uc *AdminPermsUseCase) Init() {
 
 		// api
 		initAPI := func() {
-			file, err := os.Open(filepath.Join(uc.conf.EtcDir, "admin_api.csv"))
+			file, err := os.Open(filepath.Join(uc.conf.EtcDir, "api.csv"))
 			if err != nil {
 				panic(err)
 			}

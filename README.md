@@ -51,6 +51,10 @@
 
 [更多案例](https://powerx.artisan-cloud.com/zh/v1/case/ecommerce/LitBim/)
 
+
+## [在线Demo](https://shop-demo.artisancloud.cn)
+Demo 地址：https://shop-demo.artisancloud.cn
+
 ## PowerX社区交流群
 
 <img src="resource/images/contact_me_qr.jpg" alt="请扫我" style="display:inline; width: 150px;"/>
