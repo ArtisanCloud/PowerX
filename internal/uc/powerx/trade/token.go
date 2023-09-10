@@ -55,7 +55,7 @@ func (uc *TokenUseCase) FindAllTokenBalances(ctx context.Context, opt *FindManyT
 	query = uc.buildFindQueryNoPage(query, opt)
 	query = uc.PreloadItems(query)
 	if err := query.
-		Debug().
+		//Debug().
 		Find(&tokenBalances).Error; err != nil {
 		panic(errors.Wrap(err, "find all tokenBalances failed"))
 	}
