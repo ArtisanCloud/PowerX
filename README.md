@@ -3,10 +3,27 @@
 
 [http://powerx.artisan-cloud.com](http://powerx.artisan-cloud.com)
 
-在线Demo：https://shop.artisancloud.cn
 
-登陆账号: root  
-密码: root
+## [在线体验Demo](https://shop-demo.artisancloud.cn)
+Demo 地址：https://shop-demo.artisancloud.cn
+
+账号：root  
+密码：root
+
+
+## [更多案例](https://powerx.artisan-cloud.com/zh/v1/case/)
+
+https://powerx.artisan-cloud.com/zh/v1/case/
+
+<img src="https://powerx.artisan-cloud.com/assets/home.184906f3.png" width=120>
+<img src="https://powerx.artisan-cloud.com/assets/dashboard-home.c5de8a5f.png" width=320>
+
+
+
+
+
+
+---
 
 
 # PowerX的系统方案，组成部分分别包括：
@@ -44,23 +61,6 @@
 暂时用于2C的一些定制开发的场景，需要用到Web UI
 
 
-## [更多案例](https://powerx.artisan-cloud.com/zh/v1/case/)
-
-https://powerx.artisan-cloud.com/zh/v1/case/
-
-<img src="https://powerx.artisan-cloud.com/assets/home.184906f3.png" width=120>
-<img src="https://powerx.artisan-cloud.com/assets/dashboard-home.c5de8a5f.png" width=320>
-
-
-
-## [在线体验Demo](https://shop-demo.artisancloud.cn)
-Demo 地址：https://shop-demo.artisancloud.cn
-
-账号：root  
-密码：root
-
-
----
 
 
 ## PowerX社区交流群
