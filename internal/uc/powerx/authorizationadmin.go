@@ -173,16 +173,16 @@ func (uc *AdminPermsUseCase) Init() {
 		}
 	}
 
-	// 初始化casbin策略
-	if err := uc.db.Model(&permission.EmployeeCasbinPolicy{}).Count(&count).Error; err != nil {
-		panic(errors.Wrap(err, "init casbin policy failed"))
-	}
-	if count == 0 {
-		uc.Casbin.SetAdapter(uc.fileAdapter)
-		uc.Casbin.LoadPolicy()
-		uc.Casbin.SetAdapter(uc.sqlAdapter)
-		uc.Casbin.SavePolicy()
-	}
+	//// 初始化casbin策略
+	//if err := uc.db.Model(&permission.EmployeeCasbinPolicy{}).Count(&count).Error; err != nil {
+	//	panic(errors.Wrap(err, "init casbin policy failed"))
+	//}
+	//if count == 0 {
+	//	uc.Casbin.SetAdapter(uc.fileAdapter)
+	//	uc.Casbin.LoadPolicy()
+	//	uc.Casbin.SetAdapter(uc.sqlAdapter)
+	//	uc.Casbin.SavePolicy()
+	//}
 
 	// 初始化角色
 	if err := uc.db.Model(&permission.AdminRole{}).Count(&count).Error; err != nil {
