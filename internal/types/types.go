@@ -875,6 +875,7 @@ type CustomerInviter struct {
 
 type Customer struct {
 	Id          int64            `json:"id,optional"`
+	AccountId   string           `json:"accountId,optional"`
 	Name        string           `json:"name"`
 	Mobile      string           `json:"mobile"`
 	Email       string           `json:"email,optional"`
