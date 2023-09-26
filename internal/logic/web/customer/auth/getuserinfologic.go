@@ -7,6 +7,7 @@ import (
 	"PowerX/internal/types"
 	"PowerX/internal/uc/powerx/customerdomain"
 	"context"
+	"fmt"
 
 	"github.com/zeromicro/go-zero/core/logx"
 )
@@ -31,7 +32,7 @@ func (l *GetUserInfoLogic) GetUserInfo() (resp *types.GetUserInfoReplyToWeb, err
 	authCustomer := vAuthCustomer.(*customerdomain2.Customer)
 
 	customer := customer.TransformCustomerToReply(l.svcCtx, authCustomer)
-
+	customer.AccountId = fmt.Sprintf("%d", customer.Id)
 	return &types.GetUserInfoReplyToWeb{
 		Customer: customer,
 	}, nil
