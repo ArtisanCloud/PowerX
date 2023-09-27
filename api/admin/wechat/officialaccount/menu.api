@@ -21,7 +21,7 @@ service PowerX {
 
     @doc "请求菜单上传链接"
     @handler SyncMenus
-    post /menus (SyncMenusRequest) returns (SyncMenusReply)
+    post /menus/sync (SyncMenusRequest) returns (SyncMenusReply)
 
 
     @doc "创建菜单"
@@ -34,18 +34,25 @@ service PowerX {
 }
 
 type (
-    SubButton struct {
+    OASubButton struct {
 
         Name string `json:"name,optional"`
         Id int `json:"id,optional"`
         Type string `json:"type,optional"`
         Key string `json:"key,omitempty,optional"`
         Url string `json:"url,omitempty,optional"`
+        AppID string `json:"appid,omitempty,optional"`
+        PagePath string `json:"pagepath,omitempty,optional"`
     }
 
-    Button struct {
+    OAButton struct {
         Name string `json:"name,optional"`
-        SubButton []*SubButton `json:"sub_button,optional"`
+        Type string `json:"type,optional"`
+        Key string `json:"key,omitempty,optional"`
+        Url string `json:"url,omitempty,optional"`
+        AppID string `json:"appid,omitempty,optional"`
+        PagePath string `json:"pagepath,omitempty,optional"`
+        OASubButton []*OASubButton `json:"sub_button,optional"`
         Id int `json:"id,optional"`
     }
 
@@ -57,56 +64,46 @@ type (
         City string `json:"city,optional"`
         Language string `json:"language,optional"`
     }
-    Menu struct {
+    OAMenu struct {
         Id int64 `json:"id,optional"`
-        Button []*Button `json:"button,optional"`
+        OAButton []*OAButton `json:"button,optional"`
         MatchRule *MatchRule `json:"matchrule,optional"`
     }
 )
 
 type (
     SyncMenusRequest struct {
-        Menu
+        OAMenu
     }
 
     SyncMenusReply struct {
-        success bool  `json:"success,optional"`
+        Success bool  `json:"success,optional"`
+        Data interface{}   `json:"data"`
     }
 )
 
 type (
     CreateMenuRequest struct {
-        Menu
+        OAMenu
     }
 
     CreateMenuReply struct {
-        success bool  `json:"success,optional"`
+        Success bool  `json:"success,optional"`
+        Data interface{}   `json:"data"`
     }
 )
 
 type (
-    QunerySubButton struct {
-        QueryList []SubButton `json:"list,optional"`
-    }
-    QueryButton struct {
-        Name string `json:"name,optional"`
-        SubButton []*QunerySubButton `json:"sub_button,optional"`
-        Id int `json:"id,optional"`
-    }
-
-    SelfMenuInfo struct {
-        Button *QueryButton `json:"button,optional"`
-    }
 
     QueryMenusReply struct {
-        IsMenuOpen int64 `json:"is_menu_open,optional"`
-        SelfMenuInfo SelfMenuInfo `json:"selfmenu_info,optional"`
+       Menu *OAMenu `json:"menu,optional"`
     }
 )
 
 
 type (
     DeleteMenuReply struct {
-        success bool  `json:"success"`
+        Success bool  `json:"success"`
+        Data interface{}   `json:"data"`
     }
 )
