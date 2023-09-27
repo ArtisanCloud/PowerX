@@ -10,7 +10,7 @@ info(
 
 
 @server(
-    group: admin/product/pricebook
+    group: admin/crm/product/pricebook
     prefix: /api/v1/admin/product
     middleware: EmployeeJWTAuth
 )

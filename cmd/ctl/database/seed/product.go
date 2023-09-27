@@ -2,8 +2,8 @@ package seed
 
 import (
 	"PowerX/internal/model"
+	"PowerX/internal/model/crm/product"
 	"PowerX/internal/model/media"
-	"PowerX/internal/model/product"
 	"PowerX/internal/uc/powerx"
 	product2 "PowerX/internal/uc/powerx/product"
 	"PowerX/pkg/mathx"

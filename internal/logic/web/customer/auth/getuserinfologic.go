@@ -1,11 +1,11 @@
 package auth
 
 import (
-	"PowerX/internal/logic/admin/customerdomain/customer"
-	customerdomain2 "PowerX/internal/model/customerdomain"
+	"PowerX/internal/logic/admin/crm/customerdomain/customer"
+	customerdomain2 "PowerX/internal/model/crm/customerdomain"
 	"PowerX/internal/svc"
 	"PowerX/internal/types"
-	"PowerX/internal/uc/powerx/customerdomain"
+	"PowerX/internal/uc/powerx/crm/customerdomain"
 	"context"
 	"fmt"
 

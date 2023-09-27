@@ -10,7 +10,7 @@ info(
 
 
 @server(
-    group: admin/trade/token
+    group: admin/crm/trade/token
     prefix: /api/v1/admin/trade/token
     middleware: EmployeeJWTAuth
 )

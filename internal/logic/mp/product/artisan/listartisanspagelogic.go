@@ -1,8 +1,8 @@
 package artisan
 
 import (
-	"PowerX/internal/logic/admin/product/artisan"
-	product3 "PowerX/internal/uc/powerx/product"
+	"PowerX/internal/logic/admin/crm/product/artisan"
+	product3 "PowerX/internal/uc/powerx/crm/product"
 	"context"
 
 	"PowerX/internal/svc"

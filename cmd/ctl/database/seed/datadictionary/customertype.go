@@ -2,7 +2,7 @@ package datadictionary
 
 import (
 	"PowerX/internal/model"
-	"PowerX/internal/model/customerdomain"
+	"PowerX/internal/model/crm/customerdomain"
 )
 
 func defaultCustomerTypeDataDictionary() *model.DataDictionaryType {

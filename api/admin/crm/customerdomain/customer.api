@@ -9,7 +9,7 @@ info(
 )
 
 @server(
-    group: admin/customerdomain/customer
+    group: admin/crm/customerdomain/customer
     prefix: /api/v1/admin/customerdomain
     middleware: EmployeeJWTAuth
 )

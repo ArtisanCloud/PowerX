@@ -4,7 +4,7 @@ import (
 	"PowerX/internal/config"
 	"PowerX/internal/types/errorx"
 	"PowerX/internal/uc"
-	"PowerX/internal/uc/powerx/customerdomain"
+	"PowerX/internal/uc/powerx/crm/customerdomain"
 	"context"
 	"github.com/zeromicro/go-zero/rest/httpx"
 	"net/http"

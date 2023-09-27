@@ -1,8 +1,8 @@
 package media
 
 import (
-	"PowerX/internal/logic/admin/market/media"
-	"PowerX/internal/uc/powerx/market"
+	"PowerX/internal/logic/admin/crm/market/media"
+	"PowerX/internal/uc/powerx/crm/market"
 	"context"
 
 	"PowerX/internal/svc"

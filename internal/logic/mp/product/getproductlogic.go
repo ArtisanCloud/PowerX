@@ -1,11 +1,11 @@
 package product
 
 import (
-	"PowerX/internal/logic/admin/product/pricebookentry"
+	"PowerX/internal/logic/admin/crm/product/pricebookentry"
 	"PowerX/internal/logic/mp/mediaresource"
 	"PowerX/internal/model"
+	"PowerX/internal/model/crm/product"
 	"PowerX/internal/model/media"
-	"PowerX/internal/model/product"
 	"PowerX/internal/svc"
 	"PowerX/internal/types"
 	"PowerX/internal/types/errorx"

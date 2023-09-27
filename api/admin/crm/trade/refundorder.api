@@ -11,7 +11,7 @@ info(
 
 
 @server(
-    group: admin/trade/order
+    group: admin/crm/trade/order
     prefix: /api/v1/admin/trade
     middleware: EmployeeJWTAuth
 )

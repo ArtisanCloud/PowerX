@@ -1,10 +1,10 @@
 package payment
 
 import (
-	customerdomain2 "PowerX/internal/model/customerdomain"
-	"PowerX/internal/model/trade"
+	customerdomain2 "PowerX/internal/model/crm/customerdomain"
+	"PowerX/internal/model/crm/trade"
 	"PowerX/internal/types/errorx"
-	"PowerX/internal/uc/powerx/customerdomain"
+	"PowerX/internal/uc/powerx/crm/customerdomain"
 	"context"
 
 	"PowerX/internal/svc"

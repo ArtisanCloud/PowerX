@@ -9,7 +9,7 @@ info(
 )
 
 @server(
-    group: admin/business/opportunity
+    group: admin/crm/business/opportunity
     prefix: /api/v1/admin/business
     middleware: EmployeeJWTAuth
 )

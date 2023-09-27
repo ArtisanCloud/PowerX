@@ -2,7 +2,7 @@ package category
 
 import (
 	"PowerX/internal/logic/admin/infoorganization/category"
-	"PowerX/internal/uc/powerx/infoorganization"
+	"PowerX/internal/uc/powerx/crm/infoorganization"
 	"context"
 
 	"PowerX/internal/svc"

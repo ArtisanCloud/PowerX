@@ -5,7 +5,7 @@ import (
 	"PowerX/internal/types"
 	"PowerX/internal/types/errorx"
 	"PowerX/internal/uc"
-	"PowerX/internal/uc/powerx/customerdomain"
+	"PowerX/internal/uc/powerx/crm/customerdomain"
 	"context"
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/pkg/errors"

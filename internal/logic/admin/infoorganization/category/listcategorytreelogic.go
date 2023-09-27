@@ -5,7 +5,7 @@ import (
 	infoorganizatoin "PowerX/internal/model/infoorganization"
 	"PowerX/internal/svc"
 	"PowerX/internal/types"
-	"PowerX/internal/uc/powerx/infoorganization"
+	"PowerX/internal/uc/powerx/crm/infoorganization"
 	"context"
 	"github.com/zeromicro/go-zero/core/logx"
 )

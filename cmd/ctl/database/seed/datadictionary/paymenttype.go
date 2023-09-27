@@ -2,7 +2,7 @@ package datadictionary
 
 import (
 	"PowerX/internal/model"
-	"PowerX/internal/model/trade"
+	"PowerX/internal/model/crm/trade"
 )
 
 func defaultPaymentTypeDataDictionary() *model.DataDictionaryType {
