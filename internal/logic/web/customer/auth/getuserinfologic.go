@@ -2,7 +2,7 @@ package auth
 
 import (
 	"PowerX/internal/logic/admin/crm/customerdomain/customer"
-	customerdomain2 "PowerX/internal/model/customerdomain"
+	customerdomain2 "PowerX/internal/model/crm/customerdomain"
 	"PowerX/internal/svc"
 	"PowerX/internal/types"
 	"PowerX/internal/uc/powerx/crm/customerdomain"

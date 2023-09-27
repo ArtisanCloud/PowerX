@@ -1,7 +1,7 @@
 package sku
 
 import (
-	product2 "PowerX/internal/model/product"
+	product2 "PowerX/internal/model/crm/product"
 	"context"
 	"github.com/ArtisanCloud/PowerLibs/v3/object"
 

@@ -1,9 +1,12 @@
-package model
+package wechat
 
-import "github.com/ArtisanCloud/PowerLibs/v3/object"
+import (
+	"PowerX/internal/model"
+	"github.com/ArtisanCloud/PowerLibs/v3/object"
+)
 
 type WeWorkExternalContact struct {
-	Model
+	model.Model
 	CorpId         object.NullString `gorm:"index:idx_corp_id;column:corp_id" json:"corpId"`
 	AppId          object.NullString `gorm:"index:idx_app_id;column:app_id" json:"appId"`
 	ExternalUserId object.NullString `gorm:"index:idx_external_user_id;column:external_user_id;not null;" json:"externalUserId"`

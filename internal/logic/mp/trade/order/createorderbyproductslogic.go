@@ -1,8 +1,8 @@
 package order
 
 import (
-	customerdomain2 "PowerX/internal/model/customerdomain"
-	product2 "PowerX/internal/model/product"
+	customerdomain2 "PowerX/internal/model/crm/customerdomain"
+	product2 "PowerX/internal/model/crm/product"
 	"PowerX/internal/types/errorx"
 	"PowerX/internal/uc/powerx/crm/customerdomain"
 	"PowerX/internal/uc/powerx/crm/product"

@@ -1,7 +1,7 @@
 package leader
 
 import (
-	customerdomain2 "PowerX/internal/model/customerdomain"
+	customerdomain2 "PowerX/internal/model/crm/customerdomain"
 	"PowerX/internal/uc/powerx/crm/customerdomain"
 	"context"
 

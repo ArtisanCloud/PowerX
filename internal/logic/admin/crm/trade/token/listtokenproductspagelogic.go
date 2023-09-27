@@ -2,7 +2,7 @@ package token
 
 import (
 	product2 "PowerX/internal/logic/admin/crm/product"
-	"PowerX/internal/model/product"
+	"PowerX/internal/model/crm/product"
 	productUC "PowerX/internal/uc/powerx/crm/product"
 	"context"
 

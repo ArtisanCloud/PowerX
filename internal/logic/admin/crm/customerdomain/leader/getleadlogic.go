@@ -1,7 +1,7 @@
 package leader
 
 import (
-	"PowerX/internal/model/customerdomain"
+	"PowerX/internal/model/crm/customerdomain"
 	"PowerX/internal/types/errorx"
 	"PowerX/pkg/securityx"
 	"context"

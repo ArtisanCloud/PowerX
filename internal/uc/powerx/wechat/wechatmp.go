@@ -2,8 +2,8 @@ package wechat
 
 import (
 	"PowerX/internal/config"
-	"PowerX/internal/model"
 	"PowerX/internal/model/powermodel"
+	"PowerX/internal/model/wechat"
 	"PowerX/internal/types"
 	"PowerX/internal/types/errorx"
 	"context"
@@ -72,10 +72,10 @@ func (uc *WechatMiniProgramUseCase) buildFindQueryNoPage(query *gorm.DB, opt *Fi
 	return query
 }
 
-func (uc *WechatMiniProgramUseCase) FindManyMPCustomers(ctx context.Context, opt *FindMPCustomerOption) types.Page[*model.WechatMPCustomer] {
-	var mpCustomers []*model.WechatMPCustomer
+func (uc *WechatMiniProgramUseCase) FindManyMPCustomers(ctx context.Context, opt *FindMPCustomerOption) types.Page[*wechat.WechatMPCustomer] {
+	var mpCustomers []*wechat.WechatMPCustomer
 	var count int64
-	query := uc.db.WithContext(ctx).Model(&model.WechatMPCustomer{})
+	query := uc.db.WithContext(ctx).Model(&wechat.WechatMPCustomer{})
 
 	if opt.PageIndex != 0 && opt.PageSize != 0 {
 		query.Offset((opt.PageIndex - 1) * opt.PageSize).Limit(opt.PageSize)
@@ -87,7 +87,7 @@ func (uc *WechatMiniProgramUseCase) FindManyMPCustomers(ctx context.Context, opt
 	if err := query.Find(&mpCustomers).Error; err != nil {
 		panic(errors.Wrap(err, "find mpCustomers failed"))
 	}
-	return types.Page[*model.WechatMPCustomer]{
+	return types.Page[*wechat.WechatMPCustomer]{
 		List:      mpCustomers,
 		PageIndex: opt.PageIndex,
 		PageSize:  opt.PageSize,
@@ -95,9 +95,9 @@ func (uc *WechatMiniProgramUseCase) FindManyMPCustomers(ctx context.Context, opt
 	}
 }
 
-func (uc *WechatMiniProgramUseCase) FindOneMPCustomer(ctx context.Context, opt *FindMPCustomerOption) (*model.WechatMPCustomer, error) {
-	var mpCustomer *model.WechatMPCustomer
-	query := uc.db.WithContext(ctx).Model(&model.WechatMPCustomer{})
+func (uc *WechatMiniProgramUseCase) FindOneMPCustomer(ctx context.Context, opt *FindMPCustomerOption) (*wechat.WechatMPCustomer, error) {
+	var mpCustomer *wechat.WechatMPCustomer
+	query := uc.db.WithContext(ctx).Model(&wechat.WechatMPCustomer{})
 	if opt.PageIndex != 0 && opt.PageSize != 0 {
 		query.Offset((opt.PageIndex - 1) * opt.PageSize).Limit(opt.PageSize)
 	}
@@ -110,9 +110,9 @@ func (uc *WechatMiniProgramUseCase) FindOneMPCustomer(ctx context.Context, opt *
 	return mpCustomer, nil
 }
 
-func (uc *WechatMiniProgramUseCase) UpsertMPCustomer(ctx context.Context, customer *model.WechatMPCustomer) (*model.WechatMPCustomer, error) {
+func (uc *WechatMiniProgramUseCase) UpsertMPCustomer(ctx context.Context, customer *wechat.WechatMPCustomer) (*wechat.WechatMPCustomer, error) {
 
-	mpCustomers := []*model.WechatMPCustomer{customer}
+	mpCustomers := []*wechat.WechatMPCustomer{customer}
 
 	_, err := uc.UpsertMPCustomers(ctx, mpCustomers)
 	if err != nil {
@@ -122,9 +122,9 @@ func (uc *WechatMiniProgramUseCase) UpsertMPCustomer(ctx context.Context, custom
 	return customer, err
 }
 
-func (uc *WechatMiniProgramUseCase) UpsertMPCustomers(ctx context.Context, customers []*model.WechatMPCustomer) ([]*model.WechatMPCustomer, error) {
+func (uc *WechatMiniProgramUseCase) UpsertMPCustomers(ctx context.Context, customers []*wechat.WechatMPCustomer) ([]*wechat.WechatMPCustomer, error) {
 
-	err := powermodel.UpsertModelsOnUniqueID(uc.db.WithContext(ctx), &model.WechatMPCustomer{}, model.WechatMpCustomerUniqueId, customers, nil, false)
+	err := powermodel.UpsertModelsOnUniqueID(uc.db.WithContext(ctx), &wechat.WechatMPCustomer{}, wechat.WechatMpCustomerUniqueId, customers, nil, false)
 
 	if err != nil {
 		panic(errors.Wrap(err, "batch upsert mp customers failed"))

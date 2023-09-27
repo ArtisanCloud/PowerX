@@ -1,7 +1,7 @@
 package pricebookentry
 
 import (
-	"PowerX/internal/model/product"
+	"PowerX/internal/model/crm/product"
 	product2 "PowerX/internal/uc/powerx/crm/product"
 	"context"
 	"math"

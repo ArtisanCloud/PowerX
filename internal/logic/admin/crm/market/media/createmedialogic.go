@@ -1,7 +1,7 @@
 package media
 
 import (
-	"PowerX/internal/model/market"
+	"PowerX/internal/model/crm/market"
 	"PowerX/internal/model/media"
 	"PowerX/internal/uc/powerx"
 	"context"

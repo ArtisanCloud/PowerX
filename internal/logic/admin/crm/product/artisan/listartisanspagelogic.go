@@ -2,8 +2,8 @@ package artisan
 
 import (
 	"PowerX/internal/logic/admin/mediaresource"
+	"PowerX/internal/model/crm/product"
 	"PowerX/internal/model/media"
-	"PowerX/internal/model/product"
 	product3 "PowerX/internal/uc/powerx/crm/product"
 	"context"
 

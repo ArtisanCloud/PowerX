@@ -1,9 +1,9 @@
 package market
 
 import (
+	"PowerX/internal/model/crm/product"
 	"PowerX/internal/model/media"
 	"PowerX/internal/model/powermodel"
-	"PowerX/internal/model/product"
 	"gorm.io/gorm"
 	"time"
 )

@@ -1,10 +1,10 @@
 package product
 
 import (
-	"PowerX/internal/model/market"
+	"PowerX/internal/model/crm/market"
+	"PowerX/internal/model/crm/product"
 	"PowerX/internal/model/media"
 	"PowerX/internal/model/powermodel"
-	"PowerX/internal/model/product"
 	"PowerX/internal/types"
 	"PowerX/internal/types/errorx"
 	"context"

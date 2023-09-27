@@ -1,7 +1,7 @@
 package payment
 
 import (
-	"PowerX/internal/model/trade"
+	"PowerX/internal/model/crm/trade"
 	tradeUC "PowerX/internal/uc/powerx/crm/trade"
 	"context"
 

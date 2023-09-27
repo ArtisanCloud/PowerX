@@ -1,7 +1,7 @@
 package payment
 
 import (
-	"PowerX/internal/model/trade"
+	"PowerX/internal/model/crm/trade"
 	"PowerX/internal/types/errorx"
 	"context"
 

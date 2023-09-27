@@ -1,7 +1,7 @@
 package customer
 
 import (
-	"PowerX/internal/model/customerdomain"
+	"PowerX/internal/model/crm/customerdomain"
 	"PowerX/internal/svc"
 	"PowerX/internal/types"
 	"context"

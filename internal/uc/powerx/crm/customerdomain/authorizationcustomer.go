@@ -1,8 +1,8 @@
 package customerdomain
 
 import (
-	"PowerX/internal/model"
-	customerdomain2 "PowerX/internal/model/customerdomain"
+	customerdomain2 "PowerX/internal/model/crm/customerdomain"
+	"PowerX/internal/model/wechat"
 	"fmt"
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/pkg/errors"
@@ -56,7 +56,7 @@ func (uc *AuthorizationCustomerDomainUseCase) SignWebToken(customer *customerdom
 	return uc.SignToken(token, jwtSecret, expiresAt)
 }
 
-func (uc *AuthorizationCustomerDomainUseCase) SignMPToken(mpCustomer *model.WechatMPCustomer, jwtSecret string) oauth2.Token {
+func (uc *AuthorizationCustomerDomainUseCase) SignMPToken(mpCustomer *wechat.WechatMPCustomer, jwtSecret string) oauth2.Token {
 	now := time.Now()
 	expiresAt := now.Add(CustomerTokenExpiredDuration)
 

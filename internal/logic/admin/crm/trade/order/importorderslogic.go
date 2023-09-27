@@ -1,7 +1,7 @@
 package order
 
 import (
-	"PowerX/internal/model/trade"
+	"PowerX/internal/model/crm/trade"
 	"PowerX/internal/types/errorx"
 	trade2 "PowerX/internal/uc/powerx/crm/trade"
 	"context"

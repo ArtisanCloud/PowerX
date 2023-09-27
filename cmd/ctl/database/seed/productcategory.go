@@ -2,7 +2,7 @@ package seed
 
 import (
 	"PowerX/internal/model"
-	"PowerX/internal/model/product"
+	"PowerX/internal/model/crm/product"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
 )

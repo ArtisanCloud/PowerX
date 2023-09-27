@@ -2,9 +2,9 @@ package product
 
 import (
 	model2 "PowerX/internal/model"
+	model "PowerX/internal/model/crm/product"
 	"PowerX/internal/model/media"
 	"PowerX/internal/model/powermodel"
-	model "PowerX/internal/model/product"
 	"PowerX/internal/types"
 	"PowerX/internal/types/errorx"
 	"PowerX/pkg/slicex"

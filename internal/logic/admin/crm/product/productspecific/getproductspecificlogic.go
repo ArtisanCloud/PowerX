@@ -1,7 +1,7 @@
 package productspecific
 
 import (
-	product2 "PowerX/internal/model/product"
+	product2 "PowerX/internal/model/crm/product"
 	"context"
 
 	"PowerX/internal/svc"

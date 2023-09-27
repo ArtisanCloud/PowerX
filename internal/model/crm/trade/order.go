@@ -1,10 +1,10 @@
 package trade
 
 import (
-	"PowerX/internal/model/customerdomain"
+	"PowerX/internal/model/crm/customerdomain"
+	"PowerX/internal/model/crm/product"
 	"PowerX/internal/model/media"
 	"PowerX/internal/model/powermodel"
-	"PowerX/internal/model/product"
 	"github.com/golang-module/carbon/v2"
 	"github.com/zeromicro/go-zero/core/stringx"
 	"time"

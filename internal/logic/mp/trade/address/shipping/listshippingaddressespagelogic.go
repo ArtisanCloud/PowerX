@@ -1,8 +1,8 @@
 package shipping
 
 import (
-	customerdomain2 "PowerX/internal/model/customerdomain"
-	"PowerX/internal/model/trade"
+	customerdomain2 "PowerX/internal/model/crm/customerdomain"
+	"PowerX/internal/model/crm/trade"
 	"PowerX/internal/uc/powerx/crm/customerdomain"
 	tradeUC "PowerX/internal/uc/powerx/crm/trade"
 	"context"

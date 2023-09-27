@@ -1,8 +1,8 @@
 package trade
 
 import (
+	"PowerX/internal/model/crm/trade"
 	"PowerX/internal/model/powermodel"
-	"PowerX/internal/model/trade"
 	"PowerX/internal/types"
 	"PowerX/internal/types/errorx"
 	"context"

@@ -1,7 +1,7 @@
 package pricebookentry
 
 import (
-	"PowerX/internal/model/product"
+	"PowerX/internal/model/crm/product"
 	"context"
 	"github.com/kr/pretty"
 	"github.com/pkg/errors"

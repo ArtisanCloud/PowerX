@@ -1,7 +1,7 @@
 package product
 
 import (
-	"PowerX/internal/model/product"
+	"PowerX/internal/model/crm/product"
 	fmt2 "PowerX/pkg/printx"
 	"encoding/json"
 	"fmt"

@@ -3,7 +3,7 @@ package order
 import (
 	"PowerX/internal/logic/admin/crm/trade/payment"
 	"PowerX/internal/logic/admin/mediaresource"
-	"PowerX/internal/model/trade"
+	"PowerX/internal/model/crm/trade"
 	"PowerX/internal/types/errorx"
 	"context"
 

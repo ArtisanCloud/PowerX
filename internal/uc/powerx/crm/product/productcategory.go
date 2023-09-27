@@ -1,8 +1,8 @@
 package product
 
 import (
+	"PowerX/internal/model/crm/product"
 	"PowerX/internal/model/powermodel"
-	"PowerX/internal/model/product"
 	"PowerX/internal/types/errorx"
 	"context"
 	"github.com/pkg/errors"

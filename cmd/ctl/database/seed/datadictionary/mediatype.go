@@ -2,7 +2,7 @@ package datadictionary
 
 import (
 	"PowerX/internal/model"
-	"PowerX/internal/model/market"
+	"PowerX/internal/model/crm/market"
 )
 
 func defaultMediaTypeDataDictionary() *model.DataDictionaryType {

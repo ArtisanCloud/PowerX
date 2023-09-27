@@ -2,7 +2,7 @@ package product
 
 import (
 	"PowerX/internal/logic/admin/mediaresource"
-	"PowerX/internal/model/product"
+	"PowerX/internal/model/crm/product"
 	product3 "PowerX/internal/uc/powerx/crm/product"
 	"context"
 

@@ -1,8 +1,8 @@
 package artisan
 
 import (
+	"PowerX/internal/model/crm/product"
 	"PowerX/internal/model/media"
-	"PowerX/internal/model/product"
 	"PowerX/internal/uc/powerx"
 	"context"
 	"github.com/golang-module/carbon/v2"

@@ -2,7 +2,7 @@ package store
 
 import (
 	"PowerX/internal/logic/admin/mediaresource"
-	product2 "PowerX/internal/model/market"
+	product2 "PowerX/internal/model/crm/market"
 	"PowerX/internal/model/media"
 	"PowerX/internal/uc/powerx/crm/market"
 	"context"

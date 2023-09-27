@@ -1,7 +1,7 @@
 package seed
 
 import (
-	"PowerX/internal/model/product"
+	"PowerX/internal/model/crm/product"
 	"PowerX/internal/types"
 	"PowerX/internal/uc/powerx"
 	product2 "PowerX/internal/uc/powerx/product"

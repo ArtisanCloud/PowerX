@@ -2,7 +2,7 @@ package datadictionary
 
 import (
 	"PowerX/internal/model"
-	"PowerX/internal/model/product"
+	"PowerX/internal/model/crm/product"
 )
 
 func defaultArtisanLevelDataDictionary() *model.DataDictionaryType {

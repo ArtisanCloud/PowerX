@@ -1,9 +1,9 @@
 package cart
 
 import (
-	customerdomain2 "PowerX/internal/model/customerdomain"
+	customerdomain2 "PowerX/internal/model/crm/customerdomain"
+	"PowerX/internal/model/crm/trade"
 	"PowerX/internal/model/powermodel"
-	"PowerX/internal/model/trade"
 	"PowerX/internal/types/errorx"
 	"PowerX/internal/uc/powerx/crm/customerdomain"
 	"context"

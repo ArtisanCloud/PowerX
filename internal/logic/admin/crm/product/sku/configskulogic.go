@@ -1,7 +1,7 @@
 package sku
 
 import (
-	"PowerX/internal/model/product"
+	"PowerX/internal/model/crm/product"
 	"PowerX/internal/types/errorx"
 	"context"
 

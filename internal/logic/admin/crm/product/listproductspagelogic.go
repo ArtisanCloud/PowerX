@@ -1,7 +1,7 @@
 package product
 
 import (
-	"PowerX/internal/model/product"
+	"PowerX/internal/model/crm/product"
 	"PowerX/internal/svc"
 	"PowerX/internal/types"
 	productUC "PowerX/internal/uc/powerx/crm/product"
