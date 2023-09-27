@@ -42,6 +42,7 @@ import (
 	adminscrmtag "PowerX/internal/handler/admin/scrm/tag"
 	admintag "PowerX/internal/handler/admin/tag"
 	adminuserinfo "PowerX/internal/handler/admin/userinfo"
+	adminwechatofficialaccountmenu "PowerX/internal/handler/admin/wechat/officialaccount/menu"
 	mpcustomerauth "PowerX/internal/handler/mp/customer/auth"
 	mpdictionary "PowerX/internal/handler/mp/dictionary"
 	mpmarketmedia "PowerX/internal/handler/mp/market/media"
@@ -1449,6 +1450,35 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			}...,
 		),
 		rest.WithPrefix("/api/v1/admin/scrm/tag/wechat"),
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Route{
+				{
+					Method:  http.MethodGet,
+					Path:    "/menus-tree",
+					Handler: adminwechatofficialaccountmenu.QueryMenusHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/menus/sync",
+					Handler: adminwechatofficialaccountmenu.SyncMenusHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/menus",
+					Handler: adminwechatofficialaccountmenu.CreateMenuHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodDelete,
+					Path:    "/menus",
+					Handler: adminwechatofficialaccountmenu.DeleteMenuHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithPrefix("/api/v1/admin/wechat/official-account"),
 	)
 
 	server.AddRoutes(

@@ -3,9 +3,9 @@ module PowerX
 go 1.21
 
 require (
-	github.com/ArtisanCloud/PowerLibs/v3 v3.0.13
-	github.com/ArtisanCloud/PowerSocialite/v3 v3.0.6
-	github.com/ArtisanCloud/PowerWeChat/v3 v3.0.63
+	github.com/ArtisanCloud/PowerLibs/v3 v3.0.15
+	github.com/ArtisanCloud/PowerSocialite/v3 v3.0.7
+	github.com/ArtisanCloud/PowerWeChat/v3 v3.1.4
 	github.com/Blank-Xu/sql-adapter v0.0.0-20210714092925-0bdd0d548758
 	github.com/brianvoe/gofakeit/v6 v6.21.0
 	github.com/casbin/casbin/v2 v2.60.0
@@ -33,6 +33,7 @@ require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cenkalti/backoff/v4 v4.1.3 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
+	github.com/clbanning/mxj/v2 v2.7.0 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.0-20190314233015-f79a8a8ca69d // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect

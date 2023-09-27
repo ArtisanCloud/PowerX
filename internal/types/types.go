@@ -2773,6 +2773,69 @@ type ActionCustomerTagRequest struct {
 	RemoveTag      []string `json:"removeTag,optional"`
 }
 
+type OASubButton struct {
+	Name     string `json:"name,optional"`
+	Id       int    `json:"id,optional"`
+	Type     string `json:"type,optional"`
+	Key      string `json:"key,omitempty,optional"`
+	Url      string `json:"url,omitempty,optional"`
+	AppID    string `json:"appid,omitempty,optional"`
+	PagePath string `json:"pagepath,omitempty,optional"`
+}
+
+type OAButton struct {
+	Name        string         `json:"name,optional"`
+	Type        string         `json:"type,optional"`
+	Key         string         `json:"key,omitempty,optional"`
+	Url         string         `json:"url,omitempty,optional"`
+	AppID       string         `json:"appid,omitempty,optional"`
+	PagePath    string         `json:"pagepath,omitempty,optional"`
+	OASubButton []*OASubButton `json:"sub_button,optional"`
+	Id          int            `json:"id,optional"`
+}
+
+type MatchRule struct {
+	TagId    string `json:"tag_id,optional"`
+	Sex      string `json:"sex,optional"`
+	Country  string `json:"country,optional"`
+	Province string `json:"province,optional"`
+	City     string `json:"city,optional"`
+	Language string `json:"language,optional"`
+}
+
+type OAMenu struct {
+	Id        int64       `json:"id,optional"`
+	OAButton  []*OAButton `json:"button,optional"`
+	MatchRule *MatchRule  `json:"matchrule,optional"`
+}
+
+type SyncMenusRequest struct {
+	OAMenu
+}
+
+type SyncMenusReply struct {
+	Success bool        `json:"success,optional"`
+	Data    interface{} `json:"data"`
+}
+
+type CreateMenuRequest struct {
+	OAMenu
+}
+
+type CreateMenuReply struct {
+	Success bool        `json:"success,optional"`
+	Data    interface{} `json:"data"`
+}
+
+type QueryMenusReply struct {
+	Menu *OAMenu `json:"menu,optional"`
+}
+
+type DeleteMenuReply struct {
+	Success bool        `json:"success"`
+	Data    interface{} `json:"data"`
+}
+
 type MPCustomerLoginRequest struct {
 	Code string `json:"code"`
 }
