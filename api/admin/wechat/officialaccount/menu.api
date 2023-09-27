@@ -1,0 +1,112 @@
+syntax = "v1"
+
+info(
+    title: "菜单管理"
+    desc: "菜单管理"
+    author: "MichaelHu"
+    email: "matrix-x@artisan-cloud.com"
+    version: "v1"
+)
+
+@server(
+    group: admin/wechat/officialaccount/menu
+    prefix: /api/v1/admin/wechat/official-account
+    middleware: EmployeeJWTAuth
+)
+
+service PowerX {
+    @doc "查询菜单列表"
+    @handler QueryMenus
+    get /menus-tree returns (QueryMenusReply)
+
+    @doc "请求菜单上传链接"
+    @handler SyncMenus
+    post /menus (SyncMenusRequest) returns (SyncMenusReply)
+
+
+    @doc "创建菜单"
+    @handler CreateMenu
+    post /menus (CreateMenuRequest) returns (CreateMenuReply)
+
+    @doc "删除菜单"
+    @handler DeleteMenu
+    delete /menus returns (DeleteMenuReply)
+}
+
+type (
+    SubButton struct {
+
+        Name string `json:"name,optional"`
+        Id int `json:"id,optional"`
+        Type string `json:"type,optional"`
+        Key string `json:"key,omitempty,optional"`
+        Url string `json:"url,omitempty,optional"`
+    }
+
+    Button struct {
+        Name string `json:"name,optional"`
+        SubButton []*SubButton `json:"sub_button,optional"`
+        Id int `json:"id,optional"`
+    }
+
+    MatchRule struct {
+        TagId string `json:"tag_id,optional"`
+        Sex string `json:"sex,optional"`
+        Country string `json:"country,optional"`
+        Province string `json:"province,optional"`
+        City string `json:"city,optional"`
+        Language string `json:"language,optional"`
+    }
+    Menu struct {
+        Id int64 `json:"id,optional"`
+        Button []*Button `json:"button,optional"`
+        MatchRule *MatchRule `json:"matchrule,optional"`
+    }
+)
+
+type (
+    SyncMenusRequest struct {
+        Menu
+    }
+
+    SyncMenusReply struct {
+        success bool  `json:"success,optional"`
+    }
+)
+
+type (
+    CreateMenuRequest struct {
+        Menu
+    }
+
+    CreateMenuReply struct {
+        success bool  `json:"success,optional"`
+    }
+)
+
+type (
+    QunerySubButton struct {
+        QueryList []SubButton `json:"list,optional"`
+    }
+    QueryButton struct {
+        Name string `json:"name,optional"`
+        SubButton []*QunerySubButton `json:"sub_button,optional"`
+        Id int `json:"id,optional"`
+    }
+
+    SelfMenuInfo struct {
+        Button *QueryButton `json:"button,optional"`
+    }
+
+    QueryMenusReply struct {
+        IsMenuOpen int64 `json:"is_menu_open,optional"`
+        SelfMenuInfo SelfMenuInfo `json:"selfmenu_info,optional"`
+    }
+)
+
+
+type (
+    DeleteMenuReply struct {
+        success bool  `json:"success"`
+    }
+)

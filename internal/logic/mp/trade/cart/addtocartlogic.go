@@ -4,7 +4,7 @@ import (
 	customerdomain2 "PowerX/internal/model/customerdomain"
 	"PowerX/internal/model/trade"
 	"PowerX/internal/types/errorx"
-	"PowerX/internal/uc/powerx/customerdomain"
+	"PowerX/internal/uc/powerx/crm/customerdomain"
 	"context"
 
 	"PowerX/internal/svc"

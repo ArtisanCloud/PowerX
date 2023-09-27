@@ -2,7 +2,7 @@ package auth
 
 import (
 	"PowerX/internal/types/errorx"
-	customerdomain2 "PowerX/internal/uc/powerx/customerdomain"
+	customerdomain2 "PowerX/internal/uc/powerx/crm/customerdomain"
 	"PowerX/pkg/securityx"
 	"context"
 	"fmt"

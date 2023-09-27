@@ -1,8 +1,8 @@
 package store
 
 import (
-	product2 "PowerX/internal/logic/admin/market/store"
-	"PowerX/internal/uc/powerx/market"
+	product2 "PowerX/internal/logic/admin/crm/market/store"
+	"PowerX/internal/uc/powerx/crm/market"
 	"context"
 
 	"PowerX/internal/svc"

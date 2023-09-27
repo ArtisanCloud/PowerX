@@ -9,7 +9,7 @@ info(
 )
 
 @server(
-    group: admin/product/sku
+    group: admin/crm/product/sku
     prefix: /api/v1/admin/product
     middleware: EmployeeJWTAuth
 )

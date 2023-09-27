@@ -9,7 +9,7 @@ info (
 )
 
 @server (
-    group: admin/trade/warehouse
+    group: admin/crm/trade/warehouse
     prefix: /api/v1/admin/trade
     middleware: EmployeeJWTAuth
 )

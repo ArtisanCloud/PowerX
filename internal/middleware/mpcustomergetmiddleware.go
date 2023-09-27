@@ -4,8 +4,8 @@ import (
 	"PowerX/internal/config"
 	"PowerX/internal/types/errorx"
 	"PowerX/internal/uc"
-	"PowerX/internal/uc/powerx"
-	"PowerX/internal/uc/powerx/customerdomain"
+	"PowerX/internal/uc/powerx/crm/customerdomain"
+	"PowerX/internal/uc/powerx/wechat"
 	"context"
 	"github.com/zeromicro/go-zero/rest/httpx"
 	"net/http"
@@ -40,7 +40,7 @@ func (m *MPCustomerGetMiddleware) Handle(next http.HandlerFunc) http.HandlerFunc
 		}
 
 		// 小程序的客户记录是否存在
-		authMPCustomer, err := m.px.WechatMP.FindOneMPCustomer(r.Context(), &powerx.FindMPCustomerOption{
+		authMPCustomer, err := m.px.WechatMP.FindOneMPCustomer(r.Context(), &wechat.FindMPCustomerOption{
 			OpenIds: []string{openId},
 		})
 		if err != nil {

@@ -4,8 +4,8 @@ import (
 	"PowerX/internal/svc"
 	"PowerX/internal/types"
 	"PowerX/internal/types/errorx"
-	"PowerX/internal/uc/powerx"
-	"PowerX/internal/uc/powerx/customerdomain"
+	"PowerX/internal/uc/powerx/crm/customerdomain"
+	"PowerX/internal/uc/powerx/wechat"
 	"context"
 	"fmt"
 	"github.com/pkg/errors"
@@ -37,7 +37,7 @@ func (l *LoginLogic) Login(req *types.MPCustomerLoginRequest) (resp *types.MPCus
 	//	SessionKey: "IHaqJoWvRRCRlfnrRntzcA==",
 	//}
 
-	mpCustomer, err := l.svcCtx.PowerX.WechatMP.FindOneMPCustomer(l.ctx, &powerx.FindMPCustomerOption{
+	mpCustomer, err := l.svcCtx.PowerX.WechatMP.FindOneMPCustomer(l.ctx, &wechat.FindMPCustomerOption{
 		OpenIds: []string{rs.OpenID},
 	})
 

@@ -5,7 +5,7 @@ import (
 	"PowerX/internal/model/customerdomain"
 	"PowerX/internal/svc"
 	"PowerX/internal/types"
-	customerdomain2 "PowerX/internal/uc/powerx/customerdomain"
+	customerdomain2 "PowerX/internal/uc/powerx/crm/customerdomain"
 	fmt2 "PowerX/pkg/printx"
 	"context"
 	"errors"

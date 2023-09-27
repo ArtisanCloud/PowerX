@@ -15,7 +15,7 @@ import "./sku.api"
 import "./pricebookentry.api"
 
 @server(
-    group: admin/product
+    group: admin/crm/product
     prefix: /api/v1/admin/product
     middleware: EmployeeJWTAuth
 )

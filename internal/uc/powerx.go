@@ -3,11 +3,13 @@ package uc
 import (
 	"PowerX/internal/config"
 	"PowerX/internal/uc/powerx"
-	customerDomainUC "PowerX/internal/uc/powerx/customerdomain"
-	"PowerX/internal/uc/powerx/infoorganization"
-	"PowerX/internal/uc/powerx/market"
-	productUC "PowerX/internal/uc/powerx/product"
-	tradeUC "PowerX/internal/uc/powerx/trade"
+	customerDomainUC "PowerX/internal/uc/powerx/crm/customerdomain"
+	"PowerX/internal/uc/powerx/crm/infoorganization"
+	"PowerX/internal/uc/powerx/crm/market"
+	productUC "PowerX/internal/uc/powerx/crm/product"
+	tradeUC "PowerX/internal/uc/powerx/crm/trade"
+	"PowerX/internal/uc/powerx/scrm"
+	"PowerX/internal/uc/powerx/wechat"
 	"github.com/pkg/errors"
 	"github.com/robfig/cron/v3"
 	"github.com/zeromicro/go-zero/core/stores/redis"
@@ -45,13 +47,13 @@ type PowerXUseCase struct {
 	Payment               *tradeUC.PaymentUseCase
 	Logistics             *tradeUC.LogisticsUseCase
 	RefundOrder           *tradeUC.RefundOrderUseCase
-	WechatMP              *powerx.WechatMiniProgramUseCase
-	WechatOA              *powerx.WechatOfficialAccountUseCase
+	WechatMP              *wechat.WechatMiniProgramUseCase
+	WechatOA              *wechat.WechatOfficialAccountUseCase
 	//WeWork                *powerx.WeWorkUseCase
-	SCRM          *powerx.SCRMUseCase
+	SCRM          *scrm.SCRMUseCase
 	MediaResource *powerx.MediaResourceUseCase
 	Media         *market.MediaUseCase
-	Scene         *powerx.SceneUseCase
+	Scene         *scrm.SceneUseCase
 }
 
 func NewPowerXUseCase(conf *config.Config) (uc *PowerXUseCase, clean func()) {
@@ -122,8 +124,8 @@ func NewPowerXUseCase(conf *config.Config) (uc *PowerXUseCase, clean func()) {
 
 	// 加载微信UseCase
 	//uc.WeWork = powerx.NewWeWorkUseCase(db, conf)
-	uc.WechatMP = powerx.NewWechatMiniProgramUseCase(db, conf)
-	uc.WechatOA = powerx.NewWechatOfficialAccountUseCase(db, conf)
+	uc.WechatMP = wechat.NewWechatMiniProgramUseCase(db, conf)
+	uc.WechatOA = wechat.NewWechatOfficialAccountUseCase(db, conf)
 
 	// 加载市场UseCase
 	uc.Media = market.NewMediaUseCase(db)
@@ -133,11 +135,11 @@ func NewPowerXUseCase(conf *config.Config) (uc *PowerXUseCase, clean func()) {
 
 	// 加载SCRM UseCase
 	c := cron.New()
-	uc.SCRM = powerx.NewSCRMUseCase(db, conf, c, uc.redis)
+	uc.SCRM = scrm.NewSCRMUseCase(db, conf, c, uc.redis)
 	uc.SCRM.Schedule()
 
 	// 加载Scene
-	uc.Scene = powerx.NewSceneUseCase(db, uc.redis)
+	uc.Scene = scrm.NewSceneUseCase(db, uc.redis)
 
 	return uc, func() {
 		_ = sqlDB.Close()

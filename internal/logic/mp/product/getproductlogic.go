@@ -1,7 +1,7 @@
 package product
 
 import (
-	"PowerX/internal/logic/admin/product/pricebookentry"
+	"PowerX/internal/logic/admin/crm/product/pricebookentry"
 	"PowerX/internal/logic/mp/mediaresource"
 	"PowerX/internal/model"
 	"PowerX/internal/model/media"

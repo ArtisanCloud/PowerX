@@ -9,7 +9,7 @@ info(
 )
 
 @server(
-    group: admin/market/media
+    group: admin/crm/market/media
     prefix: /api/v1/admin/market
     middleware: EmployeeJWTAuth
 )

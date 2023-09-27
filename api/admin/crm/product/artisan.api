@@ -10,7 +10,7 @@ info(
 
 
 @server(
-    group: admin/product/artisan
+    group: admin/crm/product/artisan
     prefix: /api/v1/admin/product
     middleware: EmployeeJWTAuth
 )

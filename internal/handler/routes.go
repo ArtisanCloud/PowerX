@@ -5,42 +5,42 @@ import (
 	"net/http"
 
 	adminauth "PowerX/internal/handler/admin/auth"
-	adminbusinessopportunity "PowerX/internal/handler/admin/business/opportunity"
 	admincommon "PowerX/internal/handler/admin/common"
-	admincontractway "PowerX/internal/handler/admin/contractway"
-	admincustomerdomaincustomer "PowerX/internal/handler/admin/customerdomain/customer"
-	admincustomerdomainleader "PowerX/internal/handler/admin/customerdomain/leader"
+	admincrmbusinessopportunity "PowerX/internal/handler/admin/crm/business/opportunity"
+	admincrmcustomerdomaincustomer "PowerX/internal/handler/admin/crm/customerdomain/customer"
+	admincrmcustomerdomainleader "PowerX/internal/handler/admin/crm/customerdomain/leader"
+	admincrmmarketmedia "PowerX/internal/handler/admin/crm/market/media"
+	admincrmmarketstore "PowerX/internal/handler/admin/crm/market/store"
+	admincrmproduct "PowerX/internal/handler/admin/crm/product"
+	admincrmproductartisan "PowerX/internal/handler/admin/crm/product/artisan"
+	admincrmproductcategory "PowerX/internal/handler/admin/crm/product/category"
+	admincrmproductpricebook "PowerX/internal/handler/admin/crm/product/pricebook"
+	admincrmproductpricebookentry "PowerX/internal/handler/admin/crm/product/pricebookentry"
+	admincrmproductproductspecific "PowerX/internal/handler/admin/crm/product/productspecific"
+	admincrmproductsku "PowerX/internal/handler/admin/crm/product/sku"
+	admincrmtradeaddressbilling "PowerX/internal/handler/admin/crm/trade/address/billing"
+	admincrmtradeaddressdelivery "PowerX/internal/handler/admin/crm/trade/address/delivery"
+	admincrmtradeaddressshipping "PowerX/internal/handler/admin/crm/trade/address/shipping"
+	admincrmtradeorder "PowerX/internal/handler/admin/crm/trade/order"
+	admincrmtradepayment "PowerX/internal/handler/admin/crm/trade/payment"
+	admincrmtradetoken "PowerX/internal/handler/admin/crm/trade/token"
+	admincrmtradewarehouse "PowerX/internal/handler/admin/crm/trade/warehouse"
 	admindepartment "PowerX/internal/handler/admin/department"
 	admindictionary "PowerX/internal/handler/admin/dictionary"
 	adminemployee "PowerX/internal/handler/admin/employee"
 	admininfoorganizationcategory "PowerX/internal/handler/admin/infoorganization/category"
-	adminmarketmedia "PowerX/internal/handler/admin/market/media"
-	adminmarketstore "PowerX/internal/handler/admin/market/store"
 	adminmediaresource "PowerX/internal/handler/admin/mediaresource"
 	adminpermission "PowerX/internal/handler/admin/permission"
 	adminposition "PowerX/internal/handler/admin/position"
-	adminproduct "PowerX/internal/handler/admin/product"
-	adminproductartisan "PowerX/internal/handler/admin/product/artisan"
-	adminproductcategory "PowerX/internal/handler/admin/product/category"
-	adminproductpricebook "PowerX/internal/handler/admin/product/pricebook"
-	adminproductpricebookentry "PowerX/internal/handler/admin/product/pricebookentry"
-	adminproductproductspecific "PowerX/internal/handler/admin/product/productspecific"
-	adminproductsku "PowerX/internal/handler/admin/product/sku"
 	adminscrmapp "PowerX/internal/handler/admin/scrm/app"
 	adminscrmbot "PowerX/internal/handler/admin/scrm/bot"
+	adminscrmcontractway "PowerX/internal/handler/admin/scrm/contractway"
 	adminscrmcustomer "PowerX/internal/handler/admin/scrm/customer"
 	adminscrmorganization "PowerX/internal/handler/admin/scrm/organization"
 	adminscrmqrcode "PowerX/internal/handler/admin/scrm/qrcode"
 	adminscrmresource "PowerX/internal/handler/admin/scrm/resource"
 	adminscrmtag "PowerX/internal/handler/admin/scrm/tag"
 	admintag "PowerX/internal/handler/admin/tag"
-	admintradeaddressbilling "PowerX/internal/handler/admin/trade/address/billing"
-	admintradeaddressdelivery "PowerX/internal/handler/admin/trade/address/delivery"
-	admintradeaddressshipping "PowerX/internal/handler/admin/trade/address/shipping"
-	admintradeorder "PowerX/internal/handler/admin/trade/order"
-	admintradepayment "PowerX/internal/handler/admin/trade/payment"
-	admintradetoken "PowerX/internal/handler/admin/trade/token"
-	admintradewarehouse "PowerX/internal/handler/admin/trade/warehouse"
 	adminuserinfo "PowerX/internal/handler/admin/userinfo"
 	mpcustomerauth "PowerX/internal/handler/mp/customer/auth"
 	mpdictionary "PowerX/internal/handler/mp/dictionary"
@@ -458,37 +458,37 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				{
 					Method:  http.MethodGet,
 					Path:    "/leads/:id",
-					Handler: admincustomerdomainleader.GetLeadHandler(serverCtx),
+					Handler: admincrmcustomerdomainleader.GetLeadHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodGet,
 					Path:    "/leads/page-list",
-					Handler: admincustomerdomainleader.ListLeadsPageHandler(serverCtx),
+					Handler: admincrmcustomerdomainleader.ListLeadsPageHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPost,
 					Path:    "/leads",
-					Handler: admincustomerdomainleader.CreateLeadHandler(serverCtx),
+					Handler: admincrmcustomerdomainleader.CreateLeadHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPut,
 					Path:    "/leads/:id",
-					Handler: admincustomerdomainleader.PutLeadHandler(serverCtx),
+					Handler: admincrmcustomerdomainleader.PutLeadHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPatch,
 					Path:    "/leads/:id",
-					Handler: admincustomerdomainleader.PatchLeadHandler(serverCtx),
+					Handler: admincrmcustomerdomainleader.PatchLeadHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodDelete,
 					Path:    "/leads/:id",
-					Handler: admincustomerdomainleader.DeleteLeadHandler(serverCtx),
+					Handler: admincrmcustomerdomainleader.DeleteLeadHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPost,
 					Path:    "/leads/:id/actions/employees",
-					Handler: admincustomerdomainleader.AssignLeadToEmployeeHandler(serverCtx),
+					Handler: admincrmcustomerdomainleader.AssignLeadToEmployeeHandler(serverCtx),
 				},
 			}...,
 		),
@@ -502,37 +502,37 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				{
 					Method:  http.MethodGet,
 					Path:    "/customers/:id",
-					Handler: admincustomerdomaincustomer.GetCustomerHandler(serverCtx),
+					Handler: admincrmcustomerdomaincustomer.GetCustomerHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodGet,
 					Path:    "/customers/page-list",
-					Handler: admincustomerdomaincustomer.ListCustomersPageHandler(serverCtx),
+					Handler: admincrmcustomerdomaincustomer.ListCustomersPageHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPost,
 					Path:    "/customers",
-					Handler: admincustomerdomaincustomer.CreateCustomerHandler(serverCtx),
+					Handler: admincrmcustomerdomaincustomer.CreateCustomerHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPut,
 					Path:    "/customers/:id",
-					Handler: admincustomerdomaincustomer.PutCustomerHandler(serverCtx),
+					Handler: admincrmcustomerdomaincustomer.PutCustomerHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPatch,
 					Path:    "/customers/:id",
-					Handler: admincustomerdomaincustomer.PatchCustomerHandler(serverCtx),
+					Handler: admincrmcustomerdomaincustomer.PatchCustomerHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodDelete,
 					Path:    "/customers/:id",
-					Handler: admincustomerdomaincustomer.DeleteCustomerHandler(serverCtx),
+					Handler: admincrmcustomerdomaincustomer.DeleteCustomerHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPost,
 					Path:    "/customers/:id/actions/employees",
-					Handler: admincustomerdomaincustomer.AssignCustomerToEmployeeHandler(serverCtx),
+					Handler: admincrmcustomerdomaincustomer.AssignCustomerToEmployeeHandler(serverCtx),
 				},
 			}...,
 		),
@@ -546,27 +546,27 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				{
 					Method:  http.MethodGet,
 					Path:    "/medias/page-list",
-					Handler: adminmarketmedia.ListMediasPageHandler(serverCtx),
+					Handler: admincrmmarketmedia.ListMediasPageHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPost,
 					Path:    "/medias",
-					Handler: adminmarketmedia.CreateMediaHandler(serverCtx),
+					Handler: admincrmmarketmedia.CreateMediaHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPut,
 					Path:    "/medias/:id",
-					Handler: adminmarketmedia.UpdateMediaHandler(serverCtx),
+					Handler: admincrmmarketmedia.UpdateMediaHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodGet,
 					Path:    "/medias/:id",
-					Handler: adminmarketmedia.GetMediaHandler(serverCtx),
+					Handler: admincrmmarketmedia.GetMediaHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodDelete,
 					Path:    "/medias/:id",
-					Handler: adminmarketmedia.DeleteMediaHandler(serverCtx),
+					Handler: admincrmmarketmedia.DeleteMediaHandler(serverCtx),
 				},
 			}...,
 		),
@@ -580,32 +580,32 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				{
 					Method:  http.MethodGet,
 					Path:    "/stores/page-list",
-					Handler: adminmarketstore.ListStoresPageHandler(serverCtx),
+					Handler: admincrmmarketstore.ListStoresPageHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodGet,
 					Path:    "/stores/:id",
-					Handler: adminmarketstore.GetStoreHandler(serverCtx),
+					Handler: admincrmmarketstore.GetStoreHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPost,
 					Path:    "/stores",
-					Handler: adminmarketstore.CreateStoreHandler(serverCtx),
+					Handler: admincrmmarketstore.CreateStoreHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPut,
 					Path:    "/stores/:id",
-					Handler: adminmarketstore.PutStoreHandler(serverCtx),
+					Handler: admincrmmarketstore.PutStoreHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodDelete,
 					Path:    "/stores/:id",
-					Handler: adminmarketstore.DeleteStoreHandler(serverCtx),
+					Handler: admincrmmarketstore.DeleteStoreHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPost,
 					Path:    "/stores/:id/actions/assign-to-store-categroy",
-					Handler: adminmarketstore.AssignStoreToStoreManagerHandler(serverCtx),
+					Handler: admincrmmarketstore.AssignStoreToStoreManagerHandler(serverCtx),
 				},
 			}...,
 		),
@@ -619,27 +619,27 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				{
 					Method:  http.MethodGet,
 					Path:    "/opportunities",
-					Handler: adminbusinessopportunity.GetOpportunityListHandler(serverCtx),
+					Handler: admincrmbusinessopportunity.GetOpportunityListHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPost,
 					Path:    "/opportunities",
-					Handler: adminbusinessopportunity.CreateOpportunityHandler(serverCtx),
+					Handler: admincrmbusinessopportunity.CreateOpportunityHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPut,
 					Path:    "/opportunities/:id/assign-employee",
-					Handler: adminbusinessopportunity.AssignEmployeeToOpportunityHandler(serverCtx),
+					Handler: admincrmbusinessopportunity.AssignEmployeeToOpportunityHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPut,
 					Path:    "/opportunities/:id",
-					Handler: adminbusinessopportunity.UpdateOpportunityHandler(serverCtx),
+					Handler: admincrmbusinessopportunity.UpdateOpportunityHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodDelete,
 					Path:    "/opportunities/:id",
-					Handler: adminbusinessopportunity.DeleteOpportunityHandler(serverCtx),
+					Handler: admincrmbusinessopportunity.DeleteOpportunityHandler(serverCtx),
 				},
 			}...,
 		),
@@ -653,22 +653,22 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				{
 					Method:  http.MethodGet,
 					Path:    "/price-books/page-list",
-					Handler: adminproductpricebook.ListPriceBooksHandler(serverCtx),
+					Handler: admincrmproductpricebook.ListPriceBooksHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodGet,
 					Path:    "/price-books/:id",
-					Handler: adminproductpricebook.GetPriceBookHandler(serverCtx),
+					Handler: admincrmproductpricebook.GetPriceBookHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPost,
 					Path:    "/price-books",
-					Handler: adminproductpricebook.UpsertPriceBookHandler(serverCtx),
+					Handler: admincrmproductpricebook.UpsertPriceBookHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodDelete,
 					Path:    "/price-books/:id",
-					Handler: adminproductpricebook.DeletePriceBookHandler(serverCtx),
+					Handler: admincrmproductpricebook.DeletePriceBookHandler(serverCtx),
 				},
 			}...,
 		),
@@ -682,37 +682,37 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				{
 					Method:  http.MethodGet,
 					Path:    "/products/page-list",
-					Handler: adminproduct.ListProductsPageHandler(serverCtx),
+					Handler: admincrmproduct.ListProductsPageHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodGet,
 					Path:    "/products/:id",
-					Handler: adminproduct.GetProductHandler(serverCtx),
+					Handler: admincrmproduct.GetProductHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPost,
 					Path:    "/products",
-					Handler: adminproduct.CreateProductHandler(serverCtx),
+					Handler: admincrmproduct.CreateProductHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPut,
 					Path:    "/products/:id",
-					Handler: adminproduct.PutProductHandler(serverCtx),
+					Handler: admincrmproduct.PutProductHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPatch,
 					Path:    "/products/:id",
-					Handler: adminproduct.PatchProductHandler(serverCtx),
+					Handler: admincrmproduct.PatchProductHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodDelete,
 					Path:    "/products/:id",
-					Handler: adminproduct.DeleteProductHandler(serverCtx),
+					Handler: admincrmproduct.DeleteProductHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPost,
 					Path:    "/products/:id/actions/assign-to-product-categroy",
-					Handler: adminproduct.AssignProductToProductCategoryHandler(serverCtx),
+					Handler: admincrmproduct.AssignProductToProductCategoryHandler(serverCtx),
 				},
 			}...,
 		),
@@ -760,32 +760,32 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				{
 					Method:  http.MethodGet,
 					Path:    "/product-category-tree",
-					Handler: adminproductcategory.ListProductCategoryTreeHandler(serverCtx),
+					Handler: admincrmproductcategory.ListProductCategoryTreeHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodGet,
 					Path:    "/product-categories/:id",
-					Handler: adminproductcategory.GetProductCategoryHandler(serverCtx),
+					Handler: admincrmproductcategory.GetProductCategoryHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPost,
 					Path:    "/product-categories",
-					Handler: adminproductcategory.CreateProductCategoryHandler(serverCtx),
+					Handler: admincrmproductcategory.CreateProductCategoryHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPut,
 					Path:    "/product-categories/:id",
-					Handler: adminproductcategory.UpdateProductCategoryHandler(serverCtx),
+					Handler: admincrmproductcategory.UpdateProductCategoryHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPatch,
 					Path:    "/product-categories/:id",
-					Handler: adminproductcategory.PatchProductCategoryHandler(serverCtx),
+					Handler: admincrmproductcategory.PatchProductCategoryHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodDelete,
 					Path:    "/product-categories/:id",
-					Handler: adminproductcategory.DeleteProductCategoryHandler(serverCtx),
+					Handler: admincrmproductcategory.DeleteProductCategoryHandler(serverCtx),
 				},
 			}...,
 		),
@@ -799,37 +799,37 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				{
 					Method:  http.MethodGet,
 					Path:    "/product-specifics/page-list",
-					Handler: adminproductproductspecific.ListProductSpecificPageHandler(serverCtx),
+					Handler: admincrmproductproductspecific.ListProductSpecificPageHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodGet,
 					Path:    "/product-specifics/:id",
-					Handler: adminproductproductspecific.GetProductSpecificHandler(serverCtx),
+					Handler: admincrmproductproductspecific.GetProductSpecificHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPost,
 					Path:    "/product-specifics",
-					Handler: adminproductproductspecific.CreateProductSpecificHandler(serverCtx),
+					Handler: admincrmproductproductspecific.CreateProductSpecificHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPost,
 					Path:    "/product-specifics/config",
-					Handler: adminproductproductspecific.ConfigProductSpecificHandler(serverCtx),
+					Handler: admincrmproductproductspecific.ConfigProductSpecificHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPut,
 					Path:    "/product-specifics/:id",
-					Handler: adminproductproductspecific.PutProductSpecificHandler(serverCtx),
+					Handler: admincrmproductproductspecific.PutProductSpecificHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPatch,
 					Path:    "/product-specifics/:id",
-					Handler: adminproductproductspecific.PatchProductSpecificHandler(serverCtx),
+					Handler: admincrmproductproductspecific.PatchProductSpecificHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodDelete,
 					Path:    "/product-specifics/:id",
-					Handler: adminproductproductspecific.DeleteProductSpecificHandler(serverCtx),
+					Handler: admincrmproductproductspecific.DeleteProductSpecificHandler(serverCtx),
 				},
 			}...,
 		),
@@ -843,37 +843,37 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				{
 					Method:  http.MethodGet,
 					Path:    "/skus/page-list",
-					Handler: adminproductsku.ListSKUPageHandler(serverCtx),
+					Handler: admincrmproductsku.ListSKUPageHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodGet,
 					Path:    "/skus/:id",
-					Handler: adminproductsku.GetSKUHandler(serverCtx),
+					Handler: admincrmproductsku.GetSKUHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPost,
 					Path:    "/skus",
-					Handler: adminproductsku.CreateSKUHandler(serverCtx),
+					Handler: admincrmproductsku.CreateSKUHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPost,
 					Path:    "/skus/config",
-					Handler: adminproductsku.ConfigSKUHandler(serverCtx),
+					Handler: admincrmproductsku.ConfigSKUHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPut,
 					Path:    "/skus/:id",
-					Handler: adminproductsku.PutSKUHandler(serverCtx),
+					Handler: admincrmproductsku.PutSKUHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPatch,
 					Path:    "/skus/:id",
-					Handler: adminproductsku.PatchSKUHandler(serverCtx),
+					Handler: admincrmproductsku.PatchSKUHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodDelete,
 					Path:    "/skus/:id",
-					Handler: adminproductsku.DeleteSKUHandler(serverCtx),
+					Handler: admincrmproductsku.DeleteSKUHandler(serverCtx),
 				},
 			}...,
 		),
@@ -887,27 +887,27 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				{
 					Method:  http.MethodGet,
 					Path:    "/price-book-entries/page-list",
-					Handler: adminproductpricebookentry.ListPriceBookEntriesHandler(serverCtx),
+					Handler: admincrmproductpricebookentry.ListPriceBookEntriesHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodGet,
 					Path:    "/price-book-entries/:id",
-					Handler: adminproductpricebookentry.GetPriceBookEntryHandler(serverCtx),
+					Handler: admincrmproductpricebookentry.GetPriceBookEntryHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPost,
 					Path:    "/price-book-entries/config",
-					Handler: adminproductpricebookentry.ConfigPriceBookEntryHandler(serverCtx),
+					Handler: admincrmproductpricebookentry.ConfigPriceBookEntryHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPost,
 					Path:    "/price-book-entries/:id",
-					Handler: adminproductpricebookentry.UpdatePriceBookEntryHandler(serverCtx),
+					Handler: admincrmproductpricebookentry.UpdatePriceBookEntryHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodDelete,
 					Path:    "/price-book-entries/:id",
-					Handler: adminproductpricebookentry.DeletePriceBookEntryHandler(serverCtx),
+					Handler: admincrmproductpricebookentry.DeletePriceBookEntryHandler(serverCtx),
 				},
 			}...,
 		),
@@ -921,32 +921,32 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				{
 					Method:  http.MethodGet,
 					Path:    "/artisans/page-list",
-					Handler: adminproductartisan.ListArtisansPageHandler(serverCtx),
+					Handler: admincrmproductartisan.ListArtisansPageHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodGet,
 					Path:    "/artisans/:id",
-					Handler: adminproductartisan.GetArtisanHandler(serverCtx),
+					Handler: admincrmproductartisan.GetArtisanHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPost,
 					Path:    "/artisans",
-					Handler: adminproductartisan.CreateArtisanHandler(serverCtx),
+					Handler: admincrmproductartisan.CreateArtisanHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPut,
 					Path:    "/artisans/:id",
-					Handler: adminproductartisan.PutArtisanHandler(serverCtx),
+					Handler: admincrmproductartisan.PutArtisanHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodDelete,
 					Path:    "/artisans/:id",
-					Handler: adminproductartisan.DeleteArtisanHandler(serverCtx),
+					Handler: admincrmproductartisan.DeleteArtisanHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPost,
 					Path:    "/artisans/bind/stores",
-					Handler: adminproductartisan.BindArtisanToStoreHandler(serverCtx),
+					Handler: admincrmproductartisan.BindArtisanToStoreHandler(serverCtx),
 				},
 			}...,
 		),
@@ -960,32 +960,32 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				{
 					Method:  http.MethodGet,
 					Path:    "/products/page-list",
-					Handler: admintradetoken.ListTokenProductsPageHandler(serverCtx),
+					Handler: admincrmtradetoken.ListTokenProductsPageHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodGet,
 					Path:    "/products/:id",
-					Handler: admintradetoken.GetTokenProductHandler(serverCtx),
+					Handler: admincrmtradetoken.GetTokenProductHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPost,
 					Path:    "/products",
-					Handler: admintradetoken.CreateTokenProductHandler(serverCtx),
+					Handler: admincrmtradetoken.CreateTokenProductHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPut,
 					Path:    "/products/:id",
-					Handler: admintradetoken.PutTokenProductHandler(serverCtx),
+					Handler: admincrmtradetoken.PutTokenProductHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPatch,
 					Path:    "/products/:id",
-					Handler: admintradetoken.PatchTokenProductHandler(serverCtx),
+					Handler: admincrmtradetoken.PatchTokenProductHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodDelete,
 					Path:    "/products/:id",
-					Handler: admintradetoken.DeleteTokenProductHandler(serverCtx),
+					Handler: admincrmtradetoken.DeleteTokenProductHandler(serverCtx),
 				},
 			}...,
 		),
@@ -999,32 +999,32 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				{
 					Method:  http.MethodGet,
 					Path:    "/shipping/page-list",
-					Handler: admintradeaddressshipping.ListShippingAddressesPageHandler(serverCtx),
+					Handler: admincrmtradeaddressshipping.ListShippingAddressesPageHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodGet,
 					Path:    "/shipping/:id",
-					Handler: admintradeaddressshipping.GetShippingAddressHandler(serverCtx),
+					Handler: admincrmtradeaddressshipping.GetShippingAddressHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPost,
 					Path:    "/shipping",
-					Handler: admintradeaddressshipping.CreateShippingAddressHandler(serverCtx),
+					Handler: admincrmtradeaddressshipping.CreateShippingAddressHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPut,
 					Path:    "/shipping/:id",
-					Handler: admintradeaddressshipping.PutShippingAddressHandler(serverCtx),
+					Handler: admincrmtradeaddressshipping.PutShippingAddressHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPatch,
 					Path:    "/shipping/:id",
-					Handler: admintradeaddressshipping.PatchShippingAddressHandler(serverCtx),
+					Handler: admincrmtradeaddressshipping.PatchShippingAddressHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodDelete,
 					Path:    "/shipping/:id",
-					Handler: admintradeaddressshipping.DeleteShippingAddressHandler(serverCtx),
+					Handler: admincrmtradeaddressshipping.DeleteShippingAddressHandler(serverCtx),
 				},
 			}...,
 		),
@@ -1038,32 +1038,32 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				{
 					Method:  http.MethodGet,
 					Path:    "/billing/page-list",
-					Handler: admintradeaddressbilling.ListBillingAddressesPageHandler(serverCtx),
+					Handler: admincrmtradeaddressbilling.ListBillingAddressesPageHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodGet,
 					Path:    "/billing/:id",
-					Handler: admintradeaddressbilling.GetBillingAddressHandler(serverCtx),
+					Handler: admincrmtradeaddressbilling.GetBillingAddressHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPost,
 					Path:    "/billing",
-					Handler: admintradeaddressbilling.CreateBillingAddressHandler(serverCtx),
+					Handler: admincrmtradeaddressbilling.CreateBillingAddressHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPut,
 					Path:    "/billing/:id",
-					Handler: admintradeaddressbilling.PutBillingAddressHandler(serverCtx),
+					Handler: admincrmtradeaddressbilling.PutBillingAddressHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPatch,
 					Path:    "/billing/:id",
-					Handler: admintradeaddressbilling.PatchBillingAddressHandler(serverCtx),
+					Handler: admincrmtradeaddressbilling.PatchBillingAddressHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodDelete,
 					Path:    "/billing/:id",
-					Handler: admintradeaddressbilling.DeleteBillingAddressHandler(serverCtx),
+					Handler: admincrmtradeaddressbilling.DeleteBillingAddressHandler(serverCtx),
 				},
 			}...,
 		),
@@ -1077,32 +1077,32 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				{
 					Method:  http.MethodGet,
 					Path:    "/delivery/page-list",
-					Handler: admintradeaddressdelivery.ListDeliveryAddressesPageHandler(serverCtx),
+					Handler: admincrmtradeaddressdelivery.ListDeliveryAddressesPageHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodGet,
 					Path:    "/delivery/:id",
-					Handler: admintradeaddressdelivery.GetDeliveryAddressHandler(serverCtx),
+					Handler: admincrmtradeaddressdelivery.GetDeliveryAddressHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPost,
 					Path:    "/delivery",
-					Handler: admintradeaddressdelivery.CreateDeliveryAddressHandler(serverCtx),
+					Handler: admincrmtradeaddressdelivery.CreateDeliveryAddressHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPut,
 					Path:    "/delivery/:id",
-					Handler: admintradeaddressdelivery.PutDeliveryAddressHandler(serverCtx),
+					Handler: admincrmtradeaddressdelivery.PutDeliveryAddressHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPatch,
 					Path:    "/delivery/:id",
-					Handler: admintradeaddressdelivery.PatchDeliveryAddressHandler(serverCtx),
+					Handler: admincrmtradeaddressdelivery.PatchDeliveryAddressHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodDelete,
 					Path:    "/delivery/:id",
-					Handler: admintradeaddressdelivery.DeleteDeliveryAddressHandler(serverCtx),
+					Handler: admincrmtradeaddressdelivery.DeleteDeliveryAddressHandler(serverCtx),
 				},
 			}...,
 		),
@@ -1116,32 +1116,32 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				{
 					Method:  http.MethodGet,
 					Path:    "/warehouses",
-					Handler: admintradewarehouse.ListWarehousesHandler(serverCtx),
+					Handler: admincrmtradewarehouse.ListWarehousesHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodGet,
 					Path:    "/warehouses/:id",
-					Handler: admintradewarehouse.GetWarehouseHandler(serverCtx),
+					Handler: admincrmtradewarehouse.GetWarehouseHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPost,
 					Path:    "/warehouses",
-					Handler: admintradewarehouse.CreateWarehouseHandler(serverCtx),
+					Handler: admincrmtradewarehouse.CreateWarehouseHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPut,
 					Path:    "/warehouses/:id",
-					Handler: admintradewarehouse.UpdateWarehouseHandler(serverCtx),
+					Handler: admincrmtradewarehouse.UpdateWarehouseHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPatch,
 					Path:    "/warehouses/:id",
-					Handler: admintradewarehouse.PatchWarehouseHandler(serverCtx),
+					Handler: admincrmtradewarehouse.PatchWarehouseHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodDelete,
 					Path:    "/warehouses/:id",
-					Handler: admintradewarehouse.DeleteWarehouseHandler(serverCtx),
+					Handler: admincrmtradewarehouse.DeleteWarehouseHandler(serverCtx),
 				},
 			}...,
 		),
@@ -1155,32 +1155,32 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				{
 					Method:  http.MethodGet,
 					Path:    "/group-tree",
-					Handler: admincontractway.GetContractWayGroupTreeHandler(serverCtx),
+					Handler: adminscrmcontractway.GetContractWayGroupTreeHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodGet,
 					Path:    "/groups",
-					Handler: admincontractway.GetContractWayGroupListHandler(serverCtx),
+					Handler: adminscrmcontractway.GetContractWayGroupListHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodGet,
 					Path:    "/",
-					Handler: admincontractway.GetContractWaysHandler(serverCtx),
+					Handler: adminscrmcontractway.GetContractWaysHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPost,
 					Path:    "/",
-					Handler: admincontractway.CreateContractWayHandler(serverCtx),
+					Handler: adminscrmcontractway.CreateContractWayHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPut,
 					Path:    "/:id",
-					Handler: admincontractway.UpdateContractWayHandler(serverCtx),
+					Handler: adminscrmcontractway.UpdateContractWayHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodDelete,
 					Path:    "/:id",
-					Handler: admincontractway.DeleteContractWayHandler(serverCtx),
+					Handler: adminscrmcontractway.DeleteContractWayHandler(serverCtx),
 				},
 			}...,
 		),
@@ -1666,42 +1666,42 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				{
 					Method:  http.MethodGet,
 					Path:    "/orders/page-list",
-					Handler: admintradeorder.ListOrdersPageHandler(serverCtx),
+					Handler: admincrmtradeorder.ListOrdersPageHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodGet,
 					Path:    "/orders/:id",
-					Handler: admintradeorder.GetOrderHandler(serverCtx),
+					Handler: admincrmtradeorder.GetOrderHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPost,
 					Path:    "/orders",
-					Handler: admintradeorder.CreateOrderHandler(serverCtx),
+					Handler: admincrmtradeorder.CreateOrderHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPut,
 					Path:    "/orders/:id",
-					Handler: admintradeorder.PutOrderHandler(serverCtx),
+					Handler: admincrmtradeorder.PutOrderHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPatch,
 					Path:    "/orders/:id",
-					Handler: admintradeorder.PatchOrderHandler(serverCtx),
+					Handler: admincrmtradeorder.PatchOrderHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodDelete,
 					Path:    "/orders/:id",
-					Handler: admintradeorder.DeleteOrderHandler(serverCtx),
+					Handler: admincrmtradeorder.DeleteOrderHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodGet,
 					Path:    "/orders/export",
-					Handler: admintradeorder.ExportOrdersHandler(serverCtx),
+					Handler: admincrmtradeorder.ExportOrdersHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPost,
 					Path:    "/orders/import",
-					Handler: admintradeorder.ImportOrdersHandler(serverCtx),
+					Handler: admincrmtradeorder.ImportOrdersHandler(serverCtx),
 				},
 			}...,
 		),
@@ -1715,32 +1715,32 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				{
 					Method:  http.MethodGet,
 					Path:    "/payments/page-list",
-					Handler: admintradepayment.ListPaymentsPageHandler(serverCtx),
+					Handler: admincrmtradepayment.ListPaymentsPageHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodGet,
 					Path:    "/payments/:id",
-					Handler: admintradepayment.GetPaymentHandler(serverCtx),
+					Handler: admincrmtradepayment.GetPaymentHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPost,
 					Path:    "/payments",
-					Handler: admintradepayment.CreatePaymentHandler(serverCtx),
+					Handler: admincrmtradepayment.CreatePaymentHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPut,
 					Path:    "/payments/:id",
-					Handler: admintradepayment.PutPaymentHandler(serverCtx),
+					Handler: admincrmtradepayment.PutPaymentHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPatch,
 					Path:    "/payments/:id",
-					Handler: admintradepayment.PatchPaymentHandler(serverCtx),
+					Handler: admincrmtradepayment.PatchPaymentHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodDelete,
 					Path:    "/payments/:id",
-					Handler: admintradepayment.DeletePaymentHandler(serverCtx),
+					Handler: admincrmtradepayment.DeletePaymentHandler(serverCtx),
 				},
 			}...,
 		),

@@ -4,8 +4,8 @@ import (
 	customerdomain2 "PowerX/internal/model/customerdomain"
 	product2 "PowerX/internal/model/product"
 	"PowerX/internal/types/errorx"
-	"PowerX/internal/uc/powerx/customerdomain"
-	"PowerX/internal/uc/powerx/product"
+	"PowerX/internal/uc/powerx/crm/customerdomain"
+	"PowerX/internal/uc/powerx/crm/product"
 	"context"
 
 	"PowerX/internal/svc"
