@@ -1,10 +1,11 @@
 package menu
 
 import (
-	"context"
-
 	"PowerX/internal/svc"
 	"PowerX/internal/types"
+	"PowerX/internal/types/errorx"
+	"context"
+	"github.com/ArtisanCloud/PowerLibs/v3/object"
 
 	"github.com/zeromicro/go-zero/core/logx"
 )
@@ -24,7 +25,17 @@ func NewQueryMenusLogic(ctx context.Context, svcCtx *svc.ServiceContext) *QueryM
 }
 
 func (l *QueryMenusLogic) QueryMenus() (resp *types.QueryMenusReply, err error) {
-	// todo: add your logic here and delete this line
 
-	return
+	res, err := l.svcCtx.PowerX.WechatOA.App.Menu.Get(l.ctx)
+	if err != nil {
+		return nil, err
+	}
+	if res.ErrCode != 0 {
+		return nil, errorx.WithCause(errorx.ErrNotFoundObject, res.ErrMsg)
+	}
+
+	return &types.QueryMenusReply{
+		Button:    res.Menus.Buttons,
+		MatchRule: object.HashMap{},
+	}, nil
 }

@@ -27,6 +27,6 @@ func (l *GetHomeLogic) GetHome() (resp *types.GetHomeReply, err error) {
 	return &types.GetHomeReply{
 		Greet:       "Hello, I am PowerX!",
 		Description: "This is awesome! you create me and make me alive",
-		Version:     "V1.0.0",
+		Version:     "V1.0.1",
 	}, nil
 }

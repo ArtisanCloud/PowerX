@@ -6,11 +6,11 @@ import (
 	"PowerX/internal/model"
 	"PowerX/internal/model/crm/customerdomain"
 	"PowerX/internal/model/crm/market"
+	"PowerX/internal/model/crm/membership"
 	"PowerX/internal/model/crm/product"
 	"PowerX/internal/model/crm/trade"
 	infoorganizatoin "PowerX/internal/model/infoorganization"
 	"PowerX/internal/model/media"
-	"PowerX/internal/model/membership"
 	"PowerX/internal/model/origanzation"
 	"PowerX/internal/model/permission"
 	"PowerX/internal/model/scene"
@@ -19,6 +19,7 @@ import (
 	"PowerX/internal/model/scrm/organization"
 	"PowerX/internal/model/scrm/resource"
 	"PowerX/internal/model/scrm/tag"
+	"PowerX/internal/model/wechat"
 	"gorm.io/driver/mysql"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -58,7 +59,7 @@ func (m *PowerMigrator) AutoMigrate() {
 
 	// customer domain
 	_ = m.db.AutoMigrate(&customerdomain.Lead{}, &customerdomain.Contact{}, &customerdomain.Customer{}, &membership.Membership{})
-	_ = m.db.AutoMigrate(&model.WechatOACustomer{}, &model.WechatMPCustomer{}, &model.WeWorkExternalContact{})
+	_ = m.db.AutoMigrate(&wechat.WechatOACustomer{}, &wechat.WechatMPCustomer{}, &wechat.WeWorkExternalContact{})
 	_ = m.db.AutoMigrate(
 		&product.PivotProductToProductCategory{},
 	)

@@ -2828,7 +2828,8 @@ type CreateMenuReply struct {
 }
 
 type QueryMenusReply struct {
-	Menu *OAMenu `json:"menu,optional"`
+	Button    interface{} `json:"button"`
+	MatchRule interface{} `json:"matchrule"`
 }
 
 type DeleteMenuReply struct {
