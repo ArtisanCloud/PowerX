@@ -1,0 +1,106 @@
+syntax = "v1"
+
+info(
+    title: "MGM管理"
+    desc: "MGM管理"
+    author: "MichaelHu"
+    email: "matrix-x@artisan-cloud.com"
+    version: "v1"
+)
+
+@server(
+    group: admin/crm/market/mgm
+    prefix: /api/v1/admin/market
+    middleware: EmployeeJWTAuth
+)
+
+service PowerX {
+    @doc "查询MGM列表"
+    @handler ListMGMsPage
+    get /mgms/page-list (ListMGMsPageRequest) returns (ListMGMsPageReply)
+    @doc "请求MGM上传链接"
+    @handler CreateMGM
+    post /mgms (CreateMGMRequest) returns (CreateMGMReply)
+
+    @doc "创建或更新MGM"
+    @handler UpdateMGM
+    put /mgms/:id (UpdateMGMRequest) returns (UpdateMGMReply)
+
+    @doc "根据获取MGM"
+    @handler GetMGM
+    get /mgms/:id (GetMGMRequest) returns (GetMGMReply)
+
+    @doc "删除MGM"
+    @handler DeleteMGM
+    delete /mgms/:id (DeleteMGMRequest) returns (DeleteMGMReply)
+}
+
+type (
+    ListMGMsPageRequest struct {
+        MGMTypes []int8 `form:"mgmTypes,optional"`
+        Keys []string `form:"keys,optional"`
+        OrderBy string `form:"orderBy,optional"`
+        PageIndex int `form:"pageIndex,optional"`
+        PageSize int `form:"pageSize,optional"`
+    }
+
+    MGM struct {
+        Id int64 `json:"id,optional"`
+
+        Title string `json:"title,optional"`
+        SubTitle string `json:"subTitle,optional"`
+        CoverImageId int64 `json:"coverImageId,optional"`
+        ResourceUrl string `json:"resourceUrl,optional"`
+        Description string `json:"description,optional"`
+        MGMType int `json:"mgmType,optional"`
+        ViewedCount int `json:"viewedCount,optional"`
+    }
+
+    ListMGMsPageReply struct {
+        List []*MGM `json:"list"`
+        PageIndex int `json:"pageIndex"`
+        PageSize int `json:"pageSize"`
+        Total int64 `json:"total"`
+    }
+)
+
+type (
+    CreateMGMRequest struct {
+        MGM
+    }
+
+    CreateMGMReply struct {
+        MGMId int64 `json:"id"`
+    }
+)
+
+type (
+    UpdateMGMRequest struct {
+        MGMId int64 `path:"id"`
+        MGM
+    }
+
+    UpdateMGMReply struct {
+        MGMId int64 `json:"id"`
+    }
+)
+
+type (
+    GetMGMRequest struct {
+        MGMId int64 `path:"id"`
+    }
+
+    GetMGMReply struct {
+        *MGM
+    }
+)
+
+type (
+    DeleteMGMRequest struct {
+        MGMId int64 `path:"id"`
+    }
+
+    DeleteMGMReply struct {
+        MGMId int64 `json:"id"`
+    }
+)

@@ -11,13 +11,13 @@ import (
 func CreateTokenExchangeRatios(db *gorm.DB) (err error) {
 
 	var count int64
-	if err = db.Model(&trade.ExchangeRatio{}).Count(&count).Error; err != nil {
+	if err = db.Model(&trade.TokenExchangeRatio{}).Count(&count).Error; err != nil {
 		panic(errors.Wrap(err, "init exchange rate  failed"))
 	}
 
 	data := DefaultExchangeRecord(db)
 	if count == 0 {
-		if err = db.Model(&trade.ExchangeRatio{}).Create(data).Error; err != nil {
+		if err = db.Model(&trade.TokenExchangeRatio{}).Create(data).Error; err != nil {
 			panic(errors.Wrap(err, "init price book failed"))
 		}
 	}
@@ -25,12 +25,12 @@ func CreateTokenExchangeRatios(db *gorm.DB) (err error) {
 	return err
 }
 
-func DefaultExchangeRecord(db *gorm.DB) []*trade.ExchangeRatio {
+func DefaultExchangeRecord(db *gorm.DB) []*trade.TokenExchangeRatio {
 
 	ucDD := powerx.NewDataDictionaryUseCase(db)
 	categoryId := ucDD.GetCachedDD(context.Background(), trade.TypeTokenCategory, trade.TokenCategoryPurchase).Id
 
-	return []*trade.ExchangeRatio{
+	return []*trade.TokenExchangeRatio{
 		{
 			FromCategory: int(categoryId),
 			Ratio:        1,

@@ -6,7 +6,7 @@ import (
 	"github.com/ArtisanCloud/PowerLibs/v3/database"
 )
 
-type ExchangeRatio struct {
+type TokenExchangeRatio struct {
 	database.PowerModel
 
 	FromCategory int     `gorm:"comment:要兑换的代币种类" json:"fromCategory"`
@@ -24,7 +24,7 @@ type TokenBalance struct {
 
 const TokenBalanceUniqueId = powermodel.UniqueId
 
-type ExchangeRecord struct {
+type TokenExchangeRecord struct {
 	database.PowerModel
 
 	CustomerId     int64   `gorm:"comment:客户Id; index" json:"customerId"`

@@ -72,6 +72,7 @@ func (m *PowerMigrator) AutoMigrate() {
 
 	// market
 	_ = m.db.AutoMigrate(&market.Media{})
+	_ = m.db.AutoMigrate(&market.MGMRule{}, market.InviteRecord{}, market.CommissionRecord{})
 
 	// media
 	_ = m.db.AutoMigrate(&media.MediaResource{}, &media.PivotMediaResourceToObject{})
@@ -83,7 +84,7 @@ func (m *PowerMigrator) AutoMigrate() {
 	_ = m.db.AutoMigrate(&trade.OrderStatusTransition{}, &trade.PivotOrderToInventoryLog{})
 	_ = m.db.AutoMigrate(&trade.Payment{}, &trade.PaymentItem{})
 	_ = m.db.AutoMigrate(&trade.RefundOrder{}, &trade.RefundOrderItem{})
-	_ = m.db.AutoMigrate(&trade.TokenBalance{}, &trade.ExchangeRatio{}, &trade.ExchangeRecord{})
+	_ = m.db.AutoMigrate(&trade.TokenBalance{}, &trade.TokenExchangeRatio{}, &trade.TokenExchangeRecord{})
 
 	// custom
 	migrate.AutoMigrateCustom(m.db)
