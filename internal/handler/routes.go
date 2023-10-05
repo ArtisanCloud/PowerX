@@ -10,6 +10,7 @@ import (
 	admincrmcustomerdomaincustomer "PowerX/internal/handler/admin/crm/customerdomain/customer"
 	admincrmcustomerdomainleader "PowerX/internal/handler/admin/crm/customerdomain/leader"
 	admincrmmarketmedia "PowerX/internal/handler/admin/crm/market/media"
+	admincrmmarketmgm "PowerX/internal/handler/admin/crm/market/mgm"
 	admincrmmarketstore "PowerX/internal/handler/admin/crm/market/store"
 	admincrmproduct "PowerX/internal/handler/admin/crm/product"
 	admincrmproductartisan "PowerX/internal/handler/admin/crm/product/artisan"
@@ -607,6 +608,40 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 					Method:  http.MethodPost,
 					Path:    "/stores/:id/actions/assign-to-store-categroy",
 					Handler: admincrmmarketstore.AssignStoreToStoreManagerHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithPrefix("/api/v1/admin/market"),
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Route{
+				{
+					Method:  http.MethodGet,
+					Path:    "/mgms/page-list",
+					Handler: admincrmmarketmgm.ListMGMRulesPageHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/mgms",
+					Handler: admincrmmarketmgm.CreateMGMRuleHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPut,
+					Path:    "/mgms/:id",
+					Handler: admincrmmarketmgm.UpdateMGMRuleHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/mgms/:id",
+					Handler: admincrmmarketmgm.GetMGMRuleHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodDelete,
+					Path:    "/mgms/:id",
+					Handler: admincrmmarketmgm.DeleteMGMRuleHandler(serverCtx),
 				},
 			}...,
 		),

@@ -40,6 +40,7 @@ type PowerXUseCase struct {
 	PriceBook             *productUC.PriceBookUseCase
 	PriceBookEntry        *productUC.PriceBookEntryUseCase
 	Store                 *market.StoreUseCase
+	MGM                   *market.MGMRuleUseCase
 	Artisan               *productUC.ArtisanUseCase
 	ShippingAddress       *tradeUC.ShippingAddressUseCase
 	Cart                  *tradeUC.CartUseCase
@@ -129,6 +130,7 @@ func NewPowerXUseCase(conf *config.Config) (uc *PowerXUseCase, clean func()) {
 
 	// 加载市场UseCase
 	uc.Media = market.NewMediaUseCase(db)
+	uc.MGM = market.NewMGMRuleUseCase(db)
 
 	// 加载Media Resource UseCase
 	uc.MediaResource = powerx.NewMediaResourceUseCase(db, conf)

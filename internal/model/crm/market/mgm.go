@@ -13,6 +13,8 @@ type MGMRule struct {
 	Description     string  `gorm:"comment:场景描述" json:"description"`
 }
 
+const MGMRuleUniqueId = powermodel.UniqueId
+
 const (
 	TypeMGMScene = "_mgm_scene"
 

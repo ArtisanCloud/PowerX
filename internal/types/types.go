@@ -1121,6 +1121,62 @@ type AssignStoreManagerReply struct {
 	Store
 }
 
+type ListMGMRulesPageRequest struct {
+	MGMRuleTypes []int8   `form:"mgmTypes,optional"`
+	Keys         []string `form:"keys,optional"`
+	OrderBy      string   `form:"orderBy,optional"`
+	PageIndex    int      `form:"pageIndex,optional"`
+	PageSize     int      `form:"pageSize,optional"`
+}
+
+type MGMRule struct {
+	Id              int64   `json:"id,optional"`
+	CommissionRate1 float32 `json:"commissionRate1,optional"`
+	CommissionRate2 float32 `json:"commissionRate2,optional"`
+	Scene           int     `json:"scene,optional"`
+	Description     string  `json:"description,optional"`
+}
+
+type ListMGMRulesPageReply struct {
+	List      []*MGMRule `json:"list"`
+	PageIndex int        `json:"pageIndex"`
+	PageSize  int        `json:"pageSize"`
+	Total     int64      `json:"total"`
+}
+
+type CreateMGMRuleRequest struct {
+	MGMRule
+}
+
+type CreateMGMRuleReply struct {
+	MGMRuleId int64 `json:"id"`
+}
+
+type UpdateMGMRuleRequest struct {
+	MGMRuleId int64 `path:"id"`
+	MGMRule
+}
+
+type UpdateMGMRuleReply struct {
+	MGMRuleId int64 `json:"id"`
+}
+
+type GetMGMRuleRequest struct {
+	MGMRuleId int64 `path:"id"`
+}
+
+type GetMGMRuleReply struct {
+	*MGMRule
+}
+
+type DeleteMGMRuleRequest struct {
+	MGMRuleId int64 `path:"id"`
+}
+
+type DeleteMGMRuleReply struct {
+	MGMRuleId int64 `json:"id"`
+}
+
 type GetOpportunityListRequest struct {
 	Name      string `form:"name,optional"`
 	Source    string `form:"source,optional"`

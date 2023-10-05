@@ -1,8 +1,8 @@
 syntax = "v1"
 
 info(
-    title: "MGM管理"
-    desc: "MGM管理"
+    title: "MGMRule管理"
+    desc: "MGMRule管理"
     author: "MichaelHu"
     email: "matrix-x@artisan-cloud.com"
     version: "v1"
@@ -15,49 +15,47 @@ info(
 )
 
 service PowerX {
-    @doc "查询MGM列表"
-    @handler ListMGMsPage
-    get /mgms/page-list (ListMGMsPageRequest) returns (ListMGMsPageReply)
-    @doc "请求MGM上传链接"
-    @handler CreateMGM
-    post /mgms (CreateMGMRequest) returns (CreateMGMReply)
+    @doc "查询MGMRule列表"
+    @handler ListMGMRulesPage
+    get /mgms/page-list (ListMGMRulesPageRequest) returns (ListMGMRulesPageReply)
+    @doc "请求MGMRule上传链接"
+    @handler CreateMGMRule
+    post /mgms (CreateMGMRuleRequest) returns (CreateMGMRuleReply)
 
-    @doc "创建或更新MGM"
-    @handler UpdateMGM
-    put /mgms/:id (UpdateMGMRequest) returns (UpdateMGMReply)
+    @doc "创建或更新MGMRule"
+    @handler UpdateMGMRule
+    put /mgms/:id (UpdateMGMRuleRequest) returns (UpdateMGMRuleReply)
 
-    @doc "根据获取MGM"
-    @handler GetMGM
-    get /mgms/:id (GetMGMRequest) returns (GetMGMReply)
+    @doc "根据获取MGMRule"
+    @handler GetMGMRule
+    get /mgms/:id (GetMGMRuleRequest) returns (GetMGMRuleReply)
 
-    @doc "删除MGM"
-    @handler DeleteMGM
-    delete /mgms/:id (DeleteMGMRequest) returns (DeleteMGMReply)
+    @doc "删除MGMRule"
+    @handler DeleteMGMRule
+    delete /mgms/:id (DeleteMGMRuleRequest) returns (DeleteMGMRuleReply)
 }
 
 type (
-    ListMGMsPageRequest struct {
-        MGMTypes []int8 `form:"mgmTypes,optional"`
+    ListMGMRulesPageRequest struct {
+        MGMRuleTypes []int8 `form:"mgmTypes,optional"`
         Keys []string `form:"keys,optional"`
         OrderBy string `form:"orderBy,optional"`
         PageIndex int `form:"pageIndex,optional"`
         PageSize int `form:"pageSize,optional"`
     }
 
-    MGM struct {
+    MGMRule struct {
         Id int64 `json:"id,optional"`
 
-        Title string `json:"title,optional"`
-        SubTitle string `json:"subTitle,optional"`
-        CoverImageId int64 `json:"coverImageId,optional"`
-        ResourceUrl string `json:"resourceUrl,optional"`
+        CommissionRate1 float32 `json:"commissionRate1,optional"`
+        CommissionRate2 float32 `json:"commissionRate2,optional"`
+        Scene int `json:"scene,optional"`
         Description string `json:"description,optional"`
-        MGMType int `json:"mgmType,optional"`
-        ViewedCount int `json:"viewedCount,optional"`
+
     }
 
-    ListMGMsPageReply struct {
-        List []*MGM `json:"list"`
+    ListMGMRulesPageReply struct {
+        List []*MGMRule `json:"list"`
         PageIndex int `json:"pageIndex"`
         PageSize int `json:"pageSize"`
         Total int64 `json:"total"`
@@ -65,42 +63,42 @@ type (
 )
 
 type (
-    CreateMGMRequest struct {
-        MGM
+    CreateMGMRuleRequest struct {
+        MGMRule
     }
 
-    CreateMGMReply struct {
-        MGMId int64 `json:"id"`
-    }
-)
-
-type (
-    UpdateMGMRequest struct {
-        MGMId int64 `path:"id"`
-        MGM
-    }
-
-    UpdateMGMReply struct {
-        MGMId int64 `json:"id"`
+    CreateMGMRuleReply struct {
+        MGMRuleId int64 `json:"id"`
     }
 )
 
 type (
-    GetMGMRequest struct {
-        MGMId int64 `path:"id"`
+    UpdateMGMRuleRequest struct {
+        MGMRuleId int64 `path:"id"`
+        MGMRule
     }
 
-    GetMGMReply struct {
-        *MGM
+    UpdateMGMRuleReply struct {
+        MGMRuleId int64 `json:"id"`
     }
 )
 
 type (
-    DeleteMGMRequest struct {
-        MGMId int64 `path:"id"`
+    GetMGMRuleRequest struct {
+        MGMRuleId int64 `path:"id"`
     }
 
-    DeleteMGMReply struct {
-        MGMId int64 `json:"id"`
+    GetMGMRuleReply struct {
+        *MGMRule
+    }
+)
+
+type (
+    DeleteMGMRuleRequest struct {
+        MGMRuleId int64 `path:"id"`
+    }
+
+    DeleteMGMRuleReply struct {
+        MGMRuleId int64 `json:"id"`
     }
 )
