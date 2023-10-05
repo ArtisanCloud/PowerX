@@ -5,7 +5,7 @@ import (
 	"PowerX/internal/model/crm/product"
 	"PowerX/internal/model/media"
 	"PowerX/internal/uc/powerx"
-	product2 "PowerX/internal/uc/powerx/product"
+	product2 "PowerX/internal/uc/powerx/crm/product"
 	"PowerX/pkg/mathx"
 	"context"
 	"fmt"

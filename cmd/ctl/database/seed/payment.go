@@ -3,7 +3,7 @@ package seed
 import (
 	"PowerX/internal/model/crm/trade"
 	"PowerX/internal/uc/powerx"
-	trade2 "PowerX/internal/uc/powerx/trade"
+	trade2 "PowerX/internal/uc/powerx/crm/trade"
 	"context"
 	"fmt"
 	"github.com/pkg/errors"

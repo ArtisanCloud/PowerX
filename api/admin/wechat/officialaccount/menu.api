@@ -96,7 +96,8 @@ type (
 type (
 
     QueryMenusReply struct {
-       Menu *OAMenu `json:"menu,optional"`
+        Button interface{}   `json:"button"`
+        MatchRule interface{}   `json:"matchrule"`
     }
 )
 

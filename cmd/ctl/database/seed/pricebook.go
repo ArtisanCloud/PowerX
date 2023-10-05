@@ -4,7 +4,7 @@ import (
 	"PowerX/internal/model/crm/product"
 	"PowerX/internal/types"
 	"PowerX/internal/uc/powerx"
-	product2 "PowerX/internal/uc/powerx/product"
+	product2 "PowerX/internal/uc/powerx/crm/product"
 	"context"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"

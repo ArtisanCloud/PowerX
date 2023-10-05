@@ -21,6 +21,7 @@ type Customer struct {
 	Password    string `gorm:"comment:客户密码" json:"password"`
 	Email       string `gorm:"comment:邮箱地址" json:"email"`
 	InviterId   int64  `gorm:"comment:邀请方" json:"inviterId"`
+	MgmId       int    `gorm:"comment:MGM Id" json:"mgmId"`
 	Source      int    `gorm:"comment:注册来源" json:"source"`
 	Type        int    `gorm:"comment:类型：个人，企业" json:"type"`
 	IsActivated bool   `gorm:"comment:激活状态" json:"isActivated"`
