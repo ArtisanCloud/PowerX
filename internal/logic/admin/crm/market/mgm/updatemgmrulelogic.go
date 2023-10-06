@@ -24,7 +24,16 @@ func NewUpdateMGMRuleLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Upd
 }
 
 func (l *UpdateMGMRuleLogic) UpdateMGMRule(req *types.UpdateMGMRuleRequest) (resp *types.UpdateMGMRuleReply, err error) {
-	// todo: add your logic here and delete this line
+	mdlMGMRule := TransformRequestToMGMRule(&(req.MGMRule))
+	mdlMGMRule.Id = req.MGMRuleId
 
-	return
+	// 更新MGM对象
+	mdlMGMRule, err = l.svcCtx.PowerX.MGM.UpsertMGMRule(l.ctx, mdlMGMRule)
+	if err != nil {
+		return nil, err
+	}
+
+	return &types.UpdateMGMRuleReply{
+		MGMRuleId: mdlMGMRule.Id,
+	}, nil
 }

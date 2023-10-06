@@ -1,6 +1,7 @@
 package mgm
 
 import (
+	"PowerX/internal/model/crm/market"
 	"context"
 
 	"PowerX/internal/svc"
@@ -27,4 +28,14 @@ func (l *GetMGMRuleLogic) GetMGMRule(req *types.GetMGMRuleRequest) (resp *types.
 	// todo: add your logic here and delete this line
 
 	return
+}
+
+func TransformMGMRuleToReply(mdlMGMRule *market.MGMRule) (mediaReply *types.MGMRule) {
+	return &types.MGMRule{
+		Id:              mdlMGMRule.Id,
+		CommissionRate1: mdlMGMRule.CommissionRate1,
+		CommissionRate2: mdlMGMRule.CommissionRate2,
+		Scene:           mdlMGMRule.Scene,
+		Description:     mdlMGMRule.Description,
+	}
 }

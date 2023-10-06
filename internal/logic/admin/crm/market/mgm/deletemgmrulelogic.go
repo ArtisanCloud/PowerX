@@ -24,7 +24,12 @@ func NewDeleteMGMRuleLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Del
 }
 
 func (l *DeleteMGMRuleLogic) DeleteMGMRule(req *types.DeleteMGMRuleRequest) (resp *types.DeleteMGMRuleReply, err error) {
-	// todo: add your logic here and delete this line
+	err = l.svcCtx.PowerX.MGM.DeleteMGMRule(l.ctx, req.MGMRuleId)
+	if err != nil {
+		return nil, err
+	}
 
-	return
+	return &types.DeleteMGMRuleReply{
+		MGMRuleId: req.MGMRuleId,
+	}, nil
 }

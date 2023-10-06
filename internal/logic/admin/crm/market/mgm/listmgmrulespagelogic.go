@@ -1,6 +1,8 @@
 package mgm
 
 import (
+	market2 "PowerX/internal/model/crm/market"
+	"PowerX/internal/uc/powerx/crm/market"
 	"context"
 
 	"PowerX/internal/svc"
@@ -24,7 +26,32 @@ func NewListMGMRulesPageLogic(ctx context.Context, svcCtx *svc.ServiceContext) *
 }
 
 func (l *ListMGMsPageLogic) ListMGMRulesPage(req *types.ListMGMRulesPageRequest) (resp *types.ListMGMRulesPageReply, err error) {
-	// todo: add your logic here and delete this line
+	page, err := l.svcCtx.PowerX.MGM.FindManyMGMRules(l.ctx, &market.FindManyMGMRulesOption{
+		PageEmbedOption: types.PageEmbedOption{
+			PageIndex: req.PageIndex,
+			PageSize:  req.PageSize,
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
 
-	return
+	// list
+	list := TransformMGMRulesToReply(page.List)
+	return &types.ListMGMRulesPageReply{
+		List:      list,
+		PageIndex: page.PageIndex,
+		PageSize:  page.PageSize,
+		Total:     page.Total,
+	}, nil
+}
+
+func TransformMGMRulesToReply(medias []*market2.MGMRule) (mediasReply []*types.MGMRule) {
+	mediasReply = []*types.MGMRule{}
+	for _, media := range medias {
+		mediaReply := TransformMGMRuleToReply(media)
+		mediasReply = append(mediasReply, mediaReply)
+	}
+	return mediasReply
+
 }
