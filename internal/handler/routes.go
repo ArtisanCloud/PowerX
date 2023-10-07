@@ -18,6 +18,7 @@ import (
 	admincrmproductpricebook "PowerX/internal/handler/admin/crm/product/pricebook"
 	admincrmproductpricebookentry "PowerX/internal/handler/admin/crm/product/pricebookentry"
 	admincrmproductproductspecific "PowerX/internal/handler/admin/crm/product/productspecific"
+	admincrmproductproductstatistics "PowerX/internal/handler/admin/crm/product/productstatistics"
 	admincrmproductsku "PowerX/internal/handler/admin/crm/product/sku"
 	admincrmtradeaddressbilling "PowerX/internal/handler/admin/crm/trade/address/billing"
 	admincrmtradeaddressdelivery "PowerX/internal/handler/admin/crm/trade/address/delivery"
@@ -1649,6 +1650,50 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			}...,
 		),
 		rest.WithPrefix("/api/v1/mp/product"),
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Route{
+				{
+					Method:  http.MethodGet,
+					Path:    "/product-statistics/page-list",
+					Handler: admincrmproductproductstatistics.ListProductStatisticsPageHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/product-statistics/:id",
+					Handler: admincrmproductproductstatistics.GetProductStatisticsHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/product-statistics",
+					Handler: admincrmproductproductstatistics.CreateProductStatisticsHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/product-statistics/config",
+					Handler: admincrmproductproductstatistics.ConfigProductStatisticsHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPut,
+					Path:    "/product-statistics/:id",
+					Handler: admincrmproductproductstatistics.PutProductStatisticsHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPatch,
+					Path:    "/product-statistics/:id",
+					Handler: admincrmproductproductstatistics.PatchProductStatisticsHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodDelete,
+					Path:    "/product-statistics/:id",
+					Handler: admincrmproductproductstatistics.DeleteProductStatisticsHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithPrefix("/api/v1/admin/product"),
 	)
 
 	server.AddRoutes(
