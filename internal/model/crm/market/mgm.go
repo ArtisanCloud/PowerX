@@ -7,11 +7,14 @@ import (
 type MGMRule struct {
 	powermodel.PowerModel
 
+	Name            string  `gorm:"comment:规则名字" json:"name"`
 	CommissionRate1 float32 `gorm:"type:decimal(10,2); comment:分佣率1" json:"commissionRate1"`
 	CommissionRate2 float32 `gorm:"type:decimal(10,2); comment:分佣率2" json:"commissionRate2"`
-	Scene           int     `gorm:"comment:场景码" json:"sceneCode"`
+	Scene           int     `gorm:"comment:场景码" json:"scene"`
 	Description     string  `gorm:"comment:场景描述" json:"description"`
 }
+
+const MGMRuleUniqueId = powermodel.UniqueId
 
 const (
 	TypeMGMScene = "_mgm_scene"

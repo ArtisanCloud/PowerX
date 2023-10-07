@@ -1121,6 +1121,62 @@ type AssignStoreManagerReply struct {
 	Store
 }
 
+type ListMGMRulesPageRequest struct {
+	MGMRuleTypes []int8   `form:"mgmTypes,optional"`
+	Keys         []string `form:"keys,optional"`
+	OrderBy      string   `form:"orderBy,optional"`
+	PageIndex    int      `form:"pageIndex,optional"`
+	PageSize     int      `form:"pageSize,optional"`
+}
+
+type MGMRule struct {
+	Id              int64   `json:"id,optional"`
+	CommissionRate1 float32 `json:"commissionRate1,optional"`
+	CommissionRate2 float32 `json:"commissionRate2,optional"`
+	Scene           int     `json:"scene,optional"`
+	Description     string  `json:"description,optional"`
+}
+
+type ListMGMRulesPageReply struct {
+	List      []*MGMRule `json:"list"`
+	PageIndex int        `json:"pageIndex"`
+	PageSize  int        `json:"pageSize"`
+	Total     int64      `json:"total"`
+}
+
+type CreateMGMRuleRequest struct {
+	MGMRule
+}
+
+type CreateMGMRuleReply struct {
+	MGMRuleId int64 `json:"id"`
+}
+
+type UpdateMGMRuleRequest struct {
+	MGMRuleId int64 `path:"id"`
+	MGMRule
+}
+
+type UpdateMGMRuleReply struct {
+	MGMRuleId int64 `json:"id"`
+}
+
+type GetMGMRuleRequest struct {
+	MGMRuleId int64 `path:"id"`
+}
+
+type GetMGMRuleReply struct {
+	*MGMRule
+}
+
+type DeleteMGMRuleRequest struct {
+	MGMRuleId int64 `path:"id"`
+}
+
+type DeleteMGMRuleReply struct {
+	MGMRuleId int64 `json:"id"`
+}
+
 type GetOpportunityListRequest struct {
 	Name      string `form:"name,optional"`
 	Source    string `form:"source,optional"`
@@ -2872,6 +2928,79 @@ type ListProductCategoriesRequest struct {
 
 type ListProductCategoriesReply struct {
 	ProductCategories []*ProductCategory `json:"list"`
+}
+
+type ProductStatistics struct {
+	Id                int64 `json:"id,optional"`
+	ProductId         int64 `json:"productId"`
+	SoldAmount        int64 `json:"SoldAmount，optional"`
+	InventoryQuantity int64 `json:"InventoryQuantity，optional"`
+	ViewCount         int64 `json:"ViewCount，optional"`
+}
+
+type ListProductStatisticsPageRequest struct {
+	LikeName  string `form:"likeName,optional"`
+	ProductId int64  `form:"productId"`
+	OrderBy   string `form:"orderBy,optional"`
+	PageIndex int    `form:"pageIndex,optional"`
+	PageSize  int    `form:"pageSize,optional"`
+}
+
+type ListProductStatisticsPageReply struct {
+	List      []*ProductStatistics `json:"list"`
+	PageIndex int                  `json:"pageIndex"`
+	PageSize  int                  `json:"pageSize"`
+	Total     int64                `json:"total"`
+}
+
+type CreateProductStatisticsRequest struct {
+	ProductStatistics
+}
+
+type CreateProductStatisticsReply struct {
+	ProductStatisticsId int64 `json:"id"`
+}
+
+type ConfigProductStatisticsRequest struct {
+	ProductStatisticss []ProductStatistics `json:"productStatisticss"`
+}
+
+type ConfigProductStatisticsReply struct {
+	Result bool `json:"result"`
+}
+
+type GetProductStatisticsRequest struct {
+	ProductStatisticsId int64 `path:"id"`
+}
+
+type GetProductStatisticsReply struct {
+	*ProductStatistics
+}
+
+type PutProductStatisticsRequest struct {
+	ProductStatisticsId int64 `path:"id"`
+	ProductStatistics
+}
+
+type PutProductStatisticsReply struct {
+	*ProductStatistics
+}
+
+type PatchProductStatisticsRequest struct {
+	ProductStatisticsId int64 `path:"id"`
+	ProductStatistics
+}
+
+type PatchProductStatisticsReply struct {
+	*ProductStatistics
+}
+
+type DeleteProductStatisticsRequest struct {
+	ProductStatisticsId int64 `path:"id"`
+}
+
+type DeleteProductStatisticsReply struct {
+	ProductStatisticsId int64 `json:"id"`
 }
 
 type Cart struct {

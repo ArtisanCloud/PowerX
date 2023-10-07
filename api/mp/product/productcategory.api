@@ -9,6 +9,7 @@ info(
 )
 
 import "../../admin/crm/product/productcategory.api"
+import "../../admin/crm/product/productstatistics.api"
 
 @server(
     group: mp/product
