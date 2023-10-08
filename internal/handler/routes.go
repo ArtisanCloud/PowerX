@@ -1668,11 +1668,6 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				},
 				{
 					Method:  http.MethodPost,
-					Path:    "/product-statistics",
-					Handler: admincrmproductproductstatistics.CreateProductStatisticsHandler(serverCtx),
-				},
-				{
-					Method:  http.MethodPost,
 					Path:    "/product-statistics/config",
 					Handler: admincrmproductproductstatistics.ConfigProductStatisticsHandler(serverCtx),
 				},
@@ -1685,11 +1680,6 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 					Method:  http.MethodPatch,
 					Path:    "/product-statistics/:id",
 					Handler: admincrmproductproductstatistics.PatchProductStatisticsHandler(serverCtx),
-				},
-				{
-					Method:  http.MethodDelete,
-					Path:    "/product-statistics/:id",
-					Handler: admincrmproductproductstatistics.DeleteProductStatisticsHandler(serverCtx),
 				},
 			}...,
 		),

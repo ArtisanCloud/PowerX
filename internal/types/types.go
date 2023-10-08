@@ -2934,12 +2934,12 @@ type ListProductCategoriesReply struct {
 type ProductStatistics struct {
 	Id                    int64 `json:"id,optional"`
 	ProductId             int64 `json:"productId"`
-	SoldAmount            int64 `json:"soldAmount，optional"`
-	InventoryQuantity     int64 `json:"inventoryQuantity，optional"`
-	ViewCount             int64 `json:"viewCount，optional"`
-	BaseSoldAmount        int64 `json:"baseSoldAmount，optional"`
-	BaseInventoryQuantity int64 `json:"baseInventoryQuantity，optional"`
-	BaseViewCount         int64 `json:"baseViewCount，optional"`
+	SoldAmount            int64 `json:"soldAmount,optional"`
+	InventoryQuantity     int64 `json:"inventoryQuantity,optional"`
+	ViewCount             int64 `json:"viewCount,optional"`
+	BaseSoldAmount        int64 `json:"baseSoldAmount,optional"`
+	BaseInventoryQuantity int64 `json:"baseInventoryQuantity,optional"`
+	BaseViewCount         int64 `json:"baseViewCount,optional"`
 }
 
 type ListProductStatisticsPageRequest struct {
@@ -2957,16 +2957,8 @@ type ListProductStatisticsPageReply struct {
 	Total     int64                `json:"total"`
 }
 
-type CreateProductStatisticsRequest struct {
-	ProductStatistics
-}
-
-type CreateProductStatisticsReply struct {
-	ProductStatisticsId int64 `json:"id"`
-}
-
 type ConfigProductStatisticsRequest struct {
-	ProductStatisticss []ProductStatistics `json:"productStatisticss"`
+	*ProductStatistics
 }
 
 type ConfigProductStatisticsReply struct {

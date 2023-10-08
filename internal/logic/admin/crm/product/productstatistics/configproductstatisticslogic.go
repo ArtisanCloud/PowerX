@@ -1,6 +1,8 @@
 package productstatistics
 
 import (
+	"PowerX/internal/model/crm/product"
+	"PowerX/internal/types/errorx"
 	"context"
 
 	"PowerX/internal/svc"
@@ -24,7 +26,25 @@ func NewConfigProductStatisticsLogic(ctx context.Context, svcCtx *svc.ServiceCon
 }
 
 func (l *ConfigProductStatisticsLogic) ConfigProductStatistics(req *types.ConfigProductStatisticsRequest) (resp *types.ConfigProductStatisticsReply, err error) {
-	// todo: add your logic here and delete this line
 
-	return
+	staticstics := TransformRequestToProductStaticstics(req.ProductStatistics)
+
+	staticstics, err = l.svcCtx.PowerX.ProductStatistics.UpsertProductStatistics(l.ctx, staticstics)
+	if err != nil {
+		return nil, errorx.WithCause(errorx.ErrBadRequest, err.Error())
+	}
+
+	return &types.ConfigProductStatisticsReply{
+		Result: true,
+	}, nil
+}
+
+func TransformRequestToProductStaticstics(statistics *types.ProductStatistics) *product.ProductStatistics {
+
+	return &product.ProductStatistics{
+		ProductId:             statistics.ProductId,
+		BaseSoldAmount:        statistics.BaseSoldAmount,
+		BaseInventoryQuantity: statistics.BaseInventoryQuantity,
+		BaseViewCount:         statistics.BaseViewCount,
+	}
 }

@@ -15,48 +15,38 @@ info(
 )
 
 service PowerX {
-    @doc "查询产品规格列表"
+    @doc "查询产品统计列表"
     @handler ListProductStatisticsPage
     get /product-statistics/page-list (ListProductStatisticsPageRequest) returns (ListProductStatisticsPageReply)
 
-    @doc "查询产品规格详情"
+    @doc "查询产品统计详情"
     @handler GetProductStatistics
     get /product-statistics/:id (GetProductStatisticsRequest) returns (GetProductStatisticsReply)
 
-
-    @doc "创建产品规格"
-    @handler CreateProductStatistics
-    post /product-statistics (CreateProductStatisticsRequest) returns (CreateProductStatisticsReply)
-
-    @doc "配置产品规格"
+    @doc "配置产品统计"
     @handler ConfigProductStatistics
     post /product-statistics/config (ConfigProductStatisticsRequest) returns (ConfigProductStatisticsReply)
 
-
-    @doc "全量产品规格"
+    @doc "全量产品统计"
     @handler PutProductStatistics
     put /product-statistics/:id (PutProductStatisticsRequest) returns (PutProductStatisticsReply)
 
-    @doc "增量产品规格"
+    @doc "增量产品统计"
     @handler PatchProductStatistics
     patch /product-statistics/:id (PatchProductStatisticsRequest) returns (PatchProductStatisticsReply)
 
-
-    @doc "删除产品规格"
-    @handler DeleteProductStatistics
-    delete /product-statistics/:id (DeleteProductStatisticsRequest) returns (DeleteProductStatisticsReply)
 }
 
 type (
     ProductStatistics {
         Id int64 `json:"id,optional"`
         ProductId int64 `json:"productId"`
-        SoldAmount int64 `json:"soldAmount，optional"`
-        InventoryQuantity int64 `json:"inventoryQuantity，optional"`
-        ViewCount int64 `json:"viewCount，optional"`
-        BaseSoldAmount int64 `json:"baseSoldAmount，optional"`
-        BaseInventoryQuantity int64 `json:"baseInventoryQuantity，optional"`
-        BaseViewCount int64 `json:"baseViewCount，optional"`
+        SoldAmount int64 `json:"soldAmount,optional"`
+        InventoryQuantity int64 `json:"inventoryQuantity,optional"`
+        ViewCount int64 `json:"viewCount,optional"`
+        BaseSoldAmount int64 `json:"baseSoldAmount,optional"`
+        BaseInventoryQuantity int64 `json:"baseInventoryQuantity,optional"`
+        BaseViewCount int64 `json:"baseViewCount,optional"`
     }
 )
 
@@ -78,19 +68,10 @@ type (
     }
 )
 
-type (
-    CreateProductStatisticsRequest struct {
-        ProductStatistics
-    }
-
-    CreateProductStatisticsReply struct {
-        ProductStatisticsId int64 `json:"id"`
-    }
-)
 
 type (
     ConfigProductStatisticsRequest struct {
-        ProductStatisticss []ProductStatistics `json:"productStatisticss"`
+        *ProductStatistics
     }
 
     ConfigProductStatisticsReply struct {
