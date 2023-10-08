@@ -1131,6 +1131,7 @@ type ListMGMRulesPageRequest struct {
 
 type MGMRule struct {
 	Id              int64   `json:"id,optional"`
+	Name            string  `json:"name,optional"`
 	CommissionRate1 float32 `json:"commissionRate1,optional"`
 	CommissionRate2 float32 `json:"commissionRate2,optional"`
 	Scene           int     `json:"scene,optional"`
@@ -2931,11 +2932,14 @@ type ListProductCategoriesReply struct {
 }
 
 type ProductStatistics struct {
-	Id                int64 `json:"id,optional"`
-	ProductId         int64 `json:"productId"`
-	SoldAmount        int64 `json:"SoldAmount，optional"`
-	InventoryQuantity int64 `json:"InventoryQuantity，optional"`
-	ViewCount         int64 `json:"ViewCount，optional"`
+	Id                    int64 `json:"id,optional"`
+	ProductId             int64 `json:"productId"`
+	SoldAmount            int64 `json:"soldAmount，optional"`
+	InventoryQuantity     int64 `json:"inventoryQuantity，optional"`
+	ViewCount             int64 `json:"viewCount，optional"`
+	BaseSoldAmount        int64 `json:"baseSoldAmount，optional"`
+	BaseInventoryQuantity int64 `json:"baseInventoryQuantity，optional"`
+	BaseViewCount         int64 `json:"baseViewCount，optional"`
 }
 
 type ListProductStatisticsPageRequest struct {
