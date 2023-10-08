@@ -47,11 +47,11 @@ type (
     MGMRule struct {
         Id int64 `json:"id,optional"`
 
+        Name string `json:"name,optional"`
         CommissionRate1 float32 `json:"commissionRate1,optional"`
         CommissionRate2 float32 `json:"commissionRate2,optional"`
         Scene int `json:"scene,optional"`
         Description string `json:"description,optional"`
-
     }
 
     ListMGMRulesPageReply struct {

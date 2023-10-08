@@ -33,6 +33,7 @@ func (l *GetMGMRuleLogic) GetMGMRule(req *types.GetMGMRuleRequest) (resp *types.
 func TransformMGMRuleToReply(mdlMGMRule *market.MGMRule) (mediaReply *types.MGMRule) {
 	return &types.MGMRule{
 		Id:              mdlMGMRule.Id,
+		Name:            mdlMGMRule.Name,
 		CommissionRate1: mdlMGMRule.CommissionRate1,
 		CommissionRate2: mdlMGMRule.CommissionRate2,
 		Scene:           mdlMGMRule.Scene,

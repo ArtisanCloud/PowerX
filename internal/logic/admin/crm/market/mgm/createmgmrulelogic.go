@@ -39,6 +39,7 @@ func TransformRequestToMGMRule(mediaRequest *types.MGMRule) (mdlMGMRule *market.
 
 	return &market.MGMRule{
 
+		Name:            mediaRequest.Name,
 		CommissionRate1: mediaRequest.CommissionRate1,
 		CommissionRate2: mediaRequest.CommissionRate2,
 		Scene:           mediaRequest.Scene,
