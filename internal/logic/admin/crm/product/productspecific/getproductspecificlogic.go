@@ -30,7 +30,7 @@ func (l *GetProductSpecificLogic) GetProductSpecific(req *types.GetProductSpecif
 	return
 }
 
-func TransformProductSpecificToProductSpecificReply(specific *product2.ProductSpecific) (specificReply *types.ProductSpecific) {
+func TransformProductSpecificToReply(specific *product2.ProductSpecific) (specificReply *types.ProductSpecific) {
 	if specific == nil {
 		return nil
 	}

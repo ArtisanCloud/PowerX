@@ -27,7 +27,7 @@ func NewConfigProductSpecificLogic(ctx context.Context, svcCtx *svc.ServiceConte
 
 func (l *ConfigProductSpecificLogic) ConfigProductSpecific(req *types.ConfigProductSpecificRequest) (resp *types.ConfigProductSpecificReply, err error) {
 
-	specifics := TransformProductSpecificsRequestToProductSpecifics(req.ProductSpecifics)
+	specifics := TransformRequestToProductSpecifics(req.ProductSpecifics)
 	options := GetOptionsFromProductSpecificsRequest(specifics)
 	//fmt.Dump(specifics)
 	err = l.svcCtx.PowerX.ProductSpecific.ConfigProductSpecific(l.ctx, specifics, options)
@@ -51,7 +51,7 @@ func (l *ConfigProductSpecificLogic) ConfigProductSpecific(req *types.ConfigProd
 	}, nil
 }
 
-func TransformProductSpecificsRequestToProductSpecifics(specificsRequest []types.ProductSpecific) []*product2.ProductSpecific {
+func TransformRequestToProductSpecifics(specificsRequest []types.ProductSpecific) []*product2.ProductSpecific {
 
 	specifics := []*product2.ProductSpecific{}
 	for _, specificRequest := range specificsRequest {

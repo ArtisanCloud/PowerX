@@ -54,7 +54,7 @@ func TransformProductSpecificsToReply(specifics []*product2.ProductSpecific) (sp
 
 	specificsReply = []*types.ProductSpecific{}
 	for _, entry := range specifics {
-		specificsReply = append(specificsReply, TransformProductSpecificToProductSpecificReply(entry))
+		specificsReply = append(specificsReply, TransformProductSpecificToReply(entry))
 
 	}
 
