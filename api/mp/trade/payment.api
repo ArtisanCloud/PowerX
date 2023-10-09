@@ -12,7 +12,7 @@ info(
 import "../../admin/crm/trade/payment.api"
 
 @server(
-    group: mp/trade/payment
+    group: mp/crm/trade/payment
     prefix: /api/v1/mp/trade
     middleware: MPCustomerJWTAuth, MPCustomerGet
 )

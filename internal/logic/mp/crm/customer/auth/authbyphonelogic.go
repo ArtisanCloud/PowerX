@@ -58,7 +58,7 @@ func (l *AuthByPhoneLogic) AuthByPhone(req *types.MPCustomerAuthRequest) (resp *
 		return nil, errors.New(errEncrypt.ErrMsg)
 	}
 
-	//println(string(msgData))
+	println(string(msgData))
 	// 解析手机信息
 	mpPhoneInfo := &wechat.MPPhoneInfo{}
 	err = object.JsonDecode(msgData, mpPhoneInfo)

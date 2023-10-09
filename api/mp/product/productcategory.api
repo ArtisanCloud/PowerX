@@ -12,7 +12,7 @@ import "../../admin/crm/product/productcategory.api"
 import "../../admin/crm/product/productstatistics.api"
 
 @server(
-    group: mp/product
+    group: mp/crm/product
     prefix: /api/v1/mp/product
     middleware: MPCustomerJWTAuth
 )

@@ -9,7 +9,7 @@ info(
 )
 
 @server(
-    group: mp/trade/cart
+    group: mp/crm/trade/cart
     prefix: /api/v1/mp/trade
     middleware: MPCustomerJWTAuth, MPCustomerGet
 )

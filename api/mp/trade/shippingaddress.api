@@ -10,7 +10,7 @@ info(
 
 
 @server(
-    group: mp/trade/address/shipping
+    group: mp/crm/trade/address/shipping
     prefix: /api/v1/mp/trade/address
     middleware: MPCustomerJWTAuth, MPCustomerGet
 )
