@@ -2966,7 +2966,7 @@ type ConfigProductStatisticsReply struct {
 }
 
 type GetProductStatisticsRequest struct {
-	ProductStatisticsId int64 `path:"id"`
+	ProductId int64 `path:"id"`
 }
 
 type GetProductStatisticsReply struct {

@@ -144,6 +144,20 @@ func (uc *ProductStatisticsUseCase) GetProductStatistics(ctx context.Context, id
 	return &ProductStatistics, nil
 }
 
+func (uc *ProductStatisticsUseCase) GetProductStatisticsByProductId(ctx context.Context, productId int64) (*product.ProductStatistics, error) {
+	var ProductStatistics product.ProductStatistics
+	if err := uc.db.WithContext(ctx).
+		First(&ProductStatistics).
+		//Debug().
+		Where("product_id", productId).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errorx.WithCause(errorx.ErrBadRequest, "未找到价格手册")
+		}
+		panic(err)
+	}
+	return &ProductStatistics, nil
+}
+
 func (uc *ProductStatisticsUseCase) DeleteProductStatistics(ctx context.Context, id int64) error {
 	result := uc.db.WithContext(ctx).Delete(&product.ProductStatistics{}, id)
 	if err := result.Error; err != nil {
