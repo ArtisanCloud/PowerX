@@ -11,7 +11,7 @@ info(
 import "../../admin/crm/product/artisan.api"
 
 @server(
-    group: mp/product/artisan
+    group: mp/crm/product/artisan
     prefix: /api/v1/mp/product
     middleware: MPCustomerJWTAuth
 )

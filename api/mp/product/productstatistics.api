@@ -1,0 +1,27 @@
+syntax = "v1"
+
+info(
+    title: "产品统计"
+    desc: "产品统计"
+    author: "MichaelHu"
+    email: "matrix-x@artisan-cloud.com"
+    version: "v1"
+)
+
+@server(
+    group: mp/crm/product/productstatistics
+    prefix: /api/v1/mp/product
+    middleware: MPCustomerJWTAuth
+)
+
+service PowerX {
+    @doc "查询产品统计列表"
+    @handler ListProductStatisticsPage
+    get /product-statistics/page-list (ListProductStatisticsPageRequest) returns (ListProductStatisticsPageReply)
+
+    @doc "查询产品统计详情"
+    @handler GetProductStatistics
+    get /product-statistics/:id (GetProductStatisticsRequest) returns (GetProductStatisticsReply)
+
+}
+

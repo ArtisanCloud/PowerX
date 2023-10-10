@@ -137,7 +137,7 @@ func (uc *ProductStatisticsUseCase) GetProductStatistics(ctx context.Context, id
 	var ProductStatistics product.ProductStatistics
 	if err := uc.db.WithContext(ctx).First(&ProductStatistics, id).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errorx.WithCause(errorx.ErrBadRequest, "未找到价格手册")
+			return nil, errorx.WithCause(errorx.ErrBadRequest, "未找到产品统计记录")
 		}
 		panic(err)
 	}
@@ -147,11 +147,12 @@ func (uc *ProductStatisticsUseCase) GetProductStatistics(ctx context.Context, id
 func (uc *ProductStatisticsUseCase) GetProductStatisticsByProductId(ctx context.Context, productId int64) (*product.ProductStatistics, error) {
 	var ProductStatistics product.ProductStatistics
 	if err := uc.db.WithContext(ctx).
-		First(&ProductStatistics).
-		//Debug().
-		Where("product_id", productId).Error; err != nil {
+		Where("product_id", productId).
+		Debug().
+		FirstOrCreate(&ProductStatistics).
+		Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errorx.WithCause(errorx.ErrBadRequest, "未找到价格手册")
+			return nil, errorx.WithCause(errorx.ErrBadRequest, "未找到产品统计记录")
 		}
 		panic(err)
 	}
@@ -164,7 +165,7 @@ func (uc *ProductStatisticsUseCase) DeleteProductStatistics(ctx context.Context,
 		panic(err)
 	}
 	if result.RowsAffected == 0 {
-		return errorx.WithCause(errorx.ErrDeleteObjectNotFound, "未找到价格手册")
+		return errorx.WithCause(errorx.ErrDeleteObjectNotFound, "未找到产品统计记录")
 	}
 	return nil
 }

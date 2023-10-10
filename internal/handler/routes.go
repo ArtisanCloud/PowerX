@@ -45,18 +45,19 @@ import (
 	admintag "PowerX/internal/handler/admin/tag"
 	adminuserinfo "PowerX/internal/handler/admin/userinfo"
 	adminwechatofficialaccountmenu "PowerX/internal/handler/admin/wechat/officialaccount/menu"
-	mpcustomerauth "PowerX/internal/handler/mp/customer/auth"
+	mpcrmcustomerauth "PowerX/internal/handler/mp/crm/customer/auth"
+	mpcrmmarketmedia "PowerX/internal/handler/mp/crm/market/media"
+	mpcrmmarketstore "PowerX/internal/handler/mp/crm/market/store"
+	mpcrmproduct "PowerX/internal/handler/mp/crm/product"
+	mpcrmproductartisan "PowerX/internal/handler/mp/crm/product/artisan"
+	mpcrmproductproductstatistics "PowerX/internal/handler/mp/crm/product/productstatistics"
+	mpcrmtradeaddressbilling "PowerX/internal/handler/mp/crm/trade/address/billing"
+	mpcrmtradeaddressdelivery "PowerX/internal/handler/mp/crm/trade/address/delivery"
+	mpcrmtradeaddressshipping "PowerX/internal/handler/mp/crm/trade/address/shipping"
+	mpcrmtradecart "PowerX/internal/handler/mp/crm/trade/cart"
+	mpcrmtradeorder "PowerX/internal/handler/mp/crm/trade/order"
+	mpcrmtradepayment "PowerX/internal/handler/mp/crm/trade/payment"
 	mpdictionary "PowerX/internal/handler/mp/dictionary"
-	mpmarketmedia "PowerX/internal/handler/mp/market/media"
-	mpmarketstore "PowerX/internal/handler/mp/market/store"
-	mpproduct "PowerX/internal/handler/mp/product"
-	mpproductartisan "PowerX/internal/handler/mp/product/artisan"
-	mptradeaddressbilling "PowerX/internal/handler/mp/trade/address/billing"
-	mptradeaddressdelivery "PowerX/internal/handler/mp/trade/address/delivery"
-	mptradeaddressshipping "PowerX/internal/handler/mp/trade/address/shipping"
-	mptradecart "PowerX/internal/handler/mp/trade/cart"
-	mptradeorder "PowerX/internal/handler/mp/trade/order"
-	mptradepayment "PowerX/internal/handler/mp/trade/payment"
 	webcustomerauth "PowerX/internal/handler/web/customer/auth"
 	webcustomerauthoa "PowerX/internal/handler/web/customer/auth/oa"
 	webinfoorganizationcategory "PowerX/internal/handler/web/infoorganization/category"
@@ -1551,17 +1552,17 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			{
 				Method:  http.MethodPost,
 				Path:    "/login",
-				Handler: mpcustomerauth.LoginHandler(serverCtx),
+				Handler: mpcrmcustomerauth.LoginHandler(serverCtx),
 			},
 			{
 				Method:  http.MethodPost,
 				Path:    "/authByPhone",
-				Handler: mpcustomerauth.AuthByPhoneHandler(serverCtx),
+				Handler: mpcrmcustomerauth.AuthByPhoneHandler(serverCtx),
 			},
 			{
 				Method:  http.MethodPost,
 				Path:    "/authByProfile",
-				Handler: mpcustomerauth.AuthByProfileHandler(serverCtx),
+				Handler: mpcrmcustomerauth.AuthByProfileHandler(serverCtx),
 			},
 		},
 		rest.WithPrefix("/api/v1/mp/customer"),
@@ -1574,7 +1575,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				{
 					Method:  http.MethodGet,
 					Path:    "/stores/page-list",
-					Handler: mpmarketstore.ListStoresPageHandler(serverCtx),
+					Handler: mpcrmmarketstore.ListStoresPageHandler(serverCtx),
 				},
 			}...,
 		),
@@ -1588,7 +1589,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				{
 					Method:  http.MethodGet,
 					Path:    "/medias/page-list",
-					Handler: mpmarketmedia.ListMediasPageHandler(serverCtx),
+					Handler: mpcrmmarketmedia.ListMediasPageHandler(serverCtx),
 				},
 			}...,
 		),
@@ -1602,12 +1603,12 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				{
 					Method:  http.MethodGet,
 					Path:    "/artisans/page-list",
-					Handler: mpproductartisan.ListArtisansPageHandler(serverCtx),
+					Handler: mpcrmproductartisan.ListArtisansPageHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodGet,
 					Path:    "/artisans/:id",
-					Handler: mpproductartisan.GetArtisanHandler(serverCtx),
+					Handler: mpcrmproductartisan.GetArtisanHandler(serverCtx),
 				},
 			}...,
 		),
@@ -1621,12 +1622,12 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				{
 					Method:  http.MethodGet,
 					Path:    "/products/page-list",
-					Handler: mpproduct.ListProductsPageHandler(serverCtx),
+					Handler: mpcrmproduct.ListProductsPageHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodGet,
 					Path:    "/products/:id",
-					Handler: mpproduct.GetProductHandler(serverCtx),
+					Handler: mpcrmproduct.GetProductHandler(serverCtx),
 				},
 			}...,
 		),
@@ -1640,12 +1641,12 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				{
 					Method:  http.MethodGet,
 					Path:    "/product-category-tree",
-					Handler: mpproduct.ListProductCategoryTreeHandler(serverCtx),
+					Handler: mpcrmproduct.ListProductCategoryTreeHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodGet,
 					Path:    "/product-categories",
-					Handler: mpproduct.ListProductCategoriesHandler(serverCtx),
+					Handler: mpcrmproduct.ListProductCategoriesHandler(serverCtx),
 				},
 			}...,
 		),
@@ -1688,37 +1689,56 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 
 	server.AddRoutes(
 		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.MPCustomerJWTAuth},
+			[]rest.Route{
+				{
+					Method:  http.MethodGet,
+					Path:    "/product-statistics/page-list",
+					Handler: mpcrmproductproductstatistics.ListProductStatisticsPageHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/product-statistics/:id",
+					Handler: mpcrmproductproductstatistics.GetProductStatisticsHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithPrefix("/api/v1/mp/product"),
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
 			[]rest.Middleware{serverCtx.MPCustomerJWTAuth, serverCtx.MPCustomerGet},
 			[]rest.Route{
 				{
 					Method:  http.MethodGet,
 					Path:    "/cart/items/page-list",
-					Handler: mptradecart.ListCartItemsPageHandler(serverCtx),
+					Handler: mpcrmtradecart.ListCartItemsPageHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodGet,
 					Path:    "/cart/:cartId",
-					Handler: mptradecart.GetCartHandler(serverCtx),
+					Handler: mpcrmtradecart.GetCartHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPost,
 					Path:    "/cart/items",
-					Handler: mptradecart.AddToCartHandler(serverCtx),
+					Handler: mpcrmtradecart.AddToCartHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPut,
 					Path:    "/cart/items/:itemId",
-					Handler: mptradecart.UpdateCartItemQuantityHandler(serverCtx),
+					Handler: mpcrmtradecart.UpdateCartItemQuantityHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodDelete,
 					Path:    "/cart/items/:itemId",
-					Handler: mptradecart.RemoveCartItemHandler(serverCtx),
+					Handler: mpcrmtradecart.RemoveCartItemHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodDelete,
 					Path:    "/cart/items/clear",
-					Handler: mptradecart.ClearCartItemsHandler(serverCtx),
+					Handler: mpcrmtradecart.ClearCartItemsHandler(serverCtx),
 				},
 			}...,
 		),
@@ -1732,27 +1752,27 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				{
 					Method:  http.MethodGet,
 					Path:    "/orders/page-list",
-					Handler: mptradeorder.ListOrdersPageHandler(serverCtx),
+					Handler: mpcrmtradeorder.ListOrdersPageHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodGet,
 					Path:    "/orders/:id",
-					Handler: mptradeorder.GetOrderHandler(serverCtx),
+					Handler: mpcrmtradeorder.GetOrderHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPost,
 					Path:    "/orders/products",
-					Handler: mptradeorder.CreateOrderByProductsHandler(serverCtx),
+					Handler: mpcrmtradeorder.CreateOrderByProductsHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPost,
 					Path:    "/orders/cart-items",
-					Handler: mptradeorder.CreateOrderByCartItemsHandler(serverCtx),
+					Handler: mpcrmtradeorder.CreateOrderByCartItemsHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPut,
 					Path:    "/orders/cancel/:id",
-					Handler: mptradeorder.CancelOrderHandler(serverCtx),
+					Handler: mpcrmtradeorder.CancelOrderHandler(serverCtx),
 				},
 			}...,
 		),
@@ -1854,32 +1874,32 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				{
 					Method:  http.MethodGet,
 					Path:    "/shipping/page-list",
-					Handler: mptradeaddressshipping.ListShippingAddressesPageHandler(serverCtx),
+					Handler: mpcrmtradeaddressshipping.ListShippingAddressesPageHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodGet,
 					Path:    "/shipping/:id",
-					Handler: mptradeaddressshipping.GetShippingAddressHandler(serverCtx),
+					Handler: mpcrmtradeaddressshipping.GetShippingAddressHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPost,
 					Path:    "/shipping",
-					Handler: mptradeaddressshipping.CreateShippingAddressHandler(serverCtx),
+					Handler: mpcrmtradeaddressshipping.CreateShippingAddressHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPut,
 					Path:    "/shipping/:id",
-					Handler: mptradeaddressshipping.PutShippingAddressHandler(serverCtx),
+					Handler: mpcrmtradeaddressshipping.PutShippingAddressHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPatch,
 					Path:    "/shipping/:id",
-					Handler: mptradeaddressshipping.PatchShippingAddressHandler(serverCtx),
+					Handler: mpcrmtradeaddressshipping.PatchShippingAddressHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodDelete,
 					Path:    "/shipping/:id",
-					Handler: mptradeaddressshipping.DeleteShippingAddressHandler(serverCtx),
+					Handler: mpcrmtradeaddressshipping.DeleteShippingAddressHandler(serverCtx),
 				},
 			}...,
 		),
@@ -1893,32 +1913,32 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				{
 					Method:  http.MethodGet,
 					Path:    "/delivery/page-list",
-					Handler: mptradeaddressdelivery.ListDeliveryAddressesPageHandler(serverCtx),
+					Handler: mpcrmtradeaddressdelivery.ListDeliveryAddressesPageHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodGet,
 					Path:    "/delivery/:id",
-					Handler: mptradeaddressdelivery.GetDeliveryAddressHandler(serverCtx),
+					Handler: mpcrmtradeaddressdelivery.GetDeliveryAddressHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPost,
 					Path:    "/delivery",
-					Handler: mptradeaddressdelivery.CreateDeliveryAddressHandler(serverCtx),
+					Handler: mpcrmtradeaddressdelivery.CreateDeliveryAddressHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPut,
 					Path:    "/delivery/:id",
-					Handler: mptradeaddressdelivery.PutDeliveryAddressHandler(serverCtx),
+					Handler: mpcrmtradeaddressdelivery.PutDeliveryAddressHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPatch,
 					Path:    "/delivery/:id",
-					Handler: mptradeaddressdelivery.PatchDeliveryAddressHandler(serverCtx),
+					Handler: mpcrmtradeaddressdelivery.PatchDeliveryAddressHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodDelete,
 					Path:    "/delivery/:id",
-					Handler: mptradeaddressdelivery.DeleteDeliveryAddressHandler(serverCtx),
+					Handler: mpcrmtradeaddressdelivery.DeleteDeliveryAddressHandler(serverCtx),
 				},
 			}...,
 		),
@@ -1932,32 +1952,32 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				{
 					Method:  http.MethodGet,
 					Path:    "/billing/page-list",
-					Handler: mptradeaddressbilling.ListBillingAddressesPageHandler(serverCtx),
+					Handler: mpcrmtradeaddressbilling.ListBillingAddressesPageHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodGet,
 					Path:    "/billing/:id",
-					Handler: mptradeaddressbilling.GetBillingAddressHandler(serverCtx),
+					Handler: mpcrmtradeaddressbilling.GetBillingAddressHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPost,
 					Path:    "/billing",
-					Handler: mptradeaddressbilling.CreateBillingAddressHandler(serverCtx),
+					Handler: mpcrmtradeaddressbilling.CreateBillingAddressHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPut,
 					Path:    "/billing/:id",
-					Handler: mptradeaddressbilling.PutBillingAddressHandler(serverCtx),
+					Handler: mpcrmtradeaddressbilling.PutBillingAddressHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPatch,
 					Path:    "/billing/:id",
-					Handler: mptradeaddressbilling.PatchBillingAddressHandler(serverCtx),
+					Handler: mpcrmtradeaddressbilling.PatchBillingAddressHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodDelete,
 					Path:    "/billing/:id",
-					Handler: mptradeaddressbilling.DeleteBillingAddressHandler(serverCtx),
+					Handler: mpcrmtradeaddressbilling.DeleteBillingAddressHandler(serverCtx),
 				},
 			}...,
 		),
@@ -1971,22 +1991,22 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				{
 					Method:  http.MethodGet,
 					Path:    "/payments/page-list",
-					Handler: mptradepayment.ListPaymentsPageHandler(serverCtx),
+					Handler: mpcrmtradepayment.ListPaymentsPageHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodGet,
 					Path:    "/payments/:id",
-					Handler: mptradepayment.GetPaymentHandler(serverCtx),
+					Handler: mpcrmtradepayment.GetPaymentHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPost,
 					Path:    "/payments",
-					Handler: mptradepayment.CreatePaymentFromOrderHandler(serverCtx),
+					Handler: mpcrmtradepayment.CreatePaymentFromOrderHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPut,
 					Path:    "/payments/:id",
-					Handler: mptradepayment.UpdatePaymentHandler(serverCtx),
+					Handler: mpcrmtradepayment.UpdatePaymentHandler(serverCtx),
 				},
 			}...,
 		),

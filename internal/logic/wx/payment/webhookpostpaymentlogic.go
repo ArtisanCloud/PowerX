@@ -1,7 +1,7 @@
 package payment
 
 import (
-	"PowerX/internal/logic/mp/trade/payment"
+	"PowerX/internal/logic/mp/crm/trade/payment"
 	"PowerX/internal/svc"
 	"context"
 	"github.com/zeromicro/go-zero/core/logx"

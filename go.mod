@@ -2,6 +2,8 @@ module PowerX
 
 go 1.21
 
+//replace github.com/ArtisanCloud/PowerWeChat/v3 => ../../../PowerWechat/PowerWeChat
+
 require (
 	github.com/ArtisanCloud/PowerLibs/v3 v3.0.15
 	github.com/ArtisanCloud/PowerSocialite/v3 v3.0.7
