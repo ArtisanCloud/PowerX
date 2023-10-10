@@ -50,6 +50,7 @@ import (
 	mpcrmmarketstore "PowerX/internal/handler/mp/crm/market/store"
 	mpcrmproduct "PowerX/internal/handler/mp/crm/product"
 	mpcrmproductartisan "PowerX/internal/handler/mp/crm/product/artisan"
+	mpcrmproductproductstatistics "PowerX/internal/handler/mp/crm/product/productstatistics"
 	mpcrmtradeaddressbilling "PowerX/internal/handler/mp/crm/trade/address/billing"
 	mpcrmtradeaddressdelivery "PowerX/internal/handler/mp/crm/trade/address/delivery"
 	mpcrmtradeaddressshipping "PowerX/internal/handler/mp/crm/trade/address/shipping"
@@ -1684,6 +1685,25 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			}...,
 		),
 		rest.WithPrefix("/api/v1/admin/product"),
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.MPCustomerJWTAuth},
+			[]rest.Route{
+				{
+					Method:  http.MethodGet,
+					Path:    "/product-statistics/page-list",
+					Handler: mpcrmproductproductstatistics.ListProductStatisticsPageHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/product-statistics/:id",
+					Handler: mpcrmproductproductstatistics.GetProductStatisticsHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithPrefix("/api/v1/mp/product"),
 	)
 
 	server.AddRoutes(
