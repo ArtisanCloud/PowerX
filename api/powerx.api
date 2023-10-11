@@ -16,6 +16,7 @@ import "web.api"
 
 import "custom.api"
 import "plugin.api"
+import "health.api"
 
 service PowerX {
 	@doc "根目录访问"

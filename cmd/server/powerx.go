@@ -2,8 +2,11 @@ package main
 
 import (
 	"PowerX/internal/middleware/recovery"
+	"PowerX/pkg/pluginx"
+	"context"
 	"flag"
 	"fmt"
+	"github.com/zeromicro/go-zero/rest"
 	"github.com/zeromicro/go-zero/rest/httpx"
 	"path/filepath"
 
@@ -11,8 +14,10 @@ import (
 	"PowerX/internal/handler"
 	"PowerX/internal/svc"
 
+	"github.com/gin-gonic/gin"
+	zgin "github.com/zeromicro/zero-contrib/router/gin"
+
 	"github.com/zeromicro/go-zero/core/conf"
-	"github.com/zeromicro/go-zero/rest"
 )
 
 var configFile = flag.String("f", "etc/powerx.yaml", "the config file")
@@ -25,10 +30,19 @@ func main() {
 
 	c.EtcDir = filepath.Dir(*configFile)
 
-	server := rest.MustNewServer(c.Server)
+	gin.SetMode(gin.ReleaseMode)
+	r := zgin.NewRouter()
+	server := rest.MustNewServer(c.Server, rest.WithRouter(r))
 	defer server.Stop()
 
-	ctx := svc.NewServiceContext(c)
+	plugin := pluginx.NewManager(context.Background(), r, fmt.Sprintf("%s:%d", "127.0.0.1", c.Server.Port))
+	ctx := svc.NewServiceContext(c, svc.WithPlugin(plugin))
+
+	go func() {
+		plugin.Start()
+	}()
+	defer ctx.Plugin.Close()
+
 	handler.RegisterHandlers(server, ctx)
 	handler.RegisterWebhookHandlers(server, ctx)
 
@@ -40,7 +54,6 @@ func main() {
 	// 设置自定义错误处理逻辑 3xx 4xx default: 400
 	httpx.SetErrorHandler(handler.ErrorHandle)
 	httpx.SetErrorHandlerCtx(handler.ErrorHandleCtx)
-
 	fmt.Printf("Starting server at %s:%d...\n", c.Server.Host, c.Server.Port)
 	server.Start()
 }

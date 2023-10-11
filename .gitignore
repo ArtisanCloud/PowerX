@@ -18,17 +18,13 @@ wechat.log
 logs/
 
 
-deploy/dependencies/data/
-deploy/powerx
-deploy/powerxctl
-deploy/powerx.exe
-deploy/powerxctl.exe
-deploy/data
-deploy/logs/
-deploy/etc/powerx.yaml
-deploy/dashboard/dist/
+deploy/*
 
 etc/powerx.yaml
 
 /powerx
 /powerxctl
+/data/*
+/plugins/__plugin
+/plugins/__plugin/*
+/plugins

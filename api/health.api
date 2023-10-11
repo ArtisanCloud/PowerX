@@ -1,0 +1,11 @@
+syntax = "v1"
+
+service PowerX {
+    @doc "健康检查接口"
+    @handler HealthCheck
+    get /health (HealthCheckRequest) returns (HealthCheckReply)
+}
+
+type HealthCheckRequest {}
+
+type HealthCheckReply {}
