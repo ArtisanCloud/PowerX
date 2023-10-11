@@ -1,8 +1,6 @@
 package product
 
 import (
-	product2 "PowerX/internal/model/crm/product"
-	fmt "PowerX/pkg/printx"
 	"context"
 
 	"PowerX/internal/svc"
@@ -26,10 +24,10 @@ func NewDisableProductLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Di
 }
 
 func (l *DisableProductLogic) DisableProduct(req *types.DisableProductRequest) (resp *types.DisableProductReply, err error) {
-	p := &product2.Product{
-		IsActivated: false,
+	p := &map[string]interface{}{
+		"is_activated": false,
 	}
-	fmt.Dump(p)
+	//fmt.Dump(p)
 	l.svcCtx.PowerX.Product.PatchProduct(l.ctx, req.ProductId, p)
 
 	return &types.DisableProductReply{
