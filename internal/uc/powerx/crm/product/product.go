@@ -7,6 +7,7 @@ import (
 	"PowerX/internal/model/powermodel"
 	"PowerX/internal/types"
 	"PowerX/internal/types/errorx"
+	fmt "PowerX/pkg/printx"
 	"PowerX/pkg/slicex"
 	"context"
 	"encoding/json"
@@ -185,8 +186,12 @@ func (uc *ProductUseCase) UpsertProducts(ctx context.Context, products []*model.
 }
 
 func (uc *ProductUseCase) PatchProduct(ctx context.Context, id int64, product *model.Product) {
+	fmt.Dump(product)
 	if err := uc.db.WithContext(ctx).Model(&model.Product{}).
-		Where(id).Updates(&product).Error; err != nil {
+		Where(id).
+		Debug().
+		Updates(product).
+		Error; err != nil {
 		panic(err)
 	}
 }

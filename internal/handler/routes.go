@@ -743,6 +743,11 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 					Handler: admincrmproduct.PatchProductHandler(serverCtx),
 				},
 				{
+					Method:  http.MethodPut,
+					Path:    "/products/disable/:id",
+					Handler: admincrmproduct.DisableProductHandler(serverCtx),
+				},
+				{
 					Method:  http.MethodDelete,
 					Path:    "/products/:id",
 					Handler: admincrmproduct.DeleteProductHandler(serverCtx),

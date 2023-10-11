@@ -43,6 +43,9 @@ service PowerX {
     @handler PatchProduct
     patch /products/:id (PatchProductRequest) returns (PatchProductReply)
 
+    @doc "下架产品"
+    @handler DisableProduct
+    put /products/disable/:id  (DisableProductRequest)returns (DisableProductReply)
 
     @doc "删除产品"
     @handler DeleteProduct
@@ -186,6 +189,15 @@ type (
 
 
 type (
+
+    DisableProductRequest struct {
+        ProductId int64 `path:"id"`
+    }
+
+    DisableProductReply struct{
+        ProductId int64 `json:"id"`
+    }
+
     DeleteProductRequest struct {
         ProductId int64 `path:"id"`
     }

@@ -1419,6 +1419,14 @@ type PatchProductReply struct {
 	*Product
 }
 
+type DisableProductRequest struct {
+	ProductId int64 `path:"id"`
+}
+
+type DisableProductReply struct {
+	ProductId int64 `json:"id"`
+}
+
 type DeleteProductRequest struct {
 	ProductId int64 `path:"id"`
 }
