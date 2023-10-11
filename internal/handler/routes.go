@@ -2147,4 +2147,34 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 		),
 		rest.WithPrefix("/api/v1/web/info-organization"),
 	)
+
+	server.AddRoutes(
+		[]rest.Route{
+			{
+				Method:  http.MethodPost,
+				Path:    "/plugin/v1/plugins",
+				Handler: RegisterPluginHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodGet,
+				Path:    "/plugin/v1/plugins",
+				Handler: ListPluginHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodGet,
+				Path:    "/plugin/v1/frontend-routes",
+				Handler: ListPluginFrontendRoutesHandler(serverCtx),
+			},
+		},
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
+			{
+				Method:  http.MethodGet,
+				Path:    "/health",
+				Handler: HealthCheckHandler(serverCtx),
+			},
+		},
+	)
 }

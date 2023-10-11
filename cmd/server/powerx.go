@@ -2,9 +2,12 @@ package main
 
 import (
 	"PowerX/internal/middleware/recovery"
+	"PowerX/pkg/pluginx"
 	"PowerX/pkg/zerox"
+	"context"
 	"flag"
 	"fmt"
+	"github.com/zeromicro/go-zero/rest"
 	"github.com/zeromicro/go-zero/rest/httpx"
 	"path/filepath"
 
@@ -12,8 +15,10 @@ import (
 	"PowerX/internal/handler"
 	"PowerX/internal/svc"
 
+	"github.com/gin-gonic/gin"
+	zgin "github.com/zeromicro/zero-contrib/router/gin"
+
 	"github.com/zeromicro/go-zero/core/conf"
-	"github.com/zeromicro/go-zero/rest"
 )
 
 var configFile = flag.String("f", "etc/powerx.yaml", "the config file")
@@ -26,7 +31,9 @@ func main() {
 
 	c.EtcDir = filepath.Dir(*configFile)
 
-	var server *rest.Server
+	gin.SetMode(gin.ReleaseMode)
+	r := zgin.NewRouter()
+	server := rest.MustNewServer(c.Server, rest.WithRouter(r))
 	runOpt := config.SetupCors(&c)
 	if runOpt == nil {
 		server = rest.MustNewServer(c.Server)
@@ -36,7 +43,14 @@ func main() {
 	defer server.Stop()
 	zerox.MustSetupLog(c.Log)
 
-	ctx := svc.NewServiceContext(c)
+	plugin := pluginx.NewManager(context.Background(), r, fmt.Sprintf("%s:%d", "127.0.0.1", c.Server.Port))
+	ctx := svc.NewServiceContext(c, svc.WithPlugin(plugin))
+
+	go func() {
+		plugin.Start()
+	}()
+	defer ctx.Plugin.Close()
+
 	handler.RegisterHandlers(server, ctx)
 	handler.RegisterWebhookHandlers(server, ctx)
 

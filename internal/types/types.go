@@ -3450,3 +3450,58 @@ type SceneQrcodeActiveReply struct {
 type SceneRequest struct {
 	Qid string `path:"qid"` // 唯一标识
 }
+
+type Route struct {
+	Method string `json:"method"`
+	Path   string `json:"path"`
+}
+
+type RegisterPluginRequest struct {
+	Name   string  `json:"name"`
+	Routes []Route `json:"routes"`
+	Addr   string  `json:"addr"`
+}
+
+type RegisterPluginReply struct {
+	Name string                 `json:"name"`
+	Etc  map[string]interface{} `json:"etc"`
+}
+
+type PluginWebRouteMeta struct {
+	Locale      string `json:"locale"`
+	Icon        string `json:"icon"`
+	RequestAuth bool   `json:"requestAuth"`
+}
+
+type PluginWebRoutes struct {
+	Name     string             `json:"name"`
+	Path     string             `json:"path"`
+	Meta     PluginWebRouteMeta `json:"meta"`
+	Children []PluginWebRoutes  `json:"children"`
+}
+
+type ListPluginRequest struct {
+	Socpe []string `form:"scope"`
+}
+
+type PluginWebInfo struct {
+	Name      string  `json:"name"`
+	Desc      string  `json:"desc"`
+	Verison   string  `json:"version"`
+	IsEnabled bool    `json:"isEnabled"`
+	Routes    []Route `json:"routes"`
+}
+
+type ListPluginReply struct {
+	Plugins []PluginWebInfo `json:"plugins"`
+}
+
+type ListPluginFrontendRoutesReply struct {
+	Routes []PluginWebRoutes `json:"routes"`
+}
+
+type HealthCheckRequest struct {
+}
+
+type HealthCheckReply struct {
+}
