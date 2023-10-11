@@ -61,7 +61,11 @@ https://powerx.artisan-cloud.com/zh/v1/case/
 暂时用于2C的一些定制开发的场景，需要用到Web UI
 
 
+<!-- 相关产品推荐 -->
+## 相关产品推荐
 
+[PowerWechat 微信的Golang SDK](https://github.com/ArtisanCloud/PowerWeChat)  
+[WeyUI 一套微信生态前端组件库，适配PowerX非常友好](https://github.com/yaoyaochil/WeyUI)
 
 ## PowerX社区交流群
 
