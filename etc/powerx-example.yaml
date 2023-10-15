@@ -1,3 +1,4 @@
+Version: v1.0.0            # 版本
 Server:
   Name: PowerX后台系统        # 服务器名称
   Host: 0.0.0.0             # 服务器地址

@@ -97,11 +97,12 @@ type Root struct {
 }
 
 type Config struct {
-	Server rest.RestConf
-	EtcDir string `json:",optional"`
-	Log    zerox.LogConf
-	Cors   Cors
-	JWT    struct {
+	Version string
+	Server  rest.RestConf
+	EtcDir  string `json:",optional"`
+	Log     zerox.LogConf
+	Cors    Cors
+	JWT     struct {
 		JWTSecret    string
 		MPJWTSecret  string
 		WebJWTSecret string
