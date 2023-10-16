@@ -1,5 +1,18 @@
 syntax = "v1"
 
+info(
+    title: "健康管理"
+    desc: "健康管理"
+    author: "MichaelHu"
+    email: "matrix-x@artisan-cloud.com"
+    version: "v1"
+)
+
+@server(
+    group: system/health
+    prefix: /api/v1/system
+)
+
 service PowerX {
     @doc "健康检查接口"
     @handler HealthCheck

@@ -1,5 +1,10 @@
 syntax = "v1"
 
+@server(
+    group: plugin
+    prefix: /api/v1
+)
+
 service PowerX {
     @doc "插件接口"
     @handler RegisterPlugin
