@@ -4,90 +4,101 @@ admin/common,/api/v1/admin/common/options/employees,get,员工Options远程搜�
 admin/common,/api/v1/admin/common/options/employee-query,get,查询员工过滤条件
 admin/common,/api/v1/admin/common/options/departments,get,部门Options远程搜索
 admin/common,/api/v1/admin/common/options,get,通用获取Options
-admin/business/opportunity,/api/v1/admin/business/opportunities,get,查询商机列表
-admin/business/opportunity,/api/v1/admin/business/opportunities,post,创建商机
-admin/business/opportunity,/api/v1/admin/business/opportunities/:id/assign-employee,put,为商机分配员工
-admin/business/opportunity,/api/v1/admin/business/opportunities/:id,put,修改商机信息
-admin/business/opportunity,/api/v1/admin/business/opportunities/:id,delete,删除商机
-admin/customerdomain/customer,/api/v1/admin/customerdomain/customers/:id,get,查询客户
-admin/customerdomain/customer,/api/v1/admin/customerdomain/customers/page-list,get,获取客户分页列表
-admin/customerdomain/customer,/api/v1/admin/customerdomain/customers,post,创建客户
-admin/customerdomain/customer,/api/v1/admin/customerdomain/customers/:id,put,全量客户
-admin/customerdomain/customer,/api/v1/admin/customerdomain/customers/:id,patch,增量客户
-admin/customerdomain/customer,/api/v1/admin/customerdomain/customers/:id,delete,删除客户
-admin/customerdomain/customer,/api/v1/admin/customerdomain/customers/:id/actions/employees,post,为客户分配员工
-admin/customerdomain/leader,/api/v1/admin/customerdomain/leads/:id,get,查询线索
-admin/customerdomain/leader,/api/v1/admin/customerdomain/leads/page-list,get,获取线索分页列表
-admin/customerdomain/leader,/api/v1/admin/customerdomain/leads,post,创建线索
-admin/customerdomain/leader,/api/v1/admin/customerdomain/leads/:id,put,全量线索
-admin/customerdomain/leader,/api/v1/admin/customerdomain/leads/:id,patch,增量线索
-admin/customerdomain/leader,/api/v1/admin/customerdomain/leads/:id,delete,删除线索
-admin/customerdomain/leader,/api/v1/admin/customerdomain/leads/:id/actions/employees,post,为线索分配员工
-admin/market/media,/api/v1/admin/market/medias/page-list,get,查询媒体列表
-admin/market/media,/api/v1/admin/market/medias,post,请求媒体上传链接
-admin/market/media,/api/v1/admin/market/medias/:id,put,创建或更新媒体
-admin/market/media,/api/v1/admin/market/medias/:id,get,根据媒体key获取媒体
-admin/market/media,/api/v1/admin/market/medias/:id,delete,删除媒体
-admin/market/store,/api/v1/admin/market/stores/page-list,get,查询门店列表
-admin/market/store,/api/v1/admin/market/stores/:id,get,查询门店详情
-admin/market/store,/api/v1/admin/market/stores,post,创建门店
-admin/market/store,/api/v1/admin/market/stores/:id,put,全量门店
-admin/market/store,/api/v1/admin/market/stores/:id,delete,删除门店
-admin/market/store,/api/v1/admin/market/stores/:id/actions/assign-to-store-categroy,post,分配门店经理给门店
-admin/product/artisan,/api/v1/admin/product/artisans/page-list,get,查询元匠列表
-admin/product/artisan,/api/v1/admin/product/artisans/:id,get,查询元匠详情
-admin/product/artisan,/api/v1/admin/product/artisans,post,创建元匠
-admin/product/artisan,/api/v1/admin/product/artisans/:id,put,全量元匠
-admin/product/artisan,/api/v1/admin/product/artisans/:id,delete,删除元匠
-admin/product/artisan,/api/v1/admin/product/artisans/bind/stores,post,元匠绑定门店
-admin/product/pricebook,/api/v1/admin/product/price-books/page-list,get,查询价格手册列表
-admin/product/pricebook,/api/v1/admin/product/price-books/:id,get,查询价格手册详情
-admin/product/pricebook,/api/v1/admin/product/price-books,post,创新价格手册
-admin/product/pricebook,/api/v1/admin/product/price-books/:id,delete,删除价格手册
-admin/product/pricebookentry,/api/v1/admin/product/price-book-entries/page-list,get,查询价格手册条目列表
-admin/product/pricebookentry,/api/v1/admin/product/price-book-entries/:id,get,查询价格手册条目详情
-admin/product/pricebookentry,/api/v1/admin/product/price-book-entries/config,post,配置价格手册条目条目
-admin/product/pricebookentry,/api/v1/admin/product/price-book-entries/:id,post,配置价格手册条目条目
-admin/product/pricebookentry,/api/v1/admin/product/price-book-entries/:id,delete,删除价格手册条目
-admin/product,/api/v1/admin/product/products/page-list,get,查询产品列表
-admin/product,/api/v1/admin/product/products/:id,get,查询产品详情
-admin/product,/api/v1/admin/product/products,post,创建产品
-admin/product,/api/v1/admin/product/products/:id,put,全量产品
-admin/product,/api/v1/admin/product/products/:id,patch,增量产品
-admin/product,/api/v1/admin/product/products/:id,delete,删除产品
-admin/product,/api/v1/admin/product/products/:id/actions/assign-to-product-categroy,post,分配产品品类给产品品类分类
-admin/product/category,/api/v1/admin/product/product-category-tree,get,查询产品品类列表
-admin/product/category,/api/v1/admin/product/product-categories/:id,get,查询产品品类详情
-admin/product/category,/api/v1/admin/product/product-categories,post,创新产品品类
-admin/product/category,/api/v1/admin/product/product-categories/:id,put,修改产品品类
-admin/product/category,/api/v1/admin/product/product-categories/:id,patch,修改产品品类父级
-admin/product/category,/api/v1/admin/product/product-categories/:id,delete,删除产品品类
-admin/product/productspecific,/api/v1/admin/product/product-specifics/page-list,get,查询产品规格列表
-admin/product/productspecific,/api/v1/admin/product/product-specifics/:id,get,查询产品规格详情
-admin/product/productspecific,/api/v1/admin/product/product-specifics,post,创建产品规格
-admin/product/productspecific,/api/v1/admin/product/product-specifics/config,post,配置产品规格
-admin/product/productspecific,/api/v1/admin/product/product-specifics/:id,put,全量产品规格
-admin/product/productspecific,/api/v1/admin/product/product-specifics/:id,patch,增量产品规格
-admin/product/productspecific,/api/v1/admin/product/product-specifics/:id,delete,删除产品规格
-admin/product/sku,/api/v1/admin/product/skus/page-list,get,查询SKU列表
-admin/product/sku,/api/v1/admin/product/skus/:id,get,查询SKU详情
-admin/product/sku,/api/v1/admin/product/skus,post,创建SKU
-admin/product/sku,/api/v1/admin/product/skus/config,post,配置SKU
-admin/product/sku,/api/v1/admin/product/skus/:id,put,全量SKU
-admin/product/sku,/api/v1/admin/product/skus/:id,patch,增量SKU
-admin/product/sku,/api/v1/admin/product/skus/:id,delete,删除SKU
-admin/trade/payment,/api/v1/admin/trade/payments/page-list,get,查询支付单列表
-admin/trade/payment,/api/v1/admin/trade/payments/:id,get,查询支付单详情
-admin/trade/payment,/api/v1/admin/trade/payments,post,创建支付单
-admin/trade/payment,/api/v1/admin/trade/payments/:id,put,全量支付单
-admin/trade/payment,/api/v1/admin/trade/payments/:id,patch,增量支付单
-admin/trade/payment,/api/v1/admin/trade/payments/:id,delete,删除支付单
-admin/trade/token,/api/v1/admin/trade/token/products/page-list,get,查询代币产品列表
-admin/trade/token,/api/v1/admin/trade/token/products/:id,get,查询代币产品详情
-admin/trade/token,/api/v1/admin/trade/token/products,post,创建代币产品
-admin/trade/token,/api/v1/admin/trade/token/products/:id,put,全量代币产品
-admin/trade/token,/api/v1/admin/trade/token/products/:id,patch,增量代币产品
-admin/trade/token,/api/v1/admin/trade/token/products/:id,delete,删除代币产品
+admin/crm/business/opportunity,/api/v1/admin/business/opportunities,get,查询商机列表
+admin/crm/business/opportunity,/api/v1/admin/business/opportunities,post,创建商机
+admin/crm/business/opportunity,/api/v1/admin/business/opportunities/:id/assign-employee,put,为商机分配员工
+admin/crm/business/opportunity,/api/v1/admin/business/opportunities/:id,put,修改商机信息
+admin/crm/business/opportunity,/api/v1/admin/business/opportunities/:id,delete,删除商机
+admin/crm/customerdomain/customer,/api/v1/admin/customerdomain/customers/:id,get,查询客户
+admin/crm/customerdomain/customer,/api/v1/admin/customerdomain/customers/page-list,get,获取客户分页列表
+admin/crm/customerdomain/customer,/api/v1/admin/customerdomain/customers,post,创建客户
+admin/crm/customerdomain/customer,/api/v1/admin/customerdomain/customers/:id,put,全量客户
+admin/crm/customerdomain/customer,/api/v1/admin/customerdomain/customers/:id,patch,增量客户
+admin/crm/customerdomain/customer,/api/v1/admin/customerdomain/customers/:id,delete,删除客户
+admin/crm/customerdomain/customer,/api/v1/admin/customerdomain/customers/:id/actions/employees,post,为客户分配员工
+admin/crm/customerdomain/leader,/api/v1/admin/customerdomain/leads/:id,get,查询线索
+admin/crm/customerdomain/leader,/api/v1/admin/customerdomain/leads/page-list,get,获取线索分页列表
+admin/crm/customerdomain/leader,/api/v1/admin/customerdomain/leads,post,创建线索
+admin/crm/customerdomain/leader,/api/v1/admin/customerdomain/leads/:id,put,全量线索
+admin/crm/customerdomain/leader,/api/v1/admin/customerdomain/leads/:id,patch,增量线索
+admin/crm/customerdomain/leader,/api/v1/admin/customerdomain/leads/:id,delete,删除线索
+admin/crm/customerdomain/leader,/api/v1/admin/customerdomain/leads/:id/actions/employees,post,为线索分配员工
+admin/crm/market/media,/api/v1/admin/market/medias/page-list,get,查询媒体列表
+admin/crm/market/media,/api/v1/admin/market/medias,post,请求媒体上传链接
+admin/crm/market/media,/api/v1/admin/market/medias/:id,put,创建或更新媒体
+admin/crm/market/media,/api/v1/admin/market/medias/:id,get,根据媒体key获取媒体
+admin/crm/market/media,/api/v1/admin/market/medias/:id,delete,删除媒体
+admin/crm/market/mgm,/api/v1/admin/market/mgms/page-list,get,查询MGMRule列表
+admin/crm/market/mgm,/api/v1/admin/market/mgms,post,请求MGMRule上传链接
+admin/crm/market/mgm,/api/v1/admin/market/mgms/:id,put,创建或更新MGMRule
+admin/crm/market/mgm,/api/v1/admin/market/mgms/:id,get,根据获取MGMRule
+admin/crm/market/mgm,/api/v1/admin/market/mgms/:id,delete,删除MGMRule
+admin/crm/market/store,/api/v1/admin/market/stores/page-list,get,查询门店列表
+admin/crm/market/store,/api/v1/admin/market/stores/:id,get,查询门店详情
+admin/crm/market/store,/api/v1/admin/market/stores,post,创建门店
+admin/crm/market/store,/api/v1/admin/market/stores/:id,put,全量门店
+admin/crm/market/store,/api/v1/admin/market/stores/:id,delete,删除门店
+admin/crm/market/store,/api/v1/admin/market/stores/:id/actions/assign-to-store-categroy,post,分配门店经理给门店
+admin/crm/product/artisan,/api/v1/admin/product/artisans/page-list,get,查询元匠列表
+admin/crm/product/artisan,/api/v1/admin/product/artisans/:id,get,查询元匠详情
+admin/crm/product/artisan,/api/v1/admin/product/artisans,post,创建元匠
+admin/crm/product/artisan,/api/v1/admin/product/artisans/:id,put,全量元匠
+admin/crm/product/artisan,/api/v1/admin/product/artisans/:id,delete,删除元匠
+admin/crm/product/artisan,/api/v1/admin/product/artisans/bind/stores,post,元匠绑定门店
+admin/crm/product/pricebook,/api/v1/admin/product/price-books/page-list,get,查询价格手册列表
+admin/crm/product/pricebook,/api/v1/admin/product/price-books/:id,get,查询价格手册详情
+admin/crm/product/pricebook,/api/v1/admin/product/price-books,post,创新价格手册
+admin/crm/product/pricebook,/api/v1/admin/product/price-books/:id,delete,删除价格手册
+admin/crm/product/pricebookentry,/api/v1/admin/product/price-book-entries/page-list,get,查询价格手册条目列表
+admin/crm/product/pricebookentry,/api/v1/admin/product/price-book-entries/:id,get,查询价格手册条目详情
+admin/crm/product/pricebookentry,/api/v1/admin/product/price-book-entries/config,post,配置价格手册条目条目
+admin/crm/product/pricebookentry,/api/v1/admin/product/price-book-entries/:id,post,配置价格手册条目条目
+admin/crm/product/pricebookentry,/api/v1/admin/product/price-book-entries/:id,delete,删除价格手册条目
+admin/crm/product,/api/v1/admin/product/products/page-list,get,查询产品列表
+admin/crm/product,/api/v1/admin/product/products/:id,get,查询产品详情
+admin/crm/product,/api/v1/admin/product/products,post,创建产品
+admin/crm/product,/api/v1/admin/product/products/:id,put,全量产品
+admin/crm/product,/api/v1/admin/product/products/:id,patch,增量产品
+admin/crm/product,/api/v1/admin/product/products/disable/:id,put,下架产品
+admin/crm/product,/api/v1/admin/product/products/:id,delete,删除产品
+admin/crm/product,/api/v1/admin/product/products/:id/actions/assign-to-product-categroy,post,分配产品品类给产品品类分类
+admin/crm/product/category,/api/v1/admin/product/product-category-tree,get,查询产品品类列表
+admin/crm/product/category,/api/v1/admin/product/product-categories/:id,get,查询产品品类详情
+admin/crm/product/category,/api/v1/admin/product/product-categories,post,创新产品品类
+admin/crm/product/category,/api/v1/admin/product/product-categories/:id,put,修改产品品类
+admin/crm/product/category,/api/v1/admin/product/product-categories/:id,patch,修改产品品类父级
+admin/crm/product/category,/api/v1/admin/product/product-categories/:id,delete,删除产品品类
+admin/crm/product/productspecific,/api/v1/admin/product/product-specifics/page-list,get,查询产品规格列表
+admin/crm/product/productspecific,/api/v1/admin/product/product-specifics/:id,get,查询产品规格详情
+admin/crm/product/productspecific,/api/v1/admin/product/product-specifics,post,创建产品规格
+admin/crm/product/productspecific,/api/v1/admin/product/product-specifics/config,post,配置产品规格
+admin/crm/product/productspecific,/api/v1/admin/product/product-specifics/:id,put,全量产品规格
+admin/crm/product/productspecific,/api/v1/admin/product/product-specifics/:id,patch,增量产品规格
+admin/crm/product/productspecific,/api/v1/admin/product/product-specifics/:id,delete,删除产品规格
+admin/crm/product/productstatistics,/api/v1/admin/product/product-statistics/page-list,get,查询产品统计列表
+admin/crm/product/productstatistics,/api/v1/admin/product/product-statistics/:id,get,查询产品统计详情
+admin/crm/product/productstatistics,/api/v1/admin/product/product-statistics/config,post,配置产品统计
+admin/crm/product/productstatistics,/api/v1/admin/product/product-statistics/:id,put,全量产品统计
+admin/crm/product/productstatistics,/api/v1/admin/product/product-statistics/:id,patch,增量产品统计
+admin/crm/product/sku,/api/v1/admin/product/skus/page-list,get,查询SKU列表
+admin/crm/product/sku,/api/v1/admin/product/skus/:id,get,查询SKU详情
+admin/crm/product/sku,/api/v1/admin/product/skus,post,创建SKU
+admin/crm/product/sku,/api/v1/admin/product/skus/config,post,配置SKU
+admin/crm/product/sku,/api/v1/admin/product/skus/:id,put,全量SKU
+admin/crm/product/sku,/api/v1/admin/product/skus/:id,patch,增量SKU
+admin/crm/product/sku,/api/v1/admin/product/skus/:id,delete,删除SKU
+admin/crm/trade/payment,/api/v1/admin/trade/payments/page-list,get,查询支付单列表
+admin/crm/trade/payment,/api/v1/admin/trade/payments/:id,get,查询支付单详情
+admin/crm/trade/payment,/api/v1/admin/trade/payments,post,创建支付单
+admin/crm/trade/payment,/api/v1/admin/trade/payments/:id,put,全量支付单
+admin/crm/trade/payment,/api/v1/admin/trade/payments/:id,patch,增量支付单
+admin/crm/trade/payment,/api/v1/admin/trade/payments/:id,delete,删除支付单
+admin/crm/trade/token,/api/v1/admin/trade/token/products/page-list,get,查询代币产品列表
+admin/crm/trade/token,/api/v1/admin/trade/token/products/:id,get,查询代币产品详情
+admin/crm/trade/token,/api/v1/admin/trade/token/products,post,创建代币产品
+admin/crm/trade/token,/api/v1/admin/trade/token/products/:id,put,全量代币产品
+admin/crm/trade/token,/api/v1/admin/trade/token/products/:id,patch,增量代币产品
+admin/crm/trade/token,/api/v1/admin/trade/token/products/:id,delete,删除代币产品
 admin/department,/api/v1/admin/department/department-tree/:depId,get,查询组织架构
 admin/department,/api/v1/admin/department/departments/:id,get,获取单个部门详情
 admin/department,/api/v1/admin/department/departments,post,创建新部门
@@ -155,12 +166,12 @@ admin/scrm/app,/api/v1/admin/scrm/app/wechat/group/list,get,App企业群列表/l
 admin/scrm/app,/api/v1/admin/scrm/app/wechat/group/create,post,App创建企业群
 admin/scrm/app,/api/v1/admin/scrm/app/wechat/group/message/articles,post,App企业群推送图文信息
 admin/scrm/bot,/api/v1/admin/scrm/bot/wechat/message/articles,post,机器人发送图文信息
-admin/contractway,/api/v1/admin/contract-way/group-tree,get,获取渠道活码分组树
-admin/contractway,/api/v1/admin/contract-way/groups,get,查询渠道活码分组列表
-admin/contractway,/api/v1/admin/contract-way,get,查询渠道活码
-admin/contractway,/api/v1/admin/contract-way,post,创建活码
-admin/contractway,/api/v1/admin/contract-way/:id,put,修改活码
-admin/contractway,/api/v1/admin/contract-way/:id,delete,删除活码
+admin/scrm/contractway,/api/v1/admin/contract-way/group-tree,get,获取渠道活码分组树
+admin/scrm/contractway,/api/v1/admin/contract-way/groups,get,查询渠道活码分组列表
+admin/scrm/contractway,/api/v1/admin/contract-way,get,查询渠道活码
+admin/scrm/contractway,/api/v1/admin/contract-way,post,创建活码
+admin/scrm/contractway,/api/v1/admin/contract-way/:id,put,修改活码
+admin/scrm/contractway,/api/v1/admin/contract-way/:id,delete,删除活码
 admin/scrm/customer,/api/v1/admin/scrm/customer/wechat/sync,post,批量同步客户信息(根据员工ID同步/节流)
 admin/scrm/customer,/api/v1/admin/scrm/customer/wechat/page,post,所有客户列表/page
 admin/scrm/customer,/api/v1/admin/scrm/customer/wechat/group/list,post,客户群列表/limit
@@ -200,36 +211,46 @@ admin/tag,/api/v1/admin/tags/:id,delete,删除标签
 admin/userinfo,/api/v1/admin/user-center/user-info,get,获取用户信息
 admin/userinfo,/api/v1/admin/user-center/menu-roles,get,获取用户可见菜单
 admin/userinfo,/api/v1/admin/user-center/users/actions/modify-password,post,修改密码
-mp/customer/auth,/api/v1/mp/customer/login,post,微信小程序登录
-mp/customer/auth,/api/v1/mp/customer/authByPhone,post,客户手机授权
-mp/customer/auth,/api/v1/mp/customer/authByProfile,post,客户信息授权
+admin/wechat/officialaccount/menu,/api/v1/admin/wechat/official-account/menus-tree,get,查询菜单列表
+admin/wechat/officialaccount/menu,/api/v1/admin/wechat/official-account/menus/sync,post,请求菜单上传链接
+admin/wechat/officialaccount/menu,/api/v1/admin/wechat/official-account/menus,post,创建菜单
+admin/wechat/officialaccount/menu,/api/v1/admin/wechat/official-account/menus,delete,删除菜单
+system/health,/api/v1/system/health,get,健康检查接口
+mp/crm/customer/auth,/api/v1/mp/customer/login,post,微信小程序登录
+mp/crm/customer/auth,/api/v1/mp/customer/authByPhone,post,客户手机授权
+mp/crm/customer/auth,/api/v1/mp/customer/authByProfile,post,客户信息授权
 mp/dictionary,/api/v1/mp/dictionary/types/page-list,get,获取字典类型列表
 mp/dictionary,/api/v1/mp/dictionary/types/:type,get,获取字典类型
 mp/dictionary,/api/v1/mp/dictionary/items,get,获取字典项列表
 mp/dictionary,/api/v1/mp/dictionary/items/:type/:key,get,获取字典项
-mp/market/media,/api/v1/mp/market/medias/page-list,get,查询媒资列表
-mp/market/store,/api/v1/mp/market/stores/page-list,get,店铺列表
-mp/product/artisan,/api/v1/mp/product/artisans/page-list,get,查询元匠列表
-mp/product/artisan,/api/v1/mp/product/artisans/:id,get,查询元匠详情
-mp/product,/api/v1/mp/product/products/page-list,get,产品列表
-mp/product,/api/v1/mp/product/products/:id,get,查询产品详情
-mp/product,/api/v1/mp/product/product-category-tree,get,查询产品品类树形表
-mp/product,/api/v1/mp/product/product-categories,get,查询产品品类列表
-mp/trade/cart,/api/v1/mp/trade/cart/items/page-list,get,查询购物车列表
-mp/trade/cart,/api/v1/mp/trade/cart/:cartId,get,获取购物车详情
-mp/trade/cart,/api/v1/mp/trade/cart/items,post,添加商品到购物车
-mp/trade/cart,/api/v1/mp/trade/cart/items/:itemId,put,更新购物车商品数量
-mp/trade/cart,/api/v1/mp/trade/cart/items/:itemId,delete,删除购物车商品
-mp/trade/cart,/api/v1/mp/trade/cart/items/clear,delete,清空购物车
-mp/trade/order,/api/v1/mp/trade/orders/page-list,get,查询订单列表
-mp/trade/order,/api/v1/mp/trade/orders/:id,get,查询订单详情
-mp/trade/order,/api/v1/mp/trade/orders/products,post,创建产品订单
-mp/trade/order,/api/v1/mp/trade/orders/cart-items,post,创建购物车订单
-mp/trade/order,/api/v1/mp/trade/orders/cancel/:id,put,取消订单
-mp/trade/payment,/api/v1/mp/trade/payments/page-list,get,查询支付单列表
-mp/trade/payment,/api/v1/mp/trade/payments/:id,get,查询支付单详情
-mp/trade/payment,/api/v1/mp/trade/payments,post,创建支付单
-mp/trade/payment,/api/v1/mp/trade/payments/:id,put,修改支付单
+mp/crm/market/media,/api/v1/mp/market/medias/page-list,get,查询媒资列表
+mp/crm/market/store,/api/v1/mp/market/stores/page-list,get,店铺列表
+mp/crm/product/artisan,/api/v1/mp/product/artisans/page-list,get,查询元匠列表
+mp/crm/product/artisan,/api/v1/mp/product/artisans/:id,get,查询元匠详情
+mp/crm/product,/api/v1/mp/product/products/page-list,get,产品列表
+mp/crm/product,/api/v1/mp/product/products/:id,get,查询产品详情
+mp/crm/product,/api/v1/mp/product/product-category-tree,get,查询产品品类树形表
+mp/crm/product,/api/v1/mp/product/product-categories,get,查询产品品类列表
+mp/crm/product/productstatistics,/api/v1/mp/product/product-statistics/page-list,get,查询产品统计列表
+mp/crm/product/productstatistics,/api/v1/mp/product/product-statistics/:id,get,查询产品统计详情
+mp/crm/trade/cart,/api/v1/mp/trade/cart/items/page-list,get,查询购物车列表
+mp/crm/trade/cart,/api/v1/mp/trade/cart/:cartId,get,获取购物车详情
+mp/crm/trade/cart,/api/v1/mp/trade/cart/items,post,添加商品到购物车
+mp/crm/trade/cart,/api/v1/mp/trade/cart/items/:itemId,put,更新购物车商品数量
+mp/crm/trade/cart,/api/v1/mp/trade/cart/items/:itemId,delete,删除购物车商品
+mp/crm/trade/cart,/api/v1/mp/trade/cart/items/clear,delete,清空购物车
+mp/crm/trade/order,/api/v1/mp/trade/orders/page-list,get,查询订单列表
+mp/crm/trade/order,/api/v1/mp/trade/orders/:id,get,查询订单详情
+mp/crm/trade/order,/api/v1/mp/trade/orders/products,post,创建产品订单
+mp/crm/trade/order,/api/v1/mp/trade/orders/cart-items,post,创建购物车订单
+mp/crm/trade/order,/api/v1/mp/trade/orders/cancel/:id,put,取消订单
+mp/crm/trade/payment,/api/v1/mp/trade/payments/page-list,get,查询支付单列表
+mp/crm/trade/payment,/api/v1/mp/trade/payments/:id,get,查询支付单详情
+mp/crm/trade/payment,/api/v1/mp/trade/payments,post,创建支付单
+mp/crm/trade/payment,/api/v1/mp/trade/payments/:id,put,修改支付单
+plugin,/api/v1/plugin/v1/plugins,post,插件接口
+plugin,/api/v1/plugin/v1/plugins,get,插件列表拉取
+plugin,/api/v1/plugin/v1/frontend-routes,get,插件路由拉取
 web/customer/auth,/api/v1/web/customer/login,post,微信Web登录
 web/customer/auth,/api/v1/web/customer/registerByPhone,post,客户手机注册
 web/customer/auth,/api/v1/web/customer/updateCustomerProfile/:id,post,客户信息更新
