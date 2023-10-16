@@ -58,6 +58,8 @@ import (
 	mpcrmtradeorder "PowerX/internal/handler/mp/crm/trade/order"
 	mpcrmtradepayment "PowerX/internal/handler/mp/crm/trade/payment"
 	mpdictionary "PowerX/internal/handler/mp/dictionary"
+	plugin "PowerX/internal/handler/plugin"
+	systemhealth "PowerX/internal/handler/system/health"
 	webcustomerauth "PowerX/internal/handler/web/customer/auth"
 	webcustomerauthoa "PowerX/internal/handler/web/customer/auth/oa"
 	webinfoorganizationcategory "PowerX/internal/handler/web/infoorganization/category"
@@ -1524,31 +1526,28 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 	)
 
 	server.AddRoutes(
-		rest.WithMiddlewares(
-			[]rest.Middleware{serverCtx.MPCustomerJWTAuth},
-			[]rest.Route{
-				{
-					Method:  http.MethodGet,
-					Path:    "/types/page-list",
-					Handler: mpdictionary.ListDictionaryPageTypesHandler(serverCtx),
-				},
-				{
-					Method:  http.MethodGet,
-					Path:    "/types/:type",
-					Handler: mpdictionary.GetDictionaryTypeHandler(serverCtx),
-				},
-				{
-					Method:  http.MethodGet,
-					Path:    "/items",
-					Handler: mpdictionary.ListDictionaryItemsHandler(serverCtx),
-				},
-				{
-					Method:  http.MethodGet,
-					Path:    "/items/:type/:key",
-					Handler: mpdictionary.GetDictionaryItemHandler(serverCtx),
-				},
-			}...,
-		),
+		[]rest.Route{
+			{
+				Method:  http.MethodGet,
+				Path:    "/types/page-list",
+				Handler: mpdictionary.ListDictionaryPageTypesHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodGet,
+				Path:    "/types/:type",
+				Handler: mpdictionary.GetDictionaryTypeHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodGet,
+				Path:    "/items",
+				Handler: mpdictionary.ListDictionaryItemsHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodGet,
+				Path:    "/items/:type/:key",
+				Handler: mpdictionary.GetDictionaryItemHandler(serverCtx),
+			},
+		},
 		rest.WithPrefix("/api/v1/mp/dictionary"),
 	)
 
@@ -1574,30 +1573,24 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 	)
 
 	server.AddRoutes(
-		rest.WithMiddlewares(
-			[]rest.Middleware{serverCtx.MPCustomerJWTAuth},
-			[]rest.Route{
-				{
-					Method:  http.MethodGet,
-					Path:    "/stores/page-list",
-					Handler: mpcrmmarketstore.ListStoresPageHandler(serverCtx),
-				},
-			}...,
-		),
+		[]rest.Route{
+			{
+				Method:  http.MethodGet,
+				Path:    "/stores/page-list",
+				Handler: mpcrmmarketstore.ListStoresPageHandler(serverCtx),
+			},
+		},
 		rest.WithPrefix("/api/v1/mp/market"),
 	)
 
 	server.AddRoutes(
-		rest.WithMiddlewares(
-			[]rest.Middleware{serverCtx.MPCustomerJWTAuth},
-			[]rest.Route{
-				{
-					Method:  http.MethodGet,
-					Path:    "/medias/page-list",
-					Handler: mpcrmmarketmedia.ListMediasPageHandler(serverCtx),
-				},
-			}...,
-		),
+		[]rest.Route{
+			{
+				Method:  http.MethodGet,
+				Path:    "/medias/page-list",
+				Handler: mpcrmmarketmedia.ListMediasPageHandler(serverCtx),
+			},
+		},
 		rest.WithPrefix("/api/v1/mp/market"),
 	)
 
@@ -1621,40 +1614,34 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 	)
 
 	server.AddRoutes(
-		rest.WithMiddlewares(
-			[]rest.Middleware{serverCtx.MPCustomerJWTAuth},
-			[]rest.Route{
-				{
-					Method:  http.MethodGet,
-					Path:    "/products/page-list",
-					Handler: mpcrmproduct.ListProductsPageHandler(serverCtx),
-				},
-				{
-					Method:  http.MethodGet,
-					Path:    "/products/:id",
-					Handler: mpcrmproduct.GetProductHandler(serverCtx),
-				},
-			}...,
-		),
+		[]rest.Route{
+			{
+				Method:  http.MethodGet,
+				Path:    "/products/page-list",
+				Handler: mpcrmproduct.ListProductsPageHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodGet,
+				Path:    "/products/:id",
+				Handler: mpcrmproduct.GetProductHandler(serverCtx),
+			},
+		},
 		rest.WithPrefix("/api/v1/mp/product"),
 	)
 
 	server.AddRoutes(
-		rest.WithMiddlewares(
-			[]rest.Middleware{serverCtx.MPCustomerJWTAuth},
-			[]rest.Route{
-				{
-					Method:  http.MethodGet,
-					Path:    "/product-category-tree",
-					Handler: mpcrmproduct.ListProductCategoryTreeHandler(serverCtx),
-				},
-				{
-					Method:  http.MethodGet,
-					Path:    "/product-categories",
-					Handler: mpcrmproduct.ListProductCategoriesHandler(serverCtx),
-				},
-			}...,
-		),
+		[]rest.Route{
+			{
+				Method:  http.MethodGet,
+				Path:    "/product-category-tree",
+				Handler: mpcrmproduct.ListProductCategoryTreeHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodGet,
+				Path:    "/product-categories",
+				Handler: mpcrmproduct.ListProductCategoriesHandler(serverCtx),
+			},
+		},
 		rest.WithPrefix("/api/v1/mp/product"),
 	)
 
@@ -1693,21 +1680,18 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 	)
 
 	server.AddRoutes(
-		rest.WithMiddlewares(
-			[]rest.Middleware{serverCtx.MPCustomerJWTAuth},
-			[]rest.Route{
-				{
-					Method:  http.MethodGet,
-					Path:    "/product-statistics/page-list",
-					Handler: mpcrmproductproductstatistics.ListProductStatisticsPageHandler(serverCtx),
-				},
-				{
-					Method:  http.MethodGet,
-					Path:    "/product-statistics/:id",
-					Handler: mpcrmproductproductstatistics.GetProductStatisticsHandler(serverCtx),
-				},
-			}...,
-		),
+		[]rest.Route{
+			{
+				Method:  http.MethodGet,
+				Path:    "/product-statistics/page-list",
+				Handler: mpcrmproductproductstatistics.ListProductStatisticsPageHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodGet,
+				Path:    "/product-statistics/:id",
+				Handler: mpcrmproductproductstatistics.GetProductStatisticsHandler(serverCtx),
+			},
+		},
 		rest.WithPrefix("/api/v1/mp/product"),
 	)
 
@@ -2158,19 +2142,20 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			{
 				Method:  http.MethodPost,
 				Path:    "/plugin/v1/plugins",
-				Handler: RegisterPluginHandler(serverCtx),
+				Handler: plugin.RegisterPluginHandler(serverCtx),
 			},
 			{
 				Method:  http.MethodGet,
 				Path:    "/plugin/v1/plugins",
-				Handler: ListPluginHandler(serverCtx),
+				Handler: plugin.ListPluginHandler(serverCtx),
 			},
 			{
 				Method:  http.MethodGet,
 				Path:    "/plugin/v1/frontend-routes",
-				Handler: ListPluginFrontendRoutesHandler(serverCtx),
+				Handler: plugin.ListPluginFrontendRoutesHandler(serverCtx),
 			},
 		},
+		rest.WithPrefix("/api/v1"),
 	)
 
 	server.AddRoutes(
@@ -2178,8 +2163,9 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			{
 				Method:  http.MethodGet,
 				Path:    "/health",
-				Handler: HealthCheckHandler(serverCtx),
+				Handler: systemhealth.HealthCheckHandler(serverCtx),
 			},
 		},
+		rest.WithPrefix("/api/v1/system"),
 	)
 }

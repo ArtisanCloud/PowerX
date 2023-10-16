@@ -13,7 +13,7 @@ import "../../admin/crm/market/media.api"
 @server(
     group: mp/crm/market/media
     prefix: /api/v1/mp/market
-    middleware: MPCustomerJWTAuth
+//    middleware: MPCustomerJWTAuth
 )
 
 service PowerX {

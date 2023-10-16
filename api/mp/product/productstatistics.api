@@ -11,7 +11,7 @@ info(
 @server(
     group: mp/crm/product/productstatistics
     prefix: /api/v1/mp/product
-    middleware: MPCustomerJWTAuth
+//    middleware: MPCustomerJWTAuth
 )
 
 service PowerX {

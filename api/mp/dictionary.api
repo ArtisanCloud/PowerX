@@ -13,7 +13,7 @@ import "../admin/dictionary.api"
 @server(
     group: mp/dictionary
     prefix: /api/v1/mp/dictionary
-    middleware: MPCustomerJWTAuth
+//    middleware: MPCustomerJWTAuth
 )
 
 service PowerX {
