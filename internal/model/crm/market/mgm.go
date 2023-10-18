@@ -35,6 +35,14 @@ const (
 	MGMSceneVIPMemberReward = "_vip_member_reward" // "VIP会员奖励",
 )
 
+type CustomerChannel struct {
+	powermodel.PowerModel
+
+	CustomerID int64  `gorm:"comment:客户ID" json:"customerId"`
+	ChannelID  int    `gorm:"comment:渠道ID" json:"channelId"`
+	Code       string `gorm:"comment:渠道码" json:"code"`
+}
+
 // InviteRecord 表示会员邀请记录
 type InviteRecord struct {
 	powermodel.PowerModel

@@ -44,6 +44,7 @@ import (
 	adminscrmtag "PowerX/internal/handler/admin/scrm/tag"
 	admintag "PowerX/internal/handler/admin/tag"
 	adminuserinfo "PowerX/internal/handler/admin/userinfo"
+	adminwechatofficialaccountmedia "PowerX/internal/handler/admin/wechat/officialaccount/media"
 	adminwechatofficialaccountmenu "PowerX/internal/handler/admin/wechat/officialaccount/menu"
 	mpcrmcustomerauth "PowerX/internal/handler/mp/crm/customer/auth"
 	mpcrmmarketmedia "PowerX/internal/handler/mp/crm/market/media"
@@ -1519,6 +1520,40 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 					Method:  http.MethodDelete,
 					Path:    "/menus",
 					Handler: adminwechatofficialaccountmenu.DeleteMenuHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithPrefix("/api/v1/admin/wechat/official-account"),
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Route{
+				{
+					Method:  http.MethodPost,
+					Path:    "/medias/page-list",
+					Handler: adminwechatofficialaccountmedia.GetMediaListHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/media/news/list",
+					Handler: adminwechatofficialaccountmedia.GetOAMediaNewsListHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/medias/:mediaId",
+					Handler: adminwechatofficialaccountmedia.GetOAMediaHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/medias",
+					Handler: adminwechatofficialaccountmedia.CreateOAMediaHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodDelete,
+					Path:    "/medias/:mediaId",
+					Handler: adminwechatofficialaccountmedia.DeleteOAMediaHandler(serverCtx),
 				},
 			}...,
 		),

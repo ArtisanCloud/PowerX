@@ -1,2 +1,3 @@
 import "admin/wechat/officialaccount/menu.api"
+import "admin/wechat/officialaccount/media.api"
 

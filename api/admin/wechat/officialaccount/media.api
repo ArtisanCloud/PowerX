@@ -1,0 +1,89 @@
+syntax = "v1"
+
+info(
+    title: "菜单管理"
+    desc: "菜单管理"
+    author: "MichaelHu"
+    email: "matrix-x@artisan-cloud.com"
+    version: "v1"
+)
+
+@server(
+    group: admin/wechat/officialaccount/media
+    prefix: /api/v1/admin/wechat/official-account
+    middleware: EmployeeJWTAuth
+)
+
+service PowerX {
+    @doc "查询菜单列表"
+    @handler GetMediaList
+    post /medias/page-list (GetOAMediaListRequest) returns (GetOAMediaListReply)
+
+    @doc "查询菜单列表"
+    @handler GetOAMediaNewsList
+    get /media/news/list returns (GetOAMediaNewsListReply)
+
+    @doc "请求菜单上传链接"
+    @handler GetOAMedia
+    post /medias/:mediaId (GetOAMediaRequest) returns (GetOAMediaReply)
+
+
+    @doc "创建菜单"
+    @handler CreateOAMedia
+    post /medias (CreateOAMediaRequest) returns (CreateOAMediaReply)
+
+    @doc "删除菜单"
+    @handler DeleteOAMedia
+    delete /medias/:mediaId (DeleteOAMediaRequest) returns (DeleteOAMediaReply)
+}
+
+
+type (
+    GetOAMediaListRequest struct {
+        Offset int64 `json:"offset,optional"`
+        Count int64 `json:"count,optional"`
+        MediaType string `json:"type"`
+    }
+    GetOAMediaListReply struct {
+        TotalCount interface{} `json:"total_count"`
+        ItemCount  interface{} `json:"item_count"`
+        Item       interface{} `json:"item"`
+    }
+
+    GetOAMediaNewsListReply struct {
+        NewsItem interface{} `json:"news_item"`
+    }
+)
+
+type (
+    CreateOAMediaRequest struct {
+        OAMedia interface{} `json:"media"`
+    }
+
+    CreateOAMediaReply struct {
+        Success bool `json:"success,optional"`
+        Data interface{} `json:"data"`
+    }
+)
+
+type (
+    GetOAMediaRequest struct {
+        MediaId string `path:"mediaId"`
+    }
+
+    GetOAMediaReply struct {
+        OAMedia interface{} `json:"media"`
+    }
+)
+
+
+type (
+    DeleteOAMediaRequest struct {
+        MediaId string `path:"mediaId"`
+    }
+
+    DeleteOAMediaReply struct {
+        Success bool `json:"success"`
+        Data interface{} `json:"data"`
+    }
+)
