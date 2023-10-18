@@ -2902,6 +2902,48 @@ type DeleteMenuReply struct {
 	Data    interface{} `json:"data"`
 }
 
+type GetOAMediaListRequest struct {
+	Offset    int64  `json:"offset,optional"`
+	Count     int64  `json:"count,optional"`
+	MediaType string `json:"type"`
+}
+
+type GetOAMediaListReply struct {
+	TotalCount interface{} `json:"total_count"`
+	ItemCount  interface{} `json:"item_count"`
+	Item       interface{} `json:"item"`
+}
+
+type GetOAMediaNewsListReply struct {
+	NewsItem interface{} `json:"news_item"`
+}
+
+type CreateOAMediaRequest struct {
+	OAMedia interface{} `json:"media"`
+}
+
+type CreateOAMediaReply struct {
+	Success bool        `json:"success,optional"`
+	Data    interface{} `json:"data"`
+}
+
+type GetOAMediaRequest struct {
+	MediaId string `path:"mediaId"`
+}
+
+type GetOAMediaReply struct {
+	OAMedia interface{} `json:"media"`
+}
+
+type DeleteOAMediaRequest struct {
+	MediaId string `path:"mediaId"`
+}
+
+type DeleteOAMediaReply struct {
+	Success bool        `json:"success"`
+	Data    interface{} `json:"data"`
+}
+
 type MPCustomerLoginRequest struct {
 	Code string `json:"code"`
 }

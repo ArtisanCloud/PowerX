@@ -23,6 +23,7 @@ type Customer struct {
 	InviterId   int64  `gorm:"comment:邀请方" json:"inviterId"`
 	MgmId       int    `gorm:"comment:MGM Id" json:"mgmId"`
 	Source      int    `gorm:"comment:注册来源" json:"source"`
+	Uuid        string `gorm:"comment:识别码;index" json:"uuid"`
 	Type        int    `gorm:"comment:类型：个人，企业" json:"type"`
 	IsActivated bool   `gorm:"comment:激活状态" json:"isActivated"`
 	ExternalId
