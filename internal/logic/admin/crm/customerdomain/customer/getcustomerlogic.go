@@ -61,6 +61,7 @@ func TransformCustomerToReply(svcCtx *svc.ServiceContext, mdlCustomer *customerd
 		Name:        mdlCustomer.Name,
 		Mobile:      mobile,
 		Email:       mdlCustomer.Email,
+		UUID:        mdlCustomer.Uuid,
 		InviterId:   mdlCustomer.InviterId,
 		Source:      mdlCustomer.Source,
 		Type:        mdlCustomer.Type,

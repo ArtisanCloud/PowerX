@@ -5,6 +5,7 @@ import (
 	"PowerX/internal/svc"
 	"PowerX/internal/types"
 	"context"
+	"github.com/google/uuid"
 
 	"github.com/zeromicro/go-zero/core/logx"
 )
@@ -29,6 +30,7 @@ func (l *CreateCustomerLogic) CreateCustomer(req *types.CreateCustomerRequest) (
 		Name:        req.Name,
 		Mobile:      req.Mobile,
 		Email:       req.Email,
+		Uuid:        uuid.New().String(),
 		InviterId:   req.InviterId,
 		Source:      req.Source,
 		Type:        req.Type,

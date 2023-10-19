@@ -27,11 +27,11 @@ func NewPatchCustomerLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Pat
 func (l *PatchCustomerLogic) PatchCustomer(req *types.PatchCustomerRequest) (resp *types.PatchCustomerReply, err error) {
 
 	mdlCustomer := &customerdomain.Customer{
-		Name:        req.Name,
-		Email:       req.Email,
-		InviterId:   req.InviterId,
-		Source:      req.Source,
-		Type:        req.Type,
+		Name:  req.Name,
+		Email: req.Email,
+		//InviterId:   req.InviterId,
+		//Source:      req.Source,
+		//Type:        req.Type,
 		IsActivated: req.IsActivated,
 	}
 
