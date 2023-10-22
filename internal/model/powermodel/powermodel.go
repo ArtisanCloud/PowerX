@@ -1,9 +1,9 @@
 package powermodel
 
 import (
+	"PowerX/pkg/securityx"
 	"database/sql"
 	"github.com/ArtisanCloud/PowerLibs/v3/object"
-	"github.com/google/uuid"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	"gorm.io/gorm/schema"
@@ -57,7 +57,7 @@ var ArrayModelFields *object.HashMap = &object.HashMap{}
 func NewPowerUUIDModel() *PowerUUIDModel {
 	now := time.Now()
 	return &PowerUUIDModel{
-		UUID:      uuid.New().String(),
+		UUID:      securityx.GenerateUUID(),
 		CreatedAt: now,
 		UpdatedAt: now,
 	}

@@ -1,6 +1,7 @@
 package market
 
 import (
+	"PowerX/internal/model/crm/customerdomain"
 	model "PowerX/internal/model/crm/market"
 	"PowerX/internal/model/powermodel"
 	"PowerX/internal/types"
@@ -147,6 +148,17 @@ func (uc *MGMRuleUseCase) GetMGMRule(ctx context.Context, id int64) (*model.MGMR
 	return &m, nil
 }
 
+func (uc *MGMRuleUseCase) GetMGMRuleBySceneId(ctx context.Context, sceneTypeId int64) (*model.MGMRule, error) {
+	var m model.MGMRule
+	if err := uc.db.WithContext(ctx).First(&m).Where("scene", sceneTypeId).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errorx.WithCause(errorx.ErrBadRequest, "未找到媒体")
+		}
+		panic(err)
+	}
+	return &m, nil
+}
+
 func (uc *MGMRuleUseCase) DeleteMGMRule(ctx context.Context, id int64) error {
 	result := uc.db.WithContext(ctx).Delete(&model.MGMRule{}, id)
 	if err := result.Error; err != nil {
@@ -163,4 +175,38 @@ func (uc *MGMRuleUseCase) ClearAssociations(db *gorm.DB, media *model.MGMRule) (
 
 	return media, err
 
+}
+
+func (uc *MGMRuleUseCase) CreateInviteRecord(ctx context.Context,
+	inviter *customerdomain.Customer, invitee *customerdomain.Customer,
+	inviteCode string, sceneId int,
+) (*model.InviteRecord, error) {
+	record := &model.InviteRecord{
+		InviterID:      inviter.Id,
+		InviteeID:      invitee.Id,
+		InvitationCode: inviteCode,
+		MgmSceneId:     sceneId,
+	}
+	err := uc.db.WithContext(ctx).
+		//Debug().
+		Model(&model.InviteRecord{}).
+		Create(record).Error
+
+	if err != nil {
+		panic(err)
+	}
+	return record, nil
+}
+
+func (uc *MGMRuleUseCase) UpdateInviteRecord(ctx context.Context, record *model.InviteRecord) {
+
+	err := uc.db.WithContext(ctx).
+		//Debug().
+		Model(&model.InviteRecord{}).
+		Where("id", record.Id).
+		Updates(record).Error
+
+	if err != nil {
+		panic(err)
+	}
 }

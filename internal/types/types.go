@@ -3415,6 +3415,7 @@ type CustomerRegisterByPhoneRequest struct {
 	Phone      string `json:"phone"`
 	Password   string `json:"password"`
 	VerifyCode string `json:"verifyCode"`
+	InviteCode string `json:"inviteCode,optional"`
 }
 
 type CustomerRegisterByPhoneReply struct {

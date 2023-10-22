@@ -2,8 +2,11 @@ package securityx
 
 import (
 	"crypto/md5"
+	"crypto/sha1"
 	"crypto/sha256"
+	"encoding/base64"
 	"fmt"
+	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 	"log"
 	"strings"
@@ -95,4 +98,23 @@ func CheckPassword(hashedPassword string, encodedPassword string) (isPasswordVal
 	}
 
 	return true
+}
+
+func GenerateUUID() string {
+	return uuid.New().String()
+}
+
+// 生成6位邀请码
+func GenerateInviteCode(uuid string) string {
+	// 使用SHA1算法生成哈希值
+	hasher := sha1.New()
+	hasher.Write([]byte(uuid))
+	hashBytes := hasher.Sum(nil)
+
+	// 使用Base64编码将哈希值转换为字符串
+	encoded := base64.URLEncoding.EncodeToString(hashBytes)
+
+	// 只保留编码结果的前6位，并移除可能的特殊字符
+	inviteCode := strings.TrimRight(strings.ReplaceAll(encoded[:6], "/", ""), "=")
+	return inviteCode
 }
