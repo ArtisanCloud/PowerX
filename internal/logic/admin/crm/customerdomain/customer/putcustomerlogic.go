@@ -1,10 +1,10 @@
 package customer
 
 import (
-	"context"
-
 	"PowerX/internal/svc"
 	"PowerX/internal/types"
+	"PowerX/pkg/securityx"
+	"context"
 
 	"github.com/zeromicro/go-zero/core/logx"
 )
@@ -25,6 +25,15 @@ func NewPutCustomerLogic(ctx context.Context, svcCtx *svc.ServiceContext) *PutCu
 
 func (l *PutCustomerLogic) PutCustomer(req *types.PutCustomerRequest) (resp *types.PutCustomerReply, err error) {
 	mdlCustomer := TransformRequestToCustomer(&(req.Customer))
+
+	cCustomer, err := l.svcCtx.PowerX.Customer.GetCustomer(l.ctx, req.Id)
+	if err != nil {
+		return nil, err
+	}
+	// 如果当前数据库的用户已经有了UUID
+	if cCustomer.Uuid == "" {
+		mdlCustomer.Uuid = securityx.GenerateUUID()
+	}
 
 	// 更新产品对象
 	err = l.svcCtx.PowerX.Customer.UpdateCustomer(l.ctx, req.CustomerId, mdlCustomer)

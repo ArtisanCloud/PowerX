@@ -4,8 +4,8 @@ import (
 	"PowerX/internal/model/crm/customerdomain"
 	"PowerX/internal/svc"
 	"PowerX/internal/types"
+	"PowerX/pkg/securityx"
 	"context"
-
 	"github.com/zeromicro/go-zero/core/logx"
 )
 
@@ -29,6 +29,7 @@ func (l *CreateCustomerLogic) CreateCustomer(req *types.CreateCustomerRequest) (
 		Name:        req.Name,
 		Mobile:      req.Mobile,
 		Email:       req.Email,
+		Uuid:        securityx.GenerateUUID(),
 		InviterId:   req.InviterId,
 		Source:      req.Source,
 		Type:        req.Type,
@@ -46,19 +47,20 @@ func (l *CreateCustomerLogic) CreateCustomer(req *types.CreateCustomerRequest) (
 func TransformRequestToCustomer(customerRequest *types.Customer) (mdlCustomer *customerdomain.Customer) {
 
 	mdlCustomer = &customerdomain.Customer{
-		Name:        customerRequest.Name,
-		Mobile:      customerRequest.Mobile,
+		Name: customerRequest.Name,
+		//Mobile:      customerRequest.Mobile,
 		Email:       customerRequest.Email,
 		InviterId:   customerRequest.InviterId,
 		Source:      customerRequest.Source,
 		Type:        customerRequest.Type,
 		IsActivated: customerRequest.IsActivated,
-		ExternalId: customerdomain.ExternalId{
-			OpenIdInMiniProgram:           customerRequest.CustomerExternalId.OpenIdInMiniProgram,
-			OpenIdInWeChatOfficialAccount: customerRequest.CustomerExternalId.OpenIdInWeChatOfficialAccount,
-			OpenIdInWeCom:                 customerRequest.CustomerExternalId.OpenIdInWeCom,
-		},
+		//ExternalId: customerdomain.ExternalId{
+		//	OpenIdInMiniProgram:           customerRequest.CustomerExternalId.OpenIdInMiniProgram,
+		//	OpenIdInWeChatOfficialAccount: customerRequest.CustomerExternalId.OpenIdInWeChatOfficialAccount,
+		//	OpenIdInWeCom:                 customerRequest.CustomerExternalId.OpenIdInWeCom,
+		//},
 	}
+	mdlCustomer.Id = customerRequest.Id
 
 	return mdlCustomer
 

@@ -5,6 +5,7 @@ import (
 	"PowerX/internal/model/powermodel"
 	"PowerX/internal/types"
 	"PowerX/internal/types/errorx"
+	"PowerX/pkg/securityx"
 	"context"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
@@ -100,10 +101,22 @@ func (uc *CustomerUseCase) UpsertCustomer(ctx context.Context, customer *custome
 
 	customers := []*customerdomain.Customer{customer}
 
-	_, err := uc.UpsertCustomers(ctx, customers)
-	if err != nil {
-		panic(errors.Wrap(err, "upsert customerdomain failed"))
-	}
+	err := uc.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		err := powermodel.UpsertModelsOnUniqueID(tx, &customerdomain.Customer{}, customerdomain.CustomerUniqueId, customers, nil, false)
+
+		if err != nil {
+			panic(errors.Wrap(err, "upsert customerdomain failed"))
+		}
+		// 如果是新增用户，那么需要给一个唯一识别号
+		if customer.Uuid == "" {
+			customer.Uuid = securityx.GenerateUUID()
+			err = powermodel.UpsertModelsOnUniqueID(tx, &customerdomain.Customer{}, customerdomain.CustomerUniqueId, customer, []string{"uuid"}, false)
+			if err != nil {
+				return err
+			}
+		}
+		return err
+	})
 
 	return customer, err
 }
@@ -120,15 +133,12 @@ func (uc *CustomerUseCase) UpsertCustomers(ctx context.Context, customers []*cus
 }
 
 func (uc *CustomerUseCase) UpdateCustomer(ctx context.Context, id int64, customer *customerdomain.Customer) error {
-	if err := uc.db.WithContext(ctx).Model(&customerdomain.Customer{}).
-		//Debug().
-		Where(id).Updates(&customer).Error; err != nil {
-		if strings.Contains(err.Error(), "duplicate key value violates unique constraint") {
-			return errorx.WithCause(errorx.ErrDuplicatedInsert, "该对象不能重复创建")
-		}
-		panic(err)
-	}
-	return nil
+	//fmt.Dump(customer)
+	err := uc.db.WithContext(ctx).Model(&customerdomain.Customer{}).
+		Debug().
+		Where(id).Updates(&customer).Error
+
+	return err
 }
 
 func (uc *CustomerUseCase) GetCustomer(ctx context.Context, id int64) (*customerdomain.Customer, error) {
@@ -146,6 +156,31 @@ func (uc *CustomerUseCase) GetCustomerByMobile(ctx context.Context, mobile strin
 	var customer customerdomain.Customer
 	if err := uc.db.WithContext(ctx).
 		Where("mobile", mobile).
+		First(&customer).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errorx.WithCause(errorx.ErrBadRequest, "未找到客户")
+		}
+		panic(err)
+	}
+	return &customer, nil
+}
+
+func (uc *CustomerUseCase) GetCustomerByUUID(ctx context.Context, uuid string) (*customerdomain.Customer, error) {
+	var customer customerdomain.Customer
+	if err := uc.db.WithContext(ctx).
+		Where("uuid", uuid).
+		First(&customer).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errorx.WithCause(errorx.ErrBadRequest, "未找到客户")
+		}
+		panic(err)
+	}
+	return &customer, nil
+}
+func (uc *CustomerUseCase) GetCustomerByInviteCode(ctx context.Context, inviteCode string) (*customerdomain.Customer, error) {
+	var customer customerdomain.Customer
+	if err := uc.db.WithContext(ctx).
+		Where("invite_code", inviteCode).
 		First(&customer).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errorx.WithCause(errorx.ErrBadRequest, "未找到客户")

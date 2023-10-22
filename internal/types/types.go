@@ -879,6 +879,7 @@ type Customer struct {
 	Name        string           `json:"name"`
 	Mobile      string           `json:"mobile"`
 	Email       string           `json:"email,optional"`
+	UUID        string           `json:"uuid,optional"`
 	Inviter     *CustomerInviter `json:"inviter,optional"`
 	InviterId   int64            `json:"inviter,optional"`
 	Source      int              `json:"source,optional"`
@@ -3414,6 +3415,7 @@ type CustomerRegisterByPhoneRequest struct {
 	Phone      string `json:"phone"`
 	Password   string `json:"password"`
 	VerifyCode string `json:"verifyCode"`
+	InviteCode string `json:"inviteCode,optional"`
 }
 
 type CustomerRegisterByPhoneReply struct {

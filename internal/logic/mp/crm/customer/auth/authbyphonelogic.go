@@ -7,7 +7,6 @@ import (
 	"PowerX/internal/svc"
 	"PowerX/internal/types"
 	customerdomain2 "PowerX/internal/uc/powerx/crm/customerdomain"
-	fmt2 "PowerX/pkg/printx"
 	"context"
 	"errors"
 	"fmt"
@@ -50,7 +49,7 @@ func (l *AuthByPhoneLogic) AuthByPhone(req *types.MPCustomerAuthRequest) (resp *
 	//	SessionKey: "+CG6t0FMK1QMLP4IKWNPUw==",
 	//}
 
-	fmt2.Dump(rs, req)
+	//fmt2.Dump(rs, req)
 	// 解码手机授权信息
 	msgData, errEncrypt := l.svcCtx.PowerX.WechatMP.App.Encryptor.DecryptData(req.EncryptedData, rs.SessionKey, req.IV)
 
@@ -58,7 +57,7 @@ func (l *AuthByPhoneLogic) AuthByPhone(req *types.MPCustomerAuthRequest) (resp *
 		return nil, errors.New(errEncrypt.ErrMsg)
 	}
 
-	println(string(msgData))
+	//println(string(msgData))
 	// 解析手机信息
 	mpPhoneInfo := &wechat.MPPhoneInfo{}
 	err = object.JsonDecode(msgData, mpPhoneInfo)

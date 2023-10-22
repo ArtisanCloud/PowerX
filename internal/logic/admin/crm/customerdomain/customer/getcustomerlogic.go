@@ -3,7 +3,6 @@ package customer
 import (
 	"PowerX/internal/model/crm/customerdomain"
 	"PowerX/internal/types/errorx"
-	"PowerX/pkg/securityx"
 	"context"
 
 	"PowerX/internal/svc"
@@ -51,16 +50,17 @@ func TransformCustomerToReply(svcCtx *svc.ServiceContext, mdlCustomer *customerd
 
 	mobile := mdlCustomer.Mobile
 	openIdInMiniProgram := mdlCustomer.OpenIdInMiniProgram
-	if svcCtx.Config.PowerXDatabase.SeedCommerceData {
-		mobile = securityx.MaskMobile(mobile)
-		openIdInMiniProgram = securityx.MaskName(openIdInMiniProgram, 20)
-	}
+	//if svcCtx.Config.PowerXDatabase.SeedCommerceData {
+	//	mobile = securityx.MaskMobile(mobile)
+	//	openIdInMiniProgram = securityx.MaskName(openIdInMiniProgram, 20)
+	//}
 
 	return &types.Customer{
 		Id:          mdlCustomer.Id,
 		Name:        mdlCustomer.Name,
 		Mobile:      mobile,
 		Email:       mdlCustomer.Email,
+		UUID:        mdlCustomer.Uuid,
 		InviterId:   mdlCustomer.InviterId,
 		Source:      mdlCustomer.Source,
 		Type:        mdlCustomer.Type,
