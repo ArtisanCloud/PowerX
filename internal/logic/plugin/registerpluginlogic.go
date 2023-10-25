@@ -1,6 +1,7 @@
 package plugin
 
 import (
+	"PowerX/pkg/pluginx"
 	"context"
 
 	"PowerX/internal/svc"
@@ -24,7 +25,21 @@ func NewRegisterPluginLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Re
 }
 
 func (l *RegisterPluginLogic) RegisterPlugin(req *types.RegisterPluginRequest) (resp *types.RegisterPluginReply, err error) {
-	// todo: add your logic here and delete this line
+	var routes []pluginx.BackendRoute
+	for _, route := range req.Routes {
+		routes = append(routes, pluginx.BackendRoute{
+			Method: route.Method,
+			Path:   route.Path,
+		})
+	}
+	l.Infof("plugin register request: %v", req)
+	etc, err := l.svcCtx.Plugin.Register(req.Name, req.Addr, routes)
+	if err != nil {
+		return nil, err
+	}
+	l.Infof("plugin %s registered", req.Name)
 
-	return
+	return &types.RegisterPluginReply{
+		Etc: etc,
+	}, nil
 }

@@ -24,7 +24,19 @@ func NewListPluginFrontendRoutesLogic(ctx context.Context, svcCtx *svc.ServiceCo
 }
 
 func (l *ListPluginFrontendRoutesLogic) ListPluginFrontendRoutes() (resp *types.ListPluginFrontendRoutesReply, err error) {
-	// todo: add your logic here and delete this line
-
-	return
+	routes := l.svcCtx.Plugin.ListFrontendRoutes()
+	var routesList []types.PluginWebRoutes
+	for _, route := range routes {
+		routesList = append(routesList, types.PluginWebRoutes{
+			Name: route.Name,
+			Path: route.Path,
+			Meta: types.PluginWebRouteMeta{
+				Locale: route.Meta.Locale,
+				Icon:   route.Meta.Icon,
+			},
+		})
+	}
+	return &types.ListPluginFrontendRoutesReply{
+		Routes: routesList,
+	}, nil
 }
