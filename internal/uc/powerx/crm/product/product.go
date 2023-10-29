@@ -7,6 +7,7 @@ import (
 	"PowerX/internal/model/powermodel"
 	"PowerX/internal/types"
 	"PowerX/internal/types/errorx"
+	"PowerX/pkg/datetime/carbonx"
 	"PowerX/pkg/slicex"
 	"context"
 	"encoding/json"
@@ -14,6 +15,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	"strings"
+	"time"
 )
 
 type ProductUseCase struct {
@@ -34,8 +36,11 @@ type FindManyProductsOption struct {
 	Ids           []int64
 	NeedActivated bool
 	CategoryId    int
+	CategoryIds   []int
 	LikeName      string
 	OrderBy       string
+	StartAt       time.Time
+	EndAt         time.Time
 	types.PageEmbedOption
 }
 
@@ -47,9 +52,7 @@ func (uc *ProductUseCase) buildFindQueryNoPage(db *gorm.DB, opt *FindManyProduct
 
 	if len(opt.Types) > 0 {
 		db = db.Where("type IN ?", opt.Types)
-	}
-
-	if len(opt.NotInTypes) > 0 {
+	} else if len(opt.NotInTypes) > 0 {
 		db = db.Where("type NOT IN ?", opt.NotInTypes)
 	}
 
@@ -61,15 +64,27 @@ func (uc *ProductUseCase) buildFindQueryNoPage(db *gorm.DB, opt *FindManyProduct
 		db = db.Where("plan IN ?", opt.Plans)
 	}
 
+	if !opt.StartAt.IsZero() && !opt.EndAt.IsZero() {
+		opt.EndAt = opt.EndAt.Add(time.Hour*24 - time.Second)
+		db = db.
+			Where("sale_start_date >= ? ", opt.StartAt.Format(carbonx.GoDatetimeFormat)).
+			Where("sale_end_date <= ? ", opt.EndAt.Format(carbonx.GoDatetimeFormat))
+	}
+
 	if opt.NeedActivated {
 		db = db.Where("is_activated = ?", true)
 	}
 
-	if opt.CategoryId > 0 {
+	// 先考虑单个品类检索，在考虑多个品类检索
+	if opt.CategoryId > 0 || len(opt.CategoryIds) > 0 {
+		categoryIds := opt.CategoryIds
+		if opt.CategoryId > 0 {
+			categoryIds = []int{opt.CategoryId}
+		}
 		db = db.
 			Joins("LEFT JOIN pivot_product_to_product_category ON pivot_product_to_product_category.product_id = products.id").
 			Joins("LEFT JOIN product_categories ON product_categories.id = pivot_product_to_product_category.product_category_id").
-			Where("product_categories.id = ?", opt.CategoryId).
+			Where("product_categories.id IN ?", categoryIds).
 			Where("pivot_product_to_product_category.deleted_at IS NULL")
 	}
 
