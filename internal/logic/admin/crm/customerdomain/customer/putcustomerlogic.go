@@ -33,6 +33,7 @@ func (l *PutCustomerLogic) PutCustomer(req *types.PutCustomerRequest) (resp *typ
 	// 如果当前数据库的用户已经有了UUID
 	if cCustomer.Uuid == "" {
 		mdlCustomer.Uuid = securityx.GenerateUUID()
+		mdlCustomer.InviteCode = securityx.GenerateInviteCode(mdlCustomer.Uuid)
 	}
 
 	// 更新产品对象

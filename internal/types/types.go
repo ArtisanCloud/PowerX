@@ -1369,14 +1369,17 @@ type Product struct {
 }
 
 type ListProductsPageRequest struct {
-	LikeName          string   `form:"likeName,optional"`
-	ProductTypeIds    []int    `form:"productTypeIds,optional"`
-	ProductStatusIds  []int    `form:"productStatusIds,optional"`
-	Keys              []string `form:"keys,optional"`
-	ProductCategoryId int      `form:"productCategoryId,optional"`
-	OrderBy           string   `form:"orderBy,optional"`
-	PageIndex         int      `form:"pageIndex,optional"`
-	PageSize          int      `form:"pageSize,optional"`
+	LikeName           string   `form:"likeName,optional"`
+	ProductTypeIds     []int    `form:"typeIds,optional"`
+	ProductStatusIds   []int    `form:"productStatusIds,optional"`
+	SalesStartAt       string   `form:"salesStartAt,optional,omitempty"`
+	SalesEndAt         string   `form:"salesEndAt,optional,omitempty"`
+	Keys               []string `form:"keys,optional"`
+	ProductCategoryId  int      `form:"productCategoryId,optional"`
+	ProductCategoryIds []int    `form:"productCategoryIds,optional"`
+	OrderBy            string   `form:"orderBy,optional"`
+	PageIndex          int      `form:"pageIndex,optional"`
+	PageSize           int      `form:"pageSize,optional"`
 }
 
 type ListProductsPageReply struct {
