@@ -67,24 +67,20 @@ https://powerx.artisan-cloud.com/zh/v1/case/
 [PowerWechat 微信的Golang SDK](https://github.com/ArtisanCloud/PowerWeChat)  
 [WeyUI 一套微信生态前端组件库，适配PowerX非常友好](https://github.com/yaoyaochil/WeyUI)
 
-## PowerX社区交流群
-
-<img src="resource/images/contact_me_qr.jpg" alt="请扫我" style="display:inline; width: 150px;"/>
-
 
 ***
-非常感谢 Eros, 亮 在上海的团队，对PowerX的SCRM贡献，能够得到用户的肯定和支持，再次给到我们继续走下去的动力。
+非常感谢:
+
+* Eros, 亮 在上海的团队，对PowerX的SCRM贡献，能够得到用户的肯定和支持，再次给到我们继续走下去的动力。
+* WeyUI的作者Tim，为PowerX前端页面组件的支持
 
 
-
-## 主要维护者
+## 产品主要维护者
 
 Matrix-X
 
-<img src="resource/images/contact-qr-matrix-x.png" alt="请扫我" style="display:inline; width: 150px;"/>
+<img src="https://powerx.artisan-cloud.com/assets/contact-qr-matrix-x.f35142ca.jpg" alt="请扫我" style="display:inline; width: 150px;"/>
 
 North
 
-<img src="resource/images/contact_qr_north.png" alt="请扫我" style="display:inline; width: 150px;"/>
-
-
+<img src="https://powerx.artisan-cloud.com/assets/contact_qr_north.d68f0fd0.jpg" alt="请扫我" style="display:inline; width: 150px;"/>
