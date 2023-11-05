@@ -2839,6 +2839,37 @@ type ActionCustomerTagRequest struct {
 	RemoveTag      []string `json:"removeTag,optional"`
 }
 
+type GroupSendText struct {
+	Content string `json:"content"`
+}
+
+type GroupSendRequest struct {
+	ChatType        string        `json:"chatType"`
+	ExternalUserIds []string      `json:"userIds"`
+	Text            GroupSendText `json:"text"`
+}
+
+type ListGroupSendLogRequest struct {
+	Limit     int    `json:"limit"`
+	Cursor    string `json:"cursor"`
+	ChatType  string `json:"chatType"`
+	StartTime string `json:"startTime"`
+	EndTime   string `json:"EndTime"`
+	Creator   string `json:"creator"`
+}
+
+type WeWorkSendList struct {
+	ExternalUserID string `json:"externalUserid"`
+	ChatID         string `json:"chat_id"`
+	UserID         string `json:"userid"`
+	Status         int    `json:"status"`
+}
+
+type ListGroupSendLogReply struct {
+	NextCursor string           `json:"nextCursor"`
+	SendList   []WeWorkSendList `json:"sendList"`
+}
+
 type OASubButton struct {
 	Name     string `json:"name,optional"`
 	Id       int    `json:"id,optional"`

@@ -1,0 +1,23 @@
+syntax = "v1"
+
+info(
+    title: "SCRM基础接口"
+    desc: "公共管理"
+    author: "YourName"
+    email: "your@email.com"
+)
+
+@server(
+    group: admin/scrm/common
+    prefix: /api/v1/admin/scrm/common
+)
+
+service PowerX {
+    @doc "[Public] SCRM是否可用"
+    @handler AvailabilityCheck
+    post /availability-check
+
+    @doc "[Public] 获取SCRM通用选项"
+    @handler GetOptions
+    get /options (GetOptionsRequest) returns (GetOptionsReply)
+}

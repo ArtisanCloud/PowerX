@@ -13,7 +13,6 @@ type CustomUseCase struct {
 }
 
 func NewCustomUseCase(conf *config.Config, pxUseCase *PowerXUseCase) (uc *CustomUseCase, clean func()) {
-
 	uc = &CustomUseCase{}
 
 	// 需要打印当时系统的Timezone
@@ -32,7 +31,7 @@ func (uc *CustomUseCase) CheckSystemTimeZone() {
 	strTimezone := "Asia/Shanghai"
 	carbon.SetTimezone(strTimezone)
 
-	// carbon 的timezone
+	// carbon 的 timezone
 	carbonTimezone := carbon.Now().Timezone()
 	fmt.Printf("check carbon datetime: timezone- %s\n", carbonTimezone)
 

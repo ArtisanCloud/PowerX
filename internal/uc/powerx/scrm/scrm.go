@@ -4,15 +4,17 @@ import (
 	"PowerX/internal/config"
 	"PowerX/internal/uc/powerx/scrm/wechat"
 	"fmt"
+	"time"
+
 	"github.com/ArtisanCloud/PowerWeChat/v3/src/work"
 	"github.com/robfig/cron/v3"
 	"github.com/zeromicro/go-zero/core/logx"
 	"github.com/zeromicro/go-zero/core/stores/redis"
 	"gorm.io/gorm"
-	"time"
 )
 
 type SCRMUseCase struct {
+	conf   *config.Config
 	db     *gorm.DB
 	kv     *redis.Redis
 	Cron   *cron.Cron
@@ -45,11 +47,8 @@ func NewSCRMUseCase(db *gorm.DB, conf *config.Config, c *cron.Cron, kv *redis.Re
 	}
 }
 
-// Schedule
-//
-//	@Description:
-//	@receiver this
-func (this *SCRMUseCase) Schedule() {
+// Schedule 定时任务
+func (uc *SCRMUseCase) Schedule() {
 
 	sl := []wechat.TimerTypeByte{
 		// customer message
@@ -60,13 +59,13 @@ func (this *SCRMUseCase) Schedule() {
 		wechat.AppMessageTimerTypeByte,
 	}
 
-	_, _ = this.Cron.AddFunc(`*/1 * * * *`, func() {
+	_, _ = uc.Cron.AddFunc(`*/1 * * * *`, func() {
 		var err error
 		//  timer 1 minute
 		unix := time.Now()
 
 		for _, val := range sl {
-			err = this.Wechat.InvokeTimerMessageGrabUniteSend(val, unix.Unix())
+			err = uc.Wechat.InvokeTimerMessageGrabUniteSend(val, unix.Unix())
 			if err != nil {
 				logx.Info(fmt.Sprintf(`--- [%s] cron.schedule.call.message.%d.error, %v.`, unix.String(), val, err))
 			}
@@ -74,6 +73,12 @@ func (this *SCRMUseCase) Schedule() {
 
 	})
 
-	go this.Cron.Start()
+	go uc.Cron.Start()
+}
 
+func (uc *SCRMUseCase) AvailabilityCheck() error {
+	if uc.conf.WeWork.CropId == "" || uc.conf.WeWork.AgentId == 0 || uc.conf.WeWork.Secret == "" {
+		return fmt.Errorf("scrm.wechat.config.error")
+	}
+	return nil
 }

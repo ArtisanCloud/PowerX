@@ -36,8 +36,10 @@ import (
 	adminposition "PowerX/internal/handler/admin/position"
 	adminscrmapp "PowerX/internal/handler/admin/scrm/app"
 	adminscrmbot "PowerX/internal/handler/admin/scrm/bot"
+	adminscrmcommon "PowerX/internal/handler/admin/scrm/common"
 	adminscrmcontractway "PowerX/internal/handler/admin/scrm/contractway"
 	adminscrmcustomer "PowerX/internal/handler/admin/scrm/customer"
+	adminscrmoperation "PowerX/internal/handler/admin/scrm/operation"
 	adminscrmorganization "PowerX/internal/handler/admin/scrm/organization"
 	adminscrmqrcode "PowerX/internal/handler/admin/scrm/qrcode"
 	adminscrmresource "PowerX/internal/handler/admin/scrm/resource"
@@ -1495,6 +1497,41 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			}...,
 		),
 		rest.WithPrefix("/api/v1/admin/scrm/tag/wechat"),
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
+			{
+				Method:  http.MethodPost,
+				Path:    "/availability-check",
+				Handler: adminscrmcommon.AvailabilityCheckHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodGet,
+				Path:    "/options",
+				Handler: adminscrmcommon.GetOptionsHandler(serverCtx),
+			},
+		},
+		rest.WithPrefix("/api/v1/admin/scrm/common"),
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Route{
+				{
+					Method:  http.MethodPost,
+					Path:    "/group-send",
+					Handler: adminscrmoperation.GroupSendHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/group-send-log",
+					Handler: adminscrmoperation.ListGroupSendLogHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithPrefix("/api/v1/admin/scrm/operation/group-send"),
 	)
 
 	server.AddRoutes(

@@ -19,3 +19,7 @@ import "admin/scrm/resource/weworkresource.api"
 import "admin/scrm/qrcode/weworkcustomergroupqrcode.api"
 // tag
 import "admin/scrm/tag/weworktag.api"
+// common
+import "admin/scrm/common.api"
+// groupsend
+import "admin/scrm/operation/groupsend.api"
