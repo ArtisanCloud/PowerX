@@ -26,6 +26,14 @@ service PowerX {
     @handler RegisterCustomerByPhone
     post /registerByPhone (CustomerRegisterByPhoneRequest) returns (CustomerRegisterByPhoneReply)
 
+    @doc "客户手机注册，邀请码机制"
+    @handler RegisterCustomerByPhoneInInviteCode
+    post /registerByPhone/invite/:code (CustomerRegisterByPhoneInInviteCodeRequest) returns (CustomerRegisterByPhoneReply)
+
+    @doc "客户手机注册，注册码机制"
+    @handler RegisterCustomerByPhoneInRegisterCode
+    post /registerByPhone/register/:code (CustomerRegisterByPhoneInRegisterCodeRequest) returns (CustomerRegisterByPhoneReply)
+
 }
 
 
@@ -49,8 +57,18 @@ type (
     CustomerRegisterByPhoneRequest {
         Phone string `json:"phone"`
         Password string `json:"password"`
-        VerifyCode string `json:"verifyCode"`
-        InviteCode string `json:"inviteCode,optional"`
+        VerifyCode string `json:"verifyCode,optional"`
+    }
+
+    CustomerRegisterByPhoneInInviteCodeRequest{
+        *CustomerRegisterByPhoneRequest
+        InviteCode string `path:"code,optional"`
+
+    }
+    CustomerRegisterByPhoneInRegisterCodeRequest{
+        *CustomerRegisterByPhoneRequest
+        RegisterCode string `path:"code,optional"`
+
     }
 
     CustomerRegisterByPhoneReply {

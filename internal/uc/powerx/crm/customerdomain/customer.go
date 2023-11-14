@@ -97,6 +97,24 @@ func (uc *CustomerUseCase) CreateCustomer(ctx context.Context, customer *custome
 	return nil
 }
 
+func (uc *CustomerUseCase) CreateCustomerByRegisterCode(ctx context.Context, customer *customerdomain.Customer, registerCode *customerdomain.RegisterCode) error {
+
+	err := uc.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		err := tx.Model(&customerdomain.Customer{}).Create(&customer).Error
+		if err != nil {
+			return err
+		}
+
+		// 更新注册记录的受邀者的ID
+		registerCode.RegisterCustomerID = customer.Id
+		err = tx.Model(registerCode).
+			Update("register_customer_id", customer.Id).Error
+		return err
+	})
+
+	return err
+}
+
 func (uc *CustomerUseCase) UpsertCustomer(ctx context.Context, customer *customerdomain.Customer) (*customerdomain.Customer, error) {
 
 	customers := []*customerdomain.Customer{customer}

@@ -962,6 +962,95 @@ type AssignCustomerToEmployeeReply struct {
 	CustomerId int64 `json:"customerId"`
 }
 
+type RegisterCode struct {
+	Id                 int64  `json:"id,optional"`
+	Code               string `json:"code,optional"`
+	RegisterCustomerID int64  `json:"registerCustomerID,optional"`
+	ExpiredAt          string `json:"expiredAt,optional"`
+	CreatedAt          string `json:"createdAt,optional"`
+}
+
+type GetRegisterCodeReqeuest struct {
+	Id int64 `path:"id"`
+}
+
+type GetRegisterCodeReply struct {
+	RegisterCode *RegisterCode `json:"customer"`
+}
+
+type ListRegisterCodesPageRequest struct {
+	LikeName   string `form:"likeName,optional"`
+	LikeMobile string `form:"likeMobile,optional"`
+	Sources    []int  `form:"sources,optional"`
+	Statuses   []int  `form:"statuses,optional"`
+	OrderBy    string `form:"orderBy,optional"`
+	PageIndex  int    `form:"pageIndex,optional"`
+	PageSize   int    `form:"pageSize,optional"`
+}
+
+type ListRegisterCodesPageReply struct {
+	List      []RegisterCode `json:"list,optional"`
+	PageIndex int            `json:"pageIndex,optional"`
+	PageSize  int            `json:"pageSize,optional"`
+	Total     int64          `json:"total,optional"`
+}
+
+type CreateRegisterCodeRequest struct {
+	RegisterCode
+}
+
+type CreateRegisterCodeReply struct {
+	RegisterCodeId int64 `json:"id"`
+}
+
+type GenerateRegisterCodeRequest struct {
+	BatchCount int `json:"batchCount"`
+}
+
+type GenerateRegisterCodeReply struct {
+	Result bool `json:"result"`
+}
+
+type PutRegisterCodeRequest struct {
+	RegisterCodeId int64 `path:"id"`
+	RegisterCode
+}
+
+type PutRegisterCodeReply struct {
+	*RegisterCode
+}
+
+type PatchRegisterCodeRequest struct {
+	RegisterCodeId int64  `path:"id"`
+	Name           string `json:"name,optional"`
+	Email          string `json:"email,optional"`
+	InviterId      int64  `json:"inviterId,optional"`
+	Source         int    `json:"source,optional"`
+	Type           int    `json:"type,optional"`
+	IsActivated    bool   `json:"isActivated,optional,omitempty"`
+}
+
+type PatchRegisterCodeReply struct {
+	*RegisterCode
+}
+
+type DeleteRegisterCodeRequest struct {
+	Id int64 `path:"id"`
+}
+
+type DeleteRegisterCodeReply struct {
+	RegisterCodeId int64 `json:"id"`
+}
+
+type AssignRegisterCodeToEmployeeRequest struct {
+	Id         string `path:"id"`
+	EmployeeId int64  `json:"employeeId"`
+}
+
+type AssignRegisterCodeToEmployeeReply struct {
+	RegisterCodeId int64 `json:"customerId"`
+}
+
 type ListMediasPageRequest struct {
 	MediaTypes []int8   `form:"mediaTypes,optional"`
 	Keys       []string `form:"keys,optional"`
@@ -3417,8 +3506,17 @@ type CustomerRegisterReply struct {
 type CustomerRegisterByPhoneRequest struct {
 	Phone      string `json:"phone"`
 	Password   string `json:"password"`
-	VerifyCode string `json:"verifyCode"`
-	InviteCode string `json:"inviteCode,optional"`
+	VerifyCode string `json:"verifyCode,optional"`
+}
+
+type CustomerRegisterByPhoneInInviteCodeRequest struct {
+	*CustomerRegisterByPhoneRequest
+	InviteCode string `path:"code,optional"`
+}
+
+type CustomerRegisterByPhoneInRegisterCodeRequest struct {
+	*CustomerRegisterByPhoneRequest
+	RegisterCode string `path:"code,optional"`
 }
 
 type CustomerRegisterByPhoneReply struct {

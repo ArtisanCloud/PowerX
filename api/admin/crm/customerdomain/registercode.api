@@ -1,0 +1,153 @@
+syntax = "v1"
+
+info(
+    title: "注册码管理"
+    desc: "注册码管理"
+    author: "MichaelHu"
+    email: "matrix-x@artisan-cloud.com"
+    version: "v1"
+)
+
+@server(
+    group: admin/crm/customerdomain/registercode
+    prefix: /api/v1/admin/customerdomain
+    middleware: EmployeeJWTAuth
+)
+
+service PowerX {
+    @doc "查询注册码"
+    @handler GetRegisterCode
+    get /register-codes/:id (GetRegisterCodeReqeuest) returns (GetRegisterCodeReply)
+
+    @doc "获取注册码分页列表"
+    @handler ListRegisterCodesPage
+    get /register-codes/page-list (ListRegisterCodesPageRequest) returns (ListRegisterCodesPageReply)
+
+    @doc "创建注册码"
+    @handler CreateRegisterCode
+    post /register-codes (CreateRegisterCodeRequest) returns (CreateRegisterCodeReply)
+
+    @doc "批量创建注册码"
+    @handler GenerateRegisterCode
+    post /register-codes/generate (GenerateRegisterCodeRequest) returns (GenerateRegisterCodeReply)
+
+    @doc "全量注册码"
+    @handler PutRegisterCode
+    put /register-codes/:id (PutRegisterCodeRequest) returns (PutRegisterCodeReply)
+
+    @doc "增量注册码"
+    @handler PatchRegisterCode
+    patch /register-codes/:id (PatchRegisterCodeRequest) returns (PatchRegisterCodeReply)
+
+    @doc "删除注册码"
+    @handler DeleteRegisterCode
+    delete /register-codes/:id (DeleteRegisterCodeRequest) returns (DeleteRegisterCodeReply)
+
+}
+
+
+type (
+    RegisterCode {
+        Id int64 `json:"id,optional"`
+        Code string `json:"code,optional"`
+        RegisterCustomerID int64 `json:"registerCustomerID,optional"`
+        ExpiredAt string `json:"expiredAt,optional"`
+        CreatedAt string `json:"createdAt,optional"`
+    }
+)
+
+type (
+    GetRegisterCodeReqeuest {
+        Id int64 `path:"id"`
+    }
+
+    GetRegisterCodeReply {
+        RegisterCode *RegisterCode `json:"customer"`
+    }
+)
+
+type (
+    ListRegisterCodesPageRequest {
+        LikeName string `form:"likeName,optional"`
+        LikeMobile string `form:"likeMobile,optional"`
+        Sources []int `form:"sources,optional"`
+        Statuses []int `form:"statuses,optional"`
+        OrderBy string `form:"orderBy,optional"`
+        PageIndex int `form:"pageIndex,optional"`
+        PageSize int `form:"pageSize,optional"`
+    }
+
+    ListRegisterCodesPageReply {
+        List []RegisterCode `json:"list,optional"`
+        PageIndex int `json:"pageIndex,optional"`
+        PageSize int `json:"pageSize,optional"`
+        Total int64 `json:"total,optional"`
+    }
+)
+
+type (
+    CreateRegisterCodeRequest {
+        RegisterCode
+    }
+
+    CreateRegisterCodeReply {
+        RegisterCodeId int64 `json:"id"`
+    }
+)
+
+type (
+    GenerateRegisterCodeRequest {
+        BatchCount int `json:"batchCount"`
+    }
+
+    GenerateRegisterCodeReply {
+        result bool `json:"result"`
+    }
+)
+
+type PutRegisterCodeRequest {
+    RegisterCodeId int64 `path:"id"`
+    RegisterCode
+}
+
+type PutRegisterCodeReply {
+    *RegisterCode
+}
+
+
+type (
+    PatchRegisterCodeRequest {
+        RegisterCodeId int64 `path:"id"`
+        Name string `json:"name,optional"`
+        Email string `json:"email,optional"`
+        InviterId int64 `json:"inviterId,optional"`
+        Source int `json:"source,optional"`
+        Type int `json:"type,optional"`
+        IsActivated bool `json:"isActivated,optional,omitempty"`
+    }
+
+    PatchRegisterCodeReply {
+        *RegisterCode
+    }
+)
+
+type (
+    DeleteRegisterCodeRequest {
+        Id int64 `path:"id"`
+    }
+
+    DeleteRegisterCodeReply {
+        RegisterCodeId int64 `json:"id"`
+    }
+)
+
+type (
+    AssignRegisterCodeToEmployeeRequest {
+        Id string `path:"id"`
+        EmployeeId int64 `json:"employeeId"`
+    }
+
+    AssignRegisterCodeToEmployeeReply {
+        RegisterCodeId int64 `json:"customerId"`
+    }
+)
