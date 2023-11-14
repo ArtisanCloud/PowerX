@@ -58,7 +58,10 @@ func (m *PowerMigrator) AutoMigrate() {
 	_ = m.db.AutoMigrate(&infoorganizatoin.PivotCategoryToObject{})
 
 	// customer domain
-	_ = m.db.AutoMigrate(&customerdomain.Lead{}, &customerdomain.Contact{}, &customerdomain.Customer{}, &membership.Membership{})
+	_ = m.db.AutoMigrate(
+		&customerdomain.Lead{}, &customerdomain.Contact{}, customerdomain.RegisterCode{},
+		&customerdomain.Customer{}, &membership.Membership{},
+	)
 	_ = m.db.AutoMigrate(&wechat.WechatOACustomer{}, &wechat.WechatMPCustomer{}, &wechat.WeWorkExternalContact{})
 	_ = m.db.AutoMigrate(
 		&product.PivotProductToProductCategory{},

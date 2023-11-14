@@ -217,6 +217,7 @@ func (uc *MediaResourceUseCase) MakeOSSResource(ctx context.Context, bucket stri
 	filePath, _ := handle.Open()
 	contentType := handle.Header.Get("Content-Type")
 	info, err := uc.OSSClient.PutObject(ctx, bucket, objectName, filePath, handle.Size, minio.PutObjectOptions{ContentType: contentType})
+	//fmt2.Dump(info)
 
 	url, _ := httpx.AppendURIs(uc.OSSClient.EndpointURL().String(), bucket, info.Key)
 

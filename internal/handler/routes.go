@@ -9,6 +9,7 @@ import (
 	admincrmbusinessopportunity "PowerX/internal/handler/admin/crm/business/opportunity"
 	admincrmcustomerdomaincustomer "PowerX/internal/handler/admin/crm/customerdomain/customer"
 	admincrmcustomerdomainleader "PowerX/internal/handler/admin/crm/customerdomain/leader"
+	admincrmcustomerdomainregistercode "PowerX/internal/handler/admin/crm/customerdomain/registercode"
 	admincrmmarketmedia "PowerX/internal/handler/admin/crm/market/media"
 	admincrmmarketmgm "PowerX/internal/handler/admin/crm/market/mgm"
 	admincrmmarketstore "PowerX/internal/handler/admin/crm/market/store"
@@ -540,6 +541,50 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 					Method:  http.MethodPost,
 					Path:    "/customers/:id/actions/employees",
 					Handler: admincrmcustomerdomaincustomer.AssignCustomerToEmployeeHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithPrefix("/api/v1/admin/customerdomain"),
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Route{
+				{
+					Method:  http.MethodGet,
+					Path:    "/register-codes/:id",
+					Handler: admincrmcustomerdomainregistercode.GetRegisterCodeHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/register-codes/page-list",
+					Handler: admincrmcustomerdomainregistercode.ListRegisterCodesPageHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/register-codes",
+					Handler: admincrmcustomerdomainregistercode.CreateRegisterCodeHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/register-codes/generate",
+					Handler: admincrmcustomerdomainregistercode.GenerateRegisterCodeHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPut,
+					Path:    "/register-codes/:id",
+					Handler: admincrmcustomerdomainregistercode.PutRegisterCodeHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPatch,
+					Path:    "/register-codes/:id",
+					Handler: admincrmcustomerdomainregistercode.PatchRegisterCodeHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodDelete,
+					Path:    "/register-codes/:id",
+					Handler: admincrmcustomerdomainregistercode.DeleteRegisterCodeHandler(serverCtx),
 				},
 			}...,
 		),
@@ -2077,6 +2122,16 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Method:  http.MethodPost,
 				Path:    "/registerByPhone",
 				Handler: webcustomerauth.RegisterCustomerByPhoneHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodPost,
+				Path:    "/registerByPhone/invite/:code",
+				Handler: webcustomerauth.RegisterCustomerByPhoneInInviteCodeHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodPost,
+				Path:    "/registerByPhone/register/:code",
+				Handler: webcustomerauth.RegisterCustomerByPhoneInRegisterCodeHandler(serverCtx),
 			},
 		},
 		rest.WithPrefix("/api/v1/web/customer"),
