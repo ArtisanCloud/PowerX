@@ -1578,7 +1578,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				{
 					Method:  http.MethodPost,
 					Path:    "/medias/page-list",
-					Handler: adminwechatofficialaccountmedia.GetMediaListHandler(serverCtx),
+					Handler: adminwechatofficialaccountmedia.GetOAMediaListHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodGet,
@@ -1589,6 +1589,11 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 					Method:  http.MethodPost,
 					Path:    "/medias/:mediaId",
 					Handler: adminwechatofficialaccountmedia.GetOAMediaHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/medias/upload",
+					Handler: adminwechatofficialaccountmedia.UploadOAMediaHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPost,

@@ -4,6 +4,7 @@ import (
 	"io"
 	"mime/multipart"
 	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -40,4 +41,10 @@ func SaveFileToLocal(fileHeader *multipart.FileHeader, uploadPath string) error 
 	}
 
 	return nil
+}
+
+func GetTempFilePath(fileName string) (string, error) {
+
+	filePath := filepath.Join(os.TempDir(), fileName)
+	return filePath, nil
 }

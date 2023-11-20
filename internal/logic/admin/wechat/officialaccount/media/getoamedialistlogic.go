@@ -1,30 +1,31 @@
 package media
 
 import (
-	"PowerX/internal/svc"
-	"PowerX/internal/types"
 	"PowerX/internal/types/errorx"
 	"context"
 	"github.com/ArtisanCloud/PowerWeChat/v3/src/officialAccount/material/request"
 
+	"PowerX/internal/svc"
+	"PowerX/internal/types"
+
 	"github.com/zeromicro/go-zero/core/logx"
 )
 
-type GetMediaListLogic struct {
+type GetOAMediaListLogic struct {
 	logx.Logger
 	ctx    context.Context
 	svcCtx *svc.ServiceContext
 }
 
-func NewGetMediaListLogic(ctx context.Context, svcCtx *svc.ServiceContext) *GetMediaListLogic {
-	return &GetMediaListLogic{
+func NewGetOAMediaListLogic(ctx context.Context, svcCtx *svc.ServiceContext) *GetOAMediaListLogic {
+	return &GetOAMediaListLogic{
 		Logger: logx.WithContext(ctx),
 		ctx:    ctx,
 		svcCtx: svcCtx,
 	}
 }
 
-func (l *GetMediaListLogic) GetMediaList(req *types.GetOAMediaListRequest) (resp *types.GetOAMediaListReply, err error) {
+func (l *GetOAMediaListLogic) GetOAMediaList(req *types.GetOAMediaListRequest) (resp *types.GetOAMediaListReply, err error) {
 
 	if req.Count <= 0 {
 		req.Count = 10
