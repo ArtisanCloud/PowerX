@@ -16,7 +16,7 @@ info(
 
 service PowerX {
     @doc "查询菜单列表"
-    @handler GetMediaList
+    @handler GetOAMediaList
     post /medias/page-list (GetOAMediaListRequest) returns (GetOAMediaListReply)
 
     @doc "查询菜单列表"
@@ -26,6 +26,11 @@ service PowerX {
     @doc "请求菜单上传链接"
     @handler GetOAMedia
     post /medias/:mediaId (GetOAMediaRequest) returns (GetOAMediaReply)
+
+
+    @doc "创建菜单"
+    @handler UploadOAMedia
+    post /medias/upload returns (CreateOAMediaReply)
 
 
     @doc "创建菜单"

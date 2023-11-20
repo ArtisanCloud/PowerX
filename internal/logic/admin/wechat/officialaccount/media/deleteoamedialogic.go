@@ -1,6 +1,7 @@
 package media
 
 import (
+	"PowerX/internal/types/errorx"
 	"context"
 
 	"PowerX/internal/svc"
@@ -24,7 +25,17 @@ func NewDeleteOAMediaLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Del
 }
 
 func (l *DeleteOAMediaLogic) DeleteOAMedia(req *types.DeleteOAMediaRequest) (resp *types.DeleteOAMediaReply, err error) {
-	// todo: add your logic here and delete this line
+	res, err := l.svcCtx.PowerX.WechatOA.App.Material.Delete(l.ctx, req.MediaId)
+	if err != nil {
+		return nil, errorx.WithCause(errorx.ErrBadRequest, err.Error())
+	}
 
-	return
+	if res.ErrCode != 0 {
+		return nil, errorx.WithCause(errorx.ErrBadRequest, res.ErrMsg)
+	}
+
+	return &types.DeleteOAMediaReply{
+		Success: true,
+		Data:    nil,
+	}, nil
 }

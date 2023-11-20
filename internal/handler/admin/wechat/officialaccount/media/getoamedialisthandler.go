@@ -9,7 +9,7 @@ import (
 	"github.com/zeromicro/go-zero/rest/httpx"
 )
 
-func GetMediaListHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
+func GetOAMediaListHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req types.GetOAMediaListRequest
 		if err := httpx.Parse(r, &req); err != nil {
