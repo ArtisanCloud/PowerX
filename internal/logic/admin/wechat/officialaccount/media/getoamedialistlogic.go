@@ -30,6 +30,7 @@ func (l *GetOAMediaListLogic) GetOAMediaList(req *types.GetOAMediaListRequest) (
 	if req.Count <= 0 {
 		req.Count = 10
 	}
+	req.Offset -= 1
 	res, err := l.svcCtx.PowerX.WechatOA.App.Material.List(l.ctx, &request.RequestMaterialBatchGetMaterial{
 		Type:   req.MediaType,
 		Offset: req.Offset,
