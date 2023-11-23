@@ -5,9 +5,9 @@ go 1.21
 //replace github.com/ArtisanCloud/PowerWeChat/v3 => ../../../PowerWechat/PowerWeChat
 
 require (
-	github.com/ArtisanCloud/PowerLibs/v3 v3.0.15
+	github.com/ArtisanCloud/PowerLibs/v3 v3.0.16
 	github.com/ArtisanCloud/PowerSocialite/v3 v3.0.7
-	github.com/ArtisanCloud/PowerWeChat/v3 v3.1.12
+	github.com/ArtisanCloud/PowerWeChat/v3 v3.1.13
 	github.com/Blank-Xu/sql-adapter v0.0.0-20210714092925-0bdd0d548758
 	github.com/brianvoe/gofakeit/v6 v6.21.0
 	github.com/casbin/casbin/v2 v2.60.0
@@ -122,5 +122,6 @@ require (
 	google.golang.org/grpc v1.58.2 // indirect
 	google.golang.org/protobuf v1.31.0 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
+	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 )

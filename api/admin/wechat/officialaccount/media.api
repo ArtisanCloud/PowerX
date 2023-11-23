@@ -25,7 +25,7 @@ service PowerX {
 
     @doc "请求菜单上传链接"
     @handler GetOAMedia
-    post /medias/:mediaId (GetOAMediaRequest) returns (GetOAMediaReply)
+    get /medias/:mediaId (GetOAMediaRequest) returns (GetOAMediaReply)
 
 
     @doc "创建菜单"
