@@ -3,6 +3,7 @@ package media
 import (
 	"PowerX/internal/logic/admin/mediaresource"
 	"PowerX/internal/types/errorx"
+	fmt "PowerX/pkg/printx"
 	"context"
 	fmt2 "fmt"
 	"github.com/ArtisanCloud/PowerLibs/v3/object"
@@ -34,9 +35,29 @@ func NewUploadOAMediaLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Upl
 
 func (l *UploadOAMediaLogic) UploadOAMedia(r *http.Request) (resp *types.CreateOAMediaReply, err error) {
 
+	// 解析表单数据
 	err = r.ParseMultipartForm(mediaresource.MaxFileSize)
 	if err != nil {
 		return nil, errorx.WithCause(errorx.ErrBadRequest, err.Error())
+	}
+
+	paramValues := r.Form
+	mediaType := paramValues.Get("type")
+	fmt.Dump(mediaType)
+	query := &object.StringMap{}
+	res := &response.ResponseMaterialAddMaterial{}
+	if mediaType == "video" {
+		jsonDescription, err := object.JsonEncode(&object.HashMap{
+			"title":        paramValues.Get("title"),
+			"introduction": paramValues.Get("description"),
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		query = &object.StringMap{
+			"Description": jsonDescription,
+		}
 	}
 
 	file, _, err := r.FormFile("file")
@@ -55,6 +76,11 @@ func (l *UploadOAMediaLogic) UploadOAMedia(r *http.Request) (resp *types.CreateO
 	// 获取文件的临时目录和文件名
 	tempDir := os.TempDir()
 	tempFileName := fmt2.Sprintf("%d_*.jpg", time.Now().Unix())
+	if mediaType == "video" {
+		tempFileName = fmt2.Sprintf("%d_*.mp4", time.Now().Unix())
+	} else if mediaType == "voice" {
+		tempFileName = fmt2.Sprintf("%d_*.mp3", time.Now().Unix())
+	}
 
 	// 创建临时文件
 	tempFile, err := os.CreateTemp(tempDir, tempFileName)
@@ -68,9 +94,8 @@ func (l *UploadOAMediaLogic) UploadOAMedia(r *http.Request) (resp *types.CreateO
 		return nil, errorx.WithCause(errorx.ErrBadRequest, "failed to save file")
 	}
 	//fmt.Dump("temp", tempFile.Name(), "end")
-	paramValues := r.Form
-	res := &response.ResponseMaterialAddMaterial{}
-	_, err = l.svcCtx.PowerX.WechatOA.App.Material.Upload(l.ctx, paramValues.Get("type"), tempFile.Name(), &object.StringMap{}, res)
+
+	_, err = l.svcCtx.PowerX.WechatOA.App.Material.Upload(l.ctx, mediaType, tempFile.Name(), query, res)
 	if err != nil {
 		return nil, errorx.WithCause(errorx.ErrBadRequest, err.Error())
 	}

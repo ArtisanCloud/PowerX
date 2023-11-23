@@ -1,10 +1,9 @@
 package media
 
 import (
-	"context"
-
 	"PowerX/internal/svc"
 	"PowerX/internal/types"
+	"context"
 
 	"github.com/zeromicro/go-zero/core/logx"
 )
@@ -24,7 +23,10 @@ func NewGetOAMediaLogic(ctx context.Context, svcCtx *svc.ServiceContext) *GetOAM
 }
 
 func (l *GetOAMediaLogic) GetOAMedia(req *types.GetOAMediaRequest) (resp *types.GetOAMediaReply, err error) {
-	// todo: add your logic here and delete this line
 
-	return
+	res, err := l.svcCtx.PowerX.WechatOA.App.Material.Get(l.ctx, req.MediaId)
+
+	return &types.GetOAMediaReply{
+		OAMedia: res,
+	}, nil
 }

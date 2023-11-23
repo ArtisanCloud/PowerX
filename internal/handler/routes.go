@@ -1586,7 +1586,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 					Handler: adminwechatofficialaccountmedia.GetOAMediaNewsListHandler(serverCtx),
 				},
 				{
-					Method:  http.MethodPost,
+					Method:  http.MethodGet,
 					Path:    "/medias/:mediaId",
 					Handler: adminwechatofficialaccountmedia.GetOAMediaHandler(serverCtx),
 				},
