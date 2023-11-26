@@ -1591,6 +1591,11 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 					Handler: adminwechatofficialaccountmedia.GetOAMediaHandler(serverCtx),
 				},
 				{
+					Method:  http.MethodGet,
+					Path:    "/medias/video/:mediaId",
+					Handler: adminwechatofficialaccountmedia.GetOAMediaByVideoHandler(serverCtx),
+				},
+				{
 					Method:  http.MethodPost,
 					Path:    "/medias/upload",
 					Handler: adminwechatofficialaccountmedia.UploadOAMediaHandler(serverCtx),

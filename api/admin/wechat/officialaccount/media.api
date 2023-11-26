@@ -27,6 +27,10 @@ service PowerX {
     @handler GetOAMedia
     get /medias/:mediaId (GetOAMediaRequest) returns (GetOAMediaReply)
 
+    @doc "根据媒体key获取媒体"
+    @handler GetOAMediaByVideo
+    get /medias/video/:mediaId (GetOAMediaRequest) returns (GetOAMediaByVideoReply)
+
 
     @doc "创建菜单"
     @handler UploadOAMedia
@@ -78,6 +82,12 @@ type (
 
     GetOAMediaReply struct {
         OAMedia interface{} `json:"media"`
+    }
+
+    GetOAMediaByVideoReply struct {
+        Title string `json:"title"`
+        Description string `json:"description"`
+        DownUrl string `json:"down_url"`
     }
 )
 
