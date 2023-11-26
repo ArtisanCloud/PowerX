@@ -2,21 +2,17 @@ package media
 
 import (
 	"PowerX/internal/logic/admin/mediaresource"
+	"PowerX/internal/svc"
+	"PowerX/internal/types"
 	"PowerX/internal/types/errorx"
-	fmt "PowerX/pkg/printx"
+	"PowerX/pkg/filex"
 	"context"
-	fmt2 "fmt"
 	"github.com/ArtisanCloud/PowerLibs/v3/object"
 	"github.com/ArtisanCloud/PowerWeChat/v3/src/officialAccount/material/response"
+	"github.com/zeromicro/go-zero/core/logx"
 	"io"
 	"net/http"
 	"os"
-	"time"
-
-	"PowerX/internal/svc"
-	"PowerX/internal/types"
-
-	"github.com/zeromicro/go-zero/core/logx"
 )
 
 type UploadOAMediaLogic struct {
@@ -43,7 +39,7 @@ func (l *UploadOAMediaLogic) UploadOAMedia(r *http.Request) (resp *types.CreateO
 
 	paramValues := r.Form
 	mediaType := paramValues.Get("type")
-	fmt.Dump(mediaType)
+	//fmt.Dump(mediaType)
 	query := &object.StringMap{}
 	res := &response.ResponseMaterialAddMaterial{}
 	if mediaType == "video" {
@@ -60,7 +56,7 @@ func (l *UploadOAMediaLogic) UploadOAMedia(r *http.Request) (resp *types.CreateO
 		}
 	}
 
-	file, _, err := r.FormFile("file")
+	file, handler, err := r.FormFile("file")
 	//fmt.Dump(handler.Filename)
 	if err != nil {
 		return nil, errorx.WithCause(errorx.ErrBadRequest, err.Error())
@@ -75,15 +71,12 @@ func (l *UploadOAMediaLogic) UploadOAMedia(r *http.Request) (resp *types.CreateO
 
 	// 获取文件的临时目录和文件名
 	tempDir := os.TempDir()
-	tempFileName := fmt2.Sprintf("%d_*.jpg", time.Now().Unix())
-	if mediaType == "video" {
-		tempFileName = fmt2.Sprintf("%d_*.mp4", time.Now().Unix())
-	} else if mediaType == "voice" {
-		tempFileName = fmt2.Sprintf("%d_*.mp3", time.Now().Unix())
-	}
+	//extension := filex.GetFileExtension(handler.Filename)
+	//tempFileName := fmt2.Sprintf("%d_*.%s", time.Now().Unix(), extension)
+	tempFileName := handler.Filename
 
 	// 创建临时文件
-	tempFile, err := os.CreateTemp(tempDir, tempFileName)
+	tempFile, err := filex.CreateTempWithoutRandom(tempDir, tempFileName)
 	if err != nil {
 		return nil, errorx.WithCause(errorx.ErrBadRequest, "failed to create temporary file")
 	}

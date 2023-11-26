@@ -3028,6 +3028,12 @@ type GetOAMediaReply struct {
 	OAMedia interface{} `json:"media"`
 }
 
+type GetOAMediaByVideoReply struct {
+	Title       string `json:"title"`
+	Description string `json:"description"`
+	DownUrl     string `json:"down_url"`
+}
+
 type DeleteOAMediaRequest struct {
 	MediaId string `path:"mediaId"`
 }
