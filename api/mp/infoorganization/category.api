@@ -1,0 +1,47 @@
+syntax = "v1"
+
+info(
+    title: "类别"
+    desc: "类别"
+    author: "MichaelHu"
+    email: "matrix-x@artisan-cloud.com"
+    version: "v1"
+)
+
+@server(
+    group: mp/infoorganization/category
+    prefix: /api/v1/mp/info-organization
+)
+
+service PowerX {
+    @doc "查询类别列表"
+    @handler ListCategoryTree
+    get /category-tree (ListCategoryTreeRequest) returns (ListCategoryTreeReply)
+
+    @doc "查询类别详情"
+    @handler GetCategory
+    get /categories/:id (GetCategoryRequest) returns (GetCategoryReply)
+
+
+    @doc "创新类别"
+    @handler CreateCategory
+    post /categories (CreateCategoryRequest) returns (CreateCategoryReply)
+
+    @doc "修改类别"
+    @handler UpdateCategory
+    put /categories/:id (UpdateCategoryRequest) returns (UpdateCategoryReply)
+
+
+    @doc "修改类别父级"
+    @handler PatchCategory
+    patch /categories/:id (PatchCategoryRequest) returns (PatchCategoryReply)
+
+
+    @doc "删除类别"
+    @handler DeleteCategory
+    delete /categories/:id (DeleteCategoryRequest) returns (DeleteCategoryReply)
+}
+
+
+
+

@@ -10,11 +10,14 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"github.com/ArtisanCloud/PowerLibs/v3/cache"
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
+	"io"
 	"mime/multipart"
+	"net/http"
 	"os"
 	"path/filepath"
 	"time"
@@ -204,6 +207,24 @@ func (uc *MediaResourceUseCase) MakeLocalResource(ctx context.Context, bucket st
 	return resource, nil
 }
 
+func (uc *MediaResourceUseCase) GetOSSResourceURL(bucket string, key string) (string, error) {
+
+	uri, err := uc.GetOSSResourceURI(bucket, key)
+	if err != nil {
+		return "", nil
+	}
+	endpoint := uc.OSSClient.EndpointURL()
+	url := endpoint.String() + uri
+
+	return url, err
+}
+
+func (uc *MediaResourceUseCase) GetOSSResourceURI(bucket string, key string) (string, error) {
+	endpoint := uc.OSSClient.EndpointURL()
+	url, err := httpx.AppendURIs(endpoint.String(), bucket, key)
+	return url, err
+}
+
 func (uc *MediaResourceUseCase) MakeOSSResource(ctx context.Context, bucket string, handle *multipart.FileHeader) (resource *media.MediaResource, err error) {
 
 	err = uc.CheckBucketExits(ctx, bucket)
@@ -219,7 +240,7 @@ func (uc *MediaResourceUseCase) MakeOSSResource(ctx context.Context, bucket stri
 	info, err := uc.OSSClient.PutObject(ctx, bucket, objectName, filePath, handle.Size, minio.PutObjectOptions{ContentType: contentType})
 	//fmt2.Dump(info)
 
-	url, _ := httpx.AppendURIs(uc.OSSClient.EndpointURL().String(), bucket, info.Key)
+	url, _ := uc.GetOSSResourceURI(bucket, info.Key)
 
 	resource = &media.MediaResource{
 		BucketName:   bucket,
@@ -233,17 +254,53 @@ func (uc *MediaResourceUseCase) MakeOSSResource(ctx context.Context, bucket stri
 	return resource, err
 }
 
-func (uc *MediaResourceUseCase) MakeOSSResourceByBase64(ctx context.Context, bucket string, base64Data string) (resource *media.MediaResource, err error) {
-
-	err = uc.CheckBucketExits(ctx, bucket)
-	if err != nil {
-		return nil, err
-	}
-
+func (uc *MediaResourceUseCase) MakeOSSResourceByBase64String(ctx context.Context, bucket string, base64Data string) (resource *media.MediaResource, err error) {
 	// 解码base64数据
 	data, err := base64.StdEncoding.DecodeString(base64Data)
 	if err != nil {
 		return nil, fmt.Errorf("base64数据解码失败：%w", err)
+	}
+
+	return uc.MakeOSSResourceByBase64Data(ctx, bucket, data)
+
+}
+
+func (m *MediaResourceUseCase) GetBase64DataFromMedia(ctx context.Context, media *media.MediaResource) (string, error) {
+	// 从OSS中获取图片数据
+	url, err := m.GetOSSResourceURL(media.BucketName, media.Filename)
+	if err != nil {
+		return "", err
+	}
+
+	// 加载图片，转变成base64
+	// 通过HTTP GET请求获取图片数据
+	resp, err := http.Get(url)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", errors.New("failed to fetch media data")
+	}
+
+	// 读取图片数据
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+
+	// 将图片数据转换为Base64
+	base64Data := base64.StdEncoding.EncodeToString(data)
+
+	return base64Data, err
+}
+
+func (uc *MediaResourceUseCase) MakeOSSResourceByBase64Data(ctx context.Context, bucket string, data []byte) (resource *media.MediaResource, err error) {
+
+	err = uc.CheckBucketExits(ctx, bucket)
+	if err != nil {
+		return nil, err
 	}
 
 	// 创建一个新的MinIO对象，并使用随机名称
@@ -251,7 +308,9 @@ func (uc *MediaResourceUseCase) MakeOSSResourceByBase64(ctx context.Context, buc
 
 	// 准备对象元数据（可选）
 	objectMetadata := make(map[string]string)
-	objectMetadata["Content-Type"] = "image/jpeg" // 替换为实际内容类型
+	objectMetadata["Content-Type"] = "image/png" // 替换为实际内容类型
+	//objectMetadata["Content-Type"] = "image/jpeg" // 替换为实际内容类型
+	//objectMetadata["Content-Type"] = "image/webp" // 替换为实际内容类型
 
 	// 上传对象到MinIO
 	contentType := objectMetadata["Content-Type"]
@@ -307,4 +366,19 @@ func (uc *MediaResourceUseCase) CheckBucketExits(ctx context.Context, bucket str
 	}
 
 	return nil
+}
+
+func (uc *MediaResourceUseCase) GetCachedBase64DataFromMedia(ctx context.Context, cache cache.CacheInterface, media *media.MediaResource) (string, error) {
+	// 从缓存中获取图片数据
+	data, err := cache.Remember(media.Filename, 3600*time.Hour, func() (interface{}, error) {
+		// 将url图片转换成Base64
+		//fmt2.Dump("get data from oss", media.Filename)
+		return uc.GetBase64DataFromMedia(ctx, media)
+
+	})
+	if err != nil {
+		return "", err
+	}
+
+	return data.(string), err
 }

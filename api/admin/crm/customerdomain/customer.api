@@ -17,7 +17,7 @@ info(
 service PowerX {
     @doc "查询客户"
     @handler GetCustomer
-    get /customers/:id (GetCustomerReqeuest) returns (GetCustomerReply)
+    get /customers/:id (GetCustomerRequest) returns (GetCustomerReply)
 
     @doc "获取客户分页列表"
     @handler ListCustomersPage
@@ -78,7 +78,7 @@ type (
 )
 
 type (
-    GetCustomerReqeuest {
+    GetCustomerRequest {
         Id int64 `path:"id"`
     }
 

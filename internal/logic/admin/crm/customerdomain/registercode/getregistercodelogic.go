@@ -23,7 +23,7 @@ func NewGetRegisterCodeLogic(ctx context.Context, svcCtx *svc.ServiceContext) *G
 	}
 }
 
-func (l *GetRegisterCodeLogic) GetRegisterCode(req *types.GetRegisterCodeReqeuest) (resp *types.GetRegisterCodeReply, err error) {
+func (l *GetRegisterCodeLogic) GetRegisterCode(req *types.GetRegisterCodeRequest) (resp *types.GetRegisterCodeReply, err error) {
 	// todo: add your logic here and delete this line
 
 	return

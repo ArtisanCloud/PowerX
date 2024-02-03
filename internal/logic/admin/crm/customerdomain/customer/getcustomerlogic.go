@@ -25,7 +25,7 @@ func NewGetCustomerLogic(ctx context.Context, svcCtx *svc.ServiceContext) *GetCu
 	}
 }
 
-func (l *GetCustomerLogic) GetCustomer(req *types.GetCustomerReqeuest) (resp *types.GetCustomerReply, err error) {
+func (l *GetCustomerLogic) GetCustomer(req *types.GetCustomerRequest) (resp *types.GetCustomerReply, err error) {
 	mdlCustomer, err := l.svcCtx.PowerX.Customer.GetCustomer(l.ctx, req.Id)
 
 	if err != nil {

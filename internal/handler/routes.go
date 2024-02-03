@@ -13,6 +13,7 @@ import (
 	admincrmmarketmedia "PowerX/internal/handler/admin/crm/market/media"
 	admincrmmarketmgm "PowerX/internal/handler/admin/crm/market/mgm"
 	admincrmmarketstore "PowerX/internal/handler/admin/crm/market/store"
+	admincrmmembership "PowerX/internal/handler/admin/crm/membership"
 	admincrmproduct "PowerX/internal/handler/admin/crm/product"
 	admincrmproductartisan "PowerX/internal/handler/admin/crm/product/artisan"
 	admincrmproductcategory "PowerX/internal/handler/admin/crm/product/category"
@@ -47,9 +48,11 @@ import (
 	adminuserinfo "PowerX/internal/handler/admin/userinfo"
 	adminwechatofficialaccountmedia "PowerX/internal/handler/admin/wechat/officialaccount/media"
 	adminwechatofficialaccountmenu "PowerX/internal/handler/admin/wechat/officialaccount/menu"
+	mpcrmcustomer "PowerX/internal/handler/mp/crm/customer"
 	mpcrmcustomerauth "PowerX/internal/handler/mp/crm/customer/auth"
 	mpcrmmarketmedia "PowerX/internal/handler/mp/crm/market/media"
 	mpcrmmarketstore "PowerX/internal/handler/mp/crm/market/store"
+	mpcrmmembership "PowerX/internal/handler/mp/crm/membership"
 	mpcrmproduct "PowerX/internal/handler/mp/crm/product"
 	mpcrmproductartisan "PowerX/internal/handler/mp/crm/product/artisan"
 	mpcrmproductproductstatistics "PowerX/internal/handler/mp/crm/product/productstatistics"
@@ -59,7 +62,9 @@ import (
 	mpcrmtradecart "PowerX/internal/handler/mp/crm/trade/cart"
 	mpcrmtradeorder "PowerX/internal/handler/mp/crm/trade/order"
 	mpcrmtradepayment "PowerX/internal/handler/mp/crm/trade/payment"
+	mpcrmtradetoken "PowerX/internal/handler/mp/crm/trade/token"
 	mpdictionary "PowerX/internal/handler/mp/dictionary"
+	mpinfoorganizationcategory "PowerX/internal/handler/mp/infoorganization/category"
 	plugin "PowerX/internal/handler/plugin"
 	systemhealth "PowerX/internal/handler/system/health"
 	webcustomerauth "PowerX/internal/handler/web/customer/auth"
@@ -589,6 +594,20 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			}...,
 		),
 		rest.WithPrefix("/api/v1/admin/customerdomain"),
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Route{
+				{
+					Method:  http.MethodGet,
+					Path:    "/customers/:id",
+					Handler: admincrmmembership.GetCustomerHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithPrefix("/api/v1/admin/membership"),
 	)
 
 	server.AddRoutes(
@@ -1644,6 +1663,11 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 	server.AddRoutes(
 		[]rest.Route{
 			{
+				Method:  http.MethodGet,
+				Path:    "/validToken",
+				Handler: mpcrmcustomerauth.ValidTokenHandler(serverCtx),
+			},
+			{
 				Method:  http.MethodPost,
 				Path:    "/login",
 				Handler: mpcrmcustomerauth.LoginHandler(serverCtx),
@@ -1660,6 +1684,39 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			},
 		},
 		rest.WithPrefix("/api/v1/mp/customer"),
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.MPCustomerJWTAuth, serverCtx.MPCustomerGet},
+			[]rest.Route{
+				{
+					Method:  http.MethodGet,
+					Path:    "/user-info",
+					Handler: mpcrmcustomer.GetUserInfoHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithPrefix("/api/v1/mp/customer"),
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.MPCustomerJWTAuth, serverCtx.MPCustomerGet},
+			[]rest.Route{
+				{
+					Method:  http.MethodGet,
+					Path:    "/customer",
+					Handler: mpcrmmembership.GetCustomerMembershipHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/:id",
+					Handler: mpcrmmembership.GetMembershipHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithPrefix("/api/v1/mp/membership"),
 	)
 
 	server.AddRoutes(
@@ -2090,6 +2147,56 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			}...,
 		),
 		rest.WithPrefix("/api/v1/mp/trade"),
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.MPCustomerJWTAuth, serverCtx.MPCustomerGet},
+			[]rest.Route{
+				{
+					Method:  http.MethodGet,
+					Path:    "/balance",
+					Handler: mpcrmtradetoken.GetCustomerTokenBalanceHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithPrefix("/api/v1/mp/trade/token"),
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
+			{
+				Method:  http.MethodGet,
+				Path:    "/category-tree",
+				Handler: mpinfoorganizationcategory.ListCategoryTreeHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodGet,
+				Path:    "/categories/:id",
+				Handler: mpinfoorganizationcategory.GetCategoryHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodPost,
+				Path:    "/categories",
+				Handler: mpinfoorganizationcategory.CreateCategoryHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodPut,
+				Path:    "/categories/:id",
+				Handler: mpinfoorganizationcategory.UpdateCategoryHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodPatch,
+				Path:    "/categories/:id",
+				Handler: mpinfoorganizationcategory.PatchCategoryHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodDelete,
+				Path:    "/categories/:id",
+				Handler: mpinfoorganizationcategory.DeleteCategoryHandler(serverCtx),
+			},
+		},
+		rest.WithPrefix("/api/v1/mp/info-organization"),
 	)
 
 	server.AddRoutes(

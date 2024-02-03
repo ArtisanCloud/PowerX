@@ -1,0 +1,37 @@
+syntax = "v1"
+
+info(
+    title: "代币管理"
+    desc: "代币管理"
+    author: "MichaelHu"
+    email: "matrix-x@artisan-cloud.com"
+    version: "v1"
+)
+
+
+@server(
+    group: mp/crm/trade/token
+    prefix: /api/v1/mp/trade/token
+    middleware: MPCustomerJWTAuth, MPCustomerGet
+)
+
+service PowerX {
+    @doc "查询代币"
+    @handler GetCustomerTokenBalance
+    get /balance returns (GetCustomerBalanceReply)
+}
+
+type (
+    TokenBalance {
+        Id int64 `json:"id,optional" desc:"代币ID"`
+
+        Balance float64 `json:"balance" desc:"代币余额"`
+        Usage float64 `json:"usage" desc:"使用代币"`
+        UnusedTicketsCount int64 `json:"unusedTicketsCount" desc:"可继续使用的ticket"`
+        ReservedToken float64 `json:"reservedToken" desc:"预扣代币"`
+    }
+
+    GetCustomerBalanceReply {
+        *TokenBalance
+    }
+)

@@ -16,6 +16,10 @@ info(
 
 
 service PowerX {
+    @doc "微信小程序Token验证"
+    @handler ValidToken
+    get /validToken (MPValidTokenRequest) returns (MPValidTokenReply)
+
     @doc "微信小程序登录"
     @handler Login
     post /login (MPCustomerLoginRequest) returns (MPCustomerLoginAuthReply)
@@ -32,6 +36,14 @@ service PowerX {
 
 
 type (
+    MPValidTokenRequest {
+        Token string `form:"token"`
+    }
+    MPValidTokenReply {
+        Valid bool `json:"valid"`
+        Reason string `json:"reason"`
+    }
+
     MPCustomerLoginRequest {
         Code string `json:"code"`
     }

@@ -26,7 +26,7 @@ func NewCreateMediaResourceByBase64Logic(ctx context.Context, svcCtx *svc.Servic
 
 func (l *CreateMediaResourceByBase64Logic) CreateMediaResourceByBase64(req *types.CreateMediaResourceByBase64Request) (resp *types.CreateMediaResourceReply, err error) {
 
-	resource, err := l.svcCtx.PowerX.MediaResource.MakeOSSResourceByBase64(l.ctx, req.BucketName, req.Base64Data)
+	resource, err := l.svcCtx.PowerX.MediaResource.MakeOSSResourceByBase64String(l.ctx, req.BucketName, req.Base64Data)
 	if err != nil {
 		return nil, errorx.WithCause(errorx.ErrBadRequest, err.Error())
 	}

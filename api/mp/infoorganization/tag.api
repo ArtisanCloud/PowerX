@@ -1,0 +1,45 @@
+syntax = "v1"
+
+info(
+    title: "碎片标签"
+    desc: "碎片标签"
+    author: "MichaelHu"
+    email: "matrix-x@artisan-cloud.com"
+    version: "v1"
+)
+
+
+@server(
+    group: web/infoorganization/tag
+    prefix: /api/v1/web/info-organization
+    middleware: WebCustomerJWTAuth
+)
+
+service PowerX {
+    @doc "查询碎片标签列表"
+    @handler ListTagTree
+    get /tag-tree (ListTagTreeRequest) returns (ListTagTreeReply)
+
+    @doc "查询碎片标签详情"
+    @handler GetTag
+    get /tags/:id (GetTagRequest) returns (GetTagReply)
+
+
+    @doc "创新碎片标签"
+    @handler CreateTag
+    post /tags (CreateTagRequest) returns (CreateTagReply)
+
+    @doc "修改碎片标签"
+    @handler UpdateTag
+    put /tags/:id (UpdateTagRequest) returns (UpdateTagReply)
+
+
+    @doc "修改碎片标签父级"
+    @handler PatchTag
+    patch /tags/:id (PatchTagRequest) returns (PatchTagReply)
+
+
+    @doc "删除碎片标签"
+    @handler DeleteTag
+    delete /tags/:id (DeleteTagRequest) returns (DeleteTagReply)
+}

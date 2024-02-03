@@ -7,7 +7,7 @@ go 1.21
 require (
 	github.com/ArtisanCloud/PowerLibs/v3 v3.0.16
 	github.com/ArtisanCloud/PowerSocialite/v3 v3.0.7
-	github.com/ArtisanCloud/PowerWeChat/v3 v3.1.13
+	github.com/ArtisanCloud/PowerWeChat/v3 v3.1.15
 	github.com/Blank-Xu/sql-adapter v0.0.0-20210714092925-0bdd0d548758
 	github.com/brianvoe/gofakeit/v6 v6.21.0
 	github.com/casbin/casbin/v2 v2.60.0

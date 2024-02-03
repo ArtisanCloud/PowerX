@@ -18,12 +18,12 @@ import (
 )
 
 type OrderUseCase struct {
-	db *gorm.DB
+	DB *gorm.DB
 }
 
 func NewOrderUseCase(db *gorm.DB) *OrderUseCase {
 	return &OrderUseCase{
-		db: db,
+		DB: db,
 	}
 }
 
@@ -88,7 +88,7 @@ func (uc *OrderUseCase) PreloadItems(db *gorm.DB) *gorm.DB {
 }
 
 func (uc *OrderUseCase) FindAllOrders(ctx context.Context, opt *FindManyOrdersOption) (orders []*trade.Order, err error) {
-	query := uc.db.WithContext(ctx).Model(&trade.Order{})
+	query := uc.DB.WithContext(ctx).Model(&trade.Order{})
 
 	query = uc.buildFindQueryNoPage(query, opt)
 	query = uc.PreloadItems(query)
@@ -103,7 +103,7 @@ func (uc *OrderUseCase) FindAllOrders(ctx context.Context, opt *FindManyOrdersOp
 func (uc *OrderUseCase) FindManyOrders(ctx context.Context, opt *FindManyOrdersOption) (pageList types.Page[*trade.Order], err error) {
 	opt.DefaultPageIfNotSet()
 	var orders []*trade.Order
-	db := uc.db.WithContext(ctx).Model(&trade.Order{})
+	db := uc.DB.WithContext(ctx).Model(&trade.Order{})
 
 	db = uc.buildFindQueryNoPage(db, opt)
 
@@ -134,7 +134,7 @@ func (uc *OrderUseCase) FindManyOrders(ctx context.Context, opt *FindManyOrdersO
 
 func (uc *OrderUseCase) CreateOrder(ctx context.Context, order *trade.Order) error {
 
-	if err := uc.db.WithContext(ctx).
+	if err := uc.DB.WithContext(ctx).
 		//Debug().
 		Create(&order).Error; err != nil {
 		if strings.Contains(err.Error(), "duplicate key value violates unique constraint") {
@@ -153,7 +153,7 @@ func (uc *OrderUseCase) CreateOrderByPriceBookEntries(ctx context.Context,
 	comment string,
 ) (*trade.Order, error) {
 	order := &trade.Order{}
-	db := uc.db.WithContext(ctx)
+	db := uc.DB.WithContext(ctx)
 
 	// 创建订单，类型为 普通订单
 	orderTypeId := uc.GetOrderTypeId(ctx, trade.OrderTypeNormal)
@@ -214,7 +214,7 @@ func (uc *OrderUseCase) CreateOrderByCartItems(ctx context.Context,
 	cart := &trade.Cart{
 		CustomerId: customer.Id,
 	}
-	db := uc.db.WithContext(ctx)
+	db := uc.DB.WithContext(ctx)
 
 	err := db.Transaction(func(tx *gorm.DB) error {
 		var err error
@@ -372,7 +372,7 @@ func (uc *OrderUseCase) MakeOrderItemFromCartItem(
 func (uc *OrderUseCase) UpsertOrderWithLogistic(ctx context.Context, order *trade.Order) (*trade.Order, error) {
 	orders := []*trade.Order{order}
 
-	err := uc.db.Transaction(func(tx *gorm.DB) error {
+	err := uc.DB.Transaction(func(tx *gorm.DB) error {
 
 		// 更新产品对象主体
 		_, err := uc.UpsertOrders(ctx, orders)
@@ -392,7 +392,7 @@ func (uc *OrderUseCase) UpsertOrder(ctx context.Context, order *trade.Order) (*t
 
 	orders := []*trade.Order{order}
 
-	err := uc.db.Transaction(func(tx *gorm.DB) error {
+	err := uc.DB.Transaction(func(tx *gorm.DB) error {
 		// 删除产品的相关联对象
 		_, err := uc.ClearAssociations(tx, order)
 		if err != nil {
@@ -413,7 +413,7 @@ func (uc *OrderUseCase) UpsertOrder(ctx context.Context, order *trade.Order) (*t
 
 func (uc *OrderUseCase) UpsertOrders(ctx context.Context, orders []*trade.Order) ([]*trade.Order, error) {
 
-	err := powermodel.UpsertModelsOnUniqueID(uc.db.WithContext(ctx), &trade.Order{}, trade.OrderUniqueId, orders, nil, false)
+	err := powermodel.UpsertModelsOnUniqueID(uc.DB.WithContext(ctx), &trade.Order{}, trade.OrderUniqueId, orders, nil, false)
 
 	if err != nil {
 		panic(errors.Wrap(err, "batch upsert orders failed"))
@@ -423,7 +423,7 @@ func (uc *OrderUseCase) UpsertOrders(ctx context.Context, orders []*trade.Order)
 }
 
 func (uc *OrderUseCase) PatchOrder(ctx context.Context, id int64, order *trade.Order) {
-	if err := uc.db.WithContext(ctx).Model(&trade.Order{}).
+	if err := uc.DB.WithContext(ctx).Model(&trade.Order{}).
 		Where(id).Updates(&order).Error; err != nil {
 		panic(err)
 	}
@@ -431,7 +431,7 @@ func (uc *OrderUseCase) PatchOrder(ctx context.Context, id int64, order *trade.O
 
 func (uc *OrderUseCase) GetOrder(ctx context.Context, id int64) (*trade.Order, error) {
 	var order = &trade.Order{}
-	db := uc.db.WithContext(ctx)
+	db := uc.DB.WithContext(ctx)
 	db = uc.PreloadItems(db)
 	if err := db.
 		//Debug().
@@ -453,7 +453,7 @@ func (uc *OrderUseCase) DeleteOrder(ctx context.Context, id int64) error {
 		return errorx.ErrNotFoundObject
 	}
 
-	err = uc.db.Transaction(func(tx *gorm.DB) error {
+	err = uc.DB.Transaction(func(tx *gorm.DB) error {
 		// 删除产品相关项
 		_, err = uc.ClearAssociations(tx, order)
 		if err != nil {
@@ -488,12 +488,12 @@ func (uc *OrderUseCase) ChangeOrderStatusFromTo(ctx context.Context, order *trad
 	fromStatus string, toStatus string,
 ) (*trade.Order, error) {
 
-	ucDD := powerx.NewDataDictionaryUseCase(uc.db)
+	ucDD := powerx.NewDataDictionaryUseCase(uc.DB)
 
 	orderStatusId := ucDD.GetCachedDDId(ctx, trade.TypeOrderStatus, fromStatus)
 	toStatusId := ucDD.GetCachedDDId(ctx, trade.TypeOrderStatus, toStatus)
 
-	err := uc.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	err := uc.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 
 		// 修改订单的支付状态记录
 		order.Status = toStatusId
@@ -516,7 +516,7 @@ func (uc *OrderUseCase) ChangeOrderStatusFromTo(ctx context.Context, order *trad
 }
 
 func (uc *OrderUseCase) CanOrderCancel(ctx context.Context, order *trade.Order) bool {
-	ucDD := powerx.NewDataDictionaryUseCase(uc.db)
+	ucDD := powerx.NewDataDictionaryUseCase(uc.DB)
 	ddOrderStatus := ucDD.GetCachedDDById(ctx, order.Status)
 	availableStatus := []string{
 		trade.OrderStatusPending,
@@ -531,26 +531,26 @@ func (uc *OrderUseCase) CanOrderCancel(ctx context.Context, order *trade.Order) 
 }
 
 func (uc *OrderUseCase) IsOrderTypeSameAs(ctx context.Context, order *trade.Order, orderType string) bool {
-	ucDD := powerx.NewDataDictionaryUseCase(uc.db)
+	ucDD := powerx.NewDataDictionaryUseCase(uc.DB)
 
 	return order.Type == ucDD.GetCachedDDId(ctx, trade.TypeOrderType, orderType)
 
 }
 
 func (uc *OrderUseCase) IsOrderStatusSameAs(ctx context.Context, order *trade.Order, orderStatus string) bool {
-	ucDD := powerx.NewDataDictionaryUseCase(uc.db)
+	ucDD := powerx.NewDataDictionaryUseCase(uc.DB)
 
 	return order.Status == ucDD.GetCachedDDId(ctx, trade.TypeOrderStatus, orderStatus)
 
 }
 
 func (uc *OrderUseCase) GetOrderTypeId(ctx context.Context, orderType string) (orderTypeId int) {
-	ucDD := powerx.NewDataDictionaryUseCase(uc.db)
+	ucDD := powerx.NewDataDictionaryUseCase(uc.DB)
 	orderTypeId = ucDD.GetCachedDDId(ctx, trade.TypeOrderType, orderType)
 	return orderTypeId
 }
 func (uc *OrderUseCase) GetOrderStatusId(ctx context.Context, orderStatus string) (orderStatusId int) {
-	ucDD := powerx.NewDataDictionaryUseCase(uc.db)
+	ucDD := powerx.NewDataDictionaryUseCase(uc.DB)
 	orderStatusId = ucDD.GetCachedDDId(ctx, trade.TypeOrderStatus, orderStatus)
 	return orderStatusId
 }

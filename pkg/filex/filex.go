@@ -49,6 +49,12 @@ func GetTempFilePath(fileName string) (string, error) {
 	return filePath, nil
 }
 
+// 判断文件是否为图片文件（可根据实际情况修改）
+func IsImageFile(fileName string) bool {
+	ext := strings.ToLower(filepath.Ext(fileName))
+	return ext == ".jpg" || ext == ".jpeg" || ext == ".png" || ext == ".gif"
+}
+
 func GetFileExtension(filename string) string {
 	ext := filepath.Ext(filename)
 	// 去掉后缀中的点号

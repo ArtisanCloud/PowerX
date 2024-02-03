@@ -26,14 +26,14 @@ func NewGetUserInfoLogic(ctx context.Context, svcCtx *svc.ServiceContext) *GetUs
 	}
 }
 
-func (l *GetUserInfoLogic) GetUserInfo() (resp *types.GetUserInfoReplyToWeb, err error) {
+func (l *GetUserInfoLogic) GetUserInfo() (resp *types.GetUserInfoReplyForWeb, err error) {
 
 	vAuthCustomer := l.ctx.Value(customerdomain.AuthCustomerKey)
 	authCustomer := vAuthCustomer.(*customerdomain2.Customer)
 
 	customer := customer.TransformCustomerToReply(l.svcCtx, authCustomer)
 	customer.AccountId = fmt.Sprintf("%d", customer.Id)
-	return &types.GetUserInfoReplyToWeb{
+	return &types.GetUserInfoReplyForWeb{
 		Customer: customer,
 	}, nil
 }

@@ -25,3 +25,5 @@ var ErrDeleteObjectNotFound = NewError(400, "OBJECT_NOT_FOUND", "未找到删除
 var ErrNotFoundStandardPriceBook = NewError(400, "STANDARD_PRICE_BOOK_NOT_FOUND", "标准价格手册未找到")
 var ErrOneStandardPriceBookOnly = NewError(400, "STANDARD_PRICE_BOOK_ONLY_ONE", "标准价格手册只能有一本")
 var ErrCanNotDeleteStandardPrice = NewError(400, "CAN_NOT_DELETE_STANDARD_PRICE_BOOK", "不能删除标准价格手册")
+var ErrNotEnoughBalance = NewError(400, "NOT_ENOUGH_BALANCE", "余额不足，请充值")
+var ErrNotEnoughTicket = NewError(400, "NOT_ENOUGH_TICKET", "没有多余券，请充值购买")

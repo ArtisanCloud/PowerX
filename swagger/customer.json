@@ -431,14 +431,14 @@
         "customer"
       ]
     },
-    "GetCustomerReqeuest": {
+    "GetCustomerRequest": {
       "type": "object",
       "properties": {
         "id": {
           "type": "string"
         }
       },
-      "title": "GetCustomerReqeuest",
+      "title": "GetCustomerRequest",
       "required": [
         "id"
       ]

@@ -148,7 +148,7 @@ func (uc *ProductStatisticsUseCase) GetProductStatisticsByProductId(ctx context.
 	var ProductStatistics product.ProductStatistics
 	if err := uc.db.WithContext(ctx).
 		Where("product_id", productId).
-		Debug().
+		//Debug().
 		FirstOrCreate(&ProductStatistics).
 		Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {

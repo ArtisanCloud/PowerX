@@ -16,8 +16,10 @@ type Database struct {
 }
 
 type RedisBase struct {
-	Host     string
+	Host string
+	//Username string
 	Password string
+	//DB       int
 }
 
 type WeWork struct {

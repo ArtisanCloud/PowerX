@@ -64,3 +64,83 @@ func defaultTokenCategoryDataDictionary() *model.DataDictionaryType {
 	}
 
 }
+
+func defaultTokenTransactionDataDictionary() *model.DataDictionaryType {
+	return &model.DataDictionaryType{
+		Items: []*model.DataDictionaryItem{
+			&model.DataDictionaryItem{
+				Key:   trade.TokenTransactionTypePurchase,
+				Type:  trade.TypeTokenTransactionType,
+				Name:  "购买",
+				Value: trade.TokenTransactionTypePurchase,
+				Sort:  0,
+			},
+			&model.DataDictionaryItem{
+				Key:   trade.TokenTransactionTypeReward,
+				Type:  trade.TypeTokenTransactionType,
+				Name:  "奖励",
+				Value: trade.TokenTransactionTypeReward,
+				Sort:  0,
+			},
+			&model.DataDictionaryItem{
+				Key:   trade.TokenTransactionTypeExchange,
+				Type:  trade.TypeTokenTransactionType,
+				Name:  "兑换",
+				Value: trade.TokenTransactionTypeExchange,
+				Sort:  0,
+			},
+			&model.DataDictionaryItem{
+				Key:   trade.TokenTransactionTypeSpending,
+				Type:  trade.TypeTokenTransactionType,
+				Name:  "消费",
+				Value: trade.TokenTransactionTypeSpending,
+				Sort:  0,
+			},
+			&model.DataDictionaryItem{
+				Key:   trade.TokenTransactionTypeRefund,
+				Type:  trade.TypeTokenTransactionType,
+				Name:  "退款",
+				Value: trade.TokenTransactionTypeRefund,
+				Sort:  0,
+			},
+			&model.DataDictionaryItem{
+				Key:   trade.TokenTransactionTypeExpired,
+				Type:  trade.TypeTokenTransactionType,
+				Name:  "过期",
+				Value: trade.TokenTransactionTypeExpired,
+				Sort:  0,
+			},
+			&model.DataDictionaryItem{
+				Key:   trade.TokenTransactionTypeGift,
+				Type:  trade.TypeTokenTransactionType,
+				Name:  "赠送",
+				Value: trade.TokenTransactionTypeGift,
+				Sort:  0,
+			},
+			&model.DataDictionaryItem{
+				Key:   trade.TokenTransactionTypeInterest,
+				Type:  trade.TypeTokenTransactionType,
+				Name:  "利息",
+				Value: trade.TokenTransactionTypeInterest,
+				Sort:  0,
+			},
+			&model.DataDictionaryItem{
+				Key:   trade.TokenTransactionTypeInvest,
+				Type:  trade.TypeTokenTransactionType,
+				Name:  "投资",
+				Value: trade.TokenTransactionTypeInvest,
+				Sort:  0,
+			},
+			&model.DataDictionaryItem{
+				Key:   trade.TokenTransactionTypeOther,
+				Type:  trade.TypeTokenTransactionType,
+				Name:  "其他",
+				Value: trade.TokenTransactionTypeOther,
+				Sort:  0,
+			},
+		},
+		Type:        trade.TypeTokenTransactionType,
+		Name:        "代币的流水",
+		Description: "代币的使用交易流水记录",
+	}
+}
