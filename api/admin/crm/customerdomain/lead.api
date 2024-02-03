@@ -17,7 +17,7 @@ info(
 service PowerX {
     @doc "查询线索"
     @handler GetLead
-    get /leads/:id (GetLeadReqeuest) returns (GetLeadReply)
+    get /leads/:id (GetLeadRequest) returns (GetLeadReply)
 
     @doc "获取线索分页列表"
     @handler ListLeadsPage
@@ -76,7 +76,7 @@ type (
 )
 
 type (
-    GetLeadReqeuest {
+    GetLeadRequest {
         Id int64 `path:"id"`
     }
 

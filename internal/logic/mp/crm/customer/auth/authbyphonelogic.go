@@ -3,14 +3,18 @@ package auth
 import (
 	"PowerX/internal/model"
 	"PowerX/internal/model/crm/customerdomain"
+	"PowerX/internal/model/crm/operation"
+	"PowerX/internal/model/crm/trade"
 	"PowerX/internal/model/wechat"
 	"PowerX/internal/svc"
 	"PowerX/internal/types"
+	"PowerX/internal/types/errorx"
 	customerdomain2 "PowerX/internal/uc/powerx/crm/customerdomain"
+	fmt2 "PowerX/pkg/printx"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/ArtisanCloud/PowerLibs/v3/object"
 	"github.com/zeromicro/go-zero/core/logx"
 )
 
@@ -39,32 +43,24 @@ func (l *AuthByPhoneLogic) AuthByPhone(req *types.MPCustomerAuthRequest) (resp *
 	if rs.ErrCode != 0 {
 		return nil, errors.New(rs.ErrMsg)
 	}
-	//fmt2.DD(rs)
-	//req = &types.MPCustomerAuthRequest{
-	//	IV:            "aggABXMAyD1TQa1OS5pjzA==",
-	//	EncryptedData: "VMkaPGYIWUdCwO+MxEBoY6jUs9Ib2uJEQPiDGWnEum9eSHiBEYbGpY+sJn6gPh4PrkyhOMaLH0CuwasVVbaKUS1NHmjEd0Z6pf9W7OyAX4Z3bC8UsEm8PX0YvUPnYnRSMpGdouyOUJu1ie9XCIaqU6j39AZqJfs7bB3aksGN3YHk4EryVIeli9HmrIul9gaa433P/SVJA/34dASdjltv0w==",
-	//}
-	//rs := &response.ResponseCode2Session{
-	//	OpenID:     "o1IFX5A8sfi5nbkXwOzNLLLiL0OA",
-	//	SessionKey: "+CG6t0FMK1QMLP4IKWNPUw==",
-	//}
 
-	//fmt2.Dump(rs, req)
+	fmt2.Dump(rs, req)
 	// 解码手机授权信息
 	msgData, errEncrypt := l.svcCtx.PowerX.WechatMP.App.Encryptor.DecryptData(req.EncryptedData, rs.SessionKey, req.IV)
 
 	if errEncrypt != nil {
 		return nil, errors.New(errEncrypt.ErrMsg)
 	}
-
 	//println(string(msgData))
 	// 解析手机信息
 	mpPhoneInfo := &wechat.MPPhoneInfo{}
-	err = object.JsonDecode(msgData, mpPhoneInfo)
+	err = json.Unmarshal(msgData, mpPhoneInfo)
 	if err != nil {
 		panic(err.Error())
 		return
 	}
+
+	fmt2.Dump(mpPhoneInfo)
 
 	mpCustomer := &wechat.WechatMPCustomer{
 		OpenId:      rs.OpenID,
@@ -116,6 +112,38 @@ func (l *AuthByPhoneLogic) AuthByPhone(req *types.MPCustomerAuthRequest) (resp *
 	}
 
 	token := l.svcCtx.PowerX.CustomerAuthorization.SignMPToken(mpCustomer, l.svcCtx.Config.JWT.MPJWTSecret)
+
+	// 创建一个默认的客户会籍
+	ddBaseMembershipType := l.svcCtx.PowerX.DataDictionary.GetCachedDD(l.ctx, operation.TypeMembershipType, operation.MembershipTypeBase)
+	normalMembership, err := l.svcCtx.PowerX.Membership.GetMembershipBy(l.ctx, customer, ddBaseMembershipType.Id)
+	if err != nil {
+		return nil, errorx.WithCause(errorx.ErrRecordNotFound, err.Error())
+	}
+	if normalMembership == nil {
+		normalMembership = &operation.Membership{
+			CustomerId: customer.Id,
+			Type:       int(ddBaseMembershipType.Id),
+		}
+		err = l.svcCtx.PowerX.Membership.CreateMembership(l.ctx, normalMembership)
+		if err != nil {
+			return nil, errorx.WithCause(errorx.ErrCreateObject, "创建默认会籍发生错误")
+		}
+
+		// 如果是第一次有会籍，创建一个虚拟代币账号
+		err = l.svcCtx.PowerX.Token.CreateTokenBalance(l.ctx, &trade.TokenBalance{
+			CustomerId: customer.Id,
+			Balance:    1,
+		})
+		if err != nil {
+			return nil, errorx.WithCause(errorx.ErrCreateObject, "创建默认代币账户发生错误")
+		}
+		// 赠送1元代币
+		err = l.svcCtx.PowerX.Token.CreateTokenExchangeRecord(l.ctx, &trade.TokenExchangeRecord{
+			CustomerId:  customer.Id,
+			TokenAmount: 1,
+		})
+
+	}
 
 	return &types.MPCustomerLoginAuthReply{
 		OpenId:      mpCustomer.OpenId,

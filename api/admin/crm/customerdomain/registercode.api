@@ -17,7 +17,7 @@ info(
 service PowerX {
     @doc "查询注册码"
     @handler GetRegisterCode
-    get /register-codes/:id (GetRegisterCodeReqeuest) returns (GetRegisterCodeReply)
+    get /register-codes/:id (GetRegisterCodeRequest) returns (GetRegisterCodeReply)
 
     @doc "获取注册码分页列表"
     @handler ListRegisterCodesPage
@@ -57,7 +57,7 @@ type (
 )
 
 type (
-    GetRegisterCodeReqeuest {
+    GetRegisterCodeRequest {
         Id int64 `path:"id"`
     }
 

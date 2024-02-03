@@ -1,0 +1,36 @@
+syntax = "v1"
+
+info(
+    title: "会籍管理"
+    desc: "会籍管理"
+    author: "MichaelHu"
+    email: "matrix-x@artisan-cloud.com"
+    version: "v1"
+)
+
+
+@server(
+    group: mp/crm/membership
+    prefix: /api/v1/mp/membership
+    middleware: MPCustomerJWTAuth, MPCustomerGet
+)
+
+service PowerX {
+    @doc "查询会籍"
+    @handler GetCustomerMembership
+    get /customer (GetCustomerMembershipByTypeRequest) returns (GetCustomerMembershipByTypeReply)
+
+    @doc "查询会籍"
+    @handler GetMembership
+    get /:id (GetMembershipRequest) returns (GetMembershipReply)
+}
+
+type (
+    GetCustomerMembershipByTypeRequest {
+        TypeId int64 `form:"typeId"`
+    }
+
+    GetCustomerMembershipByTypeReply {
+        *Membership
+    }
+)

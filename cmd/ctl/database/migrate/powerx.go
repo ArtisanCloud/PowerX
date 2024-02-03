@@ -6,7 +6,6 @@ import (
 	"PowerX/internal/model"
 	"PowerX/internal/model/crm/customerdomain"
 	"PowerX/internal/model/crm/market"
-	"PowerX/internal/model/crm/membership"
 	"PowerX/internal/model/crm/product"
 	"PowerX/internal/model/crm/trade"
 	infoorganizatoin "PowerX/internal/model/infoorganization"
@@ -60,7 +59,7 @@ func (m *PowerMigrator) AutoMigrate() {
 	// customer domain
 	_ = m.db.AutoMigrate(
 		&customerdomain.Lead{}, &customerdomain.Contact{}, customerdomain.RegisterCode{},
-		&customerdomain.Customer{}, &membership.Membership{},
+		&customerdomain.Customer{}, &operation.Membership{},
 	)
 	_ = m.db.AutoMigrate(&wechat.WechatOACustomer{}, &wechat.WechatMPCustomer{}, &wechat.WeWorkExternalContact{})
 	_ = m.db.AutoMigrate(
@@ -87,7 +86,10 @@ func (m *PowerMigrator) AutoMigrate() {
 	_ = m.db.AutoMigrate(&trade.OrderStatusTransition{}, &trade.PivotOrderToInventoryLog{})
 	_ = m.db.AutoMigrate(&trade.Payment{}, &trade.PaymentItem{})
 	_ = m.db.AutoMigrate(&trade.RefundOrder{}, &trade.RefundOrderItem{})
-	_ = m.db.AutoMigrate(&trade.TokenBalance{}, &trade.TokenExchangeRatio{}, &trade.TokenExchangeRecord{})
+	_ = m.db.AutoMigrate(&trade.TokenBalance{},
+		&trade.TokenExchangeRatio{}, &trade.TokenExchangeRecord{},
+		trade.TokenReservation{}, trade.TokenTransaction{},
+	)
 
 	// custom
 	migrate.AutoMigrateCustom(m.db)

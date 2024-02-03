@@ -50,7 +50,10 @@ func DefaultDataDictionary() (data []*model.DataDictionaryType) {
 		defaultPaymentTypeDataDictionary(),
 		defaultPaymentStatusDataDictionary(),
 		defaultTokenCategoryDataDictionary(),
+		defaultTokenTransactionDataDictionary(),
 		defaultMGMDataDictionary(),
+		defaultMembershipTypeDataDictionary(),
+		defaultMembershipStatusDataDictionary(),
 	}
 
 	return data

@@ -26,7 +26,7 @@ service PowerX {
 
     @doc "获取用户信息"
     @handler GetUserInfo
-    get /user-info returns (GetUserInfoReplyToWeb)
+    get /user-info returns (GetUserInfoReplyForWeb)
 }
 
 
@@ -59,7 +59,7 @@ type (
     }
 
 
-    GetUserInfoReplyToWeb {
+    GetUserInfoReplyForWeb {
         *Customer
     }
 )

@@ -36,5 +36,4 @@ func DefaultExchangeRecord(db *gorm.DB) []*trade.TokenExchangeRatio {
 			Ratio:        1,
 		},
 	}
-
 }

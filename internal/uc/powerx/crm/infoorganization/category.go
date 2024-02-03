@@ -113,6 +113,7 @@ func (uc *CategoryUseCase) FindAllCategories(ctx context.Context, opt *FindCateg
 	query = uc.buildFindQueryNoPage(query, opt)
 
 	if err := query.
+		//Debug().
 		Find(&categories).Error; err != nil {
 		panic(errors.Wrap(err, "find all categories failed"))
 	}
@@ -211,4 +212,31 @@ func (uc *CategoryUseCase) DeleteCategory(ctx context.Context, id int64) error {
 		return errorx.WithCause(errorx.ErrDeleteObjectNotFound, "未找到产品类别")
 	}
 	return nil
+}
+
+func (uc *CategoryUseCase) UpsertCategoriesToObjectByObject(ctx context.Context, obj powermodel.ModelInterface, categories []*infoorganizatoin.Category) error {
+
+	err := uc.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+
+		// 创建Pivot
+		pivotCategoryToObjects, err := (&infoorganizatoin.PivotCategoryToObject{}).MakeMorphPivotsFromObjectToCategories(obj, categories)
+		if err != nil {
+			return err
+		}
+
+		// 清除之前的Pivot
+		err = tx.
+			//Debug().
+			Delete(&infoorganizatoin.PivotCategoryToObject{}, "object_type = ? and object_id = ?", obj.GetTableName(false), obj.GetForeignReferValue()).Error
+		if err != nil {
+			return err
+		}
+
+		// 创建新的Pivots
+		err = tx.Create(pivotCategoryToObjects).Error
+
+		return err
+	})
+
+	return err
 }

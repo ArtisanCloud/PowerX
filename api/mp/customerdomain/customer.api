@@ -1,0 +1,26 @@
+syntax = "v1"
+
+info(
+    title: "客户服务"
+    desc: "客户服务"
+    author: "MichaelHu"
+    email: "matrix-x@artisan-cloud.com"
+    version: "v1"
+)
+
+
+@server(
+    group: mp/crm/customer
+    prefix: /api/v1/mp/customer
+    middleware: MPCustomerJWTAuth, MPCustomerGet
+)
+
+service PowerX {
+    @doc "获取用户信息"
+    @handler GetUserInfo
+    get /user-info returns (GetUserInfoReplyForMP)
+}
+
+type GetUserInfoReplyForMP{
+    *Customer
+}

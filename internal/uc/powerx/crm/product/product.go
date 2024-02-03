@@ -203,7 +203,7 @@ func (uc *ProductUseCase) PatchProduct(ctx context.Context, id int64, product in
 	if err := uc.db.WithContext(ctx).
 		Model(&model.Product{}).
 		Where(id).
-		Debug().
+		//Debug().
 		Updates(product).
 		Error; err != nil {
 		panic(err)

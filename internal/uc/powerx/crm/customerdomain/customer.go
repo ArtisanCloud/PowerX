@@ -153,7 +153,7 @@ func (uc *CustomerUseCase) UpsertCustomers(ctx context.Context, customers []*cus
 func (uc *CustomerUseCase) UpdateCustomer(ctx context.Context, id int64, customer *customerdomain.Customer) error {
 	//fmt.Dump(customer)
 	err := uc.db.WithContext(ctx).Model(&customerdomain.Customer{}).
-		Debug().
+		//Debug().
 		Where(id).Updates(&customer).Error
 
 	return err

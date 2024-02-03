@@ -787,7 +787,7 @@ type Lead struct {
 	*LeadExternalId
 }
 
-type GetLeadReqeuest struct {
+type GetLeadRequest struct {
 	Id int64 `path:"id"`
 }
 
@@ -889,7 +889,7 @@ type Customer struct {
 	*CustomerExternalId
 }
 
-type GetCustomerReqeuest struct {
+type GetCustomerRequest struct {
 	Id int64 `path:"id"`
 }
 
@@ -970,7 +970,7 @@ type RegisterCode struct {
 	CreatedAt          string `json:"createdAt,optional"`
 }
 
-type GetRegisterCodeReqeuest struct {
+type GetRegisterCodeRequest struct {
 	Id int64 `path:"id"`
 }
 
@@ -1049,6 +1049,30 @@ type AssignRegisterCodeToEmployeeRequest struct {
 
 type AssignRegisterCodeToEmployeeReply struct {
 	RegisterCodeId int64 `json:"customerId"`
+}
+
+type Membership struct {
+	Id               int64  `json:"id,optional"`
+	Name             string `json:"name,optional"`
+	MainMembershipId int64  `json:"mainMembershipId,optional"`
+	OrderId          int64  `json:"orderId,optional"`
+	OrderItemId      int64  `json:"orderItemId,optional"`
+	CustomerId       int64  `json:"customerId,optional"`
+	ProductId        int64  `json:"productId,optional"`
+	StartDate        string `json:"startDate,optional"`
+	EndDate          string `json:"endDate,optional"`
+	Status           int    `json:"status,optional"`
+	Type             int    `json:"type,optional"`
+	ExtendPeriod     bool   `json:"extendPeriod,optional"`
+	Plan             int    `json:"plan,optional"`
+}
+
+type GetMembershipRequest struct {
+	Id int64 `path:"id"`
+}
+
+type GetMembershipReply struct {
+	*Membership
 }
 
 type ListMediasPageRequest struct {
@@ -3043,6 +3067,15 @@ type DeleteOAMediaReply struct {
 	Data    interface{} `json:"data"`
 }
 
+type MPValidTokenRequest struct {
+	Token string `form:"token"`
+}
+
+type MPValidTokenReply struct {
+	Valid  bool   `json:"valid"`
+	Reason string `json:"reason"`
+}
+
 type MPCustomerLoginRequest struct {
 	Code string `json:"code"`
 }
@@ -3068,6 +3101,18 @@ type MPToken struct {
 	ExpiresIn    string `json:"expiresIn"`
 	AccessToken  string `json:"accessToken"`
 	RefreshToken string `json:"refreshToken"`
+}
+
+type GetUserInfoReplyForMP struct {
+	*Customer
+}
+
+type GetCustomerMembershipByTypeRequest struct {
+	TypeId int64 `form:"typeId"`
+}
+
+type GetCustomerMembershipByTypeReply struct {
+	*Membership
 }
 
 type ListProductCategoriesRequest struct {
@@ -3494,6 +3539,18 @@ type UpdatePaymentReply struct {
 	*Payment
 }
 
+type TokenBalance struct {
+	Id                 int64   `json:"id,optional" desc:"代币ID"`
+	Balance            float64 `json:"balance" desc:"代币余额"`
+	Usage              float64 `json:"usage" desc:"使用代币"`
+	UnusedTicketsCount int64   `json:"unusedTicketsCount" desc:"可继续使用的ticket"`
+	ReservedToken      float64 `json:"reservedToken" desc:"预扣代币"`
+}
+
+type GetCustomerBalanceReply struct {
+	*TokenBalance
+}
+
 type CustomerLoginRequest struct {
 	Account  string `json:"account"`
 	Password string `json:"password"`
@@ -3555,7 +3612,7 @@ type WebToken struct {
 	RefreshToken string `json:"refreshToken"`
 }
 
-type GetUserInfoReplyToWeb struct {
+type GetUserInfoReplyForWeb struct {
 	*Customer
 }
 

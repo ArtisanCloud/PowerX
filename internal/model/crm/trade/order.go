@@ -29,6 +29,7 @@ type Order struct {
 	PaymentType    int       `gorm:"comment:支付方式" json:"paymentType"`
 	Type           int       `gorm:"comment:订单类型" json:"type"`
 	Status         int       `gorm:"comment:订单状态" json:"status"`
+	IsVerified     bool      `gorm:"comment:在产生支付完整后，有使用窗口期，是否被核销" json:"isVerified"`
 	OrderNumber    string    `gorm:"comment:订单号; index;unique" json:"orderNumber"`
 	UnitPrice      float64   `gorm:"type:decimal(10,2); comment:是实际交易价格" json:"unitPrice"`
 	ListPrice      float64   `gorm:"type:decimal(10,2); comment:是订单价格" json:"listPrice"`
@@ -36,6 +37,7 @@ type Order struct {
 	Comment        string    `gorm:"comment:备注" json:"comment"`
 	CompletedAt    time.Time `gorm:"comment:订单完成时间" json:"completedAt"`
 	CancelledAt    time.Time `gorm:"comment:订单取消时间" json:"cancelledAt"`
+	VerifiedAt     time.Time `gorm:"comment:订单核销时间" json:"verifiedAt"`
 	ShippingMethod string    `gorm:"comment:物流方式" json:"shippingMethod"`
 }
 
@@ -57,8 +59,6 @@ const (
 	OrderStatusRefunded    = "_refunded"      // 已退款
 	OrderStatusReturned    = "_returned"      // 已退货
 )
-
-type OrderType int
 
 const (
 	OrderTypeNormal           = "_normal"             // 普通订单

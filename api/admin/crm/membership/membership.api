@@ -1,0 +1,49 @@
+syntax = "v1"
+
+info(
+    title: "会籍管理"
+    desc: "会籍管理"
+    author: "MichaelHu"
+    email: "matrix-x@artisan-cloud.com"
+    version: "v1"
+)
+
+@server(
+    group: admin/crm/membership
+    prefix: /api/v1/admin/membership
+    middleware: EmployeeJWTAuth
+)
+
+service PowerX {
+    @doc "查询会籍"
+    @handler GetCustomer
+    get /customers/:id (GetMembershipRequest) returns (GetMembershipReply)
+}
+
+type (
+    Membership {
+        Id int64 `json:"id,optional"`
+
+        Name string `json:"name,optional"`
+        MainMembershipId int64 `json:"mainMembershipId,optional"`
+        OrderId int64 `json:"orderId,optional"`
+        OrderItemId int64 `json:"orderItemId,optional"`
+        CustomerId int64 `json:"customerId,optional"`
+        ProductId int64 `json:"productId,optional"`
+        StartDate string `json:"startDate,optional"`
+        EndDate string `json:"endDate,optional"`
+        Status int `json:"status,optional"`
+        Type int `json:"type,optional"`
+        ExtendPeriod bool `json:"extendPeriod,optional"`
+        Plan int `json:"plan,optional"`
+
+    }
+
+    GetMembershipRequest{
+        Id int64 `path:"id"`
+    }
+
+    GetMembershipReply {
+        *Membership
+    }
+)

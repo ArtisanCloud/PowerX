@@ -26,7 +26,7 @@ func NewGetLeadLogic(ctx context.Context, svcCtx *svc.ServiceContext) *GetLeadLo
 	}
 }
 
-func (l *GetLeadLogic) GetLead(req *types.GetLeadReqeuest) (resp *types.GetLeadReply, err error) {
+func (l *GetLeadLogic) GetLead(req *types.GetLeadRequest) (resp *types.GetLeadReply, err error) {
 	mdlLead, err := l.svcCtx.PowerX.Lead.GetLead(l.ctx, req.Id)
 
 	if err != nil {
