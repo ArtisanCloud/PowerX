@@ -11,7 +11,7 @@ info (
 @server (
     group: admin/crm/trade/logistics
     prefix: /api/v1/admin/trade
-    middleware: EmployeeJWTAuth
+    middleware: UserJWTAuth
 )
 
 service PowerX {

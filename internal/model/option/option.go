@@ -1,6 +1,6 @@
 package option
 
-type EmployeeLoginOption struct {
+type UserLoginOption struct {
 	Account     string
 	PhoneNumber string
 	Email       string
@@ -14,7 +14,7 @@ type FindManyDepartmentsOption struct {
 type FindManyPositionsOption struct {
 	LikeName string
 }
-type FindManyEmployeesOption struct {
+type FindManyUsersOption struct {
 	Ids             []int64
 	Accounts        []string
 	Names           []string

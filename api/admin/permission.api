@@ -11,7 +11,7 @@ info(
 @server(
     group: admin/permission
     prefix: /api/v1/admin/permission
-    middleware: EmployeeJWTAuth
+    middleware: UserJWTAuth
 )
 
 service PowerX {
@@ -32,8 +32,8 @@ service PowerX {
     patch /roles/:roleCode (PatchRoleReqeust) returns (PatchRoleReply)
 
     @doc "获取角色的用户列表"
-    @handler GetRoleEmployees
-    get /roles/:roleCode/users (GetRoleEmployeesReqeust) returns (GetRoleEmployeesReply)
+    @handler GetRoleUsers
+    get /roles/:roleCode/users (GetRoleUsersReqeust) returns (GetRoleUsersReply)
 
     @doc "为角色授予API权限"
     @handler SetRolePermissions
@@ -44,8 +44,8 @@ service PowerX {
     get /api-list (ListAPIRequest) returns (ListAPIReply)
 
     @doc "为角色分配用户"
-    @handler SetRoleEmployees
-    post /roles/:roleCode/actions/set-employees (SetRoleEmployeesRequest) returns (SetRoleEmployeesReply)
+    @handler SetRoleUsers
+    post /roles/:roleCode/actions/set-users (SetRoleUsersRequest) returns (SetRoleUsersReply)
 
     @doc "为用户授予角色"
     @handler SetUserRoles
@@ -127,12 +127,12 @@ type (
 )
 
 type (
-    SetRoleEmployeesRequest {
+    SetRoleUsersRequest {
         RoleCode string `path:"roleCode"`
-        EmployeeIds []int64 `json:"employeeIds"`
+        UserIds []int64 `json:"userIds"`
     }
 
-    SetRoleEmployeesReply {
+    SetRoleUsersReply {
         Status string `json:"status"`
     }
 )
@@ -148,29 +148,29 @@ type (
 )
 
 type (
-    GetRoleEmployeesReqeust {
+    GetRoleUsersReqeust {
         RoleCode string `path:"roleCode"`
         PageIndex int `form:"pageIndex"`
         PageSize int `form:"pageSize"`
     }
 
-    RoleEmployeeDepartment {
+    RoleUserDepartment {
         Id int64 `json:"id"`
         Name string `json:"name"`
     }
 
-    RoleEmployee {
+    RoleUser {
         Id int64 `json:"id"`
         Name string `json:"name"`
         Nickname string `json:"nickname"`
         Account string `json:"account"`
         PhoneNumber string `json:"phoneNumber"`
-        Department *RoleEmployeeDepartment `json:"department"`
+        Department *RoleUserDepartment `json:"department"`
         Email string `json:"email"`
     }
 
-    GetRoleEmployeesReply {
-        List []RoleEmployee `json:"list"`
+    GetRoleUsersReply {
+        List []RoleUser `json:"list"`
         PageIndex int `json:"pageIndex"`
         PageSize int `json:"pageSize"`
         Total int64 `json:"total"`

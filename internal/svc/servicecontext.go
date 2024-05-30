@@ -13,12 +13,12 @@ type ServiceContext struct {
 	PowerX *uc.PowerXUseCase
 	Custom *uc.CustomUseCase
 
-	MPCustomerJWTAuth     rest.Middleware
-	MPCustomerGet         rest.Middleware
-	WebCustomerJWTAuth    rest.Middleware
-	WebCustomerGet        rest.Middleware
-	EmployeeJWTAuth       rest.Middleware
-	EmployeeNoPermJWTAuth rest.Middleware
+	MPCustomerJWTAuth  rest.Middleware
+	MPCustomerGet      rest.Middleware
+	WebCustomerJWTAuth rest.Middleware
+	WebCustomerGet     rest.Middleware
+	UserJWTAuth        rest.Middleware
+	UserNoPermJWTAuth  rest.Middleware
 
 	Plugin *pluginx.Manager
 }
@@ -28,15 +28,15 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 	custom, _ := uc.NewCustomUseCase(&c, powerx)
 
 	svcCtx := ServiceContext{
-		Config:                c,
-		PowerX:                powerx,
-		MPCustomerJWTAuth:     middleware.NewMPCustomerJWTAuthMiddleware(&c, powerx).Handle,
-		MPCustomerGet:         middleware.NewMPCustomerGetMiddleware(&c, powerx).Handle,
-		WebCustomerJWTAuth:    middleware.NewWebCustomerJWTAuthMiddleware(&c, powerx).Handle,
-		WebCustomerGet:        middleware.NewWebCustomerGetMiddleware(&c, powerx).Handle,
-		EmployeeJWTAuth:       middleware.NewEmployeeJWTAuthMiddleware(&c, powerx).Handle,
-		EmployeeNoPermJWTAuth: middleware.NewEmployeeNoPermJWTAuthMiddleware(&c, powerx).Handle,
-		Custom:                custom,
+		Config:             c,
+		PowerX:             powerx,
+		MPCustomerJWTAuth:  middleware.NewMPCustomerJWTAuthMiddleware(&c, powerx).Handle,
+		MPCustomerGet:      middleware.NewMPCustomerGetMiddleware(&c, powerx).Handle,
+		WebCustomerJWTAuth: middleware.NewWebCustomerJWTAuthMiddleware(&c, powerx).Handle,
+		WebCustomerGet:     middleware.NewWebCustomerGetMiddleware(&c, powerx).Handle,
+		UserJWTAuth:        middleware.NewUserJWTAuthMiddleware(&c, powerx).Handle,
+		UserNoPermJWTAuth:  middleware.NewUserNoPermJWTAuthMiddleware(&c, powerx).Handle,
+		Custom:             custom,
 	}
 
 	for _, opt := range opts {

@@ -12,7 +12,7 @@ info(
 @server(
     group: admin/crm/market/brandstory
     prefix: /api/v1/admin/market
-    middleware: EmployeeJWTAuth
+    middleware: UserJWTAuth
 )
 
 service PowerX {
@@ -50,7 +50,7 @@ type (
 
 
     StoreArtisan {
-        EmployeeId int64 `json:"employeeId,optional"`
+        UserId int64 `json:"userId,optional"`
         Name string `json:"name,optional"`
         Level int8 `json:"level,optional"`
         Gender bool `json:"gender,optional"`
@@ -69,7 +69,7 @@ type (
     Store {
         Id int64 `json:"id,optional"`
         Name string `json:"name"`
-        StoreEmployeeId int64 `json:"storeEmployeeId,optional"`
+        StoreUserId int64 `json:"storeUserId,optional"`
         ContactNumber string `json:"contactNumber"`
         Email string `json:"email,optional"`
         Address string `json:"address"`
@@ -152,7 +152,7 @@ type (
 type (
     AssignStoreManagerRequest {
         Id int64 `path:"id"`
-        EmployeeId int64 `json:"employeeId"`
+        UserId int64 `json:"userId"`
     }
 
     AssignStoreManagerReply {

@@ -172,15 +172,15 @@
         ]
       }
     },
-    "/api/v1/admin/opportunity/opportunities/{id}/assign-employee": {
+    "/api/v1/admin/opportunity/opportunities/{id}/assign-user": {
       "put": {
         "summary": "为商机分配员工",
-        "operationId": "AssignEmployeeToOpportunity",
+        "operationId": "AssignUserToOpportunity",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/AssignEmployeeToOpportunityReply"
+              "$ref": "#/definitions/AssignUserToOpportunityReply"
             }
           }
         },
@@ -196,7 +196,7 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/AssignEmployeeToOpportunityRequest"
+              "$ref": "#/definitions/AssignUserToOpportunityRequest"
             }
           }
         ],
@@ -208,7 +208,7 @@
     }
   },
   "definitions": {
-    "AssignEmployeeToOpportunityReply": {
+    "AssignUserToOpportunityReply": {
       "type": "object",
       "properties": {
         "id": {
@@ -216,27 +216,27 @@
           "format": "int64"
         }
       },
-      "title": "AssignEmployeeToOpportunityReply",
+      "title": "AssignUserToOpportunityReply",
       "required": [
         "id"
       ]
     },
-    "AssignEmployeeToOpportunityRequest": {
+    "AssignUserToOpportunityRequest": {
       "type": "object",
       "properties": {
         "id": {
           "type": "integer",
           "format": "int64"
         },
-        "employeeId": {
+        "userId": {
           "type": "integer",
           "format": "int64"
         }
       },
-      "title": "AssignEmployeeToOpportunityRequest",
+      "title": "AssignUserToOpportunityRequest",
       "required": [
         "id",
-        "employeeId"
+        "userId"
       ]
     },
     "CreateOpportunityReply": {
@@ -275,7 +275,7 @@
         "type": {
           "type": "string"
         },
-        "employeeId": {
+        "userId": {
           "type": "integer",
           "format": "int64"
         },
@@ -290,7 +290,7 @@
         "customerId",
         "source",
         "type",
-        "employeeId",
+        "userId",
         "stage"
       ]
     },
@@ -409,7 +409,7 @@
         "type": {
           "type": "string"
         },
-        "employeeId": {
+        "userId": {
           "type": "integer",
           "format": "int64"
         },
@@ -435,7 +435,7 @@
         "probability",
         "source",
         "type",
-        "employeeId",
+        "userId",
         "stage",
         "closedDate",
         "createdAt",
@@ -478,7 +478,7 @@
         "type": {
           "type": "string"
         },
-        "employeeId": {
+        "userId": {
           "type": "integer",
           "format": "int64"
         },

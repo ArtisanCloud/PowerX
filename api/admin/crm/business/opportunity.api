@@ -11,7 +11,7 @@ info(
 @server(
     group: admin/crm/business/opportunity
     prefix: /api/v1/admin/business
-    middleware: EmployeeJWTAuth
+    middleware: UserJWTAuth
 )
 
 service PowerX {
@@ -24,8 +24,8 @@ service PowerX {
     post /opportunities (CreateOpportunityRequest) returns (CreateOpportunityReply)
 
     @doc "为商机分配员工"
-    @handler AssignEmployeeToOpportunity
-    put /opportunities/:id/assign-employee (AssignEmployeeToOpportunityRequest) returns (AssignEmployeeToOpportunityReply)
+    @handler AssignUserToOpportunity
+    put /opportunities/:id/assign-user (AssignUserToOpportunityRequest) returns (AssignUserToOpportunityReply)
 
     @doc "修改商机信息"
     @handler UpdateOpportunity
@@ -55,7 +55,7 @@ type (
         Probability float32 `json:"probability"`
         Source string `json:"source"`
         Type string `json:"type"`
-        EmployeeId int64 `json:"employeeId"`
+        UserId int64 `json:"userId"`
         Stage string `json:"stage"`
         ClosedDate string `json:"closedDate"`
         CreatedAt string `json:"createdAt"`
@@ -78,7 +78,7 @@ type (
         Probability  float32 `json:"probability,optional"`
         Source       string  `json:"source,options=new_customer|old_customer_new_purchase|old_customer_repurchase|old_customer_upgrade"`
         Type         string  `json:"type,options=trial_requirement|requirement_match|detailed_requirement_analysis|solution_provided|quotation|negotiation|closed_unsuccessful|closed_successful"`
-        EmployeeId   int64   `json:"employeeId"`
+        UserId   int64   `json:"userId"`
         Stage        string  `json:"stage"`
     }
 
@@ -88,12 +88,12 @@ type (
 )
 
 type (
-    AssignEmployeeToOpportunityRequest struct {
+    AssignUserToOpportunityRequest struct {
         Id         int64 `path:"id"`
-        EmployeeId int64 `json:"employeeId"`
+        UserId int64 `json:"userId"`
     }
 
-    AssignEmployeeToOpportunityReply struct {
+    AssignUserToOpportunityReply struct {
         Id int64 `json:"id"`
     }
 )
@@ -107,7 +107,7 @@ type (
         Probability  float32 `json:"probability,optional"`
         Source       string `json:"source,optional,options=new_customer|old_customer_new_purchase|old_customer_repurchase|old_customer_upgrade"`
         Type         string `json:"type,optional,options=trial_requirement|requirement_match|detailed_requirement_analysis|solution_provided|quotation|negotiation|closed_unsuccessful|closed_successful"`
-        EmployeeId   int64  `json:"employeeId,optional"`
+        UserId   int64  `json:"userId,optional"`
         Stage        string `json:"stage,optional"`
         ClosedDate   string `json:"closedDate,optional"`
     }

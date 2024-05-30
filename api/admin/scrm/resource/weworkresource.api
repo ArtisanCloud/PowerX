@@ -11,7 +11,7 @@ info(
 @server(
     group: admin/scrm/resource
     prefix: /api/v1/admin/scrm/resource/wechat
-    middleware: EmployeeJWTAuth
+    middleware: UserJWTAuth
 )
 
 service PowerX {

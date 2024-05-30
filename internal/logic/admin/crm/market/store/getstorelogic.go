@@ -49,7 +49,7 @@ func TransformArtisansToShopArtisans(artisans []*product2.Artisan) []*types.Stor
 
 func TransformArtisanToShopArtisan(artisan *product2.Artisan) *types.StoreArtisan {
 	return &types.StoreArtisan{
-		EmployeeId:  artisan.EmployeeId,
+		UserId:      artisan.UserId,
 		Name:        artisan.Name,
 		Level:       artisan.Level,
 		Gender:      artisan.Gender,

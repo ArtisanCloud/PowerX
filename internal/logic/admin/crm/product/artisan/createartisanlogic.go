@@ -52,7 +52,7 @@ func TransformRequestToArtisan(artisanRequest *types.Artisan) (mdlArtisan *produ
 	birthday := carbon.Parse(artisanRequest.Birthday)
 
 	return &product.Artisan{
-		EmployeeId:   artisanRequest.EmployeeId,
+		UserId:       artisanRequest.UserId,
 		Name:         artisanRequest.Name,
 		Level:        artisanRequest.Level,
 		Gender:       artisanRequest.Gender,

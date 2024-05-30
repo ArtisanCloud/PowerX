@@ -11,7 +11,7 @@ info(
 @server(
     group: admin/crm/customerdomain/customer
     prefix: /api/v1/admin/customerdomain
-    middleware: EmployeeJWTAuth
+    middleware: UserJWTAuth
 )
 
 service PowerX {
@@ -40,8 +40,8 @@ service PowerX {
     delete /customers/:id (DeleteCustomerRequest) returns (DeleteCustomerReply)
 
     @doc "为客户分配员工"
-    @handler AssignCustomerToEmployee
-    post /customers/:id/actions/employees (AssignCustomerToEmployeeRequest) returns (AssignCustomerToEmployeeReply)
+    @handler AssignCustomerToUser
+    post /customers/:id/actions/users (AssignCustomerToUserRequest) returns (AssignCustomerToUserReply)
 }
 
 type (
@@ -153,12 +153,12 @@ type (
 )
 
 type (
-    AssignCustomerToEmployeeRequest {
+    AssignCustomerToUserRequest {
         Id string `path:"id"`
-        EmployeeId int64 `json:"employeeId"`
+        UserId int64 `json:"userId"`
     }
 
-    AssignCustomerToEmployeeReply {
+    AssignCustomerToUserReply {
         CustomerId int64 `json:"customerId"`
     }
 )

@@ -25,7 +25,7 @@ admin/crm/trade/token,/api/v1/admin/trade/token,代币产品,代币产品
 admin/crm/trade/warehouse,/api/v1/admin/trade,仓库服务,仓库服务
 admin/department,/api/v1/admin/department,待命名分组,待描述
 admin/dictionary,/api/v1/admin/dictionary,字典管理API,字典管理API
-admin/employee,/api/v1/admin/employee,员工管理,员工管理
+admin/user,/api/v1/admin/user,员工管理,员工管理
 admin/infoorganization/category,/api/v1/admin/info-organization,类别,类别
 admin/infoorganization/label,/api/v1/admin/info-organization,框架标签,框架标签
 admin/infoorganization/tag,/api/v1/admin/info-organization,碎片标签,碎片标签

@@ -26,10 +26,10 @@ func NewDeletePositionLogic(ctx context.Context, svcCtx *svc.ServiceContext) *De
 }
 
 func (l *DeletePositionLogic) DeletePosition(req *types.DeletePositionRequest) (resp *types.DeletePositionReply, err error) {
-	employeePage := l.svcCtx.PowerX.Organization.FindManyEmployeesPage(l.ctx, &option.FindManyEmployeesOption{
+	userPage := l.svcCtx.PowerX.Organization.FindManyUsersPage(l.ctx, &option.FindManyUsersOption{
 		PositionIDs: []int64{req.Id},
 	})
-	if employeePage.Total > 0 {
+	if userPage.Total > 0 {
 		return nil, errorx.WithCause(errorx.ErrBadRequest, "该职位下存在员工，无法删除")
 	}
 	err = l.svcCtx.PowerX.Organization.DeletePosition(l.ctx, req.Id)

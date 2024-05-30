@@ -11,7 +11,7 @@ info(
 @server(
     group: admin/userinfo
     prefix: /api/v1/admin/user-center
-    middleware: EmployeeJWTAuth
+    middleware: UserJWTAuth
 )
 
 service PowerX {

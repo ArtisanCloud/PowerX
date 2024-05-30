@@ -50,17 +50,17 @@ func (l *PatchPositionLogic) PatchPosition(req *types.PatchPositionRequest) (res
 	}
 
 	// 查询该职位的员工
-	page := l.svcCtx.PowerX.Organization.FindManyEmployeesPage(l.ctx, &option.FindManyEmployeesOption{
+	page := l.svcCtx.PowerX.Organization.FindManyUsersPage(l.ctx, &option.FindManyUsersOption{
 		PositionIDs: []int64{req.Id},
 	})
-	// pluck employee id
-	employeeIDs := slicex.SlicePluck(page.List, func(item *origanzation.Employee) int64 {
+	// pluck user id
+	userIDs := slicex.SlicePluck(page.List, func(item *origanzation.User) int64 {
 		return item.Id
 	})
 
 	// 更新员工的角色
-	for _, id := range employeeIDs {
-		err = l.svcCtx.PowerX.AdminAuthorization.ReplaceEmployeeRoles(l.ctx, id, req.RoleCodes)
+	for _, id := range userIDs {
+		err = l.svcCtx.PowerX.AdminAuthorization.ReplaceUserRoles(l.ctx, id, req.RoleCodes)
 		if err != nil {
 			return
 		}

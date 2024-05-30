@@ -2,7 +2,7 @@ import "admin/scrm/contactway.api"
 //import "admin/scrm/customer.api"
 //import "admin/scrm/contact.api"
 // organzation
-import "admin/scrm/organization/weworkemployee.api"
+import "admin/scrm/organization/weworkuser.api"
 import "admin/scrm/organization/weworkdepartment.api"
 // app
 import "admin/scrm/app/weworkgroup.api"

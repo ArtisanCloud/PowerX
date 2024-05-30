@@ -11,7 +11,7 @@ info(
 @server(
     group: admin/dictionary
     prefix: /api/v1/admin/dictionary
-    middleware: EmployeeJWTAuth
+    middleware: UserJWTAuth
 )
 
 service PowerX {

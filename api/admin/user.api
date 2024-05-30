@@ -1,0 +1,178 @@
+syntax = "v1"
+
+info(
+    title: "员工管理"
+    desc: "员工管理"
+    author: "Northseadl"
+    email: "northseadl@outlook.com"
+    version: "v1"
+)
+
+@server(
+    group: admin/user
+    prefix: /api/v1/admin/user
+    middleware: UserJWTAuth
+)
+
+service PowerX {
+    @doc "同步员工"
+    @handler SyncUsers
+    post /users/actions/sync (SyncUsersRequest) returns (SyncUsersReply)
+
+    @doc "查询员工"
+    @handler GetUser
+    get /users/:id (GetUserRequest) returns (GetUserReply)
+
+    @doc "List员工"
+    @handler ListUsers
+    get /users (ListUsersRequest) returns (ListUsersReply)
+
+    @doc "创建员工"
+    @handler CreateUser
+    post /users (CreateUserRequest) returns (CreateUserReply)
+
+    @doc "编辑员工信息"
+    @handler UpdateUser
+    patch /users/:id (UpdateUserRequest) returns (UpdateUserReply)
+
+    @doc "删除员工"
+    @handler DeleteUser
+    delete /users/:id (DeleteUserRequest) returns (DeleteUserReply)
+
+    @doc "重设密码"
+    @handler ResetPassword
+    post /users/actions/reset-password (ResetPasswordRequest) returns (ResetPasswordReply)
+}
+
+type (
+    GetUserRequest {
+        Id int64 `path:"id"`
+    }
+
+    GetUserReply {
+        *User
+    }
+)
+
+type (
+    ListUsersRequest {
+        Ids []int64 `form:"ids,optional"`
+        LikeName string `form:"likeName,optional"`
+        LikeEmail string `form:"likeEmail,optional"`
+        DepIds []int64 `form:"depIds,optional"`
+        PositionIds []int64 `form:"positionIds,optional"`
+        LikePhoneNumber string `form:"likePhoneNumber,optional"`
+        RoleCodes []string `form:"roleCodes,optional"`
+        IsEnabled *bool `form:"isEnable,optional"`
+        PageIndex int `form:"pageIndex,optional"`
+        PageSize int `form:"pageSize,optional"`
+    }
+
+    UserDepartment {
+        DepId int64 `json:"depId"`
+        DepName string `json:"depName"`
+    }
+
+    User {
+        Id int64 `json:"id"`
+        Account string `json:"account"`
+        Name string `json:"name"`
+        Email string `json:"email"`
+        MobilePhone string `json:"mobilePhone"`
+        Gender string `json:"gender"`
+        NickName string `json:"nickName,optional"`
+        Desc string `json:"desc,optional"`
+        Avatar string `json:"avatar,optional"`
+        ExternalEmail string `json:"externalEmail,optional"`
+        Roles []string `json:"roles"`
+        Department *UserDepartment `json:"department"`
+        Position *Position `json:"position"`
+        PositionId int64 `json:"positionId"`
+        JobTitle string `json:"jobTitle"`
+        IsEnabled bool `json:"isEnabled"`
+        CreatedAt string `json:"createdAt"`
+    }
+
+    ListUsersReply {
+        List []User `json:"list"`
+        PageIndex int `json:"pageIndex"`
+        PageSize int `json:"pageSize"`
+        Total int64 `json:"total"`
+    }
+)
+
+type (
+    SyncUsersRequest {
+        Source string `json:"source"`
+        Target string `json:"target"`
+    }
+
+    SyncUsersReply {
+        Status bool `json:"status"`
+    }
+)
+
+type (
+    CreateUserRequest {
+        Account string `json:"account"`
+        Name string `json:"name"`
+        NickName string `json:"nickName,optional"`
+        Desc string `json:"desc,optional"`
+        Email string `json:"email"`
+        Avatar string `json:"avatar,optional"`
+        ExternalEmail string `json:"externalEmail,optional"`
+        MobilePhone string `json:"mobilePhone,optional"`
+        Gender string `json:"gender,options=male|female|un_know"`
+        DepId int64 `json:"depId"`
+        PositionId int64 `json:"positionId,optional"`
+        JobTitle string `json:"jobTitle,optional"`
+        Password string `json:"password,optional"`
+    }
+
+    CreateUserReply {
+        Id int64 `json:"id"`
+    }
+)
+
+type (
+    UpdateUserRequest {
+        Id int64 `path:"id"`
+        Name string `json:"name,optional"`
+        NickName string `json:"nickName,optional"`
+        Desc string `json:"desc,optional"`
+        Email string `json:"email,optional"`
+        Avatar string `json:"avatar,optional"`
+        ExternalEmail string `json:"externalEmail,optional"`
+        MobilePhone string `json:"mobilePhone,optional"`
+        Gender string `json:"gender,optional,options=male|female|un_know"`
+        DepId int64 `json:"depId,optional"`
+        PositionId int64 `json:"positionId,optional"`
+        JobTitle string `json:"jobTitle,optional"`
+        Password string `json:"password,optional"`
+        Status string `json:"status,optional,options=enabled|disabled"`
+    }
+
+    UpdateUserReply {
+        *User
+    }
+)
+
+type (
+    DeleteUserRequest {
+        Id int64 `path:"id"`
+    }
+
+    DeleteUserReply {
+        Id int64 `json:"id"`
+    }
+)
+
+type (
+    ResetPasswordRequest {
+        UserId int64 `json:"userId"`
+    }
+
+    ResetPasswordReply {
+        Status string `json:"status"`
+    }
+)

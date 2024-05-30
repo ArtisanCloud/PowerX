@@ -11,7 +11,7 @@ info(
 @server(
     group: admin/mediaresource
     prefix: /api/v1/admin/media
-    middleware: EmployeeJWTAuth
+    middleware: UserJWTAuth
 )
 
 service PowerX {

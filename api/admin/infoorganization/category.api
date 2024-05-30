@@ -12,7 +12,7 @@ info(
 @server(
     group: admin/infoorganization/category
     prefix: /api/v1/admin/info-organization
-    middleware: EmployeeJWTAuth
+    middleware: UserJWTAuth
 )
 
 service PowerX {

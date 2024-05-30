@@ -1,7 +1,7 @@
 @server(
     group: admin/position
     prefix: /api/v1/admin/position
-    middleware: EmployeeJWTAuth
+    middleware: UserJWTAuth
 )
 
 service PowerX {

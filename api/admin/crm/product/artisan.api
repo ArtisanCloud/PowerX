@@ -12,7 +12,7 @@ info(
 @server(
     group: admin/crm/product/artisan
     prefix: /api/v1/admin/product
-    middleware: EmployeeJWTAuth
+    middleware: UserJWTAuth
 )
 
 service PowerX {
@@ -50,7 +50,7 @@ type (
 
     Artisan {
         Id int64 `json:"id,optional"`
-        EmployeeId int64 `json:"employeeId,optional"`
+        UserId int64 `json:"userId,optional"`
         Name string `json:"name,optional"`
         Level int8 `json:"level"`
         Gender bool `json:"gender,optional"`

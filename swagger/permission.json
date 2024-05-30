@@ -145,15 +145,15 @@
         ]
       }
     },
-    "/api/v1/admin/permission/roles/{roleCode}/actions/set-employees": {
+    "/api/v1/admin/permission/roles/{roleCode}/actions/set-users": {
       "post": {
         "summary": "为角色分配用户",
-        "operationId": "SetRoleEmployees",
+        "operationId": "SetRoleUsers",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/SetRoleEmployeesReply"
+              "$ref": "#/definitions/SetRoleUsersReply"
             }
           }
         },
@@ -169,7 +169,7 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/SetRoleEmployeesRequest"
+              "$ref": "#/definitions/SetRoleUsersRequest"
             }
           }
         ],
@@ -216,12 +216,12 @@
     "/api/v1/admin/permission/roles/{roleCode}/users": {
       "get": {
         "summary": "获取角色的用户列表",
-        "operationId": "GetRoleEmployees",
+        "operationId": "GetRoleUsers",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/GetRoleEmployeesReply"
+              "$ref": "#/definitions/GetRoleUsersReply"
             }
           }
         },
@@ -413,13 +413,13 @@
         "menuNames"
       ]
     },
-    "GetRoleEmployeesReply": {
+    "GetRoleUsersReply": {
       "type": "object",
       "properties": {
         "list": {
           "type": "array",
           "items": {
-            "$ref": "#/definitions/RoleEmployee"
+            "$ref": "#/definitions/RoleUser"
           }
         },
         "pageIndex": {
@@ -435,7 +435,7 @@
           "format": "int64"
         }
       },
-      "title": "GetRoleEmployeesReply",
+      "title": "GetRoleUsersReply",
       "required": [
         "list",
         "pageIndex",
@@ -443,7 +443,7 @@
         "total"
       ]
     },
-    "GetRoleEmployeesReqeust": {
+    "GetRoleUsersReqeust": {
       "type": "object",
       "properties": {
         "roleCode": {
@@ -458,7 +458,7 @@
           "format": "int32"
         }
       },
-      "title": "GetRoleEmployeesReqeust",
+      "title": "GetRoleUsersReqeust",
       "required": [
         "roleCode",
         "pageIndex",
@@ -567,7 +567,7 @@
         "name"
       ]
     },
-    "RoleEmployee": {
+    "RoleUser": {
       "type": "object",
       "properties": {
         "id": {
@@ -587,13 +587,13 @@
           "type": "string"
         },
         "department": {
-          "$ref": "#/definitions/RoleEmployeeDepartment"
+          "$ref": "#/definitions/RoleUserDepartment"
         },
         "email": {
           "type": "string"
         }
       },
-      "title": "RoleEmployee",
+      "title": "RoleUser",
       "required": [
         "id",
         "name",
@@ -604,7 +604,7 @@
         "email"
       ]
     },
-    "RoleEmployeeDepartment": {
+    "RoleUserDepartment": {
       "type": "object",
       "properties": {
         "id": {
@@ -615,31 +615,31 @@
           "type": "string"
         }
       },
-      "title": "RoleEmployeeDepartment",
+      "title": "RoleUserDepartment",
       "required": [
         "id",
         "name"
       ]
     },
-    "SetRoleEmployeesReply": {
+    "SetRoleUsersReply": {
       "type": "object",
       "properties": {
         "status": {
           "type": "string"
         }
       },
-      "title": "SetRoleEmployeesReply",
+      "title": "SetRoleUsersReply",
       "required": [
         "status"
       ]
     },
-    "SetRoleEmployeesRequest": {
+    "SetRoleUsersRequest": {
       "type": "object",
       "properties": {
         "roleCode": {
           "type": "string"
         },
-        "employeeIds": {
+        "userIds": {
           "type": "array",
           "items": {
             "type": "integer",
@@ -647,10 +647,10 @@
           }
         }
       },
-      "title": "SetRoleEmployeesRequest",
+      "title": "SetRoleUsersRequest",
       "required": [
         "roleCode",
-        "employeeIds"
+        "userIds"
       ]
     },
     "SetRolePermissionsReply": {

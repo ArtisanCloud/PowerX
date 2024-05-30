@@ -34,9 +34,9 @@ type IWechatInterface interface {
 	iWeWorkDepartmentInterface
 
 	//
-	//  @Description: Employee
+	//  @Description: User
 	//
-	iWeWorkEmployeeInterface
+	iWeWorkUserInterface
 
 	//
 	//  @Description: Customer
@@ -95,24 +95,24 @@ type iWeWorkDepartmentInterface interface {
 	FindManyWeWorkDepartmentsPage(ctx context.Context, option *types.PageOption[FindManyWechatDepartmentsOption]) (*types.Page[*organization.WeWorkDepartment], error)
 }
 
-// iWeWorkEmployeeInterface
+// iWeWorkUserInterface
 // @Description: 员工
-type iWeWorkEmployeeInterface interface {
+type iWeWorkUserInterface interface {
 	//
-	// PullSyncDepartmentsAndEmployeesRequest
+	// PullSyncDepartmentsAndUsersRequest
 	//  @Description: 同步组织架构
 	//  @param ctx
 	//  @return error
 	//
-	PullSyncDepartmentsAndEmployeesRequest(ctx context.Context) error
+	PullSyncDepartmentsAndUsersRequest(ctx context.Context) error
 	//
-	// FindManyWechatEmployeesPage
+	// FindManyWechatUsersPage
 	//  @Description: 查询员工
 	//  @param ctx
 	//  @param opt
-	//  @return *types.Page[*organization.WeWorkEmployee]
+	//  @return *types.Page[*organization.WeWorkUser]
 	//
-	FindManyWechatEmployeesPage(ctx context.Context, opt *types.PageOption[FindManyWechatEmployeesOption]) (*types.Page[*organization.WeWorkEmployee], error)
+	FindManyWechatUsersPage(ctx context.Context, opt *types.PageOption[FindManyWechatUsersOption]) (*types.Page[*organization.WeWorkUser], error)
 }
 
 // iWeWorkCustomerInterface
@@ -267,10 +267,8 @@ type iCommonInterface interface {
 	FindWeWorkResourceListFromLocalPage(opt *types.ListWeWorkResourceImageRequest) (*types.Page[*resource.WeWorkResource], error)
 }
 
-//
-//  iQrcodeInterface
-//  @Description: 活码
-//
+// iQrcodeInterface
+// @Description: 活码
 type iQrcodeInterface interface {
 
 	//
@@ -315,10 +313,8 @@ type iQrcodeInterface interface {
 	UpdateSceneQrcodeLink(qid string, link string) error
 }
 
-//
-//  iTagInterface
-//  @Description: TAG
-//
+// iTagInterface
+// @Description: TAG
 type iTagInterface interface {
 	//
 	// FindListWeWorkTagGroupOption

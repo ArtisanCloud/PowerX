@@ -11,7 +11,7 @@ info(
 @server(
     group: admin/crm/customerdomain/registercode
     prefix: /api/v1/admin/customerdomain
-    middleware: EmployeeJWTAuth
+    middleware: UserJWTAuth
 )
 
 service PowerX {
@@ -142,12 +142,12 @@ type (
 )
 
 type (
-    AssignRegisterCodeToEmployeeRequest {
+    AssignRegisterCodeToUserRequest {
         Id string `path:"id"`
-        EmployeeId int64 `json:"employeeId"`
+        UserId int64 `json:"userId"`
     }
 
-    AssignRegisterCodeToEmployeeReply {
+    AssignRegisterCodeToUserReply {
         RegisterCodeId int64 `json:"customerId"`
     }
 )

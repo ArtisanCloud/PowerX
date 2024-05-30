@@ -17,7 +17,7 @@ import "./pricebookentry.api"
 @server(
     group: admin/crm/product
     prefix: /api/v1/admin/product
-    middleware: EmployeeJWTAuth
+    middleware: UserJWTAuth
 )
 
 service PowerX {

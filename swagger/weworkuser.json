@@ -1,0 +1,245 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "企业微信员工管理",
+    "description": "企业微信员工管理",
+    "version": "v1"
+  },
+  "schemes": [
+    "http",
+    "https"
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "paths": {
+    "/api/v1/admin/scrm/organization/wechat/user/page": {
+      "post": {
+        "summary": "员工列表/page",
+        "operationId": "ListWeWorkUserPage",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/ListWeWorkUserReply"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/ListWeWorkUserReqeust"
+            }
+          }
+        ],
+        "requestBody": {},
+        "tags": [
+          "admin/scrm/organization"
+        ]
+      }
+    },
+    "/api/v1/admin/scrm/organization/wechat/sync": {
+      "get": {
+        "summary": "同步组织架构/department\u0026user",
+        "operationId": "SyncWeWorkUser",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/SyncWeWorkOrganizationReply"
+            }
+          }
+        },
+        "requestBody": {},
+        "tags": [
+          "admin/scrm/organization"
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "ListWeWorkUserReply": {
+      "type": "object",
+      "properties": {
+        "list": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/WechatUser"
+          }
+        },
+        "pageIndex": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "pageSize": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "total": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "title": "ListWeWorkUserReply",
+      "required": [
+        "list",
+        "pageIndex",
+        "pageSize",
+        "total"
+      ]
+    },
+    "ListWeWorkUserReqeust": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int64",
+          "description": " 微信员工ID"
+        },
+        "name": {
+          "type": "string",
+          "description": " 微信员工名称"
+        },
+        "alias": {
+          "type": "string",
+          "description": " 微信员工别称"
+        },
+        "email": {
+          "type": "string",
+          "description": " 微信员工Email"
+        },
+        "mobile": {
+          "type": "string",
+          "description": " 微信员工手机号"
+        },
+        "openUserId": {
+          "type": "string",
+          "description": " openID"
+        },
+        "weWorkMainDepartmentId": {
+          "type": "integer",
+          "format": "int64",
+          "description": " 微信员工所属部门"
+        },
+        "status": {
+          "type": "integer",
+          "format": "int32",
+          "description": " 状态"
+        },
+        "pageIndex": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "pageSize": {
+          "type": "integer",
+          "format": "int32"
+        }
+      },
+      "title": "ListWeWorkUserReqeust"
+    },
+    "SyncWeWorkOrganizationReply": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string"
+        }
+      },
+      "title": "SyncWeWorkOrganizationReply",
+      "required": [
+        "status"
+      ]
+    },
+    "WechatUser": {
+      "type": "object",
+      "properties": {
+        "weWorkUserId": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "position": {
+          "type": "string"
+        },
+        "Mobile": {
+          "type": "string"
+        },
+        "gender": {
+          "type": "string"
+        },
+        "Email": {
+          "type": "string"
+        },
+        "bizMail": {
+          "type": "string"
+        },
+        "avatar": {
+          "type": "string"
+        },
+        "thumbAvatar": {
+          "type": "string"
+        },
+        "telephone": {
+          "type": "string"
+        },
+        "alias": {
+          "type": "string"
+        },
+        "address": {
+          "type": "string"
+        },
+        "openUserId": {
+          "type": "string"
+        },
+        "weWorkMainDepartmentId": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "status": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "qrCode": {
+          "type": "string"
+        }
+      },
+      "title": "WechatUser",
+      "required": [
+        "weWorkUserId",
+        "name",
+        "position",
+        "unique",
+        "gender",
+        "bizMail",
+        "avatar",
+        "thumbAvatar",
+        "telephone",
+        "alias",
+        "address",
+        "openUserId",
+        "weWorkMainDepartmentId",
+        "status",
+        "qrCode"
+      ]
+    }
+  },
+  "securityDefinitions": {
+    "apiKey": {
+      "type": "apiKey",
+      "description": "Enter JWT Bearer token **_only_**",
+      "name": "Authorization",
+      "in": "header"
+    }
+  },
+  "security": [
+    {
+      "apiKey": []
+    }
+  ]
+}

@@ -26,7 +26,7 @@ type (
 //	@Description:
 //	@param db
 //	@param wework
-//	@return iEmployeeInterface
+//	@return iUserInterface
 func Repo(db *gorm.DB, kv *redis.Redis) IsceneInterface {
 
 	return &sceneUseCase{

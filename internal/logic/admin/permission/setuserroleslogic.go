@@ -24,17 +24,17 @@ func NewSetUserRolesLogic(ctx context.Context, svcCtx *svc.ServiceContext) *SetU
 }
 
 func (l *SetUserRolesLogic) SetUserRoles(req *types.SetUserRolesRequest) (resp *types.SetUserRolesReply, err error) {
-	employee, err := l.svcCtx.PowerX.Organization.FindOneEmployeeById(l.ctx, req.UserId)
+	user, err := l.svcCtx.PowerX.Organization.FindOneUserById(l.ctx, req.UserId)
 	if err != nil {
 		return nil, err
 	}
 
-	_, err = l.svcCtx.PowerX.AdminAuthorization.Casbin.DeleteRolesForUser(employee.Account)
+	_, err = l.svcCtx.PowerX.AdminAuthorization.Casbin.DeleteRolesForUser(user.Account)
 	if err != nil {
 		return nil, err
 	}
 
-	_, err = l.svcCtx.PowerX.AdminAuthorization.Casbin.AddRolesForUser(employee.Account, req.RoleCodes)
+	_, err = l.svcCtx.PowerX.AdminAuthorization.Casbin.AddRolesForUser(user.Account, req.RoleCodes)
 	if err != nil {
 		return nil, err
 	}

@@ -31,8 +31,8 @@ func (uc *OrganizationUseCase) VerifyPassword(hashedPwd string, pwd string) bool
 	return origanzation.VerifyPassword(hashedPwd, pwd)
 }
 
-func (uc *OrganizationUseCase) CreateEmployee(ctx context.Context, employee *origanzation.Employee) (err error) {
-	if err := uc.db.WithContext(ctx).Create(&employee).Error; err != nil {
+func (uc *OrganizationUseCase) CreateUser(ctx context.Context, user *origanzation.User) (err error) {
+	if err := uc.db.WithContext(ctx).Create(&user).Error; err != nil {
 		// todo use errors.Is() when gorm update ErrDuplicatedKey
 		if strings.Contains(err.Error(), "duplicate key value violates unique constraint") {
 			return errorx.WithCause(errorx.ErrBadRequest, "账号已存在")
@@ -42,16 +42,16 @@ func (uc *OrganizationUseCase) CreateEmployee(ctx context.Context, employee *ori
 	return nil
 }
 
-func (uc *OrganizationUseCase) FindAccountsByIds(ctx context.Context, employeeIds []int64) (accounts []string) {
-	err := uc.db.WithContext(ctx).Model(&origanzation.Employee{}).Where("id in ?", employeeIds).Pluck("account", &accounts).Error
+func (uc *OrganizationUseCase) FindAccountsByIds(ctx context.Context, userIds []int64) (accounts []string) {
+	err := uc.db.WithContext(ctx).Model(&origanzation.User{}).Where("id in ?", userIds).Pluck("account", &accounts).Error
 	if err != nil {
 		panic(errors.Wrap(err, "find accounts by ids failed"))
 	}
 	return accounts
 }
 
-func (uc *OrganizationUseCase) PatchEmployeeByUserId(ctx context.Context, employee *origanzation.Employee, employeeId int64) error {
-	result := uc.db.WithContext(ctx).Model(&origanzation.Employee{}).Where(employee.Id).Updates(&employee)
+func (uc *OrganizationUseCase) PatchUserByUserId(ctx context.Context, user *origanzation.User, userId int64) error {
+	result := uc.db.WithContext(ctx).Model(&origanzation.User{}).Where(user.Id).Updates(&user)
 	if result.Error != nil {
 		panic(result.Error)
 	}
@@ -61,7 +61,7 @@ func (uc *OrganizationUseCase) PatchEmployeeByUserId(ctx context.Context, employ
 	return nil
 }
 
-func buildFindManyEmployeesQueryNoPage(query *gorm.DB, opt *option.FindManyEmployeesOption) *gorm.DB {
+func buildFindManyUsersQueryNoPage(query *gorm.DB, opt *option.FindManyUsersOption) *gorm.DB {
 	if len(opt.Ids) > 0 {
 		query.Where("id in ?", opt.Ids)
 	}
@@ -95,14 +95,14 @@ func buildFindManyEmployeesQueryNoPage(query *gorm.DB, opt *option.FindManyEmplo
 	return query
 }
 
-func (uc *OrganizationUseCase) FindManyEmployeesPage(ctx context.Context, opt *option.FindManyEmployeesOption) types.Page[*origanzation.Employee] {
-	var employees []*origanzation.Employee
+func (uc *OrganizationUseCase) FindManyUsersPage(ctx context.Context, opt *option.FindManyUsersOption) types.Page[*origanzation.User] {
+	var users []*origanzation.User
 	var count int64
-	query := uc.db.WithContext(ctx).Model(&origanzation.Employee{})
+	query := uc.db.WithContext(ctx).Model(&origanzation.User{})
 
-	query = buildFindManyEmployeesQueryNoPage(query, opt)
+	query = buildFindManyUsersQueryNoPage(query, opt)
 	if err := query.Count(&count).Error; err != nil {
-		panic(errors.Wrap(err, "find employees failed"))
+		panic(errors.Wrap(err, "find users failed"))
 	}
 
 	if opt.PageIndex == 0 {
@@ -116,34 +116,34 @@ func (uc *OrganizationUseCase) FindManyEmployeesPage(ctx context.Context, opt *o
 		query.Offset((opt.PageIndex - 1) * opt.PageSize).Limit(opt.PageSize)
 	}
 
-	if err := query.Find(&employees).Error; err != nil {
-		panic(errors.Wrap(err, "find employees failed"))
+	if err := query.Find(&users).Error; err != nil {
+		panic(errors.Wrap(err, "find users failed"))
 	}
-	return types.Page[*origanzation.Employee]{
-		List:      employees,
+	return types.Page[*origanzation.User]{
+		List:      users,
 		PageIndex: opt.PageIndex,
 		PageSize:  opt.PageSize,
 		Total:     count,
 	}
 }
 
-func (uc *OrganizationUseCase) FindOneEmployeeByLoginOption(ctx context.Context, opt *option.EmployeeLoginOption) (employee *origanzation.Employee, err error) {
-	if *opt == (option.EmployeeLoginOption{}) {
+func (uc *OrganizationUseCase) FindOneUserByLoginOption(ctx context.Context, opt *option.UserLoginOption) (user *origanzation.User, err error) {
+	if *opt == (option.UserLoginOption{}) {
 		panic(errors.New("option empty"))
 	}
 
-	var queryEmployee origanzation.Employee
+	var queryUser origanzation.User
 	if opt.Account != "" {
-		queryEmployee.Account = opt.Account
+		queryUser.Account = opt.Account
 	}
 	if opt.Email != "" {
-		queryEmployee.Email = opt.Email
+		queryUser.Email = opt.Email
 	}
 	if opt.PhoneNumber != "" {
-		queryEmployee.MobilePhone = opt.PhoneNumber
+		queryUser.MobilePhone = opt.PhoneNumber
 	}
 
-	if err = uc.db.WithContext(ctx).Model(&origanzation.Employee{}).Where(&queryEmployee).First(&employee).Error; err != nil {
+	if err = uc.db.WithContext(ctx).Model(&origanzation.User{}).Where(&queryUser).First(&user).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errorx.WithCause(errorx.ErrBadRequest, "用户不存在, 请检查登录信息")
 		}
@@ -152,8 +152,8 @@ func (uc *OrganizationUseCase) FindOneEmployeeByLoginOption(ctx context.Context,
 	return
 }
 
-func (uc *OrganizationUseCase) FindOneEmployeeById(ctx context.Context, id int64) (employee *origanzation.Employee, err error) {
-	if err = uc.db.WithContext(ctx).Where(id).Preload("Department").Preload("Position").First(&employee).Error; err != nil {
+func (uc *OrganizationUseCase) FindOneUserById(ctx context.Context, id int64) (user *origanzation.User, err error) {
+	if err = uc.db.WithContext(ctx).Where(id).Preload("Department").Preload("Position").First(&user).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errorx.WithCause(errorx.ErrBadRequest, "用户不存在")
 		}
@@ -162,29 +162,29 @@ func (uc *OrganizationUseCase) FindOneEmployeeById(ctx context.Context, id int64
 	return
 }
 
-func (uc *OrganizationUseCase) UpdateEmployeeById(ctx context.Context, employee *origanzation.Employee, employeeId int64) error {
-	whereCase := origanzation.Employee{
+func (uc *OrganizationUseCase) UpdateUserById(ctx context.Context, user *origanzation.User, userId int64) error {
+	whereCase := origanzation.User{
 		Model: model.Model{
-			Id: employeeId,
+			Id: userId,
 		},
 		IsReserved: false,
 	}
-	result := uc.db.WithContext(ctx).Where(whereCase, "is_reserved").Clauses(&clause.Returning{}).Updates(employee)
+	result := uc.db.WithContext(ctx).Where(whereCase, "is_reserved").Clauses(&clause.Returning{}).Updates(user)
 	if result.RowsAffected == 0 {
 		return errorx.WithCause(errorx.ErrBadRequest, "更新失败, 用户保留或不存在")
 	}
 	err := result.Error
 	if err != nil {
-		panic(errors.Wrap(err, "delete employee failed"))
+		panic(errors.Wrap(err, "delete user failed"))
 	}
 	return nil
 }
 
-func (uc *OrganizationUseCase) DeleteEmployeeById(ctx context.Context, id int64) error {
-	result := uc.db.WithContext(ctx).Where(origanzation.Employee{IsReserved: false}, "is_reserved").Delete(&origanzation.Employee{}, id)
+func (uc *OrganizationUseCase) DeleteUserById(ctx context.Context, id int64) error {
+	result := uc.db.WithContext(ctx).Where(origanzation.User{IsReserved: false}, "is_reserved").Delete(&origanzation.User{}, id)
 	err := result.Error
 	if err != nil {
-		panic(errors.Wrap(err, "delete employee failed"))
+		panic(errors.Wrap(err, "delete user failed"))
 	}
 	if result.RowsAffected == 0 {
 		return errorx.WithCause(errorx.ErrBadRequest, "删除失败")
@@ -192,16 +192,16 @@ func (uc *OrganizationUseCase) DeleteEmployeeById(ctx context.Context, id int64)
 	return nil
 }
 
-// FindEmployeePositionRoleCodes 获取员工的职位的角色代码
-func (uc *OrganizationUseCase) FindEmployeePositionRoleCodes(ctx context.Context, employeeId int64) (roleCodes []string, err error) {
-	var employee origanzation.Employee
-	if err = uc.db.WithContext(ctx).Preload("Position.Roles").First(&employee, employeeId).Error; err != nil {
+// FindUserPositionRoleCodes 获取员工的职位的角色代码
+func (uc *OrganizationUseCase) FindUserPositionRoleCodes(ctx context.Context, userId int64) (roleCodes []string, err error) {
+	var user origanzation.User
+	if err = uc.db.WithContext(ctx).Preload("Position.Roles").First(&user, userId).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errorx.WithCause(errorx.ErrBadRequest, "用户不存在")
 		}
 		panic(err)
 	}
-	roleCodes = slicex.SlicePluck(employee.Position.Roles, func(item *permission.AdminRole) string {
+	roleCodes = slicex.SlicePluck(user.Position.Roles, func(item *permission.AdminRole) string {
 		return item.RoleCode
 	})
 	return
@@ -293,8 +293,8 @@ func (uc *OrganizationUseCase) FindAllDepartments(ctx context.Context) (departme
 	return
 }
 
-func (uc *OrganizationUseCase) CountEmployeeInDepartmentByIds(ctx context.Context, depIds []int64) (count int64) {
-	if err := uc.db.WithContext(ctx).Model(origanzation.Employee{}).Where("department_id in ?", depIds).Count(&count).Error; err != nil {
+func (uc *OrganizationUseCase) CountUserInDepartmentByIds(ctx context.Context, depIds []int64) (count int64) {
+	if err := uc.db.WithContext(ctx).Model(origanzation.User{}).Where("department_id in ?", depIds).Count(&count).Error; err != nil {
 		panic(err)
 	}
 	return count

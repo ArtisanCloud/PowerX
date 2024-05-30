@@ -18,7 +18,7 @@ type Artisan struct {
 	CoverImage           *media.MediaResource                `gorm:"foreignKey:CoverImageId;references:Id" json:"coverImage"`
 	PivotStoreToArtisans []*PivotStoreToArtisan              `gorm:"foreignKey:ArtisanId;references:Id" json:"pivotStoreToArtisans"`
 
-	EmployeeId   int64     `gorm:"comment:员工Id"  json:"employeeId"`
+	UserId       int64     `gorm:"comment:员工Id"  json:"userId"`
 	Name         string    `gorm:"comment:Artisan名称"  json:"name"`
 	Level        int8      `gorm:"comment:级别"  json:"level"`
 	Gender       bool      `gorm:"comment:性别"  json:"gender"`

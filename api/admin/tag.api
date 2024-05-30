@@ -12,7 +12,7 @@ info(
 @server(
     group: admin/tag
     prefix: /api/v1/admin/tags
-    middleware: EmployeeJWTAuth
+    middleware: UserJWTAuth
 )
 
 service PowerX {

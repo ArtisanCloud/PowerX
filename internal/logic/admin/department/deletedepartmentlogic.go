@@ -35,7 +35,7 @@ func (l *DeleteDepartmentLogic) DeleteDepartment(req *types.DeleteDepartmentRequ
 		depIds = append(depIds, department.Id)
 	}
 
-	if l.svcCtx.PowerX.Organization.CountEmployeeInDepartmentByIds(l.ctx, depIds) > 0 {
+	if l.svcCtx.PowerX.Organization.CountUserInDepartmentByIds(l.ctx, depIds) > 0 {
 		return nil, errorx.WithCause(errorx.ErrBadRequest, "删除失败, 要删除的部门下还有用户")
 	}
 

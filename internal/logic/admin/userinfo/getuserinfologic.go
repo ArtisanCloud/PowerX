@@ -32,36 +32,36 @@ func (l *GetUserInfoLogic) GetUserInfo() (resp *types.GetUserInfoReply, err erro
 		panic(errors.Wrap(err, "get user metadata failed"))
 	}
 
-	employee, err := l.svcCtx.PowerX.Organization.FindOneEmployeeById(l.ctx, cred.UID)
+	user, err := l.svcCtx.PowerX.Organization.FindOneUserById(l.ctx, cred.UID)
 	if err != nil {
 		return nil, err
 	}
 
-	roles, _ := l.svcCtx.PowerX.AdminAuthorization.Casbin.GetRolesForUser(employee.Account)
+	roles, _ := l.svcCtx.PowerX.AdminAuthorization.Casbin.GetRolesForUser(user.Account)
 
 	resp = &types.GetUserInfoReply{
-		Id:            employee.Id,
-		Account:       employee.Account,
-		Name:          employee.Name,
-		Email:         employee.Email,
-		MobilePhone:   employee.MobilePhone,
-		Gender:        employee.Gender,
-		NickName:      employee.NickName,
-		Desc:          employee.NickName,
-		Avatar:        employee.Avatar,
-		ExternalEmail: employee.ExternalEmail,
+		Id:            user.Id,
+		Account:       user.Account,
+		Name:          user.Name,
+		Email:         user.Email,
+		MobilePhone:   user.MobilePhone,
+		Gender:        user.Gender,
+		NickName:      user.NickName,
+		Desc:          user.NickName,
+		Avatar:        user.Avatar,
+		ExternalEmail: user.ExternalEmail,
 		Roles:         roles,
-		JobTitle:      employee.JobTitle,
-		CreatedAt:     employee.CreatedAt.Format(time.RFC3339),
+		JobTitle:      user.JobTitle,
+		CreatedAt:     user.CreatedAt.Format(time.RFC3339),
 	}
-	if employee.Position != nil {
-		resp.Position = employee.Position.Name
+	if user.Position != nil {
+		resp.Position = user.Position.Name
 	}
 
-	if employee.Department != nil {
-		resp.DepName = employee.Department.Name
+	if user.Department != nil {
+		resp.DepName = user.Department.Name
 	}
-	if employee.Status == origanzation.EmployeeStatusEnabled {
+	if user.Status == origanzation.UserStatusEnabled {
 		resp.IsEnabled = true
 	}
 	return

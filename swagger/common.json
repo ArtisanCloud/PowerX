@@ -63,15 +63,15 @@
         ]
       }
     },
-    "/api/v1/admin/common/options/employee-query": {
+    "/api/v1/admin/common/options/user-query": {
       "get": {
         "summary": "查询员工过滤条件",
-        "operationId": "GetEmployeeQueryOptions",
+        "operationId": "GetUserQueryOptions",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/GetEmployeeQueryOptionsReply"
+              "$ref": "#/definitions/GetUserQueryOptionsReply"
             }
           }
         },
@@ -81,15 +81,15 @@
         ]
       }
     },
-    "/api/v1/admin/common/options/employees": {
+    "/api/v1/admin/common/options/users": {
       "get": {
         "summary": "员工Options远程搜索",
-        "operationId": "GetEmployeeOptions",
+        "operationId": "GetUserOptions",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/GetEmployeeOptionsReply"
+              "$ref": "#/definitions/GetUserOptionsReply"
             }
           }
         },
@@ -152,7 +152,7 @@
         "name"
       ]
     },
-    "EmployeeOption": {
+    "UserOption": {
       "type": "object",
       "properties": {
         "id": {
@@ -175,7 +175,7 @@
           "type": "string"
         }
       },
-      "title": "EmployeeOption",
+      "title": "UserOption",
       "required": [
         "id",
         "avatar",
@@ -185,7 +185,7 @@
         "phoneNumber"
       ]
     },
-    "EmployeeQueryDepartmentOption": {
+    "UserQueryDepartmentOption": {
       "type": "object",
       "properties": {
         "departmentId": {
@@ -196,13 +196,13 @@
           "type": "string"
         }
       },
-      "title": "EmployeeQueryDepartmentOption",
+      "title": "UserQueryDepartmentOption",
       "required": [
         "departmentId",
         "departmentName"
       ]
     },
-    "EmployeeQueryRoleOption": {
+    "UserQueryRoleOption": {
       "type": "object",
       "properties": {
         "roleCode": {
@@ -212,7 +212,7 @@
           "type": "string"
         }
       },
-      "title": "EmployeeQueryRoleOption",
+      "title": "UserQueryRoleOption",
       "required": [
         "roleCode",
         "roleName"
@@ -272,13 +272,13 @@
       },
       "title": "GetDepartmentOptionsRequest"
     },
-    "GetEmployeeOptionsReply": {
+    "GetUserOptionsReply": {
       "type": "object",
       "properties": {
         "list": {
           "type": "array",
           "items": {
-            "$ref": "#/definitions/EmployeeOption"
+            "$ref": "#/definitions/UserOption"
           }
         },
         "pageIndex": {
@@ -294,7 +294,7 @@
           "format": "int64"
         }
       },
-      "title": "GetEmployeeOptionsReply",
+      "title": "GetUserOptionsReply",
       "required": [
         "list",
         "pageIndex",
@@ -302,7 +302,7 @@
         "total"
       ]
     },
-    "GetEmployeeOptionsRequest": {
+    "GetUserOptionsRequest": {
       "type": "object",
       "properties": {
         "likeName": {
@@ -323,9 +323,9 @@
           "format": "int32"
         }
       },
-      "title": "GetEmployeeOptionsRequest"
+      "title": "GetUserOptionsRequest"
     },
-    "GetEmployeeQueryOptionsReply": {
+    "GetUserQueryOptionsReply": {
       "type": "object",
       "properties": {
         "positions": {
@@ -337,17 +337,17 @@
         "roles": {
           "type": "array",
           "items": {
-            "$ref": "#/definitions/EmployeeQueryRoleOption"
+            "$ref": "#/definitions/UserQueryRoleOption"
           }
         },
         "departments": {
           "type": "array",
           "items": {
-            "$ref": "#/definitions/EmployeeQueryDepartmentOption"
+            "$ref": "#/definitions/UserQueryDepartmentOption"
           }
         }
       },
-      "title": "GetEmployeeQueryOptionsReply",
+      "title": "GetUserQueryOptionsReply",
       "required": [
         "positions",
         "roles",
