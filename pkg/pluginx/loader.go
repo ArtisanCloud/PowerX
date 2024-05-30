@@ -64,6 +64,7 @@ type BuildPluginFrontendOptions struct {
 	ReDownload bool
 }
 
+// BuildPluginFrontend 构建插件前端
 func (l *Loader) BuildPluginFrontend(opts BuildPluginFrontendOptions) error {
 	// 检查是否workdir是否存在.download文件夹
 	isFirstDownload := false

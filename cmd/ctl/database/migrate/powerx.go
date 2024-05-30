@@ -6,6 +6,7 @@ import (
 	"PowerX/internal/model"
 	"PowerX/internal/model/crm/customerdomain"
 	"PowerX/internal/model/crm/market"
+	"PowerX/internal/model/crm/operation"
 	"PowerX/internal/model/crm/product"
 	"PowerX/internal/model/crm/trade"
 	infoorganizatoin "PowerX/internal/model/infoorganization"

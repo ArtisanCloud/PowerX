@@ -69,7 +69,7 @@ func VerifyPassword(hashedPwd string, pwd string) bool {
 }
 
 func (e *Employee) TableName() string {
-	return `employees`
+	return `users`
 }
 
 func (e *Employee) Action(db *gorm.DB, employees []*Employee) {
