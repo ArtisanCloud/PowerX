@@ -11,7 +11,7 @@ info(
 @server(
     group: admin/crm/customerdomain/leader
     prefix: /api/v1/admin/customerdomain
-    middleware: EmployeeJWTAuth
+    middleware: UserJWTAuth
 )
 
 service PowerX {
@@ -40,8 +40,8 @@ service PowerX {
     delete /leads/:id (DeleteLeadRequest) returns (DeleteLeadReply)
 
     @doc "为线索分配员工"
-    @handler AssignLeadToEmployee
-    post /leads/:id/actions/employees (AssignLeadToEmployeeRequest) returns (AssignLeadToEmployeeReply)
+    @handler AssignLeadToUser
+    post /leads/:id/actions/users (AssignLeadToUserRequest) returns (AssignLeadToUserReply)
 }
 
 type (
@@ -151,12 +151,12 @@ type (
 )
 
 type (
-    AssignLeadToEmployeeRequest {
+    AssignLeadToUserRequest {
         Id string `path:"id"`
-        EmployeeId int64 `json:"employeeId"`
+        UserId int64 `json:"userId"`
     }
 
-    AssignLeadToEmployeeReply {
+    AssignLeadToUserReply {
         LeadId int64 `json:"leadId"`
     }
 )

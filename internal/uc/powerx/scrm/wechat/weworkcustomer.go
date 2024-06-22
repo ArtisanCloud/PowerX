@@ -16,16 +16,15 @@ import (
 	"strings"
 )
 
-//
 // FindManyWeWorkCustomerPage
-//  @Description:
-//  @receiver this
-//  @param ctx
-//  @param opt
-//  @param sync
-//  @return *types.Page[*customer.WeWorkExternalContacts]
-//  @return error
 //
+//	@Description:
+//	@receiver this
+//	@param ctx
+//	@param opt
+//	@param sync
+//	@return *types.Page[*customer.WeWorkExternalContacts]
+//	@return error
 func (this wechatUseCase) FindManyWeWorkCustomerPage(ctx context.Context, opt *types.PageOption[FindManyWechatCustomerOption], sync int) (*types.Page[*customer.WeWorkExternalContacts], error) {
 
 	if sync > 0 {
@@ -62,13 +61,12 @@ func (this wechatUseCase) FindManyWeWorkCustomerPage(ctx context.Context, opt *t
 	}, err
 }
 
-//
 // buildFindManyCustomerQueryNoPage
-//  @Description:
-//  @param query
-//  @param opt
-//  @return *gorm.DB
 //
+//	@Description:
+//	@param query
+//	@param opt
+//	@return *gorm.DB
 func buildFindManyCustomerQueryNoPage(query *gorm.DB, opt *FindManyWechatCustomerOption) *gorm.DB {
 
 	if v := opt.UserId; v != `` {
@@ -85,14 +83,13 @@ func buildFindManyCustomerQueryNoPage(query *gorm.DB, opt *FindManyWechatCustome
 	return query
 }
 
-//
 // PullListWeWorkCustomerRequest
-//  @Description:
-//  @receiver this
-//  @param userID
-//  @return []*response.ResponseExternalContact
-//  @return error
 //
+//	@Description:
+//	@receiver this
+//	@param userID
+//	@return []*response.ResponseExternalContact
+//	@return error
 func (this wechatUseCase) PullListWeWorkCustomerRequest(userID ...string) ([]*response.ResponseExternalContact, error) {
 
 	var err error
@@ -139,12 +136,11 @@ func (this wechatUseCase) PullListWeWorkCustomerRequest(userID ...string) ([]*re
 
 }
 
-//
 // transferExternalContactToModel
-//  @Description:
-//  @param contact
-//  @return *customer.WeWorkExternalContacts
 //
+//	@Description:
+//	@param contact
+//	@return *customer.WeWorkExternalContacts
 func transferExternalContactToModel(contact *models.ExternalContact, userID string) customer.WeWorkExternalContacts {
 	return customer.WeWorkExternalContacts{
 
@@ -168,13 +164,12 @@ func transferExternalContactToModel(contact *models.ExternalContact, userID stri
 	}
 }
 
-//
 // transferExternalContactFollowToModel
-//  @Description:
-//  @param follow
-//  @param externalUserID
-//  @return customer.WeWorkExternalContactFollow
 //
+//	@Description:
+//	@param follow
+//	@param externalUserID
+//	@return customer.WeWorkExternalContactFollow
 func transferExternalContactFollowToModel(follow *models.FollowUser, externalUserID string) customer.WeWorkExternalContactFollow {
 
 	tags, _ := json.Marshal(follow.Tags)
@@ -196,22 +191,21 @@ func transferExternalContactFollowToModel(follow *models.FollowUser, externalUse
 	}
 }
 
-//
 // pullSyncWeWorkCustomer
-//  @Description: 全量/增量同步客户信息
-//  @receiver this
-//  @param ids
 //
+//	@Description: 全量/增量同步客户信息
+//	@receiver this
+//	@param ids
 func (this *wechatUseCase) pullSyncWeWorkCustomerRequest(ids ...string) {
 
 	if len(ids) > 0 && ids[0] == `` {
-		workEmployees := this.modelWeworkOrganization.employee.Query(this.db)
-		ids = organization.AdapterEmployeeSliceUserIDs(func(employees []*organization.WeWorkEmployee) (ids []string) {
-			for _, employee := range employees {
-				ids = append(ids, employee.WeWorkUserId)
+		workUsers := this.modelWeworkOrganization.user.Query(this.db)
+		ids = organization.AdapterUserSliceUserIDs(func(users []*organization.WeWorkUser) (ids []string) {
+			for _, user := range users {
+				ids = append(ids, user.WeWorkUserId)
 			}
 			return ids
-		})(workEmployees)
+		})(workUsers)
 	}
 
 	_, _ = this.PullListWeWorkCustomerRequest(ids...)

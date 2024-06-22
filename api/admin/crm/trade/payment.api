@@ -12,7 +12,7 @@ info(
 @server(
     group: admin/crm/trade/payment
     prefix: /api/v1/admin/trade
-    middleware: EmployeeJWTAuth
+    middleware: UserJWTAuth
 )
 
 service PowerX {
@@ -77,7 +77,7 @@ type (
     }
 )
 type (
-    ListPaymentsPageRequest struct {
+    ListPaymentsPageRequest {
         PaymentType string `form:"paymentType,optional"`
         Keys []string `form:"keys,optional"`
         OrderBy string `form:"orderBy,optional"`
@@ -86,7 +86,7 @@ type (
     }
 
 
-    ListPaymentsPageReply struct {
+    ListPaymentsPageReply {
         List []*Payment `json:"list"`
         PageIndex int `json:"pageIndex"`
         PageSize int `json:"pageSize"`
@@ -95,55 +95,55 @@ type (
 )
 
 type (
-    CreatePaymentRequest struct {
+    CreatePaymentRequest {
         Payment
     }
 
-    CreatePaymentReply struct {
+    CreatePaymentReply {
         PaymentKey int64 `json:"id"`
     }
 )
 
 type (
-    GetPaymentRequest struct {
+    GetPaymentRequest {
         PaymentId int64 `path:"id"`
     }
 
-    GetPaymentReply struct {
+    GetPaymentReply {
         *Payment
     }
 )
 
 
 type (
-    PutPaymentRequest struct {
+    PutPaymentRequest {
         PaymentId int64 `path:"id"`
         Payment
     }
 
-    PutPaymentReply struct {
+    PutPaymentReply {
         *Payment
     }
 )
 
 type (
-    PatchPaymentRequest struct {
+    PatchPaymentRequest {
         PaymentId int64 `path:"id"`
         Payment
     }
 
-    PatchPaymentReply struct {
+    PatchPaymentReply {
         *Payment
     }
 )
 
 
 type (
-    DeletePaymentRequest struct {
+    DeletePaymentRequest {
         PaymentId int64 `path:"id"`
     }
 
-    DeletePaymentReply struct {
+    DeletePaymentReply {
         PaymentId int64 `json:"id"`
     }
 )

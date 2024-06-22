@@ -53,16 +53,16 @@ func TransformRequestToStore(storeRequest *types.Store) (mdlStore *market.Store)
 	startWork := carbon.ParseByFormat(storeRequest.StartWork, carbonx.TimeFormat)
 	endWork := carbon.ParseByFormat(storeRequest.EndWork, carbonx.TimeFormat)
 	return &market.Store{
-		StoreEmployeeId: storeRequest.StoreEmployeeId,
-		Name:            storeRequest.Name,
-		ContactNumber:   storeRequest.ContactNumber,
-		CoverImageId:    storeRequest.CoverImageId,
-		Email:           storeRequest.Email,
-		Address:         storeRequest.Address,
-		Description:     storeRequest.Description,
-		Longitude:       storeRequest.Longitude,
-		Latitude:        storeRequest.Latitude,
-		StartWork:       startWork.ToStdTime(),
-		EndWork:         endWork.ToStdTime(),
+		StoreUserId:   storeRequest.StoreUserId,
+		Name:          storeRequest.Name,
+		ContactNumber: storeRequest.ContactNumber,
+		CoverImageId:  storeRequest.CoverImageId,
+		Email:         storeRequest.Email,
+		Address:       storeRequest.Address,
+		Description:   storeRequest.Description,
+		Longitude:     storeRequest.Longitude,
+		Latitude:      storeRequest.Latitude,
+		StartWork:     startWork.ToStdTime(),
+		EndWork:       endWork.ToStdTime(),
 	}
 }

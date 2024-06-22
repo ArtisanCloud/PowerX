@@ -1,0 +1,696 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "员工管理",
+    "description": "员工管理",
+    "version": "v1"
+  },
+  "schemes": [
+    "http",
+    "https"
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "paths": {
+    "/api/v1/admin/user/users": {
+      "get": {
+        "summary": "List员工",
+        "operationId": "ListUsers",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/ListUsersReply"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "ids",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int64"
+          },
+          {
+            "name": "likeName",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "likeEmail",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "depIds",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int64"
+          },
+          {
+            "name": "positions",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "likePhoneNumber",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "roleCodes",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "isEnable",
+            "in": "query",
+            "required": false,
+            "type": "invalid",
+            "format": "UNKNOWN"
+          },
+          {
+            "name": "pageIndex",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          }
+        ],
+        "requestBody": {},
+        "tags": [
+          "admin/user"
+        ]
+      },
+      "post": {
+        "summary": "创建员工",
+        "operationId": "CreateUser",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/CreateUserReply"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/CreateUserRequest"
+            }
+          }
+        ],
+        "requestBody": {},
+        "tags": [
+          "admin/user"
+        ]
+      }
+    },
+    "/api/v1/admin/user/users/actions/reset-password": {
+      "post": {
+        "summary": "重设密码",
+        "operationId": "ResetPassword",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/ResetPasswordReply"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/ResetPasswordRequest"
+            }
+          }
+        ],
+        "requestBody": {},
+        "tags": [
+          "admin/user"
+        ]
+      }
+    },
+    "/api/v1/admin/user/users/actions/sync": {
+      "post": {
+        "summary": "同步员工",
+        "operationId": "SyncUsers",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/SyncUsersReply"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/SyncUsersRequest"
+            }
+          }
+        ],
+        "requestBody": {},
+        "tags": [
+          "admin/user"
+        ]
+      }
+    },
+    "/api/v1/admin/user/users/{id}": {
+      "get": {
+        "summary": "查询员工",
+        "operationId": "GetUser",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/GetUserReply"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "requestBody": {},
+        "tags": [
+          "admin/user"
+        ]
+      },
+      "delete": {
+        "summary": "删除员工",
+        "operationId": "DeleteUser",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/DeleteUserReply"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/DeleteUserRequest"
+            }
+          }
+        ],
+        "requestBody": {},
+        "tags": [
+          "admin/user"
+        ]
+      },
+      "patch": {
+        "summary": "编辑员工信息",
+        "operationId": "UpdateUser",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/UpdateUserReply"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/UpdateUserRequest"
+            }
+          }
+        ],
+        "requestBody": {},
+        "tags": [
+          "admin/user"
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "CreateUserReply": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "title": "CreateUserReply",
+      "required": [
+        "id"
+      ]
+    },
+    "CreateUserRequest": {
+      "type": "object",
+      "properties": {
+        "account": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "nickName": {
+          "type": "string"
+        },
+        "desc": {
+          "type": "string"
+        },
+        "email": {
+          "type": "string"
+        },
+        "avatar": {
+          "type": "string"
+        },
+        "externalEmail": {
+          "type": "string"
+        },
+        "mobilePhone": {
+          "type": "string"
+        },
+        "gender": {
+          "type": "string"
+        },
+        "depId": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "position": {
+          "type": "string"
+        },
+        "jobTitle": {
+          "type": "string"
+        },
+        "password": {
+          "type": "string"
+        }
+      },
+      "title": "CreateUserRequest",
+      "required": [
+        "account",
+        "name",
+        "email",
+        "gender",
+        "depId"
+      ]
+    },
+    "DeleteUserReply": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "title": "DeleteUserReply",
+      "required": [
+        "id"
+      ]
+    },
+    "DeleteUserRequest": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "title": "DeleteUserRequest",
+      "required": [
+        "id"
+      ]
+    },
+    "User": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "account": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "email": {
+          "type": "string"
+        },
+        "mobilePhone": {
+          "type": "string"
+        },
+        "gender": {
+          "type": "string"
+        },
+        "nickName": {
+          "type": "string"
+        },
+        "desc": {
+          "type": "string"
+        },
+        "avatar": {
+          "type": "string"
+        },
+        "externalEmail": {
+          "type": "string"
+        },
+        "roles": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "department": {
+          "$ref": "#/definitions/UserDepartment"
+        },
+        "position": {
+          "type": "string"
+        },
+        "jobTitle": {
+          "type": "string"
+        },
+        "isEnabled": {
+          "type": "boolean",
+          "format": "boolean"
+        },
+        "createdAt": {
+          "type": "string"
+        }
+      },
+      "title": "User",
+      "required": [
+        "id",
+        "account",
+        "name",
+        "email",
+        "mobilePhone",
+        "gender",
+        "roles",
+        "department",
+        "position",
+        "jobTitle",
+        "isEnabled",
+        "createdAt"
+      ]
+    },
+    "UserDepartment": {
+      "type": "object",
+      "properties": {
+        "depId": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "depName": {
+          "type": "string"
+        }
+      },
+      "title": "UserDepartment",
+      "required": [
+        "depId",
+        "depName"
+      ]
+    },
+    "GetUserReply": {
+      "type": "object",
+      "properties": {
+        "": {
+          "$ref": "#/definitions/User"
+        }
+      },
+      "title": "GetUserReply"
+    },
+    "GetUserRequest": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "title": "GetUserRequest",
+      "required": [
+        "id"
+      ]
+    },
+    "ListUsersReply": {
+      "type": "object",
+      "properties": {
+        "list": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/User"
+          }
+        },
+        "pageIndex": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "pageSize": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "total": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "title": "ListUsersReply",
+      "required": [
+        "list",
+        "pageIndex",
+        "pageSize",
+        "total"
+      ]
+    },
+    "ListUsersRequest": {
+      "type": "object",
+      "properties": {
+        "ids": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        "likeName": {
+          "type": "string"
+        },
+        "likeEmail": {
+          "type": "string"
+        },
+        "depIds": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        "positions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "likePhoneNumber": {
+          "type": "string"
+        },
+        "roleCodes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "isEnable": {
+          "$ref": "#/definitions/bool"
+        },
+        "pageIndex": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "pageSize": {
+          "type": "integer",
+          "format": "int32"
+        }
+      },
+      "title": "ListUsersRequest"
+    },
+    "ResetPasswordReply": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string"
+        }
+      },
+      "title": "ResetPasswordReply",
+      "required": [
+        "status"
+      ]
+    },
+    "ResetPasswordRequest": {
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "integer",
+          "format": "int64"
+        }
+      },
+      "title": "ResetPasswordRequest",
+      "required": [
+        "userId"
+      ]
+    },
+    "SyncUsersReply": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "boolean",
+          "format": "boolean"
+        }
+      },
+      "title": "SyncUsersReply",
+      "required": [
+        "status"
+      ]
+    },
+    "SyncUsersRequest": {
+      "type": "object",
+      "properties": {
+        "source": {
+          "type": "string"
+        },
+        "target": {
+          "type": "string"
+        }
+      },
+      "title": "SyncUsersRequest",
+      "required": [
+        "source",
+        "target"
+      ]
+    },
+    "UpdateUserReply": {
+      "type": "object",
+      "properties": {
+        "": {
+          "$ref": "#/definitions/User"
+        }
+      },
+      "title": "UpdateUserReply"
+    },
+    "UpdateUserRequest": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "name": {
+          "type": "string"
+        },
+        "nickName": {
+          "type": "string"
+        },
+        "desc": {
+          "type": "string"
+        },
+        "email": {
+          "type": "string"
+        },
+        "avatar": {
+          "type": "string"
+        },
+        "externalEmail": {
+          "type": "string"
+        },
+        "mobilePhone": {
+          "type": "string"
+        },
+        "gender": {
+          "type": "string"
+        },
+        "depId": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "position": {
+          "type": "string"
+        },
+        "jobTitle": {
+          "type": "string"
+        },
+        "password": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        }
+      },
+      "title": "UpdateUserRequest",
+      "required": [
+        "id",
+        "gender",
+        "status"
+      ]
+    }
+  },
+  "securityDefinitions": {
+    "apiKey": {
+      "type": "apiKey",
+      "description": "Enter JWT Bearer token **_only_**",
+      "name": "Authorization",
+      "in": "header"
+    }
+  },
+  "security": [
+    {
+      "apiKey": []
+    }
+  ]
+}

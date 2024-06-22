@@ -80,7 +80,7 @@ func (mdl *Product) GetForeignReferValue() int64 {
 	return mdl.Id
 }
 
-// -- pivot employees
+// -- pivot users
 func (mdl *Product) LoadPivotSalesChannels(db *gorm.DB, conditions *map[string]interface{}, withClauseAssociations bool) ([]*model.PivotDataDictionaryToObject, error) {
 	items := []*model.PivotDataDictionaryToObject{}
 	if conditions == nil {

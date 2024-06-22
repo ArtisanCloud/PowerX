@@ -5,12 +5,12 @@ jobs:
   build-go:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v4
       - name: Set up Go
-        uses: actions/setup-go@v1
+        uses: actions/setup-go@v4
         with:
           go-version: 1.21
 
       - name: Build
-        run: cd cmd/server && go build
+        run: go build cmd/server/powerx.go
 

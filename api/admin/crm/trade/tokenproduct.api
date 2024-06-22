@@ -12,7 +12,7 @@ info(
 @server(
     group: admin/crm/trade/token
     prefix: /api/v1/admin/trade/token
-    middleware: EmployeeJWTAuth
+    middleware: UserJWTAuth
 )
 
 service PowerX {

@@ -20,7 +20,7 @@ service PowerX {
 }
 
 type (
-    Route struct {
+    Route {
         Method string `json:"method"`
         Path string `json:"path"`
     }
@@ -44,7 +44,7 @@ type (
         RequestAuth bool `json:"requestAuth"`
     }
 
-    PluginWebRoutes struct {
+    PluginWebRoutes {
         Name string `json:"name"`
         Path string `json:"path"`
         Meta PluginWebRouteMeta `json:"meta"`
@@ -56,7 +56,7 @@ type (
         Socpe []string `form:"scope"`
     }
 
-    PluginWebInfo struct {
+    PluginWebInfo {
         Name string `json:"name"`
         Desc string `json:"desc"`
         Verison string `json:"version"`

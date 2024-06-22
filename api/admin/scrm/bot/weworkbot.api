@@ -11,7 +11,7 @@ info(
 @server(
     group: admin/scrm/bot
     prefix: /api/v1/admin/scrm/bot/wechat
-    middleware: EmployeeJWTAuth
+    middleware: UserJWTAuth
 )
 
 service PowerX {
@@ -23,7 +23,7 @@ service PowerX {
 
 type (
     //
-    GroupRobotMsgNewsArticlesRequest struct {
+    GroupRobotMsgNewsArticlesRequest {
         Key string `json:"key"` // 机器人key
         Title string `json:"title"`
         Description string `json:"description,omitempty"`

@@ -17,7 +17,7 @@ import "./pricebookentry.api"
 @server(
     group: admin/crm/product
     prefix: /api/v1/admin/product
-    middleware: EmployeeJWTAuth
+    middleware: UserJWTAuth
 )
 
 service PowerX {
@@ -124,7 +124,7 @@ type (
 )
 
 type (
-    ListProductsPageRequest struct {
+    ListProductsPageRequest {
         LikeName string `form:"likeName,optional"`
         ProductTypeIds []int `form:"typeIds,optional"`
         ProductStatusIds []int `form:"productStatusIds,optional"`
@@ -139,7 +139,7 @@ type (
     }
 
 
-    ListProductsPageReply struct {
+    ListProductsPageReply {
         List []Product `json:"list"`
         PageIndex int `json:"pageIndex"`
         PageSize int `json:"pageSize"`
@@ -148,44 +148,44 @@ type (
 )
 
 type (
-    CreateProductRequest struct {
+    CreateProductRequest {
         Product
     }
 
-    CreateProductReply struct {
+    CreateProductReply {
         ProductKey int64 `json:"id"`
     }
 )
 
 type (
-    GetProductRequest struct {
+    GetProductRequest {
         ProductId int64 `path:"id"`
     }
 
-    GetProductReply struct {
+    GetProductReply {
         *Product
     }
 )
 
 
 type (
-    PutProductRequest struct {
-        ProductId int64 `path:"id"`
-        Product
-    }
-
-    PutProductReply struct {
-        *Product
-    }
-)
-
-type (
-    PatchProductRequest struct {
+    PutProductRequest {
         ProductId int64 `path:"id"`
         Product
     }
 
-    PatchProductReply struct {
+    PutProductReply {
+        *Product
+    }
+)
+
+type (
+    PatchProductRequest {
+        ProductId int64 `path:"id"`
+        Product
+    }
+
+    PatchProductReply {
         *Product
     }
 )
@@ -193,7 +193,7 @@ type (
 
 type (
 
-    DisableProductRequest struct {
+    DisableProductRequest {
         ProductId int64 `path:"id"`
     }
 
@@ -201,11 +201,11 @@ type (
         ProductId int64 `json:"id"`
     }
 
-    DeleteProductRequest struct {
+    DeleteProductRequest {
         ProductId int64 `path:"id"`
     }
 
-    DeleteProductReply struct {
+    DeleteProductReply {
         ProductId int64 `json:"id"`
     }
 )

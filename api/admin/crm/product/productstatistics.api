@@ -11,7 +11,7 @@ info(
 @server(
     group: admin/crm/product/productstatistics
     prefix: /api/v1/admin/product
-    middleware: EmployeeJWTAuth
+    middleware: UserJWTAuth
 )
 
 service PowerX {
@@ -51,7 +51,7 @@ type (
 )
 
 type (
-    ListProductStatisticsPageRequest struct {
+    ListProductStatisticsPageRequest {
         LikeName string `form:"likeName,optional"`
         ProductId int64 `form:"productId"`
         OrderBy string `form:"orderBy,optional"`
@@ -60,7 +60,7 @@ type (
     }
 
 
-    ListProductStatisticsPageReply struct {
+    ListProductStatisticsPageReply {
         List []*ProductStatistics `json:"list"`
         PageIndex int `json:"pageIndex"`
         PageSize int `json:"pageSize"`
@@ -70,55 +70,55 @@ type (
 
 
 type (
-    ConfigProductStatisticsRequest struct {
+    ConfigProductStatisticsRequest {
         *ProductStatistics
     }
 
-    ConfigProductStatisticsReply struct {
+    ConfigProductStatisticsReply {
         Result bool `json:"result"`
     }
 )
 
 type (
-    GetProductStatisticsRequest struct {
+    GetProductStatisticsRequest {
         ProductId int64 `path:"id"`
     }
 
-    GetProductStatisticsReply struct {
+    GetProductStatisticsReply {
         *ProductStatistics
     }
 )
 
 
 type (
-    PutProductStatisticsRequest struct {
+    PutProductStatisticsRequest {
         ProductStatisticsId int64 `path:"id"`
         ProductStatistics
     }
 
-    PutProductStatisticsReply struct {
+    PutProductStatisticsReply {
         *ProductStatistics
     }
 )
 
 type (
-    PatchProductStatisticsRequest struct {
+    PatchProductStatisticsRequest {
         ProductStatisticsId int64 `path:"id"`
         ProductStatistics
     }
 
-    PatchProductStatisticsReply struct {
+    PatchProductStatisticsReply {
         *ProductStatistics
     }
 )
 
 
 type (
-    DeleteProductStatisticsRequest struct {
+    DeleteProductStatisticsRequest {
         ProductStatisticsId int64 `path:"id"`
     }
 
-    DeleteProductStatisticsReply struct {
+    DeleteProductStatisticsReply {
         ProductStatisticsId int64 `json:"id"`
     }
 )

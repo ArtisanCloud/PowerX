@@ -14,7 +14,7 @@ import "./payment.api"
 @server(
     group: admin/crm/trade/order
     prefix: /api/v1/admin/trade
-    middleware: EmployeeJWTAuth
+    middleware: UserJWTAuth
 )
 service PowerX {
     @doc("查询订单列表")

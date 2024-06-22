@@ -22,4 +22,4 @@ powerx
 !internal/uc/powerx
 !cmd/server/powerx.go
 /plugins
-wechat
+./wechat

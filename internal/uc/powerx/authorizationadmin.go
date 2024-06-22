@@ -12,6 +12,7 @@ import (
 	sqladapter "github.com/Blank-Xu/sql-adapter"
 	"github.com/casbin/casbin/v2"
 	fileadapter "github.com/casbin/casbin/v2/persist/file-adapter"
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -26,10 +27,10 @@ type AdminPermsUseCase struct {
 	Casbin      *casbin.Enforcer
 	sqlAdapter  *sqladapter.Adapter
 	fileAdapter *fileadapter.Adapter
-	employee    *OrganizationUseCase
+	user        *OrganizationUseCase
 }
 
-func NewAdminPermsUseCase(conf *config.Config, db *gorm.DB, employee *OrganizationUseCase) *AdminPermsUseCase {
+func NewAdminPermsUseCase(conf *config.Config, db *gorm.DB, user *OrganizationUseCase) *AdminPermsUseCase {
 	//casbin适配器
 	sqlDB, _ := db.DB()
 	a, err := sqladapter.NewAdapter(sqlDB, conf.PowerXDatabase.Driver, "casbin_policies")
@@ -47,7 +48,7 @@ func NewAdminPermsUseCase(conf *config.Config, db *gorm.DB, employee *Organizati
 		Casbin:      e,
 		sqlAdapter:  a,
 		fileAdapter: f,
-		employee:    employee,
+		user:        user,
 	}
 }
 
@@ -143,7 +144,7 @@ func (uc *AdminPermsUseCase) Init() {
 	}
 
 	// 初始化用户
-	if err := uc.db.Model(&origanzation.Employee{}).Count(&count).Error; err != nil {
+	if err := uc.db.Model(&origanzation.User{}).Count(&count).Error; err != nil {
 		panic(errors.Wrap(err, "init role failed"))
 	}
 	if count == 0 {
@@ -160,21 +161,22 @@ func (uc *AdminPermsUseCase) Init() {
 		if rooName == "" {
 			rooName = "超级管理员"
 		}
-		root := origanzation.Employee{
+		root := origanzation.User{
+			UUID:       uuid.New().String(),
 			Account:    rooAccount,
 			Password:   rooPass,
 			Name:       rooName,
-			Status:     origanzation.EmployeeStatusEnabled,
+			Status:     origanzation.UserStatusEnabled,
 			IsReserved: true,
 		}
 		root.HashPassword()
-		if err := uc.db.Model(&origanzation.Employee{}).Create(&root).Error; err != nil {
+		if err := uc.db.Model(&origanzation.User{}).Create(&root).Error; err != nil {
 			panic(errors.Wrap(err, "init root failed"))
 		}
 	}
 
 	//// 初始化casbin策略
-	//if err := uc.db.Model(&permission.EmployeeCasbinPolicy{}).Count(&count).Error; err != nil {
+	//if err := uc.db.Model(&permission.UserCasbinPolicy{}).Count(&count).Error; err != nil {
 	//	panic(errors.Wrap(err, "init casbin policy failed"))
 	//}
 	//if count == 0 {
@@ -203,7 +205,7 @@ func (uc *AdminPermsUseCase) Init() {
 			AdminAPI:   apis,
 			IsReserved: true,
 		}, &permission.AdminRole{
-			RoleCode:   "common_employee",
+			RoleCode:   "common_user",
 			Name:       "普通员工",
 			Desc:       "普通员工",
 			IsReserved: true,
@@ -398,13 +400,13 @@ func (uc *AdminPermsUseCase) CreateAPIGroup(ctx context.Context, group *permissi
 	return
 }
 
-func (uc *AdminPermsUseCase) SetRoleEmployeesByRoleCode(ctx context.Context, employeeIds []int64, roleCode string) error {
+func (uc *AdminPermsUseCase) SetRoleUsersByRoleCode(ctx context.Context, userIds []int64, roleCode string) error {
 	_, err := uc.FindOneRoleByRoleCode(ctx, roleCode)
 	if err != nil {
 		return err
 	}
 
-	accounts := uc.employee.FindAccountsByIds(ctx, employeeIds)
+	accounts := uc.user.FindAccountsByIds(ctx, userIds)
 	if len(accounts) == 0 {
 		return nil
 	}
@@ -423,19 +425,19 @@ func (uc *AdminPermsUseCase) SetRoleEmployeesByRoleCode(ctx context.Context, emp
 	return nil
 }
 
-// ReplaceEmployeeRoles Replace 员工角色
-func (uc *AdminPermsUseCase) ReplaceEmployeeRoles(ctx context.Context, employeeId int64, roleCodes []string) error {
-	employee, err := uc.employee.FindOneEmployeeById(ctx, employeeId)
+// ReplaceUserRoles Replace 员工角色
+func (uc *AdminPermsUseCase) ReplaceUserRoles(ctx context.Context, userId int64, roleCodes []string) error {
+	user, err := uc.user.FindOneUserById(ctx, userId)
 	if err != nil {
 		return err
 	}
 
 	var policies [][]string
 	for _, roleCode := range roleCodes {
-		policies = append(policies, []string{employee.Account, roleCode})
+		policies = append(policies, []string{user.Account, roleCode})
 	}
 
-	if _, err := uc.Casbin.RemoveFilteredGroupingPolicy(0, employee.Account); err != nil {
+	if _, err := uc.Casbin.RemoveFilteredGroupingPolicy(0, user.Account); err != nil {
 		panic(err)
 	}
 	if _, err := uc.Casbin.AddGroupingPolicies(policies); err != nil {

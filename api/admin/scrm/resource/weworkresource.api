@@ -11,7 +11,7 @@ info(
 @server(
     group: admin/scrm/resource
     prefix: /api/v1/admin/scrm/resource/wechat
-    middleware: EmployeeJWTAuth
+    middleware: UserJWTAuth
 )
 
 service PowerX {
@@ -25,24 +25,24 @@ service PowerX {
 }
 
 type (
-    CreateWeWorkSourceImageReply struct {
+    CreateWeWorkSourceImageReply {
         Link string `json:"link"`
     }
 
 
-    ListWeWorkResourceImageRequest struct {
+    ListWeWorkResourceImageRequest {
         ResourceType string `json:"resourceType,optional"`
         PageIndex int `form:"pageIndex,optional"`
         PageSize int `form:"pageSize,optional"`
     }
 
-    ListWeWorkResourceImageReply struct {
+    ListWeWorkResourceImageReply {
         List []*Resource `json:"list"`
         PageIndex int `json:"pageIndex"`
         PageSize int `json:"pageSize"`
         Total int64 `json:"total"`
     }
-    Resource struct {
+    Resource {
         Link string `json:"link"`
         ResourceType string `json:"resourceType"`
         CreateTime string `json:"createTime"`

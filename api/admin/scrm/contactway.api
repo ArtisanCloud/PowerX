@@ -11,7 +11,7 @@ info(
 @server(
     group: admin/scrm/contractway
     prefix: /api/v1/admin/contract-way
-    middleware: EmployeeJWTAuth
+    middleware: UserJWTAuth
 )
 
 service PowerX {
@@ -72,7 +72,7 @@ type (
 
 type (
     GetContractWaysRequest {
-        EmployeeId int64 `form:"employeeId,optional"`
+        UserId int64 `form:"userId,optional"`
         Name string `form:"name,optional"`
         StartDate string `form:"startDate,optional"`
         EndDate string `form:"endDate,optional"`

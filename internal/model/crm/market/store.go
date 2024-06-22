@@ -15,17 +15,17 @@ type Store struct {
 	PivotDetailImages []*media.PivotMediaResourceToObject `gorm:"polymorphic:Object;polymorphicValue:stores" json:"pivotDetailImages"`
 	CoverImage        *media.MediaResource                `gorm:"foreignKey:CoverImageId;references:Id" json:"coverImage"`
 
-	StoreEmployeeId int64     `gorm:"comment:店长Id" json:"storeEmployeeId"`
-	Name            string    `gorm:"comment:店铺名称" json:"name"`
-	ContactNumber   string    `gorm:"comment:手机号码" json:"contactNumber"`
-	CoverImageId    int64     `gorm:"comment:封面图Id" json:"coverImageId"`
-	Email           string    `gorm:"comment:邮箱地址" json:"email"`
-	Address         string    `gorm:"comment:工作地址" json:"address"`
-	Description     string    `gorm:"comment:店铺描述" json:"description"`
-	Longitude       float32   `gorm:"comment:经度" json:"longitude"`
-	Latitude        float32   `gorm:"comment:纬度" json:"latitude"`
-	StartWork       time.Time `gorm:"comment:开始工作时间" json:"startWork"`
-	EndWork         time.Time `gorm:"comment:结束工作时间" json:"endWork"`
+	StoreUserId   int64     `gorm:"comment:店长Id" json:"storeUserId"`
+	Name          string    `gorm:"comment:店铺名称" json:"name"`
+	ContactNumber string    `gorm:"comment:手机号码" json:"contactNumber"`
+	CoverImageId  int64     `gorm:"comment:封面图Id" json:"coverImageId"`
+	Email         string    `gorm:"comment:邮箱地址" json:"email"`
+	Address       string    `gorm:"comment:工作地址" json:"address"`
+	Description   string    `gorm:"comment:店铺描述" json:"description"`
+	Longitude     float32   `gorm:"comment:经度" json:"longitude"`
+	Latitude      float32   `gorm:"comment:纬度" json:"latitude"`
+	StartWork     time.Time `gorm:"comment:开始工作时间" json:"startWork"`
+	EndWork       time.Time `gorm:"comment:结束工作时间" json:"endWork"`
 }
 
 const TableNameStore = "stores"

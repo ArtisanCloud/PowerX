@@ -12,7 +12,7 @@ info(
 @server(
     group: admin/crm/product/category
     prefix: /api/v1/admin/product
-    middleware: EmployeeJWTAuth
+    middleware: UserJWTAuth
 )
 
 service PowerX {
@@ -77,7 +77,7 @@ type (
     }
 )
 type (
-    ListProductCategoryTreeRequest struct {
+    ListProductCategoryTreeRequest {
         CategoryPId int `form:"categoryPId,optional"`
         NeedChildren bool `form:"needChildren,optional"`
         Names []string `form:"name,optional"`
@@ -85,60 +85,60 @@ type (
     }
 
 
-    ListProductCategoryTreeReply struct {
+    ListProductCategoryTreeReply {
         ProductCategories []*ProductCategory `json:"tree"`
     }
 )
 
 
 type (
-    CreateProductCategoryRequest struct {
+    CreateProductCategoryRequest {
         ProductCategory
     }
 
-    CreateProductCategoryReply struct {
+    CreateProductCategoryReply {
         *ProductCategory
     }
 )
 
 type (
-    UpdateProductCategoryRequest struct {
+    UpdateProductCategoryRequest {
         Id int64 `path:"id"`
         ProductCategory
     }
-    UpdateProductCategoryReply struct {
+    UpdateProductCategoryReply {
         Id int64 `json:"id"`
     }
 )
 
 type (
-    PatchProductCategoryRequest struct {
+    PatchProductCategoryRequest {
         Id int64 `path:"id"`
         PId int64 `json:"pId"`
     }
 
-    PatchProductCategoryReply struct {
+    PatchProductCategoryReply {
         ProductCategory
     }
 )
 
 type (
-    GetProductCategoryRequest struct {
+    GetProductCategoryRequest {
         ProductCategoryId int64 `path:"id"`
     }
 
-    GetProductCategoryReply struct {
+    GetProductCategoryReply {
         *ProductCategory
     }
 )
 
 
 type (
-    DeleteProductCategoryRequest struct {
+    DeleteProductCategoryRequest {
         Id int64 `path:"id"`
     }
 
-    DeleteProductCategoryReply struct {
+    DeleteProductCategoryReply {
         Id int64 `json:"id"`
     }
 )

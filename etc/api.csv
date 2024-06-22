@@ -1,12 +1,12 @@
 admin/auth,/api/v1/admin/auth/access/actions/basic-login,post,登录
 admin/auth,/api/v1/admin/auth/access/actions/exchange-token,post,Exchange
-admin/common,/api/v1/admin/common/options/employees,get,员工Options远程搜索
-admin/common,/api/v1/admin/common/options/employee-query,get,查询员工过滤条件
+admin/common,/api/v1/admin/common/options/users,get,员工Options远程搜索
+admin/common,/api/v1/admin/common/options/user-query,get,查询员工过滤条件
 admin/common,/api/v1/admin/common/options/departments,get,部门Options远程搜索
 admin/common,/api/v1/admin/common/options,get,通用获取Options
 admin/crm/business/opportunity,/api/v1/admin/business/opportunities,get,查询商机列表
 admin/crm/business/opportunity,/api/v1/admin/business/opportunities,post,创建商机
-admin/crm/business/opportunity,/api/v1/admin/business/opportunities/:id/assign-employee,put,为商机分配员工
+admin/crm/business/opportunity,/api/v1/admin/business/opportunities/:id/assign-user,put,为商机分配员工
 admin/crm/business/opportunity,/api/v1/admin/business/opportunities/:id,put,修改商机信息
 admin/crm/business/opportunity,/api/v1/admin/business/opportunities/:id,delete,删除商机
 admin/crm/customerdomain/customer,/api/v1/admin/customerdomain/customers/:id,get,查询客户
@@ -15,14 +15,14 @@ admin/crm/customerdomain/customer,/api/v1/admin/customerdomain/customers,post,�
 admin/crm/customerdomain/customer,/api/v1/admin/customerdomain/customers/:id,put,全量客户
 admin/crm/customerdomain/customer,/api/v1/admin/customerdomain/customers/:id,patch,增量客户
 admin/crm/customerdomain/customer,/api/v1/admin/customerdomain/customers/:id,delete,删除客户
-admin/crm/customerdomain/customer,/api/v1/admin/customerdomain/customers/:id/actions/employees,post,为客户分配员工
+admin/crm/customerdomain/customer,/api/v1/admin/customerdomain/customers/:id/actions/users,post,为客户分配员工
 admin/crm/customerdomain/leader,/api/v1/admin/customerdomain/leads/:id,get,查询线索
 admin/crm/customerdomain/leader,/api/v1/admin/customerdomain/leads/page-list,get,获取线索分页列表
 admin/crm/customerdomain/leader,/api/v1/admin/customerdomain/leads,post,创建线索
 admin/crm/customerdomain/leader,/api/v1/admin/customerdomain/leads/:id,put,全量线索
 admin/crm/customerdomain/leader,/api/v1/admin/customerdomain/leads/:id,patch,增量线索
 admin/crm/customerdomain/leader,/api/v1/admin/customerdomain/leads/:id,delete,删除线索
-admin/crm/customerdomain/leader,/api/v1/admin/customerdomain/leads/:id/actions/employees,post,为线索分配员工
+admin/crm/customerdomain/leader,/api/v1/admin/customerdomain/leads/:id/actions/users,post,为线索分配员工
 admin/crm/market/media,/api/v1/admin/market/medias/page-list,get,查询媒体列表
 admin/crm/market/media,/api/v1/admin/market/medias,post,请求媒体上传链接
 admin/crm/market/media,/api/v1/admin/market/medias/:id,put,创建或更新媒体
@@ -115,13 +115,13 @@ admin/dictionary,/api/v1/admin/dictionary/items/:type/:key,get,获取字典项
 admin/dictionary,/api/v1/admin/dictionary/items,post,创建字典项
 admin/dictionary,/api/v1/admin/dictionary/items/:type/:key,put,更新字典项
 admin/dictionary,/api/v1/admin/dictionary/items/:type/:key,delete,删除字典项
-admin/employee,/api/v1/admin/employee/employees/actions/sync,post,同步员工
-admin/employee,/api/v1/admin/employee/employees/:id,get,查询员工
-admin/employee,/api/v1/admin/employee/employees,get,List员工
-admin/employee,/api/v1/admin/employee/employees,post,创建员工
-admin/employee,/api/v1/admin/employee/employees/:id,patch,编辑员工信息
-admin/employee,/api/v1/admin/employee/employees/:id,delete,删除员工
-admin/employee,/api/v1/admin/employee/employees/actions/reset-password,post,重设密码
+admin/user,/api/v1/admin/user/users/actions/sync,post,同步员工
+admin/user,/api/v1/admin/user/users/:id,get,查询员工
+admin/user,/api/v1/admin/user/users,get,List员工
+admin/user,/api/v1/admin/user/users,post,创建员工
+admin/user,/api/v1/admin/user/users/:id,patch,编辑员工信息
+admin/user,/api/v1/admin/user/users/:id,delete,删除员工
+admin/user,/api/v1/admin/user/users/actions/reset-password,post,重设密码
 admin/infoorganization/category,/api/v1/admin/info-organization/category-tree,get,查询类别列表
 admin/infoorganization/category,/api/v1/admin/info-organization/categories/:id,get,查询类别详情
 admin/infoorganization/category,/api/v1/admin/info-organization/categories,post,创新类别
@@ -152,7 +152,7 @@ admin/permission,/api/v1/admin/permission/roles/:roleCode,patch,更新角色详�
 admin/permission,/api/v1/admin/permission/roles/:roleCode/users,get,获取角色的用户列表
 admin/permission,/api/v1/admin/permission/roles/:roleCode/actions/set-permissions,post,为角色授予API权限
 admin/permission,/api/v1/admin/permission/api-list,get,查询API列表
-admin/permission,/api/v1/admin/permission/roles/:roleCode/actions/set-employees,post,为角色分配用户
+admin/permission,/api/v1/admin/permission/roles/:roleCode/actions/set-users,post,为角色分配用户
 admin/permission,/api/v1/admin/permission/users/:userId/actions/set-roles,post,为用户授予角色
 admin/position,/api/v1/admin/position/positions,post,创建新职位
 admin/position,/api/v1/admin/position/positions/:id,patch,更新职位信息(可选更新)
@@ -181,8 +181,8 @@ admin/scrm/customer,/api/v1/admin/scrm/customer/customers,get,查询客户详情
 admin/scrm/customer,/api/v1/admin/scrm/customer/customers/:id,patch,修改客户信息
 admin/scrm/customer,/api/v1/admin/scrm/customer/customers/actions/sync,post,同步客户
 admin/scrm/organization,/api/v1/admin/scrm/organization/wechat/partment/page,post,部门列表/page
-admin/scrm/organization,/api/v1/admin/scrm/organization/wechat/employee/page,post,员工列表/page
-admin/scrm/organization,/api/v1/admin/scrm/organization/wechat/sync,get,同步组织架构/department&employee
+admin/scrm/organization,/api/v1/admin/scrm/organization/wechat/user/page,post,员工列表/page
+admin/scrm/organization,/api/v1/admin/scrm/organization/wechat/sync,get,同步组织架构/department&user
 admin/scrm/qrcode,/api/v1/admin/scrm/qrcode/wechat/group/page,post,场景码列表/page
 admin/scrm/qrcode,/api/v1/admin/scrm/qrcode/wechat/group/create,post,创建场景码
 admin/scrm/qrcode,/api/v1/admin/scrm/qrcode/wechat/group/update/:qid,patch,更新场景码

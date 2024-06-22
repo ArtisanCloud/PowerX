@@ -32,30 +32,30 @@ func (l *LoginLogic) Login(req *types.LoginRequest) (resp *types.LoginReply, err
 	if err != nil {
 		panic(err)
 	}
-	opt := option.EmployeeLoginOption{
+	opt := option.UserLoginOption{
 		Account:     req.UserName,
 		PhoneNumber: req.PhoneNumber,
 		Email:       req.Email,
 	}
 
-	employee, err := l.svcCtx.PowerX.Organization.FindOneEmployeeByLoginOption(l.ctx, &opt)
+	user, err := l.svcCtx.PowerX.Organization.FindOneUserByLoginOption(l.ctx, &opt)
 	if err != nil {
 		return nil, errorx.WithCause(errorx.ErrBadRequest, "账户或密码错误")
 	}
 
-	if !l.svcCtx.PowerX.Organization.VerifyPassword(employee.Password, req.Password) {
+	if !l.svcCtx.PowerX.Organization.VerifyPassword(user.Password, req.Password) {
 		return nil, errorx.WithCause(errorx.ErrBadRequest, "账户或密码错误")
 	}
 
-	roles, _ := l.svcCtx.PowerX.AdminAuthorization.Casbin.GetRolesForUser(employee.Account)
+	roles, _ := l.svcCtx.PowerX.AdminAuthorization.Casbin.GetRolesForUser(user.Account)
 
 	claims := types.TokenClaims{
-		UID:     employee.Id,
-		Account: employee.Account,
+		UID:     user.Id,
+		Account: user.Account,
 		Roles:   roles,
 		RegisteredClaims: &jwt.RegisteredClaims{
 			Issuer:    "powerx",
-			Subject:   employee.Account,
+			Subject:   user.Account,
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour * 72)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 		},

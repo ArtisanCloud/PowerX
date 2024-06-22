@@ -1,7 +1,7 @@
 import "admin/common.api"
 import "admin/department.api"
 import "admin/position.api"
-import "admin/employee.api"
+import "admin/user.api"
 import "admin/permission.api"
 import "admin/auth.api"
 import "admin/dictionary.api"

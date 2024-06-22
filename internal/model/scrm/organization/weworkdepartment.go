@@ -8,7 +8,7 @@ import (
 
 type WeWorkDepartment struct {
 	model.Model
-	// Leader         *WeWorkEmployee `gorm:"foreignKey:LeaderId"`
+	// Leader         *WeWorkUser `gorm:"foreignKey:LeaderId"`
 	WeWorkDepId      int    `gorm:"comment:部门ID;column:we_work_dep_id;unique" json:"we_work_dep_id"`
 	Name             string `gorm:"comment:部门名称;column:name" json:"name"`
 	NameEn           string `gorm:"comment:部门英文名称;column:name_en" json:"name_en"`

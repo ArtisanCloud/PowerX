@@ -95,14 +95,14 @@ type (
 	help              struct{}
 	hash              power.HashMap
 	modelOrganization struct {
-		employee   origanzation.Employee
+		user       origanzation.User
 		department origanzation.Department
 	}
 	modelWeworkApp struct {
 		group app.WeWorkAppGroup
 	}
 	modelWeworkOrganization struct {
-		employee   organization.WeWorkEmployee
+		user       organization.WeWorkUser
 		department organization.WeWorkDepartment
 	}
 	modelWeworkResource struct {
@@ -125,7 +125,7 @@ type (
 //	@Description:
 //	@param db
 //	@param wework
-//	@return iEmployeeInterface
+//	@return iUserInterface
 func Repo(db *gorm.DB, wework *work.Work, kv *redis.Redis) IWechatInterface {
 
 	return &wechatUseCase{
@@ -160,9 +160,9 @@ type FindManyWechatDepartmentsOption struct {
 	Name        string
 }
 
-// FindManyWechatEmployeesOption
+// FindManyWechatUsersOption
 // @Description:
-type FindManyWechatEmployeesOption struct {
+type FindManyWechatUsersOption struct {
 	WeWorkUserId           string `json:"we_work_user_id"` //员工唯一ID
 	Ids                    []int64
 	Names                  []string

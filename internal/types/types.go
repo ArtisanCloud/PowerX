@@ -7,7 +7,7 @@ type GetHomeReply struct {
 	Version     string `json:"version,optional"`
 }
 
-type GetEmployeeOptionsRequest struct {
+type GetUserOptionsRequest struct {
 	LikeName        string `form:"likeName,optional"`
 	LikeEmail       string `form:"likeEmail,optional"`
 	LikePhoneNumber string `form:"likePhoneNumber,optional"`
@@ -15,7 +15,7 @@ type GetEmployeeOptionsRequest struct {
 	PageSize        int    `form:"pageSize,optional"`
 }
 
-type EmployeeOption struct {
+type UserOption struct {
 	Id          int64  `json:"id"`
 	Avatar      string `json:"avatar"`
 	Account     string `json:"account"`
@@ -24,26 +24,26 @@ type EmployeeOption struct {
 	PhoneNumber string `json:"phoneNumber"`
 }
 
-type GetEmployeeOptionsReply struct {
-	List      []EmployeeOption `json:"list"`
-	PageIndex int              `json:"pageIndex"`
-	PageSize  int              `json:"pageSize"`
-	Total     int64            `json:"total"`
+type GetUserOptionsReply struct {
+	List      []UserOption `json:"list"`
+	PageIndex int          `json:"pageIndex"`
+	PageSize  int          `json:"pageSize"`
+	Total     int64        `json:"total"`
 }
 
-type EmployeeQueryRoleOption struct {
+type UserQueryRoleOption struct {
 	RoleCode string `json:"roleCode"`
 	RoleName string `json:"roleName"`
 }
 
-type EmployeeQueryDepartmentOption struct {
+type UserQueryDepartmentOption struct {
 	DepartmentId   int64  `json:"departmentId"`
 	DepartmentName string `json:"departmentName"`
 }
 
-type GetEmployeeQueryOptionsReply struct {
-	Roles       []EmployeeQueryRoleOption       `json:"roles"`
-	Departments []EmployeeQueryDepartmentOption `json:"departments"`
+type GetUserQueryOptionsReply struct {
+	Roles       []UserQueryRoleOption       `json:"roles"`
+	Departments []UserQueryDepartmentOption `json:"departments"`
 }
 
 type GetDepartmentOptionsRequest struct {
@@ -208,15 +208,15 @@ type GetPositionReply struct {
 	*Position
 }
 
-type GetEmployeeRequest struct {
+type GetUserRequest struct {
 	Id int64 `path:"id"`
 }
 
-type GetEmployeeReply struct {
-	*Employee
+type GetUserReply struct {
+	*User
 }
 
-type ListEmployeesRequest struct {
+type ListUsersRequest struct {
 	Ids             []int64  `form:"ids,optional"`
 	LikeName        string   `form:"likeName,optional"`
 	LikeEmail       string   `form:"likeEmail,optional"`
@@ -229,48 +229,48 @@ type ListEmployeesRequest struct {
 	PageSize        int      `form:"pageSize,optional"`
 }
 
-type EmployeeDepartment struct {
+type UserDepartment struct {
 	DepId   int64  `json:"depId"`
 	DepName string `json:"depName"`
 }
 
-type Employee struct {
-	Id            int64               `json:"id"`
-	Account       string              `json:"account"`
-	Name          string              `json:"name"`
-	Email         string              `json:"email"`
-	MobilePhone   string              `json:"mobilePhone"`
-	Gender        string              `json:"gender"`
-	NickName      string              `json:"nickName,optional"`
-	Desc          string              `json:"desc,optional"`
-	Avatar        string              `json:"avatar,optional"`
-	ExternalEmail string              `json:"externalEmail,optional"`
-	Roles         []string            `json:"roles"`
-	Department    *EmployeeDepartment `json:"department"`
-	Position      *Position           `json:"position"`
-	PositionId    int64               `json:"positionId"`
-	JobTitle      string              `json:"jobTitle"`
-	IsEnabled     bool                `json:"isEnabled"`
-	CreatedAt     string              `json:"createdAt"`
+type User struct {
+	Id            int64           `json:"id"`
+	Account       string          `json:"account"`
+	Name          string          `json:"name"`
+	Email         string          `json:"email"`
+	MobilePhone   string          `json:"mobilePhone"`
+	Gender        string          `json:"gender"`
+	NickName      string          `json:"nickName,optional"`
+	Desc          string          `json:"desc,optional"`
+	Avatar        string          `json:"avatar,optional"`
+	ExternalEmail string          `json:"externalEmail,optional"`
+	Roles         []string        `json:"roles"`
+	Department    *UserDepartment `json:"department"`
+	Position      *Position       `json:"position"`
+	PositionId    int64           `json:"positionId"`
+	JobTitle      string          `json:"jobTitle"`
+	IsEnabled     bool            `json:"isEnabled"`
+	CreatedAt     string          `json:"createdAt"`
 }
 
-type ListEmployeesReply struct {
-	List      []Employee `json:"list"`
-	PageIndex int        `json:"pageIndex"`
-	PageSize  int        `json:"pageSize"`
-	Total     int64      `json:"total"`
+type ListUsersReply struct {
+	List      []User `json:"list"`
+	PageIndex int    `json:"pageIndex"`
+	PageSize  int    `json:"pageSize"`
+	Total     int64  `json:"total"`
 }
 
-type SyncEmployeesRequest struct {
+type SyncUsersRequest struct {
 	Source string `json:"source"`
 	Target string `json:"target"`
 }
 
-type SyncEmployeesReply struct {
+type SyncUsersReply struct {
 	Status bool `json:"status"`
 }
 
-type CreateEmployeeRequest struct {
+type CreateUserRequest struct {
 	Account       string `json:"account"`
 	Name          string `json:"name"`
 	NickName      string `json:"nickName,optional"`
@@ -286,11 +286,11 @@ type CreateEmployeeRequest struct {
 	Password      string `json:"password,optional"`
 }
 
-type CreateEmployeeReply struct {
+type CreateUserReply struct {
 	Id int64 `json:"id"`
 }
 
-type UpdateEmployeeRequest struct {
+type UpdateUserRequest struct {
 	Id            int64  `path:"id"`
 	Name          string `json:"name,optional"`
 	NickName      string `json:"nickName,optional"`
@@ -307,15 +307,15 @@ type UpdateEmployeeRequest struct {
 	Status        string `json:"status,optional,options=enabled|disabled"`
 }
 
-type UpdateEmployeeReply struct {
-	*Employee
+type UpdateUserReply struct {
+	*User
 }
 
-type DeleteEmployeeRequest struct {
+type DeleteUserRequest struct {
 	Id int64 `path:"id"`
 }
 
-type DeleteEmployeeReply struct {
+type DeleteUserReply struct {
 	Id int64 `json:"id"`
 }
 
@@ -391,12 +391,12 @@ type SetRolePermissionsReply struct {
 	Status string `json:"status"`
 }
 
-type SetRoleEmployeesRequest struct {
-	RoleCode    string  `path:"roleCode"`
-	EmployeeIds []int64 `json:"employeeIds"`
+type SetRoleUsersRequest struct {
+	RoleCode string  `path:"roleCode"`
+	UserIds  []int64 `json:"userIds"`
 }
 
-type SetRoleEmployeesReply struct {
+type SetRoleUsersReply struct {
 	Status string `json:"status"`
 }
 
@@ -408,32 +408,32 @@ type ListAPIReply struct {
 	List []AdminAPI `json:"list"`
 }
 
-type GetRoleEmployeesReqeust struct {
+type GetRoleUsersReqeust struct {
 	RoleCode  string `path:"roleCode"`
 	PageIndex int    `form:"pageIndex"`
 	PageSize  int    `form:"pageSize"`
 }
 
-type RoleEmployeeDepartment struct {
+type RoleUserDepartment struct {
 	Id   int64  `json:"id"`
 	Name string `json:"name"`
 }
 
-type RoleEmployee struct {
-	Id          int64                   `json:"id"`
-	Name        string                  `json:"name"`
-	Nickname    string                  `json:"nickname"`
-	Account     string                  `json:"account"`
-	PhoneNumber string                  `json:"phoneNumber"`
-	Department  *RoleEmployeeDepartment `json:"department"`
-	Email       string                  `json:"email"`
+type RoleUser struct {
+	Id          int64               `json:"id"`
+	Name        string              `json:"name"`
+	Nickname    string              `json:"nickname"`
+	Account     string              `json:"account"`
+	PhoneNumber string              `json:"phoneNumber"`
+	Department  *RoleUserDepartment `json:"department"`
+	Email       string              `json:"email"`
 }
 
-type GetRoleEmployeesReply struct {
-	List      []RoleEmployee `json:"list"`
-	PageIndex int            `json:"pageIndex"`
-	PageSize  int            `json:"pageSize"`
-	Total     int64          `json:"total"`
+type GetRoleUsersReply struct {
+	List      []RoleUser `json:"list"`
+	PageIndex int        `json:"pageIndex"`
+	PageSize  int        `json:"pageSize"`
+	Total     int64      `json:"total"`
 }
 
 type SetUserRolesRequest struct {
@@ -851,12 +851,12 @@ type DeleteLeadReply struct {
 	LeadId int64 `json:"id"`
 }
 
-type AssignLeadToEmployeeRequest struct {
-	Id         string `path:"id"`
-	EmployeeId int64  `json:"employeeId"`
+type AssignLeadToUserRequest struct {
+	Id     string `path:"id"`
+	UserId int64  `json:"userId"`
 }
 
-type AssignLeadToEmployeeReply struct {
+type AssignLeadToUserReply struct {
 	LeadId int64 `json:"leadId"`
 }
 
@@ -953,12 +953,12 @@ type DeleteCustomerReply struct {
 	CustomerId int64 `json:"id"`
 }
 
-type AssignCustomerToEmployeeRequest struct {
-	Id         string `path:"id"`
-	EmployeeId int64  `json:"employeeId"`
+type AssignCustomerToUserRequest struct {
+	Id     string `path:"id"`
+	UserId int64  `json:"userId"`
 }
 
-type AssignCustomerToEmployeeReply struct {
+type AssignCustomerToUserReply struct {
 	CustomerId int64 `json:"customerId"`
 }
 
@@ -1042,12 +1042,12 @@ type DeleteRegisterCodeReply struct {
 	RegisterCodeId int64 `json:"id"`
 }
 
-type AssignRegisterCodeToEmployeeRequest struct {
-	Id         string `path:"id"`
-	EmployeeId int64  `json:"employeeId"`
+type AssignRegisterCodeToUserRequest struct {
+	Id     string `path:"id"`
+	UserId int64  `json:"userId"`
 }
 
-type AssignRegisterCodeToEmployeeReply struct {
+type AssignRegisterCodeToUserReply struct {
 	RegisterCodeId int64 `json:"customerId"`
 }
 
@@ -1142,7 +1142,7 @@ type StoreArtisanSpecific struct {
 }
 
 type StoreArtisan struct {
-	EmployeeId      int64                `json:"employeeId,optional"`
+	UserId          int64                `json:"userId,optional"`
 	Name            string               `json:"name,optional"`
 	Level           int8                 `json:"level,optional"`
 	Gender          bool                 `json:"gender,optional"`
@@ -1159,23 +1159,23 @@ type StoreArtisan struct {
 }
 
 type Store struct {
-	Id              int64            `json:"id,optional"`
-	Name            string           `json:"name"`
-	StoreEmployeeId int64            `json:"storeEmployeeId,optional"`
-	ContactNumber   string           `json:"contactNumber"`
-	Email           string           `json:"email,optional"`
-	Address         string           `json:"address"`
-	Description     string           `json:"description,optional"`
-	Longitude       float32          `json:"longitude,optional"`
-	Latitude        float32          `json:"latitude,optional"`
-	StartWork       string           `json:"startWork,optional"`
-	EndWork         string           `json:"endWork,optional"`
-	Artisans        []*StoreArtisan  `json:"artisans,optional"`
-	CreatedAt       string           `json:"createdAt,optional"`
-	CoverImageId    int64            `json:"coverImageId,optional"`
-	CoverImage      *MediaResource   `json:"coverImage,optional"`
-	DetailImageIds  []int64          `json:"detailImageIds,optional"`
-	DetailImages    []*MediaResource `json:"detailImages,optional"`
+	Id             int64            `json:"id,optional"`
+	Name           string           `json:"name"`
+	StoreUserId    int64            `json:"storeUserId,optional"`
+	ContactNumber  string           `json:"contactNumber"`
+	Email          string           `json:"email,optional"`
+	Address        string           `json:"address"`
+	Description    string           `json:"description,optional"`
+	Longitude      float32          `json:"longitude,optional"`
+	Latitude       float32          `json:"latitude,optional"`
+	StartWork      string           `json:"startWork,optional"`
+	EndWork        string           `json:"endWork,optional"`
+	Artisans       []*StoreArtisan  `json:"artisans,optional"`
+	CreatedAt      string           `json:"createdAt,optional"`
+	CoverImageId   int64            `json:"coverImageId,optional"`
+	CoverImage     *MediaResource   `json:"coverImage,optional"`
+	DetailImageIds []int64          `json:"detailImageIds,optional"`
+	DetailImages   []*MediaResource `json:"detailImages,optional"`
 }
 
 type ListStoresPageRequest struct {
@@ -1227,8 +1227,8 @@ type DeleteStoreReply struct {
 }
 
 type AssignStoreManagerRequest struct {
-	Id         int64 `path:"id"`
-	EmployeeId int64 `json:"employeeId"`
+	Id     int64 `path:"id"`
+	UserId int64 `json:"userId"`
 }
 
 type AssignStoreManagerReply struct {
@@ -1310,7 +1310,7 @@ type Opportunity struct {
 	Probability float32 `json:"probability"`
 	Source      string  `json:"source"`
 	Type        string  `json:"type"`
-	EmployeeId  int64   `json:"employeeId"`
+	UserId      int64   `json:"userId"`
 	Stage       string  `json:"stage"`
 	ClosedDate  string  `json:"closedDate"`
 	CreatedAt   string  `json:"createdAt"`
@@ -1331,7 +1331,7 @@ type CreateOpportunityRequest struct {
 	Probability float32 `json:"probability,optional"`
 	Source      string  `json:"source,options=new_customer|old_customer_new_purchase|old_customer_repurchase|old_customer_upgrade"`
 	Type        string  `json:"type,options=trial_requirement|requirement_match|detailed_requirement_analysis|solution_provided|quotation|negotiation|closed_unsuccessful|closed_successful"`
-	EmployeeId  int64   `json:"employeeId"`
+	UserId      int64   `json:"userId"`
 	Stage       string  `json:"stage"`
 }
 
@@ -1339,12 +1339,12 @@ type CreateOpportunityReply struct {
 	Id int64 `json:"id"`
 }
 
-type AssignEmployeeToOpportunityRequest struct {
-	Id         int64 `path:"id"`
-	EmployeeId int64 `json:"employeeId"`
+type AssignUserToOpportunityRequest struct {
+	Id     int64 `path:"id"`
+	UserId int64 `json:"userId"`
 }
 
-type AssignEmployeeToOpportunityReply struct {
+type AssignUserToOpportunityReply struct {
 	Id int64 `json:"id"`
 }
 
@@ -1356,7 +1356,7 @@ type UpdateOpportunityRequest struct {
 	Probability float32 `json:"probability,optional"`
 	Source      string  `json:"source,optional,options=new_customer|old_customer_new_purchase|old_customer_repurchase|old_customer_upgrade"`
 	Type        string  `json:"type,optional,options=trial_requirement|requirement_match|detailed_requirement_analysis|solution_provided|quotation|negotiation|closed_unsuccessful|closed_successful"`
-	EmployeeId  int64   `json:"employeeId,optional"`
+	UserId      int64   `json:"userId,optional"`
 	Stage       string  `json:"stage,optional"`
 	ClosedDate  string  `json:"closedDate,optional"`
 }
@@ -1935,7 +1935,7 @@ type DeletePriceBookEntryReply struct {
 
 type Artisan struct {
 	Id             int64            `json:"id,optional"`
-	EmployeeId     int64            `json:"employeeId,optional"`
+	UserId         int64            `json:"userId,optional"`
 	Name           string           `json:"name,optional"`
 	Level          int8             `json:"level"`
 	Gender         bool             `json:"gender,optional"`
@@ -2324,12 +2324,12 @@ type GetContractWayGroupListReply struct {
 }
 
 type GetContractWaysRequest struct {
-	EmployeeId int64  `form:"employeeId,optional"`
-	Name       string `form:"name,optional"`
-	StartDate  string `form:"startDate,optional"`
-	EndDate    string `form:"endDate,optional"`
-	PageIndex  int    `form:"pageIndex"`
-	PageSize   int    `form:"pageSize"`
+	UserId    int64  `form:"userId,optional"`
+	Name      string `form:"name,optional"`
+	StartDate string `form:"startDate,optional"`
+	EndDate   string `form:"endDate,optional"`
+	PageIndex int    `form:"pageIndex"`
+	PageSize  int    `form:"pageSize"`
 }
 
 type GetContractWaysReply struct {
@@ -2412,7 +2412,7 @@ type SyncWeWorkOrganizationReply struct {
 	Status string `json:"status"`
 }
 
-type ListWeWorkEmployeeReqeust struct {
+type ListWeWorkUserReqeust struct {
 	Id                     int64  `json:"id,optional"`                     // 微信员工ID
 	Name                   string `json:"name,optional"`                   // 微信员工名称
 	Alias                  string `json:"alias,optional"`                  // 微信员工别称
@@ -2425,14 +2425,14 @@ type ListWeWorkEmployeeReqeust struct {
 	PageSize               int    `form:"pageSize,optional"`
 }
 
-type ListWeWorkEmployeeReply struct {
-	List      []*WechatEmployee `json:"list"`
-	PageIndex int               `json:"pageIndex"`
-	PageSize  int               `json:"pageSize"`
-	Total     int64             `json:"total"`
+type ListWeWorkUserReply struct {
+	List      []*WechatUser `json:"list"`
+	PageIndex int           `json:"pageIndex"`
+	PageSize  int           `json:"pageSize"`
+	Total     int64         `json:"total"`
 }
 
-type WechatEmployee struct {
+type WechatUser struct {
 	WeWorkUserId           string `json:"weWorkUserId"`
 	Name                   string `json:"name"`
 	Position               string `json:"position"`
@@ -2536,9 +2536,9 @@ type AllowUserinfos struct {
 	User []User `json:"user"`
 }
 
-type User struct {
-	Userid string `json:"userId"`
-}
+//type User struct {
+//	Userid string `json:"userId"`
+//}
 
 type AllowPartys struct {
 	Partyid []int `json:"partyId"`

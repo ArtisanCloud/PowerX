@@ -9,7 +9,7 @@ import (
 type Department struct {
 	model.Model
 	PDep        *Department   `gorm:"foreignKey:PId"`
-	Leader      *Employee     `gorm:"foreignKey:LeaderId"`
+	Leader      *User         `gorm:"foreignKey:LeaderId"`
 	Ancestors   []*Department `gorm:"many2many:department_ancestors;"`
 	Name        string        `gorm:"comment:部门名称;column:name" json:"name"`
 	PId         int64         `gorm:"comment:部门名ID;column:pid" json:"pid"`

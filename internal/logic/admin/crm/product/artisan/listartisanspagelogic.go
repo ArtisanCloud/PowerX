@@ -64,7 +64,7 @@ func TransformArtisanToReply(artisan *product.Artisan) *types.Artisan {
 	arrayDetailImageIds, _ := media.GetImageIds(artisan.PivotDetailImages)
 	return &types.Artisan{
 		Id:             artisan.Id,
-		EmployeeId:     artisan.EmployeeId,
+		UserId:         artisan.UserId,
 		Name:           artisan.Name,
 		Level:          artisan.Level,
 		Gender:         artisan.Gender,

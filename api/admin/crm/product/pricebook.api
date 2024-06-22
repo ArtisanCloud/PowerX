@@ -12,7 +12,7 @@ info(
 @server(
     group: admin/crm/product/pricebook
     prefix: /api/v1/admin/product
-    middleware: EmployeeJWTAuth
+    middleware: UserJWTAuth
 )
 
 service PowerX {
@@ -66,11 +66,11 @@ type (
 )
 
 type (
-    GetPriceBookRequest struct {
+    GetPriceBookRequest {
         PriceBook int64 `path:"id"`
     }
 
-    GetPriceBookReply struct {
+    GetPriceBookReply {
         *PriceBook
     }
 )

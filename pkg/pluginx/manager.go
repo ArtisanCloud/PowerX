@@ -16,6 +16,7 @@ import (
 	"strings"
 )
 
+// Manager 管理插件的加载、启动和关闭
 type Manager struct {
 	r httpx.Router
 
@@ -32,6 +33,7 @@ type Manager struct {
 	frontendServer *PluginFrontendServer
 }
 
+// NewManager 创建一个新的插件管理器实例
 func NewManager(ctx context.Context, route httpx.Router, mainHost string) *Manager {
 	manager := &Manager{
 		r:                route,
@@ -44,16 +46,19 @@ func NewManager(ctx context.Context, route httpx.Router, mainHost string) *Manag
 	return manager
 }
 
+// ProxyHandleFunc 返回处理代理请求的 HTTP 处理函数
 func (m *Manager) ProxyHandleFunc() http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
 		const prefix = "/api/plugin"
 		const unknownError = `{"error": "plugin backend request failed"}`
 
+		// 如果请求路径不以指定前缀开头，则返回未知错误
 		if !strings.HasPrefix(request.URL.Path, prefix) {
 			http.Error(writer, unknownError, http.StatusInternalServerError)
 			return
 		}
 
+		// 根据路径分割获取插件名称和路径
 		splitPaths := strings.Split(request.URL.Path, "/")
 		if len(splitPaths) < 4 {
 			http.Error(writer, unknownError, http.StatusInternalServerError)
@@ -63,6 +68,7 @@ func (m *Manager) ProxyHandleFunc() http.HandlerFunc {
 		name := splitPaths[3]
 		pluginPath := strings.Join(splitPaths[4:], "/")
 
+		// 根据插件名称查找插件
 		plugin, ok := m.pluginMap[name]
 		if !ok || !plugin.IsReady() {
 			logx.Errorf("Plugin %s not found", name)
@@ -70,11 +76,14 @@ func (m *Manager) ProxyHandleFunc() http.HandlerFunc {
 			return
 		}
 
+		// 构建目标 URL
 		targetURL := fmt.Sprintf("http://%s/%s", plugin.PluginHost, pluginPath)
 		fmt.Println(targetURL)
 		if request.URL.RawQuery != "" {
 			targetURL = targetURL + "?" + request.URL.RawQuery
 		}
+
+		// 读取请求体
 		var buf bytes.Buffer
 		if _, err := io.Copy(&buf, request.Body); err != nil {
 			logx.Errorf("Error reading request body: %v", err)
@@ -82,6 +91,7 @@ func (m *Manager) ProxyHandleFunc() http.HandlerFunc {
 			return
 		}
 
+		// 创建代理请求
 		proxyReq, err := http.NewRequest(request.Method, targetURL, &buf)
 
 		if err != nil {
@@ -90,8 +100,9 @@ func (m *Manager) ProxyHandleFunc() http.HandlerFunc {
 			return
 		}
 
+		// 复制请求头
 		copyHeaders(request.Header, proxyReq.Header)
-
+		// 发送代理请求
 		resp, err := http.DefaultClient.Do(proxyReq)
 		if err != nil {
 			logx.Errorf("Error sending proxy request: %v", err)
@@ -100,9 +111,11 @@ func (m *Manager) ProxyHandleFunc() http.HandlerFunc {
 		}
 		defer resp.Body.Close()
 
+		// 复制响应头
 		copyHeaders(resp.Header, writer.Header())
 		writer.WriteHeader(resp.StatusCode)
 
+		// 发送代理响应
 		if _, err = io.Copy(writer, resp.Body); err != nil {
 			logx.Errorf("Error sending proxy request: %v", err)
 			http.Error(writer, "Error sending proxy request", http.StatusBadGateway)
@@ -156,6 +169,7 @@ func (m *Manager) SetupPluginManager() {
 		return
 	}
 
+	// 定义重新构建插件的函数
 	rebuild := func() {
 		loader := NewLoader("./plugins", &BuildLoaderConfig{
 			MainAPIEndpoint: "/api/plugin",

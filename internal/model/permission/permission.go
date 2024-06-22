@@ -8,7 +8,7 @@ type AdminAuthMetadata struct {
 	UID int64
 }
 
-type EmployeeCasbinPolicy struct {
+type UserCasbinPolicy struct {
 	ID    int64 `gorm:"primarykey"`
 	PType string
 	V0    string

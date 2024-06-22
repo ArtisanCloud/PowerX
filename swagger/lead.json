@@ -152,15 +152,15 @@
         ]
       }
     },
-    "/api/v1/admin/lead/leads/{id}/actions/assign-to-employee": {
+    "/api/v1/admin/lead/leads/{id}/actions/assign-to-user": {
       "post": {
         "summary": "分配线索给员工",
-        "operationId": "AssignLeadToEmployee",
+        "operationId": "AssignLeadToUser",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/AssignLeadToEmployeeReply"
+              "$ref": "#/definitions/AssignLeadToUserReply"
             }
           }
         },
@@ -176,7 +176,7 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/AssignLeadToEmployeeRequest"
+              "$ref": "#/definitions/AssignLeadToUserRequest"
             }
           }
         ],
@@ -188,31 +188,31 @@
     }
   },
   "definitions": {
-    "AssignLeadToEmployeeReply": {
+    "AssignLeadToUserReply": {
       "type": "object",
       "properties": {
         "": {
           "$ref": "#/definitions/Lead"
         }
       },
-      "title": "AssignLeadToEmployeeReply"
+      "title": "AssignLeadToUserReply"
     },
-    "AssignLeadToEmployeeRequest": {
+    "AssignLeadToUserRequest": {
       "type": "object",
       "properties": {
         "id": {
           "type": "integer",
           "format": "int64"
         },
-        "employeeId": {
+        "userId": {
           "type": "integer",
           "format": "int64"
         }
       },
-      "title": "AssignLeadToEmployeeRequest",
+      "title": "AssignLeadToUserRequest",
       "required": [
         "id",
-        "employeeId"
+        "userId"
       ]
     },
     "CreateLeadRecord": {

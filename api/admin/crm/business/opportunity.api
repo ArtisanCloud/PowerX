@@ -11,7 +11,7 @@ info(
 @server(
     group: admin/crm/business/opportunity
     prefix: /api/v1/admin/business
-    middleware: EmployeeJWTAuth
+    middleware: UserJWTAuth
 )
 
 service PowerX {
@@ -24,8 +24,8 @@ service PowerX {
     post /opportunities (CreateOpportunityRequest) returns (CreateOpportunityReply)
 
     @doc "为商机分配员工"
-    @handler AssignEmployeeToOpportunity
-    put /opportunities/:id/assign-employee (AssignEmployeeToOpportunityRequest) returns (AssignEmployeeToOpportunityReply)
+    @handler AssignUserToOpportunity
+    put /opportunities/:id/assign-user (AssignUserToOpportunityRequest) returns (AssignUserToOpportunityReply)
 
     @doc "修改商机信息"
     @handler UpdateOpportunity
@@ -37,7 +37,7 @@ service PowerX {
 }
 
 type (
-    GetOpportunityListRequest struct {
+    GetOpportunityListRequest {
         Name string `form:"name,optional"`
         Source string `form:"source,optional"`
         Type string `form:"type,optional"`
@@ -47,7 +47,7 @@ type (
         PageSize int `form:"pageSize,optional"`
     }
 
-    Opportunity struct {
+    Opportunity {
         Id int64 `json:"id"`
         Name string `json:"name"`
         Requirement string `json:"requirement"`
@@ -55,14 +55,14 @@ type (
         Probability float32 `json:"probability"`
         Source string `json:"source"`
         Type string `json:"type"`
-        EmployeeId int64 `json:"employeeId"`
+        UserId int64 `json:"userId"`
         Stage string `json:"stage"`
         ClosedDate string `json:"closedDate"`
         CreatedAt string `json:"createdAt"`
         UpdatedAt string `json:"updatedAt"`
     }
 
-    GetOpportunityListReply struct {
+    GetOpportunityListReply {
         List []Opportunity `json:"list"`
         PageIndex int `json:"pageIndex"`
         PageSize int `json:"pageSize"`
@@ -71,35 +71,35 @@ type (
 )
 
 type (
-    CreateOpportunityRequest struct {
+    CreateOpportunityRequest {
         Name         string  `json:"name"`
         Requirement  string  `json:"requirement"`
         CustomerId   int64   `json:"customerId"`
         Probability  float32 `json:"probability,optional"`
         Source       string  `json:"source,options=new_customer|old_customer_new_purchase|old_customer_repurchase|old_customer_upgrade"`
         Type         string  `json:"type,options=trial_requirement|requirement_match|detailed_requirement_analysis|solution_provided|quotation|negotiation|closed_unsuccessful|closed_successful"`
-        EmployeeId   int64   `json:"employeeId"`
+        UserId   int64   `json:"userId"`
         Stage        string  `json:"stage"`
     }
 
-    CreateOpportunityReply struct {
+    CreateOpportunityReply {
         Id int64 `json:"id"`
     }
 )
 
 type (
-    AssignEmployeeToOpportunityRequest struct {
+    AssignUserToOpportunityRequest {
         Id         int64 `path:"id"`
-        EmployeeId int64 `json:"employeeId"`
+        UserId int64 `json:"userId"`
     }
 
-    AssignEmployeeToOpportunityReply struct {
+    AssignUserToOpportunityReply {
         Id int64 `json:"id"`
     }
 )
 
 type (
-    UpdateOpportunityRequest struct {
+    UpdateOpportunityRequest {
         Id           int64  `path:"id"`
         Name         string `json:"name,optional"`
         Requirement  string `json:"requirement,optional"`
@@ -107,22 +107,22 @@ type (
         Probability  float32 `json:"probability,optional"`
         Source       string `json:"source,optional,options=new_customer|old_customer_new_purchase|old_customer_repurchase|old_customer_upgrade"`
         Type         string `json:"type,optional,options=trial_requirement|requirement_match|detailed_requirement_analysis|solution_provided|quotation|negotiation|closed_unsuccessful|closed_successful"`
-        EmployeeId   int64  `json:"employeeId,optional"`
+        UserId   int64  `json:"userId,optional"`
         Stage        string `json:"stage,optional"`
         ClosedDate   string `json:"closedDate,optional"`
     }
 
-    UpdateOpportunityReply struct {
+    UpdateOpportunityReply {
         *Opportunity
     }
 )
 
 type (
-    DeleteOpportunityRequest struct {
+    DeleteOpportunityRequest {
         Id int64 `path:"id"`
     }
 
-    DeleteOpportunityReply struct {
+    DeleteOpportunityReply {
         Id int64 `json:"id"`
     }
 )

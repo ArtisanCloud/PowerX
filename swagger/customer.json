@@ -190,15 +190,15 @@
         ]
       }
     },
-    "/api/v1/admin/customer/customers/{id}/actions/employees": {
+    "/api/v1/admin/customer/customers/{id}/actions/users": {
       "post": {
         "summary": "为客户分配员工",
-        "operationId": "AssignCustomerToEmployee",
+        "operationId": "AssignCustomerToUser",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/AssignCustomerToEmployeeReply"
+              "$ref": "#/definitions/AssignCustomerToUserReply"
             }
           }
         },
@@ -214,7 +214,7 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/AssignCustomerToEmployeeRequest"
+              "$ref": "#/definitions/AssignCustomerToUserRequest"
             }
           }
         ],
@@ -226,7 +226,7 @@
     }
   },
   "definitions": {
-    "AssignCustomerToEmployeeReply": {
+    "AssignCustomerToUserReply": {
       "type": "object",
       "properties": {
         "customerId": {
@@ -234,26 +234,26 @@
           "format": "int64"
         }
       },
-      "title": "AssignCustomerToEmployeeReply",
+      "title": "AssignCustomerToUserReply",
       "required": [
         "customerId"
       ]
     },
-    "AssignCustomerToEmployeeRequest": {
+    "AssignCustomerToUserRequest": {
       "type": "object",
       "properties": {
         "id": {
           "type": "string"
         },
-        "employeeId": {
+        "userId": {
           "type": "integer",
           "format": "int64"
         }
       },
-      "title": "AssignCustomerToEmployeeRequest",
+      "title": "AssignCustomerToUserRequest",
       "required": [
         "id",
-        "employeeId"
+        "userId"
       ]
     },
     "CreateCustomerReply": {

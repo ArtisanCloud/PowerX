@@ -12,7 +12,7 @@ info(
 @server(
     group: admin/crm/trade/address/shipping
     prefix: /api/v1/admin/trade/address
-    middleware: EmployeeJWTAuth
+    middleware: UserJWTAuth
 )
 
 service PowerX {
@@ -59,7 +59,7 @@ type (
     }
 )
 type (
-    ListShippingAddressesPageRequest struct {
+    ListShippingAddressesPageRequest {
         NameLike []string `form:"nameLike,optional"`
         OrderBy string `form:"orderBy,optional"`
         PageIndex int `form:"pageIndex,optional"`
@@ -67,7 +67,7 @@ type (
     }
 
 
-    ListShippingAddressesPageReply struct {
+    ListShippingAddressesPageReply {
         List []*ShippingAddress `json:"list"`
         PageIndex int `json:"pageIndex"`
         PageSize int `json:"pageSize"`
@@ -76,55 +76,55 @@ type (
 )
 
 type (
-    CreateShippingAddressRequest struct {
+    CreateShippingAddressRequest {
         ShippingAddress
     }
 
-    CreateShippingAddressReply struct {
+    CreateShippingAddressReply {
         *ShippingAddress
     }
 )
 
 type (
-    GetShippingAddressRequest struct {
+    GetShippingAddressRequest {
         ShippingAddressId int64 `path:"id"`
     }
 
-    GetShippingAddressReply struct {
+    GetShippingAddressReply {
         *ShippingAddress
     }
 )
 
 
 type (
-    PutShippingAddressRequest struct {
-        ShippingAddressId int64 `path:"id"`
-        ShippingAddress
-    }
-
-    PutShippingAddressReply struct {
-        *ShippingAddress
-    }
-)
-
-type (
-    PatchShippingAddressRequest struct {
+    PutShippingAddressRequest {
         ShippingAddressId int64 `path:"id"`
         ShippingAddress
     }
 
-    PatchShippingAddressReply struct {
+    PutShippingAddressReply {
+        *ShippingAddress
+    }
+)
+
+type (
+    PatchShippingAddressRequest {
+        ShippingAddressId int64 `path:"id"`
+        ShippingAddress
+    }
+
+    PatchShippingAddressReply {
         *ShippingAddress
     }
 )
 
 
 type (
-    DeleteShippingAddressRequest struct {
+    DeleteShippingAddressRequest {
         ShippingAddressId int64 `path:"id"`
     }
 
-    DeleteShippingAddressReply struct {
+    DeleteShippingAddressReply {
         ShippingAddressId int64 `json:"id"`
     }
 )

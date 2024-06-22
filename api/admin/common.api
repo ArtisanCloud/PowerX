@@ -11,17 +11,17 @@ info(
 @server(
     group: admin/common
     prefix: /api/v1/admin/common
-    middleware: EmployeeNoPermJWTAuth
+    middleware: UserNoPermJWTAuth
 )
 
 service PowerX {
     @doc "员工Options远程搜索"
-    @handler GetEmployeeOptions
-    get /options/employees (GetEmployeeOptionsRequest) returns (GetEmployeeOptionsReply)
+    @handler GetUserOptions
+    get /options/users (GetUserOptionsRequest) returns (GetUserOptionsReply)
 
     @doc "查询员工过滤条件"
-    @handler GetEmployeeQueryOptions
-    get /options/employee-query returns (GetEmployeeQueryOptionsReply)
+    @handler GetUserQueryOptions
+    get /options/user-query returns (GetUserQueryOptionsReply)
 
     @doc "部门Options远程搜索"
     @handler GetDepartmentOptions
@@ -33,7 +33,7 @@ service PowerX {
 }
 
 type (
-    GetEmployeeOptionsRequest struct {
+    GetUserOptionsRequest {
         LikeName string `form:"likeName,optional"`
         LikeEmail string `form:"likeEmail,optional"`
         LikePhoneNumber string `form:"likePhoneNumber,optional"`
@@ -41,7 +41,7 @@ type (
         PageSize int `form:"pageSize,optional"`
     }
 
-    EmployeeOption struct {
+    UserOption {
         Id int64 `json:"id"`
         Avatar string `json:"avatar"`
         Account string `json:"account"`
@@ -50,8 +50,8 @@ type (
         PhoneNumber string `json:"phoneNumber"`
     }
 
-    GetEmployeeOptionsReply struct {
-        List []EmployeeOption `json:"list"`
+    GetUserOptionsReply {
+        List []UserOption `json:"list"`
         PageIndex int `json:"pageIndex"`
         PageSize int `json:"pageSize"`
         Total int64 `json:"total"`
@@ -59,36 +59,36 @@ type (
 )
 
 type (
-    EmployeeQueryRoleOption {
+    UserQueryRoleOption {
         RoleCode string `json:"roleCode"`
         RoleName string `json:"roleName"`
     }
 
-    EmployeeQueryDepartmentOption {
+    UserQueryDepartmentOption {
         DepartmentId int64 `json:"departmentId"`
         DepartmentName string `json:"departmentName"`
     }
 
-    GetEmployeeQueryOptionsReply {
-        Roles []EmployeeQueryRoleOption `json:"roles"`
-        Departments []EmployeeQueryDepartmentOption `json:"departments"`
+    GetUserQueryOptionsReply {
+        Roles []UserQueryRoleOption `json:"roles"`
+        Departments []UserQueryDepartmentOption `json:"departments"`
     }
 )
 
 type (
-    GetDepartmentOptionsRequest struct {
+    GetDepartmentOptionsRequest {
         Ids []int64 `form:"ids,optional"`
         LikeName string `form:"likeName,optional"`
         PageIndex int `form:"pageIndex,optional"`
         PageSize int `form:"pageSize,optional"`
     }
 
-    DepartmentOption struct {
+    DepartmentOption {
         Id int64 `json:"id"`
         Name string `json:"name"`
     }
 
-    GetDepartmentOptionsReply struct {
+    GetDepartmentOptionsReply {
         List []DepartmentOption `json:"list"`
         PageIndex int `json:"pageIndex"`
         PageSize int `json:"pageSize"`
@@ -97,12 +97,12 @@ type (
 )
 
 type (
-    GetOptionsRequest struct {
+    GetOptionsRequest {
         Type string `form:"type,optional"`
         Search string `form:"search,optional"`
     }
 
-    GetOptionsReply struct {
+    GetOptionsReply {
         Options []map[string]interface{} `json:"options"`
     }
 )

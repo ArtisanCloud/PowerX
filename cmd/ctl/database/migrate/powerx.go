@@ -6,6 +6,7 @@ import (
 	"PowerX/internal/model"
 	"PowerX/internal/model/crm/customerdomain"
 	"PowerX/internal/model/crm/market"
+	"PowerX/internal/model/crm/operation"
 	"PowerX/internal/model/crm/product"
 	"PowerX/internal/model/crm/trade"
 	infoorganizatoin "PowerX/internal/model/infoorganization"
@@ -49,8 +50,8 @@ func NewPowerMigrator(conf *config.Config) (*PowerMigrator, error) {
 func (m *PowerMigrator) AutoMigrate() {
 
 	_ = m.db.AutoMigrate(&model.DataDictionaryType{}, &model.DataDictionaryItem{}, &model.PivotDataDictionaryToObject{})
-	_ = m.db.AutoMigrate(&origanzation.Department{}, &origanzation.Employee{}, &origanzation.Position{})
-	_ = m.db.AutoMigrate(&permission.EmployeeCasbinPolicy{}, permission.AdminRole{}, permission.AdminRoleMenuName{}, permission.AdminAPI{})
+	_ = m.db.AutoMigrate(&origanzation.Department{}, &origanzation.User{}, &origanzation.Position{})
+	_ = m.db.AutoMigrate(&permission.UserCasbinPolicy{}, permission.AdminRole{}, permission.AdminRoleMenuName{}, permission.AdminAPI{})
 
 	// info organization
 	_ = m.db.AutoMigrate(&infoorganizatoin.Category{}, &infoorganizatoin.Label{}, &infoorganizatoin.Tag{})
@@ -95,7 +96,7 @@ func (m *PowerMigrator) AutoMigrate() {
 	migrate.AutoMigrateCustom(m.db)
 
 	// wechat organization
-	_ = m.db.AutoMigrate(&organization.WeWorkEmployee{}, &organization.WeWorkDepartment{})
+	_ = m.db.AutoMigrate(&organization.WeWorkUser{}, &organization.WeWorkDepartment{})
 	// wechat customer
 	_ = m.db.AutoMigrate(&customer.WeWorkExternalContacts{}, &customer.WeWorkExternalContactFollow{})
 	// wechat resource

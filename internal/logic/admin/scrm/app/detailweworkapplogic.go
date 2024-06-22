@@ -72,7 +72,7 @@ func (app *DetailWeWorkAppLogic) allowUserInfos(infos response.ResponseAgentAllo
 
 	for _, user := range infos.User {
 		infox.User = append(infox.User, types.User{
-			Userid: user.UserID,
+			Account: user.UserID,
 		})
 	}
 	return infox

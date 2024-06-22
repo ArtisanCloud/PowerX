@@ -31,7 +31,7 @@ import (
 	admincrmtradewarehouse "PowerX/internal/handler/admin/crm/trade/warehouse"
 	admindepartment "PowerX/internal/handler/admin/department"
 	admindictionary "PowerX/internal/handler/admin/dictionary"
-	adminemployee "PowerX/internal/handler/admin/employee"
+	adminuser "PowerX/internal/handler/admin/user"
 	admininfoorganizationcategory "PowerX/internal/handler/admin/infoorganization/category"
 	adminmediaresource "PowerX/internal/handler/admin/mediaresource"
 	adminpermission "PowerX/internal/handler/admin/permission"
@@ -89,17 +89,17 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 
 	server.AddRoutes(
 		rest.WithMiddlewares(
-			[]rest.Middleware{serverCtx.EmployeeNoPermJWTAuth},
+			[]rest.Middleware{serverCtx.UserNoPermJWTAuth},
 			[]rest.Route{
 				{
 					Method:  http.MethodGet,
-					Path:    "/options/employees",
-					Handler: admincommon.GetEmployeeOptionsHandler(serverCtx),
+					Path:    "/options/users",
+					Handler: admincommon.GetUserOptionsHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodGet,
-					Path:    "/options/employee-query",
-					Handler: admincommon.GetEmployeeQueryOptionsHandler(serverCtx),
+					Path:    "/options/user-query",
+					Handler: admincommon.GetUserQueryOptionsHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodGet,
@@ -118,7 +118,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 
 	server.AddRoutes(
 		rest.WithMiddlewares(
-			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Middleware{serverCtx.UserJWTAuth},
 			[]rest.Route{
 				{
 					Method:  http.MethodGet,
@@ -152,7 +152,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 
 	server.AddRoutes(
 		rest.WithMiddlewares(
-			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Middleware{serverCtx.UserJWTAuth},
 			[]rest.Route{
 				{
 					Method:  http.MethodPost,
@@ -186,51 +186,51 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 
 	server.AddRoutes(
 		rest.WithMiddlewares(
-			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Middleware{serverCtx.UserJWTAuth},
 			[]rest.Route{
 				{
 					Method:  http.MethodPost,
-					Path:    "/employees/actions/sync",
-					Handler: adminemployee.SyncEmployeesHandler(serverCtx),
+					Path:    "/users/actions/sync",
+					Handler: adminuser.SyncUsersHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodGet,
-					Path:    "/employees/:id",
-					Handler: adminemployee.GetEmployeeHandler(serverCtx),
+					Path:    "/users/:id",
+					Handler: adminuser.GetUserHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodGet,
-					Path:    "/employees",
-					Handler: adminemployee.ListEmployeesHandler(serverCtx),
+					Path:    "/users",
+					Handler: adminuser.ListUsersHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPost,
-					Path:    "/employees",
-					Handler: adminemployee.CreateEmployeeHandler(serverCtx),
+					Path:    "/users",
+					Handler: adminuser.CreateUserHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPatch,
-					Path:    "/employees/:id",
-					Handler: adminemployee.UpdateEmployeeHandler(serverCtx),
+					Path:    "/users/:id",
+					Handler: adminuser.UpdateUserHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodDelete,
-					Path:    "/employees/:id",
-					Handler: adminemployee.DeleteEmployeeHandler(serverCtx),
+					Path:    "/users/:id",
+					Handler: adminuser.DeleteUserHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPost,
-					Path:    "/employees/actions/reset-password",
-					Handler: adminemployee.ResetPasswordHandler(serverCtx),
+					Path:    "/users/actions/reset-password",
+					Handler: adminuser.ResetPasswordHandler(serverCtx),
 				},
 			}...,
 		),
-		rest.WithPrefix("/api/v1/admin/employee"),
+		rest.WithPrefix("/api/v1/admin/user"),
 	)
 
 	server.AddRoutes(
 		rest.WithMiddlewares(
-			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Middleware{serverCtx.UserJWTAuth},
 			[]rest.Route{
 				{
 					Method:  http.MethodGet,
@@ -255,7 +255,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				{
 					Method:  http.MethodGet,
 					Path:    "/roles/:roleCode/users",
-					Handler: adminpermission.GetRoleEmployeesHandler(serverCtx),
+					Handler: adminpermission.GetRoleUsersHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPost,
@@ -269,8 +269,8 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				},
 				{
 					Method:  http.MethodPost,
-					Path:    "/roles/:roleCode/actions/set-employees",
-					Handler: adminpermission.SetRoleEmployeesHandler(serverCtx),
+					Path:    "/roles/:roleCode/actions/set-users",
+					Handler: adminpermission.SetRoleUsersHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPost,
@@ -300,7 +300,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 
 	server.AddRoutes(
 		rest.WithMiddlewares(
-			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Middleware{serverCtx.UserJWTAuth},
 			[]rest.Route{
 				{
 					Method:  http.MethodGet,
@@ -364,7 +364,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 
 	server.AddRoutes(
 		rest.WithMiddlewares(
-			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Middleware{serverCtx.UserJWTAuth},
 			[]rest.Route{
 				{
 					Method:  http.MethodGet,
@@ -388,7 +388,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 
 	server.AddRoutes(
 		rest.WithMiddlewares(
-			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Middleware{serverCtx.UserJWTAuth},
 			[]rest.Route{
 				{
 					Method:  http.MethodGet,
@@ -427,7 +427,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 
 	server.AddRoutes(
 		rest.WithMiddlewares(
-			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Middleware{serverCtx.UserJWTAuth},
 			[]rest.Route{
 				{
 					Method:  http.MethodGet,
@@ -466,7 +466,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 
 	server.AddRoutes(
 		rest.WithMiddlewares(
-			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Middleware{serverCtx.UserJWTAuth},
 			[]rest.Route{
 				{
 					Method:  http.MethodGet,
@@ -500,8 +500,8 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				},
 				{
 					Method:  http.MethodPost,
-					Path:    "/leads/:id/actions/employees",
-					Handler: admincrmcustomerdomainleader.AssignLeadToEmployeeHandler(serverCtx),
+					Path:    "/leads/:id/actions/users",
+					Handler: admincrmcustomerdomainleader.AssignLeadToUserHandler(serverCtx),
 				},
 			}...,
 		),
@@ -510,7 +510,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 
 	server.AddRoutes(
 		rest.WithMiddlewares(
-			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Middleware{serverCtx.UserJWTAuth},
 			[]rest.Route{
 				{
 					Method:  http.MethodGet,
@@ -544,8 +544,8 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				},
 				{
 					Method:  http.MethodPost,
-					Path:    "/customers/:id/actions/employees",
-					Handler: admincrmcustomerdomaincustomer.AssignCustomerToEmployeeHandler(serverCtx),
+					Path:    "/customers/:id/actions/users",
+					Handler: admincrmcustomerdomaincustomer.AssignCustomerToUserHandler(serverCtx),
 				},
 			}...,
 		),
@@ -554,7 +554,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 
 	server.AddRoutes(
 		rest.WithMiddlewares(
-			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Middleware{serverCtx.UserJWTAuth},
 			[]rest.Route{
 				{
 					Method:  http.MethodGet,
@@ -598,7 +598,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 
 	server.AddRoutes(
 		rest.WithMiddlewares(
-			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Middleware{serverCtx.UserJWTAuth},
 			[]rest.Route{
 				{
 					Method:  http.MethodGet,
@@ -612,7 +612,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 
 	server.AddRoutes(
 		rest.WithMiddlewares(
-			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Middleware{serverCtx.UserJWTAuth},
 			[]rest.Route{
 				{
 					Method:  http.MethodGet,
@@ -646,7 +646,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 
 	server.AddRoutes(
 		rest.WithMiddlewares(
-			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Middleware{serverCtx.UserJWTAuth},
 			[]rest.Route{
 				{
 					Method:  http.MethodGet,
@@ -685,7 +685,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 
 	server.AddRoutes(
 		rest.WithMiddlewares(
-			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Middleware{serverCtx.UserJWTAuth},
 			[]rest.Route{
 				{
 					Method:  http.MethodGet,
@@ -719,7 +719,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 
 	server.AddRoutes(
 		rest.WithMiddlewares(
-			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Middleware{serverCtx.UserJWTAuth},
 			[]rest.Route{
 				{
 					Method:  http.MethodGet,
@@ -733,8 +733,8 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				},
 				{
 					Method:  http.MethodPut,
-					Path:    "/opportunities/:id/assign-employee",
-					Handler: admincrmbusinessopportunity.AssignEmployeeToOpportunityHandler(serverCtx),
+					Path:    "/opportunities/:id/assign-user",
+					Handler: admincrmbusinessopportunity.AssignUserToOpportunityHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPut,
@@ -753,7 +753,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 
 	server.AddRoutes(
 		rest.WithMiddlewares(
-			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Middleware{serverCtx.UserJWTAuth},
 			[]rest.Route{
 				{
 					Method:  http.MethodGet,
@@ -782,7 +782,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 
 	server.AddRoutes(
 		rest.WithMiddlewares(
-			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Middleware{serverCtx.UserJWTAuth},
 			[]rest.Route{
 				{
 					Method:  http.MethodGet,
@@ -831,7 +831,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 
 	server.AddRoutes(
 		rest.WithMiddlewares(
-			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Middleware{serverCtx.UserJWTAuth},
 			[]rest.Route{
 				{
 					Method:  http.MethodGet,
@@ -865,7 +865,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 
 	server.AddRoutes(
 		rest.WithMiddlewares(
-			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Middleware{serverCtx.UserJWTAuth},
 			[]rest.Route{
 				{
 					Method:  http.MethodGet,
@@ -904,7 +904,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 
 	server.AddRoutes(
 		rest.WithMiddlewares(
-			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Middleware{serverCtx.UserJWTAuth},
 			[]rest.Route{
 				{
 					Method:  http.MethodGet,
@@ -948,7 +948,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 
 	server.AddRoutes(
 		rest.WithMiddlewares(
-			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Middleware{serverCtx.UserJWTAuth},
 			[]rest.Route{
 				{
 					Method:  http.MethodGet,
@@ -992,7 +992,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 
 	server.AddRoutes(
 		rest.WithMiddlewares(
-			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Middleware{serverCtx.UserJWTAuth},
 			[]rest.Route{
 				{
 					Method:  http.MethodGet,
@@ -1026,7 +1026,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 
 	server.AddRoutes(
 		rest.WithMiddlewares(
-			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Middleware{serverCtx.UserJWTAuth},
 			[]rest.Route{
 				{
 					Method:  http.MethodGet,
@@ -1065,7 +1065,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 
 	server.AddRoutes(
 		rest.WithMiddlewares(
-			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Middleware{serverCtx.UserJWTAuth},
 			[]rest.Route{
 				{
 					Method:  http.MethodGet,
@@ -1104,7 +1104,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 
 	server.AddRoutes(
 		rest.WithMiddlewares(
-			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Middleware{serverCtx.UserJWTAuth},
 			[]rest.Route{
 				{
 					Method:  http.MethodGet,
@@ -1143,7 +1143,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 
 	server.AddRoutes(
 		rest.WithMiddlewares(
-			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Middleware{serverCtx.UserJWTAuth},
 			[]rest.Route{
 				{
 					Method:  http.MethodGet,
@@ -1182,7 +1182,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 
 	server.AddRoutes(
 		rest.WithMiddlewares(
-			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Middleware{serverCtx.UserJWTAuth},
 			[]rest.Route{
 				{
 					Method:  http.MethodGet,
@@ -1221,7 +1221,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 
 	server.AddRoutes(
 		rest.WithMiddlewares(
-			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Middleware{serverCtx.UserJWTAuth},
 			[]rest.Route{
 				{
 					Method:  http.MethodGet,
@@ -1260,7 +1260,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 
 	server.AddRoutes(
 		rest.WithMiddlewares(
-			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Middleware{serverCtx.UserJWTAuth},
 			[]rest.Route{
 				{
 					Method:  http.MethodGet,
@@ -1299,17 +1299,17 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 
 	server.AddRoutes(
 		rest.WithMiddlewares(
-			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Middleware{serverCtx.UserJWTAuth},
 			[]rest.Route{
 				{
 					Method:  http.MethodPost,
-					Path:    "/employee/page",
-					Handler: adminscrmorganization.ListWeWorkEmployeePageHandler(serverCtx),
+					Path:    "/user/page",
+					Handler: adminscrmorganization.ListWeWorkUserPageHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodGet,
 					Path:    "/sync",
-					Handler: adminscrmorganization.SyncWeWorkEmployeeHandler(serverCtx),
+					Handler: adminscrmorganization.SyncWeWorkUserHandler(serverCtx),
 				},
 			}...,
 		),
@@ -1318,7 +1318,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 
 	server.AddRoutes(
 		rest.WithMiddlewares(
-			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Middleware{serverCtx.UserJWTAuth},
 			[]rest.Route{
 				{
 					Method:  http.MethodPost,
@@ -1332,7 +1332,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 
 	server.AddRoutes(
 		rest.WithMiddlewares(
-			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Middleware{serverCtx.UserJWTAuth},
 			[]rest.Route{
 				{
 					Method:  http.MethodGet,
@@ -1356,7 +1356,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 
 	server.AddRoutes(
 		rest.WithMiddlewares(
-			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Middleware{serverCtx.UserJWTAuth},
 			[]rest.Route{
 				{
 					Method:  http.MethodGet,
@@ -1375,7 +1375,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 
 	server.AddRoutes(
 		rest.WithMiddlewares(
-			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Middleware{serverCtx.UserJWTAuth},
 			[]rest.Route{
 				{
 					Method:  http.MethodPost,
@@ -1389,7 +1389,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 
 	server.AddRoutes(
 		rest.WithMiddlewares(
-			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Middleware{serverCtx.UserJWTAuth},
 			[]rest.Route{
 				{
 					Method:  http.MethodPost,
@@ -1408,7 +1408,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 
 	server.AddRoutes(
 		rest.WithMiddlewares(
-			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Middleware{serverCtx.UserJWTAuth},
 			[]rest.Route{
 				{
 					Method:  http.MethodPost,
@@ -1427,7 +1427,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 
 	server.AddRoutes(
 		rest.WithMiddlewares(
-			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Middleware{serverCtx.UserJWTAuth},
 			[]rest.Route{
 				{
 					Method:  http.MethodPost,
@@ -1441,7 +1441,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 
 	server.AddRoutes(
 		rest.WithMiddlewares(
-			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Middleware{serverCtx.UserJWTAuth},
 			[]rest.Route{
 				{
 					Method:  http.MethodPost,
@@ -1460,7 +1460,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 
 	server.AddRoutes(
 		rest.WithMiddlewares(
-			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Middleware{serverCtx.UserJWTAuth},
 			[]rest.Route{
 				{
 					Method:  http.MethodPost,
@@ -1504,7 +1504,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 
 	server.AddRoutes(
 		rest.WithMiddlewares(
-			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Middleware{serverCtx.UserJWTAuth},
 			[]rest.Route{
 				{
 					Method:  http.MethodGet,
@@ -1563,7 +1563,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 
 	server.AddRoutes(
 		rest.WithMiddlewares(
-			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Middleware{serverCtx.UserJWTAuth},
 			[]rest.Route{
 				{
 					Method:  http.MethodGet,
@@ -1592,7 +1592,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 
 	server.AddRoutes(
 		rest.WithMiddlewares(
-			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Middleware{serverCtx.UserJWTAuth},
 			[]rest.Route{
 				{
 					Method:  http.MethodPost,
@@ -1794,7 +1794,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 
 	server.AddRoutes(
 		rest.WithMiddlewares(
-			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Middleware{serverCtx.UserJWTAuth},
 			[]rest.Route{
 				{
 					Method:  http.MethodGet,
@@ -1917,7 +1917,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 
 	server.AddRoutes(
 		rest.WithMiddlewares(
-			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Middleware{serverCtx.UserJWTAuth},
 			[]rest.Route{
 				{
 					Method:  http.MethodGet,
@@ -1966,7 +1966,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 
 	server.AddRoutes(
 		rest.WithMiddlewares(
-			[]rest.Middleware{serverCtx.EmployeeJWTAuth},
+			[]rest.Middleware{serverCtx.UserJWTAuth},
 			[]rest.Route{
 				{
 					Method:  http.MethodGet,

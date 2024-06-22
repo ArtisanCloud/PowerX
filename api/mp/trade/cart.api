@@ -43,14 +43,14 @@ service PowerX {
 
 
 type (
-    Cart struct {
+    Cart {
         Id int64 `json:"id", optional"`
         CustomerId int64 `json:"customerId", optional"`
         Status int `json:"status", optional"`
         Items []*CartItem `json:"items", optional"`
     }
 
-    CartItem struct {
+    CartItem {
         Id int64 `json:"id, optional"`
         CustomerId int64 `json:"customerId,omitempty,optional"`
         CartId int64 `json:"cartId,omitempty,optional"`
@@ -67,12 +67,12 @@ type (
 )
 
 type (
-    ListCartItemsPageRequest struct {
+    ListCartItemsPageRequest {
         PageIndex int `form:"pageIndex,optional"`
         PageSize int `form:"pageSize,optional"`
     }
 
-    ListCartItemsPageReply struct {
+    ListCartItemsPageReply {
         List []*CartItem `json:"list"`
         PageIndex int `json:"pageIndex"`
         PageSize int `json:"pageSize"`
@@ -81,50 +81,50 @@ type (
 )
 
 type (
-    GetCartRequest struct {
+    GetCartRequest {
     }
 
-    GetCartReply struct {
+    GetCartReply {
         *Cart
     }
 )
 
 type (
-    AddToCartRequest struct {
+    AddToCartRequest {
         CartItem
     }
 
-    AddToCartReply struct {
+    AddToCartReply {
         *CartItem
     }
 )
 
 type (
-    UpdateCartItemQuantityRequest struct {
+    UpdateCartItemQuantityRequest {
         ItemId int64 `path:"itemId"`
         Quantity int `json:"quantity"`
     }
 
-    UpdateCartItemQuantityReply struct {
+    UpdateCartItemQuantityReply {
         *CartItem
     }
 )
 
 type (
-    RemoveCartItemRequest struct {
+    RemoveCartItemRequest {
         ItemId int64 `path:"itemId"`
     }
 
-    RemoveCartItemReply struct {
+    RemoveCartItemReply {
         ItemId int64 `json:"itemId"`
     }
 )
 
 type (
-    ClearCartItemsRequest struct {
+    ClearCartItemsRequest {
     }
 
-    ClearCartItemsReply struct {
+    ClearCartItemsReply {
         Message string `json:"message"`
     }
 )

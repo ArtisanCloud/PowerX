@@ -11,7 +11,7 @@ info(
 @server(
     group: admin/scrm/customer
     prefix: /api/v1/admin/scrm/customer
-    middleware: EmployeeJWTAuth
+    middleware: UserJWTAuth
 )
 
 service PowerX {

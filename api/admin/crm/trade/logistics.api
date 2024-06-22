@@ -11,7 +11,7 @@ info (
 @server (
     group: admin/crm/trade/logistics
     prefix: /api/v1/admin/trade
-    middleware: EmployeeJWTAuth
+    middleware: UserJWTAuth
 )
 
 service PowerX {
@@ -54,57 +54,57 @@ type Logistics {
     IsActive      bool   `json:"isActive, omitempty"`
 }
 
-type ListLogisticssRequest struct {
+type ListLogisticssRequest {
     NameLike  string `json:"nameLike"`
     PageIndex int    `form:"pageIndex"`
     PageSize  int    `form:"pageSize"`
 }
 
-type ListLogisticssResponse struct {
+type ListLogisticssResponse {
     List      []*Logistics `json:"list"`
     PageIndex int          `json:"pageIndex"`
     PageSize  int          `json:"pageSize"`
     Total     int64        `json:"total"`
 }
 
-type GetLogisticsRequest struct {
+type GetLogisticsRequest {
     Id int64 `json:"id"`
 }
 
-type GetLogisticsResponse struct {
+type GetLogisticsResponse {
     Logistics *Logistics `json:"logistics"`
 }
 
-type CreateLogisticsRequest struct {
+type CreateLogisticsRequest {
     Logistics *Logistics `json:"logistics"`
 }
 
-type CreateLogisticsResponse struct {
+type CreateLogisticsResponse {
     LogisticsId int64 `json:"logisticsId"`
 }
 
-type UpdateLogisticsRequest struct {
+type UpdateLogisticsRequest {
     Id        int64      `json:"id"`
     Logistics *Logistics `json:"logistics"`
 }
 
-type UpdateLogisticsResponse struct {
+type UpdateLogisticsResponse {
     Logistics *Logistics `json:"logistics"`
 }
 
-type PatchLogisticsRequest struct {
+type PatchLogisticsRequest {
     Id        int64      `json:"id"`
     Logistics *Logistics `json:"logistics"`
 }
 
-type PatchLogisticsResponse struct {
+type PatchLogisticsResponse {
     Logistics *Logistics `json:"logistics"`
 }
 
-type DeleteLogisticsRequest struct {
+type DeleteLogisticsRequest {
     Id int64 `json:"id"`
 }
 
-type DeleteLogisticsResponse struct {
+type DeleteLogisticsResponse {
     LogisticsId int64 `json:"logisticsId"`
 }

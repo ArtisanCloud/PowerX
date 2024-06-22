@@ -12,7 +12,7 @@ info(
 @server(
     group: admin/infoorganization/label
     prefix: /api/v1/admin/info-organization
-    middleware: EmployeeJWTAuth
+    middleware: UserJWTAuth
 )
 
 service PowerX {
@@ -61,7 +61,7 @@ type (
     }
 )
 type (
-    ListLabelTreeRequest struct {
+    ListLabelTreeRequest {
         LabelPId int `form:"labelPId,optional"`
         NeedChildren bool `form:"needChildren,optional"`
         Names []string `form:"name,optional"`
@@ -69,60 +69,60 @@ type (
     }
 
 
-    ListLabelTreeReply struct {
+    ListLabelTreeReply {
         ProductCategories []*Label `json:"tree"`
     }
 )
 
 
 type (
-    CreateLabelRequest struct {
+    CreateLabelRequest {
         Label
     }
 
-    CreateLabelReply struct {
+    CreateLabelReply {
         *Label
     }
 )
 
 type (
-    UpdateLabelRequest struct {
+    UpdateLabelRequest {
         Id int64 `path:"id"`
         Label
     }
-    UpdateLabelReply struct {
+    UpdateLabelReply {
         Id int64 `json:"id"`
     }
 )
 
 type (
-    PatchLabelRequest struct {
+    PatchLabelRequest {
         Id int64 `path:"id"`
         PId int64 `json:"pId"`
     }
 
-    PatchLabelReply struct {
+    PatchLabelReply {
         Label
     }
 )
 
 type (
-    GetLabelRequest struct {
+    GetLabelRequest {
         LabelId int64 `path:"id"`
     }
 
-    GetLabelReply struct {
+    GetLabelReply {
         *Label
     }
 )
 
 
 type (
-    DeleteLabelRequest struct {
+    DeleteLabelRequest {
         Id int64 `path:"id"`
     }
 
-    DeleteLabelReply struct {
+    DeleteLabelReply {
         Id int64 `json:"id"`
     }
 )

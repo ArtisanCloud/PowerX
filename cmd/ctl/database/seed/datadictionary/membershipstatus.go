@@ -2,6 +2,7 @@ package datadictionary
 
 import (
 	"PowerX/internal/model"
+	"PowerX/internal/model/crm/operation"
 )
 
 func defaultMembershipStatusDataDictionary() *model.DataDictionaryType {

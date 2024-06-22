@@ -11,7 +11,7 @@ info(
 @server(
     group: admin/scrm/tag
     prefix: /api/v1/admin/scrm/tag/wechat
-    middleware: EmployeeJWTAuth
+    middleware: UserJWTAuth
 )
 
 service PowerX {
@@ -123,7 +123,7 @@ type (
 )
 
 type (
-    CreateCorpTagRequest struct {
+    CreateCorpTagRequest {
         GroupId string `json:"groupId,optional"` //et2lz4UgAArZWi6ZKx1X8jo3uxfbC_sA 下拉标签组
         GroupName string `json:"groupName"`
         Sort int `json:"Sort,optional"`
@@ -131,12 +131,12 @@ type (
         AgentId int64 `json:"agentId,optional"`  //应用列表
     }
 
-    TagFieldTag struct {
+    TagFieldTag {
         Name string `json:"name"`
         Sort int `json:"sort,optional"`
     }
 
-    ActionCorpTagGroupRequest struct {
+    ActionCorpTagGroupRequest {
         AgentId *int64 `json:"agentId,optional"`
         GroupId *string `json:"groupId,optional"`
         GroupName string `json:"groupName,optional"`
@@ -149,7 +149,7 @@ type (
 )
 
 type (
-    UpdateCorpTagRequest struct {
+    UpdateCorpTagRequest {
         TagId string `json:"tagId"`
         Name string `json:"name"`
         Sort int `json:"sort,optional"`
@@ -159,7 +159,7 @@ type (
 
 
 type (
-    DeleteCorpTagRequest struct {
+    DeleteCorpTagRequest {
         TagIds []string `json:"tagIds,optional"`
         GroupIds []string `json:"groupIds,optional"`
         AgentId int64 `json:"agentId,optional"`
@@ -168,7 +168,7 @@ type (
 
 
 type (
-    ActionCustomerTagRequest struct {
+    ActionCustomerTagRequest {
         UserId string `json:"userId"`
         ExternalUserId string `json:"externalUserId"`
         AddTag []string `json:"addTag,optional"`

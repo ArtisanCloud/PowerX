@@ -12,7 +12,7 @@ info(
 @server(
     group: admin/crm/market/store
     prefix: /api/v1/admin/market
-    middleware: EmployeeJWTAuth
+    middleware: UserJWTAuth
 )
 
 service PowerX {
@@ -50,7 +50,7 @@ type (
     }
 
     StoreArtisan {
-        EmployeeId int64 `json:"employeeId,optional"`
+        UserId int64 `json:"userId,optional"`
         Name string `json:"name,optional"`
         Level int8 `json:"level,optional"`
         Gender bool `json:"gender,optional"`
@@ -69,7 +69,7 @@ type (
     Store {
         Id int64 `json:"id,optional"`
         Name string `json:"name"`
-        StoreEmployeeId int64 `json:"storeEmployeeId,optional"`
+        StoreUserId int64 `json:"storeUserId,optional"`
         ContactNumber string `json:"contactNumber"`
         Email string `json:"email,optional"`
         Address string `json:"address"`
@@ -88,7 +88,7 @@ type (
     }
 )
 type (
-    ListStoresPageRequest struct {
+    ListStoresPageRequest {
         Ids []int64 `form:"ids,optional"`
         LikeName string `form:"likeName,optional"`
         OrderBy string `form:"orderBy,optional"`
@@ -97,7 +97,7 @@ type (
     }
 
 
-    ListStoresPageReply struct {
+    ListStoresPageReply {
         List []*Store `json:"list"`
         PageIndex int `json:"pageIndex"`
         PageSize int `json:"pageSize"`
@@ -106,44 +106,44 @@ type (
 )
 
 type (
-    CreateStoreRequest struct {
+    CreateStoreRequest {
         Store
     }
 
-    CreateStoreReply struct {
+    CreateStoreReply {
         StoreId int64 `json:"id"`
     }
 )
 
 type (
-    GetStoreRequest struct {
+    GetStoreRequest {
         StoreId int64 `path:"id"`
     }
 
-    GetStoreReply struct {
+    GetStoreReply {
         *Store
     }
 )
 
 
 type (
-    PutStoreRequest struct {
+    PutStoreRequest {
         StoreId int64 `path:"id"`
         Store
     }
 
-    PutStoreReply struct {
+    PutStoreReply {
         *Store
     }
 )
 
 
 type (
-    DeleteStoreRequest struct {
+    DeleteStoreRequest {
         StoreId int64 `path:"id"`
     }
 
-    DeleteStoreReply struct {
+    DeleteStoreReply {
         StoreId int64 `json:"id"`
     }
 )
@@ -152,7 +152,7 @@ type (
 type (
     AssignStoreManagerRequest {
         Id int64 `path:"id"`
-        EmployeeId int64 `json:"employeeId"`
+        UserId int64 `json:"userId"`
     }
 
     AssignStoreManagerReply {

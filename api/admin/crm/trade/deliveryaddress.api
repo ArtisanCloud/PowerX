@@ -12,7 +12,7 @@ info(
 @server(
     group: admin/crm/trade/address/delivery
     prefix: /api/v1/admin/trade/address
-    middleware: EmployeeJWTAuth
+    middleware: UserJWTAuth
 )
 
 service PowerX {
@@ -60,7 +60,7 @@ type (
 )
 
 type (
-    ListDeliveryAddressesPageRequest struct {
+    ListDeliveryAddressesPageRequest {
         NameLike []string `form:"nameLike,optional"`
         OrderBy string `form:"orderBy,optional"`
         PageIndex int `form:"pageIndex,optional"`
@@ -68,7 +68,7 @@ type (
     }
 
 
-    ListDeliveryAddressesPageReply struct {
+    ListDeliveryAddressesPageReply {
         List []*DeliveryAddress `json:"list"`
         PageIndex int `json:"pageIndex"`
         PageSize int `json:"pageSize"`
@@ -77,55 +77,55 @@ type (
 )
 
 type (
-    CreateDeliveryAddressRequest struct {
+    CreateDeliveryAddressRequest {
         DeliveryAddress *DeliveryAddress `json:"deliveryAddress"`
     }
 
-    CreateDeliveryAddressReply struct {
+    CreateDeliveryAddressReply {
         DeliveryAddressId int64 `json:"id"`
     }
 )
 
 type (
-    GetDeliveryAddressRequest struct {
+    GetDeliveryAddressRequest {
         DeliveryAddressId int64 `path:"id"`
     }
 
-    GetDeliveryAddressReply struct {
+    GetDeliveryAddressReply {
         DeliveryAddress *DeliveryAddress `json:"deliveryAddress"`
     }
 )
 
 
 type (
-    PutDeliveryAddressRequest struct {
+    PutDeliveryAddressRequest {
         DeliveryAddressId int64 `path:"id"`
         DeliveryAddress *DeliveryAddress `json:"deliveryAddress"`
     }
 
-    PutDeliveryAddressReply struct {
+    PutDeliveryAddressReply {
         DeliveryAddress *DeliveryAddress `json:"deliveryAddress"`
     }
 )
 
 type (
-    PatchDeliveryAddressRequest struct {
+    PatchDeliveryAddressRequest {
         DeliveryAddressId int64 `path:"id"`
         DeliveryAddress *DeliveryAddress `json:"deliveryAddress"`
     }
 
-    PatchDeliveryAddressReply struct {
+    PatchDeliveryAddressReply {
         DeliveryAddress *DeliveryAddress `json:"deliveryAddress"`
     }
 )
 
 
 type (
-    DeleteDeliveryAddressRequest struct {
+    DeleteDeliveryAddressRequest {
         DeliveryAddressId int64 `path:"id"`
     }
 
-    DeleteDeliveryAddressReply struct {
+    DeleteDeliveryAddressReply {
         DeliveryAddressId int64 `json:"id"`
     }
 )
