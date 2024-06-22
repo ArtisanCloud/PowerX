@@ -55,14 +55,14 @@ type (
 
 
 type (
-    WechatCustomer struct {
+    WechatCustomer {
         ExternalContact WechatCustomersWithExternalContactExternalProfile `json:"externalContact"`
         FollowUser *WechatCustomersWithFollowUser `json:"followUser,omitempty"`
 
         NextCursor string `json:"nextCursor,omitempty"`
     }
 
-    WechatCustomersWithExternalContactExternalProfile struct {
+    WechatCustomersWithExternalContactExternalProfile {
         ExternalUserId string `json:"externalUserId"`
         Name string `json:"name"`
         Position string `json:"position"`
@@ -76,32 +76,32 @@ type (
         ExternalProfile ExternalContactExternalProfileWithExternalProfile `json:"externalProfile"`
     }
 
-    ExternalContactExternalProfileWithExternalProfile struct {
+    ExternalContactExternalProfileWithExternalProfile {
         ExternalAttr []*ExternalContactExternalProfileExternalProfileWithExternalAttr `json:"externalAttr"`
     }
 
-    ExternalContactExternalProfileExternalProfileWithExternalAttr struct {
+    ExternalContactExternalProfileExternalProfileWithExternalAttr {
         Type int `json:"type"`
         Name string `json:"name"`
         Text ExternalContactExternalProfileExternalProfileExternalAttrWithText `json:"text"`
         Web ExternalContactExternalProfileExternalProfileExternalAttrWithWeb `json:"web"`
         Miniprogram ExternalContactExternalProfileExternalProfileExternalAttrWithMiniprogram `json:"miniprogram"`
     }
-    ExternalContactExternalProfileExternalProfileExternalAttrWithText struct {
+    ExternalContactExternalProfileExternalProfileExternalAttrWithText {
         Value string `json:"value"`
     }
 
-    ExternalContactExternalProfileExternalProfileExternalAttrWithWeb struct {
+    ExternalContactExternalProfileExternalProfileExternalAttrWithWeb {
         Url string `json:"url"`
         Title string `json:"title"`
     }
-    ExternalContactExternalProfileExternalProfileExternalAttrWithMiniprogram struct {
+    ExternalContactExternalProfileExternalProfileExternalAttrWithMiniprogram {
         Appid string `json:"appid"`
         Pagepath string `json:"pagepath"`
         Title string `json:"title"`
     }
 
-    WechatCustomersWithFollowUser struct {
+    WechatCustomersWithFollowUser {
         UserId string `json:"userId"`
         Remark string `json:"remark"`
         Description string `json:"description"`
@@ -115,13 +115,13 @@ type (
         AddWay int `json:"addWay"`
         State string `json:"state,omitempty"`
     }
-    WechatCustomersFollowUserWithTags struct {
+    WechatCustomersFollowUserWithTags {
         GroupName string `json:"groupName"`
         TagName string `json:"tagName"`
         TagId string `json:"tagId,omitempty"`
         Type int `json:"type"`
     }
-    WechatCustomersFollowUserWithWechatChannels struct {
+    WechatCustomersFollowUserWithWechatChannels {
         Nickname string `json:"nickname"`
         Source int `json:"source"`
     }

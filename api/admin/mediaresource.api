@@ -39,12 +39,12 @@ service PowerX {
 
 type (
 
-    SortIdItem struct {
+    SortIdItem {
         Id int64 `json:"id,optional"`
         SortIndex  int  `json:"sortIndex,optional"`
     }
 
-    MediaResource struct {
+    MediaResource {
         Id int64 `json:"id,optional"`
         CustomerId int64 `json:"customerId,optional"`
         Filename string `json:"filename,optional"`
@@ -57,13 +57,13 @@ type (
         SortIndex int `json:"sortIndex,optional"`
     }
 
-    CreateMediaResourceByBase64Request struct {
+    CreateMediaResourceByBase64Request {
         MediaName string `json:"mediaName"`
         BucketName string `json:"bucketName"`
         Base64Data string `json:"base64Data"`
     }
 
-    CreateMediaResourceReply struct {
+    CreateMediaResourceReply {
         *MediaResource
         isOSS bool `json:"isOSS"`
     }

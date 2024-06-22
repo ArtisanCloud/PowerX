@@ -36,7 +36,7 @@ service PowerX {
 }
 
 type (
-    ListMediasPageRequest struct {
+    ListMediasPageRequest {
         MediaTypes []int8 `form:"mediaTypes,optional"`
         Keys []string `form:"keys,optional"`
         OrderBy string `form:"orderBy,optional"`
@@ -44,7 +44,7 @@ type (
         PageSize int `form:"pageSize,optional"`
     }
 
-    Media struct {
+    Media {
         Id int64 `json:"id,optional"`
 
         Title string `json:"title,optional"`
@@ -60,7 +60,7 @@ type (
         DetailImages []*MediaResource `json:"detailImages,optional"`
     }
 
-    ListMediasPageReply struct {
+    ListMediasPageReply {
         List []*Media `json:"list"`
         PageIndex int `json:"pageIndex"`
         PageSize int `json:"pageSize"`
@@ -69,42 +69,42 @@ type (
 )
 
 type (
-    CreateMediaRequest struct {
+    CreateMediaRequest {
         Media
     }
 
-    CreateMediaReply struct {
+    CreateMediaReply {
         MediaId int64 `json:"id"`
     }
 )
 
 type (
-    UpdateMediaRequest struct {
+    UpdateMediaRequest {
         MediaId int64 `path:"id"`
         Media
     }
 
-    UpdateMediaReply struct {
+    UpdateMediaReply {
         MediaId int64 `json:"id"`
     }
 )
 
 type (
-    GetMediaRequest struct {
+    GetMediaRequest {
         MediaId int64 `path:"id"`
     }
 
-    GetMediaReply struct {
+    GetMediaReply {
         *Media
     }
 )
 
 type (
-    DeleteMediaRequest struct {
+    DeleteMediaRequest {
         MediaId int64 `path:"id"`
     }
 
-    DeleteMediaReply struct {
+    DeleteMediaReply {
         MediaId int64 `json:"id"`
     }
 )

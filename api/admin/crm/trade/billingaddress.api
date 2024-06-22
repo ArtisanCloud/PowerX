@@ -60,7 +60,7 @@ type (
 )
 
 type (
-    ListBillingAddressesPageRequest struct {
+    ListBillingAddressesPageRequest {
         NameLike []string `form:"nameLike,optional"`
         OrderBy string `form:"orderBy,optional"`
         PageIndex int `form:"pageIndex,optional"`
@@ -68,7 +68,7 @@ type (
     }
 
 
-    ListBillingAddressesPageReply struct {
+    ListBillingAddressesPageReply {
         List []*BillingAddress `json:"list"`
         PageIndex int `json:"pageIndex"`
         PageSize int `json:"pageSize"`
@@ -77,55 +77,55 @@ type (
 )
 
 type (
-    CreateBillingAddressRequest struct {
+    CreateBillingAddressRequest {
         BillingAddress *BillingAddress `json:"billingAddress"`
     }
 
-    CreateBillingAddressReply struct {
+    CreateBillingAddressReply {
         BillingAddressId int64 `json:"id"`
     }
 )
 
 type (
-    GetBillingAddressRequest struct {
+    GetBillingAddressRequest {
         BillingAddressId int64 `path:"id"`
     }
 
-    GetBillingAddressReply struct {
+    GetBillingAddressReply {
         BillingAddress *BillingAddress `json:"billingAddress"`
     }
 )
 
 
 type (
-    PutBillingAddressRequest struct {
+    PutBillingAddressRequest {
         BillingAddressId int64 `path:"id"`
         BillingAddress *BillingAddress `json:"billingAddress"`
     }
 
-    PutBillingAddressReply struct {
+    PutBillingAddressReply {
         BillingAddress *BillingAddress `json:"billingAddress"`
     }
 )
 
 type (
-    PatchBillingAddressRequest struct {
+    PatchBillingAddressRequest {
         BillingAddressId int64 `path:"id"`
         BillingAddress *BillingAddress `json:"billingAddress"`
     }
 
-    PatchBillingAddressReply struct {
+    PatchBillingAddressReply {
         BillingAddress *BillingAddress `json:"billingAddress"`
     }
 )
 
 
 type (
-    DeleteBillingAddressRequest struct {
+    DeleteBillingAddressRequest {
         BillingAddressId int64 `path:"id"`
     }
 
-    DeleteBillingAddressReply struct {
+    DeleteBillingAddressReply {
         BillingAddressId int64 `json:"id"`
     }
 )

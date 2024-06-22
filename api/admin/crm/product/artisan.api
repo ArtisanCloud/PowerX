@@ -72,7 +72,7 @@ type (
     }
 )
 type (
-    ListArtisansPageRequest struct {
+    ListArtisansPageRequest {
         Ids []int64 `form:"ids,optional"`
         StoreIds []int64 `form:"storeIds,optional"`
         LikeName string `form:"likeName,optional"`
@@ -82,7 +82,7 @@ type (
     }
 
 
-    ListArtisansPageReply struct {
+    ListArtisansPageReply {
         List []*Artisan `json:"list"`
         PageIndex int `json:"pageIndex"`
         PageSize int `json:"pageSize"`
@@ -91,44 +91,44 @@ type (
 )
 
 type (
-    CreateArtisanRequest struct {
+    CreateArtisanRequest {
         Artisan
     }
 
-    CreateArtisanReply struct {
+    CreateArtisanReply {
         ArtisanId int64 `json:"id"`
     }
 )
 
 type (
-    GetArtisanRequest struct {
+    GetArtisanRequest {
         ArtisanId int64 `path:"id"`
     }
 
-    GetArtisanReply struct {
+    GetArtisanReply {
         *Artisan
     }
 )
 
 
 type (
-    PutArtisanRequest struct {
+    PutArtisanRequest {
         ArtisanId int64 `path:"id"`
         Artisan
     }
 
-    PutArtisanReply struct {
+    PutArtisanReply {
         *Artisan
     }
 )
 
 
 type (
-    DeleteArtisanRequest struct {
+    DeleteArtisanRequest {
         ArtisanId int64 `path:"id"`
     }
 
-    DeleteArtisanReply struct {
+    DeleteArtisanReply {
         ArtisanId int64 `json:"id"`
     }
 )
@@ -136,12 +136,12 @@ type (
 
 type (
 
-    BindArtisansToStoresRequest struct {
+    BindArtisansToStoresRequest {
         ArtisanIds []int64 `json:"artisanIds"`
         StoreId []int64 `json:"storeIds"`
     }
 
-    BindArtisansToStoresReply struct {
+    BindArtisansToStoresReply {
         pivotIds []int64 `json:"pivotIds"`
     }
 )

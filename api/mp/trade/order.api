@@ -43,7 +43,7 @@ service PowerX {
 
 
 type (
-    CreateOrderByProductsRequest struct {
+    CreateOrderByProductsRequest {
         PriceBookId int64 `json:"PriceBookId,optional,emptyomit"`
         ProductIds []int64 `json:"productIds"`
         SkuIds []int64 `json:"skuIds"`
@@ -52,19 +52,19 @@ type (
         Comment string `json:"comment"`
     }
 
-    CreateOrderByProductsReply struct {
+    CreateOrderByProductsReply {
         OrderId int64 `json:"orderId"`
         PaymentAmount float64 `json:"paymentAmount"`
     }
 )
 type (
-    CreateOrderByCartItemsRequest struct {
+    CreateOrderByCartItemsRequest {
         CartItemIds []int64 `json:"cartItemIds"`
         ShippingAddressId int64 `json:"shippingAddressId"`
         Comment string `json:"comment"`
     }
 
-    CreateOrderByCartItemsReply struct {
+    CreateOrderByCartItemsReply {
         OrderId int64 `json:"orderId"`
         CartId int64 `json:"cartId"`
         PaymentAmount float64 `json:"paymentAmount"`
@@ -74,11 +74,11 @@ type (
 
 
 type (
-    CancelOrderRequest struct {
+    CancelOrderRequest {
         OrderId int64 `path:"id"`
     }
 
-    CancelOrderReply struct {
+    CancelOrderReply {
         OrderId int64 `json:"orderId,optional"`
     }
 )

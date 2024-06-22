@@ -28,7 +28,7 @@ service PowerX {
 
 
 type (
-    SyncWeWorkOrganizationReply struct {
+    SyncWeWorkOrganizationReply {
         Status string `json:"status"`
     }
 )

@@ -23,7 +23,7 @@ service PowerX {
 
 type (
     //
-    GroupRobotMsgNewsArticlesRequest struct {
+    GroupRobotMsgNewsArticlesRequest {
         Key string `json:"key"` // 机器人key
         Title string `json:"title"`
         Description string `json:"description,omitempty"`

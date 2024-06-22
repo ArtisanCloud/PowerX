@@ -36,7 +36,7 @@ service PowerX {
 }
 
 type (
-    ListMGMRulesPageRequest struct {
+    ListMGMRulesPageRequest {
         MGMRuleTypes []int8 `form:"mgmTypes,optional"`
         Keys []string `form:"keys,optional"`
         OrderBy string `form:"orderBy,optional"`
@@ -44,7 +44,7 @@ type (
         PageSize int `form:"pageSize,optional"`
     }
 
-    MGMRule struct {
+    MGMRule {
         Id int64 `json:"id,optional"`
 
         Name string `json:"name,optional"`
@@ -54,7 +54,7 @@ type (
         Description string `json:"description,optional"`
     }
 
-    ListMGMRulesPageReply struct {
+    ListMGMRulesPageReply {
         List []*MGMRule `json:"list"`
         PageIndex int `json:"pageIndex"`
         PageSize int `json:"pageSize"`
@@ -63,42 +63,42 @@ type (
 )
 
 type (
-    CreateMGMRuleRequest struct {
+    CreateMGMRuleRequest {
         MGMRule
     }
 
-    CreateMGMRuleReply struct {
+    CreateMGMRuleReply {
         MGMRuleId int64 `json:"id"`
     }
 )
 
 type (
-    UpdateMGMRuleRequest struct {
+    UpdateMGMRuleRequest {
         MGMRuleId int64 `path:"id"`
         MGMRule
     }
 
-    UpdateMGMRuleReply struct {
+    UpdateMGMRuleReply {
         MGMRuleId int64 `json:"id"`
     }
 )
 
 type (
-    GetMGMRuleRequest struct {
+    GetMGMRuleRequest {
         MGMRuleId int64 `path:"id"`
     }
 
-    GetMGMRuleReply struct {
+    GetMGMRuleReply {
         *MGMRule
     }
 )
 
 type (
-    DeleteMGMRuleRequest struct {
+    DeleteMGMRuleRequest {
         MGMRuleId int64 `path:"id"`
     }
 
-    DeleteMGMRuleReply struct {
+    DeleteMGMRuleReply {
         MGMRuleId int64 `json:"id"`
     }
 )

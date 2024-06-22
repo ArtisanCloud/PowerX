@@ -38,13 +38,13 @@ service PowerX {
 
 
 type (
-    CreatePaymentFromOrderRequest struct {
+    CreatePaymentFromOrderRequest {
         OrderId int64 `json:"orderId"`
         PaymentType int `json:"paymentType"`
         Comment string `json:"comment,optional"`
     }
 
-    CreatePaymentFromOrderRequestReply struct {
+    CreatePaymentFromOrderRequestReply {
         PaymentId int64 `json:"paymentId"`
         Data interface{} `json:"data"`
     }
@@ -52,12 +52,12 @@ type (
 
 
 type (
-    UpdatePaymentRequest struct {
+    UpdatePaymentRequest {
         PaymentId int64 `path:"id"`
         Payment
     }
 
-    UpdatePaymentReply struct {
+    UpdatePaymentReply {
         *Payment
     }
 )

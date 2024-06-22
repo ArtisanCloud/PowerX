@@ -12,6 +12,7 @@ import (
 	sqladapter "github.com/Blank-Xu/sql-adapter"
 	"github.com/casbin/casbin/v2"
 	fileadapter "github.com/casbin/casbin/v2/persist/file-adapter"
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -161,6 +162,7 @@ func (uc *AdminPermsUseCase) Init() {
 			rooName = "超级管理员"
 		}
 		root := origanzation.User{
+			UUID:       uuid.New().String(),
 			Account:    rooAccount,
 			Password:   rooPass,
 			Name:       rooName,

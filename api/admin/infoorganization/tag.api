@@ -61,7 +61,7 @@ type (
     }
 )
 type (
-    ListTagTreeRequest struct {
+    ListTagTreeRequest {
         TagPId int `form:"tagPId,optional"`
         NeedChildren bool `form:"needChildren,optional"`
         Names []string `form:"name,optional"`
@@ -69,60 +69,60 @@ type (
     }
 
 
-    ListTagTreeReply struct {
+    ListTagTreeReply {
         ProductCategories []*Tag `json:"tree"`
     }
 )
 
 
 type (
-    CreateTagRequest struct {
+    CreateTagRequest {
         Tag
     }
 
-    CreateTagReply struct {
+    CreateTagReply {
         *Tag
     }
 )
 
 type (
-    UpdateTagRequest struct {
+    UpdateTagRequest {
         Id int64 `path:"id"`
         Tag
     }
-    UpdateTagReply struct {
+    UpdateTagReply {
         Id int64 `json:"id"`
     }
 )
 
 type (
-    PatchTagRequest struct {
+    PatchTagRequest {
         Id int64 `path:"id"`
         PId int64 `json:"pId"`
     }
 
-    PatchTagReply struct {
+    PatchTagReply {
         Tag
     }
 )
 
 type (
-    GetTagRequest struct {
+    GetTagRequest {
         TagId int64 `path:"id"`
     }
 
-    GetTagReply struct {
+    GetTagReply {
         *Tag
     }
 )
 
 
 type (
-    DeleteTagRequest struct {
+    DeleteTagRequest {
         Id int64 `path:"id"`
     }
 
-    DeleteTagReply struct {
+    DeleteTagReply {
         Id int64 `json:"id"`
     }
 )

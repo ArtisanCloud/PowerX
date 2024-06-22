@@ -48,43 +48,43 @@ service PowerX {
 
 
 type (
-    GetOAMediaListRequest struct {
+    GetOAMediaListRequest {
         Offset int64 `json:"offset,optional"`
         Count int64 `json:"count,optional"`
         MediaType string `json:"type"`
     }
-    GetOAMediaListReply struct {
+    GetOAMediaListReply {
         TotalCount interface{} `json:"total_count"`
         ItemCount  interface{} `json:"item_count"`
         Item       interface{} `json:"item"`
     }
 
-    GetOAMediaNewsListReply struct {
+    GetOAMediaNewsListReply {
         NewsItem interface{} `json:"news_item"`
     }
 )
 
 type (
-    CreateOAMediaRequest struct {
+    CreateOAMediaRequest {
         OAMedia interface{} `json:"media"`
     }
 
-    CreateOAMediaReply struct {
+    CreateOAMediaReply {
         Success bool `json:"success,optional"`
         Data interface{} `json:"data"`
     }
 )
 
 type (
-    GetOAMediaRequest struct {
+    GetOAMediaRequest {
         MediaId string `path:"mediaId"`
     }
 
-    GetOAMediaReply struct {
+    GetOAMediaReply {
         OAMedia interface{} `json:"media"`
     }
 
-    GetOAMediaByVideoReply struct {
+    GetOAMediaByVideoReply {
         Title string `json:"title"`
         Description string `json:"description"`
         DownUrl string `json:"down_url"`
@@ -93,11 +93,11 @@ type (
 
 
 type (
-    DeleteOAMediaRequest struct {
+    DeleteOAMediaRequest {
         MediaId string `path:"mediaId"`
     }
 
-    DeleteOAMediaReply struct {
+    DeleteOAMediaReply {
         Success bool `json:"success"`
         Data interface{} `json:"data"`
     }

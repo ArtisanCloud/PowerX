@@ -37,7 +37,7 @@ service PowerX {
 }
 
 type (
-    GetOpportunityListRequest struct {
+    GetOpportunityListRequest {
         Name string `form:"name,optional"`
         Source string `form:"source,optional"`
         Type string `form:"type,optional"`
@@ -47,7 +47,7 @@ type (
         PageSize int `form:"pageSize,optional"`
     }
 
-    Opportunity struct {
+    Opportunity {
         Id int64 `json:"id"`
         Name string `json:"name"`
         Requirement string `json:"requirement"`
@@ -62,7 +62,7 @@ type (
         UpdatedAt string `json:"updatedAt"`
     }
 
-    GetOpportunityListReply struct {
+    GetOpportunityListReply {
         List []Opportunity `json:"list"`
         PageIndex int `json:"pageIndex"`
         PageSize int `json:"pageSize"`
@@ -71,7 +71,7 @@ type (
 )
 
 type (
-    CreateOpportunityRequest struct {
+    CreateOpportunityRequest {
         Name         string  `json:"name"`
         Requirement  string  `json:"requirement"`
         CustomerId   int64   `json:"customerId"`
@@ -82,24 +82,24 @@ type (
         Stage        string  `json:"stage"`
     }
 
-    CreateOpportunityReply struct {
+    CreateOpportunityReply {
         Id int64 `json:"id"`
     }
 )
 
 type (
-    AssignUserToOpportunityRequest struct {
+    AssignUserToOpportunityRequest {
         Id         int64 `path:"id"`
         UserId int64 `json:"userId"`
     }
 
-    AssignUserToOpportunityReply struct {
+    AssignUserToOpportunityReply {
         Id int64 `json:"id"`
     }
 )
 
 type (
-    UpdateOpportunityRequest struct {
+    UpdateOpportunityRequest {
         Id           int64  `path:"id"`
         Name         string `json:"name,optional"`
         Requirement  string `json:"requirement,optional"`
@@ -112,17 +112,17 @@ type (
         ClosedDate   string `json:"closedDate,optional"`
     }
 
-    UpdateOpportunityReply struct {
+    UpdateOpportunityReply {
         *Opportunity
     }
 )
 
 type (
-    DeleteOpportunityRequest struct {
+    DeleteOpportunityRequest {
         Id int64 `path:"id"`
     }
 
-    DeleteOpportunityReply struct {
+    DeleteOpportunityReply {
         Id int64 `json:"id"`
     }
 )

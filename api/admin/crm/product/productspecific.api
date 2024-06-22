@@ -64,7 +64,7 @@ type (
 )
 
 type (
-    ListProductSpecificPageRequest struct {
+    ListProductSpecificPageRequest {
         LikeName string `form:"likeName,optional"`
         ProductId int64 `form:"productId"`
         OrderBy string `form:"orderBy,optional"`
@@ -73,7 +73,7 @@ type (
     }
 
 
-    ListProductSpecificPageReply struct {
+    ListProductSpecificPageReply {
         List []*ProductSpecific `json:"list"`
         PageIndex int `json:"pageIndex"`
         PageSize int `json:"pageSize"`
@@ -82,65 +82,65 @@ type (
 )
 
 type (
-    CreateProductSpecificRequest struct {
+    CreateProductSpecificRequest {
         ProductSpecific
     }
 
-    CreateProductSpecificReply struct {
+    CreateProductSpecificReply {
         ProductSpecificId int64 `json:"id"`
     }
 )
 
 type (
-    ConfigProductSpecificRequest struct {
+    ConfigProductSpecificRequest {
         ProductSpecifics []ProductSpecific `json:"productSpecifics"`
     }
 
-    ConfigProductSpecificReply struct {
+    ConfigProductSpecificReply {
         Result bool `json:"result"`
     }
 )
 
 type (
-    GetProductSpecificRequest struct {
+    GetProductSpecificRequest {
         ProductSpecificId int64 `path:"id"`
     }
 
-    GetProductSpecificReply struct {
+    GetProductSpecificReply {
         *ProductSpecific
     }
 )
 
 
 type (
-    PutProductSpecificRequest struct {
+    PutProductSpecificRequest {
         ProductSpecificId int64 `path:"id"`
         ProductSpecific
     }
 
-    PutProductSpecificReply struct {
+    PutProductSpecificReply {
         *ProductSpecific
     }
 )
 
 type (
-    PatchProductSpecificRequest struct {
+    PatchProductSpecificRequest {
         ProductSpecificId int64 `path:"id"`
         ProductSpecific
     }
 
-    PatchProductSpecificReply struct {
+    PatchProductSpecificReply {
         *ProductSpecific
     }
 )
 
 
 type (
-    DeleteProductSpecificRequest struct {
+    DeleteProductSpecificRequest {
         ProductSpecificId int64 `path:"id"`
     }
 
-    DeleteProductSpecificReply struct {
+    DeleteProductSpecificReply {
         ProductSpecificId int64 `json:"id"`
     }
 )

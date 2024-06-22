@@ -88,7 +88,7 @@ type (
     }
 )
 type (
-    ListStoresPageRequest struct {
+    ListStoresPageRequest {
         Ids []int64 `form:"ids,optional"`
         LikeName string `form:"likeName,optional"`
         OrderBy string `form:"orderBy,optional"`
@@ -97,7 +97,7 @@ type (
     }
 
 
-    ListStoresPageReply struct {
+    ListStoresPageReply {
         List []*Store `json:"list"`
         PageIndex int `json:"pageIndex"`
         PageSize int `json:"pageSize"`
@@ -106,44 +106,44 @@ type (
 )
 
 type (
-    CreateStoreRequest struct {
+    CreateStoreRequest {
         Store
     }
 
-    CreateStoreReply struct {
+    CreateStoreReply {
         StoreId int64 `json:"id"`
     }
 )
 
 type (
-    GetStoreRequest struct {
+    GetStoreRequest {
         StoreId int64 `path:"id"`
     }
 
-    GetStoreReply struct {
+    GetStoreReply {
         *Store
     }
 )
 
 
 type (
-    PutStoreRequest struct {
+    PutStoreRequest {
         StoreId int64 `path:"id"`
         Store
     }
 
-    PutStoreReply struct {
+    PutStoreReply {
         *Store
     }
 )
 
 
 type (
-    DeleteStoreRequest struct {
+    DeleteStoreRequest {
         StoreId int64 `path:"id"`
     }
 
-    DeleteStoreReply struct {
+    DeleteStoreReply {
         StoreId int64 `json:"id"`
     }
 )

@@ -61,7 +61,7 @@ type (
     }
 )
 type (
-    ListCategoryTreeRequest struct {
+    ListCategoryTreeRequest {
         CategoryPId int `form:"categoryPId,optional"`
         NeedChildren bool `form:"needChildren,optional"`
         Names []string `form:"name,optional"`
@@ -69,60 +69,60 @@ type (
     }
 
 
-    ListCategoryTreeReply struct {
+    ListCategoryTreeReply {
         ProductCategories []*Category `json:"tree"`
     }
 )
 
 
 type (
-    CreateCategoryRequest struct {
+    CreateCategoryRequest {
         Category
     }
 
-    CreateCategoryReply struct {
+    CreateCategoryReply {
         *Category
     }
 )
 
 type (
-    UpdateCategoryRequest struct {
+    UpdateCategoryRequest {
         Id int64 `path:"id"`
         Category
     }
-    UpdateCategoryReply struct {
+    UpdateCategoryReply {
         Id int64 `json:"id"`
     }
 )
 
 type (
-    PatchCategoryRequest struct {
+    PatchCategoryRequest {
         Id int64 `path:"id"`
         PId int64 `json:"pId"`
     }
 
-    PatchCategoryReply struct {
+    PatchCategoryReply {
         Category
     }
 )
 
 type (
-    GetCategoryRequest struct {
+    GetCategoryRequest {
         CategoryId int64 `path:"id"`
     }
 
-    GetCategoryReply struct {
+    GetCategoryReply {
         *Category
     }
 )
 
 
 type (
-    DeleteCategoryRequest struct {
+    DeleteCategoryRequest {
         Id int64 `path:"id"`
     }
 
-    DeleteCategoryReply struct {
+    DeleteCategoryReply {
         Id int64 `json:"id"`
     }
 )

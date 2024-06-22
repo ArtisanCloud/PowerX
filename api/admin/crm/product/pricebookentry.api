@@ -105,11 +105,11 @@ type (
 )
 
 type (
-    GetPriceBookEntryRequest struct {
+    GetPriceBookEntryRequest {
         PriceBookEntry int64 `path:"id"`
     }
 
-    GetPriceBookEntryReply struct {
+    GetPriceBookEntryReply {
         *PriceBookEntry
     }
 )

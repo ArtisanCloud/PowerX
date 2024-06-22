@@ -34,7 +34,7 @@ service PowerX {
 }
 
 type (
-    OASubButton struct {
+    OASubButton {
 
         Name string `json:"name,optional"`
         Id int `json:"id,optional"`
@@ -45,7 +45,7 @@ type (
         PagePath string `json:"pagepath,omitempty,optional"`
     }
 
-    OAButton struct {
+    OAButton {
         Name string `json:"name,optional"`
         Type string `json:"type,optional"`
         Key string `json:"key,omitempty,optional"`
@@ -56,7 +56,7 @@ type (
         Id int `json:"id,optional"`
     }
 
-    MatchRule struct {
+    MatchRule {
         TagId string `json:"tag_id,optional"`
         Sex string `json:"sex,optional"`
         Country string `json:"country,optional"`
@@ -64,7 +64,7 @@ type (
         City string `json:"city,optional"`
         Language string `json:"language,optional"`
     }
-    OAMenu struct {
+    OAMenu {
         Id int64 `json:"id,optional"`
         OAButton []*OAButton `json:"button,optional"`
         MatchRule *MatchRule `json:"matchrule,optional"`
@@ -72,22 +72,22 @@ type (
 )
 
 type (
-    SyncMenusRequest struct {
+    SyncMenusRequest {
         OAMenu
     }
 
-    SyncMenusReply struct {
+    SyncMenusReply {
         Success bool  `json:"success,optional"`
         Data interface{}   `json:"data"`
     }
 )
 
 type (
-    CreateMenuRequest struct {
+    CreateMenuRequest {
         OAMenu
     }
 
-    CreateMenuReply struct {
+    CreateMenuReply {
         Success bool  `json:"success,optional"`
         Data interface{}   `json:"data"`
     }
@@ -95,7 +95,7 @@ type (
 
 type (
 
-    QueryMenusReply struct {
+    QueryMenusReply {
         Button interface{}   `json:"button"`
         MatchRule interface{}   `json:"matchrule"`
     }
@@ -103,7 +103,7 @@ type (
 
 
 type (
-    DeleteMenuReply struct {
+    DeleteMenuReply {
         Success bool  `json:"success"`
         Data interface{}   `json:"data"`
     }

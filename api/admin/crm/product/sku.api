@@ -62,7 +62,7 @@ type (
 )
 
 type (
-    ListSKUPageRequest struct {
+    ListSKUPageRequest {
         LikeName string `form:"likeName,optional"`
         ProductId int64 `form:"productId"`
         OrderBy string `form:"orderBy,optional"`
@@ -71,7 +71,7 @@ type (
     }
 
 
-    ListSKUPageReply struct {
+    ListSKUPageReply {
         List []*SKU `json:"list"`
         PageIndex int `json:"pageIndex"`
         PageSize int `json:"pageSize"`
@@ -80,65 +80,65 @@ type (
 )
 
 type (
-    CreateSKURequest struct {
+    CreateSKURequest {
         SKU
     }
 
-    CreateSKUReply struct {
+    CreateSKUReply {
         SKUId int64 `json:"id"`
     }
 )
 
 type (
-    ConfigSKURequest struct {
+    ConfigSKURequest {
         SKUs []SKU `json:"skus"`
     }
 
-    ConfigSKUReply struct {
+    ConfigSKUReply {
         Result bool `json:"result"`
     }
 )
 
 type (
-    GetSKURequest struct {
+    GetSKURequest {
         SKUId int64 `path:"id"`
     }
 
-    GetSKUReply struct {
+    GetSKUReply {
         *SKU
     }
 )
 
 
 type (
-    PutSKURequest struct {
+    PutSKURequest {
         SKUId int64 `path:"id"`
         SKU
     }
 
-    PutSKUReply struct {
+    PutSKUReply {
         *SKU
     }
 )
 
 type (
-    PatchSKURequest struct {
+    PatchSKURequest {
         SKUId int64 `path:"id"`
         SKU
     }
 
-    PatchSKUReply struct {
+    PatchSKUReply {
         *SKU
     }
 )
 
 
 type (
-    DeleteSKURequest struct {
+    DeleteSKURequest {
         SKUId int64 `path:"id"`
     }
 
-    DeleteSKUReply struct {
+    DeleteSKUReply {
         SKUId int64 `json:"id"`
     }
 )

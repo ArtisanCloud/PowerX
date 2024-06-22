@@ -54,57 +54,57 @@ type Warehouse {
     IsActive      bool   `json:"isActive, omitempty"`
 }
 
-type ListWarehousesRequest struct {
+type ListWarehousesRequest {
     NameLike  string `json:"nameLike"`
     PageIndex int    `json:"pageIndex"`
     PageSize  int    `json:"pageSize"`
 }
 
-type ListWarehousesResponse struct {
+type ListWarehousesResponse {
     List      []*Warehouse `json:"list"`
     PageIndex int          `json:"pageIndex"`
     PageSize  int          `json:"pageSize"`
     Total     int64        `json:"total"`
 }
 
-type GetWarehouseRequest struct {
+type GetWarehouseRequest {
     Id int64 `json:"id"`
 }
 
-type GetWarehouseResponse struct {
+type GetWarehouseResponse {
     Warehouse *Warehouse `json:"warehouse"`
 }
 
-type CreateWarehouseRequest struct {
+type CreateWarehouseRequest {
     Warehouse *Warehouse `json:"warehouse"`
 }
 
-type CreateWarehouseResponse struct {
+type CreateWarehouseResponse {
     WarehouseId int64 `json:"warehouseId"`
 }
 
-type UpdateWarehouseRequest struct {
+type UpdateWarehouseRequest {
     Id        int64      `json:"id"`
     Warehouse *Warehouse `json:"warehouse"`
 }
 
-type UpdateWarehouseResponse struct {
+type UpdateWarehouseResponse {
     Warehouse *Warehouse `json:"warehouse"`
 }
 
-type PatchWarehouseRequest struct {
+type PatchWarehouseRequest {
     Id        int64      `json:"id"`
     Warehouse *Warehouse `json:"warehouse"`
 }
 
-type PatchWarehouseResponse struct {
+type PatchWarehouseResponse {
     Warehouse *Warehouse `json:"warehouse"`
 }
 
-type DeleteWarehouseRequest struct {
+type DeleteWarehouseRequest {
     Id int64 `json:"id"`
 }
 
-type DeleteWarehouseResponse struct {
+type DeleteWarehouseResponse {
     WarehouseId int64 `json:"warehouseId"`
 }

@@ -34,7 +34,7 @@ type (
         Cursor string `json:"cursor,optional"`
         Limit int `json:"limit,optional"`
     }
-    OwnerFilter struct {
+    OwnerFilter {
         UseridList []string `json:"useridList,optional"`
     }
 )
@@ -44,7 +44,7 @@ type (
     WeWorkListCustomerGroupReply {
         List []WechatCustomerGroup `json:"list"` //https://developer.work.weixin.qq.com/document/path/92122
     }
-    WechatCustomerGroup struct {
+    WechatCustomerGroup {
         ChatId string `json:"chatId"`
         Name string `json:"name"`
         Owner string `json:"owner"`
@@ -53,11 +53,11 @@ type (
         MemberList []*WechatCustomerGroupMemberList `json:"memberList"`
         AdminList []*WechatCustomerGroupAdminList `json:"adminList"`
     }
-    WechatCustomerGroupAdminList struct {
+    WechatCustomerGroupAdminList {
         UserId string `json:"userId"`
     }
 
-    WechatCustomerGroupMemberList struct {
+    WechatCustomerGroupMemberList {
         UserId string `json:"userId"`
         Type int `json:"type"`
         JoinTime int `json:"joinTime"`
@@ -67,14 +67,14 @@ type (
         Name string `json:"name"`
         UnionId string `json:"unionId,omitempty"`
     }
-    WechatCustomerGroupMemberListInvitor struct {
+    WechatCustomerGroupMemberListInvitor {
         UserId string `json:"userId"`
     }
 )
 
 
 type (
-    WeWorkAddMsgTemplateRequest struct {
+    WeWorkAddMsgTemplateRequest {
 
         ChatType string `json:"chatType,optional,options=single|group"`               // 群发任务的类型，默认为single，表示发送给客户，group表示发送给客户群
         ExternalUserId []string `json:"externalUserId,optional"`                      // chat_type为single时有效，不可与sender同时为空
@@ -84,16 +84,16 @@ type (
         SendTime int64 `json:"sendTime,optional"` // 定时发送，不填默认立刻发送// 附件， 当前仅支持图片
     }
 
-    WeWorkTextOfMessage struct {
+    WeWorkTextOfMessage {
         Content string `json:"content"` // "内容"
     }
 
-    Content struct {
+    Content {
         Link Link `json:"link,optional"`
         //Image Image `json:"image,optional"`
     }
 
-    Link struct {
+    Link {
         MsgType string `json:"msgType,optional"` // 默认:link
         Title string `json:"title"`              //  "消息标题",
         PicURL string `json:"picUrl"`            //  "https://example.pic.com/path",
@@ -101,13 +101,13 @@ type (
         URL string `json:"url"`                  //  "https://example.link.com/path"
     }
 
-    Image struct {
+    Image {
         MediaId string `json:"mediaId,optional"` // 不填
         PicUrl string `json:"picUrl,optional"`   // 图片地址
     }
 
 
-    WeWorkAddMsgTemplateResponse struct {
+    WeWorkAddMsgTemplateResponse {
         FailList []string `json:"failList"`
         MsgId string `json:"msgId"`
     }

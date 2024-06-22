@@ -33,7 +33,7 @@ service PowerX {
 }
 
 type (
-    GetUserOptionsRequest struct {
+    GetUserOptionsRequest {
         LikeName string `form:"likeName,optional"`
         LikeEmail string `form:"likeEmail,optional"`
         LikePhoneNumber string `form:"likePhoneNumber,optional"`
@@ -41,7 +41,7 @@ type (
         PageSize int `form:"pageSize,optional"`
     }
 
-    UserOption struct {
+    UserOption {
         Id int64 `json:"id"`
         Avatar string `json:"avatar"`
         Account string `json:"account"`
@@ -50,7 +50,7 @@ type (
         PhoneNumber string `json:"phoneNumber"`
     }
 
-    GetUserOptionsReply struct {
+    GetUserOptionsReply {
         List []UserOption `json:"list"`
         PageIndex int `json:"pageIndex"`
         PageSize int `json:"pageSize"`
@@ -76,19 +76,19 @@ type (
 )
 
 type (
-    GetDepartmentOptionsRequest struct {
+    GetDepartmentOptionsRequest {
         Ids []int64 `form:"ids,optional"`
         LikeName string `form:"likeName,optional"`
         PageIndex int `form:"pageIndex,optional"`
         PageSize int `form:"pageSize,optional"`
     }
 
-    DepartmentOption struct {
+    DepartmentOption {
         Id int64 `json:"id"`
         Name string `json:"name"`
     }
 
-    GetDepartmentOptionsReply struct {
+    GetDepartmentOptionsReply {
         List []DepartmentOption `json:"list"`
         PageIndex int `json:"pageIndex"`
         PageSize int `json:"pageSize"`
@@ -97,12 +97,12 @@ type (
 )
 
 type (
-    GetOptionsRequest struct {
+    GetOptionsRequest {
         Type string `form:"type,optional"`
         Search string `form:"search,optional"`
     }
 
-    GetOptionsReply struct {
+    GetOptionsReply {
         Options []map[string]interface{} `json:"options"`
     }
 )
