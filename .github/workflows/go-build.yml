@@ -12,5 +12,5 @@ jobs:
           go-version: 1.21
 
       - name: Build
-        run: cd cmd/server && go build
+        run: go build cmd/server/powerx.go
 
