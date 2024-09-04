@@ -15,7 +15,6 @@ info (
 )
 
 service PowerX {
-
     @doc("查询仓库列表")
     @handler ListWarehouses
     get /warehouses (ListWarehousesRequest) returns (ListWarehousesResponse)
