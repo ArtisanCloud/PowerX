@@ -9,7 +9,7 @@ info(
 )
 
 
-import "../../admin/crm/trade/shippingaddress.api"
+import "../../admin/crm/trade/billingaddress.api"
 
 @server(
     group: mp/crm/trade/address/billing
@@ -18,27 +18,27 @@ import "../../admin/crm/trade/shippingaddress.api"
 )
 
 service PowerX {
-    @doc("查询账单地址列表")
+    @doc "查询账单地址列表"
     @handler ListBillingAddressesPage
     get /billing/page-list (ListBillingAddressesPageRequest) returns (ListBillingAddressesPageReply)
 
-    @doc("查询账单地址详情")
+    @doc "查询账单地址详情"
     @handler GetBillingAddress
     get /billing/:id (GetBillingAddressRequest) returns (GetBillingAddressReply)
 
-    @doc("创建账单地址")
+    @doc "创建账单地址"
     @handler CreateBillingAddress
     post /billing (CreateBillingAddressRequest) returns (CreateBillingAddressReply)
 
-    @doc("更新账单地址")
+    @doc "更新账单地址"
     @handler PutBillingAddress
     put /billing/:id (PutBillingAddressRequest) returns (PutBillingAddressReply)
 
-    @doc("部分更新账单地址")
+    @doc "部分更新账单地址"
     @handler PatchBillingAddress
     patch /billing/:id (PatchBillingAddressRequest) returns (PatchBillingAddressReply)
 
-    @doc("删除账单地址")
+    @doc "删除账单地址"
     @handler DeleteBillingAddress
     delete /billing/:id (DeleteBillingAddressRequest) returns (DeleteBillingAddressReply)
 }

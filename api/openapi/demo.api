@@ -16,7 +16,7 @@ info(
 )
 
 
-service OpenAPI {
+service PowerX {
     @doc "Get the version of the API"
     @handler GetVersion
     get /version returns (GetVersionResponse)

@@ -1,10 +1,10 @@
 syntax = "v1"
 
-info(
-	title: "统一接口"
-	desc: "统一接口"
-	author: "MichaelHu"
-	email: "matrix-x@artisan-cloud.com"
+info (
+	title:   "统一接口"
+	desc:    "统一接口"
+	author:  "MichaelHu"
+	email:   "matrix-x@artisan-cloud.com"
 	version: "v1"
 )
 
@@ -15,15 +15,14 @@ import "admin.wechat.offiaccount.api"
 import "mp.api"
 import "web.api"
 import "openapi.api"
-
-import "custom.api"
+//import "custom.api"
 import "plugin.api"
 import "health.api"
 
 service PowerX {
 	@doc "根目录访问"
 	@handler GetHome
-	get /  returns (GetHomeReply)
+	get / returns (GetHomeReply)
 }
 
 type GetHomeReply {
@@ -31,3 +30,4 @@ type GetHomeReply {
 	Description string `json:"description,optional"`
 	Version     string `json:"version,optional"`
 }
+

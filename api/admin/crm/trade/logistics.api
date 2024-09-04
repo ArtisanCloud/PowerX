@@ -16,27 +16,27 @@ info (
 
 service PowerX {
 
-    @doc("查询物流列表")
+    @doc "查询物流列表"
     @handler ListLogisticss
     get /logisticses (ListLogisticssRequest) returns (ListLogisticssResponse)
 
-    @doc("获取物流详情")
+    @doc "获取物流详情"
     @handler GetLogistics
     get /logisticses/:id (GetLogisticsRequest) returns (GetLogisticsResponse)
 
-    @doc("创建物流")
+    @doc "创建物流"
     @handler CreateLogistics
     post /logisticses (CreateLogisticsRequest) returns (CreateLogisticsResponse)
 
-    @doc("更新物流")
+    @doc "更新物流"
     @handler UpdateLogistics
     put /logisticses/:id (UpdateLogisticsRequest) returns (UpdateLogisticsResponse)
 
-    @doc("部分更新物流")
+    @doc "部分更新物流"
     @handler PatchLogistics
     patch /logisticses/:id (PatchLogisticsRequest) returns (PatchLogisticsResponse)
 
-    @doc("删除物流")
+    @doc "删除物流"
     @handler DeleteLogistics
     delete /logisticses/:id (DeleteLogisticsRequest) returns (DeleteLogisticsResponse)
 }
