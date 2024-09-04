@@ -9,12 +9,13 @@ info(
 )
 
 
+import "../../admin/crm/trade/shippingaddress.api"
+
 @server(
     group: mp/crm/trade/address/shipping
     prefix: /api/v1/mp/trade/address
     middleware: MPCustomerJWTAuth, MPCustomerGet
 )
-
 service PowerX {
     @doc("查询收货地址列表")
     @handler ListShippingAddressesPage

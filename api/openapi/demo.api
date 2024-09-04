@@ -1,0 +1,43 @@
+syntax = "v1"
+
+info(
+    title: "Demo Open API"
+    desc: "This is a demo Open API for testing purposes."
+    author: "Matrix-X"
+    email: "matrix-x@artisan-cloud.com"
+    version: "v1"
+)
+
+
+@server(
+    jwt: Auth
+    group: openapi
+    prefix: /openapi/v1
+)
+
+
+service OpenAPI {
+    @doc "Get the version of the API"
+    @handler GetVersion
+    get /version returns (GetVersionResponse)
+
+    @doc "Create a new echo message"
+    @handler CreateEcho
+    post /echo (CreateEchoRequest) returns (CreateEchoResponse)
+}
+
+
+type (
+    GetVersionResponse {
+        Version string `json:"version,optional"`
+    }
+
+
+    CreateEchoRequest {
+        Echo string `json:"echo,optional"`
+    }
+
+    CreateEchoResponse {
+        Response string `json:"response,optional"`
+    }
+)

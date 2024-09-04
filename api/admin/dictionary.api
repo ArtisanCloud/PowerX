@@ -84,11 +84,11 @@ type (
         Total int64 `json:"total"`
     }
 
-    GetDictionaryTypeRequest struct{
+    GetDictionaryTypeRequest{
         DictionaryType string `path:"type"`
     }
 
-    GetDictionaryTypeReply struct{
+    GetDictionaryTypeReply{
         *DictionaryType
     }
 )
@@ -150,12 +150,12 @@ type (
         List []DictionaryItem `json:"list"`
     }
 
-    GetDictionaryItemRequest struct{
+    GetDictionaryItemRequest{
         DictionaryType string `path:"type"`
         DictionaryItem string `path:"key"`
     }
 
-    GetDictionaryItemReply struct{
+    GetDictionaryItemReply{
         *DictionaryItem
     }
 )

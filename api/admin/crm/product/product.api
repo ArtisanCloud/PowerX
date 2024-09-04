@@ -197,7 +197,7 @@ type (
         ProductId int64 `path:"id"`
     }
 
-    DisableProductReply struct{
+    DisableProductReply{
         ProductId int64 `json:"id"`
     }
 

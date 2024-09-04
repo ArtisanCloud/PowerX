@@ -28,13 +28,13 @@ service PowerX {
 }
 
 type (
-    ListProductCategoriesRequest struct{
+    ListProductCategoriesRequest{
         CategoryPId int `form:"categoryPId,optional"`
         NeedChildren bool `form:"needChildren,optional"`
         Limit int `form:"limit,optional"`
     }
 
-    ListProductCategoriesReply struct{
+    ListProductCategoriesReply{
         ProductCategories []*ProductCategory `json:"list"`
     }
 )

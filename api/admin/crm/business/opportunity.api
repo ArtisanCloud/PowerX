@@ -3,8 +3,8 @@ syntax = "v1"
 info(
     title: "商机管理"
     desc: "商机管理"
-    author: "YourName"
-    email: "yourEmail@example.com"
+    author: "Matrix-X"
+    email: "matrix-x@artisan-cloud.com"
     version: "v1"
 )
 
