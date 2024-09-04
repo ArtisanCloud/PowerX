@@ -16,19 +16,19 @@ import (
 	"strings"
 )
 
-type WebCustomerJWTAuthMiddleware struct {
+type OpenAPIJWTAuthMiddleware struct {
 	conf *config.Config
 	px   *uc.PowerXUseCase
 }
 
-func NewWebCustomerJWTAuthMiddleware(conf *config.Config, px *uc.PowerXUseCase, opts ...optionFunc) *WebCustomerJWTAuthMiddleware {
-	return &WebCustomerJWTAuthMiddleware{
+func NewOpenAPIJWTAuthMiddleware(conf *config.Config, px *uc.PowerXUseCase, opts ...optionFunc) *OpenAPIJWTAuthMiddleware {
+	return &OpenAPIJWTAuthMiddleware{
 		conf: conf,
 		px:   px,
 	}
 }
 
-func (m *WebCustomerJWTAuthMiddleware) Handle(next http.HandlerFunc) http.HandlerFunc {
+func (m *OpenAPIJWTAuthMiddleware) Handle(next http.HandlerFunc) http.HandlerFunc {
 	secret := m.conf.JWT.WebJWTSecret
 	unAuth := errorx.ErrUnAuthorization.(*errorx.Error)
 
@@ -58,15 +58,15 @@ func (m *WebCustomerJWTAuthMiddleware) Handle(next http.HandlerFunc) http.Handle
 			return
 		}
 
-		// 获取公众号授权的openid
+		// 获取对接平台的platformId
 		payload, err := customerdomain.GetPayloadFromToken(token.Raw)
 		if err != nil {
 			logx.WithContext(request.Context()).Error(err)
 			httpx.Error(writer, errorx.WithCause(unAuth, "无效客户信息"))
 			return
 		}
-		customerId, _ := strconv.ParseInt(payload["sub"].(string), 10, 64)
-		ctx := context.WithValue(request.Context(), customerdomain.AuthCustomerId, customerId)
+		platformId, _ := strconv.ParseInt(payload["sub"].(string), 10, 64)
+		ctx := context.WithValue(request.Context(), uc.AuthPlatformId, platformId)
 
 		// Pass through to next handler if need
 		next(writer, request.WithContext(ctx))

@@ -1418,6 +1418,21 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			[]rest.Middleware{serverCtx.UserJWTAuth},
 			[]rest.Route{
 				{
+					// App发送图文信息
+					Method:  http.MethodPost,
+					Path:    "/message/articles",
+					Handler: adminscrmapp.SendWeWorkAppArticleMessageHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithPrefix("/api/v1/admin/scrm/app/wechat"),
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.UserJWTAuth},
+			[]rest.Route{
+				{
 					// App创建企业群
 					Method:  http.MethodPost,
 					Path:    "/group/create",
@@ -1455,21 +1470,6 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 					Method:  http.MethodGet,
 					Path:    "/options",
 					Handler: adminscrmapp.ListWeWorkAppOptionHandler(serverCtx),
-				},
-			}...,
-		),
-		rest.WithPrefix("/api/v1/admin/scrm/app/wechat"),
-	)
-
-	server.AddRoutes(
-		rest.WithMiddlewares(
-			[]rest.Middleware{serverCtx.UserJWTAuth},
-			[]rest.Route{
-				{
-					// App发送图文信息
-					Method:  http.MethodPost,
-					Path:    "/message/articles",
-					Handler: adminscrmapp.SendWeWorkAppArticleMessageHandler(serverCtx),
 				},
 			}...,
 		),
@@ -2499,21 +2499,23 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 	)
 
 	server.AddRoutes(
-		[]rest.Route{
-			{
-				// Create a new echo message
-				Method:  http.MethodPost,
-				Path:    "/echo",
-				Handler: openapi.CreateEchoHandler(serverCtx),
-			},
-			{
-				// Get the version of the API
-				Method:  http.MethodGet,
-				Path:    "/version",
-				Handler: openapi.GetVersionHandler(serverCtx),
-			},
-		},
-		rest.WithJwt(serverCtx.Config.Auth.AccessSecret),
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.OpenAPIJWTAuth, serverCtx.OpenAPIPlatformGet},
+			[]rest.Route{
+				{
+					// Create a new echo message
+					Method:  http.MethodPost,
+					Path:    "/echo",
+					Handler: openapi.CreateEchoHandler(serverCtx),
+				},
+				{
+					// Get the version of the API
+					Method:  http.MethodGet,
+					Path:    "/version",
+					Handler: openapi.GetVersionHandler(serverCtx),
+				},
+			}...,
+		),
 		rest.WithPrefix("/openapi/v1"),
 	)
 

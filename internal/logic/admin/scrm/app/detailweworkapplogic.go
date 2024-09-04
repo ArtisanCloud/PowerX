@@ -71,8 +71,8 @@ func (app *DetailWeWorkAppLogic) DTO(detail *response.ResponseAgentGet) *types.A
 func (app *DetailWeWorkAppLogic) allowUserInfos(infos response.ResponseAgentAllowUserInfos) (infox types.AllowUserinfos) {
 
 	for _, user := range infos.User {
-		infox.User = append(infox.User, types.User{
-			Account: user.UserID,
+		infox.User = append(infox.User, types.WeworkUser{
+			Userid: user.UserID,
 		})
 	}
 	return infox

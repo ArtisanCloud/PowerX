@@ -27,7 +27,7 @@ func (m *WebCustomerGetMiddleware) Handle(next http.HandlerFunc) http.HandlerFun
 
 		unAuth := errorx.ErrUnAuthorization.(*errorx.Error)
 
-		vCustomerId := r.Context().Value(customerdomain.AuthCustomerCustomerId)
+		vCustomerId := r.Context().Value(customerdomain.AuthCustomerId)
 		if vCustomerId == nil {
 			httpx.Error(w, errorx.WithCause(unAuth, "无效授权客户Id"))
 			return

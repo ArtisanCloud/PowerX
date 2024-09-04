@@ -14,13 +14,13 @@ import (
 	"github.com/zeromicro/go-zero/core/logx"
 )
 
-type ListUsersLogic struct {
+type ListUserLogic struct {
 	logx.Logger
 	ctx    context.Context
 	svcCtx *svc.ServiceContext
 }
 
-func NewListUsersLogic(ctx context.Context, svcCtx *svc.ServiceContext) *ListUsersLogic {
+func NewListUserLogic(ctx context.Context, svcCtx *svc.ServiceContext) *ListUsersLogic {
 	return &ListUsersLogic{
 		Logger: logx.WithContext(ctx),
 		ctx:    ctx,
@@ -28,7 +28,7 @@ func NewListUsersLogic(ctx context.Context, svcCtx *svc.ServiceContext) *ListUse
 	}
 }
 
-func (l *ListUsersLogic) ListUsers(req *types.ListUsersRequest) (resp *types.ListUsersReply, err error) {
+func (l *ListUsersLogic) ListUser(req *types.ListUsersRequest) (resp *types.ListUsersReply, err error) {
 	opt := option.FindManyUsersOption{
 		Ids:             req.Ids,
 		LikeName:        req.LikeName,

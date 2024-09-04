@@ -25,7 +25,7 @@ func NewGetVersionLogic(ctx context.Context, svcCtx *svc.ServiceContext) *GetVer
 }
 
 func (l *GetVersionLogic) GetVersion() (resp *types.GetVersionResponse, err error) {
-	// todo: add your logic here and delete this line
-
-	return
+	return &types.GetVersionResponse{
+		Version: "version 0.0.1",
+	}, nil
 }

@@ -19,6 +19,8 @@ type ServiceContext struct {
 	WebCustomerGet     rest.Middleware
 	UserJWTAuth        rest.Middleware
 	UserNoPermJWTAuth  rest.Middleware
+	OpenAPIJWTAuth     rest.Middleware
+	OpenAPIPlatformGet rest.Middleware
 
 	Plugin *pluginx.Manager
 }
@@ -36,6 +38,8 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 		WebCustomerGet:     middleware.NewWebCustomerGetMiddleware(&c, powerx).Handle,
 		UserJWTAuth:        middleware.NewUserJWTAuthMiddleware(&c, powerx).Handle,
 		UserNoPermJWTAuth:  middleware.NewUserNoPermJWTAuthMiddleware(&c, powerx).Handle,
+		OpenAPIJWTAuth:     middleware.NewOpenAPIJWTAuthMiddleware(&c, powerx).Handle,
+		OpenAPIPlatformGet: middleware.NewOpenAPIPlatformGetMiddleware(&c, powerx).Handle,
 		Custom:             custom,
 	}
 

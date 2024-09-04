@@ -10,9 +10,9 @@ info(
 
 
 @server(
-    jwt: Auth
     group: openapi
     prefix: /openapi/v1
+    middleware: OpenAPIJWTAuth, OpenAPIPlatformGet
 )
 
 
