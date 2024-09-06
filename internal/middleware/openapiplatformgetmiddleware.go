@@ -4,6 +4,8 @@ import (
 	"PowerX/internal/config"
 	"PowerX/internal/types/errorx"
 	"PowerX/internal/uc"
+	"PowerX/internal/uc/openapi"
+	fmt "PowerX/pkg/printx"
 	"context"
 	"github.com/zeromicro/go-zero/rest/httpx"
 	"net/http"
@@ -14,7 +16,7 @@ type OpenAPIPlatformGetMiddleware struct {
 	px   *uc.PowerXUseCase
 }
 
-func NewOpenAPIPlatformGetMiddleware(conf *config.Config, px *uc.PowerXUseCase, opts ...optionFunc) *OpenAPIPlatformGetMiddleware {
+func NewOpenAPIPlatformGetMiddleware(conf *config.Config, px *uc.PowerXUseCase, opts ...OptionFunc) *OpenAPIPlatformGetMiddleware {
 	return &OpenAPIPlatformGetMiddleware{
 		conf: conf,
 		px:   px,
@@ -26,13 +28,14 @@ func (m *OpenAPIPlatformGetMiddleware) Handle(next http.HandlerFunc) http.Handle
 
 		unAuth := errorx.ErrUnAuthorization.(*errorx.Error)
 
-		vPlatformId := r.Context().Value(uc.AuthPlatformId)
+		vPlatformId := r.Context().Value(openapi.AuthPlatformKey)
 		if vPlatformId == nil {
 			httpx.Error(w, errorx.WithCause(unAuth, "无效授权平台Id"))
 			return
 		}
-		openId := vPlatformId.(string)
-		if openId == "" {
+		fmt.Dump(vPlatformId)
+		platformId := vPlatformId.(string)
+		if platformId == "" {
 			httpx.Error(w, errorx.WithCause(unAuth, "授权授权平台Id为空"))
 			return
 		}
@@ -52,7 +55,7 @@ func (m *OpenAPIPlatformGetMiddleware) Handle(next http.HandlerFunc) http.Handle
 		//	return
 		//}
 
-		ctx := context.WithValue(r.Context(), uc.AuthPlatformKey, "tobe query platform record")
+		ctx := context.WithValue(r.Context(), openapi.AuthPlatformKey, "tobe query platform record")
 
 		next(w, r.WithContext(ctx))
 	}

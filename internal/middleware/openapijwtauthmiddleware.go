@@ -5,6 +5,7 @@ import (
 	"PowerX/internal/types"
 	"PowerX/internal/types/errorx"
 	"PowerX/internal/uc"
+	"PowerX/internal/uc/openapi"
 	"PowerX/internal/uc/powerx/crm/customerdomain"
 	"context"
 	"github.com/golang-jwt/jwt/v4"
@@ -12,7 +13,6 @@ import (
 	"github.com/zeromicro/go-zero/core/logx"
 	"github.com/zeromicro/go-zero/rest/httpx"
 	"net/http"
-	"strconv"
 	"strings"
 )
 
@@ -21,7 +21,7 @@ type OpenAPIJWTAuthMiddleware struct {
 	px   *uc.PowerXUseCase
 }
 
-func NewOpenAPIJWTAuthMiddleware(conf *config.Config, px *uc.PowerXUseCase, opts ...optionFunc) *OpenAPIJWTAuthMiddleware {
+func NewOpenAPIJWTAuthMiddleware(conf *config.Config, px *uc.PowerXUseCase, opts ...OptionFunc) *OpenAPIJWTAuthMiddleware {
 	return &OpenAPIJWTAuthMiddleware{
 		conf: conf,
 		px:   px,
@@ -29,7 +29,7 @@ func NewOpenAPIJWTAuthMiddleware(conf *config.Config, px *uc.PowerXUseCase, opts
 }
 
 func (m *OpenAPIJWTAuthMiddleware) Handle(next http.HandlerFunc) http.HandlerFunc {
-	secret := m.conf.JWT.WebJWTSecret
+	secret := m.conf.OpenAPI.Platforms.BrainX.SecretKey
 	unAuth := errorx.ErrUnAuthorization.(*errorx.Error)
 
 	return func(writer http.ResponseWriter, request *http.Request) {
@@ -65,8 +65,8 @@ func (m *OpenAPIJWTAuthMiddleware) Handle(next http.HandlerFunc) http.HandlerFun
 			httpx.Error(writer, errorx.WithCause(unAuth, "无效客户信息"))
 			return
 		}
-		platformId, _ := strconv.ParseInt(payload["sub"].(string), 10, 64)
-		ctx := context.WithValue(request.Context(), uc.AuthPlatformId, platformId)
+		platformId := payload[openapi.AuthPlatformIdKey]
+		ctx := context.WithValue(request.Context(), openapi.AuthPlatformKey, platformId)
 
 		// Pass through to next handler if need
 		next(writer, request.WithContext(ctx))

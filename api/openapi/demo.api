@@ -2,7 +2,7 @@ syntax = "v1"
 
 info(
     title: "Demo Open API"
-    desc: "This is a demo Open API for testing purposes."
+    desc: "This is a api of Open API in Artisan Cloud"
     author: "Matrix-X"
     email: "matrix-x@artisan-cloud.com"
     version: "v1"

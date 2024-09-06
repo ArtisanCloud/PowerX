@@ -1,7 +1,7 @@
 package openapi
 
 import (
-	"PowerX/internal/uc"
+	"PowerX/internal/uc/openapi"
 	"context"
 
 	"PowerX/internal/svc"
@@ -26,7 +26,7 @@ func NewCreateEchoLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Create
 }
 
 func (l *CreateEchoLogic) CreateEcho(req *types.CreateEchoRequest) (resp *types.CreateEchoResponse, err error) {
-	vAuthPlatform := l.ctx.Value(uc.AuthPlatformKey)
+	vAuthPlatform := l.ctx.Value(openapi.AuthPlatformKey)
 	authCustomer := vAuthPlatform.(string)
 
 	return &types.CreateEchoResponse{

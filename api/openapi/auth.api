@@ -1,0 +1,36 @@
+syntax = "v1"
+
+info(
+    title: "Demo Open API"
+    desc: "This is a api of Open API in Artisan Cloud"
+    author: "Matrix-X"
+    email: "matrix-x@artisan-cloud.com"
+    version: "v1"
+)
+
+@server(
+    group: openapi/auth
+    prefix: /openapi/v1/auth
+)
+
+
+service PowerX {
+    @doc "Auth by platform"
+    @handler AuthPlatform
+    post / (PlatformAuthRequest) returns (PlatformAuthResponse)
+}
+
+
+type (
+    PlatformAuthRequest {
+        AccessKey string `json:"accessKey"`
+        SecretKey string `json:"secretKey"`
+    }
+
+    PlatformAuthResponse {
+        TokenType string `json:"tokenType"`
+        ExpiresIn string `json:"expiresIn"`
+        AccessToken string `json:"accessToken"`
+        RefreshToken string `json:"refreshToken"`
+    }
+)

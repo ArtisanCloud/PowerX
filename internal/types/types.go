@@ -2709,6 +2709,18 @@ type PivotDataDictionaryToObject struct {
 	DataDictionaryKey  string `json:"dataDictionaryKey,optional"`
 }
 
+type PlatformAuthRequest struct {
+	AccessKey string `json:"accessKey"`
+	SecretKey string `json:"secretKey"`
+}
+
+type PlatformAuthResponse struct {
+	TokenType    string `json:"tokenType"`
+	ExpiresIn    string `json:"expiresIn"`
+	AccessToken  string `json:"accessToken"`
+	RefreshToken string `json:"refreshToken"`
+}
+
 type PluginWebInfo struct {
 	Name      string  `json:"name"`
 	Desc      string  `json:"desc"`

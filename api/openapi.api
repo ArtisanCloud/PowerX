@@ -1,1 +1,2 @@
+import "openapi/auth.api"
 import "openapi/demo.api"

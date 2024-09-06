@@ -9,9 +9,10 @@ import (
 )
 
 type ServiceContext struct {
-	Config config.Config
-	PowerX *uc.PowerXUseCase
-	Custom *uc.CustomUseCase
+	Config  config.Config
+	PowerX  *uc.PowerXUseCase
+	OpenAPI *uc.OpenAPIUseCase
+	Custom  *uc.CustomUseCase
 
 	MPCustomerJWTAuth  rest.Middleware
 	MPCustomerGet      rest.Middleware
@@ -27,11 +28,13 @@ type ServiceContext struct {
 
 func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 	powerx, _ := uc.NewPowerXUseCase(&c)
+	openapi, _ := uc.NewOpenAPIUseCase(&c, powerx)
 	custom, _ := uc.NewCustomUseCase(&c, powerx)
 
 	svcCtx := ServiceContext{
 		Config:             c,
 		PowerX:             powerx,
+		OpenAPI:            openapi,
 		MPCustomerJWTAuth:  middleware.NewMPCustomerJWTAuthMiddleware(&c, powerx).Handle,
 		MPCustomerGet:      middleware.NewMPCustomerGetMiddleware(&c, powerx).Handle,
 		WebCustomerJWTAuth: middleware.NewWebCustomerJWTAuthMiddleware(&c, powerx).Handle,

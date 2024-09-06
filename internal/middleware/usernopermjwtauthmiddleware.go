@@ -10,11 +10,11 @@ import (
 type UserNoPermJWTAuthMiddleware struct {
 	conf *config.Config
 	px   *uc.PowerXUseCase
-	opt  option
+	opt  Option
 }
 
-func NewUserNoPermJWTAuthMiddleware(conf *config.Config, px *uc.PowerXUseCase, opts ...optionFunc) *UserJWTAuthMiddleware {
-	opt := option{}
+func NewUserNoPermJWTAuthMiddleware(conf *config.Config, px *uc.PowerXUseCase, opts ...OptionFunc) *UserJWTAuthMiddleware {
+	opt := Option{}
 	for _, o := range opts {
 		o(&opt)
 	}
@@ -32,12 +32,12 @@ func (m *UserNoPermJWTAuthMiddleware) Handle(next http.HandlerFunc) http.Handler
 	//unKnow := errorx.ErrUnKnow.(*errorx.Error)
 
 	publicRouter := mux.NewRouter()
-	for _, s := range m.opt.public {
+	for _, s := range m.opt.Public {
 		publicRouter.NewRoute().PathPrefix(s)
 	}
 
 	whiteRouter := mux.NewRouter()
-	for _, s := range m.opt.whiteList {
+	for _, s := range m.opt.WhiteList {
 		whiteRouter.NewRoute().PathPrefix(s)
 	}
 
