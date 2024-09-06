@@ -24,8 +24,6 @@ service PowerX {
     get /options returns (AppWeWorkListReply)
 }
 
-
-
 type (
     ApplicationRequest {
         AgentId int `form:"agentId"`
@@ -45,11 +43,13 @@ type (
         HomeUrl string `json:"homeUrl"`
         CustomizedPublishStatus int `json:"customizedPublishStatus"`
     }
-    AllowUserinfos {
-        User []User `json:"user"`
-    }
-    User {
+
+    WeworkUser {
         Userid string `json:"userId"`
+    }
+
+    AllowUserinfos {
+        User []WeworkUser `json:"user"`
     }
 
     AllowPartys {
@@ -59,9 +59,6 @@ type (
         Tagid []int `json:"tagId"`
     }
 )
-
-
-
 
 type (
     AppWeWorkListReply {

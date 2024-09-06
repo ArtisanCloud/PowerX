@@ -15,28 +15,27 @@ info (
 )
 
 service PowerX {
-
-    @doc("查询仓库列表")
+    @doc "查询仓库列表"
     @handler ListWarehouses
     get /warehouses (ListWarehousesRequest) returns (ListWarehousesResponse)
 
-    @doc("获取仓库详情")
+    @doc "获取仓库详情"
     @handler GetWarehouse
     get /warehouses/:id (GetWarehouseRequest) returns (GetWarehouseResponse)
 
-    @doc("创建仓库")
+    @doc "创建仓库"
     @handler CreateWarehouse
     post /warehouses (CreateWarehouseRequest) returns (CreateWarehouseResponse)
 
-    @doc("更新仓库")
+    @doc "更新仓库"
     @handler UpdateWarehouse
     put /warehouses/:id (UpdateWarehouseRequest) returns (UpdateWarehouseResponse)
 
-    @doc("部分更新仓库")
+    @doc "部分更新仓库"
     @handler PatchWarehouse
     patch /warehouses/:id (PatchWarehouseRequest) returns (PatchWarehouseResponse)
 
-    @doc("删除仓库")
+    @doc "删除仓库"
     @handler DeleteWarehouse
     delete /warehouses/:id (DeleteWarehouseRequest) returns (DeleteWarehouseResponse)
 }

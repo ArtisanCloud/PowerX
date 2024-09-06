@@ -162,7 +162,8 @@ func NewPowerXUseCase(conf *config.Config) (uc *PowerXUseCase, clean func()) {
 	// 加载SCRM UseCase
 	c := cron.New()
 	uc.SCRM = scrm.NewSCRMUseCase(db, conf, c, uc.redis)
-	uc.SCRM.Schedule()
+	// 定时检查
+	//uc.SCRM.Schedule()
 
 	// 加载Scene
 	uc.Scene = scrm.NewSceneUseCase(db, uc.redis)

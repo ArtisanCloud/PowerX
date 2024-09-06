@@ -16,27 +16,27 @@ info(
 )
 
 service PowerX {
-    @doc("查询订单发货地址列表")
+    @doc "查询订单发货地址列表"
     @handler ListDeliveryAddressesPage
     get /delivery/page-list (ListDeliveryAddressesPageRequest) returns (ListDeliveryAddressesPageReply)
 
-    @doc("查询订单发货地址详情")
+    @doc "查询订单发货地址详情"
     @handler GetDeliveryAddress
     get /delivery/:id (GetDeliveryAddressRequest) returns (GetDeliveryAddressReply)
 
-    @doc("创建订单发货地址")
+    @doc "创建订单发货地址"
     @handler CreateDeliveryAddress
     post /delivery (CreateDeliveryAddressRequest) returns (CreateDeliveryAddressReply)
 
-    @doc("更新订单发货地址")
+    @doc "更新订单发货地址"
     @handler PutDeliveryAddress
     put /delivery/:id (PutDeliveryAddressRequest) returns (PutDeliveryAddressReply)
 
-    @doc("部分更新订单发货地址")
+    @doc "部分更新订单发货地址"
     @handler PatchDeliveryAddress
     patch /delivery/:id (PatchDeliveryAddressRequest) returns (PatchDeliveryAddressReply)
 
-    @doc("删除订单发货地址")
+    @doc "删除订单发货地址"
     @handler DeleteDeliveryAddress
     delete /delivery/:id (DeleteDeliveryAddressRequest) returns (DeleteDeliveryAddressReply)
 }

@@ -15,6 +15,8 @@ var ErrBadRequest = NewError(400, "BAD_REQUEST", "违规请求")
 
 var ErrUnAuthorization = NewError(401, "UN_AUTHORIZATION", "未授权")
 var ErrPhoneUnAuthorization = NewError(401, "UN_PHONE_AUTHORIZATION", "用户需要先授权登录")
+var ErrOpenAPIPlatformUnAuthorization = NewError(401, "ErrOpenAPIPlatformUnAuthorization", "访问平台账号无效")
+var ErrOpenAPIPlatformInvalidSecret = NewError(401, "ErrOpenAPIPlatformInvalidSecret", "访问平台账号密钥错误")
 
 var ErrNotFoundObject = NewError(400, "OBJECT_NOT_FOUND", "对象未找到")
 var ErrCreateObject = NewError(400, "OBJECT_CREATE", "创建对象失败")

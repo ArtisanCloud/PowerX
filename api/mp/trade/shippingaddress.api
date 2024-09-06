@@ -9,34 +9,35 @@ info(
 )
 
 
+import "../../admin/crm/trade/shippingaddress.api"
+
 @server(
     group: mp/crm/trade/address/shipping
     prefix: /api/v1/mp/trade/address
     middleware: MPCustomerJWTAuth, MPCustomerGet
 )
-
 service PowerX {
-    @doc("查询收货地址列表")
+    @doc "查询收货地址列表"
     @handler ListShippingAddressesPage
     get /shipping/page-list (ListShippingAddressesPageRequest) returns (ListShippingAddressesPageReply)
 
-    @doc("查询收货地址详情")
+    @doc "查询收货地址详情"
     @handler GetShippingAddress
     get /shipping/:id (GetShippingAddressRequest) returns (GetShippingAddressReply)
 
-    @doc("创建收货地址")
+    @doc "创建收货地址"
     @handler CreateShippingAddress
     post /shipping (CreateShippingAddressRequest) returns (CreateShippingAddressReply)
 
-    @doc("更新收货地址")
+    @doc "更新收货地址"
     @handler PutShippingAddress
     put /shipping/:id (PutShippingAddressRequest) returns (PutShippingAddressReply)
 
-    @doc("部分更新收货地址")
+    @doc "部分更新收货地址"
     @handler PatchShippingAddress
     patch /shipping/:id (PatchShippingAddressRequest) returns (PatchShippingAddressReply)
 
-    @doc("删除收货地址")
+    @doc "删除收货地址"
     @handler DeleteShippingAddress
     delete /shipping/:id (DeleteShippingAddressRequest) returns (DeleteShippingAddressReply)
 }

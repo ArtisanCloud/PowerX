@@ -17,35 +17,35 @@ import "./payment.api"
     middleware: UserJWTAuth
 )
 service PowerX {
-    @doc("查询订单列表")
+    @doc "查询订单列表"
     @handler ListOrdersPage
     get /orders/page-list (ListOrdersPageRequest) returns (ListOrdersPageReply)
 
-    @doc("查询订单详情")
+    @doc "查询订单详情"
     @handler GetOrder
     get /orders/:id (GetOrderRequest) returns (GetOrderReply)
 
-    @doc("创建订单")
+    @doc "创建订单"
     @handler CreateOrder
     post /orders (CreateOrderRequest) returns (CreateOrderReply)
 
-    @doc("更新订单")
+    @doc "更新订单"
     @handler PutOrder
     put /orders/:id (PutOrderRequest) returns (PutOrderReply)
 
-    @doc("部分更新订单")
+    @doc "部分更新订单"
     @handler PatchOrder
     patch /orders/:id (PatchOrderRequest) returns (PatchOrderReply)
 
-    @doc("删除订单")
+    @doc "删除订单"
     @handler DeleteOrder
     delete /orders/:id (DeleteOrderRequest) returns (DeleteOrderReply)
 
-    @doc("导出订单")
+    @doc "导出订单"
     @handler ExportOrders
     get /orders/export (ExportOrdersRequest) returns (ExportOrdersReply)
 
-    @doc("导入订单")
+    @doc "导入订单"
     @handler ImportOrders
     post /orders/import  returns (ImportOrdersReply)
 

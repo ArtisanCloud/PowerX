@@ -16,7 +16,7 @@ type MPCustomerGetMiddleware struct {
 	px   *uc.PowerXUseCase
 }
 
-func NewMPCustomerGetMiddleware(conf *config.Config, px *uc.PowerXUseCase, opts ...optionFunc) *MPCustomerGetMiddleware {
+func NewMPCustomerGetMiddleware(conf *config.Config, px *uc.PowerXUseCase, opts ...OptionFunc) *MPCustomerGetMiddleware {
 	return &MPCustomerGetMiddleware{
 		conf: conf,
 		px:   px,

@@ -14,7 +14,7 @@ import (
 const CustomerTokenExpiredDuration = 60 * 60 * 24 * 3 * time.Second
 const CustomerAccessTokenType = "Bearer"
 
-const AuthCustomerCustomerId = "CustomerId"
+const AuthCustomerIdKey = "CustomerId"
 const AuthCustomerOpenIdKey = "OpenId"
 const AuthCustomerKey = "AuthCustomer"
 

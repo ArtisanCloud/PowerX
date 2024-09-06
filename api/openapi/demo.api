@@ -1,0 +1,43 @@
+syntax = "v1"
+
+info(
+    title: "Demo Open API"
+    desc: "This is a api of Open API in Artisan Cloud"
+    author: "Matrix-X"
+    email: "matrix-x@artisan-cloud.com"
+    version: "v1"
+)
+
+
+@server(
+    group: openapi
+    prefix: /openapi/v1
+    middleware: OpenAPIJWTAuth, OpenAPIPlatformGet
+)
+
+
+service PowerX {
+    @doc "Get the version of the API"
+    @handler GetVersion
+    get /version returns (GetVersionResponse)
+
+    @doc "Create a new echo message"
+    @handler CreateEcho
+    post /echo (CreateEchoRequest) returns (CreateEchoResponse)
+}
+
+
+type (
+    GetVersionResponse {
+        Version string `json:"version,optional"`
+    }
+
+
+    CreateEchoRequest {
+        Echo string `json:"echo,optional"`
+    }
+
+    CreateEchoResponse {
+        Response string `json:"response,optional"`
+    }
+)

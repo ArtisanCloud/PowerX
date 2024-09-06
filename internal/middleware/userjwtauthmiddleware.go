@@ -18,39 +18,11 @@ import (
 type UserJWTAuthMiddleware struct {
 	conf *config.Config
 	px   *uc.PowerXUseCase
-	opt  option
+	opt  Option
 }
 
-type option struct {
-	public      []string
-	whiteList   []string
-	disableAuth bool
-}
-
-type optionFunc func(opt *option)
-
-// WithPublicPrefix 公开访问前缀
-func WithPublicPrefix(path ...string) optionFunc {
-	return func(opt *option) {
-		opt.public = path
-	}
-}
-
-// WithWhiteListPrefix 无需权限验证前缀
-func WithWhiteListPrefix(path ...string) optionFunc {
-	return func(opt *option) {
-		opt.whiteList = path
-	}
-}
-
-func DisableToken(b bool) func(opt *option) {
-	return func(opt *option) {
-		opt.disableAuth = b
-	}
-}
-
-func NewUserJWTAuthMiddleware(conf *config.Config, px *uc.PowerXUseCase, opts ...optionFunc) *UserJWTAuthMiddleware {
-	opt := option{}
+func NewUserJWTAuthMiddleware(conf *config.Config, px *uc.PowerXUseCase, opts ...OptionFunc) *UserJWTAuthMiddleware {
+	opt := Option{}
 	for _, o := range opts {
 		o(&opt)
 	}
@@ -68,12 +40,12 @@ func (m *UserJWTAuthMiddleware) Handle(next http.HandlerFunc) http.HandlerFunc {
 	unKnow := errorx.ErrUnKnow.(*errorx.Error)
 
 	publicRouter := mux.NewRouter()
-	for _, s := range m.opt.public {
+	for _, s := range m.opt.Public {
 		publicRouter.NewRoute().PathPrefix(s)
 	}
 
 	whiteRouter := mux.NewRouter()
-	for _, s := range m.opt.whiteList {
+	for _, s := range m.opt.WhiteList {
 		whiteRouter.NewRoute().PathPrefix(s)
 	}
 
@@ -86,7 +58,7 @@ func (m *UserJWTAuthMiddleware) Handle(next http.HandlerFunc) http.HandlerFunc {
 		}
 
 		// 校验Token
-		if m.opt.disableAuth {
+		if m.opt.DisableAuth {
 			next(writer, request)
 			return
 		}

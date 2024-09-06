@@ -20,7 +20,7 @@ type MPCustomerJWTAuthMiddleware struct {
 	px   *uc.PowerXUseCase
 }
 
-func NewMPCustomerJWTAuthMiddleware(conf *config.Config, px *uc.PowerXUseCase, opts ...optionFunc) *MPCustomerJWTAuthMiddleware {
+func NewMPCustomerJWTAuthMiddleware(conf *config.Config, px *uc.PowerXUseCase, opts ...OptionFunc) *MPCustomerJWTAuthMiddleware {
 	return &MPCustomerJWTAuthMiddleware{
 		conf: conf,
 		px:   px,

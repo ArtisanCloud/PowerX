@@ -31,6 +31,20 @@ JWT:
   MPJWTSecret: dev_mp              # 小程序 JWT密钥
   WebJWTSecret: dev_web              # Web JWT密钥
 
+OpenAPI:
+  platforms:
+    # 访问PowerX OpenAPI的restful 配置
+    brain_x:
+      access_key: "key_power_x"
+      secret_key: "123456789"
+
+  providers:
+    # 访问BrainX OpenAPI的restful 配置
+    brain_x:
+      base_url: "http://127.0.0.1:8000/openapi/v1"
+      access_key: "key_brain_x"
+      secret_key: '987654321'
+
 Casbin:
   SelfHosted: true           # 是否使用自己的Casbin服务
 
@@ -47,7 +61,9 @@ PowerXDatabase:
 
 RedisBase:
   Host: 127.0.0.1:6379
+  Username:
   Password:
+  DB: 0
 
 WechatOA:
   AppId: wx93607xxxxxxxxxx  # 微信公众号AppID

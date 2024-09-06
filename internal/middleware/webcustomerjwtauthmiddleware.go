@@ -21,7 +21,7 @@ type WebCustomerJWTAuthMiddleware struct {
 	px   *uc.PowerXUseCase
 }
 
-func NewWebCustomerJWTAuthMiddleware(conf *config.Config, px *uc.PowerXUseCase, opts ...optionFunc) *WebCustomerJWTAuthMiddleware {
+func NewWebCustomerJWTAuthMiddleware(conf *config.Config, px *uc.PowerXUseCase, opts ...OptionFunc) *WebCustomerJWTAuthMiddleware {
 	return &WebCustomerJWTAuthMiddleware{
 		conf: conf,
 		px:   px,
@@ -66,7 +66,7 @@ func (m *WebCustomerJWTAuthMiddleware) Handle(next http.HandlerFunc) http.Handle
 			return
 		}
 		customerId, _ := strconv.ParseInt(payload["sub"].(string), 10, 64)
-		ctx := context.WithValue(request.Context(), customerdomain.AuthCustomerCustomerId, customerId)
+		ctx := context.WithValue(request.Context(), customerdomain.AuthCustomerIdKey, customerId)
 
 		// Pass through to next handler if need
 		next(writer, request.WithContext(ctx))
