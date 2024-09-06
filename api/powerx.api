@@ -15,7 +15,8 @@ import "admin.wechat.offiaccount.api"
 import "mp.api"
 import "web.api"
 import "openapi.api"
-//import "custom.api"
+
+import "custom.api"
 import "plugin.api"
 import "health.api"
 
