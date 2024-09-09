@@ -387,12 +387,12 @@ cloud.google.com/go/workflows v1.9.0/go.mod h1:ZGkj1aFIOd9c8Gerkjjq7OW7I5+l6cSvT
 dmitri.shuralyov.com/gpu/mtl v0.0.0-20190408044501-666a987793e9/go.mod h1:H6x//7gZCb22OMCxBHrMx7a5I7Hp++hsVxbQ4BYO7hU=
 filippo.io/edwards25519 v1.1.0 h1:FNf4tywRC1HmFuKW5xopWpigGjJKiJSV0Cqo0cJWDaA=
 filippo.io/edwards25519 v1.1.0/go.mod h1:BxyFTGdWcka3PhytdK4V28tE5sGfRvvvRV7EaN4VDT4=
-github.com/ArtisanCloud/PowerLibs/v3 v3.0.16 h1:LBgAuPIkNKGh0fL/HK4HHSqWuoMIbRtfFVMHwl2cAsc=
-github.com/ArtisanCloud/PowerLibs/v3 v3.0.16/go.mod h1:nuUJGlLNKhBmo5nLBqJOuKD2+oDoJkWaqzxxhkLPo5s=
+github.com/ArtisanCloud/PowerLibs/v3 v3.2.6 h1:xNDXBJ1VNYAEgs4UG/lSygzU66/XG3mTA7mm/qE//NY=
+github.com/ArtisanCloud/PowerLibs/v3 v3.2.6/go.mod h1:xFGsskCnzAu+6rFEJbGVAlwhrwZPXAny6m7j71S/B5k=
 github.com/ArtisanCloud/PowerSocialite/v3 v3.0.7 h1:P+erNlErr+X2v7Et+yTWaTfIRhw+HfpAPdvNIEwk9Gw=
 github.com/ArtisanCloud/PowerSocialite/v3 v3.0.7/go.mod h1:VZQNCvcK/rldF3QaExiSl1gJEAkyc5/I8RLOd3WFZq4=
-github.com/ArtisanCloud/PowerWeChat/v3 v3.1.15 h1:QK8/v5pNyzgiYx6A7BJcoNxLIPkNUVnOQvVfTKG9j9c=
-github.com/ArtisanCloud/PowerWeChat/v3 v3.1.15/go.mod h1:i4quVLQxrTJ4Yg5A5ZKvmkH+P+8VP6+2VzJPc3B6qTo=
+github.com/ArtisanCloud/PowerWeChat/v3 v3.2.42 h1:fU+/xJPGTAsSCyoeCn036VLBLUNjDnVrH0bls9HS9hg=
+github.com/ArtisanCloud/PowerWeChat/v3 v3.2.42/go.mod h1:8GMw0a41XWr5EWpV/uXOluLCdOSMShgDLReH5FgxKZ8=
 github.com/Blank-Xu/sql-adapter v0.0.0-20210714092925-0bdd0d548758 h1:L4iwZiJYTNirz4Er7Bw2+AVzW8VCpCGYc8luHc3y5lU=
 github.com/Blank-Xu/sql-adapter v0.0.0-20210714092925-0bdd0d548758/go.mod h1:GlBcPpgzETyqz83HIUFEMobVY38h1fOFXgwpy7T64xE=
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
@@ -1718,8 +1718,6 @@ gopkg.in/h2non/gock.v1 v1.1.2/go.mod h1:n7UGz/ckNChHiK05rDoiC4MYSunEC/lyaUm2WWaD
 gopkg.in/inf.v0 v0.9.1/go.mod h1:cWUDdTG/fYaXco+Dcufb5Vnc6Gp2YChqWtbxRZE0mXw=
 gopkg.in/ini.v1 v1.67.0 h1:Dgnx+6+nfE+IfzjUEISNeydPJh9AXNNsWbGP9KzCsOA=
 gopkg.in/ini.v1 v1.67.0/go.mod h1:pNLf8WUiyNEtQjuu5G5vTm06TEv9tsIgeAvK8hOrP4k=
-gopkg.in/natefinch/lumberjack.v2 v2.2.1 h1:bBRl1b0OH9s/DuPhuXpNl+VtCaJXFZ5/uEFST95x9zc=
-gopkg.in/natefinch/lumberjack.v2 v2.2.1/go.mod h1:YD8tP3GAjkrDg1eZH7EGmyESg/lsYskCTPBJVb9jqSc=
 gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7/go.mod h1:dt/ZhP58zS4L8KSrWDmTeBkI65Dw0HsyUHuEVlX15mw=
 gopkg.in/yaml.v2 v2.2.1/go.mod h1:hI93XBmqTisBFMUTm0b8Fm+jr3Dg1NNxqwp+5A1VGuI=
 gopkg.in/yaml.v2 v2.2.2/go.mod h1:hI93XBmqTisBFMUTm0b8Fm+jr3Dg1NNxqwp+5A1VGuI=

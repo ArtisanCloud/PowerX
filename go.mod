@@ -1,13 +1,13 @@
 module PowerX
 
-go 1.21.0
+go 1.23
 
 //replace github.com/ArtisanCloud/PowerWeChat/v3 => ../../../PowerWechat/PowerWeChat
 
 require (
-	github.com/ArtisanCloud/PowerLibs/v3 v3.0.16
+	github.com/ArtisanCloud/PowerLibs/v3 v3.2.6
 	github.com/ArtisanCloud/PowerSocialite/v3 v3.0.7
-	github.com/ArtisanCloud/PowerWeChat/v3 v3.1.15
+	github.com/ArtisanCloud/PowerWeChat/v3 v3.2.42
 	github.com/Blank-Xu/sql-adapter v0.0.0-20210714092925-0bdd0d548758
 	github.com/brianvoe/gofakeit/v6 v6.21.0
 	github.com/casbin/casbin/v2 v2.60.0
@@ -121,6 +121,5 @@ require (
 	google.golang.org/grpc v1.66.0 // indirect
 	google.golang.org/protobuf v1.34.2 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
-	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 )
