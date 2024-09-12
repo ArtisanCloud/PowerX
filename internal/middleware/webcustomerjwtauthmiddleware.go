@@ -48,7 +48,7 @@ func (m *WebCustomerJWTAuthMiddleware) Handle(next http.HandlerFunc) http.Handle
 		token, err := jwt.ParseWithClaims(tokenString, &claims, func(token *jwt.Token) (interface{}, error) {
 			return []byte(secret), nil
 		})
-		fmt.Dump(token, err)
+
 		if err != nil || !token.Valid {
 			if errors.Is(err, jwt.ErrTokenMalformed) {
 				httpx.Error(writer, unAuth)
