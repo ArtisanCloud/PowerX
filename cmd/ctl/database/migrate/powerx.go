@@ -2,6 +2,7 @@ package migrate
 
 import (
 	"PowerX/cmd/ctl/database/custom/migrate"
+	migratePro "PowerX/cmd/ctl/database/pro/migrate"
 	"PowerX/internal/config"
 	"PowerX/internal/model"
 	"PowerX/internal/model/crm/customerdomain"
@@ -91,6 +92,9 @@ func (m *PowerMigrator) AutoMigrate() {
 		&trade.TokenExchangeRatio{}, &trade.TokenExchangeRecord{},
 		trade.TokenReservation{}, trade.TokenTransaction{},
 	)
+
+	// pro
+	migratePro.AutoMigratePro(m.db)
 
 	// custom
 	migrate.AutoMigrateCustom(m.db)

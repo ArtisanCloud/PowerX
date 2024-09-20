@@ -1,7 +1,8 @@
 package seed
 
 import (
-	"PowerX/cmd/ctl/database/custom/seed"
+	seedCustom "PowerX/cmd/ctl/database/custom/seed"
+	seedPro "PowerX/cmd/ctl/database/pro/seed"
 	"PowerX/cmd/ctl/database/seed/datadictionary"
 	"PowerX/internal/config"
 	"gorm.io/driver/mysql"
@@ -60,8 +61,11 @@ func (s *PowerSeeder) CreatePowerX() (err error) {
 	// Marketing
 	_ = CreateMGMRules(s.db)
 
+	// pro
+	seedPro.CreateProSeeds(s.db)
+
 	// custom
-	seed.CreateCustomSeeds(s.db)
+	seedCustom.CreateCustomSeeds(s.db)
 
 	return
 }
