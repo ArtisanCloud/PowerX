@@ -2,12 +2,14 @@ module PowerX
 
 go 1.23
 
+//replace github.com/ArtisanCloud/PowerLibs/v3 => ../../../PowerWechat/PowerLibs
+
 //replace github.com/ArtisanCloud/PowerWeChat/v3 => ../../../PowerWechat/PowerWeChat
 
 require (
 	github.com/ArtisanCloud/PowerLibs/v3 v3.2.6
 	github.com/ArtisanCloud/PowerSocialite/v3 v3.0.7
-	github.com/ArtisanCloud/PowerWeChat/v3 v3.2.42
+	github.com/ArtisanCloud/PowerWeChat/v3 v3.2.45
 	github.com/Blank-Xu/sql-adapter v0.0.0-20210714092925-0bdd0d548758
 	github.com/brianvoe/gofakeit/v6 v6.21.0
 	github.com/casbin/casbin/v2 v2.60.0
@@ -25,7 +27,7 @@ require (
 	github.com/zeromicro/go-zero v1.7.2
 	github.com/zeromicro/go-zero/tools/goctl v1.7.2
 	github.com/zeromicro/zero-contrib/router/gin v0.0.0-20230708101417-16e73a5d116c
-	golang.org/x/crypto v0.26.0
+	golang.org/x/crypto v0.27.0
 	golang.org/x/oauth2 v0.22.0
 	gopkg.in/yaml.v3 v3.0.1
 	gorm.io/datatypes v1.1.1
@@ -114,8 +116,8 @@ require (
 	golang.org/x/arch v0.0.0-20210923205945-b76863e36670 // indirect
 	golang.org/x/net v0.28.0 // indirect
 	golang.org/x/sync v0.8.0 // indirect
-	golang.org/x/sys v0.24.0 // indirect
-	golang.org/x/text v0.17.0 // indirect
+	golang.org/x/sys v0.25.0 // indirect
+	golang.org/x/text v0.18.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20240903143218-8af14fe29dc1 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240903143218-8af14fe29dc1 // indirect
 	google.golang.org/grpc v1.66.0 // indirect

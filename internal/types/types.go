@@ -1662,6 +1662,10 @@ type HealthCheckReply struct {
 type HealthCheckRequest struct {
 }
 
+type HelloWorldResponse struct {
+	Message string `json:"message"`
+}
+
 type Image struct {
 	MediaId string `json:"mediaId,optional"` // 不填
 	PicUrl  string `json:"picUrl,optional"`  // 图片地址

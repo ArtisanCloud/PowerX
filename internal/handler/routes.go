@@ -68,6 +68,7 @@ import (
 	mpinfoorganizationcategory "PowerX/internal/handler/mp/infoorganization/category"
 	openapi "PowerX/internal/handler/openapi"
 	openapiauth "PowerX/internal/handler/openapi/auth"
+	openapiproviderbrainx "PowerX/internal/handler/openapi/provider/brainx"
 	plugin "PowerX/internal/handler/plugin"
 	systemhealth "PowerX/internal/handler/system/health"
 	webcustomerauth "PowerX/internal/handler/web/customer/auth"
@@ -1419,10 +1420,16 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			[]rest.Middleware{serverCtx.UserJWTAuth},
 			[]rest.Route{
 				{
-					// App发送图文信息
-					Method:  http.MethodPost,
-					Path:    "/message/articles",
-					Handler: adminscrmapp.SendWeWorkAppArticleMessageHandler(serverCtx),
+					// App详情
+					Method:  http.MethodGet,
+					Path:    "/detail",
+					Handler: adminscrmapp.DetailWeWorkAppHandler(serverCtx),
+				},
+				{
+					// App列表/options
+					Method:  http.MethodGet,
+					Path:    "/options",
+					Handler: adminscrmapp.ListWeWorkAppOptionHandler(serverCtx),
 				},
 			}...,
 		),
@@ -1461,16 +1468,10 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			[]rest.Middleware{serverCtx.UserJWTAuth},
 			[]rest.Route{
 				{
-					// App详情
-					Method:  http.MethodGet,
-					Path:    "/detail",
-					Handler: adminscrmapp.DetailWeWorkAppHandler(serverCtx),
-				},
-				{
-					// App列表/options
-					Method:  http.MethodGet,
-					Path:    "/options",
-					Handler: adminscrmapp.ListWeWorkAppOptionHandler(serverCtx),
+					// App发送图文信息
+					Method:  http.MethodPost,
+					Path:    "/message/articles",
+					Handler: adminscrmapp.SendWeWorkAppArticleMessageHandler(serverCtx),
 				},
 			}...,
 		),
@@ -1542,27 +1543,6 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			[]rest.Middleware{serverCtx.UserJWTAuth},
 			[]rest.Route{
 				{
-					// 所有客户列表/page
-					Method:  http.MethodPost,
-					Path:    "/page",
-					Handler: adminscrmcustomer.ListWeWorkCustomerPageHandler(serverCtx),
-				},
-				{
-					// 批量同步客户信息(根据员工ID同步/节流)
-					Method:  http.MethodPost,
-					Path:    "/sync",
-					Handler: adminscrmcustomer.SyncWeWorkCustomerOptionHandler(serverCtx),
-				},
-			}...,
-		),
-		rest.WithPrefix("/api/v1/admin/scrm/customer/wechat"),
-	)
-
-	server.AddRoutes(
-		rest.WithMiddlewares(
-			[]rest.Middleware{serverCtx.UserJWTAuth},
-			[]rest.Route{
-				{
 					// 客户群列表/limit
 					Method:  http.MethodPost,
 					Path:    "/group/list",
@@ -1584,20 +1564,20 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			[]rest.Middleware{serverCtx.UserJWTAuth},
 			[]rest.Route{
 				{
-					// 同步组织架构/department&user
-					Method:  http.MethodGet,
-					Path:    "/sync",
-					Handler: adminscrmorganization.SyncWeWorkUserHandler(serverCtx),
+					// 所有客户列表/page
+					Method:  http.MethodPost,
+					Path:    "/page",
+					Handler: adminscrmcustomer.ListWeWorkCustomerPageHandler(serverCtx),
 				},
 				{
-					// 员工列表/page
+					// 批量同步客户信息(根据员工ID同步/节流)
 					Method:  http.MethodPost,
-					Path:    "/user/page",
-					Handler: adminscrmorganization.ListWeWorkUserPageHandler(serverCtx),
+					Path:    "/sync",
+					Handler: adminscrmcustomer.SyncWeWorkCustomerOptionHandler(serverCtx),
 				},
 			}...,
 		),
-		rest.WithPrefix("/api/v1/admin/scrm/organization/wechat"),
+		rest.WithPrefix("/api/v1/admin/scrm/customer/wechat"),
 	)
 
 	server.AddRoutes(
@@ -1609,6 +1589,27 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 					Method:  http.MethodPost,
 					Path:    "/partment/page",
 					Handler: adminscrmorganization.ListWeWorkDepartMentPageHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithPrefix("/api/v1/admin/scrm/organization/wechat"),
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.UserJWTAuth},
+			[]rest.Route{
+				{
+					// 同步组织架构/department&user
+					Method:  http.MethodGet,
+					Path:    "/sync",
+					Handler: adminscrmorganization.SyncWeWorkUserHandler(serverCtx),
+				},
+				{
+					// 员工列表/page
+					Method:  http.MethodPost,
+					Path:    "/user/page",
+					Handler: adminscrmorganization.ListWeWorkUserPageHandler(serverCtx),
 				},
 			}...,
 		),
@@ -2056,24 +2057,6 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 	server.AddRoutes(
 		[]rest.Route{
 			{
-				// 查询产品详情
-				Method:  http.MethodGet,
-				Path:    "/products/:id",
-				Handler: mpcrmproduct.GetProductHandler(serverCtx),
-			},
-			{
-				// 产品列表
-				Method:  http.MethodGet,
-				Path:    "/products/page-list",
-				Handler: mpcrmproduct.ListProductsPageHandler(serverCtx),
-			},
-		},
-		rest.WithPrefix("/api/v1/mp/product"),
-	)
-
-	server.AddRoutes(
-		[]rest.Route{
-			{
 				// 查询产品品类列表
 				Method:  http.MethodGet,
 				Path:    "/product-categories",
@@ -2084,6 +2067,24 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Method:  http.MethodGet,
 				Path:    "/product-category-tree",
 				Handler: mpcrmproduct.ListProductCategoryTreeHandler(serverCtx),
+			},
+		},
+		rest.WithPrefix("/api/v1/mp/product"),
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
+			{
+				// 查询产品详情
+				Method:  http.MethodGet,
+				Path:    "/products/:id",
+				Handler: mpcrmproduct.GetProductHandler(serverCtx),
+			},
+			{
+				// 产品列表
+				Method:  http.MethodGet,
+				Path:    "/products/page-list",
+				Handler: mpcrmproduct.ListProductsPageHandler(serverCtx),
 			},
 		},
 		rest.WithPrefix("/api/v1/mp/product"),
@@ -2395,36 +2396,6 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 	)
 
 	server.AddRoutes(
-		[]rest.Route{
-			{
-				// 获取字典项列表
-				Method:  http.MethodGet,
-				Path:    "/items",
-				Handler: mpdictionary.ListDictionaryItemsHandler(serverCtx),
-			},
-			{
-				// 获取字典项
-				Method:  http.MethodGet,
-				Path:    "/items/:type/:key",
-				Handler: mpdictionary.GetDictionaryItemHandler(serverCtx),
-			},
-			{
-				// 获取字典类型
-				Method:  http.MethodGet,
-				Path:    "/types/:type",
-				Handler: mpdictionary.GetDictionaryTypeHandler(serverCtx),
-			},
-			{
-				// 获取字典类型列表
-				Method:  http.MethodGet,
-				Path:    "/types/page-list",
-				Handler: mpdictionary.ListDictionaryPageTypesHandler(serverCtx),
-			},
-		},
-		rest.WithPrefix("/api/v1/mp/dictionary"),
-	)
-
-	server.AddRoutes(
 		rest.WithMiddlewares(
 			[]rest.Middleware{serverCtx.WebCustomerJWTAuth},
 			[]rest.Route{
@@ -2455,6 +2426,36 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			}...,
 		),
 		rest.WithPrefix("/api/v1/web/dictionary"),
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
+			{
+				// 获取字典项列表
+				Method:  http.MethodGet,
+				Path:    "/items",
+				Handler: mpdictionary.ListDictionaryItemsHandler(serverCtx),
+			},
+			{
+				// 获取字典项
+				Method:  http.MethodGet,
+				Path:    "/items/:type/:key",
+				Handler: mpdictionary.GetDictionaryItemHandler(serverCtx),
+			},
+			{
+				// 获取字典类型
+				Method:  http.MethodGet,
+				Path:    "/types/:type",
+				Handler: mpdictionary.GetDictionaryTypeHandler(serverCtx),
+			},
+			{
+				// 获取字典类型列表
+				Method:  http.MethodGet,
+				Path:    "/types/page-list",
+				Handler: mpdictionary.ListDictionaryPageTypesHandler(serverCtx),
+			},
+		},
+		rest.WithPrefix("/api/v1/mp/dictionary"),
 	)
 
 	server.AddRoutes(
@@ -2530,6 +2531,18 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			},
 		},
 		rest.WithPrefix("/openapi/v1/auth"),
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
+			{
+				// hello world api for provider demo
+				Method:  http.MethodGet,
+				Path:    "/hello-world",
+				Handler: openapiproviderbrainx.HelloWorldHandler(serverCtx),
+			},
+		},
+		rest.WithPrefix("/openapi/v1/provider/brainx"),
 	)
 
 	server.AddRoutes(
