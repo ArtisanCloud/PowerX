@@ -7,13 +7,13 @@ import (
 )
 
 type BrainXServiceProvider struct {
-	client *BrainXProviderClient
+	Client *BrainXProviderClient
 }
 
 func NewBrainXServiceProvider(svcCtx *svc.ServiceContext) *BrainXServiceProvider {
 
 	return &BrainXServiceProvider{
-		client: NewBrainXProviderClient(&svcCtx.Config, svcCtx.PowerX.Cache),
+		Client: NewBrainXProviderClient(&svcCtx.Config, svcCtx.PowerX.Cache),
 	}
 }
 
@@ -23,7 +23,7 @@ func (sp *BrainXServiceProvider) HelloWorld() (message string, err error) {
 		"name":    "powerx",
 		"message": "hello",
 	}
-	resp, err := sp.client.HTTPPost(url, jsonBody, true, nil)
+	resp, err := sp.Client.HTTPPost(url, jsonBody, true, nil)
 	if err != nil {
 		return "", err
 	}
