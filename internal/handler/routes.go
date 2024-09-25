@@ -1420,27 +1420,6 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			[]rest.Middleware{serverCtx.UserJWTAuth},
 			[]rest.Route{
 				{
-					// App详情
-					Method:  http.MethodGet,
-					Path:    "/detail",
-					Handler: adminscrmapp.DetailWeWorkAppHandler(serverCtx),
-				},
-				{
-					// App列表/options
-					Method:  http.MethodGet,
-					Path:    "/options",
-					Handler: adminscrmapp.ListWeWorkAppOptionHandler(serverCtx),
-				},
-			}...,
-		),
-		rest.WithPrefix("/api/v1/admin/scrm/app/wechat"),
-	)
-
-	server.AddRoutes(
-		rest.WithMiddlewares(
-			[]rest.Middleware{serverCtx.UserJWTAuth},
-			[]rest.Route{
-				{
 					// App创建企业群
 					Method:  http.MethodPost,
 					Path:    "/group/create",
@@ -1457,6 +1436,27 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 					Method:  http.MethodPost,
 					Path:    "/group/message/articles",
 					Handler: adminscrmapp.SendWeWorkAppGroupArticleMessageHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithPrefix("/api/v1/admin/scrm/app/wechat"),
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.UserJWTAuth},
+			[]rest.Route{
+				{
+					// App详情
+					Method:  http.MethodGet,
+					Path:    "/detail",
+					Handler: adminscrmapp.DetailWeWorkAppHandler(serverCtx),
+				},
+				{
+					// App列表/options
+					Method:  http.MethodGet,
+					Path:    "/options",
+					Handler: adminscrmapp.ListWeWorkAppOptionHandler(serverCtx),
 				},
 			}...,
 		),
@@ -1543,27 +1543,6 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			[]rest.Middleware{serverCtx.UserJWTAuth},
 			[]rest.Route{
 				{
-					// 客户群列表/limit
-					Method:  http.MethodPost,
-					Path:    "/group/list",
-					Handler: adminscrmcustomer.ListWeWorkCustomerGroupLimitHandler(serverCtx),
-				},
-				{
-					// 客户群发信息
-					Method:  http.MethodPost,
-					Path:    "/group/message/template",
-					Handler: adminscrmcustomer.SendWeWorkCustomerGroupMessageHandler(serverCtx),
-				},
-			}...,
-		),
-		rest.WithPrefix("/api/v1/admin/scrm/customer/wechat"),
-	)
-
-	server.AddRoutes(
-		rest.WithMiddlewares(
-			[]rest.Middleware{serverCtx.UserJWTAuth},
-			[]rest.Route{
-				{
 					// 所有客户列表/page
 					Method:  http.MethodPost,
 					Path:    "/page",
@@ -1585,14 +1564,20 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			[]rest.Middleware{serverCtx.UserJWTAuth},
 			[]rest.Route{
 				{
-					// 部门列表/page
+					// 客户群列表/limit
 					Method:  http.MethodPost,
-					Path:    "/partment/page",
-					Handler: adminscrmorganization.ListWeWorkDepartMentPageHandler(serverCtx),
+					Path:    "/group/list",
+					Handler: adminscrmcustomer.ListWeWorkCustomerGroupLimitHandler(serverCtx),
+				},
+				{
+					// 客户群发信息
+					Method:  http.MethodPost,
+					Path:    "/group/message/template",
+					Handler: adminscrmcustomer.SendWeWorkCustomerGroupMessageHandler(serverCtx),
 				},
 			}...,
 		),
-		rest.WithPrefix("/api/v1/admin/scrm/organization/wechat"),
+		rest.WithPrefix("/api/v1/admin/scrm/customer/wechat"),
 	)
 
 	server.AddRoutes(
@@ -1610,6 +1595,21 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 					Method:  http.MethodPost,
 					Path:    "/user/page",
 					Handler: adminscrmorganization.ListWeWorkUserPageHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithPrefix("/api/v1/admin/scrm/organization/wechat"),
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.UserJWTAuth},
+			[]rest.Route{
+				{
+					// 部门列表/page
+					Method:  http.MethodPost,
+					Path:    "/partment/page",
+					Handler: adminscrmorganization.ListWeWorkDepartMentPageHandler(serverCtx),
 				},
 			}...,
 		),
@@ -2536,6 +2536,12 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 	server.AddRoutes(
 		[]rest.Route{
 			{
+				// timeout api for provider demo
+				Method:  http.MethodPost,
+				Path:    "/echo-long-time",
+				Handler: openapiproviderbrainx.EchoLongTimeHandler(serverCtx),
+			},
+			{
 				// hello world api for provider demo
 				Method:  http.MethodGet,
 				Path:    "/hello-world",
@@ -2582,27 +2588,6 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 	)
 
 	server.AddRoutes(
-		rest.WithMiddlewares(
-			[]rest.Middleware{serverCtx.WebCustomerJWTAuth, serverCtx.WebCustomerGet},
-			[]rest.Route{
-				{
-					// 客户信息更新
-					Method:  http.MethodPost,
-					Path:    "/updateCustomerProfile/:id",
-					Handler: webcustomerauth.UpdateCustomerProfileHandler(serverCtx),
-				},
-				{
-					// 获取用户信息
-					Method:  http.MethodGet,
-					Path:    "/user-info",
-					Handler: webcustomerauth.GetUserInfoHandler(serverCtx),
-				},
-			}...,
-		),
-		rest.WithPrefix("/api/v1/web/customer"),
-	)
-
-	server.AddRoutes(
 		[]rest.Route{
 			{
 				// 微信Web登录
@@ -2629,6 +2614,27 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Handler: webcustomerauth.RegisterCustomerByPhoneInRegisterCodeHandler(serverCtx),
 			},
 		},
+		rest.WithPrefix("/api/v1/web/customer"),
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.WebCustomerJWTAuth, serverCtx.WebCustomerGet},
+			[]rest.Route{
+				{
+					// 客户信息更新
+					Method:  http.MethodPost,
+					Path:    "/updateCustomerProfile/:id",
+					Handler: webcustomerauth.UpdateCustomerProfileHandler(serverCtx),
+				},
+				{
+					// 获取用户信息
+					Method:  http.MethodGet,
+					Path:    "/user-info",
+					Handler: webcustomerauth.GetUserInfoHandler(serverCtx),
+				},
+			}...,
+		),
 		rest.WithPrefix("/api/v1/web/customer"),
 	)
 

@@ -5,10 +5,12 @@ import (
 	"PowerX/internal/logic/openapi/provider/brainx/schema"
 	providerclient "PowerX/internal/provider"
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/ArtisanCloud/PowerLibs/v3/cache"
 	"github.com/pkg/errors"
+	"github.com/zeromicro/go-zero/core/contextx"
 	"io"
 	"net/http"
 	"time"
@@ -29,14 +31,14 @@ func NewBrainXProviderClient(config *config.Config, cache cache.CacheInterface) 
 
 	return &BrainXProviderClient{
 		BaseURL:    config.OpenAPI.Providers.BrainX.BaseUrl,
-		httpClient: &http.Client{Timeout: 10 * time.Second},
+		httpClient: &http.Client{Timeout: 60 * time.Second},
 		conf:       config,
 		cache:      cache,
 		tokenKey:   "provider.brainx.access_token",
 	}
 }
 
-func (sp *BrainXProviderClient) Auth() (*schema.ResponseAuthToken, error) {
+func (sp *BrainXProviderClient) Auth(ctx context.Context) (*schema.ResponseAuthToken, error) {
 	url := "/auth"
 
 	// 构造请求 body
@@ -47,7 +49,7 @@ func (sp *BrainXProviderClient) Auth() (*schema.ResponseAuthToken, error) {
 	}
 
 	// 发起 POST 请求
-	resp, err := sp.HTTPPost(url, body, false, nil) // use_auth 设置为 false
+	resp, err := sp.HTTPPost(ctx, url, body, false, nil) // use_auth 设置为 false
 	if err != nil {
 		return nil, err
 	}
@@ -65,7 +67,7 @@ func (sp *BrainXProviderClient) Auth() (*schema.ResponseAuthToken, error) {
 	return token, nil
 }
 
-func (sp *BrainXProviderClient) GetAccessToken() (string, error) {
+func (sp *BrainXProviderClient) GetAccessToken(ctx context.Context) (string, error) {
 	// 从缓存中获取 token
 	token, err := sp.cache.Get(sp.tokenKey, nil)
 	if err != nil {
@@ -76,7 +78,7 @@ func (sp *BrainXProviderClient) GetAccessToken() (string, error) {
 
 	if token == nil {
 		// 如果缓存中没有 token，则调用 Auth 获取新的 token
-		sp.AuthToken, err = sp.Auth()
+		sp.AuthToken, err = sp.Auth(ctx)
 		if err != nil {
 			return "", fmt.Errorf("request powerx provider auth error: %v", err)
 		}
@@ -110,10 +112,10 @@ func (sp *BrainXProviderClient) GetAccessToken() (string, error) {
 	// 返回 accessToken
 	return sp.AuthToken.Token.AccessToken, nil
 }
-func (sp *BrainXProviderClient) doRequest(req *http.Request, useAuth bool) ([]byte, error) {
+func (sp *BrainXProviderClient) doRequest(ctx context.Context, req *http.Request, useAuth bool) ([]byte, error) {
 	// 如果需要授权，添加 Authorization 头部
 	if useAuth {
-		token, err := sp.GetAccessToken()
+		token, err := sp.GetAccessToken(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -122,6 +124,7 @@ func (sp *BrainXProviderClient) doRequest(req *http.Request, useAuth bool) ([]by
 
 	// 发起 HTTP 请求
 	resp, err := sp.httpClient.Do(req)
+	print(resp)
 	if err != nil {
 		return nil, err
 	}
@@ -141,7 +144,7 @@ func (sp *BrainXProviderClient) doRequest(req *http.Request, useAuth bool) ([]by
 	return respBody, nil
 }
 
-func (sp *BrainXProviderClient) HTTPGet(uri string, params map[string]string, useAuth bool, headers map[string]string) ([]byte, error) {
+func (sp *BrainXProviderClient) HTTPGet(ctx context.Context, uri string, params map[string]string, useAuth bool, headers map[string]string) ([]byte, error) {
 	url := sp.BaseURL + uri
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -160,10 +163,14 @@ func (sp *BrainXProviderClient) HTTPGet(uri string, params map[string]string, us
 		req.Header.Set(key, value)
 	}
 
-	return sp.doRequest(req, useAuth)
+	return sp.doRequest(ctx, req, useAuth)
 }
 
-func (sp *BrainXProviderClient) HTTPPost(uri string, jsonData interface{}, useAuth bool, headers map[string]string) ([]byte, error) {
+func (sp *BrainXProviderClient) HTTPPost(ctx context.Context, uri string, jsonData interface{}, useAuth bool, headers map[string]string) ([]byte, error) {
+	newCtx := contextx.ValueOnlyFrom(ctx)
+	timeoutCtx, cancel := context.WithTimeout(newCtx, 60*time.Second)
+	defer cancel()
+
 	// 将 jsonData 转换为 JSON 格式的字节流
 	body, err := json.Marshal(jsonData)
 	if err != nil {
@@ -171,7 +178,7 @@ func (sp *BrainXProviderClient) HTTPPost(uri string, jsonData interface{}, useAu
 	}
 
 	url := sp.BaseURL + uri
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(body))
+	req, err := http.NewRequestWithContext(timeoutCtx, "POST", url, bytes.NewBuffer(body))
 	if err != nil {
 		return nil, err
 	}
@@ -182,5 +189,5 @@ func (sp *BrainXProviderClient) HTTPPost(uri string, jsonData interface{}, useAu
 		req.Header.Set(key, value)
 	}
 
-	return sp.doRequest(req, useAuth)
+	return sp.doRequest(timeoutCtx, req, useAuth)
 }

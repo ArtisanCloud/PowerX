@@ -27,7 +27,7 @@ func NewHelloWorldLogic(ctx context.Context, svcCtx *svc.ServiceContext) *HelloW
 
 func (l *HelloWorldLogic) HelloWorld() (resp *types.HelloWorldResponse, err error) {
 	brainXService := brainx.NewBrainXServiceProvider(l.svcCtx)
-	message, err := brainXService.HelloWorld()
+	message, err := brainXService.HelloWorld(l.ctx)
 
 	return &types.HelloWorldResponse{
 		Message: message,

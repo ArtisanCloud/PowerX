@@ -17,11 +17,23 @@ service PowerX {
     @doc "hello world api for provider demo"
     @handler HelloWorld
     get /hello-world returns (HelloWorldResponse)
+
+    @doc "timeout api for provider demo"
+    @handler EchoLongTime
+    post /echo-long-time (EchoLongTimeRequest) returns (EchoLongTimeResponse)
 }
+
 
 
 type (
     HelloWorldResponse {
+        Message string `json:"message"`
+    }
+
+    EchoLongTimeRequest {
+        Timeout int `json:"timeout"`
+    }
+    EchoLongTimeResponse {
         Message string `json:"message"`
     }
 )

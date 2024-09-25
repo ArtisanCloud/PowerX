@@ -1143,6 +1143,14 @@ type DisableProductRequest struct {
 	ProductId int64 `path:"id"`
 }
 
+type EchoLongTimeRequest struct {
+	Timeout int `json:"timeout"`
+}
+
+type EchoLongTimeResponse struct {
+	Message string `json:"message"`
+}
+
 type ExchangeReply struct {
 	Token        string `json:"token"`
 	RefreshToken string `json:"refreshToken"`
