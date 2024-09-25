@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"github.com/ArtisanCloud/PowerLibs/v3/cache"
 	"github.com/pkg/errors"
-	"github.com/zeromicro/go-zero/core/contextx"
 	"io"
 	"net/http"
 	"time"
@@ -167,10 +166,6 @@ func (sp *BrainXProviderClient) HTTPGet(ctx context.Context, uri string, params 
 }
 
 func (sp *BrainXProviderClient) HTTPPost(ctx context.Context, uri string, jsonData interface{}, useAuth bool, headers map[string]string) ([]byte, error) {
-	newCtx := contextx.ValueOnlyFrom(ctx)
-	timeoutCtx, cancel := context.WithTimeout(newCtx, 60*time.Second)
-	defer cancel()
-
 	// 将 jsonData 转换为 JSON 格式的字节流
 	body, err := json.Marshal(jsonData)
 	if err != nil {
@@ -178,7 +173,7 @@ func (sp *BrainXProviderClient) HTTPPost(ctx context.Context, uri string, jsonDa
 	}
 
 	url := sp.BaseURL + uri
-	req, err := http.NewRequestWithContext(timeoutCtx, "POST", url, bytes.NewBuffer(body))
+	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(body))
 	if err != nil {
 		return nil, err
 	}
@@ -189,5 +184,5 @@ func (sp *BrainXProviderClient) HTTPPost(ctx context.Context, uri string, jsonDa
 		req.Header.Set(key, value)
 	}
 
-	return sp.doRequest(timeoutCtx, req, useAuth)
+	return sp.doRequest(ctx, req, useAuth)
 }
