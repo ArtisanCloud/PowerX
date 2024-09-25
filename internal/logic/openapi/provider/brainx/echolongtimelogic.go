@@ -2,11 +2,9 @@ package brainx
 
 import (
 	"PowerX/internal/provider/brainx"
-	"context"
-	"time"
-
 	"PowerX/internal/svc"
 	"PowerX/internal/types"
+	"context"
 
 	"github.com/zeromicro/go-zero/core/logx"
 )
@@ -28,9 +26,9 @@ func NewEchoLongTimeLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Echo
 
 func (l *EchoLongTimeLogic) EchoLongTime(req *types.EchoLongTimeRequest) (resp *types.EchoLongTimeResponse, err error) {
 
-	time.Sleep(60 * time.Second)
+	//time.Sleep(60 * time.Second)
+	//return nil, nil
 
-	return nil, nil
 	brainXService := brainx.NewBrainXServiceProvider(l.svcCtx)
 	message, err := brainXService.EchoLongTime(l.ctx, req.Timeout)
 
