@@ -1420,6 +1420,21 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			[]rest.Middleware{serverCtx.UserJWTAuth},
 			[]rest.Route{
 				{
+					// App发送图文信息
+					Method:  http.MethodPost,
+					Path:    "/message/articles",
+					Handler: adminscrmapp.SendWeWorkAppArticleMessageHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithPrefix("/api/v1/admin/scrm/app/wechat"),
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.UserJWTAuth},
+			[]rest.Route{
+				{
 					// App创建企业群
 					Method:  http.MethodPost,
 					Path:    "/group/create",
@@ -1457,21 +1472,6 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 					Method:  http.MethodGet,
 					Path:    "/options",
 					Handler: adminscrmapp.ListWeWorkAppOptionHandler(serverCtx),
-				},
-			}...,
-		),
-		rest.WithPrefix("/api/v1/admin/scrm/app/wechat"),
-	)
-
-	server.AddRoutes(
-		rest.WithMiddlewares(
-			[]rest.Middleware{serverCtx.UserJWTAuth},
-			[]rest.Route{
-				{
-					// App发送图文信息
-					Method:  http.MethodPost,
-					Path:    "/message/articles",
-					Handler: adminscrmapp.SendWeWorkAppArticleMessageHandler(serverCtx),
 				},
 			}...,
 		),
@@ -1543,16 +1543,16 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			[]rest.Middleware{serverCtx.UserJWTAuth},
 			[]rest.Route{
 				{
-					// 所有客户列表/page
+					// 客户群列表/limit
 					Method:  http.MethodPost,
-					Path:    "/page",
-					Handler: adminscrmcustomer.ListWeWorkCustomerPageHandler(serverCtx),
+					Path:    "/group/list",
+					Handler: adminscrmcustomer.ListWeWorkCustomerGroupLimitHandler(serverCtx),
 				},
 				{
-					// 批量同步客户信息(根据员工ID同步/节流)
+					// 客户群发信息
 					Method:  http.MethodPost,
-					Path:    "/sync",
-					Handler: adminscrmcustomer.SyncWeWorkCustomerOptionHandler(serverCtx),
+					Path:    "/group/message/template",
+					Handler: adminscrmcustomer.SendWeWorkCustomerGroupMessageHandler(serverCtx),
 				},
 			}...,
 		),
@@ -1564,16 +1564,16 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			[]rest.Middleware{serverCtx.UserJWTAuth},
 			[]rest.Route{
 				{
-					// 客户群列表/limit
+					// 所有客户列表/page
 					Method:  http.MethodPost,
-					Path:    "/group/list",
-					Handler: adminscrmcustomer.ListWeWorkCustomerGroupLimitHandler(serverCtx),
+					Path:    "/page",
+					Handler: adminscrmcustomer.ListWeWorkCustomerPageHandler(serverCtx),
 				},
 				{
-					// 客户群发信息
+					// 批量同步客户信息(根据员工ID同步/节流)
 					Method:  http.MethodPost,
-					Path:    "/group/message/template",
-					Handler: adminscrmcustomer.SendWeWorkCustomerGroupMessageHandler(serverCtx),
+					Path:    "/sync",
+					Handler: adminscrmcustomer.SyncWeWorkCustomerOptionHandler(serverCtx),
 				},
 			}...,
 		),
@@ -2057,24 +2057,6 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 	server.AddRoutes(
 		[]rest.Route{
 			{
-				// 查询产品品类列表
-				Method:  http.MethodGet,
-				Path:    "/product-categories",
-				Handler: mpcrmproduct.ListProductCategoriesHandler(serverCtx),
-			},
-			{
-				// 查询产品品类树形表
-				Method:  http.MethodGet,
-				Path:    "/product-category-tree",
-				Handler: mpcrmproduct.ListProductCategoryTreeHandler(serverCtx),
-			},
-		},
-		rest.WithPrefix("/api/v1/mp/product"),
-	)
-
-	server.AddRoutes(
-		[]rest.Route{
-			{
 				// 查询产品详情
 				Method:  http.MethodGet,
 				Path:    "/products/:id",
@@ -2085,6 +2067,24 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Method:  http.MethodGet,
 				Path:    "/products/page-list",
 				Handler: mpcrmproduct.ListProductsPageHandler(serverCtx),
+			},
+		},
+		rest.WithPrefix("/api/v1/mp/product"),
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
+			{
+				// 查询产品品类列表
+				Method:  http.MethodGet,
+				Path:    "/product-categories",
+				Handler: mpcrmproduct.ListProductCategoriesHandler(serverCtx),
+			},
+			{
+				// 查询产品品类树形表
+				Method:  http.MethodGet,
+				Path:    "/product-category-tree",
+				Handler: mpcrmproduct.ListProductCategoryTreeHandler(serverCtx),
 			},
 		},
 		rest.WithPrefix("/api/v1/mp/product"),
@@ -2534,20 +2534,23 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 	)
 
 	server.AddRoutes(
-		[]rest.Route{
-			{
-				// timeout api for provider demo
-				Method:  http.MethodPost,
-				Path:    "/echo-long-time",
-				Handler: openapiproviderbrainx.EchoLongTimeHandler(serverCtx),
-			},
-			{
-				// hello world api for provider demo
-				Method:  http.MethodGet,
-				Path:    "/hello-world",
-				Handler: openapiproviderbrainx.HelloWorldHandler(serverCtx),
-			},
-		},
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.OpenAPIJWTAuth},
+			[]rest.Route{
+				{
+					// timeout api for provider demo
+					Method:  http.MethodPost,
+					Path:    "/echo-long-time",
+					Handler: openapiproviderbrainx.EchoLongTimeHandler(serverCtx),
+				},
+				{
+					// hello world api for provider demo
+					Method:  http.MethodGet,
+					Path:    "/hello-world",
+					Handler: openapiproviderbrainx.HelloWorldHandler(serverCtx),
+				},
+			}...,
+		),
 		rest.WithPrefix("/openapi/v1/provider/brainx"),
 	)
 

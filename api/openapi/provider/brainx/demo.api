@@ -11,6 +11,7 @@ info(
 @server(
     group: openapi/provider/brainx
     prefix: /openapi/v1/provider/brainx
+    middleware: OpenAPIJWTAuth
 )
 
 service PowerX {
