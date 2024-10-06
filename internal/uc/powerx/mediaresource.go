@@ -25,6 +25,13 @@ import (
 
 const DefaultStoragePath = "resource/static"
 
+// 分片上传配置常量
+const (
+	MultipartPartSize    = 100 * 1024 * 1024 // 100MB
+	MultipartConcurrency = 5
+	MultipartMaxRetries  = 3
+)
+
 // MediaResourceUseCase Use Case
 type MediaResourceUseCase struct {
 	db               *gorm.DB
@@ -34,6 +41,7 @@ type MediaResourceUseCase struct {
 }
 
 const BucketMediaResourceProduct = "bucket.product"
+const BucketMediaResourceVideo = "bucket.video"
 
 func NewMediaResourceUseCase(db *gorm.DB, conf *config.Config) *MediaResourceUseCase {
 	// 使用Minio API SDK
@@ -265,9 +273,9 @@ func (uc *MediaResourceUseCase) MakeOSSResourceByBase64String(ctx context.Contex
 
 }
 
-func (m *MediaResourceUseCase) GetBase64DataFromMedia(ctx context.Context, media *media.MediaResource) (string, error) {
+func (uc *MediaResourceUseCase) GetBase64DataFromMedia(ctx context.Context, media *media.MediaResource) (string, error) {
 	// 从OSS中获取图片数据
-	url, err := m.GetOSSResourceURL(media.BucketName, media.Filename)
+	url, err := uc.GetOSSResourceURL(media.BucketName, media.Filename)
 	if err != nil {
 		return "", err
 	}
@@ -381,4 +389,75 @@ func (uc *MediaResourceUseCase) GetCachedBase64DataFromMedia(ctx context.Context
 	}
 
 	return data.(string), err
+}
+
+func (uc *MediaResourceUseCase) UploadVideoFromURL(ctx context.Context, mediaConfig *config.MediaResource, bucket string, videoURL string) error {
+	minioConfig := mediaConfig.OSS.Minio
+	client, err := minio.NewCore(minioConfig.Endpoint, &minio.Options{
+		Creds:  credentials.NewStaticV4(minioConfig.Credentials.AccessKey, minioConfig.Credentials.SecretKey, ""),
+		Secure: minioConfig.UseSSL,
+	})
+
+	// 从视频 URL 下载视频文件
+	resp, err := http.Get(videoURL)
+	if err != nil {
+		return errors.Wrap(err, "failed to download video from URL")
+	}
+	defer resp.Body.Close()
+
+	// 检查响应状态
+	if resp.StatusCode != http.StatusOK {
+		return errors.Errorf("failed to download video, status code: %d", resp.StatusCode)
+	}
+
+	// 设置上传的对象名称
+	objectName := "uploaded_video.mp4" // 根据需要设置对象名称
+
+	// 创建分片上传
+	uploadID, err := client.NewMultipartUpload(ctx, bucket, objectName, minio.PutObjectOptions{
+		ContentType: "video/mp4", // 根据实际视频类型设置
+	})
+	if err != nil {
+		return errors.Wrap(err, "failed to initiate multipart upload")
+	}
+
+	// 定义分片大小，MinIO 的限制通常为 5MB
+	const partSize = 5 * 1024 * 1024 // 5MB
+	var partNumber int
+	var completeParts []minio.CompletePart // 存储每个分片的信息
+
+	// 循环读取分片并上传
+	for {
+		buf := make([]byte, partSize)
+		n, err := resp.Body.Read(buf)
+		if err == io.EOF {
+			break // 到达文件结尾
+		}
+		if err != nil {
+			return errors.Wrap(err, "failed to read from response body")
+		}
+
+		// 上传分片
+		partNumber++
+		partReader := io.LimitReader(resp.Body, int64(n)) // 限制读取的字节数
+		objectPart, err := client.PutObjectPart(ctx, bucket, objectName, uploadID, partNumber, partReader, int64(n), minio.PutObjectPartOptions{})
+		if err != nil {
+			return errors.Wrap(err, "failed to upload part")
+		}
+
+		// 将上传的分片信息添加到 completeParts 列表中
+		completeParts = append(completeParts, minio.CompletePart{
+			ETag:       objectPart.ETag, // 使用 ObjectPart 中的 ETag
+			PartNumber: partNumber,      // 使用分片编号
+		})
+	}
+
+	// 完成分片上传
+	_, err = client.CompleteMultipartUpload(ctx, bucket, objectName, uploadID, completeParts, minio.PutObjectOptions{})
+	if err != nil {
+		return errors.Wrap(err, "failed to complete multipart upload")
+	}
+
+	fmt.Println("Upload completed successfully")
+	return nil
 }
