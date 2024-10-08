@@ -2,7 +2,6 @@ package user
 
 import (
 	"PowerX/internal/model/option"
-	"PowerX/internal/model/origanzation"
 	"PowerX/internal/model/permission"
 	"PowerX/pkg/slicex"
 	"context"
@@ -53,9 +52,9 @@ func (l *ListUsersLogic) ListUser(req *types.ListUsersRequest) (resp *types.List
 	}
 	if req.IsEnabled != nil {
 		if *req.IsEnabled {
-			opt.Statuses = append(opt.Statuses, origanzation.UserStatusEnabled)
+			opt.Statuses = append(opt.Statuses, organization.UserStatusEnabled)
 		} else {
-			opt.Statuses = append(opt.Statuses, origanzation.UserStatusDisabled)
+			opt.Statuses = append(opt.Statuses, organization.UserStatusDisabled)
 		}
 	}
 
@@ -86,7 +85,7 @@ func (l *ListUsersLogic) ListUser(req *types.ListUsersRequest) (resp *types.List
 			Department:    dep,
 			Roles:         roles,
 			JobTitle:      user.JobTitle,
-			IsEnabled:     user.Status == origanzation.UserStatusEnabled,
+			IsEnabled:     user.Status == organization.UserStatusEnabled,
 			CreatedAt:     user.CreatedAt.Format(time.RFC3339),
 		}
 		if user.Position != nil {

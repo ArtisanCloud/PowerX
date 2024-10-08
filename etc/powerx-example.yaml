@@ -55,6 +55,10 @@ PowerXDatabase:
 
   # 数据库连接信息
   DSN: host=localhost user=powerx password=powerxpw dbname=powerx port=5432 sslmode=disable TimeZone=UTC
+
+  # Schema
+  Schema: public
+
   # 数据库是否初始化定制的种子数据
   SeedCommerceData: false
   SeedDepartment: true

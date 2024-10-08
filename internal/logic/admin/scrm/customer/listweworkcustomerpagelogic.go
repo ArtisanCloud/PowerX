@@ -27,14 +27,13 @@ func NewListWeWorkCustomerPageLogic(ctx context.Context, svcCtx *svc.ServiceCont
 	}
 }
 
-//
 // ListWeWorkCustomerPage
-//  @Description: 客户列表
-//  @receiver customer
-//  @param opt
-//  @return resp
-//  @return err
 //
+//	@Description: 客户列表
+//	@receiver customer
+//	@param opt
+//	@return resp
+//	@return err
 func (customer *ListWeWorkCustomerPageLogic) ListWeWorkCustomerPage(opt *types.WeWorkCustomersRequest) (resp *types.WechatListCustomersReply, err error) {
 
 	data, err := customer.svcCtx.PowerX.SCRM.Wechat.FindManyWeWorkCustomerPage(customer.ctx, customer.OPT(opt), opt.Sync)
@@ -47,13 +46,12 @@ func (customer *ListWeWorkCustomerPageLogic) ListWeWorkCustomerPage(opt *types.W
 
 }
 
-//
 // OPT
-//  @Description:
-//  @receiver customer
-//  @param opt
-//  @return *types.PageOption[wechat.FindManyWechatCustomerOption]
 //
+//	@Description:
+//	@receiver customer
+//	@param opt
+//	@return *types.PageOption[wechat.FindManyWechatCustomerOption]
 func (customer *ListWeWorkCustomerPageLogic) OPT(opt *types.WeWorkCustomersRequest) *types.PageOption[wechat.FindManyWechatCustomerOption] {
 
 	option := types.PageOption[wechat.FindManyWechatCustomerOption]{
@@ -72,14 +70,13 @@ func (customer *ListWeWorkCustomerPageLogic) OPT(opt *types.WeWorkCustomersReque
 
 }
 
-//
 // DTO
-//  @Description:
-//  @receiver customer
-//  @param data
-//  @return resp
 //
-func (customer *ListWeWorkCustomerPageLogic) DTO(data []*customer.WeWorkExternalContacts) (resp []*types.WechatCustomer) {
+//	@Description:
+//	@receiver customer
+//	@param data
+//	@return resp
+func (customer *ListWeWorkCustomerPageLogic) DTO(data []*customer.WeWorkExternalContact) (resp []*types.WechatCustomer) {
 
 	if data != nil {
 		for _, obj := range data {
@@ -90,14 +87,13 @@ func (customer *ListWeWorkCustomerPageLogic) DTO(data []*customer.WeWorkExternal
 
 }
 
-//
 // dto
-//  @Description:
-//  @receiver customer
-//  @param contact
-//  @return *types.WechatCustomer
 //
-func (customer *ListWeWorkCustomerPageLogic) dto(contact *customer.WeWorkExternalContacts) *types.WechatCustomer {
+//	@Description:
+//	@receiver customer
+//	@param contact
+//	@return *types.WechatCustomer
+func (customer *ListWeWorkCustomerPageLogic) dto(contact *customer.WeWorkExternalContact) *types.WechatCustomer {
 
 	return &types.WechatCustomer{
 		ExternalContact: types.WechatCustomersWithExternalContactExternalProfile{
@@ -119,13 +115,12 @@ func (customer *ListWeWorkCustomerPageLogic) dto(contact *customer.WeWorkExterna
 	}
 }
 
-//
 // externalContactExternalProfileWithExternalProfile
-//  @Description:
-//  @receiver customer
-//  @param attr
-//  @return data
 //
+//	@Description:
+//	@receiver customer
+//	@param attr
+//	@return data
 func (customer *ListWeWorkCustomerPageLogic) externalContactExternalProfileWithExternalProfile(attr string) (data types.ExternalContactExternalProfileWithExternalProfile) {
 	if attr != `` {
 		_ = json.Unmarshal([]byte(attr), &data)
@@ -133,13 +128,12 @@ func (customer *ListWeWorkCustomerPageLogic) externalContactExternalProfileWithE
 	return data
 }
 
-//
 // wechatCustomersWithFollowUser
-//  @Description:
-//  @receiver customer
-//  @param follow
-//  @return *types.WechatCustomersWithFollowUser
 //
+//	@Description:
+//	@receiver customer
+//	@param follow
+//	@return *types.WechatCustomersWithFollowUser
 func (customer *ListWeWorkCustomerPageLogic) wechatCustomersWithFollowUser(follow *customer.WeWorkExternalContactFollow) *types.WechatCustomersWithFollowUser {
 
 	if follow == nil {
@@ -154,7 +148,7 @@ func (customer *ListWeWorkCustomerPageLogic) wechatCustomersWithFollowUser(follo
 		UserId:         follow.UserId,
 		Remark:         follow.Remark,
 		Description:    follow.Description,
-		Createtime:     follow.Createtime,
+		CreatedTime:    follow.CreatedTime,
 		Tags:           tags,
 		TagIds:         strings.Split(follow.TagIds, `,`),
 		WechatChannels: customer.WechatCustomersFollowUserWithWechatChannels(follow.WechatChannels),
@@ -166,13 +160,12 @@ func (customer *ListWeWorkCustomerPageLogic) wechatCustomersWithFollowUser(follo
 	}
 }
 
-//
 // WechatCustomersFollowUserWithWechatChannels
-//  @Description:
-//  @receiver customer
-//  @param channels
-//  @return channel
 //
+//	@Description:
+//	@receiver customer
+//	@param channels
+//	@return channel
 func (customer *ListWeWorkCustomerPageLogic) WechatCustomersFollowUserWithWechatChannels(channels string) (channel types.WechatCustomersFollowUserWithWechatChannels) {
 
 	if channels == `` {

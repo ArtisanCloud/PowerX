@@ -24,7 +24,7 @@ type WeWorkDepartment struct {
 //	@receiver e
 //	@return string
 func (e WeWorkDepartment) TableName() string {
-	return `we_work_departments`
+	return model.TableNameWeWorkDepartment
 }
 
 // Query

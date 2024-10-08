@@ -1,7 +1,6 @@
 package user
 
 import (
-	"PowerX/internal/model/origanzation"
 	"PowerX/internal/model/permission"
 	"PowerX/pkg/slicex"
 	"context"
@@ -57,7 +56,7 @@ func (l *GetUserLogic) GetUser(req *types.GetUserRequest) (resp *types.GetUserRe
 		Department:    dep,
 		Roles:         roles,
 		JobTitle:      user.JobTitle,
-		IsEnabled:     user.Status == origanzation.UserStatusEnabled,
+		IsEnabled:     user.Status == organization.UserStatusEnabled,
 		CreatedAt:     user.CreatedAt.Format(time.RFC3339),
 	}
 	if user.Position != nil {

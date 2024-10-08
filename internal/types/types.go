@@ -23,7 +23,7 @@ type ActionQrcodeActiveReply struct {
 
 type ActionRequest struct {
 	Qid             string `path:"qid"` // 唯一标识
-	SceneQrcodeLink string `json:"sceneQrcodeLink,optional"`
+	SceneQRCodeLink string `json:"sceneQrcodeLink,optional"`
 }
 
 type ActionTagGroup struct {
@@ -3103,7 +3103,7 @@ type SKU struct {
 	OptionsIds []int64 `json:"optionsIds,optional"`
 }
 
-type SceneQrcodeActiveReply struct {
+type SceneQRCodeActiveReply struct {
 	QId                string   `json:"qid"`                // 唯一码
 	Name               string   `json:"name"`               // 活码名称
 	Desc               string   `json:"desc"`               // 描述
@@ -3647,7 +3647,7 @@ type WechatCustomersWithFollowUser struct {
 	UserId         string                                      `json:"userId"`
 	Remark         string                                      `json:"remark"`
 	Description    string                                      `json:"description"`
-	Createtime     int                                         `json:"createtime"`
+	CreatedTime     int                                         `json:"createtime"`
 	Tags           []WechatCustomersFollowUserWithTags         `json:"tags"`
 	TagIds         []string                                    `json:"tagIds"`
 	WechatChannels WechatCustomersFollowUserWithWechatChannels `json:"wechatChannels"`

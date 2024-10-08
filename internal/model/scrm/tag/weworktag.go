@@ -26,7 +26,7 @@ type WeWorkTag struct {
 //	@receiver e
 //	@return string
 func (e WeWorkTag) TableName() string {
-	return `we_work_tags`
+	return model.TableNameWeWorkTag
 }
 
 // Query

@@ -16,24 +16,22 @@ type WeWorkTagGroup struct {
 	IsDelete        bool         `gorm:"comment:是否删除;column:is_delete" json:"is_delete"`
 }
 
-//
 // Table
-//  @Description:
-//  @receiver e
-//  @return string
 //
+//	@Description:
+//	@receiver e
+//	@return string
 func (e WeWorkTagGroup) TableName() string {
-	return `we_work_tag_groups`
+	return model.TableNameWeWorkTagGroup
 }
 
-//
 // Query
-//  @Description:
-//  @receiver this
-//  @param db
-//  @return groups
-//  @return err
 //
+//	@Description:
+//	@receiver this
+//	@param db
+//	@return groups
+//	@return err
 func (e *WeWorkTagGroup) Query(db *gorm.DB) (groups []*WeWorkTagGroup) {
 
 	err := db.Model(e).Where(`is_delete = ?`, false).Preload(`WeWorkGroupTags`).Order(`sort ASC`).Find(&groups).Error
@@ -44,14 +42,13 @@ func (e *WeWorkTagGroup) Query(db *gorm.DB) (groups []*WeWorkTagGroup) {
 
 }
 
-//
 // Action
-//  @Description:
-//  @receiver this
-//  @param db
-//  @param group
-//  @return []*WeWorkAppGroup
 //
+//	@Description:
+//	@receiver this
+//	@param db
+//	@param group
+//	@return []*WeWorkAppGroup
 func (e *WeWorkTagGroup) Action(db *gorm.DB, groups []*WeWorkTagGroup) {
 
 	err := db.Table(e.TableName()).Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "group_id"}}, UpdateAll: true}).Create(&groups).Error

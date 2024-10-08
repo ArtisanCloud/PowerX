@@ -15,7 +15,7 @@ import (
 //	@return error
 func (this wechatUseCase) CreateWeWorkCustomerGroupQrcodeRequest(opt *types.QrcodeActiveRequest) (err error) {
 
-	this.qrcode.Action(this.db, []*scene.SceneQrcode{
+	this.qrcode.Action(this.db, []*scene.SceneQRCode{
 		{
 			QId:                opt.Qid,
 			Name:               opt.Name,
@@ -53,7 +53,7 @@ func (this wechatUseCase) UpdateWeWorkCustomerGroupQrcodeRequest(opt *types.Qrco
 		qrcode.SceneLink = opt.SceneLink
 		qrcode.SafeThresholdValue = opt.SafeThresholdValue
 		qrcode.ExpiryDate = opt.ExpiryDate
-		this.qrcode.Action(this.db, []*scene.SceneQrcode{qrcode})
+		this.qrcode.Action(this.db, []*scene.SceneQRCode{qrcode})
 
 	}
 
@@ -67,11 +67,11 @@ func (this wechatUseCase) UpdateWeWorkCustomerGroupQrcodeRequest(opt *types.Qrco
 //	@param opt
 //	@return reply
 //	@return error
-func (this *wechatUseCase) FindWeWorkCustomerGroupQrcodePage(option *types.PageOption[types.ListWeWorkGroupQrcodeActiveReqeust]) (reply *types.Page[*scene.SceneQrcode], err error) {
+func (this *wechatUseCase) FindWeWorkCustomerGroupQrcodePage(option *types.PageOption[types.ListWeWorkGroupQrcodeActiveReqeust]) (reply *types.Page[*scene.SceneQRCode], err error) {
 
-	var code []*scene.SceneQrcode
+	var code []*scene.SceneQRCode
 	var count int64
-	query := this.db.WithContext(this.ctx).Model(scene.SceneQrcode{}).Where(`state < 3`)
+	query := this.db.WithContext(this.ctx).Model(scene.SceneQRCode{}).Where(`state < 3`)
 
 	if v := option.Option.Name; v != `` {
 		query.Where("name like ?", "%"+v+"%")
@@ -93,7 +93,7 @@ func (this *wechatUseCase) FindWeWorkCustomerGroupQrcodePage(option *types.PageO
 	}
 	_ = query.Find(&code).Error
 
-	return &types.Page[*scene.SceneQrcode]{
+	return &types.Page[*scene.SceneQRCode]{
 		List:      code,
 		PageIndex: option.PageIndex,
 		PageSize:  option.PageSize,
@@ -118,14 +118,14 @@ func (this *wechatUseCase) ActionCustomerGroupQrcode(qid string, action int) err
 	return nil
 }
 
-// UpdateSceneQrcodeLink
+// UpdateSceneQRCodeLink
 //
 //	@Description:
 //	@receiver this
 //	@param qid
 //	@param link
 //	@return error
-func (this *wechatUseCase) UpdateSceneQrcodeLink(qid string, link string) error {
+func (this *wechatUseCase) UpdateSceneQRCodeLink(qid string, link string) error {
 
 	column := make(map[string]interface{})
 	column[`active_qrcode_link`] = link

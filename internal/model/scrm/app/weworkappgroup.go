@@ -21,7 +21,7 @@ type WeWorkAppGroup struct {
 //	@receiver e
 //	@return string
 func (e WeWorkAppGroup) TableName() string {
-	return `we_work_app_groups`
+	return model.WeWorkAppGroup
 }
 
 type (

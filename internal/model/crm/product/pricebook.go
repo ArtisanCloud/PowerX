@@ -16,5 +16,4 @@ type PriceBook struct {
 	StoreId     int64  `gorm:"column:storeId; comment:门店Id" json:"storeId"`
 }
 
-const TableNamePriceBook = "price_books"
 const PriceBookUniqueId = powermodel.UniqueId

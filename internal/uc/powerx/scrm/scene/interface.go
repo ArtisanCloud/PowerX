@@ -14,12 +14,12 @@ type IsceneInterface interface {
 // @Description:
 type iQrcodeInterface interface {
 	//
-	// FindOneSceneQrcodeDetail
+	// FindOneSceneQRCodeDetail
 	//  @Description: 场景码详情
 	//  @param qid
 	//  @return *qrcode.QrcodeActive
 	//
-	FindOneSceneQrcodeDetail(qid string) *scene.SceneQrcode
+	FindOneSceneQRCodeDetail(qid string) *scene.SceneQRCode
 	//
 	// IncreaseSceneCpaNumber
 	//  @Description: CPA+1

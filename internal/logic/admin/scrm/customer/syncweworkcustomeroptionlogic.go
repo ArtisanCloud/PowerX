@@ -108,7 +108,7 @@ func (cMsg *SyncWeWorkCustomerOptionLogic) follow(follow *models.FollowUser) *ty
 		UserId:         follow.UserID,
 		Remark:         follow.Remark,
 		Description:    follow.Description,
-		Createtime:     follow.CreateTime,
+		CreatedTime:    follow.CreateTime,
 		Tags:           nil,
 		WechatChannels: cMsg.followWechatChannels(follow.WechatChannels),
 		RemarkCorpName: follow.RemarkCorpName,

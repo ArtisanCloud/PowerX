@@ -1,6 +1,7 @@
 package infoorganizatoin
 
 import (
+	"PowerX/internal/model"
 	"PowerX/internal/model/powermodel"
 	"PowerX/internal/types"
 	"PowerX/pkg/securityx"
@@ -10,7 +11,7 @@ import (
 
 // Table Name
 func (mdl *PivotCategoryToObject) TableName() string {
-	return TableNamePivotCategoryToObject
+	return model.TableNamePivotCategoryToObject
 }
 
 // Pivot表
@@ -28,8 +29,6 @@ type PivotCategoryToObject struct {
 
 	Sort int `gorm:"comment:排序，越大约靠前"`
 }
-
-const TableNamePivotCategoryToObject = "pivot_category_to_object"
 
 const PivotCategoryToObjectOwnerKey = "object_type"
 const PivotCategoryToObjectForeignKey = "object_id"

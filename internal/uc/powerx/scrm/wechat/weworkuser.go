@@ -1,7 +1,7 @@
 package wechat
 
 import (
-	"PowerX/internal/model/origanzation"
+	organization2 "PowerX/internal/model/organization"
 	"PowerX/internal/model/powermodel"
 	"PowerX/internal/model/scrm/organization"
 	"PowerX/internal/types"
@@ -288,12 +288,12 @@ func (this *wechatUseCase) getWechatUserIDs(ctx context.Context) (ids []string, 
 //	@receiver this
 //	@param fromUser
 //	@return toUser
-func (this *wechatUseCase) userFromWeWorkSyncToLocal(fromUser []*organization.WeWorkUser) (toUser []*origanzation.User) {
+func (this *wechatUseCase) userFromWeWorkSyncToLocal(fromUser []*organization.WeWorkUser) (toUser []*organization2.User) {
 
 	if fromUser != nil {
-		password, _ := origanzation.HashPassword(`123456`)
+		password, _ := organization2.HashPassword(`123456`)
 		for _, user := range fromUser {
-			toUser = append(toUser, &origanzation.User{
+			toUser = append(toUser, &organization2.User{
 				Account:  user.WeWorkUserId,
 				Name:     user.Name,
 				NickName: user.Name,

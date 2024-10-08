@@ -14,8 +14,6 @@ type PriceConfig struct {
 	EndDate          time.Time `gorm:"column:end_date; comment:活动场景结束时间" json:"endDate"`
 }
 
-const TableNamePriceConfig = "price_configs"
-
 const TypeListPrice = "List_Price"
 const TypeMember = "Member"
 const TypeMemberEarlyBird = "Member_Early_Bird"

@@ -84,8 +84,6 @@ type PivotDataDictionaryToObject struct {
 	DataDictionaryKey  string `gorm:"column:data_dictionary_key; not null;index:idx_dd_key;comment:数据字典数据项key" json:"dataDictionaryKey"`
 }
 
-const TableNamePivotDataDictionaryToObject = "pivot_data_dictionary_to_object"
-
 const PivotDataDictionaryToObjectOwnerKey = "object_type"
 const PivotDataDictionaryToObjectForeignKey = "object_id"
 

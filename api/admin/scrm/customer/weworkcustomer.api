@@ -105,7 +105,7 @@ type (
         UserId string `json:"userId"`
         Remark string `json:"remark"`
         Description string `json:"description"`
-        Createtime int `json:"createtime"`
+        CreatedTime int `json:"createtime"`
         Tags []WechatCustomersFollowUserWithTags `json:"tags"`
         TagIds []string `json:"tagIds"`
         WechatChannels WechatCustomersFollowUserWithWechatChannels `json:"wechatChannels"`

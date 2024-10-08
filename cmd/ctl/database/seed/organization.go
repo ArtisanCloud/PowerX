@@ -1,7 +1,7 @@
 package seed
 
 import (
-	"PowerX/internal/model/origanzation"
+	"PowerX/internal/model/organization"
 	"PowerX/internal/uc/powerx"
 	"context"
 	"github.com/pkg/errors"
@@ -10,12 +10,12 @@ import (
 
 func CreateOrganization(db *gorm.DB) (err error) {
 	var count int64
-	if err = db.Model(&origanzation.Department{}).Count(&count).Error; err != nil {
+	if err = db.Model(&organization.Department{}).Count(&count).Error; err != nil {
 		panic(errors.Wrap(err, "init root dep failed"))
 	}
 	if count == 0 {
 		dep := DefaultDepartment()
-		if err := db.Model(&origanzation.Department{}).Create(&dep).Error; err != nil {
+		if err := db.Model(&organization.Department{}).Create(&dep).Error; err != nil {
 			panic(errors.Wrap(err, "init root dep failed"))
 		}
 	}
@@ -23,8 +23,8 @@ func CreateOrganization(db *gorm.DB) (err error) {
 	return err
 }
 
-func DefaultDepartment() *origanzation.Department {
-	return &origanzation.Department{
+func DefaultDepartment() *organization.Department {
+	return &organization.Department{
 		Name:       "组织架构",
 		PId:        0,
 		Desc:       "根节点, 别删除",
@@ -37,8 +37,8 @@ func CreateDefaultDepartments(db *gorm.DB) error {
 	departments := DefaultDepartments()
 	ucOrg := powerx.NewOrganizationUseCase(db)
 	for _, department := range departments {
-		existDep := &origanzation.Department{}
-		res := db.Model(&origanzation.Department{}).Where(origanzation.Department{Name: department.Name}).First(existDep)
+		existDep := &organization.Department{}
+		res := db.Model(&organization.Department{}).Where(organization.Department{Name: department.Name}).First(existDep)
 		//fmt.Dump(existDep, res.Error)
 		if errors.Is(res.Error, gorm.ErrRecordNotFound) {
 			_ = ucOrg.CreateDepartment(context.Background(), department)
@@ -47,8 +47,8 @@ func CreateDefaultDepartments(db *gorm.DB) error {
 	return nil
 }
 
-func DefaultDepartments() (departments []*origanzation.Department) {
-	departments = []*origanzation.Department{
+func DefaultDepartments() (departments []*organization.Department) {
+	departments = []*organization.Department{
 		{
 			Name:       "产品部门",
 			PId:        1,

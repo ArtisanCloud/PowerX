@@ -25,23 +25,22 @@ func NewDetailQrcodeLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Deta
 	}
 }
 
-//
 // DetailQrcode
-//  @Description:
-//  @receiver qrcode
-//  @param opt
-//  @return resp
-//  @return err
 //
-func (qrcode *DetailQrcodeLogic) DetailQrcode(opt *types.SceneRequest) (resp *types.SceneQrcodeActiveReply, err error) {
+//	@Description:
+//	@receiver qrcode
+//	@param opt
+//	@return resp
+//	@return err
+func (qrcode *DetailQrcodeLogic) DetailQrcode(opt *types.SceneRequest) (resp *types.SceneQRCodeActiveReply, err error) {
 	if opt.Qid == `` {
 		return nil, fmt.Errorf(`Qid error`)
 	}
 
-	detail := qrcode.svcCtx.PowerX.Scene.Scene.FindOneSceneQrcodeDetail(opt.Qid)
+	detail := qrcode.svcCtx.PowerX.Scene.Scene.FindOneSceneQRCodeDetail(opt.Qid)
 	go qrcode.svcCtx.PowerX.Scene.Scene.IncreaseSceneCpaNumber(opt.Qid)
 
-	return &types.SceneQrcodeActiveReply{
+	return &types.SceneQRCodeActiveReply{
 		QId:                detail.QId,
 		Name:               detail.Name,
 		Desc:               detail.Desc,

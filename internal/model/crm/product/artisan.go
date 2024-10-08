@@ -1,6 +1,7 @@
 package product
 
 import (
+	"PowerX/internal/model"
 	"PowerX/internal/model/media"
 	"PowerX/internal/model/powermodel"
 	"gorm.io/gorm"
@@ -33,7 +34,6 @@ type Artisan struct {
 	Address      string    `gorm:"comment:工作地址" json:"address"`
 }
 
-const TableNameArtisan = "artisans"
 const ArtisanUniqueId = powermodel.UniqueId
 
 // artisan level dd type
@@ -50,7 +50,7 @@ func (mdl *Artisan) LoadPivotDetailImages(db *gorm.DB, conditions *map[string]in
 		conditions = &map[string]interface{}{}
 	}
 
-	(*conditions)[media.PivotMediaResourceToObjectOwnerKey] = TableNameArtisan
+	(*conditions)[media.PivotMediaResourceToObjectOwnerKey] = model.TableNameArtisan
 	(*conditions)[media.PivotMediaResourceToObjectForeignKey] = mdl.Id
 
 	err := powermodel.SelectMorphPivots(db, &media.PivotMediaResourceToObject{}, false, false, conditions).
@@ -62,7 +62,7 @@ func (mdl *Artisan) LoadPivotDetailImages(db *gorm.DB, conditions *map[string]in
 
 func (mdl *Artisan) ClearPivotDetailImages(db *gorm.DB) error {
 	conditions := &map[string]interface{}{}
-	(*conditions)[media.PivotMediaResourceToObjectOwnerKey] = TableNameArtisan
+	(*conditions)[media.PivotMediaResourceToObjectOwnerKey] = model.TableNameArtisan
 	(*conditions)[media.PivotMediaResourceToObjectForeignKey] = mdl.Id
 	return powermodel.ClearMorphPivots(db, &media.PivotMediaResourceToObject{}, false, false, conditions)
 }

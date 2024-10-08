@@ -1,7 +1,6 @@
 package userinfo
 
 import (
-	"PowerX/internal/model/origanzation"
 	"context"
 	"github.com/pkg/errors"
 
@@ -31,7 +30,7 @@ func (l *ModifyUserPasswordLogic) ModifyUserPassword(req *types.ModifyPasswordRe
 		panic(errors.Wrap(err, "get user metadata failed"))
 	}
 
-	err = l.svcCtx.PowerX.Organization.PatchUserByUserId(l.ctx, &origanzation.User{Password: req.Password}, cred.UID)
+	err = l.svcCtx.PowerX.Organization.PatchUserByUserId(l.ctx, &organization.User{Password: req.Password}, cred.UID)
 	if err != nil {
 		return err
 	}

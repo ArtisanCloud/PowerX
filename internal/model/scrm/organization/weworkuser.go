@@ -35,7 +35,7 @@ type WeWorkUser struct {
 //	@receiver e
 //	@return string
 func (e WeWorkUser) TableName() string {
-	return `we_work_users`
+	return model.TableNameWeWorkUser
 }
 
 type (

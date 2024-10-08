@@ -1,4 +1,4 @@
-package origanzation
+package organization
 
 import (
 	"PowerX/internal/model"

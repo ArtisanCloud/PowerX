@@ -54,7 +54,6 @@ type Product struct {
 	ProductAttribute
 }
 
-const TableNameProduct = "products"
 const ProductUniqueId = powermodel.UniqueId
 
 // Data Dictionary
@@ -69,7 +68,7 @@ const ProductPlanOnce = "_once"
 const ProductPlanPeriod = "_period"
 
 func (mdl *Product) GetTableName(needFull bool) string {
-	tableName := TableNameProduct
+	tableName := model.TableNameProduct
 	if needFull {
 		tableName = "public." + tableName
 	}
@@ -87,7 +86,7 @@ func (mdl *Product) LoadPivotSalesChannels(db *gorm.DB, conditions *map[string]i
 		conditions = &map[string]interface{}{}
 	}
 
-	(*conditions)[model.PivotDataDictionaryToObjectOwnerKey] = TableNameProduct
+	(*conditions)[model.PivotDataDictionaryToObjectOwnerKey] = model.TableNameProduct
 	(*conditions)[model.PivotDataDictionaryToObjectForeignKey] = mdl.Id
 	(*conditions)["data_dictionary_type"] = model.TypeSalesChannel
 
@@ -101,7 +100,7 @@ func (mdl *Product) LoadPivotSalesChannels(db *gorm.DB, conditions *map[string]i
 
 func (mdl *Product) ClearPivotSalesChannels(db *gorm.DB) error {
 	conditions := &map[string]interface{}{}
-	(*conditions)[model.PivotDataDictionaryToObjectOwnerKey] = TableNameProduct
+	(*conditions)[model.PivotDataDictionaryToObjectOwnerKey] = model.TableNameProduct
 	(*conditions)[model.PivotDataDictionaryToObjectForeignKey] = mdl.Id
 	(*conditions)["data_dictionary_type"] = model.TypeSalesChannel
 
@@ -114,7 +113,7 @@ func (mdl *Product) LoadPromoteChannels(db *gorm.DB, conditions *map[string]inte
 		conditions = &map[string]interface{}{}
 	}
 
-	(*conditions)[model.PivotDataDictionaryToObjectOwnerKey] = TableNameProduct
+	(*conditions)[model.PivotDataDictionaryToObjectOwnerKey] = model.TableNameProduct
 	(*conditions)[model.PivotDataDictionaryToObjectForeignKey] = mdl.Id
 	(*conditions)["data_dictionary_type"] = model.TypePromoteChannel
 
@@ -127,7 +126,7 @@ func (mdl *Product) LoadPromoteChannels(db *gorm.DB, conditions *map[string]inte
 
 func (mdl *Product) ClearPivotPromoteChannels(db *gorm.DB) error {
 	conditions := &map[string]interface{}{}
-	(*conditions)[model.PivotDataDictionaryToObjectOwnerKey] = TableNameProduct
+	(*conditions)[model.PivotDataDictionaryToObjectOwnerKey] = model.TableNameProduct
 	(*conditions)[model.PivotDataDictionaryToObjectForeignKey] = mdl.Id
 	(*conditions)["data_dictionary_type"] = model.TypePromoteChannel
 
@@ -141,7 +140,7 @@ func (mdl *Product) LoadProductCategories(db *gorm.DB, conditions *map[string]in
 	if conditions == nil {
 		conditions = &map[string]interface{}{}
 	}
-	(*conditions)[TableNamePivotProductToProductCategory+".deleted_at"] = nil
+	(*conditions)[model.TableNamePivotProductToProductCategory+".deleted_at"] = nil
 
 	err := powermodel.AssociationRelationship(db, conditions, mdl, "ProductCategories", false).Find(&mdl.ProductCategories)
 	if err != nil {
@@ -162,7 +161,7 @@ func (mdl *Product) LoadPivotCoverImages(db *gorm.DB, conditions *map[string]int
 		conditions = &map[string]interface{}{}
 	}
 
-	(*conditions)[media.PivotMediaResourceToObjectOwnerKey] = TableNameProduct
+	(*conditions)[media.PivotMediaResourceToObjectOwnerKey] = model.TableNameProduct
 	(*conditions)[media.PivotMediaResourceToObjectForeignKey] = mdl.Id
 
 	err := powermodel.SelectMorphPivots(db, &media.PivotMediaResourceToObject{}, false, false, conditions).
@@ -175,7 +174,7 @@ func (mdl *Product) LoadPivotCoverImages(db *gorm.DB, conditions *map[string]int
 
 func (mdl *Product) ClearPivotCoverImages(db *gorm.DB) error {
 	conditions := &map[string]interface{}{}
-	(*conditions)[media.PivotMediaResourceToObjectOwnerKey] = TableNameProduct
+	(*conditions)[media.PivotMediaResourceToObjectOwnerKey] = model.TableNameProduct
 	(*conditions)[media.PivotMediaResourceToObjectForeignKey] = mdl.Id
 	(*conditions)["media_usage"] = media.MediaUsageCover
 
@@ -188,7 +187,7 @@ func (mdl *Product) LoadPivotDetailImages(db *gorm.DB, conditions *map[string]in
 		conditions = &map[string]interface{}{}
 	}
 
-	(*conditions)[media.PivotMediaResourceToObjectOwnerKey] = TableNameProduct
+	(*conditions)[media.PivotMediaResourceToObjectOwnerKey] = model.TableNameProduct
 	(*conditions)[media.PivotMediaResourceToObjectForeignKey] = mdl.Id
 
 	err := powermodel.SelectMorphPivots(db, &media.PivotMediaResourceToObject{}, false, false, conditions).
@@ -201,7 +200,7 @@ func (mdl *Product) LoadPivotDetailImages(db *gorm.DB, conditions *map[string]in
 
 func (mdl *Product) ClearPivotDetailImages(db *gorm.DB) error {
 	conditions := &map[string]interface{}{}
-	(*conditions)[media.PivotMediaResourceToObjectOwnerKey] = TableNameProduct
+	(*conditions)[media.PivotMediaResourceToObjectOwnerKey] = model.TableNameProduct
 	(*conditions)[media.PivotMediaResourceToObjectForeignKey] = mdl.Id
 	(*conditions)["media_usage"] = media.MediaUsageDetail
 

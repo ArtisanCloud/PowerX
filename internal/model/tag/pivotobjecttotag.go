@@ -1,6 +1,7 @@
 package tag
 
 import (
+	"PowerX/internal/model"
 	"PowerX/internal/model/powermodel"
 	"PowerX/pkg/securityx"
 	"fmt"
@@ -9,7 +10,7 @@ import (
 
 // Table Name
 func (mdl *PivotObjectToTag) TableName() string {
-	return TableNamePivotObjectToTag
+	return model.TableNamePivotObjectToTag
 }
 
 // 数据表结构
@@ -22,8 +23,6 @@ type PivotObjectToTag struct {
 	ObjectID   int64  `gorm:"column:object_id; not null;index:idx_object_id" json:"objectId"`
 	TagId      int64  `gorm:"column:tag_id; not null;index:idx_tag_id" json:"tagId"`
 }
-
-const TableNamePivotObjectToTag = "pivot_object_to_tag"
 
 const PivotObjectToTagForeignOwnerKey = "object_type"
 const PivotObjectToTagForeignKey = "object_id"

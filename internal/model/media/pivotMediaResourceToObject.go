@@ -1,6 +1,7 @@
 package media
 
 import (
+	"PowerX/internal/model"
 	"PowerX/internal/model/powermodel"
 	"PowerX/internal/types"
 	"PowerX/pkg/securityx"
@@ -10,7 +11,7 @@ import (
 
 // Table Name
 func (mdl *PivotMediaResourceToObject) TableName() string {
-	return TableNamePivotMediaResourceToObject
+	return model.TableNamePivotMediaResourceToObject
 }
 
 // Pivot表
@@ -30,8 +31,6 @@ type PivotMediaResourceToObject struct {
 
 	MediaUsage string `gorm:"column:media_usage; comment:自定义用途" json:"mediaUsage"`
 }
-
-const TableNamePivotMediaResourceToObject = "pivot_media_resource_to_object"
 
 const PivotMediaResourceToObjectOwnerKey = "object_type"
 const PivotMediaResourceToObjectForeignKey = "object_id"

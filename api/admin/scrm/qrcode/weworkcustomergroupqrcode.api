@@ -92,6 +92,6 @@ type (
 
     ActionRequest {
         Qid string `path:"qid"`// 唯一标识
-        SceneQrcodeLink string `json:"sceneQrcodeLink,optional"`
+        SceneQRCodeLink string `json:"sceneQrcodeLink,optional"`
     }
 )

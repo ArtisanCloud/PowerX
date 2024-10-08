@@ -3,7 +3,7 @@ package powerx
 import (
 	"PowerX/internal/model"
 	"PowerX/internal/model/option"
-	"PowerX/internal/model/origanzation"
+	"PowerX/internal/model/organization"
 	"PowerX/internal/model/permission"
 	"PowerX/internal/model/powermodel"
 	"PowerX/internal/types"
@@ -28,10 +28,10 @@ func NewOrganizationUseCase(db *gorm.DB) *OrganizationUseCase {
 }
 
 func (uc *OrganizationUseCase) VerifyPassword(hashedPwd string, pwd string) bool {
-	return origanzation.VerifyPassword(hashedPwd, pwd)
+	return organization.VerifyPassword(hashedPwd, pwd)
 }
 
-func (uc *OrganizationUseCase) CreateUser(ctx context.Context, user *origanzation.User) (err error) {
+func (uc *OrganizationUseCase) CreateUser(ctx context.Context, user *organization.User) (err error) {
 	if err := uc.db.WithContext(ctx).Create(&user).Error; err != nil {
 		// todo use errors.Is() when gorm update ErrDuplicatedKey
 		if strings.Contains(err.Error(), "duplicate key value violates unique constraint") {
@@ -43,15 +43,15 @@ func (uc *OrganizationUseCase) CreateUser(ctx context.Context, user *origanzatio
 }
 
 func (uc *OrganizationUseCase) FindAccountsByIds(ctx context.Context, userIds []int64) (accounts []string) {
-	err := uc.db.WithContext(ctx).Model(&origanzation.User{}).Where("id in ?", userIds).Pluck("account", &accounts).Error
+	err := uc.db.WithContext(ctx).Model(&organization.User{}).Where("id in ?", userIds).Pluck("account", &accounts).Error
 	if err != nil {
 		panic(errors.Wrap(err, "find accounts by ids failed"))
 	}
 	return accounts
 }
 
-func (uc *OrganizationUseCase) PatchUserByUserId(ctx context.Context, user *origanzation.User, userId int64) error {
-	result := uc.db.WithContext(ctx).Model(&origanzation.User{}).Where(user.Id).Updates(&user)
+func (uc *OrganizationUseCase) PatchUserByUserId(ctx context.Context, user *organization.User, userId int64) error {
+	result := uc.db.WithContext(ctx).Model(&organization.User{}).Where(user.Id).Updates(&user)
 	if result.Error != nil {
 		panic(result.Error)
 	}
@@ -95,10 +95,10 @@ func buildFindManyUsersQueryNoPage(query *gorm.DB, opt *option.FindManyUsersOpti
 	return query
 }
 
-func (uc *OrganizationUseCase) FindManyUsersPage(ctx context.Context, opt *option.FindManyUsersOption) types.Page[*origanzation.User] {
-	var users []*origanzation.User
+func (uc *OrganizationUseCase) FindManyUsersPage(ctx context.Context, opt *option.FindManyUsersOption) types.Page[*organization.User] {
+	var users []*organization.User
 	var count int64
-	query := uc.db.WithContext(ctx).Model(&origanzation.User{})
+	query := uc.db.WithContext(ctx).Model(&organization.User{})
 
 	query = buildFindManyUsersQueryNoPage(query, opt)
 	if err := query.Count(&count).Error; err != nil {
@@ -119,7 +119,7 @@ func (uc *OrganizationUseCase) FindManyUsersPage(ctx context.Context, opt *optio
 	if err := query.Find(&users).Error; err != nil {
 		panic(errors.Wrap(err, "find users failed"))
 	}
-	return types.Page[*origanzation.User]{
+	return types.Page[*organization.User]{
 		List:      users,
 		PageIndex: opt.PageIndex,
 		PageSize:  opt.PageSize,
@@ -127,12 +127,12 @@ func (uc *OrganizationUseCase) FindManyUsersPage(ctx context.Context, opt *optio
 	}
 }
 
-func (uc *OrganizationUseCase) FindOneUserByLoginOption(ctx context.Context, opt *option.UserLoginOption) (user *origanzation.User, err error) {
+func (uc *OrganizationUseCase) FindOneUserByLoginOption(ctx context.Context, opt *option.UserLoginOption) (user *organization.User, err error) {
 	if *opt == (option.UserLoginOption{}) {
 		panic(errors.New("option empty"))
 	}
 
-	var queryUser origanzation.User
+	var queryUser organization.User
 	if opt.Account != "" {
 		queryUser.Account = opt.Account
 	}
@@ -143,7 +143,7 @@ func (uc *OrganizationUseCase) FindOneUserByLoginOption(ctx context.Context, opt
 		queryUser.MobilePhone = opt.PhoneNumber
 	}
 
-	if err = uc.db.WithContext(ctx).Model(&origanzation.User{}).Where(&queryUser).First(&user).Error; err != nil {
+	if err = uc.db.WithContext(ctx).Model(&organization.User{}).Where(&queryUser).First(&user).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errorx.WithCause(errorx.ErrBadRequest, "用户不存在, 请检查登录信息")
 		}
@@ -152,7 +152,7 @@ func (uc *OrganizationUseCase) FindOneUserByLoginOption(ctx context.Context, opt
 	return
 }
 
-func (uc *OrganizationUseCase) FindOneUserById(ctx context.Context, id int64) (user *origanzation.User, err error) {
+func (uc *OrganizationUseCase) FindOneUserById(ctx context.Context, id int64) (user *organization.User, err error) {
 	if err = uc.db.WithContext(ctx).Where(id).Preload("Department").Preload("Position").First(&user).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errorx.WithCause(errorx.ErrBadRequest, "用户不存在")
@@ -162,8 +162,8 @@ func (uc *OrganizationUseCase) FindOneUserById(ctx context.Context, id int64) (u
 	return
 }
 
-func (uc *OrganizationUseCase) UpdateUserById(ctx context.Context, user *origanzation.User, userId int64) error {
-	whereCase := origanzation.User{
+func (uc *OrganizationUseCase) UpdateUserById(ctx context.Context, user *organization.User, userId int64) error {
+	whereCase := organization.User{
 		Model: model.Model{
 			Id: userId,
 		},
@@ -181,7 +181,7 @@ func (uc *OrganizationUseCase) UpdateUserById(ctx context.Context, user *origanz
 }
 
 func (uc *OrganizationUseCase) DeleteUserById(ctx context.Context, id int64) error {
-	result := uc.db.WithContext(ctx).Where(origanzation.User{IsReserved: false}, "is_reserved").Delete(&origanzation.User{}, id)
+	result := uc.db.WithContext(ctx).Where(organization.User{IsReserved: false}, "is_reserved").Delete(&organization.User{}, id)
 	err := result.Error
 	if err != nil {
 		panic(errors.Wrap(err, "delete user failed"))
@@ -194,7 +194,7 @@ func (uc *OrganizationUseCase) DeleteUserById(ctx context.Context, id int64) err
 
 // FindUserPositionRoleCodes 获取员工的职位的角色代码
 func (uc *OrganizationUseCase) FindUserPositionRoleCodes(ctx context.Context, userId int64) (roleCodes []string, err error) {
-	var user origanzation.User
+	var user organization.User
 	if err = uc.db.WithContext(ctx).Preload("Position.Roles").First(&user, userId).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errorx.WithCause(errorx.ErrBadRequest, "用户不存在")
@@ -207,8 +207,8 @@ func (uc *OrganizationUseCase) FindUserPositionRoleCodes(ctx context.Context, us
 	return
 }
 
-func (uc *OrganizationUseCase) FindOneDepartment(ctx context.Context, id int64) (department *origanzation.Department, err error) {
-	department = &origanzation.Department{}
+func (uc *OrganizationUseCase) FindOneDepartment(ctx context.Context, id int64) (department *organization.Department, err error) {
+	department = &organization.Department{}
 	if err := uc.db.WithContext(ctx).Preload("Leader").First(department, id).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errorx.WithCause(errorx.ErrBadRequest, "部门未找到")
@@ -218,13 +218,13 @@ func (uc *OrganizationUseCase) FindOneDepartment(ctx context.Context, id int64) 
 	return department, nil
 }
 
-func (uc *OrganizationUseCase) CreateDepartment(ctx context.Context, dep *origanzation.Department) error {
+func (uc *OrganizationUseCase) CreateDepartment(ctx context.Context, dep *organization.Department) error {
 	if dep.PId == 0 {
 		return errorx.WithCause(errorx.ErrBadRequest, "必须指定父部门Id")
 	}
 	db := uc.db.WithContext(ctx)
 	// 查询父节点
-	var pDep *origanzation.Department
+	var pDep *organization.Department
 	if err := db.Preload("Ancestors").Where(dep.PId).First(&pDep).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return errorx.WithCause(errorx.ErrBadRequest, "父部门不存在")
@@ -242,10 +242,10 @@ func (uc *OrganizationUseCase) CreateDepartment(ctx context.Context, dep *origan
 	return nil
 }
 
-func (uc *OrganizationUseCase) FindManyDepartmentsPage(ctx context.Context, opt *types.PageOption[option.FindManyDepartmentsOption]) *types.Page[*origanzation.Department] {
-	var deps []*origanzation.Department
+func (uc *OrganizationUseCase) FindManyDepartmentsPage(ctx context.Context, opt *types.PageOption[option.FindManyDepartmentsOption]) *types.Page[*organization.Department] {
+	var deps []*organization.Department
 	var count int64
-	query := uc.db.WithContext(ctx).Model(origanzation.Department{})
+	query := uc.db.WithContext(ctx).Model(organization.Department{})
 
 	if len(opt.Option.DepIds) > 0 {
 		query.Where(opt.Option.DepIds)
@@ -264,7 +264,7 @@ func (uc *OrganizationUseCase) FindManyDepartmentsPage(ctx context.Context, opt 
 	if err := query.Find(&deps).Error; err != nil {
 		panic(errors.Wrap(err, "query deps failed"))
 	}
-	return &types.Page[*origanzation.Department]{
+	return &types.Page[*organization.Department]{
 		List:      deps,
 		PageIndex: opt.PageIndex,
 		PageSize:  opt.PageSize,
@@ -272,9 +272,9 @@ func (uc *OrganizationUseCase) FindManyDepartmentsPage(ctx context.Context, opt 
 	}
 }
 
-func (uc *OrganizationUseCase) FindManyDepartmentsByRootId(ctx context.Context, rootId int64) (departments []*origanzation.Department, err error) {
-	departments = []*origanzation.Department{}
-	if err := uc.db.WithContext(ctx).Model(origanzation.Department{}).Preload("Leader").Preload("Ancestors").
+func (uc *OrganizationUseCase) FindManyDepartmentsByRootId(ctx context.Context, rootId int64) (departments []*organization.Department, err error) {
+	departments = []*organization.Department{}
+	if err := uc.db.WithContext(ctx).Model(organization.Department{}).Preload("Leader").Preload("Ancestors").
 		Joins("LEFT JOIN department_ancestors ON departments.id = department_ancestors.department_id").
 		Where("department_ancestors.ancestor_id = ?", rootId).Or("departments.id = ?", rootId).
 		Find(&departments).Error; err != nil {
@@ -286,7 +286,7 @@ func (uc *OrganizationUseCase) FindManyDepartmentsByRootId(ctx context.Context, 
 	return
 }
 
-func (uc *OrganizationUseCase) FindAllDepartments(ctx context.Context) (departments []*origanzation.Department) {
+func (uc *OrganizationUseCase) FindAllDepartments(ctx context.Context) (departments []*organization.Department) {
 	if err := uc.db.WithContext(ctx).Preload("Leader").Find(&departments).Error; err != nil {
 		panic(err)
 	}
@@ -294,14 +294,14 @@ func (uc *OrganizationUseCase) FindAllDepartments(ctx context.Context) (departme
 }
 
 func (uc *OrganizationUseCase) CountUserInDepartmentByIds(ctx context.Context, depIds []int64) (count int64) {
-	if err := uc.db.WithContext(ctx).Model(origanzation.User{}).Where("department_id in ?", depIds).Count(&count).Error; err != nil {
+	if err := uc.db.WithContext(ctx).Model(organization.User{}).Where("department_id in ?", depIds).Count(&count).Error; err != nil {
 		panic(err)
 	}
 	return count
 }
 
-func (uc *OrganizationUseCase) PatchDepartmentById(ctx context.Context, id int64, dep *origanzation.Department) error {
-	result := uc.db.WithContext(ctx).Model(origanzation.Department{}).Where(origanzation.Department{IsReserved: false}, "is_reserved").
+func (uc *OrganizationUseCase) PatchDepartmentById(ctx context.Context, id int64, dep *organization.Department) error {
+	result := uc.db.WithContext(ctx).Model(organization.Department{}).Where(organization.Department{IsReserved: false}, "is_reserved").
 		Where("id = ?", id).Updates(&dep)
 	if result.Error != nil {
 		panic(result.Error)
@@ -314,12 +314,12 @@ func (uc *OrganizationUseCase) PatchDepartmentById(ctx context.Context, id int64
 
 func (uc *OrganizationUseCase) DeleteDepartmentById(ctx context.Context, id int64) error {
 	db := uc.db.WithContext(ctx)
-	queryWhere := db.Model(origanzation.Department{}).
+	queryWhere := db.Model(organization.Department{}).
 		Joins("LEFT JOIN department_ancestors ON departments.id = department_ancestors.department_id").
 		Where("department_ancestors.ancestor_id = ?", id).Or("departments.id = ?", id).
 		Select("id")
-	result := db.Model(origanzation.Department{}).Where(origanzation.Department{IsReserved: false}, "is_reserved").
-		Where("id in (?)", queryWhere).Delete(&origanzation.Department{})
+	result := db.Model(organization.Department{}).Where(organization.Department{IsReserved: false}, "is_reserved").
+		Where("id in (?)", queryWhere).Delete(&organization.Department{})
 	if result.Error != nil {
 		panic(result.Error)
 	}
@@ -330,7 +330,7 @@ func (uc *OrganizationUseCase) DeleteDepartmentById(ctx context.Context, id int6
 }
 
 // CreatePosition 创建职位
-func (uc *OrganizationUseCase) CreatePosition(ctx context.Context, position *origanzation.Position) error {
+func (uc *OrganizationUseCase) CreatePosition(ctx context.Context, position *organization.Position) error {
 	if err := uc.db.WithContext(ctx).Create(&position).Error; err != nil {
 		panic(err)
 	}
@@ -338,8 +338,8 @@ func (uc *OrganizationUseCase) CreatePosition(ctx context.Context, position *ori
 }
 
 // EditPosition 编辑职位
-func (uc *OrganizationUseCase) EditPosition(ctx context.Context, position *origanzation.Position) error {
-	result := uc.db.WithContext(ctx).Model(&origanzation.Position{}).Where("id = ?", position.Id).Updates(&position)
+func (uc *OrganizationUseCase) EditPosition(ctx context.Context, position *organization.Position) error {
+	result := uc.db.WithContext(ctx).Model(&organization.Position{}).Where("id = ?", position.Id).Updates(&position)
 	if result.Error != nil {
 		panic(result.Error)
 	}
@@ -350,8 +350,8 @@ func (uc *OrganizationUseCase) EditPosition(ctx context.Context, position *origa
 }
 
 // FindOnePositionByID 查询职位列表
-func (uc *OrganizationUseCase) FindOnePositionByID(ctx context.Context, id int64) (position *origanzation.Position, err error) {
-	position = &origanzation.Position{}
+func (uc *OrganizationUseCase) FindOnePositionByID(ctx context.Context, id int64) (position *organization.Position, err error) {
+	position = &organization.Position{}
 	if err := uc.db.WithContext(ctx).Preload("Roles").First(position, id).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errorx.WithCause(errorx.ErrBadRequest, "职位未找到")
@@ -362,9 +362,9 @@ func (uc *OrganizationUseCase) FindOnePositionByID(ctx context.Context, id int64
 }
 
 // FindManyPositions 查询职位列表
-func (uc *OrganizationUseCase) FindManyPositions(ctx context.Context, opt *option.FindManyPositionsOption) (positions []*origanzation.Position, err error) {
-	positions = []*origanzation.Position{}
-	query := uc.db.WithContext(ctx).Model(&origanzation.Position{}).Preload("Roles")
+func (uc *OrganizationUseCase) FindManyPositions(ctx context.Context, opt *option.FindManyPositionsOption) (positions []*organization.Position, err error) {
+	positions = []*organization.Position{}
+	query := uc.db.WithContext(ctx).Model(&organization.Position{}).Preload("Roles")
 
 	if opt.LikeName != "" {
 		query = query.Where("name like ?", fmt.Sprintf("%%%s%%", opt.LikeName))
@@ -378,7 +378,7 @@ func (uc *OrganizationUseCase) FindManyPositions(ctx context.Context, opt *optio
 
 // DeletePosition 删除职位
 func (uc *OrganizationUseCase) DeletePosition(ctx context.Context, id int64) error {
-	result := uc.db.WithContext(ctx).Where("id = ?", id).Delete(&origanzation.Position{})
+	result := uc.db.WithContext(ctx).Where("id = ?", id).Delete(&organization.Position{})
 	if result.Error != nil {
 		panic(result.Error)
 	}
@@ -389,7 +389,7 @@ func (uc *OrganizationUseCase) DeletePosition(ctx context.Context, id int64) err
 }
 
 // PatchPosition 编辑职位
-func (uc *OrganizationUseCase) PatchPosition(ctx context.Context, id int64, position *origanzation.Position) error {
+func (uc *OrganizationUseCase) PatchPosition(ctx context.Context, id int64, position *organization.Position) error {
 	position.Id = id
 	result := uc.db.WithContext(ctx).Where("id = ?", id).Updates(&position)
 	uc.db.Model(&position).Association("Roles").Replace(position.Roles)
@@ -401,8 +401,8 @@ func (uc *OrganizationUseCase) PatchPosition(ctx context.Context, id int64, posi
 
 // GetPositionOptionMap 获取职位Option {label: Name, value: Id}
 func (uc *OrganizationUseCase) GetPositionOptionMap(ctx context.Context, search string) ([]map[string]any, error) {
-	var positions []*origanzation.Position
-	query := uc.db.WithContext(ctx).Model(&origanzation.Position{})
+	var positions []*organization.Position
+	query := uc.db.WithContext(ctx).Model(&organization.Position{})
 	if search != "" {
 		query = query.Where("name like ?", fmt.Sprintf("%%%s%%", search))
 	}

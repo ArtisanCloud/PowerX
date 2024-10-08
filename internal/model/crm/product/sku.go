@@ -22,7 +22,6 @@ type SKU struct {
 	OptionIds datatypes.JSON    `gorm:"comment:规格Ids" json:"OptionIds"`
 }
 
-const TableNameSKU = "sku"
 const SkuUniqueId = "index_unique_id"
 
 func (mdl *SKU) GetComposedUniqueID() object.NullString {

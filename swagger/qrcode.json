@@ -24,7 +24,7 @@
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/SceneQrcodeActiveReply"
+              "$ref": "#/definitions/SceneQRCodeActiveReply"
             }
           }
         },
@@ -56,7 +56,7 @@
         "status"
       ]
     },
-    "SceneQrcodeActiveReply": {
+    "SceneQRCodeActiveReply": {
       "type": "object",
       "properties": {
         "qid": {
@@ -121,7 +121,7 @@
           "description": " 活码打开次数"
         }
       },
-      "title": "SceneQrcodeActiveReply",
+      "title": "SceneQRCodeActiveReply",
       "required": [
         "qid",
         "name",

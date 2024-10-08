@@ -6,7 +6,7 @@ import (
 	"gorm.io/gorm/clause"
 )
 
-type SceneQrcode struct {
+type SceneQRCode struct {
 	model.Model
 	QId                string `gorm:"comment:唯一标识;unique;column:qid" json:"qid"`
 	Name               string `gorm:"comment:活码名称;column:name" json:"name"`
@@ -31,8 +31,8 @@ type SceneQrcode struct {
 //	@Description:
 //	@receiver e
 //	@return string
-func (e SceneQrcode) TableName() string {
-	return `scene_qrcodes`
+func (e SceneQRCode) TableName() string {
+	return model.TableNameSceneQRCode
 }
 
 // Query
@@ -42,7 +42,7 @@ func (e SceneQrcode) TableName() string {
 //	@param db
 //	@return groups
 //	@return err
-func (e *SceneQrcode) Query(db *gorm.DB) (qrcode []*SceneQrcode) {
+func (e *SceneQRCode) Query(db *gorm.DB) (qrcode []*SceneQRCode) {
 
 	err := db.Model(e).Find(&qrcode).Error
 	if err != nil {
@@ -59,7 +59,7 @@ func (e *SceneQrcode) Query(db *gorm.DB) (qrcode []*SceneQrcode) {
 //	@param db
 //	@param group
 //	@return []*WeWorkAppGroup
-func (e *SceneQrcode) Action(db *gorm.DB, qrcode []*SceneQrcode) {
+func (e *SceneQRCode) Action(db *gorm.DB, qrcode []*SceneQRCode) {
 
 	err := db.Table(e.TableName()).Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "qid"}}, UpdateAll: true}).Create(&qrcode).Error
 	if err != nil {
@@ -75,7 +75,7 @@ func (e *SceneQrcode) Action(db *gorm.DB, qrcode []*SceneQrcode) {
 //	@param db
 //	@param qid
 //	@param value
-func (e *SceneQrcode) UpdateColumn(db *gorm.DB, qid string, value map[string]interface{}) {
+func (e *SceneQRCode) UpdateColumn(db *gorm.DB, qid string, value map[string]interface{}) {
 
 	err := db.Table(e.TableName()).Where(`qid = ?`, qid).UpdateColumns(&value).Error
 	if err != nil {
@@ -91,7 +91,7 @@ func (e *SceneQrcode) UpdateColumn(db *gorm.DB, qid string, value map[string]int
 //	@param db
 //	@param qid
 //	@return qrcode
-func (e *SceneQrcode) FindByQid(db *gorm.DB, qid string) (qrcode *SceneQrcode) {
+func (e *SceneQRCode) FindByQid(db *gorm.DB, qid string) (qrcode *SceneQRCode) {
 
 	err := db.Table(e.TableName()).
 		//Debug().
@@ -102,14 +102,14 @@ func (e *SceneQrcode) FindByQid(db *gorm.DB, qid string) (qrcode *SceneQrcode) {
 	return qrcode
 }
 
-// FindEnableSceneQrcodeByQid
+// FindEnableSceneQRCodeByQid
 //
 //	@Description:
 //	@receiver e
 //	@param db
 //	@param qid
 //	@return qrcode
-func (e *SceneQrcode) FindEnableSceneQrcodeByQid(db *gorm.DB, qid string) (qrcode *SceneQrcode) {
+func (e *SceneQRCode) FindEnableSceneQRCodeByQid(db *gorm.DB, qid string) (qrcode *SceneQRCode) {
 
 	err := db.Table(e.TableName()).
 		//Debug().
@@ -126,7 +126,7 @@ func (e *SceneQrcode) FindEnableSceneQrcodeByQid(db *gorm.DB, qid string) (qrcod
 //	@receiver e
 //	@param db
 //	@param qid
-func (e *SceneQrcode) IncreaseCpa(db *gorm.DB, qid string) {
+func (e *SceneQRCode) IncreaseCpa(db *gorm.DB, qid string) {
 
 	err := db.Table(e.TableName()).Where(`qid = ?`, qid).Update(`cpa`, gorm.Expr(`cpa + ?`, 1)).Error
 	if err != nil {

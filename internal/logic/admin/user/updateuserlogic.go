@@ -1,7 +1,6 @@
 package user
 
 import (
-	"PowerX/internal/model/origanzation"
 	"PowerX/internal/types"
 	"context"
 	"github.com/pkg/errors"
@@ -28,7 +27,7 @@ func NewUpdateUserLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Update
 }
 
 func (l *UpdateUserLogic) UpdateUser(req *types.UpdateUserRequest) (resp *types.UpdateUserReply, err error) {
-	user := origanzation.User{
+	user := organization.User{
 		Model: model.Model{
 			Id: req.Id,
 		},
@@ -86,7 +85,7 @@ func (l *UpdateUserLogic) UpdateUser(req *types.UpdateUserRequest) (resp *types.
 			Roles:         roles,
 			PositionId:    user.PositionID,
 			JobTitle:      user.JobTitle,
-			IsEnabled:     user.Status == origanzation.UserStatusEnabled,
+			IsEnabled:     user.Status == organization.UserStatusEnabled,
 			CreatedAt:     user.CreatedAt.Format(time.RFC3339),
 		},
 	}, nil

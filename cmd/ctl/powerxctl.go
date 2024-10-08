@@ -5,6 +5,7 @@ import (
 	"PowerX/cmd/ctl/database/seed"
 	"PowerX/cmd/ctl/gen"
 	"PowerX/internal/config"
+	"PowerX/internal/model"
 	"PowerX/internal/uc"
 	"fmt"
 	"github.com/urfave/cli/v2"
@@ -93,10 +94,22 @@ func ActionMigrate(cCtx *cli.Context) error {
 	var c config.Config
 	conf.MustLoad(configFile, &c)
 	c.EtcDir = filepath.Dir(configFile)
+	model.PowerXSchema = c.PowerXDatabase.Schema
 
 	// migrate tables
-	m, _ := migrate.NewPowerMigrator(&c)
+	m, err := migrate.NewPowerMigrator(&c)
+	if err != nil {
+		panic(err)
+	}
+	// create schema if not exists
+	err = m.InitSchema(model.PowerXSchema)
+	if err != nil {
+		panic(err)
+	}
+	// migrate tables
 	m.AutoMigrate()
+
+	// init admin authorization
 	powerx, _ := uc.NewPowerXUseCase(&c)
 	powerx.AdminAuthorization.Init()
 

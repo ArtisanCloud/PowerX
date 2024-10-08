@@ -1,7 +1,6 @@
 package userinfo
 
 import (
-	"PowerX/internal/model/origanzation"
 	"context"
 	"github.com/pkg/errors"
 	"time"
@@ -61,7 +60,7 @@ func (l *GetUserInfoLogic) GetUserInfo() (resp *types.GetUserInfoReply, err erro
 	if user.Department != nil {
 		resp.DepName = user.Department.Name
 	}
-	if user.Status == origanzation.UserStatusEnabled {
+	if user.Status == organization.UserStatusEnabled {
 		resp.IsEnabled = true
 	}
 	return

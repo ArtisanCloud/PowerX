@@ -1,6 +1,7 @@
 package product
 
 import (
+	"PowerX/internal/model"
 	"PowerX/internal/model/powermodel"
 	"PowerX/pkg/securityx"
 	"fmt"
@@ -9,7 +10,7 @@ import (
 
 // Table Name
 func (mdl *PivotSkuToSpecificOption) TableName() string {
-	return TableNamePivotSkuToSpecificOption
+	return model.TableNamePivotSkuToSpecificOption
 }
 
 // 数据表结构
@@ -23,8 +24,6 @@ type PivotSkuToSpecificOption struct {
 	SpecificOptionId int64             `gorm:"comment:规格项Id; column:specific_option_id; not null;index:index_specific_option_id" json:"specificOptionId"`
 	IsActivated      bool              `gorm:"comment:是否被激活; column:is_activated;" json:"isActivated,optional"`
 }
-
-const TableNamePivotSkuToSpecificOption = "pivot_sku_to_specific_options"
 
 const PivotPivotSkuToSpecificOptionsUniqueId = "index_unique_id"
 

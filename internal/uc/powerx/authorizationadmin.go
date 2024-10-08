@@ -2,7 +2,7 @@ package powerx
 
 import (
 	"PowerX/internal/config"
-	"PowerX/internal/model/origanzation"
+	"PowerX/internal/model/organization"
 	"PowerX/internal/model/permission"
 	"PowerX/internal/types/errorx"
 	"PowerX/pkg/mapx"
@@ -144,7 +144,7 @@ func (uc *AdminPermsUseCase) Init() {
 	}
 
 	// 初始化用户
-	if err := uc.db.Model(&origanzation.User{}).Count(&count).Error; err != nil {
+	if err := uc.db.Model(&organization.User{}).Count(&count).Error; err != nil {
 		panic(errors.Wrap(err, "init role failed"))
 	}
 	if count == 0 {
@@ -161,16 +161,16 @@ func (uc *AdminPermsUseCase) Init() {
 		if rooName == "" {
 			rooName = "超级管理员"
 		}
-		root := origanzation.User{
+		root := organization.User{
 			UUID:       uuid.New().String(),
 			Account:    rooAccount,
 			Password:   rooPass,
 			Name:       rooName,
-			Status:     origanzation.UserStatusEnabled,
+			Status:     organization.UserStatusEnabled,
 			IsReserved: true,
 		}
 		root.HashPassword()
-		if err := uc.db.Model(&origanzation.User{}).Create(&root).Error; err != nil {
+		if err := uc.db.Model(&organization.User{}).Create(&root).Error; err != nil {
 			panic(errors.Wrap(err, "init root failed"))
 		}
 	}

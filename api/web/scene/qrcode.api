@@ -16,7 +16,7 @@ info(
 service PowerX {
     @doc "获取场景落地页详情"
     @handler DetailQrcode
-    get /qrcode/detail/:qid(SceneRequest)  returns (SceneQrcodeActiveReply)
+    get /qrcode/detail/:qid(SceneRequest)  returns (SceneQRCodeActiveReply)
 
 
 }
@@ -27,7 +27,7 @@ type (
         Status string `json:"status"`
     }
 
-    SceneQrcodeActiveReply {
+    SceneQRCodeActiveReply {
 
         QId string `json:"qid"`                                                  // 唯一码
         Name string `json:"name"`                                                // 活码名称

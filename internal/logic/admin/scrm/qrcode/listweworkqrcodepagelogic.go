@@ -26,14 +26,13 @@ func NewListWeWorkQrcodePageLogic(ctx context.Context, svcCtx *svc.ServiceContex
 	}
 }
 
-//
 // ListWeWorkQrcodePage
-//  @Description: 群活码列表
-//  @receiver qrcode
-//  @param req
-//  @return resp
-//  @return err
 //
+//	@Description: 群活码列表
+//	@receiver qrcode
+//	@param req
+//	@return resp
+//	@return err
 func (qrcode *ListWeWorkQrcodePageLogic) ListWeWorkQrcodePage(opt *types.ListWeWorkGroupQrcodeActiveReqeust) (resp *types.ListWeWorkQrcodeActiveReply, err error) {
 
 	reply, err := qrcode.svcCtx.PowerX.SCRM.Wechat.FindWeWorkCustomerGroupQrcodePage(qrcode.OPT(opt))
@@ -46,13 +45,10 @@ func (qrcode *ListWeWorkQrcodePageLogic) ListWeWorkQrcodePage(opt *types.ListWeW
 	}, err
 }
 
-//
-//
-//  @Description:
-//  @receiver qrcode
-//  @param opt
-//  @return *types.PageOption[types.ListWeWorkGroupQrcodeActiveReqeust]
-//
+// @Description:
+// @receiver qrcode
+// @param opt
+// @return *types.PageOption[types.ListWeWorkGroupQrcodeActiveReqeust]
 func (qrcode *ListWeWorkQrcodePageLogic) OPT(opt *types.ListWeWorkGroupQrcodeActiveReqeust) *types.PageOption[types.ListWeWorkGroupQrcodeActiveReqeust] {
 
 	option := types.PageOption[types.ListWeWorkGroupQrcodeActiveReqeust]{
@@ -76,14 +72,13 @@ func (qrcode *ListWeWorkQrcodePageLogic) OPT(opt *types.ListWeWorkGroupQrcodeAct
 
 }
 
-//
 // DTO
-//  @Description:
-//  @receiver qrcode
-//  @param data
-//  @return reply
 //
-func (qrcode *ListWeWorkQrcodePageLogic) DTO(data *types.Page[*scene.SceneQrcode]) (reply []*types.WeWorkQrcodeActive) {
+//	@Description:
+//	@receiver qrcode
+//	@param data
+//	@return reply
+func (qrcode *ListWeWorkQrcodePageLogic) DTO(data *types.Page[*scene.SceneQRCode]) (reply []*types.WeWorkQrcodeActive) {
 
 	if data.List != nil {
 		for _, obj := range data.List {
@@ -94,14 +89,13 @@ func (qrcode *ListWeWorkQrcodePageLogic) DTO(data *types.Page[*scene.SceneQrcode
 	return reply
 }
 
-//
 // dto
-//  @Description:
-//  @receiver qrcode
-//  @param obj
-//  @return *types.WeWorkQrcodeActive
 //
-func (qrcode *ListWeWorkQrcodePageLogic) dto(obj *scene.SceneQrcode) *types.WeWorkQrcodeActive {
+//	@Description:
+//	@receiver qrcode
+//	@param obj
+//	@return *types.WeWorkQrcodeActive
+func (qrcode *ListWeWorkQrcodePageLogic) dto(obj *scene.SceneQRCode) *types.WeWorkQrcodeActive {
 
 	return &types.WeWorkQrcodeActive{
 		QId:                obj.QId,

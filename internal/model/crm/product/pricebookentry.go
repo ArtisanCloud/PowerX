@@ -27,7 +27,6 @@ type PriceBookEntry struct {
 	IsActive    bool              `gorm:"comment:是否激活" json:"isActive"`
 }
 
-const TableNamePriceBookEntry = "price_book_entries"
 const PriceBookEntryUniqueId = "index_unique_id"
 
 func (mdl *PriceBookEntry) GetComposedUniqueID() object.NullString {

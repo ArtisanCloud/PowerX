@@ -21,7 +21,6 @@ type PivotOrderToInventoryLog struct {
 type ActionType int
 
 const (
-	ActionCreate   ActionType = 1 // 创建
 	ActionUpdate   ActionType = 2 // 更新
 	ActionDelete   ActionType = 3 // 删除
 	ActionRollback ActionType = 4 // 回滚

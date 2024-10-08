@@ -1,4 +1,4 @@
-package origanzation
+package organization
 
 import (
 	fmt "PowerX/pkg/printx"

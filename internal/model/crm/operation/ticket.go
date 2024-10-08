@@ -1,6 +1,7 @@
 package operation
 
 import (
+	"PowerX/internal/model"
 	"PowerX/internal/model/powermodel"
 )
 
@@ -15,14 +16,16 @@ type TicketRecord struct {
 	IsUsed              bool    `gorm:"comment:是否使用" json:"isUsed"`
 }
 
+func (mdl *TicketRecord) TableName() string {
+	return model.TableNameTicketRecord
+}
+
 func (mdl *TicketRecord) GetTableName(needFull bool) string {
-	tableName := TableNameTicketRecord
+	tableName := model.TableNameTicketRecord
 	if needFull {
 		tableName = "public." + tableName
 	}
 	return tableName
 }
-
-const TableNameTicketRecord = "ticket_record"
 
 const TicketRecordUniqueId = powermodel.UniqueId

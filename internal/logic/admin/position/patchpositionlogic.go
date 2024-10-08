@@ -2,7 +2,6 @@ package position
 
 import (
 	"PowerX/internal/model/option"
-	"PowerX/internal/model/origanzation"
 	"PowerX/internal/model/permission"
 	"PowerX/pkg/slicex"
 	"context"
@@ -28,7 +27,7 @@ func NewPatchPositionLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Pat
 }
 
 func (l *PatchPositionLogic) PatchPosition(req *types.PatchPositionRequest) (resp *types.PatchPositionReply, err error) {
-	patch := &origanzation.Position{
+	patch := &organization.Position{
 		Name:  req.Name,
 		Desc:  req.Desc,
 		Level: req.Level,
@@ -54,7 +53,7 @@ func (l *PatchPositionLogic) PatchPosition(req *types.PatchPositionRequest) (res
 		PositionIDs: []int64{req.Id},
 	})
 	// pluck user id
-	userIDs := slicex.SlicePluck(page.List, func(item *origanzation.User) int64 {
+	userIDs := slicex.SlicePluck(page.List, func(item *organization.User) int64 {
 		return item.Id
 	})
 

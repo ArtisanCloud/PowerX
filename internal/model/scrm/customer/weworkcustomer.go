@@ -6,7 +6,7 @@ import (
 	"gorm.io/gorm/clause"
 )
 
-type WeWorkExternalContacts struct {
+type WeWorkExternalContact struct {
 	model.Model
 	WeWorkExternalContactFollow WeWorkExternalContactFollow `gorm:"foreignKey:ExternalUserId;references:external_user_id" json:"WeWorkExternalContactFollow"`
 	ExternalUserId              string                      `gorm:"comment:客户ID;unique;not null;" json:"externalUserId"`
@@ -29,24 +29,22 @@ type WeWorkExternalContacts struct {
 	Active          bool   `gorm:"active" json:"active"`
 }
 
-//
 // Table
-//  @Description:
-//  @receiver e
-//  @return string
 //
-func (e WeWorkExternalContacts) TableName() string {
-	return `we_work_external_contacts`
+//	@Description:
+//	@receiver e
+//	@return string
+func (e WeWorkExternalContact) TableName() string {
+	return model.TableNameWeWorkExternalContact
 }
 
-//
 // Query
-//  @Description:
-//  @receiver e
-//  @param db
-//  @return contacts
 //
-func (e WeWorkExternalContacts) Query(db *gorm.DB) (contacts []*WeWorkExternalContacts) {
+//	@Description:
+//	@receiver e
+//	@param db
+//	@return contacts
+func (e WeWorkExternalContact) Query(db *gorm.DB) (contacts []*WeWorkExternalContact) {
 
 	err := db.Model(e).Find(&contacts).Error
 	if err != nil {
@@ -56,14 +54,13 @@ func (e WeWorkExternalContacts) Query(db *gorm.DB) (contacts []*WeWorkExternalCo
 
 }
 
-//
 // Action
-//  @Description:
-//  @receiver e
-//  @param db
-//  @param contacts
 //
-func (e *WeWorkExternalContacts) Action(db *gorm.DB, contacts []*WeWorkExternalContacts) {
+//	@Description:
+//	@receiver e
+//	@param db
+//	@param contacts
+func (e *WeWorkExternalContact) Action(db *gorm.DB, contacts []*WeWorkExternalContact) {
 
 	err := db.Table(e.TableName()).Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "external_user_id"}}, UpdateAll: true}).CreateInBatches(&contacts, 100).Error
 	if err != nil {

@@ -1,7 +1,7 @@
 package wechat
 
 import (
-	"PowerX/internal/model/origanzation"
+	organization2 "PowerX/internal/model/organization"
 	"PowerX/internal/model/scene"
 	"PowerX/internal/model/scrm/app"
 	"PowerX/internal/model/scrm/customer"
@@ -95,8 +95,8 @@ type (
 	help              struct{}
 	hash              power.HashMap
 	modelOrganization struct {
-		user       origanzation.User
-		department origanzation.Department
+		user       organization2.User
+		department organization2.Department
 	}
 	modelWeworkApp struct {
 		group app.WeWorkAppGroup
@@ -109,7 +109,7 @@ type (
 		resource resource.WeWorkResource
 	}
 	modelWeworkQrcode struct {
-		qrcode scene.SceneQrcode
+		qrcode scene.SceneQRCode
 	}
 	modelWeworkTag struct {
 		tag   tag.WeWorkTag

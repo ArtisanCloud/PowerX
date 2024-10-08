@@ -1,6 +1,7 @@
-package powermodel
+package model
 
 import (
+	"PowerX/internal/model/powermodel"
 	"github.com/ArtisanCloud/PowerLibs/v3/object"
 	"gorm.io/gorm"
 )
@@ -20,7 +21,7 @@ func (mdl *PowerOperationLog) TableName() string {
 
 // PowerOperationLog 数据表结构
 type PowerOperationLog struct {
-	*PowerModel
+	*powermodel.PowerModel
 
 	OperatorName  *string `gorm:"column:operatorName" json:"operatorName"`
 	OperatorTable *string `gorm:"column:operatorTable" json:"operatorTable"`
@@ -34,8 +35,7 @@ type PowerOperationLog struct {
 	Result        *int8   `gorm:"column:result" json:"result"`
 }
 
-const TableNameOperationLog = "power_operation_log"
-const OperationLogUniqueId = UniqueId
+const OperationLogUniqueId = powermodel.UniqueId
 
 func NewPowerOperationLog(mapObject *object.Collection) *PowerOperationLog {
 
@@ -44,7 +44,7 @@ func NewPowerOperationLog(mapObject *object.Collection) *PowerOperationLog {
 	}
 
 	return &PowerOperationLog{
-		PowerModel:    NewPowerModel(),
+		PowerModel:    powermodel.NewPowerModel(),
 		OperatorName:  mapObject.GetStringPointer("operatorName", ""),
 		OperatorTable: mapObject.GetStringPointer("operatorTable", ""),
 		OperatorId:    mapObject.GetInt64Pointer("operatorId", 0),
@@ -68,9 +68,9 @@ func (mdl *PowerOperationLog) GetTableName(needFull bool) string {
 }
 
 func (mdl *PowerOperationLog) SaveOps(db *gorm.DB,
-	operatorName string, operator ModelInterface,
+	operatorName string, operator powermodel.ModelInterface,
 	module int16, operate string, event int8,
-	objectName string, object ModelInterface,
+	objectName string, object powermodel.ModelInterface,
 	result int8,
 ) error {
 
@@ -88,7 +88,7 @@ func (mdl *PowerOperationLog) SaveOps(db *gorm.DB,
 	objectID := object.GetID()
 
 	ops := &PowerOperationLog{
-		PowerModel:    NewPowerModel(),
+		PowerModel:    powermodel.NewPowerModel(),
 		OperatorName:  &operatorName,
 		OperatorTable: &operatorTable,
 		OperatorId:    &operatorID,
