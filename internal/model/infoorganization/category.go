@@ -24,6 +24,7 @@ type Category struct {
 	model.ImageAbleInfo
 }
 
+const TableNameCategory = "categories"
 const CategoryUniqueId = powermodel.UniqueId
 
 func (mdl *Category) GetCategoryIds(categories []*Category) []int64 {
