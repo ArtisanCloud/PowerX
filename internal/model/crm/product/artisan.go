@@ -36,7 +36,17 @@ type Artisan struct {
 
 const ArtisanUniqueId = powermodel.UniqueId
 
-// artisan level dd type
+func (mdl *Artisan) TableName() string {
+	return model.PowerXSchema + "." + model.TableNameArtisan
+}
+
+func (mdl *Artisan) GetTableName(needFull bool) string {
+	tableName := model.TableNameArtisan
+	if needFull {
+		tableName = mdl.TableName()
+	}
+	return tableName
+} // artisan level dd type
 const ArtisanLevelType = "_artisan_level"
 
 // artisan level dd items

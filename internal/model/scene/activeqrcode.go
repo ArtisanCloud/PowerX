@@ -2,12 +2,13 @@ package scene
 
 import (
 	"PowerX/internal/model"
+	"PowerX/internal/model/powermodel"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
 
 type SceneQRCode struct {
-	model.Model
+	powermodel.PowerModel
 	QId                string `gorm:"comment:唯一标识;unique;column:qid" json:"qid"`
 	Name               string `gorm:"comment:活码名称;column:name" json:"name"`
 	Desc               string `gorm:"comment:描述;column:desc" json:"desc"`
@@ -26,13 +27,16 @@ type SceneQRCode struct {
 	State            int    `gorm:"comment:状态1:启用 2:禁用 3:删除;column:state" json:"state"`
 }
 
-// Table
-//
-//	@Description:
-//	@receiver e
-//	@return string
-func (e SceneQRCode) TableName() string {
-	return model.TableNameSceneQRCode
+func (mdl *SceneQRCode) TableName() string {
+	return model.PowerXSchema + "." + model.TableNameSceneQRCode
+}
+
+func (mdl *SceneQRCode) GetTableName(needFull bool) string {
+	tableName := model.TableNameSceneQRCode
+	if needFull {
+		tableName = mdl.TableName()
+	}
+	return tableName
 }
 
 // Query

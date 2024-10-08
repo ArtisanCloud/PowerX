@@ -2,13 +2,15 @@ package tag
 
 import (
 	"PowerX/internal/model"
+	"PowerX/internal/model/powermodel"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	"time"
 )
 
 type WeWorkTag struct {
-	model.Model
+	powermodel.PowerModel
+
 	WeWorkGroup *WeWorkTagGroup `gorm:"foreignKey:GroupId;references:group_id" json:"WeWorkGroup"`
 	//
 	IsSelf   int    `gorm:"comment:是否自建:1:平台创建:其他：微信创建;column:is_self" json:"is_self"`
@@ -20,13 +22,16 @@ type WeWorkTag struct {
 	IsDelete bool   `gorm:"comment:是否删除;column:is_delete" json:"is_delete"`
 }
 
-// Table
-//
-//	@Description:
-//	@receiver e
-//	@return string
-func (e WeWorkTag) TableName() string {
-	return model.TableNameWeWorkTag
+func (mdl *WeWorkTag) TableName() string {
+	return model.PowerXSchema + "." + model.TableNameWeWorkTag
+}
+
+func (mdl *WeWorkTag) GetTableName(needFull bool) string {
+	tableName := model.TableNameWeWorkTag
+	if needFull {
+		tableName = mdl.TableName()
+	}
+	return tableName
 }
 
 // Query

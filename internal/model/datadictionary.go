@@ -53,6 +53,18 @@ type DataDictionaryItem struct {
 
 const DataDictionaryItemUniqueId = powermodel.UniqueId
 
+func (mdl *DataDictionaryItem) TableName() string {
+	return PowerXSchema + "." + TableNameDataDictionaryItem
+}
+
+func (mdl *DataDictionaryItem) GetTableName(needFull bool) string {
+	tableName := TableNameDataDictionaryItem
+	if needFull {
+		tableName = mdl.TableName()
+	}
+	return tableName
+}
+
 // 数据字典类型，聚合数据字典
 type DataDictionaryType struct {
 	powermodel.PowerModel
@@ -66,9 +78,16 @@ type DataDictionaryType struct {
 
 const DataDictionaryTypeUniqueId = powermodel.UniqueId
 
-// Table Name
-func (mdl *PivotDataDictionaryToObject) TableName() string {
-	return TableNamePivotDataDictionaryToObject
+func (mdl *DataDictionaryType) TableName() string {
+	return PowerXSchema + "." + TableNameDataDictionaryType
+}
+
+func (mdl *DataDictionaryType) GetTableName(needFull bool) string {
+	tableName := TableNameDataDictionaryType
+	if needFull {
+		tableName = mdl.TableName()
+	}
+	return tableName
 }
 
 // 数据表结构
@@ -86,6 +105,18 @@ type PivotDataDictionaryToObject struct {
 
 const PivotDataDictionaryToObjectOwnerKey = "object_type"
 const PivotDataDictionaryToObjectForeignKey = "object_id"
+
+func (mdl *PivotDataDictionaryToObject) TableName() string {
+	return PowerXSchema + "." + TableNamePivotDataDictionaryToObject
+}
+
+func (mdl *PivotDataDictionaryToObject) GetTableName(needFull bool) string {
+	tableName := TableNamePivotDataDictionaryToObject
+	if needFull {
+		tableName = mdl.TableName()
+	}
+	return tableName
+}
 
 func (mdl *PivotDataDictionaryToObject) GetOwnerKey() string {
 	// 因为是morphy类型，所以外键是Owner

@@ -2,12 +2,14 @@ package customer
 
 import (
 	"PowerX/internal/model"
+	"PowerX/internal/model/powermodel"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
 
 type WeWorkExternalContact struct {
-	model.Model
+	powermodel.PowerModel
+
 	WeWorkExternalContactFollow WeWorkExternalContactFollow `gorm:"foreignKey:ExternalUserId;references:external_user_id" json:"WeWorkExternalContactFollow"`
 	ExternalUserId              string                      `gorm:"comment:客户ID;unique;not null;" json:"externalUserId"`
 	AppId                       string                      `gorm:"comment:应用ID;index:idx_app_id;column:app_id" json:"appId"`
@@ -29,13 +31,16 @@ type WeWorkExternalContact struct {
 	Active          bool   `gorm:"active" json:"active"`
 }
 
-// Table
-//
-//	@Description:
-//	@receiver e
-//	@return string
-func (e WeWorkExternalContact) TableName() string {
-	return model.TableNameWeWorkExternalContact
+func (mdl *WeWorkExternalContact) TableName() string {
+	return model.PowerXSchema + "." + model.TableNameWeWorkExternalContact
+}
+
+func (mdl *WeWorkExternalContact) GetTableName(needFull bool) string {
+	tableName := model.TableNameWeWorkExternalContact
+	if needFull {
+		tableName = mdl.TableName()
+	}
+	return tableName
 }
 
 // Query
@@ -44,9 +49,9 @@ func (e WeWorkExternalContact) TableName() string {
 //	@receiver e
 //	@param db
 //	@return contacts
-func (e WeWorkExternalContact) Query(db *gorm.DB) (contacts []*WeWorkExternalContact) {
+func (mdl *WeWorkExternalContact) Query(db *gorm.DB) (contacts []*WeWorkExternalContact) {
 
-	err := db.Model(e).Find(&contacts).Error
+	err := db.Model(mdl).Find(&contacts).Error
 	if err != nil {
 		panic(err)
 	}
@@ -60,9 +65,9 @@ func (e WeWorkExternalContact) Query(db *gorm.DB) (contacts []*WeWorkExternalCon
 //	@receiver e
 //	@param db
 //	@param contacts
-func (e *WeWorkExternalContact) Action(db *gorm.DB, contacts []*WeWorkExternalContact) {
+func (mdl *WeWorkExternalContact) Action(db *gorm.DB, contacts []*WeWorkExternalContact) {
 
-	err := db.Table(e.TableName()).Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "external_user_id"}}, UpdateAll: true}).CreateInBatches(&contacts, 100).Error
+	err := db.Table(mdl.TableName()).Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "external_user_id"}}, UpdateAll: true}).CreateInBatches(&contacts, 100).Error
 	if err != nil {
 		panic(err)
 	}

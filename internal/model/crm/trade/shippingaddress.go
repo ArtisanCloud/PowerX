@@ -1,6 +1,9 @@
 package trade
 
-import "PowerX/internal/model/powermodel"
+import (
+	"PowerX/internal/model"
+	"PowerX/internal/model/powermodel"
+)
 
 // 用户发货地址
 type ShippingAddress struct {
@@ -21,6 +24,18 @@ type ShippingAddress struct {
 }
 
 const ShippingAddressUniqueId = powermodel.UniqueId
+
+func (mdl *ShippingAddress) TableName() string {
+	return model.PowerXSchema + "." + model.TableNameShippingAddress
+}
+
+func (mdl *ShippingAddress) GetTableName(needFull bool) string {
+	tableName := model.TableNameShippingAddress
+	if needFull {
+		tableName = mdl.TableName()
+	}
+	return tableName
+}
 
 func (mdl *ShippingAddress) MakeDeliveryAddress() *DeliveryAddress {
 	return &DeliveryAddress{

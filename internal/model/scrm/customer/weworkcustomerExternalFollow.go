@@ -2,12 +2,13 @@ package customer
 
 import (
 	"PowerX/internal/model"
+	"PowerX/internal/model/powermodel"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
 
 type WeWorkExternalContactFollow struct {
-	model.Model
+	powermodel.PowerModel
 
 	ExternalUserId string `gorm:"comment:客户ID;column:external_user_id;unique" json:"external_user_id"`
 	UserId         string `gorm:"comment:员工ID;column:user_id" json:"user_id"`
@@ -24,13 +25,16 @@ type WeWorkExternalContactFollow struct {
 	State          string `gorm:"comment:State;column:state" json:"state"`
 }
 
-// Table
-//
-//	@Description:
-//	@receiver e
-//	@return string
-func (e WeWorkExternalContactFollow) TableName() string {
-	return model.TableNameWeWorkExternalContactFollow
+func (mdl *WeWorkExternalContactFollow) TableName() string {
+	return model.PowerXSchema + "." + model.TableNameWeWorkExternalContactFollow
+}
+
+func (mdl *WeWorkExternalContactFollow) GetTableName(needFull bool) string {
+	tableName := model.TableNameWeWorkExternalContactFollow
+	if needFull {
+		tableName = mdl.TableName()
+	}
+	return tableName
 }
 
 // Query

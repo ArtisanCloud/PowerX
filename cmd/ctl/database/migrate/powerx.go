@@ -88,7 +88,7 @@ func (m *PowerMigrator) AutoMigrate() {
 		&customerdomain.Lead{}, &customerdomain.Contact{}, customerdomain.RegisterCode{},
 		&customerdomain.Customer{}, &operation.Membership{},
 	)
-	_ = m.db.AutoMigrate(&wechat.WechatOACustomer{}, &wechat.WechatMPCustomer{}, &wechat.WeWorkExternalContact{})
+	_ = m.db.AutoMigrate(&wechat.WechatOACustomer{}, &wechat.WechatMPCustomer{})
 	_ = m.db.AutoMigrate(
 		&product.PivotProductToProductCategory{},
 	)
@@ -96,8 +96,8 @@ func (m *PowerMigrator) AutoMigrate() {
 	_ = m.db.AutoMigrate(&product.Product{}, &product.ProductCategory{})
 	_ = m.db.AutoMigrate(&product.ProductSpecific{}, &product.SpecificOption{}, &product.ProductStatistics{})
 	_ = m.db.AutoMigrate(&product.SKU{}, &product.PivotSkuToSpecificOption{})
-	_ = m.db.AutoMigrate(&product.PriceBook{}, &product.PriceBookEntry{}, &product.PriceConfig{})
-	_ = m.db.AutoMigrate(&market.Store{}, &product.Artisan{}, &product.PivotStoreToArtisan{})
+	_ = m.db.AutoMigrate(&product.PriceBookEntry{}, &product.PriceBook{}, &product.PriceConfig{})
+	_ = m.db.AutoMigrate(&product.PivotStoreToArtisan{}, &market.Store{}, &product.Artisan{})
 
 	// market
 	_ = m.db.AutoMigrate(&market.Media{})

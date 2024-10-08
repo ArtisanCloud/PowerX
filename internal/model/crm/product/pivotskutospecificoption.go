@@ -8,11 +8,6 @@ import (
 	"github.com/ArtisanCloud/PowerLibs/v3/object"
 )
 
-// Table Name
-func (mdl *PivotSkuToSpecificOption) TableName() string {
-	return model.TableNamePivotSkuToSpecificOption
-}
-
 // 数据表结构
 type PivotSkuToSpecificOption struct {
 	powermodel.PowerPivot
@@ -26,6 +21,18 @@ type PivotSkuToSpecificOption struct {
 }
 
 const PivotPivotSkuToSpecificOptionsUniqueId = "index_unique_id"
+
+func (mdl *PivotSkuToSpecificOption) TableName() string {
+	return model.PowerXSchema + "." + model.TableNamePivotSkuToSpecificOption
+}
+
+func (mdl *PivotSkuToSpecificOption) GetTableName(needFull bool) string {
+	tableName := model.TableNamePivotSkuToSpecificOption
+	if needFull {
+		tableName = mdl.TableName()
+	}
+	return tableName
+}
 
 func (mdl *PivotSkuToSpecificOption) GetPivotComposedUniqueID() object.NullString {
 	if mdl.ProductId > 0 && mdl.SkuId > 0 && mdl.SpecificId > 0 && mdl.SpecificOptionId > 0 {

@@ -1,6 +1,9 @@
 package product
 
-import "PowerX/internal/model/powermodel"
+import (
+	"PowerX/internal/model"
+	"PowerX/internal/model/powermodel"
+)
 
 type ProductStatistics struct {
 	powermodel.PowerModel
@@ -15,3 +18,15 @@ type ProductStatistics struct {
 }
 
 const ProductStatisticsUniqueId = "product_id"
+
+func (mdl *ProductStatistics) TableName() string {
+	return model.PowerXSchema + "." + model.TableNameProductStatistics
+}
+
+func (mdl *ProductStatistics) GetTableName(needFull bool) string {
+	tableName := model.TableNameProductStatistics
+	if needFull {
+		tableName = mdl.TableName()
+	}
+	return tableName
+}

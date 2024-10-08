@@ -26,6 +26,18 @@ type Tag struct {
 
 const TagUniqueId = powermodel.UniqueId
 
+func (mdl *Tag) TableName() string {
+	return model.PowerXSchema + "." + model.TableNameTag
+}
+
+func (mdl *Tag) GetTableName(needFull bool) string {
+	tableName := model.TableNameTag
+	if needFull {
+		tableName = mdl.TableName()
+	}
+	return tableName
+}
+
 func GetTagIds(categories []*Tag) []int64 {
 	uniqueIds := make(map[int64]bool)
 	arrayIds := []int64{}

@@ -24,6 +24,18 @@ type Media struct {
 
 const MediaUniqueId = powermodel.UniqueId
 
+func (mdl *Media) TableName() string {
+	return model.PowerXSchema + "." + model.TableNameMedia
+}
+
+func (mdl *Media) GetTableName(needFull bool) string {
+	tableName := model.TableNameMedia
+	if needFull {
+		tableName = mdl.TableName()
+	}
+	return tableName
+}
+
 const TypeMediaType = "_media_type"
 
 const (

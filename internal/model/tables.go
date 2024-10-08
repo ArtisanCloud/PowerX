@@ -11,7 +11,11 @@ const TableNameRegisterCode = "register_codes"
 
 // crm market
 const TableNameMedia = "media"
-const TableNameMGM = "mgm_rules"
+const TableNameMGMRule = "mgm_rules"
+const TableNameCustomerChannel = "customer_channels"
+const TableNameInviteRecord = "invite_records"
+const TableNameCommissionRecord = "commission_records"
+const TableNameRewardRecord = "reward_records"
 const TableNamePromotionRule = "promotion_rules"
 const TableNameStore = "stores"
 
@@ -30,24 +34,29 @@ const TableNamePriceConfig = "price_configs"
 const TableNameProduct = "products"
 const TableNameProductCategory = "product_categories"
 const TableNameProductSpecific = "product_specifics"
+const TableNameSpecificOption = "product_options"
 const TableNameProductStatistics = "product_statistics"
 const TableNameSKU = "sku"
 
 // trade
 const TableNameBillingAddress = "billing_addresses"
-const TableNameBillingCart = "carts"
-const TableNameBillingCartItem = "cart_items"
+const TableNameCart = "carts"
+const TableNameCartItem = "cart_items"
 const TableNameDeliveryAddress = "delivery_addresses"
 const TableNameInventory = "inventories"
 const TableNameLogistics = "logistics"
 const TableNameOrder = "orders"
+const TableNameOrderItem = "order_items"
+const TableNameOrderStatusTransition = "order_status_transitions"
 const TableNamePayment = "payments"
+const TableNamePaymentItem = "payment_items"
 const TableNamePivotProductToPromotion = "pivot_product_to_promotion"
 const TableNamePivotOrderToInventoryLog = "pivot_order_to_inventory_log"
 const TableNameRefundOrder = "refund_orders"
 const TableNameRefundOrderItem = "refund_order_items"
 const TableNameShippingAddress = "shipping_addresses"
 const TableNameTokenExchangeRatio = "token_exchange_ratios"
+const TableNameTokenBalance = "token_balances"
 const TableNameTokenExchangeRecord = "token_exchange_records"
 const TableNameTokenReservation = "token_reservations"
 const TableNameTokenTransaction = "token_transactions"
@@ -75,14 +84,12 @@ const TableNameOperationLog = "power_operation_logs"
 // scene
 const TableNameSceneQRCode = "scene_qr_codes"
 
-const TableNamePivotDataDictionaryToObject = "pivot_data_dictionary_to_object"
-
 // tag
 const TableNamePivotObjectToTag = "pivot_object_to_tag"
 const TableNameTag = "tags"
 
 // scrm app
-const WeWorkAppGroup = "wework_app_groups"
+const TableNameWeWorkAppGroup = "wework_app_groups"
 
 // scrm customer
 const TableNameWeWorkExternalContact = "we_work_external_contacts"
@@ -102,6 +109,14 @@ const TableNameWeWorkTag = "we_work_tags"
 // wechat
 const TableNameWechatMPCustomer = "wechat_mp_customers"
 const TableNameWechatOACustomer = "wechat_oa_customers"
+
+// data dictionary
+const TableNameDataDictionaryItem = "data_dictionary_items"
+const TableNameDataDictionaryType = "data_dictionary_types"
+const TableNamePivotDataDictionaryToObject = "pivot_data_dictionary_to_object"
+
+// operation log
+const TableNamePowerOperationLog = "power_operation_logs"
 
 // custom
 const TableNameArtisanSpecific = "artisan_specifics"

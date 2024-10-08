@@ -125,6 +125,7 @@ func ActionSeed(cCtx *cli.Context) error {
 	var c config.Config
 	conf.MustLoad(configFile, &c)
 	c.EtcDir = filepath.Dir(configFile)
+	model.PowerXSchema = c.PowerXDatabase.Schema
 
 	// seed tables
 	s, _ := seed.NewPowerSeeder(&c)

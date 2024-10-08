@@ -9,11 +9,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// Table Name
-func (mdl *PivotMediaResourceToObject) TableName() string {
-	return model.TableNamePivotMediaResourceToObject
-}
-
 // Pivot表
 type PivotMediaResourceToObject struct {
 	powermodel.PowerPivot
@@ -35,6 +30,18 @@ type PivotMediaResourceToObject struct {
 const PivotMediaResourceToObjectOwnerKey = "object_type"
 const PivotMediaResourceToObjectForeignKey = "object_id"
 const PivotMediaResourceToObjectJoinKey = "media_id"
+
+func (mdl *PivotMediaResourceToObject) TableName() string {
+	return model.PowerXSchema + "." + model.TableNamePivotMediaResourceToObject
+}
+
+func (mdl *PivotMediaResourceToObject) GetTableName(needFull bool) string {
+	tableName := model.TableNamePivotMediaResourceToObject
+	if needFull {
+		tableName = mdl.TableName()
+	}
+	return tableName
+}
 
 func (mdl *PivotMediaResourceToObject) GetOwnerKey() string {
 	// 因为是morphy类型，所以外键是Owner

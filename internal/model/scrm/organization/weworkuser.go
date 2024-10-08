@@ -2,12 +2,13 @@ package organization
 
 import (
 	"PowerX/internal/model"
+	"PowerX/internal/model/powermodel"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
 
 type WeWorkUser struct {
-	model.Model
+	powermodel.PowerModel
 
 	WeWorkUserId           string `gorm:"comment:员工ID;column:we_work_user_id;unique" json:"we_work_user_id"`
 	Name                   string `gorm:"comment:员工名称;column:name" json:"name"`
@@ -29,13 +30,16 @@ type WeWorkUser struct {
 	RefUserId              int64  `gorm:"comment:RefUserId;column:ref_user_id" json:"ref_user_id"`
 }
 
-// Table
-//
-//	@Description:
-//	@receiver e
-//	@return string
-func (e WeWorkUser) TableName() string {
-	return model.TableNameWeWorkUser
+func (mdl *WeWorkUser) TableName() string {
+	return model.PowerXSchema + "." + model.TableNameWeWorkUser
+}
+
+func (mdl *WeWorkUser) GetTableName(needFull bool) string {
+	tableName := model.TableNameWeWorkUser
+	if needFull {
+		tableName = mdl.TableName()
+	}
+	return tableName
 }
 
 type (

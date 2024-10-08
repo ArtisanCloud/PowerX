@@ -14,11 +14,6 @@ const OperationResultSuccess = 1
 const OperationResultFailed = 2
 const OperationResultCancel = 3
 
-// TableName overrides the table name used by price_book to `profiles`
-func (mdl *PowerOperationLog) TableName() string {
-	return mdl.GetTableName(true)
-}
-
 // PowerOperationLog 数据表结构
 type PowerOperationLog struct {
 	*powermodel.PowerModel
@@ -36,6 +31,18 @@ type PowerOperationLog struct {
 }
 
 const OperationLogUniqueId = powermodel.UniqueId
+
+func (mdl *PowerOperationLog) TableName() string {
+	return PowerXSchema + "." + TableNamePowerOperationLog
+}
+
+func (mdl *PowerOperationLog) GetTableName(needFull bool) string {
+	tableName := TableNamePowerOperationLog
+	if needFull {
+		tableName = mdl.TableName()
+	}
+	return tableName
+}
 
 func NewPowerOperationLog(mapObject *object.Collection) *PowerOperationLog {
 
@@ -56,15 +63,6 @@ func NewPowerOperationLog(mapObject *object.Collection) *PowerOperationLog {
 		ObjectID:      mapObject.GetInt64Pointer("objectId", 0),
 		Result:        mapObject.GetInt8Pointer("result", 0),
 	}
-}
-
-// 获取当前 Model 的数据库表名称
-func (mdl *PowerOperationLog) GetTableName(needFull bool) string {
-	tableName := TableNameOperationLog
-	if needFull {
-		tableName = "public.ac_" + tableName
-	}
-	return tableName
 }
 
 func (mdl *PowerOperationLog) SaveOps(db *gorm.DB,

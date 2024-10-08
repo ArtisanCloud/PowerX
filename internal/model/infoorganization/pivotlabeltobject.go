@@ -9,11 +9,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// Table Name
-func (mdl *PivotLabelToObject) TableName() string {
-	return model.TableNamePivotLabelToObject
-}
-
 // Pivot表
 type PivotLabelToObject struct {
 	powermodel.PowerPivot
@@ -31,6 +26,18 @@ type PivotLabelToObject struct {
 const PivotLabelToObjectOwnerKey = "object_type"
 const PivotLabelToObjectForeignKey = "object_id"
 const PivotLabelToObjectJoinKey = "label_id"
+
+func (mdl *PivotLabelToObject) TableName() string {
+	return model.PowerXSchema + "." + model.TableNamePivotLabelToObject
+}
+
+func (mdl *PivotLabelToObject) GetTableName(needFull bool) string {
+	tableName := model.TableNamePivotLabelToObject
+	if needFull {
+		tableName = mdl.TableName()
+	}
+	return tableName
+}
 
 func (mdl *PivotLabelToObject) GetOwnerKey() string {
 	// 因为是morphy类型，所以外键是Owner

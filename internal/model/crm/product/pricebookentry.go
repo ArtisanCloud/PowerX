@@ -1,6 +1,7 @@
 package product
 
 import (
+	"PowerX/internal/model"
 	"PowerX/internal/model/powermodel"
 	"PowerX/pkg/securityx"
 	"fmt"
@@ -28,6 +29,18 @@ type PriceBookEntry struct {
 }
 
 const PriceBookEntryUniqueId = "index_unique_id"
+
+func (mdl *PriceBookEntry) TableName() string {
+	return model.PowerXSchema + "." + model.TableNamePriceBookEntry
+}
+
+func (mdl *PriceBookEntry) GetTableName(needFull bool) string {
+	tableName := model.TableNamePriceBookEntry
+	if needFull {
+		tableName = mdl.TableName()
+	}
+	return tableName
+}
 
 func (mdl *PriceBookEntry) GetComposedUniqueID() object.NullString {
 	if mdl.PriceBookId > 0 && mdl.ProductId > 0 {

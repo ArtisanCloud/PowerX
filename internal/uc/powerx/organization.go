@@ -1,7 +1,6 @@
 package powerx
 
 import (
-	"PowerX/internal/model"
 	"PowerX/internal/model/option"
 	"PowerX/internal/model/organization"
 	"PowerX/internal/model/permission"
@@ -164,7 +163,7 @@ func (uc *OrganizationUseCase) FindOneUserById(ctx context.Context, id int64) (u
 
 func (uc *OrganizationUseCase) UpdateUserById(ctx context.Context, user *organization.User, userId int64) error {
 	whereCase := organization.User{
-		Model: model.Model{
+		PowerModel: powermodel.PowerModel{
 			Id: userId,
 		},
 		IsReserved: false,

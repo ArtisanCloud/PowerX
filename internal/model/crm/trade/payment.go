@@ -1,6 +1,7 @@
 package trade
 
 import (
+	"PowerX/internal/model"
 	"PowerX/internal/model/powermodel"
 	"github.com/ArtisanCloud/PowerLibs/v3/object"
 	"github.com/golang-module/carbon/v2"
@@ -21,6 +22,18 @@ type Payment struct {
 	ReferenceNumber string    `gorm:"comment:参考单号" json:"referenceNumber"`
 	Remark          string    `gorm:"comment:备注" json:"remark"`
 	Status          int       `gorm:"comment:支付单状态" json:"status"`
+}
+
+func (mdl *Payment) TableName() string {
+	return model.PowerXSchema + "." + model.TableNamePayment
+}
+
+func (mdl *Payment) GetTableName(needFull bool) string {
+	tableName := model.TableNamePayment
+	if needFull {
+		tableName = mdl.TableName()
+	}
+	return tableName
 }
 
 const TypePaymentType = "_payment_type"
@@ -61,6 +74,18 @@ type PaymentItem struct {
 }
 
 const PaymentUniqueId = powermodel.UniqueId
+
+func (mdl *PaymentItem) TableName() string {
+	return model.PowerXSchema + "." + model.TableNamePaymentItem
+}
+
+func (mdl *PaymentItem) GetTableName(needFull bool) string {
+	tableName := model.TableNamePaymentItem
+	if needFull {
+		tableName = mdl.TableName()
+	}
+	return tableName
+}
 
 func GeneratePaymentNumber() string {
 	return "PO" + carbon.Now().Format("YmdHis") + object.QuickRandom(6)

@@ -1,7 +1,7 @@
 package wechat
 
 import (
-	"PowerX/internal/model"
+	"PowerX/internal/model/powermodel"
 	"PowerX/internal/model/scrm/customer"
 	"PowerX/internal/model/scrm/tag"
 	"PowerX/internal/types"
@@ -170,7 +170,7 @@ func (this wechatUseCase) transferWeWorkToModel(data []*response.CorpTagGroup, a
 	if data != nil {
 		for _, val := range data {
 			groups = append(groups, &tag.WeWorkTagGroup{
-				Model: model.Model{
+				PowerModel: powermodel.PowerModel{
 					CreatedAt: time.Unix(int64(val.CreateTime), 0),
 				},
 				//AgentId:  int(*agentId),
@@ -182,7 +182,7 @@ func (this wechatUseCase) transferWeWorkToModel(data []*response.CorpTagGroup, a
 			if val.Tags != nil {
 				for _, value := range val.Tags {
 					tags = append(tags, &tag.WeWorkTag{
-						Model: model.Model{
+						PowerModel: powermodel.PowerModel{
 							CreatedAt: time.Unix(int64(value.CreateTime), 0),
 						},
 						Type:     1,

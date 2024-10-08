@@ -22,17 +22,17 @@ type ProductAttribute struct {
 type Product struct {
 	SKUs                   []*SKU                               `gorm:"foreignKey:ProductId;references:Id" json:"skus"`
 	ProductSpecifics       []*ProductSpecific                   `gorm:"foreignKey:ProductId;references:Id" json:"productSpecifics"`
-	ProductCategories      []*ProductCategory                   `gorm:"many2many:public.pivot_product_to_product_category;foreignKey:Id;joinForeignKey:ProductId;References:Id;JoinReferences:ProductCategoryId" json:"productCategories"`
+	ProductCategories      []*ProductCategory                   `gorm:"many2many:pivot_product_to_product_category;foreignKey:Id;joinForeignKey:ProductId;References:Id;JoinReferences:ProductCategoryId" json:"productCategories"`
 	PivotCoverImages       []*media.PivotMediaResourceToObject  `gorm:"polymorphic:Object;polymorphicValue:products" json:"pivotCoverImages"`
 	PivotDetailImages      []*media.PivotMediaResourceToObject  `gorm:"polymorphic:Object;polymorphicValue:products" json:"pivotDetailImages"`
-	PriceBooks             []*PriceBook                         `gorm:"many2many:public.price_book_entries;foreignKey:Id;joinForeignKey:Id;References:Id;JoinReferences:PriceBookId" json:"priceBooks"`
+	PriceBooks             []*PriceBook                         `gorm:"many2many:price_book_entries;foreignKey:Id;joinForeignKey:Id;References:Id;JoinReferences:PriceBookId" json:"priceBooks"`
 	PriceBookEntries       []*PriceBookEntry                    `gorm:"foreignKey:ProductId;references:Id" json:"priceBookEntries"`
 	PivotSalesChannels     []*model.PivotDataDictionaryToObject `gorm:"polymorphic:Object;polymorphicValue:products" json:"pivotSalesChannels"`
 	PivotPromoteChannels   []*model.PivotDataDictionaryToObject `gorm:"polymorphic:Object;polymorphicValue:products" json:"pivotPromoteChannels"`
 	ProductCategoryIds     []int64                              `gorm:"-"`
 	SalesChannelsItemIds   []int64                              `gorm:"-"`
 	PromoteChannelsItemIds []int64                              `gorm:"-"`
-	//Coupons          []*Coupon         `gorm:"many2many:public.r_product_to_coupon;foreignKey:Id;joinForeignKey:ProductId;References:Id;JoinReferences:CouponId" json:"coupons"`
+	//Coupons          []*Coupon         `gorm:"many2many:r_product_to_coupon;foreignKey:Id;joinForeignKey:ProductId;References:Id;JoinReferences:CouponId" json:"coupons"`
 
 	powermodel.PowerModel
 
@@ -56,6 +56,18 @@ type Product struct {
 
 const ProductUniqueId = powermodel.UniqueId
 
+func (mdl *Product) TableName() string {
+	return model.PowerXSchema + "." + model.TableNameProduct
+}
+
+func (mdl *Product) GetTableName(needFull bool) string {
+	tableName := model.TableNameProduct
+	if needFull {
+		tableName = mdl.TableName()
+	}
+	return tableName
+}
+
 // Data Dictionary
 const TypeProductType = "_product_type"
 const TypeProductPlan = "_product_plan"
@@ -66,14 +78,6 @@ const ProductTypeService = "_service"
 
 const ProductPlanOnce = "_once"
 const ProductPlanPeriod = "_period"
-
-func (mdl *Product) GetTableName(needFull bool) string {
-	tableName := model.TableNameProduct
-	if needFull {
-		tableName = "public." + tableName
-	}
-	return tableName
-}
 
 func (mdl *Product) GetForeignReferValue() int64 {
 	return mdl.Id

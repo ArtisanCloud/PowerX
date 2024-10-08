@@ -1,6 +1,7 @@
 package media
 
 import (
+	"PowerX/internal/model"
 	"PowerX/internal/model/powermodel"
 	"PowerX/internal/types"
 )
@@ -21,6 +22,18 @@ type MediaResource struct {
 }
 
 type MediaSet struct {
+}
+
+func (mdl *MediaResource) TableName() string {
+	return model.PowerXSchema + "." + model.TableNameMediaResource
+}
+
+func (mdl *MediaResource) GetTableName(needFull bool) string {
+	tableName := model.TableNameMediaResource
+	if needFull {
+		tableName = mdl.TableName()
+	}
+	return tableName
 }
 
 const MediaUsageCover = "_cover"

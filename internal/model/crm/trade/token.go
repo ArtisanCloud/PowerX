@@ -1,6 +1,7 @@
 package trade
 
 import (
+	"PowerX/internal/model"
 	"PowerX/internal/model/crm/customerdomain"
 	"PowerX/internal/model/powermodel"
 )
@@ -10,6 +11,18 @@ type TokenExchangeRatio struct {
 
 	FromCategory int     `gorm:"comment:要兑换的代币种类" json:"fromCategory"`
 	Ratio        float64 `gorm:"comment:兑换比例" json:"ratio"`
+}
+
+func (mdl *TokenExchangeRatio) TableName() string {
+	return model.PowerXSchema + "." + model.TableNameTokenExchangeRatio
+}
+
+func (mdl *TokenExchangeRatio) GetTableName(needFull bool) string {
+	tableName := model.TableNameTokenExchangeRatio
+	if needFull {
+		tableName = mdl.TableName()
+	}
+	return tableName
 }
 
 type TokenBalance struct {
@@ -25,6 +38,18 @@ type TokenBalance struct {
 const TokenBalanceUniqueId = powermodel.UniqueId
 const TokenExchangeRecordId = powermodel.UniqueId
 
+func (mdl *TokenBalance) TableName() string {
+	return model.PowerXSchema + "." + model.TableNameTokenBalance
+}
+
+func (mdl *TokenBalance) GetTableName(needFull bool) string {
+	tableName := model.TableNameTokenBalance
+	if needFull {
+		tableName = mdl.TableName()
+	}
+	return tableName
+}
+
 type TokenExchangeRecord struct {
 	powermodel.PowerModel
 
@@ -36,6 +61,18 @@ type TokenExchangeRecord struct {
 	TokenAmount    float64 `gorm:"comment:换代币金额" json:"tokenAmount"`
 	ExchangeRateId int64   `gorm:"comment:兑换比例Id" json:"exchangeRateId"`
 	ExchangeRate   float64 `gorm:"comment:兑换比例" json:"exchangeRate"`
+}
+
+func (mdl *TokenExchangeRecord) TableName() string {
+	return model.PowerXSchema + "." + model.TableNameTokenExchangeRecord
+}
+
+func (mdl *TokenExchangeRecord) GetTableName(needFull bool) string {
+	tableName := model.TableNameTokenExchangeRecord
+	if needFull {
+		tableName = mdl.TableName()
+	}
+	return tableName
 }
 
 // TokenCategory 代表代币的种类
@@ -62,6 +99,18 @@ type TokenReservation struct {
 	IsConfirmed bool    `gorm:"comment:是否已确认" json:"isConfirmed"`
 }
 
+func (mdl *TokenReservation) TableName() string {
+	return model.PowerXSchema + "." + model.TableNameTokenReservation
+}
+
+func (mdl *TokenReservation) GetTableName(needFull bool) string {
+	tableName := model.TableNameTokenReservation
+	if needFull {
+		tableName = mdl.TableName()
+	}
+	return tableName
+}
+
 // 定义交易记录对象
 type TokenTransaction struct {
 	powermodel.PowerModel
@@ -71,6 +120,18 @@ type TokenTransaction struct {
 	Type       int     `gorm:"comment:交易类型（增加或减少）" json:"transactionType"`
 	SourceType string  `gorm:"column:source_type; not null;index:idx_src_type;comment:来源对象表名称" json:"sourceOwner"`
 	SourceID   int64   `gorm:"column:source_id; not null;index:idx_src_id;comment:对象Id" json:"sourceId"`
+}
+
+func (mdl *TokenTransaction) TableName() string {
+	return model.PowerXSchema + "." + model.TableNameTokenTransaction
+}
+
+func (mdl *TokenTransaction) GetTableName(needFull bool) string {
+	tableName := model.TableNameTokenTransaction
+	if needFull {
+		tableName = mdl.TableName()
+	}
+	return tableName
 }
 
 const TokenTransactionId = powermodel.UniqueId

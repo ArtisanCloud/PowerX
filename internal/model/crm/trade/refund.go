@@ -1,6 +1,7 @@
 package trade
 
 import (
+	"PowerX/internal/model"
 	"PowerX/internal/model/crm/customerdomain"
 	"PowerX/internal/model/powermodel"
 	"time"
@@ -22,6 +23,18 @@ type RefundOrder struct {
 	RefundReason   string       `gorm:"comment:退款原因" json:"refundReason"`
 	RefundApproved bool         `gorm:"comment:退款是否已批准" json:"refundApproved"`
 	RefundDate     time.Time    `gorm:"comment:退款日期" json:"refundDate"`
+}
+
+func (mdl *RefundOrder) TableName() string {
+	return model.PowerXSchema + "." + model.TableNameRefundOrder
+}
+
+func (mdl *RefundOrder) GetTableName(needFull bool) string {
+	tableName := model.TableNameRefundOrder
+	if needFull {
+		tableName = mdl.TableName()
+	}
+	return tableName
 }
 
 type RefundStatus int
@@ -47,4 +60,16 @@ type RefundOrderItem struct {
 	RefundStatus  RefundStatus `gorm:"comment:退款状态" json:"refundStatus"`
 	RefundAmount  float64      `gorm:"type:decimal(10,2); comment:退款金额" json:"refundAmount"`
 	RefundDate    time.Time    `gorm:"comment:退款日期" json:"refundDate"`
+}
+
+func (mdl *RefundOrderItem) TableName() string {
+	return model.PowerXSchema + "." + model.TableNameRefundOrderItem
+}
+
+func (mdl *RefundOrderItem) GetTableName(needFull bool) string {
+	tableName := model.TableNameRefundOrderItem
+	if needFull {
+		tableName = mdl.TableName()
+	}
+	return tableName
 }

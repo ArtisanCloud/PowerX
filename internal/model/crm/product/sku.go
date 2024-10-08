@@ -1,6 +1,7 @@
 package product
 
 import (
+	"PowerX/internal/model"
 	"PowerX/internal/model/powermodel"
 	"PowerX/pkg/securityx"
 	"fmt"
@@ -23,6 +24,18 @@ type SKU struct {
 }
 
 const SkuUniqueId = "index_unique_id"
+
+func (mdl *SKU) TableName() string {
+	return model.PowerXSchema + "." + model.TableNameSKU
+}
+
+func (mdl *SKU) GetTableName(needFull bool) string {
+	tableName := model.TableNameSKU
+	if needFull {
+		tableName = mdl.TableName()
+	}
+	return tableName
+}
 
 func (mdl *SKU) GetComposedUniqueID() object.NullString {
 	if len(mdl.OptionIds) > 0 && mdl.ProductId > 0 {

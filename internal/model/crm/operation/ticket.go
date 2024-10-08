@@ -17,13 +17,13 @@ type TicketRecord struct {
 }
 
 func (mdl *TicketRecord) TableName() string {
-	return model.TableNameTicketRecord
+	return model.PowerXSchema + "." + model.TableNameTicketRecord
 }
 
 func (mdl *TicketRecord) GetTableName(needFull bool) string {
 	tableName := model.TableNameTicketRecord
 	if needFull {
-		tableName = "public." + tableName
+		tableName = mdl.TableName()
 	}
 	return tableName
 }

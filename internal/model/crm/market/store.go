@@ -12,7 +12,7 @@ import (
 type Store struct {
 	powermodel.PowerModel
 
-	Artisans          []*product.Artisan                  `gorm:"many2many:public.pivot_store_to_artisan;foreignKey:Id;joinForeignKey:StoreId;References:Id;JoinReferences:ArtisanId" json:"priceBooks"`
+	Artisans          []*product.Artisan                  `gorm:"many2many:pivot_store_to_artisan;foreignKey:Id;joinForeignKey:StoreId;References:Id;JoinReferences:ArtisanId" json:"priceBooks"`
 	PivotDetailImages []*media.PivotMediaResourceToObject `gorm:"polymorphic:Object;polymorphicValue:stores" json:"pivotDetailImages"`
 	CoverImage        *media.MediaResource                `gorm:"foreignKey:CoverImageId;references:Id" json:"coverImage"`
 
@@ -30,6 +30,18 @@ type Store struct {
 }
 
 const StoreUniqueId = powermodel.UniqueId
+
+func (mdl *Store) TableName() string {
+	return model.PowerXSchema + "." + model.TableNameStore
+}
+
+func (mdl *Store) GetTableName(needFull bool) string {
+	tableName := model.TableNameStore
+	if needFull {
+		tableName = mdl.TableName()
+	}
+	return tableName
+}
 
 func (mdl *Store) LoadArtisans(db *gorm.DB, conditions *map[string]interface{}, withClauseAssociations bool) error {
 

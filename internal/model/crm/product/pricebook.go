@@ -1,6 +1,7 @@
 package product
 
 import (
+	"PowerX/internal/model"
 	"PowerX/internal/model/powermodel"
 )
 
@@ -17,3 +18,15 @@ type PriceBook struct {
 }
 
 const PriceBookUniqueId = powermodel.UniqueId
+
+func (mdl *PriceBook) TableName() string {
+	return model.PowerXSchema + "." + model.TableNamePriceBook
+}
+
+func (mdl *PriceBook) GetTableName(needFull bool) string {
+	tableName := model.TableNamePriceBook
+	if needFull {
+		tableName = mdl.TableName()
+	}
+	return tableName
+}

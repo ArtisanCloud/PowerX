@@ -1,6 +1,7 @@
 package product
 
 import (
+	"PowerX/internal/model"
 	"time"
 )
 
@@ -12,6 +13,18 @@ type PriceConfig struct {
 	PriceBookEntryId int64     `gorm:"column:price_book_entry_id; comment:价格手册条目Id" json:"priceBookEntryId"`
 	StartDate        time.Time `gorm:"column:start_date; comment:活动场景开始时间" json:"startDate"`
 	EndDate          time.Time `gorm:"column:end_date; comment:活动场景结束时间" json:"endDate"`
+}
+
+func (mdl *PriceConfig) TableName() string {
+	return model.PowerXSchema + "." + model.TableNamePriceConfig
+}
+
+func (mdl *PriceConfig) GetTableName(needFull bool) string {
+	tableName := model.TableNamePriceConfig
+	if needFull {
+		tableName = mdl.TableName()
+	}
+	return tableName
 }
 
 const TypeListPrice = "List_Price"

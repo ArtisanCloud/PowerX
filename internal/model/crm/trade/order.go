@@ -1,6 +1,7 @@
 package trade
 
 import (
+	"PowerX/internal/model"
 	"PowerX/internal/model/crm/customerdomain"
 	"PowerX/internal/model/crm/product"
 	"PowerX/internal/model/media"
@@ -45,6 +46,19 @@ const TypeOrderType = "_order_type"
 const TypeOrderStatus = "_order_status"
 
 const OrderUniqueId = powermodel.UniqueId
+
+func (mdl *Order) TableName() string {
+	return model.PowerXSchema + "." + model.TableNameOrder
+}
+
+func (mdl *Order) GetTableName(needFull bool) string {
+	tableName := model.TableNameOrder
+	if needFull {
+		tableName = mdl.TableName()
+	}
+	return tableName
+}
+
 const (
 	OrderStatusPending     = "_pending"       // 待处理
 	OrderStatusToBePaid    = "_to_be_paid"    // 待付款
@@ -100,6 +114,18 @@ type OrderItem struct {
 	Discount         float64 `gorm:"type:decimal(10,2); comment:折扣" json:"discount"`
 }
 
+func (mdl *OrderItem) TableName() string {
+	return model.PowerXSchema + "." + model.TableNameOrderItem
+}
+
+func (mdl *OrderItem) GetTableName(needFull bool) string {
+	tableName := model.TableNameOrderItem
+	if needFull {
+		tableName = mdl.TableName()
+	}
+	return tableName
+}
+
 type OrderStatusTransition struct {
 	*powermodel.PowerModel
 
@@ -110,6 +136,18 @@ type OrderStatusTransition struct {
 	CreatorId      int64     `gorm:"comment:创建者Id" json:"creatorId"`
 	CreatorName    string    `gorm:"comment:创建者名字" json:"creatorName"`
 	TransitionTime time.Time `gorm:"comment:状态转换时间" json:"transitionTime"`
+}
+
+func (mdl *OrderStatusTransition) TableName() string {
+	return model.PowerXSchema + "." + model.TableNameOrderStatusTransition
+}
+
+func (mdl *OrderStatusTransition) GetTableName(needFull bool) string {
+	tableName := model.TableNameOrderStatusTransition
+	if needFull {
+		tableName = mdl.TableName()
+	}
+	return tableName
 }
 
 func GenerateOrderNumber() string {

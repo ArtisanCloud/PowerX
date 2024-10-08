@@ -1,6 +1,7 @@
 package trade
 
 import (
+	"PowerX/internal/model"
 	"PowerX/internal/model/powermodel"
 	"time"
 )
@@ -16,6 +17,18 @@ type PivotOrderToInventoryLog struct {
 	ActionTime          time.Time `gorm:"comment:操作时间" json:"actionTime"`
 	StockQuantityBefore int       `gorm:"comment:回滚前的库存数量" json:"stockQuantityBefore"`
 	StockQuantityAfter  int       `gorm:"comment:回滚后的库存数量" json:"stockQuantityAfter"`
+}
+
+func (mdl *PivotOrderToInventoryLog) TableName() string {
+	return model.PowerXSchema + "." + model.TableNamePivotOrderToInventoryLog
+}
+
+func (mdl *PivotOrderToInventoryLog) GetTableName(needFull bool) string {
+	tableName := model.TableNamePivotOrderToInventoryLog
+	if needFull {
+		tableName = mdl.TableName()
+	}
+	return tableName
 }
 
 type ActionType int
