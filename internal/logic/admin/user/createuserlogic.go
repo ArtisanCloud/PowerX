@@ -1,6 +1,7 @@
 package user
 
 import (
+	"PowerX/internal/model/organization"
 	"context"
 	"github.com/pkg/errors"
 

@@ -1,12 +1,13 @@
 package user
 
 import (
+	"PowerX/internal/model/organization"
+	"PowerX/internal/model/powermodel"
 	"PowerX/internal/types"
 	"context"
 	"github.com/pkg/errors"
 	"time"
 
-	"PowerX/internal/model"
 	"PowerX/internal/svc"
 
 	"github.com/zeromicro/go-zero/core/logx"
@@ -28,7 +29,7 @@ func NewUpdateUserLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Update
 
 func (l *UpdateUserLogic) UpdateUser(req *types.UpdateUserRequest) (resp *types.UpdateUserReply, err error) {
 	user := organization.User{
-		Model: model.Model{
+		PowerModel: powermodel.PowerModel{
 			Id: req.Id,
 		},
 		Name:          req.Name,

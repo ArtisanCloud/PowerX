@@ -1,6 +1,7 @@
 package position
 
 import (
+	"PowerX/internal/model/organization"
 	"PowerX/internal/model/permission"
 	"context"
 

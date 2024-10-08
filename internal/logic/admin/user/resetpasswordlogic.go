@@ -1,11 +1,12 @@
 package user
 
 import (
+	"PowerX/internal/model/organization"
+	"PowerX/internal/model/powermodel"
 	"PowerX/internal/types"
 	"context"
 	"github.com/pkg/errors"
 
-	"PowerX/internal/model"
 	"PowerX/internal/svc"
 
 	"github.com/zeromicro/go-zero/core/logx"
@@ -27,7 +28,7 @@ func NewResetPasswordLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Res
 
 func (l *ResetPasswordLogic) ResetPassword(req *types.ResetPasswordRequest) (resp *types.ResetPasswordReply, err error) {
 	user := organization.User{
-		Model: model.Model{
+		PowerModel: powermodel.PowerModel{
 			Id: req.UserId,
 		},
 		Password: "123456",

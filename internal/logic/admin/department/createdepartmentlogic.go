@@ -1,6 +1,7 @@
 package department
 
 import (
+	"PowerX/internal/model/organization"
 	"PowerX/internal/svc"
 	"PowerX/internal/types"
 	"context"

@@ -2,6 +2,7 @@ package user
 
 import (
 	"PowerX/internal/model/option"
+	"PowerX/internal/model/organization"
 	"PowerX/internal/model/permission"
 	"PowerX/pkg/slicex"
 	"context"
