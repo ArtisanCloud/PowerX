@@ -36,11 +36,12 @@ type User struct {
 }
 
 func (mdl *User) TableName() string {
-	return model.PowerXSchema + "." + model.TableNameCart
+	//return model.PowerXSchema + "." + model.TableNameUser
+	return "public." + model.TableNameUser
 }
 
 func (mdl *User) GetTableName(needFull bool) string {
-	tableName := model.TableNameCart
+	tableName := model.TableNameUser
 	if needFull {
 		tableName = mdl.TableName()
 	}
