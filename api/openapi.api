@@ -1,2 +1,5 @@
 import "openapi/auth.api"
 import "openapi/demo.api"
+
+// provider
+import "openapi/provider/brainx/demo.api"

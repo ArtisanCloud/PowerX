@@ -1,7 +1,7 @@
 package position
 
 import (
-	"PowerX/internal/model/origanzation"
+	"PowerX/internal/model/organization"
 	"PowerX/internal/model/permission"
 	"context"
 
@@ -32,7 +32,7 @@ func (l *CreatePositionLogic) CreatePosition(req *types.CreatePositionRequest) (
 			RoleCode: code,
 		})
 	}
-	position := origanzation.Position{
+	position := organization.Position{
 		Name:  req.Name,
 		Desc:  req.Desc,
 		Roles: roles,

@@ -56,7 +56,7 @@ type (
 type (
     CreateDepartmentRequest {
         DepName string `json:"depName"`
-        LeaderId int64 `json:"leaderId"`
+        LeaderUuid string `json:"leaderUuid"`
         PId int64 `json:"pId"`
         Desc string `json:"desc,optional"`
         PhoneNumber string `json:"phoneNumber,optional"`

@@ -1,13 +1,9 @@
 package product
 
 import (
+	"PowerX/internal/model"
 	"PowerX/internal/model/powermodel"
 )
-
-// Table Name
-func (mdl *PivotProductToProductCategory) TableName() string {
-	return TableNamePivotProductToProductCategory
-}
 
 // 数据表结构
 type PivotProductToProductCategory struct {
@@ -17,7 +13,17 @@ type PivotProductToProductCategory struct {
 	ProductCategoryId int64 `gorm:"column:product_category_id; not null;index:idx_product_category_id" json:"productCategoryId"`
 }
 
-const TableNamePivotProductToProductCategory = "pivot_product_to_product_category"
+func (mdl *PivotProductToProductCategory) TableName() string {
+	return model.PowerXSchema + "." + model.TableNamePivotProductToProductCategory
+}
+
+func (mdl *PivotProductToProductCategory) GetTableName(needFull bool) string {
+	tableName := model.TableNamePivotProductToProductCategory
+	if needFull {
+		tableName = mdl.TableName()
+	}
+	return tableName
+}
 
 const PivotProductToCategoryForeignKey = "product_id"
 const PivotProductToCategoryJoinKey = "product_category_id"

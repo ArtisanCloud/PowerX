@@ -141,10 +141,10 @@ type iWeWorkCustomerInterface interface {
 	//  @param ctx
 	//  @param opt
 	//  @param sync
-	//  @return *types.Page[*customer.WeWorkExternalContacts]
+	//  @return *types.Page[*customer.WeWorkExternalContact]
 	//  @return error
 	//
-	FindManyWeWorkCustomerPage(ctx context.Context, opt *types.PageOption[FindManyWechatCustomerOption], sync int) (*types.Page[*customer.WeWorkExternalContacts], error)
+	FindManyWeWorkCustomerPage(ctx context.Context, opt *types.PageOption[FindManyWechatCustomerOption], sync int) (*types.Page[*customer.WeWorkExternalContact], error)
 
 	//
 	// PushWoWorkCustomerTemplateRequest
@@ -292,7 +292,7 @@ type iQrcodeInterface interface {
 	//  @return reply
 	//  @return err
 	//
-	FindWeWorkCustomerGroupQrcodePage(opt *types.PageOption[types.ListWeWorkGroupQrcodeActiveReqeust]) (reply *types.Page[*scene.SceneQrcode], err error)
+	FindWeWorkCustomerGroupQrcodePage(opt *types.PageOption[types.ListWeWorkGroupQrcodeActiveReqeust]) (reply *types.Page[*scene.SceneQRCode], err error)
 
 	//
 	// ActionCustomerGroupQrcode
@@ -304,13 +304,13 @@ type iQrcodeInterface interface {
 	ActionCustomerGroupQrcode(qid string, action int) error
 
 	//
-	// UpdateSceneQrcodeLink
+	// UpdateSceneQRCodeLink
 	//  @Description: 更新场景码
 	//  @param qid
 	//  @param link
 	//  @return error
 	//
-	UpdateSceneQrcodeLink(qid string, link string) error
+	UpdateSceneQRCodeLink(qid string, link string) error
 }
 
 // iTagInterface

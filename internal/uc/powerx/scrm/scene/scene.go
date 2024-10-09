@@ -13,11 +13,11 @@ type sceneUseCase struct {
 	db  *gorm.DB
 	kv  *redis.Redis
 	ctx context.Context
-	modelSceneQrcode
+	modelSceneQRCode
 }
 type (
-	modelSceneQrcode struct {
-		qrcode scene.SceneQrcode
+	modelSceneQRCode struct {
+		qrcode scene.SceneQRCode
 	}
 )
 

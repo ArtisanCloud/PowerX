@@ -1,6 +1,7 @@
 package market
 
 import (
+	"PowerX/internal/model"
 	"PowerX/internal/model/crm/product"
 	"PowerX/internal/model/media"
 	"PowerX/internal/model/powermodel"
@@ -11,7 +12,7 @@ import (
 type Store struct {
 	powermodel.PowerModel
 
-	Artisans          []*product.Artisan                  `gorm:"many2many:public.pivot_store_to_artisan;foreignKey:Id;joinForeignKey:StoreId;References:Id;JoinReferences:ArtisanId" json:"priceBooks"`
+	Artisans          []*product.Artisan                  `gorm:"many2many:pivot_store_to_artisan;foreignKey:Id;joinForeignKey:StoreId;References:Id;JoinReferences:ArtisanId" json:"priceBooks"`
 	PivotDetailImages []*media.PivotMediaResourceToObject `gorm:"polymorphic:Object;polymorphicValue:stores" json:"pivotDetailImages"`
 	CoverImage        *media.MediaResource                `gorm:"foreignKey:CoverImageId;references:Id" json:"coverImage"`
 
@@ -28,8 +29,19 @@ type Store struct {
 	EndWork       time.Time `gorm:"comment:结束工作时间" json:"endWork"`
 }
 
-const TableNameStore = "stores"
 const StoreUniqueId = powermodel.UniqueId
+
+func (mdl *Store) TableName() string {
+	return model.PowerXSchema + "." + model.TableNameStore
+}
+
+func (mdl *Store) GetTableName(needFull bool) string {
+	tableName := model.TableNameStore
+	if needFull {
+		tableName = mdl.TableName()
+	}
+	return tableName
+}
 
 func (mdl *Store) LoadArtisans(db *gorm.DB, conditions *map[string]interface{}, withClauseAssociations bool) error {
 
@@ -54,7 +66,7 @@ func (mdl *Store) LoadPivotDetailImages(db *gorm.DB, conditions *map[string]inte
 		conditions = &map[string]interface{}{}
 	}
 
-	(*conditions)[media.PivotMediaResourceToObjectOwnerKey] = TableNameStore
+	(*conditions)[media.PivotMediaResourceToObjectOwnerKey] = model.TableNameStore
 	(*conditions)[media.PivotMediaResourceToObjectForeignKey] = mdl.Id
 
 	err := powermodel.SelectMorphPivots(db, &media.PivotMediaResourceToObject{}, false, false, conditions).
@@ -66,7 +78,7 @@ func (mdl *Store) LoadPivotDetailImages(db *gorm.DB, conditions *map[string]inte
 
 func (mdl *Store) ClearPivotDetailImages(db *gorm.DB) error {
 	conditions := &map[string]interface{}{}
-	(*conditions)[media.PivotMediaResourceToObjectOwnerKey] = TableNameStore
+	(*conditions)[media.PivotMediaResourceToObjectOwnerKey] = model.TableNameStore
 	(*conditions)[media.PivotMediaResourceToObjectForeignKey] = mdl.Id
 	return powermodel.ClearMorphPivots(db, &media.PivotMediaResourceToObject{}, false, false, conditions)
 }

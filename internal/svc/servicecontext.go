@@ -12,6 +12,7 @@ type ServiceContext struct {
 	Config  config.Config
 	PowerX  *uc.PowerXUseCase
 	OpenAPI *uc.OpenAPIUseCase
+	Pro     *uc.ProUseCase
 	Custom  *uc.CustomUseCase
 
 	MPCustomerJWTAuth  rest.Middleware
@@ -29,6 +30,7 @@ type ServiceContext struct {
 func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 	powerx, _ := uc.NewPowerXUseCase(&c)
 	openapi, _ := uc.NewOpenAPIUseCase(&c, powerx)
+	pro, _ := uc.NewProUseCase(&c, powerx)
 	custom, _ := uc.NewCustomUseCase(&c, powerx)
 
 	svcCtx := ServiceContext{
@@ -43,6 +45,7 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 		UserNoPermJWTAuth:  middleware.NewUserNoPermJWTAuthMiddleware(&c, powerx).Handle,
 		OpenAPIJWTAuth:     middleware.NewOpenAPIJWTAuthMiddleware(&c, powerx).Handle,
 		OpenAPIPlatformGet: middleware.NewOpenAPIPlatformGetMiddleware(&c, powerx).Handle,
+		Pro:                pro,
 		Custom:             custom,
 	}
 

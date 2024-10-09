@@ -1,6 +1,9 @@
 package trade
 
-import "PowerX/internal/model/powermodel"
+import (
+	"PowerX/internal/model"
+	"PowerX/internal/model/powermodel"
+)
 
 // 仓库
 type Warehouse struct {
@@ -15,4 +18,16 @@ type Warehouse struct {
 	ContactPerson string `gorm:"comment:联系人" json:"contactPerson"`
 	ContactPhone  string `gorm:"comment:联系电话" json:"contactPhone"`
 	IsActive      bool   `gorm:"comment:是否活动" json:"isActive"`
+}
+
+func (mdl *Warehouse) TableName() string {
+	return model.PowerXSchema + "." + model.TableNameWarehouse
+}
+
+func (mdl *Warehouse) GetTableName(needFull bool) string {
+	tableName := model.TableNameWarehouse
+	if needFull {
+		tableName = mdl.TableName()
+	}
+	return tableName
 }

@@ -1,6 +1,7 @@
 package customerdomain
 
 import (
+	"PowerX/internal/model"
 	"PowerX/internal/model/powermodel"
 )
 
@@ -20,3 +21,15 @@ type Lead struct {
 }
 
 const LeadUniqueId = "mobile"
+
+func (mdl *Lead) TableName() string {
+	return model.PowerXSchema + "." + model.TableNameLead
+}
+
+func (mdl *Lead) GetTableName(needFull bool) string {
+	tableName := model.TableNameLead
+	if needFull {
+		tableName = mdl.TableName()
+	}
+	return tableName
+}

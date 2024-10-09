@@ -3,8 +3,10 @@ package seed
 import (
 	"PowerX/internal/config"
 	"PowerX/internal/model/media"
+	"PowerX/internal/model/powermodel"
 	"PowerX/internal/uc/powerx"
 	"PowerX/pkg/httpx"
+	"PowerX/pkg/securityx"
 	"PowerX/pkg/slicex"
 	"fmt"
 	"github.com/pkg/errors"
@@ -37,6 +39,7 @@ func DefaultMediaResource(db *gorm.DB, conf *config.Config) (data []*media.Media
 	path := path2.Join(powerx.DefaultStoragePath, "shop")
 	coverImage := ProductCoverImage(ucMediaResource.LocalStorageUrl, path)
 	detailImages := ProductDetailImages(ucMediaResource.LocalStorageUrl, path)
+	//fmt2.Dump(coverImage, detailImages)
 
 	data = slicex.Concatenate(data, coverImage, detailImages)
 	return data
@@ -46,6 +49,9 @@ func ProductCoverImage(url string, name string) []*media.MediaResource {
 	imageUrl, _ := httpx.AppendURIs(url, fmt.Sprintf("%s/0.png", name))
 	return []*media.MediaResource{
 		{
+			PowerUUIDModel: powermodel.PowerUUIDModel{
+				UUID: securityx.GenerateUUID(),
+			},
 			Url:           imageUrl,
 			IsLocalStored: true,
 		},
@@ -58,6 +64,9 @@ func ProductDetailImages(url string, path string) []*media.MediaResource {
 		imageUrl, _ := httpx.AppendURIs(url, path, fmt.Sprintf("%d.png", i+1))
 
 		urls = append(urls, &media.MediaResource{
+			PowerUUIDModel: powermodel.PowerUUIDModel{
+				UUID: securityx.GenerateUUID(),
+			},
 			Url:           imageUrl,
 			IsLocalStored: true,
 		})

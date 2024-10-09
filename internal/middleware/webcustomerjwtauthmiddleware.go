@@ -6,6 +6,7 @@ import (
 	"PowerX/internal/types/errorx"
 	"PowerX/internal/uc"
 	"PowerX/internal/uc/powerx/crm/customerdomain"
+	fmt "PowerX/pkg/printx"
 	"context"
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/pkg/errors"
@@ -35,6 +36,7 @@ func (m *WebCustomerJWTAuthMiddleware) Handle(next http.HandlerFunc) http.Handle
 	return func(writer http.ResponseWriter, request *http.Request) {
 
 		authorization := request.Header.Get("Authorization")
+		fmt.Dump(authorization)
 		splits := strings.Split(authorization, "Bearer")
 		if len(splits) != 2 {
 			httpx.Error(writer, unAuth)
@@ -46,6 +48,7 @@ func (m *WebCustomerJWTAuthMiddleware) Handle(next http.HandlerFunc) http.Handle
 		token, err := jwt.ParseWithClaims(tokenString, &claims, func(token *jwt.Token) (interface{}, error) {
 			return []byte(secret), nil
 		})
+
 		if err != nil || !token.Valid {
 			if errors.Is(err, jwt.ErrTokenMalformed) {
 				httpx.Error(writer, unAuth)

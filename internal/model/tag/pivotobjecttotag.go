@@ -1,16 +1,12 @@
 package tag
 
 import (
+	"PowerX/internal/model"
 	"PowerX/internal/model/powermodel"
 	"PowerX/pkg/securityx"
 	"fmt"
 	"gorm.io/gorm"
 )
-
-// Table Name
-func (mdl *PivotObjectToTag) TableName() string {
-	return TableNamePivotObjectToTag
-}
 
 // 数据表结构
 type PivotObjectToTag struct {
@@ -23,11 +19,21 @@ type PivotObjectToTag struct {
 	TagId      int64  `gorm:"column:tag_id; not null;index:idx_tag_id" json:"tagId"`
 }
 
-const TableNamePivotObjectToTag = "pivot_object_to_tag"
-
 const PivotObjectToTagForeignOwnerKey = "object_type"
 const PivotObjectToTagForeignKey = "object_id"
 const PivotObjectToTagJoinKey = "tag_id"
+
+func (mdl *PivotObjectToTag) TableName() string {
+	return model.PowerXSchema + "." + model.TableNamePivotObjectToTag
+}
+
+func (mdl *PivotObjectToTag) GetTableName(needFull bool) string {
+	tableName := model.TableNamePivotObjectToTag
+	if needFull {
+		tableName = mdl.TableName()
+	}
+	return tableName
+}
 
 func (mdl *PivotObjectToTag) GetOwnerKey() string {
 	// 因为是morphy类型，所以外键是Owner

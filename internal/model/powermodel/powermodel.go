@@ -4,6 +4,7 @@ import (
 	"PowerX/pkg/securityx"
 	"database/sql"
 	"github.com/ArtisanCloud/PowerLibs/v3/object"
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	"gorm.io/gorm/schema"
@@ -21,7 +22,8 @@ type ModelInterface interface {
 	GetTableName(needFull bool) string
 	GetPowerModel() ModelInterface
 	GetID() int64
-	GetUUID() string
+	GetUUID() *uuid.UUID
+	GetUUIDString() string
 	GetPrimaryKey() string
 	GetForeignRefer() string
 	GetForeignReferValue() int64
@@ -37,7 +39,7 @@ type PowerModel struct {
 
 type PowerUUIDModel struct {
 	Id        int64          `gorm:"autoIncrement:true;unique; column:id; ->;<-:create" json:"-"`
-	UUID      string         `gorm:"primaryKey;autoIncrement:false;unique; column:uuid; ->;<-:create " json:"uuid" sql:"index"`
+	UUID      uuid.UUID      `gorm:"type:uuid;primaryKey;autoIncrement:false;unique; column:uuid; ->;<-:create " json:"uuid" sql:"index"`
 	CreatedAt time.Time      `gorm:"column:created_at; ->;<-:create " json:"createdAt"`
 	UpdatedAt time.Time      `gorm:"column:updated_at" json:"updatedAt"`
 	DeletedAt gorm.DeletedAt `gorm:"index"`
@@ -83,8 +85,12 @@ func (mdl *PowerUUIDModel) GetPowerModel() ModelInterface {
 	return mdl
 }
 
-func (mdl *PowerUUIDModel) GetUUID() string {
-	return mdl.UUID
+func (mdl *PowerUUIDModel) GetUUID() *uuid.UUID {
+	return &mdl.UUID
+}
+
+func (mdl *PowerUUIDModel) GetUUIDString() string {
+	return mdl.UUID.String()
 }
 
 func (mdl *PowerUUIDModel) GetPrimaryKey() string {
@@ -113,7 +119,11 @@ func (mdl *PowerModel) GetPowerModel() ModelInterface {
 func (mdl *PowerModel) GetID() int64 {
 	return mdl.Id
 }
-func (mdl *PowerModel) GetUUID() string {
+func (mdl *PowerModel) GetUUID() *uuid.UUID {
+	return nil
+}
+
+func (mdl *PowerModel) GetUUIDString() string {
 	return ""
 }
 
@@ -344,7 +354,7 @@ func IsPowerModelLoaded(mdl ModelInterface) bool {
 		return false
 	}
 
-	if mdl.GetUUID() == "" {
+	if mdl.GetUUID() == nil {
 		return false
 	}
 

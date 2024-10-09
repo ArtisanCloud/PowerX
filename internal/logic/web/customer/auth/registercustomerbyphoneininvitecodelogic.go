@@ -48,7 +48,7 @@ func (l *RegisterCustomerByPhoneInInviteCodeLogic) RegisterCustomerByPhoneInInvi
 	customerTypeId := l.svcCtx.PowerX.DataDictionary.GetCachedDDId(l.ctx, customerdomain.TypeCustomerType, customerdomain.CustomerPersonal)
 
 	// upsert 客户
-	uuid := securityx.GenerateUUID()
+	uuid := securityx.GenerateUUIDString()
 	inviteCode := securityx.GenerateInviteCode(uuid)
 	customer := &customerdomain.Customer{
 		Mobile:      req.Phone,

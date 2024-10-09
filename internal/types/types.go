@@ -23,7 +23,7 @@ type ActionQrcodeActiveReply struct {
 
 type ActionRequest struct {
 	Qid             string `path:"qid"` // 唯一标识
-	SceneQrcodeLink string `json:"sceneQrcodeLink,optional"`
+	SceneQRCodeLink string `json:"sceneQrcodeLink,optional"`
 }
 
 type ActionTagGroup struct {
@@ -464,7 +464,7 @@ type CreateDepartmentReply struct {
 
 type CreateDepartmentRequest struct {
 	DepName     string `json:"depName"`
-	LeaderId    int64  `json:"leaderId"`
+	LeaderUuid  string `json:"leaderUuid"`
 	PId         int64  `json:"pId"`
 	Desc        string `json:"desc,optional"`
 	PhoneNumber string `json:"phoneNumber,optional"`
@@ -1063,11 +1063,11 @@ type DeleteTagRequest struct {
 }
 
 type DeleteUserReply struct {
-	Id int64 `json:"id"`
+	Uuid string `json:"uuid"`
 }
 
 type DeleteUserRequest struct {
-	Id int64 `path:"id"`
+	Uuid string `path:"uuid"`
 }
 
 type DeliveryAddress struct {
@@ -1141,6 +1141,14 @@ type DisableProductReply struct {
 
 type DisableProductRequest struct {
 	ProductId int64 `path:"id"`
+}
+
+type EchoLongTimeRequest struct {
+	Timeout int `json:"timeout"`
+}
+
+type EchoLongTimeResponse struct {
+	Message string `json:"message"`
 }
 
 type ExchangeReply struct {
@@ -1631,7 +1639,7 @@ type GetUserReply struct {
 }
 
 type GetUserRequest struct {
-	Id int64 `path:"id"`
+	Uuid string `path:"uuid"`
 }
 
 type GetVersionResponse struct {
@@ -1660,6 +1668,10 @@ type HealthCheckReply struct {
 }
 
 type HealthCheckRequest struct {
+}
+
+type HelloWorldResponse struct {
+	Message string `json:"message"`
 }
 
 type Image struct {
@@ -3050,7 +3062,7 @@ type ResetPasswordReply struct {
 }
 
 type ResetPasswordRequest struct {
-	UserId int64 `json:"userId"`
+	UserUuid string `json:"userUuid"`
 }
 
 type Resource struct {
@@ -3091,7 +3103,7 @@ type SKU struct {
 	OptionsIds []int64 `json:"optionsIds,optional"`
 }
 
-type SceneQrcodeActiveReply struct {
+type SceneQRCodeActiveReply struct {
 	QId                string   `json:"qid"`                // 唯一码
 	Name               string   `json:"name"`               // 活码名称
 	Desc               string   `json:"desc"`               // 描述
@@ -3414,7 +3426,7 @@ type UpdateUserReply struct {
 }
 
 type UpdateUserRequest struct {
-	Id            int64  `path:"id"`
+	Uuid          string `path:"uuid"`
 	Name          string `json:"name,optional"`
 	NickName      string `json:"nickName,optional"`
 	Desc          string `json:"desc,optional"`
@@ -3635,7 +3647,7 @@ type WechatCustomersWithFollowUser struct {
 	UserId         string                                      `json:"userId"`
 	Remark         string                                      `json:"remark"`
 	Description    string                                      `json:"description"`
-	Createtime     int                                         `json:"createtime"`
+	CreatedTime    int                                         `json:"createtime"`
 	Tags           []WechatCustomersFollowUserWithTags         `json:"tags"`
 	TagIds         []string                                    `json:"tagIds"`
 	WechatChannels WechatCustomersFollowUserWithWechatChannels `json:"wechatChannels"`

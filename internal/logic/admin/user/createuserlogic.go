@@ -1,7 +1,7 @@
 package user
 
 import (
-	"PowerX/internal/model/origanzation"
+	"PowerX/internal/model/organization"
 	"context"
 	"github.com/pkg/errors"
 
@@ -26,7 +26,7 @@ func NewCreateUserLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Create
 }
 
 func (l *CreateUserLogic) CreateUser(req *types.CreateUserRequest) (resp *types.CreateUserReply, err error) {
-	user := origanzation.User{
+	user := organization.User{
 		Account:       req.Account,
 		Name:          req.Name,
 		NickName:      req.NickName,
@@ -39,7 +39,7 @@ func (l *CreateUserLogic) CreateUser(req *types.CreateUserRequest) (resp *types.
 		ExternalEmail: req.ExternalEmail,
 		Avatar:        req.Avatar,
 		Password:      "123456",
-		Status:        origanzation.UserStatusEnabled,
+		Status:        organization.UserStatusEnabled,
 	}
 	if err = user.HashPassword(); err != nil {
 		panic(errors.Wrap(err, "create user hash password failed"))

@@ -1,13 +1,9 @@
 package product
 
 import (
+	"PowerX/internal/model"
 	"PowerX/internal/model/powermodel"
 )
-
-// Table Name
-func (mdl *PivotStoreToArtisan) TableName() string {
-	return TableNamePivotStoreToArtisan
-}
 
 // 数据表结构
 type PivotStoreToArtisan struct {
@@ -17,7 +13,17 @@ type PivotStoreToArtisan struct {
 	ArtisanId int64 `gorm:"column:artisan_id; not null;index:idx_artisan_id" json:"artisanId"`
 }
 
-const TableNamePivotStoreToArtisan = "pivot_store_to_artisan"
+func (mdl *PivotStoreToArtisan) TableName() string {
+	return model.PowerXSchema + "." + model.TableNamePivotStoreToArtisan
+}
+
+func (mdl *PivotStoreToArtisan) GetTableName(needFull bool) string {
+	tableName := model.TableNamePivotStoreToArtisan
+	if needFull {
+		tableName = mdl.TableName()
+	}
+	return tableName
+}
 
 const PivotStoreToArtisanForeignKey = "store_id"
 const PivotStoreToArtisanJoinKey = "artisan_id"

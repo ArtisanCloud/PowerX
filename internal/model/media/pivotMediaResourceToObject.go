@@ -1,17 +1,13 @@
 package media
 
 import (
+	"PowerX/internal/model"
 	"PowerX/internal/model/powermodel"
 	"PowerX/internal/types"
 	"PowerX/pkg/securityx"
 	"fmt"
 	"gorm.io/gorm"
 )
-
-// Table Name
-func (mdl *PivotMediaResourceToObject) TableName() string {
-	return TableNamePivotMediaResourceToObject
-}
 
 // Pivot表
 type PivotMediaResourceToObject struct {
@@ -31,11 +27,21 @@ type PivotMediaResourceToObject struct {
 	MediaUsage string `gorm:"column:media_usage; comment:自定义用途" json:"mediaUsage"`
 }
 
-const TableNamePivotMediaResourceToObject = "pivot_media_resource_to_object"
-
 const PivotMediaResourceToObjectOwnerKey = "object_type"
 const PivotMediaResourceToObjectForeignKey = "object_id"
 const PivotMediaResourceToObjectJoinKey = "media_id"
+
+func (mdl *PivotMediaResourceToObject) TableName() string {
+	return model.PowerXSchema + "." + model.TableNamePivotMediaResourceToObject
+}
+
+func (mdl *PivotMediaResourceToObject) GetTableName(needFull bool) string {
+	tableName := model.TableNamePivotMediaResourceToObject
+	if needFull {
+		tableName = mdl.TableName()
+	}
+	return tableName
+}
 
 func (mdl *PivotMediaResourceToObject) GetOwnerKey() string {
 	// 因为是morphy类型，所以外键是Owner

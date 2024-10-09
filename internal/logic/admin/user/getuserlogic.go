@@ -1,7 +1,7 @@
 package user
 
 import (
-	"PowerX/internal/model/origanzation"
+	"PowerX/internal/model/organization"
 	"PowerX/internal/model/permission"
 	"PowerX/pkg/slicex"
 	"context"
@@ -28,7 +28,7 @@ func NewGetUserLogic(ctx context.Context, svcCtx *svc.ServiceContext) *GetUserLo
 }
 
 func (l *GetUserLogic) GetUser(req *types.GetUserRequest) (resp *types.GetUserReply, err error) {
-	user, err := l.svcCtx.PowerX.Organization.FindOneUserById(l.ctx, req.Id)
+	user, err := l.svcCtx.PowerX.Organization.FindOneUserByUuid(l.ctx, req.Uuid)
 	if err != nil {
 		return nil, err
 	}
@@ -57,7 +57,7 @@ func (l *GetUserLogic) GetUser(req *types.GetUserRequest) (resp *types.GetUserRe
 		Department:    dep,
 		Roles:         roles,
 		JobTitle:      user.JobTitle,
-		IsEnabled:     user.Status == origanzation.UserStatusEnabled,
+		IsEnabled:     user.Status == organization.UserStatusEnabled,
 		CreatedAt:     user.CreatedAt.Format(time.RFC3339),
 	}
 	if user.Position != nil {

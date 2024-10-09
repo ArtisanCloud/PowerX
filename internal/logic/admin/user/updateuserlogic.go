@@ -1,13 +1,14 @@
 package user
 
 import (
-	"PowerX/internal/model/origanzation"
+	"PowerX/internal/model/organization"
+	"PowerX/internal/model/powermodel"
 	"PowerX/internal/types"
 	"context"
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"time"
 
-	"PowerX/internal/model"
 	"PowerX/internal/svc"
 
 	"github.com/zeromicro/go-zero/core/logx"
@@ -28,9 +29,13 @@ func NewUpdateUserLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Update
 }
 
 func (l *UpdateUserLogic) UpdateUser(req *types.UpdateUserRequest) (resp *types.UpdateUserReply, err error) {
-	user := origanzation.User{
-		Model: model.Model{
-			Id: req.Id,
+	userUuid, err := uuid.Parse(req.Uuid)
+	if err != nil {
+		return nil, err
+	}
+	user := organization.User{
+		PowerUUIDModel: powermodel.PowerUUIDModel{
+			UUID: userUuid,
 		},
 		Name:          req.Name,
 		NickName:      req.NickName,
@@ -51,7 +56,7 @@ func (l *UpdateUserLogic) UpdateUser(req *types.UpdateUserRequest) (resp *types.
 		panic(errors.Wrap(err, "create user hash password failed"))
 	}
 
-	if err := l.svcCtx.PowerX.Organization.UpdateUserById(l.ctx, &user, req.Id); err != nil {
+	if err := l.svcCtx.PowerX.Organization.UpdateUserByUuid(l.ctx, &user, req.Uuid); err != nil {
 		return nil, err
 	}
 
@@ -86,7 +91,7 @@ func (l *UpdateUserLogic) UpdateUser(req *types.UpdateUserRequest) (resp *types.
 			Roles:         roles,
 			PositionId:    user.PositionID,
 			JobTitle:      user.JobTitle,
-			IsEnabled:     user.Status == origanzation.UserStatusEnabled,
+			IsEnabled:     user.Status == organization.UserStatusEnabled,
 			CreatedAt:     user.CreatedAt.Format(time.RFC3339),
 		},
 	}, nil

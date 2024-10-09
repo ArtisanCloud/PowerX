@@ -1,12 +1,13 @@
 package media
 
 import (
+	"PowerX/internal/model"
 	"PowerX/internal/model/powermodel"
 	"PowerX/internal/types"
 )
 
 type MediaResource struct {
-	powermodel.PowerModel
+	powermodel.PowerUUIDModel
 
 	CustomerId    int64  `gorm:"comment:客户Id; index" json:"customerId"`
 	Filename      string `gorm:"comment:名称" json:"filename"`
@@ -21,6 +22,18 @@ type MediaResource struct {
 }
 
 type MediaSet struct {
+}
+
+func (mdl *MediaResource) TableName() string {
+	return "public." + model.TableNameMediaResource
+}
+
+func (mdl *MediaResource) GetTableName(needFull bool) string {
+	tableName := model.TableNameMediaResource
+	if needFull {
+		tableName = mdl.TableName()
+	}
+	return tableName
 }
 
 const MediaUsageCover = "_cover"

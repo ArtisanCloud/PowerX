@@ -1,7 +1,8 @@
-package origanzation
+package organization
 
 import (
 	"PowerX/internal/model"
+	"PowerX/internal/model/powermodel"
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
@@ -9,9 +10,8 @@ import (
 )
 
 type User struct {
-	model.Model
+	powermodel.PowerUUIDModel
 
-	UUID          string `json:"comment:唯一标识;column:uuid;unique;type:uuid" json:"uuid"`
 	Account       string `gorm:"comment:账户;column:account unique;type:varchar" json:"account"`
 	Name          string `gorm:"comment:名称;column:name;type:varchar" json:"name"`
 	NickName      string `gorm:"comment:别称;column:nick_name;type:varchar" json:"nick_name"`
@@ -34,9 +34,22 @@ type User struct {
 	WeWorkUserId string `gorm:"comment:微信账户;column:we_work_user_id;type:varchar" json:"we_work_user_id"`
 }
 
-func (e *User) HashPassword() (err error) {
-	if e.Password != "" {
-		e.Password, err = HashPassword(e.Password)
+func (mdl *User) TableName() string {
+	//return model.PowerXSchema + "." + model.TableNameUser
+	return "public." + model.TableNameUser
+}
+
+func (mdl *User) GetTableName(needFull bool) string {
+	tableName := model.TableNameUser
+	if needFull {
+		tableName = mdl.TableName()
+	}
+	return tableName
+}
+
+func (mdl *User) HashPassword() (err error) {
+	if mdl.Password != "" {
+		mdl.Password, err = HashPassword(mdl.Password)
 	}
 	return nil
 }
@@ -69,13 +82,9 @@ func VerifyPassword(hashedPwd string, pwd string) bool {
 	return err == nil
 }
 
-func (e *User) TableName() string {
-	return `users`
-}
+func (mdl *User) Action(db *gorm.DB, users []*User) {
 
-func (e *User) Action(db *gorm.DB, users []*User) {
-
-	err := db.Table(e.TableName()).
+	err := db.Table(mdl.TableName()).
 		//Debug().
 		Clauses(
 			clause.OnConflict{Columns: []clause.Column{{Name: `we_work_user_id`}},

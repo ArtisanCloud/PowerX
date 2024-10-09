@@ -2,6 +2,7 @@ package migrate
 
 import (
 	"PowerX/cmd/ctl/database/custom/migrate"
+	migratePro "PowerX/cmd/ctl/database/pro/migrate"
 	"PowerX/internal/config"
 	"PowerX/internal/model"
 	"PowerX/internal/model/crm/customerdomain"
@@ -11,15 +12,16 @@ import (
 	"PowerX/internal/model/crm/trade"
 	infoorganizatoin "PowerX/internal/model/infoorganization"
 	"PowerX/internal/model/media"
-	"PowerX/internal/model/origanzation"
+	"PowerX/internal/model/organization"
 	"PowerX/internal/model/permission"
 	"PowerX/internal/model/scene"
 	"PowerX/internal/model/scrm/app"
 	"PowerX/internal/model/scrm/customer"
-	"PowerX/internal/model/scrm/organization"
+	organization2 "PowerX/internal/model/scrm/organization"
 	"PowerX/internal/model/scrm/resource"
 	"PowerX/internal/model/scrm/tag"
 	"PowerX/internal/model/wechat"
+	"fmt"
 	"gorm.io/driver/mysql"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -47,10 +49,34 @@ func NewPowerMigrator(conf *config.Config) (*PowerMigrator, error) {
 	}, err
 }
 
+func (m *PowerMigrator) InitSchema(schema string) error {
+	// 检查 schema 是否存在
+	var exists bool
+	query := `SELECT EXISTS (SELECT 1 FROM information_schema.schemata WHERE schema_name = ?);`
+	err := m.db.Raw(query, schema).Scan(&exists).Error
+	if err != nil {
+		return fmt.Errorf("failed to check schema existence: %w", err)
+	}
+
+	// 如果 schema 不存在，创建它
+	if !exists {
+		createSchemaQuery := fmt.Sprintf("CREATE SCHEMA %s;", schema)
+		err := m.db.Exec(createSchemaQuery).Error
+		if err != nil {
+			return fmt.Errorf("failed to create schema: %w", err)
+		}
+		fmt.Printf("Schema %s created successfully.\n", schema)
+	} else {
+		fmt.Printf("Schema %s already exists.\n", schema)
+	}
+
+	return nil
+}
+
 func (m *PowerMigrator) AutoMigrate() {
 
 	_ = m.db.AutoMigrate(&model.DataDictionaryType{}, &model.DataDictionaryItem{}, &model.PivotDataDictionaryToObject{})
-	_ = m.db.AutoMigrate(&origanzation.Department{}, &origanzation.User{}, &origanzation.Position{})
+	_ = m.db.AutoMigrate(&organization.Department{}, &organization.User{}, &organization.Position{})
 	_ = m.db.AutoMigrate(&permission.UserCasbinPolicy{}, permission.AdminRole{}, permission.AdminRoleMenuName{}, permission.AdminAPI{})
 
 	// info organization
@@ -62,7 +88,7 @@ func (m *PowerMigrator) AutoMigrate() {
 		&customerdomain.Lead{}, &customerdomain.Contact{}, customerdomain.RegisterCode{},
 		&customerdomain.Customer{}, &operation.Membership{},
 	)
-	_ = m.db.AutoMigrate(&wechat.WechatOACustomer{}, &wechat.WechatMPCustomer{}, &wechat.WeWorkExternalContact{})
+	_ = m.db.AutoMigrate(&wechat.WechatOACustomer{}, &wechat.WechatMPCustomer{})
 	_ = m.db.AutoMigrate(
 		&product.PivotProductToProductCategory{},
 	)
@@ -70,8 +96,8 @@ func (m *PowerMigrator) AutoMigrate() {
 	_ = m.db.AutoMigrate(&product.Product{}, &product.ProductCategory{})
 	_ = m.db.AutoMigrate(&product.ProductSpecific{}, &product.SpecificOption{}, &product.ProductStatistics{})
 	_ = m.db.AutoMigrate(&product.SKU{}, &product.PivotSkuToSpecificOption{})
-	_ = m.db.AutoMigrate(&product.PriceBook{}, &product.PriceBookEntry{}, &product.PriceConfig{})
-	_ = m.db.AutoMigrate(&market.Store{}, &product.Artisan{}, &product.PivotStoreToArtisan{})
+	_ = m.db.AutoMigrate(&product.PriceBookEntry{}, &product.PriceBook{}, &product.PriceConfig{})
+	_ = m.db.AutoMigrate(&product.PivotStoreToArtisan{}, &market.Store{}, &product.Artisan{})
 
 	// market
 	_ = m.db.AutoMigrate(&market.Media{})
@@ -92,13 +118,16 @@ func (m *PowerMigrator) AutoMigrate() {
 		trade.TokenReservation{}, trade.TokenTransaction{},
 	)
 
+	// pro
+	migratePro.AutoMigratePro(m.db)
+
 	// custom
 	migrate.AutoMigrateCustom(m.db)
 
 	// wechat organization
-	_ = m.db.AutoMigrate(&organization.WeWorkUser{}, &organization.WeWorkDepartment{})
+	_ = m.db.AutoMigrate(&organization2.WeWorkUser{}, &organization2.WeWorkDepartment{})
 	// wechat customer
-	_ = m.db.AutoMigrate(&customer.WeWorkExternalContacts{}, &customer.WeWorkExternalContactFollow{})
+	_ = m.db.AutoMigrate(&customer.WeWorkExternalContact{}, &customer.WeWorkExternalContactFollow{})
 	// wechat resource
 	_ = m.db.AutoMigrate(&resource.WeWorkResource{})
 	// wechat app
@@ -106,5 +135,5 @@ func (m *PowerMigrator) AutoMigrate() {
 	// wechat tag
 	_ = m.db.AutoMigrate(&tag.WeWorkTag{}, &tag.WeWorkTagGroup{})
 	// qrcode
-	_ = m.db.AutoMigrate(&scene.SceneQrcode{})
+	_ = m.db.AutoMigrate(&scene.SceneQRCode{})
 }

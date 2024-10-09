@@ -1,6 +1,7 @@
 package product
 
 import (
+	"PowerX/internal/model"
 	"PowerX/internal/model/powermodel"
 )
 
@@ -16,5 +17,16 @@ type PriceBook struct {
 	StoreId     int64  `gorm:"column:storeId; comment:门店Id" json:"storeId"`
 }
 
-const TableNamePriceBook = "price_books"
 const PriceBookUniqueId = powermodel.UniqueId
+
+func (mdl *PriceBook) TableName() string {
+	return model.PowerXSchema + "." + model.TableNamePriceBook
+}
+
+func (mdl *PriceBook) GetTableName(needFull bool) string {
+	tableName := model.TableNamePriceBook
+	if needFull {
+		tableName = mdl.TableName()
+	}
+	return tableName
+}

@@ -24,11 +24,11 @@ func NewDeleteUserLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Delete
 }
 
 func (l *DeleteUserLogic) DeleteUser(req *types.DeleteUserRequest) (resp *types.DeleteUserReply, err error) {
-	err = l.svcCtx.PowerX.Organization.DeleteUserById(l.ctx, req.Id)
+	err = l.svcCtx.PowerX.Organization.DeleteUserByUuid(l.ctx, req.Uuid)
 	if err != nil {
 		return nil, err
 	}
 	return &types.DeleteUserReply{
-		Id: req.Id,
+		Uuid: req.Uuid,
 	}, nil
 }

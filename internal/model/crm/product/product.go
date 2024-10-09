@@ -22,17 +22,17 @@ type ProductAttribute struct {
 type Product struct {
 	SKUs                   []*SKU                               `gorm:"foreignKey:ProductId;references:Id" json:"skus"`
 	ProductSpecifics       []*ProductSpecific                   `gorm:"foreignKey:ProductId;references:Id" json:"productSpecifics"`
-	ProductCategories      []*ProductCategory                   `gorm:"many2many:public.pivot_product_to_product_category;foreignKey:Id;joinForeignKey:ProductId;References:Id;JoinReferences:ProductCategoryId" json:"productCategories"`
+	ProductCategories      []*ProductCategory                   `gorm:"many2many:pivot_product_to_product_category;foreignKey:Id;joinForeignKey:ProductId;References:Id;JoinReferences:ProductCategoryId" json:"productCategories"`
 	PivotCoverImages       []*media.PivotMediaResourceToObject  `gorm:"polymorphic:Object;polymorphicValue:products" json:"pivotCoverImages"`
 	PivotDetailImages      []*media.PivotMediaResourceToObject  `gorm:"polymorphic:Object;polymorphicValue:products" json:"pivotDetailImages"`
-	PriceBooks             []*PriceBook                         `gorm:"many2many:public.price_book_entries;foreignKey:Id;joinForeignKey:Id;References:Id;JoinReferences:PriceBookId" json:"priceBooks"`
+	PriceBooks             []*PriceBook                         `gorm:"many2many:price_book_entries;foreignKey:Id;joinForeignKey:Id;References:Id;JoinReferences:PriceBookId" json:"priceBooks"`
 	PriceBookEntries       []*PriceBookEntry                    `gorm:"foreignKey:ProductId;references:Id" json:"priceBookEntries"`
 	PivotSalesChannels     []*model.PivotDataDictionaryToObject `gorm:"polymorphic:Object;polymorphicValue:products" json:"pivotSalesChannels"`
 	PivotPromoteChannels   []*model.PivotDataDictionaryToObject `gorm:"polymorphic:Object;polymorphicValue:products" json:"pivotPromoteChannels"`
 	ProductCategoryIds     []int64                              `gorm:"-"`
 	SalesChannelsItemIds   []int64                              `gorm:"-"`
 	PromoteChannelsItemIds []int64                              `gorm:"-"`
-	//Coupons          []*Coupon         `gorm:"many2many:public.r_product_to_coupon;foreignKey:Id;joinForeignKey:ProductId;References:Id;JoinReferences:CouponId" json:"coupons"`
+	//Coupons          []*Coupon         `gorm:"many2many:r_product_to_coupon;foreignKey:Id;joinForeignKey:ProductId;References:Id;JoinReferences:CouponId" json:"coupons"`
 
 	powermodel.PowerModel
 
@@ -54,8 +54,19 @@ type Product struct {
 	ProductAttribute
 }
 
-const TableNameProduct = "products"
 const ProductUniqueId = powermodel.UniqueId
+
+func (mdl *Product) TableName() string {
+	return model.PowerXSchema + "." + model.TableNameProduct
+}
+
+func (mdl *Product) GetTableName(needFull bool) string {
+	tableName := model.TableNameProduct
+	if needFull {
+		tableName = mdl.TableName()
+	}
+	return tableName
+}
 
 // Data Dictionary
 const TypeProductType = "_product_type"
@@ -68,14 +79,6 @@ const ProductTypeService = "_service"
 const ProductPlanOnce = "_once"
 const ProductPlanPeriod = "_period"
 
-func (mdl *Product) GetTableName(needFull bool) string {
-	tableName := TableNameProduct
-	if needFull {
-		tableName = "public." + tableName
-	}
-	return tableName
-}
-
 func (mdl *Product) GetForeignReferValue() int64 {
 	return mdl.Id
 }
@@ -87,7 +90,7 @@ func (mdl *Product) LoadPivotSalesChannels(db *gorm.DB, conditions *map[string]i
 		conditions = &map[string]interface{}{}
 	}
 
-	(*conditions)[model.PivotDataDictionaryToObjectOwnerKey] = TableNameProduct
+	(*conditions)[model.PivotDataDictionaryToObjectOwnerKey] = model.TableNameProduct
 	(*conditions)[model.PivotDataDictionaryToObjectForeignKey] = mdl.Id
 	(*conditions)["data_dictionary_type"] = model.TypeSalesChannel
 
@@ -101,7 +104,7 @@ func (mdl *Product) LoadPivotSalesChannels(db *gorm.DB, conditions *map[string]i
 
 func (mdl *Product) ClearPivotSalesChannels(db *gorm.DB) error {
 	conditions := &map[string]interface{}{}
-	(*conditions)[model.PivotDataDictionaryToObjectOwnerKey] = TableNameProduct
+	(*conditions)[model.PivotDataDictionaryToObjectOwnerKey] = model.TableNameProduct
 	(*conditions)[model.PivotDataDictionaryToObjectForeignKey] = mdl.Id
 	(*conditions)["data_dictionary_type"] = model.TypeSalesChannel
 
@@ -114,7 +117,7 @@ func (mdl *Product) LoadPromoteChannels(db *gorm.DB, conditions *map[string]inte
 		conditions = &map[string]interface{}{}
 	}
 
-	(*conditions)[model.PivotDataDictionaryToObjectOwnerKey] = TableNameProduct
+	(*conditions)[model.PivotDataDictionaryToObjectOwnerKey] = model.TableNameProduct
 	(*conditions)[model.PivotDataDictionaryToObjectForeignKey] = mdl.Id
 	(*conditions)["data_dictionary_type"] = model.TypePromoteChannel
 
@@ -127,7 +130,7 @@ func (mdl *Product) LoadPromoteChannels(db *gorm.DB, conditions *map[string]inte
 
 func (mdl *Product) ClearPivotPromoteChannels(db *gorm.DB) error {
 	conditions := &map[string]interface{}{}
-	(*conditions)[model.PivotDataDictionaryToObjectOwnerKey] = TableNameProduct
+	(*conditions)[model.PivotDataDictionaryToObjectOwnerKey] = model.TableNameProduct
 	(*conditions)[model.PivotDataDictionaryToObjectForeignKey] = mdl.Id
 	(*conditions)["data_dictionary_type"] = model.TypePromoteChannel
 
@@ -141,7 +144,7 @@ func (mdl *Product) LoadProductCategories(db *gorm.DB, conditions *map[string]in
 	if conditions == nil {
 		conditions = &map[string]interface{}{}
 	}
-	(*conditions)[TableNamePivotProductToProductCategory+".deleted_at"] = nil
+	(*conditions)[model.TableNamePivotProductToProductCategory+".deleted_at"] = nil
 
 	err := powermodel.AssociationRelationship(db, conditions, mdl, "ProductCategories", false).Find(&mdl.ProductCategories)
 	if err != nil {
@@ -162,7 +165,7 @@ func (mdl *Product) LoadPivotCoverImages(db *gorm.DB, conditions *map[string]int
 		conditions = &map[string]interface{}{}
 	}
 
-	(*conditions)[media.PivotMediaResourceToObjectOwnerKey] = TableNameProduct
+	(*conditions)[media.PivotMediaResourceToObjectOwnerKey] = model.TableNameProduct
 	(*conditions)[media.PivotMediaResourceToObjectForeignKey] = mdl.Id
 
 	err := powermodel.SelectMorphPivots(db, &media.PivotMediaResourceToObject{}, false, false, conditions).
@@ -175,7 +178,7 @@ func (mdl *Product) LoadPivotCoverImages(db *gorm.DB, conditions *map[string]int
 
 func (mdl *Product) ClearPivotCoverImages(db *gorm.DB) error {
 	conditions := &map[string]interface{}{}
-	(*conditions)[media.PivotMediaResourceToObjectOwnerKey] = TableNameProduct
+	(*conditions)[media.PivotMediaResourceToObjectOwnerKey] = model.TableNameProduct
 	(*conditions)[media.PivotMediaResourceToObjectForeignKey] = mdl.Id
 	(*conditions)["media_usage"] = media.MediaUsageCover
 
@@ -188,7 +191,7 @@ func (mdl *Product) LoadPivotDetailImages(db *gorm.DB, conditions *map[string]in
 		conditions = &map[string]interface{}{}
 	}
 
-	(*conditions)[media.PivotMediaResourceToObjectOwnerKey] = TableNameProduct
+	(*conditions)[media.PivotMediaResourceToObjectOwnerKey] = model.TableNameProduct
 	(*conditions)[media.PivotMediaResourceToObjectForeignKey] = mdl.Id
 
 	err := powermodel.SelectMorphPivots(db, &media.PivotMediaResourceToObject{}, false, false, conditions).
@@ -201,7 +204,7 @@ func (mdl *Product) LoadPivotDetailImages(db *gorm.DB, conditions *map[string]in
 
 func (mdl *Product) ClearPivotDetailImages(db *gorm.DB) error {
 	conditions := &map[string]interface{}{}
-	(*conditions)[media.PivotMediaResourceToObjectOwnerKey] = TableNameProduct
+	(*conditions)[media.PivotMediaResourceToObjectOwnerKey] = model.TableNameProduct
 	(*conditions)[media.PivotMediaResourceToObjectForeignKey] = mdl.Id
 	(*conditions)["media_usage"] = media.MediaUsageDetail
 

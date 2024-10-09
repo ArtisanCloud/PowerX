@@ -2,12 +2,13 @@ package app
 
 import (
 	"PowerX/internal/model"
+	"PowerX/internal/model/powermodel"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
 
 type WeWorkAppGroup struct {
-	model.Model
+	powermodel.PowerModel
 
 	Name     string `gorm:"comment:群名称;column:name" json:"name"`
 	Owner    string `gorm:"comment:群主;column:owner" json:"owner"`
@@ -15,13 +16,16 @@ type WeWorkAppGroup struct {
 	ChatID   string `gorm:"comment:群ID;unique"`
 }
 
-// Table
-//
-//	@Description:
-//	@receiver e
-//	@return string
-func (e WeWorkAppGroup) TableName() string {
-	return `we_work_app_groups`
+func (mdl *WeWorkAppGroup) TableName() string {
+	return model.PowerXSchema + "." + model.TableNameWeWorkAppGroup
+}
+
+func (mdl *WeWorkAppGroup) GetTableName(needFull bool) string {
+	tableName := model.TableNameWeWorkAppGroup
+	if needFull {
+		tableName = mdl.TableName()
+	}
+	return tableName
 }
 
 type (

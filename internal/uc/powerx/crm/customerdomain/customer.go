@@ -127,7 +127,7 @@ func (uc *CustomerUseCase) UpsertCustomer(ctx context.Context, customer *custome
 		}
 		// 如果是新增用户，那么需要给一个唯一识别号
 		if customer.Uuid == "" {
-			customer.Uuid = securityx.GenerateUUID()
+			customer.Uuid = securityx.GenerateUUIDString()
 			err = powermodel.UpsertModelsOnUniqueID(tx, &customerdomain.Customer{}, customerdomain.CustomerUniqueId, customer, []string{"uuid"}, false)
 			if err != nil {
 				return err

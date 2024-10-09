@@ -1,6 +1,7 @@
 package customerdomain
 
 import (
+	"PowerX/internal/model"
 	"PowerX/internal/model/powermodel"
 )
 
@@ -34,3 +35,16 @@ const TypeCustomerType = "_customer_type"
 
 const CustomerPersonal = "_personal"
 const CustomerCompany = "_company"
+
+func (mdl *Customer) TableName() string {
+	//return model.PowerXSchema + "." + model.TableNameCustomer
+	return "public." + model.TableNameCustomer
+}
+
+func (mdl *Customer) GetTableName(needFull bool) string {
+	tableName := model.TableNameCustomer
+	if needFull {
+		tableName = mdl.TableName()
+	}
+	return tableName
+}

@@ -1,6 +1,7 @@
 package operation
 
 import (
+	"PowerX/internal/model"
 	"PowerX/internal/model/crm/customerdomain"
 	"PowerX/internal/model/powermodel"
 	"time"
@@ -29,6 +30,18 @@ type Membership struct {
 }
 
 const MembershipUniqueId = powermodel.UniqueId
+
+func (mdl *Membership) TableName() string {
+	return model.PowerXSchema + "." + model.TableNameMembership
+}
+
+func (mdl *Membership) GetTableName(needFull bool) string {
+	tableName := model.TableNameMembership
+	if needFull {
+		tableName = mdl.TableName()
+	}
+	return tableName
+}
 
 const TypeMembershipType = "_membership_type"
 const TypeMembershipStatus = "_membership_status"

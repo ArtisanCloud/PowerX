@@ -1,6 +1,7 @@
 package trade
 
 import (
+	"PowerX/internal/model"
 	"PowerX/internal/model/powermodel"
 	"time"
 )
@@ -14,6 +15,18 @@ type Logistics struct {
 	Carrier               string          `gorm:"comment:物流承运商" json:"carrier"`
 	EstimatedDeliveryDate time.Time       `gorm:"comment:预计送达时间" json:"estimatedDeliveryDate"`
 	ActualDeliveryDate    time.Time       `gorm:"comment:实际送达时间" json:"actualDeliveryDate"`
+}
+
+func (mdl *Logistics) TableName() string {
+	return model.PowerXSchema + "." + model.TableNameLogistics
+}
+
+func (mdl *Logistics) GetTableName(needFull bool) string {
+	tableName := model.TableNameLogistics
+	if needFull {
+		tableName = mdl.TableName()
+	}
+	return tableName
 }
 
 type LogisticsStatus string

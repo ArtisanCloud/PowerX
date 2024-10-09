@@ -2,6 +2,7 @@ package main
 
 import (
 	"PowerX/internal/middleware/recovery"
+	"PowerX/internal/model"
 	"PowerX/pkg/pluginx"
 	"PowerX/pkg/zerox"
 	"context"
@@ -35,6 +36,7 @@ func main() {
 
 	// 设置配置文件目录
 	c.EtcDir = filepath.Dir(*configFile)
+	model.PowerXSchema = c.PowerXDatabase.Schema
 
 	// ---------- 设置 Gin 框架为发布模式 ----------
 	gin.SetMode(gin.ReleaseMode)

@@ -23,17 +23,17 @@ import (
 //	@param ctx
 //	@param opt
 //	@param sync
-//	@return *types.Page[*customer.WeWorkExternalContacts]
+//	@return *types.Page[*customer.WeWorkExternalContact]
 //	@return error
-func (this wechatUseCase) FindManyWeWorkCustomerPage(ctx context.Context, opt *types.PageOption[FindManyWechatCustomerOption], sync int) (*types.Page[*customer.WeWorkExternalContacts], error) {
+func (this wechatUseCase) FindManyWeWorkCustomerPage(ctx context.Context, opt *types.PageOption[FindManyWechatCustomerOption], sync int) (*types.Page[*customer.WeWorkExternalContact], error) {
 
 	if sync > 0 {
 		this.pullSyncWeWorkCustomerRequest(opt.Option.UserId)
 	}
 
-	var customers []*customer.WeWorkExternalContacts
+	var customers []*customer.WeWorkExternalContact
 	var count int64
-	query := this.db.WithContext(ctx).Table(new(customer.WeWorkExternalContacts).TableName() + ` AS a`).
+	query := this.db.WithContext(ctx).Table(new(customer.WeWorkExternalContact).TableName() + ` AS a`).
 		Joins(fmt.Sprintf(`LEFT JOIN %s AS b ON a.external_user_id=b.external_user_id`, new(customer.WeWorkExternalContactFollow).TableName()))
 
 	if opt.PageIndex == 0 {
@@ -53,7 +53,7 @@ func (this wechatUseCase) FindManyWeWorkCustomerPage(ctx context.Context, opt *t
 
 	err := query.Preload(`WeWorkExternalContactFollow`).Find(&customers).Error
 
-	return &types.Page[*customer.WeWorkExternalContacts]{
+	return &types.Page[*customer.WeWorkExternalContact]{
 		List:      customers,
 		PageIndex: opt.PageIndex,
 		PageSize:  opt.PageSize,
@@ -114,7 +114,7 @@ func (this wechatUseCase) PullListWeWorkCustomerRequest(userID ...string) ([]*re
 		err = this.help.error(`scrm.pull.wework.customer.list.error`, info.ResponseWork)
 
 	}
-	contacts := []customer.WeWorkExternalContacts{}
+	contacts := []customer.WeWorkExternalContact{}
 	follows := []customer.WeWorkExternalContactFollow{}
 
 	for _, val := range info.ExternalContactList {
@@ -140,9 +140,9 @@ func (this wechatUseCase) PullListWeWorkCustomerRequest(userID ...string) ([]*re
 //
 //	@Description:
 //	@param contact
-//	@return *customer.WeWorkExternalContacts
-func transferExternalContactToModel(contact *models.ExternalContact, userID string) customer.WeWorkExternalContacts {
-	return customer.WeWorkExternalContacts{
+//	@return *customer.WeWorkExternalContact
+func transferExternalContactToModel(contact *models.ExternalContact, userID string) customer.WeWorkExternalContact {
+	return customer.WeWorkExternalContact{
 
 		ExternalUserId:  contact.ExternalUserID,
 		AppId:           ``,
@@ -179,7 +179,7 @@ func transferExternalContactFollowToModel(follow *models.FollowUser, externalUse
 		UserId:         follow.UserID,
 		Remark:         follow.Remark,
 		Description:    follow.Description,
-		Createtime:     follow.CreateTime,
+		CreatedTime:    follow.CreateTime,
 		Tags:           string(tags),
 		TagIds:         strings.Join(follow.TagIDs, `,`),
 		WechatChannels: string(remarkMobiles),

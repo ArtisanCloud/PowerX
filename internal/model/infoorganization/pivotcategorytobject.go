@@ -1,17 +1,13 @@
 package infoorganizatoin
 
 import (
+	"PowerX/internal/model"
 	"PowerX/internal/model/powermodel"
 	"PowerX/internal/types"
 	"PowerX/pkg/securityx"
 	"fmt"
 	"gorm.io/gorm"
 )
-
-// Table Name
-func (mdl *PivotCategoryToObject) TableName() string {
-	return TableNamePivotCategoryToObject
-}
 
 // Pivot表
 type PivotCategoryToObject struct {
@@ -29,11 +25,21 @@ type PivotCategoryToObject struct {
 	Sort int `gorm:"comment:排序，越大约靠前"`
 }
 
-const TableNamePivotCategoryToObject = "pivot_category_to_object"
-
 const PivotCategoryToObjectOwnerKey = "object_type"
 const PivotCategoryToObjectForeignKey = "object_id"
 const PivotCategoryToObjectJoinKey = "category_id"
+
+func (mdl *PivotCategoryToObject) TableName() string {
+	return model.PowerXSchema + "." + model.TableNamePivotCategoryToObject
+}
+
+func (mdl *PivotCategoryToObject) GetTableName(needFull bool) string {
+	tableName := model.TableNamePivotCategoryToObject
+	if needFull {
+		tableName = mdl.TableName()
+	}
+	return tableName
+}
 
 func (mdl *PivotCategoryToObject) GetOwnerKey() string {
 	// 因为是morphy类型，所以外键是Owner

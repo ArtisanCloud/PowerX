@@ -1,7 +1,8 @@
 package datadictionary
 
 import (
-	"PowerX/cmd/ctl/database/custom/seed"
+	seedCustom "PowerX/cmd/ctl/database/custom/seed"
+	seedPro "PowerX/cmd/ctl/database/pro/seed"
 	"PowerX/internal/model"
 	"PowerX/internal/uc/powerx"
 	"PowerX/pkg/slicex"
@@ -20,8 +21,9 @@ func CreateDataDictionaries(db *gorm.DB) (err error) {
 
 	UseCaseDD = powerx.NewDataDictionaryUseCase(db)
 	data := DefaultDataDictionary()
-	customData := seed.CustomDataDictionary(db)
-	data = slicex.Concatenate(data, customData)
+	proData := seedPro.ProDataDictionary(db)
+	customData := seedCustom.CustomDataDictionary(db)
+	data = slicex.Concatenate(data, proData, customData)
 
 	if count == 0 {
 		if err = db.Model(&model.DataDictionaryType{}).Create(data).Error; err != nil {

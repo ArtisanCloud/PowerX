@@ -1,6 +1,7 @@
-package powermodel
+package model
 
 import (
+	"PowerX/internal/model/powermodel"
 	"github.com/ArtisanCloud/PowerLibs/v3/object"
 	"gorm.io/gorm"
 )
@@ -13,14 +14,9 @@ const OperationResultSuccess = 1
 const OperationResultFailed = 2
 const OperationResultCancel = 3
 
-// TableName overrides the table name used by price_book to `profiles`
-func (mdl *PowerOperationLog) TableName() string {
-	return mdl.GetTableName(true)
-}
-
 // PowerOperationLog 数据表结构
 type PowerOperationLog struct {
-	*PowerModel
+	*powermodel.PowerModel
 
 	OperatorName  *string `gorm:"column:operatorName" json:"operatorName"`
 	OperatorTable *string `gorm:"column:operatorTable" json:"operatorTable"`
@@ -34,8 +30,19 @@ type PowerOperationLog struct {
 	Result        *int8   `gorm:"column:result" json:"result"`
 }
 
-const TableNameOperationLog = "power_operation_log"
-const OperationLogUniqueId = UniqueId
+const OperationLogUniqueId = powermodel.UniqueId
+
+func (mdl *PowerOperationLog) TableName() string {
+	return PowerXSchema + "." + TableNamePowerOperationLog
+}
+
+func (mdl *PowerOperationLog) GetTableName(needFull bool) string {
+	tableName := TableNamePowerOperationLog
+	if needFull {
+		tableName = mdl.TableName()
+	}
+	return tableName
+}
 
 func NewPowerOperationLog(mapObject *object.Collection) *PowerOperationLog {
 
@@ -44,7 +51,7 @@ func NewPowerOperationLog(mapObject *object.Collection) *PowerOperationLog {
 	}
 
 	return &PowerOperationLog{
-		PowerModel:    NewPowerModel(),
+		PowerModel:    powermodel.NewPowerModel(),
 		OperatorName:  mapObject.GetStringPointer("operatorName", ""),
 		OperatorTable: mapObject.GetStringPointer("operatorTable", ""),
 		OperatorId:    mapObject.GetInt64Pointer("operatorId", 0),
@@ -58,19 +65,10 @@ func NewPowerOperationLog(mapObject *object.Collection) *PowerOperationLog {
 	}
 }
 
-// 获取当前 Model 的数据库表名称
-func (mdl *PowerOperationLog) GetTableName(needFull bool) string {
-	tableName := TableNameOperationLog
-	if needFull {
-		tableName = "public.ac_" + tableName
-	}
-	return tableName
-}
-
 func (mdl *PowerOperationLog) SaveOps(db *gorm.DB,
-	operatorName string, operator ModelInterface,
+	operatorName string, operator powermodel.ModelInterface,
 	module int16, operate string, event int8,
-	objectName string, object ModelInterface,
+	objectName string, object powermodel.ModelInterface,
 	result int8,
 ) error {
 
@@ -88,7 +86,7 @@ func (mdl *PowerOperationLog) SaveOps(db *gorm.DB,
 	objectID := object.GetID()
 
 	ops := &PowerOperationLog{
-		PowerModel:    NewPowerModel(),
+		PowerModel:    powermodel.NewPowerModel(),
 		OperatorName:  &operatorName,
 		OperatorTable: &operatorTable,
 		OperatorId:    &operatorID,

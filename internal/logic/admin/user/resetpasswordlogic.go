@@ -1,12 +1,13 @@
 package user
 
 import (
-	"PowerX/internal/model/origanzation"
+	"PowerX/internal/model/organization"
+	"PowerX/internal/model/powermodel"
 	"PowerX/internal/types"
 	"context"
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 
-	"PowerX/internal/model"
 	"PowerX/internal/svc"
 
 	"github.com/zeromicro/go-zero/core/logx"
@@ -27,9 +28,13 @@ func NewResetPasswordLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Res
 }
 
 func (l *ResetPasswordLogic) ResetPassword(req *types.ResetPasswordRequest) (resp *types.ResetPasswordReply, err error) {
-	user := origanzation.User{
-		Model: model.Model{
-			Id: req.UserId,
+	userUuid, err := uuid.Parse(req.UserUuid)
+	if err != nil {
+		return nil, err
+	}
+	user := organization.User{
+		PowerUUIDModel: powermodel.PowerUUIDModel{
+			UUID: userUuid,
 		},
 		Password: "123456",
 	}
@@ -39,7 +44,7 @@ func (l *ResetPasswordLogic) ResetPassword(req *types.ResetPasswordRequest) (res
 		panic(errors.Wrap(err, "create user hash password failed"))
 	}
 
-	if err := l.svcCtx.PowerX.Organization.UpdateUserById(l.ctx, &user, req.UserId); err != nil {
+	if err := l.svcCtx.PowerX.Organization.UpdateUserByUuid(l.ctx, &user, req.UserUuid); err != nil {
 		return nil, err
 	}
 

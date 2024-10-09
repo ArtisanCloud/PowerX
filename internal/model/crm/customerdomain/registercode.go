@@ -1,6 +1,7 @@
 package customerdomain
 
 import (
+	"PowerX/internal/model"
 	"PowerX/internal/model/powermodel"
 	"time"
 )
@@ -14,3 +15,15 @@ type RegisterCode struct {
 }
 
 const RegisterCodeUniqueId = "code"
+
+func (mdl *RegisterCode) TableName() string {
+	return model.PowerXSchema + "." + model.TableNameRegisterCode
+}
+
+func (mdl *RegisterCode) GetTableName(needFull bool) string {
+	tableName := model.TableNameRegisterCode
+	if needFull {
+		tableName = mdl.TableName()
+	}
+	return tableName
+}

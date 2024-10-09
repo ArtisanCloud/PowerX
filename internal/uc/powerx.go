@@ -98,11 +98,11 @@ func NewPowerXUseCase(conf *config.Config) (uc *PowerXUseCase, clean func()) {
 	}
 
 	// 加载Cache对象
-	cacheOption := &kernel.RedisOptions{
-		Addr: conf.RedisBase.Host,
-		//Username: conf.RedisBase.Username,
+	cacheOption := &kernel.UniversalOptions{
+		Addrs:    []string{conf.RedisBase.Host},
+		Username: conf.RedisBase.Username,
 		Password: conf.RedisBase.Password,
-		//DB:       conf.RedisBase.DB,
+		DB:       conf.RedisBase.DB,
 	}
 	uc.Cache = kernel.NewRedisClient(cacheOption)
 

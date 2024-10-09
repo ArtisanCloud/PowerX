@@ -1,6 +1,7 @@
 package market
 
 import (
+	"PowerX/internal/model"
 	"PowerX/internal/model/media"
 	"PowerX/internal/model/powermodel"
 	"gorm.io/gorm"
@@ -21,8 +22,19 @@ type Media struct {
 	ViewedCount  int    `gorm:"comment:浏览次数" json:"viewedCount"`
 }
 
-const TableNameMedia = "media"
 const MediaUniqueId = powermodel.UniqueId
+
+func (mdl *Media) TableName() string {
+	return model.PowerXSchema + "." + model.TableNameMedia
+}
+
+func (mdl *Media) GetTableName(needFull bool) string {
+	tableName := model.TableNameMedia
+	if needFull {
+		tableName = mdl.TableName()
+	}
+	return tableName
+}
 
 const TypeMediaType = "_media_type"
 
@@ -40,7 +52,7 @@ const (
 
 func (mdl *Media) ClearPivotDetailImages(db *gorm.DB) error {
 	conditions := &map[string]interface{}{}
-	(*conditions)[media.PivotMediaResourceToObjectOwnerKey] = TableNameMedia
+	(*conditions)[media.PivotMediaResourceToObjectOwnerKey] = model.TableNameMedia
 	(*conditions)[media.PivotMediaResourceToObjectForeignKey] = mdl.Id
 
 	return powermodel.ClearMorphPivots(db, &media.PivotMediaResourceToObject{}, false, false, conditions)

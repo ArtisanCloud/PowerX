@@ -1,6 +1,7 @@
 package trade
 
 import (
+	"PowerX/internal/model"
 	"PowerX/internal/model/crm/product"
 	"PowerX/internal/model/powermodel"
 )
@@ -14,6 +15,18 @@ type Cart struct {
 }
 
 const CartUniqueId = powermodel.UniqueId
+
+func (mdl *Cart) TableName() string {
+	return model.PowerXSchema + "." + model.TableNameCart
+}
+
+func (mdl *Cart) GetTableName(needFull bool) string {
+	tableName := model.TableNameCart
+	if needFull {
+		tableName = mdl.TableName()
+	}
+	return tableName
+}
 
 type CartItem struct {
 	*powermodel.PowerModel
@@ -32,6 +45,18 @@ type CartItem struct {
 	Quantity       int     `gorm:"comment:商品数量" json:"quantity"`
 	Specifications string  `gorm:"comment:商品规格" json:"specifications"`
 	ImageURL       string  `gorm:"comment:商品图片URL" json:"imageUrl"`
+}
+
+func (mdl *CartItem) TableName() string {
+	return model.PowerXSchema + "." + model.TableNameCartItem
+}
+
+func (mdl *CartItem) GetTableName(needFull bool) string {
+	tableName := model.TableNameCartItem
+	if needFull {
+		tableName = mdl.TableName()
+	}
+	return tableName
 }
 
 type CartStatus string

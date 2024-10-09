@@ -1,6 +1,9 @@
 package trade
 
-import "PowerX/internal/model/powermodel"
+import (
+	"PowerX/internal/model"
+	"PowerX/internal/model/powermodel"
+)
 
 // 订单发货地址
 type DeliveryAddress struct {
@@ -18,4 +21,16 @@ type DeliveryAddress struct {
 	PostalCode   string `gorm:"comment:邮政编码" json:"postalCode"`
 	Country      string `gorm:"comment:国家" json:"country"`
 	PhoneNumber  string `gorm:"comment:联系电话" json:"phoneNumber"`
+}
+
+func (mdl *DeliveryAddress) TableName() string {
+	return model.PowerXSchema + "." + model.TableNameDeliveryAddress
+}
+
+func (mdl *DeliveryAddress) GetTableName(needFull bool) string {
+	tableName := model.TableNameDeliveryAddress
+	if needFull {
+		tableName = mdl.TableName()
+	}
+	return tableName
 }

@@ -26,6 +26,18 @@ type Category struct {
 
 const CategoryUniqueId = powermodel.UniqueId
 
+func (mdl *Category) TableName() string {
+	return model.PowerXSchema + "." + model.TableNameCategory
+}
+
+func (mdl *Category) GetTableName(needFull bool) string {
+	tableName := model.TableNameCategory
+	if needFull {
+		tableName = mdl.TableName()
+	}
+	return tableName
+}
+
 func (mdl *Category) GetCategoryIds(categories []*Category) []int64 {
 	uniqueIds := make(map[int64]bool)
 	arrayIds := []int64{}

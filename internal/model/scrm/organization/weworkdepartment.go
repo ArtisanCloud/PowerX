@@ -2,12 +2,14 @@ package organization
 
 import (
 	"PowerX/internal/model"
+	"PowerX/internal/model/powermodel"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
 
 type WeWorkDepartment struct {
-	model.Model
+	powermodel.PowerModel
+
 	// Leader         *WeWorkUser `gorm:"foreignKey:LeaderId"`
 	WeWorkDepId      int    `gorm:"comment:部门ID;column:we_work_dep_id;unique" json:"we_work_dep_id"`
 	Name             string `gorm:"comment:部门名称;column:name" json:"name"`
@@ -18,13 +20,16 @@ type WeWorkDepartment struct {
 	RefDepartmentId  int64  `gorm:"comment:-;column:ref_department_id" json:"ref_department_id"`
 }
 
-// Table
-//
-//	@Description:
-//	@receiver e
-//	@return string
-func (e WeWorkDepartment) TableName() string {
-	return `we_work_departments`
+func (mdl *WeWorkDepartment) TableName() string {
+	return model.PowerXSchema + "." + model.TableNameWeWorkDepartment
+}
+
+func (mdl *WeWorkDepartment) GetTableName(needFull bool) string {
+	tableName := model.TableNameWeWorkDepartment
+	if needFull {
+		tableName = mdl.TableName()
+	}
+	return tableName
 }
 
 // Query

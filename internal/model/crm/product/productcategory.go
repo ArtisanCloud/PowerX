@@ -26,6 +26,18 @@ type ProductCategory struct {
 
 const ProductCategoryUniqueId = powermodel.UniqueId
 
+func (mdl *ProductCategory) TableName() string {
+	return model.PowerXSchema + "." + model.TableNameProductCategory
+}
+
+func (mdl *ProductCategory) GetTableName(needFull bool) string {
+	tableName := model.TableNameProductCategory
+	if needFull {
+		tableName = mdl.TableName()
+	}
+	return tableName
+}
+
 func (mdl *ProductCategory) GetCategoryIds(categories []*ProductCategory) []int64 {
 	uniqueIds := make(map[int64]bool)
 	arrayIds := []int64{}

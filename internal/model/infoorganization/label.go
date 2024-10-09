@@ -26,6 +26,18 @@ type Label struct {
 
 const LabelUniqueId = powermodel.UniqueId
 
+func (mdl *Label) TableName() string {
+	return model.PowerXSchema + "." + model.TableNameLabel
+}
+
+func (mdl *Label) GetTableName(needFull bool) string {
+	tableName := model.TableNameLabel
+	if needFull {
+		tableName = mdl.TableName()
+	}
+	return tableName
+}
+
 func GetLabelIds(categories []*Label) []int64 {
 	uniqueIds := make(map[int64]bool)
 	arrayIds := []int64{}

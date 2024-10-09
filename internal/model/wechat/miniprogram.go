@@ -3,15 +3,17 @@ package wechat
 import (
 	"PowerX/internal/model"
 	customerdomain2 "PowerX/internal/model/crm/customerdomain"
+	"PowerX/internal/model/powermodel"
 	"fmt"
 	"github.com/ArtisanCloud/PowerLibs/v3/security"
 )
 
 // 小程序客户信息
 type WechatMPCustomer struct {
+	powermodel.PowerModel
+
 	Customer *customerdomain2.Customer `gorm:"foreignKey:OpenId;references:OpenIdInMiniProgram" json:"customer"`
 
-	model.Model
 	UniqueID   string `gorm:"unique" json:"uniqueId"`
 	SessionKey string `json:"-"`
 	OpenId     string `json:"openId"`
@@ -33,6 +35,18 @@ type WechatMPCustomer struct {
 }
 
 const WechatMpCustomerUniqueId = "unique_id"
+
+func (mdl *WechatMPCustomer) TableName() string {
+	return model.PowerXSchema + "." + model.TableNameWechatMPCustomer
+}
+
+func (mdl *WechatMPCustomer) GetTableName(needFull bool) string {
+	tableName := model.TableNameWechatMPCustomer
+	if needFull {
+		tableName = mdl.TableName()
+	}
+	return tableName
+}
 
 // 小程序获取手机号
 // https://developers.weixin.qq.com/miniprogram/dev/OpenApiDoc/user-info/phone-number/getPhoneNumber.html

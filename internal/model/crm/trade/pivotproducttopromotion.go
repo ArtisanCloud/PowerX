@@ -1,6 +1,7 @@
 package trade
 
 import (
+	"PowerX/internal/model"
 	"PowerX/internal/model/powermodel"
 	"time"
 )
@@ -18,10 +19,21 @@ type PivotOrderToInventoryLog struct {
 	StockQuantityAfter  int       `gorm:"comment:回滚后的库存数量" json:"stockQuantityAfter"`
 }
 
+func (mdl *PivotOrderToInventoryLog) TableName() string {
+	return model.PowerXSchema + "." + model.TableNamePivotOrderToInventoryLog
+}
+
+func (mdl *PivotOrderToInventoryLog) GetTableName(needFull bool) string {
+	tableName := model.TableNamePivotOrderToInventoryLog
+	if needFull {
+		tableName = mdl.TableName()
+	}
+	return tableName
+}
+
 type ActionType int
 
 const (
-	ActionCreate   ActionType = 1 // 创建
 	ActionUpdate   ActionType = 2 // 更新
 	ActionDelete   ActionType = 3 // 删除
 	ActionRollback ActionType = 4 // 回滚
