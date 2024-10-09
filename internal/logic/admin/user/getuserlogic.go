@@ -28,7 +28,7 @@ func NewGetUserLogic(ctx context.Context, svcCtx *svc.ServiceContext) *GetUserLo
 }
 
 func (l *GetUserLogic) GetUser(req *types.GetUserRequest) (resp *types.GetUserReply, err error) {
-	user, err := l.svcCtx.PowerX.Organization.FindOneUserById(l.ctx, req.Id)
+	user, err := l.svcCtx.PowerX.Organization.FindOneUserByUuid(l.ctx, req.Uuid)
 	if err != nil {
 		return nil, err
 	}

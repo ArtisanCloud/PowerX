@@ -29,7 +29,7 @@ func (l *CreateCustomerLogic) CreateCustomer(req *types.CreateCustomerRequest) (
 		Name:        req.Name,
 		Mobile:      req.Mobile,
 		Email:       req.Email,
-		Uuid:        securityx.GenerateUUID(),
+		Uuid:        securityx.GenerateUUIDString(),
 		InviterId:   req.InviterId,
 		Source:      req.Source,
 		Type:        req.Type,

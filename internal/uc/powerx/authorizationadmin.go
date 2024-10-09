@@ -4,6 +4,7 @@ import (
 	"PowerX/internal/config"
 	"PowerX/internal/model/organization"
 	"PowerX/internal/model/permission"
+	"PowerX/internal/model/powermodel"
 	"PowerX/internal/types/errorx"
 	"PowerX/pkg/mapx"
 	"PowerX/pkg/slicex"
@@ -162,7 +163,9 @@ func (uc *AdminPermsUseCase) Init() {
 			rooName = "超级管理员"
 		}
 		root := organization.User{
-			UUID:       uuid.New().String(),
+			PowerUUIDModel: powermodel.PowerUUIDModel{
+				UUID: uuid.New(),
+			},
 			Account:    rooAccount,
 			Password:   rooPass,
 			Name:       rooName,

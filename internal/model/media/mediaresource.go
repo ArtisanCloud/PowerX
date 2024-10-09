@@ -7,7 +7,7 @@ import (
 )
 
 type MediaResource struct {
-	powermodel.PowerModel
+	powermodel.PowerUUIDModel
 
 	CustomerId    int64  `gorm:"comment:客户Id; index" json:"customerId"`
 	Filename      string `gorm:"comment:名称" json:"filename"`
@@ -25,7 +25,7 @@ type MediaSet struct {
 }
 
 func (mdl *MediaResource) TableName() string {
-	return model.PowerXSchema + "." + model.TableNameMediaResource
+	return "public." + model.TableNameMediaResource
 }
 
 func (mdl *MediaResource) GetTableName(needFull bool) string {

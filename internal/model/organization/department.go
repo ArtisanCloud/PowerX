@@ -11,11 +11,11 @@ type Department struct {
 	powermodel.PowerModel
 
 	PDep        *Department   `gorm:"foreignKey:PId"`
-	Leader      *User         `gorm:"foreignKey:LeaderId"`
+	Leader      *User         `gorm:"foreignKey:LeaderUuid"`
 	Ancestors   []*Department `gorm:"many2many:department_ancestors;"`
 	Name        string        `gorm:"comment:部门名称;column:name" json:"name"`
 	PId         int64         `gorm:"comment:部门名ID;column:pid" json:"pid"`
-	LeaderId    int64         `gorm:"comment:领导ID;column:leader_id" json:"leader_id"`
+	LeaderUuid  *string       `gorm:"comment:领导ID;column:leader_id;type:uuid;default:null" json:"leader_id"`
 	Desc        string        `gorm:"comment:描述;column:desc" json:"desc"`
 	PhoneNumber string        `gorm:"comment:部门电话;column:phone_number" json:"phone_number"`
 	Email       string        `gorm:"comment:部门邮箱;column:email" json:"email"`

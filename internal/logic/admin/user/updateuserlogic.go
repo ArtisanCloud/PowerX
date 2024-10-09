@@ -5,6 +5,7 @@ import (
 	"PowerX/internal/model/powermodel"
 	"PowerX/internal/types"
 	"context"
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"time"
 
@@ -28,9 +29,13 @@ func NewUpdateUserLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Update
 }
 
 func (l *UpdateUserLogic) UpdateUser(req *types.UpdateUserRequest) (resp *types.UpdateUserReply, err error) {
+	userUuid, err := uuid.Parse(req.Uuid)
+	if err != nil {
+		return nil, err
+	}
 	user := organization.User{
-		PowerModel: powermodel.PowerModel{
-			Id: req.Id,
+		PowerUUIDModel: powermodel.PowerUUIDModel{
+			UUID: userUuid,
 		},
 		Name:          req.Name,
 		NickName:      req.NickName,
@@ -51,7 +56,7 @@ func (l *UpdateUserLogic) UpdateUser(req *types.UpdateUserRequest) (resp *types.
 		panic(errors.Wrap(err, "create user hash password failed"))
 	}
 
-	if err := l.svcCtx.PowerX.Organization.UpdateUserById(l.ctx, &user, req.Id); err != nil {
+	if err := l.svcCtx.PowerX.Organization.UpdateUserByUuid(l.ctx, &user, req.Uuid); err != nil {
 		return nil, err
 	}
 

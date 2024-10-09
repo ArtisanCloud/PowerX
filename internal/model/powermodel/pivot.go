@@ -4,6 +4,7 @@ import (
 	fmt2 "PowerX/pkg/printx"
 	"errors"
 	"fmt"
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	"time"
@@ -47,7 +48,11 @@ func (mdl *PowerPivot) GetID() int64 {
 	return mdl.Id
 }
 
-func (mdl *PowerPivot) GetUUID() string {
+func (mdl *PowerPivot) GetUUID() *uuid.UUID {
+	return nil
+}
+
+func (mdl *PowerPivot) GetUUIDString() string {
 	return ""
 }
 

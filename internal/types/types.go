@@ -464,7 +464,7 @@ type CreateDepartmentReply struct {
 
 type CreateDepartmentRequest struct {
 	DepName     string `json:"depName"`
-	LeaderId    int64  `json:"leaderId"`
+	LeaderUuid  string `json:"leaderUuid"`
 	PId         int64  `json:"pId"`
 	Desc        string `json:"desc,optional"`
 	PhoneNumber string `json:"phoneNumber,optional"`
@@ -1063,11 +1063,11 @@ type DeleteTagRequest struct {
 }
 
 type DeleteUserReply struct {
-	Id int64 `json:"id"`
+	Uuid string `json:"uuid"`
 }
 
 type DeleteUserRequest struct {
-	Id int64 `path:"id"`
+	Uuid string `path:"uuid"`
 }
 
 type DeliveryAddress struct {
@@ -1639,7 +1639,7 @@ type GetUserReply struct {
 }
 
 type GetUserRequest struct {
-	Id int64 `path:"id"`
+	Uuid string `path:"uuid"`
 }
 
 type GetVersionResponse struct {
@@ -3062,7 +3062,7 @@ type ResetPasswordReply struct {
 }
 
 type ResetPasswordRequest struct {
-	UserId int64 `json:"userId"`
+	UserUuid string `json:"userUuid"`
 }
 
 type Resource struct {
@@ -3426,7 +3426,7 @@ type UpdateUserReply struct {
 }
 
 type UpdateUserRequest struct {
-	Id            int64  `path:"id"`
+	Uuid          string `path:"uuid"`
 	Name          string `json:"name,optional"`
 	NickName      string `json:"nickName,optional"`
 	Desc          string `json:"desc,optional"`
@@ -3647,7 +3647,7 @@ type WechatCustomersWithFollowUser struct {
 	UserId         string                                      `json:"userId"`
 	Remark         string                                      `json:"remark"`
 	Description    string                                      `json:"description"`
-	CreatedTime     int                                         `json:"createtime"`
+	CreatedTime    int                                         `json:"createtime"`
 	Tags           []WechatCustomersFollowUserWithTags         `json:"tags"`
 	TagIds         []string                                    `json:"tagIds"`
 	WechatChannels WechatCustomersFollowUserWithWechatChannels `json:"wechatChannels"`

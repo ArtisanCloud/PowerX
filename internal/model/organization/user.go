@@ -10,9 +10,8 @@ import (
 )
 
 type User struct {
-	powermodel.PowerModel
+	powermodel.PowerUUIDModel
 
-	UUID          string `json:"comment:唯一标识;column:uuid;unique;type:uuid" json:"uuid"`
 	Account       string `gorm:"comment:账户;column:account unique;type:varchar" json:"account"`
 	Name          string `gorm:"comment:名称;column:name;type:varchar" json:"name"`
 	NickName      string `gorm:"comment:别称;column:nick_name;type:varchar" json:"nick_name"`

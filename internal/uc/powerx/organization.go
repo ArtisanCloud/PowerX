@@ -10,6 +10,7 @@ import (
 	"PowerX/pkg/slicex"
 	"context"
 	"fmt"
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -161,10 +162,27 @@ func (uc *OrganizationUseCase) FindOneUserById(ctx context.Context, id int64) (u
 	return
 }
 
-func (uc *OrganizationUseCase) UpdateUserById(ctx context.Context, user *organization.User, userId int64) error {
+func (uc *OrganizationUseCase) FindOneUserByUuid(ctx context.Context, userUUid string) (user *organization.User, err error) {
+	if err = uc.db.WithContext(ctx).
+		Where("uuid = ?", userUUid).
+		Preload("Department").
+		Preload("Position").First(&user).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errorx.WithCause(errorx.ErrBadRequest, "用户不存在")
+		}
+		panic(err)
+	}
+	return
+}
+
+func (uc *OrganizationUseCase) UpdateUserByUuid(ctx context.Context, user *organization.User, strUuid string) error {
+	userUuid, err := uuid.Parse(strUuid)
+	if err != nil {
+		return err
+	}
 	whereCase := organization.User{
-		PowerModel: powermodel.PowerModel{
-			Id: userId,
+		PowerUUIDModel: powermodel.PowerUUIDModel{
+			UUID: userUuid,
 		},
 		IsReserved: false,
 	}
@@ -172,15 +190,17 @@ func (uc *OrganizationUseCase) UpdateUserById(ctx context.Context, user *organiz
 	if result.RowsAffected == 0 {
 		return errorx.WithCause(errorx.ErrBadRequest, "更新失败, 用户保留或不存在")
 	}
-	err := result.Error
+	err = result.Error
 	if err != nil {
 		panic(errors.Wrap(err, "delete user failed"))
 	}
 	return nil
 }
 
-func (uc *OrganizationUseCase) DeleteUserById(ctx context.Context, id int64) error {
-	result := uc.db.WithContext(ctx).Where(organization.User{IsReserved: false}, "is_reserved").Delete(&organization.User{}, id)
+func (uc *OrganizationUseCase) DeleteUserByUuid(ctx context.Context, strUuid string) error {
+	result := uc.db.WithContext(ctx).
+		Where("uuid = ? AND is_reserved = ?", strUuid, false).
+		Delete(&organization.User{})
 	err := result.Error
 	if err != nil {
 		panic(errors.Wrap(err, "delete user failed"))

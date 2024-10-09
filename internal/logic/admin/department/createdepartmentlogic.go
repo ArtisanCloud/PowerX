@@ -27,7 +27,7 @@ func (l *CreateDepartmentLogic) CreateDepartment(req *types.CreateDepartmentRequ
 	dep := organization.Department{
 		Name:        req.DepName,
 		PId:         req.PId,
-		LeaderId:    req.LeaderId,
+		LeaderUuid:  req.LeaderUuid,
 		Desc:        req.Desc,
 		PhoneNumber: req.PhoneNumber,
 		Email:       req.Email,

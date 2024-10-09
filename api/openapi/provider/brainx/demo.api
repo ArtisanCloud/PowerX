@@ -1,0 +1,40 @@
+syntax = "v1"
+
+info(
+    title: "Provider Demo Open API of BrainX"
+    desc: "This is a api of Open API in Artisan Cloud"
+    author: "Matrix-X"
+    email: "matrix-x@artisan-cloud.com"
+    version: "v1"
+)
+
+@server(
+    group: openapi/provider/brainx
+    prefix: /openapi/v1/provider/brainx
+    middleware: OpenAPIJWTAuth
+)
+
+service PowerX {
+    @doc "hello world api for provider demo"
+    @handler HelloWorld
+    get /hello-world returns (HelloWorldResponse)
+
+    @doc "timeout api for provider demo"
+    @handler EchoLongTime
+    post /echo-long-time (EchoLongTimeRequest) returns (EchoLongTimeResponse)
+}
+
+
+
+type (
+    HelloWorldResponse {
+        Message string `json:"message"`
+    }
+
+    EchoLongTimeRequest {
+        Timeout int `json:"timeout"`
+    }
+    EchoLongTimeResponse {
+        Message string `json:"message"`
+    }
+)

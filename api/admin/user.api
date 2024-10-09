@@ -21,7 +21,7 @@ service PowerX {
 
     @doc "查询员工"
     @handler GetUser
-    get /users/:id (GetUserRequest) returns (GetUserReply)
+    get /users/:uuid (GetUserRequest) returns (GetUserReply)
 
     @doc "List员工"
     @handler ListUsers
@@ -33,11 +33,11 @@ service PowerX {
 
     @doc "编辑员工信息"
     @handler UpdateUser
-    patch /users/:id (UpdateUserRequest) returns (UpdateUserReply)
+    patch /users/:uuid (UpdateUserRequest) returns (UpdateUserReply)
 
     @doc "删除员工"
     @handler DeleteUser
-    delete /users/:id (DeleteUserRequest) returns (DeleteUserReply)
+    delete /users/:uuid (DeleteUserRequest) returns (DeleteUserReply)
 
     @doc "重设密码"
     @handler ResetPassword
@@ -46,7 +46,7 @@ service PowerX {
 
 type (
     GetUserRequest {
-        Id int64 `path:"id"`
+        Uuid string `path:"uuid"`
     }
 
     GetUserReply {
@@ -136,7 +136,7 @@ type (
 
 type (
     UpdateUserRequest {
-        Id int64 `path:"id"`
+        Uuid string `path:"uuid"`
         Name string `json:"name,optional"`
         NickName string `json:"nickName,optional"`
         Desc string `json:"desc,optional"`
@@ -159,17 +159,17 @@ type (
 
 type (
     DeleteUserRequest {
-        Id int64 `path:"id"`
+        Uuid string `path:"uuid"`
     }
 
     DeleteUserReply {
-        Id int64 `json:"id"`
+        Uuid string `json:"uuid"`
     }
 )
 
 type (
     ResetPasswordRequest {
-        UserId int64 `json:"userId"`
+        UserUuid string `json:"userUuid"`
     }
 
     ResetPasswordReply {

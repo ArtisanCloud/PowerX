@@ -100,7 +100,10 @@ func CheckPassword(hashedPassword string, encodedPassword string) (isPasswordVal
 	return true
 }
 
-func GenerateUUID() string {
+func GenerateUUID() uuid.UUID {
+	return uuid.New()
+}
+func GenerateUUIDString() string {
 	return uuid.New().String()
 }
 
