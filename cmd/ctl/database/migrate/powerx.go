@@ -86,7 +86,11 @@ func (m *PowerMigrator) AutoMigrate() {
 	// customer domain
 	_ = m.db.AutoMigrate(
 		&customerdomain.Lead{}, &customerdomain.Contact{}, customerdomain.RegisterCode{},
-		&customerdomain.Customer{}, &operation.Membership{},
+		&customerdomain.Customer{},
+	)
+	// operation
+	_ = m.db.AutoMigrate(
+		&operation.Membership{}, &operation.TicketRecord{},
 	)
 	_ = m.db.AutoMigrate(&wechat.WechatOACustomer{}, &wechat.WechatMPCustomer{})
 	_ = m.db.AutoMigrate(

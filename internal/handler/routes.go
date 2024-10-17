@@ -1447,10 +1447,16 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			[]rest.Middleware{serverCtx.UserJWTAuth},
 			[]rest.Route{
 				{
-					// App发送图文信息
-					Method:  http.MethodPost,
-					Path:    "/message/articles",
-					Handler: adminscrmapp.SendWeWorkAppArticleMessageHandler(serverCtx),
+					// App详情
+					Method:  http.MethodGet,
+					Path:    "/detail",
+					Handler: adminscrmapp.DetailWeWorkAppHandler(serverCtx),
+				},
+				{
+					// App列表/options
+					Method:  http.MethodGet,
+					Path:    "/options",
+					Handler: adminscrmapp.ListWeWorkAppOptionHandler(serverCtx),
 				},
 			}...,
 		),
@@ -1462,16 +1468,10 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			[]rest.Middleware{serverCtx.UserJWTAuth},
 			[]rest.Route{
 				{
-					// App详情
-					Method:  http.MethodGet,
-					Path:    "/detail",
-					Handler: adminscrmapp.DetailWeWorkAppHandler(serverCtx),
-				},
-				{
-					// App列表/options
-					Method:  http.MethodGet,
-					Path:    "/options",
-					Handler: adminscrmapp.ListWeWorkAppOptionHandler(serverCtx),
+					// App发送图文信息
+					Method:  http.MethodPost,
+					Path:    "/message/articles",
+					Handler: adminscrmapp.SendWeWorkAppArticleMessageHandler(serverCtx),
 				},
 			}...,
 		),
@@ -1585,10 +1585,16 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			[]rest.Middleware{serverCtx.UserJWTAuth},
 			[]rest.Route{
 				{
-					// 部门列表/page
+					// 同步组织架构/department&user
+					Method:  http.MethodGet,
+					Path:    "/sync",
+					Handler: adminscrmorganization.SyncWeWorkUserHandler(serverCtx),
+				},
+				{
+					// 员工列表/page
 					Method:  http.MethodPost,
-					Path:    "/partment/page",
-					Handler: adminscrmorganization.ListWeWorkDepartMentPageHandler(serverCtx),
+					Path:    "/user/page",
+					Handler: adminscrmorganization.ListWeWorkUserPageHandler(serverCtx),
 				},
 			}...,
 		),
@@ -1600,16 +1606,10 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			[]rest.Middleware{serverCtx.UserJWTAuth},
 			[]rest.Route{
 				{
-					// 同步组织架构/department&user
-					Method:  http.MethodGet,
-					Path:    "/sync",
-					Handler: adminscrmorganization.SyncWeWorkUserHandler(serverCtx),
-				},
-				{
-					// 员工列表/page
+					// 部门列表/page
 					Method:  http.MethodPost,
-					Path:    "/user/page",
-					Handler: adminscrmorganization.ListWeWorkUserPageHandler(serverCtx),
+					Path:    "/partment/page",
+					Handler: adminscrmorganization.ListWeWorkDepartMentPageHandler(serverCtx),
 				},
 			}...,
 		),
@@ -2396,36 +2396,6 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 	)
 
 	server.AddRoutes(
-		[]rest.Route{
-			{
-				// 获取字典项列表
-				Method:  http.MethodGet,
-				Path:    "/items",
-				Handler: mpdictionary.ListDictionaryItemsHandler(serverCtx),
-			},
-			{
-				// 获取字典项
-				Method:  http.MethodGet,
-				Path:    "/items/:type/:key",
-				Handler: mpdictionary.GetDictionaryItemHandler(serverCtx),
-			},
-			{
-				// 获取字典类型
-				Method:  http.MethodGet,
-				Path:    "/types/:type",
-				Handler: mpdictionary.GetDictionaryTypeHandler(serverCtx),
-			},
-			{
-				// 获取字典类型列表
-				Method:  http.MethodGet,
-				Path:    "/types/page-list",
-				Handler: mpdictionary.ListDictionaryPageTypesHandler(serverCtx),
-			},
-		},
-		rest.WithPrefix("/api/v1/mp/dictionary"),
-	)
-
-	server.AddRoutes(
 		rest.WithMiddlewares(
 			[]rest.Middleware{serverCtx.WebCustomerJWTAuth},
 			[]rest.Route{
@@ -2456,6 +2426,36 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			}...,
 		),
 		rest.WithPrefix("/api/v1/web/dictionary"),
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
+			{
+				// 获取字典项列表
+				Method:  http.MethodGet,
+				Path:    "/items",
+				Handler: mpdictionary.ListDictionaryItemsHandler(serverCtx),
+			},
+			{
+				// 获取字典项
+				Method:  http.MethodGet,
+				Path:    "/items/:type/:key",
+				Handler: mpdictionary.GetDictionaryItemHandler(serverCtx),
+			},
+			{
+				// 获取字典类型
+				Method:  http.MethodGet,
+				Path:    "/types/:type",
+				Handler: mpdictionary.GetDictionaryTypeHandler(serverCtx),
+			},
+			{
+				// 获取字典类型列表
+				Method:  http.MethodGet,
+				Path:    "/types/page-list",
+				Handler: mpdictionary.ListDictionaryPageTypesHandler(serverCtx),
+			},
+		},
+		rest.WithPrefix("/api/v1/mp/dictionary"),
 	)
 
 	server.AddRoutes(
