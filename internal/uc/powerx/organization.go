@@ -153,7 +153,7 @@ func (uc *OrganizationUseCase) FindOneUserByLoginOption(ctx context.Context, opt
 }
 
 func (uc *OrganizationUseCase) FindOneUserById(ctx context.Context, id int64) (user *organization.User, err error) {
-	if err = uc.db.WithContext(ctx).Where(id).Preload("Department").Preload("Position").First(&user).Error; err != nil {
+	if err = uc.db.WithContext(ctx).Where("id", id).Preload("Department").Preload("Position").First(&user).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errorx.WithCause(errorx.ErrBadRequest, "用户不存在")
 		}
