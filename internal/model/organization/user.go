@@ -3,6 +3,7 @@ package organization
 import (
 	"PowerX/internal/model"
 	"PowerX/internal/model/powermodel"
+	"PowerX/pkg/securityx"
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
@@ -49,6 +50,9 @@ func (mdl *User) GetTableName(needFull bool) string {
 
 func (mdl *User) HashPassword() (err error) {
 	if mdl.Password != "" {
+		// 先encode一下plain的密码
+		mdl.Password = securityx.EncodePassword(mdl.Password)
+		// hash编码过的密码
 		mdl.Password, err = HashPassword(mdl.Password)
 	}
 	return nil
