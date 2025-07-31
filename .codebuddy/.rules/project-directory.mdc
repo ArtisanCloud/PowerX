@@ -1,48 +1,69 @@
----
-description: 
-globs:
-alwaysApply: true
----
+# PowerX 项目目录结构规范
+
+## 项目架构说明
+基于领域驱动设计(DDD)的企业级Go项目架构，支持多平台、插件化、Pro/Basic版本差异化。
+
+## 一、核心设计原则（总结）
+模块化 + 领域化：按业务域组织 model/用例/仓库，避免“god package”。
+
+分层清晰：Transport（API/Handler）→ 用例（UseCase）→ 领域模型（Domain Model）+ 抽象仓库 → 持久化实现（GORM）
+
+可扩展性：Pro 功能做成 extension/plugin，通过 license+feature flag 动态激活。
+
+多平台适配：不同 client 用 adapter+transformer 做脱敏/字段裁剪/规则变体。
+
+契约与接口复用：gRPC + grpc-gateway + OpenAPI 共享 contract，HTTP 版本可复用用例。
+
+单一代码库：基础/Pro 同源，物理目录表达差异、运行时控制权限，不分叉。
+
+## 二 目录结构
+
+```
 /cmd/app/main.go                         # 启动入口：构造依赖、加载插件、注册各平台服务（Gin + gRPC）
+
 /config/                                 # 配置驱动（environment override）
-  default.yaml
-  prod.yaml
-  pro_features.yaml                      # Pro 特性定义（可映射 license）
+  powerx.yaml
+  powerx_example.yaml
+  powerx_pro.yaml                      # Pro 特性定义（可映射 license）
 
 /internal/
   /contract/                             # 外部契约（OpenAPI / proto schema）
     /v1/
       organization/
         user.yaml
-      trade/
+      e_commerce/product/
         product.yaml
 
-  /proto/
+  /proto/                                # gRPC协议定义
     v1/
       organization/
         user.proto
-      trade/
+      /e_commerce/product/
         product.proto
       common.proto
 
   /domain/                               # 领域模型 + 抽象
     /organization/
       /model/
-        user.go                          # 纯领域 User 实体（ID/Name/Email/Owner 等）
+        /organization/
+          user.go                          # 纯领域 User 实体（ID/Name/Email/Owner 等）
       /repository/
-        user_repository.go               # interface UserRepository { Save, FindByEmail ... }
+        /organization/
+          user_repository.go               # interface UserRepository { Save, FindByEmail ... }
       /service/                          # 领域规则（可选，比如：用户角色决策）
-    /trade/
+    /e_commerce/product/
       /model/
-        product.go                       # 纯领域 Product 实体（ID/Name/Price/Stock 等）
+        /e_commerce/product/
+          product.go                       # 纯领域 Product 实体（ID/Name/Price/Stock 等）
       /repository/
-        product_repository.go
+        /e_commerce/product/
+          product_repository.go
       /service/                          # 价格规则、库存策略等
 
   /app/                                  # 用例层（组织级/交易级复合业务）
     organization/
       user_usecase.go                    # 注册账号、分配归属、查询画像（基础 + Pro 可扩）
-    trade/
+    /e_commerce/product/
       product_usecase.go                 # 上架/下架、库存检查、定价（包含扩展点）
     shared/
       customer_product_usecase.go        # 跨模块组合用例（如某客户购买了哪些 product）
@@ -51,8 +72,14 @@ alwaysApply: true
     /persistence/
       /organization/
         user_repo_gorm.go               # GORM implementation + domain<->record 映射
-      /trade/
+        user_model.go                   # GORM模型定义，用于AutoMigrate
+      /e_commerce/product/
         product_repo_gorm.go
+        product_model.go                # GORM模型定义，用于AutoMigrate
+    /database/
+      connection.go                     # 数据库连接管理
+      migration.go                      # GORM AutoMigrate管理
+      transaction.go                    # 事务管理
     /auth/
       jwt.go                            # JWT 认证/用户 context 注入
       apikey.go                         # OpenAPI key 签名
@@ -88,29 +115,29 @@ alwaysApply: true
       /admin/                          # Admin 路由（全量、不脱敏）
         organization/
           user_handler.go
-        trade/
+        e_commerce/product/
           product_handler.go
       /web/
         organization/
           user_handler.go
-        trade/
+        e_commerce/product/
           product_handler.go
       /miniapp/
         organization/
           user_handler.go
-        trade/
+        e_commerce/product/
           product_handler.go
       /openapi/
         organization/
           user_handler.go
-        trade/
+        e_commerce/product/
           product_handler.go
 
     /grpc/                              # gRPC 服务适配
       v1/
         organization/
           user_service.go
-        trade/
+        /e_commerce/product/
           product_service.go
       interceptors/
         auth_interceptor.go             # token/license/trace 注入
@@ -121,7 +148,7 @@ alwaysApply: true
     organization/
       create_user_request.go
       user_response.go
-    trade/
+    e_commerce/product/
       create_product_request.go
       product_response.go
 
@@ -138,7 +165,7 @@ alwaysApply: true
     mask.go                            # 脱敏函数（邮箱/手机号/姓名等）
     context_key.go                    # ctx key 统一定义
 
-  /integration/                         # 跨模块聚合适配器（例如 miniapp + trade 组合）
+  /integration/                         # 跨模块聚合适配器（例如 miniapp + e_commerce/product/ 组合）
     miniapp_adapter.go
     openapi_adapter.go
     admin_adapter.go
@@ -161,19 +188,10 @@ alwaysApply: true
     chart/
       values.yaml
 
-/frontend/
-  /admin/                              # Admin SPA 构建（可用独立 Dockerfile）
-    Dockerfile
-  /miniapp/
-    Dockerfile                         # 小程序后端构建/静态接口
-  /web/
-    Dockerfile
-
 /ci/
   build-and-push.yaml                 # CI pipeline: 构建各服务镜像、tag、推、trigger deploy
 
 /scripts/
-  migrate.sh                          # DB migration
   deploy_all.sh                       # 一键部署（基础/Pro 切换参数）
 
 /docs/
@@ -182,4 +200,125 @@ alwaysApply: true
   openapi.yaml
   grpc_gateway.md
   pro_feature_matrix.md              # 哪些 endpoint/字段是 Pro
+```
+
+## 三、注册账号场景—各层边界举例（以 organization.user 注册）
+1. 客户端（Admin/Web/MiniApp/OpenAPI/gRPC）
+发送注册请求（JSON / Proto），如：{name, email, password}
+
+2. Adapter（HTTP Handler / gRPC Service）
+绑定请求体到 DTO：CreateUserRequest
+
+验证基础字段（格式、必填）
+
+解析当前 platform（通过路由、header、token）、加载 license 信息（中间件注入）
+
+调用 UseCase：RegisterUserParams{name,email,password}
+
+3. UseCase（internal/app/organization/user_usecase.go）
+检查邮箱是否已存在（调用 UserRepository.FindByEmail）
+
+密码哈希
+
+构造 domain model model.NewUser(...)
+
+依据 license/feature flag 决定是否附加 Pro side-effect（比如创建时触发高级画像插件）
+
+保存：userRepo.Save(...)
+
+触发扩展点：plugin.Registry().OnUserRegistered(ctx, user)（比如 tag sync、欢迎邮件）
+
+4. Repository 接口（定义在 domain）
+go
+复制
+编辑
+type UserRepository interface {
+    Save(ctx context.Context, user *model.User) error
+    FindByEmail(ctx context.Context, email string) (*model.User, error)
+}
+5. GORM 实现（infra/persistence/organization/user_repo_gorm.go）
+domain <-> persistence 映射（带 gorm tag）
+
+GORM模型定义在 user_model.go，通过 AutoMigrate 自动创建/更新表结构
+
+执行唯一索引检查（email）、保存、查询
+
+6. Transformer（adapter/user_transformer.go）
+根据请求来源平台决定输出（Admin 不脱敏、MiniApp 脱敏邮箱/隐藏电话）
+
+结合是否有 special privilege（Pro 试用视图）
+
+7. Handler 组装回应（不同 route 只管把 transformer 输出包成统一 response）
+
+四、Pro 增值融合（在目录与加载上的体现）
+所有 Pro 特性在 internal/extensions/ 里物理隔离，基础逻辑不被污染。
+
+路由注册（/api/http/admin/router.go）按照 license 动态加载：
+
+go
+复制
+编辑
+if license.IsPro(tenantID) {
+    advanced_report_handler.RegisterRoutes(adminGroup)
+    form_builder_handler.RegisterRoutes(adminGroup)
+}
+Feature flag 组合 license 控制（哪些用户能用哪个 Pro capability）。
+
+插件通过 infra/plugin/extension_point.go 绑定，比如 OnUserRegistered 由 extensions/advanced_report 监听做画像补全。
+
+五、脱敏与多平台可配置能力
+adapter/user_transformer.go 里实现按 platform（Admin/Web/MiniApp）和 privilege 组合的字段选择/脱敏。
+
+脱敏函数集中在 shared/mask.go，可扩展成配置驱动：哪个字段在什么平台怎么处理放入 YAML 决定。
+
+低代码/Pro 可通过 extensions/form_builder/definition.go 定义“注册表单在哪个平台显示哪些字段、是否脱敏、是否必须”。
+
+六、数据库迁移策略（GORM AutoMigrate）
+使用GORM的AutoMigrate功能进行数据库表结构管理，避免手动维护SQL迁移文件。
+
+1. **模型定义**：每个领域的GORM模型定义在对应的 `*_model.go` 文件中
+   - `internal/infra/persistence/organization/user_model.go`
+   - `internal/infra/persistence/e_commerce/product/product_model.go`
+
+2. **迁移管理**：`internal/infra/database/migration.go` 统一管理所有模型的AutoMigrate
+   ```go
+   func AutoMigrate(db *gorm.DB) error {
+       return db.AutoMigrate(
+           &organization.UserModel{},
+           &product.ProductModel{},
+           // 其他模型...
+       )
+   }
+   ```
+
+3. **启动时执行**：在 `cmd/app/main.go` 中应用启动时自动执行迁移
+
+4. **索引管理**：复杂索引通过GORM的 `Migrator` 接口在迁移函数中创建
+
+七、License + Feature Flag
+infra/feature/feature_flag.go 提供 Enabled(feature string, tenantID string) bool。
+
+infra/feature/license_checker.go 维持 license cache（basic/pro/到期），供中间件和 use case 查询。
+
+Pro 功能用 if feature.Enabled("advanced_report", tenantID) 包裹，简洁可测。
+
+
+
+
+## 架构原则
+
+1. **分层清晰**：Domain -> Application -> Infrastructure -> API
+2. **依赖倒置**：高层不依赖低层，都依赖抽象
+3. **多平台支持**：Admin/Web/MiniApp/OpenAPI 差异化处理
+4. **插件化扩展**：支持动态加载和扩展点
+5. **版本差异化**：Pro/Basic 特性物理分离
+6. **配置驱动**：环境配置覆盖机制
+
+## 实施建议
+
+1. **分阶段实施**：先核心领域，再扩展平台
+2. **依赖注入**：使用 wire 或 fx 管理依赖
+3. **测试覆盖**：每层都要有对应的测试
+4. **文档同步**：架构文档与代码同步更新
+
 
