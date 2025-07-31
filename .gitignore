@@ -1,0 +1,50 @@
+# 二进制文件
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# 测试二进制文件，使用go test -c构建
+*.test
+
+# 输出的二进制文件
+*.out
+
+# Go工作空间文件
+go.work
+
+# 依赖验证文件
+go.sum
+
+# 编辑器和IDE文件
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 操作系统生成的文件
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# 日志文件
+*.log
+
+# 临时文件
+tmp/
+temp/
+
+# 环境配置文件
+.env
+.env.local
+.env.*.local
+
+# 构建输出
+dist/
+build/
