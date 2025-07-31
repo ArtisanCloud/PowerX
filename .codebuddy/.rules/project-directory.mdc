@@ -1,0 +1,185 @@
+---
+description: 
+globs:
+alwaysApply: true
+---
+/cmd/app/main.go                         # 启动入口：构造依赖、加载插件、注册各平台服务（Gin + gRPC）
+/config/                                 # 配置驱动（environment override）
+  default.yaml
+  prod.yaml
+  pro_features.yaml                      # Pro 特性定义（可映射 license）
+
+/internal/
+  /contract/                             # 外部契约（OpenAPI / proto schema）
+    /v1/
+      organization/
+        user.yaml
+      trade/
+        product.yaml
+
+  /proto/
+    v1/
+      organization/
+        user.proto
+      trade/
+        product.proto
+      common.proto
+
+  /domain/                               # 领域模型 + 抽象
+    /organization/
+      /model/
+        user.go                          # 纯领域 User 实体（ID/Name/Email/Owner 等）
+      /repository/
+        user_repository.go               # interface UserRepository { Save, FindByEmail ... }
+      /service/                          # 领域规则（可选，比如：用户角色决策）
+    /trade/
+      /model/
+        product.go                       # 纯领域 Product 实体（ID/Name/Price/Stock 等）
+      /repository/
+        product_repository.go
+      /service/                          # 价格规则、库存策略等
+
+  /app/                                  # 用例层（组织级/交易级复合业务）
+    organization/
+      user_usecase.go                    # 注册账号、分配归属、查询画像（基础 + Pro 可扩）
+    trade/
+      product_usecase.go                 # 上架/下架、库存检查、定价（包含扩展点）
+    shared/
+      customer_product_usecase.go        # 跨模块组合用例（如某客户购买了哪些 product）
+
+  /infra/                                # 实现层
+    /persistence/
+      /organization/
+        user_repo_gorm.go               # GORM implementation + domain<->record 映射
+      /trade/
+        product_repo_gorm.go
+    /auth/
+      jwt.go                            # JWT 认证/用户 context 注入
+      apikey.go                         # OpenAPI key 签名
+    /feature/                           # Feature flag & license gate
+      feature_flag.go                  # 控制开/关的通用接口
+      license_checker.go              # Pro/basic 判断、cache 许可信息
+    /plugin/                            # 插件系统
+      loader.go                        # 动态扫描、初始化插件
+      registry.go                      # 当前注册插件表
+      extension_point.go              # 定义可插拔点（如 OnUserRegistered）
+      /examples/
+        customer_tag_sync/
+          sync.go                     # Pro/基础都可挂钩的插件示例
+          plugin_config.yaml
+    /external/                         # 第三方依赖封装（邮件、消息、低代码引擎、支付等）
+      email_client.go
+      lowcode_engine_adapter.go
+
+  /extensions/                          # Pro / 低代码 增值模块（物理区分）
+    form_builder/                       # Pro: 动态表单定义与执行
+      definition.go                    # 表单 schema 描述（哪几个字段、脱敏规则、必填、平台展示）
+      executor.go                      # 运行时构造 DTO、校验、调用用例
+      field_types.go
+    advanced_report/                   # Pro: 高级报表
+      report_usecase.go
+      report_handler.go
+    ai_assistant/                      # Pro: 智能推荐/侧写
+      assistant.go
+
+  /api/                                 # 各平台 Adapter 层
+    /http/                              # Gin HTTP 适配
+      router.go                        # 统一组装 + 条件式注入（basic vs pro）
+      /admin/                          # Admin 路由（全量、不脱敏）
+        organization/
+          user_handler.go
+        trade/
+          product_handler.go
+      /web/
+        organization/
+          user_handler.go
+        trade/
+          product_handler.go
+      /miniapp/
+        organization/
+          user_handler.go
+        trade/
+          product_handler.go
+      /openapi/
+        organization/
+          user_handler.go
+        trade/
+          product_handler.go
+
+    /grpc/                              # gRPC 服务适配
+      v1/
+        organization/
+          user_service.go
+        trade/
+          product_service.go
+      interceptors/
+        auth_interceptor.go             # token/license/trace 注入
+        license_interceptor.go          # Pro 控制
+        error_mapper.go                # domain error -> gRPC codes
+
+  /dto/                                 # 传输/展示层 DTO（平台可差异化）
+    organization/
+      create_user_request.go
+      user_response.go
+    trade/
+      create_product_request.go
+      product_response.go
+
+  /adapter/                              # transformer/presenter：脱敏 & 平台视图
+    user_transformer.go                 # 根据 platform + privilege 生成不同 UserResponse
+    product_transformer.go
+
+  /shared/                              # 公共工具
+    response.go                         # 统一 API 返回结构
+    errors.go                           # 分类错误（业务/领域/infra）
+    logger.go                           # 结构化日志、trace id
+    paginator.go                       # 分页辅助
+    validator.go                       # 契约校验
+    mask.go                            # 脱敏函数（邮箱/手机号/姓名等）
+    context_key.go                    # ctx key 统一定义
+
+  /integration/                         # 跨模块聚合适配器（例如 miniapp + trade 组合）
+    miniapp_adapter.go
+    openapi_adapter.go
+    admin_adapter.go
+
+  /middleware/                          # 可复用中间件（HTTP/gRPC 可共用抽象）
+    telemetry.go
+    cors.go
+
+  /tools/
+    gen_openapi.sh
+    gen_proto.sh
+
+/deploy/
+  docker-compose.yaml                  # 多服务本地联调（包含 basic/pro config）
+  k8s/
+    user-deployment.yaml
+    product-deployment.yaml
+    ingress.yaml
+  helm/
+    chart/
+      values.yaml
+
+/frontend/
+  /admin/                              # Admin SPA 构建（可用独立 Dockerfile）
+    Dockerfile
+  /miniapp/
+    Dockerfile                         # 小程序后端构建/静态接口
+  /web/
+    Dockerfile
+
+/ci/
+  build-and-push.yaml                 # CI pipeline: 构建各服务镜像、tag、推、trigger deploy
+
+/scripts/
+  migrate.sh                          # DB migration
+  deploy_all.sh                       # 一键部署（基础/Pro 切换参数）
+
+/docs/
+  architecture.md
+  api.md
+  openapi.yaml
+  grpc_gateway.md
+  pro_feature_matrix.md              # 哪些 endpoint/字段是 Pro
+
