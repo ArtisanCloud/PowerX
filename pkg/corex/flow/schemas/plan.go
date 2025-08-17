@@ -2,7 +2,6 @@ package schemas
 
 import "time"
 
-// 可放到 services/agent/schemas
 type WireRule struct {
 	// 谁连到谁（可留空：表示“上一个任务”→当前任务）
 	FromFlow string `json:"from_flow,omitempty"` // 支持通配符（可后续扩展）
@@ -44,4 +43,21 @@ type PlanStatus struct {
 	StartedAt   *time.Time `json:"started_at,omitempty"`
 	CompletedAt *time.Time `json:"completed_at,omitempty"`
 	// …
+}
+
+// 执行计划（顺序/并行 + 数据引用）
+type ExecutionPlan struct {
+	PlanID string     `json:"plan_id"`
+	Tasks  []PlanTask `json:"tasks"` // 有序列表；并行可用同一 stage
+}
+
+type PlanTask struct {
+	TaskID  string                 `json:"task_id"`
+	FlowID  string                 `json:"flow_id"`
+	AgentID string                 `json:"agent_id"`
+	Params  map[string]interface{} `json:"params,omitempty"`
+	// 引用上游输出作为入参： "{{task.lead_create.output.id}}"
+	ParamRefs map[string]string `json:"param_refs,omitempty"`
+	Stage     int               `json:"stage"` // 相同 stage 可并行
+	DependsOn []string          `json:"depends_on,omitempty"`
 }

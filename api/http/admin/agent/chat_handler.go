@@ -4,11 +4,10 @@ import (
 	"context"
 	"fmt"
 	"github.com/ArtisanCloud/PowerX/api/http/admin/dto"
-	"github.com/ArtisanCloud/PowerX/pkg/corex/flow/schemas"
+	flowschema "github.com/ArtisanCloud/PowerX/pkg/corex/flow/schemas"
 	"github.com/ArtisanCloud/PowerX/services/agent"
-	"github.com/ArtisanCloud/PowerX/services/agent/config"
-	"github.com/ArtisanCloud/PowerX/services/agent/drivers/eino"
 	agentschema "github.com/ArtisanCloud/PowerX/services/agent/schemas"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -17,78 +16,78 @@ import (
 // ChatHandler 基本聊天接口（非流式）
 // 命中任务 → 多任务编排与执行；否则 → 普通对话回复。
 func ChatHandler(c *gin.Context) {
-	//var req dto.ChatRequest
-	//if err := dto.ValidateRequestWithContext(c, &req); err != nil {
-	//	dto.ResponseValidationError(c, err)
-	//	return
-	//}
-	//if req.Config != nil && req.Config.EnableStream {
-	//	dto.ResponseError(c, 400, "该接口不支持流式，请改用 /api/agents/stream", nil)
-	//	return
-	//}
-	//msg := strings.TrimSpace(req.Message)
-	//if msg == "" {
-	//	dto.ResponseError(c, 400, "message 不能为空", nil)
-	//	return
-	//}
-	//
-	//ctx := c.Request.Context() // ✅ 用 context.Context
-	//mgr := agent.GetAgentManager()
-	//
-	//tasks, _ := mgr.DetectTasks(ctx, msg) // ✅ 传 ctx
-	//
-	//if len(tasks) == 0 {
-	//	// —— A. 无意图：兜底走默认聊天 Flow —— //
-	//	out, intent, err := mgr.Dispatch(ctx, msg, flowschema.Context{
-	//		"message":      msg,
-	//		"model_config": req.Config, // 可选：传给兜底 flow
-	//	}, agentschema.ExecutionMeta{
-	//		RequestID: fmt.Sprintf("req_%d", time.Now().UnixNano()),
-	//		Timeout:   30 * time.Second,
-	//		Metadata:  map[string]any{"mode": "chat_fallback"},
-	//	})
-	//	if err != nil {
-	//		dto.ResponseError(c, 500, "聊天失败", err)
-	//		return
-	//	}
-	//
-	//	reply := fmt.Sprintf("（LLM回复模拟）已收到：%s", msg)
-	//	if out != nil && out.Data != nil { // ✅ 用到 out，避免“已声明未使用”
-	//		if v, ok := out.Data["content"].(string); ok && v != "" {
-	//			reply = v
-	//		}
-	//	}
-	//
-	//	dto.ResponseSuccess(c, dto.ChatData{
-	//		Content:   reply,
-	//		Role:      "assistant",
-	//		Metadata:  map[string]any{"framework": "eino", "intent": intent, "mode": "chat_fallback"},
-	//		Timestamp: time.Now().Unix(),
-	//	})
-	//	return
-	//}
-	//
-	//// —— B. 有意图：多任务 → 依赖补全 → 计划 → 执行 —— //
-	//tasks = mgr.ExpandWithPrereqs(tasks)
-	//plan := mgr.BuildPlan(tasks)
-	//
-	//out, err := mgr.ExecutePlan(ctx, plan, agentschema.ExecutionMeta{
-	//	RequestID: fmt.Sprintf("plan_%d", time.Now().UnixNano()),
-	//	Timeout:   60 * time.Second,
-	//	Metadata:  map[string]any{"mode": "task_execute"},
-	//})
-	//if err != nil {
-	//	dto.ResponseError(c, 500, "任务执行失败", err)
-	//	return
-	//}
-	//
-	//dto.ResponseSuccess(c, gin.H{
-	//	"mode":   "task_execute",
-	//	"input":  msg,
-	//	"plan":   plan,
-	//	"result": out,
-	//	"debug":  gin.H{"task_count": len(tasks)},
-	//})
+	var req dto.ChatRequest
+	if err := dto.ValidateRequestWithContext(c, &req); err != nil {
+		dto.ResponseValidationError(c, err)
+		return
+	}
+	if req.Config != nil && req.Config.EnableStream {
+		dto.ResponseError(c, 400, "该接口不支持流式，请改用 /api/agents/stream", nil)
+		return
+	}
+	msg := strings.TrimSpace(req.Message)
+	if msg == "" {
+		dto.ResponseError(c, 400, "message 不能为空", nil)
+		return
+	}
+
+	ctx := c.Request.Context() // ✅ 用 context.Context
+	mgr := agent.GetAgentManager()
+
+	tasks, _ := mgr.DetectTasks(ctx, msg) // ✅ 传 ctx
+
+	if len(tasks) == 0 {
+		// —— A. 无意图：兜底走默认聊天 Flow —— //
+		out, intent, err := mgr.Dispatch(ctx, msg, flowschema.Context{
+			"message":      msg,
+			"model_config": req.Config, // 可选：传给兜底 flow
+		}, agentschema.ExecutionMeta{
+			RequestID: fmt.Sprintf("req_%d", time.Now().UnixNano()),
+			Timeout:   30 * time.Second,
+			Metadata:  map[string]any{"mode": "chat_fallback"},
+		})
+		if err != nil {
+			dto.ResponseError(c, 500, "聊天失败", err)
+			return
+		}
+
+		reply := fmt.Sprintf("（LLM回复模拟）已收到：%s", msg)
+		if out != nil && out.Data != nil { // ✅ 用到 out，避免“已声明未使用”
+			if v, ok := out.Data["content"].(string); ok && v != "" {
+				reply = v
+			}
+		}
+
+		dto.ResponseSuccess(c, dto.ChatData{
+			Content:   reply,
+			Role:      "assistant",
+			Metadata:  map[string]any{"framework": "eino", "intent": intent, "mode": "chat_fallback"},
+			Timestamp: time.Now().Unix(),
+		})
+		return
+	}
+
+	// —— B. 有意图：多任务 → 依赖补全 → 计划 → 执行 —— //
+	tasks = mgr.ExpandWithPreReqs(tasks)
+	plan := mgr.BuildPlan(tasks)
+
+	out, err := mgr.ExecutePlan(ctx, plan, agentschema.ExecutionMeta{
+		RequestID: fmt.Sprintf("plan_%d", time.Now().UnixNano()),
+		Timeout:   60 * time.Second,
+		Metadata:  map[string]any{"mode": "task_execute"},
+	})
+	if err != nil {
+		dto.ResponseError(c, 500, "任务执行失败", err)
+		return
+	}
+
+	dto.ResponseSuccess(c, gin.H{
+		"mode":   "task_execute",
+		"input":  msg,
+		"plan":   plan,
+		"result": out,
+		"debug":  gin.H{"task_count": len(tasks)},
+	})
 }
 
 // StreamChatHandler 流式聊天接口（SSE）
@@ -132,18 +131,14 @@ func StreamChatHandler(c *gin.Context) {
 		flowID = "default_chat_flow"
 	}
 
-	// 3) 创建 agent（后续你可以从 Manager 中拿已注册的 agent 实例）
-	agentCfg := &config.AgentConfig{
-		// TODO: 从 req.Config 映射模型/温度/endpoint 等（按你项目约定）
-	}
-	ag, err := eino.NewAgent(agentCfg)
+	ag, _, err := mgr.GetDefaultRoute()
 	if err != nil {
 		dto.ResponseError(c, 500, "创建 Agent 失败", err)
 		return
 	}
 
 	// 4) 组装 flow 参数/元信息
-	params := schemas.Context{
+	params := flowschema.Context{
 		"message": req.Message,
 		"config":  req.Config,
 		"context": req.Context,

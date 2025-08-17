@@ -5,6 +5,8 @@ import (
 	"time"
 )
 
+// services/agent/schemas/execution.go
+
 // ExecutionMeta 执行元数据，包含执行上下文信息
 type ExecutionMeta struct {
 	RequestID   string                 `json:"request_id" description:"请求ID"`

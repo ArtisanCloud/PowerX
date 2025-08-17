@@ -76,20 +76,3 @@ type DetectedTask struct {
 	DependsOn []string               `json:"depends_on,omitempty"` // 依赖的 task_id
 	TaskID    string                 `json:"task_id"`              // 生成的唯一ID
 }
-
-// 执行计划（顺序/并行 + 数据引用）
-type ExecutionPlan struct {
-	PlanID string     `json:"plan_id"`
-	Tasks  []PlanTask `json:"tasks"` // 有序列表；并行可用同一 stage
-}
-
-type PlanTask struct {
-	TaskID  string                 `json:"task_id"`
-	FlowID  string                 `json:"flow_id"`
-	AgentID string                 `json:"agent_id"`
-	Params  map[string]interface{} `json:"params,omitempty"`
-	// 引用上游输出作为入参： "{{task.lead_create.output.id}}"
-	ParamRefs map[string]string `json:"param_refs,omitempty"`
-	Stage     int               `json:"stage"` // 相同 stage 可并行
-	DependsOn []string          `json:"depends_on,omitempty"`
-}
