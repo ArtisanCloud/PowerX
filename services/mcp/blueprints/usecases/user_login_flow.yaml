@@ -1,0 +1,642 @@
+id: "user_login_flow"
+name: "用户登录流程"
+description: "完整的用户登录业务流程，包含身份验证、密码验证、会话管理和安全审计"
+version: "1.0.0"
+variables:
+  project_name: "{{.project_name}}"
+  domain: "auth"
+  entity: "User"
+  table_name: "users"
+  session_table: "user_sessions"
+  login_attempts_table: "login_attempts"
+  jwt_secret: "{{.jwt_secret}}"
+  session_duration: 86400
+  max_login_attempts: 5
+  lockout_duration: 900
+  audit_enabled: true
+
+steps:
+  - id: "rate_limit_check"
+    name: "登录频率限制"
+    type: "validation"
+    action: "check_rate_limit"
+    description: "检查登录请求频率，防止暴力破解攻击"
+    parameters:
+      max_attempts: "{{.max_login_attempts}}"
+      time_window: 300
+      identifier_fields: ["ip_address", "email"]
+      lockout_duration: "{{.lockout_duration}}"
+    timeout: 5
+    retry: 1
+    next_steps: ["input_validation"]
+
+  - id: "input_validation"
+    name: "输入数据验证"
+    type: "validation"
+    action: "validate_input"
+    description: "验证登录请求数据的格式和完整性"
+    parameters:
+      schema:
+        email:
+          type: "string"
+          format: "email"
+          required: true
+        password:
+          type: "string"
+          min_length: 1
+          required: true
+        remember_me:
+          type: "boolean"
+          required: false
+          default: false
+        device_info:
+          type: "object"
+          required: false
+          properties:
+            user_agent: {"type": "string"}
+            ip_address: {"type": "string"}
+            device_id: {"type": "string"}
+    conditions:
+      - field: "rate_limit_check.status"
+        operator: "eq"
+        value: "passed"
+    timeout: 5
+    retry: 1
+    next_steps: ["user_lookup"]
+
+  - id: "user_lookup"
+    name: "用户查找"
+    type: "query"
+    action: "find_user"
+    description: "根据邮箱查找用户记录"
+    parameters:
+      lookup_field: "email"
+      table: "{{.table_name}}"
+      include_fields: ["id", "email", "password", "status", "failed_login_attempts", "locked_until"]
+    conditions:
+      - field: "input_validation.status"
+        operator: "eq"
+        value: "passed"
+    timeout: 10
+    retry: 2
+    next_steps: ["account_status_check"]
+
+  - id: "account_status_check"
+    name: "账户状态检查"
+    type: "validation"
+    action: "check_account_status"
+    description: "检查用户账户状态和锁定情况"
+    parameters:
+      status_field: "status"
+      active_status: 1
+      locked_until_field: "locked_until"
+      failed_attempts_field: "failed_login_attempts"
+      max_attempts: "{{.max_login_attempts}}"
+    conditions:
+      - field: "user_lookup.status"
+        operator: "eq"
+        value: "found"
+    timeout: 5
+    retry: 1
+    next_steps: ["password_verification"]
+
+  - id: "password_verification"
+    name: "密码验证"
+    type: "security"
+    action: "verify_password"
+    description: "验证用户输入的密码是否正确"
+    parameters:
+      algorithm: "bcrypt"
+      password_field: "password"
+      hash_from_step: "user_lookup"
+    conditions:
+      - field: "account_status_check.status"
+        operator: "eq"
+        value: "active"
+    timeout: 10
+    retry: 1
+    next_steps: ["login_attempt_handler"]
+
+  - id: "login_attempt_handler"
+    name: "登录尝试处理"
+    type: "conditional"
+    action: "handle_login_attempt"
+    description: "根据密码验证结果处理登录尝试"
+    parameters:
+      success_actions:
+        - "reset_failed_attempts"
+        - "update_last_login"
+      failure_actions:
+        - "increment_failed_attempts"
+        - "check_lockout_threshold"
+        - "record_failed_attempt"
+      table: "{{.table_name}}"
+      attempts_table: "{{.login_attempts_table}}"
+    conditions:
+      - field: "password_verification.status"
+        operator: "in"
+        value: ["success", "failed"]
+    timeout: 15
+    retry: 1
+    next_steps: ["session_generator"]
+
+  - id: "session_generator"
+    name: "会话生成"
+    type: "security"
+    action: "generate_session"
+    description: "为成功登录的用户生成会话令牌"
+    parameters:
+      token_type: "jwt"
+      secret: "{{.jwt_secret}}"
+      duration: "{{.session_duration}}"
+      claims:
+        - "user_id"
+        - "email"
+        - "role"
+        - "permissions"
+      session_table: "{{.session_table}}"
+      remember_me_duration: 2592000
+    conditions:
+      - field: "login_attempt_handler.login_status"
+        operator: "eq"
+        value: "success"
+    timeout: 10
+    retry: 1
+    next_steps: ["domain_model_generator"]
+
+  - id: "domain_model_generator"
+    name: "生成领域模型"
+    type: "generate"
+    action: "generate_domain_model"
+    description: "生成认证相关的领域模型"
+    parameters:
+      domain: "{{.domain}}"
+      entities:
+        - name: "User"
+          output_path: "domain/{{.domain}}/model/user.go"
+        - name: "Session"
+          output_path: "domain/{{.domain}}/model/session.go"
+        - name: "LoginAttempt"
+          output_path: "domain/{{.domain}}/model/login_attempt.go"
+    conditions:
+      - field: "session_generator.status"
+        operator: "eq"
+        value: "completed"
+    timeout: 30
+    retry: 1
+    next_steps: ["gorm_model_generator"]
+
+  - id: "gorm_model_generator"
+    name: "生成GORM模型"
+    type: "generate"
+    action: "generate_gorm_model"
+    description: "生成认证相关的GORM数据库模型"
+    parameters:
+      domain: "{{.domain}}"
+      models:
+        - entity: "User"
+          table: "{{.table_name}}"
+          output_path: "internal/infra/persistence/{{.domain}}/model/user_model.go"
+          fields:
+            - name: "id"
+              type: "uint"
+              gorm_tag: "primaryKey;autoIncrement"
+            - name: "email"
+              type: "string"
+              gorm_tag: "uniqueIndex;not null;size:255"
+            - name: "password"
+              type: "string"
+              gorm_tag: "not null;size:255"
+            - name: "status"
+              type: "int"
+              gorm_tag: "default:1"
+            - name: "failed_login_attempts"
+              type: "int"
+              gorm_tag: "default:0"
+            - name: "locked_until"
+              type: "*time.Time"
+              gorm_tag: "null"
+            - name: "last_login_at"
+              type: "*time.Time"
+              gorm_tag: "null"
+        - entity: "Session"
+          table: "{{.session_table}}"
+          output_path: "internal/infra/persistence/{{.domain}}/model/session_model.go"
+        - entity: "LoginAttempt"
+          table: "{{.login_attempts_table}}"
+          output_path: "internal/infra/persistence/{{.domain}}/model/login_attempt_model.go"
+    conditions:
+      - field: "domain_model_generator.status"
+        operator: "eq"
+        value: "completed"
+    timeout: 30
+    retry: 1
+    next_steps: ["repository_interface_generator"]
+
+  - id: "repository_interface_generator"
+    name: "生成仓库接口"
+    type: "generate"
+    action: "generate_repository_interface"
+    description: "生成认证相关的仓库接口"
+    parameters:
+      domain: "{{.domain}}"
+      repositories:
+        - entity: "User"
+          output_path: "domain/{{.domain}}/repository/user_repository.go"
+          methods:
+            - "FindByEmail(email string) (*User, error)"
+            - "UpdateLoginAttempts(userID uint, attempts int) error"
+            - "UpdateLastLogin(userID uint) error"
+            - "LockAccount(userID uint, until time.Time) error"
+        - entity: "Session"
+          output_path: "domain/{{.domain}}/repository/session_repository.go"
+        - entity: "LoginAttempt"
+          output_path: "domain/{{.domain}}/repository/login_attempt_repository.go"
+    conditions:
+      - field: "gorm_model_generator.status"
+        operator: "eq"
+        value: "completed"
+    timeout: 25
+    retry: 1
+    next_steps: ["repository_impl_generator"]
+
+  - id: "repository_impl_generator"
+    name: "生成仓库实现"
+    type: "generate"
+    action: "generate_repository_impl"
+    description: "生成认证相关的仓库GORM实现"
+    parameters:
+      domain: "{{.domain}}"
+      repositories:
+        - entity: "User"
+          output_path: "internal/infra/persistence/{{.domain}}/repository/user_repo_gorm.go"
+        - entity: "Session"
+          output_path: "internal/infra/persistence/{{.domain}}/repository/session_repo_gorm.go"
+        - entity: "LoginAttempt"
+          output_path: "internal/infra/persistence/{{.domain}}/repository/login_attempt_repo_gorm.go"
+    conditions:
+      - field: "repository_interface_generator.status"
+        operator: "eq"
+        value: "completed"
+    timeout: 35
+    retry: 1
+    next_steps: ["migration_generator"]
+
+  - id: "migration_generator"
+    name: "生成数据库迁移"
+    type: "generate"
+    action: "generate_migration"
+    description: "生成认证相关的数据库迁移文件"
+    parameters:
+      tables: ["{{.table_name}}", "{{.session_table}}", "{{.login_attempts_table}}"]
+      migration_name: "create_auth_tables"
+      output_path: "internal/infra/database/migration.go"
+      fields_from_step: "gorm_model_generator"
+    conditions:
+      - field: "repository_impl_generator.status"
+        operator: "eq"
+        value: "completed"
+    timeout: 20
+    retry: 1
+    next_steps: ["usecase_generator"]
+
+  - id: "usecase_generator"
+    name: "生成业务用例"
+    type: "generate"
+    action: "generate_usecase"
+    description: "生成用户登录业务逻辑层代码"
+    parameters:
+      domain: "{{.domain}}"
+      entity: "Auth"
+      output_path: "internal/app/{{.domain}}/auth.go"
+      repository_injection: true
+      methods:
+        - name: "Login"
+          params: ["ctx context.Context", "req *LoginRequest"]
+          return_type: "*LoginResponse, error"
+          description: "用户登录业务逻辑"
+        - name: "Logout"
+          params: ["ctx context.Context", "token string"]
+          return_type: "error"
+          description: "用户登出业务逻辑"
+        - name: "RefreshToken"
+          params: ["ctx context.Context", "refreshToken string"]
+          return_type: "*TokenResponse, error"
+          description: "刷新访问令牌"
+        - name: "ValidateSession"
+          params: ["ctx context.Context", "token string"]
+          return_type: "*User, error"
+          description: "验证会话有效性"
+        - name: "CheckLoginAttempts"
+          params: ["ctx context.Context", "email string"]
+          return_type: "bool, error"
+          description: "检查登录尝试次数"
+    conditions:
+      - field: "migration_generator.status"
+        operator: "eq"
+        value: "completed"
+    timeout: 50
+    retry: 1
+    next_steps: ["dto_generator"]
+
+  - id: "dto_generator"
+    name: "生成DTO"
+    type: "generate"
+    action: "generate_dto"
+    description: "生成认证相关的数据传输对象"
+    parameters:
+      domain: "{{.domain}}"
+      entity: "Auth"
+      output_path: "api/dto/{{.domain}}/auth_dto.go"
+      dtos:
+        - name: "LoginRequest"
+          fields: ["email", "password", "remember_me", "device_info"]
+        - name: "LoginResponse"
+          fields: ["access_token", "refresh_token", "expires_in", "user_info"]
+        - name: "LogoutRequest"
+          fields: ["token"]
+        - name: "RefreshTokenRequest"
+          fields: ["refresh_token"]
+        - name: "TokenResponse"
+          fields: ["access_token", "expires_in"]
+        - name: "UserInfo"
+          fields: ["id", "email", "name", "role"]
+    conditions:
+      - field: "usecase_generator.status"
+        operator: "eq"
+        value: "completed"
+    timeout: 25
+    retry: 1
+    next_steps: ["adapter_generator"]
+
+  - id: "adapter_generator"
+    name: "生成适配器"
+    type: "generate"
+    action: "generate_adapter"
+    description: "生成认证领域模型与DTO之间的适配器"
+    parameters:
+      domain: "{{.domain}}"
+      entity: "Auth"
+      output_path: "api/adapter/{{.domain}}/auth_adapter.go"
+      adapters:
+        - "LoginRequestToUser"
+        - "UserToLoginResponse"
+        - "SessionToTokenResponse"
+    conditions:
+      - field: "dto_generator.status"
+        operator: "eq"
+        value: "completed"
+    timeout: 20
+    retry: 1
+    next_steps: ["api_generator"]
+
+  - id: "api_generator"
+    name: "生成API路由"
+    type: "generate"
+    action: "generate_api"
+    description: "生成用户登录REST API路由"
+    parameters:
+      domain: "{{.domain}}"
+      output_path: "api/http/router.go"
+      endpoints:
+        - path: "/api/v1/auth/login"
+          method: "POST"
+          handler: "LoginHandler"
+          middleware: ["rate_limit", "cors"]
+          request_dto: "LoginRequest"
+          response_dto: "LoginResponse"
+        - path: "/api/v1/auth/logout"
+          method: "POST"
+          handler: "LogoutHandler"
+          middleware: ["auth_required"]
+          request_dto: "LogoutRequest"
+        - path: "/api/v1/auth/refresh"
+          method: "POST"
+          handler: "RefreshTokenHandler"
+          middleware: ["rate_limit"]
+          request_dto: "RefreshTokenRequest"
+          response_dto: "TokenResponse"
+        - path: "/api/v1/auth/validate"
+          method: "GET"
+          handler: "ValidateSessionHandler"
+          middleware: ["auth_required"]
+          response_dto: "UserInfo"
+    conditions:
+      - field: "adapter_generator.status"
+        operator: "eq"
+        value: "completed"
+    timeout: 30
+    retry: 1
+    next_steps: ["handler_generator"]
+
+  - id: "handler_generator"
+    name: "生成HTTP处理器"
+    type: "generate"
+    action: "generate_handler"
+    description: "生成认证相关的HTTP请求处理器"
+    parameters:
+      domain: "{{.domain}}"
+      platform: "admin"
+      output_path: "api/http/admin/{{.domain}}/auth_handler.go"
+      handlers:
+        - name: "LoginHandler"
+          method: "POST"
+          path: "/login"
+        - name: "LogoutHandler"
+          method: "POST"
+          path: "/logout"
+        - name: "RefreshTokenHandler"
+          method: "POST"
+          path: "/refresh"
+        - name: "ValidateSessionHandler"
+          method: "GET"
+          path: "/validate"
+    conditions:
+      - field: "api_generator.status"
+        operator: "eq"
+        value: "completed"
+    timeout: 35
+    retry: 1
+    next_steps: ["grpc_generator"]
+
+  - id: "grpc_generator"
+    name: "生成gRPC服务"
+    type: "generate"
+    action: "generate_grpc_service"
+    description: "生成认证相关的gRPC服务定义"
+    parameters:
+      domain: "{{.domain}}"
+      output_path: "api/grpc/v1/{{.domain}}/auth_service.go"
+      services:
+        - name: "AuthService"
+          methods:
+            - name: "Login"
+              request: "LoginRequest"
+              response: "LoginResponse"
+            - name: "Logout"
+              request: "LogoutRequest"
+              response: "LogoutResponse"
+            - name: "RefreshToken"
+              request: "RefreshTokenRequest"
+              response: "TokenResponse"
+            - name: "ValidateSession"
+              request: "ValidateSessionRequest"
+              response: "UserInfo"
+    conditions:
+      - field: "handler_generator.status"
+        operator: "eq"
+        value: "completed"
+    timeout: 30
+    retry: 1
+    next_steps: ["audit_logger"]
+
+  - id: "audit_logger"
+    name: "审计日志"
+    type: "logging"
+    action: "setup_audit_log"
+    description: "设置用户登录操作的审计日志记录"
+    parameters:
+      enabled: "{{.audit_enabled}}"
+      events:
+        - event: "user_login_attempt"
+          level: "info"
+          fields: ["email", "ip_address", "user_agent", "device_id"]
+        - event: "user_login_success"
+          level: "info"
+          fields: ["user_id", "email", "ip_address", "session_id"]
+        - event: "user_login_failed"
+          level: "warn"
+          fields: ["email", "failure_reason", "ip_address", "attempt_count"]
+        - event: "user_logout"
+          level: "info"
+          fields: ["user_id", "session_id", "ip_address"]
+        - event: "account_locked"
+          level: "warn"
+          fields: ["user_id", "email", "lock_duration", "ip_address"]
+        - event: "suspicious_login_activity"
+          level: "error"
+          fields: ["email", "ip_address", "pattern_type"]
+    conditions:
+      - field: "grpc_generator.status"
+        operator: "eq"
+        value: "completed"
+    timeout: 15
+    retry: 1
+    next_steps: ["test_generator"]
+
+  - id: "test_generator"
+    name: "生成测试代码"
+    type: "generate"
+    action: "generate_tests"
+    description: "生成认证相关的单元测试和集成测试代码"
+    parameters:
+      domain: "{{.domain}}"
+      entity: "Auth"
+      output_path: "test/{{.domain}}/auth_test.go"
+      test_types:
+        - type: "unit"
+          target: "usecase"
+          coverage: ["Login", "Logout", "RefreshToken", "ValidateSession", "CheckLoginAttempts"]
+        - type: "integration"
+          target: "api"
+          coverage: ["LoginHandler", "LogoutHandler", "RefreshTokenHandler", "ValidateSessionHandler"]
+        - type: "repository"
+          target: "repository"
+          coverage: ["FindByEmail", "UpdateLoginAttempts", "CreateSession", "DeleteSession"]
+        - type: "security"
+          target: "auth"
+          coverage: ["PasswordVerification", "TokenGeneration", "RateLimit", "AccountLocking"]
+    conditions:
+      - field: "audit_logger.status"
+        operator: "eq"
+        value: "completed"
+    timeout: 60
+    retry: 1
+    next_steps: ["mock_generator"]
+
+  - id: "mock_generator"
+    name: "生成Mock对象"
+    type: "generate"
+    action: "generate_mocks"
+    description: "生成认证相关的测试用Mock对象"
+    parameters:
+      domain: "{{.domain}}"
+      entity: "Auth"
+      output_path: "test/mock/{{.domain}}/auth_mock.go"
+      interfaces:
+        - "UserRepository"
+        - "SessionRepository"
+        - "LoginAttemptRepository"
+        - "AuthUseCase"
+        - "TokenService"
+        - "PasswordService"
+    conditions:
+      - field: "test_generator.status"
+        operator: "eq"
+        value: "completed"
+    timeout: 30
+    retry: 1
+
+# 流程配置
+flow_config:
+  max_parallel_steps: 3
+  timeout_strategy: "fail_fast"
+  retry_strategy: "exponential_backoff"
+  rollback_enabled: true
+  security_checks_enabled: true
+  
+# 输出配置
+output_config:
+  domain_structure:
+    domain_models:
+      - "domain/auth/model/user.go"
+      - "domain/auth/model/session.go"
+      - "domain/auth/model/login_attempt.go"
+    repository_interfaces:
+      - "domain/auth/repository/user_repository.go"
+      - "domain/auth/repository/session_repository.go"
+      - "domain/auth/repository/login_attempt_repository.go"
+  infra_structure:
+    gorm_models:
+      - "internal/infra/persistence/auth/model/user_model.go"
+      - "internal/infra/persistence/auth/model/session_model.go"
+      - "internal/infra/persistence/auth/model/login_attempt_model.go"
+    repository_impls:
+      - "internal/infra/persistence/auth/repository/user_repo_gorm.go"
+      - "internal/infra/persistence/auth/repository/session_repo_gorm.go"
+      - "internal/infra/persistence/auth/repository/login_attempt_repo_gorm.go"
+    migration: "internal/infra/database/migration.go"
+  app_structure:
+    usecase: "internal/app/auth/auth.go"
+  api_structure:
+    dto: "api/dto/auth/auth_dto.go"
+    adapter: "api/adapter/auth/auth_adapter.go"
+    router: "api/http/router.go"
+    handler: "api/http/admin/auth/auth_handler.go"
+    grpc_service: "api/grpc/v1/auth/auth_service.go"
+  test_structure:
+    test: "test/auth/auth_test.go"
+    mock: "test/mock/auth/auth_mock.go"
+
+# 安全配置
+security_config:
+  password_policy:
+    min_length: 8
+    require_uppercase: true
+    require_lowercase: true
+    require_numbers: true
+    require_special_chars: false
+  session_policy:
+    max_concurrent_sessions: 5
+    idle_timeout: 1800
+    absolute_timeout: 86400
+  rate_limiting:
+    login_attempts_per_minute: 5
+    login_attempts_per_hour: 20
+    global_rate_limit: 1000
+  audit_policy:
+    log_all_attempts: true
+    log_successful_logins: true
+    log_failed_logins: true
+    log_account_lockouts: true
+    retention_days: 90

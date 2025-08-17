@@ -1,0 +1,64 @@
+{{/*
+领域模型模板
+用于生成领域层的实体模型
+*/}}
+package model
+
+import (
+	"time"
+	"github.com/google/uuid"
+)
+
+// {{ index .Vars "EntityName" }} {{ index .Vars "Description" }}
+type {{ index .Vars "EntityName" }} struct {
+	// 基础字段
+	ID        string    `json:"id" gorm:"primaryKey;type:varchar(36);comment:主键ID"`
+	CreatedAt time.Time `json:"created_at" gorm:"comment:创建时间"`
+	UpdatedAt time.Time `json:"updated_at" gorm:"comment:更新时间"`
+	DeletedAt *time.Time `json:"deleted_at,omitempty" gorm:"index;comment:删除时间"`
+
+{{ $fields := index .Params "fields" }}
+{{range $f := $fields}}	// {{ index $f "Comment" }}
+	{{ index $f "Name" }} {{ index $f "Type" }} `json:"{{ index $f "JsonTag" }}"{{if index $f "GormTag"}} gorm:"{{ index $f "GormTag" }}"{{end}}{{if index $f "ValidateTag"}} validate:"{{ index $f "ValidateTag" }}"{{end}}`
+{{end}}
+}
+
+// TableName 返回表名
+func ({{ index .Vars "EntityName" }}) TableName() string {
+	return "{{ index .Vars "TableName" }}"
+}
+
+// BeforeCreate 创建前钩子
+func (m *{{ index .Vars "EntityName" }}) BeforeCreate() error {
+	if m.ID == "" {
+		m.ID = uuid.New().String()
+	}
+	m.CreatedAt = time.Now()
+	m.UpdatedAt = time.Now()
+	return nil
+}
+
+// BeforeUpdate 更新前钩子
+func (m *{{ index .Vars "EntityName" }}) BeforeUpdate() error {
+	m.UpdatedAt = time.Now()
+	return nil
+}
+
+{{if index .Params "HasValidation"}}
+// Validate 验证模型数据
+func (m *{{ index .Vars "EntityName" }}) Validate() error {
+	// TODO: 实现业务验证逻辑
+	return nil
+}
+{{end}}
+
+{{if index .Params "HasBusinessMethods"}}
+{{ $methods := index .Params "BusinessMethods" }}
+{{range $m := $methods}}
+// {{ index $m "Name" }} {{ index $m "Description" }}
+func (m *{{ index $.Vars "EntityName" }}) {{ index $m "Name" }}({{ index $m "Params" }}) {{ index $m "ReturnType" }} {
+	// TODO: 实现业务方法
+	{{ index $m "Implementation" }}
+}
+{{end}}
+{{end}}

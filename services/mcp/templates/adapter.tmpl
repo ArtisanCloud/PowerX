@@ -1,0 +1,398 @@
+{{/*
+适配器模板
+用于生成适配器层代码，处理外部系统集成
+*/}}
+package adapter
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"time"
+	"{{.ModulePath}}/domain/model/{{.PackageName}}"
+	"{{.ModulePath}}/app/dto/{{.PackageName}}"
+)
+
+// {{.EntityName}}Adapter {{.Description}}适配器接口
+type {{.EntityName}}Adapter interface {
+{{if .HasExternalAPI}}	// 外部API集成
+	SyncFromExternal(ctx context.Context, externalID string) (*{{.PackageName}}.{{.EntityName}}, error)
+	SyncToExternal(ctx context.Context, entity *{{.PackageName}}.{{.EntityName}}) error
+	BatchSyncFromExternal(ctx context.Context, externalIDs []string) ([]*{{.PackageName}}.{{.EntityName}}, error)
+{{end}}
+
+{{if .HasMessageQueue}}	// 消息队列集成
+	PublishMessage(ctx context.Context, event string, data interface{}) error
+	ConsumeMessage(ctx context.Context, message []byte) error
+{{end}}
+
+{{if .HasFileStorage}}	// 文件存储集成
+	UploadFile(ctx context.Context, fileData []byte, fileName string) (string, error)
+	DownloadFile(ctx context.Context, fileURL string) ([]byte, error)
+	DeleteFile(ctx context.Context, fileURL string) error
+{{end}}
+
+{{if .HasNotification}}	// 通知集成
+	SendNotification(ctx context.Context, notification *NotificationRequest) error
+	SendBatchNotifications(ctx context.Context, notifications []*NotificationRequest) error
+{{end}}
+
+{{if .HasCustomMethods}}	// 自定义适配器方法
+{{range .CustomMethods}}	{{.Name}}(ctx context.Context{{if .Params}}, {{.Params}}{{end}}) {{.ReturnType}}
+{{end}}
+{{end}}
+}
+
+// {{.EntityName}}AdapterImpl {{.Description}}适配器实现
+type {{.EntityName}}AdapterImpl struct {
+{{if .HasExternalAPI}}	externalAPIClient HTTPClientInterface
+	externalAPIBaseURL string
+	externalAPIKey     string
+{{end}}
+{{if .HasMessageQueue}}	messageQueueClient MessageQueueInterface
+{{end}}
+{{if .HasFileStorage}}	fileStorageClient  FileStorageInterface
+{{end}}
+{{if .HasNotification}}	notificationClient NotificationInterface
+{{end}}
+{{if .HasLogger}}	logger             LoggerInterface
+{{end}}
+{{if .HasMetrics}}	metrics            MetricsInterface
+{{end}}
+}
+
+// New{{.EntityName}}Adapter 创建{{.Description}}适配器实例
+func New{{.EntityName}}Adapter(
+{{if .HasExternalAPI}}	externalAPIClient HTTPClientInterface,
+	externalAPIBaseURL string,
+	externalAPIKey string,
+{{end}}
+{{if .HasMessageQueue}}	messageQueueClient MessageQueueInterface,
+{{end}}
+{{if .HasFileStorage}}	fileStorageClient FileStorageInterface,
+{{end}}
+{{if .HasNotification}}	notificationClient NotificationInterface,
+{{end}}
+{{if .HasLogger}}	logger LoggerInterface,
+{{end}}
+{{if .HasMetrics}}	metrics MetricsInterface,
+{{end}}
+) {{.EntityName}}Adapter {
+	return &{{.EntityName}}AdapterImpl{
+{{if .HasExternalAPI}}		externalAPIClient:  externalAPIClient,
+		externalAPIBaseURL: externalAPIBaseURL,
+		externalAPIKey:     externalAPIKey,
+{{end}}
+{{if .HasMessageQueue}}		messageQueueClient: messageQueueClient,
+{{end}}
+{{if .HasFileStorage}}		fileStorageClient:  fileStorageClient,
+{{end}}
+{{if .HasNotification}}		notificationClient: notificationClient,
+{{end}}
+{{if .HasLogger}}		logger:             logger,
+{{end}}
+{{if .HasMetrics}}		metrics:            metrics,
+{{end}}	}
+}
+
+{{if .HasExternalAPI}}
+// SyncFromExternal 从外部系统同步{{.Description}}
+func (a *{{.EntityName}}AdapterImpl) SyncFromExternal(ctx context.Context, externalID string) (*{{.PackageName}}.{{.EntityName}}, error) {
+	if externalID == "" {
+		return nil, fmt.Errorf("外部ID不能为空")
+	}
+
+	// 构建请求URL
+	url := fmt.Sprintf("%s/{{.ExternalAPIPath}}/%s", a.externalAPIBaseURL, externalID)
+
+	// 创建HTTP请求
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("创建HTTP请求失败: %w", err)
+	}
+
+	// 设置请求头
+	req.Header.Set("Authorization", "Bearer "+a.externalAPIKey)
+	req.Header.Set("Content-Type", "application/json")
+
+	// 发送请求
+	resp, err := a.externalAPIClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("发送HTTP请求失败: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// 检查响应状态
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("外部API返回错误状态: %d", resp.StatusCode)
+	}
+
+	// 解析响应
+	var externalData {{.ExternalAPIResponseType}}
+	if err := json.NewDecoder(resp.Body).Decode(&externalData); err != nil {
+		return nil, fmt.Errorf("解析外部API响应失败: %w", err)
+	}
+
+	// 转换为领域模型
+	entity := a.convertFromExternalData(&externalData)
+
+{{if .HasLogger}}	a.logger.InfoF(ctx, "成功从外部系统同步{{.Description}}: %s", externalID)
+{{end}}
+
+{{if .HasMetrics}}	a.metrics.IncrementCounter("{{.PackageName}}_{{.EntityName}}_sync_from_external_success")
+{{end}}
+
+	return entity, nil
+}
+
+// SyncToExternal 同步{{.Description}}到外部系统
+func (a *{{.EntityName}}AdapterImpl) SyncToExternal(ctx context.Context, entity *{{.PackageName}}.{{.EntityName}}) error {
+	if entity == nil {
+		return fmt.Errorf("实体不能为空")
+	}
+
+	// 转换为外部数据格式
+	externalData := a.convertToExternalData(entity)
+
+	// 序列化数据
+	data, err := json.Marshal(externalData)
+	if err != nil {
+		return fmt.Errorf("序列化数据失败: %w", err)
+	}
+
+	// 构建请求URL
+	url := fmt.Sprintf("%s/{{.ExternalAPIPath}}", a.externalAPIBaseURL)
+	method := "POST"
+	if entity.ExternalID != "" {
+		url = fmt.Sprintf("%s/%s", url, entity.ExternalID)
+		method = "PUT"
+	}
+
+	// 创建HTTP请求
+	req, err := http.NewRequestWithContext(ctx, method, url, bytes.NewBuffer(data))
+	if err != nil {
+		return fmt.Errorf("创建HTTP请求失败: %w", err)
+	}
+
+	// 设置请求头
+	req.Header.Set("Authorization", "Bearer "+a.externalAPIKey)
+	req.Header.Set("Content-Type", "application/json")
+
+	// 发送请求
+	resp, err := a.externalAPIClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("发送HTTP请求失败: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// 检查响应状态
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return fmt.Errorf("外部API返回错误状态: %d", resp.StatusCode)
+	}
+
+{{if .HasLogger}}	a.logger.InfoF(ctx, "成功同步{{.Description}}到外部系统: %s", entity.ID)
+{{end}}
+
+{{if .HasMetrics}}	a.metrics.IncrementCounter("{{.PackageName}}_{{.EntityName}}_sync_to_external_success")
+{{end}}
+
+	return nil
+}
+
+// convertFromExternalData 从外部数据转换为领域模型
+func (a *{{.EntityName}}AdapterImpl) convertFromExternalData(data *{{.ExternalAPIResponseType}}) *{{.PackageName}}.{{.EntityName}} {
+	return &{{.PackageName}}.{{.EntityName}}{
+		ExternalID: data.ID,
+{{range .ExternalFieldMappings}}		{{.DomainField}}: data.{{.ExternalField}},
+{{end}}		SyncedAt:   time.Now(),
+	}
+}
+
+// convertToExternalData 转换为外部数据格式
+func (a *{{.EntityName}}AdapterImpl) convertToExternalData(entity *{{.PackageName}}.{{.EntityName}}) *{{.ExternalAPIRequestType}} {
+	return &{{.ExternalAPIRequestType}}{
+{{range .ExternalFieldMappings}}		{{.ExternalField}}: entity.{{.DomainField}},
+{{end}}	}
+}
+{{end}}
+
+{{if .HasMessageQueue}}
+// PublishMessage 发布消息到队列
+func (a *{{.EntityName}}AdapterImpl) PublishMessage(ctx context.Context, event string, data interface{}) error {
+	// 构建消息
+	message := map[string]interface{}{
+		"event":     event,
+		"data":      data,
+		"timestamp": time.Now(),
+		"source":    "{{.PackageName}}_{{.EntityName}}_adapter",
+	}
+
+	// 序列化消息
+	msgData, err := json.Marshal(message)
+	if err != nil {
+		return fmt.Errorf("序列化消息失败: %w", err)
+	}
+
+	// 发布到队列
+	topic := fmt.Sprintf("{{.PackageName}}.{{.EntityName}}.%s", event)
+	if err := a.messageQueueClient.Publish(ctx, topic, msgData); err != nil {
+		return fmt.Errorf("发布消息失败: %w", err)
+	}
+
+{{if .HasLogger}}	a.logger.InfoF(ctx, "成功发布{{.Description}}消息: %s", event)
+{{end}}
+
+	return nil
+}
+
+// ConsumeMessage 消费队列消息
+func (a *{{.EntityName}}AdapterImpl) ConsumeMessage(ctx context.Context, message []byte) error {
+	// 解析消息
+	var msg map[string]interface{}
+	if err := json.Unmarshal(message, &msg); err != nil {
+		return fmt.Errorf("解析消息失败: %w", err)
+	}
+
+	// 获取事件类型
+	event, ok := msg["event"].(string)
+	if !ok {
+		return fmt.Errorf("无效的事件类型")
+	}
+
+	// 根据事件类型处理
+	switch event {
+{{range .MessageHandlers}}	case "{{.Event}}":
+		return a.{{.Handler}}(ctx, msg["data"])
+{{end}}	default:
+{{if .HasLogger}}		a.logger.WarnF(ctx, "未知的{{.Description}}事件类型: %s", event)
+{{end}}		return nil
+	}
+}
+
+{{range .MessageHandlers}}
+// {{.Handler}} 处理{{.Description}}事件
+func (a *{{$.EntityName}}AdapterImpl) {{.Handler}}(ctx context.Context, data interface{}) error {
+	// TODO: 实现{{.Description}}事件处理逻辑
+	{{.Implementation}}
+	return nil
+}
+{{end}}
+{{end}}
+
+{{if .HasFileStorage}}
+// UploadFile 上传文件
+func (a *{{.EntityName}}AdapterImpl) UploadFile(ctx context.Context, fileData []byte, fileName string) (string, error) {
+	if len(fileData) == 0 {
+		return "", fmt.Errorf("文件数据不能为空")
+	}
+
+	if fileName == "" {
+		return "", fmt.Errorf("文件名不能为空")
+	}
+
+	// 生成文件路径
+	filePath := fmt.Sprintf("{{.PackageName}}/{{.EntityName}}/%s/%s", time.Now().Format("2006/01/02"), fileName)
+
+	// 上传文件
+	fileURL, err := a.fileStorageClient.Upload(ctx, filePath, fileData)
+	if err != nil {
+		return "", fmt.Errorf("上传文件失败: %w", err)
+	}
+
+{{if .HasLogger}}	a.logger.InfoF(ctx, "成功上传{{.Description}}文件: %s", fileName)
+{{end}}
+
+	return fileURL, nil
+}
+
+// DownloadFile 下载文件
+func (a *{{.EntityName}}AdapterImpl) DownloadFile(ctx context.Context, fileURL string) ([]byte, error) {
+	if fileURL == "" {
+		return nil, fmt.Errorf("文件URL不能为空")
+	}
+
+	// 下载文件
+	fileData, err := a.fileStorageClient.Download(ctx, fileURL)
+	if err != nil {
+		return nil, fmt.Errorf("下载文件失败: %w", err)
+	}
+
+{{if .HasLogger}}	a.logger.InfoF(ctx, "成功下载{{.Description}}文件: %s", fileURL)
+{{end}}
+
+	return fileData, nil
+}
+
+// DeleteFile 删除文件
+func (a *{{.EntityName}}AdapterImpl) DeleteFile(ctx context.Context, fileURL string) error {
+	if fileURL == "" {
+		return fmt.Errorf("文件URL不能为空")
+	}
+
+	// 删除文件
+	if err := a.fileStorageClient.Delete(ctx, fileURL); err != nil {
+		return fmt.Errorf("删除文件失败: %w", err)
+	}
+
+{{if .HasLogger}}	a.logger.InfoF(ctx, "成功删除{{.Description}}文件: %s", fileURL)
+{{end}}
+
+	return nil
+}
+{{end}}
+
+{{if .HasNotification}}
+// NotificationRequest 通知请求
+type NotificationRequest struct {
+	Type      string                 `json:"type"`
+	Recipient string                 `json:"recipient"`
+	Title     string                 `json:"title"`
+	Content   string                 `json:"content"`
+	Data      map[string]interface{} `json:"data,omitempty"`
+}
+
+// SendNotification 发送通知
+func (a *{{.EntityName}}AdapterImpl) SendNotification(ctx context.Context, notification *NotificationRequest) error {
+	if notification == nil {
+		return fmt.Errorf("通知请求不能为空")
+	}
+
+	// 发送通知
+	if err := a.notificationClient.Send(ctx, notification); err != nil {
+		return fmt.Errorf("发送通知失败: %w", err)
+	}
+
+{{if .HasLogger}}	a.logger.InfoF(ctx, "成功发送{{.Description}}通知: %s", notification.Type)
+{{end}}
+
+	return nil
+}
+
+// SendBatchNotifications 批量发送通知
+func (a *{{.EntityName}}AdapterImpl) SendBatchNotifications(ctx context.Context, notifications []*NotificationRequest) error {
+	if len(notifications) == 0 {
+		return fmt.Errorf("通知列表不能为空")
+	}
+
+	// 批量发送通知
+	if err := a.notificationClient.BatchSend(ctx, notifications); err != nil {
+		return fmt.Errorf("批量发送通知失败: %w", err)
+	}
+
+{{if .HasLogger}}	a.logger.InfoF(ctx, "成功批量发送{{.Description}}通知: %d条", len(notifications))
+{{end}}
+
+	return nil
+}
+{{end}}
+
+{{if .HasCustomMethods}}
+// 自定义适配器方法实现
+{{range .CustomMethods}}
+// {{.Name}} {{.Description}}
+func (a *{{$.EntityName}}AdapterImpl) {{.Name}}(ctx context.Context{{if .Params}}, {{.Params}}{{end}}) {{.ReturnType}} {
+	{{.Implementation}}
+}
+{{end}}
+{{end}}

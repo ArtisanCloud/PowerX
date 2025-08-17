@@ -1,0 +1,502 @@
+{{/*
+API处理器模板
+用于生成API处理器代码
+*/}}
+package {{ index .Vars "PackageName" }}
+
+import (
+	"net/http"
+	"strconv"
+	"strings"
+
+	"github.com/gin-gonic/gin"
+	"{{ index .Vars "ModulePath" }}/app/dto/{{ index .Vars "PackageName" }}"
+	"{{ index .Vars "ModulePath" }}/app/usecase/{{ index .Vars "PackageName" }}"
+	"{{ index .Vars "ModulePath" }}/pkg/response"
+	"{{ index .Vars "ModulePath" }}/pkg/validator"
+	"{{ index .Vars "ModulePath" }}/pkg/logger"
+{{if index .Params "HasAuth"}}	"{{ index .Vars "ModulePath" }}/pkg/auth"
+{{end}}
+{{if index .Params "HasFile"}}	"{{ index .Vars "ModulePath" }}/pkg/file"
+{{end}}
+{{if index .Params "HasCache"}}	"{{ index .Vars "ModulePath" }}/pkg/cache"
+{{end}}
+)
+
+// {{ index .Vars "EntityName" }}Handler {{ index .Vars "Description" }}处理器
+type {{ index .Vars "EntityName" }}Handler struct {
+	{{ index .Vars "EntityName" }}UseCase *{{ index .Vars "PackageName" }}.{{ index .Vars "EntityName" }}UseCase `inject:""`
+{{if index .Params "HasLogger"}}	logger          logger.Logger
+{{end}}
+{{if index .Params "HasValidator"}}	validator       validator.Validator
+{{end}}
+{{if index .Params "HasCache"}}	cache           cache.Cache
+{{end}}
+}
+
+// New{{ index .Vars "EntityName" }}Handler 创建{{ index .Vars "Description" }}处理器实例
+func New{{ index .Vars "EntityName" }}Handler(
+	{{ index .Vars "EntityName" }}UseCase *{{ index .Vars "PackageName" }}.{{ index .Vars "EntityName" }}UseCase,
+{{if index .Params "HasLogger"}}	logger logger.Logger,
+{{end}}
+{{if index .Params "HasValidator"}}	validator validator.Validator,
+{{end}}
+{{if index .Params "HasCache"}}	cache cache.Cache,
+{{end}}
+) *{{ index .Vars "EntityName" }}Handler {
+	return &{{ index .Vars "EntityName" }}Handler{
+		{{ index .Vars "EntityName" }}UseCase: {{ index .Vars "EntityName" }}UseCase,
+{{if index .Params "HasLogger"}}		logger:          logger,
+{{end}}
+{{if index .Params "HasValidator"}}		validator:       validator,
+{{end}}
+{{if index .Params "HasCache"}}		cache:           cache,
+{{end}}	}
+}
+
+{{if index .Params "HasCreateAPI"}}
+// Create{{ index .Vars "EntityName" }} 创建{{ index .Vars "Description" }}
+// @Summary 创建{{ index .Vars "Description" }}
+// @Description 创建新的{{ index .Vars "Description" }}
+// @Tags {{ index .Vars "EntityName" }}
+// @Accept json
+// @Produce json
+// @Param request body {{ index .Vars "PackageName" }}.Create{{ index .Vars "EntityName" }}Request true "创建{{ index .Vars "Description" }}请求"
+// @Success 201 {object} response.Response{data={{ index .Vars "PackageName" }}.{{ index .Vars "EntityName" }}Response} "创建成功"
+// @Failure 400 {object} response.Response "请求参数错误"
+// @Failure 401 {object} response.Response "未授权"
+// @Failure 500 {object} response.Response "服务器内部错误"
+// @Router /{{ index .Vars "APIPrefix" }} [post]
+func (h *{{ index .Vars "EntityName" }}Handler) Create{{ index .Vars "EntityName" }}(c *gin.Context) {
+	var req {{ index .Vars "PackageName" }}.Create{{ index .Vars "EntityName" }}Request
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, "请求参数错误", err.Error())
+		return
+	}
+
+{{if index .Params "HasValidator"}}	// 验证请求参数
+	if err := h.validator.Validate(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, "参数验证失败", err.Error())
+		return
+	}
+{{end}}
+
+{{if index .Params "HasAuth"}}	// 获取当前用户
+	userID := auth.GetUserID(c)
+	req.CreatedBy = userID
+{{end}}
+
+	// 创建{{ index .Vars "Description" }}
+	result, err := h.{{ index .Vars "EntityName" }}UseCase.Create{{ index .Vars "EntityName" }}(c.Request.Context(), &req)
+	if err != nil {
+{{if index .Params "HasLogger"}}		h.logger.ErrorF(c.Request.Context(), "创建{{ index .Vars "Description" }}失败: %v", err)
+{{end}}		response.Error(c, http.StatusInternalServerError, "创建{{ index .Vars "Description" }}失败", err.Error())
+		return
+	}
+
+{{if index .Params "HasLogger"}}	h.logger.InfoF(c.Request.Context(), "成功创建{{ index .Vars "Description" }}: %s", result.ID)
+{{end}}
+
+	response.Success(c, http.StatusCreated, "创建{{ index .Vars "Description" }}成功", result)
+}
+{{end}}
+
+{{if index .Params "HasGetAPI"}}
+// Get{{ index .Vars "EntityName" }} 获取{{ index .Vars "Description" }}详情
+// @Summary 获取{{ index .Vars "Description" }}详情
+// @Description 根据ID获取{{ index .Vars "Description" }}详情
+// @Tags {{ index .Vars "EntityName" }}
+// @Accept json
+// @Produce json
+// @Param id path string true "{{ index .Vars "Description" }}ID"
+// @Success 200 {object} response.Response{data={{ index .Vars "PackageName" }}.{{ index .Vars "EntityName" }}Response} "获取成功"
+// @Failure 400 {object} response.Response "请求参数错误"
+// @Failure 404 {object} response.Response "{{ index .Vars "Description" }}不存在"
+// @Failure 500 {object} response.Response "服务器内部错误"
+// @Router /{{ index .Vars "APIPrefix" }}/{id} [get]
+func (h *{{ index .Vars "EntityName" }}Handler) Get{{ index .Vars "EntityName" }}(c *gin.Context) {
+	id := c.Param("id")
+	if id == "" {
+		response.Error(c, http.StatusBadRequest, "{{ index .Vars "Description" }}ID不能为空", nil)
+		return
+	}
+
+{{if index .Params "HasCache"}}	// 尝试从缓存获取
+	cacheKey := fmt.Sprintf("{{ index .Vars "PackageName" }}:{{ index .Vars "EntityName" }}:%s", id)
+	if cached, err := h.cache.Get(c.Request.Context(), cacheKey); err == nil {
+		var result {{ index .Vars "PackageName" }}.{{ index .Vars "EntityName" }}Response
+		if err := json.Unmarshal(cached, &result); err == nil {
+			response.Success(c, http.StatusOK, "获取{{ index .Vars "Description" }}成功", result)
+			return
+		}
+	}
+{{end}}
+
+	// 获取{{ index .Vars "Description" }}
+	result, err := h.{{ index .Vars "EntityName" }}UseCase.Get{{ index .Vars "EntityName" }}(c.Request.Context(), id)
+	if err != nil {
+{{if index .Params "HasLogger"}}		h.logger.ErrorF(c.Request.Context(), "获取{{ index .Vars "Description" }}失败: %v", err)
+{{end}}		if strings.Contains(err.Error(), "not found") {
+			response.Error(c, http.StatusNotFound, "{{ index .Vars "Description" }}不存在", err.Error())
+		} else {
+			response.Error(c, http.StatusInternalServerError, "获取{{ index .Vars "Description" }}失败", err.Error())
+		}
+		return
+	}
+
+{{if index .Params "HasCache"}}	// 缓存结果
+	if data, err := json.Marshal(result); err == nil {
+		h.cache.Set(c.Request.Context(), cacheKey, data, time.Minute*10)
+	}
+{{end}}
+
+	response.Success(c, http.StatusOK, "获取{{ index .Vars "Description" }}成功", result)
+}
+{{end}}
+
+{{if index .Params "HasUpdateAPI"}}
+// Update{{ index .Vars "EntityName" }} 更新{{ index .Vars "Description" }}
+// @Summary 更新{{ index .Vars "Description" }}
+// @Description 根据ID更新{{ index .Vars "Description" }}
+// @Tags {{ index .Vars "EntityName" }}
+// @Accept json
+// @Produce json
+// @Param id path string true "{{ index .Vars "Description" }}ID"
+// @Param request body {{ index .Vars "PackageName" }}.Update{{ index .Vars "EntityName" }}Request true "更新{{ index .Vars "Description" }}请求"
+// @Success 200 {object} response.Response{data={{ index .Vars "PackageName" }}.{{ index .Vars "EntityName" }}Response} "更新成功"
+// @Failure 400 {object} response.Response "请求参数错误"
+// @Failure 401 {object} response.Response "未授权"
+// @Failure 404 {object} response.Response "{{ index .Vars "Description" }}不存在"
+// @Failure 500 {object} response.Response "服务器内部错误"
+// @Router /{{ index .Vars "APIPrefix" }}/{id} [put]
+func (h *{{ index .Vars "EntityName" }}Handler) Update{{ index .Vars "EntityName" }}(c *gin.Context) {
+	id := c.Param("id")
+	if id == "" {
+		response.Error(c, http.StatusBadRequest, "{{ index .Vars "Description" }}ID不能为空", nil)
+		return
+	}
+
+	var req {{ index .Vars "PackageName" }}.Update{{ index .Vars "EntityName" }}Request
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, "请求参数错误", err.Error())
+		return
+	}
+
+{{if index .Params "HasValidator"}}	// 验证请求参数
+	if err := h.validator.Validate(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, "参数验证失败", err.Error())
+		return
+	}
+{{end}}
+
+{{if index .Params "HasAuth"}}	// 获取当前用户
+	userID := auth.GetUserID(c)
+	req.UpdatedBy = userID
+{{end}}
+
+	// 更新{{ index .Vars "Description" }}
+	result, err := h.{{ index .Vars "EntityName" }}UseCase.Update{{ index .Vars "EntityName" }}(c.Request.Context(), id, &req)
+	if err != nil {
+{{if index .Params "HasLogger"}}		h.logger.ErrorF(c.Request.Context(), "更新{{ index .Vars "Description" }}失败: %v", err)
+{{end}}		if strings.Contains(err.Error(), "not found") {
+			response.Error(c, http.StatusNotFound, "{{ index .Vars "Description" }}不存在", err.Error())
+		} else {
+			response.Error(c, http.StatusInternalServerError, "更新{{ index .Vars "Description" }}失败", err.Error())
+		}
+		return
+	}
+
+{{if index .Params "HasCache"}}	// 清除缓存
+	cacheKey := fmt.Sprintf("{{ index .Vars "PackageName" }}:{{ index .Vars "EntityName" }}:%s", id)
+	h.cache.Delete(c.Request.Context(), cacheKey)
+{{end}}
+
+{{if index .Params "HasLogger"}}	h.logger.InfoF(c.Request.Context(), "成功更新{{ index .Vars "Description" }}: %s", id)
+{{end}}
+
+	response.Success(c, http.StatusOK, "更新{{ index .Vars "Description" }}成功", result)
+}
+{{end}}
+
+{{if index .Params "HasDeleteAPI"}}
+// Delete{{ index .Vars "EntityName" }} 删除{{ index .Vars "Description" }}
+// @Summary 删除{{ index .Vars "Description" }}
+// @Description 根据ID删除{{ index .Vars "Description" }}
+// @Tags {{ index .Vars "EntityName" }}
+// @Accept json
+// @Produce json
+// @Param id path string true "{{ index .Vars "Description" }}ID"
+// @Success 200 {object} response.Response "删除成功"
+// @Failure 400 {object} response.Response "请求参数错误"
+// @Failure 401 {object} response.Response "未授权"
+// @Failure 404 {object} response.Response "{{ index .Vars "Description" }}不存在"
+// @Failure 500 {object} response.Response "服务器内部错误"
+// @Router /{{ index .Vars "APIPrefix" }}/{id} [delete]
+func (h *{{ index .Vars "EntityName" }}Handler) Delete{{ index .Vars "EntityName" }}(c *gin.Context) {
+	id := c.Param("id")
+	if id == "" {
+		response.Error(c, http.StatusBadRequest, "{{ index .Vars "Description" }}ID不能为空", nil)
+		return
+	}
+
+	// 删除{{ index .Vars "Description" }}
+	err := h.{{ index .Vars "EntityName" }}UseCase.Delete{{ index .Vars "EntityName" }}(c.Request.Context(), id)
+	if err != nil {
+{{if index .Params "HasLogger"}}		h.logger.ErrorF(c.Request.Context(), "删除{{ index .Vars "Description" }}失败: %v", err)
+{{end}}		if strings.Contains(err.Error(), "not found") {
+			response.Error(c, http.StatusNotFound, "{{ index .Vars "Description" }}不存在", err.Error())
+		} else {
+			response.Error(c, http.StatusInternalServerError, "删除{{ index .Vars "Description" }}失败", err.Error())
+		}
+		return
+	}
+
+{{if index .Params "HasCache"}}	// 清除缓存
+	cacheKey := fmt.Sprintf("{{ index .Vars "PackageName" }}:{{ index .Vars "EntityName" }}:%s", id)
+	h.cache.Delete(c.Request.Context(), cacheKey)
+{{end}}
+
+{{if index .Params "HasLogger"}}	h.logger.InfoF(c.Request.Context(), "成功删除{{ index .Vars "Description" }}: %s", id)
+{{end}}
+
+	response.Success(c, http.StatusOK, "删除{{ index .Vars "Description" }}成功", nil)
+}
+{{end}}
+
+{{if index .Params "HasListAPI"}}
+// List{{ index .Vars "EntityName" }} 获取{{ index .Vars "Description" }}列表
+// @Summary 获取{{ index .Vars "Description" }}列表
+// @Description 分页获取{{ index .Vars "Description" }}列表
+// @Tags {{ index .Vars "EntityName" }}
+// @Accept json
+// @Produce json
+// @Param page query int false "页码" default(1)
+// @Param pageSize query int false "每页数量" default(10)
+// @Param sort query string false "排序字段"
+// @Param order query string false "排序方向" Enums(asc, desc)
+{{$listQueryParams := index .Params "ListQueryParams"}}{{range $listQueryParams}}// @Param {{ index . "Name" }} query {{ index . "Type" }} false "{{ index . "Description" }}"
+{{end}}// @Success 200 {object} response.Response{data={{ index .Vars "PackageName" }}.{{ index .Vars "EntityName" }}ListResponse} "获取成功"
+// @Failure 400 {object} response.Response "请求参数错误"
+// @Failure 500 {object} response.Response "服务器内部错误"
+// @Router /{{ index .Vars "APIPrefix" }} [get]
+func (h *{{ index .Vars "EntityName" }}Handler) List{{ index .Vars "EntityName" }}(c *gin.Context) {
+	var req {{ index .Vars "PackageName" }}.List{{ index .Vars "EntityName" }}Request
+
+	// 解析分页参数
+	if page := c.Query("page"); page != "" {
+		if p, err := strconv.Atoi(page); err == nil && p > 0 {
+			req.Page = p
+		}
+	}
+	if req.Page == 0 {
+		req.Page = 1
+	}
+
+	if pageSize := c.Query("pageSize"); pageSize != "" {
+		if ps, err := strconv.Atoi(pageSize); err == nil && ps > 0 && ps <= 100 {
+			req.PageSize = ps
+		}
+	}
+	if req.PageSize == 0 {
+		req.PageSize = 10
+	}
+
+	// 解析排序参数
+	req.Sort = c.Query("sort")
+	req.Order = c.Query("order")
+	if req.Order != "asc" && req.Order != "desc" {
+		req.Order = "desc"
+	}
+
+	// 解析查询参数
+{{$listQueryParams := index .Params "ListQueryParams"}}{{range $listQueryParams}}	if {{ index . "Name" }} := c.Query("{{ index . "Name" }}"); {{ index . "Name" }} != "" {
+		{{ index . "ParseLogic" }}
+	}
+{{end}}
+
+{{if index .Params "HasValidator"}}	// 验证请求参数
+	if err := h.validator.Validate(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, "参数验证失败", err.Error())
+		return
+	}
+{{end}}
+
+	// 获取{{ index .Vars "Description" }}列表
+	result, err := h.{{ index .Vars "EntityName" }}UseCase.List{{ index .Vars "EntityName" }}(c.Request.Context(), &req)
+	if err != nil {
+{{if index .Params "HasLogger"}}		h.logger.ErrorF(c.Request.Context(), "获取{{ index .Vars "Description" }}列表失败: %v", err)
+{{end}}		response.Error(c, http.StatusInternalServerError, "获取{{ index .Vars "Description" }}列表失败", err.Error())
+		return
+	}
+
+	response.Success(c, http.StatusOK, "获取{{ index .Vars "Description" }}列表成功", result)
+}
+{{end}}
+
+{{if index .Params "HasBatchAPI"}}
+// BatchCreate{{ index .Vars "EntityName" }} 批量创建{{ index .Vars "Description" }}
+// @Summary 批量创建{{ index .Vars "Description" }}
+// @Description 批量创建多个{{ index .Vars "Description" }}
+// @Tags {{ index .Vars "EntityName" }}
+// @Accept json
+// @Produce json
+// @Param request body {{ index .Vars "PackageName" }}.BatchCreate{{ index .Vars "EntityName" }}Request true "批量创建{{ index .Vars "Description" }}请求"
+// @Success 201 {object} response.Response{data={{ index .Vars "PackageName" }}.BatchCreate{{ index .Vars "EntityName" }}Response} "创建成功"
+// @Failure 400 {object} response.Response "请求参数错误"
+// @Failure 401 {object} response.Response "未授权"
+// @Failure 500 {object} response.Response "服务器内部错误"
+// @Router /{{ index .Vars "APIPrefix" }}/batch [post]
+func (h *{{ index .Vars "EntityName" }}Handler) BatchCreate{{ index .Vars "EntityName" }}(c *gin.Context) {
+	var req {{ index .Vars "PackageName" }}.BatchCreate{{ index .Vars "EntityName" }}Request
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, "请求参数错误", err.Error())
+		return
+	}
+
+{{if index .Params "HasValidator"}}	// 验证请求参数
+	if err := h.validator.Validate(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, "参数验证失败", err.Error())
+		return
+	}
+{{end}}
+
+{{if index .Params "HasAuth"}}	// 获取当前用户
+	userID := auth.GetUserID(c)
+	for i := range req.Items {
+		req.Items[i].CreatedBy = userID
+	}
+{{end}}
+
+	// 批量创建{{ index .Vars "Description" }}
+	result, err := h.{{ index .Vars "EntityName" }}UseCase.BatchCreate{{ index .Vars "EntityName" }}(c.Request.Context(), &req)
+	if err != nil {
+{{if index .Params "HasLogger"}}		h.logger.ErrorF(c.Request.Context(), "批量创建{{ index .Vars "Description" }}失败: %v", err)
+{{end}}		response.Error(c, http.StatusInternalServerError, "批量创建{{ index .Vars "Description" }}失败", err.Error())
+		return
+	}
+
+{{if index .Params "HasLogger"}}	h.logger.InfoF(c.Request.Context(), "成功批量创建{{ index .Vars "Description" }}: %d个", len(result.Items))
+{{end}}
+
+	response.Success(c, http.StatusCreated, "批量创建{{ index .Vars "Description" }}成功", result)
+}
+{{end}}
+
+{{if index .Params "HasSearchAPI"}}
+// Search{{ index .Vars "EntityName" }} 搜索{{ index .Vars "Description" }}
+// @Summary 搜索{{ index .Vars "Description" }}
+// @Description 根据关键词搜索{{ index .Vars "Description" }}
+// @Tags {{ index .Vars "EntityName" }}
+// @Accept json
+// @Produce json
+// @Param q query string true "搜索关键词"
+// @Param page query int false "页码" default(1)
+// @Param pageSize query int false "每页数量" default(10)
+// @Success 200 {object} response.Response{data={{ index .Vars "PackageName" }}.{{ index .Vars "EntityName" }}ListResponse} "搜索成功"
+// @Failure 400 {object} response.Response "请求参数错误"
+// @Failure 500 {object} response.Response "服务器内部错误"
+// @Router /{{ index .Vars "APIPrefix" }}/search [get]
+func (h *{{ index .Vars "EntityName" }}Handler) Search{{ index .Vars "EntityName" }}(c *gin.Context) {
+	var req {{ index .Vars "PackageName" }}.Search{{ index .Vars "EntityName" }}Request
+
+	// 解析搜索参数
+	req.Query = c.Query("q")
+	if req.Query == "" {
+		response.Error(c, http.StatusBadRequest, "搜索关键词不能为空", nil)
+		return
+	}
+
+	// 解析分页参数
+	if page := c.Query("page"); page != "" {
+		if p, err := strconv.Atoi(page); err == nil && p > 0 {
+			req.Page = p
+		}
+	}
+	if req.Page == 0 {
+		req.Page = 1
+	}
+
+	if pageSize := c.Query("pageSize"); pageSize != "" {
+		if ps, err := strconv.Atoi(pageSize); err == nil && ps > 0 && ps <= 100 {
+			req.PageSize = ps
+		}
+	}
+	if req.PageSize == 0 {
+		req.PageSize = 10
+	}
+
+	// 搜索{{ index .Vars "Description" }}
+	result, err := h.{{ index .Vars "EntityName" }}UseCase.Search{{ index .Vars "EntityName" }}(c.Request.Context(), &req)
+	if err != nil {
+{{if index .Params "HasLogger"}}		h.logger.ErrorF(c.Request.Context(), "搜索{{ index .Vars "Description" }}失败: %v", err)
+{{end}}		response.Error(c, http.StatusInternalServerError, "搜索{{ index .Vars "Description" }}失败", err.Error())
+		return
+	}
+
+	response.Success(c, http.StatusOK, "搜索{{ index .Vars "Description" }}成功", result)
+}
+{{end}}
+
+{{if index .Params "HasFileAPI"}}
+// Upload{{ index .Vars "EntityName" }}File 上传{{ index .Vars "Description" }}文件
+// @Summary 上传{{ index .Vars "Description" }}文件
+// @Description 上传{{ index .Vars "Description" }}相关文件
+// @Tags {{ index .Vars "EntityName" }}
+// @Accept multipart/form-data
+// @Produce json
+// @Param file formData file true "文件"
+// @Param {{ index .Vars "EntityName" }}Id formData string true "{{ index .Vars "Description" }}ID"
+// @Success 200 {object} response.Response{data={{ index .Vars "PackageName" }}.FileUploadResponse} "上传成功"
+// @Failure 400 {object} response.Response "请求参数错误"
+// @Failure 401 {object} response.Response "未授权"
+// @Failure 500 {object} response.Response "服务器内部错误"
+// @Router /{{ index .Vars "APIPrefix" }}/files/upload [post]
+func (h *{{ index .Vars "EntityName" }}Handler) Upload{{ index .Vars "EntityName" }}File(c *gin.Context) {
+	// 获取上传的文件
+	file, header, err := c.Request.FormFile("file")
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, "获取上传文件失败", err.Error())
+		return
+	}
+	defer file.Close()
+
+	// 获取{{ index .Vars "Description" }}ID
+	{{ index .Vars "EntityName" }}ID := c.PostForm("{{ index .Vars "EntityName" }}Id")
+	if {{ index .Vars "EntityName" }}ID == "" {
+		response.Error(c, http.StatusBadRequest, "{{ index .Vars "Description" }}ID不能为空", nil)
+		return
+	}
+
+	// 上传文件
+	result, err := h.{{ index .Vars "EntityName" }}UseCase.Upload{{ index .Vars "EntityName" }}File(c.Request.Context(), {{ index .Vars "EntityName" }}ID, file, header)
+	if err != nil {
+{{if index .Params "HasLogger"}}		h.logger.ErrorF(c.Request.Context(), "上传{{ index .Vars "Description" }}文件失败: %v", err)
+{{end}}		response.Error(c, http.StatusInternalServerError, "上传{{ index .Vars "Description" }}文件失败", err.Error())
+		return
+	}
+
+{{if index .Params "HasLogger"}}	h.logger.InfoF(c.Request.Context(), "成功上传{{ index .Vars "Description" }}文件: %s", header.Filename)
+{{end}}
+
+	response.Success(c, http.StatusOK, "上传{{ index .Vars "Description" }}文件成功", result)
+}
+{{end}}
+
+{{if index .Params "HasCustomHandlers"}}
+// 自定义处理器方法
+{{$customHandlers := index .Params "CustomHandlers"}}{{range $customHandlers}}
+// {{ index . "Name" }} {{ index . "Description" }}
+// @Summary {{ index . "Description" }}
+// @Description {{ index . "DetailDescription" }}
+// @Tags {{ index $.Vars "EntityName" }}
+// @Accept {{ index . "Accept" }}
+// @Produce {{ index . "Produce" }}
+{{$params := index . "Params"}}{{range $params}}// @Param {{ index . "Name" }} {{ index . "In" }} {{ index . "Type" }} {{ index . "Required" }} "{{ index . "Description" }}"
+{{end}}// @Success {{ index . "SuccessCode" }} {object} response.Response{{if index . "ResponseType"}}{data={{ index . "ResponseType" }}}{{end}} "{{ index . "SuccessMessage" }}"
+{{$errorCodes := index . "ErrorCodes"}}{{range $errorCodes}}// @Failure {{ index . "Code" }} {object} response.Response "{{ index . "Message" }}"
+{{end}}// @Router {{ index . "Route" }} [{{ index . "Method" }}]
+func (h *{{ index $.Vars "EntityName" }}Handler) {{ index . "Name" }}(c *gin.Context) {
+	{{ index . "Implementation" }}
+}
+{{end}}
+{{end}}

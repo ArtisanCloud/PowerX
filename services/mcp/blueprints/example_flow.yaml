@@ -1,0 +1,47 @@
+id: "example_flow"
+name: "示例流程"
+description: "这是一个示例流程，展示如何定义和执行任务"
+version: "1.0.0"
+variables:
+  project_name: "示例项目"
+  author: "CoreX"
+steps:
+  - id: "step_1"
+    name: "初始化项目"
+    type: "setup"
+    action: "create_project"
+    parameters:
+      name: "{{.project_name}}"
+      template: "basic"
+    timeout: 30
+    retry: 3
+    next_steps: ["step_2"]
+  
+  - id: "step_2"
+    name: "配置环境"
+    type: "config"
+    action: "setup_environment"
+    parameters:
+      env: "development"
+      database: "sqlite"
+    conditions:
+      - field: "step_1.status"
+        operator: "eq"
+        value: "completed"
+    timeout: 60
+    retry: 2
+    next_steps: ["step_3"]
+  
+  - id: "step_3"
+    name: "生成代码"
+    type: "generate"
+    action: "generate_code"
+    parameters:
+      language: "go"
+      framework: "gin"
+    conditions:
+      - field: "step_2.status"
+        operator: "eq"
+        value: "completed"
+    timeout: 120
+    retry: 1

@@ -1,0 +1,166 @@
+{{/*
+数据库迁移模板
+用于生成数据库表结构迁移文件
+*/}}
+package migration
+
+import (
+	"gorm.io/gorm"
+	"{{ index .Vars "ModulePath" }}/infra/persistence/model"
+)
+
+// Migration{{ index .Vars "EntityName" }}{{ index .Vars "Version" }} {{ index .Vars "Description" }}表迁移
+type Migration{{ index .Vars "EntityName" }}{{ index .Vars "Version" }} struct {
+	Version     string
+	Description string
+}
+
+// NewMigration{{ index .Vars "EntityName" }}{{ index .Vars "Version" }} 创建迁移实例
+func NewMigration{{ index .Vars "EntityName" }}{{ index .Vars "Version" }}() *Migration{{ index .Vars "EntityName" }}{{ index .Vars "Version" }} {
+	return &Migration{{ index .Vars "EntityName" }}{{ index .Vars "Version" }}{
+		Version:     "{{ index .Vars "MigrationVersion" }}",
+		Description: "{{ index .Vars "Description" }}表结构迁移",
+	}
+}
+
+// GetVersion 获取迁移版本
+func (m *Migration{{ index .Vars "EntityName" }}{{ index .Vars "Version" }}) GetVersion() string {
+	return m.Version
+}
+
+// GetDescription 获取迁移描述
+func (m *Migration{{ index .Vars "EntityName" }}{{ index .Vars "Version" }}) GetDescription() string {
+	return m.Description
+}
+
+// Up 执行迁移
+func (m *Migration{{ index .Vars "EntityName" }}{{ index .Vars "Version" }}) Up(db *gorm.DB) error {
+	// 创建表
+	if err := db.AutoMigrate(&model.{{ index .Vars "EntityName" }}{}); err != nil {
+		return err
+	}
+
+{{if index .Params "HasIndexes"}}	// 创建索引
+{{ $indexes := index .Params "Indexes" }}
+{{range $idx := $indexes}}	if err := db.Exec("CREATE {{if index $idx "Unique"}}UNIQUE {{end}}INDEX {{ index $idx "Name" }} ON {{ index $.Vars "TablePrefix" }}{{ index $.Vars "TableName" }} ({{join (index $idx "Columns") ", "}})").Error; err != nil {
+		return err
+	}
+{{end}}
+{{end}}
+
+{{if index .Params "HasConstraints"}}	// 创建约束
+{{ $constraints := index .Params "Constraints" }}
+{{range $c := $constraints}}	if err := db.Exec("ALTER TABLE {{ index $.Vars "TablePrefix" }}{{ index $.Vars "TableName" }} ADD CONSTRAINT {{ index $c "Name" }} {{ index $c "Definition" }}").Error; err != nil {
+		return err
+	}
+{{end}}
+{{end}}
+
+{{if index .Params "HasTriggers"}}	// 创建触发器
+{{ $triggers := index .Params "Triggers" }}
+{{range $t := $triggers}}	if err := db.Exec(`{{ index $t "Definition" }}`).Error; err != nil {
+		return err
+	}
+{{end}}
+{{end}}
+
+{{if index .Params "HasInitialData"}}	// 插入初始数据
+	initialData := []model.{{ index .Vars "EntityName" }}{
+{{ $initialData := index .Params "InitialData" }}
+{{range $data := $initialData}}		{
+{{range $key, $value := $data}}			{{$key}}: {{$value}},
+{{end}}		},
+{{end}}	}
+	
+	for _, data := range initialData {
+		if err := db.Create(&data).Error; err != nil {
+			return err
+		}
+	}
+{{end}}
+
+	return nil
+}
+
+// Down 回滚迁移
+func (m *Migration{{ index .Vars "EntityName" }}{{ index .Vars "Version" }}) Down(db *gorm.DB) error {
+{{if index .Params "HasTriggers"}}	// 删除触发器
+{{ $triggers := index .Params "Triggers" }}
+{{range $t := $triggers}}	if err := db.Exec("DROP TRIGGER IF EXISTS {{ index $t "Name" }}").Error; err != nil {
+		return err
+	}
+{{end}}
+{{end}}
+
+{{if index .Params "HasConstraints"}}	// 删除约束
+{{ $constraints := index .Params "Constraints" }}
+{{range $c := $constraints}}	if err := db.Exec("ALTER TABLE {{ index $.Vars "TablePrefix" }}{{ index $.Vars "TableName" }} DROP CONSTRAINT IF EXISTS {{ index $c "Name" }}").Error; err != nil {
+		return err
+	}
+{{end}}
+{{end}}
+
+{{if index .Params "HasIndexes"}}	// 删除索引
+{{ $indexes := index .Params "Indexes" }}
+{{range $idx := $indexes}}	if err := db.Exec("DROP INDEX IF EXISTS {{ index $idx "Name" }}").Error; err != nil {
+		return err
+	}
+{{end}}
+{{end}}
+
+	// 删除表
+	if err := db.Migrator().DropTable(&model.{{ index .Vars "EntityName" }}{}); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+{{if index .Params "HasCustomMigrations"}}
+// 自定义迁移方法
+{{ $customMigrations := index .Params "CustomMigrations" }}
+{{range $cm := $customMigrations}}
+// {{ index $cm "Name" }} {{ index $cm "Description" }}
+func (m *Migration{{ index $.Vars "EntityName" }}{{ index $.Vars "Version" }}) {{ index $cm "Name" }}(db *gorm.DB) error {
+	{{ index $cm "Implementation" }}
+	return nil
+}
+{{end}}
+{{end}}
+
+// Validate 验证迁移
+func (m *Migration{{ index .Vars "EntityName" }}{{ index .Vars "Version" }}) Validate(db *gorm.DB) error {
+	// 检查表是否存在
+	if !db.Migrator().HasTable(&model.{{ index .Vars "EntityName" }}{}) {
+		return errors.New("表 {{ index .Vars "TablePrefix" }}{{ index .Vars "TableName" }} 不存在")
+	}
+
+{{if index .Params "HasValidations"}}	// 自定义验证
+{{ $validations := index .Params "Validations" }}
+{{range $v := $validations}}	// {{ index $v "Description" }}
+	if {{ index $v "Condition" }} {
+		return errors.New("{{ index $v "ErrorMessage" }}")
+	}
+{{end}}
+{{end}}
+
+	return nil
+}
+
+// GetDependencies 获取依赖的迁移
+func (m *Migration{{ index .Vars "EntityName" }}{{ index .Vars "Version" }}) GetDependencies() []string {
+	return []string{
+{{ $dependencies := index .Params "Dependencies" }}
+{{range $dep := $dependencies}}		"{{$dep}}",
+{{end}}	}
+}
+
+// IsReversible 是否可回滚
+func (m *Migration{{ index .Vars "EntityName" }}{{ index .Vars "Version" }}) IsReversible() bool {
+	return {{ index .Params "IsReversible" }}
+}
+
+// GetEstimatedTime 获取预估执行时间（秒）
+func (m *Migration{{ index .Vars "EntityName" }}{{ index .Vars "Version" }}) GetEstimatedTime() int {
+	return {{ index .Params "EstimatedTime" }}
+}

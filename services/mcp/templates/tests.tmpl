@@ -1,0 +1,625 @@
+{{/*
+测试模板
+用于生成单元测试和集成测试代码
+*/}}
+package {{.PackageName}}
+
+import (
+	"context"
+	"testing"
+	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/suite"
+	"gorm.io/gorm"
+
+	"{{.ModulePath}}/domain/model/{{.PackageName}}"
+	"{{.ModulePath}}/app/dto/{{.PackageName}}"
+	"{{.ModulePath}}/app/usecase/{{.PackageName}}"
+	"{{.ModulePath}}/app/repository/{{.PackageName}}"
+	"{{.ModulePath}}/pkg/testutil"
+{{if .HasMocks}}	"{{.ModulePath}}/mocks/{{.PackageName}}"
+{{end}}
+)
+
+// {{.EntityName}}TestSuite {{.Description}}测试套件
+type {{.EntityName}}TestSuite struct {
+	suite.Suite
+	db          *gorm.DB
+	useCase     *{{.PackageName}}.{{.EntityName}}UseCase
+	repository  {{.PackageName}}.{{.EntityName}}Repository
+{{if .HasMocks}}	mockRepo    *mocks.{{.EntityName}}Repository
+{{end}}	ctx         context.Context
+	testData    []*{{.PackageName}}.{{.EntityName}}
+}
+
+// SetupSuite 设置测试套件
+func (suite *{{.EntityName}}TestSuite) SetupSuite() {
+	// 初始化测试数据库
+	suite.db = testutil.SetupTestDB()
+
+	// 初始化仓储
+	suite.repository = {{.PackageName}}.New{{.EntityName}}Repository(suite.db)
+
+	// 初始化用例
+	suite.useCase = {{.PackageName}}.New{{.EntityName}}UseCase(suite.repository)
+
+{{if .HasMocks}}	// 初始化Mock
+	suite.mockRepo = &mocks.{{.EntityName}}Repository{}
+{{end}}
+	// 初始化上下文
+	suite.ctx = context.Background()
+
+	// 迁移数据库
+	err := suite.db.AutoMigrate(&{{.PackageName}}.{{.EntityName}}{})
+	suite.Require().NoError(err)
+}
+
+// TearDownSuite 清理测试套件
+func (suite *{{.EntityName}}TestSuite) TearDownSuite() {
+	testutil.CleanupTestDB(suite.db)
+}
+
+// SetupTest 设置每个测试
+func (suite *{{.EntityName}}TestSuite) SetupTest() {
+	// 清理测试数据
+	suite.db.Exec("DELETE FROM {{.TableName}}")
+
+	// 准备测试数据
+	suite.prepareTestData()
+}
+
+// TearDownTest 清理每个测试
+func (suite *{{.EntityName}}TestSuite) TearDownTest() {
+	// 清理测试数据
+	suite.db.Exec("DELETE FROM {{.TableName}}")
+	suite.testData = nil
+
+{{if .HasMocks}}	// 重置Mock
+	suite.mockRepo.ExpectedCalls = nil
+	suite.mockRepo.Calls = nil
+{{end}}
+}
+
+// prepareTestData 准备测试数据
+func (suite *{{.EntityName}}TestSuite) prepareTestData() {
+	suite.testData = []*{{.PackageName}}.{{.EntityName}}{
+{{range .TestData}}		{
+{{range .Fields}}			{{.Name}}: {{.Value}},
+{{end}}		},
+{{end}}	}
+
+	// 插入测试数据
+	for _, data := range suite.testData {
+		err := suite.db.Create(data).Error
+		suite.Require().NoError(err)
+	}
+}
+
+{{if .HasCreateTest}}
+// TestCreate{{.EntityName}} 测试创建{{.Description}}
+func (suite *{{.EntityName}}TestSuite) TestCreate{{.EntityName}}() {
+	// 准备测试数据
+	req := &{{.PackageName}}.Create{{.EntityName}}Request{
+{{range .CreateTestFields}}		{{.Name}}: {{.Value}},
+{{end}}	}
+
+	// 执行创建
+	result, err := suite.useCase.Create{{.EntityName}}(suite.ctx, req)
+
+	// 验证结果
+	suite.NoError(err)
+	suite.NotNil(result)
+	suite.NotEmpty(result.ID)
+{{range .CreateAssertions}}	suite.{{.Method}}({{.Expected}}, {{.Actual}})
+{{end}}
+
+	// 验证数据库中的数据
+	var entity {{.PackageName}}.{{.EntityName}}
+	err = suite.db.First(&entity, "id = ?", result.ID).Error
+	suite.NoError(err)
+{{range .CreateDBAssertions}}	suite.{{.Method}}({{.Expected}}, {{.Actual}})
+{{end}}
+}
+
+// TestCreate{{.EntityName}}WithInvalidData 测试使用无效数据创建{{.Description}}
+func (suite *{{.EntityName}}TestSuite) TestCreate{{.EntityName}}WithInvalidData() {
+	testCases := []struct {
+		name string
+		req  *{{.PackageName}}.Create{{.EntityName}}Request
+		wantErr bool
+	}{
+{{range .CreateInvalidTestCases}}		{
+			name: "{{.Name}}",
+			req: &{{$.PackageName}}.Create{{$.EntityName}}Request{
+{{range .Fields}}				{{.Name}}: {{.Value}},
+{{end}}			},
+			wantErr: {{.WantErr}},
+		},
+{{end}}	}
+
+	for _, tc := range testCases {
+		suite.Run(tc.name, func() {
+			result, err := suite.useCase.Create{{.EntityName}}(suite.ctx, tc.req)
+			if tc.wantErr {
+				suite.Error(err)
+				suite.Nil(result)
+			} else {
+				suite.NoError(err)
+				suite.NotNil(result)
+			}
+		})
+	}
+}
+{{end}}
+
+{{if .HasGetTest}}
+// TestGet{{.EntityName}} 测试获取{{.Description}}
+func (suite *{{.EntityName}}TestSuite) TestGet{{.EntityName}}() {
+	// 使用第一个测试数据
+	testEntity := suite.testData[0]
+
+	// 执行获取
+	result, err := suite.useCase.Get{{.EntityName}}(suite.ctx, testEntity.ID)
+
+	// 验证结果
+	suite.NoError(err)
+	suite.NotNil(result)
+	suite.Equal(testEntity.ID, result.ID)
+{{range .GetAssertions}}	suite.{{.Method}}({{.Expected}}, {{.Actual}})
+{{end}}
+}
+
+// TestGet{{.EntityName}}NotFound 测试获取不存在的{{.Description}}
+func (suite *{{.EntityName}}TestSuite) TestGet{{.EntityName}}NotFound() {
+	// 使用不存在的ID
+	nonExistentID := "non-existent-id"
+
+	// 执行获取
+	result, err := suite.useCase.Get{{.EntityName}}(suite.ctx, nonExistentID)
+
+	// 验证结果
+	suite.Error(err)
+	suite.Nil(result)
+	suite.Contains(err.Error(), "not found")
+}
+{{end}}
+
+{{if .HasUpdateTest}}
+// TestUpdate{{.EntityName}} 测试更新{{.Description}}
+func (suite *{{.EntityName}}TestSuite) TestUpdate{{.EntityName}}() {
+	// 使用第一个测试数据
+	testEntity := suite.testData[0]
+
+	// 准备更新数据
+	req := &{{.PackageName}}.Update{{.EntityName}}Request{
+{{range .UpdateTestFields}}		{{.Name}}: {{.Value}},
+{{end}}	}
+
+	// 执行更新
+	result, err := suite.useCase.Update{{.EntityName}}(suite.ctx, testEntity.ID, req)
+
+	// 验证结果
+	suite.NoError(err)
+	suite.NotNil(result)
+	suite.Equal(testEntity.ID, result.ID)
+{{range .UpdateAssertions}}	suite.{{.Method}}({{.Expected}}, {{.Actual}})
+{{end}}
+
+	// 验证数据库中的数据
+	var entity {{.PackageName}}.{{.EntityName}}
+	err = suite.db.First(&entity, "id = ?", testEntity.ID).Error
+	suite.NoError(err)
+{{range .UpdateDBAssertions}}	suite.{{.Method}}({{.Expected}}, {{.Actual}})
+{{end}}
+}
+
+// TestUpdate{{.EntityName}}NotFound 测试更新不存在的{{.Description}}
+func (suite *{{.EntityName}}TestSuite) TestUpdate{{.EntityName}}NotFound() {
+	// 使用不存在的ID
+	nonExistentID := "non-existent-id"
+
+	// 准备更新数据
+	req := &{{.PackageName}}.Update{{.EntityName}}Request{
+{{range .UpdateTestFields}}		{{.Name}}: {{.Value}},
+{{end}}	}
+
+	// 执行更新
+	result, err := suite.useCase.Update{{.EntityName}}(suite.ctx, nonExistentID, req)
+
+	// 验证结果
+	suite.Error(err)
+	suite.Nil(result)
+	suite.Contains(err.Error(), "not found")
+}
+{{end}}
+
+{{if .HasDeleteTest}}
+// TestDelete{{.EntityName}} 测试删除{{.Description}}
+func (suite *{{.EntityName}}TestSuite) TestDelete{{.EntityName}}() {
+	// 使用第一个测试数据
+	testEntity := suite.testData[0]
+
+	// 执行删除
+	err := suite.useCase.Delete{{.EntityName}}(suite.ctx, testEntity.ID)
+
+	// 验证结果
+	suite.NoError(err)
+
+	// 验证数据库中的数据已被删除
+	var entity {{.PackageName}}.{{.EntityName}}
+	err = suite.db.First(&entity, "id = ?", testEntity.ID).Error
+	suite.Error(err)
+	suite.Equal(gorm.ErrRecordNotFound, err)
+}
+
+// TestDelete{{.EntityName}}NotFound 测试删除不存在的{{.Description}}
+func (suite *{{.EntityName}}TestSuite) TestDelete{{.EntityName}}NotFound() {
+	// 使用不存在的ID
+	nonExistentID := "non-existent-id"
+
+	// 执行删除
+	err := suite.useCase.Delete{{.EntityName}}(suite.ctx, nonExistentID)
+
+	// 验证结果
+	suite.Error(err)
+	suite.Contains(err.Error(), "not found")
+}
+{{end}}
+
+{{if .HasListTest}}
+// TestList{{.EntityName}} 测试获取{{.Description}}列表
+func (suite *{{.EntityName}}TestSuite) TestList{{.EntityName}}() {
+	// 准备查询参数
+	req := &{{.PackageName}}.List{{.EntityName}}Request{
+		Page:     1,
+		PageSize: 10,
+		Sort:     "created_at",
+		Order:    "desc",
+	}
+
+	// 执行查询
+	result, err := suite.useCase.List{{.EntityName}}(suite.ctx, req)
+
+	// 验证结果
+	suite.NoError(err)
+	suite.NotNil(result)
+	suite.Equal(len(suite.testData), len(result.Items))
+	suite.Equal(int64(len(suite.testData)), result.Pagination.Total)
+	suite.Equal(1, result.Pagination.Page)
+	suite.Equal(10, result.Pagination.PageSize)
+}
+
+// TestList{{.EntityName}}WithPagination 测试分页获取{{.Description}}列表
+func (suite *{{.EntityName}}TestSuite) TestList{{.EntityName}}WithPagination() {
+	// 准备查询参数
+	req := &{{.PackageName}}.List{{.EntityName}}Request{
+		Page:     1,
+		PageSize: 2,
+		Sort:     "created_at",
+		Order:    "desc",
+	}
+
+	// 执行查询
+	result, err := suite.useCase.List{{.EntityName}}(suite.ctx, req)
+
+	// 验证结果
+	suite.NoError(err)
+	suite.NotNil(result)
+	suite.Equal(2, len(result.Items))
+	suite.Equal(int64(len(suite.testData)), result.Pagination.Total)
+	suite.Equal(1, result.Pagination.Page)
+	suite.Equal(2, result.Pagination.PageSize)
+}
+{{end}}
+
+{{if .HasSearchTest}}
+// TestSearch{{.EntityName}} 测试搜索{{.Description}}
+func (suite *{{.EntityName}}TestSuite) TestSearch{{.EntityName}}() {
+	// 准备搜索参数
+	req := &{{.PackageName}}.Search{{.EntityName}}Request{
+		Query:    "{{.SearchTestQuery}}",
+		Page:     1,
+		PageSize: 10,
+	}
+
+	// 执行搜索
+	result, err := suite.useCase.Search{{.EntityName}}(suite.ctx, req)
+
+	// 验证结果
+	suite.NoError(err)
+	suite.NotNil(result)
+	// 根据测试数据验证搜索结果
+	{{.SearchTestAssertion}}
+}
+{{end}}
+
+{{if .HasBatchTest}}
+// TestBatchCreate{{.EntityName}} 测试批量创建{{.Description}}
+func (suite *{{.EntityName}}TestSuite) TestBatchCreate{{.EntityName}}() {
+	// 准备批量创建数据
+	req := &{{.PackageName}}.BatchCreate{{.EntityName}}Request{
+		Items: []*{{.PackageName}}.Create{{.EntityName}}Request{
+{{range .BatchCreateTestData}}			{
+{{range .Fields}}				{{.Name}}: {{.Value}},
+{{end}}			},
+{{end}}		},
+	}
+
+	// 执行批量创建
+	result, err := suite.useCase.BatchCreate{{.EntityName}}(suite.ctx, req)
+
+	// 验证结果
+	suite.NoError(err)
+	suite.NotNil(result)
+	suite.Equal(len(req.Items), len(result.Items))
+	suite.Equal(len(req.Items), result.SuccessCount)
+	suite.Equal(0, result.FailCount)
+
+	// 验证数据库中的数据
+	var count int64
+	suite.db.Model(&{{.PackageName}}.{{.EntityName}}{}).Count(&count)
+	suite.Equal(int64(len(suite.testData)+len(req.Items)), count)
+}
+{{end}}
+
+{{if .HasMockTest}}
+// TestWith{{.EntityName}}Mock 测试使用Mock的{{.Description}}用例
+func (suite *{{.EntityName}}TestSuite) TestWith{{.EntityName}}Mock() {
+	// 创建使用Mock的用例
+	mockUseCase := {{.PackageName}}.New{{.EntityName}}UseCase(suite.mockRepo)
+
+	// 设置Mock期望
+	testEntity := &{{.PackageName}}.{{.EntityName}}{
+		ID: "test-id",
+{{range .MockTestFields}}		{{.Name}}: {{.Value}},
+{{end}}	}
+
+	suite.mockRepo.On("GetByID", mock.Anything, "test-id").Return(testEntity, nil)
+
+	// 执行测试
+	result, err := mockUseCase.Get{{.EntityName}}(suite.ctx, "test-id")
+
+	// 验证结果
+	suite.NoError(err)
+	suite.NotNil(result)
+	suite.Equal("test-id", result.ID)
+
+	// 验证Mock调用
+	suite.mockRepo.AssertExpectations(suite.T())
+}
+{{end}}
+
+{{if .HasBenchmarkTest}}
+// Benchmark{{.EntityName}}Create 基准测试创建{{.Description}}
+func Benchmark{{.EntityName}}Create(b *testing.B) {
+	// 设置基准测试环境
+	db := testutil.SetupTestDB()
+	defer testutil.CleanupTestDB(db)
+
+	repository := {{.PackageName}}.New{{.EntityName}}Repository(db)
+	useCase := {{.PackageName}}.New{{.EntityName}}UseCase(repository)
+	ctx := context.Background()
+
+	// 迁移数据库
+	db.AutoMigrate(&{{.PackageName}}.{{.EntityName}}{})
+
+	// 准备测试数据
+	req := &{{.PackageName}}.Create{{.EntityName}}Request{
+{{range .BenchmarkTestFields}}		{{.Name}}: {{.Value}},
+{{end}}	}
+
+	// 重置计时器
+	b.ResetTimer()
+
+	// 运行基准测试
+	for i := 0; i < b.N; i++ {
+		_, err := useCase.Create{{.EntityName}}(ctx, req)
+		if err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+// Benchmark{{.EntityName}}Get 基准测试获取{{.Description}}
+func Benchmark{{.EntityName}}Get(b *testing.B) {
+	// 设置基准测试环境
+	db := testutil.SetupTestDB()
+	defer testutil.CleanupTestDB(db)
+
+	repository := {{.PackageName}}.New{{.EntityName}}Repository(db)
+	useCase := {{.PackageName}}.New{{.EntityName}}UseCase(repository)
+	ctx := context.Background()
+
+	// 迁移数据库
+	db.AutoMigrate(&{{.PackageName}}.{{.EntityName}}{})
+
+	// 创建测试数据
+	entity := &{{.PackageName}}.{{.EntityName}}{
+{{range .BenchmarkTestFields}}		{{.Name}}: {{.Value}},
+{{end}}	}
+	db.Create(entity)
+
+	// 重置计时器
+	b.ResetTimer()
+
+	// 运行基准测试
+	for i := 0; i < b.N; i++ {
+		_, err := useCase.Get{{.EntityName}}(ctx, entity.ID)
+		if err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+{{end}}
+
+{{if .HasIntegrationTest}}
+// Integration{{.EntityName}}Test 集成测试
+func (suite *{{.EntityName}}TestSuite) TestIntegration{{.EntityName}}() {
+	// 测试完整的CRUD流程
+
+	// 1. 创建
+	createReq := &{{.PackageName}}.Create{{.EntityName}}Request{
+{{range .IntegrationTestFields}}		{{.Name}}: {{.Value}},
+{{end}}	}
+
+	created, err := suite.useCase.Create{{.EntityName}}(suite.ctx, createReq)
+	suite.NoError(err)
+	suite.NotNil(created)
+
+	// 2. 获取
+	got, err := suite.useCase.Get{{.EntityName}}(suite.ctx, created.ID)
+	suite.NoError(err)
+	suite.NotNil(got)
+	suite.Equal(created.ID, got.ID)
+
+	// 3. 更新
+	updateReq := &{{.PackageName}}.Update{{.EntityName}}Request{
+{{range .IntegrationUpdateFields}}		{{.Name}}: {{.Value}},
+{{end}}	}
+
+	updated, err := suite.useCase.Update{{.EntityName}}(suite.ctx, created.ID, updateReq)
+	suite.NoError(err)
+	suite.NotNil(updated)
+	suite.Equal(created.ID, updated.ID)
+
+	// 4. 列表查询
+	listReq := &{{.PackageName}}.List{{.EntityName}}Request{
+		Page:     1,
+		PageSize: 10,
+	}
+
+	list, err := suite.useCase.List{{.EntityName}}(suite.ctx, listReq)
+	suite.NoError(err)
+	suite.NotNil(list)
+	suite.True(len(list.Items) > 0)
+
+	// 5. 删除
+	err = suite.useCase.Delete{{.EntityName}}(suite.ctx, created.ID)
+	suite.NoError(err)
+
+	// 6. 验证删除
+	_, err = suite.useCase.Get{{.EntityName}}(suite.ctx, created.ID)
+	suite.Error(err)
+}
+{{end}}
+
+{{if .HasConcurrencyTest}}
+// TestConcurrency{{.EntityName}} 并发测试
+func (suite *{{.EntityName}}TestSuite) TestConcurrency{{.EntityName}}() {
+	const goroutineCount = 10
+	const operationsPerGoroutine = 5
+
+	// 创建错误通道
+	errorChan := make(chan error, goroutineCount*operationsPerGoroutine)
+	doneChan := make(chan bool, goroutineCount)
+
+	// 启动多个goroutine进行并发操作
+	for i := 0; i < goroutineCount; i++ {
+		go func(routineID int) {
+			defer func() { doneChan <- true }()
+
+			for j := 0; j < operationsPerGoroutine; j++ {
+				// 创建
+				createReq := &{{.PackageName}}.Create{{.EntityName}}Request{
+{{range .ConcurrencyTestFields}}					{{.Name}}: {{.Value}},
+{{end}}				}
+
+				created, err := suite.useCase.Create{{.EntityName}}(suite.ctx, createReq)
+				if err != nil {
+					errorChan <- err
+					return
+				}
+
+				// 获取
+				_, err = suite.useCase.Get{{.EntityName}}(suite.ctx, created.ID)
+				if err != nil {
+					errorChan <- err
+					return
+				}
+
+				// 删除
+				err = suite.useCase.Delete{{.EntityName}}(suite.ctx, created.ID)
+				if err != nil {
+					errorChan <- err
+					return
+				}
+			}
+		}(i)
+	}
+
+	// 等待所有goroutine完成
+	for i := 0; i < goroutineCount; i++ {
+		select {
+		case <-doneChan:
+			// goroutine完成
+		case err := <-errorChan:
+			suite.Fail("并发测试失败", err.Error())
+		case <-time.After(30 * time.Second):
+			suite.Fail("并发测试超时")
+		}
+	}
+
+	// 检查是否有错误
+	select {
+	case err := <-errorChan:
+		suite.Fail("并发测试出现错误", err.Error())
+	default:
+		// 没有错误
+	}
+}
+{{end}}
+
+{{if .HasCustomTests}}
+// 自定义测试方法
+{{range .CustomTests}}
+// {{.Name}} {{.Description}}
+func (suite *{{$.EntityName}}TestSuite) {{.Name}}() {
+	{{.Implementation}}
+}
+{{end}}
+{{end}}
+
+// Test{{.EntityName}}Suite 运行{{.Description}}测试套件
+func Test{{.EntityName}}Suite(t *testing.T) {
+	suite.Run(t, new({{.EntityName}}TestSuite))
+}
+
+{{if .HasHelperFunctions}}
+// 测试辅助函数
+
+// create{{.EntityName}}ForTest 为测试创建{{.Description}}
+func (suite *{{.EntityName}}TestSuite) create{{.EntityName}}ForTest(overrides map[string]interface{}) *{{.PackageName}}.{{.EntityName}} {
+	entity := &{{.PackageName}}.{{.EntityName}}{
+{{range .DefaultTestFields}}		{{.Name}}: {{.Value}},
+{{end}}	}
+
+	// 应用覆盖值
+	for key, value := range overrides {
+		switch key {
+{{range .OverrideFields}}		case "{{.Name}}":
+			entity.{{.Field}} = value.({{.Type}})
+{{end}}		}
+	}
+
+	err := suite.db.Create(entity).Error
+	suite.Require().NoError(err)
+
+	return entity
+}
+
+// assert{{.EntityName}}Equal 断言{{.Description}}相等
+func (suite *{{.EntityName}}TestSuite) assert{{.EntityName}}Equal(expected, actual *{{.PackageName}}.{{.EntityName}}) {
+	suite.Equal(expected.ID, actual.ID)
+{{range .EqualAssertions}}	suite.{{.Method}}({{.Expected}}, {{.Actual}})
+{{end}}
+}
+
+// assert{{.EntityName}}ResponseEqual 断言{{.Description}}响应相等
+func (suite *{{.EntityName}}TestSuite) assert{{.EntityName}}ResponseEqual(expected *{{.PackageName}}.{{.EntityName}}, actual *{{.PackageName}}.{{.EntityName}}Response) {
+	suite.Equal(expected.ID, actual.ID)
+{{range .ResponseEqualAssertions}}	suite.{{.Method}}({{.Expected}}, {{.Actual}})
+{{end}}
+}
+{{end}}

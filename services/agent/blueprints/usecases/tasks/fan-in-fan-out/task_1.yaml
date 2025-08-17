@@ -1,0 +1,45 @@
+flow_id: core.demo.fanin.task_1
+name: "fan-in/fan-out：task_1"
+version: "1.0"
+
+metadata:
+  io:
+    inputs: []
+    outputs:
+      - { name: id, type: string }
+      - { name: timestamp, type: string }
+  requires: []
+  intent:
+    register: true
+    group: "demo.fanin"
+    weight: 1.0
+    matchers:
+      - type: keyword
+        any: ["扇出任务1","fan-in 任务1","fan-in/fan-out 任务1","执行扇出第一步","t1 fanin"]
+    embedding:
+      title: "Fan-in/Fan-out：执行 task_1（起点）"
+      synonyms: ["扇出起步","并发前置","fan-in首步"]
+    examples:
+      positive: ["执行扇出 任务1","fan-in 的第一步"]
+      negative: ["执行baseline 任务1","执行任务2"]
+
+nodes:
+  - id: n1_seed
+    use: core.debug.forward
+    kind: biz_logic
+    params:
+      id_ref: "{{ .input.upstream_id | default \"seed-fanin-t1\" }}"
+    io:
+      in_map: {}
+      out_map: { id: id, timestamp: timestamp }
+
+  - id: n2_fmt
+    use: core.response.format
+    kind: text_proc
+    params:
+      template: '{ "id":"{{ node.n1_seed.output.id }}","from":"t1@fanin" }'
+    io:
+      out_map: { id: id, timestamp: timestamp }
+
+edges:
+  - { from: n1_seed, to: n2_fmt, type: SEQ }

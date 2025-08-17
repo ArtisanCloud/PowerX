@@ -1,0 +1,56 @@
+server:
+  port: 8080
+  read_timeout_seconds: 30
+  write_timeout_seconds: 30
+  mode: debug
+  api_prefix: /api/v1
+
+database:
+  host: localhost
+  port: 5432
+  username: postgres
+  password: postgres
+  database: corex
+  ssl_mode: disable
+  timezone: Asia/Shanghai
+  table_prefix: cx_
+  max_idle_conns: 10
+  max_open_conns: 100
+
+log:
+  level: debug
+  format: json
+  output: stdout
+
+auth:
+  jwt_secret: default_secret_change_me_in_production
+  expected_audience: api
+  required_scopes: []
+  token_ttl_hours: 24
+
+event_bus:
+  type: local
+  dedupe_ttl_sec: 3600
+
+dynamic_form:
+  max_concurrent_flows: 100
+  default_timeout_sec: 300
+
+mcp:
+  server:
+    host: "0.0.0.0"
+    port: 8078
+
+  flow_spec:
+    blueprints: "./blueprints/"
+    capabilities: "./capabilities/"
+    feedbacks: "./feedbacks/"
+  tool_spec:
+    core_dir: "CoreX/services/mcp/tool_specs" # CoreX 内置 tool spec 目录
+    app_dirs: # 应用层可以是多个
+      - "PowerX/mcp/tool_specs"
+      - "MediaX/mcp/tool_specs"
+  templates_dir: "./mcp/templates/"
+  endpoints:
+    sse: "/mcp/sse"
+    message: "/mcp/message"

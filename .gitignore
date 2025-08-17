@@ -48,3 +48,5 @@ temp/
 # 构建输出
 dist/
 build/
+
+etc/config.yaml

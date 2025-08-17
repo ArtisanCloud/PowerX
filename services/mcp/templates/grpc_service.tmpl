@@ -1,0 +1,520 @@
+{{/*
+gRPC服务模板
+用于生成gRPC服务代码
+*/}}
+package {{.PackageName}}
+
+import (
+	"context"
+	"fmt"
+	"strings"
+
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/types/known/timestamppb"
+
+	"{{.ModulePath}}/app/usecase/{{.PackageName}}"
+	"{{.ModulePath}}/app/dto/{{.PackageName}}"
+	pb "{{.ModulePath}}/api/proto/{{.PackageName}}"
+	"{{.ModulePath}}/pkg/logger"
+{{if .HasAuth}}	"{{.ModulePath}}/pkg/auth"
+{{end}}
+{{if .HasValidator}}	"{{.ModulePath}}/pkg/validator"
+{{end}}
+{{if .HasMetrics}}	"{{.ModulePath}}/pkg/metrics"
+{{end}}
+)
+
+// {{.EntityName}}ServiceServer {{.Description}}gRPC服务实现
+type {{.EntityName}}ServiceServer struct {
+	pb.Unimplemented{{.EntityName}}ServiceServer
+	{{.EntityName}}UseCase *{{.PackageName}}.{{.EntityName}}UseCase `inject:""`
+{{if .HasLogger}}	logger          logger.Logger
+{{end}}
+{{if .HasValidator}}	validator       validator.Validator
+{{end}}
+{{if .HasMetrics}}	metrics         metrics.Metrics
+{{end}}
+}
+
+// New{{.EntityName}}ServiceServer 创建{{.Description}}gRPC服务实例
+func New{{.EntityName}}ServiceServer(
+	{{.EntityName}}UseCase *{{.PackageName}}.{{.EntityName}}UseCase,
+{{if .HasLogger}}	logger logger.Logger,
+{{end}}
+{{if .HasValidator}}	validator validator.Validator,
+{{end}}
+{{if .HasMetrics}}	metrics metrics.Metrics,
+{{end}}
+) *{{.EntityName}}ServiceServer {
+	return &{{.EntityName}}ServiceServer{
+		{{.EntityName}}UseCase: {{.EntityName}}UseCase,
+{{if .HasLogger}}		logger:          logger,
+{{end}}
+{{if .HasValidator}}		validator:       validator,
+{{end}}
+{{if .HasMetrics}}		metrics:         metrics,
+{{end}}	}
+}
+
+{{if .HasCreateRPC}}
+// Create{{.EntityName}} 创建{{.Description}}
+func (s *{{.EntityName}}ServiceServer) Create{{.EntityName}}(ctx context.Context, req *pb.Create{{.EntityName}}Request) (*pb.{{.EntityName}}Response, error) {
+{{if .HasMetrics}}	s.metrics.IncrementCounter("grpc_{{.PackageName}}_{{.EntityName}}_create_total")
+	defer func(start time.Time) {
+		s.metrics.RecordDuration("grpc_{{.PackageName}}_{{.EntityName}}_create_duration", time.Since(start))
+	}(time.Now())
+{{end}}
+
+	// 验证请求参数
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "请求不能为空")
+	}
+
+{{if .HasValidator}}	// 转换为DTO并验证
+	dtoReq := s.convertCreateRequestToDTO(req)
+	if err := s.validator.Validate(dtoReq); err != nil {
+		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("参数验证失败: %v", err))
+	}
+{{else}}	// 转换为DTO
+	dtoReq := s.convertCreateRequestToDTO(req)
+{{end}}
+
+{{if .HasAuth}}	// 获取用户信息
+	if userID := auth.GetUserIDFromContext(ctx); userID != "" {
+		dtoReq.CreatedBy = userID
+	}
+{{end}}
+
+	// 调用业务逻辑
+	result, err := s.{{.EntityName}}UseCase.Create{{.EntityName}}(ctx, dtoReq)
+	if err != nil {
+{{if .HasLogger}}		s.logger.ErrorF(ctx, "创建{{.Description}}失败: %v", err)
+{{end}}		return nil, s.handleError(err)
+	}
+
+{{if .HasLogger}}	s.logger.InfoF(ctx, "成功创建{{.Description}}: %s", result.ID)
+{{end}}
+
+	// 转换为protobuf响应
+	return s.convertDTOToResponse(result), nil
+}
+{{end}}
+
+{{if .HasGetRPC}}
+// Get{{.EntityName}} 获取{{.Description}}详情
+func (s *{{.EntityName}}ServiceServer) Get{{.EntityName}}(ctx context.Context, req *pb.Get{{.EntityName}}Request) (*pb.{{.EntityName}}Response, error) {
+{{if .HasMetrics}}	s.metrics.IncrementCounter("grpc_{{.PackageName}}_{{.EntityName}}_get_total")
+	defer func(start time.Time) {
+		s.metrics.RecordDuration("grpc_{{.PackageName}}_{{.EntityName}}_get_duration", time.Since(start))
+	}(time.Now())
+{{end}}
+
+	// 验证请求参数
+	if req == nil || req.Id == "" {
+		return nil, status.Error(codes.InvalidArgument, "{{.Description}}ID不能为空")
+	}
+
+	// 调用业务逻辑
+	result, err := s.{{.EntityName}}UseCase.Get{{.EntityName}}(ctx, req.Id)
+	if err != nil {
+{{if .HasLogger}}		s.logger.ErrorF(ctx, "获取{{.Description}}失败: %v", err)
+{{end}}		return nil, s.handleError(err)
+	}
+
+	// 转换为protobuf响应
+	return s.convertDTOToResponse(result), nil
+}
+{{end}}
+
+{{if .HasUpdateRPC}}
+// Update{{.EntityName}} 更新{{.Description}}
+func (s *{{.EntityName}}ServiceServer) Update{{.EntityName}}(ctx context.Context, req *pb.Update{{.EntityName}}Request) (*pb.{{.EntityName}}Response, error) {
+{{if .HasMetrics}}	s.metrics.IncrementCounter("grpc_{{.PackageName}}_{{.EntityName}}_update_total")
+	defer func(start time.Time) {
+		s.metrics.RecordDuration("grpc_{{.PackageName}}_{{.EntityName}}_update_duration", time.Since(start))
+	}(time.Now())
+{{end}}
+
+	// 验证请求参数
+	if req == nil || req.Id == "" {
+		return nil, status.Error(codes.InvalidArgument, "{{.Description}}ID不能为空")
+	}
+
+{{if .HasValidator}}	// 转换为DTO并验证
+	dtoReq := s.convertUpdateRequestToDTO(req)
+	if err := s.validator.Validate(dtoReq); err != nil {
+		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("参数验证失败: %v", err))
+	}
+{{else}}	// 转换为DTO
+	dtoReq := s.convertUpdateRequestToDTO(req)
+{{end}}
+
+{{if .HasAuth}}	// 获取用户信息
+	if userID := auth.GetUserIDFromContext(ctx); userID != "" {
+		dtoReq.UpdatedBy = userID
+	}
+{{end}}
+
+	// 调用业务逻辑
+	result, err := s.{{.EntityName}}UseCase.Update{{.EntityName}}(ctx, req.Id, dtoReq)
+	if err != nil {
+{{if .HasLogger}}		s.logger.ErrorF(ctx, "更新{{.Description}}失败: %v", err)
+{{end}}		return nil, s.handleError(err)
+	}
+
+{{if .HasLogger}}	s.logger.InfoF(ctx, "成功更新{{.Description}}: %s", req.Id)
+{{end}}
+
+	// 转换为protobuf响应
+	return s.convertDTOToResponse(result), nil
+}
+{{end}}
+
+{{if .HasDeleteRPC}}
+// Delete{{.EntityName}} 删除{{.Description}}
+func (s *{{.EntityName}}ServiceServer) Delete{{.EntityName}}(ctx context.Context, req *pb.Delete{{.EntityName}}Request) (*emptypb.Empty, error) {
+{{if .HasMetrics}}	s.metrics.IncrementCounter("grpc_{{.PackageName}}_{{.EntityName}}_delete_total")
+	defer func(start time.Time) {
+		s.metrics.RecordDuration("grpc_{{.PackageName}}_{{.EntityName}}_delete_duration", time.Since(start))
+	}(time.Now())
+{{end}}
+
+	// 验证请求参数
+	if req == nil || req.Id == "" {
+		return nil, status.Error(codes.InvalidArgument, "{{.Description}}ID不能为空")
+	}
+
+	// 调用业务逻辑
+	err := s.{{.EntityName}}UseCase.Delete{{.EntityName}}(ctx, req.Id)
+	if err != nil {
+{{if .HasLogger}}		s.logger.ErrorF(ctx, "删除{{.Description}}失败: %v", err)
+{{end}}		return nil, s.handleError(err)
+	}
+
+{{if .HasLogger}}	s.logger.InfoF(ctx, "成功删除{{.Description}}: %s", req.Id)
+{{end}}
+
+	return &emptypb.Empty{}, nil
+}
+{{end}}
+
+{{if .HasListRPC}}
+// List{{.EntityName}} 获取{{.Description}}列表
+func (s *{{.EntityName}}ServiceServer) List{{.EntityName}}(ctx context.Context, req *pb.List{{.EntityName}}Request) (*pb.List{{.EntityName}}Response, error) {
+{{if .HasMetrics}}	s.metrics.IncrementCounter("grpc_{{.PackageName}}_{{.EntityName}}_list_total")
+	defer func(start time.Time) {
+		s.metrics.RecordDuration("grpc_{{.PackageName}}_{{.EntityName}}_list_duration", time.Since(start))
+	}(time.Now())
+{{end}}
+
+	// 验证请求参数
+	if req == nil {
+		req = &pb.List{{.EntityName}}Request{}
+	}
+
+	// 设置默认分页参数
+	if req.Page <= 0 {
+		req.Page = 1
+	}
+	if req.PageSize <= 0 {
+		req.PageSize = 10
+	}
+	if req.PageSize > 100 {
+		req.PageSize = 100
+	}
+
+	// 转换为DTO
+	dtoReq := s.convertListRequestToDTO(req)
+
+	// 调用业务逻辑
+	result, err := s.{{.EntityName}}UseCase.List{{.EntityName}}(ctx, dtoReq)
+	if err != nil {
+{{if .HasLogger}}		s.logger.ErrorF(ctx, "获取{{.Description}}列表失败: %v", err)
+{{end}}		return nil, s.handleError(err)
+	}
+
+	// 转换为protobuf响应
+	return s.convertDTOToListResponse(result), nil
+}
+{{end}}
+
+{{if .HasBatchRPC}}
+// BatchCreate{{.EntityName}} 批量创建{{.Description}}
+func (s *{{.EntityName}}ServiceServer) BatchCreate{{.EntityName}}(ctx context.Context, req *pb.BatchCreate{{.EntityName}}Request) (*pb.BatchCreate{{.EntityName}}Response, error) {
+{{if .HasMetrics}}	s.metrics.IncrementCounter("grpc_{{.PackageName}}_{{.EntityName}}_batch_create_total")
+	defer func(start time.Time) {
+		s.metrics.RecordDuration("grpc_{{.PackageName}}_{{.EntityName}}_batch_create_duration", time.Since(start))
+	}(time.Now())
+{{end}}
+
+	// 验证请求参数
+	if req == nil || len(req.Items) == 0 {
+		return nil, status.Error(codes.InvalidArgument, "批量创建项目不能为空")
+	}
+
+	if len(req.Items) > 100 {
+		return nil, status.Error(codes.InvalidArgument, "批量创建项目数量不能超过100个")
+	}
+
+	// 转换为DTO
+	dtoReq := s.convertBatchCreateRequestToDTO(req)
+
+{{if .HasValidator}}	// 验证请求参数
+	if err := s.validator.Validate(dtoReq); err != nil {
+		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("参数验证失败: %v", err))
+	}
+{{end}}
+
+{{if .HasAuth}}	// 获取用户信息
+	if userID := auth.GetUserIDFromContext(ctx); userID != "" {
+		for i := range dtoReq.Items {
+			dtoReq.Items[i].CreatedBy = userID
+		}
+	}
+{{end}}
+
+	// 调用业务逻辑
+	result, err := s.{{.EntityName}}UseCase.BatchCreate{{.EntityName}}(ctx, dtoReq)
+	if err != nil {
+{{if .HasLogger}}		s.logger.ErrorF(ctx, "批量创建{{.Description}}失败: %v", err)
+{{end}}		return nil, s.handleError(err)
+	}
+
+{{if .HasLogger}}	s.logger.InfoF(ctx, "成功批量创建{{.Description}}: %d个", len(result.Items))
+{{end}}
+
+	// 转换为protobuf响应
+	return s.convertDTOToBatchCreateResponse(result), nil
+}
+{{end}}
+
+{{if .HasSearchRPC}}
+// Search{{.EntityName}} 搜索{{.Description}}
+func (s *{{.EntityName}}ServiceServer) Search{{.EntityName}}(ctx context.Context, req *pb.Search{{.EntityName}}Request) (*pb.List{{.EntityName}}Response, error) {
+{{if .HasMetrics}}	s.metrics.IncrementCounter("grpc_{{.PackageName}}_{{.EntityName}}_search_total")
+	defer func(start time.Time) {
+		s.metrics.RecordDuration("grpc_{{.PackageName}}_{{.EntityName}}_search_duration", time.Since(start))
+	}(time.Now())
+{{end}}
+
+	// 验证请求参数
+	if req == nil || req.Query == "" {
+		return nil, status.Error(codes.InvalidArgument, "搜索关键词不能为空")
+	}
+
+	// 设置默认分页参数
+	if req.Page <= 0 {
+		req.Page = 1
+	}
+	if req.PageSize <= 0 {
+		req.PageSize = 10
+	}
+	if req.PageSize > 100 {
+		req.PageSize = 100
+	}
+
+	// 转换为DTO
+	dtoReq := s.convertSearchRequestToDTO(req)
+
+	// 调用业务逻辑
+	result, err := s.{{.EntityName}}UseCase.Search{{.EntityName}}(ctx, dtoReq)
+	if err != nil {
+{{if .HasLogger}}		s.logger.ErrorF(ctx, "搜索{{.Description}}失败: %v", err)
+{{end}}		return nil, s.handleError(err)
+	}
+
+	// 转换为protobuf响应
+	return s.convertDTOToListResponse(result), nil
+}
+{{end}}
+
+{{if .HasStreamRPC}}
+// Stream{{.EntityName}} 流式获取{{.Description}}
+func (s *{{.EntityName}}ServiceServer) Stream{{.EntityName}}(req *pb.Stream{{.EntityName}}Request, stream pb.{{.EntityName}}Service_Stream{{.EntityName}}Server) error {
+{{if .HasMetrics}}	s.metrics.IncrementCounter("grpc_{{.PackageName}}_{{.EntityName}}_stream_total")
+	defer func(start time.Time) {
+		s.metrics.RecordDuration("grpc_{{.PackageName}}_{{.EntityName}}_stream_duration", time.Since(start))
+	}(time.Now())
+{{end}}
+
+	// 验证请求参数
+	if req == nil {
+		return status.Error(codes.InvalidArgument, "请求不能为空")
+	}
+
+	ctx := stream.Context()
+
+	// 转换为DTO
+	dtoReq := s.convertStreamRequestToDTO(req)
+
+	// 创建结果通道
+	resultChan := make(chan *{{.PackageName}}.{{.EntityName}}Response, 100)
+	errorChan := make(chan error, 1)
+
+	// 启动流式处理
+	go func() {
+		defer close(resultChan)
+		defer close(errorChan)
+
+		err := s.{{.EntityName}}UseCase.Stream{{.EntityName}}(ctx, dtoReq, resultChan)
+		if err != nil {
+			errorChan <- err
+		}
+	}()
+
+	// 处理结果流
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case err := <-errorChan:
+			if err != nil {
+{{if .HasLogger}}				s.logger.ErrorF(ctx, "流式获取{{.Description}}失败: %v", err)
+{{end}}				return s.handleError(err)
+			}
+			return nil
+		case result, ok := <-resultChan:
+			if !ok {
+				return nil
+			}
+
+			// 发送结果
+			pbResult := s.convertDTOToResponse(result)
+			if err := stream.Send(pbResult); err != nil {
+{{if .HasLogger}}				s.logger.ErrorF(ctx, "发送流式{{.Description}}数据失败: %v", err)
+{{end}}				return err
+			}
+		}
+	}
+}
+{{end}}
+
+// 转换方法
+
+{{if .HasCreateRPC}}
+// convertCreateRequestToDTO 转换创建请求为DTO
+func (s *{{.EntityName}}ServiceServer) convertCreateRequestToDTO(req *pb.Create{{.EntityName}}Request) *{{.PackageName}}.Create{{.EntityName}}Request {
+	return &{{.PackageName}}.Create{{.EntityName}}Request{
+{{range .CreateFields}}		{{.DTOField}}: {{.ConvertLogic}},
+{{end}}	}
+}
+{{end}}
+
+{{if .HasUpdateRPC}}
+// convertUpdateRequestToDTO 转换更新请求为DTO
+func (s *{{.EntityName}}ServiceServer) convertUpdateRequestToDTO(req *pb.Update{{.EntityName}}Request) *{{.PackageName}}.Update{{.EntityName}}Request {
+	return &{{.PackageName}}.Update{{.EntityName}}Request{
+{{range .UpdateFields}}		{{.DTOField}}: {{.ConvertLogic}},
+{{end}}	}
+}
+{{end}}
+
+{{if .HasListRPC}}
+// convertListRequestToDTO 转换列表请求为DTO
+func (s *{{.EntityName}}ServiceServer) convertListRequestToDTO(req *pb.List{{.EntityName}}Request) *{{.PackageName}}.List{{.EntityName}}Request {
+	return &{{.PackageName}}.List{{.EntityName}}Request{
+		Page:     int(req.Page),
+		PageSize: int(req.PageSize),
+		Sort:     req.Sort,
+		Order:    req.Order,
+{{range .ListFields}}		{{.DTOField}}: {{.ConvertLogic}},
+{{end}}	}
+}
+{{end}}
+
+{{if .HasSearchRPC}}
+// convertSearchRequestToDTO 转换搜索请求为DTO
+func (s *{{.EntityName}}ServiceServer) convertSearchRequestToDTO(req *pb.Search{{.EntityName}}Request) *{{.PackageName}}.Search{{.EntityName}}Request {
+	return &{{.PackageName}}.Search{{.EntityName}}Request{
+		Query:    req.Query,
+		Page:     int(req.Page),
+		PageSize: int(req.PageSize),
+{{range .SearchFields}}		{{.DTOField}}: {{.ConvertLogic}},
+{{end}}	}
+}
+{{end}}
+
+// convertDTOToResponse 转换DTO为protobuf响应
+func (s *{{.EntityName}}ServiceServer) convertDTOToResponse(dto *{{.PackageName}}.{{.EntityName}}Response) *pb.{{.EntityName}}Response {
+	if dto == nil {
+		return nil
+	}
+
+	return &pb.{{.EntityName}}Response{
+		Id: dto.ID,
+{{range .ResponseFields}}		{{.PBField}}: {{.ConvertLogic}},
+{{end}}		CreatedAt: timestamppb.New(dto.CreatedAt),
+		UpdatedAt: timestamppb.New(dto.UpdatedAt),
+	}
+}
+
+{{if .HasListRPC}}
+// convertDTOToListResponse 转换DTO为列表响应
+func (s *{{.EntityName}}ServiceServer) convertDTOToListResponse(dto *{{.PackageName}}.{{.EntityName}}ListResponse) *pb.List{{.EntityName}}Response {
+	if dto == nil {
+		return &pb.List{{.EntityName}}Response{}
+	}
+
+	items := make([]*pb.{{.EntityName}}Response, len(dto.Items))
+	for i, item := range dto.Items {
+		items[i] = s.convertDTOToResponse(item)
+	}
+
+	return &pb.List{{.EntityName}}Response{
+		Items: items,
+		Pagination: &pb.PaginationResponse{
+			Page:       int32(dto.Pagination.Page),
+			PageSize:   int32(dto.Pagination.PageSize),
+			Total:      dto.Pagination.Total,
+			TotalPages: int32(dto.Pagination.TotalPages),
+		},
+	}
+}
+{{end}}
+
+// handleError 处理错误并转换为gRPC状态码
+func (s *{{.EntityName}}ServiceServer) handleError(err error) error {
+	if err == nil {
+		return nil
+	}
+
+	errorMsg := err.Error()
+
+	// 根据错误类型返回相应的gRPC状态码
+	switch {
+	case strings.Contains(errorMsg, "not found"):
+		return status.Error(codes.NotFound, errorMsg)
+	case strings.Contains(errorMsg, "already exists"):
+		return status.Error(codes.AlreadyExists, errorMsg)
+	case strings.Contains(errorMsg, "invalid"):
+		return status.Error(codes.InvalidArgument, errorMsg)
+	case strings.Contains(errorMsg, "unauthorized"):
+		return status.Error(codes.Unauthenticated, errorMsg)
+	case strings.Contains(errorMsg, "forbidden"):
+		return status.Error(codes.PermissionDenied, errorMsg)
+	case strings.Contains(errorMsg, "timeout"):
+		return status.Error(codes.DeadlineExceeded, errorMsg)
+	case strings.Contains(errorMsg, "unavailable"):
+		return status.Error(codes.Unavailable, errorMsg)
+	default:
+		return status.Error(codes.Internal, errorMsg)
+	}
+}
+
+{{if .HasCustomRPCs}}
+// 自定义RPC方法
+{{range .CustomRPCs}}
+// {{.Name}} {{.Description}}
+func (s *{{$.EntityName}}ServiceServer) {{.Name}}({{.Signature}}) {{.ReturnType}} {
+{{if $.HasMetrics}}	s.metrics.IncrementCounter("grpc_{{$.PackageName}}_{{$.EntityName}}_{{.MetricName}}_total")
+	defer func(start time.Time) {
+		s.metrics.RecordDuration("grpc_{{$.PackageName}}_{{$.EntityName}}_{{.MetricName}}_duration", time.Since(start))
+	}(time.Now())
+{{end}}
+
+	{{.Implementation}}
+}
+{{end}}
+{{end}}

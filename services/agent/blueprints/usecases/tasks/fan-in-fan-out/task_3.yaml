@@ -1,0 +1,9 @@
+flow_id: core.demo.fanin.task_3
+ref:
+  enable: true
+  target: core.demo.task_3         # 指向同一公共 Flow
+  variant: fan-in-fan-out
+  register_intent: false
+  overrides:
+    metadata:
+      requires: ["core.demo.fanin.task_1"]     # 扇出场景依赖 t1

@@ -1,0 +1,46 @@
+flow_id: core.demo.baseline.task_1
+name: "baseline：task_1"
+version: "1.0"
+
+metadata:
+  io:
+    inputs: []
+    outputs:
+      - { name: id, type: string }
+      - { name: timestamp, type: string }
+  requires: []
+  intent:
+    register: true
+    group: "demo.baseline"
+    weight: 1.0
+    matchers:
+      - type: keyword
+        any: ["baseline 任务1","baseline task 1","线性任务1","执行baseline第一步","t1 baseline"]
+
+    embedding:
+      title: "Baseline：执行 task_1（起点）"
+      synonyms: ["基线起步","线性第一步","baseline首步"]
+    examples:
+      positive: ["执行baseline 任务1","baseline第一步"]
+      negative: ["执行fan-in 任务1","执行任务2"]
+
+nodes:
+  - id: n1_seed
+    use: core.debug.forward
+    kind: biz_logic
+    params:
+      id_ref: "{{ .input.upstream_id | default \"seed-baseline-t1\" }}"
+    io:
+      in_map: {}
+      out_map: { id: id, timestamp: timestamp }
+
+  - id: n2_fmt
+    use: core.response.format
+    kind: text_proc
+    params:
+      template: '{ "id":"{{ node.n1_seed.output.id }}","from":"t1@baseline" }'
+    io:
+      out_map: { id: id, timestamp: timestamp }
+
+edges:
+  - { from: n1_seed, to: n2_fmt, type: SEQ }

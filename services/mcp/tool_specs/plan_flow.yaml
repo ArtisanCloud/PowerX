@@ -1,0 +1,210 @@
+id: plan_flow
+name: Plan Flow
+description: Creates an execution plan from a flow definition
+version: "1.0.0"
+handler_type: native
+
+input_schema:
+  type: object
+  properties:
+    flow:
+      type: object
+      description: The flow definition to create a plan from
+      properties:
+        id:
+          type: string
+          description: The ID of the flow
+        name:
+          type: string
+          description: The name of the flow
+        steps:
+          type: array
+          description: The steps of the flow
+          items:
+            type: object
+        variables:
+          type: object
+          description: The variables of the flow
+      required:
+        - id
+        - steps
+    context:
+      type: object
+      description: Optional context variables for plan generation
+    overrides:
+      type: object
+      description: Runtime parameter overrides for specific steps
+      additionalProperties:
+        type: object
+        description: Override parameters for a specific step (keyed by step ID)
+        properties:
+          parameters:
+            type: object
+            description: Parameter overrides for the step
+          timeout:
+            type: integer
+            description: Timeout override in seconds
+          retry_count:
+            type: integer
+            description: Retry count override
+          enabled:
+            type: boolean
+            description: Whether the step is enabled
+    max_parallel_steps:
+      type: integer
+      description: Maximum number of steps to execute in parallel (overrides flow config)
+      minimum: 1
+      default: 1
+    include_steps:
+      type: array
+      description: Only include these steps in the plan (whitelist)
+      items:
+        type: string
+    exclude_steps:
+      type: array
+      description: Exclude these steps from the plan (blacklist)
+      items:
+        type: string
+    dry_run:
+      type: boolean
+      description: If true, only generate the plan without simulation or execution
+      default: false
+  required:
+    - flow
+
+output_schema:
+  type: object
+  properties:
+    plan:
+      type: object
+      description: The generated execution plan
+      properties:
+        id:
+          type: string
+          description: The ID of the plan
+        flow_id:
+          type: string
+          description: The ID of the source flow
+        name:
+          type: string
+          description: The name of the plan
+        description:
+          type: string
+          description: The description of the plan
+        tasks:
+          type: array
+          description: The tasks in the plan
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              step_id:
+                type: string
+              name:
+                type: string
+              type:
+                type: string
+              action:
+                type: string
+              params:
+                type: object
+              status:
+                type: string
+        status:
+          type: string
+          description: The status of the plan
+        created_at:
+          type: string
+          format: date-time
+          description: When the plan was created
+
+examples:
+  - input:
+      flow:
+        id: example_flow
+        name: Example Flow
+        steps:
+          - id: step1
+            name: Initialize Project
+            type: action
+            action: create_project
+          - id: step2
+            name: Generate Models
+            type: action
+            action: generate_models
+    output:
+      plan:
+        id: plan_123
+        flow_id: example_flow
+        name: Example Flow Plan
+        description: Execution plan for Example Flow
+        status: pending
+        tasks:
+          - id: task_1
+            step_id: step1
+            name: Initialize Project
+            type: action
+            action: create_project
+            status: pending
+          - id: task_2
+            step_id: step2
+            name: Generate Models
+            type: action
+            action: generate_models
+            status: pending
+  - input:
+      flow:
+        id: user_registration_flow
+        name: User Registration Flow
+        steps:
+          - id: password_hasher
+            name: Password Hasher
+            type: action
+            action: generate_password_hash
+            parameters:
+              algorithm: bcrypt
+              cost: 12
+          - id: user_model
+            name: User Model
+            type: action
+            action: generate_model
+      overrides:
+        password_hasher:
+          parameters:
+            algorithm: argon2
+            cost: 16
+          timeout: 15
+      max_parallel_steps: 3
+      dry_run: true
+    output:
+      plan:
+        id: plan_456
+        flow_id: user_registration_flow
+        name: User Registration Flow Plan (Dry Run)
+        description: Execution plan with runtime overrides
+        status: pending
+        tasks:
+          - id: task_3
+            step_id: password_hasher
+            name: Password Hasher
+            type: action
+            action: generate_password_hash
+            params:
+              algorithm: argon2
+              cost: 16
+            status: pending
+          - id: task_4
+            step_id: user_model
+            name: User Model
+            type: action
+            action: generate_model
+            status: pending
+
+allowed_roles:
+  - user
+  - admin
+
+metadata:
+  category: planning
+  priority: high

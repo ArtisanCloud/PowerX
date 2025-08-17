@@ -1,0 +1,225 @@
+{{/*
+仓储实现模板
+用于生成仓储层的具体实现
+*/}}
+package repository
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"gorm.io/gorm"
+	"github.com/ArtisanCloud/PowerX/domain/model"
+	"github.com/ArtisanCloud/PowerX/domain/repository"
+	"{{.ModulePath}}/domain/model/{{.PackageName}}"
+	"{{.ModulePath}}/infra/persistence/model"
+)
+
+// {{.EntityName}}RepositoryImpl {{.Description}}仓储实现
+type {{.EntityName}}RepositoryImpl struct {
+	*repository.BaseRepository[model.{{.EntityName}}]
+	db *gorm.DB
+{{if .HasCache}}	cache CacheInterface
+{{end}}
+{{if .HasLogger}}	logger LoggerInterface
+{{end}}
+}
+
+// New{{.EntityName}}Repository 创建{{.Description}}仓储实例
+func New{{.EntityName}}Repository(db *gorm.DB{{if .HasCache}}, cache CacheInterface{{end}}{{if .HasLogger}}, logger LoggerInterface{{end}}) {{.PackageName}}.{{.EntityName}}Repository {
+	return &{{.EntityName}}RepositoryImpl{
+		BaseRepository: repository.NewBaseRepository[model.{{.EntityName}}](db),
+		db:            db,
+{{if .HasCache}}		cache:         cache,
+{{end}}
+{{if .HasLogger}}		logger:        logger,
+{{end}}	}
+}
+
+// Create 创建{{.Description}}
+func (r *{{.EntityName}}RepositoryImpl) Create(ctx context.Context, entity *{{.PackageName}}.{{.EntityName}}) error {
+	// 转换为持久化模型
+	persistenceModel := r.toPersistenceModel(entity)
+	
+	// 执行创建
+	if err := r.db.WithContext(ctx).Create(persistenceModel).Error; err != nil {
+		return fmt.Errorf("创建{{.Description}}失败: %w", err)
+	}
+	
+	// 更新实体ID
+	entity.ID = persistenceModel.ID
+	
+{{if .HasCache}}	// 清除相关缓存
+	r.clearRelatedCache(ctx, entity.ID)
+{{end}}
+	
+	return nil
+}
+
+// GetByID 根据ID获取{{.Description}}
+func (r *{{.EntityName}}RepositoryImpl) GetByID(ctx context.Context, id string) (*{{.PackageName}}.{{.EntityName}}, error) {
+	if id == "" {
+		return nil, errors.New("ID不能为空")
+	}
+	
+{{if .HasCache}}	// 尝试从缓存获取
+	if cached, err := r.getFromCache(ctx, id); err == nil && cached != nil {
+		return cached, nil
+	}
+{{end}}
+	
+	var persistenceModel model.{{.EntityName}}
+	if err := r.db.WithContext(ctx).First(&persistenceModel, "id = ?", id).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("查询{{.Description}}失败: %w", err)
+	}
+	
+	entity := r.toDomainModel(&persistenceModel)
+	
+{{if .HasCache}}	// 设置缓存
+	r.setToCache(ctx, id, entity)
+{{end}}
+	
+	return entity, nil
+}
+
+// Update 更新{{.Description}}
+func (r *{{.EntityName}}RepositoryImpl) Update(ctx context.Context, entity *{{.PackageName}}.{{.EntityName}}) error {
+	if entity.ID == "" {
+		return errors.New("实体ID不能为空")
+	}
+	
+	// 转换为持久化模型
+	persistenceModel := r.toPersistenceModel(entity)
+	
+	// 执行更新
+	result := r.db.WithContext(ctx).Model(&persistenceModel).Where("id = ?", entity.ID).Updates(persistenceModel)
+	if result.Error != nil {
+		return fmt.Errorf("更新{{.Description}}失败: %w", result.Error)
+	}
+	
+	if result.RowsAffected == 0 {
+		return errors.New("{{.Description}}不存在或未发生变更")
+	}
+	
+{{if .HasCache}}	// 清除相关缓存
+	r.clearRelatedCache(ctx, entity.ID)
+{{end}}
+	
+	return nil
+}
+
+// Delete 删除{{.Description}}
+func (r *{{.EntityName}}RepositoryImpl) Delete(ctx context.Context, id string) error {
+	if id == "" {
+		return errors.New("ID不能为空")
+	}
+	
+	result := r.db.WithContext(ctx).Delete(&model.{{.EntityName}}{}, "id = ?", id)
+	if result.Error != nil {
+		return fmt.Errorf("删除{{.Description}}失败: %w", result.Error)
+	}
+	
+	if result.RowsAffected == 0 {
+		return errors.New("{{.Description}}不存在")
+	}
+	
+{{if .HasCache}}	// 清除相关缓存
+	r.clearRelatedCache(ctx, id)
+{{end}}
+	
+	return nil
+}
+
+// List 分页查询{{.Description}}列表
+func (r *{{.EntityName}}RepositoryImpl) List(ctx context.Context, page *model.Page) ([]*{{.PackageName}}.{{.EntityName}}, int64, error) {
+	var persistenceModels []model.{{.EntityName}}
+	var total int64
+	
+	// 构建查询
+	query := r.db.WithContext(ctx).Model(&model.{{.EntityName}}{})
+	
+	// 计算总数
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, fmt.Errorf("查询{{.Description}}总数失败: %w", err)
+	}
+	
+	// 分页查询
+	offset := (page.PageNum - 1) * page.PageSize
+	if err := query.Offset(offset).Limit(page.PageSize).Find(&persistenceModels).Error; err != nil {
+		return nil, 0, fmt.Errorf("查询{{.Description}}列表失败: %w", err)
+	}
+	
+	// 转换为领域模型
+	entities := make([]*{{.PackageName}}.{{.EntityName}}, len(persistenceModels))
+	for i, pm := range persistenceModels {
+		entities[i] = r.toDomainModel(&pm)
+	}
+	
+	return entities, total, nil
+}
+
+{{if .HasCustomMethods}}
+// 自定义方法实现
+{{range .CustomMethods}}
+// {{.Name}} {{.Description}}
+func (r *{{$.EntityName}}RepositoryImpl) {{.Name}}(ctx context.Context{{if .Params}}, {{.Params}}{{end}}) {{.ReturnType}} {
+	// TODO: 实现自定义方法
+	{{.Implementation}}
+}
+{{end}}
+{{end}}
+
+// 模型转换方法
+
+// toDomainModel 转换为领域模型
+func (r *{{.EntityName}}RepositoryImpl) toDomainModel(pm *model.{{.EntityName}}) *{{.PackageName}}.{{.EntityName}} {
+	if pm == nil {
+		return nil
+	}
+	
+	return &{{.PackageName}}.{{.EntityName}}{
+		ID:        pm.ID,
+		CreatedAt: pm.CreatedAt,
+		UpdatedAt: pm.UpdatedAt,
+		DeletedAt: pm.DeletedAt.Time,
+{{range .Fields}}		{{.Name}}: pm.{{.Name}},
+{{end}}	}
+}
+
+// toPersistenceModel 转换为持久化模型
+func (r *{{.EntityName}}RepositoryImpl) toPersistenceModel(dm *{{.PackageName}}.{{.EntityName}}) *model.{{.EntityName}} {
+	if dm == nil {
+		return nil
+	}
+	
+	return &model.{{.EntityName}}{
+		ID:        dm.ID,
+		CreatedAt: dm.CreatedAt,
+		UpdatedAt: dm.UpdatedAt,
+{{range .Fields}}		{{.Name}}: dm.{{.Name}},
+{{end}}	}
+}
+
+{{if .HasCache}}
+// 缓存相关方法
+
+// getFromCache 从缓存获取
+func (r *{{.EntityName}}RepositoryImpl) getFromCache(ctx context.Context, id string) (*{{.PackageName}}.{{.EntityName}}, error) {
+	// TODO: 实现缓存获取逻辑
+	return nil, errors.New("缓存功能未实现")
+}
+
+// setToCache 设置缓存
+func (r *{{.EntityName}}RepositoryImpl) setToCache(ctx context.Context, id string, entity *{{.PackageName}}.{{.EntityName}}) error {
+	// TODO: 实现缓存设置逻辑
+	return nil
+}
+
+// clearRelatedCache 清除相关缓存
+func (r *{{.EntityName}}RepositoryImpl) clearRelatedCache(ctx context.Context, id string) {
+	// TODO: 实现缓存清除逻辑
+}
+{{end}}

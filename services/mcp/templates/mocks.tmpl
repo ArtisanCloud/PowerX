@@ -1,0 +1,678 @@
+{{/*
+Mock模板
+用于生成Mock对象代码，用于单元测试
+*/}}
+package mocks
+
+import (
+	"context"
+	"mime/multipart"
+
+	"github.com/stretchr/testify/mock"
+
+	"{{.ModulePath}}/domain/model/{{.PackageName}}"
+	"{{.ModulePath}}/app/dto/{{.PackageName}}"
+{{if .HasAdapter}}	"{{.ModulePath}}/app/adapter/{{.PackageName}}"
+{{end}}
+)
+
+// {{.EntityName}}Repository Mock{{.Description}}仓储接口
+type {{.EntityName}}Repository struct {
+	mock.Mock
+}
+
+// Create 创建{{.Description}}
+func (m *{{.EntityName}}Repository) Create(ctx context.Context, entity *{{.PackageName}}.{{.EntityName}}) error {
+	args := m.Called(ctx, entity)
+	return args.Error(0)
+}
+
+// GetByID 根据ID获取{{.Description}}
+func (m *{{.EntityName}}Repository) GetByID(ctx context.Context, id string) (*{{.PackageName}}.{{.EntityName}}, error) {
+	args := m.Called(ctx, id)
+	return args.Get(0).(*{{.PackageName}}.{{.EntityName}}), args.Error(1)
+}
+
+// Update 更新{{.Description}}
+func (m *{{.EntityName}}Repository) Update(ctx context.Context, entity *{{.PackageName}}.{{.EntityName}}) error {
+	args := m.Called(ctx, entity)
+	return args.Error(0)
+}
+
+// Delete 删除{{.Description}}
+func (m *{{.EntityName}}Repository) Delete(ctx context.Context, id string) error {
+	args := m.Called(ctx, id)
+	return args.Error(0)
+}
+
+// List 获取{{.Description}}列表
+func (m *{{.EntityName}}Repository) List(ctx context.Context, req *{{.PackageName}}.List{{.EntityName}}Request) ([]*{{.PackageName}}.{{.EntityName}}, int64, error) {
+	args := m.Called(ctx, req)
+	return args.Get(0).([]*{{.PackageName}}.{{.EntityName}}), args.Get(1).(int64), args.Error(2)
+}
+
+// BatchCreate 批量创建{{.Description}}
+func (m *{{.EntityName}}Repository) BatchCreate(ctx context.Context, entities []*{{.PackageName}}.{{.EntityName}}) error {
+	args := m.Called(ctx, entities)
+	return args.Error(0)
+}
+
+// BatchUpdate 批量更新{{.Description}}
+func (m *{{.EntityName}}Repository) BatchUpdate(ctx context.Context, entities []*{{.PackageName}}.{{.EntityName}}) error {
+	args := m.Called(ctx, entities)
+	return args.Error(0)
+}
+
+// BatchDelete 批量删除{{.Description}}
+func (m *{{.EntityName}}Repository) BatchDelete(ctx context.Context, ids []string) error {
+	args := m.Called(ctx, ids)
+	return args.Error(0)
+}
+
+{{if .HasSearchMethod}}
+// Search 搜索{{.Description}}
+func (m *{{.EntityName}}Repository) Search(ctx context.Context, req *{{.PackageName}}.Search{{.EntityName}}Request) ([]*{{.PackageName}}.{{.EntityName}}, int64, error) {
+	args := m.Called(ctx, req)
+	return args.Get(0).([]*{{.PackageName}}.{{.EntityName}}), args.Get(1).(int64), args.Error(2)
+}
+{{end}}
+
+{{if .HasCountMethod}}
+// Count 统计{{.Description}}数量
+func (m *{{.EntityName}}Repository) Count(ctx context.Context, conditions map[string]interface{}) (int64, error) {
+	args := m.Called(ctx, conditions)
+	return args.Get(0).(int64), args.Error(1)
+}
+{{end}}
+
+{{if .HasExistsMethod}}
+// Exists 检查{{.Description}}是否存在
+func (m *{{.EntityName}}Repository) Exists(ctx context.Context, id string) (bool, error) {
+	args := m.Called(ctx, id)
+	return args.Get(0).(bool), args.Error(1)
+}
+{{end}}
+
+{{if .HasCustomRepositoryMethods}}
+// 自定义仓储方法Mock
+{{range .CustomRepositoryMethods}}
+// {{.Name}} {{.Description}}
+func (m *{{$.EntityName}}Repository) {{.Name}}({{.Parameters}}) {{.ReturnType}} {
+	args := m.Called({{.CallParameters}})
+	{{.ReturnLogic}}
+}
+{{end}}
+{{end}}
+
+// {{.EntityName}}UseCase Mock{{.Description}}用例接口
+type {{.EntityName}}UseCase struct {
+	mock.Mock
+}
+
+// Create{{.EntityName}} 创建{{.Description}}
+func (m *{{.EntityName}}UseCase) Create{{.EntityName}}(ctx context.Context, req *{{.PackageName}}.Create{{.EntityName}}Request) (*{{.PackageName}}.{{.EntityName}}Response, error) {
+	args := m.Called(ctx, req)
+	return args.Get(0).(*{{.PackageName}}.{{.EntityName}}Response), args.Error(1)
+}
+
+// Get{{.EntityName}} 获取{{.Description}}
+func (m *{{.EntityName}}UseCase) Get{{.EntityName}}(ctx context.Context, id string) (*{{.PackageName}}.{{.EntityName}}Response, error) {
+	args := m.Called(ctx, id)
+	return args.Get(0).(*{{.PackageName}}.{{.EntityName}}Response), args.Error(1)
+}
+
+// Update{{.EntityName}} 更新{{.Description}}
+func (m *{{.EntityName}}UseCase) Update{{.EntityName}}(ctx context.Context, id string, req *{{.PackageName}}.Update{{.EntityName}}Request) (*{{.PackageName}}.{{.EntityName}}Response, error) {
+	args := m.Called(ctx, id, req)
+	return args.Get(0).(*{{.PackageName}}.{{.EntityName}}Response), args.Error(1)
+}
+
+// Delete{{.EntityName}} 删除{{.Description}}
+func (m *{{.EntityName}}UseCase) Delete{{.EntityName}}(ctx context.Context, id string) error {
+	args := m.Called(ctx, id)
+	return args.Error(0)
+}
+
+// List{{.EntityName}} 获取{{.Description}}列表
+func (m *{{.EntityName}}UseCase) List{{.EntityName}}(ctx context.Context, req *{{.PackageName}}.List{{.EntityName}}Request) (*{{.PackageName}}.{{.EntityName}}ListResponse, error) {
+	args := m.Called(ctx, req)
+	return args.Get(0).(*{{.PackageName}}.{{.EntityName}}ListResponse), args.Error(1)
+}
+
+{{if .HasBatchMethods}}
+// BatchCreate{{.EntityName}} 批量创建{{.Description}}
+func (m *{{.EntityName}}UseCase) BatchCreate{{.EntityName}}(ctx context.Context, req *{{.PackageName}}.BatchCreate{{.EntityName}}Request) (*{{.PackageName}}.BatchCreate{{.EntityName}}Response, error) {
+	args := m.Called(ctx, req)
+	return args.Get(0).(*{{.PackageName}}.BatchCreate{{.EntityName}}Response), args.Error(1)
+}
+
+// BatchUpdate{{.EntityName}} 批量更新{{.Description}}
+func (m *{{.EntityName}}UseCase) BatchUpdate{{.EntityName}}(ctx context.Context, req *{{.PackageName}}.BatchUpdate{{.EntityName}}Request) (*{{.PackageName}}.BatchUpdate{{.EntityName}}Response, error) {
+	args := m.Called(ctx, req)
+	return args.Get(0).(*{{.PackageName}}.BatchUpdate{{.EntityName}}Response), args.Error(1)
+}
+
+// BatchDelete{{.EntityName}} 批量删除{{.Description}}
+func (m *{{.EntityName}}UseCase) BatchDelete{{.EntityName}}(ctx context.Context, req *{{.PackageName}}.BatchDelete{{.EntityName}}Request) (*{{.PackageName}}.BatchDelete{{.EntityName}}Response, error) {
+	args := m.Called(ctx, req)
+	return args.Get(0).(*{{.PackageName}}.BatchDelete{{.EntityName}}Response), args.Error(1)
+}
+{{end}}
+
+{{if .HasSearchMethods}}
+// Search{{.EntityName}} 搜索{{.Description}}
+func (m *{{.EntityName}}UseCase) Search{{.EntityName}}(ctx context.Context, req *{{.PackageName}}.Search{{.EntityName}}Request) (*{{.PackageName}}.{{.EntityName}}ListResponse, error) {
+	args := m.Called(ctx, req)
+	return args.Get(0).(*{{.PackageName}}.{{.EntityName}}ListResponse), args.Error(1)
+}
+{{end}}
+
+{{if .HasImportExportMethods}}
+// Import{{.EntityName}} 导入{{.Description}}
+func (m *{{.EntityName}}UseCase) Import{{.EntityName}}(ctx context.Context, file multipart.File, header *multipart.FileHeader) (*{{.PackageName}}.Import{{.EntityName}}Response, error) {
+	args := m.Called(ctx, file, header)
+	return args.Get(0).(*{{.PackageName}}.Import{{.EntityName}}Response), args.Error(1)
+}
+
+// Export{{.EntityName}} 导出{{.Description}}
+func (m *{{.EntityName}}UseCase) Export{{.EntityName}}(ctx context.Context, req *{{.PackageName}}.Export{{.EntityName}}Request) (*{{.PackageName}}.Export{{.EntityName}}Response, error) {
+	args := m.Called(ctx, req)
+	return args.Get(0).(*{{.PackageName}}.Export{{.EntityName}}Response), args.Error(1)
+}
+{{end}}
+
+{{if .HasFileMethods}}
+// Upload{{.EntityName}}File 上传{{.Description}}文件
+func (m *{{.EntityName}}UseCase) Upload{{.EntityName}}File(ctx context.Context, entityID string, file multipart.File, header *multipart.FileHeader) (*{{.PackageName}}.FileUploadResponse, error) {
+	args := m.Called(ctx, entityID, file, header)
+	return args.Get(0).(*{{.PackageName}}.FileUploadResponse), args.Error(1)
+}
+
+// Download{{.EntityName}}File 下载{{.Description}}文件
+func (m *{{.EntityName}}UseCase) Download{{.EntityName}}File(ctx context.Context, fileID string) (*{{.PackageName}}.FileDownloadResponse, error) {
+	args := m.Called(ctx, fileID)
+	return args.Get(0).(*{{.PackageName}}.FileDownloadResponse), args.Error(1)
+}
+
+// Delete{{.EntityName}}File 删除{{.Description}}文件
+func (m *{{.EntityName}}UseCase) Delete{{.EntityName}}File(ctx context.Context, fileID string) error {
+	args := m.Called(ctx, fileID)
+	return args.Error(0)
+}
+{{end}}
+
+{{if .HasStatsMethods}}
+// Get{{.EntityName}}Stats 获取{{.Description}}统计信息
+func (m *{{.EntityName}}UseCase) Get{{.EntityName}}Stats(ctx context.Context, req *{{.PackageName}}.{{.EntityName}}StatsRequest) (*{{.PackageName}}.{{.EntityName}}StatsResponse, error) {
+	args := m.Called(ctx, req)
+	return args.Get(0).(*{{.PackageName}}.{{.EntityName}}StatsResponse), args.Error(1)
+}
+{{end}}
+
+{{if .HasCustomUseCaseMethods}}
+// 自定义用例方法Mock
+{{range .CustomUseCaseMethods}}
+// {{.Name}} {{.Description}}
+func (m *{{$.EntityName}}UseCase) {{.Name}}({{.Parameters}}) {{.ReturnType}} {
+	args := m.Called({{.CallParameters}})
+	{{.ReturnLogic}}
+}
+{{end}}
+{{end}}
+
+{{if .HasAdapter}}
+// {{.EntityName}}Adapter Mock{{.Description}}适配器接口
+type {{.EntityName}}Adapter struct {
+	mock.Mock
+}
+
+{{if .HasExternalAPI}}
+// SyncFromExternal 从外部系统同步{{.Description}}
+func (m *{{.EntityName}}Adapter) SyncFromExternal(ctx context.Context, externalID string) (*{{.PackageName}}.{{.EntityName}}, error) {
+	args := m.Called(ctx, externalID)
+	return args.Get(0).(*{{.PackageName}}.{{.EntityName}}), args.Error(1)
+}
+
+// SyncToExternal 同步{{.Description}}到外部系统
+func (m *{{.EntityName}}Adapter) SyncToExternal(ctx context.Context, entity *{{.PackageName}}.{{.EntityName}}) error {
+	args := m.Called(ctx, entity)
+	return args.Error(0)
+}
+
+// BatchSyncFromExternal 批量从外部系统同步{{.Description}}
+func (m *{{.EntityName}}Adapter) BatchSyncFromExternal(ctx context.Context, externalIDs []string) ([]*{{.PackageName}}.{{.EntityName}}, error) {
+	args := m.Called(ctx, externalIDs)
+	return args.Get(0).([]*{{.PackageName}}.{{.EntityName}}), args.Error(1)
+}
+{{end}}
+
+{{if .HasMessageQueue}}
+// PublishMessage 发布消息到队列
+func (m *{{.EntityName}}Adapter) PublishMessage(ctx context.Context, event string, data interface{}) error {
+	args := m.Called(ctx, event, data)
+	return args.Error(0)
+}
+
+// ConsumeMessage 消费队列消息
+func (m *{{.EntityName}}Adapter) ConsumeMessage(ctx context.Context, message []byte) error {
+	args := m.Called(ctx, message)
+	return args.Error(0)
+}
+{{end}}
+
+{{if .HasFileStorage}}
+// UploadFile 上传文件
+func (m *{{.EntityName}}Adapter) UploadFile(ctx context.Context, fileData []byte, fileName string) (string, error) {
+	args := m.Called(ctx, fileData, fileName)
+	return args.Get(0).(string), args.Error(1)
+}
+
+// DownloadFile 下载文件
+func (m *{{.EntityName}}Adapter) DownloadFile(ctx context.Context, fileURL string) ([]byte, error) {
+	args := m.Called(ctx, fileURL)
+	return args.Get(0).([]byte), args.Error(1)
+}
+
+// DeleteFile 删除文件
+func (m *{{.EntityName}}Adapter) DeleteFile(ctx context.Context, fileURL string) error {
+	args := m.Called(ctx, fileURL)
+	return args.Error(0)
+}
+{{end}}
+
+{{if .HasNotification}}
+// SendNotification 发送通知
+func (m *{{.EntityName}}Adapter) SendNotification(ctx context.Context, notification *{{.PackageName}}.NotificationRequest) error {
+	args := m.Called(ctx, notification)
+	return args.Error(0)
+}
+
+// SendBatchNotifications 批量发送通知
+func (m *{{.EntityName}}Adapter) SendBatchNotifications(ctx context.Context, notifications []*{{.PackageName}}.NotificationRequest) error {
+	args := m.Called(ctx, notifications)
+	return args.Error(0)
+}
+{{end}}
+
+{{if .HasCustomAdapterMethods}}
+// 自定义适配器方法Mock
+{{range .CustomAdapterMethods}}
+// {{.Name}} {{.Description}}
+func (m *{{$.EntityName}}Adapter) {{.Name}}({{.Parameters}}) {{.ReturnType}} {
+	args := m.Called({{.CallParameters}})
+	{{.ReturnLogic}}
+}
+{{end}}
+{{end}}
+{{end}}
+
+{{if .HasHandler}}
+// {{.EntityName}}Handler Mock{{.Description}}处理器接口
+type {{.EntityName}}Handler struct {
+	mock.Mock
+}
+
+// Create{{.EntityName}} 创建{{.Description}}
+func (m *{{.EntityName}}Handler) Create{{.EntityName}}(c *gin.Context) {
+	m.Called(c)
+}
+
+// Get{{.EntityName}} 获取{{.Description}}
+func (m *{{.EntityName}}Handler) Get{{.EntityName}}(c *gin.Context) {
+	m.Called(c)
+}
+
+// Update{{.EntityName}} 更新{{.Description}}
+func (m *{{.EntityName}}Handler) Update{{.EntityName}}(c *gin.Context) {
+	m.Called(c)
+}
+
+// Delete{{.EntityName}} 删除{{.Description}}
+func (m *{{.EntityName}}Handler) Delete{{.EntityName}}(c *gin.Context) {
+	m.Called(c)
+}
+
+// List{{.EntityName}} 获取{{.Description}}列表
+func (m *{{.EntityName}}Handler) List{{.EntityName}}(c *gin.Context) {
+	m.Called(c)
+}
+
+{{if .HasCustomHandlerMethods}}
+// 自定义处理器方法Mock
+{{range .CustomHandlerMethods}}
+// {{.Name}} {{.Description}}
+func (m *{{$.EntityName}}Handler) {{.Name}}(c *gin.Context) {
+	m.Called(c)
+}
+{{end}}
+{{end}}
+{{end}}
+
+{{if .HasAuditLogger}}
+// {{.EntityName}}AuditLogger Mock{{.Description}}审计日志记录器接口
+type {{.EntityName}}AuditLogger struct {
+	mock.Mock
+}
+
+{{if .HasCreateAudit}}
+// LogCreate{{.EntityName}} 记录创建{{.Description}}的审计日志
+func (m *{{.EntityName}}AuditLogger) LogCreate{{.EntityName}}(ctx context.Context, entityID string, data interface{}, auditCtx *{{.PackageName}}.AuditContext) error {
+	args := m.Called(ctx, entityID, data, auditCtx)
+	return args.Error(0)
+}
+{{end}}
+
+{{if .HasUpdateAudit}}
+// LogUpdate{{.EntityName}} 记录更新{{.Description}}的审计日志
+func (m *{{.EntityName}}AuditLogger) LogUpdate{{.EntityName}}(ctx context.Context, entityID string, before, after interface{}, auditCtx *{{.PackageName}}.AuditContext) error {
+	args := m.Called(ctx, entityID, before, after, auditCtx)
+	return args.Error(0)
+}
+{{end}}
+
+{{if .HasDeleteAudit}}
+// LogDelete{{.EntityName}} 记录删除{{.Description}}的审计日志
+func (m *{{.EntityName}}AuditLogger) LogDelete{{.EntityName}}(ctx context.Context, entityID string, data interface{}, auditCtx *{{.PackageName}}.AuditContext) error {
+	args := m.Called(ctx, entityID, data, auditCtx)
+	return args.Error(0)
+}
+{{end}}
+
+{{if .HasViewAudit}}
+// LogView{{.EntityName}} 记录查看{{.Description}}的审计日志
+func (m *{{.EntityName}}AuditLogger) LogView{{.EntityName}}(ctx context.Context, entityID string, auditCtx *{{.PackageName}}.AuditContext) error {
+	args := m.Called(ctx, entityID, auditCtx)
+	return args.Error(0)
+}
+{{end}}
+
+{{if .HasCustomAuditMethods}}
+// 自定义审计方法Mock
+{{range .CustomAuditMethods}}
+// {{.Name}} {{.Description}}
+func (m *{{$.EntityName}}AuditLogger) {{.Name}}({{.Parameters}}) error {
+	args := m.Called({{.CallParameters}})
+	return args.Error(0)
+}
+{{end}}
+{{end}}
+{{end}}
+
+{{if .HasExternalServices}}
+// 外部服务Mock
+
+{{range .ExternalServices}}
+// {{.Name}} Mock{{.Description}}服务接口
+type {{.Name}} struct {
+	mock.Mock
+}
+
+{{range .Methods}}
+// {{.Name}} {{.Description}}
+func (m *{{$.Name}}) {{.Name}}({{.Parameters}}) {{.ReturnType}} {
+	args := m.Called({{.CallParameters}})
+	{{.ReturnLogic}}
+}
+{{end}}
+{{end}}
+{{end}}
+
+{{if .HasHelperMocks}}
+// 辅助Mock对象
+
+// HTTPClientInterface Mock HTTP客户端接口
+type HTTPClientInterface struct {
+	mock.Mock
+}
+
+// Do 执行HTTP请求
+func (m *HTTPClientInterface) Do(req *http.Request) (*http.Response, error) {
+	args := m.Called(req)
+	return args.Get(0).(*http.Response), args.Error(1)
+}
+
+// MessageQueueInterface Mock消息队列接口
+type MessageQueueInterface struct {
+	mock.Mock
+}
+
+// Publish 发布消息
+func (m *MessageQueueInterface) Publish(ctx context.Context, topic string, data []byte) error {
+	args := m.Called(ctx, topic, data)
+	return args.Error(0)
+}
+
+// Subscribe 订阅消息
+func (m *MessageQueueInterface) Subscribe(ctx context.Context, topic string, handler func([]byte) error) error {
+	args := m.Called(ctx, topic, handler)
+	return args.Error(0)
+}
+
+// FileStorageInterface Mock文件存储接口
+type FileStorageInterface struct {
+	mock.Mock
+}
+
+// Upload 上传文件
+func (m *FileStorageInterface) Upload(ctx context.Context, path string, data []byte) (string, error) {
+	args := m.Called(ctx, path, data)
+	return args.Get(0).(string), args.Error(1)
+}
+
+// Download 下载文件
+func (m *FileStorageInterface) Download(ctx context.Context, url string) ([]byte, error) {
+	args := m.Called(ctx, url)
+	return args.Get(0).([]byte), args.Error(1)
+}
+
+// Delete 删除文件
+func (m *FileStorageInterface) Delete(ctx context.Context, url string) error {
+	args := m.Called(ctx, url)
+	return args.Error(0)
+}
+
+// NotificationInterface Mock通知接口
+type NotificationInterface struct {
+	mock.Mock
+}
+
+// Send 发送通知
+func (m *NotificationInterface) Send(ctx context.Context, notification interface{}) error {
+	args := m.Called(ctx, notification)
+	return args.Error(0)
+}
+
+// BatchSend 批量发送通知
+func (m *NotificationInterface) BatchSend(ctx context.Context, notifications []interface{}) error {
+	args := m.Called(ctx, notifications)
+	return args.Error(0)
+}
+
+// LoggerInterface Mock日志接口
+type LoggerInterface struct {
+	mock.Mock
+}
+
+// InfoF 记录信息日志
+func (m *LoggerInterface) InfoF(ctx context.Context, format string, args ...interface{}) {
+	m.Called(ctx, format, args)
+}
+
+// ErrorF 记录错误日志
+func (m *LoggerInterface) ErrorF(ctx context.Context, format string, args ...interface{}) {
+	m.Called(ctx, format, args)
+}
+
+// WarnF 记录警告日志
+func (m *LoggerInterface) WarnF(ctx context.Context, format string, args ...interface{}) {
+	m.Called(ctx, format, args)
+}
+
+// MetricsInterface Mock指标接口
+type MetricsInterface struct {
+	mock.Mock
+}
+
+// IncrementCounter 增加计数器
+func (m *MetricsInterface) IncrementCounter(name string) {
+	m.Called(name)
+}
+
+// RecordDuration 记录持续时间
+func (m *MetricsInterface) RecordDuration(name string, duration time.Duration) {
+	m.Called(name, duration)
+}
+{{end}}
+
+{{if .HasMockBuilders}}
+// Mock构建器
+
+// {{.EntityName}}MockBuilder {{.Description}}Mock构建器
+type {{.EntityName}}MockBuilder struct {
+	repo    *{{.EntityName}}Repository
+	useCase *{{.EntityName}}UseCase
+{{if .HasAdapter}}	adapter *{{.EntityName}}Adapter
+{{end}}
+{{if .HasHandler}}	handler *{{.EntityName}}Handler
+{{end}}
+{{if .HasAuditLogger}}	auditLogger *{{.EntityName}}AuditLogger
+{{end}}
+}
+
+// New{{.EntityName}}MockBuilder 创建{{.Description}}Mock构建器
+func New{{.EntityName}}MockBuilder() *{{.EntityName}}MockBuilder {
+	return &{{.EntityName}}MockBuilder{
+		repo:    &{{.EntityName}}Repository{},
+		useCase: &{{.EntityName}}UseCase{},
+{{if .HasAdapter}}		adapter: &{{.EntityName}}Adapter{},
+{{end}}
+{{if .HasHandler}}		handler: &{{.EntityName}}Handler{},
+{{end}}
+{{if .HasAuditLogger}}		auditLogger: &{{.EntityName}}AuditLogger{},
+{{end}}	}
+}
+
+// WithRepository 设置仓储Mock
+func (b *{{.EntityName}}MockBuilder) WithRepository(repo *{{.EntityName}}Repository) *{{.EntityName}}MockBuilder {
+	b.repo = repo
+	return b
+}
+
+// WithUseCase 设置用例Mock
+func (b *{{.EntityName}}MockBuilder) WithUseCase(useCase *{{.EntityName}}UseCase) *{{.EntityName}}MockBuilder {
+	b.useCase = useCase
+	return b
+}
+
+{{if .HasAdapter}}
+// WithAdapter 设置适配器Mock
+func (b *{{.EntityName}}MockBuilder) WithAdapter(adapter *{{.EntityName}}Adapter) *{{.EntityName}}MockBuilder {
+	b.adapter = adapter
+	return b
+}
+{{end}}
+
+{{if .HasHandler}}
+// WithHandler 设置处理器Mock
+func (b *{{.EntityName}}MockBuilder) WithHandler(handler *{{.EntityName}}Handler) *{{.EntityName}}MockBuilder {
+	b.handler = handler
+	return b
+}
+{{end}}
+
+{{if .HasAuditLogger}}
+// WithAuditLogger 设置审计日志Mock
+func (b *{{.EntityName}}MockBuilder) WithAuditLogger(auditLogger *{{.EntityName}}AuditLogger) *{{.EntityName}}MockBuilder {
+	b.auditLogger = auditLogger
+	return b
+}
+{{end}}
+
+// Repository 获取仓储Mock
+func (b *{{.EntityName}}MockBuilder) Repository() *{{.EntityName}}Repository {
+	return b.repo
+}
+
+// UseCase 获取用例Mock
+func (b *{{.EntityName}}MockBuilder) UseCase() *{{.EntityName}}UseCase {
+	return b.useCase
+}
+
+{{if .HasAdapter}}
+// Adapter 获取适配器Mock
+func (b *{{.EntityName}}MockBuilder) Adapter() *{{.EntityName}}Adapter {
+	return b.adapter
+}
+{{end}}
+
+{{if .HasHandler}}
+// Handler 获取处理器Mock
+func (b *{{.EntityName}}MockBuilder) Handler() *{{.EntityName}}Handler {
+	return b.handler
+}
+{{end}}
+
+{{if .HasAuditLogger}}
+// AuditLogger 获取审计日志Mock
+func (b *{{.EntityName}}MockBuilder) AuditLogger() *{{.EntityName}}AuditLogger {
+	return b.auditLogger
+}
+{{end}}
+
+// Build 构建所有Mock对象
+func (b *{{.EntityName}}MockBuilder) Build() (*{{.EntityName}}Repository, *{{.EntityName}}UseCase{{if .HasAdapter}}, *{{.EntityName}}Adapter{{end}}{{if .HasHandler}}, *{{.EntityName}}Handler{{end}}{{if .HasAuditLogger}}, *{{.EntityName}}AuditLogger{{end}}) {
+	return b.repo, b.useCase{{if .HasAdapter}}, b.adapter{{end}}{{if .HasHandler}}, b.handler{{end}}{{if .HasAuditLogger}}, b.auditLogger{{end}}
+}
+{{end}}
+
+{{if .HasTestHelpers}}
+// 测试辅助函数
+
+// Setup{{.EntityName}}SuccessMocks 设置{{.Description}}成功场景的Mock
+func Setup{{.EntityName}}SuccessMocks(builder *{{.EntityName}}MockBuilder, testData *{{.PackageName}}.{{.EntityName}}) {
+	// 设置仓储成功Mock
+	builder.Repository().On("Create", mock.Anything, mock.AnythingOfType("*{{.PackageName}}.{{.EntityName}}")).Return(nil)
+	builder.Repository().On("GetByID", mock.Anything, testData.ID).Return(testData, nil)
+	builder.Repository().On("Update", mock.Anything, mock.AnythingOfType("*{{.PackageName}}.{{.EntityName}}")).Return(nil)
+	builder.Repository().On("Delete", mock.Anything, testData.ID).Return(nil)
+	builder.Repository().On("List", mock.Anything, mock.AnythingOfType("*{{.PackageName}}.List{{.EntityName}}Request")).Return([]*{{.PackageName}}.{{.EntityName}}{testData}, int64(1), nil)
+
+	// 设置用例成功Mock
+	response := &{{.PackageName}}.{{.EntityName}}Response{
+		ID: testData.ID,
+		// 添加其他响应字段
+	}
+	builder.UseCase().On("Create{{.EntityName}}", mock.Anything, mock.AnythingOfType("*{{.PackageName}}.Create{{.EntityName}}Request")).Return(response, nil)
+	builder.UseCase().On("Get{{.EntityName}}", mock.Anything, testData.ID).Return(response, nil)
+	builder.UseCase().On("Update{{.EntityName}}", mock.Anything, testData.ID, mock.AnythingOfType("*{{.PackageName}}.Update{{.EntityName}}Request")).Return(response, nil)
+	builder.UseCase().On("Delete{{.EntityName}}", mock.Anything, testData.ID).Return(nil)
+}
+
+// Setup{{.EntityName}}ErrorMocks 设置{{.Description}}错误场景的Mock
+func Setup{{.EntityName}}ErrorMocks(builder *{{.EntityName}}MockBuilder, testError error) {
+	// 设置仓储错误Mock
+	builder.Repository().On("Create", mock.Anything, mock.AnythingOfType("*{{.PackageName}}.{{.EntityName}}")).Return(testError)
+	builder.Repository().On("GetByID", mock.Anything, mock.AnythingOfType("string")).Return(nil, testError)
+	builder.Repository().On("Update", mock.Anything, mock.AnythingOfType("*{{.PackageName}}.{{.EntityName}}")).Return(testError)
+	builder.Repository().On("Delete", mock.Anything, mock.AnythingOfType("string")).Return(testError)
+	builder.Repository().On("List", mock.Anything, mock.AnythingOfType("*{{.PackageName}}.List{{.EntityName}}Request")).Return(nil, int64(0), testError)
+
+	// 设置用例错误Mock
+	builder.UseCase().On("Create{{.EntityName}}", mock.Anything, mock.AnythingOfType("*{{.PackageName}}.Create{{.EntityName}}Request")).Return(nil, testError)
+	builder.UseCase().On("Get{{.EntityName}}", mock.Anything, mock.AnythingOfType("string")).Return(nil, testError)
+	builder.UseCase().On("Update{{.EntityName}}", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("*{{.PackageName}}.Update{{.EntityName}}Request")).Return(nil, testError)
+	builder.UseCase().On("Delete{{.EntityName}}", mock.Anything, mock.AnythingOfType("string")).Return(testError)
+}
+
+// Verify{{.EntityName}}Mocks 验证{{.Description}}Mock调用
+func Verify{{.EntityName}}Mocks(t *testing.T, builder *{{.EntityName}}MockBuilder) {
+	builder.Repository().AssertExpectations(t)
+	builder.UseCase().AssertExpectations(t)
+{{if .HasAdapter}}	builder.Adapter().AssertExpectations(t)
+{{end}}
+{{if .HasHandler}}	builder.Handler().AssertExpectations(t)
+{{end}}
+{{if .HasAuditLogger}}	builder.AuditLogger().AssertExpectations(t)
+{{end}}
+}
+{{end}}

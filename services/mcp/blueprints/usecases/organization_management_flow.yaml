@@ -1,0 +1,1343 @@
+id: "organization_management_flow"
+name: "组织架构管理流程"
+description: "完整的组织架构管理业务流程，包含部门管理、员工管理、职位管理和权限控制"
+version: "1.0.0"
+variables:
+  project_name: "{{.project_name}}"
+  domain: "organization"
+  entities:
+    - "Department"
+    - "Employee"
+    - "Position"
+    - "OrganizationRole"
+  tables:
+    departments: "departments"
+    employees: "employees"
+    positions: "positions"
+    organization_roles: "organization_roles"
+    employee_departments: "employee_departments"
+    employee_positions: "employee_positions"
+  audit_enabled: true
+  hierarchy_enabled: true
+  max_hierarchy_depth: 10
+
+steps:
+  - id: "hierarchy_validation"
+    name: "组织层级验证"
+    type: "validation"
+    action: "validate_hierarchy"
+    description: "验证组织架构层级关系的合理性"
+    parameters:
+      max_depth: "{{.max_hierarchy_depth}}"
+      circular_reference_check: true
+      orphan_node_check: true
+      validation_rules:
+        - "department_parent_child_relationship"
+        - "employee_department_assignment"
+        - "position_hierarchy_consistency"
+    timeout: 10
+    retry: 2
+    next_steps: ["business_rule_validation"]
+
+  - id: "business_rule_validation"
+    name: "业务规则验证"
+    type: "validation"
+    action: "validate_business_rules"
+    description: "验证组织架构管理的业务规则"
+    parameters:
+      rules:
+        department_rules:
+          - "unique_department_name_per_parent"
+          - "department_code_uniqueness"
+          - "manager_assignment_validation"
+        employee_rules:
+          - "unique_employee_number"
+          - "email_uniqueness"
+          - "employment_status_consistency"
+        position_rules:
+          - "position_level_consistency"
+          - "salary_range_validation"
+          - "reporting_relationship_validation"
+        role_rules:
+          - "role_permission_consistency"
+          - "role_hierarchy_validation"
+    conditions:
+      - field: "hierarchy_validation.status"
+        operator: "eq"
+        value: "passed"
+    timeout: 15
+    retry: 1
+    next_steps: ["data_integrity_check"]
+
+  - id: "data_integrity_check"
+    name: "数据完整性检查"
+    type: "validation"
+    action: "check_data_integrity"
+    description: "检查组织架构数据的完整性和一致性"
+    parameters:
+      integrity_checks:
+        referential_integrity:
+          - "employee_department_references"
+          - "employee_position_references"
+          - "department_parent_references"
+          - "position_department_references"
+        data_consistency:
+          - "employee_status_consistency"
+          - "department_status_consistency"
+          - "position_status_consistency"
+        business_constraints:
+          - "manager_employee_relationship"
+          - "position_level_constraints"
+          - "department_capacity_limits"
+    conditions:
+      - field: "business_rule_validation.status"
+        operator: "eq"
+        value: "passed"
+    timeout: 20
+    retry: 2
+    next_steps: ["domain_model_generator"]
+
+  - id: "domain_model_generator"
+    name: "生成领域模型"
+    type: "generate"
+    action: "generate_domain_model"
+    description: "生成组织架构相关的领域模型"
+    parameters:
+      domain: "{{.domain}}"
+      entities:
+        - name: "Department"
+          output_path: "domain/{{.domain}}/model/department.go"
+          fields:
+            - name: "id"
+              type: "uint"
+              description: "部门ID"
+            - name: "name"
+              type: "string"
+              description: "部门名称"
+            - name: "code"
+              type: "string"
+              description: "部门编码"
+            - name: "parent_id"
+              type: "*uint"
+              description: "父部门ID"
+            - name: "manager_id"
+              type: "*uint"
+              description: "部门经理ID"
+            - name: "level"
+              type: "int"
+              description: "部门层级"
+            - name: "sort_order"
+              type: "int"
+              description: "排序"
+            - name: "status"
+              type: "int"
+              description: "状态"
+            - name: "description"
+              type: "string"
+              description: "部门描述"
+        - name: "Employee"
+          output_path: "domain/{{.domain}}/model/employee.go"
+          fields:
+            - name: "id"
+              type: "uint"
+              description: "员工ID"
+            - name: "employee_number"
+              type: "string"
+              description: "员工编号"
+            - name: "name"
+              type: "string"
+              description: "姓名"
+            - name: "email"
+              type: "string"
+              description: "邮箱"
+            - name: "phone"
+              type: "string"
+              description: "电话"
+            - name: "avatar"
+              type: "string"
+              description: "头像"
+            - name: "gender"
+              type: "int"
+              description: "性别"
+            - name: "birth_date"
+              type: "*time.Time"
+              description: "出生日期"
+            - name: "hire_date"
+              type: "time.Time"
+              description: "入职日期"
+            - name: "employment_status"
+              type: "int"
+              description: "在职状态"
+            - name: "status"
+              type: "int"
+              description: "状态"
+        - name: "Position"
+          output_path: "domain/{{.domain}}/model/position.go"
+          fields:
+            - name: "id"
+              type: "uint"
+              description: "职位ID"
+            - name: "name"
+              type: "string"
+              description: "职位名称"
+            - name: "code"
+              type: "string"
+              description: "职位编码"
+            - name: "level"
+              type: "int"
+              description: "职位级别"
+            - name: "department_id"
+              type: "uint"
+              description: "所属部门ID"
+            - name: "salary_min"
+              type: "decimal.Decimal"
+              description: "最低薪资"
+            - name: "salary_max"
+              type: "decimal.Decimal"
+              description: "最高薪资"
+            - name: "responsibilities"
+              type: "string"
+              description: "职责描述"
+            - name: "requirements"
+              type: "string"
+              description: "任职要求"
+            - name: "status"
+              type: "int"
+              description: "状态"
+        - name: "OrganizationRole"
+          output_path: "domain/{{.domain}}/model/organization_role.go"
+          fields:
+            - name: "id"
+              type: "uint"
+              description: "角色ID"
+            - name: "name"
+              type: "string"
+              description: "角色名称"
+            - name: "code"
+              type: "string"
+              description: "角色编码"
+            - name: "scope"
+              type: "string"
+              description: "权限范围"
+            - name: "permissions"
+              type: "[]string"
+              description: "权限列表"
+            - name: "description"
+              type: "string"
+              description: "角色描述"
+            - name: "status"
+              type: "int"
+              description: "状态"
+    conditions:
+      - field: "data_integrity_check.status"
+        operator: "eq"
+        value: "passed"
+    timeout: 40
+    retry: 1
+    next_steps: ["gorm_model_generator"]
+
+  - id: "gorm_model_generator"
+    name: "生成GORM模型"
+    type: "generate"
+    action: "generate_gorm_model"
+    description: "生成组织架构相关的GORM数据库模型"
+    parameters:
+      domain: "{{.domain}}"
+      models:
+        - entity: "Department"
+          table: "{{.tables.departments}}"
+          output_path: "internal/infra/persistence/{{.domain}}/model/department_model.go"
+          indexes:
+            - fields: ["parent_id"]
+              type: "index"
+            - fields: ["code"]
+              type: "unique"
+            - fields: ["name", "parent_id"]
+              type: "unique"
+          relations:
+            - type: "belongs_to"
+              field: "Parent"
+              foreign_key: "parent_id"
+              references: "id"
+            - type: "has_many"
+              field: "Children"
+              foreign_key: "parent_id"
+            - type: "belongs_to"
+              field: "Manager"
+              foreign_key: "manager_id"
+              references: "id"
+            - type: "has_many"
+              field: "Employees"
+              foreign_key: "department_id"
+        - entity: "Employee"
+          table: "{{.tables.employees}}"
+          output_path: "internal/infra/persistence/{{.domain}}/model/employee_model.go"
+          indexes:
+            - fields: ["employee_number"]
+              type: "unique"
+            - fields: ["email"]
+              type: "unique"
+            - fields: ["employment_status"]
+              type: "index"
+          relations:
+            - type: "many_to_many"
+              field: "Departments"
+              join_table: "{{.tables.employee_departments}}"
+              foreign_key: "employee_id"
+              join_foreign_key: "department_id"
+            - type: "many_to_many"
+              field: "Positions"
+              join_table: "{{.tables.employee_positions}}"
+              foreign_key: "employee_id"
+              join_foreign_key: "position_id"
+        - entity: "Position"
+          table: "{{.tables.positions}}"
+          output_path: "internal/infra/persistence/{{.domain}}/model/position_model.go"
+          indexes:
+            - fields: ["code"]
+              type: "unique"
+            - fields: ["department_id"]
+              type: "index"
+            - fields: ["level"]
+              type: "index"
+          relations:
+            - type: "belongs_to"
+              field: "Department"
+              foreign_key: "department_id"
+              references: "id"
+            - type: "many_to_many"
+              field: "Employees"
+              join_table: "{{.tables.employee_positions}}"
+              foreign_key: "position_id"
+              join_foreign_key: "employee_id"
+        - entity: "OrganizationRole"
+          table: "{{.tables.organization_roles}}"
+          output_path: "internal/infra/persistence/{{.domain}}/model/organization_role_model.go"
+          indexes:
+            - fields: ["code"]
+              type: "unique"
+            - fields: ["scope"]
+              type: "index"
+    conditions:
+      - field: "domain_model_generator.status"
+        operator: "eq"
+        value: "completed"
+    timeout: 45
+    retry: 1
+    next_steps: ["repository_interface_generator"]
+
+  - id: "repository_interface_generator"
+    name: "生成仓库接口"
+    type: "generate"
+    action: "generate_repository_interface"
+    description: "生成组织架构相关的仓库接口"
+    parameters:
+      domain: "{{.domain}}"
+      repositories:
+        - entity: "Department"
+          output_path: "domain/{{.domain}}/repository/department_repository.go"
+          methods:
+            - "FindByParentID(parentID *uint) ([]*Department, error)"
+            - "FindByManagerID(managerID uint) ([]*Department, error)"
+            - "FindByLevel(level int) ([]*Department, error)"
+            - "GetDepartmentTree(rootID *uint) ([]*Department, error)"
+            - "GetDepartmentPath(departmentID uint) ([]*Department, error)"
+            - "CheckCircularReference(departmentID uint, parentID uint) (bool, error)"
+            - "UpdateHierarchy(departmentID uint, newParentID *uint) error"
+        - entity: "Employee"
+          output_path: "domain/{{.domain}}/repository/employee_repository.go"
+          methods:
+            - "FindByEmployeeNumber(employeeNumber string) (*Employee, error)"
+            - "FindByEmail(email string) (*Employee, error)"
+            - "FindByDepartmentID(departmentID uint) ([]*Employee, error)"
+            - "FindByPositionID(positionID uint) ([]*Employee, error)"
+            - "FindByEmploymentStatus(status int) ([]*Employee, error)"
+            - "AssignToDepartment(employeeID uint, departmentID uint) error"
+            - "RemoveFromDepartment(employeeID uint, departmentID uint) error"
+            - "AssignToPosition(employeeID uint, positionID uint) error"
+            - "RemoveFromPosition(employeeID uint, positionID uint) error"
+        - entity: "Position"
+          output_path: "domain/{{.domain}}/repository/position_repository.go"
+          methods:
+            - "FindByDepartmentID(departmentID uint) ([]*Position, error)"
+            - "FindByLevel(level int) ([]*Position, error)"
+            - "FindByCode(code string) (*Position, error)"
+            - "FindBySalaryRange(minSalary, maxSalary decimal.Decimal) ([]*Position, error)"
+            - "GetPositionHierarchy(departmentID uint) ([]*Position, error)"
+        - entity: "OrganizationRole"
+          output_path: "domain/{{.domain}}/repository/organization_role_repository.go"
+          methods:
+            - "FindByCode(code string) (*OrganizationRole, error)"
+            - "FindByScope(scope string) ([]*OrganizationRole, error)"
+            - "FindByPermission(permission string) ([]*OrganizationRole, error)"
+            - "CheckPermission(roleID uint, permission string) (bool, error)"
+    conditions:
+      - field: "gorm_model_generator.status"
+        operator: "eq"
+        value: "completed"
+    timeout: 35
+    retry: 1
+    next_steps: ["repository_impl_generator"]
+
+  - id: "repository_impl_generator"
+    name: "生成仓库实现"
+    type: "generate"
+    action: "generate_repository_impl"
+    description: "生成组织架构相关的仓库GORM实现"
+    parameters:
+      domain: "{{.domain}}"
+      repositories:
+        - entity: "Department"
+          output_path: "internal/infra/persistence/{{.domain}}/repository/department_repo_gorm.go"
+          base_repository: true
+          custom_methods:
+            - "GetDepartmentTree"
+            - "GetDepartmentPath"
+            - "CheckCircularReference"
+            - "UpdateHierarchy"
+        - entity: "Employee"
+          output_path: "internal/infra/persistence/{{.domain}}/repository/employee_repo_gorm.go"
+          base_repository: true
+          custom_methods:
+            - "AssignToDepartment"
+            - "RemoveFromDepartment"
+            - "AssignToPosition"
+            - "RemoveFromPosition"
+        - entity: "Position"
+          output_path: "internal/infra/persistence/{{.domain}}/repository/position_repo_gorm.go"
+          base_repository: true
+          custom_methods:
+            - "GetPositionHierarchy"
+        - entity: "OrganizationRole"
+          output_path: "internal/infra/persistence/{{.domain}}/repository/organization_role_repo_gorm.go"
+          base_repository: true
+          custom_methods:
+            - "CheckPermission"
+    conditions:
+      - field: "repository_interface_generator.status"
+        operator: "eq"
+        value: "completed"
+    timeout: 50
+    retry: 1
+    next_steps: ["migration_generator"]
+
+  - id: "migration_generator"
+    name: "生成数据库迁移"
+    type: "generate"
+    action: "generate_migration"
+    description: "生成组织架构相关的数据库迁移文件"
+    parameters:
+      tables: [
+        "{{.tables.departments}}",
+        "{{.tables.employees}}",
+        "{{.tables.positions}}",
+        "{{.tables.organization_roles}}",
+        "{{.tables.employee_departments}}",
+        "{{.tables.employee_positions}}"
+      ]
+      migration_name: "create_organization_tables"
+      output_path: "internal/infra/database/migration.go"
+      fields_from_step: "gorm_model_generator"
+      foreign_keys:
+        - table: "departments"
+          column: "parent_id"
+          references: "departments(id)"
+          on_delete: "SET NULL"
+        - table: "departments"
+          column: "manager_id"
+          references: "employees(id)"
+          on_delete: "SET NULL"
+        - table: "positions"
+          column: "department_id"
+          references: "departments(id)"
+          on_delete: "CASCADE"
+        - table: "employee_departments"
+          column: "employee_id"
+          references: "employees(id)"
+          on_delete: "CASCADE"
+        - table: "employee_departments"
+          column: "department_id"
+          references: "departments(id)"
+          on_delete: "CASCADE"
+        - table: "employee_positions"
+          column: "employee_id"
+          references: "employees(id)"
+          on_delete: "CASCADE"
+        - table: "employee_positions"
+          column: "position_id"
+          references: "positions(id)"
+          on_delete: "CASCADE"
+    conditions:
+      - field: "repository_impl_generator.status"
+        operator: "eq"
+        value: "completed"
+    timeout: 30
+    retry: 1
+    next_steps: ["usecase_generator"]
+
+  - id: "usecase_generator"
+    name: "生成业务用例"
+    type: "generate"
+    action: "generate_usecase"
+    description: "生成组织架构管理业务逻辑层代码"
+    parameters:
+      domain: "{{.domain}}"
+      usecases:
+        - entity: "Department"
+          output_path: "internal/app/{{.domain}}/department.go"
+          repository_injection: true
+          methods:
+            - name: "CreateDepartment"
+              params: ["ctx context.Context", "req *CreateDepartmentRequest"]
+              return_type: "*Department, error"
+              description: "创建部门"
+            - name: "UpdateDepartment"
+              params: ["ctx context.Context", "id uint", "req *UpdateDepartmentRequest"]
+              return_type: "*Department, error"
+              description: "更新部门信息"
+            - name: "DeleteDepartment"
+              params: ["ctx context.Context", "id uint"]
+              return_type: "error"
+              description: "删除部门"
+            - name: "GetDepartmentTree"
+              params: ["ctx context.Context", "rootID *uint"]
+              return_type: "[]*DepartmentTreeNode, error"
+              description: "获取部门树结构"
+            - name: "MoveDepartment"
+              params: ["ctx context.Context", "departmentID uint", "newParentID *uint"]
+              return_type: "error"
+              description: "移动部门到新的父部门"
+            - name: "AssignManager"
+              params: ["ctx context.Context", "departmentID uint", "managerID uint"]
+              return_type: "error"
+              description: "指定部门经理"
+        - entity: "Employee"
+          output_path: "internal/app/{{.domain}}/employee.go"
+          repository_injection: true
+          methods:
+            - name: "CreateEmployee"
+              params: ["ctx context.Context", "req *CreateEmployeeRequest"]
+              return_type: "*Employee, error"
+              description: "创建员工"
+            - name: "UpdateEmployee"
+              params: ["ctx context.Context", "id uint", "req *UpdateEmployeeRequest"]
+              return_type: "*Employee, error"
+              description: "更新员工信息"
+            - name: "DeleteEmployee"
+              params: ["ctx context.Context", "id uint"]
+              return_type: "error"
+              description: "删除员工"
+            - name: "AssignToDepartment"
+              params: ["ctx context.Context", "employeeID uint", "departmentID uint"]
+              return_type: "error"
+              description: "分配员工到部门"
+            - name: "AssignToPosition"
+              params: ["ctx context.Context", "employeeID uint", "positionID uint"]
+              return_type: "error"
+              description: "分配员工到职位"
+            - name: "TransferEmployee"
+              params: ["ctx context.Context", "employeeID uint", "fromDeptID uint", "toDeptID uint"]
+              return_type: "error"
+              description: "员工部门调动"
+            - name: "UpdateEmploymentStatus"
+              params: ["ctx context.Context", "employeeID uint", "status int"]
+              return_type: "error"
+              description: "更新员工在职状态"
+        - entity: "Position"
+          output_path: "internal/app/{{.domain}}/position.go"
+          repository_injection: true
+          methods:
+            - name: "CreatePosition"
+              params: ["ctx context.Context", "req *CreatePositionRequest"]
+              return_type: "*Position, error"
+              description: "创建职位"
+            - name: "UpdatePosition"
+              params: ["ctx context.Context", "id uint", "req *UpdatePositionRequest"]
+              return_type: "*Position, error"
+              description: "更新职位信息"
+            - name: "DeletePosition"
+              params: ["ctx context.Context", "id uint"]
+              return_type: "error"
+              description: "删除职位"
+            - name: "GetPositionsByDepartment"
+              params: ["ctx context.Context", "departmentID uint"]
+              return_type: "[]*Position, error"
+              description: "获取部门下的所有职位"
+            - name: "UpdateSalaryRange"
+              params: ["ctx context.Context", "positionID uint", "minSalary, maxSalary decimal.Decimal"]
+              return_type: "error"
+              description: "更新职位薪资范围"
+        - entity: "OrganizationRole"
+          output_path: "internal/app/{{.domain}}/organization_role.go"
+          repository_injection: true
+          methods:
+            - name: "CreateRole"
+              params: ["ctx context.Context", "req *CreateRoleRequest"]
+              return_type: "*OrganizationRole, error"
+              description: "创建组织角色"
+            - name: "UpdateRole"
+              params: ["ctx context.Context", "id uint", "req *UpdateRoleRequest"]
+              return_type: "*OrganizationRole, error"
+              description: "更新角色信息"
+            - name: "DeleteRole"
+              params: ["ctx context.Context", "id uint"]
+              return_type: "error"
+              description: "删除角色"
+            - name: "AssignPermissions"
+              params: ["ctx context.Context", "roleID uint", "permissions []string"]
+              return_type: "error"
+              description: "分配权限给角色"
+            - name: "CheckPermission"
+              params: ["ctx context.Context", "roleID uint", "permission string"]
+              return_type: "bool, error"
+              description: "检查角色权限"
+    conditions:
+      - field: "migration_generator.status"
+        operator: "eq"
+        value: "completed"
+    timeout: 80
+    retry: 1
+    next_steps: ["dto_generator"]
+
+  - id: "dto_generator"
+    name: "生成DTO"
+    type: "generate"
+    action: "generate_dto"
+    description: "生成组织架构相关的数据传输对象"
+    parameters:
+      domain: "{{.domain}}"
+      dtos:
+        - entity: "Department"
+          output_path: "api/dto/{{.domain}}/department_dto.go"
+          types:
+            - name: "CreateDepartmentRequest"
+              fields: ["name", "code", "parent_id", "manager_id", "description"]
+            - name: "UpdateDepartmentRequest"
+              fields: ["name", "code", "parent_id", "manager_id", "description", "status"]
+            - name: "DepartmentResponse"
+              fields: ["id", "name", "code", "parent_id", "manager_id", "level", "sort_order", "status", "description", "created_at", "updated_at"]
+            - name: "DepartmentTreeNode"
+              fields: ["id", "name", "code", "level", "children"]
+            - name: "DepartmentListRequest"
+              fields: ["parent_id", "level", "status", "page", "page_size"]
+        - entity: "Employee"
+          output_path: "api/dto/{{.domain}}/employee_dto.go"
+          types:
+            - name: "CreateEmployeeRequest"
+              fields: ["employee_number", "name", "email", "phone", "gender", "birth_date", "hire_date"]
+            - name: "UpdateEmployeeRequest"
+              fields: ["name", "email", "phone", "avatar", "gender", "birth_date", "employment_status", "status"]
+            - name: "EmployeeResponse"
+              fields: ["id", "employee_number", "name", "email", "phone", "avatar", "gender", "birth_date", "hire_date", "employment_status", "status", "departments", "positions", "created_at", "updated_at"]
+            - name: "EmployeeListRequest"
+              fields: ["department_id", "position_id", "employment_status", "status", "keyword", "page", "page_size"]
+            - name: "EmployeeTransferRequest"
+              fields: ["from_department_id", "to_department_id", "effective_date", "reason"]
+        - entity: "Position"
+          output_path: "api/dto/{{.domain}}/position_dto.go"
+          types:
+            - name: "CreatePositionRequest"
+              fields: ["name", "code", "level", "department_id", "salary_min", "salary_max", "responsibilities", "requirements"]
+            - name: "UpdatePositionRequest"
+              fields: ["name", "code", "level", "department_id", "salary_min", "salary_max", "responsibilities", "requirements", "status"]
+            - name: "PositionResponse"
+              fields: ["id", "name", "code", "level", "department_id", "department_name", "salary_min", "salary_max", "responsibilities", "requirements", "status", "created_at", "updated_at"]
+            - name: "PositionListRequest"
+              fields: ["department_id", "level", "status", "keyword", "page", "page_size"]
+        - entity: "OrganizationRole"
+          output_path: "api/dto/{{.domain}}/organization_role_dto.go"
+          types:
+            - name: "CreateRoleRequest"
+              fields: ["name", "code", "scope", "permissions", "description"]
+            - name: "UpdateRoleRequest"
+              fields: ["name", "code", "scope", "permissions", "description", "status"]
+            - name: "RoleResponse"
+              fields: ["id", "name", "code", "scope", "permissions", "description", "status", "created_at", "updated_at"]
+            - name: "RoleListRequest"
+              fields: ["scope", "status", "keyword", "page", "page_size"]
+            - name: "AssignPermissionsRequest"
+              fields: ["permissions"]
+    conditions:
+      - field: "usecase_generator.status"
+        operator: "eq"
+        value: "completed"
+    timeout: 40
+    retry: 1
+    next_steps: ["adapter_generator"]
+
+  - id: "adapter_generator"
+    name: "生成适配器"
+    type: "generate"
+    action: "generate_adapter"
+    description: "生成组织架构领域模型与DTO之间的适配器"
+    parameters:
+      domain: "{{.domain}}"
+      adapters:
+        - entity: "Department"
+          output_path: "api/adapter/{{.domain}}/department_adapter.go"
+          methods:
+            - "CreateDepartmentRequestToDomain"
+            - "UpdateDepartmentRequestToDomain"
+            - "DepartmentToResponse"
+            - "DepartmentsToDepartmentTree"
+        - entity: "Employee"
+          output_path: "api/adapter/{{.domain}}/employee_adapter.go"
+          methods:
+            - "CreateEmployeeRequestToDomain"
+            - "UpdateEmployeeRequestToDomain"
+            - "EmployeeToResponse"
+            - "EmployeesToResponse"
+        - entity: "Position"
+          output_path: "api/adapter/{{.domain}}/position_adapter.go"
+          methods:
+            - "CreatePositionRequestToDomain"
+            - "UpdatePositionRequestToDomain"
+            - "PositionToResponse"
+            - "PositionsToResponse"
+        - entity: "OrganizationRole"
+          output_path: "api/adapter/{{.domain}}/organization_role_adapter.go"
+          methods:
+            - "CreateRoleRequestToDomain"
+            - "UpdateRoleRequestToDomain"
+            - "RoleToResponse"
+            - "RolesToResponse"
+    conditions:
+      - field: "dto_generator.status"
+        operator: "eq"
+        value: "completed"
+    timeout: 30
+    retry: 1
+    next_steps: ["api_generator"]
+
+  - id: "api_generator"
+    name: "生成API路由"
+    type: "generate"
+    action: "generate_api"
+    description: "生成组织架构管理REST API路由"
+    parameters:
+      domain: "{{.domain}}"
+      output_path: "api/http/router.go"
+      endpoints:
+        # 部门管理API
+        - path: "/api/v1/organization/departments"
+          method: "GET"
+          handler: "ListDepartmentsHandler"
+          middleware: ["auth_required", "permission_check"]
+          request_dto: "DepartmentListRequest"
+          response_dto: "PagedDepartmentResponse"
+        - path: "/api/v1/organization/departments"
+          method: "POST"
+          handler: "CreateDepartmentHandler"
+          middleware: ["auth_required", "permission_check"]
+          request_dto: "CreateDepartmentRequest"
+          response_dto: "DepartmentResponse"
+        - path: "/api/v1/organization/departments/{id}"
+          method: "GET"
+          handler: "GetDepartmentHandler"
+          middleware: ["auth_required"]
+          response_dto: "DepartmentResponse"
+        - path: "/api/v1/organization/departments/{id}"
+          method: "PUT"
+          handler: "UpdateDepartmentHandler"
+          middleware: ["auth_required", "permission_check"]
+          request_dto: "UpdateDepartmentRequest"
+          response_dto: "DepartmentResponse"
+        - path: "/api/v1/organization/departments/{id}"
+          method: "DELETE"
+          handler: "DeleteDepartmentHandler"
+          middleware: ["auth_required", "permission_check"]
+        - path: "/api/v1/organization/departments/tree"
+          method: "GET"
+          handler: "GetDepartmentTreeHandler"
+          middleware: ["auth_required"]
+          response_dto: "DepartmentTreeResponse"
+        - path: "/api/v1/organization/departments/{id}/move"
+          method: "PUT"
+          handler: "MoveDepartmentHandler"
+          middleware: ["auth_required", "permission_check"]
+          request_dto: "MoveDepartmentRequest"
+        # 员工管理API
+        - path: "/api/v1/organization/employees"
+          method: "GET"
+          handler: "ListEmployeesHandler"
+          middleware: ["auth_required", "permission_check"]
+          request_dto: "EmployeeListRequest"
+          response_dto: "PagedEmployeeResponse"
+        - path: "/api/v1/organization/employees"
+          method: "POST"
+          handler: "CreateEmployeeHandler"
+          middleware: ["auth_required", "permission_check"]
+          request_dto: "CreateEmployeeRequest"
+          response_dto: "EmployeeResponse"
+        - path: "/api/v1/organization/employees/{id}"
+          method: "GET"
+          handler: "GetEmployeeHandler"
+          middleware: ["auth_required"]
+          response_dto: "EmployeeResponse"
+        - path: "/api/v1/organization/employees/{id}"
+          method: "PUT"
+          handler: "UpdateEmployeeHandler"
+          middleware: ["auth_required", "permission_check"]
+          request_dto: "UpdateEmployeeRequest"
+          response_dto: "EmployeeResponse"
+        - path: "/api/v1/organization/employees/{id}"
+          method: "DELETE"
+          handler: "DeleteEmployeeHandler"
+          middleware: ["auth_required", "permission_check"]
+        - path: "/api/v1/organization/employees/{id}/transfer"
+          method: "PUT"
+          handler: "TransferEmployeeHandler"
+          middleware: ["auth_required", "permission_check"]
+          request_dto: "EmployeeTransferRequest"
+        # 职位管理API
+        - path: "/api/v1/organization/positions"
+          method: "GET"
+          handler: "ListPositionsHandler"
+          middleware: ["auth_required"]
+          request_dto: "PositionListRequest"
+          response_dto: "PagedPositionResponse"
+        - path: "/api/v1/organization/positions"
+          method: "POST"
+          handler: "CreatePositionHandler"
+          middleware: ["auth_required", "permission_check"]
+          request_dto: "CreatePositionRequest"
+          response_dto: "PositionResponse"
+        - path: "/api/v1/organization/positions/{id}"
+          method: "GET"
+          handler: "GetPositionHandler"
+          middleware: ["auth_required"]
+          response_dto: "PositionResponse"
+        - path: "/api/v1/organization/positions/{id}"
+          method: "PUT"
+          handler: "UpdatePositionHandler"
+          middleware: ["auth_required", "permission_check"]
+          request_dto: "UpdatePositionRequest"
+          response_dto: "PositionResponse"
+        - path: "/api/v1/organization/positions/{id}"
+          method: "DELETE"
+          handler: "DeletePositionHandler"
+          middleware: ["auth_required", "permission_check"]
+        # 角色管理API
+        - path: "/api/v1/organization/roles"
+          method: "GET"
+          handler: "ListRolesHandler"
+          middleware: ["auth_required"]
+          request_dto: "RoleListRequest"
+          response_dto: "PagedRoleResponse"
+        - path: "/api/v1/organization/roles"
+          method: "POST"
+          handler: "CreateRoleHandler"
+          middleware: ["auth_required", "permission_check"]
+          request_dto: "CreateRoleRequest"
+          response_dto: "RoleResponse"
+        - path: "/api/v1/organization/roles/{id}"
+          method: "GET"
+          handler: "GetRoleHandler"
+          middleware: ["auth_required"]
+          response_dto: "RoleResponse"
+        - path: "/api/v1/organization/roles/{id}"
+          method: "PUT"
+          handler: "UpdateRoleHandler"
+          middleware: ["auth_required", "permission_check"]
+          request_dto: "UpdateRoleRequest"
+          response_dto: "RoleResponse"
+        - path: "/api/v1/organization/roles/{id}"
+          method: "DELETE"
+          handler: "DeleteRoleHandler"
+          middleware: ["auth_required", "permission_check"]
+        - path: "/api/v1/organization/roles/{id}/permissions"
+          method: "PUT"
+          handler: "AssignPermissionsHandler"
+          middleware: ["auth_required", "permission_check"]
+          request_dto: "AssignPermissionsRequest"
+    conditions:
+      - field: "adapter_generator.status"
+        operator: "eq"
+        value: "completed"
+    timeout: 50
+    retry: 1
+    next_steps: ["handler_generator"]
+
+  - id: "handler_generator"
+    name: "生成HTTP处理器"
+    type: "generate"
+    action: "generate_handler"
+    description: "生成组织架构相关的HTTP请求处理器"
+    parameters:
+      domain: "{{.domain}}"
+      platform: "admin"
+      handlers:
+        - entity: "Department"
+          output_path: "api/http/admin/{{.domain}}/department_handler.go"
+          methods:
+            - name: "ListDepartmentsHandler"
+              method: "GET"
+              path: "/departments"
+            - name: "CreateDepartmentHandler"
+              method: "POST"
+              path: "/departments"
+            - name: "GetDepartmentHandler"
+              method: "GET"
+              path: "/departments/{id}"
+            - name: "UpdateDepartmentHandler"
+              method: "PUT"
+              path: "/departments/{id}"
+            - name: "DeleteDepartmentHandler"
+              method: "DELETE"
+              path: "/departments/{id}"
+            - name: "GetDepartmentTreeHandler"
+              method: "GET"
+              path: "/departments/tree"
+            - name: "MoveDepartmentHandler"
+              method: "PUT"
+              path: "/departments/{id}/move"
+        - entity: "Employee"
+          output_path: "api/http/admin/{{.domain}}/employee_handler.go"
+          methods:
+            - name: "ListEmployeesHandler"
+              method: "GET"
+              path: "/employees"
+            - name: "CreateEmployeeHandler"
+              method: "POST"
+              path: "/employees"
+            - name: "GetEmployeeHandler"
+              method: "GET"
+              path: "/employees/{id}"
+            - name: "UpdateEmployeeHandler"
+              method: "PUT"
+              path: "/employees/{id}"
+            - name: "DeleteEmployeeHandler"
+              method: "DELETE"
+              path: "/employees/{id}"
+            - name: "TransferEmployeeHandler"
+              method: "PUT"
+              path: "/employees/{id}/transfer"
+        - entity: "Position"
+          output_path: "api/http/admin/{{.domain}}/position_handler.go"
+          methods:
+            - name: "ListPositionsHandler"
+              method: "GET"
+              path: "/positions"
+            - name: "CreatePositionHandler"
+              method: "POST"
+              path: "/positions"
+            - name: "GetPositionHandler"
+              method: "GET"
+              path: "/positions/{id}"
+            - name: "UpdatePositionHandler"
+              method: "PUT"
+              path: "/positions/{id}"
+            - name: "DeletePositionHandler"
+              method: "DELETE"
+              path: "/positions/{id}"
+        - entity: "OrganizationRole"
+          output_path: "api/http/admin/{{.domain}}/organization_role_handler.go"
+          methods:
+            - name: "ListRolesHandler"
+              method: "GET"
+              path: "/roles"
+            - name: "CreateRoleHandler"
+              method: "POST"
+              path: "/roles"
+            - name: "GetRoleHandler"
+              method: "GET"
+              path: "/roles/{id}"
+            - name: "UpdateRoleHandler"
+              method: "PUT"
+              path: "/roles/{id}"
+            - name: "DeleteRoleHandler"
+              method: "DELETE"
+              path: "/roles/{id}"
+            - name: "AssignPermissionsHandler"
+              method: "PUT"
+              path: "/roles/{id}/permissions"
+    conditions:
+      - field: "api_generator.status"
+        operator: "eq"
+        value: "completed"
+    timeout: 60
+    retry: 1
+    next_steps: ["grpc_generator"]
+
+  - id: "grpc_generator"
+    name: "生成gRPC服务"
+    type: "generate"
+    action: "generate_grpc_service"
+    description: "生成组织架构相关的gRPC服务定义"
+    parameters:
+      domain: "{{.domain}}"
+      output_path: "api/grpc/v1/{{.domain}}/organization_service.go"
+      services:
+        - name: "OrganizationService"
+          methods:
+            # 部门服务
+            - name: "CreateDepartment"
+              request: "CreateDepartmentRequest"
+              response: "DepartmentResponse"
+            - name: "UpdateDepartment"
+              request: "UpdateDepartmentRequest"
+              response: "DepartmentResponse"
+            - name: "DeleteDepartment"
+              request: "DeleteDepartmentRequest"
+              response: "DeleteDepartmentResponse"
+            - name: "GetDepartment"
+              request: "GetDepartmentRequest"
+              response: "DepartmentResponse"
+            - name: "ListDepartments"
+              request: "ListDepartmentsRequest"
+              response: "ListDepartmentsResponse"
+            - name: "GetDepartmentTree"
+              request: "GetDepartmentTreeRequest"
+              response: "GetDepartmentTreeResponse"
+            # 员工服务
+            - name: "CreateEmployee"
+              request: "CreateEmployeeRequest"
+              response: "EmployeeResponse"
+            - name: "UpdateEmployee"
+              request: "UpdateEmployeeRequest"
+              response: "EmployeeResponse"
+            - name: "DeleteEmployee"
+              request: "DeleteEmployeeRequest"
+              response: "DeleteEmployeeResponse"
+            - name: "GetEmployee"
+              request: "GetEmployeeRequest"
+              response: "EmployeeResponse"
+            - name: "ListEmployees"
+              request: "ListEmployeesRequest"
+              response: "ListEmployeesResponse"
+            - name: "TransferEmployee"
+              request: "TransferEmployeeRequest"
+              response: "TransferEmployeeResponse"
+            # 职位服务
+            - name: "CreatePosition"
+              request: "CreatePositionRequest"
+              response: "PositionResponse"
+            - name: "UpdatePosition"
+              request: "UpdatePositionRequest"
+              response: "PositionResponse"
+            - name: "DeletePosition"
+              request: "DeletePositionRequest"
+              response: "DeletePositionResponse"
+            - name: "GetPosition"
+              request: "GetPositionRequest"
+              response: "PositionResponse"
+            - name: "ListPositions"
+              request: "ListPositionsRequest"
+              response: "ListPositionsResponse"
+            # 角色服务
+            - name: "CreateRole"
+              request: "CreateRoleRequest"
+              response: "RoleResponse"
+            - name: "UpdateRole"
+              request: "UpdateRoleRequest"
+              response: "RoleResponse"
+            - name: "DeleteRole"
+              request: "DeleteRoleRequest"
+              response: "DeleteRoleResponse"
+            - name: "GetRole"
+              request: "GetRoleRequest"
+              response: "RoleResponse"
+            - name: "ListRoles"
+              request: "ListRolesRequest"
+              response: "ListRolesResponse"
+            - name: "AssignPermissions"
+              request: "AssignPermissionsRequest"
+              response: "AssignPermissionsResponse"
+    conditions:
+      - field: "handler_generator.status"
+        operator: "eq"
+        value: "completed"
+    timeout: 40
+    retry: 1
+    next_steps: ["audit_logger"]
+
+  - id: "audit_logger"
+    name: "审计日志"
+    type: "logging"
+    action: "setup_audit_log"
+    description: "设置组织架构管理操作的审计日志记录"
+    parameters:
+      enabled: "{{.audit_enabled}}"
+      events:
+        # 部门操作审计
+        - event: "department_created"
+          level: "info"
+          fields: ["department_id", "department_name", "parent_id", "operator_id", "ip_address"]
+        - event: "department_updated"
+          level: "info"
+          fields: ["department_id", "changes", "operator_id", "ip_address"]
+        - event: "department_deleted"
+          level: "warn"
+          fields: ["department_id", "department_name", "operator_id", "ip_address"]
+        - event: "department_moved"
+          level: "info"
+          fields: ["department_id", "old_parent_id", "new_parent_id", "operator_id", "ip_address"]
+        # 员工操作审计
+        - event: "employee_created"
+          level: "info"
+          fields: ["employee_id", "employee_number", "name", "operator_id", "ip_address"]
+        - event: "employee_updated"
+          level: "info"
+          fields: ["employee_id", "changes", "operator_id", "ip_address"]
+        - event: "employee_deleted"
+          level: "warn"
+          fields: ["employee_id", "employee_number", "name", "operator_id", "ip_address"]
+        - event: "employee_transferred"
+          level: "info"
+          fields: ["employee_id", "from_department_id", "to_department_id", "operator_id", "ip_address"]
+        - event: "employee_status_changed"
+          level: "info"
+          fields: ["employee_id", "old_status", "new_status", "operator_id", "ip_address"]
+        # 职位操作审计
+        - event: "position_created"
+          level: "info"
+          fields: ["position_id", "position_name", "department_id", "operator_id", "ip_address"]
+        - event: "position_updated"
+          level: "info"
+          fields: ["position_id", "changes", "operator_id", "ip_address"]
+        - event: "position_deleted"
+          level: "warn"
+          fields: ["position_id", "position_name", "operator_id", "ip_address"]
+        # 角色操作审计
+        - event: "role_created"
+          level: "info"
+          fields: ["role_id", "role_name", "scope", "operator_id", "ip_address"]
+        - event: "role_updated"
+          level: "info"
+          fields: ["role_id", "changes", "operator_id", "ip_address"]
+        - event: "role_deleted"
+          level: "warn"
+          fields: ["role_id", "role_name", "operator_id", "ip_address"]
+        - event: "permissions_assigned"
+          level: "info"
+          fields: ["role_id", "permissions", "operator_id", "ip_address"]
+        # 权限检查审计
+        - event: "permission_denied"
+          level: "warn"
+          fields: ["user_id", "required_permission", "resource", "ip_address"]
+        - event: "unauthorized_access_attempt"
+          level: "error"
+          fields: ["user_id", "resource", "action", "ip_address"]
+    conditions:
+      - field: "grpc_generator.status"
+        operator: "eq"
+        value: "completed"
+    timeout: 20
+    retry: 1
+    next_steps: ["test_generator"]
+
+  - id: "test_generator"
+    name: "生成测试代码"
+    type: "generate"
+    action: "generate_tests"
+    description: "生成组织架构相关的单元测试和集成测试代码"
+    parameters:
+      domain: "{{.domain}}"
+      test_files:
+        - entity: "Department"
+          output_path: "test/{{.domain}}/department_test.go"
+          test_types:
+            - type: "unit"
+              target: "usecase"
+              coverage: ["CreateDepartment", "UpdateDepartment", "DeleteDepartment", "GetDepartmentTree", "MoveDepartment"]
+            - type: "integration"
+              target: "api"
+              coverage: ["CreateDepartmentHandler", "UpdateDepartmentHandler", "GetDepartmentTreeHandler"]
+            - type: "repository"
+              target: "repository"
+              coverage: ["FindByParentID", "GetDepartmentTree", "CheckCircularReference", "UpdateHierarchy"]
+        - entity: "Employee"
+          output_path: "test/{{.domain}}/employee_test.go"
+          test_types:
+            - type: "unit"
+              target: "usecase"
+              coverage: ["CreateEmployee", "UpdateEmployee", "AssignToDepartment", "TransferEmployee"]
+            - type: "integration"
+              target: "api"
+              coverage: ["CreateEmployeeHandler", "TransferEmployeeHandler", "ListEmployeesHandler"]
+            - type: "repository"
+              target: "repository"
+              coverage: ["FindByEmployeeNumber", "AssignToDepartment", "AssignToPosition"]
+        - entity: "Position"
+          output_path: "test/{{.domain}}/position_test.go"
+          test_types:
+            - type: "unit"
+              target: "usecase"
+              coverage: ["CreatePosition", "UpdatePosition", "GetPositionsByDepartment"]
+            - type: "integration"
+              target: "api"
+              coverage: ["CreatePositionHandler", "ListPositionsHandler"]
+            - type: "repository"
+              target: "repository"
+              coverage: ["FindByDepartmentID", "FindByLevel", "GetPositionHierarchy"]
+        - entity: "OrganizationRole"
+          output_path: "test/{{.domain}}/organization_role_test.go"
+          test_types:
+            - type: "unit"
+              target: "usecase"
+              coverage: ["CreateRole", "AssignPermissions", "CheckPermission"]
+            - type: "integration"
+              target: "api"
+              coverage: ["CreateRoleHandler", "AssignPermissionsHandler"]
+            - type: "repository"
+              target: "repository"
+              coverage: ["FindByCode", "CheckPermission"]
+        - entity: "Organization"
+          output_path: "test/{{.domain}}/organization_integration_test.go"
+          test_types:
+            - type: "integration"
+              target: "business"
+              coverage: ["DepartmentHierarchyManagement", "EmployeeDepartmentAssignment", "PositionManagement", "RolePermissionManagement"]
+            - type: "performance"
+              target: "hierarchy"
+              coverage: ["LargeDepartmentTreeQuery", "BulkEmployeeAssignment", "ComplexPermissionCheck"]
+    conditions:
+      - field: "audit_logger.status"
+        operator: "eq"
+        value: "completed"
+    timeout: 80
+    retry: 1
+    next_steps: ["mock_generator"]
+
+  - id: "mock_generator"
+    name: "生成Mock对象"
+    type: "generate"
+    action: "generate_mocks"
+    description: "生成组织架构相关的测试用Mock对象"
+    parameters:
+      domain: "{{.domain}}"
+      mock_files:
+        - entity: "Department"
+          output_path: "test/mock/{{.domain}}/department_mock.go"
+          interfaces:
+            - "DepartmentRepository"
+            - "DepartmentUseCase"
+        - entity: "Employee"
+          output_path: "test/mock/{{.domain}}/employee_mock.go"
+          interfaces:
+            - "EmployeeRepository"
+            - "EmployeeUseCase"
+        - entity: "Position"
+          output_path: "test/mock/{{.domain}}/position_mock.go"
+          interfaces:
+            - "PositionRepository"
+            - "PositionUseCase"
+        - entity: "OrganizationRole"
+          output_path: "test/mock/{{.domain}}/organization_role_mock.go"
+          interfaces:
+            - "OrganizationRoleRepository"
+            - "OrganizationRoleUseCase"
+        - entity: "Organization"
+          output_path: "test/mock/{{.domain}}/organization_service_mock.go"
+          interfaces:
+            - "OrganizationService"
+            - "HierarchyService"
+            - "PermissionService"
+    conditions:
+      - field: "test_generator.status"
+        operator: "eq"
+        value: "completed"
+    timeout: 40
+    retry: 1
+
+# 流程配置
+flow_config:
+  max_parallel_steps: 4
+  timeout_strategy: "fail_fast"
+  retry_strategy: "exponential_backoff"
+  rollback_enabled: true
+  hierarchy_validation_enabled: true
+  permission_check_enabled: true
+  
+# 输出配置
+output_config:
+  domain_structure:
+    domain_models:
+      - "domain/organization/model/department.go"
+      - "domain/organization/model/employee.go"
+      - "domain/organization/model/position.go"
+      - "domain/organization/model/organization_role.go"
+    repository_interfaces:
+      - "domain/organization/repository/department_repository.go"
+      - "domain/organization/repository/employee_repository.go"
+      - "domain/organization/repository/position_repository.go"
+      - "domain/organization/repository/organization_role_repository.go"
+  infra_structure:
+    gorm_models:
+      - "internal/infra/persistence/organization/model/department_model.go"
+      - "internal/infra/persistence/organization/model/employee_model.go"
+      - "internal/infra/persistence/organization/model/position_model.go"
+      - "internal/infra/persistence/organization/model/organization_role_model.go"
+    repository_impls:
+      - "internal/infra/persistence/organization/repository/department_repo_gorm.go"
+      - "internal/infra/persistence/organization/repository/employee_repo_gorm.go"
+      - "internal/infra/persistence/organization/repository/position_repo_gorm.go"
+      - "internal/infra/persistence/organization/repository/organization_role_repo_gorm.go"
+    migration: "internal/infra/database/migration.go"
+  app_structure:
+    usecases:
+      - "internal/app/organization/department.go"
+      - "internal/app/organization/employee.go"
+      - "internal/app/organization/position.go"
+      - "internal/app/organization/organization_role.go"
+  api_structure:
+    dtos:
+      - "api/dto/organization/department_dto.go"
+      - "api/dto/organization/employee_dto.go"
+      - "api/dto/organization/position_dto.go"
+      - "api/dto/organization/organization_role_dto.go"
+    adapters:
+      - "api/adapter/organization/department_adapter.go"
+      - "api/adapter/organization/employee_adapter.go"
+      - "api/adapter/organization/position_adapter.go"
+      - "api/adapter/organization/organization_role_adapter.go"
+    routers:
+      - "api/http/router.go"
+    handlers:
+      - "api/http/admin/organization/department_handler.go"
+      - "api/http/admin/organization/employee_handler.go"
+      - "api/http/admin/organization/position_handler.go"
+      - "api/http/admin/organization/organization_role_handler.go"
+    grpc_services:
+      - "api/grpc/v1/organization/organization_service.go"
+  test_structure:
+    unit_tests:
+      - "test/organization/department_test.go"
+      - "test/organization/employee_test.go"
+      - "test/organization/position_test.go"
+      - "test/organization/organization_role_test.go"
+      - "test/organization/organization_integration_test.go"
+    mock_objects:
+      - "test/mock/organization/department_mock.go"
+      - "test/mock/organization/employee_mock.go"
+      - "test/mock/organization/position_mock.go"
+      - "test/mock/organization/organization_role_mock.go"
+      - "test/mock/organization/organization_service_mock.go"
+
+# 安全配置
+security_config:
+  permission_levels:
+    - "organization.department.read"
+    - "organization.department.write"
+    - "organization.department.delete"
+    - "organization.employee.read"
+    - "organization.employee.write"
+    - "organization.employee.delete"
+    - "organization.employee.transfer"
+    - "organization.position.read"
+    - "organization.position.write"
+    - "organization.position.delete"
+    - "organization.role.read"
+    - "organization.role.write"
+    - "organization.role.delete"
+    - "organization.role.assign_permissions"
+  data_protection:
+    - "employee_personal_info_encryption"
+    - "salary_info_access_control"
+    - "audit_log_retention"
+    - "sensitive_operation_approval"
+  compliance:
+    - "gdpr_compliance"
+    - "data_retention_policy"
+    - "access_log_monitoring"
+    - "privacy_protection"

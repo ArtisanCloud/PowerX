@@ -1,0 +1,236 @@
+{{/*
+API路由模板
+用于生成API路由配置
+*/}}
+package {{ index .Vars "PackageName" }}
+
+import (
+	"github.com/gin-gonic/gin"
+	"{{ index .Vars "ModulePath" }}/app/handler/{{ index .Vars "PackageName" }}"
+	"{{ index .Vars "ModulePath" }}/middleware"
+)
+
+// Register{{ index .Vars "EntityName" }}Routes 注册{{ index .Vars "Description" }}相关路由
+func Register{{ index .Vars "EntityName" }}Routes(r *gin.RouterGroup, handler *{{ index .Vars "PackageName" }}.{{ index .Vars "EntityName" }}Handler) {
+	// {{ index .Vars "Description" }}路由组
+	{{ index .Vars "PackageName" }}Group := r.Group("/{{ index .Vars "APIPrefix" }}")
+	{
+{{if index .Params "HasAuth"}}		// 需要认证的路由
+		authGroup := {{ index .Vars "PackageName" }}Group.Group("")
+		authGroup.Use(middleware.AuthRequired())
+		{
+{{if index .Params "HasCreateAPI"}}			// 创建{{ index .Vars "Description" }}
+			authGroup.POST("", handler.Create{{ index .Vars "EntityName" }})
+{{end}}
+{{if index .Params "HasUpdateAPI"}}			// 更新{{ index .Vars "Description" }}
+			authGroup.PUT("/:id", handler.Update{{ index .Vars "EntityName" }})
+			authGroup.PATCH("/:id", handler.Patch{{ index .Vars "EntityName" }})
+{{end}}
+{{if index .Params "HasDeleteAPI"}}			// 删除{{ index .Vars "Description" }}
+			authGroup.DELETE("/:id", handler.Delete{{ index .Vars "EntityName" }})
+{{end}}
+{{if index .Params "HasBatchAPI"}}			// 批量操作
+			authGroup.POST("/batch", handler.BatchCreate{{ index .Vars "EntityName" }})
+			authGroup.PUT("/batch", handler.BatchUpdate{{ index .Vars "EntityName" }})
+			authGroup.DELETE("/batch", handler.BatchDelete{{ index .Vars "EntityName" }})
+{{end}}
+{{if index .Params "HasImportExportAPI"}}			// 导入导出
+			authGroup.POST("/import", handler.Import{{ index .Vars "EntityName" }})
+			authGroup.GET("/export", handler.Export{{ index .Vars "EntityName" }})
+{{end}}
+		}
+{{end}}
+
+{{if index .Params "HasPublicAPI"}}		// 公开路由（无需认证）
+{{if index .Params "HasGetAPI"}}		// 获取{{ index .Vars "Description" }}详情
+		{{ index .Vars "PackageName" }}Group.GET("/:id", handler.Get{{ index .Vars "EntityName" }})
+{{end}}
+{{if index .Params "HasListAPI"}}		// 获取{{ index .Vars "Description" }}列表
+		{{ index .Vars "PackageName" }}Group.GET("", handler.List{{ index .Vars "EntityName" }})
+{{end}}
+{{if index .Params "HasSearchAPI"}}		// 搜索{{ index .Vars "Description" }}
+		{{ index .Vars "PackageName" }}Group.GET("/search", handler.Search{{ index .Vars "EntityName" }})
+{{end}}
+{{if index .Params "HasStatsAPI"}}		// 统计信息
+		{{ index .Vars "PackageName" }}Group.GET("/stats", handler.Get{{ index .Vars "EntityName" }}Stats)
+{{end}}
+{{else}}		// 需要认证的路由
+		authGroup := {{ index .Vars "PackageName" }}Group.Group("")
+		authGroup.Use(middleware.AuthRequired())
+		{
+{{if index .Params "HasGetAPI"}}			// 获取{{ index .Vars "Description" }}详情
+			authGroup.GET("/:id", handler.Get{{ index .Vars "EntityName" }})
+{{end}}
+{{if index .Params "HasListAPI"}}			// 获取{{ index .Vars "Description" }}列表
+			authGroup.GET("", handler.List{{ index .Vars "EntityName" }})
+{{end}}
+{{if index .Params "HasSearchAPI"}}			// 搜索{{ index .Vars "Description" }}
+			authGroup.GET("/search", handler.Search{{ index .Vars "EntityName" }})
+{{end}}
+{{if index .Params "HasStatsAPI"}}			// 统计信息
+			authGroup.GET("/stats", handler.Get{{ index .Vars "EntityName" }}Stats)
+{{end}}
+		}
+{{end}}
+
+{{if index .Params "HasAdminAPI"}}		// 管理员路由
+		adminGroup := {{ index .Vars "PackageName" }}Group.Group("/admin")
+		adminGroup.Use(middleware.AuthRequired(), middleware.AdminRequired())
+		{
+{{if index .Params "HasAdminListAPI"}}			// 管理员获取{{ index .Vars "Description" }}列表
+			adminGroup.GET("", handler.AdminList{{ index .Vars "EntityName" }})
+{{end}}
+{{if index .Params "HasAdminStatsAPI"}}			// 管理员统计信息
+			adminGroup.GET("/stats", handler.AdminGet{{ index .Vars "EntityName" }}Stats)
+{{end}}
+{{if index .Params "HasAdminOperationAPI"}}			// 管理员操作
+			adminGroup.POST("/:id/enable", handler.Enable{{ index .Vars "EntityName" }})
+			adminGroup.POST("/:id/disable", handler.Disable{{ index .Vars "EntityName" }})
+			adminGroup.POST("/:id/approve", handler.Approve{{ index .Vars "EntityName" }})
+			adminGroup.POST("/:id/reject", handler.Reject{{ index .Vars "EntityName" }})
+{{end}}
+		}
+{{end}}
+
+{{if index .Params "HasFileAPI"}}		// 文件相关路由
+		fileGroup := {{ index .Vars "PackageName" }}Group.Group("/files")
+		fileGroup.Use(middleware.AuthRequired())
+		{
+			// 上传文件
+			fileGroup.POST("/upload", handler.Upload{{ index .Vars "EntityName" }}File)
+			// 下载文件
+			fileGroup.GET("/download/:fileId", handler.Download{{ index .Vars "EntityName" }}File)
+			// 删除文件
+			fileGroup.DELETE("/:fileId", handler.Delete{{ index .Vars "EntityName" }}File)
+		}
+{{end}}
+
+{{if index .Params "HasCustomRoutes"}}		// 自定义路由
+{{ $customRoutes := index .Params "CustomRoutes" }}
+{{range $cr := $customRoutes}}		{{if index $cr "RequireAuth"}}authGroup{{else}}{{ index $.Vars "PackageName" }}Group{{end}}.{{ index $cr "Method" }}("{{ index $cr "Path" }}", handler.{{ index $cr "Handler" }})
+{{end}}
+{{end}}
+	}
+}
+
+{{if index .Params "HasVersionedAPI"}}
+// RegisterVersioned{{ index .Vars "EntityName" }}Routes 注册版本化{{ index .Vars "Description" }}路由
+func RegisterVersioned{{ index .Vars "EntityName" }}Routes(r *gin.RouterGroup, handler *{{ index .Vars "PackageName" }}.{{ index .Vars "EntityName" }}Handler) {
+	// V1 API
+	v1Group := r.Group("/v1")
+	Register{{ index .Vars "EntityName" }}Routes(v1Group, handler)
+
+	// V2 API (如果需要)
+	// v2Group := r.Group("/v2")
+	// RegisterV2{{ index .Vars "EntityName" }}Routes(v2Group, handler)
+}
+{{end}}
+
+{{if index .Params "HasMiddleware"}}
+// {{ index .Vars "EntityName" }}Middleware {{ index .Vars "Description" }}专用中间件
+func {{ index .Vars "EntityName" }}Middleware() gin.HandlerFunc {
+	return gin.HandlerFunc(func(c *gin.Context) {
+		// TODO: 实现{{ index .Vars "Description" }}专用中间件逻辑
+		{{ index .Params "MiddlewareImplementation" }}
+		c.Next()
+	})
+}
+{{end}}
+
+{{if index .Params "HasRateLimit"}}
+// {{ index .Vars "EntityName" }}RateLimit {{ index .Vars "Description" }}限流中间件
+func {{ index .Vars "EntityName" }}RateLimit() gin.HandlerFunc {
+	return middleware.RateLimit(middleware.RateLimitConfig{
+		Rate:     {{ index .Params "RateLimitRate" }},     // 每秒请求数
+		Burst:    {{ index .Params "RateLimitBurst" }},    // 突发请求数
+		KeyFunc:  middleware.IPKeyFunc,   // 基于IP限流
+		Message:  "{{ index .Vars "Description" }}请求过于频繁，请稍后再试",
+	})
+}
+{{end}}
+
+{{if index .Params "HasCORS"}}
+// {{ index .Vars "EntityName" }}CORS {{ index .Vars "Description" }}跨域配置
+func {{ index .Vars "EntityName" }}CORS() gin.HandlerFunc {
+	return middleware.CORS(middleware.CORSConfig{
+		AllowOrigins:     {{ index .Params "CORSAllowOrigins" }},
+		AllowMethods:     {{ index .Params "CORSAllowMethods" }},
+		AllowHeaders:     {{ index .Params "CORSAllowHeaders" }},
+		ExposeHeaders:    {{ index .Params "CORSExposeHeaders" }},
+		AllowCredentials: {{ index .Params "CORSAllowCredentials" }},
+		MaxAge:           {{ index .Params "CORSMaxAge" }},
+	})
+}
+{{end}}
+
+{{if index .Params "HasWebSocket"}}
+// Register{{ index .Vars "EntityName" }}WebSocketRoutes 注册{{ index .Vars "Description" }}WebSocket路由
+func Register{{ index .Vars "EntityName" }}WebSocketRoutes(r *gin.RouterGroup, handler *{{ index .Vars "PackageName" }}.{{ index .Vars "EntityName" }}Handler) {
+	// WebSocket路由组
+	wsGroup := r.Group("/ws")
+	wsGroup.Use(middleware.AuthRequired())
+	{
+		// {{ index .Vars "Description" }}实时通信
+		wsGroup.GET("/{{ index .Vars "PackageName" }}", handler.{{ index .Vars "EntityName" }}WebSocket)
+		// {{ index .Vars "Description" }}房间
+		wsGroup.GET("/{{ index .Vars "PackageName" }}/room/:roomId", handler.{{ index .Vars "EntityName" }}RoomWebSocket)
+	}
+}
+{{end}}
+
+{{if index .Params "HasGraphQL"}}
+// Register{{ index .Vars "EntityName" }}GraphQLRoutes 注册{{ index .Vars "Description" }}GraphQL路由
+func Register{{ index .Vars "EntityName" }}GraphQLRoutes(r *gin.RouterGroup, handler *{{ index .Vars "PackageName" }}.{{ index .Vars "EntityName" }}Handler) {
+	// GraphQL路由组
+	gqlGroup := r.Group("/graphql")
+	{
+		// {{ index .Vars "Description" }}查询
+		gqlGroup.POST("/{{ index .Vars "PackageName" }}", handler.{{ index .Vars "EntityName" }}GraphQLQuery)
+		// {{ index .Vars "Description" }}订阅
+		gqlGroup.GET("/{{ index .Vars "PackageName" }}/subscription", handler.{{ index .Vars "EntityName" }}GraphQLSubscription)
+	}
+}
+{{end}}
+
+{{if index .Params "HasHealthCheck"}}
+// Register{{ index .Vars "EntityName" }}HealthRoutes 注册{{ index .Vars "Description" }}健康检查路由
+func Register{{ index .Vars "EntityName" }}HealthRoutes(r *gin.RouterGroup, handler *{{ index .Vars "PackageName" }}.{{ index .Vars "EntityName" }}Handler) {
+	// 健康检查路由组
+	healthGroup := r.Group("/health")
+	{
+		// {{ index .Vars "Description" }}存活检查
+		healthGroup.GET("/{{ index .Vars "PackageName" }}/live", handler.{{ index .Vars "EntityName" }}LivenessCheck)
+		// {{ index .Vars "Description" }}就绪检查
+		healthGroup.GET("/{{ index .Vars "PackageName" }}/ready", handler.{{ index .Vars "EntityName" }}ReadinessCheck)
+	}
+}
+{{end}}
+
+{{if index .Params "HasMetrics"}}
+// Register{{ index .Vars "EntityName" }}MetricsRoutes 注册{{ index .Vars "Description" }}指标路由
+func Register{{ index .Vars "EntityName" }}MetricsRoutes(r *gin.RouterGroup, handler *{{ index .Vars "PackageName" }}.{{ index .Vars "EntityName" }}Handler) {
+	// 指标路由组
+	metricsGroup := r.Group("/metrics")
+	metricsGroup.Use(middleware.AuthRequired()) // 指标需要认证
+	{
+		// {{ index .Vars "Description" }}性能指标
+		metricsGroup.GET("/{{ index .Vars "PackageName" }}", handler.{{ index .Vars "EntityName" }}Metrics)
+	}
+}
+{{end}}
+
+{{if index .Params "HasSwagger"}}
+// Register{{ index .Vars "EntityName" }}DocsRoutes 注册{{ index .Vars "Description" }}API文档路由
+func Register{{ index .Vars "EntityName" }}DocsRoutes(r *gin.RouterGroup) {
+	// API文档路由组
+	docsGroup := r.Group("/docs")
+	{
+		// {{ index .Vars "Description" }}API文档
+		docsGroup.GET("/{{ index .Vars "PackageName" }}", func(c *gin.Context) {
+			c.Redirect(http.StatusMovedPermanently, "/docs/{{ index .Vars "PackageName" }}/index.html")
+		})
+		// {{ index .Vars "Description" }}Swagger规范
+		docsGroup.Static("/{{ index .Vars "PackageName" }}", "./docs/{{ index .Vars "PackageName" }}")
+	}
+}
+{{end}}

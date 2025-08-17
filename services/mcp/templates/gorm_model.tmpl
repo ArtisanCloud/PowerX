@@ -1,0 +1,107 @@
+{{/*
+GORM模型模板
+用于生成数据库持久化层的模型
+*/}}
+package model
+
+import (
+	"time"
+	"gorm.io/gorm"
+	"github.com/google/uuid"
+)
+
+// {{ index .Vars "EntityName" }} {{ index .Vars "Description" }}
+type {{ index .Vars "EntityName" }} struct {
+	// 基础字段
+	ID        string         `json:"id" gorm:"primaryKey;type:varchar(36);comment:主键ID"`
+	CreatedAt time.Time      `json:"created_at" gorm:"comment:创建时间"`
+	UpdatedAt time.Time      `json:"updated_at" gorm:"comment:更新时间"`
+	DeletedAt gorm.DeletedAt `json:"deleted_at,omitempty" gorm:"index;comment:删除时间"`
+
+{{ $fields := index .Params "fields" }}
+{{range $f := $fields}}	// {{ index $f "Comment" }}
+	{{ index $f "Name" }} {{ index $f "Type" }} `json:"{{ index $f "JsonTag" }}" gorm:"{{ index $f "GormTag" }}"`
+{{end}}
+{{if index .Params "HasRelations"}}
+	// 关联关系
+{{ $relations := index .Params "Relations" }}
+{{range $r := $relations}}	{{ index $r "Name" }} {{ index $r "Type" }} `json:"{{ index $r "JsonTag" }}" gorm:"{{ index $r "GormTag" }}"`
+{{end}}
+{{end}}
+}
+
+// TableName 返回表名
+func ({{ index .Vars "EntityName" }}) TableName() string {
+	return "{{ index .Vars "TablePrefix" }}{{ index .Vars "TableName" }}"
+}
+
+// BeforeCreate GORM创建前钩子
+func (m *{{ index .Vars "EntityName" }}) BeforeCreate(tx *gorm.DB) error {
+	if m.ID == "" {
+		m.ID = uuid.New().String()
+	}
+	return nil
+}
+
+{{if index .Params "HasIndexes"}}
+// 索引定义
+func ({{ index .Vars "EntityName" }}) Indexes() []gorm.Index {
+	return []gorm.Index{
+{{ $indexes := index .Params "Indexes" }}
+{{range $idx := $indexes}}		{
+			Name:    "{{ index $idx "Name" }}",
+			Columns: []string{"{{join (index $idx "Columns") ", "}}"},
+			Unique:  {{ index $idx "Unique" }},
+		},
+{{end}}	}
+}
+{{end}}
+
+{{if index .Params "HasScopes"}}
+// 查询作用域
+{{ $scopes := index .Params "Scopes" }}
+{{range $s := $scopes}}
+// {{ index $s "Name" }} {{ index $s "Description" }}
+func (m *{{ index $.Vars "EntityName" }}) {{ index $s "Name" }}() func(db *gorm.DB) *gorm.DB {
+	return func(db *gorm.DB) *gorm.DB {
+		return db.{{ index $s "Implementation" }}
+	}
+}
+{{end}}
+{{end}}
+
+{{if index .Params "HasHooks"}}
+// GORM钩子方法
+{{ $hooks := index .Params "Hooks" }}
+{{range $h := $hooks}}
+// {{ index $h "Name" }} {{ index $h "Description" }}
+func (m *{{ index $.Vars "EntityName" }}) {{ index $h "Name" }}(tx *gorm.DB) error {
+	{{ index $h "Implementation" }}
+	return nil
+}
+{{end}}
+{{end}}
+
+// ToMap 转换为map
+func (m *{{ index .Vars "EntityName" }}) ToMap() map[string]interface{} {
+	return map[string]interface{}{
+		"id":         m.ID,
+		"created_at": m.CreatedAt,
+		"updated_at": m.UpdatedAt,
+		"deleted_at": m.DeletedAt,
+{{ $fields := index .Params "fields" }}
+{{range $f := $fields}}		"{{ index $f "JsonTag" }}": m.{{ index $f "Name" }},
+{{end}}	}
+}
+
+// FromMap 从map填充数据
+func (m *{{ index .Vars "EntityName" }}) FromMap(data map[string]interface{}) {
+	if id, ok := data["id"].(string); ok {
+		m.ID = id
+	}
+{{ $fields := index .Params "fields" }}
+{{range $f := $fields}}	if {{ index $f "JsonTag" }}, ok := data["{{ index $f "JsonTag" }}"]; ok {
+		m.{{ index $f "Name" }} = {{ index $f "JsonTag" }}
+	}
+{{end}}
+}

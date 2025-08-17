@@ -1,0 +1,58 @@
+flow_id: core.demo.baseline.task_2
+name: "baseline：task_2"
+version: "1.0"
+
+metadata:
+  io:
+    inputs:
+      - { name: upstream_id, type: string, required: true }
+    outputs:
+      - { name: id, type: string }
+      - { name: timestamp, type: string }
+  requires: ["core.demo.baseline.task_1"]
+  intent:
+    register: true
+    group: "demo.baseline"
+    weight: 1.0
+    matchers:
+      - type: keyword
+        any:
+          - "执行任务2"
+          - "执行 task 2"    # ✅ 关键：覆盖“执行task 2”
+          - "task 2"         # ✅ 子串匹配就能命中
+          - "t2"
+
+    embedding:
+      title: "Baseline：执行 task_2（基于上游ID）"
+      synonyms: ["第二步","处理上游ID","继续第二步"]
+    examples:
+      positive: ["执行任务2","直接运行task 2","跑t2"]
+      negative: ["执行任务1","执行任务5"]
+
+slots:
+  - name: upstream_id
+    type: string
+    required: true
+    from:
+      - type: rule
+        pattern: "upstream\\s*id[:： ](?P<val>[A-Za-z0-9_-]{3,})"
+      - type: llm
+        hint: "从输入或上游输出中提取上游ID；缺失时返回空"
+
+nodes:
+  - id: n1
+    use: core.debug.forward
+    kind: biz_logic
+    params: { id_ref: "{{ .input.upstream_id }}" }
+    io:
+      in_map:      { upstream_id: "{{ input.upstream_id }}" }
+      out_map: { id: id, timestamp: timestamp }
+  - id: n2
+    use: core.response.format
+    kind: text_proc
+    params: { template: '{ "id":"{{ node.n1.output.id }}","from":"t2@baseline" }' }
+    io:
+      out_map: { id: id, timestamp: timestamp }
+
+edges:
+  - { from: n1, to: n2, type: SEQ }

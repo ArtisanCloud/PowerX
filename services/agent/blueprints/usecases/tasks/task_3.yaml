@@ -1,0 +1,53 @@
+flow_id: core.demo.task_3
+name: "任务3：示例公共任务"
+version: "1.0"
+
+metadata:
+  io:
+    inputs:
+      - { name: upstream_id, type: string, required: true }
+    outputs:
+      - { name: id, type: string }
+      - { name: timestamp, type: string }
+  requires: []    # 公共定义不约束上游；由用例包装覆盖
+  intent:         # 仅公共库注册意图
+    register: true
+    group: "demo.shared"
+    weight: 1.0
+    matchers:
+      - type: keyword
+        priority: 10
+        any:
+          - "执行任务3"
+          - "执行 task 3"    # ✅ 关键：覆盖“执行task 2”
+          - "task 3"         # ✅ 子串匹配就能命中
+          - "t3"
+    embedding:
+      title: "执行 task_3（通用逻辑）"
+      synonyms: ["第三步","通用第三步","step3"]
+    examples:
+      positive: ["执行任务3","跑t3"]
+      negative: ["执行任务1","执行任务5"]
+
+slots:
+  - { name: upstream_id, type: string, required: true }
+
+nodes:
+  - id: n1
+    use: core.debug.forward
+    kind: biz_logic
+    params: { id_ref: "{{ .input.upstream_id }}" }
+    io:
+      in_map:      { upstream_id: "{{ input.upstream_id }}" }
+      out_map: { id: id, timestamp: timestamp }
+
+  - id: n2
+    use: core.response.format
+    kind: text_proc
+    params:
+      template: '{ "id":"{{ node.n1.output.id }}","from":"t3@shared" }'
+    io:
+      out_map: { id: id, timestamp: timestamp }
+
+edges:
+  - { from: n1, to: n2, type: SEQ }

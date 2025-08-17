@@ -1,0 +1,469 @@
+id: "user_registration_flow"
+name: "用户注册流程"
+description: "完整的用户注册业务流程，包含数据验证、密码加密、数据持久化和审计日志"
+version: "1.0.0"
+variables:
+  project_name: "{{.project_name}}"
+  domain: "user"
+  entity: "User"
+  table_name: "users"
+  unique_fields: "email"
+  password_field: "password"
+  audit_enabled: "true"
+
+steps:
+  - id: "idempotency_guard"
+    name: "幂等性保护"
+    type: "validation"
+    action: "check_idempotency"
+    description: "防止重复提交，基于请求ID或用户标识进行幂等性检查"
+    parameters:
+      key_fields: ["email", "phone"]
+      cache_duration: 300
+    timeout: 5
+    retry: 1
+    next_steps: ["uniqueness_check"]
+
+  - id: "uniqueness_check"
+    name: "唯一性验证"
+    type: "validation"
+    action: "validate_uniqueness"
+    description: "验证邮箱、手机号等关键字段的唯一性"
+    parameters:
+      fields: "{{.unique_fields}}"
+      table: "{{.table_name}}"
+      error_message: "用户已存在"
+    conditions:
+      - field: "idempotency_guard.status"
+        operator: "eq"
+        value: "passed"
+    timeout: 10
+    retry: 2
+    next_steps: ["input_validation"]
+
+  - id: "input_validation"
+    name: "输入数据验证"
+    type: "validation"
+    action: "validate_input"
+    description: "验证用户输入数据的格式和完整性"
+    parameters:
+      schema:
+        email:
+          type: "string"
+          format: "email"
+          required: true
+        password:
+          type: "string"
+          min_length: 8
+          pattern: "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)[a-zA-Z\\d@$!%*?&]{8,}$"
+          required: true
+        name:
+          type: "string"
+          min_length: 2
+          max_length: 50
+          required: true
+        phone:
+          type: "string"
+          pattern: "^1[3-9]\\d{9}$"
+          required: false
+    conditions:
+      - field: "uniqueness_check.status"
+        operator: "eq"
+        value: "passed"
+    timeout: 5
+    retry: 1
+    next_steps: ["password_hasher"]
+
+  - id: "password_hasher"
+    name: "密码加密"
+    type: "security"
+    action: "hash_password"
+    description: "使用bcrypt算法对用户密码进行安全加密"
+    parameters:
+      algorithm: "bcrypt"
+      cost: 12
+      field: "{{.password_field}}"
+    conditions:
+      - field: "input_validation.status"
+        operator: "eq"
+        value: "passed"
+    timeout: 10
+    retry: 1
+    next_steps: ["model_generator"]
+
+  - id: "domain_model_generator"
+    name: "生成领域模型"
+    type: "generate"
+    action: "generate_domain_model"
+    description: "生成用户领域模型结构体"
+    parameters:
+      domain: "{{.domain}}"
+      entity: "{{.entity}}"
+      output_path: "domain/{{.domain}}/model/{{.entity | lower}}.go"
+      fields:
+        - name: "id"
+          type: "uint"
+          gorm_tag: "primaryKey;autoIncrement"
+          json_tag: "id"
+        - name: "email"
+          type: "string"
+          gorm_tag: "uniqueIndex;not null;size:255"
+          json_tag: "email"
+          validate_tag: "required,email"
+        - name: "password"
+          type: "string"
+          gorm_tag: "not null;size:255"
+          json_tag: "-"
+        - name: "name"
+          type: "string"
+          gorm_tag: "not null;size:100"
+          json_tag: "name"
+          validate_tag: "required,min=2,max=50"
+        - name: "phone"
+          type: "string"
+          gorm_tag: "size:20"
+          json_tag: "phone,omitempty"
+          validate_tag: "omitempty,len=11"
+        - name: "status"
+          type: "int"
+          gorm_tag: "default:1"
+          json_tag: "status"
+        - name: "created_at"
+          type: "time.Time"
+          gorm_tag: "autoCreateTime"
+          json_tag: "created_at"
+        - name: "updated_at"
+          type: "time.Time"
+          gorm_tag: "autoUpdateTime"
+          json_tag: "updated_at"
+    conditions:
+      - field: "password_hasher.status"
+        operator: "eq"
+        value: "completed"
+    timeout: 30
+    retry: 1
+    next_steps: ["migration_generator"]
+
+  - id: "gorm_model_generator"
+    name: "生成GORM模型"
+    type: "generate"
+    action: "generate_gorm_model"
+    description: "生成GORM数据库模型"
+    parameters:
+      domain: "{{.domain}}"
+      entity: "{{.entity}}"
+      table: "{{.table_name}}"
+      output_path: "internal/infra/persistence/{{.domain}}/model/{{.entity | lower}}_model.go"
+    conditions:
+      - field: "domain_model_generator.status"
+        operator: "eq"
+        value: "completed"
+    timeout: 15
+    retry: 1
+    next_steps: ["repository_interface_generator"]
+
+  - id: "repository_interface_generator"
+    name: "生成仓库接口"
+    type: "generate"
+    action: "generate_repository_interface"
+    description: "生成用户仓库接口定义"
+    parameters:
+      domain: "{{.domain}}"
+      entity: "{{.entity}}"
+      output_path: "domain/{{.domain}}/repository/{{.entity | lower}}_repository.go"
+    conditions:
+      - field: "gorm_model_generator.status"
+        operator: "eq"
+        value: "completed"
+    timeout: 20
+    retry: 1
+    next_steps: ["repository_impl_generator"]
+
+  - id: "repository_impl_generator"
+    name: "生成仓库实现"
+    type: "generate"
+    action: "generate_repository_impl"
+    description: "生成用户仓库GORM实现"
+    parameters:
+      domain: "{{.domain}}"
+      entity: "{{.entity}}"
+      output_path: "internal/infra/persistence/{{.domain}}/repository/{{.entity | lower}}_repo_gorm.go"
+    conditions:
+      - field: "repository_interface_generator.status"
+        operator: "eq"
+        value: "completed"
+    timeout: 30
+    retry: 1
+    next_steps: ["migration_generator"]
+
+  - id: "migration_generator"
+    name: "生成数据库迁移"
+    type: "generate"
+    action: "generate_migration"
+    description: "生成数据库迁移文件"
+    parameters:
+      table: "{{.table_name}}"
+      migration_name: "create_{{.table_name}}_table"
+      output_path: "internal/infra/database/migration.go"
+      fields_from_step: "gorm_model_generator"
+    conditions:
+      - field: "repository_impl_generator.status"
+        operator: "eq"
+        value: "completed"
+    timeout: 15
+    retry: 1
+    next_steps: ["usecase_generator"]
+
+
+
+  - id: "usecase_generator"
+    name: "生成业务用例"
+    type: "generate"
+    action: "generate_usecase"
+    description: "生成用户注册业务逻辑层代码"
+    parameters:
+      domain: "{{.domain}}"
+      entity: "{{.entity}}"
+      output_path: "internal/app/{{.domain}}/{{.entity | lower}}.go"
+      repository_injection: true
+      methods:
+        - name: "Register"
+          params: ["ctx context.Context", "req *RegisterRequest"]
+          return_type: "*User, error"
+          description: "用户注册业务逻辑"
+        - name: "CheckEmailExists"
+          params: ["ctx context.Context", "email string"]
+          return_type: "bool, error"
+          description: "检查邮箱是否已存在"
+        - name: "ValidatePassword"
+          params: ["password string"]
+          return_type: "error"
+          description: "验证密码强度"
+    conditions:
+      - field: "migration_generator.status"
+        operator: "eq"
+        value: "completed"
+    timeout: 45
+    retry: 1
+    next_steps: ["dto_generator"]
+
+  - id: "dto_generator"
+    name: "生成DTO"
+    type: "generate"
+    action: "generate_dto"
+    description: "生成数据传输对象"
+    parameters:
+      domain: "{{.domain}}"
+      entity: "{{.entity}}"
+      output_path: "api/dto/{{.domain}}/{{.entity | lower}}_dto.go"
+      dtos:
+        - name: "RegisterRequest"
+          fields: ["email", "password", "name", "phone"]
+        - name: "RegisterResponse"
+          fields: ["id", "email", "name", "status", "created_at"]
+        - name: "CheckEmailResponse"
+          fields: ["exists"]
+    conditions:
+      - field: "usecase_generator.status"
+        operator: "eq"
+        value: "completed"
+    timeout: 20
+    retry: 1
+    next_steps: ["adapter_generator"]
+
+  - id: "adapter_generator"
+    name: "生成适配器"
+    type: "generate"
+    action: "generate_adapter"
+    description: "生成领域模型与DTO之间的适配器"
+    parameters:
+      domain: "{{.domain}}"
+      entity: "{{.entity}}"
+      output_path: "api/adapter/{{.domain}}/{{.entity | lower}}_adapter.go"
+    conditions:
+      - field: "dto_generator.status"
+        operator: "eq"
+        value: "completed"
+    timeout: 20
+    retry: 1
+    next_steps: ["api_generator"]
+
+  - id: "api_generator"
+    name: "生成API路由"
+    type: "generate"
+    action: "generate_api"
+    description: "生成用户注册REST API路由"
+    parameters:
+      domain: "{{.domain}}"
+      output_path: "api/http/router.go"
+      endpoints:
+        - path: "/api/v1/users/register"
+          method: "POST"
+          handler: "RegisterHandler"
+          middleware: ["auth_optional", "rate_limit"]
+          request_dto: "RegisterRequest"
+          response_dto: "RegisterResponse"
+        - path: "/api/v1/users/check-email"
+          method: "GET"
+          handler: "CheckEmailHandler"
+          middleware: ["rate_limit"]
+          query_params: ["email"]
+          response_dto: "CheckEmailResponse"
+    conditions:
+      - field: "adapter_generator.status"
+        operator: "eq"
+        value: "completed"
+    timeout: 30
+    retry: 1
+    next_steps: ["handler_generator"]
+
+  - id: "handler_generator"
+    name: "生成HTTP处理器"
+    type: "generate"
+    action: "generate_handler"
+    description: "生成HTTP请求处理器"
+    parameters:
+      domain: "{{.domain}}"
+      platform: "admin"
+      output_path: "api/http/admin/{{.domain}}/{{.entity | lower}}_handler.go"
+      handlers:
+        - name: "RegisterHandler"
+          method: "POST"
+          path: "/register"
+        - name: "CheckEmailHandler"
+          method: "GET"
+          path: "/check-email"
+    conditions:
+      - field: "api_generator.status"
+        operator: "eq"
+        value: "completed"
+    timeout: 30
+    retry: 1
+    next_steps: ["grpc_generator"]
+
+  - id: "grpc_generator"
+    name: "生成gRPC服务"
+    type: "generate"
+    action: "generate_grpc_service"
+    description: "生成gRPC服务定义"
+    parameters:
+      domain: "{{.domain}}"
+      output_path: "api/grpc/v1/{{.domain}}/{{.domain}}_service.go"
+      services:
+        - name: "UserService"
+          methods:
+            - name: "Register"
+              request: "RegisterRequest"
+              response: "RegisterResponse"
+            - name: "CheckEmail"
+              request: "CheckEmailRequest"
+              response: "CheckEmailResponse"
+    conditions:
+      - field: "handler_generator.status"
+        operator: "eq"
+        value: "completed"
+    timeout: 30
+    retry: 1
+    next_steps: ["audit_logger"]
+
+  - id: "audit_logger"
+    name: "审计日志"
+    type: "logging"
+    action: "setup_audit_log"
+    description: "设置用户注册操作的审计日志记录"
+    parameters:
+      enabled: "{{.audit_enabled}}"
+      events:
+        - event: "user_registration_attempt"
+          level: "info"
+          fields: ["email", "ip_address", "user_agent"]
+        - event: "user_registration_success"
+          level: "info"
+          fields: ["user_id", "email", "ip_address"]
+        - event: "user_registration_failed"
+          level: "warn"
+          fields: ["email", "error_reason", "ip_address"]
+        - event: "duplicate_registration_attempt"
+          level: "warn"
+          fields: ["email", "ip_address"]
+    conditions:
+      - field: "api_generator.status"
+        operator: "eq"
+        value: "completed"
+    timeout: 10
+    retry: 1
+    next_steps: ["test_generator"]
+
+  - id: "test_generator"
+    name: "生成测试代码"
+    type: "generate"
+    action: "generate_tests"
+    description: "生成单元测试和集成测试代码"
+    parameters:
+      domain: "{{.domain}}"
+      entity: "{{.entity}}"
+      output_path: "test/{{.domain}}/{{.entity | lower}}_test.go"
+      test_types:
+        - type: "unit"
+          target: "usecase"
+          coverage: ["Register", "CheckEmailExists", "ValidatePassword"]
+        - type: "integration"
+          target: "api"
+          coverage: ["RegisterHandler", "CheckEmailHandler"]
+        - type: "repository"
+          target: "repository"
+          coverage: ["Create", "FindByEmail", "ExistsByEmail"]
+    conditions:
+      - field: "audit_logger.status"
+        operator: "eq"
+        value: "completed"
+    timeout: 60
+    retry: 1
+    next_steps: ["mock_generator"]
+
+  - id: "mock_generator"
+    name: "生成Mock对象"
+    type: "generate"
+    action: "generate_mocks"
+    description: "生成测试用Mock对象"
+    parameters:
+      domain: "{{.domain}}"
+      entity: "{{.entity}}"
+      output_path: "test/mock/{{.domain}}/{{.entity | lower}}_mock.go"
+      interfaces:
+        - "{{.entity}}Repository"
+        - "{{.entity}}UseCase"
+    conditions:
+      - field: "test_generator.status"
+        operator: "eq"
+        value: "completed"
+    timeout: 30
+    retry: 1
+
+# 流程配置
+flow_config:
+  max_parallel_steps: 2
+  timeout_strategy: "fail_fast"
+  retry_strategy: "exponential_backoff"
+  rollback_enabled: true
+  
+# 输出配置
+output_config:
+  domain_structure:
+    domain_model: "domain/{{.domain}}/model/{{.entity | lower}}.go"
+    repository_interface: "domain/{{.domain}}/repository/{{.entity | lower}}_repository.go"
+  infra_structure:
+    gorm_model: "internal/infra/persistence/{{.domain}}/model/{{.entity | lower}}_model.go"
+    repository_impl: "internal/infra/persistence/{{.domain}}/repository/{{.entity | lower}}_repo_gorm.go"
+    migration: "internal/infra/database/migration.go"
+  app_structure:
+    usecase: "internal/app/{{.domain}}/{{.entity | lower}}.go"
+  api_structure:
+    dto: "api/dto/{{.domain}}/{{.entity | lower}}_dto.go"
+    adapter: "api/adapter/{{.domain}}/{{.entity | lower}}_adapter.go"
+    router: "api/http/router.go"
+    handler: "api/http/admin/{{.domain}}/{{.entity | lower}}_handler.go"
+    grpc_service: "api/grpc/v1/{{.domain}}/{{.domain}}_service.go"
+  test_structure:
+    test: "test/{{.domain}}/{{.entity | lower}}_test.go"
+    mock: "test/mock/{{.domain}}/{{.entity | lower}}_mock.go"

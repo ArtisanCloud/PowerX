@@ -1,0 +1,31 @@
+package event_bus
+
+import "fmt"
+
+// InitEventBus 订阅全局事件（示例 plugin 行为）
+func InitEventBus() error {
+	// 初始化默认事件总线
+	err := InitDefaultEventBus(&Config{Type: "local"})
+	if err != nil {
+		return err
+	}
+	// 订阅认证成功事件
+	Subscribe("auth_succeeded", func(e Event) error {
+		if payload, ok := e.Payload.(map[string]interface{}); ok {
+			fmt.Printf("[plugin] auth_succeeded: tenant=%v subject=%v platform=%v trace_id=%v scope=%v\n",
+				payload["tenant_id"], payload["subject"], payload["platform"], payload["trace_id"], payload["scope"])
+		}
+		return nil
+	})
+
+	// 订阅流程完成事件
+	Subscribe("flow_completed", func(e Event) error {
+		if payload, ok := e.Payload.(map[string]interface{}); ok {
+			fmt.Printf("[plugin] flow_completed: tenant=%v flow=%v subject=%v trace_id=%v\n",
+				payload["tenant_id"], payload["flow_name"], payload["subject"], payload["trace_id"])
+		}
+		return nil
+	})
+
+	return err
+}

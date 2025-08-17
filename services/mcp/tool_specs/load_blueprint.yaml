@@ -1,0 +1,63 @@
+id: load_blueprint
+name: Load Blueprint
+description: Loads a flow blueprint from a YAML file
+version: "1.0.0"
+handler_type: native
+
+input_schema:
+  type: object
+  properties:
+    flow_id:
+      type: string
+      description: The ID of the flow blueprint to load
+    file_path:
+      type: string
+      description: Optional file path to load the blueprint from. If not provided, the flow_id will be used to locate the file.
+  required:
+    - flow_id
+
+output_schema:
+  type: object
+  properties:
+    flow:
+      type: object
+      description: The loaded flow blueprint
+      properties:
+        id:
+          type: string
+          description: The ID of the flow
+        name:
+          type: string
+          description: The name of the flow
+        description:
+          type: string
+          description: The description of the flow
+        version:
+          type: string
+          description: The version of the flow
+        steps:
+          type: array
+          description: The steps of the flow
+          items:
+            type: object
+        variables:
+          type: object
+          description: The variables of the flow
+
+examples:
+  - input:
+      flow_id: example_flow
+    output:
+      flow:
+        id: example_flow
+        name: Example Flow
+        description: An example flow for demonstration
+        version: "1.0.0"
+
+allowed_roles:
+  - user
+  - admin
+
+metadata:
+  category: blueprint
+  priority: high

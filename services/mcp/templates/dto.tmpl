@@ -1,0 +1,193 @@
+{{/*
+DTO模板
+用于生成数据传输对象
+*/}}
+package dto
+
+import (
+	"time"
+{{if index .Params "HasValidation"}}	"github.com/go-playground/validator/v10"
+{{end}}
+)
+
+// {{ index .Vars "EntityName" }}Response {{ index .Vars "Description" }}响应DTO
+type {{ index .Vars "EntityName" }}Response struct {
+	ID        string    `json:"id" example:"{{ index .Vars "ExampleID" }}"`
+	CreatedAt time.Time `json:"created_at" example:"2023-01-01T00:00:00Z"`
+	UpdatedAt time.Time `json:"updated_at" example:"2023-01-01T00:00:00Z"`
+{{ $fields := index .Params "fields" }}
+{{range $f := $fields}}	{{ index $f "Name" }} {{ index $f "Type" }} `json:"{{ index $f "JsonTag" }}"{{if index $f "Example"}} example:"{{ index $f "Example" }}"{{end}}{{if index $f "Description"}} description:"{{ index $f "Description" }}"{{end}}`
+{{end}}
+}
+
+// Create{{ index .Vars "EntityName" }}Request 创建{{ index .Vars "Description" }}请求DTO
+type Create{{ index .Vars "EntityName" }}Request struct {
+{{ $fields := index .Params "fields" }}
+{{range $f := $fields}}{{if not (index $f "ReadOnly")}}	{{ index $f "Name" }} {{ index $f "Type" }} `json:"{{ index $f "JsonTag" }}"{{if index $f "Required"}} validate:"required"{{end}}{{if index $f "ValidateTag"}} validate:"{{ index $f "ValidateTag" }}"{{end}}{{if index $f "Example"}} example:"{{ index $f "Example" }}"{{end}}{{if index $f "Description"}} description:"{{ index $f "Description" }}"{{end}}`
+{{end}}{{end}}
+}
+
+// Update{{ index .Vars "EntityName" }}Request 更新{{ index .Vars "Description" }}请求DTO
+type Update{{ index .Vars "EntityName" }}Request struct {
+{{ $fields := index .Params "fields" }}
+{{range $f := $fields}}{{if not (index $f "ReadOnly")}}	{{ index $f "Name" }} *{{ index $f "Type" }} `json:"{{ index $f "JsonTag" }},omitempty"{{if index $f "ValidateTag"}} validate:"omitempty,{{ index $f "ValidateTag" }}"{{end}}{{if index $f "Example"}} example:"{{ index $f "Example" }}"{{end}}{{if index $f "Description"}} description:"{{ index $f "Description" }}"{{end}}`
+{{end}}{{end}}
+}
+
+// List{{ index .Vars "EntityName" }}sRequest 查询{{ index .Vars "Description" }}列表请求DTO
+type List{{ index .Vars "EntityName" }}sRequest struct {
+	PageNum  int `json:"page_num" validate:"min=1" example:"1" description:"页码"`
+	PageSize int `json:"page_size" validate:"min=1,max=100" example:"10" description:"每页数量"`
+{{if index .Params "HasSearch"}}	Keyword  string `json:"keyword,omitempty" example:"搜索关键词" description:"搜索关键词"`
+{{end}}
+{{if index .Params "HasFilters"}}	// 过滤条件
+{{ $filters := index .Params "Filters" }}
+{{range $filter := $filters}}	{{ index $filter "Name" }} {{ index $filter "Type" }} `json:"{{ index $filter "JsonTag" }},omitempty"{{if index $filter "ValidateTag"}} validate:"{{ index $filter "ValidateTag" }}"{{end}}{{if index $filter "Example"}} example:"{{ index $filter "Example" }}"{{end}}{{if index $filter "Description"}} description:"{{ index $filter "Description" }}"{{end}}`
+{{end}}
+{{end}}
+{{if index .Params "HasSorting"}}	// 排序
+	SortBy    string `json:"sort_by,omitempty" example:"created_at" description:"排序字段"`
+	SortOrder string `json:"sort_order,omitempty" validate:"omitempty,oneof=asc desc" example:"desc" description:"排序方向"`
+{{end}}
+}
+
+// List{{ index .Vars "EntityName" }}sResponse 查询{{ index .Vars "Description" }}列表响应DTO
+type List{{ index .Vars "EntityName" }}sResponse struct {
+	Items    []*{{ index .Vars "EntityName" }}Response `json:"items" description:"{{ index .Vars "Description" }}列表"`
+	Total    int64                      `json:"total" example:"100" description:"总数量"`
+	PageNum  int                        `json:"page_num" example:"1" description:"当前页码"`
+	PageSize int                        `json:"page_size" example:"10" description:"每页数量"`
+	Pages    int                        `json:"pages" example:"10" description:"总页数"`
+}
+
+{{if index .Params "HasBatchOperations"}}
+// Batch{{ index .Vars "EntityName" }}Request 批量操作{{ index .Vars "Description" }}请求DTO
+type Batch{{ index .Vars "EntityName" }}Request struct {
+	IDs []string `json:"ids" validate:"required,min=1" example:"[\"id1\",\"id2\"]" description:"{{ index .Vars "Description" }}ID列表"`
+}
+
+// BatchCreate{{ index .Vars "EntityName" }}Request 批量创建{{ index .Vars "Description" }}请求DTO
+type BatchCreate{{ index .Vars "EntityName" }}Request struct {
+	Items []*Create{{ index .Vars "EntityName" }}Request `json:"items" validate:"required,min=1,dive" description:"{{ index .Vars "Description" }}列表"`
+}
+
+// BatchUpdate{{ index .Vars "EntityName" }}Request 批量更新{{ index .Vars "Description" }}请求DTO
+type BatchUpdate{{ index .Vars "EntityName" }}Request struct {
+	Items []*struct {
+		ID   string                    `json:"id" validate:"required" description:"{{ index .Vars "Description" }}ID"`
+		Data *Update{{ index .Vars "EntityName" }}Request `json:"data" validate:"required" description:"更新数据"`
+	} `json:"items" validate:"required,min=1,dive" description:"更新项列表"`
+}
+{{end}}
+
+{{if index .Params "HasImportExport"}}
+// Import{{ index .Vars "EntityName" }}Request 导入{{ index .Vars "Description" }}请求DTO
+type Import{{ index .Vars "EntityName" }}Request struct {
+	File     string `json:"file" validate:"required" description:"文件路径或内容"`
+	Format   string `json:"format" validate:"required,oneof=csv excel json" example:"csv" description:"文件格式"`
+	Override bool   `json:"override" example:"false" description:"是否覆盖已存在数据"`
+}
+
+// Export{{ index .Vars "EntityName" }}Request 导出{{ index .Vars "Description" }}请求DTO
+type Export{{ index .Vars "EntityName" }}Request struct {
+	Format  string                    `json:"format" validate:"required,oneof=csv excel json" example:"csv" description:"导出格式"`
+	Filters *List{{ index .Vars "EntityName" }}sRequest `json:"filters,omitempty" description:"过滤条件"`
+	Fields  []string                  `json:"fields,omitempty" description:"导出字段"`
+}
+
+// Export{{ index .Vars "EntityName" }}Response 导出{{ index .Vars "Description" }}响应DTO
+type Export{{ index .Vars "EntityName" }}Response struct {
+	FileURL  string `json:"file_url" description:"文件下载链接"`
+	FileName string `json:"file_name" description:"文件名"`
+	FileSize int64  `json:"file_size" description:"文件大小"`
+	Count    int64  `json:"count" description:"导出记录数"`
+}
+{{end}}
+
+{{if index .Params "HasStatistics"}}
+// {{ index .Vars "EntityName" }}StatisticsRequest 统计{{ index .Vars "Description" }}请求DTO
+type {{ index .Vars "EntityName" }}StatisticsRequest struct {
+	StartDate *time.Time `json:"start_date,omitempty" description:"开始日期"`
+	EndDate   *time.Time `json:"end_date,omitempty" description:"结束日期"`
+	GroupBy   string     `json:"group_by,omitempty" validate:"omitempty,oneof=day week month year" description:"分组方式"`
+{{if index .Params "HasFilters"}}	// 过滤条件
+{{ $filters := index .Params "Filters" }}
+{{range $filter := $filters}}	{{ index $filter "Name" }} {{ index $filter "Type" }} `json:"{{ index $filter "JsonTag" }},omitempty"{{if index $filter "ValidateTag"}} validate:"{{ index $filter "ValidateTag" }}"{{end}}{{if index $filter "Description"}} description:"{{ index $filter "Description" }}"{{end}}`
+{{end}}
+{{end}}
+}
+
+// {{ index .Vars "EntityName" }}StatisticsResponse 统计{{ index .Vars "Description" }}响应DTO
+type {{ index .Vars "EntityName" }}StatisticsResponse struct {
+	Total     int64                    `json:"total" description:"总数量"`
+	Trends    []map[string]interface{} `json:"trends,omitempty" description:"趋势数据"`
+	Breakdown map[string]int64         `json:"breakdown,omitempty" description:"分类统计"`
+	Metrics   map[string]interface{}   `json:"metrics,omitempty" description:"其他指标"`
+}
+{{end}}
+
+{{if index .Params "HasCustomDTOs"}}
+// 自定义DTO
+{{ $customDTOs := index .Params "CustomDTOs" }}
+{{range $dto := $customDTOs}}
+// {{ index $dto "Name" }} {{ index $dto "Description" }}
+type {{ index $dto "Name" }} struct {
+{{ $dtoFields := index $dto "Fields" }}
+{{range $field := $dtoFields}}	{{ index $field "Name" }} {{ index $field "Type" }} `json:"{{ index $field "JsonTag" }}"{{if index $field "ValidateTag"}} validate:"{{ index $field "ValidateTag" }}"{{end}}{{if index $field "Example"}} example:"{{ index $field "Example" }}"{{end}}{{if index $field "Description"}} description:"{{ index $field "Description" }}"{{end}}`
+{{end}}
+}
+{{end}}
+{{end}}
+
+{{if index .Params "HasValidation"}}
+// Validate 验证请求数据
+func (req *Create{{ index .Vars "EntityName" }}Request) Validate() error {
+	validate := validator.New()
+	return validate.Struct(req)
+}
+
+// Validate 验证更新请求数据
+func (req *Update{{ index .Vars "EntityName" }}Request) Validate() error {
+	validate := validator.New()
+	return validate.Struct(req)
+}
+
+// Validate 验证列表请求数据
+func (req *List{{ index .Vars "EntityName" }}sRequest) Validate() error {
+	validate := validator.New()
+	return validate.Struct(req)
+}
+{{end}}
+
+{{if index .Params "HasTransformMethods"}}
+// 转换方法
+
+// ToEntity 转换为领域实体
+func (req *Create{{ index .Vars "EntityName" }}Request) ToEntity() *{{ index .Vars "PackageName" }}.{{ index .Vars "EntityName" }} {
+	return &{{ index .Vars "PackageName" }}.{{ index .Vars "EntityName" }}{
+{{ $fields := index .Params "fields" }}
+{{range $f := $fields}}{{if not (index $f "ReadOnly")}}		{{ index $f "Name" }}: req.{{ index $f "Name" }},
+{{end}}{{end}}	}
+}
+
+// FromEntity 从领域实体转换
+func (resp *{{ index .Vars "EntityName" }}Response) FromEntity(entity *{{ index .Vars "PackageName" }}.{{ index .Vars "EntityName" }}) {
+	resp.ID = entity.ID
+	resp.CreatedAt = entity.CreatedAt
+	resp.UpdatedAt = entity.UpdatedAt
+{{ $fields := index .Params "fields" }}
+{{range $f := $fields}}	resp.{{ index $f "Name" }} = entity.{{ index $f "Name" }}
+{{end}}
+}
+
+// ToMap 转换为map
+func (resp *{{ index .Vars "EntityName" }}Response) ToMap() map[string]interface{} {
+	return map[string]interface{}{
+		"id":         resp.ID,
+		"created_at": resp.CreatedAt,
+		"updated_at": resp.UpdatedAt,
+{{ $fields := index .Params "fields" }}
+{{range $f := $fields}}		"{{ index $f "JsonTag" }}": resp.{{ index $f "Name" }},
+{{end}}	}
+}
+{{end}}

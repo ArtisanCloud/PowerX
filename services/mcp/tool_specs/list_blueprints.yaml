@@ -1,0 +1,24 @@
+id: list_blueprints
+name: List Blueprints
+description: Scans the blueprints/usecases directory and returns all available flow names and descriptions
+version: "1.0.0"
+handler_type: native
+
+input_schema:
+  type: object
+  properties: {}
+
+output_schema:
+  type: array
+  items:
+    type: object
+    properties:
+      id:
+        type: string
+        description: "Blueprint identifier (without suffix)"
+      name:
+        type: string
+        description: "Blueprint name (human-friendly)"
+      description:
+        type: string
+        description: "Blueprint functionality description"

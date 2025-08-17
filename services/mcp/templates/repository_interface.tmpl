@@ -1,0 +1,75 @@
+{{/*
+仓储接口模板
+用于生成仓储层的接口定义
+*/}}
+package repository
+
+import (
+	"context"
+	"github.com/ArtisanCloud/PowerX/domain/model"
+	"{{.ModulePath}}/domain/model/{{.PackageName}}"
+)
+
+// {{.EntityName}}Repository {{.Description}}仓储接口
+type {{.EntityName}}Repository interface {
+	// 基础CRUD操作
+	Create(ctx context.Context, entity *{{.PackageName}}.{{.EntityName}}) error
+	GetByID(ctx context.Context, id string) (*{{.PackageName}}.{{.EntityName}}, error)
+	Update(ctx context.Context, entity *{{.PackageName}}.{{.EntityName}}) error
+	Delete(ctx context.Context, id string) error
+	SoftDelete(ctx context.Context, id string) error
+
+	// 查询操作
+	List(ctx context.Context, page *model.Page) ([]*{{.PackageName}}.{{.EntityName}}, int64, error)
+	Find(ctx context.Context, conditions map[string]interface{}) ([]*{{.PackageName}}.{{.EntityName}}, error)
+	FindOne(ctx context.Context, conditions map[string]interface{}) (*{{.PackageName}}.{{.EntityName}}, error)
+	Count(ctx context.Context, conditions map[string]interface{}) (int64, error)
+	Exists(ctx context.Context, conditions map[string]interface{}) (bool, error)
+
+	// 批量操作
+	BatchCreate(ctx context.Context, entities []*{{.PackageName}}.{{.EntityName}}) error
+	BatchUpdate(ctx context.Context, entities []*{{.PackageName}}.{{.EntityName}}) error
+	BatchDelete(ctx context.Context, ids []string) error
+
+{{if .HasCustomMethods}}
+	// 自定义查询方法
+{{range .CustomMethods}}	// {{.Description}}
+	{{.Name}}(ctx context.Context{{if .Params}}, {{.Params}}{{end}}) {{.ReturnType}}
+{{end}}
+{{end}}
+
+{{if .HasBusinessMethods}}
+	// 业务相关方法
+{{range .BusinessMethods}}	// {{.Description}}
+	{{.Name}}(ctx context.Context{{if .Params}}, {{.Params}}{{end}}) {{.ReturnType}}
+{{end}}
+{{end}}
+
+{{if .HasTransactionMethods}}
+	// 事务相关方法
+	WithTransaction(ctx context.Context, fn func(ctx context.Context) error) error
+	BeginTransaction(ctx context.Context) (context.Context, error)
+	CommitTransaction(ctx context.Context) error
+	RollbackTransaction(ctx context.Context) error
+{{end}}
+
+{{if .HasCacheMethods}}
+	// 缓存相关方法
+	GetFromCache(ctx context.Context, key string) (*{{.PackageName}}.{{.EntityName}}, error)
+	SetToCache(ctx context.Context, key string, entity *{{.PackageName}}.{{.EntityName}}, ttl int) error
+	DeleteFromCache(ctx context.Context, key string) error
+	ClearCache(ctx context.Context) error
+{{end}}
+
+{{if .HasSearchMethods}}
+	// 搜索相关方法
+	Search(ctx context.Context, keyword string, page *model.Page) ([]*{{.PackageName}}.{{.EntityName}}, int64, error)
+	AdvancedSearch(ctx context.Context, filters map[string]interface{}, page *model.Page) ([]*{{.PackageName}}.{{.EntityName}}, int64, error)
+{{end}}
+
+{{if .HasStatisticMethods}}
+	// 统计相关方法
+	GetStatistics(ctx context.Context, filters map[string]interface{}) (map[string]interface{}, error)
+	GetTrends(ctx context.Context, timeRange string) ([]map[string]interface{}, error)
+{{end}}
+}

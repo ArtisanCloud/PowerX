@@ -1,0 +1,152 @@
+id: render_plan
+name: Render Plan
+description: Renders an execution plan into executable code
+version: "1.0.0"
+handler_type: native
+
+input_schema:
+  type: object
+  properties:
+    plan:
+      type: object
+      description: The execution plan to render
+      properties:
+        id:
+          type: string
+          description: The ID of the plan
+        flow_id:
+          type: string
+          description: The ID of the source flow
+        name:
+          type: string
+          description: The name of the plan
+        tasks:
+          type: array
+          description: The tasks in the plan
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              step_id:
+                type: string
+              name:
+                type: string
+              type:
+                type: string
+              action:
+                type: string
+              params:
+                type: object
+        status:
+          type: string
+          description: The status of the plan
+      required:
+        - id
+        - flow_id
+        - tasks
+    target_language:
+      type: string
+      description: The target programming language for code generation
+      enum:
+        - go
+        - python
+        - javascript
+        - typescript
+      default: go
+    template:
+      type: string
+      description: Optional template to use for code generation
+  required:
+    - plan
+
+output_schema:
+  type: object
+  properties:
+    code:
+      type: object
+      description: The generated code
+      properties:
+        language:
+          type: string
+          description: The programming language of the generated code
+        content:
+          type: string
+          description: The generated code content
+        files:
+          type: array
+          description: Generated files
+          items:
+            type: object
+            properties:
+              path:
+                type: string
+              content:
+                type: string
+        metadata:
+          type: object
+          description: Additional metadata about the generated code
+    execution_info:
+      type: object
+      description: Information about how to execute the generated code
+      properties:
+        entry_point:
+          type: string
+          description: The main entry point for execution
+        dependencies:
+          type: array
+          description: Required dependencies
+          items:
+            type: string
+        instructions:
+          type: string
+          description: Instructions for running the code
+
+examples:
+  - input:
+      plan:
+        id: plan_123
+        flow_id: example_flow
+        name: Example Flow Plan
+        tasks:
+          - id: task_1
+            step_id: step1
+            name: Initialize Project
+            type: action
+            action: create_project
+            params:
+              project_name: my_project
+      target_language: go
+    output:
+      code:
+        language: go
+        content: |
+          package main
+          
+          import "fmt"
+          
+          func main() {
+              // Task: Initialize Project
+              createProject("my_project")
+          }
+          
+          func createProject(name string) {
+              fmt.Printf("Creating project: %s\n", name)
+          }
+        files:
+          - path: main.go
+            content: |
+              package main
+              // Generated code content
+      execution_info:
+        entry_point: main.go
+        dependencies: []
+        instructions: "Run with: go run main.go"
+
+allowed_roles:
+  - user
+  - admin
+
+metadata:
+  category: code_generation
+  priority: high

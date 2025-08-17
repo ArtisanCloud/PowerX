@@ -1,0 +1,9 @@
+flow_id: core.demo.baseline.task_3
+ref:
+  enable: true
+  target: core.demo.task_3         # 指向公共 Flow
+  variant: baseline
+  register_intent: false           # 避免重复注册
+  overrides:
+    metadata:
+      requires: ["core.demo.baseline.task_2"]  # baseline 场景依赖 t2

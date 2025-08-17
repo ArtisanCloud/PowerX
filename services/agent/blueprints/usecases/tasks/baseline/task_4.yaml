@@ -1,0 +1,50 @@
+flow_id: core.demo.baseline.task_4
+name: "baseline：task_4"
+version: "1.0"
+
+metadata:
+  io:
+    inputs:
+      - { name: upstream_id, type: string, required: true }
+    outputs:
+      - { name: id, type: string }
+      - { name: timestamp, type: string }
+  requires: ["core.demo.baseline.task_3"]
+  intent:
+    register: true
+    group: "demo.baseline"
+    matchers:
+      - type: keyword
+        priority: 10
+        any:
+          - "任务4"           # ✅ 纯短语
+          - "执行任务4"
+          - "task 4"
+          - "t4"
+          - "baseline 任务4"
+    embedding:
+      title: "Baseline：执行 task_4"
+      synonyms: ["第四步","继续第四步"]
+    examples:
+      positive: ["执行任务4"]
+      negative: ["执行任务2","执行任务6"]
+
+slots:
+  - { name: upstream_id, type: string, required: true }
+
+nodes:
+  - id: n1
+    use: core.debug.forward
+    kind: biz_logic
+    params: { id_ref: "{{ .input.upstream_id }}" }
+    io:
+      in_map:      { upstream_id: "{{ input.upstream_id }}" }
+      out_map: { id: id, timestamp: timestamp }
+  - id: n2
+    use: core.response.format
+    kind: text_proc
+    params: { template: '{ "id":"{{ node.n1.output.id }}","from":"t4@baseline" }' }
+    io:
+      out_map: { id: id, timestamp: timestamp }
+edges:
+  - { from: n1, to: n2, type: SEQ }
