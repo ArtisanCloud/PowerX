@@ -15,6 +15,7 @@ func GetDefaults() *Config {
 			WriteTimeoutSeconds: 10,
 			Mode:                "debug",
 		},
+		Plugin: DefaultPluginConfig(),
 		LogConfig: logCfg.LogConfig{
 			Level:         "debug",
 			Console:       true,

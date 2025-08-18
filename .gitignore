@@ -50,3 +50,23 @@ dist/
 build/
 
 etc/config.yaml
+
+# PowerX plugin runtime
+/plugins/installed/
+/plugins/market_cache/
+/plugins/registry.json
+
+# Local test artifacts
+/plugins/**/*.zip
+/plugins/**/*.tgz
+/plugins/**/*.tar
+/plugins/**/*.tar.gz
+
+# Temps & logs
+/plugins/**/*.tmp
+/plugins/**/*.log
+/plugins/**/*.lock
+/plugins/**/*.bak
+
+# Keep the folder itself
+!plugins/.gitkeep

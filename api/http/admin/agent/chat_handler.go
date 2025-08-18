@@ -3,8 +3,8 @@ package agent
 import (
 	"context"
 	"fmt"
-	"github.com/ArtisanCloud/PowerX/api/http/admin/dto"
 	flowschema "github.com/ArtisanCloud/PowerX/pkg/corex/flow/schemas"
+	dtoRequest "github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/ArtisanCloud/PowerX/services/agent"
 	agentschema "github.com/ArtisanCloud/PowerX/services/agent/schemas"
 	"strings"
@@ -16,18 +16,18 @@ import (
 // ChatHandler 基本聊天接口（非流式）
 // 命中任务 → 多任务编排与执行；否则 → 普通对话回复。
 func ChatHandler(c *gin.Context) {
-	var req dto.ChatRequest
-	if err := dto.ValidateRequestWithContext(c, &req); err != nil {
-		dto.ResponseValidationError(c, err)
+	var req dtoRequest.ChatRequest
+	if err := dtoRequest.ValidateRequestWithContext(c, &req); err != nil {
+		dtoRequest.ResponseValidationError(c, err)
 		return
 	}
 	if req.Config != nil && req.Config.EnableStream {
-		dto.ResponseError(c, 400, "该接口不支持流式，请改用 /api/agents/stream", nil)
+		dtoRequest.ResponseError(c, 400, "该接口不支持流式，请改用 /api/agents/stream", nil)
 		return
 	}
 	msg := strings.TrimSpace(req.Message)
 	if msg == "" {
-		dto.ResponseError(c, 400, "message 不能为空", nil)
+		dtoRequest.ResponseError(c, 400, "message 不能为空", nil)
 		return
 	}
 
@@ -36,7 +36,7 @@ func ChatHandler(c *gin.Context) {
 
 	tasks, err := mgr.DetectTasks(ctx, msg) // ✅ 传 ctx
 	if err != nil {
-		dto.ResponseError(c, 500, "意图识别失败", err)
+		dtoRequest.ResponseError(c, 500, "意图识别失败", err)
 		return
 	}
 
@@ -51,7 +51,7 @@ func ChatHandler(c *gin.Context) {
 			Metadata:  map[string]any{"mode": "chat_fallback"},
 		})
 		if err != nil {
-			dto.ResponseError(c, 500, "聊天失败", err)
+			dtoRequest.ResponseError(c, 500, "聊天失败", err)
 			return
 		}
 
@@ -62,7 +62,7 @@ func ChatHandler(c *gin.Context) {
 			}
 		}
 
-		dto.ResponseSuccess(c, dto.ChatData{
+		dtoRequest.ResponseSuccess(c, dtoRequest.ChatData{
 			Content:   reply,
 			Role:      "assistant",
 			Metadata:  map[string]any{"framework": "eino", "intent": intent, "mode": "chat_fallback"},
@@ -81,14 +81,14 @@ func ChatHandler(c *gin.Context) {
 		Metadata:  map[string]any{"mode": "task_execute"},
 	})
 	if err != nil {
-		dto.ResponseError(c, 500, "任务执行失败", err)
+		dtoRequest.ResponseError(c, 500, "任务执行失败", err)
 		return
 	}
 
 	outSan := agentschema.NewSanitizer(agentschema.ResultSummaryPolicy())
 	safeOut := outSan.SanitizeResult(out) //fmt2.Dump(safeOut)
 
-	dto.ResponseSuccess(c, gin.H{
+	dtoRequest.ResponseSuccess(c, gin.H{
 		"mode":   "task_execute",
 		"input":  msg,
 		"plan":   plan,
@@ -101,9 +101,9 @@ func ChatHandler(c *gin.Context) {
 // StreamChatHandler 流式聊天接口（SSE）
 // 流程：识别意图 -> 先发 intent 帧 -> 选择 flow -> 开始流式执行 -> 逐帧输出
 func StreamChatHandler(c *gin.Context) {
-	var req dto.StreamChatRequest
-	if err := dto.ValidateRequestWithContext(c, &req); err != nil {
-		dto.ResponseValidationError(c, err)
+	var req dtoRequest.StreamChatRequest
+	if err := dtoRequest.ValidateRequestWithContext(c, &req); err != nil {
+		dtoRequest.ResponseValidationError(c, err)
 		return
 	}
 
@@ -141,7 +141,7 @@ func StreamChatHandler(c *gin.Context) {
 
 	ag, _, err := mgr.GetDefaultRoute()
 	if err != nil {
-		dto.ResponseError(c, 500, "创建 Agent 失败", err)
+		dtoRequest.ResponseError(c, 500, "创建 Agent 失败", err)
 		return
 	}
 
@@ -163,10 +163,10 @@ func StreamChatHandler(c *gin.Context) {
 	// 5) 开始流式执行
 	reader, err := ag.Stream(ctx, flowID, params, meta)
 	if err != nil {
-		dto.ResponseError(c, 500, "流式聊天执行失败", err)
+		dtoRequest.ResponseError(c, 500, "流式聊天执行失败", err)
 		return
 	}
 
 	// 6) 统一 SSE 写出（带心跳）
-	_ = dto.WriteToSSE(c, flowID, meta.RequestID, reader, 25*time.Second)
+	_ = dtoRequest.WriteToSSE(c, flowID, meta.RequestID, reader, 25*time.Second)
 }

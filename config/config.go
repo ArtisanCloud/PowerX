@@ -55,6 +55,7 @@ type Config struct {
 	LogConfig   logCfg.LogConfig     `yaml:"log"`          // 输出配置
 	Agent       agentCfg.AgentConfig `yaml:"agent"`        // 智能体工具注册/限流等
 	MCP         mcpCfg.MCPConfig     `yaml:"mcp"`          // MCP 服务器配置
+	Plugin      PluginConfig         `yaml:"plugin"`
 }
 
 // HTTP服务器配置

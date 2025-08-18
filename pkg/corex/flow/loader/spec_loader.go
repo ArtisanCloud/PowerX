@@ -1,11 +1,9 @@
 package loader
 
 import (
-	"context"
 	"fmt"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/flow/schemas"
 	"github.com/ArtisanCloud/PowerX/pkg/utils"
-	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"github.com/ArtisanCloud/PowerX/services/mcp/errors"
 	"io/fs"
 	"os"
@@ -157,8 +155,8 @@ func (l *YAMLSpecLoader) LoadBlueprintsFromDir(dir string) (map[string]*schemas.
 			fmt.Printf("Warning: Failed to load blueprint from '%s': %v\n", path, loadErr)
 			return nil
 		}
-		ctx := context.Background()
-		logger.InfoF(ctx, "agent load blueprint files : %s", path)
+		//ctx := context.Background()
+		//logger.InfoF(ctx, "agent load blueprint files : %s", path)
 
 		result[blueprint.FlowID] = blueprint
 		return nil

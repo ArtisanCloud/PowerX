@@ -1,8 +1,8 @@
 package agent
 
 import (
-	"github.com/ArtisanCloud/PowerX/api/http/admin/dto"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/flow/schemas"
+	dtoRequest "github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/ArtisanCloud/PowerX/services/agent"
 	agentschema "github.com/ArtisanCloud/PowerX/services/agent/schemas"
 	"strings"
@@ -35,12 +35,12 @@ type AgentIntentResponse struct {
 // AgentStatusHandler: 查询 Agent 状态
 func AgentStatusHandler(c *gin.Context) {
 	var req AgentStatusRequest
-	if err := dto.ValidateRequestWithContext(c, &req); err != nil {
-		dto.ResponseValidationError(c, err)
+	if err := dtoRequest.ValidateRequestWithContext(c, &req); err != nil {
+		dtoRequest.ResponseValidationError(c, err)
 		return
 	}
 	if strings.TrimSpace(req.AgentID) == "" {
-		dto.ResponseError(c, 400, "agent_id 不能为空", nil)
+		dtoRequest.ResponseError(c, 400, "agent_id 不能为空", nil)
 		return
 	}
 
@@ -48,7 +48,7 @@ func AgentStatusHandler(c *gin.Context) {
 	sysAg, _, rt, err := mgr.Get(req.AgentID)
 	if err != nil {
 		// Not found 更合适
-		dto.ResponseError(c, 404, "未找到指定的 Agent", err)
+		dtoRequest.ResponseError(c, 404, "未找到指定的 Agent", err)
 		return
 	}
 
@@ -66,20 +66,20 @@ func AgentStatusHandler(c *gin.Context) {
 			Extras:      sysAg.Extras,
 		},
 	}
-	dto.ResponseSuccess(c, resp)
+	dtoRequest.ResponseSuccess(c, resp)
 	return
 }
 
 // /api/agents/intent  支持单意图(默认) 或 多任务(?multi=1)
 func AgentIntentHandler(c *gin.Context) {
-	var req dto.ChatRequest
-	if err := dto.ValidateRequestWithContext(c, &req); err != nil {
-		dto.ResponseValidationError(c, err)
+	var req dtoRequest.ChatRequest
+	if err := dtoRequest.ValidateRequestWithContext(c, &req); err != nil {
+		dtoRequest.ResponseValidationError(c, err)
 		return
 	}
 	msg := strings.TrimSpace(req.Message)
 	if msg == "" {
-		dto.ResponseError(c, 400, "message 不能为空", nil)
+		dtoRequest.ResponseError(c, 400, "message 不能为空", nil)
 		return
 	}
 
@@ -90,10 +90,10 @@ func AgentIntentHandler(c *gin.Context) {
 	if multi {
 		tasks, err := mgr.DetectTasks(c, msg)
 		if err != nil {
-			dto.ResponseError(c, 500, "意图识别失败", err)
+			dtoRequest.ResponseError(c, 500, "意图识别失败", err)
 			return
 		}
-		dto.ResponseSuccess(c, gin.H{
+		dtoRequest.ResponseSuccess(c, gin.H{
 			"input": msg,
 			"mode":  "intent_multi",
 			"tasks": tasks, // 直接返回多任务
@@ -106,13 +106,13 @@ func AgentIntentHandler(c *gin.Context) {
 	// 单意图：原样保留
 	intent, err := mgr.DetectIntent(c, msg)
 	if err != nil {
-		dto.ResponseError(c, 500, "意图识别失败", err)
+		dtoRequest.ResponseError(c, 500, "意图识别失败", err)
 		return
 	}
 	if intent == nil {
 		intent = &schemas.IntentResult{Matched: false, Strategy: "none", Reason: "no strategy result"}
 	}
-	dto.ResponseSuccess(c, &AgentIntentResponse{
+	dtoRequest.ResponseSuccess(c, &AgentIntentResponse{
 		Input:     msg,
 		Timestamp: time.Now().UTC().Unix(),
 		Intent:    intent,
@@ -124,14 +124,14 @@ func AgentIntentHandler(c *gin.Context) {
 // /api/agent/intent/plan 仅识别并生成计划（dry-run），不执行
 func AgentPlanPreviewHandler(c *gin.Context) {
 	// 1) 解析请求
-	var req dto.ChatRequest
-	if err := dto.ValidateRequestWithContext(c, &req); err != nil {
-		dto.ResponseValidationError(c, err)
+	var req dtoRequest.ChatRequest
+	if err := dtoRequest.ValidateRequestWithContext(c, &req); err != nil {
+		dtoRequest.ResponseValidationError(c, err)
 		return
 	}
 	msg := strings.TrimSpace(req.Message)
 	if msg == "" {
-		dto.ResponseError(c, 400, "message 不能为空", nil)
+		dtoRequest.ResponseError(c, 400, "message 不能为空", nil)
 		return
 	}
 
@@ -139,11 +139,11 @@ func AgentPlanPreviewHandler(c *gin.Context) {
 	mgr := agent.GetAgentManager()
 	tasks, err := mgr.DetectTasks(c, msg)
 	if err != nil {
-		dto.ResponseError(c, 500, "意图识别失败", err)
+		dtoRequest.ResponseError(c, 500, "意图识别失败", err)
 		return
 	}
 	if len(tasks) == 0 {
-		dto.ResponseSuccess(c, gin.H{
+		dtoRequest.ResponseSuccess(c, gin.H{
 			"mode":   "plan_preview",
 			"input":  msg,
 			"debug":  gin.H{"task_count": 0},
@@ -158,7 +158,7 @@ func AgentPlanPreviewHandler(c *gin.Context) {
 	plan := mgr.BuildPlan(tasks)
 
 	// 4) 返回
-	dto.ResponseSuccess(c, gin.H{
+	dtoRequest.ResponseSuccess(c, gin.H{
 		"mode":  "plan_preview",
 		"input": msg,
 		"debug": gin.H{"task_count": len(tasks)},
