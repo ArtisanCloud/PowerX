@@ -31,7 +31,9 @@ func Connect(cfg corexdb.DatabaseConfig) (*gorm.DB, error) {
 			TablePrefix:   cfg.TablePrefix,
 			SingularTable: true,
 		},
-		Logger: gormLogger.Default.LogMode(gormLogger.Info),
+		//Logger: gormLogger.Default.LogMode(gormLogger.Info),
+		Logger: gormLogger.Default.LogMode(gormLogger.Warn), // 原来是 Info
+		// Logger: gormLogger.Default.LogMode(gormLogger.Silent), // 完全静默
 	}
 
 	// 选择 DSN
