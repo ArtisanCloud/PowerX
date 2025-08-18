@@ -22,6 +22,10 @@ type Registry interface {
 	Get(ctx context.Context, id string) (plugin_mgr.Plugin, bool)
 	List(ctx context.Context) []plugin_mgr.Plugin
 	CurrentVersion(ctx context.Context, id string) (string, bool)
+	// 判断版本是否已安装
+	HasVersion(ctx context.Context, id, version string) bool
+	// 设置某插件的 current 指针
+	SetCurrent(ctx context.Context, id, version string) error
 }
 
 type regVersionRecord struct {
@@ -221,4 +225,44 @@ func (r *JSONRegistry) CurrentVersion(ctx context.Context, id string) (string, b
 		return "", false
 	}
 	return rec.Current, true
+}
+
+// 判断 id@version 是否存在
+func (r *JSONRegistry) HasVersion(ctx context.Context, id, ver string) bool {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	rec, ok := r.mem.Plugins[id]
+	if !ok {
+		return false
+	}
+	_, ok = rec.Versions[ver]
+	return ok
+}
+
+// 设置 current=version（仅内存；调用方自行 Save）
+func (r *JSONRegistry) SetCurrent(ctx context.Context, id, ver string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	rec, ok := r.mem.Plugins[id]
+	if !ok {
+		return plugin_mgr.NewError(
+			plugin_mgr.CodeNotFound,
+			plugin_mgr.WithOp("set_current"),
+			plugin_mgr.WithPlugin(id),
+		)
+	}
+	if _, ok := rec.Versions[ver]; !ok {
+		return plugin_mgr.NewError(
+			plugin_mgr.CodeNotFound,
+			plugin_mgr.WithOp("set_current"),
+			plugin_mgr.WithPlugin(id),
+			plugin_mgr.WithVersion(ver),
+		)
+	}
+	// 注意：regPluginRecord 是值类型，修改后要写回 map
+	rec.Current = ver
+	r.mem.Plugins[id] = rec
+	return nil
 }

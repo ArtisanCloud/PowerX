@@ -11,7 +11,7 @@ import (
 )
 
 // InstallFromFile: 从本地目录安装插件（最小实现）
-// 约定 srcDir 目录结构包含 plugin.yaml、backend/bin/...（可选）、frontend/...（可选）
+// 约定 srcDir 下包含 plugin.yaml，可能还包含 backend/bin/*、frontend/* 等
 func (m *managerImpl) InstallFromFile(ctx context.Context, srcDir string, opts plugin_mgr.InstallOptions) (plugin_mgr.Plugin, error) {
 	if srcDir == "" {
 		return plugin_mgr.Plugin{}, plugin_mgr.NewError(
@@ -31,7 +31,7 @@ func (m *managerImpl) InstallFromFile(ctx context.Context, srcDir string, opts p
 			plugin_mgr.CodeMissingFile, err, plugin_mgr.WithOp("install_file"), plugin_mgr.WithPath(manifestPath),
 		)
 	}
-	var man plugin_mgr.Manifest // 你已有该结构（包含 Runtime/Frontend/Endpoints/RBAC/Events）
+	var man plugin_mgr.Manifest
 	if err := yaml.Unmarshal(raw, &man); err != nil {
 		return plugin_mgr.Plugin{}, plugin_mgr.Wrap(
 			plugin_mgr.CodeInvalidManifest, err, plugin_mgr.WithOp("install_file"), plugin_mgr.WithPath(manifestPath),
@@ -43,7 +43,7 @@ func (m *managerImpl) InstallFromFile(ctx context.Context, srcDir string, opts p
 		)
 	}
 
-	// 2) 目标目录：plugins/installed/<id>/<version>
+	// 2) 目标目录：<InstalledRoot>/<id>/<version>
 	destRoot := filepath.Join(m.opts.InstalledRoot, man.ID, man.Version)
 	if _, err := os.Stat(destRoot); err == nil {
 		return plugin_mgr.Plugin{}, plugin_mgr.NewError(
@@ -66,7 +66,7 @@ func (m *managerImpl) InstallFromFile(ctx context.Context, srcDir string, opts p
 		)
 	}
 
-	// 4) 生成 Descriptor（用于登记）
+	// 4) 构造 Descriptor（注意：这里的 Descriptor 类型是 manager 包里的）
 	desc := Descriptor{
 		Manifest: man,
 		Paths: plugin_mgr.InstalledPaths{
@@ -80,7 +80,7 @@ func (m *managerImpl) InstallFromFile(ctx context.Context, srcDir string, opts p
 		},
 	}
 
-	// 5) 登记为 installed（Bootstrap 已处理“跳过同版本”，这里是新装）
+	// 5) 登记为 installed（Bootstrap 已处理“同版本跳过”，这里就是新装）
 	if err := m.opts.Registry.Put(ctx, desc, plugin_mgr.StateInstalled); err != nil {
 		return plugin_mgr.Plugin{}, plugin_mgr.Wrap(plugin_mgr.CodeRegistryError, err, plugin_mgr.WithOp("install_file"))
 	}
@@ -88,20 +88,27 @@ func (m *managerImpl) InstallFromFile(ctx context.Context, srcDir string, opts p
 		return plugin_mgr.Plugin{}, plugin_mgr.Wrap(plugin_mgr.CodeRegistryError, err, plugin_mgr.WithOp("install_file.save"))
 	}
 
-	// 6) （可选）安装后立即启用 —— 先借用 VerifyChecksum 当开关，后续你可以扩成 EnableAfterInstall
+	// 6) 可选：安装后立即启用（此处临时复用 VerifyChecksum 作为开关）
+	installedState := plugin_mgr.StateInstalled
 	if opts.VerifyChecksum {
 		if err := m.Enable(ctx, man.ID); err != nil {
 			return plugin_mgr.Plugin{}, plugin_mgr.Wrap(plugin_mgr.CodeLifecycleError, err, plugin_mgr.WithOp("install_file.enable"))
 		}
+		installedState = plugin_mgr.StateEnabled
 	}
 
-	// 7) 返回当前版本视图
-	if p, ok := m.opts.Registry.Get(ctx, man.ID); ok {
-		return p, nil
-	}
-	return plugin_mgr.Plugin{}, plugin_mgr.NewError(
-		plugin_mgr.CodeInternal, plugin_mgr.WithOp("install_file"), plugin_mgr.WithMsg("installed but not found in registry"),
-	)
+	// 7) 直接返回“刚安装的版本”视图（避免读 current 造成显示老版本）
+	return plugin_mgr.Plugin{
+		ID:        man.ID,
+		Version:   man.Version,
+		State:     installedState,
+		Runtime:   man.Runtime,
+		Frontend:  man.Frontend,
+		Endpoints: man.Endpoints,
+		RBAC:      man.RBAC,
+		Events:    man.Events,
+		Paths:     desc.Paths,
+	}, nil
 }
 
 // 轻量目录拷贝（忽略 .git / .DS_Store）

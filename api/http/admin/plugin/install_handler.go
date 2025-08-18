@@ -21,21 +21,54 @@ func PluginInstallLocalHandler(c *gin.Context) {
 		return
 	}
 
-	mgr := mgrimpl.GetPluginManager() // ★ 你走实现包的全局
-	opts := plugin_mgr.InstallOptions{
-		// 临时用 VerifyChecksum 作为“安装后启用”开关
+	mgr := mgrimpl.GetPluginManager() // 你走“实现包全局”
+	p, err := mgr.InstallFromFile(c, req.SrcDir, plugin_mgr.InstallOptions{
+		// 先借用 VerifyChecksum 作为“安装后启用”开关
 		VerifyChecksum: req.Enable,
-	}
-	p, err := mgr.InstallFromFile(c, req.SrcDir, opts)
+	})
 	if err != nil {
 		dtoRequest.ResponseError(c, plugin_mgr.HTTPStatusOf(plugin_mgr.CodeOf(err)), "安装失败", err)
 		return
 	}
+	// 安装接口返回“刚安装的版本”（已在 InstallFromFile 内保证）
 	dtoRequest.ResponseSuccess(c, gin.H{
 		"installed": gin.H{
 			"id":      p.ID,
 			"version": p.Version,
 			"state":   p.State,
 		},
+	})
+}
+
+// --- Switch Version ---
+
+// POST /api/admin/plugins/:id/switch_version
+type switchVersionReq struct {
+	Version string `json:"version" binding:"required"`
+	Enable  bool   `json:"enable"`
+}
+
+func PluginSwitchVersionHandler(c *gin.Context) {
+	var req switchVersionReq
+	if err := dtoRequest.ValidateRequestWithContext(c, &req); err != nil {
+		dtoRequest.ResponseValidationError(c, err)
+		return
+	}
+	id := c.Param("id")
+	if id == "" {
+		dtoRequest.ResponseError(c, 400, "缺少插件ID", nil)
+		return
+	}
+
+	mgr := mgrimpl.GetPluginManager() // 走实现包的全局
+	p, err := mgr.SwitchVersion(c, id, req.Version, req.Enable)
+	if err != nil {
+		dtoRequest.ResponseError(c, plugin_mgr.HTTPStatusOf(plugin_mgr.CodeOf(err)), "切换版本失败", err)
+		return
+	}
+	dtoRequest.ResponseSuccess(c, gin.H{
+		"id":      p.ID,
+		"version": p.Version,
+		"state":   p.State,
 	})
 }

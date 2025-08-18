@@ -6,6 +6,7 @@ import "context"
 type Manager interface {
 	Bootstrap(ctx context.Context) error
 	Shutdown(ctx context.Context) error
+	SwitchVersion(ctx context.Context, id, version string, enable bool) (Plugin, error)
 
 	// 安装与升级
 	InstallFromFile(ctx context.Context, path string, opts InstallOptions) (Plugin, error)
