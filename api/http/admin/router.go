@@ -24,15 +24,6 @@ func RegisterAPIRoutes(r *gin.Engine, authMiddleware gin.HandlerFunc, cfg *confi
 	protectedGroup := r.Group(prefix)
 	protectedGroup.Use(authMiddleware)
 
-	// 如果你已有 Admin 的中间件（鉴权/租户），可以在这里加到 Group 上
-	grp := protectedGroup.Group("/admin/plugins")
-	{
-		grp.GET("/", plugin.PluginListHandler)                // GET  /api/v1/admin/plugins
-		grp.GET("/menus", plugin.PluginMenusHandler)          // GET  /api/v1/admin/plugins/menus
-		grp.POST("/:id/enable", plugin.PluginEnableHandler)   // POST /api/v1/admin/plugins/:id/enable
-		grp.POST("/:id/disable", plugin.PluginDisableHandler) // POST /api/v1/admin/plugins/:id/disable
-		grp.POST("/restart", plugin.PluginRestartHandler)     // POST /api/v1/admin/plugins/:id/disable
-	}
-
 	agent.RegisterAPIRoutes(publicGroup, protectedGroup)
+	plugin.RegisterAPIRoutes(publicGroup, protectedGroup)
 }

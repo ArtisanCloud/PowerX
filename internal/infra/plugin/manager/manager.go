@@ -90,10 +90,6 @@ func (m *managerImpl) Shutdown(ctx context.Context) error {
 
 // ------- 安装与升级（占位，后续里程碑实现） -------
 
-func (m *managerImpl) InstallFromFile(ctx context.Context, path string, opts plugin_mgr.InstallOptions) (plugin_mgr.Plugin, error) {
-	return plugin_mgr.Plugin{}, plugin_mgr.NewError(plugin_mgr.CodeInternal, plugin_mgr.WithOp("install_file"), plugin_mgr.WithMsg("not implemented"))
-}
-
 func (m *managerImpl) InstallFromURL(ctx context.Context, url, sha256, signature string, opts plugin_mgr.InstallOptions) (plugin_mgr.Plugin, error) {
 	return plugin_mgr.Plugin{}, plugin_mgr.NewError(plugin_mgr.CodeInternal, plugin_mgr.WithOp("install_url"), plugin_mgr.WithMsg("not implemented"))
 }

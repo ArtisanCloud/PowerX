@@ -16,6 +16,9 @@ const (
 	CodeChecksumMismatch     Code = "checksum_mismatch"
 	CodeSignatureInvalid     Code = "signature_invalid"
 	CodeIncompatibleCoreXVer Code = "incompatible_corex_version"
+	CodeInvalidArg           Code = "invalid_arg"     // 参数不合法
+	CodeAlreadyExists        Code = "already_exists"  // 资源已存在（例如版本已经安装）
+	CodeLifecycleError       Code = "lifecycle_error" // 启停/进程/挂载等生命周期相关错误
 
 	// 状态/版本
 	CodeAlreadyInstalled Code = "already_installed"
