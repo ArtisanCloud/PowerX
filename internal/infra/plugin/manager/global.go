@@ -6,6 +6,8 @@ import (
 	"sync"
 )
 
+// internal/infra/plugin/manager/global.go
+
 // 用于保存全局 Manager 实例
 var (
 	global     plugin_mgr.Manager                 // 最终的单例

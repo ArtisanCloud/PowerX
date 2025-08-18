@@ -30,15 +30,15 @@ func main() {
 	}
 
 	// bootstrap plugin manager
-	pluginMgr, err := bootstrap.BootstrapPlugin(ctx, cfg, r)
+	_, err = bootstrap.BootstrapPlugin(ctx, cfg, r)
 	if err != nil {
 		logger.ErrorF(ctx, "BootstrapPlugin failed: %s", err.Error())
 		return
 	}
-	// 临时：启用一个插件
-	if err := pluginMgr.Enable(ctx, "com.powerx.demo.hello_world"); err != nil {
-		logger.ErrorF(ctx, "enable plugin failed: %v", err)
-	}
+	//// 临时：启用一个插件
+	//if err := pluginMgr.Enable(ctx, "com.powerx.demo.hello_world"); err != nil {
+	//	logger.ErrorF(ctx, "enable plugin failed: %v", err)
+	//}
 
 	// 6. 构建 router 并挂载路由
 	err = http.SetupRouter(cfg, r)

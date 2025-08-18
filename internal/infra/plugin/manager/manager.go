@@ -60,11 +60,17 @@ func (m *managerImpl) Bootstrap(ctx context.Context) error {
 		return plugin_mgr.Wrap(plugin_mgr.CodeIOError, err, plugin_mgr.WithOp("bootstrap"))
 	}
 	for _, d := range descs {
-		// 这里不做 enable/disable，仅登记（若已存在版本，Put 可做幂等覆盖）
+		id := d.Manifest.ID
+		ver := d.Manifest.Version
+
+		if old, ok := m.opts.Registry.Get(ctx, id); ok && old.Version == ver {
+			continue // ★ 关键：不要 Put 覆盖
+		}
 		if err := m.opts.Registry.Put(ctx, d, plugin_mgr.StateInstalled); err != nil {
-			return plugin_mgr.Wrap(plugin_mgr.CodeRegistryError, err, plugin_mgr.WithOp("bootstrap"),
-				plugin_mgr.WithPlugin(d.Manifest.ID),
-				plugin_mgr.WithVersion(d.Manifest.Version),
+			return plugin_mgr.Wrap(plugin_mgr.CodeRegistryError, err,
+				plugin_mgr.WithOp("bootstrap"),
+				plugin_mgr.WithPlugin(id),
+				plugin_mgr.WithVersion(ver),
 			)
 		}
 	}

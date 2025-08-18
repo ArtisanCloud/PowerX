@@ -2,9 +2,8 @@ package http
 
 import (
 	"github.com/ArtisanCloud/PowerX/api/http/admin/agent"
-	admin "github.com/ArtisanCloud/PowerX/api/http/admin/plugin"
+	"github.com/ArtisanCloud/PowerX/api/http/admin/plugin"
 	"github.com/ArtisanCloud/PowerX/config"
-	"github.com/ArtisanCloud/PowerX/internal/infra/plugin/manager"
 	"github.com/gin-gonic/gin"
 )
 
@@ -26,15 +25,13 @@ func RegisterAPIRoutes(r *gin.Engine, authMiddleware gin.HandlerFunc, cfg *confi
 	protectedGroup.Use(authMiddleware)
 
 	// 如果你已有 Admin 的中间件（鉴权/租户），可以在这里加到 Group 上
-	mgr := manager.GetPluginManager()
-	h := admin.NewPluginHandler(mgr, cfg.Plugin.BasePrefix)
-
 	grp := protectedGroup.Group("/admin/plugins")
 	{
-		grp.GET("/", h.List)                // GET  /api/v1/admin/plugins
-		grp.GET("/menus", h.Menus)          // GET  /api/v1/admin/plugins/menus
-		grp.POST("/:id/enable", h.Enable)   // POST /api/v1/admin/plugins/:id/enable
-		grp.POST("/:id/disable", h.Disable) // POST /api/v1/admin/plugins/:id/disable
+		grp.GET("/", plugin.PluginListHandler)                // GET  /api/v1/admin/plugins
+		grp.GET("/menus", plugin.PluginMenusHandler)          // GET  /api/v1/admin/plugins/menus
+		grp.POST("/:id/enable", plugin.PluginEnableHandler)   // POST /api/v1/admin/plugins/:id/enable
+		grp.POST("/:id/disable", plugin.PluginDisableHandler) // POST /api/v1/admin/plugins/:id/disable
+		grp.POST("/restart", plugin.PluginRestartHandler)     // POST /api/v1/admin/plugins/:id/disable
 	}
 
 	agent.RegisterAPIRoutes(publicGroup, protectedGroup)

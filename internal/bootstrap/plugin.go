@@ -2,6 +2,7 @@ package bootstrap
 
 import (
 	"context"
+	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"os"
 	"path/filepath"
 
@@ -39,6 +40,25 @@ func BootstrapPlugin(ctx context.Context, cfg *config.Config, r *gin.Engine) (pm
 	})
 	if err := mgr.Bootstrap(ctx); err != nil {
 		return nil, err
+	}
+
+	// ★ 自动恢复：把上次 state=enabled 的插件重新启用
+	if list, err := mgr.List(ctx); err != nil {
+		logger.WarnF(ctx, "auto-restore: list failed: %v", err) // ← 看看是不是这里错了
+	} else {
+		enabled := 0
+		for _, p := range list {
+			logger.InfoF(ctx, "boot state: id=%s ver=%s state=%s", p.ID, p.Version, p.State)
+			if p.State == pm.StateEnabled {
+				enabled++
+				if err := mgr.Enable(ctx, p.ID); err != nil {
+					logger.WarnF(ctx, "auto-restore failed: id=%s err=%v", p.ID, err)
+				} else {
+					logger.InfoF(ctx, "auto-restore ok: id=%s", p.ID)
+				}
+			}
+		}
+		logger.InfoF(ctx, "auto-restore scanned=%d enabled=%d", len(list), enabled)
 	}
 
 	pmimpl.InitGlobal(mgr)

@@ -1,127 +1,163 @@
-package admin
+package plugin
 
 import (
-	admindto "github.com/ArtisanCloud/PowerX/api/http/admin/dto"
+	"github.com/ArtisanCloud/PowerX/config"
+	manager "github.com/ArtisanCloud/PowerX/internal/infra/plugin/manager"
+	dtoRequest "github.com/ArtisanCloud/PowerX/pkg/dto"
 	pluginDto "github.com/ArtisanCloud/PowerX/pkg/dto/plugin_mgr"
+	pluginMgr "github.com/ArtisanCloud/PowerX/pkg/plugin_mgr"
+	"github.com/gin-gonic/gin"
 	"net/http"
 	"sort"
-
-	"github.com/ArtisanCloud/PowerX/pkg/plugin_mgr"
-	"github.com/gin-gonic/gin"
 )
 
-type PluginHandler struct {
-	Mgr        plugin_mgr.Manager
-	BasePrefix string // cfg.Plugin.BasePrefix，通常 "/_p"
+// 辅助：从全局配置拿 BasePrefix（/_p）
+func basePrefix() string {
+	if cfg := config.GetGlobalConfig(); cfg != nil && cfg.Plugin.BasePrefix != "" {
+		return cfg.Plugin.BasePrefix
+	}
+	return "/_p"
 }
 
-func NewPluginHandler(mgr plugin_mgr.Manager, basePrefix string) *PluginHandler {
-	return &PluginHandler{Mgr: mgr, BasePrefix: basePrefix}
-}
+// GET /api/.../admin/plugins
+func PluginListHandler(c *gin.Context) {
+	mgr := manager.GetPluginManager()
 
-// GET /api/v1/admin/plugins
-func (h *PluginHandler) List(c *gin.Context) {
-	list, err := h.Mgr.List(c)
+	list, err := mgr.List(c)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		dtoRequest.ResponseError(c, http.StatusInternalServerError, "获取插件列表失败", err)
 		return
 	}
 
+	prefix := basePrefix()
 	out := make([]pluginDto.PluginItem, 0, len(list))
+
 	for _, p := range list {
 		adminURL := ""
-		hasAdmin := p.Frontend.Admin.Kind == plugin_mgr.FrontendKindStatic && p.Paths.FrontendAdminDir != ""
+		hasAdmin := p.Frontend.Admin.Kind == pluginMgr.FrontendKindStatic && p.Paths.FrontendAdminDir != ""
 		if hasAdmin {
-			adminURL = h.BasePrefix + "/" + p.ID + "/admin/"
+			adminURL = prefix + "/" + p.ID + "/admin/"
 		}
-		// 拼菜单（把 manifest 里的菜单映射成可点击 URL）
-		menus := make([]admindto.PluginMenuItem, 0, len(p.Frontend.Admin.Menus))
+
+		menus := make([]pluginDto.PluginMenuItem, 0, len(p.Frontend.Admin.Menus))
 		for _, m := range p.Frontend.Admin.Menus {
-			menus = append(menus, admindto.PluginMenuItem{
+			menus = append(menus, pluginDto.PluginMenuItem{
 				ID:    p.ID,
 				Title: m.Title,
 				Icon:  m.Icon,
 				Order: m.Order,
-				// 简单做法：所有菜单都指向插件根页面（内部再用前端路由）
-				URL: adminURL,
+				URL:   adminURL, // 简化：统一指向根；细分路由可在此扩展
 			})
 		}
 		sort.Slice(menus, func(i, j int) bool { return menus[i].Order < menus[j].Order })
 
 		out = append(out, pluginDto.PluginItem{
 			ID:       p.ID,
-			Name:     p.ID, // 如果你没有该方法，就用 p.ID 或 p.Manifest.Name
+			Name:     p.ID, // 或使用 p.Manifest.Name（若你对外暴露了）
 			Version:  p.Version,
 			State:    string(p.State),
 			AdminURL: adminURL,
-			APIBase:  h.BasePrefix + "/" + p.ID + "/api",
+			APIBase:  prefix + "/" + p.ID + "/api",
 			HasAdmin: hasAdmin,
 			Menus:    menus,
 		})
 	}
-	// 固定排序：启用优先 + 名称
+
+	// 启用优先、再按 ID
 	sort.Slice(out, func(i, j int) bool {
 		if out[i].State != out[j].State {
-			return out[i].State == string(plugin_mgr.StateEnabled)
+			return out[i].State == string(pluginMgr.StateEnabled)
 		}
 		return out[i].ID < out[j].ID
 	})
-	c.JSON(http.StatusOK, gin.H{"plugins": out})
+
+	dtoRequest.ResponseSuccess(c, gin.H{"plugins": out})
 }
 
-// POST /api/v1/admin/plugins/:id/enable
-func (h *PluginHandler) Enable(c *gin.Context) {
+// POST /api/.../admin/plugins/:id/enable
+func PluginEnableHandler(c *gin.Context) {
 	id := c.Param("id")
-	if err := h.Mgr.Enable(c, id); err != nil {
-		c.JSON(statusFromManagerErr(err), gin.H{"error": err.Error()})
+	if id == "" {
+		dtoRequest.ResponseError(c, http.StatusBadRequest, "缺少插件ID", nil)
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"ok": true})
-}
-
-// POST /api/v1/admin/plugins/:id/disable
-func (h *PluginHandler) Disable(c *gin.Context) {
-	id := c.Param("id")
-	if err := h.Mgr.Disable(c, id); err != nil {
-		c.JSON(statusFromManagerErr(err), gin.H{"error": err.Error()})
+	mgr := manager.GetPluginManager()
+	if err := mgr.Enable(c, id); err != nil {
+		dtoRequest.ResponseError(c, statusFromManagerErr(err), "启用插件失败", err)
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"ok": true})
+	dtoRequest.ResponseSuccess(c, gin.H{"ok": true})
 }
 
-// GET /api/v1/admin/plugins/menus  —— 聚合所有插件菜单（给前端 Admin 左侧栏）
-func (h *PluginHandler) Menus(c *gin.Context) {
-	list, err := h.Mgr.List(c)
+// POST /api/.../admin/plugins/:id/disable
+func PluginDisableHandler(c *gin.Context) {
+	id := c.Param("id")
+	if id == "" {
+		dtoRequest.ResponseError(c, http.StatusBadRequest, "缺少插件ID", nil)
+		return
+	}
+	mgr := manager.GetPluginManager()
+	if err := mgr.Disable(c, id); err != nil {
+		dtoRequest.ResponseError(c, statusFromManagerErr(err), "停用插件失败", err)
+		return
+	}
+	dtoRequest.ResponseSuccess(c, gin.H{"ok": true})
+}
+
+// GET /api/.../admin/plugins/menus
+func PluginMenusHandler(c *gin.Context) {
+	mgr := manager.GetPluginManager()
+	list, err := mgr.List(c)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		dtoRequest.ResponseError(c, http.StatusInternalServerError, "获取插件菜单失败", err)
 		return
 	}
 
-	agg := make([]admindto.PluginMenuItem, 0, 16)
+	prefix := basePrefix()
+	agg := make([]pluginDto.PluginMenuItem, 0, 16)
+
 	for _, p := range list {
-		if p.State != plugin_mgr.StateEnabled {
+		if p.State != pluginMgr.StateEnabled {
 			continue
 		}
-		if !(p.Frontend.Admin.Kind == plugin_mgr.FrontendKindStatic && p.Paths.FrontendAdminDir != "") {
+		if !(p.Frontend.Admin.Kind == pluginMgr.FrontendKindStatic && p.Paths.FrontendAdminDir != "") {
 			continue
 		}
-		base := h.BasePrefix + "/" + p.ID + "/admin/"
+		base := prefix + "/" + p.ID + "/admin/"
 		for _, m := range p.Frontend.Admin.Menus {
-			agg = append(agg, admindto.PluginMenuItem{
+			agg = append(agg, pluginDto.PluginMenuItem{
 				ID:    p.ID,
 				Title: m.Title,
 				Icon:  m.Icon,
 				Order: m.Order,
-				URL:   base, // 简化：全部打开插件根；如需更细路由，可用 hash 参数
+				URL:   base,
 			})
 		}
 	}
 	sort.Slice(agg, func(i, j int) bool { return agg[i].Order < agg[j].Order })
-	c.JSON(http.StatusOK, gin.H{"menus": agg})
+
+	dtoRequest.ResponseSuccess(c, gin.H{"menus": agg})
 }
 
-func statusFromManagerErr(err error) int {
-	// 如果你在 plugin_mgr 里有 Code→HTTPStatus 的映射函数可直接用
-	// 这里最小实现：启停相关错误默认 400/500
-	return http.StatusBadRequest
+// POST /api/.../admin/plugins/:id/restart
+func PluginRestartHandler(c *gin.Context) {
+	id := c.Param("id")
+	if id == "" {
+		dtoRequest.ResponseError(c, http.StatusBadRequest, "缺少插件ID", nil)
+		return
+	}
+	mgr := manager.GetPluginManager()
+
+	if err := mgr.Disable(c, id); err != nil {
+		dtoRequest.ResponseError(c, statusFromManagerErr(err), "重启插件失败（停用阶段）", err)
+		return
+	}
+	if err := mgr.Enable(c, id); err != nil {
+		dtoRequest.ResponseError(c, statusFromManagerErr(err), "重启插件失败（启用阶段）", err)
+		return
+	}
+	dtoRequest.ResponseSuccess(c, gin.H{"ok": true})
 }
+
+// 你可以在 pluginMgr 里提供 Code→HTTP 的映射；这里先最小化映射为 400
+func statusFromManagerErr(error) int { return http.StatusBadRequest }
