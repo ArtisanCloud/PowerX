@@ -12,6 +12,8 @@ import (
 	"unicode"
 )
 
+// services/agent/helper.go
+
 func NewResultPipe(cap int) (
 	*schema.StreamReader[*agentSchemas.ExecutionResult],
 	*schema.StreamWriter[*agentSchemas.ExecutionResult],

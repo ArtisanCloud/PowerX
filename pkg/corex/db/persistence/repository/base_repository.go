@@ -13,12 +13,12 @@ import (
 
 // BaseRepository 提供通用的 CRUD 操作
 type BaseRepository[T any] struct {
-	db *gorm.DB
+	DB *gorm.DB
 }
 
 // NewBaseRepository 创建新的 BaseRepository 实例
 func NewBaseRepository[T any](db *gorm.DB) *BaseRepository[T] {
-	return &BaseRepository[T]{db: db}
+	return &BaseRepository[T]{DB: db}
 }
 
 // CreateBatch 批量创建记录
@@ -27,7 +27,7 @@ func (r *BaseRepository[T]) CreateBatch(ctx context.Context, objs []*T) ([]*T, e
 		return nil, nil
 	}
 
-	query := r.db.WithContext(ctx)
+	query := r.DB.WithContext(ctx)
 
 	debug, ok := ctx.Value(utils.DebugKey).(bool)
 	if ok && debug {
@@ -48,7 +48,7 @@ func (r *BaseRepository[T]) CreateBatch(ctx context.Context, objs []*T) ([]*T, e
 
 // Create 创建新记录，并返回创建后的对象
 func (r *BaseRepository[T]) Create(ctx context.Context, obj *T) (*T, error) {
-	query := r.db.WithContext(ctx)
+	query := r.DB.WithContext(ctx)
 
 	debug, ok := ctx.Value(utils.DebugKey).(bool)
 	if ok && debug {
@@ -87,7 +87,7 @@ func getUpdatableColumns[T any](db *gorm.DB) []string {
 
 // Upsert 插入或更新单个记录，并返回执行后的对象
 func (r *BaseRepository[T]) Upsert(ctx context.Context, obj *T, uniqueFields []clause.Column) (*T, error) {
-	query := r.db.WithContext(ctx)
+	query := r.DB.WithContext(ctx)
 
 	debug, ok := ctx.Value(utils.DebugKey).(bool)
 	if ok && debug {
@@ -96,7 +96,7 @@ func (r *BaseRepository[T]) Upsert(ctx context.Context, obj *T, uniqueFields []c
 
 	result := query.Clauses(clause.OnConflict{
 		Columns:   uniqueFields,
-		DoUpdates: clause.AssignmentColumns(getUpdatableColumns[T](r.db)),
+		DoUpdates: clause.AssignmentColumns(getUpdatableColumns[T](r.DB)),
 	}).Create(obj)
 
 	if result.Error != nil {
@@ -108,7 +108,7 @@ func (r *BaseRepository[T]) Upsert(ctx context.Context, obj *T, uniqueFields []c
 
 // UpsertBatch 批量插入或更新记录，并返回执行后的对象列表
 func (r *BaseRepository[T]) UpsertBatch(ctx context.Context, objs []*T, uniqueFields []clause.Column) ([]*T, error) {
-	tx := r.db.WithContext(ctx).Begin()
+	tx := r.DB.WithContext(ctx).Begin()
 	if tx.Error != nil {
 		return nil, tx.Error
 	}
@@ -120,7 +120,7 @@ func (r *BaseRepository[T]) UpsertBatch(ctx context.Context, objs []*T, uniqueFi
 
 	result := tx.Clauses(clause.OnConflict{
 		Columns:   uniqueFields,
-		DoUpdates: clause.AssignmentColumns(getUpdatableColumns[T](r.db)),
+		DoUpdates: clause.AssignmentColumns(getUpdatableColumns[T](r.DB)),
 	}).Create(objs)
 
 	if result.Error != nil {
@@ -137,7 +137,7 @@ func (r *BaseRepository[T]) UpsertBatch(ctx context.Context, objs []*T, uniqueFi
 
 // Update 更新记录，并返回更新后的对象
 func (r *BaseRepository[T]) Update(ctx context.Context, obj *T) (*T, error) {
-	query := r.db.WithContext(ctx)
+	query := r.DB.WithContext(ctx)
 
 	debug, ok := ctx.Value(utils.DebugKey).(bool)
 	if ok && debug {
@@ -154,7 +154,7 @@ func (r *BaseRepository[T]) Update(ctx context.Context, obj *T) (*T, error) {
 // Patch 部分更新记录
 func (r *BaseRepository[T]) Patch(ctx context.Context, where map[string]interface{}, fields map[string]interface{}) (*T, error) {
 	var obj T
-	query := r.db.WithContext(ctx).Model(&obj)
+	query := r.DB.WithContext(ctx).Model(&obj)
 
 	debug, ok := ctx.Value(utils.DebugKey).(bool)
 	if ok && debug {
@@ -175,7 +175,7 @@ func (r *BaseRepository[T]) Patch(ctx context.Context, where map[string]interfac
 // Delete 删除记录
 func (r *BaseRepository[T]) Delete(ctx context.Context, where map[string]interface{}, obj *T, softDelete bool) (*T, error) {
 	var mdl T
-	query := r.db.WithContext(ctx).Model(&mdl)
+	query := r.DB.WithContext(ctx).Model(&mdl)
 
 	if debug, ok := ctx.Value(utils.DebugKey).(bool); ok && debug {
 		query = query.Debug()
@@ -221,7 +221,7 @@ func (r *BaseRepository[T]) FindByCondition(
 	var objects []*T
 	var obj T
 
-	query := r.db.WithContext(ctx)
+	query := r.DB.WithContext(ctx)
 	for key, value := range conditions {
 		query = query.Where(key, value)
 	}
@@ -259,7 +259,7 @@ func (r *BaseRepository[T]) FindByCondition(
 func (r *BaseRepository[T]) GetById(ctx context.Context, id int64, callback func(*gorm.DB) *gorm.DB) (*T, error) {
 	var obj T
 
-	query := r.db.WithContext(ctx).Where("id = ?", id)
+	query := r.DB.WithContext(ctx).Where("id = ?", id)
 	if callback != nil {
 		query = callback(query)
 	}
@@ -283,7 +283,7 @@ func (r *BaseRepository[T]) GetById(ctx context.Context, id int64, callback func
 func (r *BaseRepository[T]) GetByUUID(ctx context.Context, uuid string, callback func(*gorm.DB) *gorm.DB) (*T, error) {
 	var obj T
 
-	query := r.db.WithContext(ctx).Where("uuid = ?", uuid)
+	query := r.DB.WithContext(ctx).Where("uuid = ?", uuid)
 	if callback != nil {
 		query = callback(query)
 	}
@@ -307,7 +307,7 @@ func (r *BaseRepository[T]) GetByUUID(ctx context.Context, uuid string, callback
 func (r *BaseRepository[T]) GetByCondition(ctx context.Context, conditions map[string]interface{}, callback func(*gorm.DB) *gorm.DB) (*T, error) {
 	var obj T
 
-	query := r.db.WithContext(ctx)
+	query := r.DB.WithContext(ctx)
 	for key, value := range conditions {
 		query = query.Where(key, value)
 	}
@@ -335,7 +335,7 @@ func (r *BaseRepository[T]) GetByCondition(ctx context.Context, conditions map[s
 func (r *BaseRepository[T]) GetFirst(ctx context.Context, query interface{}, args ...interface{}) (*T, error) {
 	var obj T
 
-	db := r.db.WithContext(ctx).Where(query, args...)
+	db := r.DB.WithContext(ctx).Where(query, args...)
 
 	debug, ok := ctx.Value(utils.DebugKey).(bool)
 	if ok && debug {
@@ -357,7 +357,7 @@ func (r *BaseRepository[T]) GetFirst(ctx context.Context, query interface{}, arg
 func (r *BaseRepository[T]) Exists(ctx context.Context, query interface{}, args ...interface{}) (bool, error) {
 	var count int64
 
-	db := r.db.WithContext(ctx).Model(new(T)).Where(query, args...)
+	db := r.DB.WithContext(ctx).Model(new(T)).Where(query, args...)
 
 	debug, ok := ctx.Value(utils.DebugKey).(bool)
 	if ok && debug {

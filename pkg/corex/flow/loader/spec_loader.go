@@ -1,9 +1,11 @@
 package loader
 
 import (
+	"context"
 	"fmt"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/flow/schemas"
 	"github.com/ArtisanCloud/PowerX/pkg/utils"
+	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"github.com/ArtisanCloud/PowerX/services/mcp/errors"
 	"io/fs"
 	"os"
@@ -66,18 +68,37 @@ func (l *YAMLSpecLoader) LoadFlowBlueprint(path string) (*schemas.Flow, error) {
 		return nil, errors.NotFoundf("Failed to read blueprint file '%s': %v", fullPath, err)
 	}
 
-	var blueprint schemas.Flow
-	if err := yaml.Unmarshal(data, &blueprint); err != nil {
+	var bp schemas.Flow
+	if err := yaml.Unmarshal(data, &bp); err != nil {
 		return nil, errors.InvalidArgumentf("Failed to parse blueprint YAML '%s': %v", fullPath, err)
 	}
-	blueprint.FlowPath = fullPath
+	bp.FlowPath = fullPath
 
-	// 验证蓝图
-	if err := l.validateFlowBlueprint(&blueprint); err != nil {
-		return nil, err
+	// 仅支持顶层 ref；如果有人把 ref 写进 metadata.ref，直接报错（避免双规范）
+	if bp.Metadata != nil {
+		// 如果你之前把 FlowMetadata 里删掉了 Ref 字段，这里天然不会命中；留这句仅防将来误加
+		type metaProbe struct {
+			Ref any `yaml:"ref"`
+		}
+		var probe metaProbe
+		if err := yaml.Unmarshal(data, &probe); err == nil && probe.Ref != nil {
+			return nil, errors.InvalidArgumentf("metadata.ref is not supported in '%s'; use top-level 'ref' instead", fullPath)
+		}
 	}
 
-	return &blueprint, nil
+	// ref-only：启用且有 target 时，允许没有 nodes/name
+	if bp.Ref != nil && bp.Ref.Enable && strings.TrimSpace(bp.Ref.Target) != "" {
+		if bp.FlowID == "" {
+			return nil, errors.InvalidArgumentf("ref-only blueprint '%s' missing flow_id", fullPath)
+		}
+		return &bp, nil
+	}
+
+	// 非 ref-only：走常规校验
+	if err := l.validateFlowBlueprint(&bp); err != nil {
+		return nil, err
+	}
+	return &bp, nil
 }
 
 // LoadToolSpecsFromDir 从目录加载所有工具规范
@@ -136,6 +157,8 @@ func (l *YAMLSpecLoader) LoadBlueprintsFromDir(dir string) (map[string]*schemas.
 			fmt.Printf("Warning: Failed to load blueprint from '%s': %v\n", path, loadErr)
 			return nil
 		}
+		ctx := context.Background()
+		logger.InfoF(ctx, "agent load blueprint files : %s", path)
 
 		result[blueprint.FlowID] = blueprint
 		return nil
@@ -187,26 +210,24 @@ func (l *YAMLSpecLoader) validateToolSpec(spec *schemas.ToolSpec) error {
 }
 
 // validateFlowBlueprint 验证流程蓝图
-func (l *YAMLSpecLoader) validateFlowBlueprint(blueprint *schemas.Flow) error {
+func (l *YAMLSpecLoader) validateFlowBlueprint(bp *schemas.Flow) error {
 	validation := errors.NewValidationError()
 
-	if blueprint.FlowID == "" {
+	if bp.FlowID == "" {
 		validation.AddRequired("flow_id")
 	}
-	if blueprint.Name == "" {
-		validation.AddRequired("name")
+	// name 可选：有些纯内部流不需要
+	if len(bp.Nodes) == 0 {
+		validation.AddRequired("nodes")
 	}
-	if len(blueprint.Nodes) == 0 {
-		validation.AddRequired("steps")
-	}
-
-	// 验证步骤
-	for i, step := range blueprint.Nodes {
-		if step.Use == "" {
-			validation.AddInvalid(fmt.Sprintf("steps[%d].use", i), "step use is required")
+	for i, n := range bp.Nodes {
+		id := strings.TrimSpace(n.ID)
+		kind := strings.TrimSpace(n.Kind)
+		use := strings.TrimSpace(n.Use)
+		if id == "" && kind == "" && use == "" {
+			validation.AddInvalid(fmt.Sprintf("nodes[%d]", i), "one of id/kind/use must be present")
 		}
 	}
-
 	return validation.ToError()
 }
 

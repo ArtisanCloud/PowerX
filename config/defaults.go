@@ -1,6 +1,7 @@
 package config
 
 import (
+	"github.com/ArtisanCloud/PowerX/pkg/corex/db"
 	logCfg "github.com/ArtisanCloud/PowerX/pkg/utils/logger/config"
 	"github.com/ArtisanCloud/PowerX/services/agent/config"
 )
@@ -65,7 +66,7 @@ func GetDefaults() *Config {
 			},
 			TemplateDir: "./services/agent/templates",
 		},
-		Database: DatabaseConfig{
+		Database: db.DatabaseConfig{
 			Host:                   "localhost",
 			Port:                   5432,
 			Username:               "postgres",
@@ -73,7 +74,7 @@ func GetDefaults() *Config {
 			Database:               "corex",
 			SSLMode:                "disable",
 			Timezone:               "Asia/Shanghai",
-			TablePrefix:            "cx_",
+			TablePrefix:            "px_",
 			MaxIdleConns:           10,
 			MaxOpenConns:           100,
 			ConnMaxLifetimeMinutes: 60,

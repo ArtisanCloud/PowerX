@@ -1,8 +1,17 @@
+// File: services/agent/drivers/eino/agent.go
 package eino
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"github.com/ArtisanCloud/PowerX/pkg/utils"
+	"gopkg.in/yaml.v3"
+	"os"
+	"strings"
+	"sync"
+	"time"
+
 	"github.com/ArtisanCloud/PowerX/pkg/corex/flow/loader"
 	flowschema "github.com/ArtisanCloud/PowerX/pkg/corex/flow/schemas"
 	"github.com/ArtisanCloud/PowerX/services/agent"
@@ -11,109 +20,179 @@ import (
 	"github.com/ArtisanCloud/PowerX/services/agent/drivers/eino/llm"
 	agentschema "github.com/ArtisanCloud/PowerX/services/agent/schemas"
 
-	"sync"
-	"time"
-
-	"github.com/cloudwego/eino/compose"
 	"github.com/cloudwego/eino/schema"
 )
 
+/* ================= 类型定义 ================= */
+
+// 每种节点的执行器签名（注意 node 是 *flowschema.Node）
+type NodeExec func(
+	ctx context.Context,
+	a *Agent,
+	curFlowID string,
+	node *flowschema.Node,
+	in flowschema.Context,
+	meta agentschema.ExecutionMeta,
+) (flowschema.Result, error)
+
 var _ contract.Agent = (*Agent)(nil)
+
+/* ================= Agent ================= */
 
 type Agent struct {
 	config    *config.AgentConfig
 	agentInfo *agentschema.AgentInfo
-	Graph     compose.AnyGraph
-	Prompt    string
-	Flow      *flowschema.Flow
 
-	// resolver 缓存
-	resOnce  sync.Once
-	resolver *loader.Resolver
-	resErr   error
+	// 蓝图解析缓存
+	flowMu    sync.RWMutex
+	flowCache map[string]*flowschema.Flow // flowID -> Flow
 
-	// 异步执行（按 PlanID 作为主键）
-	execMu       sync.RWMutex
-	statusByPlan map[string]*agentschema.ExecutionStatus
-	resultByPlan map[string]*agentschema.ExecutionResult
+	// resolver
+	resolver    *loader.Resolver
+	flowAliases map[string]string
+
+	// 节点执行器
+	execMu    sync.RWMutex
+	kindExecs map[string]NodeExec // kind(小写) -> exec
+	useExecs  map[string]NodeExec // use(原样)  -> exec（系统内部函数）
+
+	// 异步执行
+	asyncMu      sync.RWMutex
+	statusByExec map[string]*agentschema.ExecutionStatus
+	resultByExec map[string]*agentschema.ExecutionResult
 }
+
+/* ================= 构造 / 注册 ================= */
 
 func NewAgent(cfg *config.AgentConfig) (contract.Agent, error) {
 	if cfg == nil {
 		return nil, fmt.Errorf("配置不能为空")
 	}
-	g := compose.NewGraph[map[string]any, *schema.Message]()
+	r := loader.NewResolver(cfg.FlowSpec.BusinessDir)
+	if err := r.BuildIndex(); err != nil {
+		return nil, fmt.Errorf("build blueprint index failed: %w", err)
+	}
 	now := time.Now().UTC()
-	return &Agent{
-		config: cfg,
-		agentInfo: &agentschema.AgentInfo{ // 名称不从 cfg 取，给默认
-			Name:      "eino",
-			Status:    string(agentschema.StatusInit),
-			CreatedAt: now,
-			UpdatedAt: now,
-		},
-		Graph:        g,
-		Prompt:       "",
-		Flow:         &flowschema.Flow{},
-		statusByPlan: make(map[string]*agentschema.ExecutionStatus),
-		resultByPlan: make(map[string]*agentschema.ExecutionResult),
-	}, nil
+
+	a := &Agent{
+		config:       cfg,
+		agentInfo:    &agentschema.AgentInfo{Name: "eino", Status: string(agentschema.StatusInit), CreatedAt: now, UpdatedAt: now},
+		resolver:     r,
+		flowCache:    make(map[string]*flowschema.Flow),
+		kindExecs:    make(map[string]NodeExec),
+		useExecs:     make(map[string]NodeExec),
+		statusByExec: make(map[string]*agentschema.ExecutionStatus),
+		resultByExec: make(map[string]*agentschema.ExecutionResult),
+		flowAliases:  make(map[string]string),
+	}
+	a.registerBuiltins()
+	return a, nil
 }
 
-/* ------------ internal: resolver ------------ */
+// 注册系统内部函数（按 use 精确分派）
+func (a *Agent) RegisterFunc(use string, exec NodeExec) {
+	a.execMu.Lock()
+	a.useExecs[strings.TrimSpace(use)] = exec
+	a.execMu.Unlock()
+}
 
-func (a *Agent) ensureResolver() error {
-	a.resOnce.Do(func() {
-		r := loader.NewResolver(a.config.FlowSpec.BusinessDir)
-		if err := r.BuildIndex(); err != nil {
-			a.resErr = fmt.Errorf("build blueprint index failed: %w", err)
-			return
+// 注册内置 kind 的最小可用执行器（全部使用常量，统一小写 key）
+func (a *Agent) registerBuiltins() {
+	set := func(kind flowschema.NodeKind, exec NodeExec) {
+		a.kindExecs[strings.ToLower(string(kind))] = exec
+	}
+	// 基础
+	set(flowschema.KindStart, execNoop("start"))
+	set(flowschema.KindEnd, execNoop("end"))
+	set(flowschema.KindIOInput, execNoop("input"))
+	set(flowschema.KindIOOutput, execNoop("output"))
+	// 核心
+	set(flowschema.KindSelector, execSelector()) // 本次补齐的实现
+	set(flowschema.KindLLM, execLLM(a))
+	set(flowschema.KindWorkflow, execWorkflow(a))
+	// 其它先用回显占位（后续你可替换/注册系统 use）
+	for _, k := range []flowschema.NodeKind{
+		flowschema.KindBizLogic, flowschema.KindPlugin, flowschema.KindCode, flowschema.KindHTTP,
+		flowschema.KindDB, flowschema.KindQA, flowschema.KindTextProc, flowschema.KindJSONSerDe,
+		flowschema.KindLoop, flowschema.KindBatch, flowschema.KindAggVars, flowschema.KindTrigger,
+		flowschema.KindSession, flowschema.KindMessage, flowschema.KindKnowledge, flowschema.KindMemory,
+		flowschema.KindImage, flowschema.KindVideo, flowschema.KindComponent, flowschema.KindIntent,
+	} {
+		lk := strings.ToLower(string(k))
+		if _, ok := a.kindExecs[lk]; !ok {
+			a.kindExecs[lk] = execEcho(lk)
 		}
-		a.resolver = r
-	})
-	return a.resErr
+	}
 }
 
-/* ------------ contract.Agent ------------ */
+/* ================= Flow 获取（缓存） ================= */
+
+func (a *Agent) getOrBuildFlow(flowID string) (*flowschema.Flow, error) {
+	// 命中缓存
+	a.flowMu.RLock()
+	if f := a.flowCache[flowID]; f != nil {
+		a.flowMu.RUnlock()
+		fmt.Printf("[agent.eino] getOrBuildFlow: cache hit id=%s nodes=%d\n", flowID, len(f.Nodes))
+		return f, nil
+	}
+	a.flowMu.RUnlock()
+
+	fmt.Printf("[agent.eino] getOrBuildFlow: resolving id=%s\n", flowID)
+
+	// 解析
+	f, err := a.resolver.Resolve(flowID)
+	if err != nil {
+		fmt.Printf("[agent.eino] getOrBuildFlow: resolve FAILED id=%s err=%v\n", flowID, err)
+		return nil, fmt.Errorf("resolve flow(%s) failed: %w", flowID, err)
+	}
+	fmt.Printf("[agent.eino] getOrBuildFlow: resolve OK id=%s nodes=%d\n", f.FlowID, len(f.Nodes))
+
+	// 缓存
+	a.flowMu.Lock()
+	a.flowCache[flowID] = f
+	a.flowMu.Unlock()
+	return f, nil
+}
+
+/* ================= contract.Agent ================= */
 
 func (a *Agent) GetInfo() *agentschema.AgentInfo { return a.agentInfo }
 
 func (a *Agent) ListFlows(ctx context.Context, meta agentschema.ExecutionMeta) ([]agentschema.FlowRuntimeInfo, error) {
-	// TODO: 如果需要，可在 resolver 暴露 List() 返回所有 flowID，然后逐个 Resolve
-	return []agentschema.FlowRuntimeInfo{}, nil
+	// 如果 resolver 支持 ListIDs()，就列出来
+	type idLister interface{ ListIDs() []string }
+	out := []agentschema.FlowRuntimeInfo{}
+	if l, ok := any(a.resolver).(idLister); ok {
+		now := time.Now().UTC()
+		for _, id := range l.ListIDs() {
+			out = append(out, agentschema.FlowRuntimeInfo{
+				Flow:      flowschema.Flow{FlowID: id},
+				Status:    "ready",
+				CreatedAt: now, UpdatedAt: now,
+			})
+		}
+	}
+	return out, nil
 }
 
 func (a *Agent) GetFlowInfo(ctx context.Context, flowID string, meta agentschema.ExecutionMeta) (*agentschema.FlowRuntimeInfo, error) {
 	if flowID == "" {
 		return nil, fmt.Errorf("flowID 不能为空")
 	}
-	if err := a.ensureResolver(); err != nil {
-		return nil, err
-	}
-	bp, err := a.resolver.Resolve(flowID) // 合并 base + child
+	f, err := a.getOrBuildFlow(flowID)
 	if err != nil {
 		return nil, err
 	}
-
-	// 将合并后的 blueprint 转成 Flow（这里直接填主要字段；按你项目结构完善）
-	f := flowschema.Flow{
-		FlowID: bp.FlowID,
-		Name:   bp.Name,
-		Nodes:  bp.Nodes,
-		// 其它需要的字段按你的 Flow 定义补齐
-	}
-
+	now := time.Now().UTC()
 	return &agentschema.FlowRuntimeInfo{
-		Flow:      f,
+		Flow:      *f,
 		Status:    "ready",
-		Tags:      nil,
-		CreatedAt: time.Now().UTC(),
-		UpdatedAt: time.Now().UTC(),
+		CreatedAt: now, UpdatedAt: now,
 	}, nil
 }
 
 func (a *Agent) ValidateParams(ctx context.Context, flowID string, params flowschema.Context, meta agentschema.ExecutionMeta) error {
-	// TODO: 结合 JSONSchema 校验；先透传
+	// TODO：如需 JSONSchema 校验在此实现
 	return nil
 }
 
@@ -121,91 +200,74 @@ func (a *Agent) Invoke(ctx context.Context, flowID string, params flowschema.Con
 	if flowID == "" {
 		return nil, fmt.Errorf("flowID 不能为空")
 	}
-	inp, _ := params["_inputs"].(map[string]any)
-	vars, _ := params["_vars"].(map[string]any)
-	hist := params["_history"] // 任意类型
-	_ = inp
-	_ = vars
-	_ = hist
-
 	start := time.Now()
-	out := flowschema.Result{"flow": flowID}
-	if debug, _ := params["debug"].(bool); debug {
-		out["echo"] = params
-	}
 
-	// ===== 1) 兜底聊天 flow（走 LLM，各厂商通用） =====
-	// 确保这里的 flowID 与你 SetDefaultAgent(...) 的 defaultFlowID 一致；
-	// 我这里宽松兼容三种常见命名：
-	if flowID == config.BaseFlowKey {
-		// 用户消息
-		msg, _ := params["message"].(string)
-
-		// 运行时模型配置（来自 /chat 的 req.Config）
-		var rt llm.RuntimeConfig
-		if raw, ok := params["model_config"]; ok {
-			if m, ok := raw.(map[string]any); ok {
-				rt = m
-			}
-		}
-
-		// 融合默认配置(a.config.LLM) 与 运行时覆盖(rt)
-		mc := llm.MergeConfig(a.config.LLMConfig, rt)
-
-		// 创建对应厂商的客户端并调用一次性对话
-		if msg != "" {
-			cli, err := llm.NewClient(mc.Provider)
-			if err == nil {
-				if content, callErr := cli.ChatOnce(ctx, mc, msg); callErr == nil && content != "" {
-					out["content"] = content
-				} else {
-					// 调用失败的兜底提示
-					out["content"] = "（LLM调用失败，已返回占位文本）" + msg
-					if callErr != nil {
-						out["llm_error"] = callErr.Error()
-					}
-				}
-			} else {
-				out["content"] = "（未知 LLM 提供商）" + msg
-				out["llm_error"] = err.Error()
-			}
-		} else {
-			out["content"] = "（没有可回复的用户消息）"
-		}
-
-		// 返回兜底对话结果
-		return &agentschema.ExecutionResult{
-			Success:   true,
-			Data:      out,
-			Duration:  time.Since(start),
-			StepID:    "final",
-			Timestamp: time.Now().UTC().Unix(),
-			Metadata: flowschema.Result{
-				"flow_id":  flowID,
-				"plan_id":  meta.RequestID,
-				"is_final": true,
-			},
-		}, nil
-	}
-	// ===== 2) 正常任务 flow（生成 output.id，供下游布线） =====
-
-	// 如需校验/读蓝图，放在这里
-	if err := a.ensureResolver(); err != nil {
+	flow, err := a.getOrBuildFlow(flowID)
+	if err != nil {
 		return nil, err
 	}
-	if _, err := a.resolver.Resolve(flowID); err != nil {
-		return nil, fmt.Errorf("resolve flow(%s) failed: %w", flowID, err)
+
+	// 运行上下文
+	if params == nil {
+		params = flowschema.Context{}
+	}
+	steps := map[string]any{}
+	params["_vars"] = steps // 供节点/ParamRefs取值
+	// params["_last"] 将在循环内更新
+
+	for i := range flow.Nodes {
+		n := flow.Nodes[i] // *flowschema.Node
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		default:
+		}
+
+		stepKey := fmt.Sprintf("step_%d", i+1)
+
+		// ---------- 1) 合成节点输入：全局 params + 节点 params + IO.InMap ----------
+		in := mergeCtx(params, n.Params)
+		if m := n.IOInMap(); len(m) > 0 {
+			for toKey, fromPath := range m {
+				if v, ok := getByPathCtx(in, fromPath); ok {
+					in[toKey] = v
+				}
+			}
+		}
+
+		// ---------- 2) 选执行器（use 优先；否则按 kind 常量） ----------
+		exec := a.pickExecutor(n)
+
+		// ---------- 3) 执行 ----------
+		res, err := exec(ctx, a, flow.FlowID, n, in, meta)
+		if err != nil {
+			return nil, fmt.Errorf("node(kind=%s use=%s) failed at %s: %w", n.Kind, n.Use, stepKey, err)
+		}
+
+		// ---------- 4) IO.OutMap：把输出写回上下文，供后续节点直接使用 ----------
+		if om := n.IOOutMap(); len(om) > 0 && res != nil {
+			for fromKey, toPath := range om {
+				if val, ok := getByPathMap(map[string]any(res), fromKey); ok {
+					setByPathCtx(params, toPath, val)
+				}
+			}
+		}
+
+		// ---------- 5) 记录步骤输出 ----------
+		steps[stepKey] = res
+		params["_last"] = res
 	}
 
-	// 产出一个可被下游引用的 output.id
-	var outID string
+	// 汇总输出
+	out := flowschema.Result{
+		"flow":  flowID,
+		"steps": steps,
+	}
 	if v, ok := params["upstream_id"].(string); ok && v != "" {
-		outID = v // 继承上游
+		out["id"] = v
 	} else {
-		outID = fmt.Sprintf("ID_%s_%d", flowID, time.Now().UnixNano())
+		out["id"] = fmt.Sprintf("ID_%s_%d", flowID, time.Now().UnixNano())
 	}
-
-	out["id"] = outID
 
 	return &agentschema.ExecutionResult{
 		Success:   true,
@@ -213,11 +275,7 @@ func (a *Agent) Invoke(ctx context.Context, flowID string, params flowschema.Con
 		Duration:  time.Since(start),
 		StepID:    "final",
 		Timestamp: time.Now().UTC().Unix(),
-		Metadata: flowschema.Result{
-			"flow_id":  flowID,
-			"plan_id":  meta.RequestID,
-			"is_final": true,
-		},
+		Metadata:  flowschema.Result{"flow_id": flowID, "plan_id": meta.RequestID, "is_final": true},
 	}, nil
 }
 
@@ -225,12 +283,11 @@ func (a *Agent) InvokeAsync(ctx context.Context, flowID string, params flowschem
 	if flowID == "" {
 		return "", fmt.Errorf("flowID 不能为空")
 	}
-	// planID：以 RequestID + 时间戳 生成
-	planID := fmt.Sprintf("%s-%d", meta.RequestID, time.Now().UTC().UnixNano())
+	execID := fmt.Sprintf("%s-%d", meta.RequestID, time.Now().UTC().UnixNano())
 
 	now := time.Now().UTC()
-	a.setStatus(planID, &agentschema.ExecutionStatus{
-		PlanID:      planID,
+	a.setStatus(execID, &agentschema.ExecutionStatus{
+		PlanID:      execID,
 		Status:      "running",
 		Progress:    0,
 		CurrentStep: "",
@@ -242,49 +299,51 @@ func (a *Agent) InvokeAsync(ctx context.Context, flowID string, params flowschem
 		res, err := a.Invoke(ctx, flowID, params, meta)
 		fin := time.Now().UTC()
 		if err != nil || (res != nil && !res.Success) {
-			a.setStatus(planID, &agentschema.ExecutionStatus{
-				PlanID:      planID,
+			a.setStatus(execID, &agentschema.ExecutionStatus{
+				PlanID:      execID,
 				Status:      "failed",
 				Progress:    100,
 				CurrentStep: "final",
-				StartedAt:   a.getStart(planID),
+				StartedAt:   a.getStart(execID),
 				CompletedAt: &fin,
 				Error:       errMsg(err, res),
 				Metadata:    map[string]any{"flow_id": flowID},
 			})
 			return
 		}
-		a.setResult(planID, res)
-		a.setStatus(planID, &agentschema.ExecutionStatus{
-			PlanID:      planID,
+		a.setResult(execID, res)
+		a.setStatus(execID, &agentschema.ExecutionStatus{
+			PlanID:      execID,
 			Status:      "completed",
 			Progress:    100,
 			CurrentStep: "final",
-			StartedAt:   a.getStart(planID),
+			StartedAt:   a.getStart(execID),
 			CompletedAt: &fin,
 			Metadata:    map[string]any{"flow_id": flowID},
 		})
 	}()
 
-	return planID, nil
+	return execID, nil
 }
 
 func (a *Agent) Stream(ctx context.Context, flowID string, params flowschema.Context, meta agentschema.ExecutionMeta) (*schema.StreamReader[*agentschema.ExecutionResult], error) {
 	if flowID == "" {
 		return nil, fmt.Errorf("flowID 不能为空")
 	}
-	if err := a.ensureResolver(); err != nil {
+	flow, err := a.getOrBuildFlow(flowID)
+	if err != nil {
 		return nil, err
 	}
-	bp, err := a.resolver.Resolve(flowID)
-	if err != nil {
-		return nil, fmt.Errorf("resolve flow(%s) failed: %w", flowID, err)
+	if params == nil {
+		params = flowschema.Context{}
 	}
+	steps := map[string]any{}
+	params["_vars"] = steps
 
-	planID := fmt.Sprintf("%s-%d", meta.RequestID, time.Now().UTC().UnixNano())
+	execID := fmt.Sprintf("%s-%d", meta.RequestID, time.Now().UTC().UnixNano())
 	now := time.Now().UTC()
-	a.setStatus(planID, &agentschema.ExecutionStatus{
-		PlanID:      planID,
+	a.setStatus(execID, &agentschema.ExecutionStatus{
+		PlanID:      execID,
 		Status:      "running",
 		Progress:    0,
 		CurrentStep: "start",
@@ -296,32 +355,27 @@ func (a *Agent) Stream(ctx context.Context, flowID string, params flowschema.Con
 	go func() {
 		defer sw.Close()
 
-		// start 帧
-		start := &agentschema.ExecutionResult{
+		_ = sw.Send(&agentschema.ExecutionResult{
 			Success:   true,
 			Data:      flowschema.Result{"message": "start"},
 			Duration:  0,
 			StepID:    "start",
 			Timestamp: time.Now().UTC().Unix(),
-			Metadata:  flowschema.Result{"flow_id": flowID, "plan_id": planID, "is_final": false},
-		}
-		if sw.Send(start, nil) {
-			return
-		}
+			Metadata:  flowschema.Result{"flow_id": flowID, "plan_id": execID, "is_final": false},
+		}, nil)
 
-		for i, st := range bp.Nodes {
+		for i := range flow.Nodes {
+			n := flow.Nodes[i]
 			select {
 			case <-ctx.Done():
-				// 通知前端错误
 				_ = sw.Send(nil, ctx.Err())
-				// 更新状态
 				fin := time.Now().UTC()
-				a.setStatus(planID, &agentschema.ExecutionStatus{
-					PlanID:      planID,
+				a.setStatus(execID, &agentschema.ExecutionStatus{
+					PlanID:      execID,
 					Status:      "cancelled",
-					Progress:    float64(i) / float64(max1(len(bp.Nodes))) * 100,
+					Progress:    float64(i) / float64(utils.Max1(len(flow.Nodes))) * 100,
 					CurrentStep: fmt.Sprintf("step-%d", i+1),
-					StartedAt:   a.getStart(planID),
+					StartedAt:   a.getStart(execID),
 					CompletedAt: &fin,
 					Error:       ctx.Err().Error(),
 					Metadata:    map[string]any{"flow_id": flowID},
@@ -330,37 +384,70 @@ func (a *Agent) Stream(ctx context.Context, flowID string, params flowschema.Con
 			default:
 			}
 
-			time.Sleep(200 * time.Millisecond)
-
-			isFinal := (i == len(bp.Nodes)-1)
-			ch := &agentschema.ExecutionResult{
-				Success:   true,
-				Data:      flowschema.Result{"step_use": st.Use, "params": st.Params},
-				Duration:  200 * time.Millisecond,
-				StepID:    fmt.Sprintf("step-%d", i+1),
-				Timestamp: time.Now().UTC().Unix(),
-				Metadata:  flowschema.Result{"flow_id": flowID, "plan_id": planID, "is_final": isFinal},
+			stepKey := fmt.Sprintf("step_%d", i+1)
+			in := mergeCtx(params, n.Params)
+			if m := n.IOInMap(); len(m) > 0 {
+				for toKey, fromPath := range m {
+					if v, ok := getByPathCtx(in, fromPath); ok {
+						in[toKey] = v
+					}
+				}
 			}
-			if sw.Send(ch, nil) {
+
+			exec := a.pickExecutor(n)
+			res, err := exec(ctx, a, flow.FlowID, n, in, meta)
+			if err != nil {
+				_ = sw.Send(nil, err)
+				fin := time.Now().UTC()
+				a.setStatus(execID, &agentschema.ExecutionStatus{
+					PlanID:      execID,
+					Status:      "failed",
+					Progress:    float64(i) / float64(utils.Max1(len(flow.Nodes))) * 100,
+					CurrentStep: stepKey,
+					StartedAt:   a.getStart(execID),
+					CompletedAt: &fin,
+					Error:       err.Error(),
+					Metadata:    map[string]any{"flow_id": flowID},
+				})
 				return
 			}
 
-			// 更新进度
-			a.execMu.Lock()
-			if stt, ok := a.statusByPlan[planID]; ok {
-				stt.Progress = float64(i+1) / float64(max1(len(bp.Nodes))) * 100
-				stt.CurrentStep = ch.StepID
+			if om := n.IOOutMap(); len(om) > 0 && res != nil {
+				for fromKey, toPath := range om {
+					if val, ok := getByPathMap(map[string]any(res), fromKey); ok {
+						setByPathCtx(params, toPath, val)
+					}
+				}
 			}
-			a.execMu.Unlock()
+
+			steps[stepKey] = res
+			params["_last"] = res
+
+			isFinal := (i == len(flow.Nodes)-1)
+			_ = sw.Send(&agentschema.ExecutionResult{
+				Success:   true,
+				Data:      flowschema.Result{"step_kind": n.Kind, "step_use": n.Use, "result": res},
+				Duration:  0,
+				StepID:    stepKey,
+				Timestamp: time.Now().UTC().Unix(),
+				Metadata:  flowschema.Result{"flow_id": flowID, "plan_id": execID, "is_final": isFinal},
+			}, nil)
+
+			a.asyncMu.Lock()
+			if stt, ok := a.statusByExec[execID]; ok {
+				stt.Progress = float64(i+1) / float64(utils.Max1(len(flow.Nodes))) * 100
+				stt.CurrentStep = stepKey
+			}
+			a.asyncMu.Unlock()
 
 			if isFinal {
 				fin := time.Now().UTC()
-				a.setStatus(planID, &agentschema.ExecutionStatus{
-					PlanID:      planID,
+				a.setStatus(execID, &agentschema.ExecutionStatus{
+					PlanID:      execID,
 					Status:      "completed",
 					Progress:    100,
-					CurrentStep: ch.StepID,
-					StartedAt:   a.getStart(planID),
+					CurrentStep: stepKey,
+					StartedAt:   a.getStart(execID),
 					CompletedAt: &fin,
 					Metadata:    map[string]any{"flow_id": flowID},
 				})
@@ -368,39 +455,38 @@ func (a *Agent) Stream(ctx context.Context, flowID string, params flowschema.Con
 			}
 		}
 	}()
-
 	return sr, nil
 }
 
-func (a *Agent) GetExecutionStatus(ctx context.Context, planID string, meta agentschema.ExecutionMeta) (*agentschema.ExecutionStatus, error) {
-	a.execMu.RLock()
-	defer a.execMu.RUnlock()
-	if st, ok := a.statusByPlan[planID]; ok {
+func (a *Agent) GetExecutionStatus(ctx context.Context, executionID string, meta agentschema.ExecutionMeta) (*agentschema.ExecutionStatus, error) {
+	a.asyncMu.RLock()
+	defer a.asyncMu.RUnlock()
+	if st, ok := a.statusByExec[executionID]; ok {
 		cp := *st
 		return &cp, nil
 	}
-	return nil, fmt.Errorf("plan not found: %s", planID)
+	return nil, fmt.Errorf("plan not found: %s", executionID)
 }
 
-func (a *Agent) CancelExecution(ctx context.Context, planID string, meta agentschema.ExecutionMeta) error {
-	a.execMu.Lock()
-	defer a.execMu.Unlock()
-	if st, ok := a.statusByPlan[planID]; ok {
+func (a *Agent) CancelExecution(ctx context.Context, executionID string, meta agentschema.ExecutionMeta) error {
+	a.asyncMu.Lock()
+	defer a.asyncMu.Unlock()
+	if st, ok := a.statusByExec[executionID]; ok {
 		now := time.Now().UTC()
 		st.Status = "cancelled"
 		st.CompletedAt = &now
 		return nil
 	}
-	return fmt.Errorf("plan not found: %s", planID)
+	return fmt.Errorf("plan not found: %s", executionID)
 }
 
-func (a *Agent) GetExecutionResult(ctx context.Context, planID string, meta agentschema.ExecutionMeta) (*agentschema.ExecutionResult, error) {
-	a.execMu.RLock()
-	defer a.execMu.RUnlock()
-	if r, ok := a.resultByPlan[planID]; ok {
+func (a *Agent) GetExecutionResult(ctx context.Context, executionID string, meta agentschema.ExecutionMeta) (*agentschema.ExecutionResult, error) {
+	a.asyncMu.RLock()
+	defer a.asyncMu.RUnlock()
+	if r, ok := a.resultByExec[executionID]; ok {
 		return r, nil
 	}
-	return nil, fmt.Errorf("plan result not found: %s", planID)
+	return nil, fmt.Errorf("plan result not found: %s", executionID)
 }
 
 func (a *Agent) GetMetrics(ctx context.Context, meta agentschema.ExecutionMeta) (flowschema.Result, error) {
@@ -411,28 +497,230 @@ func (a *Agent) GetMetrics(ctx context.Context, meta agentschema.ExecutionMeta) 
 func (a *Agent) Health(ctx context.Context) error   { return nil }
 func (a *Agent) Shutdown(ctx context.Context) error { return nil }
 
-/* ------------ helpers ------------ */
+/* ================= 分派 & 内置执行器 ================= */
+
+func (a *Agent) pickExecutor(n *flowschema.Node) NodeExec {
+	// 先按 use（系统内部函数）
+	if u := strings.TrimSpace(n.Use); u != "" {
+		a.execMu.RLock()
+		fn := a.useExecs[u]
+		a.execMu.RUnlock()
+		if fn != nil {
+			return fn
+		}
+	}
+	// 再按 kind（小写）
+	key := strings.ToLower(strings.TrimSpace(n.Kind))
+	a.execMu.RLock()
+	fn := a.kindExecs[key]
+	a.execMu.RUnlock()
+	if fn != nil {
+		return fn
+	}
+	return execEcho("default")
+}
+
+func execNoop(tag string) NodeExec {
+	return func(ctx context.Context, a *Agent, curFlowID string, node *flowschema.Node, in flowschema.Context, meta agentschema.ExecutionMeta) (flowschema.Result, error) {
+		return flowschema.Result{"tag": tag, "kind": node.Kind, "use": node.Use, "params": node.Params}, nil
+	}
+}
+
+// 最小 selector：params.cond(in.cond) 为真取 then，否则 else
+func execSelector() NodeExec {
+	return func(ctx context.Context, a *Agent, curFlowID string, node *flowschema.Node, in flowschema.Context, meta agentschema.ExecutionMeta) (flowschema.Result, error) {
+		var cond bool
+		if v, ok := node.Params["cond"]; ok {
+			switch vv := v.(type) {
+			case bool:
+				cond = vv
+			case string:
+				cond = strings.EqualFold(vv, "true") || vv == "1" || strings.EqualFold(vv, "yes")
+			default:
+				cond = vv != nil
+			}
+		} else if v, ok := in["cond"]; ok {
+			if b, okb := v.(bool); okb {
+				cond = b
+			}
+		}
+		thenV, _ := node.Params["then"]
+		elseV, _ := node.Params["else"]
+		selected := elseV
+		branch := "else"
+		if cond {
+			selected = thenV
+			branch = "then"
+		}
+		return flowschema.Result{
+			"branch":   branch,
+			"selected": selected,
+			"cond":     cond,
+		}, nil
+	}
+}
+
+func execEcho(tag string) NodeExec {
+	return func(ctx context.Context, a *Agent, curFlowID string, node *flowschema.Node, in flowschema.Context, meta agentschema.ExecutionMeta) (flowschema.Result, error) {
+		return flowschema.Result{"tag": tag, "kind": node.Kind, "use": node.Use, "params": node.Params, "input": in}, nil
+	}
+}
+
+func execLLM(a *Agent) NodeExec {
+	return func(ctx context.Context, _ *Agent, curFlowID string, node *flowschema.Node, in flowschema.Context, meta agentschema.ExecutionMeta) (flowschema.Result, error) {
+		// prompt 优先级：node.params.prompt > in.message
+		var prompt string
+		if s, ok := node.Params["prompt"].(string); ok && strings.TrimSpace(s) != "" {
+			prompt = s
+		} else if s, ok := in["message"].(string); ok {
+			prompt = s
+		}
+		if strings.TrimSpace(prompt) == "" {
+			return flowschema.Result{"content": ""}, nil
+		}
+		mc := llm.MergeConfig(a.config.LLMConfig, nil)
+		cli, err := llm.NewClient(mc.Provider)
+		if err != nil {
+			return nil, fmt.Errorf("llm provider init failed: %w", err)
+		}
+		content, callErr := cli.ChatOnce(ctx, mc, prompt)
+		if callErr != nil {
+			return flowschema.Result{"content": "", "llm_error": callErr.Error()}, nil
+		}
+		return flowschema.Result{"content": content}, nil
+	}
+}
+
+// 子工作流：use 或 params.flow_id 指定子 flow
+func execWorkflow(a *Agent) NodeExec {
+	return func(ctx context.Context, _ *Agent, curFlowID string, node *flowschema.Node, in flowschema.Context, meta agentschema.ExecutionMeta) (flowschema.Result, error) {
+		childID := strings.TrimSpace(node.Use)
+		if childID == "" {
+			if v, ok := node.Params["flow_id"].(string); ok {
+				childID = strings.TrimSpace(v)
+			}
+		}
+		if childID == "" {
+			return nil, fmt.Errorf("workflow node missing flow_id (use or params.flow_id)")
+		}
+		// 仅应用显式别名；不做任何字符串替换
+		if alt, ok := a.aliasOf(childID); ok {
+			childID = alt
+		}
+
+		// 子流入参 = 父 in + 节点 params（节点覆盖）
+		childIn := mergeCtx(in, node.Params)
+		childIn["_caller_flow"] = curFlowID
+
+		res, err := a.Invoke(ctx, childID, childIn, meta)
+		if err != nil {
+			return nil, fmt.Errorf("invoke subflow(%s) failed: %w", childID, err)
+		}
+		out := flowschema.Result{
+			"child_flow": childID,
+			"child_out":  res.Data,
+		}
+		if id, ok := res.Data["id"]; ok {
+			out["child_id"] = id
+		}
+		return out, nil
+	}
+}
+
+/* ================= async helpers ================= */
 
 func (a *Agent) setStatus(id string, st *agentschema.ExecutionStatus) {
-	a.execMu.Lock()
-	defer a.execMu.Unlock()
+	a.asyncMu.Lock()
+	defer a.asyncMu.Unlock()
 	cp := *st
-	a.statusByPlan[id] = &cp
+	a.statusByExec[id] = &cp
 }
 
 func (a *Agent) setResult(id string, r *agentschema.ExecutionResult) {
-	a.execMu.Lock()
-	defer a.execMu.Unlock()
-	a.resultByPlan[id] = r
+	a.asyncMu.Lock()
+	defer a.asyncMu.Unlock()
+	a.resultByExec[id] = r
 }
 
 func (a *Agent) getStart(id string) *time.Time {
-	a.execMu.RLock()
-	defer a.execMu.RUnlock()
-	if st, ok := a.statusByPlan[id]; ok {
+	a.asyncMu.RLock()
+	defer a.asyncMu.RUnlock()
+	if st, ok := a.statusByExec[id]; ok {
 		return st.StartedAt
 	}
 	return nil
+}
+
+/* ================= 小工具（支持 IO.InMap/OutMap 点路径） ================= */
+
+func mergeCtx(base flowschema.Context, overlay map[string]any) flowschema.Context {
+	out := flowschema.Context{}
+	for k, v := range base {
+		out[k] = v
+	}
+	for k, v := range overlay {
+		out[k] = v
+	}
+	return out
+}
+
+func getByPathCtx(ctx flowschema.Context, path string) (any, bool) {
+	// 允许从 ctx 根取，也允许从 _vars（步骤结果）取
+	if v, ok := getByPathMap(map[string]any(ctx), path); ok {
+		return v, true
+	}
+	// 兼容简写：当 path 以 "step_" 开头时，自动从 _vars 下取
+	if strings.HasPrefix(path, "step_") {
+		if vars, _ := ctx["_vars"].(map[string]any); vars != nil {
+			return getByPathMap(vars, path)
+		}
+	}
+	return nil, false
+}
+
+func getByPathMap(m map[string]any, path string) (any, bool) {
+	cur := any(m)
+	for _, p := range strings.Split(path, ".") {
+		obj, ok := cur.(map[string]any)
+		if !ok {
+			return nil, false
+		}
+		nxt, ok := obj[p]
+		if !ok {
+			return nil, false
+		}
+		cur = nxt
+	}
+	return cur, true
+}
+
+func setByPathCtx(ctx flowschema.Context, path string, val any) {
+	parts := strings.Split(path, ".")
+	if len(parts) == 0 {
+		return
+	}
+	cur := map[string]any(ctx)
+	for i, p := range parts {
+		if i == len(parts)-1 {
+			cur[p] = val
+			return
+		}
+		nxt, ok := cur[p]
+		if !ok {
+			nm := map[string]any{}
+			cur[p] = nm
+			cur = nm
+			continue
+		}
+		asMap, ok := nxt.(map[string]any)
+		if !ok {
+			nm := map[string]any{}
+			cur[p] = nm
+			cur = nm
+			continue
+		}
+		cur = asMap
+	}
 }
 
 func errMsg(err error, res *agentschema.ExecutionResult) string {
@@ -445,9 +733,30 @@ func errMsg(err error, res *agentschema.ExecutionResult) string {
 	return ""
 }
 
-func max1(n int) int {
-	if n <= 0 {
-		return 1
+// LoadFlowAliases 从 JSON 或 YAML 文件加载别名映射：{"from":"to", ...}
+// 需要：YAML 需要 gopkg.in/yaml.v3（如果项目里已有）
+func (a *Agent) LoadFlowAliases(path string) error {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return fmt.Errorf("read alias file failed: %w", err)
 	}
-	return n
+	var m map[string]string
+
+	switch {
+	case strings.HasSuffix(strings.ToLower(path), ".json"):
+		if err := json.Unmarshal(b, &m); err != nil {
+			return fmt.Errorf("parse json failed: %w", err)
+		}
+	case strings.HasSuffix(strings.ToLower(path), ".yaml"), strings.HasSuffix(strings.ToLower(path), ".yml"):
+		type YAML map[string]string
+		var y YAML
+		if err := yaml.Unmarshal(b, &y); err != nil {
+			return fmt.Errorf("parse yaml failed: %w", err)
+		}
+		m = map[string]string(y)
+	default:
+		return fmt.Errorf("unsupported alias file ext (use .json/.yaml)")
+	}
+	a.SetFlowAliases(m)
+	return nil
 }

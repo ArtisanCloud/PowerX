@@ -12,6 +12,8 @@ type Flow struct {
 
 	Nodes []*Node `yaml:"nodes" json:"nodes"`                     // 节点列表
 	Edges []*Edge `yaml:"edges,omitempty" json:"edges,omitempty"` // 可选：节点连边
+
+	Ref *RefSpec `yaml:"ref,omitempty"`
 }
 
 type Edge struct {
@@ -34,6 +36,7 @@ type FlowMetadata struct {
 	IsPublic    bool              `yaml:"is_public,omitempty" json:"is_public,omitempty"`
 	ExtraInfo   map[string]string `yaml:"extra_info,omitempty" json:"extra_info,omitempty"`
 	Intent      *IntentSpec       `yaml:"intent,omitempty"` // 意图配置（可省略）
+
 }
 
 // ============ IO ============
@@ -51,7 +54,17 @@ type ParamSpec struct {
 	Description string `yaml:"description,omitempty" json:"description,omitempty"`
 }
 
-// ============ Intent ============
+// ============ Ref ============
+type RefSpec struct {
+	Enable         bool   `yaml:"enable"`
+	Target         string `yaml:"target"`
+	Variant        string `yaml:"variant,omitempty"`
+	RegisterIntent bool   `yaml:"register_intent,omitempty"`
+	Overrides      struct {
+		Metadata *FlowMetadata `yaml:"metadata,omitempty"`
+		// 如果还要覆盖 nodes/params 等，继续加字段
+	} `yaml:"overrides,omitempty"`
+}
 
 // ============ Slot ============
 

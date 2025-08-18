@@ -2,8 +2,9 @@ package config
 
 import (
 	"fmt"
+	dbCfg "github.com/ArtisanCloud/PowerX/pkg/corex/db"
 	logCfg "github.com/ArtisanCloud/PowerX/pkg/utils/logger/config"
-	"github.com/ArtisanCloud/PowerX/services/agent/config"
+	agentCfg "github.com/ArtisanCloud/PowerX/services/agent/config"
 	mcpCfg "github.com/ArtisanCloud/PowerX/services/mcp/config"
 	"log"
 	"os"
@@ -45,15 +46,15 @@ func GetGlobalConfig() *Config {
 
 // CoreX 全局配置
 type Config struct {
-	Server      ServerConfig       `yaml:"server"`       // HTTP/gRPC 监听与行为
-	Auth        AuthConfig         `yaml:"auth"`         // JWT / 认证相关
-	EventBus    EventBusConfig     `yaml:"event_bus"`    // 事件总线（local/redis）
-	LowCode     LowCodeConfig      `yaml:"dynamic_form"` // flow 执行相关
-	FeatureGate FeatureGateConfig  `yaml:"feature_gate"` // 细粒度开关、license
-	Database    DatabaseConfig     `yaml:"database"`     // 数据库配置
-	LogConfig   logCfg.LogConfig   `yaml:"log"`          // 输出配置
-	Agent       config.AgentConfig `yaml:"agent"`        // 智能体工具注册/限流等
-	MCP         mcpCfg.MCPConfig   `yaml:"mcp"`          // MCP 服务器配置
+	Server      ServerConfig         `yaml:"server"`       // HTTP/gRPC 监听与行为
+	Auth        AuthConfig           `yaml:"auth"`         // JWT / 认证相关
+	EventBus    EventBusConfig       `yaml:"event_bus"`    // 事件总线（local/redis）
+	LowCode     LowCodeConfig        `yaml:"dynamic_form"` // flow 执行相关
+	FeatureGate FeatureGateConfig    `yaml:"feature_gate"` // 细粒度开关、license
+	Database    dbCfg.DatabaseConfig `yaml:"database"`     // 数据库配置
+	LogConfig   logCfg.LogConfig     `yaml:"log"`          // 输出配置
+	Agent       agentCfg.AgentConfig `yaml:"agent"`        // 智能体工具注册/限流等
+	MCP         mcpCfg.MCPConfig     `yaml:"mcp"`          // MCP 服务器配置
 }
 
 // HTTP服务器配置
@@ -90,22 +91,6 @@ type LowCodeConfig struct {
 // 功能开关配置
 type FeatureGateConfig struct {
 	LicenseKey string `yaml:"license_key"` // license 或灰度控制 token
-}
-
-// 数据库配置
-type DatabaseConfig struct {
-	Host                   string `yaml:"host"`                      // 数据库主机地址
-	Port                   int    `yaml:"port"`                      // 数据库端口
-	Username               string `yaml:"username"`                  // 数据库用户名
-	Password               string `yaml:"password"`                  // 数据库密码
-	Database               string `yaml:"database"`                  // 数据库名称
-	SSLMode                string `yaml:"ssl_mode"`                  // SSL模式（disable/require等）
-	Timezone               string `yaml:"timezone"`                  // 时区设置
-	TablePrefix            string `yaml:"table_prefix"`              // 表前缀
-	MaxIdleConns           int    `yaml:"max_idle_conns"`            // 最大空闲连接数
-	MaxOpenConns           int    `yaml:"max_open_conns"`            // 最大打开连接数
-	ConnMaxLifetimeMinutes int    `yaml:"conn_max_lifetime_minutes"` // 连接最大生命周期（分钟）
-	LogLevel               string `yaml:"log_level"`                 // 日志级别（silent/error/warn/info）
 }
 
 // Load 加载配置文件并合并环境变量

@@ -4,6 +4,7 @@ package agent
 import (
 	"errors"
 	"fmt"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/flow/run_log"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/flow/schemas"
 	"github.com/ArtisanCloud/PowerX/services/agent/contract"
 	"github.com/ArtisanCloud/PowerX/services/agent/handler"
@@ -44,6 +45,9 @@ type Manager struct {
 
 	// Handler注册器
 	handlerReg *handler.HandlerRegistry
+
+	// 事件记录
+	runLog run_log.RunLogger
 }
 
 // —— 单例 —— //
@@ -64,6 +68,14 @@ func NewAgentManager() *Manager {
 func GetAgentManager() *Manager {
 	once.Do(func() { agentManager = NewAgentManager() })
 	return agentManager
+}
+
+func (m *Manager) SetRunLogger(l run_log.RunLogger) { m.runLog = l }
+func (m *Manager) log() run_log.RunLogger {
+	if m.runLog == nil {
+		return &noopRunLogger{}
+	}
+	return m.runLog
 }
 
 // —— Agent 注册 / 默认路由 —— //

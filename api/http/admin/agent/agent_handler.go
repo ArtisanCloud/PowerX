@@ -67,6 +67,7 @@ func AgentStatusHandler(c *gin.Context) {
 		},
 	}
 	dto.ResponseSuccess(c, resp)
+	return
 }
 
 // /api/agents/intent  支持单意图(默认) 或 多任务(?multi=1)
@@ -117,6 +118,7 @@ func AgentIntentHandler(c *gin.Context) {
 		Intent:    intent,
 		Debug:     map[string]any{"strategy": intent.Strategy, "score": intent.Score, "agent_id": intent.AgentID, "flow_id": intent.FlowID},
 	})
+	return
 }
 
 // /api/agent/intent/plan 仅识别并生成计划（dry-run），不执行
@@ -163,4 +165,5 @@ func AgentPlanPreviewHandler(c *gin.Context) {
 		"plan":  plan,
 		"tasks": tasks,
 	})
+	return
 }

@@ -1,10 +1,10 @@
 package modelForm
 
 import (
+	"github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
 	"time"
 
 	"gorm.io/datatypes"
-	"gorm.io/gorm"
 )
 
 // FormSchemaRecord 持久化表单 schema（支持版本/回滚）
@@ -19,6 +19,18 @@ type FormSchemaRecord struct {
 	UpdatedAt   time.Time
 }
 
+func (mdl *FormSchemaRecord) TableName() string {
+	return model.PowerXSchema + "." + TableFormSchemaRecord
+}
+
+func (mdl *FormSchemaRecord) GetTableName(needFull bool) string {
+	tableName := TableFormSchemaRecord
+	if needFull {
+		tableName = mdl.TableName()
+	}
+	return tableName
+}
+
 // FormSubmission 记录每次表单提交
 type FormSubmission struct {
 	ID           string         `gorm:"primaryKey;type:varchar(128)"`
@@ -30,10 +42,14 @@ type FormSubmission struct {
 	CreatedAt    time.Time
 }
 
-// AutoMigrate 执行迁移
-func AutoMigrate(db *gorm.DB) error {
-	return db.AutoMigrate(
-		&FormSchemaRecord{},
-		&FormSubmission{},
-	)
+func (mdl *FormSubmission) TableName() string {
+	return model.PowerXSchema + "." + TableFormSubmission
+}
+
+func (mdl *FormSubmission) GetTableName(needFull bool) string {
+	tableName := TableFormSubmission
+	if needFull {
+		tableName = mdl.TableName()
+	}
+	return tableName
 }

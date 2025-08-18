@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/flow"
 	flowschema "github.com/ArtisanCloud/PowerX/pkg/corex/flow/schemas"
+	"github.com/ArtisanCloud/PowerX/pkg/utils"
 	"github.com/ArtisanCloud/PowerX/services/agent/contract"
 	aschema "github.com/ArtisanCloud/PowerX/services/agent/schemas"
 	"sort"
@@ -53,6 +55,9 @@ func (m *Manager) ExecutePlan(ctx context.Context, plan flowschema.ExecutionPlan
 		return nil, errors.New("empty plan")
 	}
 
+	inSan := aschema.NewSanitizer(aschema.LogInputPolicy())
+	outSan := aschema.NewSanitizer(aschema.ResultSummaryPolicy())
+
 	// 计划级超时
 	var cancel context.CancelFunc
 	if mt.Timeout > 0 {
@@ -62,10 +67,20 @@ func (m *Manager) ExecutePlan(ctx context.Context, plan flowschema.ExecutionPlan
 	}
 	defer cancel()
 
-	// 结果存储（既可按 taskID 取，也能按 flowID 取“最近一次”）
-	results := aschema.NewResultStore()
+	results := aschema.NewResultStore() // 你自己的并发安全结果仓库
 
-	// Stage 分组并升序执行
+	// ---- 运行日志：PlanStart ----
+	m.log().PlanStart(ctx, flow.AgentTaskEvent{
+		PlanID:     plan.PlanID,
+		Kind:       "plan.start",
+		TenantID:   mt.TenantID,
+		UserID:     mt.UserID,
+		CustomerID: mt.CustomerID,
+		Ts:         time.Now(),
+		Meta:       utils.J(map[string]any{"trace_id": mt.TraceID, "request_id": mt.RequestID}),
+	})
+
+	// Stage 分组并升序
 	stageMap := map[int][]flowschema.PlanTask{}
 	var stages []int
 	for _, t := range plan.Tasks {
@@ -76,78 +91,135 @@ func (m *Manager) ExecutePlan(ctx context.Context, plan flowschema.ExecutionPlan
 	}
 	sort.Ints(stages)
 
-	var last *aschema.ExecutionResult
+	var finalOut *aschema.ExecutionResult
 
 	for _, s := range stages {
-		eg, egCtx := errgroup.WithContext(ctx)
 		stageTasks := stageMap[s]
+		stageOut := make([]*aschema.ExecutionResult, len(stageTasks))
 
+		eg, egCtx := errgroup.WithContext(ctx)
 		for i := range stageTasks {
-			task := stageTasks[i] // 避免闭包变量问题
+			i := i
+			task := stageTasks[i]
 
 			eg.Go(func() error {
-				// 1) 路由到 Agent
-				ag, _, err := m.resolveAgentForTask(task)
+				// 路由到 Agent
+				ag, agID, err := m.resolveAgentForTask(task)
 				if err != nil {
+					// 任务级错误日志
+					m.log().TaskErr(egCtx, flow.AgentTaskEvent{
+						PlanID: plan.PlanID, TaskID: task.TaskID, FlowID: task.FlowID, Stage: task.Stage,
+						AgentID: agID, Kind: "task.err", TenantID: mt.TenantID, UserID: mt.UserID, CustomerID: mt.CustomerID,
+						Ts: time.Now(), Error: err.Error(),
+					})
 					return fmt.Errorf("resolve agent for task(%s/%s) failed: %w", task.TaskID, task.FlowID, err)
 				}
 
-				// 2) 构造最终入参：Params + ParamRefs(模板) 物化
-				finalParams := make(map[string]interface{}, len(task.Params))
+				// 参数物化
+				finalParams := make(map[string]any, len(task.Params))
 				for k, v := range task.Params {
 					finalParams[k] = v
 				}
 
-				// 注入依赖输出，便于 flow 内直接取用
-				depMap := results.GetMany(task.DependsOn) // map[taskID]*ExecutionResult
+				depMap := results.GetMany(task.DependsOn)
 				ctxVars := make(flowschema.Context, len(finalParams)+2)
 				ctxVars["_deps"] = depMap
 
-				// 解析 ParamRefs：如 {"lead_id": "{{task.s1.output.id}}"} 或 {"lead_id": "{{task.lead_create.output.id}}"}
 				for pk, ref := range task.ParamRefs {
 					val, ok, rerr := aschema.ResolveParamRef(ref, results, task)
 					if rerr != nil {
+						m.log().TaskErr(egCtx, flow.AgentTaskEvent{
+							PlanID: plan.PlanID, TaskID: task.TaskID, FlowID: task.FlowID, Stage: task.Stage,
+							AgentID: agID, Kind: "task.err", TenantID: mt.TenantID, UserID: mt.UserID, CustomerID: mt.CustomerID,
+							Ts: time.Now(), Error: fmt.Sprintf("param_ref(%s): %v", pk, rerr),
+							Input: inSan.JSON(finalParams),
+						})
 						return fmt.Errorf("param_ref resolve error (%s:%s): %w", task.TaskID, pk, rerr)
 					}
 					if !ok {
+						m.log().TaskErr(egCtx, flow.AgentTaskEvent{
+							PlanID: plan.PlanID, TaskID: task.TaskID, FlowID: task.FlowID, Stage: task.Stage,
+							AgentID: agID, Kind: "task.err", TenantID: mt.TenantID, UserID: mt.UserID, CustomerID: mt.CustomerID,
+							Ts: time.Now(), Error: fmt.Sprintf("param_ref not found (%s)", ref),
+							Input: inSan.JSON(finalParams),
+						})
 						return fmt.Errorf("param_ref not found (%s:%s) => %s", task.TaskID, pk, ref)
 					}
 					finalParams[pk] = val
 				}
-
-				// 把最终参数放进 ctxVars（flow 侧按键取用）
 				for k, v := range finalParams {
 					ctxVars[k] = v
 				}
 
-				// 3) 执行
+				// 任务开始日志
 				start := time.Now()
+				m.log().TaskStart(egCtx, flow.AgentTaskEvent{
+					PlanID: plan.PlanID, TaskID: task.TaskID, FlowID: task.FlowID, Stage: task.Stage,
+					AgentID: agID, Kind: "task.start", TenantID: mt.TenantID, UserID: mt.UserID, CustomerID: mt.CustomerID,
+					Ts: start, Input: inSan.JSON(finalParams),
+				})
+
+				// 执行
 				out, err := ag.Invoke(egCtx, task.FlowID, ctxVars, mt)
+				dur := time.Since(start).Milliseconds()
 				if err != nil {
+					m.log().TaskErr(egCtx, flow.AgentTaskEvent{
+						PlanID: plan.PlanID, TaskID: task.TaskID, FlowID: task.FlowID, Stage: task.Stage,
+						AgentID: agID, Kind: "task.err", TenantID: mt.TenantID, UserID: mt.UserID, CustomerID: mt.CustomerID,
+						Ts: time.Now(), DurationMS: dur, Error: err.Error(),
+					})
 					return fmt.Errorf("invoke flow(%s) failed: %w", task.FlowID, err)
 				}
 				if out != nil {
-					// 补充一些常用 metadata
 					if out.Metadata == nil {
 						out.Metadata = flowschema.Result{}
 					}
 					out.Metadata["task_id"] = task.TaskID
 					out.Metadata["flow_id"] = task.FlowID
-					out.Duration = time.Since(start)
+					out.Duration = time.Duration(dur) * time.Millisecond
 
 					results.Put(task.TaskID, task.FlowID, s, out)
-					last = out
+					stageOut[i] = out
+
+					// 任务成功日志（输出做摘要&去循环）
+					safeOut := outSan.SanitizeResult(out) // 得到瘦身后的 ExecutionResult
+					m.log().TaskOK(egCtx, flow.AgentTaskEvent{
+						PlanID: plan.PlanID, TaskID: task.TaskID, FlowID: task.FlowID, Stage: task.Stage,
+						AgentID: agID, Kind: "task.ok", TenantID: mt.TenantID, UserID: mt.UserID, CustomerID: mt.CustomerID,
+						Ts: time.Now(), DurationMS: dur,
+						Output: outSan.JSON(safeOut.Data),
+						Meta:   outSan.JSON(safeOut.Metadata),
+					})
 				}
 				return nil
 			})
 		}
 
 		if err := eg.Wait(); err != nil {
+			// 计划结束（失败）
+			m.log().PlanEnd(ctx, flow.AgentTaskEvent{
+				PlanID: plan.PlanID, Kind: "plan.end", TenantID: mt.TenantID, UserID: mt.UserID, CustomerID: mt.CustomerID,
+				Ts: time.Now(), Meta: outSan.JSON(map[string]any{"status": "failed", "error": err.Error()}),
+			})
 			return nil, err
+		}
+
+		// 选择“本阶段最后一个非空输出”作为阶段结果（确定性）
+		for i := len(stageOut) - 1; i >= 0; i-- {
+			if stageOut[i] != nil {
+				finalOut = stageOut[i]
+				break
+			}
 		}
 	}
 
-	return last, nil
+	// 计划结束（成功）
+	m.log().PlanEnd(ctx, flow.AgentTaskEvent{
+		PlanID: plan.PlanID, Kind: "plan.end", TenantID: mt.TenantID, UserID: mt.UserID, CustomerID: mt.CustomerID,
+		Ts: time.Now(), Meta: outSan.JSON(map[string]any{"status": "completed"}),
+	})
+
+	return finalOut, nil
 }
 
 /*************************

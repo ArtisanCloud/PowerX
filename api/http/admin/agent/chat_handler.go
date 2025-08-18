@@ -34,7 +34,11 @@ func ChatHandler(c *gin.Context) {
 	ctx := c.Request.Context() // ✅ 用 context.Context
 	mgr := agent.GetAgentManager()
 
-	tasks, _ := mgr.DetectTasks(ctx, msg) // ✅ 传 ctx
+	tasks, err := mgr.DetectTasks(ctx, msg) // ✅ 传 ctx
+	if err != nil {
+		dto.ResponseError(c, 500, "意图识别失败", err)
+		return
+	}
 
 	if len(tasks) == 0 {
 		// —— A. 无意图：兜底走默认聊天 Flow —— //
@@ -81,13 +85,17 @@ func ChatHandler(c *gin.Context) {
 		return
 	}
 
+	outSan := agentschema.NewSanitizer(agentschema.ResultSummaryPolicy())
+	safeOut := outSan.SanitizeResult(out) //fmt2.Dump(safeOut)
+
 	dto.ResponseSuccess(c, gin.H{
 		"mode":   "task_execute",
 		"input":  msg,
 		"plan":   plan,
-		"result": out,
+		"result": safeOut,
 		"debug":  gin.H{"task_count": len(tasks)},
 	})
+	return
 }
 
 // StreamChatHandler 流式聊天接口（SSE）

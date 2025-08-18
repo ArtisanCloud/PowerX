@@ -11,10 +11,11 @@ import (
 	intent2 "github.com/ArtisanCloud/PowerX/services/agent/factory/intent"
 	"github.com/ArtisanCloud/PowerX/services/agent/intent"
 	"github.com/ArtisanCloud/PowerX/services/agent/schemas"
+	"gorm.io/gorm"
 	"log"
 )
 
-func InitAgentTools(ctx context.Context, cfg *config.AgentConfig) error {
+func InitAgentTools(ctx context.Context, cfg *config.AgentConfig, db *gorm.DB) error {
 	// 新建Agent Manager
 	gAgentManager := agent.GetAgentManager()
 
@@ -88,6 +89,9 @@ func InitAgentTools(ctx context.Context, cfg *config.AgentConfig) error {
 			//Threshold: 0.6,
 		},
 	}, 0.6, 0.95)
+
+	// 接线 DB RunLogger → Manager
+	WireAgentRunLogger(db)
 
 	return err
 }
