@@ -90,17 +90,8 @@ func (m *managerImpl) Shutdown(ctx context.Context) error {
 
 // ------- 安装与升级（占位，后续里程碑实现） -------
 
-func (m *managerImpl) InstallFromURL(ctx context.Context, url, sha256, signature string, opts plugin_mgr.InstallOptions) (plugin_mgr.Plugin, error) {
-	return plugin_mgr.Plugin{}, plugin_mgr.NewError(plugin_mgr.CodeInternal, plugin_mgr.WithOp("install_url"), plugin_mgr.WithMsg("not implemented"))
-}
-
 func (m *managerImpl) Upgrade(ctx context.Context, id, version string, src plugin_mgr.InstallSource, opts plugin_mgr.InstallOptions) (plugin_mgr.Plugin, error) {
 	return plugin_mgr.Plugin{}, plugin_mgr.NewError(plugin_mgr.CodeInternal, plugin_mgr.WithOp("upgrade"), plugin_mgr.WithMsg("not implemented"))
-}
-
-// ------- 生命周期（占位，后续里程碑实现） -------
-func (m *managerImpl) Uninstall(ctx context.Context, id string, versionOptional ...string) error {
-	return plugin_mgr.NewError(plugin_mgr.CodeInternal, plugin_mgr.WithOp("uninstall"), plugin_mgr.WithPlugin(id), plugin_mgr.WithMsg("not implemented"))
 }
 
 // ------- 查询（先走 Registry，保证可用） -------

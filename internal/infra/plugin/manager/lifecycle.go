@@ -2,12 +2,21 @@ package manager
 
 import (
 	"context"
-	"github.com/ArtisanCloud/PowerX/pkg/plugin_mgr"
+	"fmt"
+	"io"
+	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/ArtisanCloud/PowerX/internal/infra/plugin/manager/supervisor"
+	"github.com/ArtisanCloud/PowerX/pkg/plugin_mgr"
 )
 
+// Enable: 启用插件 = (挂 Admin 静态) + (启动进程并健康检查) + (挂 API 反代) + (更新注册表)
 func (m *managerImpl) Enable(ctx context.Context, id string) error {
 	p, err := m.mustGet(ctx, id)
 	if err != nil {
@@ -25,8 +34,6 @@ func (m *managerImpl) Enable(ctx context.Context, id string) error {
 		}
 		if fi, err := os.Stat(absDir); err == nil && fi.IsDir() {
 			m.http.MountAdminStatic(p.ID, absDir)
-		} else {
-			// 目录不存在不致命；如果你想严格要求，可以这里返回错误
 		}
 	}
 
@@ -35,19 +42,40 @@ func (m *managerImpl) Enable(ctx context.Context, id string) error {
 		if m.sup == nil {
 			return plugin_mgr.NewError(plugin_mgr.CodeInternal, plugin_mgr.WithOp("enable"), plugin_mgr.WithMsg("supervisor not initialized"))
 		}
-		// 起
-		h, err := m.sup.Start(ctx, p.ID, p.Paths.Entry, p.Runtime.Args, p.Runtime.Env, 0)
+
+		// 从 manifest.Health 组装 supervisor 选项
+		h := p.Runtime.Health
+		healthPath := firstNonEmpty(h.HTTPPath, "/healthz")
+		supOpts := supervisor.Options{
+			HealthPath:     healthPath,
+			HealthInterval: parseDurDefault(h.Interval, 2*time.Second),
+			HealthTimeout:  parseDurDefault(h.Timeout, 1*time.Second),
+			AutoRestart:    true,
+			BackoffBase:    time.Second,
+			BackoffMax:     10 * time.Second,
+		}
+
+		// 启动子进程（自动分配端口，PORT 注入）
+		envMap := envListToMap(p.Runtime.Env)
+		port, err := m.sup.Start(ctx, p.ID, p.Paths.Entry, p.Runtime.Args, envMap, supOpts)
 		if err != nil {
 			return plugin_mgr.Wrap(plugin_mgr.CodeProcessStartFailed, err, plugin_mgr.WithOp("enable"), plugin_mgr.WithPlugin(id))
 		}
-		// 探活（runtime.health.http 为空则立即通过）
-		if err := m.waitHealthy(ctx, h.BaseURL, p.Runtime.Health.HTTPPath, p.Runtime.Health.Interval, p.Runtime.Health.Timeout); err != nil {
-			_ = m.sup.Stop(ctx, p.ID)
+		baseURL := "http://127.0.0.1:" + strconv.Itoa(port)
+
+		// 健康探活（等待到 healthy 再对外挂载）
+		if err := waitHealthy(ctx, baseURL, healthPath, supOpts.HealthInterval, supOpts.HealthTimeout); err != nil {
+			_ = m.sup.Stop(p.ID)
 			return plugin_mgr.Wrap(plugin_mgr.CodeHealthcheckFailed, err, plugin_mgr.WithOp("enable"), plugin_mgr.WithPlugin(id))
 		}
-		// 反代
-		u, _ := url.Parse(h.BaseURL)
-		m.http.MountAPIProxy(p.ID, u, p.Endpoints.HTTPBasePath) // 注意：router 里不会再用 basePath 叠加路径
+
+		// 反向代理挂载
+		u, _ := url.Parse(baseURL)
+		basePath := p.Endpoints.HTTPBasePath
+		if basePath == "" {
+			basePath = "/"
+		}
+		m.http.MountAPIProxy(p.ID, u, basePath)
 	}
 
 	// 3) 状态落盘
@@ -57,6 +85,7 @@ func (m *managerImpl) Enable(ctx context.Context, id string) error {
 	return m.opts.Registry.Save(ctx)
 }
 
+// Disable: 停用插件 = (卸载路由) + (停进程) + (更新注册表)
 func (m *managerImpl) Disable(ctx context.Context, id string) error {
 	p, err := m.mustGet(ctx, id)
 	if err != nil {
@@ -66,12 +95,12 @@ func (m *managerImpl) Disable(ctx context.Context, id string) error {
 		return plugin_mgr.NewError(plugin_mgr.CodeInternal, plugin_mgr.WithOp("disable"), plugin_mgr.WithMsg("dynamic router not initialized"))
 	}
 
-	// 卸载路由
+	// 卸载路由（Admin+API 一键摘掉）
 	m.http.Unmount(p.ID)
 
 	// 停止子进程（如有）
 	if p.Runtime.Kind == plugin_mgr.RuntimeKindProcess && m.sup != nil {
-		_ = m.sup.Stop(ctx, p.ID)
+		_ = m.sup.Stop(p.ID) // 注意：新版 Stop(id string) 无 ctx
 	}
 
 	if err := m.opts.Registry.UpdateState(ctx, p.ID, p.Version, plugin_mgr.StateDisabled); err != nil {
@@ -87,4 +116,81 @@ func (m *managerImpl) mustGet(ctx context.Context, id string) (plugin_mgr.Plugin
 		return plugin_mgr.Plugin{}, plugin_mgr.NewError(plugin_mgr.CodeNotFound, plugin_mgr.WithOp("get"), plugin_mgr.WithPlugin(id))
 	}
 	return p, nil
+}
+
+// ======== 辅助函数 ========
+
+func firstNonEmpty(s, fallback string) string {
+	if strings.TrimSpace(s) != "" {
+		return s
+	}
+	return fallback
+}
+
+// Interval/Timeout 在 manifest 里是 string（"2s"），这里解析；解析失败用默认值
+func parseDurDefault(s string, d time.Duration) time.Duration {
+	if strings.TrimSpace(s) == "" {
+		return d
+	}
+	v, err := time.ParseDuration(s)
+	if err != nil {
+		return d
+	}
+	return v
+}
+
+// 等待健康：直到返回 2xx 或超时/ctx 结束
+func waitHealthy(ctx context.Context, baseURL, healthPath string, interval, timeout time.Duration) error {
+	if strings.TrimSpace(healthPath) == "" {
+		return nil
+	}
+	if !strings.HasPrefix(healthPath, "/") {
+		healthPath = "/" + healthPath
+	}
+	url := strings.TrimRight(baseURL, "/") + healthPath
+
+	// 总等待上限：优先用 ctx.Deadline，否则给个保底 30s
+	deadline := time.Now().Add(30 * time.Second)
+	if dl, ok := ctx.Deadline(); ok {
+		deadline = dl
+	}
+
+	cli := &http.Client{Timeout: timeout}
+	for time.Now().Before(deadline) {
+		req, _ := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+		resp, err := cli.Do(req)
+		if err == nil && resp != nil && resp.StatusCode >= 200 && resp.StatusCode < 300 {
+			_, _ = io.Copy(io.Discard, resp.Body)
+			_ = resp.Body.Close()
+			return nil
+		}
+		if resp != nil {
+			_, _ = io.Copy(io.Discard, resp.Body)
+			_ = resp.Body.Close()
+		}
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("health check canceled: %w", ctx.Err())
+		case <-time.After(interval):
+		}
+	}
+	return fmt.Errorf("health check timeout for %s", url)
+}
+
+// 将 ["KEY=VAL","FOO=BAR"] 转为 map[string]string，非法项跳过
+func envListToMap(env []string) map[string]string {
+	m := make(map[string]string, len(env))
+	for _, e := range env {
+		if e == "" {
+			continue
+		}
+		if i := strings.IndexByte(e, '='); i > 0 {
+			k := strings.TrimSpace(e[:i])
+			v := e[i+1:]
+			if k != "" {
+				m[k] = v
+			}
+		}
+	}
+	return m
 }

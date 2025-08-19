@@ -17,6 +17,7 @@ type Manager interface {
 	Enable(ctx context.Context, id string) error
 	Disable(ctx context.Context, id string) error
 	Uninstall(ctx context.Context, id string, versionOptional ...string) error
+	UninstallAndPurge(ctx context.Context, id string, versionOptional ...string) error
 
 	// 查询
 	List(ctx context.Context) ([]Plugin, error)

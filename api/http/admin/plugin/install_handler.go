@@ -72,3 +72,48 @@ func PluginSwitchVersionHandler(c *gin.Context) {
 		"state":   p.State,
 	})
 }
+
+// POST /api/admin/plugins/install/url
+// body: {"url":"https://.../com.powerx.demo.hello_world-0.1.2.zip","sha256":"...","enable":true}
+type installURLReq struct {
+	URL    string `json:"url"     validate:"required,url"`
+	SHA256 string `json:"sha256"`    // 可选
+	Enable bool   `json:"enable"`    // 安装后是否启用并切 current
+	Sign   string `json:"signature"` // 可选：预留
+}
+
+func PluginInstallURLHandler(c *gin.Context) {
+	var req installURLReq
+	if err := dtoRequest.ValidateRequestWithContext(c, &req); err != nil {
+		dtoRequest.ResponseValidationError(c, err)
+		return
+	}
+	mgr := mgrimpl.GetPluginManager()
+
+	// 安装（只登记、不自动启用）
+	p, err := mgr.InstallFromURL(c, req.URL, req.SHA256, req.Sign, plugin_mgr.InstallOptions{
+		VerifyChecksum:  req.SHA256 != "", // 传了就校验
+		VerifySignature: false,            // 先关；后续接公钥再开
+	})
+	if err != nil {
+		dtoRequest.ResponseError(c, plugin_mgr.HTTPStatusOf(plugin_mgr.CodeOf(err)), "安装失败", err)
+		return
+	}
+
+	// 可选：安装完切换并启用该版本
+	if req.Enable {
+		if _, err := mgr.SwitchVersion(c, p.ID, p.Version, true); err != nil {
+			dtoRequest.ResponseError(c, plugin_mgr.HTTPStatusOf(plugin_mgr.CodeOf(err)), "安装成功但启用失败", err)
+			return
+		}
+	}
+
+	dtoRequest.ResponseSuccess(c, gin.H{
+		"installed": gin.H{
+			"id":      p.ID,
+			"version": p.Version,
+			"state":   string(p.State),
+		},
+		"enabled": req.Enable,
+	})
+}

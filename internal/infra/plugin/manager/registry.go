@@ -21,6 +21,7 @@ type Registry interface {
 
 	Get(ctx context.Context, id string) (plugin_mgr.Plugin, bool)
 	List(ctx context.Context) []plugin_mgr.Plugin
+	GetVersion(ctx context.Context, id, version string) (plugin_mgr.Plugin, bool)
 	CurrentVersion(ctx context.Context, id string) (string, bool)
 	// 判断版本是否已安装
 	HasVersion(ctx context.Context, id, version string) bool
@@ -215,6 +216,32 @@ func (r *JSONRegistry) List(ctx context.Context) []plugin_mgr.Plugin {
 		}
 	}
 	return out
+}
+
+// GetVersion: 读取指定 id@version 的完整信息（含 Paths）
+func (r *JSONRegistry) GetVersion(ctx context.Context, id, version string) (plugin_mgr.Plugin, bool) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	rec, ok := r.mem.Plugins[id]
+	if !ok {
+		return plugin_mgr.Plugin{}, false
+	}
+	vr, ok := rec.Versions[version]
+	if !ok {
+		return plugin_mgr.Plugin{}, false
+	}
+	return plugin_mgr.Plugin{
+		ID:        vr.Manifest.ID,
+		Version:   vr.Manifest.Version,
+		State:     vr.State,
+		Runtime:   vr.Manifest.Runtime,
+		Frontend:  vr.Manifest.Frontend,
+		Endpoints: vr.Manifest.Endpoints,
+		RBAC:      vr.Manifest.RBAC,
+		Events:    vr.Manifest.Events,
+		Paths:     vr.Paths,
+	}, true
 }
 
 func (r *JSONRegistry) CurrentVersion(ctx context.Context, id string) (string, bool) {
