@@ -1,10 +1,16 @@
 package plugin
 
 import (
+	"github.com/ArtisanCloud/PowerX/config"
 	"github.com/gin-gonic/gin"
 )
 
 func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterGroup) {
+	cfg := config.GetGlobalConfig()
+	SetMarketplaceBasePrefix(cfg.Plugin.BasePrefix)
+
+	protectedGroup.GET("/marketplace/plugins", MarketplaceListHandler(cfg.Plugin.BasePrefix))
+
 	// 如果你已有 Admin 的中间件（鉴权/租户），可以在这里加到 Group 上
 	grp := protectedGroup.Group("/admin/plugins")
 	{

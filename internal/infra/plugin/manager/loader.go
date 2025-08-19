@@ -57,7 +57,7 @@ func (l *FSLoader) Discover(ctx context.Context, installedRoot string) ([]Descri
 			desc, err := l.LoadDescriptor(ctx, root)
 			if err != nil {
 				// 跳过坏包；你也可以改为返回错误
-				continue
+				return nil, err
 			}
 			out = append(out, desc)
 		}

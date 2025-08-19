@@ -56,7 +56,7 @@ func (m *managerImpl) Enable(ctx context.Context, id string) error {
 		}
 
 		// 启动子进程（自动分配端口，PORT 注入）
-		envMap := envListToMap(p.Runtime.Env)
+		envMap := p.Runtime.Env
 		port, err := m.sup.Start(ctx, p.ID, p.Paths.Entry, p.Runtime.Args, envMap, supOpts)
 		if err != nil {
 			return plugin_mgr.Wrap(plugin_mgr.CodeProcessStartFailed, err, plugin_mgr.WithOp("enable"), plugin_mgr.WithPlugin(id))

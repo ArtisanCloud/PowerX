@@ -2,6 +2,7 @@ package http
 
 import (
 	"github.com/ArtisanCloud/PowerX/api/http/admin/agent"
+	"github.com/ArtisanCloud/PowerX/api/http/admin/menu"
 	"github.com/ArtisanCloud/PowerX/api/http/admin/plugin"
 	"github.com/ArtisanCloud/PowerX/config"
 	"github.com/gin-gonic/gin"
@@ -26,4 +27,5 @@ func RegisterAPIRoutes(r *gin.Engine, authMiddleware gin.HandlerFunc, cfg *confi
 
 	agent.RegisterAPIRoutes(publicGroup, protectedGroup)
 	plugin.RegisterAPIRoutes(publicGroup, protectedGroup)
+	menu.RegisterAPIRoutes(publicGroup, protectedGroup)
 }

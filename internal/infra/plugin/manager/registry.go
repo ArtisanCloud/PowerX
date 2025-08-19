@@ -202,6 +202,10 @@ func (r *JSONRegistry) Get(ctx context.Context, id string) (plugin_mgr.Plugin, b
 		RBAC:      rr.Manifest.RBAC,
 		Events:    rr.Manifest.Events,
 		Paths:     rr.Paths,
+
+		Name:        rr.Manifest.Name,
+		Description: rr.Manifest.Description,
+		Metadata:    rr.Manifest.Metadata,
 	}, true
 }
 
@@ -232,15 +236,18 @@ func (r *JSONRegistry) GetVersion(ctx context.Context, id, version string) (plug
 		return plugin_mgr.Plugin{}, false
 	}
 	return plugin_mgr.Plugin{
-		ID:        vr.Manifest.ID,
-		Version:   vr.Manifest.Version,
-		State:     vr.State,
-		Runtime:   vr.Manifest.Runtime,
-		Frontend:  vr.Manifest.Frontend,
-		Endpoints: vr.Manifest.Endpoints,
-		RBAC:      vr.Manifest.RBAC,
-		Events:    vr.Manifest.Events,
-		Paths:     vr.Paths,
+		ID:          vr.Manifest.ID,
+		Version:     vr.Manifest.Version,
+		State:       vr.State,
+		Runtime:     vr.Manifest.Runtime,
+		Frontend:    vr.Manifest.Frontend,
+		Endpoints:   vr.Manifest.Endpoints,
+		RBAC:        vr.Manifest.RBAC,
+		Events:      vr.Manifest.Events,
+		Paths:       vr.Paths,
+		Name:        vr.Manifest.Name,
+		Description: vr.Manifest.Description,
+		Metadata:    vr.Manifest.Metadata,
 	}, true
 }
 

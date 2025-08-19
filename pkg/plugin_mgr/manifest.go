@@ -1,5 +1,7 @@
 package plugin_mgr
 
+// pkg/plugin_mgr/manifest.go
+
 // Manifest 映射 plugin.yaml（声明态）；运行期你会把它 + Paths 组装成 Plugin。
 type Manifest struct {
 	ID           string `yaml:"id"            json:"id"`
@@ -18,6 +20,17 @@ type Manifest struct {
 	Assets     *AssetsSpec     `yaml:"assets"     json:"assets,omitempty"`
 	Checksums  *ChecksumsSpec  `yaml:"checksums"  json:"checksums,omitempty"`
 	Signature  *SignatureSpec  `yaml:"signature"  json:"signature,omitempty"`
+
+	Metadata Metadata `yaml:"metadata" json:"metadata"`
+}
+
+type Metadata struct {
+	Author   string   `yaml:"author"   json:"author"`
+	Category string   `yaml:"category" json:"category"`
+	Tags     []string `yaml:"tags"     json:"tags"`
+	Icon     string   `yaml:"icon"     json:"icon"`
+	Homepage string   `yaml:"homepage" json:"homepage"`
+	License  string   `yaml:"license"  json:"license"`
 }
 
 type MigrationsSpec struct {

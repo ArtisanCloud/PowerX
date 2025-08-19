@@ -6,34 +6,40 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// GET /api/admin/plugins/:id/status
 func PluginStatusHandler(c *gin.Context) {
 	id := c.Param("id")
 	if id == "" {
 		dtoRequest.ResponseError(c, 400, "缺少插件ID", nil)
 		return
 	}
-	// 从全局 Manager 拿 Supervisor 的视图（通过 manager 提供的轻薄封装）
+
 	mgr := mgrimpl.GetPluginManager()
 
-	// 这里为了不暴露实现细节，我们在 manager 包里做个小封装：
-	//   func RuntimeStatus(id string) (any, bool)
-	// 下面是直接用实现（如果你已经暴露了），否则见 3.2 小封装。
-	type statusProvider interface {
-		RuntimeStatus(id string) (any, bool)
+	// 注册表视图：版本/状态
+	p, err := mgr.Get(c, id)
+	if err != nil {
+		dtoRequest.ResponseError(c, 404, "插件不存在", err)
+		return
 	}
-	if sp, ok := mgr.(statusProvider); ok {
-		if st, ok := sp.RuntimeStatus(id); ok {
-			dtoRequest.ResponseSuccess(c, st)
-			return
-		}
-	}
-	// 兜底：没有运行
+
+	// 运行态（supervisor）
+	proc, _ := mgrimpl.TryRuntimeStatus(mgr, id)
+
 	dtoRequest.ResponseSuccess(c, gin.H{
 		"id":      id,
-		"state":   "stopped",
-		"pid":     0,
-		"port":    0,
-		"healthy": false,
+		"version": p.Version,
+		"state":   string(p.State),
+		"runtime": gin.H{
+			"pid":           proc.PID,
+			"port":          proc.Port,
+			"state":         proc.State, // starting/running/unhealthy/stopped/exited
+			"healthy":       proc.Healthy,
+			"restarts":      proc.Restarts,
+			"started_at":    proc.StartedAt,
+			"stopped_at":    proc.StoppedAt,
+			"last_exit_err": proc.LastExitErr,
+			"health_ok":     proc.HealthOKCount,
+			"health_fails":  proc.HealthFails,
+		},
 	})
 }

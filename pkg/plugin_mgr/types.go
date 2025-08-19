@@ -25,15 +25,22 @@ const (
 
 // 运行期模型（用于对外返回）
 type Plugin struct {
-	ID        string
-	Version   string
-	State     PluginState
-	Runtime   RuntimeSpec
-	Frontend  FrontendSpec
-	Endpoints EndpointSpec
-	RBAC      RBACSpec
-	Events    EventSpec
-	Paths     InstalledPaths
+	ID      string      `json:"id"`
+	Version string      `json:"version"`
+	State   PluginState `json:"state"`
+
+	// 这些来自 manifest：
+	Name        string   `json:"name"`
+	Description string   `json:"description"`
+	Metadata    Metadata `json:"metadata"` // ✅ 建议用值类型，避免 nil
+
+	Runtime   RuntimeSpec  `json:"runtime"`
+	Frontend  FrontendSpec `json:"frontend"`
+	Endpoints EndpointSpec `json:"endpoints"`
+	RBAC      RBACSpec     `json:"rbac"`
+	Events    EventSpec    `json:"events"`
+
+	Paths InstalledPaths `json:"paths"`
 }
 
 // ------- 运行形态 -------
@@ -53,12 +60,12 @@ type HealthCheckSpec struct {
 }
 
 type RuntimeSpec struct {
-	Kind          RuntimeKind     `yaml:"kind"            json:"kind"`
-	Entry         string          `yaml:"entry"           json:"entry"` // process 必填
-	Args          []string        `yaml:"args"            json:"args"`
-	Env           []string        `yaml:"env"             json:"env"` // "KEY=VALUE"
-	Health        HealthCheckSpec `yaml:"health"         json:"health"`
-	RemoteBaseURL string          `yaml:"remote_base_url" json:"remote_base_url"` // remote 预留
+	Kind          RuntimeKind       `yaml:"kind"            json:"kind"`
+	Entry         string            `yaml:"entry"           json:"entry"` // process 必填
+	Args          []string          `yaml:"args"            json:"args"`
+	Env           map[string]string `yaml:"env"             json:"env"` // "KEY=VALUE"
+	Health        HealthCheckSpec   `yaml:"health"         json:"health"`
+	RemoteBaseURL string            `yaml:"remote_base_url" json:"remote_base_url"` // remote 预留
 }
 
 // ------- Endpoints -------
@@ -94,10 +101,11 @@ type FrontendAdminSpec struct {
 }
 
 type MenuItem struct {
-	Path  string `yaml:"path"  json:"path"` // e.g. "/plugins/hello"
-	Title string `yaml:"title" json:"title"`
-	Icon  string `yaml:"icon"  json:"icon"`
-	Order int    `yaml:"order" json:"order"`
+	Route            string   `yaml:"route" json:"route"` // 相对 admin 根，如 "/", "/reports"
+	Title            string   `yaml:"title" json:"title"`
+	Icon             string   `yaml:"icon"  json:"icon"`
+	Order            int      `yaml:"order" json:"order"`
+	RequiredPolicies []string `yaml:"required_policies,omitempty" json:"required_policies,omitempty"`
 }
 
 // ------- RBAC / Events -------

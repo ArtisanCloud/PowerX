@@ -3,6 +3,7 @@ package manager
 import (
 	"context"
 	"github.com/ArtisanCloud/PowerX/internal/infra/plugin/manager/supervisor"
+	"github.com/ArtisanCloud/PowerX/pkg/utils/fmt"
 	"sync"
 
 	"github.com/ArtisanCloud/PowerX/pkg/plugin_mgr"
@@ -59,6 +60,7 @@ func (m *managerImpl) Bootstrap(ctx context.Context) error {
 	if err != nil {
 		return plugin_mgr.Wrap(plugin_mgr.CodeIOError, err, plugin_mgr.WithOp("bootstrap"))
 	}
+	fmt.Dump()
 	for _, d := range descs {
 		id := d.Manifest.ID
 		ver := d.Manifest.Version
