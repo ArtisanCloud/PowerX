@@ -8,7 +8,8 @@ import (
 )
 
 type PowerModel struct {
-	Id int64 `gorm:"autoIncrement:true;unique; column:id; ->;<-:create" json:"id"`
+	//ID uint64 `gorm:"autoIncrement:true;unique; column:id; ->;<-:create" json:"id"`
+	ID uint64 `gorm:"primaryKey;autoIncrement;column:id" json:"id"`
 
 	CreatedAt time.Time      `gorm:"column:created_at; ->;<-:create " json:"createdAt"`
 	UpdatedAt time.Time      `gorm:"column:updated_at" json:"updatedAt"`
@@ -16,8 +17,12 @@ type PowerModel struct {
 }
 
 type PowerUUIDModel struct {
-	Id        int64          `gorm:"autoIncrement:true;unique; column:id; ->;<-:create" json:"-"`
-	UUID      uuid.UUID      `gorm:"type:uuid;primaryKey;autoIncrement:false;unique; column:uuid; ->;<-:create " json:"uuid" sql:"index"`
+	//ID        uint64         `gorm:"autoIncrement:true;unique; column:id; ->;<-:create" json:"-"`
+	ID uint64 `gorm:"primaryKey;autoIncrement;column:id" json:"id"`
+
+	//UUID      uuid.UUID      `gorm:"type:uuid;primaryKey;autoIncrement:false;unique; column:uuid; ->;<-:create " json:"uuid" sql:"index"`
+	UUID uuid.UUID `gorm:"type:uuid;primaryKey;column:uuid;index" json:"uuid"`
+
 	CreatedAt time.Time      `gorm:"column:created_at; ->;<-:create " json:"createdAt"`
 	UpdatedAt time.Time      `gorm:"column:updated_at" json:"updatedAt"`
 	DeletedAt gorm.DeletedAt `gorm:"index"`

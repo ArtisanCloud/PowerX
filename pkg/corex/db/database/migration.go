@@ -2,6 +2,7 @@ package database
 
 import (
 	modelAgent "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/flow"
+	modelIAM "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/iam"
 	modelForm "github.com/ArtisanCloud/PowerX/pkg/dynamic_form/persistence/model"
 	"gorm.io/gorm"
 )
@@ -21,6 +22,23 @@ func MigrateCoreModels(db *gorm.DB) (err error) {
 	err = db.AutoMigrate(
 		&modelAgent.AgentPlanRun{},
 		&modelAgent.AgentTaskEvent{})
+	if err != nil {
+		return err
+	}
+
+	// 迁移IAM
+	err = db.AutoMigrate(
+		&modelIAM.Tenant{},
+		&modelIAM.User{},
+		&modelIAM.Credential{},
+		&modelIAM.Role{},
+		&modelIAM.Permission{},
+		&modelIAM.RolePermission{},
+		&modelIAM.UserRole{},
+		&modelIAM.RefreshToken{},
+		&modelIAM.Department{},
+		&modelIAM.UserDepartment{},
+	)
 	if err != nil {
 		return err
 	}
