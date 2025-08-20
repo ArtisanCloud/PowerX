@@ -41,7 +41,7 @@ func (r *PermissionRepository) UserHasPermission(ctx context.Context, tenantID, 
 		Table((&dbm.Permission{}).GetTableName(true)+" AS p").
 		Select("COUNT(1)").
 		Joins("JOIN "+(&dbm.RolePermission{}).GetTableName(true)+" rp ON rp.permission_id = p.id").
-		Joins("JOIN "+(&dbm.UserRole{}).GetTableName(true)+" ur ON ur.role_id = rp.role_id AND ur.tenant_id = ?", tenantID).
+		Joins("JOIN "+(&dbm.MemberRole{}).GetTableName(true)+" ur ON ur.role_id = rp.role_id AND ur.tenant_id = ?", tenantID).
 		Where("ur.user_id = ? AND p.resource = ? AND p.action = ?", userID, resource, action).
 		Count(&cnt).Error
 	return cnt > 0, err

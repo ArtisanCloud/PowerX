@@ -5,6 +5,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"github.com/ArtisanCloud/PowerX/cmd/database/seed"
 	"github.com/ArtisanCloud/PowerX/config"
 	"log"
 	"os"
@@ -40,7 +41,7 @@ func main() {
 		fmt.Println("migrate ok")
 
 	case "seed":
-		if err := SeedCoreX(ctx, db, cfg); err != nil { // 这里调用你写的 seed 方法
+		if err := seed.SeedCoreX(ctx, db, cfg); err != nil { // 这里调用你写的 seed 方法
 			log.Fatal("seed failed:", err)
 		}
 		fmt.Println("seed ok")

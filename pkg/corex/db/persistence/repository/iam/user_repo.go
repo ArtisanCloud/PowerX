@@ -1,7 +1,9 @@
+// pkg/corex/db/persistence/repository/iam/user_repo.go
 package iam
 
 import (
 	"context"
+	"strings"
 
 	"gorm.io/gorm"
 
@@ -21,6 +23,8 @@ func NewUserRepository(db *gorm.DB) *UserRepository {
 	}
 }
 
+// ---- 全局查找 ----
+
 func (r *UserRepository) FindByID(ctx context.Context, id uint64) (*dbm.User, error) {
 	var u dbm.User
 	if err := r.db.WithContext(ctx).First(&u, id).Error; err != nil {
@@ -29,54 +33,43 @@ func (r *UserRepository) FindByID(ctx context.Context, id uint64) (*dbm.User, er
 	return &u, nil
 }
 
-func (r *UserRepository) FindByUsername(ctx context.Context, tenantID uint64, username string) (*dbm.User, error) {
+func (r *UserRepository) FindByEmail(ctx context.Context, email string) (*dbm.User, error) {
+	email = strings.ToLower(strings.TrimSpace(email))
 	var u dbm.User
-	err := r.db.WithContext(ctx).
-		Where("tenant_id = ? AND username = ?", tenantID, username).
-		First(&u).Error
-	if err != nil {
+	if err := r.db.WithContext(ctx).Where("email = ?", email).First(&u).Error; err != nil {
 		return nil, err
 	}
 	return &u, nil
 }
 
-func (r *UserRepository) FindByEmail(ctx context.Context, tenantID uint64, email string) (*dbm.User, error) {
+func (r *UserRepository) FindByPhone(ctx context.Context, phone string) (*dbm.User, error) {
+	phone = strings.TrimSpace(phone)
 	var u dbm.User
-	err := r.db.WithContext(ctx).
-		Where("tenant_id = ? AND email = ?", tenantID, email).
-		First(&u).Error
-	if err != nil {
+	if err := r.db.WithContext(ctx).Where("phone = ?", phone).First(&u).Error; err != nil {
 		return nil, err
 	}
 	return &u, nil
 }
 
-func (r *UserRepository) FindByPhone(ctx context.Context, tenantID uint64, phone string) (*dbm.User, error) {
-	var u dbm.User
-	err := r.db.WithContext(ctx).
-		Where("tenant_id = ? AND phone = ?", tenantID, phone).
-		First(&u).Error
-	if err != nil {
-		return nil, err
-	}
-	return &u, nil
-}
-
-// List 支持 keyword/status/部门过滤（部门可选：通过 user->dept 关系表或 user.meta 里的 dept_id）
-// 这里给出通用 keyword/status，部门过滤你按自己的关联表补充
+// ---- 全局列表（不带租户）----
+// 说明：租户内列表请用 MemberRepository.List（见下方补充）
 type UserListFilter struct {
-	TenantID uint64
-	Keyword  string
-	Status   *int16
-	Page     int
-	Size     int
+	Keyword string
+	Status  *int16
+	Page    int
+	Size    int
+	OrderBy string // 可选：默认 id DESC
 }
 
 func (r *UserRepository) List(ctx context.Context, f UserListFilter) (list []dbm.User, total int64, err error) {
-	q := r.db.WithContext(ctx).Model(&dbm.User{}).Where("tenant_id = ?", f.TenantID)
-	if f.Keyword != "" {
-		kw := "%" + f.Keyword + "%"
-		q = q.Where("(username ILIKE ? OR email ILIKE ? OR phone ILIKE ? OR display_name ILIKE ?)", kw, kw, kw, kw)
+	q := r.db.WithContext(ctx).Model(&dbm.User{})
+
+	if kw := strings.TrimSpace(f.Keyword); kw != "" {
+		kw = strings.ToLower(kw)
+		pattern := "%" + kw + "%"
+		// 用 LOWER 兼容 PG/MySQL（避免 ILIKE 的方言差异）
+		q = q.Where("(LOWER(email) LIKE ? OR LOWER(phone) LIKE ? OR LOWER(display_name) LIKE ?)",
+			pattern, pattern, pattern)
 	}
 	if f.Status != nil {
 		q = q.Where("status = ?", *f.Status)
@@ -87,6 +80,20 @@ func (r *UserRepository) List(ctx context.Context, f UserListFilter) (list []dbm
 	if f.Page > 0 && f.Size > 0 {
 		q = q.Offset((f.Page - 1) * f.Size).Limit(f.Size)
 	}
-	err = q.Order("id DESC").Find(&list).Error
+	order := "id DESC"
+	if f.OrderBy != "" {
+		order = f.OrderBy
+	}
+	err = q.Order(order).Find(&list).Error
 	return
+}
+
+// 可选：按显示名精确匹配（用于本地 seed 时简单查 root）
+func (r *UserRepository) FindByDisplayName(ctx context.Context, name string) (*dbm.User, error) {
+	var u dbm.User
+	name = strings.TrimSpace(name)
+	if err := r.db.WithContext(ctx).Where("display_name = ?", name).First(&u).Error; err != nil {
+		return nil, err
+	}
+	return &u, nil
 }

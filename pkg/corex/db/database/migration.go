@@ -30,14 +30,15 @@ func MigrateCoreModels(db *gorm.DB) (err error) {
 	err = db.AutoMigrate(
 		&modelIAM.Tenant{},
 		&modelIAM.User{},
+		&modelIAM.Member{},
 		&modelIAM.Credential{},
 		&modelIAM.Role{},
 		&modelIAM.Permission{},
 		&modelIAM.RolePermission{},
-		&modelIAM.UserRole{},
+		&modelIAM.MemberRole{},
 		&modelIAM.RefreshToken{},
 		&modelIAM.Department{},
-		&modelIAM.UserDepartment{},
+		&modelIAM.MemberDepartment{},
 	)
 	if err != nil {
 		return err

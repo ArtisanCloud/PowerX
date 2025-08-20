@@ -26,9 +26,9 @@ func (mdl *Role) GetTableName(needFull bool) string {
 type Permission struct {
 	model.PowerModel
 
-	Plugin      string `gorm:"column:plugin;type:varchar(128);index:idx_perm" json:"plugin"`
-	Resource    string `gorm:"column:resource;type:varchar(128);index:idx_perm" json:"resource"`
-	Action      string `gorm:"column:action;type:varchar(64);index:idx_perm"   json:"action"`
+	Plugin      string `gorm:"column:plugin;type:varchar(128);index;uniqueIndex:uk_perm_plugin_resource_action" json:"plugin"`
+	Resource    string `gorm:"column:resource;type:varchar(128);index;uniqueIndex:uk_perm_plugin_resource_action" json:"resource"`
+	Action      string `gorm:"column:action;type:varchar(64);index;uniqueIndex:uk_perm_plugin_resource_action"  json:"action"`
 	Effect      string `gorm:"column:effect;type:varchar(16);default:'allow'"  json:"effect"`
 	Description string `gorm:"column:description;type:text"                    json:"description,omitempty"`
 }
@@ -58,18 +58,17 @@ func (mdl *RolePermission) GetTableName(needFull bool) string {
 	return model.TableIAMRolePermission
 }
 
-type UserRole struct {
-	UserID   uint64 `gorm:"column:user_id;primaryKey" json:"user_id"`
-	RoleID   uint64 `gorm:"column:role_id;primaryKey" json:"role_id"`
-	TenantID uint64 `gorm:"column:tenant_id;index"    json:"tenant_id"`
-
-	CreatedAt int64 `gorm:"column:created_at;autoCreateTime:milli" json:"created_at"`
+type MemberRole struct {
+	MemberID  uint64 `gorm:"column:member_id;primaryKey" json:"member_id"`
+	RoleID    uint64 `gorm:"column:role_id;primaryKey"   json:"role_id"`
+	TenantID  uint64 `gorm:"column:tenant_id;index"      json:"tenant_id"`
+	CreatedAt int64  `gorm:"column:created_at;autoCreateTime:milli" json:"created_at"`
 }
 
-func (mdl *UserRole) TableName() string { return model.PowerXSchema + "." + model.TableIAMUserRole }
-func (mdl *UserRole) GetTableName(needFull bool) string {
+func (mr *MemberRole) TableName() string { return model.PowerXSchema + "." + model.TableMemberRole }
+func (mr *MemberRole) GetTableName(needFull bool) string {
 	if needFull {
-		return mdl.TableName()
+		return mr.TableName()
 	}
-	return model.TableIAMUserRole
+	return model.TableMemberRole
 }

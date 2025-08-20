@@ -1,9 +1,12 @@
+// pkg/corex/db/persistence/repository/iam/tenant_repo.go
 package iam
 
 import (
 	"context"
+	"errors"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	dbm "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/iam"
 	repository "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository"
@@ -37,14 +40,37 @@ func (r *TenantRepository) GetByKey(ctx context.Context, key string) (*dbm.Tenan
 	return &t, nil
 }
 
-func (r *TenantRepository) EnsureSystemTenant(ctx context.Context) (*dbm.Tenant, error) {
-	t, err := r.GetByKey(ctx, dbm.SystemTenantKey)
-	if err == nil && t != nil {
+// EnsureByKey 并发安全地确保存在指定 key 的租户：
+// - 存在：直接返回
+// - 不存在：插入（ON CONFLICT DO NOTHING），随后再读一遍拿到 ID
+func (r *TenantRepository) EnsureByKey(ctx context.Context, key, name string) (*dbm.Tenant, error) {
+	// 先查
+	if t, err := r.GetByKey(ctx, key); err == nil && t != nil {
 		return t, nil
-	}
-	sys := &dbm.Tenant{Key: dbm.SystemTenantKey, Name: "System", Status: 1}
-	if err := r.db.WithContext(ctx).Create(sys).Error; err != nil {
+	} else if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, err
 	}
-	return sys, nil
+
+	// 竞态安全地尝试创建
+	toCreate := &dbm.Tenant{
+		Key:    key,
+		Name:   name,
+		Status: 1,
+	}
+	if err := r.db.WithContext(ctx).
+		Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "key"}}, // 依赖 tenant.key 的唯一索引
+			DoNothing: true,
+		}).
+		Create(toCreate).Error; err != nil {
+		return nil, err
+	}
+
+	// 无论是我们创建还是别人抢先创建，这里再读一遍拿到最终记录（含 ID）
+	return r.GetByKey(ctx, key)
+}
+
+// EnsureSystemTenant 语义化封装，复用 EnsureByKey
+func (r *TenantRepository) EnsureSystemTenant(ctx context.Context) (*dbm.Tenant, error) {
+	return r.EnsureByKey(ctx, dbm.SystemTenantKey, "System")
 }

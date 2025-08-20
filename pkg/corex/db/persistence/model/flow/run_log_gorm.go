@@ -28,7 +28,7 @@ type AgentPlanRun struct {
 	EndedAt   *time.Time `gorm:"column:ended_at;index"                                      json:"ended_at,omitempty"`
 
 	// 轻量元数据（尽量只放必要键）
-	Meta datatypes.JSON `gorm:"column:meta"                                                json:"meta,omitempty"`
+	Meta datatypes.JSON `gorm:"column:meta;type:jsonb"                                                json:"meta,omitempty"`
 
 	CreatedAt time.Time `gorm:"column:created_at;autoCreateTime"                           json:"created_at"`
 	UpdatedAt time.Time `gorm:"column:updated_at;autoUpdateTime"                           json:"updated_at"`
@@ -72,7 +72,7 @@ type AgentTaskEvent struct {
 	Input  datatypes.JSON `gorm:"column:input"                                                                  json:"input,omitempty"`
 	Output datatypes.JSON `gorm:"column:output"                                                                 json:"output,omitempty"`
 	Error  string         `gorm:"column:error;type:text"                                                        json:"error,omitempty"`
-	Meta   datatypes.JSON `gorm:"column:meta"                                                                   json:"meta,omitempty"`
+	Meta   datatypes.JSON `gorm:"column:meta;type:jsonb"                                                                   json:"meta,omitempty"`
 
 	CreatedAt time.Time `gorm:"column:created_at;autoCreateTime"                                              json:"created_at"`
 }

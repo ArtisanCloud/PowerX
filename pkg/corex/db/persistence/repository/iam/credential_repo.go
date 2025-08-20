@@ -4,6 +4,7 @@ import (
 	"context"
 	dbmodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/iam"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository"
+	"strings"
 
 	"gorm.io/gorm"
 )
@@ -42,6 +43,18 @@ func (r *CredentialRepository) Upsert(ctx context.Context, c *dbmodel.Credential
 		tx = tx.Select(fields)
 	}
 	return tx.Updates(c).Error
+}
+
+func (r *CredentialRepository) FindByProviderIdentifier(ctx context.Context, provider, identifier string) (*dbmodel.Credential, error) {
+	var c dbmodel.Credential
+	provider = strings.ToLower(strings.TrimSpace(provider))
+	identifier = strings.ToLower(strings.TrimSpace(identifier))
+	if err := r.db.WithContext(ctx).
+		Where("provider = ? AND identifier = ?", provider, identifier).
+		First(&c).Error; err != nil {
+		return nil, err
+	}
+	return &c, nil
 }
 
 func (r *CredentialRepository) GetByProviderIdentifier(ctx context.Context, provider, identifier string) (*dbmodel.Credential, error) {

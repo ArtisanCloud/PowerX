@@ -23,7 +23,7 @@ func main() {
 	}
 
 	// bootstrap app
-	err := bootstrap.BootstrapApp(ctx, cfg)
+	deps, err := bootstrap.BootstrapApp(ctx, cfg)
 	if err != nil {
 		logger.ErrorF(ctx, "BootstrapApp failed: %s", err.Error())
 		return
@@ -41,7 +41,7 @@ func main() {
 	//}
 
 	// 6. 构建 router 并挂载路由
-	err = http.SetupRouter(cfg, r)
+	err = http.SetupRouter(cfg, r, deps)
 	if err != nil {
 		logger.ErrorF(ctx, "SetupRouter failed: %s", err.Error())
 		return
