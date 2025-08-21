@@ -2,8 +2,6 @@ package iam
 
 import (
 	"context"
-	"strings"
-
 	"gorm.io/gorm"
 
 	dbm "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/iam"
@@ -63,8 +61,19 @@ func (r *MemberRepository) FindByPhone(ctx context.Context, tenantID uint64, pho
 	return &u, nil
 }
 
-// FindByTenantAndUser 按租户 + 全局用户ID 查成员
-func (r *MemberRepository) FindByTenantAndUser(ctx context.Context, tenantID, userID uint64) (*dbm.Member, error) {
+// 已有：按租户+用户名查
+func (r *MemberRepository) FindByTenantAndUsername(ctx context.Context, tenantID uint64, username string) (*dbm.Member, error) {
+	var m dbm.Member
+	if err := r.db.WithContext(ctx).
+		Where("tenant_id = ? AND username = ?", tenantID, username).
+		First(&m).Error; err != nil {
+		return nil, err
+	}
+	return &m, nil
+}
+
+// 已有：按租户+User 查
+func (r *MemberRepository) FindByTenantAndUser(ctx context.Context, tenantID uint64, userID uint64) (*dbm.Member, error) {
 	var m dbm.Member
 	if err := r.db.WithContext(ctx).
 		Where("tenant_id = ? AND user_id = ?", tenantID, userID).
@@ -74,16 +83,30 @@ func (r *MemberRepository) FindByTenantAndUser(ctx context.Context, tenantID, us
 	return &m, nil
 }
 
-// （可选）FindByTenantAndUsername 按租户 + 用户名查成员（用户名统一小写）
-func (r *MemberRepository) FindByTenantAndUsername(ctx context.Context, tenantID uint64, username string) (*dbm.Member, error) {
-	var m dbm.Member
-	username = strings.ToLower(strings.TrimSpace(username))
+// ✅ 新增：按 UserID 列出该用户在所有租户的成员记录
+func (r *MemberRepository) ListByUserID(ctx context.Context, userID uint64) ([]dbm.Member, error) {
+	var list []dbm.Member
+	// Find 不会返回 gorm.ErrRecordNotFound；查不到即返回空切片和 nil
 	if err := r.db.WithContext(ctx).
-		Where("tenant_id = ? AND username = ?", tenantID, username).
-		First(&m).Error; err != nil {
+		Where("user_id = ?", userID).
+		Order("id DESC").
+		Find(&list).Error; err != nil {
 		return nil, err
 	}
-	return &m, nil
+	return list, nil
+}
+
+// （可选）如果你想带状态过滤：
+func (r *MemberRepository) ListByUserIDAndStatus(ctx context.Context, userID uint64, status *int16) ([]dbm.Member, error) {
+	var list []dbm.Member
+	q := r.db.WithContext(ctx).Where("user_id = ?", userID)
+	if status != nil {
+		q = q.Where("status = ?", *status)
+	}
+	if err := q.Order("id DESC").Find(&list).Error; err != nil {
+		return nil, err
+	}
+	return list, nil
 }
 
 // List 支持 keyword/status/部门过滤（部门可选：通过 user->dept 关系表或 user.meta 里的 dept_id）

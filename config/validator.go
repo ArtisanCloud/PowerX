@@ -3,37 +3,53 @@ package config
 import (
 	"fmt"
 	"strings"
+	"time"
 )
 
-// Validate 验证配置的合法性
+// Validate 验证配置的合法性（已对齐新版 AuthConfig）
 func (c *Config) Validate() error {
 	var errors []string
 
-	// 验证服务器配置
+	// --- Server ---
 	if c.Server.Port <= 0 || c.Server.Port > 65535 {
 		errors = append(errors, "server.port 必须在 1-65535 范围内")
 	}
 
-	// 验证认证配置
+	// --- Auth ---
 	if strings.TrimSpace(c.Auth.JWTSecret) == "" {
 		errors = append(errors, "auth.jwt_secret 不能为空")
-	}
-	if len(c.Auth.JWTSecret) < 32 {
+	} else if len(c.Auth.JWTSecret) < 32 {
 		errors = append(errors, "auth.jwt_secret 长度至少32个字符")
 	}
-	if c.Auth.TokenTTLHours <= 0 {
-		errors = append(errors, "auth.token_ttl_hours 必须大于0")
+	if strings.TrimSpace(c.Auth.Issuer) == "" {
+		errors = append(errors, "auth.issuer 不能为空")
+	}
+	if strings.TrimSpace(c.Auth.AudienceUser) == "" {
+		errors = append(errors, "auth.audience_user 不能为空")
+	}
+	if strings.TrimSpace(c.Auth.AudienceCustomer) == "" {
+		errors = append(errors, "auth.audience_customer 不能为空")
+	}
+	if len(c.Auth.Platforms) == 0 {
+		errors = append(errors, "auth.platforms 不能为空")
+	}
+	// TTL 校验：能解析且 >0
+	if d, err := time.ParseDuration(strings.TrimSpace(c.Auth.AccessTTLStr)); err != nil || d <= 0 {
+		errors = append(errors, "auth.access_ttl 必须是合法的正 Duration（例如 \"15m\"）")
+	}
+	if d, err := time.ParseDuration(strings.TrimSpace(c.Auth.RefreshTTLStr)); err != nil || d <= 0 {
+		errors = append(errors, "auth.refresh_ttl 必须是合法的正 Duration（例如 \"336h\"）")
 	}
 
-	// 验证事件总线配置
+	// --- Event Bus ---
 	if c.EventBus.Type != "local" && c.EventBus.Type != "redis" {
 		errors = append(errors, "event_bus.type 必须是 'local' 或 'redis'")
 	}
 	if c.EventBus.Type == "redis" && strings.TrimSpace(c.EventBus.RedisAddr) == "" {
-		errors = append(errors, "使用redis事件总线时，redis_addr 不能为空")
+		errors = append(errors, "使用 redis 事件总线时，event_bus.redis_addr 不能为空")
 	}
 
-	// 验证低代码配置
+	// --- LowCode ---
 	if c.LowCode.MaxConcurrentFlows <= 0 {
 		errors = append(errors, "dynamic_form.max_concurrent_flows 必须大于0")
 	}
@@ -41,7 +57,7 @@ func (c *Config) Validate() error {
 		errors = append(errors, "dynamic_form.default_timeout_sec 必须大于0")
 	}
 
-	// 验证数据库配置
+	// --- Database ---
 	if strings.TrimSpace(c.Database.Host) == "" {
 		errors = append(errors, "database.host 不能为空")
 	}
@@ -64,11 +80,11 @@ func (c *Config) Validate() error {
 		errors = append(errors, "database.conn_max_lifetime_minutes 必须大于0")
 	}
 
-	// 验证日志配置
+	// --- Logging ---
 	validLevels := []string{"debug", "info", "warn", "error"}
 	levelValid := false
-	for _, level := range validLevels {
-		if c.LogConfig.Level == level {
+	for _, lvl := range validLevels {
+		if c.LogConfig.Level == lvl {
 			levelValid = true
 			break
 		}
@@ -80,6 +96,5 @@ func (c *Config) Validate() error {
 	if len(errors) > 0 {
 		return fmt.Errorf("配置验证失败:\n- %s", strings.Join(errors, "\n- "))
 	}
-
 	return nil
 }

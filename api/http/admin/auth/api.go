@@ -6,11 +6,15 @@ import (
 )
 
 func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterGroup, s *authsvc.AuthService) {
-	menuGroup := publicGroup.Group("/user/auth")
+	authPublicGroup := publicGroup.Group("/user/auth")
 	{
-		menuGroup.POST("/register", RegisterHandler(s)) // 如不开放注册，可以先注释
-		menuGroup.POST("/login", LoginHandler(s))
-		menuGroup.POST("/refresh", RefreshHandler(s))
-		menuGroup.POST("/logout", LogoutHandler(s))
+		authPublicGroup.POST("/register", RegisterHandler(s)) // 如不开放注册，可以先注释
+		authPublicGroup.POST("/login", LoginHandler(s))
+		authPublicGroup.POST("/refresh", RefreshHandler(s))
+	}
+
+	authProtectedGroup := protectedGroup.Group("/user/auth")
+	{
+		authProtectedGroup.POST("/logout", LogoutHandler(s))
 	}
 }

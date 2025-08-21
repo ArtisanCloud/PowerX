@@ -6,7 +6,9 @@ import (
 	"errors"
 	pkgauth "github.com/ArtisanCloud/PowerX/pkg/auth"
 	model "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/iam"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository"
 	"github.com/ArtisanCloud/PowerX/pkg/utils"
+	"github.com/ArtisanCloud/PowerX/pkg/utils/fmt"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 	"strconv"
@@ -24,6 +26,7 @@ type RegisterOptions struct {
 }
 
 type AuthService struct {
+	TenantRepo     *infraiam.TenantRepository
 	UserRepo       *infraiam.UserRepository
 	MemberRepo     *infraiam.MemberRepository
 	CredRepo       *infraiam.CredentialRepository
@@ -33,14 +36,18 @@ type AuthService struct {
 
 	// 配置
 	JWTSecret  []byte
-	Issuer     string        // e.g. "corex-auth"
+	Issuer     string        // e.g. "powerx-auth"
 	Audience   string        // e.g. "corex-admin"
-	Platform   string        // e.g. "web" | "admin"
+	Platforms  []string      // e.g. "web" | "admin"
 	AccessTTL  time.Duration // e.g. 15 * time.Minute
 	RefreshTTL time.Duration // e.g. 14 * 24 * time.Hour
+
+	DefaultTenantKey string // e.g. "system"
+
 }
 
 func NewAuthService(
+	TenantRepo *infraiam.TenantRepository,
 	userRepo *infraiam.UserRepository,
 	memberRepo *infraiam.MemberRepository,
 	credRepo *infraiam.CredentialRepository,
@@ -48,20 +55,27 @@ func NewAuthService(
 	memberRoleRepo *infraiam.MemberRoleRepository,
 	rtRepo *infraiam.RefreshTokenRepository,
 	secret []byte,
+	issuer string, // ← cfg.Auth.Issuer
+	audience string, // ← cfg.Auth.Audience
+	platforms []string, // ← cfg.Auth.Platform
+	accessTTL, refreshTTL time.Duration,
 ) *AuthService {
 	return &AuthService{
-		UserRepo:       userRepo,
-		MemberRepo:     memberRepo,
-		CredRepo:       credRepo,
-		RoleRepo:       roleRepo,
-		MemberRoleRepo: memberRoleRepo,
-		RTRepo:         rtRepo,
-		JWTSecret:      secret,
-		Issuer:         "corex-auth",
-		Audience:       "corex-admin",
-		Platform:       "web",
-		AccessTTL:      15 * time.Minute,
-		RefreshTTL:     14 * 24 * time.Hour,
+		TenantRepo:       TenantRepo,
+		UserRepo:         userRepo,
+		MemberRepo:       memberRepo,
+		CredRepo:         credRepo,
+		RoleRepo:         roleRepo,
+		MemberRoleRepo:   memberRoleRepo,
+		RTRepo:           rtRepo,
+		JWTSecret:        secret,
+		Issuer:           issuer,
+		Audience:         audience,
+		Platforms:        platforms,
+		AccessTTL:        accessTTL,
+		RefreshTTL:       refreshTTL,
+		DefaultTenantKey: "system", // 需要的话可改为 cfg 注入
+
 	}
 }
 
@@ -135,6 +149,12 @@ func (s *AuthService) Register(ctx context.Context, tenantID uint64, username, i
 		Status:      1,
 	}
 	if _, err := s.MemberRepo.Create(ctx, m); err != nil {
+		if repository.IsUniqueViolation(err, "uk_member_tenant_user") {
+			return nil, errors.New("already a member of this tenant")
+		}
+		if repository.IsUniqueViolation(err, "uk_member_tenant_username") {
+			return nil, errors.New("username already taken in this tenant")
+		}
 		return nil, err
 	}
 
@@ -144,73 +164,122 @@ func (s *AuthService) Register(ctx context.Context, tenantID uint64, username, i
 	return m, nil
 }
 
-func (s *AuthService) Login(ctx context.Context, tenantID uint64, identifier, password string) (access, refresh string, err error) {
-	// 1) 找到凭证（全局）
-	cred, err := s.CredRepo.FindByProviderIdentifier(ctx, "password", identifier)
-	if err != nil || cred == nil {
+func (s *AuthService) Login(ctx context.Context, tenantRef, identifier, password string) (access, refresh string, err error) {
+	tenantRef = strings.TrimSpace(tenantRef)
+	identifier = strings.ToLower(strings.TrimSpace(identifier))
+
+	// 1) 用 identifier 原样去找凭证（邮箱/手机/用户名都行）
+	u, cred, err := s.CredRepo.GetUserByCredential(ctx, "password", identifier)
+	if err != nil {
 		return "", "", errors.New("invalid credentials")
 	}
-	// 2) 校验密码
 	if bcrypt.CompareHashAndPassword([]byte(cred.SecretHash), []byte(password)) != nil {
 		return "", "", errors.New("invalid credentials")
 	}
-	// 3) 拿到全局用户
-	u, err := s.UserRepo.FindByID(ctx, cred.UserID)
-	if err != nil || u.Status != 1 {
+	if u.Status != 1 {
 		return "", "", errors.New("user disabled")
 	}
-	// 4) 租户内成员
-	m, err := s.MemberRepo.FindByTenantAndUser(ctx, tenantID, u.ID)
-	if err != nil || m.Status != 1 {
-		return "", "", errors.New("member disabled or not found in tenant")
+
+	// 2) 选择租户/成员（不从 identifier 猜租户）
+	var ten *model.Tenant
+	var m *model.Member
+	if tenantRef != "" {
+		ten, err = s.resolveTenant(ctx, tenantRef) // 支持 key/uuid
+		if err != nil {
+			return "", "", err
+		}
+		m, err = s.MemberRepo.FindByTenantAndUser(ctx, ten.ID, u.ID)
+		if err != nil {
+			return "", "", errors.New("no membership in tenant")
+		}
+	} else {
+		// 未显式指定租户：按 membership 数量自动/报错
+		members, err := s.MemberRepo.ListByUserID(ctx, u.ID) // 需要实现：按 user_id 列出成员
+		if err != nil {
+			return "", "", err
+		}
+		switch len(members) {
+		case 0:
+			return "", "", errors.New("no membership found")
+		case 1:
+			m = &members[0]
+			ten, err = s.TenantRepo.GetByID(ctx, m.TenantID)
+			if err != nil {
+				return "", "", err
+			}
+		default:
+			return "", "", errors.New("tenant required")
+		}
+	}
+	if m.Status != 1 {
+		return "", "", errors.New("member disabled")
 	}
 
-	// 5) 取角色（如果需要把角色写进 JWT，可在 claims meta 里加。此处只演示获取）
-	roles, _ := s.MemberRoleRepo.ListRolesByMember(ctx, tenantID, m.ID) // 下面给你这个方法的实现
-	_ = roles                                                           // 如需要可拼接成 []string 存到 claims.Meta
-
-	// 6) 签发 Access（scope=access, subject=userID）
-	access, err = pkgauth.GenerateJWT(
-		tenantIDToString(tenantID),
-		uint64ToString(u.ID),
-		s.Platform,
-		s.Audience,
-		"access",
-		s.AccessTTL,
-		s.JWTSecret,
+	// 3) 用 UUID 签发（audience 必须非空）
+	claims := pkgauth.CoreXClaims{
+		TenantUUID: ten.UUID.String(), TenantID: ten.ID,
+		MemberUUID: m.UUID.String(), MemberID: m.ID,
+		UserUUID: u.UUID.String(), UserID: u.ID,
+		Platforms: s.Platforms,
+	}
+	fmt.Dump(ctx, "jwt sign(access)",
+		"issuer", s.Issuer,
+		"aud", s.Audience,
+		"member", claims.MemberUUID,
+		"tenant", claims.TenantUUID,
+		"platform", claims.Platforms,
+		"ttl", s.AccessTTL.String(),
+		"secret_fp", utils.SecretFP(s.JWTSecret),
 	)
-	if err != nil {
-		return "", "", err
+	if s.Audience == "" {
+		return "", "", errors.New("audience misconfigured")
 	}
 
-	// 7) 签发 Refresh（scope=refresh + JTI）
 	jti := uuid.NewString()
-	refresh, err = pkgauth.GenerateJWTWithJTI(
-		tenantIDToString(tenantID),
-		uint64ToString(u.ID),
-		s.Platform,
-		s.Audience,
-		"refresh",
-		jti,
-		s.RefreshTTL,
-		s.JWTSecret,
+	access, err = pkgauth.GenerateAccessJWT(claims, s.Issuer, []string{s.Audience}, s.AccessTTL, s.JWTSecret)
+	if err != nil {
+		return "", "", err
+	}
+	fmt.Dump(ctx, "jwt sign(refresh)",
+		"issuer", s.Issuer,
+		"aud", s.Audience,
+		"member", claims.MemberUUID,
+		"tenant", claims.TenantUUID,
+		"ttl", s.RefreshTTL.String(),
+		"secret_fp", utils.SecretFP(s.JWTSecret),
 	)
+	refresh, err = pkgauth.GenerateRefreshJWT(claims, s.Issuer, []string{s.Audience}, jti, s.RefreshTTL, s.JWTSecret)
 	if err != nil {
 		return "", "", err
 	}
 
-	// 8) 落库 refresh JTI（按你模型绑定 user_id + tenant_id）
-	rt := &model.RefreshToken{
-		JTI:       jti,
-		MemberID:  u.ID,
-		TenantID:  tenantID,
-		ExpiresAt: time.Now().Add(s.RefreshTTL).UnixMilli(),
-	}
-	if err := s.RTRepo.Issue(ctx, rt); err != nil {
-		return "", "", err
-	}
-
+	_ = s.RTRepo.Issue(ctx, &model.RefreshToken{
+		JTI:        jti,
+		TenantUUID: ten.UUID.String(),
+		MemberUUID: m.UUID.String(),
+		UserUUID:   u.UUID.String(),
+		ExpiresAt:  time.Now().Add(s.RefreshTTL).UnixMilli(),
+	})
 	return access, refresh, nil
+}
+
+// 解析 tenantRef（支持 key/uuid；为空时回退默认租户）
+func (s *AuthService) resolveTenant(ctx context.Context, ref string) (*model.Tenant, error) {
+	if ref == "" {
+		if s.DefaultTenantKey == "" {
+			return nil, errors.New("tenant is required")
+		}
+		return s.TenantRepo.EnsureByKey(ctx, s.DefaultTenantKey, "Default")
+	}
+	if len(ref) >= 32 && looksLikeUUID(ref) {
+		return s.TenantRepo.GetByUUID(ctx, ref, nil)
+	}
+	return s.TenantRepo.EnsureByKey(ctx, ref, strings.Title(ref))
+}
+
+func looksLikeUUID(s string) bool {
+	_, err := uuid.Parse(s)
+	return err == nil
 }
 
 func (s *AuthService) Refresh(ctx context.Context, refreshJWT string) (string, error) {
@@ -218,34 +287,29 @@ func (s *AuthService) Refresh(ctx context.Context, refreshJWT string) (string, e
 	if err != nil {
 		return "", errors.New("invalid token")
 	}
+
 	if claims.Scope != "refresh" {
 		return "", errors.New("not refresh token")
 	}
-	userID, err := pkgauth.SubjectUint64(claims)
-	if err != nil {
-		return "", errors.New("bad subject")
-	}
-	tenantID, err := parseUint64(claims.TenantID)
-	if err != nil {
-		return "", errors.New("bad tenant")
-	}
 
-	// 校验 refresh 是否有效
+	// 校验 refresh JTI + 绑定
 	rt, err := s.RTRepo.GetByJTI(ctx, claims.ID)
-	if err != nil || rt.MemberID != userID || rt.TenantID != tenantID || (rt.RevokedAt != nil) || time.Now().UnixMilli() > rt.ExpiresAt {
+	if err != nil || rt == nil || (rt.RevokedAt != nil) || time.Now().UnixMilli() > rt.ExpiresAt {
 		return "", errors.New("refresh expired or revoked")
 	}
+	if rt.MemberUUID != claims.MemberUUID || rt.TenantUUID != claims.TenantUUID {
+		return "", errors.New("refresh token mismatch")
+	}
 
-	// 重新发 Access
-	return pkgauth.GenerateJWT(
-		claims.TenantID,
-		claims.Subject,
-		s.Platform,
-		s.Audience,
-		"access",
+	// 重新发 access（沿用原 claims，仅更新时间/过期时间）
+	access, err := pkgauth.GenerateAccessJWT(
+		*claims,  // 保留现有 claims（里有 MemberUUID/Tenant 等）
+		s.Issuer, // 你初始化时注入
+		[]string{s.Audience},
 		s.AccessTTL,
 		s.JWTSecret,
 	)
+	return access, err
 }
 
 func (s *AuthService) Logout(ctx context.Context, refreshJWT string) error {
@@ -256,7 +320,7 @@ func (s *AuthService) Logout(ctx context.Context, refreshJWT string) error {
 	if claims.Scope != "refresh" {
 		return errors.New("not refresh token")
 	}
-	return s.RTRepo.RevokeByJTI(ctx, claims.ID, time.Now())
+	return s.RTRepo.RevokeByJTI(ctx, claims.ID, time.Now().UnixMilli())
 }
 
 // helpers

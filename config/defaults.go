@@ -1,12 +1,12 @@
 package config
 
 import (
-	"github.com/ArtisanCloud/PowerX/pkg/corex/db"
+	dbCfg "github.com/ArtisanCloud/PowerX/pkg/corex/db"
 	logCfg "github.com/ArtisanCloud/PowerX/pkg/utils/logger/config"
-	"github.com/ArtisanCloud/PowerX/services/agent/config"
+	agentCfg "github.com/ArtisanCloud/PowerX/services/agent/config"
 )
 
-// GetDefaults 返回默认配置
+// GetDefaults 返回默认配置（已对齐新版 AuthConfig 字段）
 func GetDefaults() *Config {
 	return &Config{
 		Server: ServerConfig{
@@ -14,6 +14,7 @@ func GetDefaults() *Config {
 			ReadTimeoutSeconds:  5,
 			WriteTimeoutSeconds: 10,
 			Mode:                "debug",
+			APIPrefix:           "/api", // 如需
 		},
 		Plugin: DefaultPluginConfig(),
 		LogConfig: logCfg.LogConfig{
@@ -41,9 +42,12 @@ func GetDefaults() *Config {
 		},
 		Auth: AuthConfig{
 			JWTSecret:        "K8mN2pQ7rS9tU4vW6xY1zA3bC5dE8fG0",
-			ExpectedAudience: "admin",
-			RequiredScopes:   []string{"flow:execute"},
-			TokenTTLHours:    24,
+			Issuer:           "powerx-auth",
+			AudienceUser:     "user",
+			AudienceCustomer: "customer",
+			Platforms:        []string{"admin", "web", "miniapp"},
+			AccessTTLStr:     "15m",
+			RefreshTTLStr:    "336h", // 14d
 		},
 		EventBus: EventBusConfig{
 			Type:          "local",
@@ -55,19 +59,17 @@ func GetDefaults() *Config {
 			MaxConcurrentFlows: 10,
 			DefaultTimeoutSec:  60,
 		},
-		Agent: config.AgentConfig{
+		Agent: agentCfg.AgentConfig{
 			Host: "127.0.0.1",
 			Port: 8082,
 			Mode: "ws_sse",
-
-			// EnableAudit: true,
-			FlowSpec: config.FlowSpecConfig{
+			FlowSpec: agentCfg.FlowSpecConfig{
 				BaseDir:     "./pkg/corex/flow/blueprints",
 				BusinessDir: "./services/agent/blueprints",
 			},
 			TemplateDir: "./services/agent/templates",
 		},
-		Database: db.DatabaseConfig{
+		Database: dbCfg.DatabaseConfig{
 			Host:                   "localhost",
 			Port:                   5432,
 			Username:               "postgres",

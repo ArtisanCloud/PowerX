@@ -15,6 +15,16 @@ type InstallSource struct {
 	Signature string
 }
 
+const (
+	SlotRoot      = "group.root"
+	SlotPlugins   = "group.plugins"
+	SlotSettings  = "core.settings"
+	SlotDashboard = "core.dashboard"
+	SlotWorkflow  = "core.workflow"
+	SlotAgent     = "core.agent"
+	SlotCustom    = "group.custom"
+)
+
 type PluginState string
 
 const (
@@ -105,6 +115,8 @@ type MenuItem struct {
 	Title            string   `yaml:"title" json:"title"`
 	Icon             string   `yaml:"icon"  json:"icon"`
 	Order            int      `yaml:"order" json:"order"`
+	Slot             string   `yaml:"slot" json:"slot"`
+	Visible          *bool    `yaml:"visible" json:"visible"`
 	RequiredPolicies []string `yaml:"required_policies,omitempty" json:"required_policies,omitempty"`
 }
 

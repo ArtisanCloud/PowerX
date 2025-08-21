@@ -33,11 +33,18 @@ func (r *RefreshTokenRepository) GetByJTI(ctx context.Context, jti string) (*dbm
 	return &rt, nil
 }
 
-func (r *RefreshTokenRepository) RevokeByJTI(ctx context.Context, jti string, at time.Time) error {
-	return r.db.WithContext(ctx).
+func (r *RefreshTokenRepository) RevokeByJTI(ctx context.Context, jti string, revokedAtMS int64) error {
+	res := r.db.WithContext(ctx).
 		Model(&dbm.RefreshToken{}).
 		Where("jti = ? AND revoked_at IS NULL", jti).
-		Update("revoked_at", at).Error
+		Update("revoked_at", revokedAtMS)
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound // 已被撤销或不存在
+	}
+	return nil
 }
 
 func (r *RefreshTokenRepository) RevokeAllForUser(ctx context.Context, userID, tenantID uint64, before time.Time) error {

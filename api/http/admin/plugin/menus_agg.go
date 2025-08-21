@@ -1,8 +1,10 @@
+// api/http/admin/plugin/menus_agg.go
 package plugin
 
 import (
 	admdto "github.com/ArtisanCloud/PowerX/api/http/admin/dto"
 	mgrimpl "github.com/ArtisanCloud/PowerX/internal/infra/plugin/manager"
+	"github.com/ArtisanCloud/PowerX/pkg/plugin_mgr"
 	"sort"
 	"strings"
 )
@@ -30,6 +32,15 @@ func BuildPluginMenusPublic(basePrefix string) []admdto.AdminMenuItem {
 			if route != "" {
 				url = root + route
 			}
+
+			visible := true
+			if m.Visible != nil {
+				visible = *m.Visible
+			}
+			slot := m.Slot
+			if slot == "" {
+				slot = plugin_mgr.SlotPlugins
+			}
 			out = append(out, admdto.AdminMenuItem{
 				Key:         "plugin:" + p.ID + ":" + route,
 				Title:       m.Title,
@@ -37,6 +48,8 @@ func BuildPluginMenusPublic(basePrefix string) []admdto.AdminMenuItem {
 				URL:         url,
 				Order:       m.Order,
 				Origin:      "plugin",
+				Visible:     visible, // ✅ 默认可见
+				Slot:        slot,    // ✅ 插槽
 				Permissions: m.RequiredPolicies,
 			})
 		}

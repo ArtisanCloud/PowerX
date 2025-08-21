@@ -3,32 +3,52 @@ package bootstrap
 import (
 	"github.com/ArtisanCloud/PowerX/config"
 	infraiam "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/iam"
-	"gorm.io/gorm"
-
 	authsvc "github.com/ArtisanCloud/PowerX/pkg/corex/iam/service"
+	"gorm.io/gorm"
+	"strings"
+	"time" // 👈 新增
 )
 
 type Deps struct {
-	DB   *gorm.DB
-	Auth *authsvc.AuthService
+	DB           *gorm.DB
+	AuthUser     *authsvc.AuthService
+	AuthCustomer *authsvc.AuthService
 }
 
 func NewDeps(db *gorm.DB, cfg *config.Config) *Deps {
-	// 3) 业务依赖（AuthService 等）
+	// repos
+	tenantRepo := infraiam.NewTenantRepository(db)
 	userRepo := infraiam.NewUserRepository(db)
-	credRepo := infraiam.NewCredentialRepository(db)
 	memberRepo := infraiam.NewMemberRepository(db)
+	credRepo := infraiam.NewCredentialRepository(db)
 	roleRepo := infraiam.NewRoleRepository(db)
 	mrRepo := infraiam.NewMemberRoleRepository(db)
 	rtRepo := infraiam.NewRefreshTokenRepository(db)
 
-	auth := authsvc.NewAuthService(
-		userRepo, memberRepo, credRepo, roleRepo, mrRepo, rtRepo,
-		[]byte(cfg.Auth.JWTSecret),
+	accessTTL, _ := time.ParseDuration(cfg.Auth.AccessTTLStr)
+	refreshTTL, _ := time.ParseDuration(cfg.Auth.RefreshTTLStr)
+
+	authUser := authsvc.NewAuthService(
+		tenantRepo, userRepo, memberRepo, credRepo, roleRepo, mrRepo, rtRepo,
+		[]byte(strings.TrimSpace(cfg.Auth.JWTSecret)),
+		cfg.Auth.Issuer,
+		cfg.Auth.AudienceUser, // 👈 user audience
+		cfg.Auth.Platforms,
+		accessTTL, refreshTTL,
+	)
+
+	authCustomer := authsvc.NewAuthService(
+		tenantRepo, userRepo, memberRepo, credRepo, roleRepo, mrRepo, rtRepo,
+		[]byte(strings.TrimSpace(cfg.Auth.JWTSecret)),
+		cfg.Auth.Issuer,
+		cfg.Auth.AudienceCustomer,
+		cfg.Auth.Platforms,
+		accessTTL, refreshTTL,
 	)
 
 	return &Deps{
-		DB:   db,
-		Auth: auth,
+		DB:           db,
+		AuthUser:     authUser,
+		AuthCustomer: authCustomer,
 	}
 }

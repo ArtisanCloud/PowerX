@@ -6,12 +6,10 @@ import (
 	logCfg "github.com/ArtisanCloud/PowerX/pkg/utils/logger/config"
 	agentCfg "github.com/ArtisanCloud/PowerX/services/agent/config"
 	mcpCfg "github.com/ArtisanCloud/PowerX/services/mcp/config"
+	"gopkg.in/yaml.v3"
 	"log"
 	"os"
 	"strconv"
-	"strings"
-
-	"gopkg.in/yaml.v3"
 )
 
 // 定义一个全局配置变量
@@ -69,10 +67,14 @@ type ServerConfig struct {
 
 // JWT认证配置
 type AuthConfig struct {
-	JWTSecret        string   `yaml:"jwt_secret"`        // HMAC secret 或私钥路径
-	ExpectedAudience string   `yaml:"expected_audience"` // 期望 audience，例如 admin/openapi/miniapp
-	RequiredScopes   []string `yaml:"required_scopes"`   // 必需 scope
-	TokenTTLHours    int      `yaml:"token_ttl_hours"`   // 默认 token 过期小时
+	JWTSecret        string   `yaml:"jwt_secret"`        // HMAC secret
+	Issuer           string   `yaml:"issuer"`            // e.g. powerx-auth
+	AudienceUser     string   `yaml:"audience_user"`     // e.g. user
+	AudienceCustomer string   `yaml:"audience_customer"` // e.g. customer
+	Platforms        []string `yaml:"platforms"`         // e.g. admin,web, miniapp
+
+	AccessTTLStr  string `yaml:"access_ttl"`  // e.g. "15m"
+	RefreshTTLStr string `yaml:"refresh_ttl"` // e.g. "336h" (14d)
 }
 
 // 事件总线配置
@@ -139,20 +141,27 @@ func loadFromEnv(cfg *Config) {
 		}
 	}
 
-	// Auth配置
-	if secret := os.Getenv("CORE_X_AUTH_JWT_SECRET"); secret != "" {
-		cfg.Auth.JWTSecret = secret
+	// Auth配置（新）
+	if v := os.Getenv("CORE_X_AUTH_JWT_SECRET"); v != "" {
+		cfg.Auth.JWTSecret = v
 	}
-	if audience := os.Getenv("CORE_X_AUTH_EXPECTED_AUDIENCE"); audience != "" {
-		cfg.Auth.ExpectedAudience = audience
+	if v := os.Getenv("CORE_X_AUTH_ISSUER"); v != "" {
+		cfg.Auth.Issuer = v
 	}
-	if scopes := os.Getenv("CORE_X_AUTH_REQUIRED_SCOPES"); scopes != "" {
-		cfg.Auth.RequiredScopes = strings.Split(scopes, ",")
+	if v := os.Getenv("CORE_X_AUTH_AUDIENCE_USER"); v != "" {
+		cfg.Auth.AudienceUser = v
 	}
-	if ttl := os.Getenv("CORE_X_AUTH_TOKEN_TTL_HOURS"); ttl != "" {
-		if t, err := strconv.Atoi(ttl); err == nil {
-			cfg.Auth.TokenTTLHours = t
-		}
+	if v := os.Getenv("CORE_X_AUTH_AUDIENCE_CUSTOMER"); v != "" {
+		cfg.Auth.AudienceCustomer = v
+	}
+	if v := os.Getenv("CORE_X_AUTH_PLATFORMS"); v != "" {
+		cfg.Auth.Platforms = []string{"admin"}
+	}
+	if v := os.Getenv("CORE_X_AUTH_ACCESS_TTL"); v != "" {
+		cfg.Auth.AccessTTLStr = v // 解析在 bootstrap 里做
+	}
+	if v := os.Getenv("CORE_X_AUTH_REFRESH_TTL"); v != "" {
+		cfg.Auth.RefreshTTLStr = v
 	}
 
 	// EventBus配置

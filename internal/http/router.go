@@ -11,15 +11,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// initAuth 设置全局 JWT secret 并返回 gin middleware 实例
-func initAuth(cfg *config.Config, expectedAudience string, requiredScopes []string) gin.HandlerFunc {
-	// 赋值给 auth 包
-	auth.SetJWTSecret([]byte(cfg.Auth.JWTSecret))
-
-	// 传入 SampleCallback 做扩展判断&事件广播
-	return auth.JwtMiddleware(expectedAudience, requiredScopes, auth.SampleCallback)
-}
-
 // SetupRouter 构造带基础中间件的 Gin 引擎，外部传入 auth middleware 和自定义 route 注册函数。
 // registerFunc 会在 corexGroup 上执行（即 /{prefix}/... 下面），返回 engine 供外部再挂载其他 group/handler。
 func SetupRouter(cfg *config.Config, r *gin.Engine, deps *bootstrap.Deps) error {
@@ -30,13 +21,24 @@ func SetupRouter(cfg *config.Config, r *gin.Engine, deps *bootstrap.Deps) error 
 	r.Use(TraceInjectionMiddleware())
 	r.Use(FeatureInjectionMiddleware())
 
+	authUser := auth.JwtMiddleware(
+		[]byte(cfg.Auth.JWTSecret),
+		cfg.Auth.Issuer,
+		[]string{cfg.Auth.AudienceUser},
+		[]string{"access"},
+		nil,
+	)
 	// 给外部注册 CoreX 相关 routes（discovery / sample orchestrator/tool 等）
-	authAdminMiddleware := initAuth(cfg, "user", []string{})
-	httpAdmin.RegisterAPIRoutes(r, authAdminMiddleware, cfg, deps)
+	httpAdmin.RegisterAPIRoutes(r, authUser, cfg, deps)
 
 	// 给外部注册 Web 相关 routes（web 端）
-	// authCustomerMiddleware := initAuth(cfg, "customer", []string{"*"})
-	//httpWeb.RegisterAPIRoutes(r, authAdminMiddleware, cfg)
+	//authUserMW := auth.JwtMiddleware(
+	//	cfg.Auth.Issuer,
+	//	[]string{cfg.Auth.AudienceUser},
+	//	[]string{"access"},
+	//	nil,
+	//)
+	//httpWeb.RegisterAPIRoutes(r, authUserMW, cfg)
 	//httpMP.RegisterAPIRoutes(r, authAdminMiddleware, cfg)
 
 	return nil

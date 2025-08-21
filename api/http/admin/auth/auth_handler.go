@@ -1,4 +1,4 @@
-// http/admin/auth_handler.go
+// api/http/admin/auth/auth_handler.go
 package auth
 
 import (
@@ -8,6 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	authsvc "github.com/ArtisanCloud/PowerX/pkg/corex/iam/service"
+	dtoRequest "github.com/ArtisanCloud/PowerX/pkg/dto"
 )
 
 // ---------- DTO ----------
@@ -27,8 +28,8 @@ type RegisterReq struct {
 }
 
 type LoginReq struct {
-	TenantID   uint64 `json:"tenant_id"  binding:"required"`
-	Identifier string `json:"identifier" binding:"required"` // username/email/phone 都行（我们按 username 处理）
+	Tenant     string `json:"tenant,omitempty"`
+	Identifier string `json:"identifier" binding:"required"` // 邮箱/手机号/用户名（三选一）
 	Password   string `json:"password"   binding:"required"`
 }
 
@@ -37,11 +38,11 @@ type RefreshReq struct {
 }
 
 type LoginResp struct {
-	AccessToken  string `json:"access_token"`
-	RefreshToken string `json:"refresh_token"`
 	TokenType    string `json:"token_type"` // "Bearer"
-	ExpiresIn    int64  `json:"expires_in"` // access 的过期秒数
-	Scope        string `json:"scope"`      // "access"
+	AccessToken  string `json:"access_token"`
+	ExpiresIn    int    `json:"expires_in"`    // access 的过期秒数
+	RefreshToken string `json:"refresh_token"` // 首次登录返回；刷新时可不返
+	Scope        string `json:"scope"`         // "access"
 }
 
 // ---------- Handlers ----------
@@ -49,8 +50,8 @@ type LoginResp struct {
 func RegisterHandler(s *authsvc.AuthService) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req RegisterReq
-		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		if err := dtoRequest.ValidateRequestWithContext(c, &req); err != nil {
+			dtoRequest.ResponseValidationError(c, err)
 			return
 		}
 
@@ -60,12 +61,7 @@ func RegisterHandler(s *authsvc.AuthService) gin.HandlerFunc {
 		phone := strings.TrimSpace(req.Phone)
 
 		// 选择 identifier：优先 email，其次 phone，否则回退 username
-		identifier := username
-		if email != "" {
-			identifier = email
-		} else if phone != "" {
-			identifier = phone
-		}
+		identifier := chooseIdentifier(username, email, phone)
 
 		opt := &authsvc.RegisterOptions{
 			UserEmail:         email,           // 写到全局 User（可选）
@@ -76,11 +72,12 @@ func RegisterHandler(s *authsvc.AuthService) gin.HandlerFunc {
 
 		m, err := s.Register(c.Request.Context(), req.TenantID, username, identifier, req.Password, opt)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			// 常见业务错误归为 400；如果你有更细的错误码可在这里分支
+			dtoRequest.ResponseError(c, http.StatusBadRequest, err.Error(), nil)
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{
+		dtoRequest.ResponseSuccess(c, gin.H{
 			"tenant_id":    m.TenantID,
 			"member_id":    m.ID,
 			"user_id":      m.UserID,
@@ -94,57 +91,75 @@ func RegisterHandler(s *authsvc.AuthService) gin.HandlerFunc {
 func LoginHandler(s *authsvc.AuthService) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req LoginReq
-		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		if err := dtoRequest.ValidateRequestWithContext(c, &req); err != nil {
+			dtoRequest.ResponseValidationError(c, err)
 			return
 		}
-		access, refresh, err := s.Login(c.Request.Context(), req.TenantID, req.Identifier, req.Password)
+
+		identifier := strings.ToLower(strings.TrimSpace(req.Identifier))
+		access, refresh, err := s.Login(c.Request.Context(), req.Tenant, identifier, req.Password)
 		if err != nil {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+			dtoRequest.ResponseError(c, http.StatusUnauthorized, err.Error(), nil)
 			return
 		}
-		c.JSON(http.StatusOK, LoginResp{
-			AccessToken:  access,
-			RefreshToken: refresh,
+
+		resp := &LoginResp{
 			TokenType:    "Bearer",
-			ExpiresIn:    int64(s.AccessTTL.Seconds()),
+			AccessToken:  access,
+			ExpiresIn:    int(s.AccessTTL.Seconds()),
+			RefreshToken: refresh,
 			Scope:        "access",
-		})
+		}
+		dtoRequest.ResponseSuccess(c, resp)
 	}
 }
 
 func RefreshHandler(s *authsvc.AuthService) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req RefreshReq
-		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		if err := dtoRequest.ValidateRequestWithContext(c, &req); err != nil {
+			dtoRequest.ResponseValidationError(c, err)
 			return
 		}
 		access, err := s.Refresh(c.Request.Context(), req.RefreshToken)
 		if err != nil {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+			dtoRequest.ResponseError(c, http.StatusUnauthorized, err.Error(), nil)
 			return
 		}
-		c.JSON(http.StatusOK, gin.H{
-			"access_token": access,
-			"token_type":   "Bearer",
-			"expires_in":   int64(s.AccessTTL.Seconds()),
-			"scope":        "access",
-		})
+
+		resp := &LoginResp{
+			TokenType:   "Bearer",
+			AccessToken: access,
+			ExpiresIn:   int(s.AccessTTL.Seconds()),
+			Scope:       "access",
+		}
+		dtoRequest.ResponseSuccess(c, resp)
 	}
 }
 
 func LogoutHandler(s *authsvc.AuthService) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		var req RefreshReq
-		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		var req RefreshReq // 用 refresh_token 注销
+		if err := dtoRequest.ValidateRequestWithContext(c, &req); err != nil {
+			dtoRequest.ResponseValidationError(c, err)
 			return
 		}
 		if err := s.Logout(c.Request.Context(), req.RefreshToken); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			dtoRequest.ResponseError(c, http.StatusUnauthorized, err.Error(), nil)
 			return
 		}
-		c.JSON(http.StatusOK, gin.H{"ok": true})
+		dtoRequest.ResponseSuccess(c, gin.H{"ok": true})
 	}
+}
+
+// ---------- helpers ----------
+
+func chooseIdentifier(username, email, phone string) string {
+	if email != "" {
+		return email
+	}
+	if phone != "" {
+		return phone
+	}
+	return username
 }

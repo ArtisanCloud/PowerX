@@ -11,5 +11,6 @@ type AdminMenuItem struct {
 	Origin      string          `json:"origin,omitempty"`
 	Permissions []string        `json:"permissions,omitempty"`
 	ParentID    string          `json:"parentId,omitempty"`
+	Slot        string          `json:"slot,omitempty"` // 插槽
 	Children    []AdminMenuItem `json:"children,omitempty"`
 }

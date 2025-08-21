@@ -37,6 +37,13 @@ const ModelStatusCanceled int8 = 2
 const ModelStatusPending int8 = 3
 const ModelStatusInactive int8 = 4
 
+func (m *PowerUUIDModel) BeforeCreate(tx *gorm.DB) error {
+	if m.UUID == uuid.Nil {
+		m.UUID = uuid.New()
+	}
+	return nil
+}
+
 type Pagination struct {
 	Limit      int         `json:"limit"`
 	Page       int         `json:"page"`

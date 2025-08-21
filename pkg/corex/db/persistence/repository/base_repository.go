@@ -37,10 +37,11 @@ func (r *BaseRepository[T]) CreateBatch(ctx context.Context, objs []*T) ([]*T, e
 	result := query.Create(&objs)
 	if result.Error != nil {
 		logger.Error(ctx, result.Error.Error()) // ✅ 已替换
-		if strings.Contains(result.Error.Error(), "duplicated") {
-			return nil, errors.New("关键名称信息不能重复")
-		}
-		return nil, errors.New("inner db error, pls check the log")
+		//if strings.Contains(result.Error.Error(), "duplicated") {
+		//	return nil, errors.New("关键名称信息不能重复")
+		//}
+		//return nil, errors.New("inner db error, pls check the log")
+		return nil, result.Error
 	}
 
 	return objs, nil
@@ -57,11 +58,12 @@ func (r *BaseRepository[T]) Create(ctx context.Context, obj *T) (*T, error) {
 
 	result := query.Create(obj)
 	if result.Error != nil {
-		logger.Error(ctx, result.Error.Error()) // ✅ 已替换
-		if strings.Contains(result.Error.Error(), "duplicated") {
-			return nil, errors.New("关键名称信息不能重复")
-		}
-		return nil, errors.New("inner db error, pls check the log")
+		//logger.Error(ctx, result.Error.Error()) // ✅ 已替换
+		//if strings.Contains(result.Error.Error(), "duplicated") {
+		//	return nil, errors.New("关键名称信息不能重复")
+		//}
+		//return nil, errors.New("inner db error, pls check the log")
+		return nil, result.Error
 	}
 	return obj, nil
 }
