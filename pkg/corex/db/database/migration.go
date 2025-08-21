@@ -39,6 +39,13 @@ func MigrateCoreModels(db *gorm.DB) (err error) {
 		&modelIAM.RefreshToken{},
 		&modelIAM.Department{},
 		&modelIAM.MemberDepartment{},
+		&modelIAM.Department{},
+		&modelIAM.Group{},
+		&modelIAM.MemberAssignment{},
+		&modelIAM.Position{},
+		&modelIAM.Team{},
+		&modelIAM.ServiceAccount{},
+		&modelIAM.APIKey{},
 	)
 	if err != nil {
 		return err
