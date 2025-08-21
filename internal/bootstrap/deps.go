@@ -13,6 +13,8 @@ type Deps struct {
 	DB           *gorm.DB
 	AuthUser     *authsvc.AuthService
 	AuthCustomer *authsvc.AuthService
+	//Bus    eventbus.Publisher // 来自 pkg/corex/event_bus
+	//Audit  audit.Logger
 }
 
 func NewDeps(db *gorm.DB, cfg *config.Config) *Deps {
