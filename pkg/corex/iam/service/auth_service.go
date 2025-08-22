@@ -8,7 +8,6 @@ import (
 	model "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/iam"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository"
 	"github.com/ArtisanCloud/PowerX/pkg/utils"
-	"github.com/ArtisanCloud/PowerX/pkg/utils/fmt"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 	"strconv"
@@ -222,15 +221,15 @@ func (s *AuthService) Login(ctx context.Context, tenantRef, identifier, password
 		UserUUID: u.UUID.String(), UserID: u.ID,
 		Platforms: s.Platforms,
 	}
-	fmt.Dump(ctx, "jwt sign(access)",
-		"issuer", s.Issuer,
-		"aud", s.Audience,
-		"member", claims.MemberUUID,
-		"tenant", claims.TenantUUID,
-		"platform", claims.Platforms,
-		"ttl", s.AccessTTL.String(),
-		"secret_fp", utils.SecretFP(s.JWTSecret),
-	)
+	//fmt.Dump(ctx, "jwt sign(access)",
+	//	"issuer", s.Issuer,
+	//	"aud", s.Audience,
+	//	"member", claims.MemberUUID,
+	//	"tenant", claims.TenantUUID,
+	//	"platform", claims.Platforms,
+	//	"ttl", s.AccessTTL.String(),
+	//	"secret_fp", utils.SecretFP(s.JWTSecret),
+	//)
 	if s.Audience == "" {
 		return "", "", errors.New("audience misconfigured")
 	}
@@ -240,14 +239,14 @@ func (s *AuthService) Login(ctx context.Context, tenantRef, identifier, password
 	if err != nil {
 		return "", "", err
 	}
-	fmt.Dump(ctx, "jwt sign(refresh)",
-		"issuer", s.Issuer,
-		"aud", s.Audience,
-		"member", claims.MemberUUID,
-		"tenant", claims.TenantUUID,
-		"ttl", s.RefreshTTL.String(),
-		"secret_fp", utils.SecretFP(s.JWTSecret),
-	)
+	//fmt.Dump(ctx, "jwt sign(refresh)",
+	//	"issuer", s.Issuer,
+	//	"aud", s.Audience,
+	//	"member", claims.MemberUUID,
+	//	"tenant", claims.TenantUUID,
+	//	"ttl", s.RefreshTTL.String(),
+	//	"secret_fp", utils.SecretFP(s.JWTSecret),
+	//)
 	refresh, err = pkgauth.GenerateRefreshJWT(claims, s.Issuer, []string{s.Audience}, jti, s.RefreshTTL, s.JWTSecret)
 	if err != nil {
 		return "", "", err

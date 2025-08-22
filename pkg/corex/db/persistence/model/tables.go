@@ -24,3 +24,5 @@ const TableIAMGroup = "iam_group"
 const TableIAMRoleBinding = "iam_role_binding"
 const TableIAMServiceAccount = "iam_service_account"
 const TableIAMAPIKey = "iam_api_key"
+
+const TableAuditEvent = "audit_event"

@@ -1,15 +1,17 @@
 package audit
 
 import (
+	"github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
 	"time"
 
 	"gorm.io/datatypes"
 )
 
-type Event struct {
-	ID              string         `gorm:"type:uuid;primaryKey"`
+type AuditEvent struct {
+	model.PowerModel
+
 	OccurredAt      time.Time      `gorm:"not null;index:idx_audit_tenant_time,priority:2,sort:desc"`
-	TenantID        int64          `gorm:"not null;index:idx_audit_tenant_time,priority:1"`
+	TenantID        uint64         `gorm:"not null;index:idx_audit_tenant_time,priority:1"`
 	CorrelationID   string         `gorm:"type:text;index:idx_audit_corr"`
 	Source          string         `gorm:"type:text;not null"`
 	Operation       string         `gorm:"type:text;not null;index:idx_audit_op_outcome,priority:2"`
@@ -22,7 +24,7 @@ type Event struct {
 	ActorUsername   string         `gorm:"type:text"`
 	ActorDisplay    string         `gorm:"type:text"`
 	ActorRoleIDs    datatypes.JSON `gorm:"type:jsonb"`
-	ClientIP        string         `gorm:"type:inet"`
+	ClientIP        *string        `gorm:"type:inet"`
 	ClientUA        string         `gorm:"type:text"`
 	ChangesBefore   datatypes.JSON `gorm:"type:jsonb"`
 	ChangesAfter    datatypes.JSON `gorm:"type:jsonb"`
@@ -33,4 +35,10 @@ type Event struct {
 	PrevHash        string         `gorm:"type:text"`
 }
 
-func (Event) TableName() string { return "audit_event" }
+func (m *AuditEvent) TableName() string { return model.PowerXSchema + "." + model.TableAuditEvent }
+func (m *AuditEvent) GetTableName(needFull bool) string {
+	if needFull {
+		return m.TableName()
+	}
+	return model.TableAuditEvent
+}

@@ -1,9 +1,14 @@
 package bootstrap
 
 import (
+	"context"
 	"github.com/ArtisanCloud/PowerX/config"
+	auditsvc "github.com/ArtisanCloud/PowerX/pkg/corex/audit"
+	dbm "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/audit"
+	auditrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/audit"
 	infraiam "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/iam"
 	authsvc "github.com/ArtisanCloud/PowerX/pkg/corex/iam/service"
+	pxlog "github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"gorm.io/gorm"
 	"strings"
 	"time" // 👈 新增
@@ -14,7 +19,9 @@ type Deps struct {
 	AuthUser     *authsvc.AuthService
 	AuthCustomer *authsvc.AuthService
 	//Bus    eventbus.Publisher // 来自 pkg/corex/event_bus
-	//Audit  audit.Logger
+
+	AuditSvc auditsvc.Service // 底层批量写库 + sink
+	Auditor  auditsvc.Auditor // 门面，兼容 LogAPI/LogRBAC 等调用
 }
 
 func NewDeps(db *gorm.DB, cfg *config.Config) *Deps {
@@ -48,9 +55,33 @@ func NewDeps(db *gorm.DB, cfg *config.Config) *Deps {
 		accessTTL, refreshTTL,
 	)
 
+	// --- Audit 初始化 ---
+	dbRepo := auditrepo.NewAuditEventRepository(db) // 你已有的 GORM repo
+	sinks := []auditsvc.Sink{&auditsvc.LoggerSink{L: pxlog.GetGlobalLogger()}}
+	svc := auditsvc.NewService(dbRepo, sinks, auditsvc.Options{
+		BatchSize: 200, BatchWait: 150 * time.Millisecond, MaxPayloadSize: 16 * 1024,
+	})
+	// 注册 GORM 回调
+	auditsvc.RegisterAuditCallbacks(db, svc)
+
+	aud := auditsvc.NewAuditor(svc)
+
+	_ = svc.Emit(context.Background(), &dbm.AuditEvent{
+		OccurredAt:   time.Now(),
+		Source:       "selftest",
+		Operation:    "BOOT",
+		ResourceType: "system",
+		ResourceID:   "bootstrap",
+		Outcome:      "SUCCESS",
+		Severity:     "INFO",
+		Meta:         []byte(`{"msg":"audit self test"}`),
+	})
+
 	return &Deps{
 		DB:           db,
 		AuthUser:     authUser,
 		AuthCustomer: authCustomer,
+		AuditSvc:     svc,
+		Auditor:      aud,
 	}
 }
