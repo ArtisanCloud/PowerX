@@ -1,6 +1,7 @@
 package database
 
 import (
+	modelAudit "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/audit"
 	modelAgent "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/flow"
 	modelIAM "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/iam"
 	modelForm "github.com/ArtisanCloud/PowerX/pkg/dynamic_form/persistence/model"
@@ -52,5 +53,11 @@ func MigrateCoreModels(db *gorm.DB) (err error) {
 		return err
 	}
 
+	err = db.AutoMigrate(
+		&modelAudit.AuditEvent{},
+	)
+	if err != nil {
+		return err
+	}
 	return nil
 }

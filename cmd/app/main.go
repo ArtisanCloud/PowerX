@@ -6,6 +6,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/config"
 	"github.com/ArtisanCloud/PowerX/internal/bootstrap"
 	"github.com/ArtisanCloud/PowerX/internal/http"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/audit"
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"github.com/gin-gonic/gin"
 	"log"
@@ -28,6 +29,9 @@ func main() {
 		logger.ErrorF(ctx, "BootstrapApp failed: %s", err.Error())
 		return
 	}
+	defer deps.AuditSvc.Close()
+	r.Use(gin.Recovery())
+	r.Use(audit.GinAudit(deps.Auditor))
 
 	// bootstrap plugin manager
 	_, err = bootstrap.BootstrapPlugin(ctx, cfg, r)

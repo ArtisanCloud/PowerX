@@ -134,4 +134,3 @@ PowerX 内置四类前端壳：
 
 ---
 
-要不要我帮你写一份 **“PowerX vs 微服务 vs 单体 vs SaaS”** 的对比表格，直接放在 README 里，一眼让别人明白 PowerX 的差异点？

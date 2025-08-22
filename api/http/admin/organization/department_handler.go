@@ -79,6 +79,11 @@ func (h *DepartmentHandler) Update(c *gin.Context) {
 		dto.ResponseValidationError(c, err)
 		return
 	}
+	hasNewParent := req.NewParentID != nil
+	// 0 -> 根
+	if hasNewParent && *req.NewParentID == 0 {
+		req.NewParentID = nil
+	}
 
 	ctx := c.Request.Context()
 	tid := auth.GetTenantID(ctx)
@@ -95,13 +100,14 @@ func (h *DepartmentHandler) Update(c *gin.Context) {
 		LeaderMemberID: req.LeaderMemberID,
 		Status:         req.Status,
 		Meta:           req.Meta,
+		HasNewParentID: hasNewParent,
 	})
 	if err != nil {
 		dto.ResponseError(c, http.StatusBadRequest, "更新部门失败", err)
 		return
 	}
 
-	dept, err := h.DeptRepo.FindByID(ctx, tid)
+	dept, err := h.DeptRepo.FindByID(ctx, tid, id)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			dto.ResponseError(c, http.StatusNotFound, "department not found", nil)
