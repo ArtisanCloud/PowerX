@@ -5,7 +5,7 @@ import "gorm.io/datatypes"
 // 创建：只要求 name、key；其余可选
 type CreateDepartmentReq struct {
 	Name           string         `json:"name" binding:"required"`
-	Key            string         `json:"key"  binding:"required"`
+	Key            *string        `json:"key,omitempty"`
 	ParentID       *uint64        `json:"parent_id,omitempty"`
 	Sort           *int           `json:"sort,omitempty"`
 	LeaderMemberID *uint64        `json:"leader_member_id,omitempty"`

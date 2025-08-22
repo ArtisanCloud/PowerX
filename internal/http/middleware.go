@@ -30,7 +30,7 @@ func RequestLoggingMiddleware() gin.HandlerFunc {
 			zap.String("path", c.FullPath()),
 			zap.Int("status", status),
 			zap.Int64("latency_ms", latency.Milliseconds()),
-			zap.String("tenant_id", tenant),
+			zap.Uint64("tenant_id", tenant),
 			zap.String("trace_id", traceID),
 		)
 	}

@@ -5,17 +5,25 @@ import "context"
 type ctxKey string
 
 const (
-	TenantIDKey  ctxKey = "tenant_id"  // 租户ID键
-	SubjectKey   ctxKey = "subject"    // 主体键
-	ScopeKey     ctxKey = "scope"      // 权限范围键
-	AudienceKey  ctxKey = "audience"   // 受众键
-	PlatformKey  ctxKey = "platform"   // 平台键
-	TraceIDKey   ctxKey = "trace_id"   // 追踪ID键
-	JWTClaimsKey ctxKey = "jwt_claims" // JWT声明键
+	TenantIDKey   ctxKey = "tenant_id"   // 租户ID键
+	TenantUUIDKey ctxKey = "tenant_uuid" // 租户ID键
+	SubjectKey    ctxKey = "subject"     // 主体键
+	ScopeKey      ctxKey = "scope"       // 权限范围键
+	AudienceKey   ctxKey = "audience"    // 受众键
+	PlatformKey   ctxKey = "platform"    // 平台键
+	TraceIDKey    ctxKey = "trace_id"    // 追踪ID键
+	JWTClaimsKey  ctxKey = "jwt_claims"  // JWT声明键
 )
 
 // GetTenantID 从上下文获取租户ID
-func GetTenantID(ctx context.Context) string {
+func GetTenantID(ctx context.Context) uint64 {
+	if v, ok := ctx.Value(TenantIDKey).(uint64); ok {
+		return v
+	}
+	return 0
+}
+
+func GetTenantUUID(ctx context.Context) string {
 	if v, ok := ctx.Value(TenantIDKey).(string); ok {
 		return v
 	}

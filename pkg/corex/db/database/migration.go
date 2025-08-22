@@ -40,6 +40,7 @@ func MigrateCoreModels(db *gorm.DB) (err error) {
 		&modelIAM.Department{},
 		&modelIAM.MemberDepartment{},
 		&modelIAM.Department{},
+		&modelIAM.DepartmentClosure{},
 		&modelIAM.Group{},
 		&modelIAM.MemberAssignment{},
 		&modelIAM.Position{},

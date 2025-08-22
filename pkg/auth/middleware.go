@@ -3,7 +3,6 @@ package auth
 import (
 	"context"
 	"net/http"
-	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -58,10 +57,10 @@ func JwtMiddleware(
 
 		// 4) 注入到 request.Context
 		tenantStr := claims.TenantUUID
-		if tenantStr == "" && claims.TenantID != 0 {
-			tenantStr = strconv.FormatUint(claims.TenantID, 10)
-		}
-		reqCtx = context.WithValue(reqCtx, TenantIDKey, tenantStr)
+		tenantId := claims.TenantID
+
+		reqCtx = context.WithValue(reqCtx, TenantIDKey, tenantId)
+		reqCtx = context.WithValue(reqCtx, TenantUUIDKey, tenantStr)
 		reqCtx = context.WithValue(reqCtx, SubjectKey, claims.MemberUUID) // sub = member.uuid
 		reqCtx = context.WithValue(reqCtx, ScopeKey, claims.Scope)
 		if len(claims.Audience) > 0 {

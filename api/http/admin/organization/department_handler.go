@@ -9,9 +9,10 @@ import (
 	"gorm.io/gorm"
 
 	orgsvc "github.com/ArtisanCloud/PowerX/internal/service/organization"
-	auth "github.com/ArtisanCloud/PowerX/pkg/auth"
+	"github.com/ArtisanCloud/PowerX/pkg/auth"
 	m "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/iam"
 	repoi "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/iam"
+	dto "github.com/ArtisanCloud/PowerX/pkg/dto"
 )
 
 type DepartmentHandler struct {
@@ -26,45 +27,47 @@ func NewDepartmentHandler(s *orgsvc.OrgService, dr *repoi.DepartmentRepository) 
 // POST /api/v1/admin/organization/departments
 func (h *DepartmentHandler) Create(c *gin.Context) {
 	var req CreateDepartmentReq
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	if err := dto.ValidateRequestWithContext(c, &req); err != nil {
+		dto.ResponseValidationError(c, err)
 		return
 	}
 
 	ctx := c.Request.Context()
-	tidStr := auth.GetTenantID(ctx)
-	if tidStr == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "tenant_id missing"})
+	tid := auth.GetTenantID(ctx)
+	if tid == 0 {
+		dto.ResponseError(c, http.StatusBadRequest, "tenant_id missing", nil)
 		return
 	}
-	tid, err := strconv.ParseUint(tidStr, 10, 64)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid tenant_id"})
-		return
+
+	// 可选兼容：把 0 视为根（不需要可去掉）
+	if req.ParentID != nil && *req.ParentID == 0 {
+		req.ParentID = nil
 	}
 
 	dept := &m.Department{
 		TenantID:       tid,
 		Name:           req.Name,
-		Key:            req.Key,
+		Key:            "", // 若允许后端生成 key，这里留空；前端传了就用
 		ParentID:       req.ParentID,
 		LeaderMemberID: req.LeaderMemberID,
 		Meta:           req.Meta,
+		Status:         1, // 默认启用
+	}
+	if req.Key != nil {
+		dept.Key = *req.Key
 	}
 	if req.Sort != nil {
 		dept.Sort = *req.Sort
 	}
 	if req.Status != nil {
 		dept.Status = *req.Status
-	} else {
-		dept.Status = 1
 	}
 
 	if err := h.Svc.CreateDepartment(ctx, dept, req.ParentID); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		dto.ResponseError(c, http.StatusBadRequest, "创建部门失败", err)
 		return
 	}
-	c.JSON(http.StatusOK, toDTO(dept))
+	dto.ResponseSuccess(c, toDTO(dept))
 }
 
 // PATCH /api/v1/admin/organization/departments/:id
@@ -72,24 +75,19 @@ func (h *DepartmentHandler) Update(c *gin.Context) {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
 
 	var req UpdateDepartmentReq
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	if err := dto.ValidateRequestWithContext(c, &req); err != nil {
+		dto.ResponseValidationError(c, err)
 		return
 	}
 
 	ctx := c.Request.Context()
-	tidStr := auth.GetTenantID(ctx)
-	if tidStr == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "tenant_id missing"})
-		return
-	}
-	tid, err := strconv.ParseUint(tidStr, 10, 64)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid tenant_id"})
+	tid := auth.GetTenantID(ctx)
+	if tid == 0 {
+		dto.ResponseError(c, http.StatusBadRequest, "tenant_id missing", nil)
 		return
 	}
 
-	err = h.Svc.UpdateDepartment(ctx, tid, id, orgsvc.UpdateDepartmentOpts{
+	err := h.Svc.UpdateDepartment(ctx, tid, id, orgsvc.UpdateDepartmentOpts{
 		Name:           req.Name,
 		Key:            req.Key,
 		NewParentID:    req.NewParentID,
@@ -99,20 +97,20 @@ func (h *DepartmentHandler) Update(c *gin.Context) {
 		Meta:           req.Meta,
 	})
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		dto.ResponseError(c, http.StatusBadRequest, "更新部门失败", err)
 		return
 	}
 
 	dept, err := h.DeptRepo.FindByID(ctx, tid)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{"error": "department not found"})
+			dto.ResponseError(c, http.StatusNotFound, "department not found", nil)
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		dto.ResponseError(c, http.StatusInternalServerError, "查询部门失败", err)
 		return
 	}
-	c.JSON(http.StatusOK, toDTO(dept))
+	dto.ResponseSuccess(c, toDTO(dept))
 }
 
 // DELETE /api/v1/admin/organization/departments/:id[?force=true]
@@ -120,48 +118,38 @@ func (h *DepartmentHandler) Delete(c *gin.Context) {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
 
 	ctx := c.Request.Context()
-	tidStr := auth.GetTenantID(ctx)
-	if tidStr == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "tenant_id missing"})
-		return
-	}
-	tid, err := strconv.ParseUint(tidStr, 10, 64)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid tenant_id"})
+	tid := auth.GetTenantID(ctx)
+	if tid == 0 {
+		dto.ResponseError(c, http.StatusBadRequest, "tenant_id missing", nil)
 		return
 	}
 
 	force := c.Query("force") == "true"
 	if err := h.Svc.DeleteDepartment(ctx, tid, id, force); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		dto.ResponseError(c, http.StatusBadRequest, "删除部门失败", err)
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"ok": true})
+	dto.ResponseSuccess(c, gin.H{"ok": true})
 }
 
 // GET /api/v1/admin/organization/departments/tree
 func (h *DepartmentHandler) Tree(c *gin.Context) {
 	ctx := c.Request.Context()
-	tidStr := auth.GetTenantID(ctx)
-	if tidStr == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "tenant_id missing"})
-		return
-	}
-	tid, err := strconv.ParseUint(tidStr, 10, 64)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid tenant_id"})
+	tid := auth.GetTenantID(ctx)
+	if tid == 0 {
+		dto.ResponseError(c, http.StatusBadRequest, "tenant_id missing", nil)
 		return
 	}
 
 	nodes, err := h.Svc.GetDepartmentTree(ctx, tid)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		dto.ResponseError(c, http.StatusInternalServerError, "查询部门树失败", err)
 		return
 	}
-	c.JSON(http.StatusOK, nodes)
+	dto.ResponseSuccess(c, nodes)
 }
 
-// DTO 映射：字段直接对应 GORM 模型
+// DTO 映射
 func toDTO(d *m.Department) *DepartmentDTO {
 	return &DepartmentDTO{
 		ID: d.ID, TenantID: d.TenantID, Name: d.Name, Key: d.Key,
