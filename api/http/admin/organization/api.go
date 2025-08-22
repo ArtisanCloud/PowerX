@@ -13,7 +13,7 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 	deptRepo := repoi.NewDepartmentRepository(db)
 
 	h := NewDepartmentHandler(orgSvc, deptRepo)
-	g := protectedGroup.Group("/organization/departments")
+	g := protectedGroup.Group("/admin/organization/departments")
 	{
 		g.GET("/tree", h.Tree)
 		g.POST("", h.Create)

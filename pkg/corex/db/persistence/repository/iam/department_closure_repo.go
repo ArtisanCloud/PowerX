@@ -83,3 +83,49 @@ func (r *DepartmentClosureRepository) RebuildSubtreeTx(ctx context.Context, tx *
 	}
 	return nil
 }
+
+// DeleteNodeTx：删除单节点相关闭包边（自环 + 所有关联）
+func (r *DepartmentClosureRepository) DeleteNodeTx(
+	ctx context.Context, tx *gorm.DB, tenantID, id uint64,
+) error {
+	t := (&dbm.DepartmentClosure{}).GetTableName(true)
+	return tx.WithContext(ctx).Exec(`
+        DELETE FROM `+t+`
+         WHERE tenant_id = CAST(? AS BIGINT)
+           AND (ancestor_id = CAST(? AS BIGINT) OR descendant_id = CAST(? AS BIGINT))`,
+		tenantID, id, id,
+	).Error
+}
+
+// DeleteSubtreeTx：删除以 rootID 为根的子树所有闭包边
+func (r *DepartmentClosureRepository) DeleteSubtreeTx(
+	ctx context.Context, tx *gorm.DB, tenantID, rootID uint64,
+) error {
+	tC := (&dbm.DepartmentClosure{}).GetTableName(true)
+	tD := (&dbm.Department{}).GetTableName(true)
+
+	// 通过 path 前缀找出子树 id 集合，删除 ancestor/descendant 命中的所有边
+	return tx.WithContext(ctx).Exec(`
+        DELETE FROM `+tC+`
+         WHERE tenant_id = CAST(? AS BIGINT)
+           AND (
+                ancestor_id IN (
+                    SELECT id FROM `+tD+`
+                     WHERE tenant_id = CAST(? AS BIGINT)
+                       AND path LIKE (
+                           SELECT path FROM `+tD+`
+                            WHERE tenant_id = CAST(? AS BIGINT) AND id = CAST(? AS BIGINT)
+                       ) || '%'
+                )
+             OR descendant_id IN (
+                    SELECT id FROM `+tD+`
+                     WHERE tenant_id = CAST(? AS BIGINT)
+                       AND path LIKE (
+                           SELECT path FROM `+tD+`
+                            WHERE tenant_id = CAST(? AS BIGINT) AND id = CAST(? AS BIGINT)
+                       ) || '%'
+                )
+           )`,
+		tenantID, tenantID, tenantID, rootID, tenantID, tenantID, rootID,
+	).Error
+}

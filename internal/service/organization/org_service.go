@@ -109,11 +109,16 @@ type UpdateDepartmentOpts struct {
 	LeaderMemberID *uint64
 	Status         *int16
 	Meta           any
+	HasNewParentID bool
 }
 
 // Update（含可选 Move）
 func (s *OrgService) UpdateDepartment(ctx context.Context, tenantID, deptID uint64, opt UpdateDepartmentOpts) error {
 	return s.TX(ctx, func(tx *gorm.DB) error {
+		if opt.NewParentID != nil && *opt.NewParentID == 0 {
+			opt.NewParentID = nil
+		}
+
 		var d m.Department
 		if err := tx.Where("tenant_id=? AND id=?", tenantID, deptID).First(&d).Error; err != nil {
 			return err
@@ -146,51 +151,60 @@ func (s *OrgService) UpdateDepartment(ctx context.Context, tenantID, deptID uint
 		}
 
 		// 2) 若需要移动父节点
-		if opt.NewParentID != nil {
+		if opt.HasNewParentID {
 			return s.moveDepartmentTx(ctx, tx, &d, opt.NewParentID)
 		}
 		return nil
 	})
 }
 
+// newParentID == nil 表示把部门移动为根节点
 func (s *OrgService) moveDepartmentTx(ctx context.Context, tx *gorm.DB, d *m.Department, newParentID *uint64) error {
 	tDept := (&m.Department{}).GetTableName(true)
 
-	// 1) 取新父节点（如果有），并做“不能把节点挂到自己的子树下”的校验
-	var p m.Department
+	// —— 兜底：把 0 视为根（外层也做过，这里再保险）——
+	if newParentID != nil && *newParentID == 0 {
+		newParentID = nil
+	}
+
+	// 1) 读取新父节点并做成环校验（仅当 newParentID != nil）
+	var parent m.Department
 	if newParentID != nil {
-		if err := tx.Where("tenant_id=? AND id=?", d.TenantID, *newParentID).First(&p).Error; err != nil {
-			return err // handler 会把 ErrRecordNotFound 翻译成“上级部门不存在”
+		if err := tx.Where("tenant_id=? AND id=?", d.TenantID, *newParentID).First(&parent).Error; err != nil {
+			// 这里会被 handler 翻译成 “上级部门不存在”
+			return err
 		}
-		// p 在 d 的子树里？禁止，避免形成环
-		// d.Path 形如 "/.../<d.ID>/"
-		if strings.HasPrefix(p.Path, d.Path) {
+		// 禁止把节点挂到它自己的子树下（避免形成环）
+		// d.Path 形如 "/.../<d.ID>/"；若 parent.Path 以 d.Path 为前缀，说明 parent 在 d 的子树中
+		if strings.HasPrefix(parent.Path, d.Path) {
 			return ErrMoveCreatesCycle
 		}
 	}
 
-	// oldPrefix 形如 "/.../<d.ID>/"
+	// 2) 计算新前缀与新深度
+	// oldPrefix 一定包含自身ID："/.../<d.ID>/"
 	oldPrefix := d.Path
-	// newPrefix：根 or 新父路径 + 本节点 ID
 	var newPrefix string
 	var newDepth int
-	if newParentID != nil {
-		newPrefix = p.Path + fmt.Sprintf("%d/", d.ID)
-		newDepth = p.Depth + 1
-	} else {
+	if newParentID == nil {
+		// —— 移动为根 —— path = "/<d.ID>/", depth = 0
 		newPrefix = fmt.Sprintf("/%d/", d.ID)
 		newDepth = 0
+	} else {
+		// —— 移动到新父节点下 —— path = parent.Path + "<d.ID>/", depth = parent.Depth + 1
+		newPrefix = parent.Path + fmt.Sprintf("%d/", d.ID)
+		newDepth = parent.Depth + 1
 	}
 	deltaDepth := newDepth - d.Depth
 
-	// 2) 批量更新这棵子树的 path / depth（用前缀替换）
+	// 3) 批量更新这棵子树（包含自身）的 path/depth（一次 SQL 前缀替换 + 深度平移）
 	if err := tx.Exec(`
 		UPDATE `+tDept+` AS dd
 		   SET path  = regexp_replace(dd.path, '^'||?, ?),
 		       depth = dd.depth + ?
 		 WHERE dd.tenant_id = ? AND dd.path LIKE ?`,
-		strings.TrimRight(oldPrefix, "/"),
-		strings.TrimRight(newPrefix, "/"),
+		strings.TrimRight(oldPrefix, "/"), // '^/old/.../<d.ID>'
+		strings.TrimRight(newPrefix, "/"), // '/new/.../<d.ID>'
 		deltaDepth,
 		d.TenantID,
 		oldPrefix+"%",
@@ -198,13 +212,12 @@ func (s *OrgService) moveDepartmentTx(ctx context.Context, tx *gorm.DB, d *m.Dep
 		return err
 	}
 
-	// 3) 先把子树里所有节点的闭包边删掉（Tx 版本，保证跟上面的 UPDATE 同事务）
+	// 4) 重建闭包表（同事务）：先删除子树所有闭包边，再按新的父子关系逐个补回
 	if err := s.closRepo.RebuildSubtreeTx(ctx, tx, d.TenantID, d.ID); err != nil {
 		return err
 	}
 
-	// 4) 重新插入子树的闭包边：每个节点 = self 边 + 继承“它当前的 parent”
-	//    注意：只有 d 的 parent 变成 newParentID；其它节点 parent 还是它们自己的 ParentID
+	// 先查出子树（用“新前缀”），按 depth 升序，确保父先于子处理
 	var subtree []struct {
 		ID       uint64
 		ParentID *uint64
@@ -214,7 +227,7 @@ func (s *OrgService) moveDepartmentTx(ctx context.Context, tx *gorm.DB, d *m.Dep
 		SELECT id, parent_id, depth
 		  FROM `+tDept+`
 		 WHERE tenant_id=? AND path LIKE ?
-		 ORDER BY depth ASC`, // 由浅入深，确保父亲先插边
+		 ORDER BY depth ASC`,
 		d.TenantID, newPrefix+"%",
 	).Scan(&subtree).Error; err != nil {
 		return err
@@ -225,28 +238,31 @@ func (s *OrgService) moveDepartmentTx(ctx context.Context, tx *gorm.DB, d *m.Dep
 		if err := s.closRepo.EnsureSelfEdgeTx(ctx, tx, d.TenantID, n.ID); err != nil {
 			return err
 		}
-		// 继承祖先：决定这个节点的“当前父亲”
+		// 决定这个节点的“当前父亲”：
+		//   - 根节点 d：父亲 = newParentID（此时若移动为根则为 nil，不继承任何祖先）
+		//   - 其它节点：父亲仍是它自己的 ParentID（没变）
 		var parentForThis *uint64
 		if n.ID == d.ID {
-			parentForThis = newParentID // 根节点用新父
+			parentForThis = newParentID
 		} else {
-			parentForThis = n.ParentID // 其它节点用原父
+			parentForThis = n.ParentID
 		}
 		if parentForThis != nil {
+			// 从父亲的所有祖先继承（父亲必须已处理过 self/继承，因我们按 depth 升序）
 			if err := s.closRepo.InheritFromParentTx(ctx, tx, d.TenantID, *parentForThis, n.ID); err != nil {
 				return err
 			}
 		}
 	}
 
-	// 5) 更新当前节点的 ParentID 字段（根则置 NULL）
+	// 5) 更新当前节点的 parent_id 字段（根则置 NULL）
 	if err := tx.Model(&m.Department{}).
 		Where("tenant_id=? AND id=?", d.TenantID, d.ID).
 		Update("parent_id", newParentID).Error; err != nil {
 		return err
 	}
 
-	// 同步 d 的内存值（如果上层后续还用到）
+	// 同步内存值（可选）
 	d.ParentID = newParentID
 	d.Path = newPrefix
 	d.Depth = newDepth
@@ -257,15 +273,19 @@ func (s *OrgService) moveDepartmentTx(ctx context.Context, tx *gorm.DB, d *m.Dep
 // Delete
 func (s *OrgService) DeleteDepartment(ctx context.Context, tenantID, deptID uint64, force bool) error {
 	return s.TX(ctx, func(tx *gorm.DB) error {
-		// 不允许删有子节点的部门（除非 force）
-		var cnt int64
 		tDept := (&m.Department{}).GetTableName(true)
-		if err := tx.Raw(`
-		  SELECT COUNT(1) FROM `+tDept+`
-		   WHERE tenant_id=? AND path LIKE (
-		      SELECT CONCAT(path, id::text, '/') FROM `+tDept+` WHERE tenant_id=? AND id=?
-		   ) || '%' AND id <> ?`,
-			tenantID, tenantID, deptID, deptID,
+
+		// 先取待删节点，拿到它的 path 前缀
+		var d m.Department
+		if err := tx.Where("tenant_id=? AND id=?", tenantID, deptID).First(&d).Error; err != nil {
+			return err
+		}
+
+		// ✅ 正确的子节点计数：直接用 d.Path 前缀
+		var cnt int64
+		if err := tx.Raw(
+			`SELECT COUNT(1) FROM `+tDept+` WHERE tenant_id=? AND path LIKE ? AND id <> ?`,
+			tenantID, d.Path+"%", deptID,
 		).Scan(&cnt).Error; err != nil {
 			return err
 		}
@@ -273,14 +293,25 @@ func (s *OrgService) DeleteDepartment(ctx context.Context, tenantID, deptID uint
 			return errors.New("department has children; use ?force=true to force delete")
 		}
 
-		// TODO: 校验是否还有成员在此部门（你可查 MemberDepartment/Assignment）
+		// （可选）还有成员则不允许删
+		// TODO: 检查 member_department / assignment 关系
 
-		// 先删闭包，再删部门
-		if err := tx.Where("tenant_id=? AND (ancestor_id=? OR descendant_id=?)", tenantID, deptID, deptID).
-			Delete(&m.DepartmentClosure{}).Error; err != nil {
+		// 删除闭包边 + 删除部门
+		if !force {
+			// 仅删单节点
+			if err := tx.Where("tenant_id=? AND (ancestor_id=? OR descendant_id=?)",
+				tenantID, deptID, deptID).Delete(&m.DepartmentClosure{}).Error; err != nil {
+				return err
+			}
+			return tx.Where("tenant_id=? AND id=?", tenantID, deptID).
+				Delete(&m.Department{}).Error
+		}
+
+		// force=true：删整棵子树
+		if err := s.closRepo.DeleteSubtreeTx(ctx, tx, tenantID, d.ID); err != nil {
 			return err
 		}
-		return tx.Where("tenant_id=? AND id=?", tenantID, deptID).
+		return tx.Where("tenant_id=? AND path LIKE ?", tenantID, d.Path+"%").
 			Delete(&m.Department{}).Error
 	})
 }
