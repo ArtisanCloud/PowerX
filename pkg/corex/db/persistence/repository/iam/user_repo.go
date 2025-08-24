@@ -3,6 +3,8 @@ package iam
 
 import (
 	"context"
+	"errors"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
 	"strings"
 
 	"gorm.io/gorm"
@@ -96,4 +98,23 @@ func (r *UserRepository) FindByDisplayName(ctx context.Context, name string) (*d
 		return nil, err
 	}
 	return &u, nil
+}
+
+func (r *UserRepository) IsRootUser(ctx context.Context, userID uint64) (bool, error) {
+	if userID == 0 {
+		return false, nil
+	}
+	type row struct {
+		IsRoot bool `gorm:"column:is_root"`
+	}
+	var u row
+	err := r.DB.WithContext(ctx).
+		Table(model.TableIAMUser).
+		Select("is_root").
+		Where("id = ?", userID).
+		Take(&u).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return false, nil
+	}
+	return u.IsRoot, err
 }

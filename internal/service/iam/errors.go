@@ -1,4 +1,4 @@
-package organization
+package iam
 
 // internal/service/organization/errors.go
 

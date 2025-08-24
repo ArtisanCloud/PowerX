@@ -1,4 +1,4 @@
-package organization
+package iam
 
 import "gorm.io/datatypes"
 

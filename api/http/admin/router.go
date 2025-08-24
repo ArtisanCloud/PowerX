@@ -3,8 +3,8 @@ package http
 import (
 	"github.com/ArtisanCloud/PowerX/api/http/admin/agent"
 	"github.com/ArtisanCloud/PowerX/api/http/admin/auth"
+	"github.com/ArtisanCloud/PowerX/api/http/admin/iam"
 	"github.com/ArtisanCloud/PowerX/api/http/admin/menu"
-	"github.com/ArtisanCloud/PowerX/api/http/admin/organization"
 	"github.com/ArtisanCloud/PowerX/api/http/admin/plugin"
 	"github.com/ArtisanCloud/PowerX/config"
 	"github.com/ArtisanCloud/PowerX/internal/bootstrap"
@@ -31,6 +31,6 @@ func RegisterAPIRoutes(
 	agent.RegisterAPIRoutes(publicGroup, protectedGroup)
 	plugin.RegisterAPIRoutes(publicGroup, protectedGroup)
 	menu.RegisterAPIRoutes(publicGroup, protectedGroup)
-	auth.RegisterAPIRoutes(publicGroup, protectedGroup, deps.AuthUser)
-	organization.RegisterAPIRoutes(publicGroup, protectedGroup, deps.DB)
+	auth.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
+	iam.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 }

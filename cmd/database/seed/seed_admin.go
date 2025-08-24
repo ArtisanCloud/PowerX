@@ -49,6 +49,7 @@ func SeedRoot(db *gorm.DB) error {
 		u := &model.User{
 			DisplayName: "root",
 			Status:      1,
+			IsRoot:      true,
 		}
 		if _, err = userRepo.Create(seedCtx(), u); err != nil {
 			return fmt.Errorf("create user: %w", err)

@@ -1,11 +1,15 @@
 package auth
 
 import (
-	"context"
+	"github.com/gin-gonic/gin"
 	"net/http"
 	"strings"
+)
 
-	"github.com/gin-gonic/gin"
+// pkg/auth/middleware.go
+
+import (
+	"context"
 )
 
 // JwtMiddleware 统一的 JWT 校验中间件（v5 版）

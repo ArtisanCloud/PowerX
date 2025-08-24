@@ -17,6 +17,7 @@ type CoreXClaims struct {
 	MemberID   uint64   `json:"mid_n"`
 	UserUUID   string   `json:"uid"`
 	UserID     uint64   `json:"uid_n"`
+	IsRoot     bool     `json:"is_root"`
 	Roles      []string `json:"roles,omitempty"`
 	Platforms  []string `json:"plats,omitempty"`
 	Scope      string   `json:"scope"` // "access" | "refresh"

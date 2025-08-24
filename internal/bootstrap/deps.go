@@ -3,11 +3,11 @@ package bootstrap
 import (
 	"context"
 	"github.com/ArtisanCloud/PowerX/config"
+	authsvc "github.com/ArtisanCloud/PowerX/internal/service/auth"
 	auditsvc "github.com/ArtisanCloud/PowerX/pkg/corex/audit"
 	dbm "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/audit"
 	auditrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/audit"
 	infraiam "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/iam"
-	authsvc "github.com/ArtisanCloud/PowerX/pkg/corex/iam/service"
 	pxlog "github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"gorm.io/gorm"
 	"strings"
@@ -18,6 +18,8 @@ type Deps struct {
 	DB           *gorm.DB
 	AuthUser     *authsvc.AuthService
 	AuthCustomer *authsvc.AuthService
+	MeService    *authsvc.MeService
+
 	//Bus    eventbus.Publisher // 来自 pkg/corex/event_bus
 
 	AuditSvc auditsvc.Service // 底层批量写库 + sink
@@ -77,10 +79,14 @@ func NewDeps(db *gorm.DB, cfg *config.Config) *Deps {
 		Meta:         []byte(`{"msg":"audit self test"}`),
 	})
 
+	// --- AuthService ---
+	meSvc := authsvc.NewMeService(db)
+
 	return &Deps{
 		DB:           db,
 		AuthUser:     authUser,
 		AuthCustomer: authCustomer,
+		MeService:    meSvc,
 		AuditSvc:     svc,
 		Auditor:      aud,
 	}

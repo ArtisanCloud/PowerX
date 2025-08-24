@@ -1,4 +1,4 @@
-package organization
+package iam
 
 import (
 	"errors"
@@ -8,7 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 
-	orgsvc "github.com/ArtisanCloud/PowerX/internal/service/organization"
+	orgsvc "github.com/ArtisanCloud/PowerX/internal/service/iam"
 	"github.com/ArtisanCloud/PowerX/pkg/auth"
 	m "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/iam"
 	repoi "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/iam"

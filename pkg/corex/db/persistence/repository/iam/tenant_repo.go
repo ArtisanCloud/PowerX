@@ -4,6 +4,7 @@ package iam
 import (
 	"context"
 	"errors"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -73,4 +74,23 @@ func (r *TenantRepository) EnsureByKey(ctx context.Context, key, name string) (*
 // EnsureSystemTenant 语义化封装，复用 EnsureByKey
 func (r *TenantRepository) EnsureSystemTenant(ctx context.Context) (*dbm.Tenant, error) {
 	return r.EnsureByKey(ctx, dbm.SystemTenantKey, "System")
+}
+
+// MapNamesByIDs 批量查询租户名称
+func (r *TenantRepository) MapNamesByIDs(ctx context.Context, ids []uint64) (map[uint64]string, error) {
+	mm := make(map[uint64]string, len(ids))
+	if len(ids) == 0 {
+		return mm, nil
+	}
+	var ts []dbm.Tenant
+	if err := r.DB.WithContext(ctx).
+		Table(model.TableIAMTenant).
+		Where("id IN ?", ids).
+		Find(&ts).Error; err != nil {
+		return mm, err
+	}
+	for _, t := range ts {
+		mm[t.ID] = t.Name
+	}
+	return mm, nil
 }

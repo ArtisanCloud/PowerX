@@ -1,5 +1,5 @@
 // pkg/corex/iam/service/auth_service.go
-package service
+package auth
 
 import (
 	"context"
@@ -201,7 +201,7 @@ func (s *AuthService) Login(ctx context.Context, tenantRef, identifier, password
 		case 0:
 			return "", "", errors.New("no membership found")
 		case 1:
-			m = &members[0]
+			m = members[0]
 			ten, err = s.TenantRepo.GetByID(ctx, m.TenantID)
 			if err != nil {
 				return "", "", err
@@ -220,6 +220,7 @@ func (s *AuthService) Login(ctx context.Context, tenantRef, identifier, password
 		MemberUUID: m.UUID.String(), MemberID: m.ID,
 		UserUUID: u.UUID.String(), UserID: u.ID,
 		Platforms: s.Platforms,
+		IsRoot:    u.IsRoot,
 	}
 	//fmt.Dump(ctx, "jwt sign(access)",
 	//	"issuer", s.Issuer,

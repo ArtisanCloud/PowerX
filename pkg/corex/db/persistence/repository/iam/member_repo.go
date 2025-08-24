@@ -2,6 +2,7 @@ package iam
 
 import (
 	"context"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
 	"gorm.io/gorm"
 
 	dbm "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/iam"
@@ -84,16 +85,16 @@ func (r *MemberRepository) FindByTenantAndUser(ctx context.Context, tenantID uin
 }
 
 // ✅ 新增：按 UserID 列出该用户在所有租户的成员记录
-func (r *MemberRepository) ListByUserID(ctx context.Context, userID uint64) ([]dbm.Member, error) {
-	var list []dbm.Member
-	// Find 不会返回 gorm.ErrRecordNotFound；查不到即返回空切片和 nil
-	if err := r.db.WithContext(ctx).
-		Where("user_id = ?", userID).
-		Order("id DESC").
-		Find(&list).Error; err != nil {
-		return nil, err
+func (r *MemberRepository) ListByUserID(ctx context.Context, userID uint64) ([]*dbm.Member, error) {
+	var list []*dbm.Member
+	if userID == 0 {
+		return list, nil
 	}
-	return list, nil
+	err := r.DB.WithContext(ctx).
+		Table(model.TableIAMMember).
+		Where("user_id = ?", userID).
+		Find(&list).Error
+	return list, err
 }
 
 // （可选）如果你想带状态过滤：

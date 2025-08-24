@@ -2,14 +2,25 @@
 package auth
 
 import (
+	"github.com/ArtisanCloud/PowerX/internal/bootstrap"
 	"net/http"
 	"strings"
 
 	"github.com/gin-gonic/gin"
 
-	authsvc "github.com/ArtisanCloud/PowerX/pkg/corex/iam/service"
+	authsvc "github.com/ArtisanCloud/PowerX/internal/service/auth"
 	dtoRequest "github.com/ArtisanCloud/PowerX/pkg/dto"
 )
+
+type AuthUserHandler struct {
+	AuthService *authsvc.AuthService
+}
+
+func NewAuthUserHandler(deps *bootstrap.Deps) *AuthUserHandler {
+	return &AuthUserHandler{
+		AuthService: deps.AuthUser,
+	}
+}
 
 // ---------- DTO ----------
 
@@ -47,7 +58,7 @@ type LoginResp struct {
 
 // ---------- Handlers ----------
 
-func RegisterHandler(s *authsvc.AuthService) gin.HandlerFunc {
+func (h *AuthUserHandler) RegisterHandler(s *authsvc.AuthService) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req RegisterReq
 		if err := dtoRequest.ValidateRequestWithContext(c, &req); err != nil {
@@ -88,7 +99,7 @@ func RegisterHandler(s *authsvc.AuthService) gin.HandlerFunc {
 	}
 }
 
-func LoginHandler(s *authsvc.AuthService) gin.HandlerFunc {
+func (h *AuthUserHandler) LoginHandler(s *authsvc.AuthService) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req LoginReq
 		if err := dtoRequest.ValidateRequestWithContext(c, &req); err != nil {
@@ -114,7 +125,7 @@ func LoginHandler(s *authsvc.AuthService) gin.HandlerFunc {
 	}
 }
 
-func RefreshHandler(s *authsvc.AuthService) gin.HandlerFunc {
+func (h *AuthUserHandler) RefreshHandler(s *authsvc.AuthService) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req RefreshReq
 		if err := dtoRequest.ValidateRequestWithContext(c, &req); err != nil {
@@ -137,7 +148,7 @@ func RefreshHandler(s *authsvc.AuthService) gin.HandlerFunc {
 	}
 }
 
-func LogoutHandler(s *authsvc.AuthService) gin.HandlerFunc {
+func (h *AuthUserHandler) LogoutHandler(s *authsvc.AuthService) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req RefreshReq // 用 refresh_token 注销
 		if err := dtoRequest.ValidateRequestWithContext(c, &req); err != nil {

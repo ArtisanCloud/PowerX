@@ -1,10 +1,12 @@
-package organization
+package iam
 
 import (
 	"context"
 	"errors"
 	"fmt"
 	"github.com/ArtisanCloud/PowerX/internal/service"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
+	"sort"
 	"strings"
 
 	"gorm.io/gorm"
@@ -105,7 +107,6 @@ type UpdateDepartmentOpts struct {
 	Key            *string
 	NewParentID    *uint64
 	Sort           *int
-	Code           *string
 	LeaderMemberID *uint64
 	Status         *int16
 	Meta           any
@@ -129,8 +130,22 @@ func (s *OrgService) UpdateDepartment(ctx context.Context, tenantID, deptID uint
 		if opt.Name != nil {
 			patch["name"] = *opt.Name
 		}
-		if opt.Code != nil {
-			patch["code"] = *opt.Code
+		if opt.Key != nil { // ← 处理 key
+			k := strings.TrimSpace(*opt.Key)
+			if !isValidKey(k) {
+				return ErrInvalidKey // e.g. "only [a-z0-9-], max 64"
+			}
+			// 唯一性（同租户、排除自己）
+			var cnt int64
+			if err := tx.Model(&m.Department{}).
+				Where("tenant_id=? AND key=? AND id<>?", tenantID, k, deptID).
+				Count(&cnt).Error; err != nil {
+				return err
+			}
+			if cnt > 0 {
+				return fmt.Errorf("%w: %s", ErrKeyExists, k)
+			}
+			patch["key"] = k
 		}
 		if opt.Sort != nil {
 			patch["sort"] = *opt.Sort
@@ -353,7 +368,7 @@ func isValidKey(s string) bool {
 		return false
 	}
 	for _, r := range s {
-		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-' {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-' || r == '_' {
 			continue
 		}
 		return false
@@ -386,38 +401,71 @@ func slug(s string) string {
 	return res
 }
 
-// Tree（简单返回拍平的树节点，前端自行构树或这里直接构成嵌套）
-type TreeNode struct {
-	ID       uint64      `json:"id"`
-	Name     string      `json:"name"`
-	ParentID *uint64     `json:"parent_id,omitempty"`
-	Children []*TreeNode `json:"children,omitempty"`
-}
-
-func (s *OrgService) GetDepartmentTree(ctx context.Context, tenantID uint64) ([]*TreeNode, error) {
+func (s *OrgService) GetDepartmentTree(ctx context.Context, tenantID uint64) ([]*m.Department, error) {
 	var ds []m.Department
 	if err := s.DB.WithContext(ctx).
 		Where("tenant_id=?", tenantID).
-		Order("path ASC"). // path 顺序天然是树的先序
+		Order("path ASC"). // 父在前、子在后
 		Find(&ds).Error; err != nil {
 		return nil, err
 	}
-	byID := map[uint64]*TreeNode{}
-	var roots []*TreeNode
+
+	byID := make(map[uint64]*m.Department, len(ds))
+	var roots []*m.Department
+
+	// 先建所有节点（只拷你需要的字段）
 	for i := range ds {
-		n := &TreeNode{ID: ds[i].ID, Name: ds[i].Name, ParentID: ds[i].ParentID}
+		d := &ds[i]
+		n := &m.Department{
+			PowerModel:     model.PowerModel{ID: d.ID},
+			Name:           d.Name,
+			Sort:           d.Sort,
+			LeaderMemberID: d.LeaderMemberID,
+			ParentID:       d.ParentID,
+			Key:            d.Key,
+			Status:         d.Status,
+			Meta:           d.Meta,
+		}
 		byID[n.ID] = n
 		if n.ParentID == nil {
 			roots = append(roots, n)
 		}
 	}
+
+	// 挂子节点
 	for i := range ds {
 		if ds[i].ParentID != nil {
-			p := byID[*ds[i].ParentID]
-			if p != nil {
+			if p := byID[*ds[i].ParentID]; p != nil {
 				p.Children = append(p.Children, byID[ds[i].ID])
 			}
 		}
 	}
+
+	// 排序器：先按 sort 升序，再按 id 升序
+	less := func(a, b *m.Department) bool {
+		if a.Sort != b.Sort {
+			return a.Sort < b.Sort
+		}
+		return a.ID < b.ID
+	}
+
+	// 递归对每个父节点的 Children 排序
+	var sortRec func(n *m.Department)
+	sortRec = func(n *m.Department) {
+		if len(n.Children) == 0 {
+			return
+		}
+		sort.Slice(n.Children, func(i, j int) bool { return less(n.Children[i], n.Children[j]) })
+		for _, ch := range n.Children {
+			sortRec(ch)
+		}
+	}
+
+	// 先排根，再递归排每棵子树
+	sort.Slice(roots, func(i, j int) bool { return less(roots[i], roots[j]) })
+	for _, r := range roots {
+		sortRec(r)
+	}
+
 	return roots, nil
 }

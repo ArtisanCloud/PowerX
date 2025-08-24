@@ -28,10 +28,16 @@ func SeedCoreX(ctx context.Context, db *gorm.DB, cfg *config.Config) error {
 		return err
 	}
 
-	if err := SeedRoot(db); err != nil {
+	if err = SeedRoot(db); err != nil {
 		//log.Fatal(err)
 		return err
 	}
+
+	if err = SeedSMEDepartments(db, "system"); err != nil {
+		//log.Fatal(err)
+		return err
+	}
+
 	log.Println("seed ok")
 
 	return nil
