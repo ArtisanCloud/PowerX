@@ -269,7 +269,7 @@ func (s *MemberService) CreateMember(ctx context.Context, tenantID uint64, in Cr
 				if err != nil {
 					return err
 				}
-				if _, err = s.CredRepo.WithDB(db).Create(ctx, &modelIAM.Credential{
+				if _, err = s.CredRepo.WithDB(tx).Create(ctx, &modelIAM.Credential{
 					UserID:     u.ID,
 					Provider:   "password",
 					Identifier: identifier,
