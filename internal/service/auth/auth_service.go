@@ -93,7 +93,7 @@ func (s *AuthService) Register(ctx context.Context, tenantID uint64, username, i
 	identifier = strings.ToLower(strings.TrimSpace(identifier))
 
 	// 1) 租户内 username 唯一
-	if _, err := s.MemberRepo.FindByTenantAndUsername(ctx, tenantID, username); err == nil {
+	if _, err := s.MemberRepo.FindByTenantAndUserName(ctx, tenantID, username); err == nil {
 		return nil, errors.New("username exists")
 	}
 

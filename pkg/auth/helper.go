@@ -1,7 +1,10 @@
 // pkg/auth/helper.go
 package auth
 
-import "context"
+import (
+	"context"
+	"fmt"
+)
 
 /*************** Getters：从 context 中读取 ***************/
 
@@ -122,4 +125,14 @@ func WithTraceID(ctx context.Context, traceID string) context.Context {
 
 func WithJWTClaims(ctx context.Context, claims *CoreXClaims) context.Context {
 	return context.WithValue(ctx, JWTClaimsKey, claims)
+}
+
+// RootOnlyCB 返回一个用于 JwtMiddleware 第 5 个参数的回调：仅允许 is_root=true
+func RootOnlyCB() func(ctx context.Context, claims *CoreXClaims) error {
+	return func(ctx context.Context, claims *CoreXClaims) error {
+		if claims == nil || !claims.IsRoot {
+			return fmt.Errorf("root only")
+		}
+		return nil
+	}
 }

@@ -72,7 +72,7 @@ func GetDefaults() *Config {
 		Database: dbCfg.DatabaseConfig{
 			Host:                   "localhost",
 			Port:                   5432,
-			Username:               "postgres",
+			UserName:               "postgres",
 			Password:               "postgres",
 			Database:               "corex",
 			SSLMode:                "disable",

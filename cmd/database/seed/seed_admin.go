@@ -15,7 +15,7 @@ import (
 func SeedRoot(db *gorm.DB) error {
 	const tenantKey = "system"
 	const orgName = "System"
-	const rootUsername = "root"   // 成员在租户内的用户名
+	const rootUserName = "root"   // 成员在租户内的用户名
 	const rootIdentifier = "root" // 凭证 identifier（你也可换成邮箱）
 
 	rootPassword := envOrDefault("POWERX_ROOT_PASSWORD", "root")
@@ -75,7 +75,7 @@ func SeedRoot(db *gorm.DB) error {
 		m := &model.Member{
 			TenantID:    ten.ID,
 			UserID:      userID,
-			Username:    rootUsername,
+			Username:    rootUserName,
 			DisplayName: "root",
 			Status:      1,
 		}
@@ -88,6 +88,6 @@ func SeedRoot(db *gorm.DB) error {
 		}
 	}
 
-	fmt.Printf("[seed] root ready. tenant=%s username=%s password=%s\n", tenantKey, rootUsername, rootPassword)
+	fmt.Printf("[seed] root ready. tenant=%s username=%s password=%s\n", tenantKey, rootUserName, rootPassword)
 	return nil
 }

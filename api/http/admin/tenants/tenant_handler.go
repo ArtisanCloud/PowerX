@@ -105,7 +105,7 @@ type CreateTenantReq struct {
 	Status      *int16  `json:"status"`
 
 	// 可选：初始化管理员（仅在创建时生效）
-	AdminUsername    *string `json:"admin_username"` // 必填之一：AdminUsername / AdminEmail / AdminPhone
+	AdminUserName    *string `json:"admin_username"` // 必填之一：AdminUserName / AdminEmail / AdminPhone
 	AdminPassword    *string `json:"admin_password"` // 若设管理员则必填
 	AdminEmail       *string `json:"admin_email"`
 	AdminPhone       *string `json:"admin_phone"`
@@ -124,7 +124,7 @@ type UpsertTenantReq struct {
 	Status      *int16  `json:"status"`
 
 	// 可选：仅当 key 不存在 → 首次创建时才会执行初始化管理员
-	AdminUsername    *string `json:"admin_username"`
+	AdminUserName    *string `json:"admin_username"`
 	AdminPassword    *string `json:"admin_password"`
 	AdminEmail       *string `json:"admin_email"`
 	AdminPhone       *string `json:"admin_phone"`
@@ -149,7 +149,7 @@ func (h *TenantHandler) CreateTenant(c *gin.Context) {
 		Description: req.Description,
 		Status:      req.Status,
 		InitAdmin: &svc.InitAdminInput{
-			Username:    req.AdminUsername,
+			UserName:    req.AdminUserName,
 			Password:    req.AdminPassword,
 			Email:       req.AdminEmail,
 			Phone:       req.AdminPhone,
@@ -179,7 +179,7 @@ func (h *TenantHandler) UpsertTenant(c *gin.Context) {
 		Description: req.Description,
 		Status:      req.Status,
 		InitAdmin: &svc.InitAdminInput{
-			Username:    req.AdminUsername,
+			UserName:    req.AdminUserName,
 			Password:    req.AdminPassword,
 			Email:       req.AdminEmail,
 			Phone:       req.AdminPhone,

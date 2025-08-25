@@ -29,7 +29,7 @@ func (r *MemberRepository) FindByID(ctx context.Context, id uint64) (*dbm.Member
 	return &u, nil
 }
 
-func (r *MemberRepository) FindByUsername(ctx context.Context, tenantID uint64, username string) (*dbm.Member, error) {
+func (r *MemberRepository) FindByUserName(ctx context.Context, tenantID uint64, username string) (*dbm.Member, error) {
 	var u dbm.Member
 	err := r.db.WithContext(ctx).
 		Where("tenant_id = ? AND username = ?", tenantID, username).
@@ -63,7 +63,7 @@ func (r *MemberRepository) FindByPhone(ctx context.Context, tenantID uint64, pho
 }
 
 // 已有：按租户+用户名查
-func (r *MemberRepository) FindByTenantAndUsername(ctx context.Context, tenantID uint64, username string) (*dbm.Member, error) {
+func (r *MemberRepository) FindByTenantAndUserName(ctx context.Context, tenantID uint64, username string) (*dbm.Member, error) {
 	var m dbm.Member
 	if err := r.db.WithContext(ctx).
 		Where("tenant_id = ? AND username = ?", tenantID, username).

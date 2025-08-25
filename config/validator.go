@@ -64,7 +64,7 @@ func (c *Config) Validate() error {
 	if c.Database.Port <= 0 || c.Database.Port > 65535 {
 		errors = append(errors, "database.port 必须在 1-65535 范围内")
 	}
-	if strings.TrimSpace(c.Database.Username) == "" {
+	if strings.TrimSpace(c.Database.UserName) == "" {
 		errors = append(errors, "database.username 不能为空")
 	}
 	if strings.TrimSpace(c.Database.Database) == "" {

@@ -92,3 +92,20 @@ func AsUint64(v any) (uint64, bool) {
 	}
 	return 0, false
 }
+
+func IfZeroInt16(v int16, def int16) int16 {
+	if v == 0 {
+		return def
+	}
+	return v
+}
+
+func IfZeroInt16Ptr(p *int16, def int16) int16 {
+	if p == nil || *p == 0 {
+		return def
+	}
+	return *p
+}
+
+func TrimLower(s string) string { return strings.ToLower(strings.TrimSpace(s)) }
+func Trim(s string) string      { return strings.TrimSpace(s) }

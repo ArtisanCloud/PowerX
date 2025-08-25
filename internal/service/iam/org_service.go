@@ -35,7 +35,7 @@ func NewOrgService(db *gorm.DB) *OrgService {
 // Create
 // internal/service/organization/org_service.go
 func (s *OrgService) CreateDepartment(ctx context.Context, d *m.Department, parentID *uint64) error {
-	return s.TX(ctx, func(tx *gorm.DB) error {
+	return s.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		// 可选：0 当作根（前端误传 0 时兜底）
 		if parentID != nil && *parentID == 0 {
 			parentID = nil
@@ -115,7 +115,7 @@ type UpdateDepartmentOpts struct {
 
 // Update（含可选 Move）
 func (s *OrgService) UpdateDepartment(ctx context.Context, tenantID, deptID uint64, opt UpdateDepartmentOpts) error {
-	return s.TX(ctx, func(tx *gorm.DB) error {
+	return s.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if opt.NewParentID != nil && *opt.NewParentID == 0 {
 			opt.NewParentID = nil
 		}
@@ -287,7 +287,7 @@ func (s *OrgService) moveDepartmentTx(ctx context.Context, tx *gorm.DB, d *m.Dep
 
 // Delete
 func (s *OrgService) DeleteDepartment(ctx context.Context, tenantID, deptID uint64, force bool) error {
-	return s.TX(ctx, func(tx *gorm.DB) error {
+	return s.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		tDept := (&m.Department{}).GetTableName(true)
 
 		// 先取待删节点，拿到它的 path 前缀

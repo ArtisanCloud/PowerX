@@ -21,7 +21,7 @@ type AuditEvent struct {
 	Outcome         string         `gorm:"type:text;not null;index:idx_audit_op_outcome,priority:3"`
 	Severity        string         `gorm:"type:text;not null"`
 	ActorUserID     *int64         `gorm:"index:idx_audit_actor"`
-	ActorUsername   string         `gorm:"type:text"`
+	ActorUserName   string         `gorm:"type:text"`
 	ActorDisplay    string         `gorm:"type:text"`
 	ActorRoleIDs    datatypes.JSON `gorm:"type:jsonb"`
 	ClientIP        *string        `gorm:"type:inet"`

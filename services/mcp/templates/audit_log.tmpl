@@ -64,7 +64,7 @@ const (
 // AuditContext 审计上下文
 type AuditContext struct {
 	UserID    string                 `json:"user_id,omitempty"`
-	UserName  string                 `json:"user_name,omitempty"`
+	UserName  string                 `json:"username,omitempty"`
 	UserRole  string                 `json:"user_role,omitempty"`
 	IPAddress string                 `json:"ip_address,omitempty"`
 	UserAgent string                 `json:"user_agent,omitempty"`
@@ -300,7 +300,7 @@ func (a *{{.EntityName}}AuditLogger) buildContext(ctx context.Context, auditCtx 
 			contextData["user_id"] = auditCtx.UserID
 		}
 		if auditCtx.UserName != "" {
-			contextData["user_name"] = auditCtx.UserName
+			contextData["username"] = auditCtx.UserName
 		}
 		if auditCtx.UserRole != "" {
 			contextData["user_role"] = auditCtx.UserRole

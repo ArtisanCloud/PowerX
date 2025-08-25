@@ -218,7 +218,7 @@ func loadFromEnv(cfg *Config) {
 		}
 	}
 	if username := os.Getenv("CORE_X_DB_USERNAME"); username != "" {
-		cfg.Database.Username = username
+		cfg.Database.UserName = username
 	}
 	if password := os.Getenv("CORE_X_DB_PASSWORD"); password != "" {
 		cfg.Database.Password = password

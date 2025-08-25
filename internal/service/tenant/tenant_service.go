@@ -92,7 +92,7 @@ func sanitizeSortBy(in string, allow []string) string {
 }
 
 type InitAdminInput struct {
-	Username, Password     *string
+	UserName, Password     *string
 	Email, Phone           *string
 	DisplayName, AvatarURL *string
 	AssignOwner            *bool // 默认 true
@@ -215,8 +215,8 @@ func (s *TenantService) initAdmin(ctx context.Context, tenantID uint64, ia *Init
 	}
 	// 归一化/兜底
 	var username string
-	if ia.Username != nil {
-		username = strings.TrimSpace(*ia.Username)
+	if ia.UserName != nil {
+		username = strings.TrimSpace(*ia.UserName)
 	}
 	if username == "" {
 		// 若未给用户名，用邮箱/手机号/“admin”之一兜底

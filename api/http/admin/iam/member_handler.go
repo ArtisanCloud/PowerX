@@ -41,7 +41,7 @@ type UpdateMemberReq struct {
 	DeptIDs *[]uint64 `json:"dept_ids"`
 }
 type SetMemberStatusReq struct {
-	Status int16  `json:"status" validate:"required"`
+	Status *int16 `json:"status" validate:"required"`
 	Reason string `json:"reason"`
 }
 type PutMemberDepartmentsReq struct {
@@ -152,7 +152,7 @@ func (h *MemberHandler) SetStatus(c *gin.Context) {
 	ctx := c.Request.Context()
 	tid := auth.GetTenantID(ctx)
 
-	if err := h.S.SetMemberStatus(ctx, tid, id, req.Status, req.Reason); err != nil {
+	if err := h.S.SetMemberStatus(ctx, tid, id, *req.Status, req.Reason); err != nil {
 		dto.ResponseError(c, http.StatusBadRequest, "设置状态失败", err)
 		return
 	}
@@ -228,7 +228,7 @@ type BatchGetMembersByUsersReq struct {
 
 // 把已有 User 加入本租户（创建 member）
 type AddExistingUserReq struct {
-	Username     string         `json:"username"      validate:"required,min=3,max=64"` // 本租户内唯一
+	UserName     string         `json:"username"      validate:"required,min=3,max=64"` // 本租户内唯一
 	DisplayName  string         `json:"display_name"  validate:"omitempty,max=128"`
 	AvatarURL    string         `json:"avatar_url"    validate:"omitempty,url"`
 	Status       *int16         `json:"status"`        // 默认 1
@@ -308,7 +308,7 @@ func (h *MemberHandler) AddExistingUser(c *gin.Context) {
 		ctx,
 		tid,
 		userID,
-		req.Username,
+		req.UserName,
 		req.DisplayName,
 		req.AvatarURL,
 		req.Status,

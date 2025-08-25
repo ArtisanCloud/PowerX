@@ -26,7 +26,7 @@ func NewAuthUserHandler(deps *bootstrap.Deps) *AuthUserHandler {
 
 type RegisterReq struct {
 	TenantID uint64 `json:"tenant_id"     binding:"required"`
-	Username string `json:"username"      binding:"required,min=3,max=64"` // 租户内唯一，后端统一转小写
+	UserName string `json:"username"      binding:"required,min=3,max=64"` // 租户内唯一，后端统一转小写
 	Password string `json:"password"      binding:"required,min=6,max=64"`
 
 	// 登录标识（二选一或都填；若都为空则回退用 username 作为 identifier）
@@ -67,7 +67,7 @@ func (h *AuthUserHandler) RegisterHandler(s *authsvc.AuthService) gin.HandlerFun
 		}
 
 		// 归一化
-		username := strings.ToLower(strings.TrimSpace(req.Username))
+		username := strings.ToLower(strings.TrimSpace(req.UserName))
 		email := strings.ToLower(strings.TrimSpace(req.Email))
 		phone := strings.TrimSpace(req.Phone)
 

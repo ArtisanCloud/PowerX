@@ -21,6 +21,11 @@ func NewBaseRepository[T any](db *gorm.DB) *BaseRepository[T] {
 	return &BaseRepository[T]{DB: db}
 }
 
+func (r *BaseRepository[T]) WithDB(db *gorm.DB) *BaseRepository[T] {
+	r.DB = db
+	return r
+}
+
 // CreateBatch 批量创建记录
 func (r *BaseRepository[T]) CreateBatch(ctx context.Context, objs []*T) ([]*T, error) {
 	if len(objs) == 0 {
@@ -183,6 +188,7 @@ func (r *BaseRepository[T]) Delete(ctx context.Context, where map[string]interfa
 		query = query.Debug()
 	}
 
+	// 分支一：按 where 条件删除（推荐用于批量/覆盖式写入前的清理）
 	if where != nil {
 		for key, value := range where {
 			if strings.Contains(key, "?") {
@@ -195,15 +201,14 @@ func (r *BaseRepository[T]) Delete(ctx context.Context, where map[string]interfa
 			query = query.Unscoped()
 		}
 		result := query.Delete(&mdl)
+		// 数据库错误才返回；0 行删除视为幂等成功
 		if result.Error != nil {
 			return nil, result.Error
-		}
-		if result.RowsAffected == 0 {
-			return nil, errors.New("record not found")
 		}
 		return nil, nil
 	}
 
+	// 分支二：按主键对象删除（期望严格命中 1 行）
 	if obj != nil {
 		if !softDelete {
 			query = query.Unscoped()
