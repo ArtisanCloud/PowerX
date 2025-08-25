@@ -195,7 +195,13 @@ func (r *BaseRepository[T]) Delete(ctx context.Context, where map[string]interfa
 			query = query.Unscoped()
 		}
 		result := query.Delete(&mdl)
-		return nil, result.Error
+		if result.Error != nil {
+			return nil, result.Error
+		}
+		if result.RowsAffected == 0 {
+			return nil, errors.New("record not found")
+		}
+		return nil, nil
 	}
 
 	if obj != nil {
@@ -203,10 +209,13 @@ func (r *BaseRepository[T]) Delete(ctx context.Context, where map[string]interfa
 			query = query.Unscoped()
 		}
 		result := query.Delete(obj)
+		if result.Error != nil {
+			return nil, result.Error
+		}
 		if result.RowsAffected == 0 {
 			return nil, errors.New("record not found")
 		}
-		return obj, result.Error
+		return obj, nil
 	}
 
 	return nil, errors.New("no delete condition provided")

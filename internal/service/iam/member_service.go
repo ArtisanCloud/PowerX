@@ -3,6 +3,7 @@ package iam
 import (
 	"context"
 	"errors"
+	"github.com/ArtisanCloud/PowerX/internal/service"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
 	modelIAM "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/iam"
 	"gorm.io/gorm"
@@ -15,7 +16,7 @@ import (
 const ROOT_USERNAME = "root"
 
 type MemberService struct {
-	db               *gorm.DB
+	*service.BaseService
 	MemberRepo       *repoIAM.MemberRepository
 	UserRepo         *repoIAM.UserRepository
 	MemberDeptRepo   *repoIAM.MemberDepartmentRepository
@@ -25,7 +26,9 @@ type MemberService struct {
 
 func NewMemberService(db *gorm.DB) *MemberService {
 	return &MemberService{
-		db:               db,
+		BaseService: &service.BaseService{
+			DB: db,
+		},
 		MemberRepo:       repoIAM.NewMemberRepository(db),
 		UserRepo:         repoIAM.NewUserRepository(db),
 		MemberDeptRepo:   repoIAM.NewMemberDepartmentRepository(db),
@@ -142,7 +145,7 @@ func (s *MemberService) ListMembers(ctx context.Context, opt ListMembersOption) 
 	if len(memberIDs) > 0 {
 		type pair struct{ MemberID, DepartmentID uint64 }
 		var ps []pair
-		if err2 := s.db.WithContext(ctx).Table(model.TableIAMMemberDepartment).
+		if err2 := s.DB.WithContext(ctx).Table(model.TableIAMMemberDepartment).
 			Select("member_id, department_id").
 			Where("tenant_id = ? AND member_id IN ?", opt.TenantID, memberIDs).
 			Scan(&ps).Error; err2 == nil {
@@ -178,7 +181,7 @@ func (s *MemberService) GetMember(ctx context.Context, tenantID, memberID uint64
 		return nil, err
 	}
 	var deptIDs []uint64
-	if err := s.db.WithContext(ctx).Table(model.TableIAMMemberDepartment).
+	if err := s.DB.WithContext(ctx).Table(model.TableIAMMemberDepartment).
 		Where("tenant_id = ? AND member_id = ?", tenantID, mem.ID).
 		Pluck("department_id", &deptIDs).Error; err != nil {
 		return nil, err
@@ -188,7 +191,7 @@ func (s *MemberService) GetMember(ctx context.Context, tenantID, memberID uint64
 
 func (s *MemberService) CreateMember(ctx context.Context, tenantID uint64, in CreateMemberInput) (uint64, error) {
 	var newID uint64
-	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	err := s.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		// ensure/create user（email / phone）
 		var u *modelIAM.User
 		var err error
@@ -265,7 +268,7 @@ func (s *MemberService) CreateMember(ctx context.Context, tenantID uint64, in Cr
 }
 
 func (s *MemberService) UpdateMember(ctx context.Context, tenantID, memberID uint64, in UpdateMemberInput) error {
-	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	return s.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		mem, err := s.MemberRepo.GetByCondition(ctx, map[string]interface{}{
 			model.TableIAMMember + ".tenant_id = ?": tenantID,
 			model.TableIAMMember + ".id = ?":        memberID,
@@ -383,7 +386,7 @@ func (s *MemberService) DeleteMember(ctx context.Context, tenantID, memberID uin
 
 func (s *MemberService) RestoreMember(ctx context.Context, tenantID, memberID uint64) error {
 	// 用 Unscoped 更新 deleted_at
-	return s.db.WithContext(ctx).Unscoped().
+	return s.DB.WithContext(ctx).Unscoped().
 		Table(model.TableIAMMember).
 		Where("tenant_id = ? AND id = ?", tenantID, memberID).
 		Update("deleted_at", nil).Error

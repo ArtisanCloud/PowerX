@@ -6,6 +6,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/api/http/admin/iam"
 	"github.com/ArtisanCloud/PowerX/api/http/admin/menu"
 	"github.com/ArtisanCloud/PowerX/api/http/admin/plugin"
+	"github.com/ArtisanCloud/PowerX/api/http/admin/tenants"
 	"github.com/ArtisanCloud/PowerX/config"
 	"github.com/ArtisanCloud/PowerX/internal/bootstrap"
 	"github.com/gin-gonic/gin"
@@ -33,4 +34,5 @@ func RegisterAPIRoutes(
 	menu.RegisterAPIRoutes(publicGroup, protectedGroup)
 	auth.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	iam.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
+	tenants.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 }

@@ -4,6 +4,7 @@ import (
 	modelAudit "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/audit"
 	modelAgent "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/flow"
 	modelIAM "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/iam"
+	modelTenant "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/tenant"
 	modelForm "github.com/ArtisanCloud/PowerX/pkg/dynamic_form/persistence/model"
 	"gorm.io/gorm"
 )
@@ -29,7 +30,7 @@ func MigrateCoreModels(db *gorm.DB) (err error) {
 
 	// 迁移IAM
 	err = db.AutoMigrate(
-		&modelIAM.Tenant{},
+		&modelTenant.Tenant{},
 		&modelIAM.User{},
 		&modelIAM.Member{},
 		&modelIAM.Credential{},

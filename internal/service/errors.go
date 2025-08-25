@@ -1,4 +1,4 @@
-package iam
+package service
 
 // internal/service/organization/errors.go
 
@@ -10,3 +10,5 @@ var (
 	ErrKeyExists        = errors.New("department key already exists")
 	ErrMoveCreatesCycle = errors.New("cannot move a node under its own subtree")
 )
+
+var ErrNotFound = errors.New("not found")

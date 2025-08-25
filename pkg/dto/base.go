@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/gin-gonic/gin/binding"
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
 
@@ -67,6 +68,15 @@ var validate *validator.Validate
 // 初始化验证器
 func init() {
 	validate = validator.New()
+	// 支持字母、数字、短横线、中划线
+	err := validate.RegisterValidation("alphanumdash", func(fl validator.FieldLevel) bool {
+		value := fl.Field().String()
+		matched, _ := regexp.MatchString("^[a-zA-Z0-9_-]+$", value)
+		return matched
+	})
+	if err != nil {
+		panic(err)
+	}
 }
 
 // ValidateRequest 验证请求结构体

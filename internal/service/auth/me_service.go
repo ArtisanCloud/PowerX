@@ -2,6 +2,8 @@ package auth
 
 import (
 	"context"
+	"github.com/ArtisanCloud/PowerX/internal/service"
+	repotenant "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/tenant"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"gorm.io/gorm"
 	"net/http"
@@ -39,16 +41,20 @@ type MeContextResp struct {
 
 // ======= Service =======
 type MeService struct {
+	*service.BaseService
 	UserRepo   *repo.UserRepository
 	MemberRepo *repo.MemberRepository
-	TenantRepo *repo.TenantRepository
+	TenantRepo *repotenant.TenantRepository
 }
 
 func NewMeService(db *gorm.DB) *MeService {
 	return &MeService{
+		BaseService: &service.BaseService{
+			DB: db,
+		},
 		UserRepo:   repo.NewUserRepository(db),
 		MemberRepo: repo.NewMemberRepository(db),
-		TenantRepo: repo.NewTenantRepository(db),
+		TenantRepo: repotenant.NewTenantRepository(db),
 	}
 }
 

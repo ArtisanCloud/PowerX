@@ -1,16 +1,16 @@
-// pkg/corex/db/persistence/repository/iam/tenant_repo.go
-package iam
+// pkg/corex/db/persistence/repository/tenant/tenant_repo.go
+package tenant
 
 import (
 	"context"
 	"errors"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
+	dbm "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/tenant"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
-	dbm "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/iam"
-	repository "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository"
 )
 
 type TenantRepository struct {
@@ -93,4 +93,77 @@ func (r *TenantRepository) MapNamesByIDs(ctx context.Context, ids []uint64) (map
 		mm[t.ID] = t.Name
 	}
 	return mm, nil
+}
+
+// 追加：列表查询条件
+type FindTenantsCond struct {
+	Page, PageSize int
+	SortBy         string
+	SortOrder      string
+	Keyword        string
+	Status         *string
+	Plan           *string
+}
+
+// 追加：列表 + 总数
+func (r *TenantRepository) FindTenants(ctx context.Context, c FindTenantsCond) (items []dbm.Tenant, total int64, err error) {
+	tx := r.DB.WithContext(ctx).Model(&dbm.Tenant{}).Where("deleted_at IS NULL")
+
+	if c.Keyword != "" {
+		like := "%" + c.Keyword + "%"
+		// 如果是 MySQL, 改为 LIKE 并做 LOWER 兼容；Postgres 用 ILIKE
+		tx = tx.Where("(name ILIKE ? OR domain ILIKE ?)", like, like)
+	}
+	if c.Status != nil && *c.Status != "" {
+		tx = tx.Where("status = ?", *c.Status)
+	}
+	if c.Plan != nil && *c.Plan != "" {
+		tx = tx.Where("plan = ?", *c.Plan)
+	}
+
+	if err = tx.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	if c.Page <= 0 {
+		c.Page = 1
+	}
+	if c.PageSize <= 0 || c.PageSize > 200 {
+		c.PageSize = 20
+	}
+	if c.SortBy == "" {
+		c.SortBy = "created_at"
+	}
+	if c.SortOrder != "asc" && c.SortOrder != "desc" {
+		c.SortOrder = "desc"
+	}
+
+	if err = tx.Order(c.SortBy + " " + c.SortOrder).
+		Offset((c.Page - 1) * c.PageSize).
+		Limit(c.PageSize).
+		Find(&items).Error; err != nil {
+		return nil, 0, err
+	}
+	return
+}
+
+// 追加：统计每个租户成员数量
+func (r *TenantRepository) CountMembersByTenant(ctx context.Context) (map[uint64]int64, error) {
+	type row struct {
+		TenantID uint64
+		Cnt      int64
+	}
+	var rows []row
+	if err := r.DB.WithContext(ctx).
+		Table(model.TableIAMMember).
+		Select("tenant_id AS tenant_id, COUNT(1) AS cnt").
+		Where("deleted_at IS NULL").
+		Group("tenant_id").
+		Scan(&rows).Error; err != nil {
+		return nil, err
+	}
+	out := make(map[uint64]int64, len(rows))
+	for _, r := range rows {
+		out[r.TenantID] = r.Cnt
+	}
+	return out, nil
 }

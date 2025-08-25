@@ -3,6 +3,7 @@ package seed
 
 import (
 	"fmt"
+	tenantRepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/tenant"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 
@@ -19,7 +20,7 @@ func SeedRoot(db *gorm.DB) error {
 
 	rootPassword := envOrDefault("POWERX_ROOT_PASSWORD", "root")
 
-	tenantRepo := infraiam.NewTenantRepository(db)
+	tenantRepo := tenantRepo.NewTenantRepository(db)
 	roleRepo := infraiam.NewRoleRepository(db)
 	userRepo := infraiam.NewUserRepository(db)       // 全局 User（不带 tenant）
 	memberRepo := infraiam.NewMemberRepository(db)   // 租户成员

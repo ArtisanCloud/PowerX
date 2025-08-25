@@ -4,9 +4,12 @@ package auth
 import (
 	"context"
 	"errors"
+	"github.com/ArtisanCloud/PowerX/internal/service"
 	pkgauth "github.com/ArtisanCloud/PowerX/pkg/auth"
 	model "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/iam"
+	tenantmdl "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/tenant"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository"
+	infratenant "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/tenant"
 	"github.com/ArtisanCloud/PowerX/pkg/utils"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
@@ -25,7 +28,8 @@ type RegisterOptions struct {
 }
 
 type AuthService struct {
-	TenantRepo     *infraiam.TenantRepository
+	*service.BaseService
+	TenantRepo     *infratenant.TenantRepository
 	UserRepo       *infraiam.UserRepository
 	MemberRepo     *infraiam.MemberRepository
 	CredRepo       *infraiam.CredentialRepository
@@ -46,7 +50,7 @@ type AuthService struct {
 }
 
 func NewAuthService(
-	TenantRepo *infraiam.TenantRepository,
+	TenantRepo *infratenant.TenantRepository,
 	userRepo *infraiam.UserRepository,
 	memberRepo *infraiam.MemberRepository,
 	credRepo *infraiam.CredentialRepository,
@@ -180,7 +184,7 @@ func (s *AuthService) Login(ctx context.Context, tenantRef, identifier, password
 	}
 
 	// 2) 选择租户/成员（不从 identifier 猜租户）
-	var ten *model.Tenant
+	var ten *tenantmdl.Tenant
 	var m *model.Member
 	if tenantRef != "" {
 		ten, err = s.resolveTenant(ctx, tenantRef) // 支持 key/uuid
@@ -264,7 +268,7 @@ func (s *AuthService) Login(ctx context.Context, tenantRef, identifier, password
 }
 
 // 解析 tenantRef（支持 key/uuid；为空时回退默认租户）
-func (s *AuthService) resolveTenant(ctx context.Context, ref string) (*model.Tenant, error) {
+func (s *AuthService) resolveTenant(ctx context.Context, ref string) (*tenantmdl.Tenant, error) {
 	if ref == "" {
 		if s.DefaultTenantKey == "" {
 			return nil, errors.New("tenant is required")

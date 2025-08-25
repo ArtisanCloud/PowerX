@@ -50,7 +50,7 @@ func (s *OrgService) CreateDepartment(ctx context.Context, d *m.Department, pare
 			d.Key = k
 		} else {
 			if !isValidKey(d.Key) {
-				return ErrInvalidKey
+				return service.ErrInvalidKey
 			}
 			var count int64
 			if err := tx.Model(&m.Department{}).
@@ -59,7 +59,7 @@ func (s *OrgService) CreateDepartment(ctx context.Context, d *m.Department, pare
 				return err
 			}
 			if count > 0 {
-				return fmt.Errorf("%w: %s", ErrKeyExists, d.Key)
+				return fmt.Errorf("%w: %s", service.ErrKeyExists, d.Key)
 			}
 		}
 
@@ -75,7 +75,7 @@ func (s *OrgService) CreateDepartment(ctx context.Context, d *m.Department, pare
 			var p m.Department
 			if err := tx.Where("tenant_id=? AND id=?", d.TenantID, *parentID).First(&p).Error; err != nil {
 				if errors.Is(err, gorm.ErrRecordNotFound) {
-					return fmt.Errorf("%w: id=%d", ErrParentNotFound, *parentID)
+					return fmt.Errorf("%w: id=%d", service.ErrParentNotFound, *parentID)
 				}
 				return err
 			}
@@ -133,7 +133,7 @@ func (s *OrgService) UpdateDepartment(ctx context.Context, tenantID, deptID uint
 		if opt.Key != nil { // ← 处理 key
 			k := strings.TrimSpace(*opt.Key)
 			if !isValidKey(k) {
-				return ErrInvalidKey // e.g. "only [a-z0-9-], max 64"
+				return service.ErrInvalidKey // e.g. "only [a-z0-9-], max 64"
 			}
 			// 唯一性（同租户、排除自己）
 			var cnt int64
@@ -143,7 +143,7 @@ func (s *OrgService) UpdateDepartment(ctx context.Context, tenantID, deptID uint
 				return err
 			}
 			if cnt > 0 {
-				return fmt.Errorf("%w: %s", ErrKeyExists, k)
+				return fmt.Errorf("%w: %s", service.ErrKeyExists, k)
 			}
 			patch["key"] = k
 		}
@@ -192,7 +192,7 @@ func (s *OrgService) moveDepartmentTx(ctx context.Context, tx *gorm.DB, d *m.Dep
 		// 禁止把节点挂到它自己的子树下（避免形成环）
 		// d.Path 形如 "/.../<d.ID>/"；若 parent.Path 以 d.Path 为前缀，说明 parent 在 d 的子树中
 		if strings.HasPrefix(parent.Path, d.Path) {
-			return ErrMoveCreatesCycle
+			return service.ErrMoveCreatesCycle
 		}
 	}
 

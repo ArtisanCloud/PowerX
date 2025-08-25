@@ -4,10 +4,12 @@ import (
 	"context"
 	"github.com/ArtisanCloud/PowerX/config"
 	authsvc "github.com/ArtisanCloud/PowerX/internal/service/auth"
+	tenantsvc "github.com/ArtisanCloud/PowerX/internal/service/tenant"
 	auditsvc "github.com/ArtisanCloud/PowerX/pkg/corex/audit"
 	dbm "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/audit"
 	auditrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/audit"
 	infraiam "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/iam"
+	infratenant "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/tenant"
 	pxlog "github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"gorm.io/gorm"
 	"strings"
@@ -24,11 +26,13 @@ type Deps struct {
 
 	AuditSvc auditsvc.Service // 底层批量写库 + sink
 	Auditor  auditsvc.Auditor // 门面，兼容 LogAPI/LogRBAC 等调用
+
+	TenantSvc *tenantsvc.TenantService
 }
 
 func NewDeps(db *gorm.DB, cfg *config.Config) *Deps {
 	// repos
-	tenantRepo := infraiam.NewTenantRepository(db)
+	tenantRepo := infratenant.NewTenantRepository(db)
 	userRepo := infraiam.NewUserRepository(db)
 	memberRepo := infraiam.NewMemberRepository(db)
 	credRepo := infraiam.NewCredentialRepository(db)
@@ -82,8 +86,12 @@ func NewDeps(db *gorm.DB, cfg *config.Config) *Deps {
 	// --- AuthService ---
 	meSvc := authsvc.NewMeService(db)
 
+	// --- TenantService ---
+	tenantSvc := tenantsvc.NewTenantService(db, authUser, mrRepo)
+
 	return &Deps{
 		DB:           db,
+		TenantSvc:    tenantSvc,
 		AuthUser:     authUser,
 		AuthCustomer: authCustomer,
 		MeService:    meSvc,

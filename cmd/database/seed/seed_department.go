@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	tenantRepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/tenant"
 
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
@@ -103,7 +104,7 @@ func defaultSMETree() []deptNode {
 // - tenantKey 例： "system"（也可传你的业务租户 Key）
 // - 幂等：多次执行不会重复插入
 func SeedSMEDepartments(db *gorm.DB, tenantKey string) error {
-	tenantRepo := infraiam.NewTenantRepository(db)
+	tenantRepo := tenantRepo.NewTenantRepository(db)
 	deptRepo := infraiam.NewDepartmentRepository(db)
 
 	// 1) 拿到租户（不存在可选择 Ensure/Find，这里沿用 EnsureByKey）
