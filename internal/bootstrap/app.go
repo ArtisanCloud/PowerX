@@ -5,6 +5,7 @@ package bootstrap
 import (
 	"context"
 	"github.com/ArtisanCloud/PowerX/config"
+	"github.com/ArtisanCloud/PowerX/pkg/cache"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/db/database"
 	"github.com/ArtisanCloud/PowerX/pkg/event_bus"
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
@@ -25,6 +26,13 @@ func BootstrapApp(ctx context.Context, cfg *config.Config) (*Deps, error) {
 	db, err := database.GetDB(&cfg.Database) // 👈 见下方实现
 	if err != nil {
 		logger.ErrorF(ctx, "初始化数据库失败: %v", err)
+		return nil, err
+	}
+
+	// 1. 初始化缓存
+	_, err = cache.InitCache(&cfg.Cache)
+	if err != nil {
+		logger.ErrorF(ctx, "初始化缓存失败: %s", err.Error())
 		return nil, err
 	}
 

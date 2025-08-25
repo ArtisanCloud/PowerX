@@ -6,6 +6,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/internal/service"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
 	modelIAM "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/iam"
+	"gorm.io/datatypes"
 	"gorm.io/gorm"
 	"strings"
 	"time"
@@ -431,4 +432,175 @@ func (s *MemberService) ForceLogout(ctx context.Context, tenantID, memberID uint
 		return s.RefreshTokenRepo.RevokeByJTI(ctx, jti, now.UnixMilli())
 	}
 	return s.RefreshTokenRepo.RevokeAllForUser(ctx, mem.UserID, tenantID, now)
+}
+
+// ====== 查询某 user 在本租户的 member（仅返回 GORM 模型） ======
+func (s *MemberService) GetMemberByUser(ctx context.Context, tenantID, userID uint64) (*modelIAM.Member, *modelIAM.User, error) {
+	mem, err := s.MemberRepo.GetByCondition(ctx, map[string]interface{}{
+		model.TableIAMMember + ".tenant_id = ?": tenantID,
+		model.TableIAMMember + ".user_id = ?":   userID,
+	}, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+	if mem == nil {
+		return nil, nil, gorm.ErrRecordNotFound
+	}
+	u, err := s.UserRepo.FindByID(ctx, mem.UserID)
+	if err != nil {
+		return nil, nil, err
+	}
+	if u == nil {
+		return nil, nil, gorm.ErrRecordNotFound
+	}
+	return mem, u, nil
+}
+
+// ====== 批量查询：返回 members 列表 + users 映射（key=user_id） ======
+func (s *MemberService) BatchGetMembersByUsers(ctx context.Context, tenantID uint64, userIDs []uint64) ([]modelIAM.Member, map[uint64]modelIAM.User, error) {
+	if len(userIDs) == 0 {
+		return []modelIAM.Member{}, map[uint64]modelIAM.User{}, nil
+	}
+	// 去重
+	seen := make(map[uint64]struct{}, len(userIDs))
+	ids := make([]uint64, 0, len(userIDs))
+	for _, id := range userIDs {
+		if id == 0 {
+			continue
+		}
+		if _, ok := seen[id]; !ok {
+			seen[id] = struct{}{}
+			ids = append(ids, id)
+		}
+	}
+
+	var members []modelIAM.Member
+	if err := s.DB.WithContext(ctx).
+		Table(model.TableIAMMember).
+		Where("tenant_id = ? AND user_id IN ?", tenantID, ids).
+		Where("deleted_at IS NULL").
+		Find(&members).Error; err != nil {
+		return nil, nil, err
+	}
+	if len(members) == 0 {
+		return []modelIAM.Member{}, map[uint64]modelIAM.User{}, nil
+	}
+
+	uidSet := make(map[uint64]struct{}, len(members))
+	uids := make([]uint64, 0, len(members))
+	for _, m := range members {
+		if _, ok := uidSet[m.UserID]; !ok {
+			uidSet[m.UserID] = struct{}{}
+			uids = append(uids, m.UserID)
+		}
+	}
+
+	var users []modelIAM.User
+	if err := s.DB.WithContext(ctx).
+		Table(model.TableIAMUser).
+		Where("id IN ?", uids).
+		Where("deleted_at IS NULL").
+		Find(&users).Error; err != nil {
+		return nil, nil, err
+	}
+	userMap := make(map[uint64]modelIAM.User, len(users))
+	for _, u := range users {
+		userMap[u.ID] = u
+	}
+
+	return members, userMap, nil
+}
+
+// ====== 把已有 user 加入本租户（创建 member）——无入参 struct，纯参数 ======
+func (s *MemberService) AddExistingUserAsMember(
+	ctx context.Context,
+	tenantID uint64,
+	userID uint64,
+	username string,
+	displayName string,
+	avatarURL string,
+	status *int16,
+	deptID *uint64,
+	roleIDs []uint64, // 当前 Service 未接角色仓库，先保留参数位
+	meta datatypes.JSON,
+	initPassword *string, // 当前 Service 未接凭证仓库，先保留参数位
+) (uint64, error) {
+
+	username = strings.ToLower(strings.TrimSpace(username))
+	if tenantID == 0 || userID == 0 || username == "" {
+		return 0, errors.New("tenant_id/user_id/username required")
+	}
+
+	var newID uint64
+	err := s.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// user 是否存在
+		u, err := s.UserRepo.FindByID(ctx, userID)
+		if err != nil {
+			return err
+		}
+		if u == nil {
+			return gorm.ErrRecordNotFound
+		}
+
+		// 不可重复加入同一租户
+		if existed, err := s.MemberRepo.GetByCondition(ctx, map[string]interface{}{
+			model.TableIAMMember + ".tenant_id = ?": tenantID,
+			model.TableIAMMember + ".user_id = ?":   userID,
+		}, nil); err != nil {
+			return err
+		} else if existed != nil {
+			return errors.New("already a member of this tenant")
+		}
+
+		// username 租户内唯一
+		if dup, err := s.MemberRepo.GetByCondition(ctx, map[string]interface{}{
+			model.TableIAMMember + ".tenant_id = ?": tenantID,
+			model.TableIAMMember + ".username = ?":  username,
+		}, nil); err != nil {
+			return err
+		} else if dup != nil {
+			return errors.New("username already taken in this tenant")
+		}
+
+		mem := &modelIAM.Member{
+			TenantID:    tenantID,
+			UserID:      userID,
+			Username:    username,
+			DisplayName: strings.TrimSpace(firstNonEmpty(displayName, username)),
+			AvatarURL:   strings.TrimSpace(avatarURL),
+			Status:      1,
+			Meta:        meta,
+		}
+		if status != nil {
+			mem.Status = *status
+		}
+		if _, err := s.MemberRepo.Create(ctx, mem); err != nil {
+			return err
+		}
+		newID = mem.ID
+
+		// 主部门（可选）
+		if deptID != nil && *deptID != 0 {
+			rows := []*modelIAM.MemberDepartment{{
+				TenantID:     tenantID,
+				MemberID:     mem.ID,
+				DepartmentID: *deptID,
+			}}
+			if _, err := s.MemberDeptRepo.CreateBatch(ctx, rows); err != nil {
+				return err
+			}
+		}
+
+		// 角色/密码：当前 Service 未集成相关 Repo，这里不做；后续接入 Auth/Role 再补
+
+		return nil
+	})
+	return newID, err
+}
+
+func firstNonEmpty(a, b string) string {
+	if strings.TrimSpace(a) != "" {
+		return a
+	}
+	return b
 }

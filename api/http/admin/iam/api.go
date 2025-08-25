@@ -1,3 +1,4 @@
+// api/http/admin/iam/api.go
 package iam
 
 import (
@@ -21,7 +22,11 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 		gDept.DELETE("/:id", hDept.Delete)
 	}
 
-	hMember := NewMemberHandler(service.NewMemberService(deps.DB))
+	// 成员 CRUD
+	memberSvc := service.NewMemberService(deps.DB)
+	hMember := NewMemberHandler(memberSvc)
+
+	// /admin/iam/members（保持不变）
 	gMember := protectedGroup.Group("/admin/iam/members")
 	{
 		gMember.GET("", hMember.List)
@@ -33,5 +38,13 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 		gMember.PUT("/:id/restore", hMember.Restore)
 		gMember.PUT("/:id/departments", hMember.PutDepartments)
 		gMember.POST("/:id/force-logout", hMember.ForceMemberLogout)
+	}
+
+	// ✅ 新增：/admin/iam/users 分组（租户内视角：按 user 操作其在当前租户的 member）
+	gUser := protectedGroup.Group("/admin/iam/users")
+	{
+		gUser.GET("/:user_id/member", hMember.GetMemberByUser)  // 查询某个 user 在当前租户的 member
+		gUser.GET("/members", hMember.BatchGetMembersByUsers)   // 批量：user_ids 查询在本租户的 members
+		gUser.POST("/:user_id/member", hMember.AddExistingUser) // 把已有 user 加入当前租户（创建 member）
 	}
 }

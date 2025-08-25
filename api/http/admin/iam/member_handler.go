@@ -1,6 +1,8 @@
 package iam
 
 import (
+	"encoding/json"
+	"gorm.io/datatypes"
 	"net/http"
 	"strconv"
 
@@ -217,4 +219,107 @@ func (h *MemberHandler) ForceMemberLogout(c *gin.Context) {
 		return
 	}
 	dto.ResponseSuccess(c, gin.H{"ok": true})
+}
+
+// 批量：?user_ids=1,2,3
+type BatchGetMembersByUsersReq struct {
+	UserIDs []uint64 `form:"user_ids,split" validate:"required,min=1,dive,gt=0"`
+}
+
+// 把已有 User 加入本租户（创建 member）
+type AddExistingUserReq struct {
+	Username     string         `json:"username"      validate:"required,min=3,max=64"` // 本租户内唯一
+	DisplayName  string         `json:"display_name"  validate:"omitempty,max=128"`
+	AvatarURL    string         `json:"avatar_url"    validate:"omitempty,url"`
+	Status       *int16         `json:"status"`        // 默认 1
+	DeptID       *uint64        `json:"dept_id"`       // 主部门（可选）
+	RoleIDs      []uint64       `json:"role_ids"`      // 赋角色（可选）
+	Meta         datatypes.JSON `json:"meta"`          // 自定义（可选）
+	InitPassword *string        `json:"init_password"` // 可选：若需立即可登录且无密码凭证
+}
+
+// ======== 新增：租户内视角 Handlers ========
+
+// GET /api/v1/admin/iam/users/:user_id/member
+func (h *MemberHandler) GetMemberByUser(c *gin.Context) {
+	userID, _ := strconv.ParseUint(c.Param("user_id"), 10, 64)
+	ctx := c.Request.Context()
+	tid := auth.GetTenantID(ctx)
+
+	mem, usr, err := h.S.GetMemberByUser(ctx, tid, userID)
+	if err != nil {
+		dto.ResponseError(c, http.StatusNotFound, "member not found in this tenant", err)
+		return
+	}
+	dto.ResponseSuccess(c, gin.H{
+		"member": mem,
+		"user":   usr,
+	})
+}
+
+// GET /api/v1/admin/iam/users/members?user_ids=1,2,3
+// GET /api/v1/admin/iam/users/members?user_ids=1,2,3
+func (h *MemberHandler) BatchGetMembersByUsers(c *gin.Context) {
+	var req BatchGetMembersByUsersReq
+	if err := dto.ValidateRequestWithContext(c, &req); err != nil {
+		dto.ResponseValidationError(c, err)
+		return
+	}
+	ctx := c.Request.Context()
+	tid := auth.GetTenantID(ctx)
+
+	members, usersByID, err := h.S.BatchGetMembersByUsers(ctx, tid, req.UserIDs)
+	if err != nil {
+		dto.ResponseError(c, http.StatusInternalServerError, "查询失败", err)
+		return
+	}
+
+	// 组装输出：[{member, user}]
+	out := make([]gin.H, 0, len(members))
+	for i := range members {
+		u := usersByID[members[i].UserID]
+		out = append(out, gin.H{
+			"member": members[i],
+			"user":   u,
+		})
+	}
+	dto.ResponseSuccess(c, gin.H{"items": out})
+}
+
+// POST /api/v1/admin/iam/users/:user_id/member
+// POST /api/v1/admin/iam/users/:user_id/member
+func (h *MemberHandler) AddExistingUser(c *gin.Context) {
+	userID, _ := strconv.ParseUint(c.Param("user_id"), 10, 64)
+	var req AddExistingUserReq
+	if err := dto.ValidateRequestWithContext(c, &req); err != nil {
+		dto.ResponseValidationError(c, err)
+		return
+	}
+	ctx := c.Request.Context()
+	tid := auth.GetTenantID(ctx)
+
+	// datatypes.JSON -> map[string]any（可为空）
+	var meta datatypes.JSON
+	if len(req.Meta) > 0 {
+		_ = json.Unmarshal(req.Meta, &meta)
+	}
+
+	id, err := h.S.AddExistingUserAsMember(
+		ctx,
+		tid,
+		userID,
+		req.Username,
+		req.DisplayName,
+		req.AvatarURL,
+		req.Status,
+		req.DeptID,
+		req.RoleIDs,
+		meta,
+		req.InitPassword,
+	)
+	if err != nil {
+		dto.ResponseError(c, http.StatusBadRequest, "create member failed", err)
+		return
+	}
+	dto.ResponseSuccess(c, gin.H{"id": id})
 }
