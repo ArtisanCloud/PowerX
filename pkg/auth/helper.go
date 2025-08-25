@@ -3,25 +3,7 @@ package auth
 
 import "context"
 
-type ctxKey string
-
-const (
-	TenantIDKey   ctxKey = "tenant_id"   // 租户ID键（uint64）
-	TenantUUIDKey ctxKey = "tenant_uuid" // 租户UUID键（string）
-	SubjectKey    ctxKey = "subject"     // 主体键（string）
-	ScopeKey      ctxKey = "scope"       // 权限范围键（string）
-	AudienceKey   ctxKey = "audience"    // 受众键（string）
-	PlatformKey   ctxKey = "platform"    // 平台键（string）
-	TraceIDKey    ctxKey = "trace_id"    // 追踪ID键（string）
-	JWTClaimsKey  ctxKey = "jwt_claims"  // JWT声明键（*CoreXClaims）
-	rootCtxKey    ctxKey = "is_root_ctx"
-)
-
 /*************** Getters：从 context 中读取 ***************/
-
-func WithIsRoot(ctx context.Context, isRoot bool) context.Context {
-	return context.WithValue(ctx, rootCtxKey, isRoot)
-}
 
 // GetTenantID 从上下文获取租户ID（优先 context 写入，其次可从 claims 兜底）
 func GetTenantID(ctx context.Context) uint64 {

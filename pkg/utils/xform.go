@@ -58,3 +58,37 @@ func StrFromOr(v any, def string) string {
 	}
 	return def
 }
+
+// 辅助：把 any 转数值（JSON 反序列化 float64 的兼容）
+func AsInt16(v any) (int16, bool) {
+	switch t := v.(type) {
+	case float64:
+		return int16(t), true
+	case int:
+		return int16(t), true
+	case int64:
+		return int16(t), true
+	case int32:
+		return int16(t), true
+	}
+	return 0, false
+}
+func AsUint64(v any) (uint64, bool) {
+	switch t := v.(type) {
+	case float64:
+		return uint64(t), true
+	case int:
+		if t < 0 {
+			return 0, false
+		}
+		return uint64(t), true
+	case int64:
+		if t < 0 {
+			return 0, false
+		}
+		return uint64(t), true
+	case uint64:
+		return t, true
+	}
+	return 0, false
+}

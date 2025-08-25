@@ -35,3 +35,15 @@ func (mdl *Tenant) GetTableName(needFull bool) string {
 }
 
 const SystemTenantKey = "system"
+
+func (m *Tenant) ToLite() map[string]any {
+	return map[string]any{
+		"id":     m.ID,
+		"uuid":   m.UUID,
+		"key":    m.Key,
+		"name":   m.Name,
+		"status": m.Status,
+		"plan":   m.Plan,
+		"domain": m.Domain,
+	}
+}

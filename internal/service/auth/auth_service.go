@@ -6,6 +6,7 @@ import (
 	"errors"
 	"github.com/ArtisanCloud/PowerX/internal/service"
 	pkgauth "github.com/ArtisanCloud/PowerX/pkg/auth"
+	"github.com/ArtisanCloud/PowerX/pkg/cache"
 	model "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/iam"
 	tenantmdl "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/tenant"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository"
@@ -47,6 +48,7 @@ type AuthService struct {
 
 	DefaultTenantKey string // e.g. "system"
 
+	Cache cache.ICache
 }
 
 func NewAuthService(
@@ -78,7 +80,7 @@ func NewAuthService(
 		AccessTTL:        accessTTL,
 		RefreshTTL:       refreshTTL,
 		DefaultTenantKey: "system", // 需要的话可改为 cfg 注入
-
+		Cache:            cache.GetCache(),
 	}
 }
 
@@ -264,6 +266,15 @@ func (s *AuthService) Login(ctx context.Context, tenantRef, identifier, password
 		UserUUID:   u.UUID.String(),
 		ExpiresAt:  time.Now().Add(s.RefreshTTL).UnixMilli(),
 	})
+
+	if s.Cache != nil {
+		ttl := 10 * time.Minute // 建议 5~15 分钟
+		_ = s.Cache.Set(ctx, pkgauth.KUser(u.ID), utils.MustJSONBytes(u.ToLite()), ttl)
+		_ = s.Cache.Set(ctx, pkgauth.KMember(m.ID), utils.MustJSONBytes(m.ToLite()), ttl)
+		_ = s.Cache.Set(ctx, pkgauth.KTenant(ten.ID), utils.MustJSONBytes(ten.ToLite()), ttl)
+		// 刷新接口里再把旧 jti 写入撤销集合：_ = s.Cache.Set(ctx, kRevoked(oldJTI), []byte("1"), accessLeftTTL)
+	}
+
 	return access, refresh, nil
 }
 
@@ -287,16 +298,16 @@ func looksLikeUUID(s string) bool {
 }
 
 func (s *AuthService) Refresh(ctx context.Context, refreshJWT string) (string, error) {
+	// 1) 解析并校验 refresh token（iss/aud/exp/nbf/iat/签名）
 	claims, err := pkgauth.ParseAndValidate(refreshJWT, s.JWTSecret, s.Issuer, s.Audience)
 	if err != nil {
 		return "", errors.New("invalid token")
 	}
-
 	if claims.Scope != "refresh" {
 		return "", errors.New("not refresh token")
 	}
 
-	// 校验 refresh JTI + 绑定
+	// 2) 校验 refresh 的 JTI 是否有效、未撤销、未过期、绑定一致
 	rt, err := s.RTRepo.GetByJTI(ctx, claims.ID)
 	if err != nil || rt == nil || (rt.RevokedAt != nil) || time.Now().UnixMilli() > rt.ExpiresAt {
 		return "", errors.New("refresh expired or revoked")
@@ -305,15 +316,102 @@ func (s *AuthService) Refresh(ctx context.Context, refreshJWT string) (string, e
 		return "", errors.New("refresh token mismatch")
 	}
 
-	// 重新发 access（沿用原 claims，仅更新时间/过期时间）
+	// 3) 从仓库加载 user / member / tenant（用于后续快照写缓存）
+	//    —— 优先用 ID（claims.UserID / MemberID / TenantID）
+	u, err := s.UserRepo.FindByID(ctx, claims.UserID)
+	if err != nil || u == nil {
+		return "", errors.New("user not found")
+	}
+	m, err := s.MemberRepo.GetByCondition(ctx, map[string]interface{}{
+		"id = ?":        claims.MemberID,
+		"tenant_id = ?": claims.TenantID, // 双重约束，防串租户
+	}, nil)
+	if err != nil || m == nil {
+		return "", errors.New("member not found")
+	}
+	ten, err := s.TenantRepo.GetByID(ctx, claims.TenantID)
+	if err != nil || ten == nil {
+		return "", errors.New("tenant not found")
+	}
+	if u.Status != 1 {
+		return "", errors.New("user disabled")
+	}
+	if m.Status != 1 {
+		return "", errors.New("member disabled")
+	}
+	if ten.Status != 1 {
+		return "", errors.New("tenant disabled")
+	}
+
+	// 4) 重新签发新的 access（沿用 claims 的主体信息，刷新有效期）
 	access, err := pkgauth.GenerateAccessJWT(
-		*claims,  // 保留现有 claims（里有 MemberUUID/Tenant 等）
-		s.Issuer, // 你初始化时注入
+		*claims, // Tenant/User/Member/IsRoot/Platforms 都沿用
+		s.Issuer,
 		[]string{s.Audience},
 		s.AccessTTL,
 		s.JWTSecret,
 	)
-	return access, err
+	if err != nil {
+		return "", err
+	}
+
+	// （可选）5) 刷新置换：如果你需要“rotate refresh”（安全性更高）
+	//  - 撤销旧的 refresh jti
+	//  - 生成新的 refresh 并回写 RT 表
+	//  - 同时把旧 jti 放进黑名单缓存（可选，access 不用 jti 可略）
+	//
+	// newJTI := uuid.NewString()
+	// newRefresh, err := pkgauth.GenerateRefreshJWT(*claims, s.Issuer, []string{s.Audience}, newJTI, s.RefreshTTL, s.JWTSecret)
+	// if err != nil { return "", err }
+	// // 撤销旧 refresh
+	// if err := s.RTRepo.RevokeByJTI(ctx, claims.ID, time.Now().UnixMilli()); err != nil { return "", err }
+	// // 记录新 refresh
+	// _ = s.RTRepo.Issue(ctx, &model.RefreshToken{
+	//     JTI:        newJTI,
+	//     TenantUUID: rt.TenantUUID,
+	//     MemberUUID: rt.MemberUUID,
+	//     UserUUID:   rt.UserUUID,
+	//     ExpiresAt:  time.Now().Add(s.RefreshTTL).UnixMilli(),
+	// })
+	// // （若你也对 access 做 jti 黑名单，这里可把旧 access jti 写入黑名单）
+	// return access, newRefresh  // ← 如果你要同时返回新的 refresh
+
+	// 6) 刷新缓存快照（命中率高，避免每次鉴权都查库）
+	if s.Cache != nil {
+		ttl := 10 * time.Minute
+		// 如果你有 u.ToLite()/m.ToLite()/ten.ToLite() 直接用；否则就用下面 map 版：
+		_ = s.Cache.Set(ctx, pkgauth.KUser(u.ID), utils.MustJSONBytes(map[string]any{
+			"id":            u.ID,
+			"status":        u.Status,
+			"is_root":       u.IsRoot,
+			"display_name":  u.DisplayName,
+			"avatar_url":    u.AvatarURL,
+			"email":         u.Email,
+			"phone":         u.Phone,
+			"last_login_at": u.LastLoginAt,
+			"meta":          u.Meta,
+		}), ttl)
+		_ = s.Cache.Set(ctx, pkgauth.KMember(m.ID), utils.MustJSONBytes(map[string]any{
+			"id":         m.ID,
+			"tenant_id":  m.TenantID,
+			"user_id":    m.UserID,
+			"status":     m.Status,
+			"username":   m.Username,
+			"name":       m.DisplayName,
+			"avatar_url": m.AvatarURL,
+			"meta":       m.Meta,
+		}), ttl)
+		_ = s.Cache.Set(ctx, pkgauth.KTenant(ten.ID), utils.MustJSONBytes(map[string]any{
+			"id":     ten.ID,
+			"key":    ten.Key,
+			"name":   ten.Name,
+			"status": ten.Status,
+			"plan":   ten.Plan,
+			"domain": ten.Domain,
+		}), ttl)
+	}
+
+	return access, nil
 }
 
 func (s *AuthService) Logout(ctx context.Context, refreshJWT string) error {

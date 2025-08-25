@@ -30,3 +30,18 @@ func (mdl *User) GetTableName(needFull bool) string {
 	}
 	return model.TableIAMUser
 }
+
+func (mdl *User) ToLite() map[string]any {
+	return map[string]any{
+		"id":            mdl.ID,
+		"uuid":          mdl.UUID,
+		"status":        mdl.Status,
+		"is_root":       mdl.IsRoot,
+		"display_name":  mdl.DisplayName,
+		"avatar_url":    mdl.AvatarURL,
+		"email":         mdl.Email,
+		"phone":         mdl.Phone,
+		"last_login_at": mdl.LastLoginAt,
+		"meta":          mdl.Meta,
+	}
+}
