@@ -55,7 +55,7 @@ type ListMembersOption struct {
 	Recursive      bool
 }
 type MemberWithProfile struct {
-	Member  modelIAM.Member
+	Member  *modelIAM.Member
 	User    *modelIAM.User
 	DeptIDs []uint64
 }
@@ -120,7 +120,9 @@ func (s *MemberService) ListMembers(ctx context.Context, opt ListMembersOption) 
 			if strings.ToLower(opt.SortOrder) == "asc" {
 				so = "ASC"
 			}
-			return q.Distinct("m.id").Order("m.id " + so)
+			return q.
+				Select("DISTINCT ON (m.id) m.*").
+				Order("m.id " + so)
 		}, nil)
 	if err != nil {
 		return nil, 0, err
@@ -173,7 +175,7 @@ func (s *MemberService) ListMembers(ctx context.Context, opt ListMembersOption) 
 
 	for _, mem := range page.List {
 		items = append(items, MemberWithProfile{
-			Member:  *mem,
+			Member:  mem,
 			User:    userByID[mem.UserID],
 			DeptIDs: deptIDsMap[mem.ID],
 		})
@@ -202,7 +204,7 @@ func (s *MemberService) GetMember(ctx context.Context, tenantID, memberID uint64
 		Pluck("department_id", &deptIDs).Error; err != nil {
 		return nil, err
 	}
-	return &MemberWithProfile{Member: *mem, User: u, DeptIDs: deptIDs}, nil
+	return &MemberWithProfile{Member: mem, User: u, DeptIDs: deptIDs}, nil
 }
 
 func (s *MemberService) CreateMember(ctx context.Context, tenantID uint64, in CreateMemberInput) (uint64, error) {

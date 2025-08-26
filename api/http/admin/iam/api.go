@@ -40,11 +40,21 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 		gMember.POST("/:id/force-logout", hMember.ForceMemberLogout)
 	}
 
-	// ✅ 新增：/admin/iam/users 分组（租户内视角：按 user 操作其在当前租户的 member）
+	// 新增：/admin/iam/users 分组（租户内视角：按 user 操作其在当前租户的 member）
 	gUser := protectedGroup.Group("/admin/iam/users")
 	{
 		gUser.GET("/:user_id/member", hMember.GetMemberByUser)  // 查询某个 user 在当前租户的 member
 		gUser.GET("/members", hMember.BatchGetMembersByUsers)   // 批量：user_ids 查询在本租户的 members
 		gUser.POST("/:user_id/member", hMember.AddExistingUser) // 把已有 user 加入当前租户（创建 member）
+	}
+
+	h := NewRoleHandler(deps)
+	gRoles := protectedGroup.Group("admin/iam/roles")
+	{
+		gRoles.POST("", h.Create)
+		gRoles.GET("", h.List)
+		gRoles.GET(":id", h.Get)
+		gRoles.PATCH(":id", h.Update)
+		gRoles.DELETE(":id", h.Delete)
 	}
 }

@@ -158,6 +158,60 @@ func (r *BaseRepository[T]) Update(ctx context.Context, obj *T) (*T, error) {
 	return obj, result.Error
 }
 
+func (r *BaseRepository[T]) UpdateByID(
+	ctx context.Context,
+	id uint64,
+	fields map[string]interface{},
+	callback func(*gorm.DB) *gorm.DB,
+) (*T, error) {
+
+	if id == 0 {
+		return nil, errors.New("invalid id")
+	}
+	if len(fields) == 0 {
+		return nil, errors.New("no fields to update")
+	}
+
+	// 允许更新的字段白名单（去除主键、created_at/updated_at 等）
+	allowCols := map[string]struct{}{}
+	for _, c := range getUpdatableColumns[T](r.DB) {
+		allowCols[strings.ToLower(c)] = struct{}{}
+	}
+
+	// 过滤不可更新字段（保留 map 中与白名单交集的键）
+	safeFields := make(map[string]interface{}, len(fields))
+	for k, v := range fields {
+		if _, ok := allowCols[strings.ToLower(k)]; ok {
+			safeFields[k] = v
+		}
+	}
+	if len(safeFields) == 0 {
+		return nil, errors.New("no valid fields to update")
+	}
+
+	// 执行更新
+	var mdl T
+	query := r.DB.WithContext(ctx).Model(&mdl).Where("id = ?", id)
+
+	if debug, ok := ctx.Value(utils.DebugKey).(bool); ok && debug {
+		query = query.Debug()
+	}
+	if callback != nil {
+		query = callback(query)
+	}
+
+	res := query.Updates(safeFields)
+	if res.Error != nil {
+		return nil, res.Error
+	}
+	if res.RowsAffected == 0 {
+		return nil, errors.New("record not found")
+	}
+
+	// 读取并返回更新后的对象（复用已有的 GetById 逻辑和 callback）
+	return r.GetById(ctx, id, callback)
+}
+
 // Patch 部分更新记录
 func (r *BaseRepository[T]) Patch(ctx context.Context, where map[string]interface{}, fields map[string]interface{}) (*T, error) {
 	var obj T
@@ -272,7 +326,7 @@ func (r *BaseRepository[T]) FindByCondition(
 }
 
 // GetById 通过 ID 获取记录
-func (r *BaseRepository[T]) GetById(ctx context.Context, id int64, callback func(*gorm.DB) *gorm.DB) (*T, error) {
+func (r *BaseRepository[T]) GetById(ctx context.Context, id uint64, callback func(*gorm.DB) *gorm.DB) (*T, error) {
 	var obj T
 
 	query := r.DB.WithContext(ctx).Where("id = ?", id)

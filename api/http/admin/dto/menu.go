@@ -1,5 +1,13 @@
 package dto
 
+type AdminMenuCategory struct {
+	ID       string          `json:"id"`
+	Title    string          `json:"title"`
+	Order    int             `json:"order"`
+	Origin   string          `json:"origin"`   // "system" | "plugin" | "mixed"
+	Children []AdminMenuItem `json:"children"` // 该分类下的一层菜单
+}
+
 type AdminMenuItem struct {
 	Key   string `json:"id"`
 	Title string `json:"title"`

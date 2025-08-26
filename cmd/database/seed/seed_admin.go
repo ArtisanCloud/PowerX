@@ -13,6 +13,11 @@ import (
 
 // SeedRoot 仅做“最小种子”：system 租户 + root 管理员（root/root，可用 POWERX_ROOT_PASSWORD 覆盖）
 func SeedRoot(db *gorm.DB) error {
+
+	if err := SeedSystemBuiltinRoles(db); err != nil {
+		return fmt.Errorf("seed system builtin roles: %w", err)
+	}
+
 	const tenantKey = "system"
 	const orgName = "System"
 	const rootUserName = "root"   // 成员在租户内的用户名

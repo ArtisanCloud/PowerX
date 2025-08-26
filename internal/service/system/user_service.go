@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/ArtisanCloud/PowerX/internal/service/iam"
 	coremdl "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
 	m "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/iam"
 	repoi "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/iam"
@@ -39,15 +40,134 @@ func NewUserService(db *gorm.DB) *UserService {
 
 // ListUsers - 平台全局视角用户列表
 // orderBy 传入例如："id desc" / "created_at asc"
-func (s *UserService) ListUsers(ctx context.Context, keyword string, status *int16, page, size int, orderBy string) ([]m.User, int64, error) {
-	filter := repoi.UserListFilter{
-		Keyword: keyword,
-		Status:  status,
-		Page:    page,
-		Size:    size,
-		OrderBy: strings.TrimSpace(orderBy),
+func (s *UserService) ListUsers(ctx context.Context, f repoi.UserListFilter) ([]iam.MemberWithProfile, int64, error) {
+	// 基础查询：u LEFT JOIN m（当指定租户时，限定 m.tenant_id；否则不限定）
+	base := s.DB.WithContext(ctx).Table(coremdl.TableIAMUser + " AS u").
+		Joins("LEFT JOIN " + coremdl.TableIAMMember + " AS m ON m.user_id = u.id AND m.deleted_at IS NULL")
+
+	if f.TenantID > 0 {
+		// 指定租户视角：限定 m.tenant_id，并过滤掉不是该租户成员的行
+		base = base.Joins("/* tenant filter */").Where("m.tenant_id = ?", f.TenantID).
+			Where("m.id IS NOT NULL")
 	}
-	return s.UserRepo.List(ctx, filter)
+
+	// 关键词（命中 u.email/u.phone/u.display_name + m.username）
+	if kw := strings.TrimSpace(f.Keyword); kw != "" {
+		kw = strings.ToLower(kw)
+		p := "%" + kw + "%"
+		base = base.Where("("+
+			"LOWER(u.email) LIKE ? OR "+
+			"LOWER(u.phone) LIKE ? OR "+
+			"LOWER(u.display_name) LIKE ? OR "+
+			"LOWER(m.username) LIKE ?"+
+			")", p, p, p, p)
+	}
+
+	// 状态（这里按 User 的 status 过滤；如果你还要按 member.status 再加一个独立字段过滤）
+	if f.Status != nil {
+		base = base.Where("u.status = ?", *f.Status)
+	}
+
+	// 先算总数：对 u.id 计数（去重）
+	var total int64
+	if err := base.Select("u.id").Distinct("u.id").Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	if total == 0 {
+		return []iam.MemberWithProfile{}, 0, nil
+	}
+
+	// 分页 + 排序：先分页取去重后的 u.id 列表（避免 PG: 42P10）
+	order := "u.id DESC"
+	if strings.TrimSpace(f.OrderBy) != "" {
+		// 仅允许按 u.id / u.created_at / u.updated_at，避免复杂 order 触发 PG 限制
+		switch strings.ToLower(strings.TrimSpace(f.OrderBy)) {
+		case "id asc":
+			order = "u.id ASC"
+		case "id desc":
+			order = "u.id DESC"
+		case "created_at asc":
+			order = "u.created_at ASC"
+		case "created_at desc":
+			order = "u.created_at DESC"
+		case "updated_at asc":
+			order = "u.updated_at ASC"
+		case "updated_at desc":
+			order = "u.updated_at DESC"
+		default:
+			order = "u.id DESC"
+		}
+	}
+
+	page := f.Page
+	size := f.Size
+	if page <= 0 {
+		page = 1
+	}
+	if size <= 0 {
+		size = 10
+	}
+
+	var ids []uint64
+	if err := base.
+		Select("u.id").
+		Distinct("u.id").
+		Order(order).
+		Offset((page-1)*size).
+		Limit(size).
+		Pluck("u.id", &ids).Error; err != nil {
+		return nil, 0, err
+	}
+
+	// 回表取 users
+	var users []m.User
+	if err := s.DB.WithContext(ctx).
+		Table(coremdl.TableIAMUser+" AS u").
+		Where("u.id IN ?", ids).
+		Where("u.deleted_at IS NULL").
+		Find(&users).Error; err != nil {
+		return nil, 0, err
+	}
+	// 用映射方便组装
+	uMap := make(map[uint64]m.User, len(users))
+	for _, u := range users {
+		uMap[u.ID] = u
+	}
+
+	// 如果是租户视角，再取 tenant 下的 member（user_id -> member）
+	var mMap map[uint64]m.Member
+	if f.TenantID > 0 {
+		var rows []m.Member
+		if err := s.DB.WithContext(ctx).
+			Table(coremdl.TableIAMMember).
+			Where("tenant_id = ? AND user_id IN ?", f.TenantID, ids).
+			Where("deleted_at IS NULL").
+			Find(&rows).Error; err != nil {
+			return nil, 0, err
+		}
+		mMap = make(map[uint64]m.Member, len(rows))
+		for _, mm := range rows {
+			// 按 user_id 映射该租户里的唯一 member
+			mMap[mm.UserID] = mm
+		}
+	}
+
+	// 最终拼装（保持 ids 顺序）
+	out := make([]iam.MemberWithProfile, 0, len(ids))
+	for _, id := range ids {
+		u := uMap[id]
+		var mem *m.Member
+		if f.TenantID > 0 {
+			if mm, ok := mMap[id]; ok {
+				mem = &mm
+			}
+		}
+		out = append(out, iam.MemberWithProfile{
+			User:   &u,
+			Member: mem,
+		})
+	}
+	return out, total, nil
 }
 
 func (s *UserService) GetUser(ctx context.Context, id uint64) (*m.User, error) {

@@ -10,8 +10,8 @@ import (
 type User struct {
 	model.PowerUUIDModel
 
-	Email       string         `gorm:"column:email;type:varchar(128);index"                                           json:"email,omitempty"`
-	Phone       string         `gorm:"column:phone;type:varchar(32);index"                                            json:"phone,omitempty"`
+	Email       string         `gorm:"column:email;type:varchar(128);uniqueIndex:uk_user_email" json:"email,omitempty"`
+	Phone       string         `gorm:"column:phone;type:varchar(32);uniqueIndex:uk_user_phone"  json:"phone,omitempty"`
 	DisplayName string         `gorm:"column:display_name;type:varchar(128)"                                          json:"display_name,omitempty"`
 	AvatarURL   string         `gorm:"column:avatar_url;type:varchar(512)"                                            json:"avatar_url,omitempty"`
 	Status      int16          `gorm:"column:status;default:1;index"                                                  json:"status"`

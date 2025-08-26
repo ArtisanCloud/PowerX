@@ -31,10 +31,10 @@ func RegisterAPIRoutes(
 	protectedGroup.Use(authMiddleware)
 
 	system.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
-	agent.RegisterAPIRoutes(publicGroup, protectedGroup)
-	plugin.RegisterAPIRoutes(publicGroup, protectedGroup)
+	tenants.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
+	iam.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	menu.RegisterAPIRoutes(publicGroup, protectedGroup)
 	auth.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
-	iam.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
-	tenants.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
+	agent.RegisterAPIRoutes(publicGroup, protectedGroup)
+	plugin.RegisterAPIRoutes(publicGroup, protectedGroup)
 }

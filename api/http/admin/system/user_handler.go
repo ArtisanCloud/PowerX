@@ -3,6 +3,7 @@ package system
 
 import (
 	"errors"
+	repoi "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/iam"
 	"gorm.io/gorm"
 	"net/http"
 	"strconv"
@@ -45,8 +46,9 @@ type UserDTO struct {
 
 type ListUsersReq struct {
 	dto.PaginationRequest
-	Keyword string `form:"q"`
-	Status  *int16 `form:"status"`
+	TenantID uint64 `form:"tenant_id" json:"tenant_id"`
+	Keyword  string `form:"q"`
+	Status   *int16 `form:"status"`
 }
 
 // 创建用户并把该用户加入租户时需要的扩展字段（模型字段直接来自 m.User）
@@ -93,26 +95,20 @@ func (h *UserHandler) List(c *gin.Context) {
 
 	ctx := c.Request.Context()
 	// Service 需要提供：ListUsers(ctx, keyword, status, page, size, orderBy) ([]m.User, total, error)
-	users, total, err := h.S.ListUsers(ctx, req.Keyword, req.Status, req.Page, req.PageSize, strings.TrimSpace(req.SortBy+" "+req.SortOrder))
+	users, total, err := h.S.ListUsers(ctx, repoi.UserListFilter{
+		TenantID: req.TenantID,
+		Keyword:  req.Keyword,
+		Status:   req.Status,
+		Page:     req.Page,
+		Size:     req.PageSize,
+		OrderBy:  strings.TrimSpace(req.SortOrder),
+	})
 	if err != nil {
 		dto.ResponseError(c, http.StatusInternalServerError, "查询用户失败", err)
 		return
 	}
 
-	items := make([]UserDTO, 0, len(users))
-	for _, u := range users {
-		items = append(items, UserDTO{
-			ID:          u.ID,
-			Email:       u.Email,
-			Phone:       u.Phone,
-			DisplayName: u.DisplayName,
-			AvatarURL:   u.AvatarURL,
-			Status:      u.Status,
-			LastLoginAt: u.LastLoginAt,
-			Meta:        u.Meta,
-		})
-	}
-	dto.ResponseList(c, items, &dto.PaginationResponse{Total: total, Page: req.Page, PageSize: req.PageSize})
+	dto.ResponseList(c, users, &dto.PaginationResponse{Total: total, Page: req.Page, PageSize: req.PageSize})
 }
 
 // GET /api/admin/system/users/:id

@@ -56,11 +56,12 @@ func (r *UserRepository) FindByPhone(ctx context.Context, phone string) (*dbm.Us
 // ---- 全局列表（不带租户）----
 // 说明：租户内列表请用 MemberRepository.List（见下方补充）
 type UserListFilter struct {
-	Keyword string
-	Status  *int16
-	Page    int
-	Size    int
-	OrderBy string // 可选：默认 id DESC
+	TenantID uint64
+	Keyword  string
+	Status   *int16
+	Page     int
+	Size     int
+	OrderBy  string // 可选：默认 id DESC
 }
 
 func (r *UserRepository) List(ctx context.Context, f UserListFilter) (list []dbm.User, total int64, err error) {
@@ -75,6 +76,9 @@ func (r *UserRepository) List(ctx context.Context, f UserListFilter) (list []dbm
 	}
 	if f.Status != nil {
 		q = q.Where("status = ?", *f.Status)
+	}
+	if f.TenantID > 0 {
+		q = q.Where("tenant_id = ?", f.TenantID)
 	}
 	if err = q.Count(&total).Error; err != nil {
 		return
