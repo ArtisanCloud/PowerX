@@ -2,8 +2,10 @@
 package iam
 
 import (
+	"github.com/ArtisanCloud/PowerX/config"
 	"github.com/ArtisanCloud/PowerX/internal/bootstrap"
 	service "github.com/ArtisanCloud/PowerX/internal/service/iam"
+	"github.com/ArtisanCloud/PowerX/pkg/auth"
 	repoi "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/iam"
 	"github.com/gin-gonic/gin"
 )
@@ -77,12 +79,25 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 
 	// permission
 	hPerm := NewPermissionHandler(deps)
+
 	gPerm := protectedGroup.Group("/admin/iam/permissions")
+	gSysPerm := protectedGroup.Group("/admin/iam/permissions")
+	cfg := config.GetGlobalConfig()
+	gSysPerm.Use(auth.JwtMiddleware(
+		[]byte(cfg.Auth.JWTSecret),
+		cfg.Auth.Issuer,
+		[]string{cfg.Auth.AudienceUser},
+		[]string{"access"},
+		auth.RootOnlyCB(),
+	))
 	{
-		gPerm.POST("register", hPerm.Register)
-		gPerm.POST("sync", hPerm.Sync)
 		gPerm.GET("", hPerm.List)
 		gPerm.GET("catalog", hPerm.Catalog)
 
+		// 系统权限：注册、同步、更新、状态切换
+		gSysPerm.POST("register", hPerm.Register)
+		gSysPerm.POST("sync", hPerm.Sync)
+		gSysPerm.PATCH("/:id", hPerm.Update)         // 更新描述 /（可选）状态
+		gSysPerm.PUT("/:id/status", hPerm.SetStatus) // 仅状态切换
 	}
 }

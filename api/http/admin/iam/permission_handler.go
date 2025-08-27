@@ -3,7 +3,9 @@ package iam
 import (
 	dbm "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/iam"
 	"net/http"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/ArtisanCloud/PowerX/internal/bootstrap"
 	iamsvc "github.com/ArtisanCloud/PowerX/internal/service/iam"
@@ -103,4 +105,76 @@ func (h *PermissionHandler) Sync(c *gin.Context) {
 		return
 	}
 	dto.ResponseSuccess(c, res)
+}
+
+type setStatusReq struct {
+	Status string `json:"status" binding:"required"` // active | deprecated
+}
+
+type updateReq struct {
+	Description *string `json:"description"` // 仅允许改描述
+	Status      *string `json:"status"`      // 可选：同时允许改状态
+}
+
+func (h *PermissionHandler) SetStatus(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		dto.ResponseError(c, http.StatusBadRequest, "无效的ID", err)
+		return
+	}
+	var req setStatusReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		dto.ResponseError(c, http.StatusBadRequest, "参数绑定失败", err)
+		return
+	}
+	st := strings.ToLower(strings.TrimSpace(req.Status))
+	if st != "active" && st != "deprecated" {
+		dto.ResponseError(c, http.StatusBadRequest, "status 仅支持 active/ deprecated", nil)
+		return
+	}
+	// 废弃时写 deprecated_at；恢复时清空
+	var deprecatedAt *int64
+	if st == "deprecated" {
+		now := time.Now().Unix()
+		deprecatedAt = &now
+	}
+	if err := h.svc.UpdatePermissionFields(c.Request.Context(), id, nil, &st, deprecatedAt); err != nil {
+		dto.ResponseError(c, http.StatusBadRequest, "更新状态失败", err)
+		return
+	}
+	dto.ResponseSuccess(c, gin.H{"id": id, "status": st})
+}
+
+func (h *PermissionHandler) Update(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		dto.ResponseError(c, http.StatusBadRequest, "无效的ID", err)
+		return
+	}
+	var req updateReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		dto.ResponseError(c, http.StatusBadRequest, "参数绑定失败", err)
+		return
+	}
+	var stPtr *string
+	var depAt *int64
+	if req.Status != nil {
+		st := strings.ToLower(strings.TrimSpace(*req.Status))
+		if st != "active" && st != "deprecated" {
+			dto.ResponseError(c, http.StatusBadRequest, "status 仅支持 active/ deprecated", nil)
+			return
+		}
+		stPtr = &st
+		if st == "deprecated" {
+			now := time.Now().Unix()
+			depAt = &now
+		} else {
+			depAt = nil
+		}
+	}
+	if err := h.svc.UpdatePermissionFields(c.Request.Context(), id, req.Description, stPtr, depAt); err != nil {
+		dto.ResponseError(c, http.StatusBadRequest, "更新失败", err)
+		return
+	}
+	dto.ResponseSuccess(c, gin.H{"id": id})
 }

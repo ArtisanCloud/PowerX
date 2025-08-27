@@ -119,10 +119,26 @@ func (s *PermissionService) SyncPermissions(ctx context.Context, source, introdu
 	return s.perm.Sync(ctx, source, introduced, rows, dryRun)
 }
 
-// helpers
-func coalesce(s, d string) string {
-	if strings.TrimSpace(s) == "" {
-		return d
+func (s *PermissionService) UpdatePermissionFields(ctx context.Context, id uint64, description *string, status *string, deprecatedAt *int64) error {
+	updates := map[string]any{}
+	if description != nil {
+		updates["description"] = *description
 	}
-	return s
+	if status != nil {
+		updates["status"] = *status
+		// deprecated_at: 仅当字段存在时更新
+		if status != nil {
+			if deprecatedAt != nil {
+				updates["deprecated_at"] = *deprecatedAt
+			} else {
+				// 置空
+				updates["deprecated_at"] = gorm.Expr("NULL")
+			}
+		}
+	}
+	if len(updates) == 0 {
+		return nil
+	}
+	_, err := s.perm.UpdateByID(ctx, id, updates, nil)
+	return err
 }
