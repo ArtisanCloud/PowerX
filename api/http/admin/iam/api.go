@@ -73,6 +73,9 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 		gRoles.POST("/:id/bind/member", hRBAC.BindRoleToMember)
 		gRoles.DELETE("/:id/bindings/:binding_id", hRBAC.UnbindRoleFromMember)
 
+		gRoles.GET("/:id/permissions/ids", hRBAC.ListPermIDs)
+		gRoles.PUT("/:id/permissions/set-ids", hRBAC.SetPermIDs)
+
 		// 自测：鉴权
 		gRoles.GET("/me/check", hRBAC.CheckPermission)
 	}

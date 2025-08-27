@@ -10,3 +10,11 @@ func FirstNonEmpty(v ...string) string {
 	}
 	return ""
 }
+
+func Keys(m map[uint64]struct{}) []uint64 {
+	out := make([]uint64, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	return out
+}

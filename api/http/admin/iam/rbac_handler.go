@@ -1,11 +1,11 @@
 package iam
 
 import (
+	"errors"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
+	"github.com/gin-gonic/gin"
 	"net/http"
 	"strconv"
-
-	"github.com/gin-gonic/gin"
 
 	"github.com/ArtisanCloud/PowerX/internal/bootstrap"
 	iamsvc "github.com/ArtisanCloud/PowerX/internal/service/iam"
@@ -141,4 +141,50 @@ func (h *RBACHandler) CheckPermission(c *gin.Context) {
 		return
 	}
 	dto.ResponseSuccess(c, gin.H{"ok": ok})
+}
+
+type setIDsReq struct {
+	IDs []uint64 `json:"ids"`
+}
+
+func (h *RBACHandler) ListPermIDs(c *gin.Context) {
+	roleID, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	ids, err := h.svc.ListPermissionIDs(c.Request.Context(), roleID)
+	if err != nil {
+		status := http.StatusBadRequest
+		if errors.Is(err, iamsvc.ErrForbidden) {
+			status = http.StatusForbidden
+		}
+		if errors.Is(err, iamsvc.ErrRoleNotFound) {
+			status = http.StatusNotFound
+		}
+		dto.ResponseError(c, status, err.Error(), err)
+		return
+	}
+	dto.ResponseSuccess(c, gin.H{"ids": ids})
+}
+
+// PUT /admin/iam/roles/:id/permissions/set-ids
+func (h *RBACHandler) SetPermIDs(c *gin.Context) {
+	roleID, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	var req struct {
+		IDs []uint64 `json:"ids"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		dto.ResponseError(c, http.StatusBadRequest, "参数绑定失败", err)
+		return
+	}
+	res, err := h.svc.SetPermissionIDs(c.Request.Context(), roleID, req.IDs)
+	if err != nil {
+		status := http.StatusBadRequest
+		if errors.Is(err, iamsvc.ErrForbidden) {
+			status = http.StatusForbidden
+		}
+		if errors.Is(err, iamsvc.ErrRoleNotFound) {
+			status = http.StatusNotFound
+		}
+		dto.ResponseError(c, status, err.Error(), err)
+		return
+	}
+	dto.ResponseSuccess(c, res)
 }

@@ -119,3 +119,18 @@ func ToStr(v any) string {
 	}
 	return ""
 }
+
+func UniqUint64(in []uint64) []uint64 {
+	m := make(map[uint64]struct{}, len(in))
+	out := make([]uint64, 0, len(in))
+	for _, v := range in {
+		if v == 0 {
+			continue
+		}
+		if _, ok := m[v]; !ok {
+			m[v] = struct{}{}
+			out = append(out, v)
+		}
+	}
+	return out
+}

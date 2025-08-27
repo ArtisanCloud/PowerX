@@ -6,6 +6,8 @@ import (
 	"errors"
 	"github.com/ArtisanCloud/PowerX/internal/service"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam"
+	"github.com/ArtisanCloud/PowerX/pkg/utils"
+	"slices"
 	"strings"
 
 	"gorm.io/gorm"
@@ -156,4 +158,122 @@ func (s *RBACService) RevokePermissionsFromRole(ctx context.Context, roleID uint
 		Table("iam_role_permission").
 		Where("role_id = ? AND permission_id IN ?", roleID, permIDs).
 		Delete(nil).Error
+}
+
+func (s *RBACService) SetPermissionIDs(ctx context.Context, roleID uint64, wantIDs []uint64) (SetIDsResult, error) {
+	ac := s.actorFromContext(ctx) // ✅ 直接从 ctx 取
+
+	// 角色查询：你的 GetFirst 可能返回 (*T,nil)，要判空
+	role, err := s.rr.GetFirst(ctx, "id = ?", roleID)
+	if err != nil {
+		return SetIDsResult{}, err
+	}
+	if role == nil { // ✅ 防 NPE
+		return SetIDsResult{}, ErrRoleNotFound
+	}
+
+	// 鉴权：非 root 只能改本租户
+	if !ac.IsRoot && role.TenantID != ac.TenantID {
+		return SetIDsResult{}, ErrForbidden
+	}
+	// 如果你模型里有 IsSystem 并且想限制，可加：
+	// if !ac.IsRoot && role.IsSystem { return SetIDsResult{}, ErrForbidden }
+
+	// 去重
+	wantIDs = utils.UniqUint64(wantIDs)
+
+	// 当前已有
+	curIDs, err := s.rpr.ListPermissionIDsOfRole(ctx, roleID)
+	if err != nil {
+		return SetIDsResult{}, err
+	}
+	curSet := make(map[uint64]struct{}, len(curIDs))
+	for _, id := range curIDs {
+		curSet[id] = struct{}{}
+	}
+
+	// 只允许 active 的权限；跳过 deprecated
+	validSet := make(map[uint64]struct{})
+	var skipped []uint64
+	if len(wantIDs) > 0 {
+		ps, err := s.pr.FindByIDs(ctx, wantIDs) // ✅ 仓储方法，返回 []*dbm.Permission
+		if err != nil {
+			return SetIDsResult{}, err
+		}
+		for _, p := range ps {
+			st := strings.ToLower(strings.TrimSpace(string(p.Status))) // ✅ PermissionStatus → string
+			if st == "" || st == strings.ToLower(string(dbm.PermissionStatusActive)) {
+				validSet[p.ID] = struct{}{}
+			} else {
+				skipped = append(skipped, p.ID)
+			}
+		}
+	}
+
+	var toAdd, toRemove []uint64
+	for id := range validSet {
+		if _, ok := curSet[id]; !ok {
+			toAdd = append(toAdd, id)
+		}
+	}
+	for id := range curSet {
+		if _, ok := validSet[id]; !ok {
+			toRemove = append(toRemove, id)
+		}
+	}
+
+	if err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if len(toAdd) > 0 {
+			if err := s.rpr.GrantByIDsTx(tx, roleID, toAdd); err != nil {
+				return err
+			}
+		}
+		if len(toRemove) > 0 {
+			if err := s.rpr.RevokeByIDsTx(tx, roleID, toRemove); err != nil {
+				return err
+			}
+		}
+		return nil
+	}); err != nil {
+		return SetIDsResult{}, err
+	}
+
+	now, err := s.rpr.ListPermissionIDsOfRole(ctx, roleID)
+	if err != nil {
+		return SetIDsResult{}, err
+	}
+
+	slices.Sort(toAdd)
+	slices.Sort(toRemove)
+	slices.Sort(skipped)
+	return SetIDsResult{Added: toAdd, Removed: toRemove, Now: now, SkippedDeprecated: skipped}, nil
+}
+
+func (s *RBACService) actorFromContext(ctx context.Context) ActorContext {
+	ac := ActorContext{
+		IsRoot: service.IsRoot(ctx), // 复用你的 helper
+	}
+	if c := auth.GetJWTClaims(ctx); c != nil {
+		// 根据你的 claims 定义来取，假设是整数类型
+		if c.TenantID > 0 {
+			ac.TenantID = uint64(c.TenantID)
+		}
+	}
+	return ac
+}
+func (s *RBACService) ListPermissionIDs(ctx context.Context, roleID uint64) ([]uint64, error) {
+	ac := s.actorFromContext(ctx)
+
+	role, err := s.rr.GetFirst(ctx, "id = ?", roleID)
+	if err != nil {
+		return nil, err
+	}
+	if role == nil {
+		return nil, ErrRoleNotFound
+	}
+
+	if !ac.IsRoot && role.TenantID != ac.TenantID {
+		return nil, ErrForbidden
+	}
+	return s.rpr.ListPermissionIDsOfRole(ctx, roleID)
 }

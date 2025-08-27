@@ -25,6 +25,19 @@ func NewPermissionRepository(db *gorm.DB) *PermissionRepository {
 	}
 }
 
+// FindByIDs 返回非指针切片，便于上层直接 range 使用。
+func (r *PermissionRepository) FindByIDs(ctx context.Context, ids []uint64) ([]*dbm.Permission, error) {
+	if len(ids) == 0 {
+		return []*dbm.Permission{}, nil
+	}
+	var rows []*dbm.Permission
+	db := r.DB.WithContext(ctx).Where("id IN ?", ids)
+	if err := db.Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	return rows, nil
+}
+
 // UpsertBatch 以 (plugin,resource,action) 为唯一键幂等写入
 func (r *PermissionRepository) UpsertBatch(ctx context.Context, rows []dbm.Permission) error {
 	if len(rows) == 0 {

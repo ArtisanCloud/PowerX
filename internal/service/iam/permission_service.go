@@ -4,6 +4,7 @@ package iam
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"github.com/ArtisanCloud/PowerX/pkg/utils"
 	"strings"
 
@@ -15,6 +16,23 @@ import (
 type PermissionRegisterItem struct {
 	Plugin, Resource, Action, Effect, Description string
 	Label, Module, Type, APIEndpoint, HTTPMethod  string
+}
+
+var (
+	ErrForbidden    = errors.New("forbidden")
+	ErrRoleNotFound = errors.New("role not found")
+)
+
+type ActorContext struct {
+	IsRoot   bool
+	TenantID uint64
+}
+
+type SetIDsResult struct {
+	Added             []uint64 `json:"added"`
+	Removed           []uint64 `json:"removed"`
+	Now               []uint64 `json:"now"`
+	SkippedDeprecated []uint64 `json:"skipped_deprecated"`
 }
 
 type PermissionListOpt struct {
@@ -36,14 +54,19 @@ type PermissionView struct {
 }
 
 type PermissionService struct {
-	db   *gorm.DB
-	perm *repo.PermissionRepository
+	db *gorm.DB
+
+	roles    *repo.RoleRepository
+	perms    *repo.PermissionRepository
+	rolePerm *repo.RolePermissionRepository
 }
 
 func NewPermissionService(db *gorm.DB) *PermissionService {
 	return &PermissionService{
-		db:   db,
-		perm: repo.NewPermissionRepository(db),
+		db:       db,
+		roles:    repo.NewRoleRepository(db),
+		perms:    repo.NewPermissionRepository(db),
+		rolePerm: repo.NewRolePermissionRepository(db),
 	}
 }
 
@@ -59,7 +82,7 @@ func (s *PermissionService) RegisterPermissions(ctx context.Context, rows []dbm.
 		}
 		// 不改 Meta：上层已经按 datatypes.JSON 赋值
 	}
-	return s.perm.UpsertBatch(ctx, rows)
+	return s.perms.UpsertBatch(ctx, rows)
 }
 
 // ListPermissions —— 返回原始 GORM 实体列表与总数（不定义额外 View）
@@ -70,13 +93,13 @@ func (s *PermissionService) ListPermissions(ctx context.Context, filter map[stri
 	if size <= 0 || size > 200 {
 		size = 50
 	}
-	rows, total, err := s.perm.List(ctx, filter, (page-1)*size, size, sort)
+	rows, total, err := s.perms.List(ctx, filter, (page-1)*size, size, sort)
 	return rows, total, err
 }
 
 // ListCatalog —— 聚合为 module->type->[]Permission（仍用 GORM 实体；Meta 在 handler 展开即可）
 func (s *PermissionService) ListCatalog(ctx context.Context) (map[string]map[string][]dbm.Permission, error) {
-	rows, _, err := s.perm.List(ctx, map[string]string{
+	rows, _, err := s.perms.List(ctx, map[string]string{
 		"status": string(dbm.PermissionStatusActive),
 	}, 0, 10000, "plugin ASC, resource ASC, action ASC")
 	if err != nil {
@@ -116,7 +139,7 @@ func (s *PermissionService) SyncPermissions(ctx context.Context, source, introdu
 		}
 		rows[i].Status = dbm.PermissionStatusActive
 	}
-	return s.perm.Sync(ctx, source, introduced, rows, dryRun)
+	return s.perms.Sync(ctx, source, introduced, rows, dryRun)
 }
 
 func (s *PermissionService) UpdatePermissionFields(ctx context.Context, id uint64, description *string, status *string, deprecatedAt *int64) error {
@@ -139,6 +162,6 @@ func (s *PermissionService) UpdatePermissionFields(ctx context.Context, id uint6
 	if len(updates) == 0 {
 		return nil
 	}
-	_, err := s.perm.UpdateByID(ctx, id, updates, nil)
+	_, err := s.perms.UpdateByID(ctx, id, updates, nil)
 	return err
 }

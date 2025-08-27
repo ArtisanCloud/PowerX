@@ -26,6 +26,10 @@ func (r *BaseRepository[T]) WithDB(db *gorm.DB) *BaseRepository[T] {
 	return r
 }
 
+func (r *BaseRepository[T]) OnConflictDoNothing() clause.OnConflict {
+	return clause.OnConflict{DoNothing: true}
+}
+
 // CreateBatch 批量创建记录
 func (r *BaseRepository[T]) CreateBatch(ctx context.Context, objs []*T) ([]*T, error) {
 	if len(objs) == 0 {
