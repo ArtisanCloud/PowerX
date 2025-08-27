@@ -1,7 +1,10 @@
 // pkg/corex/db/persistence/model/iam/role_perm_gorm.go
 package iam
 
-import "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
+import (
+	"github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
+	"gorm.io/datatypes"
+)
 
 type Role struct {
 	model.PowerModel
@@ -23,14 +26,28 @@ func (mdl *Role) GetTableName(needFull bool) string {
 	return model.TableIAMRole
 }
 
+type PermissionStatus string
+
+const (
+	PermissionStatusActive     PermissionStatus = "active"
+	PermissionStatusDeprecated PermissionStatus = "deprecated"
+)
+
 type Permission struct {
 	model.PowerModel
 
-	Plugin      string `gorm:"column:plugin;type:varchar(128);index;uniqueIndex:uk_perm_plugin_resource_action" json:"plugin"`
-	Resource    string `gorm:"column:resource;type:varchar(128);index;uniqueIndex:uk_perm_plugin_resource_action" json:"resource"`
-	Action      string `gorm:"column:action;type:varchar(64);index;uniqueIndex:uk_perm_plugin_resource_action"  json:"action"`
-	Effect      string `gorm:"column:effect;type:varchar(16);default:'allow'"  json:"effect"`
-	Description string `gorm:"column:description;type:text"                    json:"description,omitempty"`
+	Plugin      string `gorm:"type:varchar(64);not null;index:uk_perm_plugin_res_act,unique" json:"plugin"`
+	Resource    string `gorm:"type:varchar(64);not null;index:uk_perm_plugin_res_act,unique" json:"resource"`
+	Action      string `gorm:"type:varchar(64);not null;index:uk_perm_plugin_res_act,unique" json:"action"`
+	Effect      string `gorm:"type:varchar(16);not null;default:'allow'" json:"effect"`
+	Description string `gorm:"type:varchar(255)" json:"description"`
+
+	// —— 新增字段 ——
+	Meta         datatypes.JSON   `gorm:"type:jsonb" json:"meta,omitempty"` // UI 元数据（label/module/type/api_endpoint/http_method…）
+	Status       PermissionStatus `gorm:"type:varchar(16);not null;default:'active';index" json:"status"`
+	Source       string           `gorm:"type:varchar(128);index" json:"source"` // 核心/插件ID
+	Introduced   string           `gorm:"type:varchar(32)" json:"introduced"`    // 首次引入版本，如 v1.8.0
+	DeprecatedAt *int64           `gorm:"index" json:"deprecated_at,omitempty"`  // 废弃时间戳（秒）
 }
 
 func (mdl *Permission) TableName() string { return model.PowerXSchema + "." + model.TableIAMPermission }
@@ -56,19 +73,4 @@ func (mdl *RolePermission) GetTableName(needFull bool) string {
 		return mdl.TableName()
 	}
 	return model.TableIAMRolePermission
-}
-
-type MemberRole struct {
-	MemberID  uint64 `gorm:"column:member_id;primaryKey" json:"member_id"`
-	RoleID    uint64 `gorm:"column:role_id;primaryKey"   json:"role_id"`
-	TenantID  uint64 `gorm:"column:tenant_id;index"      json:"tenant_id"`
-	CreatedAt int64  `gorm:"column:created_at;autoCreateTime:milli" json:"created_at"`
-}
-
-func (mr *MemberRole) TableName() string { return model.PowerXSchema + "." + model.TableMemberRole }
-func (mr *MemberRole) GetTableName(needFull bool) string {
-	if needFull {
-		return mr.TableName()
-	}
-	return model.TableMemberRole
 }

@@ -109,3 +109,13 @@ func IfZeroInt16Ptr(p *int16, def int16) int16 {
 
 func TrimLower(s string) string { return strings.ToLower(strings.TrimSpace(s)) }
 func Trim(s string) string      { return strings.TrimSpace(s) }
+
+func ToStr(v any) string {
+	if v == nil {
+		return ""
+	}
+	if s, ok := v.(string); ok {
+		return s
+	}
+	return ""
+}

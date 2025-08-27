@@ -37,14 +37,14 @@ func NewDeps(db *gorm.DB, cfg *config.Config) *Deps {
 	memberRepo := infraiam.NewMemberRepository(db)
 	credRepo := infraiam.NewCredentialRepository(db)
 	roleRepo := infraiam.NewRoleRepository(db)
-	mrRepo := infraiam.NewMemberRoleRepository(db)
+	rbRepo := infraiam.NewRoleBindingRepository(db)
 	rtRepo := infraiam.NewRefreshTokenRepository(db)
 
 	accessTTL, _ := time.ParseDuration(cfg.Auth.AccessTTLStr)
 	refreshTTL, _ := time.ParseDuration(cfg.Auth.RefreshTTLStr)
 
 	authUser := authsvc.NewAuthService(
-		tenantRepo, userRepo, memberRepo, credRepo, roleRepo, mrRepo, rtRepo,
+		tenantRepo, userRepo, memberRepo, credRepo, roleRepo, rbRepo, rtRepo,
 		[]byte(strings.TrimSpace(cfg.Auth.JWTSecret)),
 		cfg.Auth.Issuer,
 		cfg.Auth.AudienceUser, // 👈 user audience
@@ -53,7 +53,7 @@ func NewDeps(db *gorm.DB, cfg *config.Config) *Deps {
 	)
 
 	authCustomer := authsvc.NewAuthService(
-		tenantRepo, userRepo, memberRepo, credRepo, roleRepo, mrRepo, rtRepo,
+		tenantRepo, userRepo, memberRepo, credRepo, roleRepo, rbRepo, rtRepo,
 		[]byte(strings.TrimSpace(cfg.Auth.JWTSecret)),
 		cfg.Auth.Issuer,
 		cfg.Auth.AudienceCustomer,
@@ -87,7 +87,7 @@ func NewDeps(db *gorm.DB, cfg *config.Config) *Deps {
 	meSvc := authsvc.NewMeService(db)
 
 	// --- TenantService ---
-	tenantSvc := tenantsvc.NewTenantService(db, authUser, mrRepo)
+	tenantSvc := tenantsvc.NewTenantService(db, authUser, rbRepo)
 
 	return &Deps{
 		DB:           db,

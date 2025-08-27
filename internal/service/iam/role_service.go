@@ -149,7 +149,7 @@ func (s *RoleService) Delete(ctx context.Context, id uint64, _ *uint64) error {
 }
 
 // Get：root 可看任意；非 root 只能看自己租户（system 不可见）
-func (s *RoleService) Get(ctx context.Context, id uint64, _ *uint64) (*dbm.Role, error) {
+func (s *RoleService) Get(ctx context.Context, id uint64, tid uint64) (*dbm.Role, error) {
 	m, err := s.repo.GetFirst(ctx, map[string]any{"id": id})
 	if err != nil || m == nil {
 		return m, err
@@ -163,9 +163,8 @@ func (s *RoleService) Get(ctx context.Context, id uint64, _ *uint64) (*dbm.Role,
 		return m, nil
 	}
 
-	ctxTenant := auth.GetTenantID(ctx)
 	if strings.ToLower(m.Scope) == "tenant" {
-		if m.TenantID == 0 || ctxTenant == 0 || m.TenantID != ctxTenant {
+		if m.TenantID == 0 || tid == 0 || m.TenantID != tid {
 			return nil, gorm.ErrRecordNotFound
 		}
 		return m, nil

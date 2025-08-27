@@ -17,7 +17,7 @@ import (
 )
 
 // 列表查询参数（仅查询用，不重复定义实体）
-type listQuery struct {
+type RolelistQuery struct {
 	Scope    string  `form:"scope"`           // system|tenant（为空则按 as_tenant_id 推断）
 	TenantID *uint64 `form:"tenant_id"`       // 可被 as_tenant_id 覆盖
 	Keyword  string  `form:"keyword"`         // code/name 模糊
@@ -113,7 +113,7 @@ func (h *RoleHandler) Delete(c *gin.Context) {
 func (h *RoleHandler) Get(c *gin.Context) {
 	roleID, _ := strconv.ParseUint(c.Param("id"), 10, 64)
 	tid := auth.GetTenantID(c)
-	m, err := h.svc.Get(c.Request.Context(), roleID, &tid)
+	m, err := h.svc.Get(c.Request.Context(), roleID, tid)
 	if err != nil {
 		dto.ResponseError(c, http.StatusBadRequest, "查询角色失败", err)
 		return
@@ -126,7 +126,7 @@ func (h *RoleHandler) Get(c *gin.Context) {
 }
 
 func (h *RoleHandler) List(c *gin.Context) {
-	var q listQuery
+	var q RolelistQuery
 	// 这里直接用 ShouldBindQuery；若你要更严格的校验，可用 dto.ValidateRequestWithContext
 	if err := c.ShouldBindQuery(&q); err != nil {
 		dto.ResponseError(c, http.StatusBadRequest, "参数绑定失败", err)

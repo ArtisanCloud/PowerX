@@ -47,9 +47,6 @@ type RoleBinding struct {
 	// 有效期（可选）
 	StartAt *int64 `gorm:"index"`
 	EndAt   *int64 `gorm:"index"`
-
-	// 防重复：一个主体对同一角色的重复绑定可限制
-	// gorm: uniqueIndex:uk_role_binding,composite:(tenant_id,role_id,subject_type,subject_id,coalesce(scope_dim,''),coalesce(scope_id,0))
 }
 
 func (m *RoleBinding) TableName() string {

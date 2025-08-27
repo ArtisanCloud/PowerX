@@ -30,13 +30,13 @@ type RegisterOptions struct {
 
 type AuthService struct {
 	*service.BaseService
-	TenantRepo     *infratenant.TenantRepository
-	UserRepo       *infraiam.UserRepository
-	MemberRepo     *infraiam.MemberRepository
-	CredRepo       *infraiam.CredentialRepository
-	RoleRepo       *infraiam.RoleRepository
-	MemberRoleRepo *infraiam.MemberRoleRepository
-	RTRepo         *infraiam.RefreshTokenRepository
+	TenantRepo      *infratenant.TenantRepository
+	UserRepo        *infraiam.UserRepository
+	MemberRepo      *infraiam.MemberRepository
+	CredRepo        *infraiam.CredentialRepository
+	RoleRepo        *infraiam.RoleRepository
+	RoleBindingRepo *infraiam.RoleBindingRepository
+	RTRepo          *infraiam.RefreshTokenRepository
 
 	// 配置
 	JWTSecret  []byte
@@ -57,7 +57,7 @@ func NewAuthService(
 	memberRepo *infraiam.MemberRepository,
 	credRepo *infraiam.CredentialRepository,
 	roleRepo *infraiam.RoleRepository,
-	memberRoleRepo *infraiam.MemberRoleRepository,
+	RoleBindingRepo *infraiam.RoleBindingRepository,
 	rtRepo *infraiam.RefreshTokenRepository,
 	secret []byte,
 	issuer string, // ← cfg.Auth.Issuer
@@ -71,7 +71,7 @@ func NewAuthService(
 		MemberRepo:       memberRepo,
 		CredRepo:         credRepo,
 		RoleRepo:         roleRepo,
-		MemberRoleRepo:   memberRoleRepo,
+		RoleBindingRepo:  RoleBindingRepo,
 		RTRepo:           rtRepo,
 		JWTSecret:        secret,
 		Issuer:           issuer,
@@ -164,7 +164,7 @@ func (s *AuthService) Register(ctx context.Context, tenantID uint64, username, i
 	}
 
 	// 5) 绑定默认角色
-	_ = s.MemberRoleRepo.AssignRolesByCodes(ctx, tenantID, m.ID, "role_user")
+	_ = s.RoleBindingRepo.AssignRolesByCodes(ctx, tenantID, m.ID, "role_user")
 
 	return m, nil
 }

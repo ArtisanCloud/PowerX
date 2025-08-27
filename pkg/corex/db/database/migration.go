@@ -38,7 +38,6 @@ func MigrateCoreModels(db *gorm.DB) (err error) {
 		&modelIAM.Permission{},
 		&modelIAM.RolePermission{},
 		&modelIAM.RoleBinding{},
-		&modelIAM.MemberRole{},
 		&modelIAM.RefreshToken{},
 		&modelIAM.Department{},
 		&modelIAM.MemberDepartment{},

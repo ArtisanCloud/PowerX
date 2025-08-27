@@ -57,4 +57,32 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 		gRoles.PATCH(":id", h.Update)
 		gRoles.DELETE(":id", h.Delete)
 	}
+
+	// RBAC
+	hRBAC := NewRBACHandler(deps)
+	{
+		// 角色 ⇄ 权限
+		gRoles.POST("/:id/permissions/grant-ids", hRBAC.GrantByIDs)
+		gRoles.POST("/:id/permissions/grant", hRBAC.GrantByTriples)
+		gRoles.POST("/:id/permissions/revoke-ids", hRBAC.RevokeByIDs)
+		gRoles.GET("/:id/permissions", hRBAC.ListPermsOfRole)
+
+		// 角色 ⇄ 成员（直绑）
+		gRoles.POST("/:id/bind/member", hRBAC.BindRoleToMember)
+		gRoles.DELETE("/:id/bindings/:binding_id", hRBAC.UnbindRoleFromMember)
+
+		// 自测：鉴权
+		gRoles.GET("/me/check", hRBAC.CheckPermission)
+	}
+
+	// permission
+	hPerm := NewPermissionHandler(deps)
+	gPerm := protectedGroup.Group("/admin/iam/permissions")
+	{
+		gPerm.POST("register", hPerm.Register)
+		gPerm.POST("sync", hPerm.Sync)
+		gPerm.GET("", hPerm.List)
+		gPerm.GET("catalog", hPerm.Catalog)
+
+	}
 }

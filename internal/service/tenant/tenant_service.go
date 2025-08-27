@@ -18,19 +18,19 @@ import (
 
 type TenantService struct {
 	*service.BaseService
-	Repo           *tenantRepo.TenantRepository
-	Auth           *authsvc.AuthService // 复用 Register
-	MemberRoleRepo *iamrepo.MemberRoleRepository
+	Repo            *tenantRepo.TenantRepository
+	Auth            *authsvc.AuthService // 复用 Register
+	RoleBindingRepo *iamrepo.RoleBindingRepository
 }
 
-func NewTenantService(db *gorm.DB, auth *authsvc.AuthService, mr *iamrepo.MemberRoleRepository) *TenantService {
+func NewTenantService(db *gorm.DB, auth *authsvc.AuthService, mr *iamrepo.RoleBindingRepository) *TenantService {
 	return &TenantService{
 		BaseService: &service.BaseService{
 			DB: db,
 		},
-		Repo:           tenantRepo.NewTenantRepository(db),
-		Auth:           auth,
-		MemberRoleRepo: mr,
+		Repo:            tenantRepo.NewTenantRepository(db),
+		Auth:            auth,
+		RoleBindingRepo: mr,
 	}
 }
 
@@ -264,8 +264,8 @@ func (s *TenantService) initAdmin(ctx context.Context, tenantID uint64, ia *Init
 	if ia.AssignOwner != nil {
 		assignOwner = *ia.AssignOwner
 	}
-	if assignOwner && s.MemberRoleRepo != nil {
-		_ = s.MemberRoleRepo.AssignRolesByCodes(ctx, tenantID, m.ID, "role_owner")
+	if assignOwner && s.RoleBindingRepo != nil {
+		_ = s.RoleBindingRepo.AssignRolesByCodes(ctx, tenantID, m.ID, "role_owner")
 	}
 	return nil
 }

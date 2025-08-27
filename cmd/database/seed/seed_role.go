@@ -75,3 +75,50 @@ func SeedAllBuiltinRoles(db *gorm.DB, tenantKeys []string) error {
 	}
 	return nil
 }
+
+// SeedGrantDefaultRolesForTenant：为指定租户把权限授予给内置角色（admin=全量，user=只读）
+func SeedGrantDefaultRolesForTenant(db *gorm.DB, tenantID uint64) error {
+	roleRepo := infraiam.NewRoleRepository(db)
+	rpRepo := infraiam.NewRolePermissionRepository(db)
+
+	// 1) 确保租户默认角色存在
+	if err := roleRepo.EnsureDefaultRoles(seedCtx(), tenantID); err != nil {
+		return fmt.Errorf("ensure default roles: %w", err)
+	}
+	admin, err := roleRepo.FindByCode(seedCtx(), "tenant", &tenantID, "role_admin")
+	if err != nil {
+		return fmt.Errorf("find role_admin: %w", err)
+	}
+	user, err := roleRepo.FindByCode(seedCtx(), "tenant", &tenantID, "role_user")
+	if err != nil {
+		return fmt.Errorf("find role_user: %w", err)
+	}
+
+	// 2) 查全量和只读权限 ID（全局 permission 表）
+	var allIDs, readIDs []uint64
+	if err := db.WithContext(seedCtx()).
+		Model(&dbm.Permission{}).Pluck("id", &allIDs).Error; err != nil {
+		return err
+	}
+	if err := db.WithContext(seedCtx()).
+		Model(&dbm.Permission{}).
+		Where("action = ?", "read").
+		Pluck("id", &readIDs).Error; err != nil {
+		return err
+	}
+
+	// 3) 授予（幂等 ON CONFLICT DO NOTHING）
+	if len(allIDs) > 0 {
+		if err := rpRepo.BindPermissions(seedCtx(), admin.ID, allIDs...); err != nil {
+			return fmt.Errorf("grant to admin: %w", err)
+		}
+	}
+	if len(readIDs) > 0 {
+		if err := rpRepo.BindPermissions(seedCtx(), user.ID, readIDs...); err != nil {
+			return fmt.Errorf("grant to user: %w", err)
+		}
+	}
+
+	fmt.Printf("[seed] granted defaults for tenant=%d (admin:%d, user:%d)\n", tenantID, len(allIDs), len(readIDs))
+	return nil
+}
