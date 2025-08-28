@@ -2,6 +2,7 @@ package iam
 
 import (
 	"errors"
+	"github.com/ArtisanCloud/PowerX/internal/service"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/gin-gonic/gin"
 	"net/http"
@@ -152,10 +153,10 @@ func (h *RBACHandler) ListPermIDs(c *gin.Context) {
 	ids, err := h.svc.ListPermissionIDs(c.Request.Context(), roleID)
 	if err != nil {
 		status := http.StatusBadRequest
-		if errors.Is(err, iamsvc.ErrForbidden) {
+		if errors.Is(err, service.ErrForbidden) {
 			status = http.StatusForbidden
 		}
-		if errors.Is(err, iamsvc.ErrRoleNotFound) {
+		if errors.Is(err, service.ErrRoleNotFound) {
 			status = http.StatusNotFound
 		}
 		dto.ResponseError(c, status, err.Error(), err)
@@ -177,10 +178,10 @@ func (h *RBACHandler) SetPermIDs(c *gin.Context) {
 	res, err := h.svc.SetPermissionIDs(c.Request.Context(), roleID, req.IDs)
 	if err != nil {
 		status := http.StatusBadRequest
-		if errors.Is(err, iamsvc.ErrForbidden) {
+		if errors.Is(err, service.ErrForbidden) {
 			status = http.StatusForbidden
 		}
-		if errors.Is(err, iamsvc.ErrRoleNotFound) {
+		if errors.Is(err, service.ErrRoleNotFound) {
 			status = http.StatusNotFound
 		}
 		dto.ResponseError(c, status, err.Error(), err)

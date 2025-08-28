@@ -4,7 +4,6 @@ package iam
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"github.com/ArtisanCloud/PowerX/pkg/utils"
 	"strings"
 
@@ -17,11 +16,6 @@ type PermissionRegisterItem struct {
 	Plugin, Resource, Action, Effect, Description string
 	Label, Module, Type, APIEndpoint, HTTPMethod  string
 }
-
-var (
-	ErrForbidden    = errors.New("forbidden")
-	ErrRoleNotFound = errors.New("role not found")
-)
 
 type ActorContext struct {
 	IsRoot   bool

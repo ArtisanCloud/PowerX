@@ -33,40 +33,45 @@ func NewRoleHandler(deps *bootstrap.Deps) *RoleHandler {
 	return &RoleHandler{svc: iamsvc.NewRoleService(deps.DB)}
 }
 
-// Create：直接绑定到 dbm.Role，按约定修正/校验，再交由 Service
+// POST /api/admin/iam/roles
+type roleCreateReq struct {
+	Scope       string   `json:"scope"        binding:"required,oneof=system tenant"`
+	TenantID    uint64   `json:"tenant_id"`
+	Code        string   `json:"code"         binding:"required"`
+	Name        string   `json:"name"         binding:"required"`
+	Description string   `json:"description"`
+	Builtin     bool     `json:"builtin"`
+	PermIDs     []uint64 `json:"perm_ids"` // 可选
+}
+
 func (h *RoleHandler) Create(c *gin.Context) {
-	var in dbm.Role
-	if err := c.ShouldBindJSON(&in); err != nil {
+	var req roleCreateReq
+	if err := c.ShouldBindJSON(&req); err != nil {
 		dto.ResponseError(c, http.StatusBadRequest, "参数绑定失败", err)
 		return
 	}
 
-	in.Scope = strings.ToLower(strings.TrimSpace(in.Scope))
-	switch iam.RoleScope(in.Scope) {
-	case iam.RoleScopeTenant:
-		// 租户角色：以 as_tenant_id 为准，避免跨租户创建
-		if tid := auth.GetTenantID(c); &tid != nil && tid > 0 {
-			in.TenantID = tid
-		}
-		if in.TenantID == 0 {
-			dto.ResponseError(c, http.StatusBadRequest, "tenant 角色必须指定 tenant_id (>0)", nil)
-			return
-		}
-	case iam.RoleScopeSystem:
-		// 默认不允许通过普通 API 创建 system 角色（仅 seed/运维）
-		dto.ResponseError(c, http.StatusForbidden, "禁止通过 API 创建 system 角色", nil)
-		return
-	default:
-		dto.ResponseError(c, http.StatusBadRequest, "scope 仅支持 system|tenant", nil)
-		return
+	role := &dbm.Role{
+		Scope:       string(iam.RoleScopeTenant),
+		TenantID:    req.TenantID,
+		Code:        req.Code,
+		Name:        req.Name,
+		Description: req.Description,
+		Builtin:     req.Builtin,
 	}
 
-	out, err := h.svc.Create(c.Request.Context(), &in)
+	out, bindRes, err := h.svc.CreateWithPerms(c.Request.Context(), role, req.PermIDs)
 	if err != nil {
+		// Service 内已区分 forbidden/invalid 等错误，这里直接 400/403 的细分可按需再加
 		dto.ResponseError(c, http.StatusBadRequest, "创建角色失败", err)
 		return
 	}
-	dto.ResponseSuccess(c, out)
+
+	// 返回角色以及（如有）权限设置结果，便于前端调试/提示
+	dto.ResponseSuccess(c, gin.H{
+		"role": out,
+		"perm": bindRes, // {added,removed,now,skipped_deprecated}；若 req.PermIDs 为空为 nil
+	})
 }
 
 type updateRolePayload struct {

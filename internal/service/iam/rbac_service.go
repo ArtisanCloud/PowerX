@@ -169,12 +169,12 @@ func (s *RBACService) SetPermissionIDs(ctx context.Context, roleID uint64, wantI
 		return SetIDsResult{}, err
 	}
 	if role == nil { // ✅ 防 NPE
-		return SetIDsResult{}, ErrRoleNotFound
+		return SetIDsResult{}, service.ErrRoleNotFound
 	}
 
 	// 鉴权：非 root 只能改本租户
 	if !ac.IsRoot && role.TenantID != ac.TenantID {
-		return SetIDsResult{}, ErrForbidden
+		return SetIDsResult{}, service.ErrForbidden
 	}
 	// 如果你模型里有 IsSystem 并且想限制，可加：
 	// if !ac.IsRoot && role.IsSystem { return SetIDsResult{}, ErrForbidden }
@@ -269,11 +269,11 @@ func (s *RBACService) ListPermissionIDs(ctx context.Context, roleID uint64) ([]u
 		return nil, err
 	}
 	if role == nil {
-		return nil, ErrRoleNotFound
+		return nil, service.ErrRoleNotFound
 	}
 
 	if !ac.IsRoot && role.TenantID != ac.TenantID {
-		return nil, ErrForbidden
+		return nil, service.ErrForbidden
 	}
 	return s.rpr.ListPermissionIDsOfRole(ctx, roleID)
 }

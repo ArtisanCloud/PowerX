@@ -5,6 +5,7 @@ import (
 	"errors"
 	"github.com/ArtisanCloud/PowerX/domain/model"
 	"github.com/ArtisanCloud/PowerX/pkg/auth"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam"
 	"strings"
 
 	"gorm.io/gorm"
@@ -45,8 +46,8 @@ func (s *RoleService) Create(ctx context.Context, in *dbm.Role) (*dbm.Role, erro
 	}
 	ctxTenant := auth.GetTenantID(ctx) // 非 root 时用于约束
 
-	switch in.Scope {
-	case "tenant":
+	switch iam.RoleScope(in.Scope) {
+	case iam.RoleScopeTenant:
 		// 非 root：只能在自己的租户创建；tenant_id 为空则用上下文补齐
 		if !isRoot {
 			if in.TenantID == 0 {
@@ -61,7 +62,7 @@ func (s *RoleService) Create(ctx context.Context, in *dbm.Role) (*dbm.Role, erro
 				return nil, errors.New("tenant role requires tenant_id (>0)")
 			}
 		}
-	case "system":
+	case iam.RoleScopeSystem:
 		// 非 root 禁止创建 system；root 强制 tenant_id=0
 		if !isRoot {
 			return nil, errors.New("forbidden: creating system-scope roles requires root")
@@ -78,6 +79,33 @@ func (s *RoleService) Create(ctx context.Context, in *dbm.Role) (*dbm.Role, erro
 		return nil, err
 	}
 	return in, nil
+}
+
+func (s *RoleService) CreateWithPerms(
+	ctx context.Context,
+	in *dbm.Role,
+	permIDs []uint64,
+) (*dbm.Role, *SetIDsResult, error) {
+	// 1) 先创建角色（沿用 Create 的校验与租户/Root限制）
+	out, err := s.Create(ctx, in)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// 2) 不带 perm_ids 就直接返回
+	if len(permIDs) == 0 {
+		return out, nil, nil
+	}
+
+	// 3) 复用 RBACService 的 SetPermissionIDs（从 ctx 自动取 Root/Tenant）
+	rbac := NewRBACService(s.db)
+	res, err := rbac.SetPermissionIDs(ctx, out.ID, permIDs)
+	if err != nil {
+		// 如果你想要“原子性”，这里可按需做补偿删除角色或改为事务
+		return out, nil, err
+	}
+
+	return out, &res, nil
 }
 
 // Update：root 直接放行；非 root 必须匹配本租户（仅改 name/description）
