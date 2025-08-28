@@ -377,6 +377,34 @@ func (r *BaseRepository[T]) GetByUUID(ctx context.Context, uuid string, callback
 	return &obj, nil
 }
 
+// ListIDsByCondition 返回满足条件记录的主键 ID 列表。
+// - conditions 推荐传等值 map，例如：{"status": "active"} 或 {"id": []uint64{1,2,3}}
+// - 会自动 Select("id")，扫描为 []uint64
+func (r *BaseRepository[T]) ListIDsByCondition(
+	ctx context.Context,
+	conditions map[string]interface{},
+) ([]uint64, error) {
+	var ids []uint64
+	var obj T
+
+	db := r.DB.WithContext(ctx).Model(&obj).Select("id")
+
+	// 等值/IN 查询（GORM 支持 map 形式，id: []X => IN）
+	if len(conditions) > 0 {
+		db = db.Where(conditions)
+	}
+
+	// 可选调试
+	if debug, ok := ctx.Value(utils.DebugKey).(bool); ok && debug {
+		db = db.Debug()
+	}
+
+	if err := db.Find(&ids).Error; err != nil {
+		return nil, err
+	}
+	return ids, nil
+}
+
 // GetByCondition 根据条件查询单个记录
 func (r *BaseRepository[T]) GetByCondition(ctx context.Context, conditions map[string]interface{}, callback func(*gorm.DB) *gorm.DB) (*T, error) {
 	var obj T

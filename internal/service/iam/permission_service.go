@@ -120,8 +120,14 @@ func (s *PermissionService) ListCatalog(ctx context.Context) (map[string]map[str
 	return out, nil
 }
 
-// SyncPermissions —— 直接用 GORM 实体进行同步（不自定义请求结构）
-func (s *PermissionService) SyncPermissions(ctx context.Context, source, introduced string, rows []dbm.Permission, dryRun bool) (repo.SyncResult, error) {
+// SyncPermissions —— 用 GORM 实体同步；dryRun=true 仅返回 diff，不落库
+func (s *PermissionService) SyncPermissions(
+	ctx context.Context,
+	source string,
+	introduced string,
+	rows []dbm.Permission,
+	dryRun bool,
+) (repo.SyncResult, error) {
 	// 兜底清洗
 	for i := range rows {
 		if strings.TrimSpace(rows[i].Effect) == "" {
@@ -131,9 +137,42 @@ func (s *PermissionService) SyncPermissions(ctx context.Context, source, introdu
 		if strings.TrimSpace(rows[i].Introduced) == "" {
 			rows[i].Introduced = introduced
 		}
-		rows[i].Status = dbm.PermissionStatusActive
+		if rows[i].Status == "" {
+			rows[i].Status = dbm.PermissionStatusActive
+		}
 	}
-	return s.perms.Sync(ctx, source, introduced, rows, dryRun)
+
+	// 调用仓储同步
+	res, err := s.perms.Sync(ctx, source, introduced, rows, dryRun)
+	if err != nil || dryRun {
+		return res, err
+	}
+
+	// 同步成功且非 dryRun：自动把全部 active 权限授予 root 角色（若存在）
+	go func() {
+		ctx2 := context.Background()
+		rr := repo.NewRoleRepository(s.db)
+		rpr := repo.NewRolePermissionRepository(s.db)
+		pr := repo.NewPermissionRepository(s.db)
+
+		root, _ := rr.GetFirst(ctx2, "scope = ? AND code = ?", "system", "root")
+		if root == nil {
+			return
+		}
+
+		ids, _ := pr.ListIDsByCondition(ctx2, map[string]any{
+			"status": dbm.PermissionStatusActive,
+		})
+		if len(ids) == 0 {
+			return
+		}
+
+		_ = s.db.WithContext(ctx2).Transaction(func(tx *gorm.DB) error {
+			return rpr.GrantByIDsTx(tx, root.ID, ids)
+		})
+	}()
+
+	return res, nil
 }
 
 func (s *PermissionService) UpdatePermissionFields(ctx context.Context, id uint64, description *string, status *string, deprecatedAt *int64) error {

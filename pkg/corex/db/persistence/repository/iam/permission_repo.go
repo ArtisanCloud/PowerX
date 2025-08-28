@@ -39,19 +39,38 @@ func (r *PermissionRepository) FindByIDs(ctx context.Context, ids []uint64) ([]*
 }
 
 // UpsertBatch 以 (plugin,resource,action) 为唯一键幂等写入
+// repository/iam/permission_repo.go
 func (r *PermissionRepository) UpsertBatch(ctx context.Context, rows []dbm.Permission) error {
 	if len(rows) == 0 {
 		return nil
 	}
-	// BaseRepository 的 UpsertBatch 接收 []*T
-	ptrs := make([]*dbm.Permission, 0, len(rows))
+	// 兜底：清理空 effect/status
 	for i := range rows {
-		ptrs = append(ptrs, &rows[i])
+		if strings.TrimSpace(rows[i].Effect) == "" {
+			rows[i].Effect = "allow"
+		}
+		if rows[i].Status == "" {
+			rows[i].Status = dbm.PermissionStatusActive
+		}
 	}
-	_, err := r.BaseRepository.UpsertBatch(ctx, ptrs, []clause.Column{
-		{Name: "plugin"}, {Name: "resource"}, {Name: "action"},
-	})
-	return err
+
+	return r.DB.WithContext(ctx).
+		Clauses(clause.OnConflict{
+			Columns: []clause.Column{
+				{Name: "plugin"}, {Name: "resource"}, {Name: "action"},
+			},
+			// 只更新非唯一键字段
+			DoUpdates: clause.Assignments(map[string]any{
+				"effect":        gorm.Expr("excluded.effect"),
+				"description":   gorm.Expr("excluded.description"),
+				"meta":          gorm.Expr("excluded.meta"),
+				"status":        gorm.Expr("excluded.status"),
+				"source":        gorm.Expr("excluded.source"),
+				"introduced":    gorm.Expr("excluded.introduced"),
+				"deprecated_at": gorm.Expr("excluded.deprecated_at"),
+			}),
+		}).
+		Create(&rows).Error
 }
 
 // List 原始列表 + 统计（用于服务层分页）

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -18,12 +19,12 @@ type Info struct {
 	BaseURL string // 可选：如 "/" 或 "http://localhost:8077"
 }
 
-// 增加：白名单方法、过滤函数、opId 生成
+// 允许进入文档的方法（排除 HEAD/OPTIONS）
 var allowMethods = map[string]bool{
 	"get": true, "post": true, "put": true, "patch": true, "delete": true,
 }
 
-// 过滤：不进权限的路径
+// 过滤：不进权限/文档的路径
 func shouldSkipPath(p string) bool {
 	switch {
 	case strings.HasPrefix(p, "/swagger/"):
@@ -38,13 +39,19 @@ func shouldSkipPath(p string) bool {
 		return false
 	}
 }
+
+var opCleanRe = regexp.MustCompile(`[^A-Za-z0-9 _\-/]`)
+
+// 生成稳定且可读的 operationId
 func opID(method, path string) string {
-	// 稳定且唯一：METHOD + 正规化 path
+	// 例： "GET /api/admin/iam/roles/:id" -> "GET /api/admin/iam/roles/_id"
 	s := strings.ToUpper(method) + " " + path
-	s = strings.ReplaceAll(s, ":", "_") // :id -> _id
+	s = strings.ReplaceAll(s, ":", "_") // :id -> _id（Gin 风格）
 	s = strings.ReplaceAll(s, "*", "star")
 	s = strings.ReplaceAll(s, "{", "")
 	s = strings.ReplaceAll(s, "}", "")
+	// 清理非常规字符，避免极端情况下出现不可控的符号
+	s = opCleanRe.ReplaceAllString(s, "_")
 	return s
 }
 
@@ -62,6 +69,8 @@ func BuildMinimalDoc(r *gin.Engine, info Info) map[string]any {
 		}
 		all = append(all, item{Method: m, Path: p})
 	}
+
+	// 为了输出的确定性，先按 path+method 排序再组装
 	sort.Slice(all, func(i, j int) bool {
 		if all[i].Path == all[j].Path {
 			return all[i].Method < all[j].Method
@@ -73,12 +82,14 @@ func BuildMinimalDoc(r *gin.Engine, info Info) map[string]any {
 		if _, ok := paths[it.Path]; !ok {
 			paths[it.Path] = map[string]map[string]any{}
 		}
-		// 首段作为 tag（admin/open去掉后再说，下面我们在 perm_gen 再做资源名规整）
+
+		// 简单用首段作为 tag（更细的资源归类可在权限生成处处理）
 		tag := "API"
 		seg := strings.Split(strings.Trim(it.Path, "/"), "/")
 		if len(seg) > 0 && seg[0] != "" && !strings.HasPrefix(seg[0], "{") {
 			tag = seg[0]
 		}
+
 		paths[it.Path][it.Method] = map[string]any{
 			"tags":        []string{tag},
 			"summary":     opID(it.Method, it.Path),

@@ -3,6 +3,7 @@ package iam
 
 import (
 	"context"
+	"time"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -65,23 +66,17 @@ func (r *RolePermissionRepository) GrantByIDsTx(tx *gorm.DB, roleID uint64, ids 
 	if len(ids) == 0 {
 		return nil
 	}
-
-	// 用模型，而不是 map
+	now := time.Now().UnixMilli()
 	rows := make([]dbm.RolePermission, 0, len(ids))
-	for _, pid := range ids {
+	for _, id := range ids {
 		rows = append(rows, dbm.RolePermission{
 			RoleID:       roleID,
-			PermissionID: pid,
-			// CreatedAt 由 autoCreateTime 自动填充（int64 毫秒）
+			PermissionID: id,
+			CreatedAt:    now, // 或留 0 让 autoCreateTime 生效
 		})
 	}
-
-	// 不用 Table，直接用模型，这样字段标签/自动时间都会生效
-	return tx.
-		Clauses(clause.OnConflict{
-			Columns:   []clause.Column{{Name: "role_id"}, {Name: "permission_id"}},
-			DoNothing: true,
-		}).
+	return tx.Table((&dbm.RolePermission{}).GetTableName(true)).
+		Clauses(clause.OnConflict{DoNothing: true}).
 		Create(&rows).Error
 }
 
