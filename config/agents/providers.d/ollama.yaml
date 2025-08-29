@@ -1,0 +1,20 @@
+id: ollama
+name: Ollama (Local)
+aliases: ["ollama (local)", "local"]
+drivers:
+  llm: ollama
+  embedding: ollama
+  image: ""
+auth:
+  scheme: none
+  fields: ["base_url"]
+modalities:
+  llm:
+    models:
+      - id: llama3
+        label: "Llama 3"
+        defaults: { temperature: 0.2, max_tokens: 256 }
+      - id: qwen2
+        label: "Qwen2"
+      - id: mistral
+        label: "Mistral"

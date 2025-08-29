@@ -1,7 +1,7 @@
 // Package auth 提供认证和授权功能
 package auth
 
-//// Init 初始化认证系统
+//// // Init 初始化认证系统
 //func Init() error {
 //	// 从环境变量获取JWT密钥
 //	secret := os.Getenv("CORE_X_JWT_SECRET")

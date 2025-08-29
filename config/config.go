@@ -54,8 +54,9 @@ type Config struct {
 	Database    dbCfg.DatabaseConfig `yaml:"database"`     // 数据库配置
 	Cache       cacheCfg.CacheConfig `yaml:"cache"`        // 缓存配置
 	LogConfig   logCfg.LogConfig     `yaml:"log"`          // 输出配置
-	Agent       agentCfg.AgentConfig `yaml:"agent"`        // 智能体工具注册/限流等
-	MCP         mcpCfg.MCPConfig     `yaml:"mcp"`          // MCP 服务器配置
+	AI          agentCfg.AIConfig    `yaml:"ai"`
+	Agent       agentCfg.AgentConfig `yaml:"agent"` // 智能体工具注册/限流等
+	MCP         mcpCfg.MCPConfig     `yaml:"mcp"`   // MCP 服务器配置
 	Plugin      PluginConfig         `yaml:"plugin"`
 }
 

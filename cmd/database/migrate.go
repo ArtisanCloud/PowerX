@@ -3,6 +3,7 @@ package main
 
 import (
 	"context"
+	"github.com/ArtisanCloud/PowerX/internal/server/agent/persistance"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/db/database"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
 	"gorm.io/gorm"
@@ -13,6 +14,10 @@ func MigrateDatabase(ctx context.Context, db *gorm.DB) error {
 
 	if err := database.MigrateCoreModels(db); err != nil {
 		log.Fatalf("CoreX 迁移失败: %v", err)
+	}
+
+	if err := persistance.MigrateAgentModels(db); err != nil {
+		log.Fatalf("Agent 迁移失败: %v", err)
 	}
 
 	return nil

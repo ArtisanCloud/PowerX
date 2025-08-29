@@ -27,19 +27,19 @@ func main() {
 
 	r := gin.New()
 
-	// Swagger 基本信息（也可在 docs/docs.go 内默认生成）
+	// Swagger 文档元信息（也可在 docs/docs.go 中修改默认生成的内容）
 	docs.SwaggerInfo.Title = "PowerX Admin API"
 	docs.SwaggerInfo.Description = "PowerX 核心与插件管理 API"
 	docs.SwaggerInfo.Version = "v1.0.0"
 	docs.SwaggerInfo.BasePath = "/"
 
-	// 1. 加载统一配置
+	// 加载全局配置
 	cfg := config.GetGlobalConfig()
 	if cfg == nil {
 		log.Fatalf("加载配置文件失败")
 	}
 
-	// bootstrap app
+	// 初始化应用核心依赖
 	deps, err := bootstrap.BootstrapApp(ctx, cfg)
 	if err != nil {
 		logger.ErrorF(ctx, "BootstrapApp failed: %s", err.Error())
@@ -49,60 +49,58 @@ func main() {
 	r.Use(gin.Recovery())
 	r.Use(audit.GinAudit(deps.Auditor))
 
-	// bootstrap plugin manager
+	// 初始化插件管理器
 	_, err = bootstrap.BootstrapPlugin(ctx, cfg, r)
 	if err != nil {
 		logger.ErrorF(ctx, "BootstrapPlugin failed: %s", err.Error())
 		return
 	}
-	//// 临时：启用一个插件
+	//// 示例：启用 demo 插件（如需启用手动放开）
 	//if err := pluginMgr.Enable(ctx, "com.powerx.demo.hello_world"); err != nil {
 	//	logger.ErrorF(ctx, "enable plugin failed: %v", err)
 	//}
 
-	// 6. 构建 router 并挂载路由
+	// 配置 HTTP 路由
 	err = http.SetupRouter(cfg, r, deps)
 	if err != nil {
 		logger.ErrorF(ctx, "SetupRouter failed: %s", err.Error())
 		return
 	}
 
-	// 7. 打印路由信息
-	//httpRouter.PrintRouteInfo(r, cfg)
-
+	// 启动 gRPC 服务
 	_, err = grpcserver.BootstrapGRPC(ctx, &cfg.Server.GRPC, deps)
 	if err != nil {
 		logger.ErrorF(ctx, "BootstrapGRPC failed: %s", err.Error())
 		return
 	}
 
-	// 8. 启动服务
+	// 启动 HTTP 服务
 	addr := fmt.Sprintf(":%d", cfg.Server.Port)
 	logger.InfoF(ctx, "🚀 CoreX 服务启动成功！监听地址: http://localhost%s\n", addr)
 
-	// UI & JSON
-	// swagger.json 可通过：/swagger/doc.json 访问
-	//r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+	// 挂载 Swagger UI（UI 默认读取 swagger.json，也可指定 openapi.min.json）
 	r.GET("/swagger/*any",
 		ginSwagger.WrapHandler(
 			swaggerFiles.Handler,
-			ginSwagger.URL("/openapi.min.json"), // ✅ 告诉 UI 用这个 JSON
+			ginSwagger.URL("/openapi.min.json"), // 指定 Swagger UI 使用的 JSON
 		),
 	)
 
-	// 最小 OpenAPI 文档
+	// 挂载最小化 OpenAPI 文档（轻量模式）
 	openapi.MountMinimalOpenAPI(r, openapi.Info{
 		Title: "PowerX Admin API (Minimal)", Version: "v1.0.0",
 	})
 
+	// 生成并保存最小 OpenAPI 文档文件
 	if err := openapi.SaveMinimalDoc(r, openapi.Info{
 		Title:   "PowerX Admin API (Minimal)",
 		Version: "v1.0.0",
-		BaseURL: "/", // 可按需设置
+		BaseURL: "/",
 	}, "./docs"); err != nil {
 		logger.ErrorF(ctx, "写入最小 OpenAPI 文档失败: %s", err.Error())
 	}
 
+	// 运行 HTTP 服务
 	err = r.Run(addr)
 	if err != nil {
 		logger.ErrorF(ctx, "启动服务失败: %s", err.Error())

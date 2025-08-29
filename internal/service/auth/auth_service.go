@@ -12,6 +12,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository"
 	infratenant "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/tenant"
 	"github.com/ArtisanCloud/PowerX/pkg/utils"
+	"github.com/ArtisanCloud/PowerX/pkg/utils/fmt"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
@@ -236,15 +237,15 @@ func (s *AuthService) Login(ctx context.Context, tenantRef, identifier, password
 		Platforms: s.Platforms,
 		IsRoot:    u.IsRoot,
 	}
-	//fmt.Dump(ctx, "jwt sign(access)",
-	//	"issuer", s.Issuer,
-	//	"aud", s.Audience,
-	//	"member", claims.MemberUUID,
-	//	"tenant", claims.TenantUUID,
-	//	"platform", claims.Platforms,
-	//	"ttl", s.AccessTTL.String(),
-	//	"secret_fp", utils.SecretFP(s.JWTSecret),
-	//)
+	fmt.Dump(ctx, "jwt sign(access)",
+		"issuer", s.Issuer,
+		"aud", s.Audience,
+		"member", claims.MemberUUID,
+		"tenant", claims.TenantUUID,
+		"platform", claims.Platforms,
+		"ttl", s.AccessTTL.String(),
+		"secret_fp", utils.SecretFP(s.JWTSecret),
+	)
 	if s.Audience == "" {
 		return "", "", errors.New("audience misconfigured")
 	}

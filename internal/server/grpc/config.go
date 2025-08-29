@@ -11,6 +11,9 @@ type GRPCConfig struct {
 	Host       string `yaml:"host"`        // 监听地址，默认 0.0.0.0
 	Port       int    `yaml:"port"`        // 监听端口，默认 9001
 	Reflection bool   `yaml:"reflection"`  // 启用 gRPC 反射（开发强烈建议开）
+	UseTLS     bool   `yaml:"useTLS"`      // 是否启用 TLS
+	CertFile   string `yaml:"certFile"`    // 服务器证书
+	KeyFile    string `yaml:"keyFile"`     // 服务器私钥
 	Health     bool   `yaml:"health"`      // 启用健康检查服务
 	MaxRecvMB  int    `yaml:"max_recv_mb"` // 单条消息最大接收（MiB）
 	MaxSendMB  int    `yaml:"max_send_mb"` // 单条消息最大发送（MiB）
@@ -19,6 +22,7 @@ type GRPCConfig struct {
 	TLS          *TLSConfig         `yaml:"tls,omitempty"` // 为空表示不启用 TLS
 	Interceptors InterceptorsConfig `yaml:"interceptors"`  // 可按需开关
 	Limits       LimitsConfig       `yaml:"limits"`        // 可选并发等限制
+
 }
 
 type KeepaliveConfig struct {

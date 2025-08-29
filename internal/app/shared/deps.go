@@ -16,6 +16,7 @@ import (
 
 type Deps struct {
 	DB           *gorm.DB
+	ctx          *context.Context
 	AuthUser     *authsvc.AuthService
 	AuthCustomer *authsvc.AuthService
 	MeService    *authsvc.MeService

@@ -4,6 +4,7 @@ package agent
 import (
 	"context"
 	"errors"
+	"github.com/ArtisanCloud/PowerX/internal/server/agent/catalog"
 	"net/http"
 	"strings"
 	"time"
@@ -103,44 +104,29 @@ type testCallReq struct {
 
 // GET /api/agents/providers
 func listProviders(c *gin.Context) {
-	dtoRequest.ResponseSuccess(c, gin.H{
-		"providers": []string{
-			"OpenAI", "Azure OpenAI", "Anthropic", "Google (Vertex/GenAI)",
-			"OpenRouter", "AWS Bedrock", "Ollama (Local)",
-			// 国内生态（后续驱动接入）
-			"Zhipu (GLM)", "Aliyun Qwen", "Baidu", "Tencent Hunyuan", "iFlytek Spark",
-		},
-	})
+	mod := c.Query("modality")
+	items := catalog.GetGlobalAIRegister().Providers(mod)
+	names := make([]string, 0, len(items))
+	for _, it := range items {
+		names = append(names, it.Name) // 也可以把 id+name 一起返给前端
+	}
+	dtoRequest.ResponseSuccess(c, gin.H{"providers": names})
 }
 
 // GET /api/agents/models?modality=llm&provider=OpenAI
 func listModels(c *gin.Context) {
 	mod := c.Query("modality")
 	prov := c.Query("provider")
-
-	list := modelCatalog[strings.ToLower(mod)][prov]
-	if list == nil {
-		list = []string{}
+	models, err := catalog.GetGlobalAIRegister().Models(mod, prov)
+	if err != nil {
+		dtoRequest.ResponseError(c, 400, err.Error(), nil)
+		return
 	}
-	dtoRequest.ResponseSuccess(c, gin.H{"models": list})
-}
-
-var modelCatalog = map[string]map[string][]string{
-	"llm": {
-		"OpenAI":                {"gpt-4o-mini", "gpt-4.1-mini", "gpt-3.5-turbo"},
-		"Azure OpenAI":          {"gpt-4o-mini", "gpt-4o", "gpt-35-turbo"},
-		"Anthropic":             {"claude-3-5-sonnet", "claude-3-haiku"},
-		"Google (Vertex/GenAI)": {"gemini-1.5-pro", "gemini-1.5-flash"},
-		"OpenRouter":            {"openrouter/auto", "mistral-large", "llama-3.1-70b"},
-		"AWS Bedrock":           {"anthropic.claude-3-sonnet", "meta.llama3-70b"},
-		"Ollama (Local)":        {"llama3", "qwen2", "mistral"},
-		"Zhipu (GLM)":           {"glm-4", "glm-4-air"},
-		"Aliyun Qwen":           {"qwen2-72b-instruct", "qwen2-7b-instruct"},
-		"Baidu":                 {"ernie-4.0", "ernie-speed-128k"},
-		"Tencent Hunyuan":       {"hunyuan-standard", "hunyuan-lite"},
-		"iFlytek Spark":         {"spark-3.5"},
-	},
-	// 其他模态等驱动补齐后再填
+	out := make([]string, 0, len(models))
+	for _, m := range models {
+		out = append(out, m.ID)
+	}
+	dtoRequest.ResponseSuccess(c, gin.H{"models": out})
 }
 
 // ---------- Settings ----------
