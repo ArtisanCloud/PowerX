@@ -2,6 +2,7 @@ package catalog
 
 import (
 	"errors"
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -94,7 +95,8 @@ func (r *Registry) addManifestBytes(b []byte) error {
 	return nil
 }
 
-func (r *Registry) loadDir(dir string) {
+func (r *Registry) loadDir(dir string) int {
+	count := 0
 	_ = filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
 			return nil
@@ -104,33 +106,19 @@ func (r *Registry) loadDir(dir string) {
 			return nil
 		}
 		if b, e := os.ReadFile(path); e == nil {
-			_ = r.addManifestBytes(b) // 忽略单文件错误
+			if r.addManifestBytes(b) == nil {
+				count++
+			}
 		}
 		return nil
 	})
+	return count
 }
 
-// LoadByConfig：只按主配置加载（不读 env，不用默认目录）
 func (r *Registry) LoadByConfig(cfg CatalogConfig, embedded fs.FS) error {
-	// 1) 可选：先加载内置（若你准备了 go:embed，可以在 embedded 中遍历并 add）
-	if cfg.IncludeEmbedded && embedded != nil {
-		// 示例：遍历 embedded 根目录下 *.yaml（如果你有的话）
-		fs.WalkDir(embedded, ".", func(path string, d fs.DirEntry, err error) error {
-			if err != nil || d.IsDir() {
-				return nil
-			}
-			low := strings.ToLower(d.Name())
-			if !strings.HasSuffix(low, ".yaml") && !strings.HasSuffix(low, ".yml") {
-				return nil
-			}
-			if b, e := fs.ReadFile(embedded, path); e == nil {
-				_ = r.addManifestBytes(b)
-			}
-			return nil
-		})
-	}
-
-	// 2) 按顺序加载外部目录（后者覆盖前者）
+	//（省略 embedded）
+	total := 0
+	absDirs := make([]string, 0, len(cfg.Dirs))
 	seen := map[string]struct{}{}
 	for _, raw := range cfg.Dirs {
 		dir := expandPath(raw)
@@ -141,24 +129,66 @@ func (r *Registry) LoadByConfig(cfg CatalogConfig, embedded fs.FS) error {
 			continue
 		}
 		seen[dir] = struct{}{}
-		r.loadDir(dir)
+		absDirs = append(absDirs, dir)
+		total += r.loadDir(dir)
 	}
-
-	if len(r.providers) == 0 && cfg.FailIfEmpty {
-		return errors.New("no provider manifests loaded from dirs")
+	if total == 0 && cfg.FailIfEmpty {
+		wd, _ := os.Getwd()
+		return fmt.Errorf("no provider manifests loaded from dirs=%v (wd=%s)", absDirs, wd)
 	}
 	return nil
 }
 
-// Providers: 按模态列出可用 Provider（有该模态且模型非空）
+// 规范化模态名：支持中文/别名/大小写
+func NormalizeModality(s string) string {
+	ls := strings.TrimSpace(strings.ToLower(s))
+	switch ls {
+	case "", "default": // 留给调用方决定是否默认 llm；这里不替换
+		return ""
+	// LLM
+	case "llm", "text", "chat", "completion", "文本", "llm 文本", "llm文本":
+		return "llm"
+	// Image
+	case "image", "vision", "img", "图像", "图像生成", "图片":
+		return "image"
+	// Embedding
+	case "embedding", "embed", "vector", "向量", "嵌入", "向量嵌入":
+		return "embedding"
+	// Video
+	case "video", "vid", "视频", "视频生成":
+		return "video"
+	// Audio（预留）
+	case "audio", "speech", "声音", "语音":
+		return "audio"
+	}
+	return ls
+}
+
 func (r *Registry) Providers(modality string) []ProviderItem {
 	if r == nil {
 		return nil
 	}
-	mod := strings.ToLower(strings.TrimSpace(modality))
+	mod := NormalizeModality(modality)
+
 	r.mu.RLock()
 	defer r.mu.RUnlock()
+
 	out := make([]ProviderItem, 0, len(r.providers))
+	// 支持 "*" 或空：返回所有有任一模态模型的 Provider
+	if mod == "" || mod == "*" || mod == "any" {
+		for id, m := range r.providers {
+			// 只要任一模态下有模型就算可用
+			for _, mm := range m.Modalities {
+				if len(mm.Models) > 0 {
+					out = append(out, ProviderItem{ID: id, Name: m.Name})
+					break
+				}
+			}
+		}
+		sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
+		return out
+	}
+
 	for id, m := range r.providers {
 		if mm, ok := m.Modalities[mod]; ok && len(mm.Models) > 0 {
 			out = append(out, ProviderItem{ID: id, Name: m.Name})
@@ -168,17 +198,11 @@ func (r *Registry) Providers(modality string) []ProviderItem {
 	return out
 }
 
-func (r *Registry) CanonicalProvider(nameOrAlias string) string {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.alias[strings.ToLower(strings.TrimSpace(nameOrAlias))]
-}
-
 func (r *Registry) Models(modality, provider string) ([]ModelManifest, error) {
 	if r == nil {
 		return nil, errors.New("catalog not initialized")
 	}
-	mod := strings.ToLower(strings.TrimSpace(modality))
+	mod := NormalizeModality(modality)
 	pid := r.CanonicalProvider(provider)
 	if pid == "" {
 		return nil, errors.New("unknown provider: " + provider)
@@ -189,11 +213,25 @@ func (r *Registry) Models(modality, provider string) ([]ModelManifest, error) {
 	if m == nil {
 		return nil, errors.New("provider not found: " + pid)
 	}
+	// 支持 "*" 或空：聚合该 provider 的所有模态模型
+	if mod == "" || mod == "*" || mod == "any" {
+		var all []ModelManifest
+		for _, mm := range m.Modalities {
+			all = append(all, mm.Models...)
+		}
+		return all, nil
+	}
 	mm, ok := m.Modalities[mod]
 	if !ok {
 		return []ModelManifest{}, nil
 	}
 	return mm.Models, nil
+}
+
+func (r *Registry) CanonicalProvider(nameOrAlias string) string {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.alias[strings.ToLower(strings.TrimSpace(nameOrAlias))]
 }
 
 // Global：全局注册表（启动时初始化）
@@ -223,6 +261,7 @@ func InitFromAppConfig(cfg CatalogConfig, embedded fs.FS) error {
 
 // ---------- 小工具 ----------
 
+// internal/server/agent/catalog/registry.go
 func expandPath(p string) string {
 	if p == "" {
 		return ""
@@ -233,8 +272,10 @@ func expandPath(p string) string {
 			p = filepath.Join(home, strings.TrimPrefix(p, "~"))
 		}
 	}
-	// 环境变量展开
 	p = os.ExpandEnv(p)
-	// 转绝对路径（可选）
-	return p
+	if filepath.IsAbs(p) {
+		return filepath.Clean(p)
+	}
+	wd, _ := os.Getwd()
+	return filepath.Clean(filepath.Join(wd, p))
 }

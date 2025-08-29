@@ -166,6 +166,7 @@ func JwtMiddleware(
 			reqCtx = context.WithValue(reqCtx, "auth.tenant.snapshot", tenantSnap)
 		}
 		c.Request = c.Request.WithContext(reqCtx)
+		CopyCtxToGin(c)
 
 		// H. 业务回调：缓存 miss 或需要强校验时，cb 回源 DB
 		if cb != nil {

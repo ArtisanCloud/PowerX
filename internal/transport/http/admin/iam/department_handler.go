@@ -2,6 +2,7 @@ package iam
 
 import (
 	"errors"
+	"github.com/ArtisanCloud/PowerX/internal/app/shared"
 	"net/http"
 	"strconv"
 
@@ -20,8 +21,11 @@ type DepartmentHandler struct {
 	DeptRepo *repoi.DepartmentRepository
 }
 
-func NewDepartmentHandler(s *orgsvc.OrgService, dr *repoi.DepartmentRepository) *DepartmentHandler {
-	return &DepartmentHandler{Svc: s, DeptRepo: dr}
+func NewDepartmentHandler(deps *shared.Deps) *DepartmentHandler {
+	return &DepartmentHandler{
+		Svc:      orgsvc.NewOrgService(deps.DB),
+		DeptRepo: repoi.NewDepartmentRepository(deps.DB),
+	}
 }
 
 // POST /api/v1/admin/organization/departments

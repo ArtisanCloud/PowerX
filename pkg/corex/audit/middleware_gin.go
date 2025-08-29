@@ -25,10 +25,9 @@ func GinAudit(auditor Auditor) gin.HandlerFunc {
 			ipPtr = &ip
 		}
 
-		ctx := c.Request.Context()
 		_ = auditor.(*serviceAuditor).svc.Emit(c.Request.Context(), &dbm.AuditEvent{
 			OccurredAt:   time.Now(),
-			TenantID:     auth.GetTenantID(ctx),
+			TenantID:     auth.GetTenantID(c),
 			Source:       "http",
 			Operation:    "API_CALL",
 			ResourceType: "core.api",

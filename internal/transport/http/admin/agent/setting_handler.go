@@ -1,37 +1,32 @@
-// api/http/admin/agent/setting_handler.go
 package agent
 
 import (
-	"context"
-	"errors"
-	"github.com/ArtisanCloud/PowerX/internal/server/agent/catalog"
+	"github.com/ArtisanCloud/PowerX/internal/server/agent/contract"
+	"github.com/ArtisanCloud/PowerX/pkg/auth"
+	"github.com/ArtisanCloud/PowerX/pkg/utils"
 	"net/http"
 	"strings"
-	"time"
+
+	"github.com/ArtisanCloud/PowerX/internal/app/shared"
+	dbmodel "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/model"
+	agentSvc "github.com/ArtisanCloud/PowerX/internal/service/agent"
 
 	dtoRequest "github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/gin-gonic/gin"
-
-	// 直接复用你已经写好的 LLM 工厂和一次性聊天能力
-	// services/agent/drivers/eino/llm/{llm.go, openai.go, ollama.go, baidu.go}
-	agentllm "github.com/ArtisanCloud/PowerX/internal/server/agent/drivers/eino/llm"
+	"gorm.io/datatypes"
 )
 
-/*
-	路由在 api/http/admin/agent/api.go 里已经注册为：
-	- GET  /api/agents/providers
-	- GET  /api/agents/models
-	- POST /api/agents/settings/save
-	- POST /api/agents/test/connection
-	- POST /api/agents/test/call
-*/
+// 依赖注入
+type AgentSettingHandler struct {
+	svc *agentSvc.AgentSettingService
+}
 
-// ---------- DTO ----------
+func NewAgentSettingHandler(deps *shared.Deps) *AgentSettingHandler {
+	return &AgentSettingHandler{svc: agentSvc.NewAgentSettingService(deps.DB)}
+}
 
-// 与你前端字段一一对应（只做最小必需字段，后续可扩展）
 type modality = string
 
-// baseConn 保持 required，这样只有当 *modLLM 非 nil 时才会去校验
 type baseConn struct {
 	Provider        string `json:"provider" validate:"required"`
 	Model           string `json:"model"    validate:"required"`
@@ -102,59 +97,65 @@ type testCallReq struct {
 
 // ---------- Providers / Models ----------
 
-// GET /api/agents/providers
-func listProviders(c *gin.Context) {
+func (h *AgentSettingHandler) listProviders(c *gin.Context) {
 	mod := c.Query("modality")
-	items := catalog.GetGlobalAIRegister().Providers(mod)
-	names := make([]string, 0, len(items))
-	for _, it := range items {
-		names = append(names, it.Name) // 也可以把 id+name 一起返给前端
-	}
-	dtoRequest.ResponseSuccess(c, gin.H{"providers": names})
+	dtoRequest.ResponseSuccess(c, gin.H{"providers": h.svc.Providers(mod)})
 }
 
-// GET /api/agents/models?modality=llm&provider=OpenAI
-func listModels(c *gin.Context) {
+func (h *AgentSettingHandler) listModels(c *gin.Context) {
 	mod := c.Query("modality")
 	prov := c.Query("provider")
-	models, err := catalog.GetGlobalAIRegister().Models(mod, prov)
+	models, err := h.svc.Models(mod, prov)
 	if err != nil {
-		dtoRequest.ResponseError(c, 400, err.Error(), nil)
+		dtoRequest.ResponseError(c, http.StatusBadRequest, err.Error(), nil)
 		return
 	}
-	out := make([]string, 0, len(models))
-	for _, m := range models {
-		out = append(out, m.ID)
-	}
-	dtoRequest.ResponseSuccess(c, gin.H{"models": out})
+	dtoRequest.ResponseSuccess(c, gin.H{"models": models})
 }
 
 // ---------- Settings ----------
 
-// POST /api/agents/settings/save
-// 现在先回显（不入库），等你定义好 model/repo 后在此 upsert(credential/model_profile/route_policy)
-func saveSettings(c *gin.Context) {
+func (h *AgentSettingHandler) saveSettings(c *gin.Context) {
 	var req saveSettingsReq
 	if err := dtoRequest.ValidateRequestWithContext(c, &req); err != nil {
 		dtoRequest.ResponseValidationError(c, err)
 		return
 	}
-	// 仅按当前模态做必填校验
+	tenantID := auth.GetTenantID(c.Request.Context())
+
+	// 仅按当前模态做最小校验
 	switch strings.ToLower(req.Modality) {
 	case "llm":
-		if strings.TrimSpace(req.LLM.Provider) == "" || strings.TrimSpace(req.LLM.Model) == "" {
+		if req.LLM == nil || strings.TrimSpace(req.LLM.Provider) == "" || strings.TrimSpace(req.LLM.Model) == "" {
 			dtoRequest.ResponseError(c, http.StatusBadRequest, "llm.provider/model 不能为空", nil)
 			return
 		}
-		// 其他模态等接入后再补
 	}
-	dtoRequest.ResponseSuccess(c, gin.H{"ok": true, "echo": req})
+
+	// 组装两张表的实体并落库
+	credName, credProvider, credData, prof := buildEntitiesFromPayload(&req, &tenantID)
+	if credName == "" || prof == nil {
+		dtoRequest.ResponseError(c, http.StatusBadRequest, "缺少当前模态设置", nil)
+		return
+	}
+	cred := &dbmodel.AIProviderCredential{
+		Env:        req.Env,
+		TenantID:   &tenantID,
+		Name:       credName,
+		Provider:   credProvider,
+		AuthScheme: "bearer",
+		Data:       credData,
+	}
+	if err := h.svc.SaveCredentialAndProfile(c.Request.Context(), req.Env, &tenantID, cred, prof); err != nil {
+		dtoRequest.ResponseError(c, http.StatusInternalServerError, "保存失败", err)
+		return
+	}
+	dtoRequest.ResponseSuccess(c, gin.H{"ok": true})
 }
 
 // ---------- Tests ----------
 
-// POST /api/agents/test/connection
-func testConnection(c *gin.Context) {
+func (h *AgentSettingHandler) testConnection(c *gin.Context) {
 	var req testReq
 	if err := dtoRequest.ValidateRequestWithContext(c, &req); err != nil {
 		dtoRequest.ResponseValidationError(c, err)
@@ -162,27 +163,34 @@ func testConnection(c *gin.Context) {
 	}
 	switch strings.ToLower(req.Modality) {
 	case "llm":
-		if strings.TrimSpace(req.LLM.Provider) == "" || strings.TrimSpace(req.LLM.Model) == "" {
+		if req.LLM == nil || strings.TrimSpace(req.LLM.Provider) == "" || strings.TrimSpace(req.LLM.Model) == "" {
 			dtoRequest.ResponseError(c, http.StatusBadRequest, "llm.provider/model 不能为空", nil)
 			return
 		}
-		// ...
+		if err := h.svc.PingLLM(c.Request.Context(), req.LLM.Provider, req.LLM.Model, req.LLM.BaseURL, req.LLM.APIKey); err != nil {
+			dtoRequest.ResponseError(c, http.StatusBadRequest, "连接测试失败", err)
+			return
+		}
+		dtoRequest.ResponseSuccess(c, gin.H{"ok": true})
 	default:
 		dtoRequest.ResponseError(c, http.StatusNotImplemented, "暂未实现该模态测试: "+req.Modality, nil)
 	}
 }
 
-// POST /api/agents/test/call
-func testQuickCall(c *gin.Context) {
+func (h *AgentSettingHandler) testQuickCall(c *gin.Context) {
 	var req testCallReq
 	if err := dtoRequest.ValidateRequestWithContext(c, &req); err != nil {
 		dtoRequest.ResponseValidationError(c, err)
 		return
 	}
-
 	switch strings.ToLower(req.Modality) {
 	case "llm":
-		out, err := quickCallLLM(c.Request.Context(), req.LLM, req.Prompt)
+		out, err := h.svc.QuickCallLLM(
+			c.Request.Context(),
+			req.LLM.Provider, req.LLM.Model, req.LLM.BaseURL, req.LLM.APIKey,
+			req.LLM.Temperature, req.LLM.MaxTokens,
+			req.Prompt,
+		)
 		if err != nil {
 			dtoRequest.ResponseSuccess(c, gin.H{"ok": false, "message": err.Error()})
 			return
@@ -193,58 +201,144 @@ func testQuickCall(c *gin.Context) {
 	}
 }
 
-// ---------- helpers ----------
+// ---------- helpers（保留你已有的） ----------
 
-func pingLLM(ctx context.Context, s modLLM) error {
-	if s.Provider == "" || s.Model == "" {
-		return errors.New("provider/model 不能为空")
-	}
-	mc := agentllm.ModelConfig{
-		Provider:     s.Provider,
-		Endpoint:     s.BaseURL,
-		APIKey:       s.APIKey,
-		Model:        s.Model,
-		SystemPrompt: "You are a health check probe.",
-		Temperature:  0.0,
-		MaxTokens:    8,
-		AccessToken:  s.APIKey, // 兼容部分厂商用 access_token
-	}
-	cli, err := agentllm.NewClient(s.Provider)
-	if err != nil {
-		return err
-	}
-	_, err = cli.ChatOnce(ctx, mc, "ping")
-	return err
-}
+func buildEntitiesFromPayload(req *saveSettingsReq, tenantID *uint64) (credName, credProvider string, cred datatypes.JSONMap, prof *dbmodel.AIModelProfile) {
+	cred = datatypes.JSONMap{}
 
-func quickCallLLM(ctx context.Context, s modLLM, prompt string) (string, error) {
-	if strings.TrimSpace(prompt) == "" {
-		prompt = "Say hello in one short sentence."
-	}
-	mc := agentllm.ModelConfig{
-		Provider:     s.Provider,
-		Endpoint:     s.BaseURL,
-		APIKey:       s.APIKey,
-		Model:        s.Model,
-		SystemPrompt: "You are a helpful assistant.",
-		Temperature:  s.Temperature,
-		MaxTokens:    maxInt(s.MaxTokens, 64),
-		AccessToken:  s.APIKey,
-	}
-	cli, err := agentllm.NewClient(s.Provider)
-	if err != nil {
-		return "", err
-	}
-	// 设置一个合理超时（防止卡住）
-	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
-	defer cancel()
-	return cli.ChatOnce(ctx, mc, prompt)
-}
+	switch contract.Modality(strings.ToLower(req.Modality)) {
+	case contract.ModLLM:
+		if req.LLM == nil {
+			return
+		}
+		// 基本必填：provider/model
+		p := strings.TrimSpace(req.LLM.Provider)
+		m := strings.TrimSpace(req.LLM.Model)
+		if p == "" || m == "" {
+			return
+		}
 
-// 小工具
-func maxInt(v, def int) int {
-	if v > 0 {
-		return v
+		credProvider = req.LLM.Provider
+		credName = utils.Slug(req.Env + "-" + req.LLM.Provider) // e.g. "default-ollama"
+		cred = datatypes.JSONMap{
+			"api_key":          req.LLM.APIKey, // 允许为空（本地 ollama 不需要）
+			"base_url":         req.LLM.BaseURL,
+			"region":           req.LLM.Region,
+			"organization":     req.LLM.Organization,
+			"azure_deployment": req.LLM.AzureDeployment,
+		}
+		prof = &dbmodel.AIModelProfile{
+			Env:      req.Env,
+			TenantID: tenantID,
+			Modality: "llm",
+			Provider: req.LLM.Provider,
+			Model:    req.LLM.Model,
+			Defaults: datatypes.JSONMap{
+				"temperature": req.LLM.Temperature,
+				"maxTokens":   req.LLM.MaxTokens,
+				"topP":        req.LLM.TopP,
+				"stream":      req.LLM.Stream,
+			},
+			Tags: []string{"llm"},
+		}
+
+	case contract.ModImage:
+		if req.Image == nil {
+			return
+		}
+		p := strings.TrimSpace(req.Image.Provider)
+		m := strings.TrimSpace(req.Image.Model)
+		if p == "" || m == "" {
+			return
+		}
+		credProvider = req.Image.Provider
+		credName = utils.Slug(req.Env + "-" + req.Image.Provider)
+		cred = datatypes.JSONMap{
+			"api_key":          req.Image.APIKey,
+			"base_url":         req.Image.BaseURL,
+			"region":           req.Image.Region,
+			"organization":     req.Image.Organization,
+			"azure_deployment": req.Image.AzureDeployment,
+		}
+		prof = &dbmodel.AIModelProfile{
+			Env:      req.Env,
+			TenantID: tenantID,
+			Modality: "image",
+			Provider: req.Image.Provider,
+			Model:    req.Image.Model,
+			Defaults: datatypes.JSONMap{
+				"size":       req.Image.Size,
+				"quality":    req.Image.Quality,
+				"format":     req.Image.Format,
+				"promptHint": req.Image.PromptHint,
+			},
+			Tags: []string{"image"},
+		}
+
+	case contract.ModEmbed:
+		if req.Embedding == nil {
+			return
+		}
+		p := strings.TrimSpace(req.Embedding.Provider)
+		m := strings.TrimSpace(req.Embedding.Model)
+		if p == "" || m == "" {
+			return
+		}
+		credProvider = req.Embedding.Provider
+		credName = utils.Slug(req.Env + "-" + req.Embedding.Provider)
+		cred = datatypes.JSONMap{
+			"api_key":          req.Embedding.APIKey,
+			"base_url":         req.Embedding.BaseURL,
+			"region":           req.Embedding.Region,
+			"organization":     req.Embedding.Organization,
+			"azure_deployment": req.Embedding.AzureDeployment,
+		}
+		prof = &dbmodel.AIModelProfile{
+			Env:      req.Env,
+			TenantID: tenantID,
+			Modality: "embedding",
+			Provider: req.Embedding.Provider,
+			Model:    req.Embedding.Model,
+			Defaults: datatypes.JSONMap{
+				"dimensions": req.Embedding.Dimensions,
+				"truncate":   req.Embedding.Truncate,
+				"batch":      req.Embedding.Batch,
+			},
+			Tags: []string{"embedding"},
+		}
+
+	case contract.ModVideo:
+		if req.Video == nil {
+			return
+		}
+		p := strings.TrimSpace(req.Video.Provider)
+		m := strings.TrimSpace(req.Video.Model)
+		if p == "" || m == "" {
+			return
+		}
+		credProvider = req.Video.Provider
+		credName = utils.Slug(req.Env + "-" + req.Video.Provider)
+		cred = datatypes.JSONMap{
+			"api_key":          req.Video.APIKey,
+			"base_url":         req.Video.BaseURL,
+			"region":           req.Video.Region,
+			"organization":     req.Video.Organization,
+			"azure_deployment": req.Video.AzureDeployment,
+		}
+		prof = &dbmodel.AIModelProfile{
+			Env:      req.Env,
+			TenantID: tenantID,
+			Modality: "video",
+			Provider: req.Video.Provider,
+			Model:    req.Video.Model,
+			Defaults: datatypes.JSONMap{
+				"resolution":     req.Video.Resolution,
+				"fps":            req.Video.FPS,
+				"maxDurationSec": req.Video.MaxDurationSec,
+				"promptHint":     req.Video.PromptHint,
+			},
+			Tags: []string{"video"},
+		}
 	}
-	return def
+	return
 }

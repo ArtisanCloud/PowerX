@@ -13,7 +13,6 @@ import (
 	"github.com/ArtisanCloud/PowerX/pkg/corex/db/database"
 	"github.com/ArtisanCloud/PowerX/pkg/event_bus"
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
-	"log"
 	"time"
 )
 
@@ -39,9 +38,10 @@ func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error)
 
 	// 加载 AI Catalog 配置
 	if err := catalog.InitFromAppConfig(cfg.AI.Catalog, nil); err != nil {
-		log.Printf("[catalog] loaded providers: %d", len(catalog.GetGlobalAIRegister().Providers("llm")))
 		return nil, err
 	}
+	n := len(catalog.GetGlobalAIRegister().Providers("llm"))
+	logger.InfoF(ctx, "[catalog] loaded providers: %d", n)
 
 	// 初始化智能体工具（Agent Tools）
 	err = bootstrap.InitAgentTools(ctx, &cfg.Agent, db)

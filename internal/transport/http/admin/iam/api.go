@@ -6,16 +6,13 @@ import (
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
 	service "github.com/ArtisanCloud/PowerX/internal/service/iam"
 	"github.com/ArtisanCloud/PowerX/pkg/auth"
-	repoi "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/iam"
 	"github.com/gin-gonic/gin"
 )
 
 // 依赖注入（你项目已有 Deps 可替换）
 func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterGroup, deps *shared.Deps) {
-	orgSvc := service.NewOrgService(deps.DB)
-	deptRepo := repoi.NewDepartmentRepository(deps.DB)
 
-	hDept := NewDepartmentHandler(orgSvc, deptRepo)
+	hDept := NewDepartmentHandler(deps)
 	gDept := protectedGroup.Group("/admin/iam/departments")
 	{
 		gDept.GET("/tree", hDept.Tree)

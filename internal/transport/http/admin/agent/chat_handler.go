@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"fmt"
+	"github.com/ArtisanCloud/PowerX/internal/app/shared"
 	"github.com/ArtisanCloud/PowerX/internal/server/agent"
 	agentschema "github.com/ArtisanCloud/PowerX/internal/server/agent/schemas"
 	flowschema "github.com/ArtisanCloud/PowerX/pkg/corex/flow/schemas"
@@ -13,9 +14,15 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+type AgentChatHandler struct{}
+
+func NewAgentChatHandler(_ *shared.Deps) *AgentChatHandler {
+	return &AgentChatHandler{}
+}
+
 // ChatHandler 基本聊天接口（非流式）
 // 命中任务 → 多任务编排与执行；否则 → 普通对话回复。
-func ChatHandler(c *gin.Context) {
+func (h *AgentChatHandler) Chat(c *gin.Context) {
 	var req dtoRequest.ChatRequest
 	if err := dtoRequest.ValidateRequestWithContext(c, &req); err != nil {
 		dtoRequest.ResponseValidationError(c, err)
@@ -100,7 +107,7 @@ func ChatHandler(c *gin.Context) {
 
 // StreamChatHandler 流式聊天接口（SSE）
 // 流程：识别意图 -> 先发 intent 帧 -> 选择 flow -> 开始流式执行 -> 逐帧输出
-func StreamChatHandler(c *gin.Context) {
+func (h *AgentChatHandler) StreamChat(c *gin.Context) {
 	var req dtoRequest.StreamChatRequest
 	if err := dtoRequest.ValidateRequestWithContext(c, &req); err != nil {
 		dtoRequest.ResponseValidationError(c, err)

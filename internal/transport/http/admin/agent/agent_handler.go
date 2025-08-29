@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"github.com/ArtisanCloud/PowerX/internal/app/shared"
 	"github.com/ArtisanCloud/PowerX/internal/server/agent"
 	agentschema "github.com/ArtisanCloud/PowerX/internal/server/agent/schemas"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/flow/schemas"
@@ -12,6 +13,13 @@ import (
 )
 
 // ====== DTO ======
+
+type AgentHandler struct {
+}
+
+func NewAgentHandler(_ *shared.Deps) *AgentHandler {
+	return &AgentHandler{}
+}
 
 type AgentStatusRequest struct {
 	AgentID string `form:"agent_id" json:"agent_id,omitempty"` // GET 用 form/query
@@ -33,7 +41,7 @@ type AgentIntentResponse struct {
 // ====== Handlers ======
 
 // AgentStatusHandler: 查询 Agent 状态
-func AgentStatusHandler(c *gin.Context) {
+func (h *AgentHandler) Status(c *gin.Context) {
 	var req AgentStatusRequest
 	if err := dtoRequest.ValidateRequestWithContext(c, &req); err != nil {
 		dtoRequest.ResponseValidationError(c, err)
@@ -71,7 +79,7 @@ func AgentStatusHandler(c *gin.Context) {
 }
 
 // /api/agents/intent  支持单意图(默认) 或 多任务(?multi=1)
-func AgentIntentHandler(c *gin.Context) {
+func (h *AgentHandler) Intent(c *gin.Context) {
 	var req dtoRequest.ChatRequest
 	if err := dtoRequest.ValidateRequestWithContext(c, &req); err != nil {
 		dtoRequest.ResponseValidationError(c, err)
@@ -122,7 +130,7 @@ func AgentIntentHandler(c *gin.Context) {
 }
 
 // /api/agent/intent/plan 仅识别并生成计划（dry-run），不执行
-func AgentPlanPreviewHandler(c *gin.Context) {
+func (h *AgentHandler) PlanPreview(c *gin.Context) {
 	// 1) 解析请求
 	var req dtoRequest.ChatRequest
 	if err := dtoRequest.ValidateRequestWithContext(c, &req); err != nil {

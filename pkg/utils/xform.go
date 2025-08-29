@@ -134,3 +134,25 @@ func UniqUint64(in []uint64) []uint64 {
 	}
 	return out
 }
+
+func Deref[T any](ptr *T, def T) T {
+	if ptr != nil {
+		return *ptr
+	}
+	return def
+}
+
+// Slug 把任意字符串转换为 slug（小写 + 用-连接）
+func Slug(s string) string {
+	// 转小写
+	s = strings.ToLower(s)
+
+	// 非字母数字替换为 "-"
+	re := regexp.MustCompile(`[^a-z0-9]+`)
+	s = re.ReplaceAllString(s, "-")
+
+	// 去掉开头结尾的 "-"
+	s = strings.Trim(s, "-")
+
+	return s
+}

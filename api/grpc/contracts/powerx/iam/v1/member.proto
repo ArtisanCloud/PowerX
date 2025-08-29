@@ -27,7 +27,7 @@ enum MemberView {
 // -------- 模型 --------
 message Member {
   common.v1.ResourceRef ref = 1;     // domain="iam", entity="member"
-  int64  user_id = 2;
+  uint64  user_id = 2;
   string username = 3;
   string display_name = 4;
   string avatar_url = 5;

@@ -16,12 +16,17 @@ const (
 
 // 1) 凭据
 type AIProviderCredential struct {
-	coremodel.PowerModel `json:"-"` // 基础字段已带 json 标签
-	coremodel.ScopeRef   `json:"-"` // Env / TenantID
+	coremodel.PowerModel
 
-	// 逻辑名，用来在策略里引用
-	Name     string `gorm:"size:128;index:uniq_cred,unique" json:"name"`     // e.g. "openai-prod-tokyo"
-	Provider string `gorm:"size:64;index:uniq_cred,unique"  json:"provider"` // openai|azure|baidu|zhipu|...
+	// 作用域字段（注意：不要给单列 unique！）
+	Env string `gorm:"size:32;index:ai_cred_uniq_global,unique,priority:1,where:tenant_id IS NULL;index:ai_cred_uniq_tenant,unique,priority:1" json:"-"`
+
+	TenantID *uint64 `gorm:"index:ai_cred_uniq_tenant,unique,priority:2" json:"-"`
+
+	// 逻辑键
+	Name string `gorm:"type:varchar(128);index:ai_cred_uniq_global,unique,priority:2,where:tenant_id IS NULL;index:ai_cred_uniq_tenant,unique,priority:3" json:"name"`
+
+	Provider string `gorm:"type:varchar(64);index:ai_cred_uniq_global,unique,priority:3,where:tenant_id IS NULL;index:ai_cred_uniq_tenant,unique,priority:4" json:"provider"`
 
 	// 鉴权方案及数据（建议只存 secret 引用）
 	AuthScheme string            `gorm:"size:32"                         json:"authScheme"` // bearer|aksk|oauth|query_token|custom_sig
@@ -41,12 +46,17 @@ func (mdl *AIProviderCredential) GetTableName(needFull bool) string {
 
 // 2) 模型画像
 type AIModelProfile struct {
-	coremodel.PowerModel `json:"-"`
-	coremodel.ScopeRef   `json:"-"`
+	coremodel.PowerModel
 
-	Modality string `gorm:"size:32;index:uniq_prof,unique" json:"modality"` // llm|image|embedding|audio_tts|audio_asr|video
-	Provider string `gorm:"size:64;index:uniq_prof,unique" json:"provider"`
-	Model    string `gorm:"size:128;index:uniq_prof,unique" json:"model"` // e.g. gpt-4o-mini
+	Env string `gorm:"size:32;index:ai_model_uniq_global,unique,priority:1,where:tenant_id IS NULL;index:ai_model_uniq_tenant,unique,priority:1" json:"-"`
+
+	TenantID *uint64 `gorm:"index:ai_model_uniq_tenant,unique,priority:2" json:"-"`
+
+	Modality string `gorm:"size:32;index:ai_model_uniq_global,unique,priority:2,where:tenant_id IS NULL;index:ai_model_uniq_tenant,unique,priority:3" json:"modality"`
+
+	Provider string `gorm:"size:64;index:ai_model_uniq_global,unique,priority:3,where:tenant_id IS NULL;index:ai_model_uniq_tenant,unique,priority:4" json:"provider"`
+
+	Model string `gorm:"size:128;index:ai_model_uniq_global,unique,priority:4,where:tenant_id IS NULL;index:ai_model_uniq_tenant,unique,priority:5" json:"model"`
 
 	// 画像名（可选），便于人类识别
 	Label string `gorm:"size:128" json:"label"`
