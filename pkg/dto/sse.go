@@ -1,13 +1,15 @@
 package dto
 
 import (
-	"errors"
-	aschema "github.com/ArtisanCloud/PowerX/services/agent/schemas"
-
+	aschema "github.com/ArtisanCloud/PowerX/internal/server/agent/schemas"
 	"github.com/cloudwego/eino/schema"
 	"github.com/gin-gonic/gin"
-	"io"
 	"time"
+)
+
+import (
+	"errors"
+	"io"
 )
 
 // api/http/dto/sse.go

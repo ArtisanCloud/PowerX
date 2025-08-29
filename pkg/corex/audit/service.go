@@ -24,7 +24,7 @@ type Sink interface {
 	Emit(ctx context.Context, evt *dbm.AuditEvent) error
 }
 
-type Options struct {
+type AuditOptions struct {
 	BatchSize      int
 	BatchWait      time.Duration
 	MaxPayloadSize int
@@ -40,7 +40,7 @@ type Service interface {
 type serviceImpl struct {
 	repo  Repository
 	sinks []Sink
-	opt   Options
+	opt   AuditOptions
 
 	ch    chan *dbm.AuditEvent
 	stopC chan struct{}
@@ -49,7 +49,7 @@ type serviceImpl struct {
 	dropUntil  time.Time
 }
 
-func NewService(dbRepo *repo.AuditEventRepository, sinks []Sink, opt Options) Service {
+func NewService(dbRepo *repo.AuditEventRepository, sinks []Sink, opt AuditOptions) Service {
 	if opt.BatchSize <= 0 {
 		opt.BatchSize = 100
 	}

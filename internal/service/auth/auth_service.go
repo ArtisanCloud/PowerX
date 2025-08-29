@@ -14,6 +14,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/pkg/utils"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
+	"gorm.io/gorm"
 	"strconv"
 	"strings"
 	"time"
@@ -28,9 +29,20 @@ type RegisterOptions struct {
 	MemberAvatarURL   string // 写到 Member.AvatarURL（可选）
 }
 
+type AuthOptions struct {
+	JWTSecret        []byte
+	Issuer           string
+	Audience         string
+	Platforms        []string
+	AccessTTL        time.Duration
+	RefreshTTL       time.Duration
+	DefaultTenantKey string // 例如 "system"
+	Cache            cache.ICache
+}
+
 type AuthService struct {
 	*service.BaseService
-	TenantRepo      *infratenant.TenantRepository
+	tenantRepo      *infratenant.TenantRepository
 	UserRepo        *infraiam.UserRepository
 	MemberRepo      *infraiam.MemberRepository
 	CredRepo        *infraiam.CredentialRepository
@@ -51,34 +63,30 @@ type AuthService struct {
 	Cache cache.ICache
 }
 
-func NewAuthService(
-	TenantRepo *infratenant.TenantRepository,
-	userRepo *infraiam.UserRepository,
-	memberRepo *infraiam.MemberRepository,
-	credRepo *infraiam.CredentialRepository,
-	roleRepo *infraiam.RoleRepository,
-	RoleBindingRepo *infraiam.RoleBindingRepository,
-	rtRepo *infraiam.RefreshTokenRepository,
-	secret []byte,
-	issuer string, // ← cfg.Auth.Issuer
-	audience string, // ← cfg.Auth.Audience
-	platforms []string, // ← cfg.Auth.Platform
-	accessTTL, refreshTTL time.Duration,
-) *AuthService {
+func NewAuthService(db *gorm.DB, opts AuthOptions) *AuthService {
+
+	tenantRepo := infratenant.NewTenantRepository(db)
+	userRepo := infraiam.NewUserRepository(db)
+	memberRepo := infraiam.NewMemberRepository(db)
+	credRepo := infraiam.NewCredentialRepository(db)
+	roleRepo := infraiam.NewRoleRepository(db)
+	RoleBindingRepo := infraiam.NewRoleBindingRepository(db)
+	rtRepo := infraiam.NewRefreshTokenRepository(db)
+
 	return &AuthService{
-		TenantRepo:       TenantRepo,
+		tenantRepo:       tenantRepo,
 		UserRepo:         userRepo,
 		MemberRepo:       memberRepo,
 		CredRepo:         credRepo,
 		RoleRepo:         roleRepo,
 		RoleBindingRepo:  RoleBindingRepo,
 		RTRepo:           rtRepo,
-		JWTSecret:        secret,
-		Issuer:           issuer,
-		Audience:         audience,
-		Platforms:        platforms,
-		AccessTTL:        accessTTL,
-		RefreshTTL:       refreshTTL,
+		JWTSecret:        opts.JWTSecret,
+		Issuer:           opts.Issuer,
+		Audience:         opts.Audience,
+		Platforms:        opts.Platforms,
+		AccessTTL:        opts.AccessTTL,
+		RefreshTTL:       opts.RefreshTTL,
 		DefaultTenantKey: "system", // 需要的话可改为 cfg 注入
 		Cache:            cache.GetCache(),
 	}
@@ -208,7 +216,7 @@ func (s *AuthService) Login(ctx context.Context, tenantRef, identifier, password
 			return "", "", errors.New("no membership found")
 		case 1:
 			m = members[0]
-			ten, err = s.TenantRepo.GetByID(ctx, m.TenantID)
+			ten, err = s.tenantRepo.GetByID(ctx, m.TenantID)
 			if err != nil {
 				return "", "", err
 			}
@@ -284,12 +292,12 @@ func (s *AuthService) resolveTenant(ctx context.Context, ref string) (*tenantmdl
 		if s.DefaultTenantKey == "" {
 			return nil, errors.New("tenant is required")
 		}
-		return s.TenantRepo.EnsureByKey(ctx, s.DefaultTenantKey, "Default")
+		return s.tenantRepo.EnsureByKey(ctx, s.DefaultTenantKey, "Default")
 	}
 	if len(ref) >= 32 && looksLikeUUID(ref) {
-		return s.TenantRepo.GetByUUID(ctx, ref, nil)
+		return s.tenantRepo.GetByUUID(ctx, ref, nil)
 	}
-	return s.TenantRepo.EnsureByKey(ctx, ref, strings.Title(ref))
+	return s.tenantRepo.EnsureByKey(ctx, ref, strings.Title(ref))
 }
 
 func looksLikeUUID(s string) bool {
@@ -329,7 +337,7 @@ func (s *AuthService) Refresh(ctx context.Context, refreshJWT string) (string, e
 	if err != nil || m == nil {
 		return "", errors.New("member not found")
 	}
-	ten, err := s.TenantRepo.GetByID(ctx, claims.TenantID)
+	ten, err := s.tenantRepo.GetByID(ctx, claims.TenantID)
 	if err != nil || ten == nil {
 		return "", errors.New("tenant not found")
 	}

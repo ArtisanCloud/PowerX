@@ -2,9 +2,9 @@ package http
 
 import (
 	"fmt"
-	httpAdmin "github.com/ArtisanCloud/PowerX/api/http/admin"
 	"github.com/ArtisanCloud/PowerX/config"
-	"github.com/ArtisanCloud/PowerX/internal/bootstrap"
+	"github.com/ArtisanCloud/PowerX/internal/app/shared"
+	httpAdmin "github.com/ArtisanCloud/PowerX/internal/transport/http/admin"
 	"github.com/ArtisanCloud/PowerX/pkg/auth"
 	"strings"
 
@@ -13,7 +13,7 @@ import (
 
 // SetupRouter 构造带基础中间件的 Gin 引擎，外部传入 auth middleware 和自定义 route 注册函数。
 // registerFunc 会在 corexGroup 上执行（即 /{prefix}/... 下面），返回 engine 供外部再挂载其他 group/handler。
-func SetupRouter(cfg *config.Config, r *gin.Engine, deps *bootstrap.Deps) error {
+func SetupRouter(cfg *config.Config, r *gin.Engine, deps *shared.Deps) error {
 
 	// 全局中间件：恢复/日志/trace/feature 等
 	r.Use(RecoveryMiddleware())

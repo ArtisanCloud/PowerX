@@ -23,14 +23,14 @@ type TenantService struct {
 	RoleBindingRepo *iamrepo.RoleBindingRepository
 }
 
-func NewTenantService(db *gorm.DB, auth *authsvc.AuthService, mr *iamrepo.RoleBindingRepository) *TenantService {
+func NewTenantService(db *gorm.DB, auth *authsvc.AuthService) *TenantService {
 	return &TenantService{
 		BaseService: &service.BaseService{
 			DB: db,
 		},
 		Repo:            tenantRepo.NewTenantRepository(db),
 		Auth:            auth,
-		RoleBindingRepo: mr,
+		RoleBindingRepo: iamrepo.NewRoleBindingRepository(db),
 	}
 }
 

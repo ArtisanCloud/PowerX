@@ -1,0 +1,117 @@
+syntax = "proto3";
+
+package powerx.iam.v1;
+
+option go_package = "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/iam/v1;iamv1";
+
+import "google/protobuf/timestamp.proto";
+import "common/v1/context.proto";
+import "common/v1/resource.proto";
+import "common/v1/pagination.proto";
+import "powerx/iam/v1/member.proto";
+
+
+enum TeamKind {
+  TEAM_KIND_UNSPECIFIED = 0;
+  TEAM_KIND_PROJECT     = 1; // 项目型（Scrum/看板）
+  TEAM_KIND_FUNCTIONAL  = 2; // 职能型（市场/客服）
+}
+
+message Team {
+  common.v1.ResourceRef ref = 1; // domain="iam", entity="team"
+  string name = 2;
+  TeamKind kind = 3;
+  string description = 4;
+
+  // 组织关系（可选）
+  uint64 parent_id = 10;
+  string path = 11;
+  int32  sort = 12;
+
+  // 统计/归属
+  uint64 owner_member_id = 20;
+  int32  member_count = 21;
+
+  map<string, string> labels = 30;
+  google.protobuf.Timestamp created_at = 31;
+  google.protobuf.Timestamp updated_at = 32;
+}
+
+message TeamMember {
+  Member member = 1;                 // 内嵌成员（BASIC/PROFILE 由请求指定）
+  string role = 2;                   // owner/admin/member/guest（字符串自由映射）
+  google.protobuf.Timestamp joined_at = 3;
+}
+
+message GetTeamRequest {
+  common.v1.RequestContext ctx = 1;
+  oneof selector {
+    uint64 id = 2;
+    string prn = 3;
+  }
+}
+
+message ListTeamsRequest {
+  common.v1.RequestContext ctx = 1;
+
+  string keyword = 2;         // 命中 name/labels
+  TeamKind kind = 3;
+  uint64 parent_id = 4;
+
+  common.v1.PageRequest page = 10;
+  string order_by = 11;       // created_at / name
+  bool asc = 12;
+}
+
+message ListTeamMembersRequest {
+  common.v1.RequestContext ctx = 1;
+
+  oneof team {
+    uint64 team_id = 2;
+    string team_prn = 3;
+  }
+
+  // 过滤
+  string keyword = 10;                // 命中成员 username/display_name
+  string role = 11;                   // owner/admin/member/guest
+  MemberStatus status = 12;           // ACTIVE/...
+
+  // 分页
+  common.v1.PageRequest page = 20;
+
+  // 嵌入的成员视图
+  MemberView member_view = 30;        // BASIC（默认）/PROFILE
+}
+
+message GetTeamResponse { Team team = 1; }
+message ListTeamsResponse {
+  repeated Team items = 1;
+  common.v1.PageResponse page = 2;
+}
+message ListTeamMembersResponse {
+  repeated TeamMember items = 1;
+  common.v1.PageResponse page = 2;
+}
+
+// 反查：成员所在团队
+message ListMemberTeamsRequest {
+  common.v1.RequestContext ctx = 1;
+  oneof member {
+    uint64 member_id = 2;
+    string member_prn = 3;
+    string username = 4;
+  }
+  common.v1.PageRequest page = 10;
+}
+
+message ListMemberTeamsResponse {
+  repeated Team items = 1;
+  common.v1.PageResponse page = 2;
+}
+
+service TeamService {
+  rpc GetTeam(GetTeamRequest) returns (GetTeamResponse);
+  rpc ListTeams(ListTeamsRequest) returns (ListTeamsResponse);
+  rpc ListTeamMembers(ListTeamMembersRequest) returns (ListTeamMembersResponse);
+  rpc ListMemberTeams(ListMemberTeamsRequest) returns (ListMemberTeamsResponse);
+}

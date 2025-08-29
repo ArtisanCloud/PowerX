@@ -2,11 +2,12 @@ package config
 
 import (
 	"fmt"
+	agentCfg "github.com/ArtisanCloud/PowerX/internal/server/agent/config"
+	grpcCfg "github.com/ArtisanCloud/PowerX/internal/server/grpc"
+	mcpCfg "github.com/ArtisanCloud/PowerX/internal/server/mcp/config"
 	cacheCfg "github.com/ArtisanCloud/PowerX/pkg/cache"
 	dbCfg "github.com/ArtisanCloud/PowerX/pkg/corex/db"
 	logCfg "github.com/ArtisanCloud/PowerX/pkg/utils/logger/config"
-	agentCfg "github.com/ArtisanCloud/PowerX/services/agent/config"
-	mcpCfg "github.com/ArtisanCloud/PowerX/services/mcp/config"
 	"gopkg.in/yaml.v3"
 	"log"
 	"os"
@@ -60,11 +61,12 @@ type Config struct {
 
 // HTTP服务器配置
 type ServerConfig struct {
-	Port                int    `yaml:"port"`                  // HTTP 端口
-	ReadTimeoutSeconds  int    `yaml:"read_timeout_seconds"`  // 读取超时
-	WriteTimeoutSeconds int    `yaml:"write_timeout_seconds"` // 写入超时
-	Mode                string `yaml:"mode"`                  // gin 模式: debug/release
-	APIPrefix           string `yaml:"api_prefix"`            // API 前缀
+	Port                int                `yaml:"port"`                  // HTTP 端口
+	ReadTimeoutSeconds  int                `yaml:"read_timeout_seconds"`  // 读取超时
+	WriteTimeoutSeconds int                `yaml:"write_timeout_seconds"` // 写入超时
+	Mode                string             `yaml:"mode"`                  // gin 模式: debug/release
+	APIPrefix           string             `yaml:"api_prefix"`            // API 前缀
+	GRPC                grpcCfg.GRPCConfig `yaml:"grpc"`
 }
 
 // JWT认证配置

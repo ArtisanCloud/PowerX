@@ -7,6 +7,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/internal/bootstrap"
 	"github.com/ArtisanCloud/PowerX/internal/http"
 	"github.com/ArtisanCloud/PowerX/internal/openapi"
+	grpcserver "github.com/ArtisanCloud/PowerX/internal/server/grpc"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/audit"
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"github.com/gin-gonic/gin"
@@ -68,6 +69,12 @@ func main() {
 
 	// 7. 打印路由信息
 	//httpRouter.PrintRouteInfo(r, cfg)
+
+	_, err = grpcserver.BootstrapGRPC(ctx, &cfg.Server.GRPC, deps)
+	if err != nil {
+		logger.ErrorF(ctx, "BootstrapGRPC failed: %s", err.Error())
+		return
+	}
 
 	// 8. 启动服务
 	addr := fmt.Sprintf(":%d", cfg.Server.Port)

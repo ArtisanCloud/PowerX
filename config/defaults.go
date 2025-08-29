@@ -1,9 +1,9 @@
 package config
 
 import (
+	agentCfg "github.com/ArtisanCloud/PowerX/internal/server/agent/config"
 	dbCfg "github.com/ArtisanCloud/PowerX/pkg/corex/db"
 	logCfg "github.com/ArtisanCloud/PowerX/pkg/utils/logger/config"
-	agentCfg "github.com/ArtisanCloud/PowerX/services/agent/config"
 )
 
 // GetDefaults 返回默认配置（已对齐新版 AuthConfig 字段）
@@ -65,7 +65,7 @@ func GetDefaults() *Config {
 			Mode: "ws_sse",
 			FlowSpec: agentCfg.FlowSpecConfig{
 				BaseDir:     "./pkg/corex/flow/blueprints",
-				BusinessDir: "./services/agent/blueprints",
+				BusinessDir: "./internal/server/agent/blueprints",
 			},
 			TemplateDir: "./services/agent/templates",
 		},

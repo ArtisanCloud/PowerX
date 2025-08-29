@@ -959,6 +959,48 @@
         ]
       }
     },
+    "/api/agents/models": {
+      "get": {
+        "operationId": "GET /api/agents/models",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "GET /api/agents/models",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/agents/providers": {
+      "get": {
+        "operationId": "GET /api/agents/providers",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "GET /api/agents/providers",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/agents/settings/save": {
+      "post": {
+        "operationId": "POST /api/agents/settings/save",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/agents/settings/save",
+        "tags": [
+          "api"
+        ]
+      }
+    },
     "/api/agents/status": {
       "get": {
         "operationId": "GET /api/agents/status",
@@ -982,6 +1024,34 @@
           }
         },
         "summary": "POST /api/agents/stream",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/agents/test/call": {
+      "post": {
+        "operationId": "POST /api/agents/test/call",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/agents/test/call",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/agents/test/connection": {
+      "post": {
+        "operationId": "POST /api/agents/test/connection",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/agents/test/connection",
         "tags": [
           "api"
         ]
