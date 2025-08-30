@@ -5,6 +5,7 @@ package menu
 import (
 	admdto "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/dto"
 	"github.com/ArtisanCloud/PowerX/internal/transport/http/admin/plugin"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/rbac"
 	dto "github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/ArtisanCloud/PowerX/pkg/plugin_mgr"
 	"github.com/gin-gonic/gin"
@@ -22,14 +23,16 @@ func AdminMenusHandler(c *gin.Context) {
 		if len(perms) == 0 {
 			return true
 		}
-		//for _, pol := range perms {
-		//res, act := splitPolicy(pol)
-		//checker := rbac.NewChecker()
-		//result, _ := checker.Check(c, perms, res, act, nil)
-		//if !result.Allow {
-		//	return false
-		//}
-		//}
+		sub := rbac.SubjectFromContext(c)
+
+		for _, pol := range perms {
+			res, act := splitPolicy(pol)
+			checker := rbac.NewChecker()
+			result, _ := checker.Check(c, sub, res, act, nil)
+			if !result.Allow {
+				return false
+			}
+		}
 		return true
 	}
 
@@ -49,28 +52,28 @@ func AdminMenusHandler(c *gin.Context) {
 
 		switch m.Slot {
 		case plugin_mgr.SlotSettings: // "core.settings"
-			m.ParentID = "settings"
-			slots["settings"].Children = append(slots["settings"].Children, m)
+			m.ParentID = plugin_mgr.KeySettings
+			slots[plugin_mgr.KeySettings].Children = append(slots[plugin_mgr.KeySettings].Children, m)
 
 		case plugin_mgr.SlotDashboard: // "core.dashboard"
-			m.ParentID = "dashboard"
-			slots["dashboard"].Children = append(slots["dashboard"].Children, m)
+			m.ParentID = plugin_mgr.KeyDashboard
+			slots[plugin_mgr.KeyDashboard].Children = append(slots[plugin_mgr.KeyDashboard].Children, m)
 
 		case plugin_mgr.SlotWorkflow: // "core.workflow"
-			m.ParentID = "workflow"
-			slots["workflow"].Children = append(slots["workflow"].Children, m)
+			m.ParentID = plugin_mgr.KeyWorkflow
+			slots[plugin_mgr.KeyWorkflow].Children = append(slots[plugin_mgr.KeyWorkflow].Children, m)
 
 		case plugin_mgr.SlotAgent: // "core.agent"
-			m.ParentID = "agent"
-			slots["agent"].Children = append(slots["agent"].Children, m)
+			m.ParentID = plugin_mgr.KeyAgent
+			slots[plugin_mgr.KeyAgent].Children = append(slots[plugin_mgr.KeyAgent].Children, m)
 
 		case plugin_mgr.SlotRoot: // "group.root" —— 顶层并列，但要“排在最前”
 			m.ParentID = ""
 			rootPlugins = append(rootPlugins, m)
 
 		default: // 兜底：插件市场
-			m.ParentID = "plugins"
-			slots["plugins"].Children = append(slots["plugins"].Children, m)
+			m.ParentID = plugin_mgr.KeyPlugins
+			slots[plugin_mgr.KeyPlugins].Children = append(slots[plugin_mgr.KeyPlugins].Children, m)
 		}
 	}
 
@@ -111,7 +114,7 @@ func sortTopLevelWithRootFirst(sys []admdto.AdminMenuItem, collectedRoot []admdt
 	rest := make([]admdto.AdminMenuItem, 0, len(sys))
 	for _, it := range sys {
 		// 已收集的 root 插件不要再重复加入 rest
-		if it.Origin == "plugin" && it.Slot == plugin_mgr.SlotRoot {
+		if it.Origin == plugin_mgr.OriginPlugin && it.Slot == plugin_mgr.SlotRoot {
 			// 忽略，等下统一用 collectedRoot
 			continue
 		}
@@ -151,16 +154,16 @@ func indexSystemSlots(sys []admdto.AdminMenuItem) map[string]*admdto.AdminMenuIt
 	for i := range sys {
 		it := &sys[i]
 		switch it.Key {
-		case "settings":
-			idx["settings"] = it
-		case "dashboard":
-			idx["dashboard"] = it
-		case "workflow":
-			idx["workflow"] = it
-		case "agent":
-			idx["agent"] = it
-		case "plugins":
-			idx["plugins"] = it
+		case plugin_mgr.KeySettings:
+			idx[plugin_mgr.KeySettings] = it
+		case plugin_mgr.KeyDashboard:
+			idx[plugin_mgr.KeyDashboard] = it
+		case plugin_mgr.KeyWorkflow:
+			idx[plugin_mgr.KeyWorkflow] = it
+		case plugin_mgr.KeyAgent:
+			idx[plugin_mgr.KeyAgent] = it
+		case plugin_mgr.KeyPlugins:
+			idx[plugin_mgr.KeyPlugins] = it
 		}
 	}
 	return idx
@@ -194,29 +197,29 @@ func parseCategoryFromParentID(pid string) (key, title string, ok bool) {
 // 把“已排序好的顶层菜单 sys”分成若干分类
 func groupAsCategories(sys []admdto.AdminMenuItem) []admdto.AdminMenuCategory {
 	byID := map[string]*admdto.AdminMenuCategory{
-		"system":  {ID: "system", Title: "系统功能", Order: 0, Origin: "system"},
-		"plugins": {ID: "plugins", Title: "插件", Order: 50, Origin: "plugin"},
+		"agent":    {ID: "agent", Title: "智能体", Order: -100, Origin: "system"},
+		"workflow": {ID: "workflow", Title: "工作流", Order: -90, Origin: "system"},
+		"plugins":  {ID: "plugins", Title: "插件", Order: -10, Origin: "plugin"},
+		"system":   {ID: "system", Title: "系统功能", Order: 0, Origin: "system"},
 	}
 
-	// 先扫一遍，看看是否存在 root 顶层插件
-	hasRoot := false
 	for _, it := range sys {
-		if it.Origin != "system" && (it.Slot == plugin_mgr.SlotRoot || (it.ParentID == "" && it.Origin == "plugin")) {
-			hasRoot = true
-			break
+		// system 顶层：先分发 agent / workflow，再落 system
+		if it.Origin == plugin_mgr.OriginSystem {
+			switch it.Key {
+			case plugin_mgr.KeyAgent:
+				byID["agent"].Children = append(byID["agent"].Children, it)
+				continue
+			case plugin_mgr.KeyWorkflow:
+				byID["workflow"].Children = append(byID["workflow"].Children, it)
+				continue
+			default:
+				byID["system"].Children = append(byID["system"].Children, it)
+				continue
+			}
 		}
-	}
-	// 如果有 root，则把插件分类整体提前（在 system 之前）
-	if hasRoot {
-		byID["plugins"].Order = -10
-	}
 
-	// 按“已排好”的顶层顺序分桶，不再对 cat.Children 二次排序
-	for _, it := range sys {
-		if it.Origin == "system" {
-			byID["system"].Children = append(byID["system"].Children, it)
-			continue
-		}
+		// 插件：保持 cat: 自定义分类逻辑；否则落到 plugins
 		if key, title, ok := parseCategoryFromParentID(it.ParentID); ok {
 			if _, exists := byID[key]; !exists {
 				byID[key] = &admdto.AdminMenuCategory{ID: key, Title: title, Order: 50, Origin: "plugin"}
@@ -227,7 +230,7 @@ func groupAsCategories(sys []admdto.AdminMenuItem) []admdto.AdminMenuCategory {
 		byID["plugins"].Children = append(byID["plugins"].Children, it)
 	}
 
-	// 只排序“分类列表”，不动每个分类内的 children
+	// 分类列表排序：仅按 Order→Title→ID；不再基于 hasRoot 调整 plugins 的顺序
 	out := make([]admdto.AdminMenuCategory, 0, len(byID))
 	for _, v := range byID {
 		out = append(out, *v)

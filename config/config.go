@@ -68,6 +68,7 @@ type ServerConfig struct {
 	Mode                string             `yaml:"mode"`                  // gin 模式: debug/release
 	APIPrefix           string             `yaml:"api_prefix"`            // API 前缀
 	GRPC                grpcCfg.GRPCConfig `yaml:"grpc"`
+	SecretKey           string             `yaml:"secret_key"`
 }
 
 // JWT认证配置

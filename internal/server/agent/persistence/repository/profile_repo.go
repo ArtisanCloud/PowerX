@@ -71,3 +71,21 @@ func (r *AIModelProfileRepository) FindByScopeModalityProviderModel(ctx context.
 	}
 	return &out, nil
 }
+
+func (r *AIModelProfileRepository) ListByScope(
+	ctx context.Context, env string, tenantID *uint64, modalities ...string,
+) ([]dbmodel.AIModelProfile, error) {
+	tx := r.db.WithContext(ctx).
+		Scopes(dbmodel.WithScope(env, tenantID)).
+		Model(&dbmodel.AIModelProfile{})
+
+	if len(modalities) > 0 {
+		tx = tx.Where("modality IN ?", modalities)
+	}
+
+	var out []dbmodel.AIModelProfile
+	if err := tx.Order("modality, provider, model").Find(&out).Error; err != nil {
+		return nil, err
+	}
+	return out, nil
+}

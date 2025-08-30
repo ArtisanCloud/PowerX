@@ -11,6 +11,7 @@ import (
 	tenantmdl "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/tenant"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository"
 	infratenant "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/tenant"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/tenantkeys"
 	"github.com/ArtisanCloud/PowerX/pkg/utils"
 	"github.com/ArtisanCloud/PowerX/pkg/utils/fmt"
 	"github.com/google/uuid"
@@ -75,6 +76,7 @@ func NewAuthService(db *gorm.DB, opts AuthOptions) *AuthService {
 	rtRepo := infraiam.NewRefreshTokenRepository(db)
 
 	return &AuthService{
+		BaseService:      &service.BaseService{DB: db},
 		tenantRepo:       tenantRepo,
 		UserRepo:         userRepo,
 		MemberRepo:       memberRepo,
@@ -174,6 +176,12 @@ func (s *AuthService) Register(ctx context.Context, tenantID uint64, username, i
 
 	// 5) 绑定默认角色
 	_ = s.RoleBindingRepo.AssignRolesByCodes(ctx, tenantID, m.ID, "role_user")
+
+	if _, err := tenantkeys.NewTenantKeyService(s.DB).EnsureActiveKeyPair(ctx, "default", &tenantID); err != nil {
+		// 线上建议：不要阻塞注册，只记录告警即可
+		// log.Warn("ensure tenant keypair failed", "tenant", tenantID, "err", err)
+		return nil, err
+	}
 
 	return m, nil
 }

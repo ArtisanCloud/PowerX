@@ -31,6 +31,7 @@ func MigrateCoreModels(db *gorm.DB) (err error) {
 	// 迁移IAM
 	err = db.AutoMigrate(
 		&modelTenant.Tenant{},
+		&modelTenant.TenantKeyPair{},
 		&modelIAM.User{},
 		&modelIAM.Member{},
 		&modelIAM.Credential{},

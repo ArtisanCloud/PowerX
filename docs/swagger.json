@@ -5,6 +5,104 @@
   },
   "openapi": "3.0.3",
   "paths": {
+    "/api/admin/agents/models": {
+      "get": {
+        "operationId": "GET /api/admin/agents/models",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "GET /api/admin/agents/models",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/agents/providers": {
+      "get": {
+        "operationId": "GET /api/admin/agents/providers",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "GET /api/admin/agents/providers",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/agents/settings/credentials": {
+      "get": {
+        "operationId": "GET /api/admin/agents/settings/credentials",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "GET /api/admin/agents/settings/credentials",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/agents/settings/profiles": {
+      "get": {
+        "operationId": "GET /api/admin/agents/settings/profiles",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "GET /api/admin/agents/settings/profiles",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/agents/settings/save": {
+      "post": {
+        "operationId": "POST /api/admin/agents/settings/save",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/admin/agents/settings/save",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/agents/test/call": {
+      "post": {
+        "operationId": "POST /api/admin/agents/test/call",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/admin/agents/test/call",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/agents/test/connection": {
+      "post": {
+        "operationId": "POST /api/admin/agents/test/connection",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/admin/agents/test/connection",
+        "tags": [
+          "api"
+        ]
+      }
+    },
     "/api/admin/auth/me/context": {
       "get": {
         "operationId": "GET /api/admin/auth/me/context",
@@ -959,48 +1057,6 @@
         ]
       }
     },
-    "/api/agents/models": {
-      "get": {
-        "operationId": "GET /api/agents/models",
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "summary": "GET /api/agents/models",
-        "tags": [
-          "api"
-        ]
-      }
-    },
-    "/api/agents/providers": {
-      "get": {
-        "operationId": "GET /api/agents/providers",
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "summary": "GET /api/agents/providers",
-        "tags": [
-          "api"
-        ]
-      }
-    },
-    "/api/agents/settings/save": {
-      "post": {
-        "operationId": "POST /api/agents/settings/save",
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "summary": "POST /api/agents/settings/save",
-        "tags": [
-          "api"
-        ]
-      }
-    },
     "/api/agents/status": {
       "get": {
         "operationId": "GET /api/agents/status",
@@ -1024,34 +1080,6 @@
           }
         },
         "summary": "POST /api/agents/stream",
-        "tags": [
-          "api"
-        ]
-      }
-    },
-    "/api/agents/test/call": {
-      "post": {
-        "operationId": "POST /api/agents/test/call",
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "summary": "POST /api/agents/test/call",
-        "tags": [
-          "api"
-        ]
-      }
-    },
-    "/api/agents/test/connection": {
-      "post": {
-        "operationId": "POST /api/agents/test/connection",
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "summary": "POST /api/agents/test/connection",
         "tags": [
           "api"
         ]

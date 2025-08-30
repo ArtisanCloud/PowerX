@@ -71,3 +71,18 @@ func (r *AIProviderCredentialRepository) FindByScopeNameProvider(ctx context.Con
 	}
 	return &out, nil
 }
+
+func (r *AIProviderCredentialRepository) ListByScope(
+	ctx context.Context, env string, tenantID *uint64,
+) ([]dbmodel.AIProviderCredential, error) {
+	var out []dbmodel.AIProviderCredential
+	err := r.db.WithContext(ctx).
+		Scopes(dbmodel.WithScope(env, tenantID)).
+		Model(&dbmodel.AIProviderCredential{}).
+		Order("provider, name").
+		Find(&out).Error
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}

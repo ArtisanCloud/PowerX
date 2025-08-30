@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"github.com/ArtisanCloud/PowerX/internal/server/agent/catalog"
 	repoai "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/repository"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/tenantkeys"
+	"github.com/ArtisanCloud/PowerX/pkg/utils"
 	"strings"
 	"time"
 
@@ -21,6 +23,7 @@ type AgentSettingService struct {
 	profRepo  *repoai.AIModelProfileRepository
 	routeRepo *repoai.AIRoutePolicyRepository
 	usageRepo *repoai.AIUsageLogRepository
+	tks       *tenantkeys.TenantKeyService
 }
 
 func NewAgentSettingService(db *gorm.DB) *AgentSettingService {
@@ -30,6 +33,7 @@ func NewAgentSettingService(db *gorm.DB) *AgentSettingService {
 		profRepo:  repoai.NewAIModelProfileRepository(db),
 		routeRepo: repoai.NewAIRoutePolicyRepository(db),
 		usageRepo: repoai.NewAIUsageLogRepository(db),
+		tks:       tenantkeys.NewTenantKeyService(db),
 	}
 }
 
@@ -58,40 +62,83 @@ func (s *AgentSettingService) Models(modality, provider string) ([]string, error
 }
 
 // ---------------- Settings 持久化 ----------------
-
 // SaveCredentialAndProfile：把当前模态的“连接信息/参数”写入两张表（幂等）
 func (s *AgentSettingService) SaveCredentialAndProfile(
 	ctx context.Context,
-	env string, tenantID *uint64, // <<< 关键：显式传入作用域
+	env string, tenantID *uint64,
 	cred *dbmodel.AIProviderCredential,
 	prof *dbmodel.AIModelProfile,
 ) error {
-	// 保险起见，即便 handler 已经填过，这里也强制回写一次作用域字段
 	cred.Env, cred.TenantID = env, tenantID
 	prof.Env, prof.TenantID = env, tenantID
 
+	// 关键：把 api_key/secret/access_token/client_secret 等敏感键“封装后存库”
+	var err error
+	cred.Data, err = s.tks.SealSensitive(ctx, env, tenantID, cred.Data,
+		"api_key", "secret", "access_token", "client_secret",
+	)
+	if err != nil {
+		return err
+	}
+
 	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		credRepo := repoai.NewAIProviderCredentialRepository(tx)
-		// 注意：这里调用的是你**新的** Upsert 签名（包含 env/tenantID）
-		if err := credRepo.UpsertByScopeNameProvider(ctx, env, tenantID, cred); err != nil {
+		if err := repoai.NewAIProviderCredentialRepository(tx).
+			UpsertByScopeNameProvider(ctx, env, tenantID, cred); err != nil {
 			return err
 		}
-
-		profRepo := repoai.NewAIModelProfileRepository(tx)
-		if err := profRepo.UpsertByScopeModalityProviderModel(ctx, env, tenantID, prof); err != nil {
+		if err := repoai.NewAIModelProfileRepository(tx).
+			UpsertByScopeModalityProviderModel(ctx, env, tenantID, prof); err != nil {
 			return err
 		}
 		return nil
 	})
 }
 
-// ---------------- Tests（LLM） ----------------
+// 从库里解密出 api_key/base_url 作为回退
+func (s *AgentSettingService) resolveConnFromStore(
+	ctx context.Context, env string, tenantID *uint64, provider string,
+	baseURLIn, apiKeyIn string,
+) (baseURL, apiKey string, err error) {
+	baseURL, apiKey = baseURLIn, apiKeyIn
+	// 名称规则与你 handler 构造时一致
+	name := utils.Slug(env + "-" + provider)
 
-// PingLLM：健康检查
-func (s *AgentSettingService) PingLLM(ctx context.Context, provider, model, baseURL, apiKey string) error {
+	cred, err := s.credRepo.FindByScopeNameProvider(ctx, env, tenantID, name, provider)
+	if err != nil {
+		return baseURL, apiKey, err
+	}
+	// 先用存量 base_url
+	if baseURL == "" {
+		if v, ok := cred.Data["base_url"].(string); ok {
+			baseURL = v
+		}
+	}
+	// 再补 api_key（仅后端内部使用，不回前端）
+	if apiKey == "" {
+		var sec struct {
+			APIKey string `json:"api_key"`
+			Secret string `json:"secret"`
+		}
+		if e := s.tks.UnsealSensitive(ctx, env, tenantID, cred.Data, &sec); e == nil {
+			apiKey = sec.APIKey
+		}
+	}
+	return baseURL, apiKey, nil
+}
+
+// 修改 PingLLM：多两个参数 env/tenantID，并支持回退解密
+func (s *AgentSettingService) PingLLM(ctx context.Context, env string, tenantID *uint64,
+	provider, model, baseURL, apiKey string,
+) error {
 	if provider == "" || model == "" {
 		return fmt.Errorf("provider/model 不能为空")
 	}
+	// 回退解密
+	var err error
+	baseURL, apiKey, err = s.resolveConnFromStore(ctx, env, tenantID, provider, baseURL, apiKey)
+	if err != nil { /* 忽略查不到，走传入的 */
+	}
+
 	mc := agentllm.ModelConfig{
 		Provider:     provider,
 		Endpoint:     baseURL,
@@ -100,7 +147,7 @@ func (s *AgentSettingService) PingLLM(ctx context.Context, provider, model, base
 		SystemPrompt: "You are a health check probe.",
 		Temperature:  0.0,
 		MaxTokens:    8,
-		AccessToken:  apiKey, // 兼容部分厂商
+		AccessToken:  apiKey,
 	}
 	cli, err := agentllm.NewClient(provider)
 	if err != nil {
@@ -110,9 +157,9 @@ func (s *AgentSettingService) PingLLM(ctx context.Context, provider, model, base
 	return err
 }
 
-// QuickCallLLM：最小可用试跑
+// 修改 QuickCallLLM：同样带 env/tenantID + 回退解密
 func (s *AgentSettingService) QuickCallLLM(
-	ctx context.Context,
+	ctx context.Context, env string, tenantID *uint64,
 	provider, model, baseURL, apiKey string,
 	temperature float64, maxTokens int,
 	prompt string,
@@ -120,6 +167,12 @@ func (s *AgentSettingService) QuickCallLLM(
 	if strings.TrimSpace(prompt) == "" {
 		prompt = "Say hello in one short sentence."
 	}
+	// 回退解密
+	var err error
+	baseURL, apiKey, err = s.resolveConnFromStore(ctx, env, tenantID, provider, baseURL, apiKey)
+	if err != nil { /* 忽略错误，尽量继续 */
+	}
+
 	mc := agentllm.ModelConfig{
 		Provider:     provider,
 		Endpoint:     baseURL,
@@ -134,7 +187,6 @@ func (s *AgentSettingService) QuickCallLLM(
 	if err != nil {
 		return "", err
 	}
-	// 防止卡住：30s 兜底
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 	return cli.ChatOnce(ctx, mc, prompt)
@@ -173,4 +225,20 @@ func catalogGetModels(mod, prov string) ([]aiModelItem, error) {
 		out = append(out, aiModelItem{ID: m.ID})
 	}
 	return out, nil
+}
+
+func (s *AgentSettingService) ListProfiles(
+	ctx context.Context, env string, tenantID *uint64, modalities ...string,
+) ([]dbmodel.AIModelProfile, error) {
+
+	return s.profRepo.ListByScope(ctx, env, tenantID, modalities...)
+
+}
+
+// （可选）拉本租户的凭据列表
+func (s *AgentSettingService) ListCredentials(
+	ctx context.Context, env string, tenantID *uint64,
+) ([]dbmodel.AIProviderCredential, error) {
+
+	return s.credRepo.ListByScope(ctx, env, tenantID)
 }

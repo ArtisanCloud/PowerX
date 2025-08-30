@@ -161,13 +161,21 @@ func (h *AgentSettingHandler) testConnection(c *gin.Context) {
 		dtoRequest.ResponseValidationError(c, err)
 		return
 	}
+	tid, err := auth.RequireTenantIDFromGin(c)
+	if err != nil {
+		dtoRequest.ResponseError(c, http.StatusBadRequest, err.Error(), nil)
+		return
+	}
 	switch strings.ToLower(req.Modality) {
 	case "llm":
 		if req.LLM == nil || strings.TrimSpace(req.LLM.Provider) == "" || strings.TrimSpace(req.LLM.Model) == "" {
 			dtoRequest.ResponseError(c, http.StatusBadRequest, "llm.provider/model 不能为空", nil)
 			return
 		}
-		if err := h.svc.PingLLM(c.Request.Context(), req.LLM.Provider, req.LLM.Model, req.LLM.BaseURL, req.LLM.APIKey); err != nil {
+		if err := h.svc.PingLLM(c.Request.Context(),
+			req.Env, &tid,
+			req.LLM.Provider, req.LLM.Model, req.LLM.BaseURL, req.LLM.APIKey,
+		); err != nil {
 			dtoRequest.ResponseError(c, http.StatusBadRequest, "连接测试失败", err)
 			return
 		}
@@ -183,10 +191,16 @@ func (h *AgentSettingHandler) testQuickCall(c *gin.Context) {
 		dtoRequest.ResponseValidationError(c, err)
 		return
 	}
+	tid, err := auth.RequireTenantIDFromGin(c)
+	if err != nil {
+		dtoRequest.ResponseError(c, http.StatusBadRequest, err.Error(), nil)
+		return
+	}
 	switch strings.ToLower(req.Modality) {
 	case "llm":
 		out, err := h.svc.QuickCallLLM(
 			c.Request.Context(),
+			req.Env, &tid,
 			req.LLM.Provider, req.LLM.Model, req.LLM.BaseURL, req.LLM.APIKey,
 			req.LLM.Temperature, req.LLM.MaxTokens,
 			req.Prompt,
@@ -341,4 +355,53 @@ func buildEntitiesFromPayload(req *saveSettingsReq, tenantID *uint64) (credName,
 		}
 	}
 	return
+}
+
+// GET /api/agents/settings/profiles?env=default&modalities=llm,image
+func (h *AgentSettingHandler) listProfiles(c *gin.Context) {
+	env := c.DefaultQuery("env", "default")
+	tid, err := auth.RequireTenantIDFromGin(c)
+	if err != nil {
+		dtoRequest.ResponseError(c, http.StatusBadRequest, err.Error(), nil)
+		return
+	}
+	var mods []string
+	if s := strings.TrimSpace(c.Query("modalities")); s != "" {
+		for _, m := range strings.Split(s, ",") {
+			m = strings.TrimSpace(strings.ToLower(m))
+			if m != "" {
+				mods = append(mods, m)
+			}
+		}
+	}
+
+	out, err := h.svc.ListProfiles(c.Request.Context(), env, &tid, mods...)
+	if err != nil {
+		dtoRequest.ResponseError(c, http.StatusInternalServerError, "查询失败", err)
+		return
+	}
+	// 直接返回 GORM 实体数组（Env/TenantID 因为 json:"-" 不会出现在响应里）
+	dtoRequest.ResponseSuccess(c, gin.H{
+		"env":      env,
+		"profiles": out,
+	})
+}
+
+// （可选）GET /api/agents/settings/credentials?env=default
+func (h *AgentSettingHandler) listCredentials(c *gin.Context) {
+	env := c.DefaultQuery("env", "default")
+	tid, err := auth.RequireTenantIDFromGin(c)
+	if err != nil {
+		dtoRequest.ResponseError(c, http.StatusBadRequest, err.Error(), nil)
+		return
+	}
+	out, err := h.svc.ListCredentials(c.Request.Context(), env, &tid)
+	if err != nil {
+		dtoRequest.ResponseError(c, http.StatusInternalServerError, "查询失败", err)
+		return
+	}
+	dtoRequest.ResponseSuccess(c, gin.H{
+		"env":         env,
+		"credentials": out,
+	})
 }

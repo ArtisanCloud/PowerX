@@ -16,6 +16,11 @@ type InstallSource struct {
 }
 
 const (
+	OriginSystem = "system"
+	OriginPlugin = "plugin"
+)
+
+const (
 	SlotRoot      = "group.root"
 	SlotPlugins   = "group.plugins"
 	SlotSettings  = "core.settings"
@@ -23,6 +28,19 @@ const (
 	SlotWorkflow  = "core.workflow"
 	SlotAgent     = "core.agent"
 	SlotCustom    = "group.custom"
+)
+
+const (
+	KeyPlugins   = "plugins"
+	KeySettings  = "settings"
+	KeyDashboard = "dashboard"
+	KeyWorkflow  = "workflow"
+	KeyAgent     = "agent"
+
+	KeyUserManagement = "user_management"
+	KeyRoleManagement = "role_management"
+	KeySystemConfig   = "system_config"
+	KeyAISettings     = "ai_settings"
 )
 
 type PluginState string

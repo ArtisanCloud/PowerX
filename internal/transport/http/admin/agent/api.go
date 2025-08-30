@@ -22,11 +22,17 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 		agentGroup.POST("/stream", chatH.StreamChat)
 		agentGroup.POST("/chat", chatH.Chat)
 
-		agentGroup.GET("/providers", settingH.listProviders)
-		agentGroup.GET("/models", settingH.listModels)
+	}
+	agentAdminGroup := protectedGroup.Group("/admin/agents")
+	{
+		agentAdminGroup.GET("/providers", settingH.listProviders)
+		agentAdminGroup.GET("/models", settingH.listModels)
 
-		agentGroup.POST("/settings/save", settingH.saveSettings)     // 先占位：以后接DB
-		agentGroup.POST("/test/connection", settingH.testConnection) // 真连通测试
-		agentGroup.POST("/test/call", settingH.testQuickCall)        // 试跑一下
+		agentAdminGroup.POST("/settings/save", settingH.saveSettings)     // 先占位：以后接DB
+		agentAdminGroup.POST("/test/connection", settingH.testConnection) // 真连通测试
+		agentAdminGroup.POST("/test/call", settingH.testQuickCall)        // 试跑一下
+
+		agentAdminGroup.GET("/settings/profiles", settingH.listProfiles)
+		agentAdminGroup.GET("/settings/credentials", settingH.listCredentials)
 	}
 }

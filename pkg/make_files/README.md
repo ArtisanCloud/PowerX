@@ -205,6 +205,24 @@ make -f make_files/mcp.mk mcp-test-tool
 make -f make_files/mcp.mk mcp-health
 ```
 
+
+### 密钥管理
+
+# 1) 生成并校验（写到 .env.wrap）
+make secrets
+
+# 2) 本地终端临时导入
+eval "$(make export)"
+
+# 3) Docker Compose（生成 .env）
+make compose-env
+
+# 4) Kubernetes Secret（生成 YAML）
+make k8s-secret   # 输出到 build/k8s/wrap-master-key-secret.yaml
+
+# 5) systemd 环境片段
+make systemd-env  # 然后按提示 cp 到 /etc/systemd/system/<unit>.d/
+
 ### 部署流程
 
 ```bash

@@ -3,6 +3,7 @@ package bootstrap
 
 import (
 	"context"
+	"encoding/base64"
 	"github.com/ArtisanCloud/PowerX/config"
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
 	"github.com/ArtisanCloud/PowerX/internal/server/agent/bootstrap"
@@ -11,8 +12,11 @@ import (
 	"github.com/ArtisanCloud/PowerX/pkg/cache"
 	auditsvc "github.com/ArtisanCloud/PowerX/pkg/corex/audit"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/db/database"
+	"github.com/ArtisanCloud/PowerX/pkg/crypto"
 	"github.com/ArtisanCloud/PowerX/pkg/event_bus"
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
+	"log"
+	"os"
 	"time"
 )
 
@@ -21,6 +25,24 @@ func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error)
 	// 初始化全局 Logger
 	logger.InitGlobalLogger(&cfg.LogConfig)
 	logger.Info(ctx, "🚀 全局 Logger 初始化成功")
+
+	// 读取 Wrap 密钥
+	keyB64 := cfg.Wrap.MasterKeyB64
+	if keyB64 == "" && cfg.Wrap.MasterKeyFile != "" {
+		b, err := os.ReadFile(cfg.Wrap.MasterKeyFile) // 32 字节
+		if err != nil {
+			log.Fatal(err)
+		}
+		if len(b) != 32 {
+			log.Fatalf("wrap key must be 32 bytes, got %d", len(b))
+		}
+		keyB64 = base64.StdEncoding.EncodeToString(b)
+	}
+
+	// 设置到全局（一次）
+	if err := crypto.SetGlobalKeyB64(keyB64); err != nil {
+		log.Fatal(err)
+	}
 
 	// 初始化数据库连接（GORM）
 	db, err := database.GetDB(&cfg.Database)
