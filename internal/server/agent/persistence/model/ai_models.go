@@ -83,15 +83,17 @@ func (mdl *AIModelProfile) GetTableName(needFull bool) string {
 
 // 3) 路由策略
 type AIRoutePolicy struct {
-	coremodel.PowerModel `json:"-"`
-	coremodel.ScopeRef   `json:"-"`
+	coremodel.PowerModel
+	coremodel.ScopeRef
 
 	Modality string `gorm:"size:32;index" json:"modality"` // llm|image|...
 
 	// 选择器：可为空；不空时用于精确命中
-	AgentID *string `gorm:"size:64;index" json:"agentId,omitempty"`
-	FlowID  *string `gorm:"size:64;index" json:"flowId,omitempty"`
-	Purpose *string `gorm:"size:32;index" json:"purpose,omitempty"` // json|vision|tool|general...
+	AgentID  *string `gorm:"size:64;index" json:"agentId,omitempty"`
+	FlowID   *string `gorm:"size:64;index" json:"flowId,omitempty"`
+	Purpose  *string `gorm:"size:32;index" json:"purpose,omitempty"` // json|vision|tool|general...
+	Provider string  `gorm:"size:64"  json:"provider"`
+	Model    string  `gorm:"size:128" json:"model"`
 
 	// 策略体：候选列表/回退/权重/超时
 	Strategy datatypes.JSONMap `gorm:"type:jsonb;default:'{}'::jsonb" json:"strategy"`

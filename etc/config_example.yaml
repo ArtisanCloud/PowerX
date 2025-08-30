@@ -5,6 +5,11 @@ server:
   mode: debug
   api_prefix: /api/v1
 
+  # secret_key 是 32 字节的 Base64 编码
+  # umask 077
+  # head -c 32 /dev/urandom | base64 -w0
+  secret_key:
+
 database:
   host: localhost
   port: 5432

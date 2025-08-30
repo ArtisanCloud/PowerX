@@ -1,45 +1,31 @@
+// config/secret_key.go
 package config
 
 import (
 	"encoding/base64"
 	"fmt"
-	"os"
+	"github.com/ArtisanCloud/PowerX/pkg/crypto"
 )
 
-type WrapConfig struct {
-	MasterKeyID   string `yaml:"master_key_id"`   // 例如 v1
-	MasterKeyB64  string `yaml:"master_key_b64"`  // 可选：Base64（解码后 32 字节）
-	MasterKeyFile string `yaml:"master_key_file"` // 可选：指向一个二进制 32 字节文件
-}
+// ParseKey 解析并校验 server.secret_key（Base64，解码后必须 32 字节）。
+// 成功返回解码后的 32 字节密钥；失败返回错误。
+func (s *ServerConfig) ParseKey() ([]byte, error) {
+	if s.SecretKey == "" {
+		return nil, fmt.Errorf("server.secret_key 不能为空（需要 Base64 编码的 32 字节）")
+	}
 
-type WrapKey struct {
-	ID  string
-	Key []byte // 32 bytes
-}
+	key, err := base64.StdEncoding.DecodeString(s.SecretKey)
+	if err != nil {
+		return nil, fmt.Errorf("server.secret_key 不是合法的 Base64：%w", err)
+	}
+	if len(key) != 32 {
+		return nil, fmt.Errorf("server.secret_key 解码后需为 32 字节，当前=%d", len(key))
+	}
 
-func (c *Config) ParseWrapKey() (*WrapKey, error) {
-	if c.Wrap.MasterKeyID == "" {
-		return nil, fmt.Errorf("wrap.master_key_id 不能为空")
+	// 注入到 crypto 全局（tenant_rsa.go 已去掉环境变量读取，优先使用全局）
+	if err = crypto.SetGlobalKeyB64(s.SecretKey); err != nil {
+		return nil, fmt.Errorf("设置全局主密钥失败: %w", err)
 	}
-	var raw []byte
-	switch {
-	case c.Wrap.MasterKeyB64 != "":
-		dec, err := base64.StdEncoding.DecodeString(c.Wrap.MasterKeyB64)
-		if err != nil {
-			return nil, fmt.Errorf("wrap.master_key_b64 非法: %w", err)
-		}
-		raw = dec
-	case c.Wrap.MasterKeyFile != "":
-		b, err := os.ReadFile(c.Wrap.MasterKeyFile)
-		if err != nil {
-			return nil, fmt.Errorf("读取 wrap.master_key_file 失败: %w", err)
-		}
-		raw = b
-	default:
-		return nil, fmt.Errorf("wrap.master_key_b64 与 wrap.master_key_file 至少提供一个")
-	}
-	if len(raw) != 32 {
-		return nil, fmt.Errorf("主密钥长度须为 32 字节，当前=%d", len(raw))
-	}
-	return &WrapKey{ID: c.Wrap.MasterKeyID, Key: raw}, nil
+
+	return key, nil
 }

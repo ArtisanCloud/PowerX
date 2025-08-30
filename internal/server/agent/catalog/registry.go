@@ -34,8 +34,9 @@ type Manifest struct {
 }
 
 type AuthSpec struct {
-	Scheme string   `yaml:"scheme" json:"scheme"`                     // bearer|aksk|oauth2|...
-	Fields []string `yaml:"fields,omitempty" json:"fields,omitempty"` // ["api_key","base_url",...]
+	Scheme   string            `yaml:"scheme" json:"scheme"`                         // bearer|aksk|oauth2|...
+	Fields   []string          `yaml:"fields,omitempty" json:"fields,omitempty"`     // ["api_key","base_url",...]
+	Defaults map[string]string `yaml:"defaults,omitempty" json:"defaults,omitempty"` // e.g. {"base_url": "https://api.openai.com/v1"}
 }
 
 type ModalityManifest struct {
@@ -72,6 +73,17 @@ func NewRegistry() *Registry {
 
 func canonical(s string) string {
 	return strings.ReplaceAll(strings.ToLower(strings.TrimSpace(s)), " ", "-")
+}
+
+func (r *Registry) Manifest(provider string) (*Manifest, bool) {
+	pid := r.CanonicalProvider(provider)
+	if pid == "" {
+		return nil, false
+	}
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	m, ok := r.providers[pid]
+	return m, ok
 }
 
 func (r *Registry) addManifestBytes(b []byte) error {

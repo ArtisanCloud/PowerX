@@ -28,6 +28,7 @@ func NewAgentSettingHandler(deps *shared.Deps) *AgentSettingHandler {
 type modality = string
 
 type baseConn struct {
+	Name            string `form:"name"`
 	Provider        string `json:"provider" validate:"required"`
 	Model           string `json:"model"    validate:"required"`
 	APIKey          string `json:"apiKey"`
@@ -99,7 +100,9 @@ type testCallReq struct {
 
 func (h *AgentSettingHandler) listProviders(c *gin.Context) {
 	mod := c.Query("modality")
-	dtoRequest.ResponseSuccess(c, gin.H{"providers": h.svc.Providers(mod)})
+	list := h.svc.Providers(mod)
+	dtoRequest.ResponseSuccess(c, gin.H{"providers": list})
+	return
 }
 
 func (h *AgentSettingHandler) listModels(c *gin.Context) {
@@ -123,16 +126,28 @@ func (h *AgentSettingHandler) saveSettings(c *gin.Context) {
 	}
 	tenantID := auth.GetTenantID(c.Request.Context())
 
-	// 仅按当前模态做最小校验
+	// 仅按当前模态做最小校验 + 先严格连通性校验（不读库不解封）
 	switch strings.ToLower(req.Modality) {
 	case "llm":
 		if req.LLM == nil || strings.TrimSpace(req.LLM.Provider) == "" || strings.TrimSpace(req.LLM.Model) == "" {
 			dtoRequest.ResponseError(c, http.StatusBadRequest, "llm.provider/model 不能为空", nil)
 			return
 		}
+		// 🔒 用本次表单直连校验，失败不落库
+		if err := h.svc.PingLLM(
+			c.Request.Context(),
+			req.Env, &tenantID,
+			req.LLM.Provider,
+			req.LLM.Model,
+			req.LLM.BaseURL,
+			req.LLM.APIKey,
+		); err != nil {
+			dtoRequest.ResponseError(c, http.StatusBadRequest, "连通性校验失败", err)
+			return
+		}
 	}
 
-	// 组装两张表的实体并落库
+	// 组装两张表的实体并落库（Service 内会 SealSensitive + Upsert）
 	credName, credProvider, credData, prof := buildEntitiesFromPayload(&req, &tenantID)
 	if credName == "" || prof == nil {
 		dtoRequest.ResponseError(c, http.StatusBadRequest, "缺少当前模态设置", nil)
@@ -146,7 +161,7 @@ func (h *AgentSettingHandler) saveSettings(c *gin.Context) {
 		AuthScheme: "bearer",
 		Data:       credData,
 	}
-	if err := h.svc.SaveCredentialAndProfile(c.Request.Context(), req.Env, &tenantID, cred, prof); err != nil {
+	if err := h.svc.SaveCredentialAndProfile(c.Request.Context(), req.Env, &tenantID, cred, prof, true); err != nil {
 		dtoRequest.ResponseError(c, http.StatusInternalServerError, "保存失败", err)
 		return
 	}
@@ -166,16 +181,16 @@ func (h *AgentSettingHandler) testConnection(c *gin.Context) {
 		dtoRequest.ResponseError(c, http.StatusBadRequest, err.Error(), nil)
 		return
 	}
+
 	switch strings.ToLower(req.Modality) {
 	case "llm":
-		if req.LLM == nil || strings.TrimSpace(req.LLM.Provider) == "" || strings.TrimSpace(req.LLM.Model) == "" {
-			dtoRequest.ResponseError(c, http.StatusBadRequest, "llm.provider/model 不能为空", nil)
-			return
-		}
-		if err := h.svc.PingLLM(c.Request.Context(),
+		err := h.svc.TestConnectionPreferInput(
+			c.Request.Context(),
 			req.Env, &tid,
+			req.Modality,
 			req.LLM.Provider, req.LLM.Model, req.LLM.BaseURL, req.LLM.APIKey,
-		); err != nil {
+		)
+		if err != nil {
 			dtoRequest.ResponseError(c, http.StatusBadRequest, "连接测试失败", err)
 			return
 		}
@@ -355,6 +370,51 @@ func buildEntitiesFromPayload(req *saveSettingsReq, tenantID *uint64) (credName,
 		}
 	}
 	return
+}
+
+func (h *AgentSettingHandler) getActiveProfile(c *gin.Context) {
+	env := c.DefaultQuery("env", "default")
+	mod := strings.TrimSpace(strings.ToLower(c.DefaultQuery("modality", "llm")))
+	tid, err := auth.RequireTenantIDFromGin(c)
+	if err != nil {
+		dtoRequest.ResponseError(c, http.StatusBadRequest, err.Error(), nil)
+		return
+	}
+	prof, err := h.svc.GetActiveProfile(c.Request.Context(), env, &tid, mod)
+	if err != nil || prof == nil {
+		dtoRequest.ResponseError(c, http.StatusNotFound, "未找到激活画像", err)
+		return
+	}
+	dtoRequest.ResponseSuccess(c, gin.H{
+		"env":      env,
+		"modality": mod,
+		"profile":  prof, // ✅ 只有一条
+	})
+}
+
+type setActiveReq struct {
+	Env      string `json:"env" validate:"required"`
+	Modality string `json:"modality" validate:"required"`
+	Provider string `json:"provider" validate:"required"`
+	Model    string `json:"model" validate:"required"`
+}
+
+func (h *AgentSettingHandler) setActiveProfile(c *gin.Context) {
+	var req setActiveReq
+	if err := dtoRequest.ValidateRequestWithContext(c, &req); err != nil {
+		dtoRequest.ResponseValidationError(c, err)
+		return
+	}
+	tid, err := auth.RequireTenantIDFromGin(c)
+	if err != nil {
+		dtoRequest.ResponseError(c, http.StatusBadRequest, err.Error(), nil)
+		return
+	}
+	if err := h.svc.SetActiveProfile(c.Request.Context(), req.Env, &tid, req.Modality, req.Provider, req.Model); err != nil {
+		dtoRequest.ResponseError(c, http.StatusInternalServerError, "设置失败", err)
+		return
+	}
+	dtoRequest.ResponseSuccess(c, gin.H{"ok": true})
 }
 
 // GET /api/agents/settings/profiles?env=default&modalities=llm,image

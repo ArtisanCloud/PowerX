@@ -14,3 +14,12 @@ func MustJSONBytes(v any) []byte {
 	b, _ := json.Marshal(v)
 	return b
 }
+
+func HasAnyNonEmpty(m datatypes.JSONMap, keys ...string) bool {
+	for _, k := range keys {
+		if s := ToStr(m[k]); s != "" {
+			return true
+		}
+	}
+	return false
+}

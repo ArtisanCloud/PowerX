@@ -33,6 +33,32 @@
         ]
       }
     },
+    "/api/admin/agents/settings/active": {
+      "get": {
+        "operationId": "GET /api/admin/agents/settings/active",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "GET /api/admin/agents/settings/active",
+        "tags": [
+          "api"
+        ]
+      },
+      "post": {
+        "operationId": "POST /api/admin/agents/settings/active",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/admin/agents/settings/active",
+        "tags": [
+          "api"
+        ]
+      }
+    },
     "/api/admin/agents/settings/credentials": {
       "get": {
         "operationId": "GET /api/admin/agents/settings/credentials",

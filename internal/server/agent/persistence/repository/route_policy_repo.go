@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	coremodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
 
 	dbmodel "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/model"
 	coreRepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository"
@@ -19,6 +20,24 @@ func NewAIRoutePolicyRepository(db *gorm.DB) *AIRoutePolicyRepository {
 		BaseRepository: coreRepo.NewBaseRepository[dbmodel.AIRoutePolicy](db),
 		db:             db,
 	}
+}
+
+func (r *AIRoutePolicyRepository) UpsertDefaultByScopeModality(
+	ctx context.Context, env string, tenantID *uint64,
+	modality, provider, model string,
+) error {
+	rec := &dbmodel.AIRoutePolicy{
+		ScopeRef: coremodel.ScopeRef{
+			Env:      env,
+			TenantID: tenantID,
+		},
+
+		Modality: modality,
+		Provider: provider,
+		Model:    model,
+		// 其余字段（strategy/compliance/quota）按需赋
+	}
+	return r.UpsertByScopeSelectors(ctx, rec)
 }
 
 // Upsert 唯一键：env + tenant_id + modality + agent_id(NULL 可选) + flow_id(NULL 可选) + purpose(NULL 可选)
@@ -55,6 +74,13 @@ func (r *AIRoutePolicyRepository) UpsertByScopeSelectors(ctx context.Context, in
 	default:
 		return err
 	}
+}
+
+func (r *AIRoutePolicyRepository) FindDefaultByScopeModality(
+	ctx context.Context, env string, tenantID *uint64,
+	modality string,
+) (*dbmodel.AIRoutePolicy, error) {
+	return r.FindByScopeSelectors(ctx, env, tenantID, modality, nil, nil, nil)
 }
 
 func (r *AIRoutePolicyRepository) FindByScopeSelectors(

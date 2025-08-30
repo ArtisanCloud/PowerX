@@ -34,5 +34,9 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 
 		agentAdminGroup.GET("/settings/profiles", settingH.listProfiles)
 		agentAdminGroup.GET("/settings/credentials", settingH.listCredentials)
+
+		agentAdminGroup.GET("/settings/active", settingH.getActiveProfile)
+		agentAdminGroup.POST("/settings/active", settingH.setActiveProfile)
+
 	}
 }

@@ -1,20 +1,139 @@
 id: ollama
 name: Ollama (Local)
 aliases: ["ollama (local)", "local"]
+
 drivers:
   llm: ollama
   embedding: ollama
-  image: ""
+  image: ollama        # 这类是“图像理解(VLM)”而非“图像生成”
+  audio_asr: external  # 建议接 whisper.cpp / faster-whisper 服务
+  audio_tts: external  # 建议接 Piper / Coqui TTS
+  video: external      # 暂无本地通用方案，留占位
+  rerank: external     # 建议接 Jina Reranker / TEI Cross-Encoder
+
 auth:
   scheme: none
   fields: ["base_url"]
+
+defaults:
+  base_url: "http://localhost:11434"
+
 modalities:
+
+  # ───────────────────────────
+  # LLM（文本/对话）
+  # ───────────────────────────
   llm:
+    params_defaults:
+      temperature: 0.2
+      max_tokens: 256
+      top_p: 0.95
+      repeat_penalty: 1.1
+      num_ctx: 8192
     models:
       - id: llama3
-        label: "Llama 3"
+        label: "Llama 3 8B Instruct"
         defaults: { temperature: 0.2, max_tokens: 256 }
-      - id: qwen2
-        label: "Qwen2"
+      - id: llama3:70b
+        label: "Llama 3 70B Instruct"
+        defaults: { temperature: 0.2, max_tokens: 512 }
       - id: mistral
-        label: "Mistral"
+        label: "Mistral 7B Instruct"
+      - id: mixtral
+        label: "Mixtral 8x7B Instruct"
+      - id: qwen2
+        label: "Qwen2 7B Instruct"
+      - id: qwen3:8b
+        label: "Qwen3 8B Instruct"
+      - id: deepseek-r1:1.5b
+        label: "DeepSeek R1 1.5B (Reasoning)"
+        defaults: { temperature: 0.1, max_tokens: 1024 }
+      - id: deepseek-coder
+        label: "DeepSeek Coder 6.7B"
+      - id: phi3
+        label: "Phi-3 Mini (3.8B)"
+      - id: gemma2:9b
+        label: "Gemma 2 9B"
+
+  # ───────────────────────────
+  # Embedding（向量化）
+  # ───────────────────────────
+  embedding:
+    # 使用 /api/embeddings；CLI 为 `ollama embed -m <model>`
+    params_defaults:
+      normalize: true
+      pooling: "mean"
+      truncation: "end"
+    models:
+      - id: mxbai-embed-large
+        label: "MXBAI Embed Large"
+      - id: nomic-embed-text
+        label: "Nomic Embed Text"
+      - id: all-minilm:22m
+        label: "All-MiniLM-L6-v2 (22M)"
+      - id: bge-base-en
+        label: "BGE Base EN"
+      - id: bge-large-zh
+        label: "BGE Large ZH"
+
+  # ───────────────────────────
+  # Image（图像模态）→ 这里定位为 **图像理解 VLM：image+text → text**
+  # 若你系统里“image”被定义为“图像生成”，请将本节改名为 “vlm” 或在前端区分 task=understanding。
+  # ───────────────────────────
+  image:
+    kind: "vision-understanding"   # 自定义标记：区分于生成
+    note: "Ollama 支持多模态VLM的图像理解，不负责图像生成。"
+    models:
+      - id: llava
+        label: "LLaVA 13B (VQA/描述/OCR)"
+      - id: moondream
+        label: "Moondream (轻量VLM)"
+      - id: phi3:vision
+        label: "Phi-3 Vision"
+      - id: qwen2-vl
+        label: "Qwen2-VL 7B"
+      # - id: llama3.2-vision   # 如你的库里有，可解注释
+      #   label: "Llama 3.x Vision"
+
+  # ───────────────────────────
+  # 语音识别（ASR）—— Ollama 无官方通道，建议外部服务
+  # 下面给占位与推荐，便于系统路由
+  # ───────────────────────────
+  audio_asr:
+    driver: external
+    recommended:
+      - id: whisper.cpp
+        label: "Whisper.cpp (tiny/base/small/medium/large-v3)"
+      - id: faster-whisper
+        label: "Faster-Whisper (CTranslate2)"
+
+  # ───────────────────────────
+  # 语音合成（TTS）—— 使用外部服务
+  # ───────────────────────────
+  audio_tts:
+    driver: external
+    recommended:
+      - id: piper
+        label: "Piper TTS (轻量离线)"
+      - id: coqui-xtts
+        label: "Coqui XTTS (多语多音色)"
+
+  # ───────────────────────────
+  # 视频（Video）—— 目前常见本地框架分散，先占位
+  # ───────────────────────────
+  video:
+    driver: external
+    recommended:
+      - id: llava-onevision
+        label: "One-Vision 风格的VLM（研究中）"
+
+  # ───────────────────────────
+  # Rerank（重排）—— 建议用 cross-encoder 外部服务
+  # ───────────────────────────
+  rerank:
+    driver: external
+    recommended:
+      - id: jina-reranker-v2-base
+        label: "Jina Reranker v2 Base"
+      - id: bge-reranker-base
+        label: "BGE Reranker Base"
