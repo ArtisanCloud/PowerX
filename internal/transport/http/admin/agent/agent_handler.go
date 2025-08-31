@@ -3,9 +3,14 @@ package agent
 import (
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
 	"github.com/ArtisanCloud/PowerX/internal/server/agent"
+	dbmodel "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/model"
 	agentschema "github.com/ArtisanCloud/PowerX/internal/server/agent/schemas"
+	agentSvc "github.com/ArtisanCloud/PowerX/internal/service/agent"
+	"github.com/ArtisanCloud/PowerX/pkg/auth"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/flow/schemas"
 	dtoRequest "github.com/ArtisanCloud/PowerX/pkg/dto"
+	"github.com/ArtisanCloud/PowerX/pkg/utils"
+	"gorm.io/datatypes"
 	"strings"
 	"time"
 
@@ -15,10 +20,13 @@ import (
 // ====== DTO ======
 
 type AgentHandler struct {
+	srv *agentSvc.AgentService
 }
 
-func NewAgentHandler(_ *shared.Deps) *AgentHandler {
-	return &AgentHandler{}
+func NewAgentHandler(dep *shared.Deps) *AgentHandler {
+	return &AgentHandler{
+		srv: agentSvc.NewAgentService(dep.DB),
+	}
 }
 
 type AgentStatusRequest struct {
@@ -174,4 +182,299 @@ func (h *AgentHandler) PlanPreview(c *gin.Context) {
 		"tasks": tasks,
 	})
 	return
+}
+
+type createAgentReq struct {
+	Env              string            `json:"env" validate:"required"`
+	Key              string            `json:"key" validate:"required"`
+	Name             string            `json:"name" validate:"required"`
+	Description      string            `json:"description"`
+	Visibility       string            `json:"visibility"` // private|tenant|public
+	Status           string            `json:"status"`     // draft|active...
+	Scope            string            `json:"scope"`      // system|tenant（语义标签）
+	DefaultPersonaID *uint64           `json:"defaultPersonaId"`
+	BlueprintRefs    datatypes.JSON    `json:"blueprintRefs"`
+	IntentCardsRef   datatypes.JSON    `json:"intentCardsRef"`
+	ToolAllowlist    []string          `json:"toolAllowlist"`
+	KBStrategy       string            `json:"kbStrategy"`
+	Meta             datatypes.JSONMap `json:"meta"`
+}
+
+type updateAgentReq struct {
+	Name             *string           `json:"name,omitempty"`
+	Description      *string           `json:"description,omitempty"`
+	Visibility       *string           `json:"visibility,omitempty"`
+	Status           *string           `json:"status,omitempty"`
+	Scope            *string           `json:"scope,omitempty"`
+	DefaultPersonaID *uint64           `json:"defaultPersonaId,omitempty"`
+	BlueprintRefs    datatypes.JSON    `json:"blueprintRefs,omitempty"`
+	IntentCardsRef   datatypes.JSON    `json:"intentCardsRef,omitempty"`
+	ToolAllowlist    []string          `json:"toolAllowlist,omitempty"`
+	KBStrategy       *string           `json:"kbStrategy,omitempty"`
+	Meta             datatypes.JSONMap `json:"meta,omitempty"`
+}
+
+func (h *AgentHandler) CreateAgent(c *gin.Context) {
+	var req createAgentReq
+	if err := dtoRequest.ValidateRequestWithContext(c, &req); err != nil {
+		dtoRequest.ResponseValidationError(c, err)
+		return
+	}
+	tid, err := auth.RequireTenantIDFromGin(c)
+	if err != nil {
+		dtoRequest.ResponseError(c, 400, err.Error(), nil)
+		return
+	}
+
+	in := &dbmodel.Agent{
+		Env:              req.Env,
+		TenantID:         &tid,
+		Key:              strings.TrimSpace(req.Key),
+		Name:             strings.TrimSpace(req.Name),
+		Description:      req.Description,
+		Source:           "core",
+		Scope:            utils.FirstNonEmpty(req.Scope, "tenant"),
+		Visibility:       utils.FirstNonEmpty(req.Visibility, "tenant"),
+		Status:           utils.FirstNonEmpty(req.Status, "draft"),
+		DefaultPersonaID: req.DefaultPersonaID,
+		BlueprintRefs:    req.BlueprintRefs,
+		IntentCardsRef:   req.IntentCardsRef,
+		ToolAllowlist:    req.ToolAllowlist,
+		KBStrategy:       utils.FirstNonEmpty(req.KBStrategy, "union"),
+		Meta:             req.Meta,
+	}
+	out, err := h.srv.Create(c.Request.Context(), req.Env, &tid, in)
+	if err != nil {
+		dtoRequest.ResponseError(c, 400, err.Error(), nil)
+		return
+	}
+	dtoRequest.ResponseSuccess(c, out)
+}
+
+func (h *AgentHandler) ListAgents(c *gin.Context) {
+	env := c.DefaultQuery("env", "default")
+	tid, err := auth.RequireTenantIDFromGin(c)
+	if err != nil {
+		dtoRequest.ResponseError(c, 400, err.Error(), nil)
+		return
+	}
+	var statuses []string
+	if s := strings.TrimSpace(c.Query("status")); s != "" {
+		for _, it := range strings.Split(s, ",") {
+			if v := strings.TrimSpace(it); v != "" {
+				statuses = append(statuses, v)
+			}
+		}
+	}
+	list, err := h.srv.List(c.Request.Context(), env, &tid, statuses...)
+	if err != nil {
+		dtoRequest.ResponseError(c, 500, "查询失败", err)
+		return
+	}
+	dtoRequest.ResponseSuccess(c, gin.H{"items": list})
+}
+
+func (h *AgentHandler) GetAgent(c *gin.Context) {
+	env := c.DefaultQuery("env", "default")
+	tid, err := auth.RequireTenantIDFromGin(c)
+	if err != nil {
+		dtoRequest.ResponseError(c, 400, err.Error(), nil)
+		return
+	}
+	agentID, err := utils.ParseUintID(c.Param("id"))
+	if err != nil {
+		dtoRequest.ResponseError(c, 400, "id 非法", nil)
+		return
+	}
+	out, err := h.srv.Get(c.Request.Context(), env, &tid, agentID)
+	if err != nil {
+		dtoRequest.ResponseError(c, 404, "未找到", err)
+		return
+	}
+	dtoRequest.ResponseSuccess(c, out)
+}
+
+func (h *AgentHandler) UpdateAgent(c *gin.Context) {
+	var req updateAgentReq
+	if err := dtoRequest.ValidateRequestWithContext(c, &req); err != nil {
+		dtoRequest.ResponseValidationError(c, err)
+		return
+	}
+	env := c.DefaultQuery("env", "default")
+	tid, err := auth.RequireTenantIDFromGin(c)
+	if err != nil {
+		dtoRequest.ResponseError(c, 400, err.Error(), nil)
+		return
+	}
+	agentID, err := utils.ParseUintID(c.Param("id"))
+	if err != nil {
+		dtoRequest.ResponseError(c, 400, "id 非法", nil)
+		return
+	}
+
+	patch := agentSvc.AgentPatch{
+		Name:             req.Name,
+		Description:      req.Description,
+		Visibility:       req.Visibility,
+		Status:           req.Status,
+		Scope:            req.Scope,
+		DefaultPersonaID: req.DefaultPersonaID,
+		BlueprintRefs:    req.BlueprintRefs,
+		IntentCardsRef:   req.IntentCardsRef,
+		ToolAllowlist:    req.ToolAllowlist,
+		KBStrategy:       req.KBStrategy,
+		Meta:             req.Meta,
+	}
+	out, err := h.srv.Update(c.Request.Context(), env, &tid, agentID, patch)
+	if err != nil {
+		dtoRequest.ResponseError(c, 400, err.Error(), nil)
+		return
+	}
+	dtoRequest.ResponseSuccess(c, out)
+}
+
+func (h *AgentHandler) EnableAgent(c *gin.Context)  { h.setAgentStatus(c, dbmodel.AgentStatusActive) }
+func (h *AgentHandler) DisableAgent(c *gin.Context) { h.setAgentStatus(c, dbmodel.AgentStatusDisabled) }
+func (h *AgentHandler) setAgentStatus(c *gin.Context, status string) {
+	env := c.DefaultQuery("env", "default")
+	tid, err := auth.RequireTenantIDFromGin(c)
+	if err != nil {
+		dtoRequest.ResponseError(c, 400, err.Error(), nil)
+		return
+	}
+	agentID, err := utils.ParseUintID(c.Param("id"))
+	if err != nil {
+		dtoRequest.ResponseError(c, 400, "id 非法", nil)
+		return
+	}
+	if err := h.srv.SetStatus(c.Request.Context(), env, &tid, agentID, status); err != nil {
+		dtoRequest.ResponseError(c, 400, err.Error(), nil)
+		return
+	}
+	dtoRequest.ResponseSuccess(c, gin.H{"ok": true})
+}
+
+func (h *AgentHandler) DeleteAgent(c *gin.Context) {
+	env := c.DefaultQuery("env", "default")
+	tid, err := auth.RequireTenantIDFromGin(c)
+	if err != nil {
+		dtoRequest.ResponseError(c, 400, err.Error(), nil)
+		return
+	}
+	agentID, err := utils.ParseUintID(c.Param("id"))
+	if err != nil {
+		dtoRequest.ResponseError(c, 400, "id 非法", nil)
+		return
+	}
+	if err := h.srv.Delete(c.Request.Context(), env, &tid, agentID); err != nil {
+		dtoRequest.ResponseError(c, 400, err.Error(), nil)
+		return
+	}
+	dtoRequest.ResponseSuccess(c, gin.H{"ok": true})
+}
+
+// ====== 管理接口：Agent 级 AI Setting ======
+
+type upsertAgentAISettingReq struct {
+	Env           string            `json:"env" validate:"required"`
+	Provider      string            `json:"provider"`
+	Model         string            `json:"model"`
+	Params        datatypes.JSONMap `json:"params"`
+	OverrideFlags datatypes.JSONMap `json:"overrideFlags"`
+	QuotaPolicy   datatypes.JSONMap `json:"quotaPolicy"`
+}
+
+func (h *AgentHandler) GetAgentAISetting(c *gin.Context) {
+	env := c.DefaultQuery("env", "default")
+	tid, err := auth.RequireTenantIDFromGin(c)
+	if err != nil {
+		dtoRequest.ResponseError(c, 400, err.Error(), nil)
+		return
+	}
+	agentID, err := utils.ParseUintID(c.Param("id"))
+	if err != nil {
+		dtoRequest.ResponseError(c, 400, "id 非法", nil)
+		return
+	}
+	setting, err := h.srv.GetAgentAISetting(c.Request.Context(), env, &tid, agentID)
+	if err != nil {
+		dtoRequest.ResponseError(c, 404, "未找到", err)
+		return
+	}
+	dtoRequest.ResponseSuccess(c, setting)
+}
+
+func (h *AgentHandler) UpsertAgentAISetting(c *gin.Context) {
+	var req upsertAgentAISettingReq
+	if err := dtoRequest.ValidateRequestWithContext(c, &req); err != nil {
+		dtoRequest.ResponseValidationError(c, err)
+		return
+	}
+	tid, err := auth.RequireTenantIDFromGin(c)
+	if err != nil {
+		dtoRequest.ResponseError(c, 400, err.Error(), nil)
+		return
+	}
+	agentID, err := utils.ParseUintID(c.Param("id"))
+	if err != nil {
+		dtoRequest.ResponseError(c, 400, "id 非法", nil)
+		return
+	}
+
+	in := &dbmodel.AgentSetting{
+		Env:           req.Env,
+		AgentID:       agentID,
+		Provider:      strings.TrimSpace(req.Provider),
+		Model:         strings.TrimSpace(req.Model),
+		Params:        req.Params,
+		OverrideFlags: req.OverrideFlags,
+		QuotaPolicy:   req.QuotaPolicy,
+		HealthStatus:  "unknown",
+		HealthInfo:    datatypes.JSONMap{},
+	}
+	out, err := h.srv.UpsertAgentAISetting(c.Request.Context(), req.Env, &tid, in)
+	if err != nil {
+		dtoRequest.ResponseError(c, 400, err.Error(), nil)
+		return
+	}
+	dtoRequest.ResponseSuccess(c, out)
+}
+
+func (h *AgentHandler) DeleteAgentAISetting(c *gin.Context) {
+	env := c.DefaultQuery("env", "default")
+	tid, err := auth.RequireTenantIDFromGin(c)
+	if err != nil {
+		dtoRequest.ResponseError(c, 400, err.Error(), nil)
+		return
+	}
+	agentID, err := utils.ParseUintID(c.Param("id"))
+	if err != nil {
+		dtoRequest.ResponseError(c, 400, "id 非法", nil)
+		return
+	}
+	if err := h.srv.DeleteAgentAISetting(c.Request.Context(), env, &tid, agentID); err != nil {
+		dtoRequest.ResponseError(c, 400, err.Error(), nil)
+		return
+	}
+	dtoRequest.ResponseSuccess(c, gin.H{"ok": true})
+}
+
+func (h *AgentHandler) AgentHealthCheck(c *gin.Context) {
+	env := c.DefaultQuery("env", "default")
+	tid, err := auth.RequireTenantIDFromGin(c)
+	if err != nil {
+		dtoRequest.ResponseError(c, 400, err.Error(), nil)
+		return
+	}
+	agentID, err := utils.ParseUintID(c.Param("id"))
+	if err != nil {
+		dtoRequest.ResponseError(c, 400, "id 非法", nil)
+		return
+	}
+	info, err := h.srv.HealthCheck(c.Request.Context(), env, &tid, agentID)
+	if err != nil {
+		dtoRequest.ResponseError(c, 400, "检查失败", err)
+		return
+	}
+	dtoRequest.ResponseSuccess(c, gin.H{"ok": true, "probe": info})
 }

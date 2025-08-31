@@ -2,7 +2,10 @@ package utils
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
 )
 
@@ -155,4 +158,17 @@ func Slug(s string) string {
 	s = strings.Trim(s, "-")
 
 	return s
+}
+
+func Uint64ToString(v uint64) string       { return strconv.FormatUint(v, 10) }
+func TenantIDToString(v uint64) string     { return strconv.FormatUint(v, 10) }
+func ParseUint64(s string) (uint64, error) { return strconv.ParseUint(s, 10, 64) }
+
+func ParseUintID(s string) (uint64, error) {
+	var id uint64
+	_, err := fmt.Sscan(strings.TrimSpace(s), &id)
+	if err != nil || id == 0 {
+		return 0, errors.New("invalid id")
+	}
+	return id, nil
 }

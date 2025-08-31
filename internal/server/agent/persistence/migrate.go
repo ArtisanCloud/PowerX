@@ -13,6 +13,11 @@ func MigrateAgentModels(db *gorm.DB) error {
 		&dbmodel.AIModelProfile{},
 		&dbmodel.AIRoutePolicy{},
 		&dbmodel.AIUsageLog{},
+
+		&dbmodel.Agent{},
+		&dbmodel.AgentSetting{},
+		&dbmodel.AgentKBBinding{},
+		&dbmodel.AgentPluginLink{},
 	)
 
 	// 可以顺手确认一下（开发期）：

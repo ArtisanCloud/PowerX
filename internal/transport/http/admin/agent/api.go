@@ -38,5 +38,20 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 		agentAdminGroup.GET("/settings/active", settingH.getActiveProfile)
 		agentAdminGroup.POST("/settings/active", settingH.setActiveProfile)
 
+		// 智能体 CRUD
+		agentAdminGroup.POST("", agentH.CreateAgent)
+		agentAdminGroup.GET("", agentH.ListAgents)
+		agentAdminGroup.GET("/:id", agentH.GetAgent)
+		agentAdminGroup.PATCH("/:id", agentH.UpdateAgent)
+		agentAdminGroup.POST("/:id/enable", agentH.EnableAgent)
+		agentAdminGroup.POST("/:id/disable", agentH.DisableAgent)
+		agentAdminGroup.DELETE("/:id", agentH.DeleteAgent)
+
+		// 智能体 AI 配置
+		agentAdminGroup.GET("/:id/ai-setting", agentH.GetAgentAISetting)
+		agentAdminGroup.PUT("/:id/ai-setting", agentH.UpsertAgentAISetting)
+		agentAdminGroup.DELETE("/:id/ai-setting", agentH.DeleteAgentAISetting)
+		agentAdminGroup.POST("/:id/health-check", agentH.AgentHealthCheck)
+
 	}
 }

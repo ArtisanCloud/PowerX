@@ -5,6 +5,150 @@
   },
   "openapi": "3.0.3",
   "paths": {
+    "/api/admin/agents": {
+      "get": {
+        "operationId": "GET /api/admin/agents",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "GET /api/admin/agents",
+        "tags": [
+          "api"
+        ]
+      },
+      "post": {
+        "operationId": "POST /api/admin/agents",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/admin/agents",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/agents/:id": {
+      "delete": {
+        "operationId": "DELETE /api/admin/agents/_id",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "DELETE /api/admin/agents/_id",
+        "tags": [
+          "api"
+        ]
+      },
+      "get": {
+        "operationId": "GET /api/admin/agents/_id",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "GET /api/admin/agents/_id",
+        "tags": [
+          "api"
+        ]
+      },
+      "patch": {
+        "operationId": "PATCH /api/admin/agents/_id",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "PATCH /api/admin/agents/_id",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/agents/:id/ai-setting": {
+      "delete": {
+        "operationId": "DELETE /api/admin/agents/_id/ai-setting",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "DELETE /api/admin/agents/_id/ai-setting",
+        "tags": [
+          "api"
+        ]
+      },
+      "get": {
+        "operationId": "GET /api/admin/agents/_id/ai-setting",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "GET /api/admin/agents/_id/ai-setting",
+        "tags": [
+          "api"
+        ]
+      },
+      "put": {
+        "operationId": "PUT /api/admin/agents/_id/ai-setting",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "PUT /api/admin/agents/_id/ai-setting",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/agents/:id/disable": {
+      "post": {
+        "operationId": "POST /api/admin/agents/_id/disable",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/admin/agents/_id/disable",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/agents/:id/enable": {
+      "post": {
+        "operationId": "POST /api/admin/agents/_id/enable",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/admin/agents/_id/enable",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/agents/:id/health-check": {
+      "post": {
+        "operationId": "POST /api/admin/agents/_id/health-check",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/admin/agents/_id/health-check",
+        "tags": [
+          "api"
+        ]
+      }
+    },
     "/api/admin/agents/models": {
       "get": {
         "operationId": "GET /api/admin/agents/models",

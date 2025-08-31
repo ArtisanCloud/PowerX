@@ -10,6 +10,8 @@ import (
 
 // 统一的业务 Claims（sub 将使用 MemberUUID）
 type CoreXClaims struct {
+	Env        string   `json:"env,omitempty"`  // 当前请求/默认运行环境
+	Envs       []string `json:"envs,omitempty"` // 可切换的环境白名单（可选）
 	TenantUUID string   `json:"tid"`
 	TenantID   uint64   `json:"tid_n"`
 	MemberUUID string   `json:"mid"` // 也会作为 Subject
