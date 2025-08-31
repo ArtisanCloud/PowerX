@@ -44,7 +44,7 @@ func (r *TenantRepository) GetByKey(ctx context.Context, key string) (*dbm.Tenan
 // EnsureByKey 并发安全地确保存在指定 key 的租户：
 // - 存在：直接返回
 // - 不存在：插入（ON CONFLICT DO NOTHING），随后再读一遍拿到 ID
-func (r *TenantRepository) EnsureByKey(ctx context.Context, key, name string) (*dbm.Tenant, error) {
+func (r *TenantRepository) EnsureByKey(ctx context.Context, key, name, plan, tenantType string) (*dbm.Tenant, error) {
 	// 先查
 	if t, err := r.GetByKey(ctx, key); err == nil && t != nil {
 		return t, nil
@@ -56,7 +56,9 @@ func (r *TenantRepository) EnsureByKey(ctx context.Context, key, name string) (*
 	toCreate := &dbm.Tenant{
 		Key:    key,
 		Name:   name,
-		Status: 1,
+		Plan:   plan,
+		Type:   tenantType,
+		Status: dbm.TenantStatusActive,
 	}
 	if err := r.db.WithContext(ctx).
 		Clauses(clause.OnConflict{
@@ -73,7 +75,7 @@ func (r *TenantRepository) EnsureByKey(ctx context.Context, key, name string) (*
 
 // EnsureSystemTenant 语义化封装，复用 EnsureByKey
 func (r *TenantRepository) EnsureSystemTenant(ctx context.Context) (*dbm.Tenant, error) {
-	return r.EnsureByKey(ctx, dbm.SystemTenantKey, "System")
+	return r.EnsureByKey(ctx, dbm.SystemTenantKey, "System", dbm.TenantPlanFree, dbm.TenantTypeSystem)
 }
 
 // MapNamesByIDs 批量查询租户名称

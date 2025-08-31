@@ -1,0 +1,39 @@
+id: deepseek
+name: DeepSeek
+aliases: ["deepseek.com", "DeepSeek API", "DeepSeek-V3.1", "DeepSeek-R1"]
+
+drivers:
+  llm: deepseek
+  embedding: deepseek
+  image: deepseek
+  audio: deepseek
+  video: deepseek
+  rerank: deepseek
+
+auth:
+  scheme: bearer
+  fields: ["api_key", "base_url"]
+  defaults:
+    base_url: "https://api.deepseek.com"
+
+modalities:
+  llm:
+    models:
+      - id: deepseek-chat
+        label: "DeepSeek-Chat (V3.1 non-thinking)"
+        tags: ["fast","general","openai-compatible"]
+        defaults: { temperature: 0.7, max_tokens: 2048 }
+      - id: deepseek-reasoner
+        label: "DeepSeek-Reasoner (V3.1 thinking)"
+        tags: ["reasoning","chain-of-thought-safe"]
+        defaults: { temperature: 0.5, max_tokens: 4096 }
+  embedding:
+    models: []   # 暂未公开官方 Embedding API
+  image:
+    models: []
+  audio:
+    models: []
+  video:
+    models: []
+  rerank:
+    models: []

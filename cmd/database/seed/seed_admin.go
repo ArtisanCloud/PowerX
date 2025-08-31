@@ -4,6 +4,7 @@ package seed
 import (
 	"errors"
 	"fmt"
+	dbm "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/tenant"
 
 	tenantrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/tenant"
 	"golang.org/x/crypto/bcrypt"
@@ -28,7 +29,7 @@ func SeedRoot(db *gorm.DB) error {
 	const tenantKey = "system"
 	const orgName = "System"
 	tenRepo := tenantrepo.NewTenantRepository(db)
-	ten, err := tenRepo.EnsureByKey(seedCtx(), tenantKey, orgName)
+	ten, err := tenRepo.EnsureByKey(seedCtx(), tenantKey, orgName, dbm.TenantPlanFree, dbm.TenantTypeSystem)
 	if err != nil {
 		return fmt.Errorf("ensure tenant(%s): %w", tenantKey, err)
 	}

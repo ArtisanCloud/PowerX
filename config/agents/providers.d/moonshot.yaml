@@ -1,0 +1,47 @@
+id: moonshot
+name: Moonshot AI (Kimi)
+aliases: ["Kimi", "Moonshot", "moonshot.cn", "moonshot.ai"]
+
+drivers:
+  llm: moonshot
+  embedding: moonshot
+  image: moonshot
+  audio: moonshot
+  video: moonshot
+  rerank: moonshot
+
+auth:
+  scheme: bearer
+  fields: ["api_key", "base_url"]
+  defaults:
+    # 中国大陆推荐 cn 域名；也可换成 https://api.moonshot.ai/v1
+    base_url: "https://api.moonshot.cn/v1"
+
+modalities:
+  llm:
+    models:
+      - id: moonshot-v1-8k
+        label: "moonshot-v1-8k"
+        tags: ["fast","short-form"]
+        defaults: { temperature: 0.7, max_tokens: 1024 }
+        limits: { context_window: 8192 }
+      - id: moonshot-v1-32k
+        label: "moonshot-v1-32k"
+        tags: ["balanced","tools"]
+        defaults: { temperature: 0.7, max_tokens: 2048 }
+        limits: { context_window: 32768 }
+      - id: moonshot-v1-128k
+        label: "moonshot-v1-128k"
+        tags: ["long-context","analysis"]
+        defaults: { temperature: 0.7, max_tokens: 4096 }
+        limits: { context_window: 128000 }
+  embedding:
+    models: []   # 官方暂未公开独立 Embedding API
+  image:
+    models: []
+  audio:
+    models: []
+  video:
+    models: []
+  rerank:
+    models: []

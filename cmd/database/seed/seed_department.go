@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/tenant"
 	tenantRepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/tenant"
 
 	"gorm.io/datatypes"
@@ -108,7 +109,7 @@ func SeedSMEDepartments(db *gorm.DB, tenantKey string) error {
 	deptRepo := infraiam.NewDepartmentRepository(db)
 
 	// 1) 拿到租户（不存在可选择 Ensure/Find，这里沿用 EnsureByKey）
-	ten, err := tenantRepo.EnsureByKey(seedCtx(), tenantKey, "SME Org")
+	ten, err := tenantRepo.EnsureByKey(seedCtx(), tenantKey, "SME Org", tenant.TenantPlanBasic, tenant.TenantTypeEnterprise)
 	if err != nil {
 		return fmt.Errorf("ensure tenant(%s): %w", tenantKey, err)
 	}

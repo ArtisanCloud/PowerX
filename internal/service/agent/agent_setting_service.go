@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/ArtisanCloud/PowerX/internal/server/agent/catalog"
+	"github.com/ArtisanCloud/PowerX/internal/server/agent/contract"
 	repoai "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/repository"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/tenantkeys"
 	"github.com/ArtisanCloud/PowerX/pkg/utils"
@@ -216,22 +217,50 @@ func (s *AgentSettingService) TestConnectionPreferInput(
 	ctx context.Context, env string, tenantID *uint64,
 	modality, provider, model, baseURL, apiKey string,
 ) error {
-	switch strings.ToLower(strings.TrimSpace(modality)) {
-	case "llm":
-		// A) 有提交参数 ⇒ 严格只用提交值
-		if strings.TrimSpace(baseURL) != "" || strings.TrimSpace(apiKey) != "" {
-			return s.PingStrict(ctx, modality, provider, model, baseURL, apiKey)
+
+	mod := strings.ToLower(strings.TrimSpace(modality))
+	prov := strings.TrimSpace(provider)
+
+	switch contract.Modality(mod) {
+	case contract.ModLLM:
+		// 1) 从 catalog 读取鉴权要求与默认值
+		req := catalog.AuthReqFromCatalog(prov) // ← 见下方
+
+		// 2) 先用这次提交的值
+		bu := strings.TrimSpace(baseURL)
+		ak := strings.TrimSpace(apiKey)
+
+		// 3) baseURL：若该 provider 声明需要 base_url 且未传，先用 defaults.base_url 再用已保存
+		if req.NeedBaseURL && bu == "" {
+			if req.DefaultBaseURL != "" {
+				bu = req.DefaultBaseURL
+			}
+			if bu == "" {
+				// 再从已保存补 base_url（不解密）
+				if cred, err := s.credRepo.FindByScopeNameProvider(ctx, env, tenantID, utils.Slug(env+"-"+prov), prov); err == nil && cred != nil {
+					if v, ok := cred.Data["base_url"].(string); ok && strings.TrimSpace(v) != "" {
+						bu = strings.TrimSpace(v)
+					}
+				}
+			}
+			if bu == "" {
+				return fmt.Errorf("缺少 BaseURL（%s 要求 base_url）", provider)
+			}
 		}
-		// B) 否则走“已保存配置”
-		//    用你现有的回退解封逻辑：resolveConnFromStore -> pingStrict
-		bu, ak, err := s.resolveConnFromStore(ctx, env, tenantID, provider, baseURL, apiKey)
-		if err != nil {
-			return fmt.Errorf("读取已保存配置失败: %w", err)
+
+		// 4) api_key：若该 provider 需要 key 且未传，尝试从已保存配置解封；仍然没有则报错
+		if req.NeedKey && ak == "" {
+			_, ak2, err := s.resolveConnFromStore(ctx, env, tenantID, prov, bu, ak)
+			if err == nil && strings.TrimSpace(ak2) != "" {
+				ak = strings.TrimSpace(ak2)
+			}
+			if ak == "" {
+				return fmt.Errorf("缺少 API Key（%s 要求 api_key）", provider)
+			}
 		}
-		if strings.TrimSpace(bu) == "" {
-			return fmt.Errorf("已保存配置缺少 baseURL")
-		}
-		return s.PingStrict(ctx, modality, provider, model, bu, ak)
+
+		// 5) 严格直连：只用我们最终算出的 bu/ak，不再做其他回退
+		return s.PingStrict(ctx, mod, prov, model, bu, ak)
 
 	default:
 		return fmt.Errorf("暂未实现该模态测试: %s", modality)

@@ -301,12 +301,12 @@ func (s *AuthService) resolveTenant(ctx context.Context, ref string) (*tenantmdl
 		if s.DefaultTenantKey == "" {
 			return nil, errors.New("tenant is required")
 		}
-		return s.tenantRepo.EnsureByKey(ctx, s.DefaultTenantKey, "Default")
+		return s.tenantRepo.EnsureByKey(ctx, s.DefaultTenantKey, "Default", tenantmdl.TenantPlanFree, tenantmdl.TenantTypePersonal)
 	}
 	if len(ref) >= 32 && looksLikeUUID(ref) {
 		return s.tenantRepo.GetByUUID(ctx, ref, nil)
 	}
-	return s.tenantRepo.EnsureByKey(ctx, ref, strings.Title(ref))
+	return s.tenantRepo.EnsureByKey(ctx, ref, ref, tenantmdl.TenantPlanFree, tenantmdl.TenantTypePersonal)
 }
 
 func looksLikeUUID(s string) bool {

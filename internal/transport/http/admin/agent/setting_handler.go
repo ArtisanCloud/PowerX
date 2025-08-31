@@ -127,8 +127,8 @@ func (h *AgentSettingHandler) saveSettings(c *gin.Context) {
 	tenantID := auth.GetTenantID(c.Request.Context())
 
 	// 仅按当前模态做最小校验 + 先严格连通性校验（不读库不解封）
-	switch strings.ToLower(req.Modality) {
-	case "llm":
+	switch contract.Modality(strings.ToLower(req.Modality)) {
+	case contract.ModLLM:
 		if req.LLM == nil || strings.TrimSpace(req.LLM.Provider) == "" || strings.TrimSpace(req.LLM.Model) == "" {
 			dtoRequest.ResponseError(c, http.StatusBadRequest, "llm.provider/model 不能为空", nil)
 			return
@@ -382,7 +382,7 @@ func (h *AgentSettingHandler) getActiveProfile(c *gin.Context) {
 	}
 	prof, err := h.svc.GetActiveProfile(c.Request.Context(), env, &tid, mod)
 	if err != nil || prof == nil {
-		dtoRequest.ResponseError(c, http.StatusNotFound, "未找到激活画像", err)
+		dtoRequest.ResponseError(c, http.StatusBadRequest, "未找到激活画像", err)
 		return
 	}
 	dtoRequest.ResponseSuccess(c, gin.H{
