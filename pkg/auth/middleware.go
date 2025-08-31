@@ -4,12 +4,12 @@ package auth
 import (
 	"context"
 	"encoding/json"
-	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"net/http"
 	"strconv"
 	"strings"
 
 	"github.com/ArtisanCloud/PowerX/pkg/cache"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/utils"
 	"github.com/gin-gonic/gin"
 )
@@ -19,7 +19,7 @@ func KMember(mid uint64) string  { return "auth:member:" + strconv.FormatUint(mi
 func KTenant(tid uint64) string  { return "auth:tenant:" + strconv.FormatUint(tid, 10) }
 func KRevoked(jti string) string { return "auth:revoked:" + jti }
 
-// JwtMiddleware 统一的 JWT 校验中间件（v5 版）
+// JwtMiddleware 统一的 JWT 校验中间件
 // - issuer/audiences：与签发保持一致（从配置传入）
 // - requiredScopes：允许的 scope（例如只允许 "access"），传空则不限制；支持 "*" 代表任意
 // - cb：通过则回调做额外校验（比如租户冻结、风控等）；返回 error 即拒绝
@@ -46,6 +46,7 @@ func JwtMiddleware(
 		reqCtx := c.Request.Context()
 
 		// A. 解析 + 标准校验（Issuer / Audience / exp / nbf / iat / 签名）
+		// 注意：ParseAndValidate 需返回 *reqctx.CoreXClaims（见 pkg/auth/jwt.go）
 		claims, err := ParseAndValidate(tokenString, secret, issuer, audiences...)
 		if err != nil {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
@@ -71,7 +72,7 @@ func JwtMiddleware(
 		tid := claims.TenantID
 		if claims.IsRoot {
 			if as := c.Query("as_tenant_id"); as != "" {
-				if v, err := strconv.ParseUint(as, 10, 64); err == nil && v > 0 {
+				if v, e := strconv.ParseUint(as, 10, 64); e == nil && v > 0 {
 					tid = v
 				}
 			}
@@ -123,32 +124,37 @@ func JwtMiddleware(
 			}
 		}
 
-		// G. 注入上下文（保留原键；附加常用 id / is_root 和快照）
-		reqCtx = context.WithValue(reqCtx, reqctx.TenantIDKey, tid)
-		reqCtx = context.WithValue(reqCtx, reqctx.TenantUUIDKey, claims.TenantUUID)
-		reqCtx = context.WithValue(reqCtx, reqctx.SubjectKey, claims.MemberUUID) // sub = member.uuid
-		reqCtx = context.WithValue(reqCtx, reqctx.ScopeKey, claims.Scope)
-		if len(claims.Audience) > 0 {
-			reqCtx = context.WithValue(reqCtx, reqctx.AudienceKey, claims.Audience[0])
-		}
-		reqCtx = context.WithValue(reqCtx, reqctx.PlatformKey, claims.Platforms)
-		reqCtx = context.WithValue(reqCtx, reqctx.JWTClaimsKey, claims)
+		// G. 注入上下文（统一使用 reqctx.With*，并修正 platform 类型）
+		reqCtx = reqctx.WithClaims(reqCtx, claims)
+		reqCtx = reqctx.WithTenantID(reqCtx, tid)
+		reqCtx = reqctx.WithTenantUUID(reqCtx, claims.TenantUUID)
 
 		// 常用 id / root
-		reqCtx = context.WithValue(reqCtx, reqctx.UserIDKey, claims.UserID)
-		reqCtx = context.WithValue(reqCtx, reqctx.MemberIDKey, claims.MemberID)
-		reqCtx = context.WithValue(reqCtx, reqctx.IsRootKey, claims.IsRoot)
+		reqCtx = reqctx.WithUserID(reqCtx, claims.UserID)
+		reqCtx = reqctx.WithMemberID(reqCtx, claims.MemberID)
+		reqCtx = reqctx.WithIsRoot(reqCtx, claims.IsRoot)
 
-		// 快照（map[string]any）
-		if userSnap != nil {
-			reqCtx = context.WithValue(reqCtx, "auth.user.snapshot", userSnap)
+		// subject / audience / platform
+		reqCtx = reqctx.WithSubject(reqCtx, claims.MemberUUID)
+		if len(claims.Audience) > 0 {
+			reqCtx = reqctx.WithAudience(reqCtx, claims.Audience[0])
 		}
-		if memberSnap != nil {
-			reqCtx = context.WithValue(reqCtx, "auth.member.snapshot", memberSnap)
+		plat := ""
+		if len(claims.Platforms) > 0 {
+			plat = claims.Platforms[0] // 统一写入 string，避免后续读取类型不匹配
 		}
-		if tenantSnap != nil {
-			reqCtx = context.WithValue(reqCtx, "auth.tenant.snapshot", tenantSnap)
+		reqCtx = reqctx.WithPlatform(reqCtx, plat)
+
+		// 环境：把 token 里的 env / envs 也写入（下游可直接 reqctx.GetEnv 使用）
+		reqCtx = reqctx.WithEnv(reqCtx, claims.Env)
+		reqCtx = reqctx.WithEnvs(reqCtx, claims.Envs)
+
+		// TraceID（可选：从 Header 透传）
+		if tr := c.GetHeader("X-Trace-Id"); tr != "" {
+			reqCtx = reqctx.WithTraceID(reqCtx, tr)
 		}
+
+		// 写回 request，并同步到 gin.Context 的 keys
 		c.Request = c.Request.WithContext(reqCtx)
 		reqctx.CopyCtxToGin(c)
 
