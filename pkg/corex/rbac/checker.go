@@ -3,7 +3,7 @@ package rbac
 import (
 	"context"
 	"fmt"
-	"github.com/ArtisanCloud/PowerX/pkg/auth"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/gin-gonic/gin"
 )
 
@@ -28,8 +28,8 @@ func (noopChecker) Check(context.Context, Subject, string, string, map[string]an
 func SubjectFromContext(c *gin.Context) Subject {
 	var sub Subject
 
-	sub.TenantID = fmt.Sprintf("%d", auth.GetTenantID(c.Request.Context()))
-	sub.UserID = fmt.Sprintf("%d", auth.GetUserID(c.Request.Context()))
+	sub.TenantID = fmt.Sprintf("%d", reqctx.GetTenantID(c.Request.Context()))
+	sub.UserID = fmt.Sprintf("%d", reqctx.GetUserID(c.Request.Context()))
 
 	return sub
 }

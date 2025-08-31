@@ -4,6 +4,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/config"
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
 	"github.com/ArtisanCloud/PowerX/pkg/auth"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/gin-gonic/gin"
 )
 
@@ -16,7 +17,7 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 		cfg.Auth.Issuer,
 		[]string{cfg.Auth.AudienceUser},
 		[]string{"access"},
-		auth.RootOnlyCB(),
+		reqctx.RootOnlyCB(),
 	))
 
 	gSysUsers := gSys.Group("/users") // 仅 Root 可访问

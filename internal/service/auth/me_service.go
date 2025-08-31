@@ -4,11 +4,11 @@ import (
 	"context"
 	"github.com/ArtisanCloud/PowerX/internal/service"
 	repotenant "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/tenant"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"gorm.io/gorm"
 	"net/http"
 
-	"github.com/ArtisanCloud/PowerX/pkg/auth"
 	repo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/iam"
 )
 
@@ -60,9 +60,9 @@ func NewMeService(db *gorm.DB) *MeService {
 
 // GetMeContext 业务逻辑：从 ctx 解析身份 → 加载画像与成员列表 → 组装返回
 func (s *MeService) GetMeContext(ctx context.Context) (*MeContextResp, error) {
-	userID := auth.GetUserID(ctx)
-	tenantID := auth.GetTenantID(ctx)
-	memberID := auth.GetMemberID(ctx)
+	userID := reqctx.GetUserID(ctx)
+	tenantID := reqctx.GetTenantID(ctx)
+	memberID := reqctx.GetMemberID(ctx)
 
 	var currentMemberID *uint64
 	if memberID != 0 {

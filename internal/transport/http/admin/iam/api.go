@@ -6,6 +6,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
 	service "github.com/ArtisanCloud/PowerX/internal/service/iam"
 	"github.com/ArtisanCloud/PowerX/pkg/auth"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/gin-gonic/gin"
 )
 
@@ -88,7 +89,7 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 		cfg.Auth.Issuer,
 		[]string{cfg.Auth.AudienceUser},
 		[]string{"access"},
-		auth.RootOnlyCB(),
+		reqctx.RootOnlyCB(),
 	))
 	{
 		gPerm.GET("", hPerm.List)

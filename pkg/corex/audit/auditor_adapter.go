@@ -2,7 +2,7 @@ package audit
 
 import (
 	"context"
-	"github.com/ArtisanCloud/PowerX/pkg/auth"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"time"
 
 	dbm "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/audit"
@@ -19,7 +19,7 @@ type serviceAuditor struct{ svc ServicePort }
 func NewAuditor(svc ServicePort) Auditor { return &serviceAuditor{svc: svc} }
 
 func (a *serviceAuditor) LogAPI(ctx context.Context, methodPath string, status int, latency time.Duration) {
-	tid := auth.GetTenantID(ctx)
+	tid := reqctx.GetTenantID(ctx)
 	cid := CorrelationIDFromContext(ctx)
 	_ = a.svc.Emit(ctx, &dbm.AuditEvent{
 		OccurredAt:    time.Now(),
@@ -36,7 +36,7 @@ func (a *serviceAuditor) LogAPI(ctx context.Context, methodPath string, status i
 }
 
 func (a *serviceAuditor) LogBusPublish(ctx context.Context, topic string, subCount int) {
-	tid := auth.GetTenantID(ctx)
+	tid := reqctx.GetTenantID(ctx)
 	cid := CorrelationIDFromContext(ctx)
 	_ = a.svc.Emit(ctx, &dbm.AuditEvent{
 		OccurredAt:    time.Now(),
@@ -53,7 +53,7 @@ func (a *serviceAuditor) LogBusPublish(ctx context.Context, topic string, subCou
 }
 
 func (a *serviceAuditor) LogBusDeliver(ctx context.Context, topic, pluginID string, status int, err string) {
-	tid := auth.GetTenantID(ctx)
+	tid := reqctx.GetTenantID(ctx)
 	cid := CorrelationIDFromContext(ctx)
 
 	_ = a.svc.Emit(ctx, &dbm.AuditEvent{
@@ -75,7 +75,7 @@ func (a *serviceAuditor) LogRBAC(ctx context.Context, subject, resource, action 
 	if allow {
 		out = "SUCCESS"
 	}
-	tid := auth.GetTenantID(ctx)
+	tid := reqctx.GetTenantID(ctx)
 	cid := CorrelationIDFromContext(ctx)
 	_ = a.svc.Emit(ctx, &dbm.AuditEvent{
 		OccurredAt:    time.Now(),

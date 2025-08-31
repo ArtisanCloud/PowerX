@@ -1,8 +1,8 @@
 package audit
 
 import (
-	"github.com/ArtisanCloud/PowerX/pkg/auth"
 	dbm "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/audit"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/gin-gonic/gin"
 	"math/rand"
 	"strconv"
@@ -39,7 +39,7 @@ func GinAudit(auditor Auditor) gin.HandlerFunc {
 
 		_ = auditor.(*serviceAuditor).svc.Emit(c.Request.Context(), &dbm.AuditEvent{
 			OccurredAt:    time.Now(),
-			TenantID:      auth.GetTenantID(c.Request.Context()),
+			TenantID:      reqctx.GetTenantID(c.Request.Context()),
 			Source:        "http",
 			Operation:     "API_CALL",
 			ResourceType:  "core.api",

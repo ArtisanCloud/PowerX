@@ -6,8 +6,8 @@ import (
 	dbmodel "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/model"
 	agentschema "github.com/ArtisanCloud/PowerX/internal/server/agent/schemas"
 	agentSvc "github.com/ArtisanCloud/PowerX/internal/service/agent"
-	"github.com/ArtisanCloud/PowerX/pkg/auth"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/flow/schemas"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	dtoRequest "github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/ArtisanCloud/PowerX/pkg/utils"
 	"gorm.io/datatypes"
@@ -220,7 +220,7 @@ func (h *AgentHandler) CreateAgent(c *gin.Context) {
 		dtoRequest.ResponseValidationError(c, err)
 		return
 	}
-	tid, err := auth.RequireTenantIDFromGin(c)
+	tid, err := reqctx.RequireTenantIDFromGin(c)
 	if err != nil {
 		dtoRequest.ResponseError(c, 400, err.Error(), nil)
 		return
@@ -252,31 +252,32 @@ func (h *AgentHandler) CreateAgent(c *gin.Context) {
 }
 
 func (h *AgentHandler) ListAgents(c *gin.Context) {
-	env := c.DefaultQuery("env", "default")
-	tid, err := auth.RequireTenantIDFromGin(c)
-	if err != nil {
-		dtoRequest.ResponseError(c, 400, err.Error(), nil)
-		return
-	}
-	var statuses []string
-	if s := strings.TrimSpace(c.Query("status")); s != "" {
-		for _, it := range strings.Split(s, ",") {
-			if v := strings.TrimSpace(it); v != "" {
-				statuses = append(statuses, v)
-			}
-		}
-	}
-	list, err := h.srv.List(c.Request.Context(), env, &tid, statuses...)
-	if err != nil {
-		dtoRequest.ResponseError(c, 500, "查询失败", err)
-		return
-	}
-	dtoRequest.ResponseSuccess(c, gin.H{"items": list})
+	//env := c.DefaultQuery("env", "default")
+	//tid, err := reqctx.RequireTenantIDFromGin(c)
+	//if err != nil {
+	//	dtoRequest.ResponseError(c, 400, err.Error(), nil)
+	//	return
+	//}
+	//var statuses []string
+	//if s := strings.TrimSpace(c.Query("status")); s != "" {
+	//	for _, it := range strings.Split(s, ",") {
+	//		if v := strings.TrimSpace(it); v != "" {
+	//			statuses = append(statuses, v)
+	//		}
+	//	}
+	//}
+	//list, err := h.srv.List(c.Request.Context(), env, &tid, statuses...)
+	//if err != nil {
+	//	dtoRequest.ResponseError(c, 500, "查询失败", err)
+	//	return
+	//}
+	////dtoRequest.ResponseSuccess(c, gin.H{"items": list})
+	dtoRequest.ResponseSuccess(c, gin.H{"items": []*dbmodel.Agent{}})
 }
 
 func (h *AgentHandler) GetAgent(c *gin.Context) {
 	env := c.DefaultQuery("env", "default")
-	tid, err := auth.RequireTenantIDFromGin(c)
+	tid, err := reqctx.RequireTenantIDFromGin(c)
 	if err != nil {
 		dtoRequest.ResponseError(c, 400, err.Error(), nil)
 		return
@@ -301,7 +302,7 @@ func (h *AgentHandler) UpdateAgent(c *gin.Context) {
 		return
 	}
 	env := c.DefaultQuery("env", "default")
-	tid, err := auth.RequireTenantIDFromGin(c)
+	tid, err := reqctx.RequireTenantIDFromGin(c)
 	if err != nil {
 		dtoRequest.ResponseError(c, 400, err.Error(), nil)
 		return
@@ -337,7 +338,7 @@ func (h *AgentHandler) EnableAgent(c *gin.Context)  { h.setAgentStatus(c, dbmode
 func (h *AgentHandler) DisableAgent(c *gin.Context) { h.setAgentStatus(c, dbmodel.AgentStatusDisabled) }
 func (h *AgentHandler) setAgentStatus(c *gin.Context, status string) {
 	env := c.DefaultQuery("env", "default")
-	tid, err := auth.RequireTenantIDFromGin(c)
+	tid, err := reqctx.RequireTenantIDFromGin(c)
 	if err != nil {
 		dtoRequest.ResponseError(c, 400, err.Error(), nil)
 		return
@@ -356,7 +357,7 @@ func (h *AgentHandler) setAgentStatus(c *gin.Context, status string) {
 
 func (h *AgentHandler) DeleteAgent(c *gin.Context) {
 	env := c.DefaultQuery("env", "default")
-	tid, err := auth.RequireTenantIDFromGin(c)
+	tid, err := reqctx.RequireTenantIDFromGin(c)
 	if err != nil {
 		dtoRequest.ResponseError(c, 400, err.Error(), nil)
 		return
@@ -386,7 +387,7 @@ type upsertAgentAISettingReq struct {
 
 func (h *AgentHandler) GetAgentAISetting(c *gin.Context) {
 	env := c.DefaultQuery("env", "default")
-	tid, err := auth.RequireTenantIDFromGin(c)
+	tid, err := reqctx.RequireTenantIDFromGin(c)
 	if err != nil {
 		dtoRequest.ResponseError(c, 400, err.Error(), nil)
 		return
@@ -410,7 +411,7 @@ func (h *AgentHandler) UpsertAgentAISetting(c *gin.Context) {
 		dtoRequest.ResponseValidationError(c, err)
 		return
 	}
-	tid, err := auth.RequireTenantIDFromGin(c)
+	tid, err := reqctx.RequireTenantIDFromGin(c)
 	if err != nil {
 		dtoRequest.ResponseError(c, 400, err.Error(), nil)
 		return
@@ -442,7 +443,7 @@ func (h *AgentHandler) UpsertAgentAISetting(c *gin.Context) {
 
 func (h *AgentHandler) DeleteAgentAISetting(c *gin.Context) {
 	env := c.DefaultQuery("env", "default")
-	tid, err := auth.RequireTenantIDFromGin(c)
+	tid, err := reqctx.RequireTenantIDFromGin(c)
 	if err != nil {
 		dtoRequest.ResponseError(c, 400, err.Error(), nil)
 		return
@@ -461,7 +462,7 @@ func (h *AgentHandler) DeleteAgentAISetting(c *gin.Context) {
 
 func (h *AgentHandler) AgentHealthCheck(c *gin.Context) {
 	env := c.DefaultQuery("env", "default")
-	tid, err := auth.RequireTenantIDFromGin(c)
+	tid, err := reqctx.RequireTenantIDFromGin(c)
 	if err != nil {
 		dtoRequest.ResponseError(c, 400, err.Error(), nil)
 		return

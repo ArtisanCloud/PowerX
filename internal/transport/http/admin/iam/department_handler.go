@@ -3,6 +3,7 @@ package iam
 import (
 	"errors"
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"net/http"
 	"strconv"
 
@@ -10,7 +11,6 @@ import (
 	"gorm.io/gorm"
 
 	orgsvc "github.com/ArtisanCloud/PowerX/internal/service/iam"
-	"github.com/ArtisanCloud/PowerX/pkg/auth"
 	m "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/iam"
 	repoi "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/iam"
 	dto "github.com/ArtisanCloud/PowerX/pkg/dto"
@@ -37,9 +37,9 @@ func (h *DepartmentHandler) Create(c *gin.Context) {
 	}
 
 	ctx := c.Request.Context()
-	tid := auth.GetTenantID(ctx)
+	tid := reqctx.GetTenantID(ctx)
 	if tid == 0 {
-		dto.ResponseError(c, http.StatusBadRequest, "tenant_id missing", nil)
+		dto.ResponseError(c, http.StatusBadRequest, reqctx.ErrTenantMissing.Error(), nil)
 		return
 	}
 
@@ -90,9 +90,9 @@ func (h *DepartmentHandler) Update(c *gin.Context) {
 	}
 
 	ctx := c.Request.Context()
-	tid := auth.GetTenantID(ctx)
+	tid := reqctx.GetTenantID(ctx)
 	if tid == 0 {
-		dto.ResponseError(c, http.StatusBadRequest, "tenant_id missing", nil)
+		dto.ResponseError(c, http.StatusBadRequest, reqctx.ErrTenantMissing.Error(), nil)
 		return
 	}
 
@@ -128,9 +128,9 @@ func (h *DepartmentHandler) Delete(c *gin.Context) {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
 
 	ctx := c.Request.Context()
-	tid := auth.GetTenantID(ctx)
+	tid := reqctx.GetTenantID(ctx)
 	if tid == 0 {
-		dto.ResponseError(c, http.StatusBadRequest, "tenant_id missing", nil)
+		dto.ResponseError(c, http.StatusBadRequest, reqctx.ErrTenantMissing.Error(), nil)
 		return
 	}
 
@@ -145,9 +145,9 @@ func (h *DepartmentHandler) Delete(c *gin.Context) {
 // GET /api/v1/admin/organization/departments/tree
 func (h *DepartmentHandler) Tree(c *gin.Context) {
 	ctx := c.Request.Context()
-	tid := auth.GetTenantID(ctx)
+	tid := reqctx.GetTenantID(ctx)
 	if tid == 0 {
-		dto.ResponseError(c, http.StatusBadRequest, "tenant_id missing", nil)
+		dto.ResponseError(c, http.StatusBadRequest, reqctx.ErrTenantMissing.Error(), nil)
 		return
 	}
 

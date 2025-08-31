@@ -158,9 +158,12 @@ func (s *AgentService) Get(ctx context.Context, env string, tenantID *uint64, ag
 	return out, nil
 }
 
-func (s *AgentService) List(ctx context.Context, env string, tenantID *uint64, statuses ...string) ([]dbmodel.Agent, error) {
-	return s.agRepo.ListByScope(ctx, env, tenantID, statuses...)
-}
+//func (s *AgentService) List(
+//	ctx context.Context, env string, tenantID *uint64, statuses ...string,
+//) ([]dbmodel.Agent, error) {
+//	// statuses 在这里是 []string
+//	return s.agRepo.ListByScope(ctx, env, tenantID, statuses...)
+//}
 
 // ---------- Agent Setting（Agent级 AI 覆盖） ----------
 

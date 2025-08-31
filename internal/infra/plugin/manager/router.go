@@ -5,7 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
-	"github.com/ArtisanCloud/PowerX/pkg/auth"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -94,7 +94,7 @@ func buildSignedCtx(c *gin.Context) (ctxB64, sig string, ok bool) {
 	if !exists {
 		return "", "", false
 	}
-	claims := claimsAny.(auth.CoreXClaims)
+	claims := claimsAny.(reqctx.CoreXClaims)
 
 	raw, _ := json.Marshal(claims)
 	ctxB64 = base64.StdEncoding.EncodeToString(raw)

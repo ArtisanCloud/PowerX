@@ -6,13 +6,13 @@ import (
 	"errors"
 	"github.com/ArtisanCloud/PowerX/internal/service"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/utils"
 	"slices"
 	"strings"
 
 	"gorm.io/gorm"
 
-	"github.com/ArtisanCloud/PowerX/pkg/auth"
 	dbm "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/iam"
 	rb "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/iam"
 )
@@ -48,8 +48,8 @@ func (s *RBACService) GrantPermsByIDs(ctx context.Context, roleID uint64, permID
 		return gorm.ErrRecordNotFound
 	}
 	// 非 root：仅允许给本租户的 tenant 角色授权
-	if !service.IsRoot(ctx) {
-		if strings.ToLower(cur.Scope) != "tenant" || cur.TenantID == 0 || cur.TenantID != auth.GetTenantID(ctx) {
+	if !reqctx.IsRoot(ctx) {
+		if strings.ToLower(cur.Scope) != "tenant" || cur.TenantID == 0 || cur.TenantID != reqctx.GetTenantID(ctx) {
 			return errors.New("forbidden")
 		}
 	}
@@ -94,8 +94,8 @@ func (s *RBACService) BindRoleToMember(ctx context.Context, tenantID, roleID, me
 		return errors.New("cannot bind system-scope role")
 	}
 
-	if !service.IsRoot(ctx) {
-		if tenantID == 0 || tenantID != auth.GetTenantID(ctx) || cur.TenantID != tenantID {
+	if !reqctx.IsRoot(ctx) {
+		if tenantID == 0 || tenantID != reqctx.GetTenantID(ctx) || cur.TenantID != tenantID {
 			return errors.New("forbidden")
 		}
 	}
@@ -107,7 +107,7 @@ func (s *RBACService) BindRoleToMember(ctx context.Context, tenantID, roleID, me
 
 func (s *RBACService) UnbindRoleFromMember(ctx context.Context, tenantID, roleBindingID uint64) error {
 	// 你的 repo 的 Delete 是按 (tenant_id, id) 删除
-	if !service.IsRoot(ctx) && tenantID != auth.GetTenantID(ctx) {
+	if !reqctx.IsRoot(ctx) && tenantID != reqctx.GetTenantID(ctx) {
 		return errors.New("forbidden")
 	}
 	return s.rbr.Delete(ctx, tenantID, roleBindingID) // :contentReference[oaicite:13]{index=13}
@@ -115,11 +115,11 @@ func (s *RBACService) UnbindRoleFromMember(ctx context.Context, tenantID, roleBi
 
 // ========== 3) 鉴权（root 放行；直绑 + 维度间接绑定） ==========
 func (s *RBACService) Enforce(ctx context.Context, tenantID, memberID uint64, plugin, resource, action string) (bool, error) {
-	if service.IsRoot(ctx) {
+	if reqctx.IsRoot(ctx) {
 		return true, nil
 	}
 	if tenantID == 0 {
-		tenantID = auth.GetTenantID(ctx)
+		tenantID = reqctx.GetTenantID(ctx)
 	}
 	if tenantID == 0 || memberID == 0 {
 		return false, errors.New("tenant/member required")
@@ -147,8 +147,8 @@ func (s *RBACService) RevokePermissionsFromRole(ctx context.Context, roleID uint
 	if err != nil || cur == nil {
 		return gorm.ErrRecordNotFound
 	}
-	if !service.IsRoot(ctx) {
-		if strings.ToLower(cur.Scope) != "tenant" || cur.TenantID == 0 || cur.TenantID != auth.GetTenantID(ctx) {
+	if !reqctx.IsRoot(ctx) {
+		if strings.ToLower(cur.Scope) != "tenant" || cur.TenantID == 0 || cur.TenantID != reqctx.GetTenantID(ctx) {
 			return errors.New("forbidden")
 		}
 	}
@@ -251,9 +251,9 @@ func (s *RBACService) SetPermissionIDs(ctx context.Context, roleID uint64, wantI
 
 func (s *RBACService) actorFromContext(ctx context.Context) ActorContext {
 	ac := ActorContext{
-		IsRoot: service.IsRoot(ctx), // 复用你的 helper
+		IsRoot: reqctx.IsRoot(ctx), // 复用你的 helper
 	}
-	if c := auth.GetJWTClaims(ctx); c != nil {
+	if c := reqctx.GetClaims(ctx); c != nil {
 		// 根据你的 claims 定义来取，假设是整数类型
 		if c.TenantID > 0 {
 			ac.TenantID = uint64(c.TenantID)

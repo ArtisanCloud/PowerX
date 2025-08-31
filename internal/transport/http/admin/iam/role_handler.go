@@ -2,8 +2,8 @@ package iam
 
 import (
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
-	"github.com/ArtisanCloud/PowerX/pkg/auth"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"net/http"
 	"strconv"
@@ -87,7 +87,7 @@ func (h *RoleHandler) Update(c *gin.Context) {
 	}
 
 	roleID, _ := strconv.ParseUint(c.Param("id"), 10, 64)
-	tid := auth.GetTenantID(c)
+	tid := reqctx.GetTenantID(c)
 
 	patch := &dbm.Role{
 		Name:        strings.TrimSpace(in.Name),
@@ -103,7 +103,7 @@ func (h *RoleHandler) Update(c *gin.Context) {
 
 func (h *RoleHandler) Delete(c *gin.Context) {
 	roleID, _ := strconv.ParseUint(c.Param("id"), 10, 64)
-	tid := auth.GetTenantID(c)
+	tid := reqctx.GetTenantID(c)
 	if err := h.svc.Delete(c.Request.Context(), roleID, &tid); err != nil {
 		status := http.StatusBadRequest
 		if strings.Contains(strings.ToLower(err.Error()), "not found") {
@@ -117,7 +117,7 @@ func (h *RoleHandler) Delete(c *gin.Context) {
 
 func (h *RoleHandler) Get(c *gin.Context) {
 	roleID, _ := strconv.ParseUint(c.Param("id"), 10, 64)
-	tid := auth.GetTenantID(c)
+	tid := reqctx.GetTenantID(c)
 	m, err := h.svc.Get(c.Request.Context(), roleID, tid)
 	if err != nil {
 		dto.ResponseError(c, http.StatusBadRequest, "查询角色失败", err)
@@ -138,7 +138,7 @@ func (h *RoleHandler) List(c *gin.Context) {
 		return
 	}
 	// as_tenant_id 优先
-	if tid := auth.GetTenantID(c); tid > 0 {
+	if tid := reqctx.GetTenantID(c); tid > 0 {
 		q.TenantID = &tid
 	}
 

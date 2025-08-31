@@ -12,9 +12,9 @@ import (
 	"github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository"
 	infratenant "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/tenant"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/env"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/tenantkeys"
 	"github.com/ArtisanCloud/PowerX/pkg/utils"
-	fmtx "github.com/ArtisanCloud/PowerX/pkg/utils/fmt"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
@@ -244,7 +244,7 @@ func (s *AuthService) Login(ctx context.Context, tenantRef, identifier, password
 	}
 
 	// 3) 用 UUID 签发（audience 必须非空）
-	claims := pkgauth.CoreXClaims{
+	claims := reqctx.CoreXClaims{
 		Env:        s.DefaultEnv,
 		TenantUUID: ten.UUID.String(), TenantID: ten.ID,
 		MemberUUID: m.UUID.String(), MemberID: m.ID,
@@ -252,16 +252,16 @@ func (s *AuthService) Login(ctx context.Context, tenantRef, identifier, password
 		Platforms: s.Platforms,
 		IsRoot:    u.IsRoot,
 	}
-	fmtx.Dump(ctx, "jwt sign(access)",
-		"issuer", s.Issuer,
-		"aud", s.Audience,
-		"member", claims.MemberUUID,
-		"env", claims.Env,
-		"tenant", claims.TenantUUID,
-		"platform", claims.Platforms,
-		"ttl", s.AccessTTL.String(),
-		"secret_fp", utils.SecretFP(s.JWTSecret),
-	)
+	//fmtx.Dump(ctx, "jwt sign(access)",
+	//	"issuer", s.Issuer,
+	//	"aud", s.Audience,
+	//	"member", claims.MemberUUID,
+	//	"env", claims.Env,
+	//	"tenant", claims.TenantUUID,
+	//	"platform", claims.Platforms,
+	//	"ttl", s.AccessTTL.String(),
+	//	"secret_fp", utils.SecretFP(s.JWTSecret),
+	//)
 	if s.Audience == "" {
 		return "", "", errors.New("audience misconfigured")
 	}

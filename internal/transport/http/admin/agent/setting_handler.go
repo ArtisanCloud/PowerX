@@ -2,7 +2,7 @@ package agent
 
 import (
 	"github.com/ArtisanCloud/PowerX/internal/server/agent/contract"
-	"github.com/ArtisanCloud/PowerX/pkg/auth"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/utils"
 	"net/http"
 	"strings"
@@ -124,7 +124,7 @@ func (h *AgentSettingHandler) saveSettings(c *gin.Context) {
 		dtoRequest.ResponseValidationError(c, err)
 		return
 	}
-	tenantID := auth.GetTenantID(c.Request.Context())
+	tenantID := reqctx.GetTenantID(c.Request.Context())
 
 	// 仅按当前模态做最小校验 + 先严格连通性校验（不读库不解封）
 	switch contract.Modality(strings.ToLower(req.Modality)) {
@@ -176,7 +176,7 @@ func (h *AgentSettingHandler) testConnection(c *gin.Context) {
 		dtoRequest.ResponseValidationError(c, err)
 		return
 	}
-	tid, err := auth.RequireTenantIDFromGin(c)
+	tid, err := reqctx.RequireTenantIDFromGin(c)
 	if err != nil {
 		dtoRequest.ResponseError(c, http.StatusBadRequest, err.Error(), nil)
 		return
@@ -206,7 +206,7 @@ func (h *AgentSettingHandler) testQuickCall(c *gin.Context) {
 		dtoRequest.ResponseValidationError(c, err)
 		return
 	}
-	tid, err := auth.RequireTenantIDFromGin(c)
+	tid, err := reqctx.RequireTenantIDFromGin(c)
 	if err != nil {
 		dtoRequest.ResponseError(c, http.StatusBadRequest, err.Error(), nil)
 		return
@@ -375,7 +375,7 @@ func buildEntitiesFromPayload(req *saveSettingsReq, tenantID *uint64) (credName,
 func (h *AgentSettingHandler) getActiveProfile(c *gin.Context) {
 	env := c.DefaultQuery("env", "default")
 	mod := strings.TrimSpace(strings.ToLower(c.DefaultQuery("modality", "llm")))
-	tid, err := auth.RequireTenantIDFromGin(c)
+	tid, err := reqctx.RequireTenantIDFromGin(c)
 	if err != nil {
 		dtoRequest.ResponseError(c, http.StatusBadRequest, err.Error(), nil)
 		return
@@ -405,7 +405,7 @@ func (h *AgentSettingHandler) setActiveProfile(c *gin.Context) {
 		dtoRequest.ResponseValidationError(c, err)
 		return
 	}
-	tid, err := auth.RequireTenantIDFromGin(c)
+	tid, err := reqctx.RequireTenantIDFromGin(c)
 	if err != nil {
 		dtoRequest.ResponseError(c, http.StatusBadRequest, err.Error(), nil)
 		return
@@ -420,7 +420,7 @@ func (h *AgentSettingHandler) setActiveProfile(c *gin.Context) {
 // GET /api/agents/settings/profiles?env=default&modalities=llm,image
 func (h *AgentSettingHandler) listProfiles(c *gin.Context) {
 	env := c.DefaultQuery("env", "default")
-	tid, err := auth.RequireTenantIDFromGin(c)
+	tid, err := reqctx.RequireTenantIDFromGin(c)
 	if err != nil {
 		dtoRequest.ResponseError(c, http.StatusBadRequest, err.Error(), nil)
 		return
@@ -450,7 +450,7 @@ func (h *AgentSettingHandler) listProfiles(c *gin.Context) {
 // （可选）GET /api/agents/settings/credentials?env=default
 func (h *AgentSettingHandler) listCredentials(c *gin.Context) {
 	env := c.DefaultQuery("env", "default")
-	tid, err := auth.RequireTenantIDFromGin(c)
+	tid, err := reqctx.RequireTenantIDFromGin(c)
 	if err != nil {
 		dtoRequest.ResponseError(c, http.StatusBadRequest, err.Error(), nil)
 		return

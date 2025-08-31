@@ -4,6 +4,7 @@ package repository
 import (
 	"context"
 	"fmt"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"gorm.io/gorm/clause"
 
 	dbmodel "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/model"
@@ -87,16 +88,16 @@ func (r *AgentRepository) GetByID(ctx context.Context, id uint64) (*dbmodel.Agen
 	return &out, nil
 }
 
-func (r *AgentRepository) ListByScope(ctx context.Context, env string, tenantID *uint64, statuses ...string) ([]dbmodel.Agent, error) {
-	tx := r.db.WithContext(ctx).Scopes(dbmodel.WithScope(env, tenantID)).Model(&dbmodel.Agent{})
+func (r *AgentRepository) ListByScope(ctx context.Context, db *gorm.DB, statuses ...string) ([]dbmodel.Agent, error) {
+	q := reqctx.ReqDB(ctx, db) // 自动把 env / tenant_id Scope 上去
 	if len(statuses) > 0 {
-		tx = tx.Where("status IN ?", statuses)
+		q = q.Where("status IN (?)", statuses)
 	}
-	var list []dbmodel.Agent
-	if err := tx.Order("status, key").Find(&list).Error; err != nil {
+	var items []dbmodel.Agent
+	if err := q.Find(&items).Error; err != nil {
 		return nil, err
 	}
-	return list, nil
+	return items, nil
 }
 
 func (r *AgentRepository) UpdateStatus(ctx context.Context, id uint64, status string) error {

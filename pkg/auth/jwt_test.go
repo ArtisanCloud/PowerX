@@ -12,7 +12,7 @@ import (
 
 // helper：用当前 API 签发一个 access token
 func issueAccessToken(t *testing.T, secret []byte, issuer string, audiences []string) string {
-	claims := CoreXClaims{
+	claims := CoreXClai{
 		TenantUUID: "t-test-uuid",
 		TenantID:   1,
 		MemberUUID: "member-uuid-123",

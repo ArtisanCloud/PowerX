@@ -2,6 +2,7 @@ package audit
 
 import (
 	"context"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"time"
 )
 
@@ -18,3 +19,16 @@ func (Noop) LogAPI(context.Context, string, int, time.Duration)         {}
 func (Noop) LogBusPublish(context.Context, string, int)                 {}
 func (Noop) LogBusDeliver(context.Context, string, string, int, string) {}
 func (Noop) LogRBAC(context.Context, string, string, string, bool)      {}
+
+// GetTraceID 从 context 里拿 TraceID（没有就返回空串）
+func GetTraceID(ctx context.Context) string {
+	if v, ok := ctx.Value(reqctx.TraceIDKey).(string); ok {
+		return v
+	}
+	return ""
+}
+
+// WithTraceID 往 context 里写 TraceID
+func WithTraceID(ctx context.Context, traceID string) context.Context {
+	return context.WithValue(ctx, reqctx.TraceIDKey, traceID)
+}

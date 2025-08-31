@@ -4,6 +4,7 @@ package auth
 import (
 	"context"
 	"encoding/json"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"net/http"
 	"strconv"
 	"strings"
@@ -11,23 +12,6 @@ import (
 	"github.com/ArtisanCloud/PowerX/pkg/cache"
 	"github.com/ArtisanCloud/PowerX/pkg/utils"
 	"github.com/gin-gonic/gin"
-)
-
-type ctxKey string
-
-const (
-	TenantIDKey   ctxKey = "tenant_id"   // 租户ID键（uint64）
-	TenantUUIDKey ctxKey = "tenant_uuid" // 租户UUID键（string）
-	SubjectKey    ctxKey = "subject"     // 主体键（string）
-	ScopeKey      ctxKey = "scope"       // 权限范围键（string）
-	AudienceKey   ctxKey = "audience"    // 受众键（string）
-	PlatformKey   ctxKey = "platform"    // 平台键（string）
-	TraceIDKey    ctxKey = "trace_id"    // 追踪ID键（string）
-	JWTClaimsKey  ctxKey = "jwt_claims"  // JWT声明键（*CoreXClaims）
-
-	UserIDKey   ctxKey = "auth.user_id"   // uint64
-	MemberIDKey ctxKey = "auth.member_id" // uint64
-	IsRootKey   ctxKey = "auth.is_root"   // bool
 )
 
 func KUser(uid uint64) string    { return "auth:user:" + strconv.FormatUint(uid, 10) }
@@ -44,7 +28,7 @@ func JwtMiddleware(
 	issuer string,
 	audiences []string,
 	requiredScopes []string,
-	cb func(ctx context.Context, claims *CoreXClaims) error,
+	cb func(ctx context.Context, claims *reqctx.CoreXClaims) error,
 ) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// 1) Authorization: Bearer <token>
@@ -140,20 +124,20 @@ func JwtMiddleware(
 		}
 
 		// G. 注入上下文（保留原键；附加常用 id / is_root 和快照）
-		reqCtx = context.WithValue(reqCtx, TenantIDKey, tid)
-		reqCtx = context.WithValue(reqCtx, TenantUUIDKey, claims.TenantUUID)
-		reqCtx = context.WithValue(reqCtx, SubjectKey, claims.MemberUUID) // sub = member.uuid
-		reqCtx = context.WithValue(reqCtx, ScopeKey, claims.Scope)
+		reqCtx = context.WithValue(reqCtx, reqctx.TenantIDKey, tid)
+		reqCtx = context.WithValue(reqCtx, reqctx.TenantUUIDKey, claims.TenantUUID)
+		reqCtx = context.WithValue(reqCtx, reqctx.SubjectKey, claims.MemberUUID) // sub = member.uuid
+		reqCtx = context.WithValue(reqCtx, reqctx.ScopeKey, claims.Scope)
 		if len(claims.Audience) > 0 {
-			reqCtx = context.WithValue(reqCtx, AudienceKey, claims.Audience[0])
+			reqCtx = context.WithValue(reqCtx, reqctx.AudienceKey, claims.Audience[0])
 		}
-		reqCtx = context.WithValue(reqCtx, PlatformKey, claims.Platforms)
-		reqCtx = context.WithValue(reqCtx, JWTClaimsKey, claims)
+		reqCtx = context.WithValue(reqCtx, reqctx.PlatformKey, claims.Platforms)
+		reqCtx = context.WithValue(reqCtx, reqctx.JWTClaimsKey, claims)
 
 		// 常用 id / root
-		reqCtx = context.WithValue(reqCtx, UserIDKey, claims.UserID)
-		reqCtx = context.WithValue(reqCtx, MemberIDKey, claims.MemberID)
-		reqCtx = context.WithValue(reqCtx, IsRootKey, claims.IsRoot)
+		reqCtx = context.WithValue(reqCtx, reqctx.UserIDKey, claims.UserID)
+		reqCtx = context.WithValue(reqCtx, reqctx.MemberIDKey, claims.MemberID)
+		reqCtx = context.WithValue(reqCtx, reqctx.IsRootKey, claims.IsRoot)
 
 		// 快照（map[string]any）
 		if userSnap != nil {
@@ -166,7 +150,7 @@ func JwtMiddleware(
 			reqCtx = context.WithValue(reqCtx, "auth.tenant.snapshot", tenantSnap)
 		}
 		c.Request = c.Request.WithContext(reqCtx)
-		CopyCtxToGin(c)
+		reqctx.CopyCtxToGin(c)
 
 		// H. 业务回调：缓存 miss 或需要强校验时，cb 回源 DB
 		if cb != nil {
