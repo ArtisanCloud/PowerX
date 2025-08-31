@@ -18,12 +18,6 @@ func TenantIDFromGin(c *gin.Context) *uint64 {
 	}
 	return nil
 }
-func RequireTenantIDFromGin(c *gin.Context) (uint64, error) {
-	if id := TenantIDFromGin(c); id != nil {
-		return *id, nil
-	}
-	return 0, ErrTenantMissing
-}
 
 func EnvFromGin(c *gin.Context) string {
 	rc := c.Request.Context()
@@ -45,30 +39,40 @@ func RequireEnvFromGin(c *gin.Context) (string, error) {
 }
 
 // 兼容：把 request.Context 的关键值复制到 gin.Context（如果你的老代码还在 c.Get(...)）
+// CopyCtxToGin: 把标准 context 的常用键“影射”一份到 gin.Context.Keys，方便有些地方只拿 gin 的场景
 func CopyCtxToGin(c *gin.Context) {
-	rc := c.Request.Context()
-	if v := GetTenantID(rc); v > 0 {
+	ctx := c.Request.Context()
+	if ctx == nil {
+		return
+	}
+	// 仅拷贝常用的几个（不做深复制）
+	if v := ctx.Value(KeyTenantID); v != nil {
 		c.Set(string(KeyTenantID), v)
 	}
-	if v := GetTenantUUID(rc); v != "" {
+	if v := ctx.Value(KeyTenantUUID); v != nil {
 		c.Set(string(KeyTenantUUID), v)
 	}
-	if v := GetEnv(rc); v != "" {
-		c.Set(string(KeyEnv), v)
-	}
-	if v := GetEnvWhitelist(rc); len(v) > 0 {
-		c.Set(string(KeyEnvs), v)
-	}
-	if v := GetUserID(rc); v > 0 {
+	if v := ctx.Value(KeyUserID); v != nil {
 		c.Set(string(KeyUserID), v)
 	}
-	if v := GetMemberID(rc); v > 0 {
+	if v := ctx.Value(KeyMemberID); v != nil {
 		c.Set(string(KeyMemberID), v)
 	}
-	if v := IsRoot(rc); v {
+	if v := ctx.Value(KeyIsRoot); v != nil {
 		c.Set(string(KeyIsRoot), v)
 	}
-	if cl := GetClaims(rc); cl != nil {
-		c.Set(string(KeyClaims), cl)
+	if v := ctx.Value(KeyEnv); v != nil {
+		c.Set(string(KeyEnv), v)
 	}
+	if v := ctx.Value(KeyTraceID); v != nil {
+		c.Set(string(KeyTraceID), v)
+	}
+	if v := ctx.Value(KeyClaims); v != nil {
+		c.Set(string(KeyClaims), v)
+	}
+}
+
+// RequireTenantIDFromGin: 直接从 gin.Context 的 request context 里取（不中则返回错误）
+func RequireTenantIDFromGin(c *gin.Context) (uint64, error) {
+	return RequireTenantID(c.Request.Context())
 }

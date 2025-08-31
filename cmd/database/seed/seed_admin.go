@@ -67,7 +67,13 @@ func SeedRoot(db *gorm.DB) error {
 	if cred != nil {
 		userID = cred.UserID
 	} else {
-		u := &model.User{DisplayName: "root", Status: 1, IsRoot: true}
+		u := &model.User{
+			DisplayName: "root",
+			Phone:       "13800000000",
+			Email:       "tech@artisan-cloud.com",
+			Status:      model.UserStatusActive,
+			IsRoot:      true,
+		}
 		if _, err = userRepo.Create(seedCtx(), u); err != nil {
 			return fmt.Errorf("create user: %w", err)
 		}
