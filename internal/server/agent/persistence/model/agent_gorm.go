@@ -59,10 +59,10 @@ type Agent struct {
 	Status     string `gorm:"size:16;default:'draft';index" json:"status"`      // draft|active|disabled|broken|archived
 
 	// Persona / Blueprint / 工具清单
-	DefaultPersonaID *uint64                     `gorm:"index" json:"defaultPersonaId,omitempty"`
-	BlueprintRefs    datatypes.JSON              `gorm:"type:jsonb;default:'[]'::jsonb" json:"blueprintRefs"`
-	IntentCardsRef   datatypes.JSON              `gorm:"type:jsonb;default:'[]'::jsonb" json:"intentCardsRef"`
-	ToolAllowlist    datatypes.JSONSlice[string] `gorm:"type:jsonb;default:'[]'::jsonb" json:"toolAllowlist"`
+	DefaultPersonaID *uint64        `gorm:"index" json:"defaultPersonaId,omitempty"`
+	BlueprintRefs    datatypes.JSON `gorm:"type:jsonb;default:'[]'::jsonb" json:"blueprintRefs"`
+	IntentCardsRef   datatypes.JSON `gorm:"type:jsonb;default:'[]'::jsonb" json:"intentCardsRef"`
+	ToolAllowlist    datatypes.JSON `gorm:"type:jsonb;default:'[]'::jsonb" json:"toolAllowlist"`
 
 	// 知识库策略与扩展元信息
 	KBStrategy string            `gorm:"size:16;default:'union'" json:"kbStrategy"` // none|union|weighted

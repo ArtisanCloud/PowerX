@@ -4,8 +4,6 @@ package agent
 import (
 	"context"
 	"errors"
-	"strings"
-
 	dbmodel "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/model"
 	repo "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/repository"
 
@@ -33,22 +31,49 @@ func NewAgentService(db *gorm.DB) *AgentService {
 
 // ---------- Agent CRUD ----------
 
+func (s *AgentService) List(
+	ctx context.Context,
+	env string,
+	tenantID *uint64,
+	statuses ...string,
+) ([]dbmodel.Agent, error) {
+	// 如果你的仓储方法签名是：ListByScope(ctx, env, tenantID, statuses []string)
+	// 就这么调用（不要写 ...）
+	return s.agRepo.ListByScope(ctx, env, tenantID, statuses)
+}
+
 func (s *AgentService) Create(ctx context.Context, env string, tenantID *uint64, in *dbmodel.Agent) (*dbmodel.Agent, error) {
-	if tenantID == nil {
-		return nil, errors.New("tenantID 不能为空")
-	}
-	if in == nil {
-		return nil, errors.New("payload 为空")
-	}
-	if err := s.agRepo.UpsertByScopeKey(ctx, env, tenantID, in); err != nil {
+	in.Env, in.TenantID = env, tenantID
+	if err := s.db.WithContext(ctx).Create(in).Error; err != nil {
 		return nil, err
 	}
-	// 再查一次保证主键正确
-	out, err := s.agRepo.FindByScopeKey(ctx, env, tenantID, in.Key)
-	if err != nil {
-		return nil, err
+	// 跟创默认空配置（幂等）
+	_ = s.ensureDefaultAgentSetting(ctx, env, tenantID, in.ID)
+	return in, nil
+}
+
+// 确保存在一条默认的 AgentSetting（空 provider/model，health=unknown）
+func (s *AgentService) ensureDefaultAgentSetting(ctx context.Context, env string, tenantID *uint64, agentID uint64) error {
+	// 已存在就跳过
+	if _, err := s.setRepo.FindByScopeAgentID(ctx, env, tenantID, agentID); err == nil {
+		return nil
+	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return err
 	}
-	return out, nil
+	// 插入默认记录
+	rec := &dbmodel.AgentSetting{
+		Env:           env,
+		TenantID:      tenantID,
+		AgentID:       agentID,
+		Provider:      "",
+		Model:         "",
+		Params:        datatypes.JSONMap{},
+		OverrideFlags: datatypes.JSONMap{},
+		QuotaPolicy:   datatypes.JSONMap{},
+		HealthStatus:  "unknown",
+		HealthInfo:    datatypes.JSONMap{},
+	}
+	return s.setRepo.UpsertByScopeAgentID(ctx, rec)
 }
 
 type AgentPatch struct {
@@ -60,7 +85,7 @@ type AgentPatch struct {
 	DefaultPersonaID *uint64
 	BlueprintRefs    datatypes.JSON
 	IntentCardsRef   datatypes.JSON
-	ToolAllowlist    []string
+	ToolAllowlist    datatypes.JSON
 	KBStrategy       *string
 	Meta             datatypes.JSONMap
 }
@@ -168,50 +193,49 @@ func (s *AgentService) Get(ctx context.Context, env string, tenantID *uint64, ag
 // ---------- Agent Setting（Agent级 AI 覆盖） ----------
 
 func (s *AgentService) GetAgentAISetting(ctx context.Context, env string, tenantID *uint64, agentID uint64) (*dbmodel.AgentSetting, error) {
-	// 基本存在性 & 租户校验
-	if _, err := s.Get(ctx, env, tenantID, agentID); err != nil {
+	rec, err := s.setRepo.FindByScopeAgentID(ctx, env, tenantID, agentID)
+	if err == nil {
+		return rec, nil
+	}
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, err
 	}
-	// 没有记录时，返回 ErrRecordNotFound（前端可理解为“使用上游默认”）
-	return s.setRepo.FindByAgent(ctx, env, tenantID, agentID)
+	// 自动补齐
+	if e := s.ensureDefaultAgentSetting(ctx, env, tenantID, agentID); e != nil {
+		return nil, e
+	}
+	return s.setRepo.FindByScopeAgentID(ctx, env, tenantID, agentID)
 }
 
+// PATCH/PUT upsert：直接落库（前面 handler 已做校验/规范化）
 func (s *AgentService) UpsertAgentAISetting(ctx context.Context, env string, tenantID *uint64, in *dbmodel.AgentSetting) (*dbmodel.AgentSetting, error) {
-	// 基本存在性 & 租户校验
-	if _, err := s.Get(ctx, env, tenantID, in.AgentID); err != nil {
+	in.Env, in.TenantID = env, tenantID
+	if err := s.setRepo.UpsertByScopeAgentID(ctx, in); err != nil {
 		return nil, err
 	}
-	if err := s.setRepo.UpsertByAgent(ctx, env, tenantID, in); err != nil {
-		return nil, err
-	}
-	return s.setRepo.FindByAgent(ctx, env, tenantID, in.AgentID)
+	return s.setRepo.FindByScopeAgentID(ctx, env, tenantID, in.AgentID)
 }
 
+// DELETE
 func (s *AgentService) DeleteAgentAISetting(ctx context.Context, env string, tenantID *uint64, agentID uint64) error {
-	// 存在性 & 租户校验
-	if _, err := s.Get(ctx, env, tenantID, agentID); err != nil {
-		return err
-	}
-	return s.db.WithContext(ctx).Where("env=? AND tenant_id=? AND agent_id=?", env, *tenantID, agentID).
-		Delete(&dbmodel.AgentSetting{}).Error
+	return s.setRepo.DeleteByScopeAgentID(ctx, env, tenantID, agentID)
 }
 
 // 健康检查（最小实现：检查是否具备可解析的 provider/model；真正连通可复用 SettingHandler 的 svc.PingLLM）
+// 健康检查：这里简单从设置里拿 provider/model 做个占位（如需真正 ping，可复用你已有的 LLM ping）
 func (s *AgentService) HealthCheck(ctx context.Context, env string, tenantID *uint64, agentID uint64) (map[string]any, error) {
-	set, err := s.setRepo.FindByAgent(ctx, env, tenantID, agentID)
-	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+	rec, err := s.setRepo.FindByScopeAgentID(ctx, env, tenantID, agentID)
+	if err != nil {
 		return nil, err
 	}
-
-	info := map[string]any{"agentId": agentID}
-	if set == nil || strings.TrimSpace(set.Provider) == "" || strings.TrimSpace(set.Model) == "" {
-		info["level"] = "missing"
-		return info, errors.New("缺少 agent 级 AISetting（将回退到上游默认）")
-	}
-	info["provider"] = set.Provider
-	info["model"] = set.Model
-	info["level"] = "agent_override"
-	return info, nil
+	// 这里可以调用你之前的 PingLLM / TestConnectionPreferInput 等
+	// 为简洁先返回静态占位
+	return map[string]any{
+		"status":   rec.HealthStatus,
+		"info":     rec.HealthInfo,
+		"provider": rec.Provider,
+		"model":    rec.Model,
+	}, nil
 }
 
 // ---------- helpers ----------

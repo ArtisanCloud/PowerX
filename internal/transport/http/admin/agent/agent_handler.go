@@ -195,7 +195,7 @@ type createAgentReq struct {
 	DefaultPersonaID *uint64           `json:"defaultPersonaId"`
 	BlueprintRefs    datatypes.JSON    `json:"blueprintRefs"`
 	IntentCardsRef   datatypes.JSON    `json:"intentCardsRef"`
-	ToolAllowlist    []string          `json:"toolAllowlist"`
+	ToolAllowlist    datatypes.JSON    `json:"toolAllowlist"`
 	KBStrategy       string            `json:"kbStrategy"`
 	Meta             datatypes.JSONMap `json:"meta"`
 }
@@ -209,7 +209,7 @@ type updateAgentReq struct {
 	DefaultPersonaID *uint64           `json:"defaultPersonaId,omitempty"`
 	BlueprintRefs    datatypes.JSON    `json:"blueprintRefs,omitempty"`
 	IntentCardsRef   datatypes.JSON    `json:"intentCardsRef,omitempty"`
-	ToolAllowlist    []string          `json:"toolAllowlist,omitempty"`
+	ToolAllowlist    datatypes.JSON    `json:"toolAllowlist,omitempty"`
 	KBStrategy       *string           `json:"kbStrategy,omitempty"`
 	Meta             datatypes.JSONMap `json:"meta,omitempty"`
 }
@@ -252,27 +252,36 @@ func (h *AgentHandler) CreateAgent(c *gin.Context) {
 }
 
 func (h *AgentHandler) ListAgents(c *gin.Context) {
-	//env := c.DefaultQuery("env", "default")
-	//tid, err := reqctx.RequireTenantIDFromGin(c)
-	//if err != nil {
-	//	dtoRequest.ResponseError(c, 400, err.Error(), nil)
-	//	return
-	//}
-	//var statuses []string
-	//if s := strings.TrimSpace(c.Query("status")); s != "" {
-	//	for _, it := range strings.Split(s, ",") {
-	//		if v := strings.TrimSpace(it); v != "" {
-	//			statuses = append(statuses, v)
-	//		}
-	//	}
-	//}
-	//list, err := h.srv.List(c.Request.Context(), env, &tid, statuses...)
-	//if err != nil {
-	//	dtoRequest.ResponseError(c, 500, "查询失败", err)
-	//	return
-	//}
-	////dtoRequest.ResponseSuccess(c, gin.H{"items": list})
-	dtoRequest.ResponseSuccess(c, gin.H{"items": []*dbmodel.Agent{}})
+	envVal := strings.TrimSpace(c.Query("env"))
+	if envVal == "" {
+		if e := reqctx.GetEnv(c.Request.Context()); e != "" {
+			envVal = e
+		} else {
+			envVal = "dev" // 你的种子数据是 dev
+		}
+	}
+
+	tid, err := reqctx.RequireTenantIDFromGin(c)
+	if err != nil {
+		dtoRequest.ResponseError(c, 400, err.Error(), nil)
+		return
+	}
+
+	var statuses []string
+	if s := strings.TrimSpace(c.Query("status")); s != "" {
+		for _, it := range strings.Split(s, ",") {
+			if v := strings.TrimSpace(it); v != "" {
+				statuses = append(statuses, v)
+			}
+		}
+	}
+
+	list, err := h.srv.List(c.Request.Context(), envVal, &tid, statuses...)
+	if err != nil {
+		dtoRequest.ResponseError(c, 500, "查询失败", err)
+		return
+	}
+	dtoRequest.ResponseSuccess(c, gin.H{"items": list})
 }
 
 func (h *AgentHandler) GetAgent(c *gin.Context) {

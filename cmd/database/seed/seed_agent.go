@@ -46,7 +46,7 @@ func SeedSystemDefaultAgent(db *gorm.DB) error {
 		DefaultPersonaID: nil,
 		BlueprintRefs:    datatypes.JSON{}, // e.g. [{"id":"core.demo.baseline","version":"1.0.0","entry":"main"}]
 		IntentCardsRef:   datatypes.JSON{},
-		ToolAllowlist:    []string{},
+		ToolAllowlist:    datatypes.JSON{},
 
 		KBStrategy: agentm.KBStrategyUnion,
 		Meta: datatypes.JSONMap{
