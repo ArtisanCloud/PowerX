@@ -812,6 +812,24 @@ paths:
             summary: POST /api/agents/stream
             tags:
                 - api
+    /api/agents/stream/sse:
+        get:
+            operationId: GET /api/agents/stream/sse
+            responses:
+                "200":
+                    description: OK
+            summary: GET /api/agents/stream/sse
+            tags:
+                - api
+    /api/agents/stream/ws:
+        get:
+            operationId: GET /api/agents/stream/ws
+            responses:
+                "200":
+                    description: OK
+            summary: GET /api/agents/stream/ws
+            tags:
+                - api
     /api/health:
         get:
             operationId: GET /api/health

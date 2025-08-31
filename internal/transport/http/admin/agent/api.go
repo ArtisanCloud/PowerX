@@ -11,6 +11,8 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 	settingH := NewAgentSettingHandler(deps)
 	agentH := NewAgentHandler(deps)
 	chatH := NewAgentChatHandler(deps)
+	wsH := NewAgentWSHandler(deps)
+
 	agentGroup := protectedGroup.Group("/agents")
 	{
 
@@ -20,6 +22,9 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 		agentGroup.POST("/intent/plan", agentH.PlanPreview)
 		// agentGroup.POST("/execute", ExecuteHandler)
 		agentGroup.POST("/stream", chatH.StreamChat)
+		agentGroup.GET("/stream/sse", chatH.StreamSSE) // 新增：标准 GET SSE（方便前端用 EventSource）
+		agentGroup.GET("/stream/ws", wsH.StreamWS)     // 新增：WebSocket（事件通知/双向流）
+		// 新增：POST 普通 Chat（非流）
 		agentGroup.POST("/chat", chatH.Chat)
 
 	}
