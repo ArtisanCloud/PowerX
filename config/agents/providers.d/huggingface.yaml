@@ -1,0 +1,63 @@
+id: huggingface
+name: Hugging Face Inference
+aliases: ["Hugging Face", "HF", "api-inference", "huggingface.co"]
+
+drivers:
+  llm: huggingface
+  embedding: huggingface
+  image: huggingface
+  audio: huggingface
+  video: huggingface
+  rerank: huggingface
+
+auth:
+  scheme: bearer
+  fields: ["api_key", "base_url"]
+  defaults:
+    base_url: "https://api-inference.huggingface.co"
+
+modalities:
+  llm:
+    models:
+      - id: meta-llama/Meta-Llama-3.1-8B-Instruct
+        label: "Llama 3.1 8B Instruct"
+        tags: ["open","general","tools"]
+        defaults: { temperature: 0.7, max_tokens: 1024 }
+      - id: mistralai/Mistral-7B-Instruct-v0.3
+        label: "Mistral 7B Instruct v0.3"
+        tags: ["open","fast","cheap"]
+        defaults: { temperature: 0.7, max_tokens: 1024 }
+      - id: Qwen/Qwen2.5-7B-Instruct
+        label: "Qwen2.5 7B Instruct"
+        tags: ["open","balanced","zh+en"]
+        defaults: { temperature: 0.7, max_tokens: 1024 }
+  embedding:
+    models:
+      - id: sentence-transformers/all-MiniLM-L6-v2
+        label: "all-MiniLM-L6-v2"
+        tags: ["general","cheap"]
+        limits: { dims: 384 }
+      - id: sentence-transformers/all-mpnet-base-v2
+        label: "all-mpnet-base-v2"
+        tags: ["general","higher-accuracy"]
+        limits: { dims: 768 }
+  image:
+    models:
+      - id: stabilityai/stable-diffusion-2
+        label: "Stable Diffusion 2 (text-to-image)"
+        tags: ["img-gen","open"]
+  audio:
+    models:
+      - id: openai/whisper-large-v3
+        label: "Whisper Large v3 (ASR)"
+        tags: ["asr","open"]
+      - id: coqui/XTTS-v2
+        label: "Coqui XTTS v2 (TTS)"
+        tags: ["tts","multilingual"]
+  video:
+    models: []
+  rerank:
+    models:
+      - id: cross-encoder/ms-marco-MiniLM-L-6-v2
+        label: "MS MARCO MiniLM-L-6 (Cross-Encoder)"
+        tags: ["rerank","open"]

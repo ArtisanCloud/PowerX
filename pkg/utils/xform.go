@@ -58,3 +58,101 @@ func StrFromOr(v any, def string) string {
 	}
 	return def
 }
+
+// 辅助：把 any 转数值（JSON 反序列化 float64 的兼容）
+func AsInt16(v any) (int16, bool) {
+	switch t := v.(type) {
+	case float64:
+		return int16(t), true
+	case int:
+		return int16(t), true
+	case int64:
+		return int16(t), true
+	case int32:
+		return int16(t), true
+	}
+	return 0, false
+}
+func AsUint64(v any) (uint64, bool) {
+	switch t := v.(type) {
+	case float64:
+		return uint64(t), true
+	case int:
+		if t < 0 {
+			return 0, false
+		}
+		return uint64(t), true
+	case int64:
+		if t < 0 {
+			return 0, false
+		}
+		return uint64(t), true
+	case uint64:
+		return t, true
+	}
+	return 0, false
+}
+
+func IfZeroInt16(v int16, def int16) int16 {
+	if v == 0 {
+		return def
+	}
+	return v
+}
+
+func IfZeroInt16Ptr(p *int16, def int16) int16 {
+	if p == nil || *p == 0 {
+		return def
+	}
+	return *p
+}
+
+func TrimLower(s string) string { return strings.ToLower(strings.TrimSpace(s)) }
+func Trim(s string) string      { return strings.TrimSpace(s) }
+
+func ToStr(v any) string {
+	if v == nil {
+		return ""
+	}
+	if s, ok := v.(string); ok {
+		return s
+	}
+	return ""
+}
+
+func UniqUint64(in []uint64) []uint64 {
+	m := make(map[uint64]struct{}, len(in))
+	out := make([]uint64, 0, len(in))
+	for _, v := range in {
+		if v == 0 {
+			continue
+		}
+		if _, ok := m[v]; !ok {
+			m[v] = struct{}{}
+			out = append(out, v)
+		}
+	}
+	return out
+}
+
+func Deref[T any](ptr *T, def T) T {
+	if ptr != nil {
+		return *ptr
+	}
+	return def
+}
+
+// Slug 把任意字符串转换为 slug（小写 + 用-连接）
+func Slug(s string) string {
+	// 转小写
+	s = strings.ToLower(s)
+
+	// 非字母数字替换为 "-"
+	re := regexp.MustCompile(`[^a-z0-9]+`)
+	s = re.ReplaceAllString(s, "-")
+
+	// 去掉开头结尾的 "-"
+	s = strings.Trim(s, "-")
+
+	return s
+}

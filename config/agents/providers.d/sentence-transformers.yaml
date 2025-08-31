@@ -1,0 +1,53 @@
+id: sentence-transformers
+name: Sentence Transformers
+aliases: ["sentence_transformers", "SBERT", "sbert.net"]
+
+drivers:
+  llm: sentence_transformers
+  embedding: sentence_transformers
+  image: sentence_transformers
+  audio: sentence_transformers
+  video: sentence_transformers
+  rerank: sentence_transformers
+
+# 若你的 driver 是本地/离线推理，可不需要鉴权
+auth:
+  scheme: none
+  fields: []
+  defaults: {}
+
+modalities:
+  llm:
+    models: []  # 该 Provider 以 Embedding / Cross-Encoder 为主
+  embedding:
+    models:
+      - id: sentence-transformers/all-MiniLM-L6-v2
+        label: "all-MiniLM-L6-v2"
+        tags: ["general","cheap"]
+        limits: { dims: 384 }
+      - id: sentence-transformers/all-mpnet-base-v2
+        label: "all-mpnet-base-v2"
+        tags: ["general","accurate"]
+        limits: { dims: 768 }
+      - id: sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2
+        label: "paraphrase-multilingual-MiniLM-L12-v2"
+        tags: ["multilingual","paraphrase"]
+        limits: { dims: 384 }
+      - id: sentence-transformers/multi-qa-MiniLM-L6-cos-v1
+        label: "multi-qa-MiniLM-L6-cos-v1"
+        tags: ["qa","lightweight"]
+        limits: { dims: 384 }
+  image:
+    models: []
+  audio:
+    models: []
+  video:
+    models: []
+  rerank:
+    models:
+      - id: cross-encoder/ms-marco-MiniLM-L-6-v2
+        label: "MS MARCO MiniLM-L-6 (Cross-Encoder)"
+        tags: ["rerank","fast"]
+      - id: cross-encoder/ms-marco-MiniLM-L-12-v2
+        label: "MS MARCO MiniLM-L-12 (Cross-Encoder)"
+        tags: ["rerank","accurate"]

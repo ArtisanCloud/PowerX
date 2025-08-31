@@ -2,7 +2,11 @@
 package seed
 
 import (
+	"errors"
 	"fmt"
+	dbm "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/tenant"
+
+	tenantrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/tenant"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 
@@ -10,53 +14,69 @@ import (
 	infraiam "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/iam"
 )
 
-// SeedRoot 仅做“最小种子”：system 租户 + root 管理员（root/root，可用 POWERX_ROOT_PASSWORD 覆盖）
 func SeedRoot(db *gorm.DB) error {
+
+	// 2) IAM 基础权限
+	if err := SeedSystemPermissions(db); err != nil {
+		return fmt.Errorf("seed system permissions: %w", err)
+	}
+
+	if err := SeedSwaggerPermissions(db, "./docs/swagger.json"); err != nil {
+		return fmt.Errorf("seed swagger permissions: %w", err)
+	}
+
+	// 3) 确保 system 租户存在
 	const tenantKey = "system"
 	const orgName = "System"
-	const rootUsername = "root"   // 成员在租户内的用户名
-	const rootIdentifier = "root" // 凭证 identifier（你也可换成邮箱）
+	tenRepo := tenantrepo.NewTenantRepository(db)
+	ten, err := tenRepo.EnsureByKey(seedCtx(), tenantKey, orgName, dbm.TenantPlanFree, dbm.TenantTypeSystem)
+	if err != nil {
+		return fmt.Errorf("ensure tenant(%s): %w", tenantKey, err)
+	}
 
+	// 4) 为该租户完成内置角色与授权（root(system) & tenant_admin(tenant)）
+	if err := SeedBuiltInRolesAndGrants(db, ten.ID); err != nil {
+		return fmt.Errorf("seed built-in roles and grants: %w", err)
+	}
+
+	// 5) 为该租户确保默认角色，并授予基线权限（admin=全量，user=read）
+	roleRepo := infraiam.NewRoleRepository(db)
+	if err := roleRepo.EnsureDefaultRoles(seedCtx(), ten.ID); err != nil {
+		return fmt.Errorf("ensure default roles: %w", err)
+	}
+	if err := SeedGrantDefaultRolesForTenant(db, ten.ID); err != nil {
+		return fmt.Errorf("grant defaults for tenant %d: %w", ten.ID, err)
+	}
+
+	// 6) 确保 root 用户与凭证
+	const rootUserName = "root"
+	const rootIdentifier = "root"
 	rootPassword := envOrDefault("POWERX_ROOT_PASSWORD", "root")
 
-	tenantRepo := infraiam.NewTenantRepository(db)
-	roleRepo := infraiam.NewRoleRepository(db)
-	userRepo := infraiam.NewUserRepository(db)       // 全局 User（不带 tenant）
-	memberRepo := infraiam.NewMemberRepository(db)   // 租户成员
-	credRepo := infraiam.NewCredentialRepository(db) // 全局 Credential
-	mrRepo := infraiam.NewMemberRoleRepository(db)   // 成员-角色
+	userRepo := infraiam.NewUserRepository(db)
+	memberRepo := infraiam.NewMemberRepository(db)
+	credRepo := infraiam.NewCredentialRepository(db)
+	rbRepo := infraiam.NewRoleBindingRepository(db)
 
-	// 1) 确保 system 租户
-	ten, err := tenantRepo.EnsureByKey(seedCtx(), tenantKey, orgName)
-	if err != nil {
-		return fmt.Errorf("ensure tenant: %w", err)
-	}
-
-	// 2) 确保默认角色（至少包含 role_admin / role_user）
-	if err := roleRepo.EnsureDefaultRoles(seedCtx(), ten.ID); err != nil {
-		return fmt.Errorf("ensure roles: %w", err)
-	}
-
-	// 3) 看是否已有 root 凭证（password/root）
 	cred, err := credRepo.FindByProviderIdentifier(seedCtx(), "password", rootIdentifier)
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return fmt.Errorf("find root credential: %w", err)
+	}
 
 	var userID uint64
-	if err == nil && cred != nil {
-		// 已存在，直接复用
+	if cred != nil {
 		userID = cred.UserID
 	} else {
-		// 3.1 创建全局 User（最小字段；如需邮箱后续自行补充）
-		u := &model.User{
-			DisplayName: "root",
-			Status:      1,
-		}
+		u := &model.User{DisplayName: "root", Status: 1, IsRoot: true}
 		if _, err = userRepo.Create(seedCtx(), u); err != nil {
 			return fmt.Errorf("create user: %w", err)
 		}
 		userID = u.ID
 
-		// 3.2 创建密码凭证（password/root）
-		hash, _ := bcrypt.GenerateFromPassword([]byte(rootPassword), bcrypt.DefaultCost)
+		hash, err := bcrypt.GenerateFromPassword([]byte(rootPassword), bcrypt.DefaultCost)
+		if err != nil {
+			return fmt.Errorf("hash password: %w", err)
+		}
 		if err := credRepo.Create(seedCtx(), &model.Credential{
 			UserID:     userID,
 			Provider:   "password",
@@ -68,24 +88,45 @@ func SeedRoot(db *gorm.DB) error {
 		}
 	}
 
-	// 4) 确保 system 下存在一个 member（username=root）
-	if _, err = memberRepo.FindByTenantAndUser(seedCtx(), ten.ID, userID); err != nil {
+	// 7) 在 system 租户确保 root 成员
+	var memberID uint64
+	mem, err := memberRepo.FindByTenantAndUser(seedCtx(), ten.ID, userID)
+
+	// 只有“真正的错误”才返回；ErrRecordNotFound 或 (nil,nil) 都进入创建分支
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return fmt.Errorf("find member: %w", err)
+	}
+
+	if mem == nil || errors.Is(err, gorm.ErrRecordNotFound) {
 		m := &model.Member{
 			TenantID:    ten.ID,
 			UserID:      userID,
-			Username:    rootUsername,
+			Username:    rootUserName,
 			DisplayName: "root",
 			Status:      1,
 		}
-		if _, err = memberRepo.Create(seedCtx(), m); err != nil {
+		if _, err := memberRepo.Create(seedCtx(), m); err != nil {
 			return fmt.Errorf("create member: %w", err)
 		}
-		// 5) 绑定管理员角色（幂等）
-		if err := mrRepo.AssignRolesByCodes(seedCtx(), ten.ID, m.ID, "role_admin"); err != nil {
-			return fmt.Errorf("assign roles: %w", err)
-		}
+		memberID = m.ID
+	} else {
+		memberID = mem.ID
 	}
 
-	fmt.Printf("[seed] root ready. tenant=%s username=%s password=%s\n", tenantKey, rootUsername, rootPassword)
+	// 8) 绑定 tenant 的 role_admin 到该成员（subject_type=MEMBER）
+	adminRole, err := roleRepo.FindByCode(seedCtx(), "tenant", &ten.ID, "role_admin")
+	if err != nil {
+		return fmt.Errorf("find role_admin: %w", err)
+	}
+	if err := rbRepo.Create(seedCtx(), &model.RoleBinding{
+		TenantID:    ten.ID,
+		RoleID:      adminRole.ID,
+		SubjectType: model.SubMember, // 你模型里定义的常量
+		SubjectID:   memberID,
+	}); err != nil {
+		return fmt.Errorf("bind role_admin to root member: %w", err)
+	}
+
+	fmt.Printf("[seed] root ready. tenant=%s username=%s password=%s\n", tenantKey, rootUserName, rootPassword)
 	return nil
 }

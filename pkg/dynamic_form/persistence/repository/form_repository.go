@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository"
+	modelschema "github.com/ArtisanCloud/PowerX/pkg/dynamic_form/model"
 	modelForm "github.com/ArtisanCloud/PowerX/pkg/dynamic_form/persistence/model"
 	"time"
 
@@ -26,10 +28,10 @@ func NewFormSchemaRepository(db *gorm.DB) *FormSchemaRepository {
 }
 
 // Create 创建表单结构
-func (r *FormSchemaRepository) Create(ctx context.Context, form *domainModel.FormSchema) error {
+func (r *FormSchemaRepository) Create(ctx context.Context, form *modelschema.FormSchema) error {
 	// 如果没有ID，生成一个
-	if form.ID == "" {
-		form.ID = fmt.Sprintf("form_%s", uuid.New().String())
+	if form.UUID == uuid.Nil {
+		form.UUID = uuid.New()
 	}
 
 	// 序列化字段定义
@@ -51,15 +53,16 @@ func (r *FormSchemaRepository) Create(ctx context.Context, form *domainModel.For
 	}
 
 	// 创建数据库记录
-	record := &model.FormSchemaRecord{
-		ID:          form.ID,
+	record := &modelForm.FormSchemaRecord{
+		PowerUUIDModel: model.PowerUUIDModel{
+			UUID:      form.UUID,
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now()},
 		Title:       form.Title,
 		Description: form.Description,
 		Fields:      datatypes.JSON(fieldsJSON),
 		Variables:   datatypes.JSON(variablesJSON),
 		Metadata:    datatypes.JSON(metadataJSON),
-		CreatedAt:   time.Now(),
-		UpdatedAt:   time.Now(),
 	}
 
 	// 保存到数据库
@@ -72,7 +75,7 @@ func (r *FormSchemaRepository) Create(ctx context.Context, form *domainModel.For
 }
 
 // FindByID 根据ID查找表单结构
-func (r *FormSchemaRepository) FindByID(ctx context.Context, id string) (*domainModel.FormSchema, error) {
+func (r *FormSchemaRepository) FindByID(ctx context.Context, id string) (*modelschema.FormSchema, error) {
 	record, err := r.BaseRepository.GetFirst(ctx, "id = ?", id)
 	if err != nil {
 		return nil, fmt.Errorf("查询表单失败: %w", err)
@@ -82,7 +85,7 @@ func (r *FormSchemaRepository) FindByID(ctx context.Context, id string) (*domain
 	}
 
 	// 反序列化字段定义
-	var fields []domainModel.FormField
+	var fields []modelschema.FormField
 	if err := json.Unmarshal(record.Fields, &fields); err != nil {
 		return nil, fmt.Errorf("反序列化字段定义失败: %w", err)
 	}
@@ -100,8 +103,8 @@ func (r *FormSchemaRepository) FindByID(ctx context.Context, id string) (*domain
 	}
 
 	// 构建领域模型
-	form := &domainModel.FormSchema{
-		ID:          record.ID,
+	form := &modelschema.FormSchema{
+		UUID:        record.UUID,
 		Title:       record.Title,
 		Description: record.Description,
 		Fields:      fields,
@@ -114,13 +117,13 @@ func (r *FormSchemaRepository) FindByID(ctx context.Context, id string) (*domain
 
 // FormSubmissionRepository 表单提交仓储
 type FormSubmissionRepository struct {
-	*repository.BaseRepository[model.FormSubmission]
+	*repository.BaseRepository[modelForm.FormSubmission]
 }
 
 // NewFormSubmissionRepository 创建表单提交仓储
 func NewFormSubmissionRepository(db *gorm.DB) *FormSubmissionRepository {
 	return &FormSubmissionRepository{
-		BaseRepository: repository.NewBaseRepository[model.FormSubmission](db),
+		BaseRepository: repository.NewBaseRepository[modelForm.FormSubmission](db),
 	}
 }
 
@@ -130,10 +133,10 @@ func (r *FormSubmissionRepository) Save(ctx context.Context, formID string, inpu
 	submissionID := fmt.Sprintf("submission_%s", uuid.New().String())
 
 	// 序列化数据
-	inputJSON, err := json.Marshal(input)
-	if err != nil {
-		return "", fmt.Errorf("序列化输入数据失败: %w", err)
-	}
+	//inputJSON, err := json.Marshal(input)
+	//if err != nil {
+	//	return "", fmt.Errorf("序列化输入数据失败: %w", err)
+	//}
 
 	cleanedJSON, err := json.Marshal(cleaned)
 	if err != nil {
@@ -146,13 +149,15 @@ func (r *FormSubmissionRepository) Save(ctx context.Context, formID string, inpu
 	}
 
 	// 创建提交记录
-	submission := &model.FormSubmission{
-		ID:           submissionID,
-		FormSchemaID: formID,
-		Input:        datatypes.JSON(inputJSON),
-		Cleaned:      datatypes.JSON(cleanedJSON),
-		Errors:       datatypes.JSON(errorsJSON),
-		CreatedAt:    time.Now(),
+	submission := &modelForm.FormSubmission{
+		PowerUUIDModel: model.PowerUUIDModel{
+			UUID:      uuid.New(),
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+		},
+		//SchemaID: formID,
+		Payload:  datatypes.JSON(cleanedJSON),
+		Metadata: datatypes.JSON(errorsJSON),
 	}
 
 	// 保存到数据库

@@ -21,6 +21,15 @@ func NewBaseRepository[T any](db *gorm.DB) *BaseRepository[T] {
 	return &BaseRepository[T]{DB: db}
 }
 
+func (r *BaseRepository[T]) WithDB(db *gorm.DB) *BaseRepository[T] {
+	r.DB = db
+	return r
+}
+
+func (r *BaseRepository[T]) OnConflictDoNothing() clause.OnConflict {
+	return clause.OnConflict{DoNothing: true}
+}
+
 // CreateBatch 批量创建记录
 func (r *BaseRepository[T]) CreateBatch(ctx context.Context, objs []*T) ([]*T, error) {
 	if len(objs) == 0 {
@@ -153,6 +162,60 @@ func (r *BaseRepository[T]) Update(ctx context.Context, obj *T) (*T, error) {
 	return obj, result.Error
 }
 
+func (r *BaseRepository[T]) UpdateByID(
+	ctx context.Context,
+	id uint64,
+	fields map[string]interface{},
+	callback func(*gorm.DB) *gorm.DB,
+) (*T, error) {
+
+	if id == 0 {
+		return nil, errors.New("invalid id")
+	}
+	if len(fields) == 0 {
+		return nil, errors.New("no fields to update")
+	}
+
+	// 允许更新的字段白名单（去除主键、created_at/updated_at 等）
+	allowCols := map[string]struct{}{}
+	for _, c := range getUpdatableColumns[T](r.DB) {
+		allowCols[strings.ToLower(c)] = struct{}{}
+	}
+
+	// 过滤不可更新字段（保留 map 中与白名单交集的键）
+	safeFields := make(map[string]interface{}, len(fields))
+	for k, v := range fields {
+		if _, ok := allowCols[strings.ToLower(k)]; ok {
+			safeFields[k] = v
+		}
+	}
+	if len(safeFields) == 0 {
+		return nil, errors.New("no valid fields to update")
+	}
+
+	// 执行更新
+	var mdl T
+	query := r.DB.WithContext(ctx).Model(&mdl).Where("id = ?", id)
+
+	if debug, ok := ctx.Value(utils.DebugKey).(bool); ok && debug {
+		query = query.Debug()
+	}
+	if callback != nil {
+		query = callback(query)
+	}
+
+	res := query.Updates(safeFields)
+	if res.Error != nil {
+		return nil, res.Error
+	}
+	if res.RowsAffected == 0 {
+		return nil, errors.New("record not found")
+	}
+
+	// 读取并返回更新后的对象（复用已有的 GetById 逻辑和 callback）
+	return r.GetById(ctx, id, callback)
+}
+
 // Patch 部分更新记录
 func (r *BaseRepository[T]) Patch(ctx context.Context, where map[string]interface{}, fields map[string]interface{}) (*T, error) {
 	var obj T
@@ -183,6 +246,7 @@ func (r *BaseRepository[T]) Delete(ctx context.Context, where map[string]interfa
 		query = query.Debug()
 	}
 
+	// 分支一：按 where 条件删除（推荐用于批量/覆盖式写入前的清理）
 	if where != nil {
 		for key, value := range where {
 			if strings.Contains(key, "?") {
@@ -195,18 +259,26 @@ func (r *BaseRepository[T]) Delete(ctx context.Context, where map[string]interfa
 			query = query.Unscoped()
 		}
 		result := query.Delete(&mdl)
-		return nil, result.Error
+		// 数据库错误才返回；0 行删除视为幂等成功
+		if result.Error != nil {
+			return nil, result.Error
+		}
+		return nil, nil
 	}
 
+	// 分支二：按主键对象删除（期望严格命中 1 行）
 	if obj != nil {
 		if !softDelete {
 			query = query.Unscoped()
 		}
 		result := query.Delete(obj)
+		if result.Error != nil {
+			return nil, result.Error
+		}
 		if result.RowsAffected == 0 {
 			return nil, errors.New("record not found")
 		}
-		return obj, result.Error
+		return obj, nil
 	}
 
 	return nil, errors.New("no delete condition provided")
@@ -258,7 +330,7 @@ func (r *BaseRepository[T]) FindByCondition(
 }
 
 // GetById 通过 ID 获取记录
-func (r *BaseRepository[T]) GetById(ctx context.Context, id int64, callback func(*gorm.DB) *gorm.DB) (*T, error) {
+func (r *BaseRepository[T]) GetById(ctx context.Context, id uint64, callback func(*gorm.DB) *gorm.DB) (*T, error) {
 	var obj T
 
 	query := r.DB.WithContext(ctx).Where("id = ?", id)
@@ -303,6 +375,34 @@ func (r *BaseRepository[T]) GetByUUID(ctx context.Context, uuid string, callback
 		return nil, result.Error
 	}
 	return &obj, nil
+}
+
+// ListIDsByCondition 返回满足条件记录的主键 ID 列表。
+// - conditions 推荐传等值 map，例如：{"status": "active"} 或 {"id": []uint64{1,2,3}}
+// - 会自动 Select("id")，扫描为 []uint64
+func (r *BaseRepository[T]) ListIDsByCondition(
+	ctx context.Context,
+	conditions map[string]interface{},
+) ([]uint64, error) {
+	var ids []uint64
+	var obj T
+
+	db := r.DB.WithContext(ctx).Model(&obj).Select("id")
+
+	// 等值/IN 查询（GORM 支持 map 形式，id: []X => IN）
+	if len(conditions) > 0 {
+		db = db.Where(conditions)
+	}
+
+	// 可选调试
+	if debug, ok := ctx.Value(utils.DebugKey).(bool); ok && debug {
+		db = db.Debug()
+	}
+
+	if err := db.Find(&ids).Error; err != nil {
+		return nil, err
+	}
+	return ids, nil
 }
 
 // GetByCondition 根据条件查询单个记录

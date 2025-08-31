@@ -2,9 +2,9 @@ package loader
 
 import (
 	"fmt"
+	"github.com/ArtisanCloud/PowerX/internal/server/mcp/errors"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/flow/schemas"
 	"github.com/ArtisanCloud/PowerX/pkg/utils"
-	"github.com/ArtisanCloud/PowerX/services/mcp/errors"
 	"io/fs"
 	"os"
 	"path/filepath"

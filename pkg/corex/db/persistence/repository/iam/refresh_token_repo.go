@@ -33,27 +33,20 @@ func (r *RefreshTokenRepository) GetByJTI(ctx context.Context, jti string) (*dbm
 	return &rt, nil
 }
 
-func (r *RefreshTokenRepository) RevokeByJTI(ctx context.Context, jti string, revokedAtMS int64) error {
-	res := r.db.WithContext(ctx).
-		Model(&dbm.RefreshToken{}).
-		Where("jti = ? AND revoked_at IS NULL", jti).
-		Update("revoked_at", revokedAtMS)
-	if res.Error != nil {
-		return res.Error
-	}
-	if res.RowsAffected == 0 {
-		return gorm.ErrRecordNotFound // 已被撤销或不存在
-	}
-	return nil
-}
-
-func (r *RefreshTokenRepository) RevokeAllForUser(ctx context.Context, userID, tenantID uint64, before time.Time) error {
+func (r *RefreshTokenRepository) RevokeByJTI(ctx context.Context, jti string, revokedAtMs int64) error {
 	return r.db.WithContext(ctx).
 		Model(&dbm.RefreshToken{}).
-		Where("user_id = ? AND tenant_id = ? AND expires_at > ? AND revoked_at IS NULL", userID, tenantID, before).
-		Update("revoked_at", before).Error
+		Where("jti = ? AND revoked_at IS NULL", jti).
+		Update("revoked_at", revokedAtMs).Error
 }
 
+// 批量：按 user_uuid + tenant_uuid 撤销该用户在该租户下的所有 refresh
+func (r *RefreshTokenRepository) RevokeAllForUser(ctx context.Context, userUUID, tenantUUID string, revokedAtMs int64) error {
+	return r.db.WithContext(ctx).
+		Model(&dbm.RefreshToken{}).
+		Where("user_uuid = ? AND tenant_uuid = ? AND revoked_at IS NULL", userUUID, tenantUUID).
+		Updates(map[string]any{"revoked_at": revokedAtMs}).Error
+}
 func (r *RefreshTokenRepository) CleanupExpired(ctx context.Context, before time.Time) (int64, error) {
 	tx := r.db.WithContext(ctx).Where("expires_at < ?", before).Delete(&dbm.RefreshToken{})
 	return tx.RowsAffected, tx.Error

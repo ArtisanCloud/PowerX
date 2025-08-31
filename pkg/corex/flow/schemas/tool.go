@@ -1,5 +1,7 @@
 package schemas
 
+// pkg/corex/flow/schemas/tool.go
+
 // HandlerFunc 抽象的工具执行函数签名
 type HandlerFunc func(ctx Context) (Result, error)
 

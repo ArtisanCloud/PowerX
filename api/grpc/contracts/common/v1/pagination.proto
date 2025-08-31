@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package common.v1;
+
+option go_package = "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/common/v1;commonv1";
+
+// 简单版分页（先用 offset；后续可切换游标）
+message PageRequest {
+  int32  page_size   = 1;   // 建议 <= 200
+  int32  offset      = 2;   // 可与 page_token 互斥，先用 offset
+  string page_token  = 3;   // 未来游标化时使用
+}
+
+message PageResponse {
+  string next_page_token = 1;
+  int64  total           = 2;  // 大表可不返
+}

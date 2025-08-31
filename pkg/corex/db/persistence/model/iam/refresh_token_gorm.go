@@ -6,7 +6,7 @@ import "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
 type RefreshToken struct {
 	model.PowerModel
 	JTI        string `gorm:"column:jti;type:varchar(64);uniqueIndex;not null" json:"jti"`
-	UserUUID   string `gorm:"column:user_id;index;not null"                    json:"user_uuid"`
+	UserUUID   string `gorm:"column:user_uuid;index;not null"                    json:"user_uuid"`
 	MemberUUID string `gorm:"column:member_uuid;index;not null"                    json:"member_uuid"`
 	TenantUUID string `gorm:"column:tenant_uuid;index;not null"                  json:"tenant_uuid"`
 	ExpiresAt  int64  `gorm:"column:expires_at;index;not null"                 json:"expires_at"` // Unix milli

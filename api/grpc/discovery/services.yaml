@@ -1,0 +1,6 @@
+envs:
+  dev:
+    gateway: "localhost:8081"   # Envoy / gRPC-Gateway
+    services:
+      powerx.org.v1.MemberService: "org-svc:9001"
+      powerx.org.v1.TeamService:   "org-svc:9001"

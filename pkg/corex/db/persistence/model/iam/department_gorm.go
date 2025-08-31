@@ -18,6 +18,7 @@ type Department struct {
 	Sort           int            `gorm:"column:sort;default:0;index"                                    json:"sort"`
 	Status         int16          `gorm:"column:status;default:1;index"                                  json:"status"` // 1=active
 	Meta           datatypes.JSON `gorm:"column:meta;type:jsonb"                                                    json:"meta,omitempty"`
+	Children       []*Department  `gorm:"-" json:"children,omitempty"`
 }
 
 func (mdl *Department) TableName() string { return model.PowerXSchema + "." + model.TableIAMDepartment }

@@ -1,0 +1,97 @@
+syntax = "proto3";
+
+package powerx.iam.v1;
+
+option go_package = "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/iam/v1;iamv1";
+
+import "google/protobuf/field_mask.proto";
+import "google/protobuf/timestamp.proto";
+import "common/v1/context.proto";
+import "common/v1/resource.proto";
+import "common/v1/pagination.proto";
+
+// -------- 枚举/视图 --------
+enum MemberStatus {
+  MEMBER_STATUS_UNSPECIFIED = 0;
+  MEMBER_STATUS_ACTIVE      = 1;
+  MEMBER_STATUS_INACTIVE    = 2;
+  MEMBER_STATUS_SUSPENDED   = 3;
+}
+
+enum MemberView {
+  MEMBER_VIEW_UNSPECIFIED = 0;
+  MEMBER_VIEW_BASIC       = 1; // ref/username/display_name/avatar/status
+  MEMBER_VIEW_PROFILE     = 2; // + email/phone/department/team_ids
+}
+
+// -------- 模型 --------
+message Member {
+  common.v1.ResourceRef ref = 1;     // domain="iam", entity="member"
+  uint64  user_id = 2;
+  string username = 3;
+  string display_name = 4;
+  string avatar_url = 5;
+  MemberStatus status = 6;
+
+  // PROFILE 视图返回
+  string email = 10;
+  string phone = 11;
+  uint64 department_id = 12;
+  repeated uint64 team_ids = 13;
+
+  map<string, string> labels = 20;
+  google.protobuf.Timestamp created_at = 21;
+  google.protobuf.Timestamp updated_at = 22;
+}
+
+// -------- 请求/响应 --------
+message GetMemberRequest {
+  common.v1.RequestContext ctx = 1;
+  oneof selector {
+    uint64 id = 2;         // 内部ID（推荐）
+    string prn = 3;        // prn:powerx:...
+    string username = 4;   // 仅限同租户唯一
+  }
+  MemberView view = 5;
+  google.protobuf.FieldMask field_mask = 6; // 可选：细粒度字段投影
+}
+
+message BatchGetMembersRequest {
+  common.v1.RequestContext ctx = 1;
+  repeated uint64 ids = 2;
+  MemberView view = 3;
+}
+
+message ListMembersRequest {
+  common.v1.RequestContext ctx = 1;
+
+  // 过滤
+  string keyword = 2;              // 命中 username/display_name/email/phone（ci）
+  MemberStatus status = 3;
+  uint64 department_id = 4;        // 限定部门
+  uint64 team_id = 5;              // 限定团队（通过 pivot 关联）
+  repeated uint64 ids = 6;         // 指定集合（保持顺序返回）
+
+  // 分页
+  common.v1.PageRequest page = 10;
+
+  // 排序：created_at / username / display_name；默认为 created_at DESC
+  string order_by = 11;
+  bool asc = 12;
+
+  MemberView view = 20;
+}
+
+message GetMemberResponse { Member member = 1; }
+message BatchGetMembersResponse { repeated Member members = 1; }
+message ListMembersResponse {
+  repeated Member items = 1;
+  common.v1.PageResponse page = 2; // next_page_token/total（可选 total）
+}
+
+// -------- 服务 --------
+service MemberService {
+  rpc GetMember(GetMemberRequest) returns (GetMemberResponse);
+  rpc BatchGetMembers(BatchGetMembersRequest) returns (BatchGetMembersResponse);
+  rpc ListMembers(ListMembersRequest) returns (ListMembersResponse);
+}

@@ -1,0 +1,53 @@
+id: baidu
+name: Baidu Qianfan
+aliases: ["Baidu", "百度", "文心一言", "ERNIE", "千帆", "qianfan", "wenxin"]
+
+drivers:
+  llm: baidu
+  embedding: baidu
+  image: baidu
+  audio: baidu
+  video: baidu
+  rerank: baidu
+
+auth:
+  scheme: bearer
+  fields: ["api_key", "base_url"]
+  defaults:
+    base_url: "https://qianfan.baidubce.com/v2"
+
+modalities:
+  llm:
+    models:
+      - id: ERNIE-Bot-4
+        label: "ERNIE Bot 4"
+        tags: ["multilingual","vision","balanced"]
+        defaults: { temperature: 0.7, max_tokens: 1024 }
+      - id: ERNIE-Speed-8K
+        label: "ERNIE Speed 8K"
+        tags: ["fast","cheap"]
+        defaults: { temperature: 0.7, max_tokens: 1024 }
+        limits: { context_window: 8192 }
+      - id: ERNIE-Speed-128K
+        label: "ERNIE Speed 128K"
+        tags: ["long-context","fast"]
+        defaults: { temperature: 0.7, max_tokens: 1024 }
+        limits: { context_window: 128000 }
+      - id: ERNIE-Bot
+        label: "ERNIE Bot (base)"
+        tags: ["general"]
+        defaults: { temperature: 0.7, max_tokens: 1024 }
+  embedding:
+    models:
+      - id: embedding-v1
+        label: "Embedding-V1"
+        tags: ["zh-optimized","general"]
+        # 官方未公开统一维度，这里不写 dims，避免类型不符
+  image:
+    models: []
+  audio:
+    models: []
+  video:
+    models: []
+  rerank:
+    models: []

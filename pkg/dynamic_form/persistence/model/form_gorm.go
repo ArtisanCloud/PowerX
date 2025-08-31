@@ -7,7 +7,7 @@ import (
 
 // FormSchemaRecord 持久化表单 schema（支持版本/回滚）
 type FormSchemaRecord struct {
-	model.PowerModel
+	model.PowerUUIDModel
 	Title       string         `gorm:"column:title;type:varchar(128)" json:"title"`
 	Description string         `gorm:"column:description;type:text"   json:"description"`
 	Fields      datatypes.JSON `gorm:"column:fields;type:jsonb"       json:"fields"`    // 序列化的字段定义
@@ -30,7 +30,7 @@ func (mdl *FormSchemaRecord) GetTableName(needFull bool) string {
 
 // FormSubmission 记录每次表单提交
 type FormSubmission struct {
-	model.PowerModel
+	model.PowerUUIDModel
 	SchemaID uint64         `gorm:"column:schema_id;index;not null" json:"schema_id"`
 	TenantID uint64         `gorm:"column:tenant_id;index;not null" json:"tenant_id"`
 	UserID   *uint64        `gorm:"column:user_id;index"            json:"user_id,omitempty"`

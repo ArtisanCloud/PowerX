@@ -1,0 +1,447 @@
+{{/*
+审计日志模板
+用于生成审计日志相关代码
+*/}}
+package {{.PackageName}}
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"time"
+
+	"{{.ModulePath}}/domain/model/audit"
+	"{{.ModulePath}}/app/repository/audit"
+	"{{.ModulePath}}/pkg/logger"
+{{if .HasAuth}}	"{{.ModulePath}}/pkg/auth"
+{{end}}
+{{if .HasIP}}	"{{.ModulePath}}/pkg/network"
+{{end}}
+)
+
+// {{.EntityName}}AuditLogger {{.Description}}审计日志记录器
+type {{.EntityName}}AuditLogger struct {
+	auditRepository audit.AuditLogRepository `inject:""`
+{{if .HasLogger}}	logger          logger.Logger
+{{end}}
+}
+
+// New{{.EntityName}}AuditLogger 创建{{.Description}}审计日志记录器实例
+func New{{.EntityName}}AuditLogger(
+	auditRepository audit.AuditLogRepository,
+{{if .HasLogger}}	logger logger.Logger,
+{{end}}
+) *{{.EntityName}}AuditLogger {
+	return &{{.EntityName}}AuditLogger{
+		auditRepository: auditRepository,
+{{if .HasLogger}}		logger:          logger,
+{{end}}	}
+}
+
+// AuditAction 审计操作类型
+type AuditAction string
+
+const (
+{{range .AuditActions}}	// {{.Name}} {{.Description}}
+	{{.Name}} AuditAction = "{{.Value}}"
+{{end}}
+)
+
+// AuditLevel 审计级别
+type AuditLevel string
+
+const (
+	// AuditLevelInfo 信息级别
+	AuditLevelInfo AuditLevel = "info"
+	// AuditLevelWarn 警告级别
+	AuditLevelWarn AuditLevel = "warn"
+	// AuditLevelError 错误级别
+	AuditLevelError AuditLevel = "error"
+	// AuditLevelCritical 严重级别
+	AuditLevelCritical AuditLevel = "critical"
+)
+
+// AuditContext 审计上下文
+type AuditContext struct {
+	UserID    string                 `json:"user_id,omitempty"`
+	UserName  string                 `json:"username,omitempty"`
+	UserRole  string                 `json:"user_role,omitempty"`
+	IPAddress string                 `json:"ip_address,omitempty"`
+	UserAgent string                 `json:"user_agent,omitempty"`
+	SessionID string                 `json:"session_id,omitempty"`
+	RequestID string                 `json:"request_id,omitempty"`
+	Module    string                 `json:"module,omitempty"`
+	Extra     map[string]interface{} `json:"extra,omitempty"`
+}
+
+// AuditData 审计数据
+type AuditData struct {
+	Before map[string]interface{} `json:"before,omitempty"`
+	After  map[string]interface{} `json:"after,omitempty"`
+	Changes map[string]interface{} `json:"changes,omitempty"`
+	Extra   map[string]interface{} `json:"extra,omitempty"`
+}
+
+{{if .HasCreateAudit}}
+// LogCreate{{.EntityName}} 记录创建{{.Description}}的审计日志
+func (a *{{.EntityName}}AuditLogger) LogCreate{{.EntityName}}(ctx context.Context, entityID string, data interface{}, auditCtx *AuditContext) error {
+	return a.logAudit(ctx, &audit.AuditLog{
+		Action:       string({{.CreateAction}}),
+		ResourceType: "{{.ResourceType}}",
+		ResourceID:   entityID,
+		Level:        string(AuditLevelInfo),
+		Message:      fmt.Sprintf("创建{{.Description}}: %s", entityID),
+		Context:      a.buildContext(ctx, auditCtx),
+		Data:         a.buildAuditData(nil, data, nil),
+		Timestamp:    time.Now(),
+	})
+}
+{{end}}
+
+{{if .HasUpdateAudit}}
+// LogUpdate{{.EntityName}} 记录更新{{.Description}}的审计日志
+func (a *{{.EntityName}}AuditLogger) LogUpdate{{.EntityName}}(ctx context.Context, entityID string, before, after interface{}, auditCtx *AuditContext) error {
+	changes := a.calculateChanges(before, after)
+	return a.logAudit(ctx, &audit.AuditLog{
+		Action:       string({{.UpdateAction}}),
+		ResourceType: "{{.ResourceType}}",
+		ResourceID:   entityID,
+		Level:        string(AuditLevelInfo),
+		Message:      fmt.Sprintf("更新{{.Description}}: %s", entityID),
+		Context:      a.buildContext(ctx, auditCtx),
+		Data:         a.buildAuditData(before, after, changes),
+		Timestamp:    time.Now(),
+	})
+}
+{{end}}
+
+{{if .HasDeleteAudit}}
+// LogDelete{{.EntityName}} 记录删除{{.Description}}的审计日志
+func (a *{{.EntityName}}AuditLogger) LogDelete{{.EntityName}}(ctx context.Context, entityID string, data interface{}, auditCtx *AuditContext) error {
+	return a.logAudit(ctx, &audit.AuditLog{
+		Action:       string({{.DeleteAction}}),
+		ResourceType: "{{.ResourceType}}",
+		ResourceID:   entityID,
+		Level:        string(AuditLevelWarn),
+		Message:      fmt.Sprintf("删除{{.Description}}: %s", entityID),
+		Context:      a.buildContext(ctx, auditCtx),
+		Data:         a.buildAuditData(data, nil, nil),
+		Timestamp:    time.Now(),
+	})
+}
+{{end}}
+
+{{if .HasViewAudit}}
+// LogView{{.EntityName}} 记录查看{{.Description}}的审计日志
+func (a *{{.EntityName}}AuditLogger) LogView{{.EntityName}}(ctx context.Context, entityID string, auditCtx *AuditContext) error {
+	return a.logAudit(ctx, &audit.AuditLog{
+		Action:       string({{.ViewAction}}),
+		ResourceType: "{{.ResourceType}}",
+		ResourceID:   entityID,
+		Level:        string(AuditLevelInfo),
+		Message:      fmt.Sprintf("查看{{.Description}}: %s", entityID),
+		Context:      a.buildContext(ctx, auditCtx),
+		Data:         nil,
+		Timestamp:    time.Now(),
+	})
+}
+{{end}}
+
+{{if .HasSearchAudit}}
+// LogSearch{{.EntityName}} 记录搜索{{.Description}}的审计日志
+func (a *{{.EntityName}}AuditLogger) LogSearch{{.EntityName}}(ctx context.Context, query string, resultCount int, auditCtx *AuditContext) error {
+	return a.logAudit(ctx, &audit.AuditLog{
+		Action:       string({{.SearchAction}}),
+		ResourceType: "{{.ResourceType}}",
+		ResourceID:   "",
+		Level:        string(AuditLevelInfo),
+		Message:      fmt.Sprintf("搜索{{.Description}}: %s, 结果数量: %d", query, resultCount),
+		Context:      a.buildContext(ctx, auditCtx),
+		Data: map[string]interface{}{
+			"query":        query,
+			"result_count": resultCount,
+		},
+		Timestamp: time.Now(),
+	})
+}
+{{end}}
+
+{{if .HasExportAudit}}
+// LogExport{{.EntityName}} 记录导出{{.Description}}的审计日志
+func (a *{{.EntityName}}AuditLogger) LogExport{{.EntityName}}(ctx context.Context, exportType string, recordCount int, auditCtx *AuditContext) error {
+	return a.logAudit(ctx, &audit.AuditLog{
+		Action:       string({{.ExportAction}}),
+		ResourceType: "{{.ResourceType}}",
+		ResourceID:   "",
+		Level:        string(AuditLevelWarn),
+		Message:      fmt.Sprintf("导出{{.Description}}: %s, 记录数量: %d", exportType, recordCount),
+		Context:      a.buildContext(ctx, auditCtx),
+		Data: map[string]interface{}{
+			"export_type":  exportType,
+			"record_count": recordCount,
+		},
+		Timestamp: time.Now(),
+	})
+}
+{{end}}
+
+{{if .HasImportAudit}}
+// LogImport{{.EntityName}} 记录导入{{.Description}}的审计日志
+func (a *{{.EntityName}}AuditLogger) LogImport{{.EntityName}}(ctx context.Context, importType string, successCount, failCount int, auditCtx *AuditContext) error {
+	level := AuditLevelInfo
+	if failCount > 0 {
+		level = AuditLevelWarn
+	}
+
+	return a.logAudit(ctx, &audit.AuditLog{
+		Action:       string({{.ImportAction}}),
+		ResourceType: "{{.ResourceType}}",
+		ResourceID:   "",
+		Level:        string(level),
+		Message:      fmt.Sprintf("导入{{.Description}}: %s, 成功: %d, 失败: %d", importType, successCount, failCount),
+		Context:      a.buildContext(ctx, auditCtx),
+		Data: map[string]interface{}{
+			"import_type":   importType,
+			"success_count": successCount,
+			"fail_count":    failCount,
+		},
+		Timestamp: time.Now(),
+	})
+}
+{{end}}
+
+{{if .HasBatchAudit}}
+// LogBatch{{.EntityName}} 记录批量操作{{.Description}}的审计日志
+func (a *{{.EntityName}}AuditLogger) LogBatch{{.EntityName}}(ctx context.Context, action AuditAction, entityIDs []string, successCount, failCount int, auditCtx *AuditContext) error {
+	level := AuditLevelInfo
+	if failCount > 0 {
+		level = AuditLevelWarn
+	}
+
+	return a.logAudit(ctx, &audit.AuditLog{
+		Action:       string(action),
+		ResourceType: "{{.ResourceType}}",
+		ResourceID:   "",
+		Level:        string(level),
+		Message:      fmt.Sprintf("批量%s{{.Description}}: 总数: %d, 成功: %d, 失败: %d", action, len(entityIDs), successCount, failCount),
+		Context:      a.buildContext(ctx, auditCtx),
+		Data: map[string]interface{}{
+			"entity_ids":    entityIDs,
+			"total_count":   len(entityIDs),
+			"success_count": successCount,
+			"fail_count":    failCount,
+		},
+		Timestamp: time.Now(),
+	})
+}
+{{end}}
+
+{{if .HasErrorAudit}}
+// LogError{{.EntityName}} 记录{{.Description}}操作错误的审计日志
+func (a *{{.EntityName}}AuditLogger) LogError{{.EntityName}}(ctx context.Context, action AuditAction, entityID string, err error, auditCtx *AuditContext) error {
+	return a.logAudit(ctx, &audit.AuditLog{
+		Action:       string(action),
+		ResourceType: "{{.ResourceType}}",
+		ResourceID:   entityID,
+		Level:        string(AuditLevelError),
+		Message:      fmt.Sprintf("{{.Description}}操作失败: %s, 错误: %v", action, err),
+		Context:      a.buildContext(ctx, auditCtx),
+		Data: map[string]interface{}{
+			"error": err.Error(),
+		},
+		Timestamp: time.Now(),
+	})
+}
+{{end}}
+
+{{if .HasSecurityAudit}}
+// LogSecurity{{.EntityName}} 记录{{.Description}}安全事件的审计日志
+func (a *{{.EntityName}}AuditLogger) LogSecurity{{.EntityName}}(ctx context.Context, event string, entityID string, severity string, details map[string]interface{}, auditCtx *AuditContext) error {
+	level := AuditLevelWarn
+	if severity == "high" || severity == "critical" {
+		level = AuditLevelCritical
+	}
+
+	return a.logAudit(ctx, &audit.AuditLog{
+		Action:       "security_event",
+		ResourceType: "{{.ResourceType}}",
+		ResourceID:   entityID,
+		Level:        string(level),
+		Message:      fmt.Sprintf("{{.Description}}安全事件: %s, 严重程度: %s", event, severity),
+		Context:      a.buildContext(ctx, auditCtx),
+		Data: map[string]interface{}{
+			"event":    event,
+			"severity": severity,
+			"details":  details,
+		},
+		Timestamp: time.Now(),
+	})
+}
+{{end}}
+
+// logAudit 记录审计日志
+func (a *{{.EntityName}}AuditLogger) logAudit(ctx context.Context, auditLog *audit.AuditLog) error {
+	// 异步记录审计日志，避免影响主业务流程
+	go func() {
+		if err := a.auditRepository.Create(context.Background(), auditLog); err != nil {
+{{if .HasLogger}}			a.logger.ErrorF(context.Background(), "记录{{.Description}}审计日志失败: %v", err)
+{{end}}		}
+	}()
+
+	return nil
+}
+
+// buildContext 构建审计上下文
+func (a *{{.EntityName}}AuditLogger) buildContext(ctx context.Context, auditCtx *AuditContext) map[string]interface{} {
+	contextData := make(map[string]interface{})
+
+	if auditCtx != nil {
+		if auditCtx.UserID != "" {
+			contextData["user_id"] = auditCtx.UserID
+		}
+		if auditCtx.UserName != "" {
+			contextData["username"] = auditCtx.UserName
+		}
+		if auditCtx.UserRole != "" {
+			contextData["user_role"] = auditCtx.UserRole
+		}
+		if auditCtx.IPAddress != "" {
+			contextData["ip_address"] = auditCtx.IPAddress
+		}
+		if auditCtx.UserAgent != "" {
+			contextData["user_agent"] = auditCtx.UserAgent
+		}
+		if auditCtx.SessionID != "" {
+			contextData["session_id"] = auditCtx.SessionID
+		}
+		if auditCtx.RequestID != "" {
+			contextData["request_id"] = auditCtx.RequestID
+		}
+		if auditCtx.Module != "" {
+			contextData["module"] = auditCtx.Module
+		}
+		for k, v := range auditCtx.Extra {
+			contextData[k] = v
+		}
+	}
+
+{{if .HasAuth}}	// 尝试从上下文获取用户信息
+	if userID := auth.GetUserIDFromContext(ctx); userID != "" && contextData["user_id"] == nil {
+		contextData["user_id"] = userID
+	}
+{{end}}
+
+{{if .HasIP}}	// 尝试从上下文获取IP地址
+	if ipAddress := network.GetIPFromContext(ctx); ipAddress != "" && contextData["ip_address"] == nil {
+		contextData["ip_address"] = ipAddress
+	}
+{{end}}
+
+	// 添加模块信息
+	if contextData["module"] == nil {
+		contextData["module"] = "{{.PackageName}}"
+	}
+
+	return contextData
+}
+
+// buildAuditData 构建审计数据
+func (a *{{.EntityName}}AuditLogger) buildAuditData(before, after, changes interface{}) map[string]interface{} {
+	data := make(map[string]interface{})
+
+	if before != nil {
+		data["before"] = a.sanitizeData(before)
+	}
+	if after != nil {
+		data["after"] = a.sanitizeData(after)
+	}
+	if changes != nil {
+		data["changes"] = a.sanitizeData(changes)
+	}
+
+	return data
+}
+
+// sanitizeData 清理敏感数据
+func (a *{{.EntityName}}AuditLogger) sanitizeData(data interface{}) interface{} {
+	// 将数据转换为map以便处理
+	dataBytes, err := json.Marshal(data)
+	if err != nil {
+		return data
+	}
+
+	var dataMap map[string]interface{}
+	if err := json.Unmarshal(dataBytes, &dataMap); err != nil {
+		return data
+	}
+
+	// 清理敏感字段
+	sensitiveFields := []string{
+{{range .SensitiveFields}}		"{{.}}",
+{{end}}	}
+
+	for _, field := range sensitiveFields {
+		if _, exists := dataMap[field]; exists {
+			dataMap[field] = "[REDACTED]"
+		}
+	}
+
+	return dataMap
+}
+
+// calculateChanges 计算数据变更
+func (a *{{.EntityName}}AuditLogger) calculateChanges(before, after interface{}) map[string]interface{} {
+	changes := make(map[string]interface{})
+
+	// 转换为JSON进行比较
+	beforeBytes, err := json.Marshal(before)
+	if err != nil {
+		return changes
+	}
+
+	afterBytes, err := json.Marshal(after)
+	if err != nil {
+		return changes
+	}
+
+	var beforeMap, afterMap map[string]interface{}
+	if err := json.Unmarshal(beforeBytes, &beforeMap); err != nil {
+		return changes
+	}
+	if err := json.Unmarshal(afterBytes, &afterMap); err != nil {
+		return changes
+	}
+
+	// 比较字段变更
+	for key, afterValue := range afterMap {
+		beforeValue, exists := beforeMap[key]
+		if !exists || !a.isEqual(beforeValue, afterValue) {
+			changes[key] = map[string]interface{}{
+				"from": beforeValue,
+				"to":   afterValue,
+			}
+		}
+	}
+
+	return changes
+}
+
+// isEqual 比较两个值是否相等
+func (a *{{.EntityName}}AuditLogger) isEqual(a1, a2 interface{}) bool {
+	bytes1, err1 := json.Marshal(a1)
+	bytes2, err2 := json.Marshal(a2)
+	if err1 != nil || err2 != nil {
+		return false
+	}
+	return string(bytes1) == string(bytes2)
+}
+
+{{if .HasCustomAuditMethods}}
+// 自定义审计方法
+{{range .CustomAuditMethods}}
+// {{.Name}} {{.Description}}
+func (a *{{$.EntityName}}AuditLogger) {{.Name}}({{.Parameters}}) error {
+	{{.Implementation}}
+}
+{{end}}
+{{end}}

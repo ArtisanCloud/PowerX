@@ -1,6 +1,11 @@
 package manager
 
 import (
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/json"
+	"github.com/ArtisanCloud/PowerX/pkg/auth"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -84,6 +89,22 @@ func (r *DynamicRouter) serveAdminStatic(c *gin.Context) {
 	http.ServeFile(c.Writer, c.Request, target)
 }
 
+func buildSignedCtx(c *gin.Context) (ctxB64, sig string, ok bool) {
+	claimsAny, exists := c.Get("auth_claims") // 你的鉴权中间件设进去的
+	if !exists {
+		return "", "", false
+	}
+	claims := claimsAny.(auth.CoreXClaims)
+
+	raw, _ := json.Marshal(claims)
+	ctxB64 = base64.StdEncoding.EncodeToString(raw)
+
+	mac := hmac.New(sha256.New, []byte("pluginCtxHMACSecret"))
+	mac.Write([]byte(ctxB64))
+	sig = base64.StdEncoding.EncodeToString(mac.Sum(nil))
+	return ctxB64, sig, true
+}
+
 func (r *DynamicRouter) serveAPIProxy(c *gin.Context) {
 	id := c.Param("id")
 
@@ -112,6 +133,20 @@ func (r *DynamicRouter) serveAPIProxy(c *gin.Context) {
 		req.URL.Path = joinURLPath(up.target.Path, clientPath)
 		// 可选：转发原查询串
 		req.URL.RawQuery = c.Request.URL.RawQuery
+		// 1) 清洗潜在伪造
+		req.Header.Del("X-PowerX-CTX")
+		req.Header.Del("X-PowerX-CTX-SIG")
+
+		// 2) 注入签名上下文
+		if ctxB64, sig, ok := buildSignedCtx(c); ok {
+			req.Header.Set("X-PowerX-CTX", ctxB64)
+			req.Header.Set("X-PowerX-CTX-SIG", sig)
+		}
+
+		// 3) 可选：透传追踪信息
+		if tid := c.GetString("trace_id"); tid != "" {
+			req.Header.Set("X-Request-ID", tid)
+		}
 	}
 	proxy.ServeHTTP(c.Writer, c.Request)
 }

@@ -1,0 +1,43 @@
+id: coze
+name: Coze
+aliases: ["字节Coze", "coze.com", "coze.cn", "Coze AI"]
+
+drivers:
+  llm: coze
+  embedding: coze
+  image: coze
+  audio: coze
+  video: coze
+  rerank: coze
+
+auth:
+  scheme: bearer
+  fields: ["api_key", "base_url"]
+  defaults:
+    base_url: "https://api.coze.com/open_api"
+
+modalities:
+  llm:
+    models:
+      - id: coze-agent
+        label: "Coze Agent (by bot_id)"
+        tags: ["agent","tools","workflow"]
+        defaults:
+          temperature: 0.7
+          max_tokens: 1024
+          # 你的 driver 若需要，可从 defaults 里取 bot_id/knowledge_id 等
+          # bot_id: ""
+      - id: coze-chat
+        label: "Coze Chat (model routing)"
+        tags: ["routing","general"]
+        defaults: { temperature: 0.7, max_tokens: 1024 }
+  embedding:
+    models: []   # 如你的 driver 支持 Coze 向量服务，可在此处补充
+  image:
+    models: []
+  audio:
+    models: []
+  video:
+    models: []
+  rerank:
+    models: []

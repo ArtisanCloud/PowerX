@@ -1,0 +1,1162 @@
+{
+  "info": {
+    "title": "PowerX Admin API (Minimal)",
+    "version": "v1.0.0"
+  },
+  "openapi": "3.0.3",
+  "paths": {
+    "/api/admin/agents/models": {
+      "get": {
+        "operationId": "GET /api/admin/agents/models",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "GET /api/admin/agents/models",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/agents/providers": {
+      "get": {
+        "operationId": "GET /api/admin/agents/providers",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "GET /api/admin/agents/providers",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/agents/settings/active": {
+      "get": {
+        "operationId": "GET /api/admin/agents/settings/active",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "GET /api/admin/agents/settings/active",
+        "tags": [
+          "api"
+        ]
+      },
+      "post": {
+        "operationId": "POST /api/admin/agents/settings/active",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/admin/agents/settings/active",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/agents/settings/credentials": {
+      "get": {
+        "operationId": "GET /api/admin/agents/settings/credentials",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "GET /api/admin/agents/settings/credentials",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/agents/settings/profiles": {
+      "get": {
+        "operationId": "GET /api/admin/agents/settings/profiles",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "GET /api/admin/agents/settings/profiles",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/agents/settings/save": {
+      "post": {
+        "operationId": "POST /api/admin/agents/settings/save",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/admin/agents/settings/save",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/agents/test/call": {
+      "post": {
+        "operationId": "POST /api/admin/agents/test/call",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/admin/agents/test/call",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/agents/test/connection": {
+      "post": {
+        "operationId": "POST /api/admin/agents/test/connection",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/admin/agents/test/connection",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/auth/me/context": {
+      "get": {
+        "operationId": "GET /api/admin/auth/me/context",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "GET /api/admin/auth/me/context",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/iam/departments": {
+      "post": {
+        "operationId": "POST /api/admin/iam/departments",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/admin/iam/departments",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/iam/departments/:id": {
+      "delete": {
+        "operationId": "DELETE /api/admin/iam/departments/_id",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "DELETE /api/admin/iam/departments/_id",
+        "tags": [
+          "api"
+        ]
+      },
+      "patch": {
+        "operationId": "PATCH /api/admin/iam/departments/_id",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "PATCH /api/admin/iam/departments/_id",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/iam/departments/tree": {
+      "get": {
+        "operationId": "GET /api/admin/iam/departments/tree",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "GET /api/admin/iam/departments/tree",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/iam/members": {
+      "get": {
+        "operationId": "GET /api/admin/iam/members",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "GET /api/admin/iam/members",
+        "tags": [
+          "api"
+        ]
+      },
+      "post": {
+        "operationId": "POST /api/admin/iam/members",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/admin/iam/members",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/iam/members/:id": {
+      "delete": {
+        "operationId": "DELETE /api/admin/iam/members/_id",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "DELETE /api/admin/iam/members/_id",
+        "tags": [
+          "api"
+        ]
+      },
+      "get": {
+        "operationId": "GET /api/admin/iam/members/_id",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "GET /api/admin/iam/members/_id",
+        "tags": [
+          "api"
+        ]
+      },
+      "patch": {
+        "operationId": "PATCH /api/admin/iam/members/_id",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "PATCH /api/admin/iam/members/_id",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/iam/members/:id/departments": {
+      "put": {
+        "operationId": "PUT /api/admin/iam/members/_id/departments",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "PUT /api/admin/iam/members/_id/departments",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/iam/members/:id/force-logout": {
+      "post": {
+        "operationId": "POST /api/admin/iam/members/_id/force-logout",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/admin/iam/members/_id/force-logout",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/iam/members/:id/restore": {
+      "put": {
+        "operationId": "PUT /api/admin/iam/members/_id/restore",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "PUT /api/admin/iam/members/_id/restore",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/iam/members/:id/status": {
+      "put": {
+        "operationId": "PUT /api/admin/iam/members/_id/status",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "PUT /api/admin/iam/members/_id/status",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/iam/permissions": {
+      "get": {
+        "operationId": "GET /api/admin/iam/permissions",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "GET /api/admin/iam/permissions",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/iam/permissions/:id": {
+      "patch": {
+        "operationId": "PATCH /api/admin/iam/permissions/_id",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "PATCH /api/admin/iam/permissions/_id",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/iam/permissions/:id/status": {
+      "put": {
+        "operationId": "PUT /api/admin/iam/permissions/_id/status",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "PUT /api/admin/iam/permissions/_id/status",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/iam/permissions/catalog": {
+      "get": {
+        "operationId": "GET /api/admin/iam/permissions/catalog",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "GET /api/admin/iam/permissions/catalog",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/iam/permissions/register": {
+      "post": {
+        "operationId": "POST /api/admin/iam/permissions/register",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/admin/iam/permissions/register",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/iam/permissions/sync": {
+      "post": {
+        "operationId": "POST /api/admin/iam/permissions/sync",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/admin/iam/permissions/sync",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/iam/roles": {
+      "get": {
+        "operationId": "GET /api/admin/iam/roles",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "GET /api/admin/iam/roles",
+        "tags": [
+          "api"
+        ]
+      },
+      "post": {
+        "operationId": "POST /api/admin/iam/roles",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/admin/iam/roles",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/iam/roles/:id": {
+      "delete": {
+        "operationId": "DELETE /api/admin/iam/roles/_id",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "DELETE /api/admin/iam/roles/_id",
+        "tags": [
+          "api"
+        ]
+      },
+      "get": {
+        "operationId": "GET /api/admin/iam/roles/_id",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "GET /api/admin/iam/roles/_id",
+        "tags": [
+          "api"
+        ]
+      },
+      "patch": {
+        "operationId": "PATCH /api/admin/iam/roles/_id",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "PATCH /api/admin/iam/roles/_id",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/iam/roles/:id/bind/member": {
+      "post": {
+        "operationId": "POST /api/admin/iam/roles/_id/bind/member",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/admin/iam/roles/_id/bind/member",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/iam/roles/:id/bindings/:binding_id": {
+      "delete": {
+        "operationId": "DELETE /api/admin/iam/roles/_id/bindings/_binding_id",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "DELETE /api/admin/iam/roles/_id/bindings/_binding_id",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/iam/roles/:id/permissions": {
+      "get": {
+        "operationId": "GET /api/admin/iam/roles/_id/permissions",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "GET /api/admin/iam/roles/_id/permissions",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/iam/roles/:id/permissions/grant": {
+      "post": {
+        "operationId": "POST /api/admin/iam/roles/_id/permissions/grant",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/admin/iam/roles/_id/permissions/grant",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/iam/roles/:id/permissions/grant-ids": {
+      "post": {
+        "operationId": "POST /api/admin/iam/roles/_id/permissions/grant-ids",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/admin/iam/roles/_id/permissions/grant-ids",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/iam/roles/:id/permissions/ids": {
+      "get": {
+        "operationId": "GET /api/admin/iam/roles/_id/permissions/ids",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "GET /api/admin/iam/roles/_id/permissions/ids",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/iam/roles/:id/permissions/revoke-ids": {
+      "post": {
+        "operationId": "POST /api/admin/iam/roles/_id/permissions/revoke-ids",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/admin/iam/roles/_id/permissions/revoke-ids",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/iam/roles/:id/permissions/set-ids": {
+      "put": {
+        "operationId": "PUT /api/admin/iam/roles/_id/permissions/set-ids",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "PUT /api/admin/iam/roles/_id/permissions/set-ids",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/iam/roles/me/check": {
+      "get": {
+        "operationId": "GET /api/admin/iam/roles/me/check",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "GET /api/admin/iam/roles/me/check",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/iam/users/:user_id/member": {
+      "get": {
+        "operationId": "GET /api/admin/iam/users/_user_id/member",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "GET /api/admin/iam/users/_user_id/member",
+        "tags": [
+          "api"
+        ]
+      },
+      "post": {
+        "operationId": "POST /api/admin/iam/users/_user_id/member",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/admin/iam/users/_user_id/member",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/iam/users/members": {
+      "get": {
+        "operationId": "GET /api/admin/iam/users/members",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "GET /api/admin/iam/users/members",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/menus/": {
+      "get": {
+        "operationId": "GET /api/admin/menus/",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "GET /api/admin/menus/",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/plugins/": {
+      "get": {
+        "operationId": "GET /api/admin/plugins/",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "GET /api/admin/plugins/",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/plugins/:id/disable": {
+      "post": {
+        "operationId": "POST /api/admin/plugins/_id/disable",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/admin/plugins/_id/disable",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/plugins/:id/enable": {
+      "post": {
+        "operationId": "POST /api/admin/plugins/_id/enable",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/admin/plugins/_id/enable",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/plugins/:id/logs": {
+      "get": {
+        "operationId": "GET /api/admin/plugins/_id/logs",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "GET /api/admin/plugins/_id/logs",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/plugins/:id/restart": {
+      "post": {
+        "operationId": "POST /api/admin/plugins/_id/restart",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/admin/plugins/_id/restart",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/plugins/:id/status": {
+      "get": {
+        "operationId": "GET /api/admin/plugins/_id/status",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "GET /api/admin/plugins/_id/status",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/plugins/:id/switch_version": {
+      "post": {
+        "operationId": "POST /api/admin/plugins/_id/switch_version",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/admin/plugins/_id/switch_version",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/plugins/:id/uninstall": {
+      "post": {
+        "operationId": "POST /api/admin/plugins/_id/uninstall",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/admin/plugins/_id/uninstall",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/plugins/install/local": {
+      "post": {
+        "operationId": "POST /api/admin/plugins/install/local",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/admin/plugins/install/local",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/plugins/install/url": {
+      "post": {
+        "operationId": "POST /api/admin/plugins/install/url",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/admin/plugins/install/url",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/plugins/menus": {
+      "get": {
+        "operationId": "GET /api/admin/plugins/menus",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "GET /api/admin/plugins/menus",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/system/users": {
+      "get": {
+        "operationId": "GET /api/admin/system/users",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "GET /api/admin/system/users",
+        "tags": [
+          "api"
+        ]
+      },
+      "post": {
+        "operationId": "POST /api/admin/system/users",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/admin/system/users",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/system/users/:id": {
+      "delete": {
+        "operationId": "DELETE /api/admin/system/users/_id",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "DELETE /api/admin/system/users/_id",
+        "tags": [
+          "api"
+        ]
+      },
+      "get": {
+        "operationId": "GET /api/admin/system/users/_id",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "GET /api/admin/system/users/_id",
+        "tags": [
+          "api"
+        ]
+      },
+      "patch": {
+        "operationId": "PATCH /api/admin/system/users/_id",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "PATCH /api/admin/system/users/_id",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/system/users/:id/add-to-tenant": {
+      "patch": {
+        "operationId": "PATCH /api/admin/system/users/_id/add-to-tenant",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "PATCH /api/admin/system/users/_id/add-to-tenant",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/system/users/:id/force-logout": {
+      "post": {
+        "operationId": "POST /api/admin/system/users/_id/force-logout",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/admin/system/users/_id/force-logout",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/system/users/:id/members": {
+      "post": {
+        "operationId": "POST /api/admin/system/users/_id/members",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/admin/system/users/_id/members",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/system/users/:id/restore": {
+      "put": {
+        "operationId": "PUT /api/admin/system/users/_id/restore",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "PUT /api/admin/system/users/_id/restore",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/system/users/:id/status": {
+      "put": {
+        "operationId": "PUT /api/admin/system/users/_id/status",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "PUT /api/admin/system/users/_id/status",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/tenants": {
+      "get": {
+        "operationId": "GET /api/admin/tenants",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "GET /api/admin/tenants",
+        "tags": [
+          "api"
+        ]
+      },
+      "post": {
+        "operationId": "POST /api/admin/tenants",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/admin/tenants",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/tenants/:id": {
+      "delete": {
+        "operationId": "DELETE /api/admin/tenants/_id",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "DELETE /api/admin/tenants/_id",
+        "tags": [
+          "api"
+        ]
+      },
+      "get": {
+        "operationId": "GET /api/admin/tenants/_id",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "GET /api/admin/tenants/_id",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/tenants/upsert": {
+      "put": {
+        "operationId": "PUT /api/admin/tenants/upsert",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "PUT /api/admin/tenants/upsert",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/user/auth/login": {
+      "post": {
+        "operationId": "POST /api/admin/user/auth/login",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/admin/user/auth/login",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/user/auth/refresh": {
+      "post": {
+        "operationId": "POST /api/admin/user/auth/refresh",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/admin/user/auth/refresh",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/user/auth/register": {
+      "post": {
+        "operationId": "POST /api/admin/user/auth/register",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/admin/user/auth/register",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/agents/chat": {
+      "post": {
+        "operationId": "POST /api/agents/chat",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/agents/chat",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/agents/intent/": {
+      "post": {
+        "operationId": "POST /api/agents/intent/",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/agents/intent/",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/agents/intent/plan": {
+      "post": {
+        "operationId": "POST /api/agents/intent/plan",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/agents/intent/plan",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/agents/status": {
+      "get": {
+        "operationId": "GET /api/agents/status",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "GET /api/agents/status",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/agents/stream": {
+      "post": {
+        "operationId": "POST /api/agents/stream",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/agents/stream",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/health": {
+      "get": {
+        "operationId": "GET /api/health",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "GET /api/health",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/marketplace/plugins": {
+      "get": {
+        "operationId": "GET /api/marketplace/plugins",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "GET /api/marketplace/plugins",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/user/auth/logout": {
+      "post": {
+        "operationId": "POST /api/user/auth/logout",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/user/auth/logout",
+        "tags": [
+          "api"
+        ]
+      }
+    }
+  },
+  "servers": [
+    {
+      "url": "/"
+    }
+  ]
+}

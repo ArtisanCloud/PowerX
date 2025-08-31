@@ -1,0 +1,57 @@
+id: anthropic
+name: Anthropic
+aliases: ["Claude", "anthropic.com", "Claude API"]
+
+drivers:
+  llm: anthropic
+  embedding: anthropic
+  image: anthropic
+  audio: anthropic
+  video: anthropic
+  rerank: anthropic
+
+auth:
+  scheme: bearer
+  fields: ["api_key", "base_url", "anthropic_version"]
+  defaults:
+    base_url: "https://api.anthropic.com"
+    anthropic_version: "2023-06-01"
+
+modalities:
+  llm:
+    models:
+      - id: claude-opus-4-1-20250805
+        label: "Claude Opus 4.1 (2025-08-05)"
+        tags: ["flagship","reasoning","vision"]
+        defaults: { temperature: 0.5, max_tokens: 4096 }
+        limits: { context_window: 200000, max_output_tokens: 32000 }
+      - id: claude-opus-4-20250514
+        label: "Claude Opus 4 (2025-05-14)"
+        tags: ["reasoning","vision"]
+        defaults: { temperature: 0.5, max_tokens: 4096 }
+        limits: { context_window: 200000, max_output_tokens: 32000 }
+      - id: claude-sonnet-4-20250514
+        label: "Claude Sonnet 4 (2025-05-14)"
+        tags: ["balanced","vision","long-context"]
+        defaults: { temperature: 0.7, max_tokens: 8192 }
+        limits: { context_window: 200000, max_output_tokens: 64000 }
+      - id: claude-3-7-sonnet-20250219
+        label: "Claude Sonnet 3.7 (2025-02-19)"
+        tags: ["balanced","extended-thinking"]
+        defaults: { temperature: 0.7, max_tokens: 8192 }
+        limits: { context_window: 200000, max_output_tokens: 64000 }
+      - id: claude-3-5-haiku-20241022
+        label: "Claude Haiku 3.5 (2024-10-22)"
+        tags: ["fast","cheap"]
+        defaults: { temperature: 0.7, max_tokens: 2048 }
+        limits: { context_window: 200000, max_output_tokens: 8192 }
+  embedding:
+    models: []   # 有 Embeddings 能力，但当前以 Messages API 为主；如需可后续补充
+  image:
+    models: []
+  audio:
+    models: []
+  video:
+    models: []
+  rerank:
+    models: []

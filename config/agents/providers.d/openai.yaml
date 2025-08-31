@@ -1,0 +1,86 @@
+id: openai
+name: OpenAI
+aliases: ["OpenAI API", "openai.com"]
+
+drivers:
+  llm: openai
+  embedding: openai
+  image: openai
+  audio: openai
+  video: openai
+  rerank: openai
+
+auth:
+  scheme: bearer
+  fields: ["api_key", "base_url"]
+  defaults:
+    base_url: "https://api.openai.com/v1"
+
+modalities:
+  llm:
+    models:
+      - id: gpt-4o
+        label: "GPT-4o"
+        tags: ["omni","multimodal","flagship"]
+        defaults: { temperature: 0.7, max_tokens: 1024 }
+      - id: gpt-4o-mini
+        label: "GPT-4o mini"
+        tags: ["fast","cheap"]
+        defaults: { temperature: 0.7, max_tokens: 1024 }
+      - id: gpt-4.1-mini
+        label: "GPT-4.1 mini"
+        tags: ["json"]
+        defaults: { temperature: 0.3, max_tokens: 1024 }
+      - id: o3
+        label: "OpenAI o3"
+        tags: ["reasoning","deep"]
+        defaults: { temperature: 0.2, max_tokens: 1024 }
+      - id: o4-mini
+        label: "OpenAI o4-mini"
+        tags: ["reasoning","cost-effective"]
+        defaults: { temperature: 0.3, max_tokens: 1024 }
+      - id: o4-mini-high
+        label: "OpenAI o4-mini-high"
+        tags: ["reasoning","high-effort","accuracy"]
+        defaults: { temperature: 0.2, max_tokens: 1024 }
+      - id: gpt-3.5-turbo
+        label: "GPT-3.5 Turbo"
+        tags: ["fast","cheap"]
+        defaults: { temperature: 0.7, max_tokens: 1024 }
+
+  embedding:
+    models:
+      - id: text-embedding-3-small
+        label: "TE-3-small"
+        tags: ["cheap"]
+        limits: { dims: 1536 }
+      - id: text-embedding-3-large
+        label: "TE-3-large"
+        limits: { dims: 3072 }
+
+  image:
+    models:
+      - id: gpt-image-1
+        label: "GPT-Image-1"
+        tags: ["img-gen","inpainting","variation"]
+
+  audio:
+    models:
+      - id: gpt-4o-mini-tts
+        label: "GPT-4o mini TTS"
+        tags: ["audio","tts","expressive"]
+      - id: gpt-4o-transcribe
+        label: "GPT-4o Transcribe"
+        tags: ["audio","asr","multilingual"]
+      - id: gpt-4o-mini-transcribe
+        label: "GPT-4o mini Transcribe"
+        tags: ["audio","asr","fast"]
+      - id: whisper-1
+        label: "Whisper v1 (legacy)"
+        tags: ["audio","asr","legacy"]
+
+  video:
+    models: []   # 目前无公开 API 可用的视频生成模型；留空以便后续补齐
+
+  rerank:
+    models: []   # OpenAI 暂无独立 rerank 模型；通常用 LLM/Embedding 组合处理

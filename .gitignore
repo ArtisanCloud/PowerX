@@ -70,3 +70,5 @@ etc/config.yaml
 
 # Keep the folder itself
 !plugins/.gitkeep
+
+api/grpc/gen/

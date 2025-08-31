@@ -1,5 +1,7 @@
 package model
 
+import "github.com/google/uuid"
+
 // FieldType 定义支持的字段类型
 type FieldType string
 
@@ -45,7 +47,7 @@ type FormField struct {
 
 // FormSchema 整体表单 schema
 type FormSchema struct {
-	ID          string                 `json:"id"`
+	UUID        uuid.UUID              `json:"id"`
 	Title       string                 `json:"title,omitempty"`
 	Description string                 `json:"description,omitempty"`
 	Fields      []FormField            `json:"fields"`

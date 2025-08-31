@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"github.com/ArtisanCloud/PowerX/pkg/auth"
 	"gorm.io/gorm"
 )
 
@@ -9,6 +10,10 @@ type BaseService struct {
 	DB *gorm.DB
 }
 
-func (s *BaseService) TX(ctx context.Context, fn func(tx *gorm.DB) error) error {
-	return s.DB.WithContext(ctx).Transaction(fn)
+// ======== helpers ========
+func IsRoot(ctx context.Context) bool {
+	if c := auth.GetJWTClaims(ctx); c != nil && c.IsRoot {
+		return true
+	}
+	return false
 }

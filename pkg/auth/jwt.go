@@ -3,7 +3,6 @@ package auth
 import (
 	"errors"
 	"fmt"
-	"github.com/ArtisanCloud/PowerX/config"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -17,6 +16,7 @@ type CoreXClaims struct {
 	MemberID   uint64   `json:"mid_n"`
 	UserUUID   string   `json:"uid"`
 	UserID     uint64   `json:"uid_n"`
+	IsRoot     bool     `json:"is_root"`
 	Roles      []string `json:"roles,omitempty"`
 	Platforms  []string `json:"plats,omitempty"`
 	Scope      string   `json:"scope"` // "access" | "refresh"
@@ -95,7 +95,10 @@ func ParseAndValidate(tokenString string, secret []byte, expectedIssuer string, 
 
 /* --- 如仍有旧调用，保留兼容包装；否则可以删除 --- */
 
-func GenerateJWT(tenantUUID, memberUUID string, platforms []string, audience, scope string, ttl time.Duration, secret []byte) (string, error) {
+func GenerateJWT(
+	tenantUUID, memberUUID string, platforms []string,
+	audience, scope string, legacyIssuer string,
+	ttl time.Duration, secret []byte) (string, error) {
 	if scope == "refresh" {
 		return "", errors.New("GenerateJWT(deprecated): refresh not supported, use GenerateRefreshJWT")
 	}
@@ -105,8 +108,7 @@ func GenerateJWT(tenantUUID, memberUUID string, platforms []string, audience, sc
 		Platforms:  platforms,
 		Scope:      "access",
 	}
-	cfg := config.GetGlobalConfig()
-	legacyIssuer := cfg.Auth.Issuer
+
 	return GenerateAccessJWT(c, legacyIssuer, []string{audience}, ttl, secret)
 }
 

@@ -13,3 +13,5 @@ include $(MAKE_FILES_DIR)/database.mk
 include $(MAKE_FILES_DIR)/docker.mk
 include $(MAKE_FILES_DIR)/test.mk
 include $(MAKE_FILES_DIR)/audit_partition.mk
+include $(MAKE_FILES_DIR)/perm.mk
+include $(MAKE_FILES_DIR)/secret.mk

@@ -2,6 +2,7 @@ package audit
 
 import (
 	"context"
+	"github.com/ArtisanCloud/PowerX/pkg/auth"
 	"time"
 
 	dbm "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/audit"
@@ -18,41 +19,54 @@ type serviceAuditor struct{ svc ServicePort }
 func NewAuditor(svc ServicePort) Auditor { return &serviceAuditor{svc: svc} }
 
 func (a *serviceAuditor) LogAPI(ctx context.Context, methodPath string, status int, latency time.Duration) {
+	tid := auth.GetTenantID(ctx)
+	cid := CorrelationIDFromContext(ctx)
 	_ = a.svc.Emit(ctx, &dbm.AuditEvent{
-		OccurredAt:   time.Now(),
-		Source:       "http",
-		Operation:    "API_CALL",
-		ResourceType: "core.api",
-		ResourceID:   methodPath,
-		Outcome:      httpOutcome(status),
-		Severity:     sevByHTTP(status),
-		Meta:         mustJSON(map[string]any{"status": status, "latency_ms": latency.Milliseconds()}),
+		OccurredAt:    time.Now(),
+		TenantID:      tid,
+		CorrelationID: cid,
+		Source:        "http",
+		Operation:     "API_CALL",
+		ResourceType:  "core.api",
+		ResourceID:    methodPath,
+		Outcome:       httpOutcome(status),
+		Severity:      sevByHTTP(status),
+		Meta:          mustJSON(map[string]any{"status": status, "latency_ms": latency.Milliseconds()}),
 	})
 }
 
 func (a *serviceAuditor) LogBusPublish(ctx context.Context, topic string, subCount int) {
+	tid := auth.GetTenantID(ctx)
+	cid := CorrelationIDFromContext(ctx)
 	_ = a.svc.Emit(ctx, &dbm.AuditEvent{
-		OccurredAt:   time.Now(),
-		Source:       "bus",
-		Operation:    "BUS_PUBLISH",
-		ResourceType: "core.bus.topic",
-		ResourceID:   topic,
-		Outcome:      "SUCCESS",
-		Severity:     "INFO",
-		Meta:         mustJSON(map[string]any{"subscribers": subCount}),
+		OccurredAt:    time.Now(),
+		TenantID:      tid,
+		CorrelationID: cid,
+		Source:        "bus",
+		Operation:     "BUS_PUBLISH",
+		ResourceType:  "core.bus.topic",
+		ResourceID:    topic,
+		Outcome:       "SUCCESS",
+		Severity:      "INFO",
+		Meta:          mustJSON(map[string]any{"subscribers": subCount}),
 	})
 }
 
 func (a *serviceAuditor) LogBusDeliver(ctx context.Context, topic, pluginID string, status int, err string) {
+	tid := auth.GetTenantID(ctx)
+	cid := CorrelationIDFromContext(ctx)
+
 	_ = a.svc.Emit(ctx, &dbm.AuditEvent{
-		OccurredAt:   time.Now(),
-		Source:       "bus",
-		Operation:    "BUS_DELIVER",
-		ResourceType: "plugin",
-		ResourceID:   pluginID,
-		Outcome:      httpOutcome(status),
-		Severity:     sevByHTTP(status),
-		Meta:         mustJSON(map[string]any{"topic": topic, "status": status, "error": err}),
+		OccurredAt:    time.Now(),
+		TenantID:      tid,
+		CorrelationID: cid,
+		Source:        "bus",
+		Operation:     "BUS_DELIVER",
+		ResourceType:  "plugin",
+		ResourceID:    pluginID,
+		Outcome:       httpOutcome(status),
+		Severity:      sevByHTTP(status),
+		Meta:          mustJSON(map[string]any{"topic": topic, "status": status, "error": err}),
 	})
 }
 
@@ -61,15 +75,19 @@ func (a *serviceAuditor) LogRBAC(ctx context.Context, subject, resource, action 
 	if allow {
 		out = "SUCCESS"
 	}
+	tid := auth.GetTenantID(ctx)
+	cid := CorrelationIDFromContext(ctx)
 	_ = a.svc.Emit(ctx, &dbm.AuditEvent{
-		OccurredAt:   time.Now(),
-		Source:       "rbac",
-		Operation:    "RBAC_CHECK",
-		ResourceType: "rbac.resource",
-		ResourceID:   resource,
-		Outcome:      out,
-		Severity:     "INFO",
-		Meta:         mustJSON(map[string]any{"subject": subject, "action": action}),
+		OccurredAt:    time.Now(),
+		TenantID:      tid,
+		CorrelationID: cid,
+		Source:        "rbac",
+		Operation:     "RBAC_CHECK",
+		ResourceType:  "rbac.resource",
+		ResourceID:    resource,
+		Outcome:       out,
+		Severity:      "INFO",
+		Meta:          mustJSON(map[string]any{"subject": subject, "action": action}),
 	})
 }
 

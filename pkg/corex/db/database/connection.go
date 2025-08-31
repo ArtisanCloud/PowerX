@@ -55,7 +55,7 @@ func Connect(cfg corexdb.DatabaseConfig) (*gorm.DB, error) {
 			}
 			dsn = fmt.Sprintf(
 				"host=%s port=%d user=%s password=%s dbname=%s sslmode=%s TimeZone=%s",
-				cfg.Host, cfg.Port, cfg.Username, cfg.Password, cfg.Database, cfg.SSLMode, cfg.Timezone,
+				cfg.Host, cfg.Port, cfg.UserName, cfg.Password, cfg.Database, cfg.SSLMode, cfg.Timezone,
 			)
 			gdb, err = gorm.Open(postgres.Open(dsn), gcfg)
 
@@ -67,7 +67,7 @@ func Connect(cfg corexdb.DatabaseConfig) (*gorm.DB, error) {
 			}
 			dsn = fmt.Sprintf(
 				"%s:%s@tcp(%s:%d)/%s?parseTime=true&loc=%s&charset=utf8mb4",
-				cfg.Username, cfg.Password, cfg.Host, cfg.Port, cfg.Database, url.QueryEscape(loc),
+				cfg.UserName, cfg.Password, cfg.Host, cfg.Port, cfg.Database, url.QueryEscape(loc),
 			)
 			gdb, err = gorm.Open(mysql.Open(dsn), gcfg)
 
