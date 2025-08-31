@@ -38,6 +38,11 @@ func SeedCoreX(ctx context.Context, db *gorm.DB, cfg *config.Config) error {
 		return err
 	}
 
+	if err = SeedSystemDefaultAgent(db); err != nil {
+		//log.Fatal(err)
+		return err
+	}
+
 	log.Println("seed ok")
 
 	return nil
