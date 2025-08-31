@@ -149,8 +149,8 @@ func sortTopLevelWithRootFirst(sys []admdto.AdminMenuItem, collectedRoot []admdt
 	out = append(out, rest...)
 	return out
 }
-func indexSystemSlots(sys []admdto.AdminMenuItem) map[string]*admdto.AdminMenuItem {
-	idx := map[string]*admdto.AdminMenuItem{}
+func indexSystemSlots(sys []admdto.AdminMenuItem) map[plugin_mgr.MenuKey]*admdto.AdminMenuItem {
+	idx := map[plugin_mgr.MenuKey]*admdto.AdminMenuItem{}
 	for i := range sys {
 		it := &sys[i]
 		switch it.Key {
@@ -196,11 +196,11 @@ func parseCategoryFromParentID(pid string) (key, title string, ok bool) {
 
 // 把“已排序好的顶层菜单 sys”分成若干分类
 func groupAsCategories(sys []admdto.AdminMenuItem) []admdto.AdminMenuCategory {
-	byID := map[string]*admdto.AdminMenuCategory{
-		"agent":    {ID: "agent", Title: "智能体", Order: -100, Origin: "system"},
-		"workflow": {ID: "workflow", Title: "工作流", Order: -90, Origin: "system"},
-		"plugins":  {ID: "plugins", Title: "插件", Order: -10, Origin: "plugin"},
-		"system":   {ID: "system", Title: "系统功能", Order: 0, Origin: "system"},
+	byID := map[plugin_mgr.MenuKey]*admdto.AdminMenuCategory{
+		plugin_mgr.KeyAgent:    {ID: plugin_mgr.KeyAgent, Title: "智能体", Order: -100, Origin: plugin_mgr.OriginSystem},
+		plugin_mgr.KeyWorkflow: {ID: plugin_mgr.KeyWorkflow, Title: "工作流", Order: -90, Origin: plugin_mgr.OriginSystem},
+		plugin_mgr.KeyPlugins:  {ID: plugin_mgr.KeyPlugins, Title: "插件", Order: -10, Origin: plugin_mgr.OriginSystem},
+		plugin_mgr.KeySettings: {ID: plugin_mgr.KeySettings, Title: "系统设置", Order: 0, Origin: plugin_mgr.OriginSystem},
 	}
 
 	for _, it := range sys {
@@ -208,26 +208,31 @@ func groupAsCategories(sys []admdto.AdminMenuItem) []admdto.AdminMenuCategory {
 		if it.Origin == plugin_mgr.OriginSystem {
 			switch it.Key {
 			case plugin_mgr.KeyAgent:
-				byID["agent"].Children = append(byID["agent"].Children, it)
+				byID[plugin_mgr.KeyAgent].Children = append(byID[plugin_mgr.KeyAgent].Children, it)
 				continue
 			case plugin_mgr.KeyWorkflow:
-				byID["workflow"].Children = append(byID["workflow"].Children, it)
+				byID[plugin_mgr.KeyWorkflow].Children = append(byID[plugin_mgr.KeyWorkflow].Children, it)
+				continue
+			case plugin_mgr.KeyPlugins:
+				// 关键：把系统“插件市场”放到“插件”分类下，而不是系统设置
+				byID[plugin_mgr.KeyPlugins].Children = append(byID[plugin_mgr.KeyPlugins].Children, it)
 				continue
 			default:
-				byID["system"].Children = append(byID["system"].Children, it)
+				byID[plugin_mgr.KeySettings].Children = append(byID[plugin_mgr.KeySettings].Children, it)
 				continue
 			}
 		}
 
 		// 插件：保持 cat: 自定义分类逻辑；否则落到 plugins
-		if key, title, ok := parseCategoryFromParentID(it.ParentID); ok {
+		if strKey, title, ok := parseCategoryFromParentID(string(it.ParentID)); ok {
+			key := plugin_mgr.MenuKey(strKey)
 			if _, exists := byID[key]; !exists {
-				byID[key] = &admdto.AdminMenuCategory{ID: key, Title: title, Order: 50, Origin: "plugin"}
+				byID[key] = &admdto.AdminMenuCategory{ID: key, Title: title, Order: 50, Origin: plugin_mgr.OriginPlugin}
 			}
 			byID[key].Children = append(byID[key].Children, it)
 			continue
 		}
-		byID["plugins"].Children = append(byID["plugins"].Children, it)
+		byID[plugin_mgr.KeyPlugins].Children = append(byID[plugin_mgr.KeyPlugins].Children, it)
 	}
 
 	// 分类列表排序：仅按 Order→Title→ID；不再基于 hasRoot 调整 plugins 的顺序

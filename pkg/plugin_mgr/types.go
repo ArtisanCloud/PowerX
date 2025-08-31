@@ -15,32 +15,38 @@ type InstallSource struct {
 	Signature string
 }
 
+type MenuOriginType string
+
 const (
-	OriginSystem = "system"
-	OriginPlugin = "plugin"
+	OriginSystem MenuOriginType = "system"
+	OriginPlugin MenuOriginType = "plugin"
 )
 
+type SlotKey string
+
 const (
-	SlotRoot      = "group.root"
-	SlotPlugins   = "group.plugins"
-	SlotSettings  = "core.settings"
-	SlotDashboard = "core.dashboard"
-	SlotWorkflow  = "core.workflow"
-	SlotAgent     = "core.agent"
-	SlotCustom    = "group.custom"
+	SlotRoot      SlotKey = "group.root"
+	SlotPlugins   SlotKey = "group.plugins"
+	SlotSettings  SlotKey = "core.settings"
+	SlotDashboard SlotKey = "core.dashboard"
+	SlotWorkflow  SlotKey = "core.workflow"
+	SlotAgent     SlotKey = "core.agent"
+	SlotCustom    SlotKey = "group.custom"
 )
 
-const (
-	KeyPlugins   = "plugins"
-	KeySettings  = "settings"
-	KeyDashboard = "dashboard"
-	KeyWorkflow  = "workflow"
-	KeyAgent     = "agent"
+type MenuKey string
 
-	KeyUserManagement = "user_management"
-	KeyRoleManagement = "role_management"
-	KeySystemConfig   = "system_config"
-	KeyAISettings     = "ai_settings"
+const (
+	KeyPlugins   MenuKey = "plugins"
+	KeySettings  MenuKey = "settings"
+	KeyDashboard MenuKey = "dashboard"
+	KeyWorkflow  MenuKey = "workflow"
+	KeyAgent     MenuKey = "agent"
+
+	KeyUserManagement MenuKey = "user_management"
+	KeyRoleManagement MenuKey = "role_management"
+	KeySystemConfig   MenuKey = "system_config"
+	KeyAISettings     MenuKey = "ai_settings"
 )
 
 type PluginState string
@@ -133,7 +139,7 @@ type MenuItem struct {
 	Title            string   `yaml:"title" json:"title"`
 	Icon             string   `yaml:"icon"  json:"icon"`
 	Order            int      `yaml:"order" json:"order"`
-	Slot             string   `yaml:"slot" json:"slot"`
+	Slot             SlotKey  `yaml:"slot" json:"slot"`
 	Visible          *bool    `yaml:"visible" json:"visible"`
 	RequiredPolicies []string `yaml:"required_policies,omitempty" json:"required_policies,omitempty"`
 }

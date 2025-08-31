@@ -42,12 +42,12 @@ func BuildPluginMenusPublic(basePrefix string) []admdto.AdminMenuItem {
 				slot = plugin_mgr.SlotPlugins
 			}
 			out = append(out, admdto.AdminMenuItem{
-				Key:         "plugin:" + p.ID + ":" + route,
+				Key:         plugin_mgr.MenuKey("plugin:" + p.ID + ":" + route),
 				Title:       m.Title,
 				Icon:        m.Icon,
 				URL:         url,
 				Order:       m.Order,
-				Origin:      "plugin",
+				Origin:      plugin_mgr.OriginPlugin,
 				Visible:     visible, // ✅ 默认可见
 				Slot:        slot,    // ✅ 插槽
 				Permissions: m.RequiredPolicies,
