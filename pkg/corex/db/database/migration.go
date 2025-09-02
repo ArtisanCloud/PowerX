@@ -4,6 +4,7 @@ import (
 	modelAudit "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/audit"
 	modelAgent "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/flow"
 	modelIAM "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/iam"
+	modelSetting "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/setting"
 	modelTenant "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/tenant"
 	modelForm "github.com/ArtisanCloud/PowerX/pkg/dynamic_form/persistence/model"
 	"gorm.io/gorm"
@@ -55,6 +56,19 @@ func MigrateCoreModels(db *gorm.DB) (err error) {
 		return err
 	}
 
+	err = db.AutoMigrate(
+		&modelSetting.SystemSetting{},
+		&modelSetting.TenantSetting{},
+		&modelSetting.DomainBinding{},
+		&modelSetting.TLSCertRef{},
+		&modelSetting.AuthProviderConfig{},
+		&modelSetting.PluginInstanceConfig{},
+	)
+	if err != nil {
+		return err
+	}
+
+	// 迁移审计
 	err = db.AutoMigrate(
 		&modelAudit.AuditEvent{},
 	)

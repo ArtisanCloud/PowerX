@@ -20,6 +20,7 @@ func SetupRouter(cfg *config.Config, r *gin.Engine, deps *shared.Deps) error {
 	r.Use(RequestLoggingMiddleware())
 	r.Use(TraceInjectionMiddleware())
 	r.Use(FeatureInjectionMiddleware())
+	r.Use(BearerShim())
 
 	authUser := auth.JwtMiddleware(
 		[]byte(cfg.Auth.JWTSecret),

@@ -172,3 +172,15 @@ func ParseUintID(s string) (uint64, error) {
 	}
 	return id, nil
 }
+
+func ParseIntDefault(s string, def int) int {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return def
+	}
+	v, err := strconv.Atoi(s) // base 10
+	if err != nil {
+		return def
+	}
+	return v
+}

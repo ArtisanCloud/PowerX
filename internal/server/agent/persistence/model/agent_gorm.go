@@ -12,6 +12,9 @@ const (
 	TableAgentSetting    = "agent_settings"
 	TableAgentKBBinding  = "agent_kb_bindings"
 	TableAgentPluginLink = "agent_plugin_links"
+
+	TableAgentChatSession = "agent_chat_sessions"
+	TableAgentChatMessage = "agent_chat_messages"
 )
 
 // ---------- 枚举/常量（可按需扩展） ----------
@@ -63,6 +66,11 @@ type Agent struct {
 	BlueprintRefs    datatypes.JSON `gorm:"type:jsonb;default:'[]'::jsonb" json:"blueprintRefs"`
 	IntentCardsRef   datatypes.JSON `gorm:"type:jsonb;default:'[]'::jsonb" json:"intentCardsRef"`
 	ToolAllowlist    datatypes.JSON `gorm:"type:jsonb;default:'[]'::jsonb" json:"toolAllowlist"`
+
+	SessionSingleton bool `gorm:"default:false" json:"sessionSingleton"` // 该 Agent 是否单例会话
+	DefaultTTLDays   int  `gorm:"default:3" json:"defaultTTLDays"`
+	DefaultMaxKB     int  `gorm:"default:200" json:"defaultMaxKB"`
+	DefaultMaxTokens int  `gorm:"default:3000" json:"defaultMaxTokens"`
 
 	// 知识库策略与扩展元信息
 	KBStrategy string            `gorm:"size:16;default:'union'" json:"kbStrategy"` // none|union|weighted

@@ -943,6 +943,124 @@
         ]
       }
     },
+    "/api/admin/system/settings/effective/:key": {
+      "get": {
+        "operationId": "GET /api/admin/system/settings/effective/_key",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "GET /api/admin/system/settings/effective/_key",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/system/settings/system": {
+      "get": {
+        "operationId": "GET /api/admin/system/settings/system",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "GET /api/admin/system/settings/system",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/system/settings/system/:key": {
+      "delete": {
+        "operationId": "DELETE /api/admin/system/settings/system/_key",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "DELETE /api/admin/system/settings/system/_key",
+        "tags": [
+          "api"
+        ]
+      },
+      "get": {
+        "operationId": "GET /api/admin/system/settings/system/_key",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "GET /api/admin/system/settings/system/_key",
+        "tags": [
+          "api"
+        ]
+      },
+      "put": {
+        "operationId": "PUT /api/admin/system/settings/system/_key",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "PUT /api/admin/system/settings/system/_key",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/system/settings/tenant/:tenant_id": {
+      "get": {
+        "operationId": "GET /api/admin/system/settings/tenant/_tenant_id",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "GET /api/admin/system/settings/tenant/_tenant_id",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/system/settings/tenant/:tenant_id/:key": {
+      "delete": {
+        "operationId": "DELETE /api/admin/system/settings/tenant/_tenant_id/_key",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "DELETE /api/admin/system/settings/tenant/_tenant_id/_key",
+        "tags": [
+          "api"
+        ]
+      },
+      "get": {
+        "operationId": "GET /api/admin/system/settings/tenant/_tenant_id/_key",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "GET /api/admin/system/settings/tenant/_tenant_id/_key",
+        "tags": [
+          "api"
+        ]
+      },
+      "put": {
+        "operationId": "PUT /api/admin/system/settings/tenant/_tenant_id/_key",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "PUT /api/admin/system/settings/tenant/_tenant_id/_key",
+        "tags": [
+          "api"
+        ]
+      }
+    },
     "/api/admin/system/users": {
       "get": {
         "operationId": "GET /api/admin/system/users",
@@ -1227,6 +1345,98 @@
         ]
       }
     },
+    "/api/agents/sessions": {
+      "get": {
+        "operationId": "GET /api/agents/sessions",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "GET /api/agents/sessions",
+        "tags": [
+          "api"
+        ]
+      },
+      "post": {
+        "operationId": "POST /api/agents/sessions",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/agents/sessions",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/agents/sessions/:id": {
+      "delete": {
+        "operationId": "DELETE /api/agents/sessions/_id",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "DELETE /api/agents/sessions/_id",
+        "tags": [
+          "api"
+        ]
+      },
+      "get": {
+        "operationId": "GET /api/agents/sessions/_id",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "GET /api/agents/sessions/_id",
+        "tags": [
+          "api"
+        ]
+      },
+      "patch": {
+        "operationId": "PATCH /api/agents/sessions/_id",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "PATCH /api/agents/sessions/_id",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/agents/sessions/:id/archive": {
+      "post": {
+        "operationId": "POST /api/agents/sessions/_id/archive",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/agents/sessions/_id/archive",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/agents/sessions/:id/messages": {
+      "get": {
+        "operationId": "GET /api/agents/sessions/_id/messages",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "GET /api/agents/sessions/_id/messages",
+        "tags": [
+          "api"
+        ]
+      }
+    },
     "/api/agents/status": {
       "get": {
         "operationId": "GET /api/agents/status",
@@ -1255,15 +1465,15 @@
         ]
       }
     },
-    "/api/agents/stream/sse": {
+    "/api/agents/stream/flow": {
       "get": {
-        "operationId": "GET /api/agents/stream/sse",
+        "operationId": "GET /api/agents/stream/flow",
         "responses": {
           "200": {
             "description": "OK"
           }
         },
-        "summary": "GET /api/agents/stream/sse",
+        "summary": "GET /api/agents/stream/flow",
         "tags": [
           "api"
         ]
