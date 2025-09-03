@@ -1,6 +1,8 @@
+// file: internal/app/http/admin/agent/chat_handler.go
 package agent
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"sort"
@@ -9,65 +11,154 @@ import (
 
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
 	"github.com/ArtisanCloud/PowerX/internal/server/agent"
+	dbmodel "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/model"
 	agentschema "github.com/ArtisanCloud/PowerX/internal/server/agent/schemas"
+	agentSvc "github.com/ArtisanCloud/PowerX/internal/service/agent"
 	flowschema "github.com/ArtisanCloud/PowerX/pkg/corex/flow/schemas"
-	"github.com/ArtisanCloud/PowerX/pkg/dto"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
+	dto "github.com/ArtisanCloud/PowerX/pkg/dto"
+	"github.com/ArtisanCloud/PowerX/pkg/utils"
 	"github.com/gin-gonic/gin"
 )
 
-type AgentChatHandler struct{}
-
-func NewAgentChatHandler(_ *shared.Deps) *AgentChatHandler {
-	return &AgentChatHandler{}
+type AgentChatHandler struct {
+	his *agentSvc.ChatHistoryService
 }
 
-// 多 flow 串行的 streamCore
+func NewAgentChatHandler(dep *shared.Deps) *AgentChatHandler {
+	return &AgentChatHandler{
+		his: agentSvc.NewChatHistoryService(dep.DB),
+	}
+}
+
+// 标准 SSE：GET /api/agents/stream/sse?q=...&flow_id=...&probe=1[&session_id=...&agent_id=...&env=...]
+func (h *AgentChatHandler) StreamSSE(c *gin.Context) {
+	// 探针
+	probe := strings.EqualFold(c.Query("probe"), "1") || strings.EqualFold(c.Query("probe"), "true")
+	if probe {
+		setSSEHeaders(c)
+		c.SSEvent("ack", gin.H{"ok": true, "ts": time.Now().Unix(), "note": "sse probe only, no compute"})
+		c.SSEvent("end", gin.H{"ok": true})
+		return
+	}
+
+	env := c.DefaultQuery("env", "default")
+	q := strings.TrimSpace(firstNonEmpty(c.Query("q"), c.Query("message")))
+	if q == "" {
+		dto.ResponseError(c, 400, "缺少 q（消息内容）", nil)
+		return
+	}
+	flowID := strings.TrimSpace(c.Query("flow_id"))
+	agentIDStr := strings.TrimSpace(c.Query("agent_id"))
+	sessionIDStr := strings.TrimSpace(c.Query("session_id"))
+
+	agentID, _ := utils.ParseUintID(agentIDStr)
+	_, _ = utils.ParseUintID(sessionIDStr) // 允许传但不强求（我们内部会 GetOrCreate）
+
+	tid, _ := reqctx.RequireTenantIDFromGin(c)
+	uid := reqctx.GetUserID(c.Request.Context())
+
+	// 先切到 SSE 头
+	setSSEHeaders(c)
+
+	ctxMap := map[string]any{
+		"env":       env,
+		"tenant_id": tid,
+		"agent_id":  agentID,
+		"user_id":   uid,
+	}
+	if sessionIDStr != "" {
+		ctxMap["session_id"] = sessionIDStr
+	}
+
+	req := dto.StreamChatRequest{
+		Message: q,
+		FlowID:  flowID,
+		Config:  nil,
+		Context: ctxMap,
+		Route:   nil,
+		Exec:    nil,
+	}
+
+	h.streamCore(c, req)
+}
+
+// ---- 核心：单 Flow 流式 + 会话入库闭环 ----
 func (h *AgentChatHandler) streamCore(c *gin.Context, req dto.StreamChatRequest) {
 	msg := strings.TrimSpace(req.Message)
 	if msg == "" {
 		dto.ResponseError(c, 400, "message 不能为空", nil)
 		return
 	}
-
 	ctx := c.Request.Context()
+
+	// 上下文解析
+	env := "default"
+	if v, ok := req.Context["env"].(string); ok && v != "" {
+		env = v
+	}
+	var tid uint64
+	tid = req.Context["tenant_id"].(uint64)
+
+	var agentID uint64
+	agentID = req.Context["agent_id"].(uint64)
+
+	userID, _ := req.Context["user_id"].(uint64)
+
+	// 会话：取或建（不再依赖 MakeDefaultSessionDef）
+	var sess *dbmodel.AgentChatSession
+	// 若传了 session_id，优先按该 id 取；否则按 (env, tenant, agent, user) sticky 取/建
+	if sidStr, ok := req.Context["session_id"].(string); ok && strings.TrimSpace(sidStr) != "" {
+		if sid, err := utils.ParseUintID(sidStr); err == nil && sid > 0 {
+			// 允许你在 Service 里实现 GetByIDOrCreateFallback；这里先复用通用入口
+			sess, _ = h.his.FindSessionByID(ctx, env, &tid, sid)
+		}
+	}
+	if sess == nil {
+		// def 传 nil，默认标题由 Service 内部根据首条消息自动生成即可
+		var err error
+		sess, err = h.his.GetOrCreateSession(ctx, env, &tid, agentID, userID, false, nil)
+		if err != nil {
+			c.SSEvent(dto.EventError, gin.H{"message": "创建会话失败", "detail": err.Error()})
+			c.SSEvent(dto.EventEnd, gin.H{"ok": false})
+			return
+		}
+	}
+
+	// 先写入 user 消息
+	if _, err := h.his.AppendMessage(ctx, env, &tid, sess.ID, agentID, "user", msg, "text", 0, 0, false, nil); err != nil {
+		c.SSEvent(dto.EventError, gin.H{"message": "写入用户消息失败", "detail": err.Error()})
+		c.SSEvent(dto.EventEnd, gin.H{"ok": false})
+		return
+	}
+
+	// 意图 → 计划（未显式 flow_id 时）
 	mgr := agent.GetAgentManager()
-
-	// -------- 1) 生成计划 / 选择要执行的 flow --------
-	var (
-		plan   *flowschema.ExecutionPlan
-		flowID = strings.TrimSpace(req.FlowID)
-	)
-
+	var plan *flowschema.ExecutionPlan
+	flowID := strings.TrimSpace(req.FlowID)
 	if flowID == "" {
-		// 多任务识别
 		tasks, err := mgr.DetectTasks(c, msg)
 		if err != nil {
 			c.SSEvent(dto.EventError, gin.H{"message": "意图识别失败", "detail": err.Error()})
 			c.SSEvent(dto.EventEnd, gin.H{"ok": false})
 			return
 		}
-		// 推送 intent（多任务）
 		c.SSEvent(dto.EventIntent, gin.H{"mode": "intent_multi", "tasks": tasks})
 		c.Writer.Flush()
 
-		// 构建计划（可能返回强类型，也可能是 map）
 		rawPlan := mgr.BuildPlan(tasks)
-
 		switch v := any(rawPlan).(type) {
 		case flowschema.ExecutionPlan:
 			plan = &v
 		case *flowschema.ExecutionPlan:
 			plan = v
 		default:
-			// 回落：把任意结构转成 ExecutionPlan（若能成功）
 			b, _ := json.Marshal(rawPlan)
 			var tmp flowschema.ExecutionPlan
 			if err := json.Unmarshal(b, &tmp); err == nil && len(tmp.Tasks) > 0 {
 				plan = &tmp
 			}
 		}
-
-		// 向前端回显计划（优先强类型）
 		if plan != nil {
 			c.SSEvent("plan", plan)
 		} else {
@@ -75,20 +166,18 @@ func (h *AgentChatHandler) streamCore(c *gin.Context, req dto.StreamChatRequest)
 		}
 		c.Writer.Flush()
 
-		// 选定执行的 flow（当前阶段先取第一条；多 flow 同连要改 writer，下一步做）
 		flowID = pickFirstFlowID(plan)
 	}
 
+	// 路由 & 兜底 flow
 	ag, fallbackFlowID, err := mgr.GetDefaultRoute()
 	if err != nil {
-		c.SSEvent(dto.EventError, gin.H{"message": "创建 Agent 失败", "detail": err.Error()})
+		c.SSEvent(dto.EventError, gin.H{"message": "获取默认 Agent 失败", "detail": err.Error()})
 		c.SSEvent(dto.EventEnd, gin.H{"ok": false})
 		return
 	}
-
-	// 如果上面识别/计划没有挑出 flowID，使用默认兜底
 	if strings.TrimSpace(flowID) == "" {
-		flowID = strings.TrimSpace(fallbackFlowID)
+		flowID = strings.TrimSpace(fallbackFlowID) // e.g. base_flow
 		if flowID == "" {
 			c.SSEvent(dto.EventError, gin.H{"code": "no_fallback_flow", "message": "未配置默认兜底 flow"})
 			c.SSEvent(dto.EventEnd, gin.H{"ok": false})
@@ -96,36 +185,112 @@ func (h *AgentChatHandler) streamCore(c *gin.Context, req dto.StreamChatRequest)
 		}
 	}
 
+	// 执行单 flow
 	params := flowschema.Context{
 		"message": msg,
-		"config":  req.Config,
-		"context": req.Context,
-		"plan":    plan, // 给节点使用
+		"context": map[string]any{
+			"env":        env,
+			"tenant_id":  tid,
+			"agent_id":   agentID,
+			"session_id": sess.ID,
+			"user_id":    userID,
+		},
+		"plan": plan,
 	}
-
-	execID := fmt.Sprintf("chat_%d", time.Now().UnixNano())
+	execID := fmt.Sprintf("sess_%d_%d", sess.ID, time.Now().UnixNano())
 	meta := agentschema.ExecutionMeta{
 		RequestID: execID,
-		UserID:    "user_123",
-		TenantID:  "tenant_123",
+		UserID:    userID,
+		TenantID:  tid,
 		TraceID:   fmt.Sprintf("trace_%d", time.Now().UnixNano()),
 		Priority:  1,
+		Timeout:   60,
 	}
 
-	stream, err := ag.Stream(ctx, flowID, params, meta)
+	runCtx := withTimeout(ctx, 60*time.Second)
+	sr, err := ag.Stream(runCtx, flowID, params, meta)
 	if err != nil {
 		c.SSEvent(dto.EventError, gin.H{"message": "流式聊天执行失败", "detail": err.Error()})
 		c.SSEvent(dto.EventEnd, gin.H{"ok": false})
 		return
 	}
 
-	// 统一由 WriteToSSE 写出（它会发 start/token/data/final/end/heartbeat）
-	_ = dto.WriteToSSE(c, flowID, execID, stream, 25*time.Second)
+	// Tap：增量聚合 / 最终入库 / 开始前发 meta（带 session_id）
+	var buf strings.Builder
+	hooks := dto.SSEHooks{
+		HeartbeatInterval: 25 * time.Second,
+		OnStart: func(fid, eid string) {
+			// 在 start 之前补一帧 meta 让前端拿到 session_id
+			c.SSEvent("meta", gin.H{"session_id": sess.ID, "agent_id": agentID})
+			c.Writer.Flush()
+		},
+		OnDelta: func(delta string, _ *agentschema.ExecutionResult) {
+			buf.WriteString(delta)
+		},
+		OnFinal: func(final *agentschema.ExecutionResult) {
+			text := extractAssistantText(final)
+			if strings.TrimSpace(text) == "" {
+				text = buf.String()
+			}
+			if strings.TrimSpace(text) != "" {
+				_, _ = h.his.AppendMessage(c.Request.Context(), env, &tid, sess.ID, agentID, "assistant", text, "text", 0, 0, false, nil)
+			}
+			_, _ = h.his.SummarizeIfNeeded(c.Request.Context(), env, &tid, sess)
+		},
+		OnError: func(err error) {
+			// 可加打点
+		},
+	}
+
+	_ = dto.WriteToSSEWithTap(c, flowID, execID, sr, hooks)
 }
 
-// 取 ExecutionPlan 中“第一个要跑的 flow”
-// - 先按 Stage 升序；同 Stage 按原顺序
-// - 优先 FlowID，其次 TaskID
+// 非流式（简版）
+func (h *AgentChatHandler) Invoke(c *gin.Context) {
+	var req dto.ChatRequest
+	if err := dto.ValidateRequestWithContext(c, &req); err != nil {
+		dto.ResponseValidationError(c, err)
+		return
+	}
+	if req.Config != nil && req.Config.EnableStream {
+		dto.ResponseError(c, 400, "该接口不支持流式，请改用 /agents/stream/sse 或 /agents/stream/ws", nil)
+		return
+	}
+	reply := "（非流式）已收到：" + strings.TrimSpace(req.Message)
+	dto.ResponseSuccess(c, dto.ChatData{
+		Content:   reply,
+		Role:      "assistant",
+		Metadata:  map[string]any{"framework": "eino"},
+		Timestamp: time.Now().Unix(),
+	})
+}
+
+/* ---------------- helpers ---------------- */
+
+func setSSEHeaders(c *gin.Context) {
+	c.Header("Content-Type", "text/event-stream; charset=utf-8")
+	c.Header("Cache-Control", "no-cache")
+	c.Header("Connection", "keep-alive")
+	c.Header("X-Accel-Buffering", "no")
+}
+
+func withTimeout(ctx context.Context, d time.Duration) context.Context {
+	if dl, ok := ctx.Deadline(); !ok || time.Until(dl) > d {
+		nctx, _ := context.WithTimeout(ctx, d)
+		return nctx
+	}
+	return ctx
+}
+
+func firstNonEmpty(ss ...string) string {
+	for _, s := range ss {
+		if strings.TrimSpace(s) != "" {
+			return s
+		}
+	}
+	return ""
+}
+
 func pickFirstFlowID(plan *flowschema.ExecutionPlan) string {
 	if plan == nil || len(plan.Tasks) == 0 {
 		return ""
@@ -147,69 +312,17 @@ func pickFirstFlowID(plan *flowschema.ExecutionPlan) string {
 	return ""
 }
 
-// 标准 SSE：GET /agents/stream/sse?q=...&flow_id=...&probe=1[&session_id=...]
-func (h *AgentChatHandler) StreamSSE(c *gin.Context) {
-	// 1) 探针：仅返回一个短链路的 SSE 确认
-	probe := strings.EqualFold(c.Query("probe"), "1") || strings.EqualFold(c.Query("probe"), "true")
-	if probe {
-		c.Writer.Header().Set("Content-Type", "text/event-stream")
-		c.Writer.Header().Set("Cache-Control", "no-cache")
-		c.Writer.Header().Set("Connection", "keep-alive")
-		c.Writer.Header().Set("X-Accel-Buffering", "no")
-		c.SSEvent("ack", gin.H{"ok": true, "ts": time.Now().Unix(), "note": "sse probe only, no compute"})
-		c.SSEvent("end", gin.H{"ok": true})
-		return
+func extractAssistantText(chunk *agentschema.ExecutionResult) string {
+	if chunk == nil || chunk.Data == nil {
+		return ""
 	}
-
-	// 2) 读取参数：q 为消息文本；flow_id 可选（传了就跳过意图识别由 streamCore 使用）
-	//    为了容错，也兼容 message 参数
-	q := strings.TrimSpace(c.Query("q"))
-	if q == "" {
-		q = strings.TrimSpace(c.Query("message"))
+	if res, ok := chunk.Data["result"].(map[string]any); ok {
+		if s, ok := res["content"].(string); ok {
+			return s
+		}
 	}
-	if q == "" {
-		dto.ResponseError(c, 400, "缺少 q（消息内容）", nil)
-		return
+	if s, ok := chunk.Data["content"].(string); ok {
+		return s
 	}
-
-	flowID := strings.TrimSpace(c.Query("flow_id"))
-	sessionID := strings.TrimSpace(c.Query("session_id")) // 可选，前端已有会话就带上
-
-	// 3) 组装请求；将 session_id 透传到 context，便于 streamCore/执行层关联会话（后续写库）
-	ctxMap := map[string]any{}
-	if sessionID != "" {
-		ctxMap["session_id"] = sessionID
-	}
-
-	req := dto.StreamChatRequest{
-		Message: q,
-		FlowID:  flowID, // 为空则在 streamCore 内进行意图识别 & 选择 flow
-		Config:  nil,    // 如需在 GET 上传更多选项，可以用 query 解析后塞这里
-		Context: ctxMap, // 透传上下文（session_id 等）
-		Route:   nil,    // 预留：以后如果要定制路由策略可在此扩展
-		Exec:    nil,    // 预留：例如 dry-run/并发度/优先级等
-	}
-
-	// 4) 交给核心处理（设置 SSE 头、意图识别/plan/执行/事件写出 都在 streamCore 完成）
-	h.streamCore(c, req)
-}
-
-// 非流式（保留）
-func (h *AgentChatHandler) Invoke(c *gin.Context) {
-	var req dto.ChatRequest
-	if err := dto.ValidateRequestWithContext(c, &req); err != nil {
-		dto.ResponseValidationError(c, err)
-		return
-	}
-	if req.Config != nil && req.Config.EnableStream {
-		dto.ResponseError(c, 400, "该接口不支持流式，请改用 /agents/stream/sse 或 /agents/stream/ws", nil)
-		return
-	}
-	reply := "（LLM回复模拟）已收到：" + strings.TrimSpace(req.Message)
-	dto.ResponseSuccess(c, dto.ChatData{
-		Content:   reply,
-		Role:      "assistant",
-		Metadata:  map[string]any{"framework": "eino"},
-		Timestamp: time.Now().Unix(),
-	})
+	return ""
 }
