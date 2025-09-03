@@ -28,18 +28,18 @@ import (
 // 每种节点的执行器签名（注意 node 是 *flowschema.Node）
 type NodeExec func(
 	ctx context.Context,
-	a *Agent,
+	a *AgentClient,
 	curFlowID string,
 	node *flowschema.Node,
 	in flowschema.Context,
 	meta agentschema.ExecutionMeta,
 ) (flowschema.Result, error)
 
-var _ contract.Agent = (*Agent)(nil)
+var _ contract.AgentClient = (*AgentClient)(nil)
 
 /* ================= Agent ================= */
 
-type Agent struct {
+type AgentClient struct {
 	config    *config.AgentConfig
 	agentInfo *agentschema.AgentInfo
 
@@ -64,7 +64,7 @@ type Agent struct {
 
 /* ================= 构造 / 注册 ================= */
 
-func NewAgent(cfg *config.AgentConfig) (contract.Agent, error) {
+func NewAgentClient(cfg *config.AgentConfig) (contract.AgentClient, error) {
 	if cfg == nil {
 		return nil, fmt.Errorf("配置不能为空")
 	}
@@ -74,7 +74,7 @@ func NewAgent(cfg *config.AgentConfig) (contract.Agent, error) {
 	}
 	now := time.Now().UTC()
 
-	a := &Agent{
+	a := &AgentClient{
 		config:       cfg,
 		agentInfo:    &agentschema.AgentInfo{Name: "eino", Status: string(agentschema.StatusInit), CreatedAt: now, UpdatedAt: now},
 		resolver:     r,
@@ -90,14 +90,14 @@ func NewAgent(cfg *config.AgentConfig) (contract.Agent, error) {
 }
 
 // 注册系统内部函数（按 use 精确分派）
-func (a *Agent) RegisterFunc(use string, exec NodeExec) {
+func (a *AgentClient) RegisterFunc(use string, exec NodeExec) {
 	a.execMu.Lock()
 	a.useExecs[strings.TrimSpace(use)] = exec
 	a.execMu.Unlock()
 }
 
 // 注册内置 kind 的最小可用执行器（全部使用常量，统一小写 key）
-func (a *Agent) registerBuiltins() {
+func (a *AgentClient) registerBuiltins() {
 	set := func(kind flowschema.NodeKind, exec NodeExec) {
 		a.kindExecs[strings.ToLower(string(kind))] = exec
 	}
@@ -127,7 +127,7 @@ func (a *Agent) registerBuiltins() {
 
 /* ================= Flow 获取（缓存） ================= */
 
-func (a *Agent) getOrBuildFlow(flowID string) (*flowschema.Flow, error) {
+func (a *AgentClient) getOrBuildFlow(flowID string) (*flowschema.Flow, error) {
 	// 命中缓存
 	a.flowMu.RLock()
 	if f := a.flowCache[flowID]; f != nil {
@@ -137,15 +137,30 @@ func (a *Agent) getOrBuildFlow(flowID string) (*flowschema.Flow, error) {
 	}
 	a.flowMu.RUnlock()
 
+	// 先应用别名（如有）
+	if alt, ok := a.aliasOf(flowID); ok && strings.TrimSpace(alt) != "" {
+		flowID = alt
+	}
+
 	fmt.Printf("[agent.eino] getOrBuildFlow: resolving id=%s\n", flowID)
 
-	// 解析
+	// 尝试从蓝图解析
 	f, err := a.resolver.Resolve(flowID)
-	if err != nil {
-		fmt.Printf("[agent.eino] getOrBuildFlow: resolve FAILED id=%s err=%v\n", flowID, err)
-		return nil, fmt.Errorf("resolve flow(%s) failed: %w", flowID, err)
+	if err != nil || f == nil || len(f.Nodes) == 0 {
+		// 如果是兜底 flow，则动态构建一个“单 LLM 节点”的最小可用流程
+		if strings.EqualFold(flowID, config.BaseFlowKey) {
+			f = a.buildFallbackBaseFlow(flowID)
+			fmt.Printf("[agent.eino] getOrBuildFlow: build FALLBACK base_flow id=%s nodes=%d\n", flowID, len(f.Nodes))
+		} else {
+			if err == nil {
+				err = fmt.Errorf("resolve flow(%s) failed: empty", flowID)
+			}
+			fmt.Printf("[agent.eino] getOrBuildFlow: resolve FAILED id=%s err=%v\n", flowID, err)
+			return nil, fmt.Errorf("resolve flow(%s) failed: %w", flowID, err)
+		}
+	} else {
+		fmt.Printf("[agent.eino] getOrBuildFlow: resolve OK id=%s nodes=%d\n", f.FlowID, len(f.Nodes))
 	}
-	fmt.Printf("[agent.eino] getOrBuildFlow: resolve OK id=%s nodes=%d\n", f.FlowID, len(f.Nodes))
 
 	// 缓存
 	a.flowMu.Lock()
@@ -154,11 +169,32 @@ func (a *Agent) getOrBuildFlow(flowID string) (*flowschema.Flow, error) {
 	return f, nil
 }
 
+// 动态构建兜底 base_flow（只有 1 个 LLM 节点）
+func (a *AgentClient) buildFallbackBaseFlow(flowID string) *flowschema.Flow {
+	return &flowschema.Flow{
+		FlowID: flowID,
+		Nodes: []*flowschema.Node{
+			{
+				Kind: flowschema.KindLLM,
+				Use:  "chat",
+				Params: flowschema.Context{
+					// 可选：把全局 message 映射为该节点的 prompt；也可不配（execLLM 会兜底用 in.message）
+					"_io_in":  map[string]string{"prompt": "message"},
+					"_io_out": map[string]string{"content": "_last.answer"}, // 可选：把回答写回上下文
+					// 也可以在此放默认模型/温度（留空则 execLLM 用全局 cfg）
+					// "model": a.config.LLMConfig.Model,
+					// "temperature": a.config.LLMConfig.Temperature,
+				},
+			},
+		},
+	}
+}
+
 /* ================= contract.Agent ================= */
 
-func (a *Agent) GetInfo() *agentschema.AgentInfo { return a.agentInfo }
+func (a *AgentClient) GetInfo() *agentschema.AgentInfo { return a.agentInfo }
 
-func (a *Agent) ListFlows(ctx context.Context, meta agentschema.ExecutionMeta) ([]agentschema.FlowRuntimeInfo, error) {
+func (a *AgentClient) ListFlows(ctx context.Context, meta agentschema.ExecutionMeta) ([]agentschema.FlowRuntimeInfo, error) {
 	// 如果 resolver 支持 ListIDs()，就列出来
 	type idLister interface{ ListIDs() []string }
 	out := []agentschema.FlowRuntimeInfo{}
@@ -175,7 +211,7 @@ func (a *Agent) ListFlows(ctx context.Context, meta agentschema.ExecutionMeta) (
 	return out, nil
 }
 
-func (a *Agent) GetFlowInfo(ctx context.Context, flowID string, meta agentschema.ExecutionMeta) (*agentschema.FlowRuntimeInfo, error) {
+func (a *AgentClient) GetFlowInfo(ctx context.Context, flowID string, meta agentschema.ExecutionMeta) (*agentschema.FlowRuntimeInfo, error) {
 	if flowID == "" {
 		return nil, fmt.Errorf("flowID 不能为空")
 	}
@@ -191,12 +227,12 @@ func (a *Agent) GetFlowInfo(ctx context.Context, flowID string, meta agentschema
 	}, nil
 }
 
-func (a *Agent) ValidateParams(ctx context.Context, flowID string, params flowschema.Context, meta agentschema.ExecutionMeta) error {
+func (a *AgentClient) ValidateParams(ctx context.Context, flowID string, params flowschema.Context, meta agentschema.ExecutionMeta) error {
 	// TODO：如需 JSONSchema 校验在此实现
 	return nil
 }
 
-func (a *Agent) Invoke(ctx context.Context, flowID string, params flowschema.Context, meta agentschema.ExecutionMeta) (*agentschema.ExecutionResult, error) {
+func (a *AgentClient) Invoke(ctx context.Context, flowID string, params flowschema.Context, meta agentschema.ExecutionMeta) (*agentschema.ExecutionResult, error) {
 	if flowID == "" {
 		return nil, fmt.Errorf("flowID 不能为空")
 	}
@@ -279,7 +315,7 @@ func (a *Agent) Invoke(ctx context.Context, flowID string, params flowschema.Con
 	}, nil
 }
 
-func (a *Agent) InvokeAsync(ctx context.Context, flowID string, params flowschema.Context, meta agentschema.ExecutionMeta) (string, error) {
+func (a *AgentClient) InvokeAsync(ctx context.Context, flowID string, params flowschema.Context, meta agentschema.ExecutionMeta) (string, error) {
 	if flowID == "" {
 		return "", fmt.Errorf("flowID 不能为空")
 	}
@@ -326,7 +362,7 @@ func (a *Agent) InvokeAsync(ctx context.Context, flowID string, params flowschem
 	return execID, nil
 }
 
-func (a *Agent) Stream(ctx context.Context, flowID string, params flowschema.Context, meta agentschema.ExecutionMeta) (*schema.StreamReader[*agentschema.ExecutionResult], error) {
+func (a *AgentClient) Stream(ctx context.Context, flowID string, params flowschema.Context, meta agentschema.ExecutionMeta) (*schema.StreamReader[*agentschema.ExecutionResult], error) {
 	if flowID == "" {
 		return nil, fmt.Errorf("flowID 不能为空")
 	}
@@ -458,7 +494,7 @@ func (a *Agent) Stream(ctx context.Context, flowID string, params flowschema.Con
 	return sr, nil
 }
 
-func (a *Agent) GetExecutionStatus(ctx context.Context, executionID string, meta agentschema.ExecutionMeta) (*agentschema.ExecutionStatus, error) {
+func (a *AgentClient) GetExecutionStatus(ctx context.Context, executionID string, meta agentschema.ExecutionMeta) (*agentschema.ExecutionStatus, error) {
 	a.asyncMu.RLock()
 	defer a.asyncMu.RUnlock()
 	if st, ok := a.statusByExec[executionID]; ok {
@@ -468,7 +504,7 @@ func (a *Agent) GetExecutionStatus(ctx context.Context, executionID string, meta
 	return nil, fmt.Errorf("plan not found: %s", executionID)
 }
 
-func (a *Agent) CancelExecution(ctx context.Context, executionID string, meta agentschema.ExecutionMeta) error {
+func (a *AgentClient) CancelExecution(ctx context.Context, executionID string, meta agentschema.ExecutionMeta) error {
 	a.asyncMu.Lock()
 	defer a.asyncMu.Unlock()
 	if st, ok := a.statusByExec[executionID]; ok {
@@ -480,7 +516,7 @@ func (a *Agent) CancelExecution(ctx context.Context, executionID string, meta ag
 	return fmt.Errorf("plan not found: %s", executionID)
 }
 
-func (a *Agent) GetExecutionResult(ctx context.Context, executionID string, meta agentschema.ExecutionMeta) (*agentschema.ExecutionResult, error) {
+func (a *AgentClient) GetExecutionResult(ctx context.Context, executionID string, meta agentschema.ExecutionMeta) (*agentschema.ExecutionResult, error) {
 	a.asyncMu.RLock()
 	defer a.asyncMu.RUnlock()
 	if r, ok := a.resultByExec[executionID]; ok {
@@ -489,17 +525,17 @@ func (a *Agent) GetExecutionResult(ctx context.Context, executionID string, meta
 	return nil, fmt.Errorf("plan result not found: %s", executionID)
 }
 
-func (a *Agent) GetMetrics(ctx context.Context, meta agentschema.ExecutionMeta) (flowschema.Result, error) {
+func (a *AgentClient) GetMetrics(ctx context.Context, meta agentschema.ExecutionMeta) (flowschema.Result, error) {
 	uptime := time.Since(a.agentInfo.CreatedAt)
 	return flowschema.Result{"uptime_sec": int(uptime.Seconds())}, nil
 }
 
-func (a *Agent) Health(ctx context.Context) error   { return nil }
-func (a *Agent) Shutdown(ctx context.Context) error { return nil }
+func (a *AgentClient) Health(ctx context.Context) error   { return nil }
+func (a *AgentClient) Shutdown(ctx context.Context) error { return nil }
 
 /* ================= 分派 & 内置执行器 ================= */
 
-func (a *Agent) pickExecutor(n *flowschema.Node) NodeExec {
+func (a *AgentClient) pickExecutor(n *flowschema.Node) NodeExec {
 	// 先按 use（系统内部函数）
 	if u := strings.TrimSpace(n.Use); u != "" {
 		a.execMu.RLock()
@@ -510,7 +546,7 @@ func (a *Agent) pickExecutor(n *flowschema.Node) NodeExec {
 		}
 	}
 	// 再按 kind（小写）
-	key := strings.ToLower(strings.TrimSpace(n.Kind))
+	key := strings.ToLower(strings.TrimSpace(string(n.Kind)))
 	a.execMu.RLock()
 	fn := a.kindExecs[key]
 	a.execMu.RUnlock()
@@ -521,14 +557,14 @@ func (a *Agent) pickExecutor(n *flowschema.Node) NodeExec {
 }
 
 func execNoop(tag string) NodeExec {
-	return func(ctx context.Context, a *Agent, curFlowID string, node *flowschema.Node, in flowschema.Context, meta agentschema.ExecutionMeta) (flowschema.Result, error) {
+	return func(ctx context.Context, a *AgentClient, curFlowID string, node *flowschema.Node, in flowschema.Context, meta agentschema.ExecutionMeta) (flowschema.Result, error) {
 		return flowschema.Result{"tag": tag, "kind": node.Kind, "use": node.Use, "params": node.Params}, nil
 	}
 }
 
 // 最小 selector：params.cond(in.cond) 为真取 then，否则 else
 func execSelector() NodeExec {
-	return func(ctx context.Context, a *Agent, curFlowID string, node *flowschema.Node, in flowschema.Context, meta agentschema.ExecutionMeta) (flowschema.Result, error) {
+	return func(ctx context.Context, a *AgentClient, curFlowID string, node *flowschema.Node, in flowschema.Context, meta agentschema.ExecutionMeta) (flowschema.Result, error) {
 		var cond bool
 		if v, ok := node.Params["cond"]; ok {
 			switch vv := v.(type) {
@@ -561,16 +597,17 @@ func execSelector() NodeExec {
 }
 
 func execEcho(tag string) NodeExec {
-	return func(ctx context.Context, a *Agent, curFlowID string, node *flowschema.Node, in flowschema.Context, meta agentschema.ExecutionMeta) (flowschema.Result, error) {
+	return func(ctx context.Context, a *AgentClient, curFlowID string, node *flowschema.Node, in flowschema.Context, meta agentschema.ExecutionMeta) (flowschema.Result, error) {
 		return flowschema.Result{"tag": tag, "kind": node.Kind, "use": node.Use, "params": node.Params, "input": in}, nil
 	}
 }
 
-func execLLM(a *Agent) NodeExec {
-	return func(ctx context.Context, _ *Agent, curFlowID string, node *flowschema.Node, in flowschema.Context, meta agentschema.ExecutionMeta) (flowschema.Result, error) {
-		// prompt 优先级：node.params.prompt > in.message
+func execLLM(a *AgentClient) NodeExec {
+	return func(ctx context.Context, _ *AgentClient, curFlowID string, node *flowschema.Node, in flowschema.Context, meta agentschema.ExecutionMeta) (flowschema.Result, error) {
 		var prompt string
 		if s, ok := node.Params["prompt"].(string); ok && strings.TrimSpace(s) != "" {
+			prompt = s
+		} else if s, ok := in["prompt"].(string); ok && strings.TrimSpace(s) != "" {
 			prompt = s
 		} else if s, ok := in["message"].(string); ok {
 			prompt = s
@@ -578,6 +615,7 @@ func execLLM(a *Agent) NodeExec {
 		if strings.TrimSpace(prompt) == "" {
 			return flowschema.Result{"content": ""}, nil
 		}
+
 		mc := llm.MergeConfig(a.config.LLMConfig, nil)
 		cli, err := llm.NewClient(mc.Provider)
 		if err != nil {
@@ -592,8 +630,8 @@ func execLLM(a *Agent) NodeExec {
 }
 
 // 子工作流：use 或 params.flow_id 指定子 flow
-func execWorkflow(a *Agent) NodeExec {
-	return func(ctx context.Context, _ *Agent, curFlowID string, node *flowschema.Node, in flowschema.Context, meta agentschema.ExecutionMeta) (flowschema.Result, error) {
+func execWorkflow(a *AgentClient) NodeExec {
+	return func(ctx context.Context, _ *AgentClient, curFlowID string, node *flowschema.Node, in flowschema.Context, meta agentschema.ExecutionMeta) (flowschema.Result, error) {
 		childID := strings.TrimSpace(node.Use)
 		if childID == "" {
 			if v, ok := node.Params["flow_id"].(string); ok {
@@ -629,20 +667,20 @@ func execWorkflow(a *Agent) NodeExec {
 
 /* ================= async helpers ================= */
 
-func (a *Agent) setStatus(id string, st *agentschema.ExecutionStatus) {
+func (a *AgentClient) setStatus(id string, st *agentschema.ExecutionStatus) {
 	a.asyncMu.Lock()
 	defer a.asyncMu.Unlock()
 	cp := *st
 	a.statusByExec[id] = &cp
 }
 
-func (a *Agent) setResult(id string, r *agentschema.ExecutionResult) {
+func (a *AgentClient) setResult(id string, r *agentschema.ExecutionResult) {
 	a.asyncMu.Lock()
 	defer a.asyncMu.Unlock()
 	a.resultByExec[id] = r
 }
 
-func (a *Agent) getStart(id string) *time.Time {
+func (a *AgentClient) getStart(id string) *time.Time {
 	a.asyncMu.RLock()
 	defer a.asyncMu.RUnlock()
 	if st, ok := a.statusByExec[id]; ok {
@@ -735,7 +773,7 @@ func errMsg(err error, res *agentschema.ExecutionResult) string {
 
 // LoadFlowAliases 从 JSON 或 YAML 文件加载别名映射：{"from":"to", ...}
 // 需要：YAML 需要 gopkg.in/yaml.v3（如果项目里已有）
-func (a *Agent) LoadFlowAliases(path string) error {
+func (a *AgentClient) LoadFlowAliases(path string) error {
 	b, err := os.ReadFile(path)
 	if err != nil {
 		return fmt.Errorf("read alias file failed: %w", err)

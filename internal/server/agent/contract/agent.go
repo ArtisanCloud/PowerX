@@ -10,7 +10,7 @@ import (
 )
 
 // Agent 智能体接口，提供通用的智能体能力
-type Agent interface {
+type AgentClient interface {
 
 	// GetInfo 获取智能体信息
 	GetInfo() *aschemas.AgentInfo

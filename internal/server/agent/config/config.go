@@ -3,7 +3,7 @@ package config
 import "time"
 
 const DefaultDriver = "eino"
-const AgentCRMKey = "agent_crm"
+const AgentSysKey = "agent_system"
 const BaseFlowKey = "base_flow"
 
 // RetryPolicyConfig 重试策略配置（避免循环导入）

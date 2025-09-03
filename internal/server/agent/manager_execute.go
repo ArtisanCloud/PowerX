@@ -226,11 +226,11 @@ func (m *Manager) ExecutePlan(ctx context.Context, plan flowschema.ExecutionPlan
  * helpers: route & store
  *************************/
 
-func (m *Manager) resolveAgentForTask(t flowschema.PlanTask) (contract.Agent, string, error) {
+func (m *Manager) resolveAgentForTask(t flowschema.PlanTask) (contract.AgentClient, string, error) {
 	// 1) task.AgentID 优先
 	if t.AgentID != "" {
 		m.mu.RLock()
-		ag := m.agents[t.AgentID]
+		ag := m.agentClients[t.AgentID]
 		m.mu.RUnlock()
 		if ag == nil {
 			return nil, "", fmt.Errorf("agent not found: %s", t.AgentID)
@@ -243,7 +243,7 @@ func (m *Manager) resolveAgentForTask(t flowschema.PlanTask) (contract.Agent, st
 	m.mu.RUnlock()
 	if ok {
 		m.mu.RLock()
-		ag := m.agents[rec.AgentID]
+		ag := m.agentClients[rec.AgentID]
 		m.mu.RUnlock()
 		if ag == nil {
 			return nil, "", fmt.Errorf("agent not found for flow(%s): %s", t.FlowID, rec.AgentID)
@@ -258,12 +258,12 @@ func (m *Manager) resolveAgentForTask(t flowschema.PlanTask) (contract.Agent, st
 	return ag, m.defaultAgID, nil
 }
 
-func (m *Manager) GetDefaultRoute() (contract.Agent, string, error) {
+func (m *Manager) GetDefaultRoute() (contract.AgentClient, string, error) {
 	if m.defaultAgID == "" || m.defaultFlowID == "" {
 		return nil, "", errors.New("default agent/flow is not set")
 	}
 	m.mu.RLock()
-	ag := m.agents[m.defaultAgID]
+	ag := m.agentClients[m.defaultAgID]
 	m.mu.RUnlock()
 	if ag == nil {
 		return nil, "", fmt.Errorf("default agent not found: %s", m.defaultAgID)

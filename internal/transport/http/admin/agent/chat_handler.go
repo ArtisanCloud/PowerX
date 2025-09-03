@@ -1,8 +1,9 @@
 package agent
 
 import (
-	"context"
+	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -20,59 +21,88 @@ func NewAgentChatHandler(_ *shared.Deps) *AgentChatHandler {
 	return &AgentChatHandler{}
 }
 
-// ---- 核心：被 POST/GET 共用 ----
+// 多 flow 串行的 streamCore
 func (h *AgentChatHandler) streamCore(c *gin.Context, req dto.StreamChatRequest) {
 	msg := strings.TrimSpace(req.Message)
 	if msg == "" {
-		// 这里还没切到 SSE 头之前，可以直接返回 JSON 错
 		dto.ResponseError(c, 400, "message 不能为空", nil)
 		return
 	}
 
 	ctx := c.Request.Context()
-	timeout := 60 * time.Second
-	if dl, ok := ctx.Deadline(); !ok || time.Until(dl) > timeout {
-		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, timeout)
-		defer cancel()
-	}
-
-	// 切换到 SSE 响应头
-	c.Header("Content-Type", "text/event-stream; charset=utf-8")
-	c.Header("Cache-Control", "no-cache")
-	c.Header("Connection", "keep-alive")
-	c.Header("X-Accel-Buffering", "no")
-
-	// 识别意图：先发一帧 intent
 	mgr := agent.GetAgentManager()
-	intent, _ := mgr.DetectIntent(c, msg)
-	if intent != nil {
-		c.SSEvent(dto.EventIntent, intent)
-		c.Writer.Flush()
-	}
 
-	// flow 选择
-	flowID := strings.TrimSpace(req.FlowID)
-	if intent != nil && intent.Matched && intent.FlowID != "" {
-		flowID = intent.FlowID
-	}
+	// -------- 1) 生成计划 / 选择要执行的 flow --------
+	var (
+		plan   *flowschema.ExecutionPlan
+		flowID = strings.TrimSpace(req.FlowID)
+	)
+
 	if flowID == "" {
-		flowID = "chat" // ← 用你真实存在的 flow
+		// 多任务识别
+		tasks, err := mgr.DetectTasks(c, msg)
+		if err != nil {
+			c.SSEvent(dto.EventError, gin.H{"message": "意图识别失败", "detail": err.Error()})
+			c.SSEvent(dto.EventEnd, gin.H{"ok": false})
+			return
+		}
+		// 推送 intent（多任务）
+		c.SSEvent(dto.EventIntent, gin.H{"mode": "intent_multi", "tasks": tasks})
+		c.Writer.Flush()
+
+		// 构建计划（可能返回强类型，也可能是 map）
+		rawPlan := mgr.BuildPlan(tasks)
+
+		switch v := any(rawPlan).(type) {
+		case flowschema.ExecutionPlan:
+			plan = &v
+		case *flowschema.ExecutionPlan:
+			plan = v
+		default:
+			// 回落：把任意结构转成 ExecutionPlan（若能成功）
+			b, _ := json.Marshal(rawPlan)
+			var tmp flowschema.ExecutionPlan
+			if err := json.Unmarshal(b, &tmp); err == nil && len(tmp.Tasks) > 0 {
+				plan = &tmp
+			}
+		}
+
+		// 向前端回显计划（优先强类型）
+		if plan != nil {
+			c.SSEvent("plan", plan)
+		} else {
+			c.SSEvent("plan", rawPlan)
+		}
+		c.Writer.Flush()
+
+		// 选定执行的 flow（当前阶段先取第一条；多 flow 同连要改 writer，下一步做）
+		flowID = pickFirstFlowID(plan)
 	}
 
-	// 路由 & 执行
-	ag, _, err := mgr.GetDefaultRoute()
+	ag, fallbackFlowID, err := mgr.GetDefaultRoute()
 	if err != nil {
-		// 现在已经进入 SSE 响应了，用 SSE 事件返回错误
-		c.SSEvent(dto.EventError, gin.H{"message": "创建 Agent 失败"})
+		c.SSEvent(dto.EventError, gin.H{"message": "创建 Agent 失败", "detail": err.Error()})
 		c.SSEvent(dto.EventEnd, gin.H{"ok": false})
 		return
 	}
+
+	// 如果上面识别/计划没有挑出 flowID，使用默认兜底
+	if strings.TrimSpace(flowID) == "" {
+		flowID = strings.TrimSpace(fallbackFlowID)
+		if flowID == "" {
+			c.SSEvent(dto.EventError, gin.H{"code": "no_fallback_flow", "message": "未配置默认兜底 flow"})
+			c.SSEvent(dto.EventEnd, gin.H{"ok": false})
+			return
+		}
+	}
+
 	params := flowschema.Context{
 		"message": msg,
 		"config":  req.Config,
 		"context": req.Context,
+		"plan":    plan, // 给节点使用
 	}
+
 	execID := fmt.Sprintf("chat_%d", time.Now().UnixNano())
 	meta := agentschema.ExecutionMeta{
 		RequestID: execID,
@@ -80,32 +110,46 @@ func (h *AgentChatHandler) streamCore(c *gin.Context, req dto.StreamChatRequest)
 		TenantID:  "tenant_123",
 		TraceID:   fmt.Sprintf("trace_%d", time.Now().UnixNano()),
 		Priority:  1,
-		Timeout:   timeout / time.Second,
 	}
 
 	stream, err := ag.Stream(ctx, flowID, params, meta)
 	if err != nil {
-		c.SSEvent(dto.EventError, gin.H{"message": "流式聊天执行失败"})
+		c.SSEvent(dto.EventError, gin.H{"message": "流式聊天执行失败", "detail": err.Error()})
 		c.SSEvent(dto.EventEnd, gin.H{"ok": false})
 		return
 	}
 
-	// 统一 SSE 写出
+	// 统一由 WriteToSSE 写出（它会发 start/token/data/final/end/heartbeat）
 	_ = dto.WriteToSSE(c, flowID, execID, stream, 25*time.Second)
 }
 
-// 兼容老路由：POST /agents/stream
-func (h *AgentChatHandler) StreamChat(c *gin.Context) {
-	var req dto.StreamChatRequest
-	if err := dto.ValidateRequestWithContext(c, &req); err != nil {
-		dto.ResponseValidationError(c, err)
-		return
+// 取 ExecutionPlan 中“第一个要跑的 flow”
+// - 先按 Stage 升序；同 Stage 按原顺序
+// - 优先 FlowID，其次 TaskID
+func pickFirstFlowID(plan *flowschema.ExecutionPlan) string {
+	if plan == nil || len(plan.Tasks) == 0 {
+		return ""
 	}
-	h.streamCore(c, req)
+	tasks := make([]flowschema.PlanTask, len(plan.Tasks))
+	copy(tasks, plan.Tasks)
+	sort.SliceStable(tasks, func(i, j int) bool {
+		if tasks[i].Stage == tasks[j].Stage {
+			return i < j
+		}
+		return tasks[i].Stage < tasks[j].Stage
+	})
+	if id := strings.TrimSpace(tasks[0].FlowID); id != "" {
+		return id
+	}
+	if id := strings.TrimSpace(tasks[0].TaskID); id != "" {
+		return id
+	}
+	return ""
 }
 
-// 标准 SSE：GET /agents/stream/sse?q=...&flow_id=...&probe=1
-func (h *AgentChatHandler) StreamFlow(c *gin.Context) {
+// 标准 SSE：GET /agents/stream/sse?q=...&flow_id=...&probe=1[&session_id=...]
+func (h *AgentChatHandler) StreamSSE(c *gin.Context) {
+	// 1) 探针：仅返回一个短链路的 SSE 确认
 	probe := strings.EqualFold(c.Query("probe"), "1") || strings.EqualFold(c.Query("probe"), "true")
 	if probe {
 		c.Writer.Header().Set("Content-Type", "text/event-stream")
@@ -117,20 +161,41 @@ func (h *AgentChatHandler) StreamFlow(c *gin.Context) {
 		return
 	}
 
+	// 2) 读取参数：q 为消息文本；flow_id 可选（传了就跳过意图识别由 streamCore 使用）
+	//    为了容错，也兼容 message 参数
 	q := strings.TrimSpace(c.Query("q"))
+	if q == "" {
+		q = strings.TrimSpace(c.Query("message"))
+	}
 	if q == "" {
 		dto.ResponseError(c, 400, "缺少 q（消息内容）", nil)
 		return
 	}
+
+	flowID := strings.TrimSpace(c.Query("flow_id"))
+	sessionID := strings.TrimSpace(c.Query("session_id")) // 可选，前端已有会话就带上
+
+	// 3) 组装请求；将 session_id 透传到 context，便于 streamCore/执行层关联会话（后续写库）
+	ctxMap := map[string]any{}
+	if sessionID != "" {
+		ctxMap["session_id"] = sessionID
+	}
+
 	req := dto.StreamChatRequest{
 		Message: q,
-		FlowID:  strings.TrimSpace(c.Query("flow_id")),
+		FlowID:  flowID, // 为空则在 streamCore 内进行意图识别 & 选择 flow
+		Config:  nil,    // 如需在 GET 上传更多选项，可以用 query 解析后塞这里
+		Context: ctxMap, // 透传上下文（session_id 等）
+		Route:   nil,    // 预留：以后如果要定制路由策略可在此扩展
+		Exec:    nil,    // 预留：例如 dry-run/并发度/优先级等
 	}
+
+	// 4) 交给核心处理（设置 SSE 头、意图识别/plan/执行/事件写出 都在 streamCore 完成）
 	h.streamCore(c, req)
 }
 
 // 非流式（保留）
-func (h *AgentChatHandler) Chat(c *gin.Context) {
+func (h *AgentChatHandler) Invoke(c *gin.Context) {
 	var req dto.ChatRequest
 	if err := dto.ValidateRequestWithContext(c, &req); err != nil {
 		dto.ResponseValidationError(c, err)

@@ -20,21 +20,21 @@ func InitAgentTools(ctx context.Context, cfg *config.AgentConfig, db *gorm.DB) e
 	gAgentManager := agent.GetAgentManager()
 
 	// 新建一个Agent实例
-	a, err := factory.NewAgent(ctx, cfg)
+	a, err := factory.NewAgentClient(ctx, cfg)
 	if err != nil {
 		return err
 	}
 	// AgentMeta信息
 	m := &schemas.AgentMeta{}
 
-	// 注册CRMAgent
-	err = gAgentManager.Register(config.AgentCRMKey, a, m)
+	// 注册System Agent
+	err = gAgentManager.Register(config.AgentSysKey, a, m)
 	if err != nil {
 		return err
 	}
 
 	// 注册的CRM Agent，兜底走 base_flow（你已有）
-	if err = gAgentManager.SetDefaultAgent(config.AgentCRMKey, config.BaseFlowKey); err != nil {
+	if err = gAgentManager.SetDefaultAgent(config.AgentSysKey, config.BaseFlowKey); err != nil {
 		return fmt.Errorf("SetDefaultAgent failed: %w", err)
 	}
 
@@ -45,7 +45,7 @@ func InitAgentTools(ctx context.Context, cfg *config.AgentConfig, db *gorm.DB) e
 
 	// 注册一个意图识别的Agent，加载blueprint的意图识别配置
 	// * 注意，一定要先注册agent，然后在注册agent的意图识别
-	err = RegisterIntentsForAgent(config.AgentCRMKey, cfg.FlowSpec.BusinessDir)
+	err = RegisterIntentsForAgent(config.AgentSysKey, cfg.FlowSpec.BusinessDir)
 	if err != nil {
 		return err
 	}
@@ -76,14 +76,14 @@ func InitAgentTools(ctx context.Context, cfg *config.AgentConfig, db *gorm.DB) e
 		&intent.EmbeddingStrategy{
 			M:         gAgentManager,
 			Vec:       vec,
-			AgentID:   config.AgentCRMKey,
+			AgentID:   config.AgentSysKey,
 			Threshold: 0.90, // ✨
 			Alpha:     0.6,  // ✨ 负例惩罚
 			Margin:    0.06, // ✨ 边际
 		},
 		&intent.LLMStrategy{
 			M:         gAgentManager,
-			AgentID:   config.AgentCRMKey,
+			AgentID:   config.AgentSysKey,
 			LLM:       cls,
 			Threshold: 0.85,
 			//Threshold: 0.6,

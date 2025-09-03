@@ -844,15 +844,6 @@ paths:
             summary: POST /api/admin/user/auth/register
             tags:
                 - api
-    /api/agents/chat:
-        post:
-            operationId: POST /api/agents/chat
-            responses:
-                "200":
-                    description: OK
-            summary: POST /api/agents/chat
-            tags:
-                - api
     /api/agents/intent/:
         post:
             operationId: POST /api/agents/intent/
@@ -869,6 +860,15 @@ paths:
                 "200":
                     description: OK
             summary: POST /api/agents/intent/plan
+            tags:
+                - api
+    /api/agents/invoke:
+        post:
+            operationId: POST /api/agents/invoke
+            responses:
+                "200":
+                    description: OK
+            summary: POST /api/agents/invoke
             tags:
                 - api
     /api/agents/sessions:
@@ -940,31 +940,13 @@ paths:
             summary: GET /api/agents/status
             tags:
                 - api
-    /api/agents/stream:
-        post:
-            operationId: POST /api/agents/stream
-            responses:
-                "200":
-                    description: OK
-            summary: POST /api/agents/stream
-            tags:
-                - api
-    /api/agents/stream/flow:
+    /api/agents/stream/sse:
         get:
-            operationId: GET /api/agents/stream/flow
+            operationId: GET /api/agents/stream/sse
             responses:
                 "200":
                     description: OK
-            summary: GET /api/agents/stream/flow
-            tags:
-                - api
-    /api/agents/stream/ws:
-        get:
-            operationId: GET /api/agents/stream/ws
-            responses:
-                "200":
-                    description: OK
-            summary: GET /api/agents/stream/ws
+            summary: GET /api/agents/stream/sse
             tags:
                 - api
     /api/health:
@@ -994,5 +976,14 @@ paths:
             summary: POST /api/user/auth/logout
             tags:
                 - api
+    /ws/agents/stream/ws:
+        get:
+            operationId: GET /ws/agents/stream/ws
+            responses:
+                "200":
+                    description: OK
+            summary: GET /ws/agents/stream/ws
+            tags:
+                - ws
 servers:
     - url: /

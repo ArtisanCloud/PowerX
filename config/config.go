@@ -67,6 +67,7 @@ type ServerConfig struct {
 	WriteTimeoutSeconds int                `yaml:"write_timeout_seconds"` // 写入超时
 	Mode                string             `yaml:"mode"`                  // gin 模式: debug/release
 	APIPrefix           string             `yaml:"api_prefix"`            // API 前缀
+	WSPrefix            string             `yaml:"ws_prefix"`             // API 前缀
 	GRPC                grpcCfg.GRPCConfig `yaml:"grpc"`
 	SecretKey           string             `yaml:"secret_key"`
 }
