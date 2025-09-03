@@ -31,7 +31,7 @@ type createSessionReq struct {
 	Env       string            `json:"env" validate:"required"`
 	AgentID   uint64            `json:"agentId" validate:"required"`
 	Title     string            `json:"title"`
-	UserID    string            `json:"userId"`              // 可选；没有就由后端取鉴权上下文（此处留空也行）
+	UserID    uint64            `json:"userId"`              // 可选；没有就由后端取鉴权上下文（此处留空也行）
 	Singleton *bool             `json:"singleton,omitempty"` // 不传就按 Agent 策略；这里只作直传
 	TTLDays   int               `json:"ttlDays,omitempty"`
 	MaxKB     int               `json:"maxKB,omitempty"`
@@ -88,7 +88,7 @@ func (h *AgentSessionHandler) CreateSession(c *gin.Context) {
 		Meta:      req.Meta,
 	}
 
-	out, err := h.his.GetOrCreateSession(c.Request.Context(), req.Env, &tid, req.AgentID, req.UserID, singleton, def)
+	out, err := h.his.GetOrCreateSession(c.Request.Context(), req.Env, &tid, req.AgentID, req.UserID, singleton, &def)
 	if err != nil {
 		dto.ResponseError(c, 400, err.Error(), nil)
 		return
@@ -206,7 +206,13 @@ func (h *AgentSessionHandler) DeleteSession(c *gin.Context) {
 		dto.ResponseError(c, 400, "id 非法", nil)
 		return
 	}
-	if err := h.his.DeleteSession(c.Request.Context(), sid); err != nil {
+	env := c.DefaultQuery("env", "default")
+	tid, err := reqctx.RequireTenantIDFromGin(c)
+	if err != nil {
+		dto.ResponseError(c, 400, err.Error(), nil)
+		return
+	}
+	if err := h.his.DeleteSession(c.Request.Context(), env, &tid, sid); err != nil {
 		dto.ResponseError(c, 400, err.Error(), nil)
 		return
 	}

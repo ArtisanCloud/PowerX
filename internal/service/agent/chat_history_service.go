@@ -1,201 +1,261 @@
+// internal/service/agent/chat_history_service.go
 package agent
 
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
-	"unicode/utf8"
 
 	dbmodel "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/model"
 	repo "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/repository"
+
+	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
 type ChatHistoryService struct {
-	db       *gorm.DB
-	sessRepo *repo.AgentChatSessionRepository
-	msgRepo  *repo.AgentChatMessageRepository
+	db   *gorm.DB
+	sess *repo.AgentChatSessionRepository
+	msg  *repo.AgentChatMessageRepository
 }
 
 func NewChatHistoryService(db *gorm.DB) *ChatHistoryService {
 	return &ChatHistoryService{
-		db:       db,
-		sessRepo: repo.NewAgentChatSessionRepository(db),
-		msgRepo:  repo.NewAgentChatMessageRepository(db),
+		db:   db,
+		sess: repo.NewAgentChatSessionRepository(db),
+		msg:  repo.NewAgentChatMessageRepository(db),
 	}
 }
 
-// GetOrCreateSession: 单例则按 agent/env/tenant 复用，否则创建新会话
+// ---- 默认策略（可与前端一致）----
+const (
+	defaultTTLDays   = 3
+	defaultMaxKB     = 200
+	defaultMaxTokens = 3000
+)
+
+func (s *ChatHistoryService) defaultPolicy() dbmodel.AgentChatSession {
+	return dbmodel.AgentChatSession{
+		TTLDays:   defaultTTLDays,
+		MaxKB:     defaultMaxKB,
+		MaxTokens: defaultMaxTokens,
+	}
+}
+
+// 将缺省值填充到已有对象上；nil 时安全返回（不做任何写入）
+func (s *ChatHistoryService) ensureDefaults(in *dbmodel.AgentChatSession) {
+	if in == nil {
+		// 如果你希望在传 nil 时也应用默认值，可以在调用方用：
+		//   def := s.defaultPolicy()
+		//   in = &def
+		return
+	}
+	if in.TTLDays == 0 {
+		in.TTLDays = defaultTTLDays
+	}
+	if in.MaxKB == 0 {
+		in.MaxKB = defaultMaxKB
+	}
+	if in.MaxTokens == 0 {
+		in.MaxTokens = defaultMaxTokens
+	}
+}
+
+// GetOrCreateSession：按 (env/tenant/agentID/userID) 获取或创建；支持 singleton
 func (s *ChatHistoryService) GetOrCreateSession(
-	ctx context.Context,
-	env string, tenantID *uint64,
-	agentID uint64, userID string,
-	singleton bool,
-	defaults dbmodel.AgentChatSession,
+	ctx context.Context, env string, tenantID *uint64,
+	agentID uint64, userID uint64, singleton bool,
+	defaults *dbmodel.AgentChatSession,
 ) (*dbmodel.AgentChatSession, error) {
-	return s.sessRepo.GetOrCreate(ctx, env, tenantID, agentID, userID, singleton, defaults)
+
+	// 安全拿到一份“值类型”的默认策略
+	def := s.defaultPolicy()
+	if defaults != nil {
+		def = *defaults
+		s.ensureDefaults(&def)
+	}
+
+	out, err := s.sess.GetOrCreate(ctx, env, tenantID, agentID, userID, singleton, def)
+	if err != nil {
+		return nil, err
+	}
+
+	// 触发一次最近活跃续期
+	_ = s.sess.TouchLatest(ctx, env, tenantID, out.ID, time.Now().UTC())
+	return out, nil
 }
 
-func (s *ChatHistoryService) FindSessionByID(ctx context.Context, env string, tenantID *uint64, id uint64) (*dbmodel.AgentChatSession, error) {
-	return s.sessRepo.FindByID(ctx, env, tenantID, id)
+// FindSessionByID：带作用域读取
+func (s *ChatHistoryService) FindSessionByID(
+	ctx context.Context, env string, tenantID *uint64, id uint64,
+) (*dbmodel.AgentChatSession, error) {
+	return s.sess.FindByID(ctx, env, tenantID, id)
 }
 
+// ListSessions：按 Agent 维度分页查询（statuses 可为空）
 func (s *ChatHistoryService) ListSessions(
 	ctx context.Context, env string, tenantID *uint64,
-	agentID uint64, statuses []string, limit, offset int,
+	agentID uint64, statuses []string,
+	limit, offset int,
 ) ([]dbmodel.AgentChatSession, error) {
-	return s.sessRepo.ListByAgent(ctx, env, tenantID, agentID, statuses, limit, offset)
+	return s.sess.ListByAgent(ctx, env, tenantID, agentID, statuses, limit, offset)
 }
 
+// UpdateSessionPolicy：可选更新 title / TTL / MaxKB / MaxTokens（部分字段更新）
+// 注意：repo 里没有改 title 的方法，这里用 gorm 直接更新 title
 func (s *ChatHistoryService) UpdateSessionPolicy(
 	ctx context.Context, env string, tenantID *uint64, id uint64,
 	title *string, ttlDays, maxKB, maxTokens *int,
 ) error {
+	// 1) title
 	if title != nil {
-		if err := s.db.WithContext(ctx).
+		err := s.db.WithContext(ctx).
 			Model(&dbmodel.AgentChatSession{}).
 			Scopes(dbmodel.WithScope(env, tenantID)).
 			Where("id = ?", id).
-			Update("title", *title).Error; err != nil {
+			Updates(map[string]any{
+				"title":      strings.TrimSpace(*title),
+				"updated_at": time.Now().UTC(),
+			}).Error
+		if err != nil {
 			return err
 		}
 	}
-	var ttl, kb, toks int
+	// 2) 策略（允许只给部分）
+	var t, kb, tk int
 	if ttlDays != nil {
-		ttl = *ttlDays
+		t = *ttlDays
 	}
 	if maxKB != nil {
 		kb = *maxKB
 	}
 	if maxTokens != nil {
-		toks = *maxTokens
+		tk = *maxTokens
 	}
-	if ttl > 0 || kb > 0 || toks > 0 {
-		if err := s.sessRepo.UpdatePolicy(ctx, env, tenantID, id, ttl, kb, toks); err != nil {
+	if ttlDays != nil || maxKB != nil || maxTokens != nil {
+		if err := s.sess.UpdatePolicy(ctx, env, tenantID, id, t, kb, tk); err != nil {
 			return err
 		}
+		// 更新策略后，顺带续期
+		_ = s.sess.TouchLatest(ctx, env, tenantID, id, time.Now().UTC())
 	}
 	return nil
 }
 
-func (s *ChatHistoryService) ArchiveSession(ctx context.Context, env string, tenantID *uint64, id uint64) error {
-	return s.sessRepo.Archive(ctx, env, tenantID, id)
+// ArchiveSession：归档（软删除前常用）
+func (s *ChatHistoryService) ArchiveSession(
+	ctx context.Context, env string, tenantID *uint64, id uint64,
+) error {
+	return s.sess.Archive(ctx, env, tenantID, id)
 }
 
-func (s *ChatHistoryService) DeleteSession(ctx context.Context, id uint64) error {
-	return s.sessRepo.DeleteSoft(ctx, id)
+// DeleteSession：先删消息再软删会话
+func (s *ChatHistoryService) DeleteSession(
+	ctx context.Context, env string, tenantID *uint64, id uint64,
+) error {
+	if err := s.msg.DeleteBySession(ctx, env, tenantID, id); err != nil {
+		return err
+	}
+	return s.sess.DeleteSoft(ctx, id)
 }
 
+// ListMessages：会话内分页拉取消息（支持 afterID 游标）
 func (s *ChatHistoryService) ListMessages(
 	ctx context.Context, env string, tenantID *uint64,
 	sessionID uint64, afterID uint64, limit int,
 ) ([]dbmodel.AgentChatMessage, error) {
-	return s.msgRepo.ListBySession(ctx, env, tenantID, sessionID, afterID, limit)
+	return s.msg.ListBySession(ctx, env, tenantID, sessionID, afterID, limit)
 }
 
+// AppendMessage：追加一条消息，并刷新会话“最近活跃/过期时间”
 func (s *ChatHistoryService) AppendMessage(
 	ctx context.Context, env string, tenantID *uint64,
 	sessionID, agentID uint64,
-	role, content, format string,
-	tokens, sizeBytes int,
-	pinned bool,
-	meta map[string]any,
+	role, content, contentType string,
+	tokensIn, tokensOut int,
+	isError bool, meta datatypes.JSONMap,
 ) (*dbmodel.AgentChatMessage, error) {
-	if role == "" {
-		return nil, errors.New("role required")
+	if contentType == "" {
+		contentType = "text/plain"
 	}
-	if format == "" {
-		format = "text"
+	if meta == nil {
+		meta = datatypes.JSONMap{}
 	}
-	if sizeBytes <= 0 {
-		sizeBytes = len([]byte(content))
+	tokens := tokensIn + tokensOut
+	m := &dbmodel.AgentChatMessage{
+		Env:         env,
+		TenantID:    tenantID,
+		SessionID:   sessionID,
+		AgentID:     agentID,
+		Role:        role,
+		Content:     content,
+		ContentType: contentType,
+		Tokens:      tokens,
+		SizeBytes:   len([]byte(content)),
+		IsError:     isError,
+		Meta:        meta,
 	}
-	if tokens <= 0 {
-		// 简单估算：4 字节≈1 token（粗略），避免引入额外依赖；后续可替换为真 tokenizer
-		tokens = utf8.RuneCountInString(content) / 4
-	}
-	msg := &dbmodel.AgentChatMessage{
-		Env:       env,
-		TenantID:  tenantID,
-		SessionID: sessionID,
-		AgentID:   agentID,
-		Role:      role,
-		Content:   content,
-		Format:    format,
-		Tokens:    tokens,
-		SizeBytes: sizeBytes,
-		Pinned:    pinned,
-		Meta:      meta,
-	}
-	if err := s.msgRepo.Append(ctx, msg); err != nil {
+	if err := s.msg.Append(ctx, m); err != nil {
 		return nil, err
 	}
-	_ = s.sessRepo.TouchLatest(ctx, env, tenantID, sessionID, time.Now())
-	return msg, nil
+	// 续期 latest/expired_at
+	_ = s.sess.TouchLatest(ctx, env, tenantID, sessionID, time.Now().UTC())
+	return m, nil
 }
 
-// AppendPair：一轮对话写入（user+assistant）
-func (s *ChatHistoryService) AppendPair(
-	ctx context.Context, env string, tenantID *uint64,
-	sessionID, agentID uint64,
-	userText, assistantText string,
-) error {
-	list := make([]dbmodel.AgentChatMessage, 0, 2)
-	if userText != "" {
-		list = append(list, dbmodel.AgentChatMessage{
-			Env: env, TenantID: tenantID, SessionID: sessionID, AgentID: agentID,
-			Role: "user", Content: userText, Format: "text",
-			Tokens: utf8.RuneCountInString(userText) / 4, SizeBytes: len([]byte(userText)),
-		})
-	}
-	if assistantText != "" {
-		list = append(list, dbmodel.AgentChatMessage{
-			Env: env, TenantID: tenantID, SessionID: sessionID, AgentID: agentID,
-			Role: "assistant", Content: assistantText, Format: "text",
-			Tokens: utf8.RuneCountInString(assistantText) / 4, SizeBytes: len([]byte(assistantText)),
-		})
-	}
-	if len(list) == 0 {
-		return nil
-	}
-	if err := s.msgRepo.BatchAppend(ctx, list); err != nil {
-		return err
-	}
-	return s.sessRepo.TouchLatest(ctx, env, tenantID, sessionID, time.Now())
-}
-
-// Stats & 简易摘要触发（可选）
+// SummarizeIfNeeded：当消息/体量超过阈值或会话过期时，生成滚动摘要并续期
+// 这里给一个“轻量无 LLM”的实现：拼接最近 N 条做简要摘要；后续你可替换为真实 LLM 总结。
 func (s *ChatHistoryService) SummarizeIfNeeded(
 	ctx context.Context, env string, tenantID *uint64, session *dbmodel.AgentChatSession,
 ) (bool, error) {
-	stats, err := s.msgRepo.StatsBySession(ctx, env, tenantID, session.ID)
+	if session == nil {
+		return false, errors.New("nil session")
+	}
+	// 确保策略默认值
+	s.ensureDefaults(session)
+
+	stats, err := s.msg.StatsBySession(ctx, env, tenantID, session.ID)
 	if err != nil {
 		return false, err
 	}
-	if (session.MaxTokens > 0 && stats.TotalTokens > int64(session.MaxTokens)) ||
-		(session.MaxKB > 0 && stats.TotalSize > int64(session.MaxKB*1024)) {
 
-		// 极简“摘要”：取最近 N 条的前 2k 字符拼接（占位，后续可接入 LLM 摘要）
-		items, err := s.msgRepo.ListLatestN(ctx, env, tenantID, session.ID, 40)
-		if err != nil {
-			return false, err
-		}
-		var buf []rune
-		for _, it := range items {
-			if it.Role == "summary" || it.Pinned {
-				continue
-			}
-			r := []rune(it.Content)
-			buf = append(buf, r...)
-			if len(buf) > 2000 {
-				buf = buf[:2000]
-				break
-			}
-		}
-		if err := s.sessRepo.SetSummary(ctx, env, tenantID, session.ID, string(buf)); err != nil {
-			return false, err
-		}
-		return true, nil
+	overTokens := session.MaxTokens > 0 && int(stats.TotalTokens) >= session.MaxTokens
+	overSize := session.MaxKB > 0 && int(stats.TotalSize)/1024 >= session.MaxKB
+	expired := session.ExpiredAt != nil && time.Now().UTC().After(*session.ExpiredAt)
+
+	if !(overTokens || overSize || expired) {
+		return false, nil
 	}
-	return false, nil
+
+	// 取最近 N 条做一个“轻量摘要”（占位）
+	const N = 8
+	latest, _ := s.msg.ListLatestN(ctx, env, tenantID, session.ID, N)
+	var b strings.Builder
+	for i := range latest {
+		r := latest[i].Role
+		if r == "" {
+			r = "msg"
+		}
+		content := latest[i].Content
+		if len(content) > 300 {
+			content = content[:300] + "…"
+		}
+		b.WriteString("- ")
+		b.WriteString(r)
+		b.WriteString(": ")
+		b.WriteString(content)
+		b.WriteByte('\n')
+	}
+	sum := b.String()
+	if strings.TrimSpace(sum) == "" {
+		sum = "（自动摘要占位）"
+	}
+
+	if err := s.sess.SetSummary(ctx, env, tenantID, session.ID, sum); err != nil {
+		return false, err
+	}
+	// 摘要后，从现在起续期
+	_ = s.sess.TouchLatest(ctx, env, tenantID, session.ID, time.Now().UTC())
+	return true, nil
 }

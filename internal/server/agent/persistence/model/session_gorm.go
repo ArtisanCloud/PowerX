@@ -15,7 +15,7 @@ type AgentChatSession struct {
 
 	// 归属
 	AgentID uint64 `gorm:"index;not null" json:"agentId"`
-	UserID  string `gorm:"size:64;index" json:"userId"` // 发起/归属的用户ID（按需调整类型）
+	UserID  uint64 `gorm:"size:64;index" json:"userId"` // 发起/归属的用户ID（按需调整类型）
 
 	// 展示/策略
 	Title     string `gorm:"size:255" json:"title"`

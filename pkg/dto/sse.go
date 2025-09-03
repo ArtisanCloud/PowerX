@@ -169,3 +169,159 @@ func hbTickerC(t *time.Ticker) <-chan time.Time {
 	}
 	return t.C
 }
+
+// 可选钩子
+type SSEHooks struct {
+	// 在发送 start 前（或正好发送时）触发
+	OnStart func(flowID, execID string)
+	// 每次增量 token（如果 chunk.Metadata["delta_text"] 存在）
+	OnDelta func(delta string, chunk *aschema.ExecutionResult)
+	// 每个中间数据块
+	OnData func(chunk *aschema.ExecutionResult)
+	// 收到最终帧（is_final=true）
+	OnFinal func(final *aschema.ExecutionResult)
+	// 流错误（非 EOF）
+	OnError func(err error)
+	// 心跳间隔；<=0 表示不发心跳
+	HeartbeatInterval time.Duration
+}
+
+// 不影响旧签名的情况下，提供带回调的版本
+func WriteToSSEWithTap(
+	c *gin.Context,
+	flowID string,
+	execID string,
+	sr *schema.StreamReader[*aschema.ExecutionResult],
+	h SSEHooks,
+) error {
+	defer sr.Close()
+
+	ctx := c.Request.Context()
+
+	// 头
+	c.Header("Content-Type", "text/event-stream")
+	c.Header("Cache-Control", "no-cache")
+	c.Header("Connection", "keep-alive")
+	c.Header("Access-Control-Allow-Origin", "*")
+	c.Header("Content-Type", "text/event-stream; charset=utf-8")
+	c.Header("X-Accel-Buffering", "no")
+
+	send := func(event string, data any) {
+		c.SSEvent(event, data)
+		c.Writer.Flush()
+	}
+
+	// start
+	if h.OnStart != nil {
+		h.OnStart(flowID, execID)
+	}
+	send("start", map[string]any{
+		"flow_id":      flowID,
+		"execution_id": execID,
+		"message":      "开始执行流程",
+	})
+
+	// 心跳
+	var hbTicker *time.Ticker
+	if h.HeartbeatInterval > 0 {
+		hbTicker = time.NewTicker(h.HeartbeatInterval)
+		defer hbTicker.Stop()
+	}
+
+	finalSent := false
+
+	// 异步 Recv
+	type recvResult struct {
+		chunk *aschema.ExecutionResult
+		err   error
+	}
+	recvCh := make(chan recvResult, 1)
+	go func() {
+		defer close(recvCh)
+		for {
+			ch, err := sr.Recv()
+			recvCh <- recvResult{chunk: ch, err: err}
+			if err != nil {
+				return
+			}
+		}
+	}()
+
+	for {
+		select {
+		case <-ctx.Done():
+			if h.OnError != nil {
+				h.OnError(ctx.Err())
+			}
+			send("error", map[string]any{"success": false, "error": ctx.Err().Error()})
+			send("end", map[string]any{"success": false, "message": "服务端取消"})
+			return ctx.Err()
+
+		case <-hbTickerC(hbTicker):
+			send("heartbeat", map[string]any{"ts": time.Now().Unix()})
+
+		case rr, ok := <-recvCh:
+			if !ok {
+				return nil
+			}
+			if rr.err != nil {
+				if errors.Is(rr.err, io.EOF) {
+					if !finalSent {
+						send("final", map[string]any{"success": true, "message": "流程执行完成"})
+					}
+					send("end", map[string]any{"success": true, "message": "连接结束"})
+					return nil
+				}
+				if h.OnError != nil {
+					h.OnError(rr.err)
+				}
+				send("error", map[string]any{"success": false, "error": rr.err.Error()})
+				send("end", map[string]any{"success": false, "message": "流程执行失败"})
+				return rr.err
+			}
+
+			chunk := rr.chunk
+
+			// 增量
+			if delta, ok := chunk.Metadata["delta_text"].(string); ok && delta != "" {
+				if h.OnDelta != nil {
+					h.OnDelta(delta, chunk)
+				}
+				send("token", map[string]any{
+					"delta":     delta,
+					"step_id":   chunk.StepID,
+					"timestamp": chunk.Timestamp,
+				})
+				continue
+			}
+
+			// 中间数据
+			if h.OnData != nil {
+				h.OnData(chunk)
+			}
+			send("data", map[string]any{
+				"success":   chunk.Success,
+				"data":      chunk.Data,
+				"step_id":   chunk.StepID,
+				"timestamp": chunk.Timestamp,
+				"metadata":  chunk.Metadata,
+			})
+
+			// 最终
+			if isFinal, _ := chunk.Metadata["is_final"].(bool); isFinal {
+				if h.OnFinal != nil {
+					h.OnFinal(chunk)
+				}
+				send("final", map[string]any{
+					"success":   chunk.Success,
+					"data":      chunk.Data,
+					"metadata":  chunk.Metadata,
+					"timestamp": chunk.Timestamp,
+				})
+				finalSent = true
+				send("end", map[string]any{"success": true, "message": "流程执行完成"})
+				return nil
+			}
+		}
+	}
+}

@@ -29,7 +29,7 @@ func NewAgentChatSessionRepository(db *gorm.DB) *AgentChatSessionRepository {
 func (r *AgentChatSessionRepository) GetOrCreate(
 	ctx context.Context,
 	env string, tenantID *uint64,
-	agentID uint64, userID string,
+	agentID uint64, userID uint64,
 	singleton bool,
 	defaults dbmodel.AgentChatSession, // 允许传 Title/TTL/MaxKB/MaxTokens 等缺省
 ) (*dbmodel.AgentChatSession, error) {
@@ -232,4 +232,32 @@ func (r *AgentChatSessionRepository) ListExpiredIDs(
 		Limit(limit).
 		Pluck("id", &ids).Error
 	return ids, err
+}
+
+// 修改标题（e.g. 首条用户消息后生成主题）
+func (r *AgentChatSessionRepository) UpdateTitle(
+	ctx context.Context, env string, tenantID *uint64, id uint64, title string,
+) error {
+	return r.db.WithContext(ctx).
+		Model(&dbmodel.AgentChatSession{}).
+		Scopes(dbmodel.WithScope(env, tenantID)).
+		Where("id = ?", id).
+		Updates(map[string]any{
+			"title":      title,
+			"updated_at": time.Now().UTC(),
+		}).Error
+}
+
+// 将会话切换到另一个 Agent（可选）
+func (r *AgentChatSessionRepository) SetAgent(
+	ctx context.Context, env string, tenantID *uint64, id uint64, agentID uint64,
+) error {
+	return r.db.WithContext(ctx).
+		Model(&dbmodel.AgentChatSession{}).
+		Scopes(dbmodel.WithScope(env, tenantID)).
+		Where("id = ?", id).
+		Updates(map[string]any{
+			"agent_id":   agentID,
+			"updated_at": time.Now().UTC(),
+		}).Error
 }

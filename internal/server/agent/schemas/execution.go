@@ -10,9 +10,9 @@ import (
 // ExecutionMeta 执行元数据，包含执行上下文信息
 type ExecutionMeta struct {
 	RequestID   string                 `json:"request_id" description:"请求ID"`
-	UserID      string                 `json:"user_id" description:"用户ID"`
-	CustomerID  string                 `json:"customer_id" description:"客户ID"`
-	TenantID    string                 `json:"tenant_id" description:"租户ID"`
+	UserID      uint64                 `json:"user_id" description:"用户ID"`
+	CustomerID  uint64                 `json:"customer_id" description:"客户ID"`
+	TenantID    uint64                 `json:"tenant_id" description:"租户ID"`
 	Timeout     time.Duration          `json:"timeout" description:"超时时间"`
 	Priority    int                    `json:"priority" description:"优先级"`
 	Metadata    map[string]interface{} `json:"metadata" description:"扩展元数据"`
