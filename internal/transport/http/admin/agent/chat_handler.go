@@ -42,7 +42,19 @@ func (h *AgentChatHandler) SimulateSSE(c *gin.Context) {
 
 	text := strings.TrimSpace(utils.FirstNonEmpty(c.Query("text"), c.Query("message")))
 	if text == "" {
-		text = "<think>这是一个 SSE 模拟流，前端可以用它测试逐字渲染与事件解析。</think> 这是think后，完成的结论"
+		text = `<think>这是一个 SSE 模拟流，前端可以用它测试逐字渲染与事件解析。
+这是一个 SSE 模拟流，前端可以用它测试逐字渲染与事件解析。
+这是一个 SSE 模拟流，前端可以用它测试逐字渲染与事件解析。</think> 
+这是think后，完成的结论1,
+这是think后，完成的结论2,
+这是think后，完成的结论3,
+这是think后，完成的结论4,
+这是think后，完成的结论5,
+这是think后，完成的结论6,
+这是think后，完成的结论7,
+这是think后，完成的结论8,
+这是think后，完成的结论9,
+这是think后，完成的结论10`
 	}
 	chunk := utils.ParseIntDefault(c.Query("chunk"), 1)       // 每次输出多少字符
 	delayMs := utils.ParseIntDefault(c.Query("delay_ms"), 60) // 每块之间延时（毫秒）
