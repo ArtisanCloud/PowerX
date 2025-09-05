@@ -1,0 +1,58 @@
+syntax = "proto3";
+
+package v1;
+option go_package = "github.com/ArtisanCloud/PowerX/api/grpc/contracts/powerx/agent/v1;agentv1";
+
+import "google/protobuf/struct.proto";
+
+// StreamEvent.type 支持：
+//  - 核心：intent | plan | start | token | data | action | final | end | error | heartbeat
+//  - 扩展：welcome | ack | pong | message_created | execution_status | rate_limit
+// 事件顺序建议（与 SSE 一致）：intent -> plan -> start -> {token|data|action}* -> final -> end
+message StreamEvent {
+	string type = 1;                     // 事件名（上面列出的那些）
+	google.protobuf.Struct data = 2;     // 事件负载（与前端 JSON 等价）
+	int64 timestamp = 3;                 // 秒级时间戳（UTC）
+}
+
+message ClientEvent {
+	string type = 1;
+	google.protobuf.Struct data = 2;
+	int64 timestamp = 3;
+}
+
+message StreamRequest {
+	string env = 1;
+	uint64 tenant_id = 2;
+	uint64 agent_id = 3;
+	string user_id = 4;
+	string session_id = 5;
+	string flow_id = 6;
+	string message = 7;
+	google.protobuf.Struct context = 8;
+	google.protobuf.Struct config = 9;
+	google.protobuf.Struct route = 10;
+	google.protobuf.Struct exec = 11;
+}
+
+message StreamDuplexRequest {
+	string env = 1;
+	uint64 tenant_id = 2;
+	uint64 agent_id = 3;
+	string user_id = 4;
+	string session_id = 5;
+	string flow_id = 6;
+	string message = 7;
+	google.protobuf.Struct context = 8;
+	google.protobuf.Struct config = 9;
+	google.protobuf.Struct route = 10;
+	google.protobuf.Struct exec = 11;
+}
+
+service AgentStream {
+	// 事件序列同上注释
+	rpc Stream(StreamRequest) returns (stream StreamEvent);
+
+	// 双向：客户端发 hello/join_session/chat_send/...；服务端回 welcome/ack/pong 及标准事件
+	rpc StreamDuplex(stream ClientEvent) returns (stream StreamEvent);
+}

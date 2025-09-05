@@ -58,13 +58,13 @@ func NewClient(provider string) (Client, error) {
 func MergeConfig(defaults *config.LLMConfig, rt RuntimeConfig) ModelConfig {
 	// 底：agent 配置
 	out := ModelConfig{
-		Provider:     lowerOr(defaults.Provider, "openai"),
-		Endpoint:     strOr(defaults.Endpoint, ""),
-		APIKey:       strOr(defaults.APIKey, ""),
-		Model:        strOr(defaults.Model, "gpt-3.5-turbo"),
-		SystemPrompt: strOr(defaults.Template, "You are a helpful assistant."),
-		Temperature:  floatOr(defaults.Temperature, 0.7),
-		MaxTokens:    intOr(defaults.MaxTokens, 512),
+		Provider:     utils.LowerOr(defaults.Provider, "openai"),
+		Endpoint:     utils.StrOr(defaults.Endpoint, ""),
+		APIKey:       utils.StrOr(defaults.APIKey, ""),
+		Model:        utils.StrOr(defaults.Model, "gpt-3.5-turbo"),
+		SystemPrompt: utils.StrOr(defaults.Template, "You are a helpful assistant."),
+		Temperature:  utils.FloatOr(defaults.Temperature, 0.7),
+		MaxTokens:    utils.IntOr(defaults.MaxTokens, 512),
 	}
 
 	// 运行时覆盖
@@ -89,10 +89,10 @@ func MergeConfig(defaults *config.LLMConfig, rt RuntimeConfig) ModelConfig {
 		if v := utils.StrFrom(rt["system_prompt"]); v != "" {
 			out.SystemPrompt = v
 		}
-		if v := floatAny(rt["temperature"]); v != nil {
+		if v := utils.FloatAny(rt["temperature"]); v != nil {
 			out.Temperature = *v
 		}
-		if v := intAny(rt["max_tokens"]); v != nil {
+		if v := utils.IntAny(rt["max_tokens"]); v != nil {
 			out.MaxTokens = *v
 		}
 
@@ -120,50 +120,4 @@ func MergeConfig(defaults *config.LLMConfig, rt RuntimeConfig) ModelConfig {
 		}
 	}
 	return out
-}
-
-// ——— 小工具 —— //
-func strOr(s string, def string) string {
-	if s != "" {
-		return s
-	}
-	return def
-}
-func lowerOr(s string, def string) string {
-	if s != "" {
-		return strings.ToLower(s)
-	}
-	return def
-}
-func floatOr(f float64, def float64) float64 {
-	if f != 0 {
-		return f
-	}
-	return def
-}
-func intOr(i int, def int) int {
-	if i != 0 {
-		return i
-	}
-	return def
-}
-func floatAny(v any) *float64 {
-	switch x := v.(type) {
-	case float64:
-		return &x
-	case int:
-		f := float64(x)
-		return &f
-	}
-	return nil
-}
-func intAny(v any) *int {
-	switch x := v.(type) {
-	case int:
-		return &x
-	case float64:
-		i := int(x)
-		return &i
-	}
-	return nil
 }

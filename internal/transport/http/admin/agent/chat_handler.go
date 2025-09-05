@@ -5,7 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"sort"
+	"github.com/ArtisanCloud/PowerX/internal/server/agent/runtime"
 	"strings"
 	"time"
 
@@ -40,9 +40,9 @@ func (h *AgentChatHandler) SimulateSSE(c *gin.Context) {
 
 	setSSEHeaders(c)
 
-	text := strings.TrimSpace(firstNonEmpty(c.Query("q"), c.Query("text"), c.Query("message")))
+	text := strings.TrimSpace(utils.FirstNonEmpty(c.Query("text"), c.Query("message")))
 	if text == "" {
-		text = "这是一个 SSE 模拟流，前端可以用它测试逐字渲染与事件解析。"
+		text = "<think>这是一个 SSE 模拟流，前端可以用它测试逐字渲染与事件解析。</think> 这是think后，完成的结论"
 	}
 	chunk := utils.ParseIntDefault(c.Query("chunk"), 1)       // 每次输出多少字符
 	delayMs := utils.ParseIntDefault(c.Query("delay_ms"), 60) // 每块之间延时（毫秒）
@@ -58,7 +58,7 @@ func (h *AgentChatHandler) SimulateSSE(c *gin.Context) {
 	execID := fmt.Sprintf("mock_%d", time.Now().UnixNano())
 
 	// 开始帧
-	c.SSEvent("start", gin.H{
+	c.SSEvent(dto.EventStart, gin.H{
 		"flow_id":      flowID,
 		"execution_id": execID,
 		"message":      "开始模拟 SSE 输出",
@@ -97,7 +97,7 @@ LOOP:
 		}
 		delta := string(rs[i:j])
 
-		c.SSEvent("token", gin.H{
+		c.SSEvent(dto.EventToken, gin.H{
 			"delta":     delta,
 			"step_id":   stepID,
 			"timestamp": nowTs(),
@@ -114,13 +114,13 @@ LOOP:
 	}
 
 	// 最终帧
-	c.SSEvent("final", gin.H{
+	c.SSEvent(dto.EventFinal, gin.H{
 		"success":   true,
 		"data":      gin.H{"content": text},
 		"metadata":  gin.H{"mock": true},
 		"timestamp": nowTs(),
 	})
-	c.SSEvent("end", gin.H{"success": true, "message": "SSE 模拟完成"})
+	c.SSEvent(dto.EventEnd, gin.H{"success": true, "message": "SSE 模拟完成"})
 }
 
 // GET /api/agents/stream/sse?q=...&env=dev&agent_id=...&session_id=...
@@ -134,7 +134,7 @@ func (h *AgentChatHandler) StreamSSE(c *gin.Context) {
 	}
 
 	env := c.DefaultQuery("env", "default")
-	q := strings.TrimSpace(firstNonEmpty(c.Query("q"), c.Query("message")))
+	q := strings.TrimSpace(utils.FirstNonEmpty(c.Query("q"), c.Query("message")))
 	if q == "" {
 		dto.ResponseError(c, 400, "缺少 q（消息内容）", nil)
 		return
@@ -174,14 +174,14 @@ func (h *AgentChatHandler) streamCore(c *gin.Context, req dto.StreamChatRequest)
 	ctx := c.Request.Context()
 
 	// 解析上下文（容错类型）
-	env := strOr(req.Context["env"], "default")
-	tid := uintOr(req.Context["tenant_id"])
-	agentID := uintOr(req.Context["agent_id"])
-	userID := uintOr(req.Context["user_id"])
+	env := reqctx.GetEnv(c.Request.Context())
+	tid := reqctx.GetTenantID(c.Request.Context())
+	userID := reqctx.GetUserID(c.Request.Context())
+	agentID, _ := utils.AsUint64(req.Context["agent_id"])
 
 	// 会话：优先 session_id -> 否则 sticky（env, tenant, agent, user）
 	var sess *dbmodel.AgentChatSession
-	if sidStr := strOr(req.Context["session_id"], ""); sidStr != "" {
+	if sidStr := utils.StrOr(req.Context["session_id"].(string), ""); sidStr != "" {
 		if sid, err := utils.ParseUintID(sidStr); err == nil && sid > 0 {
 			sess, _ = h.his.FindSessionByID(ctx, env, &tid, sid)
 		}
@@ -237,7 +237,7 @@ func (h *AgentChatHandler) streamCore(c *gin.Context, req dto.StreamChatRequest)
 		}
 		c.Writer.Flush()
 
-		flowID = pickFirstFlowID(plan)
+		flowID = runtime.PickFirstFlowID(plan)
 	}
 
 	// 路由 & 兜底
@@ -298,7 +298,7 @@ func (h *AgentChatHandler) streamCore(c *gin.Context, req dto.StreamChatRequest)
 		},
 		OnDelta: func(delta string, _ *agentschema.ExecutionResult) { buf.WriteString(delta) },
 		OnFinal: func(final *agentschema.ExecutionResult) {
-			text := extractAssistantText(final)
+			text := runtime.ExtractAssistantText(final)
 			if strings.TrimSpace(text) == "" {
 				text = buf.String()
 			}
@@ -338,78 +338,4 @@ func setSSEHeaders(c *gin.Context) {
 	c.Header("Cache-Control", "no-cache")
 	c.Header("Connection", "keep-alive")
 	c.Header("X-Accel-Buffering", "no")
-}
-
-func firstNonEmpty(ss ...string) string {
-	for _, s := range ss {
-		if strings.TrimSpace(s) != "" {
-			return s
-		}
-	}
-	return ""
-}
-
-func pickFirstFlowID(plan *flowschema.ExecutionPlan) string {
-	if plan == nil || len(plan.Tasks) == 0 {
-		return ""
-	}
-	tasks := make([]flowschema.PlanTask, len(plan.Tasks))
-	copy(tasks, plan.Tasks)
-	sort.SliceStable(tasks, func(i, j int) bool {
-		if tasks[i].Stage == tasks[j].Stage {
-			return i < j
-		}
-		return tasks[i].Stage < tasks[j].Stage
-	})
-	if id := strings.TrimSpace(tasks[0].FlowID); id != "" {
-		return id
-	}
-	if id := strings.TrimSpace(tasks[0].TaskID); id != "" {
-		return id
-	}
-	return ""
-}
-
-func extractAssistantText(chunk *agentschema.ExecutionResult) string {
-	if chunk == nil || chunk.Data == nil {
-		return ""
-	}
-	if res, ok := chunk.Data["result"].(map[string]any); ok {
-		if s, ok := res["content"].(string); ok {
-			return s
-		}
-	}
-	if s, ok := chunk.Data["content"].(string); ok {
-		return s
-	}
-	return ""
-}
-
-// 容错把 any 转成 uint64
-func uintOr(v any) uint64 {
-	switch t := v.(type) {
-	case uint64:
-		return t
-	case int64:
-		if t < 0 {
-			return 0
-		}
-		return uint64(t)
-	case float64:
-		if t < 0 {
-			return 0
-		}
-		return uint64(t)
-	case string:
-		u, _ := utils.ParseUintID(strings.TrimSpace(t))
-		return u
-	default:
-		return 0
-	}
-}
-func strOr(v any, def string) string {
-	if s, ok := v.(string); ok && strings.TrimSpace(s) != "" {
-		return s
-	}
-	return def
 }

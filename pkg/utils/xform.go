@@ -184,3 +184,48 @@ func ParseIntDefault(s string, def int) int {
 	}
 	return v
 }
+
+func StrOr(s string, def string) string {
+	if s != "" {
+		return s
+	}
+	return def
+}
+func LowerOr(s string, def string) string {
+	if s != "" {
+		return strings.ToLower(s)
+	}
+	return def
+}
+func FloatOr(f float64, def float64) float64 {
+	if f != 0 {
+		return f
+	}
+	return def
+}
+func IntOr(i int, def int) int {
+	if i != 0 {
+		return i
+	}
+	return def
+}
+func FloatAny(v any) *float64 {
+	switch x := v.(type) {
+	case float64:
+		return &x
+	case int:
+		f := float64(x)
+		return &f
+	}
+	return nil
+}
+func IntAny(v any) *int {
+	switch x := v.(type) {
+	case int:
+		return &x
+	case float64:
+		i := int(x)
+		return &i
+	}
+	return nil
+}
