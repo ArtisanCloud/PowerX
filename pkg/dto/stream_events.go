@@ -1,12 +1,14 @@
+// dto/stream_events.go
 package dto
 
-// 事件名常量（SSE 的 event / WS 的 WSMessage.Type）
+// 传输无关（SSE/WS 共用的事件名）
 const (
 	EventStart     = "start"
 	EventIntent    = "intent"
+	EventPlan      = "plan"
 	EventToken     = "token"
-	EventAction    = "action"
 	EventData      = "data"
+	EventAction    = "action"
 	EventFinal     = "final"
 	EventEnd       = "end"
 	EventError     = "error"

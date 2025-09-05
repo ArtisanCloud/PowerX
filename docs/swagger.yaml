@@ -940,6 +940,15 @@ paths:
             summary: GET /api/agents/status
             tags:
                 - api
+    /api/agents/stream/mock:
+        get:
+            operationId: GET /api/agents/stream/mock
+            responses:
+                "200":
+                    description: OK
+            summary: GET /api/agents/stream/mock
+            tags:
+                - api
     /api/agents/stream/sse:
         get:
             operationId: GET /api/agents/stream/sse

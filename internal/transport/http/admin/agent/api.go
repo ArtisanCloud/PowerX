@@ -22,7 +22,8 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 		agentGroup.POST("/intent/", agentH.Intent)
 		agentGroup.POST("/intent/plan", agentH.PlanPreview)
 		// agentGroup.POST("/execute", ExecuteHandler)
-		agentGroup.GET("/stream/sse", chatH.StreamSSE) // 新增：标准 GET SSE（方便前端用 EventSource）
+		agentGroup.GET("/stream/mock", chatH.SimulateSSE) // 新增：标准 GET SSE（方便前端用 EventSource）
+		agentGroup.GET("/stream/sse", chatH.StreamSSE)    // 新增：标准 GET SSE（方便前端用 EventSource）
 
 		// 新增：POST 普通 Chat（非流）
 		agentGroup.POST("/invoke", chatH.Invoke)

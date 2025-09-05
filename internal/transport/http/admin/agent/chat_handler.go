@@ -26,19 +26,110 @@ type AgentChatHandler struct {
 }
 
 func NewAgentChatHandler(dep *shared.Deps) *AgentChatHandler {
-	return &AgentChatHandler{
-		his: agentSvc.NewChatHistoryService(dep.DB),
-	}
+	return &AgentChatHandler{his: agentSvc.NewChatHistoryService(dep.DB)}
 }
 
-// 标准 SSE：GET /api/agents/stream/sse?q=...&flow_id=...&probe=1[&session_id=...&agent_id=...&env=...]
-func (h *AgentChatHandler) StreamSSE(c *gin.Context) {
+func (h *AgentChatHandler) SimulateSSE(c *gin.Context) {
 	// 探针
-	probe := strings.EqualFold(c.Query("probe"), "1") || strings.EqualFold(c.Query("probe"), "true")
-	if probe {
+	if strings.EqualFold(c.Query("probe"), "1") || strings.EqualFold(c.Query("probe"), "true") {
 		setSSEHeaders(c)
-		c.SSEvent("ack", gin.H{"ok": true, "ts": time.Now().Unix(), "note": "sse probe only, no compute"})
-		c.SSEvent("end", gin.H{"ok": true})
+		c.SSEvent(dto.EventStart, gin.H{"message": "probe ok"})
+		c.SSEvent(dto.EventEnd, gin.H{"ok": true})
+		return
+	}
+
+	setSSEHeaders(c)
+
+	text := strings.TrimSpace(firstNonEmpty(c.Query("q"), c.Query("text"), c.Query("message")))
+	if text == "" {
+		text = "这是一个 SSE 模拟流，前端可以用它测试逐字渲染与事件解析。"
+	}
+	chunk := utils.ParseIntDefault(c.Query("chunk"), 1)       // 每次输出多少字符
+	delayMs := utils.ParseIntDefault(c.Query("delay_ms"), 60) // 每块之间延时（毫秒）
+	if chunk <= 0 {
+		chunk = 1
+	}
+	if delayMs < 0 {
+		delayMs = 0
+	}
+
+	ctx := c.Request.Context()
+	flowID := "mock_flow"
+	execID := fmt.Sprintf("mock_%d", time.Now().UnixNano())
+
+	// 开始帧
+	c.SSEvent("start", gin.H{
+		"flow_id":      flowID,
+		"execution_id": execID,
+		"message":      "开始模拟 SSE 输出",
+	})
+	c.Writer.Flush()
+
+	// 心跳
+	hb := time.NewTicker(25 * time.Second)
+	defer hb.Stop()
+
+	// 分块（按 rune，避免多字节拆断）
+	rs := []rune(text)
+	stepID := "mock"
+	nowTs := func() int64 { return time.Now().Unix() }
+
+	// 循环输出 token
+LOOP:
+	for i := 0; i < len(rs); i += chunk {
+		select {
+		case <-ctx.Done():
+			// 客户端断开或被取消
+			c.SSEvent("error", gin.H{"success": false, "error": ctx.Err().Error()})
+			c.SSEvent("end", gin.H{"success": false, "message": "连接已中断"})
+			return
+		case <-hb.C:
+			c.SSEvent("heartbeat", gin.H{"ts": nowTs()})
+			c.Writer.Flush()
+			i -= chunk // 这次只发心跳，不消耗文本
+			continue
+		default:
+		}
+
+		j := i + chunk
+		if j > len(rs) {
+			j = len(rs)
+		}
+		delta := string(rs[i:j])
+
+		c.SSEvent("token", gin.H{
+			"delta":     delta,
+			"step_id":   stepID,
+			"timestamp": nowTs(),
+		})
+		c.Writer.Flush()
+
+		if delayMs > 0 {
+			select {
+			case <-ctx.Done():
+				break LOOP
+			case <-time.After(time.Duration(delayMs) * time.Millisecond):
+			}
+		}
+	}
+
+	// 最终帧
+	c.SSEvent("final", gin.H{
+		"success":   true,
+		"data":      gin.H{"content": text},
+		"metadata":  gin.H{"mock": true},
+		"timestamp": nowTs(),
+	})
+	c.SSEvent("end", gin.H{"success": true, "message": "SSE 模拟完成"})
+}
+
+// GET /api/agents/stream/sse?q=...&env=dev&agent_id=...&session_id=...
+func (h *AgentChatHandler) StreamSSE(c *gin.Context) {
+	// 探活
+	if strings.EqualFold(c.Query("probe"), "1") || strings.EqualFold(c.Query("probe"), "true") {
+		setSSEHeaders(c)
+		c.SSEvent(dto.EventStart, gin.H{"message": "probe ok"})
+		c.SSEvent(dto.EventEnd, gin.H{"ok": true})
 		return
 	}
 
@@ -48,17 +139,12 @@ func (h *AgentChatHandler) StreamSSE(c *gin.Context) {
 		dto.ResponseError(c, 400, "缺少 q（消息内容）", nil)
 		return
 	}
-	flowID := strings.TrimSpace(c.Query("flow_id"))
-	agentIDStr := strings.TrimSpace(c.Query("agent_id"))
+
+	agentID, _ := utils.ParseUintID(strings.TrimSpace(c.Query("agent_id")))
 	sessionIDStr := strings.TrimSpace(c.Query("session_id"))
-
-	agentID, _ := utils.ParseUintID(agentIDStr)
-	_, _ = utils.ParseUintID(sessionIDStr) // 允许传但不强求（我们内部会 GetOrCreate）
-
 	tid, _ := reqctx.RequireTenantIDFromGin(c)
 	uid := reqctx.GetUserID(c.Request.Context())
 
-	// 先切到 SSE 头
 	setSSEHeaders(c)
 
 	ctxMap := map[string]any{
@@ -73,17 +159,12 @@ func (h *AgentChatHandler) StreamSSE(c *gin.Context) {
 
 	req := dto.StreamChatRequest{
 		Message: q,
-		FlowID:  flowID,
-		Config:  nil,
 		Context: ctxMap,
-		Route:   nil,
-		Exec:    nil,
 	}
-
 	h.streamCore(c, req)
 }
 
-// ---- 核心：单 Flow 流式 + 会话入库闭环 ----
+// ---- 核心 ----
 func (h *AgentChatHandler) streamCore(c *gin.Context, req dto.StreamChatRequest) {
 	msg := strings.TrimSpace(req.Message)
 	if msg == "" {
@@ -92,30 +173,20 @@ func (h *AgentChatHandler) streamCore(c *gin.Context, req dto.StreamChatRequest)
 	}
 	ctx := c.Request.Context()
 
-	// 上下文解析
-	env := "default"
-	if v, ok := req.Context["env"].(string); ok && v != "" {
-		env = v
-	}
-	var tid uint64
-	tid = req.Context["tenant_id"].(uint64)
+	// 解析上下文（容错类型）
+	env := strOr(req.Context["env"], "default")
+	tid := uintOr(req.Context["tenant_id"])
+	agentID := uintOr(req.Context["agent_id"])
+	userID := uintOr(req.Context["user_id"])
 
-	var agentID uint64
-	agentID = req.Context["agent_id"].(uint64)
-
-	userID, _ := req.Context["user_id"].(uint64)
-
-	// 会话：取或建（不再依赖 MakeDefaultSessionDef）
+	// 会话：优先 session_id -> 否则 sticky（env, tenant, agent, user）
 	var sess *dbmodel.AgentChatSession
-	// 若传了 session_id，优先按该 id 取；否则按 (env, tenant, agent, user) sticky 取/建
-	if sidStr, ok := req.Context["session_id"].(string); ok && strings.TrimSpace(sidStr) != "" {
+	if sidStr := strOr(req.Context["session_id"], ""); sidStr != "" {
 		if sid, err := utils.ParseUintID(sidStr); err == nil && sid > 0 {
-			// 允许你在 Service 里实现 GetByIDOrCreateFallback；这里先复用通用入口
 			sess, _ = h.his.FindSessionByID(ctx, env, &tid, sid)
 		}
 	}
 	if sess == nil {
-		// def 传 nil，默认标题由 Service 内部根据首条消息自动生成即可
 		var err error
 		sess, err = h.his.GetOrCreateSession(ctx, env, &tid, agentID, userID, false, nil)
 		if err != nil {
@@ -125,14 +196,14 @@ func (h *AgentChatHandler) streamCore(c *gin.Context, req dto.StreamChatRequest)
 		}
 	}
 
-	// 先写入 user 消息
+	// 写入 user 消息
 	if _, err := h.his.AppendMessage(ctx, env, &tid, sess.ID, agentID, "user", msg, "text", 0, 0, false, nil); err != nil {
 		c.SSEvent(dto.EventError, gin.H{"message": "写入用户消息失败", "detail": err.Error()})
 		c.SSEvent(dto.EventEnd, gin.H{"ok": false})
 		return
 	}
 
-	// 意图 → 计划（未显式 flow_id 时）
+	// 意图 → 计划（未提供 flow_id 时）
 	mgr := agent.GetAgentManager()
 	var plan *flowschema.ExecutionPlan
 	flowID := strings.TrimSpace(req.FlowID)
@@ -146,14 +217,14 @@ func (h *AgentChatHandler) streamCore(c *gin.Context, req dto.StreamChatRequest)
 		c.SSEvent(dto.EventIntent, gin.H{"mode": "intent_multi", "tasks": tasks})
 		c.Writer.Flush()
 
-		rawPlan := mgr.BuildPlan(tasks)
-		switch v := any(rawPlan).(type) {
+		raw := mgr.BuildPlan(tasks)
+		switch v := any(raw).(type) {
 		case flowschema.ExecutionPlan:
 			plan = &v
 		case *flowschema.ExecutionPlan:
 			plan = v
 		default:
-			b, _ := json.Marshal(rawPlan)
+			b, _ := json.Marshal(raw)
 			var tmp flowschema.ExecutionPlan
 			if err := json.Unmarshal(b, &tmp); err == nil && len(tmp.Tasks) > 0 {
 				plan = &tmp
@@ -162,14 +233,14 @@ func (h *AgentChatHandler) streamCore(c *gin.Context, req dto.StreamChatRequest)
 		if plan != nil {
 			c.SSEvent("plan", plan)
 		} else {
-			c.SSEvent("plan", rawPlan)
+			c.SSEvent("plan", raw)
 		}
 		c.Writer.Flush()
 
 		flowID = pickFirstFlowID(plan)
 	}
 
-	// 路由 & 兜底 flow
+	// 路由 & 兜底
 	ag, fallbackFlowID, err := mgr.GetDefaultRoute()
 	if err != nil {
 		c.SSEvent(dto.EventError, gin.H{"message": "获取默认 Agent 失败", "detail": err.Error()})
@@ -185,7 +256,7 @@ func (h *AgentChatHandler) streamCore(c *gin.Context, req dto.StreamChatRequest)
 		}
 	}
 
-	// 执行单 flow
+	// 执行 flow
 	params := flowschema.Context{
 		"message": msg,
 		"context": map[string]any{
@@ -207,7 +278,9 @@ func (h *AgentChatHandler) streamCore(c *gin.Context, req dto.StreamChatRequest)
 		Timeout:   60,
 	}
 
-	runCtx := withTimeout(ctx, 60*time.Second)
+	runCtx, cancel := context.WithTimeout(ctx, 60*time.Second)
+	defer cancel()
+
 	sr, err := ag.Stream(runCtx, flowID, params, meta)
 	if err != nil {
 		c.SSEvent(dto.EventError, gin.H{"message": "流式聊天执行失败", "detail": err.Error()})
@@ -215,18 +288,15 @@ func (h *AgentChatHandler) streamCore(c *gin.Context, req dto.StreamChatRequest)
 		return
 	}
 
-	// Tap：增量聚合 / 最终入库 / 开始前发 meta（带 session_id）
+	// Tap：增量与最终回写
 	var buf strings.Builder
 	hooks := dto.SSEHooks{
 		HeartbeatInterval: 25 * time.Second,
 		OnStart: func(fid, eid string) {
-			// 在 start 之前补一帧 meta 让前端拿到 session_id
 			c.SSEvent("meta", gin.H{"session_id": sess.ID, "agent_id": agentID})
 			c.Writer.Flush()
 		},
-		OnDelta: func(delta string, _ *agentschema.ExecutionResult) {
-			buf.WriteString(delta)
-		},
+		OnDelta: func(delta string, _ *agentschema.ExecutionResult) { buf.WriteString(delta) },
 		OnFinal: func(final *agentschema.ExecutionResult) {
 			text := extractAssistantText(final)
 			if strings.TrimSpace(text) == "" {
@@ -237,15 +307,11 @@ func (h *AgentChatHandler) streamCore(c *gin.Context, req dto.StreamChatRequest)
 			}
 			_, _ = h.his.SummarizeIfNeeded(c.Request.Context(), env, &tid, sess)
 		},
-		OnError: func(err error) {
-			// 可加打点
-		},
 	}
-
 	_ = dto.WriteToSSEWithTap(c, flowID, execID, sr, hooks)
 }
 
-// 非流式（简版）
+// 非流式（保留）
 func (h *AgentChatHandler) Invoke(c *gin.Context) {
 	var req dto.ChatRequest
 	if err := dto.ValidateRequestWithContext(c, &req); err != nil {
@@ -272,14 +338,6 @@ func setSSEHeaders(c *gin.Context) {
 	c.Header("Cache-Control", "no-cache")
 	c.Header("Connection", "keep-alive")
 	c.Header("X-Accel-Buffering", "no")
-}
-
-func withTimeout(ctx context.Context, d time.Duration) context.Context {
-	if dl, ok := ctx.Deadline(); !ok || time.Until(dl) > d {
-		nctx, _ := context.WithTimeout(ctx, d)
-		return nctx
-	}
-	return ctx
 }
 
 func firstNonEmpty(ss ...string) string {
@@ -325,4 +383,33 @@ func extractAssistantText(chunk *agentschema.ExecutionResult) string {
 		return s
 	}
 	return ""
+}
+
+// 容错把 any 转成 uint64
+func uintOr(v any) uint64 {
+	switch t := v.(type) {
+	case uint64:
+		return t
+	case int64:
+		if t < 0 {
+			return 0
+		}
+		return uint64(t)
+	case float64:
+		if t < 0 {
+			return 0
+		}
+		return uint64(t)
+	case string:
+		u, _ := utils.ParseUintID(strings.TrimSpace(t))
+		return u
+	default:
+		return 0
+	}
+}
+func strOr(v any, def string) string {
+	if s, ok := v.(string); ok && strings.TrimSpace(s) != "" {
+		return s
+	}
+	return def
 }

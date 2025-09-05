@@ -3,7 +3,7 @@ package agent
 import (
 	"context"
 	"fmt"
-	"github.com/ArtisanCloud/PowerX/internal/server/agent/contract"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"net/http"
 	"strings"
 	"time"
@@ -17,100 +17,163 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-type AgentWSHandler struct{}
+type AgentWSHandler struct {
+	deps *shared.Deps
+}
 
-func NewAgentWSHandler(_ *shared.Deps) *AgentWSHandler { return &AgentWSHandler{} }
+func NewAgentWSHandler(deps *shared.Deps) *AgentWSHandler { return &AgentWSHandler{deps: deps} }
 
 var upgrader = websocket.Upgrader{CheckOrigin: func(r *http.Request) bool { return true }}
 
 func (h *AgentWSHandler) StreamWS(c *gin.Context) {
-	var chosen string
-	key := http.CanonicalHeaderKey(contract.HeaderKeySecWebSocketProtocol)
-	if vals, ok := c.Request.Header[key]; ok && len(vals) > 0 {
-		for _, v := range vals {
-			for _, p := range strings.Split(v, ",") {
-				p = strings.TrimSpace(p)
-				if strings.HasPrefix(strings.ToLower(p), "bearer.") {
-					chosen = p
-					break
-				}
-			}
-			if chosen != "" {
-				break
-			}
-		}
-	}
-
-	// === 升级时带上回显的协议 ===
-	respHeader := http.Header{}
-	if chosen != "" {
-		respHeader.Set(contract.HeaderKeySecWebSocketProtocol, chosen)
-	}
-
-	conn, err := upgrader.Upgrade(c.Writer, c.Request, respHeader)
+	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
 		return
 	}
 	defer conn.Close()
 
-	// 下面保持你的 probe/q 流程不变……
-	probe := strings.EqualFold(c.Query("probe"), "1") || strings.EqualFold(c.Query("probe"), "true")
-	if probe {
-		_ = conn.WriteJSON(map[string]any{
-			"type": "ack",
-			"data": map[string]any{"ok": true, "ts": time.Now().Unix(), "note": "ws probe only, no compute"},
-		})
+	// welcome
+	_ = conn.WriteJSON(mustEnv(dto.WSWelcome, dto.WelcomePayload{
+		Protocol:     dto.ProtocolVersion,
+		Server:       "powerx-agent",
+		HeartbeatSec: 25,
+	}))
+
+	// probe（可选）
+	if strings.EqualFold(c.Query("probe"), "1") || strings.EqualFold(c.Query("probe"), "true") {
+		_ = conn.WriteJSON(mustEnv(dto.WSAck, dto.AckPayload{OK: true, Message: "ws probe ok"}))
 		_ = conn.WriteControl(websocket.CloseMessage,
 			websocket.FormatCloseMessage(websocket.CloseNormalClosure, "probe done"),
 			time.Now().Add(2*time.Second))
 		return
 	}
 
-	q := strings.TrimSpace(c.Query("q"))
-	if q == "" {
-		_ = conn.WriteJSON(dto.WSMessage{Type: dto.EventError, Data: map[string]any{"message": "缺少 q（消息内容）"}, Timestamp: time.Now().Unix()})
+	// 读循环
+	for {
+		var env dto.WSEnvelope
+		if err := conn.ReadJSON(&env); err != nil {
+			return
+		}
+		switch env.Type {
+		case dto.WSHello:
+			var p dto.HelloPayload
+			_ = dto.DecodePayload(env, &p)
+			_ = conn.WriteJSON(mustEnv(dto.WSAck, dto.AckPayload{OK: true, Message: "hello ok"}))
+
+		case dto.WSJoinSession:
+			var p dto.JoinSessionPayload
+			_ = dto.DecodePayload(env, &p)
+			// TODO: 这里接入 SessionService，创建/续期/返回会话信息
+			_ = conn.WriteJSON(mustEnv(dto.WSAck, dto.AckPayload{OK: true, Message: "joined", SessionID: p.SessionID}))
+
+		case dto.WSChatSend:
+			var p dto.ChatSendPayload
+			_ = dto.DecodePayload(env, &p)
+			go h.handleChatSend(c, conn, p)
+
+		case dto.WSPing:
+			var p dto.PingPayload
+			_ = dto.DecodePayload(env, &p)
+			_ = conn.WriteJSON(mustEnv(dto.WSPong, dto.PongPayload{Seq: p.Seq}))
+
+		case dto.WSCancel:
+			// TODO: 按 executionID 取消（保存 execID->cancelFn 即可）
+			_ = conn.WriteJSON(mustEnv(dto.WSAck, dto.AckPayload{OK: true, Message: "cancel not-implemented"}))
+
+		default:
+			_ = conn.WriteJSON(mustEnv(dto.WSError, dto.ErrorPayload{Code: "unsupported_type", Message: env.Type}))
+		}
+	}
+}
+
+func (h *AgentWSHandler) handleChatSend(ginCtx *gin.Context, conn *websocket.Conn, p dto.ChatSendPayload) {
+	msg := strings.TrimSpace(p.Message)
+	if msg == "" {
+		_ = conn.WriteJSON(mustEnv(dto.WSError, dto.ErrorPayload{Code: "bad_request", Message: "message 不能为空"}))
 		return
 	}
-	flowID := strings.TrimSpace(c.Query("flow_id"))
 
-	// ctx/timeout
-	ctx := c.Request.Context()
-	timeout := 60 * time.Second
-	if dl, ok := ctx.Deadline(); !ok || time.Until(dl) > timeout {
-		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, timeout)
-		defer cancel()
-	}
+	ctx, cancel := context.WithTimeout(ginCtx.Request.Context(), 90*time.Second)
+	defer cancel()
 
-	// 意图帧
 	mgr := agent.GetAgentManager()
-	intent, _ := mgr.DetectIntent(c, q)
-	if intent != nil {
-		_ = conn.WriteJSON(dto.WSMessage{Type: dto.EventIntent, Data: map[string]any{"intent": intent}, Timestamp: time.Now().Unix()})
+
+	// 1) 意图识别 → 先告诉前端
+	var flowID string
+	if intent, _ := mgr.DetectIntent(ginCtx, msg); intent != nil {
+		_ = conn.WriteJSON(mustEnv(dto.WSIntent, dto.IntentPayload{
+			Matched:  intent.Matched,
+			Strategy: intent.Strategy,
+			Reason:   intent.Reason,
+			Score:    intent.Score,
+			AgentID:  intent.AgentID,
+			FlowID:   intent.FlowID,
+		}))
+
+		if intent.Matched && strings.TrimSpace(intent.FlowID) != "" {
+			flowID = strings.TrimSpace(intent.FlowID)
+		}
 	}
-	if intent != nil && intent.Matched && intent.FlowID != "" {
-		flowID = intent.FlowID
+
+	// 2) 可选覆盖：从 Context 里读取 flow_id（仅用于调试/显式指定）
+	if flowID == "" && p.Context != nil {
+		if v, ok := p.Context["flow_id"].(string); ok && strings.TrimSpace(v) != "" {
+			flowID = strings.TrimSpace(v)
+		}
+	}
+
+	// 3) 路由 agent，并兜底
+	ag, fallbackFlowID, err := mgr.GetDefaultRoute()
+	if err != nil {
+		_ = conn.WriteJSON(mustEnv(dto.WSError, dto.ErrorPayload{Code: "agent_not_found", Message: err.Error()}))
+		return
 	}
 	if flowID == "" {
-		flowID = "chat" // ← 用你真实存在的 flow
+		flowID = strings.TrimSpace(fallbackFlowID) // e.g. "base_flow"
+		if flowID == "" {
+			_ = conn.WriteJSON(mustEnv(dto.WSError, dto.ErrorPayload{Code: "no_fallback_flow", Message: "未配置默认兜底 flow"}))
+			return
+		}
 	}
 
-	// 路由 + 执行
-	ag, _, err := mgr.GetDefaultRoute()
+	// 4) 组织入参
+	params := flowschema.Context{"message": msg}
+	if p.Config != nil {
+		params["config"] = p.Config
+	}
+	if p.Context != nil {
+		params["context"] = p.Context
+	}
+
+	execID := fmt.Sprintf("exec_%d", time.Now().UTC().UnixNano())
+	userId := reqctx.GetUserID(ctx)
+	tenantId := reqctx.GetTenantID(ctx)
+	meta := agentschema.ExecutionMeta{
+		RequestID: execID,
+		UserID:    userId,
+		TenantID:  tenantId,
+		TraceID:   fmt.Sprintf("trace_%d", time.Now().UTC().UnixNano()),
+		Priority:  1,
+		Timeout:   90,
+	}
+
+	// 5) 开流
+	sr, err := ag.Stream(ctx, flowID, params, meta)
 	if err != nil {
-		_ = conn.WriteJSON(dto.WSMessage{Type: dto.EventError, Data: map[string]any{"message": "创建 Agent 失败"}, Timestamp: time.Now().Unix()})
+		_ = conn.WriteJSON(mustEnv(dto.WSError, dto.ErrorPayload{Code: "stream_error", Message: err.Error()}))
 		return
 	}
-	params := flowschema.Context{"message": q}
-	execID := fmt.Sprintf("ws_%d", time.Now().UnixNano())
-	meta := agentschema.ExecutionMeta{RequestID: execID, Timeout: timeout / time.Second}
 
-	reader, err := ag.Stream(ctx, flowID, params, meta)
-	if err != nil {
-		_ = conn.WriteJSON(dto.WSMessage{Type: dto.EventError, Data: map[string]any{"message": "流式执行失败"}, Timestamp: time.Now().Unix()})
-		return
-	}
+	// 6) start + 统一写出
+	_ = conn.WriteJSON(mustEnv(dto.WSStart, dto.StartPayload{
+		FlowID:      flowID,
+		ExecutionID: execID,
+		SessionID:   p.SessionID,
+	}))
+	_ = dto.WriteToWS(ctx, conn, flowID, execID, sr, 25*time.Second)
+}
 
-	// 统一 WS 写出
-	_ = dto.WriteToWS(ctx, conn, flowID, execID, reader, 25*time.Second)
+func mustEnv(t string, payload any) dto.WSEnvelope {
+	env, _ := dto.NewEnv(t, payload)
+	return env
 }
