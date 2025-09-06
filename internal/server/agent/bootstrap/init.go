@@ -65,10 +65,10 @@ func InitAgentTools(ctx context.Context, cfg *config.AgentConfig, db *gorm.DB) e
 	//diagEmbedding(ctx, vec)
 
 	// LLM 分类器
-	cls, err := intent2.NewClassifierFromConfig(cfg.IntentRecognizer.Classifier)
-	if err != nil {
-		return err
-	}
+	//cls, err := intent2.NewClassifierFromConfig(cfg.IntentRecognizer.Classifier)
+	//if err != nil {
+	//	return err
+	//}
 	//fmt2.Dump(cls)
 
 	gAgentManager.SetIntentStrategies([]contract.IntentStrategy{
@@ -81,13 +81,13 @@ func InitAgentTools(ctx context.Context, cfg *config.AgentConfig, db *gorm.DB) e
 			Alpha:     0.6,  // ✨ 负例惩罚
 			Margin:    0.06, // ✨ 边际
 		},
-		&intent.LLMStrategy{
-			M:         gAgentManager,
-			AgentID:   config.AgentSysKey,
-			LLM:       cls,
-			Threshold: 0.85,
-			//Threshold: 0.6,
-		},
+		//&intent.LLMStrategy{
+		//	M:         gAgentManager,
+		//	AgentID:   config.AgentSysKey,
+		//	LLM:       cls,
+		//	Threshold: 0.85,
+		//	//Threshold: 0.6,
+		//},
 	}, 0.6, 0.95)
 
 	// 接线 DB RunLogger → Manager

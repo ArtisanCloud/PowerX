@@ -3,11 +3,9 @@ package eino
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
+	config2 "github.com/ArtisanCloud/PowerX/internal/server/agent/drivers/eino/config"
 	"github.com/ArtisanCloud/PowerX/pkg/utils"
-	"gopkg.in/yaml.v3"
-	"os"
 	"strings"
 	"sync"
 	"time"
@@ -24,6 +22,24 @@ import (
 )
 
 /* ================= 类型定义 ================= */
+type ctxKey int
+
+const ctxTokenEmit ctxKey = 1001
+
+type TokenEmitter func(delta string)
+type tokenEmitterKey struct{}
+
+func withTokenEmitter(ctx context.Context, emit TokenEmitter) context.Context {
+	return context.WithValue(ctx, ctxTokenEmit, emit)
+}
+func tokenEmitterFrom(ctx context.Context) TokenEmitter {
+	if v := ctx.Value(ctxTokenEmit); v != nil {
+		if f, ok := v.(TokenEmitter); ok {
+			return f
+		}
+	}
+	return nil
+}
 
 // 每种节点的执行器签名（注意 node 是 *flowschema.Node）
 type NodeExec func(
@@ -55,6 +71,9 @@ type AgentClient struct {
 	execMu    sync.RWMutex
 	kindExecs map[string]NodeExec // kind(小写) -> exec
 	useExecs  map[string]NodeExec // use(原样)  -> exec（系统内部函数）
+
+	deltaMu   sync.RWMutex
+	deltaHook func(s string)
 
 	// 异步执行
 	asyncMu      sync.RWMutex
@@ -430,8 +449,29 @@ func (a *AgentClient) Stream(ctx context.Context, flowID string, params flowsche
 				}
 			}
 
+			// 👇 注入 token 发射器，让 execLLM 可以实时上报
+			ctxWithEmit := withTokenEmitter(ctx, func(delta string) {
+				if strings.TrimSpace(delta) == "" {
+					return
+				}
+				_ =
+					sw.Send(&agentschema.ExecutionResult{
+						Success:   true,
+						Data:      nil, // token 走 metadata，不占 data
+						Duration:  0,
+						StepID:    stepKey,
+						Timestamp: time.Now().UTC().Unix(),
+						Metadata: flowschema.Result{
+							"flow_id":    flowID,
+							"plan_id":    execID,
+							"is_final":   false,
+							"delta_text": delta, // 👈 Engine 看到这个就会 emit "token"
+						},
+					}, nil)
+			})
+
 			exec := a.pickExecutor(n)
-			res, err := exec(ctx, a, flow.FlowID, n, in, meta)
+			res, err := exec(ctxWithEmit, a, flow.FlowID, n, in, meta)
 			if err != nil {
 				_ = sw.Send(nil, err)
 				fin := time.Now().UTC()
@@ -450,7 +490,7 @@ func (a *AgentClient) Stream(ctx context.Context, flowID string, params flowsche
 
 			if om := n.IOOutMap(); len(om) > 0 && res != nil {
 				for fromKey, toPath := range om {
-					if val, ok := getByPathMap(map[string]any(res), fromKey); ok {
+					if val, ok := getByPathMap(res, fromKey); ok {
 						setByPathCtx(params, toPath, val)
 					}
 				}
@@ -604,10 +644,9 @@ func execEcho(tag string) NodeExec {
 
 func execLLM(a *AgentClient) NodeExec {
 	return func(ctx context.Context, _ *AgentClient, curFlowID string, node *flowschema.Node, in flowschema.Context, meta agentschema.ExecutionMeta) (flowschema.Result, error) {
+		// 1) prompt
 		var prompt string
 		if s, ok := node.Params["prompt"].(string); ok && strings.TrimSpace(s) != "" {
-			prompt = s
-		} else if s, ok := in["prompt"].(string); ok && strings.TrimSpace(s) != "" {
 			prompt = s
 		} else if s, ok := in["message"].(string); ok {
 			prompt = s
@@ -616,14 +655,69 @@ func execLLM(a *AgentClient) NodeExec {
 			return flowschema.Result{"content": ""}, nil
 		}
 
-		mc := llm.MergeConfig(a.config.LLMConfig, nil)
+		// 2) client & config
+		mc := config2.MergeConfig(a.config.LLMConfig, nil)
 		cli, err := llm.NewClient(mc.Provider)
 		if err != nil {
 			return nil, fmt.Errorf("llm provider init failed: %w", err)
 		}
-		content, callErr := cli.ChatOnce(ctx, mc, prompt)
-		if callErr != nil {
-			return flowschema.Result{"content": "", "llm_error": callErr.Error()}, nil
+
+		// 3) 是否需要流式：从上下文拿 emitter（注意要用 tokenEmitterFrom，而不是 tokenEmitterKey{}）
+		emitter := tokenEmitterFrom(ctx)
+
+		// 4) 若需要流式，优先尝试 provider 原生流
+		if emitter != nil {
+			if final, err := cli.Stream(ctx, mc, prompt, func(delta string) {
+				if strings.TrimSpace(delta) != "" {
+					emitter(delta)
+				}
+			}); err == nil {
+				return flowschema.Result{"content": final}, nil
+			}
+
+			// 5) 原生流不可用 -> 回退到同步 + 本地分块回放
+			content, invErr := cli.Invoke(ctx, mc, prompt)
+			if invErr != nil {
+				return flowschema.Result{"content": "", "llm_error": invErr.Error()}, nil
+			}
+
+			// 分块配置：优先节点参数，可不配就用默认
+			chunkSize := 8
+			if v, ok := node.Params["stream_chunk"].(int); ok && v > 0 {
+				chunkSize = v
+			}
+			delayMs := 20
+			if v, ok := node.Params["stream_delay_ms"].(int); ok && v >= 0 {
+				delayMs = v
+			}
+
+			rs := []rune(content)
+			for i := 0; i < len(rs); i += chunkSize {
+				select {
+				case <-ctx.Done():
+					return flowschema.Result{"content": content}, ctx.Err()
+				default:
+				}
+				j := i + chunkSize
+				if j > len(rs) {
+					j = len(rs)
+				}
+				emitter(string(rs[i:j]))
+				if delayMs > 0 {
+					select {
+					case <-ctx.Done():
+						return flowschema.Result{"content": content}, ctx.Err()
+					case <-time.After(time.Duration(delayMs) * time.Millisecond):
+					}
+				}
+			}
+			return flowschema.Result{"content": content}, nil
+		}
+
+		// 6) 上层不需要流式 -> 直接同步调用
+		content, err := cli.Invoke(ctx, mc, prompt)
+		if err != nil {
+			return flowschema.Result{"content": "", "llm_error": err.Error()}, nil
 		}
 		return flowschema.Result{"content": content}, nil
 	}
@@ -663,138 +757,4 @@ func execWorkflow(a *AgentClient) NodeExec {
 		}
 		return out, nil
 	}
-}
-
-/* ================= async helpers ================= */
-
-func (a *AgentClient) setStatus(id string, st *agentschema.ExecutionStatus) {
-	a.asyncMu.Lock()
-	defer a.asyncMu.Unlock()
-	cp := *st
-	a.statusByExec[id] = &cp
-}
-
-func (a *AgentClient) setResult(id string, r *agentschema.ExecutionResult) {
-	a.asyncMu.Lock()
-	defer a.asyncMu.Unlock()
-	a.resultByExec[id] = r
-}
-
-func (a *AgentClient) getStart(id string) *time.Time {
-	a.asyncMu.RLock()
-	defer a.asyncMu.RUnlock()
-	if st, ok := a.statusByExec[id]; ok {
-		return st.StartedAt
-	}
-	return nil
-}
-
-/* ================= 小工具（支持 IO.InMap/OutMap 点路径） ================= */
-
-func mergeCtx(base flowschema.Context, overlay map[string]any) flowschema.Context {
-	out := flowschema.Context{}
-	for k, v := range base {
-		out[k] = v
-	}
-	for k, v := range overlay {
-		out[k] = v
-	}
-	return out
-}
-
-func getByPathCtx(ctx flowschema.Context, path string) (any, bool) {
-	// 允许从 ctx 根取，也允许从 _vars（步骤结果）取
-	if v, ok := getByPathMap(map[string]any(ctx), path); ok {
-		return v, true
-	}
-	// 兼容简写：当 path 以 "step_" 开头时，自动从 _vars 下取
-	if strings.HasPrefix(path, "step_") {
-		if vars, _ := ctx["_vars"].(map[string]any); vars != nil {
-			return getByPathMap(vars, path)
-		}
-	}
-	return nil, false
-}
-
-func getByPathMap(m map[string]any, path string) (any, bool) {
-	cur := any(m)
-	for _, p := range strings.Split(path, ".") {
-		obj, ok := cur.(map[string]any)
-		if !ok {
-			return nil, false
-		}
-		nxt, ok := obj[p]
-		if !ok {
-			return nil, false
-		}
-		cur = nxt
-	}
-	return cur, true
-}
-
-func setByPathCtx(ctx flowschema.Context, path string, val any) {
-	parts := strings.Split(path, ".")
-	if len(parts) == 0 {
-		return
-	}
-	cur := map[string]any(ctx)
-	for i, p := range parts {
-		if i == len(parts)-1 {
-			cur[p] = val
-			return
-		}
-		nxt, ok := cur[p]
-		if !ok {
-			nm := map[string]any{}
-			cur[p] = nm
-			cur = nm
-			continue
-		}
-		asMap, ok := nxt.(map[string]any)
-		if !ok {
-			nm := map[string]any{}
-			cur[p] = nm
-			cur = nm
-			continue
-		}
-		cur = asMap
-	}
-}
-
-func errMsg(err error, res *agentschema.ExecutionResult) string {
-	if err != nil {
-		return err.Error()
-	}
-	if res != nil && !res.Success && res.Error != "" {
-		return res.Error
-	}
-	return ""
-}
-
-// LoadFlowAliases 从 JSON 或 YAML 文件加载别名映射：{"from":"to", ...}
-// 需要：YAML 需要 gopkg.in/yaml.v3（如果项目里已有）
-func (a *AgentClient) LoadFlowAliases(path string) error {
-	b, err := os.ReadFile(path)
-	if err != nil {
-		return fmt.Errorf("read alias file failed: %w", err)
-	}
-	var m map[string]string
-
-	switch {
-	case strings.HasSuffix(strings.ToLower(path), ".json"):
-		if err := json.Unmarshal(b, &m); err != nil {
-			return fmt.Errorf("parse json failed: %w", err)
-		}
-	case strings.HasSuffix(strings.ToLower(path), ".yaml"), strings.HasSuffix(strings.ToLower(path), ".yml"):
-		type YAML map[string]string
-		var y YAML
-		if err := yaml.Unmarshal(b, &y); err != nil {
-			return fmt.Errorf("parse yaml failed: %w", err)
-		}
-		m = map[string]string(y)
-	default:
-		return fmt.Errorf("unsupported alias file ext (use .json/.yaml)")
-	}
-	a.SetFlowAliases(m)
-	return nil
 }

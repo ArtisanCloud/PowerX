@@ -49,12 +49,8 @@ func (h *AgentChatHandler) SimulateSSE(c *gin.Context) {
 这是think后，完成的结论2,
 这是think后，完成的结论3,
 这是think后，完成的结论4,
-这是think后，完成的结论5,
-这是think后，完成的结论6,
-这是think后，完成的结论7,
-这是think后，完成的结论8,
-这是think后，完成的结论9,
-这是think后，完成的结论10`
+这是think后，完成的结论5
+`
 	}
 	chunk := utils.ParseIntDefault(c.Query("chunk"), 1)       // 每次输出多少字符
 	delayMs := utils.ParseIntDefault(c.Query("delay_ms"), 60) // 每块之间延时（毫秒）
@@ -136,44 +132,52 @@ LOOP:
 }
 
 // GET /api/agents/stream/sse?q=...&env=dev&agent_id=...&session_id=...
+// internal/app/http/admin/agent/chat_handler.go （节选）
 func (h *AgentChatHandler) StreamSSE(c *gin.Context) {
-	// 探活
+	// 1) 探活
 	if strings.EqualFold(c.Query("probe"), "1") || strings.EqualFold(c.Query("probe"), "true") {
-		setSSEHeaders(c)
+		runtime.SetSSEHeaders(c)
 		c.SSEvent(dto.EventStart, gin.H{"message": "probe ok"})
 		c.SSEvent(dto.EventEnd, gin.H{"ok": true})
 		return
 	}
-
+	// 2) 解析入参 & 会话（保持你现有逻辑）
 	env := c.DefaultQuery("env", "default")
 	q := strings.TrimSpace(utils.FirstNonEmpty(c.Query("q"), c.Query("message")))
 	if q == "" {
 		dto.ResponseError(c, 400, "缺少 q（消息内容）", nil)
 		return
 	}
-
 	agentID, _ := utils.ParseUintID(strings.TrimSpace(c.Query("agent_id")))
-	sessionIDStr := strings.TrimSpace(c.Query("session_id"))
 	tid, _ := reqctx.RequireTenantIDFromGin(c)
 	uid := reqctx.GetUserID(c.Request.Context())
 
-	setSSEHeaders(c)
+	// 会话：session_id 优先，否则 sticky
+	var sess *dbmodel.AgentChatSession
+	if sidStr := strings.TrimSpace(c.Query("session_id")); sidStr != "" {
+		if sid, err := utils.ParseUintID(sidStr); err == nil && sid > 0 {
+			sess, _ = h.his.FindSessionByID(c, env, &tid, sid)
+		}
+	}
+	if sess == nil {
+		var err error
+		sess, err = h.his.GetOrCreateSession(c, env, &tid, agentID, uid, false, nil)
+		if err != nil {
+			dto.ResponseError(c, 500, "创建会话失败", err)
+			return
+		}
+	}
 
-	ctxMap := map[string]any{
-		"env":       env,
-		"tenant_id": tid,
-		"agent_id":  agentID,
-		"user_id":   uid,
-	}
-	if sessionIDStr != "" {
-		ctxMap["session_id"] = sessionIDStr
-	}
+	// 写入 user 消息
+	_, _ = h.his.AppendMessage(c, env, &tid, sess.ID, agentID, "user", q, "text", 0, 0, false, nil)
 
-	req := dto.StreamChatRequest{
-		Message: q,
-		Context: ctxMap,
-	}
-	h.streamCore(c, req)
+	// 3) 适配器 + Engine
+	runtime.SetSSEHeaders(c)
+	baseSink := runtime.NewSSESink(c)
+	histSink := runtime.NewHistorySink(baseSink, h.his, c, env, &tid, sess, agentID, true)
+
+	cfg := &dto.ChatConfig{}                             // 如需从 query/form 取开关可补
+	_ = runtime.NewEngine().Run(c, q, cfg, "", histSink) // explicitFlow 传空，交给意图/plan 选择
 }
 
 // ---- 核心 ----
@@ -206,6 +210,10 @@ func (h *AgentChatHandler) streamCore(c *gin.Context, req dto.StreamChatRequest)
 			c.SSEvent(dto.EventEnd, gin.H{"ok": false})
 			return
 		}
+	}
+	if strings.TrimSpace(sess.Title) == "" {
+		title := runtime.MakeDefaultSessionTitle(req.Message, 24)
+		_ = h.his.RenameSession(c, env, &tid, sess.ID, title)
 	}
 
 	// 写入 user 消息

@@ -1,6 +1,9 @@
 package config
 
-import "time"
+import (
+	"github.com/ArtisanCloud/PowerX/internal/server/agent/drivers/eino/config"
+	"time"
+)
 
 const DefaultDriver = "eino"
 const AgentSysKey = "agent_system"
@@ -30,7 +33,7 @@ type AgentConfig struct {
 	// Intent 解析 / prompt 转 plan 所需的上下文（按各驱动解释）
 	IntentRecognizer IntentRecognizer `yaml:"intent_recognizer" json:"intent_recognizer"`
 
-	LLMConfig *LLMConfig `yaml:"llm" json:"llm"`
+	LLMConfig *config.ModelConfig `yaml:"llm" json:"llm"`
 
 	// 额外上下文 metadata（例如 tenant_id, user_id 等）
 	ContextMetadata map[string]interface{} `yaml:"context_metadata" json:"context_metadata"`
@@ -80,14 +83,4 @@ type ClassifierConfig struct {
 	MaxTokens        int     `yaml:"max_tokens" json:"max_tokens"`
 	LLMMinConfidence float64 `yaml:"llm_min_confidence" json:"llm_min_confidence"`
 	TopK             int     `yaml:"top_k" json:"top_k"`
-}
-
-type LLMConfig struct {
-	Endpoint    string  `yaml:"endpoint" json:"endpoint"`
-	Provider    string  `yaml:"provider" json:"provider"`
-	Model       string  `yaml:"model" json:"model"`
-	APIKey      string  `yaml:"api_key" json:"api_key"`
-	Template    string  `yaml:"template" json:"template"`
-	Temperature float64 `yaml:"temperature" json:"temperature"`
-	MaxTokens   int     `yaml:"max_tokens" json:"max_tokens"`
 }

@@ -2,16 +2,12 @@ package agent
 
 import (
 	"context"
-	"fmt"
-	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
+	"github.com/ArtisanCloud/PowerX/internal/server/agent/runtime"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
-	"github.com/ArtisanCloud/PowerX/internal/server/agent"
-	agentschema "github.com/ArtisanCloud/PowerX/internal/server/agent/schemas"
-	flowschema "github.com/ArtisanCloud/PowerX/pkg/corex/flow/schemas"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
@@ -92,85 +88,16 @@ func (h *AgentWSHandler) handleChatSend(ginCtx *gin.Context, conn *websocket.Con
 		_ = conn.WriteJSON(mustEnv(dto.WSError, dto.ErrorPayload{Code: "bad_request", Message: "message 不能为空"}))
 		return
 	}
-
 	ctx, cancel := context.WithTimeout(ginCtx.Request.Context(), 90*time.Second)
 	defer cancel()
 
-	mgr := agent.GetAgentManager()
+	// 可选：从 payload 中获取/创建 session，写入 user 消息
+	// 这里演示简化版（如你需要持久化，也可注入 ChatHistoryService 与 SSE 一致）
+	baseSink := runtime.NewWSSink(conn)
+	// 如果也需要写历史：histSink := runtime.NewHistorySink(baseSink, h.his, ginCtx, env, &tid, sess, agentID, true)
 
-	// 1) 意图识别 → 先告诉前端
-	var flowID string
-	if intent, _ := mgr.DetectIntent(ginCtx, msg); intent != nil {
-		_ = conn.WriteJSON(mustEnv(dto.WSIntent, dto.IntentPayload{
-			Matched:  intent.Matched,
-			Strategy: intent.Strategy,
-			Reason:   intent.Reason,
-			Score:    intent.Score,
-			AgentID:  intent.AgentID,
-			FlowID:   intent.FlowID,
-		}))
-
-		if intent.Matched && strings.TrimSpace(intent.FlowID) != "" {
-			flowID = strings.TrimSpace(intent.FlowID)
-		}
-	}
-
-	// 2) 可选覆盖：从 Context 里读取 flow_id（仅用于调试/显式指定）
-	if flowID == "" && p.Context != nil {
-		if v, ok := p.Context["flow_id"].(string); ok && strings.TrimSpace(v) != "" {
-			flowID = strings.TrimSpace(v)
-		}
-	}
-
-	// 3) 路由 agent，并兜底
-	ag, fallbackFlowID, err := mgr.GetDefaultRoute()
-	if err != nil {
-		_ = conn.WriteJSON(mustEnv(dto.WSError, dto.ErrorPayload{Code: "agent_not_found", Message: err.Error()}))
-		return
-	}
-	if flowID == "" {
-		flowID = strings.TrimSpace(fallbackFlowID) // e.g. "base_flow"
-		if flowID == "" {
-			_ = conn.WriteJSON(mustEnv(dto.WSError, dto.ErrorPayload{Code: "no_fallback_flow", Message: "未配置默认兜底 flow"}))
-			return
-		}
-	}
-
-	// 4) 组织入参
-	params := flowschema.Context{"message": msg}
-	if p.Config != nil {
-		params["config"] = p.Config
-	}
-	if p.Context != nil {
-		params["context"] = p.Context
-	}
-
-	execID := fmt.Sprintf("exec_%d", time.Now().UTC().UnixNano())
-	userId := reqctx.GetUserID(ctx)
-	tenantId := reqctx.GetTenantID(ctx)
-	meta := agentschema.ExecutionMeta{
-		RequestID: execID,
-		UserID:    userId,
-		TenantID:  tenantId,
-		TraceID:   fmt.Sprintf("trace_%d", time.Now().UTC().UnixNano()),
-		Priority:  1,
-		Timeout:   90,
-	}
-
-	// 5) 开流
-	sr, err := ag.Stream(ctx, flowID, params, meta)
-	if err != nil {
-		_ = conn.WriteJSON(mustEnv(dto.WSError, dto.ErrorPayload{Code: "stream_error", Message: err.Error()}))
-		return
-	}
-
-	// 6) start + 统一写出
-	_ = conn.WriteJSON(mustEnv(dto.WSStart, dto.StartPayload{
-		FlowID:      flowID,
-		ExecutionID: execID,
-		SessionID:   p.SessionID,
-	}))
-	_ = dto.WriteToWS(ctx, conn, flowID, execID, sr, 25*time.Second)
+	// 告知 start 事件交由 engine 统一发，你也可以先发个 ack
+	_ = runtime.NewEngine().Run(ctx, msg, p.Config, "", baseSink)
 }
 
 func mustEnv(t string, payload any) dto.WSEnvelope {

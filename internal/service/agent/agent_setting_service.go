@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/ArtisanCloud/PowerX/internal/server/agent/catalog"
 	"github.com/ArtisanCloud/PowerX/internal/server/agent/contract"
+	agentcfg "github.com/ArtisanCloud/PowerX/internal/server/agent/drivers/eino/config"
 	repoai "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/repository"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/tenantkeys"
 	"github.com/ArtisanCloud/PowerX/pkg/utils"
@@ -195,7 +196,7 @@ func (s *AgentSettingService) PingStrict(ctx context.Context, modality, provider
 		}
 	}
 
-	mc := agentllm.ModelConfig{
+	mc := agentcfg.ModelConfig{
 		Provider: provider, Endpoint: baseURL, APIKey: apiKey,
 		Model: model, SystemPrompt: "You are a health check probe.",
 		Temperature: 0, MaxTokens: 8, AccessToken: apiKey,
@@ -206,7 +207,7 @@ func (s *AgentSettingService) PingStrict(ctx context.Context, modality, provider
 	}
 	c2, cancel := context.WithTimeout(ctx, 20*time.Second)
 	defer cancel()
-	_, err = cli.ChatOnce(c2, mc, "ping")
+	_, err = cli.Invoke(c2, &mc, "ping")
 	return err
 }
 
@@ -280,7 +281,7 @@ func (s *AgentSettingService) PingLLM(ctx context.Context, env string, tenantID 
 	if err != nil { /* 忽略查不到，走传入的 */
 	}
 
-	mc := agentllm.ModelConfig{
+	mc := agentcfg.ModelConfig{
 		Provider:     provider,
 		Endpoint:     baseURL,
 		APIKey:       apiKey,
@@ -294,7 +295,7 @@ func (s *AgentSettingService) PingLLM(ctx context.Context, env string, tenantID 
 	if err != nil {
 		return err
 	}
-	_, err = cli.ChatOnce(ctx, mc, "ping")
+	_, err = cli.Invoke(ctx, &mc, "ping")
 	return err
 }
 
@@ -314,7 +315,7 @@ func (s *AgentSettingService) QuickCallLLM(
 	if err != nil { /* 忽略错误，尽量继续 */
 	}
 
-	mc := agentllm.ModelConfig{
+	mc := agentcfg.ModelConfig{
 		Provider:     provider,
 		Endpoint:     baseURL,
 		APIKey:       apiKey,
@@ -330,7 +331,7 @@ func (s *AgentSettingService) QuickCallLLM(
 	}
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
-	return cli.ChatOnce(ctx, mc, prompt)
+	return cli.Invoke(ctx, &mc, prompt)
 }
 
 // ---------------- helpers ----------------

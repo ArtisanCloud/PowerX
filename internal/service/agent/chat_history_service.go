@@ -259,3 +259,13 @@ func (s *ChatHistoryService) SummarizeIfNeeded(
 	_ = s.sess.TouchLatest(ctx, env, tenantID, session.ID, time.Now().UTC())
 	return true, nil
 }
+
+func (s *ChatHistoryService) RenameSession(
+	ctx context.Context, env string, tenantID *uint64, sessionID uint64, title string,
+) error {
+	title = strings.TrimSpace(title)
+	if title == "" {
+		return nil
+	}
+	return s.sess.UpdateSessionTitle(ctx, env, tenantID, sessionID, title)
+}

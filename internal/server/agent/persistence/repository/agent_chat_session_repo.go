@@ -261,3 +261,17 @@ func (r *AgentChatSessionRepository) SetAgent(
 			"updated_at": time.Now().UTC(),
 		}).Error
 }
+
+func (r *AgentChatSessionRepository) UpdateSessionTitle(
+	ctx context.Context, env string, tenantID *uint64, sessionID uint64, title string,
+) error {
+	q := r.db.WithContext(ctx).Model(&dbmodel.AgentChatSession{}).
+		Where("id = ?", sessionID)
+	if tenantID != nil && *tenantID > 0 {
+		q = q.Where("tenant_id = ?", *tenantID)
+	}
+	if env != "" {
+		q = q.Where("env = ?", env)
+	}
+	return q.Update("title", title).Error
+}
