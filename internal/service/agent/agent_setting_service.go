@@ -322,7 +322,7 @@ func (s *AgentSettingService) QuickCallLLM(
 		Model:        model,
 		SystemPrompt: "You are a helpful assistant.",
 		Temperature:  temperature,
-		MaxTokens:    maxInt(maxTokens, 64),
+		MaxTokens:    utils.MaxInt(maxTokens, 64),
 		AccessToken:  apiKey,
 	}
 	cli, err := agentllm.NewClient(provider)
@@ -332,15 +332,6 @@ func (s *AgentSettingService) QuickCallLLM(
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 	return cli.Invoke(ctx, &mc, prompt)
-}
-
-// ---------------- helpers ----------------
-
-func maxInt(v, def int) int {
-	if v > 0 {
-		return v
-	}
-	return def
 }
 
 // —— catalog 适配：在 service 层做轻薄封装，避免 handler 直依赖 —— //

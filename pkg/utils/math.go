@@ -13,3 +13,10 @@ func Max1(n int) int {
 	}
 	return n
 }
+
+func MaxInt(v, def int) int {
+	if v > 0 {
+		return v
+	}
+	return def
+}

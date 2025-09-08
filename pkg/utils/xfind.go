@@ -34,3 +34,40 @@ func Keys(m map[uint64]struct{}) []uint64 {
 	}
 	return out
 }
+
+func GetAny(v any, key string) any {
+	if m, ok := v.(map[string]any); ok {
+		return m[key]
+	}
+	return nil
+}
+
+func GetMap(m map[string]any, key string) map[string]any {
+	if m == nil {
+		return nil
+	}
+	if v, ok := m[key]; ok {
+		if mv, ok2 := v.(map[string]any); ok2 {
+			return mv
+		}
+	}
+	return nil
+}
+
+func GetString(v any, key string) string {
+	if m, ok := v.(map[string]any); ok {
+		if s, ok2 := m[key].(string); ok2 {
+			return s
+		}
+	}
+	return ""
+}
+
+func GetInt64(v any, key string) int64 {
+	if m, ok := v.(map[string]any); ok {
+		if i, ok2 := m[key].(int64); ok2 {
+			return i
+		}
+	}
+	return 0
+}

@@ -3,7 +3,9 @@ package grpcserver
 import (
 	"context"
 	"fmt"
+	agentv1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/agent/v1"
 	iamv1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/iam/v1"
+	agentgrpc "github.com/ArtisanCloud/PowerX/internal/transport/grpc/agent"
 	"github.com/ArtisanCloud/PowerX/internal/transport/grpc/iam"
 	"net"
 
@@ -50,6 +52,9 @@ func New(cfg *GRPCConfig, deps *shared.Deps) (*grpc.Server, net.Listener, error)
 	// 1) 注册你的业务服务
 	iamv1.RegisterMemberServiceServer(s, iam.NewMemberServer(deps))
 	iamv1.RegisterTeamServiceServer(s, iam.NewTeamServer(deps))
+
+	agentv1.RegisterAgentStreamServiceServer(s, agentgrpc.NewAgentStreamServer(deps))
+	agentv1.RegisterAgentSettingServiceServer(s, agentgrpc.NewAgentSettingServer(deps))
 
 	// 2) 健康检查（Insomnia/grpcurl 常用）
 	if cfg.Health {

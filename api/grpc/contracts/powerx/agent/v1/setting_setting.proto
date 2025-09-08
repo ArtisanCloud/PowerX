@@ -1,0 +1,217 @@
+syntax = "proto3";
+
+package powerx.agent.v1;
+
+// ===== 语言生成选项（便于多语言 SDK 落包名） =====
+option go_package = "github.com/ArtisanCloud/PowerX/api/grpc/contracts/powerx/agent/v1;agentv1";
+option java_package = "com.powerx.agent.v1";
+option java_multiple_files = true;
+option csharp_namespace = "PowerX.Agent.V1";
+option php_namespace = "PowerX\\Agent\\V1";
+option php_metadata_namespace = "GPBMetadata\\PowerX\\Agent\\V1";
+// Python、Rust 常用默认规则或在构建脚本里配置
+
+import "google/protobuf/struct.proto";
+import "common/v1/context.proto";
+
+// ================= Modality（与后端使用的一致：llm/image/embedding/video） =================
+enum Modality {
+  MODALITY_UNSPECIFIED = 0;
+  MODALITY_LLM         = 1; // "llm"
+  MODALITY_IMAGE       = 2; // "image"
+  MODALITY_EMBEDDING   = 3; // "embedding"
+  MODALITY_VIDEO       = 4; // "video"
+}
+
+// ================= 公开模型：画像与凭据（对齐 handler 的返回） =================
+// 来自 h.svc.GetActiveProfile/ListProfiles 的返回（Env/TenantID 在 JSON 被隐藏，proto 不暴露）:contentReference[oaicite:1]{index=1}
+message AIModelProfile {
+  string modality = 1;                        // "llm" | "image" | "embedding" | "video"
+  string provider = 2;                        // e.g. "openai" | "ollama" | "azure"
+  string model    = 3;                        // e.g. "gpt-4o" | "llama3"
+  repeated string tags = 4;                   // ["llm"] 等
+  google.protobuf.Struct defaults = 5;        // 默认参数（温度/maxTokens/size等）
+  google.protobuf.Struct meta     = 6;        // 预留扩展（可为空）
+}
+
+// （可选）列出凭据时返回；来自 h.svc.ListCredentials 的对外形态（只返回去敏字段）:contentReference[oaicite:2]{index=2}
+message AIProviderCredential {
+  string name        = 1;                     // e.g. "default-ollama"
+  string provider    = 2;                     // e.g. "openai" | "ollama"
+  string auth_scheme = 3;                     // e.g. "bearer"
+  google.protobuf.Struct data = 4;            // { api_key/base_url/region/... }（敏感字段由服务端 Seal 处理）
+}
+
+// ================= Setting Service =================
+service AgentSettingService {
+  // ---------- Providers / Models ----------
+  rpc ListProviders (ListProvidersRequest) returns (ListProvidersResponse);
+  rpc ListModels    (ListModelsRequest)    returns (ListModelsResponse);
+
+  // ---------- Settings ----------
+  rpc SaveSettings      (SaveSettingsRequest)      returns (SaveSettingsResponse);
+  rpc TestConnection    (TestConnectionRequest)    returns (TestConnectionResponse);
+  rpc TestQuickCall     (TestQuickCallRequest)     returns (TestQuickCallResponse);
+
+  // ---------- Profiles ----------
+  rpc GetActiveProfile  (GetActiveProfileRequest)  returns (GetActiveProfileResponse);
+  rpc SetActiveProfile  (SetActiveProfileRequest)  returns (SetActiveProfileResponse);
+  rpc ListProfiles      (ListProfilesRequest)      returns (ListProfilesResponse);
+
+  // （可选）凭据列表（对齐 handler.listCredentials）:contentReference[oaicite:3]{index=3}
+  rpc ListCredentials   (ListCredentialsRequest)   returns (ListCredentialsResponse);
+}
+
+// ================= Providers / Models =================
+message ListProvidersRequest {
+  common.v1.RequestContext ctx = 1; // RLS/审计
+  Modality modality            = 2; // 对应 handler: c.Query("modality") → svc.Providers(mod) :contentReference[oaicite:4]{index=4}
+}
+message AIProviderItem {
+  string id   = 1;
+  string name = 2;
+}
+
+message ListProvidersResponse {
+  repeated AIProviderItem providers = 1;    // provider 列表
+}
+
+message ListModelsRequest {
+  common.v1.RequestContext ctx = 1;
+  Modality modality            = 2; // c.Query("modality")
+  string   provider            = 3; // c.Query("provider")
+}
+message ListModelsResponse {
+  repeated string models = 1;       // 模型列表
+}
+
+// ================= Settings：保存/测试 =================
+// —— 入参结构与 handler 的 saveSettings/testConnection/testQuickCall 对齐 —— :contentReference[oaicite:5]{index=5}
+message SaveSettingsRequest {
+  common.v1.RequestContext ctx = 1;
+  string   env     = 2;            // 必填：环境
+  Modality modality = 3;           // 必填：模态
+  LLMSetting       llm       = 10; // 模态=LLM 时填
+  ImageSetting     image     = 11; // 模态=IMAGE 时填
+  EmbeddingSetting embedding = 12; // 模态=EMBEDDING 时填
+  VideoSetting     video     = 13; // 模态=VIDEO 时填
+}
+message SaveSettingsResponse {
+  bool ok = 1;                     // 保存成功
+}
+
+// 与 handler.testConnection 对齐：先根据入参直连测试，不读库不解封 :contentReference[oaicite:6]{index=6}
+message TestConnectionRequest {
+  common.v1.RequestContext ctx = 1;
+  string   env     = 2;
+  Modality modality = 3;
+  LLMSetting       llm       = 10;
+  ImageSetting     image     = 11;
+  EmbeddingSetting embedding = 12;
+  VideoSetting     video     = 13;
+}
+message TestConnectionResponse {
+  bool ok       = 1;
+  string message = 2;              // 失败时返回错误信息
+}
+
+// 与 handler.testQuickCall 对齐：仅 llm 支持 quick call（prompt + 基本推理参数）:contentReference[oaicite:7]{index=7}
+message TestQuickCallRequest {
+  common.v1.RequestContext ctx = 1;
+  string   env     = 2;
+  Modality modality = 3;           // 目前仅支持 LLM
+  string   prompt  = 4;
+  LLMSetting llm   = 10;           // 直接用表单内参数试跑
+}
+message TestQuickCallResponse {
+  bool   ok      = 1;
+  string result  = 2;              // 成功返回结果
+  string message = 3;              // 失败时的错误信息
+}
+
+// ================= Profiles：获取/设置/列表 =================
+message GetActiveProfileRequest {
+  common.v1.RequestContext ctx = 1;
+  string   env     = 2;
+  Modality modality = 3;           // handler: getActiveProfile(env, mod) :contentReference[oaicite:8]{index=8}
+}
+message GetActiveProfileResponse {
+  string env       = 1;
+  string modality  = 2;            // 与 handler 保持 string 语义输出
+  AIModelProfile profile = 3;      // 只有一条
+}
+
+message SetActiveProfileRequest {
+  common.v1.RequestContext ctx = 1;
+  string   env     = 2;
+  string   modality = 3;           // 直接按 handler 的 setActiveReq（都是 string）:contentReference[oaicite:9]{index=9}
+  string   provider = 4;
+  string   model    = 5;
+}
+message SetActiveProfileResponse {
+  bool ok = 1;
+}
+
+message ListProfilesRequest {
+  common.v1.RequestContext ctx = 1;
+  string env = 2;
+  repeated Modality modalities = 3; // 对应 handler: ?modalities=llm,image → svc.ListProfiles(env, mods...) :contentReference[oaicite:10]{index=10}
+}
+message ListProfilesResponse {
+  string env = 1;
+  repeated AIModelProfile profiles = 2;
+}
+
+// （可选）凭据列表
+message ListCredentialsRequest {
+  common.v1.RequestContext ctx = 1;
+  string env = 2;
+}
+message ListCredentialsResponse {
+  string env = 1;
+  repeated AIProviderCredential credentials = 2;
+}
+
+// ================== 连接配置结构（与 handler 的表单结构一致） ==================
+// handler.saveSettings/testConnection/testQuickCall 中的 per-modality payload :contentReference[oaicite:11]{index=11}
+message BaseConn {
+  string name          = 1; // 仅作为标识（保存时服务端会生成 name = slug(env-provider)）
+  string provider      = 2; // required
+  string model         = 3; // required
+  string api_key       = 4;
+  string base_url      = 5;
+  string region        = 6;
+  string organization  = 7;
+  string azure_deployment = 8;
+}
+
+message LLMSetting {
+  BaseConn base         = 1;
+  double   temperature  = 2;
+  int32    max_tokens   = 3;
+  double   top_p        = 4;
+  bool     stream       = 5;
+}
+
+message ImageSetting {
+  BaseConn base   = 1;
+  string   size   = 2;
+  string   quality= 3;
+  string   format = 4;
+  string   prompt_hint = 5;
+}
+
+message EmbeddingSetting {
+  BaseConn base   = 1;
+  int32    dimensions = 2;
+  string   truncate   = 3; // none|start|end
+  int32    batch      = 4;
+}
+
+message VideoSetting {
+  BaseConn base   = 1;
+  string   resolution = 2;
+  int32    fps        = 3;
+  int32    max_duration_sec = 4;
+  string   prompt_hint = 5;
+}
