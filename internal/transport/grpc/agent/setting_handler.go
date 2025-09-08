@@ -1,13 +1,15 @@
-// file: internal/transport/grpc/agent/setting_handler.go
 package agentgrpc
 
 import (
 	"context"
-	"github.com/jinzhu/copier"
+	settingv1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/setting"
 	"strings"
+	"time"
+
+	"github.com/jinzhu/copier"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	commonv1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/common/v1"
-	v1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/agent/v1"
 
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
 	dbmodel "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/model"
@@ -15,172 +17,230 @@ import (
 
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/utils"
-
-	"google.golang.org/protobuf/types/known/structpb"
 	"gorm.io/datatypes"
 )
 
 /*************** Server ***************/
-type AgentSettingServer struct {
-	v1.UnimplementedAgentSettingServiceServer
+type SettingAIServiceServer struct {
+	settingv1.UnimplementedSettingAIServiceServer
 	svc *agentSvc.AgentSettingService
 }
 
-func NewAgentSettingServer(deps *shared.Deps) *AgentSettingServer {
-	return &AgentSettingServer{svc: agentSvc.NewAgentSettingService(deps.DB)}
+func NewSettingAIServiceServer(deps *shared.Deps) *SettingAIServiceServer {
+	return &SettingAIServiceServer{svc: agentSvc.NewAgentSettingService(deps.DB)}
 }
 
-/*************** Providers / Models ***************/
-
-func (s *AgentSettingServer) ListProviders(ctx context.Context, req *v1.ListProvidersRequest) (*v1.ListProvidersResponse, error) {
-	mod := modalityToString(req.GetModality())
-	list := s.svc.Providers(mod) // 期望返回 []string（与 HTTP 返回一致）
-	var providerLists []*v1.AIProviderItem
-	err := copier.Copy(&providerLists, list)
-	if err != nil {
-		return nil, err
+/*************** Meta helpers ***************/
+func okMeta(ctx context.Context, reqID string) *commonv1.ResponseMeta {
+	if reqID == "" {
+		reqID = reqctx.GetTraceID(ctx)
 	}
-	return &v1.ListProvidersResponse{Providers: providerLists}, nil
-}
-
-func (s *AgentSettingServer) ListModels(ctx context.Context, req *v1.ListModelsRequest) (*v1.ListModelsResponse, error) {
-	mod := modalityToString(req.GetModality())
-	models, err := s.svc.Models(mod, strings.TrimSpace(req.GetProvider()))
-	if err != nil {
-		return nil, err
+	return &commonv1.ResponseMeta{
+		Code: 200, Message: "success", Timestamp: time.Now().Unix(), RequestId: reqID,
 	}
-	return &v1.ListModelsResponse{Models: models}, nil
+}
+func badMeta(ctx context.Context, code int32, msg, reqID string) *commonv1.ResponseMeta {
+	return &commonv1.ResponseMeta{
+		Code: code, Message: strings.TrimSpace(msg), Timestamp: time.Now().Unix(), RequestId: reqID,
+	}
 }
 
-/*************** Settings：保存 / 测试 / 快测 ***************/
+/*************** ListProviders ***************/
+func (s *SettingAIServiceServer) ListProviders(ctx context.Context, req *settingv1.ListProvidersRequest) (*settingv1.ListProvidersResponse, error) {
+	items := s.svc.Providers(modalityToString(req.GetModality())) // []aiProviderItem{ID,Name}
 
-func (s *AgentSettingServer) SaveSettings(ctx context.Context, req *v1.SaveSettingsRequest) (*v1.SaveSettingsResponse, error) {
-	env := firstNonEmpty(strings.TrimSpace(req.GetEnv()), firstNonEmpty(reqctx.GetEnv(ctx), "default"))
-	tid := tenantFromReqOrCtx(ctx, req.GetCtx())
-	mod := modalityToString(req.GetModality())
-
-	// 与 HTTP 一致：LLM 先直连校验
-	if req.GetModality() == v1.Modality_MODALITY_LLM {
-		base := req.GetLlm().GetBase()
-		if err := s.svc.PingLLM(ctx, env, &tid, base.GetProvider(), base.GetModel(), base.GetBaseUrl(), base.GetApiKey()); err != nil {
-			return &v1.SaveSettingsResponse{Ok: false}, err
+	var out []*settingv1.AIProviderItem
+	if err := copier.Copy(&out, items); err != nil {
+		for _, it := range items {
+			out = append(out, &settingv1.AIProviderItem{Id: it.ID, Name: it.Name})
 		}
 	}
-
-	cred, prof := buildCredentialAndProfileFromReq(env, tid, mod, req)
-	if cred == nil || prof == nil {
-		return &v1.SaveSettingsResponse{Ok: false}, nil
-	}
-	if err := s.svc.SaveCredentialAndProfile(ctx, env, &tid, cred, prof, true); err != nil {
-		return nil, err
-	}
-	return &v1.SaveSettingsResponse{Ok: true}, nil
-}
-
-func (s *AgentSettingServer) TestConnection(ctx context.Context, req *v1.TestConnectionRequest) (*v1.TestConnectionResponse, error) {
-	env := firstNonEmpty(strings.TrimSpace(req.GetEnv()), firstNonEmpty(reqctx.GetEnv(ctx), "default"))
-	tid := tenantFromReqOrCtx(ctx, req.GetCtx())
-	mod := modalityToString(req.GetModality())
-
-	provider, model, baseURL, apiKey := pickProviderModelConn(req.GetModality(), req)
-	if err := s.svc.TestConnectionPreferInput(ctx, env, &tid, mod, provider, model, baseURL, apiKey); err != nil {
-		return &v1.TestConnectionResponse{Ok: false, Message: err.Error()}, nil
-	}
-	return &v1.TestConnectionResponse{Ok: true}, nil
-}
-
-func (s *AgentSettingServer) TestQuickCall(ctx context.Context, req *v1.TestQuickCallRequest) (*v1.TestQuickCallResponse, error) {
-	env := firstNonEmpty(strings.TrimSpace(req.GetEnv()), firstNonEmpty(reqctx.GetEnv(ctx), "default"))
-	tid := tenantFromReqOrCtx(ctx, req.GetCtx())
-
-	if req.GetModality() != v1.Modality_MODALITY_LLM {
-		return &v1.TestQuickCallResponse{Ok: false, Message: "only LLM supported"}, nil
-	}
-	llm := req.GetLlm()
-	base := llm.GetBase()
-	out, err := s.svc.QuickCallLLM(ctx, env, &tid,
-		base.GetProvider(), base.GetModel(), base.GetBaseUrl(), base.GetApiKey(),
-		llm.GetTemperature(), int(llm.GetMaxTokens()),
-		strings.TrimSpace(req.GetPrompt()),
-	)
-	if err != nil {
-		return &v1.TestQuickCallResponse{Ok: false, Message: err.Error()}, nil
-	}
-	return &v1.TestQuickCallResponse{Ok: true, Result: out}, nil
-}
-
-/*************** Profiles：获取 / 设置 / 列表 / 凭据 ***************/
-
-func (s *AgentSettingServer) GetActiveProfile(ctx context.Context, req *v1.GetActiveProfileRequest) (*v1.GetActiveProfileResponse, error) {
-	env := firstNonEmpty(strings.TrimSpace(req.GetEnv()), firstNonEmpty(reqctx.GetEnv(ctx), "default"))
-	tid := tenantFromReqOrCtx(ctx, req.GetCtx())
-	mod := modalityToString(req.GetModality())
-
-	prof, err := s.svc.GetActiveProfile(ctx, env, &tid, mod)
-	if err != nil || prof == nil {
-		return nil, err
-	}
-	return &v1.GetActiveProfileResponse{
-		Env:      env,
-		Modality: mod,
-		Profile:  toProtoProfile(prof),
+	return &settingv1.ListProvidersResponse{
+		Meta: okMeta(ctx, req.GetCtx().GetRequestId()),
+		Data: &settingv1.ListProvidersData{Items: out},
 	}, nil
 }
 
-func (s *AgentSettingServer) SetActiveProfile(ctx context.Context, req *v1.SetActiveProfileRequest) (*v1.SetActiveProfileResponse, error) {
-	env := firstNonEmpty(strings.TrimSpace(req.GetEnv()), firstNonEmpty(reqctx.GetEnv(ctx), "default"))
-	tid := tenantFromReqOrCtx(ctx, req.GetCtx())
-
-	if err := s.svc.SetActiveProfile(ctx, env, &tid, strings.TrimSpace(req.GetModality()), strings.TrimSpace(req.GetProvider()), strings.TrimSpace(req.GetModel())); err != nil {
-		return nil, err
+/*************** ListModels ***************/
+func (s *SettingAIServiceServer) ListModels(ctx context.Context, req *settingv1.ListModelsRequest) (*settingv1.ListModelsResponse, error) {
+	models, err := s.svc.Models(modalityToString(req.GetModality()), strings.TrimSpace(req.GetProvider()))
+	if err != nil {
+		return &settingv1.ListModelsResponse{
+			Meta: badMeta(ctx, 400, err.Error(), req.GetCtx().GetRequestId()),
+			Data: &settingv1.ListModelsData{Items: nil},
+		}, nil
 	}
-	return &v1.SetActiveProfileResponse{Ok: true}, nil
+	return &settingv1.ListModelsResponse{
+		Meta: okMeta(ctx, req.GetCtx().GetRequestId()),
+		Data: &settingv1.ListModelsData{Items: models},
+	}, nil
 }
 
-func (s *AgentSettingServer) ListProfiles(ctx context.Context, req *v1.ListProfilesRequest) (*v1.ListProfilesResponse, error) {
-	env := firstNonEmpty(strings.TrimSpace(req.GetEnv()), firstNonEmpty(reqctx.GetEnv(ctx), "default"))
+/*************** SaveSettings ***************/
+func (s *SettingAIServiceServer) SaveSettings(ctx context.Context, req *settingv1.SaveSettingsRequest) (*settingv1.SaveSettingsResponse, error) {
+	env := utils.FirstNonEmpty(strings.TrimSpace(req.GetEnv()), utils.FirstNonEmpty(reqctx.GetEnv(ctx), "default"))
 	tid := tenantFromReqOrCtx(ctx, req.GetCtx())
+	mod := modalityToString(req.GetModality())
 
+	// 直连校验（以 LLM 为例）
+	if req.GetLlm() != nil {
+		base := req.GetLlm().GetBase()
+		if err := s.svc.PingLLM(ctx, env, &tid, base.GetProvider(), base.GetModel(), base.GetBaseUrl(), base.GetApiKey()); err != nil {
+			return &settingv1.SaveSettingsResponse{
+				Meta: badMeta(ctx, 400, err.Error(), req.GetCtx().GetRequestId()),
+				Data: &settingv1.SaveSettingsData{Ok: false},
+			}, nil
+		}
+	}
+	cred, prof := buildCredentialAndProfileFromSaveReq(env, tid, mod, req)
+	if cred == nil || prof == nil {
+		return &settingv1.SaveSettingsResponse{
+			Meta: badMeta(ctx, 400, "invalid setting payload", req.GetCtx().GetRequestId()),
+			Data: &settingv1.SaveSettingsData{Ok: false},
+		}, nil
+	}
+	if err := s.svc.SaveCredentialAndProfile(ctx, env, &tid, cred, prof, true); err != nil {
+		return &settingv1.SaveSettingsResponse{
+			Meta: badMeta(ctx, 500, err.Error(), req.GetCtx().GetRequestId()),
+			Data: &settingv1.SaveSettingsData{Ok: false},
+		}, nil
+	}
+	return &settingv1.SaveSettingsResponse{
+		Meta: okMeta(ctx, req.GetCtx().GetRequestId()),
+		Data: &settingv1.SaveSettingsData{Ok: true},
+	}, nil
+}
+
+/*************** TestConnection ***************/
+func (s *SettingAIServiceServer) TestConnection(ctx context.Context, req *settingv1.TestConnectionRequest) (*settingv1.TestConnectionResponse, error) {
+	env := utils.FirstNonEmpty(strings.TrimSpace(req.GetEnv()), utils.FirstNonEmpty(reqctx.GetEnv(ctx), "default"))
+	tid := tenantFromReqOrCtx(ctx, req.GetCtx())
+	provider, model, baseURL, apiKey := pickProviderModelConn(req.GetModality(), req)
+	if err := s.svc.TestConnectionPreferInput(ctx, env, &tid, modalityToString(req.GetModality()), provider, model, baseURL, apiKey); err != nil {
+		return &settingv1.TestConnectionResponse{
+			Meta: badMeta(ctx, 400, err.Error(), req.GetCtx().GetRequestId()),
+			Data: &settingv1.TestConnectionData{Ok: false},
+		}, nil
+	}
+	return &settingv1.TestConnectionResponse{
+		Meta: okMeta(ctx, req.GetCtx().GetRequestId()),
+		Data: &settingv1.TestConnectionData{Ok: true},
+	}, nil
+}
+
+/*************** TestQuickCall（LLM） ***************/
+func (s *SettingAIServiceServer) TestQuickCall(ctx context.Context, req *settingv1.TestQuickCallRequest) (*settingv1.TestQuickCallResponse, error) {
+	env := utils.FirstNonEmpty(strings.TrimSpace(req.GetEnv()), utils.FirstNonEmpty(reqctx.GetEnv(ctx), "default"))
+	tid := tenantFromReqOrCtx(ctx, req.GetCtx())
+	if req.GetLlm() == nil {
+		return &settingv1.TestQuickCallResponse{
+			Meta: badMeta(ctx, 400, "llm setting required", req.GetCtx().GetRequestId()),
+			Data: &settingv1.TestQuickCallData{Ok: false},
+		}, nil
+	}
+	b := req.GetLlm().GetBase()
+	out, err := s.svc.QuickCallLLM(
+		ctx, env, &tid,
+		b.GetProvider(), b.GetModel(), b.GetBaseUrl(), b.GetApiKey(),
+		req.GetLlm().GetTemperature(), int(req.GetLlm().GetMaxTokens()),
+		strings.TrimSpace(req.GetPrompt()),
+	)
+	if err != nil {
+		return &settingv1.TestQuickCallResponse{
+			Meta: badMeta(ctx, 400, err.Error(), req.GetCtx().GetRequestId()),
+			Data: &settingv1.TestQuickCallData{Ok: false},
+		}, nil
+	}
+	return &settingv1.TestQuickCallResponse{
+		Meta: okMeta(ctx, req.GetCtx().GetRequestId()),
+		Data: &settingv1.TestQuickCallData{Ok: true, Result: out},
+	}, nil
+}
+
+/*************** Profiles/Credentials ***************/
+func (s *SettingAIServiceServer) GetActiveProfile(ctx context.Context, req *settingv1.GetActiveProfileRequest) (*settingv1.GetActiveProfileResponse, error) {
+	env := utils.FirstNonEmpty(strings.TrimSpace(req.GetEnv()), utils.FirstNonEmpty(reqctx.GetEnv(ctx), "default"))
+	tid := tenantFromReqOrCtx(ctx, req.GetCtx())
+	prof, err := s.svc.GetActiveProfile(ctx, env, &tid, modalityToString(req.GetModality()))
+	if err != nil || prof == nil {
+		return &settingv1.GetActiveProfileResponse{
+			Meta: badMeta(ctx, 404, "not found", req.GetCtx().GetRequestId()),
+		}, nil
+	}
+	return &settingv1.GetActiveProfileResponse{
+		Meta: okMeta(ctx, req.GetCtx().GetRequestId()),
+		Data: &settingv1.GetActiveProfileData{
+			Env: env, Modality: prof.Modality, Profile: toProtoProfile(prof),
+		},
+	}, nil
+}
+
+func (s *SettingAIServiceServer) SetActiveProfile(ctx context.Context, req *settingv1.SetActiveProfileRequest) (*settingv1.SetActiveProfileResponse, error) {
+	env := utils.FirstNonEmpty(strings.TrimSpace(req.GetEnv()), utils.FirstNonEmpty(reqctx.GetEnv(ctx), "default"))
+	tid := tenantFromReqOrCtx(ctx, req.GetCtx())
+	if err := s.svc.SetActiveProfile(ctx, env, &tid,
+		strings.TrimSpace(req.GetModality()),
+		strings.TrimSpace(req.GetProvider()),
+		strings.TrimSpace(req.GetModel()),
+	); err != nil {
+		return &settingv1.SetActiveProfileResponse{
+			Meta: badMeta(ctx, 400, err.Error(), req.GetCtx().GetRequestId()),
+			Data: &settingv1.SetActiveProfileData{Ok: false},
+		}, nil
+	}
+	return &settingv1.SetActiveProfileResponse{
+		Meta: okMeta(ctx, req.GetCtx().GetRequestId()),
+		Data: &settingv1.SetActiveProfileData{Ok: true},
+	}, nil
+}
+
+func (s *SettingAIServiceServer) ListProfiles(ctx context.Context, req *settingv1.ListProfilesRequest) (*settingv1.ListProfilesResponse, error) {
+	env := utils.FirstNonEmpty(strings.TrimSpace(req.GetEnv()), utils.FirstNonEmpty(reqctx.GetEnv(ctx), "default"))
+	tid := tenantFromReqOrCtx(ctx, req.GetCtx())
 	var mods []string
 	for _, m := range req.GetModalities() {
 		mods = append(mods, modalityToString(m))
 	}
 	out, err := s.svc.ListProfiles(ctx, env, &tid, mods...)
 	if err != nil {
-		return nil, err
+		return &settingv1.ListProfilesResponse{
+			Meta: badMeta(ctx, 400, err.Error(), req.GetCtx().GetRequestId()),
+		}, nil
 	}
-	resp := &v1.ListProfilesResponse{Env: env}
-	for _, p := range out {
-		pp := p
-		resp.Profiles = append(resp.Profiles, toProtoProfile(&pp))
+	resp := &settingv1.ListProfilesResponse{
+		Meta: okMeta(ctx, req.GetCtx().GetRequestId()),
+		Data: &settingv1.ListProfilesData{Env: env},
+	}
+	for i := range out {
+		p := out[i]
+		resp.Data.Profiles = append(resp.Data.Profiles, toProtoProfile(&p))
 	}
 	return resp, nil
 }
 
-func (s *AgentSettingServer) ListCredentials(ctx context.Context, req *v1.ListCredentialsRequest) (*v1.ListCredentialsResponse, error) {
-	env := firstNonEmpty(strings.TrimSpace(req.GetEnv()), firstNonEmpty(reqctx.GetEnv(ctx), "default"))
+func (s *SettingAIServiceServer) ListCredentials(ctx context.Context, req *settingv1.ListCredentialsRequest) (*settingv1.ListCredentialsResponse, error) {
+	env := utils.FirstNonEmpty(strings.TrimSpace(req.GetEnv()), utils.FirstNonEmpty(reqctx.GetEnv(ctx), "default"))
 	tid := tenantFromReqOrCtx(ctx, req.GetCtx())
-
 	out, err := s.svc.ListCredentials(ctx, env, &tid)
 	if err != nil {
-		return nil, err
+		return &settingv1.ListCredentialsResponse{
+			Meta: badMeta(ctx, 400, err.Error(), req.GetCtx().GetRequestId()),
+		}, nil
 	}
-	resp := &v1.ListCredentialsResponse{Env: env}
-	for _, c := range out {
-		cc := c
-		resp.Credentials = append(resp.Credentials, &v1.AIProviderCredential{
-			Name:       cc.Name,
-			Provider:   cc.Provider,
-			AuthScheme: cc.AuthScheme,
-			Data:       jsonMapToStruct(cc.Data),
+	resp := &settingv1.ListCredentialsResponse{
+		Meta: okMeta(ctx, req.GetCtx().GetRequestId()),
+		Data: &settingv1.ListCredentialsData{Env: env},
+	}
+	for i := range out {
+		c := out[i]
+		resp.Data.Credentials = append(resp.Data.Credentials, &settingv1.AIProviderCredential{
+			Name: c.Name, Provider: c.Provider, AuthScheme: c.AuthScheme, Data: jsonMapToStruct(c.Data),
 		})
 	}
 	return resp, nil
 }
 
-/*************** helpers：装配层（与 HTTP Handler 对齐） ***************/
-
-// 从请求或 context 里解析 tenant_id（优先 req.ctx.tenant_id）
+/*************** helpers ***************/
 func tenantFromReqOrCtx(ctx context.Context, rctx *commonv1.RequestContext) uint64 {
 	if rctx != nil && rctx.GetTenantId() > 0 {
 		return uint64(rctx.GetTenantId())
@@ -190,29 +250,19 @@ func tenantFromReqOrCtx(ctx context.Context, rctx *commonv1.RequestContext) uint
 	}
 	return 0
 }
-
-func modalityToString(m v1.Modality) string {
+func modalityToString(m settingv1.Modality) string {
 	switch m {
-	case v1.Modality_MODALITY_LLM:
+	case settingv1.Modality_MODALITY_LLM:
 		return "llm"
-	case v1.Modality_MODALITY_IMAGE:
+	case settingv1.Modality_MODALITY_IMAGE:
 		return "image"
-	case v1.Modality_MODALITY_EMBEDDING:
+	case settingv1.Modality_MODALITY_EMBEDDING:
 		return "embedding"
-	case v1.Modality_MODALITY_VIDEO:
+	case settingv1.Modality_MODALITY_VIDEO:
 		return "video"
 	default:
 		return "llm"
 	}
-}
-
-func firstNonEmpty(ss ...string) string {
-	for _, s := range ss {
-		if strings.TrimSpace(s) != "" {
-			return s
-		}
-	}
-	return ""
 }
 
 func jsonMapToStruct(m datatypes.JSONMap) *structpb.Struct {
@@ -223,23 +273,16 @@ func jsonMapToStruct(m datatypes.JSONMap) *structpb.Struct {
 	s, _ := structpb.NewStruct(map[string]any(m))
 	return s
 }
-
-func toProtoProfile(p *dbmodel.AIModelProfile) *v1.AIModelProfile {
+func toProtoProfile(p *dbmodel.AIModelProfile) *settingv1.AIModelProfile {
 	if p == nil {
 		return nil
 	}
-	return &v1.AIModelProfile{
-		Modality: p.Modality,
-		Provider: p.Provider,
-		Model:    p.Model,
-		Tags:     []string(p.Tags),
-		Defaults: jsonMapToStruct(p.Defaults),
-		// 注意：你的 DB 结构没有 Meta，这里不再返回
+	return &settingv1.AIModelProfile{
+		Modality: p.Modality, Provider: p.Provider, Model: p.Model,
+		Tags: []string(p.Tags), Defaults: jsonMapToStruct(p.Defaults),
 	}
 }
-
-// 组装 Credential + Profile（各模态字段对齐 HTTP 表单；Seal/落库由 Service 内部实现）
-func buildCredentialAndProfileFromReq(env string, tenantID uint64, mod string, req *v1.SaveSettingsRequest) (*dbmodel.AIProviderCredential, *dbmodel.AIModelProfile) {
+func buildCredentialAndProfileFromSaveReq(env string, tenantID uint64, mod string, req *settingv1.SaveSettingsRequest) (*dbmodel.AIProviderCredential, *dbmodel.AIModelProfile) {
 	var provider, model, baseURL, apiKey string
 	data := datatypes.JSONMap{}
 	defaults := datatypes.JSONMap{}
@@ -249,18 +292,15 @@ func buildCredentialAndProfileFromReq(env string, tenantID uint64, mod string, r
 		if req.GetLlm() == nil || req.GetLlm().GetBase() == nil {
 			return nil, nil
 		}
-		base := req.GetLlm().GetBase()
-		provider = strings.TrimSpace(base.GetProvider())
-		model = strings.TrimSpace(base.GetModel())
-		baseURL = strings.TrimSpace(base.GetBaseUrl())
-		apiKey = strings.TrimSpace(base.GetApiKey())
-		if v := base.GetRegion(); v != "" {
+		b := req.GetLlm().GetBase()
+		provider, model, baseURL, apiKey = b.GetProvider(), b.GetModel(), b.GetBaseUrl(), b.GetApiKey()
+		if v := b.GetRegion(); v != "" {
 			data["region"] = v
 		}
-		if v := base.GetOrganization(); v != "" {
+		if v := b.GetOrganization(); v != "" {
 			data["organization"] = v
 		}
-		if v := base.GetAzureDeployment(); v != "" {
+		if v := b.GetAzureDeployment(); v != "" {
 			data["azure_deployment"] = v
 		}
 		if t := req.GetLlm().GetTemperature(); t != 0 {
@@ -273,16 +313,12 @@ func buildCredentialAndProfileFromReq(env string, tenantID uint64, mod string, r
 			defaults["topP"] = tp
 		}
 		defaults["stream"] = req.GetLlm().GetStream()
-
 	case "image":
 		if req.GetImage() == nil || req.GetImage().GetBase() == nil {
 			return nil, nil
 		}
-		base := req.GetImage().GetBase()
-		provider = strings.TrimSpace(base.GetProvider())
-		model = strings.TrimSpace(base.GetModel())
-		baseURL = strings.TrimSpace(base.GetBaseUrl())
-		apiKey = strings.TrimSpace(base.GetApiKey())
+		b := req.GetImage().GetBase()
+		provider, model, baseURL, apiKey = b.GetProvider(), b.GetModel(), b.GetBaseUrl(), b.GetApiKey()
 		if v := req.GetImage().GetSize(); v != "" {
 			defaults["size"] = v
 		}
@@ -295,16 +331,12 @@ func buildCredentialAndProfileFromReq(env string, tenantID uint64, mod string, r
 		if v := req.GetImage().GetPromptHint(); v != "" {
 			defaults["promptHint"] = v
 		}
-
 	case "embedding":
 		if req.GetEmbedding() == nil || req.GetEmbedding().GetBase() == nil {
 			return nil, nil
 		}
-		base := req.GetEmbedding().GetBase()
-		provider = strings.TrimSpace(base.GetProvider())
-		model = strings.TrimSpace(base.GetModel())
-		baseURL = strings.TrimSpace(base.GetBaseUrl())
-		apiKey = strings.TrimSpace(base.GetApiKey())
+		b := req.GetEmbedding().GetBase()
+		provider, model, baseURL, apiKey = b.GetProvider(), b.GetModel(), b.GetBaseUrl(), b.GetApiKey()
 		if v := req.GetEmbedding().GetDimensions(); v != 0 {
 			defaults["dimensions"] = v
 		}
@@ -314,16 +346,12 @@ func buildCredentialAndProfileFromReq(env string, tenantID uint64, mod string, r
 		if v := req.GetEmbedding().GetBatch(); v != 0 {
 			defaults["batch"] = v
 		}
-
 	case "video":
 		if req.GetVideo() == nil || req.GetVideo().GetBase() == nil {
 			return nil, nil
 		}
-		base := req.GetVideo().GetBase()
-		provider = strings.TrimSpace(base.GetProvider())
-		model = strings.TrimSpace(base.GetModel())
-		baseURL = strings.TrimSpace(base.GetBaseUrl())
-		apiKey = strings.TrimSpace(base.GetApiKey())
+		b := req.GetVideo().GetBase()
+		provider, model, baseURL, apiKey = b.GetProvider(), b.GetModel(), b.GetBaseUrl(), b.GetApiKey()
 		if v := req.GetVideo().GetResolution(); v != "" {
 			defaults["resolution"] = v
 		}
@@ -340,7 +368,6 @@ func buildCredentialAndProfileFromReq(env string, tenantID uint64, mod string, r
 		return nil, nil
 	}
 
-	// 连接字段统一收集
 	if baseURL != "" {
 		data["base_url"] = baseURL
 	}
@@ -349,47 +376,31 @@ func buildCredentialAndProfileFromReq(env string, tenantID uint64, mod string, r
 	}
 
 	cred := &dbmodel.AIProviderCredential{
-		Env:        env,
-		TenantID:   &tenantID,
-		Name:       utils.Slug(env + "-" + provider), // 与 HTTP 相同：e.g. "default-ollama"
-		Provider:   provider,
-		AuthScheme: "bearer",
-		Data:       data,
+		Env: env, TenantID: &tenantID, Name: utils.Slug(env + "-" + provider),
+		Provider: provider, AuthScheme: "bearer", Data: data,
 	}
-
 	prof := &dbmodel.AIModelProfile{
-		Env:      env,
-		TenantID: &tenantID,
-		Modality: mod,
-		Provider: provider,
-		Model:    model,
-		Defaults: defaults,
-		Tags:     datatypes.JSONSlice[string]{mod},
+		Env: env, TenantID: &tenantID, Modality: mod, Provider: provider, Model: model,
+		Defaults: defaults, Tags: datatypes.JSONSlice[string]{mod},
 	}
 	return cred, prof
 }
-
-// 从 TestConnectionRequest 中挑 provider/model/base_url/api_key
-func pickProviderModelConn(mod v1.Modality, req *v1.TestConnectionRequest) (provider, model, baseURL, apiKey string) {
+func pickProviderModelConn(mod settingv1.Modality, req *settingv1.TestConnectionRequest) (provider, model, baseURL, apiKey string) {
 	switch mod {
-	case v1.Modality_MODALITY_LLM:
-		if req.GetLlm() != nil && req.GetLlm().GetBase() != nil {
-			b := req.GetLlm().GetBase()
+	case settingv1.Modality_MODALITY_LLM:
+		if b := req.GetLlm().GetBase(); b != nil {
 			return b.GetProvider(), b.GetModel(), b.GetBaseUrl(), b.GetApiKey()
 		}
-	case v1.Modality_MODALITY_IMAGE:
-		if req.GetImage() != nil && req.GetImage().GetBase() != nil {
-			b := req.GetImage().GetBase()
+	case settingv1.Modality_MODALITY_IMAGE:
+		if b := req.GetImage().GetBase(); b != nil {
 			return b.GetProvider(), b.GetModel(), b.GetBaseUrl(), b.GetApiKey()
 		}
-	case v1.Modality_MODALITY_EMBEDDING:
-		if req.GetEmbedding() != nil && req.GetEmbedding().GetBase() != nil {
-			b := req.GetEmbedding().GetBase()
+	case settingv1.Modality_MODALITY_EMBEDDING:
+		if b := req.GetEmbedding().GetBase(); b != nil {
 			return b.GetProvider(), b.GetModel(), b.GetBaseUrl(), b.GetApiKey()
 		}
-	case v1.Modality_MODALITY_VIDEO:
-		if req.GetVideo() != nil && req.GetVideo().GetBase() != nil {
-			b := req.GetVideo().GetBase()
+	case settingv1.Modality_MODALITY_VIDEO:
+		if b := req.GetVideo().GetBase(); b != nil {
 			return b.GetProvider(), b.GetModel(), b.GetBaseUrl(), b.GetApiKey()
 		}
 	}

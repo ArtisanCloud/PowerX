@@ -2,6 +2,7 @@ package manager
 
 import (
 	"context"
+	"github.com/ArtisanCloud/PowerX/internal/infra/plugin/manager/router"
 	"github.com/ArtisanCloud/PowerX/internal/infra/plugin/manager/supervisor"
 	"sync"
 
@@ -17,7 +18,7 @@ type Options struct {
 
 	Loader     Loader
 	Registry   Registry
-	HTTP       *DynamicRouter
+	HTTP       *router.DynamicRouter
 	Supervisor *supervisor.Supervisor // 新增
 }
 
@@ -25,7 +26,7 @@ type Options struct {
 type managerImpl struct {
 	mu   sync.RWMutex
 	opts Options
-	http *DynamicRouter
+	http *router.DynamicRouter
 	sup  *supervisor.Supervisor // 新增
 }
 

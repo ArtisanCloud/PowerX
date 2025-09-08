@@ -7,6 +7,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/config"
 	"github.com/ArtisanCloud/PowerX/internal/server/mcp/types"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/flow/schemas"
+	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -88,24 +89,24 @@ func RenderPlanTool(ctx context.Context, request mcp.CallToolRequest) (*mcp.Call
 	}
 	files := map[string]string{}
 
-	for _, step := range flow.Steps {
-		if step.Type != "generate" {
+	for _, step := range flow.Nodes {
+		if step.Kind != "generate" {
 			continue
 		}
 		// 渲染路径
 		//fmt2.Dump("output path:", step.Parameters["output_path"])
 		pathT := template.New("p").Funcs(funcMap)
-		pathT.Parse(step.Parameters["output_path"].(string))
+		pathT.Parse(step.Params["output_path"].(string))
 		var pBuf strings.Builder
 		pathT.Execute(&pBuf, flow.Variables)
 		outPath := pBuf.String()
 
 		// 找模板
 		//fmt2.Dump("step.Action =", step.Action)
-		tplName, ok := templateMap[step.Action]
+		tplName, ok := templateMap[step.Use]
 		if !ok {
 			// 如果找不到，跳过或打印警告
-			fmt.Println("未找到模板映射:", step.Action)
+			fmt.Println("未找到模板映射:", step.Use)
 			continue
 		}
 		tplPath := filepath.Join(cfg.TemplatesDir, tplName+".tmpl")
@@ -119,7 +120,7 @@ func RenderPlanTool(ctx context.Context, request mcp.CallToolRequest) (*mcp.Call
 		ct.Parse(string(raw))
 		data := map[string]interface{}{
 			"Vars":   flow.Variables,
-			"Params": step.Parameters,
+			"Params": step.Params,
 		}
 		var cBuf strings.Builder
 		ct.Execute(&cBuf, data)

@@ -39,6 +39,8 @@ message StreamRequest {
 	// 调用侧标签与头部（可选）
 	map<string, string> tags    = 20;    // 审计/链路
 	map<string, string> headers = 21;    // 透传请求头
+	bool probe = 22;
+
 }
 
 /******** 请求（模拟流） ********/

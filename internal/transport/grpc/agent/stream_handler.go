@@ -32,6 +32,22 @@ func NewAgentStreamServer(deps *shared.Deps) *AgentStreamServer {
 /******** Stream（真实流，对齐 StreamSSE） ********/
 func (s *AgentStreamServer) Stream(req *v1.StreamRequest, srv v1.AgentStreamService_StreamServer) error {
 	ctx := srv.Context()
+	now := func() int64 { return time.Now().Unix() }
+
+	// 探针：与 Simulate 完全一致
+	if req.GetProbe() {
+		_ = srv.Send(&v1.StreamResponse{
+			Type:      dto.EventStart,
+			Timestamp: now(),
+			Payload:   &v1.StreamResponse_EvStart{EvStart: &v1.EventStart{Message: "probe ok"}},
+		})
+		_ = srv.Send(&v1.StreamResponse{
+			Type:      dto.EventEnd,
+			Timestamp: now(),
+			Payload:   &v1.StreamResponse_EvEnd{EvEnd: &v1.EventEnd{Message: "ok"}},
+		})
+		return nil
+	}
 
 	// 1) 校验与解析（同 StreamSSE）
 	env := strings.TrimSpace(req.GetEnv())

@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package common.v1;
+
+option go_package = "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/common/v1;commonv1";
+
+import "google/protobuf/struct.proto";
+
+// 对齐 HTTP BaseResponse/SuccessResponse/ErrorResponse
+message ResponseMeta {
+  int32  code       = 1;  // 200=success；非 200 代表业务错误
+  string message    = 2;  // "success" 或错误摘要
+  int64  timestamp  = 3;  // unix 秒
+  string request_id = 4;  // Trace/审计
+}
+
+// 可选：错误附加信息（与 HTTP ErrorResponse 对齐）
+message ErrorExtra {
+  string error = 1;                     // raw error string
+  google.protobuf.Struct details = 2;   // k-v 详情（校验错误等）
+}
