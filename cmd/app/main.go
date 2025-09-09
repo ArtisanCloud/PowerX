@@ -50,7 +50,7 @@ func main() {
 	r.Use(audit.GinAudit(deps.Auditor))
 
 	// 初始化插件管理器
-	_, err = bootstrap.BootstrapPlugin(ctx, cfg, r)
+	_, err = bootstrap.BootstrapPlugin(ctx, deps, cfg, r)
 	if err != nil {
 		logger.ErrorF(ctx, "BootstrapPlugin failed: %s", err.Error())
 		return

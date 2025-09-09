@@ -10,12 +10,11 @@ import (
 type PluginInstanceConfig struct {
 	coremodel.PowerModel
 
-	TenantID uint64 `gorm:"column:tenant_id;not null;index:idx_plugincfg_tpk,priority:1" json:"tenant_id"`
-	PluginID string `gorm:"column:plugin_id;type:varchar(128);not null;index:idx_plugincfg_tpk,priority:2" json:"plugin_id"`
+	TenantID uint64 `gorm:"column:tenant_id;not null;uniqueIndex:uk_plugincfg_tpk,priority:1" json:"tenant_id"`
+	PluginID string `gorm:"column:plugin_id;type:varchar(128);not null;uniqueIndex:uk_plugincfg_tpk,priority:2" json:"plugin_id"`
+	Key      string `gorm:"column:key;type:varchar(128);not null;uniqueIndex:uk_plugincfg_tpk,priority:3" json:"key"`
 
-	// 可按 key 细分，也可以使用固定 schema（灵活度更高：KV）
-	Key       string         `gorm:"column:key;type:varchar(128);not null;index:idx_plugincfg_tpk,priority:3;uniqueIndex:uk_plugincfg_tpk,priority:1" json:"key"`
-	ValueJSON datatypes.JSON `gorm:"column:value_json;type:jsonb"                                                                                      json:"value_json,omitempty"`
+	ValueJSON datatypes.JSON `gorm:"column:value_json;type:jsonb" json:"value_json,omitempty"`
 
 	Enabled bool `gorm:"column:enabled;default:true;index" json:"enabled"`
 }

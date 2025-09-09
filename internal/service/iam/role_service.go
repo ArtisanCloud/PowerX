@@ -36,7 +36,7 @@ type ListOpt struct {
 // Create 直接用 GORM 实体；对必要字段做最小校验与修整
 // Create：root 可创建 system/tenant；非 root 仅能在自己租户创建 tenant
 func (s *RoleService) Create(ctx context.Context, in *dbm.Role) (*dbm.Role, error) {
-	in.Code = strings.TrimSpace(in.Code)
+	in.Code = in.Code
 	in.Name = strings.TrimSpace(in.Name)
 	in.Scope = strings.ToLower(strings.TrimSpace(in.Scope))
 

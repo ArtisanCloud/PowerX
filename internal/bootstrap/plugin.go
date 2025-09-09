@@ -2,6 +2,9 @@ package bootstrap
 
 import (
 	"context"
+	"github.com/ArtisanCloud/PowerX/internal/app/shared"
+	"github.com/ArtisanCloud/PowerX/internal/service/setting"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam"
 	"strings"
 	"time"
 
@@ -21,14 +24,19 @@ import (
 // 生产请替换为 DB/gRPC 版本
 type devAuthorizer struct{}
 
+var superRoleCodes = map[iam.RoleCode]struct{}{
+	iam.CodeSystemAdmin: {},
+	iam.CodeRoleAdmin:   {},
+}
+
 func (devAuthorizer) Permissions(ctx context.Context, tenantID, userID uint64, pluginID string) ([]string, string, error) {
 	// 开发期：只给读权限（按需改为 "*" 或 "note:*"）
 	return []string{"*"}, "", nil
 }
 func (devAuthorizer) IsSuperAdmin(_ context.Context, _, _ uint64, roles []string) bool {
 	for _, r := range roles {
-		r = strings.ToLower(strings.TrimSpace(r))
-		if r == "super_admin" || r == "system_admin" {
+		rc := iam.RoleCode(strings.ToLower(strings.TrimSpace(r)))
+		if _, ok := superRoleCodes[rc]; ok {
 			return true
 		}
 	}
@@ -43,7 +51,7 @@ func abs(p string) string {
 	return filepath.Clean(filepath.Join(wd, p))
 }
 
-func BootstrapPlugin(ctx context.Context, cfg *config.Config, r *gin.Engine) (pm.Manager, error) {
+func BootstrapPlugin(ctx context.Context, deps *shared.Deps, cfg *config.Config, r *gin.Engine) (pm.Manager, error) {
 	dr := router.NewDynamicRouter(cfg.Plugin.BasePrefix, r)
 	sup := supervisor.New()
 
@@ -59,6 +67,22 @@ func BootstrapPlugin(ctx context.Context, cfg *config.Config, r *gin.Engine) (pm
 		Registry:      pmimpl.NewJSONRegistry(registryFile),
 		HTTP:          dr,
 		Supervisor:    sup,
+		PostEnable: func(ctx context.Context, tenantID uint64, pluginID string) error {
+			svc := setting.NewPluginInstanceConfigService(deps)
+
+			// 注意：EnsureCredentials 有 3 个返回值
+			clientID, clientSecret, err := svc.EnsureCredentials(ctx, tenantID, pluginID, nil)
+			if err != nil {
+				return err
+			}
+
+			// 这里先用日志/审计代替返回（明文 secret 只此一次）
+			logger.InfoF(ctx, "[plugin] credentials issued: plugin=%s tenant=%d client_id=%s (secret just-once)",
+				pluginID, tenantID, clientID)
+			_ = clientSecret // 避免未使用；也可以写入审计/通知
+
+			return nil
+		},
 	})
 	if err := mgr.Bootstrap(ctx); err != nil {
 		return nil, err

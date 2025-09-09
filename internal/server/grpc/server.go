@@ -1,24 +1,26 @@
-// internal/transport/grpc/server/grpcserver.go （你那份 New 的改良版）
+// internal/server/grpc/server.go
 package grpcserver
 
 import (
 	"context"
 	"fmt"
-	settingv1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/setting"
+	settingv12 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/setting"
+	middleware2 "github.com/ArtisanCloud/PowerX/internal/transport/grpc/auth/middleware"
 	"net"
 	"time"
 
 	agentv1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/agent/v1"
+	stsv1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/auth/sts/v1"
 	iamv1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/iam/v1"
-	agentgrpc "github.com/ArtisanCloud/PowerX/internal/transport/grpc/agent"
-	"github.com/ArtisanCloud/PowerX/internal/transport/grpc/iam"
-
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
+	agentgrpc "github.com/ArtisanCloud/PowerX/internal/transport/grpc/agent"
+	authgrpc "github.com/ArtisanCloud/PowerX/internal/transport/grpc/auth"
+	"github.com/ArtisanCloud/PowerX/internal/transport/grpc/iam"
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
-	// "google.golang.org/grpc/credentials/insecure" // 服务端明文不需要
+	// 服务端明文无需 insecure
 	"google.golang.org/grpc/keepalive"
 
 	"google.golang.org/grpc/health"
@@ -39,6 +41,8 @@ func New(cfg *GRPCConfig, deps *shared.Deps) (*grpc.Server, net.Listener, error)
 	}
 
 	var opts []grpc.ServerOption
+
+	// ===== TLS（可选）=====
 	if cfg.UseTLS {
 		creds, err := credentials.NewServerTLSFromFile(cfg.CertFile, cfg.KeyFile)
 		if err != nil {
@@ -46,7 +50,8 @@ func New(cfg *GRPCConfig, deps *shared.Deps) (*grpc.Server, net.Listener, error)
 		}
 		opts = append(opts, grpc.Creds(creds))
 	}
-	// keepalive（防止中间层断开长流）
+
+	// ===== Keepalive（长流更稳，防中间层断开）=====
 	opts = append(opts,
 		grpc.KeepaliveParams(keepalive.ServerParameters{
 			Time:    2 * time.Minute,  // 空闲多久 ping 一次
@@ -57,7 +62,8 @@ func New(cfg *GRPCConfig, deps *shared.Deps) (*grpc.Server, net.Listener, error)
 			PermitWithoutStream: true,            // 无活动流也允许 ping
 		}),
 	)
-	// 调大窗口与消息大小（token/图片/配置较大时更稳）
+
+	// ===== 窗口 & 消息大小（更宽松，适配流/图片/配置）=====
 	opts = append(opts,
 		grpc.InitialWindowSize(1<<20),     // 1 MiB
 		grpc.InitialConnWindowSize(1<<21), // 2 MiB
@@ -65,20 +71,36 @@ func New(cfg *GRPCConfig, deps *shared.Deps) (*grpc.Server, net.Listener, error)
 		grpc.MaxSendMsgSize(32<<20),       // 32 MiB
 	)
 
+	// ===== 鉴权拦截器（kid + 多密钥兜底；与 STS 共用 KeyRing）=====
+	ring := authgrpc.NewDefaultKeyRing(deps)
+	opts = append(opts,
+		grpc.ChainUnaryInterceptor(
+			middleware2.UnaryAuth(middleware2.JWTVerifyConfig{Ring: ring}),
+		),
+		grpc.ChainStreamInterceptor(
+			middleware2.StreamAuth(middleware2.JWTVerifyConfig{Ring: ring}),
+		),
+	)
+
+	// ===== 构建 Server =====
 	s := grpc.NewServer(opts...)
 
-	// 业务服务
+	// ===== 注册业务服务 =====
 	iamv1.RegisterMemberServiceServer(s, iam.NewMemberServer(deps))
 	iamv1.RegisterTeamServiceServer(s, iam.NewTeamServer(deps))
-	agentv1.RegisterAgentStreamServiceServer(s, agentgrpc.NewAgentStreamServer(deps))
-	settingv1.RegisterSettingAIServiceServer(s, agentgrpc.NewSettingAIServiceServer(deps))
 
-	// 健康检查
+	agentv1.RegisterAgentStreamServiceServer(s, agentgrpc.NewAgentStreamServer(deps))
+	settingv12.RegisterSettingAIServiceServer(s, agentgrpc.NewSettingAIServiceServer(deps))
+
+	// STS（令牌换签/内发）—— 与拦截器共用同一个 KeyRing
+	stsv1.RegisterSTSServiceServer(s, authgrpc.NewSTSServiceServerWithRing(deps, ring))
+
+	// ===== 健康检查 =====
 	if cfg.Health {
 		healthpb.RegisterHealthServer(s, health.NewServer())
 	}
 
-	// 反射
+	// ===== 反射 =====
 	ctx := context.Background()
 	if cfg.Reflection {
 		reflection.Register(s)

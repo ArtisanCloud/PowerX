@@ -7,11 +7,13 @@ const (
 	RoleScopeTenant RoleScope = "tenant"
 )
 
+type RoleCode string
+
 const (
-	CodeSystemAdmin   = "system_admin"
-	CodeSystemMonitor = "system_monitor"
-	CodeRoleAdmin     = "role_admin"
-	CodeRoleUser      = "role_user"
+	CodeSystemAdmin   RoleCode = "system_admin"
+	CodeSystemMonitor RoleCode = "system_monitor"
+	CodeRoleAdmin     RoleCode = "role_admin"
+	CodeRoleUser      RoleCode = "role_user"
 
 	SystemTenantID = uint64(0)
 )

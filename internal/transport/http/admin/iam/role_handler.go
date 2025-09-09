@@ -35,13 +35,13 @@ func NewRoleHandler(deps *shared.Deps) *RoleHandler {
 
 // POST /api/admin/iam/roles
 type roleCreateReq struct {
-	Scope       string   `json:"scope"        binding:"required,oneof=system tenant"`
-	TenantID    uint64   `json:"tenant_id"`
-	Code        string   `json:"code"         binding:"required"`
-	Name        string   `json:"name"         binding:"required"`
-	Description string   `json:"description"`
-	Builtin     bool     `json:"builtin"`
-	PermIDs     []uint64 `json:"perm_ids"` // 可选
+	Scope       string       `json:"scope"        binding:"required,oneof=system tenant"`
+	TenantID    uint64       `json:"tenant_id"`
+	Code        iam.RoleCode `json:"code"         binding:"required"`
+	Name        string       `json:"name"         binding:"required"`
+	Description string       `json:"description"`
+	Builtin     bool         `json:"builtin"`
+	PermIDs     []uint64     `json:"perm_ids"` // 可选
 }
 
 func (h *RoleHandler) Create(c *gin.Context) {

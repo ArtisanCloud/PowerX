@@ -6,6 +6,7 @@ import (
 	"errors"
 	"github.com/ArtisanCloud/PowerX/internal/service"
 	pkgauth "github.com/ArtisanCloud/PowerX/pkg/auth"
+	"github.com/ArtisanCloud/PowerX/pkg/auth/middleware"
 	"github.com/ArtisanCloud/PowerX/pkg/cache"
 	model "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/iam"
 	tenantmdl "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/tenant"
@@ -294,9 +295,9 @@ func (s *AuthService) Login(ctx context.Context, tenantRef, identifier, password
 
 	if s.Cache != nil {
 		ttl := 10 * time.Minute // 建议 5~15 分钟
-		_ = s.Cache.Set(ctx, pkgauth.KUser(u.ID), utils.MustJSONBytes(u.ToLite()), ttl)
-		_ = s.Cache.Set(ctx, pkgauth.KMember(m.ID), utils.MustJSONBytes(m.ToLite()), ttl)
-		_ = s.Cache.Set(ctx, pkgauth.KTenant(ten.ID), utils.MustJSONBytes(ten.ToLite()), ttl)
+		_ = s.Cache.Set(ctx, middleware.KUser(u.ID), utils.MustJSONBytes(u.ToLite()), ttl)
+		_ = s.Cache.Set(ctx, middleware.KMember(m.ID), utils.MustJSONBytes(m.ToLite()), ttl)
+		_ = s.Cache.Set(ctx, middleware.KTenant(ten.ID), utils.MustJSONBytes(ten.ToLite()), ttl)
 	}
 
 	return access, refresh, nil
@@ -381,7 +382,7 @@ func (s *AuthService) Refresh(ctx context.Context, refreshJWT string) (string, e
 	// 6) 刷新缓存快照（命中率高，避免每次鉴权都查库）
 	if s.Cache != nil {
 		ttl := 10 * time.Minute
-		_ = s.Cache.Set(ctx, pkgauth.KUser(u.ID), utils.MustJSONBytes(map[string]any{
+		_ = s.Cache.Set(ctx, middleware.KUser(u.ID), utils.MustJSONBytes(map[string]any{
 			"id":            u.ID,
 			"status":        u.Status,
 			"is_root":       u.IsRoot,
@@ -392,7 +393,7 @@ func (s *AuthService) Refresh(ctx context.Context, refreshJWT string) (string, e
 			"last_login_at": u.LastLoginAt,
 			"meta":          u.Meta,
 		}), ttl)
-		_ = s.Cache.Set(ctx, pkgauth.KMember(m.ID), utils.MustJSONBytes(map[string]any{
+		_ = s.Cache.Set(ctx, middleware.KMember(m.ID), utils.MustJSONBytes(map[string]any{
 			"id":         m.ID,
 			"tenant_id":  m.TenantID,
 			"user_id":    m.UserID,
@@ -402,7 +403,7 @@ func (s *AuthService) Refresh(ctx context.Context, refreshJWT string) (string, e
 			"avatar_url": m.AvatarURL,
 			"meta":       m.Meta,
 		}), ttl)
-		_ = s.Cache.Set(ctx, pkgauth.KTenant(ten.ID), utils.MustJSONBytes(map[string]any{
+		_ = s.Cache.Set(ctx, middleware.KTenant(ten.ID), utils.MustJSONBytes(map[string]any{
 			"id":     ten.ID,
 			"key":    ten.Key,
 			"name":   ten.Name,

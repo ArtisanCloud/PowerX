@@ -6,7 +6,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
 	httpAdmin "github.com/ArtisanCloud/PowerX/internal/transport/http/admin"
 	"github.com/ArtisanCloud/PowerX/internal/transport/websocket"
-	"github.com/ArtisanCloud/PowerX/pkg/auth"
+	"github.com/ArtisanCloud/PowerX/pkg/auth/middleware"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -22,7 +22,7 @@ func SetupRouter(cfg *config.Config, r *gin.Engine, deps *shared.Deps) error {
 	r.Use(TraceInjectionMiddleware())
 	r.Use(FeatureInjectionMiddleware())
 
-	authUser := auth.JwtMiddleware(
+	authUser := middleware.JwtMiddleware(
 		[]byte(cfg.Auth.JWTSecret),
 		cfg.Auth.Issuer,
 		[]string{cfg.Auth.AudienceUser},

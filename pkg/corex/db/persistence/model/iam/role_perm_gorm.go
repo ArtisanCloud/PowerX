@@ -3,15 +3,16 @@ package iam
 
 import (
 	"github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam"
 	"gorm.io/datatypes"
 )
 
 type Role struct {
 	model.PowerModel
 
-	Scope    string `gorm:"column:scope;type:varchar(16);not null;default:'tenant';index;uniqueIndex:uk_role_scope_tenant_code" json:"scope"`
-	TenantID uint64 `gorm:"column:tenant_id;not null;index;uniqueIndex:uk_role_scope_tenant_code"                                 json:"tenant_id"`
-	Code     string `gorm:"column:code;type:varchar(64);not null;uniqueIndex:uk_role_scope_tenant_code"                           json:"code"`
+	Scope    string       `gorm:"column:scope;type:varchar(16);not null;default:'tenant';index;uniqueIndex:uk_role_scope_tenant_code" json:"scope"`
+	TenantID uint64       `gorm:"column:tenant_id;not null;index;uniqueIndex:uk_role_scope_tenant_code"                                 json:"tenant_id"`
+	Code     iam.RoleCode `gorm:"column:code;type:varchar(64);not null;uniqueIndex:uk_role_scope_tenant_code"                           json:"code"`
 
 	Name        string `gorm:"column:name;type:varchar(128);not null" json:"name"`
 	Description string `gorm:"column:description;type:text"           json:"description,omitempty"`

@@ -1,0 +1,82 @@
+syntax = "proto3";
+
+// STS - Security Token Service
+
+package powerx.auth.sts.v1;
+
+option go_package = "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/auth/sts/v1;stsv1";
+option java_package = "com.powerx.auth.sts.v1";
+option java_multiple_files = true;
+option csharp_namespace = "PowerX.Auth.STS.V1";
+option php_namespace = "PowerX\\Auth\\STS\\V1";
+option php_metadata_namespace = "GPBMetadata\\PowerX\\Auth\\STS\\V1";
+
+import "common/v1/context.proto";
+import "common/v1/response.proto";
+enum ActorKind {
+  ACTOR_KIND_UNSPECIFIED = 0;
+  ACTOR_KIND_USER        = 1; // 企业内部用户/员工
+  ACTOR_KIND_CUSTOMER    = 2; // 客户/会员（member）
+  ACTOR_KIND_SUPPLIER    = 3; // 第三方渠道/供应商
+}
+
+message Actor {
+  ActorKind kind = 1;
+  uint64    tenant_id   = 2;  // RLS
+  uint64    user_id     = 3;  // kind=USER 时
+  uint64    member_id   = 4;  // kind=CUSTOMER 时
+  uint64    supplier_id = 5;  // kind=SUPPLIER 时（可先不映射到 CoreXClaims，用 attributes 承载）
+  map<string,string> attributes = 10; // 其他上下文（locale、channel 等）
+}
+
+service STSService {
+  rpc Exchange(ExchangeRequest) returns (ExchangeResponse);
+  rpc Introspect(IntrospectRequest) returns (IntrospectResponse);
+}
+
+message ExchangeRequest {
+  common.v1.RequestContext ctx = 1;
+
+  // 主体凭证（二选一）
+  string subject_token = 10;
+  string client_id     = 11;
+  string client_secret = 12;
+
+  // 目标受众 / 范围 / TTL
+  string audience    = 20; // 默认: powerx:api
+  string scope       = 21;
+  int32  ttl_seconds = 22; // 默认: 300
+
+  // 代办主体
+  Actor actor = 30;
+}
+
+message ExchangeData {
+  string access_token = 1;
+  string token_type   = 2;
+  int64  expires_in   = 3;
+  string audience     = 4;
+  string scope        = 5;
+  string issuer       = 6;
+  string subject      = 7; // plugin client_id 或上游 subject
+  int64  issued_at    = 8;
+}
+
+message ExchangeResponse {
+  common.v1.ResponseMeta meta = 1;
+  ExchangeData           data = 2;
+}
+
+message IntrospectRequest { string access_token = 1; }
+message IntrospectData {
+  bool   active = 1;
+  string audience = 2;
+  string issuer   = 3;
+  string subject  = 4;
+  int64  exp      = 5;
+  string scope    = 6;
+}
+message IntrospectResponse {
+  common.v1.ResponseMeta meta = 1;
+  IntrospectData         data = 2;
+}

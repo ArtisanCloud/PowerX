@@ -9,6 +9,8 @@ import (
 	"github.com/ArtisanCloud/PowerX/pkg/plugin_mgr"
 )
 
+type PostEnableHook func(ctx context.Context, tenantID uint64, pluginID string) error
+
 // Options 注入依赖与基础配置
 type Options struct {
 	Enabled       bool
@@ -19,7 +21,8 @@ type Options struct {
 	Loader     Loader
 	Registry   Registry
 	HTTP       *router.DynamicRouter
-	Supervisor *supervisor.Supervisor // 新增
+	Supervisor *supervisor.Supervisor
+	PostEnable PostEnableHook
 }
 
 // managerImpl 是内嵌版的具体实现（满足 plugin_mgr.Manager）

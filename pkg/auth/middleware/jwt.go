@@ -1,9 +1,10 @@
 // pkg/auth/middleware.go
-package auth
+package middleware
 
 import (
 	"context"
 	"encoding/json"
+	"github.com/ArtisanCloud/PowerX/pkg/auth"
 	"net/http"
 	"strconv"
 	"strings"
@@ -47,7 +48,7 @@ func JwtMiddleware(
 
 		// A. 解析 + 标准校验（Issuer / Audience / exp / nbf / iat / 签名）
 		// 注意：ParseAndValidate 需返回 *reqctx.CoreXClaims（见 pkg/auth/jwt.go）
-		claims, err := ParseAndValidate(tokenString, secret, issuer, audiences...)
+		claims, err := auth.ParseAndValidate(tokenString, secret, issuer, audiences...)
 		if err != nil {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 			return

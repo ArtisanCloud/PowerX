@@ -3,6 +3,7 @@ package manager
 import (
 	"context"
 	"fmt"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"io"
 	"net/http"
 	"net/url"
@@ -82,7 +83,19 @@ func (m *managerImpl) Enable(ctx context.Context, id string) error {
 	if err := m.opts.Registry.UpdateState(ctx, p.ID, p.Version, plugin_mgr.StateEnabled); err != nil {
 		return err
 	}
-	return m.opts.Registry.Save(ctx)
+	err = m.opts.Registry.Save(ctx)
+	if err != nil {
+		return err
+	}
+
+	if m.opts.PostEnable != nil {
+		// 从 ctx 或上层传参拿 tenantID；没有就用 0（系统）
+		tid := reqctx.GetTenantID(ctx) // 你已有 reqctx.GetTenantID 或外层注入
+		if err := m.opts.PostEnable(ctx, tid, p.ID); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Disable: 停用插件 = (卸载路由) + (停进程) + (更新注册表)

@@ -2,6 +2,7 @@ package plugin
 
 import (
 	"github.com/ArtisanCloud/PowerX/config"
+	"github.com/ArtisanCloud/PowerX/pkg/auth/middleware"
 	"github.com/gin-gonic/gin"
 )
 
@@ -13,6 +14,7 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 
 	// 如果你已有 Admin 的中间件（鉴权/租户），可以在这里加到 Group 上
 	grp := protectedGroup.Group("/admin/plugins")
+	grp.Use(middleware.AdminOnlyMiddleware())
 	{
 		grp.GET("/", PluginListHandler)       // GET  /api/v1/admin/plugins
 		grp.GET("/menus", PluginMenusHandler) // GET  /api/v1/admin/plugins/menus

@@ -5,7 +5,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/config"
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
 	service "github.com/ArtisanCloud/PowerX/internal/service/iam"
-	"github.com/ArtisanCloud/PowerX/pkg/auth"
+	"github.com/ArtisanCloud/PowerX/pkg/auth/middleware"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/gin-gonic/gin"
 )
@@ -84,7 +84,7 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 	gPerm := protectedGroup.Group("/admin/iam/permissions")
 	gSysPerm := protectedGroup.Group("/admin/iam/permissions")
 	cfg := config.GetGlobalConfig()
-	gSysPerm.Use(auth.JwtMiddleware(
+	gSysPerm.Use(middleware.JwtMiddleware(
 		[]byte(cfg.Auth.JWTSecret),
 		cfg.Auth.Issuer,
 		[]string{cfg.Auth.AudienceUser},

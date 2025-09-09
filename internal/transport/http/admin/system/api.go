@@ -4,7 +4,7 @@ package system
 import (
 	"github.com/ArtisanCloud/PowerX/config"
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
-	"github.com/ArtisanCloud/PowerX/pkg/auth"
+	"github.com/ArtisanCloud/PowerX/pkg/auth/middleware"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/gin-gonic/gin"
 )
@@ -13,7 +13,7 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 	hUser := NewUserHandler(deps.DB)
 	gSys := protectedGroup.Group("/admin/system")
 	cfg := config.GetGlobalConfig()
-	gSys.Use(auth.JwtMiddleware(
+	gSys.Use(middleware.JwtMiddleware(
 		[]byte(cfg.Auth.JWTSecret),
 		cfg.Auth.Issuer,
 		[]string{cfg.Auth.AudienceUser},
