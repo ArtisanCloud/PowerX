@@ -60,18 +60,26 @@ func (p *Policy) Required(method, reqPath string) *Permission {
 	}
 
 	// 2) 自动推导：method -> action；reqPath -> resource
-	act := methodToAction(method)
-	if act == "" {
-		return nil
-	}
-	res := p.pickResourceFromPath(reqPath)
-	if res == "" {
-		return nil
-	}
-	if acts, ok := p.Resources[res]; ok && acts[act] {
-		return &Permission{Resource: res, Action: act}
-	}
-	return nil
+    act := methodToAction(method)
+    if act == "" {
+        return nil
+    }
+    res := p.pickResourceFromPath(reqPath)
+    if res == "" {
+        return nil
+    }
+    if acts, ok := p.Resources[res]; ok {
+        if acts[act] {
+            return &Permission{Resource: res, Action: act}
+        }
+        // 动作同义词兜底（提高与插件 manifest 的契合度）
+        for _, alt := range methodActionSynonyms(method) {
+            if acts[alt] {
+                return &Permission{Resource: res, Action: alt}
+            }
+        }
+    }
+    return nil
 }
 
 func splitKey(key string) (method, p string) {
@@ -83,18 +91,34 @@ func splitKey(key string) (method, p string) {
 }
 
 func methodToAction(m string) string {
-	switch strings.ToUpper(m) {
-	case "GET", "HEAD":
-		return "read"
+    switch strings.ToUpper(m) {
+    case "GET", "HEAD":
+        return "read"
 	case "POST":
 		return "create"
 	case "PUT", "PATCH":
 		return "update"
 	case "DELETE":
 		return "delete"
-	default:
-		return ""
-	}
+    default:
+        return ""
+    }
+}
+
+// methodActionSynonyms: 针对常见 HTTP 方法提供动作同义词回退
+func methodActionSynonyms(m string) []string {
+    switch strings.ToUpper(m) {
+    case "GET", "HEAD":
+        return []string{"view", "list"}
+    case "POST":
+        return []string{"write", "create"}
+    case "PUT", "PATCH":
+        return []string{"edit", "update"}
+    case "DELETE":
+        return []string{"remove", "delete"}
+    default:
+        return nil
+    }
 }
 
 func (p *Policy) pickResourceFromPath(reqPath string) string {

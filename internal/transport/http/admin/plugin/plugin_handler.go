@@ -9,6 +9,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"net/http"
 	"sort"
+
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 )
 
 // 辅助：从全局配置拿 BasePrefix（/_p）
@@ -76,17 +78,22 @@ func PluginListHandler(c *gin.Context) {
 
 // POST /api/.../admin/plugins/:id/enable
 func PluginEnableHandler(c *gin.Context) {
-	id := c.Param("id")
-	if id == "" {
-		dtoRequest.ResponseError(c, http.StatusBadRequest, "缺少插件ID", nil)
-		return
-	}
-	mgr := manager.GetPluginManager()
-	if err := mgr.Enable(c, id); err != nil {
-		dtoRequest.ResponseError(c, statusFromManagerErr(err), "启用插件失败", err)
-		return
-	}
-	dtoRequest.ResponseSuccess(c, gin.H{"ok": true})
+    id := c.Param("id")
+    if id == "" {
+        dtoRequest.ResponseError(c, http.StatusBadRequest, "缺少插件ID", nil)
+        return
+    }
+    mgr := manager.GetPluginManager()
+    // 从已注入的 JWT 上下文读取 tenant_id 并显式写回（确保后续 PostEnable 能准确取到）
+    ctx := c.Request.Context()
+    if tid := reqctx.GetTenantID(ctx); tid > 0 {
+        ctx = reqctx.WithTenantID(ctx, tid)
+    }
+    if err := mgr.Enable(ctx, id); err != nil {
+        dtoRequest.ResponseError(c, statusFromManagerErr(err), "启用插件失败", err)
+        return
+    }
+    dtoRequest.ResponseSuccess(c, gin.H{"ok": true})
 }
 
 // POST /api/.../admin/plugins/:id/disable

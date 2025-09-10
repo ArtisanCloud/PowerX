@@ -1,33 +1,39 @@
 package authgrpc
 
 import (
-	"context"
-	"strings"
-	"time"
+    "context"
+    "errors"
+    "strings"
+    "time"
 
-	"github.com/golang-jwt/jwt/v5"
+    "github.com/golang-jwt/jwt/v5"
 
-	commonv1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/common/v1"
-	stsv1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/auth/sts/v1"
+    commonv1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/common/v1"
+    stsv1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/auth/sts/v1"
 
-	"github.com/ArtisanCloud/PowerX/internal/app/shared"
-	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
+    "github.com/ArtisanCloud/PowerX/internal/app/shared"
+    "github.com/ArtisanCloud/PowerX/internal/service/setting"
+    "github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 )
 
 type STSServiceServer struct {
-	stsv1.UnimplementedSTSServiceServer
-	issuer string
-	ring   *KeyRing
+    stsv1.UnimplementedSTSServiceServer
+    issuer string
+    ring   *KeyRing
+    cred   *setting.PluginInstanceConfigService
 }
 
 func NewSTSServiceServer(deps *shared.Deps) *STSServiceServer {
-	return NewSTSServiceServerWithRing(deps, NewDefaultKeyRing(deps))
+    return NewSTSServiceServerWithRing(deps, NewDefaultKeyRing(deps))
 }
-func NewSTSServiceServerWithRing(_ *shared.Deps, ring *KeyRing) *STSServiceServer {
-	return &STSServiceServer{
-		issuer: "powerx.sts",
-		ring:   ring,
-	}
+func NewSTSServiceServerWithRing(deps *shared.Deps, ring *KeyRing) *STSServiceServer {
+    // 默认 issuer（gRPC 验证不校验 issuer，仅用于回显）
+    issuer := "powerx-sts"
+    srv := &STSServiceServer{issuer: issuer, ring: ring}
+    if deps != nil {
+        srv.cred = setting.NewPluginInstanceConfigService(deps)
+    }
+    return srv
 }
 
 /******** meta helpers ********/
@@ -43,73 +49,82 @@ func badMeta(ctx context.Context, code int32, msg, reqID string) *commonv1.Respo
 
 /******** Exchange ********/
 func (s *STSServiceServer) Exchange(ctx context.Context, req *stsv1.ExchangeRequest) (*stsv1.ExchangeResponse, error) {
-	// 1) 鉴别调用方（示例略过真实校验）
-	var subject string
-	if req.GetSubjectToken() != "" {
-		subject = "subject_token"
-	} else if req.GetClientId() != "" && req.GetClientSecret() != "" {
-		subject = "client:" + req.GetClientId()
-	} else {
-		return &stsv1.ExchangeResponse{Meta: badMeta(ctx, 400, "missing subject_token or client credentials", req.GetCtx().GetRequestId())}, nil
-	}
+    // 1) 鉴别调用方：优先 client_credentials（plugin_id + tenant_id）
+    var subject string
+    var tenantID uint64
+    var pluginID string
+    if cid, sec := req.GetClientId(), req.GetClientSecret(); cid != "" && sec != "" {
+        // 解析 client_id（约定：<pluginID>.<tenantID>）
+        pID, tID, perr := parseClientID(cid)
+        if perr != nil {
+            return &stsv1.ExchangeResponse{Meta: badMeta(ctx, 400, "invalid client_id format", req.GetCtx().GetRequestId())}, nil
+        }
+        pluginID, tenantID = pID, tID
+
+        // 校验凭证与能力约束
+        if s.cred == nil { return &stsv1.ExchangeResponse{Meta: badMeta(ctx, 500, "sts not initialized", req.GetCtx().GetRequestId())}, nil }
+        wantAud := req.GetAudience()
+        wantScope := req.GetScope()
+        if err := s.cred.VerifyClient(ctx, tenantID, pluginID, cid, sec, wantAud, wantScope, ""); err != nil {
+            return &stsv1.ExchangeResponse{Meta: badMeta(ctx, 401, "invalid client credentials", req.GetCtx().GetRequestId())}, nil
+        }
+        subject = "client:" + cid
+    } else if req.GetSubjectToken() != "" {
+        // 预留：基于 subject_token 的交换（未实现）
+        subject = "subject_token"
+    } else {
+        return &stsv1.ExchangeResponse{Meta: badMeta(ctx, 400, "missing subject_token or client credentials", req.GetCtx().GetRequestId())}, nil
+    }
 
 	// 2) audience/scope/ttl
-	aud := req.GetAudience()
-	if aud == "" {
-		aud = "powerx:api"
-	}
-	scope := req.GetScope()
-	ttl := time.Duration(req.GetTtlSeconds())
-	if ttl <= 0 {
-		ttl = 300
-	}
-	ttlDur := ttl * time.Second
+    aud := req.GetAudience()
+    if aud == "" { aud = "powerx:api" }
+    scope := req.GetScope()
+    if scope == "" { scope = "access" }
+    ttl := time.Duration(req.GetTtlSeconds())
+    if ttl <= 0 {
+        ttl = 300
+    }
+    ttlDur := ttl * time.Second
 
-	// 3) 代办主体 → CoreXClaims
-	var tenantID, userID, memberID uint64
-	if a := req.GetActor(); a != nil {
-		tenantID = a.GetTenantId()
-		switch a.GetKind() {
-		case stsv1.ActorKind_ACTOR_KIND_USER:
-			userID = a.GetUserId()
-		case stsv1.ActorKind_ACTOR_KIND_CUSTOMER:
-			memberID = a.GetMemberId()
-		}
-	}
+    // 3) 代办主体 → CoreXClaims
+    if a := req.GetActor(); a != nil {
+        // 允许覆盖来自 client_id 的 tenantID（如需）
+        if a.GetTenantId() > 0 { tenantID = a.GetTenantId() }
+        switch a.GetKind() {
+        case stsv1.ActorKind_ACTOR_KIND_USER:
+            userID := a.GetUserId()
+            _ = userID
+        case stsv1.ActorKind_ACTOR_KIND_CUSTOMER:
+            memberID := a.GetMemberId()
+            _ = memberID
+        }
+    }
 
-	// 4) 选择 kid & key
-	kid := s.ring.ResolveKIDForActor(req.GetActor())
-	key := s.ring.GetHSByKID(kid)
-	if len(key) == 0 {
-		key = s.ring.GetHSByKID("default")
-	}
-	if len(key) == 0 {
-		return &stsv1.ExchangeResponse{Meta: badMeta(ctx, 500, "no signing key", req.GetCtx().GetRequestId())}, nil
-	}
-
-	// 5) 构造并签发 JWT（HS256），写入 kid
-	now := time.Now()
-	exp := now.Add(ttlDur)
-
-	claims := &reqctx.CoreXClaims{
-		TenantID: tenantID,
-		UserID:   userID,
-		MemberID: memberID,
-		Scope:    scope,
-		RegisteredClaims: jwt.RegisteredClaims{
-			Issuer:    s.issuer,
-			Subject:   subject,
-			Audience:  []string{aud},
-			IssuedAt:  jwt.NewNumericDate(now),
-			ExpiresAt: jwt.NewNumericDate(exp),
-		},
-	}
-	tok := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	tok.Header["kid"] = kid
-	ss, err := tok.SignedString(key)
-	if err != nil {
-		return &stsv1.ExchangeResponse{Meta: badMeta(ctx, 500, "sign failed: "+err.Error(), req.GetCtx().GetRequestId())}, nil
-	}
+    // 4) 构造并签发 JWT（使用 KeyRing 的 HS256 key，并附带 kid，便于 gRPC 拦截器验证）
+    now := time.Now()
+    claims := &reqctx.CoreXClaims{
+        TenantID: tenantID,
+        Scope:    scope,
+        RegisteredClaims: jwt.RegisteredClaims{
+            Issuer:   s.issuer,
+            Subject:  subject,
+            Audience: []string{aud},
+            IssuedAt: jwt.NewNumericDate(now),
+            ExpiresAt: jwt.NewNumericDate(now.Add(ttlDur)),
+        },
+    }
+    // 选择 kid & key：按 Actor 决定 kid；若无则取 default
+    kid := s.ring.ResolveKIDForActor(req.GetActor())
+    key := s.ring.GetHSByKID(kid)
+    if len(key) == 0 { kid = "default"; key = s.ring.GetHSByKID("default") }
+    if len(key) == 0 { return &stsv1.ExchangeResponse{Meta: badMeta(ctx, 500, "no signing key", req.GetCtx().GetRequestId())}, nil }
+    tok := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+    tok.Header["kid"] = kid
+    ss, err := tok.SignedString(key)
+    if err != nil {
+        return &stsv1.ExchangeResponse{Meta: badMeta(ctx, 500, "sign failed: "+err.Error(), req.GetCtx().GetRequestId())}, nil
+    }
 
 	return &stsv1.ExchangeResponse{
 		Meta: okMeta(ctx, req.GetCtx().GetRequestId()),
@@ -124,6 +139,19 @@ func (s *STSServiceServer) Exchange(ctx context.Context, req *stsv1.ExchangeRequ
 			IssuedAt:    now.Unix(),
 		},
 	}, nil
+}
+
+// parseClientID: 约定 client_id = "<pluginID>.<tenantID>"
+func parseClientID(cid string) (pluginID string, tenantID uint64, err error) {
+    parts := strings.Split(cid, ".")
+    if len(parts) < 2 { return "", 0, errors.New("invalid") }
+    last := parts[len(parts)-1]
+    var tid uint64
+    for i := 0; i < len(last); i++ { if last[i] < '0' || last[i] > '9' { return "", 0, errors.New("invalid") } }
+    // 简单无依赖转换
+    for i := 0; i < len(last); i++ { tid = tid*10 + uint64(last[i]-'0') }
+    if tid == 0 { return "", 0, errors.New("invalid") }
+    return strings.Join(parts[:len(parts)-1], "."), tid, nil
 }
 
 /******** Introspect（可选） ********/

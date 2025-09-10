@@ -70,13 +70,14 @@ func (m *managerImpl) Enable(ctx context.Context, id string) error {
 			return plugin_mgr.Wrap(plugin_mgr.CodeHealthcheckFailed, err, plugin_mgr.WithOp("enable"), plugin_mgr.WithPlugin(id))
 		}
 
-		// 反向代理挂载
-		u, _ := url.Parse(baseURL)
-		basePath := p.Endpoints.HTTPBasePath
-		if basePath == "" {
-			basePath = "/"
-		}
-		m.http.MountAPIProxy(p.ID, u, basePath)
+        // 反向代理挂载
+        u, _ := url.Parse(baseURL)
+        basePath := p.Endpoints.HTTPBasePath
+        if basePath == "" {
+            basePath = "/"
+        }
+        // 传递 healthPath，宿主的 /_p/:id/api/healthz 将直达插件健康检查
+        m.http.MountAPIProxy(p.ID, u, basePath, healthPath)
 	}
 
 	// 3) 状态落盘
@@ -88,13 +89,14 @@ func (m *managerImpl) Enable(ctx context.Context, id string) error {
 		return err
 	}
 
-	if m.opts.PostEnable != nil {
-		// 从 ctx 或上层传参拿 tenantID；没有就用 0（系统）
-		tid := reqctx.GetTenantID(ctx) // 你已有 reqctx.GetTenantID 或外层注入
-		if err := m.opts.PostEnable(ctx, tid, p.ID); err != nil {
-			return err
-		}
-	}
+    if m.opts.PostEnable != nil {
+        // 从 ctx 读取 tenantID；若为 0（系统上下文），跳过凭证创建，避免产生 tenant_id=0 的记录
+        if tid := reqctx.GetTenantID(ctx); tid > 0 {
+            if err := m.opts.PostEnable(ctx, tid, p.ID); err != nil {
+                return err
+            }
+        }
+    }
 	return nil
 }
 

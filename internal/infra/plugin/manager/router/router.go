@@ -18,8 +18,9 @@ import (
 )
 
 type apiUpstream struct {
-	target   *url.URL // e.g. http://127.0.0.1:31001
-	basePath string   // e.g. "/v1" (插件 manifest.endpoints.http_base_path)
+    target   *url.URL // e.g. http://127.0.0.1:31001
+    basePath string   // e.g. "/v1" (插件 manifest.endpoints.http_base_path)
+    healthPath string // e.g. "/healthz" (插件 runtime.health.http)
 }
 
 type DynamicRouter struct {
@@ -44,9 +45,9 @@ func NewDynamicRouter(basePrefix string, engine *gin.Engine) *DynamicRouter {
 	// Admin 静态
 	grp.GET("/:id/admin/*filepath", dr.serveAdminStatic)
 	grp.HEAD("/:id/admin/*filepath", dr.serveAdminStatic)
-	// API 反代
-	grp.Any("/:id/api/*filepath", dr.serveAPIProxy)
-	return dr
+    // API 反代
+    grp.Any("/:id/api/*filepath", dr.serveAPIProxy)
+    return dr
 }
 
 func (r *DynamicRouter) MountAdminStatic(id, absDir string) {
@@ -55,17 +56,23 @@ func (r *DynamicRouter) MountAdminStatic(id, absDir string) {
 	r.adminDirs[id] = absDir
 }
 
-func (r *DynamicRouter) MountAPIProxy(id string, upstream *url.URL, basePath string) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	// 规范化 basePath
-	if basePath == "" {
-		basePath = "/"
-	}
-	if !strings.HasPrefix(basePath, "/") {
-		basePath = "/" + basePath
-	}
-	r.apis[id] = apiUpstream{target: upstream, basePath: basePath}
+func (r *DynamicRouter) MountAPIProxy(id string, upstream *url.URL, basePath string, healthPath string) {
+    r.mu.Lock()
+    defer r.mu.Unlock()
+    // 规范化 basePath
+    if basePath == "" {
+        basePath = "/"
+    }
+    if !strings.HasPrefix(basePath, "/") {
+        basePath = "/" + basePath
+    }
+    if healthPath == "" {
+        healthPath = "/healthz"
+    }
+    if !strings.HasPrefix(healthPath, "/") {
+        healthPath = "/" + healthPath
+    }
+    r.apis[id] = apiUpstream{target: upstream, basePath: basePath, healthPath: healthPath}
 }
 
 func (r *DynamicRouter) Unmount(id string) {
@@ -142,9 +149,9 @@ func (r *DynamicRouter) serveAPIProxy(c *gin.Context) {
 		pluginToken = tok
 	}
 
-	proxy := httputil.NewSingleHostReverseProxy(up.target)
-	origDirector := proxy.Director
-	proxy.Director = func(req *http.Request) {
+    proxy := httputil.NewSingleHostReverseProxy(up.target)
+    origDirector := proxy.Director
+    proxy.Director = func(req *http.Request) {
 		// 交给默认 director 处理 scheme/host，再改 path
 		if origDirector != nil {
 			origDirector(req)
@@ -153,10 +160,29 @@ func (r *DynamicRouter) serveAPIProxy(c *gin.Context) {
 			req.URL.Host = up.target.Host
 		}
 
-		// 拼接下游路径： upstreamBase + manifestBasePath + clientPath
-		reqPath := joinURLPath(up.target.Path, up.basePath, clientPath)
-		req.URL.Path = reqPath
-		req.URL.RawPath = reqPath
+        // 拼接下游路径： upstreamBase + manifestBasePath + clientPath
+        // 特例：健康检查，或客户端已包含 basePath 的场景，避免重复拼接 /v1/v1
+        var reqPath string
+        // 兼容两种访问方式：/_p/:id/api/healthz 与 /_p/:id/api/<base>/healthz
+        clientHealthzWithBase := up.basePath
+        if clientHealthzWithBase != "" && clientHealthzWithBase != "/" {
+            if !strings.HasSuffix(clientHealthzWithBase, "/") {
+                clientHealthzWithBase += "/"
+            }
+            clientHealthzWithBase += "healthz"
+        }
+        if clientPath == "/healthz" || (clientHealthzWithBase != "" && clientPath == clientHealthzWithBase) {
+            reqPath = joinURLPath(up.target.Path, up.healthPath)
+        } else {
+            // 若客户端已经带了 basePath（如 /v1/ping），避免再次拼接导致 /v1/v1/ping
+            if up.basePath != "" && up.basePath != "/" && strings.HasPrefix(clientPath, up.basePath) {
+                reqPath = joinURLPath(up.target.Path, clientPath)
+            } else {
+                reqPath = joinURLPath(up.target.Path, up.basePath, clientPath)
+            }
+        }
+        req.URL.Path = reqPath
+        req.URL.RawPath = reqPath
 
 		// 覆盖授权头为“插件内部短期 Token”
 		req.Header.Del("Authorization")
@@ -173,8 +199,11 @@ func (r *DynamicRouter) serveAPIProxy(c *gin.Context) {
 		// Host 头设置为下游
 		req.Host = up.target.Host
 	}
-	proxy.ServeHTTP(c.Writer, c.Request)
+    proxy.ServeHTTP(c.Writer, c.Request)
 }
+
+// 说明：健康检查路由不单独注册，避免与通配符冲突；
+// 在 serveAPIProxy 中对 clientPath=="/healthz" 做特殊处理。
 
 func buildSignedCtx(c *gin.Context) (ctxB64, sig string, ok bool) {
 	claimsAny, exists := c.Get("auth_claims")
