@@ -997,6 +997,34 @@
         ]
       }
     },
+    "/api/admin/plugins/marketplace/plugins": {
+      "get": {
+        "operationId": "GET /api/admin/plugins/marketplace/plugins",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "GET /api/admin/plugins/marketplace/plugins",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/plugins/marketplace/plugins_v2": {
+      "get": {
+        "operationId": "GET /api/admin/plugins/marketplace/plugins_v2",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "GET /api/admin/plugins/marketplace/plugins_v2",
+        "tags": [
+          "api"
+        ]
+      }
+    },
     "/api/admin/plugins/menus": {
       "get": {
         "operationId": "GET /api/admin/plugins/menus",
@@ -1556,20 +1584,6 @@
           }
         },
         "summary": "GET /api/health",
-        "tags": [
-          "api"
-        ]
-      }
-    },
-    "/api/marketplace/plugins": {
-      "get": {
-        "operationId": "GET /api/marketplace/plugins",
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "summary": "GET /api/marketplace/plugins",
         "tags": [
           "api"
         ]
