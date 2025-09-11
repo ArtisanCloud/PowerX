@@ -1,20 +1,21 @@
 package manager
 
 import (
-	"context"
-	"fmt"
-	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
-	"io"
-	"net/http"
-	"net/url"
-	"os"
-	"path/filepath"
-	"strconv"
-	"strings"
-	"time"
+    "context"
+    "fmt"
+    "github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
+    "io"
+    "net/http"
+    "net/url"
+    "os"
+    "path/filepath"
+    "strconv"
+    "strings"
+    "time"
 
-	"github.com/ArtisanCloud/PowerX/internal/infra/plugin/manager/supervisor"
-	"github.com/ArtisanCloud/PowerX/pkg/plugin_mgr"
+    "github.com/ArtisanCloud/PowerX/internal/infra/plugin/manager/supervisor"
+    "github.com/ArtisanCloud/PowerX/pkg/plugin_mgr"
+    "github.com/ArtisanCloud/PowerX/pkg/utils"
 )
 
 // Enable: 启用插件 = (挂 Admin 静态) + (启动进程并健康检查) + (挂 API 反代) + (更新注册表)
@@ -58,6 +59,19 @@ func (m *managerImpl) Enable(ctx context.Context, id string) error {
 
 		// 启动子进程（自动分配端口，PORT 注入）
 		envMap := p.Runtime.Env
+		// 注入宿主→插件的内部通信令牌（仅内存）
+        internalToken := os.Getenv("POWERX_INTERNAL_TOKEN")
+        if internalToken == "" {
+            // 使用全局工具生成更强随机
+            internalToken = utils.RandomString(48)
+        }
+		// 优先使用更强随机（如果 utils 可用，可替换）
+		envMap["POWERX_INTERNAL_TOKEN"] = internalToken
+		envMap["POWERX_PLUGIN_ID"] = p.ID
+		m.mu.Lock()
+		if m.tokens == nil { m.tokens = map[string]string{} }
+		m.tokens[p.ID] = internalToken
+		m.mu.Unlock()
 		port, err := m.sup.Start(ctx, p.ID, p.Paths.Entry, p.Runtime.Args, envMap, supOpts)
 		if err != nil {
 			return plugin_mgr.Wrap(plugin_mgr.CodeProcessStartFailed, err, plugin_mgr.WithOp("enable"), plugin_mgr.WithPlugin(id))

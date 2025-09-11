@@ -9,6 +9,7 @@ import "google/protobuf/timestamp.proto";
 import "common/v1/context.proto";
 import "common/v1/resource.proto";
 import "common/v1/pagination.proto";
+import "common/v1/response.proto";
 
 // -------- 枚举/视图 --------
 enum MemberStatus {
@@ -82,11 +83,25 @@ message ListMembersRequest {
   MemberView view = 20;
 }
 
-message GetMemberResponse { Member member = 1; }
-message BatchGetMembersResponse { repeated Member members = 1; }
-message ListMembersResponse {
+message GetMemberData { Member member = 1; }
+message GetMemberResponse {
+  common.v1.ResponseMeta meta = 1;
+  GetMemberData          data = 2;
+}
+
+message BatchGetMembersData { repeated Member members = 1; }
+message BatchGetMembersResponse {
+  common.v1.ResponseMeta  meta = 1;
+  BatchGetMembersData     data = 2;
+}
+
+message ListMembersData {
   repeated Member items = 1;
   common.v1.PageResponse page = 2; // next_page_token/total（可选 total）
+}
+message ListMembersResponse {
+  common.v1.ResponseMeta meta = 1;
+  ListMembersData        data = 2;
 }
 
 // -------- 服务 --------

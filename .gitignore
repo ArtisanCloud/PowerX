@@ -72,3 +72,4 @@ etc/config.yaml
 !plugins/.gitkeep
 
 api/grpc/gen/
+.gocache

@@ -4,6 +4,7 @@ import (
     "encoding/json"
     "github.com/ArtisanCloud/PowerX/internal/app/shared"
     "github.com/ArtisanCloud/PowerX/internal/service/setting"
+    pmimplnotify "github.com/ArtisanCloud/PowerX/internal/infra/plugin/manager/notify"
     dtoRequest "github.com/ArtisanCloud/PowerX/pkg/dto"
     dbsetting "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/setting"
     "github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
@@ -169,6 +170,9 @@ func PluginCredentialRotateHandler(deps *shared.Deps) gin.HandlerFunc {
         }
         // 可选：保持 enabled 状态不变
         _ = tryKeepEnabled(c, svc, cfg)
+
+        // 尝试通过 gRPC 下发到插件（最佳努力）
+        _ = pmimplnotify.PushTenantCredentials(c, id, tid, cc.ClientID, secret)
 
         dtoRequest.ResponseSuccess(c, gin.H{
             "client_id":     cc.ClientID,

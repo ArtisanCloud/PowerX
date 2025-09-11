@@ -1,13 +1,11 @@
 package iam
 
 import (
-	"context"
-	"github.com/ArtisanCloud/PowerX/internal/app/shared"
+    "context"
+    "github.com/ArtisanCloud/PowerX/internal/app/shared"
 
-	commonv1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/common/v1"
-	orgv1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/iam/v1"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
+    commonv1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/common/v1"
+    orgv1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/iam/v1"
 )
 
 // 编译期保证接口实现
@@ -19,46 +17,46 @@ type TeamServer struct {
 }
 
 func NewTeamServer(deps *shared.Deps) *TeamServer {
-	return &TeamServer{deps: deps}
+    return &TeamServer{deps: deps}
 }
 
 func (s *TeamServer) GetTeam(ctx context.Context, req *orgv1.GetTeamRequest) (*orgv1.GetTeamResponse, error) {
-	if req.GetCtx().GetTenantId() == 0 {
-		return nil, status.Error(codes.InvalidArgument, "tenant_id required")
-	}
-	// TODO: s.deps.<OrgService>.GetTeam(...)
-	return nil, status.Error(codes.Unimplemented, "GetTeam not implemented yet")
+    if req.GetCtx().GetTenantId() == 0 {
+        return &orgv1.GetTeamResponse{Meta: badMeta(ctx, 400, "tenant_id required", req.GetCtx().GetRequestId())}, nil
+    }
+    // TODO: 实现真实查询
+    return &orgv1.GetTeamResponse{Meta: badMeta(ctx, 501, "GetTeam not implemented yet", req.GetCtx().GetRequestId())}, nil
 }
 
 func (s *TeamServer) ListTeams(ctx context.Context, req *orgv1.ListTeamsRequest) (*orgv1.ListTeamsResponse, error) {
-	if req.GetCtx().GetTenantId() == 0 {
-		return nil, status.Error(codes.InvalidArgument, "tenant_id required")
-	}
-	// TODO: s.deps.<OrgService>.ListTeams(filter)
-	return &orgv1.ListTeamsResponse{
-		Items: []*orgv1.Team{},
-		Page:  &commonv1.PageResponse{},
-	}, nil
+    if req.GetCtx().GetTenantId() == 0 {
+        return &orgv1.ListTeamsResponse{Meta: badMeta(ctx, 400, "tenant_id required", req.GetCtx().GetRequestId())}, nil
+    }
+    // TODO: 实现真实查询
+    return &orgv1.ListTeamsResponse{
+        Meta: okMeta(ctx, req.GetCtx().GetRequestId()),
+        Data: &orgv1.ListTeamsData{Items: []*orgv1.Team{}, Page: &commonv1.PageResponse{}},
+    }, nil
 }
 
 func (s *TeamServer) ListTeamMembers(ctx context.Context, req *orgv1.ListTeamMembersRequest) (*orgv1.ListTeamMembersResponse, error) {
-	if req.GetCtx().GetTenantId() == 0 {
-		return nil, status.Error(codes.InvalidArgument, "tenant_id required")
-	}
-	// TODO: s.deps.<OrgService>.ListTeamMembers(teamID/prn, keyword/role/status, page)
-	return &orgv1.ListTeamMembersResponse{
-		Items: []*orgv1.TeamMember{},
-		Page:  &commonv1.PageResponse{},
-	}, nil
+    if req.GetCtx().GetTenantId() == 0 {
+        return &orgv1.ListTeamMembersResponse{Meta: badMeta(ctx, 400, "tenant_id required", req.GetCtx().GetRequestId())}, nil
+    }
+    // TODO: 实现真实查询
+    return &orgv1.ListTeamMembersResponse{
+        Meta: okMeta(ctx, req.GetCtx().GetRequestId()),
+        Data: &orgv1.ListTeamMembersData{Items: []*orgv1.TeamMember{}, Page: &commonv1.PageResponse{}},
+    }, nil
 }
 
 func (s *TeamServer) ListMemberTeams(ctx context.Context, req *orgv1.ListMemberTeamsRequest) (*orgv1.ListMemberTeamsResponse, error) {
-	if req.GetCtx().GetTenantId() == 0 {
-		return nil, status.Error(codes.InvalidArgument, "tenant_id required")
-	}
-	// TODO: s.deps.<OrgService>.ListMemberTeams(memberID/prn/username, page)
-	return &orgv1.ListMemberTeamsResponse{
-		Items: []*orgv1.Team{},
-		Page:  &commonv1.PageResponse{},
-	}, nil
+    if req.GetCtx().GetTenantId() == 0 {
+        return &orgv1.ListMemberTeamsResponse{Meta: badMeta(ctx, 400, "tenant_id required", req.GetCtx().GetRequestId())}, nil
+    }
+    // TODO: 实现真实查询
+    return &orgv1.ListMemberTeamsResponse{
+        Meta: okMeta(ctx, req.GetCtx().GetRequestId()),
+        Data: &orgv1.ListMemberTeamsData{Items: []*orgv1.Team{}, Page: &commonv1.PageResponse{}},
+    }, nil
 }

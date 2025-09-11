@@ -1,0 +1,31 @@
+syntax = "proto3";
+
+package powerx.plugin.control.v1;
+
+option go_package = "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/plugin/control/v1;pcv1";
+
+import "common/v1/context.proto";
+import "common/v1/response.proto";
+
+// Plugin 控制面（Host → Plugin）
+// 说明：用于宿主在插件首次启用或密钥轮换时，向插件侧安全下发租户凭证。
+service ControlService {
+  rpc UpsertTenantCredentials(UpsertTenantCredentialsRequest) returns (UpsertTenantCredentialsResponse);
+}
+
+message UpsertTenantCredentialsRequest {
+  common.v1.RequestContext ctx = 1; // 建议携带 tenant_id + request_id
+
+  uint64 tenant_id = 10;
+  string plugin_id = 11;
+
+  string client_id = 20;
+  string client_secret = 21; // 明文；插件应安全持久化（仅内部使用，不对外暴露）
+}
+
+message UpsertTenantCredentialsData { bool ok = 1; }
+message UpsertTenantCredentialsResponse {
+  common.v1.ResponseMeta           meta = 1;
+  UpsertTenantCredentialsData      data = 2;
+}
+

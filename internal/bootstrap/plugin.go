@@ -1,17 +1,18 @@
 package bootstrap
 
 import (
-	"context"
-	"github.com/ArtisanCloud/PowerX/internal/app/shared"
-	"github.com/ArtisanCloud/PowerX/internal/service/setting"
-	"github.com/ArtisanCloud/PowerX/pkg/corex/iam"
-	"strings"
-	"time"
+    "context"
+    "github.com/ArtisanCloud/PowerX/internal/app/shared"
+    "github.com/ArtisanCloud/PowerX/internal/service/setting"
+    "github.com/ArtisanCloud/PowerX/pkg/corex/iam"
+    "strings"
+    "time"
 
-	"github.com/ArtisanCloud/PowerX/internal/infra/plugin/manager/router"
-	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
-	"os"
-	"path/filepath"
+    "github.com/ArtisanCloud/PowerX/internal/infra/plugin/manager/router"
+    pmimplnotify "github.com/ArtisanCloud/PowerX/internal/infra/plugin/manager/notify"
+    "github.com/ArtisanCloud/PowerX/pkg/utils/logger"
+    "os"
+    "path/filepath"
 
 	"github.com/ArtisanCloud/PowerX/config"
 	pmimpl "github.com/ArtisanCloud/PowerX/internal/infra/plugin/manager"
@@ -76,10 +77,14 @@ func BootstrapPlugin(ctx context.Context, deps *shared.Deps, cfg *config.Config,
 				return err
 			}
 
-			// 这里先用日志/审计代替返回（明文 secret 只此一次）
-			logger.InfoF(ctx, "[plugin] credentials issued: plugin=%s tenant=%d client_id=%s (secret just-once)",
-				pluginID, tenantID, clientID)
-			_ = clientSecret // 避免未使用；也可以写入审计/通知
+			// 推送到插件（若首次创建有明文 secret）
+			if clientSecret != "" {
+				if err := pmimplnotify.PushTenantCredentials(ctx, pluginID, tenantID, clientID, clientSecret); err != nil {
+					logger.WarnF(ctx, "push credentials to plugin failed: plugin=%s tenant=%d err=%v", pluginID, tenantID, err)
+				} else {
+					logger.InfoF(ctx, "pushed credentials to plugin: plugin=%s tenant=%d", pluginID, tenantID)
+				}
+			}
 
 			return nil
 		},

@@ -1,7 +1,6 @@
 package grpcserver
 
 import (
-	"fmt"
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"google.golang.org/grpc"
@@ -17,12 +16,11 @@ import (
 // Bootstrap 负责：推导监听地址 → 构建 gRPC Server → 后台启动 Serve。
 // 返回 *grpc.Server（便于在 main 里优雅退出：GracefulStop）。
 func BootstrapGRPC(ctx context.Context, cfg *GRPCConfig, deps *shared.Deps) (*grpc.Server, error) {
-	port := cfg.Port
-	if port == 0 {
-		port = 9001 // 默认端口
+	// 允许通过配置关闭 gRPC 服务
+	if cfg != nil && !cfg.Enable {
+		logger.Info(ctx, "[gRPC] disabled by config")
+		return nil, nil
 	}
-	addr := fmt.Sprintf(":%d", port)
-
 	// 构建 Server 与 Listener（复用你在 internal/server/grpc/server.go 提供的 New）
 	s, lis, err := New(cfg, deps)
 
@@ -31,7 +29,7 @@ func BootstrapGRPC(ctx context.Context, cfg *GRPCConfig, deps *shared.Deps) (*gr
 	}
 
 	// 后台启动（非阻塞）
-	go ServeGRPC(ctx, s, lis, addr)
+	go ServeGRPC(ctx, s, lis, lis.Addr().String())
 
 	return s, nil
 }
