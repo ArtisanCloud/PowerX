@@ -803,6 +803,34 @@
         ]
       }
     },
+    "/api/admin/plugins/:id/credentials": {
+      "get": {
+        "operationId": "GET /api/admin/plugins/_id/credentials",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "GET /api/admin/plugins/_id/credentials",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/plugins/:id/credentials/rotate": {
+      "post": {
+        "operationId": "POST /api/admin/plugins/_id/credentials/rotate",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/admin/plugins/_id/credentials/rotate",
+        "tags": [
+          "api"
+        ]
+      }
+    },
     "/api/admin/plugins/:id/disable": {
       "post": {
         "operationId": "POST /api/admin/plugins/_id/disable",
@@ -882,6 +910,46 @@
           }
         },
         "summary": "POST /api/admin/plugins/_id/switch_version",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/plugins/:id/tenant_config": {
+      "delete": {
+        "operationId": "DELETE /api/admin/plugins/_id/tenant_config",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "DELETE /api/admin/plugins/_id/tenant_config",
+        "tags": [
+          "api"
+        ]
+      },
+      "get": {
+        "operationId": "GET /api/admin/plugins/_id/tenant_config",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "GET /api/admin/plugins/_id/tenant_config",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/plugins/:id/tenant_enable": {
+      "post": {
+        "operationId": "POST /api/admin/plugins/_id/tenant_enable",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/admin/plugins/_id/tenant_enable",
         "tags": [
           "api"
         ]

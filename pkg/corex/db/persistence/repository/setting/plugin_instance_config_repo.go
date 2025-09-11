@@ -77,3 +77,12 @@ func (r *PluginInstanceConfigRepository) ListEnabledPluginsByTenant(ctx context.
 	}
 	return ids, nil
 }
+
+// Delete 租户-插件-键 的配置
+func (r *PluginInstanceConfigRepository) Delete(ctx context.Context, tenantID uint64, pluginID, key string, soft bool) error {
+    db := r.with(ctx).Where("tenant_id = ? AND plugin_id = ? AND key = ?", tenantID, pluginID, key)
+    if !soft {
+        db = db.Unscoped()
+    }
+    return db.Delete(&dbsetting.PluginInstanceConfig{}).Error
+}

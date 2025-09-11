@@ -39,7 +39,7 @@ type ClientCredential struct {
 
 // Service
 type PluginInstanceConfigService struct {
-	PluginInstanceRepo *reposetting.PluginInstanceConfigRepository
+    PluginInstanceRepo *reposetting.PluginInstanceConfigRepository
 }
 
 func NewPluginInstanceConfigService(deps *shared.Deps) *PluginInstanceConfigService {
@@ -214,10 +214,17 @@ func (s *PluginInstanceConfigService) VerifyClient(
 /* ==================== 小工具 ==================== */
 
 func contains[T comparable](ss []T, x T) bool {
-	for _, v := range ss {
-		if v == x {
-			return true
-		}
-	}
-	return false
+    for _, v := range ss {
+        if v == x {
+            return true
+        }
+    }
+    return false
+}
+
+/* ============== 删除（按需彻底删除） ============== */
+
+// DeleteCredentials 删除本租户-插件的凭证配置；soft=false 为硬删除
+func (s *PluginInstanceConfigService) DeleteCredentials(ctx context.Context, tenantID uint64, pluginID string, soft bool) error {
+    return s.PluginInstanceRepo.Delete(ctx, tenantID, strings.TrimSpace(pluginID), KeyClientCredentials, soft)
 }

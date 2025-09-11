@@ -36,6 +36,6 @@ func RegisterAPIRoutes(
 	menu.RegisterAPIRoutes(publicGroup, protectedGroup)
 	auth.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	agent.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
-	plugin.RegisterAPIRoutes(publicGroup, protectedGroup)
+    plugin.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 
 }
