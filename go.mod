@@ -29,6 +29,10 @@ require (
 	gorm.io/gorm v1.30.1
 )
 
+require github.com/ArtisanCloud/PowerX/api/grpc/gen/go v0.0.0
+
+replace github.com/ArtisanCloud/PowerX/api/grpc/gen/go => ./api/grpc/gen/go
+
 require (
 	filippo.io/edwards25519 v1.1.0 // indirect
 	github.com/KyleBanks/depth v1.2.1 // indirect

@@ -1,0 +1,93 @@
+name: SDK Release
+
+on:
+  push:
+    tags:
+      - 'proto/*'
+      - 'sdk-go/*'
+      - 'sdk-rust/*'
+      - 'sdk-php/*'
+      - 'sdk-ts/*'
+
+jobs:
+  proto:
+    if: startsWith(github.ref, 'refs/tags/proto/')
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: api/grpc/contracts
+    steps:
+      - uses: actions/checkout@v4
+      - uses: bufbuild/buf-setup-action@v1
+      - name: Lint & Breaking
+        run: |
+          buf lint
+          buf breaking --against '.git#branch=main'
+      - name: Generate
+        run: buf generate
+      # - name: Push to BSR
+      #   run: buf push
+
+  sdk-go:
+    if: startsWith(github.ref, 'refs/tags/sdk-go/')
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: api/grpc/gen/go
+    steps:
+      - uses: actions/checkout@v4
+      - name: Go Mod Tidy
+        run: |
+          go mod tidy
+      - name: Build
+        run: |
+          go build ./...
+      # 发布由打 tag 触发，或集成 goreleaser（可选）
+
+  sdk-rust:
+    if: startsWith(github.ref, 'refs/tags/sdk-rust/')
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: api/grpc/sdk/rust/powerx-sdk
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Check
+        run: cargo check
+      # - name: Publish
+      #   run: cargo publish --token ${{ secrets.CRATES_TOKEN }}
+
+  sdk-php:
+    if: startsWith(github.ref, 'refs/tags/sdk-php/')
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: api/grpc/sdk/php/powerx-sdk
+    steps:
+      - uses: actions/checkout@v4
+      - name: List files
+        run: ls -la
+      # 建议使用 subtree-split 镜像到独立仓，由 Packagist 监听自动发布
+
+  sdk-ts:
+    if: startsWith(github.ref, 'refs/tags/sdk-ts/')
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: api/grpc/sdk/ts/packages/@powerx/grpc
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+      - name: Build
+        run: |
+          npm ci || true
+          npm run build || true
+      # - name: Publish
+      #   run: npm publish --access public
+      #   env:
+      #     NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+

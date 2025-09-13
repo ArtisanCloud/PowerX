@@ -1,0 +1,15 @@
+{
+  "name": "artisancloud/powerx-sdk",
+  "description": "PowerX gRPC PHP SDK",
+  "type": "library",
+  "license": "MIT",
+  "autoload": {
+    "psr-4": {
+      "PowerX\\": "src/"
+    }
+  },
+  "require": {
+    "google/protobuf": "^3.25",
+    "grpc/grpc": "^1.6"
+  }
+}

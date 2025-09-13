@@ -1,0 +1,19 @@
+{
+  "name": "@powerx/grpc",
+  "version": "0.1.0",
+  "description": "PowerX gRPC TypeScript SDK",
+  "license": "MIT",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}
