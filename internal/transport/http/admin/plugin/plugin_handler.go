@@ -1,16 +1,16 @@
 package plugin
 
 import (
-	"github.com/ArtisanCloud/PowerX/config"
-	manager "github.com/ArtisanCloud/PowerX/internal/infra/plugin/manager"
-	dtoRequest "github.com/ArtisanCloud/PowerX/pkg/dto"
-	pluginDto "github.com/ArtisanCloud/PowerX/pkg/dto/plugin_mgr"
-	pluginMgr "github.com/ArtisanCloud/PowerX/pkg/plugin_mgr"
-	"github.com/gin-gonic/gin"
-	"net/http"
-	"sort"
+    "github.com/ArtisanCloud/PowerX/config"
+    manager "github.com/ArtisanCloud/PowerX/internal/infra/plugin/manager"
+    dtoRequest "github.com/ArtisanCloud/PowerX/pkg/dto"
+    pluginDto "github.com/ArtisanCloud/PowerX/pkg/dto/plugin_mgr"
+    pluginMgr "github.com/ArtisanCloud/PowerX/pkg/plugin_mgr"
+    "github.com/gin-gonic/gin"
+    "net/http"
+    "sort"
 
-	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
+    "github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 )
 
 // 辅助：从全局配置拿 BasePrefix（/_p）
@@ -144,6 +144,62 @@ func PluginMenusHandler(c *gin.Context) {
 	sort.Slice(agg, func(i, j int) bool { return agg[i].Order < agg[j].Order })
 
 	dtoRequest.ResponseSuccess(c, gin.H{"menus": agg})
+}
+
+// GET /api/.../admin/plugins/:id
+// 返回插件详情（合并注册表信息与运行态）
+func PluginGetHandler(c *gin.Context) {
+    id := c.Param("id")
+    if id == "" {
+        dtoRequest.ResponseError(c, http.StatusBadRequest, "缺少插件ID", nil)
+        return
+    }
+    mgr := manager.GetPluginManager()
+
+    p, err := mgr.Get(c, id)
+    if err != nil {
+        dtoRequest.ResponseError(c, http.StatusNotFound, "插件不存在", err)
+        return
+    }
+
+    // 运行态
+    proc, _ := manager.TryRuntimeStatus(mgr, id)
+
+    prefix := basePrefix()
+    hasAdmin := p.Frontend.Admin.Kind == pluginMgr.FrontendKindStatic && p.Paths.FrontendAdminDir != ""
+    adminURL := ""
+    if hasAdmin {
+        adminURL = prefix + "/" + p.ID + "/admin/"
+    }
+
+    // 统一输出结构（贴近列表项 + 运行状态）
+    out := gin.H{
+        "id":       p.ID,
+        "name":     p.Name,
+        "version":  p.Version,
+        "state":    string(p.State),
+        "adminURL": adminURL,
+        "apiBase":  prefix + "/" + p.ID + "/api",
+        "hasAdmin": hasAdmin,
+        "description": p.Description,
+        "author":      p.Metadata.Author,
+        "category":    p.Metadata.Category,
+        "tags":        append([]string(nil), p.Metadata.Tags...),
+        "runtime": gin.H{
+            "pid":           proc.PID,
+            "port":          proc.Port,
+            "state":         proc.State,
+            "healthy":       proc.Healthy,
+            "restarts":      proc.Restarts,
+            "started_at":    proc.StartedAt,
+            "stopped_at":    proc.StoppedAt,
+            "last_exit_err": proc.LastExitErr,
+            "health_ok":     proc.HealthOKCount,
+            "health_fails":  proc.HealthFails,
+        },
+    }
+
+    dtoRequest.ResponseSuccess(c, out)
 }
 
 // POST /api/.../admin/plugins/:id/restart

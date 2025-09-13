@@ -803,6 +803,20 @@
         ]
       }
     },
+    "/api/admin/plugins/:id": {
+      "get": {
+        "operationId": "GET /api/admin/plugins/_id",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "GET /api/admin/plugins/_id",
+        "tags": [
+          "api"
+        ]
+      }
+    },
     "/api/admin/plugins/:id/credentials": {
       "get": {
         "operationId": "GET /api/admin/plugins/_id/credentials",

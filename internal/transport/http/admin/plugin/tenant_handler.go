@@ -83,6 +83,10 @@ func PluginTenantEnableHandler(deps *shared.Deps) gin.HandlerFunc {
                 dtoRequest.ResponseError(c, 500, "启用失败", err)
                 return
             }
+            // 首次创建会返回一次性明文 secret，此时尝试通过 gRPC 下发到插件（best-effort）
+            if clientSecret != "" {
+                _ = pmimplnotify.PushTenantCredentials(c, id, tid, clientID, clientSecret)
+            }
             // 仅当首次创建时返回一次性 secret（非空）
             out := gin.H{"ok": true, "enabled": true, "client_id": clientID}
             if clientSecret != "" {

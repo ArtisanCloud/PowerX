@@ -19,6 +19,7 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 		grp.GET("/marketplace/plugins_v2", MarketplaceListV2Handler(cfg.Plugin.BasePrefix))
 
 		grp.GET("/", PluginListHandler)       // GET  /api/v1/admin/plugins
+		grp.GET("/:id", PluginGetHandler)     // GET  /api/v1/admin/plugins/:id
 		grp.GET("/menus", PluginMenusHandler) // GET  /api/v1/admin/plugins/menus
 
 		// 系统级：启停/重启/状态/安装/卸载/切换版本
