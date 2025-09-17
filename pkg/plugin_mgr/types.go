@@ -68,11 +68,18 @@ type Plugin struct {
 	Description string   `json:"description"`
 	Metadata    Metadata `json:"metadata"` // ✅ 建议用值类型，避免 nil
 
-	Runtime   RuntimeSpec  `json:"runtime"`
-	Frontend  FrontendSpec `json:"frontend"`
-	Endpoints EndpointSpec `json:"endpoints"`
-	RBAC      RBACSpec     `json:"rbac"`
-	Events    EventSpec    `json:"events"`
+	Runtime     RuntimeSpec      `json:"runtime"`
+	Frontend    FrontendSpec     `json:"frontend"`
+	Endpoints   EndpointSpec     `json:"endpoints"`
+	RBAC        RBACSpec         `json:"rbac"`
+	Events      EventSpec        `json:"events"`
+	Backend     *BackendSpec     `json:"backend,omitempty"`
+	Routes      *RouteSpec       `json:"routes,omitempty"`
+	Permissions []PermissionSpec `json:"permissions,omitempty"`
+	Menus       []MenuTreeItem   `json:"menus,omitempty"`
+	Agents      []AgentSpec      `json:"agents,omitempty"`
+	Tools       []ToolSpec       `json:"tools,omitempty"`
+	Workflows   []WorkflowSpec   `json:"workflows,omitempty"`
 
 	Paths InstalledPaths `json:"paths"`
 }
@@ -100,6 +107,13 @@ type RuntimeSpec struct {
 	Env           map[string]string `yaml:"env"             json:"env"` // "KEY=VALUE"
 	Health        HealthCheckSpec   `yaml:"health"         json:"health"`
 	RemoteBaseURL string            `yaml:"remote_base_url" json:"remote_base_url"` // remote 预留
+}
+
+// BackendSpec 记录插件后端进程在安装时代码声明的信息
+type BackendSpec struct {
+	Entry  string `yaml:"entry"  json:"entry"`
+	Port   int    `yaml:"port"   json:"port"`
+	Health string `yaml:"health" json:"health"`
 }
 
 // ------- Endpoints -------
@@ -135,19 +149,27 @@ type FrontendAdminSpec struct {
 }
 
 type MenuItem struct {
-	Route            string   `yaml:"route" json:"route"` // 相对 admin 根，如 "/", "/reports"
-	Title            string   `yaml:"title" json:"title"`
-	Icon             string   `yaml:"icon"  json:"icon"`
-	Order            int      `yaml:"order" json:"order"`
-	Slot             SlotKey  `yaml:"slot" json:"slot"`
-	Visible          *bool    `yaml:"visible" json:"visible"`
-	RequiredPolicies []string `yaml:"required_policies,omitempty" json:"required_policies,omitempty"`
+	ID               string     `yaml:"id"    json:"id"`
+	Route            string     `yaml:"route" json:"route"` // 相对 admin 根，如 "/", "/reports"
+	Path             string     `yaml:"path"  json:"path"`
+	Title            string     `yaml:"title" json:"title"`
+	Icon             string     `yaml:"icon"  json:"icon"`
+	Order            int        `yaml:"order" json:"order"`
+	Slot             SlotKey    `yaml:"slot" json:"slot"`
+	Visible          *bool      `yaml:"visible" json:"visible"`
+	RequiredPolicies []string   `yaml:"required_policies,omitempty" json:"required_policies,omitempty"`
+	Children         []MenuItem `yaml:"children,omitempty" json:"children,omitempty"`
 }
 
 // ------- RBAC / Events -------
 
 type RBACSpec struct {
 	Resources []RBACResource `yaml:"resources" json:"resources"`
+}
+
+type PermissionSpec struct {
+	Resource string   `yaml:"resource" json:"resource"`
+	Actions  []string `yaml:"actions"  json:"actions"`
 }
 
 type RBACResource struct {
@@ -158,6 +180,51 @@ type RBACResource struct {
 type EventSpec struct {
 	Publish   []string `yaml:"publish"   json:"publish"`
 	Subscribe []string `yaml:"subscribe" json:"subscribe"`
+}
+
+type RouteSpec struct {
+	BasePath      string `yaml:"basePath"       json:"basePath"`
+	AdminManifest string `yaml:"adminManifest" json:"adminManifest"`
+	RBAC          string `yaml:"rbac"          json:"rbac"`
+}
+
+type MenuTreeItem struct {
+	ID               string         `yaml:"id"       json:"id"`
+	Title            string         `yaml:"title"    json:"title"`
+	Icon             string         `yaml:"icon"     json:"icon"`
+	Path             string         `yaml:"path"     json:"path"`
+	Order            int            `yaml:"order"    json:"order"`
+	RequiredPolicies []string       `yaml:"required_policies,omitempty" json:"required_policies,omitempty"`
+	Children         []MenuTreeItem `yaml:"children,omitempty" json:"children,omitempty"`
+}
+
+type AgentSpec struct {
+	ID           string   `yaml:"id"           json:"id"`
+	PluginID     string   `yaml:"plugin_id"    json:"plugin_id"`
+	Name         string   `yaml:"name"         json:"name"`
+	Description  string   `yaml:"description"  json:"description"`
+	DefaultTools []string `yaml:"default_tools" json:"default_tools"`
+}
+
+type JSONSchema map[string]any
+
+type ToolSpec struct {
+	ID           string     `yaml:"id"            json:"id"`
+	PluginID     string     `yaml:"plugin_id"     json:"plugin_id"`
+	Name         string     `yaml:"name"          json:"name"`
+	Description  string     `yaml:"description"   json:"description"`
+	Transport    string     `yaml:"transport"     json:"transport"`
+	Endpoint     string     `yaml:"endpoint"      json:"endpoint"`
+	Method       string     `yaml:"method"        json:"method"`
+	RBACResource string     `yaml:"rbac_resource" json:"rbac_resource"`
+	InputSchema  JSONSchema `yaml:"input_schema"  json:"input_schema"`
+	OutputSchema JSONSchema `yaml:"output_schema" json:"output_schema"`
+}
+
+type WorkflowSpec struct {
+	ID          string `yaml:"id"          json:"id"`
+	Name        string `yaml:"name"        json:"name"`
+	Description string `yaml:"description" json:"description"`
 }
 
 // ------- 安装后的真实落地路径（宿主填充） -------

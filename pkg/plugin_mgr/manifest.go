@@ -10,11 +10,18 @@ type Manifest struct {
 	Description  string `yaml:"description"   json:"description"`
 	CoreXVersion string `yaml:"corex_version" json:"corex_version"`
 
-	Runtime   RuntimeSpec  `yaml:"runtime"   json:"runtime"`
-	Endpoints EndpointSpec `yaml:"endpoints" json:"endpoints"`
-	Frontend  FrontendSpec `yaml:"frontend"  json:"frontend"`
-	RBAC      RBACSpec     `yaml:"rbac"      json:"rbac"`
-	Events    EventSpec    `yaml:"events"    json:"events"`
+	Runtime     RuntimeSpec      `yaml:"runtime"   json:"runtime"`
+	Endpoints   EndpointSpec     `yaml:"endpoints" json:"endpoints"`
+	Frontend    FrontendSpec     `yaml:"frontend"  json:"frontend"`
+	RBAC        RBACSpec         `yaml:"rbac"      json:"rbac"`
+	Events      EventSpec        `yaml:"events"    json:"events"`
+	Backend     *BackendSpec     `yaml:"backend"   json:"backend,omitempty"`
+	Routes      *RouteSpec       `yaml:"routes"    json:"routes,omitempty"`
+	Permissions []PermissionSpec `yaml:"permissions" json:"permissions,omitempty"`
+	Menus       []MenuTreeItem   `yaml:"menus" json:"menus,omitempty"`
+	Agents      []AgentSpec      `yaml:"agents" json:"agents,omitempty"`
+	Tools       []ToolSpec       `yaml:"tools" json:"tools,omitempty"`
+	Workflows   []WorkflowSpec   `yaml:"workflows" json:"workflows,omitempty"`
 
 	Migrations *MigrationsSpec `yaml:"migrations" json:"migrations,omitempty"`
 	Assets     *AssetsSpec     `yaml:"assets"     json:"assets,omitempty"`
@@ -39,7 +46,8 @@ type MigrationsSpec struct {
 }
 
 type AssetsSpec struct {
-	PublicDir string `yaml:"public_dir" json:"public_dir"` // "./public"
+	PublicDir    string `yaml:"public_dir" json:"public_dir"` // "./public"
+	WebAdminPath string `yaml:"webAdminPath" json:"webAdminPath"`
 }
 
 type ChecksumsSpec struct {
