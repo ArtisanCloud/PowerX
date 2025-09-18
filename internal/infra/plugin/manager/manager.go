@@ -2,9 +2,11 @@ package manager
 
 import (
 	"context"
+	"sync"
+
+	"github.com/ArtisanCloud/PowerX/config"
 	"github.com/ArtisanCloud/PowerX/internal/infra/plugin/manager/router"
 	"github.com/ArtisanCloud/PowerX/internal/infra/plugin/manager/supervisor"
-	"sync"
 
 	"github.com/ArtisanCloud/PowerX/pkg/plugin_mgr"
 )
@@ -18,6 +20,8 @@ type Options struct {
 	InstalledRoot string
 	RegistryFile  string
 
+	CoreConfig *config.Config
+
 	Loader     Loader
 	Registry   Registry
 	HTTP       *router.DynamicRouter
@@ -27,21 +31,21 @@ type Options struct {
 
 // managerImpl 是内嵌版的具体实现（满足 plugin_mgr.Manager）
 type managerImpl struct {
-    mu   sync.RWMutex
-    opts Options
-    http *router.DynamicRouter
-    sup  *supervisor.Supervisor // 新增
+	mu   sync.RWMutex
+	opts Options
+	http *router.DynamicRouter
+	sup  *supervisor.Supervisor // 新增
 
-    // 内部通信令牌：pluginID -> token（仅内存，不落盘）
-    tokens map[string]string
+	// 内部通信令牌：pluginID -> token（仅内存，不落盘）
+	tokens map[string]string
 }
 
 // New 生成一个内嵌管理器实现
 func New(opts Options) plugin_mgr.Manager {
-    m := &managerImpl{opts: opts, tokens: make(map[string]string)}
-    m.http = opts.HTTP
-    m.sup = opts.Supervisor
-    return m
+	m := &managerImpl{opts: opts, tokens: make(map[string]string)}
+	m.http = opts.HTTP
+	m.sup = opts.Supervisor
+	return m
 }
 
 func (m *managerImpl) Bootstrap(ctx context.Context) error {

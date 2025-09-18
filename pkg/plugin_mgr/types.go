@@ -1,11 +1,14 @@
 package plugin_mgr
 
+import "time"
+
 // ------- 安装与运行期公共类型 -------
 
 type InstallOptions struct {
 	RunMigrations   bool
 	VerifyChecksum  bool
 	VerifySignature bool
+	Force           bool
 }
 
 type InstallSource struct {
@@ -82,6 +85,8 @@ type Plugin struct {
 	Workflows   []WorkflowSpec   `json:"workflows,omitempty"`
 
 	Paths InstalledPaths `json:"paths"`
+
+	HostConfig *HostConfig `json:"host_config,omitempty"`
 }
 
 // ------- 运行形态 -------
@@ -227,6 +232,13 @@ type WorkflowSpec struct {
 	Description string `yaml:"description" json:"description"`
 }
 
+// HostConfig 记录宿主为插件生成的环境变量映射及落盘位置
+type HostConfig struct {
+	ValuesFile  string            `json:"values_file"`
+	Values      map[string]string `json:"values"`
+	GeneratedAt time.Time         `json:"generated_at"`
+}
+
 // ------- 安装后的真实落地路径（宿主填充） -------
 
 type InstalledPaths struct {
@@ -237,4 +249,6 @@ type InstalledPaths struct {
 	MigrationsDir     string `json:"migrations_dir"`      // .../migrations
 	ContractsOpenAPI  string `json:"contracts_openapi"`   // .../contracts/openapi.yaml
 	ContractsProtoDir string `json:"contracts_proto_dir"` // .../contracts/proto
+	ConfigDir         string `json:"config_dir"`
+	HostValuesFile    string `json:"host_values_file"`
 }

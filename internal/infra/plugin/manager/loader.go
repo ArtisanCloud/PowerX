@@ -15,8 +15,9 @@ import (
 const PluginManifestFile = "plugin.yaml"
 
 type Descriptor struct {
-	Manifest plugin_mgr.Manifest
-	Paths    plugin_mgr.InstalledPaths
+	Manifest   plugin_mgr.Manifest
+	Paths      plugin_mgr.InstalledPaths
+	HostConfig *plugin_mgr.HostConfig
 }
 
 type Loader interface {
@@ -84,6 +85,7 @@ func (l *FSLoader) LoadDescriptor(ctx context.Context, root string) (Descriptor,
 	p := plugin_mgr.InstalledPaths{
 		Root: absRoot, // ★ 存绝对
 	}
+	var hostCfg *plugin_mgr.HostConfig
 	if m.Frontend.Admin.StaticDir != "" {
 		p.FrontendAdminDir = filepath.Clean(filepath.Join(root, m.Frontend.Admin.StaticDir))
 	}
@@ -106,13 +108,24 @@ func (l *FSLoader) LoadDescriptor(ctx context.Context, root string) (Descriptor,
 	if fi, err := os.Stat(pub); err == nil && fi.IsDir() {
 		p.PublicDir = pub
 	}
+	cfgDir := filepath.Join(root, "config")
+	if fi, err := os.Stat(cfgDir); err == nil && fi.IsDir() {
+		p.ConfigDir = cfgDir
+		hvPath := filepath.Join(cfgDir, hostValuesFileName)
+		if fi, err := os.Stat(hvPath); err == nil && !fi.IsDir() {
+			p.HostValuesFile = hvPath
+			if hc, err := loadHostConfig(hvPath); err == nil {
+				hostCfg = hc
+			}
+		}
+	}
 
 	// 静态校验
 	if err := l.Validate(ctx, m, root); err != nil {
 		return Descriptor{}, err
 	}
 
-	return Descriptor{Manifest: m, Paths: p}, nil
+	return Descriptor{Manifest: m, Paths: p, HostConfig: hostCfg}, nil
 }
 
 func (l *FSLoader) Validate(ctx context.Context, m plugin_mgr.Manifest, root string) error {

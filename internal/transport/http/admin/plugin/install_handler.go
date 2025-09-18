@@ -12,6 +12,7 @@ import (
 type installLocalReq struct {
 	SrcDir string `json:"src_dir" binding:"required"`
 	Enable bool   `json:"enable"`
+	Force  bool   `json:"force"`
 }
 
 func PluginInstallLocalHandler(c *gin.Context) {
@@ -25,6 +26,7 @@ func PluginInstallLocalHandler(c *gin.Context) {
 	p, err := mgr.InstallFromFile(c, req.SrcDir, plugin_mgr.InstallOptions{
 		// 先借用 VerifyChecksum 作为“安装后启用”开关
 		VerifyChecksum: req.Enable,
+		Force:          req.Force,
 	})
 	if err != nil {
 		dtoRequest.ResponseError(c, plugin_mgr.HTTPStatusOf(plugin_mgr.CodeOf(err)), "安装失败", err)

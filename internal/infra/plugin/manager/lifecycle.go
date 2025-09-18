@@ -1,21 +1,21 @@
 package manager
 
 import (
-    "context"
-    "fmt"
-    "github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
-    "io"
-    "net/http"
-    "net/url"
-    "os"
-    "path/filepath"
-    "strconv"
-    "strings"
-    "time"
+	"context"
+	"fmt"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
+	"io"
+	"net/http"
+	"net/url"
+	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"time"
 
-    "github.com/ArtisanCloud/PowerX/internal/infra/plugin/manager/supervisor"
-    "github.com/ArtisanCloud/PowerX/pkg/plugin_mgr"
-    "github.com/ArtisanCloud/PowerX/pkg/utils"
+	"github.com/ArtisanCloud/PowerX/internal/infra/plugin/manager/supervisor"
+	"github.com/ArtisanCloud/PowerX/pkg/plugin_mgr"
+	"github.com/ArtisanCloud/PowerX/pkg/utils"
 )
 
 // Enable: 启用插件 = (挂 Admin 静态) + (启动进程并健康检查) + (挂 API 反代) + (更新注册表)
@@ -58,18 +58,34 @@ func (m *managerImpl) Enable(ctx context.Context, id string) error {
 		}
 
 		// 启动子进程（自动分配端口，PORT 注入）
-		envMap := p.Runtime.Env
+		envMap := cloneEnvMap(p.Runtime.Env)
+		hostEnv := m.hostEnvForPlugin(p)
+		for k, v := range hostEnv {
+			envMap[k] = v
+		}
+		if p.Paths.Root != "" {
+			envMap["POWERX_PLUGIN_ROOT"] = p.Paths.Root
+		}
+		if p.Paths.ConfigDir != "" {
+			envMap["POWERX_PLUGIN_CONFIG_DIR"] = p.Paths.ConfigDir
+		}
+		if p.Paths.HostValuesFile != "" {
+			envMap["POWERX_PLUGIN_HOST_VALUES"] = p.Paths.HostValuesFile
+		}
+		envMap["POWERX_PLUGIN_VERSION"] = p.Version
 		// 注入宿主→插件的内部通信令牌（仅内存）
-        internalToken := os.Getenv("POWERX_INTERNAL_TOKEN")
-        if internalToken == "" {
-            // 使用全局工具生成更强随机
-            internalToken = utils.RandomString(48)
-        }
+		internalToken := os.Getenv("POWERX_INTERNAL_TOKEN")
+		if internalToken == "" {
+			// 使用全局工具生成更强随机
+			internalToken = utils.RandomString(48)
+		}
 		// 优先使用更强随机（如果 utils 可用，可替换）
 		envMap["POWERX_INTERNAL_TOKEN"] = internalToken
 		envMap["POWERX_PLUGIN_ID"] = p.ID
 		m.mu.Lock()
-		if m.tokens == nil { m.tokens = map[string]string{} }
+		if m.tokens == nil {
+			m.tokens = map[string]string{}
+		}
 		m.tokens[p.ID] = internalToken
 		m.mu.Unlock()
 		port, err := m.sup.Start(ctx, p.ID, p.Paths.Entry, p.Runtime.Args, envMap, supOpts)
@@ -84,14 +100,14 @@ func (m *managerImpl) Enable(ctx context.Context, id string) error {
 			return plugin_mgr.Wrap(plugin_mgr.CodeHealthcheckFailed, err, plugin_mgr.WithOp("enable"), plugin_mgr.WithPlugin(id))
 		}
 
-        // 反向代理挂载
-        u, _ := url.Parse(baseURL)
-        basePath := p.Endpoints.HTTPBasePath
-        if basePath == "" {
-            basePath = "/"
-        }
-        // 传递 healthPath，宿主的 /_p/:id/api/healthz 将直达插件健康检查
-        m.http.MountAPIProxy(p.ID, u, basePath, healthPath)
+		// 反向代理挂载
+		u, _ := url.Parse(baseURL)
+		basePath := p.Endpoints.HTTPBasePath
+		if basePath == "" {
+			basePath = "/"
+		}
+		// 传递 healthPath，宿主的 /_p/:id/api/healthz 将直达插件健康检查
+		m.http.MountAPIProxy(p.ID, u, basePath, healthPath)
 	}
 
 	// 3) 状态落盘
@@ -103,14 +119,14 @@ func (m *managerImpl) Enable(ctx context.Context, id string) error {
 		return err
 	}
 
-    if m.opts.PostEnable != nil {
-        // 从 ctx 读取 tenantID；若为 0（系统上下文），跳过凭证创建，避免产生 tenant_id=0 的记录
-        if tid := reqctx.GetTenantID(ctx); tid > 0 {
-            if err := m.opts.PostEnable(ctx, tid, p.ID); err != nil {
-                return err
-            }
-        }
-    }
+	if m.opts.PostEnable != nil {
+		// 从 ctx 读取 tenantID；若为 0（系统上下文），跳过凭证创建，避免产生 tenant_id=0 的记录
+		if tid := reqctx.GetTenantID(ctx); tid > 0 {
+			if err := m.opts.PostEnable(ctx, tid, p.ID); err != nil {
+				return err
+			}
+		}
+	}
 	return nil
 }
 
@@ -204,6 +220,17 @@ func waitHealthy(ctx context.Context, baseURL, healthPath string, interval, time
 		}
 	}
 	return fmt.Errorf("health check timeout for %s", url)
+}
+
+func cloneEnvMap(src map[string]string) map[string]string {
+	if len(src) == 0 {
+		return map[string]string{}
+	}
+	dst := make(map[string]string, len(src))
+	for k, v := range src {
+		dst[k] = v
+	}
+	return dst
 }
 
 // 将 ["KEY=VAL","FOO=BAR"] 转为 map[string]string，非法项跳过

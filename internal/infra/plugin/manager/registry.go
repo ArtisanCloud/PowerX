@@ -34,6 +34,7 @@ type regVersionRecord struct {
 	InstalledAt time.Time                 `json:"installed_at"`
 	Manifest    plugin_mgr.Manifest       `json:"manifest"`
 	Paths       plugin_mgr.InstalledPaths `json:"paths"`
+	HostConfig  *plugin_mgr.HostConfig    `json:"host_config,omitempty"`
 }
 
 type regPluginRecord struct {
@@ -120,6 +121,7 @@ func (r *JSONRegistry) Put(ctx context.Context, desc Descriptor, state plugin_mg
 		InstalledAt: time.Now().UTC(),
 		Manifest:    desc.Manifest,
 		Paths:       desc.Paths,
+		HostConfig:  cloneHostConfig(desc.HostConfig),
 	}
 	// 注意：installed 不更新 current；enable 时再更新
 	r.mem.Plugins[id] = rec
@@ -209,6 +211,7 @@ func (r *JSONRegistry) Get(ctx context.Context, id string) (plugin_mgr.Plugin, b
 		Tools:       append([]plugin_mgr.ToolSpec(nil), rr.Manifest.Tools...),
 		Workflows:   append([]plugin_mgr.WorkflowSpec(nil), rr.Manifest.Workflows...),
 		Paths:       rr.Paths,
+		HostConfig:  cloneHostConfig(rr.HostConfig),
 
 		Name:        rr.Manifest.Name,
 		Description: rr.Manifest.Description,
@@ -259,10 +262,30 @@ func (r *JSONRegistry) GetVersion(ctx context.Context, id, version string) (plug
 		Tools:       append([]plugin_mgr.ToolSpec(nil), vr.Manifest.Tools...),
 		Workflows:   append([]plugin_mgr.WorkflowSpec(nil), vr.Manifest.Workflows...),
 		Paths:       vr.Paths,
+		HostConfig:  cloneHostConfig(vr.HostConfig),
 		Name:        vr.Manifest.Name,
 		Description: vr.Manifest.Description,
 		Metadata:    vr.Manifest.Metadata,
 	}, true
+}
+
+func cloneHostConfig(hc *plugin_mgr.HostConfig) *plugin_mgr.HostConfig {
+	if hc == nil {
+		return nil
+	}
+	out := &plugin_mgr.HostConfig{
+		ValuesFile:  hc.ValuesFile,
+		GeneratedAt: hc.GeneratedAt,
+	}
+	if len(hc.Values) > 0 {
+		out.Values = make(map[string]string, len(hc.Values))
+		for k, v := range hc.Values {
+			out.Values[k] = v
+		}
+	} else {
+		out.Values = map[string]string{}
+	}
+	return out
 }
 
 func (r *JSONRegistry) CurrentVersion(ctx context.Context, id string) (string, bool) {
