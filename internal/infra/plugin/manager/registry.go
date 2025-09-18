@@ -285,7 +285,36 @@ func cloneHostConfig(hc *plugin_mgr.HostConfig) *plugin_mgr.HostConfig {
 	} else {
 		out.Values = map[string]string{}
 	}
+	if len(hc.Spec) > 0 {
+		out.Spec = cloneAnyMap(hc.Spec)
+	}
 	return out
+}
+
+func cloneAnyMap(src map[string]any) map[string]any {
+	if len(src) == 0 {
+		return nil
+	}
+	dst := make(map[string]any, len(src))
+	for k, v := range src {
+		dst[k] = cloneAnyValue(v)
+	}
+	return dst
+}
+
+func cloneAnyValue(v any) any {
+	switch val := v.(type) {
+	case map[string]any:
+		return cloneAnyMap(val)
+	case []any:
+		out := make([]any, len(val))
+		for i := range val {
+			out[i] = cloneAnyValue(val[i])
+		}
+		return out
+	default:
+		return val
+	}
 }
 
 func (r *JSONRegistry) CurrentVersion(ctx context.Context, id string) (string, bool) {

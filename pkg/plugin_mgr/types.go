@@ -237,6 +237,7 @@ type HostConfig struct {
 	ValuesFile  string            `json:"values_file"`
 	Values      map[string]string `json:"values"`
 	GeneratedAt time.Time         `json:"generated_at"`
+	Spec        map[string]any    `json:"spec,omitempty"`
 }
 
 // ------- 安装后的真实落地路径（宿主填充） -------
