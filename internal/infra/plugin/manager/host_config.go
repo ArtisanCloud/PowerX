@@ -721,7 +721,19 @@ func (m *managerImpl) cleanupPluginDatabaseResources(hostCfg *plugin_mgr.HostCon
 			}
 		}
 		if user != "" {
-			stmt := fmt.Sprintf("DROP ROLE IF EXISTS %s", quoteIdentifier(driver, user))
+			roleIdent := quoteIdentifier(driver, user)
+			var exists int
+			err := db.Raw("SELECT 1 FROM pg_roles WHERE rolname = ?", user).Row().Scan(&exists)
+			if err != nil && !errors.Is(err, sql.ErrNoRows) {
+				return err
+			}
+			if err == nil {
+				dropOwned := fmt.Sprintf("DROP OWNED BY %s CASCADE", roleIdent)
+				if execErr := db.Exec(dropOwned).Error; execErr != nil {
+					return execErr
+				}
+			}
+			stmt := fmt.Sprintf("DROP ROLE IF EXISTS %s", roleIdent)
 			if err := db.Exec(stmt).Error; err != nil {
 				return err
 			}
