@@ -1,8 +1,11 @@
 package manager
 
 import (
+	"crypto/rand"
+	"database/sql"
 	"errors"
 	"fmt"
+	"math/big"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -10,7 +13,9 @@ import (
 	"strings"
 	"time"
 
+	mysqlDriver "github.com/go-sql-driver/mysql"
 	"gopkg.in/yaml.v3"
+	"gorm.io/gorm"
 
 	corexdb "github.com/ArtisanCloud/PowerX/pkg/corex/db"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/db/database"
@@ -45,16 +50,37 @@ func (m *managerImpl) generateHostConfig(man plugin_mgr.Manifest, destRoot strin
 	structured["generated_at"] = now.Format(time.RFC3339)
 
 	// 注入数据库 DSN + Schema（若宿主配置可用）
-	if ds, schemaName, err := m.buildDatabaseSection(man.ID); err == nil {
-		if ds != "" {
-			setNestedValue(structured, []string{"database", "dsn"}, ds)
-		}
-		if schemaName != "" {
-			setNestedValue(structured, []string{"database", "schema"}, schemaName)
-			selected["POWERX_PLUGIN_DB_SCHEMA"] = schemaName
-		}
-	} else {
+	dbSection, err := m.buildDatabaseSection(man.ID)
+	if err != nil {
 		return nil, err
+	}
+	if dbSection != nil {
+		if dbSection.DSN != "" {
+			setNestedValue(structured, []string{"database", "dsn"}, dbSection.DSN)
+			selected["POWERX_DB_DSN"] = dbSection.DSN
+		}
+		if dbSection.Schema != "" {
+			setNestedValue(structured, []string{"database", "schema"}, dbSection.Schema)
+			selected["POWERX_PLUGIN_DB_SCHEMA"] = dbSection.Schema
+		}
+		if dbSection.User != "" {
+			setNestedValue(structured, []string{"database", "user"}, dbSection.User)
+			selected["POWERX_DB_USERNAME"] = dbSection.User
+		}
+		if dbSection.Password != "" {
+			setNestedValue(structured, []string{"database", "password"}, dbSection.Password)
+			selected["POWERX_DB_PASSWORD"] = dbSection.Password
+		}
+		if dbSection.Driver != "" {
+			setNestedValue(structured, []string{"database", "driver"}, dbSection.Driver)
+		}
+		if dbSection.SearchPath != "" {
+			setNestedValue(structured, []string{"database", "search_path"}, dbSection.SearchPath)
+		}
+		if dbSection.UserHost != "" {
+			setNestedValue(structured, []string{"database", "user_host"}, dbSection.UserHost)
+		}
+		setNestedValue(structured, []string{"database", "managed"}, true)
 	}
 
 	// Server 部分：尽量复用已有配置，未提供则回落到示例默认值
@@ -264,76 +290,159 @@ func (m *managerImpl) collectSystemEnv() map[string]string {
 	return env
 }
 
-func (m *managerImpl) buildDatabaseSection(pluginID string) (dsn string, schemaName string, err error) {
+type databaseSection struct {
+	Driver     string
+	DSN        string
+	Schema     string
+	User       string
+	Password   string
+	UserHost   string
+	SearchPath string
+}
+
+func (m *managerImpl) buildDatabaseSection(pluginID string) (*databaseSection, error) {
 	if m.opts.CoreConfig == nil {
-		return "", "", nil
-	}
-	dbCfg := m.opts.CoreConfig.Database
-	dsn = makeDatabaseDSN(dbCfg)
-	schemaName = makePluginSchema(pluginID)
-	if schemaName == "" {
-		return dsn, "", nil
+		return nil, nil
 	}
 
-	if err := ensureSchemaExists(dbCfg, schemaName); err != nil {
-		return "", "", err
+	dbCfg := m.opts.CoreConfig.Database
+	driver := normalizeDriver(dbCfg.Driver)
+	if driver == "" {
+		driver = "postgres"
 	}
-	return dsn, schemaName, nil
+
+	schemaName := makePluginSchema(pluginID)
+	if schemaName == "" {
+		return nil, nil
+	}
+	userName := makePluginUser(pluginID)
+	password, err := generateStrongPassword(32)
+	if err != nil {
+		return nil, err
+	}
+
+	db, cleanup, err := connectAdminDB(dbCfg)
+	if err != nil {
+		return nil, err
+	}
+	defer cleanup()
+
+	if err := ensureSchemaExists(db, driver, schemaName); err != nil {
+		return nil, err
+	}
+
+	section := &databaseSection{
+		Driver:   driver,
+		Schema:   schemaName,
+		User:     userName,
+		Password: password,
+	}
+
+	switch driver {
+	case "postgres":
+		if err := ensurePostgresUser(db, dbCfg, section); err != nil {
+			return nil, err
+		}
+		section.DSN = buildPostgresPluginDSN(dbCfg, section)
+		section.SearchPath = section.Schema
+	case "mysql":
+		if err := ensureMySQLUser(db, section); err != nil {
+			return nil, err
+		}
+		section.DSN = buildMySQLPluginDSN(dbCfg, section)
+	default:
+		return nil, fmt.Errorf("unsupported database driver for plugin isolation: %s", driver)
+	}
+
+	return section, nil
+}
+
+func connectAdminDB(cfg corexdb.DatabaseConfig) (*gorm.DB, func(), error) {
+	db, err := database.Connect(cfg)
+	if err != nil {
+		return nil, nil, err
+	}
+	sqlDB, err := db.DB()
+	if err != nil {
+		return nil, nil, err
+	}
+	cleanup := func() {
+		_ = sqlDB.Close()
+	}
+	return db, cleanup, nil
+}
+
+func normalizeDriver(driver string) string {
+	switch strings.ToLower(strings.TrimSpace(driver)) {
+	case "", "postgres", "pg", "postgresql":
+		return "postgres"
+	case "mysql", "mariadb":
+		return "mysql"
+	default:
+		return strings.ToLower(strings.TrimSpace(driver))
+	}
 }
 
 func makePluginSchema(id string) string {
-	if strings.TrimSpace(id) == "" {
+	base := pluginSlug(id)
+	if base == "" {
+		base = "plugin"
+	}
+	name := "px_" + base
+	if len(name) > 63 {
+		name = name[:63]
+	}
+	return strings.Trim(name, "_")
+}
+
+func makePluginUser(id string) string {
+	base := pluginSlug(id)
+	if base == "" {
+		base = "plugin"
+	}
+	name := "pxu_" + base
+	if len(name) > 63 {
+		name = name[:63]
+	}
+	return strings.Trim(name, "_")
+}
+
+func pluginSlug(id string) string {
+	id = strings.ToLower(strings.TrimSpace(id))
+	if id == "" {
 		return ""
 	}
-	builder := strings.Builder{}
-	builder.Grow(len(id) + 3)
-	builder.WriteString("px_")
-	for _, r := range strings.ToLower(id) {
+	var builder strings.Builder
+	builder.Grow(len(id))
+	for _, r := range id {
 		switch {
 		case r >= 'a' && r <= 'z':
 			builder.WriteRune(r)
 		case r >= '0' && r <= '9':
 			builder.WriteRune(r)
-		case r == '.' || r == '-' || r == ':' || r == '/':
+		case r == '.' || r == '-' || r == ':' || r == '/' || r == '_':
 			builder.WriteByte('_')
 		default:
 			builder.WriteByte('_')
 		}
 	}
 	slug := strings.Trim(builder.String(), "_")
-	if slug == "" {
-		slug = "plugin"
-	}
-	if len(slug) > 63 {
-		slug = slug[:63]
+	for strings.Contains(slug, "__") {
+		slug = strings.ReplaceAll(slug, "__", "_")
 	}
 	return slug
 }
 
-func ensureSchemaExists(cfg corexdb.DatabaseConfig, schema string) error {
+func ensureSchemaExists(db *gorm.DB, driver, schema string) error {
 	if strings.TrimSpace(schema) == "" {
 		return nil
 	}
-	db, err := database.Connect(cfg)
-	if err != nil {
-		return err
-	}
-	sqlDB, err := db.DB()
-	if err != nil {
-		return err
-	}
-	defer sqlDB.Close()
-
-	driver := strings.ToLower(strings.TrimSpace(cfg.Driver))
-	if driver == "" {
-		driver = "postgres"
-	}
 	var stmt string
 	switch driver {
-	case "postgres", "pg", "postgresql":
+	case "postgres":
 		stmt = fmt.Sprintf("CREATE SCHEMA IF NOT EXISTS %s", quoteIdentifier(driver, schema))
 	case "mysql":
-		stmt = fmt.Sprintf("CREATE SCHEMA IF NOT EXISTS %s", quoteIdentifier(driver, schema))
+		stmt = fmt.Sprintf("CREATE DATABASE IF NOT EXISTS %s", quoteIdentifier(driver, schema))
 	default:
 		return fmt.Errorf("unsupported database driver for schema creation: %s", driver)
 	}
@@ -346,6 +455,184 @@ func ensureSchemaExists(cfg corexdb.DatabaseConfig, schema string) error {
 	return nil
 }
 
+func ensurePostgresUser(db *gorm.DB, cfg corexdb.DatabaseConfig, section *databaseSection) error {
+	if section == nil {
+		return nil
+	}
+	var exists int
+	err := db.Raw("SELECT 1 FROM pg_roles WHERE rolname = ?", section.User).Row().Scan(&exists)
+	if errors.Is(err, sql.ErrNoRows) {
+		stmt := fmt.Sprintf("CREATE ROLE %s WITH LOGIN PASSWORD %s",
+			quoteIdentifier(section.Driver, section.User),
+			quoteLiteral(section.Password),
+		)
+		if execErr := db.Exec(stmt).Error; execErr != nil {
+			return execErr
+		}
+	} else if err != nil {
+		return err
+	} else {
+		stmt := fmt.Sprintf("ALTER ROLE %s WITH LOGIN PASSWORD %s",
+			quoteIdentifier(section.Driver, section.User),
+			quoteLiteral(section.Password),
+		)
+		if execErr := db.Exec(stmt).Error; execErr != nil {
+			return execErr
+		}
+	}
+
+	if cfg.Database != "" {
+		grant := fmt.Sprintf("GRANT CONNECT ON DATABASE %s TO %s",
+			quoteIdentifier(section.Driver, cfg.Database),
+			quoteIdentifier(section.Driver, section.User),
+		)
+		if err := db.Exec(grant).Error; err != nil {
+			return err
+		}
+	}
+
+	if section.Schema != "" {
+		schemaIdent := quoteIdentifier(section.Driver, section.Schema)
+		roleIdent := quoteIdentifier(section.Driver, section.User)
+		stmts := []string{
+			fmt.Sprintf("GRANT USAGE ON SCHEMA %s TO %s", schemaIdent, roleIdent),
+			fmt.Sprintf("GRANT CREATE ON SCHEMA %s TO %s", schemaIdent, roleIdent),
+			fmt.Sprintf("ALTER ROLE %s SET search_path = %s", roleIdent, schemaIdent),
+			fmt.Sprintf("GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA %s TO %s", schemaIdent, roleIdent),
+			fmt.Sprintf("GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA %s TO %s", schemaIdent, roleIdent),
+		}
+		for _, stmt := range stmts {
+			if err := db.Exec(stmt).Error; err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func ensureMySQLUser(db *gorm.DB, section *databaseSection) error {
+	if section == nil {
+		return nil
+	}
+	host := "%"
+	section.UserHost = host
+	userIdent := mysqlUserIdent(section.User, host)
+	createStmt := fmt.Sprintf("CREATE USER IF NOT EXISTS %s IDENTIFIED BY %s", userIdent, quoteLiteral(section.Password))
+	if err := db.Exec(createStmt).Error; err != nil {
+		return err
+	}
+	alterStmt := fmt.Sprintf("ALTER USER %s IDENTIFIED BY %s", userIdent, quoteLiteral(section.Password))
+	if err := db.Exec(alterStmt).Error; err != nil {
+		return err
+	}
+	if section.Schema != "" {
+		grantStmt := fmt.Sprintf(
+			"GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, INDEX, DROP ON %s.* TO %s",
+			quoteIdentifier(section.Driver, section.Schema), userIdent,
+		)
+		if err := db.Exec(grantStmt).Error; err != nil {
+			return err
+		}
+	}
+	if err := db.Exec("FLUSH PRIVILEGES").Error; err != nil {
+		return err
+	}
+	return nil
+}
+
+func buildPostgresPluginDSN(cfg corexdb.DatabaseConfig, section *databaseSection) string {
+	if section == nil {
+		return ""
+	}
+	if cfg.DSN != "" {
+		if u, err := url.Parse(cfg.DSN); err == nil && u.Scheme != "" {
+			u.User = url.UserPassword(section.User, section.Password)
+			q := u.Query()
+			if section.Schema != "" {
+				q.Set("search_path", section.Schema)
+			}
+			if cfg.SSLMode != "" {
+				q.Set("sslmode", cfg.SSLMode)
+			}
+			if cfg.Timezone != "" {
+				q.Set("timezone", cfg.Timezone)
+			}
+			u.RawQuery = q.Encode()
+			return u.String()
+		}
+	}
+
+	host := cfg.Host
+	if host == "" {
+		host = "127.0.0.1"
+	}
+	port := cfg.Port
+	if port <= 0 {
+		port = 5432
+	}
+	dbName := cfg.Database
+	if dbName == "" {
+		dbName = "postgres"
+	}
+	ssl := strings.TrimSpace(cfg.SSLMode)
+	if ssl == "" {
+		ssl = "disable"
+	}
+	tz := strings.TrimSpace(cfg.Timezone)
+
+	u := &url.URL{
+		Scheme: "postgres",
+		User:   url.UserPassword(section.User, section.Password),
+		Host:   fmt.Sprintf("%s:%d", host, port),
+		Path:   "/" + dbName,
+	}
+	q := url.Values{}
+	q.Set("sslmode", ssl)
+	if tz != "" {
+		q.Set("timezone", tz)
+	}
+	if section.Schema != "" {
+		q.Set("search_path", section.Schema)
+	}
+	u.RawQuery = q.Encode()
+	return u.String()
+}
+
+func buildMySQLPluginDSN(cfg corexdb.DatabaseConfig, section *databaseSection) string {
+	if section == nil {
+		return ""
+	}
+	host := cfg.Host
+	if host == "" {
+		host = "127.0.0.1"
+	}
+	port := cfg.Port
+	if port <= 0 {
+		port = 3306
+	}
+	loc := cfg.Timezone
+	if loc == "" {
+		loc = "Local"
+	}
+
+	params := map[string]string{
+		"parseTime": "true",
+		"loc":       loc,
+		"charset":   "utf8mb4",
+	}
+
+	dsnCfg := mysqlDriver.Config{
+		User:                 section.User,
+		Passwd:               section.Password,
+		Net:                  "tcp",
+		Addr:                 fmt.Sprintf("%s:%d", host, port),
+		DBName:               section.Schema,
+		AllowNativePasswords: true,
+		Params:               params,
+	}
+	return dsnCfg.FormatDSN()
+}
+
 func quoteIdentifier(driver string, ident string) string {
 	switch driver {
 	case "mysql":
@@ -355,6 +642,149 @@ func quoteIdentifier(driver string, ident string) string {
 		ident = strings.ReplaceAll(ident, "\"", "\"\"")
 		return "\"" + ident + "\""
 	}
+}
+
+func quoteLiteral(value string) string {
+	escaped := strings.ReplaceAll(value, "'", "''")
+	return "'" + escaped + "'"
+}
+
+const pluginPasswordAlphabet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-"
+
+func generateStrongPassword(length int) (string, error) {
+	if length <= 0 {
+		length = 32
+	}
+	buf := make([]byte, length)
+	max := big.NewInt(int64(len(pluginPasswordAlphabet)))
+	for i := range buf {
+		n, err := rand.Int(rand.Reader, max)
+		if err != nil {
+			return "", err
+		}
+		buf[i] = pluginPasswordAlphabet[n.Int64()]
+	}
+	return string(buf), nil
+}
+
+func mysqlUserIdent(user, host string) string {
+	u := strings.ReplaceAll(user, "'", "''")
+	h := strings.ReplaceAll(host, "'", "''")
+	return fmt.Sprintf("'%s'@'%s'", u, h)
+}
+
+func (m *managerImpl) cleanupPluginDatabaseResources(hostCfg *plugin_mgr.HostConfig) error {
+	if hostCfg == nil || m.opts.CoreConfig == nil {
+		return nil
+	}
+	if hostCfg.Spec == nil {
+		return nil
+	}
+	rawDB, ok := hostCfg.Spec["database"]
+	if !ok {
+		return nil
+	}
+	dbSpec, ok := rawDB.(map[string]any)
+	if !ok {
+		return nil
+	}
+
+	if managed, ok := boolFromMap(dbSpec, "managed"); ok && !managed {
+		return nil
+	}
+
+	schema := getStringFromMap(dbSpec, "schema")
+	user := getStringFromMap(dbSpec, "user")
+	userHost := getStringFromMap(dbSpec, "user_host")
+	if schema == "" && user == "" {
+		return nil
+	}
+
+	dbCfg := m.opts.CoreConfig.Database
+	driver := normalizeDriver(dbCfg.Driver)
+	if driver == "" {
+		driver = "postgres"
+	}
+
+	db, cleanup, err := connectAdminDB(dbCfg)
+	if err != nil {
+		return err
+	}
+	defer cleanup()
+
+	switch driver {
+	case "postgres":
+		if schema != "" {
+			stmt := fmt.Sprintf("DROP SCHEMA IF EXISTS %s CASCADE", quoteIdentifier(driver, schema))
+			if err := db.Exec(stmt).Error; err != nil {
+				return err
+			}
+		}
+		if user != "" {
+			stmt := fmt.Sprintf("DROP ROLE IF EXISTS %s", quoteIdentifier(driver, user))
+			if err := db.Exec(stmt).Error; err != nil {
+				return err
+			}
+		}
+	case "mysql":
+		if schema != "" {
+			stmt := fmt.Sprintf("DROP DATABASE IF EXISTS %s", quoteIdentifier(driver, schema))
+			if err := db.Exec(stmt).Error; err != nil {
+				return err
+			}
+		}
+		if user != "" {
+			if userHost == "" {
+				userHost = "%"
+			}
+			stmt := fmt.Sprintf("DROP USER IF EXISTS %s", mysqlUserIdent(user, userHost))
+			if err := db.Exec(stmt).Error; err != nil {
+				return err
+			}
+			if err := db.Exec("FLUSH PRIVILEGES").Error; err != nil {
+				return err
+			}
+		}
+	default:
+		return fmt.Errorf("unsupported database driver for cleanup: %s", driver)
+	}
+	return nil
+}
+
+func getStringFromMap(m map[string]any, key string) string {
+	if m == nil {
+		return ""
+	}
+	if val, ok := m[key]; ok {
+		if s, ok := val.(string); ok {
+			return s
+		}
+		if s, ok := toString(val); ok {
+			return s
+		}
+	}
+	return ""
+}
+
+func boolFromMap(m map[string]any, key string) (bool, bool) {
+	if m == nil {
+		return false, false
+	}
+	val, ok := m[key]
+	if !ok {
+		return false, false
+	}
+	switch typed := val.(type) {
+	case bool:
+		return typed, true
+	case string:
+		return parseBoolish(typed)
+	default:
+		if s, ok := toString(typed); ok {
+			return parseBoolish(s)
+		}
+	}
+	return false, false
 }
 
 func setNestedValue(root map[string]any, path []string, value any) {
