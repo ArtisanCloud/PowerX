@@ -99,10 +99,14 @@ func (m *managerImpl) InstallFromFile(ctx context.Context, srcDir string, opts p
 		FrontendAdminDir:  ResolvePath(destRoot, man.Frontend.Admin.StaticDir),
 		Entry:             ResolvePath(destRoot, man.Runtime.Entry),
 		PublicDir:         ResolvePath(destRoot, "public"),
-		MigrationsDir:     ResolvePath(destRoot, "migrations"),
 		ContractsOpenAPI:  ResolvePath(destRoot, "contracts/openapi.yaml"),
 		ContractsProtoDir: ResolvePath(destRoot, "contracts/proto"),
 		ConfigDir:         ResolvePath(destRoot, "config"),
+	}
+	if man.Migrations != nil {
+		paths.MigrationsDir = ResolvePath(destRoot, man.Migrations.Dir)
+		paths.MigrationsEntry = ResolvePath(destRoot, man.Migrations.Entry)
+		paths.MigrationsWorkDir = ResolvePath(destRoot, man.Migrations.WorkDir)
 	}
 	hostCfg, err := m.generateHostConfig(man, destRoot)
 	if err != nil {
@@ -118,6 +122,12 @@ func (m *managerImpl) InstallFromFile(ctx context.Context, srcDir string, opts p
 		Manifest:   man,
 		Paths:      paths,
 		HostConfig: hostCfg,
+	}
+
+	if rec, err := m.runPluginMigrate(ctx, desc, opts); err != nil {
+		return plugin_mgr.Plugin{}, err
+	} else if rec != nil {
+		desc.Migration = rec
 	}
 
 	// 5) 登记为 installed（Bootstrap 已处理“同版本跳过”，这里就是新装）

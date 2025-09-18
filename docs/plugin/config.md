@@ -51,6 +51,30 @@ env:
 | `runtime.run_migrate` | 首次启用时默认执行数据库迁移，可按需关闭。 |
 | `env.*` | 注入给插件进程的环境变量，其中 `POWERX_DB_*` 已替换为隔离账号。 |
 
+## 迁移执行流程
+
+当插件在 `plugin.yaml` 中声明 `migrations` 块时，宿主会在安装阶段自动执行指定的迁移入口：
+
+```yaml
+migrations:
+  driver: go
+  entry: ./backend/bin/migrate
+  args: ["--with-sample-data"]
+  workdir: ./backend
+  once: true
+  timeout: 60s
+```
+
+- `entry`：必须指向插件包内可执行文件或脚本（相对路径会自动拼接插件根目录），宿主以子进程方式调用。
+- `args`：附加的命令行参数，原样传递给迁移程序。
+- `workdir`：可选工作目录，未配置时默认使用插件根目录。
+- `once`：设为 `true` 时仅在首次安装执行（后续升级可按需扩展）。
+- `timeout`：可选的超时时间，语法与 `time.ParseDuration` 一致，超时会终止迁移并视为失败。
+
+宿主为迁移子进程注入与运行态一致的环境变量，包括数据库 DSN（`POWERX_DB_*`）、Redis 连接、`PX_PLUGIN_CONFIG_DIR` 以及 `POWERX_PLUGIN_ROOT`、`POWERX_PLUGIN_VERSION` 等基础信息。迁移成功会在插件注册表中记录 `migrations` 元数据（入口、执行时间、哈希值、结果），便于后续判断是否需要重跑；失败则中止安装并返回 `migration_failed` 错误码。
+
+如需跳过自动迁移，可在生成的 `config/host-values.yaml` 中将 `runtime.run_migrate` 调整为 `false`，宿主在安装阶段会检测该配置并跳过执行，保留迁移记录为 `skipped` 状态。
+
 ## 最佳实践
 
 1. 插件内部优先从 `host-values.yaml` 读取结构化配置（`database.*`），必要时可回退至 `POWERX_DB_DSN` 等环境变量。

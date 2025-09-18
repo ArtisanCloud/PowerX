@@ -41,8 +41,14 @@ type Metadata struct {
 }
 
 type MigrationsSpec struct {
-	Driver string `yaml:"driver" json:"driver"` // "sql"|"goose"|"gorm"
-	Dir    string `yaml:"dir"    json:"dir"`    // 相对插件根，如 "./migrations"
+	Driver        string   `yaml:"driver"          json:"driver"`              // "sql"|"goose"|"gorm"|自定义
+	Dir           string   `yaml:"dir,omitempty"   json:"dir,omitempty"`       // 兼容旧版：迁移 SQL 所在目录
+	Entry         string   `yaml:"entry"           json:"entry"`               // 可执行入口或脚本，相对插件根
+	Args          []string `yaml:"args,omitempty"  json:"args,omitempty"`      // 额外参数
+	WorkDir       string   `yaml:"workdir,omitempty" json:"workdir,omitempty"` // 执行时工作目录，相对插件根
+	Once          bool     `yaml:"once,omitempty"  json:"once,omitempty"`      // true=仅在首次安装执行
+	Timeout       string   `yaml:"timeout,omitempty" json:"timeout,omitempty"` // 可选执行超时，格式同 time.ParseDuration
+	RollbackEntry string   `yaml:"rollback_entry,omitempty" json:"rollback_entry,omitempty"`
 }
 
 type AssetsSpec struct {

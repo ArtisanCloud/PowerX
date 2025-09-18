@@ -86,7 +86,29 @@ type Plugin struct {
 
 	Paths InstalledPaths `json:"paths"`
 
-	HostConfig *HostConfig `json:"host_config,omitempty"`
+	HostConfig *HostConfig      `json:"host_config,omitempty"`
+	Migration  *MigrationRecord `json:"migration,omitempty"`
+}
+
+type MigrationStatus string
+
+const (
+	MigrationStatusUnknown MigrationStatus = ""
+	MigrationStatusSuccess MigrationStatus = "success"
+	MigrationStatusFailed  MigrationStatus = "failed"
+	MigrationStatusSkipped MigrationStatus = "skipped"
+)
+
+type MigrationRecord struct {
+	Entry      string          `json:"entry"`
+	Args       []string        `json:"args,omitempty"`
+	WorkDir    string          `json:"workdir,omitempty"`
+	Once       bool            `json:"once,omitempty"`
+	Timeout    string          `json:"timeout,omitempty"`
+	Hash       string          `json:"hash,omitempty"`
+	LastStatus MigrationStatus `json:"last_status,omitempty"`
+	ExecutedAt *time.Time      `json:"executed_at,omitempty"`
+	LastError  string          `json:"last_error,omitempty"`
 }
 
 // ------- 运行形态 -------
@@ -243,11 +265,13 @@ type HostConfig struct {
 // ------- 安装后的真实落地路径（宿主填充） -------
 
 type InstalledPaths struct {
-	Root              string `json:"root"`                // plugins/installed/<id>/<ver>
-	FrontendAdminDir  string `json:"frontend_admin_dir"`  // .../frontend/admin
-	Entry             string `json:"entry"`               // .../backend/bin/xxx
-	PublicDir         string `json:"public_dir"`          // .../public
-	MigrationsDir     string `json:"migrations_dir"`      // .../migrations
+	Root              string `json:"root"`               // plugins/installed/<id>/<ver>
+	FrontendAdminDir  string `json:"frontend_admin_dir"` // .../frontend/admin
+	Entry             string `json:"entry"`              // .../backend/bin/xxx
+	PublicDir         string `json:"public_dir"`         // .../public
+	MigrationsDir     string `json:"migrations_dir"`     // .../migrations
+	MigrationsEntry   string `json:"migrations_entry"`
+	MigrationsWorkDir string `json:"migrations_workdir"`
 	ContractsOpenAPI  string `json:"contracts_openapi"`   // .../contracts/openapi.yaml
 	ContractsProtoDir string `json:"contracts_proto_dir"` // .../contracts/proto
 	ConfigDir         string `json:"config_dir"`

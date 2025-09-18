@@ -30,11 +30,12 @@ type Registry interface {
 }
 
 type regVersionRecord struct {
-	State       plugin_mgr.PluginState    `json:"state"`
-	InstalledAt time.Time                 `json:"installed_at"`
-	Manifest    plugin_mgr.Manifest       `json:"manifest"`
-	Paths       plugin_mgr.InstalledPaths `json:"paths"`
-	HostConfig  *plugin_mgr.HostConfig    `json:"host_config,omitempty"`
+	State       plugin_mgr.PluginState      `json:"state"`
+	InstalledAt time.Time                   `json:"installed_at"`
+	Manifest    plugin_mgr.Manifest         `json:"manifest"`
+	Paths       plugin_mgr.InstalledPaths   `json:"paths"`
+	HostConfig  *plugin_mgr.HostConfig      `json:"host_config,omitempty"`
+	Migrations  *plugin_mgr.MigrationRecord `json:"migrations,omitempty"`
 }
 
 type regPluginRecord struct {
@@ -122,6 +123,7 @@ func (r *JSONRegistry) Put(ctx context.Context, desc Descriptor, state plugin_mg
 		Manifest:    desc.Manifest,
 		Paths:       desc.Paths,
 		HostConfig:  cloneHostConfig(desc.HostConfig),
+		Migrations:  cloneMigrationRecord(desc.Migration),
 	}
 	// 注意：installed 不更新 current；enable 时再更新
 	r.mem.Plugins[id] = rec
@@ -212,6 +214,7 @@ func (r *JSONRegistry) Get(ctx context.Context, id string) (plugin_mgr.Plugin, b
 		Workflows:   append([]plugin_mgr.WorkflowSpec(nil), rr.Manifest.Workflows...),
 		Paths:       rr.Paths,
 		HostConfig:  cloneHostConfig(rr.HostConfig),
+		Migration:   cloneMigrationRecord(rr.Migrations),
 
 		Name:        rr.Manifest.Name,
 		Description: rr.Manifest.Description,
@@ -263,6 +266,7 @@ func (r *JSONRegistry) GetVersion(ctx context.Context, id, version string) (plug
 		Workflows:   append([]plugin_mgr.WorkflowSpec(nil), vr.Manifest.Workflows...),
 		Paths:       vr.Paths,
 		HostConfig:  cloneHostConfig(vr.HostConfig),
+		Migration:   cloneMigrationRecord(vr.Migrations),
 		Name:        vr.Manifest.Name,
 		Description: vr.Manifest.Description,
 		Metadata:    vr.Manifest.Metadata,
@@ -287,6 +291,29 @@ func cloneHostConfig(hc *plugin_mgr.HostConfig) *plugin_mgr.HostConfig {
 	}
 	if len(hc.Spec) > 0 {
 		out.Spec = cloneAnyMap(hc.Spec)
+	}
+	return out
+}
+
+func cloneMigrationRecord(src *plugin_mgr.MigrationRecord) *plugin_mgr.MigrationRecord {
+	if src == nil {
+		return nil
+	}
+	out := &plugin_mgr.MigrationRecord{
+		Entry:      src.Entry,
+		WorkDir:    src.WorkDir,
+		Once:       src.Once,
+		Timeout:    src.Timeout,
+		Hash:       src.Hash,
+		LastStatus: src.LastStatus,
+		LastError:  src.LastError,
+	}
+	if len(src.Args) > 0 {
+		out.Args = append([]string(nil), src.Args...)
+	}
+	if src.ExecutedAt != nil {
+		t := *src.ExecutedAt
+		out.ExecutedAt = &t
 	}
 	return out
 }

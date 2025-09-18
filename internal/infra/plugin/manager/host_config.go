@@ -175,21 +175,16 @@ func (m *managerImpl) hostEnvForPlugin(p plugin_mgr.Plugin) map[string]string {
 }
 
 func mergeEnvWithRuntime(env map[string]string, runtime map[string]string) map[string]string {
-	out := make(map[string]string)
-	hasRuntime := false
+	out := cloneStringMap(env)
+	if len(runtime) == 0 {
+		return out
+	}
 	for k, v := range runtime {
 		key := strings.TrimSpace(k)
 		if key == "" {
 			continue
 		}
-		hasRuntime = true
 		out[key] = v
-		if hv, ok := env[key]; ok {
-			out[key] = hv
-		}
-	}
-	if !hasRuntime {
-		return cloneStringMap(env)
 	}
 	return out
 }
@@ -234,9 +229,6 @@ func (m *managerImpl) collectSystemEnv() map[string]string {
 		}
 		if dbCfg.SSLMode != "" {
 			env["POWERX_DB_SSLMODE"] = dbCfg.SSLMode
-		}
-		if dbCfg.Timezone != "" {
-			env["POWERX_DB_TIMEZONE"] = dbCfg.Timezone
 		}
 		if dbCfg.TablePrefix != "" {
 			env["POWERX_DB_TABLE_PREFIX"] = dbCfg.TablePrefix
@@ -595,7 +587,15 @@ func buildPostgresPluginDSN(cfg corexdb.DatabaseConfig, section *databaseSection
 		q.Set("search_path", section.Schema)
 	}
 	u.RawQuery = q.Encode()
-	return u.String()
+	dsn := u.String()
+	if tz != "" {
+		encoded := url.QueryEscape(tz)
+		if encoded != tz {
+			dsn = strings.Replace(dsn, "timezone="+encoded, "timezone="+tz, 1)
+			dsn = strings.Replace(dsn, "TimeZone="+encoded, "TimeZone="+tz, 1)
+		}
+	}
+	return dsn
 }
 
 func buildMySQLPluginDSN(cfg corexdb.DatabaseConfig, section *databaseSection) string {
