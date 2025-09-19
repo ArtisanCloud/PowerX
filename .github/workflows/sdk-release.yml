@@ -108,6 +108,8 @@ jobs:
   sdk-rust:
     if: startsWith(github.ref, 'refs/tags/sdk-rust/')
     runs-on: ubuntu-latest
+    env:
+      CRATES_TOKEN: ${{ secrets.CRATES_TOKEN }}
     defaults:
       run:
         working-directory: api/grpc/sdk/rust/powerx-sdk
@@ -148,8 +150,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Publish to crates.io
-        if: ${{ secrets.CRATES_TOKEN != '' }}
-        run: cargo publish --token ${{ secrets.CRATES_TOKEN }}
+        if: ${{ env.CRATES_TOKEN != '' }}
+        run: cargo publish --token "$CRATES_TOKEN"
 
   sdk-php:
     if: startsWith(github.ref, 'refs/tags/sdk-php/')
@@ -194,6 +196,8 @@ jobs:
   sdk-ts:
     if: startsWith(github.ref, 'refs/tags/sdk-ts/')
     runs-on: ubuntu-latest
+    env:
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
     defaults:
       run:
         working-directory: api/grpc/sdk/ts/packages/@powerx/grpc
@@ -238,8 +242,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Publish to npm
-        if: ${{ secrets.NPM_TOKEN != '' }}
-        run: npm publish --access public "${GITHUB_WORKSPACE}/build/${{ steps.pack.outputs.tarball }}"
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
+        if: ${{ env.NPM_TOKEN != '' }}
+        run: |
+          export NODE_AUTH_TOKEN="$NPM_TOKEN"
+          npm publish --access public "${GITHUB_WORKSPACE}/build/${{ steps.pack.outputs.tarball }}"
