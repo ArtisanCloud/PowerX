@@ -28,6 +28,8 @@ func (m *managerImpl) Enable(ctx context.Context, id string) error {
 		return plugin_mgr.NewError(plugin_mgr.CodeInternal, plugin_mgr.WithOp("enable"), plugin_mgr.WithMsg("dynamic router not initialized"))
 	}
 
+	InstallPolicy(m.http, p.ID, PolicyFromPlugin(p))
+
 	// 1) Admin 静态（存在就挂）
 	if p.Frontend.Admin.Kind == plugin_mgr.FrontendKindStatic && p.Paths.FrontendAdminDir != "" {
 		absDir, err := filepath.Abs(p.Paths.FrontendAdminDir)

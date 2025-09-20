@@ -108,7 +108,7 @@ func (m *managerImpl) InstallFromFile(ctx context.Context, srcDir string, opts p
 		paths.MigrationsEntry = ResolvePath(destRoot, man.Migrations.Entry)
 		paths.MigrationsWorkDir = ResolvePath(destRoot, man.Migrations.WorkDir)
 	}
-	hostCfg, err := m.generateHostConfig(man, destRoot)
+	hostCfg, err := m.generateHostConfig(man, destRoot, opts.HostConfigSeed)
 	if err != nil {
 		return plugin_mgr.Plugin{}, plugin_mgr.Wrap(
 			plugin_mgr.CodeIOError, err, plugin_mgr.WithOp("install_file.host_config"),
@@ -138,9 +138,9 @@ func (m *managerImpl) InstallFromFile(ctx context.Context, srcDir string, opts p
 		return plugin_mgr.Plugin{}, plugin_mgr.Wrap(plugin_mgr.CodeRegistryError, err, plugin_mgr.WithOp("install_file.save"))
 	}
 
-	// 6) 可选：安装后立即启用（此处临时复用 VerifyChecksum 作为开关）
+	// 6) 可选：安装后立即启用
 	installedState := plugin_mgr.StateInstalled
-	if opts.VerifyChecksum {
+	if opts.AutoEnable {
 		if err := m.Enable(ctx, man.ID); err != nil {
 			return plugin_mgr.Plugin{}, plugin_mgr.Wrap(plugin_mgr.CodeLifecycleError, err, plugin_mgr.WithOp("install_file.enable"))
 		}

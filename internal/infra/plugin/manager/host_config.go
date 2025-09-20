@@ -25,7 +25,7 @@ import (
 
 const hostValuesFileName = "host-values.yaml"
 
-func (m *managerImpl) generateHostConfig(man plugin_mgr.Manifest, destRoot string) (*plugin_mgr.HostConfig, error) {
+func (m *managerImpl) generateHostConfig(man plugin_mgr.Manifest, destRoot string, seed *plugin_mgr.HostConfig) (*plugin_mgr.HostConfig, error) {
 	cfgDir := filepath.Join(destRoot, "config")
 	if err := os.MkdirAll(cfgDir, 0o755); err != nil {
 		return nil, err
@@ -111,6 +111,11 @@ func (m *managerImpl) generateHostConfig(man plugin_mgr.Manifest, destRoot strin
 
 	// runtime.run_migrate 默认开启，确保首次启用自动迁移
 	setNestedValue(structured, []string{"runtime", "run_migrate"}, true)
+
+	if seed != nil {
+		selected = mergeStringMapMissing(selected, seed.Values)
+		structured = mergeHostSpecMissing(structured, seed.Spec)
+	}
 
 	// 兼容：保留 env 字段供宿主下次启动恢复所需的环境变量
 	structured["env"] = selected
@@ -885,6 +890,57 @@ func stripHostConfigMeta(doc map[string]any) map[string]any {
 	delete(clean, "env")
 	delete(clean, "generated_at")
 	return clean
+}
+
+func mergeStringMapMissing(dst map[string]string, src map[string]string) map[string]string {
+	if dst == nil {
+		dst = map[string]string{}
+	}
+	if len(src) == 0 {
+		return dst
+	}
+	for k, v := range src {
+		key := strings.TrimSpace(k)
+		if key == "" {
+			continue
+		}
+		if cur, ok := dst[key]; !ok || strings.TrimSpace(cur) == "" {
+			dst[key] = v
+		}
+	}
+	return dst
+}
+
+func mergeHostSpecMissing(dst map[string]any, src map[string]any) map[string]any {
+	if dst == nil {
+		dst = map[string]any{}
+	}
+	if len(src) == 0 {
+		return dst
+	}
+	for k, v := range src {
+		if existing, ok := dst[k]; ok {
+			left, lok := existing.(map[string]any)
+			right, rok := v.(map[string]any)
+			if lok && rok {
+				dst[k] = mergeHostSpecMissing(left, right)
+			}
+			continue
+		}
+		switch typed := v.(type) {
+		case map[string]any:
+			dst[k] = cloneAnyMap(typed)
+		case []any:
+			cloned := make([]any, len(typed))
+			for i := range typed {
+				cloned[i] = cloneAnyValue(typed[i])
+			}
+			dst[k] = cloned
+		default:
+			dst[k] = typed
+		}
+	}
+	return dst
 }
 
 func toString(v any) (string, bool) {

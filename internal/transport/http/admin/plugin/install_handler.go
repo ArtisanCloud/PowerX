@@ -24,9 +24,8 @@ func PluginInstallLocalHandler(c *gin.Context) {
 
 	mgr := mgrimpl.GetPluginManager() // 你走“实现包全局”
 	p, err := mgr.InstallFromFile(c, req.SrcDir, plugin_mgr.InstallOptions{
-		// 先借用 VerifyChecksum 作为“安装后启用”开关
-		VerifyChecksum: req.Enable,
-		Force:          req.Force,
+		AutoEnable: req.Enable,
+		Force:      req.Force,
 	})
 	if err != nil {
 		dtoRequest.ResponseError(c, plugin_mgr.HTTPStatusOf(plugin_mgr.CodeOf(err)), "安装失败", err)
@@ -96,6 +95,7 @@ func PluginInstallURLHandler(c *gin.Context) {
 	p, err := mgr.InstallFromURL(c, req.URL, req.SHA256, req.Sign, plugin_mgr.InstallOptions{
 		VerifyChecksum:  req.SHA256 != "", // 传了就校验
 		VerifySignature: false,            // 先关；后续接公钥再开
+		AutoEnable:      req.Enable,
 	})
 	if err != nil {
 		dtoRequest.ResponseError(c, plugin_mgr.HTTPStatusOf(plugin_mgr.CodeOf(err)), "安装失败", err)

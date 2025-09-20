@@ -2,6 +2,7 @@ package manager
 
 import (
 	"context"
+	"strings"
 	"sync"
 
 	"github.com/ArtisanCloud/PowerX/config"
@@ -104,7 +105,90 @@ func (m *managerImpl) Shutdown(ctx context.Context) error {
 // ------- 安装与升级（占位，后续里程碑实现） -------
 
 func (m *managerImpl) Upgrade(ctx context.Context, id, version string, src plugin_mgr.InstallSource, opts plugin_mgr.InstallOptions) (plugin_mgr.Plugin, error) {
-	return plugin_mgr.Plugin{}, plugin_mgr.NewError(plugin_mgr.CodeInternal, plugin_mgr.WithOp("upgrade"), plugin_mgr.WithMsg("not implemented"))
+	id = strings.TrimSpace(id)
+	version = strings.TrimSpace(version)
+	if id == "" {
+		return plugin_mgr.Plugin{}, plugin_mgr.NewError(
+			plugin_mgr.CodeInvalidArg,
+			plugin_mgr.WithOp("upgrade"),
+			plugin_mgr.WithMsg("plugin id is empty"),
+		)
+	}
+	if m.opts.Registry == nil {
+		return plugin_mgr.Plugin{}, plugin_mgr.NewError(
+			plugin_mgr.CodeInternal,
+			plugin_mgr.WithOp("upgrade"),
+			plugin_mgr.WithMsg("registry not provided"),
+		)
+	}
+
+	current, ok := m.opts.Registry.Get(ctx, id)
+	if !ok {
+		return plugin_mgr.Plugin{}, plugin_mgr.NewError(
+			plugin_mgr.CodeNotFound,
+			plugin_mgr.WithOp("upgrade"),
+			plugin_mgr.WithPlugin(id),
+		)
+	}
+
+	if version != "" && !opts.Force && m.opts.Registry.HasVersion(ctx, id, version) {
+		return plugin_mgr.Plugin{}, plugin_mgr.NewError(
+			plugin_mgr.CodeAlreadyExists,
+			plugin_mgr.WithOp("upgrade"),
+			plugin_mgr.WithPlugin(id),
+			plugin_mgr.WithVersion(version),
+			plugin_mgr.WithMsg("target version already installed"),
+		)
+	}
+
+	installOpts := opts
+	installOpts.AutoEnable = false
+	installOpts.HostConfigSeed = cloneHostConfig(current.HostConfig)
+
+	var (
+		installed plugin_mgr.Plugin
+		err       error
+	)
+	switch {
+	case strings.TrimSpace(src.LocalFile) != "":
+		installed, err = m.InstallFromFile(ctx, src.LocalFile, installOpts)
+	case strings.TrimSpace(src.RemoteURL) != "":
+		installed, err = m.InstallFromURL(ctx, src.RemoteURL, src.SHA256, src.Signature, installOpts)
+	default:
+		return plugin_mgr.Plugin{}, plugin_mgr.NewError(
+			plugin_mgr.CodeInvalidArg,
+			plugin_mgr.WithOp("upgrade"),
+			plugin_mgr.WithMsg("install source not provided"),
+		)
+	}
+	if err != nil {
+		return plugin_mgr.Plugin{}, err
+	}
+
+	if installed.ID != id {
+		return plugin_mgr.Plugin{}, plugin_mgr.NewError(
+			plugin_mgr.CodeInvalidManifest,
+			plugin_mgr.WithOp("upgrade"),
+			plugin_mgr.WithPlugin(installed.ID),
+			plugin_mgr.WithMsg("manifest id mismatch"),
+		)
+	}
+	if version != "" && installed.Version != version {
+		return plugin_mgr.Plugin{}, plugin_mgr.NewError(
+			plugin_mgr.CodeInvalidManifest,
+			plugin_mgr.WithOp("upgrade"),
+			plugin_mgr.WithPlugin(id),
+			plugin_mgr.WithVersion(installed.Version),
+			plugin_mgr.WithMsg("manifest version mismatch"),
+		)
+	}
+
+	enableNew := current.State == plugin_mgr.StateEnabled || opts.AutoEnable
+	upgraded, err := m.SwitchVersion(ctx, id, installed.Version, enableNew)
+	if err != nil {
+		return plugin_mgr.Plugin{}, err
+	}
+	return upgraded, nil
 }
 
 // ------- 查询（先走 Registry，保证可用） -------

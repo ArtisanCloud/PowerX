@@ -9,6 +9,8 @@ type InstallOptions struct {
 	VerifyChecksum  bool
 	VerifySignature bool
 	Force           bool
+	AutoEnable      bool
+	HostConfigSeed  *HostConfig
 }
 
 type InstallSource struct {
