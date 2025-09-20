@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -25,13 +26,22 @@ import (
 const hostValuesFileName = "host-values.yaml"
 
 func (m *managerImpl) generateHostConfig(man plugin_mgr.Manifest, destRoot string) (*plugin_mgr.HostConfig, error) {
-	envAll := m.collectSystemEnv()
-	selected := mergeEnvWithRuntime(envAll, man.Runtime.Env)
-
 	cfgDir := filepath.Join(destRoot, "config")
 	if err := os.MkdirAll(cfgDir, 0o755); err != nil {
 		return nil, err
 	}
+
+	envAll := m.collectSystemEnv()
+	bindOverride := strings.TrimSpace(envAll["PX_BIND_ADDR"])
+	envAll["PX_PLUGIN_CONFIG_DIR"] = cfgDir
+	selected := mergeEnvWithRuntime(envAll, man.Runtime.Env)
+
+	// 若宿主未显式指定 PX_BIND_ADDR，则允许插件根据 PORT 环境变量动态监听
+	if bindOverride == "" {
+		delete(selected, "PX_BIND_ADDR")
+	}
+	fmt.Printf("[plugin-host-config] plugin=%s cfg_dir=%s bind_override=%q runtime_bind=%q\n",
+		man.ID, cfgDir, bindOverride, selected["PX_BIND_ADDR"])
 
 	// 确保插件进程可感知宿主提供的配置目录和 host-values 文件
 	selected["PX_PLUGIN_CONFIG_DIR"] = cfgDir
@@ -83,9 +93,14 @@ func (m *managerImpl) generateHostConfig(man plugin_mgr.Manifest, destRoot strin
 		setNestedValue(structured, []string{"database", "managed"}, true)
 	}
 
-	// Server 部分：尽量复用已有配置，未提供则回落到示例默认值
-	if bind := selected["PX_BIND_ADDR"]; bind != "" {
-		setNestedValue(structured, []string{"server", "bind_addr"}, bind)
+	// Server 部分：仅在宿主显式指定时覆盖 bind_addr，避免固定端口
+	if bindOverride != "" {
+		setNestedValue(structured, []string{"server", "bind_addr"}, bindOverride)
+	} else if serverMap, ok := structured["server"].(map[string]any); ok {
+		delete(serverMap, "bind_addr")
+		if len(serverMap) == 0 {
+			delete(structured, "server")
+		}
 	}
 	if lvl := selected["PX_LOG_LEVEL"]; lvl != "" {
 		setNestedValue(structured, []string{"server", "log_level"}, lvl)
@@ -179,14 +194,43 @@ func mergeEnvWithRuntime(env map[string]string, runtime map[string]string) map[s
 	if len(runtime) == 0 {
 		return out
 	}
-	for k, v := range runtime {
+	for k, raw := range runtime {
 		key := strings.TrimSpace(k)
 		if key == "" {
 			continue
 		}
-		out[key] = v
+		out[key] = resolveRuntimeValue(raw, out)
 	}
 	return out
+}
+
+var placeholderPattern = regexp.MustCompile(`^\$\{([^}:]+)(?::-(.*))?}$`)
+
+func resolveRuntimeValue(raw string, env map[string]string) string {
+	val := strings.TrimSpace(raw)
+	if !strings.Contains(val, "${") {
+		return val
+	}
+	if m := placeholderPattern.FindStringSubmatch(val); m != nil {
+		key := m[1]
+		fallback := ""
+		if len(m) > 2 {
+			fallback = m[2]
+		}
+		if v, ok := env[key]; ok && strings.TrimSpace(v) != "" {
+			return v
+		}
+		if v := os.Getenv(key); strings.TrimSpace(v) != "" {
+			return v
+		}
+		return fallback
+	}
+	return os.Expand(val, func(name string) string {
+		if v, ok := env[name]; ok {
+			return v
+		}
+		return os.Getenv(name)
+	})
 }
 
 func (m *managerImpl) collectSystemEnv() map[string]string {

@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -55,6 +56,12 @@ func (s *Supervisor) Start(ctx context.Context, id string, entry string, args []
 	cmd := exec.CommandContext(ctx, entry, args...)
 	env := os.Environ()
 	env = append(env, fmt.Sprintf("PORT=%d", port))
+	if extraEnv == nil {
+		extraEnv = map[string]string{}
+	}
+	if v, ok := extraEnv["PX_BIND_ADDR"]; !ok || strings.TrimSpace(v) == "" || v == DynamicBindPlaceholder {
+		extraEnv["PX_BIND_ADDR"] = fmt.Sprintf("127.0.0.1:%d", port)
+	}
 	for k, v := range extraEnv {
 		env = append(env, fmt.Sprintf("%s=%s", k, v))
 	}

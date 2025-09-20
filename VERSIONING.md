@@ -22,6 +22,14 @@
 
 > 建议各语言 SDK 的版本号与最新的 `proto/` Tag 保持一致，便于跨语言协同。
 
+### Tag 操作守则
+
+- **创建顺序**：先在主分支合并所有变更，再打 `proto/*` Tag；确认语言 SDK 已同步后，分别创建 `sdk-*/` Tag。同一 commit 上，如需对 Go SDK 发版，务必同步打上 `sdk-go/<version>` 与 `api/grpc/gen/go/<version>` 两个 Tag，前者驱动 CI，后者供 `go get` 解析。
+- **推送方式**：本地通过 `git tag` 创建 Annotated Tag（推荐 `git tag -a <tag> -m "说明"`），确认无误后执行单独的 `git push origin <tag>` 推送；多个 Tag 可一次推送，但须确保都指向已验证的 commit。
+- **删除旧 Tag**：只有在发布流程尚未对外（例如 CI 失败或发现 Tag 误打）时，才可以使用 `git tag -d <tag>` + `git push origin :refs/tags/<tag>` 删除远端 Tag；一旦外部项目已经引用某版本或 Release 已公开，原则上不得删除，避免依赖断链。
+- **重发版本**：若必须重新发布同名版本，先删除 GitHub Release 与对应 Tag，修复代码后再重新创建 Tag。若版本已对外使用，建议提升为新版本号（例如从 `v0.1.0-alpha` 调整为 `v0.1.1-alpha`）。
+- **安全提示**：删除 Tag 属破坏性操作，执行前务必在团队内告知，并确认 `git push origin :refs/tags/<tag>` 的风险（不可撤销）。
+
 ## 发布流程
 
 1. **更新 Proto 与生成产物**
@@ -56,11 +64,19 @@
      - 如果配置了凭证（例如 `CRATES_TOKEN`、`NPM_TOKEN`），会自动向生态仓库发布
 
 4. **插件/外部项目使用**
-   - 例如 Go 插件可以直接在 `go.mod` 中声明：
-     ```go
-     require github.com/ArtisanCloud/PowerX/api/grpc/gen/go v1.3.0
-     ```
-   - 不再需要 `replace` 指向主仓库的相对路径。
+  - 例如 Go 插件可以直接在 `go.mod` 中声明：
+    ```go
+    require github.com/ArtisanCloud/PowerX/api/grpc/gen/go v1.3.0
+    ```
+    `sdk-go/*` Tag 用于触发 CI；Go Module 解析会寻找 `api/grpc/gen/go/*` 形式的 Tag。
+  - 新 Tag 推送后，`proxy.golang.org` / `sum.golang.org` 可能需要数分钟缓存。如果短时间内 `go get` 仍报 404，可暂时执行：
+    ```bash
+    go env -w GONOSUMDB=github.com/ArtisanCloud/PowerX/api/grpc/gen/go
+    go env -w GOPROXY=https://proxy.golang.org,direct
+    go clean -modcache  # 遇到缓存残留时再运行
+    ```
+    等公共代理同步完成后可恢复默认 `go env` 配置。
+  - 不再需要 `replace` 指向主仓库的相对路径。
 
 ## 常见问题
 
@@ -78,4 +94,3 @@
 - 在 Repo 中添加 `CHANGELOG` 或者在 Release notes 中记录主要变更，便于使用者了解更新。
 - 发布后将 Release 链接同步到内部文档或公告渠道，提醒插件/客户端团队升级。
 - 如需回滚版本，务必同时撤回相关 Tag 与包管理器上的版本，以免造成引用混乱。
-

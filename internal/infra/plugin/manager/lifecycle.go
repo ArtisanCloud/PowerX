@@ -88,11 +88,34 @@ func (m *managerImpl) Enable(ctx context.Context, id string) error {
 		}
 		m.tokens[p.ID] = internalToken
 		m.mu.Unlock()
+		runtimeBind := strings.TrimSpace(p.Runtime.Env["PX_BIND_ADDR"])
+		hostBind := ""
+		if hc := p.HostConfig; hc != nil && hc.Values != nil {
+			hostBind = strings.TrimSpace(hc.Values["PX_BIND_ADDR"])
+		}
+		dynamicBind := hostBind == ""
+		if dynamicBind {
+			envMap["PX_BIND_ADDR"] = supervisor.DynamicBindPlaceholder
+		}
+		fmt.Printf("[plugin-enable] plugin=%s runtime_bind=%q host_bind=%q merged_bind=%q dynamic_bind=%v\n",
+			p.ID,
+			runtimeBind,
+			hostBind,
+			strings.TrimSpace(envMap["PX_BIND_ADDR"]),
+			dynamicBind,
+		)
+		fmt.Printf("[plugin-enable] plugin=%s supervisor_port_env=%q\n", p.ID, envMap["PORT"])
+
 		port, err := m.sup.Start(ctx, p.ID, p.Paths.Entry, p.Runtime.Args, envMap, supOpts)
 		if err != nil {
 			return plugin_mgr.Wrap(plugin_mgr.CodeProcessStartFailed, err, plugin_mgr.WithOp("enable"), plugin_mgr.WithPlugin(id))
 		}
 		baseURL := "http://127.0.0.1:" + strconv.Itoa(port)
+		fmt.Printf("[plugin-enable] plugin=%s assigned_port=%d effective_bind=%q\n",
+			p.ID,
+			port,
+			strings.TrimSpace(envMap["PX_BIND_ADDR"]),
+		)
 
 		// 健康探活（等待到 healthy 再对外挂载）
 		if err := waitHealthy(ctx, baseURL, healthPath, supOpts.HealthInterval, supOpts.HealthTimeout); err != nil {
