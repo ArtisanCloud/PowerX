@@ -1,16 +1,16 @@
 package plugin
 
 import (
-    "github.com/ArtisanCloud/PowerX/config"
-    manager "github.com/ArtisanCloud/PowerX/internal/infra/plugin/manager"
-    dtoRequest "github.com/ArtisanCloud/PowerX/pkg/dto"
-    pluginDto "github.com/ArtisanCloud/PowerX/pkg/dto/plugin_mgr"
-    pluginMgr "github.com/ArtisanCloud/PowerX/pkg/plugin_mgr"
-    "github.com/gin-gonic/gin"
-    "net/http"
-    "sort"
+	"github.com/ArtisanCloud/PowerX/config"
+	manager "github.com/ArtisanCloud/PowerX/internal/infra/plugin/manager"
+	dtoRequest "github.com/ArtisanCloud/PowerX/pkg/dto"
+	pluginDto "github.com/ArtisanCloud/PowerX/pkg/dto/plugin_mgr"
+	pluginMgr "github.com/ArtisanCloud/PowerX/pkg/plugin_mgr"
+	"github.com/gin-gonic/gin"
+	"net/http"
+	"sort"
 
-    "github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 )
 
 // 辅助：从全局配置拿 BasePrefix（/_p）
@@ -43,9 +43,17 @@ func PluginListHandler(c *gin.Context) {
 
 		menus := make([]pluginDto.PluginMenuItem, 0, len(p.Frontend.Admin.Menus))
 		for _, m := range p.Frontend.Admin.Menus {
+			title := m.Title
+			if m.TitleI18n != nil {
+				if def := m.TitleI18n.Default; def != "" {
+					title = def
+				} else if title == "" {
+					title = m.TitleI18n.Key
+				}
+			}
 			menus = append(menus, pluginDto.PluginMenuItem{
 				ID:    p.ID,
-				Title: m.Title,
+				Title: title,
 				Icon:  m.Icon,
 				Order: m.Order,
 				URL:   adminURL, // 简化：统一指向根；细分路由可在此扩展
@@ -78,22 +86,22 @@ func PluginListHandler(c *gin.Context) {
 
 // POST /api/.../admin/plugins/:id/enable
 func PluginEnableHandler(c *gin.Context) {
-    id := c.Param("id")
-    if id == "" {
-        dtoRequest.ResponseError(c, http.StatusBadRequest, "缺少插件ID", nil)
-        return
-    }
-    mgr := manager.GetPluginManager()
-    // 从已注入的 JWT 上下文读取 tenant_id 并显式写回（确保后续 PostEnable 能准确取到）
-    ctx := c.Request.Context()
-    if tid := reqctx.GetTenantID(ctx); tid > 0 {
-        ctx = reqctx.WithTenantID(ctx, tid)
-    }
-    if err := mgr.Enable(ctx, id); err != nil {
-        dtoRequest.ResponseError(c, statusFromManagerErr(err), "启用插件失败", err)
-        return
-    }
-    dtoRequest.ResponseSuccess(c, gin.H{"ok": true})
+	id := c.Param("id")
+	if id == "" {
+		dtoRequest.ResponseError(c, http.StatusBadRequest, "缺少插件ID", nil)
+		return
+	}
+	mgr := manager.GetPluginManager()
+	// 从已注入的 JWT 上下文读取 tenant_id 并显式写回（确保后续 PostEnable 能准确取到）
+	ctx := c.Request.Context()
+	if tid := reqctx.GetTenantID(ctx); tid > 0 {
+		ctx = reqctx.WithTenantID(ctx, tid)
+	}
+	if err := mgr.Enable(ctx, id); err != nil {
+		dtoRequest.ResponseError(c, statusFromManagerErr(err), "启用插件失败", err)
+		return
+	}
+	dtoRequest.ResponseSuccess(c, gin.H{"ok": true})
 }
 
 // POST /api/.../admin/plugins/:id/disable
@@ -132,9 +140,17 @@ func PluginMenusHandler(c *gin.Context) {
 		}
 		base := prefix + "/" + p.ID + "/admin/"
 		for _, m := range p.Frontend.Admin.Menus {
+			title := m.Title
+			if m.TitleI18n != nil {
+				if def := m.TitleI18n.Default; def != "" {
+					title = def
+				} else if title == "" {
+					title = m.TitleI18n.Key
+				}
+			}
 			agg = append(agg, pluginDto.PluginMenuItem{
 				ID:    p.ID,
-				Title: m.Title,
+				Title: title,
 				Icon:  m.Icon,
 				Order: m.Order,
 				URL:   base,
@@ -149,57 +165,57 @@ func PluginMenusHandler(c *gin.Context) {
 // GET /api/.../admin/plugins/:id
 // 返回插件详情（合并注册表信息与运行态）
 func PluginGetHandler(c *gin.Context) {
-    id := c.Param("id")
-    if id == "" {
-        dtoRequest.ResponseError(c, http.StatusBadRequest, "缺少插件ID", nil)
-        return
-    }
-    mgr := manager.GetPluginManager()
+	id := c.Param("id")
+	if id == "" {
+		dtoRequest.ResponseError(c, http.StatusBadRequest, "缺少插件ID", nil)
+		return
+	}
+	mgr := manager.GetPluginManager()
 
-    p, err := mgr.Get(c, id)
-    if err != nil {
-        dtoRequest.ResponseError(c, http.StatusNotFound, "插件不存在", err)
-        return
-    }
+	p, err := mgr.Get(c, id)
+	if err != nil {
+		dtoRequest.ResponseError(c, http.StatusNotFound, "插件不存在", err)
+		return
+	}
 
-    // 运行态
-    proc, _ := manager.TryRuntimeStatus(mgr, id)
+	// 运行态
+	proc, _ := manager.TryRuntimeStatus(mgr, id)
 
-    prefix := basePrefix()
-    hasAdmin := p.Frontend.Admin.Kind == pluginMgr.FrontendKindStatic && p.Paths.FrontendAdminDir != ""
-    adminURL := ""
-    if hasAdmin {
-        adminURL = prefix + "/" + p.ID + "/admin/"
-    }
+	prefix := basePrefix()
+	hasAdmin := p.Frontend.Admin.Kind == pluginMgr.FrontendKindStatic && p.Paths.FrontendAdminDir != ""
+	adminURL := ""
+	if hasAdmin {
+		adminURL = prefix + "/" + p.ID + "/admin/"
+	}
 
-    // 统一输出结构（贴近列表项 + 运行状态）
-    out := gin.H{
-        "id":       p.ID,
-        "name":     p.Name,
-        "version":  p.Version,
-        "state":    string(p.State),
-        "adminURL": adminURL,
-        "apiBase":  prefix + "/" + p.ID + "/api",
-        "hasAdmin": hasAdmin,
-        "description": p.Description,
-        "author":      p.Metadata.Author,
-        "category":    p.Metadata.Category,
-        "tags":        append([]string(nil), p.Metadata.Tags...),
-        "runtime": gin.H{
-            "pid":           proc.PID,
-            "port":          proc.Port,
-            "state":         proc.State,
-            "healthy":       proc.Healthy,
-            "restarts":      proc.Restarts,
-            "started_at":    proc.StartedAt,
-            "stopped_at":    proc.StoppedAt,
-            "last_exit_err": proc.LastExitErr,
-            "health_ok":     proc.HealthOKCount,
-            "health_fails":  proc.HealthFails,
-        },
-    }
+	// 统一输出结构（贴近列表项 + 运行状态）
+	out := gin.H{
+		"id":          p.ID,
+		"name":        p.Name,
+		"version":     p.Version,
+		"state":       string(p.State),
+		"adminURL":    adminURL,
+		"apiBase":     prefix + "/" + p.ID + "/api",
+		"hasAdmin":    hasAdmin,
+		"description": p.Description,
+		"author":      p.Metadata.Author,
+		"category":    p.Metadata.Category,
+		"tags":        append([]string(nil), p.Metadata.Tags...),
+		"runtime": gin.H{
+			"pid":           proc.PID,
+			"port":          proc.Port,
+			"state":         proc.State,
+			"healthy":       proc.Healthy,
+			"restarts":      proc.Restarts,
+			"started_at":    proc.StartedAt,
+			"stopped_at":    proc.StoppedAt,
+			"last_exit_err": proc.LastExitErr,
+			"health_ok":     proc.HealthOKCount,
+			"health_fails":  proc.HealthFails,
+		},
+	}
 
-    dtoRequest.ResponseSuccess(c, out)
+	dtoRequest.ResponseSuccess(c, out)
 }
 
 // POST /api/.../admin/plugins/:id/restart

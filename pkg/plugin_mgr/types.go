@@ -175,6 +175,7 @@ type FrontendAdminSpec struct {
 	StaticDir     string       `yaml:"static_dir"     json:"static_dir"` // kind=static 必填
 	ProxyBasePath string       `yaml:"proxy_base_path" json:"proxy_base_path"`
 	Menus         []MenuItem   `yaml:"menus"          json:"menus"`
+	I18n          *I18nSpec    `yaml:"i18n,omitempty" json:"i18n,omitempty"`
 }
 
 type MenuItem struct {
@@ -182,12 +183,19 @@ type MenuItem struct {
 	Route            string     `yaml:"route" json:"route"` // 相对 admin 根，如 "/", "/reports"
 	Path             string     `yaml:"path"  json:"path"`
 	Title            string     `yaml:"title" json:"title"`
+	TitleI18n        *MenuLabel `yaml:"title_i18n,omitempty" json:"title_i18n,omitempty"`
 	Icon             string     `yaml:"icon"  json:"icon"`
 	Order            int        `yaml:"order" json:"order"`
 	Slot             SlotKey    `yaml:"slot" json:"slot"`
 	Visible          *bool      `yaml:"visible" json:"visible"`
 	RequiredPolicies []string   `yaml:"required_policies,omitempty" json:"required_policies,omitempty"`
 	Children         []MenuItem `yaml:"children,omitempty" json:"children,omitempty"`
+}
+
+type MenuLabel struct {
+	Namespace string `yaml:"namespace,omitempty" json:"namespace,omitempty"`
+	Key       string `yaml:"key" json:"key"`
+	Default   string `yaml:"default,omitempty" json:"default,omitempty"`
 }
 
 // ------- RBAC / Events -------
@@ -220,11 +228,20 @@ type RouteSpec struct {
 type MenuTreeItem struct {
 	ID               string         `yaml:"id"       json:"id"`
 	Title            string         `yaml:"title"    json:"title"`
+	TitleI18n        *MenuLabel     `yaml:"title_i18n,omitempty" json:"title_i18n,omitempty"`
 	Icon             string         `yaml:"icon"     json:"icon"`
 	Path             string         `yaml:"path"     json:"path"`
 	Order            int            `yaml:"order"    json:"order"`
 	RequiredPolicies []string       `yaml:"required_policies,omitempty" json:"required_policies,omitempty"`
 	Children         []MenuTreeItem `yaml:"children,omitempty" json:"children,omitempty"`
+}
+
+type I18nSpec struct {
+	Dir              string   `yaml:"dir" json:"dir"`
+	Format           string   `yaml:"format,omitempty" json:"format,omitempty"`
+	DefaultNamespace string   `yaml:"default_namespace,omitempty" json:"default_namespace,omitempty"`
+	Namespaces       []string `yaml:"namespaces,omitempty" json:"namespaces,omitempty"`
+	Locales          []string `yaml:"locales,omitempty" json:"locales,omitempty"`
 }
 
 type AgentSpec struct {
@@ -267,15 +284,16 @@ type HostConfig struct {
 // ------- 安装后的真实落地路径（宿主填充） -------
 
 type InstalledPaths struct {
-	Root              string `json:"root"`               // plugins/installed/<id>/<ver>
-	FrontendAdminDir  string `json:"frontend_admin_dir"` // .../frontend/admin
-	Entry             string `json:"entry"`              // .../backend/bin/xxx
-	PublicDir         string `json:"public_dir"`         // .../public
-	MigrationsDir     string `json:"migrations_dir"`     // .../migrations
-	MigrationsEntry   string `json:"migrations_entry"`
-	MigrationsWorkDir string `json:"migrations_workdir"`
-	ContractsOpenAPI  string `json:"contracts_openapi"`   // .../contracts/openapi.yaml
-	ContractsProtoDir string `json:"contracts_proto_dir"` // .../contracts/proto
-	ConfigDir         string `json:"config_dir"`
-	HostValuesFile    string `json:"host_values_file"`
+	Root                 string `json:"root"`               // plugins/installed/<id>/<ver>
+	FrontendAdminDir     string `json:"frontend_admin_dir"` // .../frontend/admin
+	FrontendAdminI18nDir string `json:"frontend_admin_i18n_dir,omitempty"`
+	Entry                string `json:"entry"`          // .../backend/bin/xxx
+	PublicDir            string `json:"public_dir"`     // .../public
+	MigrationsDir        string `json:"migrations_dir"` // .../migrations
+	MigrationsEntry      string `json:"migrations_entry"`
+	MigrationsWorkDir    string `json:"migrations_workdir"`
+	ContractsOpenAPI     string `json:"contracts_openapi"`   // .../contracts/openapi.yaml
+	ContractsProtoDir    string `json:"contracts_proto_dir"` // .../contracts/proto
+	ConfigDir            string `json:"config_dir"`
+	HostValuesFile       string `json:"host_values_file"`
 }

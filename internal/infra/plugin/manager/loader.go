@@ -90,6 +90,9 @@ func (l *FSLoader) LoadDescriptor(ctx context.Context, root string) (Descriptor,
 	if m.Frontend.Admin.StaticDir != "" {
 		p.FrontendAdminDir = filepath.Clean(filepath.Join(root, m.Frontend.Admin.StaticDir))
 	}
+	if m.Frontend.Admin.I18n != nil && m.Frontend.Admin.I18n.Dir != "" {
+		p.FrontendAdminI18nDir = filepath.Clean(filepath.Join(absRoot, m.Frontend.Admin.I18n.Dir))
+	}
 	if m.Runtime.Entry != "" {
 		p.Entry = filepath.Clean(filepath.Join(root, m.Runtime.Entry))
 	}
@@ -176,6 +179,23 @@ func (l *FSLoader) Validate(ctx context.Context, m plugin_mgr.Manifest, root str
 			static := filepath.Join(root, m.Frontend.Admin.StaticDir)
 			if fi, err := os.Stat(static); err != nil || !fi.IsDir() {
 				ferrs = append(ferrs, plugin_mgr.FieldError{Field: "frontend.admin.static_dir", Reason: "not found"})
+			}
+		}
+		if spec := m.Frontend.Admin.I18n; spec != nil {
+			req("frontend.admin.i18n.dir", spec.Dir)
+			if spec.Dir != "" {
+				i18nDir := filepath.Join(root, spec.Dir)
+				if fi, err := os.Stat(i18nDir); err != nil || !fi.IsDir() {
+					ferrs = append(ferrs, plugin_mgr.FieldError{Field: "frontend.admin.i18n.dir", Reason: "not found"})
+				}
+			}
+			if spec.Format != "" {
+				switch spec.Format {
+				case "i18next", "json", "nuxt":
+					// 支持的格式
+				default:
+					ferrs = append(ferrs, plugin_mgr.FieldError{Field: "frontend.admin.i18n.format", Reason: "unsupported"})
+				}
 			}
 		}
 	}

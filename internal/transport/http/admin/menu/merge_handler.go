@@ -16,7 +16,7 @@ import (
 // GET /api/admin/menus  —— 合并系统+插件菜单，并按权限过滤 + 顶层排序
 func AdminMenusHandler(c *gin.Context) {
 	sys := BuildSystemMenus()
-	plug := plugin.BuildPluginMenusPublic(plugin.MarketBasePrefix)
+	plug := plugin.BuildPluginMenusPublic(c.Request.Context(), plugin.MarketBasePrefix)
 
 	// 1) RBAC 过滤（AND）
 	allow := func(perms []string) bool {
@@ -42,7 +42,7 @@ func AdminMenusHandler(c *gin.Context) {
 	// 3) 将插件菜单按 slot 放置；同时收集 group.root 顶层插件
 	var rootPlugins []admdto.AdminMenuItem
 
-	for _, m := range plug {
+	for _, m := range plug.Items {
 		if !allow(m.Permissions) {
 			continue
 		}
@@ -84,7 +84,11 @@ func AdminMenusHandler(c *gin.Context) {
 	sys = sortTopLevelWithRootFirst(sys, rootPlugins)
 
 	cats := groupAsCategories(sys)
-	dto.ResponseSuccess(c, gin.H{"categories": cats})
+	payload := gin.H{"categories": cats}
+	if len(plug.I18n) > 0 {
+		payload["i18n"] = plug.I18n
+	}
+	dto.ResponseSuccess(c, payload)
 
 	//dto.ResponseSuccess(c, gin.H{"menus": sys})
 }
