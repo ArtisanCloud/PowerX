@@ -3,20 +3,23 @@ package menu
 // api/http/admin/menu/merge_handler.go
 
 import (
+	"sort"
+	"strings"
+
 	admdto "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/dto"
 	"github.com/ArtisanCloud/PowerX/internal/transport/http/admin/plugin"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/rbac"
 	dto "github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/ArtisanCloud/PowerX/pkg/plugin_mgr"
 	"github.com/gin-gonic/gin"
-	"sort"
 )
 
 // GET /api/admin/menus  —— 合并系统+插件菜单，并按权限过滤
 // GET /api/admin/menus  —— 合并系统+插件菜单，并按权限过滤 + 顶层排序
 func AdminMenusHandler(c *gin.Context) {
 	sys := BuildSystemMenus()
-	plug := plugin.BuildPluginMenusPublic(c.Request.Context(), plugin.MarketBasePrefix)
+	locales := parseLocaleQuery(c)
+	plug := plugin.BuildPluginMenusPublic(c.Request.Context(), plugin.MarketBasePrefix, locales)
 
 	// 1) RBAC 过滤（AND）
 	allow := func(perms []string) bool {
@@ -91,6 +94,27 @@ func AdminMenusHandler(c *gin.Context) {
 	dto.ResponseSuccess(c, payload)
 
 	//dto.ResponseSuccess(c, gin.H{"menus": sys})
+}
+
+func parseLocaleQuery(c *gin.Context) []string {
+	values := c.QueryArray("locale")
+	if combined := c.Query("locales"); combined != "" {
+		values = append(values, strings.Split(combined, ",")...)
+	}
+	out := make([]string, 0, len(values))
+	seen := map[string]struct{}{}
+	for _, v := range values {
+		v = strings.TrimSpace(v)
+		if v == "" {
+			continue
+		}
+		if _, ok := seen[v]; ok {
+			continue
+		}
+		seen[v] = struct{}{}
+		out = append(out, v)
+	}
+	return out
 }
 
 // 仅对子节点递归排序（不改变顶层顺序）

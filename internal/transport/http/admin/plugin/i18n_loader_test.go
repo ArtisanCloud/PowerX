@@ -37,7 +37,7 @@ func TestLoadPluginMenuI18n(t *testing.T) {
 		},
 	}
 
-	bundle := loadPluginMenuI18n(context.Background(), plugin)
+	bundle := loadPluginMenuI18n(context.Background(), plugin, nil)
 	require.NotNil(t, bundle)
 	require.Equal(t, "com.example.demo", bundle.PluginID)
 	require.Equal(t, "i18next", bundle.Format)
@@ -52,4 +52,10 @@ func TestLoadPluginMenuI18n(t *testing.T) {
 	zhNs, ok := bundle.Locales["zh-CN"]["menus"]
 	require.True(t, ok)
 	require.Equal(t, "你好", zhNs["greeting"])
+
+	filtered := loadPluginMenuI18n(context.Background(), plugin, []string{"en"})
+	require.NotNil(t, filtered)
+	require.Len(t, filtered.Locales, 1)
+	require.Contains(t, filtered.Locales, "en")
+	require.NotContains(t, filtered.Locales, "zh-CN")
 }

@@ -12,11 +12,11 @@ import (
 )
 
 type PluginMenusPublic struct {
-	Items []admdto.AdminMenuItem
-	I18n  []admdto.MenuI18nPackage
+    Items []admdto.AdminMenuItem
+    I18n  []admdto.MenuI18nPackage
 }
 
-func BuildPluginMenusPublic(ctx context.Context, basePrefix string) PluginMenusPublic {
+func BuildPluginMenusPublic(ctx context.Context, basePrefix string, locales []string) PluginMenusPublic {
 	mgr := mgrimpl.GetPluginManager()
 	list, err := mgr.List(ctx)
 	if err != nil {
@@ -32,7 +32,7 @@ func BuildPluginMenusPublic(ctx context.Context, basePrefix string) PluginMenusP
 			continue
 		}
 
-		if bundle := loadPluginMenuI18n(ctx, p); bundle != nil {
+		if bundle := loadPluginMenuI18n(ctx, p, locales); bundle != nil {
 			out.I18n = append(out.I18n, *bundle)
 		}
 

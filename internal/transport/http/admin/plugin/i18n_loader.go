@@ -15,7 +15,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-func loadPluginMenuI18n(ctx context.Context, p plugin_mgr.Plugin) *admdto.MenuI18nPackage {
+func loadPluginMenuI18n(ctx context.Context, p plugin_mgr.Plugin, requestedLocales []string) *admdto.MenuI18nPackage {
 	spec := p.Frontend.Admin.I18n
 	if spec == nil {
 		return nil
@@ -33,6 +33,23 @@ func loadPluginMenuI18n(ctx context.Context, p plugin_mgr.Plugin) *admdto.MenuI1
 			return nil
 		}
 		locales = discovered
+	}
+	if len(requestedLocales) > 0 {
+		reqSet := map[string]struct{}{}
+		for _, loc := range requestedLocales {
+			loc = strings.TrimSpace(loc)
+			if loc == "" {
+				continue
+			}
+			reqSet[loc] = struct{}{}
+		}
+		filtered := make([]string, 0, len(locales))
+		for _, loc := range locales {
+			if _, ok := reqSet[loc]; ok {
+				filtered = append(filtered, loc)
+			}
+		}
+		locales = filtered
 	}
 	if len(locales) == 0 {
 		return nil
@@ -232,12 +249,6 @@ func normalizeI18nValue(v any) any {
 			val[i] = normalizeI18nValue(val[i])
 		}
 		return val
-	case []interface{}:
-		arr := make([]any, len(val))
-		for i := range val {
-			arr[i] = normalizeI18nValue(val[i])
-		}
-		return arr
 	default:
 		return val
 	}
