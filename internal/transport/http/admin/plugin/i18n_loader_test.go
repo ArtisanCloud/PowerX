@@ -6,7 +6,9 @@ import (
 	"path/filepath"
 	"testing"
 
+	admdto "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/dto"
 	"github.com/ArtisanCloud/PowerX/pkg/plugin_mgr"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -58,4 +60,40 @@ func TestLoadPluginMenuI18n(t *testing.T) {
 	require.Len(t, filtered.Locales, 1)
 	require.Contains(t, filtered.Locales, "en")
 	require.NotContains(t, filtered.Locales, "zh-CN")
+
+	enUS := loadPluginMenuI18n(context.Background(), plugin, normalizeLocalePreference([]string{"en-US"}))
+	require.NotNil(t, enUS)
+	require.Len(t, enUS.Locales, 1)
+	require.Contains(t, enUS.Locales, "en")
+	require.NotContains(t, enUS.Locales, "zh-CN")
+}
+
+func TestResolveMenuTitle(t *testing.T) {
+	bundle := &admdto.MenuI18nPackage{
+		DefaultNamespace: "menus",
+		Locales: admdto.MenuI18nLocales{
+			"zh-CN": {
+				"menus": {
+					"menu": map[string]any{
+						"base": map[string]any{
+							"title": "基础插件",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	item := plugin_mgr.MenuItem{
+		Title: "Base Plugin",
+		TitleI18n: &plugin_mgr.MenuLabel{
+			Namespace: "menus",
+			Key:       "menu.base.title",
+			Default:   "Base Plugin",
+		},
+	}
+
+	assert.Equal(t, "基础插件", resolveMenuTitle(item, []string{"zh-CN"}, bundle))
+	assert.Equal(t, "Base Plugin", resolveMenuTitle(item, []string{"en"}, bundle))
+	assert.Equal(t, "Base Plugin", resolveMenuTitle(item, normalizeLocalePreference([]string{"en-US"}), bundle))
 }
