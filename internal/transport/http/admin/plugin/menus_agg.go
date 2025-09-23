@@ -41,49 +41,87 @@ func BuildPluginMenusPublic(ctx context.Context, basePrefix string, locales []st
 
 		root := basePrefix + "/" + p.ID + "/admin/"
 		for _, m := range p.Frontend.Admin.Menus {
-			route := strings.TrimLeft(m.Route, "/")
-			url := root
-			if route != "" {
-				url = root + route
+			item := convertPluginMenuItem(p.ID, root, "", m, preferredLocales, bundle)
+			// 顶层默认插入 group.plugins 插槽
+			if item.Slot == "" {
+				item.Slot = plugin_mgr.SlotPlugins
 			}
-
-			visible := true
-			if m.Visible != nil {
-				visible = *m.Visible
-			}
-			slot := m.Slot
-			if slot == "" {
-				slot = plugin_mgr.SlotPlugins
-			}
-
-			title := resolveMenuTitle(m, preferredLocales, bundle)
-			var titleI18n *admdto.MenuI18nLabel
-			if m.TitleI18n != nil {
-				titleI18n = &admdto.MenuI18nLabel{
-					Namespace: m.TitleI18n.Namespace,
-					Key:       m.TitleI18n.Key,
-					Default:   m.TitleI18n.Default,
-				}
-				if titleI18n.Default == "" && title != "" {
-					titleI18n.Default = title
-				}
-			}
-
-			out.Items = append(out.Items, admdto.AdminMenuItem{
-				Key:         plugin_mgr.MenuKey("plugin:" + p.ID + ":" + route),
-				Title:       title,
-				Icon:        m.Icon,
-				URL:         url,
-				Order:       m.Order,
-				Origin:      plugin_mgr.OriginPlugin,
-				Visible:     visible, // ✅ 默认可见
-				Slot:        slot,    // ✅ 插槽
-				Permissions: m.RequiredPolicies,
-				TitleI18n:   titleI18n,
-			})
+			out.Items = append(out.Items, item)
 		}
 	}
 	sort.Slice(out.Items, func(i, j int) bool { return out.Items[i].Order < out.Items[j].Order })
+	return out
+}
+
+func convertPluginMenuItem(pluginID, root string, parent plugin_mgr.MenuKey, m plugin_mgr.MenuItem, locales []string, bundle *admdto.MenuI18nPackage) admdto.AdminMenuItem {
+	route := strings.TrimLeft(m.Route, "/")
+	url := root
+	if route != "" {
+		url = root + route
+	}
+
+	visible := true
+	if m.Visible != nil {
+		visible = *m.Visible
+	}
+	slot := m.Slot
+
+	title := resolveMenuTitle(m, locales, bundle)
+	titleI18n := toMenuI18nLabel(m.TitleI18n, title)
+
+	key := makePluginMenuKey(pluginID, m, route)
+	item := admdto.AdminMenuItem{
+		Key:         key,
+		Title:       title,
+		Icon:        m.Icon,
+		URL:         url,
+		Order:       m.Order,
+		Origin:      plugin_mgr.OriginPlugin,
+		Visible:     visible,
+		Slot:        slot,
+		Permissions: m.RequiredPolicies,
+		TitleI18n:   titleI18n,
+	}
+	if parent != "" {
+		item.ParentID = parent
+	}
+
+	if len(m.Children) > 0 {
+		item.Children = make([]admdto.AdminMenuItem, 0, len(m.Children))
+		for _, child := range m.Children {
+			childItem := convertPluginMenuItem(pluginID, root, key, child, locales, bundle)
+			item.Children = append(item.Children, childItem)
+		}
+	}
+	return item
+}
+
+func makePluginMenuKey(pluginID string, m plugin_mgr.MenuItem, route string) plugin_mgr.MenuKey {
+	segment := strings.TrimSpace(m.ID)
+	if segment == "" {
+		segment = strings.Trim(route, "/")
+	}
+	if segment == "" {
+		segment = strings.Trim(strings.TrimSpace(m.Path), "/")
+	}
+	if segment == "" {
+		segment = fmt.Sprintf("auto-%d", m.Order)
+	}
+	return plugin_mgr.MenuKey("plugin:" + pluginID + ":" + segment)
+}
+
+func toMenuI18nLabel(label *plugin_mgr.MenuLabel, fallback string) *admdto.MenuI18nLabel {
+	if label == nil {
+		return nil
+	}
+	out := &admdto.MenuI18nLabel{
+		Namespace: label.Namespace,
+		Key:       label.Key,
+		Default:   label.Default,
+	}
+	if strings.TrimSpace(out.Default) == "" && strings.TrimSpace(fallback) != "" {
+		out.Default = fallback
+	}
 	return out
 }
 
