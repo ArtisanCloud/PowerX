@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -47,7 +48,7 @@ func (m *managerImpl) Enable(ctx context.Context, id string) error {
 			return plugin_mgr.NewError(plugin_mgr.CodeInternal, plugin_mgr.WithOp("enable"), plugin_mgr.WithMsg("supervisor not initialized"))
 		}
 
-		// 从 manifest.Health 组装 supervisor 选项
+		// —— 从 manifest.Health 组装 supervisor 选项
 		h := p.Runtime.Health
 		healthPath := firstNonEmpty(h.HTTPPath, "/healthz")
 		supOpts := supervisor.Options{
@@ -59,9 +60,9 @@ func (m *managerImpl) Enable(ctx context.Context, id string) error {
 			BackoffMax:     10 * time.Second,
 		}
 
-		// 启动子进程（自动分配端口，PORT 注入）
+		// —— 进程环境：基础 env + 宿主注入 env
 		envMap := cloneEnvMap(p.Runtime.Env)
-		hostEnv := m.hostEnvForPlugin(p)
+		hostEnv := m.hostEnvForPlugin(p) // 若你已有同名方法，可直接用你的实现
 		for k, v := range hostEnv {
 			envMap[k] = v
 		}
@@ -75,13 +76,12 @@ func (m *managerImpl) Enable(ctx context.Context, id string) error {
 			envMap["POWERX_PLUGIN_HOST_VALUES"] = p.Paths.HostValuesFile
 		}
 		envMap["POWERX_PLUGIN_VERSION"] = p.Version
-		// 注入宿主→插件的内部通信令牌（仅内存）
+
+		// —— 内部通信令牌
 		internalToken := os.Getenv("POWERX_INTERNAL_TOKEN")
 		if internalToken == "" {
-			// 使用全局工具生成更强随机
 			internalToken = utils.RandomString(48)
 		}
-		// 优先使用更强随机（如果 utils 可用，可替换）
 		envMap["POWERX_INTERNAL_TOKEN"] = internalToken
 		envMap["POWERX_PLUGIN_ID"] = p.ID
 		m.mu.Lock()
@@ -90,48 +90,67 @@ func (m *managerImpl) Enable(ctx context.Context, id string) error {
 		}
 		m.tokens[p.ID] = internalToken
 		m.mu.Unlock()
+
+		// —— HTTP 绑定（由 Supervisor 动态分配 PORT + PX_BIND_ADDR）
 		runtimeBind := strings.TrimSpace(p.Runtime.Env["PX_BIND_ADDR"])
 		hostBind := ""
 		if hc := p.HostConfig; hc != nil && hc.Values != nil {
 			hostBind = strings.TrimSpace(hc.Values["PX_BIND_ADDR"])
 		}
-		dynamicBind := hostBind == ""
-		if dynamicBind {
+		dynamicHTTP := hostBind == ""
+		if dynamicHTTP {
+			// 用占位符告诉 Supervisor：请你挑一个可用端口并注入 PORT/PX_BIND_ADDR
 			envMap["PX_BIND_ADDR"] = supervisor.DynamicBindPlaceholder
 		}
-		fmt.Printf("[plugin-enable] plugin=%s runtime_bind=%q host_bind=%q merged_bind=%q dynamic_bind=%v\n",
-			p.ID,
-			runtimeBind,
-			hostBind,
-			strings.TrimSpace(envMap["PX_BIND_ADDR"]),
-			dynamicBind,
-		)
-		fmt.Printf("[plugin-enable] plugin=%s supervisor_port_env=%q\n", p.ID, envMap["PORT"])
 
+		// —— gRPC 绑定（新增：由 Manager 统一分配）
+		grpcAddr := strings.TrimSpace(p.Runtime.Env["PX_GRPC_ADDR"])
+		if grpcAddr == "" && p.HostConfig != nil && p.HostConfig.Values != nil {
+			grpcAddr = strings.TrimSpace(p.HostConfig.Values["PX_GRPC_ADDR"])
+		}
+		if grpcAddr == "" || grpcAddr == ":9101" || grpcAddr == "127.0.0.1:9101" {
+			// 没配或是老的固定 9101：为它挑一个空闲端口
+			gp, err := pickFreePortLocal()
+			if err == nil {
+				grpcAddr = fmt.Sprintf("127.0.0.1:%d", gp)
+			} else {
+				// 实在拿不到，就给个 0（让插件自己挑）；建议尽快改插件读取 PX_GRPC_ADDR
+				grpcAddr = "127.0.0.1:0"
+			}
+		}
+		envMap["PX_GRPC_ADDR"] = grpcAddr
+		// 兼容一些旧插件读取 GRPC_ADDR/GRPC_PORT
+		envMap["GRPC_ADDR"] = grpcAddr
+		if i := strings.LastIndexByte(grpcAddr, ':'); i >= 0 && i+1 < len(grpcAddr) {
+			envMap["PX_GRPC_PORT"] = grpcAddr[i+1:]
+			envMap["GRPC_PORT"] = grpcAddr[i+1:]
+		}
+
+		fmt.Printf("[plugin-enable] plugin=%s runtime_http=%q host_http=%q http_effective=%q dynamic_http=%v\n",
+			p.ID, runtimeBind, hostBind, strings.TrimSpace(envMap["PX_BIND_ADDR"]), dynamicHTTP)
+		fmt.Printf("[plugin-enable] plugin=%s grpc_bind=%q\n", p.ID, grpcAddr)
+
+		// —— 启动子进程（Supervisor 会再分配 HTTP 端口，注入 PORT）
 		port, err := m.sup.Start(ctx, p.ID, p.Paths.Entry, p.Runtime.Args, envMap, supOpts)
 		if err != nil {
 			return plugin_mgr.Wrap(plugin_mgr.CodeProcessStartFailed, err, plugin_mgr.WithOp("enable"), plugin_mgr.WithPlugin(id))
 		}
 		baseURL := "http://127.0.0.1:" + strconv.Itoa(port)
-		fmt.Printf("[plugin-enable] plugin=%s assigned_port=%d effective_bind=%q\n",
-			p.ID,
-			port,
-			strings.TrimSpace(envMap["PX_BIND_ADDR"]),
-		)
+		fmt.Printf("[plugin-enable] plugin=%s assigned_http_port=%d http_bind_effective=%q\n",
+			p.ID, port, strings.TrimSpace(envMap["PX_BIND_ADDR"]))
 
-		// 健康探活（等待到 healthy 再对外挂载）
+		// —— 健康探活（OK 再挂反代）
 		if err := waitHealthy(ctx, baseURL, healthPath, supOpts.HealthInterval, supOpts.HealthTimeout); err != nil {
 			_ = m.sup.Stop(p.ID)
 			return plugin_mgr.Wrap(plugin_mgr.CodeHealthcheckFailed, err, plugin_mgr.WithOp("enable"), plugin_mgr.WithPlugin(id))
 		}
 
-		// 反向代理挂载
+		// —— 反向代理挂载
 		u, _ := url.Parse(baseURL)
 		basePath := p.Endpoints.HTTPBasePath
 		if basePath == "" {
 			basePath = "/"
 		}
-		// 传递 healthPath，宿主的 /_p/:id/api/healthz 将直达插件健康检查
 		m.http.MountAPIProxy(p.ID, u, basePath, healthPath)
 	}
 
@@ -139,13 +158,11 @@ func (m *managerImpl) Enable(ctx context.Context, id string) error {
 	if err := m.opts.Registry.UpdateState(ctx, p.ID, p.Version, plugin_mgr.StateEnabled); err != nil {
 		return err
 	}
-	err = m.opts.Registry.Save(ctx)
-	if err != nil {
+	if err := m.opts.Registry.Save(ctx); err != nil {
 		return err
 	}
 
 	if m.opts.PostEnable != nil {
-		// 从 ctx 读取 tenantID；若为 0（系统上下文），跳过凭证创建，避免产生 tenant_id=0 的记录
 		if tid := reqctx.GetTenantID(ctx); tid > 0 {
 			if err := m.opts.PostEnable(ctx, tid, p.ID); err != nil {
 				return err
@@ -165,12 +182,12 @@ func (m *managerImpl) Disable(ctx context.Context, id string) error {
 		return plugin_mgr.NewError(plugin_mgr.CodeInternal, plugin_mgr.WithOp("disable"), plugin_mgr.WithMsg("dynamic router not initialized"))
 	}
 
-	// 卸载路由（Admin+API 一键摘掉）
+	// 卸载路由（Admin+API）
 	m.http.Unmount(p.ID)
 
 	// 停止子进程（如有）
 	if p.Runtime.Kind == plugin_mgr.RuntimeKindProcess && m.sup != nil {
-		_ = m.sup.Stop(p.ID) // 注意：新版 Stop(id string) 无 ctx
+		_ = m.sup.Stop(p.ID)
 	}
 
 	if err := m.opts.Registry.UpdateState(ctx, p.ID, p.Version, plugin_mgr.StateDisabled); err != nil {
@@ -179,17 +196,7 @@ func (m *managerImpl) Disable(ctx context.Context, id string) error {
 	return m.opts.Registry.Save(ctx)
 }
 
-// 小工具：Get 带错误码
-func (m *managerImpl) mustGet(ctx context.Context, id string) (plugin_mgr.Plugin, error) {
-	p, ok := m.opts.Registry.Get(ctx, id)
-	if !ok {
-		return plugin_mgr.Plugin{}, plugin_mgr.NewError(plugin_mgr.CodeNotFound, plugin_mgr.WithOp("get"), plugin_mgr.WithPlugin(id))
-	}
-	return p, nil
-}
-
-// ======== 辅助函数 ========
-
+// —— 工具/兼容 ——
 func firstNonEmpty(s, fallback string) string {
 	if strings.TrimSpace(s) != "" {
 		return s
@@ -197,7 +204,6 @@ func firstNonEmpty(s, fallback string) string {
 	return fallback
 }
 
-// Interval/Timeout 在 manifest 里是 string（"2s"），这里解析；解析失败用默认值
 func parseDurDefault(s string, d time.Duration) time.Duration {
 	if strings.TrimSpace(s) == "" {
 		return d
@@ -209,7 +215,6 @@ func parseDurDefault(s string, d time.Duration) time.Duration {
 	return v
 }
 
-// 等待健康：直到返回 2xx 或超时/ctx 结束
 func waitHealthy(ctx context.Context, baseURL, healthPath string, interval, timeout time.Duration) error {
 	if strings.TrimSpace(healthPath) == "" {
 		return nil
@@ -218,13 +223,10 @@ func waitHealthy(ctx context.Context, baseURL, healthPath string, interval, time
 		healthPath = "/" + healthPath
 	}
 	url := strings.TrimRight(baseURL, "/") + healthPath
-
-	// 总等待上限：优先用 ctx.Deadline，否则给个保底 30s
 	deadline := time.Now().Add(30 * time.Second)
 	if dl, ok := ctx.Deadline(); ok {
 		deadline = dl
 	}
-
 	cli := &http.Client{Timeout: timeout}
 	for time.Now().Before(deadline) {
 		req, _ := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
@@ -258,7 +260,6 @@ func cloneEnvMap(src map[string]string) map[string]string {
 	return dst
 }
 
-// 将 ["KEY=VAL","FOO=BAR"] 转为 map[string]string，非法项跳过
 func envListToMap(env []string) map[string]string {
 	m := make(map[string]string, len(env))
 	for _, e := range env {
@@ -274,4 +275,22 @@ func envListToMap(env []string) map[string]string {
 		}
 	}
 	return m
+}
+
+func pickFreePortLocal() (int, error) {
+	l, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		return 0, err
+	}
+	defer l.Close()
+	return l.Addr().(*net.TCPAddr).Port, nil
+}
+
+// Get 带错误码
+func (m *managerImpl) mustGet(ctx context.Context, id string) (plugin_mgr.Plugin, error) {
+	p, ok := m.opts.Registry.Get(ctx, id)
+	if !ok {
+		return plugin_mgr.Plugin{}, plugin_mgr.NewError(plugin_mgr.CodeNotFound, plugin_mgr.WithOp("get"), plugin_mgr.WithPlugin(id))
+	}
+	return p, nil
 }
