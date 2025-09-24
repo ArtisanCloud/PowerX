@@ -32,19 +32,19 @@ func (m *managerImpl) generateHostConfig(man plugin_mgr.Manifest, destRoot strin
 	}
 
 	envAll := m.collectSystemEnv()
-	bindOverride := strings.TrimSpace(envAll["PX_BIND_ADDR"])
-	envAll["PX_PLUGIN_CONFIG_DIR"] = cfgDir
+	bindOverride := strings.TrimSpace(envAll["POWERX_BIND_ADDR"])
+	envAll["POWERX_PLUGIN_CONFIG_DIR"] = cfgDir
 	selected := mergeEnvWithRuntime(envAll, man.Runtime.Env)
 
-	// 若宿主未显式指定 PX_BIND_ADDR，则允许插件根据 PORT 环境变量动态监听
+	// 若宿主未显式指定 POWERX_BIND_ADDR，则允许插件根据 PORT 环境变量动态监听
 	if bindOverride == "" {
-		delete(selected, "PX_BIND_ADDR")
+		delete(selected, "POWERX_BIND_ADDR")
 	}
 	fmt.Printf("[plugin-host-config] plugin=%s cfg_dir=%s bind_override=%q runtime_bind=%q\n",
-		man.ID, cfgDir, bindOverride, selected["PX_BIND_ADDR"])
+		man.ID, cfgDir, bindOverride, selected["POWERX_BIND_ADDR"])
 
 	// 确保插件进程可感知宿主提供的配置目录和 host-values 文件
-	selected["PX_PLUGIN_CONFIG_DIR"] = cfgDir
+	selected["POWERX_PLUGIN_CONFIG_DIR"] = cfgDir
 
 	valuesPath := filepath.Join(cfgDir, hostValuesFileName)
 	examplePath := filepath.Join(cfgDir, "values.example.yaml")
@@ -102,10 +102,10 @@ func (m *managerImpl) generateHostConfig(man plugin_mgr.Manifest, destRoot strin
 			delete(structured, "server")
 		}
 	}
-	if lvl := selected["PX_LOG_LEVEL"]; lvl != "" {
+	if lvl := selected["POWERX_LOG_LEVEL"]; lvl != "" {
 		setNestedValue(structured, []string{"server", "log_level"}, lvl)
 	}
-	if devMode, ok := parseBoolish(selected["PX_DEV_MODE"]); ok {
+	if devMode, ok := parseBoolish(selected["POWERX_DEV_MODE"]); ok {
 		setNestedValue(structured, []string{"server", "dev_mode"}, devMode)
 	}
 

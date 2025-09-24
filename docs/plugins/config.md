@@ -20,7 +20,7 @@ server:
   bind_addr: ":8091"
   log_level: debug
 env:
-  PX_PLUGIN_CONFIG_DIR: /var/.../config
+  POWERX_PLUGIN_CONFIG_DIR: /var/.../config
   POWERX_DB_DSN: postgres://pxu_xxx:******@...
   POWERX_DB_USERNAME: pxu_com_powerx_plugins_base
   POWERX_DB_PASSWORD: ******
@@ -71,7 +71,7 @@ migrations:
 - `once`：设为 `true` 时仅在首次安装执行（后续升级可按需扩展）。
 - `timeout`：可选的超时时间，语法与 `time.ParseDuration` 一致，超时会终止迁移并视为失败。
 
-宿主为迁移子进程注入与运行态一致的环境变量，包括数据库 DSN（`POWERX_DB_*`）、Redis 连接、`PX_PLUGIN_CONFIG_DIR` 以及 `POWERX_PLUGIN_ROOT`、`POWERX_PLUGIN_VERSION` 等基础信息。迁移成功会在插件注册表中记录 `migrations` 元数据（入口、执行时间、哈希值、结果），便于后续判断是否需要重跑；失败则中止安装并返回 `migration_failed` 错误码。
+宿主为迁移子进程注入与运行态一致的环境变量，包括数据库 DSN（`POWERX_DB_*`）、Redis 连接、`POWERX_PLUGIN_CONFIG_DIR` 以及 `POWERX_PLUGIN_ROOT`、`POWERX_PLUGIN_VERSION` 等基础信息。迁移成功会在插件注册表中记录 `migrations` 元数据（入口、执行时间、哈希值、结果），便于后续判断是否需要重跑；失败则中止安装并返回 `migration_failed` 错误码。
 
 如需跳过自动迁移，可在生成的 `config/host-values.yaml` 中将 `runtime.run_migrate` 调整为 `false`，宿主在安装阶段会检测该配置并跳过执行，保留迁移记录为 `skipped` 状态。
 

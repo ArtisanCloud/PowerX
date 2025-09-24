@@ -162,8 +162,9 @@ type GRPCSpec struct {
 type FrontendKind string
 
 const (
-	FrontendKindStatic FrontendKind = "static" // 宿主直挂静态资源
-	FrontendKindProxy  FrontendKind = "proxy"  // 预留：反代到插件 Admin 服务
+	FrontendKindStatic  FrontendKind = "static"  // 宿主直挂静态资源
+	FrontendKindProxy   FrontendKind = "proxy"   // 宿主反代到插件已有 Admin 服务（同后端或远端）
+	FrontendKindProcess FrontendKind = "process" // 宿主启动一个独立的 Admin 进程（如 Nuxt/Nitro）
 )
 
 type FrontendSpec struct {
@@ -171,11 +172,12 @@ type FrontendSpec struct {
 }
 
 type FrontendAdminSpec struct {
-	Kind          FrontendKind `yaml:"kind"           json:"kind"`       // static | proxy
-	StaticDir     string       `yaml:"static_dir"     json:"static_dir"` // kind=static 必填
-	ProxyBasePath string       `yaml:"proxy_base_path" json:"proxy_base_path"`
-	Menus         []MenuItem   `yaml:"menus"          json:"menus"`
-	I18n          *I18nSpec    `yaml:"i18n,omitempty" json:"i18n,omitempty"`
+	Kind          FrontendKind `yaml:"kind"            json:"kind"`                // static | proxy | process
+	StaticDir     string       `yaml:"static_dir"      json:"static_dir"`          // kind=static 必填
+	ProxyBasePath string       `yaml:"proxy_base_path" json:"proxy_base_path"`     // kind=proxy 可选（与后端共端口时使用）
+	Process       *RuntimeSpec `yaml:"process,omitempty" json:"process,omitempty"` // kind=process 必填（描述 Nuxt/Nitro 进程）
+	Menus         []MenuItem   `yaml:"menus"           json:"menus"`
+	I18n          *I18nSpec    `yaml:"i18n,omitempty"  json:"i18n,omitempty"`
 }
 
 type MenuItem struct {

@@ -62,8 +62,8 @@ func (s *Supervisor) Start(ctx context.Context, id string, entry string, args []
 	if extraEnv == nil {
 		extraEnv = map[string]string{}
 	}
-	if v, ok := extraEnv["PX_BIND_ADDR"]; !ok || strings.TrimSpace(v) == "" || v == DynamicBindPlaceholder {
-		extraEnv["PX_BIND_ADDR"] = fmt.Sprintf("127.0.0.1:%d", port)
+	if v, ok := extraEnv["POWERX_BIND_ADDR"]; !ok || strings.TrimSpace(v) == "" || v == DynamicBindPlaceholder {
+		extraEnv["POWERX_BIND_ADDR"] = fmt.Sprintf("127.0.0.1:%d", port)
 	}
 	for k, v := range extraEnv {
 		env = append(env, fmt.Sprintf("%s=%s", k, v))
