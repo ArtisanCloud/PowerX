@@ -32,16 +32,16 @@ func (m *managerImpl) generateHostConfig(man plugin_mgr.Manifest, destRoot strin
 	}
 
 	envAll := m.collectSystemEnv()
-	bindOverride := strings.TrimSpace(envAll["POWERX_BIND_ADDR"])
+	bindOverride := strings.TrimSpace(envAll["POWERX_HTTP_ADDR"])
 	envAll["POWERX_PLUGIN_CONFIG_DIR"] = cfgDir
 	selected := mergeEnvWithRuntime(envAll, man.Runtime.Env)
 
-	// 若宿主未显式指定 POWERX_BIND_ADDR，则允许插件根据 PORT 环境变量动态监听
+	// 若宿主未显式指定 POWERX_HTTP_ADDR，则允许插件根据 PORT 环境变量动态监听
 	if bindOverride == "" {
-		delete(selected, "POWERX_BIND_ADDR")
+		delete(selected, "POWERX_HTTP_ADDR")
 	}
 	fmt.Printf("[plugin-host-config] plugin=%s cfg_dir=%s bind_override=%q runtime_bind=%q\n",
-		man.ID, cfgDir, bindOverride, selected["POWERX_BIND_ADDR"])
+		man.ID, cfgDir, bindOverride, selected["POWERX_HTTP_ADDR"])
 
 	// 确保插件进程可感知宿主提供的配置目录和 host-values 文件
 	selected["POWERX_PLUGIN_CONFIG_DIR"] = cfgDir
@@ -111,6 +111,28 @@ func (m *managerImpl) generateHostConfig(man plugin_mgr.Manifest, destRoot strin
 
 	// runtime.run_migrate 默认开启，确保首次启用自动迁移
 	setNestedValue(structured, []string{"runtime", "run_migrate"}, true)
+
+	// 插件 API 网关安全配置：默认使用宿主 JWT 模式
+	if cfg := m.opts.CoreConfig; cfg != nil {
+		jwtSecret := strings.TrimSpace(cfg.Auth.JWTSecret)
+		issuer := strings.TrimSpace(cfg.Auth.Issuer)
+		if jwtSecret != "" && issuer != "" {
+			audience := "plugin:" + man.ID
+			setNestedValue(structured, []string{"security", "mode"}, "jwt")
+			setNestedValue(structured, []string{"security", "jwt", "issuer"}, issuer)
+			setNestedValue(structured, []string{"security", "jwt", "audience"}, audience)
+			setNestedValue(structured, []string{"security", "jwt", "secret"}, jwtSecret)
+			setNestedValue(structured, []string{"security", "jwt", "scope"}, "access")
+			setNestedValue(structured, []string{"security", "ctx_hmac", "secret"}, jwtSecret)
+
+			selected["POWERX_SECURITY_MODE"] = "jwt"
+			selected["POWERX_SECURITY_JWT_SECRET"] = jwtSecret
+			selected["POWERX_SECURITY_JWT_ISSUER"] = issuer
+			selected["POWERX_SECURITY_JWT_AUDIENCE"] = audience
+			selected["POWERX_SECURITY_JWT_SCOPE"] = "access"
+			selected["POWERX_SECURITY_CTX_HMAC_SECRET"] = jwtSecret
+		}
+	}
 
 	if seed != nil {
 		selected = mergeStringMapMissing(selected, seed.Values)

@@ -2,6 +2,7 @@ package manager
 
 import (
 	"context"
+	"log"
 	"strings"
 	"sync"
 
@@ -76,11 +77,28 @@ func (m *managerImpl) Bootstrap(ctx context.Context) error {
 		id := d.Manifest.ID
 		ver := d.Manifest.Version
 
-		//// 4) 插件已存在，且版本相同，跳过
-		if old, ok := m.opts.Registry.Get(ctx, id); ok && old.Version == ver {
-			continue // ★ 关键：不要 Put 覆盖
+		// —— 新增：观测 manifest 里到底有哪些菜单声明
+		topMenus := len(d.Manifest.Menus) // 顶层 menus
+		adminMenus := 0
+		if d.Manifest.Frontend.Admin.Menus != nil {
+			adminMenus = len(d.Manifest.Frontend.Admin.Menus) // frontend.admin.menus
 		}
-		if err := m.opts.Registry.Put(ctx, d, plugin_mgr.StateInstalled); err != nil {
+		log.Printf("[plugin-bootstrap] discover id=%s ver=%s menus.top=%d admin=%d admin.static_dir=%q",
+			id, ver, topMenus, adminMenus, d.Paths.FrontendAdminDir)
+
+		prevState := plugin_mgr.StateInstalled
+		if old, ok := m.opts.Registry.Get(ctx, id); ok && old.Version == ver {
+			prevState = old.State // 同版本覆盖 manifest/paths，保留状态（你已应用 C2 的逻辑）
+		}
+
+		// ——（可选兼容）如果顶层 menus 为空但 admin.menus 有值，就做一次映射
+		if topMenus == 0 && adminMenus > 0 {
+			d.Manifest.Menus = convertAdminMenusToTree(d.Manifest.Frontend.Admin.Menus)
+			log.Printf("[plugin-bootstrap] normalize menus: id=%s use frontend.admin.menus (%d items) as top-level menus",
+				id, len(d.Manifest.Menus))
+		}
+
+		if err := m.opts.Registry.Put(ctx, d, prevState); err != nil {
 			return plugin_mgr.Wrap(plugin_mgr.CodeRegistryError, err,
 				plugin_mgr.WithOp("bootstrap"),
 				plugin_mgr.WithPlugin(id),
@@ -209,4 +227,40 @@ func (m *managerImpl) Get(ctx context.Context, id string) (plugin_mgr.Plugin, er
 		return p, nil
 	}
 	return plugin_mgr.Plugin{}, plugin_mgr.NewError(plugin_mgr.CodeNotFound, plugin_mgr.WithOp("get"), plugin_mgr.WithPlugin(id))
+}
+
+func convertAdminMenusToTree(items []plugin_mgr.MenuItem) []plugin_mgr.MenuTreeItem {
+	out := make([]plugin_mgr.MenuTreeItem, 0, len(items))
+	for _, it := range items {
+		out = append(out, adminItemToTree(it))
+	}
+	return out
+}
+
+func adminItemToTree(it plugin_mgr.MenuItem) plugin_mgr.MenuTreeItem {
+	var label *plugin_mgr.MenuLabel
+	if it.TitleI18n != nil {
+		label = &plugin_mgr.MenuLabel{
+			Namespace: it.TitleI18n.Namespace,
+			Key:       it.TitleI18n.Key,
+			Default:   it.TitleI18n.Default,
+		}
+	}
+	t := plugin_mgr.MenuTreeItem{
+		ID:               it.ID,
+		Title:            it.Title,
+		TitleI18n:        label,
+		Icon:             it.Icon,
+		Path:             it.Path,
+		Order:            it.Order,
+		RequiredPolicies: it.RequiredPolicies,
+		// 说明：MenuTreeItem 没有 Slot 字段；分组逻辑在 handler 里通过 Key/Origin/Slot 再处理
+	}
+	if len(it.Children) > 0 {
+		t.Children = make([]plugin_mgr.MenuTreeItem, 0, len(it.Children))
+		for _, ch := range it.Children {
+			t.Children = append(t.Children, adminItemToTree(ch))
+		}
+	}
+	return t
 }

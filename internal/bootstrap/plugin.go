@@ -54,6 +54,9 @@ func abs(p string) string {
 
 func BootstrapPlugin(ctx context.Context, deps *shared.Deps, cfg *config.Config, r *gin.Engine) (pm.Manager, error) {
 	dr := router.NewDynamicRouter(cfg.Plugin.BasePrefix, r)
+	if sec := strings.TrimSpace(cfg.Auth.JWTSecret); sec != "" {
+		dr.SetContextHMACSecret([]byte(sec))
+	}
 	sup := supervisor.New()
 
 	installedRoot := abs(cfg.Plugin.InstalledDir)

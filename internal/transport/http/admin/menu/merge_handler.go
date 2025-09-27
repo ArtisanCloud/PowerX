@@ -435,6 +435,8 @@ func AdminMenusHandler(c *gin.Context) {
 	locales := parseLocaleQuery(c)
 	plug := plugin.BuildPluginMenusPublic(c.Request.Context(), plugin.MarketBasePrefix, locales)
 
+	log.Printf("[menus] plugin items=%d, i18n=%d", len(plug.Items), len(plug.I18n))
+
 	if i18nDebug {
 		log.Printf("[i18n] locales query = %v", locales)
 		log.Printf("[i18n] plugin i18n packages = %d", len(plug.I18n))
@@ -483,6 +485,7 @@ func AdminMenusHandler(c *gin.Context) {
 	)
 	for _, m := range plug.Items {
 		if !allow(m.Permissions) {
+			log.Printf("[menus] filtered by RBAC item=%s perms=%v", m.Key, m.Permissions)
 			continue
 		}
 		if !m.Visible {

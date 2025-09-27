@@ -4,6 +4,7 @@ package plugin
 import (
 	"context"
 	"fmt"
+	"log"
 	"sort"
 	"strings"
 
@@ -24,25 +25,40 @@ func BuildPluginMenusPublic(ctx context.Context, basePrefix string, locales []st
 		return PluginMenusPublic{}
 	}
 
+	// ★ 新增：总览
+	log.Printf("[menu-builder] registry=%d", len(list))
+
 	preferredLocales := normalizeLocalePreference(locales)
 	out := PluginMenusPublic{Items: make([]admdto.AdminMenuItem, 0, len(list))}
 	for _, p := range list {
+		// ★ 新增：逐插件观测
+		log.Printf("[menu-builder] id=%s state=%s kind=%s adminDir=%q menus=%d",
+			p.ID, p.State, p.Frontend.Admin.Kind, p.Paths.FrontendAdminDir, len(p.Frontend.Admin.Menus))
+
 		if p.State != plugin_mgr.StateEnabled {
-			continue
-		}
-		if !(p.Frontend.Admin.Kind == plugin_mgr.FrontendKindStatic && p.Paths.FrontendAdminDir != "") {
+			log.Printf("[menu-builder] skip=%s reason=state!=enabled", p.ID)
 			continue
 		}
 
-		bundle := loadPluginMenuI18n(ctx, p, preferredLocales)
-		if bundle != nil {
-			out.I18n = append(out.I18n, *bundle)
+		// 只要插件声明了菜单，就接入（无论 static / process / proxy）
+		if len(p.Frontend.Admin.Menus) == 0 {
+			log.Printf("[menu-builder] skip=%s reason=no-menus", p.ID)
+			continue
+		}
+
+		// i18n：仅当有静态目录时再去加载（process/proxy 没静态包也不影响菜单展示）
+		var bundle *admdto.MenuI18nPackage // 按你原来的类型
+		if p.Paths.FrontendAdminDir != "" {
+			b := loadPluginMenuI18n(ctx, p, preferredLocales)
+			if b != nil {
+				bundle = b
+				out.I18n = append(out.I18n, *b)
+			}
 		}
 
 		root := basePrefix + "/" + p.ID + "/admin/"
 		for _, m := range p.Frontend.Admin.Menus {
 			item := convertPluginMenuItem(p.ID, root, "", m, preferredLocales, bundle)
-			// 顶层默认插入 group.plugins 插槽
 			if item.Slot == "" {
 				item.Slot = plugin_mgr.SlotPlugins
 			}

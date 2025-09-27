@@ -36,6 +36,8 @@ type DynamicRouter struct {
 	adminUps  map[string]adminUpstream
 	apis      map[string]apiUpstream
 
+	ctxHMACSecret []byte
+
 	gate *authzGate
 }
 
@@ -110,6 +112,16 @@ func (r *DynamicRouter) InstallPolicy(pluginID string, pol *Policy) {
 	if r.gate != nil && pol != nil {
 		r.gate.InstallPolicy(pluginID, pol)
 	}
+}
+
+func (r *DynamicRouter) SetContextHMACSecret(secret []byte) {
+	if len(secret) == 0 {
+		r.ctxHMACSecret = nil
+		return
+	}
+	dup := make([]byte, len(secret))
+	copy(dup, secret)
+	r.ctxHMACSecret = dup
 }
 
 // ===== Admin（前端）统一入口：优先反代 Nuxt/Nitro，未配置则回静态目录 =====
@@ -267,7 +279,7 @@ func (r *DynamicRouter) serveAPIProxy(c *gin.Context) {
 		}
 
 		// 透传签名上下文
-		if ctxB64, sig, ok := buildSignedCtx(c); ok {
+		if ctxB64, sig, ok := r.buildSignedCtx(c); ok {
 			req.Header.Set("X-PowerX-CTX", ctxB64)
 			req.Header.Set("X-PowerX-CTX-SIG", sig)
 		}
@@ -277,7 +289,10 @@ func (r *DynamicRouter) serveAPIProxy(c *gin.Context) {
 	proxy.ServeHTTP(c.Writer, c.Request)
 }
 
-func buildSignedCtx(c *gin.Context) (ctxB64, sig string, ok bool) {
+func (r *DynamicRouter) buildSignedCtx(c *gin.Context) (ctxB64, sig string, ok bool) {
+	if len(r.ctxHMACSecret) == 0 {
+		return "", "", false
+	}
 	claimsAny, exists := c.Get("auth_claims")
 	if !exists {
 		return "", "", false
@@ -287,8 +302,7 @@ func buildSignedCtx(c *gin.Context) (ctxB64, sig string, ok bool) {
 	raw, _ := json.Marshal(claims)
 	ctxB64 = base64.StdEncoding.EncodeToString(raw)
 
-	const pluginCtxHMACSecret = "pluginCtxHMACSecret" // 示例：请替换为配置
-	mac := hmac.New(sha256.New, []byte(pluginCtxHMACSecret))
+	mac := hmac.New(sha256.New, r.ctxHMACSecret)
 	mac.Write([]byte(ctxB64))
 	sig = base64.StdEncoding.EncodeToString(mac.Sum(nil))
 	return ctxB64, sig, true

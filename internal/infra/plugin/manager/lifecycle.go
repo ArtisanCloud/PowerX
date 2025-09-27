@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log"
 	"net"
 	"net/http"
 	"net/url"
@@ -25,9 +26,13 @@ import (
 // internal/infra/plugin/manager/lifecycle.go
 func (m *managerImpl) Enable(ctx context.Context, id string) error {
 	p, err := m.mustGet(ctx, id)
+
 	if err != nil {
 		return err
 	}
+	log.Printf("[plugin-enable] id=%s ver=%s state=%s menus.top=%d admin=%d",
+		p.ID, p.Version, p.State, len(p.Menus), len(p.Frontend.Admin.Menus))
+
 	if m.http == nil {
 		return plugin_mgr.NewError(plugin_mgr.CodeInternal, plugin_mgr.WithOp("enable"), plugin_mgr.WithMsg("dynamic router not initialized"))
 	}
@@ -101,6 +106,7 @@ func (m *managerImpl) Enable(ctx context.Context, id string) error {
 		envAPI["POWERX_PLUGIN_HOST_VALUES"] = p.Paths.HostValuesFile
 	}
 	envAPI["POWERX_PROXY"] = "1"
+	m.injectGatewaySecurityEnv(envAPI, p.ID)
 
 	// 内部令牌
 	internalToken := os.Getenv("POWERX_INTERNAL_TOKEN")
@@ -168,9 +174,10 @@ func (m *managerImpl) Enable(ctx context.Context, id string) error {
 		m.http.MountAdminProxy(p.ID, apiURL)
 
 	case plugin_mgr.FrontendKindProcess:
+		// —— 只按插件清单执行 entry/args，不做任何硬编码
 		adm := p.Frontend.Admin.Process
 		if adm == nil || strings.TrimSpace(adm.Entry) == "" {
-			// 没给 process.entry，降级兜底
+			// 没给进程就回退：若有静态目录挂静态，否则复用后端端口
 			if p.Paths.FrontendAdminDir != "" {
 				if abs, err := filepath.Abs(p.Paths.FrontendAdminDir); err == nil {
 					if fi, err := os.Stat(abs); err == nil && fi.IsDir() {
@@ -183,19 +190,50 @@ func (m *managerImpl) Enable(ctx context.Context, id string) error {
 			break
 		}
 
-		// Admin 进程 env
+		adminEntry := strings.TrimSpace(adm.Entry)
+		adminArgs := append([]string{}, adm.Args...)
+
+		// 把「像路径」的判断写成函数
+		isPathLike := func(s string) bool {
+			s = strings.TrimSpace(s)
+			if s == "" {
+				return false
+			}
+			// . 开头 / 绝对 / 包含分隔符（兼容 Windows 的反斜杠）
+			return strings.HasPrefix(s, ".") ||
+				strings.HasPrefix(s, "/") ||
+				strings.Contains(s, "/") ||
+				strings.Contains(s, `\`)
+		}
+
+		// entry：像路径才转绝对；裸命令（node、bun 等）保持原样交给 PATH
+		if isPathLike(adminEntry) && !filepath.IsAbs(adminEntry) {
+			adminEntry = filepath.Join(p.Paths.Root, adminEntry)
+		}
+
+		// args[0]：如果是脚本/可执行的相对路径，也要转绝对（相对插件根）
+		if len(adminArgs) > 0 && isPathLike(adminArgs[0]) && !filepath.IsAbs(adminArgs[0]) {
+			adminArgs[0] = filepath.Join(p.Paths.Root, adminArgs[0])
+		}
+
+		// 进程环境：只做合并与标识，不改你的变量名和值
 		envADM := cloneEnvMap(adm.Env)
 		for k, v := range m.hostEnvForPlugin(p) {
 			envADM[k] = v
 		}
+		envADM["NODE_ENV"] = "production"
 		envADM["POWERX_PROXY"] = "1"
+		envADM["POWERX_ADMIN_BASE"] = fmt.Sprintf("/_p/%s/admin/", p.ID)
+
+		if _, ok := envADM["NITRO_HOST"]; !ok {
+			envADM["NITRO_HOST"] = "127.0.0.1" // 无害缺省，保留可被 env 覆盖
+		}
+		// 让 supervisor 分配 HTTP 端口（如需要）
 		if strings.TrimSpace(envADM["POWERX_HTTP_ADDR"]) == "" {
 			envADM["POWERX_HTTP_ADDR"] = supervisor.DynamicBindPlaceholder
 		}
-		if _, ok := envADM["NITRO_HOST"]; !ok {
-			envADM["NITRO_HOST"] = "127.0.0.1"
-		}
 
+		// 健康探针参数（按清单）
 		adminHC := adm.Health
 		adminHealthPath := utils.FirstNonEmpty(adminHC.HTTPPath, "/healthz")
 		adminSup := supervisor.Options{
@@ -208,9 +246,11 @@ func (m *managerImpl) Enable(ctx context.Context, id string) error {
 		}
 
 		adminProcID := p.ID + "_admin"
-		adminPort, err := m.sup.Start(ctx, adminProcID, adm.Entry, adm.Args, envADM, adminSup)
+		// ★ 关键：按插件给的 entry/args 原样执行（entry 仅做绝对路径解析）
+		adminPort, err := m.sup.Start(ctx, adminProcID, adminEntry, adminArgs, envADM, adminSup)
 		if err != nil {
 			fmt.Printf("[plugin-enable] plugin=%s admin process start failed: %v (fallback)\n", p.ID, err)
+			// 回退：若有静态目录挂静态，否则复用后端端口
 			if p.Paths.FrontendAdminDir != "" {
 				if abs, err := filepath.Abs(p.Paths.FrontendAdminDir); err == nil {
 					if fi, err := os.Stat(abs); err == nil && fi.IsDir() {
@@ -224,10 +264,15 @@ func (m *managerImpl) Enable(ctx context.Context, id string) error {
 		}
 
 		adminBaseURL := "http://127.0.0.1:" + strconv.Itoa(adminPort)
+		// 健康探测失败也不阻塞；最多少等一会
 		_ = waitHealthy(ctx, adminBaseURL, adminHealthPath, adminSup.HealthInterval, adminSup.HealthTimeout)
+
+		// ★ 成功：挂 Admin 反代
 		adminURL, _ := url.Parse(adminBaseURL)
 		m.http.MountAdminProxy(p.ID, adminURL)
-		fmt.Printf("[plugin-enable] plugin=%s admin_upstream=%s\n", p.ID, adminBaseURL)
+		fmt.Printf("[plugin-enable] plugin=%s admin_upstream=%s entry=%q args=%v\n",
+			p.ID, adminBaseURL, adminEntry, adminArgs)
+
 	}
 
 	// ---------- 状态 ----------
@@ -330,6 +375,36 @@ func cloneEnvMap(src map[string]string) map[string]string {
 		dst[k] = v
 	}
 	return dst
+}
+
+func (m *managerImpl) injectGatewaySecurityEnv(env map[string]string, pluginID string) {
+	if env == nil {
+		return
+	}
+	pluginID = strings.TrimSpace(pluginID)
+	if pluginID == "" {
+		return
+	}
+
+	env["POWERX_SECURITY_MODE"] = "jwt"
+	env["POWERX_SECURITY_JWT_AUDIENCE"] = "plugin:" + pluginID
+	env["POWERX_SECURITY_JWT_SCOPE"] = "access"
+
+	if cfg := m.opts.CoreConfig; cfg != nil {
+		if secret := strings.TrimSpace(cfg.Auth.JWTSecret); secret != "" {
+			env["POWERX_SECURITY_JWT_SECRET"] = secret
+			env["POWERX_SECURITY_CTX_HMAC_SECRET"] = secret
+		}
+		if issuer := strings.TrimSpace(cfg.Auth.Issuer); issuer != "" {
+			env["POWERX_SECURITY_JWT_ISSUER"] = issuer
+		}
+	}
+
+	if secret := strings.TrimSpace(env["POWERX_SECURITY_JWT_SECRET"]); secret != "" {
+		if cur := strings.TrimSpace(env["POWERX_SECURITY_CTX_HMAC_SECRET"]); cur == "" {
+			env["POWERX_SECURITY_CTX_HMAC_SECRET"] = secret
+		}
+	}
 }
 
 func envListToMap(env []string) map[string]string {
