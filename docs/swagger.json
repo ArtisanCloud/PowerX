@@ -5,79 +5,17 @@
   },
   "openapi": "3.0.3",
   "paths": {
-    "/:prefix/_p/:id/admin/*filepath": {
+    "/__debug/plugins": {
       "get": {
-        "operationId": "GET /_prefix/_p/_id/admin/starfilepath",
+        "operationId": "GET /__debug/plugins",
         "responses": {
           "200": {
             "description": "OK"
           }
         },
-        "summary": "GET /_prefix/_p/_id/admin/starfilepath",
+        "summary": "GET /__debug/plugins",
         "tags": [
-          ":prefix"
-        ]
-      }
-    },
-    "/:prefix/_p/:id/api/*filepath": {
-      "delete": {
-        "operationId": "DELETE /_prefix/_p/_id/api/starfilepath",
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "summary": "DELETE /_prefix/_p/_id/api/starfilepath",
-        "tags": [
-          ":prefix"
-        ]
-      },
-      "get": {
-        "operationId": "GET /_prefix/_p/_id/api/starfilepath",
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "summary": "GET /_prefix/_p/_id/api/starfilepath",
-        "tags": [
-          ":prefix"
-        ]
-      },
-      "patch": {
-        "operationId": "PATCH /_prefix/_p/_id/api/starfilepath",
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "summary": "PATCH /_prefix/_p/_id/api/starfilepath",
-        "tags": [
-          ":prefix"
-        ]
-      },
-      "post": {
-        "operationId": "POST /_prefix/_p/_id/api/starfilepath",
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "summary": "POST /_prefix/_p/_id/api/starfilepath",
-        "tags": [
-          ":prefix"
-        ]
-      },
-      "put": {
-        "operationId": "PUT /_prefix/_p/_id/api/starfilepath",
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "summary": "PUT /_prefix/_p/_id/api/starfilepath",
-        "tags": [
-          ":prefix"
+          "__debug"
         ]
       }
     },

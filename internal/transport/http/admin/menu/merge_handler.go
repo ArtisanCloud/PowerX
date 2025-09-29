@@ -435,7 +435,7 @@ func AdminMenusHandler(c *gin.Context) {
 	locales := parseLocaleQuery(c)
 	plug := plugin.BuildPluginMenusPublic(c.Request.Context(), plugin.MarketBasePrefix, locales)
 
-	log.Printf("[menus] plugin items=%d, i18n=%d", len(plug.Items), len(plug.I18n))
+	//log.Printf("[menus] plugin items=%d, i18n=%d", len(plug.Items), len(plug.I18n))
 
 	if i18nDebug {
 		log.Printf("[i18n] locales query = %v", locales)

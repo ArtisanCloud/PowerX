@@ -33,7 +33,7 @@ func TestConvertPluginMenuItemHierarchy(t *testing.T) {
 			{
 				ID:    "base.dashboard",
 				Title: "仪表盘",
-				Route: "plugins/base/dashboard",
+				Route: "dashboard",
 				TitleI18n: &plugin_mgr.MenuLabel{
 					Namespace: "menus",
 					Key:       "menu.base.dashboard",

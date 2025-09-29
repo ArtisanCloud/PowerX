@@ -285,7 +285,7 @@ curl -X POST http://localhost:8077/api/admin/plugins/install/local \
 * [ ] `plugin.yaml` 的 `runtime.entry`、`frontend.admin.static_dir` **相对 dist/<version>**；
 * [ ] 后端二进制有执行权限（`-rwx`）；
 * [ ] 读取 `PORT` 环境变量；
-* [ ] 前端一定要把**构建产物**放到 `frontend/admin/`；
+* [ ] 前端一定要把**构建产物**放到 `frontend/admin/`；Nuxt/Spa 请提前确认构建期 `app.baseURL`，详见《[Nuxt 插件 Admin 前端 baseURL 排查指南](./plugins/frontend_admin_baseurl.md)》；
 * [ ] 不要把 `node_modules/`、`.git/`、源码拷进 `dist/`；
 * [ ] PowerX 的 `plugins/` 目录建议 gitignore（避免把安装产物提交仓库）。
 

@@ -15,7 +15,7 @@ import (
 	"time"
 )
 
-const healthDebug = true
+const healthDebug = false
 
 type Supervisor struct {
 	mu   sync.RWMutex

@@ -107,6 +107,12 @@ func (m *managerImpl) generateHostConfig(man plugin_mgr.Manifest, destRoot strin
 	}
 	if devMode, ok := parseBoolish(selected["POWERX_DEV_MODE"]); ok {
 		setNestedValue(structured, []string{"server", "dev_mode"}, devMode)
+	} else {
+		// 2) 没有显式环境开关 → 回落到宿主 CoreConfig（由你的 config.yaml 读入）
+		if m.opts.CoreConfig != nil {
+			cfg := m.opts.CoreConfig
+			setNestedValue(structured, []string{"server", "dev_mode"}, cfg.Plugin.DevMode)
+		}
 	}
 
 	// runtime.run_migrate 默认开启，确保首次启用自动迁移
