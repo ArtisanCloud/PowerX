@@ -1,3 +1,4 @@
+<<<<<<< ours
 # PowerX Agent × MCP × 插件：分层总览
 
 为了避免将所有调用链路塞进单一文档，这份主入口按“编排层 → 工具注册层 → 能力托管层”三层逐级介绍 PowerX Agent、MCP Server 与插件的协作方式，并链接到后续的细化文档。
@@ -27,3 +28,25 @@
 3. **[Agent 直连外部 MCP 的实现步骤](agent_external_mcp.md)**：提供两种落地方案（通过 MCP Server 转发 / 直接实现 MCP 客户端），对照代码模块给出操作步骤。
 
 阅读顺序建议自上而下，以便先理解角色划分，再进入具体实现。
+=======
+# PowerX Agent Integration 设计索引
+
+本目录归档与「Agent 运行时、插件扩展、MCP 集成」相关的架构设计。内容聚焦于如何在 `internal/server/agent` 中编排多种能力，
+并对客户端交互与协议扩展提供参考。后续如有新的子方案，可继续在此目录下补充。
+
+## 现有子方案
+
+- [多 Agent 技术架构方案](./multi_agent_architecture.md)：基于现有 Engine 拓展单任务多 Agent 协同能力，涵盖编排模型、数据结构、调度策略与演进计划。
+- [多 Agent 产品体验方案](./multi_agent_product_experience.md)：展示多 Agent 协作在前端的时间线呈现、关键交互及跨端响应式设计。
+
+## 相关模块速览
+
+| 模块 | 关键路径 | 说明 |
+| --- | --- | --- |
+| Agent Runtime | `internal/server/agent/runtime` | 负责会话驱动、事件流输出，是多 Agent 调度的基础执行器。|
+| Arena & PlanRunner | `internal/server/agent/arena` | 承载多 Agent 扩展后的会话上下文、Plan 调度、并行控制。|
+| MCP / 插件集成 | `internal/server/agent/adapters`、`docs/plugins/` | 提供外部工具、MCP 插件接入方式，可作为 Agent 节点被编排。|
+| 协议与通信 | `docs/agent/communicate.md` | 定义客户端与 Agent Server 的 WebSocket / SSE 协议，扩展事件可参照多 Agent 方案。|
+
+如需了解其他 Agent 能力（例如工具调用、插件注册流程等），可结合本目录与 `docs/agent`、`docs/plugins` 下的文档一起阅读。
+>>>>>>> theirs
