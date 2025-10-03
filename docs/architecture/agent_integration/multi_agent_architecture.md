@@ -66,7 +66,7 @@ ExecutionPlan
 
 ## 5. 多 Agent 会话执行流程
 
-1. **接入**：客户端沿用 `docs/agent/communicate.md` 协议，通过 WS 发起 `run.start`，引擎创建 `SessionArena` 并打开 SSE。
+1. **接入**：客户端沿用 `docs/architecture/agent_integration/communicate.md` 协议，通过 WS 发起 `run.start`，引擎创建 `SessionArena` 并打开 SSE。
 2. **意图识别**：Arena 调用 `Manager.DetectTasks` 获得多个 `DetectedTask`，`Task.AgentID` 指向候选 Agent。
 3. **计划生成**：Arena 调用 `Manager.BuildPlan`，得到包含多节点 Flow 的 `ExecutionPlan`。
 4. **参与者映射**：依据 Plan 节点中的 `AgentID` 取出 `AgentClient`，包装为 `Participant`；缺省回落到默认 Agent。
