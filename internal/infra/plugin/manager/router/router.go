@@ -5,6 +5,8 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
+	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
+	"log"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -142,6 +144,38 @@ func NewDynamicRouter(basePrefix string, engine *gin.Engine) *DynamicRouter {
 		})
 	})
 
+	engine.GET("/__debug/policy/:id", func(c *gin.Context) {
+		id := c.Param("id")
+		if dr.gate == nil {
+			c.JSON(200, gin.H{"error": "gate nil"})
+			return
+		}
+		pol := dr.gate.policies[id] // 根据你的 gate 结构取
+		if pol == nil {
+			c.JSON(200, gin.H{"plugin": id, "policy": "nil"})
+			return
+		}
+		// 列出关键信息（避免把密钥类东西暴露）
+		routes := make([]string, 0, len(pol.Routes))
+		for k := range pol.Routes {
+			routes = append(routes, k)
+		}
+		res := map[string][]string{}
+		for rn, acts := range pol.Resources {
+			lst := []string{}
+			for a := range acts {
+				lst = append(lst, a)
+			}
+			res[rn] = lst
+		}
+		c.JSON(200, gin.H{
+			"plugin":    id,
+			"http_base": pol.HTTPBase,
+			"routes":    routes,
+			"resources": res,
+		})
+	})
+
 	return dr
 }
 
@@ -196,7 +230,7 @@ func (r *DynamicRouter) InstallPolicy(pluginID string, pol *Policy) {
 }
 
 func (r *DynamicRouter) SetContextHMACSecret(secret []byte) {
-	if len(r.ctxHMACSecret) == 0 {
+	if len(secret) == 0 {
 		r.ctxHMACSecret = nil
 		return
 	}
@@ -300,7 +334,9 @@ func (r *DynamicRouter) serveAPIProxy(c *gin.Context) {
 	if clientPath == "" {
 		clientPath = "/"
 	}
-
+	// === 关键日志：API 入口 ===
+	log.Printf("[API-IN] %s %s plugin=%s clientPath=%s",
+		c.Request.Method, c.Request.URL.Path, pluginID, clientPath)
 	r.mu.RLock()
 	up, ok := r.apis[pluginID]
 	r.mu.RUnlock()
@@ -322,10 +358,14 @@ func (r *DynamicRouter) serveAPIProxy(c *gin.Context) {
 	if r.gate != nil {
 		tok, allowed, reason := r.gate.CheckAndMint(c.Request.Context(), pluginID, c.Request.Method, clientPath, claims)
 		if !allowed {
+			logger.WarnF(c.Request.Context(), "[GATE-DENY] plugin=%s method=%s clientPath=%s reason=%s",
+				pluginID, c.Request.Method, clientPath, reason)
 			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "access denied at gateway", "reason": reason})
 			return
 		}
 		pluginToken = tok
+		log.Printf("[GATE-ALLOW] plugin=%s method=%s clientPath=%s", pluginID, c.Request.Method, clientPath)
+
 	}
 
 	proxy := httputil.NewSingleHostReverseProxy(up.target)
@@ -340,15 +380,25 @@ func (r *DynamicRouter) serveAPIProxy(c *gin.Context) {
 
 		// 只做传球：把 "/_p/<id>/api/*" 裁剪为插件真实 basePath
 		trimmed := trimToAPIClientPath(joinURLPath(r.basePrefix, pluginID, "api", clientPath))
-		var reqPath string
-		if up.basePath != "" && up.basePath != "/" && strings.HasPrefix(trimmed, up.basePath) {
-			reqPath = joinURLPath(up.target.Path, trimmed)
-		} else {
-			reqPath = joinURLPath(up.target.Path, up.basePath, trimmed)
+		versionBase := up.basePath
+		if strings.HasPrefix(versionBase, "/api/") {
+			versionBase = "/" + strings.TrimPrefix(versionBase, "/api/")
+		} else if versionBase == "/api" {
+			versionBase = "/"
 		}
+		tail := trimmed
+		if versionBase != "/" && strings.HasPrefix(trimmed, versionBase) {
+			tail = strings.TrimPrefix(trimmed, versionBase)
+			if !strings.HasPrefix(tail, "/") {
+				tail = "/" + tail
+			}
+		}
+		reqPath := joinURLPath(up.target.Path, up.basePath, tail)
 		req.URL.Path = reqPath
 		req.URL.RawPath = reqPath
-
+		// === 关键日志：最终上游路径 ===
+		log.Printf("[PROXY-OUT] plugin=%s basePath=%s + clientPath=%s => upstream=%s",
+			pluginID, up.basePath, clientPath, reqPath)
 		// 覆盖授权头为插件短期 Token
 		req.Header.Del("Authorization")
 		if pluginToken != "" {
@@ -494,7 +544,10 @@ func (r *DynamicRouter) buildSignedCtx(c *gin.Context) (ctxB64, sig string, ok b
 	if !exists {
 		return "", "", false
 	}
-	claims := claimsAny.(reqctx.CoreXClaims)
+	claims, ok := claimsAny.(reqctx.CoreXClaims)
+	if !ok {
+		return "", "", false
+	}
 	raw, _ := json.Marshal(claims)
 	ctxB64 = base64.StdEncoding.EncodeToString(raw)
 	mac := hmac.New(sha256.New, r.ctxHMACSecret)

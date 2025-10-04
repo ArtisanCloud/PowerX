@@ -19,6 +19,20 @@
         ]
       }
     },
+    "/__debug/policy/:id": {
+      "get": {
+        "operationId": "GET /__debug/policy/_id",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "GET /__debug/policy/_id",
+        "tags": [
+          "__debug"
+        ]
+      }
+    },
     "/api/admin/agents": {
       "get": {
         "operationId": "GET /api/admin/agents",
