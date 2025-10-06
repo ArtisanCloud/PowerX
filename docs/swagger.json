@@ -1199,6 +1199,20 @@
         ]
       }
     },
+    "/api/admin/system/sts/:pluginId": {
+      "post": {
+        "operationId": "POST /api/admin/system/sts/_pluginId",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/admin/system/sts/_pluginId",
+        "tags": [
+          "api"
+        ]
+      }
+    },
     "/api/admin/system/users": {
       "get": {
         "operationId": "GET /api/admin/system/users",

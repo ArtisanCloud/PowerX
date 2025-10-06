@@ -28,7 +28,7 @@ func AdminOnlyMiddleware(allowed ...iam.RoleCode) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		claims := reqctx.GetClaims(c.Request.Context())
 		if claims == nil {
-			dto.ResponseError(c, http.StatusUnauthorized, "unauthorized", nil)
+			dto.ResponseError(c, http.StatusUnauthorized, "admin only unauthorized", nil)
 			c.Abort()
 			return
 		}

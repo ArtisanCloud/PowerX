@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
-	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"log"
 	"net/http"
 	"net/http/httputil"
@@ -15,6 +14,8 @@ import (
 	"sync"
 	"time"
 	"unicode"
+
+	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/security"
@@ -402,6 +403,7 @@ func (r *DynamicRouter) serveAPIProxy(c *gin.Context) {
 		// 覆盖授权头为插件短期 Token
 		req.Header.Del("Authorization")
 		if pluginToken != "" {
+			log.Printf("[GATE-TOKEN] plugin=%s token.head=%s...", pluginID, pluginToken[:40])
 			req.Header.Set("Authorization", "Bearer "+pluginToken)
 		}
 

@@ -21,6 +21,9 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 		reqctx.RootOnlyCB(),
 	))
 
+	hSTS := NewSTSHandler(cfg)
+	gSys.POST("/sts/:pluginId", hSTS.Mint)
+
 	gSysUsers := gSys.Group("/users") // 仅 Root 可访问
 	{
 		gSysUsers.GET("", hUser.List)
