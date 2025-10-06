@@ -45,12 +45,39 @@ func (m *managerImpl) InstallFromFile(ctx context.Context, srcDir string, opts p
 
 	// 2) 目标目录：<InstalledRoot>/<id>/<version>
 	destRoot := filepath.Join(m.opts.InstalledRoot, man.ID, man.Version)
+	if opts.Force {
+		// 若 registry 中已有记录，走完整卸载流程（含停用与目录清理）
+		if m.opts.Registry != nil && m.opts.Registry.HasVersion(ctx, man.ID, man.Version) {
+			if err := m.UninstallAndPurge(ctx, man.ID, man.Version); err != nil {
+				return plugin_mgr.Plugin{}, plugin_mgr.Wrap(
+					plugin_mgr.CodeLifecycleError, err, plugin_mgr.WithOp("install_file.force_uninstall"),
+					plugin_mgr.WithPlugin(man.ID), plugin_mgr.WithVersion(man.Version),
+				)
+			}
+		} else if _, err := os.Stat(destRoot); err == nil {
+			if err := os.RemoveAll(destRoot); err != nil {
+				return plugin_mgr.Plugin{}, plugin_mgr.Wrap(
+					plugin_mgr.CodeIOError, err, plugin_mgr.WithOp("install_file.force_cleanup"), plugin_mgr.WithPath(destRoot),
+				)
+			}
+		}
+	}
+
 	if _, err := os.Stat(destRoot); err == nil {
-		return plugin_mgr.Plugin{}, plugin_mgr.NewError(
-			plugin_mgr.CodeAlreadyExists, plugin_mgr.WithOp("install_file"),
-			plugin_mgr.WithPlugin(man.ID), plugin_mgr.WithVersion(man.Version),
-			plugin_mgr.WithMsg("plugin version already installed"),
-		)
+		// 若注册表尚未登记该版本，视为上次安装失败的残留，先清理再继续
+		if m.opts.Registry != nil && !m.opts.Registry.HasVersion(ctx, man.ID, man.Version) {
+			if err := os.RemoveAll(destRoot); err != nil {
+				return plugin_mgr.Plugin{}, plugin_mgr.Wrap(
+					plugin_mgr.CodeIOError, err, plugin_mgr.WithOp("install_file.cleanup"), plugin_mgr.WithPath(destRoot),
+				)
+			}
+		} else {
+			return plugin_mgr.Plugin{}, plugin_mgr.NewError(
+				plugin_mgr.CodeAlreadyExists, plugin_mgr.WithOp("install_file"),
+				plugin_mgr.WithPlugin(man.ID), plugin_mgr.WithVersion(man.Version),
+				plugin_mgr.WithMsg("plugin version already installed"),
+			)
+		}
 	}
 	if err := os.MkdirAll(destRoot, 0o755); err != nil {
 		return plugin_mgr.Plugin{}, plugin_mgr.Wrap(
@@ -67,17 +94,40 @@ func (m *managerImpl) InstallFromFile(ctx context.Context, srcDir string, opts p
 	}
 
 	// 4) 构造 Descriptor（注意：这里的 Descriptor 类型是 manager 包里的）
+	paths := plugin_mgr.InstalledPaths{
+		Root:              destRoot,
+		FrontendAdminDir:  ResolvePath(destRoot, man.Frontend.Admin.StaticDir),
+		Entry:             ResolvePath(destRoot, man.Runtime.Entry),
+		PublicDir:         ResolvePath(destRoot, "public"),
+		ContractsOpenAPI:  ResolvePath(destRoot, "contracts/openapi.yaml"),
+		ContractsProtoDir: ResolvePath(destRoot, "contracts/proto"),
+		ConfigDir:         ResolvePath(destRoot, "config"),
+	}
+	if man.Migrations != nil {
+		paths.MigrationsDir = ResolvePath(destRoot, man.Migrations.Dir)
+		paths.MigrationsEntry = ResolvePath(destRoot, man.Migrations.Entry)
+		paths.MigrationsWorkDir = ResolvePath(destRoot, man.Migrations.WorkDir)
+	}
+	hostCfg, err := m.generateHostConfig(man, destRoot, opts.HostConfigSeed)
+	if err != nil {
+		return plugin_mgr.Plugin{}, plugin_mgr.Wrap(
+			plugin_mgr.CodeIOError, err, plugin_mgr.WithOp("install_file.host_config"),
+			plugin_mgr.WithPlugin(man.ID), plugin_mgr.WithVersion(man.Version),
+		)
+	}
+	if hostCfg != nil {
+		paths.HostValuesFile = hostCfg.ValuesFile
+	}
 	desc := Descriptor{
-		Manifest: man,
-		Paths: plugin_mgr.InstalledPaths{
-			Root:              destRoot,
-			FrontendAdminDir:  ResolvePath(destRoot, man.Frontend.Admin.StaticDir),
-			Entry:             ResolvePath(destRoot, man.Runtime.Entry),
-			PublicDir:         ResolvePath(destRoot, "public"),
-			MigrationsDir:     ResolvePath(destRoot, "migrations"),
-			ContractsOpenAPI:  ResolvePath(destRoot, "contracts/openapi.yaml"),
-			ContractsProtoDir: ResolvePath(destRoot, "contracts/proto"),
-		},
+		Manifest:   man,
+		Paths:      paths,
+		HostConfig: hostCfg,
+	}
+
+	if rec, err := m.runPluginMigrate(ctx, desc, opts); err != nil {
+		return plugin_mgr.Plugin{}, err
+	} else if rec != nil {
+		desc.Migration = rec
 	}
 
 	// 5) 登记为 installed（Bootstrap 已处理“同版本跳过”，这里就是新装）
@@ -88,9 +138,9 @@ func (m *managerImpl) InstallFromFile(ctx context.Context, srcDir string, opts p
 		return plugin_mgr.Plugin{}, plugin_mgr.Wrap(plugin_mgr.CodeRegistryError, err, plugin_mgr.WithOp("install_file.save"))
 	}
 
-	// 6) 可选：安装后立即启用（此处临时复用 VerifyChecksum 作为开关）
+	// 6) 可选：安装后立即启用
 	installedState := plugin_mgr.StateInstalled
-	if opts.VerifyChecksum {
+	if opts.AutoEnable {
 		if err := m.Enable(ctx, man.ID); err != nil {
 			return plugin_mgr.Plugin{}, plugin_mgr.Wrap(plugin_mgr.CodeLifecycleError, err, plugin_mgr.WithOp("install_file.enable"))
 		}
@@ -99,21 +149,22 @@ func (m *managerImpl) InstallFromFile(ctx context.Context, srcDir string, opts p
 
 	// 7) 直接返回“刚安装的版本”视图（避免读 current 造成显示老版本）
 	return plugin_mgr.Plugin{
-		ID:        man.ID,
-		Version:   man.Version,
-		State:     installedState,
-		Runtime:   man.Runtime,
-		Frontend:  man.Frontend,
-		Endpoints: man.Endpoints,
-		RBAC:      man.RBAC,
-		Events:    man.Events,
-		Paths:     desc.Paths,
+		ID:         man.ID,
+		Version:    man.Version,
+		State:      installedState,
+		Runtime:    man.Runtime,
+		Frontend:   man.Frontend,
+		Endpoints:  man.Endpoints,
+		RBAC:       man.RBAC,
+		Events:     man.Events,
+		Paths:      desc.Paths,
+		HostConfig: hostCfg,
 	}, nil
 }
 
 // 轻量目录拷贝（忽略 .git / .DS_Store）
 func copyDir(src, dst string) error {
-	return filepath.Walk(src, func(p string, info os.FileInfo, err error) error {
+	return filepath.WalkDir(src, func(p string, d os.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -123,17 +174,34 @@ func copyDir(src, dst string) error {
 		}
 		base := filepath.Base(p)
 		if base == ".git" || base == ".DS_Store" {
-			if info.IsDir() {
+			if d.IsDir() {
 				return filepath.SkipDir
 			}
 			return nil
 		}
 		target := filepath.Join(dst, rel)
-		if info.IsDir() {
+		if d.Type()&os.ModeSymlink != 0 {
+			link, err := os.Readlink(p)
+			if err != nil {
+				return err
+			}
+			if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+				return err
+			}
+			return os.Symlink(link, target)
+		}
+		info, err := d.Info()
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
 			return os.MkdirAll(target, info.Mode())
 		}
 		data, err := os.ReadFile(p)
 		if err != nil {
+			return err
+		}
+		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
 			return err
 		}
 		return os.WriteFile(target, data, info.Mode())

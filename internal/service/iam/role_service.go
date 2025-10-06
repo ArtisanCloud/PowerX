@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 	"github.com/ArtisanCloud/PowerX/domain/model"
-	"github.com/ArtisanCloud/PowerX/pkg/auth"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"strings"
 
 	"gorm.io/gorm"
@@ -36,15 +36,15 @@ type ListOpt struct {
 // Create 直接用 GORM 实体；对必要字段做最小校验与修整
 // Create：root 可创建 system/tenant；非 root 仅能在自己租户创建 tenant
 func (s *RoleService) Create(ctx context.Context, in *dbm.Role) (*dbm.Role, error) {
-	in.Code = strings.TrimSpace(in.Code)
+	in.Code = in.Code
 	in.Name = strings.TrimSpace(in.Name)
 	in.Scope = strings.ToLower(strings.TrimSpace(in.Scope))
 
 	isRoot := false
-	if c := auth.GetJWTClaims(ctx); c != nil && c.IsRoot {
+	if c := reqctx.GetClaims(ctx); c != nil && c.IsRoot {
 		isRoot = true
 	}
-	ctxTenant := auth.GetTenantID(ctx) // 非 root 时用于约束
+	ctxTenant := reqctx.GetTenantID(ctx) // 非 root 时用于约束
 
 	switch iam.RoleScope(in.Scope) {
 	case iam.RoleScopeTenant:
@@ -119,10 +119,10 @@ func (s *RoleService) Update(ctx context.Context, id uint64, _ *uint64, patch *d
 	}
 
 	isRoot := false
-	if c := auth.GetJWTClaims(ctx); c != nil && c.IsRoot {
+	if c := reqctx.GetClaims(ctx); c != nil && c.IsRoot {
 		isRoot = true
 	}
-	ctxTenant := auth.GetTenantID(ctx)
+	ctxTenant := reqctx.GetTenantID(ctx)
 
 	if !isRoot {
 		switch strings.ToLower(cur.Scope) {
@@ -159,10 +159,10 @@ func (s *RoleService) Delete(ctx context.Context, id uint64, _ *uint64) error {
 	}
 
 	isRoot := false
-	if c := auth.GetJWTClaims(ctx); c != nil && c.IsRoot {
+	if c := reqctx.GetClaims(ctx); c != nil && c.IsRoot {
 		isRoot = true
 	}
-	ctxTenant := auth.GetTenantID(ctx)
+	ctxTenant := reqctx.GetTenantID(ctx)
 
 	if !isRoot {
 		if strings.ToLower(cur.Scope) == "system" {
@@ -184,7 +184,7 @@ func (s *RoleService) Get(ctx context.Context, id uint64, tid uint64) (*dbm.Role
 	}
 
 	isRoot := false
-	if c := auth.GetJWTClaims(ctx); c != nil && c.IsRoot {
+	if c := reqctx.GetClaims(ctx); c != nil && c.IsRoot {
 		isRoot = true
 	}
 	if isRoot {
@@ -204,10 +204,10 @@ func (s *RoleService) Get(ctx context.Context, id uint64, tid uint64) (*dbm.Role
 // List：root 可全局筛选；非 root 强制 scope=tenant 且 tenant_id=ctxTenant
 func (s *RoleService) List(ctx context.Context, opt ListOpt) (model.Page[dbm.Role], error) {
 	isRoot := false
-	if c := auth.GetJWTClaims(ctx); c != nil && c.IsRoot {
+	if c := reqctx.GetClaims(ctx); c != nil && c.IsRoot {
 		isRoot = true
 	}
-	ctxTenant := auth.GetTenantID(ctx)
+	ctxTenant := reqctx.GetTenantID(ctx)
 
 	if !isRoot {
 		// 非 root：确定一个有效的 tenant_id（优先上下文，没有则用传入的 opt.TenantID）

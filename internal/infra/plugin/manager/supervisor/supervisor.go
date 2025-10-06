@@ -4,14 +4,18 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log"
 	"net"
 	"net/http"
 	"os"
 	"os/exec"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
 )
+
+const healthDebug = false
 
 type Supervisor struct {
 	mu   sync.RWMutex
@@ -55,6 +59,12 @@ func (s *Supervisor) Start(ctx context.Context, id string, entry string, args []
 	cmd := exec.CommandContext(ctx, entry, args...)
 	env := os.Environ()
 	env = append(env, fmt.Sprintf("PORT=%d", port))
+	if extraEnv == nil {
+		extraEnv = map[string]string{}
+	}
+	if v, ok := extraEnv["POWERX_HTTP_ADDR"]; !ok || strings.TrimSpace(v) == "" || v == DynamicBindPlaceholder {
+		extraEnv["POWERX_HTTP_ADDR"] = fmt.Sprintf("127.0.0.1:%d", port)
+	}
 	for k, v := range extraEnv {
 		env = append(env, fmt.Sprintf("%s=%s", k, v))
 	}
@@ -209,7 +219,6 @@ func (p *process) healthLoop(ctx context.Context, mu *sync.RWMutex) {
 	defer p.wg.Done()
 
 	if p.opts.HealthPath == "" {
-		// 没有健康检查配置，则认为启动即 Running
 		mu.Lock()
 		p.info.State = ProcRunning
 		p.info.Healthy = true
@@ -224,16 +233,25 @@ func (p *process) healthLoop(ctx context.Context, mu *sync.RWMutex) {
 		interval = 2 * time.Second
 	}
 
+	if healthDebug {
+		log.Printf("[plugin:health] start id=%s port=%d url=%s interval=%s", p.id, p.port, url, interval)
+	}
+
 	t := time.NewTicker(interval)
 	defer t.Stop()
 
 	for {
 		select {
 		case <-ctx.Done():
+			if healthDebug {
+				log.Printf("[plugin:health] stop  id=%s", p.id)
+			}
 			return
 		case <-t.C:
 			ok := probe(cli, url)
+
 			mu.Lock()
+			prevState, prevHealthy := p.info.State, p.info.Healthy
 			if ok {
 				if p.info.State == ProcStarting || p.info.State == ProcUnhealthy {
 					p.info.State = ProcRunning
@@ -245,12 +263,21 @@ func (p *process) healthLoop(ctx context.Context, mu *sync.RWMutex) {
 				p.info.HealthFails++
 				p.info.Healthy = false
 				p.info.State = ProcUnhealthy
-				// 简单策略：连续失败 5 次，发送 TERM 触发自愈
 				if p.info.HealthFails >= 5 && p.cmd != nil && p.cmd.Process != nil {
+					if healthDebug {
+						log.Printf("[plugin:health] term id=%s port=%d url=%s reason=consecutive_fails count=%d",
+							p.id, p.port, url, p.info.HealthFails)
+					}
 					_ = p.cmd.Process.Signal(syscall.SIGTERM)
 				}
 			}
+			curState, curHealthy := p.info.State, p.info.Healthy
 			mu.Unlock()
+
+			if healthDebug {
+				log.Printf("[plugin:health] tick  id=%s port=%d url=%s ok=%v state:%s->%s healthy:%v->%v fail=%d ok=%d",
+					p.id, p.port, url, ok, prevState, curState, prevHealthy, curHealthy, p.info.HealthFails, p.info.HealthOKCount)
+			}
 		}
 	}
 }

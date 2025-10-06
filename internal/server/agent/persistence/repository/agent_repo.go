@@ -87,13 +87,22 @@ func (r *AgentRepository) GetByID(ctx context.Context, id uint64) (*dbmodel.Agen
 	return &out, nil
 }
 
-func (r *AgentRepository) ListByScope(ctx context.Context, env string, tenantID *uint64, statuses ...string) ([]dbmodel.Agent, error) {
-	tx := r.db.WithContext(ctx).Scopes(dbmodel.WithScope(env, tenantID)).Model(&dbmodel.Agent{})
+// ListByScope: env/tenant 作用域 + 可选 status 过滤
+func (r *AgentRepository) ListByScope(
+	ctx context.Context,
+	env string,
+	tenantID *uint64,
+	statuses []string,
+) ([]dbmodel.Agent, error) {
+	tx := r.db.WithContext(ctx).
+		Scopes(dbmodel.WithScope(env, tenantID))
+
 	if len(statuses) > 0 {
 		tx = tx.Where("status IN ?", statuses)
 	}
+
 	var list []dbmodel.Agent
-	if err := tx.Order("status, key").Find(&list).Error; err != nil {
+	if err := tx.Order("id DESC").Find(&list).Error; err != nil {
 		return nil, err
 	}
 	return list, nil
@@ -127,4 +136,45 @@ func (r *AgentRepository) UpdateStatusByPlugin(ctx context.Context, env string, 
 		Model(&dbmodel.Agent{}).
 		Where("source = ?", "plugin:"+pluginID).
 		Update("status", status).Error
+}
+
+// env + tenant_id + agent_id 唯一
+func (r *AgentSettingRepository) UpsertByScopeAgentID(ctx context.Context, in *dbmodel.AgentSetting) error {
+	tx := r.db.WithContext(ctx)
+	var old dbmodel.AgentSetting
+	err := tx.Scopes(dbmodel.WithScope(in.Env, in.TenantID)).
+		Where("agent_id = ?", in.AgentID).
+		First(&old).Error
+	switch err {
+	case nil:
+		in.ID = old.ID
+		return tx.Save(in).Error
+	case gorm.ErrRecordNotFound:
+		return tx.Create(in).Error
+	default:
+		return err
+	}
+}
+
+func (r *AgentSettingRepository) FindByScopeAgentID(
+	ctx context.Context, env string, tenantID *uint64, agentID uint64,
+) (*dbmodel.AgentSetting, error) {
+	var out dbmodel.AgentSetting
+	err := r.db.WithContext(ctx).
+		Scopes(dbmodel.WithScope(env, tenantID)).
+		Where("agent_id = ?", agentID).
+		First(&out).Error
+	if err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+func (r *AgentSettingRepository) DeleteByScopeAgentID(
+	ctx context.Context, env string, tenantID *uint64, agentID uint64,
+) error {
+	return r.db.WithContext(ctx).
+		Scopes(dbmodel.WithScope(env, tenantID)).
+		Where("agent_id = ?", agentID).
+		Delete(&dbmodel.AgentSetting{}).Error
 }

@@ -6,16 +6,19 @@ import (
 	"gorm.io/datatypes"
 )
 
+const UserStatusActive = 1
+const UserStatusInactive = 2
+
 // pkg/corex/db/persistence/model/iam/user_gorm.go
 type User struct {
 	model.PowerUUIDModel
 
 	Email       string         `gorm:"column:email;type:varchar(128);uniqueIndex:uk_user_email" json:"email,omitempty"`
 	Phone       string         `gorm:"column:phone;type:varchar(32);uniqueIndex:uk_user_phone"  json:"phone,omitempty"`
-	DisplayName string         `gorm:"column:display_name;type:varchar(128)"                                          json:"display_name,omitempty"`
-	AvatarURL   string         `gorm:"column:avatar_url;type:varchar(512)"                                            json:"avatar_url,omitempty"`
-	Status      int16          `gorm:"column:status;default:1;index"                                                  json:"status"`
-	Meta        datatypes.JSON `gorm:"column:meta;type:jsonb"                                                                     json:"meta,omitempty"`
+	DisplayName string         `gorm:"column:display_name;type:varchar(128)"                    json:"display_name,omitempty"`
+	AvatarURL   string         `gorm:"column:avatar_url;type:varchar(512)"                      json:"avatar_url,omitempty"`
+	Status      int16          `gorm:"column:status;default:1;index"                            json:"status"`
+	Meta        datatypes.JSON `gorm:"column:meta;type:jsonb"                                   json:"meta,omitempty"`
 
 	LastLoginAt *int64 `gorm:"column:last_login_at" json:"last_login_at,omitempty"`
 	IsRoot      bool   `gorm:"column:is_root;type:boolean;default:false;index" json:"-"`

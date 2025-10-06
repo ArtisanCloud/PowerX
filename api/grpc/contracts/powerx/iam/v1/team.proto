@@ -9,6 +9,7 @@ import "common/v1/context.proto";
 import "common/v1/resource.proto";
 import "common/v1/pagination.proto";
 import "powerx/iam/v1/member.proto";
+import "common/v1/response.proto";
 
 
 enum TeamKind {
@@ -83,14 +84,28 @@ message ListTeamMembersRequest {
   MemberView member_view = 30;        // BASIC（默认）/PROFILE
 }
 
-message GetTeamResponse { Team team = 1; }
-message ListTeamsResponse {
+message GetTeamData { Team team = 1; }
+message GetTeamResponse {
+  common.v1.ResponseMeta meta = 1;
+  GetTeamData            data = 2;
+}
+
+message ListTeamsData {
   repeated Team items = 1;
   common.v1.PageResponse page = 2;
 }
-message ListTeamMembersResponse {
+message ListTeamsResponse {
+  common.v1.ResponseMeta meta = 1;
+  ListTeamsData          data = 2;
+}
+
+message ListTeamMembersData {
   repeated TeamMember items = 1;
   common.v1.PageResponse page = 2;
+}
+message ListTeamMembersResponse {
+  common.v1.ResponseMeta meta = 1;
+  ListTeamMembersData    data = 2;
 }
 
 // 反查：成员所在团队
@@ -104,9 +119,13 @@ message ListMemberTeamsRequest {
   common.v1.PageRequest page = 10;
 }
 
-message ListMemberTeamsResponse {
+message ListMemberTeamsData {
   repeated Team items = 1;
   common.v1.PageResponse page = 2;
+}
+message ListMemberTeamsResponse {
+  common.v1.ResponseMeta meta = 1;
+  ListMemberTeamsData    data = 2;
 }
 
 service TeamService {

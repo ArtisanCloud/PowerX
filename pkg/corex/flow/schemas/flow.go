@@ -7,8 +7,9 @@ type Flow struct {
 	Version     string `yaml:"version,omitempty" json:"version,omitempty"`
 	Description string `yaml:"description,omitempty" json:"description,omitempty"`
 
-	Metadata *FlowMetadata `yaml:"metadata" json:"metadata"` // 含 io / requires / intent
-	Slots    []*SlotSpec   `yaml:"slots,omitempty" json:"slots,omitempty"`
+	Variables map[string]string `yaml:"variables,omitempty" json:"variables,omitempty"`
+	Metadata  *FlowMetadata     `yaml:"metadata" json:"metadata"` // 含 io / requires / intent
+	Slots     []*SlotSpec       `yaml:"slots,omitempty" json:"slots,omitempty"`
 
 	Nodes []*Node `yaml:"nodes" json:"nodes"`                     // 节点列表
 	Edges []*Edge `yaml:"edges,omitempty" json:"edges,omitempty"` // 可选：节点连边

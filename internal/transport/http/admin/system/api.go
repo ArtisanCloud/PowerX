@@ -1,9 +1,11 @@
 package system
 
+// internal/transport/http/admin/system/api.go
 import (
 	"github.com/ArtisanCloud/PowerX/config"
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
-	"github.com/ArtisanCloud/PowerX/pkg/auth"
+	"github.com/ArtisanCloud/PowerX/pkg/auth/middleware"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/gin-gonic/gin"
 )
 
@@ -11,13 +13,16 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 	hUser := NewUserHandler(deps.DB)
 	gSys := protectedGroup.Group("/admin/system")
 	cfg := config.GetGlobalConfig()
-	gSys.Use(auth.JwtMiddleware(
+	gSys.Use(middleware.JwtMiddleware(
 		[]byte(cfg.Auth.JWTSecret),
 		cfg.Auth.Issuer,
 		[]string{cfg.Auth.AudienceUser},
 		[]string{"access"},
-		auth.RootOnlyCB(),
+		reqctx.RootOnlyCB(),
 	))
+
+	hSTS := NewSTSHandler(cfg)
+	gSys.POST("/sts/:pluginId", hSTS.Mint)
 
 	gSysUsers := gSys.Group("/users") // 仅 Root 可访问
 	{
@@ -31,6 +36,26 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 		gSysUsers.DELETE("/:id", hUser.Delete)
 		gSysUsers.PUT("/:id/restore", hUser.Restore)
 		gSysUsers.POST("/:id/force-logout", hUser.ForceLogout)
+	}
+
+	h := NewSettingHandler(deps.DB)
+
+	g := gSys.Group("/settings")
+	{
+		// 系统级 KV
+		g.GET("/system", h.ListSystem) // ?group=&prefix=&page=&pageSize=
+		g.GET("/system/:key", h.GetSystem)
+		g.PUT("/system/:key", h.UpsertSystem)    // body: { value_json, group?, description?, editable? }
+		g.DELETE("/system/:key", h.DeleteSystem) // body: { soft?: true }
+
+		// 租户级 KV
+		g.GET("/tenant/:tenant_id", h.ListTenant) // ?prefix=&page=&pageSize=
+		g.GET("/tenant/:tenant_id/:key", h.GetTenant)
+		g.PUT("/tenant/:tenant_id/:key", h.UpsertTenant) // body 同上
+		g.DELETE("/tenant/:tenant_id/:key", h.DeleteTenant)
+
+		// 生效值（仅 DB 层：tenant > system）
+		g.GET("/effective/:key", h.GetEffective) // ?tenant_id=
 	}
 
 }

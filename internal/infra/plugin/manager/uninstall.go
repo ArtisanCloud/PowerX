@@ -44,7 +44,17 @@ func (m *managerImpl) Uninstall(ctx context.Context, id string, versionOptional 
 		}
 	}
 
-	// 4) 从注册表删除并保存
+	// 4) 清理由宿主创建的数据库资源
+	if pl, ok := m.opts.Registry.GetVersion(ctx, id, targetVer); ok {
+		if err := m.cleanupPluginDatabaseResources(pl.HostConfig); err != nil {
+			return plugin_mgr.Wrap(
+				plugin_mgr.CodeLifecycleError, err, plugin_mgr.WithOp("uninstall.db_cleanup"),
+				plugin_mgr.WithPlugin(id), plugin_mgr.WithVersion(targetVer),
+			)
+		}
+	}
+
+	// 5) 从注册表删除并保存
 	if err := m.opts.Registry.Remove(ctx, id, targetVer); err != nil {
 		return plugin_mgr.Wrap(plugin_mgr.CodeRegistryError, err, plugin_mgr.WithOp("uninstall.remove"),
 			plugin_mgr.WithPlugin(id), plugin_mgr.WithVersion(targetVer))

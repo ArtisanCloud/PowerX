@@ -2,11 +2,18 @@ package manager
 
 import (
 	"context"
-	"github.com/ArtisanCloud/PowerX/internal/infra/plugin/manager/supervisor"
+	"log"
+	"strings"
 	"sync"
+
+	"github.com/ArtisanCloud/PowerX/config"
+	"github.com/ArtisanCloud/PowerX/internal/infra/plugin/manager/router"
+	"github.com/ArtisanCloud/PowerX/internal/infra/plugin/manager/supervisor"
 
 	"github.com/ArtisanCloud/PowerX/pkg/plugin_mgr"
 )
+
+type PostEnableHook func(ctx context.Context, tenantID uint64, pluginID string) error
 
 // Options 注入依赖与基础配置
 type Options struct {
@@ -15,23 +22,29 @@ type Options struct {
 	InstalledRoot string
 	RegistryFile  string
 
+	CoreConfig *config.Config
+
 	Loader     Loader
 	Registry   Registry
-	HTTP       *DynamicRouter
-	Supervisor *supervisor.Supervisor // 新增
+	HTTP       *router.DynamicRouter
+	Supervisor *supervisor.Supervisor
+	PostEnable PostEnableHook
 }
 
 // managerImpl 是内嵌版的具体实现（满足 plugin_mgr.Manager）
 type managerImpl struct {
 	mu   sync.RWMutex
 	opts Options
-	http *DynamicRouter
+	http *router.DynamicRouter
 	sup  *supervisor.Supervisor // 新增
+
+	// 内部通信令牌：pluginID -> token（仅内存，不落盘）
+	tokens map[string]string
 }
 
 // New 生成一个内嵌管理器实现
 func New(opts Options) plugin_mgr.Manager {
-	m := &managerImpl{opts: opts}
+	m := &managerImpl{opts: opts, tokens: make(map[string]string)}
 	m.http = opts.HTTP
 	m.sup = opts.Supervisor
 	return m
@@ -64,11 +77,28 @@ func (m *managerImpl) Bootstrap(ctx context.Context) error {
 		id := d.Manifest.ID
 		ver := d.Manifest.Version
 
-		//// 4) 插件已存在，且版本相同，跳过
-		if old, ok := m.opts.Registry.Get(ctx, id); ok && old.Version == ver {
-			continue // ★ 关键：不要 Put 覆盖
+		// —— 新增：观测 manifest 里到底有哪些菜单声明
+		topMenus := len(d.Manifest.Menus) // 顶层 menus
+		adminMenus := 0
+		if d.Manifest.Frontend.Admin.Menus != nil {
+			adminMenus = len(d.Manifest.Frontend.Admin.Menus) // frontend.admin.menus
 		}
-		if err := m.opts.Registry.Put(ctx, d, plugin_mgr.StateInstalled); err != nil {
+		log.Printf("[plugin-bootstrap] discover id=%s ver=%s menus.top=%d admin=%d admin.static_dir=%q",
+			id, ver, topMenus, adminMenus, d.Paths.FrontendAdminDir)
+
+		prevState := plugin_mgr.StateInstalled
+		if old, ok := m.opts.Registry.Get(ctx, id); ok && old.Version == ver {
+			prevState = old.State // 同版本覆盖 manifest/paths，保留状态（你已应用 C2 的逻辑）
+		}
+
+		// ——（可选兼容）如果顶层 menus 为空但 admin.menus 有值，就做一次映射
+		if topMenus == 0 && adminMenus > 0 {
+			d.Manifest.Menus = convertAdminMenusToTree(d.Manifest.Frontend.Admin.Menus)
+			log.Printf("[plugin-bootstrap] normalize menus: id=%s use frontend.admin.menus (%d items) as top-level menus",
+				id, len(d.Manifest.Menus))
+		}
+
+		if err := m.opts.Registry.Put(ctx, d, prevState); err != nil {
 			return plugin_mgr.Wrap(plugin_mgr.CodeRegistryError, err,
 				plugin_mgr.WithOp("bootstrap"),
 				plugin_mgr.WithPlugin(id),
@@ -93,7 +123,90 @@ func (m *managerImpl) Shutdown(ctx context.Context) error {
 // ------- 安装与升级（占位，后续里程碑实现） -------
 
 func (m *managerImpl) Upgrade(ctx context.Context, id, version string, src plugin_mgr.InstallSource, opts plugin_mgr.InstallOptions) (plugin_mgr.Plugin, error) {
-	return plugin_mgr.Plugin{}, plugin_mgr.NewError(plugin_mgr.CodeInternal, plugin_mgr.WithOp("upgrade"), plugin_mgr.WithMsg("not implemented"))
+	id = strings.TrimSpace(id)
+	version = strings.TrimSpace(version)
+	if id == "" {
+		return plugin_mgr.Plugin{}, plugin_mgr.NewError(
+			plugin_mgr.CodeInvalidArg,
+			plugin_mgr.WithOp("upgrade"),
+			plugin_mgr.WithMsg("plugin id is empty"),
+		)
+	}
+	if m.opts.Registry == nil {
+		return plugin_mgr.Plugin{}, plugin_mgr.NewError(
+			plugin_mgr.CodeInternal,
+			plugin_mgr.WithOp("upgrade"),
+			plugin_mgr.WithMsg("registry not provided"),
+		)
+	}
+
+	current, ok := m.opts.Registry.Get(ctx, id)
+	if !ok {
+		return plugin_mgr.Plugin{}, plugin_mgr.NewError(
+			plugin_mgr.CodeNotFound,
+			plugin_mgr.WithOp("upgrade"),
+			plugin_mgr.WithPlugin(id),
+		)
+	}
+
+	if version != "" && !opts.Force && m.opts.Registry.HasVersion(ctx, id, version) {
+		return plugin_mgr.Plugin{}, plugin_mgr.NewError(
+			plugin_mgr.CodeAlreadyExists,
+			plugin_mgr.WithOp("upgrade"),
+			plugin_mgr.WithPlugin(id),
+			plugin_mgr.WithVersion(version),
+			plugin_mgr.WithMsg("target version already installed"),
+		)
+	}
+
+	installOpts := opts
+	installOpts.AutoEnable = false
+	installOpts.HostConfigSeed = cloneHostConfig(current.HostConfig)
+
+	var (
+		installed plugin_mgr.Plugin
+		err       error
+	)
+	switch {
+	case strings.TrimSpace(src.LocalFile) != "":
+		installed, err = m.InstallFromFile(ctx, src.LocalFile, installOpts)
+	case strings.TrimSpace(src.RemoteURL) != "":
+		installed, err = m.InstallFromURL(ctx, src.RemoteURL, src.SHA256, src.Signature, installOpts)
+	default:
+		return plugin_mgr.Plugin{}, plugin_mgr.NewError(
+			plugin_mgr.CodeInvalidArg,
+			plugin_mgr.WithOp("upgrade"),
+			plugin_mgr.WithMsg("install source not provided"),
+		)
+	}
+	if err != nil {
+		return plugin_mgr.Plugin{}, err
+	}
+
+	if installed.ID != id {
+		return plugin_mgr.Plugin{}, plugin_mgr.NewError(
+			plugin_mgr.CodeInvalidManifest,
+			plugin_mgr.WithOp("upgrade"),
+			plugin_mgr.WithPlugin(installed.ID),
+			plugin_mgr.WithMsg("manifest id mismatch"),
+		)
+	}
+	if version != "" && installed.Version != version {
+		return plugin_mgr.Plugin{}, plugin_mgr.NewError(
+			plugin_mgr.CodeInvalidManifest,
+			plugin_mgr.WithOp("upgrade"),
+			plugin_mgr.WithPlugin(id),
+			plugin_mgr.WithVersion(installed.Version),
+			plugin_mgr.WithMsg("manifest version mismatch"),
+		)
+	}
+
+	enableNew := current.State == plugin_mgr.StateEnabled || opts.AutoEnable
+	upgraded, err := m.SwitchVersion(ctx, id, installed.Version, enableNew)
+	if err != nil {
+		return plugin_mgr.Plugin{}, err
+	}
+	return upgraded, nil
 }
 
 // ------- 查询（先走 Registry，保证可用） -------
@@ -114,4 +227,40 @@ func (m *managerImpl) Get(ctx context.Context, id string) (plugin_mgr.Plugin, er
 		return p, nil
 	}
 	return plugin_mgr.Plugin{}, plugin_mgr.NewError(plugin_mgr.CodeNotFound, plugin_mgr.WithOp("get"), plugin_mgr.WithPlugin(id))
+}
+
+func convertAdminMenusToTree(items []plugin_mgr.MenuItem) []plugin_mgr.MenuTreeItem {
+	out := make([]plugin_mgr.MenuTreeItem, 0, len(items))
+	for _, it := range items {
+		out = append(out, adminItemToTree(it))
+	}
+	return out
+}
+
+func adminItemToTree(it plugin_mgr.MenuItem) plugin_mgr.MenuTreeItem {
+	var label *plugin_mgr.MenuLabel
+	if it.TitleI18n != nil {
+		label = &plugin_mgr.MenuLabel{
+			Namespace: it.TitleI18n.Namespace,
+			Key:       it.TitleI18n.Key,
+			Default:   it.TitleI18n.Default,
+		}
+	}
+	t := plugin_mgr.MenuTreeItem{
+		ID:               it.ID,
+		Title:            it.Title,
+		TitleI18n:        label,
+		Icon:             it.Icon,
+		Path:             it.Path,
+		Order:            it.Order,
+		RequiredPolicies: it.RequiredPolicies,
+		// 说明：MenuTreeItem 没有 Slot 字段；分组逻辑在 handler 里通过 Key/Origin/Slot 再处理
+	}
+	if len(it.Children) > 0 {
+		t.Children = make([]plugin_mgr.MenuTreeItem, 0, len(it.Children))
+		for _, ch := range it.Children {
+			t.Children = append(t.Children, adminItemToTree(ch))
+		}
+	}
+	return t
 }

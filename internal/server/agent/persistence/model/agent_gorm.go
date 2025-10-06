@@ -12,6 +12,9 @@ const (
 	TableAgentSetting    = "agent_settings"
 	TableAgentKBBinding  = "agent_kb_bindings"
 	TableAgentPluginLink = "agent_plugin_links"
+
+	TableAgentChatSession = "agent_chat_sessions"
+	TableAgentChatMessage = "agent_chat_messages"
 )
 
 // ---------- 枚举/常量（可按需扩展） ----------
@@ -59,10 +62,15 @@ type Agent struct {
 	Status     string `gorm:"size:16;default:'draft';index" json:"status"`      // draft|active|disabled|broken|archived
 
 	// Persona / Blueprint / 工具清单
-	DefaultPersonaID *uint64                     `gorm:"index" json:"defaultPersonaId,omitempty"`
-	BlueprintRefs    datatypes.JSONMap           `gorm:"type:jsonb;default:'[]'::jsonb" json:"blueprintRefs"`  // 期望形如 [{id,version,entry}]
-	IntentCardsRef   datatypes.JSONMap           `gorm:"type:jsonb;default:'[]'::jsonb" json:"intentCardsRef"` // 期望形如 [{name,hints,priority,...}]
-	ToolAllowlist    datatypes.JSONSlice[string] `gorm:"type:jsonb;default:'[]'::jsonb" json:"toolAllowlist"`
+	DefaultPersonaID *uint64        `gorm:"index" json:"defaultPersonaId,omitempty"`
+	BlueprintRefs    datatypes.JSON `gorm:"type:jsonb;default:'[]'::jsonb" json:"blueprintRefs"`
+	IntentCardsRef   datatypes.JSON `gorm:"type:jsonb;default:'[]'::jsonb" json:"intentCardsRef"`
+	ToolAllowlist    datatypes.JSON `gorm:"type:jsonb;default:'[]'::jsonb" json:"toolAllowlist"`
+
+	SessionSingleton bool `gorm:"default:false" json:"sessionSingleton"` // 该 Agent 是否单例会话
+	DefaultTTLDays   int  `gorm:"default:3" json:"defaultTTLDays"`
+	DefaultMaxKB     int  `gorm:"default:200" json:"defaultMaxKB"`
+	DefaultMaxTokens int  `gorm:"default:3000" json:"defaultMaxTokens"`
 
 	// 知识库策略与扩展元信息
 	KBStrategy string            `gorm:"size:16;default:'union'" json:"kbStrategy"` // none|union|weighted

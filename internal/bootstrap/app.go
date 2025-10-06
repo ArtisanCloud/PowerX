@@ -8,6 +8,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/internal/server/agent/bootstrap"
 	"github.com/ArtisanCloud/PowerX/internal/server/agent/catalog"
 	"github.com/ArtisanCloud/PowerX/internal/service/auth"
+	pkgauth "github.com/ArtisanCloud/PowerX/pkg/auth"
 	"github.com/ArtisanCloud/PowerX/pkg/cache"
 	auditsvc "github.com/ArtisanCloud/PowerX/pkg/corex/audit"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/db/database"
@@ -28,6 +29,11 @@ func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error)
 		log.Fatalf("读取 server.secret_key 失败: %v", err)
 	} else {
 		logger.Info(ctx, "Wrap 密钥已设置到全局")
+	}
+
+	// 将 JWT Secret 注入全局，供插件网关签发与验签复用
+	if len(cfg.Auth.JWTSecret) > 0 {
+		pkgauth.SetJWTSecret([]byte(cfg.Auth.JWTSecret))
 	}
 
 	// 初始化数据库连接（GORM）

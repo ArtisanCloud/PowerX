@@ -49,12 +49,16 @@ runtime:
   entry: ./backend/bin/hello          # 相对 dist/<version> 的路径
   args: []
   env:
-    - name: LOG_LEVEL
-      value: info
+    LOG_LEVEL: info
   health:
     http: /healthz
     interval: 2s
     timeout: 1s
+
+backend:
+  entry: ./backend/bin/hello
+  port: 8091
+  health: /healthz
 
 endpoints:
   http_base_path: /v1
@@ -62,26 +66,81 @@ endpoints:
     enabled: false
     proto_dir: ""
 
+routes:
+  basePath: /v1
+  adminManifest: /api/v1/admin/manifest
+  rbac: /api/v1/admin/rbac
+
 frontend:
   admin:
     kind: static
     static_dir: ./frontend/admin       # 相对 dist/<version>
     proxy_base_path: ""                # 为空则走默认 /_p/:id/api 代理
     menus:
-      - path: /plugins/hello
+      - id: "hello"
         title: Hello World
         icon: Smile
         order: 50
+        path: /plugins/hello
+
+permissions:
+  - resource: hello.report
+    actions: [view]
 
 rbac:
   resources:
     - resource: hello.report
       actions: [view]
 
+menus:
+  - id: "hello"
+    title: Hello World
+    icon: Smile
+    path: /plugins/hello
+    order: 50
+    children: []
+
+agents:
+  - id: "hello.assistant"
+    plugin_id: "com.powerx.demo.hello_world"
+    name: "Hello 助理"
+    description: "演示插件的智能助手"
+    default_tools: ["hello.ping"]
+
+tools:
+  - id: "hello.ping"
+    plugin_id: "com.powerx.demo.hello_world"
+    name: "Ping API"
+    description: "调用 /api/v1/ping"
+    transport: "http"
+    endpoint: "/api/v1/ping"
+    method: "GET"
+    rbac_resource: "hello.report"
+    input_schema:
+      type: object
+      properties: {}
+    output_schema:
+      type: object
+      properties:
+        pong:
+          type: boolean
+
 events:
   publish:   ["hello.processed"]
   subscribe: ["customer.created"]
+
+assets:
+  public_dir: ./public
+  webAdminPath: web-admin/.output
 ```
+
+> 字段要点
+> - `backend`：声明子进程的入口、监听端口与健康探针，便于宿主在安装阶段做预检查。
+> - `routes`：告知宿主可用的 API 前缀、提供管理端清单与 RBAC 数据的接口地址。
+> - `permissions`：插件自带的 RBAC 能力声明，通常与 `rbac.resources` 对应，可由宿主同步写入权限系统。
+> - `menus`：提供前端菜单树（支持多级），与 `frontend.admin.menus` 一致，但可读写 JSON 结构化数据。
+> - `agents` / `tools`：注册插件可用的智能体与工具，宿主在安装后可据此生成配置或入口。
+> - `assets.webAdminPath`：指定打包后的前端 Admin 目录，宿主可直接挂载静态资源。
 
 ---
 
@@ -226,7 +285,7 @@ curl -X POST http://localhost:8077/api/admin/plugins/install/local \
 * [ ] `plugin.yaml` 的 `runtime.entry`、`frontend.admin.static_dir` **相对 dist/<version>**；
 * [ ] 后端二进制有执行权限（`-rwx`）；
 * [ ] 读取 `PORT` 环境变量；
-* [ ] 前端一定要把**构建产物**放到 `frontend/admin/`；
+* [ ] 前端一定要把**构建产物**放到 `frontend/admin/`；Nuxt/Spa 请提前确认构建期 `app.baseURL`，详见《[Nuxt 插件 Admin 前端 baseURL 排查指南](./plugins/frontend_admin_baseurl.md)》；
 * [ ] 不要把 `node_modules/`、`.git/`、源码拷进 `dist/`；
 * [ ] PowerX 的 `plugins/` 目录建议 gitignore（避免把安装产物提交仓库）。
 

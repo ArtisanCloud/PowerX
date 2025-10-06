@@ -8,6 +8,7 @@ import (
 	modelIAM "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/iam"
 	tenantmdl "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/tenant"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository"
+	"github.com/ArtisanCloud/PowerX/pkg/utils"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
@@ -697,7 +698,7 @@ func (s *MemberService) AddExistingUserAsMember(
 			TenantID:    tenantID,
 			UserID:      userID,
 			Username:    username,
-			DisplayName: strings.TrimSpace(firstNonEmpty(displayName, username)),
+			DisplayName: strings.TrimSpace(utils.FirstNonEmpty(displayName, username)),
 			AvatarURL:   strings.TrimSpace(avatarURL),
 			Status:      1,
 			Meta:        meta,
@@ -727,11 +728,4 @@ func (s *MemberService) AddExistingUserAsMember(
 		return nil
 	})
 	return newID, err
-}
-
-func firstNonEmpty(a, b string) string {
-	if strings.TrimSpace(a) != "" {
-		return a
-	}
-	return b
 }

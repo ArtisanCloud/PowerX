@@ -5,6 +5,178 @@
   },
   "openapi": "3.0.3",
   "paths": {
+    "/__debug/plugins": {
+      "get": {
+        "operationId": "GET /__debug/plugins",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "GET /__debug/plugins",
+        "tags": [
+          "__debug"
+        ]
+      }
+    },
+    "/__debug/policy/:id": {
+      "get": {
+        "operationId": "GET /__debug/policy/_id",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "GET /__debug/policy/_id",
+        "tags": [
+          "__debug"
+        ]
+      }
+    },
+    "/api/admin/agents": {
+      "get": {
+        "operationId": "GET /api/admin/agents",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "GET /api/admin/agents",
+        "tags": [
+          "api"
+        ]
+      },
+      "post": {
+        "operationId": "POST /api/admin/agents",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/admin/agents",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/agents/:id": {
+      "delete": {
+        "operationId": "DELETE /api/admin/agents/_id",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "DELETE /api/admin/agents/_id",
+        "tags": [
+          "api"
+        ]
+      },
+      "get": {
+        "operationId": "GET /api/admin/agents/_id",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "GET /api/admin/agents/_id",
+        "tags": [
+          "api"
+        ]
+      },
+      "patch": {
+        "operationId": "PATCH /api/admin/agents/_id",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "PATCH /api/admin/agents/_id",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/agents/:id/ai-setting": {
+      "delete": {
+        "operationId": "DELETE /api/admin/agents/_id/ai-setting",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "DELETE /api/admin/agents/_id/ai-setting",
+        "tags": [
+          "api"
+        ]
+      },
+      "get": {
+        "operationId": "GET /api/admin/agents/_id/ai-setting",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "GET /api/admin/agents/_id/ai-setting",
+        "tags": [
+          "api"
+        ]
+      },
+      "put": {
+        "operationId": "PUT /api/admin/agents/_id/ai-setting",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "PUT /api/admin/agents/_id/ai-setting",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/agents/:id/disable": {
+      "post": {
+        "operationId": "POST /api/admin/agents/_id/disable",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/admin/agents/_id/disable",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/agents/:id/enable": {
+      "post": {
+        "operationId": "POST /api/admin/agents/_id/enable",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/admin/agents/_id/enable",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/agents/:id/health-check": {
+      "post": {
+        "operationId": "POST /api/admin/agents/_id/health-check",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/admin/agents/_id/health-check",
+        "tags": [
+          "api"
+        ]
+      }
+    },
     "/api/admin/agents/models": {
       "get": {
         "operationId": "GET /api/admin/agents/models",
@@ -659,6 +831,48 @@
         ]
       }
     },
+    "/api/admin/plugins/:id": {
+      "get": {
+        "operationId": "GET /api/admin/plugins/_id",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "GET /api/admin/plugins/_id",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/plugins/:id/credentials": {
+      "get": {
+        "operationId": "GET /api/admin/plugins/_id/credentials",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "GET /api/admin/plugins/_id/credentials",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/plugins/:id/credentials/rotate": {
+      "post": {
+        "operationId": "POST /api/admin/plugins/_id/credentials/rotate",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/admin/plugins/_id/credentials/rotate",
+        "tags": [
+          "api"
+        ]
+      }
+    },
     "/api/admin/plugins/:id/disable": {
       "post": {
         "operationId": "POST /api/admin/plugins/_id/disable",
@@ -743,6 +957,46 @@
         ]
       }
     },
+    "/api/admin/plugins/:id/tenant_config": {
+      "delete": {
+        "operationId": "DELETE /api/admin/plugins/_id/tenant_config",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "DELETE /api/admin/plugins/_id/tenant_config",
+        "tags": [
+          "api"
+        ]
+      },
+      "get": {
+        "operationId": "GET /api/admin/plugins/_id/tenant_config",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "GET /api/admin/plugins/_id/tenant_config",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/plugins/:id/tenant_enable": {
+      "post": {
+        "operationId": "POST /api/admin/plugins/_id/tenant_enable",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/admin/plugins/_id/tenant_enable",
+        "tags": [
+          "api"
+        ]
+      }
+    },
     "/api/admin/plugins/:id/uninstall": {
       "post": {
         "operationId": "POST /api/admin/plugins/_id/uninstall",
@@ -785,6 +1039,34 @@
         ]
       }
     },
+    "/api/admin/plugins/marketplace/plugins": {
+      "get": {
+        "operationId": "GET /api/admin/plugins/marketplace/plugins",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "GET /api/admin/plugins/marketplace/plugins",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/plugins/marketplace/plugins_v2": {
+      "get": {
+        "operationId": "GET /api/admin/plugins/marketplace/plugins_v2",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "GET /api/admin/plugins/marketplace/plugins_v2",
+        "tags": [
+          "api"
+        ]
+      }
+    },
     "/api/admin/plugins/menus": {
       "get": {
         "operationId": "GET /api/admin/plugins/menus",
@@ -794,6 +1076,138 @@
           }
         },
         "summary": "GET /api/admin/plugins/menus",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/system/settings/effective/:key": {
+      "get": {
+        "operationId": "GET /api/admin/system/settings/effective/_key",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "GET /api/admin/system/settings/effective/_key",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/system/settings/system": {
+      "get": {
+        "operationId": "GET /api/admin/system/settings/system",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "GET /api/admin/system/settings/system",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/system/settings/system/:key": {
+      "delete": {
+        "operationId": "DELETE /api/admin/system/settings/system/_key",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "DELETE /api/admin/system/settings/system/_key",
+        "tags": [
+          "api"
+        ]
+      },
+      "get": {
+        "operationId": "GET /api/admin/system/settings/system/_key",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "GET /api/admin/system/settings/system/_key",
+        "tags": [
+          "api"
+        ]
+      },
+      "put": {
+        "operationId": "PUT /api/admin/system/settings/system/_key",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "PUT /api/admin/system/settings/system/_key",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/system/settings/tenant/:tenant_id": {
+      "get": {
+        "operationId": "GET /api/admin/system/settings/tenant/_tenant_id",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "GET /api/admin/system/settings/tenant/_tenant_id",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/system/settings/tenant/:tenant_id/:key": {
+      "delete": {
+        "operationId": "DELETE /api/admin/system/settings/tenant/_tenant_id/_key",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "DELETE /api/admin/system/settings/tenant/_tenant_id/_key",
+        "tags": [
+          "api"
+        ]
+      },
+      "get": {
+        "operationId": "GET /api/admin/system/settings/tenant/_tenant_id/_key",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "GET /api/admin/system/settings/tenant/_tenant_id/_key",
+        "tags": [
+          "api"
+        ]
+      },
+      "put": {
+        "operationId": "PUT /api/admin/system/settings/tenant/_tenant_id/_key",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "PUT /api/admin/system/settings/tenant/_tenant_id/_key",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/admin/system/sts/:pluginId": {
+      "post": {
+        "operationId": "POST /api/admin/system/sts/_pluginId",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/admin/system/sts/_pluginId",
         "tags": [
           "api"
         ]
@@ -1041,20 +1455,6 @@
         ]
       }
     },
-    "/api/agents/chat": {
-      "post": {
-        "operationId": "POST /api/agents/chat",
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "summary": "POST /api/agents/chat",
-        "tags": [
-          "api"
-        ]
-      }
-    },
     "/api/agents/intent/": {
       "post": {
         "operationId": "POST /api/agents/intent/",
@@ -1083,6 +1483,112 @@
         ]
       }
     },
+    "/api/agents/invoke": {
+      "post": {
+        "operationId": "POST /api/agents/invoke",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/agents/invoke",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/agents/sessions": {
+      "get": {
+        "operationId": "GET /api/agents/sessions",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "GET /api/agents/sessions",
+        "tags": [
+          "api"
+        ]
+      },
+      "post": {
+        "operationId": "POST /api/agents/sessions",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/agents/sessions",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/agents/sessions/:id": {
+      "delete": {
+        "operationId": "DELETE /api/agents/sessions/_id",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "DELETE /api/agents/sessions/_id",
+        "tags": [
+          "api"
+        ]
+      },
+      "get": {
+        "operationId": "GET /api/agents/sessions/_id",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "GET /api/agents/sessions/_id",
+        "tags": [
+          "api"
+        ]
+      },
+      "patch": {
+        "operationId": "PATCH /api/agents/sessions/_id",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "PATCH /api/agents/sessions/_id",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/agents/sessions/:id/archive": {
+      "post": {
+        "operationId": "POST /api/agents/sessions/_id/archive",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/agents/sessions/_id/archive",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/agents/sessions/:id/messages": {
+      "get": {
+        "operationId": "GET /api/agents/sessions/_id/messages",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "GET /api/agents/sessions/_id/messages",
+        "tags": [
+          "api"
+        ]
+      }
+    },
     "/api/agents/status": {
       "get": {
         "operationId": "GET /api/agents/status",
@@ -1097,15 +1603,29 @@
         ]
       }
     },
-    "/api/agents/stream": {
-      "post": {
-        "operationId": "POST /api/agents/stream",
+    "/api/agents/stream/mock": {
+      "get": {
+        "operationId": "GET /api/agents/stream/mock",
         "responses": {
           "200": {
             "description": "OK"
           }
         },
-        "summary": "POST /api/agents/stream",
+        "summary": "GET /api/agents/stream/mock",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/agents/stream/sse": {
+      "get": {
+        "operationId": "GET /api/agents/stream/sse",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "GET /api/agents/stream/sse",
         "tags": [
           "api"
         ]
@@ -1125,20 +1645,6 @@
         ]
       }
     },
-    "/api/marketplace/plugins": {
-      "get": {
-        "operationId": "GET /api/marketplace/plugins",
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "summary": "GET /api/marketplace/plugins",
-        "tags": [
-          "api"
-        ]
-      }
-    },
     "/api/user/auth/logout": {
       "post": {
         "operationId": "POST /api/user/auth/logout",
@@ -1150,6 +1656,20 @@
         "summary": "POST /api/user/auth/logout",
         "tags": [
           "api"
+        ]
+      }
+    },
+    "/ws/agents/stream/ws": {
+      "get": {
+        "operationId": "GET /ws/agents/stream/ws",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "GET /ws/agents/stream/ws",
+        "tags": [
+          "ws"
         ]
       }
     }

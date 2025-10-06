@@ -1,358 +1,130 @@
-#README（含 Postgres 视图与常用 SQL）。
+# PowerX RBAC & STS 设计说明
 
-我把我们这轮做的“后端接口 + 种子数据 + 前端对接 + 权限归类”完整串了一遍，后面紧跟一组 CREATE VIEW / FUNCTION，方便你用 SQL 检查和管理 RBAC 数据。
+本说明阐述 PowerX/ CoreX 的权限模型（RBAC），以及直连 HTTP 接口的鉴权流程、与插件（Plugin）的网关鉴权与 STS（短期令牌）机制。本文基于现有实现梳理，并补充建议与最佳实践。
+
+## 目标与原则
+
+- 统一：CoreX 与 Plugin 使用一致的“资源/动作”判定模型（resource/action），最小化歧义。
+- 解耦：路由与权限映射可显式声明（策略）或自动推导，业务层可复用服务封装与中间件。
+- 最小开销：上游只做一次身份校验；到 Plugin 的二跳走 STS 短期令牌，减少重复解析与权限查询压力。
+- 可观测：权限拒绝/通过均可审计，健康检查与业务调用在语义与可用性上区分清晰。
+
+## 核心概念
+
+- 三元权限（Triple）：`plugin/resource/action`。示例：`iam/role/read`。
+- 作用域（Scope）：系统级（`system`）/ 租户级（`tenant`）。角色与权限绑定遵循作用域约束。
+- 主体（Subject）：成员（member）、用户（user）等；绑定时以成员为主（目前实现）。
+- 身份与声明（Claims）：`env, tenant_id/uuid, user_id, member_id, is_root, roles, platforms, scope` 等，注入于 `request.Context()`。
+
+## 数据模型与仓储
+
+- Permission（`iam_permission`）：唯一键 `(plugin, resource, action)`；含 `effect/status/meta/introduced/deprecated_at/source` 等。
+- Role（`iam_role`）、RolePermission（`iam_role_permission`）、RoleBinding（`iam_role_binding`）。
+- 仓储与服务：在 `pkg/corex/db/persistence/repository/iam/*` 与 `internal/service/iam/rbac_service.go` 提供 Upsert/授予/撤销/绑定/鉴权。
+- 权限同步：支持从 OpenAPI/Swagger 生成权限并落库（`cmd/perm_gen`、`permission_repo.Sync`），支持系统默认权限与默认角色赋权（`cmd/database/seed/*`）。
+
+## 身份认证（JWT）与上下文
+
+- 入站统一使用 `pkg/auth/middleware/jwt.go`：校验 `issuer/audience/scope/exp/nbf/signature`，支持撤销（黑名单）、Root 代理租户、环境注入、Trace 透传。
+- 中间件将声明注入 `request.Context()`，通过 `pkg/corex/iam/reqctx/*` 读取（`GetTenantID/GetUserID/IsRoot/...`）。
+- 管理端“仅管理员”接口可复用 `AdminOnlyMiddleware`（允许 `system_admin/role_admin/is_root`）。
+
+## 直连 RBAC（CoreX HTTP）
+
+- 业务 Handler 在需要“资源-动作”粒度时调用服务层：
+  - `RBACService.Enforce(ctx, tenantID, memberID, plugin, resource, action)` → 返回允许/拒绝。
+  - 角色/权限/绑定相关管理操作走 `RBACService` 封装（授予/撤销/绑定/解绑/列举）。
+- 可选（建议）：在路由层增加“RBAC 授权中间件”，将 `METHOD:/path` 自动映射为 `resource/action`：
+  - 优先显式策略映射；否则按 HTTP 方法推导动作（GET/HEAD→read，POST→create，PUT/PATCH→update，DELETE→delete），按路径首段推导资源（必要时做单复数归一）。
+  - 参考 Plugin 网关策略的实现方式，保持一致的推导规则，减少重复。
+
+## Plugin 网关与 STS
+
+- 动态反代：宿主将 `/_p/:id/api/*` 反向代理到插件后端（见 `internal/infra/plugin/manager/router/router.go`）。
+- 路由策略（Policy）：
+  - 来自插件 manifest：`endpoints.http_base_path` 与 `rbac.resources[*].actions`；健康检查 `GET|HEAD:/healthz` 固定放行。
+  - 先匹配显式规则（`METHOD:/pattern`），否则自动推导（方法→动作；路径→资源，移除 `http_base_path`）。
+- Authorizer：网关调用 `Authorizer.Permissions(ctx, tenantID, userID, pluginID)` 获取当前用户在该插件下拥有的权限集合（如 `note:read`）。
+- 通过则颁发 STS 短期令牌（aud=`plugin:<id>`，TTL 默认 60s），替换下游 `Authorization` 头；同时透传签名上下文 `X-PowerX-CTX` 与 `X-PowerX-CTX-SIG`（HMAC）。
+- 建议生产实现：
+  - 用 DB/缓存实现 `Authorizer`，复用 `PermissionRepository.MemberHasPermissionViaBinding` 或等价查询；
+  - 在 STS Claims 中可包含 `policy_version`/`perms_hash` 以便插件侧做细化校验与缓存版本控制。
+
+## Health（健康检查）与差异
+
+- CoreX 健康：`GET /api/health` 公开无鉴权，用于宿主存活/就绪检测。
+- 插件健康：`/_p/:id/api/healthz` 特殊路径直达插件的 `runtime.health.http`（默认 `/healthz`），且被策略白名单放行，不参与业务权限判定。
+- 区分点：
+  - healthz 仅用于可用性探测，不携带业务语义与权限；
+  - 普通业务路由需走 RBAC 判定 +（到插件）STS 下发。
+
+## 权限生命周期与同步
+
+- 自动化：
+  - 从 OpenAPI 生成三元权限（按路径/方法推导）并 `UpsertBatch`；
+  - 标记废弃：不在导入集且来源一致的权限置 `deprecated`（保留历史，可回滚）。
+- 角色与默认赋权：
+
+  - 系统默认角色（如 `system_admin/role_admin/role_user`）通过 Seed 确保存在并赋权；
+  - 平台级 API（`module=system`）与租户级 API 区分赋权边界。
+
+## 缓存与性能建议
+
+- 入站 JWT 中间件已支持用户/成员/租户快照校验；
+- Authorizer 建议在网关侧做权限集缓存（key=`tenant:user:plugin`，TTL=短，命中率高），并暴露失效通知（变更后刷新）。
+- STS TTL 维持在 30–120 秒区间，减少下游签名解析与权限查询频率；插件应校验 `aud=plugin:<id>` 与 `iss`。
+
+## 审计与可观测性
+
+- 建议在：
+  - 入站 JWT 拒绝、RBAC 拒绝/通过时落审计（含 `tenant/subject/resource/action/trace_id`）。
+  - Plugin 网关 `CheckAndMint` 的拒绝原因（`permission required`）可聚合导出监控指标。
+
+## 示例（片段）
+
+1) CoreX 直连接口（在 Handler 中判定）
+
+```go
+ok, err := rbacSvc.Enforce(c.Request.Context(), 0, 0, "iam", "role", "read")
+if err != nil || !ok { c.AbortWithStatus(403); return }
+```
+
+2) Plugin 路由策略（自动推导）
+
+```
+GET /v1/notes      -> note:read
+POST /v1/notes     -> note:create
+PATCH /v1/notes/1  -> note:update
+DELETE /v1/notes/1 -> note:delete
+```
+
+3) Plugin 端校验 STS（建议）
+
+```go
+claims, err := auth.ParseAndValidate(bearer, secret, "powerx-auth", "plugin:<id>")
+// 校验通过后可按需读取 X-PowerX-CTX 并验签作审计
+```
+
+## 安全注意事项
+
+- 严格区分 Audience：CoreX 入站 JWT（如 `aud=user`）与下发至插件的 STS（`aud=plugin:<id>`）。
+- 短期令牌 TTL 要短，并考虑时钟偏移；必要时支持撤销（黑名单）。
+- 插件侧尽量校验 `X-PowerX-CTX-SIG`，避免上游上下文被伪造。
+- 警惕通配权限（`*`/`res:*`）的滥用，最小授权原则。
+
+## 建议的微调（保持现实现状）
+
+- 引入通用的“路由 RBAC 中间件”（可选）：将现有 `RBACService.Enforce` 封装成 Gin 中间件，统一在路由层声明所需权限（或自动推导）。
+- 在 STS Claims 中加入 `policy_version`（来自 Authorizer），便于插件快速判定策略是否需刷新。
+- 开放 Authorizer 的缓存与失效接口（如 `Invalidate(tenant,user,plugin)`），绑定在角色/权限变更处触发。
 
 ---
 
-# RBAC 实现说明（PowerX CoreX）
+参考实现位置（部分）：
 
-## TL;DR
+- JWT 中间件：`pkg/auth/middleware/jwt.go`
+- RBAC 服务：`internal/service/iam/rbac_service.go`
+- 权限仓储：`pkg/corex/db/persistence/repository/iam/*`
+- Plugin 网关与策略：`internal/infra/plugin/manager/router/*`、`internal/infra/plugin/manager/rbac.go`
+- 健康检查：`internal/transport/http/admin/health_handler.go`、`internal/infra/plugin/manager/supervisor/*`
 
-* **模型**：`iam_permission`、`iam_role`、`iam_role_permission`、`iam_role_binding`、`iam_member`、`iam_user`。
-* **权限注册**
-
-    * 手动/批量注册（`RegisterPermissions` / `SyncPermissions`）。
-    * Swagger→权限：按路由自动生成 `plugin=core` 的 API 权限（`SeedSwaggerPermissions`）。
-* **权限归类**：以 `permission.meta` 里的 `module`、`type` 映射到前端树（module→type→items）。
-
-    * API：`type=api`，携带 `api_endpoint`、`http_method`；
-    * 非 API：`type=action`（或种子里自定义）。
-* **角色-权限**
-
-    * 查询角色权限：`GET /api/admin/iam/roles/:id/permissions`
-    * 一次性设置整套权限：`PUT /api/admin/iam/roles/:id/permissions/set-ids`，`{ "ids":[...] }`
-* **鉴权视角**
-
-    * Root：不受租户限制，可管理 System 角色；
-    * 租户：仅能操作本租户，且不能操作系统角色（若启用该限制）。
-* **前端对接**
-
-    * `stores/permission.ts` 支持“拉全量 + 本地筛选 + 批量提交 set-ids”；
-    * `PermissionManager.vue`：模块/类型分组勾选、整页保存。
-* **种子（seed）**
-
-    * `SeedSystemBuiltinRoles`：`system_admin` / `system_monitor`（系统级）；
-    * `SeedSystemPermissions`：IAM 基础 action 权限（`iam.role/read|write|delete|bind` 等）；
-    * `SeedSwaggerPermissions`：从 `./docs/swagger.json` 导入 API 权限；
-    * `SeedBuiltInRolesAndGrants(tenantID)`：
-
-        * Upsert `root`(system, tenant\_id=0) 和 `tenant_admin`(tenant, tenant\_id=指定)；
-        * **root** 授予**全部 active** 权限；
-        * `tenant_admin` 授予**非系统模块**的 active 权限（过滤 `meta->>'module'='system'`）。
-    * `EnsureDefaultRoles(tenant)` + `SeedGrantDefaultRolesForTenant(tenant)`：
-
-        * `role_admin`：授予**所有**权限；
-        * `role_user`：授予 `action='read'` 的只读权限。
-* **重要细节**
-
-    * `iam_role_permission.created_at`：批量插入时使用结构体或在 SQL 层使用 `NOW()`，已避免 `NULL`。
-    * `BaseRepository.GetFirst`：返回 `(*T, nil)` 或 `nil, nil`，调用方要判空。
-    * `SetPermissionIDs`：只允许 `status=active` 的权限，跳过 deprecated，事务中“增/删”幂等。
-    * **唯一键**：
-
-        * `iam_permission (plugin,resource,action)`
-        * `iam_role (scope,tenant_id,code)`
-        * `iam_role_permission PK(role_id,permission_id)`
-
----
-
-## API 一览
-
-* **权限**
-
-    * `GET /api/admin/iam/permissions` —— 支持 `status、page、page_size、sort` 等查询；拉全量用 `page_size=1000`。
-    * `GET /api/admin/iam/permissions/catalog` —— 返回 `module→type→[]permission` 树。
-    * `POST /api/admin/iam/permissions/register` —— 手工注册/批量 UPSERT。
-    * `POST /api/admin/iam/permissions/sync` —— 源同步（支持 dry-run）。
-
-* **角色**
-
-    * `GET /api/admin/iam/roles`、`POST /api/admin/iam/roles`、`PATCH /api/admin/iam/roles/:id`、`DELETE /api/admin/iam/roles/:id`
-    * `GET /api/admin/iam/roles/:id/permissions` —— 列表（用于勾选初始化）。
-    * `PUT /api/admin/iam/roles/:id/permissions/set-ids` —— 一次性设置整套权限。
-
-        * 响应：`{ added:[], removed:[], now:[], skipped_deprecated:[] }`
-
----
-
-## Swagger → Permission 归类规则
-
-* **resource**：来自路径前两段（去 `api` / `admin` 前缀；`:id`/`{id}` 记为字面），如 `/api/admin/iam/departments/:id` → `iam.department`；
-* **action**：
-
-    * `GET` → `list|read`（包含 `/:id` 视为 `read`）
-    * `POST` → `create`
-    * `PUT/PATCH` → `update`
-    * `DELETE` → `delete`
-* **meta**（JSON）：
-
-  ```json
-  {
-    "type": "api",
-    "module": "api",
-    "label": "METHOD /path",
-    "http_method": "GET|POST|...",
-    "api_endpoint": "/api/..."
-  }
-  ```
-
----
-
-## 前端（Pinia + Vue）接入约定
-
-* 初始化：`GET /permissions?page=1&page_size=1000&status=active` 拉全量 → 前端本地按 `module/type` 分组。
-* 选中角色：`GET /roles/:id/permissions` → 本地 `roleSelection[roleId]=[ids...]`。
-* 勾选并保存：“保存”触发 `PUT /roles/:id/permissions/set-ids`，一次性提交整套权限 ID。
-
----
-
-# Postgres 视图与常用 SQL
-
-> 以下语句默认 schema 为 `public`，表名为：`iam_permission` / `iam_role` / `iam_role_permission` / `iam_role_binding` / `iam_member`。如你的 schema/表名不同，请自行替换。
-
-## 1) 扁平化权限视图（展开 meta）
-
-```sql
-CREATE OR REPLACE VIEW public.vw_iam_permission_flat AS
-SELECT
-  p.id,
-  p.plugin,
-  p.resource,
-  p.action,
-  p.effect,
-  p.status,
-  p.source,
-  p.introduced,
-  p.deprecated_at,
-  p.created_at,
-  p.updated_at,
-  /* meta 展开 */
-  p.meta->>'label'        AS label,
-  p.meta->>'module'       AS module,
-  COALESCE(p.meta->>'type','action') AS type,
-  p.meta->>'api_endpoint' AS api_endpoint,
-  p.meta->>'http_method'  AS http_method
-FROM public.iam_permission p;
-```
-
-## 2) 角色-权限明细视图（含权限字段）
-
-```sql
-CREATE OR REPLACE VIEW public.vw_iam_role_permission_detail AS
-SELECT
-  r.id             AS role_id,
-  r.code           AS role_code,
-  r.name           AS role_name,
-  r.scope          AS role_scope,
-  r.tenant_id      AS role_tenant_id,
-  rp.permission_id,
-  p.plugin,
-  p.resource,
-  p.action,
-  p.status,
-  p.effect,
-  /* 展开 meta */
-  p.meta->>'module'       AS module,
-  COALESCE(p.meta->>'type','action') AS type,
-  p.meta->>'http_method'  AS http_method,
-  p.meta->>'api_endpoint' AS api_endpoint,
-  p.meta->>'label'        AS label
-FROM public.iam_role_permission rp
-JOIN public.iam_role r       ON r.id = rp.role_id
-JOIN public.iam_permission p ON p.id = rp.permission_id;
-```
-
-## 3) 成员-角色绑定视图
-
-```sql
-CREATE OR REPLACE VIEW public.vw_iam_member_role_bindings AS
-SELECT
-  rb.tenant_id,
-  rb.subject_type,
-  rb.subject_id AS member_id,
-  m.user_id,
-  r.id          AS role_id,
-  r.code        AS role_code,
-  r.name        AS role_name,
-  r.scope       AS role_scope
-FROM public.iam_role_binding rb
-JOIN public.iam_member m ON m.id = rb.subject_id
-JOIN public.iam_role   r ON r.id = rb.role_id
-WHERE rb.subject_type = 'MEMBER';
-```
-
-> 如果你的 `subject_type` 常量不同，请替换为模型常量对应的字符串。
-
-## 4) 成员生效权限视图（通过角色推导）
-
-```sql
-CREATE OR REPLACE VIEW public.vw_iam_member_permissions AS
-SELECT DISTINCT
-  mr.tenant_id,
-  mr.member_id,
-  mr.user_id,
-  rpd.permission_id,
-  pf.plugin,
-  pf.resource,
-  pf.action,
-  pf.type,
-  pf.module,
-  pf.http_method,
-  pf.api_endpoint,
-  pf.status
-FROM public.vw_iam_member_role_bindings mr
-JOIN public.iam_role_permission rpp ON rpp.role_id = mr.role_id
-JOIN public.vw_iam_permission_flat pf ON pf.id = rpp.permission_id
-JOIN public.iam_role_permission rpd ON rpd.role_id = mr.role_id AND rpd.permission_id = pf.id;
-```
-
-## 5) 角色授予统计视图
-
-```sql
-CREATE OR REPLACE VIEW public.vw_iam_role_perm_counts AS
-SELECT
-  r.id   AS role_id,
-  r.code AS role_code,
-  r.name AS role_name,
-  r.scope AS role_scope,
-  r.tenant_id AS role_tenant_id,
-  COUNT(*) AS total,
-  COUNT(*) FILTER (WHERE pf.type = 'api')     AS api_count,
-  COUNT(*) FILTER (WHERE pf.type = 'action')  AS action_count,
-  COUNT(*) FILTER (WHERE pf.status = 'deprecated') AS deprecated_count
-FROM public.iam_role r
-LEFT JOIN public.iam_role_permission rp ON rp.role_id = r.id
-LEFT JOIN public.vw_iam_permission_flat pf ON pf.id = rp.permission_id
-GROUP BY r.id, r.code, r.name, r.scope, r.tenant_id;
-```
-
-## 6) 角色差集（诊断函数，可选）
-
-> 视图不支持参数，这里提供一个 **函数**，用于对比两个角色的权限差集。
-
-```sql
-CREATE OR REPLACE FUNCTION public.fn_role_perm_diff(
-  role_id_a BIGINT,
-  role_id_b BIGINT
-) RETURNS TABLE(
-  permission_id BIGINT,
-  plugin TEXT,
-  resource TEXT,
-  action TEXT,
-  type TEXT,
-  module TEXT,
-  http_method TEXT,
-  api_endpoint TEXT,
-  status TEXT
-) LANGUAGE sql STABLE AS
-$$
-  SELECT
-    pf.id,
-    pf.plugin, pf.resource, pf.action,
-    pf.type, pf.module, pf.http_method, pf.api_endpoint,
-    pf.status
-  FROM public.iam_role_permission rp
-  JOIN public.vw_iam_permission_flat pf ON pf.id = rp.permission_id
-  WHERE rp.role_id = role_id_a
-    AND NOT EXISTS (
-      SELECT 1 FROM public.iam_role_permission rp2
-      WHERE rp2.role_id = role_id_b
-        AND rp2.permission_id = rp.permission_id
-    )
-  ORDER BY module NULLS LAST, plugin, resource, action;
-$$;
-```
-
-**用法：**
-
-```sql
-SELECT * FROM public.fn_role_perm_diff( /*root_id*/ 1, /*role_admin_id*/ 2 );
-```
-
----
-
-## 建议索引（如未建立）
-
-```sql
--- 权限唯一：plugin + resource + action
-CREATE UNIQUE INDEX IF NOT EXISTS ux_iam_permission_p_r_a
-  ON public.iam_permission (plugin, resource, action);
-
--- 角色唯一：scope + tenant_id + code
-CREATE UNIQUE INDEX IF NOT EXISTS ux_iam_role_scope_tenant_code
-  ON public.iam_role (scope, tenant_id, code);
-
--- 角色-权限PK
-ALTER TABLE public.iam_role_permission
-  ADD CONSTRAINT pk_iam_role_permission PRIMARY KEY (role_id, permission_id);
-
--- 常用查询加速
-CREATE INDEX IF NOT EXISTS ix_iam_role_permission_role
-  ON public.iam_role_permission (role_id);
-
-CREATE INDEX IF NOT EXISTS ix_iam_permission_status
-  ON public.iam_permission (status);
-
--- meta JSONB 提取字段的表达式索引（按需开启）
-CREATE INDEX IF NOT EXISTS ix_iam_permission_meta_module
-  ON public.iam_permission ( (meta->>'module') );
-
-CREATE INDEX IF NOT EXISTS ix_iam_permission_meta_type
-  ON public.iam_permission ( (meta->>'type') );
-```
-
----
-
-## 典型管理 SQL（示例）
-
-* **查看某角色拥有的权限数与分类：**
-
-```sql
-SELECT * FROM public.vw_iam_role_perm_counts WHERE role_id = 2;  -- 改成你的角色ID
-```
-
-* **列出某角色的所有 API 权限：**
-
-```sql
-SELECT *
-FROM public.vw_iam_role_permission_detail
-WHERE role_id = 2 AND type = 'api'
-ORDER BY module, api_endpoint;
-```
-
-* **比较 root 与某租户的 role\_admin 差异（root 独有）：**
-
-```sql
-SELECT *
-FROM public.fn_role_perm_diff(1, 2);  -- 1=root_id, 2=role_admin_id
-```
-
-* **某成员在某租户的“生效”权限：**
-
-```sql
-SELECT *
-FROM public.vw_iam_member_permissions
-WHERE tenant_id = 1 AND member_id = 123  -- 改成你的 ID
-ORDER BY module, plugin, resource, action;
-```
-
----
-
-## 种子执行顺序参考
-
-1. 迁移：创建表 + 约束 + 索引。
-2. `SeedSystemBuiltinRoles`（系统级角色）。
-3. `SeedSystemPermissions`（IAM action 权限）。
-4. `SeedSwaggerPermissions`（导入 API 权限）。
-5. `EnsureByKey(system)` 创建/确保 system 租户。
-6. `SeedBuiltInRolesAndGrants(system_tenant_id)`：
-
-    * upsert `root` / `tenant_admin`；
-    * 授予 root=全量、tenant\_admin=非 system 模块；
-7. `EnsureDefaultRoles(system_tenant_id)` + `SeedGrantDefaultRolesForTenant(system_tenant_id)`：
-
-    * `role_admin`=全量、`role_user`=只读；
-8. 创建 `root` 用户/凭证 → 创建 system 租户下的 `root` 成员 → 绑定 `role_admin`；
-9. 前端拉取全量权限 & 角色，按页面勾选后 `set-ids` 提交。
-
----

@@ -30,10 +30,12 @@ type Registry interface {
 }
 
 type regVersionRecord struct {
-	State       plugin_mgr.PluginState    `json:"state"`
-	InstalledAt time.Time                 `json:"installed_at"`
-	Manifest    plugin_mgr.Manifest       `json:"manifest"`
-	Paths       plugin_mgr.InstalledPaths `json:"paths"`
+	State       plugin_mgr.PluginState      `json:"state"`
+	InstalledAt time.Time                   `json:"installed_at"`
+	Manifest    plugin_mgr.Manifest         `json:"manifest"`
+	Paths       plugin_mgr.InstalledPaths   `json:"paths"`
+	HostConfig  *plugin_mgr.HostConfig      `json:"host_config,omitempty"`
+	Migrations  *plugin_mgr.MigrationRecord `json:"migrations,omitempty"`
 }
 
 type regPluginRecord struct {
@@ -120,6 +122,8 @@ func (r *JSONRegistry) Put(ctx context.Context, desc Descriptor, state plugin_mg
 		InstalledAt: time.Now().UTC(),
 		Manifest:    desc.Manifest,
 		Paths:       desc.Paths,
+		HostConfig:  cloneHostConfig(desc.HostConfig),
+		Migrations:  cloneMigrationRecord(desc.Migration),
 	}
 	// 注意：installed 不更新 current；enable 时再更新
 	r.mem.Plugins[id] = rec
@@ -193,15 +197,24 @@ func (r *JSONRegistry) Get(ctx context.Context, id string) (plugin_mgr.Plugin, b
 	}
 	rr := rec.Versions[verKey]
 	return plugin_mgr.Plugin{
-		ID:        rr.Manifest.ID,
-		Version:   rr.Manifest.Version,
-		State:     rr.State,
-		Runtime:   rr.Manifest.Runtime,
-		Frontend:  rr.Manifest.Frontend,
-		Endpoints: rr.Manifest.Endpoints,
-		RBAC:      rr.Manifest.RBAC,
-		Events:    rr.Manifest.Events,
-		Paths:     rr.Paths,
+		ID:          rr.Manifest.ID,
+		Version:     rr.Manifest.Version,
+		State:       rr.State,
+		Runtime:     rr.Manifest.Runtime,
+		Frontend:    rr.Manifest.Frontend,
+		Endpoints:   rr.Manifest.Endpoints,
+		RBAC:        rr.Manifest.RBAC,
+		Events:      rr.Manifest.Events,
+		Backend:     rr.Manifest.Backend,
+		Routes:      rr.Manifest.Routes,
+		Permissions: append([]plugin_mgr.PermissionSpec(nil), rr.Manifest.Permissions...),
+		Menus:       append([]plugin_mgr.MenuTreeItem(nil), rr.Manifest.Menus...),
+		Agents:      append([]plugin_mgr.AgentSpec(nil), rr.Manifest.Agents...),
+		Tools:       append([]plugin_mgr.ToolSpec(nil), rr.Manifest.Tools...),
+		Workflows:   append([]plugin_mgr.WorkflowSpec(nil), rr.Manifest.Workflows...),
+		Paths:       rr.Paths,
+		HostConfig:  cloneHostConfig(rr.HostConfig),
+		Migration:   cloneMigrationRecord(rr.Migrations),
 
 		Name:        rr.Manifest.Name,
 		Description: rr.Manifest.Description,
@@ -244,11 +257,91 @@ func (r *JSONRegistry) GetVersion(ctx context.Context, id, version string) (plug
 		Endpoints:   vr.Manifest.Endpoints,
 		RBAC:        vr.Manifest.RBAC,
 		Events:      vr.Manifest.Events,
+		Backend:     vr.Manifest.Backend,
+		Routes:      vr.Manifest.Routes,
+		Permissions: append([]plugin_mgr.PermissionSpec(nil), vr.Manifest.Permissions...),
+		Menus:       append([]plugin_mgr.MenuTreeItem(nil), vr.Manifest.Menus...),
+		Agents:      append([]plugin_mgr.AgentSpec(nil), vr.Manifest.Agents...),
+		Tools:       append([]plugin_mgr.ToolSpec(nil), vr.Manifest.Tools...),
+		Workflows:   append([]plugin_mgr.WorkflowSpec(nil), vr.Manifest.Workflows...),
 		Paths:       vr.Paths,
+		HostConfig:  cloneHostConfig(vr.HostConfig),
+		Migration:   cloneMigrationRecord(vr.Migrations),
 		Name:        vr.Manifest.Name,
 		Description: vr.Manifest.Description,
 		Metadata:    vr.Manifest.Metadata,
 	}, true
+}
+
+func cloneHostConfig(hc *plugin_mgr.HostConfig) *plugin_mgr.HostConfig {
+	if hc == nil {
+		return nil
+	}
+	out := &plugin_mgr.HostConfig{
+		ValuesFile:  hc.ValuesFile,
+		GeneratedAt: hc.GeneratedAt,
+	}
+	if len(hc.Values) > 0 {
+		out.Values = make(map[string]string, len(hc.Values))
+		for k, v := range hc.Values {
+			out.Values[k] = v
+		}
+	} else {
+		out.Values = map[string]string{}
+	}
+	if len(hc.Spec) > 0 {
+		out.Spec = cloneAnyMap(hc.Spec)
+	}
+	return out
+}
+
+func cloneMigrationRecord(src *plugin_mgr.MigrationRecord) *plugin_mgr.MigrationRecord {
+	if src == nil {
+		return nil
+	}
+	out := &plugin_mgr.MigrationRecord{
+		Entry:      src.Entry,
+		WorkDir:    src.WorkDir,
+		Once:       src.Once,
+		Timeout:    src.Timeout,
+		Hash:       src.Hash,
+		LastStatus: src.LastStatus,
+		LastError:  src.LastError,
+	}
+	if len(src.Args) > 0 {
+		out.Args = append([]string(nil), src.Args...)
+	}
+	if src.ExecutedAt != nil {
+		t := *src.ExecutedAt
+		out.ExecutedAt = &t
+	}
+	return out
+}
+
+func cloneAnyMap(src map[string]any) map[string]any {
+	if len(src) == 0 {
+		return nil
+	}
+	dst := make(map[string]any, len(src))
+	for k, v := range src {
+		dst[k] = cloneAnyValue(v)
+	}
+	return dst
+}
+
+func cloneAnyValue(v any) any {
+	switch val := v.(type) {
+	case map[string]any:
+		return cloneAnyMap(val)
+	case []any:
+		out := make([]any, len(val))
+		for i := range val {
+			out[i] = cloneAnyValue(val[i])
+		}
+		return out
+	default:
+		return val
+	}
 }
 
 func (r *JSONRegistry) CurrentVersion(ctx context.Context, id string) (string, bool) {

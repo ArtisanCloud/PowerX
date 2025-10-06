@@ -2,7 +2,8 @@ package http
 
 import (
 	"context"
-	"github.com/ArtisanCloud/PowerX/pkg/auth"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/audit"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"time"
 
@@ -23,8 +24,8 @@ func RequestLoggingMiddleware() gin.HandlerFunc {
 		c.Next()
 		latency := time.Since(start)
 		status := c.Writer.Status()
-		tenant := auth.GetTenantID(c.Request.Context())
-		traceID := auth.GetTraceID(c.Request.Context())
+		tenant := reqctx.GetTenantID(c.Request.Context())
+		traceID := audit.GetTraceID(c.Request.Context())
 		logger.Info(c.Request.Context(), "http_request",
 			zap.String("method", c.Request.Method),
 			zap.String("path", c.FullPath()),
@@ -53,7 +54,7 @@ func TraceInjectionMiddleware() gin.HandlerFunc {
 }
 
 func contextWithTraceID(ctx context.Context, traceID string) context.Context {
-	return context.WithValue(ctx, auth.TraceIDKey, traceID)
+	return context.WithValue(ctx, reqctx.TraceIDKey, traceID)
 }
 
 // FeatureInjectionMiddleware 示例：把一些 header 或版本信息注入 context 或请求中

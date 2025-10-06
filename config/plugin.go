@@ -10,6 +10,8 @@ type PluginConfig struct {
 	// 预留（里程碑后续用）
 	ReadTimeoutSec  int `yaml:"read_timeout_sec"`
 	WriteTimeoutSec int `yaml:"write_timeout_sec"`
+
+	DevMode bool `yaml:"dev_mode"` // 开发模式，默认 false
 }
 
 func DefaultPluginConfig() PluginConfig {

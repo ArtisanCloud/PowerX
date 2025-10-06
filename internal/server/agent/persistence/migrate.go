@@ -18,6 +18,9 @@ func MigrateAgentModels(db *gorm.DB) error {
 		&dbmodel.AgentSetting{},
 		&dbmodel.AgentKBBinding{},
 		&dbmodel.AgentPluginLink{},
+
+		&dbmodel.AgentChatSession{},
+		&dbmodel.AgentChatMessage{},
 	)
 
 	// 可以顺手确认一下（开发期）：

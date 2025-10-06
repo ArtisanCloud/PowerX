@@ -71,4 +71,9 @@ etc/config.yaml
 # Keep the folder itself
 !plugins/.gitkeep
 
-api/grpc/gen/
+api/grpc/gen/*
+!api/grpc/gen/go/
+!api/grpc/gen/go/**
+.gocache
+.cache
+.gomodcache

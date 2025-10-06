@@ -11,6 +11,9 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 	settingH := NewAgentSettingHandler(deps)
 	agentH := NewAgentHandler(deps)
 	chatH := NewAgentChatHandler(deps)
+
+	sessionH := NewAgentSessionHandler(deps)
+
 	agentGroup := protectedGroup.Group("/agents")
 	{
 
@@ -19,8 +22,20 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 		agentGroup.POST("/intent/", agentH.Intent)
 		agentGroup.POST("/intent/plan", agentH.PlanPreview)
 		// agentGroup.POST("/execute", ExecuteHandler)
-		agentGroup.POST("/stream", chatH.StreamChat)
-		agentGroup.POST("/chat", chatH.Chat)
+		agentGroup.GET("/stream/mock", chatH.SimulateSSE) // 新增：标准 GET SSE（方便前端用 EventSource）
+		agentGroup.GET("/stream/sse", chatH.StreamSSE)    // 新增：标准 GET SSE（方便前端用 EventSource）
+
+		// 新增：POST 普通 Chat（非流）
+		agentGroup.POST("/invoke", chatH.Invoke)
+
+		agentGroup.POST("/sessions", sessionH.CreateSession)
+		agentGroup.GET("/sessions", sessionH.ListSessions)
+		agentGroup.GET("/sessions/:id", sessionH.GetSession)
+		agentGroup.PATCH("/sessions/:id", sessionH.UpdateSession)
+		agentGroup.POST("/sessions/:id/archive", sessionH.ArchiveSession)
+		agentGroup.DELETE("/sessions/:id", sessionH.DeleteSession)
+
+		agentGroup.GET("/sessions/:id/messages", sessionH.ListMessages)
 
 	}
 	agentAdminGroup := protectedGroup.Group("/admin/agents")
@@ -37,6 +52,21 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 
 		agentAdminGroup.GET("/settings/active", settingH.getActiveProfile)
 		agentAdminGroup.POST("/settings/active", settingH.setActiveProfile)
+
+		// 智能体 CRUD
+		agentAdminGroup.POST("", agentH.CreateAgent)
+		agentAdminGroup.GET("", agentH.ListAgents)
+		agentAdminGroup.GET("/:id", agentH.GetAgent)
+		agentAdminGroup.PATCH("/:id", agentH.UpdateAgent)
+		agentAdminGroup.POST("/:id/enable", agentH.EnableAgent)
+		agentAdminGroup.POST("/:id/disable", agentH.DisableAgent)
+		agentAdminGroup.DELETE("/:id", agentH.DeleteAgent)
+
+		// 智能体 AI 配置
+		agentAdminGroup.GET("/:id/ai-setting", agentH.GetAgentAISetting)
+		agentAdminGroup.PUT("/:id/ai-setting", agentH.UpsertAgentAISetting)
+		agentAdminGroup.DELETE("/:id/ai-setting", agentH.DeleteAgentAISetting)
+		agentAdminGroup.POST("/:id/health-check", agentH.AgentHealthCheck)
 
 	}
 }

@@ -38,7 +38,7 @@ const (
 type Node struct {
 	ID     string                 `yaml:"id" json:"id"`
 	Use    string                 `yaml:"use" json:"use"`
-	Kind   string                 `yaml:"kind,omitempty" json:"kind,omitempty"`
+	Kind   NodeKind               `yaml:"kind,omitempty" json:"kind,omitempty"`
 	Params map[string]interface{} `yaml:"params,omitempty" json:"params,omitempty"`
 	IO     *NodeIO                `yaml:"io,omitempty" json:"io,omitempty"`
 }

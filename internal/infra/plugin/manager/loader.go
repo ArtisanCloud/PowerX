@@ -15,8 +15,10 @@ import (
 const PluginManifestFile = "plugin.yaml"
 
 type Descriptor struct {
-	Manifest plugin_mgr.Manifest
-	Paths    plugin_mgr.InstalledPaths
+	Manifest   plugin_mgr.Manifest
+	Paths      plugin_mgr.InstalledPaths
+	HostConfig *plugin_mgr.HostConfig
+	Migration  *plugin_mgr.MigrationRecord
 }
 
 type Loader interface {
@@ -84,14 +86,26 @@ func (l *FSLoader) LoadDescriptor(ctx context.Context, root string) (Descriptor,
 	p := plugin_mgr.InstalledPaths{
 		Root: absRoot, // ★ 存绝对
 	}
+	var hostCfg *plugin_mgr.HostConfig
 	if m.Frontend.Admin.StaticDir != "" {
 		p.FrontendAdminDir = filepath.Clean(filepath.Join(root, m.Frontend.Admin.StaticDir))
+	}
+	if m.Frontend.Admin.I18n != nil && m.Frontend.Admin.I18n.Dir != "" {
+		p.FrontendAdminI18nDir = filepath.Clean(filepath.Join(absRoot, m.Frontend.Admin.I18n.Dir))
 	}
 	if m.Runtime.Entry != "" {
 		p.Entry = filepath.Clean(filepath.Join(root, m.Runtime.Entry))
 	}
-	if m.Migrations != nil && m.Migrations.Dir != "" {
-		p.MigrationsDir = filepath.Clean(filepath.Join(root, m.Migrations.Dir))
+	if m.Migrations != nil {
+		if m.Migrations.Dir != "" {
+			p.MigrationsDir = filepath.Clean(filepath.Join(root, m.Migrations.Dir))
+		}
+		if m.Migrations.Entry != "" {
+			p.MigrationsEntry = ResolvePath(absRoot, m.Migrations.Entry)
+		}
+		if m.Migrations.WorkDir != "" {
+			p.MigrationsWorkDir = ResolvePath(absRoot, m.Migrations.WorkDir)
+		}
 	}
 	// 默认 contracts 位置（有就填）
 	openapi := filepath.Join(root, "contracts", "openapi.yaml")
@@ -106,13 +120,24 @@ func (l *FSLoader) LoadDescriptor(ctx context.Context, root string) (Descriptor,
 	if fi, err := os.Stat(pub); err == nil && fi.IsDir() {
 		p.PublicDir = pub
 	}
+	cfgDir := filepath.Join(root, "config")
+	if fi, err := os.Stat(cfgDir); err == nil && fi.IsDir() {
+		p.ConfigDir = cfgDir
+		hvPath := filepath.Join(cfgDir, hostValuesFileName)
+		if fi, err := os.Stat(hvPath); err == nil && !fi.IsDir() {
+			p.HostValuesFile = hvPath
+			if hc, err := loadHostConfig(hvPath); err == nil {
+				hostCfg = hc
+			}
+		}
+	}
 
 	// 静态校验
 	if err := l.Validate(ctx, m, root); err != nil {
 		return Descriptor{}, err
 	}
 
-	return Descriptor{Manifest: m, Paths: p}, nil
+	return Descriptor{Manifest: m, Paths: p, HostConfig: hostCfg}, nil
 }
 
 func (l *FSLoader) Validate(ctx context.Context, m plugin_mgr.Manifest, root string) error {
@@ -156,6 +181,23 @@ func (l *FSLoader) Validate(ctx context.Context, m plugin_mgr.Manifest, root str
 				ferrs = append(ferrs, plugin_mgr.FieldError{Field: "frontend.admin.static_dir", Reason: "not found"})
 			}
 		}
+		if spec := m.Frontend.Admin.I18n; spec != nil {
+			req("frontend.admin.i18n.dir", spec.Dir)
+			if spec.Dir != "" {
+				i18nDir := filepath.Join(root, spec.Dir)
+				if fi, err := os.Stat(i18nDir); err != nil || !fi.IsDir() {
+					ferrs = append(ferrs, plugin_mgr.FieldError{Field: "frontend.admin.i18n.dir", Reason: "not found"})
+				}
+			}
+			if spec.Format != "" {
+				switch spec.Format {
+				case "i18next", "json", "nuxt":
+					// 支持的格式
+				default:
+					ferrs = append(ferrs, plugin_mgr.FieldError{Field: "frontend.admin.i18n.format", Reason: "unsupported"})
+				}
+			}
+		}
 	}
 
 	// http_base_path 格式
@@ -179,10 +221,29 @@ func (l *FSLoader) Validate(ctx context.Context, m plugin_mgr.Manifest, root str
 	}
 
 	// migrations 目录存在
-	if m.Migrations != nil && m.Migrations.Dir != "" {
-		mig := filepath.Join(root, m.Migrations.Dir)
-		if fi, err := os.Stat(mig); err != nil || !fi.IsDir() {
-			ferrs = append(ferrs, plugin_mgr.FieldError{Field: "migrations.dir", Reason: "not found"})
+	if m.Migrations != nil {
+		if strings.TrimSpace(m.Migrations.Entry) == "" {
+			ferrs = append(ferrs, plugin_mgr.FieldError{Field: "migrations.entry", Reason: "required"})
+		} else if !filepath.IsAbs(m.Migrations.Entry) {
+			entry := filepath.Join(root, m.Migrations.Entry)
+			if fi, err := os.Stat(entry); err != nil || fi.IsDir() {
+				ferrs = append(ferrs, plugin_mgr.FieldError{Field: "migrations.entry", Reason: "not found"})
+			}
+		}
+		if m.Migrations.Dir != "" {
+			mig := filepath.Join(root, m.Migrations.Dir)
+			if fi, err := os.Stat(mig); err != nil || !fi.IsDir() {
+				ferrs = append(ferrs, plugin_mgr.FieldError{Field: "migrations.dir", Reason: "not found"})
+			}
+		}
+		if m.Migrations.WorkDir != "" {
+			wd := filepath.Join(root, m.Migrations.WorkDir)
+			if fi, err := os.Stat(wd); err != nil || !fi.IsDir() {
+				ferrs = append(ferrs, plugin_mgr.FieldError{Field: "migrations.workdir", Reason: "not found"})
+			}
+		}
+		if err := parseDur(m.Migrations.Timeout); err != nil {
+			ferrs = append(ferrs, plugin_mgr.FieldError{Field: "migrations.timeout", Reason: "invalid duration"})
 		}
 	}
 

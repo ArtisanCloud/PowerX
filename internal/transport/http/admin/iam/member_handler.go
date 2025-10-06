@@ -2,6 +2,7 @@ package iam
 
 import (
 	"encoding/json"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"gorm.io/datatypes"
 	"net/http"
 	"strconv"
@@ -9,7 +10,6 @@ import (
 	"github.com/gin-gonic/gin"
 
 	svc "github.com/ArtisanCloud/PowerX/internal/service/iam"
-	"github.com/ArtisanCloud/PowerX/pkg/auth"
 	m "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/iam"
 	dto "github.com/ArtisanCloud/PowerX/pkg/dto"
 )
@@ -63,7 +63,7 @@ func (h *MemberHandler) List(c *gin.Context) {
 	req.SetDefaultPagination()
 
 	ctx := c.Request.Context()
-	tid := auth.GetTenantID(ctx)
+	tid := reqctx.GetTenantID(ctx)
 	items, total, err := h.S.ListMembers(ctx, svc.ListMembersOption{
 		Page:      req.Page,
 		PageSize:  req.PageSize,
@@ -86,7 +86,7 @@ func (h *MemberHandler) List(c *gin.Context) {
 func (h *MemberHandler) Get(c *gin.Context) {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
 	ctx := c.Request.Context()
-	tid := auth.GetTenantID(ctx)
+	tid := reqctx.GetTenantID(ctx)
 
 	res, err := h.S.GetMember(ctx, tid, id)
 	if err != nil {
@@ -104,7 +104,7 @@ func (h *MemberHandler) Create(c *gin.Context) {
 		return
 	}
 	ctx := c.Request.Context()
-	tid := auth.GetTenantID(ctx)
+	tid := reqctx.GetTenantID(ctx)
 
 	id, err := h.S.CreateMember(ctx, tid, svc.CreateMemberInput{
 		Member:          req.Member,
@@ -128,7 +128,7 @@ func (h *MemberHandler) Update(c *gin.Context) {
 		return
 	}
 	ctx := c.Request.Context()
-	tid := auth.GetTenantID(ctx)
+	tid := reqctx.GetTenantID(ctx)
 
 	if err := h.S.UpdateMember(ctx, tid, id, svc.UpdateMemberInput{
 		Member:  req.Member,
@@ -150,7 +150,7 @@ func (h *MemberHandler) SetStatus(c *gin.Context) {
 		return
 	}
 	ctx := c.Request.Context()
-	tid := auth.GetTenantID(ctx)
+	tid := reqctx.GetTenantID(ctx)
 
 	if err := h.S.SetMemberStatus(ctx, tid, id, *req.Status, req.Reason); err != nil {
 		dto.ResponseError(c, http.StatusBadRequest, "设置状态失败", err)
@@ -163,7 +163,7 @@ func (h *MemberHandler) SetStatus(c *gin.Context) {
 func (h *MemberHandler) Delete(c *gin.Context) {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
 	ctx := c.Request.Context()
-	tid := auth.GetTenantID(ctx)
+	tid := reqctx.GetTenantID(ctx)
 
 	if err := h.S.DeleteMember(ctx, tid, id); err != nil {
 		dto.ResponseError(c, http.StatusBadRequest, "删除失败", err)
@@ -176,7 +176,7 @@ func (h *MemberHandler) Delete(c *gin.Context) {
 func (h *MemberHandler) Restore(c *gin.Context) {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
 	ctx := c.Request.Context()
-	tid := auth.GetTenantID(ctx)
+	tid := reqctx.GetTenantID(ctx)
 
 	if err := h.S.RestoreMember(ctx, tid, id); err != nil {
 		dto.ResponseError(c, http.StatusBadRequest, "恢复失败", err)
@@ -194,7 +194,7 @@ func (h *MemberHandler) PutDepartments(c *gin.Context) {
 		return
 	}
 	ctx := c.Request.Context()
-	tid := auth.GetTenantID(ctx)
+	tid := reqctx.GetTenantID(ctx)
 
 	if err := h.S.PutMemberDepartments(ctx, tid, id, req.DeptIDs); err != nil {
 		dto.ResponseError(c, http.StatusBadRequest, "设置失败", err)
@@ -212,7 +212,7 @@ func (h *MemberHandler) ForceMemberLogout(c *gin.Context) {
 		return
 	}
 	ctx := c.Request.Context()
-	tid := auth.GetTenantID(ctx)
+	tid := reqctx.GetTenantID(ctx)
 
 	if err := h.S.ForceLogout(ctx, tid, id, req.JTI); err != nil {
 		dto.ResponseError(c, http.StatusBadRequest, "强制下线失败", err)
@@ -244,7 +244,7 @@ type AddExistingUserReq struct {
 func (h *MemberHandler) GetMemberByUser(c *gin.Context) {
 	userID, _ := strconv.ParseUint(c.Param("user_id"), 10, 64)
 	ctx := c.Request.Context()
-	tid := auth.GetTenantID(ctx)
+	tid := reqctx.GetTenantID(ctx)
 
 	mem, usr, err := h.S.GetMemberByUser(ctx, tid, userID)
 	if err != nil {
@@ -266,7 +266,7 @@ func (h *MemberHandler) BatchGetMembersByUsers(c *gin.Context) {
 		return
 	}
 	ctx := c.Request.Context()
-	tid := auth.GetTenantID(ctx)
+	tid := reqctx.GetTenantID(ctx)
 
 	members, usersByID, err := h.S.BatchGetMembersByUsers(ctx, tid, req.UserIDs)
 	if err != nil {
@@ -296,7 +296,7 @@ func (h *MemberHandler) AddExistingUser(c *gin.Context) {
 		return
 	}
 	ctx := c.Request.Context()
-	tid := auth.GetTenantID(ctx)
+	tid := reqctx.GetTenantID(ctx)
 
 	// datatypes.JSON -> map[string]any（可为空）
 	var meta datatypes.JSON

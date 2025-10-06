@@ -13,6 +13,9 @@ const (
 	ProcCrashed   ProcState = "crashed"
 )
 
+// DynamicBindPlaceholder 用于在未显式指定 __POWERX_DYNAMIC_PORT__ 时占位，启动时由 supervisor 替换为实际端口。
+const DynamicBindPlaceholder = "__POWERX_DYNAMIC_PORT__"
+
 type Options struct {
 	// 健康检查
 	HealthPath     string        // 例如 "/healthz"

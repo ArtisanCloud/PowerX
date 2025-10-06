@@ -1,0 +1,248 @@
+name: SDK Release
+
+on:
+  push:
+    tags:
+      - 'proto/*'
+      - 'sdk-go/*'
+      - 'sdk-rust/*'
+      - 'sdk-php/*'
+      - 'sdk-ts/*'
+
+jobs:
+  proto:
+    if: startsWith(github.ref, 'refs/tags/proto/')
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: api/grpc/contracts
+    steps:
+      - uses: actions/checkout@v4
+      - uses: bufbuild/buf-setup-action@v1
+      - name: Extract version metadata
+        id: meta
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          VERSION="${TAG#proto/}"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+      - name: Lint & Breaking
+        run: |
+          buf lint
+          buf breaking --against '.git#branch=main'
+      - name: Generate
+        run: buf generate
+      - name: Package contracts
+        run: |
+          ARTIFACT_DIR="${GITHUB_WORKSPACE}/build"
+          mkdir -p "${ARTIFACT_DIR}"
+          tar -czf "${ARTIFACT_DIR}/powerx-proto-${{ steps.meta.outputs.version }}.tar.gz" -C "${GITHUB_WORKSPACE}/api/grpc/contracts" .
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: proto-${{ steps.meta.outputs.version }}
+          path: ${{ github.workspace }}/build/powerx-proto-${{ steps.meta.outputs.version }}.tar.gz
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: PowerX Proto ${{ steps.meta.outputs.version }}
+          body: |
+            ## Summary
+            - Auto-generated Protobuf contracts for version `${{ steps.meta.outputs.version }}`
+          files: |
+            ${{ github.workspace }}/build/powerx-proto-${{ steps.meta.outputs.version }}.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  sdk-go:
+    if: startsWith(github.ref, 'refs/tags/sdk-go/')
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: api/grpc/gen/go
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: api/grpc/gen/go/go.mod
+      - name: Extract version metadata
+        id: meta
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          VERSION="${TAG#sdk-go/}"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+      - name: Go Mod Tidy
+        run: |
+          go mod tidy
+      - name: Go Test
+        run: |
+          go test ./...
+      - name: Build
+        run: |
+          go build ./...
+      - name: Package Go module
+        run: |
+          ARTIFACT_DIR="${GITHUB_WORKSPACE}/build"
+          mkdir -p "${ARTIFACT_DIR}"
+          tar -czf "${ARTIFACT_DIR}/powerx-sdk-go-${{ steps.meta.outputs.version }}.tar.gz" -C "${GITHUB_WORKSPACE}/api/grpc/gen/go" .
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sdk-go-${{ steps.meta.outputs.version }}
+          path: ${{ github.workspace }}/build/powerx-sdk-go-${{ steps.meta.outputs.version }}.tar.gz
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: PowerX Go SDK ${{ steps.meta.outputs.version }}
+          body: |
+            ## Summary
+            - Go module release for version `${{ steps.meta.outputs.version }}`
+          files: |
+            ${{ github.workspace }}/build/powerx-sdk-go-${{ steps.meta.outputs.version }}.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  sdk-rust:
+    if: startsWith(github.ref, 'refs/tags/sdk-rust/')
+    runs-on: ubuntu-latest
+    env:
+      CRATES_TOKEN: ${{ secrets.CRATES_TOKEN }}
+    defaults:
+      run:
+        working-directory: api/grpc/sdk/rust/powerx-sdk
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Extract version metadata
+        id: meta
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          VERSION="${TAG#sdk-rust/}"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+      - name: Check
+        run: cargo check
+      - name: Cargo package
+        run: cargo package
+      - name: Capture crate artifact
+        id: crate
+        run: |
+          PKG_FILE=$(ls target/package/*.crate | tail -n 1)
+          echo "path=${PKG_FILE}" >> "$GITHUB_OUTPUT"
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sdk-rust-${{ steps.meta.outputs.version }}
+          path: ${{ steps.crate.outputs.path }}
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: PowerX Rust SDK ${{ steps.meta.outputs.version }}
+          body: |
+            ## Summary
+            - Rust crate package for version `${{ steps.meta.outputs.version }}`
+          files: |
+            ${{ steps.crate.outputs.path }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publish to crates.io
+        if: ${{ env.CRATES_TOKEN != '' }}
+        run: cargo publish --token "$CRATES_TOKEN"
+
+  sdk-php:
+    if: startsWith(github.ref, 'refs/tags/sdk-php/')
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: api/grpc/sdk/php/powerx-sdk
+    steps:
+      - uses: actions/checkout@v4
+      - name: Extract version metadata
+        id: meta
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          VERSION="${TAG#sdk-php/}"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+      - name: Validate composer manifest
+        run: composer validate --no-check-lock
+      - name: Package PHP SDK
+        run: |
+          ARTIFACT_DIR="${GITHUB_WORKSPACE}/build"
+          mkdir -p "${ARTIFACT_DIR}"
+          zip -r "${ARTIFACT_DIR}/powerx-sdk-php-${{ steps.meta.outputs.version }}.zip" .
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sdk-php-${{ steps.meta.outputs.version }}
+          path: ${{ github.workspace }}/build/powerx-sdk-php-${{ steps.meta.outputs.version }}.zip
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: PowerX PHP SDK ${{ steps.meta.outputs.version }}
+          body: |
+            ## Summary
+            - PHP SDK package for version `${{ steps.meta.outputs.version }}`
+          files: |
+            ${{ github.workspace }}/build/powerx-sdk-php-${{ steps.meta.outputs.version }}.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  sdk-ts:
+    if: startsWith(github.ref, 'refs/tags/sdk-ts/')
+    runs-on: ubuntu-latest
+    env:
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+    defaults:
+      run:
+        working-directory: api/grpc/sdk/ts/packages/@powerx/grpc
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+      - name: Extract version metadata
+        id: meta
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          VERSION="${TAG#sdk-ts/}"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+      - name: Install dependencies
+        run: npm ci
+      - name: Build
+        run: npm run build
+      - name: Pack npm artifact
+        id: pack
+        run: |
+          mkdir -p "${GITHUB_WORKSPACE}/build"
+          TARBALL=$(npm pack --pack-destination "${GITHUB_WORKSPACE}/build")
+          echo "tarball=${TARBALL}" >> "$GITHUB_OUTPUT"
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sdk-ts-${{ steps.meta.outputs.version }}
+          path: ${{ github.workspace }}/build/${{ steps.pack.outputs.tarball }}
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: PowerX TypeScript SDK ${{ steps.meta.outputs.version }}
+          body: |
+            ## Summary
+            - npm package tarball for version `${{ steps.meta.outputs.version }}`
+          files: |
+            ${{ github.workspace }}/build/${{ steps.pack.outputs.tarball }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publish to npm
+        if: ${{ env.NPM_TOKEN != '' }}
+        run: |
+          export NODE_AUTH_TOKEN="$NPM_TOKEN"
+          npm publish --access public "${GITHUB_WORKSPACE}/build/${{ steps.pack.outputs.tarball }}"

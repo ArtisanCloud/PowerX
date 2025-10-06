@@ -3,30 +3,17 @@ package auth
 import (
 	"errors"
 	"fmt"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 )
 
-// 统一的业务 Claims（sub 将使用 MemberUUID）
-type CoreXClaims struct {
-	TenantUUID string   `json:"tid"`
-	TenantID   uint64   `json:"tid_n"`
-	MemberUUID string   `json:"mid"` // 也会作为 Subject
-	MemberID   uint64   `json:"mid_n"`
-	UserUUID   string   `json:"uid"`
-	UserID     uint64   `json:"uid_n"`
-	IsRoot     bool     `json:"is_root"`
-	Roles      []string `json:"roles,omitempty"`
-	Platforms  []string `json:"plats,omitempty"`
-	Scope      string   `json:"scope"` // "access" | "refresh"
-
-	jwt.RegisteredClaims // Issuer, Subject, Audience, ExpiresAt, NotBefore, IssuedAt, ID(JTI)
-}
+// 统一的业
 
 // --- 签发 ---
 
-func GenerateAccessJWT(c CoreXClaims, issuer string, audiences []string, ttl time.Duration, secret []byte) (string, error) {
+func GenerateAccessJWT(c reqctx.CoreXClaims, issuer string, audiences []string, ttl time.Duration, secret []byte) (string, error) {
 	now := time.Now()
 	c.Scope = "access"
 	c.RegisteredClaims = jwt.RegisteredClaims{
@@ -42,7 +29,7 @@ func GenerateAccessJWT(c CoreXClaims, issuer string, audiences []string, ttl tim
 	return tok.SignedString(secret)
 }
 
-func GenerateRefreshJWT(c CoreXClaims, issuer string, audiences []string, jti string, ttl time.Duration, secret []byte) (string, error) {
+func GenerateRefreshJWT(c reqctx.CoreXClaims, issuer string, audiences []string, jti string, ttl time.Duration, secret []byte) (string, error) {
 	now := time.Now()
 	c.Scope = "refresh"
 	c.RegisteredClaims = jwt.RegisteredClaims{
@@ -60,8 +47,8 @@ func GenerateRefreshJWT(c CoreXClaims, issuer string, audiences []string, jti st
 
 // --- 解析 & 校验（v5 用 ParserOption）---
 
-func ParseAndValidate(tokenString string, secret []byte, expectedIssuer string, expectedAudiences ...string) (*CoreXClaims, error) {
-	claims := &CoreXClaims{}
+func ParseAndValidate(tokenString string, secret []byte, expectedIssuer string, expectedAudiences ...string) (*reqctx.CoreXClaims, error) {
+	claims := &reqctx.CoreXClaims{}
 
 	keyFunc := func(token *jwt.Token) (any, error) {
 		// 只接受 HMAC 系列
@@ -102,7 +89,7 @@ func GenerateJWT(
 	if scope == "refresh" {
 		return "", errors.New("GenerateJWT(deprecated): refresh not supported, use GenerateRefreshJWT")
 	}
-	c := CoreXClaims{
+	c := reqctx.CoreXClaims{
 		TenantUUID: tenantUUID,
 		MemberUUID: memberUUID,
 		Platforms:  platforms,
@@ -113,7 +100,7 @@ func GenerateJWT(
 }
 
 func GenerateJWTWithJTI(tenantUUID, memberUUID string, platforms []string, audience, scope, jti string, ttl time.Duration, secret []byte) (string, error) {
-	c := CoreXClaims{
+	c := reqctx.CoreXClaims{
 		TenantUUID: tenantUUID,
 		MemberUUID: memberUUID,
 		Platforms:  platforms,

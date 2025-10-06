@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"fmt"
+	"log"
+
 	"github.com/ArtisanCloud/PowerX/config"
 	"github.com/ArtisanCloud/PowerX/internal/bootstrap"
 	"github.com/ArtisanCloud/PowerX/internal/http"
@@ -13,7 +15,6 @@ import (
 	"github.com/gin-gonic/gin"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
-	"log"
 
 	docs "github.com/ArtisanCloud/PowerX/docs"
 )
@@ -50,15 +51,11 @@ func main() {
 	r.Use(audit.GinAudit(deps.Auditor))
 
 	// 初始化插件管理器
-	_, err = bootstrap.BootstrapPlugin(ctx, cfg, r)
+	_, err = bootstrap.BootstrapPlugin(ctx, deps, cfg, r)
 	if err != nil {
 		logger.ErrorF(ctx, "BootstrapPlugin failed: %s", err.Error())
 		return
 	}
-	//// 示例：启用 demo 插件（如需启用手动放开）
-	//if err := pluginMgr.Enable(ctx, "com.powerx.demo.hello_world"); err != nil {
-	//	logger.ErrorF(ctx, "enable plugin failed: %v", err)
-	//}
 
 	// 配置 HTTP 路由
 	err = http.SetupRouter(cfg, r, deps)
@@ -105,4 +102,5 @@ func main() {
 	if err != nil {
 		logger.ErrorF(ctx, "启动服务失败: %s", err.Error())
 	}
+
 }

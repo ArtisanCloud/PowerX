@@ -28,7 +28,7 @@ type routeRecord struct {
 // —— Manager（非意图部分：Agent/路由/状态） —— //
 type Manager struct {
 	mu            sync.RWMutex
-	agents        map[string]contract.Agent
+	agentClients  map[string]contract.AgentClient
 	meta          map[string]*aschema.AgentMeta
 	runtime       map[string]*aschema.Runtime
 	defaultAgID   string
@@ -58,7 +58,7 @@ var (
 
 func NewAgentManager() *Manager {
 	return &Manager{
-		agents:       make(map[string]contract.Agent),
+		agentClients: make(map[string]contract.AgentClient),
 		meta:         make(map[string]*aschema.AgentMeta),
 		runtime:      make(map[string]*aschema.Runtime),
 		routesByFlow: make(map[string]routeRecord),
@@ -79,19 +79,19 @@ func (m *Manager) log() run_log.RunLogger {
 }
 
 // —— Agent 注册 / 默认路由 —— //
-func (m *Manager) Register(agentID string, ag contract.Agent, meta *aschema.AgentMeta) error {
-	if agentID == "" || ag == nil || meta == nil {
+func (m *Manager) Register(clientID string, ag contract.AgentClient, meta *aschema.AgentMeta) error {
+	if clientID == "" || ag == nil || meta == nil {
 		return errors.New("bad register args")
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	if _, ok := m.agents[agentID]; ok {
+	if _, ok := m.agentClients[clientID]; ok {
 		return ErrIDConflict
 	}
 	now := time.Now().UTC()
 	in := *meta
-	in.ID, in.CreatedAt, in.UpdatedAt, in.LastBeatAt = agentID, now, now, now
+	in.ID, in.CreatedAt, in.UpdatedAt, in.LastBeatAt = clientID, now, now, now
 	if in.Status == "" {
 		in.Status = aschema.StatusInit
 	}
@@ -99,15 +99,15 @@ func (m *Manager) Register(agentID string, ag contract.Agent, meta *aschema.Agen
 		in.Extras = map[string]string{}
 	}
 
-	m.agents[agentID] = ag
-	m.meta[agentID] = &in
-	m.runtime[agentID] = &aschema.Runtime{CurrentFlow: in.FlowID, UpdatedAt: now, Version: "v1"}
+	m.agentClients[clientID] = ag
+	m.meta[clientID] = &in
+	m.runtime[clientID] = &aschema.Runtime{CurrentFlow: in.FlowID, UpdatedAt: now, Version: "v1"}
 	return nil
 }
 
 func (m *Manager) SetDefaultAgent(agentID, flowID string) error {
 	m.mu.RLock()
-	_, ok := m.agents[agentID]
+	_, ok := m.agentClients[agentID]
 	m.mu.RUnlock()
 	if !ok {
 		return ErrNotFound
@@ -124,7 +124,7 @@ func (m *Manager) RegisterFlowRoute(agentID, flowID string, spec *schemas.Intent
 	}
 
 	m.mu.RLock()
-	_, ok := m.agents[agentID]
+	_, ok := m.agentClients[agentID]
 	m.mu.RUnlock()
 	if !ok {
 		return ErrNotFound
@@ -229,7 +229,7 @@ func (m *Manager) Heartbeat(id string) error {
 func (m *Manager) Get(id string) (*aschema.AgentInfo, *aschema.AgentMeta, *aschema.Runtime, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	ag, ok := m.agents[id]
+	ag, ok := m.agentClients[id]
 	if !ok {
 		return nil, nil, nil, ErrNotFound
 	}

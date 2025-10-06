@@ -44,6 +44,12 @@ func GetGlobalConfig() *Config {
 	return GlobalConfig
 }
 
+type SecurityConfig struct {
+	// 允许作为父页面的来源（CSP frame-ancestors 白名单）
+	// 取值示例： "https://admin.powerx.io", "http://localhost:3030", "https://*.powerx.io", "'self'"
+	FrameAncestors []string `yaml:"frame_ancestors"`
+}
+
 // CoreX 全局配置
 type Config struct {
 	Server      ServerConfig         `yaml:"server"`       // HTTP/gRPC 监听与行为
@@ -58,6 +64,7 @@ type Config struct {
 	Agent       agentCfg.AgentConfig `yaml:"agent"` // 智能体工具注册/限流等
 	MCP         mcpCfg.MCPConfig     `yaml:"mcp"`   // MCP 服务器配置
 	Plugin      PluginConfig         `yaml:"plugin"`
+	Security    SecurityConfig       `yaml:"security"`
 }
 
 // HTTP服务器配置
@@ -67,6 +74,7 @@ type ServerConfig struct {
 	WriteTimeoutSeconds int                `yaml:"write_timeout_seconds"` // 写入超时
 	Mode                string             `yaml:"mode"`                  // gin 模式: debug/release
 	APIPrefix           string             `yaml:"api_prefix"`            // API 前缀
+	WSPrefix            string             `yaml:"ws_prefix"`             // API 前缀
 	GRPC                grpcCfg.GRPCConfig `yaml:"grpc"`
 	SecretKey           string             `yaml:"secret_key"`
 }

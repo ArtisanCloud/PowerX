@@ -18,9 +18,9 @@ type AgentPlanRun struct {
 	RequestID string `gorm:"column:request_id;type:varchar(128);index"                 json:"request_id,omitempty"`
 	TraceID   string `gorm:"column:trace_id;type:varchar(128);index"                   json:"trace_id,omitempty"`
 	// 多租户 + 参与者（后台用户 & 终端客户）
-	TenantID   string `gorm:"column:tenant_id;type:varchar(128);index"                  json:"tenant_id,omitempty"`
-	UserID     string `gorm:"column:user_id;type:varchar(128);index"                    json:"user_id,omitempty"`     // 触发者（后台）
-	CustomerID string `gorm:"column:customer_id;type:varchar(128);index"                json:"customer_id,omitempty"` // 触发者（终端）
+	TenantID   uint64 `gorm:"column:tenant_id;type:varchar(128);index"                  json:"tenant_id,omitempty"`
+	UserID     uint64 `gorm:"column:user_id;type:varchar(128);index"                    json:"user_id,omitempty"`     // 触发者（后台）
+	CustomerID uint64 `gorm:"column:customer_id;type:varchar(128);index"                json:"customer_id,omitempty"` // 触发者（终端）
 
 	Status string `gorm:"column:status;type:varchar(24);not null;default:'running'" json:"status"` // running/completed/failed/cancelled
 
@@ -60,9 +60,9 @@ type AgentTaskEvent struct {
 	AgentID string `gorm:"column:agent_id;type:varchar(128);index"                                                         json:"agent_id"`
 
 	// 参与者维度（用于按人/客户过滤）
-	TenantID   string `gorm:"column:tenant_id;type:varchar(128);index:idx_tenant_customer_ts,priority:1"  json:"tenant_id,omitempty"`
-	UserID     string `gorm:"column:user_id;type:varchar(128);index"                                       json:"user_id,omitempty"`
-	CustomerID string `gorm:"column:customer_id;type:varchar(128);index:idx_tenant_customer_ts,priority:2" json:"customer_id,omitempty"`
+	TenantID   uint64 `gorm:"column:tenant_id;type:varchar(128);index:idx_tenant_customer_ts,priority:1"  json:"tenant_id,omitempty"`
+	UserID     uint64 `gorm:"column:user_id;type:varchar(128);index"                                       json:"user_id,omitempty"`
+	CustomerID uint64 `gorm:"column:customer_id;type:varchar(128);index:idx_tenant_customer_ts,priority:2" json:"customer_id,omitempty"`
 
 	Kind       string    `gorm:"column:kind;type:varchar(24);index"                                           json:"kind"` // task.start | task.ok | task.err
 	Ts         time.Time `gorm:"column:ts;index:idx_plan_ts,priority:2;index:idx_plan_task_ts,priority:3;index:idx_tenant_customer_ts,priority:3" json:"ts"`

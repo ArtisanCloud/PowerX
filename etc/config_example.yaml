@@ -10,6 +10,15 @@ server:
   # head -c 32 /dev/urandom | base64 -w0
   secret_key:
 
+security:
+  frame_ancestors:
+    - "'self'"               # 可留可不留；我们会自动补上
+    - "http://localhost:3030"
+    - "http://127.0.0.1:3030"
+    - "https://admin.powerx.io"
+    # 支持通配子域：
+    # - "https://*.powerx.io"
+    -
 database:
   host: localhost
   port: 5432

@@ -2,7 +2,10 @@ package utils
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
 )
 
@@ -155,4 +158,74 @@ func Slug(s string) string {
 	s = strings.Trim(s, "-")
 
 	return s
+}
+
+func Uint64ToString(v uint64) string       { return strconv.FormatUint(v, 10) }
+func TenantIDToString(v uint64) string     { return strconv.FormatUint(v, 10) }
+func ParseUint64(s string) (uint64, error) { return strconv.ParseUint(s, 10, 64) }
+
+func ParseUintID(s string) (uint64, error) {
+	var id uint64
+	_, err := fmt.Sscan(strings.TrimSpace(s), &id)
+	if err != nil || id == 0 {
+		return 0, errors.New("invalid id")
+	}
+	return id, nil
+}
+
+func ParseIntDefault(s string, def int) int {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return def
+	}
+	v, err := strconv.Atoi(s) // base 10
+	if err != nil {
+		return def
+	}
+	return v
+}
+
+func StrOr(s string, def string) string {
+	if s != "" {
+		return s
+	}
+	return def
+}
+func LowerOr(s string, def string) string {
+	if s != "" {
+		return strings.ToLower(s)
+	}
+	return def
+}
+func FloatOr(f float64, def float64) float64 {
+	if f != 0 {
+		return f
+	}
+	return def
+}
+func IntOr(i int, def int) int {
+	if i != 0 {
+		return i
+	}
+	return def
+}
+func FloatAny(v any) *float64 {
+	switch x := v.(type) {
+	case float64:
+		return &x
+	case int:
+		f := float64(x)
+		return &f
+	}
+	return nil
+}
+func IntAny(v any) *int {
+	switch x := v.(type) {
+	case int:
+		return &x
+	case float64:
+		i := int(x)
+		return &i
+	}
+	return nil
 }

@@ -40,7 +40,7 @@ func BuildSystemMenus() []admdto.AdminMenuItem {
 			Key:     plugin_mgr.KeyPlugins,
 			Title:   "menu.pluginMarketplace",
 			Icon:    "i-heroicons-puzzle-piece",
-			URL:     "/plugins",
+			URL:     "/plugins/market",
 			Order:   4,
 			Visible: true,
 			Origin:  plugin_mgr.OriginSystem,

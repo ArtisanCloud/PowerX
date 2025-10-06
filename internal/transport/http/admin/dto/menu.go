@@ -23,4 +23,23 @@ type AdminMenuItem struct {
 	ParentID    plugin_mgr.MenuKey        `json:"parentId,omitempty"`    // 父菜单ID
 	Slot        plugin_mgr.SlotKey        `json:"slot,omitempty"`        // 插件插槽
 	Children    []AdminMenuItem           `json:"children,omitempty"`    // 子菜单
+	TitleI18n   *MenuI18nLabel            `json:"titleI18n,omitempty"`
+}
+
+type MenuI18nLabel struct {
+	Namespace string `json:"namespace,omitempty"`
+	Key       string `json:"key"`
+	Default   string `json:"default,omitempty"`
+}
+
+type MenuI18nLocales map[string]MenuI18nNamespaces
+
+type MenuI18nNamespaces map[string]map[string]any
+
+type MenuI18nPackage struct {
+	PluginID         string          `json:"pluginId"`
+	Format           string          `json:"format,omitempty"`
+	DefaultNamespace string          `json:"defaultNamespace,omitempty"`
+	Namespaces       []string        `json:"namespaces,omitempty"`
+	Locales          MenuI18nLocales `json:"locales"`
 }

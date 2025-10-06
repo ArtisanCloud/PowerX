@@ -2,7 +2,7 @@ package agent
 
 import (
 	"github.com/ArtisanCloud/PowerX/internal/server/agent/contract"
-	"github.com/ArtisanCloud/PowerX/pkg/auth"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/utils"
 	"net/http"
 	"strings"
@@ -24,8 +24,6 @@ type AgentSettingHandler struct {
 func NewAgentSettingHandler(deps *shared.Deps) *AgentSettingHandler {
 	return &AgentSettingHandler{svc: agentSvc.NewAgentSettingService(deps.DB)}
 }
-
-type modality = string
 
 type baseConn struct {
 	Name            string `form:"name"`
@@ -69,31 +67,31 @@ type modVideo struct {
 }
 
 type saveSettingsReq struct {
-	Env       string    `json:"env" validate:"required"`
-	Modality  modality  `json:"modality" validate:"required"`
-	LLM       *modLLM   `json:"llm,omitempty"`
-	Image     *modImage `json:"image,omitempty"`
-	Embedding *modEmbed `json:"embedding,omitempty"`
-	Video     *modVideo `json:"video,omitempty"`
+	Env       string            `json:"env" validate:"required"`
+	Modality  contract.Modality `json:"modality" validate:"required"`
+	LLM       *modLLM           `json:"llm,omitempty"`
+	Image     *modImage         `json:"image,omitempty"`
+	Embedding *modEmbed         `json:"embedding,omitempty"`
+	Video     *modVideo         `json:"video,omitempty"`
 }
 
 type testReq struct {
-	Env       string    `json:"env" validate:"required"`
-	Modality  modality  `json:"modality" validate:"required"`
-	LLM       *modLLM   `json:"llm,omitempty"`
-	Image     *modImage `json:"image,omitempty"`
-	Embedding *modEmbed `json:"embedding,omitempty"`
-	Video     *modVideo `json:"video,omitempty"`
+	Env       string            `json:"env" validate:"required"`
+	Modality  contract.Modality `json:"modality" validate:"required"`
+	LLM       *modLLM           `json:"llm,omitempty"`
+	Image     *modImage         `json:"image,omitempty"`
+	Embedding *modEmbed         `json:"embedding,omitempty"`
+	Video     *modVideo         `json:"video,omitempty"`
 }
 
 type testCallReq struct {
-	Env       string   `json:"env"       validate:"required"`
-	Modality  modality `json:"modality"  validate:"required"`
-	Prompt    string   `json:"prompt"`
-	LLM       modLLM   `json:"llm"`
-	Image     modImage `json:"image"`
-	Embedding modEmbed `json:"embedding"`
-	Video     modVideo `json:"video"`
+	Env       string            `json:"env"       validate:"required"`
+	Modality  contract.Modality `json:"modality"  validate:"required"`
+	Prompt    string            `json:"prompt"`
+	LLM       modLLM            `json:"llm"`
+	Image     modImage          `json:"image"`
+	Embedding modEmbed          `json:"embedding"`
+	Video     modVideo          `json:"video"`
 }
 
 // ---------- Providers / Models ----------
@@ -124,10 +122,10 @@ func (h *AgentSettingHandler) saveSettings(c *gin.Context) {
 		dtoRequest.ResponseValidationError(c, err)
 		return
 	}
-	tenantID := auth.GetTenantID(c.Request.Context())
+	tenantID := reqctx.GetTenantID(c.Request.Context())
 
 	// 仅按当前模态做最小校验 + 先严格连通性校验（不读库不解封）
-	switch contract.Modality(strings.ToLower(req.Modality)) {
+	switch req.Modality {
 	case contract.ModLLM:
 		if req.LLM == nil || strings.TrimSpace(req.LLM.Provider) == "" || strings.TrimSpace(req.LLM.Model) == "" {
 			dtoRequest.ResponseError(c, http.StatusBadRequest, "llm.provider/model 不能为空", nil)
@@ -176,18 +174,18 @@ func (h *AgentSettingHandler) testConnection(c *gin.Context) {
 		dtoRequest.ResponseValidationError(c, err)
 		return
 	}
-	tid, err := auth.RequireTenantIDFromGin(c)
+	tid, err := reqctx.RequireTenantIDFromGin(c)
 	if err != nil {
 		dtoRequest.ResponseError(c, http.StatusBadRequest, err.Error(), nil)
 		return
 	}
 
-	switch strings.ToLower(req.Modality) {
-	case "llm":
+	switch req.Modality {
+	case contract.ModLLM:
 		err := h.svc.TestConnectionPreferInput(
 			c.Request.Context(),
 			req.Env, &tid,
-			req.Modality,
+			string(req.Modality),
 			req.LLM.Provider, req.LLM.Model, req.LLM.BaseURL, req.LLM.APIKey,
 		)
 		if err != nil {
@@ -196,7 +194,7 @@ func (h *AgentSettingHandler) testConnection(c *gin.Context) {
 		}
 		dtoRequest.ResponseSuccess(c, gin.H{"ok": true})
 	default:
-		dtoRequest.ResponseError(c, http.StatusNotImplemented, "暂未实现该模态测试: "+req.Modality, nil)
+		dtoRequest.ResponseError(c, http.StatusNotImplemented, "暂未实现该模态测试: "+string(req.Modality), nil)
 	}
 }
 
@@ -206,13 +204,13 @@ func (h *AgentSettingHandler) testQuickCall(c *gin.Context) {
 		dtoRequest.ResponseValidationError(c, err)
 		return
 	}
-	tid, err := auth.RequireTenantIDFromGin(c)
+	tid, err := reqctx.RequireTenantIDFromGin(c)
 	if err != nil {
 		dtoRequest.ResponseError(c, http.StatusBadRequest, err.Error(), nil)
 		return
 	}
-	switch strings.ToLower(req.Modality) {
-	case "llm":
+	switch req.Modality {
+	case contract.ModLLM:
 		out, err := h.svc.QuickCallLLM(
 			c.Request.Context(),
 			req.Env, &tid,
@@ -226,7 +224,7 @@ func (h *AgentSettingHandler) testQuickCall(c *gin.Context) {
 		}
 		dtoRequest.ResponseSuccess(c, gin.H{"ok": true, "result": out})
 	default:
-		dtoRequest.ResponseError(c, http.StatusNotImplemented, "暂未实现该模态试跑: "+req.Modality, nil)
+		dtoRequest.ResponseError(c, http.StatusNotImplemented, "暂未实现该模态试跑: "+string(req.Modality), nil)
 	}
 }
 
@@ -235,7 +233,7 @@ func (h *AgentSettingHandler) testQuickCall(c *gin.Context) {
 func buildEntitiesFromPayload(req *saveSettingsReq, tenantID *uint64) (credName, credProvider string, cred datatypes.JSONMap, prof *dbmodel.AIModelProfile) {
 	cred = datatypes.JSONMap{}
 
-	switch contract.Modality(strings.ToLower(req.Modality)) {
+	switch req.Modality {
 	case contract.ModLLM:
 		if req.LLM == nil {
 			return
@@ -375,7 +373,7 @@ func buildEntitiesFromPayload(req *saveSettingsReq, tenantID *uint64) (credName,
 func (h *AgentSettingHandler) getActiveProfile(c *gin.Context) {
 	env := c.DefaultQuery("env", "default")
 	mod := strings.TrimSpace(strings.ToLower(c.DefaultQuery("modality", "llm")))
-	tid, err := auth.RequireTenantIDFromGin(c)
+	tid, err := reqctx.RequireTenantIDFromGin(c)
 	if err != nil {
 		dtoRequest.ResponseError(c, http.StatusBadRequest, err.Error(), nil)
 		return
@@ -405,7 +403,7 @@ func (h *AgentSettingHandler) setActiveProfile(c *gin.Context) {
 		dtoRequest.ResponseValidationError(c, err)
 		return
 	}
-	tid, err := auth.RequireTenantIDFromGin(c)
+	tid, err := reqctx.RequireTenantIDFromGin(c)
 	if err != nil {
 		dtoRequest.ResponseError(c, http.StatusBadRequest, err.Error(), nil)
 		return
@@ -420,7 +418,7 @@ func (h *AgentSettingHandler) setActiveProfile(c *gin.Context) {
 // GET /api/agents/settings/profiles?env=default&modalities=llm,image
 func (h *AgentSettingHandler) listProfiles(c *gin.Context) {
 	env := c.DefaultQuery("env", "default")
-	tid, err := auth.RequireTenantIDFromGin(c)
+	tid, err := reqctx.RequireTenantIDFromGin(c)
 	if err != nil {
 		dtoRequest.ResponseError(c, http.StatusBadRequest, err.Error(), nil)
 		return
@@ -450,7 +448,7 @@ func (h *AgentSettingHandler) listProfiles(c *gin.Context) {
 // （可选）GET /api/agents/settings/credentials?env=default
 func (h *AgentSettingHandler) listCredentials(c *gin.Context) {
 	env := c.DefaultQuery("env", "default")
-	tid, err := auth.RequireTenantIDFromGin(c)
+	tid, err := reqctx.RequireTenantIDFromGin(c)
 	if err != nil {
 		dtoRequest.ResponseError(c, http.StatusBadRequest, err.Error(), nil)
 		return

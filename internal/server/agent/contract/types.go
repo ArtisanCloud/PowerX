@@ -26,3 +26,5 @@ type ModelCapabilities struct {
 	MaxInputTokens, MaxOutputTokens               int
 	DefaultDims                                   int // embedding
 }
+
+const HeaderKeySecWebSocketProtocol = "Sec-WebSocket-Protocol"

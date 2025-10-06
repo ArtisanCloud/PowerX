@@ -220,7 +220,7 @@ func (l *YAMLSpecLoader) validateFlowBlueprint(bp *schemas.Flow) error {
 	}
 	for i, n := range bp.Nodes {
 		id := strings.TrimSpace(n.ID)
-		kind := strings.TrimSpace(n.Kind)
+		kind := strings.TrimSpace(string(n.Kind))
 		use := strings.TrimSpace(n.Use)
 		if id == "" && kind == "" && use == "" {
 			validation.AddInvalid(fmt.Sprintf("nodes[%d]", i), "one of id/kind/use must be present")
