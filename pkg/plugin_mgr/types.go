@@ -81,7 +81,6 @@ type Plugin struct {
 	Backend     *BackendSpec     `json:"backend,omitempty"`
 	Routes      *RouteSpec       `json:"routes,omitempty"`
 	Permissions []PermissionSpec `json:"permissions,omitempty"`
-	Menus       []MenuTreeItem   `json:"menus,omitempty"`
 	Agents      []AgentSpec      `json:"agents,omitempty"`
 	Tools       []ToolSpec       `json:"tools,omitempty"`
 	Workflows   []WorkflowSpec   `json:"workflows,omitempty"`
@@ -227,16 +226,16 @@ type RouteSpec struct {
 	RBAC          string `yaml:"rbac"          json:"rbac"`
 }
 
-type MenuTreeItem struct {
-	ID               string         `yaml:"id"       json:"id"`
-	Title            string         `yaml:"title"    json:"title"`
-	TitleI18n        *MenuLabel     `yaml:"title_i18n,omitempty" json:"title_i18n,omitempty"`
-	Icon             string         `yaml:"icon"     json:"icon"`
-	Path             string         `yaml:"path"     json:"path"`
-	Order            int            `yaml:"order"    json:"order"`
-	RequiredPolicies []string       `yaml:"required_policies,omitempty" json:"required_policies,omitempty"`
-	Children         []MenuTreeItem `yaml:"children,omitempty" json:"children,omitempty"`
-}
+//type MenuTreeItem struct {
+//	ID               string         `yaml:"id"       json:"id"`
+//	Title            string         `yaml:"title"    json:"title"`
+//	TitleI18n        *MenuLabel     `yaml:"title_i18n,omitempty" json:"title_i18n,omitempty"`
+//	Icon             string         `yaml:"icon"     json:"icon"`
+//	Path             string         `yaml:"path"     json:"path"`
+//	Order            int            `yaml:"order"    json:"order"`
+//	RequiredPolicies []string       `yaml:"required_policies,omitempty" json:"required_policies,omitempty"`
+//	Children         []MenuTreeItem `yaml:"children,omitempty" json:"children,omitempty"`
+//}
 
 type I18nSpec struct {
 	Dir              string   `yaml:"dir" json:"dir"`
