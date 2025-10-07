@@ -1,0 +1,364 @@
+openapi: 3.0.3
+info:
+  title: PowerX Admin Media API
+  version: 0.1.0
+  description: >
+    Admin endpoints for managing media assets, aligned with
+    Media Asset Admin Capabilities specification (specs/001-docs-media-storage/spec.md).
+servers:
+  - url: https://{host}
+    description: PowerX Admin API
+    variables:
+      host:
+        default: localhost:8080
+paths:
+  /api/v1/admin/media/assets:
+    post:
+      summary: Upload media asset or register external resource
+      operationId: uploadMediaAsset
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: Optional file payload for direct upload
+                file_url:
+                  type: string
+                  format: uri
+                  description: Optional external/pre-signed URL fallback
+                driver:
+                  type: string
+                  description: Storage driver identifier (e.g., local, s3)
+                folder:
+                  type: string
+                owner_type:
+                  type: string
+                owner_id:
+                  type: integer
+                  format: int64
+                tags:
+                  type: array
+                  items:
+                    type: string
+                meta:
+                  type: string
+                  description: JSON string encoding additional metadata
+              required:
+                - driver
+              oneOf:
+                - required: [file]
+                - required: [file_url]
+      responses:
+        '201':
+          description: Media asset created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MediaAsset'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    get:
+      summary: List media assets with filtering
+      operationId: listMediaAssets
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+          required: false
+          description: Page number (default 1)
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+          required: false
+          description: Items per page (default 20)
+        - name: keyword
+          in: query
+          schema:
+            type: string
+        - name: driver
+          in: query
+          schema:
+            type: string
+        - name: ownerType
+          in: query
+          schema:
+            type: string
+        - name: ownerId
+          in: query
+          schema:
+            type: integer
+            format: int64
+        - name: tags
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+          style: form
+          explode: false
+      responses:
+        '200':
+          description: Paginated media assets
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MediaAssetList'
+  /api/v1/admin/media/assets/{id}:
+    get:
+      summary: Get media asset detail
+      operationId: getMediaAsset
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Media asset detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MediaAsset'
+        '404':
+          description: Asset not found or access denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    patch:
+      summary: Update media asset business attributes
+      operationId: updateMediaAsset
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                tags:
+                  type: array
+                  items:
+                    type: string
+                status:
+                  $ref: '#/components/schemas/MediaStatus'
+      responses:
+        '200':
+          description: Media asset updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MediaAsset'
+    delete:
+      summary: Soft delete media asset
+      operationId: deleteMediaAsset
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Soft delete accepted
+        '409':
+          description: Conflict (asset already deleted or locked)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/admin/media/assets/presign:
+    post:
+      summary: Generate pre-signed URL for upload or download
+      operationId: generatePresign
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                assetId:
+                  type: string
+                  format: uuid
+                  description: Optional for pre-upload request
+                method:
+                  type: string
+                  enum: [GET, PUT]
+                driver:
+                  type: string
+                  description: Required when assetId is not provided
+                folder:
+                  type: string
+                fileName:
+                  type: string
+              required:
+                - method
+      responses:
+        '200':
+          description: Pre-signed URL payload
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PresignResponse'
+        '403':
+          description: Unauthorized to generate presign
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    MediaAsset:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenantId:
+          type: string
+        driver:
+          type: string
+        bucket:
+          type: string
+        objectKey:
+          type: string
+        fileName:
+          type: string
+        contentType:
+          type: string
+        size:
+          type: integer
+          format: int64
+        folder:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        ownerType:
+          type: string
+          nullable: true
+        ownerId:
+          type: integer
+          format: int64
+          nullable: true
+        meta:
+          type: object
+        status:
+          $ref: '#/components/schemas/MediaStatus'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        deletedAt:
+          type: string
+          format: date-time
+          nullable: true
+        url:
+          type: string
+          description: Optional resolved access URL (handler adds context)
+      required:
+        - id
+        - driver
+        - objectKey
+        - fileName
+        - size
+        - status
+        - createdAt
+        - updatedAt
+    MediaAssetList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/MediaAsset'
+        total:
+          type: integer
+          format: int64
+        page:
+          type: integer
+        pageSize:
+          type: integer
+    MediaStatus:
+      type: integer
+      description: >
+        0=Draft, 1=UnderReview, 2=Published, 3=Archived
+      enum: [0, 1, 2, 3]
+    PresignResponse:
+      type: object
+      properties:
+        url:
+          type: string
+          format: uri
+        method:
+          type: string
+          enum: [GET, PUT]
+        expireAt:
+          type: string
+          format: date-time
+        formFields:
+          type: object
+          additionalProperties:
+            type: string
+      required:
+        - url
+        - method
+        - expireAt
+    Error:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        details:
+          type: object
