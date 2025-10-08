@@ -18,7 +18,7 @@ docker-run:
 	@echo "$(CYAN)启动 Docker 容器...$(NC)"
 	@docker run -d \
 		--name $(PROJECT_NAME) \
-		-p 8080:8080 \
+		-p 8077:8077 \
 		-e ENV=production \
 		$(DOCKER_IMAGE)
 	@echo "$(GREEN)✅ 容器启动完成: $(PROJECT_NAME)$(NC)"

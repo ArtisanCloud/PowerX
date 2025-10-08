@@ -76,7 +76,7 @@ storage:
   drivers:
     local:
       root: "./storage"
-      baseURL: "http://localhost:8080/static"
+      baseURL: "http://localhost:8077/static"
       cleanOnInit: false
     s3:
       endpoint: "http://minio:9000"

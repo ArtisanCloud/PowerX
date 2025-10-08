@@ -12,12 +12,12 @@
 make dev
 ```
 
-- 预期在 `DEV_PORT=8080` 下监听，日志输出包含 `trace_id`、`tenant_id` 字段。
+- 预期在 `DEV_PORT=8077` 下监听，日志输出包含 `trace_id`、`tenant_id` 字段。
 
 ## 步骤 2：上传测试媒体
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/admin/media/assets \
+curl -X POST http://localhost:8077/api/v1/admin/media/assets \
   -H "Authorization: Bearer {{ADMIN_TOKEN}}" \
   -F "file=@/tmp/demo.png" \
   -F "driver=s3" \
@@ -33,7 +33,7 @@ curl -X POST http://localhost:8080/api/v1/admin/media/assets \
 ## 步骤 3：分页查询验证筛选
 
 ```bash
-curl -X GET "http://localhost:8080/api/v1/admin/media/assets?keyword=demo&driver=s3&page=1&pageSize=10" \
+curl -X GET "http://localhost:8077/api/v1/admin/media/assets?keyword=demo&driver=s3&page=1&pageSize=10" \
   -H "Authorization: Bearer {{ADMIN_TOKEN}}"
 ```
 
@@ -42,7 +42,7 @@ curl -X GET "http://localhost:8080/api/v1/admin/media/assets?keyword=demo&driver
 ## 步骤 4：查看详情并更新状态
 
 ```bash
-curl -X PATCH http://localhost:8080/api/v1/admin/media/assets/{{ASSET_ID}} \
+curl -X PATCH http://localhost:8077/api/v1/admin/media/assets/{{ASSET_ID}} \
   -H "Authorization: Bearer {{ADMIN_TOKEN}}" \
   -H "Content-Type: application/json" \
   -d '{"status":2,"description":"季节性主 KV"}'
@@ -53,7 +53,7 @@ curl -X PATCH http://localhost:8080/api/v1/admin/media/assets/{{ASSET_ID}} \
 ## 步骤 5：生成下载预签名链接
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/admin/media/assets/presign \
+curl -X POST http://localhost:8077/api/v1/admin/media/assets/presign \
   -H "Authorization: Bearer {{ADMIN_TOKEN}}" \
   -H "Content-Type: application/json" \
   -d '{"assetId":"{{ASSET_ID}}","method":"GET"}'
@@ -65,7 +65,7 @@ curl -X POST http://localhost:8080/api/v1/admin/media/assets/presign \
 ## 步骤 6：软删除并验证定时任务
 
 ```bash
-curl -X DELETE http://localhost:8080/api/v1/admin/media/assets/{{ASSET_ID}} \
+curl -X DELETE http://localhost:8077/api/v1/admin/media/assets/{{ASSET_ID}} \
   -H "Authorization: Bearer {{ADMIN_TOKEN}}"
 ```
 

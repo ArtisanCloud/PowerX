@@ -1,241 +1,213 @@
+# Implementation Plan (PowerX-Aligned): Media Asset Admin Capabilities
 
-# Implementation Plan: Media Asset Admin Capabilities
+**Branch**: `001-docs-media-storage`  
+**Date**: 2025-10-08  
+**Spec**: `/specs/001-docs-media-storage/spec.md`
 
-**Branch**: `001-docs-media-storage` | **Date**: 2025-10-07 | **Spec**: [/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/specs/001-docs-media-storage/spec.md](spec.md)
-**Input**: Feature specification from `/specs/001-docs-media-storage/spec.md`
+> 本计划文件已根据你的反馈**纠正并对齐 PowerX 实际项目**：
+> 1) **Project Type** 明确为 *CoreX Modular Monolith (Backend Service)*，不是微服务；  
+> 2) **数据库表述**统一为 **GORM 抽象 + 默认 Postgres**（不写死 MySQL）；  
+> 3) **去除 Agent/占位可执行** 的残留（不再出现 `cmd/agent` / `update-agent-context.sh`）。
 
-## Execution Flow (/plan command scope)
-
-```
-1. Load feature spec from Input path
-   → If not found: ERROR "No feature spec at {path}"
-2. Fill Technical Context (scan for NEEDS CLARIFICATION)
-   → Detect Project Type from file system structure or context (web=frontend+backend, mobile=app+api)
-   → Set Structure Decision based on project type
-3. Fill the Constitution Check section based on the content of the constitution document.
-4. Evaluate Constitution Check section below
-   → If violations exist: Document in Complexity Tracking
-   → If no justification possible: ERROR "Simplify approach first"
-   → Update Progress Tracking: Initial Constitution Check
-5. Execute Phase 0 → research.md
-   → If NEEDS CLARIFICATION remain: ERROR "Resolve unknowns"
-6. Execute Phase 1 → contracts, data-model.md, quickstart.md, agent-specific template file (e.g., `CLAUDE.md` for Claude Code, `.github/copilot-instructions.md` for GitHub Copilot, `GEMINI.md` for Gemini CLI, `QWEN.md` for Qwen Code, or `AGENTS.md` for all other agents).
-7. Re-evaluate Constitution Check section
-   → If new violations: Refactor design, return to Phase 1
-   → Update Progress Tracking: Post-Design Constitution Check
-8. Plan Phase 2 → Describe task generation approach (DO NOT create tasks.md)
-9. STOP - Ready for /tasks command
-```
-
-**IMPORTANT**: The /plan command STOPS at step 7. Phases 2-4 are executed by other commands:
-
-- Phase 2: /tasks command creates tasks.md
-- Phase 3-4: Implementation execution (manual or via tools)
+---
 
 ## Summary
 
-构建后台媒体资产管理能力：支持上传（直传或外链）、分页检索、详情、业务字段更新、软删除 + 定时物理清理，以及 12 小时默认有效的预签名链接。方案沿用现有 `handler → service → repository → model` 分层，引入 `internal/infra/media` 的多驱动 `MediaManager`，并扩展 `pkg/corex/db/persistence` 下的媒体模型与仓储，确保 RBAC、审计和多租户上下文贯通。
+在 PowerX 后台（CoreX 单体）中实现 **媒体资产管理能力**：上传（直传/外链）、分页检索、详情、业务字段更新、软删 + 定时物理清理、预签名 URL（默认 12h）。遵循既有分层：`transport/http → service → infra → persistence(model/repository)`，新增 `MediaManager` 多驱动组件，复用多租户与 RBAC、审计与可观测性能力。
+
+---
 
 ## Technical Context
 
-**Language/Version**: Go 1.24  
-**Primary Dependencies**: Gin HTTP 框架、GORM、PowerX 内部 `dto`/`repository` 基础库、计划新增的 MinIO S3 SDK  
-**Storage**: MySQL（经由 GORM）；对象存储（S3 兼容 & 本地文件系统）  
-**Testing**: Go 原生 testing + httptest；`make unit-test` (`go test ./...`)  
-**Target Platform**: Linux 容器化服务（PowerX 后端）  
-**Project Type**: backend-service（单体 Go 项目，按 internal/pkg 分层）  
-**Performance Goals**: API p95 < 200ms；预签名生成 < 100ms；列表分页稳定在 100ms 内  
-**Constraints**: 必须携带租户与操作人上下文；严格 RBAC；全链路 JSON 日志/trace；软删后由定时任务清理物理对象  
-**Scale/Scope**: 预期每租户 5~10 万媒体记录，单次上传 <10 并发；标签/筛选高选择性
+- **Language/Version**: Go 1.22+（与现有工程一致；如 CI 固定更高版本需统一调整）  
+- **Frameworks**: Gin（HTTP） + **GORM**（ORM 抽象）  
+- **RDBMS**: **Postgres（默认）**，保持 GORM 兼容（MySQL/SQLite 可切换）  
+- **Object Storage**: S3 兼容（MinIO/OSS/S3）+ Local FS（开发环境）  
+- **AuthN/AuthZ**: PowerX 后台 JWT / 多租户上下文 / RBAC  
+- **Observability**: 统一 JSON 日志（含 `trace_id`/`tenant_id`）、审计落库、指标上报  
+- **Project Type**: **CoreX Modular Monolith**（单进程模块化后端，不启动独立微服务）  
+- **Performance Goals**: API p95 < 200ms；Presign 生成 < 100ms；分页 < 100ms  
+- **Constraints**: 严格多租户隔离、最小权限、软删 + 定时物理清理（7 天可回滚窗口）
 
-## Constitution Check
+---
 
-*GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
+## Constitution Check（Pre & Post Design）
 
-- **Plugin-First Architecture**：媒体功能仍位于核心服务的模块化目录下（internal/service、internal/infra、pkg/corex），不侵入核心内核，满足插件化分层。
-- **Spec-Driven Development**：`spec.md` 与 `clarifications` 已完成，Plan 基于最新规格执行。
-- **Multi-Tenant & Secure-by-Design**：规划中所有接口沿用后台授权、租户上下文与操作审计；软删与预签名均需鉴权。
-- **Agent & Workflow Integration**：MediaManager 作为内部基础设施组件，可由 Agent 调度但不越权；无违规。
-- **Observability & Quality Gates**：方案要求写入统一日志（trace_id/tenant_id）、指标与审计；测试覆盖将通过 tasks 阶段落地。
-- **Post-Design Review**：Phase 1 设计落地后未新增核心侵入或安全风险，维持合规。
-**结论**：未发现违宪点，进入 Phase 0 研究。
+- **Plugin-First**：模块化落在 `internal/*` & `pkg/corex/*`，不新建独立服务 ✅  
+- **Spec-Driven**：以 `/specs/001-docs-media-storage/spec.md` 为准驱动设计 ✅  
+- **Multi-Tenant / Secure-by-Design**：所有接口带租户上下文与 RBAC、审计 ✅  
+- **DB Independence**：通过 GORM 抽象；默认 Postgres 但不绑定实现 ✅  
+- **Observability**：统一日志/trace/metrics/audit ✅  
 
-## Project Structure
+**结论**：通过，可进入 Phase 0/1。
+
+---
+
+## Project Structure（对齐你现有仓库）
 
 ### Documentation (this feature)
 
 ```
 specs/001-docs-media-storage/
-├── plan.md              # This file (/plan command output)
-├── research.md          # Phase 0 output (/plan command)
-├── data-model.md        # Phase 1 output (/plan command)
-├── quickstart.md        # Phase 1 output (/plan command)
-├── contracts/           # Phase 1 output (/plan command)
-└── tasks.md             # Phase 2 output (/tasks command - NOT created by /plan)
+├─ spec.md
+├─ plan.md              # 本文件
+├─ research.md
+├─ data-model.md
+├─ quickstart.md
+└─ contracts/
 ```
 
-### Source Code (repository root)
-<!--
-  ACTION REQUIRED: Replace the placeholder tree below with the concrete layout
-  for this feature. Delete unused options and expand the chosen structure with
-  real paths (e.g., apps/admin, packages/something). The delivered plan must
-  not include Option labels.
--->
+### Source Code（repository root）
+
 ```
 cmd/
-├── agent/
-├── demo/
-└── test_agent_api/
-
-config/
-└── storage.go (待新增媒体驱动配置)
-
-internal/
-├── bootstrap/
-├── app/
-│   └── shared/
-├── infra/
-│   └── media/
-│       ├── driver/
-│       │   ├── local/
-│       │   └── s3/
-│       └── manager/
-├── service/
-│   └── media/
-└── transport/
-    └── http/
-        └── admin/
-            └── media/
-
-pkg/
-└── corex/
-    └── db/
-        └── persistence/
-            ├── model/
-            │   └── media/
-            └── repository/
-                └── media/
+├─ app/
+│  └─ main.go                # 统一入口（复用）
+├─ database/
+│  ├─ main.go
+│  ├─ migrate.go             # 扩展媒体表迁移
+│  └─ seed/
+│     ├─ seed.go
+│     ├─ seed_admin.go
+│     ├─ seed_agent.go       # 保持现状（与本特性无强耦合）
+│     ├─ seed_department.go
+│     ├─ seed_permission.go  # 扩展注册 media 权限
+│     ├─ seed_role.go
+│     └─ swagger_permissions.go
+├─ perm_gen/
+│  └─ main.go                # 如需生成权限映射可复用
+└─ tools/
+   └─ audit_partitions/
+      ├─ README.md
+      └─ main.go
 ```
 
-**Structure Decision**: 继续采用单体 Go backend 布局；新增媒体相关代码分别进入 `internal/transport/http/admin/media`、`internal/service/media`、`internal/infra/media` 与 `pkg/corex/db/persistence/{model,repository}/media`，确保与现有分层一致。
+```
+config/
+└─ storage.go                # 新增：媒体驱动配置体 & 默认值
 
-## Phase 0: Outline & Research
+internal/
+├─ infra/
+│  └─ media/
+│     ├─ driver/
+│     │  ├─ local/
+│     │  └─ s3/
+│     └─ manager/
+├─ service/
+│  └─ media/
+└─ transport/
+   └─ http/
+      └─ admin/
+         └─ media/           # 路由/handler（后台）
 
-1. **Extract unknowns from Technical Context** above:
-   - 明确 MediaAsset 的唯一性约束（UUID 外是否需要 driver+objectKey 唯一索引）。
-   - 评估每租户 10 万级资产对分页与查询索引的影响，确认搜索策略与缓存需求。
-   - 选型 MinIO Go SDK（或其他 S3 客户端）的最佳实践：重试、分片上传、凭证管理。
-   - 调研标签字段 (JSON) 的检索需求与潜在索引策略。
-   - 梳理软删后定时物理清理的运维模式：任务频率、失败重试、审计记录。
+pkg/
+└─ corex/
+   └─ db/
+      └─ persistence/
+         ├─ model/
+         │  └─ media/
+         └─ repository/
+            └─ media/
+```
 
-2. **Generate and dispatch research agents**:
+> 注：**不新增** 任意 `cmd/*` 可执行入口；媒体能力经现有 `cmd/app` 暴露。迁移/权限 Seed 落在 `cmd/database` 体系。
 
-   ```
-   - Research MediaAsset uniqueness rules and indexing for multi-tenant media storage (PowerX).
-   - Research pagination/search strategy for ~100k records per tenant with optional tag filters using GORM/MySQL.
-   - Research go-minio best practices for backend-admin uploads (timeouts, retries, presign, IAM security).
-   - Research efficient storage and querying patterns for JSON tag arrays in MySQL (with GORM).
-   - Research operational playbook for scheduled cleanup of soft-deleted objects (observability + alerting).
-   ```
+---
 
-3. **Consolidate findings** in `research.md` using format:
-   - Decision: [what was chosen]
-   - Rationale: [why chosen]
-   - Alternatives considered: [what else evaluated]
+## Execution Flow（/plan 命令边界内执行）
 
-**Output**: research.md with all NEEDS CLARIFICATION resolved
+```
+1) 校验 spec.md 存在与版本号 → 否则 ERROR
+2) 填充技术上下文（本文件）并进行初次 Constitution Check
+3) Phase 0 → 产出 research.md：唯一性/索引、分页策略、JSONB+GIN 标签、go-minio 实践、软删清理
+4) Phase 1 → 产出 data-model.md、contracts/*、quickstart.md；落地占位测试（httptest）
+5) 再次 Constitution Check：若有违背则回退 Phase 1 调整
+6) 描述 Phase 2 任务生成策略（不创建 tasks.md） → STOP
+```
 
-## Phase 1: Design & Contracts
+**已删除步骤**：任何与 Agent/上下文脚本相关的同步动作。
 
-*Prerequisites: research.md complete*
+---
 
-1. **Extract entities from feature spec** → `data-model.md`:
-   - Entity name, fields, relationships
-   - Validation rules from requirements
-   - State transitions if applicable
+## Phase 0 — Research（摘要）
 
-2. **Generate API contracts** from functional requirements:
-   - Upload、List、Get、Update、Delete、GeneratePresign 对应 REST 端点。
-   - 描述请求/响应字段（分页结构、业务状态枚举、审计字段）。
-   - 输出 OpenAPI 片段到 `contracts/admin-media-assets.yaml`，同时提供 JSON 示例。
+- **唯一性/索引**：`UUID` 主键 + `(tenant_id, driver, object_key)` 唯一约束；`(tenant_id, driver, status, updated_at DESC, id DESC)` 组合索引。  
+- **分页策略**：默认 Offset/Limit；提供 Keyset/Seek 作为深翻页优化（`ORDER BY updated_at DESC, id DESC`）。  
+- **标签检索**：`tags JSONB` + **GIN**；AND 用 `@>`，OR 用 `OR` 组合或多次查询。  
+- **S3 客户端**：`minio-go/v7`，TLS/超时/指数重试（3 次）、STS/短期 AKSK、分片上传、SSE 可选；Presign 默认 12h。  
+- **软删清理**：`deleted_at` 软删 + 定时任务（≥7 天）批量物理删除；幂等 & 审计。
 
-3. **Generate contract tests** from contracts:
-   - `contracts/tests/admin_media_assets_test.go` 基于 httptest，验证路由绑定和 JSON Schema（占位失败）。
-   - 使用 Table-Driven 框架覆盖成功/失败场景占位。
+> 详见 `/specs/001-docs-media-storage/research.md`。
 
-4. **Extract test scenarios** from user stories:
-   - Primary story → Quickstart 步骤（上传→检索→详情→生成预签名）。
-   - 第二条验收场景衍生列表筛选集成测试。
+---
 
-5. **Update agent file incrementally** (O(1) operation):
-   - Run `.specify/scripts/bash/update-agent-context.sh codex`
-     **IMPORTANT**: Execute it exactly as specified above. Do not add or remove any arguments.
-   - If exists: Add only NEW tech from current plan
-   - Preserve manual additions between markers
-   - Update recent changes (keep last 3)
-   - Keep under 150 lines for token efficiency
-   - Output to repository root
+## Phase 1 — Design & Contracts
 
-**Output**: data-model.md, /contracts/*, failing tests, quickstart.md, agent-specific file
+1) **Data Model**（data-model.md）  
+- `MediaAsset`（持久化）：字段/校验/状态机（Draft/UnderReview/Published/Archived）  
+- `PresignToken`（瞬时）：方法、过期策略（默认 12h）、允许方法 GET/PUT  
+- 关系：与租户上下文、Owner 业务域的弱关联（外部查询）
 
-## Phase 2: Task Planning Approach
+2) **API Contracts**（contracts/admin-media-assets.yaml）  
+- `POST /api/v1/admin/media/assets`（文件上传或 `file_url`）  
+- `GET /api/v1/admin/media/assets`（分页 + 过滤：关键字/driver/status/tags/owner）  
+- `GET /api/v1/admin/media/assets/:id`  
+- `PATCH /api/v1/admin/media/assets/:id`（仅业务字段）  
+- `DELETE /api/v1/admin/media/assets/:id`（软删）  
+- `POST /api/v1/admin/media/assets/presign`（上传/下载预签名）
 
-*This section describes what the /tasks command will do - DO NOT execute during /plan*
+> 合同输出 OpenAPI 片段 + JSON 示例；遵循 PowerX 的分页与错误码约定。
 
-**Task Generation Strategy**:
+3) **Tests（占位）**  
+- `contracts/tests/admin_media_assets_test.go`：路由绑定、Schema 校验、鉴权失败/成功覆盖。  
+- 集成测试：上传→检索→详情→预签名→软删的 happy path。
 
-- Load `.specify/templates/tasks-template.md` as base
-- Generate tasks from Phase 1 design docs (contracts, data model, quickstart)
-- Each contract → contract test task [P]
-- Each entity → model creation task [P]
-- Each user story → integration test task
-- Implementation tasks to make tests pass
+---
 
-**Ordering Strategy**:
+## Phase 2 — Task Planning Approach（描述不落地）
 
-- TDD order: Tests before implementation
-- Dependency order: Models before services before UI
-- Mark [P] for parallel execution (independent files)
+- 从 contracts & data-model & quickstart 自动生成 `tasks.md`：  
+  - 每个接口→合同测试任务 [P]  
+  - 每个实体→模型/迁移任务 [P]  
+  - 用户故事→集成测试任务  
+- 依赖顺序：模型→仓储→服务→HTTP handler → 文档/样例  
+- TDD：先使失败测试出现，再实现直至通过
 
-**Estimated Output**: 25-30 numbered, ordered tasks in tasks.md
+---
 
-**IMPORTANT**: This phase is executed by the /tasks command, NOT by /plan
+## Migrations & Seeds
 
-## Phase 3+: Future Implementation
+- 迁移：创建 `media_assets` 表，唯一约束 `UNIQUE(tenant_id, driver, object_key)`；  
+  索引 `idx_media_tenant_driver_status_updated`；`tags JSONB` + `GIN`。  
+- 种子：在 `cmd/database/seed/` 扩展 **`media.asset.*`** 权限注册；按需补充 swagger 权限映射。
 
-*These phases are beyond the scope of the /plan command*
+---
 
-**Phase 3**: Task execution (/tasks command creates tasks.md)  
-**Phase 4**: Implementation (execute tasks.md following constitutional principles)  
-**Phase 5**: Validation (run tests, execute quickstart.md, performance validation)
+## Risk & Mitigation
 
-## Complexity Tracking
+- **对象重复/并发写**：以唯一约束 + 幂等校验（可选 sha256）避免重复。  
+- **大对象上传失败**：分片 + 指数退避重试；仅对幂等动作重试。  
+- **越权生成 Presign**：严格 RBAC + 仅允许受管对象路径 + method 限制 + 过期控制。  
+- **深翻页性能**：提供 Keyset 改写为可选；必要时引入只读副本/缓存层。
 
-*Fill ONLY if Constitution Check has violations that must be justified*
-
-| Violation | Why Needed | Simpler Alternative Rejected Because |
-|-----------|------------|-------------------------------------|
-| *(None)* | — | — |
+---
 
 ## Progress Tracking
 
-*This checklist is updated during execution flow*
-
-**Phase Status**:
-
-- [x] Phase 0: Research complete (/plan command)
-- [x] Phase 1: Design complete (/plan command)
-- [x] Phase 2: Task planning complete (/plan command - describe approach only)
-- [ ] Phase 3: Tasks generated (/tasks command)
-- [ ] Phase 4: Implementation complete
-- [ ] Phase 5: Validation passed
-
-**Gate Status**:
-
-- [x] Initial Constitution Check: PASS
-- [x] Post-Design Constitution Check: PASS
-- [x] All NEEDS CLARIFICATION resolved
-- [x] Complexity deviations documented
+- [x] Initial Constitution Check  
+- [x] Phase 0: Research complete  
+- [x] Phase 1: Design outline complete  
+- [ ] Phase 2: Task plan generated  
+- [ ] Phase 3: Implementation complete  
+- [ ] Phase 4: Validation passed
 
 ---
-*Based on Constitution v2.1.1 - See `/memory/constitution.md`*
+
+## PowerX Compliance
+
+- Constitution: v2.1.1  
+- Plugin-First: ✅  
+- Spec-Driven: ✅  
+- Secure-by-Design: ✅  
+- Multi-Tenant: ✅  
+- Observability (trace/audit): ✅

@@ -270,7 +270,7 @@ func loadFromEnv(cfg *Config) {
 	if secret := os.Getenv("CORE_X_JWT_SECRET"); secret != "" && cfg.Auth.JWTSecret == "" {
 		cfg.Auth.JWTSecret = secret
 	}
-	if port := os.Getenv("CORE_X_PORT"); port != "" && cfg.Server.Port == 8080 {
+	if port := os.Getenv("CORE_X_PORT"); port != "" && cfg.Server.Port == 8077 {
 		if p, err := strconv.Atoi(port); err == nil {
 			cfg.Server.Port = p
 		}

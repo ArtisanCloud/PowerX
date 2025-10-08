@@ -10,7 +10,7 @@ import (
 func GetDefaults() *Config {
 	return &Config{
 		Server: ServerConfig{
-			Port:                8080,
+			Port:                8077,
 			ReadTimeoutSeconds:  5,
 			WriteTimeoutSeconds: 10,
 			Mode:                "debug",

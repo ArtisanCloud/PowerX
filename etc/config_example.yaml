@@ -1,5 +1,5 @@
 server:
-  port: 8080
+  port: 8077
   read_timeout_seconds: 30
   write_timeout_seconds: 30
   mode: debug

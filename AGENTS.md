@@ -13,7 +13,7 @@
 
 ## Build, Test, and Development Commands
 
-- `make dev` — Run local demo server (logs to stdout). Env: `DEV_PORT=8080 LOG_LEVEL=debug`.
+- `make dev` — Run local demo server (logs to stdout). Env: `DEV_PORT=8077 LOG_LEVEL=debug`.
 - `make build` — Build all binaries into `bin/` (`agent`, `demo`, tools).
 - `make unit-test` — Run Go unit tests (`go test ./...`).
 - `make test-all` — Exercise HTTP API via curl against running server.

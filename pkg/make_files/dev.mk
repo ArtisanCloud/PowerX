@@ -2,7 +2,7 @@
 # 包含所有开发任务和代码质量相关的命令
 
 # 开发配置
-DEV_PORT ?= 8080
+DEV_PORT ?= 8077
 DEV_HOST ?= localhost
 LOG_LEVEL ?= debug
 

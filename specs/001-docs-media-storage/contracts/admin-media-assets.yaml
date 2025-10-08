@@ -10,7 +10,7 @@ servers:
     description: PowerX Admin API
     variables:
       host:
-        default: localhost:8080
+        default: localhost:8077
 paths:
   /api/v1/admin/media/assets:
     post:
