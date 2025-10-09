@@ -1,7 +1,33 @@
 ---
+# ① 明确指定 manifest 路径（有些 Runner 不会默认找同目录）
+manifest: .specify/memory/manifest.yaml
+
+# ② 通过别名启用（优先）
 use:
   - "@dev-crud-http"
+  - "@dev-crud-grpc"
+
+include:
+  - dev_crud_http_guides.md
+  - dev_crud_grpc_guides.md
+  - dev_sts_guides.md
+
+rulesets:
+  - rulesets/crud_http.yaml
+  - rulesets/crud_grpc.yaml
+  - rulesets/transport_grpc.yaml
+  - rulesets/proto_gen.yaml
+  - rulesets/crud/migration.yaml
+  - rulesets/crud/model.yaml
+  - rulesets/crud/repository.yaml
+  - rulesets/crud/service.yaml
+  - rulesets/crud/dto.yaml
+  - rulesets/crud/handler_http.yaml
+  - rulesets/crud/api_rest.yaml
+  - rulesets/crud/di.yaml
+  - rulesets/crud/test.yaml
 ---
+
 
 # PowerX Constitution
 
