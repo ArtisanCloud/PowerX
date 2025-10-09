@@ -1,5 +1,7 @@
 package shared
 
+// internal/app/shared/options.go
+
 import (
 	"github.com/ArtisanCloud/PowerX/internal/service/auth"
 	auditsvc "github.com/ArtisanCloud/PowerX/pkg/corex/audit"

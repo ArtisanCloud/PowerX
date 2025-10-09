@@ -1,3 +1,8 @@
+---
+use:
+  - "@dev-crud-http"
+---
+
 # PowerX Constitution
 
 ## Core Principles

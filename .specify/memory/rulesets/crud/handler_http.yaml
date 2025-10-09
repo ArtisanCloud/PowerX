@@ -1,0 +1,203 @@
+kind: ruleset
+name: crud_handler_http
+version: 1.0.0
+owner: powerx
+status: stable
+
+meta:
+  intent: >
+    规范 HTTP Handler 的目录、职责与调用形态：参数绑定/校验 → 调用 Service → 统一回包/错误桥接，
+    禁止业务与 DB/外部 IO；分页、错误、SSE 事件与 REST 契约/DTO 对齐。
+  references:
+    - dev_crud_http_guides.md
+    - constitution.md
+
+scope:
+  applies_to:
+    - "internal/transport/http/**/**_handler.go"
+    - "internal/transport/http/**/api.go"
+
+principles:
+  - Handler 只做 绑定/校验 → 调 Service → 回包；禁止写业务、DB 或外部 IO。   # 指南·Handler职责
+  - DTO 独立于模型；参数绑定使用统一函数，错误使用 AppError 桥接返回。      # 指南·DTO/错误桥接
+  - 路由注册独立在 api.go；前缀使用 /api/v1/{admin|open|web}。               # 指南·路由与版本
+  - 多租户上下文来自中间件；缺失租户返回 400 语义，鉴权在 Service 落实。       # 宪章·多租户
+
+checks:
+
+  # 目录 & 入口
+  - id: http.dir.shape
+    level: error
+    when:
+      glob: "internal/transport/http/**/api.go"
+    assert:
+      - must_define: "func Register*Routes(*gin.RouterGroup, *shared.Deps)"
+      - must_prefix_route_one_of: ["/api/v1/admin", "/api/v1/open", "/api/v1/web"]
+
+  # Handler 职责边界
+  - id: handler.no_db_or_io
+    level: error
+    when:
+      glob: "internal/transport/http/**/**_handler.go"
+    assert:
+      - must_not_import: ["database/sql","gorm.io/gorm","net/http"] # 允许 gin 但禁止直接 http client
+      - must_not_call: ["sql.DB","gorm.DB","http.DefaultClient.Do","os.Remove","ioutil.ReadAll"]
+      - must_define_like: "type *Handler struct { svc *service.* }" # 依赖仅指向 Service
+
+  - id: handler.ctor
+    level: error
+    when:
+      glob: "internal/transport/http/**/**_handler.go"
+    assert:
+      - must_define_like: "func New*Handler(*service.*) *"
+      - must_not_define: "func New*Handler(*gorm.DB)"               # 禁止直注 DB
+
+  # 租户上下文与校验/绑定
+  - id: handler.binding_and_tenant
+    level: error
+    when:
+      glob: "internal/transport/http/**/**_handler.go"
+    assert:
+      - must_call_one_of: ["ValidateRequestWithContext(","ValidateAndBindWithContext("]
+      - must_call: ["reqctx.From(c)"]       # 从中间件注入的上下文取 tenant/request_id
+      - on_missing_tenant_http: 400
+
+  # 统一回包与错误桥接
+  - id: handler.response_envelope
+    level: error
+    when:
+      glob: "internal/transport/http/**/**_handler.go"
+    assert:
+      - must_use_one_of: ["MustOK(","RespondOK(","RespondErrorFrom("]
+      - http_status_in: [200,201,204,400,401,403,404,409,429,500]
+
+  # 分页语义统一
+  - id: handler.pagination_contract
+    level: error
+    when:
+      glob: "internal/transport/http/**/**_handler.go"
+    assert:
+      - must_bind_dto: ["PaginationRequest"]
+      - must_return: ["ResponseList","PaginationResponse"]
+
+  # SSE/WS（若涉及）
+  - id: handler.sse_events
+    level: warn
+    when:
+      contains: "WriteToSSE("
+    assert:
+      - must_use_events:
+          ["start","intent","plan","token","data","action","final","end","error","heartbeat"]
+
+  # 契约一致性（与 REST 资源路由）
+  - id: handler.crud_shape
+    level: error
+    when:
+      glob: "internal/transport/http/**/api.go"
+    assert:
+      - must_register_methods:
+          - 'POST ""'
+          - 'GET ""'
+          - 'GET "/:id"'
+          - 'PATCH "/:id"'
+          - 'DELETE "/:id"'
+
+  # 依赖注入（Deps）
+  - id: handler.deps_injection
+    level: error
+    when:
+      glob: "internal/transport/http/**/**_handler.go"
+    assert:
+      - must_reference: "*shared.Deps"   # Handler 通过 Deps 链路拿到 svc（在 api.go 中）
+      - must_not_new_external_clients: true
+
+acceptance:
+  checklist:
+    - "[ ] api.go 只做路由注册，使用 /api/v1/{admin|open|web} 前缀"
+    - "[ ] Handler 仅做绑定/校验/调用 Service/回包，不含 DB 与外部 IO"
+    - "[ ] 使用 ValidateRequestWithContext/RespondErrorFrom/MustOK 等统一工具"
+    - "[ ] 分页使用 PaginationRequest/PaginationResponse，列表用 ResponseList"
+    - "[ ] SSE 事件（若有）使用统一事件名"
+    - "[ ] 租户上下文来自中间件，缺失返回 400；鉴权/审计在 Service 层"
+    - "[ ] Handler 构造函数存在，依赖通过 *shared.Deps 提供 svc"
+
+templates:
+
+  handler_go: |
+    package {{domain}}
+
+    import (
+      "github.com/gin-gonic/gin"
+      "github.com/ArtisanCloud/PowerX/internal/app/shared"
+      "github.com/ArtisanCloud/PowerX/internal/service/{{domain}}"
+      dto "{{module_path}}/internal/transport/http/{{layer}}/{{domain}}/dto"
+      "github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
+    )
+
+    type {{Entity}}Handler struct {
+      svc *{{domain}}.{{Entity}}Service
+    }
+
+    func New{{Entity}}Handler(s *{{domain}}.{{Entity}}Service) *{{Entity}}Handler {
+      return &{{Entity}}Handler{svc: s}
+    }
+
+    // POST /{{domain}}/{{resource}}
+    func (h *{{Entity}}Handler) Create(c *gin.Context) {
+      ctx, rc, err := ValidateRequestWithContext(c, &dto.{{Entity}}CreateReq{})
+      if err != nil { RespondErrorFrom(c, err); return }
+      out, err := h.svc.Create(ctx, rc.TenantID, rc.ActorID, rc.RequestID, rc.TraceID, rc.Payload)
+      MustOK(c, out, err)
+    }
+
+    // GET /{{domain}}/{{resource}}
+    func (h *{{Entity}}Handler) List(c *gin.Context) {
+      ctx, rc, err := ValidateRequestWithContext(c, &dto.{{Entity}}ListReq{})
+      if err != nil { RespondErrorFrom(c, err); return }
+      items, pg, err := h.svc.List(ctx, rc.TenantID, rc.Pagination, rc.Filters)
+      MustOK(c, ResponseList{Items: items, Pagination: pg}, err)
+    }
+
+    // GET /{{domain}}/{{resource}}/:id
+    func (h *{{Entity}}Handler) Get(c *gin.Context) {
+      ctx, rc, err := ValidateRequestWithContext(c, &dto.{{Entity}}GetReq{})
+      if err != nil { RespondErrorFrom(c, err); return }
+      out, err := h.svc.Get(ctx, rc.TenantID, rc.ID)
+      MustOK(c, out, err)
+    }
+
+    // PATCH /{{domain}}/{{resource}}/:id
+    func (h *{{Entity}}Handler) Update(c *gin.Context) {
+      ctx, rc, err := ValidateRequestWithContext(c, &dto.{{Entity}}UpdateReq{})
+      if err != nil { RespondErrorFrom(c, err); return }
+      out, err := h.svc.Update(ctx, rc.TenantID, rc.ID, rc.Payload, rc.IfMatch) // 支持 If-Match/ETag（可选）
+      MustOK(c, out, err)
+    }
+
+    // DELETE /{{domain}}/{{resource}}/:id
+    func (h *{{Entity}}Handler) Delete(c *gin.Context) {
+      ctx, rc, err := ValidateRequestWithContext(c, &dto.{{Entity}}DeleteReq{})
+      if err != nil { RespondErrorFrom(c, err); return }
+      err = h.svc.Delete(ctx, rc.TenantID, rc.ID, rc.Force) // 默认为软删；Force 需权限
+      MustOK(c, ResponseSuccess{OK: err == nil}, err)
+    }
+
+  api_go: |
+    package {{domain}}
+
+    import (
+      "github.com/gin-gonic/gin"
+      "github.com/ArtisanCloud/PowerX/internal/app/shared"
+    )
+
+    func Register{{Domain}}Routes(rg *gin.RouterGroup, deps *shared.Deps) {
+      h := New{{Entity}}Handler(deps.{{Entity}}Service)
+      g := rg.Group("/{{domain}}/{{resource}}")
+      {
+        g.POST("", h.Create)
+        g.GET("", h.List)
+        g.GET("/:id", h.Get)
+        g.PATCH("/:id", h.Update)
+        g.DELETE("/:id", h.Delete)
+      }
+    }

@@ -1,10 +1,14 @@
 package repository
 
 import (
-	"errors"
-	"strings"
-
 	"gorm.io/gorm"
+	"strings"
+)
+
+// pkg/corex/db/persistence/repository/error.go
+
+import (
+	"errors"
 )
 
 // IsUniqueViolation 判断是否为“唯一键冲突”(GORM友好版)
