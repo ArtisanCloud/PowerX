@@ -28,20 +28,20 @@
 - [X] **T011** 在 `pkg/corex/db/persistence/repository/media/asset_repo.go` 实现仓储：CRUD、分页筛选、标签过滤、软删除与清理查询。
 - [X] **T012** 新建 `pkg/corex/db/persistence/model/state.go`，定义业务状态常量、合法状态迁移图与验证函数。
 - [X] **T013** 编写 `config/storage.go` 并更新 `config/config.go`、`config/defaults.go`，注入驱动配置（local/s3）、默认 12 小时 TTL、MinIO 参数。
-- [ ] **T014** 在 `internal/infra/media/driver/interface.go`、`internal/infra/media/manager/manager.go` 定义 `StorageDriver` 接口、`MediaManager`，实现驱动注册、默认驱动、健康检查、metrics。
-- [ ] **T015** 在 `internal/infra/media/driver/local/local.go` 实现本地驱动：目录初始化、Put/Get/Delete、URL 生成、错误分类。
-- [ ] **T016** 在 `internal/infra/media/driver/s3/s3.go` 实现 S3 驱动：MinIO 客户端、PutObject、Presign、TTL 校验、错误包装。
-- [ ] **T017** 在 `internal/service/media/service.go` 落地用例服务：状态机校验、租户/RBAC、审计事件、预签名、软删除调度。
-- [ ] **T018** 更新 `internal/app/shared/deps.go` 与 `internal/bootstrap/app.go`，初始化 `MediaManager`、`MediaService`，挂载至 `shared.Deps`。
-- [ ] **T019** 在 `internal/transport/http/admin/media/dto.go` 定义请求/响应 DTO、校验标签、错误映射。
-- [ ] **T020** 新建 `internal/transport/http/admin/media/router.go`，并修改 `internal/transport/http/admin/routes.go` 注册 `/api/admin/v1/media/assets` 路由及中间件。
-- [ ] **T021** 在 `internal/transport/http/admin/media/handler.go` 实现 `POST /admin/media/assets`（本地上传/外链/预签名，返回 draft 状态）。
-- [ ] **T022** 在同文件实现 `GET /admin/media/assets`（分页、筛选、total、软删除过滤）。
-- [ ] **T023** 在同文件实现 `GET /admin/media/assets/{uuid}`（租户隔离、404 映射）。
-- [ ] **T024** 在同文件实现 `PATCH /admin/media/assets/{uuid}`（业务状态流转校验、标签更新、审计）。
-- [ ] **T025** 在同文件实现 `DELETE /admin/media/assets/{uuid}`（软删除、调度清理、返回 204）。
-- [ ] **T026** 在同文件实现 `POST /admin/media/assets/{uuid}/presign`（上传/下载、TTL 覆盖、可选 Redis 缓存）。
-- [ ] **T027** 在 `internal/transport/grpc/media/media_handler.go` 实现 gRPC 服务（依赖 `MediaService`，不负责注册），封装租户、审计、错误状态码。
+- [X] **T014** 在 `internal/infra/media/driver/interface.go`、`internal/infra/media/manager/manager.go` 定义 `StorageDriver` 接口、`MediaManager`，实现驱动注册、默认驱动、健康检查、metrics。
+- [X] **T015** 在 `internal/infra/media/driver/local/local.go` 实现本地驱动：目录初始化、Put/Get/Delete、URL 生成、错误分类。
+- [X] **T016** 在 `internal/infra/media/driver/s3/s3.go` 实现 S3 驱动：MinIO 客户端、PutObject、Presign、TTL 校验、错误包装。
+- [X] **T017** 在 `internal/service/media/service.go` 落地用例服务：状态机校验、租户/RBAC、审计事件、预签名、软删除调度。
+- [X] **T018** 更新 `internal/app/shared/deps.go` 与 `internal/bootstrap/app.go`，初始化 `MediaManager`、`MediaService`，挂载至 `shared.Deps`。
+- [X] **T019** 在 `internal/transport/http/admin/media/dto.go` 定义请求/响应 DTO、校验标签、错误映射。
+- [X] **T020** 新建 `internal/transport/http/admin/media/router.go`，并修改 `internal/transport/http/admin/routes.go` 注册 `/api/admin/v1/media/assets` 路由及中间件。
+- [X] **T021** 在 `internal/transport/http/admin/media/handler.go` 实现 `POST /admin/media/assets`（本地上传/外链/预签名，返回 draft 状态）。
+- [X] **T022** 在同文件实现 `GET /admin/media/assets`（分页、筛选、total、软删除过滤）。
+- [X] **T023** 在同文件实现 `GET /admin/media/assets/{uuid}`（租户隔离、404 映射）。
+- [X] **T024** 在同文件实现 `PATCH /admin/media/assets/{uuid}`（业务状态流转校验、标签更新、审计）。
+- [X] **T025** 在同文件实现 `DELETE /admin/media/assets/{uuid}`（软删除、调度清理、返回 204）。
+- [X] **T026** 在同文件实现 `POST /admin/media/assets/{uuid}/presign`（上传/下载、TTL 覆盖、可选 Redis 缓存）。
+- [X] **T027** 在 `internal/transport/grpc/media/media_handler.go` 实现 gRPC 服务（依赖 `MediaService`，不负责注册），封装租户、审计、错误状态码。
 - [ ] **T028** 更新 `internal/server/grpc/server.go`，通过已有拦截器注册 `media.v1.MediaAssetAdminServiceServer`，挂载监控。
 - [ ] **T029** 新建 `cmd/media_cleaner/main.go`，实现软删除清理 CLI：扫描过期资产、调用驱动删除、写审计事件。
 - [ ] **T030 [P]** 在 `internal/infra/media/manager/manager_test.go` 编写单元测试，验证驱动注册、默认回退、错误冒泡。

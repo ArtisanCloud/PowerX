@@ -8,6 +8,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/internal/server/agent/bootstrap"
 	"github.com/ArtisanCloud/PowerX/internal/server/agent/catalog"
 	"github.com/ArtisanCloud/PowerX/internal/service/auth"
+	mediasvc "github.com/ArtisanCloud/PowerX/internal/service/media"
 	pkgauth "github.com/ArtisanCloud/PowerX/pkg/auth"
 	"github.com/ArtisanCloud/PowerX/pkg/cache"
 	auditsvc "github.com/ArtisanCloud/PowerX/pkg/corex/audit"
@@ -92,6 +93,26 @@ func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error)
 		},
 		Audit: auditsvc.AuditOptions{
 			BatchSize: 200, BatchWait: 150 * time.Millisecond, MaxPayloadSize: 16 * 1024,
+		},
+		Storage: mediasvc.StorageOptions{
+			DefaultDriver: cfg.Storage.DefaultDriver,
+			TTLSeconds:    cfg.Storage.TTLSeconds,
+			Local: mediasvc.StorageLocalOptions{
+				BasePath:      cfg.Storage.Local.BasePath,
+				PublicBaseURL: cfg.Storage.Local.PublicBaseURL,
+			},
+			S3: mediasvc.StorageS3Options{
+				Endpoint:        cfg.Storage.S3.Endpoint,
+				Region:          cfg.Storage.S3.Region,
+				AccessKey:       cfg.Storage.S3.AccessKey,
+				SecretKey:       cfg.Storage.S3.SecretKey,
+				SessionToken:    cfg.Storage.S3.SessionToken,
+				Bucket:          cfg.Storage.S3.Bucket,
+				UseSSL:          cfg.Storage.S3.UseSSL,
+				ForcePathStyle:  cfg.Storage.S3.ForcePathStyle,
+				ExternalDomain:  cfg.Storage.S3.ExternalDomain,
+				PresignEndpoint: cfg.Storage.S3.PresignEndpoint,
+			},
 		},
 	}
 
