@@ -86,5 +86,22 @@ func GetDefaults() *Config {
 		FeatureGate: FeatureGateConfig{
 			LicenseKey: "demo-license-xyz",
 		},
+		Storage: StorageConfig{
+			DefaultDriver: "local",
+			TTLSeconds:    43200,
+			Local: LocalStorageConfig{
+				BasePath:      "./storage/media",
+				PublicBaseURL: "http://localhost:8077/media",
+			},
+			S3: S3StorageConfig{
+				Endpoint:       "http://127.0.0.1:9000",
+				Region:         "us-east-1",
+				AccessKey:      "minioadmin",
+				SecretKey:      "minioadmin",
+				Bucket:         "powerx-media",
+				UseSSL:         false,
+				ForcePathStyle: true,
+			},
+		},
 	}
 }

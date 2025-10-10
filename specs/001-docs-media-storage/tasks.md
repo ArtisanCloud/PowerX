@@ -25,9 +25,9 @@
 - [X] **T008 [P]** 实现 `pkg/corex/db/persistence/model/media/asset.go`：定义 `MediaAsset` 模型（租户字段、枚举、JSONB、审计嵌入、TableName）。
 - [X] **T009** 在 pkg/corex/db/migration.go 直接调用 AutoMigrate 纳入媒体模型（唯一/GIN 索引由模型结构体标签生成），不得编写原生 SQL 或生成 .sql 文件。
 - [X] **T010** 更新 `cmd/database/migrate.go`，在 `MigrateDatabase` / `ResetDatabase` 中调用 `MigrateMediaModels`，并确保生产保护逻辑覆盖。
-- [ ] **T011** 在 `pkg/corex/db/persistence/repository/media/asset_repo.go` 实现仓储：CRUD、分页筛选、标签过滤、软删除与清理查询。
-- [ ] **T012** 新建 `pkg/corex/db/persistence/model/state.go`，定义业务状态常量、合法状态迁移图与验证函数。
-- [ ] **T013** 编写 `config/storage.go` 并更新 `config/config.go`、`config/defaults.go`，注入驱动配置（local/s3）、默认 12 小时 TTL、MinIO 参数。
+- [X] **T011** 在 `pkg/corex/db/persistence/repository/media/asset_repo.go` 实现仓储：CRUD、分页筛选、标签过滤、软删除与清理查询。
+- [X] **T012** 新建 `pkg/corex/db/persistence/model/state.go`，定义业务状态常量、合法状态迁移图与验证函数。
+- [X] **T013** 编写 `config/storage.go` 并更新 `config/config.go`、`config/defaults.go`，注入驱动配置（local/s3）、默认 12 小时 TTL、MinIO 参数。
 - [ ] **T014** 在 `internal/infra/media/driver/interface.go`、`internal/infra/media/manager/manager.go` 定义 `StorageDriver` 接口、`MediaManager`，实现驱动注册、默认驱动、健康检查、metrics。
 - [ ] **T015** 在 `internal/infra/media/driver/local/local.go` 实现本地驱动：目录初始化、Put/Get/Delete、URL 生成、错误分类。
 - [ ] **T016** 在 `internal/infra/media/driver/s3/s3.go` 实现 S3 驱动：MinIO 客户端、PutObject、Presign、TTL 校验、错误包装。

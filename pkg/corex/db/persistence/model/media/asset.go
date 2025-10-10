@@ -8,13 +8,6 @@ import (
 	coremodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
 )
 
-const (
-	MediaAssetStatusDraft       = "draft"
-	MediaAssetStatusUnderReview = "under_review"
-	MediaAssetStatusPublished   = "published"
-	MediaAssetStatusArchived    = "archived"
-)
-
 type AuditMixin struct {
 	CreatedBy *uint64 `gorm:"column:created_by" json:"created_by,omitempty"`
 	UpdatedBy *uint64 `gorm:"column:updated_by" json:"updated_by,omitempty"`
