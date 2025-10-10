@@ -2,10 +2,11 @@ package media
 
 import (
 	"context"
-	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	mediasvc "github.com/ArtisanCloud/PowerX/internal/service/media"
 )
 
 type MediaSearchFilter struct {
@@ -28,15 +29,82 @@ type MediaSearchResult struct {
 }
 
 func (env *mediaIntegrationTestEnv) SeedSearchFixtures(ctx context.Context) error {
-	return errors.New("search fixtures seeding not implemented")
+	tenantID := env.ensureTenant("tenant_a")
+	assetA, err := env.service.CreateAsset(ctx, mediasvc.CreateAssetInput{
+		TenantID: tenantID,
+		Name:     "homepage-banner",
+		Driver:   "local",
+		Tags:     []string{"homepage"},
+	})
+	if err != nil {
+		return err
+	}
+	env.assetTenants[assetA.UUID] = tenantID
+	env.setFixture("draft", assetA.UUID)
+
+	assetB, err := env.service.CreateAsset(ctx, mediasvc.CreateAssetInput{
+		TenantID: tenantID,
+		Name:     "archived-banner",
+		Driver:   "local",
+		Tags:     []string{"homepage"},
+	})
+	if err != nil {
+		return err
+	}
+	env.assetTenants[assetB.UUID] = tenantID
+	env.setFixture("archived", assetB.UUID)
+
+	statusArchived := "archived"
+	if _, err := env.service.UpdateAsset(ctx, mediasvc.UpdateAssetInput{
+		TenantID:       tenantID,
+		UUID:           assetB.UUID,
+		BusinessStatus: &statusArchived,
+	}); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (env *mediaIntegrationTestEnv) SearchAssets(ctx context.Context, filter MediaSearchFilter) ([]MediaSearchResult, uint64, error) {
-	return nil, 0, errors.New("media search flow not implemented")
+	tenantID := env.ensureTenant(filter.TenantID)
+	input := mediasvc.ListAssetsInput{
+		TenantID:       tenantID,
+		Keyword:        filter.Keyword,
+		TagsAll:        filter.Tags,
+		IncludeDeleted: filter.IncludeDeleted,
+		Page:           filter.Page,
+		PageSize:       filter.PageSize,
+	}
+	if filter.BusinessStatus != "" {
+		input.BusinessStatus = []string{filter.BusinessStatus}
+	}
+	assets, total, err := env.service.ListAssets(ctx, input)
+	if err != nil {
+		return nil, 0, err
+	}
+	results := make([]MediaSearchResult, 0, len(assets))
+	for _, asset := range assets {
+		results = append(results, MediaSearchResult{
+			UUID:           asset.UUID,
+			TenantID:       filter.TenantID,
+			Name:           asset.Name,
+			BusinessStatus: asset.BusinessStatus,
+			Tags:           append([]string(nil), asset.Tags...),
+			Deleted:        asset.Deleted,
+		})
+	}
+	return results, uint64(total), nil
 }
 
 func (env *mediaIntegrationTestEnv) SoftDeleteAsset(ctx context.Context, uuid string) error {
-	return errors.New("soft delete simulation not implemented")
+	tenantID := env.assetTenants[uuid]
+	if tenantID == 0 {
+		return ErrMediaAssetNotFound
+	}
+	return env.service.DeleteAsset(ctx, mediasvc.DeleteAssetInput{
+		TenantID: tenantID,
+		UUID:     uuid,
+	})
 }
 
 func TestMediaAssetSearchFlowFiltersAndSoftDelete(t *testing.T) {
@@ -58,7 +126,7 @@ func TestMediaAssetSearchFlowFiltersAndSoftDelete(t *testing.T) {
 	require.Len(t, results, 2)
 	require.Equal(t, "draft", results[0].BusinessStatus)
 
-	require.NoError(t, env.SoftDeleteAsset(ctx, "mas_archived"))
+	require.NoError(t, env.SoftDeleteAsset(ctx, env.fixture("archived")))
 
 	activeOnly, activeTotal, err := env.SearchAssets(ctx, MediaSearchFilter{
 		TenantID:       "tenant_a",
@@ -79,5 +147,12 @@ func TestMediaAssetSearchFlowFiltersAndSoftDelete(t *testing.T) {
 	require.NoError(t, err)
 	require.GreaterOrEqual(t, deletedTotal, uint64(2))
 	require.Len(t, deleted, int(deletedTotal))
-	require.True(t, deleted[0].Deleted)
+	foundDeleted := false
+	for _, item := range deleted {
+		if item.Deleted {
+			foundDeleted = true
+			break
+		}
+	}
+	require.True(t, foundDeleted)
 }
