@@ -95,7 +95,7 @@ func (s *MediaAssetServer) GetMediaAsset(ctx context.Context, req *corexmediav1.
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
 	}
-	asset, err := s.svc.GetAsset(ctx, tenantID, req.GetUuid(), req.GetIncludeDeleted())
+	asset, err := s.svc.GetAsset(ctx, tenantID, req.GetUuid(), false)
 	if err != nil {
 		return nil, status.Errorf(codes.NotFound, err.Error())
 	}
