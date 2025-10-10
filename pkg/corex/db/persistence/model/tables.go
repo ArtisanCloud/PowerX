@@ -5,6 +5,8 @@ var PowerXSchema = "public"
 const TableAgentPlanRun = "agent_plan_runs"
 const TableAgentEvent = "agent_task_events"
 
+const TableMediaAsset = "media_assets"
+
 const TableIAMTenant = "iam_tenant"
 const TableTenantKeyPair = "iam_tenant_key_pairs"
 const TableIAMUser = "iam_user"

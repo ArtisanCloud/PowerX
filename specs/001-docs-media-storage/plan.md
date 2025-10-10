@@ -158,7 +158,6 @@ Makefile                              # proto-gen / contracts-test / etc.
 1) **数据模型**（`data-model.md`）  
 - 实体：`MediaAsset`（含 `TenantID`、`Driver`、`StorageKey`、`OwnerType/OwnerID`、`BusinessStatus`、`Tags/Meta`、审计与软删）  
 - 索引：`(tenant_id, driver, storage_key)` 唯一；`(tenant_id, business_status)`；`(tenant_id, owner_type, owner_id)`  
-- 迁移：`MigrateMediaModels` 在 `cmd/database/migrate.go` 注册
 
 2) **HTTP 契约**（`contracts/http-admin.yaml`）  
 - 路由前缀：`/admin/media/assets`（内部管理）  

@@ -1,6 +1,7 @@
 # PowerX 开发规范入口（Dev Guides）
 
 > 本文档是 PowerX 的统一开发规范入口。
+>
 > - 人类可阅读：开发与评审统一看这里。
 > - 工具可扩展：未来可被 `/plan` 与 `/tasks` 解析成可验证规则。
 
@@ -40,7 +41,7 @@
 ```plaintext
 Model → Repository → Service → Handler → Router
                   ↘ DI(shared) ↙
-````
+```
 
 ---
 
@@ -48,15 +49,87 @@ Model → Repository → Service → Handler → Router
 
 ### 约定
 
-* 遵循 PowerX 的 **模块化迁移机制**：
+- **统一入口**：`cmd/database/migrate.go`
+  由该入口统筹调用各模块的迁移函数。
+- **两种迁移模式**
 
-  * 统一入口在 `cmd/database/migrate.go`；
-  * 每个模块在自身包内定义 `Migrate<Module>Models(db *gorm.DB)`；
-  * 在该函数中通过 `db.AutoMigrate()` 注册模型。
-* 不交付额外 `.sql` 文件；
-* 索引、唯一约束在 **GORM 模型定义中声明**；
-* 可在迁移函数中调用 `db.Migrator().HasIndex()` 或 `HasConstraint()` 做运行期校验；
-* 所有迁移函数需返回 `error` 并在主入口统一调用。
+  1. **独立 Server 模块（如 Agent）**：在 `cmd/database/migrate.go` 内实现 `MigrateAgentModels(db *gorm.DB) error`，仅使用 `db.AutoMigrate(...)` 注册模型。
+  2. **CoreX 内核模块（如 MediaX）**：在 `pkg/corex/db/migration.go` 内实现 `MigrateCoreModels(db *gorm.DB) error`，由其中**直接调用 `AutoMigrate`** 将核心模型（含 MediaX）纳入迁移。
+- **不交付任何 `.sql` 文件**，迁移中禁止手写 `db.Exec(...)`。
+- **索引/唯一约束**：一律在 **GORM 模型结构体标签**中声明（含唯一索引、GIN 索引、部分索引等）。
+- **运行期校验（可选）**：如需校验可用 `db.Migrator().HasIndex()` / `HasConstraint()`，但**不得因此写原生 SQL**。
+- **错误处理**：所有迁移函数必须返回 `error`，并在统一入口串联调用。
+
+---
+
+### 示例
+
+#### A. 独立 Server 模块（Agent）
+
+> 在 `cmd/database/migrate.go` 内直接定义并调用：
+
+```go
+// cmd/database/migrate.go
+package main
+
+import (
+    "log"
+    "gorm.io/gorm"
+
+    dbmodel "github.com/your/module/internal/server/agent/persistence/model"
+)
+
+func MigrateAgentModels(db *gorm.DB) error {
+    if err := db.AutoMigrate(
+        &dbmodel.Agent{},
+        &dbmodel.AgentSetting{},
+    ); err != nil {
+        return err
+    }
+    // 可选：运行期校验（不写 SQL）
+    if ok := db.Migrator().HasIndex(&dbmodel.Agent{}, "agent_uniq_tenant"); !ok {
+        log.Println("warn: agent_uniq_tenant not created")
+    }
+    return nil
+}
+
+func main() {
+    // init db ...
+    // 串联调用（示例）
+    if err := MigrateCoreModels(db); err != nil { log.Fatal(err) }
+    if err := MigrateAgentModels(db); err != nil { log.Fatal(err) }
+}
+```
+
+#### B. CoreX 内核模块（含 MediaX）
+
+> 在 `pkg/corex/db/migration.go` 中集中维护 CoreX 的模型清单（例如 MediaX）并 **只用 `AutoMigrate`**：
+
+```go
+// pkg/corex/db/migration.go
+package corexdb
+
+import (
+    "gorm.io/gorm"
+
+    mediamodel "github.com/your/module/pkg/corex/db/persistence/model/media"
+    // 其他 CoreX 内核模型...
+)
+
+func MigrateCoreModels(db *gorm.DB) error {
+    return db.AutoMigrate(
+        &mediamodel.MediaAsset{},
+        // &mediamodel.MediaSet{}, // 如有
+        // 其他 CoreX 内核模型...
+    )
+}
+```
+
+> 说明：
+>
+> - **MediaX 等内核能力**作为 CoreX 的一部分，统一纳入 `MigrateCoreModels`；
+> - 索引/约束通过模型标签自动创建（如 `unique`、`using:gin`、`where:deleted_at IS NULL` 等）；
+> - 不再需要也不建议为 MediaX 再单独写 `MigrateMediaModels`。
 
 ### 示例
 
@@ -75,11 +148,11 @@ func MigrateAgentModels(db *gorm.DB) error {
 
 ### 验收要点
 
-* [ ] 模块定义独立的 `Migrate<Module>Models(db *gorm.DB)` 函数
-* [ ] 模型通过 `db.AutoMigrate()` 注册，无需 .sql 文件
-* [ ] 索引与唯一约束在 GORM 模型 tag 中声明
-* [ ] （可选）运行期校验索引 `db.Migrator().HasIndex()`
-* [ ] 迁移函数返回 `error` 并在顶层入口统一调用
+- [ ] 模块定义独立的 `Migrate<Module>Models(db *gorm.DB)` 函数
+- [ ] 模型通过 `db.AutoMigrate()` 注册，无需 .sql 文件
+- [ ] 索引与唯一约束在 GORM 模型 tag 中声明
+- [ ] （可选）运行期校验索引 `db.Migrator().HasIndex()`
+- [ ] 迁移函数返回 `error` 并在顶层入口统一调用
 
 ---
 
@@ -87,21 +160,21 @@ func MigrateAgentModels(db *gorm.DB) error {
 
 ### 约定
 
-* 模型统一基于 **PowerX Base Model**：
+- 模型统一基于 **PowerX Base Model**：
 
-  * `PowerModel`：自增整型主键；
-  * `PowerUUIDModel`：双主键（UUID + 自增 ID），在 `BeforeCreate()` 自动生成 UUID。
-* 必须显式声明：
+  - `PowerModel`：自增整型主键；
+  - `PowerUUIDModel`：双主键（UUID + 自增 ID），在 `BeforeCreate()` 自动生成 UUID。
+- 必须显式声明：
 
-  * `CreatedAt` / `UpdatedAt` / `DeletedAt`；
-  * 表名函数 `TableName()` 与 `GetTableName()`；
-* 多租户字段：`TenantID uint64`；
-* Schema 默认由 `PowerXSchema` 控制；
-* 表名常量集中在 `tables.go`；
-* JSON 字段使用 `datatypes.JSON`；
-* 唯一/复合索引通过 GORM tag 定义；
-* 状态字段统一命名 `Status`，默认值 1；
-* 模型文件放在 `pkg/corex/db/persistence/model/<domain>/`。
+  - `CreatedAt` / `UpdatedAt` / `DeletedAt`；
+  - 表名函数 `TableName()` 与 `GetTableName()`；
+- 多租户字段：`TenantID uint64`；
+- Schema 默认由 `PowerXSchema` 控制；
+- 表名常量集中在 `tables.go`；
+- JSON 字段使用 `datatypes.JSON`；
+- 唯一/复合索引通过 GORM tag 定义；
+- 状态字段统一命名 `Status`，默认值 1；
+- 模型文件放在 `pkg/corex/db/persistence/model/<domain>/`。
 
 ### 示例
 
@@ -120,14 +193,14 @@ func (u *User) TableName() string {
 
 ### 验收要点
 
-* [ ] 模型嵌入 `PowerModel` 或 `PowerUUIDModel`
-* [ ] 含软删字段 `DeletedAt` 并建索引
-* [ ] 含租户字段 `TenantID`
-* [ ] JSONB 字段正确定义
-* [ ] 表名函数返回 `${schema}.${table}`
-* [ ] 索引通过 GORM tag 定义
-* [ ] 状态字段默认 1
-* [ ] 模型对应迁移函数已注册
+- [ ] 模型嵌入 `PowerModel` 或 `PowerUUIDModel`
+- [ ] 含软删字段 `DeletedAt` 并建索引
+- [ ] 含租户字段 `TenantID`
+- [ ] JSONB 字段正确定义
+- [ ] 表名函数返回 `${schema}.${table}`
+- [ ] 索引通过 GORM tag 定义
+- [ ] 状态字段默认 1
+- [ ] 模型对应迁移函数已注册
 
 ---
 
@@ -135,12 +208,12 @@ func (u *User) TableName() string {
 
 ### 约定
 
-* 所有仓库组合 `BaseRepository[T]`；
-* 所有方法均接收 `context.Context`；
-* 写操作返回 `error`；
-* 禁止直接操作 DB 或外部 IO；
-* 唯一冲突用 `IsUniqueViolation()`；
-* 在 `deps.go` 统一注册。
+- 所有仓库组合 `BaseRepository[T]`；
+- 所有方法均接收 `context.Context`；
+- 写操作返回 `error`；
+- 禁止直接操作 DB 或外部 IO；
+- 唯一冲突用 `IsUniqueViolation()`；
+- 在 `deps.go` 统一注册。
 
 ### 示例
 
@@ -159,12 +232,12 @@ func NewUserRepository(db *gorm.DB) *UserRepository {
 
 ### 验收要点
 
-* [ ] 组合 `BaseRepository[T]`
-* [ ] 构造函数 `New<ModelName>Repository` 存在
-* [ ] 方法首参为 `context.Context`
-* [ ] 写操作返回 `error`
-* [ ] 在 `deps.go` 注册
-* [ ] 不含外部 IO 操作
+- [ ] 组合 `BaseRepository[T]`
+- [ ] 构造函数 `New<ModelName>Repository` 存在
+- [ ] 方法首参为 `context.Context`
+- [ ] 写操作返回 `error`
+- [ ] 在 `deps.go` 注册
+- [ ] 不含外部 IO 操作
 
 ---
 
@@ -177,27 +250,27 @@ Service 层负责 **业务用例编排、鉴权、事务、审计**。
 
 ### 约定
 
-* 命名：`<ModelName>Service`；
-* 构造函数：`New<ModelName>Service(db *gorm.DB, …)`；
-* 首参 `context.Context`；
-* 组合 `*BaseService`；
-* 统一在 `deps.go` 注册；
-* 写操作必须事务化并记录审计；
-* 业务错误集中定义于 `internal/service/errors.go`；
-* 更新走白名单更新；
-* 删除默认软删，硬删需显式授权；
-* 错误包装统一。
+- 命名：`<ModelName>Service`；
+- 构造函数：`New<ModelName>Service(db *gorm.DB, …)`；
+- 首参 `context.Context`；
+- 组合 `*BaseService`；
+- 统一在 `deps.go` 注册；
+- 写操作必须事务化并记录审计；
+- 业务错误集中定义于 `internal/service/errors.go`；
+- 更新走白名单更新；
+- 删除默认软删，硬删需显式授权；
+- 错误包装统一。
 
 ### 验收要点
 
-* [ ] 组合 `*BaseService`
-* [ ] 构造函数存在
-* [ ] 方法首参 `context.Context`
-* [ ] 不直接访问 DB
-* [ ] 写操作包裹事务与审计
-* [ ] 删除默认软删，Force 硬删需权限
-* [ ] 错误集中定义
-* [ ] 已在 `deps.go` 注册
+- [ ] 组合 `*BaseService`
+- [ ] 构造函数存在
+- [ ] 方法首参 `context.Context`
+- [ ] 不直接访问 DB
+- [ ] 写操作包裹事务与审计
+- [ ] 删除默认软删，Force 硬删需权限
+- [ ] 错误集中定义
+- [ ] 已在 `deps.go` 注册
 
 ---
 
@@ -205,33 +278,33 @@ Service 层负责 **业务用例编排、鉴权、事务、审计**。
 
 ### 统一响应与分页
 
-* 成功/失败结构：`ResponseSuccess`、`ResponseError`、`ResponseList`；
-* 分页结构：`PaginationRequest`, `PaginationResponse`。
+- 成功/失败结构：`ResponseSuccess`、`ResponseError`、`ResponseList`；
+- 分页结构：`PaginationRequest`, `PaginationResponse`。
 
 ### 参数绑定与校验
 
-* 使用 `ValidateRequestWithContext(c, req)`；
-* DTO 字段带 `validate` 标签；
-* 校验失败返回统一结构。
+- 使用 `ValidateRequestWithContext(c, req)`；
+- DTO 字段带 `validate` 标签；
+- 校验失败返回统一结构。
 
 ### 错误桥接
 
-* 统一错误结构：`AppError{HTTPCode, Message, Details}`；
-* 桥接方法：`RespondErrorFrom(c, err)`、`MustOK(c, data, err)`。
+- 统一错误结构：`AppError{HTTPCode, Message, Details}`；
+- 桥接方法：`RespondErrorFrom(c, err)`、`MustOK(c, data, err)`。
 
 ### SSE / WS
 
-* 事件名统一：`start/intent/plan/token/data/action/final/end/error/heartbeat`；
-* SSE 写入：`WriteToSSE(c, flowID, execID, sr, heartbeat)`；
-* WS 信封：`WSEnvelope{Type, Data, Timestamp}`。
+- 事件名统一：`start/intent/plan/token/data/action/final/end/error/heartbeat`；
+- SSE 写入：`WriteToSSE(c, flowID, execID, sr, heartbeat)`；
+- WS 信封：`WSEnvelope{Type, Data, Timestamp}`。
 
 ### 验收要点
 
-* [ ] DTO 独立定义，不复用模型；
-* [ ] 参数绑定使用统一函数；
-* [ ] 响应结构统一；
-* [ ] 错误使用 AppError；
-* [ ] 流式接口事件名统一；
+- [ ] DTO 独立定义，不复用模型；
+- [ ] 参数绑定使用统一函数；
+- [ ] 响应结构统一；
+- [ ] 错误使用 AppError；
+- [ ] 流式接口事件名统一；
 
 ---
 
@@ -264,12 +337,12 @@ func RegisterMediaRoutes(rg *gin.RouterGroup, deps *shared.Deps) {
 
 ### 验收要点
 
-* [ ] `api.go` 只注册路由；
-* [ ] Handler 只做绑定/校验/调用 Service；
-* [ ] 使用统一回包函数；
-* [ ] 前缀 `/api/v1/admin`；
-* [ ] 动词与路径符合 REST 语义；
-* [ ] 契约测试覆盖 CRUD。
+- [ ] `api.go` 只注册路由；
+- [ ] Handler 只做绑定/校验/调用 Service；
+- [ ] 使用统一回包函数；
+- [ ] 前缀 `/api/v1/admin`；
+- [ ] 动词与路径符合 REST 语义；
+- [ ] 契约测试覆盖 CRUD。
 
 ---
 
@@ -277,20 +350,20 @@ func RegisterMediaRoutes(rg *gin.RouterGroup, deps *shared.Deps) {
 
 ### 约定
 
-* 所有依赖集中在 `internal/app/shared/deps.go`；
-* 统一构造函数 `NewDeps(db, opts)`；
-* 所有服务在 `Deps` 结构体中注册；
-* Handler 层通过 `*shared.Deps` 访问；
-* 不在模块中重复创建连接；
-* Audit 与 Auth 统一实例。
+- 所有依赖集中在 `internal/app/shared/deps.go`；
+- 统一构造函数 `NewDeps(db, opts)`；
+- 所有服务在 `Deps` 结构体中注册；
+- Handler 层通过 `*shared.Deps` 访问；
+- 不在模块中重复创建连接；
+- Audit 与 Auth 统一实例。
 
 ### 验收要点
 
-* [ ] 所有依赖集中初始化；
-* [ ] Handler 统一接收 `*shared.Deps`；
-* [ ] Service 不自行创建连接；
-* [ ] Audit 回调注册成功；
-* [ ] 新模块扩展遵循 Deps + Options 模式。
+- [ ] 所有依赖集中初始化；
+- [ ] Handler 统一接收 `*shared.Deps`；
+- [ ] Service 不自行创建连接；
+- [ ] Audit 回调注册成功；
+- [ ] 新模块扩展遵循 Deps + Options 模式。
 
 ---
 
@@ -298,24 +371,24 @@ func RegisterMediaRoutes(rg *gin.RouterGroup, deps *shared.Deps) {
 
 ### 路径与版本
 
-* 管理后台：`/api/v1/admin`
-* 开放接口：`/api/v1/open`
-* Web 前台：`/api/v1/web`
-* URL 版本化策略，破坏性变更才升级。
+- 管理后台：`/api/v1/admin`
+- 开放接口：`/api/v1/open`
+- Web 前台：`/api/v1/web`
+- URL 版本化策略，破坏性变更才升级。
 
 ### 错误与分页
 
-* 统一错误结构：`{ code, message, details?, request_id }`；
-* 状态码：400/401/403/404/409/429/500；
-* 分页响应带 `pagination{total,page,pageSize,pages}`。
+- 统一错误结构：`{ code, message, details?, request_id }`；
+- 状态码：400/401/403/404/409/429/500；
+- 分页响应带 `pagination{total,page,pageSize,pages}`。
 
 ### 验收要点
 
-* [ ] API 路径与版本规范；
-* [ ] 错误结构统一；
-* [ ] 分页字段完整；
-* [ ] 幂等与权限策略明确；
-* [ ] SSE/WS 事件一致。
+- [ ] API 路径与版本规范；
+- [ ] 错误结构统一；
+- [ ] 分页字段完整；
+- [ ] 幂等与权限策略明确；
+- [ ] SSE/WS 事件一致。
 
 ---
 
@@ -323,17 +396,17 @@ func RegisterMediaRoutes(rg *gin.RouterGroup, deps *shared.Deps) {
 
 ### 约定
 
-* 契约测试覆盖鉴权/分页/筛选/软删；
-* 集成测试覆盖完整业务流；
-* 使用 `httptest`；
-* 模拟外部依赖可使用 mock。
+- 契约测试覆盖鉴权/分页/筛选/软删；
+- 集成测试覆盖完整业务流；
+- 使用 `httptest`；
+- 模拟外部依赖可使用 mock。
 
 ### 验收要点
 
-* [ ] 契约测试完整；
-* [ ] 集成测试覆盖 CRUD；
-* [ ] 测试使用 httptest；
-* [ ] mock 外部依赖。
+- [ ] 契约测试完整；
+- [ ] 集成测试覆盖 CRUD；
+- [ ] 测试使用 httptest；
+- [ ] mock 外部依赖。
 
 ---
 
