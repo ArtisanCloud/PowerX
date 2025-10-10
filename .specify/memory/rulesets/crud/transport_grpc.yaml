@@ -6,7 +6,7 @@ status: stable
 
 meta:
   intent: >
-    规范 gRPC 服务器层的实现：仅依赖 Service；统一拦截器（鉴权/租户/日志/恢复/限流/校验）；
+    规范 gRPC 服务器层的实现：单实例 Server、模块级 Handler；统一拦截器（鉴权/租户/日志/恢复/限流/校验）；
     错误映射到 gRPC status；尊重 deadline；透传/回写 metadata；按需支持流式事件与健康检查/反射。
   references:
     - crud_grpc.yaml
@@ -17,6 +17,7 @@ meta:
 scope:
   applies_to:
     - "internal/transport/grpc/**/**.go"
+    - "internal/server/grpc/**/**.go"
 
 principles:
   - 传输解耦：gRPC 层仅依赖 *shared.Deps 和 Service，不直连 Repo/DB/外部客户端。
@@ -24,25 +25,36 @@ principles:
   - 一致性：错误语义与 REST/Service 对齐；分页与 DTO 吻合。
   - 健壮性：统一恢复拦截；尊重客户端 deadline；合理默认超时；支持优雅停机。
   - 扩展性：拦截器链条可插拔；流式事件名与 REST SSE 保持一致。
+  - 单实例：仅允许一个全局 gRPC Server（internal/server/grpc/server.go）。
 
 checks:
 
-  # ========= 结构：Server 构造与注册 =========
-  server_shape:
-    - id: grpc.server.new_and_register
-      level: error
-      when: { glob: "internal/transport/grpc/**/server.go" }
-      assert:
-        - must_contain_regex: "func\\s+New\\(deps\\s+\\*shared\\.Deps\\)\\s+\\*Server"
-        - must_contain_regex: "grpc\\.NewServer\\("
-        - must_contain_regex: "Register[A-Za-z0-9]+ServiceServer\\(.*\\)"  # 代码生成的 Register*Server
-        - must_not_import: ["gorm.io/gorm","database/sql","github.com/gin-gonic/gin"]
-    - id: grpc.server.struct
-      level: error
-      when: { glob: "internal/transport/grpc/**/server.go" }
-      assert:
-        - must_contain_regex: "type\\s+Server\\s+struct\\s*{"
-        - must_contain_regex: "\\*shared\\.Deps"
+  # ===== 全局 Server（唯一）：负责 New + 拦截器 + 集中注册 =====
+  - id: grpc.global.server.shape
+    level: error
+    when: { file: "internal/server/grpc/server.go" }
+    assert:
+      - must_contain_regex: "grpc\\.NewServer\\("
+      - must_contain_regex: "Register[A-Za-z0-9]+ServiceServer\\(.*\\)"
+      - must_not_import: ["gorm.io/gorm","database/sql","github.com/gin-gonic/gin"]
+
+  # ===== 模块实现文件：允许 *_handler.go 或 service.go，禁止 new/register =====
+  - id: grpc.module.impl.shape
+    level: error
+    when: { glob: "internal/transport/grpc/**/{*_handler.go,service.go}" }
+    assert:
+      - must_contain_regex: "type\\s+Server\\s+struct\\s*{\\s*\\*shared\\.Deps\\s*}"
+      - must_contain_regex: "func\\s+New\\(deps\\s*\\*shared\\.Deps\\)\\s*\\*Server"
+      - must_not_contain_regex: "grpc\\.NewServer\\("
+      - must_not_contain_regex: "Register[A-Za-z0-9]+ServiceServer\\("
+      - must_not_import: ["database/sql","github.com/gin-gonic/gin"]
+
+  # ===== 代码生成产物位置校验 =====
+  - id: grpc.codegen.layout
+    level: error
+    when: { file: "buf.gen.yaml" }
+    assert:
+      - contains: "internal/transport/grpc/gen"
 
   # ========= 依赖注入：必须通过 Deps 注入 Service =========
   di_usage:
@@ -54,11 +66,11 @@ checks:
         - must_not_import: ["gorm.io/gorm","database/sql"]
         - must_not_call: ["redis.NewClient(","kafka.NewReader(","sql.Open("]
 
-  # ========= 拦截器：Unary & Stream 必配链 =========
+  # ========= 拦截器：Unary & Stream 必配链（检查全局 server）=========
   interceptors:
     - id: grpc.chain.interceptors
       level: error
-      when: { glob: "internal/transport/grpc/**/server.go" }
+      when: { file: "internal/server/grpc/server.go" }
       assert:
         - must_contain_any:
             - "grpc.ChainUnaryInterceptor("
@@ -68,7 +80,7 @@ checks:
             - "grpc_middleware.ChainStreamServer("
     - id: grpc.interceptors.kinds
       level: warn
-      when: { glob: "internal/transport/grpc/**/server.go" }
+      when: { file: "internal/server/grpc/server.go" }
       assert:
         - should_contain_any:
             - "AuthUnaryInterceptor"
@@ -94,7 +106,7 @@ checks:
             - "if _, ok := ctx.Deadline(); ok {"
             - "deadline, ok := ctx.Deadline()"
 
-  # ========= 鉴权与多租户（由拦截器注入）=========
+  # ========= 鉴权与多租户（通常由拦截器注入）=========
   auth_tenant:
     - id: grpc.auth.from_metadata
       level: warn
@@ -122,8 +134,8 @@ checks:
       level: error
       when: { glob: "internal/transport/grpc/**/**.go" }
       assert:
-        - should_contain_regex: "s\\.deps\\.[A-Za-z0-9]+Service\\."
-        - must_not_import: ["internal/repository"]   # 禁止越层依赖 Repo
+        - should_contain_regex: "s\\.Deps\\.[A-Za-z0-9]+Service\\."
+        - must_not_import: ["internal/repository"]
 
   # ========= 流式（存在时）事件与取消 =========
   streaming:
@@ -131,23 +143,14 @@ checks:
       level: warn
       when: { contains: "stream " }
       assert:
-        - should_contain_any:
-            - "start"
-            - "token"
-            - "data"
-            - "final"
-            - "end"
-            - "error"
-            - "heartbeat"
-        - should_contain_any:
-            - "ctx.Err()"
-            - "stream.Context()"
+        - should_contain_any: ["start","token","data","final","end","error","heartbeat"]
+        - should_contain_any: ["ctx.Err()","stream.Context()"]
 
-  # ========= 可选：健康检查与反射 =========
+  # ========= 可选：健康检查与反射（检查全局 server）=========
   health_reflection:
     - id: grpc.health.reflection
       level: info
-      when: { glob: "internal/transport/grpc/**/server.go" }
+      when: { file: "internal/server/grpc/server.go" }
       assert:
         - should_contain_any:
             - "health.NewServer("
@@ -155,8 +158,8 @@ checks:
 
 acceptance:
   checklist:
-    - "[ ] Server 通过 New(*shared.Deps) 构造，内部持有 deps 与 *grpc.Server"
-    - "[ ] 仅依赖 Service，不直连 Repo/DB/外部客户端"
+    - "[ ] 仅存在一个全局 gRPC Server：internal/server/grpc/server.go"
+    - "[ ] 模块实现通过 New(*shared.Deps) 构造，禁止 new/register server"
     - "[ ] 已配置 Unary/Stream 拦截器链（鉴权/租户/日志/恢复/限流/校验 可按需）"
     - "[ ] 通过 metadata 读写 request_id/trace_id，尊重 client deadline"
     - "[ ] 错误映射使用 status/codes，语义与 REST/Service 对齐"

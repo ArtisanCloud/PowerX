@@ -1,0 +1,380 @@
+openapi: 3.0.3
+info:
+  title: PowerX Admin Media Asset API
+  version: 0.1.0
+  description: >-
+    媒体资产管理后台接口，覆盖上传、查询、更新、软删除与预签名链接生成。
+servers:
+  - url: https://admin.powerx.local/api/v1
+    description: 后台管理 API 网关
+security:
+  - bearerAuth: []
+tags:
+  - name: MediaAssets
+    description: 媒体资产后台管理
+paths:
+  /admin/media/assets:
+    post:
+      summary: 创建媒体资产
+      tags: [MediaAssets]
+      operationId: createMediaAsset
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CreateMediaAssetPayload'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateMediaAssetPayload'
+      responses:
+        '201':
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MediaAsset'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          description: 名称或对象键冲突
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    get:
+      summary: 列表筛选媒体资产
+      tags: [MediaAssets]
+      operationId: listMediaAssets
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - $ref: '#/components/parameters/Tenant'
+        - name: keyword
+          in: query
+          schema:
+            type: string
+        - name: driver
+          in: query
+          schema:
+            type: string
+        - name: ownerSubjectType
+          in: query
+          schema:
+            type: string
+        - name: ownerSubjectId
+          in: query
+          schema:
+            type: string
+        - name: tags
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+      responses:
+        '200':
+          description: 列表返回
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MediaAssetList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+  /admin/media/assets/{uuid}:
+    get:
+      summary: 获取媒体资产详情
+      tags: [MediaAssets]
+      operationId: getMediaAsset
+      parameters:
+        - $ref: '#/components/parameters/UUID'
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MediaAsset'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      summary: 更新媒体业务属性
+      tags: [MediaAssets]
+      operationId: updateMediaAsset
+      parameters:
+        - $ref: '#/components/parameters/UUID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateMediaAssetPayload'
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MediaAsset'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          description: 状态流转不合法
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      summary: 软删除媒体资产
+      tags: [MediaAssets]
+      operationId: deleteMediaAsset
+      parameters:
+        - $ref: '#/components/parameters/UUID'
+      responses:
+        '204':
+          description: 删除成功
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /admin/media/assets/{uuid}/presign:
+    post:
+      summary: 生成预签名链接
+      tags: [MediaAssets]
+      operationId: presignMediaAsset
+      parameters:
+        - $ref: '#/components/parameters/UUID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PresignRequestPayload'
+      responses:
+        '200':
+          description: 返回预签名数据
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PresignResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    UUID:
+      name: uuid
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    Page:
+      name: page
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    PageSize:
+      name: pageSize
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+    Tenant:
+      name: X-Tenant-ID
+      in: header
+      required: true
+      schema:
+        type: string
+  responses:
+    BadRequest:
+      description: 参数校验失败
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: 资源不存在或已软删除
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+  schemas:
+    Error:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        traceId:
+          type: string
+    MediaAsset:
+      type: object
+      required:
+        - uuid
+        - name
+        - driver
+        - businessStatus
+        - createdAt
+      properties:
+        uuid:
+          type: string
+          format: uuid
+        tenantId:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        driver:
+          type: string
+        folder:
+          type: string
+          nullable: true
+        objectKey:
+          type: string
+        externalUrl:
+          type: string
+          nullable: true
+        sizeBytes:
+          type: integer
+          format: int64
+          nullable: true
+        mimeType:
+          type: string
+          nullable: true
+        ownerSubjectType:
+          type: string
+        ownerSubjectId:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        businessStatus:
+          type: string
+          enum: [draft, under_review, published, archived]
+        downloadUrl:
+          type: string
+          nullable: true
+        downloadExpiredAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    MediaAssetList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/MediaAsset'
+        total:
+          type: integer
+        page:
+          type: integer
+        pageSize:
+          type: integer
+    CreateMediaAssetPayload:
+      type: object
+      required:
+        - name
+        - driver
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        driver:
+          type: string
+        folder:
+          type: string
+          nullable: true
+        ownerSubjectType:
+          type: string
+        ownerSubjectId:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        uploadMethod:
+          type: string
+          enum: [direct_upload, external_link, presign_upload]
+        file:
+          type: string
+          format: binary
+        externalUrl:
+          type: string
+          nullable: true
+        presignToken:
+          type: object
+          nullable: true
+    UpdateMediaAssetPayload:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        businessStatus:
+          type: string
+          enum: [draft, under_review, published, archived]
+    PresignRequestPayload:
+      type: object
+      required:
+        - action
+      properties:
+        action:
+          type: string
+          enum: [upload, download]
+        method:
+          type: string
+          enum: [GET, PUT, POST]
+          nullable: true
+        expiresInSeconds:
+          type: integer
+          default: 43200
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+    PresignResponse:
+      type: object
+      required:
+        - url
+        - method
+        - expiresInSeconds
+      properties:
+        url:
+          type: string
+        method:
+          type: string
+        expiresInSeconds:
+          type: integer
+        headers:
+          type: object
+          additionalProperties:
+            type: string
+        fields:
+          type: object
+          additionalProperties:
+            type: string

@@ -1,0 +1,160 @@
+syntax = "proto3";
+
+package powerx.docs.media.v1;
+
+option go_package = "github.com/ArtisanCloud/PowerX/internal/transport/grpc/gen/powerx/docs/media/v1;mediav1";
+option java_package = "com.powerx.docs.media.v1";
+option java_multiple_files = true;
+
+// MediaAssetAdminService 提供后台媒体资产管理能力。
+service MediaAssetAdminService {
+  rpc CreateMediaAsset(CreateMediaAssetRequest) returns (MediaAssetResponse);
+  rpc ListMediaAssets(ListMediaAssetsRequest) returns (ListMediaAssetsResponse);
+  rpc GetMediaAsset(GetMediaAssetRequest) returns (MediaAssetResponse);
+  rpc UpdateMediaAsset(UpdateMediaAssetRequest) returns (MediaAssetResponse);
+  rpc DeleteMediaAsset(DeleteMediaAssetRequest) returns (DeleteMediaAssetResponse);
+  rpc PresignMediaAsset(PresignMediaAssetRequest) returns (PresignMediaAssetResponse);
+}
+
+message MediaAsset {
+  string uuid = 1;
+  string tenant_id = 2;
+  string name = 3;
+  string description = 4;
+  string driver = 5;
+  string folder = 6;
+  string object_key = 7;
+  string external_url = 8;
+  int64 size_bytes = 9;
+  string mime_type = 10;
+  string owner_subject_type = 11;
+  string owner_subject_id = 12;
+  repeated string tags = 13;
+  BusinessStatus business_status = 14;
+  string download_url = 15;
+  int64 download_expired_at = 16; // unix timestamp
+  map<string, string> extra = 17;
+  AuditMetadata audit = 18;
+}
+
+message AuditMetadata {
+  string created_by = 1;
+  string updated_by = 2;
+  int64 created_at = 3;
+  int64 updated_at = 4;
+}
+
+enum BusinessStatus {
+  BUSINESS_STATUS_UNSPECIFIED = 0;
+  BUSINESS_STATUS_DRAFT = 1;
+  BUSINESS_STATUS_UNDER_REVIEW = 2;
+  BUSINESS_STATUS_PUBLISHED = 3;
+  BUSINESS_STATUS_ARCHIVED = 4;
+}
+
+message CreateMediaAssetRequest {
+  string tenant_id = 1;
+  string operator_id = 2;
+  string name = 3;
+  string description = 4;
+  string driver = 5;
+  string folder = 6;
+  string owner_subject_type = 7;
+  string owner_subject_id = 8;
+  repeated string tags = 9;
+  UploadChannel upload_channel = 10;
+  bytes file_content = 11;
+  string file_name = 12;
+  string external_url = 13;
+  PresignUploadToken presign_token = 14;
+}
+
+enum UploadChannel {
+  UPLOAD_CHANNEL_UNSPECIFIED = 0;
+  UPLOAD_CHANNEL_DIRECT = 1;
+  UPLOAD_CHANNEL_EXTERNAL_URL = 2;
+  UPLOAD_CHANNEL_PRESIGNED = 3;
+}
+
+message PresignUploadToken {
+  string token_id = 1;
+  map<string, string> headers = 2;
+  map<string, string> fields = 3;
+  int64 expires_at = 4;
+}
+
+message ListMediaAssetsRequest {
+  string tenant_id = 1;
+  string keyword = 2;
+  string driver = 3;
+  string owner_subject_type = 4;
+  string owner_subject_id = 5;
+  repeated string tags = 6;
+  BusinessStatus business_status = 7;
+  uint32 page = 8;
+  uint32 page_size = 9;
+  string sort = 10;
+}
+
+message ListMediaAssetsResponse {
+  repeated MediaAsset items = 1;
+  uint64 total = 2;
+  uint32 page = 3;
+  uint32 page_size = 4;
+}
+
+message GetMediaAssetRequest {
+  string tenant_id = 1;
+  string uuid = 2;
+}
+
+message MediaAssetResponse {
+  MediaAsset data = 1;
+}
+
+message UpdateMediaAssetRequest {
+  string tenant_id = 1;
+  string uuid = 2;
+  string operator_id = 3;
+  optional string name = 4;
+  optional string description = 5;
+  repeated string tags = 6;
+  optional BusinessStatus business_status = 7;
+}
+
+message DeleteMediaAssetRequest {
+  string tenant_id = 1;
+  string uuid = 2;
+  string operator_id = 3;
+  bool force = 4; // true 表示立即物理删除
+}
+
+message DeleteMediaAssetResponse {
+  bool deleted = 1;
+  bool scheduled_cleanup = 2;
+}
+
+message PresignMediaAssetRequest {
+  string tenant_id = 1;
+  string uuid = 2;
+  string operator_id = 3;
+  PresignAction action = 4;
+  uint32 expires_in_seconds = 5;
+  string method = 6;
+  map<string, string> metadata = 7;
+}
+
+enum PresignAction {
+  PRESIGN_ACTION_UNSPECIFIED = 0;
+  PRESIGN_ACTION_UPLOAD = 1;
+  PRESIGN_ACTION_DOWNLOAD = 2;
+}
+
+message PresignMediaAssetResponse {
+  string url = 1;
+  string method = 2;
+  uint32 expires_in_seconds = 3;
+  map<string, string> headers = 4;
+  map<string, string> fields = 5;
+  string object_key = 6;
+}

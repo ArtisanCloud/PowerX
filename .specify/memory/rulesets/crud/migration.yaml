@@ -7,10 +7,11 @@ status: stable
 meta:
   intent: >
     约束数据库迁移与重置的“入口实现 + 模块注册”形态：
-    - 入口：cmd/database/migrate.go 必须提供 MigrateDatabase(ctx, *gorm.DB) 与 ResetDatabase(ctx, *gorm.DB)
-    - MigrateDatabase 必须依次调用：database.MigrateCoreModels、internal/server/agent/persistence.MigrateAgentModels
-    - ResetDatabase 必须基于 Postgres 的 schema 重建（DROP SCHEMA ... CASCADE; CREATE SCHEMA ...），并允许 MySQL 逐表删除的降级实现
-    - 模块迁移函数位于 internal/server/**/persistence/migrate.go
+    - 总入口仅在 cmd/database/migrate.go 定义 MigrateDatabase/ResetDatabase（编排用，不写模块迁移逻辑）。
+    - 每个模块必须在 internal/server/**/persistence/migrate.go 定义 Migrate<Module>Models（仅 AutoMigrate/Migrator，无 .sql）。
+    - 在 plan.md 中必须出现 internal/server/**/persistence/migrate.go；禁止出现 db/migrations、.sql、00x_create_*。
+    - 在 tasks.md 中必须包含 T009a（模块迁移文件）与 T009b（总入口编排），禁止把模块迁移写到 cmd/ 里。
+    - 若与以上冲突，以本块为准；否则视为失败。
 
 scope:
   codebase:
