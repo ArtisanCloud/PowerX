@@ -104,8 +104,8 @@ pkg/corex/db/persistence/repository/media/
 
 # 领域与服务
 
-internal/domain/media/
-└── state.go
+pkg/corex/db/persistence/model/media/
+gorm实体即使领域对戏那个
 
 internal/service/media/
 └── service.go

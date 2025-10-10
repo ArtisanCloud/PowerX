@@ -60,6 +60,7 @@ If a runner does not natively support `manifest.yaml`, it must treat this sectio
 | **Plugin** | `plugins/<vendor>/<name>/backend/...` | **gRPC**：`api/grpc/<vendor>/<name>/v1/*.proto`；**REST**：`plugins/.../contracts/` | **HTTP**：`plugins/.../transport/http`；**gRPC**：`plugins/.../transport/grpc` | **需要** `plugins/registry.json`；按插件生命周期加载 | `plugins/.../infra/migration` 与插件内 DI/引导 |
 
 > 说明：当前仓库已有约定是 **Proto 的权威源在 `api/grpc/contracts`**，Go 代码生成位置在 `api/grpc/gen/go`（见下文 0.3）。HTTP 的 OpenAPI 合同以 `specs/<feature>/contracts/http-openapi.yaml` 作为设计产物，服务端路由/Handler 以 `internal/transport/http/...` 落地（区分 `admin/web/openapi` 子树）。
+> 领域实体说明，因为gorm即定义了model，也可以作为领域的实体使用，不需要反复定义，所以基本上都是在pkg/corex/db/persistence/model/...
 
 ### 0.3 传输/合同与代码生成（CoreX 统一约束）
 
