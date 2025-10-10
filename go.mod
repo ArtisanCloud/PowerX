@@ -10,6 +10,7 @@ require (
 	github.com/golang-jwt/jwt/v5 v5.3.0
 	github.com/google/uuid v1.6.0
 	github.com/mark3labs/mcp-go v0.37.0
+	github.com/minio/minio-go/v7 v7.0.0
 	github.com/redis/go-redis/v9 v9.12.1
 	github.com/stretchr/testify v1.9.0
 	github.com/swaggo/files v1.0.1
@@ -37,6 +38,9 @@ require (
 )
 
 replace github.com/ArtisanCloud/PowerX/api/grpc/gen/go => ./api/grpc/gen/go
+
+replace github.com/minio/minio-go/v7 => ./internal/infra/media/driver/s3/minio
+
 require (
 	filippo.io/edwards25519 v1.1.0 // indirect
 	github.com/KyleBanks/depth v1.2.1 // indirect
