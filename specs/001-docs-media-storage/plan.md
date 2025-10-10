@@ -134,7 +134,7 @@ internal/transport/grpc/auth/middleware/
 
 # 协议生成
 
-api/grpc/corex/media/v1/media_asset.proto
+api/grpc/contracts/powerx/media/v1/media_asset.proto
 Makefile                              # proto-gen / contracts-test / etc.
 
 ```

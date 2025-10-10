@@ -16,8 +16,8 @@
 ## Phase 3: 任务列表
 
 - [X] **T001** 将 `specs/001-docs-media-storage/contracts/http-openapi.yaml` 重命名并整理为 `specs/001-docs-media-storage/contracts/http-admin.yaml`，修订 `servers.url=/api/admin/v1`、标签说明及引用链接。
-- [X] **T002** 将 `specs/001-docs-media-storage/contracts/grpc-media-asset.proto` 移入 `api/grpc/corex/media/v1/media_asset.proto`，修改 package 为 `powerx.corex.media.v1`，设置 `go_package = github.com/ArtisanCloud/PowerX/internal/transport/grpc/gen/powerx/corex/media/v1;corexmediav1`。
-- [X] **T003** 在仓库根目录新增/更新 `buf.yaml`、`buf.gen.yaml`，纳入 `api/grpc/corex`，并在 `Makefile` 添加 `proto-gen`、`proto-lint`、`proto-clean`、`contracts-test` 目标（含 CI 钩子）。
+- [X] **T002** 将 `specs/001-docs-media-storage/contracts/grpc-media-asset.proto` 移入 `api/grpc/contracts/powerx/media/v1/media_asset.proto`，修改 package 为 `powerx.corex.media.v1`，设置 `go_package = github.com/ArtisanCloud/PowerX/internal/transport/grpc/gen/powerx/corex/media/v1;corexmediav1`。
+- [X] **T003** 在仓库根目录新增/更新 `buf.yaml`、`buf.gen.yaml`，纳入 `api/grpc/contracts/powerx`，并在 `Makefile` 添加 `proto-gen`、`proto-lint`、`proto-clean`、`contracts-test` 目标（含 CI 钩子）。
 - [ ] **T004 [P]** 在 `internal/transport/http/admin/media/contract_media_asset_test.go` 编写失败的 HTTP 契约测试（6 个端点），使用 `httpexpect` 校验状态码与响应体。
 - [ ] **T005 [P]** 在 `internal/transport/grpc/media/contract_media_asset_test.go` 编写失败的 gRPC 契约测试，覆盖 `MediaAssetAdminService` 六个 RPC（`bufconn` + `testify`）。
 - [ ] **T006 [P]** 在 `internal/tests/integration/media/media_asset_upload_flow_test.go` 落地失败的集成测试，模拟“上传 → 异常回滚 → 错误透传”流程。
