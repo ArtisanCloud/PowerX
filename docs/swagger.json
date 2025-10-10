@@ -803,6 +803,84 @@
         ]
       }
     },
+    "/api/v1/admin/media/assets": {
+      "get": {
+        "operationId": "GET /api/v1/admin/media/assets",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "GET /api/v1/admin/media/assets",
+        "tags": [
+          "api"
+        ]
+      },
+      "post": {
+        "operationId": "POST /api/v1/admin/media/assets",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/v1/admin/media/assets",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/v1/admin/media/assets/:uuid": {
+      "delete": {
+        "operationId": "DELETE /api/v1/admin/media/assets/_uuid",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "DELETE /api/v1/admin/media/assets/_uuid",
+        "tags": [
+          "api"
+        ]
+      },
+      "get": {
+        "operationId": "GET /api/v1/admin/media/assets/_uuid",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "GET /api/v1/admin/media/assets/_uuid",
+        "tags": [
+          "api"
+        ]
+      },
+      "patch": {
+        "operationId": "PATCH /api/v1/admin/media/assets/_uuid",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "PATCH /api/v1/admin/media/assets/_uuid",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/v1/admin/media/assets/:uuid/presign": {
+      "post": {
+        "operationId": "POST /api/v1/admin/media/assets/_uuid/presign",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/v1/admin/media/assets/_uuid/presign",
+        "tags": [
+          "api"
+        ]
+      }
+    },
     "/api/v1/admin/menus/": {
       "get": {
         "operationId": "GET /api/v1/admin/menus/",
