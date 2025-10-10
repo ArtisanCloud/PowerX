@@ -2,44 +2,46 @@
 package grpcserver
 
 import (
-    "context"
-    "fmt"
-    settingv12 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/setting"
-    middleware2 "github.com/ArtisanCloud/PowerX/internal/transport/grpc/auth/middleware"
-    "net"
-    "time"
+	"context"
+	"fmt"
+	settingv12 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/setting"
+	middleware2 "github.com/ArtisanCloud/PowerX/internal/transport/grpc/auth/middleware"
+	"net"
+	"time"
 
-    agentv1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/agent/v1"
-    stsv1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/auth/sts/v1"
-    iamv1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/iam/v1"
-    "github.com/ArtisanCloud/PowerX/internal/app/shared"
-    agentgrpc "github.com/ArtisanCloud/PowerX/internal/transport/grpc/agent"
-    authgrpc "github.com/ArtisanCloud/PowerX/internal/transport/grpc/auth"
-    "github.com/ArtisanCloud/PowerX/internal/transport/grpc/iam"
-    "github.com/ArtisanCloud/PowerX/pkg/utils/logger"
+	agentv1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/agent/v1"
+	stsv1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/auth/sts/v1"
+	iamv1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/iam/v1"
+	corexmediav1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/media/v1"
+	"github.com/ArtisanCloud/PowerX/internal/app/shared"
+	agentgrpc "github.com/ArtisanCloud/PowerX/internal/transport/grpc/agent"
+	authgrpc "github.com/ArtisanCloud/PowerX/internal/transport/grpc/auth"
+	"github.com/ArtisanCloud/PowerX/internal/transport/grpc/iam"
+	medigrpc "github.com/ArtisanCloud/PowerX/internal/transport/grpc/media"
+	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 
-    "google.golang.org/grpc"
-    "google.golang.org/grpc/credentials"
-    // 服务端明文无需 insecure
-    "google.golang.org/grpc/keepalive"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
+	// 服务端明文无需 insecure
+	"google.golang.org/grpc/keepalive"
 
-    "google.golang.org/grpc/health"
-    healthpb "google.golang.org/grpc/health/grpc_health_v1"
-    "google.golang.org/grpc/reflection"
+	"google.golang.org/grpc/health"
+	healthpb "google.golang.org/grpc/health/grpc_health_v1"
+	"google.golang.org/grpc/reflection"
 )
 
 func New(cfg *GRPCConfig, deps *shared.Deps) (*grpc.Server, net.Listener, error) {
-    // 监听地址与网络协议从配置推导
-    addr := cfg.Addr()
-    network := cfg.Network
-    if network == "" {
-        network = "tcp"
-    }
+	// 监听地址与网络协议从配置推导
+	addr := cfg.Addr()
+	network := cfg.Network
+	if network == "" {
+		network = "tcp"
+	}
 
-    lis, err := net.Listen(network, addr)
-    if err != nil {
-        return nil, nil, err
-    }
+	lis, err := net.Listen(network, addr)
+	if err != nil {
+		return nil, nil, err
+	}
 
 	var opts []grpc.ServerOption
 
@@ -96,6 +98,9 @@ func New(cfg *GRPCConfig, deps *shared.Deps) (*grpc.Server, net.Listener, error)
 	// STS（令牌换签/内发）—— 与拦截器共用同一个 KeyRing
 	stsv1.RegisterSTSServiceServer(s, authgrpc.NewSTSServiceServerWithRing(deps, ring))
 
+	// Media Asset
+	corexmediav1.RegisterMediaAssetAdminServiceServer(s, medigrpc.NewMediaAssetServer(deps))
+
 	// ===== 健康检查 =====
 	if cfg.Health {
 		healthpb.RegisterHealthServer(s, health.NewServer())
@@ -108,6 +113,6 @@ func New(cfg *GRPCConfig, deps *shared.Deps) (*grpc.Server, net.Listener, error)
 		logger.Info(ctx, "[gRPC] server reflection enabled")
 	}
 
-    logger.InfoF(ctx, "[gRPC] server built on %s (tls=%v)", lis.Addr().String(), cfg.UseTLS)
-    return s, lis, nil
+	logger.InfoF(ctx, "[gRPC] server built on %s (tls=%v)", lis.Addr().String(), cfg.UseTLS)
+	return s, lis, nil
 }

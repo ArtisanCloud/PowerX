@@ -9,7 +9,8 @@ require (
 	github.com/go-playground/validator/v10 v10.20.0
 	github.com/golang-jwt/jwt/v5 v5.3.0
 	github.com/google/uuid v1.6.0
-	github.com/mark3labs/mcp-go v0.37.0
+        github.com/mark3labs/mcp-go v0.37.0
+        github.com/minio/minio-go/v7 v7.0.0
 	github.com/redis/go-redis/v9 v9.12.1
 	github.com/stretchr/testify v1.9.0
 	github.com/swaggo/files v1.0.1
@@ -24,7 +25,7 @@ require (
 	google.golang.org/protobuf v1.36.6
 	gopkg.in/yaml.v3 v3.0.1
 	gorm.io/datatypes v1.2.6
-	gorm.io/driver/mysql v1.6.0
+        gorm.io/driver/mysql v1.6.0
 	gorm.io/driver/postgres v1.6.0
 	gorm.io/gorm v1.30.1
 )
@@ -37,6 +38,7 @@ require (
 )
 
 replace github.com/ArtisanCloud/PowerX/api/grpc/gen/go => ./api/grpc/gen/go
+replace github.com/minio/minio-go/v7 => ./internal/infra/media/driver/s3/minio
 require (
 	filippo.io/edwards25519 v1.1.0 // indirect
 	github.com/KyleBanks/depth v1.2.1 // indirect

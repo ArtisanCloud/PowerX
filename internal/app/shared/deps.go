@@ -4,14 +4,17 @@ package shared
 
 import (
 	"context"
+	"time"
+
+	mediamgr "github.com/ArtisanCloud/PowerX/internal/infra/media/manager"
 	authsvc "github.com/ArtisanCloud/PowerX/internal/service/auth"
+	mediasvc "github.com/ArtisanCloud/PowerX/internal/service/media"
 	tenantsvc "github.com/ArtisanCloud/PowerX/internal/service/tenant"
 	auditsvc "github.com/ArtisanCloud/PowerX/pkg/corex/audit"
 	dbm "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/audit"
 	auditrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/audit"
 	pxlog "github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"gorm.io/gorm"
-	"time" // 👈 新增
 )
 
 type Deps struct {
@@ -27,6 +30,8 @@ type Deps struct {
 	Auditor  auditsvc.Auditor // 门面，兼容 LogAPI/LogRBAC 等调用
 
 	TenantSvc *tenantsvc.TenantService
+	MediaMgr  *mediamgr.MediaManager
+	MediaSvc  *mediasvc.MediaService
 }
 
 func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
@@ -59,6 +64,9 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 	// --- TenantService ---
 	tenantSvc := tenantsvc.NewTenantService(db, authUser)
 
+	// --- Media Manager & Service ---
+	mediaManager, mediaSvc := mediasvc.BuildMediaStack(context.Background(), db, svc, opts.Storage)
+
 	return &Deps{
 		DB:           db,
 		TenantSvc:    tenantSvc,
@@ -67,5 +75,7 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 		MeService:    meSvc,
 		AuditSvc:     svc,
 		Auditor:      aud,
+		MediaMgr:     mediaManager,
+		MediaSvc:     mediaSvc,
 	}
 }
