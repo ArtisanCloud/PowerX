@@ -52,9 +52,9 @@ checks:
   # ===== 代码生成产物位置校验 =====
   - id: grpc.codegen.layout
     level: error
-    when: { file: "buf.gen.yaml" }
+    when: { file: "api/grpc/contract/buf.gen.yaml" }
     assert:
-      - contains: "internal/transport/grpc/gen"
+      - contains: "api/grpc/gen"
 
   # ========= 依赖注入：必须通过 Deps 注入 Service =========
   di_usage:
@@ -183,7 +183,7 @@ templates:
       "google.golang.org/grpc/codes"
 
       "github.com/ArtisanCloud/PowerX/internal/app/shared"
-      gen "{{module_path}}/internal/transport/grpc/gen/media"
+      gen "{{module_path}}/api/grpc/gen/media"
     )
 
     type Server struct {
@@ -349,7 +349,7 @@ templates:
     package grpcserver
 
     import (
-      gen "{{module_path}}/internal/transport/grpc/gen/media"
+      gen "{{module_path}}/api/grpc/gen/media"
       m "{{module_path}}/pkg/corex/db/persistence/model/media"
     )
 

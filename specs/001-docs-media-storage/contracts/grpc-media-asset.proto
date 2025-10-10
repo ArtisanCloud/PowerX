@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package powerx.docs.media.v1;
 
-option go_package = "github.com/ArtisanCloud/PowerX/internal/transport/grpc/gen/powerx/docs/media/v1;mediav1";
+option go_package = "github.com/ArtisanCloud/PowerX/api/grpc/gen/powerx/docs/media/v1;mediav1";
 option java_package = "com.powerx.docs.media.v1";
 option java_multiple_files = true;
 

@@ -4,6 +4,7 @@
 **目标**: 依据最新计划，将媒体管理功能落地于 CoreX 内核
 
 ## 执行节奏
+
 ```
 1. 同步契约与生成工具配置
 2. 先写失败的契约测试 / 集成测试（TDD）
@@ -13,8 +14,9 @@
 ```
 
 ## Phase 3: 任务列表
+
 - [ ] **T001** 将 `specs/001-docs-media-storage/contracts/http-openapi.yaml` 重命名并整理为 `specs/001-docs-media-storage/contracts/http-admin.yaml`，修订 `servers.url=/api/admin/v1`、标签说明及引用链接。
-- [ ] **T002** 将 `specs/001-docs-media-storage/contracts/grpc-media-asset.proto` 移入 `api/grpc/corex/media/v1/media_asset.proto`，修改 package 为 `powerx.corex.media.v1`，设置 `go_package = github.com/ArtisanCloud/PowerX/internal/transport/grpc/gen/powerx/corex/media/v1;corexmediav1`。
+- [ ] **T002** 将 `specs/001-docs-media-storage/contracts/grpc-media-asset.proto` 移入 `api/grpc/corex/media/v1/media_asset.proto`，修改 package 为 `powerx.corex.media.v1`，设置 `go_package = github.com/ArtisanCloud/PowerX/api/grpc/gen/powerx/corex/media/v1;corexmediav1`。
 - [ ] **T003** 在仓库根目录新增/更新 `buf.yaml`、`buf.gen.yaml`，纳入 `api/grpc/corex`，并在 `Makefile` 添加 `proto-gen`、`proto-lint`、`proto-clean`、`contracts-test` 目标（含 CI 钩子）。
 - [ ] **T004 [P]** 在 `internal/transport/http/admin/media/contract_media_asset_test.go` 编写失败的 HTTP 契约测试（6 个端点），使用 `httpexpect` 校验状态码与响应体。
 - [ ] **T005 [P]** 在 `internal/transport/grpc/media/contract_media_asset_test.go` 编写失败的 gRPC 契约测试，覆盖 `MediaAssetAdminService` 六个 RPC（`bufconn` + `testify`）。
@@ -47,6 +49,7 @@
 - [ ] **T032** 执行 `make proto-gen && make contracts-test && make unit-test`，收集日志并更新 `specs/001-docs-media-storage/quickstart.md` 的命令示例/说明。
 
 ## 依赖关系
+
 - T001–T003 必须首先完成，确保契约/生成配置与 Makefile 同步。  
 - T004–T007 依赖 T003，需在实现前保持失败状态（TDD）。  
 - T008 → T009 → T010 → T011 建立数据持久化链路；T012 补充领域约束后方可继续服务实现。  
@@ -55,6 +58,7 @@
 - T030、T031 在核心逻辑完成后并行运行；T032 收尾前需确保所有测试全部通过。
 
 ## 并行执行示例
+
 ```
 # 初期：并行启动失败测试，确认 TDD 入口
 task run T004

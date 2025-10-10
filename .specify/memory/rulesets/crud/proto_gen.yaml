@@ -1,13 +1,13 @@
 kind: ruleset
 name: proto_gen
-version: 1.0.0
+version: 1.0.1
 owner: powerx
 status: stable
 
 meta:
   intent: >
-    统一 Proto 的组织与生成规范：使用 buf 管理、版本化与生成；go_package 与输出目录一致；
-    Make 目标必须存在；生成物进到 internal/transport/grpc/gen 下并纳入 .gitignore（或只读提交路径）。
+    统一 Proto 的组织与生成规范：使用 buf 管理、版本化与生成；go_package 与生成路径一致；
+    Make 目标必须存在；生成物输出到 api/grpc/gen 下并纳入 .gitignore（或采用只读提交策略）。
   references:
     - crud_grpc.yaml
     - transport_grpc.yaml
@@ -15,22 +15,22 @@ meta:
 scope:
   applies_to:
     - "api/grpc/**/*.proto"
-    - "buf.yaml"
-    - "buf.gen.yaml"
+    - "api/grpc/contract/buf.yaml"
+    - "api/grpc/contract/buf.gen.yaml"
     - "Makefile"
     - ".gitignore"
 
 principles:
-  - 目录规范：源 proto 放在 api/grpc/**；生成代码放 internal/transport/grpc/gen/**。
-  - 工具规范：使用 buf（lint/breaking/生成），不直接手写 protoc 命令（可由 buf.gen 驱动）。
-  - 包路径一致：每个 proto 必须有 option go_package，且与生成路径/模块前缀一致。
-  - 生成产物可清理：必须有 proto-gen / proto-lint / proto-clean 的 Make 目标。
-  - 版本可控：buf.yaml 指定 lint/breaking 规则，buf.gen.yaml 固定插件版本（尽量锁定到 minor）。
-  - 产物纳管：默认 .gitignore 掉 gen 下的产物；若策略为提交产物，需固定插件版本并允许提交。
+  - 目录规范：源 proto 放在 api/grpc/**；生成代码放在 api/grpc/gen/**。
+  - 工具规范：使用 buf（lint/breaking/生成），不直接手写 protoc 命令（由 buf.gen.yaml 驱动）。
+  - 包路径一致：每个 proto 必须设置 option go_package，且与生成前缀 github.com/ArtisanCloud/PowerX/api/grpc/gen 保持一致。
+  - 生成产物可清理：必须提供 proto-gen / proto-lint / proto-clean 的 Make 目标。
+  - 版本可控：api/grpc/contract/buf.yaml 指定 lint/breaking 规则；api/grpc/contract/buf.gen.yaml 锁定插件版本（尽量锁到 minor）。
+  - 产物纳管：默认在 .gitignore 忽略 api/grpc/gen；如需提交产物，需锁定插件版本并允许提交。
 
 checks:
 
-  # 基本文件存在
+  # ===== 基本文件存在 =====
   - id: proto.files.required
     level: error
     when: { glob: "api/grpc/**/*.proto" }
@@ -41,13 +41,13 @@ checks:
     level: error
     when:
       any_of:
-        - file: "buf.yaml"
-        - file: "buf.gen.yaml"
+        - file: "api/grpc/contract/buf.yaml"
+        - file: "api/grpc/contract/buf.gen.yaml"
     assert:
-      - file_exists: "buf.yaml"
-      - file_exists: "buf.gen.yaml"
+      - file_exists: "api/grpc/contract/buf.yaml"
+      - file_exists: "api/grpc/contract/buf.gen.yaml"
 
-  # go_package 必须存在且与生成路径一致
+  # ===== go_package 必须存在且与生成路径前缀一致 =====
   - id: proto.go_package.set
     level: error
     when: { glob: "api/grpc/**/*.proto" }
@@ -58,30 +58,37 @@ checks:
     level: warn
     when: { glob: "api/grpc/**/*.proto" }
     assert:
-      - should_contain_regex: "option go_package = \"github.com/.+/internal/transport/grpc/gen/.+;[a-zA-Z0-9_]+\";"
-    message: "建议 go_package 的路径包含 internal/transport/grpc/gen/<domain>；分号后为 go 包名"
+      - should_contain_regex: "option go_package = \"github.com/ArtisanCloud/PowerX/api/grpc/gen/.+;[a-zA-Z0-9_]+\";"
+    message: "建议 go_package 使用 github.com/ArtisanCloud/PowerX/api/grpc/gen/<domain>;pkgname 前缀"
 
-  # buf.yaml 的 lint / breaking 规则
+  # ===== buf.yaml 的 lint / breaking 规则 =====
   - id: buf.yaml.rules
     level: error
-    when: { file: "buf.yaml" }
+    when: { file: "api/grpc/contract/buf.yaml" }
     assert:
       - must_contain: "lint:"
       - must_contain: "breaking:"
       - must_contain_any:
           - "use: [DEFAULT]"
           - "use:\n  - DEFAULT"
+      - must_contain: "build:"
+      - must_contain: "roots:"
+      - must_contain: "- api/grpc"
 
-  # buf.gen.yaml 的 go / grpc 插件与输出路径
+  # ===== buf.gen.yaml 的 go/grpc 插件与输出路径 =====
   - id: buf.gen.outputs
     level: error
-    when: { file: "buf.gen.yaml" }
+    when: { file: "api/grpc/contract/buf.gen.yaml" }
     assert:
-      - must_contain_regex: "plugin:\\s*go-(grpc|v\\d*)"
-      - must_contain_regex: "out: internal/transport/grpc/gen"
-      - must_contain: "opt: paths=source_relative"
+      - must_contain_regex: "plugin:\\s*buf.build/protocolbuffers/go(:|\\b)"
+      - must_contain_regex: "plugin:\\s*buf.build/grpc/go(:|\\b)"
+      - must_contain_regex: "out:\\s*api/grpc/gen"
+      - must_contain: "opt:\n          - paths=source_relative"
+      - must_contain: "managed:"
+      - must_contain: "go_package_prefix:"
+      - must_contain: "default: github.com/ArtisanCloud/PowerX/api/grpc/gen"
 
-  # Makefile 目标
+  # ===== Makefile 目标 =====
   - id: make.targets
     level: error
     when: { file: "Makefile" }
@@ -90,27 +97,28 @@ checks:
       - must_contain_regex: "^proto-lint:"
       - must_contain_regex: "^proto-clean:"
 
-  # 产物纳管：默认忽略
+  # ===== 产物纳管：默认忽略 api/grpc/gen =====
   - id: gitignore.gen
     level: warn
     when: { file: ".gitignore" }
     assert:
       - should_contain_any:
-          - "/internal/transport/grpc/gen/"
-          - "internal/transport/grpc/gen/"
+          - "/api/grpc/gen/"
+          - "api/grpc/gen/"
 
 acceptance:
   checklist:
-    - "[ ] 源 proto 位于 api/grpc/**；buf.yaml + buf.gen.yaml 存在"
-    - "[ ] 每个 proto 设置了 option go_package，且与 internal/transport/grpc/gen/** 一致"
-    - "[ ] buf.yaml 启用了 lint/breaking（DEFAULT）"
-    - "[ ] buf.gen.yaml 输出到 internal/transport/grpc/gen，且 paths=source_relative"
+    - "[ ] 源 proto 位于 api/grpc/**；api/grpc/contract/buf.yaml 与 api/grpc/contract/buf.gen.yaml 存在"
+    - "[ ] 每个 proto 设置了 option go_package，且前缀为 github.com/ArtisanCloud/PowerX/api/grpc/gen/**"
+    - "[ ] buf.yaml 启用了 lint/breaking（DEFAULT），build.roots 指向 api/grpc"
+    - "[ ] buf.gen.yaml 输出到 api/grpc/gen，且 paths=source_relative；managed.go_package_prefix.default=github.com/ArtisanCloud/PowerX/api/grpc/gen"
     - "[ ] Makefile 提供 proto-gen / proto-lint / proto-clean"
-    - "[ ] gen 目录已在 .gitignore（或锁定插件版本并允许提交产物）"
+    - "[ ] api/grpc/gen 已在 .gitignore（或锁定插件版本并允许提交产物）"
 
 templates:
+
   buf_yaml: |
-    # buf.yaml
+    # api/grpc/contract/buf.yaml
     version: v1
     name: buf.build/powerx/core
     lint:
@@ -125,21 +133,21 @@ templates:
         - api/grpc
 
   buf_gen_yaml: |
-    # buf.gen.yaml
+    # api/grpc/contract/buf.gen.yaml
     version: v1
     plugins:
       - plugin: buf.build/protocolbuffers/go:v1.33.0
-        out: internal/transport/grpc/gen
+        out: api/grpc/gen
         opt:
           - paths=source_relative
       - plugin: buf.build/grpc/go:v1.3.0
-        out: internal/transport/grpc/gen
+        out: api/grpc/gen
         opt:
           - paths=source_relative
     managed:
       enabled: true
       go_package_prefix:
-        default: github.com/ArtisanCloud/PowerX/internal/transport/grpc/gen
+        default: github.com/ArtisanCloud/PowerX/api/grpc/gen
         except:
           - buf.build/googleapis/googleapis
           - buf.build/protocolbuffers/wellknowntypes
@@ -149,19 +157,19 @@ templates:
     .PHONY: proto-gen proto-lint proto-clean
 
     proto-gen:
-    \tbuf generate
+    \tbuf generate --template api/grpc/contract/buf.gen.yaml --path api/grpc
 
     proto-lint:
-    \tbuf lint && buf breaking --against '.git#branch=main' || true
+    \tbuf lint --config api/grpc/contract/buf.yaml && buf breaking --against '.git#branch=main' --config api/grpc/contract/buf.yaml || true
 
     proto-clean:
-    \trm -rf internal/transport/grpc/gen/*
+    \trm -rf api/grpc/gen/*
 
   proto_example: |
     // api/grpc/media/asset.proto
     syntax = "proto3";
-    package powerx.media;
-    option go_package = "github.com/ArtisanCloud/PowerX/internal/transport/grpc/gen/media;media";
+    package powerx.media.v1;
+    option go_package = "github.com/ArtisanCloud/PowerX/api/grpc/gen/powerx/media/v1;mediav1";
 
     import "google/protobuf/empty.proto";
     import "google/protobuf/timestamp.proto";
@@ -175,7 +183,7 @@ templates:
 
     message MediaAsset {
       string id = 1;
-      uint64 tenant_id = 2;         // 服务端填充
+      uint64 tenant_id = 2;
       string name = 3;
       string code = 4;
       string meta_json = 5;
@@ -193,4 +201,4 @@ templates:
 
   gitignore_snippet: |
     # .gitignore（片段）
-    /internal/transport/grpc/gen/
+    /api/grpc/gen/

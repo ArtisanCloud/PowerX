@@ -169,17 +169,17 @@ Every plugin **MUST** expose both **HTTP/REST** and **gRPC** transports:
 
 - **Protobuf** files at `api/grpc/<domain>/v1/*.proto`
 - **Buf** configs:
-    - `buf.yaml`
-    - `buf.gen.yaml` with
-        - `managed.go_package_prefix.default = github.com/ArtisanCloud/PowerX/internal/transport/grpc/gen`
-        - `out = internal/transport/grpc/gen`
-        - `paths = source_relative`
+  - `api/grpc/contract/buf.yaml`
+  - `api/grpc/contract/buf.gen.yaml` with
+    - `managed.go_package_prefix.default = github.com/ArtisanCloud/PowerX/api/grpc/gen`
+    - `out = api/grpc/gen`
+    - `paths = source_relative`
 - **Server (singleton) & Make Targets:**
-    - **Global gRPC bootstrap at `internal/server/grpc/server.go`** with interceptors (`auth`, `tenant`, `logging`, `recovery`)
-    - Make targets: `proto-gen`, `proto-lint`, `proto-clean`
+  - **Global gRPC bootstrap at `internal/server/grpc/server.go`** with interceptors (`auth`, `tenant`, `logging`, `recovery`)
+  - Make targets: `proto-gen`, `proto-lint`, `proto-clean`
 - **Module implementations (no grpc.NewServer, no Register in module):**
-    - `internal/transport/grpc/<module>/*_handler.go`（或 `service.go`）实现生成的 `*ServiceServer` 接口
-    - 通过 `New(*shared.Deps)` 构造，依赖注入 Service；由全局 `server.go` 统一 `Register*ServiceServer(...)`
+  - `internal/transport/grpc/<module>/*_handler.go`（或 `service.go`）实现生成的 `*ServiceServer` 接口
+  - 通过 `New(*shared.Deps)` 构造，依赖注入 Service；由全局 `server.go` 统一 `Register*ServiceServer(...)`
 
 ### X.3 Blocking Gates
 

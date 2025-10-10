@@ -78,21 +78,21 @@ checks:
   go_package_prefix:
     - id: proto.go_package_prefix.config.exists
       level: error
-      when: { file: "buf.gen.yaml" }
+      when: { file: "api/grpc/contract/buf.gen.yaml" }
       assert:
         - must_contain: "go_package_prefix:"
-        - must_contain: "default: github.com/ArtisanCloud/PowerX/internal/transport/grpc/gen"
+        - must_contain: "default: github.com/ArtisanCloud/PowerX/api/grpc/gen"
     - id: proto.go_package_prefix.match
       level: error
       when: { glob: "api/grpc/**/*.proto" }
       assert:
-        - must_contain_regex: 'option\\s+go_package\\s*=\\s*"github\\.com/ArtisanCloud/PowerX/internal/transport/grpc/gen[^"]*;[a-zA-Z0-9_]+";'
-      message: "proto 的 go_package 必须以 github.com/ArtisanCloud/PowerX/internal/transport/grpc/gen 起始，并以 ;<包名> 结尾"
+        - must_contain_regex: 'option\\s+go_package\\s*=\\s*"github\\.com/ArtisanCloud/PowerX/api/grpc/gen[^"]*;[a-zA-Z0-9_]+";'
+      message: "proto 的 go_package 必须以 github.com/ArtisanCloud/PowerX/api/grpc/gen 起始，并以 ;<包名> 结尾"
     - id: proto.go_package_prefix.output.dir
       level: error
-      when: { file: "buf.gen.yaml" }
+      when: { file: "api/grpc/contract/buf.gen.yaml" }
       assert:
-        - must_contain_regex: "out:\\s*internal/transport/grpc/gen"
+        - must_contain_regex: "out:\\s*api/grpc/gen"
         - must_contain: "opt:\n          - paths=source_relative"
 
 acceptance:
@@ -103,14 +103,14 @@ acceptance:
     - "[ ] 错误语义与 REST 对照并映射标准 gRPC status"
     - "[ ] 多租户/鉴权通过 metadata 推导（非业务字段）"
     - "[ ] go_package 与 buf.gen.yaml 的 go_package_prefix.default 一致"
-    - "[ ] 生成输出到 internal/transport/grpc/gen，并使用 paths=source_relative"
+    - "[ ] 生成输出到 api/grpc/gen，并使用 paths=source_relative"
 
 templates:
   proto_snippet: |
     syntax = "proto3";
     package powerx.media;
 
-    option go_package = "github.com/ArtisanCloud/PowerX/internal/transport/grpc/gen/media;media";
+    option go_package = "github.com/ArtisanCloud/PowerX/api/grpc/gen/media;media";
 
     import "google/protobuf/empty.proto";
     import "google/protobuf/timestamp.proto";
