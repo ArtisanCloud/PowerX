@@ -62,7 +62,7 @@
 
 - **HTTP_PRESENT ✅**：内部管理端 REST 契约放置于 `specs/001-docs-media-storage/contracts/http-admin.yaml`  
   （**行动**：将现有 `http-openapi.yaml` 重命名为 `http-admin.yaml`，仅保留内部接口，`servers.url` 使用 `/api/v1` 或 `/admin/...`）
-- **GRPC_PRESENT ✅**：gRPC 契约位于 `specs/001-docs-media-storage/contracts/grpc-media-asset.proto`（服务名示例：`corex.media.v1.MediaAssetAdminService`）
+- **GRPC_PRESENT ✅**：gRPC 契约位于 `specs/001-docs-media-storage/contracts/grpc-media-asset.proto`（服务名示例：`media.v1.MediaAssetAdminService`）
 - **PROTOBUF_DEFINED ✅**：`buf.yaml`/`buf.gen.yaml` 在主工程下维护，`go_package_prefix` 指向 `api/grpc/gen`
 - **SERVER_DEFINED ✅**：HTTP/GRPC 入口在 **主工程**（非插件）下：  
   - HTTP：`internal/transport/http/admin/media/`  
@@ -167,7 +167,7 @@ Makefile                              # proto-gen / contracts-test / etc.
 - 移除任何对外字段/鉴权描述
 
 3) **gRPC 契约**（`contracts/grpc-media-asset.proto`）  
-- Service：`corex.media.v1.MediaAssetAdminService`  
+- Service：`media.v1.MediaAssetAdminService`  
 - Method：Create/List/Get/Update/Delete/Presign  
 - 与 HTTP 字段语义对齐
 

@@ -16,7 +16,7 @@
 ## Phase 3: 任务列表
 
 - [X] **T001** 将 `specs/001-docs-media-storage/contracts/http-openapi.yaml` 重命名并整理为 `specs/001-docs-media-storage/contracts/http-admin.yaml`，修订 `servers.url=/api/admin/v1`、标签说明及引用链接。
-- [X] **T002** 将 `specs/001-docs-media-storage/contracts/grpc-media-asset.proto` 移入 `api/grpc/contracts/powerx/media/v1/media_asset.proto`，修改 package 为 `powerx.corex.media.v1`，设置 `go_package = github.com/ArtisanCloud/PowerX/internal/transport/grpc/gen/powerx/corex/media/v1;corexmediav1`。
+- [X] **T002** 将 `specs/001-docs-media-storage/contracts/grpc-media-asset.proto` 移入 `api/grpc/contracts/powerx/media/v1/media_asset.proto`，修改 package 为 `powerx.media.v1`，设置 `go_package = github.com/ArtisanCloud/PowerX/internal/transport/grpc/gen/powerx/media/v1;corexmediav1`。
 - [X] **T003** 在仓库根目录新增/更新 `buf.yaml`、`buf.gen.yaml`，纳入 `api/grpc/contracts/powerx`，并在 `Makefile` 添加 `proto-gen`、`proto-lint`、`proto-clean`、`contracts-test` 目标（含 CI 钩子）。
 - [ ] **T004 [P]** 在 `internal/transport/http/admin/media/contract_media_asset_test.go` 编写失败的 HTTP 契约测试（6 个端点），使用 `httpexpect` 校验状态码与响应体。
 - [ ] **T005 [P]** 在 `internal/transport/grpc/media/contract_media_asset_test.go` 编写失败的 gRPC 契约测试，覆盖 `MediaAssetAdminService` 六个 RPC（`bufconn` + `testify`）。
@@ -42,7 +42,7 @@
 - [ ] **T025** 在同文件实现 `DELETE /admin/media/assets/{uuid}`（软删除、调度清理、返回 204）。
 - [ ] **T026** 在同文件实现 `POST /admin/media/assets/{uuid}/presign`（上传/下载、TTL 覆盖、可选 Redis 缓存）。
 - [ ] **T027** 在 `internal/transport/grpc/media/media_handler.go` 实现 gRPC 服务（依赖 `MediaService`，不负责注册），封装租户、审计、错误状态码。
-- [ ] **T028** 更新 `internal/server/grpc/server.go`，通过已有拦截器注册 `corex.corex.media.v1.MediaAssetAdminServiceServer`，挂载监控。
+- [ ] **T028** 更新 `internal/server/grpc/server.go`，通过已有拦截器注册 `media.v1.MediaAssetAdminServiceServer`，挂载监控。
 - [ ] **T029** 新建 `cmd/media_cleaner/main.go`，实现软删除清理 CLI：扫描过期资产、调用驱动删除、写审计事件。
 - [ ] **T030 [P]** 在 `internal/infra/media/manager/manager_test.go` 编写单元测试，验证驱动注册、默认回退、错误冒泡。
 - [ ] **T031 [P]** 在 `internal/service/media/service_test.go` 编写单元测试，覆盖状态流转、RBAC 拒绝、审计记录。
