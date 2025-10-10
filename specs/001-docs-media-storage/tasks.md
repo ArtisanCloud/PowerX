@@ -23,7 +23,7 @@
 - [X] **T006 [P]** 在 `internal/tests/integration/media/media_asset_upload_flow_test.go` 落地失败的集成测试，模拟“上传 → 异常回滚 → 错误透传”流程。
 - [X] **T007 [P]** 在 `internal/tests/integration/media/media_asset_search_flow_test.go` 落地失败的集成测试，验证分页、标签筛选、软删除访问控制。
 - [ ] **T008 [P]** 实现 `pkg/corex/db/persistence/model/media/asset.go`：定义 `MediaAsset` 模型（租户字段、枚举、JSONB、审计嵌入、TableName）。
-- [ ] **T009** 在 `internal/server/media/persistence/migrate.go` 编写 `func MigrateMediaModels(db *gorm.DB) error`，使用 `AutoMigrate` + 索引创建（唯一、GIN），禁止生成 `.sql` 文件。
+- [ ] **T009** 在 `pkg/corex/db/migration.go` 编写 `func MigrateMediaModels(db *gorm.DB) error`，使用 `AutoMigrate` + 索引创建（唯一、GIN），禁止生成 `.sql` 文件。
 - [ ] **T010** 更新 `cmd/database/migrate.go`，在 `MigrateDatabase` / `ResetDatabase` 中调用 `MigrateMediaModels`，并确保生产保护逻辑覆盖。
 - [ ] **T011** 在 `pkg/corex/db/persistence/repository/media/asset_repo.go` 实现仓储：CRUD、分页筛选、标签过滤、软删除与清理查询。
 - [ ] **T012** 新建 `internal/domain/media/state.go`，定义业务状态常量、合法状态迁移图与验证函数。
