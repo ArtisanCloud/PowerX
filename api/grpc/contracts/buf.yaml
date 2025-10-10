@@ -1,7 +1,16 @@
 version: v1
+
+build: {
+  roots: [
+    ".",
+    "../corex"
+  ]
+}
+
 breaking: {
   use: [FILE]
 }
+
 lint: {
   use: [STANDARD]
 }

@@ -1,9 +1,9 @@
 syntax = "proto3";
 
-package powerx.docs.media.v1;
+package powerx.corex.media.v1;
 
-option go_package = "github.com/ArtisanCloud/PowerX/api/grpc/gen/powerx/docs/media/v1;mediav1";
-option java_package = "com.powerx.docs.media.v1";
+option go_package = "github.com/ArtisanCloud/PowerX/api/grpc/gen/powerx/corex/media/v1;corexmediav1";
+option java_package = "com.powerx.corex.media.v1";
 option java_multiple_files = true;
 
 // MediaAssetAdminService 提供后台媒体资产管理能力。

@@ -5,13 +5,16 @@ info:
   description: >-
     媒体资产管理后台接口，覆盖上传、查询、更新、软删除与预签名链接生成。
 servers:
-  - url: https://admin.powerx.local/api/v1
-    description: 后台管理 API 网关
+  - url: /api/admin/v1
+    description: CoreX 后台统一入口（通过 API Gateway 反向代理）
 security:
   - bearerAuth: []
 tags:
   - name: MediaAssets
-    description: 媒体资产后台管理
+    description: 媒体资产后台管理接口，供运营与管理员在控制台执行 CRUD、预签名等操作
+    externalDocs:
+      description: Quickstart - Media Asset Admin Workflows
+      url: ../quickstart.md
 paths:
   /admin/media/assets:
     post:
