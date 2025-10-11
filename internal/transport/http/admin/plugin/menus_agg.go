@@ -35,9 +35,12 @@ func BuildPluginMenusPublic(ctx context.Context, basePrefix string, locales []st
 		log.Printf("[menu-builder] id=%s state=%s kind=%s adminDir=%q menus=%d",
 			p.ID, p.State, p.Frontend.Admin.Kind, p.Paths.FrontendAdminDir, len(p.Frontend.Admin.Menus))
 
-		if p.State != plugin_mgr.StateEnabled {
-			log.Printf("[menu-builder] skip=%s reason=state!=enabled", p.ID)
+		if p.State == plugin_mgr.StateDisabled {
+			log.Printf("[menu-builder] skip=%s reason=state=disabled", p.ID)
 			continue
+		}
+		if p.State != plugin_mgr.StateEnabled {
+			log.Printf("[menu-builder] include=%s state=%s (menus only)", p.ID, p.State)
 		}
 
 		// 只要插件声明了菜单，就接入（无论 static / process / proxy）

@@ -1,0 +1,173 @@
+kind: ruleset
+name: crud_grpc
+version: 1.1.0
+owner: powerx
+status: stable
+
+meta:
+  intent: >
+    规定 CRUD 的 gRPC 契约与消息形态（proto 结构、分页/错误/鉴权/多租户语义及命名规范），
+    保证与 REST/Service 层语义等价，可双向对照；并校验 go_package 与 buf.gen.yaml 前缀一致。
+  references:
+    - constitution.md
+    - crud_api_rest.yaml
+    - crud_service.yaml
+    - crud_repository.yaml
+    - proto_gen.yaml
+
+scope:
+  applies_to:
+    - "api/grpc/**/*.proto"
+
+principles:
+  - 使用 proto3；每个 proto 必须声明 go_package。
+  - 包与命名：package 用 `<org>.<product>.<domain>`；Service 命名 `{{Entity}}Service`。
+  - RPC 五件套：Create/List/Get/Update/Delete；批量操作以 Batch 作为后缀。
+  - 分页：与 REST 对齐字段（page,page_size,total,pages），允许扩展 cursor_token。
+  - 错误语义：映射为标准 gRPC status（InvalidArgument/NotFound/AlreadyExists/Unauthenticated/PermissionDenied/ResourceExhausted/FailedPrecondition/Aborted/Internal）。
+  - 多租户/鉴权：tenant/actor 从 metadata 推导，不作为业务字段传入；request_id/trace_id 透传。
+  - 流式场景：仅在必要时使用 server streaming；事件名与 REST SSE 对齐。
+
+checks:
+
+  # ---- 基础 proto 规范 ----
+  proto.basics:
+    - id: proto.syntax
+      level: error
+      when: { glob: "api/grpc/**/*.proto" }
+      assert:
+        - must_contain: 'syntax = "proto3";'
+        - must_contain_regex: 'option\\s+go_package\\s*=\\s*"[^\"]+";'
+    - id: proto.package.naming
+      level: error
+      when: { glob: "api/grpc/**/*.proto" }
+      assert:
+        - must_contain_regex: "package [a-z0-9]+(\\.[a-z0-9_]+)+;"
+
+  # ---- Service + RPC 五件套形态（按资源原型做匹配）----
+  service_and_rpcs:
+    - id: svc.crud.methods
+      level: error
+      when: { glob: "api/grpc/**/{{resource}}.proto" }
+      assert:
+        - must_contain_regex: "service\\s+{{Entity}}Service\\s*{"
+        - must_contain: "rpc Create{{Entity}}(Create{{Entity}}Request) returns ({{Entity}}Response);"
+        - must_contain: "rpc List{{Entity}}(List{{Entity}}Request) returns (List{{Entity}}Response);"
+        - must_contain: "rpc Get{{Entity}}(Get{{Entity}}Request) returns ({{Entity}}Response);"
+        - must_contain: "rpc Update{{Entity}}(Update{{Entity}}Request) returns ({{Entity}}Response);"
+        - must_contain: "rpc Delete{{Entity}}(Delete{{Entity}}Request) returns (google.protobuf.Empty);"
+
+  # ---- 消息与分页形态 ----
+  messages_and_pagination:
+    - id: msg.pagination.shape
+      level: error
+      when: { glob: "api/grpc/**/{{resource}}.proto" }
+      assert:
+        - must_contain: "message Pagination { int64 total = 1; int32 page = 2; int32 page_size = 3; int32 pages = 4; }"
+        - must_contain_regex: "message List{{Entity}}Response\\s*{\\s*repeated {{Entity}} items = 1;\\s*Pagination pagination = 2;"
+
+  # ---- 多租户/鉴权提示（作为规范注释）----
+  auth_and_tenant:
+    - id: comments.tenant.auth
+      level: warn
+      when: { glob: "api/grpc/**/{{resource}}.proto" }
+      assert:
+        - should_contain: "// NOTE: tenant/actor 从 metadata 推导，不作为业务字段传入"
+
+  # ---- go_package 与 buf.gen.yaml 的 go_package_prefix 一致性 ----
+  go_package_prefix:
+    - id: proto.go_package_prefix.config.exists
+      level: error
+      when: { file: "api/grpc/contract/buf.gen.yaml" }
+      assert:
+        - must_contain: "go_package_prefix:"
+        - must_contain: "default: github.com/ArtisanCloud/PowerX/api/grpc/gen"
+    - id: proto.go_package_prefix.match
+      level: error
+      when: { glob: "api/grpc/**/*.proto" }
+      assert:
+        - must_contain_regex: 'option\\s+go_package\\s*=\\s*"github\\.com/ArtisanCloud/PowerX/api/grpc/gen[^"]*;[a-zA-Z0-9_]+";'
+      message: "proto 的 go_package 必须以 github.com/ArtisanCloud/PowerX/api/grpc/gen 起始，并以 ;<包名> 结尾"
+    - id: proto.go_package_prefix.output.dir
+      level: error
+      when: { file: "api/grpc/contract/buf.gen.yaml" }
+      assert:
+        - must_contain_regex: "out:\\s*api/grpc/gen"
+        - must_contain: "opt:\n          - paths=source_relative"
+
+acceptance:
+  checklist:
+    - "[ ] 使用 proto3，且每个 proto 设置 go_package"
+    - "[ ] {{Entity}}Service 含 Create/List/Get/Update/Delete RPC"
+    - "[ ] 列表响应包含 items + Pagination(total/page/page_size/pages)"
+    - "[ ] 错误语义与 REST 对照并映射标准 gRPC status"
+    - "[ ] 多租户/鉴权通过 metadata 推导（非业务字段）"
+    - "[ ] go_package 与 buf.gen.yaml 的 go_package_prefix.default 一致"
+    - "[ ] 生成输出到 api/grpc/gen，并使用 paths=source_relative"
+
+templates:
+  proto_snippet: |
+    syntax = "proto3";
+    package powerx.media;
+
+    option go_package = "github.com/ArtisanCloud/PowerX/api/grpc/gen/media;media";
+
+    import "google/protobuf/empty.proto";
+    import "google/protobuf/timestamp.proto";
+
+    // NOTE: tenant/actor 从 metadata 推导，不作为业务字段传入
+    message Pagination {
+      int64 total = 1;
+      int32 page = 2;
+      int32 page_size = 3;
+      int32 pages = 4;
+    }
+
+    message MediaAsset {
+      string id = 1;                   // ULID/UUID
+      uint64 tenant_id = 2;            // 服务端填充
+      string name = 3;
+      string code = 4;
+      string meta_json = 5;
+      int32 status = 6;
+      google.protobuf.Timestamp created_at = 7;
+      google.protobuf.Timestamp updated_at = 8;
+    }
+
+    message CreateMediaAssetRequest {
+      string name = 1;
+      string code = 2;
+      string meta_json = 3;
+      int32 status = 4;
+    }
+    message UpdateMediaAssetRequest {
+      string id = 1;
+      string name = 2;
+      string meta_json = 3;
+      int32 status = 4;
+    }
+    message GetMediaAssetRequest { string id = 1; }
+    message DeleteMediaAssetRequest { string id = 1; }
+
+    message ListMediaAssetRequest {
+      int32 page = 1;
+      int32 page_size = 2;
+      string sort_by = 3;     // created_at/updated_at/id
+      string sort_order = 4;  // asc/desc
+      string q = 5;
+      map<string,string> filters = 6;
+    }
+
+    message MediaAssetResponse { MediaAsset data = 1; }
+    message ListMediaAssetResponse {
+      repeated MediaAsset items = 1;
+      Pagination pagination = 2;
+    }
+
+    service MediaAssetService {
+      rpc CreateMediaAsset(CreateMediaAssetRequest) returns (MediaAssetResponse);
+      rpc ListMediaAsset(ListMediaAssetRequest) returns (ListMediaAssetResponse);
+      rpc GetMediaAsset(GetMediaAssetRequest) returns (MediaAssetResponse);
+      rpc UpdateMediaAsset(UpdateMediaAssetRequest) returns (MediaAssetResponse);
+      rpc DeleteMediaAsset(DeleteMediaAssetRequest) returns (google.protobuf.Empty);
+    }

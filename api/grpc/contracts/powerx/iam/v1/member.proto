@@ -1,5 +1,7 @@
 syntax = "proto3";
 
+// api/grpc/contracts/powerx/iam/v1/member.proto
+
 package powerx.iam.v1;
 
 option go_package = "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/iam/v1;iamv1";

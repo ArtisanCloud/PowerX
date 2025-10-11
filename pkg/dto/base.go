@@ -1,5 +1,7 @@
 package dto
 
+// pkg/dto/base.go
+
 import (
 	"fmt"
 	"github.com/gin-gonic/gin/binding"

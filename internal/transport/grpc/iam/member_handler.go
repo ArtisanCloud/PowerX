@@ -1,18 +1,20 @@
 package iam
 
+// internal/transport/grpc/iam/member_handler.go
+
 import (
-    "context"
-    "errors"
-    "strconv"
-    "strings"
+	"context"
+	"errors"
+	iamv1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/iam/v1"
+	"github.com/ArtisanCloud/PowerX/internal/app/shared"
+	"strconv"
+	"strings"
 
-    commonv1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/common/v1"
-    iamv1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/iam/v1"
-    "github.com/ArtisanCloud/PowerX/internal/app/shared"
-    svciam "github.com/ArtisanCloud/PowerX/internal/service/iam"
+	commonv1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/common/v1"
+	svciam "github.com/ArtisanCloud/PowerX/internal/service/iam"
 
-    "google.golang.org/grpc/metadata"
-    "gorm.io/gorm"
+	"google.golang.org/grpc/metadata"
+	"gorm.io/gorm"
 )
 
 // 编译期保证接口实现
@@ -100,10 +102,10 @@ func toPBMember(w svciam.MemberWithProfile) *iamv1.Member {
 // ========== RPC 实现 ==========
 
 func (s *MemberServer) ListMembers(ctx context.Context, req *iamv1.ListMembersRequest) (*iamv1.ListMembersResponse, error) {
-    tid := tenantIDFrom(ctx, req.GetCtx())
-    if tid == 0 {
-        return &iamv1.ListMembersResponse{Meta: badMeta(ctx, 400, "tenant_id required", req.GetCtx().GetRequestId()), Data: &iamv1.ListMembersData{Items: []*iamv1.Member{}, Page: &commonv1.PageResponse{}}}, nil
-    }
+	tid := tenantIDFrom(ctx, req.GetCtx())
+	if tid == 0 {
+		return &iamv1.ListMembersResponse{Meta: badMeta(ctx, 400, "tenant_id required", req.GetCtx().GetRequestId()), Data: &iamv1.ListMembersData{Items: []*iamv1.Member{}, Page: &commonv1.PageResponse{}}}, nil
+	}
 
 	page, size := pageFrom(req.GetPage())
 	sortOrder := "desc"
@@ -134,56 +136,56 @@ func (s *MemberServer) ListMembers(ctx context.Context, req *iamv1.ListMembersRe
 		SortOrder: sortOrder,
 	}
 
-    rows, total, err := s.memberSvc.ListMembers(ctx, opt)
-    if err != nil {
-        return &iamv1.ListMembersResponse{Meta: badMeta(ctx, 500, "list members: "+err.Error(), req.GetCtx().GetRequestId())}, nil
-    }
+	rows, total, err := s.memberSvc.ListMembers(ctx, opt)
+	if err != nil {
+		return &iamv1.ListMembersResponse{Meta: badMeta(ctx, 500, "list members: "+err.Error(), req.GetCtx().GetRequestId())}, nil
+	}
 
 	items := make([]*iamv1.Member, 0, len(rows))
 	for _, w := range rows {
 		items = append(items, toPBMember(w))
 	}
-    return &iamv1.ListMembersResponse{
-        Meta: okMeta(ctx, req.GetCtx().GetRequestId()),
-        Data: &iamv1.ListMembersData{Items: items, Page: &commonv1.PageResponse{Total: total}},
-    }, nil
+	return &iamv1.ListMembersResponse{
+		Meta: okMeta(ctx, req.GetCtx().GetRequestId()),
+		Data: &iamv1.ListMembersData{Items: items, Page: &commonv1.PageResponse{Total: total}},
+	}, nil
 }
 
 func (s *MemberServer) GetMember(ctx context.Context, req *iamv1.GetMemberRequest) (*iamv1.GetMemberResponse, error) {
 	tid := tenantIDFrom(ctx, req.GetCtx())
-    if tid == 0 {
-        return &iamv1.GetMemberResponse{Meta: badMeta(ctx, 400, "tenant_id required", req.GetCtx().GetRequestId())}, nil
-    }
+	if tid == 0 {
+		return &iamv1.GetMemberResponse{Meta: badMeta(ctx, 400, "tenant_id required", req.GetCtx().GetRequestId())}, nil
+	}
 
 	// 仅实现按 ID 查询（如果你的 proto 还有 username/ref 等 selector，可按需扩展）
 	id := req.GetId()
-    if id == 0 {
-        return &iamv1.GetMemberResponse{Meta: badMeta(ctx, 400, "id required", req.GetCtx().GetRequestId())}, nil
-    }
+	if id == 0 {
+		return &iamv1.GetMemberResponse{Meta: badMeta(ctx, 400, "id required", req.GetCtx().GetRequestId())}, nil
+	}
 
-    w, err := s.memberSvc.GetMember(ctx, uint64(tid), uint64(id))
-    if errors.Is(err, gorm.ErrRecordNotFound) {
-        return &iamv1.GetMemberResponse{Meta: badMeta(ctx, 404, "member not found", req.GetCtx().GetRequestId())}, nil
-    }
-    if err != nil {
-        return &iamv1.GetMemberResponse{Meta: badMeta(ctx, 500, "get member: "+err.Error(), req.GetCtx().GetRequestId())}, nil
-    }
+	w, err := s.memberSvc.GetMember(ctx, uint64(tid), uint64(id))
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return &iamv1.GetMemberResponse{Meta: badMeta(ctx, 404, "member not found", req.GetCtx().GetRequestId())}, nil
+	}
+	if err != nil {
+		return &iamv1.GetMemberResponse{Meta: badMeta(ctx, 500, "get member: "+err.Error(), req.GetCtx().GetRequestId())}, nil
+	}
 
-    return &iamv1.GetMemberResponse{
-        Meta: okMeta(ctx, req.GetCtx().GetRequestId()),
-        Data: &iamv1.GetMemberData{Member: toPBMember(*w)},
-    }, nil
+	return &iamv1.GetMemberResponse{
+		Meta: okMeta(ctx, req.GetCtx().GetRequestId()),
+		Data: &iamv1.GetMemberData{Member: toPBMember(*w)},
+	}, nil
 }
 
 func (s *MemberServer) BatchGetMembers(ctx context.Context, req *iamv1.BatchGetMembersRequest) (*iamv1.BatchGetMembersResponse, error) {
 	tid := tenantIDFrom(ctx, req.GetCtx())
-    if tid == 0 {
-        return &iamv1.BatchGetMembersResponse{Meta: badMeta(ctx, 400, "tenant_id required", req.GetCtx().GetRequestId()), Data: &iamv1.BatchGetMembersData{Members: []*iamv1.Member{}}}, nil
-    }
+	if tid == 0 {
+		return &iamv1.BatchGetMembersResponse{Meta: badMeta(ctx, 400, "tenant_id required", req.GetCtx().GetRequestId()), Data: &iamv1.BatchGetMembersData{Members: []*iamv1.Member{}}}, nil
+	}
 	ids := req.GetIds()
-    if len(ids) == 0 {
-        return &iamv1.BatchGetMembersResponse{Meta: okMeta(ctx, req.GetCtx().GetRequestId()), Data: &iamv1.BatchGetMembersData{Members: []*iamv1.Member{}}}, nil
-    }
+	if len(ids) == 0 {
+		return &iamv1.BatchGetMembersResponse{Meta: okMeta(ctx, req.GetCtx().GetRequestId()), Data: &iamv1.BatchGetMembersData{Members: []*iamv1.Member{}}}, nil
+	}
 
 	out := make([]*iamv1.Member, 0, len(ids))
 	for _, id := range ids {
@@ -197,5 +199,5 @@ func (s *MemberServer) BatchGetMembers(ctx context.Context, req *iamv1.BatchGetM
 		}
 		out = append(out, toPBMember(*w))
 	}
-    return &iamv1.BatchGetMembersResponse{Meta: okMeta(ctx, req.GetCtx().GetRequestId()), Data: &iamv1.BatchGetMembersData{Members: out}}, nil
+	return &iamv1.BatchGetMembersResponse{Meta: okMeta(ctx, req.GetCtx().GetRequestId()), Data: &iamv1.BatchGetMembersData{Members: out}}, nil
 }

@@ -30,8 +30,8 @@ func (m *managerImpl) Enable(ctx context.Context, id string) error {
 	if err != nil {
 		return err
 	}
-	log.Printf("[plugin-enable] id=%s ver=%s state=%s menus.top=%d admin=%d",
-		p.ID, p.Version, p.State, len(p.Menus), len(p.Frontend.Admin.Menus))
+	log.Printf("[plugin-enable] id=%s ver=%s state=%s admin_menus=%d",
+		p.ID, p.Version, p.State, len(p.Frontend.Admin.Menus))
 
 	if m.http == nil {
 		return plugin_mgr.NewError(plugin_mgr.CodeInternal, plugin_mgr.WithOp("enable"), plugin_mgr.WithMsg("dynamic router not initialized"))

@@ -77,3 +77,4 @@ api/grpc/gen/*
 .gocache
 .cache
 .gomodcache
+storage/

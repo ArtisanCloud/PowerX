@@ -18,7 +18,6 @@ type Manifest struct {
 	Backend     *BackendSpec     `yaml:"backend"   json:"backend,omitempty"`
 	Routes      *RouteSpec       `yaml:"routes"    json:"routes,omitempty"`
 	Permissions []PermissionSpec `yaml:"permissions" json:"permissions,omitempty"`
-	Menus       []MenuTreeItem   `yaml:"menus" json:"menus,omitempty"`
 	Agents      []AgentSpec      `yaml:"agents" json:"agents,omitempty"`
 	Tools       []ToolSpec       `yaml:"tools" json:"tools,omitempty"`
 	Workflows   []WorkflowSpec   `yaml:"workflows" json:"workflows,omitempty"`

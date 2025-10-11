@@ -1,0 +1,146 @@
+kind: ruleset
+name: crud_dto
+version: 1.0.0
+owner: powerx
+status: stable
+
+meta:
+  intent: >
+    统一 DTO 目录、命名、字段与校验规则：DTO 与模型解耦；输入严格校验（binding/validate），
+    输出统一信封（Response / ResponseList / PaginationResponse），并提供通用筛选/排序/搜索契约。
+  references:
+    - dev_crud_http_guides.md
+    - constitution.md
+
+scope:
+  codebase:
+    dto_globs:
+      - "internal/transport/http/**/**/dto/*.go"
+    handler_globs:
+      - "internal/transport/http/**/**_handler.go"
+
+principles:
+  - DTO ≠ Model：DTO 不得包含 gorm tag/DB 逻辑；Model 不直接暴露给 HTTP 层。
+  - 入参与出参分离：Create/Update 与 Get/List 各自独立结构。
+  - 统一分页/筛选/排序：PaginationRequest、Filters、SortBy/SortOrder；输出 PaginationResponse。
+  - 统一错误回包：错误由 Handler 使用统一桥接封装，无自定义裸写。
+
+checks:
+  - id: dto.no_gorm_tags
+    level: error
+    when: { glob: "internal/transport/http/**/**/dto/*.go" }
+    assert:
+      - must_not_contain: '`gorm:"'
+  - id: dto.json_tags_required
+    level: error
+    when: { glob: "internal/transport/http/**/**/dto/*.go" }
+    assert:
+      - must_contain_regex: "`json:\"[a-zA-Z][a-zA-Z0-9]*"`
+  - id: dto.has_validation_tags
+    level: warn
+    when: { glob: "internal/transport/http/**/**/dto/*_req.go" }
+    assert:
+      - should_contain_any: ["`binding:","`validate:"]
+  - id: dto.pagination_exists
+    level: error
+    when: { glob: "internal/transport/http/**/**/dto/*.go" }
+    assert:
+      - must_define: "type PaginationRequest struct"
+      - must_define: "type PaginationResponse struct"
+  - id: handler.binds_dto
+    level: error
+    when: { glob: "internal/transport/http/**/**_handler.go" }
+    assert:
+      - must_call_one_of: ["ValidateRequestWithContext(", "ValidateAndBindWithContext("]
+  - id: dto.separation
+    level: warn
+    when: { glob: "internal/transport/http/**/**/dto/*.go" }
+    assert:
+      - should_file_suffix_one_of: ["_req.go","_resp.go","_common.go"]
+
+acceptance:
+  checklist:
+    - "[ ] DTO 不包含任何 gorm Tag / DB 细节"
+    - "[ ] Create/Update/Get/List DTO 独立，字段含 json & 校验 tag"
+    - "[ ] handler 使用统一绑定函数进行校验与上下文注入"
+    - "[ ] 存在 PaginationRequest 与 PaginationResponse"
+    - "[ ] 错误回包统一通过错误桥接函数完成"
+
+templates:
+  common_dto_go: |
+    // internal/transport/http/{{layer}}/{{domain}}/dto/common_dto.go
+    package dto
+
+    type PaginationRequest struct {
+      Page     int    `json:"page"      binding:"omitempty,min=1"`
+      PageSize int    `json:"pageSize"  binding:"omitempty,min=1,max=200"`
+      SortBy   string `json:"sortBy"    binding:"omitempty,oneof=createdAt updatedAt id"`
+      SortOrder string `json:"sortOrder" binding:"omitempty,oneof=asc desc"`
+      Q        string `json:"q"         binding:"omitempty"`
+      // 通用过滤：filters[field]=op:value → 在 handler/service 解析
+      Filters map[string]string `json:"filters" binding:"omitempty"`
+    }
+
+    type PaginationResponse struct {
+      Total    int64 `json:"total"`
+      Page     int   `json:"page"`
+      PageSize int   `json:"pageSize"`
+      Pages    int   `json:"pages"`
+    }
+
+    type ResponseSuccess struct {
+      OK bool `json:"ok"`
+    }
+
+    type ResponseList[T any] struct {
+      Items      []T                `json:"items"`
+      Pagination PaginationResponse `json:"pagination"`
+    }
+  entity_req_resp_go: |
+    // internal/transport/http/{{layer}}/{{domain}}/dto/{{resource}}_req_resp.go
+    package dto
+
+    // Create
+    type {{Entity}}CreateReq struct {
+      Name   string            `json:"name"   binding:"required,min=1,max=128"`
+      Code   string            `json:"code"   binding:"required,alphanum,max=64"`
+      Meta   map[string]any    `json:"meta"   binding:"omitempty"`
+      Status *int16            `json:"status" binding:"omitempty,oneof=0 1"`
+    }
+
+    // Update
+    type {{Entity}}UpdateReq struct {
+      ID     string            `json:"id"     binding:"required,ulid|uuid4"`
+      Name   *string           `json:"name"   binding:"omitempty,max=128"`
+      Meta   map[string]any    `json:"meta"   binding:"omitempty"`
+      Status *int16            `json:"status" binding:"omitempty,oneof=0 1"`
+      // 幂等/并发（可选）
+      IfMatch *string          `json:"ifMatch" binding:"omitempty"`
+    }
+
+    // Get
+    type {{Entity}}GetReq struct {
+      ID string `json:"id" binding:"required,ulid|uuid4"`
+    }
+
+    // Delete
+    type {{Entity}}DeleteReq struct {
+      ID    string `json:"id" binding:"required,ulid|uuid4"`
+      Force bool   `json:"force" binding:"omitempty"`
+    }
+
+    // List
+    type {{Entity}}ListReq struct {
+      PaginationRequest
+    }
+
+  bind_helpers_go: |
+    // internal/transport/http/{{layer}}/{{domain}}/dto/bind_helpers.go
+    package dto
+
+    import "github.com/gin-gonic/gin"
+
+    // 仅示例：项目内已有 ValidateRequestWithContext/ValidateAndBindWithContext 则无需重复
+    func Bind[T any](c *gin.Context, v *T) error {
+      return c.ShouldBind(v)
+    }

@@ -70,29 +70,29 @@
 - 获取市场列表：
 ```
 curl -H "Authorization: Bearer <token>" \
-  http://localhost:8080/api/v1/admin/plugins/marketplace/plugins_v2
+  http://localhost:8077/api/v1/admin/plugins/marketplace/plugins_v2
 ```
 - 从 URL 安装并启用：
 ```
 curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer <token>" \
   -d '{"url":"https://example.com/com.powerx.demo.hello_world-0.1.2.zip","sha256":"","enable":true}' \
-  http://localhost:8080/api/v1/admin/plugins/install/url
+  http://localhost:8077/api/v1/admin/plugins/install/url
 ```
 - 系统启用：
 ```
 curl -X POST -H "Authorization: Bearer <token>" \
-  http://localhost:8080/api/v1/admin/plugins/com.powerx.demo.hello_world/enable
+  http://localhost:8077/api/v1/admin/plugins/com.powerx.demo.hello_world/enable
 ```
 - 租户启用（首次会返回一次性 secret）：
 ```
 curl -X POST -H "Content-Type: application/json" -H "Authorization: Bearer <token>" \
   -d '{"enabled":true}' \
-  http://localhost:8080/api/v1/admin/plugins/com.powerx.demo.hello_world/tenant_enable
+  http://localhost:8077/api/v1/admin/plugins/com.powerx.demo.hello_world/tenant_enable
 ```
 - 轮换密钥（一次性返回新 secret）：
 ```
 curl -X POST -H "Authorization: Bearer <token>" \
-  http://localhost:8080/api/v1/admin/plugins/com.powerx.demo.hello_world/credentials/rotate
+  http://localhost:8077/api/v1/admin/plugins/com.powerx.demo.hello_world/credentials/rotate
 ```
 
 ## 实现细节与注意事项

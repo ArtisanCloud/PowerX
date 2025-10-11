@@ -80,6 +80,38 @@ func (c *Config) Validate() error {
 		errors = append(errors, "database.conn_max_lifetime_minutes 必须大于0")
 	}
 
+	// --- Storage ---
+	if strings.TrimSpace(c.Storage.DefaultDriver) == "" {
+		errors = append(errors, "storage.default_driver 不能为空")
+	} else {
+		driver := strings.ToLower(strings.TrimSpace(c.Storage.DefaultDriver))
+		if driver != "local" && driver != "s3" {
+			errors = append(errors, "storage.default_driver 仅支持 local 或 s3")
+		}
+	}
+	if c.Storage.TTLSeconds <= 0 {
+		errors = append(errors, "storage.ttl_seconds 必须大于0")
+	}
+	if strings.EqualFold(c.Storage.DefaultDriver, "local") {
+		if strings.TrimSpace(c.Storage.Local.BasePath) == "" {
+			errors = append(errors, "storage.local.base_path 不能为空")
+		}
+	}
+	if strings.EqualFold(c.Storage.DefaultDriver, "s3") {
+		if strings.TrimSpace(c.Storage.S3.Endpoint) == "" {
+			errors = append(errors, "storage.s3.endpoint 不能为空")
+		}
+		if strings.TrimSpace(c.Storage.S3.Bucket) == "" {
+			errors = append(errors, "storage.s3.bucket 不能为空")
+		}
+		if strings.TrimSpace(c.Storage.S3.AccessKey) == "" {
+			errors = append(errors, "storage.s3.access_key 不能为空")
+		}
+		if strings.TrimSpace(c.Storage.S3.SecretKey) == "" {
+			errors = append(errors, "storage.s3.secret_key 不能为空")
+		}
+	}
+
 	// --- Logging ---
 	validLevels := []string{"debug", "info", "warn", "error"}
 	levelValid := false

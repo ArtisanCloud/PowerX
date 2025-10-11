@@ -10,7 +10,7 @@ import (
 func GetDefaults() *Config {
 	return &Config{
 		Server: ServerConfig{
-			Port:                8080,
+			Port:                8077,
 			ReadTimeoutSeconds:  5,
 			WriteTimeoutSeconds: 10,
 			Mode:                "debug",
@@ -85,6 +85,26 @@ func GetDefaults() *Config {
 		},
 		FeatureGate: FeatureGateConfig{
 			LicenseKey: "demo-license-xyz",
+		},
+                Storage: StorageConfig{
+                        DefaultDriver: "local",
+                        TTLSeconds:    43200,
+                        Local: LocalStorageConfig{
+                                BasePath:             "./storage/media",
+                                PublicBaseURL:        "http://localhost:8077/media",
+                                EnableUploadEndpoint: true,
+                                UploadTokenSecret:    "",
+                                MaxUploadSizeBytes:   100 << 20, // 100MB
+                        },
+			S3: S3StorageConfig{
+				Endpoint:       "http://127.0.0.1:9000",
+				Region:         "us-east-1",
+				AccessKey:      "minioadmin",
+				SecretKey:      "minioadmin",
+				Bucket:         "powerx-media",
+				UseSSL:         false,
+				ForcePathStyle: true,
+			},
 		},
 	}
 }

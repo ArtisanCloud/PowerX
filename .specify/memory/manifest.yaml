@@ -1,0 +1,48 @@
+# .specify/memory/manifest.yaml
+aliases:
+  # 只引 HTTP（你的当前状态）
+  dev-crud-http:
+    include:
+      - dev_crud_http_guides.md
+    rulesets:
+      - rulesets/crud_http.yaml
+      - rulesets/crud/migration.yaml
+      - rulesets/crud/model.yaml
+      - rulesets/crud/repository.yaml
+      - rulesets/crud/service.yaml
+      - rulesets/crud/dto.yaml
+      - rulesets/crud/handler_http.yaml
+      - rulesets/crud/api_rest.yaml
+      - rulesets/crud/di.yaml
+      - rulesets/crud/test.yaml
+
+  # gRPC 独立别名（先建但暂不从 constitution 入口引入，便于后续按需打开）
+  dev-crud-grpc:
+    include:
+      - dev_crud_grpc_guides.md
+    rulesets:
+      - rulesets/crud_grpc.yaml
+      - rulesets/crud/transport_grpc.yaml
+      # 其余共用层（model/repo/service/dto/di/test）可与 HTTP 共享
+
+  #STS 专题别名
+  dev-sts:
+    include:
+      - dev_sts_guides.md
+    rulesets:
+      - rulesets/sts.yaml
+      - rulesets/plugin_integration.yaml   # 可选
+
+
+  # 如果你希望“一次性同时引入 HTTP+gRPC”，还可以做个总别名（可选）
+  dev-guides:
+    include:
+      - dev_crud_http_guides.md
+      - dev_crud_grpc_guides.md
+      - dev_sts_guides.md
+    rulesets:
+      - rulesets/crud_http.yaml
+      - rulesets/crud_grpc.yaml
+      - rulesets/sts.yaml
+      # 以及两边共用/各自特有的明细 ruleset
+
