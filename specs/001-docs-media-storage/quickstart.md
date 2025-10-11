@@ -41,6 +41,34 @@
 - 通过 `make unit-test` 执行新增单元与契约测试。
 - 使用 `mc`（MinIO Client）或 AWS CLI 验证对象存储中的文件写入与删除。
 
+## 自动化验证命令
+
+开发完成后建议按照以下顺序执行自检，确保契约、生成物与单测全部通过：
+
+```bash
+make proto-gen
+make contracts-test
+make unit-test
+```
+
+若命令执行成功，终端会打印 `Done`、`ok` 等绿色提示；如遇失败请根据日志修正后重试。
+
+## 媒资工具集 CLI
+
+Media 模块新增 `cmd/media_tool` 工具集，可通过子命令管理媒资维护任务。清理软删除且超时的媒资对象示例：
+
+```bash
+go run ./cmd/media_tool cleanup --dry-run --before=24h --limit=50
+```
+
+- `cleanup` 子命令支持软删除清理，并写入审计事件；
+- `--dry-run`：仅打印将被清理的记录，不执行真实删除；
+- `--before`：仅处理软删除时间早于该时长的记录，默认 24 小时；
+- `--limit`：单次扫描的最大数量，可多次执行直至结果为空；
+- `--tenant` / `--drivers`：按租户或驱动过滤待清理对象。
+
+生产环境建议去掉 `--dry-run` 参数，并结合 Cron/任务编排按需执行。运行 `go run ./cmd/media_tool help` 查看更多子命令与参数说明。
+
 ## 回滚策略
 
 1. 通过 `DELETE /api/admin/v1/media/assets/{uuid}` 恢复至软删除状态再重试。

@@ -130,7 +130,7 @@ internal/transport/grpc/auth/middleware/
 
 - pkg/corex/db/migration.go  # func MigrateCoreModels(db *gorm.DB) error（模块自迁移，AutoMigrate/Migrator，无 .sql）
 - cmd/database/migrate.go                       # func MigrateDatabase/ResetDatabase 编排调用（全局入口，含生产环境保护）（不交付任何 .sql 迁移文件）
-- cmd/media_cleaner/main.go                     # 软删除清理 CLI
+- cmd/media_tool/main.go                        # 媒资工具集入口（含清理子命令）
 
 # 协议生成
 
