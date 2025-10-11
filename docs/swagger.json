@@ -1737,6 +1737,34 @@
         ]
       }
     },
+    "/media/*filepath": {
+      "get": {
+        "operationId": "GET /media/starfilepath",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "GET /media/starfilepath",
+        "tags": [
+          "media"
+        ]
+      }
+    },
+    "/media/*objectKey": {
+      "put": {
+        "operationId": "PUT /media/starobjectKey",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "PUT /media/starobjectKey",
+        "tags": [
+          "media"
+        ]
+      }
+    },
     "/ws/agents/stream/ws": {
       "get": {
         "operationId": "GET /ws/agents/stream/ws",

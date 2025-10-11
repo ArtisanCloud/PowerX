@@ -86,13 +86,16 @@ func GetDefaults() *Config {
 		FeatureGate: FeatureGateConfig{
 			LicenseKey: "demo-license-xyz",
 		},
-		Storage: StorageConfig{
-			DefaultDriver: "local",
-			TTLSeconds:    43200,
-			Local: LocalStorageConfig{
-				BasePath:      "./storage/media",
-				PublicBaseURL: "http://localhost:8077/media",
-			},
+                Storage: StorageConfig{
+                        DefaultDriver: "local",
+                        TTLSeconds:    43200,
+                        Local: LocalStorageConfig{
+                                BasePath:             "./storage/media",
+                                PublicBaseURL:        "http://localhost:8077/media",
+                                EnableUploadEndpoint: true,
+                                UploadTokenSecret:    "",
+                                MaxUploadSizeBytes:   100 << 20, // 100MB
+                        },
 			S3: S3StorageConfig{
 				Endpoint:       "http://127.0.0.1:9000",
 				Region:         "us-east-1",

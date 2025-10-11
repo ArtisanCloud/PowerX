@@ -16,6 +16,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/pkg/event_bus"
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"log"
+	"strings"
 	"time"
 )
 
@@ -74,6 +75,15 @@ func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error)
 	// 构建应用依赖（认证 / 审计等）
 	accessTTL, _ := time.ParseDuration(cfg.Auth.AccessTTLStr)
 	refreshTTL, _ := time.ParseDuration(cfg.Auth.RefreshTTLStr)
+	localTokenSecret := strings.TrimSpace(cfg.Storage.Local.UploadTokenSecret)
+	if localTokenSecret == "" {
+		localTokenSecret = strings.TrimSpace(cfg.Server.SecretKey)
+	}
+	maxUploadSize := cfg.Storage.Local.MaxUploadSizeBytes
+	if maxUploadSize < 0 {
+		maxUploadSize = 0
+	}
+
 	opts := &shared.DepsOptions{
 		AuthUser: auth.AuthOptions{
 			JWTSecret:  []byte(cfg.Auth.JWTSecret),
@@ -98,8 +108,11 @@ func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error)
 			DefaultDriver: cfg.Storage.DefaultDriver,
 			TTLSeconds:    cfg.Storage.TTLSeconds,
 			Local: mediasvc.StorageLocalOptions{
-				BasePath:      cfg.Storage.Local.BasePath,
-				PublicBaseURL: cfg.Storage.Local.PublicBaseURL,
+				BasePath:             cfg.Storage.Local.BasePath,
+				PublicBaseURL:        cfg.Storage.Local.PublicBaseURL,
+				EnableUploadEndpoint: cfg.Storage.Local.EnableUploadEndpoint,
+				UploadTokenSecret:    localTokenSecret,
+				MaxUploadSizeBytes:   maxUploadSize,
 			},
 			S3: mediasvc.StorageS3Options{
 				Endpoint:        cfg.Storage.S3.Endpoint,

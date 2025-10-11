@@ -47,6 +47,9 @@
 - [X] **T030 [P]** 在 `internal/infra/media/manager/manager_test.go` 编写单元测试，验证驱动注册、默认回退、错误冒泡。
 - [X] **T031 [P]** 在 `internal/service/media/service_test.go` 编写单元测试，覆盖状态流转、RBAC 拒绝、审计记录。
 - [X] **T032** 执行 `make proto-gen && make contracts-test && make unit-test`，收集日志并更新 `specs/001-docs-media-storage/quickstart.md` 的命令示例/说明。
+- [X] **T033** 扩展 `internal/infra/media/driver/local/local.go` 预签名逻辑，支持上传动作（PUT）、HMAC Token、限流配置。
+- [X] **T034** 在 `internal/http` 新增本地读写端点 `GET/PUT /media/*objectKey`，校验 Token/过期时间、限制 `Content-Length`，并确保目录与 `local.public_base_url`/`base_path` 一致。
+- [X] **T035** 调整 `POST /admin/media/assets/{uuid}/presign` 请求/响应契约，接入 `content_type`/`expires_in` 字段并返回统一 `storageKey`、`expiresAt` 信息。
 
 ## 依赖关系
 

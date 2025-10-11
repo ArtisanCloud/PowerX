@@ -3,6 +3,7 @@ package http
 import (
 	"github.com/ArtisanCloud/PowerX/config"
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
+	httpmiddleware "github.com/ArtisanCloud/PowerX/internal/http/middleware"
 	"github.com/ArtisanCloud/PowerX/internal/transport/http/admin/agent"
 	"github.com/ArtisanCloud/PowerX/internal/transport/http/admin/auth"
 	"github.com/ArtisanCloud/PowerX/internal/transport/http/admin/iam"
@@ -19,6 +20,7 @@ func RegisterAPIRoutes(
 	r *gin.Engine, authMiddleware gin.HandlerFunc,
 	cfg *config.Config, deps *shared.Deps,
 ) {
+	httpmiddleware.RegisterLocalUploadEndpoint(r, cfg)
 	prefix := cfg.Server.APIPrefix
 	if prefix == "" {
 		prefix = "/api"

@@ -250,6 +250,9 @@ storage:
   local:
     base_path: ./storage/media
     public_base_url: http://localhost:8077/media
+    enable_upload_endpoint: true
+    upload_token_secret: ""
+    max_upload_size_bytes: 104857600
   s3:
     endpoint: http://127.0.0.1:9000
     region: us-east-1

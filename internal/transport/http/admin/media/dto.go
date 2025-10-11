@@ -46,6 +46,9 @@ type PresignRequest struct {
 	Action           string            `json:"action" validate:"required,oneof=upload download"`
 	Method           string            `json:"method" validate:"omitempty,oneof=GET PUT POST"`
 	ExpiresInSeconds int64             `json:"expiresInSeconds" validate:"omitempty,min=1"`
+	ExpiresIn        int64             `json:"expires_in" validate:"omitempty,min=1"`
+	Filename         string            `json:"filename"`
+	ContentType      string            `json:"content_type"`
 	Headers          map[string]string `json:"headers"`
 	Metadata         map[string]string `json:"metadata"`
 }

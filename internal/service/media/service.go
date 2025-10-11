@@ -119,13 +119,14 @@ type DeleteAssetInput struct {
 
 // PresignAssetInput 定义生成预签名链接所需参数。
 type PresignAssetInput struct {
-	TenantID   uint64
-	UUID       string
-	OperatorID *uint64
-	Action     string
-	Method     string
-	TTL        time.Duration
-	Headers    http.Header
+	TenantID    uint64
+	UUID        string
+	OperatorID  *uint64
+	Action      string
+	Method      string
+	TTL         time.Duration
+	Headers     http.Header
+	ContentType string
 }
 
 // ListAssetsInput 定义分页查询参数。
@@ -464,12 +465,24 @@ func (s *MediaService) PresignAsset(ctx context.Context, in PresignAssetInput) (
 		}
 	}
 
+	contentType := strings.TrimSpace(in.ContentType)
+	if contentType == "" && in.Headers != nil {
+		contentType = strings.TrimSpace(in.Headers.Get("Content-Type"))
+	}
+	if contentType != "" {
+		if in.Headers == nil {
+			in.Headers = http.Header{}
+		}
+		in.Headers.Set("Content-Type", contentType)
+	}
+
 	urlOut, err := s.manager.GenerateURL(ctx, entity.Driver, driver.GenerateURLInput{
-		Bucket:    entity.Bucket,
-		ObjectKey: entity.StorageKey,
-		Method:    method,
-		TTL:       ttl,
-		Headers:   in.Headers,
+		Bucket:      entity.Bucket,
+		ObjectKey:   entity.StorageKey,
+		Method:      method,
+		TTL:         ttl,
+		Headers:     in.Headers,
+		ContentType: contentType,
 	})
 	if err != nil {
 		return nil, err

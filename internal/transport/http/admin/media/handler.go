@@ -177,7 +177,11 @@ func (h *Handler) PresignAsset(c *gin.Context) {
 	operatorID := operatorIDFromRequest(c)
 	uuid := c.Param("uuid")
 
-	ttl := time.Duration(req.ExpiresInSeconds) * time.Second
+	ttlSeconds := req.ExpiresInSeconds
+	if ttlSeconds <= 0 && req.ExpiresIn > 0 {
+		ttlSeconds = req.ExpiresIn
+	}
+	ttl := time.Duration(ttlSeconds) * time.Second
 	headers := http.Header{}
 	for k, v := range req.Headers {
 		if strings.TrimSpace(k) == "" || strings.TrimSpace(v) == "" {
@@ -185,14 +189,18 @@ func (h *Handler) PresignAsset(c *gin.Context) {
 		}
 		headers.Set(k, v)
 	}
+	if ct := strings.TrimSpace(req.ContentType); ct != "" {
+		headers.Set("Content-Type", ct)
+	}
 	out, err := h.svc.PresignAsset(c.Request.Context(), mediasvc.PresignAssetInput{
-		TenantID:   tenantID,
-		UUID:       uuid,
-		OperatorID: operatorID,
-		Action:     req.Action,
-		Method:     req.Method,
-		TTL:        ttl,
-		Headers:    headers,
+		TenantID:    tenantID,
+		UUID:        uuid,
+		OperatorID:  operatorID,
+		Action:      req.Action,
+		Method:      req.Method,
+		TTL:         ttl,
+		Headers:     headers,
+		ContentType: strings.TrimSpace(req.ContentType),
 	})
 	if err != nil {
 		dto.ResponseError(c, http.StatusBadRequest, "生成预签名链接失败", err)
@@ -207,8 +215,11 @@ func (h *Handler) PresignAsset(c *gin.Context) {
 		"url":              out.URL,
 		"method":           out.Method,
 		"expiresInSeconds": int64(expiresIn / time.Second),
+		"expiresAt":        out.ExpireAt.UTC().Format(time.RFC3339),
 		"headers":          responseHeaders,
 		"objectKey":        out.ObjectKey,
+		"storageKey":       out.ObjectKey,
+		"storage_key":      out.ObjectKey,
 	})
 }
 

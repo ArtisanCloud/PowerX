@@ -2,6 +2,9 @@ package local
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -9,10 +12,18 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/ArtisanCloud/PowerX/internal/infra/media/driver"
+)
+
+const (
+	// HeaderUploadToken 为本地驱动上传预签名的校验头。
+	HeaderUploadToken = "X-CoreX-Upload-Token"
+	// HeaderUploadExpires 表示上传预签名的过期时间（Unix 秒）。
+	HeaderUploadExpires = "X-CoreX-Upload-Expires"
 )
 
 // Options 定义本地驱动的初始化参数。
@@ -22,6 +33,9 @@ type Options struct {
 	PublicBaseURL string
 	DirPerm       os.FileMode
 	FilePerm      os.FileMode
+	EnableUpload  bool
+	UploadToken   string
+	MaxUploadSize int64
 }
 
 // Driver 为本地文件系统驱动实现。
@@ -31,6 +45,9 @@ type Driver struct {
 	publicBaseURL string
 	dirPerm       os.FileMode
 	filePerm      os.FileMode
+	enableUpload  bool
+	uploadSecret  []byte
+	maxUploadSize int64
 }
 
 // New 根据配置创建本地驱动实例，并确保基础目录存在。
@@ -62,12 +79,23 @@ func New(opts Options) (*Driver, error) {
 		publicURL = strings.TrimRight(u.String(), "/")
 	}
 
+	var secret []byte
+	if trimmed := strings.TrimSpace(opts.UploadToken); trimmed != "" {
+		secret = []byte(trimmed)
+	}
+	if opts.MaxUploadSize < 0 {
+		opts.MaxUploadSize = 0
+	}
+
 	return &Driver{
 		name:          name,
 		basePath:      base,
 		publicBaseURL: publicURL,
 		dirPerm:       opts.DirPerm,
 		filePerm:      opts.FilePerm,
+		enableUpload:  opts.EnableUpload,
+		uploadSecret:  secret,
+		maxUploadSize: opts.MaxUploadSize,
 	}, nil
 }
 
@@ -227,14 +255,11 @@ func (d *Driver) Delete(ctx context.Context, in driver.DeleteObjectInput) error 
 	return nil
 }
 
-// GenerateURL 返回本地静态访问地址，仅支持 GET。
+// GenerateURL 返回本地静态访问/上传地址。
 func (d *Driver) GenerateURL(ctx context.Context, in driver.GenerateURLInput) (*driver.GenerateURLOutput, error) {
 	method := strings.ToUpper(strings.TrimSpace(in.Method))
 	if method == "" {
 		method = http.MethodGet
-	}
-	if method != http.MethodGet {
-		return nil, driver.ErrUnsupported
 	}
 	if d.publicBaseURL == "" {
 		return nil, driver.WrapError(d.name, "generate_url", errors.New("未配置 public_base_url"))
@@ -243,22 +268,104 @@ func (d *Driver) GenerateURL(ctx context.Context, in driver.GenerateURLInput) (*
 	if err != nil {
 		return nil, err
 	}
-	expireAt := time.Now().Add(in.TTL)
-	if in.TTL <= 0 {
-		expireAt = time.Now().Add(12 * time.Hour)
+	ttl := in.TTL
+	if ttl <= 0 {
+		ttl = 12 * time.Hour
 	}
+	expireAt := time.Now().Add(ttl)
 	urlStr := d.publicBaseURL
 	if rel != "" {
 		urlStr += "/" + strings.ReplaceAll(rel, "\\", "/")
 	}
-	return &driver.GenerateURLOutput{
-		Bucket:    in.Bucket,
-		ObjectKey: in.ObjectKey,
-		Method:    method,
-		URL:       urlStr,
-		ExpireAt:  expireAt,
-		Headers:   http.Header{},
-	}, nil
+
+	headers := cloneHeader(in.Headers)
+
+	switch method {
+	case http.MethodGet:
+		return &driver.GenerateURLOutput{
+			Bucket:    in.Bucket,
+			ObjectKey: in.ObjectKey,
+			Method:    method,
+			URL:       urlStr,
+			ExpireAt:  expireAt,
+			Headers:   headers,
+		}, nil
+	case http.MethodPut:
+		if !d.enableUpload {
+			return nil, driver.ErrUnsupported
+		}
+		contentType := strings.TrimSpace(in.ContentType)
+		if contentType == "" {
+			contentType = strings.TrimSpace(headers.Get("Content-Type"))
+		}
+		if contentType == "" {
+			contentType = "application/octet-stream"
+		}
+		headers.Set("Content-Type", contentType)
+
+		expiresValue := strconv.FormatInt(expireAt.Unix(), 10)
+		headers.Set(HeaderUploadExpires, expiresValue)
+		if len(d.uploadSecret) > 0 {
+			token := GenerateUploadToken(d.uploadSecret, in.ObjectKey, expiresValue)
+			if token == "" {
+				return nil, driver.WrapError(d.name, "generate_url", errors.New("生成上传 token 失败"))
+			}
+			headers.Set(HeaderUploadToken, token)
+		}
+
+		return &driver.GenerateURLOutput{
+			Bucket:    in.Bucket,
+			ObjectKey: in.ObjectKey,
+			Method:    method,
+			URL:       urlStr,
+			ExpireAt:  expireAt,
+			Headers:   headers,
+		}, nil
+	default:
+		return nil, driver.ErrUnsupported
+	}
+}
+
+func cloneHeader(h http.Header) http.Header {
+	if len(h) == 0 {
+		return http.Header{}
+	}
+	dup := make(http.Header, len(h))
+	for k, values := range h {
+		for _, v := range values {
+			dup.Add(k, v)
+		}
+	}
+	return dup
+}
+
+// GenerateUploadToken 根据 objectKey 与 expires 生成上传鉴权 token。
+func GenerateUploadToken(secret []byte, objectKey, expires string) string {
+	if len(secret) == 0 {
+		return ""
+	}
+	trimmedKey := strings.TrimSpace(objectKey)
+	trimmedExpires := strings.TrimSpace(expires)
+	if trimmedKey == "" || trimmedExpires == "" {
+		return ""
+	}
+	mac := hmac.New(sha256.New, secret)
+	mac.Write([]byte(trimmedKey))
+	mac.Write([]byte("\n"))
+	mac.Write([]byte(trimmedExpires))
+	return hex.EncodeToString(mac.Sum(nil))
+}
+
+// VerifyUploadToken 校验上传 token 是否匹配。
+func VerifyUploadToken(secret []byte, objectKey, expires, token string) bool {
+	if len(secret) == 0 {
+		return true
+	}
+	expected := GenerateUploadToken(secret, objectKey, expires)
+	if expected == "" || strings.TrimSpace(token) == "" {
+		return false
+	}
+	return hmac.Equal([]byte(expected), []byte(strings.TrimSpace(token)))
 }
 
 // HealthCheck 确保基础目录存在且可写。

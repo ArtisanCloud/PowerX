@@ -219,20 +219,25 @@ func TestContractPresignMediaAsset(t *testing.T) {
 	})
 
 	rr := performJSONRequest(t, handler, http.MethodPost, path, nil, map[string]any{
-		"filename": "banner.png",
-		"size":     524288,
-		"mime":     "image/png",
+		"action":       "upload",
+		"filename":     "banner.png",
+		"content_type": "image/png",
+		"expires_in":   900,
 	})
 
 	require.Equal(t, http.StatusOK, rr.Code)
 
 	response := decodeJSONResponse(t, rr)
 
-	uploadURL, ok := response["uploadUrl"].(string)
+	uploadURL, ok := response["url"].(string)
 	require.True(t, ok)
 	require.NotEmpty(t, uploadURL)
 
 	headers, ok := response["headers"].(map[string]any)
 	require.True(t, ok)
 	require.NotEmpty(t, headers)
+
+	storageKey, ok := response["storageKey"].(string)
+	require.True(t, ok)
+	require.NotEmpty(t, storageKey)
 }

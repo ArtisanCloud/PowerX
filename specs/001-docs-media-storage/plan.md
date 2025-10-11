@@ -162,8 +162,9 @@ Makefile                              # proto-gen / contracts-test / etc.
 2) **HTTP 契约**（`contracts/http-admin.yaml`）  
 - 路由前缀：`/admin/media/assets`（内部管理）  
 - 鉴权：`bearerAuth: JWT`（内部管理端）  
-- 端点：创建、列表、详情、更新、软删、预签名  
+- 端点：创建、列表、详情、更新、软删、预签名
 - 移除任何对外字段/鉴权描述
+  - 统一上传流程：预签名返回 `method/url/headers`，本地驱动通过 `GET/PUT /media/*objectKey` 提供下载与直传能力（开发环境启用、HMAC Token 防伪，`public_base_url` 与该路由保持一致）
 
 3) **gRPC 契约**（`contracts/grpc-media-asset.proto`）  
 - Service：`media.v1.MediaAssetAdminService`  

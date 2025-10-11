@@ -55,6 +55,7 @@ func newMediaIntegrationTestEnv(t *testing.T) *mediaIntegrationTestEnv {
 		Name:          "local",
 		BasePath:      filepath.Join(tmpDir, "media"),
 		PublicBaseURL: "http://localhost/media",
+		EnableUpload:  true,
 	})
 	require.NoError(t, err)
 

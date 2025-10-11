@@ -25,6 +25,9 @@ func BuildMediaStack(ctx context.Context, db *gorm.DB, audit auditsvc.Service, o
 		Name:          "local",
 		BasePath:      opts.Local.BasePath,
 		PublicBaseURL: opts.Local.PublicBaseURL,
+		EnableUpload:  opts.Local.EnableUploadEndpoint,
+		UploadToken:   opts.Local.UploadTokenSecret,
+		MaxUploadSize: opts.Local.MaxUploadSizeBytes,
 	}); err != nil {
 		pxlog.Warn(ctx, "init local media driver failed: "+err.Error())
 	} else {
