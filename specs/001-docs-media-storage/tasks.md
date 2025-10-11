@@ -42,11 +42,11 @@
 - [X] **T025** 在同文件实现 `DELETE /admin/media/assets/{uuid}`（软删除、调度清理、返回 204）。
 - [X] **T026** 在同文件实现 `POST /admin/media/assets/{uuid}/presign`（上传/下载、TTL 覆盖、可选 Redis 缓存）。
 - [X] **T027** 在 `internal/transport/grpc/media/media_handler.go` 实现 gRPC 服务（依赖 `MediaService`，不负责注册），封装租户、审计、错误状态码。
-- [ ] **T028** 更新 `internal/server/grpc/server.go`，通过已有拦截器注册 `media.v1.MediaAssetAdminServiceServer`，挂载监控。
-- [ ] **T029** 新建 `cmd/media_cleaner/main.go`，实现软删除清理 CLI：扫描过期资产、调用驱动删除、写审计事件。
-- [ ] **T030 [P]** 在 `internal/infra/media/manager/manager_test.go` 编写单元测试，验证驱动注册、默认回退、错误冒泡。
-- [ ] **T031 [P]** 在 `internal/service/media/service_test.go` 编写单元测试，覆盖状态流转、RBAC 拒绝、审计记录。
-- [ ] **T032** 执行 `make proto-gen && make contracts-test && make unit-test`，收集日志并更新 `specs/001-docs-media-storage/quickstart.md` 的命令示例/说明。
+- [X] **T028** 更新 `internal/server/grpc/server.go`，通过已有拦截器注册 `media.v1.MediaAssetAdminServiceServer`，挂载监控。
+- [X] **T029** 新建 `cmd/media_tool/main.go`，实现媒资工具集入口，包含软删除清理子命令：扫描过期资产、调用驱动删除、写审计事件。
+- [X] **T030 [P]** 在 `internal/infra/media/manager/manager_test.go` 编写单元测试，验证驱动注册、默认回退、错误冒泡。
+- [X] **T031 [P]** 在 `internal/service/media/service_test.go` 编写单元测试，覆盖状态流转、RBAC 拒绝、审计记录。
+- [X] **T032** 执行 `make proto-gen && make contracts-test && make unit-test`，收集日志并更新 `specs/001-docs-media-storage/quickstart.md` 的命令示例/说明。
 
 ## 依赖关系
 

@@ -4,18 +4,19 @@ package grpcserver
 import (
 	"context"
 	"fmt"
-	settingv12 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/setting"
-	middleware2 "github.com/ArtisanCloud/PowerX/internal/transport/grpc/auth/middleware"
 	"net"
+	"strings"
 	"time"
 
 	agentv1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/agent/v1"
 	stsv1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/auth/sts/v1"
 	iamv1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/iam/v1"
 	corexmediav1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/media/v1"
+	settingv12 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/setting"
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
 	agentgrpc "github.com/ArtisanCloud/PowerX/internal/transport/grpc/agent"
 	authgrpc "github.com/ArtisanCloud/PowerX/internal/transport/grpc/auth"
+	middleware2 "github.com/ArtisanCloud/PowerX/internal/transport/grpc/auth/middleware"
 	"github.com/ArtisanCloud/PowerX/internal/transport/grpc/iam"
 	medigrpc "github.com/ArtisanCloud/PowerX/internal/transport/grpc/media"
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
@@ -98,16 +99,38 @@ func New(cfg *GRPCConfig, deps *shared.Deps) (*grpc.Server, net.Listener, error)
 	// STS（令牌换签/内发）—— 与拦截器共用同一个 KeyRing
 	stsv1.RegisterSTSServiceServer(s, authgrpc.NewSTSServiceServerWithRing(deps, ring))
 
-	// Media Asset
+	// Media Asset（复用已有拦截器）
 	corexmediav1.RegisterMediaAssetAdminServiceServer(s, medigrpc.NewMediaAssetServer(deps))
 
+	ctx := context.Background()
+
 	// ===== 健康检查 =====
+	var healthServer *health.Server
 	if cfg.Health {
-		healthpb.RegisterHealthServer(s, health.NewServer())
+		healthServer = health.NewServer()
+		healthpb.RegisterHealthServer(s, healthServer)
+		serviceNames := []string{
+			iamv1.MemberService_ServiceDesc.ServiceName,
+			iamv1.TeamService_ServiceDesc.ServiceName,
+			agentv1.AgentStreamService_ServiceDesc.ServiceName,
+			settingv12.SettingAIService_ServiceDesc.ServiceName,
+			stsv1.STSService_ServiceDesc.ServiceName,
+			corexmediav1.MediaAssetAdminService_ServiceDesc.ServiceName,
+		}
+		for _, name := range serviceNames {
+			healthServer.SetServingStatus(name, healthpb.HealthCheckResponse_SERVING)
+		}
+	}
+
+	if deps.MediaMgr != nil {
+		drivers := strings.Join(deps.MediaMgr.Drivers(), ",")
+		if drivers == "" {
+			drivers = "<empty>"
+		}
+		logger.InfoF(ctx, "[gRPC] media manager ready, drivers=%s", drivers)
 	}
 
 	// ===== 反射 =====
-	ctx := context.Background()
 	if cfg.Reflection {
 		reflection.Register(s)
 		logger.Info(ctx, "[gRPC] server reflection enabled")
