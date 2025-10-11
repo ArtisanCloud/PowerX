@@ -1,197 +1,222 @@
-# 插件应用市场与多租户使用机制（功能需求）
+# PowerX × 插件「能力统一与双向调用」设计规范（v1.0 草案）
 
-本文定义 PowerX Admin 的“插件应用市场”与“已安装插件管理”的功能、角色权限、数据与交互流程，覆盖系统级安装/运行与租户级启用/凭证管理的完整闭环。适用于当前本地模拟市场，后续可无缝切换为远端市场源。插件菜单的多语言打包约定详见《[插件菜单多语言打包规范](./i18n.md)》。
-
----
-
-**核心术语**
-- 市场（Marketplace）：展示“可安装的插件目录”。当前为本地模拟，未来支持远端索引（index_url）。
-- 系统级（平台维度）：安装/卸载、切换版本、进程启停、反向代理挂载等，全局唯一，与租户无关。
-- 租户级（Tenant 维度）：某租户对某插件的启用态与凭证（client_id/client_secret），独立隔离。
-- 凭证（Credentials）：落库于 `plugin_instance_configs(tenant_id, plugin_id, key="auth.credentials")`，仅存哈希；明文 secret 仅在首次生成或轮换时返回一次。
-- STS（短期令牌）：插件使用 `client_id/secret` 向宿主交换短期 JWT，用于访问宿主 API。
+> 目标：**一次定义能力（Single Source of Truth）**，支持 **PowerX→插件** 与 **插件→PowerX** 的双向调用；在不增加重复实现的前提下，通过 **Selector 策略 + Adapter 层** 实现 **gRPC / MCP / Agent / HTTP** 的多后端路由与治理。
 
 ---
 
-**角色与权限（简化）**
-- 平台管理员（root/System Admin）
-  - 允许：查看市场；系统级安装/卸载；切换版本；全局启用/停用进程；查看运行状态/日志。
-  - 可在其“默认租户”下，像租户管理员一样进行租户级启用/停用与凭证管理（注意避免 `tenant_id=0` 场景）。
-- 租户管理员（Tenant Admin）
-  - 允许：查看市场与“已安装插件”清单；管理“本租户”启用/停用；查看 `client_id`；轮换密钥；删除本租户配置。
-  - 不允许：系统级安装/卸载/切换版本/全局启停/查看其他租户配置。
+## 0. 术语与角色
+
+* **能力（Capability / Tool）**：系统可被调用的“动作”，如 `template.get`、`template.create`。
+* **PowerX（宿主）**：编排器/能力网关的提供方。
+* **插件（Plugin）**：域能力提供方；同时也可消费宿主底座能力（AI、IAM、KB 等）。
+* **Adapter**：协议适配层（gRPC/MCP/Agent/HTTP），**薄**，不承载业务。
+* **Selector**：能力选择器；基于策略/健康/成本/SLA 为每次调用选择后端并实现回退。
+* **PowerXClient（Host Client）**：插件侧调用宿主的 gRPC SDK 的**薄封装**（注入上下文、重试、观测等）。
 
 ---
 
-**页面信息架构**
-- 应用市场（Marketplace）页
-  - 数据：GET `/api/marketplace/plugins`（当前：本地模拟清单；未来：从远端 index 拉取，失败回退本地）。
-  - 列表项字段：`id/name/description/version/author/category/icon/tags/installed?`。
-  - 操作：
-    - 平台管理员：对“未安装”项显示“安装（系统级）”；对“已安装”项显示“已安装”并可跳转到“已安装管理”。
-    - 租户管理员：仅浏览，无安装按钮。
-- 已安装（Installed）页
-  - 系统级信息：`version/state`、运行态（`pid/port/state/healthy/restarts/health_ok/health_fails`）。
-  - 租户级信息（按当前租户）：`exists/enabled/client_id`。
-  - 操作：
-    - 平台管理员：系统级“启用/停用/重启/切换版本/卸载/查看日志”。
-    - 租户管理员：本租户“启用/停用/查看 client_id/轮换密钥/删除本租户配置”。
+## 1. 范围（Scope）
+
+* 覆盖两条方向：
+
+  1. **PowerX → 插件**：宿主编排调用插件的业务能力。
+  2. **插件 → PowerX**：插件调用宿主底座能力（AI、IAM、向量、对象存储、审计、事件）。
+* 覆盖四种方式：**gRPC、MCP、Agent、HTTP（仅 UI/探活/极少量 API）**。
 
 ---
 
-**后端接口（当前实现）**
-- 市场
-  - GET `/api/marketplace/plugins` → 市场清单（本地模拟；后续可对接远端）。
-- 系统级（平台管理员）
-  - GET  `/api/admin/plugins/` → 已安装列表
-  - GET  `/api/admin/plugins/:id/status` → 运行状态
-  - GET  `/api/admin/plugins/:id/logs` → 运行日志
-  - POST `/api/admin/plugins/install/local` → 从本地目录安装
-  - POST `/api/admin/plugins/install/url` → 从 URL 安装（支持 sha256）
-  - POST `/api/admin/plugins/:id/switch_version` → 切换版本（可选启用）
-  - POST `/api/admin/plugins/:id/enable` → 启动进程并挂载反代（全局）
-  - POST `/api/admin/plugins/:id/disable` → 停止进程并卸载反代（全局）
-  - POST `/api/admin/plugins/:id/restart` → 重启进程（全局）
-  - POST `/api/admin/plugins/:id/uninstall` → 卸载（可选 `purge` 删除磁盘产物）
-- 租户级（当前租户）
-  - GET    `/api/admin/plugins/:id/tenant_config` → 查询本租户配置（exists/enabled/client_id）
-  - POST   `/api/admin/plugins/:id/tenant_enable` → 启用/停用本租户；首次启用返回一次性 `client_secret`
-  - GET    `/api/admin/plugins/:id/credentials` → 查看凭证（只读：client_id）
-  - POST   `/api/admin/plugins/:id/credentials/rotate` → 轮换并返回新 `client_secret`（仅此一次）
-  - DELETE `/api/admin/plugins/:id/tenant_config` → 删除本租户配置（硬删）
+## 2. 核心原则
+
+1. **能力只定义一次**：名称、I/O Schema、RBAC、租户、事务/幂等、SLA 由插件侧清单统一声明。
+2. **单入口，多后端**：编排层只认能力名 → `CapabilityGateway.Invoke(tool, args, ctx)`。
+3. **读写分流**：读优先 MCP（可与 gRPC 竞速），写强制 gRPC（强一致 + 幂等 + 审计）。
+4. **策略外置**：多步/不确定任务交给 Agent 封装（内部再调 MCP/gRPC）。
+5. **非对称**：插件→宿主以 **gRPC** 为主；宿主内部可 MCP/Agent 化以便编排，**不要**强行做完全对称的三层互调。
+6. **治理优先**：上下文、鉴权、多租户、幂等、观测在网关/客户端统一收口，避免散落。
 
 ---
 
-**状态与数据模型**
-- 系统级安装状态（Registry）：`installed versions`、`current version`、`state=enabled/disabled`。
-- 运行态（Supervisor）：`starting/running/unhealthy/stopped/exited`、`pid/port`、健康计数。
-- 租户级配置（DB）：表 `plugin_instance_configs`
-  - 唯一键：`(tenant_id, plugin_id, key)`，其中 `key="auth.credentials"`
-  - `value_json`（示例）：`{"client_id":"<pluginID>.<tenantID>", "client_secret_hash":"...", "secret_version":1, ...}`
-  - `enabled`：租户侧启用开关。
+## 3. 能力模型（Capability Model）
+
+### 3.1 能力命名与 I/O
+
+* **命名**：`<domain>.<verb>_<object>`（如 `template.create`、`template.search`）。
+* **Schema**：输入/输出使用统一 JSON Schema（或 Proto + JSON Schema 镜像），能力清单引用 `inputSchemaRef` / `outputSchemaRef`。
+* **治理元数据**（随能力声明）：
+
+  * `rbac.required[]`：权限码（如 `template.write`）。
+  * `tenancy`：`scope`（tenant/system/mixed）、`dataIsolation`（schema/row/none）。
+  * `policy`：`transactional`、`idempotent`、`timeoutMs`、`prefer`、`fallback`。
+  * `costProfile`（可选）：CPU/tokens/典型时延，供调度与限流参考。
+
+### 3.2 Template 领域推荐能力集（示例）
+
+* 读：`template.get` / `template.list` / `template.search`
+* 写：`template.create` / `template.update` / `template.upsert` / `template.delete`
+* 智能：`template.generate_from_prompt` / `template.review_and_fix` / `template.bulk_import`
 
 ---
 
-**启用与凭证生命周期**
-- 首次启用（租户级）：
-  1) 调 `EnsureCredentials(tenantID, pluginID)` 生成 `client_id` 与一次性明文 `client_secret`；
-  2) 仅存 hash 于 DB；明文 `client_secret` 仅本次返回给前端展示；
-  3) 置 `enabled=true`。若记录已存在，则不返回明文 secret。
-- 再次启用/停用（租户级）：仅切换 `enabled`，不改密钥。
-- 轮换：`RotateSecret` 生成新 secret、替换 hash、`secret_version++`，立即使旧 secret 失效，并一次性返回新明文给前端。
-- 删除租户配置：删除该租户-插件的凭证记录；后续需再次“启用”以重新生成。
+## 4. 调用矩阵（方向 × 方式）
+
+| 调用方式 \ 方向 | **PowerX → 插件**（宿主调用插件）                            | **插件 → PowerX**（插件调用宿主）                              |
+| --------- | -------------------------------------------------- | ---------------------------------------------------- |
+| **gRPC**  | **强烈推荐**：写路径唯一通道；读为兜底或与 MCP 并发竞速；支持流式/批量。          | **强烈推荐**：AI、IAM、审计、对象存储、向量、事件回调等底座能力的首选。             |
+| **MCP**   | **推荐（读优先）**：可发现、易编排；与 gRPC 并发竞速；写能力在目录可见但默认转 gRPC。 | **一般不建议**：宿主可将底座能力做成 MCP 供**宿主内部**编排；插件调用仍以 gRPC 为主。 |
+| **Agent** | **按需**：多步智能/策略性任务；内部再调用 MCP/gRPC。                  | **谨慎**：仅当插件希望“让宿主代跑策略流程”时使用；常规 CRUD/AI 不走 Agent。     |
+| **HTTP**  | **次选**：UI 反代、健康探针、极少量查询；能力层不依赖。                    | **次选**：上传/下载、Webhook；强一致/流式仍优先 gRPC。                 |
 
 ---
 
-**插件端使用 STS（摘要）**
-- 插件保存：`client_id` 与 `client_secret`（安全存储：ENV/密钥管理器/私有配置文件）。
-- 令牌交换：调用 gRPC STS `Exchange`，传 `client_id/client_secret`，换取短期 JWT（默认 60–300s）。
-- 调用宿主：把 `Authorization: Bearer <token>` 加到 gRPC/HTTP 请求头；剩余寿命 <60s 预刷新；401/403 触发强刷。
+## 5. Selector（选择器）默认策略
+
+* **读类能力**：`prefer = ["mcp","grpc"]`（可并发竞速，先回先用，另一路取消）。
+* **写类能力**：`prefer = ["grpc"]`；`fallback = []`；必须携带 `idempotency_key`。
+* **智能类能力**：显式 `prefer=["agent"]`；Agent 内部再按任务分解调用 MCP/gRPC。
+* 运行时可结合**健康/时延/错误率/配额**动态调节；支持租户级/环境级覆写。
 
 ---
 
-**前端交互规则**
-- 应用市场页：
-  - 平台管理员：对未安装项显示“安装”，对已安装项显示“已安装/管理”。
-  - 租户管理员：仅浏览，无安装按钮。
-- 已安装页：
-  - 行内并发请求：系统级状态 + 本租户配置。
-  - 本租户“启用”成功时，若 `just_issued=true`，弹窗展示一次性 `client_secret`，提示妥善保管；关闭后不再可见。
-  - 高危操作需确认：
-    - 轮换密钥：提示“旧 secret 立即失效，未更新的插件调用将失败”。
-    - 删除本租户配置：提示“删除后本租户将无法访问该插件，需重新启用生成新密钥”。
+## 6. Adapter 层职责（统一薄封装）
+
+* **MCP Adapter**（Server/Client）
+
+  * `/tools/list` 从能力清单与 Schema 自动生成；
+  * `/call_tool` 做入参校验、RBAC、上下文注入、调用 app/service；
+  * 只做**原子动作**；长任务转 Job/事件。
+
+* **gRPC Adapter**（Server/Client）
+
+  * 强类型方法对齐能力名（按命名规则映射）；
+  * 统一**超时/重试/熔断/幂等键**；
+  * 统一错误映射（领域错误到 canonical codes）。
+
+* **Agent Adapter**（Server/Client）
+
+  * `Execute(Task)` 接收意图/槽位/约束，调用内部 Planner/Service/MCP/gRPC；
+  * 回传中间产物引用、评分、仲裁说明。
+
+* **HTTP Adapter**
+
+  * 仅用于前端静态/反代与健康/metrics；不承载能力。
 
 ---
 
-**安全与审计（建议）**
-- 不在日志/前端持久存储明文 `client_secret`；仅首次与轮换时短暂展示。
-- STS TTL 建议 60–300 秒；插件校验 `audience/issuer`。
-- 宿主侧审计关键事件：安装/卸载/启停/切版本/STS 交换/轮换/删除配置，记录 `tenant/plugin/subject/trace_id`。
+## 7. 上下文与安全（两端一致）
+
+* `Ctx` 统一字段：`tenant_id`、`actor`、`scopes[]`、`trace_id`、`locale/currency`、`idempotency_key`。
+* **鉴权**：PowerX 网关统一校验 `rbac.required[]`；插件→宿主通过 STS/Service Account 获取最小权限。
+* **多租户**：宿主注入 `tenant_id`；插件按 `schema/row` 隔离；日志与审计落**租户维度**。
+* **幂等**：写类能力必须支持；宿主负责生成/转发；插件在仓储层实现去重。
+* **审计**：统一事件名=能力名（如 `template.upsert`）；南北向都落账。
+* **配额与限流**：按租户/能力/方向实现令牌桶；AI 推理单列配额。
 
 ---
 
-**远端市场对接（后续规划）**
-- 配置：`plugin.market.index_url`、`timeout_sec`、`cache_ttl_sec`（可多源合并）。
-- 行为：优先拉取远端市场 JSON（失败回退本地），在返回项中合并“已安装标记”（对照 Registry）。
-- 安装动作：调用现有 `POST /api/admin/plugins/install/url`（传 `url/sha256`）。
+## 8. 观测与运维
+
+* **Tracing**：W3C/OTel，跨南北向单一 Trace；每次调用附 `tool`、`backend_kind`、`attempt` 标签。
+* **Metrics**：`invoke_count`、`latency_ms`、`error_rate`、`cost_tokens/cpu_ms` 按（能力×方向×后端）维度暴露。
+* **Health**：gRPC 健康检查、MCP 自检、HTTP `/healthz`。
+* **审计**：能力级审计表（actor、tenant、tool、status、artifact_ref、cost）。
 
 ---
 
-**Marketplace 接口（与前端 Plugin 类型对齐）**
-- 建议提供 v2 形态：GET `/api/marketplace/plugins` 返回数组，字段尽量贴合前端 `Plugin` 类型；暂无远端源时可以“fork 本地数据 + 默认值”。
-- 字段映射（当前实现能力 → 前端字段）：
-  - `id` ← manifest.id；`name` ← manifest.name；`version` ← manifest.version
-  - `slug` ← 由 id 衍生（示例：`strings.ReplaceAll(id, ".", "-")`）
-  - `description` ← manifest.description
-  - `author` ← metadata.author；`authorUrl` ← metadata.homepage（或未来扩展 metadata.author_url）
-  - `homepage` ← metadata.homepage；`repository` ←（未来扩展 metadata.repository，暂空）
-  - `license` ← metadata.license
-  - `icon` ← 若已安装：复用 admin 静态资源解析（`/_p/<id>/admin/icon.svg|png`）；否则使用远端清单的绝对 URL；都缺省则空
-  - `screenshots` ← 远端清单提供；本地无，默认为空数组
-  - `category/tags` ← metadata.category/tags
-  - 系统级状态：
-    - `systemStatus` ∈ {`not_installed`,`installed`,`enabled`,`disabled`}：
-      - 未安装：`not_installed`
-      - 已安装且 state=enabled：`enabled`
-      - 已安装且 state=installed：`installed`
-      - 已安装且 state=disabled：`disabled`
-    - `isSystemInstalled` ← 是否出现在 Registry；`isSystemEnabled` ← state==enabled
-    - `installPath` ← paths.root（仅已安装时）
-  - `configSchema/config/dependencies/requirements` ← 暂不提供，置空或 `{}`
-  - `downloadUrl` ← 远端清单提供；本地无
-  - `downloadCount/rating/reviewCount` ← 远端清单提供；本地默认 `0`
-  - `lastUpdated/createdAt/updatedAt` ← 远端清单提供；本地默认 `""`
-- 返回示例（v2）：
-  ```json
-  {
-    "id": "com.powerx.demo.hello_world",
-    "name": "Hello World",
-    "slug": "com-powerx-demo-hello_world",
-    "version": "0.1.1",
-    "description": "Demo plugin",
-    "author": "PowerX",
-    "authorUrl": "https://powerx.dev",
-    "homepage": "https://powerx.dev/plugins/hello",
-    "repository": "",
-    "license": "MIT",
-    "icon": "https://cdn.example.com/icons/hello.svg",
-    "screenshots": [],
-    "category": "demo",
-    "tags": ["demo","hello"],
-    "systemStatus": "installed",
-    "isSystemInstalled": true,
-    "isSystemEnabled": false,
-    "installPath": "/var/lib/powerx/plugins/installed/com.powerx.demo.hello_world/0.1.1",
-    "configSchema": {},
-    "config": {},
-    "dependencies": [],
-    "requirements": {},
-    "downloadUrl": "https://market.example.com/com.powerx.demo.hello_world-0.1.1.zip",
-    "downloadCount": 0,
-    "rating": 0,
-    "reviewCount": 0,
-    "lastUpdated": "",
-    "createdAt": "",
-    "updatedAt": ""
-  }
-  ```
-- 访问权限：读取接口向平台管理员与租户管理员开放；安装/卸载等系统级操作仅平台管理员可见与可操作。
+## 9. 版本与兼容
+
+* **能力级版本**：`tool.version`，仅在**不兼容变更**时递增大版本；支持 deprecations。
+* **协议演进**：gRPC 方法/消息向后兼容；MCP Schema 采用 `oneOf`/`nullable` 方式平滑升级。
+* **灰度**：Selector 支持按版本/租户/环境路由（可 A/B）。
 
 ---
 
-**常见边界情况**
-- 无租户上下文调用租户级接口：返回 400，避免产生 `tenant_id=0` 记录。
-- 系统未安装：租户级按钮隐藏或禁用（进程未跑）。
-- 升级/切换版本：不影响租户侧 `enabled` 与凭证；但进程重启期间需注意调用可用性。
-- 卸载（系统级）：会导致所有租户无法访问该插件；与删除租户配置不是一回事。
+## 10. 双向调用边界与建议
+
+### 10.1 PowerX → 插件
+
+* 读：MCP 优先，允许与 gRPC 竞速。
+* 写：只走 gRPC；拒绝多路径写。
+* 智能：走 Agent（内部再调 MCP/gRPC）。
+* HTTP：仅 UI/探活。
+
+### 10.2 插件 → PowerX
+
+* 以 **gRPC** 为主：AI、IAM、KB、对象存储、审计、事件。
+* 插件内引入 **PowerXClient** 薄封装：上下文注入、重试/限流、错误映射、观测。
+* 异步优先：结果/后续流程尽量通过**事件总线**解耦；必要时宿主回调插件极少数 gRPC。
 
 ---
 
-**API 示例（便于联调）**
-- 安装本地：`curl -X POST http://localhost:8077/api/admin/plugins/install/local -H 'Content-Type: application/json' -d '{"src_dir":"/ABS/PATH/to/dist/0.1.1","enable":false}'`
-- 安装远端：`curl -X POST http://localhost:8077/api/admin/plugins/install/url -H 'Content-Type: application/json' -d '{"url":"https://.../plugin.zip","sha256":"...","enable":true}'`
-- 启用进程（系统级）：`curl -X POST http://localhost:8077/api/admin/plugins/<id>/enable`
-- 启用本租户：`curl -X POST http://localhost:8077/api/admin/plugins/<id>/tenant_enable -H 'Content-Type: application/json' -d '{"enabled":true}'`
-- 查看凭证（只读）：`curl -X GET http://localhost:8077/api/admin/plugins/<id>/credentials`
-- 轮换密钥：`curl -X POST http://localhost:8077/api/admin/plugins/<id>/credentials/rotate`
-- 删除本租户配置：`curl -X DELETE http://localhost:8077/api/admin/plugins/<id>/tenant_config`
+## 11. Template 领域：路由建议（示例）
+
+| 能力                              | 事务 | 幂等 | 推荐路由         | 备选/说明                                 |
+| ------------------------------- | -: | -: | ------------ | ------------------------------------- |
+| `template.get`                  |  否 |  是 | **MCP**（读）   | 与 gRPC 竞速；失败回退 gRPC                   |
+| `template.list` / `search`      |  否 |  是 | **MCP**      | 同上                                    |
+| `template.create`               |  是 |  是 | **gRPC**（唯一） | MCP 目录可见但 Selector 强制转 gRPC           |
+| `template.update`               |  是 |  是 | **gRPC**（唯一） | 同上                                    |
+| `template.upsert`               |  是 |  是 | **gRPC**（唯一） | idempotency_key 必须                    |
+| `template.delete`               |  是 |  是 | **gRPC**（唯一） | 软删+审计                                 |
+| `template.generate_from_prompt` | 复合 | 外围 | **Agent**    | Agent 内：AI→自检→`template.upsert(gRPC)` |
+| `template.review_and_fix`       | 复合 | 外围 | **Agent**    | 读（MCP）+ 评审（AI）+ 写（gRPC）               |
+| `template.bulk_import`          | 复合 | 外围 | **Agent**    | 大文件解析/分批写/失败重试/报告                     |
+
+---
+
+## 12. 交付清单（落地所需）
+
+### 12.1 PowerX 侧
+
+* `CapabilityGateway`：统一入口（鉴权/上下文/幂等/观测）。
+* `Selector`：默认策略 + 可配置偏好/回退；并发竞速支持。
+* `Plugin Client`：MCP/gRPC/Agent 三适配；可按插件能力目录自动生成调用绑定。
+* 事件总线：跨边界异步协作/回调。
+
+### 12.2 插件侧
+
+* **业务 Service**：唯一事实来源（Template CRUD/校验/去重）。
+* **Adapters**：gRPC/MCP/Agent/HTTP **薄壳**，映射到 Service。
+* **PowerXClient**：宿主 gRPC SDK 的薄封装（上下文、限流、重试、观测、错误映射）。
+* **能力清单与 Schema**：仅一份（供 MCP `/tools/list`、宿主注册与 UI 校验复用）。
+
+---
+
+## 13. 验收清单（Checklist）
+
+* [ ] 所有 Template 能力均在清单中定义且仅定义一次（含 RBAC/租户/策略/Schema）。
+* [ ] PowerX Gateway 仅通过能力名调用；Selector 可按默认策略路由并支持覆盖。
+* [ ] 写类能力实际只走 gRPC，具备幂等校验与审计记录。
+* [ ] 读类能力可 MCP/gRPC 并发竞速，正确取消落败分支。
+* [ ] 插件具备 gRPC/MCP Server 与（可选）Agent 执行端，三者仅做薄适配。
+* [ ] 插件内使用 PowerXClient 调宿主 AI/IAM/KB 等；上下文/限流/重试/观测统一。
+* [ ] 跨边界异步流程通过事件总线解耦；必要回调路径最小化。
+* [ ] Tracing/Metrics/Audit 在两端贯通并按（能力×方向×后端）可观测。
+
+---
+
+### 附：两条典型时序（ASCII）
+
+**A. 宿主读模板（竞速）**
+
+```
+FlowNode(template.search) → Gateway → Selector
+   ├─ MCP.call_tool(template.search) ──► 插件.MCP → Service
+   └─ gRPC.SearchTemplates() ─────────► 插件.gRPC → Service
+<─ 先返回者被采纳；另一路取消
+```
+
+**B. 插件智能生成并入库**
+
+```
+PowerX.Agent(GenerateTemplate) → 插件.Agent.Execute
+  → 插件.PowerXClient.AI.Chat()（gRPC）
+  → 插件.Service.校验/去重
+  → 插件.gRPC.UpsertTemplate()  ←（写路径强一致）
+  → 插件.Emit(TemplateCreated) → PowerX.Bus → 索引/审计/监控
+```
+
+---
+
+**一句话总结**：
+**能力一次定义、编排单入口、读写分流、策略外置、非对称互通、治理先行**。
+这样 PowerX 与插件既能灵活协作，又不会落入“三套协议三套实现”的维护陷阱。

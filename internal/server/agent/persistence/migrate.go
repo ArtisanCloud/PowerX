@@ -1,5 +1,7 @@
 package persistence
 
+// internal/server/agent/persistence/migrate.go
+
 import (
 	dbmodel "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/model"
 	"gorm.io/gorm"

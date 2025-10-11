@@ -1,6 +1,6 @@
 package service
 
-// internal/service/organization/errors.go
+// internal/service/errors.go
 
 import "errors"
 

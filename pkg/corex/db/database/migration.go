@@ -4,6 +4,7 @@ import (
 	modelAudit "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/audit"
 	modelAgent "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/flow"
 	modelIAM "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/iam"
+	mediamodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/media"
 	modelSetting "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/setting"
 	modelTenant "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/tenant"
 	modelForm "github.com/ArtisanCloud/PowerX/pkg/dynamic_form/persistence/model"
@@ -65,6 +66,10 @@ func MigrateCoreModels(db *gorm.DB) (err error) {
 		&modelSetting.PluginInstanceConfig{},
 	)
 	if err != nil {
+		return err
+	}
+
+	if err = db.AutoMigrate(&mediamodel.MediaAsset{}); err != nil {
 		return err
 	}
 

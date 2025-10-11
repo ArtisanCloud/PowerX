@@ -1,4 +1,4 @@
-# PowerX gRPC 设计与使用指南（grpc.md）
+# PowerX gRPC 设计与使用指南（api/grpc/readme.md）
 
 > 本文是 **`api/grpc/`** 目录的总览与使用说明。面向：PowerX 核心服务开发者、插件开发者、测试与运维同学。
 > 目标：**契约集中、实现解耦、对外一致、可本地调试**。

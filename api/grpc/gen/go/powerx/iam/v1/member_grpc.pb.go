@@ -4,6 +4,8 @@
 // - protoc             (unknown)
 // source: powerx/iam/v1/member.proto
 
+// api/grpc/contracts/powerx/iam/v1/member.proto
+
 package iamv1
 
 import (

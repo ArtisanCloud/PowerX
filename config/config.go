@@ -12,6 +12,7 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"strings"
 )
 
 // 定义一个全局配置变量
@@ -65,6 +66,7 @@ type Config struct {
 	MCP         mcpCfg.MCPConfig     `yaml:"mcp"`   // MCP 服务器配置
 	Plugin      PluginConfig         `yaml:"plugin"`
 	Security    SecurityConfig       `yaml:"security"`
+	Storage     StorageConfig        `yaml:"storage"`
 }
 
 // HTTP服务器配置
@@ -266,11 +268,61 @@ func loadFromEnv(cfg *Config) {
 		cfg.Database.LogLevel = logLevel
 	}
 
+	// Storage配置
+	if driver := os.Getenv("CORE_X_STORAGE_DEFAULT_DRIVER"); driver != "" {
+		cfg.Storage.DefaultDriver = strings.ToLower(driver)
+	}
+	if ttl := os.Getenv("CORE_X_STORAGE_TTL_SECONDS"); ttl != "" {
+		if v, err := strconv.Atoi(ttl); err == nil && v > 0 {
+			cfg.Storage.TTLSeconds = int32(v)
+		}
+	}
+	if basePath := os.Getenv("CORE_X_STORAGE_LOCAL_BASE_PATH"); basePath != "" {
+		cfg.Storage.Local.BasePath = basePath
+	}
+	if publicURL := os.Getenv("CORE_X_STORAGE_LOCAL_PUBLIC_BASE_URL"); publicURL != "" {
+		cfg.Storage.Local.PublicBaseURL = publicURL
+	}
+	if endpoint := os.Getenv("CORE_X_STORAGE_S3_ENDPOINT"); endpoint != "" {
+		cfg.Storage.S3.Endpoint = endpoint
+	}
+	if region := os.Getenv("CORE_X_STORAGE_S3_REGION"); region != "" {
+		cfg.Storage.S3.Region = region
+	}
+	if ak := os.Getenv("CORE_X_STORAGE_S3_ACCESS_KEY"); ak != "" {
+		cfg.Storage.S3.AccessKey = ak
+	}
+	if sk := os.Getenv("CORE_X_STORAGE_S3_SECRET_KEY"); sk != "" {
+		cfg.Storage.S3.SecretKey = sk
+	}
+	if st := os.Getenv("CORE_X_STORAGE_S3_SESSION_TOKEN"); st != "" {
+		cfg.Storage.S3.SessionToken = st
+	}
+	if bucket := os.Getenv("CORE_X_STORAGE_S3_BUCKET"); bucket != "" {
+		cfg.Storage.S3.Bucket = bucket
+	}
+	if useSSL := os.Getenv("CORE_X_STORAGE_S3_USE_SSL"); useSSL != "" {
+		if v, err := strconv.ParseBool(useSSL); err == nil {
+			cfg.Storage.S3.UseSSL = v
+		}
+	}
+	if fps := os.Getenv("CORE_X_STORAGE_S3_FORCE_PATH_STYLE"); fps != "" {
+		if v, err := strconv.ParseBool(fps); err == nil {
+			cfg.Storage.S3.ForcePathStyle = v
+		}
+	}
+	if domain := os.Getenv("CORE_X_STORAGE_S3_EXTERNAL_DOMAIN"); domain != "" {
+		cfg.Storage.S3.ExternalDomain = domain
+	}
+	if presign := os.Getenv("CORE_X_STORAGE_S3_PRESIGN_ENDPOINT"); presign != "" {
+		cfg.Storage.S3.PresignEndpoint = presign
+	}
+
 	// 兼容旧的环境变量
 	if secret := os.Getenv("CORE_X_JWT_SECRET"); secret != "" && cfg.Auth.JWTSecret == "" {
 		cfg.Auth.JWTSecret = secret
 	}
-	if port := os.Getenv("CORE_X_PORT"); port != "" && cfg.Server.Port == 8080 {
+	if port := os.Getenv("CORE_X_PORT"); port != "" && cfg.Server.Port == 8077 {
 		if p, err := strconv.Atoi(port); err == nil {
 			cfg.Server.Port = p
 		}

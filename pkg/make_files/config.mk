@@ -21,7 +21,7 @@ GO_TEST_FLAGS ?= -v -race
 GO_LINT_FLAGS ?= --timeout=5m
 
 # 开发服务器配置
-DEV_PORT ?= 8080
+DEV_PORT ?= 8077
 DEV_HOST ?= localhost
 LOG_LEVEL ?= debug
 

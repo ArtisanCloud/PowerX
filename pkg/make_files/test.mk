@@ -2,7 +2,7 @@
 # 包含所有测试任务和验证相关的命令
 
 # 测试配置
-API_BASE_URL ?= http://localhost:8080/api/v1
+API_BASE_URL ?= http://localhost:8077/api/v1
 TEST_TIMEOUT ?= 30s
 TEST_VERBOSE ?= -v
 

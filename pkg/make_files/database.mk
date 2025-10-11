@@ -1,43 +1,55 @@
-# 数据库操作 Makefile
+# ========= 可配置参数（可被环境变量覆盖） =========
+PGHOST      ?= localhost
+PGPORT      ?= 5432
+PGUSER      ?= $(shell whoami)
+PGPASSWORD  ?=
+PGDATABASE  ?= corex
+PGSSLMODE   ?= disable   # local 默认关闭
 
-# 默认配置文件路径
-CONFIG_PATH ?= config/config.yaml
+# 连接到 postgres 系统库做元数据查询
+PGURL_BASE  = host=$(PGHOST) port=$(PGPORT) user=$(PGUSER) dbname=postgres sslmode=$(PGSSLMODE)
 
-# 数据库迁移
+# ========= 目标 =========
+
+.PHONY: db-check
+db-check:
+	@echo "检查数据库是否存在: $(PGDATABASE) on $(PGUSER)@$(PGHOST):$(PGPORT)"
+	@PGPASSWORD="$(PGPASSWORD)" psql "$(PGURL_BASE)" -tAc "SELECT 1 FROM pg_database WHERE datname='$(PGDATABASE)';" | grep -q 1 && \
+	  echo "✅ 数据库已存在" || echo "❌ 数据库不存在"
+
+.PHONY: db-create
+db-create:
+	@echo "创建数据库（若不存在）: $(PGDATABASE)"
+	@PGPASSWORD="$(PGPASSWORD)" psql "$(PGURL_BASE)" -v ON_ERROR_STOP=1 -tAc "SELECT 1 FROM pg_database WHERE datname='$(PGDATABASE)';" | grep -q 1 || \
+	  PGPASSWORD="$(PGPASSWORD)" psql "$(PGURL_BASE)" -c "CREATE DATABASE \"$(PGDATABASE)\";"
+	@echo "✅ 完成"
+
+# 你的其他目标不变（已改为跑包路径的写法）：
 .PHONY: db-migrate
 db-migrate:
 	@echo "执行数据库迁移..."
-	@go run cmd/db/main.go -op migrate
+	@go run ./cmd/database migrate
 
-# 数据库回滚
 .PHONY: db-rollback
 db-rollback:
 	@echo "执行数据库回滚..."
-	@go run cmd/db/main.go -op rollback
+	@go run ./cmd/database rollback
 
-# 数据库种子数据填充
 .PHONY: db-seed
 db-seed:
 	@echo "填充数据库种子数据..."
-	@go run cmd/db/main.go -op seed
+	@go run ./cmd/database seed
 
-# 数据库刷新（回滚+迁移+种子）
 .PHONY: db-refresh
 db-refresh:
 	@echo "刷新数据库（回滚+迁移+种子）..."
-	@go run cmd/db/main.go -op refresh
+	@go run ./cmd/database refresh
 
-# 数据库状态
 .PHONY: db-status
 db-status:
 	@echo "查看数据库迁移状态..."
-	@go run cmd/db/main.go -op status
+	@go run ./cmd/database status
 
-# 检查数据库是否存在
-.PHONY: db-check
-db-check:
-	@echo "检查数据库是否存在..."
-	@psql -U michaelhu -h localhost -p 5432 -c "SELECT 1 FROM pg_database WHERE datname='corex'" postgres
 
 # 帮助信息
 .PHONY: help

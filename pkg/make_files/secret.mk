@@ -59,28 +59,28 @@ wrap-k8s-secret:
 	@ID=$$(awk -F= '/^WRAP_MASTER_KEY_ID=/{print $$2}' "$(ENV_FILE)"); \
 	KEY=$$(awk -F= '/^WRAP_MASTER_KEY_B64=/{print $$2}' "$(ENV_FILE)"); \
 	mkdir -p build/k8s; \
-	cat > build/k8s/wrap-master-key-secret.yaml <<EOF
-apiVersion: v1
-kind: Secret
-metadata:
-  name: wrap-master-key
-  namespace: $(NS)
-type: Opaque
-stringData:
-  WRAP_MASTER_KEY_ID: "$$ID"
-  WRAP_MASTER_KEY_B64: "$$KEY"
-EOF
+	cat > build/k8s/wrap-master-key-secret.yaml <<-EOF
+		apiVersion: v1
+		kind: Secret
+		metadata:
+		  name: wrap-master-key
+		  namespace: $(NS)
+		type: Opaque
+		stringData:
+		  WRAP_MASTER_KEY_ID: "$$ID"
+		  WRAP_MASTER_KEY_B64: "$$KEY"
+	EOF
 	@echo "Wrote build/k8s/wrap-master-key-secret.yaml"
 
 wrap-systemd-env:
 	@ID=$$(awk -F= '/^WRAP_MASTER_KEY_ID=/{print $$2}' "$(ENV_FILE)"); \
 	KEY=$$(awk -F= '/^WRAP_MASTER_KEY_B64=/{print $$2}' "$(ENV_FILE)"); \
 	mkdir -p build/systemd; \
-	cat > build/systemd/$(UNIT).conf <<EOF
-[Service]
-Environment="WRAP_MASTER_KEY_ID=$$ID"
-Environment="WRAP_MASTER_KEY_B64=$$KEY"
-EOF
+	cat > build/systemd/$(UNIT).conf <<-EOF
+		[Service]
+		Environment="WRAP_MASTER_KEY_ID=$$ID"
+		Environment="WRAP_MASTER_KEY_B64=$$KEY"
+	EOF
 	@echo "Wrote build/systemd/$(UNIT).conf"
 
 wrap-clean:

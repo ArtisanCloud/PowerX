@@ -1,0 +1,143 @@
+
+kind: ruleset
+name: crud_model
+version: 1.0.0
+owner: powerx
+status: stable
+
+meta:
+  intent: >
+    统一 GORM 模型约束（多租户、软删、表名、索引/唯一、JSONB、状态字段），
+    以及迁移注册与目录放置的硬性规则，确保与 Repository/Service 分层契合。
+  references:
+    - constitution.md
+    - dev_crud_http_guides.md
+
+scope:
+  codebase:
+    model_dir: "pkg/corex/db/persistence/model"
+    migrate_entry:
+      - "cmd/database/migrate.go"                  # 总入口（集中触发）
+    module_migrate_globs:
+      - "internal/server/**/persistence/migrate.go"  # 模块内注册器（分散声明）
+
+principles:
+  - 模型必须嵌入 PowerModel 或 PowerUUIDModel；包含 DeletedAt 与 TenantID 字段。     # :contentReference[oaicite:21]{index=21}
+  - 表名必须显式返回 `${schema}.${table}`，schema 由 PowerXSchema 控制。               # :contentReference[oaicite:22]{index=22}
+  - 索引/唯一约束通过 GORM Tag 声明；JSON 字段统一使用 datatypes.JSON(JSONB)。        # :contentReference[oaicite:23]{index=23}
+  - 状态字段统一命名 Status，默认值 1；禁止散落 SQL 文件，迁移统一走 AutoMigrate。      # :contentReference[oaicite:24]{index=24}
+
+checks:
+  directories:
+    - id: model.path
+      level: error
+      when:
+        glob: "pkg/corex/db/persistence/model/**/**.go"
+      assert:
+        - must_package_suffix: "model"
+  embedding_and_fields:
+    - id: base_model.embedded
+      level: error
+      when:
+        glob: "pkg/corex/db/persistence/model/**/**.go"
+      assert:
+        - must_embed_one_of: ["model.PowerModel","model.PowerUUIDModel"]
+        - must_have_fields:
+            - "TenantID uint64 `gorm:\"index;not null\"`"
+            - "DeletedAt gorm.DeletedAt `gorm:\"index\"`"
+        - should_have_fields:
+            - "Status int16 `gorm:\"default:1;index\"`"
+  table_naming:
+    - id: table.name.func
+      level: error
+      when:
+        glob: "pkg/corex/db/persistence/model/**/**.go"
+      assert:
+        - must_define: "func (*).TableName() string"
+        - must_return_schema_const: "model.PowerXSchema"  # 返回 schema.table
+  json_and_index:
+    - id: jsonb.tag
+      level: warn
+      when:
+        contains: "datatypes.JSON"
+      assert:
+        - must_have_tag: "gorm:\"type:jsonb\""
+    - id: unique_and_index_tags
+      level: warn
+      when:
+        glob: "pkg/corex/db/persistence/model/**/**.go"
+      assert:
+        - recommend_tags: ["uniqueIndex","index"]
+
+  migration_registration:
+    - id: migrate.fn.exists
+      level: error
+      when:
+        glob: "internal/**/migration.go"
+      assert:
+        - must_define_like: "func Migrate*Models(db *gorm.DB) error"   # 模块自迁移注册  # :contentReference[oaicite:25]{index=25}
+    - id: migrate.entry.calls
+      level: warn
+      when:
+        file: "cmd/database/migrate.go"
+      assert:
+        - must_call: "Migrate*Models("
+
+acceptance:
+  checklist:
+    - "[ ] 模型嵌入 PowerModel/PowerUUIDModel，并含 TenantID/DeletedAt/Status"           # :contentReference[oaicite:26]{index=26}
+    - "[ ] 表名返回 ${schema}.${table}，表名常量集中到 tables.go"
+    - "[ ] JSON 字段使用 datatypes.JSON + jsonb"
+    - "[ ] 唯一约束/复合索引通过 Tag 声明"
+    - "[ ] 迁移函数 Migrate<Module>Models 已实现并在入口注册"                           # :contentReference[oaicite:27]{index=27}
+    - "[ ] 不交付 .sql，统一 AutoMigrate + 运行期校验"
+
+templates:
+  model_go: |
+    package {{domain}}model
+
+    import (
+      "time"
+      "gorm.io/gorm"
+      "gorm.io/datatypes"
+      "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
+    )
+
+    const Table{{Entity}} = "{{$table}}"
+
+    type {{Entity}} struct {
+      model.PowerUUIDModel
+
+      TenantID  uint64         `gorm:"index;not null"`
+      Name      string         `gorm:"type:varchar(128);index"`
+      Code      string         `gorm:"type:varchar(64);uniqueIndex:uk_{{table}}_tenant_code"`
+      Meta      datatypes.JSON `gorm:"type:jsonb;default:'{}'"`
+      Status    int16          `gorm:"default:1;index"`
+
+      CreatedAt time.Time
+      UpdatedAt time.Time
+      DeletedAt gorm.DeletedAt `gorm:"index"`
+    }
+
+    func (*{{Entity}}) TableName() string {
+      return model.PowerXSchema + "." + Table{{Entity}}
+    }
+
+  migrate_go: |
+    package {{domain}}migration
+
+    import (
+      "gorm.io/gorm"
+      dbm "{{module_path}}/pkg/corex/db/persistence/model/{{domain}}"
+    )
+
+    func Migrate{{Module}}Models(db *gorm.DB) error {
+      if err := db.AutoMigrate(
+        &dbm.{{Entity}}{},
+      ); err != nil {
+        return err
+      }
+      // 可选：运行期校验索引/约束
+      // if !db.Migrator().HasIndex(&dbm.{{Entity}}{}, "uk_{{table}}_tenant_code") { ... }
+      return nil
+    }
