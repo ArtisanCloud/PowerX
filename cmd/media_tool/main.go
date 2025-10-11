@@ -155,6 +155,7 @@ func loadConfig(path string) *config.Config {
 
 func executeCleanup(ctx context.Context, repo *mediarepo.AssetRepository, manager *mediamgr.MediaManager, audit auditsvc.Service, filter mediarepo.CleanupFilter, dryRun bool) cleanupStats {
 	stats := cleanupStats{}
+	processedKeys := make(map[string]struct{})
 	for {
 		assets, err := repo.CleanupCandidates(ctx, filter)
 		if err != nil {
@@ -165,7 +166,22 @@ func executeCleanup(ctx context.Context, repo *mediarepo.AssetRepository, manage
 		if len(assets) == 0 {
 			return stats
 		}
+
+		var batch []mediamodel.MediaAsset
 		for _, asset := range assets {
+			key := fmt.Sprintf("%d:%s", asset.TenantID, asset.UUID.String())
+			if _, seen := processedKeys[key]; seen {
+				continue
+			}
+			processedKeys[key] = struct{}{}
+			batch = append(batch, asset)
+		}
+		if len(batch) == 0 {
+			// 所有候选项均已处理过（例如 dry-run 或删除失败），避免无限循环
+			return stats
+		}
+
+		for _, asset := range batch {
 			stats.processed++
 			if dryRun {
 				log.Printf("[DRY-RUN] tenant=%d uuid=%s driver=%s key=%s", asset.TenantID, asset.UUID.String(), asset.Driver, asset.StorageKey)
