@@ -44,7 +44,8 @@ func RegisterLocalUploadEndpoint(r *gin.Engine, cfg *config.Config) {
 	}
 	secret := strings.TrimSpace(localOpts.UploadTokenSecret)
 	if secret == "" {
-		secret = strings.TrimSpace(cfg.Server.SecretKey)
+		pxlog.Warn(nil, "未注册本地上传端点：启用 enable_upload_endpoint 时必须配置 upload_token_secret")
+		return
 	}
 	maxSize := localOpts.MaxUploadSizeBytes
 	if maxSize < 0 {

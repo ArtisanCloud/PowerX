@@ -76,8 +76,8 @@ func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error)
 	accessTTL, _ := time.ParseDuration(cfg.Auth.AccessTTLStr)
 	refreshTTL, _ := time.ParseDuration(cfg.Auth.RefreshTTLStr)
 	localTokenSecret := strings.TrimSpace(cfg.Storage.Local.UploadTokenSecret)
-	if localTokenSecret == "" {
-		localTokenSecret = strings.TrimSpace(cfg.Server.SecretKey)
+	if cfg.Storage.Local.EnableUploadEndpoint && localTokenSecret == "" {
+		logger.WarnF(ctx, "storage.local.enable_upload_endpoint 已启用，但未配置 upload_token_secret，上传端点将在路由层被禁用")
 	}
 	maxUploadSize := cfg.Storage.Local.MaxUploadSizeBytes
 	if maxUploadSize < 0 {
