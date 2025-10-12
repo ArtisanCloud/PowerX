@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"context"
 	"errors"
 	"io"
 	"net/http"
@@ -29,11 +30,11 @@ func RegisterLocalUploadEndpoint(r *gin.Engine, cfg *config.Config) {
 
 	absBasePath, err := filepath.Abs(basePath)
 	if err != nil {
-		pxlog.Warn(nil, "resolve local media base path failed: "+err.Error())
+		pxlog.Warn(context.Background(), "resolve local media base path failed: "+err.Error())
 		return
 	}
 	if err = os.MkdirAll(absBasePath, 0o755); err != nil {
-		pxlog.Warn(nil, "init local media base path failed: "+err.Error())
+		pxlog.Warn(context.Background(), "init local media base path failed: "+err.Error())
 		return
 	}
 
@@ -44,7 +45,7 @@ func RegisterLocalUploadEndpoint(r *gin.Engine, cfg *config.Config) {
 	}
 	secret := strings.TrimSpace(localOpts.UploadTokenSecret)
 	if secret == "" {
-		pxlog.Warn(nil, "未注册本地上传端点：启用 enable_upload_endpoint 时必须配置 upload_token_secret")
+		pxlog.Warn(context.Background(), "未注册本地上传端点：启用 enable_upload_endpoint 时必须配置 upload_token_secret")
 		return
 	}
 	maxSize := localOpts.MaxUploadSizeBytes
@@ -53,7 +54,7 @@ func RegisterLocalUploadEndpoint(r *gin.Engine, cfg *config.Config) {
 	}
 	handler, err := newLocalUploadHandler(absBasePath, secret, maxSize)
 	if err != nil {
-		pxlog.Warn(nil, "init local upload handler failed: "+err.Error())
+		pxlog.Warn(context.Background(), "init local upload handler failed: "+err.Error())
 		return
 	}
 	r.PUT("/media/*objectKey", handler.handle)
