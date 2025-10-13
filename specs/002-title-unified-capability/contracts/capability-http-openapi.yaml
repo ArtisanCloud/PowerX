@@ -1,0 +1,572 @@
+openapi: 3.1.0
+info:
+  title: PowerX Capability Contract Admin API
+  version: 0.1.0
+  description: >
+    统一能力契约管理接口，支持契约 CRUD、版本策略、传输偏好与错误分类管理。
+    所有接口要求管理员或具备 scope `integration.capability.*` 的调用者。
+servers:
+  - url: https://corex.powerx.dev
+    description: PowerX CoreX 管理入口
+security:
+  - BearerAuth:
+      - integration.capability.admin
+paths:
+  /api/admin/capabilities:
+    get:
+      operationId: listCapabilities
+      summary: 查询能力契约
+      description: 按能力、版本、状态、协议等条件过滤契约。
+      parameters:
+        - $ref: '#/components/parameters/CapabilityKey'
+        - $ref: '#/components/parameters/TenantId'
+        - $ref: '#/components/parameters/Version'
+        - $ref: '#/components/parameters/LifecycleState'
+        - name: transport
+          in: query
+          description: 过滤包含指定传输协议的契约。
+          required: false
+          schema:
+            $ref: '#/components/schemas/TransportKind'
+      responses:
+        '200':
+          description: 契约列表
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CapabilityContractView'
+                  next_page_token:
+                    type: string
+                required:
+                  - items
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      operationId: createCapabilityContract
+      summary: 新建能力契约
+      description: 创建新的契约版本，默认状态为 draft。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCapabilityContractRequest'
+      responses:
+        '201':
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CapabilityContractView'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          description: 能力或版本已存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /api/admin/capabilities/{capabilityKey}/versions/{version}:
+    get:
+      operationId: getCapabilityContract
+      summary: 获取能力契约详情
+      parameters:
+        - $ref: '#/components/parameters/CapabilityKeyPath'
+        - $ref: '#/components/parameters/VersionPath'
+        - $ref: '#/components/parameters/TenantId'
+      responses:
+        '200':
+          description: 契约信息
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CapabilityContractView'
+        '404':
+          description: 未找到契约
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    put:
+      operationId: updateCapabilityContract
+      summary: 更新契约草稿
+      description: 仅允许在 draft 状态更新；若需回滚，需使用回滚接口。
+      parameters:
+        - $ref: '#/components/parameters/CapabilityKeyPath'
+        - $ref: '#/components/parameters/VersionPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCapabilityContractRequest'
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CapabilityContractView'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          description: 状态冲突或版本冲突
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /api/admin/capabilities/{capabilityKey}/versions/{version}:publish:
+    post:
+      operationId: publishCapabilityContract
+      summary: 发布契约
+      description: 触发 Schema 校验、Scope/Tool Grant 校验、兼容性检查。成功后状态转为 published。
+      parameters:
+        - $ref: '#/components/parameters/CapabilityKeyPath'
+        - $ref: '#/components/parameters/VersionPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                effective_at:
+                  type: string
+                  format: date-time
+                notes:
+                  type: string
+              required:
+                - effective_at
+      responses:
+        '200':
+          description: 发布成功
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          description: 校验失败
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /api/admin/capabilities/{capabilityKey}/versions/{version}:deprecate:
+    post:
+      operationId: deprecateCapabilityContract
+      summary: 废弃契约
+      description: 设置契约为 deprecated 并触发 EventBus 告警。
+      parameters:
+        - $ref: '#/components/parameters/CapabilityKeyPath'
+        - $ref: '#/components/parameters/VersionPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                replacement_capability:
+                  type: string
+                deprecated_at:
+                  type: string
+                  format: date-time
+                advisory_message:
+                  type: string
+              required:
+                - deprecated_at
+      responses:
+        '200':
+          description: 废弃成功
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          description: 未找到契约
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /api/admin/capabilities/{capabilityKey}/versions/{version}/transports:
+    get:
+      operationId: listTransportProfiles
+      summary: 查询传输配置
+      parameters:
+        - $ref: '#/components/parameters/CapabilityKeyPath'
+        - $ref: '#/components/parameters/VersionPath'
+      responses:
+        '200':
+          description: 传输配置列表
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  transports:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/TransportProfile'
+                required:
+                  - transports
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /api/admin/capabilities/{capabilityKey}/version-policy:
+    get:
+      operationId: getVersionPolicy
+      summary: 获取版本策略
+      parameters:
+        - $ref: '#/components/parameters/CapabilityKeyPath'
+      responses:
+        '200':
+          description: 版本策略
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CapabilityVersionPolicy'
+        '404':
+          description: 未配置版本策略
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    put:
+      operationId: upsertVersionPolicy
+      summary: 创建或更新版本策略
+      parameters:
+        - $ref: '#/components/parameters/CapabilityKeyPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CapabilityVersionPolicy'
+      responses:
+        '200':
+          description: 更新成功
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    CapabilityKey:
+      name: capability_key
+      in: query
+      required: false
+      schema:
+        type: string
+        pattern: '^[a-z0-9]+(\.[a-z0-9]+)+$'
+      description: 能力命名（点分）
+    CapabilityKeyPath:
+      name: capabilityKey
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: '^[a-z0-9]+(\.[a-z0-9]+)+$'
+    TenantId:
+      name: tenant_id
+      in: query
+      required: false
+      schema:
+        type: string
+    Version:
+      name: version
+      in: query
+      required: false
+      schema:
+        type: string
+        example: '1.2.0'
+    VersionPath:
+      name: version
+      in: path
+      required: true
+      schema:
+        type: string
+        example: '1.2.0'
+    LifecycleState:
+      name: lifecycle_state
+      in: query
+      required: false
+      schema:
+        $ref: '#/components/schemas/LifecycleState'
+  responses:
+    Unauthorized:
+      description: 未认证或授权不足
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    BadRequest:
+      description: 参数或校验错误
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+  schemas:
+    CapabilityContractView:
+      type: object
+      properties:
+        capability_key:
+          type: string
+        version:
+          type: string
+        tenant_id:
+          type: string
+          nullable: true
+        display_name:
+          type: string
+        description:
+          type: string
+        lifecycle_state:
+          $ref: '#/components/schemas/LifecycleState'
+        security_scope:
+          type: string
+        tool_grant_required:
+          type: boolean
+        transport_preferences:
+          type: array
+          items:
+            $ref: '#/components/schemas/TransportPreference'
+        io_schemas:
+          type: array
+          items:
+            $ref: '#/components/schemas/IOSchemaDescriptor'
+        error_taxonomy:
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorTaxonomyEntry'
+        observability_config:
+          type: object
+          additionalProperties: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required:
+        - capability_key
+        - version
+        - display_name
+        - lifecycle_state
+        - security_scope
+        - transport_preferences
+        - io_schemas
+    CreateCapabilityContractRequest:
+      type: object
+      properties:
+        capability_key:
+          type: string
+          pattern: '^[a-z0-9]+(\.[a-z0-9]+)+$'
+        version:
+          type: string
+          example: 1.0.0
+        tenant_id:
+          type: string
+          nullable: true
+        provider_id:
+          type: string
+        display_name:
+          type: string
+        description:
+          type: string
+        security_scope:
+          type: string
+        tool_grant_required:
+          type: boolean
+        io_schemas:
+          type: array
+          minItems: 2
+          items:
+            $ref: '#/components/schemas/IOSchemaDescriptor'
+        transport_profiles:
+          type: array
+          minItems: 2
+          items:
+            $ref: '#/components/schemas/TransportProfile'
+        error_taxonomy:
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorTaxonomyEntry'
+        observability_config:
+          type: object
+          additionalProperties: true
+      required:
+        - capability_key
+        - version
+        - provider_id
+        - display_name
+        - security_scope
+        - io_schemas
+        - transport_profiles
+    UpdateCapabilityContractRequest:
+      allOf:
+        - $ref: '#/components/schemas/CreateCapabilityContractRequest'
+      required:
+        - capability_key
+        - version
+    IOSchemaDescriptor:
+      type: object
+      properties:
+        direction:
+          type: string
+          enum: [input, output]
+        format:
+          type: string
+          enum: [json_schema, protobuf, avro]
+        schema_uri:
+          type: string
+        schema_hash:
+          type: string
+        validation_rules:
+          type: object
+          additionalProperties: true
+      required:
+        - direction
+        - format
+        - schema_uri
+    TransportProfile:
+      type: object
+      properties:
+        transport:
+          $ref: '#/components/schemas/TransportKind'
+        mode:
+          type: string
+          enum: [prefer, only, fallback]
+        timeout_ms:
+          type: integer
+        retry:
+          type: object
+          properties:
+            max_attempts:
+              type: integer
+            backoff_ms:
+              type: integer
+            idempotent:
+              type: boolean
+          required:
+            - max_attempts
+        streaming:
+          type: boolean
+        qos:
+          type: object
+          additionalProperties: true
+      required:
+        - transport
+        - mode
+        - timeout_ms
+        - retry
+    TransportPreference:
+      type: object
+      properties:
+        transport:
+          $ref: '#/components/schemas/TransportKind'
+        mode:
+          type: string
+          enum: [prefer, only, fallback]
+      required:
+        - transport
+        - mode
+    CapabilityVersionPolicy:
+      type: object
+      properties:
+        capability_key:
+          type: string
+        default_strategy:
+          type: string
+          enum: [latest_minor, fixed_major, custom]
+        allowed_versions:
+          type: array
+          items:
+            type: object
+            properties:
+              version:
+                type: string
+              compatible_with:
+                type: array
+                items:
+                  type: string
+              status:
+                type: string
+                enum: [active, deprecated, blocked]
+            required:
+              - version
+        compatibility_matrix:
+          type: object
+          additionalProperties: true
+        deprecation_policy:
+          type: object
+          properties:
+            warning_period_days:
+              type: integer
+            auto_deprecate_after_days:
+              type: integer
+            notify_channels:
+              type: array
+              items:
+                type: string
+      required:
+        - capability_key
+        - default_strategy
+    ErrorTaxonomyEntry:
+      type: object
+      properties:
+        namespace:
+          type: string
+        category:
+          type: string
+        code:
+          type: string
+        severity:
+          type: string
+          enum: [info, warning, error, fatal]
+        stage:
+          type: string
+          enum: [validate, invoke, stream, observe]
+        http_status:
+          type: integer
+        grpc_status:
+          type: integer
+        suggested_action:
+          type: string
+      required:
+        - namespace
+        - category
+        - code
+        - severity
+        - stage
+    TransportKind:
+      type: string
+      enum: [http, grpc, mcp, agent]
+    LifecycleState:
+      type: string
+      enum: [draft, published, deprecated]
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+        code:
+          type: string
+        details:
+          type: object
+          additionalProperties: true
