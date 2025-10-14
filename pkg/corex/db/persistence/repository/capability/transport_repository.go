@@ -23,6 +23,14 @@ func NewTransportProfileRepository(db *gorm.DB) *TransportProfileRepository {
 	}
 }
 
+// WithDB 返回绑定指定事务的新仓储。
+func (r *TransportProfileRepository) WithDB(db *gorm.DB) *TransportProfileRepository {
+	return &TransportProfileRepository{
+		BaseRepository: repository.NewBaseRepository[capmodel.CapabilityTransportProfile](db),
+		db:             db,
+	}
+}
+
 // UpsertProfiles 以 (tenant_id, contract_id, transport) 作为唯一键批量写入。
 func (r *TransportProfileRepository) UpsertProfiles(ctx context.Context, profiles []*capmodel.CapabilityTransportProfile) error {
 	if len(profiles) == 0 {

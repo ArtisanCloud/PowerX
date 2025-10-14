@@ -24,6 +24,14 @@ func NewContractRepository(db *gorm.DB) *ContractRepository {
 	}
 }
 
+// WithDB 返回绑定指定事务的新仓储。
+func (r *ContractRepository) WithDB(db *gorm.DB) *ContractRepository {
+	return &ContractRepository{
+		BaseRepository: repository.NewBaseRepository[capmodel.CapabilityContract](db),
+		db:             db,
+	}
+}
+
 // UpsertContract 根据 (tenant_id, capability_key, version) 唯一键插入或更新契约主体。
 func (r *ContractRepository) UpsertContract(ctx context.Context, contract *capmodel.CapabilityContract) (*capmodel.CapabilityContract, error) {
 	unique := []clause.Column{

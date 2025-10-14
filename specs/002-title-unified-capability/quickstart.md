@@ -78,6 +78,8 @@ grpcurl -H "Authorization: Bearer $TOKEN" \
   corex.powerx.dev:7443 powerx.capability.v1.CapabilityRegistryService/GetCapability
 ```
 
+> 说明：服务端与客户端均复用现有 PowerX gRPC SDK，无需额外生成专用客户端代码，可直接通过 SDK 暴露的 `CapabilityRegistryServiceClient` 发起调用。
+
 Router 将根据传输偏好优先选择 gRPC Adapter，失败时自动降级到 HTTP Adapter。
 
 ## 4. 版本治理

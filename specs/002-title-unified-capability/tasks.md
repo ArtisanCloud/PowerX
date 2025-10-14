@@ -36,13 +36,13 @@
 **Goal**: 提供统一契约草稿、发布与查询能力，让一次定义即可被 HTTP/gRPC/MCP 调用。  
 **Independent Test**: 仅部署契约模型与校验服务，通过创建契约草稿、发布并在多协议通道读取验证。
 
-- [ ] T101 [P] [US1] 在 `internal/contract/capability/validation.go` 实现契约校验（Schema 完整性、Scope/ToolGrant 存在性、传输偏好互斥、Error Taxonomy 映射），返回详尽的 `ValidationIssue`。
-- [ ] T102 [US1] 编写 `internal/service/capability/contract_service.go`，整合仓储、校验、审计与 EventBus，支持草稿写入、发布、查询、列表等操作并保证多租户隔离。
-- [ ] T103 [US1] 在 `internal/transport/http/admin/capability/{api.go,contract_handler.go,router.go}` 构建 REST Handler 与路由，挂载 `/admin/capabilities` 系列接口，并更新 `internal/transport/http/admin/routes.go` 注册模块。
-- [ ] T104 [US1] 在 `internal/transport/grpc/capability/contract_handler.go` 实现 `CapabilityRegistryService` 契约 RPC，处理 pb↔domain 映射，并更新 `internal/server/grpc/server.go` 注册服务与健康检查。
-- [ ] T105 [US1] 在契约发布/废弃流程中写入审计日志与事件（`integration.capability.*`），包含版本、替代关系、租户信息以及调用备注。
-- [ ] T106 [P] [US1] 为校验器或契约服务编写单元测试（如 `internal/contract/capability/validation_test.go`），覆盖合法、缺失 Scope、传输偏好冲突等场景。
-- [ ] T107 [US1] 复用并验证现有 PowerX gRPC SDK，可直接消费 `CapabilityRegistryService` 新增 RPC；如需补充生成或配置，更新相应文档而非创建新客户端目录。
+- [x] T101 [P] [US1] 在 `internal/contract/capability/validation.go` 实现契约校验（Schema 完整性、Scope/ToolGrant 存在性、传输偏好互斥、Error Taxonomy 映射），返回详尽的 `ValidationIssue`。
+- [x] T102 [US1] 编写 `internal/service/capability/contract_service.go`，整合仓储、校验、审计与 EventBus，支持草稿写入、发布、查询、列表等操作并保证多租户隔离。
+- [x] T103 [US1] 在 `internal/transport/http/admin/capability/{api.go,contract_handler.go,router.go}` 构建 REST Handler 与路由，挂载 `/admin/capabilities` 系列接口，并更新 `internal/transport/http/admin/routes.go` 注册模块（路由组叠加 `RootOnly` 中间件，确保仅 root 管理员可操作）。
+- [x] T104 [US1] 在 `internal/transport/grpc/capability/contract_handler.go` 实现 `CapabilityRegistryService` 契约 RPC，处理 pb↔domain 映射，并更新 `internal/server/grpc/server.go` 注册服务与健康检查。
+- [x] T105 [US1] 在契约发布/废弃流程中写入审计日志与事件（`integration.capability.*`），包含版本、替代关系、租户信息以及调用备注。
+- [x] T106 [P] [US1] 为校验器或契约服务编写单元测试（如 `internal/contract/capability/validation_test.go`），覆盖合法、缺失 Scope、传输偏好冲突等场景。
+- [x] T107 [US1] 复用并验证现有 PowerX gRPC SDK，可直接消费 `CapabilityRegistryService` 新增 RPC；如需补充生成或配置，更新相应文档而非创建新客户端目录。
 
 ---
 

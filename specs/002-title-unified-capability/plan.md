@@ -93,7 +93,7 @@ internal/service/capability/
 internal/transport/http/admin/capability/
 ├── api.go
 ├── contract_handler.go
-└── router.go
+└── router.go        # 路由组挂载 RootOnly 中间件，确保仅平台 root 管理员可维护契约
 
 internal/transport/grpc/capability/
 ├── contract_handler.go
