@@ -100,9 +100,9 @@ internal/transport/grpc/capability/
 └── adapter_handler.go
 
 pkg/corex/db/persistence/model/capability/
-├── capability_contract.go
-├── capability_version_policy.go
-└── transport_profile.go
+├── capability_contract_gorm.go
+├── capability_version_policy_gorm.go
+└── transport_profile_gorm.go
 
 internal/contract/capability/
 └── validation.go                      # 契约校验逻辑（schema/error taxonomy）

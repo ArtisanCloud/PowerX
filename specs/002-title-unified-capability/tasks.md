@@ -24,10 +24,10 @@
 
 **Purpose**: 建立统一能力域的持久层与启动钩子，所有故事开始前必须完成。
 
-- [ ] T010 [Core] 在 `pkg/corex/db/persistence/model/capability/capability_contract.go` 定义契约实体、IO Schema、错误分类结构及 GORM 关联，并更新 `pkg/corex/db/persistence/model/tables.go` 增加相关表常量。
-- [ ] T011 [Core] 新建 `pkg/corex/db/persistence/model/capability/transport_profile.go`，建模传输配置（模式/超时/重试/QoS/健康状态）并建立外键关系。
+- [ ] T010 [Core] 在 `pkg/corex/db/persistence/model/capability/capability_contract_gorm.go` 定义契约实体、IO Schema、错误分类结构及 GORM 关联，并更新 `pkg/corex/db/persistence/model/tables.go` 增加相关表常量。
+- [ ] T011 [Core] 新建 `pkg/corex/db/persistence/model/capability/transport_profile_gorm.go`，建模传输配置（模式/超时/重试/QoS/健康状态）并建立外键关系。
 - [ ] T012 [Core] 创建 `pkg/corex/db/persistence/repository/capability/` 仓储（如 `contract_repository.go`、`transport_repository.go`），封装多租户过滤、分页与事务写入基元。
-- [ ] T013 [Core] 在 `internal/bootstrap/app.go` 或新建的 `internal/service/capability/migrate.go` 中注册 `db.AutoMigrate`，为能力相关表提供启动期迁移与错误处理。
+- [ ] T013 [Core] 在 `pkg/corex/db/database/migration.go` 的 `MigrateCoreModels` 中注册 capability 相关 `AutoMigrate` 调用（必要时提取 `MigrateCapabilityModels` 并由入口调用），确保核心模型随平台启动迁移。
 
 ---
 
@@ -51,7 +51,7 @@
 **Goal**: 管理版本策略、兼容矩阵与废弃提醒，确保升级不破坏现有调用。  
 **Independent Test**: 独立部署版本管理模块，通过创建 v1/v2 契约、设置兼容标记并验证调用中的版本选择逻辑。
 
-- [ ] T201 [P] [US2] 新建 `pkg/corex/db/persistence/model/capability/capability_version_policy.go`，描述默认策略、兼容矩阵、废弃配置，并纳入自动迁移。
+- [ ] T201 [P] [US2] 新建 `pkg/corex/db/persistence/model/capability/capability_version_policy_gorm.go`，描述默认策略、兼容矩阵、废弃配置，并纳入自动迁移。
 - [ ] T202 [US2] 在 `pkg/corex/db/persistence/repository/capability/version_policy_repository.go` 实现策略的查询、乐观锁更新与兼容矩阵持久化。
 - [ ] T203 [US2] 完成 `internal/service/capability/version_policy_service.go`，执行兼容性评估、默认策略决策与废弃通知逻辑，并与契约发布流程协同。
 - [ ] T204 [P] [US2] 新建 `internal/transport/http/admin/capability/version_policy_handler.go`，提供获取/更新版本策略与废弃提醒的 REST 接口，并在路由中挂载。
