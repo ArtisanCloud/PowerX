@@ -12,7 +12,6 @@ option php_metadata_namespace = "GPBMetadata\\PowerX\\Setting\\AI\\V1";
 import "google/protobuf/struct.proto";
 import "common/v1/context.proto";
 import "common/v1/response.proto";
-import "common/v1/pagination.proto";
 
 /**************** 基础类型 ****************/
 

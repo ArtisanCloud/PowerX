@@ -74,7 +74,7 @@ Dependencies/Assumptions: Follows Integration Architecture baseline; Security & 
 - **FR-007**: Adapter 必须处理统一的 TransportRequest/Response 结构，包括 trace_id、tenant、actor、超时、重试、stream 标记等核心字段。
 - **FR-008**: Adapter 需提供策略化超时与重试控制（区分幂等与非幂等调用），并在达到阈值时返回契约定义的标准错误。
 - **FR-009**: 平台必须允许为每个能力配置各传输通道的偏好（prefer/only/fallback），并在契约中持久化。
-- **FR-010**: 系统需提供契约查询 API/SDK，供调用方按能力 ID、版本、传输偏好获取元数据与错误模型。
+- **FR-010**: 系统需提供契约查询 API/grpc SDK，供调用方按能力 ID、版本、传输偏好获取元数据与错误模型。
 - **FR-011**: 契约发布或版本升级需触发审计日志与事件（含版本、发布者、影响范围）以便其他模块订阅。
 - **FR-012**: Adapter 层必须输出统一的 metrics（调用耗时、错误率、活跃会话）和 tracing span，符合 Observability 规范。
 

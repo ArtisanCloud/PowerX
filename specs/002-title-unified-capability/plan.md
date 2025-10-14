@@ -19,6 +19,7 @@
 
 **Language/Version**: Go 1.24  
 **Primary Dependencies**: `github.com/gin-gonic/gin`, `google.golang.org/grpc`, `github.com/bufbuild/buf` toolchain, `gorm.io/gorm`  
+**Client SDK**: 复用现有 PowerX gRPC SDK（现成生成的客户端封装直接消费 CapabilityRegistryService）  
 **Storage**: Postgres（CoreX 多租户实例 + `gorm.io/gorm`）  
 **Testing**: Go `testing` 框架（`go test ./...`），需补充契约校验与适配器一致性测试  
 **Target Platform**: Linux/Kubernetes 上的 PowerX CoreX 后端服务  
@@ -111,7 +112,7 @@ internal/server/grpc/server.go         # 注册 Capability gRPC 服务
 cmd/app/main.go                        # 挂载 HTTP 路由
 ```
 
-**Structure Decision**: CoreX 后端模块，新增 `capability` 域覆盖契约、版本策略、传输适配；遵循现有 `internal/service/*` 与 `internal/transport/(http|grpc)` 分层，并在 `api/grpc/contracts/powerx` 下定义权威 Proto。
+**Structure Decision**: CoreX 后端模块，新增 `capability` 域覆盖契约、版本策略、传输适配；遵循现有 `internal/service/*` 与 `internal/transport/(http|grpc)` 分层，并在 `api/grpc/contracts/powerx` 下定义权威 Proto；契约查询客户端复用 PowerX 既有 gRPC SDK，仅在实现阶段验证生成的 stub 与新服务契合，无需新增 SDK 目录。
 
 ## Ruleset Alignment
 

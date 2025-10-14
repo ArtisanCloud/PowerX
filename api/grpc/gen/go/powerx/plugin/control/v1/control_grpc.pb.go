@@ -4,7 +4,7 @@
 // - protoc             (unknown)
 // source: powerx/plugin/control/v1/control.proto
 
-package pcv1
+package controlv1
 
 import (
 	context "context"

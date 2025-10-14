@@ -4,7 +4,7 @@
 // - protoc             (unknown)
 // source: powerx/media/v1/media_asset.proto
 
-package corexmediav1
+package mediav1
 
 import (
 	context "context"

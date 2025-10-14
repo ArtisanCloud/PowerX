@@ -4,7 +4,7 @@
 // - protoc             (unknown)
 // source: powerx/setting/ai_setting.proto
 
-package settingv1
+package aiv1
 
 import (
 	context "context"
