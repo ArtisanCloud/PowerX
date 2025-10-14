@@ -24,10 +24,10 @@
 
 **Purpose**: 建立统一能力域的持久层与启动钩子，所有故事开始前必须完成。
 
-- [ ] T010 [Core] 在 `pkg/corex/db/persistence/model/capability/capability_contract_gorm.go` 定义契约实体、IO Schema、错误分类结构及 GORM 关联，并更新 `pkg/corex/db/persistence/model/tables.go` 增加相关表常量。
-- [ ] T011 [Core] 新建 `pkg/corex/db/persistence/model/capability/transport_profile_gorm.go`，建模传输配置（模式/超时/重试/QoS/健康状态）并建立外键关系。
-- [ ] T012 [Core] 创建 `pkg/corex/db/persistence/repository/capability/` 仓储（如 `contract_repository.go`、`transport_repository.go`），封装多租户过滤、分页与事务写入基元。
-- [ ] T013 [Core] 在 `pkg/corex/db/database/migration.go` 的 `MigrateCoreModels` 中注册 capability 相关 `AutoMigrate` 调用（必要时提取 `MigrateCapabilityModels` 并由入口调用），确保核心模型随平台启动迁移。
+- [x] T010 [Core] 在 `pkg/corex/db/persistence/model/capability/capability_contract_gorm.go` 定义契约实体、IO Schema、错误分类结构及 GORM 关联，并更新 `pkg/corex/db/persistence/model/tables.go` 增加相关表常量。
+- [x] T011 [Core] 新建 `pkg/corex/db/persistence/model/capability/transport_profile_gorm.go`，建模传输配置（模式/超时/重试/QoS/健康状态）并建立外键关系。
+- [x] T012 [Core] 创建 `pkg/corex/db/persistence/repository/capability/` 仓储（如 `contract_repository.go`、`transport_repository.go`），封装多租户过滤、分页与事务写入基元。
+- [x] T013 [Core] 在 `pkg/corex/db/database/migration.go` 的 `MigrateCoreModels` 中注册 capability 相关 `AutoMigrate` 调用（必要时提取 `MigrateCapabilityModels` 并由入口调用），确保核心模型随平台启动迁移。
 
 ---
 
