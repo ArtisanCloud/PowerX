@@ -195,6 +195,12 @@ updated_at timestamptz
 | Graph Linker     | `RelationBuilder`   | 构建知识图谱的实体关系                     |
 | Source Connector | `SyncAdapter`       | 支持 Webhook / SaaS 同步            |
 
+## 10. 与能力契约治理的衔接
+
+- 能力契约与传输配置持久化在 `capability_contracts`、`capability_version_policies`、`capability_transport_profiles` 等公共表中，并以 `tenant_id` 区分平台默认（0 号租户）与租户私有版本。知识域在构建检索蓝图时，可直接引用这些表，获得能力的语义、版本与传输健康状态。
+- 当集成工作流（Workflow/Agent）需要根据能力健康状况或传输 QoS 做知识调用决策时，可监听事件 `integration.capability.*`（发布、废弃、版本策略更新）同步更新知识索引或召回策略。
+- 观测指标（Tracing、Metrics、Audit）由 `AdapterService` 统一输出，知识域的运维面板可复用这些指标监控调用健康，形成“契约治理 → 能力调用 → 知识服务”闭环。
+
 注册示例：
 
 ```go

@@ -193,6 +193,22 @@ channel: agent://com.powerx.plugin.analytics/session-4fa2
 * 复用 Message Bus (NATS/Kafka) 或内存通道；
 * 流式响应可用于协同生成、多轮计划执行。
 
+### 5.5 传输配置持久化（CapabilityTransportProfile）
+
+- GORM 模型 `CapabilityTransportProfile`（见 `transport_profile_gorm.go`），对应表 `public.capability_transport_profiles`。  
+
+- 唯一键 `(tenant_id, contract_id, transport)`，确保每个契约/租户/协议仅有一份配置。
+
+- 关键字段：
+  * `mode`：prefer / only / fallback；
+  * `timeout_ms`：超时时间；
+  * `retry`：JSONB，记录幂等策略（`max_attempts`、`backoff_ms`、`idempotent` 等）；
+  * `qos`：JSONB，记录 QoS 限额（并发、速率、地域等）；
+  * `endpoint_selector`：JSONB，运行时选择端点的附加标签（region、cluster、env 等）；
+  * `last_health_status`：JSONB，由健康检查写入最近一次探测结果。
+
+- Contract Service 在 Upsert 时会先删除旧配置，再写入新的 Profile；Router 在决策阶段读取这些字段用于打分和选路。
+
 ---
 
 ## 6️⃣ Transport Factory 注册机制

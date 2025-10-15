@@ -43,6 +43,10 @@ func SeedCoreX(ctx context.Context, db *gorm.DB, cfg *config.Config) error {
 		return err
 	}
 
+	if err = SeedCapabilityErrorTaxonomies(db); err != nil {
+		return err
+	}
+
 	log.Println("seed ok")
 
 	return nil

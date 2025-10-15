@@ -26,6 +26,8 @@ principles:
   - 表名必须显式返回 `${schema}.${table}`，schema 由 PowerXSchema 控制。               # :contentReference[oaicite:22]{index=22}
   - 索引/唯一约束通过 GORM Tag 声明；JSON 字段统一使用 datatypes.JSON(JSONB)。        # :contentReference[oaicite:23]{index=23}
   - 状态字段统一命名 Status，默认值 1；禁止散落 SQL 文件，迁移统一走 AutoMigrate。      # :contentReference[oaicite:24]{index=24}
+  - 模型源码文件需以 `_gorm.go` 结尾，保持与现有目录命名一致，便于一眼识别 GORM 实体。
+  - PowerX 核心模块的模型必须集中在 `pkg/corex/db/database/migration.go::MigrateCoreModels` 注册；独立 Server（如 Agent）可在自身 `internal/server/<module>/persistence/migrate.go` 中维护迁移函数。
 
 checks:
   directories:
@@ -89,8 +91,9 @@ acceptance:
     - "[ ] 表名返回 ${schema}.${table}，表名常量集中到 tables.go"
     - "[ ] JSON 字段使用 datatypes.JSON + jsonb"
     - "[ ] 唯一约束/复合索引通过 Tag 声明"
-    - "[ ] 迁移函数 Migrate<Module>Models 已实现并在入口注册"                           # :contentReference[oaicite:27]{index=27}
+    - "[ ] 迁移函数 Migrate<Module>Models 已实现并在入口注册（核心模块写入 MigrateCoreModels，独立 Server 写入各自 migrate.go）"                           # :contentReference[oaicite:27]{index=27}
     - "[ ] 不交付 .sql，统一 AutoMigrate + 运行期校验"
+    - "[ ] 文件命名采用 *_gorm.go，与 GORM 模型约定保持一致"
 
 templates:
   model_go: |

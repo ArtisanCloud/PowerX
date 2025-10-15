@@ -2,6 +2,7 @@ package database
 
 import (
 	modelAudit "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/audit"
+	modelCapability "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/capability"
 	modelAgent "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/flow"
 	modelIAM "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/iam"
 	mediamodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/media"
@@ -73,6 +74,10 @@ func MigrateCoreModels(db *gorm.DB) (err error) {
 		return err
 	}
 
+	if err = migrateCapabilityModels(db); err != nil {
+		return err
+	}
+
 	// 迁移审计
 	err = db.AutoMigrate(
 		&modelAudit.AuditEvent{},
@@ -81,4 +86,15 @@ func MigrateCoreModels(db *gorm.DB) (err error) {
 		return err
 	}
 	return nil
+}
+
+func migrateCapabilityModels(db *gorm.DB) error {
+	return db.AutoMigrate(
+		&modelCapability.CapabilityContract{},
+		&modelCapability.CapabilityIOSchema{},
+		&modelCapability.CapabilityVersionPolicy{},
+		&modelCapability.CapabilityTransportProfile{},
+		&modelCapability.CapabilityErrorTaxonomy{},
+		&modelCapability.CapabilityContractErrorTaxonomy{},
+	)
 }

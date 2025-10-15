@@ -203,6 +203,25 @@ security:
 * `masking`: 审计输出脱敏规则。
 * Registry 与 Orchestrator 会在运行时注入租户与用户上下文。
 
+### 多租户存储语义
+
+- **契约记录上的 `tenant_id` 代表归属域**：它标识这条契约由哪个租户创建/覆盖，而不是哪些租户在使用。
+- **`tenant_id = 0`**：平台级（全局）契约，所有租户默认可见。运维方可在 0 号租户下维护公共版本。
+- **`tenant_id = n (>0)`**：租户 `n` 定制的契约版本，可覆盖平台默认行为（IO Schema、传输配置、错误映射等）。
+- Router/Registry 在查询时会先查找“当前租户定制”，找不到再回退到 `tenant_id = 0` 的共享版本，从而实现“共享 + 私有”并存。
+- 审计与权限控制也会记录该字段，方便追踪是哪个租户或操作人改动了契约。
+
+### GORM 模型与表映射
+
+- **CapabilityContract** → `public.capability_contracts`（定义见 `capability_contract_gorm.go`）  
+  存储契约主体：`capability_key`、`version`、`provider_id`、`display_name`、`security_scope`，以及 JSONB 字段 `observability_config`、`transport_preferences`。关联表 `capability_io_schemas`、`capability_contract_error_taxonomies` 持有 IO Schema 与错误映射明细。
+
+- **CapabilityVersionPolicy** → `public.capability_version_policies`（定义见 `capability_version_policy_gorm.go`）  
+  维护版本策略：`default_strategy`、`allowed_versions`、`compatibility_matrix`、`deprecation_policy`、`audit_config` 等 JSONB 字段，同样以 `(tenant_id, capability_key)` 唯一。
+
+- **CapabilityTransportProfile** → `public.capability_transport_profiles`（定义见 `transport_profile_gorm.go`）  
+  持久化运行时传输参数（timeout、retry、qos、endpoint_selector）。此表与契约 ID 关联，在 Transport Adapter 规范中有更详细说明。
+
 ---
 
 ## 9️⃣ 版本与生命周期

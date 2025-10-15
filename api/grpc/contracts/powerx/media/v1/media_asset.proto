@@ -6,6 +6,9 @@ option go_package = "github.com/ArtisanCloud/PowerX/api/grpc/gen/powerx/media/v1
 option java_package = "com.powerx.media.v1";
 option java_multiple_files = true;
 
+import "common/v1/pagination.proto";
+import "common/v1/response.proto";
+
 // MediaAssetAdminService 提供后台媒体资产管理能力。
 service MediaAssetAdminService {
   rpc CreateMediaAsset(CreateMediaAssetRequest) returns (MediaAssetResponse);
@@ -97,10 +100,14 @@ message ListMediaAssetsRequest {
 }
 
 message ListMediaAssetsResponse {
+  common.v1.ResponseMeta meta = 1;
+  ListMediaAssetsData data = 2;
+  common.v1.ErrorExtra error = 15;
+}
+
+message ListMediaAssetsData {
   repeated MediaAsset items = 1;
-  uint64 total = 2;
-  uint32 page = 3;
-  uint32 page_size = 4;
+  common.v1.PageResponse page = 2;
 }
 
 message GetMediaAssetRequest {
@@ -109,7 +116,9 @@ message GetMediaAssetRequest {
 }
 
 message MediaAssetResponse {
-  MediaAsset data = 1;
+  common.v1.ResponseMeta meta = 1;
+  MediaAsset data = 2;
+  common.v1.ErrorExtra error = 15;
 }
 
 message UpdateMediaAssetRequest {
@@ -130,6 +139,12 @@ message DeleteMediaAssetRequest {
 }
 
 message DeleteMediaAssetResponse {
+  common.v1.ResponseMeta meta = 1;
+  DeleteMediaAssetData data = 2;
+  common.v1.ErrorExtra error = 15;
+}
+
+message DeleteMediaAssetData {
   bool deleted = 1;
   bool scheduled_cleanup = 2;
 }
@@ -151,6 +166,12 @@ enum PresignAction {
 }
 
 message PresignMediaAssetResponse {
+  common.v1.ResponseMeta meta = 1;
+  PresignMediaAssetData data = 2;
+  common.v1.ErrorExtra error = 15;
+}
+
+message PresignMediaAssetData {
   string url = 1;
   string method = 2;
   uint32 expires_in_seconds = 3;

@@ -212,7 +212,7 @@ Any plan missing the above gates is **invalid** and fails constitutional complia
 - API p95 latency < 200ms  
 - Plugin startup < 5s  
 - Plugin memory < 256MB (unless justified)  
-- Database migrations must include both `up` and `down` scripts
+- Database migrations必须优先使用 GORM AutoMigrate 或等效自动迁移机制；无需单独维护 `up`/`down` 脚本，但需确保迁移过程可重复执行且幂等
 
 ---
 

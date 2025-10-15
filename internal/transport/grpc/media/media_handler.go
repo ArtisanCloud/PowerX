@@ -9,11 +9,13 @@ import (
 	"strings"
 	"time"
 
+	commonv1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/common/v1"
 	corexmediav1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/media/v1"
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
 	"github.com/ArtisanCloud/PowerX/internal/infra/media/driver"
 	mediamgr "github.com/ArtisanCloud/PowerX/internal/infra/media/manager"
 	mediasvc "github.com/ArtisanCloud/PowerX/internal/service/media"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -32,7 +34,7 @@ func NewMediaAssetServer(deps *shared.Deps) *MediaAssetServer {
 func (s *MediaAssetServer) CreateMediaAsset(ctx context.Context, req *corexmediav1.CreateMediaAssetRequest) (*corexmediav1.MediaAssetResponse, error) {
 	tenantID, err := parseTenantID(req.GetTenantId())
 	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+		return mediaErrorResponse(ctx, http.StatusBadRequest, fmt.Sprintf("invalid tenant_id: %v", err), err), nil
 	}
 	operator := parseOperatorID(req.GetOperatorId())
 
@@ -50,16 +52,18 @@ func (s *MediaAssetServer) CreateMediaAsset(ctx context.Context, req *corexmedia
 		ExternalURL:  req.GetExternalUrl(),
 	})
 	if err != nil {
-		code := mapServiceError(err)
-		return nil, status.Errorf(code, err.Error())
+		return mediaServiceErrorResponse(ctx, err)
 	}
-	return &corexmediav1.MediaAssetResponse{Data: toPBAsset(asset)}, nil
+	return &corexmediav1.MediaAssetResponse{
+		Meta: okMeta(ctx),
+		Data: toPBAsset(asset),
+	}, nil
 }
 
 func (s *MediaAssetServer) ListMediaAssets(ctx context.Context, req *corexmediav1.ListMediaAssetsRequest) (*corexmediav1.ListMediaAssetsResponse, error) {
 	tenantID, err := parseTenantID(req.GetTenantId())
 	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+		return listMediaErrorResponse(ctx, http.StatusBadRequest, fmt.Sprintf("invalid tenant_id: %v", err), err), nil
 	}
 	filter := mediasvc.ListAssetsInput{
 		TenantID:  tenantID,
@@ -76,36 +80,54 @@ func (s *MediaAssetServer) ListMediaAssets(ctx context.Context, req *corexmediav
 	}
 	assets, total, err := s.svc.ListAssets(ctx, filter)
 	if err != nil {
-		return nil, status.Errorf(mapServiceError(err), err.Error())
+		return listMediaServiceErrorResponse(ctx, err)
 	}
 	items := make([]*corexmediav1.MediaAsset, 0, len(assets))
 	for i := range assets {
 		items = append(items, toPBAsset(&assets[i]))
 	}
+	pageSize := req.GetPageSize()
+	if pageSize <= 0 {
+		pageSize = 20
+	}
+	page := req.GetPage()
+	if page <= 0 {
+		page = 1
+	}
+	pageResp := &commonv1.PageResponse{
+		Total: int64(total),
+	}
+	if int64(page)*int64(pageSize) < total {
+		pageResp.NextPageToken = strconv.FormatInt(int64(page)+1, 10)
+	}
 	return &corexmediav1.ListMediaAssetsResponse{
-		Items:    items,
-		Total:    uint64(total),
-		Page:     req.GetPage(),
-		PageSize: req.GetPageSize(),
+		Meta: okMeta(ctx),
+		Data: &corexmediav1.ListMediaAssetsData{
+			Items: items,
+			Page:  pageResp,
+		},
 	}, nil
 }
 
 func (s *MediaAssetServer) GetMediaAsset(ctx context.Context, req *corexmediav1.GetMediaAssetRequest) (*corexmediav1.MediaAssetResponse, error) {
 	tenantID, err := parseTenantID(req.GetTenantId())
 	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+		return mediaErrorResponse(ctx, http.StatusBadRequest, fmt.Sprintf("invalid tenant_id: %v", err), err), nil
 	}
 	asset, err := s.svc.GetAsset(ctx, tenantID, req.GetUuid(), false)
 	if err != nil {
-		return nil, status.Errorf(codes.NotFound, err.Error())
+		return mediaServiceErrorResponse(ctx, err)
 	}
-	return &corexmediav1.MediaAssetResponse{Data: toPBAsset(asset)}, nil
+	return &corexmediav1.MediaAssetResponse{
+		Meta: okMeta(ctx),
+		Data: toPBAsset(asset),
+	}, nil
 }
 
 func (s *MediaAssetServer) UpdateMediaAsset(ctx context.Context, req *corexmediav1.UpdateMediaAssetRequest) (*corexmediav1.MediaAssetResponse, error) {
 	tenantID, err := parseTenantID(req.GetTenantId())
 	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+		return mediaErrorResponse(ctx, http.StatusBadRequest, fmt.Sprintf("invalid tenant_id: %v", err), err), nil
 	}
 	operator := parseOperatorID(req.GetOperatorId())
 	input := mediasvc.UpdateAssetInput{
@@ -126,16 +148,18 @@ func (s *MediaAssetServer) UpdateMediaAsset(ctx context.Context, req *corexmedia
 	}
 	asset, err := s.svc.UpdateAsset(ctx, input)
 	if err != nil {
-		code := mapServiceError(err)
-		return nil, status.Errorf(code, err.Error())
+		return mediaServiceErrorResponse(ctx, err)
 	}
-	return &corexmediav1.MediaAssetResponse{Data: toPBAsset(asset)}, nil
+	return &corexmediav1.MediaAssetResponse{
+		Meta: okMeta(ctx),
+		Data: toPBAsset(asset),
+	}, nil
 }
 
 func (s *MediaAssetServer) DeleteMediaAsset(ctx context.Context, req *corexmediav1.DeleteMediaAssetRequest) (*corexmediav1.DeleteMediaAssetResponse, error) {
 	tenantID, err := parseTenantID(req.GetTenantId())
 	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+		return deleteMediaErrorResponse(ctx, http.StatusBadRequest, fmt.Sprintf("invalid tenant_id: %v", err), err), nil
 	}
 	operator := parseOperatorID(req.GetOperatorId())
 	err = s.svc.DeleteAsset(ctx, mediasvc.DeleteAssetInput{
@@ -144,16 +168,20 @@ func (s *MediaAssetServer) DeleteMediaAsset(ctx context.Context, req *corexmedia
 		OperatorID: operator,
 	})
 	if err != nil {
-		code := mapServiceError(err)
-		return nil, status.Errorf(code, err.Error())
+		return deleteMediaServiceErrorResponse(ctx, err)
 	}
-	return &corexmediav1.DeleteMediaAssetResponse{Deleted: true}, nil
+	return &corexmediav1.DeleteMediaAssetResponse{
+		Meta: okMeta(ctx),
+		Data: &corexmediav1.DeleteMediaAssetData{
+			Deleted: true,
+		},
+	}, nil
 }
 
 func (s *MediaAssetServer) PresignMediaAsset(ctx context.Context, req *corexmediav1.PresignMediaAssetRequest) (*corexmediav1.PresignMediaAssetResponse, error) {
 	tenantID, err := parseTenantID(req.GetTenantId())
 	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
+		return presignMediaErrorResponse(ctx, http.StatusBadRequest, fmt.Sprintf("invalid tenant_id: %v", err), err), nil
 	}
 	operator := parseOperatorID(req.GetOperatorId())
 	ttl := time.Duration(req.GetExpiresInSeconds()) * time.Second
@@ -175,19 +203,21 @@ func (s *MediaAssetServer) PresignMediaAsset(ctx context.Context, req *corexmedi
 		Headers:    headers,
 	})
 	if err != nil {
-		code := mapServiceError(err)
-		return nil, status.Errorf(code, err.Error())
+		return presignMediaServiceErrorResponse(ctx, err)
 	}
 	expiresIn := time.Until(out.ExpireAt)
 	if expiresIn < 0 {
 		expiresIn = 0
 	}
 	return &corexmediav1.PresignMediaAssetResponse{
-		Url:              out.URL,
-		Method:           out.Method,
-		ExpiresInSeconds: uint32(expiresIn / time.Second),
-		Headers:          headersToMap(out.Headers),
-		ObjectKey:        out.ObjectKey,
+		Meta: okMeta(ctx),
+		Data: &corexmediav1.PresignMediaAssetData{
+			Url:              out.URL,
+			Method:           out.Method,
+			ExpiresInSeconds: uint32(expiresIn / time.Second),
+			Headers:          headersToMap(out.Headers),
+			ObjectKey:        out.ObjectKey,
+		},
 	}, nil
 }
 
@@ -340,25 +370,124 @@ func presignActionToString(action corexmediav1.PresignAction) string {
 	}
 }
 
-func mapServiceError(err error) codes.Code {
+func okMeta(ctx context.Context) *commonv1.ResponseMeta {
+	reqID := reqctx.GetTraceID(ctx)
+	return &commonv1.ResponseMeta{
+		Code:      http.StatusOK,
+		Message:   "success",
+		Timestamp: time.Now().Unix(),
+		RequestId: reqID,
+	}
+}
+
+func badMeta(ctx context.Context, code int, msg string) *commonv1.ResponseMeta {
+	reqID := reqctx.GetTraceID(ctx)
+	return &commonv1.ResponseMeta{
+		Code:      int32(code),
+		Message:   strings.TrimSpace(msg),
+		Timestamp: time.Now().Unix(),
+		RequestId: reqID,
+	}
+}
+
+func errorExtra(err error) *commonv1.ErrorExtra {
+	if err == nil {
+		return nil
+	}
+	return &commonv1.ErrorExtra{Error: err.Error()}
+}
+
+func classifyMediaError(err error) (int, bool) {
 	switch {
 	case err == nil:
-		return codes.OK
+		return http.StatusOK, false
 	case errors.Is(err, mediasvc.ErrAssetNotFound):
-		return codes.NotFound
+		return http.StatusNotFound, false
 	case errors.Is(err, mediasvc.ErrInvalidStatusTransition):
-		return codes.FailedPrecondition
+		return http.StatusPreconditionFailed, false
 	case errors.Is(err, mediasvc.ErrInvalidUploadMethod), errors.Is(err, mediasvc.ErrExternalURLRequired):
-		return codes.InvalidArgument
+		return http.StatusBadRequest, false
 	case errors.Is(err, driver.ErrInvalidArgument):
-		return codes.InvalidArgument
+		return http.StatusBadRequest, false
 	case errors.Is(err, driver.ErrPermission):
-		return codes.PermissionDenied
+		return http.StatusForbidden, false
 	case errors.Is(err, driver.ErrConflict):
-		return codes.AlreadyExists
+		return http.StatusConflict, false
 	case errors.Is(err, mediamgr.ErrDriverNotFound), errors.Is(err, mediamgr.ErrNoDefaultDriver):
-		return codes.InvalidArgument
+		return http.StatusBadRequest, false
 	default:
-		return codes.Internal
+		return http.StatusInternalServerError, true
+	}
+}
+
+func mediaServiceErrorResponse(ctx context.Context, err error) (*corexmediav1.MediaAssetResponse, error) {
+	code, internal := classifyMediaError(err)
+	if internal {
+		return nil, status.Errorf(codes.Internal, "media service error: %v", err)
+	}
+	return &corexmediav1.MediaAssetResponse{
+		Meta:  badMeta(ctx, code, err.Error()),
+		Error: errorExtra(err),
+	}, nil
+}
+
+func listMediaServiceErrorResponse(ctx context.Context, err error) (*corexmediav1.ListMediaAssetsResponse, error) {
+	code, internal := classifyMediaError(err)
+	if internal {
+		return nil, status.Errorf(codes.Internal, "media service error: %v", err)
+	}
+	return &corexmediav1.ListMediaAssetsResponse{
+		Meta:  badMeta(ctx, code, err.Error()),
+		Error: errorExtra(err),
+	}, nil
+}
+
+func deleteMediaServiceErrorResponse(ctx context.Context, err error) (*corexmediav1.DeleteMediaAssetResponse, error) {
+	code, internal := classifyMediaError(err)
+	if internal {
+		return nil, status.Errorf(codes.Internal, "media service error: %v", err)
+	}
+	return &corexmediav1.DeleteMediaAssetResponse{
+		Meta:  badMeta(ctx, code, err.Error()),
+		Error: errorExtra(err),
+	}, nil
+}
+
+func presignMediaServiceErrorResponse(ctx context.Context, err error) (*corexmediav1.PresignMediaAssetResponse, error) {
+	code, internal := classifyMediaError(err)
+	if internal {
+		return nil, status.Errorf(codes.Internal, "media service error: %v", err)
+	}
+	return &corexmediav1.PresignMediaAssetResponse{
+		Meta:  badMeta(ctx, code, err.Error()),
+		Error: errorExtra(err),
+	}, nil
+}
+
+func mediaErrorResponse(ctx context.Context, code int, msg string, err error) *corexmediav1.MediaAssetResponse {
+	return &corexmediav1.MediaAssetResponse{
+		Meta:  badMeta(ctx, code, msg),
+		Error: errorExtra(err),
+	}
+}
+
+func listMediaErrorResponse(ctx context.Context, code int, msg string, err error) *corexmediav1.ListMediaAssetsResponse {
+	return &corexmediav1.ListMediaAssetsResponse{
+		Meta:  badMeta(ctx, code, msg),
+		Error: errorExtra(err),
+	}
+}
+
+func deleteMediaErrorResponse(ctx context.Context, code int, msg string, err error) *corexmediav1.DeleteMediaAssetResponse {
+	return &corexmediav1.DeleteMediaAssetResponse{
+		Meta:  badMeta(ctx, code, msg),
+		Error: errorExtra(err),
+	}
+}
+
+func presignMediaErrorResponse(ctx context.Context, code int, msg string, err error) *corexmediav1.PresignMediaAssetResponse {
+	return &corexmediav1.PresignMediaAssetResponse{
+		Meta:  badMeta(ctx, code, msg),
+		Error: errorExtra(err),
 	}
 }

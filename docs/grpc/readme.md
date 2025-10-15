@@ -241,6 +241,48 @@ buf generate
 
 ---
 
+## Handler 返回规范
+
+PowerX gRPC CRUD 接口需要与 HTTP 层的 `pkg/dto.BaseResponse` 保持等价语义，统一使用 `common.v1.ResponseMeta` 封装成功与失败。
+
+- **统一信封**：`ResponseMeta{code,message,timestamp,request_id}` 必填；成功固定 `code=200,message="success"`，失败对齐 HTTP 的 4xx/5xx。
+- **数据载荷**：领域结果置于 `data`（如 `FooData`、`ListFooData`）；无内容时可省略或仅返回 `bool ok`。
+- **错误详情**：`ErrorExtra` 承载原始错误字符串与结构化 `details`（例如校验问题列表）。
+- **请求上下文**：从 `RequestContext` 或 metadata 提取 `tenant_id`、`request_id`；缺少租户直接返回 400。
+- **gRPC status 使用边界**：仅当无法构造业务响应（序列化失败、上下游不可用等）时返回 `status.Errorf` 的非 OK 状态。
+
+示例模板：
+
+```go
+func (s *FooServer) GetFoo(ctx context.Context, req *foov1.GetFooRequest) (*foov1.GetFooResponse, error) {
+    tid := tenantIDFrom(ctx, req.GetCtx())
+    if tid == 0 {
+        return &foov1.GetFooResponse{
+            Meta: badMeta(ctx, http.StatusBadRequest, "tenant_id required"),
+        }, nil
+    }
+
+    domain, err := s.fooSvc.GetFoo(ctx, uint64(tid), req.GetId())
+    if err != nil {
+        if errors.Is(err, service.ErrNotFound) {
+            return &foov1.GetFooResponse{
+                Meta: badMeta(ctx, http.StatusNotFound, "foo not found"),
+            }, nil
+        }
+        return nil, status.Errorf(codes.Internal, "get foo: %v", err)
+    }
+
+    return &foov1.GetFooResponse{
+        Meta: okMeta(ctx),
+        Data: &foov1.GetFooData{Foo: toPBFoo(domain)},
+    }, nil
+}
+```
+
+建议将 `okMeta/badMeta/errorExtra` 等工具函数放入 `internal/transport/grpc/common/meta.go`，方便各 Handler 复用。
+
+---
+
 ## 约束与最佳实践（务必遵守）
 
 * **所有 RPC 均需携带 `RequestContext`，且必须含 `tenant_id`**。

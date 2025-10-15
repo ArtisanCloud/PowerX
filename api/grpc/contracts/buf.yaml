@@ -1,9 +1,15 @@
 version: v1
 
+# Buf 默认扫描整个 contracts 目录，capability/v1 proto 会随模块一起构建。
 breaking: {
   use: [FILE]
 }
 
 lint: {
-  use: [STANDARD]
+  use: [STANDARD],
+  except: [
+    PACKAGE_DIRECTORY_MATCH,
+    RPC_REQUEST_RESPONSE_UNIQUE,
+    RPC_RESPONSE_STANDARD_NAME
+  ]
 }

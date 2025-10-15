@@ -161,6 +161,11 @@ func ResponseSuccess(c *gin.Context, data interface{}) {
 
 // ResponseError 返回错误响应
 func ResponseError(c *gin.Context, code int, message string, err error) {
+	ResponseErrorWithDetails(c, code, message, err, nil)
+}
+
+// ResponseErrorWithDetails 返回带详情的错误响应
+func ResponseErrorWithDetails(c *gin.Context, code int, message string, err error, details map[string]interface{}) {
 	response := ErrorResponse{
 		Code:      code,
 		Message:   message,
@@ -170,6 +175,9 @@ func ResponseError(c *gin.Context, code int, message string, err error) {
 
 	if err != nil {
 		response.Error = err.Error()
+	}
+	if len(details) > 0 {
+		response.Details = details
 	}
 
 	c.JSON(code, response)

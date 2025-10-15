@@ -23,10 +23,10 @@ scope:
     - "internal/transport/http/**/api.go"
 
 principles:
-  - 服务端 Handler 仅负责 参数绑定/校验 → 调用 Service → 统一回包，不含业务与 DB IO。 # :contentReference[oaicite:3]{index=3}
-  - 所有请求必须具备 tenant 上下文；从鉴权中间件注入，缺失返回 400。                 # :contentReference[oaicite:4]{index=4}
-  - 错误语义、分页语义与 gRPC 等价；统一错误信封与分页结构。                       # :contentReference[oaicite:5]{index=5}
-  - 审计与 RBAC 必须在 Service 层落实，HTTP 层不重复执行业务鉴权。                   # :contentReference[oaicite:6]{index=6}
+  - 服务端 Handler 仅负责 参数绑定/校验 → 调用 Service → 统一回包，不含业务与 DB IO。         # :contentReference[oaicite:3]{index=3}
+  - 所有请求必须具备 tenant 上下文；从鉴权中间件注入，缺失返回 400。                         # :contentReference[oaicite:4]{index=4}
+  - 错误语义、分页语义与 gRPC 等价；统一使用 pkg/dto.{ResponseSuccess,ResponseError,...} 封装。 # :contentReference[oaicite:5]{index=5}
+  - 审计与 RBAC 必须在 Service 层落实，HTTP 层不重复执行业务鉴权。                           # :contentReference[oaicite:6]{index=6}
 
 checks:
   directory:
@@ -86,14 +86,20 @@ checks:
       when:
         glob: "internal/transport/http/**/**_handler.go"
       assert:
-        - must_bind_dto: ["PaginationRequest"]                                       # 统一 DTO     # :contentReference[oaicite:15]{index=15}
-        - must_return: ["ResponseList", "PaginationResponse"]                        # 统一回包     # :contentReference[oaicite:16]{index=16}
+        - must_bind_dto: ["dto.PaginationRequest"]                                   # 统一 DTO     # :contentReference[oaicite:15]{index=15}
+        - must_return: ["dto.ResponseList", "dto.PaginationResponse"]                # 统一回包     # :contentReference[oaicite:16]{index=16}
     - id: error.bridge
       level: error
       when:
         glob: "internal/transport/http/**/**_handler.go"
       assert:
-        - must_use: ["RespondErrorFrom", "MustOK"]                                   # 统一错误桥接 # :contentReference[oaicite:17]{index=17}
+        - must_use: ["dto.ResponseSuccess", "dto.ResponseError", "dto.ResponseErrorWithDetails", "dto.ResponseValidationError"]  # 统一错误桥接 # :contentReference[oaicite:17]{index=17}
+    - id: success.envelope
+      level: error
+      when:
+        glob: "internal/transport/http/**/**_handler.go"
+      assert:
+        - must_use: ["dto.ResponseSuccess"]                                          # 成功回包统一 # :contentReference[oaicite:16]{index=16}
 
   streaming_if_any:
     - id: sse.events.naming
@@ -108,7 +114,7 @@ acceptance:
     - "[ ] 路由前缀为 /api/v1/admin，破坏性变更才升级版本"                              # :contentReference[oaicite:19]{index=19}
     - "[ ] Handler 不含 DB/外部 IO，所有调用经 Service"
     - "[ ] 绑定与校验使用统一 DTO/校验函数，缺租户返回 400"
-    - "[ ] 错误统一通过 RespondErrorFrom/MustOK 桥接"
+    - "[ ] 错误统一使用 dto.ResponseError/ResponseErrorWithDetails/ResponseValidationError"
     - "[ ] 分页响应含 total/page/pageSize/pages"
     - "[ ] SSE/WS（如有）事件名与规范一致"
     - "[ ] 与 gRPC 在错误与分页语义可对照（等价）"                                     # :contentReference[oaicite:20]{index=20}
@@ -121,9 +127,10 @@ templates:
 
     func (h *{{Entity}}Handler) List(c *gin.Context) {
       ctx, rc, err := ValidateRequestWithContext(c, &dto.{{Entity}}ListReq{})
-      if err != nil { RespondErrorFrom(c, err); return }
+      if err != nil { dto.ResponseValidationError(c, err); return }
       out, pg, err := h.svc.List(ctx, rc.TenantID, rc.Pagination)
-      MustOK(c, ResponseList{Items: out, Pagination: pg}, err)
+      if err != nil { dto.ResponseError(c, http.StatusInternalServerError, "查询失败", err); return }
+      dto.ResponseList(c, out, pg)
     }
   api_go: |
     func Register{{Domain}}Routes(rg *gin.RouterGroup, deps *shared.Deps) {

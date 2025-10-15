@@ -1,0 +1,78 @@
+syntax = "proto3";
+
+package powerx.capability.v1;
+
+option go_package = "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/capability/v1;capabilityv1";
+
+import "google/protobuf/struct.proto";
+import "google/protobuf/timestamp.proto";
+
+message TransportProfile {
+  TransportKind transport = 1;
+  TransportMode mode = 2;
+  int32 timeout_ms = 3;
+  RetryPolicy retry = 4;
+  bool streaming = 5;
+  google.protobuf.Struct qos = 6;
+  google.protobuf.Struct endpoint_selector = 7;
+  TransportHealthStatus last_health_status = 8;
+}
+
+message RetryPolicy {
+  int32 max_attempts = 1;
+  int32 backoff_ms = 2;
+  bool idempotent = 3;
+}
+
+message TransportHealthStatus {
+  string status = 1; // healthy, degraded, unavailable
+  google.protobuf.Timestamp checked_at = 2;
+  ErrorTaxonomyEntry last_error = 3;
+}
+
+message TransportPreference {
+  TransportKind transport = 1;
+  TransportMode mode = 2;
+}
+
+message ErrorTaxonomyEntry {
+  string namespace = 1;
+  string category = 2;
+  string code = 3;
+  ErrorSeverity severity = 4;
+  ErrorStage stage = 5;
+  int32 http_status = 6;
+  int32 grpc_status = 7;
+  string suggested_action = 8;
+}
+
+enum TransportKind {
+  TRANSPORT_KIND_UNSPECIFIED = 0;
+  TRANSPORT_KIND_HTTP = 1;
+  TRANSPORT_KIND_GRPC = 2;
+  TRANSPORT_KIND_MCP = 3;
+  TRANSPORT_KIND_AGENT = 4;
+}
+
+enum TransportMode {
+  TRANSPORT_MODE_UNSPECIFIED = 0;
+  TRANSPORT_MODE_PREFER = 1;
+  TRANSPORT_MODE_ONLY = 2;
+  TRANSPORT_MODE_FALLBACK = 3;
+}
+
+enum ErrorSeverity {
+  ERROR_SEVERITY_UNSPECIFIED = 0;
+  ERROR_SEVERITY_INFO = 1;
+  ERROR_SEVERITY_WARNING = 2;
+  ERROR_SEVERITY_ERROR = 3;
+  ERROR_SEVERITY_FATAL = 4;
+}
+
+enum ErrorStage {
+  ERROR_STAGE_UNSPECIFIED = 0;
+  ERROR_STAGE_VALIDATE = 1;
+  ERROR_STAGE_INVOKE = 2;
+  ERROR_STAGE_STREAM = 3;
+  ERROR_STAGE_OBSERVE = 4;
+}

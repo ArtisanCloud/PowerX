@@ -28,3 +28,10 @@ const TableIAMServiceAccount = "iam_service_account"
 const TableIAMAPIKey = "iam_api_key"
 
 const TableAuditEvent = "audit_event"
+
+const TableCapabilityContract = "capability_contracts"
+const TableCapabilityIOSchema = "capability_io_schemas"
+const TableCapabilityVersionPolicy = "capability_version_policies"
+const TableCapabilityTransportProfile = "capability_transport_profiles"
+const TableCapabilityErrorTaxonomy = "capability_error_taxonomies"
+const TableCapabilityContractErrorTaxonomy = "capability_contract_error_taxonomies"
