@@ -82,7 +82,37 @@ grpcurl -H "Authorization: Bearer $TOKEN" \
 
 Router 将根据传输偏好优先选择 gRPC Adapter，失败时自动降级到 HTTP Adapter。
 
-## 4. 版本治理
+## 4. 管理传输配置
+
+### 查询与编辑
+
+```bash
+# 查询当前版本的所有传输通道
+curl -X GET "https://corex.powerx.dev/api/admin/capabilities/crm.lead.create/versions/1.0.0/transports" \
+  -H "Authorization: Bearer $TOKEN"
+
+# 覆盖传输配置（prefer gRPC，fallback HTTP）
+curl -X PUT "https://corex.powerx.dev/api/admin/capabilities/crm.lead.create/versions/1.0.0/transports" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"transports":[{"transport":"grpc","mode":"prefer","timeout_ms":5000,"retry":{"max_attempts":2,"backoff_ms":200,"idempotent":true}},{"transport":"http","mode":"fallback","timeout_ms":10000,"retry":{"max_attempts":1,"backoff_ms":0,"idempotent":false}}]}'
+
+# 触发健康检查并写回数据库
+curl -X POST "https://corex.powerx.dev/api/admin/capabilities/crm.lead.create/versions/1.0.0/transports/grpc/health" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+### gRPC
+
+```bash
+grpcurl -H "Authorization: Bearer $TOKEN" \
+  -d '{"capability_key":"crm.lead.create","version":"1.0.0"}' \
+  corex.powerx.dev:7443 powerx.capability.v1.CapabilityRegistryService/ListTransportProfiles
+```
+
+返回的 `transports` 列表包含运行参数与最近一次健康检查结果。Router/Agent 在执行调用时会优先选择 `mode=prefer` 的通道，失败后自动降级到 fallback。
+
+## 5. 版本治理
 
 1. 更新版本策略：
 
@@ -95,7 +125,7 @@ curl -X PUT "https://corex.powerx.dev/api/admin/capabilities/crm.lead.create/ver
 
 2. 发布补丁版本 `1.1.0` 后，设置兼容关系并通知调用方；旧版本可通过 `/deprecate` 接口设置废弃时间与替代建议。
 
-## 5. 观测与故障处理
+## 6. 观测与故障处理
 
 - Adapter 将输出 `transport.<protocol>.<capability>` Tracing Span，可在 Jaeger/Tempo 查看调用链。  
 - Metrics `integration_capability_latency_ms`、`integration_capability_error_total` 可在 Prometheus 中按协议、租户、错误码聚合。  

@@ -78,7 +78,7 @@
 
 **Purpose**: 文档、测试与交付前验证。
 
-- [ ] T901 [Core] 更新 `docs/integration`、`docs/knowledge_base` 中相关章节，描述契约治理、传输配置与观测指标接入流程。
-- [ ] T902 [P] [Core] 为新增 HTTP/gRPC Handler 或服务编写集成/回归测试，验证主要 Happy Path 与关键错误分支。
-- [ ] T903 [Core] 复核 `specs/002-title-unified-capability/quickstart.md` 示例命令与响应，确保与实现保持一致。
-- [ ] T904 [Core] 运行 `make proto-lint unit-test` 并整理构建日志，确认所有新包通过编译与 Lint。
+- [x] T901 [Core] 更新 `docs/integration`、`docs/knowledge_base` 中相关章节，描述契约治理、传输配置与观测指标接入流程。
+- [x] T902 [P] [Core] 为新增 HTTP/gRPC Handler 或服务编写集成/回归测试，验证主要 Happy Path 与关键错误分支。
+- [x] T903 [Core] 复核 `specs/002-title-unified-capability/quickstart.md` 示例命令与响应，确保与实现保持一致。
+- [x] T904 [Core] 运行 `make proto-lint unit-test` 并整理构建日志，确认所有新包通过编译与 Lint。

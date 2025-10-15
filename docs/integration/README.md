@@ -55,6 +55,7 @@
 | ----------------------------- | -------------------------------- |
 | `Capability_Contract_Spec.md` | 定义统一能力契约（Capability Contract）模型。 |
 | `Transport_Adapter_Spec.md`   | 描述多协议（MCP/gRPC/HTTP/Agent）传输适配层。 |
+| _更新说明_ | 契约/传输规范新增契约版本策略、传输配置健康治理映射，配合 Admin API (`/api/v1/admin/capabilities/.../transports`) 可维护通道超时、重试、QoS 与健康检查。 |
 
 ---
 

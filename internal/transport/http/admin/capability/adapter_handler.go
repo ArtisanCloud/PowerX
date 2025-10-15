@@ -1,6 +1,7 @@
 package capability
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -9,15 +10,22 @@ import (
 
 	capb "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/capability/v1"
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
+	capvalidator "github.com/ArtisanCloud/PowerX/internal/contract/capability"
 	svc "github.com/ArtisanCloud/PowerX/internal/service/capability"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
 
+type adapterService interface {
+	ListProfiles(ctx context.Context, tenantID uint64, capabilityKey, version string) ([]svc.TransportProfile, error)
+	ReplaceProfiles(ctx context.Context, tenantID uint64, capabilityKey, version string, profiles []capvalidator.TransportProfile) error
+	HealthCheck(ctx context.Context, tenantID uint64, capabilityKey, version string, transport capb.TransportKind) (*svc.TransportHealthReport, error)
+}
+
 // AdapterHandler 管理传输配置的 HTTP handler。
 type AdapterHandler struct {
-	svc *svc.AdapterService
+	svc adapterService
 }
 
 // NewAdapterHandler 构建传输配置处理器。
