@@ -6,8 +6,8 @@
 ## Phase 1: Setup (Shared Infrastructure)
 
 - [X] T001 Initialize capability registry module scaffolding (`internal/service/capability_registry`, `internal/transport/http/admin/capability_registry`, `internal/transport/grpc/capability_registry`, `pkg/corex/db/persistence/repository/capability_registry`) per plan.md.
-- [ ] T002 Wire buf configs & make targets for new proto (`api/grpc/contracts/buf{.yaml,.gen.yaml}`) ensuring `capability_registry` package mappings.
-- [ ] T003 [P] Configure observability & tracing defaults for new services (reuse existing OpenTelemetry setup, ensure trace_id/tenant logging hooks available).
+- [X] T002 Wire buf configs & make targets for new proto (`api/grpc/contracts/buf{.yaml,.gen.yaml}`) ensuring `capability_registry` package mappings.
+- [X] T003 [P] Configure observability & tracing defaults for new services (reuse existing OpenTelemetry setup, ensure trace_id/tenant logging hooks available).
 
 ## Phase 2: Foundational (Blocking Prerequisites)
 
