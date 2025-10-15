@@ -1,5 +1,7 @@
 # Feature Specification: Capability Registry & Router
 
+**Domain Ownership**: CoreX (`corex.capability_registry`)
+
 **Feature Branch**: `003-capability-registry-router`  
 **Created**: 2025-10-15  
 **Status**: Draft  

@@ -5,7 +5,7 @@
 
 ## Summary
 
-实现一套多租户的能力注册中心与路由服务：Registry 提供能力快照、健康策略与事件推送，Router 根据权重、健康度和租户策略在 HTTP/gRPC 适配器之间选路，并在 500ms 内完成降级。方案依托 Postgres 记录版本化快照、Redis 缓存热快照与权重、EventBus 分发增量事件，并通过乐观并发控制与 2 分钟客户端缓存 TTL 确保一致性。
+实现一套多租户的能力注册中心与路由服务：Registry 提供能力快照、健康策略与事件推送，Router 根据权重、健康度和租户策略在 HTTP/gRPC 适配器之间选路，并在 500ms 内完成降级。方案依托 Postgres 记录版本化快照、Redis 缓存热快照与权重、EventBus 分发增量事件，并通过乐观并发控制与 2 分钟客户端缓存 TTL 确保一致性；同时提供 sandbox 模拟接口与跨区域同步机制，支持策略演练与多集群容灾。
 
 ## Technical Context
 
@@ -16,7 +16,7 @@
 **Target Platform**: Linux 容器 (Kubernetes)  
 **Project Type**: CoreX 后端服务模块  
 **Performance Goals**: Registry 99% 请求 ≤150ms；Router 降级耗时 ≤500ms；事件推送 95% ≤30s；客户端缓存命中 ≥80%  
-**Constraints**: 多租户隔离、审计留痕、默认冷却 60s、缓存 TTL 120s、使用统一拦截器链 (auth/tenant/logging/recovery)  
+**Constraints**: 多租户隔离、审计留痕、默认冷却 60s、缓存 TTL 120s、使用统一拦截器链 (auth/tenant/logging/recovery)、sandbox 接口隔离权限、跨区域一致性  
 **Scale/Scope**: 数百租户、每租户上百能力、每能力最多 10 个适配器，Router QPS 1000+
 
 ## Constitution Check
@@ -55,15 +55,19 @@ api/
     └── contracts/powerx/capability/registry/v1/   # proto 落地位置
 
 internal/
-├── service/capability_registry/                   # 领域服务（含注册、路由、健康、缓存逻辑）
+├── service/capability_registry/                   # 领域服务（含注册、路由、sandbox、健康、缓存逻辑）
+│   ├── domain/                                    # 常量、枚举、策略定义
 │   ├── registry/                                  # Registry 读写、审计与事件发布
 │   ├── router/                                    # 路由策略执行与指标输出
+│   ├── sandbox/                                   # 策略演练接口与模拟调度
 │   ├── health/                                    # 主动/被动健康检查 orchestrator
-│   └── discovery/                                 # 客户端快照缓存与同步协调
+│   └── discovery/                                 # 客户端快照缓存、跨区域同步协调
 ├── transport/
-│   ├── http/admin/capability_registry/            # REST Handler (Gin)
-│   └── grpc/capability_registry/                  # gRPC Service 实现
-└── infra/cache/discovery/                         # Redis 存取封装（可复用的缓存适配层）
+│   ├── http/admin/capability_registry/            # REST Handler (Gin，包括 sandbox 路径)
+│   └── grpc/capability_registry/                  # gRPC Service 实现（含 sandbox RPC）
+└── infra/
+    ├── cache/discovery/                           # Redis 存取封装（可复用的缓存适配层）
+    └── replication/capability_registry/           # 跨区域/多集群同步辅助组件
 
 pkg/corex/db/persistence/
 ├── model/                                         # 新增模型定义
