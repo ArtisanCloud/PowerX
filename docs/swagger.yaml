@@ -273,6 +273,32 @@ paths:
             summary: POST /api/v1/admin/capabilities/_capabilityKey/versions/_version/publish
             tags:
                 - api
+    /api/v1/admin/capabilities/:capabilityKey/versions/:version/transports:
+        get:
+            operationId: GET /api/v1/admin/capabilities/_capabilityKey/versions/_version/transports
+            responses:
+                "200":
+                    description: OK
+            summary: GET /api/v1/admin/capabilities/_capabilityKey/versions/_version/transports
+            tags:
+                - api
+        put:
+            operationId: PUT /api/v1/admin/capabilities/_capabilityKey/versions/_version/transports
+            responses:
+                "200":
+                    description: OK
+            summary: PUT /api/v1/admin/capabilities/_capabilityKey/versions/_version/transports
+            tags:
+                - api
+    /api/v1/admin/capabilities/:capabilityKey/versions/:version/transports/:transport/health:
+        post:
+            operationId: POST /api/v1/admin/capabilities/_capabilityKey/versions/_version/transports/_transport/health
+            responses:
+                "200":
+                    description: OK
+            summary: POST /api/v1/admin/capabilities/_capabilityKey/versions/_version/transports/_transport/health
+            tags:
+                - api
     /api/v1/admin/iam/departments:
         post:
             operationId: POST /api/v1/admin/iam/departments
