@@ -65,12 +65,12 @@
 **Goal**: 提供统一适配器接口与传输配置，保证多协议一致的上下文与错误模型。  
 **Independent Test**: 构建 Adapter 规范，通过模拟 HTTP/gRPC/MCP 调用验证统一上下文、度量与错误映射。
 
-- [ ] T301 [P] [US3] 在 `internal/service/capability/adapter_service.go` 定义 `TransportAdapter` 接口及默认实现，封装 Invoke/Stream/HealthCheck/Close 与超时重试策略。
-- [ ] T302 [US3] 扩展 `pkg/corex/db/persistence/repository/capability/transport_repository.go`，提供协议偏好与健康状态的持久化操作。
-- [ ] T303 [P] [US3] 新建 `internal/transport/http/admin/capability/adapter_handler.go`，实现传输配置管理与健康检查 REST 接口，输出统一错误模型。
-- [ ] T304 [US3] 在 `internal/transport/grpc/capability/adapter_handler.go` 落地 `ListTransportProfiles` 等 Adapter 控制 RPC，处理结构体转换与错误码映射。
-- [ ] T305 [US3] 在适配器服务中集成指标与 Tracing（如 Prometheus 指标、OpenTelemetry Span），并将超时/重试/下游故障映射到 `ErrorTaxonomy`。
-- [ ] T306 [US3] 实现协议偏好降级逻辑（prefer→fallback），缺失传输通道时返回临时不可用错误并写入审计/事件。
+- [x] T301 [P] [US3] 在 `internal/service/capability/adapter_service.go` 定义 `TransportAdapter` 接口及默认实现，封装 Invoke/Stream/HealthCheck/Close 与超时重试策略。
+- [x] T302 [US3] 扩展 `pkg/corex/db/persistence/repository/capability/transport_repository.go`，提供协议偏好与健康状态的持久化操作。
+- [x] T303 [P] [US3] 新建 `internal/transport/http/admin/capability/adapter_handler.go`，实现传输配置管理与健康检查 REST 接口，输出统一错误模型。
+- [x] T304 [US3] 在 `internal/transport/grpc/capability/adapter_handler.go` 落地 `ListTransportProfiles` 等 Adapter 控制 RPC，处理结构体转换与错误码映射。
+- [x] T305 [US3] 在适配器服务中集成指标与 Tracing（如 Prometheus 指标、OpenTelemetry Span），并将超时/重试/下游故障映射到 `ErrorTaxonomy`。
+- [x] T306 [US3] 实现协议偏好降级逻辑（prefer→fallback），缺失传输通道时返回临时不可用错误并写入审计/事件。
 
 ---
 

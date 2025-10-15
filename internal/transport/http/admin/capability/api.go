@@ -14,6 +14,7 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 
 	contractHandler := NewContractHandler(deps)
 	policyHandler := NewVersionPolicyHandler(deps)
+	adapterHandler := NewAdapterHandler(deps)
 
 	grp := protectedGroup.Group("/admin/capabilities")
 	grp.Use(middleware.JwtMiddleware(
@@ -31,6 +32,10 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 		grp.PUT("/:capabilityKey/versions/:version", contractHandler.UpdateContract)
 		grp.POST("/:capabilityKey/versions/:version/publish", contractHandler.PublishContract)
 		grp.POST("/:capabilityKey/versions/:version/deprecate", contractHandler.DeprecateContract)
+
+		grp.GET("/:capabilityKey/versions/:version/transports", adapterHandler.ListTransportProfiles)
+		grp.PUT("/:capabilityKey/versions/:version/transports", adapterHandler.UpsertTransportProfiles)
+		grp.POST("/:capabilityKey/versions/:version/transports/:transport/health", adapterHandler.RunHealthCheck)
 
 		grp.GET("/:capabilityKey/version-policy", policyHandler.GetVersionPolicy)
 		grp.PUT("/:capabilityKey/version-policy", policyHandler.UpsertVersionPolicy)

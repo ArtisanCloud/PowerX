@@ -26,6 +26,7 @@ type ContractServer struct {
 	capb.UnimplementedCapabilityRegistryServiceServer
 	contractSvc *svc.ContractService
 	policySvc   *svc.VersionPolicyService
+	adapterSvc  *svc.AdapterService
 }
 
 func NewContractServer(deps *shared.Deps) *ContractServer {
@@ -35,6 +36,7 @@ func NewContractServer(deps *shared.Deps) *ContractServer {
 	return &ContractServer{
 		contractSvc: service,
 		policySvc:   policyService,
+		adapterSvc:  svc.NewAdapterService(deps.DB, nil, nil),
 	}
 }
 
@@ -190,13 +192,14 @@ func (s *ContractServer) ListTransportProfiles(ctx context.Context, req *capb.Li
 	if req == nil {
 		return listTransportProfilesErrorResponse(ctx, http.StatusBadRequest, "request cannot be nil", nil), nil
 	}
-	contract, err := s.contractSvc.GetContract(ctx, 0, req.GetCapabilityKey(), req.GetVersion())
+	tenantID := reqctx.GetTenantID(ctx)
+	items, err := s.adapterSvc.ListProfiles(ctx, tenantID, req.GetCapabilityKey(), req.GetVersion())
 	if err != nil {
 		return listTransportProfilesServiceErrorResponse(ctx, err)
 	}
-	profiles := make([]*capb.TransportProfile, 0, len(contract.TransportProfiles))
-	for _, profile := range contract.TransportProfiles {
-		pbProfile, err := toPBTransportProfile(profile)
+	profiles := make([]*capb.TransportProfile, 0, len(items))
+	for _, item := range items {
+		pbProfile, err := toPBTransportProfileFromView(item)
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "convert transport profile: %v", err)
 		}
@@ -421,6 +424,12 @@ func publishCapabilityErrorResponse(ctx context.Context, code int, msg string, e
 }
 
 func listTransportProfilesServiceErrorResponse(ctx context.Context, err error) (*capb.ListTransportProfilesResponse, error) {
+	if errors.Is(err, svc.ErrAdapterNotFound) {
+		return &capb.ListTransportProfilesResponse{
+			Meta:  badMeta(ctx, http.StatusNotFound, err.Error()),
+			Error: errorExtra(err, nil),
+		}, nil
+	}
 	code, internal := classifyCapabilityError(err)
 	if internal {
 		return nil, status.Errorf(codes.Internal, "capability service error: %v", err)
@@ -533,6 +542,47 @@ func toPBTransportProfile(profile validator.TransportProfile) (*capb.TransportPr
 		Qos:              qosStruct,
 		EndpointSelector: selectorStruct,
 	}, nil
+}
+
+func toPBTransportProfileFromView(view svc.TransportProfile) (*capb.TransportProfile, error) {
+	validatorProfile := validator.TransportProfile{
+		Transport:        view.Transport,
+		Mode:             view.Mode,
+		TimeoutMillis:    view.TimeoutMillis,
+		Streaming:        view.Streaming,
+		Retry:            view.Retry,
+		QoS:              view.QoS,
+		EndpointSelector: view.EndpointSelector,
+	}
+	pbProfile, err := toPBTransportProfile(validatorProfile)
+	if err != nil {
+		return nil, err
+	}
+	if health, err := toPBHealthReport(view.HealthReport); err == nil {
+		pbProfile.LastHealthStatus = health
+	}
+	return pbProfile, nil
+}
+
+func toPBHealthReport(report *svc.TransportHealthReport) (*capb.TransportHealthStatus, error) {
+	if report == nil {
+		return nil, nil
+	}
+	pbReport := &capb.TransportHealthStatus{Status: report.Status}
+	if !report.CheckedAt.IsZero() {
+		pbReport.CheckedAt = timestamppb.New(report.CheckedAt)
+	}
+	if report.LastError != nil {
+		pbReport.LastError = &capb.ErrorTaxonomyEntry{
+			Namespace:       report.LastError.Namespace,
+			Category:        report.LastError.Category,
+			Code:            report.LastError.Code,
+			Severity:        severityToPB(report.LastError.Severity),
+			Stage:           stageToPB(report.LastError.Stage),
+			SuggestedAction: report.LastError.SuggestedAction,
+		}
+	}
+	return pbReport, nil
 }
 
 func fromPBContract(pb *capb.CapabilityContract) (*svc.ContractUpsertInput, error) {
