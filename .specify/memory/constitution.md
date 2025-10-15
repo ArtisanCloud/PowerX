@@ -62,6 +62,8 @@ If a runner does not natively support `manifest.yaml`, it must treat this sectio
 > 说明：当前仓库已有约定是 **Proto 的权威源在 `api/grpc/contracts`**，Go 代码生成位置在 `api/grpc/gen/go`（见下文 0.3）。HTTP 的 OpenAPI 合同以 `specs/<feature>/contracts/http-openapi.yaml` 作为设计产物，服务端路由/Handler 以 `internal/transport/http/...` 落地（区分 `admin/web/openapi` 子树）。
 > 领域实体说明，因为gorm即定义了model，也可以作为领域的实体使用，不需要反复定义，所以基本上都是在pkg/corex/db/persistence/model/...
 
+- **命名规范（新增）**：CoreX 域目录名称一律使用 `snake_case`，以 `capability_registry`、`media_storage` 为例；禁止拼接式命名如 `capabilityregistry`，确保与 Go 包名区分且在跨语言环境保持一致。
+
 ### 0.3 传输/合同与代码生成（CoreX 统一约束）
 
 - **CoreX 默认双传输**：REST + gRPC（除非该域的 spec 明确豁免）。  

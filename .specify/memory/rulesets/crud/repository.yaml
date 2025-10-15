@@ -19,10 +19,12 @@ scope:
   codebase:
     repo_globs:
       - "internal/repository/**/**_repo.go"
+      - "pkg/corex/db/persistence/repository/**/**_repo.go"
     model_globs:
       - "pkg/corex/db/persistence/model/**/**.go"
 
 principles:
+  - 目录规范：CoreX 仓库实现放置于 `pkg/corex/db/persistence/repository/<domain>/`，目录名使用 snake_case，对应的模型位于同层级 `model/`。
   - 职责单一：Repository 只做数据访问（SQL/GORM），禁止业务分支与权限判断。
   - 多租户强约束：所有查询均带 TenantID 条件；默认忽略软删（GORM 默认生效）。
   - 事务注入：方法接受 *gorm.DB（可为 tx），由 Service 层控制 tx 生命周期。
@@ -111,7 +113,7 @@ acceptance:
 templates:
 
   repo_interface_impl_go: |
-    // internal/repository/{{domain}}/{{resource}}_repo.go
+    // pkg/corex/db/persistence/repository/{{domain}}/{{resource}}_repo.go
     package {{domain}}repo
 
     import (
