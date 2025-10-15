@@ -53,7 +53,7 @@ curl -X POST https://corex.powerx.dev/api/admin/capabilities \
 2. 触发发布：
 
 ```bash
-curl -X POST "https://corex.powerx.dev/api/admin/capabilities/crm.lead.create/versions/1.0.0:publish" \
+curl -X POST "https://corex.powerx.dev/api/admin/capabilities/crm.lead.create/versions/1.0.0/publish" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"effective_at":"2025-10-15T00:00:00Z"}'
@@ -93,7 +93,7 @@ curl -X PUT "https://corex.powerx.dev/api/admin/capabilities/crm.lead.create/ver
   -d '{"capability_key":"crm.lead.create","default_strategy":"latest_minor","allowed_versions":[{"version":"1.0.0","compatible_with":["1.0.*"],"status":"active"}]}'
 ```
 
-2. 发布补丁版本 `1.1.0` 后，设置兼容关系并通知调用方；旧版本可通过 `:deprecate` 接口设置废弃时间与替代建议。
+2. 发布补丁版本 `1.1.0` 后，设置兼容关系并通知调用方；旧版本可通过 `/deprecate` 接口设置废弃时间与替代建议。
 
 ## 5. 观测与故障处理
 

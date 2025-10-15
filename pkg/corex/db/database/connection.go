@@ -27,12 +27,14 @@ func Connect(cfg corexdb.DatabaseConfig) (*gorm.DB, error) {
 
 	// GORM 基本配置
 	gcfg := &gorm.Config{
+		DisableForeignKeyConstraintWhenMigrating: true,
 		NamingStrategy: schema.NamingStrategy{
 			TablePrefix:   cfg.TablePrefix,
 			SingularTable: true,
 		},
-		//Logger: gormLogger.Default.LogMode(gormLogger.Info),
-		Logger: gormLogger.Default.LogMode(gormLogger.Warn), // 原来是 Info
+		Logger: gormLogger.Default.LogMode(gormLogger.Error),
+		// Logger: gormLogger.Default.LogMode(gormLogger.Info),
+		// Logger: gormLogger.Default.LogMode(gormLogger.Warn), // 原来是 Info
 		// Logger: gormLogger.Default.LogMode(gormLogger.Silent), // 完全静默
 	}
 

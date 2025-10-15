@@ -315,6 +315,112 @@
         ]
       }
     },
+    "/api/v1/admin/capabilities": {
+      "get": {
+        "operationId": "GET /api/v1/admin/capabilities",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "GET /api/v1/admin/capabilities",
+        "tags": [
+          "api"
+        ]
+      },
+      "post": {
+        "operationId": "POST /api/v1/admin/capabilities",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/v1/admin/capabilities",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/v1/admin/capabilities/:capabilityKey/version-policy": {
+      "get": {
+        "operationId": "GET /api/v1/admin/capabilities/_capabilityKey/version-policy",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "GET /api/v1/admin/capabilities/_capabilityKey/version-policy",
+        "tags": [
+          "api"
+        ]
+      },
+      "put": {
+        "operationId": "PUT /api/v1/admin/capabilities/_capabilityKey/version-policy",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "PUT /api/v1/admin/capabilities/_capabilityKey/version-policy",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/v1/admin/capabilities/:capabilityKey/versions/:version": {
+      "get": {
+        "operationId": "GET /api/v1/admin/capabilities/_capabilityKey/versions/_version",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "GET /api/v1/admin/capabilities/_capabilityKey/versions/_version",
+        "tags": [
+          "api"
+        ]
+      },
+      "put": {
+        "operationId": "PUT /api/v1/admin/capabilities/_capabilityKey/versions/_version",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "PUT /api/v1/admin/capabilities/_capabilityKey/versions/_version",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/v1/admin/capabilities/:capabilityKey/versions/:version/deprecate": {
+      "post": {
+        "operationId": "POST /api/v1/admin/capabilities/_capabilityKey/versions/_version/deprecate",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/v1/admin/capabilities/_capabilityKey/versions/_version/deprecate",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/v1/admin/capabilities/:capabilityKey/versions/:version/publish": {
+      "post": {
+        "operationId": "POST /api/v1/admin/capabilities/_capabilityKey/versions/_version/publish",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/v1/admin/capabilities/_capabilityKey/versions/_version/publish",
+        "tags": [
+          "api"
+        ]
+      }
+    },
     "/api/v1/admin/iam/departments": {
       "post": {
         "operationId": "POST /api/v1/admin/iam/departments",
@@ -1746,6 +1852,20 @@
           }
         },
         "summary": "GET /media/starfilepath",
+        "tags": [
+          "media"
+        ]
+      }
+    },
+    "/media/*objectKey": {
+      "put": {
+        "operationId": "PUT /media/starobjectKey",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "PUT /media/starobjectKey",
         "tags": [
           "media"
         ]

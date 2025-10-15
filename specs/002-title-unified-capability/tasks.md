@@ -38,7 +38,7 @@
 
 - [x] T101 [P] [US1] 在 `internal/contract/capability/validation.go` 实现契约校验（Schema 完整性、Scope/ToolGrant 存在性、传输偏好互斥、Error Taxonomy 映射），返回详尽的 `ValidationIssue`。
 - [x] T102 [US1] 编写 `internal/service/capability/contract_service.go`，整合仓储、校验、审计与 EventBus，支持草稿写入、发布、查询、列表等操作并保证多租户隔离。
-- [x] T103 [US1] 在 `internal/transport/http/admin/capability/{api.go,contract_handler.go,router.go}` 构建 REST Handler 与路由，挂载 `/admin/capabilities` 系列接口，并更新 `internal/transport/http/admin/routes.go` 注册模块（路由组叠加 `RootOnly` 中间件，确保仅 root 管理员可操作）。
+- [x] T103 [US1] 在 `internal/transport/http/admin/capability/{api.go,contract_handler.go}` 构建 REST Handler 与路由，挂载 `/admin/capabilities` 系列接口，并更新 `internal/transport/http/admin/routes.go` 注册模块（路由组叠加 `RootOnly` 中间件，确保仅 root 管理员可操作）。
 - [x] T104 [US1] 在 `internal/transport/grpc/capability/contract_handler.go` 实现 `CapabilityRegistryService` 契约 RPC，处理 pb↔domain 映射，并更新 `internal/server/grpc/server.go` 注册服务与健康检查。
 - [x] T105 [US1] 在契约发布/废弃流程中写入审计日志与事件（`integration.capability.*`），包含版本、替代关系、租户信息以及调用备注。
 - [x] T106 [P] [US1] 为校验器或契约服务编写单元测试（如 `internal/contract/capability/validation_test.go`），覆盖合法、缺失 Scope、传输偏好冲突等场景。
@@ -51,12 +51,12 @@
 **Goal**: 管理版本策略、兼容矩阵与废弃提醒，确保升级不破坏现有调用。  
 **Independent Test**: 独立部署版本管理模块，通过创建 v1/v2 契约、设置兼容标记并验证调用中的版本选择逻辑。
 
-- [ ] T201 [P] [US2] 新建 `pkg/corex/db/persistence/model/capability/capability_version_policy_gorm.go`，描述默认策略、兼容矩阵、废弃配置，并纳入自动迁移。
-- [ ] T202 [US2] 在 `pkg/corex/db/persistence/repository/capability/version_policy_repository.go` 实现策略的查询、乐观锁更新与兼容矩阵持久化。
-- [ ] T203 [US2] 完成 `internal/service/capability/version_policy_service.go`，执行兼容性评估、默认策略决策与废弃通知逻辑，并与契约发布流程协同。
-- [ ] T204 [P] [US2] 新建 `internal/transport/http/admin/capability/version_policy_handler.go`，提供获取/更新版本策略与废弃提醒的 REST 接口，并在路由中挂载。
-- [ ] T205 [US2] 实现 gRPC 层的 `GetVersionPolicy`/`UpsertVersionPolicy`，必要时拆分至 `internal/transport/grpc/capability/version_policy_handler.go` 复用服务逻辑。
-- [ ] T206 [US2] 版本策略变更时触发事件 `integration.capability.version_policy.updated` 与审计记录，覆盖兼容失败与替代建议场景。
+- [x] T201 [P] [US2] 新建 `pkg/corex/db/persistence/model/capability/capability_version_policy_gorm.go`，描述默认策略、兼容矩阵、废弃配置，并纳入自动迁移。
+- [x] T202 [US2] 在 `pkg/corex/db/persistence/repository/capability/version_policy_repository.go` 实现策略的查询、乐观锁更新与兼容矩阵持久化。
+- [x] T203 [US2] 完成 `internal/service/capability/version_policy_service.go`，执行兼容性评估、默认策略决策与废弃通知逻辑，并与契约发布流程协同。
+- [x] T204 [P] [US2] 新建 `internal/transport/http/admin/capability/version_policy_handler.go`，提供获取/更新版本策略与废弃提醒的 REST 接口，并在路由中挂载。
+- [x] T205 [US2] 实现 gRPC 层的 `GetVersionPolicy`/`UpsertVersionPolicy`，必要时拆分至 `internal/transport/grpc/capability/contract_handler.go` 复用服务逻辑。
+- [x] T206 [US2] 版本策略变更时触发事件 `integration.capability.version_policy.updated` 与审计记录，覆盖兼容失败与替代建议场景。
 
 ---
 

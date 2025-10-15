@@ -7,7 +7,6 @@ import (
 	capmodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/capability"
 	repository "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 )
 
 // ContractRepository 封装 Capability 契约的持久化读写。
@@ -34,12 +33,52 @@ func (r *ContractRepository) WithDB(db *gorm.DB) *ContractRepository {
 
 // UpsertContract 根据 (tenant_id, capability_key, version) 唯一键插入或更新契约主体。
 func (r *ContractRepository) UpsertContract(ctx context.Context, contract *capmodel.CapabilityContract) (*capmodel.CapabilityContract, error) {
-	unique := []clause.Column{
-		{Name: "tenant_id"},
-		{Name: "capability_key"},
-		{Name: "version"},
+	var existing capmodel.CapabilityContract
+	err := r.db.WithContext(ctx).
+		Where("tenant_id = ? AND capability_key = ? AND version = ?", contract.TenantID, contract.CapabilityKey, contract.Version).
+		First(&existing).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		if err := r.db.WithContext(ctx).Create(contract).Error; err != nil {
+			return nil, err
+		}
+		return contract, nil
 	}
-	return r.BaseRepository.Upsert(ctx, contract, unique)
+	if err != nil {
+		return nil, err
+	}
+
+	update := map[string]interface{}{
+		"provider_id":            contract.ProviderID,
+		"display_name":           contract.DisplayName,
+		"description":            contract.Description,
+		"security_scope":         contract.SecurityScope,
+		"tool_grant_required":    contract.ToolGrantRequired,
+		"lifecycle_state":        contract.LifecycleState,
+		"observability_config":   contract.ObservabilityConfig,
+		"transport_preferences":  contract.TransportPreferences,
+		"status":                 contract.Status,
+		"effective_at":           contract.EffectiveAt,
+		"deprecated_at":          contract.DeprecatedAt,
+		"replacement_capability": contract.ReplacementCapability,
+		"updated_by":             contract.UpdatedBy,
+	}
+	if err := r.db.WithContext(ctx).Model(&existing).Updates(update).Error; err != nil {
+		return nil, err
+	}
+	existing.ProviderID = contract.ProviderID
+	existing.DisplayName = contract.DisplayName
+	existing.Description = contract.Description
+	existing.SecurityScope = contract.SecurityScope
+	existing.ToolGrantRequired = contract.ToolGrantRequired
+	existing.LifecycleState = contract.LifecycleState
+	existing.ObservabilityConfig = contract.ObservabilityConfig
+	existing.TransportPreferences = contract.TransportPreferences
+	existing.Status = contract.Status
+	existing.EffectiveAt = contract.EffectiveAt
+	existing.DeprecatedAt = contract.DeprecatedAt
+	existing.ReplacementCapability = contract.ReplacementCapability
+	existing.UpdatedBy = contract.UpdatedBy
+	return &existing, nil
 }
 
 // FindByKeyVersion 获取单个契约，optionally 预加载关联。
@@ -69,46 +108,34 @@ func (r *ContractRepository) FindByKeyVersion(ctx context.Context, tenantID uint
 
 // ReplaceIOSchemas 以事务方式替换契约的 IO Schema 描述。
 func (r *ContractRepository) ReplaceIOSchemas(ctx context.Context, contractID uint64, schemas []*capmodel.CapabilityIOSchema) error {
-	tx := r.db.WithContext(ctx).Begin()
-	if tx.Error != nil {
-		return tx.Error
-	}
+	db := r.db.WithContext(ctx)
 
-	if err := tx.Where("contract_id = ?", contractID).Delete(&capmodel.CapabilityIOSchema{}).Error; err != nil {
-		tx.Rollback()
+	if err := db.Where("contract_id = ?", contractID).Delete(&capmodel.CapabilityIOSchema{}).Error; err != nil {
 		return err
 	}
 
 	if len(schemas) > 0 {
-		if err := tx.Create(&schemas).Error; err != nil {
-			tx.Rollback()
+		if err := db.Create(&schemas).Error; err != nil {
 			return err
 		}
 	}
-
-	return tx.Commit().Error
+	return nil
 }
 
 // ReplaceErrorBindings 维护契约与错误条目的关联。
 func (r *ContractRepository) ReplaceErrorBindings(ctx context.Context, contractID uint64, bindings []*capmodel.CapabilityContractErrorTaxonomy) error {
-	tx := r.db.WithContext(ctx).Begin()
-	if tx.Error != nil {
-		return tx.Error
-	}
+	db := r.db.WithContext(ctx)
 
-	if err := tx.Where("contract_id = ?", contractID).Delete(&capmodel.CapabilityContractErrorTaxonomy{}).Error; err != nil {
-		tx.Rollback()
+	if err := db.Where("contract_id = ?", contractID).Delete(&capmodel.CapabilityContractErrorTaxonomy{}).Error; err != nil {
 		return err
 	}
 
 	if len(bindings) > 0 {
-		if err := tx.Create(&bindings).Error; err != nil {
-			tx.Rollback()
+		if err := db.Create(&bindings).Error; err != nil {
 			return err
 		}
 	}
-
-	return tx.Commit().Error
+	return nil
 }
 
 // ListContracts 按租户与关键字简单分页查询。

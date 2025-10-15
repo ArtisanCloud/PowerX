@@ -91,9 +91,9 @@ internal/service/capability/
 └── adapter_service.go
 
 internal/transport/http/admin/capability/
-├── api.go
+├── api.go                 # 路由注册（内聚 RootOnly 中间件）
 ├── contract_handler.go
-└── router.go        # 路由组挂载 RootOnly 中间件，确保仅平台 root 管理员可维护契约
+└── version_policy_handler.go
 
 internal/transport/grpc/capability/
 ├── contract_handler.go

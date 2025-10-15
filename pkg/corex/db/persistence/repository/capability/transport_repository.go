@@ -2,11 +2,11 @@ package capability
 
 import (
 	"context"
+	"errors"
 
 	capmodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/capability"
 	repository "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 )
 
 // TransportProfileRepository 管理能力传输配置的增删改查。
@@ -36,13 +36,36 @@ func (r *TransportProfileRepository) UpsertProfiles(ctx context.Context, profile
 	if len(profiles) == 0 {
 		return nil
 	}
-	unique := []clause.Column{
-		{Name: "tenant_id"},
-		{Name: "contract_id"},
-		{Name: "transport"},
+	for _, profile := range profiles {
+		var existing capmodel.CapabilityTransportProfile
+		err := r.db.WithContext(ctx).
+			Where("tenant_id = ? AND contract_id = ? AND transport = ?",
+				profile.TenantID, profile.ContractID, profile.Transport).
+			First(&existing).Error
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			if err := r.db.WithContext(ctx).Create(profile).Error; err != nil {
+				return err
+			}
+			continue
+		}
+		if err != nil {
+			return err
+		}
+		updates := map[string]interface{}{
+			"mode":               profile.Mode,
+			"timeout_millis":     profile.TimeoutMillis,
+			"retry_policy":       profile.RetryPolicy,
+			"streaming":          profile.Streaming,
+			"qos":                profile.QoS,
+			"endpoint_selector":  profile.EndpointSelector,
+			"last_health_status": profile.LastHealthStatus,
+			"status":             profile.Status,
+		}
+		if err := r.db.WithContext(ctx).Model(&existing).Updates(updates).Error; err != nil {
+			return err
+		}
 	}
-	_, err := r.BaseRepository.UpsertBatch(ctx, profiles, unique)
-	return err
+	return nil
 }
 
 // ListByContract 返回某个契约下的全部传输配置。
@@ -59,6 +82,7 @@ func (r *TransportProfileRepository) ListByContract(ctx context.Context, contrac
 // DeleteByContract 删除契约下所有传输配置。
 func (r *TransportProfileRepository) DeleteByContract(ctx context.Context, contractID uint64) error {
 	return r.db.WithContext(ctx).
+		Unscoped().
 		Where("contract_id = ?", contractID).
 		Delete(&capmodel.CapabilityTransportProfile{}).
 		Error

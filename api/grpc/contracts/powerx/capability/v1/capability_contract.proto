@@ -4,6 +4,7 @@ package powerx.capability.v1;
 
 option go_package = "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/capability/v1;capabilityv1";
 
+import "common/v1/response.proto";
 import "google/protobuf/struct.proto";
 import "google/protobuf/timestamp.proto";
 import "powerx/capability/v1/transport_adapter.proto";
@@ -12,25 +13,25 @@ import "powerx/capability/v1/capability_version_policy.proto";
 // CapabilityRegistryService 提供能力契约与版本策略的读写接口。
 service CapabilityRegistryService {
   // 获取指定能力版本的契约。
-  rpc GetCapability(GetCapabilityRequest) returns (CapabilityContract) {}
+  rpc GetCapability(GetCapabilityRequest) returns (CapabilityContractResponse) {}
 
   // 分页查询契约列表。
   rpc ListCapabilities(ListCapabilitiesRequest) returns (ListCapabilitiesResponse) {}
 
   // 创建或更新契约草稿（仅供内部使用）。
-  rpc UpsertCapability(UpsertCapabilityRequest) returns (CapabilityContract) {}
+  rpc UpsertCapability(UpsertCapabilityRequest) returns (CapabilityContractResponse) {}
 
   // 发布契约，执行所有校验流程。
   rpc PublishCapability(PublishCapabilityRequest) returns (PublishCapabilityResponse) {}
 
   // 废弃契约并广播事件。
-  rpc DeprecateCapability(DeprecateCapabilityRequest) returns (CapabilityContract) {}
+  rpc DeprecateCapability(DeprecateCapabilityRequest) returns (CapabilityContractResponse) {}
 
   // 获取版本策略。
-  rpc GetVersionPolicy(GetVersionPolicyRequest) returns (CapabilityVersionPolicy) {}
+  rpc GetVersionPolicy(GetVersionPolicyRequest) returns (CapabilityVersionPolicyResponse) {}
 
   // 设置版本策略。
-  rpc UpsertVersionPolicy(UpsertVersionPolicyRequest) returns (CapabilityVersionPolicy) {}
+  rpc UpsertVersionPolicy(UpsertVersionPolicyRequest) returns (CapabilityVersionPolicyResponse) {}
 
   // 查询传输配置，用于 Router/Adapter。
   rpc ListTransportProfiles(ListTransportProfilesRequest) returns (ListTransportProfilesResponse) {}
@@ -52,6 +53,12 @@ message ListCapabilitiesRequest {
 }
 
 message ListCapabilitiesResponse {
+  common.v1.ResponseMeta meta = 1;
+  ListCapabilitiesData data = 2;
+  common.v1.ErrorExtra error = 15;
+}
+
+message ListCapabilitiesData {
   repeated CapabilityContract items = 1;
   string next_page_token = 2;
 }
@@ -68,8 +75,10 @@ message PublishCapabilityRequest {
 }
 
 message PublishCapabilityResponse {
-  CapabilityContract contract = 1;
-  repeated ValidationIssue issues = 2;
+  common.v1.ResponseMeta meta = 1;
+  CapabilityContract contract = 2;
+  repeated ValidationIssue issues = 3;
+  common.v1.ErrorExtra error = 15;
 }
 
 message DeprecateCapabilityRequest {
@@ -86,7 +95,19 @@ message ListTransportProfilesRequest {
 }
 
 message ListTransportProfilesResponse {
+  common.v1.ResponseMeta meta = 1;
+  ListTransportProfilesData data = 2;
+  common.v1.ErrorExtra error = 15;
+}
+
+message ListTransportProfilesData {
   repeated TransportProfile transports = 1;
+}
+
+message CapabilityVersionPolicyResponse {
+  common.v1.ResponseMeta meta = 1;
+  CapabilityVersionPolicy data = 2;
+  common.v1.ErrorExtra error = 15;
 }
 
 message GetVersionPolicyRequest {
@@ -115,6 +136,12 @@ message CapabilityContract {
   google.protobuf.Timestamp updated_at = 15;
   string created_by = 16;
   string updated_by = 17;
+}
+
+message CapabilityContractResponse {
+  common.v1.ResponseMeta meta = 1;
+  CapabilityContract data = 2;
+  common.v1.ErrorExtra error = 15;
 }
 
 message IOSchemaDescriptor {

@@ -17,6 +17,7 @@ import (
 	capmodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/capability"
 	caprepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/capability"
 	"github.com/ArtisanCloud/PowerX/pkg/event_bus"
+	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 )
 
 // ErrValidation 标识契约校验失败。
@@ -129,34 +130,42 @@ func (s *ContractService) UpsertDraft(ctx context.Context, in *ContractUpsertInp
 		Status:               1,
 	}
 
-	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		repo := s.contractRepo.WithDB(tx)
-		entity, err = repo.UpsertContract(ctx, entity)
-		if err != nil {
-			return err
-		}
-
-		if err := repo.ReplaceIOSchemas(ctx, entity.ID, toModelIOSchemas(in.TenantID, entity.ID, in.IOSchemas)); err != nil {
-			return err
-		}
-		errorBindings, err := s.ensureErrorTaxonomy(ctx, tx, in.TenantID, entity.ID, in.ErrorTaxonomy)
-		if err != nil {
-			return err
-		}
-		if err := repo.ReplaceErrorBindings(ctx, entity.ID, errorBindings); err != nil {
-			return err
-		}
-
-		if err := s.transportRepo.WithDB(tx).DeleteByContract(ctx, entity.ID); err != nil {
-			return err
-		}
-		if len(in.TransportProfiles) > 0 {
-			if err := s.transportRepo.WithDB(tx).UpsertProfiles(ctx, toModelTransportProfiles(in.TenantID, entity.ID, in.CapabilityKey, in.TransportProfiles)); err != nil {
+	err = s.db.WithContext(ctx).
+		// Debug().
+		Transaction(func(tx *gorm.DB) error {
+			repo := s.contractRepo.WithDB(tx)
+			entity, err = repo.UpsertContract(ctx, entity)
+			if err != nil {
+				logger.ErrorF(ctx, "[capability] upsert contract failed: %v", err)
 				return err
 			}
-		}
-		return nil
-	})
+
+			if err := repo.ReplaceIOSchemas(ctx, entity.ID, toModelIOSchemas(in.TenantID, entity.ID, in.IOSchemas)); err != nil {
+				logger.ErrorF(ctx, "[capability] replace io schemas failed: %v", err)
+				return err
+			}
+			errorBindings, err := s.ensureErrorTaxonomy(ctx, tx, in.TenantID, entity.ID, in.ErrorTaxonomy)
+			if err != nil {
+				logger.ErrorF(ctx, "[capability] ensure error taxonomy failed: %v", err)
+				return err
+			}
+			if err := repo.ReplaceErrorBindings(ctx, entity.ID, errorBindings); err != nil {
+				logger.ErrorF(ctx, "[capability] replace error bindings failed: %v", err)
+				return err
+			}
+
+			if err := s.transportRepo.WithDB(tx).DeleteByContract(ctx, entity.ID); err != nil {
+				logger.ErrorF(ctx, "[capability] delete transport profiles failed: %v", err)
+				return err
+			}
+			if len(in.TransportProfiles) > 0 {
+				if err := s.transportRepo.WithDB(tx).UpsertProfiles(ctx, toModelTransportProfiles(in.TenantID, entity.ID, in.CapabilityKey, in.TransportProfiles)); err != nil {
+					logger.ErrorF(ctx, "[capability] upsert transport profiles failed: %v", err)
+					return err
+				}
+			}
+			return nil
+		})
 	if err != nil {
 		return nil, issues, err
 	}
@@ -365,9 +374,11 @@ func (s *ContractService) ensureErrorTaxonomy(ctx context.Context, tx *gorm.DB, 
 				Status:    1,
 			}
 			if err := tx.WithContext(ctx).Create(&taxonomy).Error; err != nil {
+				logger.ErrorF(ctx, "[capability] create error taxonomy failed: %v", err)
 				return nil, err
 			}
 		} else if err != nil {
+			logger.ErrorF(ctx, "[capability] query error taxonomy failed: %v", err)
 			return nil, err
 		}
 		result = append(result, &capmodel.CapabilityContractErrorTaxonomy{

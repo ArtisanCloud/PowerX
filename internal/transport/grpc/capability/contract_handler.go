@@ -4,13 +4,17 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
+	commonv1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/common/v1"
 	capb "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/capability/v1"
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
 	validator "github.com/ArtisanCloud/PowerX/internal/contract/capability"
 	svc "github.com/ArtisanCloud/PowerX/internal/service/capability"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -20,25 +24,37 @@ import (
 
 type ContractServer struct {
 	capb.UnimplementedCapabilityRegistryServiceServer
-	svc *svc.ContractService
+	contractSvc *svc.ContractService
+	policySvc   *svc.VersionPolicyService
 }
 
 func NewContractServer(deps *shared.Deps) *ContractServer {
 	validator := validator.NewValidator(validator.ValidatorOptions{})
 	service := svc.NewContractService(deps.DB, validator, deps.AuditSvc)
-	return &ContractServer{svc: service}
+	policyService := svc.NewVersionPolicyService(deps.DB, deps.AuditSvc)
+	return &ContractServer{
+		contractSvc: service,
+		policySvc:   policyService,
+	}
 }
 
-func (s *ContractServer) GetCapability(ctx context.Context, req *capb.GetCapabilityRequest) (*capb.CapabilityContract, error) {
+func (s *ContractServer) GetCapability(ctx context.Context, req *capb.GetCapabilityRequest) (*capb.CapabilityContractResponse, error) {
 	if req == nil {
-		return nil, status.Error(codes.InvalidArgument, "request cannot be nil")
+		return capabilityErrorResponse(ctx, http.StatusBadRequest, "request cannot be nil", nil), nil
 	}
 	tenantID := parseTenantID(req.GetTenantId())
-	contract, err := s.svc.GetContract(ctx, tenantID, req.GetCapabilityKey(), req.GetVersion())
+	contract, err := s.contractSvc.GetContract(ctx, tenantID, req.GetCapabilityKey(), req.GetVersion())
 	if err != nil {
-		return nil, grpcError(err)
+		return capabilityServiceErrorResponse(ctx, err)
 	}
-	return toPBContract(contract)
+	pbContract, err := toPBContract(contract)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "convert contract: %v", err)
+	}
+	return &capb.CapabilityContractResponse{
+		Meta: okMeta(ctx),
+		Data: pbContract,
+	}, nil
 }
 
 func (s *ContractServer) ListCapabilities(ctx context.Context, req *capb.ListCapabilitiesRequest) (*capb.ListCapabilitiesResponse, error) {
@@ -52,16 +68,16 @@ func (s *ContractServer) ListCapabilities(ctx context.Context, req *capb.ListCap
 	}
 	offset := parsePageToken(req.GetPageToken())
 
-	items, total, err := s.svc.ListContracts(ctx, tenantID, req.GetCapabilityKey(), limit, offset)
+	items, total, err := s.contractSvc.ListContracts(ctx, tenantID, req.GetCapabilityKey(), limit, offset)
 	if err != nil {
-		return nil, grpcError(err)
+		return listCapabilitiesServiceErrorResponse(ctx, err)
 	}
 
 	pbItems := make([]*capb.CapabilityContract, 0, len(items))
 	for _, item := range items {
 		pbContract, err := toPBContract(item)
 		if err != nil {
-			return nil, status.Error(codes.Internal, err.Error())
+			return nil, status.Errorf(codes.Internal, "convert contract: %v", err)
 		}
 		pbItems = append(pbItems, pbContract)
 	}
@@ -71,33 +87,46 @@ func (s *ContractServer) ListCapabilities(ctx context.Context, req *capb.ListCap
 		nextToken = strconv.Itoa(offset + len(items))
 	}
 
-	return &capb.ListCapabilitiesResponse{Items: pbItems, NextPageToken: nextToken}, nil
+	return &capb.ListCapabilitiesResponse{
+		Meta: okMeta(ctx),
+		Data: &capb.ListCapabilitiesData{
+			Items:         pbItems,
+			NextPageToken: nextToken,
+		},
+	}, nil
 }
 
-func (s *ContractServer) UpsertCapability(ctx context.Context, req *capb.UpsertCapabilityRequest) (*capb.CapabilityContract, error) {
+func (s *ContractServer) UpsertCapability(ctx context.Context, req *capb.UpsertCapabilityRequest) (*capb.CapabilityContractResponse, error) {
 	if req == nil || req.GetContract() == nil {
-		return nil, status.Error(codes.InvalidArgument, "contract payload is required")
+		return capabilityErrorResponse(ctx, http.StatusBadRequest, "contract payload is required", nil), nil
 	}
 	input, err := fromPBContract(req.GetContract())
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, err.Error())
+		return capabilityErrorResponse(ctx, http.StatusBadRequest, err.Error(), err), nil
 	}
-	contract, issues, err := s.svc.UpsertDraft(ctx, input)
+	contract, issues, err := s.contractSvc.UpsertDraft(ctx, input)
 	if err != nil {
 		if errors.Is(err, svc.ErrValidation) {
-			return nil, status.Error(codes.InvalidArgument, issuesToMessage(issues))
+			return capabilityValidationResponse(ctx, issues), nil
 		}
-		return nil, grpcError(err)
+		return capabilityServiceErrorResponse(ctx, err)
 	}
-	return toPBContract(contract)
+	pbContract, err := toPBContract(contract)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "convert contract: %v", err)
+	}
+	return &capb.CapabilityContractResponse{
+		Meta: okMeta(ctx),
+		Data: pbContract,
+	}, nil
 }
 
 func (s *ContractServer) PublishCapability(ctx context.Context, req *capb.PublishCapabilityRequest) (*capb.PublishCapabilityResponse, error) {
 	if req == nil {
-		return nil, status.Error(codes.InvalidArgument, "request cannot be nil")
+		return publishCapabilityErrorResponse(ctx, http.StatusBadRequest, "request cannot be nil", nil), nil
 	}
 	if req.GetEffectiveAt() == nil {
-		return nil, status.Error(codes.InvalidArgument, "effective_at is required")
+		return publishCapabilityErrorResponse(ctx, http.StatusBadRequest, "effective_at is required", nil), nil
 	}
 	input := &svc.PublishInput{
 		TenantID:      0,
@@ -106,26 +135,34 @@ func (s *ContractServer) PublishCapability(ctx context.Context, req *capb.Publis
 		EffectiveAt:   req.GetEffectiveAt().AsTime(),
 		Notes:         req.GetNotes(),
 	}
-	contract, issues, err := s.svc.PublishContract(ctx, input)
+	contract, issues, err := s.contractSvc.PublishContract(ctx, input)
 	if err != nil {
 		if errors.Is(err, svc.ErrValidation) {
-			return &capb.PublishCapabilityResponse{Issues: toPBIssues(issues)}, nil
+			return &capb.PublishCapabilityResponse{
+				Meta:   badMeta(ctx, http.StatusBadRequest, issuesToMessage(issues)),
+				Issues: toPBIssues(issues),
+				Error:  errorExtra(nil, issuesDetailsStruct(issues)),
+			}, nil
 		}
-		return nil, grpcError(err)
+		return publishCapabilityServiceErrorResponse(ctx, err)
 	}
 	pbContract, err := toPBContract(contract)
 	if err != nil {
-		return nil, status.Error(codes.Internal, err.Error())
+		return nil, status.Errorf(codes.Internal, "convert contract: %v", err)
 	}
-	return &capb.PublishCapabilityResponse{Contract: pbContract, Issues: toPBIssues(issues)}, nil
+	return &capb.PublishCapabilityResponse{
+		Meta:     okMeta(ctx),
+		Contract: pbContract,
+		Issues:   toPBIssues(issues),
+	}, nil
 }
 
-func (s *ContractServer) DeprecateCapability(ctx context.Context, req *capb.DeprecateCapabilityRequest) (*capb.CapabilityContract, error) {
+func (s *ContractServer) DeprecateCapability(ctx context.Context, req *capb.DeprecateCapabilityRequest) (*capb.CapabilityContractResponse, error) {
 	if req == nil {
-		return nil, status.Error(codes.InvalidArgument, "request cannot be nil")
+		return capabilityErrorResponse(ctx, http.StatusBadRequest, "request cannot be nil", nil), nil
 	}
 	if req.GetDeprecatedAt() == nil {
-		return nil, status.Error(codes.InvalidArgument, "deprecated_at is required")
+		return capabilityErrorResponse(ctx, http.StatusBadRequest, "deprecated_at is required", nil), nil
 	}
 	input := &svc.DeprecateInput{
 		TenantID:              0,
@@ -135,38 +172,288 @@ func (s *ContractServer) DeprecateCapability(ctx context.Context, req *capb.Depr
 		ReplacementCapability: req.GetReplacementCapability(),
 		AdvisoryMessage:       req.GetAdvisoryMessage(),
 	}
-	contract, err := s.svc.DeprecateContract(ctx, input)
+	contract, err := s.contractSvc.DeprecateContract(ctx, input)
 	if err != nil {
-		return nil, grpcError(err)
+		return capabilityServiceErrorResponse(ctx, err)
 	}
-	return toPBContract(contract)
+	pbContract, err := toPBContract(contract)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "convert contract: %v", err)
+	}
+	return &capb.CapabilityContractResponse{
+		Meta: okMeta(ctx),
+		Data: pbContract,
+	}, nil
 }
 
 func (s *ContractServer) ListTransportProfiles(ctx context.Context, req *capb.ListTransportProfilesRequest) (*capb.ListTransportProfilesResponse, error) {
 	if req == nil {
-		return nil, status.Error(codes.InvalidArgument, "request cannot be nil")
+		return listTransportProfilesErrorResponse(ctx, http.StatusBadRequest, "request cannot be nil", nil), nil
 	}
-	contract, err := s.svc.GetContract(ctx, 0, req.GetCapabilityKey(), req.GetVersion())
+	contract, err := s.contractSvc.GetContract(ctx, 0, req.GetCapabilityKey(), req.GetVersion())
 	if err != nil {
-		return nil, grpcError(err)
+		return listTransportProfilesServiceErrorResponse(ctx, err)
 	}
 	profiles := make([]*capb.TransportProfile, 0, len(contract.TransportProfiles))
 	for _, profile := range contract.TransportProfiles {
 		pbProfile, err := toPBTransportProfile(profile)
 		if err != nil {
-			return nil, status.Error(codes.Internal, err.Error())
+			return nil, status.Errorf(codes.Internal, "convert transport profile: %v", err)
 		}
 		profiles = append(profiles, pbProfile)
 	}
-	return &capb.ListTransportProfilesResponse{Transports: profiles}, nil
+	return &capb.ListTransportProfilesResponse{
+		Meta: okMeta(ctx),
+		Data: &capb.ListTransportProfilesData{Transports: profiles},
+	}, nil
 }
 
-func (s *ContractServer) GetVersionPolicy(context.Context, *capb.GetVersionPolicyRequest) (*capb.CapabilityVersionPolicy, error) {
-	return nil, status.Error(codes.Unimplemented, "version policy service not implemented yet")
+func (s *ContractServer) GetVersionPolicy(ctx context.Context, req *capb.GetVersionPolicyRequest) (*capb.CapabilityVersionPolicyResponse, error) {
+	if req == nil {
+		return capabilityPolicyErrorResponse(ctx, http.StatusBadRequest, "request cannot be nil", nil), nil
+	}
+	policy, err := s.policySvc.GetVersionPolicy(ctx, 0, req.GetCapabilityKey())
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return &capb.CapabilityVersionPolicyResponse{
+				Meta:  badMeta(ctx, http.StatusNotFound, err.Error()),
+				Error: errorExtra(err, nil),
+			}, nil
+		}
+		return capabilityPolicyServiceErrorResponse(ctx, err)
+	}
+	pbPolicy, err := toPBVersionPolicy(policy)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "convert version policy: %v", err)
+	}
+	return &capb.CapabilityVersionPolicyResponse{
+		Meta: okMeta(ctx),
+		Data: pbPolicy,
+	}, nil
 }
 
-func (s *ContractServer) UpsertVersionPolicy(context.Context, *capb.UpsertVersionPolicyRequest) (*capb.CapabilityVersionPolicy, error) {
-	return nil, status.Error(codes.Unimplemented, "version policy service not implemented yet")
+func (s *ContractServer) UpsertVersionPolicy(ctx context.Context, req *capb.UpsertVersionPolicyRequest) (*capb.CapabilityVersionPolicyResponse, error) {
+	if req == nil || req.GetPolicy() == nil {
+		return capabilityPolicyErrorResponse(ctx, http.StatusBadRequest, "policy payload is required", nil), nil
+	}
+	input, err := fromPBVersionPolicy(req.GetPolicy())
+	if err != nil {
+		return capabilityPolicyErrorResponse(ctx, http.StatusBadRequest, err.Error(), err), nil
+	}
+	policy, err := s.policySvc.UpsertVersionPolicy(ctx, input)
+	if err != nil {
+		if errors.Is(err, svc.ErrPolicyValidation) {
+			return capabilityPolicyErrorResponse(ctx, http.StatusBadRequest, err.Error(), err), nil
+		}
+		return capabilityPolicyServiceErrorResponse(ctx, err)
+	}
+	pbPolicy, err := toPBVersionPolicy(policy)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "convert version policy: %v", err)
+	}
+	return &capb.CapabilityVersionPolicyResponse{
+		Meta: okMeta(ctx),
+		Data: pbPolicy,
+	}, nil
+}
+
+func parseTenantID(val string) uint64 {
+	if val == "" {
+		return 0
+	}
+	id, err := strconv.ParseUint(val, 10, 64)
+	if err != nil {
+		return 0
+	}
+	return id
+}
+
+func parsePageToken(token string) int {
+	if token == "" {
+		return 0
+	}
+	v, err := strconv.Atoi(token)
+	if err != nil || v < 0 {
+		return 0
+	}
+	return v
+}
+
+func issuesToMessage(issues []validator.ValidationIssue) string {
+	if len(issues) == 0 {
+		return "validation failed"
+	}
+	messages := make([]string, 0, len(issues))
+	for idx, issue := range issues {
+		code := strings.TrimSpace(issue.Code)
+		if code == "" {
+			code = fmt.Sprintf("issue_%d", idx)
+		}
+		messages = append(messages, fmt.Sprintf("%s: %s", code, issue.Message))
+	}
+	return strings.Join(messages, "; ")
+}
+
+func issuesDetailsStruct(issues []validator.ValidationIssue) *structpb.Struct {
+	if len(issues) == 0 {
+		return nil
+	}
+	details := make(map[string]interface{}, len(issues))
+	for idx, issue := range issues {
+		key := strings.TrimSpace(issue.Code)
+		if key == "" {
+			key = fmt.Sprintf("issue_%d", idx)
+		}
+		entry := map[string]interface{}{
+			"message":  issue.Message,
+			"severity": string(issue.Severity),
+		}
+		if len(issue.Details) > 0 {
+			entry["details"] = issue.Details
+		}
+		details[key] = entry
+	}
+	st, err := structpb.NewStruct(details)
+	if err != nil {
+		return nil
+	}
+	return st
+}
+
+func okMeta(ctx context.Context) *commonv1.ResponseMeta {
+	reqID := reqctx.GetTraceID(ctx)
+	return &commonv1.ResponseMeta{
+		Code:      int32(http.StatusOK),
+		Message:   "success",
+		Timestamp: time.Now().Unix(),
+		RequestId: reqID,
+	}
+}
+
+func badMeta(ctx context.Context, code int, msg string) *commonv1.ResponseMeta {
+	reqID := reqctx.GetTraceID(ctx)
+	return &commonv1.ResponseMeta{
+		Code:      int32(code),
+		Message:   strings.TrimSpace(msg),
+		Timestamp: time.Now().Unix(),
+		RequestId: reqID,
+	}
+}
+
+func errorExtra(err error, details *structpb.Struct) *commonv1.ErrorExtra {
+	if err == nil && details == nil {
+		return nil
+	}
+	extra := &commonv1.ErrorExtra{}
+	if err != nil {
+		extra.Error = err.Error()
+	}
+	if details != nil {
+		extra.Details = details
+	}
+	return extra
+}
+
+func classifyCapabilityError(err error) (int, bool) {
+	switch {
+	case err == nil:
+		return http.StatusOK, false
+	case errors.Is(err, gorm.ErrRecordNotFound):
+		return http.StatusNotFound, false
+	default:
+		return http.StatusInternalServerError, true
+	}
+}
+
+func capabilityServiceErrorResponse(ctx context.Context, err error) (*capb.CapabilityContractResponse, error) {
+	code, internal := classifyCapabilityError(err)
+	if internal {
+		return nil, status.Errorf(codes.Internal, "capability service error: %v", err)
+	}
+	return &capb.CapabilityContractResponse{
+		Meta:  badMeta(ctx, code, err.Error()),
+		Error: errorExtra(err, nil),
+	}, nil
+}
+
+func capabilityValidationResponse(ctx context.Context, issues []validator.ValidationIssue) *capb.CapabilityContractResponse {
+	msg := issuesToMessage(issues)
+	return &capb.CapabilityContractResponse{
+		Meta:  badMeta(ctx, http.StatusBadRequest, msg),
+		Error: errorExtra(errors.New(msg), issuesDetailsStruct(issues)),
+	}
+}
+
+func capabilityErrorResponse(ctx context.Context, code int, msg string, err error) *capb.CapabilityContractResponse {
+	return &capb.CapabilityContractResponse{
+		Meta:  badMeta(ctx, code, msg),
+		Error: errorExtra(err, nil),
+	}
+}
+
+func listCapabilitiesServiceErrorResponse(ctx context.Context, err error) (*capb.ListCapabilitiesResponse, error) {
+	code, internal := classifyCapabilityError(err)
+	if internal {
+		return nil, status.Errorf(codes.Internal, "capability service error: %v", err)
+	}
+	return &capb.ListCapabilitiesResponse{
+		Meta:  badMeta(ctx, code, err.Error()),
+		Error: errorExtra(err, nil),
+	}, nil
+}
+
+func publishCapabilityServiceErrorResponse(ctx context.Context, err error) (*capb.PublishCapabilityResponse, error) {
+	code, internal := classifyCapabilityError(err)
+	if internal {
+		return nil, status.Errorf(codes.Internal, "capability service error: %v", err)
+	}
+	return &capb.PublishCapabilityResponse{
+		Meta:  badMeta(ctx, code, err.Error()),
+		Error: errorExtra(err, nil),
+	}, nil
+}
+
+func publishCapabilityErrorResponse(ctx context.Context, code int, msg string, err error) *capb.PublishCapabilityResponse {
+	return &capb.PublishCapabilityResponse{
+		Meta:  badMeta(ctx, code, msg),
+		Error: errorExtra(err, nil),
+	}
+}
+
+func listTransportProfilesServiceErrorResponse(ctx context.Context, err error) (*capb.ListTransportProfilesResponse, error) {
+	code, internal := classifyCapabilityError(err)
+	if internal {
+		return nil, status.Errorf(codes.Internal, "capability service error: %v", err)
+	}
+	return &capb.ListTransportProfilesResponse{
+		Meta:  badMeta(ctx, code, err.Error()),
+		Error: errorExtra(err, nil),
+	}, nil
+}
+
+func listTransportProfilesErrorResponse(ctx context.Context, code int, msg string, err error) *capb.ListTransportProfilesResponse {
+	return &capb.ListTransportProfilesResponse{
+		Meta:  badMeta(ctx, code, msg),
+		Error: errorExtra(err, nil),
+	}
+}
+
+func capabilityPolicyServiceErrorResponse(ctx context.Context, err error) (*capb.CapabilityVersionPolicyResponse, error) {
+	code, internal := classifyCapabilityError(err)
+	if internal {
+		return nil, status.Errorf(codes.Internal, "capability policy error: %v", err)
+	}
+	return &capb.CapabilityVersionPolicyResponse{
+		Meta:  badMeta(ctx, code, err.Error()),
+		Error: errorExtra(err, nil),
+	}, nil
+}
+
+func capabilityPolicyErrorResponse(ctx context.Context, code int, msg string, err error) *capb.CapabilityVersionPolicyResponse {
+	return &capb.CapabilityVersionPolicyResponse{
+		Meta:  badMeta(ctx, code, msg),
+		Error: errorExtra(err, nil),
+	}
 }
 
 // ---------- 转换逻辑 ----------
@@ -303,44 +590,52 @@ func fromPBContract(pb *capb.CapabilityContract) (*svc.ContractUpsertInput, erro
 	}, nil
 }
 
-func parseTenantID(val string) uint64 {
-	if val == "" {
-		return 0
+func toPBVersionPolicy(policy *svc.VersionPolicy) (*capb.CapabilityVersionPolicy, error) {
+	if policy == nil {
+		return nil, nil
 	}
-	id, err := strconv.ParseUint(val, 10, 64)
+	matrixStruct, err := structFromMap(policy.CompatibilityMatrix)
 	if err != nil {
-		return 0
+		return nil, err
 	}
-	return id
+	pb := &capb.CapabilityVersionPolicy{
+		CapabilityKey:       policy.CapabilityKey,
+		DefaultStrategy:     versionStrategyToPB(policy.DefaultStrategy),
+		CompatibilityMatrix: matrixStruct,
+		DeprecationPolicy:   mapToDeprecationPolicy(policy.DeprecationPolicy),
+		UpdatedAt:           timestamppb.New(policy.UpdatedAt),
+	}
+	for _, rule := range policy.AllowedVersions {
+		pb.AllowedVersions = append(pb.AllowedVersions, &capb.VersionRule{
+			Version:        rule.Version,
+			CompatibleWith: rule.CompatibleWith,
+			Status:         versionStatusToPB(rule.Status),
+		})
+	}
+	return pb, nil
 }
 
-func parsePageToken(token string) int {
-	if token == "" {
-		return 0
+func fromPBVersionPolicy(pbPolicy *capb.CapabilityVersionPolicy) (*svc.VersionPolicyUpsertInput, error) {
+	if pbPolicy == nil {
+		return nil, errors.New("policy payload is nil")
 	}
-	v, err := strconv.Atoi(token)
-	if err != nil || v < 0 {
-		return 0
+	rules := make([]svc.VersionRule, 0, len(pbPolicy.GetAllowedVersions()))
+	for _, rule := range pbPolicy.GetAllowedVersions() {
+		rules = append(rules, svc.VersionRule{
+			Version:        rule.GetVersion(),
+			CompatibleWith: rule.GetCompatibleWith(),
+			Status:         pbVersionStatusToString(rule.GetStatus()),
+		})
 	}
-	return v
-}
-
-func issuesToMessage(issues []validator.ValidationIssue) string {
-	if len(issues) == 0 {
-		return "validation failed"
-	}
-	messages := make([]string, 0, len(issues))
-	for _, issue := range issues {
-		messages = append(messages, fmt.Sprintf("%s: %s", issue.Code, issue.Message))
-	}
-	return strings.Join(messages, "; ")
-}
-
-func grpcError(err error) error {
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return status.Error(codes.NotFound, err.Error())
-	}
-	return status.Error(codes.Internal, err.Error())
+	return &svc.VersionPolicyUpsertInput{
+		TenantID:            0,
+		CapabilityKey:       pbPolicy.GetCapabilityKey(),
+		DefaultStrategy:     pbVersionStrategyToString(pbPolicy.GetDefaultStrategy()),
+		AllowedVersions:     rules,
+		CompatibilityMatrix: mapFromStruct(pbPolicy.GetCompatibilityMatrix()),
+		DeprecationPolicy:   pbDeprecationPolicyToMap(pbPolicy.GetDeprecationPolicy()),
+		AuditConfig:         map[string]interface{}{},
+	}, nil
 }
 
 func mapFromStruct(s *structpb.Struct) map[string]interface{} {
@@ -582,5 +877,131 @@ func pbStageToString(stage capb.ErrorStage) string {
 		return "observe"
 	default:
 		return ""
+	}
+}
+
+func versionStrategyToPB(val string) capb.VersionStrategy {
+	switch strings.ToLower(val) {
+	case "latest_minor":
+		return capb.VersionStrategy_VERSION_STRATEGY_LATEST_MINOR
+	case "fixed_major":
+		return capb.VersionStrategy_VERSION_STRATEGY_FIXED_MAJOR
+	case "custom":
+		return capb.VersionStrategy_VERSION_STRATEGY_CUSTOM
+	default:
+		return capb.VersionStrategy_VERSION_STRATEGY_UNSPECIFIED
+	}
+}
+
+func versionStatusToPB(val string) capb.VersionStatus {
+	switch strings.ToLower(val) {
+	case "active":
+		return capb.VersionStatus_VERSION_STATUS_ACTIVE
+	case "deprecated":
+		return capb.VersionStatus_VERSION_STATUS_DEPRECATED
+	case "blocked":
+		return capb.VersionStatus_VERSION_STATUS_BLOCKED
+	default:
+		return capb.VersionStatus_VERSION_STATUS_UNSPECIFIED
+	}
+}
+
+func pbVersionStrategyToString(v capb.VersionStrategy) string {
+	switch v {
+	case capb.VersionStrategy_VERSION_STRATEGY_LATEST_MINOR:
+		return "latest_minor"
+	case capb.VersionStrategy_VERSION_STRATEGY_FIXED_MAJOR:
+		return "fixed_major"
+	case capb.VersionStrategy_VERSION_STRATEGY_CUSTOM:
+		return "custom"
+	default:
+		return ""
+	}
+}
+
+func pbVersionStatusToString(v capb.VersionStatus) string {
+	switch v {
+	case capb.VersionStatus_VERSION_STATUS_ACTIVE:
+		return "active"
+	case capb.VersionStatus_VERSION_STATUS_DEPRECATED:
+		return "deprecated"
+	case capb.VersionStatus_VERSION_STATUS_BLOCKED:
+		return "blocked"
+	default:
+		return ""
+	}
+}
+
+func mapToDeprecationPolicy(m map[string]interface{}) *capb.DeprecationPolicy {
+	if len(m) == 0 {
+		return nil
+	}
+	dp := &capb.DeprecationPolicy{}
+	if v, ok := m["warning_period_days"]; ok {
+		dp.WarningPeriodDays = int32(intFromAny(v))
+	}
+	if v, ok := m["auto_deprecate_after_days"]; ok {
+		dp.AutoDeprecateAfterDays = int32(intFromAny(v))
+	}
+	if v, ok := m["notify_channels"]; ok {
+		dp.NotifyChannels = stringSliceFromAny(v)
+	}
+	if dp.WarningPeriodDays == 0 && dp.AutoDeprecateAfterDays == 0 && len(dp.NotifyChannels) == 0 {
+		return nil
+	}
+	return dp
+}
+
+func pbDeprecationPolicyToMap(dp *capb.DeprecationPolicy) map[string]interface{} {
+	if dp == nil {
+		return map[string]interface{}{}
+	}
+	result := map[string]interface{}{}
+	if dp.GetWarningPeriodDays() > 0 {
+		result["warning_period_days"] = dp.GetWarningPeriodDays()
+	}
+	if dp.GetAutoDeprecateAfterDays() > 0 {
+		result["auto_deprecate_after_days"] = dp.GetAutoDeprecateAfterDays()
+	}
+	if len(dp.GetNotifyChannels()) > 0 {
+		result["notify_channels"] = dp.GetNotifyChannels()
+	}
+	return result
+}
+
+func intFromAny(v interface{}) int {
+	switch val := v.(type) {
+	case float64:
+		return int(val)
+	case float32:
+		return int(val)
+	case int:
+		return val
+	case int32:
+		return int(val)
+	case int64:
+		return int(val)
+	case string:
+		i, _ := strconv.Atoi(val)
+		return i
+	default:
+		return 0
+	}
+}
+
+func stringSliceFromAny(v interface{}) []string {
+	switch val := v.(type) {
+	case []string:
+		return val
+	case []interface{}:
+		out := make([]string, 0, len(val))
+		for _, item := range val {
+			if s, ok := item.(string); ok {
+				out = append(out, s)
+			}
+		}
+		return out
+	default:
+		return nil
 	}
 }

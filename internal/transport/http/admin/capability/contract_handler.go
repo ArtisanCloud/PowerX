@@ -10,6 +10,8 @@ import (
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
 	validator "github.com/ArtisanCloud/PowerX/internal/contract/capability"
 	svc "github.com/ArtisanCloud/PowerX/internal/service/capability"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
+	dto "github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
@@ -44,7 +46,7 @@ func (h *ContractHandler) CreateContract(c *gin.Context) {
 		writeInternalError(c, err)
 		return
 	}
-	c.JSON(http.StatusCreated, toContractResponse(contract))
+	dto.ResponseSuccess(c, toContractResponse(contract))
 }
 
 // UpdateContract 更新契约草稿。
@@ -73,7 +75,7 @@ func (h *ContractHandler) UpdateContract(c *gin.Context) {
 		writeInternalError(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, toContractResponse(contract))
+	dto.ResponseSuccess(c, toContractResponse(contract))
 }
 
 // GetContract 获取单个契约。
@@ -90,7 +92,7 @@ func (h *ContractHandler) GetContract(c *gin.Context) {
 		writeServiceError(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, toContractResponse(contract))
+	dto.ResponseSuccess(c, toContractResponse(contract))
 }
 
 // ListContracts 列出契约。
@@ -115,9 +117,10 @@ func (h *ContractHandler) ListContracts(c *gin.Context) {
 	for _, item := range items {
 		views = append(views, toContractResponse(item))
 	}
-	c.JSON(http.StatusOK, gin.H{
-		"items": views,
-		"total": total,
+	dto.ResponseList(c, views, &dto.PaginationResponse{
+		Total:    total,
+		Page:     page,
+		PageSize: limit,
 	})
 }
 
@@ -138,7 +141,7 @@ func (h *ContractHandler) PublishContract(c *gin.Context) {
 		writeBadRequest(c, "missing_effective_at", "effective_at 必填，需使用 RFC3339 时间格式")
 		return
 	}
-	tenantID := tenantIDFromQuery(c.Query("tenant_id"))
+	tenantID := tenantIDFromRequest(c, nil)
 	input := &svc.PublishInput{
 		TenantID:      tenantID,
 		CapabilityKey: capabilityKey,
@@ -155,7 +158,7 @@ func (h *ContractHandler) PublishContract(c *gin.Context) {
 		writeServiceError(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, toContractResponse(contract))
+	dto.ResponseSuccess(c, toContractResponse(contract))
 }
 
 // DeprecateContract 标记契约为废弃。
@@ -175,7 +178,7 @@ func (h *ContractHandler) DeprecateContract(c *gin.Context) {
 		writeBadRequest(c, "missing_deprecated_at", "deprecated_at 必填，需使用 RFC3339 时间格式")
 		return
 	}
-	tenantID := tenantIDFromQuery(c.Query("tenant_id"))
+	tenantID := tenantIDFromRequest(c, nil)
 	input := &svc.DeprecateInput{
 		TenantID:              tenantID,
 		CapabilityKey:         capabilityKey,
@@ -189,7 +192,7 @@ func (h *ContractHandler) DeprecateContract(c *gin.Context) {
 		writeServiceError(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, toContractResponse(contract))
+	dto.ResponseSuccess(c, toContractResponse(contract))
 }
 
 // ---------- 请求/响应结构 ----------
@@ -378,10 +381,16 @@ func toErrorTaxonomies(items []errorTaxonomyPayload) []validator.ErrorTaxonomyEn
 // ---------- 辅助函数 ----------
 
 func tenantIDFromRequest(c *gin.Context, payloadValue *uint64) uint64 {
-	if payloadValue != nil {
+	if payloadValue != nil && *payloadValue > 0 {
 		return *payloadValue
 	}
-	return tenantIDFromQuery(c.Query("tenant_id"))
+	if id := tenantIDFromQuery(c.Query("tenant_id")); id > 0 {
+		return id
+	}
+	if id := reqctx.GetTenantID(c.Request.Context()); id > 0 {
+		return id
+	}
+	return 0
 }
 
 func tenantIDFromQuery(val string) uint64 {
@@ -407,35 +416,25 @@ func parseIntDefault(val string, def int) int {
 }
 
 func writeValidationError(c *gin.Context, issues []validator.ValidationIssue) {
-	c.JSON(http.StatusBadRequest, gin.H{
-		"error":  "validation_failed",
+	dto.ResponseErrorWithDetails(c, http.StatusBadRequest, "参数验证失败", errors.New("validation_failed"), map[string]interface{}{
 		"issues": issues,
 	})
 }
 
 func writeBadRequest(c *gin.Context, code, message string) {
-	c.JSON(http.StatusBadRequest, gin.H{
-		"error":   code,
-		"message": message,
-	})
+	dto.ResponseErrorWithDetails(c, http.StatusBadRequest, message, errors.New(code), nil)
 }
 
 func writeServiceError(c *gin.Context, err error) {
 	if errorsIsNotFound(err) {
-		c.JSON(http.StatusNotFound, gin.H{
-			"error":   "not_found",
-			"message": err.Error(),
-		})
+		dto.ResponseError(c, http.StatusNotFound, err.Error(), errors.New("not_found"))
 		return
 	}
 	writeInternalError(c, err)
 }
 
 func writeInternalError(c *gin.Context, err error) {
-	c.JSON(http.StatusInternalServerError, gin.H{
-		"error":   "internal_error",
-		"message": err.Error(),
-	})
+	dto.ResponseError(c, http.StatusInternalServerError, err.Error(), err)
 }
 
 func errorsIsValidation(err error) bool {

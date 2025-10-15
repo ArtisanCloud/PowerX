@@ -14,9 +14,9 @@ import (
 type CapabilityContract struct {
 	coremodel.PowerModel
 
-	TenantID              uint64         `gorm:"column:tenant_id;not null;index:idx_capability_contract_tenant_key_version,priority:1;index:idx_capability_contract_tenant" json:"tenant_id"`
-	CapabilityKey         string         `gorm:"column:capability_key;type:varchar(128);not null;index:idx_capability_contract_tenant_key_version,priority:2;index:idx_capability_contract_key" json:"capability_key"`
-	Version               string         `gorm:"column:version;type:varchar(32);not null;index:idx_capability_contract_tenant_key_version,priority:3" json:"version"`
+	TenantID              uint64         `gorm:"column:tenant_id;not null;index:idx_capability_contract_tenant_key_version,priority:1;index:idx_capability_contract_tenant;uniqueIndex:uk_capability_contract_tenant_key_version,priority:1" json:"tenant_id"`
+	CapabilityKey         string         `gorm:"column:capability_key;type:varchar(128);not null;index:idx_capability_contract_tenant_key_version,priority:2;index:idx_capability_contract_key;uniqueIndex:uk_capability_contract_tenant_key_version,priority:2" json:"capability_key"`
+	Version               string         `gorm:"column:version;type:varchar(32);not null;index:idx_capability_contract_tenant_key_version,priority:3;uniqueIndex:uk_capability_contract_tenant_key_version,priority:3" json:"version"`
 	ProviderID            string         `gorm:"column:provider_id;type:varchar(128);not null;index:idx_capability_contract_provider" json:"provider_id"`
 	DisplayName           string         `gorm:"column:display_name;type:varchar(128);not null" json:"display_name"`
 	Description           string         `gorm:"column:description;type:text" json:"description,omitempty"`
@@ -31,11 +31,11 @@ type CapabilityContract struct {
 	CreatedBy             string         `gorm:"column:created_by;type:varchar(128)" json:"created_by,omitempty"`
 	UpdatedBy             string         `gorm:"column:updated_by;type:varchar(128)" json:"updated_by,omitempty"`
 	Status                int16          `gorm:"column:status;default:1;index" json:"status"`
-	ContractUUID          uuid.UUID      `gorm:"column:contract_uuid;type:uuid;not null;uniqueIndex:uk_capability_contract_uuid" json:"contract_uuid"`
+	ContractUUID          uuid.UUID      `gorm:"column:contract_uuid;type:uuid;not null;uniqueIndex" json:"contract_uuid"`
 
-	IOSchemas         []*CapabilityIOSchema              `gorm:"foreignKey:ContractID;constraint:OnDelete:CASCADE" json:"io_schemas,omitempty"`
-	ErrorBindings     []*CapabilityContractErrorTaxonomy `gorm:"foreignKey:ContractID;constraint:OnDelete:CASCADE" json:"error_bindings,omitempty"`
-	TransportProfiles []*CapabilityTransportProfile      `gorm:"foreignKey:ContractID;constraint:OnDelete:CASCADE" json:"transport_profiles,omitempty"`
+	IOSchemas         []*CapabilityIOSchema              `gorm:"foreignKey:ContractID" json:"io_schemas,omitempty"`
+	ErrorBindings     []*CapabilityContractErrorTaxonomy `gorm:"foreignKey:ContractID" json:"error_bindings,omitempty"`
+	TransportProfiles []*CapabilityTransportProfile      `gorm:"foreignKey:ContractID" json:"transport_profiles,omitempty"`
 }
 
 func (m *CapabilityContract) TableName() string {

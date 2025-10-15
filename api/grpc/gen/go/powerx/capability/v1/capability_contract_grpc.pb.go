@@ -36,19 +36,19 @@ const (
 // CapabilityRegistryService 提供能力契约与版本策略的读写接口。
 type CapabilityRegistryServiceClient interface {
 	// 获取指定能力版本的契约。
-	GetCapability(ctx context.Context, in *GetCapabilityRequest, opts ...grpc.CallOption) (*CapabilityContract, error)
+	GetCapability(ctx context.Context, in *GetCapabilityRequest, opts ...grpc.CallOption) (*CapabilityContractResponse, error)
 	// 分页查询契约列表。
 	ListCapabilities(ctx context.Context, in *ListCapabilitiesRequest, opts ...grpc.CallOption) (*ListCapabilitiesResponse, error)
 	// 创建或更新契约草稿（仅供内部使用）。
-	UpsertCapability(ctx context.Context, in *UpsertCapabilityRequest, opts ...grpc.CallOption) (*CapabilityContract, error)
+	UpsertCapability(ctx context.Context, in *UpsertCapabilityRequest, opts ...grpc.CallOption) (*CapabilityContractResponse, error)
 	// 发布契约，执行所有校验流程。
 	PublishCapability(ctx context.Context, in *PublishCapabilityRequest, opts ...grpc.CallOption) (*PublishCapabilityResponse, error)
 	// 废弃契约并广播事件。
-	DeprecateCapability(ctx context.Context, in *DeprecateCapabilityRequest, opts ...grpc.CallOption) (*CapabilityContract, error)
+	DeprecateCapability(ctx context.Context, in *DeprecateCapabilityRequest, opts ...grpc.CallOption) (*CapabilityContractResponse, error)
 	// 获取版本策略。
-	GetVersionPolicy(ctx context.Context, in *GetVersionPolicyRequest, opts ...grpc.CallOption) (*CapabilityVersionPolicy, error)
+	GetVersionPolicy(ctx context.Context, in *GetVersionPolicyRequest, opts ...grpc.CallOption) (*CapabilityVersionPolicyResponse, error)
 	// 设置版本策略。
-	UpsertVersionPolicy(ctx context.Context, in *UpsertVersionPolicyRequest, opts ...grpc.CallOption) (*CapabilityVersionPolicy, error)
+	UpsertVersionPolicy(ctx context.Context, in *UpsertVersionPolicyRequest, opts ...grpc.CallOption) (*CapabilityVersionPolicyResponse, error)
 	// 查询传输配置，用于 Router/Adapter。
 	ListTransportProfiles(ctx context.Context, in *ListTransportProfilesRequest, opts ...grpc.CallOption) (*ListTransportProfilesResponse, error)
 }
@@ -61,9 +61,9 @@ func NewCapabilityRegistryServiceClient(cc grpc.ClientConnInterface) CapabilityR
 	return &capabilityRegistryServiceClient{cc}
 }
 
-func (c *capabilityRegistryServiceClient) GetCapability(ctx context.Context, in *GetCapabilityRequest, opts ...grpc.CallOption) (*CapabilityContract, error) {
+func (c *capabilityRegistryServiceClient) GetCapability(ctx context.Context, in *GetCapabilityRequest, opts ...grpc.CallOption) (*CapabilityContractResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(CapabilityContract)
+	out := new(CapabilityContractResponse)
 	err := c.cc.Invoke(ctx, CapabilityRegistryService_GetCapability_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
@@ -81,9 +81,9 @@ func (c *capabilityRegistryServiceClient) ListCapabilities(ctx context.Context, 
 	return out, nil
 }
 
-func (c *capabilityRegistryServiceClient) UpsertCapability(ctx context.Context, in *UpsertCapabilityRequest, opts ...grpc.CallOption) (*CapabilityContract, error) {
+func (c *capabilityRegistryServiceClient) UpsertCapability(ctx context.Context, in *UpsertCapabilityRequest, opts ...grpc.CallOption) (*CapabilityContractResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(CapabilityContract)
+	out := new(CapabilityContractResponse)
 	err := c.cc.Invoke(ctx, CapabilityRegistryService_UpsertCapability_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
@@ -101,9 +101,9 @@ func (c *capabilityRegistryServiceClient) PublishCapability(ctx context.Context,
 	return out, nil
 }
 
-func (c *capabilityRegistryServiceClient) DeprecateCapability(ctx context.Context, in *DeprecateCapabilityRequest, opts ...grpc.CallOption) (*CapabilityContract, error) {
+func (c *capabilityRegistryServiceClient) DeprecateCapability(ctx context.Context, in *DeprecateCapabilityRequest, opts ...grpc.CallOption) (*CapabilityContractResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(CapabilityContract)
+	out := new(CapabilityContractResponse)
 	err := c.cc.Invoke(ctx, CapabilityRegistryService_DeprecateCapability_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
@@ -111,9 +111,9 @@ func (c *capabilityRegistryServiceClient) DeprecateCapability(ctx context.Contex
 	return out, nil
 }
 
-func (c *capabilityRegistryServiceClient) GetVersionPolicy(ctx context.Context, in *GetVersionPolicyRequest, opts ...grpc.CallOption) (*CapabilityVersionPolicy, error) {
+func (c *capabilityRegistryServiceClient) GetVersionPolicy(ctx context.Context, in *GetVersionPolicyRequest, opts ...grpc.CallOption) (*CapabilityVersionPolicyResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(CapabilityVersionPolicy)
+	out := new(CapabilityVersionPolicyResponse)
 	err := c.cc.Invoke(ctx, CapabilityRegistryService_GetVersionPolicy_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
@@ -121,9 +121,9 @@ func (c *capabilityRegistryServiceClient) GetVersionPolicy(ctx context.Context, 
 	return out, nil
 }
 
-func (c *capabilityRegistryServiceClient) UpsertVersionPolicy(ctx context.Context, in *UpsertVersionPolicyRequest, opts ...grpc.CallOption) (*CapabilityVersionPolicy, error) {
+func (c *capabilityRegistryServiceClient) UpsertVersionPolicy(ctx context.Context, in *UpsertVersionPolicyRequest, opts ...grpc.CallOption) (*CapabilityVersionPolicyResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(CapabilityVersionPolicy)
+	out := new(CapabilityVersionPolicyResponse)
 	err := c.cc.Invoke(ctx, CapabilityRegistryService_UpsertVersionPolicy_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
@@ -148,19 +148,19 @@ func (c *capabilityRegistryServiceClient) ListTransportProfiles(ctx context.Cont
 // CapabilityRegistryService 提供能力契约与版本策略的读写接口。
 type CapabilityRegistryServiceServer interface {
 	// 获取指定能力版本的契约。
-	GetCapability(context.Context, *GetCapabilityRequest) (*CapabilityContract, error)
+	GetCapability(context.Context, *GetCapabilityRequest) (*CapabilityContractResponse, error)
 	// 分页查询契约列表。
 	ListCapabilities(context.Context, *ListCapabilitiesRequest) (*ListCapabilitiesResponse, error)
 	// 创建或更新契约草稿（仅供内部使用）。
-	UpsertCapability(context.Context, *UpsertCapabilityRequest) (*CapabilityContract, error)
+	UpsertCapability(context.Context, *UpsertCapabilityRequest) (*CapabilityContractResponse, error)
 	// 发布契约，执行所有校验流程。
 	PublishCapability(context.Context, *PublishCapabilityRequest) (*PublishCapabilityResponse, error)
 	// 废弃契约并广播事件。
-	DeprecateCapability(context.Context, *DeprecateCapabilityRequest) (*CapabilityContract, error)
+	DeprecateCapability(context.Context, *DeprecateCapabilityRequest) (*CapabilityContractResponse, error)
 	// 获取版本策略。
-	GetVersionPolicy(context.Context, *GetVersionPolicyRequest) (*CapabilityVersionPolicy, error)
+	GetVersionPolicy(context.Context, *GetVersionPolicyRequest) (*CapabilityVersionPolicyResponse, error)
 	// 设置版本策略。
-	UpsertVersionPolicy(context.Context, *UpsertVersionPolicyRequest) (*CapabilityVersionPolicy, error)
+	UpsertVersionPolicy(context.Context, *UpsertVersionPolicyRequest) (*CapabilityVersionPolicyResponse, error)
 	// 查询传输配置，用于 Router/Adapter。
 	ListTransportProfiles(context.Context, *ListTransportProfilesRequest) (*ListTransportProfilesResponse, error)
 	mustEmbedUnimplementedCapabilityRegistryServiceServer()
@@ -173,25 +173,25 @@ type CapabilityRegistryServiceServer interface {
 // pointer dereference when methods are called.
 type UnimplementedCapabilityRegistryServiceServer struct{}
 
-func (UnimplementedCapabilityRegistryServiceServer) GetCapability(context.Context, *GetCapabilityRequest) (*CapabilityContract, error) {
+func (UnimplementedCapabilityRegistryServiceServer) GetCapability(context.Context, *GetCapabilityRequest) (*CapabilityContractResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetCapability not implemented")
 }
 func (UnimplementedCapabilityRegistryServiceServer) ListCapabilities(context.Context, *ListCapabilitiesRequest) (*ListCapabilitiesResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListCapabilities not implemented")
 }
-func (UnimplementedCapabilityRegistryServiceServer) UpsertCapability(context.Context, *UpsertCapabilityRequest) (*CapabilityContract, error) {
+func (UnimplementedCapabilityRegistryServiceServer) UpsertCapability(context.Context, *UpsertCapabilityRequest) (*CapabilityContractResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UpsertCapability not implemented")
 }
 func (UnimplementedCapabilityRegistryServiceServer) PublishCapability(context.Context, *PublishCapabilityRequest) (*PublishCapabilityResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method PublishCapability not implemented")
 }
-func (UnimplementedCapabilityRegistryServiceServer) DeprecateCapability(context.Context, *DeprecateCapabilityRequest) (*CapabilityContract, error) {
+func (UnimplementedCapabilityRegistryServiceServer) DeprecateCapability(context.Context, *DeprecateCapabilityRequest) (*CapabilityContractResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeprecateCapability not implemented")
 }
-func (UnimplementedCapabilityRegistryServiceServer) GetVersionPolicy(context.Context, *GetVersionPolicyRequest) (*CapabilityVersionPolicy, error) {
+func (UnimplementedCapabilityRegistryServiceServer) GetVersionPolicy(context.Context, *GetVersionPolicyRequest) (*CapabilityVersionPolicyResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetVersionPolicy not implemented")
 }
-func (UnimplementedCapabilityRegistryServiceServer) UpsertVersionPolicy(context.Context, *UpsertVersionPolicyRequest) (*CapabilityVersionPolicy, error) {
+func (UnimplementedCapabilityRegistryServiceServer) UpsertVersionPolicy(context.Context, *UpsertVersionPolicyRequest) (*CapabilityVersionPolicyResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UpsertVersionPolicy not implemented")
 }
 func (UnimplementedCapabilityRegistryServiceServer) ListTransportProfiles(context.Context, *ListTransportProfilesRequest) (*ListTransportProfilesResponse, error) {

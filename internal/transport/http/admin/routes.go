@@ -41,7 +41,7 @@ func RegisterAPIRoutes(
 	auth.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	agent.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	media.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
-	capability.RegisterAPIRoutes(publicGroup, protectedGroup, cfg, deps)
+	capability.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	plugin.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 
 }

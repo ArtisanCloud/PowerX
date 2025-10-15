@@ -126,7 +126,7 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '401':
           $ref: '#/components/responses/Unauthorized'
-  /api/admin/capabilities/{capabilityKey}/versions/{version}:publish:
+  /api/admin/capabilities/{capabilityKey}/versions/{version}/publish:
     post:
       operationId: publishCapabilityContract
       summary: 发布契约
@@ -161,7 +161,7 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '401':
           $ref: '#/components/responses/Unauthorized'
-  /api/admin/capabilities/{capabilityKey}/versions/{version}:deprecate:
+  /api/admin/capabilities/{capabilityKey}/versions/{version}/deprecate:
     post:
       operationId: deprecateCapabilityContract
       summary: 废弃契约
