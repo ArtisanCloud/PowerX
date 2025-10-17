@@ -64,6 +64,7 @@ If a runner does not natively support `manifest.yaml`, it must treat this sectio
 
 - **命名规范（新增）**：CoreX 域目录名称一律使用 `snake_case`，以 `capability_registry`、`media_storage` 为例；禁止拼接式命名如 `capabilityregistry`，确保与 Go 包名区分且在跨语言环境保持一致。
 - **Go 包别名/调用命名**：引用 `capability_registry` 等多词包时，import alias、局部变量与导出符号统一使用小驼峰（如 `capabilityRegistry`、`capRegPolicy`），避免 `capregpolicy`、`capabilityregistry` 这类连续小写写法。示例：`capabilityRegistry "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/registry"`，通过 `capabilityRegistry.Migrate()`、`capRegPolicy.Register()` 等方式调用以保持可读性。
+- **持久化 Repository 模式**：CoreX 数据访问层统一基于 `pkg/corex/db/persistence/repository/BaseRepository` 泛型封装，具体仓储结构体需嵌入 `BaseRepository[T]` 并显式维护 `db *gorm.DB` 字段，对外暴露以 `New<Xxx>Repository` 命名的构造函数；所有数据访问 API 都以 `ctx context.Context` 与可选 `db *gorm.DB`（事务）为前导参数，业务层不得直接拼接 SQL。
 - **数据库迁移注册**：CoreX 模型统一在 `pkg/corex/db/database/migration.go` 的 `MigrateCoreModels`（及其 `migrate<Domain>Models` 子函数）中通过 GORM `AutoMigrate` 注册，`cmd/database/migrate.go` 仅调用该入口。禁止在 `pkg/corex/db/migration/<domain>` 等额外包内自定义入口函数，否则会造成迁移分散与重复。
 
 ### 0.3 传输/合同与代码生成（CoreX 统一约束）

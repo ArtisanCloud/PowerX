@@ -43,11 +43,26 @@
      }
    }
    ```
-2. 接收响应中的 `version` 字段，用于后续更新（ETag）。
+2. 响应头会返回 `ETag: W/"<version>"`，同时在体内回显 `version` 字段；后续更新时必须携带 `If-Match`。
+3. 更新时调用 `PUT /admin/capabilities/{capabilityId}/tenants/{tenantId}`，请求体需包含最新 `version`，并在 Header 中附带 `If-Match: W/"<version>"` 以触发乐观锁校验。
+4. 禁用注册使用 `DELETE /admin/capabilities/{capabilityId}/tenants/{tenantId}`，支持在 Body 中附带 `reason` 便于审计。
+
+> gRPC 等价接口：`CapabilityRegistryService/CreateCapability`、`UpdateCapability`、`DisableCapability`，请求体复用 proto `CapabilityRegistration`。版本号同样由服务返回并在后续请求中透传。
 
 ### 步骤 3：订阅能力变更
-- Router 服务通过 EventBus 订阅 `capability.registry.updated` 主题。
-- 如果订阅失败，可调用 `GET /admin/capabilities/{id}?version=latest` 拉取快照。
+- Router 服务通过 EventBus 订阅 `capability.registry.updated` 主题，事件载荷包含：
+  ```json
+  {
+    "capability_id": "capabilities.search.v1",
+    "tenant_id": "tenant-001",
+    "version": 3,
+    "status": "published",
+    "change_kind": "updated",
+    "updated_by": "admin-user"
+  }
+  ```
+- 如果订阅失败，可调用 `GET /admin/capabilities/{id}/tenants/{tenantId}?version=latest` 拉取最新快照；支持 `version=<数字>` 查询历史版本。
+- gRPC 订阅可使用 `StreamUpdates`（规划阶段），或定期调用 `GetCapability` 进行补偿。
 
 ### 步骤 4：调用 Router
 1. 调用 `POST /router/invoke`（或 gRPC `Invoke`）并提供 `capability_id`、`tenant_id`。

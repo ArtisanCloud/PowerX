@@ -8,6 +8,7 @@ meta:
   intent: >
     统一 Repository（持久化）层的接口与实现规范：只负责数据访问与映射，
     不承载业务逻辑；严格多租户隔离、软删、分页筛选与一致的错误/返回语义。
+    CoreX 模块仓储统一采用 BaseRepository 泛型封装，便于事务注入与测试。
   references:
     - constitution.md
     - crud_model.yaml
@@ -42,14 +43,14 @@ checks:
     assert:
       - must_package_suffix: "repo"
 
-  # 接口 + 实现形态
-  - id: repo.interface.impl
+  # BaseRepository 形态
+  - id: repo.base_repository.pattern
     level: error
     when: { glob: "internal/repository/**/**_repo.go" }
     assert:
-      - must_define_like: "type *Repo interface {"
-      - must_define_like: "type *RepoImpl struct { db *gorm.DB }"
-      - must_define_like: "func New*Repo(db *gorm.DB) *"
+      - must_contain_regex: "type [A-Za-z0-9]+Repository struct {"
+      - must_contain_regex: "\\*repository.BaseRepository"
+      - must_contain_regex: "func New[A-Za-z0-9]+Repository\\(db \\*gorm\\.DB\\)"
       - must_not_import: ["github.com/gin-gonic/gin"]  # 不允许直接耦合 HTTP
 
   # 方法签名（ctx + db）
@@ -57,7 +58,7 @@ checks:
     level: error
     when: { glob: "internal/repository/**/**_repo.go" }
     assert:
-      - must_contain_regex: "func \\(r \\*.*RepoImpl\\) .*\\(ctx context\\.Context, db \\*gorm\\.DB, .*\\) .*"
+      - must_contain_regex: "func \\(r \\*.*Repository\\) .*\\(ctx context\\.Context, db \\*gorm\\.DB"
       - must_import: ["context","gorm.io/gorm"]
 
   # 多租户条件

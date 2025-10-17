@@ -8,13 +8,16 @@ import (
 
 	mediamgr "github.com/ArtisanCloud/PowerX/internal/infra/media/manager"
 	authsvc "github.com/ArtisanCloud/PowerX/internal/service/auth"
-	capRegPolicy "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/registry"
+	capabilityRegistryDomain "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/domain"
+	capabilityRegistry "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/registry"
 	iamsvc "github.com/ArtisanCloud/PowerX/internal/service/iam"
 	mediasvc "github.com/ArtisanCloud/PowerX/internal/service/media"
 	tenantsvc "github.com/ArtisanCloud/PowerX/internal/service/tenant"
 	auditsvc "github.com/ArtisanCloud/PowerX/pkg/corex/audit"
 	dbm "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/audit"
 	auditrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/audit"
+	capabilityRegistryRepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/capability_registry"
+	"github.com/ArtisanCloud/PowerX/pkg/event_bus"
 	pxlog "github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"gorm.io/gorm"
 )
@@ -34,6 +37,9 @@ type Deps struct {
 	TenantSvc *tenantsvc.TenantService
 	MediaMgr  *mediamgr.MediaManager
 	MediaSvc  *mediasvc.MediaService
+
+	EventBus              event_bus.EventBus
+	CapabilityRegistrySvc *capabilityRegistry.Service
 }
 
 func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
@@ -71,19 +77,30 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 	mediaManager, mediaSvc := mediasvc.BuildMediaStack(ctx, db, svc, opts.Storage)
 
 	permSvc := iamsvc.NewPermissionService(db)
-	if err := capRegPolicy.EnsureAdminPermissions(ctx, permSvc); err != nil {
+	if err := capabilityRegistry.EnsureAdminPermissions(ctx, permSvc); err != nil {
 		pxlog.WarnF(ctx, "[capabilityRegistry] register permissions failed: %v", err)
 	}
 
+	capRegistryRepo := capabilityRegistryRepo.NewCapabilityRegistryRepository(db)
+	bus := event_bus.NewLocalEventBus()
+	capRegistrySvc := capabilityRegistry.NewService(capabilityRegistry.ServiceOptions{
+		Repository:      capRegistryRepo,
+		EventBus:        bus,
+		Instrumentation: capabilityRegistryDomain.NewInstrumentation(nil),
+		Auditor:         aud,
+	})
+
 	return &Deps{
-		DB:           db,
-		TenantSvc:    tenantSvc,
-		AuthUser:     authUser,
-		AuthCustomer: authCustomer,
-		MeService:    meSvc,
-		AuditSvc:     svc,
-		Auditor:      aud,
-		MediaMgr:     mediaManager,
-		MediaSvc:     mediaSvc,
+		DB:                    db,
+		TenantSvc:             tenantSvc,
+		AuthUser:              authUser,
+		AuthCustomer:          authCustomer,
+		MeService:             meSvc,
+		AuditSvc:              svc,
+		Auditor:               aud,
+		MediaMgr:              mediaManager,
+		MediaSvc:              mediaSvc,
+		EventBus:              bus,
+		CapabilityRegistrySvc: capRegistrySvc,
 	}
 }

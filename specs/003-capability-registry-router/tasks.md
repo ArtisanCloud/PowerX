@@ -24,17 +24,17 @@
 
 ### Tests (write first)
 
-- [ ] T007 [P][US1] REST 合同测试 `/admin/capabilities` & `/admin/capabilities/{capabilityId}/tenants/{tenantId}` (create failing tests in `specs/003-capability-registry-router/contracts/tests/registry_rest_test.md` + `internal/tests/http/admin/capability_registry/registry_contract_test.go`).
-- [ ] T008 [P][US1] gRPC 合同测试 `CapabilityRegistryService` RPCs in `internal/tests/grpc/capability_registry/registry_contract_test.go`.
+- [X] T007 [P][US1] REST 合同测试 `/admin/capabilities` & `/admin/capabilities/{capabilityId}/tenants/{tenantId}` (create failing tests in `specs/003-capability-registry-router/contracts/tests/registry_rest_test.md` + `internal/tests/http/admin/capability_registry/registry_contract_test.go`).
+- [X] T008 [P][US1] gRPC 合同测试 `CapabilityRegistryService` RPCs in `internal/tests/grpc/capability_registry/registry_contract_test.go`.
 
 ### Implementation
 
-- [ ] T009 [US1] 数据模型实现：在 `pkg/corex/db/persistence/model/capability_registry/` 定义 `CapabilityRegistration`, `AdapterEndpoint`, `RoutingPolicy`, `FallbackPlan`, `HealthProbeResult`, `DiscoveryCacheEntry` 模型。
-- [ ] T010 [US1] ORM 仓库实现：在 `pkg/corex/db/persistence/repository/capability_registry/` 创建针对上述模型的 Repo + 接口，覆盖乐观锁、租户过滤、分页。
-- [ ] T011 [US1] Registry 服务层：在 `internal/service/capability_registry/registry/` 实现创建/更新/禁用逻辑，包含 Tool Grant & Contract 校验、审计、事件发布。
-- [ ] T012 [US1] 管理 REST Handler：在 `internal/transport/http/admin/capability_registry/registry_handler.go` 实现 POST/GET/PUT/DELETE，接入 Gin + 中间件。
-- [ ] T013 [US1] 管理 gRPC Handler：在 `internal/transport/grpc/capability_registry/registry_server.go` 实现与 REST 对应的 RPC。
-- [ ] T014 [US1] 事件推送集成：在 `internal/service/capability_registry/registry/events.go` 接入 EventBus，并更新 quickstart 中 `capability.registry.updated` 主题文档。
+- [X] T009 [US1] 数据模型实现：在 `pkg/corex/db/persistence/model/capability_registry/` 定义 `CapabilityRegistration`, `AdapterEndpoint`, `RoutingPolicy`, `FallbackPlan`, `HealthProbeResult`, `DiscoveryCacheEntry` 模型。
+- [X] T010 [US1] ORM 仓库实现：在 `pkg/corex/db/persistence/repository/capability_registry/` 创建针对上述模型的 Repo + 接口，覆盖乐观锁、租户过滤、分页。
+- [X] T011 [US1] Registry 服务层：在 `internal/service/capability_registry/registry/` 实现创建/更新/禁用逻辑，包含 Tool Grant & Contract 校验、审计、事件发布。
+- [X] T012 [US1] 管理 REST Handler：在 `internal/transport/http/admin/capability_registry/registry_handler.go` 实现 POST/GET/PUT/DELETE，接入 Gin + 中间件。
+- [X] T013 [US1] 管理 gRPC Handler：在 `internal/transport/grpc/capability_registry/registry_server.go` 实现与 REST 对应的 RPC。
+- [X] T014 [US1] 事件推送集成：在 `internal/service/capability_registry/registry/events.go` 接入 EventBus，并更新 quickstart 中 `capability.registry.updated` 主题文档。
 
 ---
 
