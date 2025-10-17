@@ -84,7 +84,11 @@ func newRegistryHTTPTestEnv(t *testing.T) *registryHTTPTestEnv {
 	handler := capabilityRegistryHTTP.NewAdminHandler(capabilityRegistryHTTP.AdminHandlerOptions{Service: service})
 	router := gin.New()
 	group := router.Group("/admin")
-	handler.Register(group)
+	group.POST("/capabilities", handler.CreateCapability)
+	tenantScoped := group.Group("/capabilities/:capabilityId/tenants/:tenantId")
+	tenantScoped.GET("", handler.GetCapability)
+	tenantScoped.PUT("", handler.UpdateCapability)
+	tenantScoped.DELETE("", handler.DisableCapability)
 
 	server := httptest.NewServer(router)
 

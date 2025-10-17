@@ -69,18 +69,18 @@
 
 ### Tests (write first)
 
-- [ ] T026 [P][US3] Discovery REST 合同测试 `/discovery/{tenantId}/{capabilityId}` 与 `/discovery/sync` in `internal/tests/http/admin/capability_registry/discovery_contract_test.go`.
-- [ ] T027 [P][US3] 客户端缓存集成测试：在 `internal/tests/service/capability_registry/discovery_cache_test.go` 模拟缓存过期、Registry 离线、fallback 返回。
-- [ ] T028 [P][US3] 跨区域同步测试：在 `internal/tests/service/capability_registry/cross_region_sync_test.go` 验证多集群快照一致性与故障切换。
+- [X] T026 [P][US3] Discovery REST 合同测试 `/discovery/{tenantId}/{capabilityId}` 与 `/discovery/sync` in `internal/tests/http/admin/capability_registry/discovery_contract_test.go`。
+- [X] T027 [P][US3] 客户端缓存集成测试：在 `internal/tests/service/capability_registry/discovery_cache_test.go` 模拟缓存过期、Registry 离线、fallback 返回。
+- [X] T028 [P][US3] 跨区域同步测试：在 `internal/tests/service/capability_registry/cross_region_sync_test.go` 验证多集群快照一致性与故障切换。
 
 ### Implementation
 
-- [ ] T029 [US3] Redis 缓存封装：在 `internal/infra/cache/discovery/` 实现快照读写、TTL、强制刷新逻辑，并输出命中率指标。
-- [ ] T030 [US3] Discovery 服务层：在 `internal/service/capability_registry/discovery/` 实现缓存命中、回源、fallback 能力选择与 TTL 管控。
-- [ ] T031 [US3] Discovery HTTP/gRPC Handler：在 `internal/transport/http/admin/capability_registry/discovery_handler.go` 与 `internal/transport/grpc/capability_registry/discovery_server.go` 提供查询接口。
-- [ ] T032 [US3] FallbackPlan 支撑：完善 `FallbackPlan` 模型与服务逻辑，确保 fallback 能力调用或静态响应生效。
-- [ ] T033 [US3] 跨区域复制组件：在 `internal/infra/replication/capability_registry/` 构建快照复制与冲突解决模块。
-- [ ] T034 [US3] 跨区域同步编排：在 `internal/service/capability_registry/discovery/cross_region.go` 调度 replication、远端 Router 同步与降级策略。
+- [X] T029 [US3] Redis 缓存封装：在 `internal/infra/cache/discovery/` 实现快照读写、TTL、强制刷新逻辑，并输出命中率指标。
+- [X] T030 [US3] Discovery 服务层：在 `internal/service/capability_registry/discovery/` 实现缓存命中、回源、fallback 能力选择与 TTL 管控。
+- [X] T031 [US3] Discovery HTTP/gRPC Handler：在 `internal/transport/http/admin/capability_registry/discovery_handler.go` 与 `internal/transport/grpc/capability_registry/discovery_server.go` 提供查询接口。
+- [X] T032 [US3] FallbackPlan 支撑：完善 `FallbackPlan` 模型与服务逻辑，确保 fallback 能力调用或静态响应生效。
+- [X] T033 [US3] 跨区域复制组件：在 `internal/infra/replication/capability_registry/` 构建快照复制与冲突解决模块。
+- [X] T034 [US3] 跨区域同步编排：在 `internal/service/capability_registry/discovery/cross_region.go` 调度 replication、远端 Router 同步与降级策略。
 
 ---
 

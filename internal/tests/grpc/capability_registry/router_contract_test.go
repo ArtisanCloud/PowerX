@@ -2,10 +2,8 @@ package capabilityregistry
 
 import (
 	"context"
-	"errors"
 	"net"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -16,11 +14,10 @@ import (
 	capabilityRegistryPB "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/capability/registry/v1"
 	capabilityRegistryDomain "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/domain"
 	capabilityRegistryHealth "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/health"
-	capabilityRegistryService "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/registry"
 	router "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/router"
+	"github.com/ArtisanCloud/PowerX/internal/tests/capability_registry/testutil"
 	capabilityRegistryGRPC "github.com/ArtisanCloud/PowerX/internal/transport/grpc/capability_registry"
 	"github.com/ArtisanCloud/PowerX/pkg/event_bus"
-	"gorm.io/gorm"
 )
 
 const routerBufSize = 1024 * 1024
@@ -111,7 +108,42 @@ func newRouterGRPCTestEnv(t *testing.T) *routerGRPCTestEnv {
 	listener := bufconn.Listen(routerBufSize)
 	server := grpc.NewServer()
 
-	registryRepo := newMockRegistryRepository()
+	registryRepo := testutil.NewMockRegistryRepository([]router.Registration{
+		{
+			CapabilityID: "capabilities.text.translate",
+			TenantID:     "tenant-corex",
+			Status:       "published",
+			Adapters: []router.AdapterEndpoint{
+				{
+					AdapterID:     "adapter-primary",
+					TransportType: "grpc",
+					Endpoint:      "grpc://translator.corex.svc:443",
+					Weight:        80,
+					TimeoutMS:     4000,
+				},
+				{
+					AdapterID:     "adapter-backup",
+					TransportType: "http",
+					Endpoint:      "https://translator.corex/api",
+					Weight:        20,
+					TimeoutMS:     3000,
+				},
+			},
+			RoutingPolicy: router.RoutingPolicy{
+				Strategy:        "weighted_round_robin",
+				CooldownSeconds: 60,
+			},
+			FallbackPlan: &router.FallbackPlan{
+				FallbackTargets: []string{},
+				StaticResponse: &router.StaticResponse{
+					Payload: map[string]interface{}{
+						"message": "fallback-static",
+					},
+					TTLSeconds: 60,
+				},
+			},
+		},
+	})
 	eventBus := event_bus.NewLocalEventBus()
 	routerSvc := router.NewService(router.ServiceOptions{
 		RegistryRepository: registryRepo,
@@ -180,85 +212,3 @@ func assertBoolFalseRouter(t *testing.T, cond bool, field string) {
 }
 
 // --- Mock registry repository ---------------------------------------------
-
-type mockRegistryRepository struct {
-	mu            sync.RWMutex
-	registrations map[string]capabilityRegistryService.Registration
-}
-
-func newMockRegistryRepository() *mockRegistryRepository {
-	reg := capabilityRegistryService.Registration{
-		CapabilityID: "capabilities.text.translate",
-		TenantID:     "tenant-corex",
-		Status:       "published",
-		Adapters: []capabilityRegistryService.AdapterEndpoint{
-			{
-				AdapterID:     "adapter-primary",
-				TransportType: "grpc",
-				Endpoint:      "grpc://translator.corex.svc:443",
-				Weight:        80,
-				TimeoutMS:     4000,
-			},
-			{
-				AdapterID:     "adapter-backup",
-				TransportType: "http",
-				Endpoint:      "https://translator.corex/api",
-				Weight:        20,
-				TimeoutMS:     3000,
-			},
-		},
-		RoutingPolicy: capabilityRegistryService.RoutingPolicy{
-			Strategy:         "weighted_round_robin",
-			FallbackSequence: []string{"adapter-backup"},
-			CooldownSeconds:  60,
-		},
-		FallbackPlan: &capabilityRegistryService.FallbackPlan{
-			FallbackTargets: []string{},
-			StaticResponse: &capabilityRegistryService.StaticResponse{
-				Payload: map[string]interface{}{
-					"message": "fallback-static",
-				},
-				TTLSeconds: 60,
-			},
-			NotificationChannel: "eventbus",
-		},
-	}
-	return &mockRegistryRepository{
-		registrations: map[string]capabilityRegistryService.Registration{
-			keyFor("capabilities.text.translate", "tenant-corex"): reg,
-		},
-	}
-}
-
-func (m *mockRegistryRepository) Create(context.Context, *gorm.DB, capabilityRegistryService.Registration) (capabilityRegistryService.Registration, error) {
-	return capabilityRegistryService.Registration{}, errors.New("not implemented")
-}
-
-func (m *mockRegistryRepository) Update(context.Context, *gorm.DB, capabilityRegistryService.Registration, uint64) (capabilityRegistryService.Registration, error) {
-	return capabilityRegistryService.Registration{}, errors.New("not implemented")
-}
-
-func (m *mockRegistryRepository) Disable(context.Context, *gorm.DB, string, string, string, string, uint64, capabilityRegistryService.Registration) (capabilityRegistryService.Registration, error) {
-	return capabilityRegistryService.Registration{}, errors.New("not implemented")
-}
-
-func (m *mockRegistryRepository) GetLatest(ctx context.Context, _ *gorm.DB, capabilityID, tenantID string) (capabilityRegistryService.Registration, error) {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-	if reg, ok := m.registrations[keyFor(capabilityID, tenantID)]; ok {
-		return reg, nil
-	}
-	return capabilityRegistryService.Registration{}, capabilityRegistryService.ErrRegistrationNotFound
-}
-
-func (m *mockRegistryRepository) GetVersion(ctx context.Context, _ *gorm.DB, capabilityID, tenantID string, version uint64) (capabilityRegistryService.Registration, error) {
-	return m.GetLatest(ctx, nil, capabilityID, tenantID)
-}
-
-func (m *mockRegistryRepository) ListLatest(context.Context, *gorm.DB, string, int, int) ([]capabilityRegistryService.Registration, int64, error) {
-	return nil, 0, errors.New("not implemented")
-}
-
-func keyFor(capabilityID, tenantID string) string {
-	return capabilityID + "::" + tenantID
-}

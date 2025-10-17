@@ -11,8 +11,10 @@ import (
 	capabilityRegistryDomain "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/domain"
 	capabilityHealth "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/health"
 	capabilityRegistry "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/registry"
+	discoveryService "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/discovery"
 	capabilityRouter "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/router"
 	capabilitySandbox "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/sandbox"
+	discoverycache "github.com/ArtisanCloud/PowerX/internal/infra/cache/discovery"
 	iamsvc "github.com/ArtisanCloud/PowerX/internal/service/iam"
 	mediasvc "github.com/ArtisanCloud/PowerX/internal/service/media"
 	tenantsvc "github.com/ArtisanCloud/PowerX/internal/service/tenant"
@@ -21,6 +23,7 @@ import (
 	auditrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/audit"
 	capabilityRegistryRepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/capability_registry"
 	"github.com/ArtisanCloud/PowerX/pkg/event_bus"
+	"github.com/ArtisanCloud/PowerX/pkg/cache"
 	pxlog "github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"gorm.io/gorm"
 )
@@ -45,6 +48,7 @@ type Deps struct {
 	CapabilityRegistrySvc *capabilityRegistry.Service
 	RouterSvc             *capabilityRouter.Service
 	RouterSandboxSvc      *capabilitySandbox.Service
+	DiscoverySvc          *discoveryService.Service
 }
 
 func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
@@ -95,6 +99,14 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 		Auditor:         aud,
 	})
 
+	discoveryCacheStore := discoverycache.NewStore(cache.NewMemoryCache(), "")
+	discoverySvc := discoveryService.NewService(discoveryService.ServiceOptions{
+		RegistryRepository: capRegistryRepo,
+		CacheStore:         discoveryCacheStore,
+		Instrumentation:    capabilityRegistryDomain.NewInstrumentation(nil),
+		DefaultTTL:         2 * time.Minute,
+	})
+
 	routerHealthRepo := capabilityHealth.NewMemoryRepository()
 	routerSvc := capabilityRouter.NewService(capabilityRouter.ServiceOptions{
 		RegistryRepository: capRegistryRepo,
@@ -118,5 +130,6 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 		CapabilityRegistrySvc: capRegistrySvc,
 		RouterSvc:             routerSvc,
 		RouterSandboxSvc:      sandboxSvc,
+		DiscoverySvc:          discoverySvc,
 	}
 }

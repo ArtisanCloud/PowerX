@@ -14,6 +14,7 @@ import (
 	capabilityRegistryHealth "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/health"
 	routerService "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/router"
 	sandboxService "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/sandbox"
+	"github.com/ArtisanCloud/PowerX/internal/tests/capability_registry/testutil"
 	capabilityRegistryGRPC "github.com/ArtisanCloud/PowerX/internal/transport/grpc/capability_registry"
 	"github.com/ArtisanCloud/PowerX/pkg/event_bus"
 )
@@ -77,7 +78,36 @@ func newRouterSandboxTestEnv(t *testing.T) *routerSandboxTestEnv {
 	listener := bufconn.Listen(routerBufSize)
 	server := grpc.NewServer()
 
-	registryRepo := newMockRegistryRepository()
+	registryRepo := testutil.NewMockRegistryRepository([]routerService.Registration{
+		{
+			CapabilityID: "capabilities.text.translate",
+			TenantID:     "tenant-corex",
+			Status:       "published",
+			Adapters: []routerService.AdapterEndpoint{
+				{
+					AdapterID:     "adapter-primary",
+					TransportType: "grpc",
+					Endpoint:      "grpc://translator.corex.svc:443",
+					Weight:        80,
+					TimeoutMS:     4000,
+				},
+				{
+					AdapterID:     "adapter-backup",
+					TransportType: "http",
+					Endpoint:      "https://translator.corex/api",
+					Weight:        20,
+					TimeoutMS:     3000,
+				},
+			},
+			RoutingPolicy: routerService.RoutingPolicy{
+				Strategy:        "weighted_round_robin",
+				CooldownSeconds: 60,
+			},
+			FallbackPlan: &routerService.FallbackPlan{
+				FallbackTargets: []string{},
+			},
+		},
+	})
 	routerSvc := routerService.NewService(routerService.ServiceOptions{
 		RegistryRepository: registryRepo,
 		HealthRepository:   capabilityRegistryHealth.NewMemoryRepository(),

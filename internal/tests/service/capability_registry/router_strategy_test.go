@@ -2,24 +2,56 @@ package capabilityregistry
 
 import (
 	"context"
-	"errors"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
 	capabilityRegistryHealth "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/health"
-	capabilityRegistryService "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/registry"
 	router "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/router"
+	"github.com/ArtisanCloud/PowerX/internal/tests/capability_registry/testutil"
 	"github.com/ArtisanCloud/PowerX/pkg/event_bus"
-	"gorm.io/gorm"
 )
 
 func TestRouterStrategyFallbackAndSticky(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	registryRepo := newMockRegistryRepository()
+	registryRepo := testutil.NewMockRegistryRepository([]router.Registration{
+		{
+			CapabilityID: "capabilities.text.translate",
+			TenantID:     "tenant-corex",
+			Status:       "published",
+			Adapters: []router.AdapterEndpoint{
+				{
+					AdapterID:     "adapter-primary",
+					TransportType: "grpc",
+					Endpoint:      "grpc://translator.corex.svc:443",
+					Weight:        80,
+					TimeoutMS:     4000,
+				},
+				{
+					AdapterID:     "adapter-backup",
+					TransportType: "http",
+					Endpoint:      "https://translator.corex/api",
+					Weight:        20,
+					TimeoutMS:     3000,
+				},
+			},
+			RoutingPolicy: router.RoutingPolicy{
+				Strategy:        "weighted_round_robin",
+				CooldownSeconds: 60,
+			},
+			FallbackPlan: &router.FallbackPlan{
+				FallbackTargets: []string{},
+				StaticResponse: &router.StaticResponse{
+					Payload: map[string]interface{}{
+						"message": "fallback-static",
+					},
+					TTLSeconds: 60,
+				},
+			},
+		},
+	})
 	service := router.NewService(router.ServiceOptions{
 		RegistryRepository: registryRepo,
 		HealthRepository:   capabilityRegistryHealth.NewMemoryRepository(),

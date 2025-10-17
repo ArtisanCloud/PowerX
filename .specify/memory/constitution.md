@@ -180,12 +180,17 @@ Every plugin **MUST** expose both **HTTP/REST** and **gRPC** transports:
     - `managed.go_package_prefix.default = github.com/ArtisanCloud/PowerX/api/grpc/gen`
     - `out = api/grpc/gen`
     - `paths = source_relative`
-- **Server (singleton) & Make Targets:**
-  - **Global gRPC bootstrap at `internal/server/grpc/server.go`** with interceptors (`auth`, `tenant`, `logging`, `recovery`)
+- **Server (singleton) & Make Targets:**  
+  - **Global gRPC bootstrap at `internal/server/grpc/server.go`** with interceptors (`auth`, `tenant`, `logging`, `recovery`)  
   - Make targets: `proto-gen`, `proto-lint`, `proto-clean`
-- **Module implementations (no grpc.NewServer, no Register in module):**
-  - `internal/transport/grpc/<module>/*_handler.go`（或 `service.go`）实现生成的 `*ServiceServer` 接口
+- **Module implementations (no grpc.NewServer, no Register in module):**  
+  - `internal/transport/grpc/<module>/*_handler.go`（或 `service.go`）实现生成的 `*ServiceServer` 接口  
   - 通过 `New(*shared.Deps)` 构造，依赖注入 Service；由全局 `server.go` 统一 `Register*ServiceServer(...)`
+
+### X.3 HTTP Handler Response Contract
+
+- 必须使用 `pkg/dto` 中的 `ResponseSuccess`、`ResponseError`、`RespondErrorFrom` 等统一函数输出 JSON；`MustOK` 等旧辅助函数已废弃，禁止继续使用。  
+- 所有 Handler 仍遵循“绑定/校验 → 调 Service → 统一回包”的职责分离，错误结构与成功结构必须符合 `pkg/dto/base.go` 中的定义。
 
 ### X.3 Blocking Gates
 

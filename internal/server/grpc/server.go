@@ -109,6 +109,9 @@ func New(cfg *GRPCConfig, deps *shared.Deps) (*grpc.Server, net.Listener, error)
 	if deps.RouterSandboxSvc != nil {
 		capabilityRegistryGRPC.RegisterCapabilityRouterSandboxServer(s, deps.RouterSandboxSvc)
 	}
+	if deps.DiscoverySvc != nil {
+		capabilityRegistryGRPC.RegisterCapabilityDiscoveryServer(s, deps.DiscoverySvc)
+	}
 
 	// STS（令牌换签/内发）—— 与拦截器共用同一个 KeyRing
 	stsv1.RegisterSTSServiceServer(s, authgrpc.NewSTSServiceServerWithRing(deps, ring))
@@ -132,6 +135,7 @@ func New(cfg *GRPCConfig, deps *shared.Deps) (*grpc.Server, net.Listener, error)
 			corexmediav1.MediaAssetAdminService_ServiceDesc.ServiceName,
 			capv1.CapabilityRegistryService_ServiceDesc.ServiceName,
 			capabilityRegistryPB.CapabilityRegistryService_ServiceDesc.ServiceName,
+			capabilityRegistryPB.CapabilityDiscoveryService_ServiceDesc.ServiceName,
 		}
 		for _, name := range serviceNames {
 			healthServer.SetServingStatus(name, healthpb.HealthCheckResponse_SERVING)

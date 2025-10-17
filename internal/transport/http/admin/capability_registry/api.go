@@ -7,7 +7,17 @@ import (
 
 // RegisterAPIRoutes 将能力注册管理接口挂载到受保护路由。
 func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterGroup, deps *shared.Deps) {
-	if protectedGroup == nil || deps == nil || deps.CapabilityRegistrySvc == nil {
+	if deps == nil {
+		return
+	}
+
+	if publicGroup != nil && deps.DiscoverySvc != nil {
+		discoveryHandler := NewDiscoveryHandler(deps.DiscoverySvc)
+		publicGroup.GET("/discovery/:tenantId/:capabilityId", discoveryHandler.GetSnapshot)
+		publicGroup.POST("/discovery/sync", discoveryHandler.Sync)
+	}
+
+	if protectedGroup == nil || deps.CapabilityRegistrySvc == nil {
 		return
 	}
 	handler := NewAdminHandler(AdminHandlerOptions{

@@ -12,9 +12,10 @@ import (
 
 	capabilityRegistryDomain "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/domain"
 	capabilityRegistryHealth "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/health"
-	capabilityRegistryService "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/registry"
 	routerService "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/router"
 	sandboxService "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/sandbox"
+	"github.com/ArtisanCloud/PowerX/internal/tests/capability_registry/testutil"
+	capabilityRegistryHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/capability_registry"
 	"github.com/ArtisanCloud/PowerX/pkg/event_bus"
 )
 
@@ -22,7 +23,42 @@ func TestRouterSandboxHTTPInvoke(t *testing.T) {
 	t.Parallel()
 
 	gin.SetMode(gin.TestMode)
-	registryRepo := newMockRegistryRepository()
+	registryRepo := testutil.NewMockRegistryRepository([]routerService.Registration{
+		{
+			CapabilityID: "capabilities.text.translate",
+			TenantID:     "tenant-corex",
+			Status:       "published",
+			Adapters: []routerService.AdapterEndpoint{
+				{
+					AdapterID:     "adapter-primary",
+					TransportType: "grpc",
+					Endpoint:      "grpc://translator.corex.svc:443",
+					Weight:        80,
+					TimeoutMS:     4000,
+				},
+				{
+					AdapterID:     "adapter-backup",
+					TransportType: "http",
+					Endpoint:      "https://translator.corex/api",
+					Weight:        20,
+					TimeoutMS:     3000,
+				},
+			},
+			RoutingPolicy: routerService.RoutingPolicy{
+				Strategy:        "weighted_round_robin",
+				CooldownSeconds: 60,
+			},
+			FallbackPlan: &routerService.FallbackPlan{
+				FallbackTargets: []string{},
+				StaticResponse: &routerService.StaticResponse{
+					Payload: map[string]interface{}{
+						"message": "fallback-static",
+					},
+					TTLSeconds: 60,
+				},
+			},
+		},
+	})
 	routerSvc := routerService.NewService(routerService.ServiceOptions{
 		RegistryRepository: registryRepo,
 		HealthRepository:   capabilityRegistryHealth.NewMemoryRepository(),
@@ -33,7 +69,7 @@ func TestRouterSandboxHTTPInvoke(t *testing.T) {
 		},
 	})
 	sandboxSvc := sandboxService.NewService(registryRepo, routerSvc)
-	handler := NewSandboxHandler(sandboxSvc)
+	handler := capabilityRegistryHTTP.NewSandboxHandler(sandboxSvc)
 
 	r := gin.New()
 	r.POST("/sandbox", handler.Invoke)
@@ -59,4 +95,3 @@ func TestRouterSandboxHTTPInvoke(t *testing.T) {
 		t.Fatalf("expected primary adapter, got %v", payload["adapter_id"])
 	}
 }
-

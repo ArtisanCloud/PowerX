@@ -2,6 +2,7 @@ package capability_registry
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"google.golang.org/grpc"
@@ -9,6 +10,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	capabilityRegistryPB "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/capability/registry/v1"
+	registry "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/registry"
 	routerService "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/router"
 )
 
@@ -43,6 +45,9 @@ func (s *RouterServer) Invoke(ctx context.Context, req *capabilityRegistryPB.Inv
 		StickyKey:    req.GetStickyKey(),
 	})
 	if err != nil {
+		if errors.Is(err, registry.ErrRegistrationNotFound) {
+			return nil, status.Error(codes.NotFound, err.Error())
+		}
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 	resp := &capabilityRegistryPB.InvokeResponse{
