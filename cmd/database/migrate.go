@@ -3,11 +3,12 @@ package main
 
 import (
 	"context"
+	"log"
+
 	"github.com/ArtisanCloud/PowerX/internal/server/agent/persistence"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/db/database"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
 	"gorm.io/gorm"
-	"log"
 )
 
 func MigrateDatabase(ctx context.Context, db *gorm.DB) error {

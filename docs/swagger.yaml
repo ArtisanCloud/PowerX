@@ -299,6 +299,40 @@ paths:
             summary: POST /api/v1/admin/capabilities/_capabilityKey/versions/_version/transports/_transport/health
             tags:
                 - api
+    /api/v1/admin/capability-registry/capabilities:
+        post:
+            operationId: POST /api/v1/admin/capability-registry/capabilities
+            responses:
+                "200":
+                    description: OK
+            summary: POST /api/v1/admin/capability-registry/capabilities
+            tags:
+                - api
+    /api/v1/admin/capability-registry/capabilities/:capabilityId/tenants/:tenantId:
+        delete:
+            operationId: DELETE /api/v1/admin/capability-registry/capabilities/_capabilityId/tenants/_tenantId
+            responses:
+                "200":
+                    description: OK
+            summary: DELETE /api/v1/admin/capability-registry/capabilities/_capabilityId/tenants/_tenantId
+            tags:
+                - api
+        get:
+            operationId: GET /api/v1/admin/capability-registry/capabilities/_capabilityId/tenants/_tenantId
+            responses:
+                "200":
+                    description: OK
+            summary: GET /api/v1/admin/capability-registry/capabilities/_capabilityId/tenants/_tenantId
+            tags:
+                - api
+        put:
+            operationId: PUT /api/v1/admin/capability-registry/capabilities/_capabilityId/tenants/_tenantId
+            responses:
+                "200":
+                    description: OK
+            summary: PUT /api/v1/admin/capability-registry/capabilities/_capabilityId/tenants/_tenantId
+            tags:
+                - api
     /api/v1/admin/iam/departments:
         post:
             operationId: POST /api/v1/admin/iam/departments
@@ -845,6 +879,33 @@ paths:
             summary: GET /api/v1/admin/plugins/menus
             tags:
                 - api
+    /api/v1/admin/router/health:
+        post:
+            operationId: POST /api/v1/admin/router/health
+            responses:
+                "200":
+                    description: OK
+            summary: POST /api/v1/admin/router/health
+            tags:
+                - api
+    /api/v1/admin/router/invoke:
+        post:
+            operationId: POST /api/v1/admin/router/invoke
+            responses:
+                "200":
+                    description: OK
+            summary: POST /api/v1/admin/router/invoke
+            tags:
+                - api
+    /api/v1/admin/router/sandbox/invoke:
+        post:
+            operationId: POST /api/v1/admin/router/sandbox/invoke
+            responses:
+                "200":
+                    description: OK
+            summary: POST /api/v1/admin/router/sandbox/invoke
+            tags:
+                - api
     /api/v1/admin/system/settings/effective/:key:
         get:
             operationId: GET /api/v1/admin/system/settings/effective/_key
@@ -1200,6 +1261,24 @@ paths:
                 "200":
                     description: OK
             summary: GET /api/v1/agents/stream/sse
+            tags:
+                - api
+    /api/v1/discovery/:tenantId/:capabilityId:
+        get:
+            operationId: GET /api/v1/discovery/_tenantId/_capabilityId
+            responses:
+                "200":
+                    description: OK
+            summary: GET /api/v1/discovery/_tenantId/_capabilityId
+            tags:
+                - api
+    /api/v1/discovery/sync:
+        post:
+            operationId: POST /api/v1/discovery/sync
+            responses:
+                "200":
+                    description: OK
+            summary: POST /api/v1/discovery/sync
             tags:
                 - api
     /api/v1/health:

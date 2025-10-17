@@ -35,7 +35,7 @@ checks:
     level: error
     when: { glob: "internal/transport/http/**/**/dto/*.go" }
     assert:
-      - must_contain_regex: "`json:\"[a-zA-Z][a-zA-Z0-9]*"`
+      - must_contain_regex: "`json:\"[a-zA-Z][a-zA-Z0-9]*\""
   - id: dto.has_validation_tags
     level: warn
     when: { glob: "internal/transport/http/**/**/dto/*_req.go" }

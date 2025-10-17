@@ -26,6 +26,7 @@ proto-lint:
 proto-clean:
 	@echo "🧹 清理生成的 Protobuf 代码..."
 	@rm -rf api/grpc/gen/go/powerx/corex
+	@rm -rf api/grpc/gen/go/powerx/capability
 	@find api/grpc/gen -type f -name "*.pb.go" -empty -delete >/dev/null 2>&1 || true
 	@echo "✅ 清理完成"
 

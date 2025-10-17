@@ -68,7 +68,7 @@ checks:
     when:
       glob: "internal/transport/http/**/**_handler.go"
     assert:
-      - must_use_one_of: ["MustOK(","RespondOK(","RespondErrorFrom("]
+      - must_use_one_of: ["ResponseSuccess(","RespondOK(","RespondErrorFrom("]
       - http_status_in: [200,201,204,400,401,403,404,409,429,500]
 
   # 分页语义统一
@@ -115,7 +115,7 @@ acceptance:
   checklist:
     - "[ ] api.go 只做路由注册，使用 /api/v1/{admin|open|web} 前缀"
     - "[ ] Handler 仅做绑定/校验/调用 Service/回包，不含 DB 与外部 IO"
-    - "[ ] 使用 ValidateRequestWithContext/RespondErrorFrom/MustOK 等统一工具"
+    - "[ ] 使用 ValidateRequestWithContext/RespondErrorFrom/ResponseSuccess 等统一工具"
     - "[ ] 分页使用 PaginationRequest/PaginationResponse，列表用 ResponseList"
     - "[ ] SSE 事件（若有）使用统一事件名"
     - "[ ] 租户上下文来自中间件，缺失返回 400；鉴权/审计在 Service 层"
@@ -147,7 +147,8 @@ templates:
       ctx, rc, err := ValidateRequestWithContext(c, &dto.{{Entity}}CreateReq{})
       if err != nil { RespondErrorFrom(c, err); return }
       out, err := h.svc.Create(ctx, rc.TenantID, rc.ActorID, rc.RequestID, rc.TraceID, rc.Payload)
-      MustOK(c, out, err)
+      if err != nil { RespondErrorFrom(c, err); return }
+      ResponseSuccess(c, out)
     }
 
     // GET /{{domain}}/{{resource}}
@@ -155,7 +156,8 @@ templates:
       ctx, rc, err := ValidateRequestWithContext(c, &dto.{{Entity}}ListReq{})
       if err != nil { RespondErrorFrom(c, err); return }
       items, pg, err := h.svc.List(ctx, rc.TenantID, rc.Pagination, rc.Filters)
-      MustOK(c, ResponseList{Items: items, Pagination: pg}, err)
+      if err != nil { RespondErrorFrom(c, err); return }
+      ResponseSuccess(c, ResponseList{Items: items, Pagination: pg})
     }
 
     // GET /{{domain}}/{{resource}}/:id
@@ -163,7 +165,8 @@ templates:
       ctx, rc, err := ValidateRequestWithContext(c, &dto.{{Entity}}GetReq{})
       if err != nil { RespondErrorFrom(c, err); return }
       out, err := h.svc.Get(ctx, rc.TenantID, rc.ID)
-      MustOK(c, out, err)
+      if err != nil { RespondErrorFrom(c, err); return }
+      ResponseSuccess(c, out)
     }
 
     // PATCH /{{domain}}/{{resource}}/:id
@@ -171,7 +174,8 @@ templates:
       ctx, rc, err := ValidateRequestWithContext(c, &dto.{{Entity}}UpdateReq{})
       if err != nil { RespondErrorFrom(c, err); return }
       out, err := h.svc.Update(ctx, rc.TenantID, rc.ID, rc.Payload, rc.IfMatch) // 支持 If-Match/ETag（可选）
-      MustOK(c, out, err)
+      if err != nil { RespondErrorFrom(c, err); return }
+      ResponseSuccess(c, out)
     }
 
     // DELETE /{{domain}}/{{resource}}/:id
@@ -179,7 +183,8 @@ templates:
       ctx, rc, err := ValidateRequestWithContext(c, &dto.{{Entity}}DeleteReq{})
       if err != nil { RespondErrorFrom(c, err); return }
       err = h.svc.Delete(ctx, rc.TenantID, rc.ID, rc.Force) // 默认为软删；Force 需权限
-      MustOK(c, ResponseSuccess{OK: err == nil}, err)
+      if err != nil { RespondErrorFrom(c, err); return }
+      ResponseSuccess(c, ResponseSuccess{OK: true})
     }
 
   api_go: |

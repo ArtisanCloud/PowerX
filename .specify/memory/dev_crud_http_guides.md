@@ -290,7 +290,7 @@ Service 层负责 **业务用例编排、鉴权、事务、审计**。
 ### 错误桥接
 
 - 统一错误结构：`AppError{HTTPCode, Message, Details}`；
-- 桥接方法：`RespondErrorFrom(c, err)`、`MustOK(c, data, err)`。
+- 桥接方法：`RespondErrorFrom(c, err)`，成功时直接使用 `ResponseSuccess/ResponseList`，**不得再使用 `MustOK`**。
 
 ### SSE / WS
 

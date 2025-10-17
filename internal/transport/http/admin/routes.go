@@ -7,6 +7,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/internal/transport/http/admin/agent"
 	"github.com/ArtisanCloud/PowerX/internal/transport/http/admin/auth"
 	"github.com/ArtisanCloud/PowerX/internal/transport/http/admin/capability"
+	capabilityRegistryHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/capability_registry"
 	"github.com/ArtisanCloud/PowerX/internal/transport/http/admin/iam"
 	"github.com/ArtisanCloud/PowerX/internal/transport/http/admin/media"
 	"github.com/ArtisanCloud/PowerX/internal/transport/http/admin/menu"
@@ -42,6 +43,7 @@ func RegisterAPIRoutes(
 	agent.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	media.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	capability.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
+	capabilityRegistryHTTP.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	plugin.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 
 }

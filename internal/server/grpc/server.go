@@ -10,6 +10,7 @@ import (
 
 	agentv1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/agent/v1"
 	stsv1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/auth/sts/v1"
+	capabilityRegistryPB "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/capability/registry/v1"
 	capv1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/capability/v1"
 	iamv1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/iam/v1"
 	corexmediav1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/media/v1"
@@ -19,6 +20,7 @@ import (
 	authgrpc "github.com/ArtisanCloud/PowerX/internal/transport/grpc/auth"
 	middleware2 "github.com/ArtisanCloud/PowerX/internal/transport/grpc/auth/middleware"
 	capgrpc "github.com/ArtisanCloud/PowerX/internal/transport/grpc/capability"
+	capabilityRegistryGRPC "github.com/ArtisanCloud/PowerX/internal/transport/grpc/capability_registry"
 	"github.com/ArtisanCloud/PowerX/internal/transport/grpc/iam"
 	medigrpc "github.com/ArtisanCloud/PowerX/internal/transport/grpc/media"
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
@@ -98,6 +100,18 @@ func New(cfg *GRPCConfig, deps *shared.Deps) (*grpc.Server, net.Listener, error)
 	agentv1.RegisterAgentStreamServiceServer(s, agentgrpc.NewAgentStreamServer(deps))
 	settingv12.RegisterSettingAIServiceServer(s, agentgrpc.NewSettingAIServiceServer(deps))
 	capv1.RegisterCapabilityRegistryServiceServer(s, capgrpc.NewContractServer(deps))
+	if deps.CapabilityRegistrySvc != nil {
+		capabilityRegistryGRPC.RegisterCapabilityRegistryServer(s, deps.CapabilityRegistrySvc)
+	}
+	if deps.RouterSvc != nil {
+		capabilityRegistryGRPC.RegisterCapabilityRouterServer(s, deps.RouterSvc)
+	}
+	if deps.RouterSandboxSvc != nil {
+		capabilityRegistryGRPC.RegisterCapabilityRouterSandboxServer(s, deps.RouterSandboxSvc)
+	}
+	if deps.DiscoverySvc != nil {
+		capabilityRegistryGRPC.RegisterCapabilityDiscoveryServer(s, deps.DiscoverySvc)
+	}
 
 	// STS（令牌换签/内发）—— 与拦截器共用同一个 KeyRing
 	stsv1.RegisterSTSServiceServer(s, authgrpc.NewSTSServiceServerWithRing(deps, ring))
@@ -120,6 +134,8 @@ func New(cfg *GRPCConfig, deps *shared.Deps) (*grpc.Server, net.Listener, error)
 			stsv1.STSService_ServiceDesc.ServiceName,
 			corexmediav1.MediaAssetAdminService_ServiceDesc.ServiceName,
 			capv1.CapabilityRegistryService_ServiceDesc.ServiceName,
+			capabilityRegistryPB.CapabilityRegistryService_ServiceDesc.ServiceName,
+			capabilityRegistryPB.CapabilityDiscoveryService_ServiceDesc.ServiceName,
 		}
 		for _, name := range serviceNames {
 			healthServer.SetServingStatus(name, healthpb.HealthCheckResponse_SERVING)

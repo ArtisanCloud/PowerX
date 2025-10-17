@@ -152,12 +152,3 @@ func RespondErrorFrom(c *gin.Context, err error) {
 	// 复用你已有的 ResponseError（会把 err.Error() 放到 "error" 字段）
 	ResponseError(c, code, msg, err)
 }
-
-// MustOK 语法糖：err==nil 则返回成功，否则按上面逻辑返回错误
-func MustOK(c *gin.Context, data interface{}, err error) {
-	if err != nil {
-		RespondErrorFrom(c, err)
-		return
-	}
-	ResponseSuccess(c, data)
-}
