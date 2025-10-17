@@ -8,6 +8,8 @@ import (
 
 	mediamgr "github.com/ArtisanCloud/PowerX/internal/infra/media/manager"
 	authsvc "github.com/ArtisanCloud/PowerX/internal/service/auth"
+	capRegPolicy "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/registry"
+	iamsvc "github.com/ArtisanCloud/PowerX/internal/service/iam"
 	mediasvc "github.com/ArtisanCloud/PowerX/internal/service/media"
 	tenantsvc "github.com/ArtisanCloud/PowerX/internal/service/tenant"
 	auditsvc "github.com/ArtisanCloud/PowerX/pkg/corex/audit"
@@ -35,6 +37,7 @@ type Deps struct {
 }
 
 func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
+	ctx := context.Background()
 	authUser := authsvc.NewAuthService(db, opts.AuthUser)
 	authCustomer := authsvc.NewAuthService(db, opts.AuthCustomer)
 
@@ -47,7 +50,7 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 
 	aud := auditsvc.NewAuditor(svc)
 
-	_ = svc.Emit(context.Background(), &dbm.AuditEvent{
+	_ = svc.Emit(ctx, &dbm.AuditEvent{
 		OccurredAt:   time.Now(),
 		Source:       "selftest",
 		Operation:    "BOOT",
@@ -65,7 +68,12 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 	tenantSvc := tenantsvc.NewTenantService(db, authUser)
 
 	// --- Media Manager & Service ---
-	mediaManager, mediaSvc := mediasvc.BuildMediaStack(context.Background(), db, svc, opts.Storage)
+	mediaManager, mediaSvc := mediasvc.BuildMediaStack(ctx, db, svc, opts.Storage)
+
+	permSvc := iamsvc.NewPermissionService(db)
+	if err := capRegPolicy.EnsureAdminPermissions(ctx, permSvc); err != nil {
+		pxlog.WarnF(ctx, "[capabilityRegistry] register permissions failed: %v", err)
+	}
 
 	return &Deps{
 		DB:           db,

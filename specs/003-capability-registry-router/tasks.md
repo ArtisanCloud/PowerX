@@ -11,9 +11,9 @@
 
 ## Phase 2: Foundational (Blocking Prerequisites)
 
-- [ ] T004 Align IAM/Tool Grant scopes for capability registry APIs (ensure policy constants defined in `internal/service/capability_registry/registry` and registered with access control).
-- [ ] T005 Prepare database migration scaffolding for capability registry tables (create placeholder migration files under `pkg/corex/db/migration`, register in `cmd/database/migrate.go`).
-- [ ] T006 [P] Define shared domain errors/enums (status, strategy, fallback) in `internal/service/capability_registry/domain/constants.go` for reuse across stories.
+- [X] T004 Align IAM/Tool Grant scopes for capability registry APIs (ensure policy constants defined in `internal/service/capability_registry/registry` and registered with access control).
+- [X] T005 Prepare database migration scaffolding for capability registry tables (create placeholder migration files under `pkg/corex/db/migration`, register in `cmd/database/migrate.go`).
+- [X] T006 [P] Define shared domain errors/enums (status, strategy, fallback) in `internal/service/capability_registry/domain/constants.go` for reuse across stories.
 
 ---
 
