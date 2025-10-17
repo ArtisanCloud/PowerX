@@ -23,7 +23,7 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 	handler := NewAdminHandler(AdminHandlerOptions{
 		Service: deps.CapabilityRegistrySvc,
 	})
-	capabilities := protectedGroup.Group("/admin/capabilities")
+	capabilities := protectedGroup.Group("/admin/capability-registry/capabilities")
 	{
 		capabilities.POST("", handler.CreateCapability)
 	}

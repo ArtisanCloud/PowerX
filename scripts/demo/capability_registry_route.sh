@@ -145,14 +145,14 @@ REGISTRATION_PAYLOAD="$(jq -n \
 		},
 		tool_grant_ids: []
 	}')"
-call_api "POST" "${BASE_URL}/admin/capabilities" "${REGISTRATION_PAYLOAD}"
+call_api "POST" "${BASE_URL}/admin/capability-registry/capabilities" "${REGISTRATION_PAYLOAD}"
 assert_status "201"
 VERSION="$(echo "${RESPONSE}" | jq -r '.version')"
 log "Capability created with version ${VERSION}"
 
 log "Updating capability weights (optimistic lock)..."
 UPDATED_PAYLOAD="$(echo "${REGISTRATION_PAYLOAD}" | jq '.adapters[0].weight = 70 | .adapters[1].weight = 30 | .version = '"${VERSION}"')"
-call_api "PUT" "${BASE_URL}/admin/capabilities/${CAPABILITY_ID}/tenants/${TENANT_ID}" "${UPDATED_PAYLOAD}" -H "If-Match: W/\"${VERSION}\""
+call_api "PUT" "${BASE_URL}/admin/capability-registry/capabilities/${CAPABILITY_ID}/tenants/${TENANT_ID}" "${UPDATED_PAYLOAD}" -H "If-Match: W/\"${VERSION}\""
 assert_status "200"
 VERSION="$(echo "${RESPONSE}" | jq -r '.version')"
 log "Capability updated to version ${VERSION}"

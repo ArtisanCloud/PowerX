@@ -15,7 +15,7 @@
 3. 运行健康检查 `GET /admin/capabilities/healthz` 确认服务启动成功。
 
 ### 步骤 2：注册能力
-1. 调用 `POST /admin/capabilities`，示例请求：
+1. 调用 `POST /admin/capability-registry/capabilities`，示例请求：
    ```json
    {
      "capability_id": "capabilities.search.v1",
@@ -45,8 +45,8 @@
    }
    ```
 2. 响应头会返回 `ETag: W/"<version>"`，同时在体内回显 `version` 字段；后续更新时必须携带 `If-Match`。
-3. 更新时调用 `PUT /admin/capabilities/{capabilityId}/tenants/{tenantId}`，请求体需包含最新 `version`，并在 Header 中附带 `If-Match: W/"<version>"` 以触发乐观锁校验。
-4. 禁用注册使用 `DELETE /admin/capabilities/{capabilityId}/tenants/{tenantId}`，支持在 Body 中附带 `reason` 便于审计。
+3. 更新时调用 `PUT /admin/capability-registry/capabilities/{capabilityId}/tenants/{tenantId}`，请求体需包含最新 `version`，并在 Header 中附带 `If-Match: W/"<version>"` 以触发乐观锁校验。
+4. 禁用注册使用 `DELETE /admin/capability-registry/capabilities/{capabilityId}/tenants/{tenantId}`，支持在 Body 中附带 `reason` 便于审计。
 
 > gRPC 等价接口：`CapabilityRegistryService/CreateCapability`、`UpdateCapability`、`DisableCapability`，请求体复用 proto `CapabilityRegistration`。版本号同样由服务返回并在后续请求中透传。
 
