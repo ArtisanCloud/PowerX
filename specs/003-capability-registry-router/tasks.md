@@ -86,11 +86,11 @@
 
 ## Phase 6: Polish & Cross-Cutting Concerns
 
-- [ ] T035 [P] 写 Quickstart 验证脚本：根据 `quickstart.md` 编写 E2E 脚本（`scripts/demo/capability_registry_route.sh`）验证注册、选路、缓存流程。
-- [ ] T036 安全加固与审计：在 `internal/service/capability_registry/registry/audit.go` 增强审计日志，确保工具权限检查覆盖所有操作。
-- [ ] T037 [P] 性能与延迟验证：编写基准测试/压测脚本评估 Registry 查询与 Router 调用（99% ≤150ms、fallback ≤500ms），记录结果。
-- [ ] T038 [P] 缓存命中率监控：在 Observability 中新增命中率指标、告警与测试脚本，验证命中率 ≥80%。
-- [ ] T039 文档与部署说明：更新 `docs/` 或 `specs/003-capability-registry-router/quickstart.md` 的部署参数、事件主题、sandbox 使用方式与跨区域拓扑。
+- [X] T035 [P] 写 Quickstart 验证脚本：根据 `quickstart.md` 编写 E2E 脚本（`scripts/demo/capability_registry_route.sh`）验证注册、选路、缓存流程。
+- [X] T036 安全加固与审计：在 `internal/service/capability_registry/registry/audit.go` 增强审计日志，确保工具权限检查覆盖所有操作。
+- [X] T037 [P] 性能与延迟验证：编写基准测试/压测脚本评估 Registry 查询与 Router 调用（99% ≤150ms、fallback ≤500ms），记录结果。
+- [X] T038 [P] 缓存命中率监控：在 Observability 中新增命中率指标、告警与测试脚本，验证命中率 ≥80%。
+- [X] T039 文档与部署说明：更新 `docs/` 或 `specs/003-capability-registry-router/quickstart.md` 的部署参数、事件主题、sandbox 使用方式与跨区域拓扑。
 
 ---
 

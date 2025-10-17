@@ -93,7 +93,7 @@ func (s *Service) CreateRegistration(ctx context.Context, in CreateRegistrationI
 		actor = s.systemActorLookup(ctx)
 	}
 
-	if err := s.validatePayload(ctx, in.Registration, false); err != nil {
+	if err := s.validatePayload(ctx, in.Registration, false, actor); err != nil {
 		return Registration{}, err
 	}
 
@@ -142,7 +142,7 @@ func (s *Service) UpdateRegistration(ctx context.Context, in UpdateRegistrationI
 		return Registration{}, fmt.Errorf("missing version: %w", ErrVersionConflict)
 	}
 
-	if err := s.validatePayload(ctx, in.Registration, true); err != nil {
+	if err := s.validatePayload(ctx, in.Registration, true, actor); err != nil {
 		return Registration{}, err
 	}
 
@@ -263,7 +263,7 @@ func (s *Service) ListLatest(ctx context.Context, tenantID string, limit, offset
 	return s.repo.ListLatest(ctx, nil, tenantID, limit, offset)
 }
 
-func (s *Service) validatePayload(ctx context.Context, payload RegistrationPayload, allowVersion bool) error {
+func (s *Service) validatePayload(ctx context.Context, payload RegistrationPayload, allowVersion bool, actor string) error {
 	if payload.CapabilityID == "" || payload.TenantID == "" {
 		return fmt.Errorf("missing identifiers: %w", ErrInvalidPayload)
 	}
@@ -318,7 +318,9 @@ func (s *Service) validatePayload(ctx context.Context, payload RegistrationPaylo
 		}
 	}
 	if s.toolGrants != nil && len(payload.ToolGrantIDs) > 0 {
-		if err := s.toolGrants.VerifyToolGrants(ctx, payload.TenantID, payload.ToolGrantIDs); err != nil {
+		err := s.toolGrants.VerifyToolGrants(ctx, payload.TenantID, payload.ToolGrantIDs)
+		s.auditToolGrantCheck(ctx, actor, payload.TenantID, payload.ToolGrantIDs, err)
+		if err != nil {
 			return err
 		}
 	}

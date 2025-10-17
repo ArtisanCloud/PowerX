@@ -42,10 +42,10 @@ func NewService(opts ServiceOptions) *Service {
 	if inst == nil {
 		inst = domain.NewInstrumentation(nil)
 	}
-	metrics := opts.Metrics
-	if metrics == nil {
-		metrics = noopMetricsRecorder{}
-	}
+    metrics := opts.Metrics
+    if metrics == nil {
+        metrics = NewRouterMetrics(inst)
+    }
 	clock := opts.Clock
 	if clock == nil {
 		clock = time.Now

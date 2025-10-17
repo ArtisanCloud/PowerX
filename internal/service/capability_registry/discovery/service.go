@@ -44,10 +44,10 @@ func NewService(opts ServiceOptions) *Service {
 	if ttl <= 0 {
 		ttl = 2 * time.Minute
 	}
-	metrics := opts.Metrics
-	if metrics == nil {
-		metrics = noopMetricsRecorder{}
-	}
+    metrics := opts.Metrics
+    if metrics == nil {
+        metrics = NewObservabilityMetrics(inst, WithTTLEstimate(ttl))
+    }
 	return &Service{
 		registryRepo: opts.RegistryRepository,
 		cache:        opts.CacheStore,

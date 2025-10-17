@@ -4,6 +4,7 @@
 - 已部署 Postgres、Redis，并配置 EventBus（Kafka/NATS 任一）连接。
 - 已完成 Capability Contract & Transport Adapter 注册（参考 `specs/002-title-unified-capability`）。
 - 运行环境加载 `tenant_id`、`tool_grant` 校验组件。
+- 可选：通过 `scripts/demo/capability_registry_route.sh` 脚本自动演示注册、路由与缓存流程。运行前请设置 `POWERX_BASE_URL`（默认 `http://localhost:8077/api`）及认证头部（`POWERX_BEARER_TOKEN` 或 `POWERX_BASIC_AUTH`）。
 
 ### 步骤 1：启动 Registry 服务
 1. 构建并启动 `internal/service/capability_registry` 相关模块。
@@ -71,8 +72,8 @@
 
 ### 步骤 5：客户端缓存
 1. 客户端通过 `GET /discovery/{tenant}/{capability}` 拉取快照，保存到本地。
-2. 遵循默认 2 分钟 TTL，TTL 将在响应头 `X-Cache-TTL` 返回。
-3. 若缓存过期或 Registry 不可达，使用最后快照并记录日志。
+2. 遵循默认 2 分钟 TTL，剩余 TTL 会通过 `Cache-Control: max-age=<seconds>` 返回。
+3. 若缓存过期或 Registry 不可达，使用最后快照并记录日志。命中率低于 80% 时，服务会通过日志输出告警（`[discovery.metrics] cache hit rate below threshold`）。
 
 ### 故障定位
 - 查看 Registry 服务日志（包含 `trace_id`、`tenant_id`）。
