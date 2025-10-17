@@ -45,20 +45,20 @@
 
 ### Tests (write first)
 
-- [ ] T015 [P][US2] gRPC 合同测试 `CapabilityRouterService` (`Invoke`, `StreamInvoke`, `ReportHealth`) in `internal/tests/grpc/capability_registry/router_contract_test.go`.
-- [ ] T016 [P][US2] 路由策略集成测试：在 `internal/tests/service/capability_registry/router_strategy_test.go` 使用内存适配器模拟权重与健康变动，确保 500ms 内 fallback。
-- [ ] T017 [P][US2] Sandbox 接口合同测试：在 `internal/tests/grpc/capability_registry/router_sandbox_test.go` 和 `internal/tests/http/admin/capability_registry/router_sandbox_contract_test.go` 验证策略演练请求与响应。
+- [X] T015 [P][US2] gRPC 合同测试 `CapabilityRouterService` (`Invoke`, `StreamInvoke`, `ReportHealth`) in `internal/tests/grpc/capability_registry/router_contract_test.go`.
+- [X] T016 [P][US2] 路由策略集成测试：在 `internal/tests/service/capability_registry/router_strategy_test.go` 使用内存适配器模拟权重与健康变动，确保 500ms 内 fallback。
+- [X] T017 [P][US2] Sandbox 接口合同测试：在 `internal/tests/grpc/capability_registry/router_sandbox_test.go` 和 `internal/tests/http/admin/capability_registry/router_sandbox_contract_test.go` 验证策略演练请求与响应。
 
 ### Implementation
 
-- [ ] T018 [US2] Router 领域实现：在 `internal/service/capability_registry/router/` 编写策略选择、限流、sticky、观测输出逻辑，集成 Redis 权重缓存。
-- [ ] T019 [US2] 健康探测 orchestrator：在 `internal/service/capability_registry/health/` 实现主动探测、被动熔断、冷却时间控制，更新 `HealthProbeResult`。
-- [ ] T020 [US2] Router gRPC Handler：在 `internal/transport/grpc/capability_registry/router_server.go` 实现 `Invoke`、`StreamInvoke`、`ReportHealth`，接入拦截器链。
-- [ ] T021 [US2] Router REST 入口：在 `internal/transport/http/admin/capability_registry/router_handler.go` 实现 `/router/invoke` 与健康上报路由，保证与 gRPC 行为一致。
-- [ ] T022 [US2] Fallback 状态同步：在 `internal/service/capability_registry/router/fallback_sync.go` 实现 Router fallback 结果回写 Registry/HealthProbeResult。
-- [ ] T023 [US2] Sandbox 服务逻辑：在 `internal/service/capability_registry/sandbox/` 复用 Router 策略生成模拟结果并隔离权限。
-- [ ] T024 [US2] Sandbox Handler：在 `internal/transport/grpc/capability_registry/sandbox_server.go` 与 `internal/transport/http/admin/capability_registry/sandbox_handler.go` 提供 sandbox API。
-- [ ] T025 [US2] 观测与指标：在 `internal/service/capability_registry/router/metrics.go` 记录选路决策、降级次数、错误码、sandbox 调用指标，并打通 OpenTelemetry。
+- [X] T018 [US2] Router 领域实现：在 `internal/service/capability_registry/router/` 编写策略选择、限流、sticky、观测输出逻辑，集成 Redis 权重缓存。
+- [X] T019 [US2] 健康探测 orchestrator：在 `internal/service/capability_registry/health/` 实现主动探测、被动熔断、冷却时间控制，更新 `HealthProbeResult`。
+- [X] T020 [US2] Router gRPC Handler：在 `internal/transport/grpc/capability_registry/router_server.go` 实现 `Invoke`、`StreamInvoke`、`ReportHealth`，接入拦截器链。
+- [X] T021 [US2] Router REST 入口：在 `internal/transport/http/admin/capability_registry/router_handler.go` 实现 `/router/invoke` 与健康上报路由，保证与 gRPC 行为一致。
+- [X] T022 [US2] Fallback 状态同步：在 `internal/service/capability_registry/router/fallback_sync.go` 实现 Router fallback 结果回写 Registry/HealthProbeResult。
+- [X] T023 [US2] Sandbox 服务逻辑：在 `internal/service/capability_registry/sandbox/` 复用 Router 策略生成模拟结果并隔离权限。
+- [X] T024 [US2] Sandbox Handler：在 `internal/transport/grpc/capability_registry/sandbox_server.go` 与 `internal/transport/http/admin/capability_registry/sandbox_handler.go` 提供 sandbox API。
+- [X] T025 [US2] 观测与指标：在 `internal/service/capability_registry/router/metrics.go` 记录选路决策、降级次数、错误码、sandbox 调用指标，并打通 OpenTelemetry。
 
 ---
 

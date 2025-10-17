@@ -461,6 +461,109 @@ var CapabilityRouterService_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
+	CapabilityRouterSandboxService_Simulate_FullMethodName = "/powerx.capability.registry.v1.CapabilityRouterSandboxService/Simulate"
+)
+
+// CapabilityRouterSandboxServiceClient is the client API for CapabilityRouterSandboxService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type CapabilityRouterSandboxServiceClient interface {
+	Simulate(ctx context.Context, in *SandboxInvokeRequest, opts ...grpc.CallOption) (*SandboxInvokeResponse, error)
+}
+
+type capabilityRouterSandboxServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewCapabilityRouterSandboxServiceClient(cc grpc.ClientConnInterface) CapabilityRouterSandboxServiceClient {
+	return &capabilityRouterSandboxServiceClient{cc}
+}
+
+func (c *capabilityRouterSandboxServiceClient) Simulate(ctx context.Context, in *SandboxInvokeRequest, opts ...grpc.CallOption) (*SandboxInvokeResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SandboxInvokeResponse)
+	err := c.cc.Invoke(ctx, CapabilityRouterSandboxService_Simulate_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// CapabilityRouterSandboxServiceServer is the server API for CapabilityRouterSandboxService service.
+// All implementations must embed UnimplementedCapabilityRouterSandboxServiceServer
+// for forward compatibility.
+type CapabilityRouterSandboxServiceServer interface {
+	Simulate(context.Context, *SandboxInvokeRequest) (*SandboxInvokeResponse, error)
+	mustEmbedUnimplementedCapabilityRouterSandboxServiceServer()
+}
+
+// UnimplementedCapabilityRouterSandboxServiceServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedCapabilityRouterSandboxServiceServer struct{}
+
+func (UnimplementedCapabilityRouterSandboxServiceServer) Simulate(context.Context, *SandboxInvokeRequest) (*SandboxInvokeResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Simulate not implemented")
+}
+func (UnimplementedCapabilityRouterSandboxServiceServer) mustEmbedUnimplementedCapabilityRouterSandboxServiceServer() {
+}
+func (UnimplementedCapabilityRouterSandboxServiceServer) testEmbeddedByValue() {}
+
+// UnsafeCapabilityRouterSandboxServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to CapabilityRouterSandboxServiceServer will
+// result in compilation errors.
+type UnsafeCapabilityRouterSandboxServiceServer interface {
+	mustEmbedUnimplementedCapabilityRouterSandboxServiceServer()
+}
+
+func RegisterCapabilityRouterSandboxServiceServer(s grpc.ServiceRegistrar, srv CapabilityRouterSandboxServiceServer) {
+	// If the following call pancis, it indicates UnimplementedCapabilityRouterSandboxServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&CapabilityRouterSandboxService_ServiceDesc, srv)
+}
+
+func _CapabilityRouterSandboxService_Simulate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SandboxInvokeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CapabilityRouterSandboxServiceServer).Simulate(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CapabilityRouterSandboxService_Simulate_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CapabilityRouterSandboxServiceServer).Simulate(ctx, req.(*SandboxInvokeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// CapabilityRouterSandboxService_ServiceDesc is the grpc.ServiceDesc for CapabilityRouterSandboxService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var CapabilityRouterSandboxService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "powerx.capability.registry.v1.CapabilityRouterSandboxService",
+	HandlerType: (*CapabilityRouterSandboxServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "Simulate",
+			Handler:    _CapabilityRouterSandboxService_Simulate_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "powerx/capability/registry/v1/registry.proto",
+}
+
+const (
 	CapabilityDiscoveryService_GetSnapshot_FullMethodName   = "/powerx.capability.registry.v1.CapabilityDiscoveryService/GetSnapshot"
 	CapabilityDiscoveryService_ListSnapshots_FullMethodName = "/powerx.capability.registry.v1.CapabilityDiscoveryService/ListSnapshots"
 )

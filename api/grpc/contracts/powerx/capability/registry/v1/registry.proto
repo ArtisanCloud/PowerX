@@ -18,6 +18,10 @@ service CapabilityRouterService {
   rpc ReportHealth (ReportHealthRequest) returns (ReportHealthResponse);
 }
 
+service CapabilityRouterSandboxService {
+  rpc Simulate (SandboxInvokeRequest) returns (SandboxInvokeResponse);
+}
+
 service CapabilityDiscoveryService {
   rpc GetSnapshot (GetSnapshotRequest) returns (GetSnapshotResponse);
   rpc ListSnapshots (ListSnapshotsRequest) returns (ListSnapshotsResponse);
@@ -177,6 +181,15 @@ message ReportHealthRequest {
 
 message ReportHealthResponse {
   bool accepted = 1;
+}
+
+message SandboxInvokeRequest {
+  InvokeRequest request = 1;
+  CapabilityRegistration registration_override = 2;
+}
+
+message SandboxInvokeResponse {
+  InvokeResponse response = 1;
 }
 
 message GetSnapshotRequest {

@@ -9,7 +9,10 @@ import (
 	mediamgr "github.com/ArtisanCloud/PowerX/internal/infra/media/manager"
 	authsvc "github.com/ArtisanCloud/PowerX/internal/service/auth"
 	capabilityRegistryDomain "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/domain"
+	capabilityHealth "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/health"
 	capabilityRegistry "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/registry"
+	capabilityRouter "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/router"
+	capabilitySandbox "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/sandbox"
 	iamsvc "github.com/ArtisanCloud/PowerX/internal/service/iam"
 	mediasvc "github.com/ArtisanCloud/PowerX/internal/service/media"
 	tenantsvc "github.com/ArtisanCloud/PowerX/internal/service/tenant"
@@ -40,6 +43,8 @@ type Deps struct {
 
 	EventBus              event_bus.EventBus
 	CapabilityRegistrySvc *capabilityRegistry.Service
+	RouterSvc             *capabilityRouter.Service
+	RouterSandboxSvc      *capabilitySandbox.Service
 }
 
 func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
@@ -90,6 +95,15 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 		Auditor:         aud,
 	})
 
+	routerHealthRepo := capabilityHealth.NewMemoryRepository()
+	routerSvc := capabilityRouter.NewService(capabilityRouter.ServiceOptions{
+		RegistryRepository: capRegistryRepo,
+		HealthRepository:   routerHealthRepo,
+		EventBus:           bus,
+		Instrumentation:    capabilityRegistryDomain.NewInstrumentation(nil),
+	})
+	sandboxSvc := capabilitySandbox.NewService(capRegistryRepo, routerSvc)
+
 	return &Deps{
 		DB:                    db,
 		TenantSvc:             tenantSvc,
@@ -102,5 +116,7 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 		MediaSvc:              mediaSvc,
 		EventBus:              bus,
 		CapabilityRegistrySvc: capRegistrySvc,
+		RouterSvc:             routerSvc,
+		RouterSandboxSvc:      sandboxSvc,
 	}
 }

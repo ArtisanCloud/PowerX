@@ -103,6 +103,12 @@ func New(cfg *GRPCConfig, deps *shared.Deps) (*grpc.Server, net.Listener, error)
 	if deps.CapabilityRegistrySvc != nil {
 		capabilityRegistryGRPC.RegisterCapabilityRegistryServer(s, deps.CapabilityRegistrySvc)
 	}
+	if deps.RouterSvc != nil {
+		capabilityRegistryGRPC.RegisterCapabilityRouterServer(s, deps.RouterSvc)
+	}
+	if deps.RouterSandboxSvc != nil {
+		capabilityRegistryGRPC.RegisterCapabilityRouterSandboxServer(s, deps.RouterSandboxSvc)
+	}
 
 	// STS（令牌换签/内发）—— 与拦截器共用同一个 KeyRing
 	stsv1.RegisterSTSServiceServer(s, authgrpc.NewSTSServiceServerWithRing(deps, ring))

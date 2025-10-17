@@ -23,4 +23,16 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 		tenantScoped.PUT("", handler.UpdateCapability)
 		tenantScoped.DELETE("", handler.DisableCapability)
 	}
+	if deps.RouterSvc != nil {
+		routerHandler := NewRouterHandler(deps.RouterSvc)
+		routerGroup := protectedGroup.Group("/admin/router")
+		{
+			routerGroup.POST("/invoke", routerHandler.Invoke)
+			routerGroup.POST("/health", routerHandler.ReportHealth)
+		}
+		if deps.RouterSandboxSvc != nil {
+			sandboxHandler := NewSandboxHandler(deps.RouterSandboxSvc)
+			routerGroup.POST("/sandbox/invoke", sandboxHandler.Invoke)
+		}
+	}
 }
