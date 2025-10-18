@@ -1,0 +1,379 @@
+openapi: 3.0.3
+info:
+  title: CoreX Event Fabric Admin API
+  version: 0.1.0
+  description: >
+    管理事件主题、ACL、发布、死信与回放的 REST 接口。所有请求需携带租户上下文与认证凭证。
+servers:
+  - url: https://{host}/admin/event-fabric
+    variables:
+      host:
+        default: localhost:8077
+paths:
+  /topics:
+    post:
+      summary: 创建或更新事件主题
+      operationId: createTopic
+      tags: [Topics]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TopicUpsertRequest'
+      responses:
+        '201':
+          description: 已创建
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Topic'
+        '409':
+          description: 命名冲突或生命周期冲突
+        '422':
+          description: 校验失败
+  /topics/{topicId}:
+    get:
+      summary: 查询主题详情
+      operationId: getTopic
+      tags: [Topics]
+      parameters:
+        - in: path
+          name: topicId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 主题详情
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Topic'
+        '404':
+          description: 未找到
+    patch:
+      summary: 更新主题生命周期或策略
+      operationId: updateTopic
+      tags: [Topics]
+      parameters:
+        - in: path
+          name: topicId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TopicUpdateRequest'
+      responses:
+        '200':
+          description: 更新成功
+        '409':
+          description: 冲突
+  /acl:
+    post:
+      summary: 批量授予或撤销主题 ACL
+      operationId: upsertAclBindings
+      tags: [ACL]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AclBatchRequest'
+      responses:
+        '200':
+          description: 已应用
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AclBatchResponse'
+  /publish:
+    post:
+      summary: 通过 Admin 通道发布事件
+      operationId: publishEvent
+      tags: [Publish]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PublishRequest'
+      responses:
+        '202':
+          description: 接收成功，交由投递管线处理
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublishReceipt'
+        '403':
+          description: 未授权发布
+  /dlq:
+    get:
+      summary: 查询死信队列
+      operationId: listDlq
+      tags: [DLQ]
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [queued, replayed, discarded]
+        - name: topicFullName
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: 死信条目
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/DlqMessage'
+  /dlq/{dlqId}/replay:
+    post:
+      summary: 重放死信消息
+      operationId: replayDlq
+      tags: [DLQ]
+      parameters:
+        - in: path
+          name: dlqId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                operator:
+                  type: string
+      responses:
+        '202':
+          description: 已调度重放
+  /replay:
+    post:
+      summary: 发起时间窗口回放任务
+      operationId: createReplay
+      tags: [Replay]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReplayRequest'
+      responses:
+        '202':
+          description: 回放任务已创建
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReplayTask'
+
+components:
+  parameters:
+    TenantId:
+      name: tenantId
+      in: query
+      required: true
+      schema:
+        type: string
+  schemas:
+    TopicUpsertRequest:
+      type: object
+      required: [tenantId, namespace, name]
+      properties:
+        tenantId:
+          type: string
+        namespace:
+          type: string
+        name:
+          type: string
+        payloadFormat:
+          type: string
+          default: json
+        versioningMode:
+          type: string
+          enum: [strict, backward, any]
+        retentionPolicy:
+          type: object
+        maxRetry:
+          type: integer
+          default: 5
+        ackTimeoutSec:
+          type: integer
+          default: 30
+        metadata:
+          type: object
+    TopicUpdateRequest:
+      type: object
+      properties:
+        lifecycleStatus:
+          type: string
+          enum: [active, deprecated, retired]
+        metadata:
+          type: object
+    Topic:
+      allOf:
+        - $ref: '#/components/schemas/TopicUpsertRequest'
+        - type: object
+          properties:
+            id:
+              type: string
+            fullTopic:
+              type: string
+            lifecycleStatus:
+              type: string
+            createdAt:
+              type: string
+              format: date-time
+            updatedAt:
+              type: string
+              format: date-time
+    AclBinding:
+      type: object
+      properties:
+        id:
+          type: string
+        tenantId:
+          type: string
+        topicId:
+          type: string
+        principalType:
+          type: string
+          enum: [service, role, user]
+        principalId:
+          type: string
+        action:
+          type: string
+          enum: [publish, subscribe, replay]
+        expiresAt:
+          type: string
+          format: date-time
+    AclBatchRequest:
+      type: object
+      required: [tenantId, topicFullName, bindings]
+      properties:
+        tenantId:
+          type: string
+        topicFullName:
+          type: string
+        bindings:
+          type: array
+          items:
+            type: object
+            properties:
+              principalType:
+                type: string
+              principalId:
+                type: string
+              action:
+                type: string
+              expiresAt:
+                type: string
+                format: date-time
+    AclBatchResponse:
+      type: object
+      properties:
+        granted:
+          type: array
+          items:
+            $ref: '#/components/schemas/AclBinding'
+        revoked:
+          type: array
+          items:
+            $ref: '#/components/schemas/AclBinding'
+    PublishRequest:
+      type: object
+      required: [tenantId, topicFullName, eventId, payload]
+      properties:
+        tenantId:
+          type: string
+        topicFullName:
+          type: string
+        eventId:
+          type: string
+        version:
+          type: string
+          default: v1
+        payload:
+          type: object
+        headers:
+          type: object
+    PublishReceipt:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [queued, delivered]
+        traceId:
+          type: string
+        retryCount:
+          type: integer
+    DlqMessage:
+      type: object
+      properties:
+        id:
+          type: string
+        eventId:
+          type: string
+        topicFullName:
+          type: string
+        failureStage:
+          type: string
+        lastErrorCode:
+          type: string
+        lastErrorMessage:
+          type: string
+        status:
+          type: string
+          enum: [queued, replayed, discarded]
+        replayedAt:
+          type: string
+          format: date-time
+    ReplayRequest:
+      type: object
+      required: [tenantId, topicFullName, timeRangeStart, timeRangeEnd]
+      properties:
+        tenantId:
+          type: string
+        topicFullName:
+          type: string
+        timeRangeStart:
+          type: string
+          format: date-time
+        timeRangeEnd:
+          type: string
+          format: date-time
+        filterTraceId:
+          type: string
+        filterSubscriberId:
+          type: string
+    ReplayTask:
+      type: object
+      properties:
+        id:
+          type: string
+        status:
+          type: string
+          enum: [pending, running, completed, failed]
+        resultCount:
+          type: integer
+        failureReason:
+          type: string
