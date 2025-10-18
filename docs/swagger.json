@@ -1977,6 +1977,20 @@
         ]
       }
     },
+    "/api/v1/event-fabric/status": {
+      "get": {
+        "operationId": "GET /api/v1/event-fabric/status",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "GET /api/v1/event-fabric/status",
+        "tags": [
+          "api"
+        ]
+      }
+    },
     "/api/v1/health": {
       "get": {
         "operationId": "GET /api/v1/health",

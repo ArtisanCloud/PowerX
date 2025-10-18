@@ -18,12 +18,12 @@
 
 **Purpose**: 建立事件骨干的目录与基础配置，确保后续任务可落地。
 
-- [ ] **T001 [P] [Setup]** 在 `pkg/corex/db/persistence/model/event_fabric/`, `pkg/corex/db/persistence/repository/event_fabric/`, `internal/service/event_fabric/{directory,acl,delivery,dlq,replay,audit}`, `internal/transport/http/admin/event_fabric/`, `internal/transport/grpc/event_fabric/` 创建空的 `doc.go`/占位文件与 `go` 包声明。
-- [ ] **T002 [Setup]** 更新 `api/grpc/contracts/buf.yaml` 与 `api/grpc/contracts/buf.gen.yaml` 注册 `corex/event_fabric/v1` Proto 包，校验 `managed.go_package_prefix`、`api/grpc/gen` 输出路径，并在 `Makefile` 新增 `proto-event-fabric` 目标触发代码生成。
-- [ ] **T003 [Setup]** 扩展 `config/config.go`, `config/validator.go`，新增 `EventFabricConfig`（含重试/ACK 超时/Redis 配置），并在 `.env.sample` 说明默认值。
-- [ ] **T004 [Setup]** 在 `internal/transport/http/admin/routes.go` 注册 `/event-fabric` 路由分组与占位 Handler，便于后续故事挂载。
-- [ ] **T005 [Setup]** 在 `api/grpc/contracts/corex/event_fabric/v1/event_fabric.proto` 定义基础消息与服务骨架（目录、ACL、Publish/Subscribe、Replay、DLQ），确保契约覆盖 FR-003~FR-009 并能通过 `buf lint`。
-- [ ] **T006 [Setup]** 在 `specs/004-eventbus-message-fabric/contracts/event_fabric_admin.openapi.yaml` 起草 Admin REST OpenAPI 合同骨架，包含 `/topics`, `/acl`, `/publish`, `/dlq`, `/replay` 路由与 `pkg/dto` 响应格式。
+- [x] **T001 [P] [Setup]** 在 `pkg/corex/db/persistence/model/event_fabric/`, `pkg/corex/db/persistence/repository/event_fabric/`, `internal/service/event_fabric/{directory,acl,delivery,dlq,replay,audit}`, `internal/transport/http/admin/event_fabric/`, `internal/transport/grpc/event_fabric/` 创建空的 `doc.go`/占位文件与 `go` 包声明。
+- [x] **T002 [Setup]** 更新 `api/grpc/contracts/buf.yaml` 与 `api/grpc/contracts/buf.gen.yaml` 注册 `corex/event_fabric/v1` Proto 包，校验 `managed.go_package_prefix`、`api/grpc/gen` 输出路径，并在 `Makefile` 新增 `proto-event-fabric` 目标触发代码生成。
+- [x] **T003 [Setup]** 扩展 `config/config.go`, `config/validator.go`，新增 `EventFabricConfig`（含重试/ACK 超时/Redis 配置），并在 `.env.sample` 说明默认值。
+- [x] **T004 [Setup]** 在 `internal/transport/http/admin/routes.go` 注册 `/event-fabric` 路由分组与占位 Handler，便于后续故事挂载。
+- [x] **T005 [Setup]** 在 `api/grpc/contracts/corex/event_fabric/v1/event_fabric.proto` 定义基础消息与服务骨架（目录、ACL、Publish/Subscribe、Replay、DLQ），确保契约覆盖 FR-003~FR-009 并能通过 `buf lint`。
+- [x] **T006 [Setup]** 在 `specs/004-eventbus-message-fabric/contracts/event_fabric_admin.openapi.yaml` 起草 Admin REST OpenAPI 合同骨架，包含 `/topics`, `/acl`, `/publish`, `/dlq`, `/replay` 路由与 `pkg/dto` 响应格式。
 
 ---
 

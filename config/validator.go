@@ -49,6 +49,26 @@ func (c *Config) Validate() error {
 		errors = append(errors, "使用 redis 事件总线时，event_bus.redis_addr 不能为空")
 	}
 
+	// --- Event Fabric ---
+	if c.EventFabric.AckTimeoutSeconds <= 0 {
+		errors = append(errors, "event_fabric.ack_timeout_seconds 必须大于0")
+	}
+	if c.EventFabric.DefaultMaxRetry <= 0 {
+		errors = append(errors, "event_fabric.default_max_retry 必须大于0")
+	}
+	if strings.TrimSpace(c.EventFabric.RetryKeyPrefix) == "" {
+		errors = append(errors, "event_fabric.retry_key_prefix 不能为空")
+	}
+	if strings.TrimSpace(c.EventFabric.ReplayKeyPrefix) == "" {
+		errors = append(errors, "event_fabric.replay_key_prefix 不能为空")
+	}
+	if c.EventFabric.SchedulerInterval <= 0 {
+		errors = append(errors, "event_fabric.scheduler_interval 必须大于0")
+	}
+	if strings.TrimSpace(c.EventFabric.RedisAddr) == "" {
+		errors = append(errors, "event_fabric.redis_addr 不能为空")
+	}
+
 	// --- LowCode ---
 	if c.LowCode.MaxConcurrentFlows <= 0 {
 		errors = append(errors, "dynamic_form.max_concurrent_flows 必须大于0")

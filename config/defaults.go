@@ -55,6 +55,16 @@ func GetDefaults() *Config {
 			RedisPassword: "",
 			DedupeTTLSec:  30,
 		},
+		EventFabric: EventFabricConfig{
+			AckTimeoutSeconds: 30,
+			DefaultMaxRetry:   5,
+			RedisAddr:         "localhost:6379",
+			RedisPassword:     "",
+			RedisDB:           0,
+			RetryKeyPrefix:    "event_fabric:retry",
+			ReplayKeyPrefix:   "event_fabric:replay",
+			SchedulerInterval: 5,
+		},
 		LowCode: LowCodeConfig{
 			MaxConcurrentFlows: 10,
 			DefaultTimeoutSec:  60,

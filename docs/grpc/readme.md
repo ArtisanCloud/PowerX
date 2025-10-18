@@ -130,6 +130,11 @@ buf breaking --against 'https://github.com/<org>/<repo>.git#branch=main'
 buf generate
 ```
 
+# Buf 配置要点
+
+- `buf.gen.yaml` 的 `managed.go_package_prefix` 使用 **overrides** 指定 `corex/event_fabric/v1` 的 Go 包前缀，确保生成代码落在 `api/grpc/gen/go/corex/event_fabric/v1`，与目录结构和 import 规范一致。
+- 旧有契约若暂不符合 lint 规则（例如 `powerx/capability/registry/v1/registry.proto` 中的请求命名），通过 `buf.yaml` 的 `ignore_only` 精确豁免 `RPC_REQUEST_STANDARD_NAME`。新增契约仍必须遵守规范，避免扩大忽略范围。
+
 典型输出：
 
 * Go：`api/grpc/gen/go/powerx/{iam,org,plugin,agent,system,data}/v1/...`
