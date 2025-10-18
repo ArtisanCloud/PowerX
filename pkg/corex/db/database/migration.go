@@ -3,6 +3,7 @@ package database
 import (
 	modelAudit "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/audit"
 	modelCapability "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/capability"
+	modelEventFabric "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/event_fabric"
 	modelAgent "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/flow"
 	modelIAM "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/iam"
 	mediamodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/media"
@@ -104,8 +105,7 @@ func migrateCapabilityModels(db *gorm.DB) error {
 }
 
 func migrateEventFabricModels(db *gorm.DB) error {
-	// Event Fabric 相关表结构占位，后续阶段会补充 AutoMigrate。
-	// 保留钩子以确保迁移入口已经对接。
-	_ = db
-	return nil
+	return db.AutoMigrate(
+		&modelEventFabric.TopicDefinition{},
+	)
 }

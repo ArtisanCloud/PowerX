@@ -46,13 +46,13 @@
 
 ### Implementation
 
-- [ ] **T010 [US1]** 在 `pkg/corex/db/migration/202510170001_create_event_topics.go` 定义 `event_topics` 表（含租户、命名空间、生命周期、payload_format、max_retry 等字段）。
-- [ ] **T011 [US1]** 新增模型 `pkg/corex/db/persistence/model/event_fabric/topic_definition.go`，实现 GORM 标签、唯一索引与生命周期时间戳。
-- [ ] **T012 [US1]** 在 `pkg/corex/db/persistence/repository/event_fabric/topic_repository.go` 实现查询、分页、乐观锁更新与生命周期状态过滤。
-- [ ] **T013 [US1]** 实现 `internal/service/event_fabric/directory/validator.go` 与 `service.go`，覆盖命名规则校验、版本化快照、事件发布 `TopicLifecycleChanged`。
-- [ ] **T014 [P] [US1]** 编写 Admin REST Handler `internal/transport/http/admin/event_fabric/directory_handler.go` 与 DTO 映射，挂载至 `/topics` 系列路由，并同步更新 OpenAPI 合同中相关路径。
-- [ ] **T015 [P] [US1]** 在 `internal/tests/http/admin/event_fabric/topic_contract_test.go` 编写合同测试：创建、命名冲突、生命周期转换、审计校验。
-- [ ] **T016 [US1]** 更新 `quickstart.md` 并在 `docs/event_fabric/operations.md` 新增章节，记录主题目录操作流程与事件命名规范。
+- [x] **T010 [US1]** 在 `pkg/corex/db/migration/202510170001_create_event_topics.go` 定义 `event_topics` 表（含租户、命名空间、生命周期、payload_format、max_retry 等字段）。
+- [x] **T011 [US1]** 新增模型 `pkg/corex/db/persistence/model/event_fabric/topic_definition.go`，实现 GORM 标签、唯一索引与生命周期时间戳。
+- [x] **T012 [US1]** 在 `pkg/corex/db/persistence/repository/event_fabric/topic_repository.go` 实现查询、分页、乐观锁更新与生命周期状态过滤。
+- [x] **T013 [US1]** 实现 `internal/service/event_fabric/directory/validator.go` 与 `service.go`，覆盖命名规则校验、版本化快照、事件发布 `TopicLifecycleChanged`。
+- [x] **T014 [P] [US1]** 编写 Admin REST Handler `internal/transport/http/admin/event_fabric/directory_handler.go` 与 DTO 映射，挂载至 `/topics` 系列路由，并同步更新 OpenAPI 合同中相关路径。
+- [x] **T015 [P] [US1]** 在 `internal/tests/http/admin/event_fabric/topic_contract_test.go` 编写合同测试：创建、命名冲突、生命周期转换、审计校验。
+- [x] **T016 [US1]** 更新 `quickstart.md` 并在 `docs/event_fabric/operations.md` 新增章节，记录主题目录操作流程与事件命名规范。
 
 **Checkpoint**: 主题目录独立可用，可完成用户故事 1 的验收脚本。
 

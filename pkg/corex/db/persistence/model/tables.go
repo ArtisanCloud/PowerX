@@ -42,3 +42,5 @@ const TableCapabilityRegistryRoutingPolicy = "capability_registry_routing_polici
 const TableCapabilityRegistryFallbackPlan = "capability_registry_fallback_plans"
 const TableCapabilityRegistryHealthProbeResult = "capability_registry_health_probe_results"
 const TableCapabilityRegistryDiscoveryCache = "capability_registry_discovery_cache"
+
+const TableEventTopics = "event_topics"

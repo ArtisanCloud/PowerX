@@ -16,6 +16,7 @@ import (
 	capabilityRegistry "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/registry"
 	capabilityRouter "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/router"
 	capabilitySandbox "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/sandbox"
+	directoryService "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/directory"
 	iamsvc "github.com/ArtisanCloud/PowerX/internal/service/iam"
 	mediasvc "github.com/ArtisanCloud/PowerX/internal/service/media"
 	tenantsvc "github.com/ArtisanCloud/PowerX/internal/service/tenant"
@@ -24,6 +25,7 @@ import (
 	dbm "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/audit"
 	auditrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/audit"
 	capabilityRegistryRepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/capability_registry"
+	eventfabricrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/event_fabric"
 	"github.com/ArtisanCloud/PowerX/pkg/event_bus"
 	pxlog "github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"github.com/redis/go-redis/v9"
@@ -143,10 +145,11 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 
 // EventFabricDeps 聚合事件骨干运行时依赖。
 type EventFabricDeps struct {
-	RedisClient *redis.Client
-	EventBus    event_bus.EventBus
-	Repos       *EventFabricRepositoryFactory
-	Config      EventFabricRuntimeConfig
+    RedisClient *redis.Client
+    EventBus    event_bus.EventBus
+    Repos       *EventFabricRepositoryFactory
+    Config      EventFabricRuntimeConfig
+    Directory   *directoryService.DirectoryService
 }
 
 // EventFabricRuntimeConfig 将配置项转换为运行时易用的结构。
@@ -163,22 +166,18 @@ type EventFabricRepositoryFactory struct {
 	db *gorm.DB
 }
 
-// WithDB 返回绑定指定事务/连接的仓储集合（占位，后续补充具体仓储）。
-func (f *EventFabricRepositoryFactory) WithDB(tx *gorm.DB) *EventFabricRepositories {
+func (f *EventFabricRepositoryFactory) WithDB(tx *gorm.DB) *EventFabricRepositoryFactory {
+	if tx == nil {
+		return f
+	}
+	return &EventFabricRepositoryFactory{db: tx}
+}
+
+func (f *EventFabricRepositoryFactory) TopicRepository() *eventfabricrepo.TopicRepository {
 	if f == nil {
 		return nil
 	}
-	if tx == nil {
-		tx = f.db
-	}
-	return &EventFabricRepositories{
-		DB: tx,
-	}
-}
-
-// EventFabricRepositories 在仓储实现落地前的占位结构。
-type EventFabricRepositories struct {
-	DB *gorm.DB
+	return eventfabricrepo.NewTopicRepository(f.db)
 }
 
 func newEventFabricDeps(db *gorm.DB, opts EventFabricOptions, bus event_bus.EventBus) *EventFabricDeps {
@@ -221,10 +220,24 @@ func newEventFabricDeps(db *gorm.DB, opts EventFabricOptions, bus event_bus.Even
 		})
 	}
 
+	factory := &EventFabricRepositoryFactory{db: db}
+	var directorySvc *directoryService.DirectoryService
+	if repo := factory.TopicRepository(); repo != nil {
+		directorySvc = directoryService.NewDirectoryService(directoryService.Options{
+			Store:             repo,
+			EventBus:          bus,
+			Clock:             time.Now,
+			ActorResolver:     func(context.Context) string { return "system" },
+			DefaultMaxRetry:   cfg.DefaultMaxRetry,
+			DefaultAckTimeout: cfg.AckTimeout,
+		})
+	}
+
 	return &EventFabricDeps{
 		RedisClient: redisClient,
 		EventBus:    bus,
-		Repos:       &EventFabricRepositoryFactory{db: db},
+		Repos:       factory,
 		Config:      cfg,
+		Directory:   directorySvc,
 	}
 }

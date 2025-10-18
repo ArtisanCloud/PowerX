@@ -19,16 +19,16 @@
 curl -X POST http://localhost:8077/admin/event-fabric/topics \
   -H 'Content-Type: application/json' \
   -d '{
-    "tenantId": "'"$DEV_TENANT"'",
+    "tenant_id": "'"$DEV_TENANT"'",
     "namespace": "corex.workflow",
     "name": "approved",
-    "payloadFormat": "json",
-    "versioningMode": "backward",
-    "maxRetry": 5,
-    "retentionPolicy": {"type":"time","value":"7d"}
+    "payload_format": "json",
+    "versioning_mode": "backward",
+    "max_retry": 5,
+    "retention_policy": "{\"type\":\"time\",\"value\":\"7d\"}"
   }'
 ```
-- 预期：返回 Topic ULID，`lifecycleStatus=active`。
+- 预期：返回 Topic UUID，`lifecycle=active`。
 
 ## 2. 授权发布/订阅主体
 ```bash
