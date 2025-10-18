@@ -31,9 +31,9 @@
 
 **Purpose**: 跨用户故事共享的核心能力，完成前禁止进入任何故事实现。
 
-- [ ] **T007 [Foundation]** 在 `internal/app/shared/deps.go`、`internal/bootstrap/app.go` 建立 `EventFabricDeps` 注入结构，初始化 Redis 客户端、默认 EventBus、Postgres Repo 工厂。
-- [ ] **T008 [Foundation]** 定义 `internal/service/event_fabric/shared/constants.go`、`errors.go`（多租户、状态、错误码、默认重试 5 次、ACK 超时 30s），供各故事统一引用。
-- [ ] **T009 [Foundation]** 在 `cmd/database/migrate.go`、`pkg/corex/db/database/migration.go` 注册 `migrateEventFabricModels` 钩子，并生成空迁移文件模板 `pkg/corex/db/migration/202510170000_event_fabric.go` 以承载后续表结构。
+- [x] **T007 [Foundation]** 在 `internal/app/shared/deps.go`、`internal/bootstrap/app.go` 建立 `EventFabricDeps` 注入结构，初始化 Redis 客户端、默认 EventBus、Postgres Repo 工厂。
+- [x] **T008 [Foundation]** 定义 `internal/service/event_fabric/shared/constants.go`、`errors.go`（多租户、状态、错误码、默认重试 5 次、ACK 超时 30s），供各故事统一引用。
+- [x] **T009 [Foundation]** 在 `cmd/database/migrate.go`、`pkg/corex/db/database/migration.go` 注册 `migrateEventFabricModels` 钩子，并生成空迁移文件模板 `pkg/corex/db/migration/202510170000_event_fabric.go` 以承载后续表结构。
 
 **Checkpoint**: 依赖注入、配置与迁移框架就绪，可开始各用户故事。
 

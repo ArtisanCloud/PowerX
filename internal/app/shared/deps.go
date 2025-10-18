@@ -4,27 +4,29 @@ package shared
 
 import (
 	"context"
+	"strings"
 	"time"
 
+	discoverycache "github.com/ArtisanCloud/PowerX/internal/infra/cache/discovery"
 	mediamgr "github.com/ArtisanCloud/PowerX/internal/infra/media/manager"
 	authsvc "github.com/ArtisanCloud/PowerX/internal/service/auth"
+	discoveryService "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/discovery"
 	capabilityRegistryDomain "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/domain"
 	capabilityHealth "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/health"
 	capabilityRegistry "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/registry"
-	discoveryService "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/discovery"
 	capabilityRouter "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/router"
 	capabilitySandbox "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/sandbox"
-	discoverycache "github.com/ArtisanCloud/PowerX/internal/infra/cache/discovery"
 	iamsvc "github.com/ArtisanCloud/PowerX/internal/service/iam"
 	mediasvc "github.com/ArtisanCloud/PowerX/internal/service/media"
 	tenantsvc "github.com/ArtisanCloud/PowerX/internal/service/tenant"
+	"github.com/ArtisanCloud/PowerX/pkg/cache"
 	auditsvc "github.com/ArtisanCloud/PowerX/pkg/corex/audit"
 	dbm "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/audit"
 	auditrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/audit"
 	capabilityRegistryRepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/capability_registry"
 	"github.com/ArtisanCloud/PowerX/pkg/event_bus"
-	"github.com/ArtisanCloud/PowerX/pkg/cache"
 	pxlog "github.com/ArtisanCloud/PowerX/pkg/utils/logger"
+	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
 )
 
@@ -49,6 +51,8 @@ type Deps struct {
 	RouterSvc             *capabilityRouter.Service
 	RouterSandboxSvc      *capabilitySandbox.Service
 	DiscoverySvc          *discoveryService.Service
+
+	EventFabric *EventFabricDeps
 }
 
 func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
@@ -116,6 +120,8 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 	})
 	sandboxSvc := capabilitySandbox.NewService(capRegistryRepo, routerSvc)
 
+	eventFabricDeps := newEventFabricDeps(db, opts.EventFabric, bus)
+
 	return &Deps{
 		DB:                    db,
 		TenantSvc:             tenantSvc,
@@ -131,5 +137,94 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 		RouterSvc:             routerSvc,
 		RouterSandboxSvc:      sandboxSvc,
 		DiscoverySvc:          discoverySvc,
+		EventFabric:           eventFabricDeps,
+	}
+}
+
+// EventFabricDeps 聚合事件骨干运行时依赖。
+type EventFabricDeps struct {
+	RedisClient *redis.Client
+	EventBus    event_bus.EventBus
+	Repos       *EventFabricRepositoryFactory
+	Config      EventFabricRuntimeConfig
+}
+
+// EventFabricRuntimeConfig 将配置项转换为运行时易用的结构。
+type EventFabricRuntimeConfig struct {
+	AckTimeout        time.Duration
+	DefaultMaxRetry   int
+	RetryKeyPrefix    string
+	ReplayKeyPrefix   string
+	SchedulerInterval time.Duration
+}
+
+// EventFabricRepositoryFactory 为事件骨干生成仓储实例的简单工厂。
+type EventFabricRepositoryFactory struct {
+	db *gorm.DB
+}
+
+// WithDB 返回绑定指定事务/连接的仓储集合（占位，后续补充具体仓储）。
+func (f *EventFabricRepositoryFactory) WithDB(tx *gorm.DB) *EventFabricRepositories {
+	if f == nil {
+		return nil
+	}
+	if tx == nil {
+		tx = f.db
+	}
+	return &EventFabricRepositories{
+		DB: tx,
+	}
+}
+
+// EventFabricRepositories 在仓储实现落地前的占位结构。
+type EventFabricRepositories struct {
+	DB *gorm.DB
+}
+
+func newEventFabricDeps(db *gorm.DB, opts EventFabricOptions, bus event_bus.EventBus) *EventFabricDeps {
+	const (
+		fallbackAckTimeout      = 30 * time.Second
+		fallbackDefaultMaxRetry = 5
+		fallbackSchedulerTick   = 5 * time.Second
+	)
+
+	cfg := EventFabricRuntimeConfig{
+		AckTimeout:        time.Duration(opts.AckTimeoutSeconds) * time.Second,
+		DefaultMaxRetry:   opts.DefaultMaxRetry,
+		RetryKeyPrefix:    opts.RetryKeyPrefix,
+		ReplayKeyPrefix:   opts.ReplayKeyPrefix,
+		SchedulerInterval: time.Duration(opts.SchedulerInterval) * time.Second,
+	}
+
+	if cfg.AckTimeout <= 0 {
+		cfg.AckTimeout = fallbackAckTimeout
+	}
+	if cfg.DefaultMaxRetry <= 0 {
+		cfg.DefaultMaxRetry = fallbackDefaultMaxRetry
+	}
+	if strings.TrimSpace(cfg.RetryKeyPrefix) == "" {
+		cfg.RetryKeyPrefix = "event_fabric:retry"
+	}
+	if strings.TrimSpace(cfg.ReplayKeyPrefix) == "" {
+		cfg.ReplayKeyPrefix = "event_fabric:replay"
+	}
+	if cfg.SchedulerInterval <= 0 {
+		cfg.SchedulerInterval = fallbackSchedulerTick
+	}
+
+	var redisClient *redis.Client
+	if addr := strings.TrimSpace(opts.RedisAddr); addr != "" {
+		redisClient = redis.NewClient(&redis.Options{
+			Addr:     addr,
+			Password: opts.RedisPassword,
+			DB:       opts.RedisDB,
+		})
+	}
+
+	return &EventFabricDeps{
+		RedisClient: redisClient,
+		EventBus:    bus,
+		Repos:       &EventFabricRepositoryFactory{db: db},
+		Config:      cfg,
 	}
 }

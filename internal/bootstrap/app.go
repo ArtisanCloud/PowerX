@@ -127,6 +127,16 @@ func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error)
 				PresignEndpoint: cfg.Storage.S3.PresignEndpoint,
 			},
 		},
+		EventFabric: shared.EventFabricOptions{
+			AckTimeoutSeconds: cfg.EventFabric.AckTimeoutSeconds,
+			DefaultMaxRetry:   cfg.EventFabric.DefaultMaxRetry,
+			RedisAddr:         cfg.EventFabric.RedisAddr,
+			RedisPassword:     cfg.EventFabric.RedisPassword,
+			RedisDB:           cfg.EventFabric.RedisDB,
+			RetryKeyPrefix:    cfg.EventFabric.RetryKeyPrefix,
+			ReplayKeyPrefix:   cfg.EventFabric.ReplayKeyPrefix,
+			SchedulerInterval: cfg.EventFabric.SchedulerInterval,
+		},
 	}
 
 	deps := shared.NewDeps(db, opts)

@@ -78,6 +78,10 @@ func MigrateCoreModels(db *gorm.DB) (err error) {
 		return err
 	}
 
+	if err = migrateEventFabricModels(db); err != nil {
+		return err
+	}
+
 	// 迁移审计
 	err = db.AutoMigrate(
 		&modelAudit.AuditEvent{},
@@ -97,4 +101,11 @@ func migrateCapabilityModels(db *gorm.DB) error {
 		&modelCapability.CapabilityErrorTaxonomy{},
 		&modelCapability.CapabilityContractErrorTaxonomy{},
 	)
+}
+
+func migrateEventFabricModels(db *gorm.DB) error {
+	// Event Fabric 相关表结构占位，后续阶段会补充 AutoMigrate。
+	// 保留钩子以确保迁移入口已经对接。
+	_ = db
+	return nil
 }

@@ -14,4 +14,17 @@ type DepsOptions struct {
 	Audit        auditsvc.AuditOptions // 批量大小、等待等
 	Storage      mediasvc.StorageOptions
 	// 以后需要别的也放在这里（如默认租户、开关等）
+	EventFabric EventFabricOptions
+}
+
+// EventFabricOptions 描述事件骨干依赖的运行配置。
+type EventFabricOptions struct {
+	AckTimeoutSeconds int
+	DefaultMaxRetry   int
+	RedisAddr         string
+	RedisPassword     string
+	RedisDB           int
+	RetryKeyPrefix    string
+	ReplayKeyPrefix   string
+	SchedulerInterval int
 }
