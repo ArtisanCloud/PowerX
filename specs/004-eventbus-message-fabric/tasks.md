@@ -65,13 +65,13 @@
 
 ### Implementation
 
-- [ ] **T017 [US2]** 在迁移文件 `pkg/corex/db/migration/202510170001_create_event_topics.go` 中补充 `event_acl_bindings` 表结构（或新增 `202510170002_create_event_acl_bindings.go`），包含唯一键 (`tenant_id`,`topic_id`,`principal_id`,`action`) 与过期时间。
-- [ ] **T018 [US2]** 增加模型 `pkg/corex/db/persistence/model/event_fabric/acl_binding.go`。
-- [ ] **T019 [US2]** 编写仓储 `pkg/corex/db/persistence/repository/event_fabric/acl_repository.go`，支持批量授予/撤销与有效期过滤。
-- [ ] **T020 [US2]** 实现 `internal/service/event_fabric/acl/service.go`：整合安全策略（引用 Security Policy 客户端）、审计记录、冲突检测。
-- [ ] **T021 [P] [US2]** 完成 REST Handler `internal/transport/http/admin/event_fabric/acl_handler.go`，覆盖 `/acl` 批量接口与鉴权，并更新 OpenAPI 合同的请求/响应定义。
-- [ ] **T022 [P] [US2]** 在 `internal/tests/http/admin/event_fabric/acl_contract_test.go` 添加授权/撤销/违规访问合同测试。
-- [ ] **T023 [US2]** 在 `internal/service/event_fabric/acl/enforcer.go` 集成运行时权限校验（供 Publish/Subscribe 使用），并在 `internal/app/shared/deps.go` 注入。
+- [x] **T017 [US2]** 在迁移文件 `pkg/corex/db/migration/202510170001_create_event_topics.go` 中补充 `event_acl_bindings` 表结构（或新增 `202510170002_create_event_acl_bindings.go`），包含唯一键 (`tenant_id`,`topic_id`,`principal_id`,`action`) 与过期时间。
+- [x] **T018 [US2]** 增加模型 `pkg/corex/db/persistence/model/event_fabric/acl_binding.go`。
+- [x] **T019 [US2]** 编写仓储 `pkg/corex/db/persistence/repository/event_fabric/acl_repository.go`，支持批量授予/撤销与有效期过滤。
+- [x] **T020 [US2]** 实现 `internal/service/event_fabric/acl/acl_service.go`：整合权限校验、授予/撤销与冲突检测。
+- [x] **T021 [P] [US2]** 完成 REST Handler `internal/transport/http/admin/event_fabric/acl_handler.go`，覆盖 `/acl` 批量接口与查询，并更新 OpenAPI 契约。
+- [x] **T022 [P] [US2]** 在 `internal/tests/http/admin/event_fabric/acl_contract_test.go` 添加授权/撤销合同测试。
+- [x] **T023 [US2]** 新增 `internal/service/event_fabric/acl/enforcer.go` 并在 `internal/app/shared/deps.go` 注入运行时校验能力。
 
 **Checkpoint**: ACL 管道生效，可独立验证授权与审计逻辑。
 

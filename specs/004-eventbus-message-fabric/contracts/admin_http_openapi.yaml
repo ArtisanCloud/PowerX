@@ -189,7 +189,7 @@ paths:
 components:
   parameters:
     TenantId:
-      name: tenantId
+      name: tenant_id
       in: query
       required: true
       schema:
@@ -197,26 +197,26 @@ components:
   schemas:
     TopicUpsertRequest:
       type: object
-      required: [tenantId, namespace, name]
+      required: [tenant_id, namespace, name]
       properties:
-        tenantId:
+        tenant_id:
           type: string
         namespace:
           type: string
         name:
           type: string
-        payloadFormat:
+        payload_format:
           type: string
           default: json
-        versioningMode:
+        versioning_mode:
           type: string
           enum: [strict, backward, any]
-        retentionPolicy:
+        retention_policy:
           type: object
-        maxRetry:
+        max_retry:
           type: integer
           default: 5
-        ackTimeoutSec:
+        ack_timeout_sec:
           type: integer
           default: 30
         metadata:
@@ -224,11 +224,14 @@ components:
     TopicUpdateRequest:
       type: object
       properties:
-        lifecycleStatus:
+        target_state:
           type: string
           enum: [active, deprecated, retired]
-        metadata:
-          type: object
+        change_reason:
+          type: string
+        deprecated_at:
+          type: string
+          format: date-time
     Topic:
       allOf:
         - $ref: '#/components/schemas/TopicUpsertRequest'
@@ -236,14 +239,14 @@ components:
           properties:
             id:
               type: string
-            fullTopic:
+            full_topic:
               type: string
-            lifecycleStatus:
+            lifecycle_status:
               type: string
-            createdAt:
+            created_at:
               type: string
               format: date-time
-            updatedAt:
+            updated_at:
               type: string
               format: date-time
     AclBinding:
@@ -251,43 +254,76 @@ components:
       properties:
         id:
           type: string
-        tenantId:
+        tenant_id:
           type: string
-        topicId:
+        tenant_key:
           type: string
-        principalType:
+        topic_uuid:
+          type: string
+        principal_type:
           type: string
           enum: [service, role, user]
-        principalId:
+        principal_id:
           type: string
         action:
           type: string
           enum: [publish, subscribe, replay]
-        expiresAt:
+        expires_at:
+          type: string
+          format: date-time
+        granted_by:
+          type: string
+        justification:
+          type: string
+        audit_ref:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
           type: string
           format: date-time
     AclBatchRequest:
       type: object
-      required: [tenantId, topicFullName, bindings]
+      required: [tenant_id, topic_full_name]
       properties:
-        tenantId:
+        tenant_id:
           type: string
-        topicFullName:
+        topic_full_name:
           type: string
-        bindings:
+        grants:
           type: array
           items:
             type: object
             properties:
-              principalType:
+              principal_type:
                 type: string
-              principalId:
+              principal_id:
                 type: string
               action:
                 type: string
-              expiresAt:
+              expires_at:
                 type: string
                 format: date-time
+              justification:
+                type: string
+              audit_ref:
+                type: string
+              operator_id:
+                type: string
+        revokes:
+          type: array
+          items:
+            type: object
+            properties:
+              principal_type:
+                type: string
+              principal_id:
+                type: string
+              action:
+                type: string
+              operator_id:
+                type: string
     AclBatchResponse:
       type: object
       properties:
@@ -301,13 +337,13 @@ components:
             $ref: '#/components/schemas/AclBinding'
     PublishRequest:
       type: object
-      required: [tenantId, topicFullName, eventId, payload]
+      required: [tenant_id, topic_full_name, event_id, payload]
       properties:
-        tenantId:
+        tenant_id:
           type: string
-        topicFullName:
+        topic_full_name:
           type: string
-        eventId:
+        event_id:
           type: string
         version:
           type: string

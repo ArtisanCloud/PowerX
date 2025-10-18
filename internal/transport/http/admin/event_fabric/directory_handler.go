@@ -1,7 +1,6 @@
 package event_fabric
 
 import (
-	"net/http"
 	"strconv"
 	"strings"
 

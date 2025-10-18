@@ -107,5 +107,6 @@ func migrateCapabilityModels(db *gorm.DB) error {
 func migrateEventFabricModels(db *gorm.DB) error {
 	return db.AutoMigrate(
 		&modelEventFabric.TopicDefinition{},
+		&modelEventFabric.AclBinding{},
 	)
 }

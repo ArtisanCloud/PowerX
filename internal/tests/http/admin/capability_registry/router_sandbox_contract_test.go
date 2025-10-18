@@ -68,7 +68,10 @@ func TestRouterSandboxHTTPInvoke(t *testing.T) {
 			return time.Date(2025, 1, 2, 3, 4, 5, 0, time.UTC)
 		},
 	})
-	sandboxSvc := sandboxService.NewService(registryRepo, routerSvc)
+	sandboxSvc := sandboxService.NewService(sandboxService.ServiceOptions{
+		RegistryRepository: registryRepo,
+		RouterService:      routerSvc,
+	})
 	handler := capabilityRegistryHTTP.NewSandboxHandler(sandboxSvc)
 
 	r := gin.New()

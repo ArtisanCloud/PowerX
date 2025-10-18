@@ -67,6 +67,7 @@ type HealthProbeRecord struct {
 
 // ServiceOptions 注入 Router 服务依赖。
 type ServiceOptions struct {
+	DB                 *gorm.DB
 	RegistryRepository capabilityRegistry.Repository
 	HealthRepository   HealthRepository
 	EventBus           event_bus.EventBus

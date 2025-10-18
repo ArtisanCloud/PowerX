@@ -40,6 +40,41 @@ curl -X PATCH https://$ADMIN_HOST/event-fabric/topics/<topicUUID>/lifecycle \
 - 关注返回的 `full_topic` 字段，确保命名遵循 `<tenant>.<namespace>.<name>`。
 - 当生命周期进入 `deprecated` 时，`deprecated_at` 会为非空。
 
+## ACL 授权管理
+
+### 授权主体
+```bash
+curl -X POST https://$ADMIN_HOST/event-fabric/acl \
+  -H 'Authorization: Bearer <token>' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "tenant_id": "tenant-corex",
+    "topic_full_name": "tenant-corex.corex.workflow.approved",
+    "grants": [
+      {"principal_type":"service","principal_id":"svc-workflow","action":"publish"}
+    ]
+  }'
+```
+
+### 查看权限
+```bash
+curl "https://$ADMIN_HOST/event-fabric/acl?tenant_id=tenant-corex&topic_uuid=<topicUUID>"
+```
+
+### 撤销权限
+```bash
+curl -X POST https://$ADMIN_HOST/event-fabric/acl \
+  -H 'Authorization: Bearer <token>' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "tenant_id": "tenant-corex",
+    "topic_full_name": "tenant-corex.corex.workflow.approved",
+    "revokes": [
+      {"principal_type":"service","principal_id":"svc-workflow","action":"publish"}
+    ]
+  }'
+```
+
 ## 告警建议
 - 主题数量异常增长：定期对比 `topics` 列表与变更操作员。
 - Ack 超时频繁：观察 `ack_timeout_sec` 与消费服务健康状况。

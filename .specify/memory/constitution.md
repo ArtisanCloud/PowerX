@@ -230,6 +230,7 @@ Any plan missing the above gates is **invalid** and fails constitutional complia
 - 若确需编写包级文档，必须包含有效注释或示例，禁止空壳文件。
 - 未落库的辅助结构体（纯内存/DTO/参数）不得携带 `gorm:""` Tag，避免与持久化实体混淆；仅当结构体通过 AutoMigrate 映射至真实表时才允许设置 GORM Tag。
 - Service 层必须以结构体方式实现（`*Service` + 构造函数 + 显式依赖注入），禁止额外定义 “业务接口” 壳，以免破坏规则集对集中 DI/事务的约束。
+- 依赖注入只负责传递数据库句柄、配置与跨域服务；Repository 由 Service 内部持有并在构造函数中创建，禁止在 `shared.Deps` 层提前实例化 Repo。
 
 ### Event Fabric vs. Event Bus
 

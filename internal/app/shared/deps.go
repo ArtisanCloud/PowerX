@@ -12,10 +12,10 @@ import (
 	authsvc "github.com/ArtisanCloud/PowerX/internal/service/auth"
 	discoveryService "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/discovery"
 	capabilityRegistryDomain "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/domain"
-	capabilityHealth "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/health"
 	capabilityRegistry "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/registry"
 	capabilityRouter "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/router"
 	capabilitySandbox "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/sandbox"
+	aclService "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/acl"
 	directoryService "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/directory"
 	iamsvc "github.com/ArtisanCloud/PowerX/internal/service/iam"
 	mediasvc "github.com/ArtisanCloud/PowerX/internal/service/media"
@@ -23,9 +23,6 @@ import (
 	"github.com/ArtisanCloud/PowerX/pkg/cache"
 	auditsvc "github.com/ArtisanCloud/PowerX/pkg/corex/audit"
 	dbm "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/audit"
-	auditrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/audit"
-	capabilityRegistryRepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/capability_registry"
-	eventfabricrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/event_fabric"
 	"github.com/ArtisanCloud/PowerX/pkg/event_bus"
 	pxlog "github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"github.com/redis/go-redis/v9"
@@ -63,9 +60,12 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 	authCustomer := authsvc.NewAuthService(db, opts.AuthCustomer)
 
 	// --- Audit 初始化 ---
-	dbRepo := auditrepo.NewAuditEventRepository(db) // 你已有的 GORM repo
 	sinks := []auditsvc.Sink{&auditsvc.LoggerSink{L: pxlog.GetGlobalLogger()}}
-	svc := auditsvc.NewService(dbRepo, sinks, opts.Audit)
+	svc := auditsvc.NewService(auditsvc.ServiceOptions{
+		DB:     db,
+		Sinks:  sinks,
+		Config: opts.Audit,
+	})
 	// 注册 GORM 回调
 	auditsvc.RegisterAuditCallbacks(db, svc)
 
@@ -96,10 +96,9 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 		pxlog.WarnF(ctx, "[capabilityRegistry] register permissions failed: %v", err)
 	}
 
-	capRegistryRepo := capabilityRegistryRepo.NewCapabilityRegistryRepository(db)
 	bus := event_bus.NewLocalEventBus()
 	capRegistrySvc := capabilityRegistry.NewService(capabilityRegistry.ServiceOptions{
-		Repository:      capRegistryRepo,
+		DB:              db,
 		EventBus:        bus,
 		Instrumentation: capabilityRegistryDomain.NewInstrumentation(nil),
 		Auditor:         aud,
@@ -107,20 +106,21 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 
 	discoveryCacheStore := discoverycache.NewStore(cache.NewMemoryCache(), "")
 	discoverySvc := discoveryService.NewService(discoveryService.ServiceOptions{
-		RegistryRepository: capRegistryRepo,
-		CacheStore:         discoveryCacheStore,
-		Instrumentation:    capabilityRegistryDomain.NewInstrumentation(nil),
-		DefaultTTL:         2 * time.Minute,
+		DB:              db,
+		CacheStore:      discoveryCacheStore,
+		Instrumentation: capabilityRegistryDomain.NewInstrumentation(nil),
+		DefaultTTL:      2 * time.Minute,
 	})
 
-	routerHealthRepo := capabilityHealth.NewMemoryRepository()
 	routerSvc := capabilityRouter.NewService(capabilityRouter.ServiceOptions{
-		RegistryRepository: capRegistryRepo,
-		HealthRepository:   routerHealthRepo,
-		EventBus:           bus,
-		Instrumentation:    capabilityRegistryDomain.NewInstrumentation(nil),
+		DB:              db,
+		EventBus:        bus,
+		Instrumentation: capabilityRegistryDomain.NewInstrumentation(nil),
 	})
-	sandboxSvc := capabilitySandbox.NewService(capRegistryRepo, routerSvc)
+	sandboxSvc := capabilitySandbox.NewService(capabilitySandbox.ServiceOptions{
+		DB:            db,
+		RouterService: routerSvc,
+	})
 
 	eventFabricDeps := newEventFabricDeps(db, opts.EventFabric, bus)
 
@@ -145,11 +145,12 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 
 // EventFabricDeps 聚合事件骨干运行时依赖。
 type EventFabricDeps struct {
-    RedisClient *redis.Client
-    EventBus    event_bus.EventBus
-    Repos       *EventFabricRepositoryFactory
-    Config      EventFabricRuntimeConfig
-    Directory   *directoryService.DirectoryService
+	RedisClient *redis.Client
+	EventBus    event_bus.EventBus
+	Config      EventFabricRuntimeConfig
+	Directory   *directoryService.DirectoryService
+	ACL         *aclService.ACLService
+	Enforcer    *aclService.ACLEnforcer
 }
 
 // EventFabricRuntimeConfig 将配置项转换为运行时易用的结构。
@@ -159,25 +160,6 @@ type EventFabricRuntimeConfig struct {
 	RetryKeyPrefix    string
 	ReplayKeyPrefix   string
 	SchedulerInterval time.Duration
-}
-
-// EventFabricRepositoryFactory 为事件骨干生成仓储实例的简单工厂。
-type EventFabricRepositoryFactory struct {
-	db *gorm.DB
-}
-
-func (f *EventFabricRepositoryFactory) WithDB(tx *gorm.DB) *EventFabricRepositoryFactory {
-	if tx == nil {
-		return f
-	}
-	return &EventFabricRepositoryFactory{db: tx}
-}
-
-func (f *EventFabricRepositoryFactory) TopicRepository() *eventfabricrepo.TopicRepository {
-	if f == nil {
-		return nil
-	}
-	return eventfabricrepo.NewTopicRepository(f.db)
 }
 
 func newEventFabricDeps(db *gorm.DB, opts EventFabricOptions, bus event_bus.EventBus) *EventFabricDeps {
@@ -220,24 +202,27 @@ func newEventFabricDeps(db *gorm.DB, opts EventFabricOptions, bus event_bus.Even
 		})
 	}
 
-	factory := &EventFabricRepositoryFactory{db: db}
-	var directorySvc *directoryService.DirectoryService
-	if repo := factory.TopicRepository(); repo != nil {
-		directorySvc = directoryService.NewDirectoryService(directoryService.Options{
-			Store:             repo,
-			EventBus:          bus,
-			Clock:             time.Now,
-			ActorResolver:     func(context.Context) string { return "system" },
-			DefaultMaxRetry:   cfg.DefaultMaxRetry,
-			DefaultAckTimeout: cfg.AckTimeout,
-		})
-	}
+	directorySvc := directoryService.NewDirectoryService(directoryService.Options{
+		DB:                db,
+		EventBus:          bus,
+		Clock:             time.Now,
+		ActorResolver:     func(context.Context) string { return "system" },
+		DefaultMaxRetry:   cfg.DefaultMaxRetry,
+		DefaultAckTimeout: cfg.AckTimeout,
+	})
+
+	aclSvc := aclService.NewACLService(aclService.Options{
+		DB:    db,
+		Clock: time.Now,
+	})
+	aclEnforcer := aclService.NewACLEnforcer(aclSvc)
 
 	return &EventFabricDeps{
 		RedisClient: redisClient,
 		EventBus:    bus,
-		Repos:       factory,
 		Config:      cfg,
 		Directory:   directorySvc,
+		ACL:         aclSvc,
+		Enforcer:    aclEnforcer,
 	}
 }

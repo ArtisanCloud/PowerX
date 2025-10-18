@@ -10,7 +10,7 @@ import (
 	"time"
 
 	model "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/event_fabric"
-	repository "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/event_fabric"
+	eventfabricrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/event_fabric"
 	"github.com/ArtisanCloud/PowerX/pkg/event_bus"
 	"github.com/google/uuid"
 	"gorm.io/datatypes"
@@ -71,8 +71,13 @@ type DirectoryService struct {
 
 // NewDirectoryService 构造目录服务。
 func NewDirectoryService(opts Options) *DirectoryService {
+	store := opts.Store
+	if store == nil && opts.DB != nil {
+		store = eventfabricrepo.NewTopicRepository(opts.DB)
+	}
+
 	svc := &DirectoryService{
-		store:             opts.Store,
+		store:             store,
 		eventBus:          opts.EventBus,
 		clock:             opts.Clock,
 		actorResolver:     opts.ActorResolver,
@@ -91,10 +96,18 @@ func NewDirectoryService(opts Options) *DirectoryService {
 	return svc
 }
 
+// FindTopicByFullName 根据租户+命名空间+名称获取主题实体。
+func (s *DirectoryService) FindTopicByFullName(ctx context.Context, tenantKey, namespace, name string) (*model.TopicDefinition, error) {
+	if s.store == nil {
+		return nil, errors.New("topic repository not configured")
+	}
+	return s.store.FindByComposite(ctx, strings.TrimSpace(tenantKey), normalizeSegment(namespace), normalizeSegment(name))
+}
+
 // CreateTopic 创建新主题。
 func (s *DirectoryService) CreateTopic(ctx context.Context, input CreateTopicInput) (*Topic, error) {
 	if s.store == nil {
-		return nil, errors.New("topic store not configured")
+		return nil, errors.New("topic repository not configured")
 	}
 	if err := validateCreateInput(input); err != nil {
 		return nil, err
@@ -177,7 +190,7 @@ func (s *DirectoryService) CreateTopic(ctx context.Context, input CreateTopicInp
 // UpdateLifecycle 修改主题生命周期状态。
 func (s *DirectoryService) UpdateLifecycle(ctx context.Context, input UpdateLifecycleInput) (*Topic, error) {
 	if s.store == nil {
-		return nil, errors.New("topic store not configured")
+		return nil, errors.New("topic repository not configured")
 	}
 	if strings.TrimSpace(input.TopicID) == "" {
 		return nil, errors.New("topic id is required")
@@ -230,9 +243,9 @@ func (s *DirectoryService) UpdateLifecycle(ctx context.Context, input UpdateLife
 }
 
 // ListTopics 查询主题列表。
-func (s *DirectoryService) ListTopics(ctx context.Context, query repository.QueryContext) ([]*Topic, int64, error) {
+func (s *DirectoryService) ListTopics(ctx context.Context, query eventfabricrepo.QueryContext) ([]*Topic, int64, error) {
 	if s.store == nil {
-		return nil, 0, errors.New("topic store not configured")
+		return nil, 0, errors.New("topic repository not configured")
 	}
 	records, total, err := s.store.List(ctx, query)
 	if err != nil {
@@ -260,7 +273,7 @@ func (s *DirectoryService) publishLifecycleEvent(ctx context.Context, topic *mod
 	if reason != "" {
 		payload["change_reason"] = reason
 	}
-	_ = s.eventBus.Publish(lifecycleChangedEvent, payload, ctx)
+	s.eventBus.Publish(lifecycleChangedEvent, payload, ctx)
 }
 
 func convertTopic(record *model.TopicDefinition) *Topic {

@@ -63,6 +63,7 @@ type SystemActorResolver func(ctx context.Context) string
 
 // ServiceOptions 注入 Service 依赖。
 type ServiceOptions struct {
+	DB                  *gorm.DB
 	Repository          Repository
 	EventBus            event_bus.EventBus
 	Instrumentation     *Instrumentation

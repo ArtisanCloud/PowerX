@@ -5,11 +5,12 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/json"
-	pxlog "github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"time"
 
 	dbm "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/audit"
 	repo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/audit"
+	pxlog "github.com/ArtisanCloud/PowerX/pkg/utils/logger"
+	"gorm.io/gorm"
 )
 
 // —— 只认 GORM 模型 ——
@@ -37,6 +38,14 @@ type Service interface {
 	Close()
 }
 
+// ServiceOptions 汇集 Service 构造依赖。
+type ServiceOptions struct {
+	DB         *gorm.DB
+	Repository Repository
+	Sinks      []Sink
+	Config     AuditOptions
+}
+
 type serviceImpl struct {
 	repo  Repository
 	sinks []Sink
@@ -49,7 +58,19 @@ type serviceImpl struct {
 	dropUntil  time.Time
 }
 
-func NewService(dbRepo *repo.AuditEventRepository, sinks []Sink, opt AuditOptions) Service {
+func NewService(opts ServiceOptions) Service {
+	repoImpl := opts.Repository
+	if repoImpl == nil {
+		if opts.DB == nil {
+			panic("audit.Service requires DB when Repository is nil")
+		}
+		repoImpl = repo.NewAuditEventRepository(opts.DB)
+	}
+	sinks := opts.Sinks
+	if sinks == nil {
+		sinks = []Sink{}
+	}
+	opt := opts.Config
 	if opt.BatchSize <= 0 {
 		opt.BatchSize = 100
 	}
@@ -57,7 +78,7 @@ func NewService(dbRepo *repo.AuditEventRepository, sinks []Sink, opt AuditOption
 		opt.BatchWait = 200 * time.Millisecond
 	}
 	s := &serviceImpl{
-		repo:  dbRepo,
+		repo:  repoImpl,
 		sinks: sinks,
 		opt:   opt,
 		ch:    make(chan *dbm.AuditEvent, opt.BatchSize*8),

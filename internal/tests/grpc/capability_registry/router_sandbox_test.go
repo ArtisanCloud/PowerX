@@ -117,7 +117,10 @@ func newRouterSandboxTestEnv(t *testing.T) *routerSandboxTestEnv {
 			return time.Date(2025, 1, 2, 3, 4, 5, 0, time.UTC)
 		},
 	})
-	sandboxSvc := sandboxService.NewService(registryRepo, routerSvc)
+	sandboxSvc := sandboxService.NewService(sandboxService.ServiceOptions{
+		RegistryRepository: registryRepo,
+		RouterService:      routerSvc,
+	})
 
 	capabilityRegistryGRPC.RegisterCapabilityRouterSandboxServer(server, sandboxSvc)
 

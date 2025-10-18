@@ -35,11 +35,11 @@ curl -X POST http://localhost:8077/admin/event-fabric/topics \
 curl -X POST http://localhost:8077/admin/event-fabric/acl \
   -H 'Content-Type: application/json' \
   -d '{
-    "tenantId": "'"$DEV_TENANT"'",
-    "topicFullName": "'"$DEV_TENANT"'.corex.workflow.approved",
-    "bindings": [
-      {"principalType":"service","principalId":"'"$DEV_PRINCIPAL"'","action":"publish"},
-      {"principalType":"service","principalId":"svc-demo-consumer","action":"subscribe"}
+    "tenant_id": "'"$DEV_TENANT"'",
+    "topic_full_name": "'"$DEV_TENANT"'.corex.workflow.approved",
+    "grants": [
+      {"principal_type":"service","principal_id":"'"$DEV_PRINCIPAL"'","action":"publish"},
+      {"principal_type":"service","principal_id":"svc-demo-consumer","action":"subscribe"}
     ]
   }'
 ```
@@ -60,9 +60,9 @@ bin/eventbus-subscriber \
 curl -X POST http://localhost:8077/admin/event-fabric/publish \
   -H 'Content-Type: application/json' \
   -d '{
-    "tenantId": "'"$DEV_TENANT"'",
-    "topicFullName": "'"$DEV_TENANT"'.corex.workflow.approved",
-    "eventId": "evt-001",
+    "tenant_id": "'"$DEV_TENANT"'",
+    "topic_full_name": "'"$DEV_TENANT"'.corex.workflow.approved",
+    "event_id": "evt-001",
     "payload": {"requestId":"req-123","status":"approved"},
     "headers": {"trace_id":"trace-abc"}
   }'

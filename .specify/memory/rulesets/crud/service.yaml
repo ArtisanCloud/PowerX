@@ -27,6 +27,7 @@ principles:
   - 错误翻译：ErrRecordNotFound → 404；唯一键冲突/重复 → 409；其余 → 500（由上层桥接）。
   - 日志：必要路径要记录关键维度（tenant/actor/id）。
   - 形态约束：Service 必须以结构体 + `New*Service` 构造函数呈现，禁止额外定义 interface 壳（除非该接口来自跨包依赖且已有规范）。
+  - Repo 生命周期：Service 构造时基于注入的 `*gorm.DB` 创建所需 Repository；禁止在 `shared.Deps` 或 Handler 层先行实例化 Repo 再传入 Service。
 
 checks:
 

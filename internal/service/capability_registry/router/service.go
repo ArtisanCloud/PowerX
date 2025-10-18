@@ -11,6 +11,7 @@ import (
 
 	domain "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/domain"
 	registry "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/registry"
+	registryRepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/capability_registry"
 )
 
 var (
@@ -38,21 +39,32 @@ type eventPublisher interface {
 
 // NewService 创建 Router 服务实例（占位实现）。
 func NewService(opts ServiceOptions) *Service {
+	registryRepository := opts.RegistryRepository
+	if registryRepository == nil {
+		if opts.DB == nil {
+			panic("capability router: DB required when RegistryRepository is nil")
+		}
+		registryRepository = registryRepo.NewCapabilityRegistryRepository(opts.DB)
+	}
+	healthRepository := opts.HealthRepository
+	if healthRepository == nil {
+		healthRepository = NewMemoryRepository()
+	}
 	inst := opts.Instrumentation
 	if inst == nil {
 		inst = domain.NewInstrumentation(nil)
 	}
-    metrics := opts.Metrics
-    if metrics == nil {
-        metrics = NewRouterMetrics(inst)
-    }
+	metrics := opts.Metrics
+	if metrics == nil {
+		metrics = NewRouterMetrics(inst)
+	}
 	clock := opts.Clock
 	if clock == nil {
 		clock = time.Now
 	}
 	return &Service{
-		registryRepo: opts.RegistryRepository,
-		healthRepo:   opts.HealthRepository,
+		registryRepo: registryRepository,
+		healthRepo:   healthRepository,
 		eventBus:     opts.EventBus,
 		instrument:   inst,
 		metrics:      metrics,

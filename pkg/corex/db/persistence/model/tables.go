@@ -44,3 +44,4 @@ const TableCapabilityRegistryHealthProbeResult = "capability_registry_health_pro
 const TableCapabilityRegistryDiscoveryCache = "capability_registry_discovery_cache"
 
 const TableEventTopics = "event_topics"
+const TableEventAclBindings = "event_acl_bindings"

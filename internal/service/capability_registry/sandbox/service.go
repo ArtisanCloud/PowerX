@@ -6,6 +6,8 @@ import (
 
 	registry "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/registry"
 	router "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/router"
+	registryRepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/capability_registry"
+	"gorm.io/gorm"
 )
 
 // Service 提供 Router Sandbox 能力。
@@ -14,15 +16,26 @@ type Service struct {
 	routerSvc    *router.Service
 }
 
+// ServiceOptions 聚合 Sandbox 构造依赖。
+type ServiceOptions struct {
+	DB                 *gorm.DB
+	RegistryRepository registry.Repository
+	RouterService      *router.Service
+}
+
 // NewService 创建 Sandbox 服务实例。
-func NewService(registryRepo registry.Repository, routerSvc *router.Service) *Service {
-	if registryRepo == nil {
-		panic("sandbox service requires registry repository")
+func NewService(opts ServiceOptions) *Service {
+	repository := opts.RegistryRepository
+	if repository == nil {
+		if opts.DB == nil {
+			panic("sandbox service requires DB when RegistryRepository is nil")
+		}
+		repository = registryRepo.NewCapabilityRegistryRepository(opts.DB)
 	}
-	if routerSvc == nil {
+	if opts.RouterService == nil {
 		panic("sandbox service requires router service")
 	}
-	return &Service{registryRepo: registryRepo, routerSvc: routerSvc}
+	return &Service{registryRepo: repository, routerSvc: opts.RouterService}
 }
 
 // SimulateInvoke 使用现有注册信息模拟路由结果，不影响真实路由状态。

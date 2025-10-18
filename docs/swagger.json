@@ -1977,15 +1977,67 @@
         ]
       }
     },
-    "/api/v1/event-fabric/status": {
+    "/api/v1/event-fabric/acl": {
       "get": {
-        "operationId": "GET /api/v1/event-fabric/status",
+        "operationId": "GET /api/v1/event-fabric/acl",
         "responses": {
           "200": {
             "description": "OK"
           }
         },
-        "summary": "GET /api/v1/event-fabric/status",
+        "summary": "GET /api/v1/event-fabric/acl",
+        "tags": [
+          "api"
+        ]
+      },
+      "post": {
+        "operationId": "POST /api/v1/event-fabric/acl",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/v1/event-fabric/acl",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/v1/event-fabric/topics": {
+      "get": {
+        "operationId": "GET /api/v1/event-fabric/topics",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "GET /api/v1/event-fabric/topics",
+        "tags": [
+          "api"
+        ]
+      },
+      "post": {
+        "operationId": "POST /api/v1/event-fabric/topics",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/v1/event-fabric/topics",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/v1/event-fabric/topics/:topic_id/lifecycle": {
+      "patch": {
+        "operationId": "PATCH /api/v1/event-fabric/topics/_topic_id/lifecycle",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "PATCH /api/v1/event-fabric/topics/_topic_id/lifecycle",
         "tags": [
           "api"
         ]
