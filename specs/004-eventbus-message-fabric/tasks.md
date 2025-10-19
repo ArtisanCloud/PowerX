@@ -84,20 +84,20 @@
 
 ### Implementation
 
-- [ ] **T024 [US3]** 在新迁移 `pkg/corex/db/migration/202510170003_create_event_delivery_tables.go` 创建 `event_envelopes`, `event_delivery_attempts`, `event_dlq_messages`, `event_subscription_offsets` 表。
-- [ ] **T025 [US3]** 增加对应模型文件（`event_envelope.go`, `delivery_attempt.go`, `dlq_message.go`, `subscription_offset.go`）于 `pkg/corex/db/persistence/model/event_fabric/`。
-- [ ] **T026 [US3]** 构建仓储 `pkg/corex/db/persistence/repository/event_fabric/{envelope_repository.go,delivery_repository.go,dlq_repository.go}`，封装投递与状态变更。
-- [ ] **T027 [US3]** 扩展 `pkg/event_bus`：新增接口支持 Ack/Nack、重试计划、幂等窗口（包含订阅者并发/超时配置），默认 Redis 实现位于 `pkg/event_bus/redis_retry.go`。
-- [ ] **T028 [US3]** 编写 `internal/service/event_fabric/delivery/backoff_scheduler.go` 使用 Redis Sorted Set 计算指数退避与抖动。
-- [ ] **T029 [US3]** 实现 `internal/service/event_fabric/delivery/service.go`：发布入库、推送订阅者、重试决策、订阅幂等策略、DLQ 写入。
-- [ ] **T030 [US3]** 构建 `internal/service/event_fabric/audit/service.go`，封装发布/订阅审计写入（调用审计客户端、覆盖成功/失败场景），并在 `internal/app/shared/deps.go` 注册。
-- [ ] **T031 [US3]** 在 `internal/service/event_fabric/delivery/service.go`、`internal/transport/{grpc,http}/event_fabric/*` 集成审计记录；于 `internal/tests/{grpc,http}/event_fabric/audit_contract_test.go` 编写测试验证发布/订阅审计流水与错误回滚。
-- [ ] **T032 [US3]** 创建 DLQ 服务 `internal/service/event_fabric/dlq/service.go`，支持查询、重放、告警钩子。
-- [ ] **T033 [P] [US3]** 实现 gRPC 服务 `internal/transport/grpc/event_fabric/publisher_server.go` 与 `subscriber_server.go`（使用 `api/grpc/contracts/corex/event_fabric/v1/event_fabric.proto`），接入拦截器并更新 Proto 契约中的 RPC 定义。
-- [ ] **T034 [P] [US3]** 编写 Admin REST Handler `internal/transport/http/admin/event_fabric/dlq_handler.go` 与 `/publish` 端点（调用 delivery 服务），同步扩充 OpenAPI 合同。
-- [ ] **T035 [P] [US3]** 在 `internal/tests/grpc/event_fabric/delivery_contract_test.go` 覆盖 Publish/Ack/Nack/重试 流程；在 `internal/tests/http/admin/event_fabric/dlq_contract_test.go` 验证 DLQ 操作与审计。
-- [ ] **T036 [US3]** 新增后台 worker（可挂载于 `internal/app/shared/workers/event_fabric_retry.go`）周期拉取 Redis 重试队列并调用 delivery 服务。
-- [ ] **T037 [US3]** 更新 `internal/server/mcp/templates/usecase.tmpl`（或相关模板）以支持事件发布用例示例。
+- [x] **T024 [US3]** 在新迁移 `pkg/corex/db/migration/202510170003_create_event_delivery_tables.go` 创建 `event_envelopes`, `event_delivery_attempts`, `event_dlq_messages`, `event_subscription_offsets` 表。
+- [x] **T025 [US3]** 增加对应模型文件（`event_envelope.go`, `delivery_attempt.go`, `dlq_message.go`, `subscription_offset.go`）于 `pkg/corex/db/persistence/model/event_fabric/`。
+- [x] **T026 [US3]** 构建仓储 `pkg/corex/db/persistence/repository/event_fabric/{envelope_repository.go,delivery_repository.go,dlq_repository.go}`，封装投递与状态变更。
+- [x] **T027 [US3]** 扩展 `pkg/event_bus`：新增接口支持 Ack/Nack、重试计划、幂等窗口（包含订阅者并发/超时配置），默认 Redis 实现位于 `pkg/event_bus/redis_retry.go`。
+- [x] **T028 [US3]** 编写 `internal/service/event_fabric/delivery/backoff_scheduler.go` 使用 Redis Sorted Set 计算指数退避与抖动。
+- [x] **T029 [US3]** 实现 `internal/service/event_fabric/delivery/service.go`：发布入库、推送订阅者、重试决策、订阅幂等策略、DLQ 写入。
+- [x] **T030 [US3]** 构建 `internal/service/event_fabric/audit/service.go`，封装发布/订阅审计写入（调用审计客户端、覆盖成功/失败场景），并在 `internal/app/shared/deps.go` 注册。
+- [x] **T031 [US3]** 在 `internal/service/event_fabric/delivery/service.go`、`internal/transport/{grpc,http}/event_fabric/*` 集成审计记录；于 `internal/tests/{grpc,http}/event_fabric/audit_contract_test.go` 编写测试验证发布/订阅审计流水与错误回滚。
+- [x] **T032 [US3]** 创建 DLQ 服务 `internal/service/event_fabric/dlq/service.go`，支持查询、重放、告警钩子。
+- [x] **T033 [P] [US3]** 实现 gRPC 服务 `internal/transport/grpc/event_fabric/publisher_server.go` 与 `subscriber_server.go`（使用 `api/grpc/contracts/corex/event_fabric/v1/event_fabric.proto`），接入拦截器并更新 Proto 契约中的 RPC 定义。
+- [x] **T034 [P] [US3]** 编写 Admin REST Handler `internal/transport/http/admin/event_fabric/dlq_handler.go` 与 `/publish` 端点（调用 delivery 服务），同步扩充 OpenAPI 合同。
+- [x] **T035 [P] [US3]** 在 `internal/tests/grpc/event_fabric/delivery_contract_test.go` 覆盖 Publish/Ack/Nack/重试 流程；在 `internal/tests/http/admin/event_fabric/dlq_contract_test.go` 验证 DLQ 操作与审计。
+- [x] **T036 [US3]** 新增后台 worker（可挂载于 `internal/app/shared/workers/event_fabric_retry.go`）周期拉取 Redis 重试队列并调用 delivery 服务。
+- [x] **T037 [US3]** 更新 `internal/server/mcp/templates/usecase.tmpl`（或相关模板）以支持事件发布用例示例。
 
 **Checkpoint**: 完成至少一次投递、重试、DLQ 与审计流水接入，gRPC/REST 通路均可独立测试。
 

@@ -8,6 +8,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+{{if index .Params "HasEventBus"}}	"time"
+{{end}}
 	"gorm.io/gorm"
 	"github.com/ArtisanCloud/PowerX/domain/model"
 	"github.com/ArtisanCloud/PowerX/domain/repository"
@@ -72,11 +74,11 @@ func (uc *{{ index .Vars "EntityName" }}UseCase) Create{{ index .Vars "EntityNam
 		return nil, fmt.Errorf("创建{{ index .Vars "Description" }}失败: %w", err)
 	}
 
-{{if index .Params "HasEventBus"}}	// 发布事件
+{{if index .Params "HasEventBus"}}	// 发布事件（集成 Event Fabric）
 	event := &{{ index .Vars "PackageName" }}.{{ index .Vars "EntityName" }}CreatedEvent{
 		EntityID:  entity.ID,
 		Entity:    entity,
-		Timestamp: time.Now(),
+		Timestamp: time.Now().UTC(),
 	}
 	if err := uc.eventBus.Publish(ctx, "{{ index .Vars "PackageName" }}.{{ index .Vars "EntityName" }}.created", event); err != nil {
 		uc.logger.ErrorF(ctx, "发布{{ index .Vars "Description" }}创建事件失败: %v", err)
@@ -159,11 +161,11 @@ func (uc *{{ index .Vars "EntityName" }}UseCase) Update{{ index .Vars "EntityNam
 		return nil, fmt.Errorf("更新{{ index .Vars "Description" }}失败: %w", err)
 	}
 
-{{if index .Params "HasEventBus"}}	// 发布事件
+{{if index .Params "HasEventBus"}}	// 发布事件（集成 Event Fabric）
 	event := &{{ index .Vars "PackageName" }}.{{ index .Vars "EntityName" }}UpdatedEvent{
 		EntityID:  entity.ID,
 		Entity:    entity,
-		Timestamp: time.Now(),
+		Timestamp: time.Now().UTC(),
 	}
 	if err := uc.eventBus.Publish(ctx, "{{ index .Vars "PackageName" }}.{{ index .Vars "EntityName" }}.updated", event); err != nil {
 		uc.logger.ErrorF(ctx, "发布{{ index .Vars "Description" }}更新事件失败: %v", err)
@@ -208,11 +210,11 @@ func (uc *{{ index .Vars "EntityName" }}UseCase) Delete{{ index .Vars "EntityNam
 		return fmt.Errorf("删除{{ index .Vars "Description" }}失败: %w", err)
 	}
 
-{{if index .Params "HasEventBus"}}	// 发布事件
+{{if index .Params "HasEventBus"}}	// 发布事件（集成 Event Fabric）
 	event := &{{ index .Vars "PackageName" }}.{{ index .Vars "EntityName" }}DeletedEvent{
 		EntityID:  id,
 		Entity:    entity,
-		Timestamp: time.Now(),
+		Timestamp: time.Now().UTC(),
 	}
 	if err := uc.eventBus.Publish(ctx, "{{ index .Vars "PackageName" }}.{{ index .Vars "EntityName" }}.deleted", event); err != nil {
 		uc.logger.ErrorF(ctx, "发布{{ index .Vars "Description" }}删除事件失败: %v", err)

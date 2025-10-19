@@ -158,6 +158,10 @@ service EventDeliveryService {
   rpc NackDelivery(NackDeliveryRequest) returns (NackDeliveryResponse);
 }
 
+service EventSubscriberService {
+  rpc Subscribe(SubscribeRequest) returns (stream DeliveryMessage);
+}
+
 message PublishEventRequest {
   string tenant_id = 1;
   string topic = 2;
@@ -185,6 +189,29 @@ message NackDeliveryResponse {
   int32 remaining_attempts = 1;
   int32 next_delay_seconds = 2;
   string strategy = 3;
+}
+
+message SubscribeRequest {
+  string tenant_id = 1;
+  string subscriber_id = 2;
+  repeated string topics = 3;
+  int32 batch_size = 4;
+}
+
+message DeliveryMessage {
+  string delivery_id = 1;
+  string event_id = 2;
+  string topic = 3;
+  string trace_id = 4;
+  string version = 5;
+  bytes payload = 6;
+  string payload_format = 7;
+  map<string, string> headers = 8;
+  int32 attempt = 9;
+  int32 max_attempts = 10;
+  int32 remaining_attempts = 11;
+  google.protobuf.Timestamp ack_deadline = 12;
+  string subscriber_id = 13;
 }
 
 // ---------- DLQ Service ----------

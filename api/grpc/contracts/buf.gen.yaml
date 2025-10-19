@@ -3,9 +3,6 @@ managed:
   enabled: true
   go_package_prefix:
     default: github.com/ArtisanCloud/PowerX/api/grpc/gen/go
-    overrides:
-      - path: corex/event_fabric/v1
-        go_package_prefix: github.com/ArtisanCloud/PowerX/api/grpc/gen/go/corex/event_fabric/v1
 plugins:
   - plugin: go
     out: ../gen/go

@@ -230,6 +230,27 @@ func (s *ACLService) Can(ctx context.Context, tenantKey string, topicUUID uuid.U
 	return s.store.HasPermission(ctx, strings.TrimSpace(tenantKey), topicUUID, strings.TrimSpace(principalID), strings.ToLower(string(action)), s.clock())
 }
 
+// HasPermission 满足其他服务对 ACL 查询的接口约束。
+func (s *ACLService) HasPermission(ctx context.Context, tenantKey string, topic uuid.UUID, principalID string, action string, now time.Time) (bool, error) {
+	if s.store == nil {
+		return false, fmt.Errorf("acl service not configured")
+	}
+	return s.store.HasPermission(ctx,
+		strings.TrimSpace(tenantKey),
+		topic,
+		strings.TrimSpace(principalID),
+		strings.ToLower(strings.TrimSpace(action)),
+		now)
+}
+
+// ListByTopic 返回原始仓储记录，便于内部服务复用。
+func (s *ACLService) ListByTopic(ctx context.Context, tenantKey string, topic uuid.UUID) ([]*model.AclBinding, error) {
+	if s.store == nil {
+		return nil, fmt.Errorf("acl service not configured")
+	}
+	return s.store.ListByTopic(ctx, strings.TrimSpace(tenantKey), topic)
+}
+
 func convertBindings(records []*model.AclBinding) []*Binding {
 	result := make([]*Binding, 0, len(records))
 	for _, rec := range records {

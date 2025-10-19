@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	workers "github.com/ArtisanCloud/PowerX/internal/app/shared/workers"
 	discoverycache "github.com/ArtisanCloud/PowerX/internal/infra/cache/discovery"
 	mediamgr "github.com/ArtisanCloud/PowerX/internal/infra/media/manager"
 	authsvc "github.com/ArtisanCloud/PowerX/internal/service/auth"
@@ -16,7 +17,10 @@ import (
 	capabilityRouter "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/router"
 	capabilitySandbox "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/sandbox"
 	aclService "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/acl"
+	auditService "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/audit"
+	deliveryService "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/delivery"
 	directoryService "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/directory"
+	dlqService "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/dlq"
 	iamsvc "github.com/ArtisanCloud/PowerX/internal/service/iam"
 	mediasvc "github.com/ArtisanCloud/PowerX/internal/service/media"
 	tenantsvc "github.com/ArtisanCloud/PowerX/internal/service/tenant"
@@ -122,7 +126,7 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 		RouterService: routerSvc,
 	})
 
-	eventFabricDeps := newEventFabricDeps(db, opts.EventFabric, bus)
+	eventFabricDeps := newEventFabricDeps(db, opts.EventFabric, bus, svc, tenantSvc)
 
 	return &Deps{
 		DB:                    db,
@@ -151,6 +155,12 @@ type EventFabricDeps struct {
 	Directory   *directoryService.DirectoryService
 	ACL         *aclService.ACLService
 	Enforcer    *aclService.ACLEnforcer
+	Reliable    event_bus.ReliableQueue
+	Scheduler   *deliveryService.BackoffScheduler
+	Delivery    deliveryService.Service
+	DLQ         dlqService.Service
+	Audit       auditService.Service
+	RetryWorker *workers.EventFabricRetryWorker
 }
 
 // EventFabricRuntimeConfig 将配置项转换为运行时易用的结构。
@@ -162,7 +172,7 @@ type EventFabricRuntimeConfig struct {
 	SchedulerInterval time.Duration
 }
 
-func newEventFabricDeps(db *gorm.DB, opts EventFabricOptions, bus event_bus.EventBus) *EventFabricDeps {
+func newEventFabricDeps(db *gorm.DB, opts EventFabricOptions, bus event_bus.EventBus, auditSvc auditsvc.Service, tenantSvc *tenantsvc.TenantService) *EventFabricDeps {
 	const (
 		fallbackAckTimeout      = 30 * time.Second
 		fallbackDefaultMaxRetry = 5
@@ -202,6 +212,13 @@ func newEventFabricDeps(db *gorm.DB, opts EventFabricOptions, bus event_bus.Even
 		})
 	}
 
+	var reliableQueue event_bus.ReliableQueue
+	var scheduler *deliveryService.BackoffScheduler
+	if redisClient != nil {
+		reliableQueue = event_bus.NewRedisReliableQueue(redisClient)
+		scheduler = deliveryService.NewBackoffScheduler(reliableQueue)
+	}
+
 	directorySvc := directoryService.NewDirectoryService(directoryService.Options{
 		DB:                db,
 		EventBus:          bus,
@@ -217,6 +234,73 @@ func newEventFabricDeps(db *gorm.DB, opts EventFabricOptions, bus event_bus.Even
 	})
 	aclEnforcer := aclService.NewACLEnforcer(aclSvc)
 
+	auditSvcEF := auditService.NewService(auditService.Options{
+		AuditService: auditSvc,
+		Source:       "event_fabric",
+		ResourceType: "event",
+		Clock:        time.Now,
+	})
+
+	var deliverySvc deliveryService.Service
+	if scheduler != nil {
+		var err error
+		deliverySvc, err = deliveryService.NewService(deliveryService.Options{
+			DB:        db,
+			ACL:       aclSvc,
+			Scheduler: scheduler,
+			Clock:     time.Now,
+			MaxRetry:  cfg.DefaultMaxRetry,
+			Audit:     auditSvcEF,
+		})
+		if err != nil {
+			pxlog.WarnF(context.Background(), "init delivery service failed: %v", err)
+			deliverySvc = nil
+		}
+	}
+
+	var dlqSvc dlqService.Service
+	if deliverySvc != nil {
+		var err error
+		dlqSvc, err = dlqService.NewService(dlqService.Options{
+			DB:       db,
+			Delivery: deliverySvc,
+			Audit:    auditSvcEF,
+			Clock:    time.Now,
+		})
+		if err != nil {
+			pxlog.WarnF(context.Background(), "init dlq service failed: %v", err)
+			dlqSvc = nil
+		}
+	}
+
+	var retryWorker *workers.EventFabricRetryWorker
+	if deliverySvc != nil && bus != nil {
+		tenantProvider := func(ctx context.Context) ([]string, error) {
+			if tenantSvc == nil {
+				return []string{"global"}, nil
+			}
+			items, _, _, err := tenantSvc.List(ctx, tenantsvc.ListTenantsOption{Page: 1, PageSize: 1000})
+			if err != nil {
+				return nil, err
+			}
+			keys := make([]string, 0, len(items)+1)
+			for _, item := range items {
+				if key := strings.TrimSpace(item.Key); key != "" {
+					keys = append(keys, key)
+				}
+			}
+			keys = append(keys, "global")
+			return keys, nil
+		}
+		retryWorker = workers.NewEventFabricRetryWorker(workers.EventFabricRetryWorkerOptions{
+			Delivery:       deliverySvc,
+			EventBus:       bus,
+			TenantProvider: tenantProvider,
+			Interval:       cfg.SchedulerInterval,
+			BatchSize:      100,
+		})
+	}
+
 	return &EventFabricDeps{
 		RedisClient: redisClient,
 		EventBus:    bus,
@@ -224,5 +308,11 @@ func newEventFabricDeps(db *gorm.DB, opts EventFabricOptions, bus event_bus.Even
 		Directory:   directorySvc,
 		ACL:         aclSvc,
 		Enforcer:    aclEnforcer,
+		Reliable:    reliableQueue,
+		Scheduler:   scheduler,
+		Delivery:    deliverySvc,
+		DLQ:         dlqSvc,
+		Audit:       auditSvcEF,
+		RetryWorker: retryWorker,
 	}
 }

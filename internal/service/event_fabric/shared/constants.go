@@ -9,6 +9,12 @@ const (
 	// ContextTenantKey 标识上下文里租户信息的键名。
 	ContextTenantKey = "tenant_id"
 
+	// ContextSubscriberKey 标识上下文中订阅者的键名。
+	ContextSubscriberKey = "subscriber_id"
+
+	// ContextTopicsKey 用于传递订阅过滤的 Topic 列表。
+	ContextTopicsKey = "topics"
+
 	// HeaderTenantID 用于 HTTP 层传递租户信息的 Header。
 	HeaderTenantID = "X-PowerX-Tenant"
 

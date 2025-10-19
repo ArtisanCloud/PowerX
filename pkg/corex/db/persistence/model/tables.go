@@ -45,3 +45,7 @@ const TableCapabilityRegistryDiscoveryCache = "capability_registry_discovery_cac
 
 const TableEventTopics = "event_topics"
 const TableEventAclBindings = "event_acl_bindings"
+const TableEventEnvelopes = "event_envelopes"
+const TableEventDeliveryAttempts = "event_delivery_attempts"
+const TableEventDlqMessages = "event_dlq_messages"
+const TableEventSubscriptionOffsets = "event_subscription_offsets"

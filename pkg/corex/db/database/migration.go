@@ -1,6 +1,7 @@
 package database
 
 import (
+	migration "github.com/ArtisanCloud/PowerX/pkg/corex/db/migration"
 	modelAudit "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/audit"
 	modelCapability "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/capability"
 	modelEventFabric "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/event_fabric"
@@ -105,8 +106,12 @@ func migrateCapabilityModels(db *gorm.DB) error {
 }
 
 func migrateEventFabricModels(db *gorm.DB) error {
-	return db.AutoMigrate(
+	if err := db.AutoMigrate(
 		&modelEventFabric.TopicDefinition{},
 		&modelEventFabric.AclBinding{},
-	)
+	); err != nil {
+		return err
+	}
+
+	return migration.CreateEventDeliveryTables(db)
 }

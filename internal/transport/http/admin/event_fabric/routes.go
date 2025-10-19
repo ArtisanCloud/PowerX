@@ -20,12 +20,24 @@ func RegisterAPIRoutes(_ *gin.RouterGroup, protected *gin.RouterGroup, deps *sha
 		group.PATCH("/topics/:topic_id/lifecycle", dirHandler.UpdateLifecycle)
 	}
 
-    if deps.EventFabric.ACL != nil && deps.EventFabric.Directory != nil {
-        aclHandler := NewAdminACLHandler(AdminACLHandlerOptions{
-            Service:   deps.EventFabric.ACL,
-            Directory: deps.EventFabric.Directory,
-        })
-        group.POST("/acl", aclHandler.UpsertBindings)
-        group.GET("/acl", aclHandler.ListBindings)
-    }
+	if deps.EventFabric.ACL != nil && deps.EventFabric.Directory != nil {
+		aclHandler := NewAdminACLHandler(AdminACLHandlerOptions{
+			Service:   deps.EventFabric.ACL,
+			Directory: deps.EventFabric.Directory,
+		})
+		group.POST("/acl", aclHandler.UpsertBindings)
+		group.GET("/acl", aclHandler.ListBindings)
+	}
+
+	if deps.EventFabric.Delivery != nil {
+		deliveryHandler := NewAdminDeliveryHandler(AdminDeliveryHandlerOptions{Service: deps.EventFabric.Delivery})
+		group.POST("/events:publish", deliveryHandler.PublishEvent)
+	}
+
+	if deps.EventFabric.DLQ != nil {
+		dlqHandler := NewAdminDLQHandler(AdminDLQHandlerOptions{Service: deps.EventFabric.DLQ})
+		group.GET("/dlq/messages", dlqHandler.ListMessages)
+		group.POST("/dlq/messages:replay", dlqHandler.ReplayMessages)
+		group.DELETE("/dlq/messages", dlqHandler.PurgeMessages)
+	}
 }
