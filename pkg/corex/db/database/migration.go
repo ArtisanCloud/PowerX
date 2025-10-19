@@ -1,8 +1,10 @@
 package database
 
 import (
+	migration "github.com/ArtisanCloud/PowerX/pkg/corex/db/migration"
 	modelAudit "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/audit"
 	modelCapability "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/capability"
+	modelEventFabric "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/event_fabric"
 	modelAgent "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/flow"
 	modelIAM "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/iam"
 	mediamodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/media"
@@ -78,6 +80,10 @@ func MigrateCoreModels(db *gorm.DB) (err error) {
 		return err
 	}
 
+	if err = migrateEventFabricModels(db); err != nil {
+		return err
+	}
+
 	// 迁移审计
 	err = db.AutoMigrate(
 		&modelAudit.AuditEvent{},
@@ -97,4 +103,18 @@ func migrateCapabilityModels(db *gorm.DB) error {
 		&modelCapability.CapabilityErrorTaxonomy{},
 		&modelCapability.CapabilityContractErrorTaxonomy{},
 	)
+}
+
+func migrateEventFabricModels(db *gorm.DB) error {
+	if err := db.AutoMigrate(
+		&modelEventFabric.TopicDefinition{},
+		&modelEventFabric.AclBinding{},
+	); err != nil {
+		return err
+	}
+
+	if err := migration.CreateEventDeliveryTables(db); err != nil {
+		return err
+	}
+	return migration.CreateEventReplayTables(db)
 }

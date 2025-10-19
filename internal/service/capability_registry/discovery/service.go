@@ -10,6 +10,7 @@ import (
 
 	domain "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/domain"
 	registry "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/registry"
+	registryRepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/capability_registry"
 )
 
 // Service 提供能力快照的缓存、同步与跨区域复制能力。
@@ -26,8 +27,12 @@ type Service struct {
 
 // NewService 创建 Discovery 服务实例。
 func NewService(opts ServiceOptions) *Service {
-	if opts.RegistryRepository == nil {
-		panic("discovery.Service requires RegistryRepository")
+	registryRepository := opts.RegistryRepository
+	if registryRepository == nil {
+		if opts.DB == nil {
+			panic("discovery.Service requires DB when RegistryRepository is nil")
+		}
+		registryRepository = registryRepo.NewCapabilityRegistryRepository(opts.DB)
 	}
 	if opts.CacheStore == nil {
 		panic("discovery.Service requires CacheStore")
@@ -44,12 +49,12 @@ func NewService(opts ServiceOptions) *Service {
 	if ttl <= 0 {
 		ttl = 2 * time.Minute
 	}
-    metrics := opts.Metrics
-    if metrics == nil {
-        metrics = NewObservabilityMetrics(inst, WithTTLEstimate(ttl))
-    }
+	metrics := opts.Metrics
+	if metrics == nil {
+		metrics = NewObservabilityMetrics(inst, WithTTLEstimate(ttl))
+	}
 	return &Service{
-		registryRepo: opts.RegistryRepository,
+		registryRepo: registryRepository,
 		cache:        opts.CacheStore,
 		repo:         opts.Repository,
 		replicator:   opts.Replicator,

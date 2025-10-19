@@ -1,0 +1,318 @@
+syntax = "proto3";
+
+package corex.event_fabric.v1;
+
+option go_package = "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/corex/event_fabric/v1;eventfabricv1";
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+
+// ---------- Common Types ----------
+
+enum TopicLifecycle {
+  TOPIC_LIFECYCLE_UNSPECIFIED = 0;
+  TOPIC_LIFECYCLE_ACTIVE = 1;
+  TOPIC_LIFECYCLE_DEPRECATED = 2;
+  TOPIC_LIFECYCLE_RETIRED = 3;
+}
+
+message Topic {
+  string id = 1;
+  string tenant_id = 2;
+  string namespace = 3;
+  string name = 4;
+  string payload_format = 5;
+  int32 max_retry = 6;
+  TopicLifecycle lifecycle = 7;
+  int32 version = 8;
+  google.protobuf.Timestamp created_at = 9;
+  google.protobuf.Timestamp updated_at = 10;
+}
+
+message Pagination {
+  int64 total = 1;
+  int32 page = 2;
+  int32 page_size = 3;
+}
+
+// ---------- Directory Service ----------
+
+service TopicDirectoryService {
+  rpc CreateTopic(CreateTopicRequest) returns (CreateTopicResponse);
+  rpc UpdateLifecycle(UpdateLifecycleRequest) returns (UpdateLifecycleResponse);
+  rpc ListTopics(ListTopicsRequest) returns (ListTopicsResponse);
+}
+
+message CreateTopicRequest {
+  string tenant_id = 1;
+  string namespace = 2;
+  string name = 3;
+  string payload_format = 4;
+  int32 max_retry = 5;
+}
+
+message CreateTopicResponse {
+  Topic topic = 1;
+}
+
+message UpdateLifecycleRequest {
+  string topic_id = 1;
+  TopicLifecycle target_state = 2;
+  string change_reason = 3;
+  google.protobuf.Timestamp deprecated_at = 4;
+  google.protobuf.Timestamp retired_at = 5;
+}
+
+message UpdateLifecycleResponse {
+  Topic topic = 1;
+}
+
+message ListTopicsRequest {
+  string tenant_id = 1;
+  string namespace = 2;
+  TopicLifecycle lifecycle = 3;
+  int32 page = 4;
+  int32 page_size = 5;
+}
+
+message ListTopicsResponse {
+  repeated Topic items = 1;
+  Pagination pagination = 2;
+}
+
+// ---------- ACL Service ----------
+
+service TopicAclService {
+  rpc GrantBindings(GrantBindingsRequest) returns (GrantBindingsResponse);
+  rpc RevokeBindings(RevokeBindingsRequest) returns (google.protobuf.Empty);
+  rpc ListBindings(ListBindingsRequest) returns (ListBindingsResponse);
+  rpc CanAccess(CanAccessRequest) returns (CanAccessResponse);
+}
+
+enum PrincipalAction {
+  PRINCIPAL_ACTION_UNSPECIFIED = 0;
+  PRINCIPAL_ACTION_PUBLISH = 1;
+  PRINCIPAL_ACTION_SUBSCRIBE = 2;
+  PRINCIPAL_ACTION_REPLAY = 3;
+}
+
+message Binding {
+  string id = 1;
+  string tenant_id = 2;
+  string topic_id = 3;
+  string principal_id = 4;
+  PrincipalAction action = 5;
+  google.protobuf.Timestamp granted_at = 6;
+  google.protobuf.Timestamp expires_at = 7;
+}
+
+message GrantBindingsRequest {
+  string tenant_id = 1;
+  string topic_id = 2;
+  string principal_id = 3;
+  repeated PrincipalAction actions = 4;
+  google.protobuf.Timestamp expires_at = 5;
+  string operator_id = 6;
+}
+
+message GrantBindingsResponse {
+  repeated Binding bindings = 1;
+}
+
+message RevokeBindingsRequest {
+  string tenant_id = 1;
+  string topic_id = 2;
+  string principal_id = 3;
+  repeated PrincipalAction actions = 4;
+  string operator_id = 5;
+}
+
+message ListBindingsRequest {
+  string tenant_id = 1;
+  string topic_id = 2;
+  int32 page = 3;
+  int32 page_size = 4;
+}
+
+message ListBindingsResponse {
+  repeated Binding bindings = 1;
+  Pagination pagination = 2;
+}
+
+message CanAccessRequest {
+  string tenant_id = 1;
+  string principal_id = 2;
+  string topic_id = 3;
+  PrincipalAction action = 4;
+}
+
+message CanAccessResponse {
+  bool allowed = 1;
+}
+
+// ---------- Delivery Service ----------
+
+service EventDeliveryService {
+  rpc PublishEvent(PublishEventRequest) returns (google.protobuf.Empty);
+  rpc AckDelivery(AckDeliveryRequest) returns (google.protobuf.Empty);
+  rpc NackDelivery(NackDeliveryRequest) returns (NackDeliveryResponse);
+}
+
+service EventSubscriberService {
+  rpc Subscribe(SubscribeRequest) returns (stream DeliveryMessage);
+}
+
+enum VersionCompatibilityMode {
+  VERSION_COMPATIBILITY_MODE_UNSPECIFIED = 0;
+  VERSION_COMPATIBILITY_MODE_STRICT = 1;
+  VERSION_COMPATIBILITY_MODE_BACKWARD = 2;
+  VERSION_COMPATIBILITY_MODE_ANY = 3;
+}
+
+message PublishEventRequest {
+  string tenant_id = 1;
+  string topic = 2;
+  string event_id = 3;
+  string trace_id = 4;
+  string version = 5;
+  bytes payload = 6;
+  string payload_format = 7;
+  string idempotency_key = 8;
+  map<string, string> attributes = 9;
+}
+
+message AckDeliveryRequest {
+  string delivery_id = 1;
+  string subscriber_id = 2;
+}
+
+message NackDeliveryRequest {
+  string delivery_id = 1;
+  string subscriber_id = 2;
+  string reason = 3;
+}
+
+message NackDeliveryResponse {
+  int32 remaining_attempts = 1;
+  int32 next_delay_seconds = 2;
+  string strategy = 3;
+}
+
+message SubscribeRequest {
+  string tenant_id = 1;
+  string subscriber_id = 2;
+  repeated string topics = 3;
+  int32 batch_size = 4;
+  VersionCompatibilityMode compatibility_mode = 5;
+  repeated string supported_versions = 6;
+}
+
+message DeliveryMessage {
+  string delivery_id = 1;
+  string event_id = 2;
+  string topic = 3;
+  string trace_id = 4;
+  string version = 5;
+  bytes payload = 6;
+  string payload_format = 7;
+  map<string, string> headers = 8;
+  int32 attempt = 9;
+  int32 max_attempts = 10;
+  int32 remaining_attempts = 11;
+  google.protobuf.Timestamp ack_deadline = 12;
+  string subscriber_id = 13;
+}
+
+// ---------- DLQ Service ----------
+
+service EventDlqService {
+  rpc ListMessages(ListMessagesRequest) returns (ListMessagesResponse);
+  rpc ReplayMessages(ReplayMessagesRequest) returns (ReplayMessagesResponse);
+  rpc PurgeMessages(PurgeMessagesRequest) returns (PurgeMessagesResponse);
+}
+
+message DlqMessage {
+  string id = 1;
+  string tenant_id = 2;
+  string topic = 3;
+  string event_id = 4;
+  string last_error = 5;
+  int32 retry_count = 6;
+  google.protobuf.Timestamp failed_at = 7;
+}
+
+message ListMessagesRequest {
+  string tenant_id = 1;
+  string topic = 2;
+  int32 page = 3;
+  int32 page_size = 4;
+}
+
+message ListMessagesResponse {
+  repeated DlqMessage items = 1;
+  Pagination pagination = 2;
+}
+
+message ReplayMessagesRequest {
+  repeated string message_ids = 1;
+  string operator_id = 2;
+  string notes = 3;
+}
+
+message ReplayMessagesResponse {
+  int32 replayed = 1;
+}
+
+message PurgeMessagesRequest {
+  string tenant_id = 1;
+  string topic = 2;
+}
+
+message PurgeMessagesResponse {
+  int32 removed = 1;
+}
+
+// ---------- Replay Service ----------
+
+service EventReplayService {
+  rpc CreateReplayTask(CreateReplayTaskRequest) returns (ReplayTask);
+  rpc GetReplayTask(GetReplayTaskRequest) returns (ReplayTask);
+  rpc CancelReplayTask(CancelReplayTaskRequest) returns (google.protobuf.Empty);
+}
+
+message ReplayWindow {
+  google.protobuf.Timestamp start = 1;
+  google.protobuf.Timestamp end = 2;
+}
+
+message ReplayTask {
+  string id = 1;
+  string tenant_id = 2;
+  string topic = 3;
+  string trace_id = 4;
+  string status = 5;
+  bool shadow = 6;
+  string requested_by = 7;
+  google.protobuf.Timestamp submitted_at = 8;
+  google.protobuf.Timestamp completed_at = 9;
+  string failure_reason = 10;
+}
+
+message CreateReplayTaskRequest {
+  string tenant_id = 1;
+  string topic = 2;
+  string trace_id = 3;
+  ReplayWindow window = 4;
+  string reason = 5;
+  string operator_id = 6;
+  bool shadow = 7;
+}
+
+message GetReplayTaskRequest {
+  string task_id = 1;
+}
+
+message CancelReplayTaskRequest {
+  string task_id = 1;
+  string operator_id = 2;
+}

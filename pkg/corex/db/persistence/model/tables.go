@@ -42,3 +42,11 @@ const TableCapabilityRegistryRoutingPolicy = "capability_registry_routing_polici
 const TableCapabilityRegistryFallbackPlan = "capability_registry_fallback_plans"
 const TableCapabilityRegistryHealthProbeResult = "capability_registry_health_probe_results"
 const TableCapabilityRegistryDiscoveryCache = "capability_registry_discovery_cache"
+
+const TableEventTopics = "event_topics"
+const TableEventAclBindings = "event_acl_bindings"
+const TableEventEnvelopes = "event_envelopes"
+const TableEventDeliveryAttempts = "event_delivery_attempts"
+const TableEventDlqMessages = "event_dlq_messages"
+const TableEventSubscriptionOffsets = "event_subscription_offsets"
+const TableEventReplayRequests = "event_replay_requests"

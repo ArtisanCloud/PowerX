@@ -27,6 +27,7 @@ principles:
   - 索引/唯一约束通过 GORM Tag 声明；JSON 字段统一使用 datatypes.JSON(JSONB)。        # :contentReference[oaicite:23]{index=23}
   - 状态字段统一命名 Status，默认值 1；禁止散落 SQL 文件，迁移统一走 AutoMigrate。      # :contentReference[oaicite:24]{index=24}
   - 模型源码文件需以 `_gorm.go` 结尾，保持与现有目录命名一致，便于一眼识别 GORM 实体。
+  - 非持久化结构体（DTO/辅助类型）禁止携带 `gorm:""` Tag，避免误导迁移与仓储逻辑。
   - PowerX 核心模块的模型必须集中在 `pkg/corex/db/database/migration.go::MigrateCoreModels` 注册；独立 Server（如 Agent）可在自身 `internal/server/<module>/persistence/migrate.go` 中维护迁移函数。
 
 checks:

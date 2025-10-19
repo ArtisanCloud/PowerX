@@ -37,6 +37,7 @@ type ErrorResponse struct {
 	Code      int                    `json:"code" example:"400"`
 	Message   string                 `json:"message" example:"参数错误"`
 	Error     string                 `json:"error,omitempty" example:"validation failed"`
+	ErrorCode string                 `json:"error_code,omitempty" description:"业务错误码"`
 	Details   map[string]interface{} `json:"details,omitempty" description:"错误详情"`
 	Timestamp int64                  `json:"timestamp"`
 	RequestID string                 `json:"request_id,omitempty"`
@@ -175,6 +176,9 @@ func ResponseErrorWithDetails(c *gin.Context, code int, message string, err erro
 
 	if err != nil {
 		response.Error = err.Error()
+	}
+	if appCode := CodeOf(err); appCode != "" {
+		response.ErrorCode = appCode
 	}
 	if len(details) > 0 {
 		response.Details = details

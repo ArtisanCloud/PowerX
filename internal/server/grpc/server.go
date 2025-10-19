@@ -81,13 +81,19 @@ func New(cfg *GRPCConfig, deps *shared.Deps) (*grpc.Server, net.Listener, error)
 
 	// ===== 鉴权拦截器（kid + 多密钥兜底；与 STS 共用 KeyRing）=====
 	ring := authgrpc.NewDefaultKeyRing(deps)
+	unaryInterceptors := []grpc.UnaryServerInterceptor{
+		middleware2.UnaryAuth(middleware2.JWTVerifyConfig{Ring: ring}),
+	}
+	streamInterceptors := []grpc.StreamServerInterceptor{
+		middleware2.StreamAuth(middleware2.JWTVerifyConfig{Ring: ring}),
+	}
+	if deps != nil && deps.EventFabric != nil && deps.EventFabric.Security != nil {
+		unaryInterceptors = append(unaryInterceptors, deps.EventFabric.Security.UnaryServerInterceptor())
+		streamInterceptors = append(streamInterceptors, deps.EventFabric.Security.StreamServerInterceptor())
+	}
 	opts = append(opts,
-		grpc.ChainUnaryInterceptor(
-			middleware2.UnaryAuth(middleware2.JWTVerifyConfig{Ring: ring}),
-		),
-		grpc.ChainStreamInterceptor(
-			middleware2.StreamAuth(middleware2.JWTVerifyConfig{Ring: ring}),
-		),
+		grpc.ChainUnaryInterceptor(unaryInterceptors...),
+		grpc.ChainStreamInterceptor(streamInterceptors...),
 	)
 
 	// ===== 构建 Server =====

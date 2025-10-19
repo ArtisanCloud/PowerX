@@ -1,0 +1,688 @@
+openapi: 3.0.3
+info:
+  title: Event Fabric Admin API
+  version: 0.1.0
+  description: |
+    CoreX 事件骨干的管理端 API 契约骨架，覆盖主题目录、ACL、投递、死信与回放能力。
+servers:
+  - url: https://api.powerx.io/admin
+    description: 生产环境
+  - url: http://localhost:8077/api
+    description: 本地开发环境
+
+tags:
+  - name: topics
+    description: 主题目录管理
+  - name: acl
+    description: 事件发布/订阅授权
+  - name: delivery
+    description: 事件发布与投递接口
+  - name: dlq
+    description: 死信管理
+  - name: replay
+    description: 事件回放
+
+paths:
+  /event-fabric/topics:
+    post:
+      tags: [topics]
+      summary: 创建新主题
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTopicRequest'
+      responses:
+        '200':
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TopicResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+    get:
+      tags: [topics]
+      summary: 查询主题列表
+      parameters:
+        - in: query
+          name: tenant_id
+          schema:
+            type: string
+        - in: query
+          name: namespace
+          schema:
+            type: string
+        - in: query
+          name: lifecycle
+          schema:
+            $ref: '#/components/schemas/TopicLifecycle'
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+        - in: query
+          name: page_size
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TopicListResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+
+  /event-fabric/topics/{topic_id}/lifecycle:
+    patch:
+      tags: [topics]
+      summary: 更新主题生命周期
+      parameters:
+        - in: path
+          name: topic_id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateLifecycleRequest'
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TopicResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /event-fabric/acl/bindings:grant:
+    post:
+      tags: [acl]
+      summary: 授予主题访问权限
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GrantBindingsRequest'
+      responses:
+        '200':
+          description: 授权成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GrantBindingsResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+
+  /event-fabric/acl/bindings:revoke:
+    post:
+      tags: [acl]
+      summary: 撤销主题访问权限
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RevokeBindingsRequest'
+      responses:
+        '204':
+          description: 撤销成功
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /event-fabric/acl/bindings:
+    get:
+      tags: [acl]
+      summary: 查询授权绑定
+      parameters:
+        - in: query
+          name: tenant_id
+          schema:
+            type: string
+          required: true
+        - in: query
+          name: topic_id
+          schema:
+            type: string
+          required: true
+        - in: query
+          name: page
+          schema:
+            type: integer
+        - in: query
+          name: page_size
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BindingListResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+
+  /event-fabric/events:publish:
+    post:
+      tags: [delivery]
+      summary: 管理端模拟发布事件
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PublishEventRequest'
+      responses:
+        '202':
+          description: 已提交发布请求
+        '400':
+          $ref: '#/components/responses/ValidationError'
+
+  /event-fabric/dlq/messages:
+    get:
+      tags: [dlq]
+      summary: 分页查询死信消息
+      parameters:
+        - in: query
+          name: tenant_id
+          schema:
+            type: string
+          required: true
+        - in: query
+          name: topic
+          schema:
+            type: string
+        - in: query
+          name: page
+          schema:
+            type: integer
+        - in: query
+          name: page_size
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DlqListResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+    delete:
+      tags: [dlq]
+      summary: 清理指定主题的死信消息
+      parameters:
+        - in: query
+          name: tenant_id
+          schema:
+            type: string
+          required: true
+        - in: query
+          name: topic
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 清理结果
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PurgeDlqResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+
+  /event-fabric/dlq/messages:replay:
+    post:
+      tags: [dlq]
+      summary: 批量重放死信消息
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReplayDlqRequest'
+      responses:
+        '200':
+          description: 重放结果
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReplayDlqResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+
+  /event-fabric/replay/tasks:
+    post:
+      tags: [replay]
+      summary: 创建回放任务
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateReplayTaskRequest'
+      responses:
+        '200':
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReplayTaskResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+
+  /event-fabric/replay/tasks/{task_id}:
+    get:
+      tags: [replay]
+      summary: 查询回放任务状态
+      parameters:
+        - in: path
+          name: task_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReplayTaskResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /event-fabric/replay/tasks/{task_id}:cancel:
+    post:
+      tags: [replay]
+      summary: 取消回放任务
+      parameters:
+        - in: path
+          name: task_id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CancelReplayTaskRequest'
+      responses:
+        '204':
+          description: 已取消
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+components:
+  responses:
+    ValidationError:
+      description: 参数错误
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: 资源不存在
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+  schemas:
+    BaseResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+        message:
+          type: string
+        timestamp:
+          type: integer
+        request_id:
+          type: string
+    ErrorResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            error:
+              type: string
+            details:
+              type: object
+    TopicLifecycle:
+      type: string
+      enum: [active, deprecated, retired]
+    TopicDto:
+      type: object
+      properties:
+        id:
+          type: string
+        tenant_id:
+          type: string
+        namespace:
+          type: string
+        name:
+          type: string
+        payload_format:
+          type: string
+        max_retry:
+          type: integer
+        lifecycle:
+          $ref: '#/components/schemas/TopicLifecycle'
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    CreateTopicRequest:
+      type: object
+      required: [tenant_id, namespace, name]
+      properties:
+        tenant_id:
+          type: string
+        namespace:
+          type: string
+        name:
+          type: string
+        payload_format:
+          type: string
+          default: json
+        max_retry:
+          type: integer
+          default: 5
+    TopicResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/TopicDto'
+    TopicListResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                items:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/TopicDto'
+                pagination:
+                  $ref: '#/components/schemas/Pagination'
+    Pagination:
+      type: object
+      properties:
+        total:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+    UpdateLifecycleRequest:
+      type: object
+      required: [target_state, change_reason]
+      properties:
+        target_state:
+          $ref: '#/components/schemas/TopicLifecycle'
+        change_reason:
+          type: string
+        deprecated_at:
+          type: string
+          format: date-time
+        retired_at:
+          type: string
+          format: date-time
+    PrincipalAction:
+      type: string
+      enum: [publish, subscribe, replay]
+    GrantBindingsRequest:
+      type: object
+      required: [tenant_id, topic_id, principal_id, actions]
+      properties:
+        tenant_id:
+          type: string
+        topic_id:
+          type: string
+        principal_id:
+          type: string
+        actions:
+          type: array
+          items:
+            $ref: '#/components/schemas/PrincipalAction'
+        expires_at:
+          type: string
+          format: date-time
+        operator_id:
+          type: string
+    GrantBindingsResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/BindingDto'
+    BindingDto:
+      type: object
+      properties:
+        id:
+          type: string
+        tenant_id:
+          type: string
+        topic_id:
+          type: string
+        principal_id:
+          type: string
+        action:
+          $ref: '#/components/schemas/PrincipalAction'
+        granted_at:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
+    RevokeBindingsRequest:
+      type: object
+      required: [tenant_id, topic_id, principal_id, actions]
+      properties:
+        tenant_id:
+          type: string
+        topic_id:
+          type: string
+        principal_id:
+          type: string
+        actions:
+          type: array
+          items:
+            $ref: '#/components/schemas/PrincipalAction'
+        operator_id:
+          type: string
+    BindingListResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                items:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/BindingDto'
+                pagination:
+                  $ref: '#/components/schemas/Pagination'
+    PublishEventRequest:
+      type: object
+      required: [tenant_id, topic, event_id, version, payload]
+      properties:
+        tenant_id:
+          type: string
+        topic:
+          type: string
+        event_id:
+          type: string
+        trace_id:
+          type: string
+        version:
+          type: string
+        payload:
+          type: string
+          description: Base64 编码的事件载荷
+        payload_format:
+          type: string
+          default: json
+        idempotency_key:
+          type: string
+        attributes:
+          type: object
+          additionalProperties:
+            type: string
+    DlqMessageDto:
+      type: object
+      properties:
+        id:
+          type: string
+        tenant_id:
+          type: string
+        topic:
+          type: string
+        event_id:
+          type: string
+        retry_count:
+          type: integer
+        last_error:
+          type: string
+        failed_at:
+          type: string
+          format: date-time
+    DlqListResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                items:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/DlqMessageDto'
+                pagination:
+                  $ref: '#/components/schemas/Pagination'
+    ReplayDlqRequest:
+      type: object
+      required: [message_ids]
+      properties:
+        message_ids:
+          type: array
+          items:
+            type: string
+        operator_id:
+          type: string
+        notes:
+          type: string
+    ReplayDlqResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                replayed:
+                  type: integer
+    PurgeDlqResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                removed:
+                  type: integer
+    CreateReplayTaskRequest:
+      type: object
+      required: [tenant_id, topic]
+      properties:
+        tenant_id:
+          type: string
+        topic:
+          type: string
+        trace_id:
+          type: string
+        window:
+          $ref: '#/components/schemas/ReplayWindow'
+        reason:
+          type: string
+        operator_id:
+          type: string
+        shadow:
+          type: boolean
+          default: true
+    ReplayWindow:
+      type: object
+      properties:
+        start:
+          type: string
+          format: date-time
+        end:
+          type: string
+          format: date-time
+    ReplayTaskDto:
+      type: object
+      properties:
+        id:
+          type: string
+        tenant_id:
+          type: string
+        topic:
+          type: string
+        trace_id:
+          type: string
+        status:
+          type: string
+        shadow:
+          type: boolean
+        requested_by:
+          type: string
+        submitted_at:
+          type: string
+          format: date-time
+        completed_at:
+          type: string
+          format: date-time
+        failure_reason:
+          type: string
+    ReplayTaskResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/ReplayTaskDto'
+    CancelReplayTaskRequest:
+      type: object
+      properties:
+        operator_id:
+          type: string

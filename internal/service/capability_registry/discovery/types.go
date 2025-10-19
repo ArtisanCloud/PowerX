@@ -7,6 +7,7 @@ import (
 
 	domain "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/domain"
 	registry "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/registry"
+	"gorm.io/gorm"
 )
 
 // ErrSnapshotNotFound 表示缓存中不存在指定快照。
@@ -110,6 +111,7 @@ func (noopMetricsRecorder) ObserveCacheLookup(context.Context, string, string, s
 
 // ServiceOptions 注入 Discovery 服务依赖。
 type ServiceOptions struct {
+	DB                 *gorm.DB
 	RegistryRepository registry.Repository
 	CacheStore         CacheStore
 	Repository         Repository

@@ -11,5 +11,10 @@ lint: {
     PACKAGE_DIRECTORY_MATCH,
     RPC_REQUEST_RESPONSE_UNIQUE,
     RPC_RESPONSE_STANDARD_NAME
-  ]
+  ],
+  ignore_only: {
+    RPC_REQUEST_STANDARD_NAME: [
+      "powerx/capability/registry/v1/registry.proto"
+    ]
+  }
 }

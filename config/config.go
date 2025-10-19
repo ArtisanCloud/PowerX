@@ -56,6 +56,7 @@ type Config struct {
 	Server      ServerConfig         `yaml:"server"`       // HTTP/gRPC 监听与行为
 	Auth        AuthConfig           `yaml:"auth"`         // JWT / 认证相关
 	EventBus    EventBusConfig       `yaml:"event_bus"`    // 事件总线（local/redis）
+	EventFabric EventFabricConfig    `yaml:"event_fabric"` // 事件骨干调度配置
 	LowCode     LowCodeConfig        `yaml:"dynamic_form"` // flow 执行相关
 	FeatureGate FeatureGateConfig    `yaml:"feature_gate"` // 细粒度开关、license
 	Database    dbCfg.DatabaseConfig `yaml:"database"`     // 数据库配置
@@ -99,6 +100,29 @@ type EventBusConfig struct {
 	RedisAddr     string `yaml:"redis_addr"`     // redis 地址
 	RedisPassword string `yaml:"redis_password"` // redis 密码
 	DedupeTTLSec  int    `yaml:"dedupe_ttl_sec"` // 幂等缓存过期
+}
+
+// EventFabricConfig 管理事件骨干的可靠性与调度参数。
+type EventFabricConfig struct {
+	AckTimeoutSeconds int                       `yaml:"ack_timeout_seconds"` // ACK 超时，超过后进入重试
+	DefaultMaxRetry   int                       `yaml:"default_max_retry"`   // 默认最大重试次数
+	RedisAddr         string                    `yaml:"redis_addr"`          // 重试/幂等使用的 Redis 地址
+	RedisPassword     string                    `yaml:"redis_password"`      // Redis 密码
+	RedisDB           int                       `yaml:"redis_db"`            // Redis DB
+	RetryKeyPrefix    string                    `yaml:"retry_key_prefix"`    // Sorted Set key 前缀
+	ReplayKeyPrefix   string                    `yaml:"replay_key_prefix"`   // 回放任务 key 前缀
+	SchedulerInterval int                       `yaml:"scheduler_interval"`  // 重试 worker 扫描间隔（秒）
+	Security          EventFabricSecurityConfig `yaml:"security"`            // 安全配置
+}
+
+// EventFabricSecurityConfig 定义 TLS/签名要求。
+type EventFabricSecurityConfig struct {
+	RequireTLS              bool   `yaml:"require_tls"`
+	SignatureSecret         string `yaml:"signature_secret"`
+	SignatureHeader         string `yaml:"signature_header"`
+	TimestampHeader         string `yaml:"timestamp_header"`
+	SignatureKeyID          string `yaml:"signature_key_id"`
+	AllowedClockSkewSeconds int    `yaml:"allowed_clock_skew_seconds"`
 }
 
 // 低代码引擎配置
@@ -193,6 +217,60 @@ func loadFromEnv(cfg *Config) {
 	if ttl := os.Getenv("CORE_X_EVENT_BUS_DEDUPE_TTL_SEC"); ttl != "" {
 		if t, err := strconv.Atoi(ttl); err == nil {
 			cfg.EventBus.DedupeTTLSec = t
+		}
+	}
+
+	// EventFabric 配置
+	if v := os.Getenv("CORE_X_EVENT_FABRIC_ACK_TIMEOUT_SEC"); v != "" {
+		if t, err := strconv.Atoi(v); err == nil {
+			cfg.EventFabric.AckTimeoutSeconds = t
+		}
+	}
+	if v := os.Getenv("CORE_X_EVENT_FABRIC_DEFAULT_MAX_RETRY"); v != "" {
+		if t, err := strconv.Atoi(v); err == nil {
+			cfg.EventFabric.DefaultMaxRetry = t
+		}
+	}
+	if v := os.Getenv("CORE_X_EVENT_FABRIC_REDIS_ADDR"); v != "" {
+		cfg.EventFabric.RedisAddr = v
+	}
+	if v := os.Getenv("CORE_X_EVENT_FABRIC_REDIS_PASSWORD"); v != "" {
+		cfg.EventFabric.RedisPassword = v
+	}
+	if v := os.Getenv("CORE_X_EVENT_FABRIC_REDIS_DB"); v != "" {
+		if dbIdx, err := strconv.Atoi(v); err == nil {
+			cfg.EventFabric.RedisDB = dbIdx
+		}
+	}
+	if v := os.Getenv("CORE_X_EVENT_FABRIC_RETRY_KEY_PREFIX"); v != "" {
+		cfg.EventFabric.RetryKeyPrefix = v
+	}
+	if v := os.Getenv("CORE_X_EVENT_FABRIC_REPLAY_KEY_PREFIX"); v != "" {
+		cfg.EventFabric.ReplayKeyPrefix = v
+	}
+	if v := os.Getenv("CORE_X_EVENT_FABRIC_SCHEDULER_INTERVAL"); v != "" {
+		if t, err := strconv.Atoi(v); err == nil {
+			cfg.EventFabric.SchedulerInterval = t
+		}
+	}
+	if v := os.Getenv("CORE_X_EVENT_FABRIC_REQUIRE_TLS"); v != "" {
+		cfg.EventFabric.Security.RequireTLS = strings.EqualFold(v, "true") || v == "1"
+	}
+	if v := os.Getenv("CORE_X_EVENT_FABRIC_SIGNATURE_SECRET"); v != "" {
+		cfg.EventFabric.Security.SignatureSecret = v
+	}
+	if v := os.Getenv("CORE_X_EVENT_FABRIC_SIGNATURE_HEADER"); v != "" {
+		cfg.EventFabric.Security.SignatureHeader = v
+	}
+	if v := os.Getenv("CORE_X_EVENT_FABRIC_TIMESTAMP_HEADER"); v != "" {
+		cfg.EventFabric.Security.TimestampHeader = v
+	}
+	if v := os.Getenv("CORE_X_EVENT_FABRIC_SIGNATURE_KEY_ID"); v != "" {
+		cfg.EventFabric.Security.SignatureKeyID = v
+	}
+	if v := os.Getenv("CORE_X_EVENT_FABRIC_ALLOWED_SKEW_SEC"); v != "" {
+		if skew, err := strconv.Atoi(v); err == nil {
+			cfg.EventFabric.Security.AllowedClockSkewSeconds = skew
 		}
 	}
 

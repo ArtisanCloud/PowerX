@@ -8,6 +8,7 @@ import (
 	"time"
 
 	domain "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/domain"
+	registryRepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/capability_registry"
 )
 
 // Service 提供能力注册的领域操作。
@@ -36,8 +37,12 @@ type auditAdapter interface {
 
 // NewService 创建能力注册服务。
 func NewService(opts ServiceOptions) *Service {
-	if opts.Repository == nil {
-		panic("registry.Service requires Repository")
+	repository := opts.Repository
+	if repository == nil {
+		if opts.DB == nil {
+			panic("registry.Service requires DB when Repository is nil")
+		}
+		repository = registryRepo.NewCapabilityRegistryRepository(opts.DB)
 	}
 
 	clock := opts.Clock
@@ -66,7 +71,7 @@ func NewService(opts ServiceOptions) *Service {
 	}
 
 	return &Service{
-		repo:              opts.Repository,
+		repo:              repository,
 		bus:               opts.EventBus,
 		instrumentation:   inst,
 		contracts:         opts.ContractVerifier,

@@ -224,6 +224,20 @@ Any plan missing the above gates is **invalid** and fails constitutional complia
 - Plugin memory < 256MB (unless justified)  
 - Database migrations必须优先使用 GORM AutoMigrate 或等效自动迁移机制；无需单独维护 `up`/`down` 脚本，但需确保迁移过程可重复执行且幂等
 
+### Source Hygiene
+
+- 不得为了“目录占位”而提交仅含包声明或空注释的文件（典型如 `doc.go`、`registry.go`）；新建目录需随首次实现提供实际逻辑、测试或具备实质内容的文档说明。
+- 若确需编写包级文档，必须包含有效注释或示例，禁止空壳文件。
+- 未落库的辅助结构体（纯内存/DTO/参数）不得携带 `gorm:""` Tag，避免与持久化实体混淆；仅当结构体通过 AutoMigrate 映射至真实表时才允许设置 GORM Tag。
+- Service 层必须以结构体方式实现（`*Service` + 构造函数 + 显式依赖注入），禁止额外定义 “业务接口” 壳，以免破坏规则集对集中 DI/事务的约束。
+- 依赖注入只负责传递数据库句柄、配置与跨域服务；Repository 由 Service 内部持有并在构造函数中创建，禁止在 `shared.Deps` 层提前实例化 Repo。
+
+### Event Fabric vs. Event Bus
+
+- `pkg/event_bus` 定位为**基础设施层**的发布/订阅抽象（`Publish`、`Subscribe`、`Close`），负责把事件从发布方送到订阅方，不包含主题治理、ACL、重试、死信或回放等业务语义。
+- `internal/service/event_fabric/*` 是**领域编排层**，需在 CoreX 事件骨干中完成 Topic 目录、租户 ACL、可靠投递、DLQ、回放、审计等用例，并可组合底层 `pkg/event_bus` 等设施。
+- 任何计划/实现不得混淆两者职责：领域服务依赖或扩展基础设施，但禁止在基础设施层堆叠领域逻辑，也不得绕过领域服务直接宣称满足事件骨干需求。
+
 ---
 
 ## Development Workflow
