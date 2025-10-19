@@ -1,0 +1,116 @@
+syntax = "proto3";
+
+package powerx.event_fabric.v1;
+
+option go_package = "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/event_fabric/v1;eventfabricv1";
+
+// AuthorizationService 提供实时授权评估与运维辅助接口。
+service AuthorizationService {
+  // Evaluate 根据租户、主体、能力与上下文执行授权决策。
+  rpc Evaluate(EvaluateRequest) returns (EvaluateResponse);
+
+  // InvalidateGrantCache 主动刷新指定主体的授权缓存。
+  rpc InvalidateGrantCache(InvalidateGrantCacheRequest) returns (InvalidateGrantCacheResponse);
+
+  // GetGrantSnapshot 返回授权快照，用于网关快速自检或排错。
+  rpc GetGrantSnapshot(GetGrantSnapshotRequest) returns (GetGrantSnapshotResponse);
+}
+
+message EvaluateRequest {
+  TenantContext tenant = 1;
+  Subject subject = 2;
+  string capability = 3;
+  repeated string context_tags = 4;
+  string resource = 5;
+  map<string, string> attributes = 6;
+  string request_id = 7; // 可选幂等键
+}
+
+message EvaluateResponse {
+  Decision decision = 1;
+  string reason = 2;
+  ChallengeTicket challenge = 3;
+  string grant_version = 4;
+  string audit_event_id = 5;
+}
+
+enum Decision {
+  DECISION_UNSPECIFIED = 0;
+  DECISION_ALLOW = 1;
+  DECISION_BLOCK = 2;
+  DECISION_CHALLENGE = 3;
+}
+
+message ChallengeTicket {
+  string ticket_id = 1;
+  string status = 2; // pending/approved/rejected/expired
+  string sla_expires_at = 3; // RFC3339
+}
+
+message InvalidateGrantCacheRequest {
+  TenantContext tenant = 1;
+  Subject subject = 2;
+  string grant_version = 3;
+}
+
+message InvalidateGrantCacheResponse {
+  string request_id = 1;
+  string status = 2; // accepted/done
+}
+
+message GetGrantSnapshotRequest {
+  TenantContext tenant = 1;
+  Subject subject = 2;
+}
+
+message GetGrantSnapshotResponse {
+  Grant grant = 1;
+}
+
+message Grant {
+  string id = 1;
+  string status = 2;
+  string source = 3;
+  string ttl_expires_at = 4;
+  repeated GrantCapability capabilities = 5;
+  GrantConditions conditions = 6;
+  string version = 7;
+}
+
+message GrantCapability {
+  string capability = 1;
+  RateLimit rate_limit = 2;
+}
+
+message GrantConditions {
+  repeated string resources = 1;
+  repeated string context_tags = 2;
+  TimeWindow time_window = 3;
+}
+
+message TimeWindow {
+  string start = 1; // RFC3339
+  string end = 2;   // RFC3339
+}
+
+message RateLimit {
+  uint32 limit = 1;
+  uint32 interval_seconds = 2;
+  uint32 burst = 3;
+}
+
+message TenantContext {
+  string tenant_id = 1;
+  string environment = 2;
+}
+
+message Subject {
+  SubjectType type = 1;
+  string id = 2;
+}
+
+enum SubjectType {
+  SUBJECT_TYPE_UNSPECIFIED = 0;
+  SUBJECT_TYPE_AGENT = 1;
+  SUBJECT_TYPE_PLUGIN = 2;
+}
