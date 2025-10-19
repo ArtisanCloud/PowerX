@@ -9,6 +9,7 @@ import (
 
 	eventaudit "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/audit"
 	eventdelivery "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/delivery"
+	eventmetrics "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/metrics"
 	eventfabricmodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/event_fabric"
 	eventfabricrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/event_fabric"
 	"github.com/google/uuid"
@@ -77,6 +78,7 @@ type Options struct {
 	Delivery   eventdelivery.Service
 	Audit      eventaudit.Service
 	Clock      func() time.Time
+	Metrics    eventmetrics.Recorder
 }
 
 type serviceImpl struct {
@@ -86,6 +88,7 @@ type serviceImpl struct {
 	delivery  eventdelivery.Service
 	audit     eventaudit.Service
 	clock     func() time.Time
+	metrics   eventmetrics.Recorder
 }
 
 func NewService(opts Options) (Service, error) {
@@ -125,6 +128,12 @@ func NewService(opts Options) (Service, error) {
 		delivery:  opts.Delivery,
 		audit:     opts.Audit,
 		clock:     clock,
+		metrics: func() eventmetrics.Recorder {
+			if opts.Metrics != nil {
+				return opts.Metrics
+			}
+			return eventmetrics.NewNoop()
+		}(),
 	}, nil
 }
 
@@ -252,6 +261,7 @@ func (s *serviceImpl) Replay(ctx context.Context, req ReplayRequest) (int, error
 		}
 
 		success++
+		s.metrics.ObserveDLQChange(ctx, -1)
 
 		if s.audit != nil {
 			_ = s.audit.Write(ctx, eventaudit.Record{
@@ -285,6 +295,9 @@ func (s *serviceImpl) Purge(ctx context.Context, tenantID string, topicID string
 		}
 	}
 	rows, err := s.repo.PurgeByTopic(ctx, tenantID, topicUUID)
+	if err == nil && rows > 0 {
+		s.metrics.ObserveDLQChange(ctx, -int64(rows))
+	}
 	return int(rows), err
 }
 

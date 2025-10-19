@@ -12,6 +12,9 @@ func RegisterAPIRoutes(_ *gin.RouterGroup, protected *gin.RouterGroup, deps *sha
 	}
 
 	group := protected.Group("/event-fabric")
+	if deps.EventFabric.Security != nil {
+		group.Use(deps.EventFabric.Security.GinMiddleware())
+	}
 
 	if deps.EventFabric.Directory != nil {
 		dirHandler := NewAdminDirectoryHandler(AdminDirectoryHandlerOptions{Service: deps.EventFabric.Directory})

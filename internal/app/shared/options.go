@@ -4,6 +4,7 @@ package shared
 
 import (
 	"github.com/ArtisanCloud/PowerX/internal/service/auth"
+	security "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/security"
 	mediasvc "github.com/ArtisanCloud/PowerX/internal/service/media"
 	auditsvc "github.com/ArtisanCloud/PowerX/pkg/corex/audit"
 )
@@ -27,4 +28,5 @@ type EventFabricOptions struct {
 	RetryKeyPrefix    string
 	ReplayKeyPrefix   string
 	SchedulerInterval int
+	Security          security.Config
 }

@@ -84,14 +84,14 @@ func mapDeliveryError(err error) error {
 	case err == nil:
 		return nil
 	case errors.Is(err, sharedsvc.ErrTenantMismatch):
-		return dto.NewBadRequest("tenant mismatch", err)
+		return dto.WithCode(dto.NewBadRequest("tenant mismatch", err), sharedsvc.ErrorCodeTenantMismatch)
 	case errors.Is(err, sharedsvc.ErrUnauthorized):
-		return dto.NewForbidden("unauthorized", err)
+		return dto.WithCode(dto.NewForbidden("unauthorized", err), sharedsvc.ErrorCodeUnauthorized)
 	case errors.Is(err, sharedsvc.ErrAckTimeout):
-		return dto.NewConflict("ack timeout", err)
+		return dto.WithCode(dto.NewConflict("ack timeout", err), sharedsvc.ErrorCodeAckTimeout)
 	case errors.Is(err, sharedsvc.ErrRetryExhausted):
-		return dto.NewConflict("retry exhausted", err)
+		return dto.WithCode(dto.NewConflict("retry exhausted", err), sharedsvc.ErrorCodeRetryExhausted)
 	default:
-		return dto.NewInternal("delivery internal error", err)
+		return dto.WithCode(dto.NewInternal("delivery internal error", err), sharedsvc.ErrorNamespace+".internal_error")
 	}
 }

@@ -21,7 +21,9 @@ import (
 	deliveryService "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/delivery"
 	directoryService "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/directory"
 	dlqService "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/dlq"
+	eventmetrics "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/metrics"
 	replayService "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/replay"
+	security "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/security"
 	iamsvc "github.com/ArtisanCloud/PowerX/internal/service/iam"
 	mediasvc "github.com/ArtisanCloud/PowerX/internal/service/media"
 	tenantsvc "github.com/ArtisanCloud/PowerX/internal/service/tenant"
@@ -163,6 +165,8 @@ type EventFabricDeps struct {
 	Audit       auditService.Service
 	Replay      *replayService.Service
 	RetryWorker *workers.EventFabricRetryWorker
+	Metrics     eventmetrics.Recorder
+	Security    *security.Verifier
 }
 
 // EventFabricRuntimeConfig 将配置项转换为运行时易用的结构。
@@ -203,6 +207,13 @@ func newEventFabricDeps(db *gorm.DB, opts EventFabricOptions, bus event_bus.Even
 	}
 	if cfg.SchedulerInterval <= 0 {
 		cfg.SchedulerInterval = fallbackSchedulerTick
+	}
+
+	metricsRecorder := eventmetrics.NewRecorder()
+
+	var securityVerifier *security.Verifier
+	if opts.Security.RequireTLS || strings.TrimSpace(opts.Security.SignatureSecret) != "" {
+		securityVerifier = security.NewVerifier(opts.Security)
 	}
 
 	var redisClient *redis.Client
@@ -253,6 +264,7 @@ func newEventFabricDeps(db *gorm.DB, opts EventFabricOptions, bus event_bus.Even
 			Clock:     time.Now,
 			MaxRetry:  cfg.DefaultMaxRetry,
 			Audit:     auditSvcEF,
+			Metrics:   metricsRecorder,
 		})
 		if err != nil {
 			pxlog.WarnF(context.Background(), "init delivery service failed: %v", err)
@@ -268,6 +280,7 @@ func newEventFabricDeps(db *gorm.DB, opts EventFabricOptions, bus event_bus.Even
 			Delivery: deliverySvc,
 			Audit:    auditSvcEF,
 			Clock:    time.Now,
+			Metrics:  metricsRecorder,
 		})
 		if err != nil {
 			pxlog.WarnF(context.Background(), "init dlq service failed: %v", err)
@@ -281,6 +294,7 @@ func newEventFabricDeps(db *gorm.DB, opts EventFabricOptions, bus event_bus.Even
 			DB:       db,
 			Delivery: deliverySvc,
 			Clock:    time.Now,
+			Metrics:  metricsRecorder,
 		})
 	}
 
@@ -326,5 +340,7 @@ func newEventFabricDeps(db *gorm.DB, opts EventFabricOptions, bus event_bus.Even
 		Audit:       auditSvcEF,
 		Replay:      replaySvc,
 		RetryWorker: retryWorker,
+		Metrics:     metricsRecorder,
+		Security:    securityVerifier,
 	}
 }

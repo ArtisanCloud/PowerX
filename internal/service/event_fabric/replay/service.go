@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/ArtisanCloud/PowerX/internal/service/event_fabric/delivery"
+	eventmetrics "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/metrics"
 	"github.com/ArtisanCloud/PowerX/internal/service/event_fabric/shared"
 	eventfabricmodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/event_fabric"
 	eventfabricrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/event_fabric"
@@ -41,6 +42,7 @@ type Options struct {
 	Topics    TopicLookup
 	Delivery  delivery.Service
 	Clock     func() time.Time
+	Metrics   eventmetrics.Recorder
 }
 
 // Service 提供事件回放能力。
@@ -50,6 +52,7 @@ type Service struct {
 	topics    TopicLookup
 	delivery  delivery.Service
 	clock     func() time.Time
+	metrics   eventmetrics.Recorder
 }
 
 // CreateTaskInput 创建回放任务输入。
@@ -103,6 +106,12 @@ func NewService(opts Options) *Service {
 		topics:    topics,
 		delivery:  opts.Delivery,
 		clock:     clock,
+		metrics: func() eventmetrics.Recorder {
+			if opts.Metrics != nil {
+				return opts.Metrics
+			}
+			return eventmetrics.NewNoop()
+		}(),
 	}
 }
 
@@ -159,7 +168,9 @@ func (s *Service) CreateTask(ctx context.Context, input CreateTaskInput) (*Task,
 		return nil, err
 	}
 
+	started := s.clock().UTC()
 	count, execErr := s.executeReplay(ctx, record, topicDef.FullTopic)
+	s.metrics.ObserveReplay(ctx, s.clock().UTC().Sub(started), execErr)
 	updates := map[string]interface{}{
 		"result_count": count,
 	}

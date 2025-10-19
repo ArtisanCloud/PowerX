@@ -68,6 +68,17 @@ func (c *Config) Validate() error {
 	if strings.TrimSpace(c.EventFabric.RedisAddr) == "" {
 		errors = append(errors, "event_fabric.redis_addr 不能为空")
 	}
+	if strings.TrimSpace(c.EventFabric.Security.SignatureSecret) != "" {
+		if strings.TrimSpace(c.EventFabric.Security.SignatureHeader) == "" {
+			errors = append(errors, "event_fabric.security.signature_header 不能为空")
+		}
+		if strings.TrimSpace(c.EventFabric.Security.TimestampHeader) == "" {
+			errors = append(errors, "event_fabric.security.timestamp_header 不能为空")
+		}
+		if c.EventFabric.Security.AllowedClockSkewSeconds <= 0 {
+			errors = append(errors, "event_fabric.security.allowed_clock_skew_seconds 必须大于0")
+		}
+	}
 
 	// --- LowCode ---
 	if c.LowCode.MaxConcurrentFlows <= 0 {

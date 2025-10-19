@@ -11,6 +11,7 @@ import (
 	"time"
 
 	eventaudit "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/audit"
+	eventmetrics "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/metrics"
 	"github.com/ArtisanCloud/PowerX/internal/service/event_fabric/shared"
 	eventfabricmodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/event_fabric"
 	eventfabricrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/event_fabric"
@@ -114,6 +115,7 @@ type Options struct {
 	Clock      func() time.Time
 	MaxRetry   int
 	Negotiator VersionNegotiator
+	Metrics    eventmetrics.Recorder
 }
 
 type serviceImpl struct {
@@ -128,6 +130,7 @@ type serviceImpl struct {
 	maxRetry   int
 	audit      eventaudit.Service
 	negotiator VersionNegotiator
+	metrics    eventmetrics.Recorder
 }
 
 // NewService 构建事件投递服务。
@@ -187,6 +190,11 @@ func NewService(opts Options) (Service, error) {
 		negotiator = &DefaultVersionNegotiator{}
 	}
 
+	metrics := opts.Metrics
+	if metrics == nil {
+		metrics = eventmetrics.NewNoop()
+	}
+
 	return &serviceImpl{
 		db:         opts.DB,
 		envelopes:  envStore,
@@ -199,6 +207,7 @@ func NewService(opts Options) (Service, error) {
 		maxRetry:   maxRetry,
 		audit:      opts.Audit,
 		negotiator: negotiator,
+		metrics:    metrics,
 	}, nil
 }
 
@@ -495,6 +504,8 @@ func (s *serviceImpl) Ack(ctx context.Context, deliveryID string, subscriberID s
 	}
 
 	ackTimeout := time.Duration(envelope.AckTimeoutSec) * time.Second
+	latencyDuration := time.Duration(latency) * time.Millisecond
+	s.metrics.ObserveDelivery(ctx, true, latencyDuration)
 	return s.scheduler.ReleaseLease(ctx, eventbus.DeliveryLease{
 		LeaseID:       attempt.UUID.String(),
 		TenantKey:     attempt.TenantKey,
@@ -592,6 +603,12 @@ func (s *serviceImpl) Nack(ctx context.Context, deliveryID string, subscriberID 
 		maxAttempts = s.maxRetry
 	}
 
+	var previousAttemptAt *time.Time
+	if attempt.LastAttemptAt != nil {
+		value := *attempt.LastAttemptAt
+		previousAttemptAt = &value
+	}
+
 	now := s.clock().UTC()
 	if err := s.deliveries.UpdateStatus(ctx, attempt.UUID, map[string]interface{}{
 		"status":          shared.DeliveryStatusFailed,
@@ -623,6 +640,11 @@ func (s *serviceImpl) Nack(ctx context.Context, deliveryID string, subscriberID 
 		}); err != nil {
 			return plan, err
 		}
+		latency := time.Duration(0)
+		if previousAttemptAt != nil {
+			latency = now.Sub(*previousAttemptAt)
+		}
+		s.metrics.ObserveDelivery(ctx, false, latency)
 		plan = RetryPlan{
 			MaxAttempts:       int32(maxAttempts),
 			RemainingAttempts: 0,
@@ -666,6 +688,7 @@ func (s *serviceImpl) Nack(ctx context.Context, deliveryID string, subscriberID 
 	if err != nil {
 		return plan, err
 	}
+	s.metrics.ObserveRetry(ctx, item.Backoff)
 
 	if err := s.envelopes.UpdateStatus(ctx, attempt.EnvelopeUUID, map[string]interface{}{
 		"status":      shared.DeliveryStatusPending,
@@ -754,7 +777,7 @@ func (s *serviceImpl) PollRetry(ctx context.Context, limit int) (map[string][]De
 		}
 		if !leaseGranted {
 			// 重新排队，避免并发超限。
-			_, _ = s.scheduler.Schedule(ctx, ScheduleOptions{
+			item, err := s.scheduler.Schedule(ctx, ScheduleOptions{
 				TenantKey:    attempt.TenantKey,
 				SubscriberID: attempt.SubscriberID,
 				EventID:      attempt.EventID,
@@ -766,6 +789,9 @@ func (s *serviceImpl) PollRetry(ctx context.Context, limit int) (map[string][]De
 					"ack_timeout_sec": strconv.Itoa(envelope.AckTimeoutSec),
 				},
 			})
+			if err == nil {
+				s.metrics.ObserveRetry(ctx, item.Backoff)
+			}
 			continue
 		}
 
@@ -903,6 +929,9 @@ func (s *serviceImpl) pushToDLQ(ctx context.Context, envelope *eventfabricmodel.
 		Status:          "queued",
 		TraceID:         envelope.TraceID,
 	})
+	if err == nil {
+		s.metrics.ObserveDLQChange(ctx, 1)
+	}
 	return err
 }
 
@@ -920,6 +949,11 @@ func (s *serviceImpl) handleVersionIncompatible(ctx context.Context, attempt *ev
 	if s.dlq != nil {
 		_ = s.pushToDLQ(ctx, envelope, attempt, reason)
 	}
+	latency := time.Duration(0)
+	if attempt.LastAttemptAt != nil {
+		latency = now.Sub(*attempt.LastAttemptAt)
+	}
+	s.metrics.ObserveDelivery(ctx, false, latency)
 	_ = s.envelopes.UpdateStatus(ctx, envelope.UUID, map[string]interface{}{
 		"status":     shared.DeliveryStatusFailed,
 		"last_error": reason,
@@ -941,7 +975,7 @@ func (s *serviceImpl) rescheduleAttempt(ctx context.Context, attempt *eventfabri
 		"attempt_uuid":    attempt.UUID.String(),
 		"ack_timeout_sec": strconv.Itoa(envelope.AckTimeoutSec),
 	}
-	_, _ = s.scheduler.Schedule(ctx, ScheduleOptions{
+	item, err := s.scheduler.Schedule(ctx, ScheduleOptions{
 		TenantKey:    attempt.TenantKey,
 		SubscriberID: attempt.SubscriberID,
 		EventID:      attempt.EventID,
@@ -950,6 +984,9 @@ func (s *serviceImpl) rescheduleAttempt(ctx context.Context, attempt *eventfabri
 		BaseDelay:    0,
 		Metadata:     metadata,
 	})
+	if err == nil {
+		s.metrics.ObserveRetry(ctx, item.Backoff)
+	}
 }
 
 func parseTopicName(topic string) (tenant, namespace, name string, err error) {

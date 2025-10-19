@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 )
@@ -17,6 +18,7 @@ import (
 type AppError struct {
 	HTTPCode int
 	Message  string
+	Code     string
 	Err      error
 	Details  map[string]interface{}
 }
@@ -40,6 +42,16 @@ func NewError(code int, message string, err error) *AppError {
 	return &AppError{HTTPCode: code, Message: message, Err: err}
 }
 
+// NewErrorWithCode 生成带业务错误码的 AppError。
+func NewErrorWithCode(httpCode int, appCode string, message string, err error) *AppError {
+	return &AppError{
+		HTTPCode: httpCode,
+		Message:  message,
+		Code:     strings.TrimSpace(appCode),
+		Err:      err,
+	}
+}
+
 // Wrap 在已有错误基础上包一层（保持 code/message）
 func Wrap(err error, message string) *AppError {
 	if err == nil {
@@ -51,6 +63,7 @@ func Wrap(err error, message string) *AppError {
 		return &AppError{
 			HTTPCode: ae.HTTPCode,
 			Message:  message,
+			Code:     ae.Code,
 			Err:      ae,
 			Details:  ae.Details,
 		}
@@ -79,6 +92,19 @@ func WithDetails(err error, kv map[string]interface{}) *AppError {
 		Err:      err,
 		Details:  kv,
 	}
+}
+
+// WithCode 为 AppError 增加业务错误码。
+func WithCode(err error, code string) *AppError {
+	if err == nil {
+		return nil
+	}
+	var ae *AppError
+	if errors.As(err, &ae) {
+		ae.Code = strings.TrimSpace(code)
+		return ae
+	}
+	return NewErrorWithCode(http.StatusInternalServerError, code, "内部错误", err)
 }
 
 // -------- 语义化构造（便捷函数） --------
@@ -135,6 +161,15 @@ func DetailsOf(err error) map[string]interface{} {
 		return ae.Details
 	}
 	return nil
+}
+
+// CodeOf 提取业务错误码。
+func CodeOf(err error) string {
+	var ae *AppError
+	if errors.As(err, &ae) && strings.TrimSpace(ae.Code) != "" {
+		return strings.TrimSpace(ae.Code)
+	}
+	return ""
 }
 
 // -------- Handler 层响应辅助 --------

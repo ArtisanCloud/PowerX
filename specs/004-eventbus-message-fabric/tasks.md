@@ -129,14 +129,14 @@
 
 **Purpose**: 收尾性能、可观测性、安全与发布准备工作。
 
-- [ ] **T048 [P] [Polish]** 在 `internal/service/event_fabric/metrics/metrics.go` 输出投递成功率、重试延迟、DLQ 积压、回放耗时指标；更新 `internal/app/shared/deps.go` 注册。
-- [ ] **T049 [Polish]** 扩展 `pkg/dto/error.go`、`pkg/dto/base.go` 增加事件 Fabric 错误码与统一响应。
-- [ ] **T050 [P] [Polish]** 在 `docs/event_fabric/operations.md` 编写运维与高可用指南（多副本部署、复制存储、故障演练），满足 NFR-004。
-- [ ] **T051 [P] [Polish]** 在 `internal/tests/perf/event_fabric/latency_benchmark_test.go` 与 `internal/tests/perf/event_fabric/throughput_benchmark_test.go` 编写性能基准，校验 NFR-001/002。
-- [ ] **T052 [P] [Polish]** 新增 `tools/event_fabric_loadtest/` 或脚本（Go/Make target）以运行压力测试并生成报告，记录在 `docs/event_fabric/operations.md`。
-- [ ] **T053 [P] [Polish]** 在 `internal/service/event_fabric/security` 新增 TLS/签名校验中间件，更新 `config/config.go` 支持密钥配置，并编写自检脚本覆盖 NFR-005。
-- [ ] **T054 [P] [Polish]** 编写并执行 `scripts/demo/event_fabric_quickstart.sh`，依照 `quickstart.md` 完成端到端验证并保存日志。
-- [ ] **T055 [Polish]** 运行 `make format vet unit-test proto-event-fabric` 确认 CI 通过，整理提交说明。
+- [X] **T048 [P] [Polish]** 在 `internal/service/event_fabric/metrics/metrics.go` 输出投递成功率、重试延迟、DLQ 积压、回放耗时指标；更新 `internal/app/shared/deps.go` 注册。
+- [X] **T049 [Polish]** 扩展 `pkg/dto/error.go`、`pkg/dto/base.go` 增加事件 Fabric 错误码与统一响应。
+- [X] **T050 [P] [Polish]** 在 `docs/event_fabric/operations.md` 编写运维与高可用指南（多副本部署、复制存储、故障演练），满足 NFR-004。
+- [X] **T051 [P] [Polish]** 在 `internal/tests/perf/event_fabric/latency_benchmark_test.go` 与 `internal/tests/perf/event_fabric/throughput_benchmark_test.go` 编写性能基准，校验 NFR-001/002。
+- [X] **T052 [P] [Polish]** 新增 `tools/event_fabric_loadtest/` 或脚本（Go/Make target）以运行压力测试并生成报告，记录在 `docs/event_fabric/operations.md`。
+- [X] **T053 [P] [Polish]** 在 `internal/service/event_fabric/security` 新增 TLS/签名校验中间件，更新 `config/config.go` 支持密钥配置，并编写自检脚本覆盖 NFR-005。
+- [X] **T054 [P] [Polish]** 编写并执行 `scripts/demo/event_fabric_quickstart.sh`，依照 `quickstart.md` 完成端到端验证并保存日志。
+- [X] **T055 [Polish]** 运行 `make format vet unit-test proto-event-fabric` 确认 CI 通过，整理提交说明。
 
 ---
 

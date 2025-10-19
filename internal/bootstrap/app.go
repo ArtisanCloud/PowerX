@@ -8,6 +8,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/internal/server/agent/bootstrap"
 	"github.com/ArtisanCloud/PowerX/internal/server/agent/catalog"
 	"github.com/ArtisanCloud/PowerX/internal/service/auth"
+	security "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/security"
 	mediasvc "github.com/ArtisanCloud/PowerX/internal/service/media"
 	pkgauth "github.com/ArtisanCloud/PowerX/pkg/auth"
 	"github.com/ArtisanCloud/PowerX/pkg/cache"
@@ -136,6 +137,15 @@ func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error)
 			RetryKeyPrefix:    cfg.EventFabric.RetryKeyPrefix,
 			ReplayKeyPrefix:   cfg.EventFabric.ReplayKeyPrefix,
 			SchedulerInterval: cfg.EventFabric.SchedulerInterval,
+			Security: security.Config{
+				RequireTLS:           cfg.EventFabric.Security.RequireTLS,
+				SignatureSecret:      cfg.EventFabric.Security.SignatureSecret,
+				SignatureHeader:      cfg.EventFabric.Security.SignatureHeader,
+				TimestampHeader:      cfg.EventFabric.Security.TimestampHeader,
+				SignatureKeyID:       cfg.EventFabric.Security.SignatureKeyID,
+				AllowedClockSkew:     time.Duration(cfg.EventFabric.Security.AllowedClockSkewSeconds) * time.Second,
+				ProtectedGRPCService: "/corex.event_fabric.v1.",
+			},
 		},
 	}
 
