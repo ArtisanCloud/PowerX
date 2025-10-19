@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/ArtisanCloud/PowerX/internal/service/event_fabric/directory"
+	admin "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/event_fabric"
 	model "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/event_fabric"
 	repository "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/event_fabric"
 	"github.com/ArtisanCloud/PowerX/pkg/event_bus"
@@ -37,7 +38,7 @@ func TestEventFabricAdminTopics(t *testing.T) {
 		DefaultAckTimeout: 30 * time.Second,
 	})
 
-	handler := NewAdminDirectoryHandler(AdminDirectoryHandlerOptions{Service: svc})
+	handler := admin.NewAdminDirectoryHandler(admin.AdminDirectoryHandlerOptions{Service: svc})
 	router := gin.New()
 	group := router.Group("/event-fabric")
 	group.POST("/topics", handler.CreateTopic)
@@ -187,7 +188,7 @@ func (m *memoryTopicStore) Update(ctx context.Context, topic *model.TopicDefinit
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	if existing, ok := m.topics[topic.UUID]; ok {
+	if _, ok := m.topics[topic.UUID]; ok {
 		topic.UpdatedAt = time.Now().UTC()
 		clone := *topic
 		m.topics[clone.UUID] = &clone

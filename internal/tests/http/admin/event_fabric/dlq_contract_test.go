@@ -11,6 +11,8 @@ import (
 
 	"github.com/ArtisanCloud/PowerX/internal/service/event_fabric/delivery"
 	"github.com/ArtisanCloud/PowerX/internal/service/event_fabric/dlq"
+	"github.com/ArtisanCloud/PowerX/internal/service/event_fabric/replay"
+	admin "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/event_fabric"
 	"github.com/gin-gonic/gin"
 )
 
@@ -20,7 +22,7 @@ func TestDeliveryAdminPublishEndpoint(t *testing.T) {
 	deliveryStub := newStubDeliveryService()
 	router := gin.New()
 	group := router.Group("/event-fabric")
-	group.POST("/events:publish", NewAdminDeliveryHandler(AdminDeliveryHandlerOptions{Service: deliveryStub}).PublishEvent)
+	group.POST("/events:publish", admin.NewAdminDeliveryHandler(admin.AdminDeliveryHandlerOptions{Service: deliveryStub}).PublishEvent)
 
 	server := httptest.NewServer(router)
 	t.Cleanup(server.Close)
@@ -80,7 +82,7 @@ func TestDLQAdminEndpoints(t *testing.T) {
 
 	router := gin.New()
 	group := router.Group("/event-fabric")
-	handler := NewAdminDLQHandler(AdminDLQHandlerOptions{Service: stub})
+	handler := admin.NewAdminDLQHandler(admin.AdminDLQHandlerOptions{Service: stub})
 	group.GET("/dlq/messages", handler.ListMessages)
 	group.POST("/dlq/messages:replay", handler.ReplayMessages)
 	group.DELETE("/dlq/messages", handler.PurgeMessages)
@@ -123,6 +125,74 @@ func TestDLQAdminEndpoints(t *testing.T) {
 	purgeData := purgePayload["data"].(map[string]interface{})
 	if int(purgeData["removed"].(float64)) != 1 {
 		t.Fatalf("expected removed=1 got %v", purgeData["removed"])
+	}
+}
+
+func TestReplayAdminEndpoints(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	replayStub := &stubReplayService{
+		task: &replay.Task{
+			ID:          "task-123",
+			TenantKey:   "tenant-corex",
+			Topic:       "tenant-corex.corex.workflow.approved",
+			TraceID:     "trace-abc",
+			Status:      "completed",
+			RequestedBy: "ops-user",
+			SubmittedAt: time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC),
+		},
+	}
+
+	router := gin.New()
+	group := router.Group("/event-fabric")
+	replayHandler := admin.NewAdminReplayHandler(admin.AdminReplayHandlerOptions{Service: replayStub})
+	group.POST("/replay/tasks", replayHandler.CreateTask)
+	group.GET("/replay/tasks/:task_id", replayHandler.GetTask)
+	group.POST("/replay/tasks/:task_id:cancel", replayHandler.CancelTask)
+
+	server := httptest.NewServer(router)
+	t.Cleanup(server.Close)
+
+	createResp := httpRequest(t, server, http.MethodPost, "/event-fabric/replay/tasks", map[string]interface{}{
+		"tenant_id":   "tenant-corex",
+		"topic":       "tenant-corex.corex.workflow.approved",
+		"trace_id":    "trace-abc",
+		"reason":      "investigate",
+		"operator_id": "ops-user",
+		"shadow":      true,
+		"window": map[string]string{
+			"start": time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC).Format(time.RFC3339),
+			"end":   time.Date(2025, 1, 2, 0, 0, 0, 0, time.UTC).Format(time.RFC3339),
+		},
+	})
+	if createResp.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200 got %d", createResp.StatusCode)
+	}
+	var createPayload map[string]interface{}
+	decodeJSON(t, createResp.Body, &createPayload)
+	if createPayload["data"].(map[string]interface{})["id"].(string) != "task-123" {
+		t.Fatalf("unexpected task id in create response")
+	}
+
+	getResp := httpRequest(t, server, http.MethodGet, "/event-fabric/replay/tasks/task-123", nil)
+	if getResp.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200 got %d", getResp.StatusCode)
+	}
+
+	cancelResp := httpRequest(t, server, http.MethodPost, "/event-fabric/replay/tasks/task-123:cancel", map[string]interface{}{
+		"operator_id": "ops-user",
+	})
+	if cancelResp.StatusCode != http.StatusNoContent {
+		t.Fatalf("expected 204 got %d", cancelResp.StatusCode)
+	}
+
+	replayStub.mu.Lock()
+	defer replayStub.mu.Unlock()
+	if replayStub.lastCreate.TenantKey != "tenant-corex" || !replayStub.lastCreate.Shadow {
+		t.Fatalf("unexpected create input: %+v", replayStub.lastCreate)
+	}
+	if replayStub.lastCancel.id != "task-123" {
+		t.Fatalf("unexpected cancel input: %+v", replayStub.lastCancel)
 	}
 }
 
@@ -190,4 +260,38 @@ func (s *stubDeliveryService) Nack(context.Context, string, string, string) (del
 
 func (s *stubDeliveryService) PollRetry(context.Context, int) (map[string][]delivery.DeliveryAttempt, error) {
 	return map[string][]delivery.DeliveryAttempt{}, nil
+}
+
+type stubReplayService struct {
+	mu         sync.Mutex
+	lastCreate replay.CreateTaskInput
+	lastCancel struct {
+		id       string
+		operator string
+	}
+	task *replay.Task
+}
+
+func (s *stubReplayService) CreateTask(ctx context.Context, input replay.CreateTaskInput) (*replay.Task, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.lastCreate = input
+	return s.task, nil
+}
+
+func (s *stubReplayService) GetTask(ctx context.Context, id string) (*replay.Task, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.task != nil && s.task.ID == id {
+		return s.task, nil
+	}
+	return nil, nil
+}
+
+func (s *stubReplayService) CancelTask(ctx context.Context, id string, operator string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.lastCancel.id = id
+	s.lastCancel.operator = operator
+	return nil
 }

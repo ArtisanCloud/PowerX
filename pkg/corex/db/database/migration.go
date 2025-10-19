@@ -113,5 +113,8 @@ func migrateEventFabricModels(db *gorm.DB) error {
 		return err
 	}
 
-	return migration.CreateEventDeliveryTables(db)
+	if err := migration.CreateEventDeliveryTables(db); err != nil {
+		return err
+	}
+	return migration.CreateEventReplayTables(db)
 }

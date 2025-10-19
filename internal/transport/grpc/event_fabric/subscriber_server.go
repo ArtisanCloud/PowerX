@@ -2,6 +2,7 @@ package eventfabric
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"time"
 
@@ -35,7 +36,7 @@ func NewEventSubscriberServer(svc delivery.Service, interval time.Duration) *Eve
 	}
 }
 
-func (s *EventSubscriberServer) Subscribe(req *eventfabricv1.SubscribeEventsRequest, stream eventfabricv1.EventSubscriberService_SubscribeServer) error {
+func (s *EventSubscriberServer) Subscribe(req *eventfabricv1.SubscribeRequest, stream eventfabricv1.EventSubscriberService_SubscribeServer) error {
 	if s.delivery == nil {
 		return status.Error(codes.FailedPrecondition, "event delivery service unavailable")
 	}
@@ -60,6 +61,13 @@ func (s *EventSubscriberServer) Subscribe(req *eventfabricv1.SubscribeEventsRequ
 
 	if topics := normalizeTopics(req.GetTopics()); len(topics) > 0 {
 		ctx = context.WithValue(ctx, sharedsvc.ContextTopicsKey, topics)
+	}
+
+	if mode := compatibilityModeToString(req.GetCompatibilityMode()); mode != "" {
+		ctx = context.WithValue(ctx, sharedsvc.ContextCompatibilityMode, mode)
+	}
+	if versions := normalizeSupportedVersions(req.GetSupportedVersions()); len(versions) > 0 {
+		ctx = context.WithValue(ctx, sharedsvc.ContextAcceptedVersions, versions)
 	}
 
 	sleep := s.pollInterval
@@ -123,6 +131,35 @@ func normalizeTopics(topics []string) map[string]struct{} {
 		return nil
 	}
 	return set
+}
+
+func compatibilityModeToString(mode eventfabricv1.VersionCompatibilityMode) string {
+	switch mode {
+	case eventfabricv1.VersionCompatibilityMode_VERSION_COMPATIBILITY_MODE_STRICT:
+		return string(delivery.CompatibilityModeStrict)
+	case eventfabricv1.VersionCompatibilityMode_VERSION_COMPATIBILITY_MODE_BACKWARD:
+		return string(delivery.CompatibilityModeBackward)
+	case eventfabricv1.VersionCompatibilityMode_VERSION_COMPATIBILITY_MODE_ANY:
+		return string(delivery.CompatibilityModeAny)
+	default:
+		return ""
+	}
+}
+
+func normalizeSupportedVersions(versions []string) []string {
+	if len(versions) == 0 {
+		return nil
+	}
+	result := make([]string, 0, len(versions))
+	for _, v := range versions {
+		if trimmed := strings.TrimSpace(v); trimmed != "" {
+			result = append(result, trimmed)
+		}
+	}
+	if len(result) == 0 {
+		return nil
+	}
+	return result
 }
 
 // RegisterEventSubscriberServer 返回注册函数。

@@ -110,16 +110,16 @@
 
 ### Implementation
 
-- [ ] **T038 [US4]** 扩展 `internal/service/event_fabric/delivery/version_negotiator.go` 与 `delivery/service.go`，实现事件版本协商策略（strict/backward/any）并记录兼容结果。
-- [ ] **T039 [US4]** 更新订阅注册入口：在 `internal/transport/grpc/event_fabric/subscriber_server.go` 与 Admin `/topics` Handler 中允许消费者声明兼容策略与支持版本列表，并同步更新 Proto/OpenAPI 契约。
-- [ ] **T040 [P] [US4]** 编写 `internal/tests/grpc/event_fabric/version_negotiation_test.go` 与 `internal/tests/http/admin/event_fabric/topic_version_contract_test.go` 验证版本协商行为。
-- [ ] **T041 [US4]** 在迁移 `pkg/corex/db/migration/202510170004_create_event_replay_tables.go` 定义 `event_replay_requests` 表。
-- [ ] **T042 [US4]** 添加模型与仓储 `pkg/corex/db/persistence/model/event_fabric/replay_request.go`、`repository/event_fabric/replay_repository.go`。
-- [ ] **T043 [US4]** 实现 `internal/service/event_fabric/replay/service.go`：支持回放任务调度、状态机、影子通路（确保不触发业务副作用）。
-- [ ] **T044 [P] [US4]** 在 `internal/transport/http/admin/event_fabric/replay_handler.go` 提供回放 API；更新 `routes.go` 挂载并扩充 OpenAPI 合同。
-- [ ] **T045 [P] [US4]** 实现 gRPC `internal/transport/grpc/event_fabric/replay_server.go` 对应 `EventReplayService`，同步维护 Proto 定义。
-- [ ] **T046 [P] [US4]** 编写测试 `internal/tests/http/admin/event_fabric/replay_contract_test.go` 与 `internal/tests/grpc/event_fabric/replay_contract_test.go` 验证回放行为。
-- [ ] **T047 [US4]** 更新 `quickstart.md` 增补回放与版本协商示例，确保影子通路操作说明。
+- [x] **T038 [US4]** 扩展 `internal/service/event_fabric/delivery/version_negotiator.go` 与 `delivery/service.go`，实现事件版本协商策略（strict/backward/any）并记录兼容结果。
+- [x] **T039 [US4]** 更新订阅注册入口：在 `internal/transport/grpc/event_fabric/subscriber_server.go` 与 Admin `/topics` Handler 中允许消费者声明兼容策略与支持版本列表，并同步更新 Proto/OpenAPI 契约。
+- [x] **T040 [P] [US4]** 编写 `internal/tests/grpc/event_fabric/version_negotiation_test.go` 与 `internal/tests/http/admin/eventFabric/topic_version_contract_test.go` 验证版本协商行为。
+- [x] **T041 [US4]** 在迁移 `pkg/corex/db/migration/202510170004_create_event_replay_tables.go` 定义 `event_replay_requests` 表。
+- [x] **T042 [US4]** 添加模型与仓储 `pkg/corex/db/persistence/model/event_fabric/replay_request.go`、`repository/event_fabric/replay_repository.go`。
+- [x] **T043 [US4]** 实现 `internal/service/event_fabric/replay/service.go`：支持回放任务调度、状态机、影子通路（确保不触发业务副作用）。
+- [x] **T044 [P] [US4]** 在 `internal/transport/http/admin/event_fabric/replay_handler.go` 提供回放 API；更新 `routes.go` 挂载并扩充 OpenAPI 合同。
+- [x] **T045 [P] [US4]** 实现 gRPC `internal/transport/grpc/event_fabric/replay_server.go` 对应 `EventReplayService`，同步维护 Proto 定义。
+- [x] **T046 [P] [US4]** 编写测试 `internal/tests/http/admin/event_fabric/replay_contract_test.go` 与 `internal/tests/grpc/event_fabric/replay_contract_test.go` 验证回放行为。
+- [x] **T047 [US4]** 更新 `quickstart.md` 增补回放与版本协商示例，确保影子通路操作说明。
 
 **Checkpoint**: 回放与版本协商能力上线，P1 + P2 用户故事均可独立演示。
 

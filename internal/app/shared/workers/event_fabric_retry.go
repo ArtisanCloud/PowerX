@@ -31,7 +31,7 @@ type EventFabricRetryWorker struct {
 	tenantProvider TenantProvider
 	interval       time.Duration
 	batchSize      int
-	logger         pxlog.Logger
+	logger         *pxlog.Logger
 }
 
 // RetryDispatchEvent 是 worker 推送到 EventBus 的事件载荷。

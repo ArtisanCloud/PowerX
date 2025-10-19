@@ -1,4 +1,4 @@
-package event_fabric
+package eventfabric
 
 import (
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
@@ -39,5 +39,12 @@ func RegisterAPIRoutes(_ *gin.RouterGroup, protected *gin.RouterGroup, deps *sha
 		group.GET("/dlq/messages", dlqHandler.ListMessages)
 		group.POST("/dlq/messages:replay", dlqHandler.ReplayMessages)
 		group.DELETE("/dlq/messages", dlqHandler.PurgeMessages)
+	}
+
+	if deps.EventFabric.Replay != nil {
+		replayHandler := NewAdminReplayHandler(AdminReplayHandlerOptions{Service: deps.EventFabric.Replay})
+		group.POST("/replay/tasks", replayHandler.CreateTask)
+		group.GET("/replay/tasks/:task_id", replayHandler.GetTask)
+		group.POST("/replay/tasks/:task_id:cancel", replayHandler.CancelTask)
 	}
 }

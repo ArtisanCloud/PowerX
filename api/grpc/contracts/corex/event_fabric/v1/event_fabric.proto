@@ -162,6 +162,13 @@ service EventSubscriberService {
   rpc Subscribe(SubscribeRequest) returns (stream DeliveryMessage);
 }
 
+enum VersionCompatibilityMode {
+  VERSION_COMPATIBILITY_MODE_UNSPECIFIED = 0;
+  VERSION_COMPATIBILITY_MODE_STRICT = 1;
+  VERSION_COMPATIBILITY_MODE_BACKWARD = 2;
+  VERSION_COMPATIBILITY_MODE_ANY = 3;
+}
+
 message PublishEventRequest {
   string tenant_id = 1;
   string topic = 2;
@@ -196,6 +203,8 @@ message SubscribeRequest {
   string subscriber_id = 2;
   repeated string topics = 3;
   int32 batch_size = 4;
+  VersionCompatibilityMode compatibility_mode = 5;
+  repeated string supported_versions = 6;
 }
 
 message DeliveryMessage {

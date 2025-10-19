@@ -9,6 +9,7 @@ import (
 
 	eventfabricv1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/corex/event_fabric/v1"
 	"github.com/ArtisanCloud/PowerX/internal/service/event_fabric/delivery"
+	sharedsvc "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/shared"
 	eventfabricgrpc "github.com/ArtisanCloud/PowerX/internal/transport/grpc/event_fabric"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -59,7 +60,7 @@ func TestEventDeliveryGRPCContracts(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NackDelivery unexpected error: %v", err)
 	}
-	if nackResp.GetMaxAttempts() != 5 || nackResp.GetRemainingAttempts() != 3 || nackResp.GetNextDelaySeconds() != 2 {
+	if nackResp.GetRemainingAttempts() != 3 || nackResp.GetNextDelaySeconds() != 2 {
 		t.Fatalf("unexpected nack response: %+v", nackResp)
 	}
 }
@@ -113,10 +114,12 @@ func TestEventSubscriberStream(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	stream, err := env.subscriberClient.Subscribe(ctx, &eventfabricv1.SubscribeEventsRequest{
-		TenantId:     "tenant-corex",
-		SubscriberId: "svc-sub",
-		BatchSize:    10,
+	stream, err := env.subscriberClient.Subscribe(ctx, &eventfabricv1.SubscribeRequest{
+		TenantId:          "tenant-corex",
+		SubscriberId:      "svc-sub",
+		BatchSize:         10,
+		CompatibilityMode: eventfabricv1.VersionCompatibilityMode_VERSION_COMPATIBILITY_MODE_BACKWARD,
+		SupportedVersions: []string{"v2"},
 	})
 	if err != nil {
 		t.Fatalf("subscribe error: %v", err)

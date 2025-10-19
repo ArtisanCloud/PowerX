@@ -14,6 +14,7 @@ import (
 
 	"github.com/ArtisanCloud/PowerX/internal/service/event_fabric/acl"
 	directory "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/directory"
+	admin "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/event_fabric"
 	model "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/event_fabric"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -53,7 +54,7 @@ func TestACLAdminRESTContracts(t *testing.T) {
 		DefaultAckTimeout: 30 * time.Second,
 	})
 
-	handler := NewAdminACLHandler(AdminACLHandlerOptions{
+	handler := admin.NewAdminACLHandler(admin.AdminACLHandlerOptions{
 		Service:   svc,
 		Directory: directorySvc,
 	})

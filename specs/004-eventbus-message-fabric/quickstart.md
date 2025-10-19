@@ -51,23 +51,29 @@ curl -X POST http://localhost:8077/admin/event-fabric/acl \
 bin/eventbus-subscriber \
   --tenant "$DEV_TENANT" \
   --topic "$DEV_TENANT.corex.workflow.approved" \
-  --subscriber svc-demo-consumer
+  --subscriber svc-demo-consumer \
+  --compatibility backward \
+  --accepted-version v2
 ```
-- 预期：客户端建立 gRPC 流，等待消息，心跳保持。
+- 预期：客户端建立 gRPC 流，声明“向后兼容”策略并等待消息，心跳保持。
 
 ## 4. 发布事件
 ```bash
-curl -X POST http://localhost:8077/admin/event-fabric/publish \
+PAYLOAD=$(printf '{"requestId":"req-123","status":"approved"}' | base64)
+curl -X POST http://localhost:8077/admin/event-fabric/events:publish \
   -H 'Content-Type: application/json' \
   -d '{
     "tenant_id": "'"$DEV_TENANT"'",
-    "topic_full_name": "'"$DEV_TENANT"'.corex.workflow.approved",
+    "topic": "'"$DEV_TENANT"'.corex.workflow.approved",
     "event_id": "evt-001",
-    "payload": {"requestId":"req-123","status":"approved"},
-    "headers": {"trace_id":"trace-abc"}
+    "trace_id": "trace-abc",
+    "version": "v2",
+    "payload": "'"$PAYLOAD"'",
+    "payload_format": "json",
+    "attributes": {"principal_id": "'"$DEV_PRINCIPAL"'"}
   }'
 ```
-- 预期：订阅 CLI 在 100ms 内收到事件并返回 Ack，Admin API 返回 `status=delivered`。
+- 预期：订阅 CLI 在 100ms 内收到事件，`headers.version_mode=backward`，并返回 Ack；Admin API 返回 `202 ACCEPTED`。
 
 ## 5. 模拟消费失败并观察重试
 在订阅 CLI 中触发 `--fail-once` 参数或发送 Nack。检查 Redis 延迟队列和日志：
@@ -79,28 +85,35 @@ redis-cli zrangebyscore event:retry:$DEV_TENANT -inf +inf WITHSCORES
 ## 6. 验证 DLQ
 在订阅端禁用 Ack，等待重试超出次数。查询 DLQ：
 ```bash
-curl "http://localhost:8077/admin/event-fabric/dlq?tenantId=$DEV_TENANT&status=queued"
+curl "http://localhost:8077/admin/event-fabric/dlq/messages?tenant_id=$DEV_TENANT&status=queued"
 ```
 - 预期：返回 `evt-001` 记录，含失败原因。
  - 可通过 REST 重放：
 ```bash
-curl -X POST http://localhost:8077/admin/event-fabric/dlq/$DLQ_ID/replay \
+curl -X POST http://localhost:8077/admin/event-fabric/dlq/messages:replay \
   -H 'Content-Type: application/json' \
   -d '{"operator":"ops-demo"}'
 ```
 
 ## 7. 回放历史事件
 ```bash
-curl -X POST http://localhost:8077/admin/event-fabric/replay \
+curl -X POST http://localhost:8077/admin/event-fabric/replay/tasks \
   -H 'Content-Type: application/json' \
   -d '{
-    "tenantId": "'"$DEV_TENANT"'",
-    "topicFullName": "'"$DEV_TENANT"'.corex.workflow.approved",
-    "timeRangeStart": "2025-10-17T00:00:00Z",
-    "timeRangeEnd": "2025-10-17T23:59:59Z"
+    "tenant_id": "'"$DEV_TENANT"'",
+    "topic": "'"$DEV_TENANT"'.corex.workflow.approved",
+    "trace_id": "trace-abc",
+    "shadow": true,
+    "reason": "incident backfill",
+    "window": {
+      "start": "2025-10-17T00:00:00Z",
+      "end": "2025-10-17T23:59:59Z"
+    }
   }'
 ```
-- 预期：回放任务进入 `running`，订阅端收到标记 `replay=true` 的事件；完成后状态为 `completed`。
+- 预期：响应返回 `status=completed`，`data.topic` 指向目标主题。
+- 订阅端会收到带有 `headers.replay=true`、`headers.shadow=true` 的事件。
+- 可通过 `GET /admin/event-fabric/replay/tasks/<task_id>` 查询状态，`POST ...:cancel` 取消未完成任务。
 
 ## 8. 观测指标
 - 访问 Prometheus/Grafana 仪表板（待实现 `event_fabric_*` 指标）。

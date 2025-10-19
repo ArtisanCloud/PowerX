@@ -102,7 +102,6 @@ func (s *EventDeliveryServer) NackDelivery(ctx context.Context, req *eventfabric
 	}
 	return &eventfabricv1.NackDeliveryResponse{
 		RemainingAttempts: plan.RemainingAttempts,
-		MaxAttempts:       plan.MaxAttempts,
 		NextDelaySeconds:  seconds,
 		Strategy:          plan.Strategy,
 	}, nil

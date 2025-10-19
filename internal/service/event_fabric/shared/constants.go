@@ -15,6 +15,12 @@ const (
 	// ContextTopicsKey 用于传递订阅过滤的 Topic 列表。
 	ContextTopicsKey = "topics"
 
+	// ContextCompatibilityMode 标识订阅者声明的版本兼容策略。
+	ContextCompatibilityMode = "compatibility_mode"
+
+	// ContextAcceptedVersions 存储订阅者声明支持的事件版本列表。
+	ContextAcceptedVersions = "accepted_versions"
+
 	// HeaderTenantID 用于 HTTP 层传递租户信息的 Header。
 	HeaderTenantID = "X-PowerX-Tenant"
 

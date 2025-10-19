@@ -1,4 +1,4 @@
-package event_fabric
+package eventfabric
 
 import "google.golang.org/grpc"
 

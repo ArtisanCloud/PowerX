@@ -113,6 +113,7 @@ type Options struct {
 	Scheduler  *BackoffScheduler
 	Clock      func() time.Time
 	MaxRetry   int
+	Negotiator VersionNegotiator
 }
 
 type serviceImpl struct {
@@ -126,6 +127,7 @@ type serviceImpl struct {
 	clock      func() time.Time
 	maxRetry   int
 	audit      eventaudit.Service
+	negotiator VersionNegotiator
 }
 
 // NewService 构建事件投递服务。
@@ -180,6 +182,11 @@ func NewService(opts Options) (Service, error) {
 		aclRepo = eventfabricrepo.NewAclRepository(opts.DB)
 	}
 
+	negotiator := opts.Negotiator
+	if negotiator == nil {
+		negotiator = &DefaultVersionNegotiator{}
+	}
+
 	return &serviceImpl{
 		db:         opts.DB,
 		envelopes:  envStore,
@@ -191,6 +198,7 @@ func NewService(opts Options) (Service, error) {
 		clock:      clock,
 		maxRetry:   maxRetry,
 		audit:      opts.Audit,
+		negotiator: negotiator,
 	}, nil
 }
 
@@ -768,12 +776,14 @@ func (s *serviceImpl) PollRetry(ctx context.Context, limit int) (map[string][]De
 			return nil, err
 		}
 
-		headers, _ := fromJSONMap(envelope.Headers)
-
 		topicFullName := fmt.Sprintf("%s", envelope.TenantKey)
+		var topicRecord *eventfabricmodel.TopicDefinition
 		if s.topics != nil {
-			if topic, err := s.topics.FindByUUID(ctx, envelope.TopicUUID); err == nil && topic != nil && topic.FullTopic != "" {
-				topicFullName = topic.FullTopic
+			if topic, err := s.topics.FindByUUID(ctx, envelope.TopicUUID); err == nil && topic != nil {
+				topicRecord = topic
+				if topic.FullTopic != "" {
+					topicFullName = topic.FullTopic
+				}
 			}
 		}
 
@@ -792,6 +802,31 @@ func (s *serviceImpl) PollRetry(ctx context.Context, limit int) (map[string][]De
 				})
 				continue
 			}
+		}
+
+		compatibilityMode := shared.CompatibilityModeFromContext(ctx)
+		if compatibilityMode == "" && topicRecord != nil && strings.TrimSpace(topicRecord.VersioningMode) != "" {
+			compatibilityMode = strings.ToLower(strings.TrimSpace(topicRecord.VersioningMode))
+		}
+		if compatibilityMode == "" {
+			compatibilityMode = string(CompatibilityModeAny)
+		}
+
+		supportedVersions := shared.AcceptedVersionsFromContext(ctx)
+		negotiation := s.negotiator.Negotiate(CompatibilityMode(compatibilityMode), envelope.Version, supportedVersions)
+		if !negotiation.Compatible {
+			s.handleVersionIncompatible(ctx, attempt, envelope, negotiation.Reason)
+			continue
+		}
+
+		headers, _ := fromJSONMap(envelope.Headers)
+		if headers == nil {
+			headers = map[string]string{}
+		}
+		headers["version_mode"] = string(negotiation.Mode)
+		headers["version_compatible"] = "true"
+		if negotiation.SelectedVersion != "" {
+			headers["version_selected"] = negotiation.SelectedVersion
 		}
 
 		maxAttempts := envelope.MaxRetry
@@ -869,6 +904,33 @@ func (s *serviceImpl) pushToDLQ(ctx context.Context, envelope *eventfabricmodel.
 		TraceID:         envelope.TraceID,
 	})
 	return err
+}
+
+func (s *serviceImpl) handleVersionIncompatible(ctx context.Context, attempt *eventfabricmodel.DeliveryAttempt, envelope *eventfabricmodel.EventEnvelope, reason string) {
+	if attempt == nil || envelope == nil {
+		return
+	}
+	now := s.clock().UTC()
+	_ = s.deliveries.UpdateStatus(ctx, attempt.UUID, map[string]interface{}{
+		"status":          shared.DeliveryStatusFailed,
+		"last_error_code": "version_incompatible",
+		"nack_reason":     reason,
+		"last_attempt_at": now,
+	})
+	if s.dlq != nil {
+		_ = s.pushToDLQ(ctx, envelope, attempt, reason)
+	}
+	_ = s.envelopes.UpdateStatus(ctx, envelope.UUID, map[string]interface{}{
+		"status":     shared.DeliveryStatusFailed,
+		"last_error": reason,
+	})
+	_ = s.scheduler.ReleaseLease(ctx, eventbus.DeliveryLease{
+		LeaseID:       attempt.UUID.String(),
+		TenantKey:     attempt.TenantKey,
+		SubscriberID:  attempt.SubscriberID,
+		AckTimeout:    time.Duration(envelope.AckTimeoutSec) * time.Second,
+		MaxConcurrent: 1,
+	})
 }
 
 func (s *serviceImpl) rescheduleAttempt(ctx context.Context, attempt *eventfabricmodel.DeliveryAttempt, envelope *eventfabricmodel.EventEnvelope) {

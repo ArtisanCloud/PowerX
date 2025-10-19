@@ -21,6 +21,7 @@ import (
 	deliveryService "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/delivery"
 	directoryService "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/directory"
 	dlqService "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/dlq"
+	replayService "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/replay"
 	iamsvc "github.com/ArtisanCloud/PowerX/internal/service/iam"
 	mediasvc "github.com/ArtisanCloud/PowerX/internal/service/media"
 	tenantsvc "github.com/ArtisanCloud/PowerX/internal/service/tenant"
@@ -160,6 +161,7 @@ type EventFabricDeps struct {
 	Delivery    deliveryService.Service
 	DLQ         dlqService.Service
 	Audit       auditService.Service
+	Replay      *replayService.Service
 	RetryWorker *workers.EventFabricRetryWorker
 }
 
@@ -273,6 +275,15 @@ func newEventFabricDeps(db *gorm.DB, opts EventFabricOptions, bus event_bus.Even
 		}
 	}
 
+	var replaySvc *replayService.Service
+	if deliverySvc != nil {
+		replaySvc = replayService.NewService(replayService.Options{
+			DB:       db,
+			Delivery: deliverySvc,
+			Clock:    time.Now,
+		})
+	}
+
 	var retryWorker *workers.EventFabricRetryWorker
 	if deliverySvc != nil && bus != nil {
 		tenantProvider := func(ctx context.Context) ([]string, error) {
@@ -313,6 +324,7 @@ func newEventFabricDeps(db *gorm.DB, opts EventFabricOptions, bus event_bus.Even
 		Delivery:    deliverySvc,
 		DLQ:         dlqSvc,
 		Audit:       auditSvcEF,
+		Replay:      replaySvc,
 		RetryWorker: retryWorker,
 	}
 }

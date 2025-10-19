@@ -47,3 +47,35 @@ func TopicFilterFromContext(ctx context.Context) map[string]struct{} {
 	}
 	return result
 }
+
+// CompatibilityModeFromContext 获取订阅者声明的版本兼容模式。
+func CompatibilityModeFromContext(ctx context.Context) string {
+	if ctx == nil {
+		return ""
+	}
+	if v, ok := ctx.Value(ContextCompatibilityMode).(string); ok {
+		return strings.TrimSpace(strings.ToLower(v))
+	}
+	return ""
+}
+
+// AcceptedVersionsFromContext 返回订阅者声明支持的事件版本列表。
+func AcceptedVersionsFromContext(ctx context.Context) []string {
+	if ctx == nil {
+		return nil
+	}
+	raw, ok := ctx.Value(ContextAcceptedVersions).([]string)
+	if !ok || len(raw) == 0 {
+		return nil
+	}
+	result := make([]string, 0, len(raw))
+	for _, item := range raw {
+		if trimmed := strings.TrimSpace(item); trimmed != "" {
+			result = append(result, trimmed)
+		}
+	}
+	if len(result) == 0 {
+		return nil
+	}
+	return result
+}

@@ -3,6 +3,8 @@ package eventfabric
 import (
 	"context"
 	"errors"
+	"strings"
+	"time"
 
 	eventfabricmodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/event_fabric"
 	baserepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository"
@@ -15,6 +17,15 @@ import (
 type EnvelopeRepository struct {
 	base *baserepo.BaseRepository[eventfabricmodel.EventEnvelope]
 	db   *gorm.DB
+}
+
+// ReplayQuery 描述回放检索条件。
+type ReplayQuery struct {
+	Statuses  []string
+	Limit     int
+	StartTime time.Time
+	EndTime   time.Time
+	TraceID   string
 }
 
 func NewEnvelopeRepository(db *gorm.DB) *EnvelopeRepository {
@@ -91,17 +102,26 @@ func (r *EnvelopeRepository) UpdateStatus(ctx context.Context, envelopeUUID uuid
 		Updates(updates).Error
 }
 
-// ListForReplay 返回指定状态的事件信封，供回放/重试使用。
-func (r *EnvelopeRepository) ListForReplay(ctx context.Context, tenantKey string, topic uuid.UUID, statuses []string, limit int) ([]*eventfabricmodel.EventEnvelope, error) {
+// ListForReplay 返回指定条件的事件信封，供回放使用。
+func (r *EnvelopeRepository) ListForReplay(ctx context.Context, tenantKey string, topic uuid.UUID, filter ReplayQuery) ([]*eventfabricmodel.EventEnvelope, error) {
 	query := r.db.WithContext(ctx).Model(&eventfabricmodel.EventEnvelope{}).Where("tenant_key = ?", tenantKey)
 	if topic != uuid.Nil {
 		query = query.Where("topic_uuid = ?", topic)
 	}
-	if len(statuses) > 0 {
-		query = query.Where("status IN ?", statuses)
+	if len(filter.Statuses) > 0 {
+		query = query.Where("status IN ?", filter.Statuses)
 	}
-	if limit > 0 {
-		query = query.Limit(limit)
+	if !filter.StartTime.IsZero() {
+		query = query.Where("published_at >= ?", filter.StartTime)
+	}
+	if !filter.EndTime.IsZero() {
+		query = query.Where("published_at <= ?", filter.EndTime)
+	}
+	if strings.TrimSpace(filter.TraceID) != "" {
+		query = query.Where("trace_id = ?", strings.TrimSpace(filter.TraceID))
+	}
+	if filter.Limit > 0 {
+		query = query.Limit(filter.Limit)
 	}
 
 	var records []*eventfabricmodel.EventEnvelope
