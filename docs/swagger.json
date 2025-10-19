@@ -2003,6 +2003,102 @@
         ]
       }
     },
+    "/api/v1/event-fabric/dlq/messages": {
+      "delete": {
+        "operationId": "DELETE /api/v1/event-fabric/dlq/messages",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "DELETE /api/v1/event-fabric/dlq/messages",
+        "tags": [
+          "api"
+        ]
+      },
+      "get": {
+        "operationId": "GET /api/v1/event-fabric/dlq/messages",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "GET /api/v1/event-fabric/dlq/messages",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/v1/event-fabric/dlq/messages:replay": {
+      "post": {
+        "operationId": "POST /api/v1/event-fabric/dlq/messages_replay",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/v1/event-fabric/dlq/messages_replay",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/v1/event-fabric/events:publish": {
+      "post": {
+        "operationId": "POST /api/v1/event-fabric/events_publish",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/v1/event-fabric/events_publish",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/v1/event-fabric/replay/tasks": {
+      "post": {
+        "operationId": "POST /api/v1/event-fabric/replay/tasks",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/v1/event-fabric/replay/tasks",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/v1/event-fabric/replay/tasks/:task_id": {
+      "get": {
+        "operationId": "GET /api/v1/event-fabric/replay/tasks/_task_id",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "GET /api/v1/event-fabric/replay/tasks/_task_id",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/v1/event-fabric/replay/tasks/:task_id/cancel": {
+      "post": {
+        "operationId": "POST /api/v1/event-fabric/replay/tasks/_task_id/cancel",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/v1/event-fabric/replay/tasks/_task_id/cancel",
+        "tags": [
+          "api"
+        ]
+      }
+    },
     "/api/v1/event-fabric/topics": {
       "get": {
         "operationId": "GET /api/v1/event-fabric/topics",

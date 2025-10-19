@@ -48,6 +48,6 @@ func RegisterAPIRoutes(_ *gin.RouterGroup, protected *gin.RouterGroup, deps *sha
 		replayHandler := NewAdminReplayHandler(AdminReplayHandlerOptions{Service: deps.EventFabric.Replay})
 		group.POST("/replay/tasks", replayHandler.CreateTask)
 		group.GET("/replay/tasks/:task_id", replayHandler.GetTask)
-		group.POST("/replay/tasks/:task_id:cancel", replayHandler.CancelTask)
+		group.POST("/replay/tasks/:task_id/cancel", replayHandler.CancelTask)
 	}
 }
