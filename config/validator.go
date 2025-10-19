@@ -79,6 +79,36 @@ func (c *Config) Validate() error {
 			errors = append(errors, "event_fabric.security.allowed_clock_skew_seconds 必须大于0")
 		}
 	}
+	if c.EventFabric.Authorization.CacheTTLSeconds <= 0 {
+		errors = append(errors, "event_fabric.authorization.cache_ttl_seconds 必须大于0")
+	}
+	if c.EventFabric.Authorization.LocalCacheTTLSeconds <= 0 {
+		errors = append(errors, "event_fabric.authorization.local_cache_ttl_seconds 必须大于0")
+	}
+	if strings.TrimSpace(c.EventFabric.Authorization.RedisAddr) == "" {
+		errors = append(errors, "event_fabric.authorization.redis_addr 不能为空")
+	}
+	if strings.TrimSpace(c.EventFabric.Authorization.CacheInvalidateChannel) == "" {
+		errors = append(errors, "event_fabric.authorization.cache_invalidate_channel 不能为空")
+	}
+	if c.EventFabric.Authorization.ChallengeSLASeconds <= 0 {
+		errors = append(errors, "event_fabric.authorization.challenge_sla_seconds 必须大于0")
+	}
+	if strings.TrimSpace(c.EventFabric.Authorization.ChallengeTopic) == "" {
+		errors = append(errors, "event_fabric.authorization.challenge_topic 不能为空")
+	}
+	if strings.TrimSpace(c.EventFabric.Authorization.ChallengeConsumerGroup) == "" {
+		errors = append(errors, "event_fabric.authorization.challenge_consumer_group 不能为空")
+	}
+	if c.EventFabric.Authorization.AuditRetentionDays <= 0 {
+		errors = append(errors, "event_fabric.authorization.audit_retention_days 必须大于0")
+	}
+	if strings.TrimSpace(c.EventFabric.Authorization.AuditArchiveBucket) == "" {
+		errors = append(errors, "event_fabric.authorization.audit_archive_bucket 不能为空")
+	}
+	if strings.TrimSpace(c.EventFabric.Authorization.AuditArchivePrefix) == "" {
+		errors = append(errors, "event_fabric.authorization.audit_archive_prefix 不能为空")
+	}
 
 	// --- LowCode ---
 	if c.LowCode.MaxConcurrentFlows <= 0 {

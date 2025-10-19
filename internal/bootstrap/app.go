@@ -146,6 +146,20 @@ func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error)
 				AllowedClockSkew:     time.Duration(cfg.EventFabric.Security.AllowedClockSkewSeconds) * time.Second,
 				ProtectedGRPCService: "/corex.event_fabric.v1.",
 			},
+			Authorization: shared.EventFabricAuthorizationOptions{
+				CacheTTLSeconds:        cfg.EventFabric.Authorization.CacheTTLSeconds,
+				LocalCacheTTLSeconds:   cfg.EventFabric.Authorization.LocalCacheTTLSeconds,
+				RedisAddr:              cfg.EventFabric.Authorization.RedisAddr,
+				RedisPassword:          cfg.EventFabric.Authorization.RedisPassword,
+				RedisDB:                cfg.EventFabric.Authorization.RedisDB,
+				CacheInvalidateChannel: cfg.EventFabric.Authorization.CacheInvalidateChannel,
+				ChallengeSLASeconds:    cfg.EventFabric.Authorization.ChallengeSLASeconds,
+				ChallengeTopic:         cfg.EventFabric.Authorization.ChallengeTopic,
+				ChallengeConsumerGroup: cfg.EventFabric.Authorization.ChallengeConsumerGroup,
+				AuditRetentionDays:     cfg.EventFabric.Authorization.AuditRetentionDays,
+				AuditArchiveBucket:     cfg.EventFabric.Authorization.AuditArchiveBucket,
+				AuditArchivePrefix:     cfg.EventFabric.Authorization.AuditArchivePrefix,
+			},
 		},
 	}
 

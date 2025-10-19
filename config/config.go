@@ -104,15 +104,16 @@ type EventBusConfig struct {
 
 // EventFabricConfig 管理事件骨干的可靠性与调度参数。
 type EventFabricConfig struct {
-	AckTimeoutSeconds int                       `yaml:"ack_timeout_seconds"` // ACK 超时，超过后进入重试
-	DefaultMaxRetry   int                       `yaml:"default_max_retry"`   // 默认最大重试次数
-	RedisAddr         string                    `yaml:"redis_addr"`          // 重试/幂等使用的 Redis 地址
-	RedisPassword     string                    `yaml:"redis_password"`      // Redis 密码
-	RedisDB           int                       `yaml:"redis_db"`            // Redis DB
-	RetryKeyPrefix    string                    `yaml:"retry_key_prefix"`    // Sorted Set key 前缀
-	ReplayKeyPrefix   string                    `yaml:"replay_key_prefix"`   // 回放任务 key 前缀
-	SchedulerInterval int                       `yaml:"scheduler_interval"`  // 重试 worker 扫描间隔（秒）
-	Security          EventFabricSecurityConfig `yaml:"security"`            // 安全配置
+	AckTimeoutSeconds int                            `yaml:"ack_timeout_seconds"` // ACK 超时，超过后进入重试
+	DefaultMaxRetry   int                            `yaml:"default_max_retry"`   // 默认最大重试次数
+	RedisAddr         string                         `yaml:"redis_addr"`          // 重试/幂等使用的 Redis 地址
+	RedisPassword     string                         `yaml:"redis_password"`      // Redis 密码
+	RedisDB           int                            `yaml:"redis_db"`            // Redis DB
+	RetryKeyPrefix    string                         `yaml:"retry_key_prefix"`    // Sorted Set key 前缀
+	ReplayKeyPrefix   string                         `yaml:"replay_key_prefix"`   // 回放任务 key 前缀
+	SchedulerInterval int                            `yaml:"scheduler_interval"`  // 重试 worker 扫描间隔（秒）
+	Security          EventFabricSecurityConfig      `yaml:"security"`            // 安全配置
+	Authorization     EventFabricAuthorizationConfig `yaml:"authorization"`       // 授权域治理配置
 }
 
 // EventFabricSecurityConfig 定义 TLS/签名要求。
@@ -123,6 +124,22 @@ type EventFabricSecurityConfig struct {
 	TimestampHeader         string `yaml:"timestamp_header"`
 	SignatureKeyID          string `yaml:"signature_key_id"`
 	AllowedClockSkewSeconds int    `yaml:"allowed_clock_skew_seconds"`
+}
+
+// EventFabricAuthorizationConfig 配置授权域缓存、审批与审计行为。
+type EventFabricAuthorizationConfig struct {
+	CacheTTLSeconds        int    `yaml:"cache_ttl_seconds"`        // Redis 层缓存 TTL
+	LocalCacheTTLSeconds   int    `yaml:"local_cache_ttl_seconds"`  // 进程内缓存 TTL
+	RedisAddr              string `yaml:"redis_addr"`               // 授权缓存 Redis 地址
+	RedisPassword          string `yaml:"redis_password"`           // Redis 密码
+	RedisDB                int    `yaml:"redis_db"`                 // Redis DB
+	CacheInvalidateChannel string `yaml:"cache_invalidate_channel"` // 缓存失效广播频道
+	ChallengeSLASeconds    int    `yaml:"challenge_sla_seconds"`    // Challenge 审批 SLA（秒）
+	ChallengeTopic         string `yaml:"challenge_topic"`          // Kafka 主题
+	ChallengeConsumerGroup string `yaml:"challenge_consumer_group"` // Kafka 消费组
+	AuditRetentionDays     int    `yaml:"audit_retention_days"`     // 审计留存天数
+	AuditArchiveBucket     string `yaml:"audit_archive_bucket"`     // 冷存储桶
+	AuditArchivePrefix     string `yaml:"audit_archive_prefix"`     // 冷存储前缀
 }
 
 // 低代码引擎配置
@@ -272,6 +289,52 @@ func loadFromEnv(cfg *Config) {
 		if skew, err := strconv.Atoi(v); err == nil {
 			cfg.EventFabric.Security.AllowedClockSkewSeconds = skew
 		}
+	}
+	if v := os.Getenv("CORE_X_EVENT_FABRIC_AUTHZ_CACHE_TTL"); v != "" {
+		if ttl, err := strconv.Atoi(v); err == nil && ttl > 0 {
+			cfg.EventFabric.Authorization.CacheTTLSeconds = ttl
+		}
+	}
+	if v := os.Getenv("CORE_X_EVENT_FABRIC_AUTHZ_LOCAL_CACHE_TTL"); v != "" {
+		if ttl, err := strconv.Atoi(v); err == nil && ttl > 0 {
+			cfg.EventFabric.Authorization.LocalCacheTTLSeconds = ttl
+		}
+	}
+	if v := os.Getenv("CORE_X_EVENT_FABRIC_AUTHZ_REDIS_ADDR"); v != "" {
+		cfg.EventFabric.Authorization.RedisAddr = v
+	}
+	if v := os.Getenv("CORE_X_EVENT_FABRIC_AUTHZ_REDIS_PASSWORD"); v != "" {
+		cfg.EventFabric.Authorization.RedisPassword = v
+	}
+	if v := os.Getenv("CORE_X_EVENT_FABRIC_AUTHZ_REDIS_DB"); v != "" {
+		if dbIdx, err := strconv.Atoi(v); err == nil && dbIdx >= 0 {
+			cfg.EventFabric.Authorization.RedisDB = dbIdx
+		}
+	}
+	if v := os.Getenv("CORE_X_EVENT_FABRIC_AUTHZ_CACHE_INVALIDATE_CHANNEL"); v != "" {
+		cfg.EventFabric.Authorization.CacheInvalidateChannel = v
+	}
+	if v := os.Getenv("CORE_X_EVENT_FABRIC_AUTHZ_CHALLENGE_SLA"); v != "" {
+		if sla, err := strconv.Atoi(v); err == nil && sla > 0 {
+			cfg.EventFabric.Authorization.ChallengeSLASeconds = sla
+		}
+	}
+	if v := os.Getenv("CORE_X_EVENT_FABRIC_AUTHZ_CHALLENGE_TOPIC"); v != "" {
+		cfg.EventFabric.Authorization.ChallengeTopic = v
+	}
+	if v := os.Getenv("CORE_X_EVENT_FABRIC_AUTHZ_CHALLENGE_CONSUMER_GROUP"); v != "" {
+		cfg.EventFabric.Authorization.ChallengeConsumerGroup = v
+	}
+	if v := os.Getenv("CORE_X_EVENT_FABRIC_AUTHZ_AUDIT_RETENTION_DAYS"); v != "" {
+		if days, err := strconv.Atoi(v); err == nil && days > 0 {
+			cfg.EventFabric.Authorization.AuditRetentionDays = days
+		}
+	}
+	if v := os.Getenv("CORE_X_EVENT_FABRIC_AUTHZ_AUDIT_ARCHIVE_BUCKET"); v != "" {
+		cfg.EventFabric.Authorization.AuditArchiveBucket = v
+	}
+	if v := os.Getenv("CORE_X_EVENT_FABRIC_AUTHZ_AUDIT_ARCHIVE_PREFIX"); v != "" {
+		cfg.EventFabric.Authorization.AuditArchivePrefix = v
 	}
 
 	// LowCode配置

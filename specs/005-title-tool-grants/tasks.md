@@ -18,9 +18,9 @@
 
 **Purpose**: 为授权域准备配置与工具链基础
 
-- [ ] T001 [Setup] 更新 `config/config.go` 与 `config/defaults.go`，新增事件骨干授权配置（缓存 TTL、Challenge SLA、Kafka 主题、审计留存等字段）。
-- [ ] T002 [Setup] 扩展 `internal/app/shared/options.go` 与相关 Option 绑定，暴露新的授权配置到 `EventFabricOptions`。
-- [ ] T003 [Setup] 调整 `pkg/make_files/proto.mk` 与根 `Makefile` 的 `proto-gen/proto-lint/proto-clean` 目标，纳入授权 proto 路径。
+- [X] T001 [Setup] 更新 `config/config.go` 与 `config/defaults.go`，新增事件骨干授权配置（缓存 TTL、Challenge SLA、Kafka 主题、审计留存等字段）。
+- [X] T002 [Setup] 扩展 `internal/app/shared/options.go` 与相关 Option 绑定，暴露新的授权配置到 `EventFabricOptions`。
+- [X] T003 [Setup] 调整 `pkg/make_files/proto.mk` 与根 `Makefile` 的 `proto-gen/proto-lint/proto-clean` 目标，纳入授权 proto 路径。
 
 ---
 
