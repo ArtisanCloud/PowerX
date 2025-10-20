@@ -5,6 +5,21 @@
 - 已运行 `make proto-gen proto-lint` 生成最新 gRPC 代码
 - 拥有管理员 Token，可访问 `/api/v1/admin/workflows`
 
+## 定义模板 & 校验提示
+
+- **步骤 ID 唯一**：`steps[*].id` 必须唯一，允许引用后续步骤。
+- **支持类型**：`agent/system/decision/parallel/human_approval/compensation`
+- **入度检查**：至少存在一个 `depends_on` 为空的起始节点。
+- **无环拓扑**：`next_step_ids` 与 `depends_on` 形成的图必须可拓扑排序。
+- **示例 JSON**：
+
+  ```json
+  [
+    {"id":"prepare","type":"agent","next_step_ids":["execute"],"config":{"capability":"crm.prefetch"}},
+    {"id":"execute","type":"system","depends_on":["prepare"],"config":{"task":"backend.run"}}
+  ]
+  ```
+
 ## 步骤
 
 1. **创建工作流定义**
@@ -13,12 +28,12 @@
      -H 'Authorization: Bearer <TOKEN>' \
      -H 'Content-Type: application/json' \
      -d '{
-       "tenant_id": "00000000-0000-0000-0000-000000000001",
+       "tenant_id": 1001,
        "name": "demo-approval",
        "retry_policy": {"initial_delay_ms": 30000, "max_retries": 5, "backoff_factor": 2},
        "steps": [
-         {"id": "prepare", "type": "system", "config": {"task": "prefetch"}},
-         {"id": "agent_review", "type": "agent", "config": {"capability": "event_fabric.publish"}},
+         {"id": "prepare", "type": "system", "config": {"task": "prefetch"}, "next_step_ids":["agent_review"]},
+         {"id": "agent_review", "type": "agent", "config": {"capability": "event_fabric.publish"}, "next_step_ids":["finalize"]},
          {"id": "finalize", "type": "system", "config": {"task": "notify"}}
        ]
      }'

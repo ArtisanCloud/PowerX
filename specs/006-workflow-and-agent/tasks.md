@@ -57,25 +57,25 @@
 
 ### Tests for User Story 1
 
-- [ ] T020 [P] [US1] gRPC 合同测试：覆盖 `CreateDefinition/PublishDefinition/ListDefinitions` (`tests/contract/workflow/workflow_definitions_grpc_test.go`)
-- [ ] T021 [P] [US1] HTTP 合同测试：覆盖 `POST/GET /definitions` 与 `POST /instances` (`tests/contract/workflow/workflow_definitions_http_test.go`)
-- [ ] T022 [P] [US1] 集成测试：创建定义并启动实例流程 (`tests/integration/workflow/test_definition_launch_flow.go`)
-- [ ] T054 [P] [US1] 单元测试：覆盖 StepGraph 执行器路由及并行/决策/人工步骤 (`tests/unit/workflow_executor_test.go`)
-- [ ] T056 [P] [US1] 安全契约测试：验证创建/发布/启动接口的 JWT/JWKS 校验与 RBAC 拦截 (`tests/contract/workflow/workflow_security_http_test.go`)
-- [ ] T060 [P] [US1] gRPC 安全契约测试：验证 WorkflowService 拦截器链在未授权/未认证场景下的行为 (`tests/contract/workflow/workflow_security_grpc_test.go`)
+- [X] T020 [P] [US1] gRPC 合同测试：覆盖 `CreateDefinition/PublishDefinition/ListDefinitions` (`tests/contract/workflow/workflow_definitions_grpc_test.go`)
+- [X] T021 [P] [US1] HTTP 合同测试：覆盖 `POST/GET /definitions` 与 `POST /instances` (`tests/contract/workflow/workflow_definitions_http_test.go`)
+- [X] T022 [P] [US1] 集成测试：创建定义并启动实例流程 (`tests/integration/workflow/test_definition_launch_flow.go`)
+- [X] T054 [P] [US1] 单元测试：覆盖 StepGraph 执行器路由及并行/决策/人工步骤 (`tests/unit/workflow_executor_test.go`)
+- [X] T056 [P] [US1] 安全契约测试：验证创建/发布/启动接口的 JWT/JWKS 校验与 RBAC 拦截 (`tests/contract/workflow/workflow_security_http_test.go`)
+- [X] T060 [P] [US1] gRPC 安全契约测试：验证 WorkflowService 拦截器链在未授权/未认证场景下的行为 (`tests/contract/workflow/workflow_security_grpc_test.go`)
 
 ### Implementation for User Story 1
 
-- [ ] T023 [US1] 完成定义管理逻辑 (`internal/service/workflow/service_definition.go`)：创建、验证 step_graph、发布版本
-- [ ] T024 [US1] 完成实例启动逻辑 (`internal/service/workflow/service_instance.go`)：写入上下文、排队首个步骤
-- [ ] T025 [US1] 实现 gRPC Handler (`internal/transport/grpc/workflow/definition_handler.go`) 对接服务层并返回审计 metadata
-- [ ] T026 [US1] 实现 HTTP Handler (`internal/transport/http/admin/workflow/definitions_handler.go`) 包含请求校验、错误映射
-- [ ] T027 [P] [US1] 编写 StepGraph 验证/归一化工具 (`internal/service/workflow/validator.go`)，供创建实例与执行前校验使用
-- [ ] T028 [US1] 将 WorkflowDefinition/Instance 相关事件写入 EventBus (`internal/service/workflow/event_emitter.go`) 并设置审计字段
-- [ ] T051 [US1] 完成系统/决策/并行/人工审批等步骤类型执行器与路由 (`internal/service/workflow/executor_router.go`, `internal/service/workflow/executor_*.go`)
-- [ ] T052 [US1] 提供工作流定义模板与校验提示（提升设计效率）(`internal/service/workflow/service_definition.go`, `specs/006-workflow-and-agent/quickstart.md`)
-- [ ] T057 [US1] 复用并验证 RBAC 配置：为 Workflow API 注册角色/动作映射 (`internal/app/shared/options.go`, `docs/runbooks/event_fabric_authorization.md`)
-- [ ] T061 [US1] 校验 gRPC 安全拦截器：确保 WorkflowService 注册链路启用 auth/tenant/rbac 拦截器并补充回归测试钩子 (`internal/server/grpc/server.go`, `internal/app/shared/deps.go`)
+- [X] T023 [US1] 完成定义管理逻辑 (`internal/service/workflow/service_definition.go`)：创建、验证 step_graph、发布版本
+- [X] T024 [US1] 完成实例启动逻辑 (`internal/service/workflow/service_instance.go`)：写入上下文、排队首个步骤
+- [X] T025 [US1] 实现 gRPC Handler (`internal/transport/grpc/workflow/definition_handler.go`) 对接服务层并返回审计 metadata
+- [X] T026 [US1] 实现 HTTP Handler (`internal/transport/http/admin/workflow/definitions_handler.go`) 包含请求校验、错误映射
+- [X] T027 [P] [US1] 编写 StepGraph 验证/归一化工具 (`internal/service/workflow/validator.go`)，供创建实例与执行前校验使用
+- [X] T028 [US1] 将 WorkflowDefinition/Instance 相关事件写入 EventBus (`internal/service/workflow/event_emitter.go`) 并设置审计字段
+- [X] T051 [US1] 完成系统/决策/并行/人工审批等步骤类型执行器与路由 (`internal/service/workflow/executor_router.go`, `internal/service/workflow/executor_*.go`)
+- [X] T052 [US1] 提供工作流定义模板与校验提示（提升设计效率）(`internal/service/workflow/service_definition.go`, `specs/006-workflow-and-agent/quickstart.md`)
+- [X] T057 [US1] 复用并验证 RBAC 配置：为 Workflow API 注册角色/动作映射 (`internal/app/shared/options.go`, `docs/runbooks/event_fabric_authorization.md`)
+- [X] T061 [US1] 校验 gRPC 安全拦截器：确保 WorkflowService 注册链路启用 auth/tenant/rbac 拦截器并补充回归测试钩子 (`internal/server/grpc/server.go`, `internal/app/shared/deps.go`)
 
 **Checkpoint**: User Story 1 可独立运行与测试
 

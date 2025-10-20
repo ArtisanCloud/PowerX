@@ -28,8 +28,8 @@ import (
 	security "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/security"
 	iamsvc "github.com/ArtisanCloud/PowerX/internal/service/iam"
 	mediasvc "github.com/ArtisanCloud/PowerX/internal/service/media"
-	workflowsvc "github.com/ArtisanCloud/PowerX/internal/service/workflow"
 	tenantsvc "github.com/ArtisanCloud/PowerX/internal/service/tenant"
+	workflowsvc "github.com/ArtisanCloud/PowerX/internal/service/workflow"
 	"github.com/ArtisanCloud/PowerX/pkg/cache"
 	auditsvc "github.com/ArtisanCloud/PowerX/pkg/corex/audit"
 	dbm "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/audit"
@@ -92,7 +92,7 @@ type Deps struct {
 	DiscoverySvc          *discoveryService.Service
 
 	EventFabric *EventFabricDeps
-	Workflow   *WorkflowDeps
+	Workflow    *WorkflowDeps
 }
 
 func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
@@ -166,7 +166,7 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 	eventFabricDeps := newEventFabricDeps(db, opts.EventFabric, bus, svc, tenantSvc)
 
 	var (
-		workflowReliable event_bus.ReliableQueue
+		workflowReliable  event_bus.ReliableQueue
 		workflowScheduler *workflowsvc.Scheduler
 	)
 	if eventFabricDeps != nil {
@@ -223,8 +223,8 @@ type EventFabricDeps struct {
 
 // WorkflowDeps 聚合工作流域运行时依赖。
 type WorkflowDeps struct {
-	Service      *workflowsvc.Service
-	Scheduler    *workflowsvc.Scheduler
+	Service       *workflowsvc.Service
+	Scheduler     *workflowsvc.Scheduler
 	ReliableQueue event_bus.ReliableQueue
 }
 
