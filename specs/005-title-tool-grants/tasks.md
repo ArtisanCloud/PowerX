@@ -101,13 +101,13 @@
 
 ### Tests for User Story 3 (Optional)
 
-- [ ] T030 [US3] 为审计查询编写单元/集成测试 `internal/service/event_fabric/authorization/reporting_test.go`，覆盖租户/主体/时间过滤。
+- [X] T030 [US3] 为审计查询编写单元/集成测试 `internal/service/event_fabric/authorization/reporting_test.go`，覆盖租户/主体/时间过滤。
 
 ### Implementation for User Story 3
 
-- [ ] T027 [US3] 实现审计查询逻辑 `internal/service/event_fabric/authorization/reporting.go`，聚合 ClickHouse/对象存储数据并支持分页。
-- [ ] T028 [P] [US3] 在 `internal/transport/http/admin/event_fabric/authorization_handler.go` 或独立文件中添加审计查询端点（如 `GET /audit/authorization`）。
-- [ ] T029 [US3] 增加导出与权限控制，支持 CSV/JSON 响应并校验租户隔离。
+- [X] T027 [US3] 实现审计查询逻辑 `internal/service/event_fabric/authorization/reporting.go`，聚合 ClickHouse/对象存储数据并支持分页。
+- [X] T028 [P] [US3] 在 `internal/transport/http/admin/event_fabric/authorization_handler.go` 或独立文件中添加审计查询端点（如 `GET /audit/authorization`）。
+- [X] T029 [US3] 增加导出与权限控制，支持 CSV/JSON 响应并校验租户隔离。
 
 **Checkpoint**: 合规团队可独立查询与导出授权审计数据
 

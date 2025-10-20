@@ -843,6 +843,15 @@ func (s *serviceImpl) emitAudit(ctx context.Context, action string, grant *event
 	if s.audit == nil || grant == nil {
 		return
 	}
+	if meta == nil {
+		meta = map[string]string{}
+	}
+	meta["tenant_id"] = grant.TenantID.String()
+	meta["subject_id"] = grant.SubjectID.String()
+	meta["subject_type"] = strings.ToLower(grant.SubjectType)
+	meta["grant_id"] = grant.UUID.String()
+	meta["grant_status"] = grant.Status
+	meta["grant_version"] = fmt.Sprintf("%d", grant.Version)
 	record := eventaudit.Record{
 		ID:          grant.UUID.String(),
 		TenantID:    grant.TenantID.String(),

@@ -220,6 +220,7 @@ type AuthorizationDeps struct {
 	Secrets       *authorizationService.SecretsManager
 	Limiter       authorizationService.RateLimiter
 	Alerts        authorizationService.AlertEmitter
+	Reporting     authorizationService.ReportingService
 	TimeoutWorker *workers.EventFabricAuthorizationTimeoutWorker
 }
 
@@ -456,6 +457,11 @@ func newEventFabricDeps(db *gorm.DB, opts EventFabricOptions, bus event_bus.Even
 		}
 
 		templateService := authorizationService.NewTemplateService(authRepo, time.Now)
+		reportingService := authorizationService.NewReportingService(authorizationService.ReportingServiceOptions{
+			AuditDB:                 db,
+			AuthorizationRepository: authRepo,
+			Logger:                  pxlog.GetGlobalLogger(),
+		})
 
 		var timeoutWorker *workers.EventFabricAuthorizationTimeoutWorker
 		if authService != nil && tenantSvc != nil {
@@ -488,6 +494,7 @@ func newEventFabricDeps(db *gorm.DB, opts EventFabricOptions, bus event_bus.Even
 			Secrets:       secretsManager,
 			Limiter:       rateLimiter,
 			Alerts:        alertEmitter,
+			Reporting:     reportingService,
 			TimeoutWorker: timeoutWorker,
 		}
 	}

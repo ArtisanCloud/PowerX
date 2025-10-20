@@ -1,10 +1,13 @@
 package eventfabric
 
 import (
+	"bytes"
+	"encoding/csv"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	authorizationService "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/authorization"
 	eventfabricmodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/event_fabric"
@@ -16,17 +19,20 @@ import (
 type AuthorizationHandlerOptions struct {
 	Service   authorizationService.Service
 	Templates authorizationService.TemplateService
+	Reporting authorizationService.ReportingService
 }
 
 type AuthorizationHandler struct {
 	service   authorizationService.Service
 	templates authorizationService.TemplateService
+	reporting authorizationService.ReportingService
 }
 
 func NewAuthorizationHandler(opts AuthorizationHandlerOptions) *AuthorizationHandler {
 	return &AuthorizationHandler{
 		service:   opts.Service,
 		templates: opts.Templates,
+		reporting: opts.Reporting,
 	}
 }
 
@@ -249,6 +255,113 @@ func (h *AuthorizationHandler) InvalidateGrantCache(c *gin.Context) {
 		"status":     "accepted",
 		"request_id": requestID,
 	})
+}
+
+// GET /audit/authorization
+func (h *AuthorizationHandler) ListAuthorizationAudit(c *gin.Context) {
+	if h.reporting == nil {
+		dto.RespondErrorFrom(c, dto.NewInternal("authorization reporting unavailable", nil))
+		return
+	}
+
+	var req auditQueryDTO
+	if err := dto.ValidateRequestWithContext(c, &req); err != nil {
+		dto.RespondErrorFrom(c, dto.NewBadRequest("invalid query parameters", err))
+		return
+	}
+
+	tenantID, err := uuid.Parse(req.TenantID)
+	if err != nil {
+		dto.RespondErrorFrom(c, dto.NewBadRequest("invalid tenant id", err))
+		return
+	}
+
+	from, err := time.Parse(time.RFC3339, req.From)
+	if err != nil {
+		dto.RespondErrorFrom(c, dto.NewBadRequest("invalid from timestamp", err))
+		return
+	}
+	to, err := time.Parse(time.RFC3339, req.To)
+	if err != nil {
+		dto.RespondErrorFrom(c, dto.NewBadRequest("invalid to timestamp", err))
+		return
+	}
+
+	if header := strings.TrimSpace(c.GetHeader("X-PowerX-Tenant-UUID")); header != "" && !strings.EqualFold(header, tenantID.String()) {
+		dto.RespondErrorFrom(c, dto.NewForbidden("tenant scope mismatch", nil))
+		return
+	}
+
+	filter := authorizationService.ReportingFilter{
+		TenantID: tenantID,
+		From:     from,
+		To:       to,
+		Page:     req.Page,
+		PageSize: req.PageSize,
+	}
+
+	if strings.TrimSpace(req.SubjectID) != "" {
+		subjectID, err := uuid.Parse(req.SubjectID)
+		if err != nil {
+			dto.RespondErrorFrom(c, dto.NewBadRequest("invalid subject id", err))
+			return
+		}
+		filter.SubjectID = &subjectID
+	}
+	if req.SubjectType != "" {
+		filter.SubjectType = strings.ToLower(req.SubjectType)
+	}
+	if req.Capability != "" {
+		filter.Capability = strings.ToLower(strings.TrimSpace(req.Capability))
+	}
+	if req.Decision != "" {
+		filter.Decision = strings.ToLower(req.Decision)
+	}
+
+	format := strings.ToLower(strings.TrimSpace(req.Format))
+	if format == "" {
+		format = "json"
+	}
+	if format == "csv" {
+		filter.NoLimit = true
+	}
+
+	result, err := h.reporting.Query(c.Request.Context(), filter)
+	if err != nil {
+		dto.RespondErrorFrom(c, dto.NewInternal("query authorization audit failed", err))
+		return
+	}
+
+	if format == "csv" {
+		data, err := buildAuthorizationAuditCSV(result.Items)
+		if err != nil {
+			dto.RespondErrorFrom(c, dto.NewInternal("build csv failed", err))
+			return
+		}
+		filename := fmt.Sprintf("authorization-audit-%s.csv", time.Now().UTC().Format("20060102T150405Z"))
+		c.Header("Content-Type", "text/csv; charset=utf-8")
+		c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filename))
+		c.String(http.StatusOK, data)
+		return
+	}
+
+	pagination := map[string]any{
+		"page":     result.Page,
+		"pageSize": result.PageSize,
+		"total":    result.Total,
+		"pages":    result.TotalPage,
+	}
+	if filter.PageSize == 0 {
+		pagination = nil
+	}
+
+	response := gin.H{
+		"items": result.Items,
+	}
+	if pagination != nil {
+		response["pagination"] = pagination
+	}
+	dto.ResponseSuccess(c, response)
 }
 
 // POST /challenges/:ticketId/decision
@@ -744,4 +857,48 @@ func parseCapabilityKey(value string) (string, string, error) {
 		return "", "", fmt.Errorf("invalid capability %q", value)
 	}
 	return namespace, action, nil
+}
+
+func buildAuthorizationAuditCSV(items []authorizationService.ReportingEvent) (string, error) {
+	buf := &bytes.Buffer{}
+	writer := csv.NewWriter(buf)
+	header := []string{
+		"occurred_at",
+		"category",
+		"operation",
+		"decision",
+		"outcome",
+		"tenant_id",
+		"subject_type",
+		"subject_id",
+		"capability",
+		"reason",
+		"actor",
+	}
+	if err := writer.Write(header); err != nil {
+		return "", err
+	}
+	for _, item := range items {
+		record := []string{
+			item.OccurredAt.UTC().Format(time.RFC3339),
+			item.Category,
+			item.Operation,
+			item.Decision,
+			item.Outcome,
+			item.TenantID,
+			item.SubjectType,
+			item.SubjectID,
+			item.Capability,
+			item.Reason,
+			item.Actor,
+		}
+		if err := writer.Write(record); err != nil {
+			return "", err
+		}
+	}
+	writer.Flush()
+	if err := writer.Error(); err != nil {
+		return "", err
+	}
+	return buf.String(), nil
 }

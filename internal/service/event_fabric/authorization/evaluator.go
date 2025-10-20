@@ -673,9 +673,12 @@ func (s *serviceImpl) emitEvaluationAudit(ctx context.Context, req EvaluateReque
 	}
 	eventID := uuid.New().String()
 	meta := map[string]string{
-		"decision":   decision,
-		"reason":     reason,
-		"capability": req.Capability,
+		"decision":     decision,
+		"reason":       reason,
+		"capability":   req.Capability,
+		"tenant_id":    req.TenantID.String(),
+		"subject_id":   req.SubjectID.String(),
+		"subject_type": strings.ToLower(req.SubjectType),
 	}
 	if snapshot != nil {
 		meta["grant_id"] = snapshot.GrantID.String()

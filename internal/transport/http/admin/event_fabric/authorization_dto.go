@@ -100,3 +100,16 @@ type applyTemplateDTO struct {
 	Capabilities *[]string           `json:"capabilities"`
 	Notes        map[string]any      `json:"notes"`
 }
+
+type auditQueryDTO struct {
+	TenantID    string `form:"tenantId" validate:"required,uuid4"`
+	SubjectID   string `form:"subjectId" validate:"omitempty,uuid4"`
+	SubjectType string `form:"subjectType" validate:"omitempty,oneof=agent plugin"`
+	Decision    string `form:"decision" validate:"omitempty,oneof=allow block challenge"`
+	Capability  string `form:"capability"`
+	From        string `form:"from" validate:"required"`
+	To          string `form:"to" validate:"required"`
+	Page        int    `form:"page"`
+	PageSize    int    `form:"pageSize"`
+	Format      string `form:"format" validate:"omitempty,oneof=json csv"`
+}
