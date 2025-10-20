@@ -23,7 +23,13 @@
    make dev
    ```
 
-4. 预置能力与模板（示例）：
+4. 一键体验脚本（推荐）：
+   ```bash
+   # 输出结果位于 reports/authorization_audit.{json,csv}
+   bash scripts/demo/event_fabric_quickstart.sh
+   ```
+
+5. 手动创建能力：
    ```bash
    curl -X POST http://localhost:8077/api/v1/admin/event-fabric/capabilities \
      -H 'Content-Type: application/json' \
@@ -35,40 +41,33 @@
      }'
    ```
 
-5. 创建 Grant 并触发 Challenge：
+6. 手动创建 Grant：
    ```bash
    curl -X POST http://localhost:8077/api/v1/admin/event-fabric/grants \
      -H 'Content-Type: application/json' \
      -d '{
        "tenant_id": "00000000-0000-0000-0000-000000000001",
-       "subject_type": "agent",
-       "subject_id": "00000000-0000-0000-0000-000000000101",
+       "subject": {
+         "type": "agent",
+         "id": "00000000-0000-0000-0000-000000000101"
+       },
        "capabilities": ["event_fabric.publish"],
        "conditions": {
-         "time_window": {"start": "2025-10-20T00:00:00Z", "end": "2025-10-21T00:00:00Z"}
+         "resources": ["topic://demo"],
+         "context_tags": ["prod"]
        },
        "ttl_seconds": 7200
      }'
    ```
 
-6. 模拟授权评估（gRPC）：
+7. 查询授权审计（JSON）：
    ```bash
-   grpcurl -plaintext -d '{
-     "tenant_id": "00000000-0000-0000-0000-000000000001",
-     "subject": {"type": "agent", "id": "00000000-0000-0000-0000-000000000101"},
-     "capability": "event_fabric.publish",
-     "context_tags": ["prod"],
-     "resource": "topic://payments"
-   }' localhost:19090 powerx.event_fabric.v1.AuthorizationService/Evaluate
+   curl "http://localhost:8077/api/v1/admin/event-fabric/audit/authorization?tenantId=00000000-0000-0000-0000-000000000001&from=1970-01-01T00:00:00Z&to=$(date -u +'%Y-%m-%dT%H:%M:%SZ')&page=1&pageSize=20"
    ```
 
-7. 查看审计记录（ClickHouse SQL）：
+8. 导出授权审计（CSV）：
    ```bash
-   clickhouse client --query="
-     SELECT event_type, subject_id, decision_reason
-     FROM audit.authorization
-     WHERE tenant_id='00000000-0000-0000-0000-000000000001'
-     ORDER BY timestamp DESC LIMIT 20"
+   curl -o authorization_audit.csv "http://localhost:8077/api/v1/admin/event-fabric/audit/authorization?tenantId=00000000-0000-0000-0000-000000000001&from=1970-01-01T00:00:00Z&to=$(date -u +'%Y-%m-%dT%H:%M:%SZ')&format=csv"
    ```
 
 ## 验证指标

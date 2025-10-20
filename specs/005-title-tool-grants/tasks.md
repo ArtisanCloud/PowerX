@@ -117,11 +117,11 @@
 
 **Purpose**: 全局优化、文档与运行手册
 
-- [ ] T031 [Polish] 更新 `scripts/demo/event_fabric_quickstart.sh` 与 `specs/005-title-tool-grants/quickstart.md`，验证全链路体验步骤。
-- [ ] T032 [P] [Polish] 补充文档（如 `docs/runbooks/event_fabric_authorization.md`），描述告警、指标与应急流程。
-- [ ] T033 [Polish] 更新 `docs/api/` 目录或 Swagger 生成流程，发布新的 OpenAPI 与 gRPC 合同引用。
-- [ ] T034 [P] [Polish] 执行 `make unit-test`、`make proto-lint`、`make test-all` 并记录结果，确保发布前质量门槛。
-- [ ] T042 [Polish] 验证审计事件 3 年留存与冷存储归档流程，编写核对脚本并记录验证报告。
+- [X] T031 [Polish] 更新 `scripts/demo/event_fabric_quickstart.sh` 与 `specs/005-title-tool-grants/quickstart.md`，验证全链路体验步骤。
+- [X] T032 [P] [Polish] 补充文档（如 `docs/runbooks/event_fabric_authorization.md`），描述告警、指标与应急流程。
+- [X] T033 [Polish] 更新 `docs/api/` 目录或 Swagger 生成流程，发布新的 OpenAPI 与 gRPC 合同引用。
+- [X] T034 [P] [Polish] 执行 `make unit-test`、`make proto-lint`、`make test-all` 并记录结果，确保发布前质量门槛。
+- [X] T042 [Polish] 验证审计事件 3 年留存与冷存储归档流程，编写核对脚本并记录验证报告。
 
 ---
 

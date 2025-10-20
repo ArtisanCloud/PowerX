@@ -2003,6 +2003,20 @@
         ]
       }
     },
+    "/api/v1/event-fabric/audit/authorization": {
+      "get": {
+        "operationId": "GET /api/v1/event-fabric/audit/authorization",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "GET /api/v1/event-fabric/audit/authorization",
+        "tags": [
+          "api"
+        ]
+      }
+    },
     "/api/v1/event-fabric/capabilities": {
       "post": {
         "operationId": "POST /api/v1/event-fabric/capabilities",
