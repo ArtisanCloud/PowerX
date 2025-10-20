@@ -20,7 +20,7 @@ proto-event-fabric:
 		echo "❌ 未找到 buf CLI，请先安装: https://buf.build/docs/installation"; \
 		exit 1; \
 	fi
-	@cd $(BUF_WORKDIR) && buf generate --template buf.gen.yaml --path corex/event_fabric/v1
+	@cd $(BUF_WORKDIR) && buf generate --template buf.gen.yaml --path corex/event_fabric/v1 --path powerx/event_fabric/v1
 	@echo "✅ Event Fabric Protobuf 代码生成完成"
 
 proto-lint:
@@ -37,6 +37,7 @@ proto-clean:
 	@rm -rf api/grpc/gen/go/powerx/corex
 	@rm -rf api/grpc/gen/go/powerx/capability
 	@rm -rf api/grpc/gen/go/corex/event_fabric
+	@rm -rf api/grpc/gen/go/powerx/event_fabric
 	@find api/grpc/gen -type f -name "*.pb.go" -empty -delete >/dev/null 2>&1 || true
 	@echo "✅ 清理完成"
 

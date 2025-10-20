@@ -2003,6 +2003,62 @@
         ]
       }
     },
+    "/api/v1/event-fabric/audit/authorization": {
+      "get": {
+        "operationId": "GET /api/v1/event-fabric/audit/authorization",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "GET /api/v1/event-fabric/audit/authorization",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/v1/event-fabric/capabilities": {
+      "post": {
+        "operationId": "POST /api/v1/event-fabric/capabilities",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/v1/event-fabric/capabilities",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/v1/event-fabric/capabilities/:capabilityId": {
+      "patch": {
+        "operationId": "PATCH /api/v1/event-fabric/capabilities/_capabilityId",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "PATCH /api/v1/event-fabric/capabilities/_capabilityId",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/v1/event-fabric/challenges/:ticketId/decision": {
+      "post": {
+        "operationId": "POST /api/v1/event-fabric/challenges/_ticketId/decision",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/v1/event-fabric/challenges/_ticketId/decision",
+        "tags": [
+          "api"
+        ]
+      }
+    },
     "/api/v1/event-fabric/dlq/messages": {
       "delete": {
         "operationId": "DELETE /api/v1/event-fabric/dlq/messages",
@@ -2052,6 +2108,140 @@
           }
         },
         "summary": "POST /api/v1/event-fabric/events_publish",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/v1/event-fabric/grant-templates": {
+      "get": {
+        "operationId": "GET /api/v1/event-fabric/grant-templates",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "GET /api/v1/event-fabric/grant-templates",
+        "tags": [
+          "api"
+        ]
+      },
+      "post": {
+        "operationId": "POST /api/v1/event-fabric/grant-templates",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/v1/event-fabric/grant-templates",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/v1/event-fabric/grant-templates/:templateId": {
+      "delete": {
+        "operationId": "DELETE /api/v1/event-fabric/grant-templates/_templateId",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "DELETE /api/v1/event-fabric/grant-templates/_templateId",
+        "tags": [
+          "api"
+        ]
+      },
+      "patch": {
+        "operationId": "PATCH /api/v1/event-fabric/grant-templates/_templateId",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "PATCH /api/v1/event-fabric/grant-templates/_templateId",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/v1/event-fabric/grant-templates/:templateId/apply": {
+      "post": {
+        "operationId": "POST /api/v1/event-fabric/grant-templates/_templateId/apply",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/v1/event-fabric/grant-templates/_templateId/apply",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/v1/event-fabric/grants": {
+      "post": {
+        "operationId": "POST /api/v1/event-fabric/grants",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/v1/event-fabric/grants",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/v1/event-fabric/grants/:grantId": {
+      "get": {
+        "operationId": "GET /api/v1/event-fabric/grants/_grantId",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "GET /api/v1/event-fabric/grants/_grantId",
+        "tags": [
+          "api"
+        ]
+      },
+      "patch": {
+        "operationId": "PATCH /api/v1/event-fabric/grants/_grantId",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "PATCH /api/v1/event-fabric/grants/_grantId",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/v1/event-fabric/grants/:grantId/revoke": {
+      "post": {
+        "operationId": "POST /api/v1/event-fabric/grants/_grantId/revoke",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/v1/event-fabric/grants/_grantId/revoke",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/v1/event-fabric/grants/cache:invalidate": {
+      "post": {
+        "operationId": "POST /api/v1/event-fabric/grants/cache_invalidate",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/v1/event-fabric/grants/cache_invalidate",
         "tags": [
           "api"
         ]

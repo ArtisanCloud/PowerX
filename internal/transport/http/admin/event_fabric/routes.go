@@ -37,6 +37,28 @@ func RegisterAPIRoutes(_ *gin.RouterGroup, protected *gin.RouterGroup, deps *sha
 		group.POST("/events:publish", deliveryHandler.PublishEvent)
 	}
 
+	if deps.EventFabric.Authorization != nil && deps.EventFabric.Authorization.Service != nil {
+		authHandler := NewAuthorizationHandler(AuthorizationHandlerOptions{
+			Service:   deps.EventFabric.Authorization.Service,
+			Templates: deps.EventFabric.Authorization.Templates,
+			Reporting: deps.EventFabric.Authorization.Reporting,
+		})
+		group.POST("/capabilities", authHandler.CreateCapability)
+		group.PATCH("/capabilities/:capabilityId", authHandler.UpdateCapability)
+		group.POST("/grants", authHandler.CreateGrant)
+		group.GET("/grants/:grantId", authHandler.GetGrant)
+		group.PATCH("/grants/:grantId", authHandler.UpdateGrant)
+		group.POST("/grants/:grantId/revoke", authHandler.RevokeGrant)
+		group.POST("/grants/cache:invalidate", authHandler.InvalidateGrantCache)
+		group.POST("/challenges/:ticketId/decision", authHandler.DecideChallenge)
+		group.GET("/audit/authorization", authHandler.ListAuthorizationAudit)
+		group.GET("/grant-templates", authHandler.ListTemplates)
+		group.POST("/grant-templates", authHandler.CreateTemplate)
+		group.PATCH("/grant-templates/:templateId", authHandler.UpdateTemplate)
+		group.DELETE("/grant-templates/:templateId", authHandler.DeleteTemplate)
+		group.POST("/grant-templates/:templateId/apply", authHandler.ApplyTemplate)
+	}
+
 	if deps.EventFabric.DLQ != nil {
 		dlqHandler := NewAdminDLQHandler(AdminDLQHandlerOptions{Service: deps.EventFabric.DLQ})
 		group.GET("/dlq/messages", dlqHandler.ListMessages)

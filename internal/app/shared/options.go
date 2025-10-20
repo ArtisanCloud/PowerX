@@ -29,4 +29,33 @@ type EventFabricOptions struct {
 	ReplayKeyPrefix   string
 	SchedulerInterval int
 	Security          security.Config
+	Authorization     EventFabricAuthorizationOptions
+}
+
+// EventFabricAuthorizationOptions 描述授权域所需运行参数。
+type EventFabricAuthorizationOptions struct {
+	CacheTTLSeconds             int
+	LocalCacheTTLSeconds        int
+	RedisAddr                   string
+	RedisPassword               string
+	RedisDB                     int
+	CacheInvalidateChannel      string
+	ChallengeSLASeconds         int
+	ChallengeTopic              string
+	ChallengeConsumerGroup      string
+	AlertTopic                  string
+	RateLimitPrefix             string
+	TimeoutSweepIntervalSeconds int
+	AuditRetentionDays          int
+	AuditArchiveBucket          string
+	AuditArchivePrefix          string
+	Secrets                     EventFabricAuthorizationSecretsOptions
+}
+
+// EventFabricAuthorizationSecretsOptions 描述 KMS 相关参数。
+type EventFabricAuthorizationSecretsOptions struct {
+	Provider                string
+	KeyID                   string
+	RotationIntervalSeconds int
+	CacheTTLSeconds         int
 }

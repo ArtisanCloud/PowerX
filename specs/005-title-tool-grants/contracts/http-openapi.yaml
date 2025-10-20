@@ -1,0 +1,476 @@
+openapi: 3.1.0
+info:
+  title: PowerX Event Fabric Authorization Admin API
+  version: 0.1.0
+  description: >
+    Admin endpoints for managing capabilities, grants, and challenge approvals
+    within the Event Fabric authorization domain. All endpoints require
+    authenticated admin role with tenant-scoped RBAC.
+servers:
+  - url: https://{host}/api/v1/admin/event-fabric
+    variables:
+      host:
+        default: localhost:8077
+tags:
+  - name: Capabilities
+  - name: Grants
+  - name: Challenges
+paths:
+  /capabilities:
+    post:
+      summary: Create capability
+      tags: [Capabilities]
+      operationId: createCapability
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCapabilityRequest'
+      responses:
+        '201':
+          description: Capability created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CapabilityResponse'
+        '409':
+          description: Capability already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /capabilities/{capabilityId}:
+    patch:
+      summary: Update capability metadata
+      tags: [Capabilities]
+      operationId: updateCapability
+      parameters:
+        - $ref: '#/components/parameters/CapabilityId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCapabilityRequest'
+      responses:
+        '200':
+          description: Capability updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CapabilityResponse'
+        '404':
+          description: Capability not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /grants:
+    post:
+      summary: Create grant
+      tags: [Grants]
+      operationId: createGrant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateGrantRequest'
+      responses:
+        '201':
+          description: Grant created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GrantResponse'
+        '202':
+          description: Grant created and Challenge queued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChallengeQueuedResponse'
+  /grants/{grantId}:
+    get:
+      summary: Get grant
+      tags: [Grants]
+      operationId: getGrant
+      parameters:
+        - $ref: '#/components/parameters/GrantId'
+      responses:
+        '200':
+          description: Grant detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GrantResponse'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    patch:
+      summary: Update grant conditions
+      tags: [Grants]
+      operationId: updateGrant
+      parameters:
+        - $ref: '#/components/parameters/GrantId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateGrantRequest'
+      responses:
+        '200':
+          description: Grant updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GrantResponse'
+  /grants/{grantId}/revoke:
+    post:
+      summary: Revoke grant
+      tags: [Grants]
+      operationId: revokeGrant
+      parameters:
+        - $ref: '#/components/parameters/GrantId'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RevokeGrantRequest'
+      responses:
+        '200':
+          description: Grant revoked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GrantResponse'
+  /grants/cache:invalidate:
+    post:
+      summary: Invalidate grant cache
+      tags: [Grants]
+      operationId: invalidateGrantCache
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InvalidateCacheRequest'
+      responses:
+        '202':
+          description: Invalidation accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AcceptedResponse'
+  /challenges/{ticketId}/decision:
+    post:
+      summary: Submit challenge decision
+      tags: [Challenges]
+      operationId: decideChallenge
+      parameters:
+        - $ref: '#/components/parameters/TicketId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChallengeDecisionRequest'
+      responses:
+        '200':
+          description: Decision applied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChallengeDecisionResponse'
+        '409':
+          description: Ticket already resolved or expired
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    CapabilityId:
+      name: capabilityId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    GrantId:
+      name: grantId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    TicketId:
+      name: ticketId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  schemas:
+    CapabilityResponse:
+      type: object
+      required: [id, namespace, action, risk_level, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        namespace:
+          type: string
+        action:
+          type: string
+        description:
+          type: string
+        risk_level:
+          type: string
+          enum: [low, medium, high, critical]
+        default_rate_limit:
+          $ref: '#/components/schemas/RateLimit'
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    CreateCapabilityRequest:
+      type: object
+      required: [namespace, action, risk_level]
+      properties:
+        namespace:
+          type: string
+        action:
+          type: string
+        description:
+          type: string
+        risk_level:
+          type: string
+          enum: [low, medium, high, critical]
+        default_rate_limit:
+          $ref: '#/components/schemas/RateLimit'
+    UpdateCapabilityRequest:
+      type: object
+      properties:
+        description:
+          type: string
+        risk_level:
+          type: string
+          enum: [low, medium, high, critical]
+        default_rate_limit:
+          $ref: '#/components/schemas/RateLimit'
+    CreateGrantRequest:
+      type: object
+      required:
+        - tenant_id
+        - subject
+        - capabilities
+        - ttl_seconds
+      properties:
+        tenant_id:
+          type: string
+          format: uuid
+        subject:
+          $ref: '#/components/schemas/SubjectRef'
+        capabilities:
+          type: array
+          minItems: 1
+          items:
+            type: string
+        conditions:
+          $ref: '#/components/schemas/GrantConditions'
+        ttl_seconds:
+          type: integer
+          minimum: 60
+        source:
+          type: string
+          enum: [system_template, tenant_template, session_temp]
+    GrantResponse:
+      type: object
+      required:
+        - id
+        - tenant_id
+        - subject
+        - status
+        - version
+        - capabilities
+        - ttl_expires_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+        subject:
+          $ref: '#/components/schemas/SubjectRef'
+        status:
+          type: string
+          enum: [active, pending, revoked, expired]
+        version:
+          type: integer
+        source:
+          type: string
+        capabilities:
+          type: array
+          items:
+            $ref: '#/components/schemas/GrantCapability'
+        conditions:
+          $ref: '#/components/schemas/GrantConditions'
+        ttl_expires_at:
+          type: string
+          format: date-time
+        challenge_ticket:
+          $ref: '#/components/schemas/ChallengeTicket'
+    UpdateGrantRequest:
+      type: object
+      properties:
+        capabilities:
+          type: array
+          items:
+            $ref: '#/components/schemas/GrantCapability'
+        conditions:
+          $ref: '#/components/schemas/GrantConditions'
+        ttl_seconds:
+          type: integer
+    RevokeGrantRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+    InvalidateCacheRequest:
+      type: object
+      required: [tenant_id, subject]
+      properties:
+        tenant_id:
+          type: string
+          format: uuid
+        subject:
+          $ref: '#/components/schemas/SubjectRef'
+        grant_version:
+          type: integer
+    ChallengeQueuedResponse:
+      type: object
+      required: [ticket_id, sla_expires_at]
+      properties:
+        ticket_id:
+          type: string
+          format: uuid
+        sla_expires_at:
+          type: string
+          format: date-time
+    ChallengeDecisionRequest:
+      type: object
+      required: [decision]
+      properties:
+        decision:
+          type: string
+          enum: [approve, reject]
+        decision_reason:
+          type: string
+    ChallengeDecisionResponse:
+      type: object
+      required: [ticket_id, status]
+      properties:
+        ticket_id:
+          type: string
+        status:
+          type: string
+          enum: [approved, rejected, expired]
+        processed_at:
+          type: string
+          format: date-time
+    SubjectRef:
+      type: object
+      required: [type, id]
+      properties:
+        type:
+          type: string
+          enum: [agent, plugin]
+        id:
+          type: string
+          format: uuid
+    GrantCapability:
+      type: object
+      required: [capability, rate_limit]
+      properties:
+        capability:
+          type: string
+        rate_limit:
+          $ref: '#/components/schemas/RateLimit'
+    GrantConditions:
+      type: object
+      properties:
+        resources:
+          type: array
+          items:
+            type: string
+        context_tags:
+          type: array
+          items:
+            type: string
+        time_window:
+          type: object
+          required: [start, end]
+          properties:
+            start:
+              type: string
+              format: date-time
+            end:
+              type: string
+              format: date-time
+    ChallengeTicket:
+      type: object
+      properties:
+        id:
+          type: string
+        status:
+          type: string
+          enum: [pending, approved, rejected, expired]
+        sla_expires_at:
+          type: string
+          format: date-time
+    RateLimit:
+      type: object
+      properties:
+        limit:
+          type: integer
+        interval_seconds:
+          type: integer
+        burst:
+          type: integer
+    AcceptedResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: accepted
+        request_id:
+          type: string
+          format: uuid
+    ErrorResponse:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        details:
+          type: array
+          items:
+            type: string
+security:
+  - bearerAuth: []

@@ -26,7 +26,7 @@ principles:
   - 幂等与并发：Create 支持 Idempotency-Key（可选）；Update 支持 If-Match/ETag（可选）。
   - 错误翻译：ErrRecordNotFound → 404；唯一键冲突/重复 → 409；其余 → 500（由上层桥接）。
   - 日志：必要路径要记录关键维度（tenant/actor/id）。
-  - 形态约束：Service 必须以结构体 + `New*Service` 构造函数呈现，禁止额外定义 interface 壳（除非该接口来自跨包依赖且已有规范）。
+  - 形态约束：Service 默认以结构体 + `New*Service` 构造函数呈现；仅当满足“同一接口需要多种驱动/工厂模式”“为复用/测试提供可替换实现（如 handler、worker、远程代理共用服务）”等场景，或复用已有跨包 interface 规范时，才允许额外定义 interface 壳，并需在评审中说明理由。
   - Repo 生命周期：Service 构造时基于注入的 `*gorm.DB` 创建所需 Repository；禁止在 `shared.Deps` 或 Handler 层先行实例化 Repo 再传入 Service。
 
 checks:

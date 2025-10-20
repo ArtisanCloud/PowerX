@@ -10,6 +10,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/internal/http"
 	"github.com/ArtisanCloud/PowerX/internal/openapi"
 	grpcserver "github.com/ArtisanCloud/PowerX/internal/server/grpc"
+	authorizationService "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/authorization"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/audit"
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"github.com/gin-gonic/gin"
@@ -69,6 +70,19 @@ func main() {
 	if err != nil {
 		logger.ErrorF(ctx, "BootstrapGRPC failed: %s", err.Error())
 		return
+	}
+
+	if deps.EventFabric != nil && deps.EventFabric.Authorization != nil {
+		if deps.EventFabric.Authorization.TimeoutWorker != nil {
+			go deps.EventFabric.Authorization.TimeoutWorker.Run(ctx)
+		}
+		if deps.EventFabric.Authorization.Service != nil {
+			go func() {
+				if err := deps.EventFabric.Authorization.Service.ListenCacheInvalidation(ctx); err != nil && err != authorizationService.ErrOperationUnsupported {
+					logger.WarnF(ctx, "authorization cache listener stopped: %v", err)
+				}
+			}()
+		}
 	}
 
 	// 启动 HTTP 服务
