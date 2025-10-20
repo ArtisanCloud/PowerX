@@ -29,21 +29,21 @@
 
 **Purpose**: 建立域模型、仓储、服务骨架 —— ✅ 完成前禁止进入用户故事实现
 
-- [ ] T005 [P] [Found] 实现 `WorkflowDefinition` 模型 (`pkg/corex/db/persistence/model/workflow/definition.go`)
-- [ ] T006 [P] [Found] 实现 `WorkflowInstance` 模型 (`pkg/corex/db/persistence/model/workflow/instance.go`)
-- [ ] T007 [P] [Found] 实现 `WorkflowStepRecord` 模型 (`pkg/corex/db/persistence/model/workflow/step_record.go`)
-- [ ] T008 [P] [Found] 实现 `WorkflowStepCompensation` 模型 (`pkg/corex/db/persistence/model/workflow/compensation.go`)
-- [ ] T009 [P] [Found] 实现 `AgentAssignment` 模型 (`pkg/corex/db/persistence/model/workflow/agent_assignment.go`)
-- [ ] T010 [P] [Found] 实现 `WorkflowEvent` 投影模型 (`pkg/corex/db/persistence/model/workflow/event.go`)
-- [ ] T011 [Found] 将上述模型注册到迁移流程 (`pkg/corex/db/database/migration.go`, `cmd/database/migrate.go`)
-- [ ] T012 [P] [Found] 创建 `WorkflowDefinitionRepository` (`pkg/corex/db/persistence/repository/workflow/definition_repository.go`)
-- [ ] T013 [P] [Found] 创建 `WorkflowInstanceRepository` (`pkg/corex/db/persistence/repository/workflow/instance_repository.go`)
-- [ ] T014 [P] [Found] 创建 `WorkflowStepRecordRepository` (`pkg/corex/db/persistence/repository/workflow/step_record_repository.go`)
-- [ ] T015 [P] [Found] 创建 `AgentAssignmentRepository` (`pkg/corex/db/persistence/repository/workflow/assignment_repository.go`)
-- [ ] T016 [Found] 建立服务骨架 (`internal/service/workflow/service.go`) 注入仓储、定义接口（Create/Publish/Start/Control 等）
-- [ ] T017 [Found] 实作调度器与 Redis 定时器骨架 (`internal/service/workflow/scheduler.go`) 处理队列、重试占位逻辑
-- [ ] T018 [Found] 更新依赖注入 (`internal/app/shared/deps.go`, `internal/app/shared/options.go`) 装配 Workflow 服务/调度器/仓储
-- [ ] T019 [Found] 在 gRPC Server 注册 WorkflowService (`internal/server/grpc/server.go`)，确保拦截器链完整
+- [X] T005 [P] [Found] 实现 `WorkflowDefinition` 模型 (`pkg/corex/db/persistence/model/workflow/definition.go`)
+- [X] T006 [P] [Found] 实现 `WorkflowInstance` 模型 (`pkg/corex/db/persistence/model/workflow/instance.go`)
+- [X] T007 [P] [Found] 实现 `WorkflowStepRecord` 模型 (`pkg/corex/db/persistence/model/workflow/step_record.go`)
+- [X] T008 [P] [Found] 实现 `WorkflowStepCompensation` 模型 (`pkg/corex/db/persistence/model/workflow/compensation.go`)
+- [X] T009 [P] [Found] 实现 `AgentAssignment` 模型 (`pkg/corex/db/persistence/model/workflow/agent_assignment.go`)
+- [X] T010 [P] [Found] 实现 `WorkflowEvent` 投影模型 (`pkg/corex/db/persistence/model/workflow/event.go`)
+- [X] T011 [Found] 将上述模型注册到迁移流程 (`pkg/corex/db/database/migration.go`, `cmd/database/migrate.go`)
+- [X] T012 [P] [Found] 创建 `WorkflowDefinitionRepository` (`pkg/corex/db/persistence/repository/workflow/definition_repository.go`)
+- [X] T013 [P] [Found] 创建 `WorkflowInstanceRepository` (`pkg/corex/db/persistence/repository/workflow/instance_repository.go`)
+- [X] T014 [P] [Found] 创建 `WorkflowStepRecordRepository` (`pkg/corex/db/persistence/repository/workflow/step_record_repository.go`)
+- [X] T015 [P] [Found] 创建 `AgentAssignmentRepository` (`pkg/corex/db/persistence/repository/workflow/assignment_repository.go`)
+- [X] T016 [Found] 建立服务骨架 (`internal/service/workflow/service.go`) 注入仓储、定义接口（Create/Publish/Start/Control 等）
+- [X] T017 [Found] 实作调度器与 Redis 定时器骨架 (`internal/service/workflow/scheduler.go`) 处理队列、重试占位逻辑
+- [X] T018 [Found] 更新依赖注入 (`internal/app/shared/deps.go`, `internal/app/shared/options.go`) 装配 Workflow 服务/调度器/仓储
+- [X] T019 [Found] 在 gRPC Server 注册 WorkflowService (`internal/server/grpc/server.go`)，确保拦截器链完整
 
 **Checkpoint**: 基础设施就绪，可启动用户故事开发
 

@@ -16,6 +16,7 @@ import (
 	iamv1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/iam/v1"
 	corexmediav1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/media/v1"
 	settingv12 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/setting"
+	workflowv1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/workflow/v1"
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
 	agentgrpc "github.com/ArtisanCloud/PowerX/internal/transport/grpc/agent"
 	authgrpc "github.com/ArtisanCloud/PowerX/internal/transport/grpc/auth"
@@ -25,6 +26,7 @@ import (
 	eventfabricgrpc "github.com/ArtisanCloud/PowerX/internal/transport/grpc/event_fabric"
 	"github.com/ArtisanCloud/PowerX/internal/transport/grpc/iam"
 	medigrpc "github.com/ArtisanCloud/PowerX/internal/transport/grpc/media"
+	workflowgrpc "github.com/ArtisanCloud/PowerX/internal/transport/grpc/workflow"
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 
 	"google.golang.org/grpc"
@@ -126,6 +128,9 @@ func New(cfg *GRPCConfig, deps *shared.Deps) (*grpc.Server, net.Listener, error)
 
 	// Media Asset（复用已有拦截器）
 	corexmediav1.RegisterMediaAssetAdminServiceServer(s, medigrpc.NewMediaAssetServer(deps))
+	if deps.Workflow != nil && deps.Workflow.Service != nil {
+		workflowv1.RegisterWorkflowServiceServer(s, workflowgrpc.NewServer(deps.Workflow.Service))
+	}
 
 	ctx := context.Background()
 
@@ -145,6 +150,7 @@ func New(cfg *GRPCConfig, deps *shared.Deps) (*grpc.Server, net.Listener, error)
 			capabilityRegistryPB.CapabilityRegistryService_ServiceDesc.ServiceName,
 			capabilityRegistryPB.CapabilityDiscoveryService_ServiceDesc.ServiceName,
 			authorizationpb.AuthorizationService_ServiceDesc.ServiceName,
+			workflowv1.WorkflowService_ServiceDesc.ServiceName,
 		}
 		for _, name := range serviceNames {
 			healthServer.SetServingStatus(name, healthpb.HealthCheckResponse_SERVING)
