@@ -1,0 +1,361 @@
+syntax = "proto3";
+
+package powerx.workflow.v1;
+
+option go_package = "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/workflow/v1;workflowv1";
+option java_package = "com.powerx.workflow.v1";
+option java_multiple_files = true;
+option csharp_namespace = "PowerX.Workflow.V1";
+option php_namespace = "PowerX\\Workflow\\V1";
+option php_metadata_namespace = "GPBMetadata\\PowerX\\Workflow\\V1";
+
+import "google/protobuf/struct.proto";
+import "google/protobuf/timestamp.proto";
+import "common/v1/context.proto";
+import "common/v1/pagination.proto";
+import "common/v1/response.proto";
+
+// WorkflowService 暴露工作流定义管理、实例运行与人工控制相关能力。
+service WorkflowService {
+  rpc CreateDefinition(CreateDefinitionRequest) returns (CreateDefinitionResponse);
+  rpc PublishDefinition(PublishDefinitionRequest) returns (PublishDefinitionResponse);
+  rpc ArchiveDefinition(ArchiveDefinitionRequest) returns (ArchiveDefinitionResponse);
+  rpc ListDefinitions(ListDefinitionsRequest) returns (ListDefinitionsResponse);
+  rpc GetDefinition(GetDefinitionRequest) returns (GetDefinitionResponse);
+
+  rpc StartInstance(StartInstanceRequest) returns (StartInstanceResponse);
+  rpc GetInstance(GetInstanceRequest) returns (GetInstanceResponse);
+  rpc ListInstances(ListInstancesRequest) returns (ListInstancesResponse);
+  rpc ControlInstance(ControlInstanceRequest) returns (ControlInstanceResponse);
+  rpc ExportInstances(ExportInstancesRequest) returns (ExportInstancesResponse);
+}
+
+// -------- 定义管理 --------
+
+message CreateDefinitionRequest {
+  common.v1.RequestContext ctx = 1;
+  string name = 2;
+  string description = 3;
+  repeated WorkflowStepDefinition steps = 4;
+  RetryPolicy default_retry_policy = 5;
+  CompensationPolicy compensation_policy = 6;
+  SlaPolicy sla_policy = 7;
+  google.protobuf.Struct metadata = 8;
+}
+
+message CreateDefinitionResponse {
+  common.v1.ResponseMeta meta = 1;
+  WorkflowDefinition definition = 2;
+}
+
+message PublishDefinitionRequest {
+  common.v1.RequestContext ctx = 1;
+  string definition_id = 2;
+  string change_note = 3;
+}
+
+message PublishDefinitionResponse {
+  common.v1.ResponseMeta meta = 1;
+  WorkflowDefinition definition = 2;
+}
+
+message ArchiveDefinitionRequest {
+  common.v1.RequestContext ctx = 1;
+  string definition_id = 2;
+  string reason = 3;
+}
+
+message ArchiveDefinitionResponse {
+  common.v1.ResponseMeta meta = 1;
+  WorkflowDefinition definition = 2;
+}
+
+message GetDefinitionRequest {
+  common.v1.RequestContext ctx = 1;
+  string definition_id = 2;
+  int32 version = 3;
+}
+
+message GetDefinitionResponse {
+  common.v1.ResponseMeta meta = 1;
+  WorkflowDefinition definition = 2;
+}
+
+message ListDefinitionsRequest {
+  common.v1.RequestContext ctx = 1;
+  common.v1.PageRequest page = 2;
+  WorkflowDefinitionStatus status = 3;
+  string keyword = 4;
+}
+
+message ListDefinitionsResponse {
+  common.v1.ResponseMeta meta = 1;
+  repeated WorkflowDefinition definitions = 2;
+  common.v1.PageResponse page = 3;
+}
+
+// -------- 实例运行 --------
+
+message StartInstanceRequest {
+  common.v1.RequestContext ctx = 1;
+  string definition_id = 2;
+  int32 definition_version = 3;
+  google.protobuf.Struct input = 4;
+  google.protobuf.Struct tags = 5;
+  string correlation_id = 6;
+}
+
+message StartInstanceResponse {
+  common.v1.ResponseMeta meta = 1;
+  WorkflowInstance instance = 2;
+}
+
+message GetInstanceRequest {
+  common.v1.RequestContext ctx = 1;
+  string instance_id = 2;
+  bool include_steps = 3;
+}
+
+message GetInstanceResponse {
+  common.v1.ResponseMeta meta = 1;
+  WorkflowInstance instance = 2;
+}
+
+message ListInstancesRequest {
+  common.v1.RequestContext ctx = 1;
+  common.v1.PageRequest page = 2;
+  string definition_id = 3;
+  WorkflowInstanceState state = 4;
+  google.protobuf.Timestamp created_from = 5;
+  google.protobuf.Timestamp created_to = 6;
+  bool include_steps = 7;
+  string agent_id = 8;
+}
+
+message ListInstancesResponse {
+  common.v1.ResponseMeta meta = 1;
+  repeated WorkflowInstance instances = 2;
+  common.v1.PageResponse page = 3;
+}
+
+message ControlInstanceRequest {
+  common.v1.RequestContext ctx = 1;
+  string instance_id = 2;
+  ControlAction action = 3;
+  string step_id = 4;
+  string assignment_id = 5;
+  google.protobuf.Struct payload = 6;
+  string reason = 7;
+}
+
+message ControlInstanceResponse {
+  common.v1.ResponseMeta meta = 1;
+  WorkflowInstance instance = 2;
+}
+
+message ExportInstancesRequest {
+  common.v1.RequestContext ctx = 1;
+  ExportFormat format = 2;
+  string definition_id = 3;
+  WorkflowInstanceState state = 4;
+  google.protobuf.Timestamp created_from = 5;
+  google.protobuf.Timestamp created_to = 6;
+  bool include_step_details = 7;
+}
+
+message ExportInstancesResponse {
+  common.v1.ResponseMeta meta = 1;
+  repeated WorkflowInstanceExportRow rows = 2;
+  string download_url = 3;
+}
+
+// -------- 结构定义 --------
+
+message WorkflowDefinition {
+  string definition_id = 1;
+  string tenant_id = 2;
+  string name = 3;
+  string description = 4;
+  int32 version = 5;
+  WorkflowDefinitionStatus status = 6;
+  RetryPolicy default_retry_policy = 7;
+  CompensationPolicy compensation_policy = 8;
+  SlaPolicy sla_policy = 9;
+  repeated WorkflowStepDefinition steps = 10;
+  google.protobuf.Struct metadata = 11;
+  google.protobuf.Timestamp created_at = 12;
+  google.protobuf.Timestamp updated_at = 13;
+  google.protobuf.Timestamp published_at = 14;
+  string created_by = 15;
+}
+
+message WorkflowStepDefinition {
+  string step_id = 1;
+  string display_name = 2;
+  StepType type = 3;
+  google.protobuf.Struct config = 4;
+  bool compensatable = 5;
+  repeated string next_step_ids = 6;
+  repeated string depends_on = 7;
+}
+
+message WorkflowInstance {
+  string instance_id = 1;
+  string tenant_id = 2;
+  string definition_id = 3;
+  int32 definition_version = 4;
+  WorkflowInstanceState state = 5;
+  google.protobuf.Struct input = 6;
+  google.protobuf.Struct output = 7;
+  SlaSnapshot sla = 8;
+  string last_error = 9;
+  google.protobuf.Timestamp created_at = 10;
+  google.protobuf.Timestamp started_at = 11;
+  google.protobuf.Timestamp updated_at = 12;
+  google.protobuf.Timestamp completed_at = 13;
+  map<string, string> tags = 14;
+  repeated WorkflowStepSummary steps = 15;
+}
+
+message WorkflowStepSummary {
+  string step_record_id = 1;
+  string step_id = 2;
+  StepType type = 3;
+  WorkflowStepState state = 4;
+  StepSubjectType subject_type = 5;
+  string subject_id = 6;
+  int64 tool_grant_version = 7;
+  int32 attempt = 8;
+  google.protobuf.Timestamp scheduled_at = 9;
+  google.protobuf.Timestamp started_at = 10;
+  google.protobuf.Timestamp completed_at = 11;
+  google.protobuf.Struct payload_in = 12;
+  google.protobuf.Struct payload_out = 13;
+  string failure_reason = 14;
+  bool awaiting_manual_approval = 15;
+}
+
+message WorkflowInstanceExportRow {
+  string instance_id = 1;
+  string definition_id = 2;
+  int32 definition_version = 3;
+  WorkflowInstanceState state = 4;
+  google.protobuf.Timestamp started_at = 5;
+  google.protobuf.Timestamp completed_at = 6;
+  repeated StepExecutionExport steps = 7;
+  string tenant_id = 8;
+  string correlation_id = 9;
+}
+
+message StepExecutionExport {
+  string step_id = 1;
+  StepType type = 2;
+  WorkflowStepState state = 3;
+  StepSubjectType subject_type = 4;
+  string subject_id = 5;
+  int32 attempts = 6;
+  int64 tool_grant_version = 7;
+  google.protobuf.Timestamp last_transition_at = 8;
+  string last_error = 9;
+}
+
+message RetryPolicy {
+  int32 max_attempts = 1;
+  int64 initial_interval_ms = 2;
+  double backoff_multiplier = 3;
+  int64 max_interval_ms = 4;
+  int64 jitter_ms = 5;
+}
+
+message CompensationPolicy {
+  bool enabled = 1;
+  bool require_manual_approval = 2;
+  int32 max_concurrent = 3;
+  string escalation_channel = 4;
+}
+
+message SlaPolicy {
+  int64 step_timeout_seconds = 1;
+  int64 overall_timeout_seconds = 2;
+  int64 heartbeat_interval_seconds = 3;
+}
+
+message SlaSnapshot {
+  google.protobuf.Timestamp overall_deadline = 1;
+  google.protobuf.Timestamp next_heartbeat_due = 2;
+  bool breached = 3;
+  repeated SlaBreach breaches = 4;
+}
+
+message SlaBreach {
+  string metric = 1;
+  google.protobuf.Timestamp occurred_at = 2;
+  string details = 3;
+}
+
+// -------- 枚举 --------
+
+enum WorkflowDefinitionStatus {
+  WORKFLOW_DEFINITION_STATUS_UNSPECIFIED = 0;
+  WORKFLOW_DEFINITION_STATUS_DRAFT = 1;
+  WORKFLOW_DEFINITION_STATUS_PUBLISHED = 2;
+  WORKFLOW_DEFINITION_STATUS_ARCHIVED = 3;
+}
+
+enum WorkflowInstanceState {
+  WORKFLOW_INSTANCE_STATE_UNSPECIFIED = 0;
+  WORKFLOW_INSTANCE_STATE_DRAFT = 1;
+  WORKFLOW_INSTANCE_STATE_RUNNING = 2;
+  WORKFLOW_INSTANCE_STATE_WAITING = 3;
+  WORKFLOW_INSTANCE_STATE_SUSPENDED = 4;
+  WORKFLOW_INSTANCE_STATE_SUCCEEDED = 5;
+  WORKFLOW_INSTANCE_STATE_FAILED = 6;
+  WORKFLOW_INSTANCE_STATE_COMPENSATING = 7;
+  WORKFLOW_INSTANCE_STATE_COMPENSATED = 8;
+  WORKFLOW_INSTANCE_STATE_CANCELED = 9;
+  WORKFLOW_INSTANCE_STATE_COMPENSATION_FAILED = 10;
+}
+
+enum StepType {
+  STEP_TYPE_UNSPECIFIED = 0;
+  STEP_TYPE_AGENT = 1;
+  STEP_TYPE_SYSTEM = 2;
+  STEP_TYPE_DECISION = 3;
+  STEP_TYPE_PARALLEL = 4;
+  STEP_TYPE_HUMAN_APPROVAL = 5;
+  STEP_TYPE_COMPENSATION = 6;
+}
+
+enum WorkflowStepState {
+  WORKFLOW_STEP_STATE_UNSPECIFIED = 0;
+  WORKFLOW_STEP_STATE_QUEUED = 1;
+  WORKFLOW_STEP_STATE_IN_PROGRESS = 2;
+  WORKFLOW_STEP_STATE_WAITING = 3;
+  WORKFLOW_STEP_STATE_COMPLETED = 4;
+  WORKFLOW_STEP_STATE_FAILED = 5;
+  WORKFLOW_STEP_STATE_COMPENSATING = 6;
+  WORKFLOW_STEP_STATE_COMPENSATED = 7;
+}
+
+enum StepSubjectType {
+  STEP_SUBJECT_TYPE_UNSPECIFIED = 0;
+  STEP_SUBJECT_TYPE_SYSTEM = 1;
+  STEP_SUBJECT_TYPE_AGENT = 2;
+  STEP_SUBJECT_TYPE_HUMAN = 3;
+}
+
+enum ControlAction {
+  CONTROL_ACTION_UNSPECIFIED = 0;
+  CONTROL_ACTION_PAUSE = 1;
+  CONTROL_ACTION_RESUME = 2;
+  CONTROL_ACTION_CANCEL = 3;
+  CONTROL_ACTION_RETRY_STEP = 4;
+  CONTROL_ACTION_REASSIGN_STEP = 5;
+  CONTROL_ACTION_TRIGGER_COMPENSATION = 6;
+}
+
+enum ExportFormat {
+  EXPORT_FORMAT_UNSPECIFIED = 0;
+  EXPORT_FORMAT_CSV = 1;
+  EXPORT_FORMAT_JSON = 2;
+}

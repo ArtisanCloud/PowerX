@@ -18,10 +18,10 @@
 
 **Purpose**: 建立合同与生成流程基础
 
-- [ ] T001 [Setup] 更新 buf 配置 (`api/grpc/contracts/buf.yaml`, `api/grpc/contracts/buf.gen.yaml`, `Makefile`) 以注册 `powerx/workflow/v1` 合同并确保 `make proto-*` 覆盖
-- [ ] T002 [P] [Setup] 编写 gRPC 合同 `api/grpc/contracts/powerx/workflow/v1/workflow.proto`（定义 WorkflowService 与消息结构）
-- [ ] T003 [P] [Setup] 编写 HTTP OpenAPI 合同 `specs/006-workflow-and-agent/contracts/http-openapi.yaml`（覆盖 definitions/instances/export 端点）
-- [ ] T004 [Setup] 运行 `make proto-gen` 并提交生成代码 `api/grpc/gen/go/powerx/workflow/v1/`
+- [X] T001 [Setup] 更新 buf 配置 (`api/grpc/contracts/buf.yaml`, `api/grpc/contracts/buf.gen.yaml`, `Makefile`) 以注册 `powerx/workflow/v1` 合同并确保 `make proto-*` 覆盖
+- [X] T002 [P] [Setup] 编写 gRPC 合同 `api/grpc/contracts/powerx/workflow/v1/workflow.proto`（定义 WorkflowService 与消息结构）
+- [X] T003 [P] [Setup] 编写 HTTP OpenAPI 合同 `specs/006-workflow-and-agent/contracts/http-openapi.yaml`（覆盖 definitions/instances/export 端点）
+- [X] T004 [Setup] 运行 `make proto-gen` 并提交生成代码 `api/grpc/gen/go/powerx/workflow/v1/`
 
 ---
 
