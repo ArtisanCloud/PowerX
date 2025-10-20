@@ -15,6 +15,7 @@ func CreateEventAuthorizationTables(db *gorm.DB) error {
 
 	if err := db.AutoMigrate(
 		&eventfabricmodel.AuthorizationCapability{},
+		&eventfabricmodel.AuthorizationGrantTemplate{},
 		&eventfabricmodel.AuthorizationGrant{},
 		&eventfabricmodel.AuthorizationGrantCapability{},
 		&eventfabricmodel.AuthorizationGrantCondition{},
@@ -61,6 +62,14 @@ func CreateEventAuthorizationTables(db *gorm.DB) error {
 		"CREATE UNIQUE INDEX IF NOT EXISTS uk_event_auth_ticket_fingerprint ON " +
 			(&eventfabricmodel.AuthorizationApprovalTicket{}).TableName() +
 			" (request_fingerprint);",
+	).Error; err != nil {
+		return err
+	}
+
+	if err := db.Exec(
+		"CREATE UNIQUE INDEX IF NOT EXISTS uk_event_auth_template_name ON " +
+			(&eventfabricmodel.AuthorizationGrantTemplate{}).TableName() +
+			" (COALESCE(tenant_id::text, '00000000-0000-0000-0000-000000000000'), name);",
 	).Error; err != nil {
 		return err
 	}

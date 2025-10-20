@@ -23,8 +23,17 @@ var (
 	ErrCapabilityNotFound   = errors.New("authorization: capability not found")
 	ErrGrantNotFound        = errors.New("authorization: grant not found")
 	ErrChallengeNotFound    = errors.New("authorization: challenge ticket not found")
+	ErrChallengeResolved    = errors.New("authorization: challenge already resolved")
 	ErrServiceUnavailable   = errors.New("authorization: service unavailable")
 	ErrOperationUnsupported = errors.New("authorization: operation not implemented yet")
+)
+
+const (
+	SubjectTypeAgent  = "agent"
+	SubjectTypePlugin = "plugin"
+
+	challengeDecisionApprove = "approve"
+	challengeDecisionReject  = "reject"
 )
 
 // Service 定义授权域的核心能力接口。
@@ -71,21 +80,36 @@ type CapabilityFilter struct {
 
 // GrantCreateRequest 描述 Grant 创建参数（后续阶段填充业务字段）。
 type GrantCreateRequest struct {
-	// TODO: Phase 3 将补充详细字段。
+	TenantID     uuid.UUID
+	SubjectType  string
+	SubjectID    uuid.UUID
+	Source       string
+	TemplateID   *uuid.UUID
+	TTLSeconds   int64
+	Capabilities []GrantCapabilityInput
+	Conditions   GrantConditionsInput
+	CreatedBy    *uuid.UUID
+	Notes        map[string]any
 }
 
 // GrantUpdateRequest 描述 Grant 更新参数。
 type GrantUpdateRequest struct {
-	// TODO: Phase 3 将补充详细字段。
+	TTLSeconds   *int64
+	Capabilities *[]GrantCapabilityInput
+	Conditions   *GrantConditionsInput
+	ActorID      *uuid.UUID
+	Reason       string
+	Notes        map[string]any
 }
 
 // GrantResult 提供 Grant 写入后的结果。
 type GrantResult struct {
-	Grant        *eventfabricmodel.AuthorizationGrant
-	Capabilities []*eventfabricmodel.AuthorizationGrantCapability
-	Conditions   []*eventfabricmodel.AuthorizationGrantCondition
-	Challenged   bool
-	Ticket       *eventfabricmodel.AuthorizationApprovalTicket
+	Grant         *eventfabricmodel.AuthorizationGrant
+	Capabilities  []*eventfabricmodel.AuthorizationGrantCapability
+	Conditions    []*eventfabricmodel.AuthorizationGrantCondition
+	CapabilityMap map[uuid.UUID]*eventfabricmodel.AuthorizationCapability
+	Challenged    bool
+	Ticket        *eventfabricmodel.AuthorizationApprovalTicket
 }
 
 // GrantFilter 描述 Grant 查询过滤项。
@@ -105,22 +129,44 @@ type GrantSummary struct {
 
 // GrantDetail 用于详情展示。
 type GrantDetail struct {
-	Grant        *eventfabricmodel.AuthorizationGrant
-	Capabilities []*eventfabricmodel.AuthorizationGrantCapability
-	Conditions   []*eventfabricmodel.AuthorizationGrantCondition
-	Ticket       *eventfabricmodel.AuthorizationApprovalTicket
+	Grant         *eventfabricmodel.AuthorizationGrant
+	Capabilities  []*eventfabricmodel.AuthorizationGrantCapability
+	Conditions    []*eventfabricmodel.AuthorizationGrantCondition
+	Ticket        *eventfabricmodel.AuthorizationApprovalTicket
+	CapabilityMap map[uuid.UUID]*eventfabricmodel.AuthorizationCapability
+	ApprovedBy    *uuid.UUID
 }
 
 // ChallengeDecisionInput 描述 Challenge 决策入参。
 type ChallengeDecisionInput struct {
-	ActorID uuid.UUID
-	Result  string // approve / reject
-	Reason  string
+	ActorID  uuid.UUID
+	Decision string
+	Reason   string
 }
 
 // ChallengeDecisionResult 返回 Challenge 决策结果。
 type ChallengeDecisionResult struct {
 	Ticket *eventfabricmodel.AuthorizationApprovalTicket
+}
+
+// GrantCapabilityInput 描述关联能力与可选自定义限流。
+type GrantCapabilityInput struct {
+	Namespace       string
+	Action          string
+	CustomRateLimit map[string]any
+}
+
+// GrantConditionsInput 描述可选条件集合。
+type GrantConditionsInput struct {
+	Resources   []string
+	ContextTags []string
+	TimeWindow  *GrantTimeWindow
+}
+
+// GrantTimeWindow 定义时间窗口条件。
+type GrantTimeWindow struct {
+	Start time.Time
+	End   time.Time
 }
 
 // ServiceOptions 构造 serviceImpl 所需依赖。
@@ -274,36 +320,6 @@ func (s *serviceImpl) ListCapabilities(ctx context.Context, filter CapabilityFil
 		return nil, err
 	}
 	return s.repo.ListCapabilities(ctx, filter.RiskLevels)
-}
-
-// ------------------ Grant APIs (to be implemented in later phases) ------------------
-
-func (s *serviceImpl) CreateGrant(ctx context.Context, req GrantCreateRequest) (*GrantResult, error) {
-	return nil, ErrOperationUnsupported
-}
-
-func (s *serviceImpl) UpdateGrant(ctx context.Context, grantID uuid.UUID, req GrantUpdateRequest) (*GrantResult, error) {
-	return nil, ErrOperationUnsupported
-}
-
-func (s *serviceImpl) RevokeGrant(ctx context.Context, grantID uuid.UUID, actor uuid.UUID, reason string) error {
-	return ErrOperationUnsupported
-}
-
-func (s *serviceImpl) GetGrant(ctx context.Context, grantID uuid.UUID, withRelations bool) (*GrantDetail, error) {
-	return nil, ErrOperationUnsupported
-}
-
-func (s *serviceImpl) ListGrants(ctx context.Context, filter GrantFilter) ([]*GrantSummary, int64, error) {
-	return nil, 0, ErrOperationUnsupported
-}
-
-func (s *serviceImpl) DecideChallenge(ctx context.Context, ticketID uuid.UUID, decision ChallengeDecisionInput) (*ChallengeDecisionResult, error) {
-	return nil, ErrOperationUnsupported
-}
-
-func (s *serviceImpl) ProcessExpiredChallenges(ctx context.Context, tenantID uuid.UUID, before time.Time) (int, error) {
-	return 0, ErrOperationUnsupported
 }
 
 // ------------------ Cache 控制 ------------------

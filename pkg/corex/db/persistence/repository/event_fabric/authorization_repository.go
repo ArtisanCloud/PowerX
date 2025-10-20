@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	eventfabricmodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/event_fabric"
@@ -17,6 +18,7 @@ import (
 type AuthorizationRepository struct {
 	db                  *gorm.DB
 	capabilityRepo      *baserepo.BaseRepository[eventfabricmodel.AuthorizationCapability]
+	templateRepo        *baserepo.BaseRepository[eventfabricmodel.AuthorizationGrantTemplate]
 	grantRepo           *baserepo.BaseRepository[eventfabricmodel.AuthorizationGrant]
 	grantCapabilityRepo *baserepo.BaseRepository[eventfabricmodel.AuthorizationGrantCapability]
 	grantConditionRepo  *baserepo.BaseRepository[eventfabricmodel.AuthorizationGrantCondition]
@@ -27,6 +29,7 @@ func NewAuthorizationRepository(db *gorm.DB) *AuthorizationRepository {
 	return &AuthorizationRepository{
 		db:                  db,
 		capabilityRepo:      baserepo.NewBaseRepository[eventfabricmodel.AuthorizationCapability](db),
+		templateRepo:        baserepo.NewBaseRepository[eventfabricmodel.AuthorizationGrantTemplate](db),
 		grantRepo:           baserepo.NewBaseRepository[eventfabricmodel.AuthorizationGrant](db),
 		grantCapabilityRepo: baserepo.NewBaseRepository[eventfabricmodel.AuthorizationGrantCapability](db),
 		grantConditionRepo:  baserepo.NewBaseRepository[eventfabricmodel.AuthorizationGrantCondition](db),
@@ -102,6 +105,111 @@ func (r *AuthorizationRepository) ListCapabilities(ctx context.Context, riskLeve
 
 func (r *AuthorizationRepository) UpdateCapability(ctx context.Context, capability *eventfabricmodel.AuthorizationCapability) (*eventfabricmodel.AuthorizationCapability, error) {
 	return r.capabilityRepo.Update(ctx, capability)
+}
+
+// Template operations --------------------------------------------------------
+
+type TemplateFilter struct {
+	TenantID      *uuid.UUID
+	Sources       []string
+	Search        string
+	IncludeGlobal bool
+	Page          int
+	PageSize      int
+}
+
+func (r *AuthorizationRepository) CreateTemplate(ctx context.Context, template *eventfabricmodel.AuthorizationGrantTemplate) (*eventfabricmodel.AuthorizationGrantTemplate, error) {
+	return r.templateRepo.Create(ctx, template)
+}
+
+func (r *AuthorizationRepository) UpdateTemplate(ctx context.Context, template *eventfabricmodel.AuthorizationGrantTemplate) (*eventfabricmodel.AuthorizationGrantTemplate, error) {
+	return r.templateRepo.Update(ctx, template)
+}
+
+func (r *AuthorizationRepository) DeleteTemplate(ctx context.Context, templateUUID uuid.UUID) error {
+	if templateUUID == uuid.Nil {
+		return fmt.Errorf("template uuid is required")
+	}
+	return r.db.WithContext(ctx).
+		Where("uuid = ?", templateUUID).
+		Delete(&eventfabricmodel.AuthorizationGrantTemplate{}).Error
+}
+
+func (r *AuthorizationRepository) GetTemplateByUUID(ctx context.Context, templateUUID uuid.UUID) (*eventfabricmodel.AuthorizationGrantTemplate, error) {
+	if templateUUID == uuid.Nil {
+		return nil, fmt.Errorf("template uuid is required")
+	}
+	var template eventfabricmodel.AuthorizationGrantTemplate
+	err := r.db.WithContext(ctx).
+		Where("uuid = ?", templateUUID).
+		Take(&template).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &template, nil
+}
+
+func (r *AuthorizationRepository) GetTemplateByName(ctx context.Context, tenantID *uuid.UUID, name string) (*eventfabricmodel.AuthorizationGrantTemplate, error) {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return nil, fmt.Errorf("template name is required")
+	}
+	query := r.db.WithContext(ctx).Where("LOWER(name) = ?", strings.ToLower(name))
+	if tenantID != nil && *tenantID != uuid.Nil {
+		query = query.Where("(tenant_id = ? OR tenant_id IS NULL)", *tenantID)
+	}
+	var template eventfabricmodel.AuthorizationGrantTemplate
+	err := query.Order("tenant_id DESC").Take(&template).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &template, nil
+}
+
+func (r *AuthorizationRepository) ListTemplates(ctx context.Context, filter TemplateFilter) ([]*eventfabricmodel.AuthorizationGrantTemplate, int64, error) {
+	query := r.db.WithContext(ctx).Model(&eventfabricmodel.AuthorizationGrantTemplate{})
+
+	if filter.TenantID != nil && *filter.TenantID != uuid.Nil {
+		if filter.IncludeGlobal {
+			query = query.Where("(tenant_id = ? OR tenant_id IS NULL)", *filter.TenantID)
+		} else {
+			query = query.Where("tenant_id = ?", *filter.TenantID)
+		}
+	} else if !filter.IncludeGlobal {
+		query = query.Where("tenant_id IS NULL")
+	}
+
+	if len(filter.Sources) > 0 {
+		query = query.Where("source IN ?", filter.Sources)
+	}
+	if strings.TrimSpace(filter.Search) != "" {
+		search := "%" + strings.ToLower(strings.TrimSpace(filter.Search)) + "%"
+		query = query.Where("LOWER(name) LIKE ?", search)
+	}
+
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	if filter.PageSize > 0 {
+		query = query.Limit(filter.PageSize)
+	}
+	if filter.Page > 0 && filter.PageSize > 0 {
+		query = query.Offset((filter.Page - 1) * filter.PageSize)
+	}
+
+	var templates []*eventfabricmodel.AuthorizationGrantTemplate
+	if err := query.Order("tenant_id NULLS FIRST, name ASC").Find(&templates).Error; err != nil {
+		return nil, 0, err
+	}
+	return templates, total, nil
 }
 
 // Grant operations ------------------------------------------------------------
@@ -385,6 +493,33 @@ func (r *AuthorizationRepository) GetTicketByUUID(ctx context.Context, ticketUUI
 		return nil, err
 	}
 	return &ticket, nil
+}
+
+func (r *AuthorizationRepository) GetTicketByGrantAndStatus(ctx context.Context, grantUUID uuid.UUID, statuses []string) (*eventfabricmodel.AuthorizationApprovalTicket, error) {
+	if grantUUID == uuid.Nil {
+		return nil, fmt.Errorf("grant uuid is required")
+	}
+	query := r.db.WithContext(ctx).Where("grant_id = ?", grantUUID)
+	if len(statuses) > 0 {
+		query = query.Where("status IN ?", statuses)
+	}
+	var ticket eventfabricmodel.AuthorizationApprovalTicket
+	err := query.Order("created_at DESC").Take(&ticket).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &ticket, nil
+}
+
+func (r *AuthorizationRepository) GetLatestTicketByGrant(ctx context.Context, grantUUID uuid.UUID) (*eventfabricmodel.AuthorizationApprovalTicket, error) {
+	return r.GetTicketByGrantAndStatus(ctx, grantUUID, nil)
+}
+
+func (r *AuthorizationRepository) GetPendingTicketByGrant(ctx context.Context, grantUUID uuid.UUID) (*eventfabricmodel.AuthorizationApprovalTicket, error) {
+	return r.GetTicketByGrantAndStatus(ctx, grantUUID, []string{eventfabricmodel.ApprovalStatusPending})
 }
 
 // Transaction helpers --------------------------------------------------------

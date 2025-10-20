@@ -178,3 +178,32 @@ func (m *AuthorizationApprovalTicket) BeforeCreate(tx *gorm.DB) error {
 	}
 	return nil
 }
+
+// AuthorizationGrantTemplate 定义可复用的 Grant 模板。
+type AuthorizationGrantTemplate struct {
+	coremodel.PowerUUIDModel
+
+	Name         string         `gorm:"column:name;type:varchar(128);not null;uniqueIndex:uk_event_auth_template_name,priority:1" json:"name"`
+	Source       string         `gorm:"column:source;type:varchar(32);not null;default:'system_template';index:idx_event_auth_template_source" json:"source"`
+	TenantID     *uuid.UUID     `gorm:"column:tenant_id;type:uuid;uniqueIndex:uk_event_auth_template_name,priority:2" json:"tenant_id,omitempty"`
+	Description  string         `gorm:"column:description;type:text" json:"description,omitempty"`
+	Capabilities datatypes.JSON `gorm:"column:capabilities;type:jsonb;not null" json:"capabilities"`
+	Conditions   datatypes.JSON `gorm:"column:conditions;type:jsonb;default:'{}'" json:"conditions,omitempty"`
+	TTLSeconds   int64          `gorm:"column:ttl_seconds;type:bigint;not null;default:0" json:"ttl_seconds"`
+	Metadata     datatypes.JSON `gorm:"column:metadata;type:jsonb;default:'{}'" json:"metadata,omitempty"`
+	CreatedBy    *uuid.UUID     `gorm:"column:created_by;type:uuid" json:"created_by,omitempty"`
+}
+
+func (m *AuthorizationGrantTemplate) TableName() string {
+	return coremodel.PowerXSchema + "." + coremodel.TableEventAuthGrantTemplates
+}
+
+func (m *AuthorizationGrantTemplate) BeforeCreate(tx *gorm.DB) error {
+	if m.UUID == uuid.Nil {
+		m.UUID = uuid.New()
+	}
+	if m.Source == "" {
+		m.Source = GrantSourceSystemTemplate
+	}
+	return nil
+}

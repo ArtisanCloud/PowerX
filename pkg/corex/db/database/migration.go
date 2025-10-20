@@ -110,6 +110,7 @@ func migrateEventFabricModels(db *gorm.DB) error {
 		&modelEventFabric.TopicDefinition{},
 		&modelEventFabric.AclBinding{},
 		&modelEventFabric.AuthorizationCapability{},
+		&modelEventFabric.AuthorizationGrantTemplate{},
 		&modelEventFabric.AuthorizationGrant{},
 		&modelEventFabric.AuthorizationGrantCapability{},
 		&modelEventFabric.AuthorizationGrantCondition{},

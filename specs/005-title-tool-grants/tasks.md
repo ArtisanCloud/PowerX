@@ -54,15 +54,15 @@
 
 ### Implementation for User Story 1
 
-- [ ] T010 [US1] 在 `internal/service/event_fabric/authorization/service.go` 实现 Capability CRUD 逻辑与冲突校验。
-- [ ] T011 [US1] 在同文件实现 Grant 创建/更新/撤销流程，校验 Scope/Condition、维护版本号并刷新缓存。
-- [ ] T012 [US1] 实现 Challenge 手工审批流程与票据状态机 `internal/service/event_fabric/authorization/challenge_service.go`，触发审计与缓存失效。
-- [ ] T013 [P] [US1] 定义 Admin API DTO/验证器 `internal/transport/http/admin/event_fabric/authorization_dto.go`。
-- [ ] T014 [US1] 实现 Admin HTTP Handler `internal/transport/http/admin/event_fabric/authorization_handler.go`，调用服务层并返回统一响应。
-- [ ] T015 [US1] 更新 `internal/transport/http/admin/event_fabric/routes.go` 注册 `/capabilities`、`/grants`、`/challenges` 等路由。
-- [ ] T016 [US1] 集成审计：在服务层调用 `deps.EventFabric.Audit` 记录 Grant 生命周期事件与审批决策。
-- [ ] T040 [US1] 实现授权模板服务 `internal/service/event_fabric/authorization/template_service.go` 与仓储方法，支持模板创建、查询、继承参数。
-- [ ] T041 [P] [US1] 扩展 Admin API 路由（如 `/grant-templates`）与 Handler，实现模板 CRUD 与应用接口。
+- [X] T010 [US1] 在 `internal/service/event_fabric/authorization/service.go` 实现 Capability CRUD 逻辑与冲突校验。
+- [X] T011 [US1] 在同文件实现 Grant 创建/更新/撤销流程，校验 Scope/Condition、维护版本号并刷新缓存。
+- [X] T012 [US1] 实现 Challenge 手工审批流程与票据状态机 `internal/service/event_fabric/authorization/challenge_service.go`，触发审计与缓存失效。
+- [X] T013 [P] [US1] 定义 Admin API DTO/验证器 `internal/transport/http/admin/event_fabric/authorization_dto.go`。
+- [X] T014 [US1] 实现 Admin HTTP Handler `internal/transport/http/admin/event_fabric/authorization_handler.go`，调用服务层并返回统一响应。
+- [X] T015 [US1] 更新 `internal/transport/http/admin/event_fabric/routes.go` 注册 `/capabilities`、`/grants`、`/challenges` 等路由。
+- [X] T016 [US1] 集成审计：在服务层调用 `deps.EventFabric.Audit` 记录 Grant 生命周期事件与审批决策。
+- [X] T040 [US1] 实现授权模板服务 `internal/service/event_fabric/authorization/template_service.go` 与仓储方法，支持模板创建、查询、继承参数。
+- [X] T041 [P] [US1] 扩展 Admin API 路由（如 `/grant-templates`）与 Handler，实现模板 CRUD 与应用接口。
 
 **Checkpoint**: Admin API 可独立运作，完成 Grant 管理闭环
 

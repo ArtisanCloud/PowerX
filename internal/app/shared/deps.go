@@ -214,6 +214,7 @@ type EventFabricRuntimeConfig struct {
 // AuthorizationDeps 聚合授权域依赖。
 type AuthorizationDeps struct {
 	Service       authorizationService.Service
+	Templates     authorizationService.TemplateService
 	Cache         authorizationService.Cache
 	Dispatcher    authorizationService.ChallengeDispatcher
 	Secrets       *authorizationService.SecretsManager
@@ -436,6 +437,8 @@ func newEventFabricDeps(db *gorm.DB, opts EventFabricOptions, bus event_bus.Even
 			authService = nil
 		}
 
+		templateService := authorizationService.NewTemplateService(authRepo, time.Now)
+
 		var timeoutWorker *workers.EventFabricAuthorizationTimeoutWorker
 		if authService != nil && tenantSvc != nil {
 			tenantProvider := func(ctx context.Context) ([]uuid.UUID, error) {
@@ -461,6 +464,7 @@ func newEventFabricDeps(db *gorm.DB, opts EventFabricOptions, bus event_bus.Even
 
 		authDeps = &AuthorizationDeps{
 			Service:       authService,
+			Templates:     templateService,
 			Cache:         cache,
 			Dispatcher:    dispatcher,
 			Secrets:       secretsManager,
