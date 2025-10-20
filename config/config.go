@@ -147,6 +147,8 @@ type EventFabricAuthorizationConfig struct {
 	ChallengeSLASeconds         int                                   `yaml:"challenge_sla_seconds"`          // Challenge 审批 SLA（秒）
 	ChallengeTopic              string                                `yaml:"challenge_topic"`                // Kafka 主题
 	ChallengeConsumerGroup      string                                `yaml:"challenge_consumer_group"`       // Kafka 消费组
+	AlertTopic                  string                                `yaml:"alert_topic"`                    // 安全告警事件主题
+	RateLimitPrefix             string                                `yaml:"rate_limit_prefix"`              // 速率限制 Redis 前缀
 	TimeoutSweepIntervalSeconds int                                   `yaml:"timeout_sweep_interval_seconds"` // 超时扫描间隔
 	AuditRetentionDays          int                                   `yaml:"audit_retention_days"`           // 审计留存天数
 	AuditArchiveBucket          string                                `yaml:"audit_archive_bucket"`           // 冷存储桶

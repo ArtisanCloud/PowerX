@@ -218,6 +218,8 @@ type AuthorizationDeps struct {
 	Cache         authorizationService.Cache
 	Dispatcher    authorizationService.ChallengeDispatcher
 	Secrets       *authorizationService.SecretsManager
+	Limiter       authorizationService.RateLimiter
+	Alerts        authorizationService.AlertEmitter
 	TimeoutWorker *workers.EventFabricAuthorizationTimeoutWorker
 }
 
@@ -409,6 +411,20 @@ func newEventFabricDeps(db *gorm.DB, opts EventFabricOptions, bus event_bus.Even
 			Logger:   pxlog.GetGlobalLogger(),
 		})
 
+		alertEmitter := authorizationService.NewAlertEmitter(authorizationService.AlertEmitterOptions{
+			EventBus: bus,
+			Topic:    authCfg.AlertTopic,
+			Logger:   pxlog.GetGlobalLogger(),
+			Clock:    time.Now,
+		})
+
+		rateLimiter := authorizationService.NewRateLimiter(authorizationService.RateLimiterOptions{
+			Client: authRedis,
+			Prefix: authCfg.RateLimitPrefix,
+			Logger: pxlog.GetGlobalLogger(),
+			Clock:  time.Now,
+		})
+
 		var kmsClient authorizationService.KMSClient
 		if strings.TrimSpace(authCfg.Secrets.Provider) != "" || strings.TrimSpace(authCfg.Secrets.KeyID) != "" {
 			// 目前仅提供默认 Noop 客户端，后续可根据 Provider 扩展具体实现。
@@ -430,6 +446,8 @@ func newEventFabricDeps(db *gorm.DB, opts EventFabricOptions, bus event_bus.Even
 			ChallengeSLA: time.Duration(authCfg.ChallengeSLASeconds) * time.Second,
 			Audit:        auditSvcEF,
 			Metrics:      metricsRecorder,
+			RateLimiter:  rateLimiter,
+			Alerts:       alertEmitter,
 			Logger:       pxlog.GetGlobalLogger(),
 		})
 		if err != nil {
@@ -468,6 +486,8 @@ func newEventFabricDeps(db *gorm.DB, opts EventFabricOptions, bus event_bus.Even
 			Cache:         cache,
 			Dispatcher:    dispatcher,
 			Secrets:       secretsManager,
+			Limiter:       rateLimiter,
+			Alerts:        alertEmitter,
 			TimeoutWorker: timeoutWorker,
 		}
 	}

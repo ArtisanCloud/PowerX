@@ -241,6 +241,19 @@ func (s *serviceImpl) ProcessExpiredChallenges(ctx context.Context, tenantID uui
 				"ticket_id": ticket.UUID.String(),
 				"reason":    timeoutReason,
 			})
+			s.emitEvaluationAlert(ctx, EvaluateRequest{
+				TenantID:    refreshedGrant.TenantID,
+				SubjectType: refreshedGrant.SubjectType,
+				SubjectID:   refreshedGrant.SubjectID,
+			}, &GrantSnapshot{
+				GrantID:     refreshedGrant.UUID,
+				TenantID:    refreshedGrant.TenantID,
+				SubjectType: refreshedGrant.SubjectType,
+				SubjectID:   refreshedGrant.SubjectID,
+				Status:      refreshedGrant.Status,
+			}, "authorization.challenge_timeout", "high", timeoutReason, map[string]string{
+				"ticket_id": ticket.UUID.String(),
+			})
 		}
 
 		if s.dispatcher != nil && updatedTicket != nil {

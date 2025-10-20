@@ -88,6 +88,8 @@ func GetDefaults() *Config {
 				ChallengeSLASeconds:         900,
 				ChallengeTopic:              "secops.challenge",
 				ChallengeConsumerGroup:      "corex-authorization",
+				AlertTopic:                  "secops.alerts",
+				RateLimitPrefix:             "event_fabric:authorization:rl",
 				TimeoutSweepIntervalSeconds: 30,
 				AuditRetentionDays:          1095,
 				AuditArchiveBucket:          "powerx-audit",

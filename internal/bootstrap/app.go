@@ -163,6 +163,8 @@ func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error)
 				ChallengeSLASeconds:         cfg.EventFabric.Authorization.ChallengeSLASeconds,
 				ChallengeTopic:              cfg.EventFabric.Authorization.ChallengeTopic,
 				ChallengeConsumerGroup:      cfg.EventFabric.Authorization.ChallengeConsumerGroup,
+				AlertTopic:                  cfg.EventFabric.Authorization.AlertTopic,
+				RateLimitPrefix:             cfg.EventFabric.Authorization.RateLimitPrefix,
 				TimeoutSweepIntervalSeconds: cfg.EventFabric.Authorization.TimeoutSweepIntervalSeconds,
 				AuditRetentionDays:          cfg.EventFabric.Authorization.AuditRetentionDays,
 				AuditArchiveBucket:          cfg.EventFabric.Authorization.AuditArchiveBucket,

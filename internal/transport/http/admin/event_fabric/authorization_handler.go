@@ -244,8 +244,10 @@ func (h *AuthorizationHandler) InvalidateGrantCache(c *gin.Context) {
 		return
 	}
 
+	requestID := uuid.NewString()
 	dto.ResponseSuccessWithStatus(c, http.StatusAccepted, map[string]string{
-		"status": "accepted",
+		"status":     "accepted",
+		"request_id": requestID,
 	})
 }
 
@@ -422,7 +424,7 @@ func (h *AuthorizationHandler) DeleteTemplate(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
-// POST /grant-templates/:templateId:apply
+// POST /grant-templates/:templateId/apply
 func (h *AuthorizationHandler) ApplyTemplate(c *gin.Context) {
 	if h.templates == nil || h.service == nil {
 		dto.RespondErrorFrom(c, dto.NewInternal("authorization service unavailable", nil))

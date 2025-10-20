@@ -42,6 +42,9 @@ type Service interface {
 	UpdateCapability(ctx context.Context, id uuid.UUID, req CapabilityUpdateRequest) (*eventfabricmodel.AuthorizationCapability, error)
 	ListCapabilities(ctx context.Context, filter CapabilityFilter) ([]*eventfabricmodel.AuthorizationCapability, error)
 
+	Evaluate(ctx context.Context, req EvaluateRequest) (*EvaluateResult, error)
+	GetGrantSnapshot(ctx context.Context, tenantID uuid.UUID, subjectType string, subjectID uuid.UUID) (*GrantSnapshot, error)
+
 	CreateGrant(ctx context.Context, req GrantCreateRequest) (*GrantResult, error)
 	UpdateGrant(ctx context.Context, grantID uuid.UUID, req GrantUpdateRequest) (*GrantResult, error)
 	RevokeGrant(ctx context.Context, grantID uuid.UUID, actor uuid.UUID, reason string) error
@@ -178,6 +181,8 @@ type ServiceOptions struct {
 	ChallengeSLA time.Duration
 	Audit        eventaudit.Service
 	Metrics      eventmetrics.Recorder
+	RateLimiter  RateLimiter
+	Alerts       AlertEmitter
 	Logger       *pxlog.Logger
 	Clock        func() time.Time
 }
@@ -190,6 +195,8 @@ type serviceImpl struct {
 	challengeSLA time.Duration
 	audit        eventaudit.Service
 	metrics      eventmetrics.Recorder
+	limiter      RateLimiter
+	alerts       AlertEmitter
 	logger       *pxlog.Logger
 	clock        func() time.Time
 }
@@ -211,6 +218,14 @@ func NewService(opts ServiceOptions) (Service, error) {
 	if challengeSLA <= 0 {
 		challengeSLA = 15 * time.Minute
 	}
+	limiter := opts.RateLimiter
+	if limiter == nil {
+		limiter = NewNoopRateLimiter()
+	}
+	alerts := opts.Alerts
+	if alerts == nil {
+		alerts = noopAlertEmitter{}
+	}
 	return &serviceImpl{
 		repo:         opts.Repository,
 		cache:        opts.Cache,
@@ -219,6 +234,8 @@ func NewService(opts ServiceOptions) (Service, error) {
 		challengeSLA: challengeSLA,
 		audit:        opts.Audit,
 		metrics:      opts.Metrics,
+		limiter:      limiter,
+		alerts:       alerts,
 		logger:       logger,
 		clock:        clock,
 	}, nil

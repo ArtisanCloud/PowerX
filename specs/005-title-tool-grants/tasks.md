@@ -75,20 +75,20 @@
 
 ### Tests for User Story 2 (Optional)
 
-- [ ] T026 [US2] 编写评估与缓存集成测试 `internal/service/event_fabric/authorization/evaluator_test.go`，覆盖 Allow/Block/Challenge 场景及失效流程。
+- [X] T026 [US2] 编写评估与缓存集成测试 `internal/service/event_fabric/authorization/evaluator_test.go`，覆盖 Allow/Block/Challenge 场景及失效流程。
 
 ### Implementation for User Story 2
 
-- [ ] T018 [US2] 新增 proto `api/grpc/contracts/powerx/event_fabric/v1/authorization.proto` 并更新 `buf.yaml`、`buf.gen.yaml`、`buf.work.yaml`（如有）。
-- [ ] T019 [US2] 运行 `make proto-gen`，提交 `api/grpc/gen/go/powerx/event_fabric/v1/authorization.pb.go` 等生成文件并整理 `go.mod/go.sum`。
-- [ ] T020 [US2] 实现评估核心逻辑 `internal/service/event_fabric/authorization/evaluator.go`，包含缓存命中、条件检查、速率限制与审计写入。
-- [ ] T021 [US2] 完成 Challenge 派发与 SLA 自动拒绝逻辑，填充 `challenge_dispatcher.go` 与 `event_fabric_authorization_timeout.go`。
-- [ ] T022 [P] [US2] 编写 gRPC Handler `internal/transport/grpc/event_fabric/authorization_service.go`，映射 Evaluate/Invalidate/GetSnapshot。
-- [ ] T023 [US2] 扩展 HTTP 与 gRPC 缓存失效接口，实现 `POST /grants/cache:invalidate` 及对应服务方法。
-- [ ] T024 [US2] 更新 `internal/server/grpc/server.go` 和 `internal/http/router.go` 注册授权服务，确保中间件链完整。
-- [ ] T025 [US2] 在 `internal/service/event_fabric/metrics/metrics.go` 增加授权评估指标（延迟、缓存命中率、Challenge 计数），并于服务调用处打点。
-- [ ] T038 [US2] 集成安全告警：在 `internal/service/event_fabric/authorization/evaluator.go` 与相关模块触发策略缺失、越权与评估失败告警，并对接告警平台。
-- [ ] T039 [P] [US2] 编写安全告警测试 `internal/service/event_fabric/authorization/evaluator_alerts_test.go`，覆盖告警触发与抑制逻辑。
+- [X] T018 [US2] 新增 proto `api/grpc/contracts/powerx/event_fabric/v1/authorization.proto` 并更新 `buf.yaml`、`buf.gen.yaml`、`buf.work.yaml`（如有）。
+- [X] T019 [US2] 运行 `make proto-gen`，提交 `api/grpc/gen/go/powerx/event_fabric/v1/authorization.pb.go` 等生成文件并整理 `go.mod/go.sum`。
+- [X] T020 [US2] 实现评估核心逻辑 `internal/service/event_fabric/authorization/evaluator.go`，包含缓存命中、条件检查、速率限制与审计写入。
+- [X] T021 [US2] 完成 Challenge 派发与 SLA 自动拒绝逻辑，填充 `challenge_dispatcher.go` 与 `event_fabric_authorization_timeout.go`。
+- [X] T022 [P] [US2] 编写 gRPC Handler `internal/transport/grpc/event_fabric/authorization_service.go`，映射 Evaluate/Invalidate/GetSnapshot。
+- [X] T023 [US2] 扩展 HTTP 与 gRPC 缓存失效接口，实现 `POST /grants/cache:invalidate` 及对应服务方法。
+- [X] T024 [US2] 更新 `internal/server/grpc/server.go` 和 `internal/http/router.go` 注册授权服务，确保中间件链完整。
+- [X] T025 [US2] 在 `internal/service/event_fabric/metrics/metrics.go` 增加授权评估指标（延迟、缓存命中率、Challenge 计数），并于服务调用处打点。
+- [X] T038 [US2] 集成安全告警：在 `internal/service/event_fabric/authorization/evaluator.go` 与相关模块触发策略缺失、越权与评估失败告警，并对接告警平台。
+- [X] T039 [P] [US2] 编写安全告警测试 `internal/service/event_fabric/authorization/evaluator_alerts_test.go`，覆盖告警触发与抑制逻辑。
 
 **Checkpoint**: gRPC/HTTP 评估链路上线，可供网关独立集成
 

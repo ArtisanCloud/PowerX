@@ -150,14 +150,22 @@ func (p *PaginationResponse) CalculatePages() {
 
 // ResponseSuccess 返回成功响应
 func ResponseSuccess(c *gin.Context, data interface{}) {
+	ResponseSuccessWithStatus(c, http.StatusOK, data)
+}
+
+// ResponseSuccessWithStatus 返回带自定义状态码的成功响应。
+func ResponseSuccessWithStatus(c *gin.Context, status int, data interface{}) {
+	if status <= 0 {
+		status = http.StatusOK
+	}
 	response := SuccessResponse{
-		Code:      http.StatusOK,
+		Code:      status,
 		Message:   "success",
 		Data:      data,
 		Timestamp: time.Now().Unix(),
 		RequestID: getRequestID(c),
 	}
-	c.JSON(http.StatusOK, response)
+	c.JSON(status, response)
 }
 
 // ResponseError 返回错误响应

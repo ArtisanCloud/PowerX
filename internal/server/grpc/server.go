@@ -12,6 +12,7 @@ import (
 	stsv1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/auth/sts/v1"
 	capabilityRegistryPB "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/capability/registry/v1"
 	capv1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/capability/v1"
+	authorizationpb "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/event_fabric/v1"
 	iamv1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/iam/v1"
 	corexmediav1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/media/v1"
 	settingv12 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/setting"
@@ -21,6 +22,7 @@ import (
 	middleware2 "github.com/ArtisanCloud/PowerX/internal/transport/grpc/auth/middleware"
 	capgrpc "github.com/ArtisanCloud/PowerX/internal/transport/grpc/capability"
 	capabilityRegistryGRPC "github.com/ArtisanCloud/PowerX/internal/transport/grpc/capability_registry"
+	eventfabricgrpc "github.com/ArtisanCloud/PowerX/internal/transport/grpc/event_fabric"
 	"github.com/ArtisanCloud/PowerX/internal/transport/grpc/iam"
 	medigrpc "github.com/ArtisanCloud/PowerX/internal/transport/grpc/media"
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
@@ -142,6 +144,7 @@ func New(cfg *GRPCConfig, deps *shared.Deps) (*grpc.Server, net.Listener, error)
 			capv1.CapabilityRegistryService_ServiceDesc.ServiceName,
 			capabilityRegistryPB.CapabilityRegistryService_ServiceDesc.ServiceName,
 			capabilityRegistryPB.CapabilityDiscoveryService_ServiceDesc.ServiceName,
+			authorizationpb.AuthorizationService_ServiceDesc.ServiceName,
 		}
 		for _, name := range serviceNames {
 			healthServer.SetServingStatus(name, healthpb.HealthCheckResponse_SERVING)
@@ -154,6 +157,10 @@ func New(cfg *GRPCConfig, deps *shared.Deps) (*grpc.Server, net.Listener, error)
 			drivers = "<empty>"
 		}
 		logger.InfoF(ctx, "[gRPC] media manager ready, drivers=%s", drivers)
+	}
+
+	if deps.EventFabric != nil {
+		eventfabricgrpc.RegisterAuthorizationServer(deps)(s)
 	}
 
 	// ===== 反射 =====

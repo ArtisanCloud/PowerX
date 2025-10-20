@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -16,6 +17,7 @@ type Recorder interface {
 	ObserveRetry(ctx context.Context, delay time.Duration)
 	ObserveDLQChange(ctx context.Context, delta int64)
 	ObserveReplay(ctx context.Context, duration time.Duration, err error)
+	ObserveAuthorizationEvaluation(ctx context.Context, decision string, cacheHit bool, latency time.Duration)
 	Snapshot() Snapshot
 }
 
@@ -38,6 +40,14 @@ type Snapshot struct {
 	AvgReplayLatency   time.Duration
 	LastReplayLatency  time.Duration
 	LastReplayErrorMsg string
+
+	AuthorizationEvaluations  uint64
+	AuthorizationAllows       uint64
+	AuthorizationBlocks       uint64
+	AuthorizationChallenges   uint64
+	AuthorizationCacheHits    uint64
+	AuthorizationCacheHitRate float64
+	AvgAuthorizationLatency   time.Duration
 }
 
 // NewRecorder 构建指标记录器。
@@ -74,6 +84,13 @@ type RecorderImpl struct {
 	replayLatencyNS    atomic.Int64
 	lastReplayLatency  atomic.Int64
 	lastReplayErr      atomic.Value
+
+	authorizationEvaluations atomic.Uint64
+	authorizationAllows      atomic.Uint64
+	authorizationBlocks      atomic.Uint64
+	authorizationChallenges  atomic.Uint64
+	authorizationCacheHits   atomic.Uint64
+	authorizationLatencyNS   atomic.Int64
 }
 
 // ObserveDelivery 记录单次投递结果与耗时。
@@ -143,6 +160,31 @@ func (r *RecorderImpl) ObserveReplay(ctx context.Context, duration time.Duration
 	}
 }
 
+// ObserveAuthorizationEvaluation 记录授权评估指标。
+func (r *RecorderImpl) ObserveAuthorizationEvaluation(ctx context.Context, decision string, cacheHit bool, latency time.Duration) {
+	r.authorizationEvaluations.Add(1)
+	if cacheHit {
+		r.authorizationCacheHits.Add(1)
+	}
+	if latency < 0 {
+		latency = 0
+	}
+	r.authorizationLatencyNS.Add(latency.Nanoseconds())
+
+	switch strings.ToLower(strings.TrimSpace(decision)) {
+	case "allow":
+		r.authorizationAllows.Add(1)
+	case "block":
+		r.authorizationBlocks.Add(1)
+	case "challenge":
+		r.authorizationChallenges.Add(1)
+	default:
+		if decision != "" {
+			r.logger.WarnF(ctx, "[event_fabric.metrics] unknown authorization decision=%s", decision)
+		}
+	}
+}
+
 // Snapshot 返回指标快照。
 func (r *RecorderImpl) Snapshot() Snapshot {
 	total := r.totalDeliveries.Load()
@@ -151,6 +193,11 @@ func (r *RecorderImpl) Snapshot() Snapshot {
 	retries := r.retryCount.Load()
 	replayTotal := r.replayCount.Load()
 	replayFailed := r.replayFailureCount.Load()
+	authTotal := r.authorizationEvaluations.Load()
+	authAllows := r.authorizationAllows.Load()
+	authBlocks := r.authorizationBlocks.Load()
+	authChallenges := r.authorizationChallenges.Load()
+	authHits := r.authorizationCacheHits.Load()
 
 	var avgDelivery time.Duration
 	if total > 0 {
@@ -167,24 +214,41 @@ func (r *RecorderImpl) Snapshot() Snapshot {
 		avgReplay = time.Duration(r.replayLatencyNS.Load() / int64(replayTotal))
 	}
 
+	var avgAuthLatency time.Duration
+	if authTotal > 0 {
+		avgAuthLatency = time.Duration(r.authorizationLatencyNS.Load() / int64(authTotal))
+	}
+
+	var authHitRate float64
+	if authTotal > 0 {
+		authHitRate = float64(authHits) / float64(authTotal)
+	}
+
 	lastLatency := time.Duration(r.lastReplayLatency.Load())
 	lastErr, _ := r.lastReplayErr.Load().(string)
 
 	return Snapshot{
-		DeliveriesTotal:    total,
-		DeliveriesSuccess:  success,
-		DeliveriesFailed:   failed,
-		DeliverySuccess:    r.deliverySuccessRatio(),
-		AvgDeliveryLatency: avgDelivery,
-		RetriesScheduled:   retries,
-		AvgRetryDelay:      avgRetry,
-		MaxRetryDelay:      time.Duration(r.maxRetryDelay.Load()),
-		DLQBacklog:         r.dlqBacklog.Load(),
-		ReplayTotal:        replayTotal,
-		ReplayFailed:       replayFailed,
-		AvgReplayLatency:   avgReplay,
-		LastReplayLatency:  lastLatency,
-		LastReplayErrorMsg: lastErr,
+		DeliveriesTotal:           total,
+		DeliveriesSuccess:         success,
+		DeliveriesFailed:          failed,
+		DeliverySuccess:           r.deliverySuccessRatio(),
+		AvgDeliveryLatency:        avgDelivery,
+		RetriesScheduled:          retries,
+		AvgRetryDelay:             avgRetry,
+		MaxRetryDelay:             time.Duration(r.maxRetryDelay.Load()),
+		DLQBacklog:                r.dlqBacklog.Load(),
+		ReplayTotal:               replayTotal,
+		ReplayFailed:              replayFailed,
+		AvgReplayLatency:          avgReplay,
+		LastReplayLatency:         lastLatency,
+		LastReplayErrorMsg:        lastErr,
+		AuthorizationEvaluations:  authTotal,
+		AuthorizationAllows:       authAllows,
+		AuthorizationBlocks:       authBlocks,
+		AuthorizationChallenges:   authChallenges,
+		AuthorizationCacheHits:    authHits,
+		AuthorizationCacheHitRate: authHitRate,
+		AvgAuthorizationLatency:   avgAuthLatency,
 	}
 }
 
@@ -214,11 +278,12 @@ func (r *RecorderImpl) updateMaxDelay(delay time.Duration) {
 
 type noopRecorder struct{}
 
-func (noopRecorder) ObserveDelivery(context.Context, bool, time.Duration) {}
-func (noopRecorder) ObserveRetry(context.Context, time.Duration)          {}
-func (noopRecorder) ObserveDLQChange(context.Context, int64)              {}
-func (noopRecorder) ObserveReplay(context.Context, time.Duration, error)  {}
-func (noopRecorder) Snapshot() Snapshot                                   { return Snapshot{} }
+func (noopRecorder) ObserveDelivery(context.Context, bool, time.Duration)                        {}
+func (noopRecorder) ObserveRetry(context.Context, time.Duration)                                 {}
+func (noopRecorder) ObserveDLQChange(context.Context, int64)                                     {}
+func (noopRecorder) ObserveReplay(context.Context, time.Duration, error)                         {}
+func (noopRecorder) ObserveAuthorizationEvaluation(context.Context, string, bool, time.Duration) {}
+func (noopRecorder) Snapshot() Snapshot                                                          { return Snapshot{} }
 
 // EncodeSnapshot 将快照转换为十六进制字符串，便于写入日志或指标系统。
 func EncodeSnapshot(s Snapshot) string {

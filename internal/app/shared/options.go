@@ -43,6 +43,8 @@ type EventFabricAuthorizationOptions struct {
 	ChallengeSLASeconds         int
 	ChallengeTopic              string
 	ChallengeConsumerGroup      string
+	AlertTopic                  string
+	RateLimitPrefix             string
 	TimeoutSweepIntervalSeconds int
 	AuditRetentionDays          int
 	AuditArchiveBucket          string
