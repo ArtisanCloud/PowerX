@@ -109,6 +109,11 @@ func migrateEventFabricModels(db *gorm.DB) error {
 	if err := db.AutoMigrate(
 		&modelEventFabric.TopicDefinition{},
 		&modelEventFabric.AclBinding{},
+		&modelEventFabric.AuthorizationCapability{},
+		&modelEventFabric.AuthorizationGrant{},
+		&modelEventFabric.AuthorizationGrantCapability{},
+		&modelEventFabric.AuthorizationGrantCondition{},
+		&modelEventFabric.AuthorizationApprovalTicket{},
 	); err != nil {
 		return err
 	}
@@ -116,5 +121,8 @@ func migrateEventFabricModels(db *gorm.DB) error {
 	if err := migration.CreateEventDeliveryTables(db); err != nil {
 		return err
 	}
-	return migration.CreateEventReplayTables(db)
+	if err := migration.CreateEventReplayTables(db); err != nil {
+		return err
+	}
+	return migration.CreateEventAuthorizationTables(db)
 }

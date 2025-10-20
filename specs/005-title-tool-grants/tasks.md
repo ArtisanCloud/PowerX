@@ -29,15 +29,15 @@
 **Purpose**: 建立所有用户故事共同依赖的核心能力  
 **⚠️ CRITICAL**: 完成前禁止进入各用户故事开发
 
-- [ ] T004 [Found] 新增授权相关 GORM 模型于 `pkg/corex/db/persistence/model/event_fabric/authorization_models.go`，并创建迁移文件及更新 `pkg/corex/db/database/migration.go`。
-- [ ] T005 [Found] 实现仓储层 `pkg/corex/db/persistence/repository/event_fabric/authorization_repository.go`，提供 Capability/Grant/Condition/ApprovalTicket 查询与写入。
-- [ ] T006 [Found] 创建领域服务骨架 `internal/service/event_fabric/authorization/service.go`，声明依赖、接口方法与错误定义。
-- [ ] T007 [Found] 实现缓存组件 `internal/service/event_fabric/authorization/cache.go`，封装 Redis + 本地 LRU 访问与失效逻辑。
-- [ ] T008 [Found] 搭建 Challenge 派发与 SLA 定时器骨架 `internal/service/event_fabric/authorization/challenge_dispatcher.go` 及 `internal/app/shared/workers/event_fabric_authorization_timeout.go`。
-- [ ] T009 [Found] 在 `internal/app/shared/deps.go`、`internal/app/shared/options.go` 等处装配授权服务到 `shared.Deps.EventFabric.Authorization`，并更新 `cmd/app/main.go` 依赖注入。
-- [ ] T035 [Found] 新增密钥管理封装 `internal/service/event_fabric/authorization/secrets.go`，对接 KMS 客户端并提供配置加解密/轮换辅助。
-- [ ] T036 [Found] 更新 `internal/app/shared/deps.go` 与 `internal/service/event_fabric/authorization/service.go` 构造函数，注入 KMS 提供的密钥材料并实现轮换策略。
-- [ ] T037 [Found] 扩展 `internal/service/event_fabric/security/middleware.go` 与相关沙箱配置，限制 Agent/插件出网与数据访问，记录违规告警事件。
+- [X] T004 [Found] 新增授权相关 GORM 模型于 `pkg/corex/db/persistence/model/event_fabric/authorization_models.go`，并创建迁移文件及更新 `pkg/corex/db/database/migration.go`。
+- [X] T005 [Found] 实现仓储层 `pkg/corex/db/persistence/repository/event_fabric/authorization_repository.go`，提供 Capability/Grant/Condition/ApprovalTicket 查询与写入。
+- [X] T006 [Found] 创建领域服务骨架 `internal/service/event_fabric/authorization/service.go`，声明依赖、接口方法与错误定义。
+- [X] T007 [Found] 实现缓存组件 `internal/service/event_fabric/authorization/cache.go`，封装 Redis + 本地 LRU 访问与失效逻辑。
+- [X] T008 [Found] 搭建 Challenge 派发与 SLA 定时器骨架 `internal/service/event_fabric/authorization/challenge_dispatcher.go` 及 `internal/app/shared/workers/event_fabric_authorization_timeout.go`。
+- [X] T009 [Found] 在 `internal/app/shared/deps.go`、`internal/app/shared/options.go` 等处装配授权服务到 `shared.Deps.EventFabric.Authorization`，并更新 `cmd/app/main.go` 依赖注入。
+- [X] T035 [Found] 新增密钥管理封装 `internal/service/event_fabric/authorization/secrets.go`，对接 KMS 客户端并提供配置加解密/轮换辅助。
+- [X] T036 [Found] 更新 `internal/app/shared/deps.go` 与 `internal/service/event_fabric/authorization/service.go` 构造函数，注入 KMS 提供的密钥材料并实现轮换策略。
+- [X] T037 [Found] 扩展 `internal/service/event_fabric/security/middleware.go` 与相关沙箱配置，限制 Agent/插件出网与数据访问，记录违规告警事件。
 
 **Checkpoint**: 基础设施就绪，可启动用户故事开发
 

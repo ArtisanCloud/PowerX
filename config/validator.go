@@ -100,6 +100,9 @@ func (c *Config) Validate() error {
 	if strings.TrimSpace(c.EventFabric.Authorization.ChallengeConsumerGroup) == "" {
 		errors = append(errors, "event_fabric.authorization.challenge_consumer_group 不能为空")
 	}
+	if c.EventFabric.Authorization.TimeoutSweepIntervalSeconds <= 0 {
+		errors = append(errors, "event_fabric.authorization.timeout_sweep_interval_seconds 必须大于0")
+	}
 	if c.EventFabric.Authorization.AuditRetentionDays <= 0 {
 		errors = append(errors, "event_fabric.authorization.audit_retention_days 必须大于0")
 	}
@@ -108,6 +111,12 @@ func (c *Config) Validate() error {
 	}
 	if strings.TrimSpace(c.EventFabric.Authorization.AuditArchivePrefix) == "" {
 		errors = append(errors, "event_fabric.authorization.audit_archive_prefix 不能为空")
+	}
+	if c.EventFabric.Authorization.Secrets.CacheTTLSeconds < 0 {
+		errors = append(errors, "event_fabric.authorization.secrets.cache_ttl_seconds 不能为负数")
+	}
+	if c.EventFabric.Authorization.Secrets.RotationIntervalSeconds < 0 {
+		errors = append(errors, "event_fabric.authorization.secrets.rotation_interval_seconds 不能为负数")
 	}
 
 	// --- LowCode ---

@@ -118,28 +118,48 @@ type EventFabricConfig struct {
 
 // EventFabricSecurityConfig 定义 TLS/签名要求。
 type EventFabricSecurityConfig struct {
-	RequireTLS              bool   `yaml:"require_tls"`
-	SignatureSecret         string `yaml:"signature_secret"`
-	SignatureHeader         string `yaml:"signature_header"`
-	TimestampHeader         string `yaml:"timestamp_header"`
-	SignatureKeyID          string `yaml:"signature_key_id"`
-	AllowedClockSkewSeconds int    `yaml:"allowed_clock_skew_seconds"`
+	RequireTLS              bool                             `yaml:"require_tls"`
+	SignatureSecret         string                           `yaml:"signature_secret"`
+	SignatureHeader         string                           `yaml:"signature_header"`
+	TimestampHeader         string                           `yaml:"timestamp_header"`
+	SignatureKeyID          string                           `yaml:"signature_key_id"`
+	AllowedClockSkewSeconds int                              `yaml:"allowed_clock_skew_seconds"`
+	Sandbox                 EventFabricSecuritySandboxConfig `yaml:"sandbox"`
+}
+
+// EventFabricSecuritySandboxConfig 描述安全沙箱策略。
+type EventFabricSecuritySandboxConfig struct {
+	Enforce              bool     `yaml:"enforce"`
+	AllowedOutboundHosts []string `yaml:"allowed_outbound_hosts"`
+	BlockedHTTPPaths     []string `yaml:"blocked_http_paths"`
+	BlockedGRPCMethods   []string `yaml:"blocked_grpc_methods"`
+	ForbiddenHeaders     []string `yaml:"forbidden_headers"`
 }
 
 // EventFabricAuthorizationConfig 配置授权域缓存、审批与审计行为。
 type EventFabricAuthorizationConfig struct {
-	CacheTTLSeconds        int    `yaml:"cache_ttl_seconds"`        // Redis 层缓存 TTL
-	LocalCacheTTLSeconds   int    `yaml:"local_cache_ttl_seconds"`  // 进程内缓存 TTL
-	RedisAddr              string `yaml:"redis_addr"`               // 授权缓存 Redis 地址
-	RedisPassword          string `yaml:"redis_password"`           // Redis 密码
-	RedisDB                int    `yaml:"redis_db"`                 // Redis DB
-	CacheInvalidateChannel string `yaml:"cache_invalidate_channel"` // 缓存失效广播频道
-	ChallengeSLASeconds    int    `yaml:"challenge_sla_seconds"`    // Challenge 审批 SLA（秒）
-	ChallengeTopic         string `yaml:"challenge_topic"`          // Kafka 主题
-	ChallengeConsumerGroup string `yaml:"challenge_consumer_group"` // Kafka 消费组
-	AuditRetentionDays     int    `yaml:"audit_retention_days"`     // 审计留存天数
-	AuditArchiveBucket     string `yaml:"audit_archive_bucket"`     // 冷存储桶
-	AuditArchivePrefix     string `yaml:"audit_archive_prefix"`     // 冷存储前缀
+	CacheTTLSeconds             int                                   `yaml:"cache_ttl_seconds"`              // Redis 层缓存 TTL
+	LocalCacheTTLSeconds        int                                   `yaml:"local_cache_ttl_seconds"`        // 进程内缓存 TTL
+	RedisAddr                   string                                `yaml:"redis_addr"`                     // 授权缓存 Redis 地址
+	RedisPassword               string                                `yaml:"redis_password"`                 // Redis 密码
+	RedisDB                     int                                   `yaml:"redis_db"`                       // Redis DB
+	CacheInvalidateChannel      string                                `yaml:"cache_invalidate_channel"`       // 缓存失效广播频道
+	ChallengeSLASeconds         int                                   `yaml:"challenge_sla_seconds"`          // Challenge 审批 SLA（秒）
+	ChallengeTopic              string                                `yaml:"challenge_topic"`                // Kafka 主题
+	ChallengeConsumerGroup      string                                `yaml:"challenge_consumer_group"`       // Kafka 消费组
+	TimeoutSweepIntervalSeconds int                                   `yaml:"timeout_sweep_interval_seconds"` // 超时扫描间隔
+	AuditRetentionDays          int                                   `yaml:"audit_retention_days"`           // 审计留存天数
+	AuditArchiveBucket          string                                `yaml:"audit_archive_bucket"`           // 冷存储桶
+	AuditArchivePrefix          string                                `yaml:"audit_archive_prefix"`           // 冷存储前缀
+	Secrets                     EventFabricAuthorizationSecretsConfig `yaml:"secrets"`
+}
+
+// EventFabricAuthorizationSecretsConfig 定义授权域 KMS 配置。
+type EventFabricAuthorizationSecretsConfig struct {
+	Provider                string `yaml:"provider"`
+	KeyID                   string `yaml:"key_id"`
+	RotationIntervalSeconds int    `yaml:"rotation_interval_seconds"`
+	CacheTTLSeconds         int    `yaml:"cache_ttl_seconds"`
 }
 
 // 低代码引擎配置
