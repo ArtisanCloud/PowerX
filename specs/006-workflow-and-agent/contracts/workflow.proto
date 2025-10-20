@@ -1,0 +1,126 @@
+syntax = "proto3";
+
+package powerx.workflow.v1;
+
+option go_package = "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/workflow/v1;workflowv1";
+
+// WorkflowService exposes definition and runtime controls via gRPC.
+service WorkflowService {
+  rpc CreateDefinition(CreateDefinitionRequest) returns (WorkflowDefinition);
+  rpc PublishDefinition(PublishDefinitionRequest) returns (WorkflowDefinition);
+  rpc ListDefinitions(ListDefinitionsRequest) returns (ListDefinitionsResponse);
+
+  rpc StartInstance(StartInstanceRequest) returns (WorkflowInstance);
+  rpc GetInstance(GetInstanceRequest) returns (WorkflowInstance);
+  rpc ListInstances(ListInstancesRequest) returns (ListInstancesResponse);
+  rpc ControlInstance(ControlInstanceRequest) returns (ControlInstanceResponse);
+}
+
+message CreateDefinitionRequest {
+  string tenant_id = 1;
+  string name = 2;
+  string description = 3;
+  RetryPolicy retry_policy = 4;
+  repeated WorkflowStep steps = 5;
+}
+
+message PublishDefinitionRequest {
+  string definition_id = 1;
+}
+
+message ListDefinitionsRequest {
+  string tenant_id = 1;
+  string status = 2;
+}
+
+message ListDefinitionsResponse {
+  repeated WorkflowDefinition definitions = 1;
+}
+
+message WorkflowDefinition {
+  string id = 1;
+  string tenant_id = 2;
+  string name = 3;
+  int32 version = 4;
+  string status = 5;
+  RetryPolicy retry_policy = 6;
+  repeated WorkflowStep steps = 7;
+  string created_at = 8;
+  string updated_at = 9;
+}
+
+message WorkflowStep {
+  string id = 1;
+  StepType type = 2;
+  map<string, string> config = 3;
+  repeated string branches = 4;
+  repeated WorkflowStep children = 5;
+}
+
+enum StepType {
+  STEP_TYPE_UNSPECIFIED = 0;
+  STEP_TYPE_AGENT = 1;
+  STEP_TYPE_SYSTEM = 2;
+  STEP_TYPE_DECISION = 3;
+  STEP_TYPE_PARALLEL = 4;
+  STEP_TYPE_HUMAN_APPROVAL = 5;
+  STEP_TYPE_COMPENSATION = 6;
+}
+
+message RetryPolicy {
+  int32 initial_delay_ms = 1;
+  int32 max_retries = 2;
+  double backoff_factor = 3;
+  int32 max_delay_ms = 4;
+}
+
+message StartInstanceRequest {
+  string definition_id = 1;
+  map<string, string> input = 2;
+}
+
+message GetInstanceRequest {
+  string instance_id = 1;
+}
+
+message ListInstancesRequest {
+  string tenant_id = 1;
+  string definition_id = 2;
+  string state = 3;
+}
+
+message ListInstancesResponse {
+  repeated WorkflowInstance instances = 1;
+}
+
+message WorkflowInstance {
+  string id = 1;
+  string definition_id = 2;
+  string tenant_id = 3;
+  string state = 4;
+  string started_at = 5;
+  string completed_at = 6;
+  string sla_deadline = 7;
+  string last_error = 8;
+}
+
+message ControlInstanceRequest {
+  string instance_id = 1;
+  ControlAction action = 2;
+  string step_id = 3;
+  string agent_id = 4;
+  string notes = 5;
+}
+
+message ControlInstanceResponse {
+  string state = 1;
+}
+
+enum ControlAction {
+  CONTROL_ACTION_UNSPECIFIED = 0;
+  CONTROL_ACTION_PAUSE = 1;
+  CONTROL_ACTION_RESUME = 2;
+  CONTROL_ACTION_CANCEL = 3;
+  CONTROL_ACTION_RETRY_STEP = 4;
+  CONTROL_ACTION_REASSIGN = 5;
+}

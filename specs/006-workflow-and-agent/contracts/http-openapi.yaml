@@ -1,0 +1,338 @@
+openapi: 3.1.0
+info:
+  title: Workflow Orchestration Admin API
+  version: 0.1.0
+  description: REST endpoints for managing workflow definitions and runtime control within CoreX.
+servers:
+  - url: https://{host}/api/v1/admin/workflows
+    variables:
+      host:
+        default: localhost:8077
+security:
+  - bearerAuth: []
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    WorkflowDefinitionCreate:
+      type: object
+      required: [tenant_id, name, steps]
+      properties:
+        tenant_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        retry_policy:
+          $ref: '#/components/schemas/RetryPolicy'
+        steps:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/WorkflowStep'
+    WorkflowDefinition:
+      allOf:
+        - $ref: '#/components/schemas/WorkflowDefinitionCreate'
+        - type: object
+          properties:
+            uuid:
+              type: string
+              format: uuid
+            version:
+              type: integer
+            status:
+              type: string
+              enum: [draft, published, archived]
+            created_at:
+              type: string
+              format: date-time
+            updated_at:
+              type: string
+              format: date-time
+    WorkflowInstanceCreate:
+      type: object
+      required: [definition_id, input]
+      properties:
+        definition_id:
+          type: string
+          format: uuid
+        input:
+          type: object
+          additionalProperties: true
+    WorkflowInstance:
+      type: object
+      properties:
+        uuid:
+          type: string
+          format: uuid
+        definition_id:
+          type: string
+          format: uuid
+        state:
+          type: string
+          enum: [draft, running, waiting, suspended, succeeded, failed, compensating, compensated, canceled, compensation_failed]
+        tenant_id:
+          type: string
+          format: uuid
+        started_at:
+          type: string
+          format: date-time
+        completed_at:
+          type: string
+          format: date-time
+        sla_deadline:
+          type: string
+          format: date-time
+        last_error:
+          type: string
+        output_context:
+          type: object
+          additionalProperties: true
+    RetryPolicy:
+      type: object
+      properties:
+        initial_delay_ms:
+          type: integer
+          default: 30000
+        max_retries:
+          type: integer
+          default: 5
+        backoff_factor:
+          type: number
+          default: 2
+        max_delay_ms:
+          type: integer
+    WorkflowStep:
+      type: object
+      required: [id, type]
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+          enum: [agent, system, decision, parallel, human_approval, compensation]
+        config:
+          type: object
+          additionalProperties: true
+        branches:
+          type: array
+          items:
+            type: string
+        children:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkflowStep'
+    ManualActionRequest:
+      type: object
+      required: [action]
+      properties:
+        action:
+          type: string
+          enum: [pause, resume, cancel, retry_step, reassign]
+        step_id:
+          type: string
+        agent_id:
+          type: string
+          format: uuid
+        notes:
+          type: string
+    ExportResponse:
+      type: object
+      properties:
+        request_id:
+          type: string
+        status:
+          type: string
+          enum: [accepted, completed]
+        download_url:
+          type: string
+paths:
+  /definitions:
+    post:
+      summary: Create workflow definition
+      operationId: createDefinition
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkflowDefinitionCreate'
+      responses:
+        '201':
+          description: Definition created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkflowDefinition'
+  /definitions/{definitionId}/publish:
+    post:
+      summary: Publish definition version
+      operationId: publishDefinition
+      parameters:
+        - in: path
+          name: definitionId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Definition published
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkflowDefinition'
+  /definitions:
+    get:
+      summary: List workflow definitions
+      operationId: listDefinitions
+      parameters:
+        - in: query
+          name: tenant_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [draft, published, archived]
+      responses:
+        '200':
+          description: Definition list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WorkflowDefinition'
+  /instances:
+    post:
+      summary: Start workflow instance
+      operationId: startInstance
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkflowInstanceCreate'
+      responses:
+        '202':
+          description: Instance created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkflowInstance'
+    get:
+      summary: List workflow instances
+      operationId: listInstances
+      parameters:
+        - in: query
+          name: tenant_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - in: query
+          name: definition_id
+          schema:
+            type: string
+            format: uuid
+        - in: query
+          name: state
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Instance list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WorkflowInstance'
+  /instances/{instanceId}:
+    get:
+      summary: Get workflow instance detail
+      operationId: getInstance
+      parameters:
+        - in: path
+          name: instanceId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Instance detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkflowInstance'
+  /instances/{instanceId}/actions:
+    post:
+      summary: Manual actions on instance
+      operationId: controlInstance
+      parameters:
+        - in: path
+          name: instanceId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ManualActionRequest'
+      responses:
+        '202':
+          description: Action accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  state:
+                    type: string
+  /instances/export:
+    get:
+      summary: Export workflow execution history
+      operationId: exportInstances
+      parameters:
+        - in: query
+          name: tenant_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - in: query
+          name: from
+          schema:
+            type: string
+            format: date-time
+        - in: query
+          name: to
+          schema:
+            type: string
+            format: date-time
+        - in: query
+          name: format
+          schema:
+            type: string
+            enum: [json, csv]
+            default: csv
+      responses:
+        '202':
+          description: Export request accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExportResponse'
