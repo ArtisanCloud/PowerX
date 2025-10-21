@@ -36,6 +36,7 @@ proto-clean:
 	@echo "🧹 清理生成的 Protobuf 代码..."
 	@rm -rf api/grpc/gen/go/powerx/corex
 	@rm -rf api/grpc/gen/go/powerx/capability
+	@rm -rf api/grpc/gen/go/powerx/integration
 	@rm -rf api/grpc/gen/go/powerx/workflow
 	@rm -rf api/grpc/gen/go/corex/event_fabric
 	@rm -rf api/grpc/gen/go/powerx/event_fabric

@@ -4,9 +4,9 @@
 
 ## Phase 1: Setup（共享基础）
 
-- [ ] T001 在 `internal/service/integration_gateway/`、`internal/transport/http/{admin,openapi}/integration_gateway/`、`internal/transport/grpc/integration_gateway/`、`internal/server/mcp/tools/integration_gateway/` 建立包结构与占位 README，确保遵循 CoreX 模块约定（无空包）。
-- [ ] T002 更新 `go.mod` / `go.sum` 依赖，确认 `github.com/mark3labs/mcp-go`、buf 工具链、Gin 等版本满足新特性需求，并在 `Makefile` 中添加 `proto-gen` 目标的目录覆盖范围。
-- [ ] T003 [P] 在 `api/grpc/contracts/powerx/integration_gateway/v1/` 初始化 buf 配置与占位 proto（与 plan.md 一致），并在 `api/grpc/contract/buf.yaml`、`api/grpc/contract/buf.gen.yaml` 注册新包路径。
+- [x] T001 在 `internal/service/integration_gateway/`、`internal/transport/http/{admin,openapi}/integration_gateway/`、`internal/transport/grpc/integration_gateway/`、`internal/server/mcp/tools/integration_gateway/` 建立包结构与占位 README，确保遵循 CoreX 模块约定（无空包）。
+- [x] T002 更新 `go.mod` / `go.sum` 依赖，确认 `github.com/mark3labs/mcp-go`、buf 工具链、Gin 等版本满足新特性需求，并在 `Makefile` 中添加 `proto-gen` 目标的目录覆盖范围。
+- [x] T003 [P] 在 `api/grpc/contracts/powerx/integration_gateway/v1/` 初始化 buf 配置与占位 proto（与 plan.md 一致），并在 `api/grpc/contract/buf.yaml`、`api/grpc/contract/buf.gen.yaml` 注册新包路径。
 
 ---
 
