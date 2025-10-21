@@ -14,6 +14,7 @@ import (
 	capv1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/capability/v1"
 	authorizationpb "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/event_fabric/v1"
 	iamv1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/iam/v1"
+	integrationpb "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/integration/gateway/v1"
 	corexmediav1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/media/v1"
 	settingv12 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/setting"
 	workflowv1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/workflow/v1"
@@ -25,6 +26,7 @@ import (
 	capabilityRegistryGRPC "github.com/ArtisanCloud/PowerX/internal/transport/grpc/capability_registry"
 	eventfabricgrpc "github.com/ArtisanCloud/PowerX/internal/transport/grpc/event_fabric"
 	"github.com/ArtisanCloud/PowerX/internal/transport/grpc/iam"
+	integrationGatewayGRPC "github.com/ArtisanCloud/PowerX/internal/transport/grpc/integration_gateway"
 	medigrpc "github.com/ArtisanCloud/PowerX/internal/transport/grpc/media"
 	workflowgrpc "github.com/ArtisanCloud/PowerX/internal/transport/grpc/workflow"
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
@@ -123,6 +125,8 @@ func New(cfg *GRPCConfig, deps *shared.Deps) (*grpc.Server, net.Listener, error)
 		capabilityRegistryGRPC.RegisterCapabilityDiscoveryServer(s, deps.DiscoverySvc)
 	}
 
+	integrationGatewayGRPC.RegisterServers(s, deps)
+
 	// STS（令牌换签/内发）—— 与拦截器共用同一个 KeyRing
 	stsv1.RegisterSTSServiceServer(s, authgrpc.NewSTSServiceServerWithRing(deps, ring))
 
@@ -150,6 +154,8 @@ func New(cfg *GRPCConfig, deps *shared.Deps) (*grpc.Server, net.Listener, error)
 			capabilityRegistryPB.CapabilityRegistryService_ServiceDesc.ServiceName,
 			capabilityRegistryPB.CapabilityDiscoveryService_ServiceDesc.ServiceName,
 			authorizationpb.AuthorizationService_ServiceDesc.ServiceName,
+			integrationpb.IntegrationGatewayAdminService_ServiceDesc.ServiceName,
+			integrationpb.IntegrationGatewayTenantService_ServiceDesc.ServiceName,
 			workflowv1.WorkflowService_ServiceDesc.ServiceName,
 		}
 		for _, name := range serviceNames {

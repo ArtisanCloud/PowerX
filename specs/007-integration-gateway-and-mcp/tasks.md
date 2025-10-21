@@ -12,16 +12,16 @@
 
 ## Phase 2: Foundational（阻断性前置）
 
-- [ ] T004 [P][Foundation] 为 `IntegrationRoute` 实体创建 GORM 模型 `pkg/corex/db/persistence/model/integration_gateway/route.go`，含租户内唯一别名、速率策略 JSON 和审计字段。
-- [ ] T005 [P][Foundation] 为 `IntegrationRouteVersion` 创建模型 `pkg/corex/db/persistence/model/integration_gateway/route_version.go`，保存快照、版本、trace_id。
-- [ ] T006 [P][Foundation] 为 `IntegrationInvocationLog` 创建模型 `pkg/corex/db/persistence/model/integration_gateway/invocation_log.go`，记录路由、追踪、状态与响应摘要。
-- [ ] T007 [P][Foundation] 为 `EventPublication` 创建模型 `pkg/corex/db/persistence/model/integration_gateway/event_publication.go`，包含主题、状态、补偿信息。
-- [ ] T008 在 `pkg/corex/db/persistence/repository/integration_gateway/` 实现仓储（路由、版本、调用日志、事件发布）并嵌入 `BaseRepository`，提供查询与乐观锁写入。
-- [ ] T009 扩展 `cmd/database/migrate.go` 与 `pkg/corex/db/database/migration.go`，注册新的 AutoMigrate 钩子，确保迁移顺序与现有模块一致。
-- [ ] T010 更新 `config/defaults.go` 和 `etc/config.yaml`，新增 `integration_gateway` 节点（限流前缀、事件主题默认值），并在 `config/config.go` 加载校验。
-- [ ] T011 在 `internal/app/shared/deps.go` 中注入 `IntegrationGateway` Service 所需依赖（RouterSvc、CapabilityRegistrySvc、EventBus、RateLimiter），并注册 Redis 限流前缀 `integration_gateway:rl`。
-- [ ] T012 搭建 `internal/service/integration_gateway/instrumentation` 目录，封装指标注册、追踪 ID 透传及审计钩子，支持 HTTP/gRPC/MCP 统一使用。
-- [ ] T013 在 `internal/server/grpc/server.go`、`internal/http/router.go`、`internal/server/mcp/register/factory` 等处预留路由/服务注册入口，确保之后实现可被装配。
+- [x] T004 [P][Foundation] 为 `IntegrationRoute` 实体创建 GORM 模型 `pkg/corex/db/persistence/model/integration_gateway/route.go`，含租户内唯一别名、速率策略 JSON 和审计字段。
+- [x] T005 [P][Foundation] 为 `IntegrationRouteVersion` 创建模型 `pkg/corex/db/persistence/model/integration_gateway/route_version.go`，保存快照、版本、trace_id。
+- [x] T006 [P][Foundation] 为 `IntegrationInvocationLog` 创建模型 `pkg/corex/db/persistence/model/integration_gateway/invocation_log.go`，记录路由、追踪、状态与响应摘要。
+- [x] T007 [P][Foundation] 为 `EventPublication` 创建模型 `pkg/corex/db/persistence/model/integration_gateway/event_publication.go`，包含主题、状态、补偿信息。
+- [x] T008 在 `pkg/corex/db/persistence/repository/integration_gateway/` 实现仓储（路由、版本、调用日志、事件发布）并嵌入 `BaseRepository`，提供查询与乐观锁写入。
+- [x] T009 扩展 `cmd/database/migrate.go` 与 `pkg/corex/db/database/migration.go`，注册新的 AutoMigrate 钩子，确保迁移顺序与现有模块一致。
+- [x] T010 更新 `config/defaults.go` 和 `etc/config.yaml`，新增 `integration_gateway` 节点（限流前缀、事件主题默认值），并在 `config/config.go` 加载校验。
+- [x] T011 在 `internal/app/shared/deps.go` 中注入 `IntegrationGateway` Service 所需依赖（RouterSvc、CapabilityRegistrySvc、EventBus、RateLimiter），并注册 Redis 限流前缀 `integration_gateway:rl`。
+- [x] T012 搭建 `internal/service/integration_gateway/instrumentation` 目录，封装指标注册、追踪 ID 透传及审计钩子，支持 HTTP/gRPC/MCP 统一使用。
+- [x] T013 在 `internal/server/grpc/server.go`、`internal/http/router.go`、`internal/server/mcp/register/factory` 等处预留路由/服务注册入口，确保之后实现可被装配。
 
 ---
 

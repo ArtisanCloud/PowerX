@@ -55,6 +55,24 @@ func GetDefaults() *Config {
 			RedisPassword: "",
 			DedupeTTLSec:  30,
 		},
+		IntegrationGateway: IntegrationGatewayConfig{
+			RateLimitPrefix: "integration_gateway:rl",
+			DefaultRateLimit: IntegrationGatewayRateLimitConfig{
+				Limit:         120,
+				Burst:         120,
+				WindowSeconds: 60,
+				Scope:         "per_route_per_tenant",
+			},
+			EventTopics: IntegrationGatewayEventTopics{
+				Created:             "integration.gateway.route.created",
+				Updated:             "integration.gateway.route.updated",
+				InvocationSucceeded: "integration.gateway.invocation.succeeded",
+				InvocationFailed:    "integration.gateway.invocation.failed",
+			},
+			RedisAddr:     "localhost:6379",
+			RedisPassword: "",
+			RedisDB:       2,
+		},
 		EventFabric: EventFabricConfig{
 			AckTimeoutSeconds: 30,
 			DefaultMaxRetry:   5,

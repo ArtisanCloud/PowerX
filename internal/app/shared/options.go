@@ -15,8 +15,9 @@ type DepsOptions struct {
 	Audit        auditsvc.AuditOptions // 批量大小、等待等
 	Storage      mediasvc.StorageOptions
 	// 以后需要别的也放在这里（如默认租户、开关等）
-	EventFabric EventFabricOptions
-	Workflow    WorkflowOptions
+	EventFabric        EventFabricOptions
+	Workflow           WorkflowOptions
+	IntegrationGateway IntegrationGatewayOptions
 }
 
 // EventFabricOptions 描述事件骨干依赖的运行配置。
@@ -64,4 +65,30 @@ type EventFabricAuthorizationSecretsOptions struct {
 // WorkflowOptions 描述工作流域的运行配置（占位，后续完善）。
 type WorkflowOptions struct {
 	RetryKeyPrefix string
+}
+
+// IntegrationGatewayOptions 描述集成网关所需的基础运行配置。
+type IntegrationGatewayOptions struct {
+	RateLimitPrefix  string
+	RedisAddr        string
+	RedisPassword    string
+	RedisDB          int
+	DefaultRateLimit IntegrationGatewayRateLimitOptions
+	EventTopics      IntegrationGatewayEventTopicsOptions
+}
+
+// IntegrationGatewayRateLimitOptions 表示默认限流策略。
+type IntegrationGatewayRateLimitOptions struct {
+	Limit         uint64
+	Burst         uint64
+	WindowSeconds int
+	Scope         string
+}
+
+// IntegrationGatewayEventTopicsOptions 包含事件主题名称。
+type IntegrationGatewayEventTopicsOptions struct {
+	Created             string
+	Updated             string
+	InvocationSucceeded string
+	InvocationFailed    string
 }

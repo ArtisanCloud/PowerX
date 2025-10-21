@@ -57,6 +57,7 @@ type Config struct {
 	Auth        AuthConfig           `yaml:"auth"`         // JWT / 认证相关
 	EventBus    EventBusConfig       `yaml:"event_bus"`    // 事件总线（local/redis）
 	EventFabric EventFabricConfig    `yaml:"event_fabric"` // 事件骨干调度配置
+	IntegrationGateway IntegrationGatewayConfig `yaml:"integration_gateway"` // 集成网关
 	LowCode     LowCodeConfig        `yaml:"dynamic_form"` // flow 执行相关
 	FeatureGate FeatureGateConfig    `yaml:"feature_gate"` // 细粒度开关、license
 	Database    dbCfg.DatabaseConfig `yaml:"database"`     // 数据库配置
@@ -162,6 +163,32 @@ type EventFabricAuthorizationSecretsConfig struct {
 	KeyID                   string `yaml:"key_id"`
 	RotationIntervalSeconds int    `yaml:"rotation_interval_seconds"`
 	CacheTTLSeconds         int    `yaml:"cache_ttl_seconds"`
+}
+
+// IntegrationGatewayConfig 配置集成网关的限流与事件主题。
+type IntegrationGatewayConfig struct {
+	RateLimitPrefix  string                            `yaml:"rate_limit_prefix"`
+	DefaultRateLimit IntegrationGatewayRateLimitConfig `yaml:"default_rate_limit"`
+	EventTopics      IntegrationGatewayEventTopics     `yaml:"event_topics"`
+	RedisAddr        string                            `yaml:"redis_addr"`
+	RedisPassword    string                            `yaml:"redis_password"`
+	RedisDB          int                               `yaml:"redis_db"`
+}
+
+// IntegrationGatewayRateLimitConfig 描述默认限流策略。
+type IntegrationGatewayRateLimitConfig struct {
+	Limit         uint64 `yaml:"limit"`
+	Burst         uint64 `yaml:"burst"`
+	WindowSeconds int    `yaml:"window_seconds"`
+	Scope         string `yaml:"scope"`
+}
+
+// IntegrationGatewayEventTopics 描述事件主题默认值。
+type IntegrationGatewayEventTopics struct {
+	Created             string `yaml:"created"`
+	Updated             string `yaml:"updated"`
+	InvocationSucceeded string `yaml:"invocation_succeeded"`
+	InvocationFailed    string `yaml:"invocation_failed"`
 }
 
 // 低代码引擎配置

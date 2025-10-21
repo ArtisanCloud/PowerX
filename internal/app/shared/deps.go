@@ -90,6 +90,7 @@ type Deps struct {
 	RouterSvc             *capabilityRouter.Service
 	RouterSandboxSvc      *capabilitySandbox.Service
 	DiscoverySvc          *discoveryService.Service
+	IntegrationGateway    *IntegrationGatewayDeps
 
 	EventFabric *EventFabricDeps
 	Workflow    *WorkflowDeps
@@ -177,6 +178,8 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 	}
 	workflowSvc := workflowsvc.NewService(db, workflowsvc.ServiceOptions{})
 
+	integrationGatewayDeps := newIntegrationGatewayDeps(opts.IntegrationGateway)
+
 	return &Deps{
 		DB:                    db,
 		TenantSvc:             tenantSvc,
@@ -192,6 +195,7 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 		RouterSvc:             routerSvc,
 		RouterSandboxSvc:      sandboxSvc,
 		DiscoverySvc:          discoverySvc,
+		IntegrationGateway:    integrationGatewayDeps,
 		EventFabric:           eventFabricDeps,
 		Workflow: &WorkflowDeps{
 			Service:       workflowSvc,
@@ -228,6 +232,13 @@ type WorkflowDeps struct {
 	ReliableQueue event_bus.ReliableQueue
 }
 
+// IntegrationGatewayDeps 聚合集成网关运行时所需依赖。
+type IntegrationGatewayDeps struct {
+	RateLimiter authorizationService.RateLimiter
+	Config      IntegrationGatewayRuntimeConfig
+	RedisClient *redis.Client
+}
+
 // EventFabricRuntimeConfig 将配置项转换为运行时易用的结构。
 type EventFabricRuntimeConfig struct {
 	AckTimeout        time.Duration
@@ -248,6 +259,13 @@ type AuthorizationDeps struct {
 	Alerts        authorizationService.AlertEmitter
 	Reporting     authorizationService.ReportingService
 	TimeoutWorker *workers.EventFabricAuthorizationTimeoutWorker
+}
+
+// IntegrationGatewayRuntimeConfig 简化运行时常用参数。
+type IntegrationGatewayRuntimeConfig struct {
+	RateLimitPrefix string
+	DefaultPolicy   authorizationService.RateLimitPolicy
+	EventTopics     IntegrationGatewayEventTopicsOptions
 }
 
 func newEventFabricDeps(db *gorm.DB, opts EventFabricOptions, bus event_bus.EventBus, auditSvc auditsvc.Service, tenantSvc *tenantsvc.TenantService) *EventFabricDeps {
@@ -542,5 +560,48 @@ func newEventFabricDeps(db *gorm.DB, opts EventFabricOptions, bus event_bus.Even
 		Metrics:       metricsRecorder,
 		Security:      securityVerifier,
 		Authorization: authDeps,
+	}
+}
+
+func newIntegrationGatewayDeps(opts IntegrationGatewayOptions) *IntegrationGatewayDeps {
+	prefix := strings.TrimSpace(opts.RateLimitPrefix)
+	if prefix == "" {
+		prefix = "integration_gateway:rl"
+	}
+
+	var redisClient *redis.Client
+	if addr := strings.TrimSpace(opts.RedisAddr); addr != "" {
+		redisClient = redis.NewClient(&redis.Options{
+			Addr:     addr,
+			Password: opts.RedisPassword,
+			DB:       opts.RedisDB,
+		})
+	}
+
+	window := time.Duration(opts.DefaultRateLimit.WindowSeconds) * time.Second
+	if window <= 0 {
+		window = time.Minute
+	}
+
+	policy := authorizationService.RateLimitPolicy{
+		Limit:    opts.DefaultRateLimit.Limit,
+		Burst:    opts.DefaultRateLimit.Burst,
+		Interval: window,
+	}
+
+	limiterOpts := authorizationService.RateLimiterOptions{
+		Client: redisClient,
+		Prefix: prefix,
+	}
+	limiter := authorizationService.NewRateLimiter(limiterOpts)
+
+	return &IntegrationGatewayDeps{
+		RateLimiter: limiter,
+		RedisClient: redisClient,
+		Config: IntegrationGatewayRuntimeConfig{
+			RateLimitPrefix: prefix,
+			DefaultPolicy:   policy,
+			EventTopics:     opts.EventTopics,
+		},
 	}
 }
