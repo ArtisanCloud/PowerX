@@ -14,6 +14,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // Server 提供 WorkflowService 的 gRPC 桥接。
@@ -329,7 +330,50 @@ func (s *Server) ControlInstance(ctx context.Context, req *workflowv1.ControlIns
 }
 
 func (s *Server) ExportInstances(ctx context.Context, req *workflowv1.ExportInstancesRequest) (*workflowv1.ExportInstancesResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "ExportInstances not implemented")
+	if s.svc == nil {
+		return nil, status.Error(codes.Internal, "workflow service unavailable")
+	}
+	tenantID := tenantIDFromContext(req.GetCtx())
+	if tenantID == 0 {
+		return nil, status.Error(codes.InvalidArgument, "tenant_id is required")
+	}
+
+	filter := workflowsvc.ExportFilter{
+		TenantID:           tenantID,
+		IncludeStepDetails: req.GetIncludeStepDetails(),
+		Format:             protoFormatToInternal(req.GetFormat()),
+	}
+
+	if req.GetDefinitionId() != "" {
+		definitionUUID, err := uuid.Parse(req.GetDefinitionId())
+		if err != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid definition_id")
+		}
+		filter.DefinitionUUID = &definitionUUID
+	}
+	if req.GetState() != workflowv1.WorkflowInstanceState_WORKFLOW_INSTANCE_STATE_UNSPECIFIED {
+		filter.State = protoStateToInternal(req.GetState())
+	}
+	if ts := req.GetCreatedFrom(); ts != nil {
+		t := ts.AsTime()
+		filter.CreatedFrom = &t
+	}
+	if ts := req.GetCreatedTo(); ts != nil {
+		t := ts.AsTime()
+		filter.CreatedTo = &t
+	}
+
+	result, err := s.svc.ExportInstances(ctx, filter)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+
+	rows := convertExportRowsToPB(result.Rows)
+	return &workflowv1.ExportInstancesResponse{
+		Meta:        okMeta(ctx),
+		Rows:        rows,
+		DownloadUrl: result.DownloadURL,
+	}, nil
 }
 
 func okMeta(ctx context.Context) *commonv1.ResponseMeta {
@@ -384,4 +428,66 @@ func parseUint64(value string) uint64 {
 		return id
 	}
 	return 0
+}
+
+func protoStateToInternal(state workflowv1.WorkflowInstanceState) string {
+	if state == workflowv1.WorkflowInstanceState_WORKFLOW_INSTANCE_STATE_UNSPECIFIED {
+		return ""
+	}
+	raw := strings.ToLower(state.String())
+	return strings.TrimPrefix(raw, "workflow_instance_state_")
+}
+
+func protoFormatToInternal(format workflowv1.ExportFormat) workflowsvc.ExportFormat {
+	switch format {
+	case workflowv1.ExportFormat_EXPORT_FORMAT_JSON:
+		return workflowsvc.ExportFormatJSON
+	default:
+		return workflowsvc.ExportFormatCSV
+	}
+}
+
+func convertExportRowsToPB(rows []workflowsvc.ExportRow) []*workflowv1.WorkflowInstanceExportRow {
+	if len(rows) == 0 {
+		return nil
+	}
+	payload := make([]*workflowv1.WorkflowInstanceExportRow, 0, len(rows))
+	for _, row := range rows {
+		item := &workflowv1.WorkflowInstanceExportRow{
+			InstanceId:        row.InstanceID,
+			DefinitionId:      row.DefinitionID,
+			DefinitionVersion: row.DefinitionVersion,
+			State:             workflowInstanceState(row.State),
+			TenantId:          strconv.FormatUint(row.TenantID, 10),
+			CorrelationId:     row.CorrelationID,
+		}
+		if row.StartedAt != nil {
+			item.StartedAt = timestamppb.New(*row.StartedAt)
+		}
+		if row.CompletedAt != nil {
+			item.CompletedAt = timestamppb.New(*row.CompletedAt)
+		}
+		if len(row.Steps) > 0 {
+			steps := make([]*workflowv1.StepExecutionExport, 0, len(row.Steps))
+			for _, step := range row.Steps {
+				stepPayload := &workflowv1.StepExecutionExport{
+					StepId:           step.StepID,
+					Type:             workflowStepType(step.Type),
+					State:            workflowStepState(step.State),
+					SubjectType:      stepSubjectType(step.SubjectType),
+					SubjectId:        step.SubjectID,
+					Attempts:         int32(step.Attempts),
+					ToolGrantVersion: step.ToolGrantVersion,
+					LastError:        step.LastError,
+				}
+				if !step.LastTransitionAt.IsZero() {
+					stepPayload.LastTransitionAt = timestamppb.New(step.LastTransitionAt)
+				}
+				steps = append(steps, stepPayload)
+			}
+			item.Steps = steps
+		}
+		payload = append(payload, item)
+	}
+	return payload
 }

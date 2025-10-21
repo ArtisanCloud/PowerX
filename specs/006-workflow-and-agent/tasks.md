@@ -119,15 +119,15 @@
 
 ### Tests for User Story 3
 
-- [ ] T039 [P] [US3] HTTP 合同测试：覆盖 `/instances/export` (`tests/contract/workflow/workflow_export_http_test.go`)
-- [ ] T040 [P] [US3] 集成测试：执行记录导出并核对字段 (`tests/integration/workflow/test_audit_export_flow.go`)
+- [X] T039 [P] [US3] HTTP 合同测试：覆盖 `/instances/export` (`tests/contract/workflow/workflow_export_http_test.go`)
+- [X] T040 [P] [US3] 集成测试：执行记录导出并核对字段 (`tests/integration/workflow/test_audit_export_flow.go`)
 
 ### Implementation for User Story 3
 
-- [ ] T041 [US3] 实现报告服务 (`internal/service/workflow/reporting.go`)：组合定义/实例/步骤数据 + Tool Grant 审计
-- [ ] T042 [US3] 实现 HTTP 导出 Handler (`internal/transport/http/admin/workflow/export_handler.go`) 支持 CSV/JSON
-- [ ] T043 [US3] 扩展 gRPC `ListInstances` 返回审计字段 (`internal/transport/grpc/workflow/reporting_handler.go`)
-- [ ] T044 [US3] 触发审计事件写入 (`internal/service/workflow/event_emitter.go`) 并确保 ClickHouse 投影数据完整
+- [X] T041 [US3] 实现报告服务 (`internal/service/workflow/reporting.go`)：组合定义/实例/步骤数据 + Tool Grant 审计
+- [X] T042 [US3] 实现 HTTP 导出 Handler (`internal/transport/http/admin/workflow/export_handler.go`) 支持 CSV/JSON
+- [X] T043 [US3] 扩展 gRPC `ListInstances` 返回审计字段 (`internal/transport/grpc/workflow/reporting_handler.go`)
+- [X] T044 [US3] 触发审计事件写入 (`internal/service/workflow/event_emitter.go`) 并确保 ClickHouse 投影数据完整
 
 **Checkpoint**: 所有用户故事具备独立验证能力
 

@@ -30,7 +30,8 @@ func (s *Service) triggerCompensation(ctx context.Context, instance *modelworkfl
 		InitiatedBy:  "auto",
 		Notes:        reason,
 	}
-	if _, err := s.compensations.CreateCompensation(ctx, comp); err != nil {
+	created, err := s.compensations.CreateCompensation(ctx, comp)
+	if err != nil {
 		return err
 	}
 
@@ -41,7 +42,7 @@ func (s *Service) triggerCompensation(ctx context.Context, instance *modelworkfl
 		return err
 	}
 
-	s.em.emit(ctx, newWorkflowEvent(
+	instanceEvent := newWorkflowEvent(
 		instance.TenantID,
 		instance.UUID,
 		"workflow.instance.compensating",
@@ -49,8 +50,27 @@ func (s *Service) triggerCompensation(ctx context.Context, instance *modelworkfl
 		map[string]any{
 			"step_id": step.ID,
 			"reason":  reason,
+			"mode":    "automatic",
 		},
-	))
+	)
+	instanceEvent.RelatedStepRecord = record.ID
+	instanceEvent.ActorType = "system"
+	s.em.emit(ctx, instanceEvent)
+
+	stepEvent := newWorkflowEvent(
+		instance.TenantID,
+		instance.UUID,
+		"workflow.step.compensation_triggered",
+		fmt.Sprintf("compensation triggered for step %s", step.ID),
+		map[string]any{
+			"step_id":         step.ID,
+			"reason":          reason,
+			"compensation_id": created.ID,
+		},
+	)
+	stepEvent.RelatedStepRecord = record.ID
+	stepEvent.ActorType = "system"
+	s.em.emit(ctx, stepEvent)
 
 	return nil
 }
@@ -77,6 +97,47 @@ func (s *Service) createManualCompensation(ctx context.Context, instance *modelw
 	if err := s.instances.UpdateState(ctx, instance.TenantID, instance.UUID, "compensating", map[string]interface{}{"last_error": reason}); err != nil {
 		return nil, err
 	}
+
+	instanceEvent := newWorkflowEvent(
+		instance.TenantID,
+		instance.UUID,
+		"workflow.instance.compensating",
+		fmt.Sprintf("workflow instance %s entering compensation", instance.UUID),
+		map[string]any{
+			"step_id": step.ID,
+			"reason":  reason,
+			"mode":    "manual",
+		},
+	)
+	instanceEvent.RelatedStepRecord = record.ID
+	if operator != uuid.Nil {
+		instanceEvent.ActorType = "operator"
+		instanceEvent.ActorID = operator.String()
+	} else {
+		instanceEvent.ActorType = "system"
+	}
+	s.em.emit(ctx, instanceEvent)
+
+	stepEvent := newWorkflowEvent(
+		instance.TenantID,
+		instance.UUID,
+		"workflow.step.compensation_requested",
+		fmt.Sprintf("manual compensation requested for step %s", step.ID),
+		map[string]any{
+			"step_id":         step.ID,
+			"reason":          reason,
+			"compensation_id": created.ID,
+		},
+	)
+	stepEvent.RelatedStepRecord = record.ID
+	if operator != uuid.Nil {
+		stepEvent.ActorType = "operator"
+		stepEvent.ActorID = operator.String()
+	} else {
+		stepEvent.ActorType = "system"
+	}
+	s.em.emit(ctx, stepEvent)
+
 	return created, nil
 }
 
@@ -110,5 +171,42 @@ func (s *Service) completeCompensation(ctx context.Context, instance *modelworkf
 	if s.metrics != nil {
 		s.metrics.ObserveCompensationResult(ctx, instance.TenantID, comp.Handler, success)
 	}
+
+	eventType := "workflow.step.compensation_completed"
+	if !success {
+		eventType = "workflow.step.compensation_failed"
+	}
+	s.emitStepCompensationResult(ctx, instance, comp, eventType, notes, success)
 	return nil
+}
+
+func (s *Service) emitStepCompensationResult(ctx context.Context, instance *modelworkflow.WorkflowInstance, comp *modelworkflow.WorkflowStepCompensation, eventType, notes string, success bool) {
+	if s == nil || s.em == nil || instance == nil || comp == nil {
+		return
+	}
+	payload := map[string]any{
+		"compensation_id": comp.ID,
+		"step_record_id":  comp.StepRecordID,
+		"success":         success,
+	}
+	if notes != "" {
+		payload["notes"] = notes
+	}
+	event := newWorkflowEvent(
+		instance.TenantID,
+		instance.UUID,
+		eventType,
+		fmt.Sprintf("compensation %s for step record %d", ternary(success, "completed", "failed"), comp.StepRecordID),
+		payload,
+	)
+	event.RelatedStepRecord = comp.StepRecordID
+	event.ActorType = "system"
+	s.em.emit(ctx, event)
+}
+
+func ternary[T any](cond bool, a, b T) T {
+	if cond {
+		return a
+	}
+	return b
 }

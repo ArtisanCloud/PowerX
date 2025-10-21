@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -281,6 +282,118 @@ func (h *Handler) GetInstance(c *gin.Context) {
 	}
 
 	dto.ResponseSuccess(c, mapInstance(instance, records))
+}
+
+func (h *Handler) ExportInstances(c *gin.Context) {
+	if h.svc == nil {
+		dto.RespondErrorFrom(c, dto.NewInternal("workflow service unavailable", nil))
+		return
+	}
+
+	tenantID, err := strconv.ParseUint(c.Query("tenant_id"), 10, 64)
+	if err != nil || tenantID == 0 {
+		dto.RespondErrorFrom(c, dto.NewBadRequest("tenant_id is required", err))
+		return
+	}
+
+	var definitionUUID *uuid.UUID
+	if definitionParam := strings.TrimSpace(c.Query("definition_id")); definitionParam != "" {
+		id, parseErr := uuid.Parse(definitionParam)
+		if parseErr != nil {
+			dto.RespondErrorFrom(c, dto.NewBadRequest("invalid definition_id", parseErr))
+			return
+		}
+		definitionUUID = &id
+	}
+
+	includeSteps := true
+	if flag := strings.TrimSpace(c.Query("include_step_details")); flag != "" {
+		includeSteps = !(flag == "false" || flag == "0")
+	}
+
+	var createdFromPtr, createdToPtr *time.Time
+	if from := strings.TrimSpace(c.Query("created_from")); from != "" {
+		timestamp, parseErr := time.Parse(time.RFC3339, from)
+		if parseErr != nil {
+			dto.RespondErrorFrom(c, dto.NewBadRequest("invalid created_from", parseErr))
+			return
+		}
+		createdFromPtr = &timestamp
+	}
+	if to := strings.TrimSpace(c.Query("created_to")); to != "" {
+		timestamp, parseErr := time.Parse(time.RFC3339, to)
+		if parseErr != nil {
+			dto.RespondErrorFrom(c, dto.NewBadRequest("invalid created_to", parseErr))
+			return
+		}
+		createdToPtr = &timestamp
+	}
+
+	formatQuery := strings.ToLower(strings.TrimSpace(c.DefaultQuery("format", "csv")))
+	filter := workflow.ExportFilter{
+		TenantID:           tenantID,
+		DefinitionUUID:     definitionUUID,
+		State:              strings.TrimSpace(c.Query("state")),
+		CreatedFrom:        createdFromPtr,
+		CreatedTo:          createdToPtr,
+		IncludeStepDetails: includeSteps,
+		Format:             workflow.ExportFormat(formatQuery),
+	}
+
+	result, err := h.svc.ExportInstances(c.Request.Context(), filter)
+	if err != nil {
+		dto.RespondErrorFrom(c, dto.NewBadRequest("export instances failed", err))
+		return
+	}
+
+	rows := make([]map[string]any, 0, len(result.Rows))
+	for _, row := range result.Rows {
+		payload := map[string]any{
+			"instance_id":        row.InstanceID,
+			"definition_id":      row.DefinitionID,
+			"definition_version": row.DefinitionVersion,
+			"state":              row.State,
+			"tenant_id":          strconv.FormatUint(row.TenantID, 10),
+			"correlation_id":     row.CorrelationID,
+		}
+		if row.StartedAt != nil {
+			payload["started_at"] = row.StartedAt.Format(time.RFC3339)
+		}
+		if row.CompletedAt != nil {
+			payload["completed_at"] = row.CompletedAt.Format(time.RFC3339)
+		}
+		if len(row.Steps) > 0 {
+			stepPayload := make([]map[string]any, 0, len(row.Steps))
+			for _, step := range row.Steps {
+				item := map[string]any{
+					"step_id":            step.StepID,
+					"type":               step.Type,
+					"state":              step.State,
+					"subject_type":       step.SubjectType,
+					"subject_id":         step.SubjectID,
+					"attempts":           step.Attempts,
+					"tool_grant_version": step.ToolGrantVersion,
+					"last_error":         step.LastError,
+				}
+				if !step.LastTransitionAt.IsZero() {
+					item["last_transition_at"] = step.LastTransitionAt.Format(time.RFC3339)
+				}
+				stepPayload = append(stepPayload, item)
+			}
+			payload["steps"] = stepPayload
+		}
+		rows = append(rows, payload)
+	}
+
+	dto.ResponseSuccess(c, map[string]any{
+		"meta": map[string]any{
+			"format":       string(result.Format),
+			"generated_at": result.GeneratedAt.Format(time.RFC3339),
+			"row_count":    len(rows),
+		},
+		"rows":         rows,
+		"download_url": result.DownloadURL,
+	})
 }
 
 func (h *Handler) ControlInstance(c *gin.Context) {
