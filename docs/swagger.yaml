@@ -1149,6 +1149,77 @@ paths:
             summary: POST /api/v1/admin/user/auth/register
             tags:
                 - api
+    /api/v1/admin/workflows/definitions:
+        get:
+            operationId: GET /api/v1/admin/workflows/definitions
+            responses:
+                "200":
+                    description: OK
+            summary: GET /api/v1/admin/workflows/definitions
+            tags:
+                - api
+        post:
+            operationId: POST /api/v1/admin/workflows/definitions
+            responses:
+                "200":
+                    description: OK
+            summary: POST /api/v1/admin/workflows/definitions
+            tags:
+                - api
+    /api/v1/admin/workflows/definitions/:definitionId:
+        get:
+            operationId: GET /api/v1/admin/workflows/definitions/_definitionId
+            responses:
+                "200":
+                    description: OK
+            summary: GET /api/v1/admin/workflows/definitions/_definitionId
+            tags:
+                - api
+    /api/v1/admin/workflows/definitions/:definitionId/publish:
+        post:
+            operationId: POST /api/v1/admin/workflows/definitions/_definitionId/publish
+            responses:
+                "200":
+                    description: OK
+            summary: POST /api/v1/admin/workflows/definitions/_definitionId/publish
+            tags:
+                - api
+    /api/v1/admin/workflows/instances:
+        post:
+            operationId: POST /api/v1/admin/workflows/instances
+            responses:
+                "200":
+                    description: OK
+            summary: POST /api/v1/admin/workflows/instances
+            tags:
+                - api
+    /api/v1/admin/workflows/instances/:instanceId:
+        get:
+            operationId: GET /api/v1/admin/workflows/instances/_instanceId
+            responses:
+                "200":
+                    description: OK
+            summary: GET /api/v1/admin/workflows/instances/_instanceId
+            tags:
+                - api
+    /api/v1/admin/workflows/instances/:instanceId/actions:
+        post:
+            operationId: POST /api/v1/admin/workflows/instances/_instanceId/actions
+            responses:
+                "200":
+                    description: OK
+            summary: POST /api/v1/admin/workflows/instances/_instanceId/actions
+            tags:
+                - api
+    /api/v1/admin/workflows/instances/export:
+        get:
+            operationId: GET /api/v1/admin/workflows/instances/export
+            responses:
+                "200":
+                    description: OK
+            summary: GET /api/v1/admin/workflows/instances/export
+            tags:
+                - api
     /api/v1/agents/intent/:
         post:
             operationId: POST /api/v1/agents/intent/

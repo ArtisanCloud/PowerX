@@ -10,6 +10,7 @@ import (
 	mediamodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/media"
 	modelSetting "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/setting"
 	modelTenant "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/tenant"
+	modelWorkflow "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/workflow"
 	modelForm "github.com/ArtisanCloud/PowerX/pkg/dynamic_form/persistence/model"
 	"gorm.io/gorm"
 )
@@ -84,6 +85,10 @@ func MigrateCoreModels(db *gorm.DB) (err error) {
 		return err
 	}
 
+	if err = migrateWorkflowModels(db); err != nil {
+		return err
+	}
+
 	// 迁移审计
 	err = db.AutoMigrate(
 		&modelAudit.AuditEvent{},
@@ -126,4 +131,15 @@ func migrateEventFabricModels(db *gorm.DB) error {
 		return err
 	}
 	return migration.CreateEventAuthorizationTables(db)
+}
+
+func migrateWorkflowModels(db *gorm.DB) error {
+	return db.AutoMigrate(
+		&modelWorkflow.WorkflowDefinition{},
+		&modelWorkflow.WorkflowInstance{},
+		&modelWorkflow.WorkflowStepRecord{},
+		&modelWorkflow.WorkflowStepCompensation{},
+		&modelWorkflow.AgentAssignment{},
+		&modelWorkflow.WorkflowEvent{},
+	)
 }

@@ -16,6 +16,7 @@ type DepsOptions struct {
 	Storage      mediasvc.StorageOptions
 	// 以后需要别的也放在这里（如默认租户、开关等）
 	EventFabric EventFabricOptions
+	Workflow    WorkflowOptions
 }
 
 // EventFabricOptions 描述事件骨干依赖的运行配置。
@@ -58,4 +59,9 @@ type EventFabricAuthorizationSecretsOptions struct {
 	KeyID                   string
 	RotationIntervalSeconds int
 	CacheTTLSeconds         int
+}
+
+// WorkflowOptions 描述工作流域的运行配置（占位，后续完善）。
+type WorkflowOptions struct {
+	RetryKeyPrefix string
 }

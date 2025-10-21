@@ -29,6 +29,7 @@ import (
 	iamsvc "github.com/ArtisanCloud/PowerX/internal/service/iam"
 	mediasvc "github.com/ArtisanCloud/PowerX/internal/service/media"
 	tenantsvc "github.com/ArtisanCloud/PowerX/internal/service/tenant"
+	workflowsvc "github.com/ArtisanCloud/PowerX/internal/service/workflow"
 	"github.com/ArtisanCloud/PowerX/pkg/cache"
 	auditsvc "github.com/ArtisanCloud/PowerX/pkg/corex/audit"
 	dbm "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/audit"
@@ -91,6 +92,7 @@ type Deps struct {
 	DiscoverySvc          *discoveryService.Service
 
 	EventFabric *EventFabricDeps
+	Workflow    *WorkflowDeps
 }
 
 func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
@@ -163,6 +165,18 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 
 	eventFabricDeps := newEventFabricDeps(db, opts.EventFabric, bus, svc, tenantSvc)
 
+	var (
+		workflowReliable  event_bus.ReliableQueue
+		workflowScheduler *workflowsvc.Scheduler
+	)
+	if eventFabricDeps != nil {
+		workflowReliable = eventFabricDeps.Reliable
+		if workflowReliable != nil {
+			workflowScheduler = workflowsvc.NewScheduler(workflowReliable)
+		}
+	}
+	workflowSvc := workflowsvc.NewService(db, workflowsvc.ServiceOptions{})
+
 	return &Deps{
 		DB:                    db,
 		TenantSvc:             tenantSvc,
@@ -179,6 +193,11 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 		RouterSandboxSvc:      sandboxSvc,
 		DiscoverySvc:          discoverySvc,
 		EventFabric:           eventFabricDeps,
+		Workflow: &WorkflowDeps{
+			Service:       workflowSvc,
+			Scheduler:     workflowScheduler,
+			ReliableQueue: workflowReliable,
+		},
 	}
 }
 
@@ -200,6 +219,13 @@ type EventFabricDeps struct {
 	Metrics       eventmetrics.Recorder
 	Security      *security.Verifier
 	Authorization *AuthorizationDeps
+}
+
+// WorkflowDeps 聚合工作流域运行时依赖。
+type WorkflowDeps struct {
+	Service       *workflowsvc.Service
+	Scheduler     *workflowsvc.Scheduler
+	ReliableQueue event_bus.ReliableQueue
 }
 
 // EventFabricRuntimeConfig 将配置项转换为运行时易用的结构。
