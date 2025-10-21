@@ -1,0 +1,596 @@
+openapi: 3.0.3
+info:
+  title: Integration Gateway API (Design Draft)
+  version: 0.1.0
+servers:
+  - url: https://api.powerx.local
+paths:
+  /admin/integration/routes:
+    post:
+      summary: Create a new integration route for tenant
+      tags: [IntegrationGatewayAdmin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IntegrationRouteCreateRequest'
+      responses:
+        '201':
+          description: Route created
+          headers:
+            ETag:
+              schema:
+                type: string
+              description: Version tag for optimistic concurrency
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IntegrationRouteResponse'
+        '409':
+          description: Duplicate route slug under tenant
+        '422':
+          description: Validation failed (missing Tool Grant / Capability)
+    get:
+      summary: List routes across tenants (filterable)
+      tags: [IntegrationGatewayAdmin]
+      parameters:
+        - in: query
+          name: tenant_id
+          schema:
+            type: string
+        - in: query
+          name: lifecycle_state
+          schema:
+            type: string
+            enum: [pending, active, suspended, retired]
+        - in: query
+          name: capability_id
+          schema:
+            type: string
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+          default: 1
+        - in: query
+          name: page_size
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+          default: 20
+      responses:
+        '200':
+          description: Routes page
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IntegrationRouteListResponse'
+  /admin/integration/routes/{routeId}:
+    get:
+      summary: Fetch latest snapshot of route by ID
+      tags: [IntegrationGatewayAdmin]
+      parameters:
+        - $ref: '#/components/parameters/RouteId'
+        - in: query
+          name: version
+          schema:
+            type: string
+            enum: [latest, draft]
+          description: Defaults to latest published version
+      responses:
+        '200':
+          description: Snapshot found
+          headers:
+            ETag:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IntegrationRouteResponse'
+        '404':
+          description: Route not found
+    patch:
+      summary: Update route configuration (optimistic concurrency)
+      tags: [IntegrationGatewayAdmin]
+      parameters:
+        - $ref: '#/components/parameters/RouteId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IntegrationRouteUpdateRequest'
+      responses:
+        '200':
+          description: Route updated
+          headers:
+            ETag:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IntegrationRouteResponse'
+        '412':
+          description: Version mismatch (ETag required)
+  /admin/integration/routes/{routeId}:suspend:
+    post:
+      summary: Transition route to Suspended
+      tags: [IntegrationGatewayAdmin]
+      parameters:
+        - $ref: '#/components/parameters/RouteId'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+      responses:
+        '200':
+          description: Route suspended
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IntegrationRouteResponse'
+  /admin/integration/routes/{routeId}:resume:
+    post:
+      summary: Resume a suspended route to Active
+      tags: [IntegrationGatewayAdmin]
+      parameters:
+        - $ref: '#/components/parameters/RouteId'
+      responses:
+        '200':
+          description: Route resumed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IntegrationRouteResponse'
+  /admin/integration/routes/{routeId}:retire:
+    post:
+      summary: Retire a route permanently
+      tags: [IntegrationGatewayAdmin]
+      parameters:
+        - $ref: '#/components/parameters/RouteId'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                notify_subscribers:
+                  type: boolean
+                  default: true
+      responses:
+        '200':
+          description: Route retired
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IntegrationRouteResponse'
+  /admin/integration/routes/{routeId}/versions:
+    get:
+      summary: List historical versions for auditing
+      tags: [IntegrationGatewayAdmin]
+      parameters:
+        - $ref: '#/components/parameters/RouteId'
+      responses:
+        '200':
+          description: Version history
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 0
+                  message:
+                    type: string
+                    example: ok
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/IntegrationRouteVersion'
+                  trace_id:
+                    type: string
+        '404':
+          description: Route not found
+  /tenant/integration/routes:
+    get:
+      summary: List accessible routes for current tenant
+      tags: [IntegrationGatewayTenant]
+      parameters:
+        - in: query
+          name: capability_id
+          schema:
+            type: string
+        - in: query
+          name: channel
+          schema:
+            type: string
+            enum: [http, mcp]
+      responses:
+        '200':
+          description: Routes available to tenant
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 0
+                  message:
+                    type: string
+                    example: ok
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/IntegrationRouteSummary'
+                  trace_id:
+                    type: string
+  /tenant/integration/routes/{routeSlug}:
+    get:
+      summary: Inspect route metadata before invoking
+      tags: [IntegrationGatewayTenant]
+      parameters:
+        - $ref: '#/components/parameters/RouteSlug'
+      responses:
+        '200':
+          description: Route metadata
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  message:
+                    type: string
+                  data:
+                    $ref: '#/components/schemas/IntegrationRouteTenantView'
+                  trace_id:
+                    type: string
+        '404':
+          description: Route not accessible
+  /tenant/integration/routes/{routeSlug}:invoke:
+    post:
+      summary: Invoke capability through integration route
+      tags: [IntegrationGatewayTenant]
+      parameters:
+        - $ref: '#/components/parameters/RouteSlug'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IntegrationInvokeRequest'
+      responses:
+        '200':
+          description: Invocation succeeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IntegrationInvokeResponse'
+        '202':
+          description: Invocation accepted async
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IntegrationInvokeResponse'
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RateLimitError'
+        '403':
+          description: Tool Grant missing or revoked
+        '424':
+          description: Capability unavailable / router downgrade failed
+
+components:
+  parameters:
+    RouteId:
+      in: path
+      name: routeId
+      required: true
+      schema:
+        type: string
+        format: uuid
+    RouteSlug:
+      in: path
+      name: routeSlug
+      required: true
+      schema:
+        type: string
+        pattern: '^[a-z0-9-]{3,63}$'
+  schemas:
+    IntegrationRouteCreateRequest:
+      type: object
+      required: [tenant_id, route_slug, capability_id, tool_grant_ids]
+      properties:
+        tenant_id:
+          type: string
+        route_slug:
+          type: string
+          pattern: '^[a-z0-9-]{3,63}$'
+        capability_id:
+          type: string
+        tool_grant_ids:
+          type: array
+          items:
+            type: string
+        channels:
+          type: array
+          items:
+            type: string
+            enum: [http, mcp]
+          default: [http]
+        rate_limit:
+          $ref: '#/components/schemas/RateLimitPolicy'
+        event_topics:
+          $ref: '#/components/schemas/EventTopicConfig'
+        description:
+          type: string
+          maxLength: 512
+    IntegrationRouteUpdateRequest:
+      type: object
+      properties:
+        tool_grant_ids:
+          type: array
+          items:
+            type: string
+        channels:
+          type: array
+          items:
+            type: string
+            enum: [http, mcp]
+        rate_limit:
+          $ref: '#/components/schemas/RateLimitPolicy'
+        event_topics:
+          $ref: '#/components/schemas/EventTopicConfig'
+        lifecycle_state:
+          type: string
+          enum: [pending, active, suspended, retired]
+        description:
+          type: string
+    IntegrationRouteResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 0
+        message:
+          type: string
+          example: ok
+        data:
+          $ref: '#/components/schemas/IntegrationRoute'
+        trace_id:
+          type: string
+    IntegrationRouteListResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+        message:
+          type: string
+        data:
+          type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/IntegrationRouteSummary'
+            page:
+              type: integer
+            page_size:
+              type: integer
+            total:
+              type: integer
+        trace_id:
+          type: string
+    IntegrationRoute:
+      type: object
+      properties:
+        route_id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+        route_slug:
+          type: string
+        capability_id:
+          type: string
+        tool_grant_ids:
+          type: array
+          items:
+            type: string
+        channels:
+          type: array
+          items:
+            type: string
+        rate_limit:
+          $ref: '#/components/schemas/RateLimitPolicy'
+        event_topics:
+          $ref: '#/components/schemas/EventTopicConfig'
+        lifecycle_state:
+          type: string
+        status:
+          type: string
+          enum: [enabled, disabled]
+        current_version:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    IntegrationRouteSummary:
+      type: object
+      properties:
+        route_id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+        route_slug:
+          type: string
+        capability_id:
+          type: string
+        lifecycle_state:
+          type: string
+        channels:
+          type: array
+          items:
+            type: string
+        last_modified_at:
+          type: string
+          format: date-time
+    IntegrationRouteTenantView:
+      type: object
+      properties:
+        route_slug:
+          type: string
+        capability_id:
+          type: string
+        schema:
+          type: object
+          description: Input/output schema derived from capability contract
+        rate_limit:
+          $ref: '#/components/schemas/RateLimitPolicy'
+        lifecycle_state:
+          type: string
+        events:
+          type: object
+          properties:
+            on_success:
+              type: string
+            on_failure:
+              type: string
+        trace_id:
+          type: string
+    IntegrationRouteVersion:
+      type: object
+      properties:
+        version:
+          type: integer
+        change_type:
+          type: string
+        change_summary:
+          type: string
+        changed_by:
+          type: string
+        changed_at:
+          type: string
+          format: date-time
+        snapshot:
+          $ref: '#/components/schemas/IntegrationRoute'
+        trace_id:
+          type: string
+    RateLimitPolicy:
+      type: object
+      properties:
+        limit:
+          type: integer
+          minimum: 1
+        burst:
+          type: integer
+          minimum: 0
+        window_seconds:
+          type: integer
+          minimum: 10
+          maximum: 3600
+        scope:
+          type: string
+          enum: [per_route, per_tenant, per_route_per_tenant]
+      example:
+        limit: 120
+        burst: 120
+        window_seconds: 60
+        scope: per_route_per_tenant
+    EventTopicConfig:
+      type: object
+      properties:
+        created:
+          type: string
+        updated:
+          type: string
+        invocation_succeeded:
+          type: string
+        invocation_failed:
+          type: string
+    IntegrationInvokeRequest:
+      type: object
+      required: [payload]
+      properties:
+        payload:
+          type: object
+          description: Arbitrary JSON payload passed to capability router
+        idempotency_key:
+          type: string
+          maxLength: 64
+        context:
+          type: object
+          properties:
+            locale:
+              type: string
+            currency:
+              type: string
+            metadata:
+              type: object
+              additionalProperties: true
+    IntegrationInvokeResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 0
+        message:
+          type: string
+          example: ok
+        data:
+          type: object
+          properties:
+            result:
+              type: object
+            routed_capability_id:
+              type: string
+            routed_adapter:
+              type: string
+            trace_id:
+              type: string
+            dispatched_at:
+              type: string
+              format: date-time
+        trace_id:
+          type: string
+    RateLimitError:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 42901
+        message:
+          type: string
+          example: rate limit exceeded
+        data:
+          type: object
+          properties:
+            retry_after:
+              type: string
+              example: 15s
+            quota_scope:
+              type: string
+              enum: [per_route, per_tenant, per_route_per_tenant]
+        trace_id:
+          type: string
