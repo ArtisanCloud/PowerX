@@ -1855,6 +1855,34 @@
         ]
       }
     },
+    "/api/v1/admin/workflows/instances/:instanceId/actions": {
+      "post": {
+        "operationId": "POST /api/v1/admin/workflows/instances/_instanceId/actions",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/v1/admin/workflows/instances/_instanceId/actions",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/v1/admin/workflows/instances/export": {
+      "get": {
+        "operationId": "GET /api/v1/admin/workflows/instances/export",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "GET /api/v1/admin/workflows/instances/export",
+        "tags": [
+          "api"
+        ]
+      }
+    },
     "/api/v1/agents/intent/": {
       "post": {
         "operationId": "POST /api/v1/agents/intent/",

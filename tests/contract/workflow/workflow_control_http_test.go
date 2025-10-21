@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
 	workflowhttp "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/workflow"
@@ -117,10 +118,16 @@ func TestWorkflowControlHTTP(t *testing.T) {
 
 	instanceUUID := uuid.MustParse(instanceID)
 
-	var agentStep modelworkflow.WorkflowStepRecord
-	require.NoError(t, env.DB.
-		Where("instance_uuid = ? AND step_id = ?", instanceUUID, "agent_step").
-		First(&agentStep).Error)
+	agentStep := modelworkflow.WorkflowStepRecord{
+		InstanceUUID:   instanceUUID,
+		StepID:         "agent_step",
+		Type:           "agent",
+		SubjectType:    "agent",
+		State:          "queued",
+		ScheduledAt:    time.Now().UTC(),
+		LastTransition: time.Now().UTC(),
+	}
+	require.NoError(t, env.DB.Create(&agentStep).Error)
 	require.NoError(t, env.DB.
 		Model(&modelworkflow.WorkflowStepRecord{}).
 		Where("id = ?", agentStep.ID).

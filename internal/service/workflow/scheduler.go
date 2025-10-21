@@ -119,6 +119,14 @@ func (s *Scheduler) ReleaseLease(ctx context.Context, lease eventbus.DeliveryLea
 	return s.queue.ReleaseLease(ctx, lease)
 }
 
+// RetryQueueKey 返回指定租户的重试队列 Redis Key，便于外部监控或诊断。
+func (s *Scheduler) RetryQueueKey(tenantKey string) string {
+	if tenantKey == "" {
+		return ""
+	}
+	return fmt.Sprintf("event:retry:%s", tenantKey)
+}
+
 // WithClock 允许测试覆盖时间。
 func (s *Scheduler) WithClock(now func() time.Time) {
 	if now != nil {

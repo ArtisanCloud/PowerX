@@ -62,13 +62,38 @@
      -H 'Authorization: Bearer <TOKEN>'
    ```
 
-5. **发生告警时导出审计**
-   ```bash
-   curl -X GET "http://localhost:8077/api/v1/admin/workflows/instances/export?tenant_id=00000000-0000-0000-0000-000000000001&format=csv" \
-     -H 'Authorization: Bearer <TOKEN>' -o workflow_export.csv
-   ```
+5. **控制运行中的实例**
+  ```bash
+  # 暂停实例
+  curl -X POST "http://localhost:8077/api/v1/admin/workflows/instances/<INSTANCE_ID>/actions" \
+    -H 'Authorization: Bearer <TOKEN>' -H 'Content-Type: application/json' \
+    -d '{"tenant_id":1001,"action":"pause","reason":"planned-maintenance"}'
+
+  # 恢复实例
+  curl -X POST "http://localhost:8077/api/v1/admin/workflows/instances/<INSTANCE_ID>/actions" \
+    -H 'Authorization: Bearer <TOKEN>' -H 'Content-Type: application/json' \
+    -d '{"tenant_id":1001,"action":"resume"}'
+
+  # 手动重试失败步骤
+  curl -X POST "http://localhost:8077/api/v1/admin/workflows/instances/<INSTANCE_ID>/actions" \
+    -H 'Authorization: Bearer <TOKEN>' -H 'Content-Type: application/json' \
+    -d '{"tenant_id":1001,"action":"retry_step","step_id":"agent_review"}'
+  ```
+
+6. **导出审计记录**
+  ```bash
+  # JSON
+  curl -X GET "http://localhost:8077/api/v1/admin/workflows/instances/export?tenant_id=1001&format=json" \
+    -H 'Authorization: Bearer <TOKEN>'
+
+  # CSV
+  curl -X GET "http://localhost:8077/api/v1/admin/workflows/instances/export?tenant_id=1001&format=csv" \
+    -H 'Authorization: Bearer <TOKEN>' -o workflow_export.csv
+  ```
+
+> gRPC 客户端可调用 `workflow.powerx.WorkflowService/ExportInstances`，传入 `include_step_details=true` 获取与 HTTP 相同的字段。
 
 ## 验证点
 - 发布的定义在 `GET /definitions` 中列出且版本号递增。
 - 工作流实例在 30 秒内进入 `running/ waiting / succeeded` 状态之一。
-- 导出文件包含步骤、Agent、重试次数等字段，可用于审计复核。
+- 导出数据（HTTP/CSV/gRPC）包含步骤、Agent、重试次数等字段，可用于审计复核。

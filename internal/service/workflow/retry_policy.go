@@ -40,6 +40,11 @@ func decodeRetryPolicy(data datatypes.JSON) RetryPolicyDefinition {
 	return policy
 }
 
+// ParseRetryPolicy 提供对外（测试/度量）访问以 JSON 数据构建 RetryPolicyDefinition 的能力。
+func ParseRetryPolicy(data datatypes.JSON) RetryPolicyDefinition {
+	return decodeRetryPolicy(data)
+}
+
 func toInt(v any) int {
 	switch val := v.(type) {
 	case int:

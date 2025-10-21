@@ -1,0 +1,71 @@
+{
+  "title": "Workflow Runtime Overview",
+  "description": "标准化工作流运行态仪表板：重试、补偿、导出等核心指标",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "30s",
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Compensation Backlog",
+      "datasource": "Prometheus",
+      "gridPos": {"x": 0, "y": 0, "w": 6, "h": 4},
+      "targets": [
+        {
+          "expr": "sum(workflow_compensation_running)",
+          "legendFormat": "running",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "reduceOptions": {"calcs": ["last"], "fields": ""},
+        "orientation": "auto"
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Retry Schedule Rate",
+      "datasource": "Prometheus",
+      "gridPos": {"x": 6, "y": 0, "w": 12, "h": 8},
+      "targets": [
+        {
+          "expr": "sum(rate(workflow_retry_scheduled_total[5m]))",
+          "legendFormat": "{{tenant}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {"unit": "ops"}
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Retry Queue Depth",
+      "datasource": "Prometheus",
+      "gridPos": {"x": 0, "y": 4, "w": 12, "h": 8},
+      "targets": [
+        {
+          "expr": "workflow_retry_queue_depth",
+          "legendFormat": "{{tenant}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {"unit": "none"}
+      }
+    },
+    {
+      "type": "bargauge",
+      "title": "Control Operations (5m)",
+      "datasource": "Prometheus",
+      "gridPos": {"x": 12, "y": 8, "w": 12, "h": 6},
+      "targets": [
+        {
+          "expr": "sum(rate(workflow_control_events_total[5m])) by (action)",
+          "legendFormat": "{{action}}",
+          "refId": "A"
+        }
+      ]
+    }
+  ]
+}

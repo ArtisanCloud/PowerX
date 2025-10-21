@@ -83,3 +83,5 @@ curl -o authorization_audit.csv "$ADMIN/api/v1/event-fabric/audit/authorization?
 | `workflow.definition.write` | 创建/发布工作流定义 | `POST /api/v1/admin/workflows/definitions` 、`POST /api/v1/admin/workflows/definitions/{id}/publish` |
 | `workflow.instance.execute` | 启动工作流实例 | `POST /api/v1/admin/workflows/instances` |
 | `workflow.instance.read` | 查看工作流实例状态 | `GET /api/v1/admin/workflows/instances/{id}` |
+| `workflow.instance.control` | 暂停/恢复/取消/重试实例 | `POST /api/v1/admin/workflows/instances/{id}/actions` |
+| `workflow.instance.export` | 导出实例执行审计 | `GET /api/v1/admin/workflows/instances/export` |

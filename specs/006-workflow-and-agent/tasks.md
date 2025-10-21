@@ -137,12 +137,12 @@
 
 **Purpose**: 全局优化、文档与交付准备
 
-- [ ] T045 [P] [Polish] 增补单元测试：验证 StepGraph 校验与 RetryPolicy (tests/unit/workflow_validator_test.go)
-- [ ] T046 [P] [Polish] 更新运行手册与 Quickstart (`docs/runbooks/event_fabric_authorization.md`, `specs/006-workflow-and-agent/quickstart.md`) 反映最终接口
-- [ ] T047 [Polish] 新增性能/健康仪表板与告警模板 (`deploy/observability/workflow_dashboard.json`, `docs/runbooks/observability_workflow.md`)
-- [ ] T048 [Polish] 执行 `make test-all` + `scripts/demo/event_fabric_quickstart.sh` 验证回归，并记录结果于 `specs/006-workflow-and-agent/tasks.md` Notes 区
-- [ ] T049 [P] [Polish] 代码巡检与 Dead-letter 清理：确保 Redis 队列有监控 (`internal/service/workflow/scheduler.go`, `docs/runbooks/redis_workflow.md`)
-- [ ] T050 [Polish] 完成发布说明与变更记录 (`docs/release_notes/workflow_orchestration.md`)
+- [X] T045 [P] [Polish] 增补单元测试：验证 StepGraph 校验与 RetryPolicy (tests/unit/workflow_validator_test.go)
+- [X] T046 [P] [Polish] 更新运行手册与 Quickstart (`docs/runbooks/event_fabric_authorization.md`, `specs/006-workflow-and-agent/quickstart.md`) 反映最终接口
+- [X] T047 [Polish] 新增性能/健康仪表板与告警模板 (`deploy/observability/workflow_dashboard.json`, `docs/runbooks/observability_workflow.md`)
+- [X] T048 [Polish] 执行 `make test-all` + `scripts/demo/event_fabric_quickstart.sh` 验证回归，并记录结果于 `specs/006-workflow-and-agent/tasks.md` Notes 区
+- [X] T049 [P] [Polish] 代码巡检与 Dead-letter 清理：确保 Redis 队列有监控 (`internal/service/workflow/scheduler.go`, `docs/runbooks/redis_workflow.md`)
+- [X] T050 [Polish] 完成发布说明与变更记录 (`docs/release_notes/workflow_orchestration.md`)
 
 ---
 
@@ -185,3 +185,7 @@ Task: "T006 [P] [Found] 实现 WorkflowInstance 模型 (pkg/corex/db/persistence
 5. **Polish**：补齐测试、文档、观测；按需迭代
 
 每个阶段结束前执行 Checkpoint，保证可独立交付与回归测试。
+
+- 2025-10-21 13:20 UTC：`make test-all` 执行完成，全部 API 套件通过；Redis/Grafana 监控方案通过新增运行手册与仪表板模板覆盖；单元回归 `GOCACHE=$(pwd)/.gocache go test ./tests/unit/...`、导出合同 `./tests/contract/workflow -run Export` 已验证。
+- 2025-10-21 13:35 UTC：尝试 `scripts/demo/event_fabric_quickstart.sh`，后端返回 HTTP 404（能力创建失败）；需待管理端服务上线后重试确认。
+- 2025-10-21 18:15 UTC：完成 `scripts/demo/event_fabric_quickstart.sh`（使用 system/root 凭证 + 实际租户/成员 UUID），能力与 Grant 创建成功，JSON/CSV 审计导出正常，日志见 `reports/event_fabric_authorization_quickstart.log`。
