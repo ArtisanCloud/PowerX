@@ -33,18 +33,18 @@
 
 ### Tests（先于实现）
 
-- [ ] T014 [P][US1] 在 `tests/contract/integration_gateway/admin_routes_http_test.go` 编写 Admin HTTP 合同测试，覆盖创建、查询、更新、生命周期动作、冲突与校验错误（依据 `contracts/http-openapi.yaml`）。
-- [ ] T015 [P][US1] 在 `tests/contract/integration_gateway/admin_grpc_test.go` 编写 gRPC Admin Service 合同测试，使用 buf 生成桩调用 CreateRoute/ListRoutes/ChangeLifecycle。
-- [ ] T016 [US1] 在 `tests/integration/integration_gateway/admin_management_flow_test.go` 编写集成测试：模拟管理员创建 -> 更新 -> 暂停 -> 恢复 -> 退役，并断言事件发布、版本记录与审计日志写入。
+- [x] T014 [P][US1] 在 `tests/contract/integration_gateway/admin_routes_http_test.go` 编写 Admin HTTP 合同测试，覆盖创建、查询、更新、生命周期动作、冲突与校验错误（依据 `contracts/http-openapi.yaml`）。
+- [x] T015 [P][US1] 在 `tests/contract/integration_gateway/admin_grpc_test.go` 编写 gRPC Admin Service 合同测试，使用 buf 生成桩调用 CreateRoute/ListRoutes/ChangeLifecycle。
+- [x] T016 [US1] 在 `tests/integration/integration_gateway/admin_management_flow_test.go` 编写集成测试：模拟管理员创建 -> 更新 -> 暂停 -> 恢复 -> 退役，并断言事件发布、版本记录与审计日志写入。
 
 ### Implementation
 
-- [ ] T017 [US1] 在 `internal/service/integration_gateway/manager/service.go` 实现路由管理 Service：创建/更新入口、维护版本快照、发布 `integration.gateway.route.*` 事件，并结合仓储层乐观锁写入，同时记录配置变更审计日志（成功与失败场景）。
-- [ ] T018 [US1] 在 `internal/service/integration_gateway/manager/validator.go` 实现参数校验（Tool Grant 校验、rate_limit 默认兜底、生命周期状态机约束）。
-- [ ] T019 [US1] 在 `internal/transport/http/admin/integration_gateway/handlers.go` 实现 Admin HTTP Handler（Gin DTO、鉴权、响应包装、ETag 处理、事件 trace）。
-- [ ] T020 [US1] 在 `internal/transport/grpc/integration_gateway/admin_server.go` 实现 gRPC Admin Service，映射 proto 请求到 manager service。
-- [ ] T021 [US1] 更新 `internal/transport/http/admin/routes.go` & `api/docs` 相关聚合，注册新的 `/admin/integration/routes` 路由与 Swagger 组件。
-- [ ] T022 [US1] 在 `internal/service/integration_gateway/manager/events.go` 编写事件发布与失败补偿逻辑，确保写入 `EventPublication` 并触发补偿队列。
+- [x] T017 [US1] 在 `internal/service/integration_gateway/manager/service.go` 实现路由管理 Service：创建/更新入口、维护版本快照、发布 `integration.gateway.route.*` 事件，并结合仓储层乐观锁写入，同时记录配置变更审计日志（成功与失败场景）。
+- [x] T018 [US1] 在 `internal/service/integration_gateway/manager/validator.go` 实现参数校验（Tool Grant 校验、rate_limit 默认兜底、生命周期状态机约束）。
+- [x] T019 [US1] 在 `internal/transport/http/admin/integration_gateway/handlers.go` 实现 Admin HTTP Handler（Gin DTO、鉴权、响应包装、ETag 处理、事件 trace）。
+- [x] T020 [US1] 在 `internal/transport/grpc/integration_gateway/admin_server.go` 实现 gRPC Admin Service，映射 proto 请求到 manager service。
+- [x] T021 [US1] 更新 `internal/transport/http/admin/routes.go` & `api/docs` 相关聚合，注册新的 `/admin/integration/routes` 路由与 Swagger 组件。
+- [x] T022 [US1] 在 `internal/service/integration_gateway/manager/events.go` 编写事件发布与失败补偿逻辑，确保写入 `EventPublication` 并触发补偿队列。
 
 **Checkpoint**: 管理员端 API/gRPC 可独立部署、通过测试，并记录事件。
 

@@ -27,6 +27,8 @@ import (
 	replayService "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/replay"
 	security "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/security"
 	iamsvc "github.com/ArtisanCloud/PowerX/internal/service/iam"
+	integrationInstrumentation "github.com/ArtisanCloud/PowerX/internal/service/integration_gateway/instrumentation"
+	integrationManager "github.com/ArtisanCloud/PowerX/internal/service/integration_gateway/manager"
 	mediasvc "github.com/ArtisanCloud/PowerX/internal/service/media"
 	tenantsvc "github.com/ArtisanCloud/PowerX/internal/service/tenant"
 	workflowsvc "github.com/ArtisanCloud/PowerX/internal/service/workflow"
@@ -34,6 +36,7 @@ import (
 	auditsvc "github.com/ArtisanCloud/PowerX/pkg/corex/audit"
 	dbm "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/audit"
 	eventfabricrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/event_fabric"
+	integrationRepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/integration_gateway"
 	"github.com/ArtisanCloud/PowerX/pkg/event_bus"
 	pxlog "github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"github.com/google/uuid"
@@ -237,6 +240,7 @@ type IntegrationGatewayDeps struct {
 	RateLimiter authorizationService.RateLimiter
 	Config      IntegrationGatewayRuntimeConfig
 	RedisClient *redis.Client
+	Manager     *manager.Service
 }
 
 // EventFabricRuntimeConfig 将配置项转换为运行时易用的结构。
@@ -563,7 +567,7 @@ func newEventFabricDeps(db *gorm.DB, opts EventFabricOptions, bus event_bus.Even
 	}
 }
 
-func newIntegrationGatewayDeps(opts IntegrationGatewayOptions) *IntegrationGatewayDeps {
+func newIntegrationGatewayDeps(db *gorm.DB, opts IntegrationGatewayOptions, bus event_bus.EventBus, auditor auditsvc.Auditor) *IntegrationGatewayDeps {
 	prefix := strings.TrimSpace(opts.RateLimitPrefix)
 	if prefix == "" {
 		prefix = "integration_gateway:rl"
@@ -595,6 +599,33 @@ func newIntegrationGatewayDeps(opts IntegrationGatewayOptions) *IntegrationGatew
 	}
 	limiter := authorizationService.NewRateLimiter(limiterOpts)
 
+	managerConfig := integrationManager.Config{
+		RateLimitPrefix: prefix,
+		DefaultRateLimit: integrationManager.RateLimitPolicy{
+			Limit:         opts.DefaultRateLimit.Limit,
+			Burst:         opts.DefaultRateLimit.Burst,
+			WindowSeconds: opts.DefaultRateLimit.WindowSeconds,
+			Scope:         opts.DefaultRateLimit.Scope,
+		},
+		EventTopics: integrationManager.EventTopics(opts.EventTopics),
+	}
+
+	routeRepo := integrationRepo.NewIntegrationRouteRepository(db)
+	versionRepo := integrationRepo.NewIntegrationRouteVersionRepository(db)
+	eventRepo := integrationRepo.NewIntegrationEventPublicationRepository(db)
+
+	managerService := integrationManager.NewService(integrationManager.ServiceOptions{
+		DB:              db,
+		RouteRepo:       routeRepo,
+		VersionRepo:     versionRepo,
+		EventRepo:       eventRepo,
+		EventBus:        bus,
+		Instrumentation: integrationInstrumentation.NewInstrumentation(nil),
+		Auditor:         auditor,
+		Config:          managerConfig,
+		Clock:           time.Now,
+	})
+
 	return &IntegrationGatewayDeps{
 		RateLimiter: limiter,
 		RedisClient: redisClient,
@@ -603,5 +634,6 @@ func newIntegrationGatewayDeps(opts IntegrationGatewayOptions) *IntegrationGatew
 			DefaultPolicy:   policy,
 			EventTopics:     opts.EventTopics,
 		},
+		Manager: managerService,
 	}
 }

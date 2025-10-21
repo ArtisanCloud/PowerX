@@ -6,12 +6,15 @@ import (
 	"google.golang.org/grpc"
 )
 
-var (
-	_ = pbintegration.RegisterIntegrationGatewayAdminServiceServer
-	_ = pbintegration.RegisterIntegrationGatewayTenantServiceServer
-)
+// RegisterServers 注册 Integration Gateway gRPC 服务。
+func RegisterServers(s *grpc.Server, deps *shared.Deps) {
+	if s == nil || deps == nil || deps.IntegrationGateway == nil || deps.IntegrationGateway.Manager == nil {
+		return
+	}
 
-// RegisterServers 预留 gRPC 服务注册入口。
-func RegisterServers(_ *grpc.Server, _ *shared.Deps) {
-	// Phase 3 会实现 IntegrationGatewayAdminService 与 IntegrationGatewayTenantService。
+	adminServer := NewAdminServer(deps.IntegrationGateway.Manager)
+	tenantServer := NewTenantServer(deps.IntegrationGateway.Manager)
+
+	pbintegration.RegisterIntegrationGatewayAdminServiceServer(s, adminServer)
+	pbintegration.RegisterIntegrationGatewayTenantServiceServer(s, tenantServer)
 }
