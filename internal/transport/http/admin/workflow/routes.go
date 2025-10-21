@@ -21,4 +21,5 @@ func RegisterAPIRoutes(publicGroup, protectedGroup *gin.RouterGroup, deps *share
 
 	group.POST("/instances", handler.StartInstance)
 	group.GET("/instances/:instanceId", handler.GetInstance)
+	group.POST("/instances/:instanceId/actions", handler.ControlInstance)
 }

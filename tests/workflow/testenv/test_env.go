@@ -74,3 +74,9 @@ func (env *TestEnv) StartGRPCServer() (workflowv1.WorkflowServiceClient, func())
 	}
 	return client, cleanup
 }
+
+// OverrideService 允许测试自定义 Service 依赖。
+func (env *TestEnv) OverrideService(opts workflowsvc.ServiceOptions) {
+	env.T.Helper()
+	env.Service = workflowsvc.NewService(env.DB, opts)
+}

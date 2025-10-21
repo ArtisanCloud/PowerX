@@ -3,6 +3,7 @@ package workflow
 import (
 	"context"
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/google/uuid"
@@ -19,6 +20,15 @@ type RetryScheduleOptions struct {
 	Attempt      int
 	Delay        time.Duration
 	Metadata     map[string]string
+}
+
+// RetryPolicyDefinition 描述重试策略参数。
+type RetryPolicyDefinition struct {
+	MaxAttempts       int
+	InitialInterval   time.Duration
+	BackoffMultiplier float64
+	MaxInterval       time.Duration
+	Jitter            time.Duration
 }
 
 // Scheduler 封装 Redis 队列的调度与租约操作。
@@ -57,6 +67,33 @@ func (s *Scheduler) ScheduleRetry(ctx context.Context, opts RetryScheduleOptions
 	}
 
 	return item, s.queue.ScheduleRetry(ctx, item)
+}
+
+// NextDelay 根据策略计算下一次重试的延迟。
+func (s *Scheduler) NextDelay(policy RetryPolicyDefinition, attempt int) time.Duration {
+	if attempt <= 1 {
+		return clampInterval(policy.InitialInterval, policy)
+	}
+	interval := float64(policy.InitialInterval)
+	if interval <= 0 {
+		interval = float64(30 * time.Second)
+	}
+	backoff := policy.BackoffMultiplier
+	if backoff <= 1 {
+		backoff = 2
+	}
+	next := time.Duration(interval * math.Pow(backoff, float64(attempt-1)))
+	return clampInterval(next, policy)
+}
+
+func clampInterval(interval time.Duration, policy RetryPolicyDefinition) time.Duration {
+	if interval <= 0 {
+		interval = 30 * time.Second
+	}
+	if policy.MaxInterval > 0 && interval > policy.MaxInterval {
+		interval = policy.MaxInterval
+	}
+	return interval
 }
 
 // PopDue 拉取到期的重试任务。

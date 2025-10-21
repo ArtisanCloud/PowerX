@@ -57,6 +57,15 @@ type StartInstanceRequest struct {
 	CorrelationID     string            `json:"correlation_id"`
 }
 
+type ControlInstanceRequest struct {
+	TenantID     uint64         `json:"tenant_id" validate:"required"`
+	Action       string         `json:"action" validate:"required"`
+	StepID       string         `json:"step_id"`
+	AssignmentID uint64         `json:"assignment_id"`
+	Reason       string         `json:"reason"`
+	Payload      map[string]any `json:"payload"`
+}
+
 func (h *Handler) CreateDefinition(c *gin.Context) {
 	if h.svc == nil {
 		dto.RespondErrorFrom(c, dto.NewInternal("workflow service unavailable", nil))
@@ -272,6 +281,52 @@ func (h *Handler) GetInstance(c *gin.Context) {
 	}
 
 	dto.ResponseSuccess(c, mapInstance(instance, records))
+}
+
+func (h *Handler) ControlInstance(c *gin.Context) {
+	if h.svc == nil {
+		dto.RespondErrorFrom(c, dto.NewInternal("workflow service unavailable", nil))
+		return
+	}
+
+	instanceUUID, err := uuid.Parse(c.Param("instanceId"))
+	if err != nil {
+		dto.RespondErrorFrom(c, dto.NewBadRequest("invalid instance id", err))
+		return
+	}
+
+	var req ControlInstanceRequest
+	if err := dto.ValidateRequestWithContext(c, &req); err != nil {
+		dto.RespondErrorFrom(c, dto.NewBadRequest("invalid payload", err))
+		return
+	}
+
+	updated, err := h.svc.ControlInstance(c.Request.Context(), workflow.ControlInstanceInput{
+		TenantID:     req.TenantID,
+		InstanceUUID: instanceUUID,
+		Action:       strings.ToLower(req.Action),
+		StepID:       req.StepID,
+		AssignmentID: req.AssignmentID,
+		Reason:       req.Reason,
+		Payload:      req.Payload,
+	})
+	if err != nil {
+		dto.RespondErrorFrom(c, dto.NewBadRequest("control instance failed", err))
+		return
+	}
+
+	inst, records, err := h.svc.GetInstance(c.Request.Context(), req.TenantID, instanceUUID, true)
+	if err != nil {
+		dto.RespondErrorFrom(c, dto.NewBadRequest("load instance failed", err))
+		return
+	}
+
+	if updated != nil {
+		dto.ResponseSuccess(c, mapInstance(updated, records))
+		return
+	}
+
+	dto.ResponseSuccess(c, mapInstance(inst, records))
 }
 
 func mapDefinition(def *modelworkflow.WorkflowDefinition) map[string]any {

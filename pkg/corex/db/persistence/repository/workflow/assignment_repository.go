@@ -101,3 +101,32 @@ func (r *AgentAssignmentRepository) UpdateStatus(ctx context.Context, id uint64,
 		Where("id = ?", id).
 		Updates(updates).Error
 }
+
+// FindTimedOutAssignments 查找在 Ack 截止前未响应的派发。
+func (r *AgentAssignmentRepository) FindTimedOutAssignments(ctx context.Context, tenantID uint64, before time.Time, limit int) ([]modelworkflow.AgentAssignment, error) {
+	if tenantID == 0 {
+		return nil, errors.New("tenant id is required")
+	}
+	if limit <= 0 {
+		limit = 50
+	}
+
+	assignmentTable := (&modelworkflow.AgentAssignment{}).TableName()
+	stepTable := (&modelworkflow.WorkflowStepRecord{}).TableName()
+	instanceTable := (&modelworkflow.WorkflowInstance{}).TableName()
+
+	var assignments []modelworkflow.AgentAssignment
+	err := r.db.WithContext(ctx).
+		Table(assignmentTable).
+		Joins("JOIN "+stepTable+" sr ON sr.id = "+assignmentTable+".step_record_id").
+		Joins("JOIN "+instanceTable+" inst ON inst.uuid = sr.instance_uuid").
+		Where(assignmentTable+".status IN ?", []string{"dispatched", "acknowledged"}).
+		Where(assignmentTable+".ack_deadline IS NOT NULL").
+		Where(assignmentTable+".ack_deadline <= ?", before).
+		Where("inst.tenant_id = ?", tenantID).
+		Order(assignmentTable + ".ack_deadline ASC").
+		Limit(limit).
+		Select(assignmentTable + ".*").
+		Scan(&assignments).Error
+	return assignments, err
+}

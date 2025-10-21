@@ -2,6 +2,7 @@ package workflow
 
 import (
 	"context"
+	"strconv"
 	"strings"
 	"time"
 
@@ -265,7 +266,15 @@ func (s *Server) ListInstances(ctx context.Context, req *workflowv1.ListInstance
 
 	items := make([]*workflowv1.WorkflowInstance, 0, len(instances))
 	for i := range instances {
-		items = append(items, modelInstanceToPB(&instances[i], nil))
+		if req.GetIncludeSteps() {
+			inst, steps, err := s.svc.GetInstance(ctx, tenantID, instances[i].UUID, true)
+			if err != nil {
+				return nil, status.Error(codes.InvalidArgument, err.Error())
+			}
+			items = append(items, modelInstanceToPB(inst, steps))
+		} else {
+			items = append(items, modelInstanceToPB(&instances[i], nil))
+		}
 	}
 
 	return &workflowv1.ListInstancesResponse{
@@ -278,7 +287,45 @@ func (s *Server) ListInstances(ctx context.Context, req *workflowv1.ListInstance
 }
 
 func (s *Server) ControlInstance(ctx context.Context, req *workflowv1.ControlInstanceRequest) (*workflowv1.ControlInstanceResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "ControlInstance not implemented")
+	if s.svc == nil {
+		return nil, status.Error(codes.Internal, "workflow service unavailable")
+	}
+	tenantID := tenantIDFromContext(req.GetCtx())
+	if tenantID == 0 {
+		return nil, status.Error(codes.InvalidArgument, "tenant_id is required")
+	}
+	instUUID, err := uuid.Parse(req.GetInstanceId())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid instance_id")
+	}
+
+	action := controlActionString(req.GetAction())
+	assignmentID := parseUint64(req.GetAssignmentId())
+	operator := memberUUIDFromContext(req.GetCtx())
+
+	_, err = s.svc.ControlInstance(ctx, workflowsvc.ControlInstanceInput{
+		TenantID:     tenantID,
+		InstanceUUID: instUUID,
+		Action:       action,
+		Operator:     operator,
+		StepID:       req.GetStepId(),
+		AssignmentID: assignmentID,
+		Reason:       req.GetReason(),
+		Payload:      structToMap(req.GetPayload()),
+	})
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+
+	instDetail, steps, err := s.svc.GetInstance(ctx, tenantID, instUUID, true)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+
+	return &workflowv1.ControlInstanceResponse{
+		Meta:     okMeta(ctx),
+		Instance: modelInstanceToPB(instDetail, steps),
+	}, nil
 }
 
 func (s *Server) ExportInstances(ctx context.Context, req *workflowv1.ExportInstancesRequest) (*workflowv1.ExportInstancesResponse, error) {
@@ -308,4 +355,33 @@ func requestIDFromContext(ctx context.Context) string {
 		}
 	}
 	return ""
+}
+
+func controlActionString(action workflowv1.ControlAction) string {
+	switch action {
+	case workflowv1.ControlAction_CONTROL_ACTION_PAUSE:
+		return "pause"
+	case workflowv1.ControlAction_CONTROL_ACTION_RESUME:
+		return "resume"
+	case workflowv1.ControlAction_CONTROL_ACTION_CANCEL:
+		return "cancel"
+	case workflowv1.ControlAction_CONTROL_ACTION_RETRY_STEP:
+		return "retry_step"
+	case workflowv1.ControlAction_CONTROL_ACTION_TRIGGER_COMPENSATION:
+		return "trigger_compensation"
+	case workflowv1.ControlAction_CONTROL_ACTION_REASSIGN_STEP:
+		return "reassign_step"
+	default:
+		return strings.ToLower(action.String())
+	}
+}
+
+func parseUint64(value string) uint64 {
+	if value == "" {
+		return 0
+	}
+	if id, err := strconv.ParseUint(value, 10, 64); err == nil {
+		return id
+	}
+	return 0
 }

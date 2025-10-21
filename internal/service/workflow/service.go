@@ -12,10 +12,10 @@ import (
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 
+	"github.com/ArtisanCloud/PowerX/internal/service"
 	modelworkflow "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/workflow"
 	workflowrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/workflow"
-
-	"github.com/ArtisanCloud/PowerX/internal/service"
+	eventbus "github.com/ArtisanCloud/PowerX/pkg/event_bus"
 )
 
 // ErrNotImplemented 表示后续阶段才会补全的业务逻辑。
@@ -54,6 +54,14 @@ type AssignmentStore interface {
 	GetLatestByStep(ctx context.Context, stepRecordID uint64) (*modelworkflow.AgentAssignment, error)
 	FindOpenAssignments(ctx context.Context, agentUUID uuid.UUID, statuses []string, limit int) ([]modelworkflow.AgentAssignment, error)
 	UpdateStatus(ctx context.Context, id uint64, status string, updates map[string]interface{}) error
+	FindTimedOutAssignments(ctx context.Context, tenantID uint64, before time.Time, limit int) ([]modelworkflow.AgentAssignment, error)
+}
+
+// CompensationStore 补偿记录持久化接口。
+type CompensationStore interface {
+	CreateCompensation(ctx context.Context, compensation *modelworkflow.WorkflowStepCompensation) (*modelworkflow.WorkflowStepCompensation, error)
+	ListByInstance(ctx context.Context, instanceUUID uuid.UUID) ([]modelworkflow.WorkflowStepCompensation, error)
+	UpdateState(ctx context.Context, id uint64, state string, updates map[string]interface{}) error
 }
 
 // EventRecorder 记录工作流事件。
@@ -65,11 +73,15 @@ type EventRecorder interface {
 type Service struct {
 	*service.BaseService
 
-	definitions DefinitionStore
-	instances   InstanceStore
-	steps       StepRecordStore
-	assignments AssignmentStore
-	events      EventRecorder
+	definitions   DefinitionStore
+	instances     InstanceStore
+	steps         StepRecordStore
+	assignments   AssignmentStore
+	compensations CompensationStore
+	events        EventRecorder
+	scheduler     *Scheduler
+	tracker       *AssignmentTracker
+	metrics       MetricsRecorder
 
 	now func() time.Time
 	em  *eventEmitter
@@ -77,12 +89,19 @@ type Service struct {
 
 // ServiceOptions 用于注入自定义依赖。
 type ServiceOptions struct {
-	DefinitionStore DefinitionStore
-	InstanceStore   InstanceStore
-	StepStore       StepRecordStore
-	AssignmentStore AssignmentStore
-	EventRecorder   EventRecorder
-	Clock           func() time.Time
+	DefinitionStore      DefinitionStore
+	InstanceStore        InstanceStore
+	StepStore            StepRecordStore
+	AssignmentStore      AssignmentStore
+	CompensationStore    CompensationStore
+	EventRecorder        EventRecorder
+	Clock                func() time.Time
+	Scheduler            *Scheduler
+	ReliableQueue        eventbus.ReliableQueue
+	AssignmentTracker    *AssignmentTracker
+	AssignmentAckTimeout time.Duration
+	GrantValidator       ToolGrantValidator
+	Metrics              MetricsRecorder
 }
 
 // NewService 构建工作流服务实例。
@@ -107,6 +126,11 @@ func NewService(db *gorm.DB, opts ServiceOptions) *Service {
 		assignStore = workflowrepo.NewAgentAssignmentRepository(db)
 	}
 
+	compStore := opts.CompensationStore
+	if compStore == nil {
+		compStore = workflowrepo.NewCompensationRepository(db)
+	}
+
 	eventStore := opts.EventRecorder
 	if eventStore == nil {
 		eventRepo := workflowrepo.NewEventRepository(db)
@@ -118,15 +142,44 @@ func NewService(db *gorm.DB, opts ServiceOptions) *Service {
 		clock = time.Now
 	}
 
+	metrics := opts.Metrics
+	if metrics == nil {
+		metrics = noopMetricsRecorder{}
+	}
+
+	scheduler := opts.Scheduler
+	if scheduler == nil && opts.ReliableQueue != nil {
+		scheduler = NewScheduler(opts.ReliableQueue)
+	}
+
+	tracker := opts.AssignmentTracker
+	if tracker == nil {
+		ackTimeout := opts.AssignmentAckTimeout
+		if ackTimeout <= 0 {
+			ackTimeout = 2 * time.Minute
+		}
+		tracker = NewAssignmentTracker(AssignmentTrackerOptions{
+			AssignmentStore: assignStore,
+			StepStore:       stepStore,
+			GrantValidator:  opts.GrantValidator,
+			Clock:           clock,
+			AckTimeout:      ackTimeout,
+		})
+	}
+
 	return &Service{
-		BaseService: &service.BaseService{DB: db},
-		definitions: defStore,
-		instances:   instStore,
-		steps:       stepStore,
-		assignments: assignStore,
-		events:      eventStore,
-		now:         clock,
-		em:          newEventEmitter(eventStore, clock),
+		BaseService:   &service.BaseService{DB: db},
+		definitions:   defStore,
+		instances:     instStore,
+		steps:         stepStore,
+		assignments:   assignStore,
+		compensations: compStore,
+		events:        eventStore,
+		scheduler:     scheduler,
+		tracker:       tracker,
+		metrics:       metrics,
+		now:           clock,
+		em:            newEventEmitter(eventStore, clock),
 	}
 }
 
@@ -363,8 +416,24 @@ func (s *Service) StartInstance(ctx context.Context, input StartInstanceInput) (
 		if subjectType == "human" {
 			record.AwaitingHuman = true
 		}
-		if _, err := s.steps.AppendRecord(ctx, record); err != nil {
+		created, err := s.steps.AppendRecord(ctx, record)
+		if err != nil {
 			return nil, err
+		}
+		if s.tracker != nil && strings.EqualFold(stepDef.Type, "agent") {
+			agentID, capability := extractAgentConfig(stepDef)
+			if agentID != uuid.Nil {
+				if _, err := s.tracker.Dispatch(ctx, AssignmentDispatchInput{
+					TenantID:     instance.TenantID,
+					InstanceUUID: instance.UUID,
+					StepRecordID: created.ID,
+					StepID:       stepDef.ID,
+					AgentUUID:    agentID,
+					Capability:   capability,
+				}); err != nil {
+					return nil, err
+				}
+			}
 		}
 	}
 
@@ -392,11 +461,6 @@ type ControlInstanceInput struct {
 	AssignmentID uint64
 	Reason       string
 	Payload      map[string]any
-}
-
-// ControlInstance 执行暂停、恢复、取消等操作。
-func (s *Service) ControlInstance(ctx context.Context, input ControlInstanceInput) error {
-	return ErrNotImplemented
 }
 
 // GetDefinition 按租户与 UUID 获取工作流定义，支持可选版本过滤。
@@ -474,4 +538,20 @@ func loadStepGraph(jsonData datatypes.JSON) ([]StepDefinition, error) {
 		return nil, fmt.Errorf("decode step graph failed: %w", err)
 	}
 	return steps, nil
+}
+
+func extractAgentConfig(step StepDefinition) (uuid.UUID, string) {
+	var agentID uuid.UUID
+	capability := ""
+	if step.Config != nil {
+		if v, ok := step.Config["agent_id"].(string); ok {
+			if parsed, err := uuid.Parse(strings.TrimSpace(v)); err == nil {
+				agentID = parsed
+			}
+		}
+		if v, ok := step.Config["capability"].(string); ok {
+			capability = strings.TrimSpace(v)
+		}
+	}
+	return agentID, capability
 }

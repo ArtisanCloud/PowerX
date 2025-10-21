@@ -89,23 +89,23 @@
 
 ### Tests for User Story 2
 
-- [ ] T029 [P] [US2] gRPC 合同测试：覆盖 `ControlInstance` 及扩展 `ListInstances` 场景 (`tests/contract/workflow/workflow_control_grpc_test.go`)
-- [ ] T030 [P] [US2] HTTP 合同测试：覆盖 `/instances/{id}/actions` 控制接口 (`tests/contract/workflow/workflow_control_http_test.go`)
-- [ ] T031 [P] [US2] 集成测试：步骤失败 + 自动重试 + 补偿验证 (`tests/integration/workflow/test_retry_compensation_flow.go`)
-- [ ] T055 [P] [US2] 单元测试：校验 Tool Grant 资格与超时重派逻辑 (`tests/unit/workflow_assignment_test.go`)
-- [ ] T058 [P] [US2] 多租户隔离集成测试：验证跨租户请求无法访问他人实例/控制接口 (`tests/integration/workflow/test_tenant_isolation.go`)
+- [X] T029 [P] [US2] gRPC 合同测试：覆盖 `ControlInstance` 及扩展 `ListInstances` 场景 (`tests/contract/workflow/workflow_control_grpc_test.go`)
+- [X] T030 [P] [US2] HTTP 合同测试：覆盖 `/instances/{id}/actions` 控制接口 (`tests/contract/workflow/workflow_control_http_test.go`)
+- [X] T031 [P] [US2] 集成测试：步骤失败 + 自动重试 + 补偿验证 (`tests/integration/workflow/test_retry_compensation_flow.go`)
+- [X] T055 [P] [US2] 单元测试：校验 Tool Grant 资格与超时重派逻辑 (`tests/unit/workflow_assignment_test.go`)
+- [X] T058 [P] [US2] 多租户隔离集成测试：验证跨租户请求无法访问他人实例/控制接口 (`tests/integration/workflow/test_tenant_isolation.go`)
 
 ### Implementation for User Story 2
 
-- [ ] T032 [US2] 完成调度器重试与 SLA 解析 (`internal/service/workflow/scheduler.go`)：实现 Redis 延迟队列、心跳检测
-- [ ] T033 [US2] 实作补偿编排 (`internal/service/workflow/compensation.go`)：逆序执行、人工确认流程
-- [ ] T034 [US2] 扩展服务层控制接口 (`internal/service/workflow/service_control.go`)：暂停/恢复/取消/重新派单
-- [ ] T035 [US2] 实现 gRPC 控制 Handler (`internal/transport/grpc/workflow/control_handler.go`)
-- [ ] T036 [US2] 实现 HTTP 控制 Handler (`internal/transport/http/admin/workflow/instances_handler.go`)
-- [ ] T037 [US2] 实现 AgentAssignment 状态跟踪与超时处理 (`internal/service/workflow/assignment_tracker.go`)
-- [ ] T038 [US2] 增加 SLA breach 指标与 OTEL 观测 (`internal/service/workflow/metrics.go`)
-- [ ] T053 [US2] 在派发阶段校验 Tool Grant 资格并记录版本 (`internal/service/workflow/service_instance.go`, `internal/service/workflow/assignment_tracker.go`)
-- [ ] T059 [US2] 加固租户过滤：仓储查询统一强制 tenant_id (`pkg/corex/db/persistence/repository/workflow`, `internal/service/workflow/service_control.go`)
+- [X] T032 [US2] 完成调度器重试与 SLA 解析 (`internal/service/workflow/scheduler.go`)：实现 Redis 延迟队列、心跳检测
+- [X] T033 [US2] 实作补偿编排 (`internal/service/workflow/compensation.go`)：逆序执行、人工确认流程
+- [X] T034 [US2] 扩展服务层控制接口 (`internal/service/workflow/service_control.go`)：暂停/恢复/取消/重新派单
+- [X] T035 [US2] 实现 gRPC 控制 Handler (`internal/transport/grpc/workflow/control_handler.go`)
+- [X] T036 [US2] 实现 HTTP 控制 Handler (`internal/transport/http/admin/workflow/instances_handler.go`)
+- [X] T037 [US2] 实现 AgentAssignment 状态跟踪与超时处理 (`internal/service/workflow/assignment_tracker.go`)
+- [X] T038 [US2] 增加 SLA breach 指标与 OTEL 观测 (`internal/service/workflow/metrics.go`)
+- [X] T053 [US2] 在派发阶段校验 Tool Grant 资格并记录版本 (`internal/service/workflow/service_instance.go`, `internal/service/workflow/assignment_tracker.go`)
+- [X] T059 [US2] 加固租户过滤：仓储查询统一强制 tenant_id (`pkg/corex/db/persistence/repository/workflow`, `internal/service/workflow/service_control.go`)
 
 **Checkpoint**: User Stories 1 + 2 均可独立演示
 
