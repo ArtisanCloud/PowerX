@@ -27,6 +27,35 @@ type activateAgentRequest struct {
 	TraceID     string `json:"trace_id"`
 }
 
+type pauseAgentRequest struct {
+	TenantID    string `json:"tenant_id" binding:"required"`
+	Reason      string `json:"reason"`
+	RequestedBy string `json:"requested_by"`
+	TraceID     string `json:"trace_id"`
+}
+
+type resumeAgentRequest struct {
+	TenantID    string `json:"tenant_id" binding:"required"`
+	Reason      string `json:"reason"`
+	RequestedBy string `json:"requested_by"`
+	TraceID     string `json:"trace_id"`
+}
+
+type retireAgentRequest struct {
+	TenantID    string `json:"tenant_id" binding:"required"`
+	Reason      string `json:"reason"`
+	RequestedBy string `json:"requested_by"`
+	TraceID     string `json:"trace_id"`
+}
+
+type scaleAgentRequest struct {
+	TenantID                string `json:"tenant_id" binding:"required"`
+	TargetCapacityInstances int32  `json:"target_capacity_instances" binding:"required"`
+	Reason                  string `json:"reason"`
+	RequestedBy             string `json:"requested_by"`
+	TraceID                 string `json:"trace_id"`
+}
+
 type agentGrantDTO struct {
 	Name      string `json:"name"`
 	Version   string `json:"version"`

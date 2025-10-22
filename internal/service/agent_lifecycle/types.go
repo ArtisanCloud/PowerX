@@ -3,6 +3,7 @@ package agent_lifecycle
 import (
 	"time"
 
+	agentmodel "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/model"
 	"github.com/google/uuid"
 )
 
@@ -21,12 +22,12 @@ type Agent struct {
 	DisplayName              string    `json:"display_name"`
 	Status                   string    `json:"status"`
 	ToolGrants               []ToolGrant
-	TelemetryContractVersion string    `json:"telemetry_contract_version"`
-	DefaultCapacityInstances int32     `json:"default_capacity_instances"`
-	MaxCapacityInstances     *int32    `json:"max_capacity_instances,omitempty"`
-	CurrentCapacityInstances int32     `json:"current_capacity_instances"`
-	EventTopicPrefix         string    `json:"event_topic_prefix"`
-	NotificationChannel      string    `json:"notification_channel,omitempty"`
+	TelemetryContractVersion string `json:"telemetry_contract_version"`
+	DefaultCapacityInstances int32  `json:"default_capacity_instances"`
+	MaxCapacityInstances     *int32 `json:"max_capacity_instances,omitempty"`
+	CurrentCapacityInstances int32  `json:"current_capacity_instances"`
+	EventTopicPrefix         string `json:"event_topic_prefix"`
+	NotificationChannel      string `json:"notification_channel,omitempty"`
 	Metadata                 map[string]string
 	CreatedAt                time.Time `json:"created_at"`
 	UpdatedAt                time.Time `json:"updated_at"`
@@ -55,4 +56,42 @@ type ActivateInput struct {
 	Reason      string
 	RequestedBy string
 	TraceID     string
+}
+
+type PauseInput struct {
+	AgentID     uuid.UUID
+	TenantID    string
+	Reason      string
+	RequestedBy string
+	TraceID     string
+}
+
+type ResumeInput struct {
+	AgentID     uuid.UUID
+	TenantID    string
+	Reason      string
+	RequestedBy string
+	TraceID     string
+}
+
+type RetireInput struct {
+	AgentID     uuid.UUID
+	TenantID    string
+	Reason      string
+	RequestedBy string
+	TraceID     string
+}
+
+type ScaleInput struct {
+	AgentID     uuid.UUID
+	TenantID    string
+	Target      int32
+	Reason      string
+	RequestedBy string
+	TraceID     string
+}
+
+type LifecycleResult struct {
+	Agent *Agent
+	Event *agentmodel.AgentLifecycleEventRecord
 }

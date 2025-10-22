@@ -43,7 +43,7 @@ func (h *Handler) RegisterAgent(c *gin.Context) {
 		h.handleError(c, err)
 		return
 	}
-	dto.ResponseSuccessWithStatus(c, nethttp.StatusCreated, fromAgent(result))
+	dto.ResponseSuccessWithStatus(c, nethttp.StatusCreated, fromAgent(result.Agent))
 }
 
 // GetAgent 返回单个代理档案。
@@ -123,7 +123,136 @@ func (h *Handler) ActivateAgent(c *gin.Context) {
 		h.handleError(c, err)
 		return
 	}
-	dto.ResponseSuccess(c, fromAgent(result))
+	dto.ResponseSuccess(c, fromAgent(result.Agent))
+}
+
+func (h *Handler) PauseAgent(c *gin.Context) {
+	if h.service == nil {
+		dto.ResponseError(c, nethttp.StatusServiceUnavailable, "agent lifecycle service not available", nil)
+		return
+	}
+
+	agentID, err := uuid.Parse(c.Param("agent_id"))
+	if err != nil {
+		dto.ResponseError(c, nethttp.StatusBadRequest, "invalid agent_id", err)
+		return
+	}
+
+	var req pauseAgentRequest
+	if err := dto.ValidateRequestWithContext(c, &req); err != nil {
+		dto.ResponseValidationError(c, err)
+		return
+	}
+
+	result, err := h.service.Pause(c.Request.Context(), agent_lifecycle.PauseInput{
+		AgentID:     agentID,
+		TenantID:    req.TenantID,
+		Reason:      req.Reason,
+		RequestedBy: req.RequestedBy,
+		TraceID:     req.TraceID,
+	})
+	if err != nil {
+		h.handleError(c, err)
+		return
+	}
+	dto.ResponseSuccess(c, fromAgent(result.Agent))
+}
+
+func (h *Handler) ResumeAgent(c *gin.Context) {
+	if h.service == nil {
+		dto.ResponseError(c, nethttp.StatusServiceUnavailable, "agent lifecycle service not available", nil)
+		return
+	}
+
+	agentID, err := uuid.Parse(c.Param("agent_id"))
+	if err != nil {
+		dto.ResponseError(c, nethttp.StatusBadRequest, "invalid agent_id", err)
+		return
+	}
+
+	var req resumeAgentRequest
+	if err := dto.ValidateRequestWithContext(c, &req); err != nil {
+		dto.ResponseValidationError(c, err)
+		return
+	}
+
+	result, err := h.service.Resume(c.Request.Context(), agent_lifecycle.ResumeInput{
+		AgentID:     agentID,
+		TenantID:    req.TenantID,
+		Reason:      req.Reason,
+		RequestedBy: req.RequestedBy,
+		TraceID:     req.TraceID,
+	})
+	if err != nil {
+		h.handleError(c, err)
+		return
+	}
+	dto.ResponseSuccess(c, fromAgent(result.Agent))
+}
+
+func (h *Handler) RetireAgent(c *gin.Context) {
+	if h.service == nil {
+		dto.ResponseError(c, nethttp.StatusServiceUnavailable, "agent lifecycle service not available", nil)
+		return
+	}
+
+	agentID, err := uuid.Parse(c.Param("agent_id"))
+	if err != nil {
+		dto.ResponseError(c, nethttp.StatusBadRequest, "invalid agent_id", err)
+		return
+	}
+
+	var req retireAgentRequest
+	if err := dto.ValidateRequestWithContext(c, &req); err != nil {
+		dto.ResponseValidationError(c, err)
+		return
+	}
+
+	result, err := h.service.Retire(c.Request.Context(), agent_lifecycle.RetireInput{
+		AgentID:     agentID,
+		TenantID:    req.TenantID,
+		Reason:      req.Reason,
+		RequestedBy: req.RequestedBy,
+		TraceID:     req.TraceID,
+	})
+	if err != nil {
+		h.handleError(c, err)
+		return
+	}
+	dto.ResponseSuccess(c, fromAgent(result.Agent))
+}
+
+func (h *Handler) ScaleAgent(c *gin.Context) {
+	if h.service == nil {
+		dto.ResponseError(c, nethttp.StatusServiceUnavailable, "agent lifecycle service not available", nil)
+		return
+	}
+
+	agentID, err := uuid.Parse(c.Param("agent_id"))
+	if err != nil {
+		dto.ResponseError(c, nethttp.StatusBadRequest, "invalid agent_id", err)
+		return
+	}
+
+	var req scaleAgentRequest
+	if err := dto.ValidateRequestWithContext(c, &req); err != nil {
+		dto.ResponseValidationError(c, err)
+		return
+	}
+
+	result, err := h.service.Scale(c.Request.Context(), agent_lifecycle.ScaleInput{
+		AgentID:     agentID,
+		TenantID:    req.TenantID,
+		Target:      req.TargetCapacityInstances,
+		Reason:      req.Reason,
+		RequestedBy: req.RequestedBy,
+		TraceID:     req.TraceID,
+	})
+	if err != nil {
+		h.handleError(c, err)
+		return
+	}
+	dto.ResponseSuccess(c, fromAgent(result.Agent))
 }
 
 func (h *Handler) handleError(c *gin.Context, err error) {
@@ -134,6 +263,8 @@ func (h *Handler) handleError(c *gin.Context, err error) {
 		dto.ResponseError(c, nethttp.StatusNotFound, "agent not found", err)
 	case errors.Is(err, agent_lifecycle.ErrInvalidStatusTransition):
 		dto.ResponseError(c, nethttp.StatusConflict, "invalid status transition", err)
+	case errors.Is(err, agent_lifecycle.ErrInvalidCapacity), errors.Is(err, agent_lifecycle.ErrCapacityExceeded):
+		dto.ResponseError(c, nethttp.StatusBadRequest, err.Error(), err)
 	default:
 		dto.ResponseError(c, nethttp.StatusInternalServerError, "internal error", err)
 	}

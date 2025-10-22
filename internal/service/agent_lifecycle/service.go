@@ -82,7 +82,8 @@ func NewService(opts ServiceOptions) *Service {
 }
 
 // Register 创建新代理档案并记录初始生命周期事件。
-func (s *Service) Register(ctx context.Context, in RegisterInput) (*Agent, error) {
+func (s *Service) Register(ctx context.Context, in RegisterInput) (*LifecycleResult, error) {
+	start := s.clock()
 	if strings.TrimSpace(in.TenantID) == "" || strings.TrimSpace(in.Alias) == "" {
 		return nil, fmt.Errorf("tenant_id and alias are required")
 	}
@@ -140,7 +141,8 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (*Agent, error
 		return nil, err
 	}
 
-	if err := s.appendLifecycleEvent(ctx, created, "register", "", created.Status, in.RequestedBy, "", traceID); err != nil {
+	lifecycleEvent, err := s.appendLifecycleEvent(ctx, created, "register", "", created.Status, in.RequestedBy, nil, "", in.TraceID, s.clock().Sub(start))
+	if err != nil {
 		return nil, err
 	}
 
@@ -154,11 +156,15 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (*Agent, error
 		"alias": in.Alias,
 	})
 
-	return toAgent(created, in.ToolGrants, in.Metadata), nil
+	return &LifecycleResult{
+		Agent: toAgent(created, in.ToolGrants, in.Metadata),
+		Event: lifecycleEvent,
+	}, nil
 }
 
 // Activate 将代理状态切换为运行中。
-func (s *Service) Activate(ctx context.Context, in ActivateInput) (*Agent, error) {
+func (s *Service) Activate(ctx context.Context, in ActivateInput) (*LifecycleResult, error) {
+	start := s.clock()
 	if in.AgentID == uuid.Nil {
 		return nil, fmt.Errorf("agent_id is required")
 	}
@@ -180,7 +186,7 @@ func (s *Service) Activate(ctx context.Context, in ActivateInput) (*Agent, error
 	ctx = agentinstr.WithTenant(ctx, tenantID)
 
 	if profile.Status == "active" {
-		return toAgent(profile, parseToolGrants(profile.ToolGrants), parseMetadata(profile.Metadata)), nil
+		return &LifecycleResult{Agent: toAgent(profile, parseToolGrants(profile.ToolGrants), parseMetadata(profile.Metadata))}, nil
 	}
 	if profile.Status != "pending" && profile.Status != "paused" {
 		return nil, ErrInvalidStatusTransition
@@ -196,7 +202,8 @@ func (s *Service) Activate(ctx context.Context, in ActivateInput) (*Agent, error
 		profile = updated
 	}
 
-	if err := s.appendLifecycleEvent(ctx, profile, "activate", fromStatus, profile.Status, in.RequestedBy, in.Reason, traceID); err != nil {
+	lifecycleEvent, err := s.appendLifecycleEvent(ctx, profile, "activate", fromStatus, profile.Status, in.RequestedBy, nil, in.Reason, traceID, s.clock().Sub(start))
+	if err != nil {
 		return nil, err
 	}
 
@@ -212,7 +219,260 @@ func (s *Service) Activate(ctx context.Context, in ActivateInput) (*Agent, error
 		"to":   profile.Status,
 	})
 
-	return toAgent(profile, parseToolGrants(profile.ToolGrants), parseMetadata(profile.Metadata)), nil
+	return &LifecycleResult{
+		Agent: toAgent(profile, parseToolGrants(profile.ToolGrants), parseMetadata(profile.Metadata)),
+		Event: lifecycleEvent,
+	}, nil
+}
+
+func (s *Service) Pause(ctx context.Context, in PauseInput) (*LifecycleResult, error) {
+	start := s.clock()
+	if in.AgentID == uuid.Nil {
+		return nil, fmt.Errorf("agent_id is required")
+	}
+	ctx, traceID := agentinstr.EnsureTraceContext(ctx)
+	profile, err := s.profiles.GetByUUID(ctx, in.AgentID)
+	if err != nil {
+		if errors.Is(err, agentrepo.ErrAgentProfileNotFound) {
+			return nil, ErrAgentNotFound
+		}
+		return nil, err
+	}
+
+	tenantID := strings.TrimSpace(in.TenantID)
+	if tenantID == "" {
+		tenantID = profile.TenantID
+	}
+	ctx = agentinstr.WithTenant(ctx, tenantID)
+
+	if profile.Status != "active" {
+		return nil, ErrInvalidStatusTransition
+	}
+
+	fromStatus := profile.Status
+	profile.Status = "paused"
+	profile.CurrentCapacityInstances = 0
+	profile.UpdatedBy = in.RequestedBy
+
+	if updated, err := s.profiles.Save(ctx, profile); err != nil {
+		return nil, err
+	} else {
+		profile = updated
+	}
+
+	lifecycleEvent, err := s.appendLifecycleEvent(ctx, profile, "pause", fromStatus, profile.Status, in.RequestedBy, nil, in.Reason, traceID, s.clock().Sub(start))
+	if err != nil {
+		return nil, err
+	}
+
+	s.publishLifecycle(ctx, "paused", map[string]any{
+		"agent_id":  profile.UUID.String(),
+		"tenant_id": tenantID,
+		"from":      fromStatus,
+		"to":        profile.Status,
+		"reason":    in.Reason,
+	}, traceID)
+
+	s.instr.AuditLifecycleEvent(ctx, tenantID, profile.UUID.String(), "PAUSE_AGENT", "SUCCESS", map[string]any{
+		"from":   fromStatus,
+		"to":     profile.Status,
+		"reason": in.Reason,
+	})
+
+	return &LifecycleResult{
+		Agent: toAgent(profile, parseToolGrants(profile.ToolGrants), parseMetadata(profile.Metadata)),
+		Event: lifecycleEvent,
+	}, nil
+}
+
+func (s *Service) Resume(ctx context.Context, in ResumeInput) (*LifecycleResult, error) {
+	start := s.clock()
+	if in.AgentID == uuid.Nil {
+		return nil, fmt.Errorf("agent_id is required")
+	}
+	ctx, traceID := agentinstr.EnsureTraceContext(ctx)
+	profile, err := s.profiles.GetByUUID(ctx, in.AgentID)
+	if err != nil {
+		if errors.Is(err, agentrepo.ErrAgentProfileNotFound) {
+			return nil, ErrAgentNotFound
+		}
+		return nil, err
+	}
+
+	tenantID := strings.TrimSpace(in.TenantID)
+	if tenantID == "" {
+		tenantID = profile.TenantID
+	}
+	ctx = agentinstr.WithTenant(ctx, tenantID)
+
+	if profile.Status != "paused" {
+		return nil, ErrInvalidStatusTransition
+	}
+
+	fromStatus := profile.Status
+	profile.Status = "active"
+	profile.CurrentCapacityInstances = coalesceInt32(profile.CurrentCapacityInstances, profile.DefaultCapacityInstances)
+	profile.UpdatedBy = in.RequestedBy
+
+	if updated, err := s.profiles.Save(ctx, profile); err != nil {
+		return nil, err
+	} else {
+		profile = updated
+	}
+
+	lifecycleEvent, err := s.appendLifecycleEvent(ctx, profile, "resume", fromStatus, profile.Status, in.RequestedBy, nil, in.Reason, traceID, s.clock().Sub(start))
+	if err != nil {
+		return nil, err
+	}
+
+	s.publishLifecycle(ctx, "resumed", map[string]any{
+		"agent_id":  profile.UUID.String(),
+		"tenant_id": tenantID,
+		"from":      fromStatus,
+		"to":        profile.Status,
+	}, traceID)
+
+	s.instr.AuditLifecycleEvent(ctx, tenantID, profile.UUID.String(), "RESUME_AGENT", "SUCCESS", map[string]any{
+		"from": fromStatus,
+		"to":   profile.Status,
+	})
+
+	return &LifecycleResult{
+		Agent: toAgent(profile, parseToolGrants(profile.ToolGrants), parseMetadata(profile.Metadata)),
+		Event: lifecycleEvent,
+	}, nil
+}
+
+func (s *Service) Retire(ctx context.Context, in RetireInput) (*LifecycleResult, error) {
+	start := s.clock()
+	if in.AgentID == uuid.Nil {
+		return nil, fmt.Errorf("agent_id is required")
+	}
+	ctx, traceID := agentinstr.EnsureTraceContext(ctx)
+	profile, err := s.profiles.GetByUUID(ctx, in.AgentID)
+	if err != nil {
+		if errors.Is(err, agentrepo.ErrAgentProfileNotFound) {
+			return nil, ErrAgentNotFound
+		}
+		return nil, err
+	}
+
+	tenantID := strings.TrimSpace(in.TenantID)
+	if tenantID == "" {
+		tenantID = profile.TenantID
+	}
+	ctx = agentinstr.WithTenant(ctx, tenantID)
+
+	if profile.Status == "retired" {
+		return &LifecycleResult{Agent: toAgent(profile, parseToolGrants(profile.ToolGrants), parseMetadata(profile.Metadata))}, nil
+	}
+	if profile.Status != "active" && profile.Status != "paused" {
+		return nil, ErrInvalidStatusTransition
+	}
+
+	fromStatus := profile.Status
+	profile.Status = "retired"
+	profile.CurrentCapacityInstances = 0
+	now := s.clock().UTC()
+	profile.RetiredAt = &now
+	profile.UpdatedBy = in.RequestedBy
+
+	if updated, err := s.profiles.Save(ctx, profile); err != nil {
+		return nil, err
+	} else {
+		profile = updated
+	}
+
+	lifecycleEvent, err := s.appendLifecycleEvent(ctx, profile, "retire", fromStatus, profile.Status, in.RequestedBy, nil, in.Reason, traceID, s.clock().Sub(start))
+	if err != nil {
+		return nil, err
+	}
+
+	s.publishLifecycle(ctx, "retired", map[string]any{
+		"agent_id":  profile.UUID.String(),
+		"tenant_id": tenantID,
+		"from":      fromStatus,
+		"to":        profile.Status,
+		"reason":    in.Reason,
+	}, traceID)
+
+	s.instr.AuditLifecycleEvent(ctx, tenantID, profile.UUID.String(), "RETIRE_AGENT", "SUCCESS", map[string]any{
+		"from":   fromStatus,
+		"to":     profile.Status,
+		"reason": in.Reason,
+	})
+
+	return &LifecycleResult{
+		Agent: toAgent(profile, parseToolGrants(profile.ToolGrants), parseMetadata(profile.Metadata)),
+		Event: lifecycleEvent,
+	}, nil
+}
+
+func (s *Service) Scale(ctx context.Context, in ScaleInput) (*LifecycleResult, error) {
+	start := s.clock()
+	if in.AgentID == uuid.Nil {
+		return nil, fmt.Errorf("agent_id is required")
+	}
+	if in.Target <= 0 {
+		return nil, ErrInvalidCapacity
+	}
+	ctx, traceID := agentinstr.EnsureTraceContext(ctx)
+	profile, err := s.profiles.GetByUUID(ctx, in.AgentID)
+	if err != nil {
+		if errors.Is(err, agentrepo.ErrAgentProfileNotFound) {
+			return nil, ErrAgentNotFound
+		}
+		return nil, err
+	}
+
+	tenantID := strings.TrimSpace(in.TenantID)
+	if tenantID == "" {
+		tenantID = profile.TenantID
+	}
+	ctx = agentinstr.WithTenant(ctx, tenantID)
+
+	if profile.Status != "active" {
+		return nil, ErrInvalidStatusTransition
+	}
+
+	if profile.MaxCapacityInstances != nil && in.Target > *profile.MaxCapacityInstances {
+		return nil, ErrCapacityExceeded
+	}
+
+	fromCapacity := profile.CurrentCapacityInstances
+	profile.CurrentCapacityInstances = in.Target
+	profile.UpdatedBy = in.RequestedBy
+
+	if updated, err := s.profiles.Save(ctx, profile); err != nil {
+		return nil, err
+	} else {
+		profile = updated
+	}
+
+	target := in.Target
+	lifecycleEvent, err := s.appendLifecycleEvent(ctx, profile, "scale", profile.Status, profile.Status, in.RequestedBy, &target, in.Reason, traceID, s.clock().Sub(start))
+	if err != nil {
+		return nil, err
+	}
+
+	s.publishLifecycle(ctx, "scaled", map[string]any{
+		"agent_id":      profile.UUID.String(),
+		"tenant_id":     tenantID,
+		"from_capacity": fromCapacity,
+		"to_capacity":   in.Target,
+		"reason":        in.Reason,
+	}, traceID)
+
+	s.instr.AuditLifecycleEvent(ctx, tenantID, profile.UUID.String(), "SCALE_AGENT", "SUCCESS", map[string]any{
+		"from_capacity": fromCapacity,
+		"to_capacity":   in.Target,
+		"reason":        in.Reason,
+	})
+
+	return &LifecycleResult{
+		Agent: toAgent(profile, parseToolGrants(profile.ToolGrants), parseMetadata(profile.Metadata)),
+		Event: lifecycleEvent,
+	}, nil
 }
 
 // Get 返回代理档案。
@@ -243,9 +503,9 @@ func (s *Service) ListByTenant(ctx context.Context, tenantID string) ([]*Agent, 
 	return result, nil
 }
 
-func (s *Service) appendLifecycleEvent(ctx context.Context, profile *agentmodel.AgentProfileLifecycle, eventType, fromStatus, toStatus, triggeredBy, reason, traceID string) error {
+func (s *Service) appendLifecycleEvent(ctx context.Context, profile *agentmodel.AgentProfileLifecycle, eventType, fromStatus, toStatus, triggeredBy string, requestedCapacity *int32, reason, traceID string, latency time.Duration) (*agentmodel.AgentLifecycleEventRecord, error) {
 	if s.events == nil {
-		return nil
+		return nil, nil
 	}
 	evt := &agentmodel.AgentLifecycleEventRecord{
 		AgentUUID:         profile.UUID,
@@ -253,14 +513,20 @@ func (s *Service) appendLifecycleEvent(ctx context.Context, profile *agentmodel.
 		EventType:         eventType,
 		FromStatus:        fromStatus,
 		ToStatus:          toStatus,
-		RequestedCapacity: nil,
+		RequestedCapacity: requestedCapacity,
 		Reason:            reason,
 		TriggeredBy:       triggeredBy,
 		TraceID:           traceID,
 		OccurredAt:        s.clock().UTC(),
 	}
-	_, err := s.events.Append(ctx, evt)
-	return err
+	event, err := s.events.Append(ctx, evt)
+	if err != nil {
+		return nil, err
+	}
+	if s.instr != nil {
+		s.instr.RecordLifecycleTransition(ctx, eventType, toStatus, latency)
+	}
+	return event, nil
 }
 
 func (s *Service) publishLifecycle(ctx context.Context, action string, payload map[string]any, traceID string) {

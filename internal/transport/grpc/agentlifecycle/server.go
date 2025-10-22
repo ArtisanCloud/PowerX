@@ -7,6 +7,7 @@ import (
 	"time"
 
 	agentv1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/agent/v1"
+	agentmodel "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/model"
 	"github.com/ArtisanCloud/PowerX/internal/service/agent_lifecycle"
 	"github.com/google/uuid"
 	"google.golang.org/grpc"
@@ -58,7 +59,7 @@ func (s *Server) RegisterAgent(ctx context.Context, req *agentv1.RegisterAgentRe
 	if err != nil {
 		return nil, toStatusError(err)
 	}
-	return &agentv1.RegisterAgentResponse{Agent: toProtoAgent(res)}, nil
+	return &agentv1.RegisterAgentResponse{Agent: toProtoAgent(res.Agent)}, nil
 }
 
 // GetAgent gRPC 实现。
@@ -86,7 +87,7 @@ func (s *Server) ActivateAgent(ctx context.Context, req *agentv1.LifecycleComman
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid agent_id: %v", err)
 	}
-	agent, err := s.service.Activate(ctx, agent_lifecycle.ActivateInput{
+	result, err := s.service.Activate(ctx, agent_lifecycle.ActivateInput{
 		AgentID:     id,
 		TenantID:    "",
 		Reason:      req.GetReason(),
@@ -96,13 +97,92 @@ func (s *Server) ActivateAgent(ctx context.Context, req *agentv1.LifecycleComman
 	if err != nil {
 		return nil, toStatusError(err)
 	}
-	return &agentv1.LifecycleEventResponse{Event: &agentv1.LifecycleEvent{
-		Id:        agent.ID.String(),
-		AgentId:   agent.ID.String(),
-		Type:      agentv1.LifecycleEventType_LIFECYCLE_EVENT_TYPE_ACTIVATE,
-		ToStatus:  agentStatusToProto(agent.Status),
-		CreatedAt: time.Now().UTC().Format(time.RFC3339),
-	}}, nil
+	return &agentv1.LifecycleEventResponse{Event: toProtoLifecycleEvent(result.Event)}, nil
+}
+
+func (s *Server) PauseAgent(ctx context.Context, req *agentv1.LifecycleCommandRequest) (*agentv1.LifecycleEventResponse, error) {
+	if s.service == nil {
+		return nil, status.Error(codes.Unavailable, "agent lifecycle service unavailable")
+	}
+	id, err := uuid.Parse(req.GetAgentId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid agent_id: %v", err)
+	}
+	result, err := s.service.Pause(ctx, agent_lifecycle.PauseInput{
+		AgentID:     id,
+		TenantID:    "",
+		Reason:      req.GetReason(),
+		RequestedBy: req.GetRequestedBy(),
+		TraceID:     req.GetTraceId(),
+	})
+	if err != nil {
+		return nil, toStatusError(err)
+	}
+	return &agentv1.LifecycleEventResponse{Event: toProtoLifecycleEvent(result.Event)}, nil
+}
+
+func (s *Server) ResumeAgent(ctx context.Context, req *agentv1.LifecycleCommandRequest) (*agentv1.LifecycleEventResponse, error) {
+	if s.service == nil {
+		return nil, status.Error(codes.Unavailable, "agent lifecycle service unavailable")
+	}
+	id, err := uuid.Parse(req.GetAgentId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid agent_id: %v", err)
+	}
+	result, err := s.service.Resume(ctx, agent_lifecycle.ResumeInput{
+		AgentID:     id,
+		TenantID:    "",
+		Reason:      req.GetReason(),
+		RequestedBy: req.GetRequestedBy(),
+		TraceID:     req.GetTraceId(),
+	})
+	if err != nil {
+		return nil, toStatusError(err)
+	}
+	return &agentv1.LifecycleEventResponse{Event: toProtoLifecycleEvent(result.Event)}, nil
+}
+
+func (s *Server) RetireAgent(ctx context.Context, req *agentv1.LifecycleCommandRequest) (*agentv1.LifecycleEventResponse, error) {
+	if s.service == nil {
+		return nil, status.Error(codes.Unavailable, "agent lifecycle service unavailable")
+	}
+	id, err := uuid.Parse(req.GetAgentId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid agent_id: %v", err)
+	}
+	result, err := s.service.Retire(ctx, agent_lifecycle.RetireInput{
+		AgentID:     id,
+		TenantID:    "",
+		Reason:      req.GetReason(),
+		RequestedBy: req.GetRequestedBy(),
+		TraceID:     req.GetTraceId(),
+	})
+	if err != nil {
+		return nil, toStatusError(err)
+	}
+	return &agentv1.LifecycleEventResponse{Event: toProtoLifecycleEvent(result.Event)}, nil
+}
+
+func (s *Server) ScaleAgent(ctx context.Context, req *agentv1.ScaleAgentRequest) (*agentv1.LifecycleEventResponse, error) {
+	if s.service == nil {
+		return nil, status.Error(codes.Unavailable, "agent lifecycle service unavailable")
+	}
+	id, err := uuid.Parse(req.GetAgentId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid agent_id: %v", err)
+	}
+	result, err := s.service.Scale(ctx, agent_lifecycle.ScaleInput{
+		AgentID:     id,
+		TenantID:    "",
+		Target:      req.GetTargetCapacityInstances(),
+		Reason:      req.GetReason(),
+		RequestedBy: req.GetRequestedBy(),
+		TraceID:     req.GetTraceId(),
+	})
+	if err != nil {
+		return nil, toStatusError(err)
+	}
+	return &agentv1.LifecycleEventResponse{Event: toProtoLifecycleEvent(result.Event)}, nil
 }
 
 func toProtoAgent(agent *agent_lifecycle.Agent) *agentv1.Agent {
@@ -155,6 +235,51 @@ func getOrZero(v *int32) int32 {
 	return *v
 }
 
+func toProtoLifecycleEvent(event *agentmodel.AgentLifecycleEventRecord) *agentv1.LifecycleEvent {
+	if event == nil {
+		return nil
+	}
+	pb := &agentv1.LifecycleEvent{
+		Id:          event.UUID.String(),
+		AgentId:     event.AgentUUID.String(),
+		Type:        eventTypeToProto(event.EventType),
+		FromStatus:  agentStatusToProto(event.FromStatus),
+		ToStatus:    agentStatusToProto(event.ToStatus),
+		Reason:      event.Reason,
+		TriggeredBy: event.TriggeredBy,
+		TraceId:     event.TraceID,
+		EventId:     event.EventID,
+		CreatedAt:   event.OccurredAt.UTC().Format(time.RFC3339),
+	}
+	if event.RequestedCapacity != nil {
+		pb.RequestedCapacity = *event.RequestedCapacity
+	}
+	return pb
+}
+
+func eventTypeToProto(eventType string) agentv1.LifecycleEventType {
+	switch strings.ToLower(eventType) {
+	case "register":
+		return agentv1.LifecycleEventType_LIFECYCLE_EVENT_TYPE_REGISTER
+	case "activate":
+		return agentv1.LifecycleEventType_LIFECYCLE_EVENT_TYPE_ACTIVATE
+	case "pause":
+		return agentv1.LifecycleEventType_LIFECYCLE_EVENT_TYPE_PAUSE
+	case "resume":
+		return agentv1.LifecycleEventType_LIFECYCLE_EVENT_TYPE_RESUME
+	case "scale":
+		return agentv1.LifecycleEventType_LIFECYCLE_EVENT_TYPE_SCALE_UP
+	case "retire":
+		return agentv1.LifecycleEventType_LIFECYCLE_EVENT_TYPE_RETIRE
+	case "auto_degrade":
+		return agentv1.LifecycleEventType_LIFECYCLE_EVENT_TYPE_AUTO_DEGRADE
+	case "auto_recover":
+		return agentv1.LifecycleEventType_LIFECYCLE_EVENT_TYPE_AUTO_RECOVER
+	default:
+		return agentv1.LifecycleEventType_LIFECYCLE_EVENT_TYPE_UNSPECIFIED
+	}
+}
+
 func toStatusError(err error) error {
 	switch {
 	case errors.Is(err, agent_lifecycle.ErrAliasConflict):
@@ -163,6 +288,8 @@ func toStatusError(err error) error {
 		return status.Error(codes.NotFound, err.Error())
 	case errors.Is(err, agent_lifecycle.ErrInvalidStatusTransition):
 		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, agent_lifecycle.ErrInvalidCapacity), errors.Is(err, agent_lifecycle.ErrCapacityExceeded):
+		return status.Error(codes.InvalidArgument, err.Error())
 	default:
 		return status.Error(codes.Internal, err.Error())
 	}

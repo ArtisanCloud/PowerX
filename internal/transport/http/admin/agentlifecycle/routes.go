@@ -15,5 +15,9 @@ func Register(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterGroup, dep
 		group.GET("/agents", h.ListAgents)
 		group.GET("/agents/:agent_id", h.GetAgent)
 		group.POST("/agents/:agent_id/activate", h.ActivateAgent)
+		group.POST("/agents/:agent_id/pause", h.PauseAgent)
+		group.POST("/agents/:agent_id/resume", h.ResumeAgent)
+		group.POST("/agents/:agent_id/retire", h.RetireAgent)
+		group.POST("/agents/:agent_id/scale", h.ScaleAgent)
 	}
 }

@@ -75,4 +75,41 @@ func TestAgentLifecycleGRPC(t *testing.T) {
 	getAfter, err := client.GetAgent(ctx, &agentv1.GetAgentRequest{AgentId: agentID})
 	require.NoError(t, err)
 	require.Equal(t, agentv1.AgentStatus_AGENT_STATUS_ACTIVE, getAfter.Agent.GetStatus())
+
+	pauseResp, err := client.PauseAgent(ctx, &agentv1.LifecycleCommandRequest{
+		AgentId:     agentID,
+		Reason:      "maintenance",
+		RequestedBy: "grpc-admin",
+	})
+	require.NoError(t, err)
+	require.NotNil(t, pauseResp.GetEvent())
+	require.Equal(t, agentv1.LifecycleEventType_LIFECYCLE_EVENT_TYPE_PAUSE, pauseResp.Event.GetType())
+
+	resumeResp, err := client.ResumeAgent(ctx, &agentv1.LifecycleCommandRequest{
+		AgentId:     agentID,
+		RequestedBy: "grpc-admin",
+	})
+	require.NoError(t, err)
+	require.Equal(t, agentv1.LifecycleEventType_LIFECYCLE_EVENT_TYPE_RESUME, resumeResp.Event.GetType())
+
+	scaleResp, err := client.ScaleAgent(ctx, &agentv1.ScaleAgentRequest{
+		AgentId:                 agentID,
+		TargetCapacityInstances: 7,
+		RequestedBy:             "grpc-admin",
+	})
+	require.NoError(t, err)
+	require.Equal(t, agentv1.LifecycleEventType_LIFECYCLE_EVENT_TYPE_SCALE_UP, scaleResp.Event.GetType())
+	require.Equal(t, int32(7), scaleResp.Event.GetRequestedCapacity())
+
+	retireResp, err := client.RetireAgent(ctx, &agentv1.LifecycleCommandRequest{
+		AgentId:     agentID,
+		Reason:      "sunset",
+		RequestedBy: "grpc-admin",
+	})
+	require.NoError(t, err)
+	require.Equal(t, agentv1.LifecycleEventType_LIFECYCLE_EVENT_TYPE_RETIRE, retireResp.Event.GetType())
+
+	finalResp, err := client.GetAgent(ctx, &agentv1.GetAgentRequest{AgentId: agentID})
+	require.NoError(t, err)
+	require.Equal(t, agentv1.AgentStatus_AGENT_STATUS_RETIRED, finalResp.Agent.GetStatus())
 }

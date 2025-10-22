@@ -87,6 +87,62 @@
         ]
       }
     },
+    "/api/v1/admin/agent/lifecycle/agents/:agent_id/pause": {
+      "post": {
+        "operationId": "POST /api/v1/admin/agent/lifecycle/agents/_agent_id/pause",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/v1/admin/agent/lifecycle/agents/_agent_id/pause",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/v1/admin/agent/lifecycle/agents/:agent_id/resume": {
+      "post": {
+        "operationId": "POST /api/v1/admin/agent/lifecycle/agents/_agent_id/resume",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/v1/admin/agent/lifecycle/agents/_agent_id/resume",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/v1/admin/agent/lifecycle/agents/:agent_id/retire": {
+      "post": {
+        "operationId": "POST /api/v1/admin/agent/lifecycle/agents/_agent_id/retire",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/v1/admin/agent/lifecycle/agents/_agent_id/retire",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/v1/admin/agent/lifecycle/agents/:agent_id/scale": {
+      "post": {
+        "operationId": "POST /api/v1/admin/agent/lifecycle/agents/_agent_id/scale",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/v1/admin/agent/lifecycle/agents/_agent_id/scale",
+        "tags": [
+          "api"
+        ]
+      }
+    },
     "/api/v1/admin/agents": {
       "get": {
         "operationId": "GET /api/v1/admin/agents",

@@ -54,18 +54,18 @@
 
 ### Tests（先于实现）
 
-- [ ] T018 [P] [US2] 在 `tests/contract/agent_lifecycle/openapi_http_test.go` 编写 HTTP 合同测试，覆盖暂停/恢复/退役/扩缩容端点。
-- [ ] T019 [P] [US2] 在 `tests/contract/agent_lifecycle/lifecycle_grpc_test.go` 编写 gRPC 合同测试，覆盖 Pause/Resume/Retire/Scale RPC。
-- [ ] T020 [P] [US2] 在 `tests/integration/agent_lifecycle/capacity_control_flow_test.go` 模拟扩缩容与状态冲突场景，断言容量缓存与事件输出。
-- [ ] T021 [P] [US2] 在 `tests/integration/agent_lifecycle/retirement_retention_test.go` 验证退役代理的生命周期与健康数据在模拟 13 个月后仍可查询。
+- [x] T018 [P] [US2] 在 `tests/contract/agent_lifecycle/openapi_http_test.go` 编写 HTTP 合同测试，覆盖暂停/恢复/退役/扩缩容端点。
+- [x] T019 [P] [US2] 在 `tests/contract/agent_lifecycle/lifecycle_grpc_test.go` 编写 gRPC 合同测试，覆盖 Pause/Resume/Retire/Scale RPC。
+- [x] T020 [P] [US2] 在 `tests/integration/agent_lifecycle/capacity_control_flow_test.go` 模拟扩缩容与状态冲突场景，断言容量缓存与事件输出。
+- [x] T021 [P] [US2] 在 `tests/integration/agent_lifecycle/retirement_retention_test.go` 验证退役代理的生命周期与健康数据在模拟 13 个月后仍可查询。
 
 ### Implementation
 
-- [ ] T022 [US2] 在 `internal/service/agent_lifecycle/lifecycle.go` 扩展状态机，处理暂停/恢复/退役/扩缩容，并更新 Redis 容量缓存。
-- [ ] T023 [US2] 在 `internal/transport/http/openapi/agent/handlers.go` 实现生命周期控制 Handler，包含冲突提示与审计挂钩。
-- [ ] T024 [US2] 在 `internal/transport/grpc/agentlifecycle/service.go` 实现 Pause/Resume/Retire/Scale RPC 及返回结构（依赖 T016 完成）。
-- [ ] T025 [US2] 在 `internal/service/agent_lifecycle/instrumentation/capacity.go`（新建）记录容量指标并向事件流写入扩缩容详情。
-- [ ] T026 [US2] 在 `internal/service/agent_lifecycle/archive.go` 实现退役数据保留与归档策略，提供调度入口确保 ≥13 个月保留。
+- [x] T022 [US2] 在 `internal/service/agent_lifecycle/lifecycle.go` 扩展状态机，处理暂停/恢复/退役/扩缩容，并更新 Redis 容量缓存。
+- [x] T023 [US2] 在 `internal/transport/http/openapi/agent/handlers.go` 实现生命周期控制 Handler，包含冲突提示与审计挂钩。
+- [x] T024 [US2] 在 `internal/transport/grpc/agentlifecycle/service.go` 实现 Pause/Resume/Retire/Scale RPC 及返回结构（依赖 T016 完成）。
+- [x] T025 [US2] 在 `internal/service/agent_lifecycle/instrumentation/capacity.go`（新建）记录容量指标并向事件流写入扩缩容详情。
+- [x] T026 [US2] 在 `internal/service/agent_lifecycle/archive.go` 实现退役数据保留与归档策略，提供调度入口确保 ≥13 个月保留。
 
 **Checkpoint**：运维可独立调度代理容量，事件、缓存与数据保留策略保持一致。
 

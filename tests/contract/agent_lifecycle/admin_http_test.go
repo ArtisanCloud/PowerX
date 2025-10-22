@@ -98,4 +98,89 @@ func TestAdminHTTPRegisterAndActivate(t *testing.T) {
 	}
 	require.NoError(t, json.Unmarshal(actResp.Body.Bytes(), &actData))
 	require.Equal(t, "active", actData.Data.Status)
+
+	// pause agent
+	pauseBody, _ := json.Marshal(map[string]string{
+		"tenant_id": "tenant-001",
+		"reason":    "maintenance",
+	})
+	pauseReq := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/api/admin/agent/lifecycle/agents/%s/pause", agentID), bytes.NewReader(pauseBody))
+	pauseReq.Header.Set("Authorization", "Bearer token")
+	pauseReq.Header.Set("Content-Type", "application/json")
+	pauseResp := httptest.NewRecorder()
+	engine.ServeHTTP(pauseResp, pauseReq)
+	require.Equal(t, http.StatusOK, pauseResp.Code)
+
+	var pauseData struct {
+		Code int `json:"code"`
+		Data struct {
+			Status string `json:"status"`
+		} `json:"data"`
+	}
+	require.NoError(t, json.Unmarshal(pauseResp.Body.Bytes(), &pauseData))
+	require.Equal(t, "paused", pauseData.Data.Status)
+
+	// resume agent
+	resumeBody, _ := json.Marshal(map[string]string{
+		"tenant_id": "tenant-001",
+	})
+	resumeReq := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/api/admin/agent/lifecycle/agents/%s/resume", agentID), bytes.NewReader(resumeBody))
+	resumeReq.Header.Set("Authorization", "Bearer token")
+	resumeReq.Header.Set("Content-Type", "application/json")
+	resumeResp := httptest.NewRecorder()
+	engine.ServeHTTP(resumeResp, resumeReq)
+	require.Equal(t, http.StatusOK, resumeResp.Code)
+
+	var resumeData struct {
+		Code int `json:"code"`
+		Data struct {
+			Status string `json:"status"`
+		} `json:"data"`
+	}
+	require.NoError(t, json.Unmarshal(resumeResp.Body.Bytes(), &resumeData))
+	require.Equal(t, "active", resumeData.Data.Status)
+
+	// scale agent
+	scaleBody, _ := json.Marshal(map[string]any{
+		"tenant_id":                 "tenant-001",
+		"target_capacity_instances": 5,
+	})
+	scaleReq := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/api/admin/agent/lifecycle/agents/%s/scale", agentID), bytes.NewReader(scaleBody))
+	scaleReq.Header.Set("Authorization", "Bearer token")
+	scaleReq.Header.Set("Content-Type", "application/json")
+	scaleResp := httptest.NewRecorder()
+	engine.ServeHTTP(scaleResp, scaleReq)
+	require.Equal(t, http.StatusOK, scaleResp.Code)
+
+	var scaleData struct {
+		Code int `json:"code"`
+		Data struct {
+			Status                   string `json:"status"`
+			CurrentCapacityInstances int32  `json:"current_capacity_instances"`
+		} `json:"data"`
+	}
+	require.NoError(t, json.Unmarshal(scaleResp.Body.Bytes(), &scaleData))
+	require.Equal(t, "active", scaleData.Data.Status)
+	require.Equal(t, int32(5), scaleData.Data.CurrentCapacityInstances)
+
+	// retire agent
+	retireBody, _ := json.Marshal(map[string]string{
+		"tenant_id": "tenant-001",
+		"reason":    "sunset",
+	})
+	retireReq := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/api/admin/agent/lifecycle/agents/%s/retire", agentID), bytes.NewReader(retireBody))
+	retireReq.Header.Set("Authorization", "Bearer token")
+	retireReq.Header.Set("Content-Type", "application/json")
+	retireResp := httptest.NewRecorder()
+	engine.ServeHTTP(retireResp, retireReq)
+	require.Equal(t, http.StatusOK, retireResp.Code)
+
+	var retireData struct {
+		Code int `json:"code"`
+		Data struct {
+			Status string `json:"status"`
+		} `json:"data"`
+	}
+	require.NoError(t, json.Unmarshal(retireResp.Body.Bytes(), &retireData))
+	require.Equal(t, "retired", retireData.Data.Status)
 }
