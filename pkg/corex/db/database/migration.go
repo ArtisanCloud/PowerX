@@ -5,6 +5,7 @@ import (
 	modelAudit "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/audit"
 	modelCapability "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/capability"
 	modelEventFabric "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/event_fabric"
+	modelIntegrationGateway "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/integration_gateway"
 	modelAgent "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/flow"
 	modelIAM "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/iam"
 	mediamodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/media"
@@ -81,6 +82,10 @@ func MigrateCoreModels(db *gorm.DB) (err error) {
 		return err
 	}
 
+	if err = migrateIntegrationGatewayModels(db); err != nil {
+		return err
+	}
+
 	if err = migrateEventFabricModels(db); err != nil {
 		return err
 	}
@@ -107,6 +112,15 @@ func migrateCapabilityModels(db *gorm.DB) error {
 		&modelCapability.CapabilityTransportProfile{},
 		&modelCapability.CapabilityErrorTaxonomy{},
 		&modelCapability.CapabilityContractErrorTaxonomy{},
+	)
+}
+
+func migrateIntegrationGatewayModels(db *gorm.DB) error {
+	return db.AutoMigrate(
+		&modelIntegrationGateway.IntegrationRoute{},
+		&modelIntegrationGateway.IntegrationRouteVersion{},
+		&modelIntegrationGateway.IntegrationInvocationLog{},
+		&modelIntegrationGateway.IntegrationEventPublication{},
 	)
 }
 

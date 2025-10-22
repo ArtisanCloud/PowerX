@@ -43,6 +43,11 @@ const TableCapabilityRegistryFallbackPlan = "capability_registry_fallback_plans"
 const TableCapabilityRegistryHealthProbeResult = "capability_registry_health_probe_results"
 const TableCapabilityRegistryDiscoveryCache = "capability_registry_discovery_cache"
 
+const TableIntegrationGatewayRoute = "integration_gateway_routes"
+const TableIntegrationGatewayRouteVersion = "integration_gateway_route_versions"
+const TableIntegrationGatewayInvocationLog = "integration_gateway_invocation_logs"
+const TableIntegrationGatewayEventPublication = "integration_gateway_event_publications"
+
 const TableEventTopics = "event_topics"
 const TableEventAclBindings = "event_acl_bindings"
 const TableEventEnvelopes = "event_envelopes"

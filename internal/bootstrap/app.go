@@ -177,6 +177,24 @@ func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error)
 				},
 			},
 		},
+		IntegrationGateway: shared.IntegrationGatewayOptions{
+			RateLimitPrefix: cfg.IntegrationGateway.RateLimitPrefix,
+			RedisAddr:       cfg.IntegrationGateway.RedisAddr,
+			RedisPassword:   cfg.IntegrationGateway.RedisPassword,
+			RedisDB:         cfg.IntegrationGateway.RedisDB,
+			DefaultRateLimit: shared.IntegrationGatewayRateLimitOptions{
+				Limit:         cfg.IntegrationGateway.DefaultRateLimit.Limit,
+				Burst:         cfg.IntegrationGateway.DefaultRateLimit.Burst,
+				WindowSeconds: cfg.IntegrationGateway.DefaultRateLimit.WindowSeconds,
+				Scope:         cfg.IntegrationGateway.DefaultRateLimit.Scope,
+			},
+			EventTopics: shared.IntegrationGatewayEventTopicsOptions{
+				Created:             cfg.IntegrationGateway.EventTopics.Created,
+				Updated:             cfg.IntegrationGateway.EventTopics.Updated,
+				InvocationSucceeded: cfg.IntegrationGateway.EventTopics.InvocationSucceeded,
+				InvocationFailed:    cfg.IntegrationGateway.EventTopics.InvocationFailed,
+			},
+		},
 	}
 
 	deps := shared.NewDeps(db, opts)

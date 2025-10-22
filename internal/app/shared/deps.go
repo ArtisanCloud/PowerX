@@ -11,6 +11,7 @@ import (
 	workers "github.com/ArtisanCloud/PowerX/internal/app/shared/workers"
 	discoverycache "github.com/ArtisanCloud/PowerX/internal/infra/cache/discovery"
 	mediamgr "github.com/ArtisanCloud/PowerX/internal/infra/media/manager"
+	igdeps "github.com/ArtisanCloud/PowerX/internal/server/mcp/tools/integration_gateway/deps"
 	authsvc "github.com/ArtisanCloud/PowerX/internal/service/auth"
 	discoveryService "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/discovery"
 	capabilityRegistryDomain "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/domain"
@@ -27,6 +28,9 @@ import (
 	replayService "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/replay"
 	security "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/security"
 	iamsvc "github.com/ArtisanCloud/PowerX/internal/service/iam"
+	integrationInstrumentation "github.com/ArtisanCloud/PowerX/internal/service/integration_gateway/instrumentation"
+	integrationManager "github.com/ArtisanCloud/PowerX/internal/service/integration_gateway/manager"
+	integrationTenant "github.com/ArtisanCloud/PowerX/internal/service/integration_gateway/tenant"
 	mediasvc "github.com/ArtisanCloud/PowerX/internal/service/media"
 	tenantsvc "github.com/ArtisanCloud/PowerX/internal/service/tenant"
 	workflowsvc "github.com/ArtisanCloud/PowerX/internal/service/workflow"
@@ -34,6 +38,7 @@ import (
 	auditsvc "github.com/ArtisanCloud/PowerX/pkg/corex/audit"
 	dbm "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/audit"
 	eventfabricrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/event_fabric"
+	integrationRepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/integration_gateway"
 	"github.com/ArtisanCloud/PowerX/pkg/event_bus"
 	pxlog "github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"github.com/google/uuid"
@@ -90,6 +95,7 @@ type Deps struct {
 	RouterSvc             *capabilityRouter.Service
 	RouterSandboxSvc      *capabilitySandbox.Service
 	DiscoverySvc          *discoveryService.Service
+	IntegrationGateway    *IntegrationGatewayDeps
 
 	EventFabric *EventFabricDeps
 	Workflow    *WorkflowDeps
@@ -177,6 +183,36 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 	}
 	workflowSvc := workflowsvc.NewService(db, workflowsvc.ServiceOptions{})
 
+	integrationGatewayDeps := newIntegrationGatewayDeps(db, opts.IntegrationGateway, bus, aud)
+
+	tenantConfig := integrationTenant.Config{
+		DefaultRateLimit: integrationManager.RateLimitPolicy{
+			Limit:         opts.IntegrationGateway.DefaultRateLimit.Limit,
+			Burst:         opts.IntegrationGateway.DefaultRateLimit.Burst,
+			WindowSeconds: opts.IntegrationGateway.DefaultRateLimit.WindowSeconds,
+			Scope:         opts.IntegrationGateway.DefaultRateLimit.Scope,
+		},
+		EventTopics: integrationManager.EventTopics(opts.IntegrationGateway.EventTopics),
+	}
+	integrationGatewayDeps.Tenant = integrationTenant.NewService(integrationTenant.ServiceOptions{
+		DB:              db,
+		Router:          routerSvc,
+		RateLimiter:     integrationGatewayDeps.RateLimiter,
+		EventBus:        bus,
+		Instrumentation: integrationGatewayDeps.Instrumentation,
+		Auditor:         aud,
+		Config:          tenantConfig,
+		Clock:           time.Now,
+	})
+
+	if err := igdeps.Set(igdeps.ToolDependencies{
+		TenantService:   integrationGatewayDeps.Tenant,
+		ManagerService:  integrationGatewayDeps.Manager,
+		Instrumentation: integrationGatewayDeps.Instrumentation,
+	}); err != nil {
+		pxlog.WarnF(ctx, "[integrationGateway] set MCP tool deps failed: %v", err)
+	}
+
 	return &Deps{
 		DB:                    db,
 		TenantSvc:             tenantSvc,
@@ -192,6 +228,7 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 		RouterSvc:             routerSvc,
 		RouterSandboxSvc:      sandboxSvc,
 		DiscoverySvc:          discoverySvc,
+		IntegrationGateway:    integrationGatewayDeps,
 		EventFabric:           eventFabricDeps,
 		Workflow: &WorkflowDeps{
 			Service:       workflowSvc,
@@ -228,6 +265,16 @@ type WorkflowDeps struct {
 	ReliableQueue event_bus.ReliableQueue
 }
 
+// IntegrationGatewayDeps 聚合集成网关运行时所需依赖。
+type IntegrationGatewayDeps struct {
+	RateLimiter     authorizationService.RateLimiter
+	Config          IntegrationGatewayRuntimeConfig
+	RedisClient     *redis.Client
+	Manager         *integrationManager.Service
+	Tenant          *integrationTenant.Service
+	Instrumentation *integrationInstrumentation.Instrumentation
+}
+
 // EventFabricRuntimeConfig 将配置项转换为运行时易用的结构。
 type EventFabricRuntimeConfig struct {
 	AckTimeout        time.Duration
@@ -248,6 +295,13 @@ type AuthorizationDeps struct {
 	Alerts        authorizationService.AlertEmitter
 	Reporting     authorizationService.ReportingService
 	TimeoutWorker *workers.EventFabricAuthorizationTimeoutWorker
+}
+
+// IntegrationGatewayRuntimeConfig 简化运行时常用参数。
+type IntegrationGatewayRuntimeConfig struct {
+	RateLimitPrefix string
+	DefaultPolicy   authorizationService.RateLimitPolicy
+	EventTopics     IntegrationGatewayEventTopicsOptions
 }
 
 func newEventFabricDeps(db *gorm.DB, opts EventFabricOptions, bus event_bus.EventBus, auditSvc auditsvc.Service, tenantSvc *tenantsvc.TenantService) *EventFabricDeps {
@@ -542,5 +596,79 @@ func newEventFabricDeps(db *gorm.DB, opts EventFabricOptions, bus event_bus.Even
 		Metrics:       metricsRecorder,
 		Security:      securityVerifier,
 		Authorization: authDeps,
+	}
+}
+
+func newIntegrationGatewayDeps(db *gorm.DB, opts IntegrationGatewayOptions, bus event_bus.EventBus, auditor auditsvc.Auditor) *IntegrationGatewayDeps {
+	prefix := strings.TrimSpace(opts.RateLimitPrefix)
+	if prefix == "" {
+		prefix = "integration_gateway:rl"
+	}
+
+	var redisClient *redis.Client
+	if addr := strings.TrimSpace(opts.RedisAddr); addr != "" {
+		redisClient = redis.NewClient(&redis.Options{
+			Addr:     addr,
+			Password: opts.RedisPassword,
+			DB:       opts.RedisDB,
+		})
+	}
+
+	window := time.Duration(opts.DefaultRateLimit.WindowSeconds) * time.Second
+	if window <= 0 {
+		window = time.Minute
+	}
+
+	policy := authorizationService.RateLimitPolicy{
+		Limit:    opts.DefaultRateLimit.Limit,
+		Burst:    opts.DefaultRateLimit.Burst,
+		Interval: window,
+	}
+
+	limiterOpts := authorizationService.RateLimiterOptions{
+		Client: redisClient,
+		Prefix: prefix,
+	}
+	limiter := authorizationService.NewRateLimiter(limiterOpts)
+
+	inst := integrationInstrumentation.NewInstrumentation(nil)
+
+	managerConfig := integrationManager.Config{
+		RateLimitPrefix: prefix,
+		DefaultRateLimit: integrationManager.RateLimitPolicy{
+			Limit:         opts.DefaultRateLimit.Limit,
+			Burst:         opts.DefaultRateLimit.Burst,
+			WindowSeconds: opts.DefaultRateLimit.WindowSeconds,
+			Scope:         opts.DefaultRateLimit.Scope,
+		},
+		EventTopics: integrationManager.EventTopics(opts.EventTopics),
+	}
+
+	routeRepo := integrationRepo.NewIntegrationRouteRepository(db)
+	versionRepo := integrationRepo.NewIntegrationRouteVersionRepository(db)
+	eventRepo := integrationRepo.NewIntegrationEventPublicationRepository(db)
+
+	managerService := integrationManager.NewService(integrationManager.ServiceOptions{
+		DB:              db,
+		RouteRepo:       routeRepo,
+		VersionRepo:     versionRepo,
+		EventRepo:       eventRepo,
+		EventBus:        bus,
+		Instrumentation: inst,
+		Auditor:         auditor,
+		Config:          managerConfig,
+		Clock:           time.Now,
+	})
+
+	return &IntegrationGatewayDeps{
+		RateLimiter: limiter,
+		RedisClient: redisClient,
+		Config: IntegrationGatewayRuntimeConfig{
+			RateLimitPrefix: prefix,
+			DefaultPolicy:   policy,
+			EventTopics:     opts.EventTopics,
+		},
+		Manager:         managerService,
+		Instrumentation: inst,
 	}
 }

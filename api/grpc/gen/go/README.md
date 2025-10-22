@@ -27,4 +27,3 @@ go get github.com/ArtisanCloud/PowerX/api/grpc/gen/go@vX.Y.Z
 生成与更新：在 `api/grpc/contracts/` 运行 `buf generate`。
 
 > 说明：后续如需迁移到 `api/grpc/sdk/go/...` 或独立仓库，将统一调整 `option go_package` 并发布迁移指南。
-
