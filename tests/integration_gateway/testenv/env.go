@@ -10,6 +10,7 @@ import (
 	manager "github.com/ArtisanCloud/PowerX/internal/service/integration_gateway/manager"
 	integrationhttp "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/integration_gateway"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/audit"
+	coremodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
 	modelig "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/integration_gateway"
 	repoig "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/integration_gateway"
 	"github.com/ArtisanCloud/PowerX/pkg/event_bus"
@@ -35,6 +36,7 @@ func New(t testing.TB) *Env {
 	if err != nil {
 		t.Fatalf("open sqlite: %v", err)
 	}
+	coremodel.PowerXSchema = "main"
 	if err := db.Exec("PRAGMA foreign_keys = ON").Error; err != nil {
 		t.Fatalf("enable foreign keys: %v", err)
 	}

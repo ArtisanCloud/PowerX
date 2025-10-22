@@ -83,15 +83,15 @@
 
 ### Tests
 
-- [ ] T032 [P][US3] 在 `tests/contract/integration_gateway/mcp_tools_test.go` 编写 MCP 工具测试，使用示例客户端调用 `integration.route.list` 与 `integration.route.invoke`，验证 schema、授权过滤、错误返回。
-- [ ] T033 [US3] 在 `tests/integration/integration_gateway/mcp_agent_flow_test.go` 编写端到端测试：模拟代理列举能力、执行调用、记录追踪与事件。
+- [x] T032 [P][US3] 在 `tests/contract/integration_gateway/mcp_tools_test.go` 编写 MCP 工具测试，使用示例客户端调用 `integration.route.list` 与 `integration.route.invoke`，验证 schema、授权过滤、错误返回。
+- [x] T033 [US3] 在 `tests/integration/integration_gateway/mcp_agent_flow_test.go` 编写端到端测试：模拟代理列举能力、执行调用、记录追踪与事件。
 
 ### Implementation
 
-- [ ] T034 [US3] 在 `internal/server/mcp/tools/integration_gateway/list_tool.go` 注册 `integration.route.list` 工具：过滤租户权限、输出 schema、缓存策略。
-- [ ] T035 [US3] 在 `internal/server/mcp/tools/integration_gateway/invoke_tool.go` 注册 `integration.route.invoke` 工具：调用租户 Service，映射错误码与 trace。
-- [ ] T036 [US3] 更新 `internal/server/mcp/register/registry.go`，将新工具挂载到注册表并加入监控指标。
-- [ ] T037 [US3] 在 `internal/service/integration_gateway/mcp/context_adapter.go` 封装 MCP 上下文与租户 Service 对接逻辑，确保 trace 统一。
+- [x] T034 [US3] 在 `internal/server/mcp/tools/integration_gateway/list_tool.go` 注册 `integration.route.list` 工具：过滤租户权限、输出 schema、缓存策略。
+- [x] T035 [US3] 在 `internal/server/mcp/tools/integration_gateway/invoke_tool.go` 注册 `integration.route.invoke` 工具：调用租户 Service，映射错误码与 trace。
+- [x] T036 [US3] 更新 `internal/server/mcp/register/registry.go`，将新工具挂载到注册表并加入监控指标。
+- [x] T037 [US3] 在 `internal/service/integration_gateway/mcp/context_adapter.go` 封装 MCP 上下文与租户 Service 对接逻辑，确保 trace 统一。
 
 **Checkpoint**: MCP 工具可与 HTTP/gRPC 共用逻辑，满足事件与追踪要求。
 

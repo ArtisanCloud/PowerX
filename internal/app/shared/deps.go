@@ -11,6 +11,7 @@ import (
 	workers "github.com/ArtisanCloud/PowerX/internal/app/shared/workers"
 	discoverycache "github.com/ArtisanCloud/PowerX/internal/infra/cache/discovery"
 	mediamgr "github.com/ArtisanCloud/PowerX/internal/infra/media/manager"
+	igdeps "github.com/ArtisanCloud/PowerX/internal/server/mcp/tools/integration_gateway/deps"
 	authsvc "github.com/ArtisanCloud/PowerX/internal/service/auth"
 	discoveryService "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/discovery"
 	capabilityRegistryDomain "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/domain"
@@ -203,6 +204,14 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 		Config:          tenantConfig,
 		Clock:           time.Now,
 	})
+
+	if err := igdeps.Set(igdeps.ToolDependencies{
+		TenantService:   integrationGatewayDeps.Tenant,
+		ManagerService:  integrationGatewayDeps.Manager,
+		Instrumentation: integrationGatewayDeps.Instrumentation,
+	}); err != nil {
+		pxlog.WarnF(ctx, "[integrationGateway] set MCP tool deps failed: %v", err)
+	}
 
 	return &Deps{
 		DB:                    db,
