@@ -29,6 +29,7 @@ import (
 	iamsvc "github.com/ArtisanCloud/PowerX/internal/service/iam"
 	integrationInstrumentation "github.com/ArtisanCloud/PowerX/internal/service/integration_gateway/instrumentation"
 	integrationManager "github.com/ArtisanCloud/PowerX/internal/service/integration_gateway/manager"
+	integrationTenant "github.com/ArtisanCloud/PowerX/internal/service/integration_gateway/tenant"
 	mediasvc "github.com/ArtisanCloud/PowerX/internal/service/media"
 	tenantsvc "github.com/ArtisanCloud/PowerX/internal/service/tenant"
 	workflowsvc "github.com/ArtisanCloud/PowerX/internal/service/workflow"
@@ -181,7 +182,27 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 	}
 	workflowSvc := workflowsvc.NewService(db, workflowsvc.ServiceOptions{})
 
-	integrationGatewayDeps := newIntegrationGatewayDeps(opts.IntegrationGateway)
+	integrationGatewayDeps := newIntegrationGatewayDeps(db, opts.IntegrationGateway, bus, aud)
+
+	tenantConfig := integrationTenant.Config{
+		DefaultRateLimit: integrationManager.RateLimitPolicy{
+			Limit:         opts.IntegrationGateway.DefaultRateLimit.Limit,
+			Burst:         opts.IntegrationGateway.DefaultRateLimit.Burst,
+			WindowSeconds: opts.IntegrationGateway.DefaultRateLimit.WindowSeconds,
+			Scope:         opts.IntegrationGateway.DefaultRateLimit.Scope,
+		},
+		EventTopics: integrationManager.EventTopics(opts.IntegrationGateway.EventTopics),
+	}
+	integrationGatewayDeps.Tenant = integrationTenant.NewService(integrationTenant.ServiceOptions{
+		DB:              db,
+		Router:          routerSvc,
+		RateLimiter:     integrationGatewayDeps.RateLimiter,
+		EventBus:        bus,
+		Instrumentation: integrationGatewayDeps.Instrumentation,
+		Auditor:         aud,
+		Config:          tenantConfig,
+		Clock:           time.Now,
+	})
 
 	return &Deps{
 		DB:                    db,
@@ -237,10 +258,12 @@ type WorkflowDeps struct {
 
 // IntegrationGatewayDeps 聚合集成网关运行时所需依赖。
 type IntegrationGatewayDeps struct {
-	RateLimiter authorizationService.RateLimiter
-	Config      IntegrationGatewayRuntimeConfig
-	RedisClient *redis.Client
-	Manager     *manager.Service
+	RateLimiter     authorizationService.RateLimiter
+	Config          IntegrationGatewayRuntimeConfig
+	RedisClient     *redis.Client
+	Manager         *integrationManager.Service
+	Tenant          *integrationTenant.Service
+	Instrumentation *integrationInstrumentation.Instrumentation
 }
 
 // EventFabricRuntimeConfig 将配置项转换为运行时易用的结构。
@@ -599,6 +622,8 @@ func newIntegrationGatewayDeps(db *gorm.DB, opts IntegrationGatewayOptions, bus 
 	}
 	limiter := authorizationService.NewRateLimiter(limiterOpts)
 
+	inst := integrationInstrumentation.NewInstrumentation(nil)
+
 	managerConfig := integrationManager.Config{
 		RateLimitPrefix: prefix,
 		DefaultRateLimit: integrationManager.RateLimitPolicy{
@@ -620,7 +645,7 @@ func newIntegrationGatewayDeps(db *gorm.DB, opts IntegrationGatewayOptions, bus 
 		VersionRepo:     versionRepo,
 		EventRepo:       eventRepo,
 		EventBus:        bus,
-		Instrumentation: integrationInstrumentation.NewInstrumentation(nil),
+		Instrumentation: inst,
 		Auditor:         auditor,
 		Config:          managerConfig,
 		Clock:           time.Now,
@@ -634,6 +659,7 @@ func newIntegrationGatewayDeps(db *gorm.DB, opts IntegrationGatewayOptions, bus 
 			DefaultPolicy:   policy,
 			EventTopics:     opts.EventTopics,
 		},
-		Manager: managerService,
+		Manager:         managerService,
+		Instrumentation: inst,
 	}
 }

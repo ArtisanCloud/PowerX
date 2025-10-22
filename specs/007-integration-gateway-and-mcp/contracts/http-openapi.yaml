@@ -117,7 +117,7 @@ paths:
                 $ref: '#/components/schemas/IntegrationRouteResponse'
         '412':
           description: Version mismatch (ETag required)
-  /admin/integration/routes/{routeId}:suspend:
+  /admin/integration/routes/{routeId}/suspend:
     post:
       summary: Transition route to Suspended
       tags: [IntegrationGatewayAdmin]
@@ -139,7 +139,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/IntegrationRouteResponse'
-  /admin/integration/routes/{routeId}:resume:
+  /admin/integration/routes/{routeId}/resume:
     post:
       summary: Resume a suspended route to Active
       tags: [IntegrationGatewayAdmin]
@@ -152,7 +152,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/IntegrationRouteResponse'
-  /admin/integration/routes/{routeId}:retire:
+  /admin/integration/routes/{routeId}/retire:
     post:
       summary: Retire a route permanently
       tags: [IntegrationGatewayAdmin]
@@ -261,7 +261,7 @@ paths:
                     type: string
         '404':
           description: Route not accessible
-  /tenant/integration/routes/{routeSlug}:invoke:
+  /tenant/integration/routes/{routeSlug}/invoke:
     post:
       summary: Invoke capability through integration route
       tags: [IntegrationGatewayTenant]

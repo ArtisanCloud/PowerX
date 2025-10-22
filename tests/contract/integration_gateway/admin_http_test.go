@@ -134,7 +134,7 @@ func TestAdminHTTPWorkflow(t *testing.T) {
 
 	// suspend route
 	suspendBody, _ := json.Marshal(map[string]string{"tenant_id": "tenant-001", "reason": "maintenance"})
-	suspendReq := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/api/admin/integration/routes/%s:suspend", createResp.Data.RouteID), bytes.NewReader(suspendBody))
+	suspendReq := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/api/admin/integration/routes/%s/suspend", createResp.Data.RouteID), bytes.NewReader(suspendBody))
 	suspendReq.Header.Set("Authorization", "Bearer token")
 	suspendReq.Header.Set("Content-Type", "application/json")
 	suspendResp := httptest.NewRecorder()
@@ -150,7 +150,7 @@ func TestAdminHTTPWorkflow(t *testing.T) {
 
 	// resume route
 	resumeBody, _ := json.Marshal(map[string]string{"tenant_id": "tenant-001"})
-	resumeReq := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/api/admin/integration/routes/%s:resume", createResp.Data.RouteID), bytes.NewBuffer(resumeBody))
+	resumeReq := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/api/admin/integration/routes/%s/resume", createResp.Data.RouteID), bytes.NewBuffer(resumeBody))
 	resumeReq.Header.Set("Authorization", "Bearer token")
 	resumeReq.Header.Set("Content-Type", "application/json")
 	resumeResp := httptest.NewRecorder()
@@ -166,7 +166,7 @@ func TestAdminHTTPWorkflow(t *testing.T) {
 
 	// retire route
 	retireBody, _ := json.Marshal(map[string]string{"tenant_id": "tenant-001"})
-	retireReq := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/api/admin/integration/routes/%s:retire", createResp.Data.RouteID), bytes.NewBuffer(retireBody))
+	retireReq := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/api/admin/integration/routes/%s/retire", createResp.Data.RouteID), bytes.NewBuffer(retireBody))
 	retireReq.Header.Set("Authorization", "Bearer token")
 	retireReq.Header.Set("Content-Type", "application/json")
 	retireResp := httptest.NewRecorder()

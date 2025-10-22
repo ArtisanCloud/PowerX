@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	pbintegration "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/integration/gateway/v1"
+	pbintegration "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/integration_gateway/v1"
 	grpcintegration "github.com/ArtisanCloud/PowerX/internal/transport/grpc/integration_gateway"
 	"github.com/ArtisanCloud/PowerX/tests/integration_gateway/testenv"
 	"github.com/stretchr/testify/require"

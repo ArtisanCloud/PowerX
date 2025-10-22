@@ -50,6 +50,8 @@ func New(t testing.TB) *Env {
 
 	bus := event_bus.NewLocalEventBus()
 
+	inst := instrumentation.NewInstrumentation(nil)
+
 	routeRepo := repoig.NewIntegrationRouteRepository(db)
 	versionRepo := repoig.NewIntegrationRouteVersionRepository(db)
 	eventRepo := repoig.NewIntegrationEventPublicationRepository(db)
@@ -60,7 +62,7 @@ func New(t testing.TB) *Env {
 		VersionRepo:     versionRepo,
 		EventRepo:       eventRepo,
 		EventBus:        bus,
-		Instrumentation: instrumentation.NewInstrumentation(nil),
+		Instrumentation: inst,
 		Auditor:         audit.Noop{},
 		Config: manager.Config{
 			RateLimitPrefix: "integration_gateway:rl",
@@ -83,7 +85,8 @@ func New(t testing.TB) *Env {
 	deps := &shared.Deps{
 		EventBus: bus,
 		IntegrationGateway: &shared.IntegrationGatewayDeps{
-			Manager: svc,
+			Manager:         svc,
+			Instrumentation: inst,
 		},
 	}
 

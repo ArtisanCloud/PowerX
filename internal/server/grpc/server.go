@@ -14,7 +14,7 @@ import (
 	capv1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/capability/v1"
 	authorizationpb "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/event_fabric/v1"
 	iamv1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/iam/v1"
-	integrationpb "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/integration/gateway/v1"
+	integrationpb "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/integration_gateway/v1"
 	corexmediav1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/media/v1"
 	settingv12 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/setting"
 	workflowv1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/workflow/v1"

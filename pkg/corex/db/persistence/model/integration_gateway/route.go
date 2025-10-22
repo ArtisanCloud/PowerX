@@ -1,10 +1,8 @@
 package integration_gateway
 
 import (
-	"time"
-
-	"github.com/google/uuid"
 	"gorm.io/datatypes"
+	"time"
 
 	coremodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
 )

@@ -1001,6 +1001,114 @@
         ]
       }
     },
+    "/api/v1/admin/integration/routes": {
+      "get": {
+        "operationId": "GET /api/v1/admin/integration/routes",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "GET /api/v1/admin/integration/routes",
+        "tags": [
+          "api"
+        ]
+      },
+      "post": {
+        "operationId": "POST /api/v1/admin/integration/routes",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/v1/admin/integration/routes",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/v1/admin/integration/routes/:route_id": {
+      "get": {
+        "operationId": "GET /api/v1/admin/integration/routes/_route_id",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "GET /api/v1/admin/integration/routes/_route_id",
+        "tags": [
+          "api"
+        ]
+      },
+      "patch": {
+        "operationId": "PATCH /api/v1/admin/integration/routes/_route_id",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "PATCH /api/v1/admin/integration/routes/_route_id",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/v1/admin/integration/routes/:route_id/resume": {
+      "post": {
+        "operationId": "POST /api/v1/admin/integration/routes/_route_id/resume",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/v1/admin/integration/routes/_route_id/resume",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/v1/admin/integration/routes/:route_id/retire": {
+      "post": {
+        "operationId": "POST /api/v1/admin/integration/routes/_route_id/retire",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/v1/admin/integration/routes/_route_id/retire",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/v1/admin/integration/routes/:route_id/suspend": {
+      "post": {
+        "operationId": "POST /api/v1/admin/integration/routes/_route_id/suspend",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/v1/admin/integration/routes/_route_id/suspend",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/v1/admin/integration/routes/:route_id/versions": {
+      "get": {
+        "operationId": "GET /api/v1/admin/integration/routes/_route_id/versions",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "GET /api/v1/admin/integration/routes/_route_id/versions",
+        "tags": [
+          "api"
+        ]
+      }
+    },
     "/api/v1/admin/media/assets": {
       "get": {
         "operationId": "GET /api/v1/admin/media/assets",

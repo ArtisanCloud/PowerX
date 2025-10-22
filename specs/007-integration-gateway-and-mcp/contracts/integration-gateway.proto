@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package powerx.integration.gateway.v1;
 
-option go_package = "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/integration/gateway/v1;integrationgatewayv1";
+option go_package = "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/integration_gateway/v1;integrationgatewayv1";
 option java_package = "com.artisancloud.powerx.integration.gateway.v1";
 
 import "google/protobuf/timestamp.proto";

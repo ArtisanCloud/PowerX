@@ -1,7 +1,7 @@
 package integration_gateway
 
 import (
-	pbintegration "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/integration/gateway/v1"
+	pbintegration "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/integration_gateway/v1"
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
 	"google.golang.org/grpc"
 )
@@ -13,8 +13,13 @@ func RegisterServers(s *grpc.Server, deps *shared.Deps) {
 	}
 
 	adminServer := NewAdminServer(deps.IntegrationGateway.Manager)
-	tenantServer := NewTenantServer(deps.IntegrationGateway.Manager)
+	var tenantServer *TenantServer
+	if deps.IntegrationGateway.Tenant != nil {
+		tenantServer = NewTenantServer(deps.IntegrationGateway.Tenant)
+	}
 
 	pbintegration.RegisterIntegrationGatewayAdminServiceServer(s, adminServer)
-	pbintegration.RegisterIntegrationGatewayTenantServiceServer(s, tenantServer)
+	if tenantServer != nil {
+		pbintegration.RegisterIntegrationGatewayTenantServiceServer(s, tenantServer)
+	}
 }

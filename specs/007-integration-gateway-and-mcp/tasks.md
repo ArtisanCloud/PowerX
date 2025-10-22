@@ -58,18 +58,18 @@
 
 ### Tests
 
-- [ ] T023 [P][US2] 在 `tests/contract/integration_gateway/tenant_routes_http_test.go` 编写租户 HTTP 合同测试，覆盖列表、查询、invoke 与限流超限响应。
-- [ ] T024 [P][US2] 在 `tests/contract/integration_gateway/tenant_grpc_test.go` 编写 gRPC Tenant Service 合同测试，验证 ListRoutes/GetRoute/InvokeRoute。
-- [ ] T025 [US2] 在 `tests/integration/integration_gateway/tenant_invocation_flow_test.go` 编写集成测试：租户调用 -> Router 调度 -> 成功事件与失败事件发布 -> 限流路径，并验证成功/失败调用均生成对应审计记录。
+- [x] T023 [P][US2] 在 `tests/contract/integration_gateway/tenant_routes_http_test.go` 编写租户 HTTP 合同测试，覆盖列表、查询、invoke 与限流超限响应。
+- [x] T024 [P][US2] 在 `tests/contract/integration_gateway/tenant_grpc_test.go` 编写 gRPC Tenant Service 合同测试，验证 ListRoutes/GetRoute/InvokeRoute。
+- [x] T025 [US2] 在 `tests/integration/integration_gateway/tenant_invocation_flow_test.go` 编写集成测试：租户调用 -> Router 调度 -> 成功事件与失败事件发布 -> 限流路径，并验证成功/失败调用均生成对应审计记录。
 
 ### Implementation
 
-- [ ] T026 [US2] 在 `internal/service/integration_gateway/tenant/service.go` 实现租户调用 Service：校验 Tool Grant、拉取路由快照、调用 Router、记录 `IntegrationInvocationLog`、发布成功/失败事件，并在限流、权限或执行失败时写入审计日志。
-- [ ] T027 [US2] 在 `internal/service/integration_gateway/tenant/ratelimit.go` 集成 Redis 令牌桶，支持 per_route 与 per_route_per_tenant，返回剩余额度与 retry 提示。
-- [ ] T028 [US2] 在 `internal/transport/http/openapi/integration_gateway/handlers.go` 实现租户 HTTP Handler：身份解析、请求标准化、统一响应结构。
-- [ ] T029 [US2] 在 `internal/transport/grpc/integration_gateway/tenant_server.go` 实现 gRPC Tenant Service，对接 Service。
-- [ ] T030 [US2] 在 `internal/service/integration_gateway/tenant/telemetry.go` 记录指标（invocations_total、rate_limit_hits_total）、trace span，并针对成功与失败调用统一封装审计写入辅助。
-- [ ] T031 [US2] 更新 `internal/app/shared/deps.go`，注入租户 Service 所需依赖（RouterSvc、EventBus、RateLimiter、Instrumentation），并在 HTTP/Gin 中间件链路注入 `trace_id`。
+- [x] T026 [US2] 在 `internal/service/integration_gateway/tenant/service.go` 实现租户调用 Service：校验 Tool Grant、拉取路由快照、调用 Router、记录 `IntegrationInvocationLog`、发布成功/失败事件，并在限流、权限或执行失败时写入审计日志。
+- [x] T027 [US2] 在 `internal/service/integration_gateway/tenant/ratelimit.go` 集成 Redis 令牌桶，支持 per_route 与 per_route_per_tenant，返回剩余额度与 retry 提示。
+- [x] T028 [US2] 在 `internal/transport/http/openapi/integration_gateway/handlers.go` 实现租户 HTTP Handler：身份解析、请求标准化、统一响应结构。
+- [x] T029 [US2] 在 `internal/transport/grpc/integration_gateway/tenant_server.go` 实现 gRPC Tenant Service，对接 Service。
+- [x] T030 [US2] 在 `internal/service/integration_gateway/tenant/telemetry.go` 记录指标（invocations_total、rate_limit_hits_total）、trace span，并针对成功与失败调用统一封装审计写入辅助。
+- [x] T031 [US2] 更新 `internal/app/shared/deps.go`，注入租户 Service 所需依赖（RouterSvc、EventBus、RateLimiter、Instrumentation），并在 HTTP/Gin 中间件链路注入 `trace_id`。
 
 **Checkpoint**: 租户接口可独立运行，具备限流、事件、日志、追踪能力。
 

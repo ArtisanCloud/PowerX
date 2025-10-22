@@ -29,9 +29,9 @@ func RegisterAPIRoutes(_ *gin.RouterGroup, protected *gin.RouterGroup, deps *sha
 	group.GET("/routes", handler.ListRoutes)
 	group.GET("/routes/:route_id", handler.GetRoute)
 	group.PATCH("/routes/:route_id", handler.UpdateRoute)
-	group.POST("/routes/:route_id:suspend", handler.SuspendRoute)
-	group.POST("/routes/:route_id:resume", handler.ResumeRoute)
-	group.POST("/routes/:route_id:retire", handler.RetireRoute)
+	group.POST("/routes/:route_id/suspend", handler.SuspendRoute)
+	group.POST("/routes/:route_id/resume", handler.ResumeRoute)
+	group.POST("/routes/:route_id/retire", handler.RetireRoute)
 	group.GET("/routes/:route_id/versions", handler.ListVersions)
 }
 

@@ -48,7 +48,7 @@
 ### 步骤 3：租户调用统一 API
 1. 发起调用：
    ```bash
-   curl -X POST "$POWERX_BASE_URL/tenant/integration/routes/crm-sync:invoke" \
+   curl -X POST "$POWERX_BASE_URL/tenant/integration/routes/crm-sync/invoke" \
      -H "Authorization: Bearer $TENANT_TOKEN" \
      -H "X-PowerX-Tenant: tenant-001" \
      -H "Content-Type: application/json" \

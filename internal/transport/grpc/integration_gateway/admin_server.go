@@ -10,7 +10,7 @@ import (
 	"github.com/google/uuid"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	pbintegration "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/integration/gateway/v1"
+	pbintegration "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/integration_gateway/v1"
 	manager "github.com/ArtisanCloud/PowerX/internal/service/integration_gateway/manager"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"google.golang.org/grpc/codes"
@@ -37,7 +37,6 @@ func (s *AdminServer) CreateRoute(ctx context.Context, req *pbintegration.Create
 		TenantID:     strings.TrimSpace(req.GetTenantId()),
 		Actor:        "grpc-admin",
 		RouteSlug:    req.GetRouteSlug(),
-		CapabilityID: req.GetCapabilityId(),
 		ToolGrantIDs: req.GetToolGrantIds(),
 		Channels:     req.GetChannels(),
 		RateLimit:    protoToRateLimit(req.GetRateLimit()),
@@ -90,7 +89,6 @@ func (s *AdminServer) UpdateRoute(ctx context.Context, req *pbintegration.Update
 		TenantID:     "",
 		Actor:        "grpc-admin",
 		Version:      req.GetExpectVersion(),
-		CapabilityID: req.GetCapabilityId(),
 		ToolGrantIDs: req.GetToolGrantIds(),
 		Channels:     req.GetChannels(),
 		RateLimit:    protoToRateLimit(req.GetRateLimit()),
