@@ -11,6 +11,7 @@ import (
 	eventFabricHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/event_fabric"
 	"github.com/ArtisanCloud/PowerX/internal/transport/http/admin/iam"
 	integrationGatewayHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/integration_gateway"
+	agentlifecycleHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/agentlifecycle"
 	"github.com/ArtisanCloud/PowerX/internal/transport/http/admin/media"
 	"github.com/ArtisanCloud/PowerX/internal/transport/http/admin/menu"
 	"github.com/ArtisanCloud/PowerX/internal/transport/http/admin/plugin"
@@ -44,6 +45,7 @@ func RegisterAPIRoutes(
 	menu.RegisterAPIRoutes(publicGroup, protectedGroup)
 	auth.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	agent.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
+	agentlifecycleHTTP.Register(publicGroup, protectedGroup, deps)
 	media.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	capability.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	capabilityRegistryHTTP.RegisterAPIRoutes(publicGroup, protectedGroup, deps)

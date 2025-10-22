@@ -13,6 +13,7 @@ import (
 	mediamgr "github.com/ArtisanCloud/PowerX/internal/infra/media/manager"
 	imnotify "github.com/ArtisanCloud/PowerX/internal/notifications/im"
 	agentrepo "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/repository"
+	agentlifecycle "github.com/ArtisanCloud/PowerX/internal/service/agent_lifecycle"
 	igdeps "github.com/ArtisanCloud/PowerX/internal/server/mcp/tools/integration_gateway/deps"
 	agentinstr "github.com/ArtisanCloud/PowerX/internal/service/agent_lifecycle/instrumentation"
 	authsvc "github.com/ArtisanCloud/PowerX/internal/service/auth"
@@ -283,14 +284,15 @@ type IntegrationGatewayDeps struct {
 
 // AgentLifecycleDeps 聚合 Agent 生命周期运行所需依赖。
 type AgentLifecycleDeps struct {
-	ProfileRepo     *agentrepo.AgentProfileRepository
-	LifecycleRepo   *agentrepo.AgentLifecycleEventRepository
-	HealthRepo      *agentrepo.AgentHealthSnapshotRepository
-	Instrumentation *agentinstr.Instrumentation
-	Notifications   *imnotify.Sender
-	RedisClient     *redis.Client
-	EventBus        event_bus.EventBus
-	Config          AgentLifecycleRuntimeConfig
+    ProfileRepo     *agentrepo.AgentProfileLifecycleRepository
+    LifecycleRepo   *agentrepo.AgentLifecycleEventRepository
+    HealthRepo      *agentrepo.AgentHealthSnapshotRepository
+    Instrumentation *agentinstr.Instrumentation
+    Notifications   *imnotify.Sender
+    RedisClient     *redis.Client
+    EventBus        event_bus.EventBus
+    Config          AgentLifecycleRuntimeConfig
+    Service         *agentlifecycle.Service
 }
 
 // AgentLifecycleRuntimeConfig 提供运行时常用配置。
@@ -635,21 +637,42 @@ func newAgentLifecycleDeps(db *gorm.DB, opts AgentLifecycleOptions, bus event_bu
 		})
 	}
 
-	inst := agentinstr.New(agentinstr.Options{
-		Audit: auditSvc,
-	})
+inst := agentinstr.New(agentinstr.Options{
+	Audit: auditSvc,
+})
 
-	notifier := imnotify.NewSender(imnotify.Config{
-		WebhookURL:    opts.Notifications.IMWebhook,
-		RetryInterval: opts.Notifications.RetryInterval,
-		MaxRetry:      opts.Notifications.RetryMaxAttempts,
-		HTTPTimeout:   opts.Notifications.HTTPTimeout,
-	})
+notifier := imnotify.NewSender(imnotify.Config{
+	WebhookURL:    opts.Notifications.IMWebhook,
+	RetryInterval: opts.Notifications.RetryInterval,
+	MaxRetry:      opts.Notifications.RetryMaxAttempts,
+	HTTPTimeout:   opts.Notifications.HTTPTimeout,
+})
+
+profileRepo := agentrepo.NewAgentProfileLifecycleRepository(db)
+lifecycleRepo := agentrepo.NewAgentLifecycleEventRepository(db)
+healthRepo := agentrepo.NewAgentHealthSnapshotRepository(db)
+
+service := agentlifecycle.NewService(agentlifecycle.ServiceOptions{
+	ProfileRepo:     profileRepo,
+	LifecycleRepo:   lifecycleRepo,
+	HealthRepo:      healthRepo,
+	EventBus:        bus,
+	Instrumentation: inst,
+	Notifier:        notifier,
+	Config: agentlifecycle.Config{
+		DefaultCapacityInstances: opts.DefaultCapacityInstances,
+		EventTopics: agentlifecycle.EventTopics{
+			LifecyclePrefix: opts.EventTopics.LifecyclePrefix,
+			HealthPrefix:    opts.EventTopics.HealthPrefix,
+		},
+	},
+	Clock: time.Now,
+})
 
 	return &AgentLifecycleDeps{
-		ProfileRepo:     agentrepo.NewAgentProfileLifecycleRepository(db),
-		LifecycleRepo:   agentrepo.NewAgentLifecycleEventRepository(db),
-		HealthRepo:      agentrepo.NewAgentHealthSnapshotRepository(db),
+		ProfileRepo:     profileRepo,
+		LifecycleRepo:   lifecycleRepo,
+		HealthRepo:      healthRepo,
 		Instrumentation: inst,
 		Notifications:   notifier,
 		RedisClient:     redisClient,
@@ -663,6 +686,7 @@ func newAgentLifecycleDeps(db *gorm.DB, opts AgentLifecycleOptions, bus event_bu
 				HealthPrefix:    opts.EventTopics.HealthPrefix,
 			},
 		},
+		Service: service,
 	}
 }
 

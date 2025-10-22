@@ -7,7 +7,10 @@
 package agentv1
 
 import (
+	context "context"
 	grpc "google.golang.org/grpc"
+	codes "google.golang.org/grpc/codes"
+	status "google.golang.org/grpc/status"
 )
 
 // This is a compile-time assertion to ensure that this generated file
@@ -15,12 +18,35 @@ import (
 // Requires gRPC-Go v1.64.0 or later.
 const _ = grpc.SupportPackageIsVersion9
 
+const (
+	AgentLifecycleService_RegisterAgent_FullMethodName       = "/powerx.agent.v1.AgentLifecycleService/RegisterAgent"
+	AgentLifecycleService_GetAgent_FullMethodName            = "/powerx.agent.v1.AgentLifecycleService/GetAgent"
+	AgentLifecycleService_ActivateAgent_FullMethodName       = "/powerx.agent.v1.AgentLifecycleService/ActivateAgent"
+	AgentLifecycleService_PauseAgent_FullMethodName          = "/powerx.agent.v1.AgentLifecycleService/PauseAgent"
+	AgentLifecycleService_ResumeAgent_FullMethodName         = "/powerx.agent.v1.AgentLifecycleService/ResumeAgent"
+	AgentLifecycleService_RetireAgent_FullMethodName         = "/powerx.agent.v1.AgentLifecycleService/RetireAgent"
+	AgentLifecycleService_ScaleAgent_FullMethodName          = "/powerx.agent.v1.AgentLifecycleService/ScaleAgent"
+	AgentLifecycleService_ListLifecycleEvents_FullMethodName = "/powerx.agent.v1.AgentLifecycleService/ListLifecycleEvents"
+	AgentLifecycleService_GetHealthSummary_FullMethodName    = "/powerx.agent.v1.AgentLifecycleService/GetHealthSummary"
+	AgentLifecycleService_ListHealthSnapshots_FullMethodName = "/powerx.agent.v1.AgentLifecycleService/ListHealthSnapshots"
+)
+
 // AgentLifecycleServiceClient is the client API for AgentLifecycleService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 //
-// AgentLifecycleService will expose lifecycle control RPCs in later phases.
+// AgentLifecycleService 定义注册、生命周期控制与健康查询接口。
 type AgentLifecycleServiceClient interface {
+	RegisterAgent(ctx context.Context, in *RegisterAgentRequest, opts ...grpc.CallOption) (*RegisterAgentResponse, error)
+	GetAgent(ctx context.Context, in *GetAgentRequest, opts ...grpc.CallOption) (*GetAgentResponse, error)
+	ActivateAgent(ctx context.Context, in *LifecycleCommandRequest, opts ...grpc.CallOption) (*LifecycleEventResponse, error)
+	PauseAgent(ctx context.Context, in *LifecycleCommandRequest, opts ...grpc.CallOption) (*LifecycleEventResponse, error)
+	ResumeAgent(ctx context.Context, in *LifecycleCommandRequest, opts ...grpc.CallOption) (*LifecycleEventResponse, error)
+	RetireAgent(ctx context.Context, in *LifecycleCommandRequest, opts ...grpc.CallOption) (*LifecycleEventResponse, error)
+	ScaleAgent(ctx context.Context, in *ScaleAgentRequest, opts ...grpc.CallOption) (*LifecycleEventResponse, error)
+	ListLifecycleEvents(ctx context.Context, in *ListLifecycleEventsRequest, opts ...grpc.CallOption) (*ListLifecycleEventsResponse, error)
+	GetHealthSummary(ctx context.Context, in *GetHealthSummaryRequest, opts ...grpc.CallOption) (*GetHealthSummaryResponse, error)
+	ListHealthSnapshots(ctx context.Context, in *ListHealthSnapshotsRequest, opts ...grpc.CallOption) (*ListHealthSnapshotsResponse, error)
 }
 
 type agentLifecycleServiceClient struct {
@@ -31,12 +57,122 @@ func NewAgentLifecycleServiceClient(cc grpc.ClientConnInterface) AgentLifecycleS
 	return &agentLifecycleServiceClient{cc}
 }
 
+func (c *agentLifecycleServiceClient) RegisterAgent(ctx context.Context, in *RegisterAgentRequest, opts ...grpc.CallOption) (*RegisterAgentResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RegisterAgentResponse)
+	err := c.cc.Invoke(ctx, AgentLifecycleService_RegisterAgent_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *agentLifecycleServiceClient) GetAgent(ctx context.Context, in *GetAgentRequest, opts ...grpc.CallOption) (*GetAgentResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetAgentResponse)
+	err := c.cc.Invoke(ctx, AgentLifecycleService_GetAgent_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *agentLifecycleServiceClient) ActivateAgent(ctx context.Context, in *LifecycleCommandRequest, opts ...grpc.CallOption) (*LifecycleEventResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(LifecycleEventResponse)
+	err := c.cc.Invoke(ctx, AgentLifecycleService_ActivateAgent_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *agentLifecycleServiceClient) PauseAgent(ctx context.Context, in *LifecycleCommandRequest, opts ...grpc.CallOption) (*LifecycleEventResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(LifecycleEventResponse)
+	err := c.cc.Invoke(ctx, AgentLifecycleService_PauseAgent_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *agentLifecycleServiceClient) ResumeAgent(ctx context.Context, in *LifecycleCommandRequest, opts ...grpc.CallOption) (*LifecycleEventResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(LifecycleEventResponse)
+	err := c.cc.Invoke(ctx, AgentLifecycleService_ResumeAgent_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *agentLifecycleServiceClient) RetireAgent(ctx context.Context, in *LifecycleCommandRequest, opts ...grpc.CallOption) (*LifecycleEventResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(LifecycleEventResponse)
+	err := c.cc.Invoke(ctx, AgentLifecycleService_RetireAgent_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *agentLifecycleServiceClient) ScaleAgent(ctx context.Context, in *ScaleAgentRequest, opts ...grpc.CallOption) (*LifecycleEventResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(LifecycleEventResponse)
+	err := c.cc.Invoke(ctx, AgentLifecycleService_ScaleAgent_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *agentLifecycleServiceClient) ListLifecycleEvents(ctx context.Context, in *ListLifecycleEventsRequest, opts ...grpc.CallOption) (*ListLifecycleEventsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListLifecycleEventsResponse)
+	err := c.cc.Invoke(ctx, AgentLifecycleService_ListLifecycleEvents_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *agentLifecycleServiceClient) GetHealthSummary(ctx context.Context, in *GetHealthSummaryRequest, opts ...grpc.CallOption) (*GetHealthSummaryResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetHealthSummaryResponse)
+	err := c.cc.Invoke(ctx, AgentLifecycleService_GetHealthSummary_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *agentLifecycleServiceClient) ListHealthSnapshots(ctx context.Context, in *ListHealthSnapshotsRequest, opts ...grpc.CallOption) (*ListHealthSnapshotsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListHealthSnapshotsResponse)
+	err := c.cc.Invoke(ctx, AgentLifecycleService_ListHealthSnapshots_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // AgentLifecycleServiceServer is the server API for AgentLifecycleService service.
 // All implementations must embed UnimplementedAgentLifecycleServiceServer
 // for forward compatibility.
 //
-// AgentLifecycleService will expose lifecycle control RPCs in later phases.
+// AgentLifecycleService 定义注册、生命周期控制与健康查询接口。
 type AgentLifecycleServiceServer interface {
+	RegisterAgent(context.Context, *RegisterAgentRequest) (*RegisterAgentResponse, error)
+	GetAgent(context.Context, *GetAgentRequest) (*GetAgentResponse, error)
+	ActivateAgent(context.Context, *LifecycleCommandRequest) (*LifecycleEventResponse, error)
+	PauseAgent(context.Context, *LifecycleCommandRequest) (*LifecycleEventResponse, error)
+	ResumeAgent(context.Context, *LifecycleCommandRequest) (*LifecycleEventResponse, error)
+	RetireAgent(context.Context, *LifecycleCommandRequest) (*LifecycleEventResponse, error)
+	ScaleAgent(context.Context, *ScaleAgentRequest) (*LifecycleEventResponse, error)
+	ListLifecycleEvents(context.Context, *ListLifecycleEventsRequest) (*ListLifecycleEventsResponse, error)
+	GetHealthSummary(context.Context, *GetHealthSummaryRequest) (*GetHealthSummaryResponse, error)
+	ListHealthSnapshots(context.Context, *ListHealthSnapshotsRequest) (*ListHealthSnapshotsResponse, error)
 	mustEmbedUnimplementedAgentLifecycleServiceServer()
 }
 
@@ -47,6 +183,36 @@ type AgentLifecycleServiceServer interface {
 // pointer dereference when methods are called.
 type UnimplementedAgentLifecycleServiceServer struct{}
 
+func (UnimplementedAgentLifecycleServiceServer) RegisterAgent(context.Context, *RegisterAgentRequest) (*RegisterAgentResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RegisterAgent not implemented")
+}
+func (UnimplementedAgentLifecycleServiceServer) GetAgent(context.Context, *GetAgentRequest) (*GetAgentResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetAgent not implemented")
+}
+func (UnimplementedAgentLifecycleServiceServer) ActivateAgent(context.Context, *LifecycleCommandRequest) (*LifecycleEventResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ActivateAgent not implemented")
+}
+func (UnimplementedAgentLifecycleServiceServer) PauseAgent(context.Context, *LifecycleCommandRequest) (*LifecycleEventResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method PauseAgent not implemented")
+}
+func (UnimplementedAgentLifecycleServiceServer) ResumeAgent(context.Context, *LifecycleCommandRequest) (*LifecycleEventResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ResumeAgent not implemented")
+}
+func (UnimplementedAgentLifecycleServiceServer) RetireAgent(context.Context, *LifecycleCommandRequest) (*LifecycleEventResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RetireAgent not implemented")
+}
+func (UnimplementedAgentLifecycleServiceServer) ScaleAgent(context.Context, *ScaleAgentRequest) (*LifecycleEventResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ScaleAgent not implemented")
+}
+func (UnimplementedAgentLifecycleServiceServer) ListLifecycleEvents(context.Context, *ListLifecycleEventsRequest) (*ListLifecycleEventsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListLifecycleEvents not implemented")
+}
+func (UnimplementedAgentLifecycleServiceServer) GetHealthSummary(context.Context, *GetHealthSummaryRequest) (*GetHealthSummaryResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetHealthSummary not implemented")
+}
+func (UnimplementedAgentLifecycleServiceServer) ListHealthSnapshots(context.Context, *ListHealthSnapshotsRequest) (*ListHealthSnapshotsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListHealthSnapshots not implemented")
+}
 func (UnimplementedAgentLifecycleServiceServer) mustEmbedUnimplementedAgentLifecycleServiceServer() {}
 func (UnimplementedAgentLifecycleServiceServer) testEmbeddedByValue()                               {}
 
@@ -68,13 +234,234 @@ func RegisterAgentLifecycleServiceServer(s grpc.ServiceRegistrar, srv AgentLifec
 	s.RegisterService(&AgentLifecycleService_ServiceDesc, srv)
 }
 
+func _AgentLifecycleService_RegisterAgent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RegisterAgentRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentLifecycleServiceServer).RegisterAgent(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AgentLifecycleService_RegisterAgent_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentLifecycleServiceServer).RegisterAgent(ctx, req.(*RegisterAgentRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AgentLifecycleService_GetAgent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetAgentRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentLifecycleServiceServer).GetAgent(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AgentLifecycleService_GetAgent_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentLifecycleServiceServer).GetAgent(ctx, req.(*GetAgentRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AgentLifecycleService_ActivateAgent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(LifecycleCommandRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentLifecycleServiceServer).ActivateAgent(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AgentLifecycleService_ActivateAgent_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentLifecycleServiceServer).ActivateAgent(ctx, req.(*LifecycleCommandRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AgentLifecycleService_PauseAgent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(LifecycleCommandRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentLifecycleServiceServer).PauseAgent(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AgentLifecycleService_PauseAgent_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentLifecycleServiceServer).PauseAgent(ctx, req.(*LifecycleCommandRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AgentLifecycleService_ResumeAgent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(LifecycleCommandRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentLifecycleServiceServer).ResumeAgent(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AgentLifecycleService_ResumeAgent_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentLifecycleServiceServer).ResumeAgent(ctx, req.(*LifecycleCommandRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AgentLifecycleService_RetireAgent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(LifecycleCommandRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentLifecycleServiceServer).RetireAgent(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AgentLifecycleService_RetireAgent_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentLifecycleServiceServer).RetireAgent(ctx, req.(*LifecycleCommandRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AgentLifecycleService_ScaleAgent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ScaleAgentRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentLifecycleServiceServer).ScaleAgent(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AgentLifecycleService_ScaleAgent_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentLifecycleServiceServer).ScaleAgent(ctx, req.(*ScaleAgentRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AgentLifecycleService_ListLifecycleEvents_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListLifecycleEventsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentLifecycleServiceServer).ListLifecycleEvents(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AgentLifecycleService_ListLifecycleEvents_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentLifecycleServiceServer).ListLifecycleEvents(ctx, req.(*ListLifecycleEventsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AgentLifecycleService_GetHealthSummary_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetHealthSummaryRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentLifecycleServiceServer).GetHealthSummary(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AgentLifecycleService_GetHealthSummary_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentLifecycleServiceServer).GetHealthSummary(ctx, req.(*GetHealthSummaryRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AgentLifecycleService_ListHealthSnapshots_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListHealthSnapshotsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentLifecycleServiceServer).ListHealthSnapshots(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AgentLifecycleService_ListHealthSnapshots_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentLifecycleServiceServer).ListHealthSnapshots(ctx, req.(*ListHealthSnapshotsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // AgentLifecycleService_ServiceDesc is the grpc.ServiceDesc for AgentLifecycleService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var AgentLifecycleService_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "powerx.agent.v1.AgentLifecycleService",
 	HandlerType: (*AgentLifecycleServiceServer)(nil),
-	Methods:     []grpc.MethodDesc{},
-	Streams:     []grpc.StreamDesc{},
-	Metadata:    "powerx/agent/v1/agent_lifecycle.proto",
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "RegisterAgent",
+			Handler:    _AgentLifecycleService_RegisterAgent_Handler,
+		},
+		{
+			MethodName: "GetAgent",
+			Handler:    _AgentLifecycleService_GetAgent_Handler,
+		},
+		{
+			MethodName: "ActivateAgent",
+			Handler:    _AgentLifecycleService_ActivateAgent_Handler,
+		},
+		{
+			MethodName: "PauseAgent",
+			Handler:    _AgentLifecycleService_PauseAgent_Handler,
+		},
+		{
+			MethodName: "ResumeAgent",
+			Handler:    _AgentLifecycleService_ResumeAgent_Handler,
+		},
+		{
+			MethodName: "RetireAgent",
+			Handler:    _AgentLifecycleService_RetireAgent_Handler,
+		},
+		{
+			MethodName: "ScaleAgent",
+			Handler:    _AgentLifecycleService_ScaleAgent_Handler,
+		},
+		{
+			MethodName: "ListLifecycleEvents",
+			Handler:    _AgentLifecycleService_ListLifecycleEvents_Handler,
+		},
+		{
+			MethodName: "GetHealthSummary",
+			Handler:    _AgentLifecycleService_GetHealthSummary_Handler,
+		},
+		{
+			MethodName: "ListHealthSnapshots",
+			Handler:    _AgentLifecycleService_ListHealthSnapshots_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "powerx/agent/v1/agent_lifecycle.proto",
 }

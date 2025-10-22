@@ -32,16 +32,16 @@
 
 ### Tests（先于实现）
 
-- [ ] T011 [P] [US1] 在 `tests/contract/agent_lifecycle/admin_http_test.go` 编写 HTTP 合同测试（注册/激活），基于 `contracts/http-openapi.yaml`.
-- [ ] T012 [P] [US1] 在 `tests/contract/agent_lifecycle/admin_grpc_test.go` 编写 gRPC 合同测试（Register/Activate），基于 `contracts/agent_lifecycle.proto`.
-- [ ] T013 [P] [US1] 在 `tests/integration/agent_lifecycle/registration_activation_flow_test.go` 覆盖注册→激活端到端场景，校验事件与审计写入。
+- [x] T011 [P] [US1] 在 `tests/contract/agent_lifecycle/admin_http_test.go` 编写 HTTP 合同测试（注册/激活），基于 `contracts/http-openapi.yaml`.
+- [x] T012 [P] [US1] 在 `tests/contract/agent_lifecycle/admin_grpc_test.go` 编写 gRPC 合同测试（Register/Activate），基于 `contracts/agent_lifecycle.proto`.
+- [x] T013 [P] [US1] 在 `tests/integration/agent_lifecycle/registration_activation_flow_test.go` 覆盖注册→激活端到端场景，校验事件与审计写入。
 
 ### Implementation
 
-- [ ] T014 [US1] 在 `internal/service/agent_lifecycle/registry.go` 实现注册/激活逻辑：依赖校验、状态机、事件发布、审计写入。
-- [ ] T015 [US1] 在 `internal/transport/http/admin/agent/handlers.go` & `dto.go` 实现注册/激活 Handler、请求校验与响应包装。
-- [ ] T016 [US1] 在 `internal/transport/grpc/agentlifecycle/service.go` 实现 RegisterAgent/ActivateAgent RPC，并在 `internal/server/grpc/server.go` 注册服务。
-- [ ] T017 [US1] 在 `internal/service/agent_lifecycle/events.go` 抽象生命周期事件发布与补偿逻辑，并联动 EventBus 主题。
+- [x] T014 [US1] 在 `internal/service/agent_lifecycle/registry.go` 实现注册/激活逻辑：依赖校验、状态机、事件发布、审计写入。
+- [x] T015 [US1] 在 `internal/transport/http/admin/agent/handlers.go` & `dto.go` 实现注册/激活 Handler、请求校验与响应包装。
+- [x] T016 [US1] 在 `internal/transport/grpc/agentlifecycle/service.go` 实现 RegisterAgent/ActivateAgent RPC，并在 `internal/server/grpc/server.go` 注册服务。
+- [x] T017 [US1] 在 `internal/service/agent_lifecycle/events.go` 抽象生命周期事件发布与补偿逻辑，并联动 EventBus 主题。
 
 **Checkpoint**：管理员可完成代理注册与激活，相关测试全部通过。
 

@@ -20,6 +20,7 @@ import (
 	workflowv1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/workflow/v1"
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
 	agentgrpc "github.com/ArtisanCloud/PowerX/internal/transport/grpc/agent"
+agentlifecyclegrpc "github.com/ArtisanCloud/PowerX/internal/transport/grpc/agentlifecycle"
 	authgrpc "github.com/ArtisanCloud/PowerX/internal/transport/grpc/auth"
 	middleware2 "github.com/ArtisanCloud/PowerX/internal/transport/grpc/auth/middleware"
 	capgrpc "github.com/ArtisanCloud/PowerX/internal/transport/grpc/capability"
@@ -111,6 +112,9 @@ func New(cfg *GRPCConfig, deps *shared.Deps) (*grpc.Server, net.Listener, error)
 
 	agentv1.RegisterAgentStreamServiceServer(s, agentgrpc.NewAgentStreamServer(deps))
 	settingv12.RegisterSettingAIServiceServer(s, agentgrpc.NewSettingAIServiceServer(deps))
+    if deps.AgentLifecycle != nil && deps.AgentLifecycle.Service != nil {
+        agentlifecyclegrpc.Register(s, agentlifecyclegrpc.NewServer(deps.AgentLifecycle.Service))
+    }
 	capv1.RegisterCapabilityRegistryServiceServer(s, capgrpc.NewContractServer(deps))
 	if deps.CapabilityRegistrySvc != nil {
 		capabilityRegistryGRPC.RegisterCapabilityRegistryServer(s, deps.CapabilityRegistrySvc)
@@ -147,6 +151,7 @@ func New(cfg *GRPCConfig, deps *shared.Deps) (*grpc.Server, net.Listener, error)
 			iamv1.MemberService_ServiceDesc.ServiceName,
 			iamv1.TeamService_ServiceDesc.ServiceName,
 			agentv1.AgentStreamService_ServiceDesc.ServiceName,
+            agentv1.AgentLifecycleService_ServiceDesc.ServiceName,
 			settingv12.SettingAIService_ServiceDesc.ServiceName,
 			stsv1.STSService_ServiceDesc.ServiceName,
 			corexmediav1.MediaAssetAdminService_ServiceDesc.ServiceName,

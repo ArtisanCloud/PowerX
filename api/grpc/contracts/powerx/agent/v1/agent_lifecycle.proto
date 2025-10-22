@@ -3,11 +3,183 @@ syntax = "proto3";
 package powerx.agent.v1;
 
 option go_package = "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/agent/v1;agentv1";
-option java_package = "com.powerx.agent.v1";
-option java_multiple_files = true;
-option csharp_namespace = "PowerX.Agent.V1";
-option php_namespace = "PowerX\\Agent\\V1";
-option php_metadata_namespace = "GPBMetadata\\PowerX\\Agent\\V1";
 
-// AgentLifecycleService will expose lifecycle control RPCs in later phases.
-service AgentLifecycleService {}
+// AgentLifecycleService 定义注册、生命周期控制与健康查询接口。
+service AgentLifecycleService {
+  rpc RegisterAgent(RegisterAgentRequest) returns (RegisterAgentResponse);
+  rpc GetAgent(GetAgentRequest) returns (GetAgentResponse);
+  rpc ActivateAgent(LifecycleCommandRequest) returns (LifecycleEventResponse);
+  rpc PauseAgent(LifecycleCommandRequest) returns (LifecycleEventResponse);
+  rpc ResumeAgent(LifecycleCommandRequest) returns (LifecycleEventResponse);
+  rpc RetireAgent(LifecycleCommandRequest) returns (LifecycleEventResponse);
+  rpc ScaleAgent(ScaleAgentRequest) returns (LifecycleEventResponse);
+  rpc ListLifecycleEvents(ListLifecycleEventsRequest) returns (ListLifecycleEventsResponse);
+  rpc GetHealthSummary(GetHealthSummaryRequest) returns (GetHealthSummaryResponse);
+  rpc ListHealthSnapshots(ListHealthSnapshotsRequest) returns (ListHealthSnapshotsResponse);
+}
+
+message RegisterAgentRequest {
+  string alias = 1;
+  string tenant_id = 2;
+  repeated ToolGrant tool_grants = 3;
+  string telemetry_contract_version = 4;
+  int32 default_capacity_instances = 5;
+  optional int32 max_capacity_instances = 6;
+  optional string notification_channel = 7;
+  map<string, string> metadata = 8;
+  string trace_id = 9;
+}
+
+message RegisterAgentResponse {
+  Agent agent = 1;
+}
+
+message GetAgentRequest {
+  string agent_id = 1;
+}
+
+message GetAgentResponse {
+  Agent agent = 1;
+}
+
+message LifecycleCommandRequest {
+  string agent_id = 1;
+  string reason = 2;
+  string trace_id = 3;
+  string requested_by = 4;
+}
+
+message ScaleAgentRequest {
+  string agent_id = 1;
+  int32 target_capacity_instances = 2;
+  string reason = 3;
+  string trace_id = 4;
+  string requested_by = 5;
+}
+
+message LifecycleEventResponse {
+  LifecycleEvent event = 1;
+}
+
+message ListLifecycleEventsRequest {
+  string agent_id = 1;
+  optional string since = 2; // RFC3339 timestamp
+  int32 page_size = 3;
+  optional string page_token = 4;
+}
+
+message ListLifecycleEventsResponse {
+  repeated LifecycleEvent events = 1;
+  string next_page_token = 2;
+}
+
+message GetHealthSummaryRequest {
+  string agent_id = 1;
+}
+
+message GetHealthSummaryResponse {
+  HealthSummary summary = 1;
+}
+
+message ListHealthSnapshotsRequest {
+  string agent_id = 1;
+  int32 range_hours = 2;
+  int32 window_minutes = 3;
+  optional string page_token = 4;
+}
+
+message ListHealthSnapshotsResponse {
+  repeated HealthSnapshot snapshots = 1;
+  string next_page_token = 2;
+}
+
+message Agent {
+  string id = 1;
+  string alias = 2;
+  string tenant_id = 3;
+  AgentStatus status = 4;
+  repeated ToolGrant tool_grants = 5;
+  string telemetry_contract_version = 6;
+  int32 default_capacity_instances = 7;
+  int32 max_capacity_instances = 8;
+  int32 current_capacity_instances = 9;
+  string event_topic = 10;
+  string notification_channel = 11;
+  string created_at = 12;
+  string updated_at = 13;
+}
+
+enum AgentStatus {
+  AGENT_STATUS_UNSPECIFIED = 0;
+  AGENT_STATUS_PENDING = 1;
+  AGENT_STATUS_ACTIVE = 2;
+  AGENT_STATUS_PAUSED = 3;
+  AGENT_STATUS_RETIRED = 4;
+}
+
+message ToolGrant {
+  string name = 1;
+  string version = 2;
+  string expires_at = 3;
+}
+
+message LifecycleEvent {
+  string id = 1;
+  string agent_id = 2;
+  LifecycleEventType type = 3;
+  AgentStatus from_status = 4;
+  AgentStatus to_status = 5;
+  int32 requested_capacity = 6;
+  string reason = 7;
+  string triggered_by = 8;
+  string trace_id = 9;
+  string event_id = 10;
+  string created_at = 11;
+}
+
+enum LifecycleEventType {
+  LIFECYCLE_EVENT_TYPE_UNSPECIFIED = 0;
+  LIFECYCLE_EVENT_TYPE_REGISTER = 1;
+  LIFECYCLE_EVENT_TYPE_ACTIVATE = 2;
+  LIFECYCLE_EVENT_TYPE_PAUSE = 3;
+  LIFECYCLE_EVENT_TYPE_RESUME = 4;
+  LIFECYCLE_EVENT_TYPE_SCALE_UP = 5;
+  LIFECYCLE_EVENT_TYPE_SCALE_DOWN = 6;
+  LIFECYCLE_EVENT_TYPE_RETIRE = 7;
+  LIFECYCLE_EVENT_TYPE_AUTO_DEGRADE = 8;
+  LIFECYCLE_EVENT_TYPE_AUTO_RECOVER = 9;
+}
+
+message HealthSummary {
+  string agent_id = 1;
+  HealthStatus status = 2;
+  int32 health_score = 3;
+  string updated_at = 4;
+  HealthMetrics metrics = 5;
+  repeated string recommendations = 6;
+}
+
+message HealthMetrics {
+  double throughput_per_min = 1;
+  double success_rate = 2;
+  int32 p95_latency_ms = 3;
+  double resource_utilization_pct = 4;
+  double error_rate = 5;
+}
+
+enum HealthStatus {
+  HEALTH_STATUS_UNSPECIFIED = 0;
+  HEALTH_STATUS_HEALTHY = 1;
+  HEALTH_STATUS_DEGRADED = 2;
+  HEALTH_STATUS_UNAVAILABLE = 3;
+  HEALTH_STATUS_UNKNOWN = 4;
+}
+
+message HealthSnapshot {
+  string window_started_at = 1;
+  int32 window_duration_sec = 2;
+  int32 health_score = 3;
+  HealthStatus status = 4;
+  HealthMetrics metrics = 5;
+  repeated string anomaly_trace_ids = 6;
+}
