@@ -23,6 +23,10 @@ func MigrateAgentModels(db *gorm.DB) error {
 
 		&dbmodel.AgentChatSession{},
 		&dbmodel.AgentChatMessage{},
+
+		&dbmodel.AgentProfileLifecycle{},
+		&dbmodel.AgentLifecycleEventRecord{},
+		&dbmodel.AgentHealthSnapshotRecord{},
 	)
 
 	// 可以顺手确认一下（开发期）：

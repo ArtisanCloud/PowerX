@@ -13,13 +13,13 @@
 
 ## Phase 2: Foundational（阻断性前置）
 
-- [ ] T004 [P] 在 `pkg/corex/db/persistence/model/agent/` 中新增 `profile.go`, `lifecycle_event.go`, `health_snapshot.go` 定义 GORM 模型，满足数据模型字段与约束。
-- [ ] T005 在 `pkg/corex/db/database/migration.go` 与 `cmd/database/migrate.go` 注册 Agent 模型 AutoMigrate 顺序，保持与现有模块一致。
-- [ ] T006 [P] 在 `pkg/corex/db/persistence/repository/agent/` 下实现 `profile_repository.go`, `lifecycle_repository.go`, `health_repository.go`，嵌入 `BaseRepository` 并提供查询/写入接口。
-- [ ] T007 更新 `config/defaults.go`, `etc/config.yaml`, `config/config.go`，新增 `agent_lifecycle` 配置段（事件前缀、默认容量、通知 webhook 等）并完成校验。
-- [ ] T008 在 `internal/app/shared/deps.go` 注入 AgentLifecycle 所需依赖（Redis、EventBus、Audit、Telemetry），并注册 Redis key 前缀。
-- [ ] T009 在 `internal/service/agent_lifecycle/instrumentation/` 建立指标与追踪封装，提供健康评分计算与事件 trace 透传接口。
-- [ ] T010 在 `internal/notifications/im/` 实现企业 IM Webhook 发送器与重试策略，供健康告警调用。
+- [x] T004 [P] 在 `pkg/corex/db/persistence/model/agent/` 中新增 `profile.go`, `lifecycle_event.go`, `health_snapshot.go` 定义 GORM 模型，满足数据模型字段与约束。
+- [x] T005 在 `pkg/corex/db/database/migration.go` 与 `cmd/database/migrate.go` 注册 Agent 模型 AutoMigrate 顺序，保持与现有模块一致。
+- [x] T006 [P] 在 `pkg/corex/db/persistence/repository/agent/` 下实现 `profile_repository.go`, `lifecycle_repository.go`, `health_repository.go`，嵌入 `BaseRepository` 并提供查询/写入接口。
+- [x] T007 更新 `config/defaults.go`, `etc/config.yaml`, `config/config.go`，新增 `agent_lifecycle` 配置段（事件前缀、默认容量、通知 webhook 等）并完成校验。
+- [x] T008 在 `internal/app/shared/deps.go` 注入 AgentLifecycle 所需依赖（Redis、EventBus、Audit、Telemetry），并注册 Redis key 前缀。
+- [x] T009 在 `internal/service/agent_lifecycle/instrumentation/` 建立指标与追踪封装，提供健康评分计算与事件 trace 透传接口。
+- [x] T010 在 `internal/notifications/im/` 实现企业 IM Webhook 发送器与重试策略，供健康告警调用。
 
 **Checkpoint**：完成以上任务后，生命周期服务具备持久化、依赖注入与观测基线，可开展用户故事开发。
 

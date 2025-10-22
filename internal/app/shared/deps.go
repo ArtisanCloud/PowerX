@@ -11,7 +11,10 @@ import (
 	workers "github.com/ArtisanCloud/PowerX/internal/app/shared/workers"
 	discoverycache "github.com/ArtisanCloud/PowerX/internal/infra/cache/discovery"
 	mediamgr "github.com/ArtisanCloud/PowerX/internal/infra/media/manager"
+	imnotify "github.com/ArtisanCloud/PowerX/internal/notifications/im"
+	agentrepo "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/repository"
 	igdeps "github.com/ArtisanCloud/PowerX/internal/server/mcp/tools/integration_gateway/deps"
+	agentinstr "github.com/ArtisanCloud/PowerX/internal/service/agent_lifecycle/instrumentation"
 	authsvc "github.com/ArtisanCloud/PowerX/internal/service/auth"
 	discoveryService "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/discovery"
 	capabilityRegistryDomain "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/domain"
@@ -96,6 +99,7 @@ type Deps struct {
 	RouterSandboxSvc      *capabilitySandbox.Service
 	DiscoverySvc          *discoveryService.Service
 	IntegrationGateway    *IntegrationGatewayDeps
+	AgentLifecycle        *AgentLifecycleDeps
 
 	EventFabric *EventFabricDeps
 	Workflow    *WorkflowDeps
@@ -184,6 +188,7 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 	workflowSvc := workflowsvc.NewService(db, workflowsvc.ServiceOptions{})
 
 	integrationGatewayDeps := newIntegrationGatewayDeps(db, opts.IntegrationGateway, bus, aud)
+	agentLifecycleDeps := newAgentLifecycleDeps(db, opts.AgentLifecycle, bus, svc)
 
 	tenantConfig := integrationTenant.Config{
 		DefaultRateLimit: integrationManager.RateLimitPolicy{
@@ -229,6 +234,7 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 		RouterSandboxSvc:      sandboxSvc,
 		DiscoverySvc:          discoverySvc,
 		IntegrationGateway:    integrationGatewayDeps,
+		AgentLifecycle:        agentLifecycleDeps,
 		EventFabric:           eventFabricDeps,
 		Workflow: &WorkflowDeps{
 			Service:       workflowSvc,
@@ -273,6 +279,26 @@ type IntegrationGatewayDeps struct {
 	Manager         *integrationManager.Service
 	Tenant          *integrationTenant.Service
 	Instrumentation *integrationInstrumentation.Instrumentation
+}
+
+// AgentLifecycleDeps 聚合 Agent 生命周期运行所需依赖。
+type AgentLifecycleDeps struct {
+	ProfileRepo     *agentrepo.AgentProfileRepository
+	LifecycleRepo   *agentrepo.AgentLifecycleEventRepository
+	HealthRepo      *agentrepo.AgentHealthSnapshotRepository
+	Instrumentation *agentinstr.Instrumentation
+	Notifications   *imnotify.Sender
+	RedisClient     *redis.Client
+	EventBus        event_bus.EventBus
+	Config          AgentLifecycleRuntimeConfig
+}
+
+// AgentLifecycleRuntimeConfig 提供运行时常用配置。
+type AgentLifecycleRuntimeConfig struct {
+	CapacityKeyPrefix        string
+	HealthKeyPrefix          string
+	DefaultCapacityInstances int
+	EventTopics              AgentLifecycleEventTopicsOptions
 }
 
 // EventFabricRuntimeConfig 将配置项转换为运行时易用的结构。
@@ -596,6 +622,47 @@ func newEventFabricDeps(db *gorm.DB, opts EventFabricOptions, bus event_bus.Even
 		Metrics:       metricsRecorder,
 		Security:      securityVerifier,
 		Authorization: authDeps,
+	}
+}
+
+func newAgentLifecycleDeps(db *gorm.DB, opts AgentLifecycleOptions, bus event_bus.EventBus, auditSvc auditsvc.Service) *AgentLifecycleDeps {
+	var redisClient *redis.Client
+	if addr := strings.TrimSpace(opts.RedisAddr); addr != "" {
+		redisClient = redis.NewClient(&redis.Options{
+			Addr:     addr,
+			Password: opts.RedisPassword,
+			DB:       opts.RedisDB,
+		})
+	}
+
+	inst := agentinstr.New(agentinstr.Options{
+		Audit: auditSvc,
+	})
+
+	notifier := imnotify.NewSender(imnotify.Config{
+		WebhookURL:    opts.Notifications.IMWebhook,
+		RetryInterval: opts.Notifications.RetryInterval,
+		MaxRetry:      opts.Notifications.RetryMaxAttempts,
+		HTTPTimeout:   opts.Notifications.HTTPTimeout,
+	})
+
+	return &AgentLifecycleDeps{
+		ProfileRepo:     agentrepo.NewAgentProfileLifecycleRepository(db),
+		LifecycleRepo:   agentrepo.NewAgentLifecycleEventRepository(db),
+		HealthRepo:      agentrepo.NewAgentHealthSnapshotRepository(db),
+		Instrumentation: inst,
+		Notifications:   notifier,
+		RedisClient:     redisClient,
+		EventBus:        bus,
+		Config: AgentLifecycleRuntimeConfig{
+			CapacityKeyPrefix:        opts.CapacityKeyPrefix,
+			HealthKeyPrefix:          opts.HealthKeyPrefix,
+			DefaultCapacityInstances: opts.DefaultCapacityInstances,
+			EventTopics: AgentLifecycleEventTopicsOptions{
+				LifecyclePrefix: opts.EventTopics.LifecyclePrefix,
+				HealthPrefix:    opts.EventTopics.HealthPrefix,
+			},
+		},
 	}
 }
 
