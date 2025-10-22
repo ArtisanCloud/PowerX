@@ -85,6 +85,8 @@
    ```
 4. 调用失败会在结果中附带 `trace_id` 与错误码，同时事件总线上发布 `invocation_failed`。
 
+> 想一次性完成「创建 -> HTTP 调用 -> MCP 调用」验证，可运行 `scripts/integration_gateway/verify_flow.sh`，脚本会自动串联上述过程并打印关键 trace id。
+
 ### 步骤 5：监控与排障
 - Prometheus 指标路径：`/metrics` 中新增 `integration_gateway_invocations_total`, `integration_gateway_rate_limit_hits_total` 等。
 - 追踪：在日志中检索 `trace_id`（通过 HTTP header `X-Trace-Id` 或响应取得）。
