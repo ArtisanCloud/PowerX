@@ -321,9 +321,9 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type IntegrationGatewayTenantServiceClient interface {
-	ListRoutes(ctx context.Context, in *TenantListRoutesRequest, opts ...grpc.CallOption) (*ListRoutesResponse, error)
-	GetRoute(ctx context.Context, in *TenantGetRouteRequest, opts ...grpc.CallOption) (*TenantGetRouteResponse, error)
-	InvokeRoute(ctx context.Context, in *TenantInvokeRequest, opts ...grpc.CallOption) (*TenantInvokeResponse, error)
+	ListRoutes(ctx context.Context, in *IntegrationGatewayTenantServiceListRoutesRequest, opts ...grpc.CallOption) (*ListRoutesResponse, error)
+	GetRoute(ctx context.Context, in *IntegrationGatewayTenantServiceGetRouteRequest, opts ...grpc.CallOption) (*IntegrationGatewayTenantServiceGetRouteResponse, error)
+	InvokeRoute(ctx context.Context, in *IntegrationGatewayTenantServiceInvokeRouteRequest, opts ...grpc.CallOption) (*IntegrationGatewayTenantServiceInvokeRouteResponse, error)
 }
 
 type integrationGatewayTenantServiceClient struct {
@@ -334,7 +334,7 @@ func NewIntegrationGatewayTenantServiceClient(cc grpc.ClientConnInterface) Integ
 	return &integrationGatewayTenantServiceClient{cc}
 }
 
-func (c *integrationGatewayTenantServiceClient) ListRoutes(ctx context.Context, in *TenantListRoutesRequest, opts ...grpc.CallOption) (*ListRoutesResponse, error) {
+func (c *integrationGatewayTenantServiceClient) ListRoutes(ctx context.Context, in *IntegrationGatewayTenantServiceListRoutesRequest, opts ...grpc.CallOption) (*ListRoutesResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ListRoutesResponse)
 	err := c.cc.Invoke(ctx, IntegrationGatewayTenantService_ListRoutes_FullMethodName, in, out, cOpts...)
@@ -344,9 +344,9 @@ func (c *integrationGatewayTenantServiceClient) ListRoutes(ctx context.Context, 
 	return out, nil
 }
 
-func (c *integrationGatewayTenantServiceClient) GetRoute(ctx context.Context, in *TenantGetRouteRequest, opts ...grpc.CallOption) (*TenantGetRouteResponse, error) {
+func (c *integrationGatewayTenantServiceClient) GetRoute(ctx context.Context, in *IntegrationGatewayTenantServiceGetRouteRequest, opts ...grpc.CallOption) (*IntegrationGatewayTenantServiceGetRouteResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(TenantGetRouteResponse)
+	out := new(IntegrationGatewayTenantServiceGetRouteResponse)
 	err := c.cc.Invoke(ctx, IntegrationGatewayTenantService_GetRoute_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
@@ -354,9 +354,9 @@ func (c *integrationGatewayTenantServiceClient) GetRoute(ctx context.Context, in
 	return out, nil
 }
 
-func (c *integrationGatewayTenantServiceClient) InvokeRoute(ctx context.Context, in *TenantInvokeRequest, opts ...grpc.CallOption) (*TenantInvokeResponse, error) {
+func (c *integrationGatewayTenantServiceClient) InvokeRoute(ctx context.Context, in *IntegrationGatewayTenantServiceInvokeRouteRequest, opts ...grpc.CallOption) (*IntegrationGatewayTenantServiceInvokeRouteResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(TenantInvokeResponse)
+	out := new(IntegrationGatewayTenantServiceInvokeRouteResponse)
 	err := c.cc.Invoke(ctx, IntegrationGatewayTenantService_InvokeRoute_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
@@ -368,9 +368,9 @@ func (c *integrationGatewayTenantServiceClient) InvokeRoute(ctx context.Context,
 // All implementations must embed UnimplementedIntegrationGatewayTenantServiceServer
 // for forward compatibility.
 type IntegrationGatewayTenantServiceServer interface {
-	ListRoutes(context.Context, *TenantListRoutesRequest) (*ListRoutesResponse, error)
-	GetRoute(context.Context, *TenantGetRouteRequest) (*TenantGetRouteResponse, error)
-	InvokeRoute(context.Context, *TenantInvokeRequest) (*TenantInvokeResponse, error)
+	ListRoutes(context.Context, *IntegrationGatewayTenantServiceListRoutesRequest) (*ListRoutesResponse, error)
+	GetRoute(context.Context, *IntegrationGatewayTenantServiceGetRouteRequest) (*IntegrationGatewayTenantServiceGetRouteResponse, error)
+	InvokeRoute(context.Context, *IntegrationGatewayTenantServiceInvokeRouteRequest) (*IntegrationGatewayTenantServiceInvokeRouteResponse, error)
 	mustEmbedUnimplementedIntegrationGatewayTenantServiceServer()
 }
 
@@ -381,13 +381,13 @@ type IntegrationGatewayTenantServiceServer interface {
 // pointer dereference when methods are called.
 type UnimplementedIntegrationGatewayTenantServiceServer struct{}
 
-func (UnimplementedIntegrationGatewayTenantServiceServer) ListRoutes(context.Context, *TenantListRoutesRequest) (*ListRoutesResponse, error) {
+func (UnimplementedIntegrationGatewayTenantServiceServer) ListRoutes(context.Context, *IntegrationGatewayTenantServiceListRoutesRequest) (*ListRoutesResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListRoutes not implemented")
 }
-func (UnimplementedIntegrationGatewayTenantServiceServer) GetRoute(context.Context, *TenantGetRouteRequest) (*TenantGetRouteResponse, error) {
+func (UnimplementedIntegrationGatewayTenantServiceServer) GetRoute(context.Context, *IntegrationGatewayTenantServiceGetRouteRequest) (*IntegrationGatewayTenantServiceGetRouteResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetRoute not implemented")
 }
-func (UnimplementedIntegrationGatewayTenantServiceServer) InvokeRoute(context.Context, *TenantInvokeRequest) (*TenantInvokeResponse, error) {
+func (UnimplementedIntegrationGatewayTenantServiceServer) InvokeRoute(context.Context, *IntegrationGatewayTenantServiceInvokeRouteRequest) (*IntegrationGatewayTenantServiceInvokeRouteResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method InvokeRoute not implemented")
 }
 func (UnimplementedIntegrationGatewayTenantServiceServer) mustEmbedUnimplementedIntegrationGatewayTenantServiceServer() {
@@ -413,7 +413,7 @@ func RegisterIntegrationGatewayTenantServiceServer(s grpc.ServiceRegistrar, srv 
 }
 
 func _IntegrationGatewayTenantService_ListRoutes_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(TenantListRoutesRequest)
+	in := new(IntegrationGatewayTenantServiceListRoutesRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -425,13 +425,13 @@ func _IntegrationGatewayTenantService_ListRoutes_Handler(srv interface{}, ctx co
 		FullMethod: IntegrationGatewayTenantService_ListRoutes_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(IntegrationGatewayTenantServiceServer).ListRoutes(ctx, req.(*TenantListRoutesRequest))
+		return srv.(IntegrationGatewayTenantServiceServer).ListRoutes(ctx, req.(*IntegrationGatewayTenantServiceListRoutesRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
 func _IntegrationGatewayTenantService_GetRoute_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(TenantGetRouteRequest)
+	in := new(IntegrationGatewayTenantServiceGetRouteRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -443,13 +443,13 @@ func _IntegrationGatewayTenantService_GetRoute_Handler(srv interface{}, ctx cont
 		FullMethod: IntegrationGatewayTenantService_GetRoute_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(IntegrationGatewayTenantServiceServer).GetRoute(ctx, req.(*TenantGetRouteRequest))
+		return srv.(IntegrationGatewayTenantServiceServer).GetRoute(ctx, req.(*IntegrationGatewayTenantServiceGetRouteRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
 func _IntegrationGatewayTenantService_InvokeRoute_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(TenantInvokeRequest)
+	in := new(IntegrationGatewayTenantServiceInvokeRouteRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -461,7 +461,7 @@ func _IntegrationGatewayTenantService_InvokeRoute_Handler(srv interface{}, ctx c
 		FullMethod: IntegrationGatewayTenantService_InvokeRoute_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(IntegrationGatewayTenantServiceServer).InvokeRoute(ctx, req.(*TenantInvokeRequest))
+		return srv.(IntegrationGatewayTenantServiceServer).InvokeRoute(ctx, req.(*IntegrationGatewayTenantServiceInvokeRouteRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }

@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+package powerx.agent.v1;
+
+option go_package = "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/agent/v1;agentv1";
+option java_package = "com.powerx.agent.v1";
+option java_multiple_files = true;
+option csharp_namespace = "PowerX.Agent.V1";
+option php_namespace = "PowerX\\Agent\\V1";
+option php_metadata_namespace = "GPBMetadata\\PowerX\\Agent\\V1";
+
+// AgentLifecycleService will expose lifecycle control RPCs in later phases.
+service AgentLifecycleService {}

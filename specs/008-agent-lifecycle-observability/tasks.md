@@ -5,9 +5,9 @@
 
 ## Phase 1: Setup（共享基础）
 
-- [ ] T001 在 `api/grpc/contract/buf.yaml` 与 `buf.gen.yaml` 注册 `powerx/agent/v1` proto 包路径，并创建 `api/grpc/contracts/powerx/agent/v1/` 目录骨架，确保生成目标指向 `api/grpc/gen`.
-- [ ] T002 初始化目录结构：`internal/service/agent_lifecycle/`, `internal/transport/http/{admin,openapi}/agent/`, `internal/transport/grpc/agentlifecycle/`, `internal/notifications/im/`，并添加 README 说明用途，保持 Go 包非空。
-- [ ] T003 校准 Makefile：在 `Makefile` 的 `proto-gen`/`proto-lint`/`proto-clean` 目标中覆盖新的 agent proto 路径。
+- [x] T001 在 `api/grpc/contract/buf.yaml` 与 `buf.gen.yaml` 注册 `powerx/agent/v1` proto 包路径，并创建 `api/grpc/contracts/powerx/agent/v1/` 目录骨架，确保生成目标指向 `api/grpc/gen`.
+- [x] T002 初始化目录结构：`internal/service/agent_lifecycle/`, `internal/transport/http/{admin,openapi}/agent/`, `internal/transport/grpc/agentlifecycle/`, `internal/notifications/im/`，并添加 README 说明用途，保持 Go 包非空。
+- [x] T003 校准 Makefile：在 `Makefile` 的 `proto-gen`/`proto-lint`/`proto-clean` 目标中覆盖新的 agent proto 路径。
 
 ---
 

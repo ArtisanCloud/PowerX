@@ -13,9 +13,9 @@ message RateLimitPolicy {
   uint32 window_seconds = 3;
   enum Scope {
     SCOPE_UNSPECIFIED = 0;
-    PER_ROUTE = 1;
-    PER_TENANT = 2;
-    PER_ROUTE_PER_TENANT = 3;
+    SCOPE_PER_ROUTE = 1;
+    SCOPE_PER_TENANT = 2;
+    SCOPE_PER_ROUTE_PER_TENANT = 3;
   }
   Scope scope = 4;
 }
@@ -38,10 +38,10 @@ message IntegrationRoute {
   EventTopicConfig event_topics = 8;
   enum LifecycleState {
     LIFECYCLE_STATE_UNSPECIFIED = 0;
-    PENDING = 1;
-    ACTIVE = 2;
-    SUSPENDED = 3;
-    RETIRED = 4;
+    LIFECYCLE_STATE_PENDING = 1;
+    LIFECYCLE_STATE_ACTIVE = 2;
+    LIFECYCLE_STATE_SUSPENDED = 3;
+    LIFECYCLE_STATE_RETIRED = 4;
   }
   LifecycleState lifecycle_state = 9;
   bool enabled = 10;
@@ -151,23 +151,23 @@ message ListRouteVersionsResponse {
   string trace_id = 2;
 }
 
-message TenantGetRouteRequest {
+message IntegrationGatewayTenantServiceGetRouteRequest {
   string tenant_id = 1;
   string route_slug = 2;
 }
 
-message TenantGetRouteResponse {
+message IntegrationGatewayTenantServiceGetRouteResponse {
   IntegrationRoute route = 1;
   string trace_id = 2;
 }
 
-message TenantListRoutesRequest {
+message IntegrationGatewayTenantServiceListRoutesRequest {
   string tenant_id = 1;
   string capability_id = 2;
   string channel = 3;
 }
 
-message TenantInvokeRequest {
+message IntegrationGatewayTenantServiceInvokeRouteRequest {
   string tenant_id = 1;
   string route_slug = 2;
   string trace_id = 3;
@@ -175,14 +175,14 @@ message TenantInvokeRequest {
   bytes payload_json = 5;
 }
 
-message TenantInvokeResponse {
+message IntegrationGatewayTenantServiceInvokeRouteResponse {
   enum Status {
     STATUS_UNSPECIFIED = 0;
-    OK = 1;
-    ACCEPTED = 2;
-    RATE_LIMITED = 3;
-    DENIED = 4;
-    FAILED = 5;
+    STATUS_OK = 1;
+    STATUS_ACCEPTED = 2;
+    STATUS_RATE_LIMITED = 3;
+    STATUS_DENIED = 4;
+    STATUS_FAILED = 5;
   }
   Status status = 1;
   bytes result_json = 2;
@@ -204,7 +204,7 @@ service IntegrationGatewayAdminService {
 }
 
 service IntegrationGatewayTenantService {
-  rpc ListRoutes(TenantListRoutesRequest) returns (ListRoutesResponse);
-  rpc GetRoute(TenantGetRouteRequest) returns (TenantGetRouteResponse);
-  rpc InvokeRoute(TenantInvokeRequest) returns (TenantInvokeResponse);
+  rpc ListRoutes(IntegrationGatewayTenantServiceListRoutesRequest) returns (ListRoutesResponse);
+  rpc GetRoute(IntegrationGatewayTenantServiceGetRouteRequest) returns (IntegrationGatewayTenantServiceGetRouteResponse);
+  rpc InvokeRoute(IntegrationGatewayTenantServiceInvokeRouteRequest) returns (IntegrationGatewayTenantServiceInvokeRouteResponse);
 }
