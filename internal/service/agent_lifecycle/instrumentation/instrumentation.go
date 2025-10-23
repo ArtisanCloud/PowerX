@@ -35,6 +35,7 @@ type MetricsRecorder interface {
 	IncLifecycleTransition(eventType, toStatus string)
 	ObserveHealthScore(status string, score float64)
 	ObserveProcessingLatency(operation string, duration time.Duration)
+	ObserveHealthLatency(status string, duration time.Duration)
 }
 
 // Options 聚合构建 Instrumentation 所需依赖。
@@ -42,6 +43,8 @@ type Options struct {
 	Tracer  Tracer
 	Metrics MetricsRecorder
 	Audit   auditsvc.Service
+	// AlertCooldown 定义同一代理同一状态重复告警的冷却时间。
+	AlertCooldown time.Duration
 }
 
 // Instrumentation 为生命周期域统一提供日志、追踪与审计能力。
@@ -49,6 +52,7 @@ type Instrumentation struct {
 	tracer  Tracer
 	metrics MetricsRecorder
 	audit   auditsvc.Service
+	alerts  *AlertTracker
 }
 
 // New 构建 Instrumentation。
@@ -64,6 +68,10 @@ func New(opts Options) *Instrumentation {
 	if inst.metrics == nil {
 		inst.metrics = noopMetrics{}
 	}
+	if opts.AlertCooldown <= 0 {
+		opts.AlertCooldown = 2 * time.Minute
+	}
+	inst.alerts = NewAlertTracker(opts.AlertCooldown)
 	return inst
 }
 
@@ -80,6 +88,14 @@ func (i *Instrumentation) Tracer() Tracer {
 // Metrics 返回指标记录器。
 func (i *Instrumentation) Metrics() MetricsRecorder {
 	return i.metrics
+}
+
+// AllowHealthAlert 用于判断是否可以发送告警，已考虑节流。
+func (i *Instrumentation) AllowHealthAlert(agentID, status string, now time.Time) bool {
+	if i.alerts == nil {
+		return true
+	}
+	return i.alerts.Try(agentID, status, now)
 }
 
 // EnsureTraceContext 确保上下文带有 trace_id。
@@ -131,6 +147,13 @@ func (i *Instrumentation) RecordLifecycleTransition(ctx context.Context, eventTy
 func (i *Instrumentation) RecordHealthSnapshot(ctx context.Context, status string, score float64) {
 	if i.metrics != nil {
 		i.metrics.ObserveHealthScore(status, score)
+	}
+}
+
+// RecordHealthLatency 记录健康计算耗时。
+func (i *Instrumentation) RecordHealthLatency(ctx context.Context, status string, latency time.Duration) {
+	if i.metrics != nil {
+		i.metrics.ObserveHealthLatency(status, latency)
 	}
 }
 
@@ -196,3 +219,4 @@ type noopMetrics struct{}
 func (noopMetrics) IncLifecycleTransition(string, string)          {}
 func (noopMetrics) ObserveHealthScore(string, float64)             {}
 func (noopMetrics) ObserveProcessingLatency(string, time.Duration) {}
+func (noopMetrics) ObserveHealthLatency(string, time.Duration)     {}

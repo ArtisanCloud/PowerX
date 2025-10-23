@@ -13,4 +13,6 @@ var (
 	ErrInvalidCapacity = errors.New("invalid capacity target")
 	// ErrCapacityExceeded 表示超出最大容量限制。
 	ErrCapacityExceeded = errors.New("capacity exceeds maximum limit")
+	// ErrInvalidSubscription 表示订阅配置非法。
+	ErrInvalidSubscription = errors.New("invalid subscription config")
 )

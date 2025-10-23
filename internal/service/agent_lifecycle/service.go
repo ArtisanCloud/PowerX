@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -18,16 +19,32 @@ import (
 	"github.com/ArtisanCloud/PowerX/pkg/event_bus"
 )
 
+// Notifier 定义告警通知发送器。
+type Notifier interface {
+	Send(ctx context.Context, msg imnotify.Message) error
+}
+
 // Config 控制服务运行参数。
 type Config struct {
-	DefaultCapacityInstances int
-	EventTopics              EventTopics
+	DefaultCapacityInstances   int
+	EventTopics                EventTopics
+	HealthDegradedThreshold    int32
+	HealthUnavailableThreshold int32
+	SubscriptionCacheTTL       time.Duration
+	AlertCooldown              time.Duration
 }
 
 // EventTopics 定义事件主题前缀。
 type EventTopics struct {
 	LifecyclePrefix string
 	HealthPrefix    string
+}
+
+const subscriptionMetadataKey = "agent_subscription_config"
+
+type cachedSubscription struct {
+	config    SubscriptionConfig
+	expiresAt time.Time
 }
 
 // ServiceOptions 构建 Service 所需依赖。
@@ -37,21 +54,23 @@ type ServiceOptions struct {
 	HealthRepo      *agentrepo.AgentHealthSnapshotRepository
 	EventBus        event_bus.EventBus
 	Instrumentation *agentinstr.Instrumentation
-	Notifier        *imnotify.Sender
+	Notifier        Notifier
 	Config          Config
 	Clock           func() time.Time
 }
 
 // Service 封装 Agent 生命周期核心逻辑。
 type Service struct {
-	profiles *agentrepo.AgentProfileLifecycleRepository
-	events   *agentrepo.AgentLifecycleEventRepository
-	health   *agentrepo.AgentHealthSnapshotRepository
-	bus      event_bus.EventBus
-	instr    *agentinstr.Instrumentation
-	notifier *imnotify.Sender
-	config   Config
-	clock    func() time.Time
+	profiles          *agentrepo.AgentProfileLifecycleRepository
+	events            *agentrepo.AgentLifecycleEventRepository
+	health            *agentrepo.AgentHealthSnapshotRepository
+	bus               event_bus.EventBus
+	instr             *agentinstr.Instrumentation
+	notifier          Notifier
+	config            Config
+	clock             func() time.Time
+	subscriptionMu    sync.RWMutex
+	subscriptionCache map[uuid.UUID]cachedSubscription
 }
 
 // NewService 构建 Service。
@@ -65,19 +84,34 @@ func NewService(opts ServiceOptions) *Service {
 	if opts.Config.DefaultCapacityInstances <= 0 {
 		opts.Config.DefaultCapacityInstances = 1
 	}
+	if opts.Config.HealthDegradedThreshold <= 0 {
+		opts.Config.HealthDegradedThreshold = 80
+	}
+	if opts.Config.HealthUnavailableThreshold <= 0 {
+		opts.Config.HealthUnavailableThreshold = 50
+	}
+	if opts.Config.SubscriptionCacheTTL <= 0 {
+		opts.Config.SubscriptionCacheTTL = 5 * time.Minute
+	}
+	if opts.Config.AlertCooldown <= 0 {
+		opts.Config.AlertCooldown = 2 * time.Minute
+	}
 	if opts.Instrumentation == nil {
-		opts.Instrumentation = agentinstr.New(agentinstr.Options{})
+		opts.Instrumentation = agentinstr.New(agentinstr.Options{
+			AlertCooldown: opts.Config.AlertCooldown,
+		})
 	}
 
 	return &Service{
-		profiles: opts.ProfileRepo,
-		events:   opts.LifecycleRepo,
-		health:   opts.HealthRepo,
-		bus:      opts.EventBus,
-		instr:    opts.Instrumentation,
-		notifier: opts.Notifier,
-		config:   opts.Config,
-		clock:    opts.Clock,
+		profiles:          opts.ProfileRepo,
+		events:            opts.LifecycleRepo,
+		health:            opts.HealthRepo,
+		bus:               opts.EventBus,
+		instr:             opts.Instrumentation,
+		notifier:          opts.Notifier,
+		config:            opts.Config,
+		clock:             opts.Clock,
+		subscriptionCache: make(map[uuid.UUID]cachedSubscription),
 	}
 }
 
@@ -178,7 +212,6 @@ func (s *Service) Activate(ctx context.Context, in ActivateInput) (*LifecycleRes
 		}
 		return nil, err
 	}
-
 	tenantID := strings.TrimSpace(in.TenantID)
 	if tenantID == "" {
 		tenantID = profile.TenantID
@@ -503,6 +536,182 @@ func (s *Service) ListByTenant(ctx context.Context, tenantID string) ([]*Agent, 
 	return result, nil
 }
 
+func (s *Service) subscriptionForProfile(profile *agentmodel.AgentProfileLifecycle) SubscriptionConfig {
+	if profile == nil {
+		return s.defaultSubscriptionConfig()
+	}
+	if cfg, ok := s.subscriptionFromCache(profile.UUID); ok {
+		return cfg
+	}
+	meta := parseMetadata(profile.Metadata)
+	cfg := s.defaultSubscriptionConfig()
+	if meta != nil {
+		if raw := meta[subscriptionMetadataKey]; raw != "" {
+			var decoded SubscriptionConfig
+			if err := json.Unmarshal([]byte(raw), &decoded); err == nil {
+				if sanitized, err := s.sanitizeSubscription(decoded, false); err == nil {
+					cfg = sanitized
+				}
+			}
+		}
+	}
+	s.storeSubscriptionCache(profile.UUID, cfg)
+	return cfg
+}
+
+func (s *Service) subscriptionFromCache(agentID uuid.UUID) (SubscriptionConfig, bool) {
+	if agentID == uuid.Nil {
+		return SubscriptionConfig{}, false
+	}
+	s.subscriptionMu.RLock()
+	entry, ok := s.subscriptionCache[agentID]
+	s.subscriptionMu.RUnlock()
+	if !ok || entry.expiresAt.Before(s.clock()) {
+		return SubscriptionConfig{}, false
+	}
+	return entry.config, true
+}
+
+func (s *Service) storeSubscriptionCache(agentID uuid.UUID, cfg SubscriptionConfig) {
+	if agentID == uuid.Nil {
+		return
+	}
+	s.subscriptionMu.Lock()
+	s.subscriptionCache[agentID] = cachedSubscription{
+		config:    cfg,
+		expiresAt: s.clock().Add(s.config.SubscriptionCacheTTL),
+	}
+	s.subscriptionMu.Unlock()
+}
+
+func (s *Service) defaultSubscriptionConfig() SubscriptionConfig {
+	return SubscriptionConfig{
+		MetricsFilter:  append([]string(nil), defaultSubscriptionMetrics...),
+		HealthStatuses: append([]string(nil), defaultSubscriptionStatuses...),
+	}
+}
+
+func (s *Service) sanitizeSubscription(cfg SubscriptionConfig, strict bool) (SubscriptionConfig, error) {
+	statuses, err := normalizeStatusList(cfg.HealthStatuses, strict)
+	if err != nil {
+		return SubscriptionConfig{}, err
+	}
+	metrics := normalizeMetricsList(cfg.MetricsFilter)
+	cfg.HealthStatuses = statuses
+	cfg.MetricsFilter = metrics
+	if !cfg.UpdatedAt.IsZero() {
+		cfg.UpdatedAt = cfg.UpdatedAt.UTC()
+	}
+	return cfg, nil
+}
+
+func normalizeStatusList(values []string, strict bool) ([]string, error) {
+	result := make([]string, 0, len(values))
+	seen := make(map[string]struct{})
+	for _, val := range values {
+		key := normalizeStatus(val)
+		if key == "" {
+			continue
+		}
+		if _, ok := allowedSubscriptionStatuses[key]; !ok {
+			if strict {
+				return nil, ErrInvalidSubscription
+			}
+			continue
+		}
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		result = append(result, key)
+	}
+	if len(result) == 0 {
+		if strict {
+			return nil, ErrInvalidSubscription
+		}
+		return append([]string(nil), defaultSubscriptionStatuses...), nil
+	}
+	return result, nil
+}
+
+func normalizeMetricsList(values []string) []string {
+	result := make([]string, 0, len(values))
+	seen := make(map[string]struct{})
+	for _, val := range values {
+		key := strings.TrimSpace(strings.ToLower(val))
+		if key == "" {
+			continue
+		}
+		if _, ok := allowedMetricsKeys[key]; !ok {
+			continue
+		}
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		result = append(result, key)
+	}
+	if len(result) == 0 {
+		return append([]string(nil), defaultSubscriptionMetrics...)
+	}
+	return result
+}
+
+func (s *Service) UpdateSubscription(ctx context.Context, input SubscriptionUpdateInput) (*SubscriptionConfig, error) {
+	if input.AgentID == uuid.Nil {
+		return nil, fmt.Errorf("agent_id is required")
+	}
+	profile, err := s.profiles.GetByUUID(ctx, input.AgentID)
+	if err != nil {
+		if errors.Is(err, agentrepo.ErrAgentProfileNotFound) {
+			return nil, ErrAgentNotFound
+		}
+		return nil, err
+	}
+	if strings.TrimSpace(input.TenantID) != "" && !strings.EqualFold(profile.TenantID, input.TenantID) {
+		return nil, fmt.Errorf("tenant mismatch")
+	}
+
+	cfg, err := s.sanitizeSubscription(input.Config, true)
+	if err != nil {
+		return nil, err
+	}
+	cfg.UpdatedAt = s.clock().UTC()
+
+	meta := parseMetadata(profile.Metadata)
+	if meta == nil {
+		meta = map[string]string{}
+	}
+	bytes, err := json.Marshal(cfg)
+	if err != nil {
+		return nil, err
+	}
+	meta[subscriptionMetadataKey] = string(bytes)
+	profile.Metadata = encodeMetadata(meta)
+	profile.UpdatedBy = input.RequestedBy
+
+	if _, err := s.profiles.Save(ctx, profile); err != nil {
+		return nil, err
+	}
+	s.storeSubscriptionCache(profile.UUID, cfg)
+	return &cfg, nil
+}
+
+func (s *Service) GetSubscription(ctx context.Context, agentID uuid.UUID) (*SubscriptionConfig, error) {
+	if agentID == uuid.Nil {
+		return nil, fmt.Errorf("agent_id is required")
+	}
+	profile, err := s.profiles.GetByUUID(ctx, agentID)
+	if err != nil {
+		if errors.Is(err, agentrepo.ErrAgentProfileNotFound) {
+			return nil, ErrAgentNotFound
+		}
+		return nil, err
+	}
+	cfg := s.subscriptionForProfile(profile)
+	return &cfg, nil
+}
+
 func (s *Service) appendLifecycleEvent(ctx context.Context, profile *agentmodel.AgentProfileLifecycle, eventType, fromStatus, toStatus, triggeredBy string, requestedCapacity *int32, reason, traceID string, latency time.Duration) (*agentmodel.AgentLifecycleEventRecord, error) {
 	if s.events == nil {
 		return nil, nil
@@ -538,6 +747,22 @@ func (s *Service) publishLifecycle(ctx context.Context, action string, payload m
 		topic = topic + "." + action
 	} else {
 		topic = action
+	}
+	s.bus.Publish(topic, map[string]any{
+		"payload":  payload,
+		"trace_id": traceID,
+	}, ctx)
+}
+
+func (s *Service) publishHealth(ctx context.Context, status string, payload map[string]any, traceID string) {
+	if s.bus == nil {
+		return
+	}
+	topic := strings.TrimSuffix(s.config.EventTopics.HealthPrefix, ".")
+	if topic != "" {
+		topic = topic + "." + status
+	} else {
+		topic = "agent.health." + status
 	}
 	s.bus.Publish(topic, map[string]any{
 		"payload":  payload,
@@ -586,6 +811,17 @@ func parseMetadata(data datatypes.JSON) map[string]string {
 		return nil
 	}
 	return meta
+}
+
+func encodeMetadata(meta map[string]string) datatypes.JSON {
+	if meta == nil {
+		meta = map[string]string{}
+	}
+	b, err := json.Marshal(meta)
+	if err != nil {
+		return datatypes.JSON([]byte("{}"))
+	}
+	return datatypes.JSON(b)
 }
 
 func defaultDisplayName(name, fallback string) string {

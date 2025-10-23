@@ -185,6 +185,77 @@ func (s *Server) ScaleAgent(ctx context.Context, req *agentv1.ScaleAgentRequest)
 	return &agentv1.LifecycleEventResponse{Event: toProtoLifecycleEvent(result.Event)}, nil
 }
 
+func (s *Server) GetHealthSummary(ctx context.Context, req *agentv1.GetHealthSummaryRequest) (*agentv1.GetHealthSummaryResponse, error) {
+	if s.service == nil {
+		return nil, status.Error(codes.Unavailable, "agent lifecycle service unavailable")
+	}
+	id, err := uuid.Parse(req.GetAgentId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid agent_id: %v", err)
+	}
+	summary, err := s.service.GetHealthSummary(ctx, id)
+	if err != nil {
+		return nil, toStatusError(err)
+	}
+	return &agentv1.GetHealthSummaryResponse{Summary: toProtoHealthSummary(summary)}, nil
+}
+
+func (s *Server) ListHealthSnapshots(ctx context.Context, req *agentv1.ListHealthSnapshotsRequest) (*agentv1.ListHealthSnapshotsResponse, error) {
+	if s.service == nil {
+		return nil, status.Error(codes.Unavailable, "agent lifecycle service unavailable")
+	}
+	id, err := uuid.Parse(req.GetAgentId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid agent_id: %v", err)
+	}
+	snapshots, err := s.service.ListHealthSnapshots(ctx, id, int(req.GetRangeHours()), 0)
+	if err != nil {
+		return nil, toStatusError(err)
+	}
+	resp := &agentv1.ListHealthSnapshotsResponse{}
+	for _, snap := range snapshots {
+		resp.Snapshots = append(resp.Snapshots, toProtoHealthSnapshot(snap))
+	}
+	return resp, nil
+}
+
+func (s *Server) UpdateSubscription(ctx context.Context, req *agentv1.UpdateSubscriptionRequest) (*agentv1.UpdateSubscriptionResponse, error) {
+	if s.service == nil {
+		return nil, status.Error(codes.Unavailable, "agent lifecycle service unavailable")
+	}
+	id, err := uuid.Parse(req.GetAgentId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid agent_id: %v", err)
+	}
+	input := agent_lifecycle.SubscriptionUpdateInput{
+		AgentID:     id,
+		TenantID:    req.GetTenantId(),
+		RequestedBy: req.GetTraceId(),
+		TraceID:     req.GetTraceId(),
+		Config:      subscriptionConfigFromProto(req.GetConfig()),
+	}
+	cfg, err := s.service.UpdateSubscription(ctx, input)
+	if err != nil {
+		return nil, toStatusError(err)
+	}
+	return &agentv1.UpdateSubscriptionResponse{Config: toProtoSubscriptionConfig(cfg)}, nil
+}
+
+func (s *Server) GetSubscription(ctx context.Context, req *agentv1.GetSubscriptionRequest) (*agentv1.GetSubscriptionResponse, error) {
+	if s.service == nil {
+		return nil, status.Error(codes.Unavailable, "agent lifecycle service unavailable")
+	}
+	id, err := uuid.Parse(req.GetAgentId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid agent_id: %v", err)
+	}
+	cfg, err := s.service.GetSubscription(ctx, id)
+	if err != nil {
+		return nil, toStatusError(err)
+	}
+	return &agentv1.GetSubscriptionResponse{Config: toProtoSubscriptionConfig(cfg)}, nil
+}
+
 func toProtoAgent(agent *agent_lifecycle.Agent) *agentv1.Agent {
 	if agent == nil {
 		return nil
@@ -277,6 +348,93 @@ func eventTypeToProto(eventType string) agentv1.LifecycleEventType {
 		return agentv1.LifecycleEventType_LIFECYCLE_EVENT_TYPE_AUTO_RECOVER
 	default:
 		return agentv1.LifecycleEventType_LIFECYCLE_EVENT_TYPE_UNSPECIFIED
+	}
+}
+
+func healthStatusToProto(status string) agentv1.HealthStatus {
+	switch strings.ToLower(status) {
+	case "healthy":
+		return agentv1.HealthStatus_HEALTH_STATUS_HEALTHY
+	case "degraded":
+		return agentv1.HealthStatus_HEALTH_STATUS_DEGRADED
+	case "unavailable":
+		return agentv1.HealthStatus_HEALTH_STATUS_UNAVAILABLE
+	case "unknown":
+		return agentv1.HealthStatus_HEALTH_STATUS_UNKNOWN
+	default:
+		return agentv1.HealthStatus_HEALTH_STATUS_UNSPECIFIED
+	}
+}
+
+func toProtoHealthSummary(summary *agent_lifecycle.HealthSummary) *agentv1.HealthSummary {
+	if summary == nil {
+		return nil
+	}
+	return &agentv1.HealthSummary{
+		AgentId:     summary.AgentID.String(),
+		Status:      healthStatusToProto(summary.Status),
+		HealthScore: summary.HealthScore,
+		UpdatedAt:   summary.UpdatedAt.UTC().Format(time.RFC3339),
+		Metrics: &agentv1.HealthMetrics{
+			ThroughputPerMin:       summary.Metrics.ThroughputPerMin,
+			SuccessRate:            summary.Metrics.SuccessRate,
+			P95LatencyMs:           summary.Metrics.P95LatencyMs,
+			ResourceUtilizationPct: summary.Metrics.ResourceUtilPct,
+			ErrorRate:              summary.Metrics.ErrorRate,
+		},
+		Recommendations: summary.Recommendations,
+	}
+}
+
+func toProtoHealthSnapshot(summary *agent_lifecycle.HealthSummary) *agentv1.HealthSnapshot {
+	if summary == nil {
+		return nil
+	}
+	return &agentv1.HealthSnapshot{
+		WindowStartedAt:   summary.UpdatedAt.UTC().Format(time.RFC3339),
+		WindowDurationSec: summary.WindowDurationSec,
+		HealthScore:       summary.HealthScore,
+		Status:            healthStatusToProto(summary.Status),
+		Metrics: &agentv1.HealthMetrics{
+			ThroughputPerMin:       summary.Metrics.ThroughputPerMin,
+			SuccessRate:            summary.Metrics.SuccessRate,
+			P95LatencyMs:           summary.Metrics.P95LatencyMs,
+			ResourceUtilizationPct: summary.Metrics.ResourceUtilPct,
+			ErrorRate:              summary.Metrics.ErrorRate,
+		},
+		AnomalyTraceIds: summary.Metrics.AnomalyTraceIDs,
+	}
+}
+
+func toProtoSubscriptionConfig(cfg *agent_lifecycle.SubscriptionConfig) *agentv1.SubscriptionConfig {
+	if cfg == nil {
+		return &agentv1.SubscriptionConfig{}
+	}
+	updatedAt := ""
+	if !cfg.UpdatedAt.IsZero() {
+		updatedAt = cfg.UpdatedAt.UTC().Format(time.RFC3339)
+	}
+	return &agentv1.SubscriptionConfig{
+		MetricsFilter:  cfg.MetricsFilter,
+		HealthStatuses: cfg.HealthStatuses,
+		UpdatedAt:      updatedAt,
+	}
+}
+
+func subscriptionConfigFromProto(cfg *agentv1.SubscriptionConfig) agent_lifecycle.SubscriptionConfig {
+	if cfg == nil {
+		return agent_lifecycle.SubscriptionConfig{}
+	}
+	var updatedAt time.Time
+	if ts := cfg.GetUpdatedAt(); ts != "" {
+		if parsed, err := time.Parse(time.RFC3339, ts); err == nil {
+			updatedAt = parsed
+		}
+	}
+	return agent_lifecycle.SubscriptionConfig{
+		MetricsFilter:  cfg.GetMetricsFilter(),
+		HealthStatuses: cfg.GetHealthStatuses(),
+		UpdatedAt:      updatedAt,
 	}
 }
 

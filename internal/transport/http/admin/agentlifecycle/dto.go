@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/ArtisanCloud/PowerX/internal/service/agent_lifecycle"
+	"github.com/google/uuid"
 )
 
 type registerAgentRequest struct {
@@ -136,5 +137,68 @@ func fromAgent(agent *agent_lifecycle.Agent) agentResponse {
 		Metadata:                 agent.Metadata,
 		CreatedAt:                agent.CreatedAt.UTC().Format(time.RFC3339),
 		UpdatedAt:                agent.UpdatedAt.UTC().Format(time.RFC3339),
+	}
+}
+
+type healthSummaryResponse struct {
+	Status      string              `json:"status"`
+	HealthScore int32               `json:"health_score"`
+	UpdatedAt   string              `json:"updated_at"`
+	Metrics     agent_lifecycle.HealthMetricsInput `json:"metrics"`
+	Recommendations []string        `json:"recommendations"`
+}
+
+type healthHistoryResponse struct {
+	Snapshots []healthSummaryResponse `json:"snapshots"`
+}
+
+type subscriptionRequest struct {
+	TenantID       string   `json:"tenant_id" binding:"required"`
+	MetricsFilter  []string `json:"metrics_filter"`
+	HealthStatuses []string `json:"health_statuses"`
+	RequestedBy    string   `json:"requested_by"`
+	TraceID        string   `json:"trace_id"`
+}
+
+type subscriptionResponse struct {
+	MetricsFilter  []string `json:"metrics_filter"`
+	HealthStatuses []string `json:"health_statuses"`
+	UpdatedAt      string   `json:"updated_at"`
+}
+
+func fromHealthSummary(summary *agent_lifecycle.HealthSummary) healthSummaryResponse {
+	if summary == nil {
+		return healthSummaryResponse{}
+	}
+	return healthSummaryResponse{
+		Status:          summary.Status,
+		HealthScore:     summary.HealthScore,
+		UpdatedAt:       summary.UpdatedAt.UTC().Format(time.RFC3339),
+		Metrics:         summary.Metrics,
+		Recommendations: summary.Recommendations,
+	}
+}
+
+func toSubscriptionInput(agentID uuid.UUID, req subscriptionRequest) agent_lifecycle.SubscriptionUpdateInput {
+	return agent_lifecycle.SubscriptionUpdateInput{
+		AgentID:     agentID,
+		TenantID:    req.TenantID,
+		RequestedBy: req.RequestedBy,
+		TraceID:     req.TraceID,
+		Config: agent_lifecycle.SubscriptionConfig{
+			MetricsFilter:  req.MetricsFilter,
+			HealthStatuses: req.HealthStatuses,
+		},
+	}
+}
+
+func fromSubscription(cfg *agent_lifecycle.SubscriptionConfig) subscriptionResponse {
+	if cfg == nil {
+		return subscriptionResponse{}
+	}
+	return subscriptionResponse{
+		MetricsFilter:  cfg.MetricsFilter,
+		HealthStatuses: cfg.HealthStatuses,
+		UpdatedAt:      cfg.UpdatedAt.UTC().Format(time.RFC3339),
 	}
 }

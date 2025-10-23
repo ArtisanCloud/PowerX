@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	nethttp "net/http"
+	"strconv"
 
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
 	"github.com/ArtisanCloud/PowerX/internal/service/agent_lifecycle"
@@ -255,6 +256,91 @@ func (h *Handler) ScaleAgent(c *gin.Context) {
 	dto.ResponseSuccess(c, fromAgent(result.Agent))
 }
 
+func (h *Handler) GetHealthSummary(c *gin.Context) {
+	if h.service == nil {
+		dto.ResponseError(c, nethttp.StatusServiceUnavailable, "agent lifecycle service not available", nil)
+		return
+	}
+	agentID, err := uuid.Parse(c.Param("agent_id"))
+	if err != nil {
+		dto.ResponseError(c, nethttp.StatusBadRequest, "invalid agent_id", err)
+		return
+	}
+	summary, err := h.service.GetHealthSummary(c.Request.Context(), agentID)
+	if err != nil {
+		h.handleError(c, err)
+		return
+	}
+	dto.ResponseSuccess(c, fromHealthSummary(summary))
+}
+
+func (h *Handler) ListHealthHistory(c *gin.Context) {
+	if h.service == nil {
+		dto.ResponseError(c, nethttp.StatusServiceUnavailable, "agent lifecycle service not available", nil)
+		return
+	}
+	agentID, err := uuid.Parse(c.Param("agent_id"))
+	if err != nil {
+		dto.ResponseError(c, nethttp.StatusBadRequest, "invalid agent_id", err)
+		return
+	}
+	rangeHoursStr := c.DefaultQuery("range_hours", "24")
+	limitStr := c.DefaultQuery("limit", "50")
+	rangeHours, _ := strconv.Atoi(rangeHoursStr)
+	limit, _ := strconv.Atoi(limitStr)
+	snapshots, err := h.service.ListHealthSnapshots(c.Request.Context(), agentID, rangeHours, limit)
+	if err != nil {
+		h.handleError(c, err)
+		return
+	}
+	resp := healthHistoryResponse{Snapshots: make([]healthSummaryResponse, 0, len(snapshots))}
+	for _, snap := range snapshots {
+		resp.Snapshots = append(resp.Snapshots, fromHealthSummary(snap))
+	}
+	dto.ResponseSuccess(c, resp)
+}
+
+func (h *Handler) UpdateSubscription(c *gin.Context) {
+	if h.service == nil {
+		dto.ResponseError(c, nethttp.StatusServiceUnavailable, "agent lifecycle service not available", nil)
+		return
+	}
+	agentID, err := uuid.Parse(c.Param("agent_id"))
+	if err != nil {
+		dto.ResponseError(c, nethttp.StatusBadRequest, "invalid agent_id", err)
+		return
+	}
+	var req subscriptionRequest
+	if err := dto.ValidateRequestWithContext(c, &req); err != nil {
+		dto.ResponseValidationError(c, err)
+		return
+	}
+	result, err := h.service.UpdateSubscription(c.Request.Context(), toSubscriptionInput(agentID, req))
+	if err != nil {
+		h.handleError(c, err)
+		return
+	}
+	dto.ResponseSuccess(c, fromSubscription(result))
+}
+
+func (h *Handler) GetSubscription(c *gin.Context) {
+	if h.service == nil {
+		dto.ResponseError(c, nethttp.StatusServiceUnavailable, "agent lifecycle service not available", nil)
+		return
+	}
+	agentID, err := uuid.Parse(c.Param("agent_id"))
+	if err != nil {
+		dto.ResponseError(c, nethttp.StatusBadRequest, "invalid agent_id", err)
+		return
+	}
+	result, err := h.service.GetSubscription(c.Request.Context(), agentID)
+	if err != nil {
+		h.handleError(c, err)
+		return
+	}
+	dto.ResponseSuccess(c, fromSubscription(result))
+}
+
 func (h *Handler) handleError(c *gin.Context, err error) {
 	switch {
 	case errors.Is(err, agent_lifecycle.ErrAliasConflict):
@@ -264,6 +350,8 @@ func (h *Handler) handleError(c *gin.Context, err error) {
 	case errors.Is(err, agent_lifecycle.ErrInvalidStatusTransition):
 		dto.ResponseError(c, nethttp.StatusConflict, "invalid status transition", err)
 	case errors.Is(err, agent_lifecycle.ErrInvalidCapacity), errors.Is(err, agent_lifecycle.ErrCapacityExceeded):
+		dto.ResponseError(c, nethttp.StatusBadRequest, err.Error(), err)
+	case errors.Is(err, agent_lifecycle.ErrInvalidSubscription):
 		dto.ResponseError(c, nethttp.StatusBadRequest, err.Error(), err)
 	default:
 		dto.ResponseError(c, nethttp.StatusInternalServerError, "internal error", err)

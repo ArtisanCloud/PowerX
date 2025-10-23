@@ -53,7 +53,11 @@ func (r *AgentProfileLifecycleRepository) Save(ctx context.Context, profile *dbm
 	if profile == nil {
 		return nil, gorm.ErrInvalidData
 	}
-	if err := r.db.WithContext(ctx).Save(profile).Error; err != nil {
+	if err := r.db.WithContext(ctx).
+		Model(&dbmodel.AgentProfileLifecycle{}).
+		Where("uuid = ?", profile.UUID).
+		Select("*").
+		Updates(profile).Error; err != nil {
 		return nil, err
 	}
 	return profile, nil

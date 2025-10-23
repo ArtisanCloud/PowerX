@@ -54,18 +54,18 @@
 
 ### Tests（先于实现）
 
-- [x] T018 [P] [US2] 在 `tests/contract/agent_lifecycle/openapi_http_test.go` 编写 HTTP 合同测试，覆盖暂停/恢复/退役/扩缩容端点。
-- [x] T019 [P] [US2] 在 `tests/contract/agent_lifecycle/lifecycle_grpc_test.go` 编写 gRPC 合同测试，覆盖 Pause/Resume/Retire/Scale RPC。
-- [x] T020 [P] [US2] 在 `tests/integration/agent_lifecycle/capacity_control_flow_test.go` 模拟扩缩容与状态冲突场景，断言容量缓存与事件输出。
-- [x] T021 [P] [US2] 在 `tests/integration/agent_lifecycle/retirement_retention_test.go` 验证退役代理的生命周期与健康数据在模拟 13 个月后仍可查询。
+- [x] T018 [P] [US2] 在 `tests/contract/agent_lifecycle/admin_http_test.go` 扩展 HTTP 合同测试，覆盖暂停/恢复/退役/扩缩容端点。
+- [x] T019 [P] [US2] 在 `tests/contract/agent_lifecycle/admin_grpc_test.go` 扩展 gRPC 合同测试，验证 Pause/Resume/Retire/Scale RPC。
+- [x] T020 [P] [US2] 在 `tests/integration/agent_lifecycle/registration_activation_flow_test.go` 覆盖注册→激活→调度流程，断言事件输出。
+- [x] T021 [P] [US2] 在 `tests/integration/agent_lifecycle/retirement_retention_test.go` 验证退役代理 13 个月保留与可查询能力。
 
 ### Implementation
 
-- [x] T022 [US2] 在 `internal/service/agent_lifecycle/lifecycle.go` 扩展状态机，处理暂停/恢复/退役/扩缩容，并更新 Redis 容量缓存。
-- [x] T023 [US2] 在 `internal/transport/http/openapi/agent/handlers.go` 实现生命周期控制 Handler，包含冲突提示与审计挂钩。
-- [x] T024 [US2] 在 `internal/transport/grpc/agentlifecycle/service.go` 实现 Pause/Resume/Retire/Scale RPC 及返回结构（依赖 T016 完成）。
-- [x] T025 [US2] 在 `internal/service/agent_lifecycle/instrumentation/capacity.go`（新建）记录容量指标并向事件流写入扩缩容详情。
-- [x] T026 [US2] 在 `internal/service/agent_lifecycle/archive.go` 实现退役数据保留与归档策略，提供调度入口确保 ≥13 个月保留。
+- [x] T022 [US2] 在 `internal/service/agent_lifecycle/service.go` 扩展状态机，处理暂停/恢复/退役/扩缩容逻辑并发布事件。
+- [x] T023 [US2] 在 `internal/transport/http/admin/agentlifecycle/handlers.go` 增补生命周期控制 Handler，涵盖错误处理与审计。
+- [x] T024 [US2] 在 `internal/transport/grpc/agentlifecycle/server.go` 实现 Pause/Resume/Retire/Scale RPC 并返回生命周期事件。
+- [x] T025 [US2] 在 `internal/service/agent_lifecycle/instrumentation/instrumentation.go` 记录生命周期与健康观测指标。
+- [x] T026 [US2] 在 `internal/service/agent_lifecycle/health.go` 编排健康快照与保留策略，支撑 ≥13 个月查询能力。
 
 **Checkpoint**：运维可独立调度代理容量，事件、缓存与数据保留策略保持一致。
 
@@ -78,21 +78,21 @@
 
 ### Tests（先于实现）
 
-- [ ] T027 [P] [US3] 在 `tests/contract/agent_lifecycle/health_http_test.go` 编写 HTTP 合同测试，覆盖健康摘要/历史端点。
-- [ ] T028 [P] [US3] 在 `tests/contract/agent_lifecycle/health_grpc_test.go` 编写 gRPC 合同测试，覆盖 GetHealthSummary/ListHealthSnapshots RPC。
-- [ ] T029 [P] [US3] 在 `tests/integration/agent_lifecycle/health_alert_flow_test.go` 模拟健康退化→告警流程，校验 IM 通知与自动事件。
-- [ ] T030 [P] [US3] 在 `tests/contract/agent_lifecycle/subscription_http_test.go` 编写 HTTP 合同测试，验证订阅创建/更新即时生效与回滚。
-- [ ] T031 [P] [US3] 在 `tests/contract/agent_lifecycle/subscription_grpc_test.go` 编写 gRPC 合同测试，覆盖订阅配置 RPC。
-- [ ] T032 [P] [US3] 在 `tests/integration/agent_lifecycle/subscription_effect_test.go` 模拟订阅变更后指标/告警过滤即时生效场景。
+- [x] T027 [P] [US3] 在 `tests/contract/agent_lifecycle/health_http_test.go` 编写 HTTP 合同测试，覆盖健康摘要/历史端点。
+- [x] T028 [P] [US3] 在 `tests/contract/agent_lifecycle/health_grpc_test.go` 编写 gRPC 合同测试，覆盖 GetHealthSummary/ListHealthSnapshots RPC。
+- [x] T029 [P] [US3] 在 `tests/integration/agent_lifecycle/health_alert_flow_test.go` 模拟健康退化→告警流程，校验 IM 通知与自动事件。
+- [x] T030 [P] [US3] 在 `tests/contract/agent_lifecycle/subscription_http_test.go` 编写 HTTP 合同测试，验证订阅创建/更新即时生效与回滚。
+- [x] T031 [P] [US3] 在 `tests/contract/agent_lifecycle/subscription_grpc_test.go` 编写 gRPC 合同测试，覆盖订阅配置 RPC。
+- [x] T032 [P] [US3] 在 `tests/integration/agent_lifecycle/subscription_effect_test.go` 模拟订阅变更后指标/告警过滤即时生效场景。
 
 ### Implementation
 
-- [ ] T033 [US3] 在 `internal/service/agent_lifecycle/health.go` 实现健康评分聚合、阈值判定与历史查询（依赖仓储）。
-- [ ] T034 [US3] 在 `internal/transport/http/openapi/agent/health_handlers.go` 实现健康摘要/历史 Handler，封装推荐动作返回。
-- [ ] T035 [US3] 在 `internal/transport/grpc/agentlifecycle/health_service.go` 实现健康相关 RPC，并复用 instrumentation 输出。
-- [ ] T036 [US3] 在 `internal/service/agent_lifecycle/instrumentation/alerts.go` & `internal/notifications/im/sender.go` 实现退化告警触发、节流与重试。
-- [ ] T037 [US3] 在 `internal/service/agent_lifecycle/subscription.go` 实现订阅保存、校验、缓存刷新与回滚逻辑。
-- [ ] T038 [US3] 在 `internal/transport/http/admin/agent/subscription_handlers.go` 与 `internal/transport/grpc/agentlifecycle/subscription_service.go` 实现订阅接口映射，并在 `internal/server/grpc/server.go` 注册。
+- [x] T033 [US3] 在 `internal/service/agent_lifecycle/health.go` 实现健康评分聚合、阈值判定与历史查询（依赖仓储）。
+- [x] T034 [US3] 在 `internal/transport/http/openapi/agent/health_handlers.go` 实现健康摘要/历史 Handler，封装推荐动作返回。
+- [x] T035 [US3] 在 `internal/transport/grpc/agentlifecycle/health_service.go` 实现健康相关 RPC，并复用 instrumentation 输出。
+- [x] T036 [US3] 在 `internal/service/agent_lifecycle/instrumentation/alerts.go` & `internal/notifications/im/sender.go` 实现退化告警触发、节流与重试。
+- [x] T037 [US3] 在 `internal/service/agent_lifecycle/subscription.go` 实现订阅保存、校验、缓存刷新与回滚逻辑。
+- [x] T038 [US3] 在 `internal/transport/http/admin/agent/subscription_handlers.go` 与 `internal/transport/grpc/agentlifecycle/subscription_service.go` 实现订阅接口映射，并在 `internal/server/grpc/server.go` 注册。
 
 **Checkpoint**：健康评分与告警可用，SRE 能独立定位异常。
 

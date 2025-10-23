@@ -29,6 +29,8 @@ const (
 	AgentLifecycleService_ListLifecycleEvents_FullMethodName = "/powerx.agent.v1.AgentLifecycleService/ListLifecycleEvents"
 	AgentLifecycleService_GetHealthSummary_FullMethodName    = "/powerx.agent.v1.AgentLifecycleService/GetHealthSummary"
 	AgentLifecycleService_ListHealthSnapshots_FullMethodName = "/powerx.agent.v1.AgentLifecycleService/ListHealthSnapshots"
+	AgentLifecycleService_UpdateSubscription_FullMethodName  = "/powerx.agent.v1.AgentLifecycleService/UpdateSubscription"
+	AgentLifecycleService_GetSubscription_FullMethodName     = "/powerx.agent.v1.AgentLifecycleService/GetSubscription"
 )
 
 // AgentLifecycleServiceClient is the client API for AgentLifecycleService service.
@@ -47,6 +49,8 @@ type AgentLifecycleServiceClient interface {
 	ListLifecycleEvents(ctx context.Context, in *ListLifecycleEventsRequest, opts ...grpc.CallOption) (*ListLifecycleEventsResponse, error)
 	GetHealthSummary(ctx context.Context, in *GetHealthSummaryRequest, opts ...grpc.CallOption) (*GetHealthSummaryResponse, error)
 	ListHealthSnapshots(ctx context.Context, in *ListHealthSnapshotsRequest, opts ...grpc.CallOption) (*ListHealthSnapshotsResponse, error)
+	UpdateSubscription(ctx context.Context, in *UpdateSubscriptionRequest, opts ...grpc.CallOption) (*UpdateSubscriptionResponse, error)
+	GetSubscription(ctx context.Context, in *GetSubscriptionRequest, opts ...grpc.CallOption) (*GetSubscriptionResponse, error)
 }
 
 type agentLifecycleServiceClient struct {
@@ -157,6 +161,26 @@ func (c *agentLifecycleServiceClient) ListHealthSnapshots(ctx context.Context, i
 	return out, nil
 }
 
+func (c *agentLifecycleServiceClient) UpdateSubscription(ctx context.Context, in *UpdateSubscriptionRequest, opts ...grpc.CallOption) (*UpdateSubscriptionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UpdateSubscriptionResponse)
+	err := c.cc.Invoke(ctx, AgentLifecycleService_UpdateSubscription_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *agentLifecycleServiceClient) GetSubscription(ctx context.Context, in *GetSubscriptionRequest, opts ...grpc.CallOption) (*GetSubscriptionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetSubscriptionResponse)
+	err := c.cc.Invoke(ctx, AgentLifecycleService_GetSubscription_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // AgentLifecycleServiceServer is the server API for AgentLifecycleService service.
 // All implementations must embed UnimplementedAgentLifecycleServiceServer
 // for forward compatibility.
@@ -173,6 +197,8 @@ type AgentLifecycleServiceServer interface {
 	ListLifecycleEvents(context.Context, *ListLifecycleEventsRequest) (*ListLifecycleEventsResponse, error)
 	GetHealthSummary(context.Context, *GetHealthSummaryRequest) (*GetHealthSummaryResponse, error)
 	ListHealthSnapshots(context.Context, *ListHealthSnapshotsRequest) (*ListHealthSnapshotsResponse, error)
+	UpdateSubscription(context.Context, *UpdateSubscriptionRequest) (*UpdateSubscriptionResponse, error)
+	GetSubscription(context.Context, *GetSubscriptionRequest) (*GetSubscriptionResponse, error)
 	mustEmbedUnimplementedAgentLifecycleServiceServer()
 }
 
@@ -212,6 +238,12 @@ func (UnimplementedAgentLifecycleServiceServer) GetHealthSummary(context.Context
 }
 func (UnimplementedAgentLifecycleServiceServer) ListHealthSnapshots(context.Context, *ListHealthSnapshotsRequest) (*ListHealthSnapshotsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListHealthSnapshots not implemented")
+}
+func (UnimplementedAgentLifecycleServiceServer) UpdateSubscription(context.Context, *UpdateSubscriptionRequest) (*UpdateSubscriptionResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpdateSubscription not implemented")
+}
+func (UnimplementedAgentLifecycleServiceServer) GetSubscription(context.Context, *GetSubscriptionRequest) (*GetSubscriptionResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetSubscription not implemented")
 }
 func (UnimplementedAgentLifecycleServiceServer) mustEmbedUnimplementedAgentLifecycleServiceServer() {}
 func (UnimplementedAgentLifecycleServiceServer) testEmbeddedByValue()                               {}
@@ -414,6 +446,42 @@ func _AgentLifecycleService_ListHealthSnapshots_Handler(srv interface{}, ctx con
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AgentLifecycleService_UpdateSubscription_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateSubscriptionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentLifecycleServiceServer).UpdateSubscription(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AgentLifecycleService_UpdateSubscription_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentLifecycleServiceServer).UpdateSubscription(ctx, req.(*UpdateSubscriptionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AgentLifecycleService_GetSubscription_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetSubscriptionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentLifecycleServiceServer).GetSubscription(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AgentLifecycleService_GetSubscription_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentLifecycleServiceServer).GetSubscription(ctx, req.(*GetSubscriptionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // AgentLifecycleService_ServiceDesc is the grpc.ServiceDesc for AgentLifecycleService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -460,6 +528,14 @@ var AgentLifecycleService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListHealthSnapshots",
 			Handler:    _AgentLifecycleService_ListHealthSnapshots_Handler,
+		},
+		{
+			MethodName: "UpdateSubscription",
+			Handler:    _AgentLifecycleService_UpdateSubscription_Handler,
+		},
+		{
+			MethodName: "GetSubscription",
+			Handler:    _AgentLifecycleService_GetSubscription_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

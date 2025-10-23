@@ -56,6 +56,24 @@ paths:
             summary: POST /api/v1/admin/agent/lifecycle/agents/_agent_id/activate
             tags:
                 - api
+    /api/v1/admin/agent/lifecycle/agents/:agent_id/health/history:
+        get:
+            operationId: GET /api/v1/admin/agent/lifecycle/agents/_agent_id/health/history
+            responses:
+                "200":
+                    description: OK
+            summary: GET /api/v1/admin/agent/lifecycle/agents/_agent_id/health/history
+            tags:
+                - api
+    /api/v1/admin/agent/lifecycle/agents/:agent_id/health/summary:
+        get:
+            operationId: GET /api/v1/admin/agent/lifecycle/agents/_agent_id/health/summary
+            responses:
+                "200":
+                    description: OK
+            summary: GET /api/v1/admin/agent/lifecycle/agents/_agent_id/health/summary
+            tags:
+                - api
     /api/v1/admin/agent/lifecycle/agents/:agent_id/pause:
         post:
             operationId: POST /api/v1/admin/agent/lifecycle/agents/_agent_id/pause
@@ -90,6 +108,23 @@ paths:
                 "200":
                     description: OK
             summary: POST /api/v1/admin/agent/lifecycle/agents/_agent_id/scale
+            tags:
+                - api
+    /api/v1/admin/agent/lifecycle/agents/:agent_id/subscription:
+        get:
+            operationId: GET /api/v1/admin/agent/lifecycle/agents/_agent_id/subscription
+            responses:
+                "200":
+                    description: OK
+            summary: GET /api/v1/admin/agent/lifecycle/agents/_agent_id/subscription
+            tags:
+                - api
+        put:
+            operationId: PUT /api/v1/admin/agent/lifecycle/agents/_agent_id/subscription
+            responses:
+                "200":
+                    description: OK
+            summary: PUT /api/v1/admin/agent/lifecycle/agents/_agent_id/subscription
             tags:
                 - api
     /api/v1/admin/agents:

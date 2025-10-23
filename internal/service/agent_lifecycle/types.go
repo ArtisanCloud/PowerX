@@ -95,3 +95,52 @@ type LifecycleResult struct {
 	Agent *Agent
 	Event *agentmodel.AgentLifecycleEventRecord
 }
+
+// HealthInput 描述健康快照写入参数。
+type HealthInput struct {
+	AgentID         uuid.UUID
+	TenantID        string
+	WindowStartedAt time.Time
+	WindowDuration  time.Duration
+	Metrics         HealthMetricsInput
+	Recommendations []string
+	Status          string
+	TraceID         string
+}
+
+// HealthMetricsInput 定义指标输入。
+type HealthMetricsInput struct {
+	ThroughputPerMin float64
+	SuccessRate      float64
+	P95LatencyMs     int32
+	ResourceUtilPct  float64
+	ErrorRate        float64
+	AnomalyTraceIDs  []string
+}
+
+// HealthSummary 提供对外的健康摘要视图。
+type HealthSummary struct {
+	AgentID           uuid.UUID
+	Status            string
+	HealthScore       int32
+	UpdatedAt         time.Time
+	WindowDurationSec int32
+	Metrics           HealthMetricsInput
+	Recommendations   []string
+}
+
+// SubscriptionConfig 描述订阅配置。
+type SubscriptionConfig struct {
+	MetricsFilter  []string
+	HealthStatuses []string
+	UpdatedAt      time.Time
+}
+
+// SubscriptionUpdateInput 更新订阅的输入。
+type SubscriptionUpdateInput struct {
+	AgentID     uuid.UUID
+	TenantID    string
+	Config      SubscriptionConfig
+	RequestedBy string
+	TraceID     string
+}
