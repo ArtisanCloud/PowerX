@@ -100,10 +100,10 @@
 
 ## Phase 6: Polish & Cross-Cutting
 
-- [ ] T039 [P] 在 `tests/unit/agent_lifecycle/` 补充仓储、事件发布、告警与订阅逻辑单元测试。
-- [ ] T040 在 `specs/008-agent-lifecycle-observability/quickstart.md`、`README.md` 更新运行指南，覆盖订阅配置与保留策略说明。
-- [ ] T041 执行 Quickstart 流程（注册→扩容→订阅→告警），收集指标/日志截图并附于文档。
-- [ ] T042 校验 `make proto-gen`, `make unit-test`, `make test-all` 全量通过，补充依赖或脚本更新。
+- [x] T039 [P] 在 `tests/unit/agent_lifecycle/` 补充仓储、事件发布、告警与订阅逻辑单元测试。
+- [x] T040 在 `specs/008-agent-lifecycle-observability/quickstart.md`、`README.md` 更新运行指南，覆盖订阅配置与保留策略说明。
+- [x] T041 执行 Quickstart 流程（注册→扩容→订阅→告警），收集指标/日志截图并附于文档。
+- [x] T042 校验 `make proto-gen`, `make unit-test`, `make test-all` 全量通过，补充依赖或脚本更新。
 
 ---
 
