@@ -21,6 +21,112 @@ paths:
             summary: GET /__debug/policy/_id
             tags:
                 - __debug
+    /api/v1/admin/agent/lifecycle/agents:
+        get:
+            operationId: GET /api/v1/admin/agent/lifecycle/agents
+            responses:
+                "200":
+                    description: OK
+            summary: GET /api/v1/admin/agent/lifecycle/agents
+            tags:
+                - api
+        post:
+            operationId: POST /api/v1/admin/agent/lifecycle/agents
+            responses:
+                "200":
+                    description: OK
+            summary: POST /api/v1/admin/agent/lifecycle/agents
+            tags:
+                - api
+    /api/v1/admin/agent/lifecycle/agents/:agent_id:
+        get:
+            operationId: GET /api/v1/admin/agent/lifecycle/agents/_agent_id
+            responses:
+                "200":
+                    description: OK
+            summary: GET /api/v1/admin/agent/lifecycle/agents/_agent_id
+            tags:
+                - api
+    /api/v1/admin/agent/lifecycle/agents/:agent_id/activate:
+        post:
+            operationId: POST /api/v1/admin/agent/lifecycle/agents/_agent_id/activate
+            responses:
+                "200":
+                    description: OK
+            summary: POST /api/v1/admin/agent/lifecycle/agents/_agent_id/activate
+            tags:
+                - api
+    /api/v1/admin/agent/lifecycle/agents/:agent_id/health/history:
+        get:
+            operationId: GET /api/v1/admin/agent/lifecycle/agents/_agent_id/health/history
+            responses:
+                "200":
+                    description: OK
+            summary: GET /api/v1/admin/agent/lifecycle/agents/_agent_id/health/history
+            tags:
+                - api
+    /api/v1/admin/agent/lifecycle/agents/:agent_id/health/summary:
+        get:
+            operationId: GET /api/v1/admin/agent/lifecycle/agents/_agent_id/health/summary
+            responses:
+                "200":
+                    description: OK
+            summary: GET /api/v1/admin/agent/lifecycle/agents/_agent_id/health/summary
+            tags:
+                - api
+    /api/v1/admin/agent/lifecycle/agents/:agent_id/pause:
+        post:
+            operationId: POST /api/v1/admin/agent/lifecycle/agents/_agent_id/pause
+            responses:
+                "200":
+                    description: OK
+            summary: POST /api/v1/admin/agent/lifecycle/agents/_agent_id/pause
+            tags:
+                - api
+    /api/v1/admin/agent/lifecycle/agents/:agent_id/resume:
+        post:
+            operationId: POST /api/v1/admin/agent/lifecycle/agents/_agent_id/resume
+            responses:
+                "200":
+                    description: OK
+            summary: POST /api/v1/admin/agent/lifecycle/agents/_agent_id/resume
+            tags:
+                - api
+    /api/v1/admin/agent/lifecycle/agents/:agent_id/retire:
+        post:
+            operationId: POST /api/v1/admin/agent/lifecycle/agents/_agent_id/retire
+            responses:
+                "200":
+                    description: OK
+            summary: POST /api/v1/admin/agent/lifecycle/agents/_agent_id/retire
+            tags:
+                - api
+    /api/v1/admin/agent/lifecycle/agents/:agent_id/scale:
+        post:
+            operationId: POST /api/v1/admin/agent/lifecycle/agents/_agent_id/scale
+            responses:
+                "200":
+                    description: OK
+            summary: POST /api/v1/admin/agent/lifecycle/agents/_agent_id/scale
+            tags:
+                - api
+    /api/v1/admin/agent/lifecycle/agents/:agent_id/subscription:
+        get:
+            operationId: GET /api/v1/admin/agent/lifecycle/agents/_agent_id/subscription
+            responses:
+                "200":
+                    description: OK
+            summary: GET /api/v1/admin/agent/lifecycle/agents/_agent_id/subscription
+            tags:
+                - api
+        put:
+            operationId: PUT /api/v1/admin/agent/lifecycle/agents/_agent_id/subscription
+            responses:
+                "200":
+                    description: OK
+            summary: PUT /api/v1/admin/agent/lifecycle/agents/_agent_id/subscription
+            tags:
+                - api
     /api/v1/admin/agents:
         get:
             operationId: GET /api/v1/admin/agents

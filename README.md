@@ -68,6 +68,12 @@ PowerX 遵循三个核心原则：
   * 内置可编排的执行流（Plan/Task/Node）
   * 插件可挂载定制 Flow 节点
 
+* **Agent Lifecycle & Observability（代理生命周期与可观测性）**
+
+  * 覆盖代理注册、激活、暂停、扩缩容与退役的完整控制平面（HTTP / gRPC）
+  * 内建健康评分聚合、趋势查询、订阅过滤与企业 IM 告警，支持 13 个月保留策略
+  * 单元/合同测试覆盖仓储 Upsert、事件发布、告警节流与订阅回滚，可通过 `go test ./tests/unit/agent_lifecycle/...` 快速回归
+
 ---
 
 ## 🔌 插件机制

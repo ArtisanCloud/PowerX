@@ -195,6 +195,24 @@ func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error)
 				InvocationFailed:    cfg.IntegrationGateway.EventTopics.InvocationFailed,
 			},
 		},
+		AgentLifecycle: shared.AgentLifecycleOptions{
+			RedisAddr:                cfg.AgentLifecycle.RedisAddr,
+			RedisPassword:            cfg.AgentLifecycle.RedisPassword,
+			RedisDB:                  cfg.AgentLifecycle.RedisDB,
+			CapacityKeyPrefix:        cfg.AgentLifecycle.CapacityKeyPrefix,
+			HealthKeyPrefix:          cfg.AgentLifecycle.HealthKeyPrefix,
+			DefaultCapacityInstances: cfg.AgentLifecycle.DefaultCapacityInstances,
+			EventTopics: shared.AgentLifecycleEventTopicsOptions{
+				LifecyclePrefix: cfg.AgentLifecycle.EventTopics.LifecyclePrefix,
+				HealthPrefix:    cfg.AgentLifecycle.EventTopics.HealthPrefix,
+			},
+			Notifications: shared.AgentLifecycleNotificationOptions{
+				IMWebhook:        cfg.AgentLifecycle.Notifications.IMWebhook,
+				RetryInterval:    time.Duration(cfg.AgentLifecycle.Notifications.RetryIntervalSec) * time.Second,
+				RetryMaxAttempts: cfg.AgentLifecycle.Notifications.RetryMaxAttempts,
+				HTTPTimeout:      time.Duration(cfg.AgentLifecycle.Notifications.HTTPTimeoutSec) * time.Second,
+			},
+		},
 	}
 
 	deps := shared.NewDeps(db, opts)

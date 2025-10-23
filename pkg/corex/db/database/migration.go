@@ -5,9 +5,9 @@ import (
 	modelAudit "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/audit"
 	modelCapability "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/capability"
 	modelEventFabric "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/event_fabric"
-	modelIntegrationGateway "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/integration_gateway"
-	modelAgent "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/flow"
+	modelFlow "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/flow"
 	modelIAM "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/iam"
+	modelIntegrationGateway "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/integration_gateway"
 	mediamodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/media"
 	modelSetting "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/setting"
 	modelTenant "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/tenant"
@@ -27,10 +27,10 @@ func MigrateCoreModels(db *gorm.DB) (err error) {
 		return err
 	}
 
-	// 迁移Agent
+	// 迁移内置 Flow Agent 运行记录
 	err = db.AutoMigrate(
-		&modelAgent.AgentPlanRun{},
-		&modelAgent.AgentTaskEvent{})
+		&modelFlow.AgentPlanRun{},
+		&modelFlow.AgentTaskEvent{})
 	if err != nil {
 		return err
 	}

@@ -3,6 +3,8 @@ package shared
 // internal/app/shared/options.go
 
 import (
+	"time"
+
 	"github.com/ArtisanCloud/PowerX/internal/service/auth"
 	security "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/security"
 	mediasvc "github.com/ArtisanCloud/PowerX/internal/service/media"
@@ -18,6 +20,7 @@ type DepsOptions struct {
 	EventFabric        EventFabricOptions
 	Workflow           WorkflowOptions
 	IntegrationGateway IntegrationGatewayOptions
+	AgentLifecycle     AgentLifecycleOptions
 }
 
 // EventFabricOptions 描述事件骨干依赖的运行配置。
@@ -91,4 +94,30 @@ type IntegrationGatewayEventTopicsOptions struct {
 	Updated             string
 	InvocationSucceeded string
 	InvocationFailed    string
+}
+
+// AgentLifecycleOptions 描述代理生命周期模块的共享依赖。
+type AgentLifecycleOptions struct {
+	RedisAddr                string
+	RedisPassword            string
+	RedisDB                  int
+	CapacityKeyPrefix        string
+	HealthKeyPrefix          string
+	DefaultCapacityInstances int
+	EventTopics              AgentLifecycleEventTopicsOptions
+	Notifications            AgentLifecycleNotificationOptions
+}
+
+// AgentLifecycleEventTopicsOptions 定义事件主题前缀。
+type AgentLifecycleEventTopicsOptions struct {
+	LifecyclePrefix string
+	HealthPrefix    string
+}
+
+// AgentLifecycleNotificationOptions 定义通知发送行为。
+type AgentLifecycleNotificationOptions struct {
+	IMWebhook        string
+	RetryInterval    time.Duration
+	RetryMaxAttempts int
+	HTTPTimeout      time.Duration
 }

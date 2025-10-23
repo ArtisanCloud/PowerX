@@ -53,22 +53,23 @@ type SecurityConfig struct {
 
 // CoreX 全局配置
 type Config struct {
-	Server      ServerConfig         `yaml:"server"`       // HTTP/gRPC 监听与行为
-	Auth        AuthConfig           `yaml:"auth"`         // JWT / 认证相关
-	EventBus    EventBusConfig       `yaml:"event_bus"`    // 事件总线（local/redis）
-	EventFabric EventFabricConfig    `yaml:"event_fabric"` // 事件骨干调度配置
+	Server             ServerConfig             `yaml:"server"`              // HTTP/gRPC 监听与行为
+	Auth               AuthConfig               `yaml:"auth"`                // JWT / 认证相关
+	EventBus           EventBusConfig           `yaml:"event_bus"`           // 事件总线（local/redis）
+	EventFabric        EventFabricConfig        `yaml:"event_fabric"`        // 事件骨干调度配置
 	IntegrationGateway IntegrationGatewayConfig `yaml:"integration_gateway"` // 集成网关
-	LowCode     LowCodeConfig        `yaml:"dynamic_form"` // flow 执行相关
-	FeatureGate FeatureGateConfig    `yaml:"feature_gate"` // 细粒度开关、license
-	Database    dbCfg.DatabaseConfig `yaml:"database"`     // 数据库配置
-	Cache       cacheCfg.CacheConfig `yaml:"cache"`        // 缓存配置
-	LogConfig   logCfg.LogConfig     `yaml:"log"`          // 输出配置
-	AI          agentCfg.AIConfig    `yaml:"ai"`
-	Agent       agentCfg.AgentConfig `yaml:"agent"` // 智能体工具注册/限流等
-	MCP         mcpCfg.MCPConfig     `yaml:"mcp"`   // MCP 服务器配置
-	Plugin      PluginConfig         `yaml:"plugin"`
-	Security    SecurityConfig       `yaml:"security"`
-	Storage     StorageConfig        `yaml:"storage"`
+	AgentLifecycle     AgentLifecycleConfig     `yaml:"agent_lifecycle"`     // Agent 生命周期治理
+	LowCode            LowCodeConfig            `yaml:"dynamic_form"`        // flow 执行相关
+	FeatureGate        FeatureGateConfig        `yaml:"feature_gate"`        // 细粒度开关、license
+	Database           dbCfg.DatabaseConfig     `yaml:"database"`            // 数据库配置
+	Cache              cacheCfg.CacheConfig     `yaml:"cache"`               // 缓存配置
+	LogConfig          logCfg.LogConfig         `yaml:"log"`                 // 输出配置
+	AI                 agentCfg.AIConfig        `yaml:"ai"`
+	Agent              agentCfg.AgentConfig     `yaml:"agent"` // 智能体工具注册/限流等
+	MCP                mcpCfg.MCPConfig         `yaml:"mcp"`   // MCP 服务器配置
+	Plugin             PluginConfig             `yaml:"plugin"`
+	Security           SecurityConfig           `yaml:"security"`
+	Storage            StorageConfig            `yaml:"storage"`
 }
 
 // HTTP服务器配置
@@ -189,6 +190,32 @@ type IntegrationGatewayEventTopics struct {
 	Updated             string `yaml:"updated"`
 	InvocationSucceeded string `yaml:"invocation_succeeded"`
 	InvocationFailed    string `yaml:"invocation_failed"`
+}
+
+// AgentLifecycleConfig 描述代理生命周期模块运行参数。
+type AgentLifecycleConfig struct {
+	RedisAddr                string                           `yaml:"redis_addr"`
+	RedisPassword            string                           `yaml:"redis_password"`
+	RedisDB                  int                              `yaml:"redis_db"`
+	CapacityKeyPrefix        string                           `yaml:"capacity_key_prefix"`
+	HealthKeyPrefix          string                           `yaml:"health_key_prefix"`
+	DefaultCapacityInstances int                              `yaml:"default_capacity_instances"`
+	EventTopics              AgentLifecycleEventTopics        `yaml:"event_topics"`
+	Notifications            AgentLifecycleNotificationConfig `yaml:"notifications"`
+}
+
+// AgentLifecycleEventTopics 定义生命周期与健康事件主题前缀。
+type AgentLifecycleEventTopics struct {
+	LifecyclePrefix string `yaml:"lifecycle_prefix"`
+	HealthPrefix    string `yaml:"health_prefix"`
+}
+
+// AgentLifecycleNotificationConfig 描述企业 IM 通知的运行参数。
+type AgentLifecycleNotificationConfig struct {
+	IMWebhook        string `yaml:"im_webhook"`
+	RetryIntervalSec int    `yaml:"retry_interval_seconds"`
+	RetryMaxAttempts int    `yaml:"retry_max_attempts"`
+	HTTPTimeoutSec   int    `yaml:"http_timeout_seconds"`
 }
 
 // 低代码引擎配置

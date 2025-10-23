@@ -73,6 +73,24 @@ func GetDefaults() *Config {
 			RedisPassword: "",
 			RedisDB:       2,
 		},
+		AgentLifecycle: AgentLifecycleConfig{
+			RedisAddr:                "localhost:6379",
+			RedisPassword:            "",
+			RedisDB:                  3,
+			CapacityKeyPrefix:        "agent_lifecycle:capacity",
+			HealthKeyPrefix:          "agent_lifecycle:health",
+			DefaultCapacityInstances: 3,
+			EventTopics: AgentLifecycleEventTopics{
+				LifecyclePrefix: "agent.lifecycle",
+				HealthPrefix:    "agent.health",
+			},
+			Notifications: AgentLifecycleNotificationConfig{
+				IMWebhook:        "",
+				RetryIntervalSec: 30,
+				RetryMaxAttempts: 3,
+				HTTPTimeoutSec:   5,
+			},
+		},
 		EventFabric: EventFabricConfig{
 			AckTimeoutSeconds: 30,
 			DefaultMaxRetry:   5,
