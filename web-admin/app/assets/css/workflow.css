@@ -1,0 +1,101 @@
+/* Workflow 组件专用样式 - 用于解决与主题CSS的冲突 */
+
+/* 重置Vue Flow组件的样式，避免被主题CSS覆盖 */
+.vue-flow-wrapper {
+  /* 创建一个独立的样式作用域 */
+  isolation: isolate;
+}
+
+/* 确保Vue Flow容器有正确的尺寸 */
+.vue-flow-wrapper .vue-flow {
+  width: 100%;
+  height: 100%;
+  background-color: var(--bg-secondary);
+}
+
+/* 确保默认节点样式不被覆盖 */
+.vue-flow-wrapper .vue-flow__node-default {
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 3px;
+  color: var(--text-primary);
+  font-size: 12px;
+  padding: 10px;
+  text-align: center;
+  width: 150px;
+}
+
+/* 确保连接点样式正确 */
+.vue-flow-wrapper .vue-flow__handle {
+  background: var(--text-secondary);
+  border: 2px solid var(--card-bg);
+  border-radius: 50%;
+  height: 8px;
+  width: 8px;
+}
+
+/* 确保边线样式正确 */
+.vue-flow-wrapper .vue-flow__edge-default {
+  stroke: var(--border-color);
+  stroke-width: 1;
+}
+
+/* 确保控制按钮样式正确 */
+.vue-flow-wrapper .vue-flow__controls {
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 5px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.vue-flow-wrapper .vue-flow__controls button {
+  background: var(--bg-secondary);
+  border: none;
+  color: var(--text-primary);
+  cursor: pointer;
+  padding: 5px;
+}
+
+.vue-flow-wrapper .vue-flow__controls button:hover {
+  background: var(--hover-bg);
+}
+
+/* =========================
+   Workflow 面板（节点清单）
+   ========================= */
+
+.workflow-palette .palette-items {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.5rem; /* 8px */
+}
+
+.workflow-palette .palette-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem; /* 8px */
+  padding: 0.5rem 0.75rem; /* 8px 12px */
+  border: 1px solid var(--border-color);
+  border-radius: 0.5rem; /* rounded-lg */
+  background-color: var(--card-bg);
+  color: var(--text-primary);
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.workflow-palette .palette-item:hover {
+  border-color: var(--border-color);
+  background-color: var(--hover-bg);
+}
+
+.workflow-palette .palette-item-icon {
+  width: 1.75rem; /* w-7 */
+  height: 1.75rem; /* h-7 */
+  border-radius: 0.375rem; /* rounded-md */
+  display: grid;
+  place-items: center;
+  color: var(--text-secondary);
+  background-color: var(--gray-100);
+}

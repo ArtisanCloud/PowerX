@@ -1,0 +1,201 @@
+/* 全局主题样式 */
+
+:root {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f3f4f6;
+  --text-primary: #111827;
+  --text-secondary: #4b5563;
+  --border-color: #e5e7eb;
+  --card-bg: #ffffff;
+  --header-bg: #ffffff;
+  --sidebar-bg: #ffffff;
+  --input-bg: #ffffff;
+  --hover-bg: #f9fafb;
+  --blue-50: #eff6ff;
+  --blue-100: #dbeafe;
+  --gray-50: #f9fafb;
+  --gray-100: #f3f4f6;
+}
+
+/* 深色模式 */
+.dark {
+  --bg-primary: #121826;
+  --bg-secondary: #1f2937;
+  --text-primary: #f3f4f6;
+  --text-secondary: #d1d5db;
+  --border-color: #374151;
+  --card-bg: #1f2937;
+  --header-bg: #0f172a;
+  --sidebar-bg: #0f172a;
+  --input-bg: #1f2937;
+  --hover-bg: #2d3748;
+  --blue-50: #172554;
+  --blue-100: #1e3a8a;
+  --gray-50: #1f2937;
+  --gray-100: #1f2937;
+}
+
+/* 应用全局样式 */
+body {
+  background-color: var(--bg-primary) !important;
+  color: var(--text-primary) !important;
+  transition: background-color 0.3s, color 0.3s;
+}
+
+/* 头部导航栏 */
+header, .header {
+  background-color: var(--header-bg) !important;
+  border-color: var(--border-color) !important;
+}
+
+/* 侧边栏 */
+aside, .sidebar, [class*="sidebar"] {
+  background-color: var(--sidebar-bg) !important;
+  border-color: var(--border-color) !important;
+}
+
+/* 卡片和容器 - 排除Vue Flow组件 */
+.bg-white:not(.vue-flow *):not(.vue-flow__node):not(.vue-flow__edge), 
+[class*="bg-white"]:not(.vue-flow *):not(.vue-flow__node):not(.vue-flow__edge),
+.u-card:not(.vue-flow *), .card:not(.vue-flow *), [class*="card"]:not(.vue-flow *),
+.u-container:not(.vue-flow *), .container:not(.vue-flow *), [class*="container"]:not(.vue-flow *) {
+  background-color: var(--card-bg) !important;
+}
+
+/* 边框 */
+.border, [class*="border"] {
+  border-color: var(--border-color) !important;
+}
+
+/* 文本颜色 */
+.text-gray-900, [class*="text-gray-900"] {
+  color: var(--text-primary) !important;
+}
+
+.text-gray-500, .text-gray-600, .text-gray-700, .text-gray-800, 
+[class*="text-gray-500"], [class*="text-gray-600"], [class*="text-gray-700"], [class*="text-gray-800"] {
+  color: var(--text-secondary) !important;
+}
+
+/* 输入框 */
+input, textarea, select, [class*="input"] {
+  background-color: var(--input-bg) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--border-color) !important;
+}
+
+/* 悬停效果 */
+.hover\:bg-gray-50:hover, [class*="hover:bg-gray-50"]:hover,
+.hover\:bg-gray-100:hover, [class*="hover:bg-gray-100"]:hover {
+  background-color: var(--hover-bg) !important;
+}
+
+/* 特定背景色 */
+.bg-gray-50, [class*="bg-gray-50"] {
+  background-color: var(--gray-50) !important;
+}
+
+.bg-gray-100, [class*="bg-gray-100"] {
+  background-color: var(--gray-100) !important;
+}
+
+.bg-blue-50, [class*="bg-blue-50"] {
+  background-color: var(--blue-50) !important;
+}
+
+.bg-blue-100, [class*="bg-blue-100"] {
+  background-color: var(--blue-100) !important;
+}
+
+/* 图表和数据可视化区域 */
+.chart-area, [class*="chart"] {
+  background-color: var(--card-bg) !important;
+  color: var(--text-primary) !important;
+}
+
+/* 仪表板卡片 */
+.dashboard-card, [class*="dashboard"] {
+  background-color: var(--card-bg) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--border-color) !important;
+}
+
+/* 确保图标颜色也随主题变化 */
+svg, [class*="icon"] {
+  color: currentColor;
+}
+
+/* 确保过渡效果平滑 */
+* {
+  transition: background-color 0.3s, color 0.3s, border-color 0.3s;
+}
+
+/* 特定组件样式覆盖 */
+.u-card {
+  background-color: var(--card-bg) !important;
+}
+
+/* 侧边栏特定样式 */
+aside.w-64.bg-white {
+  background-color: var(--sidebar-bg) !important;
+}
+
+/* 仪表板特定样式 */
+.space-y-6 .u-card,
+.space-y-6 .bg-white,
+.space-y-6 .bg-gray-50 {
+  background-color: var(--card-bg) !important;
+}
+
+/* 首页和介绍页面样式 */
+.min-h-screen.bg-gradient-to-br {
+  background: var(--bg-primary) !important;
+}
+
+/* 登录和注册页面样式 */
+.min-h-screen.bg-gradient-to-br.flex.items-center.justify-center {
+  background: var(--bg-primary) !important;
+}
+
+/* 登录和注册卡片 */
+.min-h-screen.bg-gradient-to-br .bg-white,
+.min-h-screen.bg-gradient-to-br .u-card {
+  background-color: var(--card-bg) !important;
+  border-color: var(--border-color) !important;
+}
+
+/* 首页和介绍页面的导航栏 */
+.bg-white\/80, nav.bg-white {
+  background-color: var(--header-bg) !important;
+  border-color: var(--border-color) !important;
+}
+
+/* 首页和介绍页面的特性区域 */
+section.py-24.bg-white {
+  background-color: var(--bg-primary) !important;
+}
+
+/* 首页和介绍页面的产品区域 */
+section.py-24.bg-gray-50 {
+  background-color: var(--bg-secondary) !important;
+}
+
+/* 首页和介绍页面的卡片 */
+.bg-white.rounded-3xl,
+.bg-white.rounded-2xl,
+.rounded-xl.bg-gray-50 {
+  background-color: var(--card-bg) !important;
+  border-color: var(--border-color) !important;
+}
+
+/* 确保渐变背景在深色模式下也能看到 */
+.dark .from-blue-50.via-white.to-purple-50 {
+  --tw-gradient-from: var(--blue-50) !important;
+  --tw-gradient-via: var(--bg-primary) !important;
+  --tw-gradient-to: var(--blue-100) !important;
+}
+
+/* 确保页脚在深色模式下保持深色 */
+.dark footer.bg-gray-900 {
+  background-color: #111827 !important;
+}

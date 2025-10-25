@@ -1,0 +1,58 @@
+database:
+    driver: postgres
+    dsn: postgres://pxu_com_powerx_plugins_base:KDc6zgkTVaybWrrRP-dVjL4iR1kHXLy2@localhost:5432/powerx?search_path=px_com_powerx_plugins_base&sslmode=disable&timezone=Asia/Shanghai
+    managed: true
+    password: KDc6zgkTVaybWrrRP-dVjL4iR1kHXLy2
+    schema: px_com_powerx_plugins_base
+    search_path: px_com_powerx_plugins_base
+    user: pxu_com_powerx_plugins_base
+env:
+    POWERX_BIND_ADDR: :8086
+    POWERX_CACHE_DRIVER: redis
+    POWERX_DB_DATABASE: powerx
+    POWERX_DB_DRIVER: postgres
+    POWERX_DB_DSN: postgres://pxu_com_powerx_plugins_base:KDc6zgkTVaybWrrRP-dVjL4iR1kHXLy2@localhost:5432/powerx?search_path=px_com_powerx_plugins_base&sslmode=disable&timezone=Asia/Shanghai
+    POWERX_DB_HOST: localhost
+    POWERX_DB_PASSWORD: KDc6zgkTVaybWrrRP-dVjL4iR1kHXLy2
+    POWERX_DB_PORT: "5432"
+    POWERX_DB_SSLMODE: disable
+    POWERX_DB_TABLE_PREFIX: px_
+    POWERX_DB_USERNAME: pxu_com_powerx_plugins_base
+    POWERX_DEBUG_TRAFFIC: "1"
+    POWERX_EVENT_BUS_REDIS_ADDR: localhost:6379
+    POWERX_EVENT_BUS_TYPE: local
+    POWERX_PLUGIN_BASE_PREFIX: /_p
+    POWERX_PLUGIN_CONFIG_DIR: /private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/plugins/installed/com.powerx.plugins.base/0.1.0/config
+    POWERX_PLUGIN_DB_SCHEMA: px_com_powerx_plugins_base
+    POWERX_PLUGIN_ID: com.powerx.plugins.base
+    POWERX_PLUGIN_INSTALLED_ROOT: /private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/plugins/installed
+    POWERX_PLUGIN_REGISTRY_FILE: /private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/plugins/registry.json
+    POWERX_PROXY: "1"
+    POWERX_REDIS_ADDR: localhost:6379
+    POWERX_REDIS_DB: "0"
+    POWERX_REDIS_HOST: localhost
+    POWERX_REDIS_PORT: "6379"
+    POWERX_SECURITY_CTX_HMAC_SECRET: K8mN2pQ7rS9tU4vW6xY1zA3bC5dE8fG0
+    POWERX_SECURITY_JWT_AUDIENCE: plugin:com.powerx.plugins.base
+    POWERX_SECURITY_JWT_ISSUER: powerx-auth
+    POWERX_SECURITY_JWT_SCOPE: access
+    POWERX_SECURITY_JWT_SECRET: K8mN2pQ7rS9tU4vW6xY1zA3bC5dE8fG0
+    POWERX_SECURITY_MODE: jwt
+    POWERX_SERVER_API_PREFIX: /api/v1
+    POWERX_SERVER_MODE: debug
+    POWERX_SERVER_PORT: "8077"
+    POWERX_SERVER_SECRET_KEY: XG6yQ4G3hXlqQnKf1v2q2Qn9cH7g1pVv5N8S0yL3w9Y=
+generated_at: "2025-10-23T08:31:31Z"
+runtime:
+    run_migrate: true
+security:
+    ctx_hmac:
+        secret: K8mN2pQ7rS9tU4vW6xY1zA3bC5dE8fG0
+    jwt:
+        audience: plugin:com.powerx.plugins.base
+        issuer: powerx-auth
+        scope: access
+        secret: K8mN2pQ7rS9tU4vW6xY1zA3bC5dE8fG0
+    mode: jwt
+server:
+    dev_mode: true

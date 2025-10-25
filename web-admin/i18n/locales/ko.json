@@ -1,0 +1,511 @@
+{
+  "welcome": "환영합니다",
+  "login": "로그인",
+  "register": "회원가입",
+  "common": {
+    "language": "언어",
+    "reload": "새로고침"
+  },
+  "user": {
+    "admin": "관리자"
+  },
+  "dashboard": {
+    "title": "대시보드",
+    "description": "시스템 개요 및 주요 지표",
+    "stats": {
+      "totalUsers": "총 사용자 수",
+      "todayVisits": "오늘 방문",
+      "totalRevenue": "총 수익",
+      "activeUsers": "활성 사용자",
+      "vsLastMonth": "vs 지난달"
+    },
+    "charts": {
+      "visitTrend": "방문 추세",
+      "chartArea": "차트 영역",
+      "integration": "여기에 Chart.js 또는 다른 차트 라이브러리를 통합할 수 있습니다"
+    },
+    "activities": {
+      "title": "최근 활동",
+      "viewAll": "모든 활동 보기",
+      "users": {
+        "zhangsan": "장산",
+        "lisi": "리쓰",
+        "wangwu": "왕우"
+      },
+      "actions": {
+        "createArticle": "새 글을 작성했습니다",
+        "updateProfile": "사용자 프로필을 업데이트했습니다",
+        "deleteComment": "댓글을 삭제했습니다"
+      },
+      "targets": {
+        "vueBestPractices": "'Vue 3 모범 사례'",
+        "onTechShare": "'기술 공유'에서"
+      },
+      "times": {
+        "minutesAgo": "{minutes}분 전"
+      }
+    },
+    "quickActions": {
+      "title": "빠른 작업",
+      "addUser": "사용자 추가",
+      "createArticle": "글 작성",
+      "viewAnalytics": "분석 보기",
+      "systemSettings": "시스템 설정"
+    },
+    "common": {
+      "viewDetails": "세부 정보 보기"
+    }
+  },
+  "home": {
+    "subtitle": "현대적인 기업 관리 시스템으로 비즈니스의 성장을 도와드립니다",
+    "learnMore": "자세히 보기",
+    "getStarted": "시작하기",
+    "dashboardDesc": "현대적인 관리 인터페이스",
+    "footer": "모든 권리 보유"
+  },
+  "menu": {
+    "agent": "AI 채팅",
+    "dashboard": "대시보드",
+    "customers": "고객 관리",
+    "customerList": "고객 목록",
+    "customerGroups": "고객 그룹",
+    "products": "제품 관리",
+    "productList": "제품 목록",
+    "productCategories": "제품 카테고리",
+    "orders": "주문 관리",
+    "settings": "시스템 설정",
+    "userManagement": "사용자 관리",
+    "roleManagement": "역할 관리",
+    "systemConfig": "시스템 구성",
+    "loadFailed": "메뉴 로딩 실패",
+    "loadFailedDesc": "메뉴 데이터를 로드할 수 없습니다. 네트워크 연결을 확인하세요.",
+    "itemCount": "메뉴 항목 수",
+    "noItemsWarning": "경고: 표시할 메뉴 항목이 없습니다",
+    "badge": {
+      "new": "신규"
+    },
+    "aiSettings": "모델 설정",
+    "workflow": "워크플로우",
+    "pluginMarketplace": "마켓",
+    "pluginsInstalled": "설치됨",
+    "pluginsMarket": "마켓"
+  },
+  "header": {
+    "profile": "프로필",
+    "settings": "설정",
+    "logout": "로그아웃",
+    "searchPlaceholder": "사용자, 콘텐츠 검색...",
+    "searchSuggestions": "검색 제안"
+  },
+  "intro": {
+    "nav": {
+      "features": "기능",
+      "products": "제품",
+      "about": "회사 소개"
+    },
+    "hero": {
+      "welcomeTo": "환영합니다",
+      "dashboardPreview": "현대적인 관리 인터페이스"
+    },
+    "features": {
+      "title": "핵심 기능",
+      "subtitle": "비즈니스 성장을 지원하는 포괄적인 기업 솔루션을 제공합니다",
+      "performance": {
+        "title": "고성능",
+        "description": "Nuxt 4 기반으로 구축되어 최고의 성능 경험을 제공합니다"
+      },
+      "design": {
+        "title": "모던 디자인",
+        "description": "최신 UI 디자인 개념을 채택하여 깔끔하고 아름다운 인터페이스"
+      },
+      "usability": {
+        "title": "사용하기 쉬움",
+        "description": "직관적인 조작 인터페이스로 관리를 더욱 간단하게"
+      },
+      "security": {
+        "title": "안전하고 신뢰할 수 있음",
+        "description": "기업급 보안 보장, 데이터 안전성 확보"
+      }
+    },
+    "products": {
+      "title": "제품 스위트",
+      "subtitle": "다양한 비즈니스 요구사항을 충족하는 완전한 기업 제품 생태계",
+      "learnMore": "자세히 보기",
+      "admin": {
+        "description": "기업의 디지털 전환을 지원하는 강력한 백엔드 관리 시스템",
+        "features": {
+          "userManagement": "사용자 관리",
+          "permissionControl": "권한 제어",
+          "dataAnalysis": "데이터 분석",
+          "systemMonitoring": "시스템 모니터링"
+        }
+      },
+      "analytics": {
+        "description": "비즈니스 성장 기회를 발견하는 지능형 데이터 분석 플랫폼",
+        "features": {
+          "realTimeAnalysis": "실시간 분석",
+          "visualReports": "시각화 보고서",
+          "predictiveModels": "예측 모델",
+          "customDashboard": "사용자 정의 대시보드"
+        }
+      },
+      "cloud": {
+        "description": "클라우드 솔루션, 언제 어디서나 데이터에 액세스",
+        "features": {
+          "cloudStorage": "클라우드 스토리지",
+          "multiDeviceSync": "멀티 디바이스 동기화",
+          "elasticScaling": "탄력적 확장",
+          "support247": "24시간 지원"
+        }
+      }
+    },
+    "about": {
+      "title": "회사 소개",
+      "subtitle": "기업에 최고의 디지털 솔루션을 제공하기 위해 최선을 다하고 있습니다",
+      "mission": {
+        "title": "우리의 사명",
+        "paragraph1": "PowerX는 기업에 가장 진보된 디지털 관리 솔루션을 제공하는 데 전념하고 있습니다. 기술의 힘이 비즈니스 운영 방식을 변화시키고, 효율성을 향상시키며, 가치를 창출할 수 있다고 믿습니다.",
+        "paragraph2": "지속적인 혁신과 최적화를 통해 고객에게 안정적이고 안전하며 사용하기 쉬운 제품 경험을 제공합니다. 우리 팀은 경험이 풍부한 엔지니어와 디자이너로 구성되어 세계적 수준의 기업용 소프트웨어 제작에 집중하고 있습니다.",
+        "paragraph3": "우리는 항상 고객 중심의 철학을 고수하며, 고객의 요구에 귀를 기울이고, 제품을 지속적으로 개선하며, 고객의 성공을 위해 노력합니다."
+      },
+      "stats": {
+        "companies": "기업 고객",
+        "users": "활성 사용자",
+        "uptime": "시스템 가용성"
+      },
+      "enterprise": {
+        "title": "기업 솔루션",
+        "description": "대기업을 위해 맞춤 제작된 전문 솔루션"
+      },
+      "values": {
+        "title": "우리의 가치관",
+        "innovation": {
+          "title": "지속적 혁신",
+          "description": "새로운 기술을 끊임없이 탐구하여 최첨단 솔루션을 제공"
+        },
+        "userFirst": {
+          "title": "사용자 우선",
+          "description": "항상 사용자 지향적이며 최고의 제품 경험을 제공"
+        },
+        "excellence": {
+          "title": "우수성 추구",
+          "description": "제품 품질과 서비스 수준에서 결코 타협하지 않고 완벽을 추구"
+        }
+      }
+    },
+    "footer": {
+      "aboutUs": "회사 소개",
+      "contactUs": "문의하기",
+      "copyright": "© 2024 PowerX. 모든 권리 보유."
+    }
+  },
+  "privacyPolicy": "개인정보 보호정책",
+  "termsOfService": "서비스 약관",
+  "agent": {
+    "selector": {
+      "title": "AI 에이전트",
+      "create": "생성",
+      "searchPlaceholder": "에이전트 검색...",
+      "noResults": "일치하는 에이전트를 찾을 수 없습니다",
+      "noAgents": "에이전트가 없습니다. 생성을 클릭하여 첫 번째 에이전트를 추가하세요",
+      "active": "활성",
+      "inactive": "비활성",
+      "current": "현재",
+      "available": "사용 가능",
+      "capabilities": "개 기능",
+      "edit": "편집",
+      "delete": "삭제",
+      "totalCount": "총 {count}개 에이전트",
+      "sessions": "최근 세션",
+      "newSession": "새 세션",
+      "noSessions": "세션이 없습니다",
+      "untitledSession": "제목 없는 세션"
+    },
+    "message": {
+      "justNow": "방금 전",
+      "minutesAgo": "{minutes}분 전",
+      "hoursAgo": "{hours}시간 전",
+      "you": "당신",
+      "assistant": "어시스턴트",
+      "system": "시스템",
+      "typing": "입력 중...",
+      "thinking": "생각 중...",
+      "metadata": "메타데이터",
+      "sendFailed": "전송 실패",
+      "retry": "재시도",
+      "copy": "복사",
+      "delete": "삭제"
+    },
+    "chat": {
+      "defaultAgent": "기본 어시스턴트",
+      "disconnected": "연결 끊김",
+      "connected": "연결됨",
+      "responding": "응답 중",
+      "typing": "입력 중",
+      "clear": "지우기",
+      "realtimeFailed": "실시간 연결 실패",
+      "welcomeTitle": "대화 시작",
+      "welcomeMessage": "에이전트를 선택하여 지능적인 대화를 시작하고 AI 어시스턴트의 강력한 기능을 경험하세요.",
+      "agentTyping": "에이전트가 입력 중...",
+      "inputPlaceholder": "메시지 입력...",
+      "disconnectedPlaceholder": "연결이 끊어져 메시지를 보낼 수 없습니다",
+      "enterToSend": "Enter로 전송",
+      "shiftEnterNewLine": "Shift+Enter로 줄바꿈",
+      "ctrlEnterToSend": "Ctrl/Cmd+Enter로 전송",
+      "enterNewLine": "Enter로 줄바꿈",
+      "model": "모델",
+      "temperature": "온도",
+      "cancel": "취소",
+      "newSession": "새 세션",
+      "untitledSession": "제목 없는 세션",
+      "errors": {
+        "loadSessionsFailed": "세션 로드 실패",
+        "loadMoreSessionsFailed": "추가 세션 로드 실패",
+        "createSessionFailed": "세션 생성 실패",
+        "createSessionFailedNoData": "세션 생성 실패: 응답 데이터 없음",
+        "deleteSessionFailed": "세션 삭제 실패",
+        "renameSessionFailed": "세션 이름 변경 실패",
+        "archiveSessionFailed": "세션 아카이브 실패",
+        "loadMessagesFailed": "메시지 로드 실패",
+        "loadMoreMessagesFailed": "추가 메시지 로드 실패"
+      }
+    },
+    "config": {
+      "title": "에이전트 설정",
+      "editTitle": "에이전트 편집",
+      "createTitle": "에이전트 생성",
+      "basicInfo": "기본 정보",
+      "name": "이름",
+      "namePlaceholder": "에이전트 이름 입력",
+      "description": "설명",
+      "descriptionPlaceholder": "에이전트의 기능과 특징을 설명하세요",
+      "avatar": "아바타",
+      "avatarPlaceholder": "아바타 이미지 URL 입력",
+      "status": "상태",
+      "active": "활성",
+      "inactive": "비활성",
+      "modelConfig": "모델 설정",
+      "model": "모델",
+      "selectModel": "모델 선택",
+      "selectProvider": "제공업체 선택",
+      "temperature": "온도",
+      "conservative": "보수적",
+      "creative": "창의적",
+      "maxTokens": "최대 토큰 수",
+      "maxTokensPlaceholder": "최대 토큰 수 입력",
+      "systemPrompt": "시스템 프롬프트",
+      "systemPromptPlaceholder": "에이전트의 동작과 역할을 정의하는 시스템 프롬프트 입력",
+      "usePreset": "프리셋 사용",
+      "capability": "기능",
+      "advancedSettings": "고급 설정",
+      "contextWindow": "컨텍스트 윈도우",
+      "contextWindowPlaceholder": "컨텍스트 윈도우 크기 입력",
+      "responseFormat": "응답 형식",
+      "selectFormat": "형식 선택",
+      "streaming": "스트리밍",
+      "streamingEnabled": "활성화됨",
+      "streamingDisabled": "비활성화됨",
+      "reset": "재설정",
+      "cancel": "취소",
+      "save": "저장",
+      "capabilities": {
+        "textGeneration": "텍스트 생성",
+        "codeGeneration": "코드 생성",
+        "imageAnalysis": "이미지 분석",
+        "webSearch": "웹 검색",
+        "fileProcessing": "파일 처리",
+        "dataAnalysis": "데이터 분석",
+        "translation": "번역",
+        "summarization": "요약"
+      },
+      "presets": {
+        "assistant": "범용 어시스턴트",
+        "assistantPrompt": "당신은 유용하고 무해하며 정직한 AI 어시스턴트입니다. 사용자의 질문에 친근하고 전문적인 방식으로 답변해 주세요.",
+        "coder": "프로그래밍 어시스턴트",
+        "coderPrompt": "당신은 여러 프로그래밍 언어와 기술에 능숙한 전문 프로그래밍 어시스턴트입니다. 명확하고 실행 가능한 코드 솔루션을 제공해 주세요.",
+        "translator": "번역 어시스턴트",
+        "translatorPrompt": "당신은 여러 언어를 정확하게 번역할 수 있는 전문 번역 어시스턴트입니다. 원문의 어조와 의미를 유지해 주세요.",
+        "analyst": "데이터 분석가",
+        "analystPrompt": "당신은 데이터에서 통찰력을 추출하는 데 능숙한 데이터 분석 전문가입니다. 상세한 분석과 권장사항을 제공해 주세요."
+      },
+      "formats": {
+        "text": "일반 텍스트",
+        "markdown": "Markdown",
+        "json": "JSON"
+      }
+    },
+    "confirmDelete": "이 에이전트를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다."
+  },
+  "env": {
+    "title": "환경 설정",
+    "current": "현재 환경",
+    "switch": "환경 전환",
+    "dev": "개발 환경",
+    "staging": "스테이징 환경",
+    "prod": "프로덕션 환경",
+    "canary": "카나리 환경",
+    "blue": "블루 환경",
+    "green": "그린 환경"
+  },
+  "error": {
+    "tip": "이 페이지에서 문제가 발생했습니다",
+    "goBack": "뒤로 가기",
+    "goHome": "홈으로 가기"
+  },
+  "organization": {
+    "title": "조직 구조",
+    "tabs": {
+      "departments": "부서 관리",
+      "users": "사용자 관리",
+      "permissions": "권한 관리"
+    },
+    "description": "시스템 사용자, 부서 및 권한 관리",
+    "department": {
+      "title": "부서 관리",
+      "description": "회사 부서 구조 관리",
+      "add": "부서 추가",
+      "edit": "부서 편집",
+      "delete": "부서 삭제",
+      "confirmDelete": "이 부서를 삭제하시겠습니까?",
+      "form": {
+        "name": "부서명",
+        "code": "부서 코드",
+        "leader": "책임자",
+        "description": "설명",
+        "namePlaceholder": "부서명 입력",
+        "codePlaceholder": "부서 코드 입력",
+        "leaderPlaceholder": "책임자 이름 입력",
+        "descriptionPlaceholder": "부서 설명 입력"
+      },
+      "table": {
+        "name": "부서명",
+        "code": "부서 코드",
+        "leader": "책임자",
+        "memberCount": "구성원 수",
+        "description": "설명",
+        "actions": "작업"
+      },
+      "empty": {
+        "title": "부서 데이터 없음",
+        "noResults": "일치하는 부서를 찾을 수 없습니다. 다른 검색어를 시도하세요",
+        "create": "「부서 추가」 버튼을 클릭하여 첫 번째 부서를 생성하세요"
+      },
+      "search": "부서명, 코드 또는 책임자 검색..."
+    },
+    "user": {
+      "title": "사용자 관리",
+      "description": "시스템 사용자 계정 및 권한 관리",
+      "add": "사용자 추가",
+      "edit": "사용자 편집",
+      "delete": "사용자 삭제",
+      "disable": "비활성화",
+      "enable": "활성화",
+      "confirmDelete": "이 사용자를 삭제하시겠습니까?",
+      "importExport": "가져오기/내보내기",
+      "import": {
+        "title": "사용자 데이터 가져오기",
+        "button": "사용자 데이터 가져오기",
+        "success": "{count}명의 사용자를 가져왔습니다",
+        "error": "가져오기 실패: {message}",
+        "invalidFormat": "잘못된 사용자 데이터 형식",
+        "missingFields": "가져온 데이터에 필수 필드(이름, 사용자명 또는 이메일)가 없습니다"
+      },
+      "export": {
+        "csv": "사용자 데이터 내보내기 (CSV)",
+        "json": "사용자 데이터 내보내기 (JSON)"
+      },
+      "form": {
+        "name": "이름",
+        "username": "사용자명",
+        "email": "이메일",
+        "department": "부서",
+        "role": "역할",
+        "password": "비밀번호",
+        "newPassword": "새 비밀번호 (변경하지 않으려면 비워두세요)",
+        "confirmPassword": "비밀번호 확인",
+        "confirmNewPassword": "새 비밀번호 확인",
+        "status": "상태",
+        "active": "활성",
+        "inactive": "비활성",
+        "namePlaceholder": "이름 입력",
+        "usernamePlaceholder": "사용자명 입력",
+        "emailPlaceholder": "이메일 주소 입력",
+        "passwordPlaceholder": "비밀번호 입력",
+        "selectDepartment": "부서 선택",
+        "selectRole": "역할 선택"
+      },
+      "table": {
+        "avatar": "",
+        "name": "이름",
+        "username": "사용자명",
+        "email": "이메일",
+        "department": "부서",
+        "role": "역할",
+        "status": "상태",
+        "actions": "작업"
+      },
+      "filter": {
+        "allDepartments": "모든 부서",
+        "allRoles": "모든 역할",
+        "allStatus": "모든 상태",
+        "active": "활성",
+        "inactive": "비활성",
+        "reset": "초기화"
+      },
+      "empty": {
+        "title": "사용자 데이터 없음",
+        "noResults": "일치하는 사용자를 찾을 수 없습니다. 필터를 조정해 보세요",
+        "create": "「사용자 추가」 버튼을 클릭하여 첫 번째 사용자를 생성하세요"
+      },
+      "search": "사용자명, 이메일 검색...",
+      "validation": {
+        "requiredFields": "필수 필드를 입력하세요",
+        "passwordMismatch": "비밀번호가 일치하지 않습니다"
+      }
+    },
+    "permission": {
+      "title": "권한 관리",
+      "description": "시스템 역할 및 권한 관리",
+      "roleList": "역할 목록",
+      "roleConfig": "권한 설정",
+      "configDesc": "이 역할이 접근할 수 있는 기능과 작업 구성",
+      "add": "역할 추가",
+      "edit": "역할 편집",
+      "delete": "역할 삭제",
+      "systemRole": "시스템",
+      "userCount": "사용자",
+      "confirmDelete": "이 역할을 삭제하시겠습니까?",
+      "systemRoleError": "시스템 역할은 삭제할 수 없습니다",
+      "form": {
+        "name": "역할명",
+        "code": "역할 코드",
+        "description": "설명",
+        "permissions": "권한",
+        "namePlaceholder": "역할명 입력",
+        "codePlaceholder": "역할 코드 입력",
+        "descriptionPlaceholder": "역할 설명 입력"
+      },
+      "empty": {
+        "title": "역할 데이터 없음",
+        "noResults": "일치하는 역할을 찾을 수 없습니다. 다른 검색어를 시도하세요",
+        "create": "「역할 추가」 버튼을 클릭하여 첫 번째 역할을 생성하세요"
+      },
+      "search": "역할 검색..."
+    },
+    "common": {
+      "save": "저장",
+      "cancel": "취소",
+      "edit": "편집",
+      "delete": "삭제",
+      "actions": "작업",
+      "search": "검색",
+      "filter": "필터",
+      "reset": "초기화"
+    }
+  },
+  "connection": {
+    "chatSignal": "채팅 신호",
+    "commandChannel": "명령 채널",
+    "reconnect": "재연결"
+  }
+}

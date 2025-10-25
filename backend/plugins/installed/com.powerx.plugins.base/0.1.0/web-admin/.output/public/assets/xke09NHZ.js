@@ -1,0 +1,1 @@
+import{_ as r}from"./DlAUqK2U.js";import{c as o,o as s,D as t}from"#entry";const n={};function c(e,a){return s(),o("tr",null,[t(e.$slots,"default")])}const f=Object.assign(r(n,[["render",c]]),{__name:"ProseTr"});export{f as default};

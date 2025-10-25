@@ -1,0 +1,108 @@
+var common = {
+	save: "保存",
+	cancel: "取消",
+	"delete": "删除",
+	edit: "编辑",
+	add: "新增",
+	search: "搜索",
+	loading: "加载中...",
+	confirm: "确认",
+	confirmation: "确认操作",
+	back: "返回",
+	next: "下一步",
+	previous: "上一步",
+	submit: "提交",
+	reset: "重置",
+	close: "关闭",
+	welcome: "欢迎",
+	appName: "PowerX 基础插件"
+};
+var navigation = {
+	intro: "插件介绍",
+	templates: "模板管理",
+	templatesCrud: "模板 CRUD",
+	templatesDevelop: "开发指南",
+	profile: "个人中心",
+	help: "帮助",
+	logout: "退出"
+};
+var theme = {
+	light: "浅色模式",
+	dark: "深色模式"
+};
+var intro = {
+	title: "Base 模板插件",
+	description: "了解 PowerX 基础模板插件，快速搭建可复用的业务模块。",
+	viewIntro: "查看介绍"
+};
+var templates = {
+	overview: {
+		title: "模板概览",
+		description: "使用模板构建一致的业务体验，加速团队协作与交付。",
+		cards: {
+			create: "创建",
+			createDescription: "编写可复用的模板，快速应用到多个页面或流程。",
+			automation: "自动化",
+			automationDescription: "结合自动化能力，让模板在上线流程中自动执行。",
+			analytics: "洞察",
+			analyticsDescription: "衡量模板的使用效果，持续优化协作效率。"
+		}
+	},
+	develop: {
+		title: "开发介绍",
+		description: "了解模板模块在后端与前端的关键实现步骤。",
+		structure: "核心目录",
+		steps: "实施步骤",
+		step1: "定义模板的 GORM 模型与迁移。",
+		step2: "实现仓储与服务层封装业务逻辑。",
+		step3: "在 /api/v1/templates 下注册受 RBAC 保护的 HTTP 接口。",
+		step4: "将 Nuxt 页面接入 API，并优化用户体验。"
+	},
+	crud: {
+		title: "模板 CRUD",
+		description: "创建、更新与删除示例模板，体验完整流程。",
+		create: "新建模板",
+		formTitle: "模板表单",
+		fields: {
+			name: "模板名称",
+			namePlaceholder: "请输入模板名称",
+			description: "描述",
+			descriptionPlaceholder: "简要描述模板用途",
+			content: "内容",
+			contentPlaceholder: "编写模板内容"
+		},
+		actions: {
+			save: "保存模板",
+			update: "更新模板"
+		},
+		listTitle: "模板列表",
+		deleteTitle: "删除模板",
+		deleteConfirm: "确认删除 \"{name}\" 模板？"
+	},
+	form: {
+		modalDescription: "请填写下方的模板信息。",
+		name: "模板名称",
+		description: "描述",
+		content: "内容"
+	}
+};
+var message = {
+	saveSuccess: "保存成功",
+	deleteSuccess: "删除成功",
+	error: "操作失败，请重试",
+	confirmDelete: "确定要删除吗？该操作不可恢复。",
+	noData: "暂无数据",
+	networkError: "网络异常，请检查连接",
+	templateCreated: "模板创建成功"
+};
+const zh = {
+	common: common,
+	navigation: navigation,
+	theme: theme,
+	intro: intro,
+	templates: templates,
+	message: message
+};
+
+export { common, zh as default, intro, message, navigation, templates, theme };
+//# sourceMappingURL=zh.mjs.map

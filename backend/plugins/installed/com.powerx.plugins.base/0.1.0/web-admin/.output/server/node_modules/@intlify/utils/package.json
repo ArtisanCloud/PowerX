@@ -1,0 +1,129 @@
+{
+  "name": "@intlify/utils",
+  "version": "0.13.0",
+  "description": "Collection of i18n utilities",
+  "keywords": [
+    "i18n",
+    "internationalization",
+    "intlify",
+    "utilities"
+  ],
+  "author": {
+    "name": "kazuya kawaguchi",
+    "email": "kawakazu80@gmail.com"
+  },
+  "license": "MIT",
+  "funding": "https://github.com/sponsors/kazupon",
+  "bugs": {
+    "url": "https://github.com/intlify/utils/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/intlify/utils.git"
+  },
+  "homepage": "https://github.com/intlify/utils#readme",
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">= 18"
+  },
+  "type": "module",
+  "sideEffects": false,
+  "main": "dist/index.cjs",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.cjs",
+      "browser": "./dist/index.mjs",
+      "default": "./dist/index.mjs"
+    },
+    "./h3": {
+      "types": "./dist/h3.d.ts",
+      "import": "./dist/h3.mjs",
+      "require": "./dist/h3.cjs",
+      "default": "./dist/h3.mjs"
+    },
+    "./hono": {
+      "types": "./dist/hono.d.ts",
+      "import": "./dist/hono.mjs",
+      "require": "./dist/hono.cjs",
+      "default": "./dist/hono.mjs"
+    },
+    "./node": {
+      "types": "./dist/node.d.ts",
+      "import": "./dist/node.mjs",
+      "require": "./dist/node.cjs",
+      "default": "./dist/node.mjs"
+    },
+    "./dist/*": "./dist/*",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "prepare": "git config --local core.hooksPath .githooks",
+    "changelog": "gh-changelogen --repo=intlify/utils",
+    "release": "bumpp --commit \"release: v%s\" --all --push --tag",
+    "version": "npx tsx scripts/bump-deno.ts",
+    "fix": "run-p lint format",
+    "lint": "deno lint",
+    "format": "deno fmt",
+    "build": "unbuild && bun run ./scripts/deno.ts",
+    "test": "npm run test:typecheck && npm run test:unit",
+    "test:unit": "NODE_OPTIONS=--experimental-vm-modules vitest run ./src",
+    "test:typecheck": "vitest --typecheck --config ./vitest.type.config.ts --run",
+    "test:coverage": "npm test -- --reporter verbose --coverage",
+    "test:e2e": "run-s test:e2e:*",
+    "test:e2e:browser": "cd playground/browser && node --test",
+    "test:e2e:node": "cd playground/node && node --test",
+    "test:e2e:deno": "cd playground/deno && deno task test",
+    "test:e2e:bun": "cd playground/bun && npm run test",
+    "setup": "run-s setup:*",
+    "setup:browser": "cd playground/browser && bun install",
+    "setup:node": "cd playground/node && bun install",
+    "setup:deno": "cd playground/deno && deno cache --reload ./main.ts",
+    "setup:bun": "cd playground/bun && bun install",
+    "play:browser": "cd playground/browser && npm run dev",
+    "play:node": "cd playground/node && npm run dev",
+    "play:deno": "cd playground/deno && deno run --allow-net main.ts",
+    "play:bun": "cd playground/bun && npm run dev"
+  },
+  "lint-staged": {
+    "*.{js,ts,jsx,tsx,json,jsonc}": [
+      "deno fmt"
+    ],
+    "*.{js,ts,jsx,tsx}": [
+      "deno lint"
+    ]
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20231016.0",
+    "@types/node": "^20.11.24",
+    "@types/semver": "^7.5.8",
+    "@types/supertest": "^2.0.12",
+    "@vitest/coverage-v8": "^1.3.0",
+    "bumpp": "^9.2.0",
+    "bun-types": "latest",
+    "cookie-es": "^1.0.0",
+    "gh-changelogen": "^0.2.8",
+    "h3": "^1.8.1",
+    "hono": "^3.8.1",
+    "jsonc-parser": "^3.2.1",
+    "lint-staged": "^15.0.0",
+    "miniflare": "^3.20231016.0",
+    "npm-run-all2": "^6.0.0",
+    "pkg-types": "^1.0.2",
+    "playwright": "^1.38.1",
+    "semver": "^7.6.0",
+    "supertest": "^6.3.3",
+    "typescript": "^5.4.1-rc",
+    "unbuild": "^2.0.0",
+    "vitest": "^1.3.0",
+    "vitest-environment-miniflare": "^2.14.1"
+  }
+}

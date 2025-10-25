@@ -1,0 +1,108 @@
+var common = {
+	save: "Save",
+	cancel: "Cancel",
+	"delete": "Delete",
+	edit: "Edit",
+	add: "Add",
+	search: "Search",
+	loading: "Loading...",
+	confirm: "Confirm",
+	confirmation: "Confirmation",
+	back: "Back",
+	next: "Next",
+	previous: "Previous",
+	submit: "Submit",
+	reset: "Reset",
+	close: "Close",
+	welcome: "Welcome",
+	appName: "PowerX Base"
+};
+var navigation = {
+	intro: "Plugin Intro",
+	templates: "Templates",
+	templatesCrud: "Template CRUD",
+	templatesDevelop: "Templates Develop Guide",
+	profile: "Profile",
+	help: "Help",
+	logout: "Logout"
+};
+var theme = {
+	light: "Light Theme",
+	dark: "Dark Theme"
+};
+var intro = {
+	title: "Base Template Plugin",
+	description: "Explore the starter template plugin for PowerX and learn how to build reusable modules quickly.",
+	viewIntro: "View introduction"
+};
+var templates = {
+	overview: {
+		title: "Template Overview",
+		description: "Templates help you bootstrap new experiences with consistent structures and reusable content blocks.",
+		cards: {
+			create: "Create",
+			createDescription: "Draft reusable templates that can be applied across multiple pages or workflows.",
+			automation: "Automation",
+			automationDescription: "Combine templates with automation to accelerate onboarding and delivery.",
+			analytics: "Insights",
+			analyticsDescription: "Measure how templates are used and optimise collaboration in your team."
+		}
+	},
+	develop: {
+		title: "Development Guide",
+		description: "Understand the backend and frontend touch points for extending the template module.",
+		structure: "Key directories",
+		steps: "Implementation steps",
+		step1: "Define the GORM model and migrations for template storage.",
+		step2: "Expose repository and service layers for business logic.",
+		step3: "Register HTTP APIs under /api/v1/templates with RBAC protection.",
+		step4: "Connect the Nuxt pages to the APIs and polish the user experience."
+	},
+	crud: {
+		title: "Template CRUD",
+		description: "Manage demo templates with create, update and delete operations.",
+		create: "New Template",
+		formTitle: "Template Form",
+		fields: {
+			name: "Template Name",
+			namePlaceholder: "Enter template name",
+			description: "Description",
+			descriptionPlaceholder: "Describe the purpose of this template",
+			content: "Content",
+			contentPlaceholder: "Write the template content"
+		},
+		actions: {
+			save: "Save Template",
+			update: "Update Template"
+		},
+		listTitle: "Existing Templates",
+		deleteTitle: "Delete Template",
+		deleteConfirm: "Are you sure you want to delete \"{name}\"?"
+	},
+	form: {
+		modalDescription: "Fill out the template details below.",
+		name: "Template Name",
+		description: "Description",
+		content: "Content"
+	}
+};
+var message = {
+	saveSuccess: "Saved successfully",
+	deleteSuccess: "Deleted successfully",
+	error: "Operation failed, please try again",
+	confirmDelete: "Are you sure you want to delete? This action cannot be undone.",
+	noData: "No data available",
+	networkError: "Network error, please check your connection",
+	templateCreated: "Template created successfully"
+};
+const en = {
+	common: common,
+	navigation: navigation,
+	theme: theme,
+	intro: intro,
+	templates: templates,
+	message: message
+};
+
+export { common, en as default, intro, message, navigation, templates, theme };
+//# sourceMappingURL=en.mjs.map

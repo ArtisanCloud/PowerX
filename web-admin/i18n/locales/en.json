@@ -1,0 +1,1039 @@
+{
+  "welcome": "Welcome to",
+  "login": "Login",
+  "register": "Register",
+  "logout": "Logout",
+  "common": {
+    "language": "Language",
+    "reload": "Reload",
+    "scrollToBottom": "Scroll to Bottom",
+    "newMessages": "New Messages",
+    "save": "Save",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "delete": "Delete",
+    "edit": "Edit",
+    "add": "Add",
+    "search": "Search",
+    "reset": "Reset",
+    "submit": "Submit",
+    "back": "Back",
+    "next": "Next",
+    "previous": "Previous",
+    "loading": "Loading...",
+    "noData": "No data",
+    "error": "Error",
+    "success": "Success",
+    "warning": "Warning",
+    "info": "Info",
+    "yes": "Yes",
+    "no": "No",
+    "ok": "OK",
+    "close": "Close",
+    "view": "View",
+    "create": "Create",
+    "update": "Update",
+    "actions": "Actions",
+    "status": "Status",
+    "name": "Name",
+    "description": "Description",
+    "createdAt": "Created At",
+    "updatedAt": "Updated At",
+    "filter": "Filter",
+    "sort": "Sort",
+    "up": "Move Up",
+    "down": "Move Down",
+    "none": "None",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "expand": "Expand",
+    "collapse": "Collapse",
+    "toggleDensity": "Toggle Density",
+    "loadMore": "Load More",
+    "settings": "Settings",
+    "trash": "Trash"
+  },
+  "menu": {
+    "dashboard": "Dashboard",
+    "groups": {
+      "pinned": "Pinned",
+      "system": "System Functions",
+      "plugins": "Plugins"
+    },
+    "agent": "AI Agent",
+    "workflow": "Workflow",
+    "pluginMarketplace": "Marketplace",
+    "pluginsInstalled": "Installed",
+    "pluginsMarket": "Marketplace",
+    "plugins": "Plugins",
+    "settings": "Settings",
+    "userManagement": "User Management",
+    "roleManagement": "Role Management",
+    "systemConfig": "System Configuration",
+    "aiSettings": "AI Settings",
+    "loadFailed": "Menu loading failed",
+    "loadFailedDesc": "Unable to load menu data, please check network connection or contact administrator",
+    "noItemsFound": "No menu items found",
+    "itemCount": "Menu item count",
+    "noItemsWarning": "Warning: No menu items found",
+    "notifications": "Notifications",
+    "customers": "Customer Management",
+    "customerList": "Customer List",
+    "customerGroups": "Customer Groups",
+    "products": "Product Management",
+    "productList": "Product List",
+    "productCategories": "Product Categories",
+    "orders": "Order Management",
+    "badge": {
+      "new": "New"
+    }
+  },
+  "navigation": {
+    "dashboard": "Dashboard",
+    "users": "Users",
+    "settings": "Settings",
+    "profile": "Profile",
+    "logout": "Logout",
+    "home": "Home",
+    "about": "About",
+    "contact": "Contact",
+    "analytics": "Analytics",
+    "content": "Content",
+    "customers": "Customers",
+    "customerGroups": "Customer Groups",
+    "ecommerce": "E-commerce",
+    "marketing": "Marketing",
+    "notifications": "Notifications",
+    "orders": "Orders",
+    "plugins": "Plugins",
+    "productCategories": "Product Categories",
+    "products": "Products",
+    "workflow": "Workflow",
+    "agent": "Agent"
+  },
+  "user": {
+    "admin": "Administrator"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "welcome": "Welcome back!",
+    "description": "System overview and key metrics",
+    "stats": {
+      "totalUsers": "Total Users",
+      "activeUsers": "Active Users",
+      "totalOrders": "Total Orders",
+      "revenue": "Revenue",
+      "todayVisits": "Today's Visits",
+      "totalRevenue": "Total Revenue",
+      "vsLastMonth": "vs Last Month"
+    },
+    "charts": {
+      "visitTrend": "Visit Trend",
+      "chartArea": "Chart Area",
+      "integration": "Chart.js or other chart libraries can be integrated here"
+    },
+    "activities": {
+      "title": "Recent Activities",
+      "viewAll": "View All Activities",
+      "users": {
+        "zhangsan": "Zhang San",
+        "lisi": "Li Si",
+        "wangwu": "Wang Wu"
+      },
+      "actions": {
+        "createArticle": "created a new article",
+        "updateProfile": "updated user profile",
+        "deleteComment": "deleted a comment"
+      },
+      "targets": {
+        "vueBestPractices": "\"Vue 3 Best Practices\"",
+        "onTechShare": "in \"Tech Share\""
+      },
+      "times": {
+        "minutesAgo": "{minutes} minutes ago"
+      }
+    },
+    "quickActions": {
+      "title": "Quick Actions",
+      "addUser": "Add User",
+      "createArticle": "Create Article",
+      "viewAnalytics": "View Analytics",
+      "systemSettings": "System Settings"
+    },
+    "common": {
+      "viewDetails": "View Details"
+    }
+  },
+  "home": {
+    "subtitle": "Modern enterprise management system to boost your business",
+    "learnMore": "Learn More",
+    "getStarted": "Get Started",
+    "dashboardDesc": "Modern management interface",
+    "footer": "All rights reserved"
+  },
+  "auth": {
+    "backToHome": "Back to Home",
+    "welcomeBack": "Welcome Back",
+    "loginSubtitle": "Sign in to your account",
+    "identifier": "Username or Email",
+    "password": "Password",
+    "signUpNow": "Sign Up Now",
+    "remember": "Remember me",
+    "hasAccount": "Already have an account?",
+    "email": "Email",
+    "agreeTerms": "I agree to the Terms of Service and Privacy Policy",
+    "signInNow": "Sign In Now",
+    "createAccount": "Create Account",
+    "registerSubtitle": "Create your new account",
+    "and": "and",
+    "termsInfo": "Click the links to view Terms of Service and Privacy Policy",
+    "passwordStrength": {
+      "weak": "Weak",
+      "medium": "Medium",
+      "strong": "Strong"
+    },
+    "login": {
+      "title": "Login",
+      "username": "Username",
+      "password": "Password",
+      "rememberMe": "Remember me",
+      "forgotPassword": "Forgot password?",
+      "loginButton": "Login",
+      "noAccount": "Don't have an account?",
+      "signUp": "Sign up"
+    },
+    "register": {
+      "title": "Register",
+      "username": "Username",
+      "email": "Email",
+      "password": "Password",
+      "confirmPassword": "Confirm Password",
+      "registerButton": "Register",
+      "haveAccount": "Already have an account?",
+      "signIn": "Sign in"
+    },
+    "forgotPassword": {
+      "title": "Forgot Password",
+      "email": "Email",
+      "sendButton": "Send Reset Link",
+      "backToLogin": "Back to login"
+    }
+  },
+  "notifications": {
+    "title": "Notification Center",
+    "description": "View and manage system notifications",
+    "totalMessages": "Total Messages",
+    "unreadMessages": "Unread Messages",
+    "importantMessages": "Important Messages",
+    "markAsRead": "Mark as Read",
+    "markAllAsRead": "Mark All as Read",
+    "allNotifications": "All Notifications",
+    "unreadOnly": "Unread Only",
+    "importantOnly": "Important Only",
+    "noNotifications": "No notifications",
+    "markAllRead": "Mark All Read",
+    "noMessages": "No message notifications",
+    "loading": "Loading...",
+    "loadError": "Load failed",
+    "retry": "Retry",
+    "categories": {
+      "all": "All Categories",
+      "system": "System Notifications",
+      "agent": "Agent Notifications",
+      "workflow": "Workflow Notifications",
+      "user": "User Notifications",
+      "order": "Order Notifications",
+      "plugin": "Plugin Notifications"
+    },
+    "types": {
+      "all": "All Types",
+      "info": "Info",
+      "success": "Success",
+      "warning": "Warning",
+      "error": "Error",
+      "system": "System"
+    },
+    "status": {
+      "all": "All Status",
+      "unread": "Unread",
+      "read": "Read"
+    },
+    "filters": {
+      "importantOnly": "Important Only",
+      "clear": "Clear"
+    },
+    "detail": {
+      "title": "Message Details",
+      "back": "Back",
+      "close": "Close",
+      "relatedInfo": "Related Information",
+      "resourceId": "Related Resource ID",
+      "resourceType": "Resource Type",
+      "userId": "User ID",
+      "availableActions": "Available Actions",
+      "createdAt": "Created At",
+      "updatedAt": "Updated At",
+      "selectMessage": "Please select a notification to view details"
+    },
+    "badges": {
+      "important": "Important",
+      "unread": "Unread"
+    },
+    "timeAgo": {
+      "justNow": "Just now",
+      "minutesAgo": "{minutes} minutes ago",
+      "hoursAgo": "{hours} hours ago",
+      "daysAgo": "{days} days ago",
+      "weeksAgo": "{weeks} weeks ago",
+      "monthsAgo": "{months} months ago"
+    }
+  },
+  "organization": {
+    "title": "Organization",
+    "tabs": {
+      "departments": "Department Management",
+      "users": "User Management",
+      "permissions": "Permission Management"
+    },
+    "description": "Manage organizational structure, users, and permissions",
+    "department": {
+      "title": "Department Management",
+      "description": "Manage organizational departments and structure",
+      "add": "Add Department",
+      "edit": "Edit Department",
+      "delete": "Delete Department",
+      "confirmDelete": "Are you sure you want to delete this department?",
+      "form": {
+        "name": "Department Name",
+        "code": "Department Code",
+        "key": "Unique Key",
+        "keyPlaceholder": "English/hyphen/underscore",
+        "leader": "Leader",
+        "parent": "Parent Department",
+        "noParent": "No Parent Department",
+        "moveParent": "Move to New Parent",
+        "sort": "Sort Order",
+        "sortPlaceholder": "Lower numbers appear first",
+        "status": "Status",
+        "meta": "Extended Meta (JSON)",
+        "description": "Description",
+        "namePlaceholder": "Enter department name",
+        "codePlaceholder": "Enter department code",
+        "leaderPlaceholder": "Enter leader name",
+        "parentPlaceholder": "Select parent department",
+        "descriptionPlaceholder": "Enter department description"
+      },
+      "messages": {
+        "loadFailed": "Load failed",
+        "saveFailed": "Save failed",
+        "metaJsonError": "Invalid Meta JSON, please check JSON syntax."
+      },
+      "help": {
+        "metaField": "Leave blank to keep unchanged; clear and save to set empty."
+      },
+      "table": {
+        "name": "Department Name",
+        "code": "Department Code",
+        "leader": "Leader",
+        "memberCount": "Member Count",
+        "description": "Description",
+        "actions": "Actions"
+      },
+      "empty": {
+        "title": "No department data",
+        "noResults": "No matching departments found, please try other search terms",
+        "create": "Click the 'Add Department' button to create the first department"
+      },
+      "pagination": {
+        "showing": "Showing {start} - {end} of {total} departments"
+      },
+      "search": "Search department name, code or leader..."
+    },
+    "user": {
+      "title": "User Management",
+      "description": "Manage system users and their permissions",
+      "add": "Add User",
+      "edit": "Edit User",
+      "delete": "Delete User",
+      "disable": "Disable",
+      "enable": "Enable",
+      "confirmDelete": "Are you sure you want to delete this user?",
+      "importExport": "Import/Export",
+      "import": {
+        "title": "Import User Data",
+        "button": "Import User Data",
+        "success": "Successfully imported {count} users",
+        "error": "Import failed: {message}",
+        "invalidFormat": "Invalid user data format",
+        "missingFields": "Imported data missing required fields (name, username or email)"
+      },
+      "export": {
+        "csv": "Export User Data (CSV)",
+        "json": "Export User Data (JSON)"
+      },
+      "role": {
+        "admin": "Administrator",
+        "editor": "Editor",
+        "user": "User"
+      },
+      "form": {
+        "name": "Name",
+        "username": "Username",
+        "email": "Email",
+        "phone": "Phone",
+        "department": "Department",
+        "role": "Role",
+        "password": "Password",
+        "newPassword": "New Password (leave blank to keep unchanged)",
+        "confirmPassword": "Confirm Password",
+        "confirmNewPassword": "Confirm New Password",
+        "status": "Status",
+        "active": "Active",
+        "inactive": "Inactive",
+        "namePlaceholder": "Enter name",
+        "usernamePlaceholder": "Enter username",
+        "emailPlaceholder": "Enter email address",
+        "phonePlaceholder": "Enter phone number",
+        "passwordPlaceholder": "Enter password",
+        "selectDepartment": "Select Department",
+        "selectRole": "Select Role",
+        "addUser": "Add User",
+        "addUserDesc": "Create new user account",
+        "editUser": "Edit User",
+        "editUserDesc": "Modify user information"
+      },
+      "table": {
+        "avatar": "",
+        "name": "Name",
+        "username": "Username",
+        "email": "Email",
+        "phone": "Phone",
+        "department": "Department",
+        "role": "Role",
+        "status": "Status",
+        "actions": "Actions"
+      },
+      "filter": {
+        "allDepartments": "All Departments",
+        "allRoles": "All Roles",
+        "allStatus": "All Status",
+        "allPlans": "All Plans",
+        "status": "Filter by Status",
+        "plan": "Filter by Plan",
+        "active": "Active",
+        "inactive": "Inactive",
+        "reset": "Reset"
+      },
+      "plan": {
+        "free": "Free",
+        "pro": "Pro",
+        "enterprise": "Enterprise"
+      },
+      "status": {
+        "active": "Active",
+        "inactive": "Inactive",
+        "suspended": "Suspended"
+      },
+      "messages": {
+        "deleteConfirm": "Are you sure you want to delete this user?",
+        "deleteSuccess": "User deleted successfully",
+        "createSuccess": "User created successfully",
+        "updateSuccess": "User updated successfully",
+        "loadFailed": "Failed to load user list"
+      },
+      "search": "Search username, email...",
+      "validation": {
+        "requiredFields": "Please fill in required fields",
+        "passwordMismatch": "Passwords do not match"
+      },
+      "rootManagement": "Root Management",
+      "selectTenantDesc": "Select a tenant to manage and view its user information",
+      "searchTenants": "Search tenant name or domain...",
+      "loadFailed": "Failed to load tenant list",
+      "noTenantsFound": "No matching tenants found",
+      "noDomain": "No domain",
+      "userCount": "Users",
+      "createdAt": "Created At",
+      "backToTenantList": "Back to Tenant List",
+      "userCountText": "{count} users",
+      "empty": {
+        "title": "No user data",
+        "noResults": "No matching users found, please try adjusting the filter conditions",
+        "create": "Click the 'Add User' button to create the first user"
+      }
+    },
+    "tenant": {
+      "add": "Add Tenant",
+      "tooltips": {
+        "saasSupport": "SaaS version supports adding tenants"
+      },
+      "filter": {
+        "status": "Filter by Status",
+        "plan": "Filter by Plan",
+        "allPlans": "All Plans",
+        "suspended": "Suspended"
+      },
+      "status": {
+        "active": "Active",
+        "inactive": "Inactive",
+        "suspended": "Suspended"
+      },
+      "plan": {
+        "free": "Free",
+        "pro": "Pro",
+        "enterprise": "Enterprise"
+      },
+      "pagination": {
+        "showing": "Showing {start} - {end} of {total} tenants",
+        "previous": "Previous",
+        "next": "Next"
+      }
+    },
+    "permission": {
+      "title": "Permission Management",
+      "description": "Manage system roles and permissions",
+      "roleList": "Role List",
+      "addRole": "Add Role",
+      "editRole": "Edit Role",
+      "deleteRole": "Delete Role",
+      "permissions": "Permissions",
+      "assignPermissions": "Assign Permissions",
+      "roleConfig": "Permission Configuration",
+      "configDesc": "Configure the functions and operations that this role can access",
+      "add": "Add Role",
+      "edit": "Edit Role",
+      "delete": "Delete Role",
+      "systemRole": "System",
+      "userCount": "users",
+      "confirmDelete": "Are you sure you want to delete this role?",
+      "systemRoleError": "System roles cannot be deleted",
+      "form": {
+        "name": "Role Name",
+        "code": "Role Code",
+        "description": "Description",
+        "permissions": "Permissions",
+        "namePlaceholder": "Enter role name",
+        "codePlaceholder": "Enter role code",
+        "descriptionPlaceholder": "Enter role description"
+      },
+      "empty": {
+        "title": "No role data",
+        "noResults": "No matching roles found, please try other search terms",
+        "create": "Click the [Add Role] button to create the first role"
+      },
+      "search": "Search roles..."
+    },
+    "common": {
+      "save": "Save",
+      "cancel": "Cancel",
+      "edit": "Edit",
+      "delete": "Delete",
+      "actions": "Actions",
+      "search": "Search",
+      "filter": "Filter",
+      "reset": "Reset",
+      "up": "Move Up",
+      "down": "Move Down",
+      "none": "None",
+      "enabled": "Enabled",
+      "disabled": "Disabled"
+    }
+  },
+  "header": {
+    "profile": "Profile",
+    "settings": "Settings",
+    "logout": "Logout",
+    "searchPlaceholder": "Search users, content, products...",
+    "searchSuggestions": "Search Suggestions"
+  },
+  "search": {
+    "title": "Search Center",
+    "subtitle": "Search anything in the system",
+    "description": "Powerful global search functionality",
+    "placeholder": "Enter search keywords...",
+    "searchButton": "Search",
+    "suggestions": "Search Suggestions",
+    "history": "Search History",
+    "clearHistory": "Clear History",
+    "filters": "Filters",
+    "resetFilters": "Reset Filters",
+    "resultType": "Result Type",
+    "category": "Category",
+    "sortBy": "Sort By",
+    "sortRelevance": "Relevance",
+    "sortDate": "Date",
+    "sortTitle": "Title",
+    "sortDesc": "Descending",
+    "sortAsc": "Ascending",
+    "applyFilters": "Apply Filters",
+    "searching": "Searching...",
+    "resultsCount": "Found {total} results for \"{query}\"",
+    "noResults": "No results found",
+    "noResultsDesc": "Try adjusting your search terms or filters",
+    "tryAgain": "Try Again",
+    "tryDifferentFilters": "Try different filter conditions",
+    "startSearching": "Start searching",
+    "startSearchingDesc": "Enter keywords to start searching system content",
+    "categories": {
+      "all": "All Categories",
+      "users": "Users",
+      "content": "Content",
+      "products": "Products",
+      "orders": "Orders",
+      "customers": "Customers"
+    },
+    "types": {
+      "all": "All Types",
+      "exact": "Exact Match",
+      "fuzzy": "Fuzzy Match",
+      "partial": "Partial Match"
+    }
+  },
+  "intro": {
+    "nav": {
+      "features": "Features",
+      "products": "Products",
+      "about": "About"
+    },
+    "hero": {
+      "welcomeTo": "Welcome to",
+      "dashboardPreview": "Modern management interface"
+    },
+    "features": {
+      "title": "Core Features",
+      "subtitle": "We provide comprehensive enterprise solutions to boost your business",
+      "performance": {
+        "title": "High Performance",
+        "description": "Built on Nuxt 4 for ultimate performance experience"
+      },
+      "design": {
+        "title": "Modern Design",
+        "description": "Latest UI design concepts with clean and beautiful interface"
+      },
+      "usability": {
+        "title": "Easy to Use",
+        "description": "Intuitive interface makes management simple"
+      },
+      "security": {
+        "title": "Secure & Reliable",
+        "description": "Enterprise-grade security ensures data safety"
+      }
+    },
+    "products": {
+      "title": "Product Suite",
+      "subtitle": "Complete enterprise product ecosystem for different business needs",
+      "learnMore": "Learn More",
+      "admin": {
+        "description": "Powerful backend management system for enterprise digital transformation",
+        "features": {
+          "userManagement": "User Management",
+          "permissionControl": "Permission Control",
+          "dataAnalysis": "Data Analysis",
+          "systemMonitoring": "System Monitoring"
+        }
+      },
+      "analytics": {
+        "description": "Intelligent data analysis platform for business growth insights",
+        "features": {
+          "realTimeAnalysis": "Real-time Analysis",
+          "visualReports": "Visual Reports",
+          "predictiveModels": "Predictive Models",
+          "customDashboard": "Custom Dashboard"
+        }
+      },
+      "cloud": {
+        "description": "Cloud solutions for accessing your data anytime, anywhere",
+        "features": {
+          "cloudStorage": "Cloud Storage",
+          "multiDeviceSync": "Multi-device Sync",
+          "elasticScaling": "Elastic Scaling",
+          "support247": "24/7 Support"
+        }
+      }
+    },
+    "about": {
+      "title": "About Us",
+      "subtitle": "We are committed to providing the best digital solutions for enterprises",
+      "mission": {
+        "title": "Our Mission",
+        "paragraph1": "PowerX is committed to providing the most advanced digital management solutions for enterprises. We believe technology can transform business operations, improve efficiency, and create value.",
+        "paragraph2": "Through continuous innovation and optimization, we provide stable, secure, and user-friendly product experiences. Our team consists of experienced engineers and designers focused on creating world-class enterprise software.",
+        "paragraph3": "We always adhere to a customer-centric philosophy, listening to customer needs, continuously improving products, and working for customer success."
+      },
+      "stats": {
+        "companies": "Enterprise Clients",
+        "users": "Active Users",
+        "uptime": "System Availability"
+      },
+      "enterprise": {
+        "title": "Enterprise Solutions",
+        "description": "Professional solutions tailored for large enterprises"
+      },
+      "values": {
+        "title": "Our Values",
+        "innovation": {
+          "title": "Continuous Innovation",
+          "description": "Constantly exploring new technologies to provide cutting-edge solutions"
+        },
+        "userFirst": {
+          "title": "User First",
+          "description": "Always user-oriented, providing the best product experience"
+        },
+        "excellence": {
+          "title": "Pursuit of Excellence",
+          "description": "Never compromise on product quality and service level, pursuing perfection"
+        }
+      }
+    },
+    "cta": {
+      "title": "Ready to Get Started?",
+      "subtitle": "Experience PowerX's powerful features now and start your digital transformation journey",
+      "getStarted": "Get Started",
+      "signIn": "Sign In"
+    },
+    "footer": {
+      "aboutUs": "About Us",
+      "contactUs": "Contact Us",
+      "copyright": "© 2024 PowerX. All rights reserved."
+    }
+  },
+  "privacyPolicy": "Privacy Policy",
+  "termsOfService": "Terms of Service",
+  "error": {
+    "tip": "Something went wrong with this page",
+    "goBack": "Go Back",
+    "goHome": "Go Home",
+    "occurred": "Error Occurred",
+    "networkError": "Network Error",
+    "serverError": "Server Error",
+    "unknownError": "Unknown Error",
+    "tryAgain": "Please try again"
+  },
+  "agent": {
+    "selector": {
+      "title": "AI Agent",
+      "create": "Create",
+      "searchPlaceholder": "Search Agent...",
+      "noResults": "No matching Agent found",
+      "noAgents": "No Agents, click create to add the first one",
+      "active": "Active",
+      "inactive": "Inactive",
+      "current": "Current",
+      "available": "Available",
+      "capabilities": "capabilities",
+      "edit": "Edit",
+      "delete": "Delete",
+      "totalCount": "Total {count} Agents",
+      "sessions": "Recent Sessions",
+      "newSession": "New Session",
+      "newAgent": "New Agent",
+      "editAgent": "Edit Agent",
+      "noSessions": "No sessions",
+      "untitledSession": "Untitled Session",
+      "searchSessions": "Search sessions...",
+      "pickAgentToSeeSessions": "Please select an Agent to view session list",
+      "pinned": "Pinned",
+      "recents": "Recent",
+      "pin": "Pin",
+      "unpin": "Unpin",
+      "rename": "Rename",
+      "renameSession": "Rename Session",
+      "pickAgent": "Select Agent"
+    },
+    "message": {
+      "justNow": "Just now",
+      "minutesAgo": "{minutes} minutes ago",
+      "hoursAgo": "{hours} hours ago",
+      "you": "You",
+      "assistant": "Assistant",
+      "system": "System",
+      "typing": "Typing...",
+      "thinking": "Thinking...",
+      "metadata": "Metadata",
+      "sendFailed": "Send failed",
+      "retry": "Retry",
+      "copy": "Copy",
+      "delete": "Delete"
+    },
+    "chat": {
+      "defaultAgent": "Default Assistant",
+      "disconnected": "Disconnected",
+      "connected": "Connected",
+      "responding": "Responding",
+      "typing": "Typing",
+      "generating": "Generating",
+      "clear": "Clear",
+      "realtimeFailed": "Real-time connection failed",
+      "welcomeTitle": "Start Conversation",
+      "welcomeMessage": "Select an Agent to start intelligent conversation and experience the power of AI assistant.",
+      "agentTyping": "Assistant is typing...",
+      "inputPlaceholder": "Type a message...",
+      "disconnectedPlaceholder": "Connection lost, cannot send message",
+      "enterToSend": "Enter to send",
+      "shiftEnterNewLine": "Shift+Enter for new line",
+      "ctrlEnterToSend": "Ctrl/Cmd+Enter to send",
+      "enterNewLine": "Enter for new line",
+      "model": "Model",
+      "temperature": "Temperature",
+      "cancel": "Cancel",
+      "newSession": "New Session",
+      "untitledSession": "Untitled Session",
+      "you": "You",
+      "agent": "Agent",
+      "errors": {
+        "loadSessionsFailed": "Failed to load sessions",
+        "loadMoreSessionsFailed": "Failed to load more sessions",
+        "createSessionFailed": "Failed to create session",
+        "createSessionFailedNoData": "Failed to create session: No response data",
+        "deleteSessionFailed": "Failed to delete session",
+        "renameSessionFailed": "Failed to rename session",
+        "archiveSessionFailed": "Failed to archive session",
+        "loadMessagesFailed": "Failed to load messages",
+        "loadMoreMessagesFailed": "Failed to load more messages"
+      }
+    },
+    "config": {
+      "title": "Agent Configuration",
+      "editTitle": "Edit Agent",
+      "createTitle": "Create Agent",
+      "basicInfo": "Basic Information",
+      "name": "Name",
+      "namePlaceholder": "Enter Agent name",
+      "description": "Description",
+      "descriptionPlaceholder": "Describe this Agent's functions and features",
+      "avatar": "Avatar",
+      "avatarPlaceholder": "Enter avatar image URL",
+      "status": "Status",
+      "active": "Active",
+      "inactive": "Inactive",
+      "modelConfig": "Model Configuration",
+      "model": "Model",
+      "selectModel": "Select Model",
+      "selectProvider": "Select Provider",
+      "temperature": "Temperature",
+      "conservative": "Conservative",
+      "creative": "Creative",
+      "maxTokens": "Max Tokens",
+      "maxTokensPlaceholder": "Enter max tokens",
+      "systemPrompt": "System Prompt",
+      "systemPromptPlaceholder": "Enter system prompt to define Agent's behavior and role",
+      "usePreset": "Use Preset",
+      "capability": "Capability",
+      "advancedSettings": "Advanced Settings",
+      "contextWindow": "Context Window",
+      "contextWindowPlaceholder": "Enter context window size",
+      "responseFormat": "Response Format",
+      "selectFormat": "Select Format",
+      "streaming": "Streaming Response",
+      "streamingEnabled": "Enabled",
+      "streamingDisabled": "Disabled",
+      "reset": "Reset",
+      "cancel": "Cancel",
+      "save": "Save",
+      "capabilities": {
+        "textGeneration": "Text Generation",
+        "codeGeneration": "Code Generation",
+        "imageAnalysis": "Image Analysis",
+        "webSearch": "Web Search",
+        "fileProcessing": "File Processing",
+        "dataAnalysis": "Data Analysis",
+        "translation": "Translation",
+        "summarization": "Summarization"
+      },
+      "presets": {
+        "assistant": "General Assistant",
+        "assistantPrompt": "You are a helpful, harmless, and honest AI assistant. Please answer user questions in a friendly and professional manner.",
+        "coder": "Programming Assistant",
+        "coderPrompt": "You are a professional programming assistant skilled in multiple programming languages and technologies. Please provide clear, executable code solutions.",
+        "translator": "Translation Assistant",
+        "translatorPrompt": "You are a professional translation assistant capable of accurately translating multiple languages. Please maintain the tone and meaning of the original text.",
+        "analyst": "Analyst",
+        "analystPrompt": "You are a data analysis expert skilled at extracting insights from data. Please provide detailed analysis and recommendations."
+      },
+      "formats": {
+        "text": "Plain Text",
+        "markdown": "Markdown",
+        "json": "JSON"
+      }
+    },
+    "confirmDelete": "Are you sure you want to delete this Agent? This action cannot be undone."
+  },
+  "env": {
+    "title": "Environment Configuration",
+    "current": "Current Environment",
+    "switch": "Switch Environment",
+    "dev": "Development",
+    "staging": "Staging",
+    "prod": "Production",
+    "canary": "Canary",
+    "blue": "Blue",
+    "green": "Green"
+  },
+  "system": {
+    "info": {
+      "title": "System Information",
+      "appName": "Application Name",
+      "appVersion": "Application Version"
+    },
+    "language": {
+      "title": "Language Settings",
+      "current": "Current Language",
+      "available": "Available Languages",
+      "forced": "Forced Language"
+    },
+    "theme": {
+      "title": "Theme Settings",
+      "current": "Current Theme",
+      "available": "Available Themes",
+      "forced": "Forced Theme"
+    },
+    "debug": {
+      "title": "Debug Information",
+      "languageSwitch": "Language Switch",
+      "themeSwitch": "Theme Switch",
+      "userPreferences": "User Preferences"
+    },
+    "actions": {
+      "reset": "Reset Configuration",
+      "showConfig": "Show Configuration"
+    }
+  },
+
+  "workflow": {
+    "title": "Workflow Editor",
+    "newWorkflow": "New Workflow",
+    "openWorkflow": "Open Workflow",
+    "saveWorkflow": "Save Workflow",
+    "runWorkflow": "Run Workflow",
+    "undo": "Undo",
+    "redo": "Redo",
+    "fitView": "Fit View",
+    "empty": {
+      "title": "Start Creating Workflow",
+      "description": "Create new workflow or open existing workflow"
+    },
+    "palette": {
+      "title": "Node Palette",
+      "searchPlaceholder": "Search nodes..."
+    },
+    "properties": {
+      "title": "Node Properties"
+    },
+    "dialog": {
+      "newWorkflow": {
+        "title": "New Workflow",
+        "name": "Workflow Name",
+        "namePlaceholder": "Enter workflow name",
+        "description": "Description",
+        "descriptionPlaceholder": "Enter workflow description (optional)",
+        "cancel": "Cancel",
+        "create": "Create"
+      },
+      "openWorkflow": {
+        "title": "Open Workflow",
+        "noWorkflows": "No available workflows",
+        "columns": {
+          "name": "Name",
+          "description": "Description",
+          "updatedAt": "Updated At",
+          "actions": "Actions"
+        },
+        "open": "Open",
+        "cancel": "Cancel"
+      }
+    },
+    "nodes": {
+      "llm": "LLM",
+      "http": "HTTP Request",
+      "selector": "Condition",
+      "properties": "properties"
+    },
+    "messages": {
+      "loadKindsFailed": "Failed to load node types",
+      "loadPaletteFailed": "Failed to load node templates",
+      "loadWorkflowFailed": "Failed to load workflow",
+      "saveWorkflowFailed": "Failed to save workflow",
+      "templateNotFound": "Template not found",
+      "unknownKind": "Unknown node type",
+      "jsonParseError": "Unable to parse JSON"
+    }
+  },
+  "profile": {
+    "title": "Profile",
+    "subtitle": "Manage your personal information and account settings",
+    "personalInfo": "Personal Information",
+    "editProfile": "Edit Profile",
+    "edit": "Edit",
+    "save": "Save",
+    "cancel": "Cancel",
+    "name": "Name",
+    "email": "Email",
+    "phone": "Phone",
+    "department": "Department",
+    "position": "Position",
+    "bio": "Bio",
+    "bioPlaceholder": "Enter your bio...",
+    "loginCount": "Login Count",
+    "activeDays": "Active Days",
+    "quickActions": "Quick Actions",
+    "changePassword": "Change Password",
+    "notifications": "Notification Settings",
+    "settings": "System Settings",
+    "security": "Security Settings",
+    "twoFactorAuth": "Two-Factor Authentication",
+    "twoFactorAuthDesc": "Add extra security protection to your account",
+    "emailNotifications": "Email Notifications",
+    "emailNotificationsDesc": "Receive important system notification emails",
+    "lastLogin": "Last Login",
+    "recentActivity": "Recent Activity",
+    "currentPassword": "Current Password",
+    "newPassword": "New Password",
+    "confirmPassword": "Confirm Password",
+    "passwordChanged": "Password changed successfully",
+    "profileUpdated": "Profile updated successfully"
+  },
+  "settings": {
+    "title": "Settings",
+    "general": "General",
+    "security": "Security",
+    "notifications": "Notifications",
+    "appearance": "Appearance",
+    "language": "Language",
+    "theme": "Theme",
+    "ai": {
+      "title": "AI Settings",
+      "providers": "AI Providers",
+      "models": "Models",
+      "testPanel": "Test Panel"
+    }
+  },
+  "plugins": {
+    "title": "Plugins",
+    "installed": "Installed",
+    "available": "Available",
+    "install": "Install",
+    "uninstall": "Uninstall",
+    "enable": "Enable",
+    "disable": "Disable",
+    "settings": "Settings"
+  },
+  "errors": {
+    "404": "Page not found",
+    "500": "Internal server error",
+    "networkError": "Network error",
+    "unauthorized": "Unauthorized access",
+    "forbidden": "Access forbidden"
+  },
+  "theme": {
+    "title": "Theme",
+    "settings": "Theme Settings",
+    "light": "Light",
+    "dark": "Dark",
+    "auto": "Auto"
+  },
+  "connection": {
+    "chatSignal": "Chat Signal",
+    "commandChannel": "Command Channel",
+    "reconnect": "Reconnect"
+  }
+}

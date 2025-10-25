@@ -1,0 +1,51 @@
+{
+  "name": "@fastify/accept-negotiator",
+  "version": "1.1.0",
+  "description": "a negotiator for the accept-headers",
+  "type": "commonjs",
+  "main": "index.js",
+  "types": "types/index.d.ts",
+  "scripts": {
+    "lint": "standard index.js test/* benchmarks/*",
+    "test": "npm run test:unit && npm run test:typescript",
+    "test:unit": "tap",
+    "test:typescript": "tsd"
+  },
+  "standard": {
+    "ignore": [
+      "index.d.ts"
+    ]
+  },
+  "keywords": [
+    "encoding",
+    "negotiator",
+    "accept-encoding",
+    "accept",
+    "http",
+    "header"
+  ],
+  "files": [
+    "README.md",
+    "LICENSE",
+    "index.js",
+    "types/index.d.ts"
+  ],
+  "author": "Aras Abbasi",
+  "license": "MIT",
+  "devDependencies": {
+    "benchmark": "2.1.4",
+    "standard": "17.0.0",
+    "tap": "^16.3.0",
+    "tsd": "^0.24.1"
+  },
+  "engines": {
+    "node": ">=14"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fastify/accept-negotiator.git"
+  },
+  "bugs": {
+    "url": "https://github.com/fastify/accept-negotiator/issues"
+  }
+}

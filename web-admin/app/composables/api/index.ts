@@ -1,0 +1,392 @@
+import type {
+  ApiRequestConfig,
+  HttpMethod,
+  RequestInterceptor,
+  ResponseInterceptor,
+} from "./types/types";
+
+// ✅ 引入你的全局 Loading 状态（只改 visible，不动手动锁屏逻辑）
+import {
+  useGlobalLoading,
+  useGL_AutoVisible,
+  useGL_ReqPending,
+} from "~/composables/useGlobalLoading";
+
+/** =========================
+ * API 客户端配置
+ * ======================== */
+interface ApiClientConfig {
+  baseURL: string;
+  timeout?: number;
+  headers?: Record<string, string>;
+  requestInterceptors?: RequestInterceptor[];
+  responseInterceptors?: ResponseInterceptor[];
+}
+
+/**
+ * 小贴士：可以在 ./types/types 里给 ApiRequestConfig 扩展可选字段
+ * interface ApiRequestConfig {
+ *   useGlobalLoading?: boolean;  // 默认 true：显示全局 Loading
+ *   loadingMessage?: string;     // 单次请求的临时文案
+ * }
+ */
+
+// 全局配置（可通过 setApiConfig 动态修改）
+let globalConfig: ApiClientConfig = {
+  baseURL: "/api",
+  timeout: 30000,
+  headers: {
+    "Content-Type": "application/json",
+    Accept: "application/json",
+  },
+  requestInterceptors: [
+    // --- 认证头 ---
+    {
+      onRequest: async (config) => {
+        // 自动添加认证头（仅客户端）
+        if (process.client && !config.skipAuth) {
+          const token = localStorage.getItem("access_token");
+          const tokenType = localStorage.getItem("token_type") || "Bearer";
+          if (token) {
+            config.headers = {
+              ...config.headers,
+              Authorization: `${tokenType} ${token}`,
+            };
+          }
+        }
+        return config;
+      },
+    },
+    // --- 全局 Loading：请求开始 +1，显示 autoVisible ---
+    {
+      onRequest: async (config) => {
+        if (!process.client) return config;
+
+        // 默认开启；显式传 false 关闭
+        const enable =
+          typeof (config as any).useGlobalLoading === "undefined"
+            ? true
+            : (config as any).useGlobalLoading !== false;
+
+        if (enable) {
+          const reqPending = useGL_ReqPending();
+          const auto = useGL_AutoVisible();
+          const gl = useGlobalLoading();
+
+          reqPending.value += 1;
+          auto.value = true; // 只要有请求在飞就显示
+          if ((config as any).loadingMessage) {
+            gl.setMessage(String((config as any).loadingMessage));
+          }
+        }
+        return config;
+      },
+    },
+  ],
+  responseInterceptors: [
+    // --- 全局 Loading：请求结束 -1，计数为 0 时关闭 autoVisible ---
+    {
+      onResponse: async (response) => {
+        if (process.client) {
+          const reqPending = useGL_ReqPending();
+          const auto = useGL_AutoVisible();
+          const gl = useGlobalLoading();
+
+          reqPending.value = Math.max(0, reqPending.value - 1);
+          if (reqPending.value === 0) {
+            auto.value = false;
+            gl.setProgress(undefined);
+          }
+        }
+        return response;
+      },
+      onResponseError: async (error) => {
+        if (process.client) {
+          const reqPending = useGL_ReqPending();
+          const auto = useGL_AutoVisible();
+          const gl = useGlobalLoading();
+
+          reqPending.value = Math.max(0, reqPending.value - 1);
+          if (reqPending.value === 0) {
+            auto.value = false;
+            gl.setProgress(undefined);
+          }
+        }
+        // 不吞错，抛给上层（normalizeApiError）
+        throw error;
+      },
+    },
+  ],
+};
+
+/**
+ * 设置全局 API 配置（浅合并 + headers 深合并）
+ */
+export const setApiConfig = (config: Partial<ApiClientConfig>) => {
+  globalConfig = {
+    ...globalConfig,
+    ...config,
+    headers: {
+      ...globalConfig.headers,
+      ...config.headers,
+    },
+  };
+};
+
+/** =========================
+ * 工具函数
+ * ======================== */
+
+/**
+ * 将 params 拼接到 URL
+ */
+const handleUrl = (url: string, params?: Record<string, any>): string => {
+  if (!params) return url;
+  const queryString = Object.entries(params)
+    .filter(([, value]) => value !== undefined && value !== null)
+    .map(([key, value]) => {
+      if (Array.isArray(value)) {
+        return value
+          .map((v) => `${encodeURIComponent(key)}=${encodeURIComponent(v)}`)
+          .join("&");
+      }
+      return `${encodeURIComponent(key)}=${encodeURIComponent(value)}`;
+    })
+    .join("&");
+  return queryString
+    ? `${url}${url.includes("?") ? "&" : "?"}${queryString}`
+    : url;
+};
+
+/**
+ * 判断是否为可直接作为 body 传递的“原生”类型（不要 JSON.stringify）
+ */
+const isNativeBody = (data: any) =>
+  (typeof FormData !== "undefined" && data instanceof FormData) ||
+  (typeof Blob !== "undefined" && data instanceof Blob) ||
+  (typeof ArrayBuffer !== "undefined" && data instanceof ArrayBuffer) ||
+  (typeof URLSearchParams !== "undefined" && data instanceof URLSearchParams) ||
+  // Node 端的 stream/Buffer 也让 $fetch 处理
+  (typeof ReadableStream !== "undefined" && data instanceof ReadableStream);
+
+/**
+ * 运行请求拦截器链
+ */
+const runRequestInterceptors = async (cfg: ApiRequestConfig) => {
+  let c = cfg;
+  for (const itc of globalConfig.requestInterceptors || []) {
+    if (itc.onRequest) {
+      c = await itc.onRequest(c);
+    }
+  }
+  return c;
+};
+
+/**
+ * 运行响应拦截器链
+ */
+const applyResponseInterceptors = async (response: any): Promise<any> => {
+  let result = response;
+  for (const itc of globalConfig.responseInterceptors || []) {
+    if (itc.onResponse) {
+      result = await itc.onResponse(result);
+    }
+  }
+  return result;
+};
+
+/**
+ * 运行错误拦截器链（允许拦截器「吞错」或转换）
+ */
+const applyErrorInterceptors = async (error: any): Promise<any> => {
+  let result = error;
+  for (const itc of globalConfig.responseInterceptors || []) {
+    if (itc.onResponseError) {
+      try {
+        const maybeHandled = await itc.onResponseError(result);
+        // 如果返回值与入参不同，认为已处理，直接返回
+        if (maybeHandled !== result) {
+          return maybeHandled;
+        }
+      } catch (e) {
+        result = e;
+      }
+    }
+  }
+  throw result;
+};
+
+/**
+ * 组装请求：method/url/body/headers 等
+ */
+const handleRequestConfig = async (
+  method: HttpMethod,
+  url: string,
+  data?: any,
+  config: ApiRequestConfig = {}
+): Promise<{
+  url: string;
+  fetchOptions: any;
+  finalConfig: ApiRequestConfig;
+}> => {
+  // 合并 headers
+  const headers: Record<string, string> = {
+    ...globalConfig.headers,
+    ...config.headers,
+  };
+
+  // 拼 URL（baseURL + params + GET/DELETE 数据上屏）
+  let fullUrl = url.startsWith("http") ? url : `${globalConfig.baseURL}${url}`;
+
+  // 先处理 config.params
+  if (config.params) {
+    fullUrl = handleUrl(fullUrl, config.params);
+  }
+
+  // 处理 data：GET/DELETE => query；其他 => body
+  let body: any = undefined;
+  if (data !== undefined) {
+    if (method === "GET" || method === "DELETE") {
+      fullUrl = handleUrl(fullUrl, data);
+    } else {
+      body = isNativeBody(data) ? data : JSON.stringify(data);
+      // 如果是原生体，移除 Content-Type，让运行时自动设置
+      if (isNativeBody(data) && headers["Content-Type"]) {
+        delete headers["Content-Type"];
+      }
+    }
+  }
+
+  // 构造 ApiRequestConfig，进入拦截器
+  let mergedConfig: ApiRequestConfig = {
+    ...config,
+    method,
+    headers,
+    body,
+  };
+
+  // 请求拦截器
+  mergedConfig = await runRequestInterceptors(mergedConfig);
+
+  // 从 mergedConfig 提取给 $fetch 的 options
+  const {
+    params, // 已经处理
+    useGlobalError, // 仅透传，不在此实现
+    useGlobalLoading, // 已由拦截器处理，不透传给 $fetch
+    loadingMessage, // 已由拦截器处理
+    skipAuth, // 已被 onRequest 使用
+    // 其余透传字段不破坏
+    ...rest
+  } = mergedConfig as any;
+
+  const fetchOptions = {
+    method: method as any,
+    body: mergedConfig.body,
+    headers: mergedConfig.headers,
+    // 超时（ofetch 支持 timeout 毫秒）
+    timeout: globalConfig.timeout,
+    // 允许调用方透传 ofetch 其它可选项（如 responseType）
+    ...rest,
+  };
+
+  return { url: fullUrl, fetchOptions, finalConfig: mergedConfig };
+};
+
+/** =========================
+ * API 客户端（$fetch 版）
+ * ======================== */
+
+export const useApiClient = () => {
+  /**
+   * 核心请求方法（统一使用 $fetch）
+   */
+  const request = async <T = any>(
+    method: HttpMethod,
+    url: string,
+    data?: any,
+    config: ApiRequestConfig = {}
+  ) => {
+    try {
+      const { url: fullUrl, fetchOptions } = await handleRequestConfig(
+        method,
+        url,
+        data,
+        config
+      );
+
+      // 直接用 Nuxt 的全局 $fetch
+      // - 成功：返回已解析的数据（JSON 自动解析）
+      // - 失败：抛出 FetchError，内含 response/status 等
+      const responseData = await $fetch(fullUrl, {
+        ...fetchOptions,
+      });
+
+      // 应用响应拦截器
+      const result = await applyResponseInterceptors(responseData);
+      return result as T;
+    } catch (err: any) {
+      // 统一交给错误拦截器处理/转换/抛出
+      return applyErrorInterceptors(err);
+    }
+  };
+
+  /** 便捷方法族 */
+  const get = <T = any>(url: string, config?: ApiRequestConfig) => {
+    return request<T>("GET", url, undefined, config as any);
+  };
+
+  const post = <T = any>(
+    url: string,
+    data?: any,
+    config?: ApiRequestConfig
+  ) => {
+    return request<T>("POST", url, data, config as any);
+  };
+
+  const put = <T = any>(url: string, data?: any, config?: ApiRequestConfig) => {
+    return request<T>("PUT", url, data, config as any);
+  };
+
+  const del = <T = any>(url: string, config?: ApiRequestConfig) => {
+    return request<T>("DELETE", url, undefined, config as any);
+  };
+
+  const patch = <T = any>(
+    url: string,
+    data?: any,
+    config?: ApiRequestConfig
+  ) => {
+    return request<T>("PATCH", url, data, config as any);
+  };
+
+  /**
+   * 上传文件（FormData/Blob 等）
+   * - 不主动设置 Content-Type，让运行时自动带上 multipart 边界
+   */
+  const upload = <T = any>(
+    url: string,
+    formData: FormData,
+    config?: ApiRequestConfig
+  ) => {
+    const uploadConfig: ApiRequestConfig = {
+      ...config,
+      headers: {
+        ...config?.headers,
+      },
+    };
+    if (uploadConfig.headers && "Content-Type" in uploadConfig.headers) {
+      delete (uploadConfig.headers as any)["Content-Type"];
+    }
+    return request<T>("POST", url, formData, uploadConfig as any);
+  };
+
+  return {
+    request,
+    get,
+    post,
+    put,
+    delete: del,
+    patch,
+    upload,
+  };
+};
