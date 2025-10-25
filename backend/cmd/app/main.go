@@ -17,7 +17,7 @@ import (
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
 
-	docs "github.com/ArtisanCloud/PowerX/docs"
+	docs "github.com/ArtisanCloud/PowerX/api/openapi"
 )
 
 // @title       PowerX Admin API
@@ -107,7 +107,7 @@ func main() {
 		Title:   "PowerX Admin API (Minimal)",
 		Version: "v1.0.0",
 		BaseURL: "/",
-	}, "./docs"); err != nil {
+	}, "./api/openapi"); err != nil {
 		logger.ErrorF(ctx, "写入最小 OpenAPI 文档失败: %s", err.Error())
 	}
 

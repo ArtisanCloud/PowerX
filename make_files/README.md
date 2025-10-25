@@ -87,7 +87,7 @@ make_files/
 
 面向 **Swagger 文档生成**与**权限目录同步**的自动化脚本集合，覆盖两种来源：
 
-1. **标准 Swagger 流程**：从注解生成 `./docs/swagger.json` → 生成/同步权限；
+1. **标准 Swagger 流程**：从注解生成 `./backend/api/openapi/swagger.json` → 生成/同步权限；
 2. **最小 OpenAPI 流程**：运行中的服务挂载 `/openapi.min.json` → 生成/同步权限（无需注解，先上车）。
 
 **主要目标：**
@@ -96,8 +96,8 @@ make_files/
 * `make deps.swag`：对齐项目中 `github.com/swaggo/swag` 等依赖版本，避免 LeftDelim/RightDelim 不兼容
 * `make swagger.gen`：从入口文件（默认 `cmd/app/main.go`）生成到 `./docs`
 * `make swagger.clean`：清理 `./docs`
-* `make permgen.print`：基于 `./docs/swagger.json` 生成 **权限同步 dry-run 载荷**
-* `make permgen.apply`：基于 `./docs/swagger.json` **落库**（调用内部 `SyncPermissions`）
+* `make permgen.print`：基于 `./backend/api/openapi/swagger.json` 生成 **权限同步 dry-run 载荷**
+* `make permgen.apply`：基于 `./backend/api/openapi/swagger.json` **落库**（调用内部 `SyncPermissions`）
 * `make permgen.min.print`：基于 `http://localhost:PORT/openapi.min.json` **dry-run**
 * `make permgen.min.apply`：基于最小 OpenAPI **落库**
 
@@ -150,7 +150,7 @@ make -f make_files/mcp.mk mcp-test    # 运行 MCP 测试
 
 ```bash
 make deps.swag tools.swag             # 安装并对齐 swag 版本
-make swagger.gen                      # 生成 ./docs/swagger.json
+make swagger.gen                      # 生成 ./backend/api/openapi/swagger.json
 make permgen.print SOURCE=core INTRODUCED=v1.0.0     # 预演差异
 make permgen.apply SOURCE=core INTRODUCED=v1.0.0     # 同步落库
 ```
@@ -205,22 +205,26 @@ make -f make_files/mcp.mk mcp-test-tool
 make -f make_files/mcp.mk mcp-health
 ```
 
-
 ### 密钥管理
 
 # 1) 生成并校验（写到 .env.wrap）
+
 make secrets
 
 # 2) 本地终端临时导入
+
 eval "$(make export)"
 
 # 3) Docker Compose（生成 .env）
+
 make compose-env
 
 # 4) Kubernetes Secret（生成 YAML）
+
 make k8s-secret   # 输出到 build/k8s/wrap-master-key-secret.yaml
 
 # 5) systemd 环境片段
+
 make systemd-env  # 然后按提示 cp 到 /etc/systemd/system/<unit>.d/
 
 ### 部署流程
@@ -261,9 +265,9 @@ GO_VERSION := 1.21
 ```makefile
 # 在 build.mk 中添加新的构建任务
 build-new-component:
-	@echo "$(CYAN)构建新组件...$(NC)"
-	@go build -o $(BUILD_DIR)/new-component ./backend/cmd/new-component
-	@echo "$(GREEN)✅ 新组件构建完成$(NC)"
+ @echo "$(CYAN)构建新组件...$(NC)"
+ @go build -o $(BUILD_DIR)/new-component ./backend/cmd/new-component
+ @echo "$(GREEN)✅ 新组件构建完成$(NC)"
 ```
 
 ## 🎨 颜色输出

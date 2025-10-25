@@ -5,7 +5,7 @@
       "versions": {
         "0.1.0": {
           "state": "enabled",
-          "installed_at": "2025-10-24T00:27:06.237487Z",
+          "installed_at": "2025-10-25T16:57:41.017109Z",
           "manifest": {
             "id": "com.powerx.plugins.base",
             "version": "0.1.0",
@@ -551,21 +551,21 @@
             }
           },
           "paths": {
-            "root": "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/plugins/installed/com.powerx.plugins.base/0.1.0",
-            "frontend_admin_dir": "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/plugins/installed/com.powerx.plugins.base/0.1.0/web-admin/.output/public",
-            "frontend_admin_i18n_dir": "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/plugins/installed/com.powerx.plugins.base/0.1.0/web-admin/i18n",
-            "entry": "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/plugins/installed/com.powerx.plugins.base/0.1.0/backend/bin/plugin",
+            "root": "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/backend/plugins/installed/com.powerx.plugins.base/0.1.0",
+            "frontend_admin_dir": "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/backend/plugins/installed/com.powerx.plugins.base/0.1.0/web-admin/.output/public",
+            "frontend_admin_i18n_dir": "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/backend/plugins/installed/com.powerx.plugins.base/0.1.0/web-admin/i18n",
+            "entry": "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/backend/plugins/installed/com.powerx.plugins.base/0.1.0/backend/bin/plugin",
             "public_dir": "",
             "migrations_dir": "",
-            "migrations_entry": "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/plugins/installed/com.powerx.plugins.base/0.1.0/backend/bin/migrate",
-            "migrations_workdir": "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/plugins/installed/com.powerx.plugins.base/0.1.0/backend",
+            "migrations_entry": "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/backend/plugins/installed/com.powerx.plugins.base/0.1.0/backend/bin/migrate",
+            "migrations_workdir": "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/backend/plugins/installed/com.powerx.plugins.base/0.1.0/backend",
             "contracts_openapi": "",
             "contracts_proto_dir": "",
-            "config_dir": "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/plugins/installed/com.powerx.plugins.base/0.1.0/config",
-            "host_values_file": "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/plugins/installed/com.powerx.plugins.base/0.1.0/config/host-values.yaml"
+            "config_dir": "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/backend/plugins/installed/com.powerx.plugins.base/0.1.0/config",
+            "host_values_file": "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/backend/plugins/installed/com.powerx.plugins.base/0.1.0/config/host-values.yaml"
           },
           "host_config": {
-            "values_file": "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/plugins/installed/com.powerx.plugins.base/0.1.0/config/host-values.yaml",
+            "values_file": "/private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/backend/plugins/installed/com.powerx.plugins.base/0.1.0/config/host-values.yaml",
             "values": {
               "POWERX_BIND_ADDR": ":8086",
               "POWERX_CACHE_DRIVER": "redis",

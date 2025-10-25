@@ -75,7 +75,7 @@ permgen.min.apply:
 
 .PHONY: perm.seed
 perm.seed: permgen.apply
-	@echo "✅ 权限已同步（基于 docs/swagger.json）"
+	@echo "✅ 权限已同步（基于 backend/api/openapi/swagger.json）"
 
 # 先生成注解版 swagger，再同步（只有在你走注解流时用）
 .PHONY: perm.seed.from-swag

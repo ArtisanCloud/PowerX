@@ -4,6 +4,7 @@ package seed
 import (
 	"errors"
 	"fmt"
+
 	dbm "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/tenant"
 
 	tenantrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/tenant"
@@ -21,7 +22,7 @@ func SeedRoot(db *gorm.DB) error {
 		return fmt.Errorf("seed system permissions: %w", err)
 	}
 
-	if err := SeedSwaggerPermissions(db, "./docs/swagger.json"); err != nil {
+	if err := SeedSwaggerPermissions(db, "./backend/api/openapi/swagger.json"); err != nil {
 		return fmt.Errorf("seed swagger permissions: %w", err)
 	}
 
