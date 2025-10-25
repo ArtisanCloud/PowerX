@@ -49,33 +49,33 @@ temp/
 dist/
 build/
 
-backend/etc/config.yaml
+etc/config.yaml
 
 # PowerX plugin runtime
-backend/plugins/installed/
-backend/plugins/market_cache/
-backend/plugins/registry.json
+/plugins/installed/
+/plugins/market_cache/
+/plugins/registry.json
 
 # Local test artifacts
-backend/plugins/**/*.zip
-backend/plugins/**/*.tgz
-backend/plugins/**/*.tar
-backend/plugins/**/*.tar.gz
+/plugins/**/*.zip
+/plugins/**/*.tgz
+/plugins/**/*.tar
+/plugins/**/*.tar.gz
 
 # Temps & logs
-backend/plugins/**/*.tmp
-backend/plugins/**/*.log
-backend/plugins/**/*.lock
-backend/plugins/**/*.bak
+/plugins/**/*.tmp
+/plugins/**/*.log
+/plugins/**/*.lock
+/plugins/**/*.bak
 
 # Keep the folder itself
-!backend/plugins/.gitkeep
+!plugins/.gitkeep
 
-app
-api/grpc/gen/*
-!api/grpc/gen/go/
-!api/grpc/gen/go/**
-.gocache
-.cache
-.gomodcache
-storage/
+backend/app
+backend/api/grpc/gen/*
+!backend/api/grpc/gen/go/
+!backend/api/grpc/gen/go/**
+.backend/gocache
+.backend/cache
+.backend/gomodcache
+backend/storage/
