@@ -71,24 +71,23 @@ func InitAgentTools(ctx context.Context, cfg *config.AgentConfig, db *gorm.DB) e
 	//}
 	//fmt2.Dump(cls)
 
-	gAgentManager.SetIntentStrategies([]contract.IntentStrategy{
-		&intent.RuleStrategy{M: gAgentManager},
-		&intent.EmbeddingStrategy{
+	// 构建意图识别策略
+	var strategies []contract.IntentStrategy
+	strategies = append(strategies, &intent.RuleStrategy{M: gAgentManager})
+
+	// 只有当向量器不为空时才添加 embedding 策略
+	if vec != nil {
+		strategies = append(strategies, &intent.EmbeddingStrategy{
 			M:         gAgentManager,
 			Vec:       vec,
 			AgentID:   config.AgentSysKey,
 			Threshold: 0.90, // ✨
 			Alpha:     0.6,  // ✨ 负例惩罚
 			Margin:    0.06, // ✨ 边际
-		},
-		//&intent.LLMStrategy{
-		//	M:         gAgentManager,
-		//	AgentID:   config.AgentSysKey,
-		//	LLM:       cls,
-		//	Threshold: 0.85,
-		//	//Threshold: 0.6,
-		//},
-	}, 0.6, 0.95)
+		})
+	}
+
+	gAgentManager.SetIntentStrategies(strategies, 0.6, 0.95)
 
 	// 接线 DB RunLogger → Manager
 	WireAgentRunLogger(db)

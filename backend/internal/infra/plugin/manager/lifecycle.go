@@ -39,6 +39,50 @@ func (m *managerImpl) Enable(ctx context.Context, id string) error {
 
 	InstallPolicy(m.http, p.ID, PolicyFromPlugin(p))
 
+	var (
+		backendInfo supervisor.ProcInfo
+		hasBackend  bool
+		hasAdmin    bool
+	)
+	if m.sup != nil {
+		if info, ok := m.sup.Status(p.ID); ok {
+			backendInfo = info
+			hasBackend = true
+		}
+		if _, ok := m.sup.Status(p.ID + "_admin"); ok {
+			hasAdmin = true
+		}
+	}
+
+	backendAlive := hasBackend &&
+		backendInfo.State != supervisor.ProcStopped &&
+		backendInfo.State != supervisor.ProcExited &&
+		backendInfo.State != supervisor.ProcCrashed
+
+	if p.State == plugin_mgr.StateEnabled && backendAlive {
+		return plugin_mgr.NewError(
+			plugin_mgr.CodeAlreadyEnabled,
+			plugin_mgr.WithOp("enable"),
+			plugin_mgr.WithPlugin(id),
+			plugin_mgr.WithVersion(p.Version),
+		)
+	}
+
+	// 清理遗留进程记录，避免 Start 时命中 “already running”
+	if m.sup != nil {
+		if hasBackend {
+			_ = m.sup.Stop(p.ID)
+		}
+		if hasAdmin {
+			_ = m.sup.Stop(p.ID + "_admin")
+		}
+	}
+
+	// 重新启用前先卸载历史路由，避免重复挂载
+	if m.http != nil {
+		m.http.Unmount(p.ID)
+	}
+
 	// ---------- Admin 静态兜底（保留，不影响进程模式） ----------
 	if p.Frontend.Admin.Kind == plugin_mgr.FrontendKindStatic && p.Paths.FrontendAdminDir != "" {
 		if abs, err := filepath.Abs(p.Paths.FrontendAdminDir); err == nil {
@@ -126,6 +170,29 @@ func (m *managerImpl) Enable(ctx context.Context, id string) error {
 		envAPI["POWERX_HTTP_ADDR"] = supervisor.DynamicBindPlaceholder
 	}
 
+	if secret := strings.TrimSpace(envAPI["POWERX_SECURITY_CTX_HMAC_SECRET"]); secret != "" {
+		if strings.TrimSpace(envAPI["PLUGIN_CTX_HMAC_SECRET"]) == "" {
+			envAPI["PLUGIN_CTX_HMAC_SECRET"] = secret
+		}
+	}
+	if issuer := strings.TrimSpace(envAPI["POWERX_SECURITY_JWT_ISSUER"]); issuer != "" {
+		if strings.TrimSpace(envAPI["POWERX_CTX_ISSUER"]) == "" {
+			envAPI["POWERX_CTX_ISSUER"] = issuer
+		}
+	}
+	if audience := strings.TrimSpace(envAPI["POWERX_SECURITY_JWT_AUDIENCE"]); audience != "" {
+		if strings.TrimSpace(envAPI["POWERX_CTX_AUDIENCE"]) == "" {
+			envAPI["POWERX_CTX_AUDIENCE"] = audience
+		}
+	}
+	if strings.TrimSpace(envAPI["POWERX_CTX_TTL"]) == "" {
+		if cfg := m.opts.CoreConfig; cfg != nil {
+			if ttl := strings.TrimSpace(cfg.Auth.AccessTTLStr); ttl != "" {
+				envAPI["POWERX_CTX_TTL"] = ttl
+			}
+		}
+	}
+
 	// —— gRPC 绑定（如需）
 	grpcAddr := strings.TrimSpace(envAPI["POWERX_GRPC_ADDR"])
 	if grpcAddr == "" && p.HostConfig != nil && p.HostConfig.Values != nil {
@@ -146,6 +213,8 @@ func (m *managerImpl) Enable(ctx context.Context, id string) error {
 	// —— 启动后端
 	apiPort, err := m.sup.Start(ctx, p.ID, p.Paths.Entry, p.Runtime.Args, envAPI, supOpts)
 	if err != nil {
+		// 若启动失败，避免保留半初始化的进程记录
+		_ = m.sup.Stop(p.ID)
 		return plugin_mgr.Wrap(plugin_mgr.CodeProcessStartFailed, err, plugin_mgr.WithOp("enable"), plugin_mgr.WithPlugin(id))
 	}
 	apiBaseURL := "http://127.0.0.1:" + strconv.Itoa(apiPort)
@@ -220,6 +289,28 @@ func (m *managerImpl) Enable(ctx context.Context, id string) error {
 		envADM := cloneEnvMap(adm.Env)
 		for k, v := range m.hostEnvForPlugin(p) {
 			envADM[k] = v
+		}
+		if secret := strings.TrimSpace(envADM["POWERX_SECURITY_CTX_HMAC_SECRET"]); secret != "" {
+			if strings.TrimSpace(envADM["PLUGIN_CTX_HMAC_SECRET"]) == "" {
+				envADM["PLUGIN_CTX_HMAC_SECRET"] = secret
+			}
+		}
+		if issuer := strings.TrimSpace(envADM["POWERX_SECURITY_JWT_ISSUER"]); issuer != "" {
+			if strings.TrimSpace(envADM["POWERX_CTX_ISSUER"]) == "" {
+				envADM["POWERX_CTX_ISSUER"] = issuer
+			}
+		}
+		if audience := strings.TrimSpace(envADM["POWERX_SECURITY_JWT_AUDIENCE"]); audience != "" {
+			if strings.TrimSpace(envADM["POWERX_CTX_AUDIENCE"]) == "" {
+				envADM["POWERX_CTX_AUDIENCE"] = audience
+			}
+		}
+		if strings.TrimSpace(envADM["POWERX_CTX_TTL"]) == "" {
+			if cfg := m.opts.CoreConfig; cfg != nil {
+				if ttl := strings.TrimSpace(cfg.Auth.AccessTTLStr); ttl != "" {
+					envADM["POWERX_CTX_TTL"] = ttl
+				}
+			}
 		}
 		envADM["NODE_ENV"] = "production"
 		envADM["POWERX_PROXY"] = "1"

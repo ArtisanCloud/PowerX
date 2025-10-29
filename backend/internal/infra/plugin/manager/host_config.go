@@ -124,12 +124,20 @@ func (m *managerImpl) generateHostConfig(man plugin_mgr.Manifest, destRoot strin
 		issuer := strings.TrimSpace(cfg.Auth.Issuer)
 		if jwtSecret != "" && issuer != "" {
 			audience := "plugin:" + man.ID
+			ttl := strings.TrimSpace(cfg.Auth.AccessTTLStr)
+			if ttl == "" {
+				ttl = "15m"
+			}
 			setNestedValue(structured, []string{"security", "mode"}, "jwt")
 			setNestedValue(structured, []string{"security", "jwt", "issuer"}, issuer)
 			setNestedValue(structured, []string{"security", "jwt", "audience"}, audience)
 			setNestedValue(structured, []string{"security", "jwt", "secret"}, jwtSecret)
 			setNestedValue(structured, []string{"security", "jwt", "scope"}, "access")
 			setNestedValue(structured, []string{"security", "ctx_hmac", "secret"}, jwtSecret)
+			setNestedValue(structured, []string{"context", "hmac_secret"}, jwtSecret)
+			setNestedValue(structured, []string{"context", "issuer"}, issuer)
+			setNestedValue(structured, []string{"context", "audience"}, audience)
+			setNestedValue(structured, []string{"context", "ttl"}, ttl)
 
 			selected["POWERX_SECURITY_MODE"] = "jwt"
 			selected["POWERX_SECURITY_JWT_SECRET"] = jwtSecret
@@ -137,6 +145,10 @@ func (m *managerImpl) generateHostConfig(man plugin_mgr.Manifest, destRoot strin
 			selected["POWERX_SECURITY_JWT_AUDIENCE"] = audience
 			selected["POWERX_SECURITY_JWT_SCOPE"] = "access"
 			selected["POWERX_SECURITY_CTX_HMAC_SECRET"] = jwtSecret
+			selected["PLUGIN_CTX_HMAC_SECRET"] = jwtSecret
+			selected["POWERX_CTX_ISSUER"] = issuer
+			selected["POWERX_CTX_AUDIENCE"] = audience
+			selected["POWERX_CTX_TTL"] = ttl
 		}
 	}
 

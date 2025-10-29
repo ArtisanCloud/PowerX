@@ -97,6 +97,11 @@ func BootstrapPlugin(ctx context.Context, deps *shared.Deps, cfg *config.Config,
 		return nil, err
 	}
 
+	pmimpl.InitGlobal(mgr)
+	if !cfg.Plugin.Enabled {
+		return mgr, nil
+	}
+
 	// ★ 绑定 Authorizer（issuer/ttl 可配）
 	pmimpl.BindAuthorizer(dr, devAuthorizer{}, "powerx-auth", 60*time.Second)
 
@@ -129,6 +134,5 @@ func BootstrapPlugin(ctx context.Context, deps *shared.Deps, cfg *config.Config,
 		logger.InfoF(ctx, "auto-restore scanned=%d enabled=%d", len(list), enabled)
 	}
 
-	pmimpl.InitGlobal(mgr)
 	return mgr, nil
 }
