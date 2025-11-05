@@ -22,7 +22,7 @@ repos:
     scope: security
     responsibility: 安全扫描策略、证书校验、审批合规校验
 related_usecases:
-  - doc_id: UC-OPS-PLUGIN-RELEASE-APPROVAL-001
+  - doc_id: UC-DEV-PLUGIN-RELEASE-APPROVAL-001
     layer: ops
     domain: ops
 last_reviewed_at: 2025-11-20
@@ -76,7 +76,7 @@ sequenceDiagram
 
 # Usecase Links
 
-- `UC-OPS-PLUGIN-RELEASE-APPROVAL-001` — 测试租户验证与审批闭环。
+- `UC-DEV-PLUGIN-RELEASE-APPROVAL-001` — 测试租户验证与审批闭环。
 
 # Acceptance Criteria
 
