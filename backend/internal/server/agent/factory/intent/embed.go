@@ -10,6 +10,8 @@ import (
 
 func NewVectorizerFromConfig(llm config.EmbeddingConfig) (embed.Vectorizer, error) {
 	switch llm.Provider {
+	case "", "none", "disabled":
+		return nil, nil
 	case "openai":
 		if llm.APIKey == "" {
 			return nil, fmt.Errorf("openai api_key is empty")

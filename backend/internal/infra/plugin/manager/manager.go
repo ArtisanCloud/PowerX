@@ -51,9 +51,6 @@ func New(opts Options) plugin_mgr.Manager {
 }
 
 func (m *managerImpl) Bootstrap(ctx context.Context) error {
-	if !m.opts.Enabled {
-		return nil
-	}
 	// 1) 兜底：必须有 Loader/Registry
 	if m.opts.Loader == nil || m.opts.Registry == nil {
 		return plugin_mgr.NewError(plugin_mgr.CodeInternal,
@@ -102,6 +99,11 @@ func (m *managerImpl) Bootstrap(ctx context.Context) error {
 	// 4) 持久化一次（可选）
 	if err := m.opts.Registry.Save(ctx); err != nil {
 		return plugin_mgr.Wrap(plugin_mgr.CodeRegistryError, err, plugin_mgr.WithOp("bootstrap"))
+	}
+
+	if !m.opts.Enabled {
+		// 插件系统处于禁用模式，仅同步注册表快照
+		return nil
 	}
 
 	return nil

@@ -3,7 +3,7 @@ server:
   read_timeout_seconds: 5
   write_timeout_seconds: 10
   mode: debug
-  api_prefix: /api
+  api_prefix: /api/v1
   ws_prefix: /ws
   # secret_key 是 32 字节的 Base64 编码，可用以下命令生成：
   #   umask 077 && head -c 32 /dev/urandom | base64 -w0
@@ -112,7 +112,7 @@ auth:
     - admin
     - web
     - miniapp
-  access_ttl: "15m"
+  access_ttl: "720h"
   refresh_ttl: "336h"
 
 event_bus:

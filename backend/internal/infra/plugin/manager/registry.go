@@ -1,10 +1,12 @@
 package manager
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -73,8 +75,14 @@ func (r *JSONRegistry) Load(ctx context.Context) error {
 		return plugin_mgr.Wrap(plugin_mgr.CodeIOError, err, plugin_mgr.WithOp("registry_load"), plugin_mgr.WithPath(r.path))
 	}
 	var snap regSnapshot
-	if err := json.Unmarshal(data, &snap); err != nil {
-		return plugin_mgr.Wrap(plugin_mgr.CodeRegistryError, err, plugin_mgr.WithOp("registry_load"), plugin_mgr.WithPath(r.path))
+	if len(bytes.TrimSpace(data)) == 0 {
+		snap = regSnapshot{Plugins: map[string]regPluginRecord{}}
+	} else if err := json.Unmarshal(data, &snap); err != nil {
+		if legacySnap, convErr := decodeLegacySnapshot(data, r.path); convErr != nil {
+			return plugin_mgr.Wrap(plugin_mgr.CodeRegistryError, err, plugin_mgr.WithOp("registry_load"), plugin_mgr.WithPath(r.path))
+		} else {
+			snap = legacySnap
+		}
 	}
 	if snap.Plugins == nil {
 		snap.Plugins = map[string]regPluginRecord{}
@@ -390,4 +398,90 @@ func (r *JSONRegistry) SetCurrent(ctx context.Context, id, ver string) error {
 	rec.Current = ver
 	r.mem.Plugins[id] = rec
 	return nil
+}
+
+func decodeLegacySnapshot(raw []byte, registryPath string) (regSnapshot, error) {
+	type legacyPlugin struct {
+		ID          string                 `json:"id"`
+		Version     string                 `json:"version"`
+		State       string                 `json:"state"`
+		InstalledAt string                 `json:"installed_at"`
+		Root        string                 `json:"root"`
+		Manifest    plugin_mgr.Manifest    `json:"manifest"`
+		Extra       map[string]interface{} `json:"-"`
+	}
+	type legacySnapshot struct {
+		Plugins []legacyPlugin `json:"plugins"`
+	}
+
+	var legacy legacySnapshot
+	if err := json.Unmarshal(raw, &legacy); err != nil {
+		return regSnapshot{}, err
+	}
+
+	snap := regSnapshot{Plugins: map[string]regPluginRecord{}}
+	baseDir := filepath.Dir(registryPath)
+
+	for _, lp := range legacy.Plugins {
+		id := strings.TrimSpace(lp.ID)
+		ver := strings.TrimSpace(lp.Version)
+		if id == "" || ver == "" {
+			continue
+		}
+
+		state := plugin_mgr.StateInstalled
+		switch strings.ToLower(strings.TrimSpace(lp.State)) {
+		case string(plugin_mgr.StateEnabled):
+			state = plugin_mgr.StateEnabled
+		case string(plugin_mgr.StateDisabled):
+			state = plugin_mgr.StateDisabled
+		case string(plugin_mgr.StateInstalled), "":
+			state = plugin_mgr.StateInstalled
+		default:
+			state = plugin_mgr.StateInstalled
+		}
+
+		var installedAt time.Time
+		if ts := strings.TrimSpace(lp.InstalledAt); ts != "" {
+			if t, err := time.Parse(time.RFC3339, ts); err == nil {
+				installedAt = t
+			}
+		}
+
+		root := strings.TrimSpace(lp.Root)
+		if root != "" {
+			if filepath.IsAbs(root) {
+				root = filepath.Clean(root)
+			} else {
+				root = filepath.Clean(filepath.Join(baseDir, root))
+			}
+		}
+
+		manifest := lp.Manifest
+		if manifest.ID == "" {
+			manifest.ID = id
+		}
+		if manifest.Version == "" {
+			manifest.Version = ver
+		}
+
+		rec, ok := snap.Plugins[id]
+		if !ok {
+			rec = regPluginRecord{Versions: map[string]regVersionRecord{}}
+		}
+		rec.Versions[ver] = regVersionRecord{
+			State:       state,
+			InstalledAt: installedAt,
+			Manifest:    manifest,
+			Paths: plugin_mgr.InstalledPaths{
+				Root: root,
+			},
+		}
+		if state == plugin_mgr.StateEnabled {
+			rec.Current = ver
+		}
+		snap.Plugins[id] = rec
+	}
+
+	return snap, nil
 }

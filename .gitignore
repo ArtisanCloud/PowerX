@@ -79,3 +79,7 @@ api/grpc/gen/*
 .cache
 .gomodcache
 storage/
+
+.claude
+
+tmp
