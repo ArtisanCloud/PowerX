@@ -25,25 +25,34 @@ repos:
     scope: marketplace
     responsibility: Marketplace 审核流程、元数据同步、订阅通知与运营报表
 related_usecases:
-  - doc_id: UC-OPS-PLUGIN-RELEASE-APPROVAL-001
+  - doc_id: UC-DEV-PLUGIN-RELEASE-APPROVAL-001
     layer: ops
-    domain: ops
-  - doc_id: UC-OPS-PLUGIN-OFFLINE-IMPORT-001
+    domain: dev
+  - doc_id: UC-DEV-PLUGIN-OFFLINE-IMPORT-001
     layer: ops
-    domain: ops
-  - doc_id: UC-OPS-PLUGIN-CICD-CANARY-001
+    domain: dev
+  - doc_id: UC-DEV-PLUGIN-CICD-CANARY-001
     layer: ops
-    domain: ops
-  - doc_id: UC-OPS-PLUGIN-MARKETPLACE-LISTING-001
+    domain: dev
+  - doc_id: UC-DEV-PLUGIN-MARKETPLACE-LISTING-001
     layer: marketplace
-    domain: ops
+    domain: dev
+  - doc_id: UC-DEV-PLUGIN-LOCAL-DEBUG-001
+    layer: dev
+    domain: dev
+  - doc_id: UC-DEV-PLUGIN-OFFLINE-MARKETPLACE-001
+    layer: marketplace
+    domain: dev
+  - doc_id: UC-DEV-PLUGIN-ONLINE-PUBLISH-001
+    layer: marketplace
+    domain: dev
 last_reviewed_at: 2025-11-20
 
 ---
 
 # Executive Summary
 
-该主场景串联插件从测试验证、审批签核、离线包发放、生产灰度到 Marketplace 上架的全链路，确保不同交付通道共享统一的版本、签名与审计基线。目标是在 24 小时内完成测试与审批闭环、10 分钟内完成隔离环境导入、灰度阶段能在 5 分钟内触发回滚，并让 Marketplace 审核在 3 个工作日内完成，上线过程全程可追踪、可回滚且满足合规要求。
+该主场景串联插件从测试验证、审批签核、离线包发放、生产灰度到 Marketplace 上架的全链路，并补充开发者本地调试的预发布环节，确保不同交付通道共享统一的版本、签名与审计基线。目标是在 24 小时内完成测试与审批闭环、10 分钟内完成隔离环境导入、灰度阶段能在 5 分钟内触发回滚，并让 Marketplace 审核在 3 个工作日内完成，辅以分钟级的本地迭代与离线包送审能力，上线过程全程可追踪、可回滚且满足合规要求。
 
 # Scope & Guardrails
 
@@ -86,29 +95,32 @@ sequenceDiagram
 
 # Key Interactions & Contracts
 
-- **APIs / Events**：`powerx publish create`、`POST /internal/publish/approval`、`powerx publish deploy --strategy canary`、`powerx plugin import --offline`、`POST /marketplace/listing/apply`、`EVENT publish.gray.alert`.
+- **APIs / Events**：`px-plugin build`、`powerx publish create`、`powerx plugin import --offline`、`powerx publish deploy --strategy canary`、`px-plugin pack`、`px-plugin publish`、`POST /marketplace/listing/apply`、`EVENT publish.gray.alert`、`EVENT marketplace.listing.status`.
 - **Configs / Schemas**：`pipeline/plugin-release.yml`、`config/publish/offline_package.json`、`config/publish/approval_flows.yaml`、`docs/standards/powerx-plugin/integration/04_security_and_compliance/Plugin_Security_Checklist.md`.
 - **Security / Compliance**：制品签名与证书轮换、审批人多因子验证、审计日志 ≥ 180 天保留、Marketplace 元数据与发布版本一致性校验。
 
 # Usecase Links
 
-- `UC-OPS-PLUGIN-RELEASE-APPROVAL-001` — 测试租户验证与审批闭环。
-- `UC-OPS-PLUGIN-OFFLINE-IMPORT-001` — 离线包生成与隔离环境导入。
-- `UC-OPS-PLUGIN-CICD-CANARY-001` — 灰度发布与自动回滚。
-- `UC-OPS-PLUGIN-MARKETPLACE-LISTING-001` — Marketplace 审核与上架同步。
+- `UC-DEV-PLUGIN-RELEASE-APPROVAL-001` — 测试租户验证与审批闭环。
+- `UC-DEV-PLUGIN-OFFLINE-IMPORT-001` — 离线包生成与隔离环境导入。
+- `UC-DEV-PLUGIN-CICD-CANARY-001` — 灰度发布与自动回滚。
+- `UC-DEV-PLUGIN-MARKETPLACE-LISTING-001` — Marketplace 审核与上架同步。
+- `UC-DEV-PLUGIN-LOCAL-DEBUG-001` — 开发者本地调试与快速迭代保障。
+- `UC-DEV-PLUGIN-OFFLINE-MARKETPLACE-001` — 离线包送审与 Marketplace 入库。
+- `UC-DEV-PLUGIN-ONLINE-PUBLISH-001` — 在线发布与 Marketplace 即时上架。
 
 # Acceptance Criteria
 
-1. 测试租户流水线通过率 ≥90%，审批在 24 小时内完成并生成发布计划与回滚预案。
-2. 制品签名、离线包与在线渠道保持一致，离线导入成功率 ≥98%，失败自动回滚并产出审计日志。
+1. 测试租户流水线通过率 ≥90%，审批在 24 小时内完成并生成发布计划与回滚预案；本地调试迭代耗时 ≤15 分钟且日志可追踪。
+2. 制品签名、离线包与在线渠道保持一致，离线导入成功率 ≥98%，失败自动回滚并产出审计日志；离线送审资料完整率 100%。
 3. 灰度阶段可实时观测指标，异常 5 分钟内触发回滚并通知相关人，扩容至全量后 SLA 无下降。
-4. Marketplace 审核 SLA ≤3 个工作日，上架信息与发布记录一致，订阅通知与初始报表自动生成。
+4. Marketplace 审核 SLA ≤3 个工作日，上架信息与发布记录一致，订阅通知与初始报表自动生成；在线发布渠道成功同步率 ≥99%。
 
 # Telemetry & Ops
 
-- 指标：`publish.pipeline.success_rate`、`publish.approval.lead_time_hours`、`publish.offline.import_success_rate`、`publish.gray.error_rate`、`marketplace.listing.sla_hours`.
-- 告警阈值：流水线阻断连续 >2 次、审批超时 >24 小时、灰度错误率 >5%、离线导入失败率 >5%、Marketplace 审核超 SLA。
-- 观测来源：CI/CD 遥测、`workflow-metrics.mjs`、监控仪表盘、审计数据库、Marketplace 审核日志。
+- 指标：`publish.local.iteration_cycle_time`、`publish.pipeline.success_rate`、`publish.approval.lead_time_hours`、`publish.offline.import_success_rate`、`publish.gray.error_rate`、`marketplace.listing.sla_hours`、`marketplace.online.publish_success_rate`.
+- 告警阈值：本地迭代失败连续 >3 次、流水线阻断连续 >2 次、审批超时 >24 小时、灰度错误率 >5%、离线导入失败率 >5%、Marketplace 审核超 SLA、在线发布成功率 <99%。
+- 观测来源：CI/CD 遥测、`workflow-metrics.mjs`、本地调试 CLI 日志、监控仪表盘、审计数据库、Marketplace 审核日志。
 
 # Open Issues & Follow-ups
 

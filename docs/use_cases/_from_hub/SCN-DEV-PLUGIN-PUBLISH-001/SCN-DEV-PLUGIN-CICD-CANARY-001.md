@@ -19,7 +19,7 @@ repos:
     scope: plugin-ecosystem
     responsibility: 运行健康检查脚本、指标埋点、通知模板与变更日志
 related_usecases:
-  - doc_id: UC-OPS-PLUGIN-CICD-CANARY-001
+  - doc_id: UC-DEV-PLUGIN-CICD-CANARY-001
     layer: ops
     domain: ops
 last_reviewed_at: 2025-11-20
@@ -75,7 +75,7 @@ sequenceDiagram
 
 # Usecase Links
 
-- `UC-OPS-PLUGIN-CICD-CANARY-001` — 灰度发布与自动回滚。
+- `UC-DEV-PLUGIN-CICD-CANARY-001` — 灰度发布与自动回滚。
 
 # Acceptance Criteria
 

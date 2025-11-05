@@ -19,7 +19,7 @@ repos:
     scope: plugin-ecosystem
     responsibility: 离线依赖打包、校验文件、导入脚本与回滚策略
 related_usecases:
-  - doc_id: UC-OPS-PLUGIN-OFFLINE-IMPORT-001
+  - doc_id: UC-DEV-PLUGIN-OFFLINE-IMPORT-001
     layer: ops
     domain: ops
 last_reviewed_at: 2025-11-20
@@ -74,7 +74,7 @@ sequenceDiagram
 
 # Usecase Links
 
-- `UC-OPS-PLUGIN-OFFLINE-IMPORT-001` — 离线包生成与隔离环境导入。
+- `UC-DEV-PLUGIN-OFFLINE-IMPORT-001` — 离线包生成与隔离环境导入。
 
 # Acceptance Criteria
 

@@ -19,7 +19,7 @@ repos:
     scope: core-platform
     responsibility: 发布记录同步、签名与安全报告验证、审核结果回写
 related_usecases:
-  - doc_id: UC-OPS-PLUGIN-MARKETPLACE-LISTING-001
+  - doc_id: UC-DEV-PLUGIN-MARKETPLACE-LISTING-001
     layer: marketplace
     domain: ops
 last_reviewed_at: 2025-11-20
@@ -75,7 +75,7 @@ sequenceDiagram
 
 # Usecase Links
 
-- `UC-OPS-PLUGIN-MARKETPLACE-LISTING-001` — Marketplace 审核与上架同步。
+- `UC-DEV-PLUGIN-MARKETPLACE-LISTING-001` — Marketplace 审核与上架同步。
 
 # Acceptance Criteria
 
