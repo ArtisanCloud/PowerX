@@ -1,0 +1,43 @@
+{
+  "releaseCandidateId": "rc-2025.11.05",
+  "windowStart": "2025-11-06T01:00:00Z",
+  "windowEnd": "2025-11-06T03:00:00Z",
+  "canaryBatches": [
+    {
+      "name": "batch-1",
+      "tenantScope": [
+        "tenant-alpha",
+        "tenant-beta"
+      ],
+      "metricThresholds": {
+        "errorRate": 0.02,
+        "latencyP95Ms": 400
+      },
+      "rollbackTimeoutMinutes": 5
+    },
+    {
+      "name": "batch-2",
+      "tenantScope": [
+        "tenant-gamma",
+        "tenant-delta"
+      ],
+      "metricThresholds": {
+        "errorRate": 0.03,
+        "latencyP95Ms": 450
+      },
+      "rollbackTimeoutMinutes": 5
+    }
+  ],
+  "rollbackScripts": [
+    "sops exec-file ops/scripts/rollback.sh",
+    "kubectl rollout undo deployment/plugins-api"
+  ],
+  "notificationTargets": [
+    "mailto:release-crew@artisan-cloud.com",
+    "pagerduty://powerx-release"
+  ],
+  "dependencyList": [
+    "corex>=2.3.0",
+    "agent-runtime>=1.4.2"
+  ]
+}

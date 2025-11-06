@@ -61,9 +61,10 @@ type Config struct {
 	AgentLifecycle     AgentLifecycleConfig     `yaml:"agent_lifecycle"`     // Agent 生命周期治理
 	LowCode            LowCodeConfig            `yaml:"dynamic_form"`        // flow 执行相关
 	FeatureGate        FeatureGateConfig        `yaml:"feature_gate"`        // 细粒度开关、license
-	Database           dbCfg.DatabaseConfig     `yaml:"database"`            // 数据库配置
-	Cache              cacheCfg.CacheConfig     `yaml:"cache"`               // 缓存配置
-	LogConfig          logCfg.LogConfig         `yaml:"log"`                 // 输出配置
+	PluginRelease      PluginReleaseConfig      `yaml:"plugin_release"`
+	Database           dbCfg.DatabaseConfig     `yaml:"database"` // 数据库配置
+	Cache              cacheCfg.CacheConfig     `yaml:"cache"`    // 缓存配置
+	LogConfig          logCfg.LogConfig         `yaml:"log"`      // 输出配置
 	AI                 agentCfg.AIConfig        `yaml:"ai"`
 	Agent              agentCfg.AgentConfig     `yaml:"agent"` // 智能体工具注册/限流等
 	MCP                mcpCfg.MCPConfig         `yaml:"mcp"`   // MCP 服务器配置
@@ -437,6 +438,89 @@ func loadFromEnv(cfg *Config) {
 	// FeatureGate配置
 	if license := os.Getenv("CORE_X_FEATURE_GATE_LICENSE_KEY"); license != "" {
 		cfg.FeatureGate.LicenseKey = license
+	}
+
+	// Plugin Release 配置
+	if v := os.Getenv("CORE_X_PLUGIN_RELEASE_ENABLE_LOCAL_INSTALL"); v != "" {
+		cfg.PluginRelease.FeatureFlags.EnableLocalInstall = strings.EqualFold(v, "true") || v == "1"
+	}
+	if v := os.Getenv("CORE_X_PLUGIN_RELEASE_ENABLE_PIPELINE_DEPLOYMENT"); v != "" {
+		cfg.PluginRelease.FeatureFlags.EnablePipelineDeployment = strings.EqualFold(v, "true") || v == "1"
+	}
+	if v := os.Getenv("CORE_X_PLUGIN_RELEASE_ENABLE_OFFLINE_DISTRIBUTION"); v != "" {
+		cfg.PluginRelease.FeatureFlags.EnableOfflineDistribution = strings.EqualFold(v, "true") || v == "1"
+	}
+	if v := os.Getenv("CORE_X_PLUGIN_RELEASE_SESSION_TTL_MINUTES"); v != "" {
+		if ttl, err := strconv.Atoi(v); err == nil && ttl > 0 {
+			cfg.PluginRelease.LocalInstall.SessionTTLMinutes = ttl
+		}
+	}
+	if v := os.Getenv("CORE_X_PLUGIN_RELEASE_MAX_ARTIFACT_SIZE_MB"); v != "" {
+		if size, err := strconv.Atoi(v); err == nil && size > 0 {
+			cfg.PluginRelease.LocalInstall.MaxArtifactSizeMB = size
+		}
+	}
+	if v := os.Getenv("CORE_X_PLUGIN_RELEASE_APPROVAL_SLA_HOURS"); v != "" {
+		if sla, err := strconv.Atoi(v); err == nil && sla > 0 {
+			cfg.PluginRelease.Pipeline.ApprovalSLAHours = sla
+		}
+	}
+	if v := os.Getenv("CORE_X_PLUGIN_RELEASE_MAX_PARALLEL_RELEASES"); v != "" {
+		if maxR, err := strconv.Atoi(v); err == nil && maxR > 0 {
+			cfg.PluginRelease.Pipeline.MaxParallelReleases = maxR
+		}
+	}
+	if v := os.Getenv("CORE_X_PLUGIN_RELEASE_DEFAULT_ROLLBACK_NOTICE_MINUTES"); v != "" {
+		if minutes, err := strconv.Atoi(v); err == nil && minutes > 0 {
+			cfg.PluginRelease.Pipeline.DefaultRollbackNotice = minutes
+		}
+	}
+	if v := os.Getenv("CORE_X_PLUGIN_RELEASE_CANARY_ROLLBACK_TIMEOUT_SECONDS"); v != "" {
+		if seconds, err := strconv.Atoi(v); err == nil && seconds > 0 {
+			cfg.PluginRelease.Canary.RollbackTimeoutSeconds = seconds
+		}
+	}
+	if v := os.Getenv("CORE_X_PLUGIN_RELEASE_CANARY_DEFAULT_BATCH_SIZE"); v != "" {
+		if size, err := strconv.Atoi(v); err == nil && size > 0 {
+			cfg.PluginRelease.Canary.DefaultBatchSize = size
+		}
+	}
+	if v := os.Getenv("CORE_X_PLUGIN_RELEASE_CANARY_MAX_BATCHES"); v != "" {
+		if count, err := strconv.Atoi(v); err == nil && count > 0 {
+			cfg.PluginRelease.Canary.MaxBatches = count
+		}
+	}
+	if v := os.Getenv("CORE_X_PLUGIN_RELEASE_OFFLINE_BUCKET"); v != "" {
+		cfg.PluginRelease.Distribution.OfflineBucket = v
+	}
+	if v := os.Getenv("CORE_X_PLUGIN_RELEASE_OFFLINE_PREFIX"); v != "" {
+		cfg.PluginRelease.Distribution.OfflinePrefix = v
+	}
+	if v := os.Getenv("CORE_X_PLUGIN_RELEASE_ESCALATION_THRESHOLD"); v != "" {
+		if threshold, err := strconv.Atoi(v); err == nil && threshold > 0 {
+			cfg.PluginRelease.Distribution.EscalationThreshold = threshold
+		}
+	}
+	if v := os.Getenv("CORE_X_PLUGIN_RELEASE_ARTIFACT_RETENTION_DAYS"); v != "" {
+		if days, err := strconv.Atoi(v); err == nil && days > 0 {
+			cfg.PluginRelease.Distribution.ArtifactRetentionDays = days
+		}
+	}
+	if v := os.Getenv("CORE_X_PLUGIN_RELEASE_DASHBOARD_UID"); v != "" {
+		cfg.PluginRelease.Observability.DashboardUID = v
+	}
+	if v := os.Getenv("CORE_X_PLUGIN_RELEASE_ALERT_RULE_PREFIX"); v != "" {
+		cfg.PluginRelease.Observability.AlertRulePrefix = v
+	}
+	if v := os.Getenv("CORE_X_PLUGIN_RELEASE_KPI_ROLLBACK_SECONDS"); v != "" {
+		if seconds, err := strconv.Atoi(v); err == nil && seconds > 0 {
+			cfg.PluginRelease.Observability.KPITargets.CanRollbackWithinSeconds = seconds
+		}
+	}
+	if v := os.Getenv("CORE_X_PLUGIN_RELEASE_KPI_HOTLOAD_P95_MS"); v != "" {
+		if ms, err := strconv.Atoi(v); err == nil && ms > 0 {
+			cfg.PluginRelease.Observability.KPITargets.HotloadLatencyP95Ms = ms
+		}
 	}
 
 	// 数据库配置

@@ -11,10 +11,10 @@
 
 ## Phase 1: Setup（共享基线）
 
-- [ ] T001 确立 plugin_release 配置 schema 与默认 Feature Gate（编辑 `backend/config/schema/plugin_release.yaml`，更新 `backend/internal/app/shared/config.go` 注册）
-- [ ] T002 注册 plugin_release proto 包至 Buf/Makefile 工具链（修改 `backend/api/grpc/contracts/buf.yaml`、`backend/api/grpc/contracts/buf.gen.yaml`、`backend/Makefile`）
-- [ ] T003 初始化 plugin_release 包结构与占位依赖（创建 `backend/internal/service/plugin_release/`、`backend/internal/transport/http/{admin,openapi}/plugin_release/`、`backend/internal/transport/grpc/plugin_release/`；在 `backend/internal/bootstrap/app.go` 与 `backend/internal/app/shared/deps.go` 中注册占位依赖）
-- [ ] T004 生成示例发布计划 `examples/release-plan.json`（放置 `specs/001-install-plugin-pxp/examples/`，用于 quickstart 与合同测试；在 README/Quickstart 引用）
+- [X] T001 确立 plugin_release 配置 schema 与默认 Feature Gate（编辑 `backend/config/schema/plugin_release.yaml`，更新 `backend/internal/bootstrap/app.go` / `backend/internal/app/shared/deps.go` 注册）
+- [X] T002 注册 plugin_release proto 包至 Buf/Makefile 工具链（修改 `backend/api/grpc/contracts/buf.yaml`、`backend/api/grpc/contracts/buf.gen.yaml`、`backend/Makefile`）
+- [X] T003 初始化 plugin_release 包结构与占位依赖（创建 `backend/internal/service/plugin_release/`、`backend/internal/transport/http/{admin,openapi}/plugin_release/`、`backend/internal/transport/grpc/plugin_release/`；在 `backend/internal/bootstrap/app.go` 与 `backend/internal/app/shared/deps.go` 中注册占位依赖）
+- [X] T004 生成示例发布计划 `examples/release-plan.json`（放置 `specs/001-install-plugin-pxp/examples/`，用于 quickstart 与合同测试；在 README/Quickstart 引用）
 
 ---
 

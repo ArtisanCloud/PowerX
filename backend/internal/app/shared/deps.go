@@ -101,6 +101,7 @@ type Deps struct {
 	DiscoverySvc          *discoveryService.Service
 	IntegrationGateway    *IntegrationGatewayDeps
 	AgentLifecycle        *AgentLifecycleDeps
+	PluginRelease         PluginReleaseOptions
 
 	EventFabric *EventFabricDeps
 	Workflow    *WorkflowDeps
@@ -236,6 +237,7 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 		DiscoverySvc:          discoverySvc,
 		IntegrationGateway:    integrationGatewayDeps,
 		AgentLifecycle:        agentLifecycleDeps,
+		PluginRelease:         opts.PluginRelease,
 		EventFabric:           eventFabricDeps,
 		Workflow: &WorkflowDeps{
 			Service:       workflowSvc,

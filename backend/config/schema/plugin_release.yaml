@@ -1,0 +1,26 @@
+feature_flags:
+  enable_local_install: true
+  enable_pipeline_deployment: true
+  enable_offline_distribution: true
+local_install:
+  session_ttl_minutes: 30
+  max_artifact_size_mb: 512
+pipeline:
+  approval_sla_hours: 24
+  max_parallel_releases: 4
+  default_rollback_notice_minutes: 15
+canary:
+  rollback_timeout_seconds: 300
+  default_batch_size: 10
+  max_batches: 5
+distribution:
+  offline_bucket: plugin-release-artifacts
+  offline_prefix: packages
+  escalation_threshold: 2
+  artifact_retention_days: 30
+observability:
+  dashboard_uid: plugin-release
+  alert_rule_prefix: plugin_release
+  kpi_targets:
+    can_rollback_within_seconds: 300
+    hotload_latency_p95_ms: 600

@@ -187,6 +187,56 @@ func (c *Config) Validate() error {
 		}
 	}
 
+	// --- Plugin Release ---
+	if c.PluginRelease.LocalInstall.SessionTTLMinutes <= 0 {
+		errors = append(errors, "plugin_release.local_install.session_ttl_minutes 必须大于0")
+	}
+	if c.PluginRelease.LocalInstall.MaxArtifactSizeMB <= 0 {
+		errors = append(errors, "plugin_release.local_install.max_artifact_size_mb 必须大于0")
+	}
+	if c.PluginRelease.Pipeline.ApprovalSLAHours <= 0 {
+		errors = append(errors, "plugin_release.pipeline.approval_sla_hours 必须大于0")
+	}
+	if c.PluginRelease.Pipeline.MaxParallelReleases <= 0 {
+		errors = append(errors, "plugin_release.pipeline.max_parallel_releases 必须大于0")
+	}
+	if c.PluginRelease.Pipeline.DefaultRollbackNotice <= 0 {
+		errors = append(errors, "plugin_release.pipeline.default_rollback_notice_minutes 必须大于0")
+	}
+	if c.PluginRelease.Canary.RollbackTimeoutSeconds <= 0 {
+		errors = append(errors, "plugin_release.canary.rollback_timeout_seconds 必须大于0")
+	}
+	if c.PluginRelease.Canary.DefaultBatchSize <= 0 {
+		errors = append(errors, "plugin_release.canary.default_batch_size 必须大于0")
+	}
+	if c.PluginRelease.Canary.MaxBatches <= 0 {
+		errors = append(errors, "plugin_release.canary.max_batches 必须大于0")
+	}
+	if strings.TrimSpace(c.PluginRelease.Distribution.OfflineBucket) == "" {
+		errors = append(errors, "plugin_release.distribution.offline_bucket 不能为空")
+	}
+	if strings.TrimSpace(c.PluginRelease.Distribution.OfflinePrefix) == "" {
+		errors = append(errors, "plugin_release.distribution.offline_prefix 不能为空")
+	}
+	if c.PluginRelease.Distribution.EscalationThreshold <= 0 {
+		errors = append(errors, "plugin_release.distribution.escalation_threshold 必须大于0")
+	}
+	if c.PluginRelease.Distribution.ArtifactRetentionDays <= 0 {
+		errors = append(errors, "plugin_release.distribution.artifact_retention_days 必须大于0")
+	}
+	if strings.TrimSpace(c.PluginRelease.Observability.DashboardUID) == "" {
+		errors = append(errors, "plugin_release.observability.dashboard_uid 不能为空")
+	}
+	if strings.TrimSpace(c.PluginRelease.Observability.AlertRulePrefix) == "" {
+		errors = append(errors, "plugin_release.observability.alert_rule_prefix 不能为空")
+	}
+	if c.PluginRelease.Observability.KPITargets.CanRollbackWithinSeconds <= 0 {
+		errors = append(errors, "plugin_release.observability.kpi_targets.can_rollback_within_seconds 必须大于0")
+	}
+	if c.PluginRelease.Observability.KPITargets.HotloadLatencyP95Ms <= 0 {
+		errors = append(errors, "plugin_release.observability.kpi_targets.hotload_latency_p95_ms 必须大于0")
+	}
+
 	// --- Logging ---
 	validLevels := []string{"debug", "info", "warn", "error"}
 	levelValid := false

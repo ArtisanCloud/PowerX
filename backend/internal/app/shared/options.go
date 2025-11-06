@@ -21,6 +21,7 @@ type DepsOptions struct {
 	Workflow           WorkflowOptions
 	IntegrationGateway IntegrationGatewayOptions
 	AgentLifecycle     AgentLifecycleOptions
+	PluginRelease      PluginReleaseOptions
 }
 
 // EventFabricOptions 描述事件骨干依赖的运行配置。
@@ -120,4 +121,55 @@ type AgentLifecycleNotificationOptions struct {
 	RetryInterval    time.Duration
 	RetryMaxAttempts int
 	HTTPTimeout      time.Duration
+}
+
+// PluginReleaseOptions 暴露插件发布模块所需运行参数。
+type PluginReleaseOptions struct {
+	FeatureFlags  PluginReleaseFeatureFlagsOptions
+	LocalInstall  PluginReleaseLocalInstallOptions
+	Pipeline      PluginReleasePipelineOptions
+	Canary        PluginReleaseCanaryOptions
+	Distribution  PluginReleaseDistributionOptions
+	Observability PluginReleaseObservabilityOptions
+}
+
+type PluginReleaseFeatureFlagsOptions struct {
+	EnableLocalInstall        bool
+	EnablePipelineDeployment  bool
+	EnableOfflineDistribution bool
+}
+
+type PluginReleaseLocalInstallOptions struct {
+	SessionTTL        time.Duration
+	MaxArtifactSizeMB int
+}
+
+type PluginReleasePipelineOptions struct {
+	ApprovalSLA           time.Duration
+	MaxParallelReleases   int
+	DefaultRollbackNotice time.Duration
+}
+
+type PluginReleaseCanaryOptions struct {
+	RollbackTimeout  time.Duration
+	DefaultBatchSize int
+	MaxBatches       int
+}
+
+type PluginReleaseDistributionOptions struct {
+	OfflineBucket       string
+	OfflinePrefix       string
+	EscalationThreshold int
+	ArtifactRetention   time.Duration
+}
+
+type PluginReleaseObservabilityOptions struct {
+	DashboardUID    string
+	AlertRulePrefix string
+	KPITargets      PluginReleaseKPITargetsOptions
+}
+
+type PluginReleaseKPITargetsOptions struct {
+	CanRollbackWithin time.Duration
+	HotloadLatencyP95 time.Duration
 }

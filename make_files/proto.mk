@@ -39,6 +39,7 @@ proto-clean:
 	@rm -rf api/grpc/gen/go/powerx/integration
 	@rm -rf api/grpc/gen/go/powerx/agent
 	@rm -rf api/grpc/gen/go/powerx/workflow
+	@rm -rf api/grpc/gen/go/powerx/plugin_release
 	@rm -rf api/grpc/gen/go/corex/event_fabric
 	@rm -rf api/grpc/gen/go/powerx/event_fabric
 	@find api/grpc/gen -type f -name "*.pb.go" -empty -delete >/dev/null 2>&1 || true
