@@ -219,7 +219,7 @@ agent:
 mcp:
   server:
     host: 0.0.0.0
-    port: 8078
+    port: 8086
     launch_mode: standalone
   flow_spec:
     blueprints: ./blueprints/
