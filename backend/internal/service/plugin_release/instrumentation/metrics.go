@@ -22,19 +22,19 @@ func NewInstruments(component string) *Instruments {
 	meter := otel.Meter(component)
 	hotload, err := meter.Float64Histogram("plugin_release.hotload.latency_ms")
 	if err != nil {
-		logger.Errorf(context.Background(), "create hotload histogram failed: %v", err)
+		logger.ErrorF(context.Background(), "create hotload histogram failed: %v", err)
 	}
 	pipeline, err := meter.Float64Histogram("plugin_release.pipeline.duration_seconds")
 	if err != nil {
-		logger.Errorf(context.Background(), "create pipeline histogram failed: %v", err)
+		logger.ErrorF(context.Background(), "create pipeline histogram failed: %v", err)
 	}
 	rollback, err := meter.Float64Histogram("plugin_release.canary.rollback_seconds")
 	if err != nil {
-		logger.Errorf(context.Background(), "create rollback histogram failed: %v", err)
+		logger.ErrorF(context.Background(), "create rollback histogram failed: %v", err)
 	}
 	distribution, err := meter.Float64Histogram("plugin_release.distribution.sla_seconds")
 	if err != nil {
-		logger.Errorf(context.Background(), "create distribution histogram failed: %v", err)
+		logger.ErrorF(context.Background(), "create distribution histogram failed: %v", err)
 	}
 	return &Instruments{
 		meter:                  meter,

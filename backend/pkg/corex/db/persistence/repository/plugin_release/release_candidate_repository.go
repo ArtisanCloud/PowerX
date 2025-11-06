@@ -62,7 +62,7 @@ func (r *ReleaseCandidateRepository) UpdateGateStatus(ctx context.Context, candi
 		}
 		return err
 	}
-	return err
+	return nil
 }
 
 // UpdateApprovalStatus toggles approval state and clears failure reason when approved.

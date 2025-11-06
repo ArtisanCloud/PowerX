@@ -38,7 +38,7 @@
 - [X] T020 组装 PluginReleaseService 工厂并注册 DI（新增 `backend/internal/service/plugin_release/service.go`，修改 `backend/internal/app/shared/deps.go`，依赖 T015-T019）
 - [X] T021 脚手架 gRPC Server 并接入全局 server（`backend/internal/transport/grpc/plugin_release/server.go` 初始实现，更新 `backend/internal/server/grpc/server.go`，依赖 T020）
 - [X] T022 建立 HTTP Admin/OpenAPI 路由占位（新增 `backend/internal/transport/http/admin/plugin_release/routes.go`、`openapi/plugin_release/routes.go`，更新上层 `routes.go`，依赖 T020）
-- [ ] T023 种子 CLI 命令骨架（创建 `backend/cmd/powerx/commands/publish/plugin_release_root.go` 并挂载至 `backend/cmd/powerx/commands/publish/root.go`，依赖 T020）
+- [X] T023 种子 CLI 命令骨架（创建 `backend/cmd/powerx/commands/publish/plugin_release_root.go` 并挂载至 `backend/cmd/powerx/commands/publish/root.go`，依赖 T020）
 
 **Checkpoint**：模型、仓储、DI、观测与双传输骨架就绪。
 

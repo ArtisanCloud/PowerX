@@ -45,7 +45,7 @@ func (s *Service) CreateCandidate(ctx context.Context, candidate *models.PluginR
 
 	result, err := s.candidates.CreateCandidate(ctx, candidate)
 	if err != nil {
-		logger.Errorf(ctx, "create candidate failed: %v", err)
+		logger.ErrorF(ctx, "create candidate failed: %v", err)
 		return nil, err
 	}
 	return result, nil
