@@ -1,22 +1,23 @@
 openapi: 3.1.0
 info:
   title: Plugin Release Admin/OpenAPI
-  version: "1.0.0"
-  description: >
-    REST 接口覆盖插件发布候选、审批计划、灰度/回滚、离线包及 Marketplace 流程。
-    Admin 前缀由控制台/CLI 运维人员使用；OpenAPI 前缀供测试租户与企业管理员导入离线包。
+  version: 1.0.0
+  description: 'REST 接口覆盖插件发布候选、审批计划、灰度/回滚、离线包及 Marketplace 流程。 Admin 前缀由控制台/CLI 运维人员使用；OpenAPI
+    前缀供测试租户与企业管理员导入离线包。
+
+    '
 servers:
-  - url: https://admin.powerx.io/api/admin/plugin-release
-    description: Admin 控制面
-  - url: https://api.powerx.io/api/openapi/plugin-release
-    description: 租户 OpenAPI
+- url: https://admin.powerx.io/api/admin/plugin-release
+  description: Admin 控制面
+- url: https://api.powerx.io/api/openapi/plugin-release
+  description: 租户 OpenAPI
 tags:
-  - name: ReleaseCandidate
-  - name: ReleasePlan
-  - name: Deployment
-  - name: OfflinePackage
-  - name: Marketplace
-  - name: TenantImport
+- name: ReleaseCandidate
+- name: ReleasePlan
+- name: Deployment
+- name: OfflinePackage
+- name: Marketplace
+- name: TenantImport
 components:
   securitySchemes:
     BearerAuth:
@@ -26,7 +27,13 @@ components:
   schemas:
     ReleaseCandidate:
       type: object
-      required: [id, pluginId, version, gateStatus, approvalStatus, createdAt]
+      required:
+      - id
+      - pluginId
+      - version
+      - gateStatus
+      - approvalStatus
+      - createdAt
       properties:
         id:
           type: string
@@ -48,10 +55,17 @@ components:
           type: object
         gateStatus:
           type: string
-          enum: [pending, failed, passed]
+          enum:
+          - pending
+          - failed
+          - passed
         approvalStatus:
           type: string
-          enum: [draft, submitted, approved, rejected]
+          enum:
+          - draft
+          - submitted
+          - approved
+          - rejected
         labels:
           type: object
         createdAt:
@@ -59,7 +73,12 @@ components:
           format: date-time
     ReleasePlan:
       type: object
-      required: [id, releaseCandidateId, status, windowStart, windowEnd]
+      required:
+      - id
+      - releaseCandidateId
+      - status
+      - windowStart
+      - windowEnd
       properties:
         id:
           type: integer
@@ -89,10 +108,18 @@ components:
             type: string
         status:
           type: string
-          enum: [draft, scheduled, executing, completed, rolled_back]
+          enum:
+          - draft
+          - scheduled
+          - executing
+          - completed
+          - rolled_back
     CanaryBatch:
       type: object
-      required: [name, tenantScope, metricThresholds]
+      required:
+      - name
+      - tenantScope
+      - metricThresholds
       properties:
         name:
           type: string
@@ -107,7 +134,11 @@ components:
           default: 5
     OfflinePackage:
       type: object
-      required: [id, releaseCandidateId, packageUri, status]
+      required:
+      - id
+      - releaseCandidateId
+      - packageUri
+      - status
       properties:
         id:
           type: integer
@@ -124,30 +155,118 @@ components:
           type: object
         status:
           type: string
-          enum: [draft, submitted, approved, rejected, superseded]
+          enum:
+          - draft
+          - submitted
+          - approved
+          - rejected
+          - superseded
     MarketplaceListing:
       type: object
-      required: [id, offlinePackageId, channel, reviewStatus]
+      required:
+      - id
+      - offlinePackageId
+      - channel
+      - reviewStatus
       properties:
-        id: { type: integer }
-        offlinePackageId: { type: integer }
+        id:
+          type: integer
+        offlinePackageId:
+          type: integer
         channel:
           type: string
-          enum: [online, offline, hybrid]
-        pricing: { type: object }
-        supportPolicy: { type: object }
+          enum:
+          - online
+          - offline
+          - hybrid
+        pricing:
+          type: object
+        supportPolicy:
+          type: object
         reviewStatus:
           type: string
-          enum: [pending, need_fix, approved, rejected, published]
-        reviewCount: { type: integer }
+          enum:
+          - pending
+          - need_fix
+          - approved
+          - rejected
+          - published
+        reviewCount:
+          type: integer
         escalatedAt:
           type: string
           format: date-time
+    LocalInstallSession:
+      type: object
+      required:
+      - sessionId
+      - tenantId
+      - developerId
+      - artifactUri
+      - status
+      properties:
+        sessionId:
+          type: string
+        tenantId:
+          type: string
+        developerId:
+          type: integer
+          format: int64
+        artifactUri:
+          type: string
+        featureFlags:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+          enum:
+          - in_progress
+          - success
+          - failed
+        logUrl:
+          type: string
+          format: uri
+        createdAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+    StartLocalInstallRequest:
+      type: object
+      required:
+      - tenantId
+      - developerId
+      - artifactUri
+      properties:
+        tenantId:
+          type: string
+        developerId:
+          type: integer
+          format: int64
+        artifactUri:
+          type: string
+        featureFlags:
+          type: array
+          items:
+            type: string
+        resetCache:
+          type: boolean
+          default: false
+    StopLocalInstallRequest:
+      type: object
+      properties:
+        force:
+          type: boolean
+          default: false
 paths:
   /candidates:
     post:
-      tags: [ReleaseCandidate]
-      security: [{ BearerAuth: [] }]
+      tags:
+      - ReleaseCandidate
+      security:
+      - BearerAuth: []
       summary: 创建/提交 Release Candidate
       requestBody:
         required: true
@@ -155,14 +274,25 @@ paths:
           application/json:
             schema:
               type: object
-              required: [pluginId, version, buildArtifactUri, releaseNotes]
+              required:
+              - pluginId
+              - version
+              - buildArtifactUri
+              - releaseNotes
               properties:
-                pluginId: { type: string }
-                version: { type: string }
-                buildArtifactUri: { type: string, format: uri }
-                releaseNotes: { type: string }
-                commitHash: { type: string }
-                labels: { type: object }
+                pluginId:
+                  type: string
+                version:
+                  type: string
+                buildArtifactUri:
+                  type: string
+                  format: uri
+                releaseNotes:
+                  type: string
+                commitHash:
+                  type: string
+                labels:
+                  type: object
       responses:
         '201':
           description: Candidate created
@@ -172,27 +302,33 @@ paths:
                 $ref: '#/components/schemas/ReleaseCandidate'
   /candidates/{candidateId}/gates:
     post:
-      tags: [ReleaseCandidate]
-      security: [{ BearerAuth: [] }]
+      tags:
+      - ReleaseCandidate
+      security:
+      - BearerAuth: []
       summary: 触发质量门禁检查
       parameters:
-        - name: candidateId
-          in: path
-          required: true
-          schema: { type: string }
+      - name: candidateId
+        in: path
+        required: true
+        schema:
+          type: string
       responses:
         '202':
           description: 门禁任务已排队
   /candidates/{candidateId}:
     get:
-      tags: [ReleaseCandidate]
-      security: [{ BearerAuth: [] }]
+      tags:
+      - ReleaseCandidate
+      security:
+      - BearerAuth: []
       summary: 查询候选状态
       parameters:
-        - name: candidateId
-          in: path
-          required: true
-          schema: { type: string }
+      - name: candidateId
+        in: path
+        required: true
+        schema:
+          type: string
       responses:
         '200':
           description: OK
@@ -202,8 +338,10 @@ paths:
                 $ref: '#/components/schemas/ReleaseCandidate'
   /plans:
     post:
-      tags: [ReleasePlan]
-      security: [{ BearerAuth: [] }]
+      tags:
+      - ReleasePlan
+      security:
+      - BearerAuth: []
       summary: 创建生产发布计划
       requestBody:
         required: true
@@ -211,24 +349,37 @@ paths:
           application/json:
             schema:
               type: object
-              required: [releaseCandidateId, windowStart, windowEnd, canaryBatches, rollbackScripts]
+              required:
+              - releaseCandidateId
+              - windowStart
+              - windowEnd
+              - canaryBatches
+              - rollbackScripts
               properties:
-                releaseCandidateId: { type: string }
-                windowStart: { type: string, format: date-time }
-                windowEnd: { type: string, format: date-time }
+                releaseCandidateId:
+                  type: string
+                windowStart:
+                  type: string
+                  format: date-time
+                windowEnd:
+                  type: string
+                  format: date-time
                 canaryBatches:
                   type: array
                   items:
                     $ref: '#/components/schemas/CanaryBatch'
                 rollbackScripts:
                   type: array
-                  items: { type: string }
+                  items:
+                    type: string
                 notificationTargets:
                   type: array
-                  items: { type: string }
+                  items:
+                    type: string
                 dependencyList:
                   type: array
-                  items: { type: string }
+                  items:
+                    type: string
       responses:
         '201':
           description: Release plan created
@@ -238,25 +389,31 @@ paths:
                 $ref: '#/components/schemas/ReleasePlan'
   /plans/{planId}/approve:
     post:
-      tags: [ReleasePlan]
-      security: [{ BearerAuth: [] }]
+      tags:
+      - ReleasePlan
+      security:
+      - BearerAuth: []
       summary: 审批生产计划
       parameters:
-        - name: planId
-          in: path
-          required: true
-          schema: { type: integer }
+      - name: planId
+        in: path
+        required: true
+        schema:
+          type: integer
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [decision]
+              required:
+              - decision
               properties:
                 decision:
                   type: string
-                  enum: [approved, rejected]
+                  enum:
+                  - approved
+                  - rejected
                 comment:
                   type: string
       responses:
@@ -264,34 +421,42 @@ paths:
           description: 审批结果
   /plans/{planId}/deploy/canary:
     post:
-      tags: [Deployment]
-      security: [{ BearerAuth: [] }]
+      tags:
+      - Deployment
+      security:
+      - BearerAuth: []
       summary: 触发灰度批次
       parameters:
-        - in: path
-          name: planId
-          required: true
-          schema: { type: integer }
+      - in: path
+        name: planId
+        required: true
+        schema:
+          type: integer
       responses:
         '202':
           description: 灰度已启动
   /plans/{planId}/deploy/rollback:
     post:
-      tags: [Deployment]
-      security: [{ BearerAuth: [] }]
+      tags:
+      - Deployment
+      security:
+      - BearerAuth: []
       summary: 强制回滚至上一版本
       parameters:
-        - in: path
-          name: planId
-          required: true
-          schema: { type: integer }
+      - in: path
+        name: planId
+        required: true
+        schema:
+          type: integer
       responses:
         '202':
           description: 回滚命令已发出
   /offline-packages:
     post:
-      tags: [OfflinePackage]
-      security: [{ BearerAuth: [] }]
+      tags:
+      - OfflinePackage
+      security:
+      - BearerAuth: []
       summary: 创建离线包记录
       requestBody:
         required: true
@@ -299,14 +464,27 @@ paths:
           application/json:
             schema:
               type: object
-              required: [releaseCandidateId, packageUri, checksum, signatureFingerprint]
+              required:
+              - releaseCandidateId
+              - packageUri
+              - checksum
+              - signatureFingerprint
               properties:
-                releaseCandidateId: { type: string }
-                packageUri: { type: string, format: uri }
-                checksum: { type: string }
-                signatureFingerprint: { type: string }
-                dependencies: { type: array, items: { type: string } }
-                licenseReport: { type: object }
+                releaseCandidateId:
+                  type: string
+                packageUri:
+                  type: string
+                  format: uri
+                checksum:
+                  type: string
+                signatureFingerprint:
+                  type: string
+                dependencies:
+                  type: array
+                  items:
+                    type: string
+                licenseReport:
+                  type: object
       responses:
         '201':
           description: OK
@@ -316,8 +494,10 @@ paths:
                 $ref: '#/components/schemas/OfflinePackage'
   /marketplace/listings:
     post:
-      tags: [Marketplace]
-      security: [{ BearerAuth: [] }]
+      tags:
+      - Marketplace
+      security:
+      - BearerAuth: []
       summary: 提交 Marketplace 审核
       requestBody:
         required: true
@@ -325,15 +505,26 @@ paths:
           application/json:
             schema:
               type: object
-              required: [offlinePackageId, channel, pricing, supportPolicy]
+              required:
+              - offlinePackageId
+              - channel
+              - pricing
+              - supportPolicy
               properties:
-                offlinePackageId: { type: integer }
+                offlinePackageId:
+                  type: integer
                 channel:
                   type: string
-                  enum: [online, offline, hybrid]
-                pricing: { type: object }
-                supportPolicy: { type: object }
-                submissionForm: { type: object }
+                  enum:
+                  - online
+                  - offline
+                  - hybrid
+                pricing:
+                  type: object
+                supportPolicy:
+                  type: object
+                submissionForm:
+                  type: object
       responses:
         '201':
           description: Listing created
@@ -343,33 +534,43 @@ paths:
                 $ref: '#/components/schemas/MarketplaceListing'
   /marketplace/listings/{listingId}/reviews:
     post:
-      tags: [Marketplace]
-      security: [{ BearerAuth: [] }]
+      tags:
+      - Marketplace
+      security:
+      - BearerAuth: []
       summary: 审核决策（含自动升级）
       parameters:
-        - name: listingId
-          in: path
-          required: true
-          schema: { type: integer }
+      - name: listingId
+        in: path
+        required: true
+        schema:
+          type: integer
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [decision]
+              required:
+              - decision
               properties:
                 decision:
                   type: string
-                  enum: [need_fix, approved, rejected]
-                comment: { type: string }
+                  enum:
+                  - need_fix
+                  - approved
+                  - rejected
+                comment:
+                  type: string
       responses:
         '200':
           description: 审核完成
   /tenant/offline-imports:
     post:
-      tags: [TenantImport]
-      security: [{ BearerAuth: [] }]
+      tags:
+      - TenantImport
+      security:
+      - BearerAuth: []
       summary: 企业租户导入离线包
       requestBody:
         required: true
@@ -377,25 +578,37 @@ paths:
           application/json:
             schema:
               type: object
-              required: [packageUri, checksum, licenseAccepted]
+              required:
+              - packageUri
+              - checksum
+              - licenseAccepted
               properties:
-                packageUri: { type: string, format: uri }
-                checksum: { type: string }
-                licenseAccepted: { type: boolean }
-                dryRun: { type: boolean, default: false }
+                packageUri:
+                  type: string
+                  format: uri
+                checksum:
+                  type: string
+                licenseAccepted:
+                  type: boolean
+                dryRun:
+                  type: boolean
+                  default: false
       responses:
         '202':
           description: 导入任务已启动
   /tenant/offline-imports/{jobId}:
     get:
-      tags: [TenantImport]
-      security: [{ BearerAuth: [] }]
+      tags:
+      - TenantImport
+      security:
+      - BearerAuth: []
       summary: 查询导入状态
       parameters:
-        - name: jobId
-          in: path
-          required: true
-          schema: { type: string }
+      - name: jobId
+        in: path
+        required: true
+        schema:
+          type: string
       responses:
         '200':
           description: 状态
@@ -406,8 +619,110 @@ paths:
                 properties:
                   status:
                     type: string
-                    enum: [pending, running, success, failed, rolled_back]
+                    enum:
+                    - pending
+                    - running
+                    - success
+                    - failed
+                    - rolled_back
                   message:
                     type: string
+  /admin/plugin-release/local/sessions:
+    post:
+      tags:
+      - ReleaseCandidate
+      security:
+      - BearerAuth: []
+      summary: 启动本地热更新会话
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StartLocalInstallRequest'
+      responses:
+        '201':
+          description: 会话已启动
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LocalInstallSession'
+  /admin/plugin-release/local/sessions/{sessionId}:
+    get:
+      tags:
+      - ReleaseCandidate
+      security:
+      - BearerAuth: []
+      summary: 查看热更新会话
+      parameters:
+      - name: sessionId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LocalInstallSession'
+    delete:
+      tags:
+      - ReleaseCandidate
+      security:
+      - BearerAuth: []
+      summary: 停止热更新会话
+      parameters:
+      - name: sessionId
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StopLocalInstallRequest'
+      responses:
+        '202':
+          description: 会话停止中
+  /tenant/plugin-release/local/sessions:
+    post:
+      tags:
+      - TenantImport
+      security:
+      - BearerAuth: []
+      summary: 租户启动热更新
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StartLocalInstallRequest'
+      responses:
+        '201':
+          description: 会话已启动
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LocalInstallSession'
+  /tenant/plugin-release/local/sessions/{sessionId}:
+    delete:
+      tags:
+      - TenantImport
+      security:
+      - BearerAuth: []
+      summary: 租户停止热更新
+      parameters:
+      - name: sessionId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '202':
+          description: 会话停止中
 security:
-  - BearerAuth: []
+- BearerAuth: []

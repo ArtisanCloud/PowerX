@@ -15,6 +15,8 @@
 - [X] T002 注册 plugin_release proto 包至 Buf/Makefile 工具链（修改 `backend/api/grpc/contracts/buf.yaml`、`backend/api/grpc/contracts/buf.gen.yaml`、`backend/Makefile`）
 - [X] T003 初始化 plugin_release 包结构与占位依赖（创建 `backend/internal/service/plugin_release/`、`backend/internal/transport/http/{admin,openapi}/plugin_release/`、`backend/internal/transport/grpc/plugin_release/`；在 `backend/internal/bootstrap/app.go` 与 `backend/internal/app/shared/deps.go` 中注册占位依赖）
 - [X] T004 生成示例发布计划 `examples/release-plan.json`（放置 `specs/001-install-plugin-pxp/examples/`，用于 quickstart 与合同测试；在 README/Quickstart 引用）
+- [X] T004a 生成 plugin_release gRPC 契约并执行 `make proto-gen`（`specs/001-install-plugin-pxp/contracts/plugin_release.proto` -> `api/grpc/gen/go/powerx/plugin_release/v1`，依赖 T002）
+- [X] T004b 扩展 HTTP OpenAPI 契约覆盖本地热更新/审批/发布流程（`specs/001-install-plugin-pxp/contracts/http-openapi.yaml`，依赖 T003）
 
 ---
 
@@ -47,16 +49,16 @@
 ## Phase 3: Local Hotload Debug Loop（FR-001）
 
 ### Tests（先写再实现）
-- [ ] T024 [P] [FR-001] gRPC 合同测试：本地安装/热更新流 (`backend/tests/contract/plugin_release/grpc_local_install_test.go`，依赖 T021)
-- [ ] T025 [P] [FR-001] OpenAPI 合同测试：租户本地导入入口 (`backend/tests/contract/plugin_release/http_openapi_local_install_test.go`，依赖 T022)
-- [ ] T026 [P] [FR-001] 集成测试：`px-plugin dev --watch` → Web Admin 热更新闭环 (`backend/tests/integration/plugin_release/test_local_hotload_flow.go`，依赖 T020)
+- [X] T024 [P] [FR-001] gRPC 合同测试：本地安装/热更新流 (`backend/tests/contract/plugin_release/grpc_local_hotload_test.go`，依赖 T021)
+- [X] T025 [P] [FR-001] OpenAPI 合同测试：租户本地导入入口 (`backend/tests/contract/plugin_release/http_openapi_local_install_test.go`，依赖 T022)
+- [X] T026 [P] [FR-001] 集成测试：`px-plugin dev --watch` → Web Admin 热更新闭环 (`backend/tests/integration/plugin_release/test_local_hotload_flow_test.go`，依赖 T020)
 
 ### 实现
-- [ ] T027 [FR-001] 构建 LocalInstall service（签名/权限/缓存逻辑）于 `backend/internal/service/plugin_release/local/install_service.go`（依赖 T018, T020）
-- [ ] T028 [FR-001] 实现 OpenAPI Handler（启动、取消、日志查询）于 `backend/internal/transport/http/openapi/plugin_release/local_install_handler.go`（依赖 T027, T022）
-- [ ] T029 [FR-001] 扩展 gRPC Server：`StartLocalInstall`/`StreamHotReload` 双向流 (`backend/internal/transport/grpc/plugin_release/server.go`，依赖 T027, T021)
+- [X] T027 [FR-001] 构建 LocalInstall service（签名/权限/缓存逻辑）于 `backend/internal/service/plugin_release/local/install_service.go`（依赖 T018, T020）
+- [X] T028 [FR-001] 实现 OpenAPI Handler（启动、取消、日志查询）于 `backend/internal/transport/http/openapi/plugin_release/local_install_handler.go`（依赖 T027, T022）
+- [X] T029 [FR-001] 扩展 gRPC Server：`StartLocalInstall`/`StreamHotReload` 双向流 (`backend/internal/transport/grpc/plugin_release/server.go`，依赖 T027, T021)
 - [ ] T030 [FR-001] 增强 CLI `px-plugin dev --watch` 推送与日志回传（更新 `backend/cmd/powerx/commands/plugin/dev_watch.go`，依赖 T023, T029）
-- [ ] T031 [FR-001] 增加热更新审计与日志聚合 (`backend/internal/service/plugin_release/local/audit_hooks.go`，依赖 T027, T019)
+- [X] T031 [FR-001] 增加热更新审计与日志聚合 (`backend/internal/service/plugin_release/local/audit_hooks.go`，依赖 T027, T019)
 
 **Checkpoint**：FR-001 闭环可执行，CLI ↔ Web Admin 热更新成功。
 

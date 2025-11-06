@@ -3,6 +3,7 @@ package commands
 import (
 	"os"
 
+	plugincmd "github.com/ArtisanCloud/PowerX/cmd/powerx/commands/plugin"
 	publishcmd "github.com/ArtisanCloud/PowerX/cmd/powerx/commands/publish"
 	"github.com/spf13/cobra"
 )
@@ -22,4 +23,5 @@ func Execute() {
 
 func init() {
 	rootCmd.AddCommand(publishcmd.Command)
+	rootCmd.AddCommand(plugincmd.Command)
 }

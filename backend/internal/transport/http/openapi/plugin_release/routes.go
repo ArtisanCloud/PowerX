@@ -5,11 +5,19 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// RegisterTenantRoutes wires tenant-facing plugin release HTTP endpoints (placeholder).
+// RegisterTenantRoutes wires tenant-facing plugin release HTTP endpoints.
 func RegisterTenantRoutes(group *gin.RouterGroup, deps *shared.Deps) {
-	_ = deps
-	if group == nil {
+	if group == nil || deps == nil || deps.PluginReleaseService == nil {
 		return
 	}
-	// TODO: add offline import / rollout tenant APIs in later phases.
+
+	handler := newLocalInstallHandler(deps.PluginReleaseService.LocalInstall())
+	if handler == nil {
+		return
+	}
+
+	routes := group.Group("/tenant/plugin-release")
+	routes.POST("/local/sessions", handler.startSession)
+	routes.GET("/local/sessions/:sessionId", handler.getSession)
+	routes.DELETE("/local/sessions/:sessionId", handler.stopSession)
 }

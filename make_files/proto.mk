@@ -1,7 +1,7 @@
 # Protobuf & Contracts related targets
 
 BUF_CMD ?= $(shell command -v buf)
-BUF_WORKDIR ?= api/grpc/contracts
+BUF_WORKDIR ?= backend/api/grpc/contracts
 
 .PHONY: proto-gen proto-event-fabric proto-lint proto-clean contracts-test ci-proto
 
@@ -34,15 +34,15 @@ proto-lint:
 
 proto-clean:
 	@echo "🧹 清理生成的 Protobuf 代码..."
-	@rm -rf api/grpc/gen/go/powerx/corex
-	@rm -rf api/grpc/gen/go/powerx/capability
-	@rm -rf api/grpc/gen/go/powerx/integration
-	@rm -rf api/grpc/gen/go/powerx/agent
-	@rm -rf api/grpc/gen/go/powerx/workflow
-	@rm -rf api/grpc/gen/go/powerx/plugin_release
-	@rm -rf api/grpc/gen/go/corex/event_fabric
-	@rm -rf api/grpc/gen/go/powerx/event_fabric
-	@find api/grpc/gen -type f -name "*.pb.go" -empty -delete >/dev/null 2>&1 || true
+	@rm -rf backend/api/grpc/gen/go/powerx/corex
+	@rm -rf backend/api/grpc/gen/go/powerx/capability
+	@rm -rf backend/api/grpc/gen/go/powerx/integration
+	@rm -rf backend/api/grpc/gen/go/powerx/agent
+	@rm -rf backend/api/grpc/gen/go/powerx/workflow
+	@rm -rf backend/api/grpc/gen/go/powerx/plugin_release
+	@rm -rf backend/api/grpc/gen/go/corex/event_fabric
+	@rm -rf backend/api/grpc/gen/go/powerx/event_fabric
+	@find backend/api/grpc/gen -type f -name "*.pb.go" -empty -delete >/dev/null 2>&1 || true
 	@echo "✅ 清理完成"
 
 contracts-test:

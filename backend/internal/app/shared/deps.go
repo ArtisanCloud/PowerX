@@ -209,6 +209,16 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 		pluginReleaseDistributionRepo,
 		pluginReleaseSessionRepo,
 		componentName,
+		pluginReleaseService.Options{
+			FeatureFlags: pluginReleaseService.FeatureFlagOptions{
+				EnableLocalInstall: opts.PluginRelease.FeatureFlags.EnableLocalInstall,
+			},
+			LocalInstall: pluginReleaseService.LocalInstallOptions{
+				SessionTTL:        opts.PluginRelease.LocalInstall.SessionTTL,
+				MaxArtifactSizeMB: opts.PluginRelease.LocalInstall.MaxArtifactSizeMB,
+			},
+			Auditor: aud,
+		},
 	)
 
 	tenantConfig := integrationTenant.Config{
