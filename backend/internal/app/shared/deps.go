@@ -36,6 +36,7 @@ import (
 	integrationManager "github.com/ArtisanCloud/PowerX/internal/service/integration_gateway/manager"
 	integrationTenant "github.com/ArtisanCloud/PowerX/internal/service/integration_gateway/tenant"
 	mediasvc "github.com/ArtisanCloud/PowerX/internal/service/media"
+	pluginReleaseService "github.com/ArtisanCloud/PowerX/internal/service/plugin_release"
 	tenantsvc "github.com/ArtisanCloud/PowerX/internal/service/tenant"
 	workflowsvc "github.com/ArtisanCloud/PowerX/internal/service/workflow"
 	"github.com/ArtisanCloud/PowerX/pkg/cache"
@@ -43,6 +44,7 @@ import (
 	dbm "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/audit"
 	eventfabricrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/event_fabric"
 	integrationRepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/integration_gateway"
+	pluginReleaseRepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/plugin_release"
 	"github.com/ArtisanCloud/PowerX/pkg/event_bus"
 	pxlog "github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"github.com/google/uuid"
@@ -101,7 +103,8 @@ type Deps struct {
 	DiscoverySvc          *discoveryService.Service
 	IntegrationGateway    *IntegrationGatewayDeps
 	AgentLifecycle        *AgentLifecycleDeps
-	PluginRelease         PluginReleaseOptions
+	PluginReleaseOptions  PluginReleaseOptions
+	PluginReleaseService  *pluginReleaseService.Service
 
 	EventFabric *EventFabricDeps
 	Workflow    *WorkflowDeps
@@ -192,6 +195,22 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 	integrationGatewayDeps := newIntegrationGatewayDeps(db, opts.IntegrationGateway, bus, aud)
 	agentLifecycleDeps := newAgentLifecycleDeps(db, opts.AgentLifecycle, bus, svc)
 
+	pluginReleaseCandidateRepo := pluginReleaseRepo.NewReleaseCandidateRepository(db)
+	pluginReleasePlanRepo := pluginReleaseRepo.NewReleasePlanRepository(db)
+	pluginReleaseDistributionRepo := pluginReleaseRepo.NewDistributionRepository(db)
+	pluginReleaseSessionRepo := pluginReleaseRepo.NewLocalInstallSessionRepository(db)
+	componentName := strings.TrimSpace(opts.PluginRelease.Observability.AlertRulePrefix)
+	if componentName == "" {
+		componentName = "powerx.plugin_release"
+	}
+	pluginReleaseSvc := pluginReleaseService.NewService(
+		pluginReleaseCandidateRepo,
+		pluginReleasePlanRepo,
+		pluginReleaseDistributionRepo,
+		pluginReleaseSessionRepo,
+		componentName,
+	)
+
 	tenantConfig := integrationTenant.Config{
 		DefaultRateLimit: integrationManager.RateLimitPolicy{
 			Limit:         opts.IntegrationGateway.DefaultRateLimit.Limit,
@@ -237,7 +256,8 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 		DiscoverySvc:          discoverySvc,
 		IntegrationGateway:    integrationGatewayDeps,
 		AgentLifecycle:        agentLifecycleDeps,
-		PluginRelease:         opts.PluginRelease,
+		PluginReleaseOptions:  opts.PluginRelease,
+		PluginReleaseService:  pluginReleaseSvc,
 		EventFabric:           eventFabricDeps,
 		Workflow: &WorkflowDeps{
 			Service:       workflowSvc,

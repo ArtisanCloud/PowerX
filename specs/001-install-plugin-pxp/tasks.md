@@ -27,17 +27,17 @@
 - [X] T009 [P] 定义 OfflineDistributionPackage 模型（`backend/pkg/corex/db/persistence/model/plugin_release/offline_package.go`，依赖 T005）
 - [X] T010 [P] 定义 MarketplaceListing 模型含升级字段（`backend/pkg/corex/db/persistence/model/plugin_release/marketplace_listing.go`，依赖 T005）
 - [X] T011 [P] 定义 LocalInstallSession 模型支撑热更新（`backend/pkg/corex/db/persistence/model/plugin_release/local_install_session.go`，依赖 T005）
-- [ ] T012 将全部 plugin_release 模型加入 AutoMigrate（更新 `backend/pkg/corex/db/database/migration.go`，依赖 T006-T011）
-- [ ] T013 建立 `mv_plugin_release_status` 物化视图迁移 + 指标查询索引（新增迁移脚本或自动迁移钩子，位于 `backend/pkg/corex/db/migration/plugin_release_status.go`，依赖 T012）
-- [ ] T014 实现 `plugin_release_candidates` 月度分区与清理逻辑（扩展 `backend/pkg/corex/db/database/migration.go` 与定时脚本，依赖 T012）
-- [ ] T015 [P] 创建 ReleaseCandidateRepository（`backend/pkg/corex/db/persistence/repository/plugin_release/release_candidate_repository.go`，依赖 T006, T005）
-- [ ] T016 [P] 创建 ReleasePlanRepository（`backend/pkg/corex/db/persistence/repository/plugin_release/release_plan_repository.go`，依赖 T007-T008）
-- [ ] T017 [P] 创建 DistributionRepository（`backend/pkg/corex/db/persistence/repository/plugin_release/distribution_repository.go`，涵盖离线包 & Marketplace，依赖 T009-T010）
-- [ ] T018 [P] 创建 LocalInstallSessionRepository（`backend/pkg/corex/db/persistence/repository/plugin_release/local_install_session_repository.go`，依赖 T011）
-- [ ] T019 建立 plugin_release instrumentation 脚手架（`backend/internal/service/plugin_release/instrumentation/metrics.go`、`tracing.go`，依赖 T015-T018）
-- [ ] T020 组装 PluginReleaseService 工厂并注册 DI（新增 `backend/internal/service/plugin_release/service.go`，修改 `backend/internal/app/shared/deps.go`，依赖 T015-T019）
-- [ ] T021 脚手架 gRPC Server 并接入全局 server（`backend/internal/transport/grpc/plugin_release/server.go` 初始实现，更新 `backend/internal/server/grpc/server.go`，依赖 T020）
-- [ ] T022 建立 HTTP Admin/OpenAPI 路由占位（新增 `backend/internal/transport/http/admin/plugin_release/routes.go`、`openapi/plugin_release/routes.go`，更新上层 `routes.go`，依赖 T020）
+- [X] T012 将全部 plugin_release 模型加入 AutoMigrate（更新 `backend/pkg/corex/db/database/migration.go`，依赖 T006-T011）
+- [X] T013 建立 `mv_plugin_release_status` 物化视图迁移 + 指标查询索引（新增迁移脚本或自动迁移钩子，位于 `backend/pkg/corex/db/migration/plugin_release_status.go`，依赖 T012）
+- [X] T014 实现 `plugin_release_candidates` 月度分区与清理逻辑（扩展 `backend/pkg/corex/db/database/migration.go` 与定时脚本，依赖 T012）
+- [X] T015 [P] 创建 ReleaseCandidateRepository（`backend/pkg/corex/db/persistence/repository/plugin_release/release_candidate_repository.go`，依赖 T006, T005）
+- [X] T016 [P] 创建 ReleasePlanRepository（`backend/pkg/corex/db/persistence/repository/plugin_release/release_plan_repository.go`，依赖 T007-T008）
+- [X] T017 [P] 创建 DistributionRepository（`backend/pkg/corex/db/persistence/repository/plugin_release/distribution_repository.go`，涵盖离线包 & Marketplace，依赖 T009-T010）
+- [X] T018 [P] 创建 LocalInstallSessionRepository（`backend/pkg/corex/db/persistence/repository/plugin_release/local_install_session_repository.go`，依赖 T011）
+- [X] T019 建立 plugin_release instrumentation 脚手架（`backend/internal/service/plugin_release/instrumentation/metrics.go`、`tracing.go`，依赖 T015-T018）
+- [X] T020 组装 PluginReleaseService 工厂并注册 DI（新增 `backend/internal/service/plugin_release/service.go`，修改 `backend/internal/app/shared/deps.go`，依赖 T015-T019）
+- [X] T021 脚手架 gRPC Server 并接入全局 server（`backend/internal/transport/grpc/plugin_release/server.go` 初始实现，更新 `backend/internal/server/grpc/server.go`，依赖 T020）
+- [X] T022 建立 HTTP Admin/OpenAPI 路由占位（新增 `backend/internal/transport/http/admin/plugin_release/routes.go`、`openapi/plugin_release/routes.go`，更新上层 `routes.go`，依赖 T020）
 - [ ] T023 种子 CLI 命令骨架（创建 `backend/cmd/powerx/commands/publish/plugin_release_root.go` 并挂载至 `backend/cmd/powerx/commands/publish/root.go`，依赖 T020）
 
 **Checkpoint**：模型、仓储、DI、观测与双传输骨架就绪。
