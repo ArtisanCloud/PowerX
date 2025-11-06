@@ -20,13 +20,13 @@
 
 ## Phase 2: Foundational（全局阻塞前置）
 
-- [ ] T005 准备持久化与 DI 脚手架（创建 `backend/pkg/corex/db/persistence/model/plugin_release/` 与 `repository/plugin_release/` 基础目录、更新 `backend/internal/app/shared/deps.go` 以暴露占位依赖）
-- [ ] T006 [P] 定义 PluginReleaseCandidate 模型与校验（`backend/pkg/corex/db/persistence/model/plugin_release/release_candidate.go`，依赖 T005）
-- [ ] T007 [P] 定义 ReleasePlan 模型含灰度批次 Schema（`backend/pkg/corex/db/persistence/model/plugin_release/release_plan.go`，依赖 T005）
-- [ ] T008 [P] 定义 CanaryDeploymentRecord 模型并加 GIN 索引（`backend/pkg/corex/db/persistence/model/plugin_release/canary_record.go`，依赖 T005）
-- [ ] T009 [P] 定义 OfflineDistributionPackage 模型（`backend/pkg/corex/db/persistence/model/plugin_release/offline_package.go`，依赖 T005）
-- [ ] T010 [P] 定义 MarketplaceListing 模型含升级字段（`backend/pkg/corex/db/persistence/model/plugin_release/marketplace_listing.go`，依赖 T005）
-- [ ] T011 [P] 定义 LocalInstallSession 模型支撑热更新（`backend/pkg/corex/db/persistence/model/plugin_release/local_install_session.go`，依赖 T005）
+- [X] T005 准备持久化与 DI 脚手架（创建 `backend/pkg/corex/db/persistence/model/plugin_release/` 与 `repository/plugin_release/` 基础目录、更新 `backend/internal/app/shared/deps.go` 以暴露占位依赖）
+- [X] T006 [P] 定义 PluginReleaseCandidate 模型与校验（`backend/pkg/corex/db/persistence/model/plugin_release/release_candidate.go`，依赖 T005）
+- [X] T007 [P] 定义 ReleasePlan 模型含灰度批次 Schema（`backend/pkg/corex/db/persistence/model/plugin_release/release_plan.go`，依赖 T005）
+- [X] T008 [P] 定义 CanaryDeploymentRecord 模型并加 GIN 索引（`backend/pkg/corex/db/persistence/model/plugin_release/canary_record.go`，依赖 T005）
+- [X] T009 [P] 定义 OfflineDistributionPackage 模型（`backend/pkg/corex/db/persistence/model/plugin_release/offline_package.go`，依赖 T005）
+- [X] T010 [P] 定义 MarketplaceListing 模型含升级字段（`backend/pkg/corex/db/persistence/model/plugin_release/marketplace_listing.go`，依赖 T005）
+- [X] T011 [P] 定义 LocalInstallSession 模型支撑热更新（`backend/pkg/corex/db/persistence/model/plugin_release/local_install_session.go`，依赖 T005）
 - [ ] T012 将全部 plugin_release 模型加入 AutoMigrate（更新 `backend/pkg/corex/db/database/migration.go`，依赖 T006-T011）
 - [ ] T013 建立 `mv_plugin_release_status` 物化视图迁移 + 指标查询索引（新增迁移脚本或自动迁移钩子，位于 `backend/pkg/corex/db/migration/plugin_release_status.go`，依赖 T012）
 - [ ] T014 实现 `plugin_release_candidates` 月度分区与清理逻辑（扩展 `backend/pkg/corex/db/database/migration.go` 与定时脚本，依赖 T012）
