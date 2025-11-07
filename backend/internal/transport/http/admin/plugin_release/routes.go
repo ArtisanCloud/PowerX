@@ -31,6 +31,7 @@ func RegisterAPIRoutes(public, protected *gin.RouterGroup, deps *shared.Deps) {
 
 	if distHandler := newDistributionHandler(deps.PluginReleaseService.Distribution()); distHandler != nil {
 		group.POST("/offline-packages", distHandler.createOfflinePackage)
+		group.GET("/marketplace/listings", distHandler.getMarketplaceListings)
 		group.POST("/marketplace/listings", distHandler.createListing)
 		group.POST("/marketplace/listings/:listingId/reviews", distHandler.reviewListing)
 	}

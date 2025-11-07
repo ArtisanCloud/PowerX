@@ -154,3 +154,42 @@ func (r *DistributionRepository) ListListingsByPackage(ctx context.Context, pack
 	}
 	return listings, nil
 }
+
+// MarketplaceListingFilter captures query parameters for listings.
+type MarketplaceListingFilter struct {
+	Page    int
+	Size    int
+	Status  string
+	Channel string
+}
+
+// ListMarketplaceListings returns listings with filters and pagination.
+func (r *DistributionRepository) ListMarketplaceListings(ctx context.Context, filter MarketplaceListingFilter) ([]models.MarketplaceListing, int64, error) {
+	if filter.Page <= 0 {
+		filter.Page = 1
+	}
+	if filter.Size <= 0 {
+		filter.Size = 20
+	}
+	query := r.db.WithContext(ctx).Model(&models.MarketplaceListing{})
+	if status := strings.TrimSpace(filter.Status); status != "" {
+		query = query.Where("review_status = ?", strings.ToLower(status))
+	}
+	if channel := strings.TrimSpace(filter.Channel); channel != "" {
+		query = query.Where("channel = ?", strings.ToLower(channel))
+	}
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	var listings []models.MarketplaceListing
+	err := query.
+		Order("created_at DESC").
+		Offset((filter.Page - 1) * filter.Size).
+		Limit(filter.Size).
+		Find(&listings).Error
+	if err != nil {
+		return nil, 0, err
+	}
+	return listings, total, nil
+}

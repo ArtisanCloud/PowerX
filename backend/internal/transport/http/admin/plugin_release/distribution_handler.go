@@ -124,6 +124,13 @@ type reviewListingRequest struct {
 	Comment  string `json:"comment"`
 }
 
+type queryListingsRequest struct {
+	Page    int    `form:"page,default=1" binding:"min=1"`
+	Size    int    `form:"size,default=20" binding:"min=1,max=100"`
+	Status  string `form:"status"`
+	Channel string `form:"channel"`
+}
+
 func (h *distributionHandler) reviewListing(c *gin.Context) {
 	if h.svc == nil {
 		dto.ResponseError(c, http.StatusServiceUnavailable, "distribution service unavailable", nil)
@@ -175,4 +182,27 @@ func (h *distributionHandler) writeError(c *gin.Context, err error) {
 	default:
 		dto.ResponseError(c, http.StatusInternalServerError, "distribution operation failed", err)
 	}
+}
+
+func (h *distributionHandler) getMarketplaceListings(c *gin.Context) {
+	if h.svc == nil {
+		dto.ResponseError(c, http.StatusServiceUnavailable, "distribution service unavailable", nil)
+		return
+	}
+	var req queryListingsRequest
+	if err := c.ShouldBindQuery(&req); err != nil {
+		dto.ResponseValidationError(c, err)
+		return
+	}
+	page, err := h.svc.ListMarketplaceListings(c.Request.Context(), distribution.ListMarketplaceListingsInput{
+		Page:    req.Page,
+		Size:    req.Size,
+		Status:  req.Status,
+		Channel: req.Channel,
+	})
+	if err != nil {
+		h.writeError(c, err)
+		return
+	}
+	dto.ResponseSuccess(c, page)
 }

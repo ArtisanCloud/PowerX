@@ -110,3 +110,13 @@ Marketplace 运营与企业租户管理员需要在 2 个工作日内分别完�
 - 监控与告警系统能够在分钟级提供指标与事件推送，发布团队具备接收多渠道通知的权限。
 - 企业租户具备访问离线分发库或镜像站的能力，且允许临时开启导入窗口以满足 10 分钟导入 SLA。
 - Marketplace 审核团队跨区域覆盖工作日，能够在补件时于 1 个工作日内给出反馈。
+
+## Admin Web UI Extension
+
+- 为方便 root/system_admin 直接在 PowerX Web Admin 中调试 plug-in release 流程，需要新增“插件发布”菜单。
+- UI 至少覆盖以下功能：
+  1. 离线包入库：表单提交 `POST /api/admin/plugin-release/offline-packages`，展示包体校验结果与审计 ID。
+  2. Marketplace 列表：分页列出 `GET /api/admin/plugin-release/marketplace/listings`（可先以本地 mock 实现），提供补件次数与 SLA 倒计时。
+  3. 审核详情/操作：在详情页调用 `POST /api/admin/plugin-release/marketplace/listings/:id/reviews`，支持 need_fix / approved / rejected。
+- UI 必须沿用 AdminOnly 中间件，失败时展示 API 返回的错误信息、审计 reference，方便回溯 CLI/后端日志。
+- UX 要求：表单必填校验、上传进度条、提交按钮 loading；列表需支持搜索/排序/分页，加载态采用 skeleton + Spin，所有失败使用 toast 显示错误与审计 reference；仅 root/system_admin 可见编辑操作，普通管理员只读。

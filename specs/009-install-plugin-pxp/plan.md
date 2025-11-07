@@ -85,6 +85,28 @@ backend/
 
 **Structure Decision**: 采用 CoreX 模块分层（model → repository → service → transport），以 `shared.Deps` 注入数据库/缓存/对象存储；HTTP Admin + OpenAPI 负责人机交互，gRPC 供 CLI / 自动化调用，确保 Constitution 要求的双传输、统一 Buf 配置与 Make 流程。上述目录严格遵循 Constitution 0.2 表格中的 `pkg/corex` + `internal/{service,transport}` 约束，所有模型与仓储均落在 CoreX 规定的路径下。
 
+### Web Admin 扩展（Node 20）
+
+```
+web-admin/
+└── app/pages/plugin-release/
+    ├── OfflinePackages.vue        # 表单 + 列表，调用 /offline-packages
+    ├── MarketplaceListings.vue    # 审核列表
+    └── ReviewDetail.vue           # 审核详情与操作
+```
+
+- 页面依赖现有 Admin API（Bearer Token）进行调用，沿用 RBAC/审计。
+- 所有 API 交互均通过 `@/services/pluginRelease` 包裹，便于单元测试与错误提示。
+
+### Frontend Architecture
+
+- **Framework**: Nuxt 4 + Vue 3 + TypeScript（与当前 web-admin 项目一致）
+- **UI Library**: Nuxt UI +自定义组件（结合 Tailwind/Valibot 验证），可按需封装表单、表格、Skeleton、Modal
+- **State/数据流**: Pinia（`@pinia/nuxt`）集中管理插件发布页面的过滤条件与列表缓存
+- **API Client**: `$fetch` + 全局拦截器，统一注入 Authorization header、处理错误 toast
+- **Routing**: `/admin/plugin-release/offline-packages`、`/admin/plugin-release/marketplace`、`/admin/plugin-release/marketplace/:id`
+- **Error Handling**: 全局 error handler + toast，展示 audit reference；页面提供 loading skeleton 与局部 Spin
+
 ## Complexity Tracking
 
 | Violation | Why Needed | Simpler Alternative Rejected Because |

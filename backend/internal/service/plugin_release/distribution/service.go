@@ -123,6 +123,22 @@ type ImportJob struct {
 	CompletedAt *time.Time `json:"completedAt,omitempty"`
 }
 
+// ListMarketplaceListingsInput controls listing filters and pagination.
+type ListMarketplaceListingsInput struct {
+	Page    int
+	Size    int
+	Status  string
+	Channel string
+}
+
+// MarketplaceListingPage wraps paginated responses.
+type MarketplaceListingPage struct {
+	Items []models.MarketplaceListing `json:"items"`
+	Total int64                       `json:"total"`
+	Page  int                         `json:"page"`
+	Size  int                         `json:"size"`
+}
+
 // NewService constructs the distribution service with validated dependencies.
 func NewService(deps Dependencies, opts Options) *Service {
 	if deps.Candidates == nil || deps.Repository == nil {
@@ -387,6 +403,29 @@ func (s *Service) GetImportJob(jobID string) (*ImportJob, error) {
 	}
 	copy := job
 	return &copy, nil
+}
+
+// ListMarketplaceListings returns listings with pagination data.
+func (s *Service) ListMarketplaceListings(ctx context.Context, input ListMarketplaceListingsInput) (*MarketplaceListingPage, error) {
+	if !s.opts.FeatureEnabled {
+		return nil, ErrFeatureDisabled
+	}
+	filter := repo.MarketplaceListingFilter{
+		Page:    input.Page,
+		Size:    input.Size,
+		Status:  input.Status,
+		Channel: input.Channel,
+	}
+	items, total, err := s.repo.ListMarketplaceListings(ctx, filter)
+	if err != nil {
+		return nil, err
+	}
+	return &MarketplaceListingPage{
+		Items: items,
+		Total: total,
+		Page:  filter.Page,
+		Size:  filter.Size,
+	}, nil
 }
 
 func (s *Service) buildPackageURI(candidate *models.PluginReleaseCandidate) string {

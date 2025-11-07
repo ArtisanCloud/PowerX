@@ -113,6 +113,7 @@
 - [X] T053 [US3] 实现 distribution service（离线包入库、渠道分发）`backend/internal/service/plugin_release/distribution/service.go`（依赖 T017, T044, T019）
 - [X] T054 [US3] 实现签名/许可证校验工具 `backend/internal/service/plugin_release/distribution/validator.go`（依赖 T053）
 - [X] T055 [US3] 实现 Admin HTTP distribution handler（离线包与 Marketplace 升级）`backend/internal/transport/http/admin/plugin_release/distribution_handler.go`（依赖 T053-T054, T022）
+- [ ] T055a [US3] 实现 Marketplace 列表查询 API（分页/筛选）`backend/internal/transport/http/admin/plugin_release/distribution_handler.go:getMarketplaceListings`（依赖 T053-T055）
 - [X] T056 [US3] 实现 OpenAPI Handler：企业租户离线导入 `backend/internal/transport/http/openapi/plugin_release/offline_import_handler.go`（依赖 T053-T054, T022）
 - [X] T057 [US3] 扩展 gRPC Server：UploadOfflinePackage / SubmitMarketplaceListing / ImportOfflinePackage (`backend/internal/transport/grpc/plugin_release/server.go`，依赖 T053-T056, T047, T021)
 - [X] T058 [US3] 更新 CLI：`powerx publish package --offline` 与 `powerx plugin import --offline` (`backend/cmd/powerx/commands/publish/package_offline.go`、`backend/cmd/powerx/commands/plugin/import_offline.go`，依赖 T023, T057)
@@ -124,10 +125,23 @@
 
 ## Phase 7: Polish & Cross-Cutting
 
-- [X] T060 [P] 完成 Prometheus/Grafana 仪表盘与告警规则（`backend/internal/service/plugin_release/instrumentation/alerts.go`，`docs/observability/plugin_release-dashboard.md`，依赖 T045, T059）
+- [X] T060 [P] 完成 Prometheus/Grafana 仪表盘与告警规则（`backend/internal/service/plugin_release/instrumentation/alerts.go`，`docs/guides/plugin_release/observability.md`，依赖 T045, T059）
 - [X] T061 更新 Quickstart 与业务文档（`specs/001-install-plugin-pxp/quickstart.md`、`docs/use_cases/_from_hub/SCN-PUBLISH-HUB-001/*.md`，依赖 T030, T048, T058）
 - [X] T062 运行 quickstart 演练，产出报告 (`scripts/ci/run_quickstart.sh` + `backend/reports/plugin_release/dry_run.md`，依赖 T031, T040, T049, T059)
 - [X] T063 [P] 补充单元测试以达到覆盖率目标（`backend/internal/service/plugin_release/pipeline/service_test.go`、`runtime/service_test.go`、`distribution/service_test.go`、`local/install_service_test.go`，依赖 T027, T035, T044, T053）
 - [X] T064 安全加固巡检（RBAC、审计保留、配置基线），覆盖 `backend/internal/service/plugin_release/*` 与 `backend/internal/transport/http/*`（依赖 T060-T063）
 
 **Final Checkpoint**：准备进入 `/implement` 阶段，满足 Constitution 与 FR/NFR 要求。
+
+---
+
+## Phase 8: Admin Web UI – Marketplace Ops Console（Priority P3）
+
+- [ ] T065 设计并实现离线包入库页面，提供表单上传与结果列表（`web-admin/app/pages/plugin-release/OfflinePackages.vue`，调用 `POST /api/admin/plugin-release/offline-packages`，依赖 T055）
+- [ ] T066 开发 Marketplace 审核列表页，展示补件次数/SLA 并消费 `GET /api/admin/plugin-release/marketplace/listings`（`web-admin/app/pages/plugin-release/MarketplaceListings.vue`，依赖 T055a）
+- [ ] T067 实现审核详情与操作视图，调用 `POST /api/admin/plugin-release/marketplace/listings/:id/reviews` 并处理 need_fix/approved/rejected 结果（`web-admin/app/pages/plugin-release/ReviewDetail.vue`，依赖 T066）
+- [ ] T068 为三处页面补充 service 层与单元测试（`web-admin/app/services/pluginRelease.ts`），确保异常时展示后端返回的审计 reference（依赖 T065-T067）
+- [ ] T069 配置前端菜单与路由注册（`web-admin/app/plugins.ts`、`web-admin/app/routes/admin.ts`），将新页面挂载到管理员菜单（依赖 T065-T068）
+- [ ] T070 编写 E2E 测试覆盖提交→审核→回滚流程（`web-admin/tests/e2e/plugin-release.spec.ts`，依赖 T065-T069）
+
+**Checkpoint**：运营可在 Web Admin 内完成离线包登记与 Marketplace 审核，无需额外 CLI。
