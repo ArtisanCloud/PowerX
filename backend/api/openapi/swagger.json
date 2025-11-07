@@ -2671,6 +2671,48 @@
         ]
       }
     },
+    "/api/v1/plugin-release/marketplace/listings": {
+      "post": {
+        "operationId": "POST /api/v1/plugin-release/marketplace/listings",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/v1/plugin-release/marketplace/listings",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/v1/plugin-release/marketplace/listings/:listingId/reviews": {
+      "post": {
+        "operationId": "POST /api/v1/plugin-release/marketplace/listings/_listingId/reviews",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/v1/plugin-release/marketplace/listings/_listingId/reviews",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/v1/plugin-release/offline-packages": {
+      "post": {
+        "operationId": "POST /api/v1/plugin-release/offline-packages",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/v1/plugin-release/offline-packages",
+        "tags": [
+          "api"
+        ]
+      }
+    },
     "/api/v1/plugin-release/plans": {
       "post": {
         "operationId": "POST /api/v1/plugin-release/plans",
@@ -2680,6 +2722,48 @@
           }
         },
         "summary": "POST /api/v1/plugin-release/plans",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/v1/plugin-release/plans/:planId/deploy/canary": {
+      "post": {
+        "operationId": "POST /api/v1/plugin-release/plans/_planId/deploy/canary",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/v1/plugin-release/plans/_planId/deploy/canary",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/v1/plugin-release/plans/:planId/deploy/finalize": {
+      "post": {
+        "operationId": "POST /api/v1/plugin-release/plans/_planId/deploy/finalize",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/v1/plugin-release/plans/_planId/deploy/finalize",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/v1/plugin-release/plans/:planId/deploy/rollback": {
+      "post": {
+        "operationId": "POST /api/v1/plugin-release/plans/_planId/deploy/rollback",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/v1/plugin-release/plans/_planId/deploy/rollback",
         "tags": [
           "api"
         ]

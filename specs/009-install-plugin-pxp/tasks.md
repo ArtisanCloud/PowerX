@@ -105,18 +105,18 @@
 ## Phase 6: User Story 3 – Multi-channel Distribution & Marketplace Visibility（Priority P3）
 
 ### Tests
-- [ ] T050 [P] [US3] gRPC 合同测试：UploadOfflinePackage / SubmitMarketplaceListing / ImportOfflinePackage (`backend/tests/contract/plugin_release/grpc_distribution_test.go`，依赖 T047)
-- [ ] T051 [P] [US3] HTTP Admin 合同测试：离线上传与 Marketplace 审核 (`backend/tests/contract/plugin_release/http_admin_distribution_test.go`，依赖 T046)
-- [ ] T052 [P] [US3] 集成测试：离线包审核 → 租户导入闭环 (`backend/tests/integration/plugin_release/test_offline_distribution_flow.go`，依赖 T044)
+- [X] T050 [P] [US3] gRPC 合同测试：UploadOfflinePackage / SubmitMarketplaceListing / ImportOfflinePackage (`backend/tests/contract/plugin_release/grpc_distribution_test.go`，依赖 T047)
+- [X] T051 [P] [US3] HTTP Admin 合同测试：离线上传与 Marketplace 审核 (`backend/tests/contract/plugin_release/http_admin_distribution_test.go`，依赖 T046)
+- [X] T052 [P] [US3] 集成测试：离线包审核 → 租户导入闭环 (`backend/tests/integration/plugin_release/test_offline_distribution_flow.go`，依赖 T044)
 
 ### 实现
-- [ ] T053 [US3] 实现 distribution service（离线包入库、渠道分发）`backend/internal/service/plugin_release/distribution/service.go`（依赖 T017, T044, T019）
-- [ ] T054 [US3] 实现签名/许可证校验工具 `backend/internal/service/plugin_release/distribution/validator.go`（依赖 T053）
-- [ ] T055 [US3] 实现 Admin HTTP distribution handler（离线包与 Marketplace 升级）`backend/internal/transport/http/admin/plugin_release/distribution_handler.go`（依赖 T053-T054, T022）
-- [ ] T056 [US3] 实现 OpenAPI Handler：企业租户离线导入 `backend/internal/transport/http/openapi/plugin_release/offline_import_handler.go`（依赖 T053-T054, T022）
-- [ ] T057 [US3] 扩展 gRPC Server：UploadOfflinePackage / SubmitMarketplaceListing / ImportOfflinePackage (`backend/internal/transport/grpc/plugin_release/server.go`，依赖 T053-T056, T047, T021)
-- [ ] T058 [US3] 更新 CLI：`powerx publish package --offline` 与 `powerx plugin import --offline` (`backend/cmd/powerx/commands/publish/package_offline.go`、`backend/cmd/powerx/commands/plugin/import_offline.go`，依赖 T023, T057)
-- [ ] T059 [US3] 实现补件升级与通知审计 `backend/internal/service/plugin_release/distribution/audit_hooks.go`（依赖 T053-T054, T019）
+- [X] T053 [US3] 实现 distribution service（离线包入库、渠道分发）`backend/internal/service/plugin_release/distribution/service.go`（依赖 T017, T044, T019）
+- [X] T054 [US3] 实现签名/许可证校验工具 `backend/internal/service/plugin_release/distribution/validator.go`（依赖 T053）
+- [X] T055 [US3] 实现 Admin HTTP distribution handler（离线包与 Marketplace 升级）`backend/internal/transport/http/admin/plugin_release/distribution_handler.go`（依赖 T053-T054, T022）
+- [X] T056 [US3] 实现 OpenAPI Handler：企业租户离线导入 `backend/internal/transport/http/openapi/plugin_release/offline_import_handler.go`（依赖 T053-T054, T022）
+- [X] T057 [US3] 扩展 gRPC Server：UploadOfflinePackage / SubmitMarketplaceListing / ImportOfflinePackage (`backend/internal/transport/grpc/plugin_release/server.go`，依赖 T053-T056, T047, T021)
+- [X] T058 [US3] 更新 CLI：`powerx publish package --offline` 与 `powerx plugin import --offline` (`backend/cmd/powerx/commands/publish/package_offline.go`、`backend/cmd/powerx/commands/plugin/import_offline.go`，依赖 T023, T057)
+- [X] T059 [US3] 实现补件升级与通知审计 `backend/internal/service/plugin_release/distribution/audit_hooks.go`（依赖 T053-T054, T019）
 
 **Checkpoint**：US3 完成在线/离线渠道发布与合规治理。
 

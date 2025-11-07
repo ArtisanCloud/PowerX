@@ -36,6 +36,8 @@ func setupPluginReleaseDeps(t *testing.T) (*shared.Deps, *gorm.DB) {
 		&models.PluginReleaseCandidate{},
 		&models.ReleasePlan{},
 		&models.CanaryDeploymentRecord{},
+		&models.OfflineDistributionPackage{},
+		&models.MarketplaceListing{},
 	))
 	require.NoError(t, db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_plugin_release_candidate_tenant_plugin_version ON plugin_release_candidates(tenant_id, plugin_id, version)").Error)
 
@@ -51,7 +53,10 @@ func setupPluginReleaseDeps(t *testing.T) (*shared.Deps, *gorm.DB) {
 		sessionRepo,
 		"test.plugin.release",
 		plugsvc.Options{
-			FeatureFlags: plugsvc.FeatureFlagOptions{EnableLocalInstall: true},
+			FeatureFlags: plugsvc.FeatureFlagOptions{
+				EnableLocalInstall:        true,
+				EnableOfflineDistribution: true,
+			},
 			LocalInstall: plugsvc.LocalInstallOptions{
 				SessionTTL:        10 * time.Minute,
 				MaxArtifactSizeMB: 50,
@@ -59,11 +64,34 @@ func setupPluginReleaseDeps(t *testing.T) (*shared.Deps, *gorm.DB) {
 			Runtime: plugsvc.RuntimeOptions{
 				RollbackTimeout: 5 * time.Minute,
 			},
+			Distribution: plugsvc.DistributionOptions{
+				OfflineBucket:       "test-offline",
+				OfflinePrefix:       "packages",
+				EscalationThreshold: 2,
+				ArtifactRetention:   30 * 24 * time.Hour,
+				ReviewSLA:           48 * time.Hour,
+			},
 		},
 	)
 
 	return &shared.Deps{
 		PluginReleaseService: service,
+		PluginReleaseOptions: shared.PluginReleaseOptions{
+			FeatureFlags: shared.PluginReleaseFeatureFlagsOptions{
+				EnableLocalInstall:        true,
+				EnableOfflineDistribution: true,
+			},
+			LocalInstall: shared.PluginReleaseLocalInstallOptions{
+				SessionTTL:        10 * time.Minute,
+				MaxArtifactSizeMB: 50,
+			},
+			Distribution: shared.PluginReleaseDistributionOptions{
+				OfflineBucket:       "test-offline",
+				OfflinePrefix:       "packages",
+				EscalationThreshold: 2,
+				ArtifactRetention:   30 * 24 * time.Hour,
+			},
+		},
 	}, db
 }
 

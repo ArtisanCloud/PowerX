@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/ArtisanCloud/PowerX/internal/service/plugin_release/distribution"
 	"github.com/ArtisanCloud/PowerX/internal/service/plugin_release/instrumentation"
 	"github.com/ArtisanCloud/PowerX/internal/service/plugin_release/local"
 	"github.com/ArtisanCloud/PowerX/internal/service/plugin_release/pipeline"
@@ -17,7 +18,8 @@ import (
 
 // FeatureFlagOptions controls runtime feature toggles for plugin release flows.
 type FeatureFlagOptions struct {
-	EnableLocalInstall bool
+	EnableLocalInstall        bool
+	EnableOfflineDistribution bool
 }
 
 // LocalInstallOptions encapsulates configuration for local hotload sessions.
@@ -39,27 +41,38 @@ type Options struct {
 	Clock        func() time.Time
 	EventBus     event_bus.EventBus
 	Runtime      RuntimeOptions
+	Distribution DistributionOptions
+}
+
+// DistributionOptions configures offline package storage.
+type DistributionOptions struct {
+	OfflineBucket       string
+	OfflinePrefix       string
+	EscalationThreshold int
+	ArtifactRetention   time.Duration
+	ReviewSLA           time.Duration
 }
 
 // Service aggregates repositories and instrumentation for plugin release orchestration.
 type Service struct {
-	candidates     *repo.ReleaseCandidateRepository
-	plans          *repo.ReleasePlanRepository
-	distribution   *repo.DistributionRepository
-	localSessions  *repo.LocalInstallSessionRepository
-	instruments    *instrumentation.Instruments
-	tracerProvider *instrumentation.TracerProvider
-	localInstall   *local.InstallService
-	runtime        *runtime.Service
-	pipeline       *pipeline.Service
-	options        Options
+	candidates       *repo.ReleaseCandidateRepository
+	plans            *repo.ReleasePlanRepository
+	distributionRepo *repo.DistributionRepository
+	localSessions    *repo.LocalInstallSessionRepository
+	distributionSvc  *distribution.Service
+	instruments      *instrumentation.Instruments
+	tracerProvider   *instrumentation.TracerProvider
+	localInstall     *local.InstallService
+	runtime          *runtime.Service
+	pipeline         *pipeline.Service
+	options          Options
 }
 
 // NewService wires plugin release repositories with shared instrumentation.
 func NewService(
 	candidates *repo.ReleaseCandidateRepository,
 	plans *repo.ReleasePlanRepository,
-	distribution *repo.DistributionRepository,
+	distributionRepo *repo.DistributionRepository,
 	localSessions *repo.LocalInstallSessionRepository,
 	componentName string,
 	opts Options,
@@ -72,13 +85,13 @@ func NewService(
 	}
 
 	svc := &Service{
-		candidates:     candidates,
-		plans:          plans,
-		distribution:   distribution,
-		localSessions:  localSessions,
-		instruments:    instrumentation.NewInstruments(componentName),
-		tracerProvider: instrumentation.NewTracerProvider(componentName),
-		options:        opts,
+		candidates:       candidates,
+		plans:            plans,
+		distributionRepo: distributionRepo,
+		localSessions:    localSessions,
+		instruments:      instrumentation.NewInstruments(componentName),
+		tracerProvider:   instrumentation.NewTracerProvider(componentName),
+		options:          opts,
 	}
 	if opts.Runtime.RollbackTimeout <= 0 {
 		opts.Runtime.RollbackTimeout = 5 * time.Minute
@@ -121,6 +134,23 @@ func NewService(
 		RollbackTimeout: opts.Runtime.RollbackTimeout,
 	})
 
+	distHooks := distribution.NewAuditHooks(opts.Auditor)
+	svc.distributionSvc = distribution.NewService(distribution.Dependencies{
+		Candidates:  candidates,
+		Repository:  distributionRepo,
+		Instruments: svc.instruments,
+		Validator:   distribution.NewValidator(),
+		Hooks:       distHooks,
+		Clock:       opts.Clock,
+	}, distribution.Options{
+		OfflineBucket:       opts.Distribution.OfflineBucket,
+		OfflinePrefix:       opts.Distribution.OfflinePrefix,
+		EscalationThreshold: opts.Distribution.EscalationThreshold,
+		ArtifactRetention:   opts.Distribution.ArtifactRetention,
+		ReviewSLA:           opts.Distribution.ReviewSLA,
+		FeatureEnabled:      opts.FeatureFlags.EnableOfflineDistribution,
+	})
+
 	return svc
 }
 
@@ -157,4 +187,12 @@ func (s *Service) Pipeline() *pipeline.Service {
 // Runtime exposes deployment runtime orchestration.
 func (s *Service) Runtime() *runtime.Service {
 	return s.runtime
+}
+
+// Distribution exposes offline package and marketplace orchestration.
+func (s *Service) Distribution() *distribution.Service {
+	if s == nil {
+		return nil
+	}
+	return s.distributionSvc
 }

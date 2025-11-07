@@ -77,6 +77,24 @@ func (r *DistributionRepository) GetPackageByID(ctx context.Context, id uint64) 
 	return &pkg, nil
 }
 
+// GetListingByID fetches a marketplace listing by primary key.
+func (r *DistributionRepository) GetListingByID(ctx context.Context, id uint64) (*models.MarketplaceListing, error) {
+	if id == 0 {
+		return nil, gorm.ErrInvalidData
+	}
+	var listing models.MarketplaceListing
+	err := r.db.WithContext(ctx).
+		Where("id = ?", id).
+		Take(&listing).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &listing, nil
+}
+
 // CreateListing creates a new marketplace listing referencing the offline package.
 func (r *DistributionRepository) CreateListing(ctx context.Context, listing *models.MarketplaceListing) (*models.MarketplaceListing, error) {
 	if listing == nil {

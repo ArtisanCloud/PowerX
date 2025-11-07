@@ -26,4 +26,10 @@ func RegisterAPIRoutes(public, protected *gin.RouterGroup, deps *shared.Deps) {
 		group.POST("/plans/:planId/deploy/finalize", runtimeHandler.finalizeDeployment)
 		group.POST("/plans/:planId/deploy/rollback", runtimeHandler.rollback)
 	}
+
+	if distHandler := newDistributionHandler(deps.PluginReleaseService.Distribution()); distHandler != nil {
+		group.POST("/offline-packages", distHandler.createOfflinePackage)
+		group.POST("/marketplace/listings", distHandler.createListing)
+		group.POST("/marketplace/listings/:listingId/reviews", distHandler.reviewListing)
+	}
 }

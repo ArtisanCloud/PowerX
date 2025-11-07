@@ -222,6 +222,13 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 			Runtime: pluginReleaseService.RuntimeOptions{
 				RollbackTimeout: opts.PluginRelease.Canary.RollbackTimeout,
 			},
+			Distribution: pluginReleaseService.DistributionOptions{
+				OfflineBucket:       opts.PluginRelease.Distribution.OfflineBucket,
+				OfflinePrefix:       opts.PluginRelease.Distribution.OfflinePrefix,
+				EscalationThreshold: opts.PluginRelease.Distribution.EscalationThreshold,
+				ArtifactRetention:   opts.PluginRelease.Distribution.ArtifactRetention,
+				ReviewSLA:           48 * time.Hour,
+			},
 		},
 	)
 

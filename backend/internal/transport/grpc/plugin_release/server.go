@@ -1,6 +1,7 @@
 package plugin_release
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -13,6 +14,7 @@ import (
 	pluginreleasepb "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/plugin_release/v1"
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
 	svc "github.com/ArtisanCloud/PowerX/internal/service/plugin_release"
+	"github.com/ArtisanCloud/PowerX/internal/service/plugin_release/distribution"
 	"github.com/ArtisanCloud/PowerX/internal/service/plugin_release/local"
 	"github.com/ArtisanCloud/PowerX/internal/service/plugin_release/pipeline"
 	"github.com/ArtisanCloud/PowerX/internal/service/plugin_release/runtime"
@@ -320,6 +322,123 @@ func (s *server) FinalizeDeployment(ctx context.Context, req *pluginreleasepb.Fi
 	}, nil
 }
 
+func (s *server) UploadOfflinePackage(stream pluginreleasepb.PluginReleaseService_UploadOfflinePackageServer) error {
+	distSvc := s.distribution()
+	if distSvc == nil {
+		return status.Error(codes.Unavailable, "distribution service unavailable")
+	}
+	ctx := stream.Context()
+	var (
+		candidateUUID uuid.UUID
+		checksum      string
+		buffer        bytes.Buffer
+	)
+	for {
+		chunk, err := stream.Recv()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return status.Errorf(codes.Internal, "receive offline package chunk failed: %v", err)
+		}
+		if candidateUUID == uuid.Nil {
+			value := strings.TrimSpace(chunk.GetCandidateId())
+			if value == "" {
+				return status.Error(codes.InvalidArgument, "candidate_id is required")
+			}
+			candidateUUID, err = uuid.Parse(value)
+			if err != nil {
+				return status.Error(codes.InvalidArgument, "invalid candidate_id")
+			}
+		}
+		if len(chunk.GetChunk()) > 0 {
+			if _, err := buffer.Write(chunk.GetChunk()); err != nil {
+				return status.Errorf(codes.Internal, "buffer chunk failed: %v", err)
+			}
+		}
+		if trimmed := strings.TrimSpace(chunk.GetChecksum()); trimmed != "" {
+			checksum = trimmed
+		}
+		if chunk.GetEof() {
+			break
+		}
+	}
+	if candidateUUID == uuid.Nil {
+		return status.Error(codes.InvalidArgument, "candidate_id is required in stream")
+	}
+	if strings.TrimSpace(checksum) == "" {
+		return status.Error(codes.InvalidArgument, "checksum is required in stream")
+	}
+
+	pkg, err := distSvc.StoreOfflinePackage(ctx, distribution.StoreOfflinePackageInput{
+		CandidateID: candidateUUID,
+		Content:     buffer.Bytes(),
+		Checksum:    checksum,
+		Actor:       actorFromContext(ctx),
+	})
+	if err != nil {
+		return mapDistributionError(err)
+	}
+	return stream.SendAndClose(&pluginreleasepb.UploadOfflinePackageResponse{
+		OfflinePackageId: strconv.FormatUint(pkg.ID, 10),
+		PackageUri:       pkg.PackageURI,
+	})
+}
+
+func (s *server) SubmitMarketplaceListing(ctx context.Context, req *pluginreleasepb.SubmitMarketplaceListingRequest) (*pluginreleasepb.MarketplaceListing, error) {
+	distSvc := s.distribution()
+	if distSvc == nil {
+		return nil, status.Error(codes.Unavailable, "distribution service unavailable")
+	}
+	packageID, err := strconv.ParseUint(strings.TrimSpace(req.GetOfflinePackageId()), 10, 64)
+	if err != nil || packageID == 0 {
+		return nil, status.Error(codes.InvalidArgument, "invalid offline_package_id")
+	}
+	listing, err := distSvc.SubmitListing(ctx, distribution.SubmitListingInput{
+		OfflinePackageID: packageID,
+		Channel:          strings.TrimSpace(req.GetChannel()),
+		Pricing:          decodeJSONMapString(req.GetPricingJson()),
+		SupportPolicy:    decodeJSONMapString(req.GetSupportPolicyJson()),
+		SubmissionForm:   nil,
+		Actor:            actorFromContext(ctx),
+	})
+	if err != nil {
+		return nil, mapDistributionError(err)
+	}
+	return &pluginreleasepb.MarketplaceListing{
+		ListingId:    strconv.FormatUint(listing.ID, 10),
+		Channel:      listing.Channel,
+		ReviewStatus: listing.ReviewStatus,
+		ReviewCount:  uint32(listing.ReviewCount),
+	}, nil
+}
+
+func (s *server) ImportOfflinePackage(ctx context.Context, req *pluginreleasepb.ImportOfflinePackageRequest) (*pluginreleasepb.ImportOfflinePackageResponse, error) {
+	distSvc := s.distribution()
+	if distSvc == nil {
+		return nil, status.Error(codes.Unavailable, "distribution service unavailable")
+	}
+	tenantID := strings.TrimSpace(req.GetTenantId())
+	if tenantID == "" {
+		return nil, status.Error(codes.InvalidArgument, "tenant_id is required")
+	}
+	job, err := distSvc.StartOfflineImport(ctx, distribution.OfflineImportInput{
+		TenantID:        tenantID,
+		PackageURI:      strings.TrimSpace(req.GetPackageUri()),
+		Checksum:        strings.TrimSpace(req.GetChecksum()),
+		DryRun:          req.GetDryRun(),
+		LicenseAccepted: true,
+		Actor:           actorFromContext(ctx),
+	})
+	if err != nil {
+		return nil, mapDistributionError(err)
+	}
+	return &pluginreleasepb.ImportOfflinePackageResponse{
+		JobId:  job.ID,
+		Status: job.Status,
+	}, nil
+}
+
 func (s *server) localInstall() *local.InstallService {
 	if s == nil || s.svc == nil {
 		return nil
@@ -339,6 +458,13 @@ func (s *server) runtime() *runtime.Service {
 		return nil
 	}
 	return s.svc.Runtime()
+}
+
+func (s *server) distribution() *distribution.Service {
+	if s == nil || s.svc == nil {
+		return nil
+	}
+	return s.svc.Distribution()
 }
 
 func parseTenantID(raw string) (uint64, error) {
@@ -524,6 +650,17 @@ func decodeProtoBatches(raw datatypes.JSON) []*pluginreleasepb.CanaryBatch {
 	return result
 }
 
+func decodeJSONMapString(raw string) map[string]any {
+	if strings.TrimSpace(raw) == "" {
+		return nil
+	}
+	var payload map[string]any
+	if err := json.Unmarshal([]byte(raw), &payload); err != nil {
+		return nil
+	}
+	return payload
+}
+
 func mapPipelineError(err error) error {
 	switch {
 	case errors.Is(err, pipeline.ErrInvalidInput):
@@ -551,6 +688,22 @@ func mapRuntimeError(err error) error {
 	default:
 		logger.WarnF(context.Background(), "runtime operation failed: %v", err)
 		return status.Error(codes.Internal, "runtime operation failed")
+	}
+}
+
+func mapDistributionError(err error) error {
+	switch {
+	case errors.Is(err, distribution.ErrFeatureDisabled):
+		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, distribution.ErrInvalidInput):
+		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, distribution.ErrCandidateNotFound),
+		errors.Is(err, distribution.ErrPackageNotFound),
+		errors.Is(err, distribution.ErrListingNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	default:
+		logger.WarnF(context.Background(), "distribution operation failed: %v", err)
+		return status.Error(codes.Internal, "distribution operation failed")
 	}
 }
 
