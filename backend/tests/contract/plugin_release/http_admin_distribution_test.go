@@ -164,3 +164,82 @@ func TestAdminDistributionEndpoints(t *testing.T) {
 	require.NotNil(t, listing.EscalatedAt)
 	require.WithinDuration(t, time.Now(), *listing.EscalatedAt, time.Minute)
 }
+
+func TestAdminDistributionListingsQuery(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	deps, _ := setupPluginReleaseDeps(t)
+	ctx := context.Background()
+
+	candidate, err := deps.PluginReleaseService.CreateCandidate(ctx, &models.PluginReleaseCandidate{
+		TenantID:         "tenant-list",
+		PluginID:         "px.list",
+		Version:          "v1.0.1",
+		BuildArtifactURI: "s3://bucket/list.zip",
+		CommitHash:       "commit-listing",
+		ReleaseNotes:     "listing query test",
+		GateStatus:       models.PluginReleaseGateStatusPassed,
+		ApprovalStatus:   models.PluginReleaseApprovalApproved,
+	})
+	require.NoError(t, err)
+
+	engine := gin.New()
+	protected := engine.Group("/api/admin")
+	protected.Use(func(c *gin.Context) {
+		if c.GetHeader("Authorization") == "" {
+			c.AbortWithStatus(http.StatusUnauthorized)
+			return
+		}
+		ctxWithClaims := reqctx.WithClaims(c.Request.Context(), &reqctx.CoreXClaims{
+			IsRoot: true,
+			Roles:  []string{"system_admin"},
+		})
+		c.Request = c.Request.WithContext(ctxWithClaims)
+		c.Next()
+	})
+	adminhandler.RegisterAPIRoutes(nil, protected, deps)
+
+	// create listing first
+	pkgReq := httptest.NewRequest(http.MethodPost, "/api/admin/plugin-release/offline-packages", bytes.NewReader([]byte(`{
+		"releaseCandidateId":"`+candidate.UUID.String()+`",
+		"packageUri":"s3://offline/packages/px-list.pxp",
+		"checksum":"sha256:test-checksum-list",
+		"signatureFingerprint":"fingerprint-list"
+	}`)))
+	pkgReq.Header.Set("Authorization", "Bearer admin")
+	pkgResp := httptest.NewRecorder()
+	engine.ServeHTTP(pkgResp, pkgReq)
+	require.Equal(t, http.StatusCreated, pkgResp.Code)
+
+	listReq := httptest.NewRequest(http.MethodPost, "/api/admin/plugin-release/marketplace/listings", bytes.NewReader([]byte(`{
+		"offlinePackageId":1,
+		"channel":"online",
+		"pricing":{"tier":"standard"},
+		"supportPolicy":{"sla":"8x5"}
+	}`)))
+	listReq.Header.Set("Authorization", "Bearer admin")
+	listResp := httptest.NewRecorder()
+	engine.ServeHTTP(listResp, listReq)
+	require.Equal(t, http.StatusCreated, listResp.Code)
+
+	getReq := httptest.NewRequest(http.MethodGet, "/api/admin/plugin-release/marketplace/listings?page=1&size=10", nil)
+	getReq.Header.Set("Authorization", "Bearer admin")
+	getResp := httptest.NewRecorder()
+	engine.ServeHTTP(getResp, getReq)
+	require.Equal(t, http.StatusOK, getResp.Code)
+
+	var payload struct {
+		Code int `json:"code"`
+		Data struct {
+			Items []models.MarketplaceListing `json:"items"`
+			Total int64                       `json:"total"`
+			Page  int                         `json:"page"`
+			Size  int                         `json:"size"`
+		} `json:"data"`
+	}
+	require.NoError(t, json.Unmarshal(getResp.Body.Bytes(), &payload))
+	require.Equal(t, http.StatusOK, payload.Code)
+	require.GreaterOrEqual(t, len(payload.Data.Items), 1)
+	require.Equal(t, int64(1), payload.Data.Total)
+	require.Equal(t, 1, payload.Data.Page)
+	require.Equal(t, 10, payload.Data.Size)
+}

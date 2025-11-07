@@ -34,7 +34,9 @@
    ```
 
 ## 第 3 步：下发 Prometheus 告警
+
 1. 参考 `backend/internal/service/plugin_release/instrumentation/alerts.go` 中的 `BuildDefaultAlertSuite`，生成告警规则：
+
    ```yaml
    groups:
      - name: plugin-release
@@ -49,8 +51,44 @@
              summary: Canary rollback triggered
              description: "请检查 powerx publish deploy 的日志与指标。"
    ```
+
 2. 使用 `kubectl apply -f alerts.yaml` 或 Alertmanager CI 流水线将规则部署到集群。
+
 3. 通过 `promtool test rules alerts_test.yaml` 校验表达式是否通过编译。
+
+## 第 3.1 步：Web Admin UI 操作监控
+
+PowerX Web Admin 集成了实时指标展示，便于运维人员快速了解系统状态：
+
+### 页面内置监控面板
+
+1. **「Marketplace 审核列表」页面**
+   - 审核状态变更会触发实时指标更新
+   - 审核详情页的 SLA 倒计时基于后端 `plugin_release.distribution.sla_seconds` 计算
+   - 页面自动显示离截止时间 < 4 小时的预警提示
+
+2. **E2E 监控测试**
+   - Web Admin 包含完整的 Playwright E2E 测试，覆盖：
+     - 离线包提交流程（T070-1）
+     - Marketplace 审核操作（T070-2）
+     - 详情页 SLA 监控显示（T070-3）
+   - 运行测试：`cd web-admin && npm run test:e2e`
+   - 测试报告保存在 `web-admin/test-results/`
+
+### 关键指标映射
+
+- UI 操作直接关联后端指标：
+  - 审核提交 → `plugin_release.distribution.review_latency_seconds`
+  - 状态变更 → `plugin_release.distribution.status_transition_total`
+  - SLA 预警 → `plugin_release.distribution.sla_approaching_total`
+
+### Grafana 仪表盘增强
+
+在现有仪表盘中添加 UI 特定面板：
+
+- **Recent Review Actions**：最近1小时审核操作时间序列
+- **SLA Approaching Count**：即将超时的审核数量
+- **UI Error Rate**：Web Admin 页面错误率（加载失败、API超时等）
 
 ## 第 4 步：演练与 Runbook
 1. 执行一次示例灰度：`powerx publish deploy --plan-id <id> --batch-name batch-a`。

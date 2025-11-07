@@ -55,7 +55,55 @@
    - `plugin_release_offline_import_stuck`
 3. 使用 `promtool test rules` 校验告警规则是否可用。
 
-## 第 6 步：签署与发布
+## 第 5 步：签署与发布
+
 1. 收集证据（配置 diff、测试日志、Grafana 截图）。
 2. 安全审核在发布工单中引用本指南给出签署意见。
 3. 完成签署后，解除维护模式并通知 Marketplace/CLI 团队环境已准备就绪。
+
+## 附录 A：Web Admin 前端安全配置
+
+### A.1 身份认证与授权
+
+1. **Token 管理**
+   - Web Admin 使用 Bearer Token 进行身份认证
+   - Token 存储在 localStorage，页面刷新后自动恢复会话
+   - Token 过期后自动跳转登录页
+
+2. **路由守卫**
+   - 所有 `/admin/*` 路由需要 `admin` 或 `system_admin` 角色
+   - 前端路由守卫依赖用户角色信息（`localStorage.user`）
+   - 实际权限验证在后端 API 层执行
+
+3. **API 安全**
+   - 所有 Admin API 请求强制携带 Authorization 头
+   - 后端 `AdminOnlyMiddleware` 验证 Token 权限范围
+   - 无效 Token 或权限不足返回 401/403 错误
+
+### A.2 前端安全措施
+
+1. **Playwright E2E 测试安全检查**
+   - 测试套件包含权限验证测试：
+     - 验证未登录用户无法访问管理页面
+     - 验证普通用户无法执行审核操作
+     - 验证 Token 失效时页面正确处理
+   - 运行安全测试：`cd web-admin && npm run test:e2e -- --grep "安全"`
+
+2. **依赖安全审计**
+   - 定期执行 `npm audit` 检查依赖漏洞
+   - package.json 使用固定版本号（避免供应链攻击）
+   - .gitignore 忽略敏感文件（.env、测试产物等）
+
+3. **前端日志脱敏**
+   - E2E 测试中禁止输出真实 Token
+   - 测试数据使用模拟值（如 `test-token`、`admin@test.com`）
+   - 生产环境错误日志不包含用户敏感信息
+
+### A.3 部署安全检查清单
+
+- [ ] Web Admin 构建时移除 console.log 调试信息
+- [ ] 生产环境开启 CSP（内容安全策略）
+- [ ] HTTPS 强制启用，HTTP 重定向到 HTTPS
+- [ ] 敏感 API 启用请求频率限制（防止暴力攻击）
+- [ ] XSS 防护：所有用户输入进行转义
+- [ ] CSRF 防护：Admin 页面操作携带 CSRF Token

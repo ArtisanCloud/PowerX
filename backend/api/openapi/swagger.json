@@ -2672,6 +2672,18 @@
       }
     },
     "/api/v1/plugin-release/marketplace/listings": {
+      "get": {
+        "operationId": "GET /api/v1/plugin-release/marketplace/listings",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "GET /api/v1/plugin-release/marketplace/listings",
+        "tags": [
+          "api"
+        ]
+      },
       "post": {
         "operationId": "POST /api/v1/plugin-release/marketplace/listings",
         "responses": {
