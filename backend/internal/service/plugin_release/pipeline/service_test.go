@@ -34,7 +34,10 @@ func TestPipelineGeneratesPlanAfterGates(t *testing.T) {
 		BuildArtifact: "s3://bucket/plugins/v1.0.0.zip",
 		CommitHash:    "abcdef123456",
 		ReleaseNotes:  "Release note describing QA coverage, rollback plan and sign-off.",
-		Labels:        map[string]string{"channel": "beta"},
+		Labels: map[string]string{
+			"channel":  "beta",
+			"coverage": "95",
+		},
 		Actor:         "unittest",
 	})
 	require.NoError(t, err)
@@ -68,4 +71,30 @@ func TestPipelineGeneratesPlanAfterGates(t *testing.T) {
 	require.NotNil(t, plan)
 	require.Equal(t, models.ReleasePlanStatusDraft, plan.Status)
 	require.Equal(t, models.PluginReleaseApprovalApproved, updatedCandidate.ApprovalStatus)
+}
+
+func TestSubmitCandidateValidation(t *testing.T) {
+	prevSchema := coremodel.PowerXSchema
+	coremodel.PowerXSchema = ""
+	t.Cleanup(func() { coremodel.PowerXSchema = prevSchema })
+
+	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared&_loc=UTC"), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, db.Exec("ATTACH DATABASE ':memory:' AS public").Error)
+	require.NoError(t, db.AutoMigrate(&models.PluginReleaseCandidate{}))
+
+	candidateRepo := repo.NewReleaseCandidateRepository(db)
+	planRepo := repo.NewReleasePlanRepository(db)
+
+	svc := NewService(candidateRepo, planRepo, nil, Options{})
+	_, err = svc.SubmitCandidate(context.Background(), SubmitCandidateInput{
+		TenantID:      "tenant-id",
+		PluginID:      "",
+		Version:       "v1",
+		BuildArtifact: "s3://bucket/artifact.zip",
+		CommitHash:    "abc",
+		ReleaseNotes:  "notes",
+	})
+	require.Error(t, err)
+	require.Equal(t, ErrInvalidInput, err)
 }

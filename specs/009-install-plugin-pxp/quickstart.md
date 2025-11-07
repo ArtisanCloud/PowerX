@@ -34,9 +34,14 @@ go run cmd/server/main.go --enable-plugin-release
 2. 在插件仓库执行：
    ```bash
    px-plugin build --target local
-   px-plugin dev --watch --push grpc://localhost:9090
+   px-plugin dev --watch \
+     --grpc-addr localhost:9090 \
+     --tenant-id 101 --developer-id 2025 \
+     --artifact ./dist/plugin-bundle.zip \
+     --feature-flag beta_ui
    ```
-3. 运行 `powerx publish create --plugin-id <id> --version v1.2.3 --notes release.md` 触发 Release Candidate。
+   该命令会通过 gRPC `StartLocalInstall`/`PushHotReload`，并在 15 分钟 SLA 内把调试日志写入 `plugin_release.hotload.latency_ms`。
+3. 运行 `powerx publish create --tenant-id 1001 --plugin-id px.demo --version v1.2.3 --artifact-uri s3://bucket/px-demo-v1.2.3.zip --commit <sha>` 触发 Release Candidate，随后 `powerx publish deploy --plan-id <id> --batch-name batch-a` 验证灰度。
 
 ## 5. 审批与灰度
 1. 使用 Web Admin 调用 Admin API（或 `curl`）：
@@ -49,13 +54,38 @@ go run cmd/server/main.go --enable-plugin-release
 3. 当 Prometheus 指标触发告警时，确认自动回滚在 5 分钟内执行，可通过 Grafana Dashboard `Plugin Release / Canary` 观察。
 
 ## 6. 离线包与 Marketplace
-```bash
-powerx publish package --candidate <id> --offline \
-  --output s3://plugin-release/offline/<id>.pxp
-curl -X POST http://localhost:8080/api/admin/marketplace/listings \
-  -d '{"offlinePackageId": "...", "channel":"offline"}'
-```
-系统会在 48 小时 SLA 内返回审核结果，并在 `MarketplaceListing` 中记录补件/升级状态。
+1. 使用新的 CLI 上传离线包：
+   ```bash
+   powerx publish package \
+     --offline \
+     --candidate-id <candidate-uuid> \
+     --artifact ./dist/plugin-release.pxp \
+     --grpc-addr localhost:9090
+   ```
+   命令会对 artifact 计算 SHA256 并通过 `UploadOfflinePackage` 生成包 URI。
+2. Web Admin 提交 Marketplace 审核：
+   ```bash
+   curl -X POST http://localhost:8080/api/admin/plugin-release/marketplace/listings \
+     -H "Authorization: Bearer <admin>" \
+     -d '{
+       "offlinePackageId": 1,
+       "channel": "online",
+       "pricing": {"tier":"enterprise"},
+       "supportPolicy": {"sla":"24x7"}
+     }'
+   ```
+   如需补件或升级，可调用 `POST /api/admin/plugin-release/marketplace/listings/{id}/reviews`。
+3. 企业租户完成离线导入：
+   ```bash
+   powerx plugin import \
+     --offline \
+     --tenant-id 88001 \
+     --package-uri s3://plugin-release/offline/<id>.pxp \
+     --checksum <sha256> \
+     --grpc-addr localhost:9090
+   ```
+   或调用 OpenAPI `POST /api/tenant/offline-imports`。
+4. 系统会在 48 小时 SLA 内返回审核结果，所有补件、升级均写入 `MarketplaceListing` 与 `plugin_release_distribution` 指标。
 
 ## 7. 清理
 ```bash

@@ -124,10 +124,10 @@
 
 ## Phase 7: Polish & Cross-Cutting
 
-- [ ] T060 [P] 完成 Prometheus/Grafana 仪表盘与告警规则（`backend/internal/service/plugin_release/instrumentation/alerts.go`，`docs/observability/plugin_release-dashboard.md`，依赖 T045, T059）
-- [ ] T061 更新 Quickstart 与业务文档（`specs/001-install-plugin-pxp/quickstart.md`、`docs/use_cases/_from_hub/SCN-PUBLISH-HUB-001/*.md`，依赖 T030, T048, T058）
-- [ ] T062 运行 quickstart 演练，产出报告 (`scripts/ci/run_quickstart.sh` + `backend/reports/plugin_release/dry_run.md`，依赖 T031, T040, T049, T059)
-- [ ] T063 [P] 补充单元测试以达到覆盖率目标（`backend/internal/service/plugin_release/pipeline/service_test.go`、`runtime/service_test.go`、`distribution/service_test.go`、`local/install_service_test.go`，依赖 T027, T035, T044, T053）
-- [ ] T064 安全加固巡检（RBAC、审计保留、配置基线），覆盖 `backend/internal/service/plugin_release/*` 与 `backend/internal/transport/http/*`（依赖 T060-T063）
+- [X] T060 [P] 完成 Prometheus/Grafana 仪表盘与告警规则（`backend/internal/service/plugin_release/instrumentation/alerts.go`，`docs/observability/plugin_release-dashboard.md`，依赖 T045, T059）
+- [X] T061 更新 Quickstart 与业务文档（`specs/001-install-plugin-pxp/quickstart.md`、`docs/use_cases/_from_hub/SCN-PUBLISH-HUB-001/*.md`，依赖 T030, T048, T058）
+- [X] T062 运行 quickstart 演练，产出报告 (`scripts/ci/run_quickstart.sh` + `backend/reports/plugin_release/dry_run.md`，依赖 T031, T040, T049, T059)
+- [X] T063 [P] 补充单元测试以达到覆盖率目标（`backend/internal/service/plugin_release/pipeline/service_test.go`、`runtime/service_test.go`、`distribution/service_test.go`、`local/install_service_test.go`，依赖 T027, T035, T044, T053）
+- [X] T064 安全加固巡检（RBAC、审计保留、配置基线），覆盖 `backend/internal/service/plugin_release/*` 与 `backend/internal/transport/http/*`（依赖 T060-T063）
 
 **Final Checkpoint**：准备进入 `/implement` 阶段，满足 Constitution 与 FR/NFR 要求。

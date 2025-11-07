@@ -13,6 +13,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/internal/service/plugin_release/pipeline"
 	"github.com/ArtisanCloud/PowerX/internal/service/plugin_release/runtime"
 	adminhandler "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/plugin_release"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 )
@@ -30,6 +31,9 @@ func TestAdminCanaryDeployEndpoints(t *testing.T) {
 		BuildArtifact: "s3://releases/v3.2.1.zip",
 		CommitHash:    "commit123456",
 		ReleaseNotes:  "Admin HTTP deployment test release.",
+		Labels: map[string]string{
+			"coverage": "95",
+		},
 	})
 	require.NoError(t, err)
 	_, err = pipelineSvc.RunQualityGates(ctx, pipeline.RunQualityGatesInput{CandidateID: candidate.UUID})
@@ -56,6 +60,18 @@ func TestAdminCanaryDeployEndpoints(t *testing.T) {
 
 	engine := gin.New()
 	protected := engine.Group("/api/admin")
+	protected.Use(func(c *gin.Context) {
+		if c.GetHeader("Authorization") == "" {
+			c.AbortWithStatus(http.StatusUnauthorized)
+			return
+		}
+		ctx := reqctx.WithClaims(c.Request.Context(), &reqctx.CoreXClaims{
+			IsRoot: true,
+			Roles:  []string{"system_admin"},
+		})
+		c.Request = c.Request.WithContext(ctx)
+		c.Next()
+	})
 	adminhandler.RegisterAPIRoutes(nil, protected, deps)
 
 	triggerBody, _ := json.Marshal(map[string]string{

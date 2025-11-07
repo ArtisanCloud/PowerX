@@ -28,15 +28,18 @@ linked_requirements:
   - type: scenario
     ref: SCN-PUBLISH-ONLINE-001
 code_refs:
-  - component: online_install_service
-    path: backend/internal/plugins/online/install_service.go
-    description: 管理远程包下载、验证与安装状态机
-  - component: upgrade_scheduler
-    path: backend/internal/plugins/online/upgrade_scheduler.go
-    description: 根据租户策略调度自动升级窗口与批次
-  - component: marketplace_catalog_sync
-    path: backend/internal/plugins/catalog/catalog_syncer.go
-    description: 同步 Marketplace 版本元数据并缓存到本地 catalog
+  - component: pipeline_service
+    path: backend/internal/service/plugin_release/pipeline/service.go
+    description: 接收发布申请、生成发布计划与审批轨迹
+  - component: runtime_service
+    path: backend/internal/service/plugin_release/runtime/service.go
+    description: 负责灰度批次、指标监控、自动回滚
+  - component: grpc_server
+    path: backend/internal/transport/grpc/plugin_release/server.go
+    description: 暴露 `TriggerCanary`、`FinalizeDeployment` 和 CLI 所需的 gRPC 接口
+  - component: admin_deployment_handler
+    path: backend/internal/transport/http/admin/plugin_release/deployment_handler.go
+    description: Admin `/plans/:id/deploy/*` HTTP API 入口
 feature_flags:
   - name: PX_ONLINE_INSTALL
     description: 控制 `install/url` API 是否开放以及可访问的来源域名
@@ -125,25 +128,20 @@ sequenceDiagram
 
 # Contracts & Interfaces
 
-- **Inbound APIs**
-  - `POST /api/admin/plugins/install/url`
-    - Body：`tenantId`, `versionId`, `source`, `strategy`（immediate|scheduled）, `notes`.
-    - 权限：`admin.plugins.install`；需启用 `PX_ONLINE_INSTALL`。
-    - 响应：`installJobId`, `status`, `auditId`, `nextCheckAt`.
-  - `POST /api/admin/plugins/upgrade/schedule`
-    - 用于配置自动升级的批次、窗口、黑白名单。
-  - `GET /api/admin/plugins/versions`
-    - 返回同步后的版本列表、风险等级、可用策略。
+- **Inbound APIs / CLI**
+  - `POST /api/admin/plugin-release/candidates` + `/plans`：发布经理在 Web Admin 中触发审批与生成发布计划。
+  - `POST /api/admin/plugin-release/plans/:planId/deploy/*`：触发灰度、Finalize、Rollback。
+  - `powerx publish deploy --plan-id <id> --batch-name batch-a --final-action promote`：CLI 入口，复用 gRPC `TriggerCanary`、`FinalizeDeployment`。
+  - `GET /api/admin/plugin-release/candidates/:id`：查询审批进度、门禁状态与可用版本。
 - **Outbound 交互**
   - Marketplace Catalog Event（如 `publish.approved` 消息或轮询接口）——同步版本元数据。
   - Package Storage（S3/OSS/CDN）——下载 artefact，支持预签名 URL、断点续传。
   - Telemetry / Metrics API —— `POST /telemetry/powerx/plugins/install`，记录耗时、成功率、失败原因。
   - Notification Service —— 触发 Ops 通知或租户消息（Webhook/Slack/Email）。
 - **配置项**
-  - `PX_ONLINE_ALLOWED_HOSTS`：允许的 Marketplace 域名列表。
-  - `PX_ONLINE_CACHE_TTL`：下载包缓存时长与大小阈值。
-  - `PX_UPGRADE_MAX_BATCH`：单批次升级的租户上限。
-  - `PX_UPGRADE_ROLLBACK_POLICY`：失败阈值与自动回滚策略。
+  - `PluginReleaseOptions.FeatureFlags.EnablePipelineDeployment`：控制 guardrail/pipeline 是否可用。
+  - `PluginReleaseOptions.Canary.RollbackTimeout`：定义 5 分钟自动回滚 SLA。
+  - `PluginReleaseOptions.Distribution.EscalationThreshold`：与 Marketplace Listing 补件策略共享。
 
 # Implementation Checklist
 

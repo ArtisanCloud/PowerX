@@ -34,6 +34,11 @@ func (h *offlineImportHandler) startImport(c *gin.Context) {
 		dto.ResponseError(c, http.StatusServiceUnavailable, "distribution service unavailable", nil)
 		return
 	}
+	actor := strings.TrimSpace(c.GetHeader("Authorization"))
+	if actor == "" {
+		dto.ResponseError(c, http.StatusUnauthorized, "authorization header required", nil)
+		return
+	}
 	var req offlineImportRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		dto.ResponseValidationError(c, err)
@@ -54,7 +59,7 @@ func (h *offlineImportHandler) startImport(c *gin.Context) {
 		Checksum:        req.Checksum,
 		DryRun:          req.DryRun,
 		LicenseAccepted: req.LicenseAccepted,
-		Actor:           c.GetHeader("Authorization"),
+		Actor:           actor,
 	})
 	if err != nil {
 		h.writeError(c, err)
@@ -69,6 +74,11 @@ func (h *offlineImportHandler) startImport(c *gin.Context) {
 func (h *offlineImportHandler) getImport(c *gin.Context) {
 	if h.svc == nil {
 		dto.ResponseError(c, http.StatusServiceUnavailable, "distribution service unavailable", nil)
+		return
+	}
+	actor := strings.TrimSpace(c.GetHeader("Authorization"))
+	if actor == "" {
+		dto.ResponseError(c, http.StatusUnauthorized, "authorization header required", nil)
 		return
 	}
 	jobID := strings.TrimSpace(c.Param("jobId"))
@@ -89,6 +99,7 @@ func (h *offlineImportHandler) getImport(c *gin.Context) {
 		"jobId":       job.ID,
 		"status":      job.Status,
 		"completedAt": job.CompletedAt,
+		"actor":       actor,
 	})
 }
 

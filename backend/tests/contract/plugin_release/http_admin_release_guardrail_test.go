@@ -9,6 +9,7 @@ import (
 	"time"
 
 	adminhandler "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/plugin_release"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
@@ -26,6 +27,11 @@ func TestAdminReleaseGuardrailLifecycle(t *testing.T) {
 			c.AbortWithStatus(http.StatusUnauthorized)
 			return
 		}
+		ctx := reqctx.WithClaims(c.Request.Context(), &reqctx.CoreXClaims{
+			IsRoot: true,
+			Roles:  []string{"system_admin"},
+		})
+		c.Request = c.Request.WithContext(ctx)
 		c.Next()
 	})
 	adminhandler.RegisterAPIRoutes(nil, protected, deps)
@@ -38,7 +44,8 @@ func TestAdminReleaseGuardrailLifecycle(t *testing.T) {
 		"commitHash":       "123456789abcdef",
 		"releaseNotes":     "Release with automated QA, metrics and rollback documentation.",
 		"labels": map[string]string{
-			"channel": "stable",
+			"channel":  "stable",
+			"coverage": "95",
 		},
 	}
 	body, _ := json.Marshal(candidatePayload)

@@ -37,6 +37,11 @@ func (h *distributionHandler) createOfflinePackage(c *gin.Context) {
 		dto.ResponseError(c, http.StatusServiceUnavailable, "distribution service unavailable", nil)
 		return
 	}
+	actor := strings.TrimSpace(c.GetHeader("Authorization"))
+	if actor == "" {
+		dto.ResponseError(c, http.StatusUnauthorized, "authorization header required", nil)
+		return
+	}
 	var req createOfflinePackageRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		dto.ResponseValidationError(c, err)
@@ -54,7 +59,7 @@ func (h *distributionHandler) createOfflinePackage(c *gin.Context) {
 		SignatureFingerprint: req.SignatureFingerprint,
 		Dependencies:         req.Dependencies,
 		LicenseReport:        req.LicenseReport,
-		Actor:                c.GetHeader("Authorization"),
+		Actor:                actor,
 	})
 	if err != nil {
 		h.writeError(c, err)
@@ -82,6 +87,11 @@ func (h *distributionHandler) createListing(c *gin.Context) {
 		dto.ResponseError(c, http.StatusServiceUnavailable, "distribution service unavailable", nil)
 		return
 	}
+	actor := strings.TrimSpace(c.GetHeader("Authorization"))
+	if actor == "" {
+		dto.ResponseError(c, http.StatusUnauthorized, "authorization header required", nil)
+		return
+	}
 	var req createListingRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		dto.ResponseValidationError(c, err)
@@ -93,7 +103,7 @@ func (h *distributionHandler) createListing(c *gin.Context) {
 		Pricing:          req.Pricing,
 		SupportPolicy:    req.SupportPolicy,
 		SubmissionForm:   req.SubmissionForm,
-		Actor:            c.GetHeader("Authorization"),
+		Actor:            actor,
 	})
 	if err != nil {
 		h.writeError(c, err)
@@ -119,6 +129,11 @@ func (h *distributionHandler) reviewListing(c *gin.Context) {
 		dto.ResponseError(c, http.StatusServiceUnavailable, "distribution service unavailable", nil)
 		return
 	}
+	actor := strings.TrimSpace(c.GetHeader("Authorization"))
+	if actor == "" {
+		dto.ResponseError(c, http.StatusUnauthorized, "authorization header required", nil)
+		return
+	}
 	listingID, err := strconv.ParseUint(strings.TrimSpace(c.Param("listingId")), 10, 64)
 	if err != nil || listingID == 0 {
 		dto.ResponseError(c, http.StatusBadRequest, "invalid listingId", err)
@@ -133,7 +148,7 @@ func (h *distributionHandler) reviewListing(c *gin.Context) {
 		ListingID: listingID,
 		Decision:  req.Decision,
 		Comment:   req.Comment,
-		Actor:     c.GetHeader("Authorization"),
+		Actor:     actor,
 	})
 	if err != nil {
 		h.writeError(c, err)

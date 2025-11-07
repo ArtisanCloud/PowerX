@@ -77,9 +77,11 @@ sequenceDiagram
 # Key Interactions & Contracts
 
 - **APIs / Events**：
-  - `POST /api/marketplace/plugins`：提交插件包与元数据。
-  - `POST /{{api_prefix}}/admin/plugins/install/local`：在租户后台上传 `.pxp` 包并本地安装。
-  - `POST /{{api_prefix}}/admin/plugins/install/url`：由 Core 从远程地址拉取包体并安装。
+  - `powerx publish package --offline` / `powerx plugin import --offline`：CLI 入口，用于离线包上传与企业租户导入。
+  - `POST /api/admin/plugin-release/offline-packages`：登记 Marketplace 审核通过的离线包。
+  - `POST /api/admin/plugin-release/marketplace/listings` 与 `/marketplace/listings/{id}/reviews`：运营提交、补件、审批。
+  - `POST /api/tenant/offline-imports`：租户自助导入 `.pxp` 包，触发健康检查与回滚策略。
+  - `POST /{{api_prefix}}/admin/plugins/install/url`：在线环境远程拉取并安装。
   - `Event::plugin.publish.approved`：发布成功后广播给订阅系统。
 - **Configs / Schemas**：插件 `manifest.json`、Marketplace 审核策略 YAML。
 - **Security / Compliance**：插件签名校验、租户隔离、发布审批日志留存 180 天。
@@ -96,7 +98,7 @@ sequenceDiagram
 
 # Telemetry & Ops
 
-- 指标：`publish.approval.duration`, `publish.install.success_rate`, `plugin.rollback.count`。
+- 指标：`plugin_release.hotload.latency_ms`, `plugin_release.pipeline.duration_seconds`, `plugin_release.canary.rollback_seconds`, `plugin_release.distribution.sla_seconds`。
 - 告警阈值：审批超过 SLA、安装成功率低于 95%、发生连续两次回滚。
 - 观测来源：Grafana 仪表板、Marketplace 审核日志、PowerX Web Admin 事件流。
 

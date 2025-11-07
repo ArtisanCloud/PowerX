@@ -2,6 +2,7 @@ package plugin_release
 
 import (
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
+	"github.com/ArtisanCloud/PowerX/pkg/auth/middleware"
 	"github.com/gin-gonic/gin"
 )
 
@@ -16,6 +17,7 @@ func RegisterAPIRoutes(public, protected *gin.RouterGroup, deps *shared.Deps) {
 		return
 	}
 	group := protected.Group("/plugin-release")
+	group.Use(middleware.AdminOnlyMiddleware())
 	group.POST("/candidates", handler.createCandidate)
 	group.GET("/candidates/:candidateId", handler.getCandidate)
 	group.POST("/candidates/:candidateId/gates", handler.runGates)

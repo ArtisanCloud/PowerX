@@ -22,7 +22,10 @@ func TestReleaseGuardrailPipelineFlow(t *testing.T) {
 		BuildArtifact: "s3://bucket/releases/v3.0.0.zip",
 		CommitHash:    "commit1234567890",
 		ReleaseNotes:  "Integration test release with automated QA, rollback drills and security gates.",
-		Labels:        map[string]string{"channel": "integration"},
+		Labels: map[string]string{
+			"channel":  "integration",
+			"coverage": "97",
+		},
 		Actor:         "integration-test",
 	})
 	require.NoError(t, err)

@@ -12,6 +12,7 @@ import (
 
 	adminhandler "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/plugin_release"
 	models "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/plugin_release"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
@@ -42,6 +43,11 @@ func TestAdminDistributionEndpoints(t *testing.T) {
 			c.AbortWithStatus(http.StatusUnauthorized)
 			return
 		}
+		ctxWithClaims := reqctx.WithClaims(c.Request.Context(), &reqctx.CoreXClaims{
+			IsRoot: true,
+			Roles:  []string{"system_admin"},
+		})
+		c.Request = c.Request.WithContext(ctxWithClaims)
 		c.Next()
 	})
 	adminhandler.RegisterAPIRoutes(nil, protected, deps)

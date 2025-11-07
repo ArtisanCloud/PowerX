@@ -49,6 +49,9 @@ func TestPluginReleaseGRPC_DistributionLifecycle(t *testing.T) {
 		BuildArtifactUri: "s3://bucket/releases/v3.0.0.zip",
 		CommitHash:       "commit-sha-xyz",
 		ReleaseNotes:     "Distribution flow smoke test",
+		Labels: map[string]string{
+			"coverage": "95",
+		},
 	})
 	require.NoError(t, err)
 	require.NotEmpty(t, createResp.GetCandidateId())

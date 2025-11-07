@@ -46,7 +46,8 @@ func TestPluginReleaseGRPC_GuardrailLifecycle(t *testing.T) {
 		CommitHash:       "abcdef123456",
 		ReleaseNotes:     "Initial GA release with automated coverage, security scan and rollback hooks.",
 		Labels: map[string]string{
-			"channel": "beta",
+			"channel":  "beta",
+			"coverage": "95",
 		},
 	})
 	require.NoError(t, err)

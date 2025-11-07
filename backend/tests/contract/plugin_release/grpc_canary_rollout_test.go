@@ -47,6 +47,9 @@ func TestPluginReleaseGRPC_CanaryRolloutLifecycle(t *testing.T) {
 		BuildArtifactUri: "s3://bucket/releases/v2.1.0.zip",
 		CommitHash:       "commitabcdef",
 		ReleaseNotes:     "Production rollout smoke test release.",
+		Labels: map[string]string{
+			"coverage": "95",
+		},
 	})
 	require.NoError(t, err)
 

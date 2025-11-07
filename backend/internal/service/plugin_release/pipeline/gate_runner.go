@@ -2,15 +2,19 @@ package pipeline
 
 import (
 	"context"
+	"encoding/json"
+	"strconv"
 	"strings"
 
 	models "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/plugin_release"
+	"gorm.io/datatypes"
 )
 
 // GateRunnerOptions tune guardrail heuristics.
 type GateRunnerOptions struct {
 	MinReleaseNotesLength int
 	RequireCommitHash     bool
+	MinCoveragePercent    float64
 }
 
 // GateRunner evaluates static heuristics before approval.
@@ -37,6 +41,9 @@ func NewGateRunner(opts GateRunnerOptions) *GateRunner {
 	if opts.MinReleaseNotesLength <= 0 {
 		opts.MinReleaseNotesLength = 20
 	}
+	if opts.MinCoveragePercent <= 0 {
+		opts.MinCoveragePercent = 80.0
+	}
 	return &GateRunner{opts: opts}
 }
 
@@ -48,6 +55,7 @@ func (r *GateRunner) Run(_ context.Context, candidate *models.PluginReleaseCandi
 		Score: map[string]float64{
 			"docs_completeness": 1.0,
 			"security_score":    1.0,
+			"coverage_score":    1.0,
 		},
 	}
 	if len(strings.TrimSpace(candidate.ReleaseNotes)) < r.opts.MinReleaseNotesLength {
@@ -77,5 +85,51 @@ func (r *GateRunner) Run(_ context.Context, candidate *models.PluginReleaseCandi
 		})
 		report.Score["docs_completeness"] = 0.4
 	}
+	if coverage, ok := extractCoverage(candidate); !ok || coverage < r.opts.MinCoveragePercent {
+		report.Passed = false
+		report.Violations = append(report.Violations, GateViolation{
+			Code:    "COVERAGE_BELOW_THRESHOLD",
+			Message: "test coverage must be reported via labels or scan score and meet policy",
+			Owner:   "qa_team",
+		})
+		report.Score["coverage_score"] = coverage / 100.0
+	}
 	return report
+}
+
+func extractCoverage(candidate *models.PluginReleaseCandidate) (float64, bool) {
+	if candidate == nil {
+		return 0, false
+	}
+	if v, ok := coverageFromJSON(candidate.ScanScore); ok {
+		return v, true
+	}
+	if v, ok := coverageFromJSON(candidate.Labels); ok {
+		return v, true
+	}
+	return 0, false
+}
+
+func coverageFromJSON(raw datatypes.JSON) (float64, bool) {
+	if len(raw) == 0 {
+		return 0, false
+	}
+	var anyPayload any
+	if err := json.Unmarshal(raw, &anyPayload); err != nil {
+		return 0, false
+	}
+	switch data := anyPayload.(type) {
+	case map[string]any:
+		if v, ok := data["coverage"]; ok {
+			switch typed := v.(type) {
+			case float64:
+				return typed, true
+			case string:
+				if parsed, err := strconv.ParseFloat(strings.TrimSpace(typed), 64); err == nil {
+					return parsed, true
+				}
+			}
+		}
+	}
+	return 0, false
 }
