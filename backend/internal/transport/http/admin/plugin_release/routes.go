@@ -5,13 +5,19 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// RegisterAPIRoutes wires admin-side plugin release HTTP endpoints (placeholder until handlers exist).
+// RegisterAPIRoutes wires admin-side plugin release HTTP endpoints.
 func RegisterAPIRoutes(public, protected *gin.RouterGroup, deps *shared.Deps) {
-	_ = deps
 	_ = public
-	if protected == nil {
+	if protected == nil || deps == nil || deps.PluginReleaseService == nil {
 		return
 	}
-	_ = protected
-	// TODO: add admin handlers for plugin release lifecycle in later phases.
+	handler := newReleaseGuardrailHandler(deps.PluginReleaseService.Pipeline())
+	if handler == nil {
+		return
+	}
+	group := protected.Group("/plugin-release")
+	group.POST("/candidates", handler.createCandidate)
+	group.GET("/candidates/:candidateId", handler.getCandidate)
+	group.POST("/candidates/:candidateId/gates", handler.runGates)
+	group.POST("/plans", handler.createPlan)
 }

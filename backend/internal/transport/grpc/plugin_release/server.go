@@ -14,6 +14,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
 	svc "github.com/ArtisanCloud/PowerX/internal/service/plugin_release"
 	"github.com/ArtisanCloud/PowerX/internal/service/plugin_release/local"
+	"github.com/ArtisanCloud/PowerX/internal/service/plugin_release/pipeline"
 	models "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/plugin_release"
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"github.com/google/uuid"
@@ -184,11 +185,97 @@ func (s *server) PushHotReload(stream pluginreleasepb.PluginReleaseService_PushH
 	}
 }
 
+func (s *server) CreateReleaseCandidate(ctx context.Context, req *pluginreleasepb.CreateReleaseCandidateRequest) (*pluginreleasepb.ReleaseCandidate, error) {
+	pipelineSvc := s.pipeline()
+	if pipelineSvc == nil {
+		return nil, status.Error(codes.Unavailable, "pipeline service unavailable")
+	}
+	input := pipeline.SubmitCandidateInput{
+		TenantID:      strings.TrimSpace(req.GetTenantId()),
+		PluginID:      strings.TrimSpace(req.GetPluginId()),
+		Version:       strings.TrimSpace(req.GetVersion()),
+		BuildArtifact: strings.TrimSpace(req.GetBuildArtifactUri()),
+		CommitHash:    strings.TrimSpace(req.GetCommitHash()),
+		ReleaseNotes:  strings.TrimSpace(req.GetReleaseNotes()),
+		Labels:        req.GetLabels(),
+		Actor:         actorFromContext(ctx),
+	}
+	candidate, err := pipelineSvc.SubmitCandidate(ctx, input)
+	if err != nil {
+		return nil, mapPipelineError(err)
+	}
+	return toProtoCandidate(candidate), nil
+}
+
+func (s *server) RunQualityGates(ctx context.Context, req *pluginreleasepb.RunQualityGatesRequest) (*pluginreleasepb.GateResult, error) {
+	pipelineSvc := s.pipeline()
+	if pipelineSvc == nil {
+		return nil, status.Error(codes.Unavailable, "pipeline service unavailable")
+	}
+	candidateUUID, err := uuid.Parse(strings.TrimSpace(req.GetCandidateId()))
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid candidate_id")
+	}
+	result, err := pipelineSvc.RunQualityGates(ctx, pipeline.RunQualityGatesInput{
+		CandidateID: candidateUUID,
+		Actor:       actorFromContext(ctx),
+		ForceRescan: req.GetForceRescan(),
+	})
+	if err != nil {
+		return nil, mapPipelineError(err)
+	}
+	return &pluginreleasepb.GateResult{
+		CandidateId: result.CandidateID.String(),
+		Status:      result.Status,
+		Violations:  toProtoViolations(result.Violations),
+	}, nil
+}
+
+func (s *server) GenerateReleasePlan(ctx context.Context, req *pluginreleasepb.GenerateReleasePlanRequest) (*pluginreleasepb.ReleasePlan, error) {
+	pipelineSvc := s.pipeline()
+	if pipelineSvc == nil {
+		return nil, status.Error(codes.Unavailable, "pipeline service unavailable")
+	}
+	candidateUUID, err := uuid.Parse(strings.TrimSpace(req.GetCandidateId()))
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid candidate_id")
+	}
+	windowStart, err := time.Parse(time.RFC3339, req.GetWindowStart())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid window_start")
+	}
+	windowEnd, err := time.Parse(time.RFC3339, req.GetWindowEnd())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid window_end")
+	}
+	plan, candidate, err := pipelineSvc.GenerateReleasePlan(ctx, pipeline.GeneratePlanInput{
+		CandidateID:         candidateUUID,
+		WindowStart:         windowStart,
+		WindowEnd:           windowEnd,
+		CanaryBatches:       fromProtoBatches(req.GetBatches()),
+		RollbackScripts:     req.GetRollbackScripts(),
+		NotificationTargets: req.GetNotificationTargets(),
+		DependencyList:      nil,
+		Actor:               actorFromContext(ctx),
+	})
+	if err != nil {
+		return nil, mapPipelineError(err)
+	}
+	return toProtoPlan(plan, candidateUUID, candidate), nil
+}
+
 func (s *server) localInstall() *local.InstallService {
 	if s == nil || s.svc == nil {
 		return nil
 	}
 	return s.svc.LocalInstall()
+}
+
+func (s *server) pipeline() *pipeline.Service {
+	if s == nil || s.svc == nil {
+		return nil
+	}
+	return s.svc.Pipeline()
 }
 
 func parseTenantID(raw string) (uint64, error) {
@@ -272,6 +359,114 @@ func toProtoSession(session *models.LocalInstallSession) *pluginreleasepb.LocalI
 		resp.ExpiresAt = session.ExpiredAt.UTC().Format(time.RFC3339)
 	}
 	return resp
+}
+
+func toProtoCandidate(candidate *models.PluginReleaseCandidate) *pluginreleasepb.ReleaseCandidate {
+	if candidate == nil {
+		return nil
+	}
+	resp := &pluginreleasepb.ReleaseCandidate{
+		CandidateId:      candidate.UUID.String(),
+		TenantId:         candidate.TenantID,
+		PluginId:         candidate.PluginID,
+		Version:          candidate.Version,
+		GateStatus:       candidate.GateStatus,
+		ApprovalStatus:   candidate.ApprovalStatus,
+		BuildArtifactUri: candidate.BuildArtifactURI,
+		ReleaseNotes:     candidate.ReleaseNotes,
+	}
+	return resp
+}
+
+func toProtoPlan(plan *models.ReleasePlan, candidateUUID uuid.UUID, candidate *models.PluginReleaseCandidate) *pluginreleasepb.ReleasePlan {
+	if plan == nil {
+		return nil
+	}
+	candidateID := candidateUUID.String()
+	if candidate != nil {
+		candidateID = candidate.UUID.String()
+	}
+	return &pluginreleasepb.ReleasePlan{
+		PlanId:      strconv.FormatUint(plan.ID, 10),
+		CandidateId: candidateID,
+		Status:      plan.Status,
+		Batches:     decodeProtoBatches(plan.CanaryBatches),
+	}
+}
+
+func toProtoViolations(violations []pipeline.GateViolation) []*pluginreleasepb.GateViolation {
+	if len(violations) == 0 {
+		return nil
+	}
+	result := make([]*pluginreleasepb.GateViolation, 0, len(violations))
+	for _, v := range violations {
+		result = append(result, &pluginreleasepb.GateViolation{
+			Code:    v.Code,
+			Message: v.Message,
+			Owner:   v.Owner,
+		})
+	}
+	return result
+}
+
+func fromProtoBatches(batches []*pluginreleasepb.CanaryBatch) []pipeline.CanaryBatchInput {
+	if len(batches) == 0 {
+		return nil
+	}
+	result := make([]pipeline.CanaryBatchInput, 0, len(batches))
+	for _, batch := range batches {
+		if batch == nil {
+			continue
+		}
+		result = append(result, pipeline.CanaryBatchInput{
+			Name:                batch.GetName(),
+			TenantScope:         batch.GetTenantScope(),
+			MetricThresholds:    batch.GetMetricThresholds(),
+			RollbackTimeoutMins: batch.GetRollbackTimeoutMinutes(),
+		})
+	}
+	return result
+}
+
+func decodeProtoBatches(raw datatypes.JSON) []*pluginreleasepb.CanaryBatch {
+	if len(raw) == 0 {
+		return nil
+	}
+	var payload []struct {
+		Name                string             `json:"name"`
+		TenantScope         []string           `json:"tenant_scope"`
+		MetricThresholds    map[string]float64 `json:"metric_thresholds"`
+		RollbackTimeoutMins uint32             `json:"rollback_timeout_mins"`
+	}
+	if err := json.Unmarshal(raw, &payload); err != nil {
+		return nil
+	}
+	result := make([]*pluginreleasepb.CanaryBatch, 0, len(payload))
+	for _, item := range payload {
+		result = append(result, &pluginreleasepb.CanaryBatch{
+			Name:                   item.Name,
+			TenantScope:            item.TenantScope,
+			MetricThresholds:       item.MetricThresholds,
+			RollbackTimeoutMinutes: item.RollbackTimeoutMins,
+		})
+	}
+	return result
+}
+
+func mapPipelineError(err error) error {
+	switch {
+	case errors.Is(err, pipeline.ErrInvalidInput):
+		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, pipeline.ErrCandidateNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, pipeline.ErrPlanWindowInvalid):
+		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, pipeline.ErrGateNotPassed):
+		return status.Error(codes.FailedPrecondition, err.Error())
+	default:
+		logger.WarnF(context.Background(), "pipeline operation failed: %v", err)
+		return status.Error(codes.Internal, "pipeline operation failed")
+	}
 }
 
 func extractLogURL(raw datatypes.JSON) string {

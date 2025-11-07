@@ -29,9 +29,15 @@ func setupPluginReleaseDeps(t *testing.T) (*shared.Deps, *gorm.DB) {
 	require.NoError(t, err)
 	require.NoError(t, db.Exec("ATTACH DATABASE ':memory:' AS public").Error)
 	prevSchema := coremodel.PowerXSchema
-	coremodel.PowerXSchema = "main"
+	coremodel.PowerXSchema = ""
 	t.Cleanup(func() { coremodel.PowerXSchema = prevSchema })
-	require.NoError(t, db.AutoMigrate(&models.LocalInstallSession{}))
+	require.NoError(t, db.AutoMigrate(
+		&models.LocalInstallSession{},
+		&models.PluginReleaseCandidate{},
+		&models.ReleasePlan{},
+		&models.CanaryDeploymentRecord{},
+	))
+	require.NoError(t, db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_plugin_release_candidate_tenant_plugin_version ON plugin_release_candidates(tenant_id, plugin_id, version)").Error)
 
 	candidateRepo := repo.NewReleaseCandidateRepository(db)
 	planRepo := repo.NewReleasePlanRepository(db)

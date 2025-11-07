@@ -67,17 +67,17 @@
 ## Phase 4: User Story 1 – End-to-end Release Guardrail（Priority P1）
 
 ### Tests
-- [ ] T032 [P] [US1] gRPC 合同测试：CreateReleaseCandidate / RunQualityGates / GenerateReleasePlan (`backend/tests/contract/plugin_release/grpc_release_guardrail_test.go`，依赖 T021)
-- [ ] T033 [P] [US1] HTTP Admin 合同测试：`/candidates` & `/plans` (`backend/tests/contract/plugin_release/http_admin_release_guardrail_test.go`，依赖 T022)
-- [ ] T034 [P] [US1] 集成测试：本地构建 → 流水线审批 → 发布计划 (`backend/tests/integration/plugin_release/test_release_guardrail_flow.go`，依赖 T020)
+- [X] T032 [P] [US1] gRPC 合同测试：CreateReleaseCandidate / RunQualityGates / GenerateReleasePlan (`backend/tests/contract/plugin_release/grpc_release_guardrail_test.go`，依赖 T021)
+- [X] T033 [P] [US1] HTTP Admin 合同测试：`/candidates` & `/plans` (`backend/tests/contract/plugin_release/http_admin_release_guardrail_test.go`，依赖 T022)
+- [X] T034 [P] [US1] 集成测试：本地构建 → 流水线审批 → 发布计划 (`backend/tests/integration/plugin_release/test_release_guardrail_flow.go`，依赖 T020)
 
 ### 实现
-- [ ] T035 [US1] 实现流水线 orchestration（构建元数据、Workflow 调用、通知）`backend/internal/service/plugin_release/pipeline/service.go`（依赖 T015, T020, T027）
-- [ ] T036 [US1] 实现质量门禁执行器（覆盖率、安全、许可证）`backend/internal/service/plugin_release/pipeline/gate_runner.go`（依赖 T035）
-- [ ] T037 [US1] 实现 Admin HTTP Handler（候选与计划 CRUD）`backend/internal/transport/http/admin/plugin_release/release_guardrail_handler.go`（依赖 T035-T036, T022）
-- [ ] T038 [US1] 实现 gRPC 方法（CreateReleaseCandidate/RunQualityGates/GenerateReleasePlan）`backend/internal/transport/grpc/plugin_release/server.go`（依赖 T036-T037, T021）
-- [ ] T039 [US1] 加强 CLI `powerx publish create` 上传与提交逻辑（`backend/cmd/powerx/commands/publish/create.go`，依赖 T023, T035）
-- [ ] T040 [US1] 补充审计与失败通知链路 `backend/internal/service/plugin_release/pipeline/audit_hooks.go`（依赖 T035-T036, T019）
+- [X] T035 [US1] 实现流水线 orchestration（构建元数据、Workflow 调用、通知）`backend/internal/service/plugin_release/pipeline/service.go`（依赖 T015, T020, T027）
+- [X] T036 [US1] 实现质量门禁执行器（覆盖率、安全、许可证）`backend/internal/service/plugin_release/pipeline/gate_runner.go`（依赖 T035）
+- [X] T037 [US1] 实现 Admin HTTP Handler（候选与计划 CRUD）`backend/internal/transport/http/admin/plugin_release/release_guardrail_handler.go`（依赖 T035-T036, T022）
+- [X] T038 [US1] 实现 gRPC 方法（CreateReleaseCandidate/RunQualityGates/GenerateReleasePlan）`backend/internal/transport/grpc/plugin_release/server.go`（依赖 T036-T037, T021）
+- [X] T039 [US1] 加强 CLI `powerx publish create` 上传与提交逻辑（`backend/cmd/powerx/commands/publish/create.go`，依赖 T023, T035）
+- [X] T040 [US1] 补充审计与失败通知链路 `backend/internal/service/plugin_release/pipeline/audit_hooks.go`（依赖 T035-T036, T019）
 
 **Checkpoint**：US1 流水线具备门禁、审批与审计能力。
 

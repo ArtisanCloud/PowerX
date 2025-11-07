@@ -34,6 +34,9 @@ func (r *ReleaseCandidateRepository) CreateCandidate(ctx context.Context, candid
 	if candidate == nil {
 		return nil, gorm.ErrInvalidData
 	}
+	if r.db.Dialector.Name() == "sqlite" {
+		return r.BaseRepository.Create(ctx, candidate)
+	}
 	unique := []clause.Column{
 		{Name: "tenant_id"},
 		{Name: "plugin_id"},
@@ -113,4 +116,41 @@ func (r *ReleaseCandidateRepository) updateByUUID(ctx context.Context, candidate
 		return nil, err
 	}
 	return &candidate, nil
+}
+
+// GetByUUID fetches a candidate by its UUID.
+func (r *ReleaseCandidateRepository) GetByUUID(ctx context.Context, candidateUUID uuid.UUID) (*models.PluginReleaseCandidate, error) {
+	if candidateUUID == uuid.Nil {
+		return nil, gorm.ErrInvalidData
+	}
+	var candidate models.PluginReleaseCandidate
+	err := r.db.WithContext(ctx).
+		Where("uuid = ?", candidateUUID).
+		Take(&candidate).Error
+	if err != nil {
+		return nil, err
+	}
+	return &candidate, nil
+}
+
+// Save persists an existing candidate.
+func (r *ReleaseCandidateRepository) Save(ctx context.Context, candidate *models.PluginReleaseCandidate) error {
+	if candidate == nil {
+		return gorm.ErrInvalidData
+	}
+	return r.db.WithContext(ctx).Save(candidate).Error
+}
+
+// UpdateFieldsByUUID updates selected columns for a candidate.
+func (r *ReleaseCandidateRepository) UpdateFieldsByUUID(ctx context.Context, candidateUUID uuid.UUID, fields map[string]interface{}) error {
+	if candidateUUID == uuid.Nil {
+		return gorm.ErrInvalidData
+	}
+	if len(fields) == 0 {
+		return nil
+	}
+	return r.db.WithContext(ctx).
+		Model(&models.PluginReleaseCandidate{}).
+		Where("uuid = ?", candidateUUID).
+		Updates(fields).Error
 }

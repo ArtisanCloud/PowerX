@@ -6,6 +6,7 @@ import (
 
 	"github.com/ArtisanCloud/PowerX/internal/service/plugin_release/instrumentation"
 	"github.com/ArtisanCloud/PowerX/internal/service/plugin_release/local"
+	"github.com/ArtisanCloud/PowerX/internal/service/plugin_release/pipeline"
 	audit "github.com/ArtisanCloud/PowerX/pkg/corex/audit"
 	models "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/plugin_release"
 	repo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/plugin_release"
@@ -28,6 +29,7 @@ type Options struct {
 	FeatureFlags FeatureFlagOptions
 	LocalInstall LocalInstallOptions
 	Auditor      audit.Auditor
+	Clock        func() time.Time
 }
 
 // Service aggregates repositories and instrumentation for plugin release orchestration.
@@ -39,6 +41,7 @@ type Service struct {
 	instruments    *instrumentation.Instruments
 	tracerProvider *instrumentation.TracerProvider
 	localInstall   *local.InstallService
+	pipeline       *pipeline.Service
 	options        Options
 }
 
@@ -53,6 +56,9 @@ func NewService(
 ) *Service {
 	if opts.Auditor == nil {
 		opts.Auditor = audit.Noop{}
+	}
+	if opts.Clock == nil {
+		opts.Clock = time.Now
 	}
 
 	svc := &Service{
@@ -75,6 +81,20 @@ func NewService(
 		MaxArtifactSizeMB: opts.LocalInstall.MaxArtifactSizeMB,
 		FeatureEnabled:    opts.FeatureFlags.EnableLocalInstall,
 	})
+	pipelineHooks := pipeline.NewAuditHooks(opts.Auditor)
+	svc.pipeline = pipeline.NewService(
+		candidates,
+		plans,
+		pipeline.NewGateRunner(pipeline.GateRunnerOptions{
+			MinReleaseNotesLength: 32,
+			RequireCommitHash:     true,
+		}),
+		pipeline.Options{
+			Hooks:       pipelineHooks,
+			Instruments: svc.instruments,
+			Clock:       opts.Clock,
+		},
+	)
 	return svc
 }
 
@@ -101,4 +121,9 @@ func (s *Service) RecordPipelineDuration(ctx context.Context, duration time.Dura
 // LocalInstall exposes the hotload session service.
 func (s *Service) LocalInstall() *local.InstallService {
 	return s.localInstall
+}
+
+// Pipeline exposes end-to-end release orchestration.
+func (s *Service) Pipeline() *pipeline.Service {
+	return s.pipeline
 }
