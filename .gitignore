@@ -74,14 +74,18 @@ backend/plugins/**/*.bak
 # Ignore compiled binary files and specific app directories
 # Binary file 'app' (compiled executable)
 app
-# Backend app directory
+
+# Allow web-admin/app directory (it has source code, not a build artifact)
+!web-admin/app/
+
+# Backend app directory (build output)
 backend/app/
 # Frontend app directory (if exists)
 frontend/app/
 # CLI app directory (if exists)
 cli/app/
 
-# But specifically allow web-admin's plugin-release pages
+# Specifically allow plugin-release pages within web-admin
 !web-admin/app/pages/plugin-release/
 !web-admin/app/pages/plugin-release/**
 
