@@ -57,7 +57,7 @@
 - [X] T027 [FR-001] 构建 LocalInstall service（签名/权限/缓存逻辑）于 `backend/internal/service/plugin_release/local/install_service.go`（依赖 T018, T020）
 - [X] T028 [FR-001] 实现 OpenAPI Handler（启动、取消、日志查询）于 `backend/internal/transport/http/openapi/plugin_release/local_install_handler.go`（依赖 T027, T022）
 - [X] T029 [FR-001] 扩展 gRPC Server：`StartLocalInstall`/`StreamHotReload` 双向流 (`backend/internal/transport/grpc/plugin_release/server.go`，依赖 T027, T021)
-- [ ] T030 [FR-001] 增强 CLI `px-plugin dev --watch` 推送与日志回传（更新 `backend/cmd/powerx/commands/plugin/dev_watch.go`，依赖 T023, T029）
+- [X] T030 [FR-001] 增强 CLI `px-plugin dev --watch` 推送与日志回传（更新 `backend/cmd/powerx/commands/plugin/dev_watch.go`，依赖 T023, T029）
 - [X] T031 [FR-001] 增加热更新审计与日志聚合 (`backend/internal/service/plugin_release/local/audit_hooks.go`，依赖 T027, T019)
 
 **Checkpoint**：FR-001 闭环可执行，CLI ↔ Web Admin 热更新成功。

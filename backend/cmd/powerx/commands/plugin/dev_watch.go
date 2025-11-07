@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	pluginreleasepb "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/plugin_release/v1"
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
@@ -20,8 +21,11 @@ import (
 )
 
 const (
-	defaultGRPCAddr  = "localhost:9090"
-	defaultChunkSize = 256 * 1024 // 256 KiB
+	defaultGRPCAddr      = "localhost:9090"
+	defaultChunkSize     = 256 * 1024 // 256 KiB
+	defaultLogTailLines  = 200
+	maxLogTailBytes      = 64 * 1024
+	maxChangelogRuneSize = 8 * 1024
 )
 
 var (
@@ -42,10 +46,14 @@ var (
 		stop         bool
 		chunkSize    int
 		timeout      time.Duration
+		changelog    string
+		logFile      string
+		logLines     int
 	}{
 		stop:      true,
 		chunkSize: defaultChunkSize,
 		timeout:   30 * time.Second,
+		logLines:  defaultLogTailLines,
 	}
 
 	devWatchCmd = &cobra.Command{
@@ -71,6 +79,9 @@ func init() {
 	devWatchCmd.Flags().BoolVar(&devWatchOpts.stop, "stop", true, "Automatically stop the local install session after a successful push")
 	devWatchCmd.Flags().IntVar(&devWatchOpts.chunkSize, "chunk-size", defaultChunkSize, "Hot reload stream chunk size in bytes")
 	devWatchCmd.Flags().DurationVar(&devWatchOpts.timeout, "timeout", devWatchOpts.timeout, "Overall RPC timeout")
+	devWatchCmd.Flags().StringVar(&devWatchOpts.changelog, "changelog", "", "Explicit changelog/log snippet to attach to the session (takes precedence over --log-file)")
+	devWatchCmd.Flags().StringVar(&devWatchOpts.logFile, "log-file", "", "Path to a log file whose tail will be attached as changelog (use - for stdin)")
+	devWatchCmd.Flags().IntVar(&devWatchOpts.logLines, "log-lines", devWatchOpts.logLines, "Number of lines to include from --log-file (0 to disable)")
 
 	_ = devWatchCmd.MarkFlagRequired("tenant-id")
 	_ = devWatchCmd.MarkFlagRequired("developer-id")
@@ -99,6 +110,11 @@ func runDevWatch(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	changelog, err := collectChangelog(cmd)
+	if err != nil {
+		return fmt.Errorf("collect changelog: %w", err)
+	}
+
 	startResp, err := client.StartLocalInstall(callCtx, &pluginreleasepb.StartLocalInstallRequest{
 		TenantId:     strings.TrimSpace(devWatchOpts.tenantID),
 		DeveloperId:  devWatchOpts.developerID,
@@ -112,7 +128,7 @@ func runDevWatch(cmd *cobra.Command, args []string) error {
 
 	fmt.Fprintf(cmd.OutOrStdout(), "Session %s started for tenant %s developer %d\n", startResp.GetSessionId(), startResp.GetTenantId(), startResp.GetDeveloperId())
 
-	if err := pushHotReload(callCtx, client, startResp.GetSessionId(), devWatchOpts.artifactPath, devWatchOpts.chunkSize, cmd.OutOrStdout()); err != nil {
+	if err := pushHotReload(callCtx, client, startResp.GetSessionId(), devWatchOpts.artifactPath, devWatchOpts.chunkSize, changelog, cmd.OutOrStdout()); err != nil {
 		return fmt.Errorf("push hot reload: %w", err)
 	}
 
@@ -138,15 +154,17 @@ func runDevWatch(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func pushHotReload(ctx context.Context, client pluginreleasepb.PluginReleaseServiceClient, sessionID, artifactPath string, chunkSize int, out io.Writer) error {
+func pushHotReload(ctx context.Context, client pluginreleasepb.PluginReleaseServiceClient, sessionID, artifactPath string, chunkSize int, changelog string, out io.Writer) error {
 	stream, err := client.PushHotReload(ctx)
 	if err != nil {
 		return err
 	}
 
 	var (
-		sequence int64 = 1
-		sentAny        = false
+		sequence         int64 = 1
+		sentAny                = false
+		appliedChangelog       = false
+		trimmedChangelog       = truncateChangelog(strings.TrimSpace(changelog))
 	)
 
 	if strings.TrimSpace(artifactPath) != "" {
@@ -156,18 +174,20 @@ func pushHotReload(ctx context.Context, client pluginreleasepb.PluginReleaseServ
 		}
 		defer file.Close()
 
+		info, err := file.Stat()
+		if err != nil {
+			return fmt.Errorf("stat artifact: %w", err)
+		}
+
+		totalSize := info.Size()
+		var totalRead int64
 		reader := bufio.NewReader(file)
 		buf := make([]byte, chunkSize)
 
 		for {
-			n, readErr := io.ReadFull(reader, buf)
-			if errors.Is(readErr, io.ErrUnexpectedEOF) {
-				// final chunk less than requested size
-			} else if readErr != nil && !errors.Is(readErr, io.EOF) {
-				return fmt.Errorf("read artifact: %w", readErr)
-			}
-
+			n, readErr := reader.Read(buf)
 			if n > 0 {
+				totalRead += int64(n)
 				chunk := &pluginreleasepb.HotReloadChunk{
 					SessionId: sessionID,
 					Sequence:  sequence,
@@ -175,29 +195,61 @@ func pushHotReload(ctx context.Context, client pluginreleasepb.PluginReleaseServ
 				}
 				sequence++
 				sentAny = true
-				if errors.Is(readErr, io.EOF) || errors.Is(readErr, io.ErrUnexpectedEOF) {
+
+				if totalSize > 0 && totalRead >= totalSize {
 					chunk.Eof = true
 				}
+
+				if chunk.Eof && trimmedChangelog != "" && !appliedChangelog {
+					chunk.Changelog = trimmedChangelog
+					appliedChangelog = true
+				}
+
 				if err := stream.Send(chunk); err != nil {
 					return fmt.Errorf("send chunk: %w", err)
 				}
+
+				if chunk.Eof {
+					break
+				}
 			}
 
-			if errors.Is(readErr, io.EOF) || errors.Is(readErr, io.ErrUnexpectedEOF) {
+			if errors.Is(readErr, io.EOF) {
+				break
+			}
+			if readErr != nil {
+				return fmt.Errorf("read artifact: %w", readErr)
+			}
+			if n == 0 {
 				break
 			}
 		}
 	}
 
 	if !sentAny {
-		// send sentinel EOF chunk to hint backend even when no artifact provided
-		if err := stream.Send(&pluginreleasepb.HotReloadChunk{
+		chunk := &pluginreleasepb.HotReloadChunk{
 			SessionId: sessionID,
 			Sequence:  sequence,
 			Eof:       true,
-		}); err != nil {
+		}
+		if trimmedChangelog != "" {
+			chunk.Changelog = trimmedChangelog
+			appliedChangelog = true
+		}
+		if err := stream.Send(chunk); err != nil {
 			return fmt.Errorf("send empty chunk: %w", err)
 		}
+		sequence++
+	} else if trimmedChangelog != "" && !appliedChangelog {
+		if err := stream.Send(&pluginreleasepb.HotReloadChunk{
+			SessionId: sessionID,
+			Sequence:  sequence,
+			Changelog: trimmedChangelog,
+		}); err != nil {
+			return fmt.Errorf("send changelog chunk: %w", err)
+		}
+		appliedChangelog = true
+		sequence++
 	}
 
 	ack, err := stream.CloseAndRecv()
@@ -244,4 +296,112 @@ func printSessionSummary(cmd *cobra.Command, title string, session *pluginreleas
 	if session.GetLogUrl() != "" {
 		fmt.Fprintf(cmd.OutOrStdout(), "  Log URL: %s\n", session.GetLogUrl())
 	}
+}
+
+func collectChangelog(cmd *cobra.Command) (string, error) {
+	if cmd == nil {
+		return "", nil
+	}
+
+	if msg := strings.TrimSpace(devWatchOpts.changelog); msg != "" {
+		return truncateChangelog(msg), nil
+	}
+
+	path := strings.TrimSpace(devWatchOpts.logFile)
+	if path == "" {
+		return "", nil
+	}
+
+	lines := devWatchOpts.logLines
+	if lines <= 0 {
+		return "", nil
+	}
+
+	var (
+		content string
+		err     error
+	)
+
+	if path == "-" {
+		content, err = tailFromReader(cmd.InOrStdin(), lines)
+	} else {
+		content, err = tailFile(path, lines)
+	}
+	if err != nil {
+		return "", err
+	}
+	return truncateChangelog(content), nil
+}
+
+func tailFile(path string, lines int) (string, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
+
+	info, err := file.Stat()
+	if err != nil {
+		return "", err
+	}
+
+	size := info.Size()
+	offset := size - maxLogTailBytes
+	if offset < 0 {
+		offset = 0
+	}
+	if offset > 0 {
+		if _, err := file.Seek(offset, io.SeekStart); err != nil {
+			return "", err
+		}
+	}
+
+	data, err := io.ReadAll(file)
+	if err != nil {
+		return "", err
+	}
+	return extractTail(string(data), lines), nil
+}
+
+func tailFromReader(r io.Reader, lines int) (string, error) {
+	if r == nil {
+		return "", nil
+	}
+	data, err := io.ReadAll(io.LimitReader(r, maxLogTailBytes))
+	if err != nil {
+		return "", err
+	}
+	return extractTail(string(data), lines), nil
+}
+
+func extractTail(content string, lines int) string {
+	if lines <= 0 {
+		return ""
+	}
+	segments := strings.Split(content, "\n")
+	if len(segments) > lines {
+		segments = segments[len(segments)-lines:]
+	}
+	return strings.TrimSpace(strings.Join(segments, "\n"))
+}
+
+func truncateChangelog(content string) string {
+	if content == "" {
+		return ""
+	}
+	if len(content) <= maxChangelogRuneSize {
+		return content
+	}
+
+	var builder strings.Builder
+	builder.Grow(maxChangelogRuneSize)
+	for _, r := range content {
+		size := utf8.RuneLen(r)
+		if builder.Len()+size > maxChangelogRuneSize-3 {
+			builder.WriteString("...")
+			break
+		}
+		builder.WriteRune(r)
+	}
+	return builder.String()
 }
