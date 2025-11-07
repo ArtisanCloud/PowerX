@@ -73,6 +73,9 @@ func newPluginReleaseEnv(t *testing.T) *pluginReleaseEnv {
 				SessionTTL:        10 * time.Minute,
 				MaxArtifactSizeMB: 50,
 			},
+			Runtime: plugsvc.RuntimeOptions{
+				RollbackTimeout: 5 * time.Minute,
+			},
 		},
 	)
 

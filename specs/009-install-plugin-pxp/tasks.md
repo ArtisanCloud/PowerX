@@ -86,17 +86,17 @@
 ## Phase 5: User Story 2 – Controlled Production Rollout（Priority P2）
 
 ### Tests
-- [ ] T041 [P] [US2] gRPC 合同测试：TriggerCanary / FinalizeDeployment (`backend/tests/contract/plugin_release/grpc_canary_rollout_test.go`，依赖 T038)
-- [ ] T042 [P] [US2] HTTP Admin 合同测试：`/plans/{id}/deploy/*` (`backend/tests/contract/plugin_release/http_admin_canary_deploy_test.go`，依赖 T037)
-- [ ] T043 [P] [US2] 集成测试：灰度部署与 5 分钟自动回滚 (`backend/tests/integration/plugin_release/test_canary_rollback_flow.go`，依赖 T035)
+- [X] T041 [P] [US2] gRPC 合同测试：TriggerCanary / FinalizeDeployment (`backend/tests/contract/plugin_release/grpc_canary_rollout_test.go`，依赖 T038)
+- [X] T042 [P] [US2] HTTP Admin 合同测试：`/plans/{id}/deploy/*` (`backend/tests/contract/plugin_release/http_admin_canary_deploy_test.go`，依赖 T037)
+- [X] T043 [P] [US2] 集成测试：灰度部署与 5 分钟自动回滚 (`backend/tests/integration/plugin_release/test_canary_rollback_flow.go`，依赖 T035)
 
 ### 实现
-- [ ] T044 [US2] 实现 runtime service（批次 orchestration、指标阈值判断）`backend/internal/service/plugin_release/runtime/service.go`（依赖 T035-T036, T019）
-- [ ] T045 [US2] 扩展指标采集与告警（Prometheus/Grafana 规则）`backend/internal/service/plugin_release/instrumentation/runtime_metrics.go`（依赖 T044, T019）
-- [ ] T046 [US2] 实现 Admin HTTP 部署 Handler (`backend/internal/transport/http/admin/plugin_release/deployment_handler.go`，依赖 T044, T022)
-- [ ] T047 [US2] 实现 gRPC TriggerCanary/FinalizeDeployment 流 (`backend/internal/transport/grpc/plugin_release/server.go`，依赖 T044, T038, T021)
-- [ ] T048 [US2] 更新 CLI `powerx publish deploy` 流式进度与回滚命令 (`backend/cmd/powerx/commands/publish/deploy.go`，依赖 T023, T047)
-- [ ] T049 [US2] 集成事件总线与回滚自动化钩子 (`backend/internal/service/plugin_release/runtime/event_hooks.go`，依赖 T044, T019)
+- [X] T044 [US2] 实现 runtime service（批次 orchestration、指标阈值判断）`backend/internal/service/plugin_release/runtime/service.go`（依赖 T035-T036, T019）
+- [X] T045 [US2] 扩展指标采集与告警（Prometheus/Grafana 规则）`backend/internal/service/plugin_release/instrumentation/runtime_metrics.go`（依赖 T044, T019）
+- [X] T046 [US2] 实现 Admin HTTP 部署 Handler (`backend/internal/transport/http/admin/plugin_release/deployment_handler.go`，依赖 T044, T022)
+- [X] T047 [US2] 实现 gRPC TriggerCanary/FinalizeDeployment 流 (`backend/internal/transport/grpc/plugin_release/server.go`，依赖 T044, T038, T021)
+- [X] T048 [US2] 更新 CLI `powerx publish deploy` 流式进度与回滚命令 (`backend/cmd/powerx/commands/publish/deploy.go`，依赖 T023, T047)
+- [X] T049 [US2] 集成事件总线与回滚自动化钩子 (`backend/internal/service/plugin_release/runtime/event_hooks.go`，依赖 T044, T019)
 
 **Checkpoint**：US2 灰度部署具备监控、告警、自动回滚能力。
 

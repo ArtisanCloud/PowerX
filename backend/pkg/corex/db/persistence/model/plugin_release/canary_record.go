@@ -1,6 +1,7 @@
 package plugin_release
 
 import (
+	"strings"
 	"time"
 
 	coremodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
@@ -17,11 +18,15 @@ type CanaryDeploymentRecord struct {
 	MetricSnapshot    datatypes.JSON `gorm:"column:metric_snapshot;type:jsonb;default:'{}'" json:"metric_snapshot,omitempty"`
 	ThresholdBreached bool           `gorm:"column:threshold_breached;not null;default:false" json:"threshold_breached"`
 	ActionTaken       string         `gorm:"column:action_taken;type:varchar(32);not null;default:'continue'" json:"action_taken"`
-	CompletedAt       *time.Time     `gorm:"column:completed_at;type:timestamptz" json:"completed_at,omitempty"`
+	CompletedAt       *time.Time     `gorm:"column:completed_at" json:"completed_at,omitempty"`
 }
 
 func (CanaryDeploymentRecord) TableName() string {
-	return coremodel.PowerXSchema + "." + coremodel.TablePluginReleaseCanaryRecords
+	schema := strings.TrimSpace(coremodel.PowerXSchema)
+	if schema == "" {
+		return coremodel.TablePluginReleaseCanaryRecords
+	}
+	return schema + "." + coremodel.TablePluginReleaseCanaryRecords
 }
 
 // EnsureUniqueConstraint returns fields that must be unique per plan.

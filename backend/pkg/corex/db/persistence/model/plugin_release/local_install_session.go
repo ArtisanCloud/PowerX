@@ -1,6 +1,7 @@
 package plugin_release
 
 import (
+	"strings"
 	"time"
 
 	coremodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
@@ -17,11 +18,15 @@ type LocalInstallSession struct {
 	Status       string         `gorm:"column:status;type:varchar(32);not null;default:'in_progress';index" json:"status"`
 	LogPointers  datatypes.JSON `gorm:"column:log_pointers;type:jsonb;default:'{}'" json:"log_pointers,omitempty"`
 	FeatureFlags datatypes.JSON `gorm:"column:feature_flags;type:jsonb;default:'[]'" json:"feature_flags,omitempty"`
-	ExpiredAt    *time.Time     `gorm:"column:expired_at;type:timestamptz" json:"expired_at,omitempty"`
+	ExpiredAt    *time.Time     `gorm:"column:expired_at" json:"expired_at,omitempty"`
 }
 
 func (LocalInstallSession) TableName() string {
-	return coremodel.PowerXSchema + "." + coremodel.TablePluginReleaseLocalInstallSessions
+	schema := strings.TrimSpace(coremodel.PowerXSchema)
+	if schema == "" {
+		return coremodel.TablePluginReleaseLocalInstallSessions
+	}
+	return schema + "." + coremodel.TablePluginReleaseLocalInstallSessions
 }
 
 const (

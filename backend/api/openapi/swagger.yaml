@@ -1703,6 +1703,42 @@ paths:
             summary: GET /api/v1/health
             tags:
                 - api
+    /api/v1/plugin-release/candidates:
+        post:
+            operationId: POST /api/v1/plugin-release/candidates
+            responses:
+                "200":
+                    description: OK
+            summary: POST /api/v1/plugin-release/candidates
+            tags:
+                - api
+    /api/v1/plugin-release/candidates/:candidateId:
+        get:
+            operationId: GET /api/v1/plugin-release/candidates/_candidateId
+            responses:
+                "200":
+                    description: OK
+            summary: GET /api/v1/plugin-release/candidates/_candidateId
+            tags:
+                - api
+    /api/v1/plugin-release/candidates/:candidateId/gates:
+        post:
+            operationId: POST /api/v1/plugin-release/candidates/_candidateId/gates
+            responses:
+                "200":
+                    description: OK
+            summary: POST /api/v1/plugin-release/candidates/_candidateId/gates
+            tags:
+                - api
+    /api/v1/plugin-release/plans:
+        post:
+            operationId: POST /api/v1/plugin-release/plans
+            responses:
+                "200":
+                    description: OK
+            summary: POST /api/v1/plugin-release/plans
+            tags:
+                - api
     /api/v1/user/auth/logout:
         post:
             operationId: POST /api/v1/user/auth/logout

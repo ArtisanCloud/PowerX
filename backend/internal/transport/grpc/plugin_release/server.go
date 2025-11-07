@@ -15,6 +15,7 @@ import (
 	svc "github.com/ArtisanCloud/PowerX/internal/service/plugin_release"
 	"github.com/ArtisanCloud/PowerX/internal/service/plugin_release/local"
 	"github.com/ArtisanCloud/PowerX/internal/service/plugin_release/pipeline"
+	"github.com/ArtisanCloud/PowerX/internal/service/plugin_release/runtime"
 	models "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/plugin_release"
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"github.com/google/uuid"
@@ -264,6 +265,61 @@ func (s *server) GenerateReleasePlan(ctx context.Context, req *pluginreleasepb.G
 	return toProtoPlan(plan, candidateUUID, candidate), nil
 }
 
+func (s *server) TriggerCanary(req *pluginreleasepb.TriggerCanaryRequest, stream pluginreleasepb.PluginReleaseService_TriggerCanaryServer) error {
+	runtimeSvc := s.runtime()
+	if runtimeSvc == nil {
+		return status.Error(codes.Unavailable, "runtime service unavailable")
+	}
+	planID, err := parsePlanID(req.GetPlanId())
+	if err != nil {
+		return status.Error(codes.InvalidArgument, err.Error())
+	}
+	events, err := runtimeSvc.TriggerCanary(stream.Context(), runtime.TriggerCanaryInput{
+		PlanID:    planID,
+		BatchName: strings.TrimSpace(req.GetBatchName()),
+		Actor:     actorFromContext(stream.Context()),
+	})
+	if err != nil {
+		return mapRuntimeError(err)
+	}
+	for _, evt := range events {
+		if err := stream.Send(&pluginreleasepb.CanaryProgress{
+			PlanId:            strconv.FormatUint(evt.PlanID, 10),
+			BatchName:         evt.BatchName,
+			Phase:             evt.Phase,
+			ErrorRate:         evt.ErrorRate,
+			LatencyP95Ms:      evt.LatencyP95MS,
+			ThresholdBreached: evt.ThresholdBreached,
+		}); err != nil {
+			return status.Errorf(codes.Internal, "send canary progress failed: %v", err)
+		}
+	}
+	return nil
+}
+
+func (s *server) FinalizeDeployment(ctx context.Context, req *pluginreleasepb.FinalizeDeploymentRequest) (*pluginreleasepb.FinalizeDeploymentResponse, error) {
+	runtimeSvc := s.runtime()
+	if runtimeSvc == nil {
+		return nil, status.Error(codes.Unavailable, "runtime service unavailable")
+	}
+	planID, err := parsePlanID(req.GetPlanId())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	plan, err := runtimeSvc.FinalizeDeployment(ctx, runtime.FinalizeInput{
+		PlanID: planID,
+		Action: req.GetAction(),
+		Actor:  actorFromContext(ctx),
+	})
+	if err != nil {
+		return nil, mapRuntimeError(err)
+	}
+	return &pluginreleasepb.FinalizeDeploymentResponse{
+		PlanId:     strconv.FormatUint(plan.ID, 10),
+		FinalState: plan.Status,
+	}, nil
+}
+
 func (s *server) localInstall() *local.InstallService {
 	if s == nil || s.svc == nil {
 		return nil
@@ -276,6 +332,13 @@ func (s *server) pipeline() *pipeline.Service {
 		return nil
 	}
 	return s.svc.Pipeline()
+}
+
+func (s *server) runtime() *runtime.Service {
+	if s == nil || s.svc == nil {
+		return nil
+	}
+	return s.svc.Runtime()
 }
 
 func parseTenantID(raw string) (uint64, error) {
@@ -300,6 +363,14 @@ func parseSessionID(value string) (uuid.UUID, error) {
 		return uuid.Nil, fmt.Errorf("invalid session_id")
 	}
 	return sessionUUID, nil
+}
+
+func parsePlanID(value string) (uint64, error) {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return 0, fmt.Errorf("plan_id is required")
+	}
+	return strconv.ParseUint(trimmed, 10, 64)
 }
 
 func actorFromContext(ctx context.Context) string {
@@ -466,6 +537,20 @@ func mapPipelineError(err error) error {
 	default:
 		logger.WarnF(context.Background(), "pipeline operation failed: %v", err)
 		return status.Error(codes.Internal, "pipeline operation failed")
+	}
+}
+
+func mapRuntimeError(err error) error {
+	switch {
+	case errors.Is(err, runtime.ErrInvalidInput):
+		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, runtime.ErrPlanNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, runtime.ErrBatchNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	default:
+		logger.WarnF(context.Background(), "runtime operation failed: %v", err)
+		return status.Error(codes.Internal, "runtime operation failed")
 	}
 }
 

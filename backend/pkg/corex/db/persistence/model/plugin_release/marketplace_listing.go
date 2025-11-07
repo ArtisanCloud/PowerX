@@ -1,6 +1,7 @@
 package plugin_release
 
 import (
+	"strings"
 	"time"
 
 	coremodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
@@ -19,15 +20,19 @@ type MarketplaceListing struct {
 	SubmissionForm     datatypes.JSON `gorm:"column:submission_form;type:jsonb;default:'{}'" json:"submission_form,omitempty"`
 	ReviewStatus       string         `gorm:"column:review_status;type:varchar(32);not null;default:'pending';index" json:"review_status"`
 	ReviewCount        int            `gorm:"column:review_count;not null;default:0" json:"review_count"`
-	EscalatedAt        *time.Time     `gorm:"column:escalated_at;type:timestamptz" json:"escalated_at,omitempty"`
+	EscalatedAt        *time.Time     `gorm:"column:escalated_at" json:"escalated_at,omitempty"`
 	NotificationTicket *uuid.UUID     `gorm:"column:notification_ticket;type:uuid" json:"notification_ticket,omitempty"`
-	PublishedAt        *time.Time     `gorm:"column:published_at;type:timestamptz" json:"published_at,omitempty"`
+	PublishedAt        *time.Time     `gorm:"column:published_at" json:"published_at,omitempty"`
 	CreatedBy          string         `gorm:"column:created_by;type:varchar(128)" json:"created_by,omitempty"`
 	UpdatedBy          string         `gorm:"column:updated_by;type:varchar(128)" json:"updated_by,omitempty"`
 }
 
 func (MarketplaceListing) TableName() string {
-	return coremodel.PowerXSchema + "." + coremodel.TablePluginReleaseMarketplaceListings
+	schema := strings.TrimSpace(coremodel.PowerXSchema)
+	if schema == "" {
+		return coremodel.TablePluginReleaseMarketplaceListings
+	}
+	return schema + "." + coremodel.TablePluginReleaseMarketplaceListings
 }
 
 const (

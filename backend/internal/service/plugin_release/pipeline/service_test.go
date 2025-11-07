@@ -14,9 +14,12 @@ import (
 )
 
 func TestPipelineGeneratesPlanAfterGates(t *testing.T) {
+	prevSchema := coremodel.PowerXSchema
 	coremodel.PowerXSchema = ""
+	t.Cleanup(func() { coremodel.PowerXSchema = prevSchema })
 	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{})
 	require.NoError(t, err)
+	require.NoError(t, db.Exec("ATTACH DATABASE ':memory:' AS public").Error)
 	require.NoError(t, db.AutoMigrate(&models.PluginReleaseCandidate{}, &models.ReleasePlan{}, &models.CanaryDeploymentRecord{}))
 
 	candidateRepo := repo.NewReleaseCandidateRepository(db)

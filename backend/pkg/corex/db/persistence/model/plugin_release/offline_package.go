@@ -1,6 +1,7 @@
 package plugin_release
 
 import (
+	"strings"
 	"time"
 
 	coremodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
@@ -19,7 +20,7 @@ type OfflineDistributionPackage struct {
 	LicenseReport        datatypes.JSON `gorm:"column:license_report;type:jsonb;default:'{}'" json:"license_report,omitempty"`
 	HealthCheckLog       string         `gorm:"column:health_check_log;type:text" json:"health_check_log,omitempty"`
 	Status               string         `gorm:"column:status;type:varchar(32);not null;default:'draft';index" json:"status"`
-	SLADeadline          *time.Time     `gorm:"column:sla_deadline;type:timestamptz" json:"sla_deadline,omitempty"`
+	SLADeadline          *time.Time     `gorm:"column:sla_deadline" json:"sla_deadline,omitempty"`
 	CreatedBy            string         `gorm:"column:created_by;type:varchar(128)" json:"created_by,omitempty"`
 	UpdatedBy            string         `gorm:"column:updated_by;type:varchar(128)" json:"updated_by,omitempty"`
 
@@ -27,7 +28,11 @@ type OfflineDistributionPackage struct {
 }
 
 func (OfflineDistributionPackage) TableName() string {
-	return coremodel.PowerXSchema + "." + coremodel.TablePluginReleaseOfflinePackages
+	schema := strings.TrimSpace(coremodel.PowerXSchema)
+	if schema == "" {
+		return coremodel.TablePluginReleaseOfflinePackages
+	}
+	return schema + "." + coremodel.TablePluginReleaseOfflinePackages
 }
 
 const (

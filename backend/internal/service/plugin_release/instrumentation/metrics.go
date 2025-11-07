@@ -15,6 +15,9 @@ type Instruments struct {
 	PipelineDuration       metric.Float64Histogram
 	CanaryRollbackLatency  metric.Float64Histogram
 	DistributionSLASeconds metric.Float64Histogram
+	CanaryPhaseLatency     metric.Float64Histogram
+	CanaryErrorRate        metric.Float64Histogram
+	CanaryRollbackCounter  metric.Int64Counter
 }
 
 // NewInstruments constructs the metric instruments using OTel meter provider.
@@ -36,11 +39,26 @@ func NewInstruments(component string) *Instruments {
 	if err != nil {
 		logger.ErrorF(context.Background(), "create distribution histogram failed: %v", err)
 	}
+	phaseLatency, err := meter.Float64Histogram("plugin_release.canary.phase_duration_seconds")
+	if err != nil {
+		logger.ErrorF(context.Background(), "create canary phase histogram failed: %v", err)
+	}
+	errorRate, err := meter.Float64Histogram("plugin_release.canary.error_rate")
+	if err != nil {
+		logger.ErrorF(context.Background(), "create canary error_rate histogram failed: %v", err)
+	}
+	rollbackCounter, err := meter.Int64Counter("plugin_release.canary.rollback_total")
+	if err != nil {
+		logger.ErrorF(context.Background(), "create canary rollback counter failed: %v", err)
+	}
 	return &Instruments{
 		meter:                  meter,
 		LocalHotloadLatency:    hotload,
 		PipelineDuration:       pipeline,
 		CanaryRollbackLatency:  rollback,
 		DistributionSLASeconds: distribution,
+		CanaryPhaseLatency:     phaseLatency,
+		CanaryErrorRate:        errorRate,
+		CanaryRollbackCounter:  rollbackCounter,
 	}
 }

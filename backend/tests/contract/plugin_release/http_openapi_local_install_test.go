@@ -56,6 +56,9 @@ func setupPluginReleaseDeps(t *testing.T) (*shared.Deps, *gorm.DB) {
 				SessionTTL:        10 * time.Minute,
 				MaxArtifactSizeMB: 50,
 			},
+			Runtime: plugsvc.RuntimeOptions{
+				RollbackTimeout: 5 * time.Minute,
+			},
 		},
 	)
 

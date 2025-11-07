@@ -217,7 +217,11 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 				SessionTTL:        opts.PluginRelease.LocalInstall.SessionTTL,
 				MaxArtifactSizeMB: opts.PluginRelease.LocalInstall.MaxArtifactSizeMB,
 			},
-			Auditor: aud,
+			Auditor:  aud,
+			EventBus: bus,
+			Runtime: pluginReleaseService.RuntimeOptions{
+				RollbackTimeout: opts.PluginRelease.Canary.RollbackTimeout,
+			},
 		},
 	)
 

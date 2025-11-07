@@ -20,4 +20,10 @@ func RegisterAPIRoutes(public, protected *gin.RouterGroup, deps *shared.Deps) {
 	group.GET("/candidates/:candidateId", handler.getCandidate)
 	group.POST("/candidates/:candidateId/gates", handler.runGates)
 	group.POST("/plans", handler.createPlan)
+
+	if runtimeHandler := newDeploymentHandler(deps.PluginReleaseService.Runtime()); runtimeHandler != nil {
+		group.POST("/plans/:planId/deploy/canary", runtimeHandler.triggerCanary)
+		group.POST("/plans/:planId/deploy/finalize", runtimeHandler.finalizeDeployment)
+		group.POST("/plans/:planId/deploy/rollback", runtimeHandler.rollback)
+	}
 }

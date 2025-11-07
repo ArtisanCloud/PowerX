@@ -7,9 +7,11 @@ import (
 	"github.com/ArtisanCloud/PowerX/internal/service/plugin_release/instrumentation"
 	"github.com/ArtisanCloud/PowerX/internal/service/plugin_release/local"
 	"github.com/ArtisanCloud/PowerX/internal/service/plugin_release/pipeline"
+	"github.com/ArtisanCloud/PowerX/internal/service/plugin_release/runtime"
 	audit "github.com/ArtisanCloud/PowerX/pkg/corex/audit"
 	models "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/plugin_release"
 	repo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/plugin_release"
+	"github.com/ArtisanCloud/PowerX/pkg/event_bus"
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 )
 
@@ -24,12 +26,19 @@ type LocalInstallOptions struct {
 	MaxArtifactSizeMB int
 }
 
+// RuntimeOptions controls rollout orchestration.
+type RuntimeOptions struct {
+	RollbackTimeout time.Duration
+}
+
 // Options aggregates module-level dependencies shared across sub-services.
 type Options struct {
 	FeatureFlags FeatureFlagOptions
 	LocalInstall LocalInstallOptions
 	Auditor      audit.Auditor
 	Clock        func() time.Time
+	EventBus     event_bus.EventBus
+	Runtime      RuntimeOptions
 }
 
 // Service aggregates repositories and instrumentation for plugin release orchestration.
@@ -41,6 +50,7 @@ type Service struct {
 	instruments    *instrumentation.Instruments
 	tracerProvider *instrumentation.TracerProvider
 	localInstall   *local.InstallService
+	runtime        *runtime.Service
 	pipeline       *pipeline.Service
 	options        Options
 }
@@ -70,11 +80,15 @@ func NewService(
 		tracerProvider: instrumentation.NewTracerProvider(componentName),
 		options:        opts,
 	}
+	if opts.Runtime.RollbackTimeout <= 0 {
+		opts.Runtime.RollbackTimeout = 5 * time.Minute
+	}
+
 	localHooks := local.NewAuditHooks(opts.Auditor)
 	svc.localInstall = local.NewInstallService(local.InstallServiceDeps{
 		Repository:    localSessions,
 		Auditor:       opts.Auditor,
-		Clock:         time.Now,
+		Clock:         opts.Clock,
 		AuditObserver: localHooks,
 	}, local.Options{
 		SessionTTL:        opts.LocalInstall.SessionTTL,
@@ -95,6 +109,18 @@ func NewService(
 			Clock:       opts.Clock,
 		},
 	)
+
+	runtimeHooks := runtime.NewEventHooks(opts.EventBus)
+	svc.runtime = runtime.NewService(runtime.Dependencies{
+		Plans:       plans,
+		Candidates:  candidates,
+		Instruments: svc.instruments,
+		Hooks:       runtimeHooks,
+		Clock:       opts.Clock,
+	}, runtime.Options{
+		RollbackTimeout: opts.Runtime.RollbackTimeout,
+	})
+
 	return svc
 }
 
@@ -126,4 +152,9 @@ func (s *Service) LocalInstall() *local.InstallService {
 // Pipeline exposes end-to-end release orchestration.
 func (s *Service) Pipeline() *pipeline.Service {
 	return s.pipeline
+}
+
+// Runtime exposes deployment runtime orchestration.
+func (s *Service) Runtime() *runtime.Service {
+	return s.runtime
 }

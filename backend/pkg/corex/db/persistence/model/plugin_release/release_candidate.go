@@ -1,6 +1,7 @@
 package plugin_release
 
 import (
+	"strings"
 	"time"
 
 	coremodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
@@ -33,7 +34,11 @@ type PluginReleaseCandidate struct {
 }
 
 func (PluginReleaseCandidate) TableName() string {
-	return coremodel.PowerXSchema + "." + coremodel.TablePluginReleaseCandidates
+	schema := strings.TrimSpace(coremodel.PowerXSchema)
+	if schema == "" {
+		return coremodel.TablePluginReleaseCandidates
+	}
+	return schema + "." + coremodel.TablePluginReleaseCandidates
 }
 
 // EnsureUniqueConstraint returns the fields that must remain unique across records.
