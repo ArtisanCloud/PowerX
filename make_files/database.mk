@@ -28,27 +28,27 @@ db-create:
 .PHONY: db-migrate
 db-migrate:
 	@echo "执行数据库迁移..."
-	@go run ./backend/cmd/database migrate
+	@cd backend && go run ./cmd/database migrate
 
 .PHONY: db-rollback
 db-rollback:
 	@echo "执行数据库回滚..."
-	@go run ./backend/cmd/database rollback
+	@cd backend && go run ./cmd/database rollback
 
 .PHONY: db-seed
 db-seed:
 	@echo "填充数据库种子数据..."
-	@go run ./backend/cmd/database seed
+	@cd backend && go run ./cmd/database seed
 
 .PHONY: db-refresh
 db-refresh:
 	@echo "刷新数据库（回滚+迁移+种子）..."
-	@go run ./backend/cmd/database refresh
+	@cd backend && go run ./cmd/database refresh
 
 .PHONY: db-status
 db-status:
 	@echo "查看数据库迁移状态..."
-	@go run ./backend/cmd/database status
+	@cd backend && go run ./cmd/database status
 
 
 # 帮助信息

@@ -7,7 +7,10 @@
     "dev": "nuxt dev",
     "generate": "nuxt generate",
     "preview": "nuxt preview",
-    "postinstall": "nuxt prepare"
+    "postinstall": "nuxt prepare",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:unit": "vitest"
   },
   "dependencies": {
     "@nuxt/content": "^3.6.3",
@@ -37,6 +40,7 @@
     "@iconify-json/lucide": "^1.2.62",
     "@nuxt/icon": "^2.0.0",
     "@nuxt/ui": "^3.3.2",
+    "@playwright/test": "^1.40.0",
     "@tailwindcss/postcss": "^4.1.11",
     "@tailwindcss/vite": "^4.1.11",
     "autoprefixer": "^10.4.21",
@@ -44,6 +48,7 @@
     "sass": "^1.90.0",
     "sass-embedded": "^1.90.0",
     "tailwindcss": "^4.1.11",
+    "vitest": "^3.0.0",
     "ws": "^8.18.3"
   }
 }

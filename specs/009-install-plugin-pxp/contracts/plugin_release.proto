@@ -1,0 +1,193 @@
+syntax = "proto3";
+
+package powerx.plugin_release.v1;
+
+option go_package = "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/plugin_release/v1";
+
+service PluginReleaseService {
+  rpc CreateReleaseCandidate(CreateReleaseCandidateRequest) returns (ReleaseCandidate) {}
+  rpc RunQualityGates(RunQualityGatesRequest) returns (GateResult) {}
+  rpc GenerateReleasePlan(GenerateReleasePlanRequest) returns (ReleasePlan) {}
+  rpc TriggerCanary(TriggerCanaryRequest) returns (stream CanaryProgress) {}
+  rpc FinalizeDeployment(FinalizeDeploymentRequest) returns (FinalizeDeploymentResponse) {}
+  rpc UploadOfflinePackage(stream UploadOfflinePackageRequest) returns (UploadOfflinePackageResponse) {}
+  rpc SubmitMarketplaceListing(SubmitMarketplaceListingRequest) returns (MarketplaceListing) {}
+  rpc ImportOfflinePackage(ImportOfflinePackageRequest) returns (ImportOfflinePackageResponse) {}
+  rpc StartLocalInstall(StartLocalInstallRequest) returns (LocalInstallSession) {}
+  rpc PushHotReload(stream HotReloadChunk) returns (HotReloadAck) {}
+  rpc StopLocalInstall(StopLocalInstallRequest) returns (StopLocalInstallResponse) {}
+  rpc GetLocalInstallSession(GetLocalInstallSessionRequest) returns (LocalInstallSession) {}
+}
+
+message CreateReleaseCandidateRequest {
+  string tenant_id = 1;
+  string plugin_id = 2;
+  string version = 3;
+  string build_artifact_uri = 4;
+  string commit_hash = 5;
+  string release_notes = 6;
+  map<string, string> labels = 7;
+}
+
+message ReleaseCandidate {
+  string candidate_id = 1;
+  string tenant_id = 2;
+  string plugin_id = 3;
+  string version = 4;
+  string gate_status = 5;
+  string approval_status = 6;
+  string build_artifact_uri = 7;
+  string release_notes = 8;
+}
+
+message RunQualityGatesRequest {
+  string candidate_id = 1;
+  bool force_rescan = 2;
+}
+
+message GateResult {
+  string candidate_id = 1;
+  string status = 2;
+  repeated GateViolation violations = 3;
+}
+
+message GateViolation {
+  string code = 1;
+  string message = 2;
+  string owner = 3;
+}
+
+message GenerateReleasePlanRequest {
+  string candidate_id = 1;
+  string window_start = 2;
+  string window_end = 3;
+  repeated CanaryBatch batches = 4;
+  repeated string rollback_scripts = 5;
+  repeated string notification_targets = 6;
+}
+
+message ReleasePlan {
+  string plan_id = 1;
+  string candidate_id = 2;
+  string status = 3;
+  repeated CanaryBatch batches = 4;
+}
+
+message CanaryBatch {
+  string name = 1;
+  repeated string tenant_scope = 2;
+  map<string, double> metric_thresholds = 3;
+  uint32 rollback_timeout_minutes = 4;
+}
+
+message TriggerCanaryRequest {
+  string plan_id = 1;
+  string batch_name = 2;
+}
+
+message CanaryProgress {
+  string plan_id = 1;
+  string batch_name = 2;
+  string phase = 3; // starting, monitoring, rollback
+  double error_rate = 4;
+  double latency_p95_ms = 5;
+  bool threshold_breached = 6;
+}
+
+message FinalizeDeploymentRequest {
+  string plan_id = 1;
+  string action = 2; // promote_or_rollback
+}
+
+message FinalizeDeploymentResponse {
+  string plan_id = 1;
+  string final_state = 2;
+}
+
+message UploadOfflinePackageRequest {
+  string candidate_id = 1;
+  bytes chunk = 2;
+  bool eof = 3;
+  string checksum = 4;
+}
+
+message UploadOfflinePackageResponse {
+  string offline_package_id = 1;
+  string package_uri = 2;
+}
+
+message SubmitMarketplaceListingRequest {
+  string offline_package_id = 1;
+  string channel = 2; // online/offline/hybrid
+  string pricing_json = 3;
+  string support_policy_json = 4;
+}
+
+message MarketplaceListing {
+  string listing_id = 1;
+  string channel = 2;
+  string review_status = 3;
+  uint32 review_count = 4;
+}
+
+message ImportOfflinePackageRequest {
+  string tenant_id = 1;
+  string package_uri = 2;
+  string checksum = 3;
+  bool dry_run = 4;
+}
+
+message ImportOfflinePackageResponse {
+  string job_id = 1;
+  string status = 2;
+}
+
+message StartLocalInstallRequest {
+  string tenant_id = 1;
+  uint64 developer_id = 2;
+  string artifact_uri = 3;
+  repeated string feature_flags = 4;
+  bool reset_cache = 5;
+}
+
+message GetLocalInstallSessionRequest {
+  string session_id = 1;
+  string tenant_id = 2;
+}
+
+message LocalInstallSession {
+  string session_id = 1;
+  string tenant_id = 2;
+  uint64 developer_id = 3;
+  string artifact_uri = 4;
+  repeated string feature_flags = 5;
+  string status = 6;
+  string log_url = 7;
+  string created_at = 8;
+  string expires_at = 9;
+}
+
+message HotReloadChunk {
+  string session_id = 1;
+  int64 sequence = 2;
+  bytes content = 3;
+  bool eof = 4;
+  string changelog = 5;
+}
+
+message HotReloadAck {
+  string session_id = 1;
+  int64 applied_sequence = 2;
+  string status = 3;
+  string message = 4;
+}
+
+message StopLocalInstallRequest {
+  string session_id = 1;
+  bool force = 2;
+}
+
+message StopLocalInstallResponse {
+  string session_id = 1;
+  string status = 2;
+}

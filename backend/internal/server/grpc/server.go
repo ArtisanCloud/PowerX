@@ -20,7 +20,7 @@ import (
 	workflowv1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/workflow/v1"
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
 	agentgrpc "github.com/ArtisanCloud/PowerX/internal/transport/grpc/agent"
-agentlifecyclegrpc "github.com/ArtisanCloud/PowerX/internal/transport/grpc/agentlifecycle"
+	agentlifecyclegrpc "github.com/ArtisanCloud/PowerX/internal/transport/grpc/agentlifecycle"
 	authgrpc "github.com/ArtisanCloud/PowerX/internal/transport/grpc/auth"
 	middleware2 "github.com/ArtisanCloud/PowerX/internal/transport/grpc/auth/middleware"
 	capgrpc "github.com/ArtisanCloud/PowerX/internal/transport/grpc/capability"
@@ -29,6 +29,7 @@ agentlifecyclegrpc "github.com/ArtisanCloud/PowerX/internal/transport/grpc/agent
 	"github.com/ArtisanCloud/PowerX/internal/transport/grpc/iam"
 	integrationGatewayGRPC "github.com/ArtisanCloud/PowerX/internal/transport/grpc/integration_gateway"
 	medigrpc "github.com/ArtisanCloud/PowerX/internal/transport/grpc/media"
+	pluginreleasegrpc "github.com/ArtisanCloud/PowerX/internal/transport/grpc/plugin_release"
 	workflowgrpc "github.com/ArtisanCloud/PowerX/internal/transport/grpc/workflow"
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 
@@ -112,9 +113,9 @@ func New(cfg *GRPCConfig, deps *shared.Deps) (*grpc.Server, net.Listener, error)
 
 	agentv1.RegisterAgentStreamServiceServer(s, agentgrpc.NewAgentStreamServer(deps))
 	settingv12.RegisterSettingAIServiceServer(s, agentgrpc.NewSettingAIServiceServer(deps))
-    if deps.AgentLifecycle != nil && deps.AgentLifecycle.Service != nil {
-        agentlifecyclegrpc.Register(s, agentlifecyclegrpc.NewServer(deps.AgentLifecycle.Service))
-    }
+	if deps.AgentLifecycle != nil && deps.AgentLifecycle.Service != nil {
+		agentlifecyclegrpc.Register(s, agentlifecyclegrpc.NewServer(deps.AgentLifecycle.Service))
+	}
 	capv1.RegisterCapabilityRegistryServiceServer(s, capgrpc.NewContractServer(deps))
 	if deps.CapabilityRegistrySvc != nil {
 		capabilityRegistryGRPC.RegisterCapabilityRegistryServer(s, deps.CapabilityRegistrySvc)
@@ -130,6 +131,7 @@ func New(cfg *GRPCConfig, deps *shared.Deps) (*grpc.Server, net.Listener, error)
 	}
 
 	integrationGatewayGRPC.RegisterServers(s, deps)
+	pluginreleasegrpc.RegisterServer(s, deps)
 
 	// STS（令牌换签/内发）—— 与拦截器共用同一个 KeyRing
 	stsv1.RegisterSTSServiceServer(s, authgrpc.NewSTSServiceServerWithRing(deps, ring))
@@ -151,7 +153,7 @@ func New(cfg *GRPCConfig, deps *shared.Deps) (*grpc.Server, net.Listener, error)
 			iamv1.MemberService_ServiceDesc.ServiceName,
 			iamv1.TeamService_ServiceDesc.ServiceName,
 			agentv1.AgentStreamService_ServiceDesc.ServiceName,
-            agentv1.AgentLifecycleService_ServiceDesc.ServiceName,
+			agentv1.AgentLifecycleService_ServiceDesc.ServiceName,
 			settingv12.SettingAIService_ServiceDesc.ServiceName,
 			stsv1.STSService_ServiceDesc.ServiceName,
 			corexmediav1.MediaAssetAdminService_ServiceDesc.ServiceName,

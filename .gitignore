@@ -71,10 +71,28 @@ backend/plugins/**/*.bak
 # Keep the folder itself
 !backend/plugins/.gitkeep
 
+# Ignore compiled binary files and specific app directories
+# Binary file 'app' (compiled executable)
 app
+
+# Allow web-admin/app directory (it has source code, not a build artifact)
+!web-admin/app/
+
+# Backend app directory (build output)
+backend/app/
+# Frontend app directory (if exists)
+frontend/app/
+# CLI app directory (if exists)
+cli/app/
+
+# Specifically allow plugin-release pages within web-admin
+!web-admin/app/pages/plugin-release/
+!web-admin/app/pages/plugin-release/**
+
 api/grpc/gen/*
 !api/grpc/gen/go/
 !api/grpc/gen/go/**
+
 .gocache
 .cache
 .gomodcache

@@ -213,6 +213,41 @@ func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error)
 				HTTPTimeout:      time.Duration(cfg.AgentLifecycle.Notifications.HTTPTimeoutSec) * time.Second,
 			},
 		},
+		PluginRelease: shared.PluginReleaseOptions{
+			FeatureFlags: shared.PluginReleaseFeatureFlagsOptions{
+				EnableLocalInstall:        cfg.PluginRelease.FeatureFlags.EnableLocalInstall,
+				EnablePipelineDeployment:  cfg.PluginRelease.FeatureFlags.EnablePipelineDeployment,
+				EnableOfflineDistribution: cfg.PluginRelease.FeatureFlags.EnableOfflineDistribution,
+			},
+			LocalInstall: shared.PluginReleaseLocalInstallOptions{
+				SessionTTL:        time.Duration(cfg.PluginRelease.LocalInstall.SessionTTLMinutes) * time.Minute,
+				MaxArtifactSizeMB: cfg.PluginRelease.LocalInstall.MaxArtifactSizeMB,
+			},
+			Pipeline: shared.PluginReleasePipelineOptions{
+				ApprovalSLA:           time.Duration(cfg.PluginRelease.Pipeline.ApprovalSLAHours) * time.Hour,
+				MaxParallelReleases:   cfg.PluginRelease.Pipeline.MaxParallelReleases,
+				DefaultRollbackNotice: time.Duration(cfg.PluginRelease.Pipeline.DefaultRollbackNotice) * time.Minute,
+			},
+			Canary: shared.PluginReleaseCanaryOptions{
+				RollbackTimeout:  time.Duration(cfg.PluginRelease.Canary.RollbackTimeoutSeconds) * time.Second,
+				DefaultBatchSize: cfg.PluginRelease.Canary.DefaultBatchSize,
+				MaxBatches:       cfg.PluginRelease.Canary.MaxBatches,
+			},
+			Distribution: shared.PluginReleaseDistributionOptions{
+				OfflineBucket:       cfg.PluginRelease.Distribution.OfflineBucket,
+				OfflinePrefix:       cfg.PluginRelease.Distribution.OfflinePrefix,
+				EscalationThreshold: cfg.PluginRelease.Distribution.EscalationThreshold,
+				ArtifactRetention:   time.Duration(cfg.PluginRelease.Distribution.ArtifactRetentionDays) * 24 * time.Hour,
+			},
+			Observability: shared.PluginReleaseObservabilityOptions{
+				DashboardUID:    cfg.PluginRelease.Observability.DashboardUID,
+				AlertRulePrefix: cfg.PluginRelease.Observability.AlertRulePrefix,
+				KPITargets: shared.PluginReleaseKPITargetsOptions{
+					CanRollbackWithin: time.Duration(cfg.PluginRelease.Observability.KPITargets.CanRollbackWithinSeconds) * time.Second,
+					HotloadLatencyP95: time.Duration(cfg.PluginRelease.Observability.KPITargets.HotloadLatencyP95Ms) * time.Millisecond,
+				},
+			},
+		},
 	}
 
 	deps := shared.NewDeps(db, opts)

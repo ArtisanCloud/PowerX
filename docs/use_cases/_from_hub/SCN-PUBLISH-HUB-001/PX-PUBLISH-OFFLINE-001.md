@@ -22,22 +22,25 @@ linked_requirements:
   - type: scenario
     ref: SCN-PUBLISH-OFFLINE-001
 code_refs:
-  - component: local_install_service
-    path: backend/internal/offline/install/service.go
-    description: 负责离线包读取、验签、调用插件生命周期钩子
-  - component: offline_storage_adapter
-    path: backend/internal/offline/storage/adapter.go
-    description: 管理本地/对象存储临时目录，提供文件校验与解压
-  - component: offline_api_handler
-    path: backend/cmd/app/http/handlers/offline_install_handler.go
-    description: Admin `install/local` API 对接层，触发安装流程
+  - component: distribution_service
+    path: backend/internal/service/plugin_release/distribution/service.go
+    description: 负责离线包入库、Marketplace listing、租户导入状态机
+  - component: distribution_validator
+    path: backend/internal/service/plugin_release/distribution/validator.go
+    description: 校验签名、许可证与 checksum
+  - component: admin_distribution_handler
+    path: backend/internal/transport/http/admin/plugin_release/distribution_handler.go
+    description: 暴露 `/api/admin/plugin-release/offline-packages`、`/marketplace/listings` 等 API
+  - component: tenant_offline_import_handler
+    path: backend/internal/transport/http/openapi/plugin_release/offline_import_handler.go
+    description: 租户侧导入入口，调用 Distribution Service 的 import job
 feature_flags:
-  - name: PX_OFFLINE_INSTALL
-    description: 控制离线安装 API 是否可用，默认仅在内网环境开启
-    default: false
-    environments: [staging, production]
-  - name: PX_OFFLINE_ROLLBACK_GUARD
-    description: 启用离线回滚保护逻辑，确保失败时快速恢复
+  - name: PLUGIN_RELEASE_ENABLE_LOCAL_INSTALL
+    description: 控制 px-plugin dev --watch 与租户本地安装能力
+    default: true
+    environments: [dev, staging]
+  - name: PLUGIN_RELEASE_ENABLE_OFFLINE_DISTRIBUTION
+    description: 打开离线包入库、Marketplace Review 与租户导入工作流
     default: true
     environments: [staging, production]
 last_reviewed_at: 2025-10-28
@@ -59,6 +62,7 @@ PowerX Core 服务负责验证离线包完整性、执行插件解压与生命�
 - **Rollback Mechanism**：提供自动化回滚与快照机制，确保失败时迅速恢复旧版本。
 - **Observability Hooks**：产出安装流程指标、日志与审计事件，供运营与领导层追踪。
 - **Offline Asset Cache**：管理离线仓库/对象存储缓存，避免重复上传大文件。
+- **CLI & Admin Hand-off**：借助 `powerx publish package --offline`、`powerx plugin import --offline` 以及 `/api/admin/plugin-release/offline-packages` ，将开发者上传、运营审核、租户导入串成统一闭环。
 
 # Target Roles & Responsibilities
 
@@ -69,7 +73,7 @@ PowerX Core 服务负责验证离线包完整性、执行插件解压与生命�
 # Concept & Scope
 
 - **前置条件**
-  - `PX_OFFLINE_INSTALL` Feature Flag 启用。
+  - `PLUGIN_RELEASE_ENABLE_OFFLINE_DISTRIBUTION=1` 并已配置对象存储凭据。
   - 离线包由 Marketplace 审核通过，具备 `manifest.json`、`integrity.txt`、`manifest.signature`。
   - PowerX Core 具备可写的离线缓存目录，与 Admin API 保持连通。
   - 已配置审计日志通道与对象存储租户凭据。

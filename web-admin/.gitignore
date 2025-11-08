@@ -22,3 +22,12 @@ logs
 .env
 .env.*
 !.env.example
+
+# E2E Test Artifacts
+/test-results/
+/playwright-report/
+/playwright/.cache/
+
+# Auth State
+/tests/e2e/.auth/*.json
+!/tests/e2e/.auth/.gitkeep

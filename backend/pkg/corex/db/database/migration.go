@@ -9,6 +9,7 @@ import (
 	modelIAM "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/iam"
 	modelIntegrationGateway "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/integration_gateway"
 	mediamodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/media"
+	modelPluginRelease "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/plugin_release"
 	modelSetting "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/setting"
 	modelTenant "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/tenant"
 	modelWorkflow "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/workflow"
@@ -94,6 +95,18 @@ func MigrateCoreModels(db *gorm.DB) (err error) {
 		return err
 	}
 
+	if err = migratePluginReleaseModels(db); err != nil {
+		return err
+	}
+
+	if err = migration.CreatePluginReleaseStatusView(db); err != nil {
+		return err
+	}
+
+	if err = migration.CreatePluginReleasePartitions(db); err != nil {
+		return err
+	}
+
 	// 迁移审计
 	err = db.AutoMigrate(
 		&modelAudit.AuditEvent{},
@@ -155,5 +168,16 @@ func migrateWorkflowModels(db *gorm.DB) error {
 		&modelWorkflow.WorkflowStepCompensation{},
 		&modelWorkflow.AgentAssignment{},
 		&modelWorkflow.WorkflowEvent{},
+	)
+}
+
+func migratePluginReleaseModels(db *gorm.DB) error {
+	return db.AutoMigrate(
+		&modelPluginRelease.PluginReleaseCandidate{},
+		&modelPluginRelease.ReleasePlan{},
+		&modelPluginRelease.CanaryDeploymentRecord{},
+		&modelPluginRelease.OfflineDistributionPackage{},
+		&modelPluginRelease.MarketplaceListing{},
+		&modelPluginRelease.LocalInstallSession{},
 	)
 }
