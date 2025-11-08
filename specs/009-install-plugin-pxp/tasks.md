@@ -145,3 +145,33 @@
 - [X] T070 编写 E2E 测试覆盖提交→审核→回滚流程（`web-admin/cypress/e2e/plugin-release.cy.ts`，依赖 T065-T069）
 
 **Checkpoint**：运营可在 Web Admin 内完成离线包登记与 Marketplace 审核，无需额外 CLI。
+
+---
+
+## Phase 9: Developer Bootstrap & Third-party Import（Priority P0 / US4）
+
+- [ ] T071 [US4|FR-014] 扩展 `powerx-plugin` 模板索引与 CLI（`powerx-plugin/cmd/init`, `config/plugins/templates/index.yaml`），新增 `powerx plugin init --template <id>` 参数化引导，并在 `backend/internal/service/plugin_bootstrap` + `POST /internal/plugins/bootstrap/validate` 中校验 manifest/权限模板/Git 注册；需更新 `cmd/powerx/commands/plugin/init.go` 及 Quickstart 示例。
+- [ ] T072 [US4|FR-015] 实现 `powerx plugin doctor` CLI 与后端 `POST /internal/plugins/environments/check`，校验多语言运行时、依赖缓存、`.powerxci/onboarding.yaml`；失败时返回 machine-readable report 并阻断提交（涉及 `px-plugin/cmd/doctor`, `backend/internal/service/plugin_bootstrap/doctor.go`, `audit` 事件）。
+- [ ] T073 [US4|FR-016] 构建第三方源码导入服务（`backend/internal/service/plugin_import` + `POST /internal/plugins/import`），接入许可证/漏洞扫描（调用 `internal/service/security`）、模板适配脚本（复用 `powerx-plugin/scaffold`）与审批流程；生成 `ImportRiskReport` 模型/仓储、写入审计，并在合规通过后调用 `POST /internal/git/register`。
+
+**Checkpoint**：任意插件可在 1 分钟内初始化工程、10 分钟内完成团队健康检查，并在 15 分钟内完成第三方导入且具备审计/风险报告。
+
+---
+
+## Phase 10: Rapid Debug, Diagnostics & Sandbox Validation（Priority P1 / US5）
+
+- [ ] T074 [US5|FR-017] 交付宿主模拟器与热更新链路：实现 `backend/internal/service/plugin_debug/host`、`POST /internal/plugins/local/{install,reload}`、CLI `powerx host start --mock` & `px-plugin dev --watch` watcher，保证热更新 <2 秒并写入 `debug.hot_reload.*` 指标。
+- [ ] T075 [US5|FR-018] 发布调试诊断服务：`backend/internal/service/plugin_debug/diagnostics` + `POST /internal/debug/{report,logs/export}`，聚合日志/Tracing/metrics、脱敏敏感字段、调用 ticket bridge，60 秒内生成报告并附回归脚本；新增 `sdk/debug` 客户端与单元测试。
+- [ ] T076 [US5|FR-019] 构建沙箱验证 orchestrator：新增 `backend/internal/service/plugin_sandbox`、定时 Job/worker、`POST /internal/sandbox/{deploy,dataset/load,test/run}`，集成脱敏服务与性能采集，生成 `sandbox_validation_runs` 表与导出报表脚本。
+
+**Checkpoint**：本地调试热更新成功率 ≥98%，异常诊断 1 分钟内出报告，沙箱回归耗时 ≤5 分钟且可追溯。
+
+---
+
+## Phase 11: Version Governance & Compatibility Guard（Priority P2 / US6）
+
+- [ ] T077 [US6|FR-020] 构建版本治理调度：`backend/internal/service/plugin_governance` 扫描租户 manifest + 发布记录、写入 `version_governance_reports`，提供 `powerx version scan` CLI、`POST /internal/version/governance/scan` 与通知/决策 API。
+- [ ] T078 [US6|FR-021] 交付兼容性引擎与例外流程：新增 `backend/internal/service/plugin_compat`、`POST /internal/version/compat/{check,exception,approve}`、`compat_exceptions` 模型，阻断不兼容安装并与审批/监控集成。
+- [ ] T079 [US6|FR-022] 提供多租户版本看板：实现 `backend/internal/service/plugin_governance/multitenant.go`、Web Admin `/admin/plugin-release/governance`（或 CLI `powerx version board`）、批量灰度/回滚触发器，并将决策写入 365 天审计。
+
+**Checkpoint**：平台可 5 分钟内推送升级建议、阻断不兼容安装，并在多租户视角上收敛版本漂移与例外审计。
