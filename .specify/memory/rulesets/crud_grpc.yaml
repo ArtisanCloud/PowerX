@@ -14,6 +14,7 @@ meta:
     - crud_service.yaml
     - crud_repository.yaml
     - proto_gen.yaml
+    - docs/grpc/readme.md
 
 scope:
   applies_to:
@@ -24,7 +25,7 @@ principles:
   - 包与命名：package 用 `<org>.<product>.<domain>`；Service 命名 `{{Entity}}Service`。
   - RPC 五件套：Create/List/Get/Update/Delete；批量操作以 Batch 作为后缀。
   - 分页：与 REST 对齐字段（page,page_size,total,pages），允许扩展 cursor_token。
-  - 错误语义：映射为标准 gRPC status（InvalidArgument/NotFound/AlreadyExists/Unauthenticated/PermissionDenied/ResourceExhausted/FailedPrecondition/Aborted/Internal）。
+  - 错误语义：业务错误优先封装在 `common.v1.ResponseMeta`，仅在传输/系统异常时返回标准 gRPC status。
   - 多租户/鉴权：tenant/actor 从 metadata 推导，不作为业务字段传入；request_id/trace_id 透传。
   - 流式场景：仅在必要时使用 server streaming；事件名与 REST SSE 对齐。
 
@@ -100,7 +101,7 @@ acceptance:
     - "[ ] 使用 proto3，且每个 proto 设置 go_package"
     - "[ ] {{Entity}}Service 含 Create/List/Get/Update/Delete RPC"
     - "[ ] 列表响应包含 items + Pagination(total/page/page_size/pages)"
-    - "[ ] 错误语义与 REST 对照并映射标准 gRPC status"
+    - "[ ] 错误响应通过 ResponseMeta 对齐 HTTP（仅系统异常返回 gRPC status）"
     - "[ ] 多租户/鉴权通过 metadata 推导（非业务字段）"
     - "[ ] go_package 与 buf.gen.yaml 的 go_package_prefix.default 一致"
     - "[ ] 生成输出到 api/grpc/gen，并使用 paths=source_relative"
@@ -170,4 +171,22 @@ templates:
       rpc GetMediaAsset(GetMediaAssetRequest) returns (MediaAssetResponse);
       rpc UpdateMediaAsset(UpdateMediaAssetRequest) returns (MediaAssetResponse);
       rpc DeleteMediaAsset(DeleteMediaAssetRequest) returns (google.protobuf.Empty);
+    }
+  handler_go: |
+    func (s *FooServer) GetFoo(ctx context.Context, req *foov1.GetFooRequest) (*foov1.GetFooResponse, error) {
+      tid := tenantIDFrom(ctx, req.GetCtx())
+      if tid == 0 {
+        return &foov1.GetFooResponse{Meta: badMeta(ctx, 400, "tenant_id required", req.GetCtx().GetRequestId())}, nil
+      }
+      foo, err := s.fooSvc.GetFoo(ctx, uint64(tid), req.GetId())
+      if err != nil {
+        if errors.Is(err, service.ErrFooNotFound) {
+          return &foov1.GetFooResponse{Meta: badMeta(ctx, 404, "foo not found", req.GetCtx().GetRequestId())}, nil
+        }
+        return nil, status.Errorf(codes.Internal, "get foo: %v", err)
+      }
+      return &foov1.GetFooResponse{
+        Meta: okMeta(ctx, req.GetCtx().GetRequestId()),
+        Data: &foov1.GetFooData{Foo: toPBFoo(foo)},
+      }, nil
     }

@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://powerx.dev/schemas/event-envelope.json",
+  "title": "EventEnvelope",
+  "description": "默认 JSON 事件信封结构，供发布/订阅双方校验。",
+  "type": "object",
+  "required": [
+    "eventId",
+    "topic",
+    "tenantId",
+    "version",
+    "payloadFormat",
+    "publishedAt",
+    "payload"
+  ],
+  "properties": {
+    "eventId": {
+      "type": "string",
+      "pattern": "^[a-zA-Z0-9\\-_.:]{5,128}$"
+    },
+    "topic": {
+      "type": "string",
+      "description": "完整主题名，例如 tenant-demo.corex.workflow.approved"
+    },
+    "tenantId": {
+      "type": "string"
+    },
+    "version": {
+      "type": "string",
+      "description": "payload schema 版本，例如 v1"
+    },
+    "payloadFormat": {
+      "type": "string",
+      "enum": ["json", "protobuf", "avro"]
+    },
+    "traceId": {
+      "type": "string"
+    },
+    "idempotencyKey": {
+      "type": "string",
+      "description": "用于 At-Least-Once 去重的幂等键"
+    },
+    "retryAttempt": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "publishedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "replay": {
+      "type": "boolean",
+      "default": false
+    },
+    "headers": {
+      "type": "object",
+      "additionalProperties": {"type": "string"}
+    },
+    "payload": {
+      "type": ["object", "string"],
+      "description": "当 payloadFormat=json 时为对象，其它格式为 Base64 字符串"
+    }
+  },
+  "additionalProperties": false
+}

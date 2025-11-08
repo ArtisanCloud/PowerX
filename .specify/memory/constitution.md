@@ -56,11 +56,16 @@ If a runner does not natively support `manifest.yaml`, it must treat this sectio
 
 | 归属 | 源码目录（领域分层） | 合同/接口（权威源） | 传输层实现 | 启动/注册 | 迁移/依赖注入 |
 |---|---|---|---|---|---|
-| **CoreX Module** | `internal/{service,dto,transport}/{http,grpc}/<domain>`（示例：`internal/service/iam`、`internal/transport/http/admin/iam`、`internal/transport/grpc/iam`） | **gRPC**：`api/grpc/contracts/powerx/<domain>/v1/*.proto`（权威）；**REST**（OpenAPI）：`specs/<feature>/contracts/http-openapi.yaml`（设计产物） | **HTTP**：`internal/transport/http/(admin|web|openapi)/<domain>`；**gRPC**：`internal/transport/grpc/<domain>` | **不使用** `plugins/registry.json`；由 **CoreX 引导**（`internal/bootstrap/app.go` 及现有装配流程） | **模型/迁移基础**：`pkg/corex/db/persistence/model/...`；**特定域表/迁移**按域放置，并在 `cmd/database/migrate.go` 或相应注册处挂载 |
+| **CoreX Module** | `internal/{service,dto,transport}/{http,grpc}/<domain>`（示例：`internal/service/iam`、`internal/transport/http/admin/iam`、`internal/transport/grpc/iam`） | **gRPC**：`api/grpc/contracts/powerx/<domain>/v1/*.proto`（权威）；**REST**（OpenAPI）：`specs/<feature>/contracts/http-openapi.yaml`（设计产物） | **HTTP**：`internal/transport/http/(admin|web|openapi)/<domain>`；**gRPC**：`internal/transport/grpc/<domain>` | **不使用** `plugins/registry.json`；由 **CoreX 引导**（`internal/bootstrap/app.go` 及现有装配流程） | **模型/迁移基础**：`pkg/corex/db/persistence/model/...`；迁移注册统一集中在 `pkg/corex/db/database/migration.go` 的 `MigrateCoreModels`（含 `migrate<Domain>Models`）中，由 `cmd/database/migrate.go` 编排调用 |
 | **Plugin** | `plugins/<vendor>/<name>/backend/...` | **gRPC**：`api/grpc/<vendor>/<name>/v1/*.proto`；**REST**：`plugins/.../contracts/` | **HTTP**：`plugins/.../transport/http`；**gRPC**：`plugins/.../transport/grpc` | **需要** `plugins/registry.json`；按插件生命周期加载 | `plugins/.../infra/migration` 与插件内 DI/引导 |
 
 > 说明：当前仓库已有约定是 **Proto 的权威源在 `api/grpc/contracts`**，Go 代码生成位置在 `api/grpc/gen/go`（见下文 0.3）。HTTP 的 OpenAPI 合同以 `specs/<feature>/contracts/http-openapi.yaml` 作为设计产物，服务端路由/Handler 以 `internal/transport/http/...` 落地（区分 `admin/web/openapi` 子树）。
 > 领域实体说明，因为gorm即定义了model，也可以作为领域的实体使用，不需要反复定义，所以基本上都是在pkg/corex/db/persistence/model/...
+
+- **命名规范（新增）**：CoreX 域目录名称一律使用 `snake_case`，以 `capability_registry`、`media_storage` 为例；禁止拼接式命名如 `capabilityregistry`，确保与 Go 包名区分且在跨语言环境保持一致。
+- **Go 包别名/调用命名**：引用 `capability_registry` 等多词包时，import alias、局部变量与导出符号统一使用小驼峰（如 `capabilityRegistry`、`capRegPolicy`），避免 `capregpolicy`、`capabilityregistry` 这类连续小写写法。示例：`capabilityRegistry "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/registry"`，通过 `capabilityRegistry.Migrate()`、`capRegPolicy.Register()` 等方式调用以保持可读性。
+- **持久化 Repository 模式**：CoreX 数据访问层统一基于 `pkg/corex/db/persistence/repository/BaseRepository` 泛型封装，具体仓储结构体需嵌入 `BaseRepository[T]` 并显式维护 `db *gorm.DB` 字段，对外暴露以 `New<Xxx>Repository` 命名的构造函数；所有数据访问 API 都以 `ctx context.Context` 与可选 `db *gorm.DB`（事务）为前导参数，业务层不得直接拼接 SQL。
+- **数据库迁移注册**：CoreX 模型统一在 `pkg/corex/db/database/migration.go` 的 `MigrateCoreModels`（及其 `migrate<Domain>Models` 子函数）中通过 GORM `AutoMigrate` 注册，`cmd/database/migrate.go` 仅调用该入口。禁止在 `pkg/corex/db/migration/<domain>` 等额外包内自定义入口函数，否则会造成迁移分散与重复。
 
 ### 0.3 传输/合同与代码生成（CoreX 统一约束）
 
@@ -89,7 +94,7 @@ If a runner does not natively support `manifest.yaml`, it must treat this sectio
 - `COREX_DUAL_TRANSPORT`：除非 spec 明确豁免，需同时给出 **REST** 与 **gRPC** 的合同与实现规划。  
 - `COREX_BUF_CONFIG`：`api/grpc/contracts/buf.yaml` 与 `buf.gen.yaml` 存在且配置正确；生成输出到 `api/grpc/gen/go`。  
 - `COREX_SERVER_WIRING`：gRPC/HTTP 装配通过现有 CoreX 引导：`internal/bootstrap/app.go`、`internal/http/router.go`（以及各 `api.go` 集中导出）。  
-- `COREX_MIGRATION_WIRING`：模型与迁移注册与现有 `pkg/corex/db/...` 及 `cmd/database/migrate.go` 流程一致，并在 /tasks 明确增量挂载步骤。
+- `COREX_MIGRATION_WIRING`：模型与迁移注册必须遵循“`pkg/corex/db/database/migration.go` 统一挂载 + `cmd/database/migrate.go` 编排”的现有流程，并在 /tasks 明确增量挂载步骤。
 
 ### 0.5 CoreX 域声明与扩展（可逐步追加）
 
@@ -107,7 +112,7 @@ If a runner does not natively support `manifest.yaml`, it must treat this sectio
 - **T-COREX-003**：实现 `internal/transport/grpc/<domain>`（拦截器链 `auth/tenant/logging/recovery`）。  
 - **T-COREX-004**：实现 `internal/transport/http/(admin|web|openapi)/<domain>` 与路由装配；合同以 `specs/<feature>/contracts/http-openapi.yaml` 为 SoT。  
 - **T-COREX-005**：在 `internal/bootstrap/app.go`、`internal/http/router.go`（以及 `<domain>/api.go`）挂载 HTTP/gRPC。  
-- **T-COREX-006**：为 `<domain>` 的数据表/迁移脚本接入现有 DB 流（模型在 `pkg/corex/db/persistence/model/...`，迁移流程在 `cmd/database/migrate.go`）；补充回滚策略。  
+- **T-COREX-006**：为 `<domain>` 的数据表接入现有 DB 流（模型在 `pkg/corex/db/persistence/model/...`，迁移在 `pkg/corex/db/database/migration.go` 的 `migrate<Domain>Models` 中挂载），并补充回滚策略。  
 - **T-COREX-007**：Make 目标：`proto-gen`、`proto-lint`、`proto-clean`、`migrate`、`migrate-down`；CI 校验输出路径/包前缀一致性。  
 - **T-COREX-008**：契约测试（REST + gRPC）落到 `specs/<feature>/contracts/tests/*.md` → 对应实现下 `_test.go`，严格 TDD。
 
@@ -175,12 +180,17 @@ Every plugin **MUST** expose both **HTTP/REST** and **gRPC** transports:
     - `managed.go_package_prefix.default = github.com/ArtisanCloud/PowerX/api/grpc/gen`
     - `out = api/grpc/gen`
     - `paths = source_relative`
-- **Server (singleton) & Make Targets:**
-  - **Global gRPC bootstrap at `internal/server/grpc/server.go`** with interceptors (`auth`, `tenant`, `logging`, `recovery`)
+- **Server (singleton) & Make Targets:**  
+  - **Global gRPC bootstrap at `internal/server/grpc/server.go`** with interceptors (`auth`, `tenant`, `logging`, `recovery`)  
   - Make targets: `proto-gen`, `proto-lint`, `proto-clean`
-- **Module implementations (no grpc.NewServer, no Register in module):**
-  - `internal/transport/grpc/<module>/*_handler.go`（或 `service.go`）实现生成的 `*ServiceServer` 接口
+- **Module implementations (no grpc.NewServer, no Register in module):**  
+  - `internal/transport/grpc/<module>/*_handler.go`（或 `service.go`）实现生成的 `*ServiceServer` 接口  
   - 通过 `New(*shared.Deps)` 构造，依赖注入 Service；由全局 `server.go` 统一 `Register*ServiceServer(...)`
+
+### X.3 HTTP Handler Response Contract
+
+- 必须使用 `pkg/dto` 中的 `ResponseSuccess`、`ResponseError`、`RespondErrorFrom` 等统一函数输出 JSON；`MustOK` 等旧辅助函数已废弃，禁止继续使用。  
+- 所有 Handler 仍遵循“绑定/校验 → 调 Service → 统一回包”的职责分离，错误结构与成功结构必须符合 `pkg/dto/base.go` 中的定义。
 
 ### X.3 Blocking Gates
 
@@ -212,7 +222,21 @@ Any plan missing the above gates is **invalid** and fails constitutional complia
 - API p95 latency < 200ms  
 - Plugin startup < 5s  
 - Plugin memory < 256MB (unless justified)  
-- Database migrations must include both `up` and `down` scripts
+- Database migrations必须优先使用 GORM AutoMigrate 或等效自动迁移机制；无需单独维护 `up`/`down` 脚本，但需确保迁移过程可重复执行且幂等
+
+### Source Hygiene
+
+- 不得为了“目录占位”而提交仅含包声明或空注释的文件（典型如 `doc.go`、`registry.go`）；新建目录需随首次实现提供实际逻辑、测试或具备实质内容的文档说明。
+- 若确需编写包级文档，必须包含有效注释或示例，禁止空壳文件。
+- 未落库的辅助结构体（纯内存/DTO/参数）不得携带 `gorm:""` Tag，避免与持久化实体混淆；仅当结构体通过 AutoMigrate 映射至真实表时才允许设置 GORM Tag。
+- Service 层必须以结构体方式实现（`*Service` + 构造函数 + 显式依赖注入），禁止额外定义 “业务接口” 壳，以免破坏规则集对集中 DI/事务的约束。
+- 依赖注入只负责传递数据库句柄、配置与跨域服务；Repository 由 Service 内部持有并在构造函数中创建，禁止在 `shared.Deps` 层提前实例化 Repo。
+
+### Event Fabric vs. Event Bus
+
+- `pkg/event_bus` 定位为**基础设施层**的发布/订阅抽象（`Publish`、`Subscribe`、`Close`），负责把事件从发布方送到订阅方，不包含主题治理、ACL、重试、死信或回放等业务语义。
+- `internal/service/event_fabric/*` 是**领域编排层**，需在 CoreX 事件骨干中完成 Topic 目录、租户 ACL、可靠投递、DLQ、回放、审计等用例，并可组合底层 `pkg/event_bus` 等设施。
+- 任何计划/实现不得混淆两者职责：领域服务依赖或扩展基础设施，但禁止在基础设施层堆叠领域逻辑，也不得绕过领域服务直接宣称满足事件骨干需求。
 
 ---
 

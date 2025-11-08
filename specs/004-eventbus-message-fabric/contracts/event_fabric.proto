@@ -1,0 +1,112 @@
+syntax = "proto3";
+
+package corex.event_fabric.v1;
+
+option go_package = "github.com/ArtisanCloud/PowerX/api/grpc/contracts/corex/event_fabric/v1;eventfabric";
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/empty.proto";
+
+// 发布与订阅服务
+service EventFabricService {
+  // 管理面或授权服务调用，写入事件并触发投递。
+  rpc Publish(PublishRequest) returns (PublishResponse);
+
+  // 长连接订阅，服务端推送事件。客户端需要调用 Ack/Nack。
+  rpc Subscribe(SubscriptionRequest) returns (stream DeliveryEnvelope);
+
+  // 显式确认消费成功。
+  rpc Ack(AckRequest) returns (AckResponse);
+
+  // 标记消费失败，可附带错误类型用于重试/死信。
+  rpc Nack(NackRequest) returns (AckResponse);
+}
+
+// 回放控制服务
+service EventReplayService {
+  rpc CreateReplayTask(ReplayRequest) returns (ReplayTask);
+  rpc GetReplayTask(GetReplayTaskRequest) returns (ReplayTask);
+}
+
+message TenantContext {
+  string tenant_id = 1;
+  string trace_id = 2;
+}
+
+message PublishRequest {
+  TenantContext context = 1;
+  string topic_full_name = 2;
+  string event_id = 3;
+  string version = 4;
+  string payload_format = 5; // 默认 json
+  bytes payload = 6;
+  map<string, string> headers = 7;
+}
+
+message PublishResponse {
+  string status = 1; // queued / delivered
+  uint32 retry_count = 2;
+  string delivery_trace_id = 3;
+}
+
+message SubscriptionRequest {
+  TenantContext context = 1;
+  string topic_full_name = 2;
+  string subscriber_id = 3;
+  string delivery_mode = 4; // stream / polling
+  uint32 max_inflight = 5;
+}
+
+message DeliveryEnvelope {
+  string delivery_id = 1;
+  string event_id = 2;
+  string topic_full_name = 3;
+  string version = 4;
+  string payload_format = 5;
+  bytes payload = 6;
+  map<string, string> headers = 7;
+  bool replay = 8;
+  google.protobuf.Timestamp published_at = 9;
+  uint32 retry_attempt = 10;
+}
+
+message AckRequest {
+  TenantContext context = 1;
+  string delivery_id = 2;
+  string subscriber_id = 3;
+}
+
+message NackRequest {
+  TenantContext context = 1;
+  string delivery_id = 2;
+  string subscriber_id = 3;
+  string reason_code = 4; // retryable / fatal / timeout
+  string reason_detail = 5;
+}
+
+message AckResponse {
+  string status = 1; // accepted
+}
+
+message ReplayRequest {
+  TenantContext context = 1;
+  string topic_full_name = 2;
+  google.protobuf.Timestamp time_range_start = 3;
+  google.protobuf.Timestamp time_range_end = 4;
+  string filter_trace_id = 5;
+  string filter_subscriber_id = 6;
+}
+
+message ReplayTask {
+  string id = 1;
+  string status = 2; // pending / running / completed / failed
+  uint32 result_count = 3;
+  string failure_reason = 4;
+  google.protobuf.Timestamp created_at = 5;
+  google.protobuf.Timestamp updated_at = 6;
+}
+
+message GetReplayTaskRequest {
+  TenantContext context = 1;
+  string replay_task_id = 2;
+}

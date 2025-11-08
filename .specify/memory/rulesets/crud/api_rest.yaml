@@ -134,7 +134,7 @@ checks:
       level: error
       when: { glob: "internal/transport/http/**/**_handler.go" }
       assert:
-        - must_use_error_bridge: ["RespondErrorFrom","MustOK"]  # 统一错误桥接  :contentReference[oaicite:20]{index=20}
+        - must_use_error_bridge: ["RespondErrorFrom","ResponseSuccess"]  # 统一错误桥接
         - http_status_in: [400,401,403,404,409,429,500]         # 统一状态集    :contentReference[oaicite:21]{index=21}
 
   pagination_contract:

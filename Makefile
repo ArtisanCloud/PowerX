@@ -1,7 +1,7 @@
 # 根目录 Makefile
 
 # 定义子 make 文件所在目录
-MAKE_FILES_DIR := pkg/make_files
+MAKE_FILES_DIR := make_files
 
 # 引入所有子 make 文件
 include $(MAKE_FILES_DIR)/build.mk

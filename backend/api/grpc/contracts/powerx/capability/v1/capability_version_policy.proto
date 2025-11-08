@@ -1,0 +1,43 @@
+syntax = "proto3";
+
+package powerx.capability.v1;
+
+option go_package = "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/capability/v1;capabilityv1";
+
+import "google/protobuf/struct.proto";
+import "google/protobuf/timestamp.proto";
+
+message CapabilityVersionPolicy {
+  string capability_key = 1;
+  VersionStrategy default_strategy = 2;
+  repeated VersionRule allowed_versions = 3;
+  google.protobuf.Struct compatibility_matrix = 4;
+  DeprecationPolicy deprecation_policy = 5;
+  google.protobuf.Timestamp updated_at = 6;
+}
+
+message VersionRule {
+  string version = 1;
+  repeated string compatible_with = 2;
+  VersionStatus status = 3;
+}
+
+message DeprecationPolicy {
+  int32 warning_period_days = 1;
+  int32 auto_deprecate_after_days = 2;
+  repeated string notify_channels = 3;
+}
+
+enum VersionStrategy {
+  VERSION_STRATEGY_UNSPECIFIED = 0;
+  VERSION_STRATEGY_LATEST_MINOR = 1;
+  VERSION_STRATEGY_FIXED_MAJOR = 2;
+  VERSION_STRATEGY_CUSTOM = 3;
+}
+
+enum VersionStatus {
+  VERSION_STATUS_UNSPECIFIED = 0;
+  VERSION_STATUS_ACTIVE = 1;
+  VERSION_STATUS_DEPRECATED = 2;
+  VERSION_STATUS_BLOCKED = 3;
+}

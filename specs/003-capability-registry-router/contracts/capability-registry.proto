@@ -1,0 +1,198 @@
+syntax = "proto3";
+
+package powerx.capability.registry.v1;
+
+option go_package = "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/capability/registry/v1";
+
+service CapabilityRegistryService {
+  rpc CreateCapability (CreateCapabilityRequest) returns (CreateCapabilityResponse);
+  rpc UpdateCapability (UpdateCapabilityRequest) returns (UpdateCapabilityResponse);
+  rpc GetCapability (GetCapabilityRequest) returns (GetCapabilityResponse);
+  rpc DisableCapability (DisableCapabilityRequest) returns (DisableCapabilityResponse);
+  rpc StreamUpdates (StreamUpdatesRequest) returns (stream StreamUpdatesResponse);
+}
+
+service CapabilityRouterService {
+  rpc Invoke (InvokeRequest) returns (InvokeResponse);
+  rpc StreamInvoke (StreamInvokeRequest) returns (stream StreamInvokeResponse);
+  rpc ReportHealth (ReportHealthRequest) returns (ReportHealthResponse);
+}
+
+service CapabilityDiscoveryService {
+  rpc GetSnapshot (GetSnapshotRequest) returns (GetSnapshotResponse);
+  rpc ListSnapshots (ListSnapshotsRequest) returns (ListSnapshotsResponse);
+}
+
+message TenantScopedId {
+  string capability_id = 1;
+  string tenant_id = 2;
+}
+
+message AdapterEndpoint {
+  string adapter_id = 1;
+  string transport_type = 2;
+  string endpoint = 3;
+  int32 weight = 4;
+  int32 timeout_ms = 5;
+  uint32 max_concurrency = 6;
+  map<string, string> labels = 7;
+  VisibilityPolicy visibility = 8;
+}
+
+message VisibilityPolicy {
+  repeated string allow_environments = 1;
+  repeated string deny_environments = 2;
+  repeated string allow_tenants = 3;
+  repeated string deny_tenants = 4;
+}
+
+message RoutingPolicy {
+  string strategy = 1;
+  repeated string fallback_sequence = 2;
+  int32 cooldown_seconds = 3;
+  RateLimit rate_limit = 4;
+  map<string, string> tenant_strategies = 5;
+  repeated string sticky_keys = 6;
+}
+
+message RateLimit {
+  uint32 limit = 1;
+  uint32 window_seconds = 2;
+}
+
+message FallbackPlan {
+  repeated string fallback_targets = 1;
+  StaticResponse static_response = 2;
+}
+
+message StaticResponse {
+  string payload_json = 1;
+  uint32 ttl_seconds = 2;
+}
+
+message CapabilityRegistration {
+  TenantScopedId id = 1;
+  string contract_ref = 2;
+  string status = 3;
+  map<string, EnvironmentPolicy> environment_policies = 4;
+  repeated AdapterEndpoint adapters = 5;
+  RoutingPolicy routing_policy = 6;
+  FallbackPlan fallback_plan = 7;
+  repeated string tool_grant_ids = 8;
+  uint64 version = 9;
+  int64 updated_at = 10;
+  string updated_by = 11;
+}
+
+message EnvironmentPolicy {
+  bool is_enabled = 1;
+  map<string, string> overrides = 2;
+}
+
+message CreateCapabilityRequest {
+  CapabilityRegistration registration = 1;
+}
+
+message CreateCapabilityResponse {
+  CapabilityRegistration registration = 1;
+}
+
+message UpdateCapabilityRequest {
+  CapabilityRegistration registration = 1;
+}
+
+message UpdateCapabilityResponse {
+  CapabilityRegistration registration = 1;
+}
+
+message GetCapabilityRequest {
+  TenantScopedId id = 1;
+  string version = 2; // latest, draft or numeric string
+}
+
+message GetCapabilityResponse {
+  CapabilityRegistration registration = 1;
+}
+
+message DisableCapabilityRequest {
+  TenantScopedId id = 1;
+  string reason = 2;
+}
+
+message DisableCapabilityResponse {
+  CapabilityRegistration registration = 1;
+}
+
+message StreamUpdatesRequest {
+  string tenant_id = 1;
+  repeated string capability_ids = 2;
+  uint64 from_version = 3;
+}
+
+message StreamUpdatesResponse {
+  CapabilityRegistration registration = 1;
+}
+
+message InvokeRequest {
+  TenantScopedId capability = 1;
+  map<string, string> actor_context = 2;
+  bytes payload = 3;
+  uint32 timeout_ms = 4;
+  string sticky_key = 5;
+}
+
+message InvokeResponse {
+  string adapter_id = 1;
+  bytes payload = 2;
+  InvokeError error = 3;
+  uint32 latency_ms = 4;
+  bool fallback_used = 5;
+  string trace_id = 6;
+}
+
+message StreamInvokeRequest {
+  InvokeRequest request = 1;
+}
+
+message StreamInvokeResponse {
+  string adapter_id = 1;
+  bytes chunk = 2;
+  bool end_of_stream = 3;
+  InvokeError error = 4;
+  string trace_id = 5;
+}
+
+message InvokeError {
+  string code = 1;
+  string message = 2;
+}
+
+message ReportHealthRequest {
+  TenantScopedId id = 1;
+  string adapter_id = 2;
+  string status = 3;
+  string reason = 4;
+  uint32 failures = 5;
+}
+
+message ReportHealthResponse {
+  bool accepted = 1;
+}
+
+message GetSnapshotRequest {
+  TenantScopedId id = 1;
+}
+
+message GetSnapshotResponse {
+  CapabilityRegistration registration = 1;
+  int64 expires_at = 2;
+}
+
+message ListSnapshotsRequest {
+  string tenant_id = 1;
+  repeated string capability_ids = 2;
+}
+
+message ListSnapshotsResponse {
+  repeated GetSnapshotResponse snapshots = 1;
+}

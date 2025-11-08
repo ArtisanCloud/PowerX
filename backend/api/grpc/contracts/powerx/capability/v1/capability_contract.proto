@@ -1,0 +1,180 @@
+syntax = "proto3";
+
+package powerx.capability.v1;
+
+option go_package = "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/capability/v1;capabilityv1";
+
+import "common/v1/response.proto";
+import "google/protobuf/struct.proto";
+import "google/protobuf/timestamp.proto";
+import "powerx/capability/v1/transport_adapter.proto";
+import "powerx/capability/v1/capability_version_policy.proto";
+
+// CapabilityRegistryService 提供能力契约与版本策略的读写接口。
+service CapabilityRegistryService {
+  // 获取指定能力版本的契约。
+  rpc GetCapability(GetCapabilityRequest) returns (CapabilityContractResponse) {}
+
+  // 分页查询契约列表。
+  rpc ListCapabilities(ListCapabilitiesRequest) returns (ListCapabilitiesResponse) {}
+
+  // 创建或更新契约草稿（仅供内部使用）。
+  rpc UpsertCapability(UpsertCapabilityRequest) returns (CapabilityContractResponse) {}
+
+  // 发布契约，执行所有校验流程。
+  rpc PublishCapability(PublishCapabilityRequest) returns (PublishCapabilityResponse) {}
+
+  // 废弃契约并广播事件。
+  rpc DeprecateCapability(DeprecateCapabilityRequest) returns (CapabilityContractResponse) {}
+
+  // 获取版本策略。
+  rpc GetVersionPolicy(GetVersionPolicyRequest) returns (CapabilityVersionPolicyResponse) {}
+
+  // 设置版本策略。
+  rpc UpsertVersionPolicy(UpsertVersionPolicyRequest) returns (CapabilityVersionPolicyResponse) {}
+
+  // 查询传输配置，用于 Router/Adapter。
+  rpc ListTransportProfiles(ListTransportProfilesRequest) returns (ListTransportProfilesResponse) {}
+}
+
+message GetCapabilityRequest {
+  string capability_key = 1;
+  string version = 2;
+  string tenant_id = 3;
+}
+
+message ListCapabilitiesRequest {
+  string capability_key = 1;
+  string tenant_id = 2;
+  string lifecycle_state = 3;
+  TransportKind transport_filter = 4;
+  int32 page_size = 5;
+  string page_token = 6;
+}
+
+message ListCapabilitiesResponse {
+  common.v1.ResponseMeta meta = 1;
+  ListCapabilitiesData data = 2;
+  common.v1.ErrorExtra error = 15;
+}
+
+message ListCapabilitiesData {
+  repeated CapabilityContract items = 1;
+  string next_page_token = 2;
+}
+
+message UpsertCapabilityRequest {
+  CapabilityContract contract = 1;
+}
+
+message PublishCapabilityRequest {
+  string capability_key = 1;
+  string version = 2;
+  google.protobuf.Timestamp effective_at = 3;
+  string notes = 4;
+}
+
+message PublishCapabilityResponse {
+  common.v1.ResponseMeta meta = 1;
+  CapabilityContract contract = 2;
+  repeated ValidationIssue issues = 3;
+  common.v1.ErrorExtra error = 15;
+}
+
+message DeprecateCapabilityRequest {
+  string capability_key = 1;
+  string version = 2;
+  google.protobuf.Timestamp deprecated_at = 3;
+  string replacement_capability = 4;
+  string advisory_message = 5;
+}
+
+message ListTransportProfilesRequest {
+  string capability_key = 1;
+  string version = 2;
+}
+
+message ListTransportProfilesResponse {
+  common.v1.ResponseMeta meta = 1;
+  ListTransportProfilesData data = 2;
+  common.v1.ErrorExtra error = 15;
+}
+
+message ListTransportProfilesData {
+  repeated TransportProfile transports = 1;
+}
+
+message CapabilityVersionPolicyResponse {
+  common.v1.ResponseMeta meta = 1;
+  CapabilityVersionPolicy data = 2;
+  common.v1.ErrorExtra error = 15;
+}
+
+message GetVersionPolicyRequest {
+  string capability_key = 1;
+}
+
+message UpsertVersionPolicyRequest {
+  CapabilityVersionPolicy policy = 1;
+}
+
+message CapabilityContract {
+  string capability_key = 1;
+  string version = 2;
+  string tenant_id = 3;
+  string provider_id = 4;
+  string display_name = 5;
+  string description = 6;
+  LifecycleState lifecycle_state = 7;
+  string security_scope = 8;
+  bool tool_grant_required = 9;
+  repeated IOSchemaDescriptor io_schemas = 10;
+  repeated TransportPreference transport_preferences = 11;
+  repeated ErrorTaxonomyEntry error_taxonomy = 12;
+  google.protobuf.Struct observability_config = 13;
+  google.protobuf.Timestamp created_at = 14;
+  google.protobuf.Timestamp updated_at = 15;
+  string created_by = 16;
+  string updated_by = 17;
+}
+
+message CapabilityContractResponse {
+  common.v1.ResponseMeta meta = 1;
+  CapabilityContract data = 2;
+  common.v1.ErrorExtra error = 15;
+}
+
+message IOSchemaDescriptor {
+  IOSchemaDirection direction = 1;
+  IOSchemaFormat format = 2;
+  string schema_uri = 3;
+  string schema_hash = 4;
+  google.protobuf.Struct validation_rules = 5;
+}
+
+message ValidationIssue {
+  string code = 1;
+  string message = 2;
+  ErrorSeverity severity = 3;
+  google.protobuf.Struct details = 4;
+}
+
+enum LifecycleState {
+  LIFECYCLE_STATE_UNSPECIFIED = 0;
+  LIFECYCLE_STATE_DRAFT = 1;
+  LIFECYCLE_STATE_PUBLISHED = 2;
+  LIFECYCLE_STATE_DEPRECATED = 3;
+}
+
+enum IOSchemaDirection {
+  IO_SCHEMA_DIRECTION_UNSPECIFIED = 0;
+  IO_SCHEMA_DIRECTION_INPUT = 1;
+  IO_SCHEMA_DIRECTION_OUTPUT = 2;
+}
+
+enum IOSchemaFormat {
+  IO_SCHEMA_FORMAT_UNSPECIFIED = 0;
+  IO_SCHEMA_FORMAT_JSON_SCHEMA = 1;
+  IO_SCHEMA_FORMAT_PROTOBUF = 2;
+  IO_SCHEMA_FORMAT_AVRO = 3;
+}

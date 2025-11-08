@@ -1,0 +1,548 @@
+{
+  "welcome": "ようこそ",
+  "login": "ログイン",
+  "register": "登録",
+  "common": {
+    "language": "言語",
+    "reload": "再読み込み"
+  },
+  "user": {
+    "admin": "管理者"
+  },
+  "dashboard": {
+    "title": "ダッシュボード",
+    "description": "システム概要と主要指標",
+    "stats": {
+      "totalUsers": "総ユーザー数",
+      "todayVisits": "本日の訪問",
+      "totalRevenue": "総収入",
+      "activeUsers": "アクティブユーザー",
+      "vsLastMonth": "vs 先月"
+    },
+    "charts": {
+      "visitTrend": "訪問傾向",
+      "chartArea": "チャートエリア",
+      "integration": "ここにChart.jsなどのチャートライブラリを統合できます"
+    },
+    "activities": {
+      "title": "最近のアクティビティ",
+      "viewAll": "すべてのアクティビティを表示",
+      "users": {
+        "zhangsan": "張三",
+        "lisi": "李四",
+        "wangwu": "王五"
+      },
+      "actions": {
+        "createArticle": "新しい記事を作成しました",
+        "updateProfile": "ユーザープロフィールを更新しました",
+        "deleteComment": "コメントを削除しました"
+      },
+      "targets": {
+        "vueBestPractices": "「Vue 3 ベストプラクティス」",
+        "onTechShare": "「技術共有」で"
+      },
+      "times": {
+        "minutesAgo": "{minutes}分前"
+      }
+    },
+    "quickActions": {
+      "title": "クイックアクション",
+      "addUser": "ユーザー追加",
+      "createArticle": "記事作成",
+      "viewAnalytics": "分析を表示",
+      "systemSettings": "システム設定"
+    },
+    "common": {
+      "viewDetails": "詳細を表示"
+    }
+  },
+  "home": {
+    "subtitle": "現代的な企業管理システムで、あなたのビジネスを飛躍させます",
+    "learnMore": "詳細を見る",
+    "getStarted": "始める",
+    "dashboardDesc": "現代的な管理インターフェース",
+    "footer": "全著作権所有"
+  },
+  "menu": {
+    "agent": "AI チャット",
+    "dashboard": "ダッシュボード",
+    "customers": "顧客管理",
+    "customerList": "顧客リスト",
+    "customerGroups": "顧客グループ",
+    "products": "製品管理",
+    "productList": "製品リスト",
+    "productCategories": "製品カテゴリ",
+    "orders": "注文管理",
+    "settings": "システム設定",
+    "userManagement": "ユーザー管理",
+    "roleManagement": "役割管理",
+    "systemConfig": "システム構成",
+    "loadFailed": "メニュー読み込み失敗",
+    "loadFailedDesc": "メニューデータを読み込めません。ネットワーク接続を確認してください。",
+    "itemCount": "メニュー項目数",
+    "noItemsWarning": "警告：表示するメニュー項目がありません",
+    "badge": {
+      "new": "新着"
+    },
+    "aiSettings": "モデル設定",
+    "workflow": "ワークフロー",
+    "pluginMarketplace": "マーケット",
+    "pluginsInstalled": "インストール済み",
+    "pluginsMarket": "マーケット"
+  },
+  "header": {
+    "profile": "プロフィール",
+    "settings": "設定",
+    "logout": "ログアウト",
+    "searchPlaceholder": "ユーザー、コンテンツを検索...",
+    "searchSuggestions": "検索候補"
+  },
+  "intro": {
+    "nav": {
+      "features": "機能",
+      "products": "製品",
+      "about": "会社概要"
+    },
+    "hero": {
+      "welcomeTo": "ようこそ",
+      "dashboardPreview": "現代的な管理インターフェース"
+    },
+    "features": {
+      "title": "コア機能",
+      "subtitle": "ビジネスの成長を支援する包括的なエンタープライズソリューションを提供",
+      "performance": {
+        "title": "高性能",
+        "description": "Nuxt 4をベースに構築され、究極のパフォーマンス体験を提供"
+      },
+      "design": {
+        "title": "モダンデザイン",
+        "description": "最新のUIデザインコンセプトを採用し、シンプルで美しいインターフェース"
+      },
+      "usability": {
+        "title": "使いやすさ",
+        "description": "直感的な操作インターフェースで、管理をより簡単に"
+      },
+      "security": {
+        "title": "安全で信頼性",
+        "description": "エンタープライズレベルのセキュリティ保証、データの安全性を確保"
+      }
+    },
+    "products": {
+      "title": "製品スイート",
+      "subtitle": "さまざまなビジネスニーズに対応する完全なエンタープライズ製品エコシステム",
+      "learnMore": "詳細を見る",
+      "admin": {
+        "description": "企業のデジタル変革を支援する強力なバックエンド管理システム",
+        "features": {
+          "userManagement": "ユーザー管理",
+          "permissionControl": "権限制御",
+          "dataAnalysis": "データ分析",
+          "systemMonitoring": "システム監視"
+        }
+      },
+      "analytics": {
+        "description": "ビジネス成長の機会を発見するインテリジェントデータ分析プラットフォーム",
+        "features": {
+          "realTimeAnalysis": "リアルタイム分析",
+          "visualReports": "視覚化レポート",
+          "predictiveModels": "予測モデル",
+          "customDashboard": "カスタムダッシュボード"
+        }
+      },
+      "cloud": {
+        "description": "クラウドソリューション、いつでもどこでもデータにアクセス",
+        "features": {
+          "cloudStorage": "クラウドストレージ",
+          "multiDeviceSync": "マルチデバイス同期",
+          "elasticScaling": "弾性スケーリング",
+          "support247": "24時間365日サポート"
+        }
+      }
+    },
+    "about": {
+      "title": "会社概要",
+      "subtitle": "企業に最高のデジタルソリューションを提供することをお約束します",
+      "mission": {
+        "title": "私たちの使命",
+        "paragraph1": "PowerXは、企業に最先端のデジタル管理ソリューションを提供することに専念しています。技術の力がビジネスの運営方法を変革し、効率を向上させ、価値を創造できると信じています。",
+        "paragraph2": "継続的な革新と最適化を通じて、お客様に安定した、安全で、使いやすい製品体験を提供します。私たちのチームは経験豊富なエンジニアとデザイナーで構成され、世界クラスのエンタープライズソフトウェアの作成に焦点を当てています。",
+        "paragraph3": "私たちは常に顧客中心の理念を堅持し、顧客のニーズに耳を傾け、製品を継続的に改善し、顧客の成功のために努力しています。"
+      },
+      "stats": {
+        "companies": "企業クライアント",
+        "users": "アクティブユーザー",
+        "uptime": "システム可用性"
+      },
+      "enterprise": {
+        "title": "エンタープライズソリューション",
+        "description": "大企業向けにカスタマイズされた専門的なソリューション"
+      },
+      "values": {
+        "title": "私たちの価値観",
+        "innovation": {
+          "title": "継続的革新",
+          "description": "新しい技術を常に探求し、最先端のソリューションを提供"
+        },
+        "userFirst": {
+          "title": "ユーザー第一",
+          "description": "常にユーザー指向で、最高の製品体験を提供"
+        },
+        "excellence": {
+          "title": "卓越性の追求",
+          "description": "製品品質とサービスレベルで決して妥協せず、完璧を追求"
+        }
+      }
+    },
+    "footer": {
+      "aboutUs": "会社概要",
+      "contactUs": "お問い合わせ",
+      "copyright": "© 2024 PowerX. 全著作権所有。"
+    }
+  },
+  "privacyPolicy": "プライバシーポリシー",
+  "termsOfService": "利用規約",
+  "error": {
+    "tip": "このページで問題が発生しました",
+    "goBack": "戻る",
+    "goHome": "ホームに戻る"
+  },
+  "organization": {
+    "title": "組織構造",
+    "tabs": {
+      "departments": "部門管理",
+      "users": "ユーザー管理",
+      "permissions": "権限管理"
+    },
+    "description": "システムユーザー、部門、権限を管理",
+    "department": {
+      "title": "部門管理",
+      "description": "会社の部門構造を管理",
+      "add": "部門追加",
+      "edit": "部門編集",
+      "delete": "部門削除",
+      "confirmDelete": "この部門を削除してもよろしいですか？",
+      "form": {
+        "name": "部門名",
+        "code": "部門コード",
+        "leader": "責任者",
+        "description": "説明",
+        "namePlaceholder": "部門名を入力",
+        "codePlaceholder": "部門コードを入力",
+        "leaderPlaceholder": "責任者名を入力",
+        "descriptionPlaceholder": "部門の説明を入力"
+      },
+      "table": {
+        "name": "部門名",
+        "code": "部門コード",
+        "leader": "責任者",
+        "memberCount": "メンバー数",
+        "description": "説明",
+        "actions": "操作"
+      },
+      "empty": {
+        "title": "部門データがありません",
+        "noResults": "一致する部門が見つかりません。別の検索語を試してください",
+        "create": "「部門追加」ボタンをクリックして最初の部門を作成"
+      },
+      "search": "部門名、コード、責任者を検索..."
+    },
+    "user": {
+      "title": "ユーザー管理",
+      "description": "システムユーザーアカウントと権限を管理",
+      "add": "ユーザー追加",
+      "edit": "ユーザー編集",
+      "delete": "ユーザー削除",
+      "disable": "無効化",
+      "enable": "有効化",
+      "confirmDelete": "このユーザーを削除してもよろしいですか？",
+      "importExport": "インポート/エクスポート",
+      "import": {
+        "title": "ユーザーデータのインポート",
+        "button": "ユーザーデータをインポート",
+        "success": "{count}人のユーザーをインポートしました",
+        "error": "インポート失敗：{message}",
+        "invalidFormat": "無効なユーザーデータ形式",
+        "missingFields": "インポートされたデータに必須フィールド（名前、ユーザー名、またはメール）がありません"
+      },
+      "export": {
+        "csv": "ユーザーデータをエクスポート (CSV)",
+        "json": "ユーザーデータをエクスポート (JSON)"
+      },
+      "form": {
+        "name": "名前",
+        "username": "ユーザー名",
+        "email": "メール",
+        "department": "部門",
+        "role": "役割",
+        "password": "パスワード",
+        "newPassword": "新しいパスワード（変更しない場合は空白）",
+        "confirmPassword": "パスワード確認",
+        "confirmNewPassword": "新しいパスワード確認",
+        "status": "ステータス",
+        "active": "有効",
+        "inactive": "無効",
+        "namePlaceholder": "名前を入力",
+        "usernamePlaceholder": "ユーザー名を入力",
+        "emailPlaceholder": "メールアドレスを入力",
+        "passwordPlaceholder": "パスワードを入力",
+        "selectDepartment": "部門を選択",
+        "selectRole": "役割を選択"
+      },
+      "table": {
+        "avatar": "",
+        "name": "名前",
+        "username": "ユーザー名",
+        "email": "メール",
+        "department": "部門",
+        "role": "役割",
+        "status": "ステータス",
+        "actions": "操作"
+      },
+      "filter": {
+        "allDepartments": "すべての部門",
+        "allRoles": "すべての役割",
+        "allStatus": "すべてのステータス",
+        "active": "有効",
+        "inactive": "無効",
+        "reset": "リセット"
+      },
+      "empty": {
+        "title": "ユーザーデータがありません",
+        "noResults": "一致するユーザーが見つかりません。フィルターを調整してください",
+        "create": "「ユーザー追加」ボタンをクリックして最初のユーザーを作成"
+      },
+      "search": "ユーザー名、メールを検索...",
+      "validation": {
+        "requiredFields": "必須フィールドを入力してください",
+        "passwordMismatch": "パスワードが一致しません"
+      }
+    },
+    "permission": {
+      "title": "権限管理",
+      "description": "システムの役割と権限を管理",
+      "roleList": "役割リスト",
+      "roleConfig": "権限設定",
+      "configDesc": "この役割がアクセスできる機能と操作を設定",
+      "add": "役割追加",
+      "edit": "役割編集",
+      "delete": "役割削除",
+      "systemRole": "システム",
+      "userCount": "ユーザー",
+      "confirmDelete": "この役割を削除してもよろしいですか？",
+      "systemRoleError": "システム役割は削除できません",
+      "form": {
+        "name": "役割名",
+        "code": "役割コード",
+        "description": "説明",
+        "permissions": "権限",
+        "namePlaceholder": "役割名を入力",
+        "codePlaceholder": "役割コードを入力",
+        "descriptionPlaceholder": "役割の説明を入力"
+      },
+      "empty": {
+        "title": "役割データがありません",
+        "noResults": "一致する役割が見つかりません。別の検索語を試してください",
+        "create": "「役割追加」ボタンをクリックして最初の役割を作成"
+      },
+      "search": "役割を検索..."
+    },
+    "common": {
+      "save": "保存",
+      "cancel": "キャンセル",
+      "edit": "編集",
+      "delete": "削除",
+      "actions": "操作",
+      "search": "検索",
+      "filter": "フィルター",
+      "reset": "リセット"
+    }
+  },
+  "auth": {
+    "backToHome": "ホームに戻る",
+    "welcomeBack": "おかえりなさい",
+    "loginSubtitle": "アカウントにサインインして続行",
+    "createAccount": "アカウント作成",
+    "registerSubtitle": "新しいアカウントを作成して開始",
+    "email": "メール",
+    "password": "パスワード",
+    "username": "ユーザー名",
+    "identifier": "ユーザー名/メール",
+    "confirmPassword": "パスワード確認",
+    "remember": "ログイン状態を保持",
+    "forgot": "パスワードを忘れましたか？",
+    "forgotPassword": "パスワードを忘れましたか？",
+    "signingIn": "サインイン中...",
+    "creatingAccount": "アカウント作成中...",
+    "noAccount": "アカウントをお持ちでないですか？",
+    "hasAccount": "すでにアカウントをお持ちですか？",
+    "signUpNow": "今すぐサインアップ",
+    "signInNow": "今すぐサインイン",
+    "required": "この項目は必須です",
+    "loginFailed": "ログインに失敗しました。認証情報を確認してください",
+    "registerFailed": "登録に失敗しました。もう一度お試しください",
+    "registerSuccess": "登録が成功しました！",
+    "redirectingToLogin": "ログインページにリダイレクトしています...",
+    "invalidEmail": "有効なメールアドレスを入力してください",
+    "passwordTooShort": "パスワードは少なくとも6文字である必要があります",
+    "passwordMismatch": "パスワードが一致しません",
+    "mustAgreeTerms": "登録するには利用規約に同意する必要があります",
+    "agreeTerms": "同意します",
+    "and": "と",
+    "passwordStrength": {
+      "weak": "弱い",
+      "medium": "普通",
+      "strong": "強い"
+    }
+  },
+  "agent": {
+    "selector": {
+      "title": "AI エージェント",
+      "create": "作成",
+      "searchPlaceholder": "エージェントを検索...",
+      "noResults": "一致するエージェントが見つかりません",
+      "noAgents": "エージェントがありません。作成をクリックして最初のエージェントを追加してください",
+      "active": "アクティブ",
+      "inactive": "非アクティブ",
+      "current": "現在",
+      "available": "利用可能",
+      "capabilities": "の機能",
+      "edit": "編集",
+      "delete": "削除",
+      "totalCount": "合計 {count} エージェント",
+      "sessions": "最近のセッション",
+      "newSession": "新しいセッション",
+      "noSessions": "セッションがありません",
+      "untitledSession": "無題のセッション"
+    },
+    "message": {
+      "justNow": "たった今",
+      "minutesAgo": "{minutes}分前",
+      "hoursAgo": "{hours}時間前",
+      "you": "あなた",
+      "assistant": "アシスタント",
+      "system": "システム",
+      "typing": "入力中...",
+      "thinking": "考え中...",
+      "metadata": "メタデータ",
+      "sendFailed": "送信失敗",
+      "retry": "再試行",
+      "copy": "コピー",
+      "delete": "削除"
+    },
+    "chat": {
+      "defaultAgent": "デフォルトアシスタント",
+      "disconnected": "未接続",
+      "connected": "接続済み",
+      "responding": "応答中",
+      "typing": "入力中",
+      "clear": "クリア",
+      "realtimeFailed": "リアルタイム接続に失敗しました",
+      "welcomeTitle": "会話を開始",
+      "welcomeMessage": "エージェントを選択してインテリジェントな会話を開始し、AI アシスタントの強力な機能を体験してください。",
+      "agentTyping": "エージェントが入力中...",
+      "inputPlaceholder": "メッセージを入力...",
+      "disconnectedPlaceholder": "接続が切断されました。メッセージを送信できません",
+      "enterToSend": "Enter で送信",
+      "shiftEnterNewLine": "Shift+Enter で改行",
+      "ctrlEnterToSend": "Ctrl/Cmd+Enter で送信",
+      "enterNewLine": "Enter で改行",
+      "model": "モデル",
+      "temperature": "温度",
+      "cancel": "キャンセル",
+      "newSession": "新しいセッション",
+      "untitledSession": "無題のセッション",
+      "errors": {
+        "loadSessionsFailed": "セッションの読み込みに失敗しました",
+        "loadMoreSessionsFailed": "さらなるセッションの読み込みに失敗しました",
+        "createSessionFailed": "セッションの作成に失敗しました",
+        "createSessionFailedNoData": "セッションの作成に失敗しました：レスポンスデータがありません",
+        "deleteSessionFailed": "セッションの削除に失敗しました",
+        "renameSessionFailed": "セッションの名前変更に失敗しました",
+        "archiveSessionFailed": "セッションのアーカイブに失敗しました",
+        "loadMessagesFailed": "メッセージの読み込みに失敗しました",
+        "loadMoreMessagesFailed": "さらなるメッセージの読み込みに失敗しました"
+      }
+    },
+    "config": {
+      "title": "エージェント設定",
+      "editTitle": "エージェントを編集",
+      "createTitle": "エージェントを作成",
+      "basicInfo": "基本情報",
+      "name": "名前",
+      "namePlaceholder": "エージェント名を入力",
+      "description": "説明",
+      "descriptionPlaceholder": "エージェントの機能と特徴を説明",
+      "avatar": "アバター",
+      "avatarPlaceholder": "アバター画像のURLを入力",
+      "status": "ステータス",
+      "active": "アクティブ",
+      "inactive": "非アクティブ",
+      "modelConfig": "モデル設定",
+      "model": "モデル",
+      "selectModel": "モデルを選択",
+      "selectProvider": "プロバイダーを選択",
+      "temperature": "温度",
+      "conservative": "保守的",
+      "creative": "創造的",
+      "maxTokens": "最大トークン数",
+      "maxTokensPlaceholder": "最大トークン数を入力",
+      "systemPrompt": "システムプロンプト",
+      "systemPromptPlaceholder": "エージェントの動作と役割を定義するシステムプロンプトを入力",
+      "usePreset": "プリセットを使用",
+      "capability": "機能",
+      "advancedSettings": "詳細設定",
+      "contextWindow": "コンテキストウィンドウ",
+      "contextWindowPlaceholder": "コンテキストウィンドウサイズを入力",
+      "responseFormat": "応答形式",
+      "selectFormat": "形式を選択",
+      "streaming": "ストリーミング",
+      "streamingEnabled": "有効",
+      "streamingDisabled": "無効",
+      "reset": "リセット",
+      "cancel": "キャンセル",
+      "save": "保存",
+      "capabilities": {
+        "textGeneration": "テキスト生成",
+        "codeGeneration": "コード生成",
+        "imageAnalysis": "画像分析",
+        "webSearch": "ウェブ検索",
+        "fileProcessing": "ファイル処理",
+        "dataAnalysis": "データ分析",
+        "translation": "翻訳",
+        "summarization": "要約"
+      },
+      "presets": {
+        "assistant": "汎用アシスタント",
+        "assistantPrompt": "あなたは有用で無害で正直なAIアシスタントです。ユーザーの質問に親切で専門的な方法で答えてください。",
+        "coder": "プログラミングアシスタント",
+        "coderPrompt": "あなたは複数のプログラミング言語と技術に精通した専門的なプログラミングアシスタントです。明確で実行可能なコードソリューションを提供してください。",
+        "translator": "翻訳アシスタント",
+        "translatorPrompt": "あなたは複数の言語を正確に翻訳できる専門的な翻訳アシスタントです。原文の語調と意味を保持してください。",
+        "analyst": "データアナリスト",
+        "analystPrompt": "あなたはデータから洞察を抽出することに長けたデータ分析の専門家です。詳細な分析と推奨事項を提供してください。"
+      },
+      "formats": {
+        "text": "プレーンテキスト",
+        "markdown": "Markdown",
+        "json": "JSON"
+      }
+    },
+    "confirmDelete": "このエージェントを削除してもよろしいですか？この操作は元に戻せません。"
+  },
+  "env": {
+    "title": "環境設定",
+    "current": "現在の環境",
+    "switch": "環境切り替え",
+    "dev": "開発環境",
+    "staging": "ステージング環境",
+    "prod": "本番環境",
+    "canary": "カナリア環境",
+    "blue": "ブルー環境",
+    "green": "グリーン環境"
+  },
+  "connection": {
+    "chatSignal": "チャット信号",
+    "commandChannel": "コマンドチャンネル",
+    "reconnect": "再接続"
+  }
+}

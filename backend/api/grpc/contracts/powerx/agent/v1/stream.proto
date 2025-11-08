@@ -1,0 +1,121 @@
+syntax = "proto3";
+
+package powerx.agent.v1;
+
+// ===== 各语言代码生成选项（可选，但便于多语言 SDK 落包名） =====
+option go_package = "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/agent/v1;agentv1";
+option java_package = "com.powerx.agent.v1";
+option java_multiple_files = true;
+option csharp_namespace = "PowerX.Agent.V1";
+option php_namespace = "PowerX\\Agent\\V1";
+option php_metadata_namespace = "GPBMetadata\\PowerX\\Agent\\V1";
+// Python、Rust 常用默认规则或在构建脚本里配置
+
+import "google/protobuf/struct.proto";
+import "common/v1/context.proto";
+
+// =============== Agent 流式对话（统一 SSE/WS 事件语义） ===============
+service AgentStreamService {
+	// 服务端单向流；等价 HTTP 的 /stream/sse 与 WS 的事件序列
+	rpc Stream(StreamRequest) returns (stream StreamResponse);
+
+	// 模拟流（等价 SimulateSSE，用于探针与前端调试）
+	rpc Simulate(SimulateRequest) returns (stream SimulateResponse);
+}
+
+// =============== 请求/响应模型（Stream） ===============
+message StreamRequest {
+	common.v1.RequestContext ctx = 1;  // 必带：tenant/member/trace/scopes 等
+	string message = 2;                // 等价 q/message
+	string env     = 3;                // 默认 "default"
+	uint64 agent_id = 4;               // 目标 Agent
+	uint64 session_id = 5;             // 可选：复用会话
+	string flow_id = 6;                // 可选：显式指定 flow（不传交由引擎选择）
+
+	// 透传执行上下文/引擎配置（保持与 HTTP SSE/WS 对齐；引擎内部解析，避免重复造轮子）
+	google.protobuf.Struct context = 7;  // 如 user_id/locale/biz_ctx 等
+	google.protobuf.Struct config  = 8;  // 如 temperature/tools/planner/runtime 等
+
+	// 调用侧标签与头部（可选）
+	map<string, string> tags    = 20;    // 审计/链路
+	map<string, string> headers = 21;    // 透传请求头
+	bool probe = 22;
+
+}
+
+/******** 请求（模拟流） ********/
+message SimulateRequest {
+	common.v1.RequestContext ctx = 1;  // 必带
+	bool   probe    = 2;               // probe=true 时仅输出 start/end
+	string text     = 3;               // 为空则用默认中文段落
+	int32  chunk    = 4;               // 每帧字符数（rune），默认 1
+	int32  delay_ms = 5;               // 每帧延迟（毫秒），默认 60，最小 0
+}
+
+/******** 统一的事件响应（生产流） ********/
+message StreamResponse {
+	string type         = 1;  // "start" | "token" | "data" | "plan" | "intent" | "final" | "end" | "error" | "heartbeat" | "meta"
+	string flow_id      = 2;
+	string execution_id = 3;
+	string step_id      = 4;
+	int64  timestamp    = 5;  // 秒级时间戳
+	bool   success      = 6;  // 对 final/end 等有意义
+	map<string, google.protobuf.Value> metadata = 7;
+
+	oneof payload {
+		EventStart     ev_start     = 10;
+		EventToken     ev_token     = 11;
+		EventData      ev_data      = 12;
+		EventPlan      ev_plan      = 13;
+		EventIntent    ev_intent    = 14;
+		EventFinal     ev_final     = 15;
+		EventEnd       ev_end       = 16;
+		EventError     ev_error     = 17;
+		EventHeartbeat ev_heartbeat = 18;
+		EventMeta      ev_meta      = 19;
+	}
+}
+
+/******** 统一的事件响应（模拟流）——为通过 lint，命名与方法一致 ********/
+message SimulateResponse {
+	string type         = 1;  // "start" | "token" | "data" | "plan" | "intent" | "final" | "end" | "error" | "heartbeat" | "meta"
+	string flow_id      = 2;
+	string execution_id = 3;
+	string step_id      = 4;
+	int64  timestamp    = 5;  // 秒级时间戳
+	bool   success      = 6;
+	map<string, google.protobuf.Value> metadata = 7;
+
+	oneof payload {
+		EventStart     ev_start     = 10;
+		EventToken     ev_token     = 11;
+		EventData      ev_data      = 12;
+		EventPlan      ev_plan      = 13;
+		EventIntent    ev_intent    = 14;
+		EventFinal     ev_final     = 15;
+		EventEnd       ev_end       = 16;
+		EventError     ev_error     = 17;
+		EventHeartbeat ev_heartbeat = 18;
+		EventMeta      ev_meta      = 19;
+	}
+}
+
+// =============== 各事件负载（与 SSE/WS 对齐） ===============
+message EventStart { string message = 1; }
+message EventToken { string delta = 1; }
+message EventData  { google.protobuf.Struct data = 1; }
+message EventPlan  { google.protobuf.Struct plan = 1; }
+message EventIntent{ google.protobuf.Struct tasks = 1; }
+message EventFinal { google.protobuf.Struct data = 1; }
+message EventEnd   { string message = 1; }
+message EventError {
+	string code    = 1;
+	string message = 2;
+	google.protobuf.Struct detail = 3;
+}
+message EventHeartbeat { int64 ts = 1; }
+message EventMeta {
+	uint64 session_id = 1;
+	uint64 agent_id   = 2;
+	google.protobuf.Struct extra = 9;
+}

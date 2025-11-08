@@ -1,0 +1,433 @@
+openapi: 3.0.3
+info:
+  title: Agent Lifecycle Control API
+  version: "0.1.0"
+  description: >
+    管理员、运维与 SRE 通过统一 HTTP 控制面管理代理注册、生命周期与健康观测。
+servers:
+  - url: https://api.powerx.local/admin
+    description: Admin 控制面
+  - url: https://api.powerx.local/openapi
+    description: 租户/运维控制面
+tags:
+  - name: Agents
+    description: 代理注册与基本信息
+  - name: Lifecycle
+    description: 生命周期控制与事件查询
+  - name: Health
+    description: 健康观测与告警
+paths:
+  /agents:
+    post:
+      tags: [Agents]
+      summary: 注册新代理
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterAgentRequest'
+      responses:
+        '201':
+          description: 已创建
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentResource'
+        '409':
+          description: 租户内别名冲突或依赖校验失败
+  /agents/{agentId}:
+    get:
+      tags: [Agents]
+      summary: 查看代理详情
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/AgentId'
+      responses:
+        '200':
+          description: 代理详情
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentResource'
+        '404':
+          description: 未找到
+  /agents/{agentId}/activate:
+    post:
+      tags: [Lifecycle]
+      summary: 激活代理
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/AgentId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LifecycleCommand'
+      responses:
+        '202':
+          description: 激活请求已受理
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LifecycleEventResource'
+        '409':
+          description: 依赖校验失败或状态不允许
+  /agents/{agentId}/pause:
+    post:
+      tags: [Lifecycle]
+      summary: 暂停代理
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/AgentId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LifecycleCommand'
+      responses:
+        '202':
+          description: 暂停请求已受理
+  /agents/{agentId}/resume:
+    post:
+      tags: [Lifecycle]
+      summary: 恢复代理
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/AgentId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LifecycleCommand'
+      responses:
+        '202':
+          description: 恢复请求已受理
+  /agents/{agentId}/retire:
+    post:
+      tags: [Lifecycle]
+      summary: 退役代理
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/AgentId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LifecycleCommand'
+      responses:
+        '202':
+          description: 退役请求已受理
+  /agents/{agentId}/scale:
+    post:
+      tags: [Lifecycle]
+      summary: 扩缩容代理
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/AgentId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ScaleCommand'
+      responses:
+        '202':
+          description: 扩缩容请求已受理
+        '400':
+          description: 容量值非法
+  /agents/{agentId}/events:
+    get:
+      tags: [Lifecycle]
+      summary: 查询代理生命周期事件历史
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/AgentId'
+        - in: query
+          name: since
+          description: ISO timestamp，过滤开始时间
+          schema:
+            type: string
+            format: date-time
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+      responses:
+        '200':
+          description: 生命周期事件列表
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  events:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/LifecycleEventResource'
+  /agents/{agentId}/health/summary:
+    get:
+      tags: [Health]
+      summary: 获取代理当前健康摘要
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/AgentId'
+      responses:
+        '200':
+          description: 健康摘要
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthSummary'
+  /agents/{agentId}/health/history:
+    get:
+      tags: [Health]
+      summary: 获取代理健康历史
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/AgentId'
+        - in: query
+          name: window
+          description: 聚合窗口（分钟）
+          schema:
+            type: integer
+            default: 60
+            minimum: 1
+        - in: query
+          name: range_hours
+          description: 回溯小时数
+          schema:
+            type: integer
+            default: 24
+            minimum: 1
+            maximum: 168
+      responses:
+        '200':
+          description: 健康历史集合
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  snapshots:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/HealthSnapshot'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    AgentId:
+      name: agentId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  schemas:
+    RegisterAgentRequest:
+      type: object
+      required:
+        - alias
+        - tenantId
+        - toolGrants
+        - telemetryContractVersion
+        - defaultCapacityInstances
+      properties:
+        alias:
+          type: string
+          description: 代理别名（租户内唯一）
+        tenantId:
+          type: string
+        toolGrants:
+          type: array
+          items:
+            $ref: '#/components/schemas/ToolGrant'
+        telemetryContractVersion:
+          type: string
+        defaultCapacityInstances:
+          type: integer
+          minimum: 1
+        maxCapacityInstances:
+          type: integer
+          minimum: 1
+        notificationChannel:
+          type: string
+          description: 企业 IM Webhook URL
+        metadata:
+          type: object
+          additionalProperties: true
+    AgentResource:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        alias:
+          type: string
+        tenantId:
+          type: string
+        status:
+          type: string
+          enum: [pending, active, paused, retired]
+        toolGrants:
+          type: array
+          items:
+            $ref: '#/components/schemas/ToolGrant'
+        telemetryContractVersion:
+          type: string
+        defaultCapacityInstances:
+          type: integer
+        maxCapacityInstances:
+          type: integer
+        currentCapacityInstances:
+          type: integer
+        eventTopic:
+          type: string
+        notificationChannel:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    ToolGrant:
+      type: object
+      required: [name, version]
+      properties:
+        name:
+          type: string
+        version:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
+    LifecycleCommand:
+      type: object
+      properties:
+        reason:
+          type: string
+        traceId:
+          type: string
+        requestedAt:
+          type: string
+          format: date-time
+    ScaleCommand:
+      allOf:
+        - $ref: '#/components/schemas/LifecycleCommand'
+        - type: object
+          required: [targetCapacityInstances]
+          properties:
+            targetCapacityInstances:
+              type: integer
+              minimum: 1
+    LifecycleEventResource:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        agentId:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum:
+            [register, activate, pause, resume, scale_up, scale_down, retire, auto_degrade, auto_recover]
+        fromStatus:
+          type: string
+        toStatus:
+          type: string
+        requestedCapacity:
+          type: integer
+        reason:
+          type: string
+        triggeredBy:
+          type: string
+        traceId:
+          type: string
+        eventId:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+    HealthSummary:
+      type: object
+      properties:
+        agentId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [healthy, degraded, unavailable, unknown]
+        healthScore:
+          type: integer
+          minimum: 0
+          maximum: 100
+        updatedAt:
+          type: string
+          format: date-time
+        metrics:
+          type: object
+          properties:
+            throughputPerMin:
+              type: number
+            successRate:
+              type: number
+            p95LatencyMs:
+              type: integer
+            resourceUtilizationPct:
+              type: number
+            errorRate:
+              type: number
+        recommendations:
+          type: array
+          items:
+            type: string
+    HealthSnapshot:
+      type: object
+      properties:
+        windowStartedAt:
+          type: string
+          format: date-time
+        windowDurationSec:
+          type: integer
+        healthScore:
+          type: integer
+        status:
+          type: string
+        throughputPerMin:
+          type: number
+        successRate:
+          type: number
+        p95LatencyMs:
+          type: integer
+        resourceUtilizationPct:
+          type: number
+        anomalyTraceIds:
+          type: array
+          items:
+            type: string
