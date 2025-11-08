@@ -19,11 +19,12 @@ import (
 
 func newManagerService(t *testing.T) (*manager.Service, *gorm.DB) {
 	t.Helper()
-	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{})
+	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{
+		DisableForeignKeyConstraintWhenMigrating: true, // 在 SQLite 测试中禁用外键约束
+	})
 	require.NoError(t, err)
 	require.NoError(t, db.Exec("PRAGMA foreign_keys = ON").Error)
-	coremodel.PowerXSchema = "public"
-	require.NoError(t, db.Exec("ATTACH DATABASE ':memory:' AS public").Error)
+	coremodel.PowerXSchema = "main" // 使用 "main" 以便 TableName() 返回不带前缀的表名
 	require.NoError(t, db.AutoMigrate(
 		&modelig.IntegrationRoute{},
 		&modelig.IntegrationRouteVersion{},

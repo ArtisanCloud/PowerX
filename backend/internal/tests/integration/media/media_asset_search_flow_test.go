@@ -124,7 +124,20 @@ func TestMediaAssetSearchFlowFiltersAndSoftDelete(t *testing.T) {
 	require.NoError(t, err)
 	require.EqualValues(t, 2, total)
 	require.Len(t, results, 2)
-	require.Equal(t, "draft", results[0].BusinessStatus)
+
+	// 验证结果包含一个 draft 状态的资源（不依赖顺序）
+	var hasDraft bool
+	var hasArchived bool
+	for _, asset := range results {
+		if asset.BusinessStatus == "draft" {
+			hasDraft = true
+		}
+		if asset.BusinessStatus == "archived" {
+			hasArchived = true
+		}
+	}
+	require.True(t, hasDraft, "expected at least one asset with draft status")
+	require.True(t, hasArchived, "expected at least one asset with archived status")
 
 	require.NoError(t, env.SoftDeleteAsset(ctx, env.fixture("archived")))
 

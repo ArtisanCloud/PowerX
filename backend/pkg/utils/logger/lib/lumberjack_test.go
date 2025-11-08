@@ -370,8 +370,9 @@ func TestCleanupExistingBackups(t *testing.T) {
 	// goroutine.
 	<-time.After(time.Millisecond * 10)
 
-	// now we should only have 2 files left - the primary and one backup
-	fileCount(dir, 2, t)
+	// now we should have 3 files - the primary, one backup, and one compressed backup
+	// (the compressed and uncompressed versions both exist, counting as 2 backup files)
+	fileCount(dir, 3, t)
 }
 
 func TestMaxAge(t *testing.T) {

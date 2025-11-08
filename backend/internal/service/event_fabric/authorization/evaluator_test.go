@@ -42,7 +42,7 @@ func TestServiceEvaluate(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, DecisionAllow, result2.Decision)
 		require.True(t, result2.CacheHit)
-		require.Equal(result.GrantVersion, result2.GrantVersion)
+		require.Equal(t, result.GrantVersion, result2.GrantVersion)
 	})
 
 	t.Run("block when resource not allowed", func(t *testing.T) {

@@ -3,36 +3,50 @@ package app
 import (
 	"context"
 	"github.com/ArtisanCloud/PowerX/pkg/dynamic_form/dto"
+	"github.com/ArtisanCloud/PowerX/pkg/dynamic_form/model"
 	"github.com/ArtisanCloud/PowerX/pkg/dynamic_form/persistence/repository"
 	"github.com/ArtisanCloud/PowerX/pkg/dynamic_form/runtime"
+	"gorm.io/gorm"
 )
 
 type FormUseCase struct {
 	repoFormSchema     *repository.FormSchemaRepository     `inject:""`
 	repoFormSubmission *repository.FormSubmissionRepository `inject:""`
 	executor           *runtime.FormExecutor
+	db                 *gorm.DB
 }
 
-func NewFormUseCase() *FormUseCase {
+func NewFormUseCase(db *gorm.DB) *FormUseCase {
 	return &FormUseCase{
-		repoFormSchema:     repository.NewFormSchemaRepository(),
-		repoFormSubmission: repository.NewFormSubmissionRepository(),
+		repoFormSchema:     repository.NewFormSchemaRepository(db),
+		repoFormSubmission: repository.NewFormSubmissionRepository(db),
 		executor:           runtime.NewFormExecutor(),
+		db:                 db,
 	}
 }
 
 func (uc *FormUseCase) CreateForm(ctx context.Context, req *dto.CreateFormRequest) (*dto.FormCreateResponse, error) {
-	form := req.ToDomain()
-	if _, err := uc.repoFormSchema.Create(ctx, form); err != nil {
+	form := &model.FormSchema{
+		Title:       req.Title,
+		Description: req.Description,
+		Fields:      req.Fields,
+		Variables:   req.Variables,
+		Metadata:    req.Metadata,
+	}
+	if err := uc.repoFormSchema.Create(ctx, form); err != nil {
 		return nil, err
 	}
-	return dto.FromDomain(form), nil
+	return &dto.FormCreateResponse{
+		FormSchema: form,
+	}, nil
 }
 
-func (uc *FormUseCase) GetForm(ctx context.Context, id string) (*dto.FormGetFormResponse, error) {
+func (uc *FormUseCase) GetForm(ctx context.Context, id string) (*dto.GetFormResponse, error) {
 	form, err := uc.repoFormSchema.FindByID(ctx, id)
 	if err != nil {
 		return nil, err
 	}
-	return dto.FromDomain(form), nil
+	return &dto.GetFormResponse{
+		FormSchema: form,
+	}, nil
 }

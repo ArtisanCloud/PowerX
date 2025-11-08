@@ -213,8 +213,6 @@ func (env *testEnv) insertCapability(namespace, action string) eventfabricmodel.
 		Namespace: namespace,
 		Action:    action,
 		RiskLevel: eventfabricmodel.RiskLevelLow,
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
 	}
 	require.NoError(env.t, env.db.Create(&cap).Error)
 	return cap
@@ -229,8 +227,6 @@ func (env *testEnv) insertGrant(tenantID, subjectID uuid.UUID, subjectType, stat
 		Source:       eventfabricmodel.GrantSourceSystemTemplate,
 		TTLExpiresAt: &ttl,
 		Version:      1,
-		CreatedAt:    time.Now(),
-		UpdatedAt:    time.Now(),
 	}
 	require.NoError(env.t, env.db.Create(&grant).Error)
 	return grant
@@ -240,8 +236,6 @@ func (env *testEnv) insertGrantCapability(grantID, capabilityID uuid.UUID) {
 	record := eventfabricmodel.AuthorizationGrantCapability{
 		GrantID:      grantID,
 		CapabilityID: capabilityID,
-		CreatedAt:    time.Now(),
-		UpdatedAt:    time.Now(),
 	}
 	require.NoError(env.t, env.db.Create(&record).Error)
 }
@@ -251,8 +245,6 @@ func (env *testEnv) insertGrantCondition(grantID uuid.UUID, condType string, exp
 		GrantID:    grantID,
 		Type:       condType,
 		Expression: expression,
-		CreatedAt:  time.Now(),
-		UpdatedAt:  time.Now(),
 	}
 	require.NoError(env.t, env.db.Create(&record).Error)
 }
@@ -264,8 +256,6 @@ func (env *testEnv) insertTicket(grantID uuid.UUID, status string, sla time.Time
 		RequestFingerprint: uuid.New(),
 		Status:             status,
 		SLAExpiresAt:       sla,
-		CreatedAt:          time.Now(),
-		UpdatedAt:          time.Now(),
 	}
 	require.NoError(env.t, env.db.Create(&ticket).Error)
 	return ticket

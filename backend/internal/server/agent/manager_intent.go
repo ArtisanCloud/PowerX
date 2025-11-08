@@ -97,6 +97,18 @@ func (m *Manager) IntentStrategyNames() []string {
 	return out
 }
 
+// SetPlannerRules 暂存布线规则，供 Planner/测试使用。
+func (m *Manager) SetPlannerRules(rules []schemas.WireRule) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if len(rules) == 0 {
+		m.plannerRules = nil
+		return
+	}
+	m.plannerRules = make([]schemas.WireRule, len(rules))
+	copy(m.plannerRules, rules)
+}
+
 // ===== 工具：分句 =====
 var splitRe = regexp.MustCompile(
 	`(?i)[，、。；;,.!?！？/]|(?:\s*(?:然后|并且|再|接着|同时|顺便|以及|最后|和|跟|与|或|或者|并|and|&)\s*)`,

@@ -2811,6 +2811,76 @@
         ]
       }
     },
+    "/api/v1/internal/version/compat/approve": {
+      "post": {
+        "operationId": "POST /api/v1/internal/version/compat/approve",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/v1/internal/version/compat/approve",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/v1/internal/version/compat/check": {
+      "post": {
+        "operationId": "POST /api/v1/internal/version/compat/check",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/v1/internal/version/compat/check",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/v1/internal/version/compat/exception": {
+      "post": {
+        "operationId": "POST /api/v1/internal/version/compat/exception",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/v1/internal/version/compat/exception",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/v1/internal/version/governance/board": {
+      "get": {
+        "operationId": "GET /api/v1/internal/version/governance/board",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "GET /api/v1/internal/version/governance/board",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/v1/internal/version/governance/scan": {
+      "post": {
+        "operationId": "POST /api/v1/internal/version/governance/scan",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/v1/internal/version/governance/scan",
+        "tags": [
+          "api"
+        ]
+      }
+    },
     "/api/v1/plugin-release/candidates": {
       "post": {
         "operationId": "POST /api/v1/plugin-release/candidates",

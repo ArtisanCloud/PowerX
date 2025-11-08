@@ -125,11 +125,12 @@ func TestUpdateAsset_InvalidTransition(t *testing.T) {
 	audit := &stubAuditService{}
 	assetID := uuid.New().String()
 	repo.assets[assetID] = &mediamodel.MediaAsset{
-		UUID:           uuid.MustParse(assetID),
 		TenantID:       1,
 		BusinessStatus: coremodel.MediaAssetStatusDraft,
 		Tags:           datatypes.JSON([]byte("[]")),
 	}
+	// 设置 UUID（在结构体字面量中不能直接设置嵌入字段）
+	repo.assets[assetID].UUID = uuid.MustParse(assetID)
 
 	svc := NewMediaService(nil, repo, nil, audit, 12*time.Hour)
 	target := coremodel.MediaAssetStatusPublished
@@ -154,9 +155,10 @@ func TestDeleteAsset_EmitAudit(t *testing.T) {
 	repo := newStubAssetRepo()
 	assetID := uuid.New().String()
 	repo.assets[assetID] = &mediamodel.MediaAsset{
-		UUID:     uuid.MustParse(assetID),
 		TenantID: 7,
 	}
+	// 设置 UUID（在结构体字面量中不能直接设置嵌入字段）
+	repo.assets[assetID].UUID = uuid.MustParse(assetID)
 	audit := &stubAuditService{}
 	svc := NewMediaService(nil, repo, nil, audit, 12*time.Hour)
 

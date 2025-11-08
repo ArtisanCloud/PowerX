@@ -77,8 +77,6 @@ func (env *reportingTestEnv) insertGrant(tenant uuid.UUID, subject uuid.UUID, su
 		Status:      eventfabricmodel.GrantStatusActive,
 		Source:      eventfabricmodel.GrantSourceSystemTemplate,
 		Version:     1,
-		CreatedAt:   env.now,
-		UpdatedAt:   env.now,
 	}
 	require.NoError(env.t, env.db.Create(&grant).Error)
 	return grant

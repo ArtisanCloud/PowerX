@@ -179,3 +179,9 @@
 - [X] T079 [US6|FR-022] 提供多租户版本看板：实现 `backend/internal/service/plugin_governance/multitenant.go`、Web Admin `/admin/plugin-release/governance`（或 CLI `px version board`）、批量灰度/回滚触发器，并将决策写入 365 天审计。
 
 **Checkpoint**：平台可 5 分钟内推送升级建议、阻断不兼容安装，并在多租户视角上收敛版本漂移与例外审计。
+
+---
+
+## Regression & Certification
+
+- [X] TR001 将 Phase 9–11 场景映射到可重复执行的自动化：新增 `scripts/ci/regression_pxp.sh` + `make regression-pxp`，根据 `docs/use_cases/_from_hub/SCN-DEV-PLUGIN-{INIT,DEBUG,PUBLISH,VERSION-COMPAT}-001` 归档的 acceptance 覆盖 CLI/Service/HTTP 路由，并在 `specs/009-install-plugin-pxp/checklists/regression.md` 记录执行清单。

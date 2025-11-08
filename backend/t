@@ -1,0 +1,43 @@
+#!/bin/bash
+# 简化的 go test 命令
+cd /private/var/www/html/ArtisanCloud/X/PowerX/Core/PowerX/backend
+
+echo "========================================="
+echo "  Go 测试执行（简化版）"
+echo "========================================="
+echo ""
+
+# 运行测试
+OUTPUT=$(go test ./... 2>&1)
+
+# 提取结果
+echo "$OUTPUT" | grep -E "^(FAIL|ok\s+github)" > /tmp/results.txt
+
+# 统计
+TOTAL=$(cat /tmp/results.txt | grep -v "^FAIL\s*$" | wc -l)
+PASS=$(cat /tmp/results.txt | grep "^ok" | wc -l)
+FAIL=$(cat /tmp/results.txt | grep "^FAIL\s.*github" | wc -l)
+
+echo "📊 统计："
+echo "  总包数：$TOTAL"
+echo "  ✅ 通过：$PASS"
+echo "  ❌ 失败：$FAIL"
+echo ""
+
+if [ $FAIL -gt 0 ]; then
+    echo "失败的包："
+    grep "^FAIL\s.*github" /tmp/results.txt | awk '{print "  • " $2}'
+    echo ""
+fi
+
+# 检查构建错误
+if echo "$OUTPUT" | grep -q "\[build failed\]"; then
+    echo "⚠️  构建错误存在！"
+else
+    echo "✅ 无构建错误（所有包都能编译）"
+fi
+
+echo "========================================="
+
+# 清理
+rm -f /tmp/results.txt
