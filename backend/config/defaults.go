@@ -169,7 +169,8 @@ func GetDefaults() *Config {
 		FeatureGate: FeatureGateConfig{
 			LicenseKey: "demo-license-xyz",
 		},
-		PluginRelease: DefaultPluginReleaseConfig(),
+		PluginRelease:   DefaultPluginReleaseConfig(),
+		PluginBootstrap: DefaultPluginBootstrapConfig(),
 		Storage: StorageConfig{
 			DefaultDriver: "local",
 			TTLSeconds:    43200,

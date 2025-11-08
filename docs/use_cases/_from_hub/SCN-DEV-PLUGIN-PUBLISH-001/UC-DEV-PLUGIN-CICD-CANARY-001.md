@@ -89,7 +89,7 @@ sequenceDiagram
   participant Ops as 发布经理
   participant Tenants as 租户
 
-  CLI->>Pipeline: powerx publish deploy --strategy canary
+  CLI->>Pipeline: px publish deploy --strategy canary
   Pipeline->>Tenants: 推送灰度批次
   Tenants-->>Monitor: 上报指标与日志
   Monitor->>Pipeline: 指标偏差 & 告警
@@ -102,7 +102,7 @@ sequenceDiagram
 # Contracts & Interfaces
 
 - **Inbound APIs / Events**
-  - `powerx publish deploy --strategy canary` — 触发灰度发布。
+  - `px publish deploy --strategy canary` — 触发灰度发布。
   - `POST /internal/publish/phase/{canary,full}` — 流水线推进阶段。
   - `POST /internal/publish/rollback` — 执行回滚操作。
 - **Outbound 调用**

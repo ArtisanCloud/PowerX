@@ -12,6 +12,24 @@
 3. 启动依赖服务（Postgres/Redis/MinIO 可直接复用 `make dev-up` 或 `docker compose -f docker/dev-release.yml up -d`）。
 4. 配置 `backend/etc/config.yaml` 中的 `database`, `cache`, `media_storage`，并开启 Feature Flag `plugin_release`.
 
+## 1.5 插件初始化与环境自检
+1. 使用新的 CLI 校验模板与 Git/权限参数：
+   ```bash
+   cd backend
+   go run cmd/px/main.go plugin init \
+     --api http://localhost:8077/api \
+     --plugin-id com.powerx.demo \
+     --template fullstack-go-nuxt
+   ```
+   该命令会调用 `POST /api/internal/plugins/bootstrap/validate`，返回推荐的 module path、模板描述以及补救建议。
+2. 在任意开发环境运行 `px plugin doctor`，自动收集 Go/Node 版本、git/npm/pnpm 等二进制并调用 `POST /api/internal/plugins/environments/check`：
+   ```bash
+   go run cmd/px/main.go plugin doctor \
+     --api http://localhost:8077/api \
+     --template fullstack-go-nuxt
+   ```
+   若存在缺失/过期的运行时，命令会以非 0 退出并提示整改路径，满足 FR-015/US5 的沙箱前置校验。
+
 ## 2. 生成协议与模型
 ```bash
 cd backend
@@ -41,7 +59,7 @@ go run cmd/server/main.go --enable-plugin-release
      --feature-flag beta_ui
    ```
    该命令会通过 gRPC `StartLocalInstall`/`PushHotReload`，并在 15 分钟 SLA 内把调试日志写入 `plugin_release.hotload.latency_ms`。
-3. 运行 `powerx publish create --tenant-id 1001 --plugin-id px.demo --version v1.2.3 --artifact-uri s3://bucket/px-demo-v1.2.3.zip --commit <sha>` 触发 Release Candidate，随后 `powerx publish deploy --plan-id <id> --batch-name batch-a` 验证灰度。
+3. 运行 `px publish create --tenant-id 1001 --plugin-id px.demo --version v1.2.3 --artifact-uri s3://bucket/px-demo-v1.2.3.zip --commit <sha>` 触发 Release Candidate，随后 `px publish deploy --plan-id <id> --batch-name batch-a` 验证灰度。
 
 ## 5. 审批与灰度
 1. 使用 Web Admin 调用 Admin API（或 `curl`）：
@@ -50,13 +68,13 @@ go run cmd/server/main.go --enable-plugin-release
      -H "Authorization: Bearer <token>" \
      -d @specs/001-install-plugin-pxp/examples/release-plan.json
    ```
-2. 运行 `powerx publish deploy --candidate <id> --strategy canary`，观察 gRPC 流日志，验证 30 分钟内完成灰度。
+2. 运行 `px publish deploy --candidate <id> --strategy canary`，观察 gRPC 流日志，验证 30 分钟内完成灰度。
 3. 当 Prometheus 指标触发告警时，确认自动回滚在 5 分钟内执行，可通过 Grafana Dashboard `Plugin Release / Canary` 观察。
 
 ## 6. 离线包与 Marketplace
 1. 使用新的 CLI 上传离线包：
    ```bash
-   powerx publish package \
+   px publish package \
      --offline \
      --candidate-id <candidate-uuid> \
      --artifact ./dist/plugin-release.pxp \
@@ -77,7 +95,7 @@ go run cmd/server/main.go --enable-plugin-release
    如需补件或升级，可调用 `POST /api/admin/plugin-release/marketplace/listings/{id}/reviews`。
 3. 企业租户完成离线导入：
    ```bash
-   powerx plugin import \
+   px plugin import \
      --offline \
      --tenant-id 88001 \
      --package-uri s3://plugin-release/offline/<id>.pxp \

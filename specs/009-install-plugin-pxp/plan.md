@@ -5,7 +5,7 @@
 
 ## Summary
 
-交付一个 CoreX `plugin_release` 模块（domain：`corex.plugin_release`，随 CoreX 一体交付），串起本地构建 (`px-plugin build/dev`)、测试租户流水线、审批计划、灰度/全量部署与 Marketplace 多渠道上架。技术方案：以 Postgres + GORM 建立 Release Candidate/Plan/OfflinePackage 模型，复用 Gin/gRPC 双入口承载审批与执行指令，CLI (`powerx publish/package/import`) 通过 gRPC 调度流水线，Prometheus + Grafana 观测栈输出 5 分钟内的异常告警，离线包落盘到现有对象存储并携带签名/指纹元数据。
+交付一个 CoreX `plugin_release` 模块（domain：`corex.plugin_release`，随 CoreX 一体交付），串起本地构建 (`px-plugin build/dev`)、测试租户流水线、审批计划、灰度/全量部署与 Marketplace 多渠道上架。技术方案：以 Postgres + GORM 建立 Release Candidate/Plan/OfflinePackage 模型，复用 Gin/gRPC 双入口承载审批与执行指令，CLI (`px publish/package/import`) 通过 gRPC 调度流水线，Prometheus + Grafana 观测栈输出 5 分钟内的异常告警，离线包落盘到现有对象存储并携带签名/指纹元数据。
 
 ## Technical Context
 
@@ -76,7 +76,7 @@ backend/
 │   └── canary_record.go
 ├── pkg/corex/db/persistence/repository/plugin_release/
 │   └── *.go                      # 继承 BaseRepository
-├── cmd/powerx/commands/publish/  # `powerx publish/package/import` 子命令
+├── cmd/px/commands/publish/      # `px publish/package/import` 子命令
 ├── cmd/database/migrate.go       # 注册 AutoMigrate 钩子
 ├── config/schema/plugin_release.yaml  # Feature gate & 默认阈值
 ├── tests/contract/plugin_release/http|grpc/
@@ -112,7 +112,7 @@ web-admin/
 ### Workstream A – Developer Bootstrap & Third-party Import (SCN-DEV-PLUGIN-INIT-001)
 
 1. **Template Registry & CLI Integration**
-   - Extend `powerx-plugin` template index + lockfiles (`powerx-plugin/templates/*`, mirrored到 `config/plugins/templates/index.yaml`)，暴露 `powerx plugin init --template <id>` 选择器。
+   - Extend `powerx-plugin` template index + lockfiles (`powerx-plugin/templates/*`, mirrored到 `config/plugins/templates/index.yaml`)，暴露 `px plugin init --template <id>` 选择器。
    - Backend 提供 `POST /internal/plugins/bootstrap/validate`（新建 `backend/internal/service/plugin_bootstrap`），校验 manifest、权限模板、CLI 版本与租户配额。
    - CLI 侧（`px-plugin/cmd/init`）串联模板拉取、依赖安装、Git 注册（调用 `POST /internal/git/register`），落地 FR-014。
 2. **Team Clone & Environment Doctor**
@@ -138,13 +138,13 @@ web-admin/
 
 1. **Version Scan Scheduler & Notification**
    - 新模块 `backend/internal/service/plugin_governance` 定时扫描 `plugin_release_candidates` + 租户 manifest，计算升级建议（FR-020）。
-   - CLI `powerx version scan` 与 Admin 面板共用 `GET /api/admin/plugin-release/governance/reports`，推送升级卡片、风险等级和决策 API。
+   - CLI `px version scan` 与 Admin 面板共用 `GET /api/admin/plugin-release/governance/reports`，推送升级卡片、风险等级和决策 API。
 2. **Compatibility Engine & Exception Workflow**
    - 新建 `backend/internal/service/plugin_compat`，提供 `POST /internal/version/compat/check`、`exception`、`approve`，内存缓存 `config/version/compat_matrix.yaml`（FR-021）。
    - 审批链复用现有 `approval` service，输出 `compat_exceptions` 表 + 审计事件，默认阻断矩阵缺失的操作。
 3. **Multi-tenant Version Board & Automation**
    - 构建 `backend/internal/service/plugin_governance/multitenant.go`，根据版本漂移生成批量灰度/对齐计划，产出报告存储至 `governance_reports`（FR-022）。
-   - Web Admin 新增 `/admin/plugin-release/governance` 页面或 CLI `powerx version board`，支持筛选租户、生成策略与回滚预案。
+   - Web Admin 新增 `/admin/plugin-release/governance` 页面或 CLI `px version board`，支持筛选租户、生成策略与回滚预案。
 
 ### Cross-cutting Considerations
 

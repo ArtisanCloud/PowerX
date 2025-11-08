@@ -2,7 +2,7 @@ package plugin
 
 import "github.com/spf13/cobra"
 
-// Command is the entrypoint for `powerx plugin` namespace.
+// Command is the entrypoint for `px plugin` namespace.
 var Command = &cobra.Command{
 	Use:   "plugin",
 	Short: "Developer tooling for plugin hotload and lifecycle operations",

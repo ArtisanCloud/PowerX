@@ -99,7 +99,7 @@ sequenceDiagram
 # Contracts & Interfaces
 
 - **Inbound APIs / Events**
-  - `powerx version scan` — CLI 触发扫描并输出报告。
+  - `px version scan` — CLI 触发扫描并输出报告。
   - `POST /internal/version/governance/scan` — 调度器调用执行扫描任务。
   - `POST /internal/version/governance/decision` — 管理员操作结果写入（升级、计划、忽略）。
 - **Outbound 调用**
@@ -119,7 +119,7 @@ sequenceDiagram
 | 策略引擎 | 支持 LTS、安全补丁、例外策略、权重配置 | [ ] | Matrix Ops |
 | 通知与面板 | 控制台卡片、IM/邮件通知、变更日志链接 | [ ] | Leo Wang |
 | 审计记录 | 记录扫描结果、决策、忽略原因与 SLA | [ ] | Grace Lin |
-| CLI/脚本 | 提供 `powerx version scan` 命令、报告导出 | [ ] | Leo Wang |
+| CLI/脚本 | 提供 `px version scan` 命令、报告导出 | [ ] | Leo Wang |
 
 # Testing Strategy
 

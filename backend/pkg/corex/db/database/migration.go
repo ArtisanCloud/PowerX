@@ -179,5 +179,6 @@ func migratePluginReleaseModels(db *gorm.DB) error {
 		&modelPluginRelease.OfflineDistributionPackage{},
 		&modelPluginRelease.MarketplaceListing{},
 		&modelPluginRelease.LocalInstallSession{},
+		&modelPluginRelease.PluginImportRun{},
 	)
 }

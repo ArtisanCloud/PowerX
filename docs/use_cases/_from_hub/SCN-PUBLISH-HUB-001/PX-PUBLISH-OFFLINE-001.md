@@ -62,7 +62,7 @@ PowerX Core 服务负责验证离线包完整性、执行插件解压与生命�
 - **Rollback Mechanism**：提供自动化回滚与快照机制，确保失败时迅速恢复旧版本。
 - **Observability Hooks**：产出安装流程指标、日志与审计事件，供运营与领导层追踪。
 - **Offline Asset Cache**：管理离线仓库/对象存储缓存，避免重复上传大文件。
-- **CLI & Admin Hand-off**：借助 `powerx publish package --offline`、`powerx plugin import --offline` 以及 `/api/admin/plugin-release/offline-packages` ，将开发者上传、运营审核、租户导入串成统一闭环。
+- **CLI & Admin Hand-off**：借助 `px publish package --offline`、`px plugin import --offline` 以及 `/api/admin/plugin-release/offline-packages` ，将开发者上传、运营审核、租户导入串成统一闭环。
 
 # Target Roles & Responsibilities
 

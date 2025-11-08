@@ -3,14 +3,14 @@ package commands
 import (
 	"os"
 
-	plugincmd "github.com/ArtisanCloud/PowerX/cmd/powerx/commands/plugin"
-	publishcmd "github.com/ArtisanCloud/PowerX/cmd/powerx/commands/publish"
+	plugincmd "github.com/ArtisanCloud/PowerX/cmd/px/commands/plugin"
+	publishcmd "github.com/ArtisanCloud/PowerX/cmd/px/commands/publish"
 	"github.com/spf13/cobra"
 )
 
-// rootCmd is the base command for powerx CLI.
+// rootCmd is the base command for px CLI.
 var rootCmd = &cobra.Command{
-	Use:   "powerx",
+	Use:   "px",
 	Short: "PowerX DevOps CLI",
 }
 

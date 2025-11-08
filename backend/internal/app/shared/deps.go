@@ -36,6 +36,8 @@ import (
 	integrationManager "github.com/ArtisanCloud/PowerX/internal/service/integration_gateway/manager"
 	integrationTenant "github.com/ArtisanCloud/PowerX/internal/service/integration_gateway/tenant"
 	mediasvc "github.com/ArtisanCloud/PowerX/internal/service/media"
+	pluginbootstrap "github.com/ArtisanCloud/PowerX/internal/service/plugin_bootstrap"
+	pluginimport "github.com/ArtisanCloud/PowerX/internal/service/plugin_import"
 	pluginReleaseService "github.com/ArtisanCloud/PowerX/internal/service/plugin_release"
 	tenantsvc "github.com/ArtisanCloud/PowerX/internal/service/tenant"
 	workflowsvc "github.com/ArtisanCloud/PowerX/internal/service/workflow"
@@ -96,15 +98,17 @@ type Deps struct {
 	MediaMgr  *mediamgr.MediaManager
 	MediaSvc  *mediasvc.MediaService
 
-	EventBus              event_bus.EventBus
-	CapabilityRegistrySvc *capabilityRegistry.Service
-	RouterSvc             *capabilityRouter.Service
-	RouterSandboxSvc      *capabilitySandbox.Service
-	DiscoverySvc          *discoveryService.Service
-	IntegrationGateway    *IntegrationGatewayDeps
-	AgentLifecycle        *AgentLifecycleDeps
-	PluginReleaseOptions  PluginReleaseOptions
-	PluginReleaseService  *pluginReleaseService.Service
+	EventBus               event_bus.EventBus
+	CapabilityRegistrySvc  *capabilityRegistry.Service
+	RouterSvc              *capabilityRouter.Service
+	RouterSandboxSvc       *capabilitySandbox.Service
+	DiscoverySvc           *discoveryService.Service
+	IntegrationGateway     *IntegrationGatewayDeps
+	AgentLifecycle         *AgentLifecycleDeps
+	PluginReleaseOptions   PluginReleaseOptions
+	PluginReleaseService   *pluginReleaseService.Service
+	PluginBootstrapService *pluginbootstrap.Service
+	PluginImportService    *pluginimport.Service
 
 	EventFabric *EventFabricDeps
 	Workflow    *WorkflowDeps
@@ -199,6 +203,7 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 	pluginReleasePlanRepo := pluginReleaseRepo.NewReleasePlanRepository(db)
 	pluginReleaseDistributionRepo := pluginReleaseRepo.NewDistributionRepository(db)
 	pluginReleaseSessionRepo := pluginReleaseRepo.NewLocalInstallSessionRepository(db)
+	pluginImportRepo := pluginReleaseRepo.NewImportRepository(db)
 	componentName := strings.TrimSpace(opts.PluginRelease.Observability.AlertRulePrefix)
 	if componentName == "" {
 		componentName = "powerx.plugin_release"
@@ -232,6 +237,29 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 		},
 	)
 
+	var pluginBootstrapSvc *pluginbootstrap.Service
+	if opts.PluginBootstrap.TemplatesPath != "" {
+		var err error
+		pluginBootstrapSvc, err = pluginbootstrap.NewService(pluginbootstrap.Options{
+			TemplatesPath:   opts.PluginBootstrap.TemplatesPath,
+			DefaultTemplate: opts.PluginBootstrap.DefaultTemplate,
+			AllowHosts:      opts.PluginBootstrap.AllowHosts,
+			Auditor:         aud,
+			AuditSvc:        svc,
+			Now:             time.Now,
+		})
+		if err != nil {
+			pxlog.WarnF(ctx, "[plugin_bootstrap] initialize failed: %v", err)
+		}
+	}
+
+	pluginImportSvc := pluginimport.NewService(pluginimport.Options{
+		Repo:     pluginImportRepo,
+		Auditor:  aud,
+		AuditSvc: svc,
+		Now:      time.Now,
+	})
+
 	tenantConfig := integrationTenant.Config{
 		DefaultRateLimit: integrationManager.RateLimitPolicy{
 			Limit:         opts.IntegrationGateway.DefaultRateLimit.Limit,
@@ -261,25 +289,27 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 	}
 
 	return &Deps{
-		DB:                    db,
-		TenantSvc:             tenantSvc,
-		AuthUser:              authUser,
-		AuthCustomer:          authCustomer,
-		MeService:             meSvc,
-		AuditSvc:              svc,
-		Auditor:               aud,
-		MediaMgr:              mediaManager,
-		MediaSvc:              mediaSvc,
-		EventBus:              bus,
-		CapabilityRegistrySvc: capRegistrySvc,
-		RouterSvc:             routerSvc,
-		RouterSandboxSvc:      sandboxSvc,
-		DiscoverySvc:          discoverySvc,
-		IntegrationGateway:    integrationGatewayDeps,
-		AgentLifecycle:        agentLifecycleDeps,
-		PluginReleaseOptions:  opts.PluginRelease,
-		PluginReleaseService:  pluginReleaseSvc,
-		EventFabric:           eventFabricDeps,
+		DB:                     db,
+		TenantSvc:              tenantSvc,
+		AuthUser:               authUser,
+		AuthCustomer:           authCustomer,
+		MeService:              meSvc,
+		AuditSvc:               svc,
+		Auditor:                aud,
+		MediaMgr:               mediaManager,
+		MediaSvc:               mediaSvc,
+		EventBus:               bus,
+		CapabilityRegistrySvc:  capRegistrySvc,
+		RouterSvc:              routerSvc,
+		RouterSandboxSvc:       sandboxSvc,
+		DiscoverySvc:           discoverySvc,
+		IntegrationGateway:     integrationGatewayDeps,
+		AgentLifecycle:         agentLifecycleDeps,
+		PluginReleaseOptions:   opts.PluginRelease,
+		PluginReleaseService:   pluginReleaseSvc,
+		PluginBootstrapService: pluginBootstrapSvc,
+		PluginImportService:    pluginImportSvc,
+		EventFabric:            eventFabricDeps,
 		Workflow: &WorkflowDeps{
 			Service:       workflowSvc,
 			Scheduler:     workflowScheduler,

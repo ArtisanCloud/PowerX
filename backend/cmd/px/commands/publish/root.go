@@ -2,7 +2,7 @@ package publish
 
 import "github.com/spf13/cobra"
 
-// Command is the entrypoint for `powerx publish` namespace.
+// Command is the entrypoint for `px publish` namespace.
 var Command = &cobra.Command{
 	Use:   "publish",
 	Short: "Manage plugin release publishing lifecycle",

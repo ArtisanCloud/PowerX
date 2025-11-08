@@ -15,6 +15,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/internal/transport/http/admin/media"
 	"github.com/ArtisanCloud/PowerX/internal/transport/http/admin/menu"
 	"github.com/ArtisanCloud/PowerX/internal/transport/http/admin/plugin"
+	pluginDevHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/plugin_dev"
 	pluginReleaseHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/plugin_release"
 	"github.com/ArtisanCloud/PowerX/internal/transport/http/admin/system"
 	"github.com/ArtisanCloud/PowerX/internal/transport/http/admin/tenants"
@@ -53,6 +54,7 @@ func RegisterAPIRoutes(
 	integrationGatewayHTTP.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	plugin.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	pluginReleaseHTTP.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
+	pluginDevHTTP.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	eventFabricHTTP.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	workflowHTTP.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 

@@ -248,6 +248,11 @@ func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error)
 				},
 			},
 		},
+		PluginBootstrap: shared.PluginBootstrapOptions{
+			TemplatesPath:   cfg.PluginBootstrap.TemplatesIndex,
+			DefaultTemplate: cfg.PluginBootstrap.DefaultTemplate,
+			AllowHosts:      cfg.PluginBootstrap.AllowlistedHosts,
+		},
 	}
 
 	deps := shared.NewDeps(db, opts)

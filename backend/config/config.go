@@ -62,6 +62,7 @@ type Config struct {
 	LowCode            LowCodeConfig            `yaml:"dynamic_form"`        // flow 执行相关
 	FeatureGate        FeatureGateConfig        `yaml:"feature_gate"`        // 细粒度开关、license
 	PluginRelease      PluginReleaseConfig      `yaml:"plugin_release"`
+	PluginBootstrap    PluginBootstrapConfig    `yaml:"plugin_bootstrap"`
 	Database           dbCfg.DatabaseConfig     `yaml:"database"` // 数据库配置
 	Cache              cacheCfg.CacheConfig     `yaml:"cache"`    // 缓存配置
 	LogConfig          logCfg.LogConfig         `yaml:"log"`      // 输出配置

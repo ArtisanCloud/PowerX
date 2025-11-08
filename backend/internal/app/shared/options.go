@@ -22,6 +22,7 @@ type DepsOptions struct {
 	IntegrationGateway IntegrationGatewayOptions
 	AgentLifecycle     AgentLifecycleOptions
 	PluginRelease      PluginReleaseOptions
+	PluginBootstrap    PluginBootstrapOptions
 }
 
 // EventFabricOptions 描述事件骨干依赖的运行配置。
@@ -172,4 +173,11 @@ type PluginReleaseObservabilityOptions struct {
 type PluginReleaseKPITargetsOptions struct {
 	CanRollbackWithin time.Duration
 	HotloadLatencyP95 time.Duration
+}
+
+// PluginBootstrapOptions configures template registry + validation defaults.
+type PluginBootstrapOptions struct {
+	TemplatesPath   string
+	DefaultTemplate string
+	AllowHosts      []string
 }

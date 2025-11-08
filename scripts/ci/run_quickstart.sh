@@ -35,15 +35,15 @@ fi
 
 popd >/dev/null
 
-log "CLI sanity: printing help for powerx publish."
-if command -v powerx >/dev/null 2>&1; then
-  if powerx publish --help >/dev/null 2>&1; then
-    log "powerx publish --help executed."
+log "CLI sanity: printing help for px publish."
+if command -v px >/dev/null 2>&1; then
+  if px publish --help >/dev/null 2>&1; then
+    log "px publish --help executed."
   else
-    log "powerx publish --help failed."
+    log "px publish --help failed."
   fi
 else
-  log "powerx binary not present in PATH, skipping CLI smoke."
+  log "px binary not present in PATH, skipping CLI smoke."
 fi
 
 cat <<EOF >> "${tmp_report}"
@@ -51,7 +51,7 @@ cat <<EOF >> "${tmp_report}"
 ## Summary
 - Start time: ${TS}
 - Tests: go test ./internal/service/plugin_release/... ./internal/transport/{http,grpc}/plugin_release ./tests/contract/plugin_release ./tests/integration/plugin_release
-- CLI: powerx publish --help
+- CLI: px publish --help
 
 EOF
 

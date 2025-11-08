@@ -28,7 +28,7 @@ last_reviewed_at: 2025-11-20
 
 # Executive Summary
 
-该子场景面向隔离网络或弱网环境的企业租户，描述从生成签名离线包、分发到导入、健康检查与审计回写的全流程。发布经理在 CI/CD 中生成包含制品、依赖、校验文件的离线包，企业管理员通过 `powerx plugin import --offline` 完成导入，系统校验签名与兼容性并执行健康检查。目标是在 10 分钟内完成导入且成功率 ≥98%，异常时可自动回滚并记录审计日志。
+该子场景面向隔离网络或弱网环境的企业租户，描述从生成签名离线包、分发到导入、健康检查与审计回写的全流程。发布经理在 CI/CD 中生成包含制品、依赖、校验文件的离线包，企业管理员通过 `px plugin import --offline` 完成导入，系统校验签名与兼容性并执行健康检查。目标是在 10 分钟内完成导入且成功率 ≥98%，异常时可自动回滚并记录审计日志。
 
 # Scope & Guardrails
 
@@ -61,14 +61,14 @@ sequenceDiagram
 
   Ops->>Repo: 生成离线包+签名
   Admin->>Repo: 下载离线包
-  Admin->>Tenant: powerx plugin import --offline
+  Admin->>Tenant: px plugin import --offline
   Tenant-->>Admin: 健康检查结果
   Tenant->>Audit: 写入导入审计日志
 ```
 
 # Key Interactions & Contracts
 
-- **APIs / Events**：`powerx publish package --offline`、`powerx plugin import --offline`、`POST /internal/offline/signature/verify`、`EVENT plugin.offline.rollback`.
+- **APIs / Events**：`px publish package --offline`、`px plugin import --offline`、`POST /internal/offline/signature/verify`、`EVENT plugin.offline.rollback`.
 - **Configs / Schemas**：`config/publish/offline_package.json`、`config/plugins/offline/dependencies.yaml`、`scripts/healthcheck/offline-import.mjs`.
 - **Security / Compliance**：离线包必须签名并附带证书指纹；导入需记录操作者与时间；失败自动回滚并触发告警；许可证有效性验证不可跳过。
 

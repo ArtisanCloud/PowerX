@@ -103,7 +103,7 @@ sequenceDiagram
 # Contracts & Interfaces
 
 - **Inbound APIs / Events**
-  - `powerx plugin upgrade --strategy policy` — CLI/控制台触发升级。
+  - `px plugin upgrade --strategy policy` — CLI/控制台触发升级。
   - `POST /internal/version/upgrade/plan` — 创建/更新升级计划。
   - `POST /internal/version/upgrade/rollback` — 触发回滚。
 - **Outbound 调用**

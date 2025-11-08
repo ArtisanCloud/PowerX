@@ -40,7 +40,7 @@
 - [X] T020 组装 PluginReleaseService 工厂并注册 DI（新增 `backend/internal/service/plugin_release/service.go`，修改 `backend/internal/app/shared/deps.go`，依赖 T015-T019）
 - [X] T021 脚手架 gRPC Server 并接入全局 server（`backend/internal/transport/grpc/plugin_release/server.go` 初始实现，更新 `backend/internal/server/grpc/server.go`，依赖 T020）
 - [X] T022 建立 HTTP Admin/OpenAPI 路由占位（新增 `backend/internal/transport/http/admin/plugin_release/routes.go`、`openapi/plugin_release/routes.go`，更新上层 `routes.go`，依赖 T020）
-- [X] T023 种子 CLI 命令骨架（创建 `backend/cmd/powerx/commands/publish/plugin_release_root.go` 并挂载至 `backend/cmd/powerx/commands/publish/root.go`，依赖 T020）
+- [X] T023 种子 CLI 命令骨架（创建 `backend/cmd/px/commands/publish/plugin_release_root.go` 并挂载至 `backend/cmd/px/commands/publish/root.go`，依赖 T020）
 
 **Checkpoint**：模型、仓储、DI、观测与双传输骨架就绪。
 
@@ -57,7 +57,7 @@
 - [X] T027 [FR-001] 构建 LocalInstall service（签名/权限/缓存逻辑）于 `backend/internal/service/plugin_release/local/install_service.go`（依赖 T018, T020）
 - [X] T028 [FR-001] 实现 OpenAPI Handler（启动、取消、日志查询）于 `backend/internal/transport/http/openapi/plugin_release/local_install_handler.go`（依赖 T027, T022）
 - [X] T029 [FR-001] 扩展 gRPC Server：`StartLocalInstall`/`StreamHotReload` 双向流 (`backend/internal/transport/grpc/plugin_release/server.go`，依赖 T027, T021)
-- [X] T030 [FR-001] 增强 CLI `px-plugin dev --watch` 推送与日志回传（更新 `backend/cmd/powerx/commands/plugin/dev_watch.go`，依赖 T023, T029）
+- [X] T030 [FR-001] 增强 CLI `px-plugin dev --watch` 推送与日志回传（更新 `backend/cmd/px/commands/plugin/dev_watch.go`，依赖 T023, T029）
 - [X] T031 [FR-001] 增加热更新审计与日志聚合 (`backend/internal/service/plugin_release/local/audit_hooks.go`，依赖 T027, T019)
 
 **Checkpoint**：FR-001 闭环可执行，CLI ↔ Web Admin 热更新成功。
@@ -76,7 +76,7 @@
 - [X] T036 [US1] 实现质量门禁执行器（覆盖率、安全、许可证）`backend/internal/service/plugin_release/pipeline/gate_runner.go`（依赖 T035）
 - [X] T037 [US1] 实现 Admin HTTP Handler（候选与计划 CRUD）`backend/internal/transport/http/admin/plugin_release/release_guardrail_handler.go`（依赖 T035-T036, T022）
 - [X] T038 [US1] 实现 gRPC 方法（CreateReleaseCandidate/RunQualityGates/GenerateReleasePlan）`backend/internal/transport/grpc/plugin_release/server.go`（依赖 T036-T037, T021）
-- [X] T039 [US1] 加强 CLI `powerx publish create` 上传与提交逻辑（`backend/cmd/powerx/commands/publish/create.go`，依赖 T023, T035）
+- [X] T039 [US1] 加强 CLI `px publish create` 上传与提交逻辑（`backend/cmd/px/commands/publish/create.go`，依赖 T023, T035）
 - [X] T040 [US1] 补充审计与失败通知链路 `backend/internal/service/plugin_release/pipeline/audit_hooks.go`（依赖 T035-T036, T019）
 
 **Checkpoint**：US1 流水线具备门禁、审批与审计能力。
@@ -95,7 +95,7 @@
 - [X] T045 [US2] 扩展指标采集与告警（Prometheus/Grafana 规则）`backend/internal/service/plugin_release/instrumentation/runtime_metrics.go`（依赖 T044, T019）
 - [X] T046 [US2] 实现 Admin HTTP 部署 Handler (`backend/internal/transport/http/admin/plugin_release/deployment_handler.go`，依赖 T044, T022)
 - [X] T047 [US2] 实现 gRPC TriggerCanary/FinalizeDeployment 流 (`backend/internal/transport/grpc/plugin_release/server.go`，依赖 T044, T038, T021)
-- [X] T048 [US2] 更新 CLI `powerx publish deploy` 流式进度与回滚命令 (`backend/cmd/powerx/commands/publish/deploy.go`，依赖 T023, T047)
+- [X] T048 [US2] 更新 CLI `px publish deploy` 流式进度与回滚命令 (`backend/cmd/px/commands/publish/deploy.go`，依赖 T023, T047)
 - [X] T049 [US2] 集成事件总线与回滚自动化钩子 (`backend/internal/service/plugin_release/runtime/event_hooks.go`，依赖 T044, T019)
 
 **Checkpoint**：US2 灰度部署具备监控、告警、自动回滚能力。
@@ -116,7 +116,7 @@
 - [X] T055a [US3] 实现 Marketplace 列表查询 API（分页/筛选）`backend/internal/transport/http/admin/plugin_release/distribution_handler.go:getMarketplaceListings`（依赖 T053-T055）
 - [X] T056 [US3] 实现 OpenAPI Handler：企业租户离线导入 `backend/internal/transport/http/openapi/plugin_release/offline_import_handler.go`（依赖 T053-T054, T022）
 - [X] T057 [US3] 扩展 gRPC Server：UploadOfflinePackage / SubmitMarketplaceListing / ImportOfflinePackage (`backend/internal/transport/grpc/plugin_release/server.go`，依赖 T053-T056, T047, T021)
-- [X] T058 [US3] 更新 CLI：`powerx publish package --offline` 与 `powerx plugin import --offline` (`backend/cmd/powerx/commands/publish/package_offline.go`、`backend/cmd/powerx/commands/plugin/import_offline.go`，依赖 T023, T057)
+- [X] T058 [US3] 更新 CLI：`px publish package --offline` 与 `px plugin import --offline` (`backend/cmd/px/commands/publish/package_offline.go`、`backend/cmd/px/commands/plugin/import_offline.go`，依赖 T023, T057)
 - [X] T059 [US3] 实现补件升级与通知审计 `backend/internal/service/plugin_release/distribution/audit_hooks.go`（依赖 T053-T054, T019）
 
 **Checkpoint**：US3 完成在线/离线渠道发布与合规治理。
@@ -150,9 +150,9 @@
 
 ## Phase 9: Developer Bootstrap & Third-party Import（Priority P0 / US4）
 
-- [ ] T071 [US4|FR-014] 扩展 `powerx-plugin` 模板索引与 CLI（`powerx-plugin/cmd/init`, `config/plugins/templates/index.yaml`），新增 `powerx plugin init --template <id>` 参数化引导，并在 `backend/internal/service/plugin_bootstrap` + `POST /internal/plugins/bootstrap/validate` 中校验 manifest/权限模板/Git 注册；需更新 `cmd/powerx/commands/plugin/init.go` 及 Quickstart 示例。
-- [ ] T072 [US4|FR-015] 实现 `powerx plugin doctor` CLI 与后端 `POST /internal/plugins/environments/check`，校验多语言运行时、依赖缓存、`.powerxci/onboarding.yaml`；失败时返回 machine-readable report 并阻断提交（涉及 `px-plugin/cmd/doctor`, `backend/internal/service/plugin_bootstrap/doctor.go`, `audit` 事件）。
-- [ ] T073 [US4|FR-016] 构建第三方源码导入服务（`backend/internal/service/plugin_import` + `POST /internal/plugins/import`），接入许可证/漏洞扫描（调用 `internal/service/security`）、模板适配脚本（复用 `powerx-plugin/scaffold`）与审批流程；生成 `ImportRiskReport` 模型/仓储、写入审计，并在合规通过后调用 `POST /internal/git/register`。
+- [X] T071 [US4|FR-014] 扩展 `powerx-plugin` 模板索引与 CLI（`powerx-plugin/cmd/init`, `config/plugins/templates/index.yaml`），新增 `px plugin init --template <id>` 参数化引导，并在 `backend/internal/service/plugin_bootstrap` + `POST /internal/plugins/bootstrap/validate` 中校验 manifest/权限模板/Git 注册；需更新 `cmd/px/commands/plugin/init.go` 及 Quickstart 示例。
+- [X] T072 [US4|FR-015] 实现 `px plugin doctor` CLI 与后端 `POST /internal/plugins/environments/check`，校验多语言运行时、依赖缓存、`.powerxci/onboarding.yaml`；失败时返回 machine-readable report 并阻断提交（涉及 `px-plugin/cmd/doctor`, `backend/internal/service/plugin_bootstrap/doctor.go`, `audit` 事件）。
+- [X] T073 [US4|FR-016] 构建第三方源码导入服务（`backend/internal/service/plugin_import` + `POST /internal/plugins/import`），接入许可证/漏洞扫描（调用 `internal/service/security`）、模板适配脚本（复用 `powerx-plugin/scaffold`）与审批流程；生成 `ImportRiskReport` 模型/仓储、写入审计，并在合规通过后调用 `POST /internal/git/register`。
 
 **Checkpoint**：任意插件可在 1 分钟内初始化工程、10 分钟内完成团队健康检查，并在 15 分钟内完成第三方导入且具备审计/风险报告。
 
@@ -170,8 +170,8 @@
 
 ## Phase 11: Version Governance & Compatibility Guard（Priority P2 / US6）
 
-- [ ] T077 [US6|FR-020] 构建版本治理调度：`backend/internal/service/plugin_governance` 扫描租户 manifest + 发布记录、写入 `version_governance_reports`，提供 `powerx version scan` CLI、`POST /internal/version/governance/scan` 与通知/决策 API。
+- [ ] T077 [US6|FR-020] 构建版本治理调度：`backend/internal/service/plugin_governance` 扫描租户 manifest + 发布记录、写入 `version_governance_reports`，提供 `px version scan` CLI、`POST /internal/version/governance/scan` 与通知/决策 API。
 - [ ] T078 [US6|FR-021] 交付兼容性引擎与例外流程：新增 `backend/internal/service/plugin_compat`、`POST /internal/version/compat/{check,exception,approve}`、`compat_exceptions` 模型，阻断不兼容安装并与审批/监控集成。
-- [ ] T079 [US6|FR-022] 提供多租户版本看板：实现 `backend/internal/service/plugin_governance/multitenant.go`、Web Admin `/admin/plugin-release/governance`（或 CLI `powerx version board`）、批量灰度/回滚触发器，并将决策写入 365 天审计。
+- [ ] T079 [US6|FR-022] 提供多租户版本看板：实现 `backend/internal/service/plugin_governance/multitenant.go`、Web Admin `/admin/plugin-release/governance`（或 CLI `px version board`）、批量灰度/回滚触发器，并将决策写入 365 天审计。
 
 **Checkpoint**：平台可 5 分钟内推送升级建议、阻断不兼容安装，并在多租户视角上收敛版本漂移与例外审计。

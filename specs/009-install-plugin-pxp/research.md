@@ -21,6 +21,6 @@
 - **Alternatives considered**: (a) 另建 Argo/Temporal 集群（引入外部依赖、权限复杂）；(b) 单体 Cron Job（缺失 DAG/补偿语义，无法满足多阶段审批）。
 
 ## 5. CLI ↔ Backend Transport
-- **Decision**: `px-plugin` 与 `powerx publish` 均通过 gRPC `PluginReleaseService` 交互（含本地构建产物上传、计划查询、灰度触发），Web Admin 使用 HTTP Admin/OpenAPI 层，所有入口复用同一 service/repository。
+- **Decision**: `px-plugin` 与 `px publish` 均通过 gRPC `PluginReleaseService` 交互（含本地构建产物上传、计划查询、灰度触发），Web Admin 使用 HTTP Admin/OpenAPI 层，所有入口复用同一 service/repository。
 - **Rationale**: CLI 需要流式上传与实时日志，gRPC 支持双向流与统一 AuthN；Admin API 仍以 Gin/HTTP 便于与现有控制台整合。共用 service 可执行一致的 RBAC/审计。
 - **Alternatives considered**: (a) CLI 全走 REST（流式性能与错误反馈不佳）；(b) 为 CLI 单独实现直连数据库/缓存（破坏多租户隔离与审计要求）。

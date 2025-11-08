@@ -28,7 +28,7 @@ last_reviewed_at: 2025-11-20
 
 # Executive Summary
 
-该子场景聚焦团队成员克隆既有插件仓库后，在 10 分钟内完成依赖安装、环境变量配置与调试准备。开发者使用 `powerx plugin doctor` 自动检查语言运行时、依赖锁定、环境变量模板与权限配置，平台同步共享测试数据与编码规范，并在首次提交时校验初始化脚本是否执行。目标是确保跨成员开发保持一致的工程基线与质量保障。
+该子场景聚焦团队成员克隆既有插件仓库后，在 10 分钟内完成依赖安装、环境变量配置与调试准备。开发者使用 `px plugin doctor` 自动检查语言运行时、依赖锁定、环境变量模板与权限配置，平台同步共享测试数据与编码规范，并在首次提交时校验初始化脚本是否执行。目标是确保跨成员开发保持一致的工程基线与质量保障。
 
 # Scope & Guardrails
 
@@ -54,14 +54,14 @@ last_reviewed_at: 2025-11-20
 sequenceDiagram
   participant Member as 团队开发者
   participant Git as Git 服务
-  participant CLI as powerx plugin doctor
+  participant CLI as px plugin doctor
   participant Config as 配置与模板服务
   participant CI as CI Pipeline
 
   Member->>Git: git clone plugin-repo
   Git-->>Member: 返回仓库内容与分支策略
   Member->>Config: 拉取环境模板与测试数据
-  Member->>CLI: powerx plugin doctor
+  Member->>CLI: px plugin doctor
   CLI->>Config: 校验运行时与依赖清单
   CLI-->>Member: 输出健康报告与修复建议
   Member->>CI: 推送特性分支触发校验
@@ -70,7 +70,7 @@ sequenceDiagram
 
 # Key Interactions & Contracts
 
-- **APIs / Events**：`powerx plugin doctor`、`POST /internal/plugins/environments/check`、`GET /internal/config/templates/.env`、`EVENT plugin.init.audit`。
+- **APIs / Events**：`px plugin doctor`、`POST /internal/plugins/environments/check`、`GET /internal/config/templates/.env`、`EVENT plugin.init.audit`。
 - **Configs / Schemas**：`config/plugins/team/onboarding.yaml`、`.powerxci/pre-commit.yaml`、`docs/standards/powerx-plugin/lifecycle/team-handbook.md`。
 - **Security / Compliance**：克隆需通过 RBAC 与 PAT 校验；环境模板敏感字段仅在安全通道下发；健康检查结果写入审计日志并保留 30 天。
 

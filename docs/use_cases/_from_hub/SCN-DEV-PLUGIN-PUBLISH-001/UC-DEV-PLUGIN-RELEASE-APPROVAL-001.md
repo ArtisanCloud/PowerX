@@ -76,7 +76,7 @@ last_reviewed_at: 2025-11-20
 
 ## 流程与时序
 
-1. **Step 1 – 发布申请**：开发者通过 `powerx publish create` 上传制品并指定测试租户与审批窗口。
+1. **Step 1 – 发布申请**：开发者通过 `px publish create` 上传制品并指定测试租户与审批窗口。
 2. **Step 2 – 自动化验证**：流水线部署到测试租户，执行回归测试、覆盖率统计与安全扫描，聚合质量门禁结果。
 3. **Step 3 – 审批与回滚计划**：QA、发布经理、安全合规依次审核，确认变更范围、窗口、回滚联系人与演练结果。
 4. **Step 4 – 计划落地与审计**：审批通过后锁定版本标签、输出生产发布计划，写入审计日志并通知相关责任人。
@@ -88,7 +88,7 @@ sequenceDiagram
   participant QA as QA/安全
   participant Ops as 发布经理
 
-  Dev->>Pipeline: powerx publish create --target tenant-test-01
+  Dev->>Pipeline: px publish create --target tenant-test-01
   Pipeline->>QA: 提交测试/扫描报告
   QA-->>Ops: 提供质量门禁结论
   Ops->>Pipeline: 审批结果与回滚方案
@@ -98,7 +98,7 @@ sequenceDiagram
 # Contracts & Interfaces
 
 - **Inbound APIs / Events**
-  - `powerx publish create` — 提交发布申请与制品元数据。
+  - `px publish create` — 提交发布申请与制品元数据。
   - `POST /internal/publish/test-run` — 触发测试租户部署与测试执行。
   - `POST /internal/publish/approval` — 审批动作，记录结论与窗口信息。
 - **Outbound 调用**

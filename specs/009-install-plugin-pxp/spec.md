@@ -55,16 +55,16 @@ Marketplace 运营与企业租户管理员需要在 2 个工作日内分别完�
 
 ### User Story 4 - Developer Bootstrap & Third-party Import (Priority: P0)
 
-（来自 `SCN-DEV-PLUGIN-INIT-001` 及其 UC 文档）插件团队需要在 1 分钟内通过 `powerx plugin init` 生成标准工程、通过 `powerx plugin doctor` 完成团队克隆后的健康检查，并让企业技术组在 15 分钟内导入第三方源码包且完成许可证/漏洞扫描，确保所有插件都能在同一规范与审计基线上进入发布链路。
+（来自 `SCN-DEV-PLUGIN-INIT-001` 及其 UC 文档）插件团队需要在 1 分钟内通过 `px plugin init` 生成标准工程、通过 `px plugin doctor` 完成团队克隆后的健康检查，并让企业技术组在 15 分钟内导入第三方源码包且完成许可证/漏洞扫描，确保所有插件都能在同一规范与审计基线上进入发布链路。
 
 **Why this priority**: 如果初始化、团队协作与外部导入缺乏统一模板与合规守护，后续流水线会被大量非标准工程与未知风险阻塞，直接影响核心发布能力。
 
-**Independent Test**: 执行一次 `powerx plugin init`（含许可证扫描与 Git 注册）、`powerx plugin doctor` 团队克隆演练，以及一次 `POST /internal/plugins/import` 第三方导入流程，验证三条路径都能在 SLA 内完成并生成审计报告。
+**Independent Test**: 执行一次 `px plugin init`（含许可证扫描与 Git 注册）、`px plugin doctor` 团队克隆演练，以及一次 `POST /internal/plugins/import` 第三方导入流程，验证三条路径都能在 SLA 内完成并生成审计报告。
 
 **Acceptance Scenarios**:
 
-1. **Given** 开发者安装最新 CLI 并选择模板，**When** 运行 `powerx plugin init react-dashboard --enable-license-scan`，**Then** 60 秒内生成标准目录、依赖锁定、manifest、CI 配置，并写入 Git/审计记录。
-2. **Given** 团队成员克隆现有仓库，**When** 执行 `powerx plugin doctor --strict`，**Then** 在 10 分钟内完成运行时/依赖/环境变量检查，失败项提供可执行修复建议并阻断首个提交。
+1. **Given** 开发者安装最新 CLI 并选择模板，**When** 运行 `px plugin init react-dashboard --enable-license-scan`，**Then** 60 秒内生成标准目录、依赖锁定、manifest、CI 配置，并写入 Git/审计记录。
+2. **Given** 团队成员克隆现有仓库，**When** 执行 `px plugin doctor --strict`，**Then** 在 10 分钟内完成运行时/依赖/环境变量检查，失败项提供可执行修复建议并阻断首个提交。
 3. **Given** 企业上传 `vendor-ai-assistant.zip`，**When** 触发第三方导入流程，**Then** 15 分钟内完成解包、许可证/漏洞扫描、模板化适配与审批，若检测到高危许可证则自动阻断并通知安全团队。
 
 ---
@@ -91,7 +91,7 @@ Marketplace 运营与企业租户管理员需要在 2 个工作日内分别完�
 
 **Why this priority**: 发布完成后若没有版本治理与兼容性防护，生产租户会承受未知的升级风险和长期的版本漂移，直接影响 SLA 与合规。
 
-**Independent Test**: 调度一次 `powerx version scan`，验证 5 分钟内推送升级建议；模拟一次不兼容升级，检查 `POST /internal/version/compat/check` 阻断并触发例外审批；在多租户环境执行一次版本对齐回合并生成审计报告。
+**Independent Test**: 调度一次 `px version scan`，验证 5 分钟内推送升级建议；模拟一次不兼容升级，检查 `POST /internal/version/compat/check` 阻断并触发例外审批；在多租户环境执行一次版本对齐回合并生成审计报告。
 
 **Acceptance Scenarios**:
 
@@ -108,9 +108,9 @@ Marketplace 运营与企业租户管理员需要在 2 个工作日内分别完�
 - 灰度阶段遇到第三方监控指标缺失，系统需要进入安全等待状态并提示人工决策。
 - 离线导入过程中校验指纹与证书吊销列表不匹配时必须立即终止并保持旧版本运行。
 - Marketplace 审核超出 SLA 或补件次数超阈值时，需要自动升级通知至合规负责人并暂停后续发布窗口。
-- CLI 模板索引或依赖镜像不可用时需自动回退到缓存模板并提示离线步骤，防止 `powerx plugin init` 半成品目录残留。
+- CLI 模板索引或依赖镜像不可用时需自动回退到缓存模板并提示离线步骤，防止 `px plugin init` 半成品目录残留。
 - 沙箱数据集同步失败或脱敏策略缺失时，必须阻断 `plugin-sandbox-suite` 并回滚资源配额，避免敏感数据泄露。
-- 兼容性矩阵或版本扫描数据过期时，默认阻断安装/升级并提示治理团队刷新矩阵或重新执行 `powerx version scan`。
+- 兼容性矩阵或版本扫描数据过期时，默认阻断安装/升级并提示治理团队刷新矩阵或重新执行 `px version scan`。
 
 ## Requirements *(mandatory)*
 
@@ -120,8 +120,8 @@ Marketplace 运营与企业租户管理员需要在 2 个工作日内分别完�
 - **FR-002**: 平台必须在本地安装与热更新过程中校验插件签名、最小权限模板与操作者凭证，所有操作写入可检索的审计记录。
 - **FR-003**: 测试租户发布流水线必须执行自动化测试、覆盖率统计、安全与许可证扫描，未达标时阻断审批并通知提交者、QA 与发布经理。
 - **FR-004**: 审批系统必须在 24 小时内完成多角色审批，生成包含上线窗口、灰度参数、回滚联系人和依赖列表的生产发布计划。
-- **FR-005**: 平台必须支持 `powerx publish package --offline` 生成含制品、依赖、校验文件和签名指纹的离线包，并保留至离线分发库。
-- **FR-006**: `powerx plugin import --offline` 导入流程必须校验签名与许可证、执行健康检查并在失败时自动回滚到上一稳定版本。
+- **FR-005**: 平台必须支持 `px publish package --offline` 生成含制品、依赖、校验文件和签名指纹的离线包，并保留至离线分发库。
+- **FR-006**: `px plugin import --offline` 导入流程必须校验签名与许可证、执行健康检查并在失败时自动回滚到上一稳定版本。
 - **FR-007**: 灰度发布必须依据发布计划执行批次扩容、实时采集指标与日志，并在异常时于 5 分钟内完成自动回滚和责任人通知。
 - **FR-008**: 系统必须将灰度与全量发布的指标、错误率、耗时等数据汇总到统一仪表盘，并针对偏差、缺失或超时触发告警。
 - **FR-009**: Marketplace 在线发布必须要求填报版本元数据、定价与支持策略，自动校验签名、兼容矩阵和合规项后才能提交人工审核。
@@ -129,15 +129,15 @@ Marketplace 运营与企业租户管理员需要在 2 个工作日内分别完�
 - **FR-011**: 审核通过的版本必须在 Marketplace 上架后 5 分钟内向订阅租户发送通知，并生成初始运营报表与发布回执。
 - **FR-012**: 所有发布相关的审计日志、签名指纹、审批结论与通知记录必须保留至少 180 天，支持按版本、租户或渠道查询。
 - **FR-013**: Marketplace 审核流程中同一版本补件次数达到两次时，系统必须自动升级通知至合规负责人并暂缓后续发布窗口，直至补件完成或被驳回。
-- **FR-014**: `powerx plugin init` 必须在 60 秒内完成模板拉取、依赖锁定、manifest/权限模板生成、`POST /internal/plugins/bootstrap/validate` 校验与 Git 仓注册，失败时提供可重试的离线脚本。
-- **FR-015**: `powerx plugin doctor` / `POST /internal/plugins/environments/check` 需校验多语言运行时、依赖缓存、环境变量模板和 pre-commit 钩子，输出机器可读报告并在关键项失败时阻断提交。
+- **FR-014**: `px plugin init` 必须在 60 秒内完成模板拉取、依赖锁定、manifest/权限模板生成、`POST /internal/plugins/bootstrap/validate` 校验与 Git 仓注册，失败时提供可重试的离线脚本。
+- **FR-015**: `px plugin doctor` / `POST /internal/plugins/environments/check` 需校验多语言运行时、依赖缓存、环境变量模板和 pre-commit 钩子，输出机器可读报告并在关键项失败时阻断提交。
 - **FR-016**: `POST /internal/plugins/import` 导入第三方源码包必须执行许可证/漏洞扫描、模板化适配与审批，生成风险报告和 `.powerxci` 配置；高危风险需默认阻断并推送审计通知。
 - **FR-017**: 宿主模拟器与 `px-plugin dev --watch` 必须支撑 <2 秒热更新、权限模板提示与 `POST /internal/plugins/local/reload` 热重载；所有本地调试操作写入 `plugin.local.debug` 审计并暴露 `debug.hot_reload.*` 指标。
 - **FR-018**: 调试诊断服务需提供 `POST /internal/debug/report`、`POST /internal/debug/logs/export` 等接口，在 60 秒内生成结构化报告、脱敏敏感字段并自动关联工单/回归脚本。
 - **FR-019**: 沙箱验证 orchestrator（`POST /internal/sandbox/{deploy,dataset/test/run}`）需加载指定数据集、执行回归脚本、生成性能/合规报告并在失败时自动回滚资源与通知安全/运维。
-- **FR-020**: 版本治理服务必须提供 `powerx version scan` / `POST /internal/version/governance/scan`、策略配置与通知接口，5 分钟内推送升级建议并记录决策。
+- **FR-020**: 版本治理服务必须提供 `px version scan` / `POST /internal/version/governance/scan`、策略配置与通知接口，5 分钟内推送升级建议并记录决策。
 - **FR-021**: 兼容性引擎需在安装/升级前调用 `POST /internal/version/compat/check`，阻断不兼容请求、输出冲突项并支持 `POST /internal/version/compat/exception` 例外审批与审计。
-- **FR-022**: 多租户版本治理需提供 `powerx version board --tenant <org>` 或 Web Admin 面板，展示版本偏差、批量对齐/灰度策略与执行状态，并将决策写入 365 天可追溯的审计记录。
+- **FR-022**: 多租户版本治理需提供 `px version board --tenant <org>` 或 Web Admin 面板，展示版本偏差、批量对齐/灰度策略与执行状态，并将决策写入 365 天可追溯的审计记录。
 
 ### Non-Functional Requirements
 
@@ -154,7 +154,7 @@ Marketplace 运营与企业租户管理员需要在 2 个工作日内分别完�
 - **Canary Deployment Record**: 捕捉每个灰度批次的租户范围、指标快照、告警、回滚动作与扩容结果，支撑复盘与合规。
 - **Marketplace Listing**: 聚合版本元数据、审核状态、上架渠道、通知对象与运营报表链接，支撑线上与离线双通道发布。
 - **Audit Trail**: 汇总本地调试、审批、导入、回滚与 Marketplace 操作的责任人、时间、指纹和结论，满足合规追踪需求。
-- **Plugin Scaffold Template**: 记录模板 ID、语言、依赖锁定与示例资源路径，用于 `powerx plugin init` 与第三方导入的模板化适配。
+- **Plugin Scaffold Template**: 记录模板 ID、语言、依赖锁定与示例资源路径，用于 `px plugin init` 与第三方导入的模板化适配。
 - **Import Risk Report**: 汇总许可证/漏洞扫描结果、豁免状态、审批结论与仓库注册信息，绑定第三方导入流程。
 - **Debug Session**: 描述宿主模拟器实例、开发者、热更新次数、日志指纹与回滚记录，支撑调试审计与指标。
 - **Sandbox Validation Run**: 存储数据集版本、测试脚本、覆盖率/性能指标与脱敏结论，用于 QA 回归与合规抽查。
@@ -171,7 +171,7 @@ Marketplace 运营与企业租户管理员需要在 2 个工作日内分别完�
 - **SC-004**: 离线导入成功率 ≥ 98%，导入总耗时（含健康检查）平均 < 10 分钟。
 - **SC-005**: Marketplace 审核（在线+离线）在 2 个工作日内完成率 ≥ 95%，补件率 < 5%，通知延迟 ≤ 5 分钟。
 - **SC-006**: 发布相关审计与指标数据 100% 可在单一仪表盘内追溯到具体版本与渠道，并支持 180 天留存审计抽查。
-- **SC-007**: 95% 的 `powerx plugin init` 任务 ≤ 60 秒完成且 Git/扫描成功，团队首次 `powerx plugin doctor` 在 10 分钟内通过；第三方导入流程 15 分钟内完成且 100% 产出风险报告。
+- **SC-007**: 95% 的 `px plugin init` 任务 ≤ 60 秒完成且 Git/扫描成功，团队首次 `px plugin doctor` 在 10 分钟内通过；第三方导入流程 15 分钟内完成且 100% 产出风险报告。
 - **SC-008**: 热更新迭代耗时 p95 ≤ 2 秒、成功率 ≥ 98%；调试诊断报告生成 ≤ 60 秒；沙箱验证关键用例覆盖率 ≥ 95%，脱敏失败率 0。
 - **SC-009**: 版本扫描覆盖率 ≥ 99%，升级建议推送延迟 ≤ 5 分钟，管理员决策 100% 记录审计；兼容性阻断准确率 ≥ 98%。
 - **SC-010**: 多租户版本治理能在 7 天内将 90% 的版本偏差控制在 1 个稳定版本内，且全部例外审批/受控执行记录在 365 天审计窗口内可检索。
