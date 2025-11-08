@@ -1,3 +1,4 @@
+---
 scn_id: SCN-IAM-LOGIN-AUTH-001
 title: PowerX 登录与认证
 status: Draft
@@ -38,7 +39,7 @@ last_reviewed_at: 2025-10-30
 
 ---
 
-# Executive Summary
+# Positioning & Goals
 
 PowerX 核心平台需要提供统一、可信、可观察的登录与认证体验，既要满足企业终端用户的便捷访问，也要支撑第三方系统调用与安全管理员的风控治理需求。场景覆盖企业 SSO 单点登录、API Token 接入、多因子认证策略及异常登录自动响应，目标是在统一入口下实现身份可信、权限可控、异常可回滚，并把审计、监控、告警串联成闭环。
 
@@ -58,6 +59,12 @@ PowerX 核心平台需要提供统一、可信、可观察的登录与认证体�
   - `iam-login-sso-v2`（统一 SSO/OIDC 网关）、`iam-api-token`（客户端凭据管理）、`iam-mfa-policy`、`iam-risk-engine`；
   - 依赖企业 IdP、PowerX API 网关、审计事件总线、通知服务、风险策略平台与指标采集脚本。
 
+# Core Capabilities
+
+1. **Unified Auth Gateway**：整合 SSO/OIDC/SAML、API Token 与门户入口，提供一致的认证与会话管理能力。
+2. **Adaptive Security Controls**：MFA 策略、风险引擎与网关速率限制联动，实现“识别 → 告警 → 处置 → 回滚”的闭环。
+3. **Observability & Automation**：登录链路的指标、审计、Runbook 与告警自动生成，支撑管理员在单视图内完成诊断与执行。
+
 # Participants & Responsibilities
 
 | Scope | Repository | Layer | 责任与交付物 | Owners |
@@ -67,12 +74,14 @@ PowerX 核心平台需要提供统一、可信、可观察的登录与认证体�
 | governance | powerx-risk | service | 风控策略配置、异常识别、告警与会话处置编排 | Matrix Ops（Platform Ops Lead / ops@artisan-cloud.com） |
 | automation | powerx | ops | Token 生命周期自动化、告警工单与 Runbook | Matrix Ops（Platform Ops Lead / ops@artisan-cloud.com） |
 
-# End-to-End Flow
+# Validation Workflow
 
 1. **Stage 1 – 企业 SSO 登录门户**：终端用户访问 PowerX 门户，经由企业 SSO 完成授权码流程，平台验证 Token 并生成受控会话。
 2. **Stage 2 – 第三方 API Token 接入**：安全管理员为合作系统签发客户端凭据，网关按租户、作用域与速率限制校验调用。
 3. **Stage 3 – MFA 保护敏感插件**：管理员为高风险插件启用 MFA，用户绑定设备、验证通过后才能执行敏感操作。
 4. **Stage 4 – 异常登录检测与响应**：风控引擎监控登录行为，命中规则即推送告警、强制登出并支持误报回滚。
+
+# Architecture Diagram
 
 ```mermaid
 sequenceDiagram
@@ -106,12 +115,15 @@ sequenceDiagram
 - `EVENT security.login.detected`、`EVENT security.login.blocked` — 风控事件流，包含风险评分、会话 ID、处置动作。
 - `POST /internal/sessions/force-logout` — 强制终止会话、触发通知。
 
-# Usecase Links
+# Related Links
 
 - `SCN-IAM-LOGIN-SSO-001` — Stage 1：企业 SSO 登录门户。
 - `SCN-IAM-LOGIN-API-TOKEN-001` — Stage 2：第三方系统 API Token 接入。
 - `SCN-IAM-LOGIN-MFA-001` — Stage 3：敏感插件多因子认证守护。
 - `SCN-IAM-LOGIN-RISK-001` — Stage 4：异常登录检测与处置。
+- 设计稿：`docs/meta/scenarios/powerx/core-platform/iam-rbac/login-and-auth/primary.md`
+- Runbook：`ops/runbooks/auth-anomaly-response.md`
+- 安全蓝图：Confluence「IAM-Login-Security-Blueprint」
 
 # Acceptance Criteria
 
