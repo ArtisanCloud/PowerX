@@ -174,8 +174,8 @@
 
 ## Phase 11: Version Governance & Compatibility Guard（Priority P2 / US6）
 
-- [ ] T077 [US6|FR-020] 构建版本治理调度：`backend/internal/service/plugin_governance` 扫描租户 manifest + 发布记录、写入 `version_governance_reports`，提供 `px version scan` CLI、`POST /internal/version/governance/scan` 与通知/决策 API。
-- [ ] T078 [US6|FR-021] 交付兼容性引擎与例外流程：新增 `backend/internal/service/plugin_compat`、`POST /internal/version/compat/{check,exception,approve}`、`compat_exceptions` 模型，阻断不兼容安装并与审批/监控集成。
-- [ ] T079 [US6|FR-022] 提供多租户版本看板：实现 `backend/internal/service/plugin_governance/multitenant.go`、Web Admin `/admin/plugin-release/governance`（或 CLI `px version board`）、批量灰度/回滚触发器，并将决策写入 365 天审计。
+- [X] T077 [US6|FR-020] 构建版本治理调度：`backend/internal/service/plugin_governance` 扫描租户 manifest + 发布记录、写入 `version_governance_reports`，提供 `px version scan` CLI、`POST /internal/version/governance/scan` 与通知/决策 API。
+- [X] T078 [US6|FR-021] 交付兼容性引擎与例外流程：新增 `backend/internal/service/plugin_compat`、`POST /internal/version/compat/{check,exception,approve}`、`compat_exceptions` 模型，阻断不兼容安装并与审批/监控集成。
+- [X] T079 [US6|FR-022] 提供多租户版本看板：实现 `backend/internal/service/plugin_governance/multitenant.go`、Web Admin `/admin/plugin-release/governance`（或 CLI `px version board`）、批量灰度/回滚触发器，并将决策写入 365 天审计。
 
 **Checkpoint**：平台可 5 分钟内推送升级建议、阻断不兼容安装，并在多租户视角上收敛版本漂移与例外审计。

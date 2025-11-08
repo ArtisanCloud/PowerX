@@ -78,3 +78,5 @@ const TablePluginReleaseLocalInstallSessions = "plugin_release_local_install_ses
 const TablePluginImportRuns = "plugin_import_runs"
 const TablePluginDebugReports = "plugin_debug_reports"
 const TablePluginSandboxRuns = "plugin_sandbox_validation_runs"
+const TableVersionGovernanceReports = "version_governance_reports"
+const TablePluginCompatExceptions = "plugin_compat_exceptions"

@@ -1,0 +1,36 @@
+# Version governance rules for scan cadence, SLA, and alerting.
+defaults:
+  scan_interval: 5m
+  max_report_age: 24h
+  alert_channel: plugin-version-ops
+  escalation_after: 3 # consecutive failed scans
+
+rules:
+  - id: critical-security
+    match:
+      plugin: "*"
+      labels:
+        security: critical
+    target_version: latest
+    sla_hours: 24
+    notification: security-oncall
+  - id: finance-tenants
+    match:
+      tenant_tags: ["finance"]
+    target_version: stable
+    sla_hours: 72
+    notification: finops-release
+
+risk_weights:
+  gate_failed: critical
+  approval_missing: warning
+  manifest_stale: info
+
+# Board presets (used by px version board/UI filters)
+presets:
+  - name: critical-drift
+    filters:
+      risk: ["critical"]
+  - name: unapproved
+    filters:
+      status: ["pending", "generated"]

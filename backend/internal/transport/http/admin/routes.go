@@ -16,10 +16,11 @@ import (
 	"github.com/ArtisanCloud/PowerX/internal/transport/http/admin/menu"
 	"github.com/ArtisanCloud/PowerX/internal/transport/http/admin/plugin"
 	pluginDevHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/plugin_dev"
-	pluginSandboxHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/plugin_sandbox"
 	pluginReleaseHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/plugin_release"
+	pluginSandboxHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/plugin_sandbox"
 	"github.com/ArtisanCloud/PowerX/internal/transport/http/admin/system"
 	"github.com/ArtisanCloud/PowerX/internal/transport/http/admin/tenants"
+	versionHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/version"
 	workflowHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/workflow"
 	"github.com/gin-gonic/gin"
 )
@@ -57,6 +58,7 @@ func RegisterAPIRoutes(
 	pluginReleaseHTTP.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	pluginDevHTTP.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	pluginSandboxHTTP.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
+	versionHTTP.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	eventFabricHTTP.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	workflowHTTP.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 

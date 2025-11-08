@@ -93,6 +93,52 @@ go run cmd/server/main.go --enable-plugin-release
    - 失败重试会自动附带最后一次错误信息；当 CLI 检测到 “version mismatch” 字样时，会在后台累加 `debug.host.version_mismatch_total`。
 4. （可选）`px debug attach` 预留命令会在后续版本补充断点/日志聚合；在此之前，可通过 `POST /internal/debug/report` 触发调试诊断（见 Phase 10 任务）。
 
+### 4.2 版本治理 & 兼容性指令
+1. 准备治理配置：`config/version/governance_rules.yaml`、`config/version/upgrade_policies.yaml`、`config/version/compat_matrix.yaml` 已提供默认模板，可根据租户标签/优先级定制扫描节奏与灰度策略。部署到测试环境时，保持 `PX_VERSION_GOVERNANCE=enabled` 以便服务加载这些配置。
+2. 执行巡检：
+   ```bash
+   go run cmd/px/main.go version scan \
+     --api http://localhost:8077/api \
+     --tenant-id 88001 \
+     --plugin-id com.powerx.demo \
+     --token "$(cat ~/.powerx/admin.token)"
+   ```
+   该命令会调用 `POST /internal/version/governance/scan`，结合最新 Release Candidate 生成报告并打印风险等级。可通过 `--current-version`/`--target-version` 覆盖自动探测结果。
+3. 查看多租户版本看板：
+   ```bash
+   go run cmd/px/main.go version board \
+     --api http://localhost:8077/api \
+     --tenant-id "" \
+     --limit 25 \
+     --token "$(cat ~/.powerx/admin.token)"
+   ```
+   CLI 会调用 `GET /internal/version/governance/board`，按风险聚合输出总览，可直接粘贴到运维周报。若需 Web Admin，看板路由 `/internal/version/governance/*` 已接入。
+4. 兼容性校验与例外流程：
+   ```bash
+   # 安装/升级前做矩阵校验
+   go run cmd/px/main.go version compat check \
+     --api http://localhost:8077/api \
+     --host-version 1.24.0 \
+     --plugin-version 2.0.0
+
+   # 提交例外申请
+   go run cmd/px/main.go version compat exception \
+     --api http://localhost:8077/api \
+     --tenant-id 88001 \
+     --plugin-id com.powerx.demo \
+     --current-version 1.0.0 \
+     --target-version 2.0.0 \
+     --reason "灰度需要旧依赖"
+
+   # 审批或驳回例外
+   go run cmd/px/main.go version compat approve \
+     --api http://localhost:8077/api \
+     --id <exception-uuid> \
+     --status approved \
+     --reviewer release-admin@example.com
+   ```
+   所有命令均封装 `POST /internal/version/compat/{check,exception,approve}`，结果写入 `plugin_compat_exceptions` 表并同步审计，可直接满足 SCN-DEV-PLUGIN-VERSION-COMPAT-001 的堵截/例外流程。
+
 ## 5. 审批与灰度
 1. 使用 Web Admin 调用 Admin API（或 `curl`）：
    ```bash

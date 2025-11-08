@@ -133,6 +133,22 @@ func (r *ReleaseCandidateRepository) GetByUUID(ctx context.Context, candidateUUI
 	return &candidate, nil
 }
 
+// FindLatestByTenantPlugin returns the latest candidate ordered by creation time.
+func (r *ReleaseCandidateRepository) FindLatestByTenantPlugin(ctx context.Context, tenantID, pluginID string) (*models.PluginReleaseCandidate, error) {
+	var candidate models.PluginReleaseCandidate
+	err := r.db.WithContext(ctx).
+		Where("tenant_id = ? AND plugin_id = ?", tenantID, pluginID).
+		Order("created_at DESC").
+		Take(&candidate).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &candidate, nil
+}
+
 // Save persists an existing candidate.
 func (r *ReleaseCandidateRepository) Save(ctx context.Context, candidate *models.PluginReleaseCandidate) error {
 	if candidate == nil {

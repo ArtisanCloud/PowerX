@@ -6,6 +6,7 @@ import (
 	hostcmd "github.com/ArtisanCloud/PowerX/cmd/px/commands/host"
 	plugincmd "github.com/ArtisanCloud/PowerX/cmd/px/commands/plugin"
 	publishcmd "github.com/ArtisanCloud/PowerX/cmd/px/commands/publish"
+	versioncmd "github.com/ArtisanCloud/PowerX/cmd/px/commands/version"
 	"github.com/spf13/cobra"
 )
 
@@ -26,4 +27,5 @@ func init() {
 	rootCmd.AddCommand(publishcmd.Command)
 	rootCmd.AddCommand(plugincmd.Command)
 	rootCmd.AddCommand(hostcmd.Command)
+	rootCmd.AddCommand(versioncmd.Command)
 }

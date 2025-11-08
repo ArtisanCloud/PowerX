@@ -39,8 +39,10 @@ import (
 	integrationTenant "github.com/ArtisanCloud/PowerX/internal/service/integration_gateway/tenant"
 	mediasvc "github.com/ArtisanCloud/PowerX/internal/service/media"
 	pluginbootstrap "github.com/ArtisanCloud/PowerX/internal/service/plugin_bootstrap"
+	plugincompat "github.com/ArtisanCloud/PowerX/internal/service/plugin_compat"
 	plugindiag "github.com/ArtisanCloud/PowerX/internal/service/plugin_debug/diagnostics"
 	plugindebughost "github.com/ArtisanCloud/PowerX/internal/service/plugin_debug/host"
+	plugingovernance "github.com/ArtisanCloud/PowerX/internal/service/plugin_governance"
 	pluginimport "github.com/ArtisanCloud/PowerX/internal/service/plugin_import"
 	pluginReleaseService "github.com/ArtisanCloud/PowerX/internal/service/plugin_release"
 	pluginsandbox "github.com/ArtisanCloud/PowerX/internal/service/plugin_sandbox"
@@ -51,7 +53,9 @@ import (
 	dbm "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/audit"
 	eventfabricrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/event_fabric"
 	integrationRepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/integration_gateway"
+	compatrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/plugin_compat"
 	plugindiagrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/plugin_debug"
+	govrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/plugin_governance"
 	pluginReleaseRepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/plugin_release"
 	pluginsandboxrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/plugin_sandbox"
 	"github.com/ArtisanCloud/PowerX/pkg/event_bus"
@@ -119,6 +123,8 @@ type Deps struct {
 	PluginDebugHost        *plugindebughost.Service
 	PluginDiagnostics      *plugindiag.Service
 	PluginSandbox          *pluginsandbox.Service
+	PluginGovernance       *plugingovernance.Service
+	PluginCompat           *plugincompat.Service
 
 	EventFabric *EventFabricDeps
 	Workflow    *WorkflowDeps
@@ -215,6 +221,8 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 	pluginReleaseSessionRepo := pluginReleaseRepo.NewLocalInstallSessionRepository(db)
 	pluginDebugReportRepo := plugindiagrepo.NewReportRepository(db)
 	pluginSandboxRunRepo := pluginsandboxrepo.NewRunRepository(db)
+	pluginGovernanceRepo := govrepo.NewReportRepository(db)
+	pluginCompatRepo := compatrepo.NewExceptionRepository(db)
 	pluginImportRepo := pluginReleaseRepo.NewImportRepository(db)
 	componentName := strings.TrimSpace(opts.PluginRelease.Observability.AlertRulePrefix)
 	if componentName == "" {
@@ -349,6 +357,16 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 		})
 	}
 
+	var pluginGovernanceSvc *plugingovernance.Service
+	if pluginGovernanceRepo != nil {
+		pluginGovernanceSvc = plugingovernance.NewService(pluginGovernanceRepo, pluginReleaseCandidateRepo, time.Now)
+	}
+
+	var pluginCompatSvc *plugincompat.Service
+	if pluginCompatRepo != nil {
+		pluginCompatSvc = plugincompat.NewService(pluginCompatRepo, time.Now)
+	}
+
 	return &Deps{
 		DB:                     db,
 		TenantSvc:              tenantSvc,
@@ -373,6 +391,8 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 		PluginDebugHost:        pluginDebugHostSvc,
 		PluginDiagnostics:      pluginDiagnosticsSvc,
 		PluginSandbox:          pluginSandboxSvc,
+		PluginGovernance:       pluginGovernanceSvc,
+		PluginCompat:           pluginCompatSvc,
 		EventFabric:            eventFabricDeps,
 		Workflow: &WorkflowDeps{
 			Service:       workflowSvc,
