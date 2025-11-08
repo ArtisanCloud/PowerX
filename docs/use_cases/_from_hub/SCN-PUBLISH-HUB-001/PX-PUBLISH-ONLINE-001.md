@@ -192,4 +192,4 @@ sequenceDiagram
 - CLI 发布：`docs/usecases-seeds/SCN-PUBLISH-HUB-001/PLG-PUBLISH-ONLINE-001.md`
 - 运维指南：`docs/guides/publish/online.md`
 
-> Seed 更新后，请执行 `npm run publish:usecases -- --scn-id SCN-PUBLISH-HUB-001 --validate-only` 校验结构，并安排“发布→安装→升级”演练验证端到端链路。
+> Seed 更新后，请执行 `npm run publish: "usecases -- --scn-id SCN-PUBLISH-HUB-001 --validate-only` 校验结构，并安排“发布→安装→升级”演练验证端到端链路。"

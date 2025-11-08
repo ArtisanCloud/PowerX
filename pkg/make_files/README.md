@@ -98,7 +98,7 @@ make_files/
 * `make swagger.clean`：清理 `./docs`
 * `make permgen.print`：基于 `./docs/swagger.json` 生成 **权限同步 dry-run 载荷**
 * `make permgen.apply`：基于 `./docs/swagger.json` **落库**（调用内部 `SyncPermissions`）
-* `make permgen.min.print`：基于 `http://localhost:PORT/openapi.min.json` **dry-run**
+* `make permgen.min.print`：基于 `http: "//localhost:PORT/openapi.min.json` **dry-run**"
 * `make permgen.min.apply`：基于最小 OpenAPI **落库**
 
 **可覆盖变量（命令行传参覆盖）**：

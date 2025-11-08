@@ -56,7 +56,7 @@ last_reviewed_at: 2025-11-02
 - **前置条件**
   - 已启用 `px-plugin-runtime-v2`、`plugin-sandbox-mode` 与 `plugin-dev-logs` Feature Flag。
   - 测试租户具备独立资源配额、日志存储与审计空间。
-  - 开发者账号拥有 `plugin:dev`、`tenant:sandbox:write` 权限。
+  - 开发者账号拥有 `plugin: "dev`、`tenant:sandbox:write` 权限。"
   - 包管理服务可访问离线包体、签名证书与依赖索引。
 - **输入/输出**
   - 输入：`.pxp` 插件包、`manifest.json`、依赖声明、签名摘要、环境变量模板。

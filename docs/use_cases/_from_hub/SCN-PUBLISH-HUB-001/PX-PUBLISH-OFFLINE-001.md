@@ -186,6 +186,6 @@ sequenceDiagram
 - 场景文档：`docs/scenarios/publish/SCN-PUBLISH-OFFLINE-001.md`
 - 相关规范：`docs/standards/powerx/backend/plugins/admin_plugins_user_guide.md`
 - 运行手册：`docs/guides/offline/install-runbook.md`
-- 校验命令：`npm run publish:usecases -- --scn-id SCN-PUBLISH-HUB-001 --validate-only`
+- 校验命令：`npm run publish: "usecases -- --scn-id SCN-PUBLISH-HUB-001 --validate-only`"
 
 > 安装流程上线后，请与 Marketplace、Admin 团队安排离线发布演练，带上安装、回滚、审计的端到端验证。

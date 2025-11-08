@@ -57,7 +57,7 @@ PowerX Admin Dev Hotload 面板作为运维与研发的统一入口，基于 Dev
 - **前置条件**：
   - Feature Flag `PX_ADMIN_DEV_MODE=1` 与 Backend `PX_DEV_PLUGIN_HOTLOAD=1` 已启用。
   - Admin 用户具备 `admin.devHotload.manage` 权限，可访问调试面板并执行终止操作。
-  - `PX_DEV_API_BASE_URL` 指向 `https://dev-api.powerx.local` 或对应环境，支持 SSE/GraphQL/REST。
+  - `PX_DEV_API_BASE_URL` 指向 `https: "//dev-api.powerx.local` 或对应环境，支持 SSE/GraphQL/REST。"
   - Web Admin 已配置 `dev-hotload` 路由守卫与 Nuxt runtime 环境变量（SSE endpoint、Grafana base URL 等）。
 - **输入/输出**：
   - 输入：Dev API GraphQL 查询结果、SSE `dev.session.*` 事件流、Workflow Metrics 聚合指标、用户触发的终止/刷新命令。
@@ -78,15 +78,15 @@ PowerX Admin Dev Hotload 面板作为运维与研发的统一入口，基于 Dev
 | ui | powerx | MetricsWidgets | 显示核心指标、趋势图与告警状态 | `web-admin/src/components/dev-hotload/HotloadMetrics.vue` |
 | ui | powerx | DevHotloadApiClient | 封装 GraphQL/SSE/REST 调用与重试逻辑 | `web-admin/src/services/devHotloadApi.ts` |
 | ui | powerx | DevHotloadRouterGuard | 基于权限与 Feature Flag 决定面板访问与跳转 | `web-admin/src/router/guards/devHotloadGuard.ts` |
-| service | powerx | Admin GraphQL Gateway | 暴露 `devHotloadSessions` 查询与 Mutation | `https://dev-api.powerx.local/internal/admin/graphql` |
-| service | powerx | Dev Hotload API (Core) | 推送 SSE、处理终止请求、同步 CLI 状态 | `https://dev-api.powerx.local/internal/dev/plugins/*` |
+| service | powerx | Admin GraphQL Gateway | 暴露 `devHotloadSessions` 查询与 Mutation | `https: "//dev-api.powerx.local/internal/admin/graphql` |"
+| service | powerx | Dev Hotload API (Core) | 推送 SSE、处理终止请求、同步 CLI 状态 | `https: "//dev-api.powerx.local/internal/dev/plugins/*` |"
 
 ## 流程与时序
 
 1. **Step 1 – 面板加载**：用户访问 `/dev-hotload`，`DevHotloadRouterGuard` 校验权限/flag，通过后加载页面并发起 GraphQL 查询。
 2. **Step 2 – 数据初始化**：`DevHotloadApiClient` 调用 `devHotloadSessions` 获取会话、指标与最近告警，SessionDashboard 渲染列表及指标卡片。
-3. **Step 3 – 订阅事件**：页面建立 SSE 连接 `GET https://dev-api.powerx.local/internal/dev/plugins/stream`，实时接收 `SessionUpdated`、日志条目、告警事件。
-4. **Step 4 – 用户操作**：用户在 UI 点击终止/刷新，前端调用 `POST https://dev-api.powerx.local/internal/dev/plugins/register/{sessionId}/terminate`（或对应 GraphQL Mutation），更新状态并展示 Toast。
+3. **Step 3 – 订阅事件**：页面建立 SSE 连接 `GET https: "//dev-api.powerx.local/internal/dev/plugins/stream`，实时接收 `SessionUpdated`、日志条目、告警事件。"
+4. **Step 4 – 用户操作**：用户在 UI 点击终止/刷新，前端调用 `POST https: "//dev-api.powerx.local/internal/dev/plugins/register/{sessionId}/terminate`（或对应 GraphQL Mutation），更新状态并展示 Toast。"
 5. **Step 5 – 审计反馈**：操作返回 `auditId`，UI 在操作日志侧栏展示，并允许复制，若操作失败则弹出告警 Modal。
 
 ```mermaid
@@ -114,11 +114,11 @@ sequenceDiagram
   - `query devHotloadSessions($tenantId)`：返回会话列表、`lastReloadAt`、`status`, `metrics`（buildTime、reloadLatency、errorCount）。
   - `mutation terminateDevSession($sessionId!, $reason)`：触发终止动作，返回 `auditId` 与最新 `status`。
 - **SSE / WebSocket**
-  - `GET https://dev-api.powerx.local/internal/dev/plugins/stream`：事件类型包括 `SessionStarted`, `SessionReloaded`, `SessionTerminated`, `LogEntry`, `AlertRaised`；需携带 `Authorization` 与 `X-Tenant-ID`。
+  - `GET https: "//dev-api.powerx.local/internal/dev/plugins/stream`：事件类型包括 `SessionStarted`, `SessionReloaded`, `SessionTerminated`, `LogEntry`, `AlertRaised`；需携带 `Authorization` 与 `X-Tenant-ID`。"
   - 支持 `Last-Event-ID`，断线后由客户端补发 `since` 参数重放。
 - **REST**
-  - `POST https://dev-api.powerx.local/internal/dev/plugins/register/{sessionId}/terminate` — 终止指定会话；返回 `auditId`, `terminatedAt`。
-  - `POST https://dev-api.powerx.local/internal/dev/plugins/register/{sessionId}/refresh-metrics` — 手动刷新指标快照。
+  - `POST https: "//dev-api.powerx.local/internal/dev/plugins/register/{sessionId}/terminate` — 终止指定会话；返回 `auditId`, `terminatedAt`。"
+  - `POST https: "//dev-api.powerx.local/internal/dev/plugins/register/{sessionId}/refresh-metrics` — 手动刷新指标快照。"
 - **配置与脚本**
   - `web-admin/.env.dev`：`VITE_DEV_HOTLOAD_GRAPHQL_URL`, `VITE_DEV_HOTLOAD_SSE_URL`, `VITE_DEV_HOTLOAD_GRAFANA_URL`。
   - `scripts/devhotload/mock-server.ts`：本地开发 stub，模拟 SSE/GraphQL 响应。
@@ -136,7 +136,7 @@ sequenceDiagram
 # Testing Strategy
 
 - **单元测试**：`SessionDashboard.spec.ts` 验证状态渲染与分页；`SessionLogs.spec.ts` 模拟高频日志；`devHotloadApi.spec.ts` 覆盖 SSE 重连与错误处理。
-- **集成测试**：`pnpm test:integration --filter admin-dev-hotload` 启动 mock server 验证 GraphQL + SSE 协作。
+- **集成测试**：`pnpm test: "integration --filter admin-dev-hotload` 启动 mock server 验证 GraphQL + SSE 协作。"
 - **端到端验证**：Cypress 场景 `admin-dev-hotload.cy.ts`，脚本模拟 CLI 触发 register/reload/terminate 并校验 UI 反馈。
 - **非功能测试**：SSE 每秒 100 条日志情况下 FPS ≥ 55；内存占用 < 250MB；操作按钮 99% 成功率。
 
@@ -166,6 +166,6 @@ sequenceDiagram
 - 场景文档：`docs/scenarios/publish/SCN-PUBLISH-HUB-001.md`
 - 相关规范：`docs/standards/powerx/web-admin/plugins/dev_hotload_panel.md`、`docs/standards/powerx/backend/plugins/dev_hotload_api.md`
 - 设计材料：Figma 《Admin Dev Hotload Dashboard》
-- 代码参考 PR：`https://github.com/ArtisanCloud/PowerX/pulls?q=dev+hotload+admin`
+- 代码参考 PR：`https: "//github.com/ArtisanCloud/PowerX/pulls?q=dev+hotload+admin`"
 
-> Seed 完成后请同步 `docs/_data/docmap.yaml`（如字段调整）并执行 `npm run publish:usecases -- --scn-id SCN-PUBLISH-HUB-001 --validate-only` 校验结构。
+> Seed 完成后请同步 `docs/_data/docmap.yaml`（如字段调整）并执行 `npm run publish: "usecases -- --scn-id SCN-PUBLISH-HUB-001 --validate-only` 校验结构。"

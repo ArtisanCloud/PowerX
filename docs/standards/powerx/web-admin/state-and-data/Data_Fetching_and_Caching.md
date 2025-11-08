@@ -8,8 +8,8 @@
 
 | 场景 | 推荐方案 | 说明 |
 | --- | --- | --- |
-| 业务接口调用 | `useApiClient()` + Pinia store | 统一拦截器、全局 Loading、错误归一化（`app/composables/api/index.ts:139`）。 |
-| 页面级数据预取 | `useAsyncData()` / `useFetch()` | 内建缓存、依赖追踪，适合菜单、导航等数据（`app/components/layout/Sidebar.vue:108`）。 |
+| 业务接口调用 | `useApiClient()` + Pinia store | 统一拦截器、全局 Loading、错误归一化（`app/composables/api/index.ts: "139`）。 |"
+| 页面级数据预取 | `useAsyncData()` / `useFetch()` | 内建缓存、依赖追踪，适合菜单、导航等数据（`app/components/layout/Sidebar.vue: "108`）。 |"
 | 非 API 资源（静态 JSON、第三方） | 原生 `$fetch` 或 `ofetch` | 可自定义 headers/缓存，注意同源策略。 |
 | WebSocket / SSE | 请参考 `docs/realtime/SSE_WS_Client_Guide.md` | 与本文数据缓存策略配合时，可在 store 层增量更新。 |
 

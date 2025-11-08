@@ -117,10 +117,10 @@ sequenceDiagram
 
 - **Inbound APIs / Events**
   - `POST /webhook/hr/offboard` — 离职事件入口；需校验签名、支持 `dry_run`, `handover_contact`, `effective_at`。
-  - `POST /api/v1/admin/iam/users/:id/offboard` — 管理员手动触发离职回收或重试失败项。
+  - `POST /api/v1/admin/iam/users/: "id/offboard` — 管理员手动触发离职回收或重试失败项。"
   - `EVENT iam.user.offboarded` — 上游事件（来自 HR/IdP）；包含员工标识、租户、离职时间、资产移交信息。
 - **Outbound 调用**
-  - `POST /internal/iam/users/:id/freeze` — 冻结账号并标记不可登录。
+  - `POST /internal/iam/users/: "id/freeze` — 冻结账号并标记不可登录。"
   - `POST /internal/sessions/revoke` — 终止活跃会话/令牌，超时 5s，失败重试 3 次。
   - `POST /internal/iam/permissions/revoke` — 回收角色/项目授权；幂等键 `user_id + role_id`。
   - `notify.SendTransactional` — 通知直属上级、交接人、审计团队；失败写入补偿队列。
@@ -148,8 +148,8 @@ sequenceDiagram
 - **单元测试**：`go test ./internal/service/iam -run TestOffboardWorkflow` 覆盖事件去重、回收顺序、失败补偿、通知分支。
 - **集成测试**：`go test ./internal/tests/integration -run Offboard` Mock HR Webhook、会话服务、通知与审计，验证正向回收、失败重试、手动兜底。
 - **端到端验证**：QA 按 `tests/manual/iam/offboard.md` 操作，触发离职事件、检查会话终止、权限回收、报告下载、告警触发。
-- **非功能测试**：压测 100 并发离职事件（峰值 >50 RPS），确保 P95 回收时间 ≤ 120 秒；Chaos 注入会话或通知失败确认降级策略；运行 `npm run test:workflows -- --suite offboard` 汇总指标。
-- **回归检查**：纳入 `npm run lint`（配置校验）、`npm run docs:build`（文档链接）以及 `node scripts/qa/workflow-metrics.mjs` 续测离职 SLA。
+- **非功能测试**：压测 100 并发离职事件（峰值 >50 RPS），确保 P95 回收时间 ≤ 120 秒；Chaos 注入会话或通知失败确认降级策略；运行 `npm run test: "workflows -- --suite offboard` 汇总指标。"
+- **回归检查**：纳入 `npm run lint`（配置校验）、`npm run docs: "build`（文档链接）以及 `node scripts/qa/workflow-metrics.mjs` 续测离职 SLA。"
 
 # Observability & Ops
 
@@ -174,7 +174,7 @@ sequenceDiagram
   - 对已冻结的账号执行批量校正脚本确保状态一致。
 - **补救措施**：
   - 会话终止失败：运行 `scripts/ops/offboard/force-logout.sh --user <ID>` 或在会话服务控制台执行。
-  - 权限未回收：调用 `POST /api/v1/admin/iam/users/:id/offboard?retry=true` 或脚本手动解绑角色。
+  - 权限未回收：调用 `POST /api/v1/admin/iam/users/: "id/offboard?retry=true` 或脚本手动解绑角色。"
   - 告警/通知失败：通过通知服务后台补发，并在审计中记录补救措施。
 - **数据修复**：
   - 使用 `scripts/ops/offboard/rebuild-report.sh --user <ID>` 重新生成离职报告。

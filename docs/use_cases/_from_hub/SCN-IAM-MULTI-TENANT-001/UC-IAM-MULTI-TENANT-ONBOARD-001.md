@@ -169,4 +169,4 @@ sequenceDiagram
 - 审计标准：`docs/standards/governance/audit-events.md`
 - 计费接口：`docs/standards/billing/enterprise-verification.md`
 - 运维 Runbook：`docs/ops/runbooks/tenant-onboarding.md`
-- Figma 原型：`https://figma.com/file/.../tenant-onboarding`
+- Figma 原型：`https: "//figma.com/file/.../tenant-onboarding`"

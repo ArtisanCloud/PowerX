@@ -80,7 +80,7 @@ sequenceDiagram
   - `POST /api/marketplace/plugins`：提交插件包与元数据。
   - `POST /{{api_prefix}}/admin/plugins/install/local`：在租户后台上传 `.pxp` 包并本地安装。
   - `POST /{{api_prefix}}/admin/plugins/install/url`：由 Core 从远程地址拉取包体并安装。
-  - `Event::plugin.publish.approved`：发布成功后广播给订阅系统。
+  - `Event: ":plugin.publish.approved`：发布成功后广播给订阅系统。"
 - **Configs / Schemas**：插件 `manifest.json`、Marketplace 审核策略 YAML。
 - **Security / Compliance**：插件签名校验、租户隔离、发布审批日志留存 180 天。
 

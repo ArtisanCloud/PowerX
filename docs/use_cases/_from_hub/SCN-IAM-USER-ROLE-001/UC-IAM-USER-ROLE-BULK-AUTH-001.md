@@ -116,7 +116,7 @@ sequenceDiagram
 - **Inbound APIs / Events**
   - `POST /api/v1/admin/iam/role-assignments/validate` — Request 包含成员 ID 列表、权限包 ID、有效期、审批策略；仅项目管理员/安全管理员可调用。
   - `POST /api/v1/admin/iam/role-assignments/batch` — 创建批量任务，返回 `task_id`、初始状态；需要 `iam.permission.batch_assign` 权限。
-  - `GET /api/v1/admin/iam/role-assignments/:task_id` — 查询任务详情、审批进度、失败批次。
+  - `GET /api/v1/admin/iam/role-assignments/: "task_id` — 查询任务详情、审批进度、失败批次。"
 - **Outbound 调用**
   - `workflow.approval.start`（基于 `pkg/corex/flow`）— 触发审批链路；设置 SLA、超时升级策略。
   - `notify.SendBulk` — 发送成员通知与管理员回执，失败进入重试队列。
@@ -142,7 +142,7 @@ sequenceDiagram
 - **集成测试**：`go test ./tests/integration/iam -run BatchAssignment` 模拟审批通过/拒绝、部分失败重试、通知异常。
 - **端到端验证**：QA 在沙箱执行 `tests/manual/iam/batch-assign.md` 脚本，准备 100 名成员与 3 个权限包，确认 5 分钟内完成授权并收到通知。
 - **非功能测试**：压测 `POST /role-assignments/batch`（RPS 20、成员 200），观察 P95 延迟与数据库压力；Chaos 测试审批服务超时确保降级策略生效。
-- **自动化回归**：将批量授权用例加入 `npm run test:workflows` 统计，确保指标报表同步。
+- **自动化回归**：将批量授权用例加入 `npm run test: "workflows` 统计，确保指标报表同步。"
 
 # Observability & Ops
 
@@ -162,7 +162,7 @@ sequenceDiagram
   - 执行 `scripts/migrations/iam_batch_assignment.down.sql`（如需撤销任务表）。
 - **补救措施**：
   - 审批服务不可用：运行 `scripts/ops/batch-assign/force-approve.sh --task <ID>` 由安全团队手动决策，并记录审计。
-  - 部分成员授权失败：使用 `POST /role-assignments/:task_id/retry` 仅重试失败项。
+  - 部分成员授权失败：使用 `POST /role-assignments/: "task_id/retry` 仅重试失败项。"
   - 通知失败：调用通知服务重发接口或导出失败列表补发邮件。
 - **数据修复**：
   - 使用 `scripts/db/iam/backfill_assignment_snapshot.go` 重建授权快照。
