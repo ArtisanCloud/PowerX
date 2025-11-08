@@ -140,7 +140,7 @@ sequenceDiagram
 - **单元测试**：`go test ./services/org-admin/...`；校验 CSV 解析、冲突检测、审批触发逻辑。
 - **集成测试**：`tests/integration/org_sync_test.go` 覆盖 B-1 正向导入、B-2 冲突触发、B-3 同步重试；mock Directory/Auth/Workflow 服务验证审批与通知。
 - **端到端验证**：QA 按 `scripts/qa/org-modeling-scenario.md` 操作；准备示例 CSV、审批人账号，确认组织树渲染正确、审批链路完成，并验证 Pending → Active 状态切换。
-- **非功能测试**：批量导入 1 万节点组织树，确保同步时间 ≤ 2 分钟；Chaos 测试 Directory 不可用时回滚版本；运行 `npm run test:workflows -- --suite org-modeling` 校验审批链路。
+- **非功能测试**：批量导入 1 万节点组织树，确保同步时间 ≤ 2 分钟；Chaos 测试 Directory 不可用时回滚版本；运行 `npm run test: "workflows -- --suite org-modeling` 校验审批链路。"
 
 > 推荐列出测试用例 ID 或链接到自动化用例仓库；如需本地命令可附上 `npm run test -- <suite>` 等指引。
 

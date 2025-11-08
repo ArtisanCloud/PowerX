@@ -69,7 +69,7 @@ sequenceDiagram
 
 - **APIs / Events**：`POST /api/plugins/install/local`、`POST /internal/plugins/packages/validate`、`EVENT plugin.install.sandbox_completed`、`EVENT plugin.install.failed`。
 - **Configs / Schemas**：`docs/standards/powerx-plugin/lifecycle/package.md`、`docs/standards/powerx-plugin/lifecycle/manifest-mapping.md`、`config/plugins/sandbox_limits.yaml`。
-- **Security / Compliance**：强制签名与哈希校验、限制沙箱租户访问、调试操作写入审计、上传者需具备 `plugin:dev` 权限。
+- **Security / Compliance**：强制签名与哈希校验、限制沙箱租户访问、调试操作写入审计、上传者需具备 `plugin: "dev` 权限。"
 
 # Usecase Links
 

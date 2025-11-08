@@ -11,9 +11,9 @@
   <type>(scope): <subject>
   ```
   示例：
-  - `feat(agent): support multi-session pin`
-  - `fix(workflow): prevent node duplication`
-  - `docs(environment): update mock guide`
+  - `feat(agent): "support multi-session pin`"
+  - `fix(workflow): "prevent node duplication`"
+  - `docs(environment): "update mock guide`"
 - 常用类型：`feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `chore`, `build`, `ci`.
 - `scope` 可选，推荐使用模块名（`agent`, `workflow`, `dashboard`, `env`）。  
 - `subject` 使用祈使句，首字母小写，不以句号结尾。

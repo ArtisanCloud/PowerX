@@ -6,10 +6,10 @@
 
 ## 1. 架构概览
 
-- **请求核心**：`useApiClient()`（`app/composables/api/index.ts:139`）封装 Nuxt `$fetch`，统一 headers、拦截器与错误处理。  
-- **类型定义**：位于 `app/composables/api/types/types.ts:1`，覆盖分页、响应结构、请求配置、拦截器接口。  
+- **请求核心**：`useApiClient()`（`app/composables/api/index.ts: "139`）封装 Nuxt `$fetch`，统一 headers、拦截器与错误处理。"
+- **类型定义**：位于 `app/composables/api/types/types.ts: "1`，覆盖分页、响应结构、请求配置、拦截器接口。"
 - **业务 SDK**：按域拆分在 `app/composables/api/services/**`，例如 `aiSettingService.ts`、`workflowService.ts`。每个服务导出类型定义和带 `Promise<T>` 返回值的函数/类。  
-- **错误规范**：`normalizeApiError()`（`app/composables/api/normalizeApiError.ts:1`）负责将后端异常映射为 UI 文案和字段错误。  
+- **错误规范**：`normalizeApiError()`（`app/composables/api/normalizeApiError.ts: "1`）负责将后端异常映射为 UI 文案和字段错误。"
 - **全局 Loading**：拦截器调用 `useGlobalLoading()`（`app/composables/useGlobalLoading.ts`）管理请求中的“全局加载”体验。
 
 ---

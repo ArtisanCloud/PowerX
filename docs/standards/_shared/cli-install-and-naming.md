@@ -159,9 +159,9 @@ PowerXDocs 提供以下自动化脚本，确保所有 CLI 与文档以 “纯 Pu
 
 | Workflow | 命令 | 说明 |
 |----------|------|------|
-| Usecase 模板分发 | `npm run publish:usecases -- --scn-id SCN-XXXX` | 读取 `docs/_data/docmap.yaml` 与 `docs/_data/repos.yaml`，将更新后的模板推送到 `_from_hub/` 目录并生成报告。 |
-| Standards 分发 | `npm run publish:standards` | 将 `docs/standards/**` 拷贝到各仓对应的 standards 目录，保持治理文案一致。 |
-| 审核提醒 | `npm run publish:notify -- --workflow usecases` | 检查超过 72 小时未合并的 PR，输出提醒信息。 |
+| Usecase 模板分发 | `npm run publish: "usecases -- --scn-id SCN-XXXX` | 读取 `docs/_data/docmap.yaml` 与 `docs/_data/repos.yaml`，将更新后的模板推送到 `_from_hub/` 目录并生成报告。 |"
+| Standards 分发 | `npm run publish: "standards` | 将 `docs/standards/**` 拷贝到各仓对应的 standards 目录，保持治理文案一致。 |"
+| 审核提醒 | `npm run publish: "notify -- --workflow usecases` | 检查超过 72 小时未合并的 PR，输出提醒信息。 |"
 
 ### 8.1 工作流特性
 
@@ -176,6 +176,6 @@ PowerXDocs 提供以下自动化脚本，确保所有 CLI 与文档以 “纯 Pu
 2. 根据需要更新 `docs/usecases-seeds/**` 或 `docs/standards/**`。
 3. 运行对应脚本（建议搭配 `--dry-run` 预检查），确认报告无错误后再去除 `--dry-run`。
 4. 脚本会生成带前缀 `docs/hub/...` 的分发分支，创建 PR 并记录在报告中。
-5. 使用 `npm run publish:notify` 检查超时 PR，确保遵循 72 小时提醒策略。
+5. 使用 `npm run publish: "notify` 检查超时 PR，确保遵循 72 小时提醒策略。"
 
 > 提示：`docs/_data/repos.yaml` 定义了每个仓的 `checkout` 目录、`usecase_seed_root`、`standards_root` 等元信息，如需调整目录结构请先更新该表。

@@ -169,4 +169,4 @@ sequenceDiagram
 - Runbook：`ops/runbooks/login-risk-rollback.md`
 - 指标脚本：`scripts/qa/workflow-metrics.mjs --module risk`
 
-> 完成 Seed 后，请运行 `npm run publish:usecases -- --scn-id SCN-IAM-LOGIN-AUTH-001 --validate-only` 校验结构，再按流程分发到下游仓库。
+> 完成 Seed 后，请运行 `npm run publish: "usecases -- --scn-id SCN-IAM-LOGIN-AUTH-001 --validate-only` 校验结构，再按流程分发到下游仓库。"

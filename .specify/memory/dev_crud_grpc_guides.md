@@ -9,7 +9,7 @@
 
 * 与 HTTP 版 CRUD 规范**等价**：创建/查询/更新/删除、分页、错误、审计、多租户。
 * 仅规定 **gRPC 传输层**：Server 行为、拦截器、错误映射、分页/上下文 DTO 对齐 **proto 契约**。
-* 宪章入口仍为 `.specify/memory/constitution.md`（由其 `use:` 决定是否引入本指南）。
+* 宪章入口仍为 `.specify/memory/constitution.md`（由其 `use: "` 决定是否引入本指南）。"
 
 ---
 

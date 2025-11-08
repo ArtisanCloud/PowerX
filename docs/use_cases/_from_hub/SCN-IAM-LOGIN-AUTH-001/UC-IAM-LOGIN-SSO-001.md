@@ -166,4 +166,4 @@ sequenceDiagram
 - 集成指南：`docs/standards/security/iam-login-sso-blueprint.md`
 - 运维手册：`ops/runbooks/auth-sso-troubleshoot.md`
 
-> 完成后请运行 `npm run publish:usecases -- --scn-id SCN-IAM-LOGIN-AUTH-001 --validate-only` 校验结构，再按流程分发到下游仓库。
+> 完成后请运行 `npm run publish: "usecases -- --scn-id SCN-IAM-LOGIN-AUTH-001 --validate-only` 校验结构，再按流程分发到下游仓库。"

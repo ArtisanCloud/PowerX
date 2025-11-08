@@ -49,7 +49,7 @@
 
     * 就是在 `streamCore` 里对 `plan.flows` **for 循环**串行执行；
     * 每轮调用 `ag.Stream(ctx, flowID, params, meta)`，在外面包一层：先 `flow_start`，再把 reader 交给 `WriteToSSE` 透传 token/data，最后 `flow_end`；
-    * 任一 flow 报错 → 发 `flow_end{success:false}`，视策略决定是否“短路退出”或“跳过继续下一个 flow”（建议默认短路）。
+    * 任一 flow 报错 → 发 `flow_end{success: "false}`，视策略决定是否“短路退出”或“跳过继续下一个 flow”（建议默认短路）。"
 
 ## Session 写库
 

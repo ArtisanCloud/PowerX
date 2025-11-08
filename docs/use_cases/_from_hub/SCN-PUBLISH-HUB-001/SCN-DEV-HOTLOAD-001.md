@@ -73,7 +73,7 @@ sequenceDiagram
 
 - **APIs / Events**：`POST /api/plugins/dev/install`、`DELETE /api/plugins/dev/install`、WebSocket `plugin.dev.logs`。
 - **Configs / Schemas**：本地 `manifest.json`、调试权限策略 YAML。
-- **Security / Compliance**：仅允许拥有 `plugin:dev` 权限的开发者操作；日志保留 7 天便于审计。
+- **Security / Compliance**：仅允许拥有 `plugin: "dev` 权限的开发者操作；日志保留 7 天便于审计。"
 
 # Usecase Links
 

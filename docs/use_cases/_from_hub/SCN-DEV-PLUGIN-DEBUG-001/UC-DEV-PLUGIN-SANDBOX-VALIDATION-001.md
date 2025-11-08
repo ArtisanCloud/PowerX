@@ -52,7 +52,7 @@ last_reviewed_at: 2025-11-20
 
 - **前置条件**
   - Feature Flag `plugin-sandbox-suite`、`sandbox-dataset-v2` 已开启。
-  - 沙箱租户具备足够资源配额，测试账号拥有 `sandbox:execute` 权限。
+  - 沙箱租户具备足够资源配额，测试账号拥有 `sandbox: "execute` 权限。"
   - 数据集服务维护最新脱敏版本并通过合规审查。
   - 监控、日志与审计系统可用。
 - **输入/输出**

@@ -141,8 +141,8 @@ sequenceDiagram
 - **单元测试**：`go test ./internal/service/iam -run TestDirectorySync` 覆盖游标计算、映射规则、冲突分类与回滚。
 - **集成测试**：`go test ./internal/tests/integration -run DirectorySync` mock OIDC/LDAP、审批、通知，验证正向同步、冲突审批、失败重试。
 - **端到端验证**：QA 在沙箱使用 `tests/manual/iam/directory-sync.md` 手册，配置真实 IdP 沙箱、运行 `scripts/qa/directory-sync.mjs` 验证指标与审计。
-- **非功能测试**：压测 10k 成员增量同步 ≤ 5 分钟；Chaos 注入 IdP 超时、审批服务不可用，验证降级策略；运行 `npm run test:workflows -- --suite directory-sync` 统计工作流 SLA。
-- **回归**：将目录同步关键路径纳入 `npm run lint`（配置校验）与 `npm run docs:build`（文档链接）检查。
+- **非功能测试**：压测 10k 成员增量同步 ≤ 5 分钟；Chaos 注入 IdP 超时、审批服务不可用，验证降级策略；运行 `npm run test: "workflows -- --suite directory-sync` 统计工作流 SLA。"
+- **回归**：将目录同步关键路径纳入 `npm run lint`（配置校验）与 `npm run docs: "build`（文档链接）检查。"
 
 # Observability & Ops
 

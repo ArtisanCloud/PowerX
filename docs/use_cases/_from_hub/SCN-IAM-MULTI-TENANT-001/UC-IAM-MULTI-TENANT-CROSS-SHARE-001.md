@@ -152,7 +152,7 @@ sequenceDiagram
 - **单元测试**：`go test ./services/cross-tenant-sharing/...`；覆盖权限校验、合规返回、撤销任务。
 - **集成测试**：`tests/integration/cross_share_test.go` 覆盖 C-1 正向共享、C-2 合规拒绝、C-3 审批降级；mock Compliance/Directory/Notify/Workflow 服务。
 - **端到端验证**：QA 使用 `scripts/qa/cross-share-scenario.md`，配置两个租户、授权用户组“华北协同小组”，验证 5 分钟内访问生效、到期自动撤销，并确认审计与告警。
-- **非功能测试**：共享策略批量创建 500 条，确保 ACL 写入延迟 < 2 分钟；Chaos 测试合规服务超时时正确拒绝并记录审计；运行 `npm run test:workflows -- --suite cross-share` 校验审批链路；执行 `node scripts/qa/workflow-metrics.mjs --reports reports/usecases` 汇总指标。
+- **非功能测试**：共享策略批量创建 500 条，确保 ACL 写入延迟 < 2 分钟；Chaos 测试合规服务超时时正确拒绝并记录审计；运行 `npm run test: "workflows -- --suite cross-share` 校验审批链路；执行 `node scripts/qa/workflow-metrics.mjs --reports reports/usecases` 汇总指标。"
 
 > 推荐列出测试用例 ID 或链接到自动化用例仓库；如需本地命令可附上 `npm run test -- <suite>` 等指引。
 
