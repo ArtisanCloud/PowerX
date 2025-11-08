@@ -9,7 +9,9 @@ import (
 	modelIAM "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/iam"
 	modelIntegrationGateway "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/integration_gateway"
 	mediamodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/media"
+	modelPluginDebug "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/plugin_debug"
 	modelPluginRelease "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/plugin_release"
+	modelPluginSandbox "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/plugin_sandbox"
 	modelSetting "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/setting"
 	modelTenant "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/tenant"
 	modelWorkflow "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/workflow"
@@ -99,6 +101,14 @@ func MigrateCoreModels(db *gorm.DB) (err error) {
 		return err
 	}
 
+	if err = migratePluginDebugModels(db); err != nil {
+		return err
+	}
+
+	if err = migratePluginSandboxModels(db); err != nil {
+		return err
+	}
+
 	if err = migration.CreatePluginReleaseStatusView(db); err != nil {
 		return err
 	}
@@ -180,5 +190,17 @@ func migratePluginReleaseModels(db *gorm.DB) error {
 		&modelPluginRelease.MarketplaceListing{},
 		&modelPluginRelease.LocalInstallSession{},
 		&modelPluginRelease.PluginImportRun{},
+	)
+}
+
+func migratePluginDebugModels(db *gorm.DB) error {
+	return db.AutoMigrate(
+		&modelPluginDebug.DiagnosticReport{},
+	)
+}
+
+func migratePluginSandboxModels(db *gorm.DB) error {
+	return db.AutoMigrate(
+		&modelPluginSandbox.SandboxValidationRun{},
 	)
 }

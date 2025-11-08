@@ -23,6 +23,7 @@ type DepsOptions struct {
 	AgentLifecycle     AgentLifecycleOptions
 	PluginRelease      PluginReleaseOptions
 	PluginBootstrap    PluginBootstrapOptions
+	PluginDebug        PluginDebugOptions
 }
 
 // EventFabricOptions 描述事件骨干依赖的运行配置。
@@ -173,6 +174,43 @@ type PluginReleaseObservabilityOptions struct {
 type PluginReleaseKPITargetsOptions struct {
 	CanRollbackWithin time.Duration
 	HotloadLatencyP95 time.Duration
+}
+
+// PluginDebugOptions configures plugin debug utilities.
+type PluginDebugOptions struct {
+	Component     string
+	HostSimulator PluginDebugHostOptions
+	Reports       PluginDebugReportOptions
+	TicketBridge  PluginDebugTicketBridgeOptions
+	Sandbox       PluginDebugSandboxOptions
+}
+
+// PluginDebugHostOptions toggles host simulator behaviour.
+type PluginDebugHostOptions struct {
+	Enabled     bool
+	FeatureFlag string
+	ConfigPath  string
+}
+
+// PluginDebugReportOptions describes report template/masking.
+type PluginDebugReportOptions struct {
+	TemplatePath     string
+	MaskingRulesPath string
+	FallbackLogBase  string
+}
+
+// PluginDebugTicketBridgeOptions configure ticket escalation.
+type PluginDebugTicketBridgeOptions struct {
+	Provider string
+	Endpoint string
+	Project  string
+}
+
+// PluginDebugSandboxOptions controls sandbox orchestration.
+type PluginDebugSandboxOptions struct {
+	Enabled       bool
+	FeatureFlag   string
+	DataSuitePath string
 }
 
 // PluginBootstrapOptions configures template registry + validation defaults.

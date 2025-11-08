@@ -1,0 +1,21 @@
+version: v1
+sections:
+  - id: overview
+    title: 概览
+    fields:
+      - severity
+      - status
+      - traceId
+      - pluginId
+      - tenantId
+  - id: metrics
+    title: 指标
+    fields:
+      - durationMs
+      - hotReloadAttempts
+      - sandboxRunId
+  - id: next_steps
+    title: 下一步行动
+    fields:
+      - remediation
+      - owner

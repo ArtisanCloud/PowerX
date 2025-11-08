@@ -75,7 +75,7 @@ Marketplace 运营与企业租户管理员需要在 2 个工作日内分别完�
 
 **Why this priority**: 没有快速调试与沙箱验证，发布流水线会被低质量构建、环境不一致与不可复现实验阻塞；缺少诊断报告会放大 P1 故障窗口。
 
-**Independent Test**: 使用 `powerx host start --mock` + `px-plugin dev --watch` 完成一次热更新循环、触发 `POST /internal/debug/report` 生成诊断包，并执行一次 `plugin-sandbox-suite` 回归以验证 SLA。
+**Independent Test**: 使用 `px host start --mock` + `px-plugin dev --watch` 完成一次热更新循环、触发 `POST /internal/debug/report` 生成诊断包，并执行一次 `plugin-sandbox-suite` 回归以验证 SLA。
 
 **Acceptance Scenarios**:
 
@@ -132,9 +132,9 @@ Marketplace 运营与企业租户管理员需要在 2 个工作日内分别完�
 - **FR-014**: `px plugin init` 必须在 60 秒内完成模板拉取、依赖锁定、manifest/权限模板生成、`POST /internal/plugins/bootstrap/validate` 校验与 Git 仓注册，失败时提供可重试的离线脚本。
 - **FR-015**: `px plugin doctor` / `POST /internal/plugins/environments/check` 需校验多语言运行时、依赖缓存、环境变量模板和 pre-commit 钩子，输出机器可读报告并在关键项失败时阻断提交。
 - **FR-016**: `POST /internal/plugins/import` 导入第三方源码包必须执行许可证/漏洞扫描、模板化适配与审批，生成风险报告和 `.powerxci` 配置；高危风险需默认阻断并推送审计通知。
-- **FR-017**: 宿主模拟器与 `px-plugin dev --watch` 必须支撑 <2 秒热更新、权限模板提示与 `POST /internal/plugins/local/reload` 热重载；所有本地调试操作写入 `plugin.local.debug` 审计并暴露 `debug.hot_reload.*` 指标。
-- **FR-018**: 调试诊断服务需提供 `POST /internal/debug/report`、`POST /internal/debug/logs/export` 等接口，在 60 秒内生成结构化报告、脱敏敏感字段并自动关联工单/回归脚本。
-- **FR-019**: 沙箱验证 orchestrator（`POST /internal/sandbox/{deploy,dataset/test/run}`）需加载指定数据集、执行回归脚本、生成性能/合规报告并在失败时自动回滚资源与通知安全/运维。
+- **FR-017**: 宿主模拟器与 `px-plugin dev --watch` 必须支撑 <2 秒热更新、权限模板提示与 `POST /internal/plugins/local/reload` 热重载；需下沉 `config/plugins/debug/host_simulator.yaml`、`PX_PLUGIN_HOST_SIMULATOR` Feature Flag 与 `px host start --mock` CLI，所有本地调试操作写入 `plugin.local.debug` 审计并暴露 `debug.hot_reload.*`、`debug.host.version_mismatch_total` 指标。
+- **FR-018**: 调试诊断服务需提供 `POST /internal/debug/report`、`POST /internal/debug/logs/export` 等接口，在 60 秒内生成结构化报告、脱敏敏感字段并自动关联工单/回归脚本；必须落实 `config/plugins/debug/report_template.yaml`、`config/security/data_masking_rules.yaml`、ticket bridge/fallback 日志通道。
+- **FR-019**: 沙箱验证 orchestrator（`POST /internal/sandbox/{deploy,dataset/test/run}`）需加载指定数据集、执行回归脚本、生成性能/合规报告并在失败时自动回滚资源与通知安全/运维；实现 `config/plugins/debug/data_suite.yaml`、`plugin-sandbox-suite` Flag、`sandbox_validation_runs` 存储与 `sandbox.deploy.*` 遥测。
 - **FR-020**: 版本治理服务必须提供 `px version scan` / `POST /internal/version/governance/scan`、策略配置与通知接口，5 分钟内推送升级建议并记录决策。
 - **FR-021**: 兼容性引擎需在安装/升级前调用 `POST /internal/version/compat/check`，阻断不兼容请求、输出冲突项并支持 `POST /internal/version/compat/exception` 例外审批与审计。
 - **FR-022**: 多租户版本治理需提供 `px version board --tenant <org>` 或 Web Admin 面板，展示版本偏差、批量对齐/灰度策略与执行状态，并将决策写入 365 天可追溯的审计记录。
@@ -143,7 +143,7 @@ Marketplace 运营与企业租户管理员需要在 2 个工作日内分别完�
 
 - **NFR-OBS-001**: 灰度与全量发布的指标、日志与告警应沿用现有 PowerX Prometheus + Grafana 栈，并针对发布场景补充所需的观测指标、告警规则与回滚触发通知，确保能在 5 分钟内完成异常检测与响应。
 - **NFR-INF-001**: 离线分发库应复用现有 PowerX 多区域对象存储集群，通过加密分区托管离线包、校验文件与指纹数据，避免额外运维成本并保证与发布流水线的自动化衔接。
-- **NFR-CLI-002**: `powerx`/`px-plugin` CLI、宿主模拟器与沙箱工具需在 macOS、Windows、Linux 上保持一致体验，并在离线/受限网络下提供缓存与重试策略，确保初始化与调试链路不会被网络波动阻断。
+- **NFR-CLI-002**: `px`/`px-plugin` CLI、宿主模拟器与沙箱工具需在 macOS、Windows、Linux 上保持一致体验，并在离线/受限网络下提供缓存与重试策略，确保初始化与调试链路不会被网络波动阻断。
 - **NFR-GOV-002**: 版本治理、兼容性报告与例外审批数据需至少保留 365 天，写入同一审计域（`audit.plugin.governance`），并支持按租户/插件/审批编号检索与导出。
 
 ### Key Entities *(include if feature involves data)*

@@ -125,13 +125,13 @@ web-admin/
 ### Workstream B – Rapid Debug, Diagnostics & Sandbox Validation (SCN-DEV-PLUGIN-DEBUG-001)
 
 1. **Host Simulator & Hot Reload**
-   - 引入 `backend/internal/service/plugin_debug/host`（守护宿主模拟器生命周期）与 CLI `powerx host start --mock`，通过 gRPC `plugin_debug.HostService` 与本地 watcher 通信，确保热更新 <2s（FR-017）。
+   - 引入 `backend/internal/service/plugin_debug/host`（守护宿主模拟器生命周期）与 CLI `px host start --mock`，通过 gRPC `plugin_debug.HostService` 与本地 watcher 通信，确保热更新 <2s（FR-017），同时在 OTel 中记录 `debug.hot_reload.*`/`debug.host.version_mismatch_total`。
    - 维护 `config/plugins/debug/host_simulator.yaml` + `PX_PLUGIN_HOST_SIMULATOR` flag，在 Mac/Win/Linux 预编译模拟器镜像。
 2. **Diagnostics & Error Reporting**
-   - 构建 `backend/internal/service/plugin_debug/diagnostics`，暴露 `POST /internal/debug/report`、`POST /internal/debug/logs/export`；整合日志、Tracing、metrics 并脱敏（FR-018）。
+   - 构建 `backend/internal/service/plugin_debug/diagnostics`，暴露 `POST /internal/debug/report`、`POST /internal/debug/logs/export`；整合日志、Tracing、metrics 并脱敏（FR-018），固化 `config/plugins/debug/report_template.yaml` + `config/security/data_masking_rules.yaml`。
    - 接入 ticket bridge（`backend/internal/service/integration/ticket_bridge`）与通知模块，确保 60s 内生成报告 + 触发工单。
 3. **Sandbox Validation Orchestrator**
-   - 新建 `backend/internal/service/plugin_sandbox` + Job runner（基于 `workflow` queue）来驱动 `POST /internal/sandbox/deploy|dataset/load|test/run`（FR-019）。
+   - 新建 `backend/internal/service/plugin_sandbox` + Job runner（基于 `workflow` queue）来驱动 `POST /internal/sandbox/deploy|dataset/load|test/run`（FR-019），依赖 `config/plugins/debug/data_suite.yaml` 维护数据集映射。
    - 对接数据脱敏服务、Feature Flag `plugin-sandbox-suite`，生成 `sandbox_validation_runs` 表和报告上传逻辑，输出给 QA Portal。
 
 ### Workstream C – Version Governance & Compatibility Guard (SCN-DEV-PLUGIN-VERSION-COMPAT-001)
@@ -148,7 +148,7 @@ web-admin/
 
 ### Cross-cutting Considerations
 
-- **Telemetry**: 扩展 `backend/internal/service/plugin_release/instrumentation`，新增 `debug.hot_reload.*`、`sandbox.*`、`version.scan.*` 指标与 trace。
+- **Telemetry**: 扩展 `backend/internal/service/plugin_release/instrumentation`，新增 `debug.hot_reload.*`、`debug.host.version_mismatch_total`、`debug.report.generate_ms`、`sandbox.*`、`version.scan.*` 指标与 trace。
 - **Storage**: 需要新的表/视图：`plugin_scaffold_templates`（元数据）、`plugin_import_runs`、`debug_sessions`、`sandbox_validation_runs`、`version_governance_reports`、`compat_exceptions`。
 - **Docs & Tooling**: Update `specs/009-install-plugin-pxp/quickstart.md` + README，新增 CLI 手册章节；在 `docs/use_cases/_from_hub/...` 反向链接新的实现路径。
 

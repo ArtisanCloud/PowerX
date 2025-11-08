@@ -2643,6 +2643,34 @@
         ]
       }
     },
+    "/api/v1/internal/plugins/debug/logs/export": {
+      "post": {
+        "operationId": "POST /api/v1/internal/plugins/debug/logs/export",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/v1/internal/plugins/debug/logs/export",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/v1/internal/plugins/debug/report": {
+      "post": {
+        "operationId": "POST /api/v1/internal/plugins/debug/report",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/v1/internal/plugins/debug/report",
+        "tags": [
+          "api"
+        ]
+      }
+    },
     "/api/v1/internal/plugins/environments/check": {
       "post": {
         "operationId": "POST /api/v1/internal/plugins/environments/check",
@@ -2652,6 +2680,20 @@
           }
         },
         "summary": "POST /api/v1/internal/plugins/environments/check",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/v1/internal/plugins/host/mock": {
+      "post": {
+        "operationId": "POST /api/v1/internal/plugins/host/mock",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/v1/internal/plugins/host/mock",
         "tags": [
           "api"
         ]
@@ -2685,6 +2727,34 @@
         ]
       }
     },
+    "/api/v1/internal/plugins/local/install": {
+      "post": {
+        "operationId": "POST /api/v1/internal/plugins/local/install",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/v1/internal/plugins/local/install",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/v1/internal/plugins/local/reload": {
+      "post": {
+        "operationId": "POST /api/v1/internal/plugins/local/reload",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/v1/internal/plugins/local/reload",
+        "tags": [
+          "api"
+        ]
+      }
+    },
     "/api/v1/internal/plugins/templates": {
       "get": {
         "operationId": "GET /api/v1/internal/plugins/templates",
@@ -2694,6 +2764,48 @@
           }
         },
         "summary": "GET /api/v1/internal/plugins/templates",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/v1/internal/sandbox/dataset/load": {
+      "post": {
+        "operationId": "POST /api/v1/internal/sandbox/dataset/load",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/v1/internal/sandbox/dataset/load",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/v1/internal/sandbox/deploy": {
+      "post": {
+        "operationId": "POST /api/v1/internal/sandbox/deploy",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/v1/internal/sandbox/deploy",
+        "tags": [
+          "api"
+        ]
+      }
+    },
+    "/api/v1/internal/sandbox/test/run": {
+      "post": {
+        "operationId": "POST /api/v1/internal/sandbox/test/run",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "summary": "POST /api/v1/internal/sandbox/test/run",
         "tags": [
           "api"
         ]

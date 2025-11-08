@@ -1,0 +1,14 @@
+version: v1
+datasets:
+  - id: checkout-smoke
+    description: "Checkout + payment happy-path dataset with mocked gateways."
+    default_version: "2025-01"
+    resource: "s3://powerx-sandbox/checkout/smoke"
+    coverage: 0.95
+    tags: ["payments", "smoke"]
+  - id: ai-assistant
+    description: "AI 助手多语言意图识别数据集，包含典型租户配置"
+    default_version: "stable"
+    resource: "s3://powerx-sandbox/ai/assistant"
+    coverage: 0.9
+    tags: ["ai", "assistant"]

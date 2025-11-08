@@ -160,9 +160,13 @@
 
 ## Phase 10: Rapid Debug, Diagnostics & Sandbox Validation（Priority P1 / US5）
 
-- [ ] T074 [US5|FR-017] 交付宿主模拟器与热更新链路：实现 `backend/internal/service/plugin_debug/host`、`POST /internal/plugins/local/{install,reload}`、CLI `powerx host start --mock` & `px-plugin dev --watch` watcher，保证热更新 <2 秒并写入 `debug.hot_reload.*` 指标。
-- [ ] T075 [US5|FR-018] 发布调试诊断服务：`backend/internal/service/plugin_debug/diagnostics` + `POST /internal/debug/{report,logs/export}`，聚合日志/Tracing/metrics、脱敏敏感字段、调用 ticket bridge，60 秒内生成报告并附回归脚本；新增 `sdk/debug` 客户端与单元测试。
-- [ ] T076 [US5|FR-019] 构建沙箱验证 orchestrator：新增 `backend/internal/service/plugin_sandbox`、定时 Job/worker、`POST /internal/sandbox/{deploy,dataset/load,test/run}`，集成脱敏服务与性能采集，生成 `sandbox_validation_runs` 表与导出报表脚本。
+- [X] T074 [US5|FR-017] 交付宿主模拟器与热更新链路：实现 `backend/internal/service/plugin_debug/host`、`POST /internal/plugins/local/{install,reload}`、CLI `px host start --mock` & `px-plugin dev --watch` watcher，调用 `plugin_release.LocalInstall` 进行 HTTP/CLI 双通道热更新，写入 `plugin.local.debug` 审计并推送 `debug.hot_reload.*` 指标。
+- [X] T074a [US5|FR-017] 配置与可观测性：新增 `config/plugins/debug/host_simulator.yaml`、`PX_PLUGIN_HOST_SIMULATOR` flag、`PluginDebugOptions`，在 `backend/internal/bootstrap/app.go`/`options.go` 注入；将 `plugin_debug/instrumentation` 注册到 OTel meter，输出 `debug.host.version_mismatch_total`、`debug.hot_reload.duration_ms`。
+- [X] T074b [US5|FR-017] CLI/HTTP 对齐：补充 `docs/standards/_shared/cli-install-and-naming.md` + `quickstart.md` 热更新章节，确保 `px host start --mock`、`px debug attach`、`px-plugin dev --watch --host-api` 使用说明与 `backend/cmd/px/commands/host`/`plugin/dev_watch.go` 一致，覆盖断开/重试/多平台注意事项。
+- [X] T075 [US5|FR-018] 发布调试诊断服务：`backend/internal/service/plugin_debug/diagnostics` + `POST /internal/debug/{report,logs/export}` 聚合日志/Tracing/metrics、执行敏感字段脱敏、关联 ticket bridge，60 秒内生成报告并附回归脚本；新增 `sdk/debug` 客户端与单元测试。
+- [X] T075a [US5|FR-018] 脱敏与模板治理：落地 `config/plugins/debug/report_template.yaml`、`config/security/data_masking_rules.yaml`、备用日志下载策略；在 `backend/internal/app/shared/deps.go` 注入 ticket bridge、`backend/internal/service/integration/ticket_bridge` 调用链，确保审计保留 180 天。
+- [X] T076 [US5|FR-019] 构建沙箱验证 orchestrator：新增 `backend/internal/service/plugin_sandbox`、`backend/internal/transport/http/admin/plugin_sandbox/routes.go`、`POST /internal/sandbox/{deploy,dataset/load,test/run}`，集成脱敏服务与性能采集，生成 `sandbox_validation_runs` 表与导出报表脚本。
+- [X] T076a [US5|FR-019] 数据集/Job 编排：创建 `config/plugins/debug/data_suite.yaml`、`Feature Flag plugin-sandbox-suite`，在 `workflow` Job runner 中调度数据集加载/脱敏/性能指标采集；将 `sandbox.deploy.duration_ms`、`sandbox.test.pass_rate` 写入 Prometheus，并在失败时联动通知/审计。
 
 **Checkpoint**：本地调试热更新成功率 ≥98%，异常诊断 1 分钟内出报告，沙箱回归耗时 ≤5 分钟且可追溯。
 

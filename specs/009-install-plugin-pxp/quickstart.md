@@ -61,6 +61,38 @@ go run cmd/server/main.go --enable-plugin-release
    该命令会通过 gRPC `StartLocalInstall`/`PushHotReload`，并在 15 分钟 SLA 内把调试日志写入 `plugin_release.hotload.latency_ms`。
 3. 运行 `px publish create --tenant-id 1001 --plugin-id px.demo --version v1.2.3 --artifact-uri s3://bucket/px-demo-v1.2.3.zip --commit <sha>` 触发 Release Candidate，随后 `px publish deploy --plan-id <id> --batch-name batch-a` 验证灰度。
 
+### 4.1 宿主模拟器 + 热更新回路
+1. 保证 `backend/etc/config.yaml` 中 `plugin_debug.host_simulator.enabled: true`，并在启动 CoreX 前启用 Feature Flag（默认读取 `PX_PLUGIN_HOST_SIMULATOR` 环境变量，未配置时保持开启）。如需定制端口或镜像，可编辑 `config/plugins/debug/host_simulator.yaml`。
+2. 使用 `px host start --mock` 为目标插件创建宿主会话（需 admin token）：
+   ```bash
+   go run cmd/px/main.go host start \
+     --api http://localhost:8077/api \
+     --token "$(cat ~/.powerx/admin.token)" \
+     --plugin-id com.powerx.demo \
+     --environment local-mock \
+     --ttl 15m \
+     --http-port 51701 \
+     --grpc-port 52701 \
+     --capability debug.hot_reload \
+     --capability sandbox.dataset
+   ```
+   终端会返回 `hostId/httpPort/grpcPort/expiresAt`，后续 `px-plugin dev --watch` 可复用该端口，也可在多端口（macOS/WSL）场景下指定自定义端口避免冲突。
+3. 当需要通过 REST 直接汇报热更新（绕过 gRPC 或在 CI 中上传产物）时，使用 `--host-api` 模式：
+   ```bash
+   px-plugin dev --watch \
+     --host-api http://localhost:8077/api \
+     --token "$(cat ~/.powerx/admin.token)" \
+     --tenant-id 101 \
+     --developer-id 2025 \
+     --artifact ./dist/plugin-bundle.zip \
+     --artifact-uri file://$(pwd)/dist/plugin-bundle.zip \
+     --feature-flag beta_ui \
+     --reset-cache
+   ```
+   - CLI 会先调用 `POST /internal/plugins/local/install` 启动 session，再将 chunk 上传到 gRPC；若 `--host-api` 存在，则在每次热更新后额外调用 `POST /internal/plugins/local/reload` 记录 `debug.hot_reload.*` 指标。
+   - 失败重试会自动附带最后一次错误信息；当 CLI 检测到 “version mismatch” 字样时，会在后台累加 `debug.host.version_mismatch_total`。
+4. （可选）`px debug attach` 预留命令会在后续版本补充断点/日志聚合；在此之前，可通过 `POST /internal/debug/report` 触发调试诊断（见 Phase 10 任务）。
+
 ## 5. 审批与灰度
 1. 使用 Web Admin 调用 Admin API（或 `curl`）：
    ```bash

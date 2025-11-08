@@ -171,6 +171,7 @@ func GetDefaults() *Config {
 		},
 		PluginRelease:   DefaultPluginReleaseConfig(),
 		PluginBootstrap: DefaultPluginBootstrapConfig(),
+		PluginDebug:     DefaultPluginDebugConfig(),
 		Storage: StorageConfig{
 			DefaultDriver: "local",
 			TTLSeconds:    43200,

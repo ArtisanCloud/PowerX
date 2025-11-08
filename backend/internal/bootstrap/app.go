@@ -253,6 +253,29 @@ func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error)
 			DefaultTemplate: cfg.PluginBootstrap.DefaultTemplate,
 			AllowHosts:      cfg.PluginBootstrap.AllowlistedHosts,
 		},
+		PluginDebug: shared.PluginDebugOptions{
+			Component: strings.TrimSpace(cfg.PluginDebug.Component),
+			HostSimulator: shared.PluginDebugHostOptions{
+				Enabled:     cfg.PluginDebug.HostSimulator.Enabled,
+				FeatureFlag: cfg.PluginDebug.HostSimulator.FeatureFlag,
+				ConfigPath:  cfg.PluginDebug.HostSimulator.ConfigPath,
+			},
+			Reports: shared.PluginDebugReportOptions{
+				TemplatePath:     cfg.PluginDebug.Reports.TemplatePath,
+				MaskingRulesPath: cfg.PluginDebug.Reports.MaskingRules,
+				FallbackLogBase:  cfg.PluginDebug.Reports.FallbackLogBase,
+			},
+			TicketBridge: shared.PluginDebugTicketBridgeOptions{
+				Provider: cfg.PluginDebug.TicketBridge.Provider,
+				Endpoint: cfg.PluginDebug.TicketBridge.Endpoint,
+				Project:  cfg.PluginDebug.TicketBridge.Project,
+			},
+			Sandbox: shared.PluginDebugSandboxOptions{
+				Enabled:       cfg.PluginDebug.Sandbox.Enabled,
+				FeatureFlag:   cfg.PluginDebug.Sandbox.FeatureFlag,
+				DataSuitePath: cfg.PluginDebug.Sandbox.DataSuitePath,
+			},
+		},
 	}
 
 	deps := shared.NewDeps(db, opts)

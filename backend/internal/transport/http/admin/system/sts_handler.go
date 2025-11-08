@@ -7,6 +7,7 @@ import (
 
 	"github.com/ArtisanCloud/PowerX/config"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
+	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 )
@@ -23,24 +24,24 @@ func NewSTSHandler(cfg *config.Config) *STSHandler {
 // Mint 仅限 Root 调用：根据当前登录 Root 身份签发插件短期访问 Token。
 func (h *STSHandler) Mint(c *gin.Context) {
 	if h == nil || h.cfg == nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "sts not initialized"})
+		dto.ResponseError(c, http.StatusInternalServerError, "sts not initialized", nil)
 		return
 	}
 
 	// ✅ 关键：按中间件规范，从 request.Context 读取 claims
 	claims := reqctx.GetClaims(c.Request.Context())
 	if claims == nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "no auth"})
+		dto.ResponseError(c, http.StatusUnauthorized, "no auth", nil)
 		return
 	}
 	if !claims.IsRoot { // 仅允许 Root 手工签发
-		c.JSON(http.StatusForbidden, gin.H{"error": "root required"})
+		dto.ResponseError(c, http.StatusForbidden, "root required", nil)
 		return
 	}
 
 	pluginID := strings.TrimSpace(c.Param("pluginId"))
 	if pluginID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "missing pluginId"})
+		dto.ResponseError(c, http.StatusBadRequest, "missing pluginId", nil)
 		return
 	}
 
@@ -76,11 +77,11 @@ func (h *STSHandler) Mint(c *gin.Context) {
 	tok := jwt.NewWithClaims(jwt.SigningMethodHS256, &claimsCopy)
 	signed, err := tok.SignedString([]byte(h.cfg.Auth.JWTSecret))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "mint failed"})
+		dto.ResponseError(c, http.StatusInternalServerError, "mint failed", err)
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
+	dto.ResponseSuccess(c, gin.H{
 		"plugin_id":    pluginID,
 		"token_type":   "Bearer",
 		"access_token": signed,

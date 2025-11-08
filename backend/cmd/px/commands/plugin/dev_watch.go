@@ -2,12 +2,16 @@ package plugin
 
 import (
 	"bufio"
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -36,6 +40,7 @@ var (
 
 	devWatchOpts = struct {
 		grpcAddr     string
+		hostAPI      string
 		tenantID     string
 		developerID  uint64
 		artifactPath string
@@ -69,6 +74,7 @@ func init() {
 	devCmd.AddCommand(devWatchCmd)
 
 	devWatchCmd.Flags().StringVar(&devWatchOpts.grpcAddr, "grpc-addr", defaultGRPCAddr, "Plugin release gRPC endpoint")
+	devWatchCmd.Flags().StringVar(&devWatchOpts.hostAPI, "host-api", "", "Optional PowerX Admin API base (e.g., http://localhost:8077/api) used for local install REST endpoints")
 	devWatchCmd.Flags().StringVar(&devWatchOpts.tenantID, "tenant-id", "", "Tenant identifier used during local install (required)")
 	devWatchCmd.Flags().Uint64Var(&devWatchOpts.developerID, "developer-id", 0, "Developer identifier used for the session (required)")
 	devWatchCmd.Flags().StringVar(&devWatchOpts.artifactPath, "artifact", "", "Path to the hotload artifact to stream via PushHotReload")
@@ -115,25 +121,25 @@ func runDevWatch(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("collect changelog: %w", err)
 	}
 
-	startResp, err := client.StartLocalInstall(callCtx, &pluginreleasepb.StartLocalInstallRequest{
-		TenantId:     strings.TrimSpace(devWatchOpts.tenantID),
-		DeveloperId:  devWatchOpts.developerID,
-		ArtifactUri:  artifactURI,
-		FeatureFlags: devWatchOpts.featureFlags,
-		ResetCache:   devWatchOpts.resetCache,
-	})
+	session, err := startLocalSession(cmd, callCtx, client, artifactURI)
 	if err != nil {
-		return fmt.Errorf("start local install: %w", err)
+		return err
 	}
 
-	fmt.Fprintf(cmd.OutOrStdout(), "Session %s started for tenant %s developer %d\n", startResp.GetSessionId(), startResp.GetTenantId(), startResp.GetDeveloperId())
+	fmt.Fprintf(cmd.OutOrStdout(), "Session %s started for tenant %s developer %d\n", session.SessionID, devWatchOpts.tenantID, devWatchOpts.developerID)
 
-	if err := pushHotReload(callCtx, client, startResp.GetSessionId(), devWatchOpts.artifactPath, devWatchOpts.chunkSize, changelog, cmd.OutOrStdout()); err != nil {
-		return fmt.Errorf("push hot reload: %w", err)
+	reloadStart := time.Now()
+	sequence, reloadErr := pushHotReload(callCtx, client, session.SessionID, devWatchOpts.artifactPath, devWatchOpts.chunkSize, changelog, cmd.OutOrStdout())
+	reloadDuration := time.Since(reloadStart)
+	if hostAPIEnabled() {
+		recordReloadEvent(callCtx, session.SessionID, sequence, reloadDuration, reloadErr)
+	}
+	if reloadErr != nil {
+		return fmt.Errorf("push hot reload: %w", reloadErr)
 	}
 
 	sessionInfo, err := client.GetLocalInstallSession(callCtx, &pluginreleasepb.GetLocalInstallSessionRequest{
-		SessionId: startResp.GetSessionId(),
+		SessionId: session.SessionID,
 	})
 	if err == nil {
 		printSessionSummary(cmd, "Session status", sessionInfo)
@@ -143,7 +149,7 @@ func runDevWatch(cmd *cobra.Command, args []string) error {
 
 	if devWatchOpts.stop {
 		stopResp, err := client.StopLocalInstall(callCtx, &pluginreleasepb.StopLocalInstallRequest{
-			SessionId: startResp.GetSessionId(),
+			SessionId: session.SessionID,
 		})
 		if err != nil {
 			return fmt.Errorf("stop local install: %w", err)
@@ -154,10 +160,10 @@ func runDevWatch(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func pushHotReload(ctx context.Context, client pluginreleasepb.PluginReleaseServiceClient, sessionID, artifactPath string, chunkSize int, changelog string, out io.Writer) error {
+func pushHotReload(ctx context.Context, client pluginreleasepb.PluginReleaseServiceClient, sessionID, artifactPath string, chunkSize int, changelog string, out io.Writer) (int64, error) {
 	stream, err := client.PushHotReload(ctx)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	var (
@@ -170,13 +176,13 @@ func pushHotReload(ctx context.Context, client pluginreleasepb.PluginReleaseServ
 	if strings.TrimSpace(artifactPath) != "" {
 		file, err := os.Open(artifactPath)
 		if err != nil {
-			return fmt.Errorf("open artifact: %w", err)
+			return 0, fmt.Errorf("open artifact: %w", err)
 		}
 		defer file.Close()
 
 		info, err := file.Stat()
 		if err != nil {
-			return fmt.Errorf("stat artifact: %w", err)
+			return 0, fmt.Errorf("stat artifact: %w", err)
 		}
 
 		totalSize := info.Size()
@@ -206,7 +212,7 @@ func pushHotReload(ctx context.Context, client pluginreleasepb.PluginReleaseServ
 				}
 
 				if err := stream.Send(chunk); err != nil {
-					return fmt.Errorf("send chunk: %w", err)
+					return 0, fmt.Errorf("send chunk: %w", err)
 				}
 
 				if chunk.Eof {
@@ -218,7 +224,7 @@ func pushHotReload(ctx context.Context, client pluginreleasepb.PluginReleaseServ
 				break
 			}
 			if readErr != nil {
-				return fmt.Errorf("read artifact: %w", readErr)
+				return 0, fmt.Errorf("read artifact: %w", readErr)
 			}
 			if n == 0 {
 				break
@@ -237,7 +243,7 @@ func pushHotReload(ctx context.Context, client pluginreleasepb.PluginReleaseServ
 			appliedChangelog = true
 		}
 		if err := stream.Send(chunk); err != nil {
-			return fmt.Errorf("send empty chunk: %w", err)
+			return 0, fmt.Errorf("send empty chunk: %w", err)
 		}
 		sequence++
 	} else if trimmedChangelog != "" && !appliedChangelog {
@@ -246,7 +252,7 @@ func pushHotReload(ctx context.Context, client pluginreleasepb.PluginReleaseServ
 			Sequence:  sequence,
 			Changelog: trimmedChangelog,
 		}); err != nil {
-			return fmt.Errorf("send changelog chunk: %w", err)
+			return 0, fmt.Errorf("send changelog chunk: %w", err)
 		}
 		appliedChangelog = true
 		sequence++
@@ -254,11 +260,11 @@ func pushHotReload(ctx context.Context, client pluginreleasepb.PluginReleaseServ
 
 	ack, err := stream.CloseAndRecv()
 	if err != nil {
-		return fmt.Errorf("close hot reload stream: %w", err)
+		return 0, fmt.Errorf("close hot reload stream: %w", err)
 	}
 
 	fmt.Fprintf(out, "Hot reload applied (seq=%d status=%s)\n", ack.GetAppliedSequence(), ack.GetStatus())
-	return nil
+	return ack.GetAppliedSequence(), nil
 }
 
 func resolveArtifactURI(explicitURI, artifactPath string) (string, error) {
@@ -404,4 +410,167 @@ func truncateChangelog(content string) string {
 		builder.WriteRune(r)
 	}
 	return builder.String()
+}
+
+type localSession struct {
+	SessionID string
+	TenantID  uint64
+	LogURL    string
+}
+
+func startLocalSession(cmd *cobra.Command, ctx context.Context, client pluginreleasepb.PluginReleaseServiceClient, artifactURI string) (*localSession, error) {
+	if hostAPIEnabled() {
+		return startSessionViaHTTP(ctx, artifactURI)
+	}
+	startResp, err := client.StartLocalInstall(ctx, &pluginreleasepb.StartLocalInstallRequest{
+		TenantId:     strings.TrimSpace(devWatchOpts.tenantID),
+		DeveloperId:  devWatchOpts.developerID,
+		ArtifactUri:  artifactURI,
+		FeatureFlags: devWatchOpts.featureFlags,
+		ResetCache:   devWatchOpts.resetCache,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("start local install: %w", err)
+	}
+	tenantNumeric, _ := strconv.ParseUint(strings.TrimSpace(devWatchOpts.tenantID), 10, 64)
+	return &localSession{
+		SessionID: startResp.GetSessionId(),
+		TenantID:  tenantNumeric,
+		LogURL:    startResp.GetLogUrl(),
+	}, nil
+}
+
+func startSessionViaHTTP(ctx context.Context, artifactURI string) (*localSession, error) {
+	tenantNumeric, err := strconv.ParseUint(strings.TrimSpace(devWatchOpts.tenantID), 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("tenant-id must be numeric when --host-api is set: %w", err)
+	}
+	payload := localInstallHTTPRequest{
+		TenantID:     tenantNumeric,
+		DeveloperID:  devWatchOpts.developerID,
+		ArtifactURI:  artifactURI,
+		FeatureFlags: devWatchOpts.featureFlags,
+		ResetCache:   devWatchOpts.resetCache,
+	}
+	var resp localInstallHTTPResponse
+	if err := doHostAPIRequest(ctx, http.MethodPost, "/internal/plugins/local/install", payload, &resp); err != nil {
+		return nil, err
+	}
+	if resp.Err != "" {
+		return nil, errors.New(resp.Err)
+	}
+	if resp.Data.SessionID == "" {
+		return nil, errors.New("host API returned empty session id")
+	}
+	return &localSession{
+		SessionID: resp.Data.SessionID,
+		TenantID:  resp.Data.TenantID,
+		LogURL:    resp.Data.LogURL,
+	}, nil
+}
+
+func recordReloadEvent(ctx context.Context, sessionID string, sequence int64, duration time.Duration, reloadErr error) {
+	payload := localReloadPayload{
+		SessionID:       sessionID,
+		DurationMs:      duration.Milliseconds(),
+		Sequence:        sequence,
+		Success:         reloadErr == nil,
+		VersionMismatch: isVersionMismatchError(reloadErr),
+	}
+	if reloadErr != nil {
+		payload.Error = reloadErr.Error()
+	}
+	if err := doHostAPIRequest(ctx, http.MethodPost, "/internal/plugins/local/reload", payload, nil); err != nil {
+		logger.WarnF(ctx, "record reload event failed: %v", err)
+	}
+}
+
+func hostAPIEnabled() bool {
+	return strings.TrimSpace(devWatchOpts.hostAPI) != ""
+}
+
+func doHostAPIRequest(ctx context.Context, method, path string, payload any, dest any) error {
+	if !hostAPIEnabled() {
+		return errors.New("host API not configured")
+	}
+	base := strings.TrimRight(devWatchOpts.hostAPI, "/")
+	if base == "" {
+		return errors.New("invalid host API base")
+	}
+	url := base + path
+	var body io.Reader
+	if payload != nil {
+		buf, err := json.Marshal(payload)
+		if err != nil {
+			return err
+		}
+		body = bytes.NewReader(buf)
+	}
+	req, err := http.NewRequestWithContext(ctx, method, url, body)
+	if err != nil {
+		return err
+	}
+	if payload != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
+	token := strings.TrimSpace(devWatchOpts.token)
+	if token != "" {
+		if !strings.HasPrefix(strings.ToLower(token), "bearer ") {
+			token = "Bearer " + token
+		}
+		req.Header.Set("Authorization", token)
+	}
+	client := &http.Client{Timeout: devWatchOpts.timeout}
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+	if resp.StatusCode >= 400 {
+		return fmt.Errorf("host API %s: %s", resp.Status, strings.TrimSpace(string(data)))
+	}
+	if dest == nil {
+		return nil
+	}
+	return json.Unmarshal(data, dest)
+}
+
+type localInstallHTTPRequest struct {
+	TenantID     uint64   `json:"tenantId"`
+	DeveloperID  uint64   `json:"developerId"`
+	ArtifactURI  string   `json:"artifactUri"`
+	FeatureFlags []string `json:"featureFlags"`
+	ResetCache   bool     `json:"resetCache"`
+}
+
+type localInstallHTTPResponse struct {
+	Data localInstallHTTPData `json:"data"`
+	Err  string               `json:"error"`
+}
+
+type localInstallHTTPData struct {
+	SessionID string `json:"sessionId"`
+	TenantID  uint64 `json:"tenantId"`
+	LogURL    string `json:"logUrl"`
+}
+
+type localReloadPayload struct {
+	SessionID       string `json:"sessionId"`
+	DurationMs      int64  `json:"durationMs"`
+	Sequence        int64  `json:"sequence"`
+	Success         bool   `json:"success"`
+	Error           string `json:"error,omitempty"`
+	VersionMismatch bool   `json:"versionMismatch"`
+}
+
+func isVersionMismatchError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "version mismatch") || strings.Contains(msg, "manifest version mismatch")
 }

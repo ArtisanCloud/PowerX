@@ -1,0 +1,15 @@
+# Default PX host simulator runtime catalogue.
+defaults:
+  ttl_seconds: 600
+  http_port: 51701
+  grpc_port: 52701
+
+runtimes:
+  - id: go1.24
+    description: Default Go 1.24 host simulator image
+    image: registry.powerx.dev/px-host-sim:go1.24
+    healthcheck: /healthz
+  - id: node20
+    description: Node 20 + Vite host simulator image
+    image: registry.powerx.dev/px-host-sim:node20
+    healthcheck: /healthz

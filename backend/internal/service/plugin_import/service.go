@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -91,7 +92,7 @@ func (s *Service) Submit(ctx context.Context, req ImportRequest) (*ImportResult,
 		NextActions: nextStepsForRisk(riskLevel),
 	}
 
-	s.emitAudit(ctx, "PLUGIN_IMPORT_SUBMIT", strings.ToUpper(run.Status), run.UUID.String(), map[string]any{
+	s.emitAudit(ctx, run.TenantID, "PLUGIN_IMPORT_SUBMIT", strings.ToUpper(run.Status), run.UUID.String(), map[string]any{
 		"package":  run.PackageName,
 		"risk":     riskLevel,
 		"tenantId": run.TenantID,
@@ -172,23 +173,37 @@ func marshalJSON(v any) datatypes.JSON {
 	return datatypes.JSON(data)
 }
 
-func (s *Service) emitAudit(ctx context.Context, operation, outcome, resourceID string, meta map[string]any) {
+func (s *Service) emitAudit(ctx context.Context, tenantID, operation, outcome, resourceID string, meta map[string]any) {
 	if s.auditSvc == nil {
 		return
 	}
 	event := &dbm.AuditEvent{
-		OccurredAt:   s.now().UTC(),
-		Source:       "plugin_import",
-		Operation:    operation,
-		ResourceType: "plugin_import",
-		ResourceID:   resourceID,
-		Outcome:      strings.ToUpper(outcome),
-		Severity:     severityFromOutcome(outcome),
-		Meta:         marshalJSON(meta),
+		OccurredAt:    s.now().UTC(),
+		TenantID:      tenantNumeric(tenantID),
+		Source:        "plugin_import",
+		Operation:     operation,
+		ResourceType:  "plugin_import",
+		ResourceID:    resourceID,
+		CorrelationID: resourceID,
+		Outcome:       strings.ToUpper(outcome),
+		Severity:      severityFromOutcome(outcome),
+		Meta:          marshalJSON(meta),
 	}
 	if err := s.auditSvc.Emit(ctx, event); err != nil {
 		pxlog.WarnF(ctx, "[plugin_import] emit audit failed: %v", err)
 	}
+}
+
+func tenantNumeric(tenantID string) uint64 {
+	id := strings.TrimSpace(tenantID)
+	if id == "" {
+		return 0
+	}
+	value, err := strconv.ParseUint(id, 10, 64)
+	if err != nil {
+		return 0
+	}
+	return value
 }
 
 func severityFromOutcome(outcome string) string {

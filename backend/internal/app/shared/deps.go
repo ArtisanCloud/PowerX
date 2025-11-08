@@ -5,6 +5,7 @@ package shared
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -32,13 +33,17 @@ import (
 	replayService "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/replay"
 	security "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/security"
 	iamsvc "github.com/ArtisanCloud/PowerX/internal/service/iam"
+	ticketbridge "github.com/ArtisanCloud/PowerX/internal/service/integration/ticketbridge"
 	integrationInstrumentation "github.com/ArtisanCloud/PowerX/internal/service/integration_gateway/instrumentation"
 	integrationManager "github.com/ArtisanCloud/PowerX/internal/service/integration_gateway/manager"
 	integrationTenant "github.com/ArtisanCloud/PowerX/internal/service/integration_gateway/tenant"
 	mediasvc "github.com/ArtisanCloud/PowerX/internal/service/media"
 	pluginbootstrap "github.com/ArtisanCloud/PowerX/internal/service/plugin_bootstrap"
+	plugindiag "github.com/ArtisanCloud/PowerX/internal/service/plugin_debug/diagnostics"
+	plugindebughost "github.com/ArtisanCloud/PowerX/internal/service/plugin_debug/host"
 	pluginimport "github.com/ArtisanCloud/PowerX/internal/service/plugin_import"
 	pluginReleaseService "github.com/ArtisanCloud/PowerX/internal/service/plugin_release"
+	pluginsandbox "github.com/ArtisanCloud/PowerX/internal/service/plugin_sandbox"
 	tenantsvc "github.com/ArtisanCloud/PowerX/internal/service/tenant"
 	workflowsvc "github.com/ArtisanCloud/PowerX/internal/service/workflow"
 	"github.com/ArtisanCloud/PowerX/pkg/cache"
@@ -46,7 +51,9 @@ import (
 	dbm "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/audit"
 	eventfabricrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/event_fabric"
 	integrationRepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/integration_gateway"
+	plugindiagrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/plugin_debug"
 	pluginReleaseRepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/plugin_release"
+	pluginsandboxrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/plugin_sandbox"
 	"github.com/ArtisanCloud/PowerX/pkg/event_bus"
 	pxlog "github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"github.com/google/uuid"
@@ -109,6 +116,9 @@ type Deps struct {
 	PluginReleaseService   *pluginReleaseService.Service
 	PluginBootstrapService *pluginbootstrap.Service
 	PluginImportService    *pluginimport.Service
+	PluginDebugHost        *plugindebughost.Service
+	PluginDiagnostics      *plugindiag.Service
+	PluginSandbox          *pluginsandbox.Service
 
 	EventFabric *EventFabricDeps
 	Workflow    *WorkflowDeps
@@ -203,6 +213,8 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 	pluginReleasePlanRepo := pluginReleaseRepo.NewReleasePlanRepository(db)
 	pluginReleaseDistributionRepo := pluginReleaseRepo.NewDistributionRepository(db)
 	pluginReleaseSessionRepo := pluginReleaseRepo.NewLocalInstallSessionRepository(db)
+	pluginDebugReportRepo := plugindiagrepo.NewReportRepository(db)
+	pluginSandboxRunRepo := pluginsandboxrepo.NewRunRepository(db)
 	pluginImportRepo := pluginReleaseRepo.NewImportRepository(db)
 	componentName := strings.TrimSpace(opts.PluginRelease.Observability.AlertRulePrefix)
 	if componentName == "" {
@@ -288,6 +300,55 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 		pxlog.WarnF(ctx, "[integrationGateway] set MCP tool deps failed: %v", err)
 	}
 
+	ticketBridgeSvc := ticketbridge.NewService(ticketbridge.Options{
+		Provider: opts.PluginDebug.TicketBridge.Provider,
+		Endpoint: opts.PluginDebug.TicketBridge.Endpoint,
+		Project:  opts.PluginDebug.TicketBridge.Project,
+	})
+
+	var pluginDebugHostSvc *plugindebughost.Service
+	if opts.PluginDebug.HostSimulator.Enabled && featureFlagEnabled(opts.PluginDebug.HostSimulator.FeatureFlag) {
+		component := strings.TrimSpace(opts.PluginDebug.Component)
+		if component == "" {
+			component = "plugin_debug"
+		}
+		pluginDebugHostSvc = plugindebughost.NewService(svc, plugindebughost.Options{
+			Component:     component,
+			ConfigPath:    opts.PluginDebug.HostSimulator.ConfigPath,
+			PruneInterval: time.Minute,
+			Now:           time.Now,
+		})
+	}
+	var pluginDiagnosticsSvc *plugindiag.Service
+	if pluginDebugReportRepo != nil {
+		template, err := plugindiag.LoadTemplate(opts.PluginDebug.Reports.TemplatePath)
+		if err != nil {
+			pxlog.WarnF(ctx, "[plugin_debug] load report template failed: %v", err)
+		}
+		masker, err := plugindiag.LoadMasker(opts.PluginDebug.Reports.MaskingRulesPath)
+		if err != nil {
+			pxlog.WarnF(ctx, "[plugin_debug] load masking rules failed: %v", err)
+		}
+		pluginDiagnosticsSvc = plugindiag.NewService(pluginDebugReportRepo, svc, time.Now, plugindiag.Options{
+			Template:        template,
+			Masker:          masker,
+			TicketBridge:    ticketBridgeSvc,
+			FallbackLogBase: opts.PluginDebug.Reports.FallbackLogBase,
+		})
+	}
+
+	var pluginSandboxSvc *pluginsandbox.Service
+	if pluginSandboxRunRepo != nil && opts.PluginDebug.Sandbox.Enabled && featureFlagEnabled(opts.PluginDebug.Sandbox.FeatureFlag) {
+		suite, err := pluginsandbox.LoadSuite(opts.PluginDebug.Sandbox.DataSuitePath)
+		if err != nil {
+			pxlog.WarnF(ctx, "[plugin_sandbox] load data suite failed: %v", err)
+		}
+		pluginSandboxSvc = pluginsandbox.NewService(pluginSandboxRunRepo, pluginsandbox.Options{
+			Suite: suite,
+			Now:   time.Now,
+		})
+	}
+
 	return &Deps{
 		DB:                     db,
 		TenantSvc:              tenantSvc,
@@ -309,6 +370,9 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 		PluginReleaseService:   pluginReleaseSvc,
 		PluginBootstrapService: pluginBootstrapSvc,
 		PluginImportService:    pluginImportSvc,
+		PluginDebugHost:        pluginDebugHostSvc,
+		PluginDiagnostics:      pluginDiagnosticsSvc,
+		PluginSandbox:          pluginSandboxSvc,
 		EventFabric:            eventFabricDeps,
 		Workflow: &WorkflowDeps{
 			Service:       workflowSvc,
@@ -316,6 +380,19 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 			ReliableQueue: workflowReliable,
 		},
 	}
+}
+
+func featureFlagEnabled(flag string) bool {
+	flag = strings.TrimSpace(flag)
+	if flag == "" {
+		return true
+	}
+	value := strings.TrimSpace(os.Getenv(flag))
+	if value == "" {
+		return true
+	}
+	value = strings.ToLower(value)
+	return value == "1" || value == "true" || value == "enabled" || value == "on" || value == "yes"
 }
 
 // EventFabricDeps 聚合事件骨干运行时依赖。
