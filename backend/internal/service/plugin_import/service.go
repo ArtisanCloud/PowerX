@@ -177,13 +177,12 @@ func (s *Service) emitAudit(ctx context.Context, operation, outcome, resourceID 
 		return
 	}
 	event := &dbm.AuditEvent{
-		ID:           uuid.New(),
 		OccurredAt:   s.now().UTC(),
 		Source:       "plugin_import",
 		Operation:    operation,
 		ResourceType: "plugin_import",
 		ResourceID:   resourceID,
-		Outcome:      outcome,
+		Outcome:      strings.ToUpper(outcome),
 		Severity:     severityFromOutcome(outcome),
 		Meta:         marshalJSON(meta),
 	}

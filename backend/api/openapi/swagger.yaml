@@ -1703,6 +1703,51 @@ paths:
             summary: GET /api/v1/health
             tags:
                 - api
+    /api/v1/internal/plugins/bootstrap/validate:
+        post:
+            operationId: POST /api/v1/internal/plugins/bootstrap/validate
+            responses:
+                "200":
+                    description: OK
+            summary: POST /api/v1/internal/plugins/bootstrap/validate
+            tags:
+                - api
+    /api/v1/internal/plugins/environments/check:
+        post:
+            operationId: POST /api/v1/internal/plugins/environments/check
+            responses:
+                "200":
+                    description: OK
+            summary: POST /api/v1/internal/plugins/environments/check
+            tags:
+                - api
+    /api/v1/internal/plugins/import:
+        post:
+            operationId: POST /api/v1/internal/plugins/import
+            responses:
+                "200":
+                    description: OK
+            summary: POST /api/v1/internal/plugins/import
+            tags:
+                - api
+    /api/v1/internal/plugins/import/:id:
+        get:
+            operationId: GET /api/v1/internal/plugins/import/_id
+            responses:
+                "200":
+                    description: OK
+            summary: GET /api/v1/internal/plugins/import/_id
+            tags:
+                - api
+    /api/v1/internal/plugins/templates:
+        get:
+            operationId: GET /api/v1/internal/plugins/templates
+            responses:
+                "200":
+                    description: OK
+            summary: GET /api/v1/internal/plugins/templates
+            tags:
+                - api
     /api/v1/plugin-release/candidates:
         post:
             operationId: POST /api/v1/plugin-release/candidates
