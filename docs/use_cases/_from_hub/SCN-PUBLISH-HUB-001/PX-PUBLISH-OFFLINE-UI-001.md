@@ -78,7 +78,7 @@ PowerX Web Admin Offline Install UI 将 Marketplace 审核后的离线包以可�
 | ui | powerx | OfflineAuditTimeline | 显示上传、审批、安装、回滚的审计事件 | `web-admin/src/components/plugins/offline/OfflineAuditTimeline.vue` |
 | ui | powerx | OfflinePluginStore | 管理 UI 状态、缓存版本清单、协调 SSE 事件 | `web-admin/src/stores/plugins/offlinePluginStore.ts` |
 | ui | powerx | OfflinePluginApiClient | 封装 GraphQL/REST/SSE 请求与重试策略 | `web-admin/src/services/plugins/offlinePluginApi.ts` |
-| service | powerx | Admin GraphQL Gateway | 暴露离线包列表、审批状态、安装作业查询接口 | `https://admin-api.powerx.local/graphql` |
+| service | powerx | Admin GraphQL Gateway | 暴露离线包列表、审批状态、安装作业查询接口 | `https: "//admin-api.powerx.local/graphql` |"
 | service | powerx | Offline Install API | 执行包校验、安装/回滚、产出审计日志与指标 | `POST /api/admin/plugins/install/local` |
 
 ## 流程与时序
@@ -143,7 +143,7 @@ sequenceDiagram
 # Testing Strategy
 
 - **单元测试**：`OfflineInstallWizard.spec.ts` 覆盖状态机与表单校验；`OfflineAuditTimeline.spec.ts` 验证事件渲染；`offlinePluginStore.spec.ts` 覆盖 SSE 重连与缓存。
-- **集成测试**：使用 MSW/Cypress Component Test 模拟上传会话与 SSE 事件，脚本 `pnpm test:integration --filter offline-plugin`.
+- **集成测试**：使用 MSW/Cypress Component Test 模拟上传会话与 SSE 事件，脚本 `pnpm test: "integration --filter offline-plugin`."
 - **端到端验证**：Cypress 场景 `admin-offline-install.cy.ts`，串联上传、安装、失败回滚；结合 `px-plugin pack` 生成测试包。
 - **非功能测试**：大文件（>1GB）上传性能、断网重试体验、低性能终端性能基线（FPS ≥ 50）、可访问性（WCAG AA）。
 
@@ -175,4 +175,4 @@ sequenceDiagram
 - Docmap 配置：`docs/_data/docmap.yaml`
 - 设计材料：Figma 《Admin Offline Plugin Install Wizard》
 
-> Seed 更新后，请运行 `npm run publish:usecases -- --scn-id SCN-PUBLISH-HUB-001 --validate-only` 校验结构与字段一致性。
+> Seed 更新后，请运行 `npm run publish: "usecases -- --scn-id SCN-PUBLISH-HUB-001 --validate-only` 校验结构与字段一致性。"

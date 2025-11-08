@@ -1,3 +1,4 @@
+---
 scn_id: SCN-DEV-PLUGIN-VERSION-COMPAT-001
 title: 插件版本与兼容性管理主场景
 status: Draft
@@ -38,7 +39,7 @@ last_reviewed_at: 2025-11-20
 
 ---
 
-# Executive Summary
+# Positioning & Goals
 
 该主场景梳理 PowerX 插件在运行期的版本感知、升级策略、兼容校验与跨租户治理全链路。平台需提供统一的版本态势视图、自动生成升级建议、支持策略化灰度与快速回滚，并在安装/升级前就阻断不兼容操作。最终目标是让租户管理员能够在可观测、可追溯的流程下持续获得新能力，同时满足安全与合规要求。
 
@@ -48,6 +49,12 @@ last_reviewed_at: 2025-11-20
 - **Out of Scope**：插件源码开发与调试、离线包生成和导入、Marketplace 审核与上架、宿主侧运行时性能调优。
 - **Environment & Flags**：`plugin-version-governance`、`plugin-upgrade-policy`、`plugin-compat-guard`、`plugin-multi-tenant-sync`；依赖版本治理服务、制品与版本仓库、监控/日志平台、审批系统、审计数据库。
 
+# Core Capabilities
+
+1. **Version Governance Service**：汇聚插件版本态势、生成升级建议、推送风险，并支撑跨租户视角的策略执行。
+2. **Upgrade Orchestrator**：支持策略化灰度、自动回滚、指标采集与分阶段发布，确保升级全程可观测。
+3. **Compatibility Guardrail**：在安装/升级前调用兼容性引擎阻断风险，结合例外审批流程与审计报告。
+
 # Participants & Responsibilities
 
 | Scope | Repository | Layer | 责任与交付物 | Owners |
@@ -56,12 +63,14 @@ last_reviewed_at: 2025-11-20
 | security | powerx | security | 兼容性校验规则、例外审批策略、审计日志与合规报告 | Grace Lin（Security & Compliance Lead / compliance@artisan-cloud.com） |
 | plugin-ecosystem | powerx-plugin | ops | Manifest 工具、版本矩阵维护、CLI/控制台操作指引、变更日志模板 | Leo Wang（Vendor Success Manager / vendor@artisan-cloud.com） |
 
-# End-to-End Flow
+# Validation Workflow
 
 1. **Stage 1 – 全域版本巡检与洞察**：版本治理服务周期性扫描租户插件版本，生成升级建议与风险提示。
 2. **Stage 2 – 策略化灰度升级与回滚**：管理员配置灰度策略，系统按批次升级并实时监控，异常时快速回滚。
 3. **Stage 3 – 兼容性校验与阻断**：安装/升级前调用兼容性引擎，阻断不兼容操作，支持受控例外。
 4. **Stage 4 – 跨租户一致性与审计**：集团视角对齐多租户版本，输出合规报告并沉淀变更追溯。
+
+# Architecture Diagram
 
 ```mermaid
 sequenceDiagram
@@ -86,12 +95,15 @@ sequenceDiagram
 - **Configs / Schemas**：`config/version/governance_rules.yaml`、`config/version/upgrade_policies.yaml`、`config/version/compat_matrix.yaml`、`docs/standards/powerx-plugin/release/Versioning_Guidelines.md`.
 - **Security / Compliance**：兼容性阻断默认启用；例外审批需多因子校验并记录审批号；版本与回滚操作保留 ≥ 365 天审计记录；跨租户策略需遵循租户隔离与权限控制。
 
-# Usecase Links
+# Related Links
 
 - `UC-DEV-PLUGIN-VERSION-DETECT-001` — 版本扫描与升级建议生成。
 - `UC-DEV-PLUGIN-VERSION-GRAY-001` — 策略化灰度升级与快速回滚。
 - `UC-DEV-PLUGIN-VERSION-COMPAT-BLOCK-001` — 兼容性校验与阻断。
 - `UC-DEV-PLUGIN-VERSION-MULTI-TENANT-001` — 跨租户版本一致性治理（可选）。
+- 设计稿：`docs/meta/scenarios/powerx/plugin-ecosystem/plugin-lifecycle/plugin-version-and-compatibility/primary.md`
+- 版本指南：`docs/standards/powerx-plugin/release/Versioning_Guidelines.md`
+- 兼容矩阵配置：`config/version/compat_matrix.yaml`
 
 # Acceptance Criteria
 

@@ -52,7 +52,7 @@ last_reviewed_at: 2025-11-20
 
 - **前置条件**
   - 开启 `PX_PLUGIN_TEAM_SYNC`、`plugin-doctor-v2` Feature Flag，Git 仓库注册信息可查询。
-  - 成员具备仓库读写以及 `plugin:doctor` 权限，已配置 PAT 或 SSO。
+  - 成员具备仓库读写以及 `plugin: "doctor` 权限，已配置 PAT 或 SSO。"
   - 包管理器、Secrets 管理服务与测试数据源可用，支持租户隔离。
   - 仓库包含 `.powerxci/` 目录，内置 pre-commit 钩子模板与测试脚本。
 - **输入/输出**

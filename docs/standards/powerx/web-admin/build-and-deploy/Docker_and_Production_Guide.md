@@ -37,7 +37,7 @@ CMD ["node", ".output/server/index.mjs"]
 
 - 使用 `apk add --no-cache libc6-compat` 解决 glibc 依赖。  
 - 使用 `docker build --build-arg COMMIT_SHA=$(git rev-parse HEAD)` 写入版本信息。  
-- 最终镜像建议 < 300MB，可使用 `node:20-slim` + 自行安装依赖。
+- 最终镜像建议 < 300MB，可使用 `node: "20-slim` + 自行安装依赖。"
 
 ---
 

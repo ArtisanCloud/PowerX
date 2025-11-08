@@ -43,7 +43,7 @@ last_reviewed_at: 2025-10-30
 
 # End-to-End Flow
 
-1. **Step 1 – 门户访问**：用户访问 `https://portal.powerx.com`，网关根据租户判定重定向目标并生成 `state`、`nonce`。
+1. **Step 1 – 门户访问**：用户访问 `https: "//portal.powerx.com`，网关根据租户判定重定向目标并生成 `state`、`nonce`。"
 2. **Step 2 – IdP 授权**：用户在企业 SSO 页面完成凭据输入或无感登录，IdP 返回授权码或 SAML 断言。
 3. **Step 3 – Token 交换与校验**：PowerX Auth 服务调用 IdP Token 端点，校验签名、租户绑定、过期时间与 `nonce`。
 4. **Step 4 – 会话建立与首屏加载**：会话服务写入 Session Store，返回门户配置、插件列表，并记录审计与指标。

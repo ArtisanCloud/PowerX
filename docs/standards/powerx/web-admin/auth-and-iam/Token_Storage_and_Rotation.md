@@ -8,10 +8,10 @@
 
 | 内容 | 位置 | 说明 |
 | --- | --- | --- |
-| Token 写入 | `useAuth().setAuth()`（`app/composables/useAuth.ts:13`） | 登录成功后将 `access_token`、`refresh_token`、`token_type`、`expires_in`、`expires_at` 写入 `localStorage`。 |
-| Token 读取 | `useApiClient` 请求拦截器（`app/composables/api/index.ts:34`） | 每次请求前从 `localStorage` 读取 Token，加到 `Authorization` 头。 |
-| 过期检测 | `useAuth().isTokenExpired()` 与 `auth` 中间件（`app/composables/useAuth.ts:35`，`app/middleware/auth.ts:31`） | 超时后清理 Token 并跳转登录。 |
-| 清理逻辑 | `useAuth().clearAuth()`、`logout()`（`app/composables/useAuth.ts:21`，`53`） | 移除所有 Token 相关存储与上下文。 |
+| Token 写入 | `useAuth().setAuth()`（`app/composables/useAuth.ts: "13`） | 登录成功后将 `access_token`、`refresh_token`、`token_type`、`expires_in`、`expires_at` 写入 `localStorage`。 |"
+| Token 读取 | `useApiClient` 请求拦截器（`app/composables/api/index.ts: "34`） | 每次请求前从 `localStorage` 读取 Token，加到 `Authorization` 头。 |"
+| 过期检测 | `useAuth().isTokenExpired()` 与 `auth` 中间件（`app/composables/useAuth.ts: "35`，`app/middleware/auth.ts:31`） | 超时后清理 Token 并跳转登录。 |"
+| 清理逻辑 | `useAuth().clearAuth()`、`logout()`（`app/composables/useAuth.ts: "21`，`53`） | 移除所有 Token 相关存储与上下文。 |"
 
 > 当前 Token 存储在 `localStorage`，需通过严格的 Content Security Policy 和 XSS 审查减少泄露风险；后续如切换到 Cookie + HttpOnly，请同步更新此文档。
 

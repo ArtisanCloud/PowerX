@@ -6,11 +6,11 @@
 
 ## 1. 架构概览
 
-- **登录端点**：`useAuthService().login()` 调用 `/admin/user/auth/login`（`app/composables/api/services/authService.ts:210`）。  
-- **状态持久化**：`useAuth()` 将 `access_token`、`refresh_token`、`expires_at` 等写入 `localStorage`，并通过 `useState` 保持运行时状态（`app/composables/useAuth.ts:6`）。  
-- **路由守卫**：`app/middleware/auth.ts:1` 在客户端校验 Token，并在过期时重定向至 `/users/login?redirect=...`。  
-- **用户上下文**：登录成功后调用 `useUserStore().fetchUserContext()` 以获取租户、成员、权限信息（`app/stores/user.ts:55`）。  
-- **全局请求**：`useApiClient` 拦截器在每个请求中加入 `Authorization` 头（`app/composables/api/index.ts:37`）。
+- **登录端点**：`useAuthService().login()` 调用 `/admin/user/auth/login`（`app/composables/api/services/authService.ts: "210`）。"
+- **状态持久化**：`useAuth()` 将 `access_token`、`refresh_token`、`expires_at` 等写入 `localStorage`，并通过 `useState` 保持运行时状态（`app/composables/useAuth.ts: "6`）。"
+- **路由守卫**：`app/middleware/auth.ts: "1` 在客户端校验 Token，并在过期时重定向至 `/users/login?redirect=...`。"
+- **用户上下文**：登录成功后调用 `useUserStore().fetchUserContext()` 以获取租户、成员、权限信息（`app/stores/user.ts: "55`）。"
+- **全局请求**：`useApiClient` 拦截器在每个请求中加入 `Authorization` 头（`app/composables/api/index.ts: "37`）。"
 
 > 当前实现为“Password Grant + Refresh Token” 模式，尚未与外部 IdP 联动；以下流程为后续对接 OIDC 做铺垫。
 

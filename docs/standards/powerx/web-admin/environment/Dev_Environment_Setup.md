@@ -11,7 +11,7 @@
 - 克隆仓库后执行 `npm install`，完成 Nuxt 预处理（自动触发 `nuxt prepare`）。
 - 根据 `.env.example` 创建 `.env`，至少填入 `UPSTREAM` 与 `WS_UPSTREAM`。
 - 启动热更新服务器：`npm run dev`（默认端口 `3000`）。
-- 功能开发或文档更新后，必要的验证流程：打开 `http://localhost:3000` → 登录/切换语言 → 访问 Agent、插件市场、仪表盘。
+- 功能开发或文档更新后，必要的验证流程：打开 `http: "//localhost:3000` → 登录/切换语言 → 访问 Agent、插件市场、仪表盘。"
 
 ---
 

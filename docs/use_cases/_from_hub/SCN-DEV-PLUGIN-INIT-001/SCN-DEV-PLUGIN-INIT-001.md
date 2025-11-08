@@ -1,3 +1,4 @@
+---
 scn_id: SCN-DEV-PLUGIN-INIT-001
 title: 插件创建与工程初始化主场景
 status: Draft
@@ -32,7 +33,7 @@ last_reviewed_at: 2025-11-20
 
 ---
 
-# Executive Summary
+# Positioning & Goals
 
 该主场景梳理 PowerX 插件从「零开始到可协作开发」的全链路，包括 CLI 模板初始化、团队协作克隆与第三方源码导入。平台需在 1 分钟内完成标准工程生成，自动安装基础依赖、写入配置，并为团队提供一致的目录结构与规范。通过内置的许可证与安全扫描、Git 仓库注册与审计留痕，确保即使引入外部源码也能满足合规要求并快速进入版本管理、CI/CD 与质量基线。
 
@@ -42,6 +43,12 @@ last_reviewed_at: 2025-11-20
 - **Out of Scope**：插件功能开发与调试、发布与上架流程、运行时安装/启停治理、Marketplace 审核及计费。
 - **Environment & Flags**：`PX_PLUGIN_SCAFFOLD_V2`、`plugin-import-audit`、`gitops-bootstrap`；依赖模板仓、许可证扫描服务、内网 GitLab/GitHub、审计日志总线。
 
+# Core Capabilities
+
+1. **Scaffold & Template Engine**：`powerx plugin init` 统一生成目录结构、manifest、权限模板与示例代码，自动安装依赖并提供多语言锁定策略。
+2. **Bootstrap Services & Compliance Guardrails**：后台服务负责 `POST /internal/plugins/bootstrap/validate`、许可证/漏洞扫描与 Git 仓注册，确保初始化与第三方导入可追溯、可审批。
+3. **Team Clone & Environment Doctor**：`powerx plugin doctor` 提供环境诊断、依赖校验与团队协作指南，结合审计日志快速把插件交付到多成员协作状态。
+
 # Participants & Responsibilities
 
 | Scope | Repository | Layer | 责任与交付物 | Owners |
@@ -50,12 +57,14 @@ last_reviewed_at: 2025-11-20
 | core-platform | powerx | service | 初始化向导、仓库注册、CI/CD 引导、团队协同提示 | Michael Hu（Plugin Tech Lead / tech@artisan-cloud.com） |
 | security | powerx | security | 许可证与依赖扫描、第三方源码审计、风险豁免流程与落库 | Grace Lin（Security & Compliance Lead / compliance@artisan-cloud.com） |
 
-# End-to-End Flow
+# Validation Workflow
 
 1. **Stage 1 – 模板发现与参数收集**：开发者登录 CLI，选择插件类型、运行时语言与能力包，系统校验 CLI 版本、模板可用性及租户权限。
 2. **Stage 2 – 工程生成与依赖安装**：CLI 拉取模板、生成目录结构、写入 manifest/权限声明、执行依赖安装并生成初始分支。
 3. **Stage 3 – 合规校验与仓库注册**：初始化服务触发许可证/安全扫描，生成报告并登记 Git 仓库、创建默认流水线与基础守护任务。
 4. **Stage 4 – 团队协作与第三方导入**：团队成员运行 `plugin doctor` 获取环境检查，企业技术组导入外部源码包、复用扫描报告并完成适配。
+
+# Architecture Diagram
 
 ```mermaid
 sequenceDiagram
@@ -80,11 +89,15 @@ sequenceDiagram
 - **Configs / Schemas**：`docs/standards/powerx-plugin/lifecycle/manifest-mapping.md`、`config/plugins/templates/index.yaml`、`config/compliance/external_source_policy.yaml`。
 - **Security / Compliance**：CLI 强制校验版本与签名；许可证扫描拦截高危依赖；第三方源码导入要求审批与审计日志；Git 注册需最小权限访问令牌。
 
-# Usecase Links
+# Related Links
 
 - `UC-DEV-PLUGIN-CLI-INIT-001` — 开发者通过 CLI 生成标准插件工程并接入 Git。
 - `UC-DEV-PLUGIN-TEAM-CLONE-001` — 团队成员克隆现有项目并完成环境健康检查。
 - `UC-DEV-PLUGIN-THIRD-PARTY-IMPORT-001` — 企业导入第三方源码包并完成合规适配。
+- 设计稿：`docs/meta/scenarios/powerx/plugin-ecosystem/plugin-lifecycle/plugin-create-and-init/primary.md`
+- 模板映射：`docs/standards/powerx-plugin/lifecycle/manifest-mapping.md`
+- 安全清单：`docs/standards/powerx-plugin/integration/04_security_and_compliance/Plugin_Security_Checklist.md`
+- 故障排查：`docs/standards/powerx-plugin/integration/08_dev_console_and_ui/Common_Tasks_and_Troubleshooting.md`
 
 # Acceptance Criteria
 
@@ -104,10 +117,3 @@ sequenceDiagram
 |-----------|----------|--------|-----|
 | 模板库多语言依赖锁定不一致，易导致初始化失败 | 跨语言模板 | Michael Hu | 2025-12-05 |
 | 第三方源码扫描报告缺乏自动豁免同步，需要手动补录 | 合规审计 | Grace Lin | 2025-12-12 |
-
-# Appendix
-
-- `docs/meta/scenarios/powerx/plugin-ecosystem/plugin-lifecycle/plugin-create-and-init/primary.md`
-- `docs/standards/powerx-plugin/lifecycle/manifest-mapping.md`
-- `docs/standards/powerx-plugin/integration/04_security_and_compliance/Plugin_Security_Checklist.md`
-- `docs/standards/powerx-plugin/integration/08_dev_console_and_ui/Common_Tasks_and_Troubleshooting.md`

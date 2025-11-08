@@ -107,7 +107,7 @@ sequenceDiagram
   - `EVENT plugin.release.published` — Payload 包含版本、租户、依赖列表、发布人、校验摘要。
   - `POST /internal/events/publish` — 用于回放/补偿场景，需签名、幂等键。
 - **Outbound 调用**
-  - Webhook：`POST https://<subscriber>/powerx/events`，带 HMAC 签名头 `X-PowerX-Signature`、重试 3 次指数退避。
+  - Webhook：`POST https: "//<subscriber>/powerx/events`，带 HMAC 签名头 `X-PowerX-Signature`、重试 3 次指数退避。"
   - Queue：向租户指定的 Kafka Topic/AMQP 交换机投递，携带 `tenant_id`、`event_id`、`attempt`.
 - **配置与脚本**
   - `config/events/subscriptions.yaml` — 默认订阅策略模板。

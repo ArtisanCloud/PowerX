@@ -1,3 +1,4 @@
+---
 scn_id: SCN-DEV-PLUGIN-PUBLISH-001
 title: 插件发布与上架主场景
 status: Draft
@@ -47,10 +48,9 @@ related_usecases:
     layer: marketplace
     domain: dev
 last_reviewed_at: 2025-11-20
-
 ---
 
-# Executive Summary
+# Positioning & Goals
 
 该主场景串联插件从测试验证、审批签核、离线包发放、生产灰度到 Marketplace 上架的全链路，并补充开发者本地调试的预发布环节，确保不同交付通道共享统一的版本、签名与审计基线。目标是在 24 小时内完成测试与审批闭环、10 分钟内完成隔离环境导入、灰度阶段能在 5 分钟内触发回滚，并让 Marketplace 审核在 3 个工作日内完成，辅以分钟级的本地迭代与离线包送审能力，上线过程全程可追踪、可回滚且满足合规要求。
 
@@ -59,6 +59,12 @@ last_reviewed_at: 2025-11-20
 - **In Scope**：测试租户验证与质量门禁、发布审批与窗口管理、制品签名与离线包生成、生产租户灰度发布、Marketplace 审核与上架同步。
 - **Out of Scope**：源码开发与调试、生产环境运行期的动态启停/升级、Marketplace 计费与结算策略、第三方渠道分发。
 - **Environment & Flags**：`plugin-release-pipeline`、`plugin-offline-distribution`、`plugin-gray-observability`、`marketplace-review-v2`；依赖 CI/CD 平台、制品仓库、签名服务、监控/日志平台、Marketplace 管理系统与合规审计库。
+
+# Core Capabilities
+
+1. **Release Pipeline & Governance**：PowerX 核心平台提供统一的发布流水线、审批规则、策略化灰度与自动回滚，串联测试租户、生产租户与指标采集。
+2. **Artifact Packaging & Distribution**：插件生态维护多通道制品（在线/离线）、签名证书与版本元数据，支持 `px-plugin pack/publish` 以及隔离环境导入。
+3. **Marketplace Review & Operations**：Marketplace 中心负责审核流程、元数据同步、订阅通知与运营报表，确保线上上架与离线送审共享同一审计基线。
 
 # Participants & Responsibilities
 
@@ -69,12 +75,14 @@ last_reviewed_at: 2025-11-20
 | marketplace | powerx-marketplace | marketplace | Marketplace 审核流程、元数据同步、订阅通知与初始报表 | Ivy Chen（Marketplace Operations Lead / marketplace@artisan-cloud.com） |
 | security | powerx | security | 签名证书托管、审批合规策略、审计日志与风控规则 | Grace Lin（Security & Compliance Lead / compliance@artisan-cloud.com） |
 
-# End-to-End Flow
+# Validation Workflow
 
 1. **Stage 1 – 测试租户验证与质量门禁**：开发者提交发布版本，流水线部署至测试租户并执行自动化测试、安全扫描、质量门禁与审批。
 2. **Stage 2 – 多通道制品交付**：系统生成签名制品与离线包，发布经理审核元数据，向在线与离线渠道同步版本信息与校验材料。
 3. **Stage 3 – 生产灰度与可观测**：CI/CD 推送至生产租户灰度分组，实时采集指标、日志与反馈，并依据预设策略决定扩容或回滚。
 4. **Stage 4 – Marketplace 审核与上架**：通过合规审核后同步 Marketplace 元数据、开启订阅通知并产出运营报表，与发布记录建立关联。
+
+# Architecture Diagram
 
 ```mermaid
 sequenceDiagram
@@ -99,7 +107,7 @@ sequenceDiagram
 - **Configs / Schemas**：`pipeline/plugin-release.yml`、`config/publish/offline_package.json`、`config/publish/approval_flows.yaml`、`docs/standards/powerx-plugin/integration/04_security_and_compliance/Plugin_Security_Checklist.md`.
 - **Security / Compliance**：制品签名与证书轮换、审批人多因子验证、审计日志 ≥ 180 天保留、Marketplace 元数据与发布版本一致性校验。
 
-# Usecase Links
+# Related Links
 
 - `UC-DEV-PLUGIN-RELEASE-APPROVAL-001` — 测试租户验证与审批闭环。
 - `UC-DEV-PLUGIN-OFFLINE-IMPORT-001` — 离线包生成与隔离环境导入。
@@ -108,6 +116,9 @@ sequenceDiagram
 - `UC-DEV-PLUGIN-LOCAL-DEBUG-001` — 开发者本地调试与快速迭代保障。
 - `UC-DEV-PLUGIN-OFFLINE-MARKETPLACE-001` — 离线包送审与 Marketplace 入库。
 - `UC-DEV-PLUGIN-ONLINE-PUBLISH-001` — 在线发布与 Marketplace 即时上架。
+- 设计稿：`docs/meta/scenarios/powerx/plugin-ecosystem/plugin-lifecycle/plugin-publish-and-release/primary.md`
+- 安全清单：`docs/standards/powerx-plugin/integration/04_security_and_compliance/Plugin_Security_Checklist.md`
+- 流水线样例：`pipeline/plugin-release.yml`
 
 # Acceptance Criteria
 
@@ -129,9 +140,3 @@ sequenceDiagram
 | 离线包依赖签名与证书更新节奏较慢，需要自动轮换与告警 | 隔离环境发布 | Michael Hu | 2025-12-15 |
 | 灰度指标对接第三方监控尚未统一，需补充标准化看板模板 | 生产可观测性 | Matrix Ops | 2025-12-10 |
 | Marketplace 审核材料模板需国际化版本 | 国际租户上线 | Ivy Chen | 2025-12-20 |
-
-# Appendix
-
-- `docs/meta/scenarios/powerx/plugin-ecosystem/plugin-lifecycle/plugin-publish-and-release/primary.md`
-- `docs/standards/powerx-plugin/integration/04_security_and_compliance/Plugin_Security_Checklist.md`
-- `pipeline/plugin-release.yml`

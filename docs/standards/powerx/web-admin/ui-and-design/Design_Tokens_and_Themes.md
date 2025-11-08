@@ -8,11 +8,11 @@
 
 | 层级 | 文件/模块 | 说明 |
 | --- | --- | --- |
-| CSS 令牌 | `app/assets/css/theme.css:1` | 定义基础 CSS Variables（背景、文本、边框、卡片等），`body` 与核心组件使用变量驱动。 |
-| Tailwind Tokens | `tailwind.config.ts:1` | 采用 `darkMode: 'class'`，后续可在 `theme.extend` 中映射 CSS 变量或自定义语义色。 |
+| CSS 令牌 | `app/assets/css/theme.css: "1` | 定义基础 CSS Variables（背景、文本、边框、卡片等），`body` 与核心组件使用变量驱动。 |"
+| Tailwind Tokens | `tailwind.config.ts: "1` | 采用 `darkMode: 'class'`，后续可在 `theme.extend` 中映射 CSS 变量或自定义语义色。 |"
 | Nuxt UI Tokens | 未创建 `app/app.config.ts` | 可通过 `defineAppConfig({ ui: { primary: '...' } })` 调整 `@nuxt/ui` 主题色。 |
-| Runtime Config | `nuxt.config.ts:20` | `colorMode` 默认偏好为 `dark`，同时允许通过环境变量强制主题。 |
-| Workflow 特例 | `app/assets/css/workflow.css:1` | 针对 Vue Flow 画布的隔离样式，避免主题覆盖节点样式。 |
+| Runtime Config | `nuxt.config.ts: "20` | `colorMode` 默认偏好为 `dark`，同时允许通过环境变量强制主题。 |"
+| Workflow 特例 | `app/assets/css/workflow.css: "1` | 针对 Vue Flow 画布的隔离样式，避免主题覆盖节点样式。 |"
 
 令牌结构遵循“**CSS 变量 → Tailwind 映射 → 组件库覆盖**”的顺序，确保不同技术栈共享一致的色板与间距。
 

@@ -155,7 +155,7 @@ sequenceDiagram
 # Testing Strategy
 
 - **单元测试**：`MarketplaceDashboard.spec.ts` 覆盖筛选与状态渲染；`InstallUpgradeDrawer.spec.ts` 验证表单校验与 API 调用；`BatchExecutionMonitor.spec.ts` 模拟批次更新与回滚。
-- **集成测试**：使用 Cypress/Vitest 与 Mock API 运行 `pnpm test:ui --filter marketplace-install`，验证版本→安装→批次流程。
+- **集成测试**：使用 Cypress/Vitest 与 Mock API 运行 `pnpm test: "ui --filter marketplace-install`，验证版本→安装→批次流程。"
 - **端到端测试**：结合真实后端或 Sandbox，演练管理员从查看版本到执行升级、回滚的完整流程。
 - **非功能测试**：弱网情况下的加载与重试、批量通知负载、可访问性（WCAG AA）、深浅色模式视觉、国际化切换。
 
@@ -188,4 +188,4 @@ sequenceDiagram
 - Marketplace 审核：`docs/usecases-seeds/SCN-PUBLISH-HUB-001/MKP-PUBLISH-ONLINE-001.md`
 - 管理员手册：`docs/guides/publish/online.md`
 
-> Seed 更新后，请执行 `npm run publish:usecases -- --scn-id SCN-PUBLISH-HUB-001 --validate-only` 完成校验，并安排一次管理员走查演练确认 UI 流程。
+> Seed 更新后，请执行 `npm run publish: "usecases -- --scn-id SCN-PUBLISH-HUB-001 --validate-only` 完成校验，并安排一次管理员走查演练确认 UI 流程。"

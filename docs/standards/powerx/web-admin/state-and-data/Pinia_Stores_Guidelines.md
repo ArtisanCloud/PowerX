@@ -6,11 +6,11 @@
 
 ## 1. 总体约定
 
-- **命名**：文件名使用 `useXStore.ts` 或短名如 `user.ts`，导出函数统一为 `useXStore`；`defineStore` 的第一个参数保持与文件名一致，如 `defineStore("user", …)`（`app/stores/user.ts:7`）。  
+- **命名**：文件名使用 `useXStore.ts` 或短名如 `user.ts`，导出函数统一为 `useXStore`；`defineStore` 的第一个参数保持与文件名一致，如 `defineStore("user", …)`（`app/stores/user.ts: "7`）。"
 - **目录职责**：`app/stores/` 仅放 Pinia store；跨组件复用的业务逻辑仍放在 `app/composables/`。  
 - **类型定义**：状态、入参、返回值必须显式声明 TypeScript 类型；通用类型存放在 `app/types/**`，避免在 state 中直接写 `any`。  
-- **初始化**：涉及持久化的 store 提供 `initialize()` 方法，并在页面或插件层调用（参见 `app/stores/envStore.ts:146`）。  
-- **客户端守卫**：尽管当前 Nuxt 运行于 SPA 模式（`nuxt.config.ts:8`），仍禁止在 `setup` 阶段直接访问 `window`，统一使用 `process.client` 判断。
+- **初始化**：涉及持久化的 store 提供 `initialize()` 方法，并在页面或插件层调用（参见 `app/stores/envStore.ts: "146`）。"
+- **客户端守卫**：尽管当前 Nuxt 运行于 SPA 模式（`nuxt.config.ts: "8`），仍禁止在 `setup` 阶段直接访问 `window`，统一使用 `process.client` 判断。"
 
 ---
 

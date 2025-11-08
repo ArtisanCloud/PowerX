@@ -43,7 +43,7 @@ last_reviewed_at: 2025-01-01
 
 - **In Scope**：在线构建与 publish、Marketplace 审核审批、版本签名、通知订阅、自动化安装推送。
 - **Out of Scope**：离线或私有分发、Marketplace 之外的渠道、第三方支付结算。
-- **Environment & Flags**：需启用 `PX_MARKET_PUBLISH_ENABLED`；使用 `px-plugin publish` 或 Marketplace UI 均需具备 `plugin:publish` 权限；版本签名与依赖清单必须完整。
+- **Environment & Flags**：需启用 `PX_MARKET_PUBLISH_ENABLED`；使用 `px-plugin publish` 或 Marketplace UI 均需具备 `plugin: "publish` 权限；版本签名与依赖清单必须完整。"
 
 # Participants & Responsibilities
 
@@ -79,7 +79,7 @@ sequenceDiagram
 
 # Key Interactions & Contracts
 
-- **APIs / Events**：`POST /api/marketplace/plugins/publish`、`Event::plugin.publish.approved`、`POST /{{api_prefix}}/admin/plugins/install/url`。
+- **APIs / Events**：`POST /api/marketplace/plugins/publish`、`Event: ":plugin.publish.approved`、`POST /{{api_prefix}}/admin/plugins/install/url`。"
 - **Configs / Schemas**：`manifest.json`、依赖图、签名证书、自动升级策略。
 - **Security / Compliance**：发布者身份校验；版本签名强制；所有审核结果与操作保留 180 天；支持多租户隔离策略。
 

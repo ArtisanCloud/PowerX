@@ -168,4 +168,4 @@ sequenceDiagram
 - 运维脚本：`scripts/ops/token-rotation.sh`、`scripts/ops/revoke-token.sh`
 - 标准参考：`docs/standards/security/api-token-governance.md`
 
-> 完成 Seed 后，请运行 `npm run publish:usecases -- --scn-id SCN-IAM-LOGIN-AUTH-001 --validate-only` 校验结构，再按流程分发到下游仓库。
+> 完成 Seed 后，请运行 `npm run publish: "usecases -- --scn-id SCN-IAM-LOGIN-AUTH-001 --validate-only` 校验结构，再按流程分发到下游仓库。"
