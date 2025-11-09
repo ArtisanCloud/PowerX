@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gin-gonic/gin"
-
 	registry "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/registry"
+	"github.com/ArtisanCloud/PowerX/pkg/dto"
+	"github.com/gin-gonic/gin"
 )
 
 // AdminHandlerOptions 注入 HTTP Handler 依赖。
@@ -34,7 +34,7 @@ func NewAdminHandler(opts AdminHandlerOptions) *AdminHandler {
 func (h *AdminHandler) CreateCapability(c *gin.Context) {
 	var req registrationRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, errorResponse("registry.invalid_request", err.Error()))
+		dto.ResponseError(c, http.StatusBadRequest, "registry.invalid_request", err)
 		return
 	}
 	actor := c.GetHeader("X-Actor-ID")
@@ -48,7 +48,7 @@ func (h *AdminHandler) CreateCapability(c *gin.Context) {
 		return
 	}
 	setETag(c, res.Version)
-	c.JSON(http.StatusCreated, registrationSummary(res))
+	dto.ResponseSuccessWithStatus(c, http.StatusCreated, registrationSummary(res))
 }
 
 func (h *AdminHandler) GetCapability(c *gin.Context) {
@@ -69,13 +69,13 @@ func (h *AdminHandler) GetCapability(c *gin.Context) {
 		return
 	}
 	setETag(c, res.Version)
-	c.JSON(http.StatusOK, registrationDetail(res))
+	dto.ResponseSuccess(c, registrationDetail(res))
 }
 
 func (h *AdminHandler) UpdateCapability(c *gin.Context) {
 	var req registrationRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, errorResponse("registry.invalid_request", err.Error()))
+		dto.ResponseError(c, http.StatusBadRequest, "registry.invalid_request", err)
 		return
 	}
 	capabilityID := c.Param("capabilityId")
@@ -95,7 +95,7 @@ func (h *AdminHandler) UpdateCapability(c *gin.Context) {
 		}
 	}
 	if req.Version == nil {
-		c.JSON(http.StatusPreconditionFailed, errorResponse("registry.version_required", "version header missing"))
+		dto.ResponseError(c, http.StatusPreconditionFailed, "registry.version_required", nil)
 		return
 	}
 
@@ -112,7 +112,7 @@ func (h *AdminHandler) UpdateCapability(c *gin.Context) {
 		return
 	}
 	setETag(c, res.Version)
-	c.JSON(http.StatusOK, registrationSummary(res))
+	dto.ResponseSuccess(c, registrationSummary(res))
 }
 
 func (h *AdminHandler) DisableCapability(c *gin.Context) {
@@ -120,7 +120,7 @@ func (h *AdminHandler) DisableCapability(c *gin.Context) {
 	tenantID := c.Param("tenantId")
 	var req disableRequest
 	if err := c.ShouldBindJSON(&req); err != nil && !errors.Is(err, io.EOF) {
-		c.JSON(http.StatusBadRequest, errorResponse("registry.invalid_request", err.Error()))
+		dto.ResponseError(c, http.StatusBadRequest, "registry.invalid_request", err)
 		return
 	}
 	ifMatch := c.GetHeader("If-Match")
@@ -145,19 +145,19 @@ func (h *AdminHandler) DisableCapability(c *gin.Context) {
 		return
 	}
 	setETag(c, res.Version)
-	c.JSON(http.StatusAccepted, registrationSummary(res))
+	dto.ResponseSuccessWithStatus(c, http.StatusAccepted, registrationSummary(res))
 }
 
 func (h *AdminHandler) handleError(c *gin.Context, err error) {
 	switch {
 	case errorsIs(err, registry.ErrRegistrationNotFound):
-		c.JSON(http.StatusNotFound, errorResponse("registry.not_found", err.Error()))
+		respondRegistryError(c, http.StatusNotFound, "registry.not_found", err)
 	case errorsIs(err, registry.ErrVersionConflict):
-		c.JSON(http.StatusPreconditionFailed, errorResponse("registry.version_conflict", err.Error()))
+		respondRegistryError(c, http.StatusPreconditionFailed, "registry.version_conflict", err)
 	case errorsIs(err, registry.ErrInvalidPayload):
-		c.JSON(http.StatusUnprocessableEntity, errorResponse("registry.invalid_payload", err.Error()))
+		respondRegistryError(c, http.StatusUnprocessableEntity, "registry.invalid_payload", err)
 	default:
-		c.JSON(http.StatusInternalServerError, errorResponse("registry.internal_error", err.Error()))
+		respondRegistryError(c, http.StatusInternalServerError, "registry.internal_error", err)
 	}
 }
 
@@ -236,11 +236,8 @@ func registrationDetail(reg registry.Registration) gin.H {
 	return response
 }
 
-func errorResponse(code, message string) gin.H {
-	return gin.H{
-		"code":    code,
-		"message": message,
-	}
+func respondRegistryError(c *gin.Context, status int, code string, err error) {
+	dto.ResponseErrorWithDetails(c, status, code, err, map[string]interface{}{"code": code})
 }
 
 func setETag(c *gin.Context, version uint64) {

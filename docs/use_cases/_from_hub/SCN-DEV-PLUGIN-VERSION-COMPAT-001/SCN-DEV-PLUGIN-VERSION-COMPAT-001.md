@@ -91,7 +91,7 @@ sequenceDiagram
 
 # Key Interactions & Contracts
 
-- **APIs / Events**：`powerx version scan`、`POST /internal/version/governance/scan`、`powerx plugin upgrade --strategy policy`、`POST /internal/version/upgrade/rollback`、`POST /internal/version/compat/check`、`EVENT plugin.version.alert`.
+- **APIs / Events**：`px version scan`、`POST /internal/version/governance/scan`、`px plugin upgrade --strategy policy`、`POST /internal/version/upgrade/rollback`、`POST /internal/version/compat/check`、`EVENT plugin.version.alert`.
 - **Configs / Schemas**：`config/version/governance_rules.yaml`、`config/version/upgrade_policies.yaml`、`config/version/compat_matrix.yaml`、`docs/standards/powerx-plugin/release/Versioning_Guidelines.md`.
 - **Security / Compliance**：兼容性阻断默认启用；例外审批需多因子校验并记录审批号；版本与回滚操作保留 ≥ 365 天审计记录；跨租户策略需遵循租户隔离与权限控制。
 

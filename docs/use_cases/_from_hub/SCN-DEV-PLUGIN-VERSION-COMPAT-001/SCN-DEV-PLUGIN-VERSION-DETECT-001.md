@@ -67,7 +67,7 @@ sequenceDiagram
 
 # Key Interactions & Contracts
 
-- **APIs / Events**：`powerx version scan`、`POST /internal/version/governance/scan`、`EVENT plugin.version.alert`、`POST /internal/version/governance/decision`.
+- **APIs / Events**：`px version scan`、`POST /internal/version/governance/scan`、`EVENT plugin.version.alert`、`POST /internal/version/governance/decision`.
 - **Configs / Schemas**：`config/version/governance_rules.yaml`、`config/version/notification_templates.yaml`、`docs/standards/powerx-plugin/release/Versioning_Guidelines.md`.
 - **Security / Compliance**：扫描结果涉及租户插件信息需遵守租户隔离；管理员操作需审计，通知中隐藏敏感依赖信息。
 

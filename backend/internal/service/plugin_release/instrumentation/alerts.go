@@ -36,7 +36,7 @@ func BuildDefaultAlertSuite(prefix string, rollbackSLA, importSLA time.Duration)
 			Duration: 1 * time.Minute,
 			Severity: "critical",
 			Summary:  "Canary auto rollback triggered",
-			Description: fmt.Sprintf("A canary batch exceeded error thresholds or rollback duration > %s. Investigate powerx publish deploy events and Prometheus dashboard.",
+			Description: fmt.Sprintf("A canary batch exceeded error thresholds or rollback duration > %s. Investigate px publish deploy events and Prometheus dashboard.",
 				rollbackSLA),
 			Labels: map[string]string{
 				"dashboard": "plugin-release",

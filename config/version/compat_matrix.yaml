@@ -1,0 +1,32 @@
+# Compatibility matrix derived from SCN-DEV-PLUGIN-VERSION-COMPAT-001.
+#
+# host: PowerX host manifest or runtime identifier
+# plugin: plugin ID or glob pattern
+# min_version/max_version: inclusive semantic versions supported by the host
+# action: allow/block/warn (warn keeps going but raises alerts)
+# notes: free-form text shown in CLI/UI
+matrix:
+  - host: px.host.v1
+    plugin: com.powerx.demo
+    min_version: 1.0.0
+    max_version: 1.2.5
+    action: allow
+    notes: "Demo plugin validated against host v1.x"
+  - host: px.host.v1
+    plugin: "*"
+    min_version: 0.0.0
+    max_version: 0.9.99
+    action: warn
+    notes: "Legacy runtime supported with reduced SLA — requires exception ticket"
+  - host: px.host.v2
+    plugin: "*"
+    min_version: 2.0.0
+    max_version: 2.99.99
+    action: allow
+    notes: "Default policy for new host baseline"
+  - host: px.host.v2
+    plugin: com.powerx.legacy
+    min_version: 1.0.0
+    max_version: 1.5.0
+    action: block
+    notes: "Legacy plugin blocked on host v2 due to schema mismatch"

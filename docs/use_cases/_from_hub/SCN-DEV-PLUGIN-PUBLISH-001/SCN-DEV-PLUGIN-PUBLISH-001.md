@@ -92,7 +92,7 @@ sequenceDiagram
   participant Ops as 发布经理
   participant Marketplace as Marketplace 审核
 
-  Dev->>CI: powerx publish create
+  Dev->>CI: px publish create
   CI-->>QA: 测试与扫描报告
   QA->>Ops: 审批发布窗口
   Ops->>CI: 生成制品/触发部署
@@ -103,7 +103,7 @@ sequenceDiagram
 
 # Key Interactions & Contracts
 
-- **APIs / Events**：`px-plugin build`、`powerx publish create`、`powerx plugin import --offline`、`powerx publish deploy --strategy canary`、`px-plugin pack`、`px-plugin publish`、`POST /marketplace/listing/apply`、`EVENT publish.gray.alert`、`EVENT marketplace.listing.status`.
+- **APIs / Events**：`px-plugin build`、`px publish create`、`px plugin import --offline`、`px publish deploy --strategy canary`、`px-plugin pack`、`px-plugin publish`、`POST /marketplace/listing/apply`、`EVENT publish.gray.alert`、`EVENT marketplace.listing.status`.
 - **Configs / Schemas**：`pipeline/plugin-release.yml`、`config/publish/offline_package.json`、`config/publish/approval_flows.yaml`、`docs/standards/powerx-plugin/integration/04_security_and_compliance/Plugin_Security_Checklist.md`.
 - **Security / Compliance**：制品签名与证书轮换、审批人多因子验证、审计日志 ≥ 180 天保留、Marketplace 元数据与发布版本一致性校验。
 

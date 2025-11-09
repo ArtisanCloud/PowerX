@@ -1,0 +1,40 @@
+# Upgrade policy templates consumed by release orchestrator & governance board.
+policies:
+  safe-rollout:
+    description: "3-stage rollout with health checks and auto rollback"
+    batches:
+      - name: canary
+        percentage: 5
+        soak_minutes: 30
+        metrics:
+          - debug.hot_reload.duration_ms
+          - sandbox.test.pass_rate
+      - name: wave-1
+        percentage: 30
+        soak_minutes: 60
+      - name: wave-2
+        percentage: 65
+        soak_minutes: 120
+    rollback_thresholds:
+      error_rate: 5
+      latency_ms: 200
+  express:
+    description: "Single batch rollout for emergency fixes"
+    batches:
+      - name: express
+        percentage: 100
+        soak_minutes: 15
+    rollback_thresholds:
+      error_rate: 2
+      latency_ms: 150
+
+approvals:
+  default:
+    required_roles:
+      - system_admin
+      - role_admin
+    max_pending_minutes: 60
+  finance:
+    required_roles:
+      - finance_release_lead
+      - compliance

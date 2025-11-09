@@ -3,7 +3,7 @@
 本指南基于 `specs/009-install-plugin-pxp` 的交付内容，串联开发者、审核员、运维和租户管理员在现实场景中的操作步骤。按照顺序执行即可完成从本地调试到多渠道分发的整条流水线。
 
 ## 0. 角色及工具准备
-- **开发者**：安装 `px-plugin` 与 `powerx` CLI。
+- **开发者**：安装 `px-plugin` 与 `px` CLI。
 - **发布经理 / 审核员**：具备 Admin API Token。
 - **运维**：掌握 Prometheus/Grafana、对象存储访问权限。
 - **企业租户管理员**：拥有离线导入权限。
@@ -22,9 +22,9 @@
 3. 可用 `GET /api/tenant/plugin-release/local/sessions/:id` 查询热更新状态，日志将同步到 `plugin_release.hotload.latency_ms`。
 
 ## 2. 提交候选与审批（Phase 4，T032-T040）
-1. 使用 `powerx publish create` 提交候选：
+1. 使用 `px publish create` 提交候选：
    ```bash
-   powerx publish create \
+   px publish create \
      --tenant-id tenant-dev \
      --plugin-id px.demo \
      --version v1.2.3 \
@@ -42,7 +42,7 @@
 ## 3. 灰度部署与回滚（Phase 5，T041-T049）
 1. 生成计划后，使用 CLI 触发灰度：
    ```bash
-   powerx publish deploy \
+   px publish deploy \
      --plan-id <plan-id> \
      --batch-name batch-a \
      --final-action promote
@@ -97,7 +97,7 @@ PowerX Web Admin 提供了完整的图形化操作界面，操作步骤更直观
 1. 开发者上传离线包：
 
    ```bash
-   powerx publish package \
+   px publish package \
      --offline \
      --candidate-id <uuid> \
      --artifact ./dist/plugin-release.pxp \
@@ -110,7 +110,7 @@ PowerX Web Admin 提供了完整的图形化操作界面，操作步骤更直观
    - `POST /api/admin/plugin-release/marketplace/listings/:id/reviews`
 
 3. 企业租户自助导入：
-   - CLI：`powerx plugin import --offline --tenant-id <tid> --package-uri <uri> --checksum <sha>`
+   - CLI：`px plugin import --offline --tenant-id <tid> --package-uri <uri> --checksum <sha>`
    - OpenAPI：`POST /api/tenant/offline-imports`
 
 ### 4.3 部署菜单配置

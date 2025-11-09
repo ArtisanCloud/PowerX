@@ -69,7 +69,7 @@ sequenceDiagram
 
 # Key Interactions & Contracts
 
-- **APIs / Events**：`powerx publish deploy --strategy canary`、`POST /internal/publish/phase/{canary,full}`、`POST /internal/publish/rollback`、`EVENT publish.gray.alert`、`EVENT publish.gray.completed`.
+- **APIs / Events**：`px publish deploy --strategy canary`、`POST /internal/publish/phase/{canary,full}`、`POST /internal/publish/rollback`、`EVENT publish.gray.alert`、`EVENT publish.gray.completed`.
 - **Configs / Schemas**：`config/publish/canary_strategy.yaml`、`config/monitoring/publish_dashboards.json`、`docs/standards/powerx-plugin/integration/08_dev_console_and_ui/Common_Tasks_and_Troubleshooting.md`.
 - **Security / Compliance**：发布指令需审批令牌；回滚操作全程审计；灰度期间需记录访问日志与指标数据，确保数据留存 ≥180 天。
 

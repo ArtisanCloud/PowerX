@@ -28,7 +28,7 @@ last_reviewed_at: 2025-11-20
 
 # Executive Summary
 
-该子场景描述开发者在命令行通过 `powerx plugin init` 选择模板、生成标准工程、完成依赖安装与 Git 注册的端到端体验。流程需在 1 分钟内完成目录结构、manifest、权限声明、测试样例与 CI 配置生成，并同步触发许可证与漏洞扫描。成功执行后，开发者立即获得可推送至远程仓库的基础工程，具备统一的 lint/test 配置与审计记录。
+该子场景描述开发者在命令行通过 `px plugin init` 选择模板、生成标准工程、完成依赖安装与 Git 注册的端到端体验。流程需在 1 分钟内完成目录结构、manifest、权限声明、测试样例与 CI 配置生成，并同步触发许可证与漏洞扫描。成功执行后，开发者立即获得可推送至远程仓库的基础工程，具备统一的 lint/test 配置与审计记录。
 
 # Scope & Guardrails
 
@@ -46,7 +46,7 @@ last_reviewed_at: 2025-11-20
 
 # End-to-End Flow
 
-1. **Stage 1 – CLI 环境校验**：开发者执行 `powerx plugin init`，CLI 检测本地版本、模板索引与凭据有效性。
+1. **Stage 1 – CLI 环境校验**：开发者执行 `px plugin init`，CLI 检测本地版本、模板索引与凭据有效性。
 2. **Stage 2 – 模板选择与工程生成**：CLI 根据选择的语言与能力拉取模板，生成目录结构、配置文件、示例代码与脚本。
 3. **Stage 3 – 依赖安装与扫描**：自动执行依赖安装、触发许可证/漏洞扫描并返回报告，提示潜在风险与修复建议。
 4. **Stage 4 – Git 注册与首个提交**：CLI 初始化 Git 仓库、创建首个提交并调用平台 API 注册远程仓，生成 CI 配置与初始分支。
@@ -59,7 +59,7 @@ sequenceDiagram
   participant Scanner as 合规扫描
   participant Git as Git 服务
 
-  Dev->>CLI: powerx plugin init --template react-dashboard
+  Dev->>CLI: px plugin init --template react-dashboard
   CLI->>Template: 拉取模板与依赖清单
   Template-->>CLI: 返回骨架与脚本
   CLI->>Scanner: 提交 manifest 与依赖列表
@@ -70,7 +70,7 @@ sequenceDiagram
 
 # Key Interactions & Contracts
 
-- **APIs / Events**：`powerx plugin init <template>`、`powerx plugin init --check`、`POST /internal/plugins/bootstrap/validate`、`POST /internal/compliance/licensescan`、`POST /internal/git/register`。
+- **APIs / Events**：`px plugin init <template>`、`px plugin init --check`、`POST /internal/plugins/bootstrap/validate`、`POST /internal/compliance/licensescan`、`POST /internal/git/register`。
 - **Configs / Schemas**：`config/plugins/templates/index.yaml`、`docs/standards/powerx-plugin/lifecycle/manifest-mapping.md`、`.powerxci/pipeline.yaml`。
 - **Security / Compliance**：CLI 需进行 HMAC 签名验证；扫描阻断高危依赖；Git 注册强制最小权限 PAT；审计事件写入 `audit.plugin.bootstrap`。
 

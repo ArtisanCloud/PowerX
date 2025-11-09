@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -177,7 +178,7 @@ func (m *managerImpl) runPluginMigrate(ctx context.Context, desc Descriptor, opt
 		}
 		return record, plugin_mgr.Wrap(
 			plugin_mgr.CodeMigrationFailed,
-			fmt.Errorf(detail),
+			errors.New(detail),
 			plugin_mgr.WithOp("run_plugin_migrate"),
 			plugin_mgr.WithPlugin(desc.Manifest.ID),
 			plugin_mgr.WithVersion(desc.Manifest.Version),

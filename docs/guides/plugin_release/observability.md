@@ -49,7 +49,7 @@
              dashboard: plugin-release
            annotations:
              summary: Canary rollback triggered
-             description: "请检查 powerx publish deploy 的日志与指标。"
+             description: "请检查 px publish deploy 的日志与指标。"
    ```
 
 2. 使用 `kubectl apply -f alerts.yaml` 或 Alertmanager CI 流水线将规则部署到集群。
@@ -91,7 +91,7 @@ PowerX Web Admin 集成了实时指标展示，便于运维人员快速了解系
 - **UI Error Rate**：Web Admin 页面错误率（加载失败、API超时等）
 
 ## 第 4 步：演练与 Runbook
-1. 执行一次示例灰度：`powerx publish deploy --plan-id <id> --batch-name batch-a`。
+1. 执行一次示例灰度：`px publish deploy --plan-id <id> --batch-name batch-a`。
 2. 检查仪表盘是否即时刷新：Local Hotload Latency p95 应低于 15 分钟，Canary Rollback Count 在回滚时递增。
 3. 如告警触发，按照仪表盘中的链接跳转到 `specs/009-install-plugin-pxp/quickstart.md` 第 5 节查阅回滚指令，同时参考 `backend/internal/service/plugin_release/*/audit_hooks.go` 中的审计记录。
 4. 将 Grafana 链接与告警结果写入 `backend/reports/plugin_release/dry_run.md`，便于后续审计追踪。

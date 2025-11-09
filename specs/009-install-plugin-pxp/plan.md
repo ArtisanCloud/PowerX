@@ -5,7 +5,7 @@
 
 ## Summary
 
-交付一个 CoreX `plugin_release` 模块（domain：`corex.plugin_release`，随 CoreX 一体交付），串起本地构建 (`px-plugin build/dev`)、测试租户流水线、审批计划、灰度/全量部署与 Marketplace 多渠道上架。技术方案：以 Postgres + GORM 建立 Release Candidate/Plan/OfflinePackage 模型，复用 Gin/gRPC 双入口承载审批与执行指令，CLI (`powerx publish/package/import`) 通过 gRPC 调度流水线，Prometheus + Grafana 观测栈输出 5 分钟内的异常告警，离线包落盘到现有对象存储并携带签名/指纹元数据。
+交付一个 CoreX `plugin_release` 模块（domain：`corex.plugin_release`，随 CoreX 一体交付），串起本地构建 (`px-plugin build/dev`)、测试租户流水线、审批计划、灰度/全量部署与 Marketplace 多渠道上架。技术方案：以 Postgres + GORM 建立 Release Candidate/Plan/OfflinePackage 模型，复用 Gin/gRPC 双入口承载审批与执行指令，CLI (`px publish/package/import`) 通过 gRPC 调度流水线，Prometheus + Grafana 观测栈输出 5 分钟内的异常告警，离线包落盘到现有对象存储并携带签名/指纹元数据。
 
 ## Technical Context
 
@@ -76,7 +76,7 @@ backend/
 │   └── canary_record.go
 ├── pkg/corex/db/persistence/repository/plugin_release/
 │   └── *.go                      # 继承 BaseRepository
-├── cmd/powerx/commands/publish/  # `powerx publish/package/import` 子命令
+├── cmd/px/commands/publish/      # `px publish/package/import` 子命令
 ├── cmd/database/migrate.go       # 注册 AutoMigrate 钩子
 ├── config/schema/plugin_release.yaml  # Feature gate & 默认阈值
 ├── tests/contract/plugin_release/http|grpc/
@@ -106,6 +106,51 @@ web-admin/
 - **API Client**: `$fetch` + 全局拦截器，统一注入 Authorization header、处理错误 toast
 - **Routing**: `/admin/plugin-release/offline-packages`、`/admin/plugin-release/marketplace`、`/admin/plugin-release/marketplace/:id`
 - **Error Handling**: 全局 error handler + toast，展示 audit reference；页面提供 loading skeleton 与局部 Spin
+
+## Additional Workstreams from New Usecases
+
+### Workstream A – Developer Bootstrap & Third-party Import (SCN-DEV-PLUGIN-INIT-001)
+
+1. **Template Registry & CLI Integration**
+   - Extend `powerx-plugin` template index + lockfiles (`powerx-plugin/templates/*`, mirrored到 `config/plugins/templates/index.yaml`)，暴露 `px plugin init --template <id>` 选择器。
+   - Backend 提供 `POST /internal/plugins/bootstrap/validate`（新建 `backend/internal/service/plugin_bootstrap`），校验 manifest、权限模板、CLI 版本与租户配额。
+   - CLI 侧（`px-plugin/cmd/init`）串联模板拉取、依赖安装、Git 注册（调用 `POST /internal/git/register`），落地 FR-014。
+2. **Team Clone & Environment Doctor**
+   - 新增 `plugin doctor` 子命令（`px-plugin/cmd/doctor`）+ `backend/internal/service/plugin_bootstrap/doctor.go`，读取 `.powerxci/onboarding.yaml` 校验多语言运行时、env 模板、pre-commit。
+   - 将校验结果写入 `audit.plugin.bootstrap` 表，失败时返回 machine-readable JSON 供 CLI 展示 & VS Code 扩展消费，覆盖 FR-015。
+3. **Third-party Import & Compliance Guardrail**
+   - 在 `backend/internal/service/plugin_import` 建立上传、解包、扫描流程；依赖现有合规微服务或通过 `internal/service/security` 包装 `licensescan`、`vulnscan` gRPC。
+   - 生成 `ImportRiskReport`（存于 `pkg/corex/db/persistence/model/plugin_import`），并在审批通过后调用 `POST /internal/git/register` + 模板适配脚本（复用 `powerx-plugin/scaffold`），满足 FR-016。
+
+### Workstream B – Rapid Debug, Diagnostics & Sandbox Validation (SCN-DEV-PLUGIN-DEBUG-001)
+
+1. **Host Simulator & Hot Reload**
+   - 引入 `backend/internal/service/plugin_debug/host`（守护宿主模拟器生命周期）与 CLI `px host start --mock`，通过 gRPC `plugin_debug.HostService` 与本地 watcher 通信，确保热更新 <2s（FR-017），同时在 OTel 中记录 `debug.hot_reload.*`/`debug.host.version_mismatch_total`。
+   - 维护 `config/plugins/debug/host_simulator.yaml` + `PX_PLUGIN_HOST_SIMULATOR` flag，在 Mac/Win/Linux 预编译模拟器镜像。
+2. **Diagnostics & Error Reporting**
+   - 构建 `backend/internal/service/plugin_debug/diagnostics`，暴露 `POST /internal/debug/report`、`POST /internal/debug/logs/export`；整合日志、Tracing、metrics 并脱敏（FR-018），固化 `config/plugins/debug/report_template.yaml` + `config/security/data_masking_rules.yaml`。
+   - 接入 ticket bridge（`backend/internal/service/integration/ticket_bridge`）与通知模块，确保 60s 内生成报告 + 触发工单。
+3. **Sandbox Validation Orchestrator**
+   - 新建 `backend/internal/service/plugin_sandbox` + Job runner（基于 `workflow` queue）来驱动 `POST /internal/sandbox/deploy|dataset/load|test/run`（FR-019），依赖 `config/plugins/debug/data_suite.yaml` 维护数据集映射。
+   - 对接数据脱敏服务、Feature Flag `plugin-sandbox-suite`，生成 `sandbox_validation_runs` 表和报告上传逻辑，输出给 QA Portal。
+
+### Workstream C – Version Governance & Compatibility Guard (SCN-DEV-PLUGIN-VERSION-COMPAT-001)
+
+1. **Version Scan Scheduler & Notification**
+   - 新模块 `backend/internal/service/plugin_governance` 定时扫描 `plugin_release_candidates` + 租户 manifest，计算升级建议（FR-020）。
+   - CLI `px version scan` 与 Admin 面板共用 `GET /api/admin/plugin-release/governance/reports`，推送升级卡片、风险等级和决策 API。
+2. **Compatibility Engine & Exception Workflow**
+   - 新建 `backend/internal/service/plugin_compat`，提供 `POST /internal/version/compat/check`、`exception`、`approve`，内存缓存 `config/version/compat_matrix.yaml`（FR-021）。
+   - 审批链复用现有 `approval` service，输出 `compat_exceptions` 表 + 审计事件，默认阻断矩阵缺失的操作。
+3. **Multi-tenant Version Board & Automation**
+   - 构建 `backend/internal/service/plugin_governance/multitenant.go`，根据版本漂移生成批量灰度/对齐计划，产出报告存储至 `governance_reports`（FR-022）。
+   - Web Admin 新增 `/admin/plugin-release/governance` 页面或 CLI `px version board`，支持筛选租户、生成策略与回滚预案。
+
+### Cross-cutting Considerations
+
+- **Telemetry**: 扩展 `backend/internal/service/plugin_release/instrumentation`，新增 `debug.hot_reload.*`、`debug.host.version_mismatch_total`、`debug.report.generate_ms`、`sandbox.*`、`version.scan.*` 指标与 trace。
+- **Storage**: 需要新的表/视图：`plugin_scaffold_templates`（元数据）、`plugin_import_runs`、`debug_sessions`、`sandbox_validation_runs`、`version_governance_reports`、`compat_exceptions`。
+- **Docs & Tooling**: Update `specs/009-install-plugin-pxp/quickstart.md` + README，新增 CLI 手册章节；在 `docs/use_cases/_from_hub/...` 反向链接新的实现路径。
 
 ## Complexity Tracking
 

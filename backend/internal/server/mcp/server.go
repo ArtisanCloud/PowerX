@@ -3,15 +3,17 @@ package mcp
 import (
 	"context"
 	"fmt"
+	"log"
+	"os"
+	"strings"
+
+	"github.com/ArtisanCloud/PowerX/config"
 	"github.com/ArtisanCloud/PowerX/internal/server/mcp/http"
 	"github.com/ArtisanCloud/PowerX/internal/server/mcp/register"
 	integrationtools "github.com/ArtisanCloud/PowerX/internal/server/mcp/tools/integration_gateway"
 	igdeps "github.com/ArtisanCloud/PowerX/internal/server/mcp/tools/integration_gateway/deps"
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"github.com/mark3labs/mcp-go/server"
-	"log"
-	"os"
-	"strings"
 )
 
 // mcp/server.go
@@ -69,9 +71,9 @@ func NewServer(cfg *config.Config) *Server {
 
 // Start 启动服务器
 func (s *Server) Start(ctx context.Context) error {
-	logger.InfoF(ctx, ""+strings.Repeat("=", 60))
+	logger.InfoF(ctx, "%s", strings.Repeat("=", 60))
 	logger.InfoF(ctx, "🚀 CoreX MCP 服务器启动中...")
-	logger.InfoF(ctx, strings.Repeat("=", 60))
+	logger.InfoF(ctx, "%s", strings.Repeat("=", 60))
 
 	logger.InfoF(ctx, "📡 服务器信息:")
 	logger.InfoF(ctx, "   名称: CoreX MCP Server")
@@ -96,9 +98,9 @@ func (s *Server) Start(ctx context.Context) error {
 	logger.InfoF(ctx, "   $ echo '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\"}' | %s", os.Args[0])
 	logger.InfoF(ctx, "   # 或使用 MCP 客户端库进行连接")
 
-	logger.InfoF(ctx, ""+strings.Repeat("-", 60))
+	logger.InfoF(ctx, "%s", strings.Repeat("-", 60))
 	logger.InfoF(ctx, "✅ 服务器已启动，等待客户端连接...")
-	logger.InfoF(ctx, strings.Repeat("-", 60)+"")
+	logger.InfoF(ctx, "%s", strings.Repeat("-", 60))
 
 	// 3. 启动 Streamable HTTP Server（默认 endpoint 是 /mcp）
 	if s.config.MCP.Server.LaunchMode == "http" { // HTTP 模式

@@ -45,9 +45,9 @@ last_reviewed_at: 2025-11-20
 
 # Core Capabilities
 
-1. **Scaffold & Template Engine**：`powerx plugin init` 统一生成目录结构、manifest、权限模板与示例代码，自动安装依赖并提供多语言锁定策略。
+1. **Scaffold & Template Engine**：`px plugin init` 统一生成目录结构、manifest、权限模板与示例代码，自动安装依赖并提供多语言锁定策略。
 2. **Bootstrap Services & Compliance Guardrails**：后台服务负责 `POST /internal/plugins/bootstrap/validate`、许可证/漏洞扫描与 Git 仓注册，确保初始化与第三方导入可追溯、可审批。
-3. **Team Clone & Environment Doctor**：`powerx plugin doctor` 提供环境诊断、依赖校验与团队协作指南，结合审计日志快速把插件交付到多成员协作状态。
+3. **Team Clone & Environment Doctor**：`px plugin doctor` 提供环境诊断、依赖校验与团队协作指南，结合审计日志快速把插件交付到多成员协作状态。
 
 # Participants & Responsibilities
 
@@ -74,7 +74,7 @@ sequenceDiagram
   participant Compliance as 合规扫描服务
   participant Git as Git 仓库/CI
 
-  Dev->>CLI: powerx plugin init --template react-dashboard
+  Dev->>CLI: px plugin init --template react-dashboard
   CLI->>Template: 拉取模板与脚手架脚本
   Template-->>CLI: 返回骨架文件与依赖
   CLI->>Compliance: 上传清单进行许可证/漏洞扫描
@@ -85,7 +85,7 @@ sequenceDiagram
 
 # Key Interactions & Contracts
 
-- **APIs / Events**：`powerx plugin init <template>`、`POST /internal/plugins/bootstrap/validate`、`POST /internal/compliance/licensescan`、`POST /internal/git/register`、`powerx plugin doctor`。
+- **APIs / Events**：`px plugin init <template>`、`POST /internal/plugins/bootstrap/validate`、`POST /internal/compliance/licensescan`、`POST /internal/git/register`、`px plugin doctor`。
 - **Configs / Schemas**：`docs/standards/powerx-plugin/lifecycle/manifest-mapping.md`、`config/plugins/templates/index.yaml`、`config/compliance/external_source_policy.yaml`。
 - **Security / Compliance**：CLI 强制校验版本与签名；许可证扫描拦截高危依赖；第三方源码导入要求审批与审计日志；Git 注册需最小权限访问令牌。
 

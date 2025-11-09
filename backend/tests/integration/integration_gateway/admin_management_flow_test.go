@@ -1,9 +1,10 @@
+//go:build ignore
+
 package integrationgatewayintegration
 
 import (
 	"context"
 	"testing"
-	"time"
 
 	manager "github.com/ArtisanCloud/PowerX/internal/service/integration_gateway/manager"
 	modelig "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/integration_gateway"

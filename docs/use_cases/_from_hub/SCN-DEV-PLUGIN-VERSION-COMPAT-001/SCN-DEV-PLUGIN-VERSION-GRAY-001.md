@@ -65,7 +65,7 @@ sequenceDiagram
 
 # Key Interactions & Contracts
 
-- **APIs / Events**：`powerx plugin upgrade --strategy policy`、`POST /internal/version/upgrade/plan`、`POST /internal/version/upgrade/rollback`、`EVENT plugin.version.gray.alert`。
+- **APIs / Events**：`px plugin upgrade --strategy policy`、`POST /internal/version/upgrade/plan`、`POST /internal/version/upgrade/rollback`、`EVENT plugin.version.gray.alert`。
 - **Configs / Schemas**：`config/version/upgrade_policies.yaml`、`config/monitoring/version_upgrade_dashboards.json`、`docs/standards/powerx-plugin/release/Upgrade_Playbook.md`。
 - **Security / Compliance**：升级与回滚需审计落库；关键操作需审批令牌；升级包签名校验不可跳过；记录批次、租户、指标与责任人。
 

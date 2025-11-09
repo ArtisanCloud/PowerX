@@ -148,7 +148,7 @@ func TestReplayAdminEndpoints(t *testing.T) {
 	replayHandler := admin.NewAdminReplayHandler(admin.AdminReplayHandlerOptions{Service: replayStub})
 	group.POST("/replay/tasks", replayHandler.CreateTask)
 	group.GET("/replay/tasks/:task_id", replayHandler.GetTask)
-	group.POST("/replay/tasks/:task_id:cancel", replayHandler.CancelTask)
+	group.POST("/replay/tasks/:task_id/cancel", replayHandler.CancelTask)
 
 	server := httptest.NewServer(router)
 	t.Cleanup(server.Close)
@@ -179,7 +179,7 @@ func TestReplayAdminEndpoints(t *testing.T) {
 		t.Fatalf("expected 200 got %d", getResp.StatusCode)
 	}
 
-	cancelResp := httpRequest(t, server, http.MethodPost, "/event-fabric/replay/tasks/task-123:cancel", map[string]interface{}{
+	cancelResp := httpRequest(t, server, http.MethodPost, "/event-fabric/replay/tasks/task-123/cancel", map[string]interface{}{
 		"operator_id": "ops-user",
 	})
 	if cancelResp.StatusCode != http.StatusNoContent {

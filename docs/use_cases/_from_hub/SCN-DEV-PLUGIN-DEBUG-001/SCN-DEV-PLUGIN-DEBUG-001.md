@@ -45,7 +45,7 @@ last_reviewed_at: 2025-11-20
 
 # Core Capabilities
 
-1. **Developer CLI & Host Simulator**：提供 `powerx host start --mock`、`powerx debug attach`、`px-plugin dev --watch` 等能力，支持多语言插件的秒级热更新、断点同步、日志聚合。
+1. **Developer CLI & Host Simulator**：提供 `px host start --mock`、`px debug attach`、`px-plugin dev --watch` 等能力，支持多语言插件的秒级热更新、断点同步、日志聚合。
 2. **Sandbox Validation Service**：PowerX 核心平台维护沙箱租户、脱敏数据集、最小权限模板与安装 API，保障调试过程中签名校验、权限对齐与资源隔离。
 3. **Observability & Workflow Hooks**：调试工具服务负责日志脱敏、指标采集、工单/告警联动以及审计归档，使调试产物可以直接交付给测试、合规与审批团队。
 
@@ -74,7 +74,7 @@ sequenceDiagram
   participant Tools as 调试工具服务
   participant Ticket as 工单系统
 
-  Dev->>Host: powerx host start --mock
+  Dev->>Host: px host start --mock
   Host-->>Dev: 反馈热更新状态
   Sandbox->>Host: 拉取插件包与测试数据
   Sandbox-->>Tools: 上报测试结果与指标
@@ -85,7 +85,7 @@ sequenceDiagram
 
 # Key Interactions & Contracts
 
-- **APIs / Events**：`powerx host start --mock`、`powerx debug attach`、`POST /internal/sandbox/deploy`、`POST /internal/debug/report`、`EVENT plugin.debug.alert`.
+- **APIs / Events**：`px host start --mock`、`px debug attach`、`POST /internal/sandbox/deploy`、`POST /internal/debug/report`、`EVENT plugin.debug.alert`.
 - **Configs / Schemas**：`config/plugins/debug/host_simulator.yaml`、`config/plugins/debug/data_suite.yaml`、`docs/standards/powerx-plugin/integration/08_dev_console_and_ui/Common_Tasks_and_Troubleshooting.md`.
 - **Security / Compliance**：日志与数据集需脱敏、调试访问遵循最小权限，工单与审计保留 ≥180 天。
 
