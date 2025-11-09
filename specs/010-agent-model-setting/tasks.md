@@ -38,15 +38,15 @@
 
 ### Phase 2 – 基础数据与治理（阻塞所有 User Story）
 
-- [ ] **T004** 建立 ProviderProfile 模型 `pkg/corex/db/persistence/model/agent_model_hub/provider_profile.go` 及 AutoMigrate。
-- [ ] **T005 [P]** 建立 RoutingPolicy 模型/仓储 `.../routing_policy.go` 与 `repository/routing_policy_repository.go`。
-- [ ] **T006 [P]** 建立 ConnectorInstance 模型与仓储骨架。
-- [ ] **T007 [P]** 建立 CostQuotaLedger 模型与仓储骨架。
-- [ ] **T008** 在 `backend/internal/service/{provider_registry,model_routing,connector_guard,cost_quota}` 建立共享服务基础（Vault 加密、Redis 缓存、Telemetry 输出）。
-- [ ] **T008a** 在 `provider_registry` 服务中实现 Vault sealed secret 存储（零明文落库），并封装通用结构（FR-002 核心）。
-- [ ] **T008b** 建立 Secret Rotation 调度器（结合 `scripts/ops/provider-release.mjs` 和定时任务），确保持久化密钥自动轮换。
-- [ ] **T008c** 审计所有密钥操作：在 `provider_registry`、`cost_quota` 等服务中记录审计事件并与 `pkg/audit` 集成。
-- [ ] **T009** 在 `backend/config/agents/{providers.d,routing.d,feature_flags}` 预置多环境开关与默认配置。
+- [X] **T004** 建立 ProviderProfile 模型 `pkg/corex/db/persistence/model/agent_model_hub/provider_profile.go` 及 AutoMigrate。
+- [X] **T005 [P]** 建立 RoutingPolicy 模型/仓储 `.../routing_policy.go` 与 `repository/routing_policy_repository.go`。
+- [X] **T006 [P]** 建立 ConnectorInstance 模型与仓储骨架。
+- [X] **T007 [P]** 建立 CostQuotaLedger 模型与仓储骨架。
+- [X] **T008** 在 `backend/internal/service/{provider_registry,model_routing,connector_guard,cost_quota}` 建立共享服务基础（Vault 加密、Redis 缓存、Telemetry 输出）。
+- [X] **T008a** 在 `provider_registry` 服务中实现 Vault sealed secret 存储（零明文落库），并封装通用结构（FR-002 核心）。
+- [X] **T008b** 建立 Secret Rotation 调度器（结合 `scripts/ops/provider-release.mjs` 和定时任务），确保持久化密钥自动轮换。
+- [X] **T008c** 审计所有密钥操作：在 `provider_registry`、`cost_quota` 等服务中记录审计事件并与 `pkg/audit` 集成。
+- [X] **T009** 在 `backend/config/agents/{providers.d,routing.d,feature_flags}` 预置多环境开关与默认配置。
 
 > ✅ 阶段完成标志：所有 GORM 模型与仓储可 AutoMigrate，服务基础可被依赖。
 

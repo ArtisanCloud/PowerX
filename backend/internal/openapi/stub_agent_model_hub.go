@@ -1,6 +1,5 @@
 package openapi
 
-import _ "embed"
+import openapidocs "github.com/ArtisanCloud/PowerX/api/openapi"
 
-//go:embed ../../api/openapi/agent_model_hub.http.yaml
-var agentModelHubStub []byte
+var agentModelHubStub = openapidocs.AgentModelHubContract
