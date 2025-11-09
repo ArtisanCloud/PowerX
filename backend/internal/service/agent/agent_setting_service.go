@@ -3,19 +3,18 @@ package agent
 import (
 	"context"
 	"fmt"
-	"github.com/ArtisanCloud/PowerX/internal/server/agent/catalog"
-	"github.com/ArtisanCloud/PowerX/internal/server/agent/contract"
-	agentcfg "github.com/ArtisanCloud/PowerX/internal/server/agent/drivers/eino/config"
-	repoai "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/repository"
-	"github.com/ArtisanCloud/PowerX/pkg/corex/tenantkeys"
-	"github.com/ArtisanCloud/PowerX/pkg/utils"
 	"strings"
 	"time"
 
-	dbmodel "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/model"
-
-	// 直接复用你已有的一次性聊天能力
+	"github.com/ArtisanCloud/PowerX/internal/server/agent/catalog"
+	"github.com/ArtisanCloud/PowerX/internal/server/agent/contract"
+	agentcfg "github.com/ArtisanCloud/PowerX/internal/server/agent/drivers/eino/config"
 	agentllm "github.com/ArtisanCloud/PowerX/internal/server/agent/drivers/eino/llm"
+	dbmodel "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/model"
+	repoai "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/repository"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/tenantkeys"
+	"github.com/ArtisanCloud/PowerX/pkg/utils"
+	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
@@ -24,6 +23,8 @@ type ModelRule struct {
 	RequireBaseURL bool
 	DefaultBaseURL string
 }
+
+var sensitiveCredentialKeys = []string{"api_key", "secret", "client_secret", "access_token"}
 
 type AgentSettingService struct {
 	db        *gorm.DB
@@ -264,8 +265,72 @@ func (s *AgentSettingService) TestConnectionPreferInput(
 		return s.PingStrict(ctx, mod, prov, model, bu, ak)
 
 	default:
-		return fmt.Errorf("暂未实现该模态测试: %s", modality)
+		return s.TestConnectionBasic(ctx, env, tenantID, contract.Modality(mod), provider, model)
 	}
+}
+
+// 对非 LLM 模态的基础校验，暂不做真实连通测试
+func (s *AgentSettingService) TestConnectionBasic(
+	ctx context.Context, env string, tenantID *uint64,
+	modality contract.Modality, provider, model string,
+) error {
+	if strings.TrimSpace(provider) == "" || strings.TrimSpace(model) == "" {
+		return fmt.Errorf("%s provider/model 不能为空", modality)
+	}
+	return nil
+}
+
+func (s *AgentSettingService) RotateTenantCredentials(
+	ctx context.Context, env string, tenantID *uint64,
+) error {
+	creds, err := s.credRepo.ListByScope(ctx, env, tenantID)
+	if err != nil {
+		return err
+	}
+	if len(creds) == 0 {
+		_, err := s.tks.RotateKeyPair(ctx, env, tenantID)
+		return err
+	}
+
+	type rotationItem struct {
+		cred    *dbmodel.AIProviderCredential
+		secrets map[string]any
+	}
+	items := make([]rotationItem, 0, len(creds))
+	for i := range creds {
+		clone := utils.CloneJSONMap(creds[i].Data)
+		secret := map[string]any{}
+		if err := s.tks.UnsealSensitive(ctx, env, tenantID, clone, &secret); err != nil {
+			return err
+		}
+		items = append(items, rotationItem{cred: &creds[i], secrets: secret})
+	}
+	if len(items) == 0 {
+		return nil
+	}
+
+	if _, err := s.tks.RotateKeyPair(ctx, env, tenantID); err != nil {
+		return err
+	}
+
+	for _, item := range items {
+		if item.cred.Data == nil {
+			item.cred.Data = datatypes.JSONMap{}
+		}
+		delete(item.cred.Data, "__sealed")
+		for k, v := range item.secrets {
+			item.cred.Data[k] = v
+		}
+		sealed, err := s.tks.SealSensitive(ctx, env, tenantID, item.cred.Data, sensitiveCredentialKeys...)
+		if err != nil {
+			return err
+		}
+		item.cred.Data = sealed
+		if err := s.credRepo.UpsertByScopeNameProvider(ctx, env, tenantID, item.cred); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // 修改 PingLLM：多两个参数 env/tenantID，并支持回退解密
@@ -366,6 +431,7 @@ func catalogGetModels(mod, prov string) ([]aiModelItem, error) {
 	}
 	return out, nil
 }
+
 
 func (s *AgentSettingService) ListProfiles(
 	ctx context.Context, env string, tenantID *uint64, modalities ...string,

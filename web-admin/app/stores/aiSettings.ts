@@ -308,7 +308,7 @@ export const useAISettingsStore = defineStore("aiSettings", {
       try {
         const result = await AISettingService.testQuickCall({
           ...payload,
-          message,
+          prompt: message,
         });
         this.lastTestMessage = `快速调用测试成功 - Model: ${model}`;
         return result;

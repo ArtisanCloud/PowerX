@@ -135,28 +135,6 @@ export interface SaveSettingsPayload {
   };
 }
 
-export interface TestConnectionPayload {
-  provider: string;
-  credentials: {
-    api_key: string;
-    base_url: string;
-    organization?: string;
-    region?: string;
-  };
-}
-
-export interface TestQuickCallPayload {
-  provider: string;
-  model: string;
-  credentials: {
-    api_key: string;
-    base_url: string;
-    organization?: string;
-    region?: string;
-  };
-  message?: string;
-}
-
 export class AISettingService {
   /**
    * 获取可用的供应商列表
@@ -206,7 +184,7 @@ export class AISettingService {
   /**
    * 测试连接
    */
-  static async testConnection(payload: TestConnectionPayload): Promise<any> {
+  static async testConnection(payload: SaveSettingsPayload): Promise<any> {
     const { post } = useApiClient();
     const response = await post<ApiResponse<any>>(
       ApiEndpoints.ADMIN_AGENTS.TEST_CONNECTION,
@@ -218,7 +196,7 @@ export class AISettingService {
   /**
    * 测试快速调用
    */
-  static async testQuickCall(payload: TestQuickCallPayload): Promise<any> {
+  static async testQuickCall(payload: SaveSettingsPayload): Promise<any> {
     const { post } = useApiClient();
     const response = await post<ApiResponse<any>>(
       ApiEndpoints.ADMIN_AGENTS.TEST_CALL,

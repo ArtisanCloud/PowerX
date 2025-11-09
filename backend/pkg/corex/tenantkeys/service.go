@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
+	"strings"
 
 	coremodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
 	modeltenant "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/tenant"
@@ -135,6 +137,54 @@ func (s *TenantKeyService) EnsureActiveKeyPair(ctx context.Context, env string, 
 	})
 }
 
+// ActiveKeyPair 返回当前 scope 的激活密钥。
+func (s *TenantKeyService) ActiveKeyPair(ctx context.Context, env string, tenantID *uint64) (*modeltenant.TenantKeyPair, error) {
+	return s.kpRepo.GetActiveByScope(ctx, env, tenantID)
+}
+
+// RotateKeyPair 生成新密钥对并替换为激活状态。
+func (s *TenantKeyService) RotateKeyPair(ctx context.Context, env string, tenantID *uint64) (*modeltenant.TenantKeyPair, error) {
+	old, _ := s.kpRepo.GetActiveByScope(ctx, env, tenantID)
+
+	pubPEM, privPEM, err := crypto.GenerateRSA()
+	if err != nil {
+		return nil, err
+	}
+	w, err := s.wrapper.WrapPrivateKey(privPEM)
+	if err != nil {
+		return nil, err
+	}
+
+	kp := &modeltenant.TenantKeyPair{
+		ScopeRef: coremodel.ScopeRef{
+			Env:      env,
+			TenantID: tenantID,
+		},
+		KID:       nextKeyID(old, tenantID),
+		Alg:       "RSA-OAEP-256",
+		PublicPEM: string(pubPEM),
+		EncPrivate: datatypes.JSONMap{
+			"wrapAlg": w.WrapAlg,
+			"nonce":   w.Nonce,
+			"ct":      w.CT,
+			"ts":      w.TS,
+		},
+		Active: true,
+	}
+
+	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		repo := repotenant.NewTenantKeyPairRepository(tx)
+		if err := repo.DeactivateAll(ctx, env, tenantID); err != nil {
+			return err
+		}
+		return repo.Create(ctx, kp)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return kp, nil
+}
+
 // SealSensitive：把 data 中 keys… 的明文装进 data["__sealed"]（公钥加密），并删除这些明文键。
 func (s *TenantKeyService) SealSensitive(ctx context.Context, env string, tenantID *uint64, data datatypes.JSONMap, keys ...string) (datatypes.JSONMap, error) {
 	if data == nil {
@@ -216,4 +266,24 @@ func wrappedFromJSONMap(m datatypes.JSONMap) (crypto.Wrapped, error) {
 		return crypto.Wrapped{}, fmt.Errorf("invalid wrapped json")
 	}
 	return w, nil
+}
+
+func nextKeyID(old *modeltenant.TenantKeyPair, tenantID *uint64) string {
+	prefix := baseKeyPrefix(tenantID)
+	version := 1
+	if old != nil {
+		if idx := strings.LastIndex(old.KID, ":v"); idx != -1 {
+			if v, err := strconv.Atoi(old.KID[idx+2:]); err == nil {
+				version = v + 1
+			}
+		}
+	}
+	return fmt.Sprintf("%s:v%d", prefix, version)
+}
+
+func baseKeyPrefix(tenantID *uint64) string {
+	if tenantID == nil {
+		return "t:global"
+	}
+	return fmt.Sprintf("t:%d", *tenantID)
 }

@@ -1,15 +1,16 @@
 package agent
 
 import (
-	"github.com/ArtisanCloud/PowerX/internal/server/agent/contract"
-	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
-	"github.com/ArtisanCloud/PowerX/pkg/utils"
+	"fmt"
 	"net/http"
 	"strings"
 
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
+	"github.com/ArtisanCloud/PowerX/internal/server/agent/contract"
 	dbmodel "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/model"
 	agentSvc "github.com/ArtisanCloud/PowerX/internal/service/agent"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
+	"github.com/ArtisanCloud/PowerX/pkg/utils"
 
 	dtoRequest "github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/gin-gonic/gin"
@@ -66,6 +67,29 @@ type modVideo struct {
 	PromptHint     string `json:"promptHint"`
 }
 
+type modAudioTTS struct {
+	baseConn
+	Voice   string  `json:"voice"`
+	Speed   float64 `json:"speed"`
+	Format  string  `json:"format"`
+	Quality string  `json:"quality"`
+}
+
+type modAudioASR struct {
+	baseConn
+	Language       string  `json:"language"`
+	ResponseFormat string  `json:"responseFormat"`
+	Temperature    float64 `json:"temperature"`
+	Prompt         string  `json:"prompt"`
+}
+
+type modRerank struct {
+	baseConn
+	TopK            int  `json:"topK"`
+	ReturnDocuments bool `json:"returnDocuments"`
+	MaxChunksPerDoc int  `json:"maxChunksPerDoc"`
+}
+
 type saveSettingsReq struct {
 	Env       string            `json:"env" validate:"required"`
 	Modality  contract.Modality `json:"modality" validate:"required"`
@@ -73,6 +97,9 @@ type saveSettingsReq struct {
 	Image     *modImage         `json:"image,omitempty"`
 	Embedding *modEmbed         `json:"embedding,omitempty"`
 	Video     *modVideo         `json:"video,omitempty"`
+	AudioTTS  *modAudioTTS      `json:"audio_tts,omitempty"`
+	AudioASR  *modAudioASR      `json:"audio_asr,omitempty"`
+	Rerank    *modRerank        `json:"rerank,omitempty"`
 }
 
 type testReq struct {
@@ -82,16 +109,22 @@ type testReq struct {
 	Image     *modImage         `json:"image,omitempty"`
 	Embedding *modEmbed         `json:"embedding,omitempty"`
 	Video     *modVideo         `json:"video,omitempty"`
+	AudioTTS  *modAudioTTS      `json:"audio_tts,omitempty"`
+	AudioASR  *modAudioASR      `json:"audio_asr,omitempty"`
+	Rerank    *modRerank        `json:"rerank,omitempty"`
 }
 
 type testCallReq struct {
 	Env       string            `json:"env"       validate:"required"`
 	Modality  contract.Modality `json:"modality"  validate:"required"`
 	Prompt    string            `json:"prompt"`
-	LLM       modLLM            `json:"llm"`
-	Image     modImage          `json:"image"`
-	Embedding modEmbed          `json:"embedding"`
-	Video     modVideo          `json:"video"`
+	LLM       *modLLM           `json:"llm,omitempty"`
+	Image     *modImage         `json:"image,omitempty"`
+	Embedding *modEmbed         `json:"embedding,omitempty"`
+	Video     *modVideo         `json:"video,omitempty"`
+	AudioTTS  *modAudioTTS      `json:"audio_tts,omitempty"`
+	AudioASR  *modAudioASR      `json:"audio_asr,omitempty"`
+	Rerank    *modRerank        `json:"rerank,omitempty"`
 }
 
 // ---------- Providers / Models ----------
@@ -122,7 +155,11 @@ func (h *AgentSettingHandler) saveSettings(c *gin.Context) {
 		dtoRequest.ResponseValidationError(c, err)
 		return
 	}
-	tenantID := reqctx.GetTenantID(c.Request.Context())
+	tenantID, err := reqctx.RequireTenantIDFromGin(c)
+	if err != nil {
+		dtoRequest.ResponseError(c, http.StatusBadRequest, err.Error(), nil)
+		return
+	}
 
 	// 仅按当前模态做最小校验 + 先严格连通性校验（不读库不解封）
 	switch req.Modality {
@@ -141,6 +178,36 @@ func (h *AgentSettingHandler) saveSettings(c *gin.Context) {
 			req.LLM.APIKey,
 		); err != nil {
 			dtoRequest.ResponseError(c, http.StatusBadRequest, "连通性校验失败", err)
+			return
+		}
+	case contract.ModImage:
+		if req.Image == nil || strings.TrimSpace(req.Image.Provider) == "" || strings.TrimSpace(req.Image.Model) == "" {
+			dtoRequest.ResponseError(c, http.StatusBadRequest, "image.provider/model 不能为空", nil)
+			return
+		}
+	case contract.ModEmbed:
+		if req.Embedding == nil || strings.TrimSpace(req.Embedding.Provider) == "" || strings.TrimSpace(req.Embedding.Model) == "" {
+			dtoRequest.ResponseError(c, http.StatusBadRequest, "embedding.provider/model 不能为空", nil)
+			return
+		}
+	case contract.ModVideo:
+		if req.Video == nil || strings.TrimSpace(req.Video.Provider) == "" || strings.TrimSpace(req.Video.Model) == "" {
+			dtoRequest.ResponseError(c, http.StatusBadRequest, "video.provider/model 不能为空", nil)
+			return
+		}
+	case contract.ModAudioTTS:
+		if req.AudioTTS == nil || strings.TrimSpace(req.AudioTTS.Provider) == "" || strings.TrimSpace(req.AudioTTS.Model) == "" {
+			dtoRequest.ResponseError(c, http.StatusBadRequest, "audio_tts.provider/model 不能为空", nil)
+			return
+		}
+	case contract.ModAudioASR:
+		if req.AudioASR == nil || strings.TrimSpace(req.AudioASR.Provider) == "" || strings.TrimSpace(req.AudioASR.Model) == "" {
+			dtoRequest.ResponseError(c, http.StatusBadRequest, "audio_asr.provider/model 不能为空", nil)
+			return
+		}
+	case contract.ModRerank:
+		if req.Rerank == nil || strings.TrimSpace(req.Rerank.Provider) == "" || strings.TrimSpace(req.Rerank.Model) == "" {
+			dtoRequest.ResponseError(c, http.StatusBadRequest, "rerank.provider/model 不能为空", nil)
 			return
 		}
 	}
@@ -193,8 +260,68 @@ func (h *AgentSettingHandler) testConnection(c *gin.Context) {
 			return
 		}
 		dtoRequest.ResponseSuccess(c, gin.H{"ok": true})
+	case contract.ModImage:
+		if req.Image == nil {
+			dtoRequest.ResponseError(c, http.StatusBadRequest, "image 配置不能为空", nil)
+			return
+		}
+		if err := h.svc.TestConnectionBasic(c.Request.Context(), req.Env, &tid, req.Modality, req.Image.Provider, req.Image.Model); err != nil {
+			dtoRequest.ResponseError(c, http.StatusBadRequest, err.Error(), nil)
+			return
+		}
+		dtoRequest.ResponseSuccess(c, gin.H{"ok": true})
+	case contract.ModEmbed:
+		if req.Embedding == nil {
+			dtoRequest.ResponseError(c, http.StatusBadRequest, "embedding 配置不能为空", nil)
+			return
+		}
+		if err := h.svc.TestConnectionBasic(c.Request.Context(), req.Env, &tid, req.Modality, req.Embedding.Provider, req.Embedding.Model); err != nil {
+			dtoRequest.ResponseError(c, http.StatusBadRequest, err.Error(), nil)
+			return
+		}
+		dtoRequest.ResponseSuccess(c, gin.H{"ok": true})
+	case contract.ModVideo:
+		if req.Video == nil {
+			dtoRequest.ResponseError(c, http.StatusBadRequest, "video 配置不能为空", nil)
+			return
+		}
+		if err := h.svc.TestConnectionBasic(c.Request.Context(), req.Env, &tid, req.Modality, req.Video.Provider, req.Video.Model); err != nil {
+			dtoRequest.ResponseError(c, http.StatusBadRequest, err.Error(), nil)
+			return
+		}
+		dtoRequest.ResponseSuccess(c, gin.H{"ok": true})
+	case contract.ModAudioTTS:
+		if req.AudioTTS == nil {
+			dtoRequest.ResponseError(c, http.StatusBadRequest, "audio_tts 配置不能为空", nil)
+			return
+		}
+		if err := h.svc.TestConnectionBasic(c.Request.Context(), req.Env, &tid, req.Modality, req.AudioTTS.Provider, req.AudioTTS.Model); err != nil {
+			dtoRequest.ResponseError(c, http.StatusBadRequest, err.Error(), nil)
+			return
+		}
+		dtoRequest.ResponseSuccess(c, gin.H{"ok": true})
+	case contract.ModAudioASR:
+		if req.AudioASR == nil {
+			dtoRequest.ResponseError(c, http.StatusBadRequest, "audio_asr 配置不能为空", nil)
+			return
+		}
+		if err := h.svc.TestConnectionBasic(c.Request.Context(), req.Env, &tid, req.Modality, req.AudioASR.Provider, req.AudioASR.Model); err != nil {
+			dtoRequest.ResponseError(c, http.StatusBadRequest, err.Error(), nil)
+			return
+		}
+		dtoRequest.ResponseSuccess(c, gin.H{"ok": true})
+	case contract.ModRerank:
+		if req.Rerank == nil {
+			dtoRequest.ResponseError(c, http.StatusBadRequest, "rerank 配置不能为空", nil)
+			return
+		}
+		if err := h.svc.TestConnectionBasic(c.Request.Context(), req.Env, &tid, req.Modality, req.Rerank.Provider, req.Rerank.Model); err != nil {
+			dtoRequest.ResponseError(c, http.StatusBadRequest, err.Error(), nil)
+			return
+		}
+		dtoRequest.ResponseSuccess(c, gin.H{"ok": true})
 	default:
-		dtoRequest.ResponseError(c, http.StatusNotImplemented, "暂未实现该模态测试: "+string(req.Modality), nil)
+		dtoRequest.ResponseError(c, http.StatusBadRequest, "未知模态: "+string(req.Modality), nil)
 	}
 }
 
@@ -211,6 +338,10 @@ func (h *AgentSettingHandler) testQuickCall(c *gin.Context) {
 	}
 	switch req.Modality {
 	case contract.ModLLM:
+		if req.LLM == nil {
+			dtoRequest.ResponseError(c, http.StatusBadRequest, "llm 配置不能为空", nil)
+			return
+		}
 		out, err := h.svc.QuickCallLLM(
 			c.Request.Context(),
 			req.Env, &tid,
@@ -223,8 +354,13 @@ func (h *AgentSettingHandler) testQuickCall(c *gin.Context) {
 			return
 		}
 		dtoRequest.ResponseSuccess(c, gin.H{"ok": true, "result": out})
+	case contract.ModImage, contract.ModEmbed, contract.ModVideo, contract.ModAudioTTS, contract.ModAudioASR, contract.ModRerank:
+		dtoRequest.ResponseSuccess(c, gin.H{
+			"ok":      true,
+			"message": fmt.Sprintf("已校验 %s 配置，试跑能力将在后续版本开放。", req.Modality),
+		})
 	default:
-		dtoRequest.ResponseError(c, http.StatusNotImplemented, "暂未实现该模态试跑: "+string(req.Modality), nil)
+		dtoRequest.ResponseError(c, http.StatusBadRequest, "未知模态: "+string(req.Modality), nil)
 	}
 }
 
@@ -366,6 +502,104 @@ func buildEntitiesFromPayload(req *saveSettingsReq, tenantID *uint64) (credName,
 			},
 			Tags: []string{"video"},
 		}
+
+	case contract.ModAudioTTS:
+		if req.AudioTTS == nil {
+			return
+		}
+		p := strings.TrimSpace(req.AudioTTS.Provider)
+		m := strings.TrimSpace(req.AudioTTS.Model)
+		if p == "" || m == "" {
+			return
+		}
+		credProvider = req.AudioTTS.Provider
+		credName = utils.Slug(req.Env + "-" + req.AudioTTS.Provider)
+		cred = datatypes.JSONMap{
+			"api_key":          req.AudioTTS.APIKey,
+			"base_url":         req.AudioTTS.BaseURL,
+			"region":           req.AudioTTS.Region,
+			"organization":     req.AudioTTS.Organization,
+			"azure_deployment": req.AudioTTS.AzureDeployment,
+		}
+		prof = &dbmodel.AIModelProfile{
+			Env:      req.Env,
+			TenantID: tenantID,
+			Modality: "audio_tts",
+			Provider: req.AudioTTS.Provider,
+			Model:    req.AudioTTS.Model,
+			Defaults: datatypes.JSONMap{
+				"voice":   req.AudioTTS.Voice,
+				"speed":   req.AudioTTS.Speed,
+				"format":  req.AudioTTS.Format,
+				"quality": req.AudioTTS.Quality,
+			},
+			Tags: []string{"audio", "tts"},
+		}
+
+	case contract.ModAudioASR:
+		if req.AudioASR == nil {
+			return
+		}
+		p := strings.TrimSpace(req.AudioASR.Provider)
+		m := strings.TrimSpace(req.AudioASR.Model)
+		if p == "" || m == "" {
+			return
+		}
+		credProvider = req.AudioASR.Provider
+		credName = utils.Slug(req.Env + "-" + req.AudioASR.Provider)
+		cred = datatypes.JSONMap{
+			"api_key":          req.AudioASR.APIKey,
+			"base_url":         req.AudioASR.BaseURL,
+			"region":           req.AudioASR.Region,
+			"organization":     req.AudioASR.Organization,
+			"azure_deployment": req.AudioASR.AzureDeployment,
+		}
+		prof = &dbmodel.AIModelProfile{
+			Env:      req.Env,
+			TenantID: tenantID,
+			Modality: "audio_asr",
+			Provider: req.AudioASR.Provider,
+			Model:    req.AudioASR.Model,
+			Defaults: datatypes.JSONMap{
+				"language":       req.AudioASR.Language,
+				"responseFormat": req.AudioASR.ResponseFormat,
+				"temperature":    req.AudioASR.Temperature,
+				"prompt":         req.AudioASR.Prompt,
+			},
+			Tags: []string{"audio", "asr"},
+		}
+
+	case contract.ModRerank:
+		if req.Rerank == nil {
+			return
+		}
+		p := strings.TrimSpace(req.Rerank.Provider)
+		m := strings.TrimSpace(req.Rerank.Model)
+		if p == "" || m == "" {
+			return
+		}
+		credProvider = req.Rerank.Provider
+		credName = utils.Slug(req.Env + "-" + req.Rerank.Provider)
+		cred = datatypes.JSONMap{
+			"api_key":          req.Rerank.APIKey,
+			"base_url":         req.Rerank.BaseURL,
+			"region":           req.Rerank.Region,
+			"organization":     req.Rerank.Organization,
+			"azure_deployment": req.Rerank.AzureDeployment,
+		}
+		prof = &dbmodel.AIModelProfile{
+			Env:      req.Env,
+			TenantID: tenantID,
+			Modality: "rerank",
+			Provider: req.Rerank.Provider,
+			Model:    req.Rerank.Model,
+			Defaults: datatypes.JSONMap{
+				"topK":            req.Rerank.TopK,
+				"returnDocuments": req.Rerank.ReturnDocuments,
+				"maxChunksPerDoc": req.Rerank.MaxChunksPerDoc,
+			},
+			Tags: []string{"rerank"},
+		}
 	}
 	return
 }
@@ -458,8 +692,26 @@ func (h *AgentSettingHandler) listCredentials(c *gin.Context) {
 		dtoRequest.ResponseError(c, http.StatusInternalServerError, "查询失败", err)
 		return
 	}
+	for i := range out {
+		redactCredentialSecrets(&out[i])
+	}
 	dtoRequest.ResponseSuccess(c, gin.H{
 		"env":         env,
 		"credentials": out,
 	})
+}
+
+func redactCredentialSecrets(cred *dbmodel.AIProviderCredential) {
+	if cred == nil || cred.Data == nil {
+		return
+	}
+	sensitive := []string{"api_key", "secret", "client_secret", "access_token"}
+	copied := datatypes.JSONMap{}
+	for k, v := range cred.Data {
+		copied[k] = v
+	}
+	for _, key := range sensitive {
+		delete(copied, key)
+	}
+	cred.Data = copied
 }

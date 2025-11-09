@@ -18,15 +18,15 @@
 
 ### Phase 0 – 既有实现修复（阻塞所有阶段）
 
-- [ ] **T000a** 补齐后端 `buildEntitiesFromPayload`（`backend/internal/transport/http/admin/agent/setting_handler.go`）对 AudioTTS/AudioASR/Rerank 模态的实体生成，确保可落库。
-- [ ] **T000b** 将 `saveSettings` 中的租户获取改为 `reqctx.RequireTenantIDFromGin`，无租户信息直接返回 4xx，防止写入租户 0。
-- [ ] **T000c** 扩展 `AgentSettingService.TestConnection/QuickCall` 与 HTTP handler，让所有模态可测试（移除 “非 LLM 返回 501” 的分支）。
-- [ ] **T000d** 前端 `saveSettings()` 根据模态序列化特定参数（例如 image.size、tts.voice、rerank.topK），并保证 payload 与后端结构一致。
-- [ ] **T000e** 前端 `testConnection/testQuickCall` 使用 `env.value`，移除硬编码 `"default"`；同时在 store 层为 API 请求传入 env。
-- [ ] **T000f** `useAISettingsStore` 增加 `initialize()` 调用与环境切换监听（env 改变时重新加载 active profile / models / credentials）。
-- [ ] **T000g** 为现有 `/admin/agents/settings` 系列接口编写回归用例，记录当前功能缺口，作为 Phase3 任务的参考基线。
-- [ ] **T000h** 新增契约测试，确保所有 HTTP 响应不会返回 `api_key` 等敏感字段（`tests/contract/http/admin/agent_model_hub_provider_test.go`）。
-- [ ] **T000i** 针对 Secret Rotation 编写自动化测试（`tests/integration/agent_model_hub/secret_rotation_test.go`），验证 Vault sealed 值与 rotation workflow 正常。
+- [X] **T000a** 补齐后端 `buildEntitiesFromPayload`（`backend/internal/transport/http/admin/agent/setting_handler.go`）对 AudioTTS/AudioASR/Rerank 模态的实体生成，确保可落库。
+- [X] **T000b** 将 `saveSettings` 中的租户获取改为 `reqctx.RequireTenantIDFromGin`，无租户信息直接返回 4xx，防止写入租户 0。
+- [X] **T000c** 扩展 `AgentSettingService.TestConnection/QuickCall` 与 HTTP handler，让所有模态可测试（移除 “非 LLM 返回 501” 的分支）。
+- [X] **T000d** 前端 `saveSettings()` 根据模态序列化特定参数（例如 image.size、tts.voice、rerank.topK），并保证 payload 与后端结构一致。
+- [X] **T000e** 前端 `testConnection/testQuickCall` 使用 `env.value`，移除硬编码 `"default"`；同时在 store 层为 API 请求传入 env。
+- [X] **T000f** `useAISettingsStore` 增加 `initialize()` 调用与环境切换监听（env 改变时重新加载 active profile / models / credentials）。
+- [X] **T000g** 为现有 `/admin/agents/settings` 系列接口编写回归用例，记录当前功能缺口，作为 Phase3 任务的参考基线。
+- [X] **T000h** 新增契约测试，确保所有 HTTP 响应不会返回 `api_key` 等敏感字段（`tests/contract/http/admin/agent/credentials_contract_test.go`）。
+- [X] **T000i** 针对 Secret Rotation 编写自动化测试（`tests/integration/agent_model_hub/secret_rotation_test.go`），验证 Vault sealed 值与 rotation workflow 正常。
 
 > ❗ **Phase 0 未完成前禁止进入 Phase 1**，否则会与现有实现冲突。
 
