@@ -48,8 +48,9 @@
    - Logs: `internal/service/provider_registry` + `cost_quota` show audit IDs for every publish/enforce action.
    - Alerts: Ensure PagerDuty routes exist for cost anomaly, routing safe-mode, connector pause notifications.
 
-8. **Regenerate contracts & stubs when editing schemas**  
+8. **Regenerate契约 & 跑自动化测试**  
    ```bash
    make proto-lint proto-gen
+   scripts/ci/agent_model_hub_tests.sh
    ```
-   Commit regenerated files under `api/grpc/gen` and keep OpenAPI + protobuf in sync.
+   该脚本会串联 Buf lint/代码生成、HTTP 契约测试（密钥去敏）以及 Agent Model Hub 集成测试（Secret Rotation）。完成后再提交 `api/grpc/gen` 与 OpenAPI 变更。

@@ -432,7 +432,6 @@ func catalogGetModels(mod, prov string) ([]aiModelItem, error) {
 	return out, nil
 }
 
-
 func (s *AgentSettingService) ListProfiles(
 	ctx context.Context, env string, tenantID *uint64, modalities ...string,
 ) ([]dbmodel.AIModelProfile, error) {

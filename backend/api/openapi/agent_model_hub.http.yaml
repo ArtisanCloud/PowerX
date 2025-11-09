@@ -1,0 +1,451 @@
+openapi: 3.1.0
+tags:
+  - name: Provider Registry
+  - name: Routing Policies
+  - name: Connectors
+  - name: Cost & Quota
+info:
+  title: Agent Model Hub HTTP API
+  version: 0.1.0
+  description: REST surface for provider onboarding, routing governance, connector control, and cost guardrails.
+servers:
+  - url: https://api.powerx.local/internal
+paths:
+  /providers/register:
+    post:
+      tags: [Provider Registry]
+      summary: Register or update a provider profile (draft state)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProviderProfileInput'
+      responses:
+        '202':
+          description: Provider draft created and sent to validation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProviderProfile'
+  /providers/{providerId}/validate:
+    post:
+      tags: [Provider Registry]
+      summary: Trigger automated validation suite for a provider
+      parameters:
+        - name: providerId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: suite
+          in: query
+          schema:
+            type: string
+            enum: [llm, vlm, tts, embeddings, full]
+      responses:
+        '202':
+          description: Validation started
+  /providers/{providerId}/publish:
+    post:
+      tags: [Provider Registry]
+      summary: Publish a validated provider to target tenants with gray release controls
+      parameters:
+        - name: providerId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                tenantWhitelist:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/TenantRef'
+                rolloutStrategy:
+                  type: string
+                  enum: [full, percentage, canary]
+                rollbackTimeoutMinutes:
+                  type: integer
+              required: [tenantWhitelist]
+      responses:
+        '200':
+          description: Rollout initiated
+  /model-routing/policies:
+    post:
+      tags: [Routing Policies]
+      summary: Create or update a routing policy version
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoutingPolicyInput'
+      responses:
+        '202':
+          description: Policy stored and awaiting approval
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoutingPolicy'
+  /model-routing/route:
+    post:
+      tags: [Routing Policies]
+      summary: Request a routing decision for a task context
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoutingDecisionInput'
+      responses:
+        '200':
+          description: Decision result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoutingDecision'
+  /model-routing/rollback:
+    post:
+      tags: [Routing Policies]
+      summary: Roll back to a previous routing policy version
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                tenantScope:
+                  type: string
+                targetVersion:
+                  type: integer
+              required: [tenantScope]
+      responses:
+        '200':
+          description: Rollback triggered
+  /connector-platforms/{platform}/instances:
+    post:
+      tags: [Connectors]
+      summary: Register or update an external platform instance
+      parameters:
+        - name: platform
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [coze, n8n]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConnectorInstanceInput'
+      responses:
+        '200':
+          description: Instance stored
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConnectorInstance'
+  /connector-platforms/{platform}/instances/{instanceId}/pause:
+    post:
+      tags: [Connectors]
+      summary: Pause a specific connector instance after errors
+      parameters:
+        - name: platform
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: instanceId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Instance paused
+  /provider-usage/report:
+    post:
+      tags: [Cost & Quota]
+      summary: Ingest batched usage metrics
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UsageReport'
+      responses:
+        '202':
+          description: Usage accepted
+  /provider-quotas:
+    get:
+      tags: [Cost & Quota]
+      summary: Retrieve quota configuration for a tenant
+      parameters:
+        - name: tenantId
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Quota configuration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuotaSnapshot'
+  /provider-quotas/enforce:
+    post:
+      tags: [Cost & Quota]
+      summary: Confirm and execute a throttle/degrade/disable action
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EnforcementRequest'
+      responses:
+        '200':
+          description: Enforcement action recorded
+components:
+  schemas:
+    ProviderProfileInput:
+      type: object
+      properties:
+        name:
+          type: string
+        capabilities:
+          type: array
+          items:
+            type: string
+        primaryEndpoint:
+          type: string
+        regions:
+          type: array
+          items:
+            type: string
+        tenantWhitelist:
+          type: array
+          items:
+            $ref: '#/components/schemas/TenantRef'
+        budgets:
+          type: array
+          items:
+            $ref: '#/components/schemas/BudgetRef'
+        credentials:
+          type: object
+          additionalProperties:
+            type: string
+      required: [name, primaryEndpoint]
+    ProviderProfile:
+      allOf:
+        - $ref: '#/components/schemas/ProviderProfileInput'
+        - type: object
+          properties:
+            providerId:
+              type: string
+            rolloutStatus:
+              type: string
+              enum: [draft, validating, gray, live, rolled_back]
+    RoutingPolicyInput:
+      type: object
+      properties:
+        tenantScope:
+          type: string
+        rules:
+          type: array
+          items:
+            $ref: '#/components/schemas/RoutingRule'
+        fallbackChain:
+          type: array
+          items:
+            type: string
+        safeModeThresholds:
+          $ref: '#/components/schemas/SafeModeThresholds'
+        approvalConfig:
+          type: object
+          properties:
+            workflowId:
+              type: string
+            requiredApprovers:
+              type: integer
+      required: [tenantScope, rules]
+    RoutingPolicy:
+      allOf:
+        - $ref: '#/components/schemas/RoutingPolicyInput'
+        - type: object
+          properties:
+            policyId:
+              type: string
+            version:
+              type: integer
+            status:
+              type: string
+              enum: [draft, staged, active, rolled_back]
+    RoutingRule:
+      type: object
+      properties:
+        taskPattern:
+          type: string
+        candidates:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProviderWeight'
+        sla:
+          type: object
+          properties:
+            latencyMs:
+              type: integer
+            costCeiling:
+              type: number
+      required: [taskPattern, candidates]
+    ProviderWeight:
+      type: object
+      properties:
+        providerId:
+          type: string
+        weight:
+          type: number
+      required: [providerId, weight]
+    SafeModeThresholds:
+      type: object
+      properties:
+        minHitRate:
+          type: number
+        maxLatencyMs:
+          type: integer
+        maxFallbackFailureRate:
+          type: number
+    RoutingDecisionInput:
+      type: object
+      properties:
+        tenantId:
+          type: string
+        taskContext:
+          type: object
+          additionalProperties: true
+      required: [tenantId, taskContext]
+    RoutingDecision:
+      type: object
+      properties:
+        policyVersion:
+          type: integer
+        primaryProviderId:
+          type: string
+        fallbackChain:
+          type: array
+          items:
+            type: string
+        traceId:
+          type: string
+    ConnectorInstanceInput:
+      type: object
+      properties:
+        tenantId:
+          type: string
+        region:
+          type: string
+        oauthRef:
+          type: string
+        webhookSigningKeyRef:
+          type: string
+        mappingTemplate:
+          type: object
+        rateLimitPerMinute:
+          type: integer
+      required: [tenantId, oauthRef, webhookSigningKeyRef]
+    ConnectorInstance:
+      allOf:
+        - $ref: '#/components/schemas/ConnectorInstanceInput'
+        - type: object
+          properties:
+            instanceId:
+              type: string
+            platform:
+              type: string
+            status:
+              type: string
+              enum: [active, paused, degrading]
+            errorRate:
+              type: number
+    UsageReport:
+      type: object
+      properties:
+        tenantId:
+          type: string
+        providerId:
+          type: string
+        events:
+          type: array
+          items:
+            type: object
+            properties:
+              traceId:
+                type: string
+              tokens:
+                type: integer
+              costUsd:
+                type: number
+              timestamp:
+                type: string
+                format: date-time
+      required: [tenantId, events]
+    QuotaSnapshot:
+      type: object
+      properties:
+        tenantId:
+          type: string
+        quotas:
+          type: array
+          items:
+            $ref: '#/components/schemas/QuotaEntry'
+    QuotaEntry:
+      type: object
+      properties:
+        providerId:
+          type: string
+        limit:
+          type: number
+        usage:
+          type: number
+        status:
+          type: string
+          enum: [healthy, warning, breached]
+    EnforcementRequest:
+      type: object
+      properties:
+        tenantId:
+          type: string
+        providerId:
+          type: string
+        action:
+          type: string
+          enum: [throttle, degrade, disable]
+        reason:
+          type: string
+        ticketId:
+          type: string
+      required: [tenantId, action]
+    TenantRef:
+      type: object
+      properties:
+        tenantId:
+          type: string
+        environment:
+          type: string
+      required: [tenantId, environment]
+    BudgetRef:
+      type: object
+      properties:
+        currency:
+          type: string
+        monthlyLimit:
+          type: number
+      required: [currency, monthlyLimit]

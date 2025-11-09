@@ -32,9 +32,9 @@
 
 ### Phase 1 – 工具与契约初始化
 
-- [ ] **T001** 更新 `api/grpc/contracts/powerx/agent_model_hub/v1/`、`buf.yaml`、`buf.gen.yaml`，纳入 `contracts/grpc-agent-model-hub.proto` 并确保 `make proto-lint && make proto-gen` 通过。
-- [ ] **T002 [P]** 将 `contracts/http-openapi.yaml` 接入 `backend/internal/openapi` 生成 `/openapi.min.json`，供 HTTP 契约测试使用。
-- [ ] **T003 [P]** 扩展 CI 与 `scripts/qa/*.mjs`，让新的契约/集成测试自动运行，并在 `quickstart.md` 写明命令。
+- [X] **T001** 更新 `api/grpc/contracts/powerx/agent_model_hub/v1/`、`buf.yaml`、`buf.gen.yaml`，纳入 `contracts/grpc-agent-model-hub.proto` 并确保 `make proto-lint && make proto-gen` 通过。
+- [X] **T002 [P]** 将 `contracts/http-openapi.yaml` 接入 `backend/internal/openapi` 生成 `/openapi.min.json`，供 HTTP 契约测试使用。
+- [X] **T003 [P]** 扩展 CI 与新增 `scripts/ci/agent_model_hub_tests.sh`，让新的契约/集成测试自动运行，并在 `quickstart.md` 写明命令。
 
 ### Phase 2 – 基础数据与治理（阻塞所有 User Story）
 
