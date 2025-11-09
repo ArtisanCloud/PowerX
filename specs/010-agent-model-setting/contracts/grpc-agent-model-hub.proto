@@ -1,0 +1,269 @@
+syntax = "proto3";
+
+package powerx.agent_model_hub.v1;
+
+option go_package = "github.com/ArtisanCloud/PowerX/api/grpc/gen/powerx/agent_model_hub/v1";
+
+service AgentModelHubService {
+  rpc RegisterProvider(RegisterProviderRequest) returns (RegisterProviderResponse);
+  rpc ValidateProvider(ValidateProviderRequest) returns (ValidateProviderResponse);
+  rpc PublishProvider(PublishProviderRequest) returns (PublishProviderResponse);
+
+  rpc UpsertRoutingPolicy(UpsertRoutingPolicyRequest) returns (UpsertRoutingPolicyResponse);
+  rpc RouteTask(RouteTaskRequest) returns (RouteTaskResponse);
+  rpc RollbackRoutingPolicy(RollbackRoutingPolicyRequest) returns (RollbackRoutingPolicyResponse);
+
+  rpc UpsertConnectorInstance(UpsertConnectorInstanceRequest) returns (UpsertConnectorInstanceResponse);
+  rpc PauseConnectorInstance(PauseConnectorInstanceRequest) returns (PauseConnectorInstanceResponse);
+
+  rpc ReportUsage(ReportUsageRequest) returns (ReportUsageResponse);
+  rpc GetQuotaSnapshot(GetQuotaSnapshotRequest) returns (GetQuotaSnapshotResponse);
+  rpc EnforceQuotaAction(EnforceQuotaActionRequest) returns (EnforceQuotaActionResponse);
+}
+
+message RegisterProviderRequest {
+  ProviderProfileInput profile = 1;
+}
+
+message RegisterProviderResponse {
+  ProviderProfile profile = 1;
+}
+
+message ValidateProviderRequest {
+  string provider_id = 1;
+  string suite = 2; // llm, vlm, tts, embeddings, full
+}
+
+message ValidateProviderResponse {}
+
+message PublishProviderRequest {
+  string provider_id = 1;
+  repeated TenantRef tenant_whitelist = 2;
+  RolloutStrategy rollout_strategy = 3;
+  uint32 rollback_timeout_minutes = 4;
+}
+
+message PublishProviderResponse {}
+
+enum RolloutStrategy {
+  ROLLOUT_STRATEGY_UNSPECIFIED = 0;
+  ROLLOUT_STRATEGY_FULL = 1;
+  ROLLOUT_STRATEGY_PERCENTAGE = 2;
+  ROLLOUT_STRATEGY_CANARY = 3;
+}
+
+message UpsertRoutingPolicyRequest {
+  RoutingPolicyInput policy = 1;
+}
+
+message UpsertRoutingPolicyResponse {
+  RoutingPolicy policy = 1;
+}
+
+message RouteTaskRequest {
+  string tenant_id = 1;
+  map<string, string> task_context = 2;
+}
+
+message RouteTaskResponse {
+  uint32 policy_version = 1;
+  string primary_provider_id = 2;
+  repeated string fallback_chain = 3;
+  string trace_id = 4;
+}
+
+message RollbackRoutingPolicyRequest {
+  string tenant_scope = 1;
+  uint32 target_version = 2;
+}
+
+message RollbackRoutingPolicyResponse {}
+
+message UpsertConnectorInstanceRequest {
+  string platform = 1; // coze, n8n
+  ConnectorInstanceInput instance = 2;
+}
+
+message UpsertConnectorInstanceResponse {
+  ConnectorInstance instance = 1;
+}
+
+message PauseConnectorInstanceRequest {
+  string platform = 1;
+  string instance_id = 2;
+  string reason = 3;
+}
+
+message PauseConnectorInstanceResponse {}
+
+message ReportUsageRequest {
+  UsageReport report = 1;
+}
+
+message ReportUsageResponse {}
+
+message GetQuotaSnapshotRequest {
+  string tenant_id = 1;
+}
+
+message GetQuotaSnapshotResponse {
+  QuotaSnapshot snapshot = 1;
+}
+
+message EnforceQuotaActionRequest {
+  EnforcementRequest request = 1;
+}
+
+message EnforceQuotaActionResponse {}
+
+// Shared Schemas
+message ProviderProfileInput {
+  string name = 1;
+  repeated string capabilities = 2;
+  string primary_endpoint = 3;
+  repeated string regions = 4;
+  repeated TenantRef tenant_whitelist = 5;
+  repeated BudgetRef budgets = 6;
+  map<string, string> credentials = 7; // vault refs
+}
+
+message ProviderProfile {
+  string provider_id = 1;
+  ProviderProfileInput data = 2;
+  RolloutStatus rollout_status = 3;
+}
+
+enum RolloutStatus {
+  ROLLOUT_STATUS_DRAFT = 0;
+  ROLLOUT_STATUS_VALIDATING = 1;
+  ROLLOUT_STATUS_GRAY = 2;
+  ROLLOUT_STATUS_LIVE = 3;
+  ROLLOUT_STATUS_ROLLED_BACK = 4;
+}
+
+message RoutingPolicyInput {
+  string tenant_scope = 1;
+  repeated RoutingRule rules = 2;
+  repeated ProviderWeight fallback_chain = 3;
+  SafeModeThresholds safe_mode_thresholds = 4;
+  ApprovalConfig approval_config = 5;
+}
+
+message RoutingPolicy {
+  string policy_id = 1;
+  uint32 version = 2;
+  RoutingPolicyInput data = 3;
+  PolicyStatus status = 4;
+}
+
+enum PolicyStatus {
+  POLICY_STATUS_DRAFT = 0;
+  POLICY_STATUS_STAGED = 1;
+  POLICY_STATUS_ACTIVE = 2;
+  POLICY_STATUS_ROLLED_BACK = 3;
+}
+
+message RoutingRule {
+  string task_pattern = 1;
+  repeated ProviderWeight candidates = 2;
+  SLAConstraints sla = 3;
+}
+
+message ProviderWeight {
+  string provider_id = 1;
+  double weight = 2;
+}
+
+message SLAConstraints {
+  uint32 latency_ms = 1;
+  double cost_ceiling = 2;
+}
+
+message SafeModeThresholds {
+  double min_hit_rate = 1;
+  uint32 max_latency_ms = 2;
+  double max_fallback_failure_rate = 3;
+}
+
+message ApprovalConfig {
+  string workflow_id = 1;
+  uint32 required_approvers = 2;
+}
+
+message ConnectorInstanceInput {
+  string tenant_id = 1;
+  string region = 2;
+  string oauth_ref = 3;
+  string webhook_signing_key_ref = 4;
+  string mapping_template_json = 5;
+  uint32 rate_limit_per_minute = 6;
+}
+
+message ConnectorInstance {
+  string instance_id = 1;
+  string platform = 2;
+  ConnectorInstanceInput data = 3;
+  ConnectorStatus status = 4;
+  double error_rate = 5;
+}
+
+enum ConnectorStatus {
+  CONNECTOR_STATUS_ACTIVE = 0;
+  CONNECTOR_STATUS_PAUSED = 1;
+  CONNECTOR_STATUS_DEGRADING = 2;
+}
+
+message UsageReport {
+  string tenant_id = 1;
+  string provider_id = 2;
+  repeated UsageEvent events = 3;
+}
+
+message UsageEvent {
+  string trace_id = 1;
+  uint64 tokens = 2;
+  double cost_usd = 3;
+  string timestamp = 4;
+}
+
+message QuotaSnapshot {
+  string tenant_id = 1;
+  repeated QuotaEntry quotas = 2;
+}
+
+message QuotaEntry {
+  string provider_id = 1;
+  double limit = 2;
+  double usage = 3;
+  QuotaStatus status = 4;
+}
+
+enum QuotaStatus {
+  QUOTA_STATUS_HEALTHY = 0;
+  QUOTA_STATUS_WARNING = 1;
+  QUOTA_STATUS_BREACHED = 2;
+}
+
+message EnforcementRequest {
+  string tenant_id = 1;
+  string provider_id = 2;
+  EnforcementAction action = 3;
+  string reason = 4;
+  string ticket_id = 5;
+}
+
+enum EnforcementAction {
+  ENFORCEMENT_ACTION_THROTTLE = 0;
+  ENFORCEMENT_ACTION_DEGRADE = 1;
+  ENFORCEMENT_ACTION_DISABLE = 2;
+}
+
+message TenantRef {
+  string tenant_id = 1;
+  string environment = 2;
+}
+
+message BudgetRef {
+  string currency = 1;
+  double monthly_limit = 2;
+}
