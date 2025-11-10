@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package powerx.agent_model_hub.v1;
 
+import "google/protobuf/timestamp.proto";
+
 option go_package = "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/agent_model_hub/v1;agentmodelhubv1";
 
 service AgentModelHubService {
@@ -10,8 +12,10 @@ service AgentModelHubService {
   rpc PublishProvider(PublishProviderRequest) returns (PublishProviderResponse);
 
   rpc UpsertRoutingPolicy(UpsertRoutingPolicyRequest) returns (UpsertRoutingPolicyResponse);
+  rpc UpdateRoutingPolicyStatus(UpdateRoutingPolicyStatusRequest) returns (UpdateRoutingPolicyStatusResponse);
   rpc RouteTask(RouteTaskRequest) returns (RouteTaskResponse);
   rpc RollbackRoutingPolicy(RollbackRoutingPolicyRequest) returns (RollbackRoutingPolicyResponse);
+  rpc ToggleSafeMode(ToggleSafeModeRequest) returns (ToggleSafeModeResponse);
 
   rpc UpsertConnectorInstance(UpsertConnectorInstanceRequest) returns (UpsertConnectorInstanceResponse);
   rpc PauseConnectorInstance(PauseConnectorInstanceRequest) returns (PauseConnectorInstanceResponse);
@@ -60,6 +64,19 @@ message UpsertRoutingPolicyResponse {
   RoutingPolicy policy = 1;
 }
 
+message UpdateRoutingPolicyStatusRequest {
+  string tenant_scope = 1;
+  uint32 version = 2;
+  PolicyStatus target_status = 3;
+  string reason = 4;
+  string actor = 5;
+  ApprovalOutcome approval = 6;
+}
+
+message UpdateRoutingPolicyStatusResponse {
+  RoutingPolicy policy = 1;
+}
+
 message RouteTaskRequest {
   string tenant_id = 1;
   map<string, string> task_context = 2;
@@ -78,6 +95,18 @@ message RollbackRoutingPolicyRequest {
 }
 
 message RollbackRoutingPolicyResponse {}
+
+message ToggleSafeModeRequest {
+  string tenant_scope = 1;
+  bool enabled = 2;
+  string reason = 3;
+  uint32 ttl_seconds = 4;
+  string actor = 5;
+}
+
+message ToggleSafeModeResponse {
+  SafeModeState state = 1;
+}
 
 message UpsertConnectorInstanceRequest {
   string platform = 1; // coze, n8n
@@ -187,6 +216,26 @@ message SafeModeThresholds {
 message ApprovalConfig {
   string workflow_id = 1;
   uint32 required_approvers = 2;
+}
+
+message ApprovalOutcome {
+  string workflow_id = 1;
+  string requested_by = 2;
+  uint32 required_approvers = 3;
+  repeated string approvers = 4;
+  string outcome = 5;
+  string notes = 6;
+  google.protobuf.Timestamp decided_at = 7;
+}
+
+message SafeModeState {
+  string tenant_scope = 1;
+  string env = 2;
+  bool enabled = 3;
+  string reason = 4;
+  string actor = 5;
+  google.protobuf.Timestamp expires_at = 6;
+  google.protobuf.Timestamp updated_at = 7;
 }
 
 message ConnectorInstanceInput {

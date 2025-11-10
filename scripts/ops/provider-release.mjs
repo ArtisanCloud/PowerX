@@ -38,6 +38,14 @@ async function main() {
       ensure(args.provider, "--provider is required");
       await postJSON(`/providers/${args.provider}/publish`, await bodyFromFile(args.body), args);
       break;
+    case "rollout":
+      ensure(args.provider, "--provider is required");
+      await postJSON(`/providers/${args.provider}/rollout`, buildRolloutBody(args), args);
+      break;
+    case "rollback":
+      ensure(args.provider, "--provider is required");
+      await postJSON(`/providers/${args.provider}/rollback`, buildRollbackBody(args), args);
+      break;
     case "rotate":
       await rotateSecrets(args);
       break;
@@ -116,6 +124,49 @@ function ensure(value, message) {
   }
 }
 
+function buildRolloutBody(args) {
+  const env = args.env || "default";
+  const tenants = parseTenants(args.tenants);
+  const percentage = args.percentage ? Number(args.percentage) : 0;
+  if (!tenants.length) {
+    throw new Error("--tenants is required (format tenantId:env,tenantId:env)");
+  }
+  return {
+    env,
+    strategy: args.strategy || "gray",
+    percentage,
+    tenants,
+    note: args.note || "",
+    expiresInMinutes: args.expires ? Number(args.expires) : 0,
+    requestedBy: args.requestedBy || process.env.USER || "",
+  };
+}
+
+function buildRollbackBody(args) {
+  return {
+    env: args.env || "default",
+    reason: args.reason || "ops-cli rollback",
+  };
+}
+
+function parseTenants(value) {
+  if (!value || value === true) {
+    return [];
+  }
+  return String(value)
+    .split(",")
+    .map((pair) => pair.trim())
+    .filter(Boolean)
+    .map((pair) => {
+      const [tenantId, environment = "default"] = pair.split(":");
+      return {
+        tenantId: tenantId?.trim(),
+        environment: environment?.trim(),
+      };
+    })
+    .filter((ref) => ref.tenantId);
+}
+
 function printHelp() {
   console.log(`
 Usage: provider-release <command> [options]
@@ -123,12 +174,18 @@ Commands:
   register --payload file.json --token xxx        Register provider draft via HTTP API
   validate --provider <uuid> [--suite full]       Trigger validation suite
   publish  --provider <uuid> --body publish.json  Publish provider rollout
+  rollout  --provider <uuid> --tenants demo:staging,... [--percentage 20]  Start or update gray rollout
+  rollback --provider <uuid> [--reason text]      Roll back to previous rollout state
   rotate   --provider <uuid> [--env default]      Invoke ProviderRegistry rotation endpoint
   cron     [--env staging]                        Fire-and-forget rotation for schedulers
 
 Options:
   --token <token>             Bearer token for internal APIs
   --payload/--body <file>     JSON file containing request body
+  --tenants <list>            Comma-separated tenantId:env pairs for rollout
+  --percentage <int>          Rollout percentage (0-100)
+  --note <text>               Annotation for rollout plan
+  --reason <text>             Rollback reason
   --dryRun                    Skip network calls (logs actions only)
   --suite <name>              Validation suite (llm|vlm|tts|full)
 `);

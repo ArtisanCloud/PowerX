@@ -4,11 +4,14 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
 	"github.com/ArtisanCloud/PowerX/internal/server/agent/contract"
 	dbmodel "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/model"
 	agentSvc "github.com/ArtisanCloud/PowerX/internal/service/agent"
+	auditsvc "github.com/ArtisanCloud/PowerX/pkg/corex/audit"
+	dbmaudit "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/audit"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/utils"
 
@@ -19,11 +22,23 @@ import (
 
 // 依赖注入
 type AgentSettingHandler struct {
-	svc *agentSvc.AgentSettingService
+	svc   *agentSvc.AgentSettingService
+	audit auditsvc.Service
 }
 
+const (
+	auditSourceAgentSettingHandler = "agent.setting_handler"
+	auditResourceTypeModalityTest  = "agent.modality_test"
+	auditOpTestConnection          = "agent.settings.test_connection"
+	auditOpTestQuickCall           = "agent.settings.test_quick_call"
+	auditMessageLimit              = 240
+)
+
 func NewAgentSettingHandler(deps *shared.Deps) *AgentSettingHandler {
-	return &AgentSettingHandler{svc: agentSvc.NewAgentSettingService(deps.DB)}
+	return &AgentSettingHandler{
+		svc:   agentSvc.NewAgentSettingService(deps.DB),
+		audit: deps.AuditSvc,
+	}
 }
 
 type baseConn struct {
@@ -249,76 +264,96 @@ func (h *AgentSettingHandler) testConnection(c *gin.Context) {
 
 	switch req.Modality {
 	case contract.ModLLM:
+		if req.LLM == nil {
+			dtoRequest.ResponseError(c, http.StatusBadRequest, "llm 配置不能为空", nil)
+			return
+		}
+		provider := req.LLM.Provider
+		model := req.LLM.Model
 		err := h.svc.TestConnectionPreferInput(
 			c.Request.Context(),
 			req.Env, &tid,
 			string(req.Modality),
-			req.LLM.Provider, req.LLM.Model, req.LLM.BaseURL, req.LLM.APIKey,
+			provider, model, req.LLM.BaseURL, req.LLM.APIKey,
 		)
 		if err != nil {
+			h.emitAuditEvent(c, tid, req.Env, auditOpTestConnection, req.Modality, provider, model, false, err.Error())
 			dtoRequest.ResponseError(c, http.StatusBadRequest, "连接测试失败", err)
 			return
 		}
+		h.emitAuditEvent(c, tid, req.Env, auditOpTestConnection, req.Modality, provider, model, true, "ok")
 		dtoRequest.ResponseSuccess(c, gin.H{"ok": true})
 	case contract.ModImage:
 		if req.Image == nil {
 			dtoRequest.ResponseError(c, http.StatusBadRequest, "image 配置不能为空", nil)
 			return
 		}
-		if err := h.svc.TestConnectionBasic(c.Request.Context(), req.Env, &tid, req.Modality, req.Image.Provider, req.Image.Model); err != nil {
+		if err := h.svc.PingGeneric(c.Request.Context(), req.Env, &tid, req.Modality, req.Image.Provider, req.Image.Model, req.Image.BaseURL, req.Image.APIKey); err != nil {
+			h.emitAuditEvent(c, tid, req.Env, auditOpTestConnection, req.Modality, req.Image.Provider, req.Image.Model, false, err.Error())
 			dtoRequest.ResponseError(c, http.StatusBadRequest, err.Error(), nil)
 			return
 		}
+		h.emitAuditEvent(c, tid, req.Env, auditOpTestConnection, req.Modality, req.Image.Provider, req.Image.Model, true, "ok")
 		dtoRequest.ResponseSuccess(c, gin.H{"ok": true})
 	case contract.ModEmbed:
 		if req.Embedding == nil {
 			dtoRequest.ResponseError(c, http.StatusBadRequest, "embedding 配置不能为空", nil)
 			return
 		}
-		if err := h.svc.TestConnectionBasic(c.Request.Context(), req.Env, &tid, req.Modality, req.Embedding.Provider, req.Embedding.Model); err != nil {
+		if err := h.svc.PingGeneric(c.Request.Context(), req.Env, &tid, req.Modality, req.Embedding.Provider, req.Embedding.Model, req.Embedding.BaseURL, req.Embedding.APIKey); err != nil {
+			h.emitAuditEvent(c, tid, req.Env, auditOpTestConnection, req.Modality, req.Embedding.Provider, req.Embedding.Model, false, err.Error())
 			dtoRequest.ResponseError(c, http.StatusBadRequest, err.Error(), nil)
 			return
 		}
+		h.emitAuditEvent(c, tid, req.Env, auditOpTestConnection, req.Modality, req.Embedding.Provider, req.Embedding.Model, true, "ok")
 		dtoRequest.ResponseSuccess(c, gin.H{"ok": true})
 	case contract.ModVideo:
 		if req.Video == nil {
 			dtoRequest.ResponseError(c, http.StatusBadRequest, "video 配置不能为空", nil)
 			return
 		}
-		if err := h.svc.TestConnectionBasic(c.Request.Context(), req.Env, &tid, req.Modality, req.Video.Provider, req.Video.Model); err != nil {
+		if err := h.svc.PingGeneric(c.Request.Context(), req.Env, &tid, req.Modality, req.Video.Provider, req.Video.Model, req.Video.BaseURL, req.Video.APIKey); err != nil {
+			h.emitAuditEvent(c, tid, req.Env, auditOpTestConnection, req.Modality, req.Video.Provider, req.Video.Model, false, err.Error())
 			dtoRequest.ResponseError(c, http.StatusBadRequest, err.Error(), nil)
 			return
 		}
+		h.emitAuditEvent(c, tid, req.Env, auditOpTestConnection, req.Modality, req.Video.Provider, req.Video.Model, true, "ok")
 		dtoRequest.ResponseSuccess(c, gin.H{"ok": true})
 	case contract.ModAudioTTS:
 		if req.AudioTTS == nil {
 			dtoRequest.ResponseError(c, http.StatusBadRequest, "audio_tts 配置不能为空", nil)
 			return
 		}
-		if err := h.svc.TestConnectionBasic(c.Request.Context(), req.Env, &tid, req.Modality, req.AudioTTS.Provider, req.AudioTTS.Model); err != nil {
+		if err := h.svc.PingGeneric(c.Request.Context(), req.Env, &tid, req.Modality, req.AudioTTS.Provider, req.AudioTTS.Model, req.AudioTTS.BaseURL, req.AudioTTS.APIKey); err != nil {
+			h.emitAuditEvent(c, tid, req.Env, auditOpTestConnection, req.Modality, req.AudioTTS.Provider, req.AudioTTS.Model, false, err.Error())
 			dtoRequest.ResponseError(c, http.StatusBadRequest, err.Error(), nil)
 			return
 		}
+		h.emitAuditEvent(c, tid, req.Env, auditOpTestConnection, req.Modality, req.AudioTTS.Provider, req.AudioTTS.Model, true, "ok")
 		dtoRequest.ResponseSuccess(c, gin.H{"ok": true})
 	case contract.ModAudioASR:
 		if req.AudioASR == nil {
 			dtoRequest.ResponseError(c, http.StatusBadRequest, "audio_asr 配置不能为空", nil)
 			return
 		}
-		if err := h.svc.TestConnectionBasic(c.Request.Context(), req.Env, &tid, req.Modality, req.AudioASR.Provider, req.AudioASR.Model); err != nil {
+		if err := h.svc.PingGeneric(c.Request.Context(), req.Env, &tid, req.Modality, req.AudioASR.Provider, req.AudioASR.Model, req.AudioASR.BaseURL, req.AudioASR.APIKey); err != nil {
+			h.emitAuditEvent(c, tid, req.Env, auditOpTestConnection, req.Modality, req.AudioASR.Provider, req.AudioASR.Model, false, err.Error())
 			dtoRequest.ResponseError(c, http.StatusBadRequest, err.Error(), nil)
 			return
 		}
+		h.emitAuditEvent(c, tid, req.Env, auditOpTestConnection, req.Modality, req.AudioASR.Provider, req.AudioASR.Model, true, "ok")
 		dtoRequest.ResponseSuccess(c, gin.H{"ok": true})
 	case contract.ModRerank:
 		if req.Rerank == nil {
 			dtoRequest.ResponseError(c, http.StatusBadRequest, "rerank 配置不能为空", nil)
 			return
 		}
-		if err := h.svc.TestConnectionBasic(c.Request.Context(), req.Env, &tid, req.Modality, req.Rerank.Provider, req.Rerank.Model); err != nil {
+		if err := h.svc.PingGeneric(c.Request.Context(), req.Env, &tid, req.Modality, req.Rerank.Provider, req.Rerank.Model, req.Rerank.BaseURL, req.Rerank.APIKey); err != nil {
+			h.emitAuditEvent(c, tid, req.Env, auditOpTestConnection, req.Modality, req.Rerank.Provider, req.Rerank.Model, false, err.Error())
 			dtoRequest.ResponseError(c, http.StatusBadRequest, err.Error(), nil)
 			return
 		}
+		h.emitAuditEvent(c, tid, req.Env, auditOpTestConnection, req.Modality, req.Rerank.Provider, req.Rerank.Model, true, "ok")
 		dtoRequest.ResponseSuccess(c, gin.H{"ok": true})
 	default:
 		dtoRequest.ResponseError(c, http.StatusBadRequest, "未知模态: "+string(req.Modality), nil)
@@ -350,15 +385,90 @@ func (h *AgentSettingHandler) testQuickCall(c *gin.Context) {
 			req.Prompt,
 		)
 		if err != nil {
+			h.emitAuditEvent(c, tid, req.Env, auditOpTestQuickCall, req.Modality, req.LLM.Provider, req.LLM.Model, false, err.Error())
 			dtoRequest.ResponseSuccess(c, gin.H{"ok": false, "message": err.Error()})
 			return
 		}
+		h.emitAuditEvent(c, tid, req.Env, auditOpTestQuickCall, req.Modality, req.LLM.Provider, req.LLM.Model, true, snippet(out, auditMessageLimit))
 		dtoRequest.ResponseSuccess(c, gin.H{"ok": true, "result": out})
-	case contract.ModImage, contract.ModEmbed, contract.ModVideo, contract.ModAudioTTS, contract.ModAudioASR, contract.ModRerank:
-		dtoRequest.ResponseSuccess(c, gin.H{
-			"ok":      true,
-			"message": fmt.Sprintf("已校验 %s 配置，试跑能力将在后续版本开放。", req.Modality),
-		})
+	case contract.ModImage:
+		if req.Image == nil {
+			dtoRequest.ResponseError(c, http.StatusBadRequest, "image 配置不能为空", nil)
+			return
+		}
+		if err := h.svc.PingGeneric(c.Request.Context(), req.Env, &tid, req.Modality, req.Image.Provider, req.Image.Model, req.Image.BaseURL, req.Image.APIKey); err != nil {
+			h.emitAuditEvent(c, tid, req.Env, auditOpTestQuickCall, req.Modality, req.Image.Provider, req.Image.Model, false, err.Error())
+			dtoRequest.ResponseSuccess(c, gin.H{"ok": false, "message": err.Error()})
+			return
+		}
+		msg := describeImageQuickCall(req.Image, req.Prompt)
+		h.emitAuditEvent(c, tid, req.Env, auditOpTestQuickCall, req.Modality, req.Image.Provider, req.Image.Model, true, msg)
+		dtoRequest.ResponseSuccess(c, gin.H{"ok": true, "result": msg})
+	case contract.ModEmbed:
+		if req.Embedding == nil {
+			dtoRequest.ResponseError(c, http.StatusBadRequest, "embedding 配置不能为空", nil)
+			return
+		}
+		if err := h.svc.PingGeneric(c.Request.Context(), req.Env, &tid, req.Modality, req.Embedding.Provider, req.Embedding.Model, req.Embedding.BaseURL, req.Embedding.APIKey); err != nil {
+			h.emitAuditEvent(c, tid, req.Env, auditOpTestQuickCall, req.Modality, req.Embedding.Provider, req.Embedding.Model, false, err.Error())
+			dtoRequest.ResponseSuccess(c, gin.H{"ok": false, "message": err.Error()})
+			return
+		}
+		msg := describeEmbeddingQuickCall(req.Embedding)
+		h.emitAuditEvent(c, tid, req.Env, auditOpTestQuickCall, req.Modality, req.Embedding.Provider, req.Embedding.Model, true, msg)
+		dtoRequest.ResponseSuccess(c, gin.H{"ok": true, "result": msg})
+	case contract.ModVideo:
+		if req.Video == nil {
+			dtoRequest.ResponseError(c, http.StatusBadRequest, "video 配置不能为空", nil)
+			return
+		}
+		if err := h.svc.PingGeneric(c.Request.Context(), req.Env, &tid, req.Modality, req.Video.Provider, req.Video.Model, req.Video.BaseURL, req.Video.APIKey); err != nil {
+			h.emitAuditEvent(c, tid, req.Env, auditOpTestQuickCall, req.Modality, req.Video.Provider, req.Video.Model, false, err.Error())
+			dtoRequest.ResponseSuccess(c, gin.H{"ok": false, "message": err.Error()})
+			return
+		}
+		msg := describeVideoQuickCall(req.Video, req.Prompt)
+		h.emitAuditEvent(c, tid, req.Env, auditOpTestQuickCall, req.Modality, req.Video.Provider, req.Video.Model, true, msg)
+		dtoRequest.ResponseSuccess(c, gin.H{"ok": true, "result": msg})
+	case contract.ModAudioTTS:
+		if req.AudioTTS == nil {
+			dtoRequest.ResponseError(c, http.StatusBadRequest, "audio_tts 配置不能为空", nil)
+			return
+		}
+		if err := h.svc.PingGeneric(c.Request.Context(), req.Env, &tid, req.Modality, req.AudioTTS.Provider, req.AudioTTS.Model, req.AudioTTS.BaseURL, req.AudioTTS.APIKey); err != nil {
+			h.emitAuditEvent(c, tid, req.Env, auditOpTestQuickCall, req.Modality, req.AudioTTS.Provider, req.AudioTTS.Model, false, err.Error())
+			dtoRequest.ResponseSuccess(c, gin.H{"ok": false, "message": err.Error()})
+			return
+		}
+		msg := describeAudioTTSQuickCall(req.AudioTTS, req.Prompt)
+		h.emitAuditEvent(c, tid, req.Env, auditOpTestQuickCall, req.Modality, req.AudioTTS.Provider, req.AudioTTS.Model, true, msg)
+		dtoRequest.ResponseSuccess(c, gin.H{"ok": true, "result": msg})
+	case contract.ModAudioASR:
+		if req.AudioASR == nil {
+			dtoRequest.ResponseError(c, http.StatusBadRequest, "audio_asr 配置不能为空", nil)
+			return
+		}
+		if err := h.svc.PingGeneric(c.Request.Context(), req.Env, &tid, req.Modality, req.AudioASR.Provider, req.AudioASR.Model, req.AudioASR.BaseURL, req.AudioASR.APIKey); err != nil {
+			h.emitAuditEvent(c, tid, req.Env, auditOpTestQuickCall, req.Modality, req.AudioASR.Provider, req.AudioASR.Model, false, err.Error())
+			dtoRequest.ResponseSuccess(c, gin.H{"ok": false, "message": err.Error()})
+			return
+		}
+		msg := describeAudioASRQuickCall(req.AudioASR)
+		h.emitAuditEvent(c, tid, req.Env, auditOpTestQuickCall, req.Modality, req.AudioASR.Provider, req.AudioASR.Model, true, msg)
+		dtoRequest.ResponseSuccess(c, gin.H{"ok": true, "result": msg})
+	case contract.ModRerank:
+		if req.Rerank == nil {
+			dtoRequest.ResponseError(c, http.StatusBadRequest, "rerank 配置不能为空", nil)
+			return
+		}
+		if err := h.svc.PingGeneric(c.Request.Context(), req.Env, &tid, req.Modality, req.Rerank.Provider, req.Rerank.Model, req.Rerank.BaseURL, req.Rerank.APIKey); err != nil {
+			h.emitAuditEvent(c, tid, req.Env, auditOpTestQuickCall, req.Modality, req.Rerank.Provider, req.Rerank.Model, false, err.Error())
+			dtoRequest.ResponseSuccess(c, gin.H{"ok": false, "message": err.Error()})
+			return
+		}
+		msg := describeRerankQuickCall(req.Rerank)
+		h.emitAuditEvent(c, tid, req.Env, auditOpTestQuickCall, req.Modality, req.Rerank.Provider, req.Rerank.Model, true, msg)
+		dtoRequest.ResponseSuccess(c, gin.H{"ok": true, "result": msg})
 	default:
 		dtoRequest.ResponseError(c, http.StatusBadRequest, "未知模态: "+string(req.Modality), nil)
 	}
@@ -604,6 +714,55 @@ func buildEntitiesFromPayload(req *saveSettingsReq, tenantID *uint64) (credName,
 	return
 }
 
+func describeImageQuickCall(m *modImage, prompt string) string {
+	return fmt.Sprintf("已校验 Image provider=%s model=%s size=%s quality=%s format=%s prompt=%s",
+		m.Provider, m.Model, defaultIfEmpty(m.Size, "1024x1024"), defaultIfEmpty(m.Quality, "standard"), defaultIfEmpty(m.Format, "png"), snippet(prompt, 60))
+}
+
+func describeEmbeddingQuickCall(m *modEmbed) string {
+	return fmt.Sprintf("已校验 Embedding provider=%s model=%s dims=%d truncate=%s batch=%d",
+		m.Provider, m.Model, m.Dimensions, defaultIfEmpty(m.Truncate, "none"), m.Batch)
+}
+
+func describeVideoQuickCall(m *modVideo, prompt string) string {
+	return fmt.Sprintf("已校验 Video provider=%s model=%s res=%s fps=%d maxDuration=%ds prompt=%s",
+		m.Provider, m.Model, defaultIfEmpty(m.Resolution, "720p"), m.FPS, m.MaxDurationSec, snippet(prompt, 60))
+}
+
+func describeAudioTTSQuickCall(m *modAudioTTS, prompt string) string {
+	return fmt.Sprintf("已校验 AudioTTS provider=%s model=%s voice=%s speed=%.2f format=%s prompt=%s",
+		m.Provider, m.Model, defaultIfEmpty(m.Voice, "default"), m.Speed, defaultIfEmpty(m.Format, "mp3"), snippet(prompt, 60))
+}
+
+func describeAudioASRQuickCall(m *modAudioASR) string {
+	return fmt.Sprintf("已校验 AudioASR provider=%s model=%s language=%s format=%s temperature=%.2f",
+		m.Provider, m.Model, defaultIfEmpty(m.Language, "auto"), defaultIfEmpty(m.ResponseFormat, "json"), m.Temperature)
+}
+
+func describeRerankQuickCall(m *modRerank) string {
+	return fmt.Sprintf("已校验 Rerank provider=%s model=%s topK=%d returnDocs=%t maxChunksPerDoc=%d",
+		m.Provider, m.Model, m.TopK, m.ReturnDocuments, m.MaxChunksPerDoc)
+}
+
+func snippet(s string, limit int) string {
+	txt := strings.TrimSpace(s)
+	if txt == "" {
+		return "(empty)"
+	}
+	runes := []rune(txt)
+	if len(runes) <= limit {
+		return txt
+	}
+	return string(runes[:limit]) + "..."
+}
+
+func defaultIfEmpty(val string, fallback string) string {
+	if strings.TrimSpace(val) == "" {
+		return fallback
+	}
+	return val
+}
+
 func (h *AgentSettingHandler) getActiveProfile(c *gin.Context) {
 	env := c.DefaultQuery("env", "default")
 	mod := strings.TrimSpace(strings.ToLower(c.DefaultQuery("modality", "llm")))
@@ -714,4 +873,69 @@ func redactCredentialSecrets(cred *dbmodel.AIProviderCredential) {
 		delete(copied, key)
 	}
 	cred.Data = copied
+}
+
+func (h *AgentSettingHandler) emitAuditEvent(
+	c *gin.Context,
+	tenantID uint64,
+	env string,
+	operation string,
+	modality contract.Modality,
+	provider string,
+	model string,
+	success bool,
+	message string,
+) {
+	if h.audit == nil || c == nil {
+		return
+	}
+	provider = strings.TrimSpace(provider)
+	model = strings.TrimSpace(model)
+	resourceID := fmt.Sprintf(
+		"%s:%s:%s",
+		strings.ToLower(string(modality)),
+		defaultIfEmpty(provider, "unknown"),
+		defaultIfEmpty(model, "unknown"),
+	)
+	resourceName := strings.Trim(strings.Trim(fmt.Sprintf("%s/%s", provider, model), "/"), " ")
+	if resourceName == "" || resourceName == "/" {
+		resourceName = ""
+	}
+
+	outcome := "SUCCESS"
+	severity := "INFO"
+	if !success {
+		outcome = "FAIL"
+		severity = "WARN"
+	}
+
+	meta := map[string]any{
+		"env":      env,
+		"modality": string(modality),
+		"provider": provider,
+		"model":    model,
+		"success":  success,
+		"message":  snippet(message, auditMessageLimit),
+	}
+
+	var clientIP *string
+	if ip := strings.TrimSpace(c.ClientIP()); ip != "" {
+		clientIP = &ip
+	}
+
+	_ = h.audit.Emit(c.Request.Context(), &dbmaudit.AuditEvent{
+		TenantID:      tenantID,
+		Source:        auditSourceAgentSettingHandler,
+		Operation:     operation,
+		ResourceType:  auditResourceTypeModalityTest,
+		ResourceID:    resourceID,
+		ResourceName:  resourceName,
+		Outcome:       outcome,
+		Severity:      severity,
+		ClientIP:      clientIP,
+		ClientUA:      c.Request.UserAgent(),
+		Meta:          datatypes.JSON(utils.MustJSONBytes(meta)),
+		OccurredAt:    time.Now(),
+		CorrelationID: auditsvc.CorrelationIDFromContext(c.Request.Context()),
+	})
 }

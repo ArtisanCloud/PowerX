@@ -93,6 +93,23 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/RoutingPolicy'
+  /model-routing/policies/status:
+    post:
+      tags: [Routing Policies]
+      summary: Update routing policy status and approval outcome
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoutingPolicyStatusInput'
+      responses:
+        '200':
+          description: Updated policy record
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoutingPolicy'
   /model-routing/route:
     post:
       tags: [Routing Policies]
@@ -129,6 +146,23 @@ paths:
       responses:
         '200':
           description: Rollback triggered
+  /model-routing/safe-mode:
+    post:
+      tags: [Routing Policies]
+      summary: Toggle safe-mode for a tenant scope
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SafeModeToggleInput'
+      responses:
+        '200':
+          description: Safe-mode state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SafeModeState'
   /connector-platforms/{platform}/instances:
     post:
       tags: [Connectors]
@@ -289,6 +323,41 @@ components:
             status:
               type: string
               enum: [draft, staged, active, rolled_back]
+    RoutingPolicyStatusInput:
+      type: object
+      properties:
+        tenantScope:
+          type: string
+        version:
+          type: integer
+        targetStatus:
+          type: string
+          enum: [draft, staged, active, rolled_back]
+        actor:
+          type: string
+        reason:
+          type: string
+        approval:
+          type: object
+          properties:
+            workflowId:
+              type: string
+            requestedBy:
+              type: string
+            requiredApprovers:
+              type: integer
+            approvers:
+              type: array
+              items:
+                type: string
+            outcome:
+              type: string
+            notes:
+              type: string
+            decidedAt:
+              type: string
+              format: date-time
+      required: [tenantScope, targetStatus]
     RoutingRule:
       type: object
       properties:
@@ -323,6 +392,39 @@ components:
           type: integer
         maxFallbackFailureRate:
           type: number
+    SafeModeToggleInput:
+      type: object
+      properties:
+        tenantScope:
+          type: string
+        enabled:
+          type: boolean
+        reason:
+          type: string
+        actor:
+          type: string
+        ttlSeconds:
+          type: integer
+      required: [tenantScope, enabled]
+    SafeModeState:
+      type: object
+      properties:
+        tenantScope:
+          type: string
+        env:
+          type: string
+        enabled:
+          type: boolean
+        reason:
+          type: string
+        actor:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
     RoutingDecisionInput:
       type: object
       properties:
@@ -345,6 +447,12 @@ components:
             type: string
         traceId:
           type: string
+        fallbackUsed:
+          type: boolean
+        matchedRule:
+          type: string
+        safeMode:
+          type: boolean
     ConnectorInstanceInput:
       type: object
       properties:

@@ -169,6 +169,7 @@ type Modality =
 
 // 使用 AI 设置 store
 const aiSettingsStore = useAISettingsStore();
+const toast = useToast();
 
 /**
  * Tab & 环境
@@ -201,6 +202,24 @@ const env = computed({
   get: () => envStore.currentEnv,
   set: (value: string) => envStore.setCurrentEnv(value),
 });
+
+const getErrorMessage = (error: unknown) => {
+  if (!error) return "未知错误";
+  if (typeof error === "string") {
+    return error;
+  }
+  if (typeof error === "object") {
+    const anyError = error as Record<string, any>;
+    return (
+      anyError?.data?.message ||
+      anyError?.response?.statusMessage ||
+      anyError?.message ||
+      anyError?.error ||
+      "未知错误"
+    );
+  }
+  return "未知错误";
+};
 
 /**
  * Provider 列表与模型目录（从 store 获取）
@@ -600,7 +619,18 @@ async function saveSettings() {
   try {
     const payload = buildPayloadForCurrentModality();
     await aiSettingsStore.saveSettings(payload);
+    toast.add({
+      title: "保存成功",
+      description: `${currentTitle.value} 配置已更新`,
+      color: "success",
+    });
   } catch (error) {
+    const message = getErrorMessage(error);
+    toast.add({
+      title: "保存失败",
+      description: message,
+      color: "error",
+    });
     console.error("保存设置失败:", error);
   }
 }
@@ -635,7 +665,18 @@ async function testConnection() {
       currentState.value.provider || "",
       payload
     );
+    toast.add({
+      title: "连接测试成功",
+      description: `${currentTitle.value} 连接正常`,
+      color: "success",
+    });
   } catch (error) {
+    const message = getErrorMessage(error);
+    toast.add({
+      title: "连接测试失败",
+      description: message,
+      color: "error",
+    });
     console.error("连接测试失败:", error);
   }
 }
@@ -651,11 +692,23 @@ async function testQuickCall() {
       payload,
       "Hello, this is a test message."
     );
+    toast.add({
+      title: "快速调用成功",
+      description: `${currentTitle.value} 已返回测试结果`,
+      color: "success",
+    });
   } catch (error) {
+    const message = getErrorMessage(error);
+    toast.add({
+      title: "快速调用失败",
+      description: message,
+      color: "error",
+    });
     console.error("快速调用测试失败:", error);
   }
 }
 async function refreshStateForEnvAndModality() {
+  aiSettingsStore.setCurrentEnv(env.value);
   await loadActiveConfiguration();
   if (!currentState.value.provider) {
     loadExistingConfiguration();
@@ -665,13 +718,32 @@ async function refreshStateForEnvAndModality() {
   }
 }
 
+async function handleEnvChange(nextEnv: string) {
+  aiSettingsStore.setCurrentEnv(nextEnv);
+  try {
+    await aiSettingsStore.refreshEnvData(nextEnv);
+  } catch (error) {
+    toast.add({
+      title: "环境加载失败",
+      description: getErrorMessage(error),
+      color: "error",
+    });
+  }
+  await refreshStateForEnvAndModality();
+}
+
 // 页面初始化
 onMounted(async () => {
   try {
     envStore.initialize();
-    await aiSettingsStore.initialize();
+    await aiSettingsStore.initialize(env.value);
     await refreshStateForEnvAndModality();
   } catch (error) {
+    toast.add({
+      title: "初始化失败",
+      description: getErrorMessage(error),
+      color: "error",
+    });
     console.error("初始化AI设置页面失败:", error);
   }
 });
@@ -760,8 +832,11 @@ watch(modality, async () => {
 
 watch(
   () => env.value,
-  async () => {
-    await refreshStateForEnvAndModality();
+  async (next, prev) => {
+    if (!next || next === prev) {
+      return;
+    }
+    await handleEnvChange(next);
   }
 );
 </script>

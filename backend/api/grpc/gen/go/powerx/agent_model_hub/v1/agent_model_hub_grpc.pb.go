@@ -19,17 +19,19 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	AgentModelHubService_RegisterProvider_FullMethodName        = "/powerx.agent_model_hub.v1.AgentModelHubService/RegisterProvider"
-	AgentModelHubService_ValidateProvider_FullMethodName        = "/powerx.agent_model_hub.v1.AgentModelHubService/ValidateProvider"
-	AgentModelHubService_PublishProvider_FullMethodName         = "/powerx.agent_model_hub.v1.AgentModelHubService/PublishProvider"
-	AgentModelHubService_UpsertRoutingPolicy_FullMethodName     = "/powerx.agent_model_hub.v1.AgentModelHubService/UpsertRoutingPolicy"
-	AgentModelHubService_RouteTask_FullMethodName               = "/powerx.agent_model_hub.v1.AgentModelHubService/RouteTask"
-	AgentModelHubService_RollbackRoutingPolicy_FullMethodName   = "/powerx.agent_model_hub.v1.AgentModelHubService/RollbackRoutingPolicy"
-	AgentModelHubService_UpsertConnectorInstance_FullMethodName = "/powerx.agent_model_hub.v1.AgentModelHubService/UpsertConnectorInstance"
-	AgentModelHubService_PauseConnectorInstance_FullMethodName  = "/powerx.agent_model_hub.v1.AgentModelHubService/PauseConnectorInstance"
-	AgentModelHubService_ReportUsage_FullMethodName             = "/powerx.agent_model_hub.v1.AgentModelHubService/ReportUsage"
-	AgentModelHubService_GetQuotaSnapshot_FullMethodName        = "/powerx.agent_model_hub.v1.AgentModelHubService/GetQuotaSnapshot"
-	AgentModelHubService_EnforceQuotaAction_FullMethodName      = "/powerx.agent_model_hub.v1.AgentModelHubService/EnforceQuotaAction"
+	AgentModelHubService_RegisterProvider_FullMethodName          = "/powerx.agent_model_hub.v1.AgentModelHubService/RegisterProvider"
+	AgentModelHubService_ValidateProvider_FullMethodName          = "/powerx.agent_model_hub.v1.AgentModelHubService/ValidateProvider"
+	AgentModelHubService_PublishProvider_FullMethodName           = "/powerx.agent_model_hub.v1.AgentModelHubService/PublishProvider"
+	AgentModelHubService_UpsertRoutingPolicy_FullMethodName       = "/powerx.agent_model_hub.v1.AgentModelHubService/UpsertRoutingPolicy"
+	AgentModelHubService_UpdateRoutingPolicyStatus_FullMethodName = "/powerx.agent_model_hub.v1.AgentModelHubService/UpdateRoutingPolicyStatus"
+	AgentModelHubService_RouteTask_FullMethodName                 = "/powerx.agent_model_hub.v1.AgentModelHubService/RouteTask"
+	AgentModelHubService_RollbackRoutingPolicy_FullMethodName     = "/powerx.agent_model_hub.v1.AgentModelHubService/RollbackRoutingPolicy"
+	AgentModelHubService_ToggleSafeMode_FullMethodName            = "/powerx.agent_model_hub.v1.AgentModelHubService/ToggleSafeMode"
+	AgentModelHubService_UpsertConnectorInstance_FullMethodName   = "/powerx.agent_model_hub.v1.AgentModelHubService/UpsertConnectorInstance"
+	AgentModelHubService_PauseConnectorInstance_FullMethodName    = "/powerx.agent_model_hub.v1.AgentModelHubService/PauseConnectorInstance"
+	AgentModelHubService_ReportUsage_FullMethodName               = "/powerx.agent_model_hub.v1.AgentModelHubService/ReportUsage"
+	AgentModelHubService_GetQuotaSnapshot_FullMethodName          = "/powerx.agent_model_hub.v1.AgentModelHubService/GetQuotaSnapshot"
+	AgentModelHubService_EnforceQuotaAction_FullMethodName        = "/powerx.agent_model_hub.v1.AgentModelHubService/EnforceQuotaAction"
 )
 
 // AgentModelHubServiceClient is the client API for AgentModelHubService service.
@@ -40,8 +42,10 @@ type AgentModelHubServiceClient interface {
 	ValidateProvider(ctx context.Context, in *ValidateProviderRequest, opts ...grpc.CallOption) (*ValidateProviderResponse, error)
 	PublishProvider(ctx context.Context, in *PublishProviderRequest, opts ...grpc.CallOption) (*PublishProviderResponse, error)
 	UpsertRoutingPolicy(ctx context.Context, in *UpsertRoutingPolicyRequest, opts ...grpc.CallOption) (*UpsertRoutingPolicyResponse, error)
+	UpdateRoutingPolicyStatus(ctx context.Context, in *UpdateRoutingPolicyStatusRequest, opts ...grpc.CallOption) (*UpdateRoutingPolicyStatusResponse, error)
 	RouteTask(ctx context.Context, in *RouteTaskRequest, opts ...grpc.CallOption) (*RouteTaskResponse, error)
 	RollbackRoutingPolicy(ctx context.Context, in *RollbackRoutingPolicyRequest, opts ...grpc.CallOption) (*RollbackRoutingPolicyResponse, error)
+	ToggleSafeMode(ctx context.Context, in *ToggleSafeModeRequest, opts ...grpc.CallOption) (*ToggleSafeModeResponse, error)
 	UpsertConnectorInstance(ctx context.Context, in *UpsertConnectorInstanceRequest, opts ...grpc.CallOption) (*UpsertConnectorInstanceResponse, error)
 	PauseConnectorInstance(ctx context.Context, in *PauseConnectorInstanceRequest, opts ...grpc.CallOption) (*PauseConnectorInstanceResponse, error)
 	ReportUsage(ctx context.Context, in *ReportUsageRequest, opts ...grpc.CallOption) (*ReportUsageResponse, error)
@@ -97,6 +101,16 @@ func (c *agentModelHubServiceClient) UpsertRoutingPolicy(ctx context.Context, in
 	return out, nil
 }
 
+func (c *agentModelHubServiceClient) UpdateRoutingPolicyStatus(ctx context.Context, in *UpdateRoutingPolicyStatusRequest, opts ...grpc.CallOption) (*UpdateRoutingPolicyStatusResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UpdateRoutingPolicyStatusResponse)
+	err := c.cc.Invoke(ctx, AgentModelHubService_UpdateRoutingPolicyStatus_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *agentModelHubServiceClient) RouteTask(ctx context.Context, in *RouteTaskRequest, opts ...grpc.CallOption) (*RouteTaskResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(RouteTaskResponse)
@@ -111,6 +125,16 @@ func (c *agentModelHubServiceClient) RollbackRoutingPolicy(ctx context.Context, 
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(RollbackRoutingPolicyResponse)
 	err := c.cc.Invoke(ctx, AgentModelHubService_RollbackRoutingPolicy_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *agentModelHubServiceClient) ToggleSafeMode(ctx context.Context, in *ToggleSafeModeRequest, opts ...grpc.CallOption) (*ToggleSafeModeResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ToggleSafeModeResponse)
+	err := c.cc.Invoke(ctx, AgentModelHubService_ToggleSafeMode_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -175,8 +199,10 @@ type AgentModelHubServiceServer interface {
 	ValidateProvider(context.Context, *ValidateProviderRequest) (*ValidateProviderResponse, error)
 	PublishProvider(context.Context, *PublishProviderRequest) (*PublishProviderResponse, error)
 	UpsertRoutingPolicy(context.Context, *UpsertRoutingPolicyRequest) (*UpsertRoutingPolicyResponse, error)
+	UpdateRoutingPolicyStatus(context.Context, *UpdateRoutingPolicyStatusRequest) (*UpdateRoutingPolicyStatusResponse, error)
 	RouteTask(context.Context, *RouteTaskRequest) (*RouteTaskResponse, error)
 	RollbackRoutingPolicy(context.Context, *RollbackRoutingPolicyRequest) (*RollbackRoutingPolicyResponse, error)
+	ToggleSafeMode(context.Context, *ToggleSafeModeRequest) (*ToggleSafeModeResponse, error)
 	UpsertConnectorInstance(context.Context, *UpsertConnectorInstanceRequest) (*UpsertConnectorInstanceResponse, error)
 	PauseConnectorInstance(context.Context, *PauseConnectorInstanceRequest) (*PauseConnectorInstanceResponse, error)
 	ReportUsage(context.Context, *ReportUsageRequest) (*ReportUsageResponse, error)
@@ -204,11 +230,17 @@ func (UnimplementedAgentModelHubServiceServer) PublishProvider(context.Context, 
 func (UnimplementedAgentModelHubServiceServer) UpsertRoutingPolicy(context.Context, *UpsertRoutingPolicyRequest) (*UpsertRoutingPolicyResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UpsertRoutingPolicy not implemented")
 }
+func (UnimplementedAgentModelHubServiceServer) UpdateRoutingPolicyStatus(context.Context, *UpdateRoutingPolicyStatusRequest) (*UpdateRoutingPolicyStatusResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpdateRoutingPolicyStatus not implemented")
+}
 func (UnimplementedAgentModelHubServiceServer) RouteTask(context.Context, *RouteTaskRequest) (*RouteTaskResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RouteTask not implemented")
 }
 func (UnimplementedAgentModelHubServiceServer) RollbackRoutingPolicy(context.Context, *RollbackRoutingPolicyRequest) (*RollbackRoutingPolicyResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RollbackRoutingPolicy not implemented")
+}
+func (UnimplementedAgentModelHubServiceServer) ToggleSafeMode(context.Context, *ToggleSafeModeRequest) (*ToggleSafeModeResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ToggleSafeMode not implemented")
 }
 func (UnimplementedAgentModelHubServiceServer) UpsertConnectorInstance(context.Context, *UpsertConnectorInstanceRequest) (*UpsertConnectorInstanceResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UpsertConnectorInstance not implemented")
@@ -318,6 +350,24 @@ func _AgentModelHubService_UpsertRoutingPolicy_Handler(srv interface{}, ctx cont
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AgentModelHubService_UpdateRoutingPolicyStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateRoutingPolicyStatusRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentModelHubServiceServer).UpdateRoutingPolicyStatus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AgentModelHubService_UpdateRoutingPolicyStatus_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentModelHubServiceServer).UpdateRoutingPolicyStatus(ctx, req.(*UpdateRoutingPolicyStatusRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _AgentModelHubService_RouteTask_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(RouteTaskRequest)
 	if err := dec(in); err != nil {
@@ -350,6 +400,24 @@ func _AgentModelHubService_RollbackRoutingPolicy_Handler(srv interface{}, ctx co
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(AgentModelHubServiceServer).RollbackRoutingPolicy(ctx, req.(*RollbackRoutingPolicyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AgentModelHubService_ToggleSafeMode_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ToggleSafeModeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentModelHubServiceServer).ToggleSafeMode(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AgentModelHubService_ToggleSafeMode_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentModelHubServiceServer).ToggleSafeMode(ctx, req.(*ToggleSafeModeRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -468,12 +536,20 @@ var AgentModelHubService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _AgentModelHubService_UpsertRoutingPolicy_Handler,
 		},
 		{
+			MethodName: "UpdateRoutingPolicyStatus",
+			Handler:    _AgentModelHubService_UpdateRoutingPolicyStatus_Handler,
+		},
+		{
 			MethodName: "RouteTask",
 			Handler:    _AgentModelHubService_RouteTask_Handler,
 		},
 		{
 			MethodName: "RollbackRoutingPolicy",
 			Handler:    _AgentModelHubService_RollbackRoutingPolicy_Handler,
+		},
+		{
+			MethodName: "ToggleSafeMode",
+			Handler:    _AgentModelHubService_ToggleSafeMode_Handler,
 		},
 		{
 			MethodName: "UpsertConnectorInstance",

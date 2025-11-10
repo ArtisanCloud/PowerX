@@ -24,6 +24,7 @@ type ProviderProfile struct {
 	HealthScore     float64                     `gorm:"column:health_score;type:numeric(5,4);default:0" json:"health_score"`
 	RolloutStatus   string                      `gorm:"column:rollout_status;type:varchar(32);not null;default:'draft';index" json:"rollout_status"`
 	AuditTrailID    string                      `gorm:"column:audit_trail_id;type:varchar(128)" json:"audit_trail_id"`
+	Metadata        datatypes.JSONMap           `gorm:"column:metadata;type:jsonb;default:'{}'::jsonb" json:"metadata"`
 }
 
 func (ProviderProfile) TableName() string {

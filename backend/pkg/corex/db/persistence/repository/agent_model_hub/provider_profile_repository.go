@@ -122,6 +122,17 @@ func (r *ProviderProfileRepository) UpdateSealedSecrets(ctx context.Context, id 
 		Update("sealed_secrets", payload).Error
 }
 
+// UpdateFields performs a partial update on the provider profile.
+func (r *ProviderProfileRepository) UpdateFields(ctx context.Context, id uuid.UUID, updates map[string]any) error {
+	if len(updates) == 0 {
+		return nil
+	}
+	return r.db.WithContext(ctx).
+		Model(&model.ProviderProfile{}).
+		Where("uuid = ?", id).
+		Updates(updates).Error
+}
+
 // UpdateHealthScore sets the latest validator score for observability.
 func (r *ProviderProfileRepository) UpdateHealthScore(ctx context.Context, id uuid.UUID, score float64) error {
 	return r.db.WithContext(ctx).

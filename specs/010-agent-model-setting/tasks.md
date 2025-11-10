@@ -52,31 +52,31 @@
 
 ### Phase 3 – User Story 1：Provider Onboarding（P1）
 
-- [ ] **T010 [P]** HTTP 契约测试 `tests/contract/http/admin/agent_model_hub_provider_test.go` 覆盖 `/providers /models /settings/*`.
-- [ ] **T011 [P]** gRPC 契约测试 `tests/contract/grpc/agent_model_hub_provider_test.go` 覆盖 Register/Validate/Publish。
-- [ ] **T012a** 扩展 `internal/service/agent/agent_setting_service.go`，让 `SaveCredentialAndProfile` + 仓储同时支持 7 种模态（含默认参数、Tags、能力标签）。
-- [ ] **T012b** 在 `agent_setting_service.go` 中实现多模态健康检查逻辑（PingLLM/PingImage/...），确保 `TestConnection/QuickCall` 可按照模态走差异化验证。
-- [ ] **T012c** 更新 `backend/internal/transport/http/admin/agent/setting_handler.go` 的 `buildEntitiesFromPayload`、`saveSettings` 及请求校验，与服务层保持一致（此任务依赖 T012a/T012b）。
-- [ ] **T012d** 扩展 `scripts/ops/provider-validator.mjs`，使其可针对不同模态调用真实接口并产出健康报告，为 T015 的工件管道提供输入。
-- [ ] **T013** （保留）实现模态化 Ping/Test 时的 HTTP 入口逻辑，并覆盖日志/审计。
-- [ ] **T014** 新增 gRPC handler `internal/transport/grpc/agent_model_hub/provider_handler.go`。
-- [ ] **T015** 在 `backend/internal/service/provider_registry/validation_artifacts.go` 构建验证工件管道：写入 `minio://agent/providers/<provider>/<timestamp>.json`，Vault 存储 sealed audit 引用，未通过禁止发布。
-- [ ] **T016** Web UI (`web-admin/app/pages/settings/ai/index.vue` + store/service)：初始化 store、监听环境变化、将 env 透传至 API、序列化模态参数并展示后端错误。
-- [ ] **T017** 集成测试 `tests/integration/agent_model_hub/provider_onboarding_test.go` 覆盖成功/失败路径。
-- [ ] **T039** 扩展 `provider_registry/rollout_service.go` 与 `scripts/ops/provider-release.mjs`，实现租户灰度、百分比发布与 5 分钟内回滚（FR-004）。
+- [X] **T010 [P]** HTTP 契约测试 `tests/contract/http/admin/agent_model_hub_provider_test.go` 覆盖 `/providers /models /settings/*`.
+- [X] **T011 [P]** gRPC 契约测试 `tests/contract/grpc/agent_model_hub_provider_test.go` 覆盖 Register/Validate/Publish。
+- [X] **T012a** 扩展 `internal/service/agent/agent_setting_service.go`，让 `SaveCredentialAndProfile` + 仓储同时支持 7 种模态（含默认参数、Tags、能力标签）。
+- [X] **T012b** 在 `agent_setting_service.go` 中实现多模态健康检查逻辑（PingLLM/PingImage/...），确保 `TestConnection/QuickCall` 可按照模态走差异化验证。
+- [X] **T012c** 更新 `backend/internal/transport/http/admin/agent/setting_handler.go` 的 `buildEntitiesFromPayload`、`saveSettings` 及请求校验，与服务层保持一致（此任务依赖 T012a/T012b）。
+- [X] **T012d** 扩展 `scripts/ops/provider-validator.mjs`，使其可针对不同模态调用真实接口并产出健康报告，为 T015 的工件管道提供输入。
+- [X] **T013** （保留）实现模态化 Ping/Test 时的 HTTP 入口逻辑，并覆盖日志/审计。
+- [X] **T014** 新增 gRPC handler `internal/transport/grpc/agent_model_hub/provider_handler.go`。
+- [X] **T015** 在 `backend/internal/service/provider_registry/validation_artifacts.go` 构建验证工件管道：写入 `minio://agent/providers/<provider>/<timestamp>.json`，Vault 存储 sealed audit 引用，未通过禁止发布。
+- [X] **T016** Web UI (`web-admin/app/pages/settings/ai/index.vue` + store/service)：初始化 store、监听环境变化、将 env 透传至 API、序列化模态参数并展示后端错误。
+- [X] **T017** 集成测试 `tests/integration/agent_model_hub/provider_onboarding_test.go` 覆盖成功/失败路径。
+- [X] **T039** 扩展 `provider_registry/rollout_service.go` 与 `scripts/ops/provider-release.mjs`，实现租户灰度、百分比发布与 5 分钟内回滚（FR-004）。
 
 > ✅ 阶段完成标志：Provider 可多模态接入、验证、灰度上线，前后端功能可独立演示。
 
 ### Phase 4 – User Story 2：Routing Policies & Safe-Mode（P2）
 
-- [ ] **T018 [P]** HTTP 契约测试 `tests/contract/http/admin/agent_model_hub_routing_test.go`。
-- [ ] **T019 [P]** gRPC 契约测试 `tests/contract/grpc/agent_model_hub_routing_test.go`。
-- [ ] **T020** RoutingPolicy 服务 `backend/internal/service/model_routing/routing_policy_service.go`（审批、版本、Telemetry）。
-- [ ] **T021** HTTP/gRPC handler (`backend/internal/transport/http/admin/agent/routing_handler.go` + gRPC) 支持 BU 自定义审批与 safe-mode 开关。
-- [ ] **T022** 优化 Go 决策引擎 `backend/internal/service/model_routing/decision_engine.go`，接入健康/成本信号，保证 ≤200ms。
-- [ ] **T023** 更新 `scripts/ops/routing-simulator.mjs` 以回放新策略。
-- [ ] **T024** 集成测试 `tests/integration/agent_model_hub/routing_policy_test.go`。
-- [ ] **T041** 在 `backend/internal/service/model_routing/safe_mode_monitor.go` 建立命中率/回退率阈值 → Redis safe-mode 自动触发，并配置告警（满足 FR-007）。
+- [X] **T018 [P]** HTTP 契约测试 `tests/contract/http/admin/agent_model_hub_routing_test.go`。
+- [X] **T019 [P]** gRPC 契约测试 `tests/contract/grpc/agent_model_hub_routing_test.go`。
+- [X] **T020** RoutingPolicy 服务 `backend/internal/service/model_routing/routing_policy_service.go`（审批、版本、Telemetry）。
+- [X] **T021** HTTP/gRPC handler (`backend/internal/transport/http/admin/agent/routing_handler.go` + gRPC) 支持 BU 自定义审批与 safe-mode 开关。
+- [X] **T022** 优化 Go 决策引擎 `backend/internal/service/model_routing/decision_engine.go`，接入健康/成本信号，保证 ≤200ms。
+- [X] **T023** 更新 `scripts/ops/routing-simulator.mjs` 以回放新策略。
+- [X] **T024** 集成测试 `tests/integration/agent_model_hub/routing_policy_test.go`。
+- [X] **T041** 在 `backend/internal/service/model_routing/safe_mode_monitor.go` 建立命中率/回退率阈值 → Redis safe-mode 自动触发，并配置告警（满足 FR-007）。
 
 ### Phase 5 – User Story 3：Cost & Quota Guard（P3）
 

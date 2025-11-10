@@ -27,7 +27,11 @@
 4. **Author routing policy & simulate**  
    ```bash
    curl -X POST https://api.powerx.local/internal/model-routing/policies -d @examples/routing-demo.json
-   node scripts/ops/routing-simulator.mjs --policy <policy-id> --scenario critical_tasks
+   node scripts/ops/routing-simulator.mjs \
+     --tenant demo-tenant \
+     --scenario critical_tasks \
+     --policy rc-$(date +%Y%m%d) \
+     --token "$ADMIN_TOKEN"
    ```
    After BU approval, promote via `curl -X POST .../model-routing/rollback` for rollbacks if telemetry drops.
 

@@ -5,6 +5,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
 	httpmiddleware "github.com/ArtisanCloud/PowerX/internal/http/middleware"
 	"github.com/ArtisanCloud/PowerX/internal/transport/http/admin/agent"
+	agentmodelhubHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/agent_model_hub"
 	agentlifecycleHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/agentlifecycle"
 	"github.com/ArtisanCloud/PowerX/internal/transport/http/admin/auth"
 	"github.com/ArtisanCloud/PowerX/internal/transport/http/admin/capability"
@@ -49,6 +50,7 @@ func RegisterAPIRoutes(
 	menu.RegisterAPIRoutes(publicGroup, protectedGroup)
 	auth.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	agent.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
+	agentmodelhubHTTP.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	agentlifecycleHTTP.Register(publicGroup, protectedGroup, deps)
 	media.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	capability.RegisterAPIRoutes(publicGroup, protectedGroup, deps)

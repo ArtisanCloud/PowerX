@@ -18,6 +18,7 @@ import (
 	dbmaudit "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/audit"
 	repo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/agent_model_hub"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/tenantkeys"
+	"github.com/ArtisanCloud/PowerX/pkg/utils"
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
@@ -31,20 +32,22 @@ const (
 
 // Service coordinates provider onboarding, secret management, and rollout governance.
 type Service struct {
-	db     *gorm.DB
-	cache  cache.ICache
-	audit  audit.Service
-	keys   *tenantkeys.TenantKeyService
-	repo   *repo.ProviderProfileRepository
-	inst   *instrumentation.Instrumentation
-	clock  func() time.Time
-	rotMgr *secretRotationScheduler
+	db        *gorm.DB
+	cache     cache.ICache
+	audit     audit.Service
+	keys      *tenantkeys.TenantKeyService
+	repo      *repo.ProviderProfileRepository
+	inst      *instrumentation.Instrumentation
+	clock     func() time.Time
+	rotMgr    *secretRotationScheduler
+	artifacts *validationArtifactStore
 }
 
 // Options wires ProviderRegistry dependencies.
 type Options struct {
 	shared.Options
-	Profiles *repo.ProviderProfileRepository
+	Profiles  *repo.ProviderProfileRepository
+	Artifacts ValidationArtifactOptions
 }
 
 // NewService constructs a provider registry service with safe defaults.
@@ -64,6 +67,7 @@ func NewService(opts Options) *Service {
 		clock: opts.Clock,
 	}
 	svc.rotMgr = newSecretRotationScheduler(svc)
+	svc.artifacts = newValidationArtifactStore(opts.Artifacts, svc.clock)
 	return svc
 }
 
@@ -84,6 +88,18 @@ type TenantRef struct {
 	TenantID    string `json:"tenantId"`
 	Environment string `json:"environment"`
 }
+
+// PublishOptions controls rollout behavior.
+type PublishOptions struct {
+	TenantWhitelist       []TenantRef
+	RolloutStrategy       string
+	RollbackTimeoutMinute uint32
+}
+
+var (
+	ErrProviderNotFound = errors.New("provider not found")
+	ErrValidationFailed = errors.New("provider validation failed")
+)
 
 // RegisterProvider stores or updates a provider profile using Vault-style sealed secrets.
 func (s *Service) RegisterProvider(ctx context.Context, env string, tenantID *uint64, input ProviderProfileInput) (*model.ProviderProfile, error) {
@@ -113,12 +129,13 @@ func (s *Service) RegisterProvider(ctx context.Context, env string, tenantID *ui
 		Capabilities:    datatypes.JSONSlice[string](append([]string(nil), input.Capabilities...)),
 		Regions:         datatypes.JSONSlice[string](append([]string(nil), input.Regions...)),
 		HealthScore:     0,
+		Metadata:        datatypes.JSONMap{},
 	}
 	profile.UUID = uuid.New()
-	if len(input.TenantWhitelist) > 0 {
-		if raw, err := json.Marshal(input.TenantWhitelist); err == nil {
-			profile.TenantWhitelist = datatypes.JSON(raw)
-		}
+	if raw, err := marshalTenantWhitelist(input.TenantWhitelist); err == nil {
+		profile.TenantWhitelist = raw
+	} else if len(input.TenantWhitelist) > 0 {
+		return nil, fmt.Errorf("tenantWhitelist marshal: %w", err)
 	}
 
 	refs, sealed, err := s.sealCredentials(ctx, profile, input.Credentials)
@@ -141,6 +158,173 @@ func (s *Service) RegisterProvider(ctx context.Context, env string, tenantID *ui
 		"status":      result.RolloutStatus,
 	})
 	return result, nil
+}
+
+// ValidateProvider runs automated checks and records health metadata.
+func (s *Service) ValidateProvider(ctx context.Context, providerID uuid.UUID, suite string, report *ValidationReport) (*model.ProviderProfile, error) {
+	ctx, _ = instrumentation.EnsureTraceContext(ctx)
+	if strings.TrimSpace(suite) == "" {
+		return nil, errors.New("validation suite required")
+	}
+	profile, err := s.mustProvider(ctx, providerID)
+	if err != nil {
+		return nil, err
+	}
+
+	if report != nil {
+		report.Normalize(providerID, suite, s.clock)
+	}
+	status := validationStatusUnknown
+	if report != nil {
+		status = report.Status()
+	}
+
+	var artifactMeta datatypes.JSONMap
+	var sealed datatypes.JSONMap
+	if report != nil && s.artifacts != nil {
+		payload, err := report.MarshalJSONBytes()
+		if err != nil {
+			return nil, fmt.Errorf("marshal validation report: %w", err)
+		}
+		record, err := s.artifacts.Save(ctx, profile.UUID, suite, payload)
+		if err != nil {
+			return nil, err
+		}
+		artifactMeta = artifactMetaToJSON(record, report, status)
+		vaultRef := fmt.Sprintf("vault://agent/providers/%s/%s", profile.UUID.String(), record.StoredAt.UTC().Format("20060102T150405Z"))
+		sealedPayload := datatypes.JSONMap{
+			"vault_ref":      vaultRef,
+			"artifact_uri":   record.URI,
+			"checksum":       record.Checksum,
+			"suite":          report.Suite,
+			"status":         status,
+			"stored_at":      record.StoredAt.UTC().Format(time.RFC3339),
+			"generated_at":   report.GeneratedAt,
+			"provider_id":    profile.UUID.String(),
+			"artifact_stats": report.StatsMap(),
+		}
+		var keys []string
+		for k := range sealedPayload {
+			keys = append(keys, k)
+		}
+		sealedMap, err := s.keys.SealSensitive(ctx, profile.Env, profile.TenantID, sealedPayload, keys...)
+		if err != nil {
+			return nil, fmt.Errorf("seal validation artifact ref: %w", err)
+		}
+		sealed = sealedMap
+		if artifactMeta != nil {
+			artifactMeta["vault_ref"] = vaultRef
+		}
+	}
+
+	meta := utils.CloneJSONMap(profile.Metadata)
+	meta["validation_suite"] = suite
+	meta["validated_at"] = s.clock().UTC().Format(time.RFC3339)
+	if artifactMeta != nil {
+		meta["validation_artifact"] = artifactMeta
+	}
+	if sealed != nil {
+		meta["validation_vault"] = sealed
+	}
+	statusMeta := datatypes.JSONMap{
+		"status":     status,
+		"checked_at": meta["validated_at"],
+		"suite":      suite,
+	}
+	if report != nil {
+		if stats := report.StatsMap(); stats != nil {
+			statusMeta["stats"] = stats
+		}
+		if strings.TrimSpace(report.GeneratedAt) != "" {
+			statusMeta["generated_at"] = report.GeneratedAt
+		}
+	}
+	meta["validation_status"] = statusMeta
+
+	health := profile.HealthScore
+	switch status {
+	case validationStatusPass:
+		if health < 0.95 {
+			health = 0.98
+		}
+	case validationStatusFail:
+		if health > 0.4 {
+			health = 0.4
+		}
+	default:
+		if health < 0.9 {
+			health = 0.95
+		}
+	}
+	updates := map[string]any{
+		"rollout_status": "validating",
+		"health_score":   health,
+		"metadata":       meta,
+	}
+	if err := s.repo.UpdateFields(ctx, providerID, updates); err != nil {
+		return nil, err
+	}
+	profile.RolloutStatus = "validating"
+	profile.HealthScore = health
+	profile.Metadata = meta
+	s.emitAudit(ctx, "provider.validated", profile, map[string]any{"suite": suite, "status": status})
+	s.inst.RecordMetric(ctx, "agent.provider.validation_total", 1, map[string]string{
+		"provider_id": profile.UUID.String(),
+		"suite":       suite,
+		"status":      status,
+	})
+	return profile, nil
+}
+
+// PublishProvider applies rollout strategy & tenant whitelist updates.
+func (s *Service) PublishProvider(ctx context.Context, providerID uuid.UUID, opts PublishOptions) (*model.ProviderProfile, error) {
+	ctx, _ = instrumentation.EnsureTraceContext(ctx)
+	profile, err := s.mustProvider(ctx, providerID)
+	if err != nil {
+		return nil, err
+	}
+	if status := currentValidationStatus(profile.Metadata); status == validationStatusFail {
+		return nil, fmt.Errorf("%w: suite %s failed", ErrValidationFailed, profile.Metadata["validation_suite"])
+	}
+
+	meta := utils.CloneJSONMap(profile.Metadata)
+	strategy := sanitizeStrategy(opts.RolloutStrategy)
+	meta["rollout_strategy"] = strategy
+	if opts.RollbackTimeoutMinute > 0 {
+		meta["rollback_timeout_minutes"] = opts.RollbackTimeoutMinute
+	}
+	meta["published_at"] = s.clock().UTC().Format(time.RFC3339)
+
+	status := "gray"
+	if strategy == "full" {
+		status = "live"
+	}
+
+	updates := map[string]any{
+		"rollout_status": status,
+		"metadata":       meta,
+	}
+	if len(opts.TenantWhitelist) > 0 {
+		raw, err := marshalTenantWhitelist(opts.TenantWhitelist)
+		if err != nil {
+			return nil, fmt.Errorf("tenantWhitelist marshal: %w", err)
+		}
+		updates["tenant_whitelist"] = raw
+		profile.TenantWhitelist = raw
+	}
+	if err := s.repo.UpdateFields(ctx, providerID, updates); err != nil {
+		return nil, err
+	}
+	profile.RolloutStatus = status
+	profile.Metadata = meta
+	s.emitAudit(ctx, "provider.published", profile, map[string]any{
+		"strategy": strategy,
+	})
+	s.inst.RecordMetric(ctx, "agent.provider.publish_total", 1, map[string]string{
+		"provider_id": profile.UUID.String(),
+		"strategy":    strategy,
+	})
+	return profile, nil
 }
 
 // RotateEnv re-encrypts all provider secrets for an environment by rotating tenant key pairs.
@@ -325,4 +509,74 @@ func scopeKey(env string, tenantID *uint64) string {
 		return env + ":global"
 	}
 	return fmt.Sprintf("%s:%d", env, *tenantID)
+}
+
+func (s *Service) mustProvider(ctx context.Context, id uuid.UUID) (*model.ProviderProfile, error) {
+	profile, err := s.repo.FindByUUID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if profile == nil {
+		return nil, ErrProviderNotFound
+	}
+	return profile, nil
+}
+
+func sanitizeStrategy(strategy string) string {
+	switch strings.ToLower(strings.TrimSpace(strategy)) {
+	case "full":
+		return "full"
+	case "percentage":
+		return "percentage"
+	case "canary":
+		return "canary"
+	default:
+		return "gray"
+	}
+}
+
+func marshalTenantWhitelist(refs []TenantRef) (datatypes.JSON, error) {
+	if len(refs) == 0 {
+		return datatypes.JSON([]byte("[]")), nil
+	}
+	b, err := json.Marshal(refs)
+	if err != nil {
+		return nil, err
+	}
+	return datatypes.JSON(b), nil
+}
+
+// DecodeTenantWhitelist converts stored JSON into typed refs.
+func DecodeTenantWhitelist(raw datatypes.JSON) []TenantRef {
+	if len(raw) == 0 {
+		return nil
+	}
+	var refs []TenantRef
+	if err := json.Unmarshal(raw, &refs); err != nil {
+		return nil
+	}
+	return refs
+}
+
+func currentValidationStatus(meta datatypes.JSONMap) string {
+	if meta == nil {
+		return validationStatusUnknown
+	}
+	raw, ok := meta["validation_status"]
+	if !ok || raw == nil {
+		return validationStatusUnknown
+	}
+	switch v := raw.(type) {
+	case string:
+		return strings.ToLower(strings.TrimSpace(v))
+	case map[string]any:
+		if status, ok := v["status"].(string); ok {
+			return strings.ToLower(strings.TrimSpace(status))
+		}
+	case datatypes.JSONMap:
+		if status, ok := v["status"].(string); ok {
+			return strings.ToLower(strings.TrimSpace(status))
+		}
+	}
+	return validationStatusUnknown
 }

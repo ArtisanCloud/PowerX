@@ -96,6 +96,21 @@ func (r *RoutingPolicyRepository) UpdateStatus(ctx context.Context, env, tenantS
 		Updates(updates).Error
 }
 
+// FindVersion fetches a specific policy version.
+func (r *RoutingPolicyRepository) FindVersion(ctx context.Context, env, tenantScope string, version uint32) (*model.RoutingPolicy, error) {
+	var record model.RoutingPolicy
+	err := r.db.WithContext(ctx).
+		Where("env = ? AND tenant_scope = ? AND version = ?", env, tenantScope, version).
+		First(&record).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &record, nil
+}
+
 // ListByTenant returns most recent policies ordered by version desc.
 func (r *RoutingPolicyRepository) ListByTenant(ctx context.Context, env, tenantScope string, limit int) ([]model.RoutingPolicy, error) {
 	query := r.db.WithContext(ctx).
