@@ -8,8 +8,12 @@ import (
 	modelFlow "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/flow"
 	modelIAM "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/iam"
 	modelIntegrationGateway "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/integration_gateway"
-	mediamodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/media"
+	mediaModel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/media"
+	modelPluginCompat "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/plugin_compat"
+	modelPluginDebug "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/plugin_debug"
+	modelPluginGovernance "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/plugin_governance"
 	modelPluginRelease "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/plugin_release"
+	modelPluginSandbox "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/plugin_sandbox"
 	modelSetting "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/setting"
 	modelTenant "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/tenant"
 	modelWorkflow "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/workflow"
@@ -75,7 +79,7 @@ func MigrateCoreModels(db *gorm.DB) (err error) {
 		return err
 	}
 
-	if err = db.AutoMigrate(&mediamodel.MediaAsset{}); err != nil {
+	if err = db.AutoMigrate(&mediaModel.MediaAsset{}); err != nil {
 		return err
 	}
 
@@ -96,6 +100,22 @@ func MigrateCoreModels(db *gorm.DB) (err error) {
 	}
 
 	if err = migratePluginReleaseModels(db); err != nil {
+		return err
+	}
+
+	if err = migratePluginGovernanceModels(db); err != nil {
+		return err
+	}
+
+	if err = migratePluginCompatModels(db); err != nil {
+		return err
+	}
+
+	if err = migratePluginDebugModels(db); err != nil {
+		return err
+	}
+
+	if err = migratePluginSandboxModels(db); err != nil {
 		return err
 	}
 
@@ -179,5 +199,30 @@ func migratePluginReleaseModels(db *gorm.DB) error {
 		&modelPluginRelease.OfflineDistributionPackage{},
 		&modelPluginRelease.MarketplaceListing{},
 		&modelPluginRelease.LocalInstallSession{},
+		&modelPluginRelease.PluginImportRun{},
+	)
+}
+
+func migratePluginGovernanceModels(db *gorm.DB) error {
+	return db.AutoMigrate(
+		&modelPluginGovernance.VersionGovernanceReport{},
+	)
+}
+
+func migratePluginCompatModels(db *gorm.DB) error {
+	return db.AutoMigrate(
+		&modelPluginCompat.CompatException{},
+	)
+}
+
+func migratePluginDebugModels(db *gorm.DB) error {
+	return db.AutoMigrate(
+		&modelPluginDebug.DiagnosticReport{},
+	)
+}
+
+func migratePluginSandboxModels(db *gorm.DB) error {
+	return db.AutoMigrate(
+		&modelPluginSandbox.SandboxValidationRun{},
 	)
 }

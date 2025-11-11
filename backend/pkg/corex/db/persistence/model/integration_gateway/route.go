@@ -31,6 +31,11 @@ type IntegrationRoute struct {
 }
 
 func (IntegrationRoute) TableName() string {
+	// SQLite 在内存模式下不支持 schema 前缀
+	// 在测试中，如果 PowerXSchema 为 "main"，则返回不带前缀的表名
+	if coremodel.PowerXSchema == "main" {
+		return coremodel.TableIntegrationGatewayRoute
+	}
 	return coremodel.PowerXSchema + "." + coremodel.TableIntegrationGatewayRoute
 }
 

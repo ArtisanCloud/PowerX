@@ -6,7 +6,7 @@
 
 ## 1. Nuxt Image 方案
 
-- 项目已安装 `@nuxt/image`（`package.json:dependencies`），推荐在组件中使用 `<NuxtImg>` 取代原生 `<img>`：  
+- 项目已安装 `@nuxt/image`（`package.json: "dependencies`），推荐在组件中使用 `<NuxtImg>` 取代原生 `<img>`："
   ```vue
   <NuxtImg
     src="/hero/console.png"

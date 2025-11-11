@@ -3,29 +3,30 @@ title: PowerX 插件生态发布枢纽场景
 status: Draft
 version: v0.1.0
 owners:
-  - name: Matrix-X
+
+- name: Matrix-X
     role: Product Manager
-    contact: tech@artisan-cloud.com
+    contact: <tech@artisan-cloud.com>
 domains: [publish]
 layers: [business]
 repos:
-  - key: powerx-plugin
+- key: powerx-plugin
     scope: powerx-plugin
     responsibility: 插件开发、打包与发布 CLI
-  - key: powerx
+- key: powerx
     scope: powerx
     responsibility: 插件运行时、权限隔离、事件日志，以及 Web Admin 安装与回滚入口
-  - key: powerx-marketplace
+- key: powerx-marketplace
     scope: powerx-marketplace
     responsibility: 插件审核、上架与分发
 related_usecases:
-  - doc_id: SCN-DEV-HOTLOAD-001
+- doc_id: SCN-DEV-HOTLOAD-001
     layer: scenario
     domain: dev
-  - doc_id: SCN-PUBLISH-OFFLINE-001
+- doc_id: SCN-PUBLISH-OFFLINE-001
     layer: scenario
     domain: publish
-  - doc_id: SCN-PUBLISH-ONLINE-001
+- doc_id: SCN-PUBLISH-ONLINE-001
     layer: scenario
     domain: publish
 last_reviewed_at: 2025-01-01
@@ -77,12 +78,10 @@ sequenceDiagram
 # Key Interactions & Contracts
 
 - **APIs / Events**：
-  - `powerx publish package --offline` / `powerx plugin import --offline`：CLI 入口，用于离线包上传与企业租户导入。
-  - `POST /api/admin/plugin-release/offline-packages`：登记 Marketplace 审核通过的离线包。
-  - `POST /api/admin/plugin-release/marketplace/listings` 与 `/marketplace/listings/{id}/reviews`：运营提交、补件、审批。
-  - `POST /api/tenant/offline-imports`：租户自助导入 `.pxp` 包，触发健康检查与回滚策略。
-  - `POST /{{api_prefix}}/admin/plugins/install/url`：在线环境远程拉取并安装。
-  - `Event::plugin.publish.approved`：发布成功后广播给订阅系统。
+  - `POST /api/marketplace/plugins`：提交插件包与元数据。
+  - `POST /{{api_prefix}}/admin/plugins/install/local`：在租户后台上传 `.pxp` 包并本地安装。
+  - `POST /{{api_prefix}}/admin/plugins/install/url`：由 Core 从远程地址拉取包体并安装。
+  - `Event: ":plugin.publish.approved`：发布成功后广播给订阅系统。"
 - **Configs / Schemas**：插件 `manifest.json`、Marketplace 审核策略 YAML。
 - **Security / Compliance**：插件签名校验、租户隔离、发布审批日志留存 180 天。
 

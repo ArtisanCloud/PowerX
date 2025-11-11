@@ -5,6 +5,7 @@ package shared
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -32,11 +33,19 @@ import (
 	replayService "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/replay"
 	security "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/security"
 	iamsvc "github.com/ArtisanCloud/PowerX/internal/service/iam"
+	ticketbridge "github.com/ArtisanCloud/PowerX/internal/service/integration/ticketbridge"
 	integrationInstrumentation "github.com/ArtisanCloud/PowerX/internal/service/integration_gateway/instrumentation"
 	integrationManager "github.com/ArtisanCloud/PowerX/internal/service/integration_gateway/manager"
 	integrationTenant "github.com/ArtisanCloud/PowerX/internal/service/integration_gateway/tenant"
 	mediasvc "github.com/ArtisanCloud/PowerX/internal/service/media"
+	pluginbootstrap "github.com/ArtisanCloud/PowerX/internal/service/plugin_bootstrap"
+	plugincompat "github.com/ArtisanCloud/PowerX/internal/service/plugin_compat"
+	plugindiag "github.com/ArtisanCloud/PowerX/internal/service/plugin_debug/diagnostics"
+	plugindebughost "github.com/ArtisanCloud/PowerX/internal/service/plugin_debug/host"
+	plugingovernance "github.com/ArtisanCloud/PowerX/internal/service/plugin_governance"
+	pluginimport "github.com/ArtisanCloud/PowerX/internal/service/plugin_import"
 	pluginReleaseService "github.com/ArtisanCloud/PowerX/internal/service/plugin_release"
+	pluginsandbox "github.com/ArtisanCloud/PowerX/internal/service/plugin_sandbox"
 	tenantsvc "github.com/ArtisanCloud/PowerX/internal/service/tenant"
 	workflowsvc "github.com/ArtisanCloud/PowerX/internal/service/workflow"
 	"github.com/ArtisanCloud/PowerX/pkg/cache"
@@ -44,7 +53,11 @@ import (
 	dbm "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/audit"
 	eventfabricrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/event_fabric"
 	integrationRepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/integration_gateway"
+	compatrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/plugin_compat"
+	plugindiagrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/plugin_debug"
+	govrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/plugin_governance"
 	pluginReleaseRepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/plugin_release"
+	pluginsandboxrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/plugin_sandbox"
 	"github.com/ArtisanCloud/PowerX/pkg/event_bus"
 	pxlog "github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"github.com/google/uuid"
@@ -96,15 +109,22 @@ type Deps struct {
 	MediaMgr  *mediamgr.MediaManager
 	MediaSvc  *mediasvc.MediaService
 
-	EventBus              event_bus.EventBus
-	CapabilityRegistrySvc *capabilityRegistry.Service
-	RouterSvc             *capabilityRouter.Service
-	RouterSandboxSvc      *capabilitySandbox.Service
-	DiscoverySvc          *discoveryService.Service
-	IntegrationGateway    *IntegrationGatewayDeps
-	AgentLifecycle        *AgentLifecycleDeps
-	PluginReleaseOptions  PluginReleaseOptions
-	PluginReleaseService  *pluginReleaseService.Service
+	EventBus               event_bus.EventBus
+	CapabilityRegistrySvc  *capabilityRegistry.Service
+	RouterSvc              *capabilityRouter.Service
+	RouterSandboxSvc       *capabilitySandbox.Service
+	DiscoverySvc           *discoveryService.Service
+	IntegrationGateway     *IntegrationGatewayDeps
+	AgentLifecycle         *AgentLifecycleDeps
+	PluginReleaseOptions   PluginReleaseOptions
+	PluginReleaseService   *pluginReleaseService.Service
+	PluginBootstrapService *pluginbootstrap.Service
+	PluginImportService    *pluginimport.Service
+	PluginDebugHost        *plugindebughost.Service
+	PluginDiagnostics      *plugindiag.Service
+	PluginSandbox          *pluginsandbox.Service
+	PluginGovernance       *plugingovernance.Service
+	PluginCompat           *plugincompat.Service
 
 	EventFabric *EventFabricDeps
 	Workflow    *WorkflowDeps
@@ -199,6 +219,11 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 	pluginReleasePlanRepo := pluginReleaseRepo.NewReleasePlanRepository(db)
 	pluginReleaseDistributionRepo := pluginReleaseRepo.NewDistributionRepository(db)
 	pluginReleaseSessionRepo := pluginReleaseRepo.NewLocalInstallSessionRepository(db)
+	pluginDebugReportRepo := plugindiagrepo.NewReportRepository(db)
+	pluginSandboxRunRepo := pluginsandboxrepo.NewRunRepository(db)
+	pluginGovernanceRepo := govrepo.NewReportRepository(db)
+	pluginCompatRepo := compatrepo.NewExceptionRepository(db)
+	pluginImportRepo := pluginReleaseRepo.NewImportRepository(db)
 	componentName := strings.TrimSpace(opts.PluginRelease.Observability.AlertRulePrefix)
 	if componentName == "" {
 		componentName = "powerx.plugin_release"
@@ -232,6 +257,29 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 		},
 	)
 
+	var pluginBootstrapSvc *pluginbootstrap.Service
+	if opts.PluginBootstrap.TemplatesPath != "" {
+		var err error
+		pluginBootstrapSvc, err = pluginbootstrap.NewService(pluginbootstrap.Options{
+			TemplatesPath:   opts.PluginBootstrap.TemplatesPath,
+			DefaultTemplate: opts.PluginBootstrap.DefaultTemplate,
+			AllowHosts:      opts.PluginBootstrap.AllowHosts,
+			Auditor:         aud,
+			AuditSvc:        svc,
+			Now:             time.Now,
+		})
+		if err != nil {
+			pxlog.WarnF(ctx, "[plugin_bootstrap] initialize failed: %v", err)
+		}
+	}
+
+	pluginImportSvc := pluginimport.NewService(pluginimport.Options{
+		Repo:     pluginImportRepo,
+		Auditor:  aud,
+		AuditSvc: svc,
+		Now:      time.Now,
+	})
+
 	tenantConfig := integrationTenant.Config{
 		DefaultRateLimit: integrationManager.RateLimitPolicy{
 			Limit:         opts.IntegrationGateway.DefaultRateLimit.Limit,
@@ -260,32 +308,111 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 		pxlog.WarnF(ctx, "[integrationGateway] set MCP tool deps failed: %v", err)
 	}
 
+	ticketBridgeSvc := ticketbridge.NewService(ticketbridge.Options{
+		Provider: opts.PluginDebug.TicketBridge.Provider,
+		Endpoint: opts.PluginDebug.TicketBridge.Endpoint,
+		Project:  opts.PluginDebug.TicketBridge.Project,
+	})
+
+	var pluginDebugHostSvc *plugindebughost.Service
+	if opts.PluginDebug.HostSimulator.Enabled && featureFlagEnabled(opts.PluginDebug.HostSimulator.FeatureFlag) {
+		component := strings.TrimSpace(opts.PluginDebug.Component)
+		if component == "" {
+			component = "plugin_debug"
+		}
+		pluginDebugHostSvc = plugindebughost.NewService(svc, plugindebughost.Options{
+			Component:     component,
+			ConfigPath:    opts.PluginDebug.HostSimulator.ConfigPath,
+			PruneInterval: time.Minute,
+			Now:           time.Now,
+		})
+	}
+	var pluginDiagnosticsSvc *plugindiag.Service
+	if pluginDebugReportRepo != nil {
+		template, err := plugindiag.LoadTemplate(opts.PluginDebug.Reports.TemplatePath)
+		if err != nil {
+			pxlog.WarnF(ctx, "[plugin_debug] load report template failed: %v", err)
+		}
+		masker, err := plugindiag.LoadMasker(opts.PluginDebug.Reports.MaskingRulesPath)
+		if err != nil {
+			pxlog.WarnF(ctx, "[plugin_debug] load masking rules failed: %v", err)
+		}
+		pluginDiagnosticsSvc = plugindiag.NewService(pluginDebugReportRepo, svc, time.Now, plugindiag.Options{
+			Template:        template,
+			Masker:          masker,
+			TicketBridge:    ticketBridgeSvc,
+			FallbackLogBase: opts.PluginDebug.Reports.FallbackLogBase,
+		})
+	}
+
+	var pluginSandboxSvc *pluginsandbox.Service
+	if pluginSandboxRunRepo != nil && opts.PluginDebug.Sandbox.Enabled && featureFlagEnabled(opts.PluginDebug.Sandbox.FeatureFlag) {
+		suite, err := pluginsandbox.LoadSuite(opts.PluginDebug.Sandbox.DataSuitePath)
+		if err != nil {
+			pxlog.WarnF(ctx, "[plugin_sandbox] load data suite failed: %v", err)
+		}
+		pluginSandboxSvc = pluginsandbox.NewService(pluginSandboxRunRepo, pluginsandbox.Options{
+			Suite: suite,
+			Now:   time.Now,
+		})
+	}
+
+	var pluginGovernanceSvc *plugingovernance.Service
+	if pluginGovernanceRepo != nil {
+		pluginGovernanceSvc = plugingovernance.NewService(pluginGovernanceRepo, pluginReleaseCandidateRepo, time.Now)
+	}
+
+	var pluginCompatSvc *plugincompat.Service
+	if pluginCompatRepo != nil {
+		pluginCompatSvc = plugincompat.NewService(pluginCompatRepo, time.Now)
+	}
+
 	return &Deps{
-		DB:                    db,
-		TenantSvc:             tenantSvc,
-		AuthUser:              authUser,
-		AuthCustomer:          authCustomer,
-		MeService:             meSvc,
-		AuditSvc:              svc,
-		Auditor:               aud,
-		MediaMgr:              mediaManager,
-		MediaSvc:              mediaSvc,
-		EventBus:              bus,
-		CapabilityRegistrySvc: capRegistrySvc,
-		RouterSvc:             routerSvc,
-		RouterSandboxSvc:      sandboxSvc,
-		DiscoverySvc:          discoverySvc,
-		IntegrationGateway:    integrationGatewayDeps,
-		AgentLifecycle:        agentLifecycleDeps,
-		PluginReleaseOptions:  opts.PluginRelease,
-		PluginReleaseService:  pluginReleaseSvc,
-		EventFabric:           eventFabricDeps,
+		DB:                     db,
+		TenantSvc:              tenantSvc,
+		AuthUser:               authUser,
+		AuthCustomer:           authCustomer,
+		MeService:              meSvc,
+		AuditSvc:               svc,
+		Auditor:                aud,
+		MediaMgr:               mediaManager,
+		MediaSvc:               mediaSvc,
+		EventBus:               bus,
+		CapabilityRegistrySvc:  capRegistrySvc,
+		RouterSvc:              routerSvc,
+		RouterSandboxSvc:       sandboxSvc,
+		DiscoverySvc:           discoverySvc,
+		IntegrationGateway:     integrationGatewayDeps,
+		AgentLifecycle:         agentLifecycleDeps,
+		PluginReleaseOptions:   opts.PluginRelease,
+		PluginReleaseService:   pluginReleaseSvc,
+		PluginBootstrapService: pluginBootstrapSvc,
+		PluginImportService:    pluginImportSvc,
+		PluginDebugHost:        pluginDebugHostSvc,
+		PluginDiagnostics:      pluginDiagnosticsSvc,
+		PluginSandbox:          pluginSandboxSvc,
+		PluginGovernance:       pluginGovernanceSvc,
+		PluginCompat:           pluginCompatSvc,
+		EventFabric:            eventFabricDeps,
 		Workflow: &WorkflowDeps{
 			Service:       workflowSvc,
 			Scheduler:     workflowScheduler,
 			ReliableQueue: workflowReliable,
 		},
 	}
+}
+
+func featureFlagEnabled(flag string) bool {
+	flag = strings.TrimSpace(flag)
+	if flag == "" {
+		return true
+	}
+	value := strings.TrimSpace(os.Getenv(flag))
+	if value == "" {
+		return true
+	}
+	value = strings.ToLower(value)
+	return value == "1" || value == "true" || value == "enabled" || value == "on" || value == "yes"
 }
 
 // EventFabricDeps 聚合事件骨干运行时依赖。

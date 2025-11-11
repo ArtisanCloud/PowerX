@@ -42,7 +42,7 @@ last_reviewed_at: 2025-11-20
 
 # End-to-End Flow
 
-1. **Stage 1 – 模拟器启动与插件挂载**：开发者执行 `powerx host start --mock`，系统校验宿主版本与插件 manifest。
+1. **Stage 1 – 模拟器启动与插件挂载**：开发者执行 `px host start --mock`，系统校验宿主版本与插件 manifest。
 2. **Stage 2 – 热更新循环**：调试服务监听源码变更，触发编译与热更新推送，宿主模拟器加载新产物。
 3. **Stage 3 – 调试与日志捕获**：开发者在浏览器/CLI 交互，调试工具同步断点、变量快照、调用链日志。
 4. **Stage 4 – 安全防护与回滚**：检测到访问生产资源或版本不匹配时阻断并提示修复，支持回滚至上个稳定版本。
@@ -54,7 +54,7 @@ sequenceDiagram
   participant Host as 宿主模拟器
   participant Debug as 调试服务
 
-  Dev->>CLI: powerx host start --mock --plugin my-plugin
+  Dev->>CLI: px host start --mock --plugin my-plugin
   CLI->>Host: 校验版本并挂载插件
   Host-->>CLI: 返回运行状态
   Dev->>Debug: 保存代码触发热更新
@@ -65,7 +65,7 @@ sequenceDiagram
 
 # Key Interactions & Contracts
 
-- **APIs / Events**：`powerx host start --mock`、`powerx debug attach`、`EVENT plugin.debug.hot_reload`、`POST /internal/debug/telemetry`.
+- **APIs / Events**：`px host start --mock`、`px debug attach`、`EVENT plugin.debug.hot_reload`、`POST /internal/debug/telemetry`.
 - **Configs / Schemas**：`config/plugins/debug/host_simulator.yaml`、`config/plugins/debug/hot_reload_limits.yaml`.
 - **Security / Compliance**：阻止生产 API 调用、记录调试操作审计、敏感日志脱敏。
 

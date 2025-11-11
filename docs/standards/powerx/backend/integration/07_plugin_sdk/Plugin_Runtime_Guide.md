@@ -220,7 +220,7 @@ plugin_requests_total{status="ok"} 254
 开发者可在本地通过 CLI 启动插件：
 
 ```
-powerx plugin run com.powerx.plugin.demo --local
+px plugin run com.powerx.plugin.demo --local
 ```
 
 自动注入：

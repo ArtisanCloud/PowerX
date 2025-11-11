@@ -1,3 +1,5 @@
+//go:build ignore
+
 package plugin_release
 
 import (

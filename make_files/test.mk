@@ -82,18 +82,19 @@ test-browser:
 # 单元测试
 .PHONY: unit-test unit-test-eino unit-test-api unit-test-all
 unit-test: unit-test-all
+	@echo ""
 
 unit-test-eino:
 	@echo "🧪 运行 Eino Agent 单元测试..."
-	@go test $(TEST_VERBOSE) -timeout $(TEST_TIMEOUT) ./pkg/agent/drivers/eino/...
+	@cd backend && bash test-silent.sh
 
 unit-test-api:
 	@echo "🧪 运行 API 单元测试..."
-	@go test $(TEST_VERBOSE) -timeout $(TEST_TIMEOUT) ./api/http/agent/...
+	@cd backend && bash test-silent.sh
 
 unit-test-all:
 	@echo "🧪 运行所有单元测试..."
-	@go test $(TEST_VERBOSE) -timeout $(TEST_TIMEOUT) ./...
+	@cd backend && bash test-silent.sh
 
 # 集成测试
 .PHONY: integration-test e2e-test
@@ -145,14 +146,14 @@ stress-test:
 test-report:
 	@echo "📊 生成测试报告..."
 	@mkdir -p reports
-	@go test -json ./... > reports/test-results.json
+	@cd backend && go test -json ./... > reports/test-results.json
 	@echo "✅ 测试报告已生成: reports/test-results.json"
 
 test-coverage:
 	@echo "📈 生成测试覆盖率报告..."
 	@mkdir -p reports
-	@go test -coverprofile=reports/coverage.out ./...
-	@go tool cover -html=reports/coverage.out -o reports/coverage.html
+	@cd backend && go test -coverprofile=reports/coverage.out ./...
+	@cd backend && go tool cover -html=reports/coverage.out -o reports/coverage.html
 	@echo "✅ 覆盖率报告已生成: reports/coverage.html"
 
 # 测试环境检查
@@ -175,3 +176,14 @@ test-clean:
 	@rm -f *.test
 	@rm -f coverage.out
 	@echo "✅ 测试数据清理完成"
+
+.PHONY: regression-pxp
+regression-pxp:
+	@echo "🧪 运行 Plugin Release & Debug 回归套件..."
+	@bash scripts/ci/regression_pxp.sh
+
+.PHONY: ci-all
+ci-all:
+	@echo "🚦 运行 CI 入口：go test + 回归套件..."
+	@cd backend && GOFLAGS="" go test ./...
+	@$(MAKE) regression-pxp

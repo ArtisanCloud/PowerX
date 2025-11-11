@@ -168,4 +168,4 @@ sequenceDiagram
 - 运行手册：`ops/runbooks/mfa-lock-reset.md`
 - 指标脚本：`scripts/qa/workflow-metrics.mjs --module mfa`
 
-> 完成 Seed 后，请运行 `npm run publish:usecases -- --scn-id SCN-IAM-LOGIN-AUTH-001 --validate-only` 校验结构，再按流程分发到下游仓库。
+> 完成 Seed 后，请运行 `npm run publish: "usecases -- --scn-id SCN-IAM-LOGIN-AUTH-001 --validate-only` 校验结构，再按流程分发到下游仓库。"

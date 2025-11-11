@@ -36,7 +36,7 @@
 安装 CLI：
 
 ```bash
-go install github.com/ArtisanCloud/PowerX/cmd/powerx@latest
+go install github.com/ArtisanCloud/PowerX/cmd/px@latest
 ```
 
 ---
@@ -44,7 +44,7 @@ go install github.com/ArtisanCloud/PowerX/cmd/powerx@latest
 ## 3️⃣ 本地启动插件（独立模式）
 
 ```bash
-powerx plugin run com.powerx.plugin.crmplus --local
+px plugin run com.powerx.plugin.crmplus --local
 ```
 
 默认行为：
@@ -170,7 +170,7 @@ curl http://localhost:8077/api/v1/admin/runtime/endpoints | jq
 在 `backend/main.go` 设置断点 → 使用 CLI 启动本地模式：
 
 ```
-powerx plugin run com.powerx.plugin.demo --local --debug
+px plugin run com.powerx.plugin.demo --local --debug
 ```
 
 或在 IDE 配置：
@@ -206,8 +206,8 @@ powerx plugin run com.powerx.plugin.demo --local --debug
 ## 11️⃣ 模拟健康探测与重启
 
 ```
-powerx plugin check com.powerx.plugin.demo
-powerx plugin restart com.powerx.plugin.demo
+px plugin check com.powerx.plugin.demo
+px plugin restart com.powerx.plugin.demo
 ```
 
 或直接调用 API：
@@ -224,7 +224,7 @@ POST /api/v1/admin/plugin/restart/com.powerx.plugin.demo
 本地模拟 EventBus：
 
 ```bash
-powerx event listen plugin:com.powerx.plugin.demo
+px event listen plugin:com.powerx.plugin.demo
 ```
 
 示例输出：
@@ -270,9 +270,9 @@ powerx event listen plugin:com.powerx.plugin.demo
 | ------------- | --------------------------------------------------- |
 | **本地开发**      | 使用 `--local` 模式，启用 auto-register                    |
 | **团队联调**      | 使用共享 Registry（Docker Compose 启动 PowerX Core）        |
-| **CI 测试**     | 在 pipeline 中运行 `powerx plugin test`                 |
-| **Mock 能力调用** | 用 `powerx mock invoke <capability>` 验证输出            |
-| **性能测试**      | `powerx bench plugin <id> --qps 50 --concurrent 10` |
+| **CI 测试**     | 在 pipeline 中运行 `px plugin test`                 |
+| **Mock 能力调用** | 用 `px mock invoke <capability>` 验证输出            |
+| **性能测试**      | `px bench plugin <id> --qps 50 --concurrent 10` |
 
 ---
 

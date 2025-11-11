@@ -81,7 +81,7 @@ last_reviewed_at: 2025-11-20
 
 1. **Step 1 – 离线包生成**：CI/CD 调用离线打包模块，生成制品、依赖、校验文件与签名，上传内网分发库。
 2. **Step 2 – 管理员准备导入**：下载离线包、校验签名指纹、确认许可证状态与目标租户资源。
-3. **Step 3 – 导入与健康检查**：执行 `powerx plugin import --offline`，系统完成解压部署、运行健康检查脚本，生成结果。
+3. **Step 3 – 导入与健康检查**：执行 `px plugin import --offline`，系统完成解压部署、运行健康检查脚本，生成结果。
 4. **Step 4 – 启用与审计**：导入成功后启用新版本并记录审计日志；失败则自动回滚、发送告警并保留记录。
 
 ```mermaid
@@ -94,7 +94,7 @@ sequenceDiagram
 
   Pipeline->>Repo: 上传离线包+签名
   Admin->>Repo: 下载包体与校验文件
-  Admin->>Runtime: powerx plugin import --offline
+  Admin->>Runtime: px plugin import --offline
   Runtime-->>Admin: 健康检查结果
   Runtime->>Audit: 写入导入与回滚审计
 ```
@@ -102,8 +102,8 @@ sequenceDiagram
 # Contracts & Interfaces
 
 - **Inbound APIs / Events**
-  - `powerx publish package --offline` — 生成离线包。
-  - `powerx plugin import --offline` — 执行离线导入。
+  - `px publish package --offline` — 生成离线包。
+  - `px plugin import --offline` — 执行离线导入。
 - **Outbound 调用**
   - `POST /internal/offline/signature/verify` — 校验签名与证书指纹。
   - `POST /internal/license/validate` — 校验许可证状态。

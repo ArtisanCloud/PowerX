@@ -10,6 +10,7 @@ import (
 	flowschema "github.com/ArtisanCloud/PowerX/pkg/corex/flow/schemas"
 	"github.com/ArtisanCloud/PowerX/pkg/utils"
 	"sort"
+	"strings"
 	"time"
 
 	"golang.org/x/sync/errgroup"
@@ -43,7 +44,58 @@ func (m *Manager) Dispatch(ctx context.Context, msg string, metaCtx flowschema.C
 // ExpandWithPrereqs 根据你的依赖策略补齐前置。
 // 这里先返回原样；后续你可接一个全局 map[flowID][]flowID 来插入缺失前置并分配早期 Stage。
 func (m *Manager) ExpandWithPreReqs(tasks []flowschema.DetectedTask) []flowschema.DetectedTask {
-	return tasks
+	if len(tasks) == 0 {
+		return nil
+	}
+
+	m.mu.RLock()
+	routes := make(map[string]routeRecord, len(m.routesByFlow))
+	for k, v := range m.routesByFlow {
+		routes[k] = v
+	}
+	m.mu.RUnlock()
+
+	original := make(map[string]flowschema.DetectedTask, len(tasks))
+	for _, t := range tasks {
+		original[t.FlowID] = t
+	}
+
+	visited := make(map[string]bool)
+	ordered := make([]flowschema.DetectedTask, 0, len(tasks))
+
+	var visit func(string)
+	visit = func(flowID string) {
+		if flowID == "" || visited[flowID] {
+			return
+		}
+		rec, ok := routes[flowID]
+		if ok && rec.Spec != nil && rec.Spec.Metadata != nil {
+			for _, dep := range rec.Spec.Metadata.Requires {
+				visit(strings.TrimSpace(dep))
+			}
+		}
+		visited[flowID] = true
+		if orig, ok := original[flowID]; ok {
+			ordered = append(ordered, orig)
+			return
+		}
+		ordered = append(ordered, flowschema.DetectedTask{
+			FlowID:   flowID,
+			TaskID:   fmt.Sprintf("auto_%s", flowID),
+			Score:    1,
+			Strategy: "prereq",
+		})
+	}
+
+	for _, t := range tasks {
+		visit(t.FlowID)
+	}
+	return ordered
+}
+
+// ExpandWithPrereqs 兼容旧 API，委托给 ExpandWithPreReqs。
+func (m *Manager) ExpandWithPrereqs(tasks []flowschema.DetectedTask) []flowschema.DetectedTask {
+	return m.ExpandWithPreReqs(tasks)
 }
 
 /****************

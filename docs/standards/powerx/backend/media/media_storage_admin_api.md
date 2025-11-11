@@ -29,7 +29,7 @@ storage:
 
 > **注意**
 >
-> * Admin 接口（/api/v1/admin/**）需要平台鉴权（如 `Authorization: Bearer ...`、`X-Tenant-Id: ...`）。
+> * Admin 接口（/api/v1/admin/**）需要平台鉴权（如 `Authorization: "Bearer ...`、`X-Tenant-Id: ...`）。"
 > * **上传 PUT/POST 到 presign 返回的 `url` 时，不要带平台 JWT/租户头**；只带 presign 返回的 headers。
 > * Local 环境必须有下载 GET 路由（如 `GET /media/**`）且其根目录与 `local.basePath` 一致。
 

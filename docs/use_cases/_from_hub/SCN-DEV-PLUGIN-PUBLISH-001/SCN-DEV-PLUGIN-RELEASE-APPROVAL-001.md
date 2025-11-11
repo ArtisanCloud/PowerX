@@ -31,7 +31,7 @@ last_reviewed_at: 2025-11-20
 
 # Executive Summary
 
-该子场景覆盖插件版本提交后在测试租户执行自动化验证并完成发布审批的全过程。开发者通过 `powerx publish create` 触发流水线，CI/CD 在测试租户部署、回归测试、静态与安全扫描后输出报告，由 QA 与发布经理联合审批上线窗口并生成生产发布计划。目标是在 24 小时内完成验证、审批与回滚方案编排，确保未经测试的变更无法进入生产。
+该子场景覆盖插件版本提交后在测试租户执行自动化验证并完成发布审批的全过程。开发者通过 `px publish create` 触发流水线，CI/CD 在测试租户部署、回归测试、静态与安全扫描后输出报告，由 QA 与发布经理联合审批上线窗口并生成生产发布计划。目标是在 24 小时内完成验证、审批与回滚方案编排，确保未经测试的变更无法进入生产。
 
 # Scope & Guardrails
 
@@ -61,7 +61,7 @@ sequenceDiagram
   participant QA as QA/测试
   participant Ops as 发布经理
 
-  Dev->>CI: powerx publish create --target tenant-test-01
+  Dev->>CI: px publish create --target tenant-test-01
   CI-->>QA: 测试与安全扫描报告
   QA->>Ops: 质量门禁结论
   Ops->>CI: 审批窗口与回滚方案
@@ -70,7 +70,7 @@ sequenceDiagram
 
 # Key Interactions & Contracts
 
-- **APIs / Events**：`powerx publish create`、`POST /internal/publish/test-run`、`POST /internal/publish/approval`、`EVENT publish.pipeline.blocked`.
+- **APIs / Events**：`px publish create`、`POST /internal/publish/test-run`、`POST /internal/publish/approval`、`EVENT publish.pipeline.blocked`.
 - **Configs / Schemas**：`pipeline/plugin-release.yml`、`config/publish/quality_gates.yaml`、`config/publish/approval_matrix.yaml`.
 - **Security / Compliance**：上传制品需签名校验；审批人需 MFA；审计日志记录提交人、审批链、测试报告链接并保留 ≥180 天。
 

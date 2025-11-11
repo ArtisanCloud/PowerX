@@ -1,0 +1,10 @@
+rules:
+  - name: access_token
+    pattern: "(?i)(access[_-]?token)([:= ]+)([A-Za-z0-9\\-_.]+)"
+    replacement: "$1$2***"
+  - name: secret_value
+    pattern: "(?i)(secret|password|apikey)([:= ]+)([A-Za-z0-9\\-_.]+)"
+    replacement: "$1$2***"
+  - name: email_address
+    pattern: "([A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+)"
+    replacement: "[redacted-email]"

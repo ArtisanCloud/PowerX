@@ -1,0 +1,60 @@
+templates:
+  - id: fullstack-go-nuxt
+    name: Fullstack Go + Nuxt
+    description: >
+      Standard plugin starter covering Go/Gin backend services plus Nuxt-based Web Admin assets.
+      Includes manifest, CI skeleton, sandbox data hooks and Marketplace metadata.
+    cli:
+      min_version: v0.2.0
+    backend:
+      language: go
+      framework: gin
+      template: go-gin
+      min_version: 1.24.0
+    frontend:
+      language: node
+      framework: nuxt
+      template: nuxt
+      min_version: 20.0.0
+    tooling:
+      required:
+        - git
+        - go
+        - node
+        - npm
+    capabilities:
+      - local-debug
+      - sandbox
+      - marketplace
+    tags:
+      - default
+      - fullstack
+    recommended:
+      - Run go mod tidy && npm install immediately after scaffolding
+      - Configure px-plugin dev/watch for local hot reload loops
+
+  - id: backend-go-lite
+    name: Backend Lite (Go Only)
+    description: >
+      Lean backend-only template for API-first plugins. Ships with telemetry hooks,
+      release manifest, CI scripts and integration tests without any Web Admin bundle.
+    cli:
+      min_version: v0.2.0
+    backend:
+      language: go
+      framework: gin
+      template: go-gin
+      min_version: 1.24.0
+    tooling:
+      required:
+        - git
+        - go
+    capabilities:
+      - local-debug
+      - marketplace
+    tags:
+      - service
+      - headless
+    recommended:
+      - Enable `px-plugin-local-dev` feature flag before running doctor
+      - Add custom CI stages for contract/integration specs as needed

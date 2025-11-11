@@ -21,8 +21,8 @@
 
 ### `io` 子字段（统一命名）
 
-* `inputs`: 端口声明（`name/type/required/desc`），供 UI/校验。
-* `in_map`: **端口名 → 绑定模板**（执行前解析为 `_inputs`）。
+* `inputs`: "端口声明（`name/type/required/desc`），供 UI/校验。"
+* `in_map`: "**端口名 → 绑定模板**（执行前解析为 `_inputs`）。"
 * `out_map`: **端口名 → 原始返回字段名**（执行后标准化输出，只保留声明端口）。
 
 #### 绑定模板可用命名空间（建议）

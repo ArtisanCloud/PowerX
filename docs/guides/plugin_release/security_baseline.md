@@ -37,7 +37,7 @@
 ## 第 3 步：访问控制
 1. Admin HTTP 路由必须包装 `AdminOnlyMiddleware`（参考 `backend/internal/transport/http/admin/plugin_release/routes.go`）。
 2. OpenAPI 租户路由需强制携带 Authorization 头（`offline_import_handler.go` 为实现示例）。
-3. gRPC 服务需部署在 API Gateway 后并通过 mTLS/JWT 鉴权，仅放行 `powerx publish` CLI 与受信自动化账号。
+3. gRPC 服务需部署在 API Gateway 后并通过 mTLS/JWT 鉴权，仅放行 `px publish` CLI 与受信自动化账号。
 
 ## 第 4 步：审计与日志
 1. 确认以下审计钩子生效：

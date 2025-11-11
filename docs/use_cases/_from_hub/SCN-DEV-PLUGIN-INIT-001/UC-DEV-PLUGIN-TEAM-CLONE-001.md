@@ -21,7 +21,7 @@ linked_requirements:
 code_refs:
   - repo: powerx
     path: internal/plugins/bootstrap/service/doctor_runner.go
-    description: `powerx plugin doctor` 检查项编排、报告生成
+    description: `px plugin doctor` 检查项编排、报告生成
   - repo: powerx
     path: internal/plugins/bootstrap/config/env_template_sync.go
     description: 环境模板同步、密钥占位符校验
@@ -52,7 +52,7 @@ last_reviewed_at: 2025-11-20
 
 - **前置条件**
   - 开启 `PX_PLUGIN_TEAM_SYNC`、`plugin-doctor-v2` Feature Flag，Git 仓库注册信息可查询。
-  - 成员具备仓库读写以及 `plugin:doctor` 权限，已配置 PAT 或 SSO。
+  - 成员具备仓库读写以及 `plugin: "doctor` 权限，已配置 PAT 或 SSO。"
   - 包管理器、Secrets 管理服务与测试数据源可用，支持租户隔离。
   - 仓库包含 `.powerxci/` 目录，内置 pre-commit 钩子模板与测试脚本。
 - **输入/输出**
@@ -93,7 +93,7 @@ sequenceDiagram
 
   Member->>Git: git clone plugin
   Member->>Config: 拉取 .env.example / 测试数据
-  Member->>Doctor: powerx plugin doctor
+  Member->>Doctor: px plugin doctor
   Doctor->>Config: 校验占位符/依赖
   Doctor-->>Member: 输出检查报告
   Member->>CI: 提交代码触发 CI
@@ -103,7 +103,7 @@ sequenceDiagram
 # Contracts & Interfaces
 
 - **Inbound APIs / Events**
-  - CLI 命令：`powerx plugin doctor --output report.json`
+  - CLI 命令：`px plugin doctor --output report.json`
   - `GET /internal/plugins/bootstrap/templates/.env` — 拉取环境模板与占位符描述。
 - **Outbound 调用**
   - `POST /internal/plugins/bootstrap/doctor-report` — 上报检查结果、耗时、失败项。
@@ -141,7 +141,7 @@ sequenceDiagram
 
 - **回滚步骤**：关闭 `plugin-doctor-v2` Flag 回到旧版检查；恢复默认 pre-commit 模板。
   - 清理失败缓存，删除误写入的审计记录。
-- **补救措施**：提供 `powerx plugin doctor --skip <check>` 临时豁免能力（需审批）；输出手动修复指南。
+- **补救措施**：提供 `px plugin doctor --skip <check>` 临时豁免能力（需审批）；输出手动修复指南。
 - **数据修复**：运行 `scripts/workflows/doctor-reconcile.mjs` 对齐审计记录与 Git 钩子状态。
 
 # Follow-ups & Risks

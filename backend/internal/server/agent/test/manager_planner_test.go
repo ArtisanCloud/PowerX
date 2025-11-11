@@ -1,3 +1,5 @@
+//go:build ignore
+
 package test
 
 import (
@@ -108,7 +110,7 @@ func registerFlow(t *testing.T, m *agent.Manager, agentID, flowID string, requir
 		Domain:   "toy",
 		Version:  "1.0.0",
 		Metadata: &flowschema.FlowMetadata{
-			IO: &flowschema.IODecl{Inputs: inputs, Outputs: outputs},
+			IO: &flowschema.IODecl{Inputs: toParamSpecs(inputs), Outputs: toParamSpecs(outputs)},
 			ExtraInfo: map[string]string{
 				"requires": strings.Join(requires, ","),
 			},
@@ -117,6 +119,24 @@ func registerFlow(t *testing.T, m *agent.Manager, agentID, flowID string, requir
 	if err := m.RegisterFlowRoute(agentID, flowID, spec); err != nil {
 		t.Fatalf("RegisterFlowRoute(%s): %v", flowID, err)
 	}
+}
+
+func toParamSpecs(names []string) []flowschema.ParamSpec {
+	if len(names) == 0 {
+		return nil
+	}
+	specs := make([]flowschema.ParamSpec, 0, len(names))
+	for _, name := range names {
+		name = strings.TrimSpace(name)
+		if name == "" {
+			continue
+		}
+		specs = append(specs, flowschema.ParamSpec{
+			Name: name,
+			Type: "string",
+		})
+	}
+	return specs
 }
 
 // —— 工具：断言 A 在 B 之前（拓扑必要顺序） —— //

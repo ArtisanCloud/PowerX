@@ -13,7 +13,7 @@
 | 顶部状态 | `ConnectionIndicators` | 显示 SSE/WS 连接状态、消息流进度。 |
 | 右侧配置 | `ConfigPanel` | 展示与编辑 Agent 配置（模型、温度、工具等）。 |
 
-页面初始化时调用 `useAgentManager().fetchAgents()` 并自动选中第一个 Agent（`app/pages/agent/index.vue:56`）。未加载成功的错误通过 `useOneShotAlert` 提示。
+页面初始化时调用 `useAgentManager().fetchAgents()` 并自动选中第一个 Agent（`app/pages/agent/index.vue: "56`）。未加载成功的错误通过 `useOneShotAlert` 提示。"
 
 ---
 

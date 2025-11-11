@@ -114,7 +114,7 @@ sequenceDiagram
 - **Inbound APIs / Events**
   - `POST /api/v1/admin/iam/users/bulk-import/validation` — 上传模板并执行预校验，返回错误明细与建议。
   - `POST /api/v1/admin/iam/users/bulk-import/commit` — 提交通过记录，创建导入任务并返回 `task_id`。
-  - `GET /api/v1/admin/iam/users/bulk-import/:task_id` — 查询任务状态、下载成功/失败清单。
+  - `GET /api/v1/admin/iam/users/bulk-import/: "task_id` — 查询任务状态、下载成功/失败清单。"
 - **Outbound 调用**
   - `storage.PutObject` / `storage.GetObject` — 存储原始模板与导入报告。
   - `workflow.approval.start` — 对敏感角色或角色升级请求触发审批。
@@ -142,8 +142,8 @@ sequenceDiagram
 - **单元测试**：`go test ./internal/service/iam -run TestBulkImport` 覆盖模板解析、字段校验、重复检测、审批触发。
 - **集成测试**：`go test ./internal/tests/integration -run BulkImport` 模拟对象存储、通知、审批，验证正向导入、部分失败、重试。
 - **端到端验证**：QA 使用 `tests/manual/iam/bulk-import.md`，导入 200 条数据、验证欢迎通知、审计记录、错误报告下载。
-- **非功能测试**：压测 1k 记录导入，确保 P95 耗时 ≤ 10 分钟；Chaos 注入对象存储/通知失败验证降级；运行 `npm run test:workflows -- --suite bulk-import` 汇总指标。
-- **回归检查**：将关键脚本纳入 `npm run lint`（配置校验）与 `npm run docs:build`（文档链接）管控。
+- **非功能测试**：压测 1k 记录导入，确保 P95 耗时 ≤ 10 分钟；Chaos 注入对象存储/通知失败验证降级；运行 `npm run test: "workflows -- --suite bulk-import` 汇总指标。"
+- **回归检查**：将关键脚本纳入 `npm run lint`（配置校验）与 `npm run docs: "build`（文档链接）管控。"
 
 # Observability & Ops
 

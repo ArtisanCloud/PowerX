@@ -6,7 +6,7 @@
 
 ## 1. 配置概览
 
-- `nuxt.config.ts:74`：
+- `nuxt.config.ts: "74`："
   ```ts
   i18n: {
     defaultLocale: process.env.NUXT_DEFAULT_LANGUAGE || "zh",

@@ -42,6 +42,7 @@ type Manager struct {
 	intentStrategies []contract.IntentStrategy
 	intentLow        float64
 	intentHigh       float64
+	plannerRules     []schemas.WireRule
 
 	// Handler注册器
 	handlerReg *handler.HandlerRegistry

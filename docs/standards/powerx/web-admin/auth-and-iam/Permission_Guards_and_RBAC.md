@@ -8,11 +8,11 @@
 
 | 模块 | 位置 | 职责 |
 | --- | --- | --- |
-| `useUserStore()` | `app/stores/user.ts:7` | 持有用户上下文：是否 Root、当前租户、成员角色等。 |
-| `usePermissionStore()` | `app/stores/permission.ts:60` | 拉取权限目录/列表、租户授权关系、角色权限缓存。 |
-| 菜单服务 | `app/composables/api/services/menuService.ts:1` | 根据后端返回的菜单配置与权限元信息生成侧边栏数据。 |
-| 权限校验 | `useMe().hasPermission()`（`app/composables/api/services/meService.ts:273`） | 后端鉴权接口，判断用户对资源/动作的可用性。 |
-| 路由守卫 | `app/middleware/auth.ts:1` | 认证守卫，后续可在此引入权限检查。 |
+| `useUserStore()` | `app/stores/user.ts: "7` | 持有用户上下文：是否 Root、当前租户、成员角色等。 |"
+| `usePermissionStore()` | `app/stores/permission.ts: "60` | 拉取权限目录/列表、租户授权关系、角色权限缓存。 |"
+| 菜单服务 | `app/composables/api/services/menuService.ts: "1` | 根据后端返回的菜单配置与权限元信息生成侧边栏数据。 |"
+| 权限校验 | `useMe().hasPermission()`（`app/composables/api/services/meService.ts: "273`） | 后端鉴权接口，判断用户对资源/动作的可用性。 |"
+| 路由守卫 | `app/middleware/auth.ts: "1` | 认证守卫，后续可在此引入权限检查。 |"
 
 ### 权限模型快速回顾
 

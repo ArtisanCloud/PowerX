@@ -8,10 +8,10 @@
 
 | 名称 | 文件位置 | 内容 | 用途 |
 | --- | --- | --- | --- |
-| 全局搜索数据 | `app/composables/api/services/searchService.ts:10` | `mockSearchData`, `mockSuggestions` | 模拟搜索结果、分面、建议，支撑 `/test/search-showcase` 页面与搜索组件调试。 |
-| 工作流节点规格 | `app/composables/api/services/workflowService.ts:158` | `mockKinds`、`mockPalette` | 当后端不可用时，提供 Workflow 节点类型、工具箱数据。 |
-| 通知中心 | `app/composables/useNotifications.ts:17` | `mockNotifications` | 模拟通知列表、统计、操作按钮，便于 Notification 组件开发。 |
-| Agent 流 Mock（注释） | `app/composables/agent/useDualChannelConnection.ts:249` | `/agents/stream/mock`（预留） | 本地可切换至 Mock 流，实现离线演示。 |
+| 全局搜索数据 | `app/composables/api/services/searchService.ts: "10` | `mockSearchData`, `mockSuggestions` | 模拟搜索结果、分面、建议，支撑 `/test/search-showcase` 页面与搜索组件调试。 |"
+| 工作流节点规格 | `app/composables/api/services/workflowService.ts: "158` | `mockKinds`、`mockPalette` | 当后端不可用时，提供 Workflow 节点类型、工具箱数据。 |"
+| 通知中心 | `app/composables/useNotifications.ts: "17` | `mockNotifications` | 模拟通知列表、统计、操作按钮，便于 Notification 组件开发。 |"
+| Agent 流 Mock（注释） | `app/composables/agent/useDualChannelConnection.ts: "249` | `/agents/stream/mock`（预留） | 本地可切换至 Mock 流，实现离线演示。 |"
 | 测试页面数据 | `app/pages/test/*.vue` | 例如 `mockResults`、`mockSuggestions` | `/test/connection`, `/test/search-showcase` 等测试页的静态数据。 |
 | 插件市场 | 无（待补充） | — | 可通过 `useAdminPluginsService().getMarketplaceV2` 返回后端数据；若需要 Mock，请在此文档登记。 |
 

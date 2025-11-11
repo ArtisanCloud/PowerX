@@ -140,6 +140,52 @@ px-market completion zsh   > "${fpath[1]}/_px-market"
   ```
 * 支持 `PX_CI=1`（或 `--ci`）输出纯机器可读日志，便于 CI 集成。
 
+## 6.5 宿主模拟器与热更新操作
+
+> 适用于 SCN-DEV-PLUGIN-DEBUG-001：利用 `px host start --mock` + `px-plugin dev --watch` 在 <2 秒内完成热更新，并让 CoreX 写入 `debug.hot_reload.*` 指标。
+
+**启动宿主模拟器（px host start --mock）**
+
+```bash
+# 需要具备 Admin API 访问令牌
+px host start \
+  --api http://localhost:8077/api \
+  --token "$POWERX_ADMIN_TOKEN" \
+  --plugin-id com.powerx.demo \
+  --environment local-mock \
+  --ttl 10m \
+  --http-port 51701 \
+  --grpc-port 52701 \
+  --capability debug.hot_reload --capability sandbox.dataset
+```
+
+- `--api` 指向 Admin API，确保 `PX_PLUGIN_HOST_SIMULATOR` Feature Flag 开启；如需禁用在服务器上设置 `PX_PLUGIN_HOST_SIMULATOR=false`。
+- `--ttl` 为宿主存活时间；PC/macOS/WSL 多实例开发时可通过端口参数避免冲突。
+- 成功后 CLI 会打印 `hostId`、端口和过期时间，后续 `px-plugin dev --watch` 与（即将发布的）`px debug attach` 都会使用同一 host。
+
+**热更新推送（px-plugin dev --watch --host-api）**
+
+```bash
+px-plugin dev --watch \
+  --grpc-addr localhost:9090 \
+  --host-api http://localhost:8077/api \
+  --token "$POWERX_ADMIN_TOKEN" \
+  --tenant-id 101 \
+  --developer-id 2025 \
+  --artifact ./dist/plugin.zip \
+  --artifact-uri file://$(pwd)/dist/plugin.zip \
+  --feature-flag beta_ui \
+  --reset-cache
+```
+
+- `--host-api` 打开后，CLI 会在 gRPC `PushHotReload` 成功后调用 `POST /internal/plugins/local/reload`，确保 `debug.hot_reload.duration_ms` 与 `debug.host.version_mismatch_total` 被采集。
+- 当 CLI 检测到 “version mismatch/manifest version mismatch” 等错误，会自动把 `versionMismatch=true` 写入 reload payload，便于管控指标与告警。
+- `px-plugin dev --watch` 默认在成功后调用 `StopLocalInstall`；若希望手动收尾，可加 `--stop=false` 并使用 `px host stop <hostId>`（待补充）或后台 API。
+
+**即将开放的 `px debug attach`**
+
+- `px debug attach --session <id>` 将补充断点同步、链路日志等功能。正式开放前可以直接调用 `POST /internal/debug/report`/`POST /internal/debug/logs/export` 与 `px host start`/`px-plugin dev --watch` 联动。
+
 ## 7. FAQ
 
 * **提示 `command not found`？**
@@ -159,9 +205,9 @@ PowerXDocs 提供以下自动化脚本，确保所有 CLI 与文档以 “纯 Pu
 
 | Workflow | 命令 | 说明 |
 |----------|------|------|
-| Usecase 模板分发 | `npm run publish:usecases -- --scn-id SCN-XXXX` | 读取 `docs/_data/docmap.yaml` 与 `docs/_data/repos.yaml`，将更新后的模板推送到 `_from_hub/` 目录并生成报告。 |
-| Standards 分发 | `npm run publish:standards` | 将 `docs/standards/**` 拷贝到各仓对应的 standards 目录，保持治理文案一致。 |
-| 审核提醒 | `npm run publish:notify -- --workflow usecases` | 检查超过 72 小时未合并的 PR，输出提醒信息。 |
+| Usecase 模板分发 | `npm run publish: "usecases -- --scn-id SCN-XXXX` | 读取 `docs/_data/docmap.yaml` 与 `docs/_data/repos.yaml`，将更新后的模板推送到 `_from_hub/` 目录并生成报告。 |"
+| Standards 分发 | `npm run publish: "standards` | 将 `docs/standards/**` 拷贝到各仓对应的 standards 目录，保持治理文案一致。 |"
+| 审核提醒 | `npm run publish: "notify -- --workflow usecases` | 检查超过 72 小时未合并的 PR，输出提醒信息。 |"
 
 ### 8.1 工作流特性
 
@@ -176,6 +222,6 @@ PowerXDocs 提供以下自动化脚本，确保所有 CLI 与文档以 “纯 Pu
 2. 根据需要更新 `docs/usecases-seeds/**` 或 `docs/standards/**`。
 3. 运行对应脚本（建议搭配 `--dry-run` 预检查），确认报告无错误后再去除 `--dry-run`。
 4. 脚本会生成带前缀 `docs/hub/...` 的分发分支，创建 PR 并记录在报告中。
-5. 使用 `npm run publish:notify` 检查超时 PR，确保遵循 72 小时提醒策略。
+5. 使用 `npm run publish: "notify` 检查超时 PR，确保遵循 72 小时提醒策略。"
 
 > 提示：`docs/_data/repos.yaml` 定义了每个仓的 `checkout` 目录、`usecase_seed_root`、`standards_root` 等元信息，如需调整目录结构请先更新该表。

@@ -131,7 +131,7 @@ sequenceDiagram
 - **Inbound APIs / CLI**
   - `POST /api/admin/plugin-release/candidates` + `/plans`：发布经理在 Web Admin 中触发审批与生成发布计划。
   - `POST /api/admin/plugin-release/plans/:planId/deploy/*`：触发灰度、Finalize、Rollback。
-  - `powerx publish deploy --plan-id <id> --batch-name batch-a --final-action promote`：CLI 入口，复用 gRPC `TriggerCanary`、`FinalizeDeployment`。
+  - `px publish deploy --plan-id <id> --batch-name batch-a --final-action promote`：CLI 入口，复用 gRPC `TriggerCanary`、`FinalizeDeployment`。
   - `GET /api/admin/plugin-release/candidates/:id`：查询审批进度、门禁状态与可用版本。
 - **Outbound 交互**
   - Marketplace Catalog Event（如 `publish.approved` 消息或轮询接口）——同步版本元数据。
@@ -190,4 +190,4 @@ sequenceDiagram
 - CLI 发布：`docs/usecases-seeds/SCN-PUBLISH-HUB-001/PLG-PUBLISH-ONLINE-001.md`
 - 运维指南：`docs/guides/publish/online.md`
 
-> Seed 更新后，请执行 `npm run publish:usecases -- --scn-id SCN-PUBLISH-HUB-001 --validate-only` 校验结构，并安排“发布→安装→升级”演练验证端到端链路。
+> Seed 更新后，请执行 `npm run publish: "usecases -- --scn-id SCN-PUBLISH-HUB-001 --validate-only` 校验结构，并安排“发布→安装→升级”演练验证端到端链路。"

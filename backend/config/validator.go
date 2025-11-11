@@ -237,6 +237,39 @@ func (c *Config) Validate() error {
 		errors = append(errors, "plugin_release.observability.kpi_targets.hotload_latency_p95_ms 必须大于0")
 	}
 
+	// --- Plugin Debug ---
+	if strings.TrimSpace(c.PluginDebug.Component) == "" {
+		errors = append(errors, "plugin_debug.component 不能为空")
+	}
+	if c.PluginDebug.HostSimulator.Enabled {
+		if strings.TrimSpace(c.PluginDebug.HostSimulator.FeatureFlag) == "" {
+			errors = append(errors, "plugin_debug.host_simulator.feature_flag 不能为空")
+		}
+		if strings.TrimSpace(c.PluginDebug.HostSimulator.ConfigPath) == "" {
+			errors = append(errors, "plugin_debug.host_simulator.config_path 不能为空")
+		}
+	}
+	if strings.TrimSpace(c.PluginDebug.Reports.TemplatePath) == "" {
+		errors = append(errors, "plugin_debug.reports.template 不能为空")
+	}
+	if strings.TrimSpace(c.PluginDebug.Reports.MaskingRules) == "" {
+		errors = append(errors, "plugin_debug.reports.masking_rules 不能为空")
+	}
+	if strings.TrimSpace(c.PluginDebug.TicketBridge.Provider) == "" {
+		errors = append(errors, "plugin_debug.ticket_bridge.provider 不能为空")
+	}
+	if strings.TrimSpace(c.PluginDebug.TicketBridge.Project) == "" {
+		errors = append(errors, "plugin_debug.ticket_bridge.project 不能为空")
+	}
+	if c.PluginDebug.Sandbox.Enabled {
+		if strings.TrimSpace(c.PluginDebug.Sandbox.FeatureFlag) == "" {
+			errors = append(errors, "plugin_debug.sandbox.feature_flag 不能为空（启用 sandbox 时）")
+		}
+		if strings.TrimSpace(c.PluginDebug.Sandbox.DataSuitePath) == "" {
+			errors = append(errors, "plugin_debug.sandbox.data_suite_path 不能为空（启用 sandbox 时）")
+		}
+	}
+
 	// --- Logging ---
 	validLevels := []string{"debug", "info", "warn", "error"}
 	levelValid := false

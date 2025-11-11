@@ -102,6 +102,8 @@ func TestAuthorizationAlerts(t *testing.T) {
 		tenantID := uuid.New()
 		subjectID := uuid.New()
 		cap := env.insertCapability("event_fabric", "publish")
+		payload := datatypes.JSON([]byte(`{"limit":1,"burst":1,"interval_seconds":60}`))
+		require.NoError(t, env.db.Model(&cap).Update("default_rate_limit", payload).Error)
 		grant := env.insertGrant(tenantID, subjectID, SubjectTypeAgent, eventfabricmodel.GrantStatusActive, time.Now().Add(time.Hour))
 		env.insertGrantCapability(grant.UUID, cap.UUID)
 

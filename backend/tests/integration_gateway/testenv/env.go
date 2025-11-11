@@ -32,7 +32,9 @@ type Env struct {
 func New(t testing.TB) *Env {
 	gin.SetMode(gin.TestMode)
 
-	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{})
+	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{
+		DisableForeignKeyConstraintWhenMigrating: true, // 在 SQLite 测试中禁用外键约束
+	})
 	if err != nil {
 		t.Fatalf("open sqlite: %v", err)
 	}

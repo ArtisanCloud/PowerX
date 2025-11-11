@@ -43,7 +43,7 @@ last_reviewed_at: 2025-01-01
 
 - **In Scope**：插件打包、离线上传、审核审批、安装分发、回滚策略。
 - **Out of Scope**：在线自动发布、跨租户自动同步、第三方 Marketplace 接入。
-- **Environment & Flags**：需要启用 `PX_MARKET_OFFLINE_UPLOAD`；运维账号具备 `marketplace:offline_upload` 权限；插件包需通过签名与哈希校验。
+- **Environment & Flags**：需要启用 `PX_MARKET_OFFLINE_UPLOAD`；运维账号具备 `marketplace: "offline_upload` 权限；插件包需通过签名与哈希校验。"
 
 # Participants & Responsibilities
 
@@ -80,7 +80,7 @@ sequenceDiagram
 
 # Key Interactions & Contracts
 
-- **APIs / Events**：`POST /api/marketplace/plugins/offline-upload`、`POST /{{api_prefix}}/admin/plugins/install/local`、`Event::plugin.offline.approved`。
+- **APIs / Events**：`POST /api/marketplace/plugins/offline-upload`、`POST /{{api_prefix}}/admin/plugins/install/local`、`Event: ":plugin.offline.approved`。"
 - **Configs / Schemas**：插件 `manifest.json`、离线审核 checklist、签名策略。
 - **Security / Compliance**：离线包需双人审批；所有上传和审批动作写入审计日志；插件包必须由官方或受信 CA 签名。
 
