@@ -46,7 +46,7 @@ func createTables(db *gorm.DB, schema string) error {
 	createProviders := fmt.Sprintf(`
 CREATE TABLE IF NOT EXISTS %s (
 	id INTEGER PRIMARY KEY AUTOINCREMENT,
-	uuid TEXT NOT NULL,
+	uuid TEXT NOT NULL UNIQUE,
 	created_at DATETIME,
 	updated_at DATETIME,
 	deleted_at DATETIME,
@@ -92,6 +92,37 @@ CREATE TABLE IF NOT EXISTS %s (
 		return err
 	}
 	if err := db.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_routing_scope_version ON agent_routing_policies(env, tenant_scope, version);`).Error; err != nil {
+		return err
+	}
+
+	connectorTable := fmt.Sprintf("%s.%s", schema, "agent_connector_instances")
+	createConnectors := fmt.Sprintf(`
+CREATE TABLE IF NOT EXISTS %s (
+	id INTEGER PRIMARY KEY AUTOINCREMENT,
+	uuid TEXT NOT NULL,
+	created_at DATETIME,
+	updated_at DATETIME,
+	deleted_at DATETIME,
+	env TEXT NOT NULL,
+	tenant_scope TEXT NOT NULL,
+	platform TEXT NOT NULL,
+	region TEXT,
+	oauth_ref TEXT NOT NULL,
+	webhook_signing_key_ref TEXT NOT NULL,
+	mapping_template TEXT DEFAULT '{}',
+	status TEXT DEFAULT 'active',
+	error_rate REAL DEFAULT 0,
+	last_pause_reason TEXT,
+	rate_limit_per_minute INTEGER DEFAULT 0,
+	sealed_secrets TEXT DEFAULT '{}'
+);`, connectorTable)
+	if err := db.Exec(createConnectors).Error; err != nil {
+		return err
+	}
+	if err := db.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_connector_instances_uuid ON agent_connector_instances(uuid);`).Error; err != nil {
+		return err
+	}
+	if err := db.Exec(`CREATE INDEX IF NOT EXISTS idx_connector_instances_scope ON agent_connector_instances(env, tenant_scope);`).Error; err != nil {
 		return err
 	}
 

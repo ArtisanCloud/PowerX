@@ -14,6 +14,7 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 	providerHandler := NewProviderHandler(deps)
 	routingHandler := NewRoutingHandler(deps)
 	costHandler := NewCostHandler(deps)
+	connectorHandler := NewConnectorHandler(deps)
 	internalGroup := protectedGroup.Group("/internal")
 	{
 		internalGroup.POST("/providers/register", providerHandler.registerProvider)
@@ -31,5 +32,8 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 		internalGroup.POST("/provider-usage/report", costHandler.reportUsage)
 		internalGroup.GET("/provider-quotas", costHandler.getQuotaSnapshot)
 		internalGroup.POST("/provider-quotas/enforce", costHandler.enforceAction)
+
+		internalGroup.POST("/connector-platforms/:platform/instances", connectorHandler.upsertInstance)
+		internalGroup.POST("/connector-platforms/:platform/instances/:instanceId/pause", connectorHandler.pauseInstance)
 	}
 }

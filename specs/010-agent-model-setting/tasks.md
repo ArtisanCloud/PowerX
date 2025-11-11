@@ -89,11 +89,11 @@
 
 ### Phase 6 – User Story 4：Connector Platform（P4）
 
-- [ ] **T031 [P]** HTTP/gRPC 契约测试覆盖 `/connector-platforms/*` 与 Upsert/Pause RPC。
-- [ ] **T032** Connector 服务 `backend/internal/service/connector_guard/connector_service.go`：OAuth、映射、签名校验、实例级降级。
-- [ ] **T033** HTTP/gRPC handler (`backend/internal/transport/http/admin/agent/connector_handler.go` 等)。
-- [ ] **T034** 更新 `powerx-plugin/connectors/{coze,n8n}` 适配新契约与 Trace ID。
-- [ ] **T035** 集成测试 `tests/integration/agent_model_hub/connector_flow_test.go`（注册→调用→实例暂停）。
+- [X] **T031 [P]** HTTP/gRPC 契约测试覆盖 `/connector-platforms/*` 与 Upsert/Pause RPC。
+- [X] **T032** Connector 服务 `backend/internal/service/connector_guard/connector_service.go`：OAuth、映射、签名校验、实例级降级。
+- [X] **T033** HTTP/gRPC handler (`backend/internal/transport/http/admin/agent/connector_handler.go` 等)。
+- [X] **T034** 更新 `powerx-plugin/connectors/{coze,n8n}` 适配新契约与 Trace ID。
+- [x] **T035** 集成测试 `tests/integration/agent_model_hub/connector_flow_test.go`（注册→调用→实例暂停）。
 
 ### Phase 7 – 观测、文档与成功指标验证
 

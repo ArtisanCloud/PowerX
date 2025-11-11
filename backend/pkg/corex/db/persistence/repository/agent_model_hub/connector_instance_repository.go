@@ -97,6 +97,14 @@ func (r *ConnectorInstanceRepository) UpdateStatus(ctx context.Context, id uuid.
 		Updates(updates).Error
 }
 
+// UpdateErrorRate persists the latest rolling failure rate for an instance.
+func (r *ConnectorInstanceRepository) UpdateErrorRate(ctx context.Context, id uuid.UUID, rate float64) error {
+	return r.db.WithContext(ctx).
+		Model(&model.ConnectorInstance{}).
+		Where("uuid = ?", id).
+		Update("error_rate", rate).Error
+}
+
 // UpdateSealedSecrets stores refreshed encrypted payloads for rotation workflows.
 func (r *ConnectorInstanceRepository) UpdateSealedSecrets(ctx context.Context, id uuid.UUID, payload datatypes.JSONMap) error {
 	return r.db.WithContext(ctx).

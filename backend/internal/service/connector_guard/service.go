@@ -2,9 +2,15 @@ package connector_guard
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"crypto/subtle"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
+	"strconv"
 	"strings"
 	"time"
 
@@ -26,6 +32,30 @@ import (
 
 const connectorStatusCacheKey = "agent:modelhub:connector:%s:status"
 
+var (
+	supportedConnectorPlatforms = map[string]struct{}{
+		"coze": {},
+		"n8n":  {},
+	}
+	allowedConnectorStatuses = map[string]struct{}{
+		"active":    {},
+		"paused":    {},
+		"degrading": {},
+	}
+)
+
+const (
+	mappingTemplateMaxBytes = 64 * 1024
+	defaultSignatureDrift   = 5 * time.Minute
+	errorRateAlpha          = 0.2
+)
+
+var (
+	ErrConnectorNotFound = errors.New("connector instance not found")
+	ErrSignatureMismatch = errors.New("invalid webhook signature")
+	ErrSigningKeyMissing = errors.New("webhook signing key missing")
+)
+
 // Service coordinates connector registration, pause/resume, and secret sealing.
 type Service struct {
 	db    *gorm.DB
@@ -40,6 +70,23 @@ type Service struct {
 type Options struct {
 	shared.Options
 	Instances *repo.ConnectorInstanceRepository
+}
+
+// WebhookVerificationInput defines signature verification payload.
+type WebhookVerificationInput struct {
+	InstanceID uuid.UUID
+	Signature  string
+	Timestamp  string
+	Payload    []byte
+	MaxDrift   time.Duration
+}
+
+// CallbackMetricInput describes success/failure outcomes for auto-pause logic.
+type CallbackMetricInput struct {
+	InstanceID uuid.UUID
+	Success    bool
+	Threshold  float64
+	Reason     string
 }
 
 func NewService(opts Options) *Service {
@@ -70,6 +117,7 @@ type ConnectorInstanceInput struct {
 	RateLimitPerMinute   uint32
 	Status               string
 	Secrets              map[string]string
+	InstanceID           string
 }
 
 // UpsertInstance registers or updates a connector instance while sealing optional secrets.
@@ -85,21 +133,50 @@ func (s *Service) UpsertInstance(ctx context.Context, env string, input Connecto
 	if platform == "" {
 		return nil, errors.New("platform required")
 	}
+	if _, ok := supportedConnectorPlatforms[platform]; !ok {
+		return nil, fmt.Errorf("unsupported platform %s", platform)
+	}
+
+	template, err := normalizeMappingTemplate(input.MappingTemplate)
+	if err != nil {
+		return nil, err
+	}
+
+	secrets := sanitizeSecretMap(input.Secrets)
+	if strings.TrimSpace(input.OAuthRef) == "" && secrets["oauth_token"] == "" {
+		return nil, errors.New("oauthRef or oauth_token secret required")
+	}
+	if strings.TrimSpace(input.WebhookSigningKeyRef) == "" && secrets["webhook_signing_key"] == "" {
+		return nil, errors.New("webhookSigningKeyRef or webhook_signing_key secret required")
+	}
+
+	var instanceID uuid.UUID
+	if trimmed := strings.TrimSpace(input.InstanceID); trimmed != "" {
+		parsed, err := uuid.Parse(trimmed)
+		if err != nil {
+			return nil, fmt.Errorf("invalid instance_id: %w", err)
+		}
+		instanceID = parsed
+	} else {
+		instanceID = uuid.New()
+	}
 
 	instance := &model.ConnectorInstance{
+		PowerUUIDModel: coremodel.PowerUUIDModel{
+			UUID: instanceID,
+		},
 		Env:                  env,
 		TenantScope:          scope,
 		Platform:             platform,
 		Region:               strings.TrimSpace(input.Region),
 		OAuthRef:             strings.TrimSpace(input.OAuthRef),
 		WebhookSigningKeyRef: strings.TrimSpace(input.WebhookSigningKeyRef),
-		MappingTemplate:      input.MappingTemplate,
+		MappingTemplate:      template,
 		Status:               sanitizeStatus(input.Status, "active"),
 		RateLimitPerMinute:   input.RateLimitPerMinute,
 	}
-	instance.UUID = uuid.New()
 
-	if sealed, refs, err := s.sealConnectorSecrets(ctx, instance, input.Secrets); err != nil {
+	if sealed, refs, err := s.sealConnectorSecrets(ctx, instance, secrets); err != nil {
 		return nil, err
 	} else if sealed != nil {
 		instance.SealedSecrets = sealed
@@ -133,6 +210,19 @@ func (s *Service) PauseInstance(ctx context.Context, id uuid.UUID, reason string
 	s.cacheStatus(ctx, id, "paused")
 	s.inst.RecordMetric(ctx, "agent.connector.pause_total", 1, map[string]string{})
 	s.emitAudit(ctx, "connector.instance.paused", &model.ConnectorInstance{
+		PowerUUIDModel: coremodel.PowerUUIDModel{UUID: id},
+	}, map[string]any{"reason": reason})
+	return nil
+}
+
+// ResumeInstance brings a paused connector back to active state.
+func (s *Service) ResumeInstance(ctx context.Context, id uuid.UUID, reason string) error {
+	if err := s.repo.UpdateStatus(ctx, id, "active", reason); err != nil {
+		return err
+	}
+	s.cacheStatus(ctx, id, "active")
+	s.inst.RecordMetric(ctx, "agent.connector.resume_total", 1, map[string]string{})
+	s.emitAudit(ctx, "connector.instance.resumed", &model.ConnectorInstance{
 		PowerUUIDModel: coremodel.PowerUUIDModel{UUID: id},
 	}, map[string]any{"reason": reason})
 	return nil
@@ -172,6 +262,41 @@ func (s *Service) RotateInstanceSecrets(ctx context.Context, env, tenantScope st
 	}
 	s.emitAudit(ctx, "connector.instance.secret_rotated", instance, nil)
 	return nil
+}
+
+// TrackCallbackMetric updates rolling error rates and auto-pauses if thresholds are crossed.
+func (s *Service) TrackCallbackMetric(ctx context.Context, input CallbackMetricInput) (float64, bool, error) {
+	if s.repo == nil {
+		return 0, false, errors.New("connector repository is not configured")
+	}
+	inst, err := s.repo.FindByUUID(ctx, input.InstanceID)
+	if err != nil {
+		return 0, false, err
+	}
+	if inst == nil {
+		return 0, false, ErrConnectorNotFound
+	}
+	fail := 0.0
+	if !input.Success {
+		fail = 1
+	}
+	newRate := clampRate(fail*errorRateAlpha + inst.ErrorRate*(1-errorRateAlpha))
+	if err := s.repo.UpdateErrorRate(ctx, inst.UUID, newRate); err != nil {
+		return 0, false, err
+	}
+	threshold := input.Threshold
+	triggered := false
+	if threshold > 0 && newRate >= threshold && strings.ToLower(inst.Status) != "paused" {
+		triggered = true
+		reason := input.Reason
+		if reason == "" {
+			reason = fmt.Sprintf("auto-pause: error_rate %.4f ≥ %.4f", newRate, threshold)
+		}
+		if err := s.PauseInstance(ctx, inst.UUID, reason); err != nil {
+			return newRate, false, err
+		}
+	}
+	return newRate, triggered, nil
 }
 
 func (s *Service) sealConnectorSecrets(ctx context.Context, inst *model.ConnectorInstance, secrets map[string]string) (datatypes.JSONMap, map[string]string, error) {
@@ -240,8 +365,155 @@ func (s *Service) emitAudit(ctx context.Context, op string, instModel *model.Con
 
 func sanitizeStatus(in string, def string) string {
 	v := strings.TrimSpace(strings.ToLower(in))
-	if v == "" {
-		return def
+	if _, ok := allowedConnectorStatuses[v]; ok {
+		return v
 	}
-	return v
+	return def
+}
+
+// VerifyWebhookSignature ensures callbacks include a valid signature + timestamp.
+func (s *Service) VerifyWebhookSignature(ctx context.Context, input WebhookVerificationInput) error {
+	if s.repo == nil {
+		return errors.New("connector repository is not configured")
+	}
+	if input.InstanceID == uuid.Nil {
+		return errors.New("instance_id required")
+	}
+	if strings.TrimSpace(input.Signature) == "" {
+		return errors.New("signature required")
+	}
+	if strings.TrimSpace(input.Timestamp) == "" {
+		return errors.New("timestamp required")
+	}
+	inst, err := s.repo.FindByUUID(ctx, input.InstanceID)
+	if err != nil {
+		return err
+	}
+	if inst == nil {
+		return ErrConnectorNotFound
+	}
+	secrets, err := s.loadSecrets(ctx, inst)
+	if err != nil {
+		return err
+	}
+	key := strings.TrimSpace(secrets["webhook_signing_key"])
+	if key == "" {
+		return ErrSigningKeyMissing
+	}
+	ts, err := parseTimestamp(input.Timestamp)
+	if err != nil {
+		return err
+	}
+	maxDrift := input.MaxDrift
+	if maxDrift <= 0 {
+		maxDrift = defaultSignatureDrift
+	}
+	now := s.clock().UTC()
+	drift := now.Sub(ts)
+	if drift < 0 {
+		drift = -drift
+	}
+	if drift > maxDrift {
+		return fmt.Errorf("callback timestamp drift %s exceeds %s", drift, maxDrift)
+	}
+
+	expected := computeSignature(key, input.Timestamp, input.Payload)
+	provided := normalizeSignature(input.Signature)
+	if subtle.ConstantTimeCompare([]byte(expected), []byte(provided)) != 1 {
+		return ErrSignatureMismatch
+	}
+	return nil
+}
+
+func (s *Service) loadSecrets(ctx context.Context, inst *model.ConnectorInstance) (map[string]string, error) {
+	if inst == nil || inst.SealedSecrets == nil {
+		return map[string]string{}, nil
+	}
+	if s.keys == nil {
+		return nil, errors.New("tenant key service not configured")
+	}
+	secrets := map[string]string{}
+	if err := s.keys.UnsealSensitive(ctx, inst.Env, nil, inst.SealedSecrets, &secrets); err != nil {
+		return nil, err
+	}
+	return secrets, nil
+}
+
+func computeSignature(secret string, timestamp string, payload []byte) string {
+	body := append([]byte(timestamp), '.')
+	body = append(body, payload...)
+	mac := hmac.New(sha256.New, []byte(secret))
+	mac.Write(body)
+	return hex.EncodeToString(mac.Sum(nil))
+}
+
+func normalizeSignature(sig string) string {
+	s := strings.TrimSpace(sig)
+	s = strings.TrimPrefix(s, "sha256=")
+	return strings.ToLower(s)
+}
+
+func parseTimestamp(raw string) (time.Time, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return time.Time{}, errors.New("timestamp required")
+	}
+	if unix, err := strconv.ParseInt(raw, 10, 64); err == nil {
+		// handle millisecond precision if length > 11
+		if len(raw) > 11 {
+			return time.UnixMilli(unix).UTC(), nil
+		}
+		return time.Unix(unix, 0).UTC(), nil
+	}
+	ts, err := time.Parse(time.RFC3339, raw)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("invalid timestamp: %w", err)
+	}
+	return ts.UTC(), nil
+}
+
+func sanitizeSecretMap(secrets map[string]string) map[string]string {
+	if len(secrets) == 0 {
+		return nil
+	}
+	out := make(map[string]string, len(secrets))
+	for k, v := range secrets {
+		key := strings.TrimSpace(k)
+		val := strings.TrimSpace(v)
+		if key == "" || val == "" {
+			continue
+		}
+		out[key] = val
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func normalizeMappingTemplate(raw datatypes.JSON) (datatypes.JSON, error) {
+	if len(raw) == 0 || string(raw) == "null" {
+		return datatypes.JSON([]byte("{}")), nil
+	}
+	if len(raw) > mappingTemplateMaxBytes {
+		return nil, fmt.Errorf("mapping template exceeds %d bytes", mappingTemplateMaxBytes)
+	}
+	var obj map[string]any
+	if err := json.Unmarshal(raw, &obj); err != nil {
+		return nil, fmt.Errorf("mapping template must be a JSON object: %w", err)
+	}
+	for key := range obj {
+		if strings.TrimSpace(key) == "" {
+			return nil, errors.New("mapping template keys cannot be empty")
+		}
+	}
+	buf, err := json.Marshal(obj)
+	if err != nil {
+		return nil, err
+	}
+	return datatypes.JSON(buf), nil
+}
+
+func clampRate(val float64) float64 {
+	return math.Max(0, math.Min(1, val))
 }

@@ -12,6 +12,7 @@ import (
 	appshared "github.com/ArtisanCloud/PowerX/internal/app/shared"
 	amhinst "github.com/ArtisanCloud/PowerX/internal/service/agent_model_hub/instrumentation"
 	amhshared "github.com/ArtisanCloud/PowerX/internal/service/agent_model_hub/shared"
+	connectorguard "github.com/ArtisanCloud/PowerX/internal/service/connector_guard"
 	costquota "github.com/ArtisanCloud/PowerX/internal/service/cost_quota"
 	modelrouting "github.com/ArtisanCloud/PowerX/internal/service/model_routing"
 	providerregistry "github.com/ArtisanCloud/PowerX/internal/service/provider_registry"
@@ -31,6 +32,7 @@ type Server struct {
 	providerRegistry *providerregistry.Service
 	routingSvc       *modelrouting.Service
 	costSvc          *costquota.Service
+	connectorSvc     *connectorguard.Service
 }
 
 func NewServer(deps *appshared.Deps) *Server {
@@ -38,6 +40,7 @@ func NewServer(deps *appshared.Deps) *Server {
 		providerRegistry: newProviderRegistryService(deps),
 		routingSvc:       newRoutingService(deps),
 		costSvc:          newCostService(deps),
+		connectorSvc:     newConnectorService(deps),
 	}
 }
 
@@ -304,6 +307,60 @@ func (s *Server) EnforceQuotaAction(ctx context.Context, req *agentmodelhubv1.En
 	return &agentmodelhubv1.EnforceQuotaActionResponse{}, nil
 }
 
+func (s *Server) UpsertConnectorInstance(ctx context.Context, req *agentmodelhubv1.UpsertConnectorInstanceRequest) (*agentmodelhubv1.UpsertConnectorInstanceResponse, error) {
+	if req == nil || strings.TrimSpace(req.GetPlatform()) == "" {
+		return nil, status.Error(codes.InvalidArgument, "platform required")
+	}
+	if s.connectorSvc == nil {
+		return nil, status.Error(codes.Unavailable, "connector service unavailable")
+	}
+	payload := req.GetInstance()
+	if payload == nil || strings.TrimSpace(payload.GetTenantId()) == "" {
+		return nil, status.Error(codes.InvalidArgument, "instance.tenant_id required")
+	}
+	mapping := datatypes.JSON([]byte("{}"))
+	if trimmed := strings.TrimSpace(payload.GetMappingTemplateJson()); trimmed != "" {
+		mapping = datatypes.JSON([]byte(trimmed))
+	}
+	result, err := s.connectorSvc.UpsertInstance(ctx, "default", connectorguard.ConnectorInstanceInput{
+		TenantScope:          payload.GetTenantId(),
+		Platform:             req.GetPlatform(),
+		Region:               payload.GetRegion(),
+		OAuthRef:             payload.GetOauthRef(),
+		WebhookSigningKeyRef: payload.GetWebhookSigningKeyRef(),
+		MappingTemplate:      mapping,
+		RateLimitPerMinute:   payload.GetRateLimitPerMinute(),
+		Status:               "",
+		InstanceID:           "",
+	})
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	return &agentmodelhubv1.UpsertConnectorInstanceResponse{
+		Instance: connectorInstanceToProto(result),
+	}, nil
+}
+
+func (s *Server) PauseConnectorInstance(ctx context.Context, req *agentmodelhubv1.PauseConnectorInstanceRequest) (*agentmodelhubv1.PauseConnectorInstanceResponse, error) {
+	if req == nil || strings.TrimSpace(req.GetInstanceId()) == "" {
+		return nil, status.Error(codes.InvalidArgument, "instance_id required")
+	}
+	if s.connectorSvc == nil {
+		return nil, status.Error(codes.Unavailable, "connector service unavailable")
+	}
+	id, err := uuid.Parse(req.GetInstanceId())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid instance_id")
+	}
+	if err := s.connectorSvc.PauseInstance(ctx, id, req.GetReason()); err != nil {
+		if errors.Is(err, connectorguard.ErrConnectorNotFound) {
+			return nil, status.Error(codes.NotFound, err.Error())
+		}
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	return &agentmodelhubv1.PauseConnectorInstanceResponse{}, nil
+}
+
 func newProviderRegistryService(deps *appshared.Deps) *providerregistry.Service {
 	if deps == nil || deps.DB == nil {
 		return nil
@@ -347,6 +404,21 @@ func newCostService(deps *appshared.Deps) *costquota.Service {
 			DB:              deps.DB,
 			Cache:           cache.NewMemoryCache(),
 			AuditSvc:        deps.AuditSvc,
+			Instrumentation: amhinst.NewInstrumentation(nil, nil),
+		},
+	})
+}
+
+func newConnectorService(deps *appshared.Deps) *connectorguard.Service {
+	if deps == nil || deps.DB == nil {
+		return nil
+	}
+	return connectorguard.NewService(connectorguard.Options{
+		Options: amhshared.Options{
+			DB:              deps.DB,
+			Cache:           cache.NewMemoryCache(),
+			AuditSvc:        deps.AuditSvc,
+			TenantKeySvc:    buildTenantKeyService(deps.DB),
 			Instrumentation: amhinst.NewInstrumentation(nil, nil),
 		},
 	})
@@ -423,6 +495,41 @@ func getString(val any) string {
 		return v.String()
 	default:
 		return strings.TrimSpace(fmt.Sprint(v))
+	}
+}
+
+func connectorInstanceToProto(inst *model.ConnectorInstance) *agentmodelhubv1.ConnectorInstance {
+	if inst == nil {
+		return nil
+	}
+	mapping := ""
+	if len(inst.MappingTemplate) > 0 {
+		mapping = string(inst.MappingTemplate)
+	}
+	return &agentmodelhubv1.ConnectorInstance{
+		InstanceId: inst.UUID.String(),
+		Platform:   inst.Platform,
+		Data: &agentmodelhubv1.ConnectorInstanceInput{
+			TenantId:             inst.TenantScope,
+			Region:               inst.Region,
+			OauthRef:             inst.OAuthRef,
+			WebhookSigningKeyRef: inst.WebhookSigningKeyRef,
+			MappingTemplateJson:  mapping,
+			RateLimitPerMinute:   inst.RateLimitPerMinute,
+		},
+		Status:    connectorStatusToProto(inst.Status),
+		ErrorRate: inst.ErrorRate,
+	}
+}
+
+func connectorStatusToProto(status string) agentmodelhubv1.ConnectorStatus {
+	switch strings.ToLower(status) {
+	case "paused":
+		return agentmodelhubv1.ConnectorStatus_CONNECTOR_STATUS_PAUSED
+	case "degrading":
+		return agentmodelhubv1.ConnectorStatus_CONNECTOR_STATUS_DEGRADING
+	default:
+		return agentmodelhubv1.ConnectorStatus_CONNECTOR_STATUS_ACTIVE
 	}
 }
 
