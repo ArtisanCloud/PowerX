@@ -299,8 +299,12 @@ const isActive = (path?: string) => {
   if (!normalized) return false;
   return activeMenuPaths.value.has(normalized);
 };
-const hasActiveChild = (children?: MenuItem[]) =>
-  !!children?.some((child) => isActive(child.path));
+const hasActiveChild = (children?: MenuItem[]): boolean => {
+  if (!children?.length) return false;
+  return children.some(
+    (child) => isActive(child.path) || hasActiveChild(child.children)
+  );
+};
 
 /* ---------- 展开状态 ---------- */
 const expandedItems = ref<Set<string>>(new Set());
@@ -341,6 +345,12 @@ onMounted(async () => {
 watch(
   () => route.path,
   () => expandByRoute()
+);
+
+watch(
+  () => menuResponse.value,
+  () => expandByRoute(),
+  { deep: true }
 );
 
 /* ---------- a11y：简单键盘支持 ---------- */

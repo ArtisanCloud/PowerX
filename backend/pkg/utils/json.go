@@ -23,3 +23,14 @@ func HasAnyNonEmpty(m datatypes.JSONMap, keys ...string) bool {
 	}
 	return false
 }
+
+func CloneJSONMap(m datatypes.JSONMap) datatypes.JSONMap {
+	if m == nil {
+		return datatypes.JSONMap{}
+	}
+	clone := datatypes.JSONMap{}
+	for k, v := range m {
+		clone[k] = v
+	}
+	return clone
+}

@@ -10,6 +10,7 @@ import (
 	workflowv1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/workflow/v1"
 	workflowsvc "github.com/ArtisanCloud/PowerX/internal/service/workflow"
 	modelworkflow "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/workflow"
+	"github.com/ArtisanCloud/PowerX/pkg/utils"
 	"github.com/google/uuid"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -373,7 +374,7 @@ func jsonToCompensationPolicy(data datatypes.JSON) *workflowv1.CompensationPolic
 		Enabled:               toBool(raw["enabled"]),
 		RequireManualApproval: toBool(raw["require_manual_approval"]),
 		MaxConcurrent:         int32(toInt64(raw["max_concurrent"])),
-		EscalationChannel:     toString(raw["escalation_channel"]),
+		EscalationChannel:     valueAsString(raw["escalation_channel"]),
 	}
 	if !policy.Enabled && !policy.RequireManualApproval && policy.MaxConcurrent == 0 && policy.EscalationChannel == "" {
 		return nil
@@ -414,7 +415,7 @@ func structToStringMap(st *structpb.Struct) map[string]string {
 	raw := st.AsMap()
 	result := make(map[string]string, len(raw))
 	for k, v := range raw {
-		result[k] = toString(v)
+		result[k] = valueAsString(v)
 	}
 	return result
 }
@@ -467,10 +468,14 @@ func toBool(v any) bool {
 	}
 }
 
-func toString(v any) string {
+func valueAsString(v any) string {
+	if s := utils.StrFrom(v); s != "" {
+		return s
+	}
+	if v == nil {
+		return ""
+	}
 	switch val := v.(type) {
-	case string:
-		return val
 	case float64:
 		return strconv.FormatFloat(val, 'f', -1, 64)
 	case int64:
@@ -482,7 +487,6 @@ func toString(v any) string {
 	case json.Number:
 		return val.String()
 	default:
-		bytes, _ := json.Marshal(val)
-		return string(bytes)
+		return utils.ToJSON(val)
 	}
 }

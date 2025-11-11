@@ -4,10 +4,10 @@
     <div class="flex items-center justify-between">
       <div>
         <h1 class="text-lg font-semibold text-[var(--text-primary)]">
-          大模型设置
+          {{ $t("settings.ai.title") }}
         </h1>
         <p class="text-sm text-[var(--text-secondary)]">
-          配置系统使用的多模态模型供应商与参数（LLM / 图像 / 向量 / 视频）
+          {{ $t("settings.ai.description") }}
         </p>
       </div>
       <div class="flex items-center gap-2">
@@ -18,7 +18,7 @@
           :loading="saving"
           @click="saveSettings"
         >
-          保存
+          {{ $t("common.save") }}
         </UButton>
         <UButton
           variant="ghost"
@@ -26,21 +26,27 @@
           class="whitespace-nowrap"
           @click="resetSettings"
         >
-          重置
+          {{ $t("common.reset") }}
+        </UButton>
+        <UButton
+          variant="soft"
+          icon="i-heroicons-banknotes"
+          class="whitespace-nowrap"
+          :to="costGuardLink"
+        >
+          {{ $t("settings.ai.actions.openCostGuard") }}
         </UButton>
       </div>
     </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
-      <!-- 左侧：垂直Tab导航 -->
+    <div class="grid grid-cols-1 gap-6 lg:grid-cols-4">
       <div class="lg:col-span-1">
         <div class="space-y-4">
-          <!-- 环境选择 -->
           <div
             class="rounded-lg border border-[var(--border-color)] bg-[var(--card-bg)] p-4"
           >
             <div class="mb-3 text-sm font-medium text-[var(--text-primary)]">
-              环境配置
+              {{ $t("settings.ai.environment") }}
             </div>
             <USelect
               v-model="env"
@@ -57,12 +63,11 @@
             </USelect>
           </div>
 
-          <!-- 垂直Tab -->
           <div
             class="rounded-lg border border-[var(--border-color)] bg-[var(--card-bg)] p-4"
           >
             <div class="mb-3 text-sm font-medium text-[var(--text-primary)]">
-              模态类型
+              {{ $t("settings.ai.modalityTabs") }}
             </div>
             <div class="space-y-2">
               <button
@@ -84,14 +89,12 @@
         </div>
       </div>
 
-      <!-- 中间：表单 -->
       <div class="lg:col-span-2 space-y-6">
-        <!-- Provider/Model/凭证（随当前模态绑定） -->
         <div
           class="rounded-lg border border-[var(--border-color)] bg-[var(--card-bg)] p-4"
         >
           <div class="mb-4 font-medium text-[var(--text-primary)]">
-            {{ currentTitle }} - 通用
+            {{ currentTitle }} - {{ $t("settings.ai.sections.general") }}
           </div>
           <ProviderModelForm
             :provider-options="providerOptions"
@@ -101,12 +104,11 @@
           />
         </div>
 
-        <!-- 参数配置（随模态切换） -->
         <div
           class="rounded-lg border border-[var(--border-color)] bg-[var(--card-bg)] p-4"
         >
           <div class="mb-4 font-medium text-[var(--text-primary)]">
-            {{ currentTitle }} - 参数
+            {{ currentTitle }} - {{ $t("settings.ai.sections.parameters") }}
           </div>
           <ModalityParamsForm
             :active-modality="modality"
@@ -132,8 +134,7 @@
         </div>
       </div>
 
-      <!-- 右侧：测试 -->
-      <div class="lg:col-span-1 space-y-6">
+      <div class="space-y-6 lg:col-span-1">
         <TestPanel
           :current-title="currentTitle"
           :current-state="currentState"
@@ -169,6 +170,9 @@ type Modality =
 
 // 使用 AI 设置 store
 const aiSettingsStore = useAISettingsStore();
+const toast = useToast();
+const localePath = useLocalePath();
+const costGuardLink = computed(() => localePath("/settings/ai/cost"));
 
 /**
  * Tab & 环境
@@ -201,6 +205,24 @@ const env = computed({
   get: () => envStore.currentEnv,
   set: (value: string) => envStore.setCurrentEnv(value),
 });
+
+const getErrorMessage = (error: unknown) => {
+  if (!error) return "未知错误";
+  if (typeof error === "string") {
+    return error;
+  }
+  if (typeof error === "object") {
+    const anyError = error as Record<string, any>;
+    return (
+      anyError?.data?.message ||
+      anyError?.response?.statusMessage ||
+      anyError?.message ||
+      anyError?.error ||
+      "未知错误"
+    );
+  }
+  return "未知错误";
+};
 
 /**
  * Provider 列表与模型目录（从 store 获取）
@@ -498,6 +520,98 @@ const responseFormatOptions = ["json", "text", "srt", "verbose_json", "vtt"];
 // 新增重排序选项
 const topKOptions = [5, 10, 20, 50, 100];
 
+function buildPayloadForCurrentModality(promptOverride?: string) {
+  const baseConn = {
+    provider: currentState.value.provider ?? "",
+    model: currentState.value.model ?? "",
+    apiKey: currentState.value.apiKey ?? "",
+    baseURL: currentState.value.baseURL ?? "",
+    organization: currentState.value.organization ?? "",
+    region: currentState.value.region ?? "",
+    azureDeployment: currentState.value.azureDeployment ?? "",
+  };
+
+  let body: Record<string, any> = { ...baseConn };
+  switch (modality.value) {
+    case "llm":
+      body = {
+        ...baseConn,
+        temperature: currentState.value.temperature ?? 0.7,
+        maxTokens: currentState.value.maxTokens ?? 4096,
+        topP: currentState.value.topP ?? 1,
+        stream:
+          currentState.value.stream !== undefined
+            ? currentState.value.stream
+            : true,
+      };
+      break;
+    case "image":
+      body = {
+        ...baseConn,
+        size: image.size,
+        quality: image.quality,
+        format: image.format,
+        promptHint: image.promptHint,
+      };
+      break;
+    case "embedding":
+      body = {
+        ...baseConn,
+        dimensions: embedding.dimensions,
+        truncate: embedding.truncate,
+        batch: embedding.batch,
+      };
+      break;
+    case "audio_tts":
+      body = {
+        ...baseConn,
+        voice: audioTTS.voice,
+        speed: audioTTS.speed,
+        format: audioTTS.format,
+        quality: audioTTS.quality,
+      };
+      break;
+    case "audio_asr":
+      body = {
+        ...baseConn,
+        language: audioASR.language,
+        responseFormat: audioASR.responseFormat,
+        temperature: audioASR.temperature,
+        prompt: audioASR.prompt,
+      };
+      break;
+    case "video":
+      body = {
+        ...baseConn,
+        resolution: video.resolution,
+        fps: video.fps,
+        maxDurationSec: video.maxDurationSec,
+        promptHint: video.promptHint,
+      };
+      break;
+    case "rerank":
+      body = {
+        ...baseConn,
+        topK: rerank.topK,
+        returnDocuments: rerank.returnDocuments,
+        maxChunksPerDoc: rerank.maxChunksPerDoc,
+      };
+      break;
+  }
+
+  const payload: Record<string, any> = {
+    env: env.value,
+    modality: modality.value,
+    [modality.value]: body,
+  };
+
+  if (promptOverride) {
+    payload.prompt = promptOverride;
+  }
+
+  return payload;
+}
+
 /**
  * 保存/重置/测试（接入后端 API）
  */
@@ -506,34 +620,20 @@ const lastTestMessage = computed(() => aiSettingsStore.lastTestMessage);
 
 async function saveSettings() {
   try {
-    const currentConfig = currentState.value;
-
-    // 构建嵌套的数据结构，类似测试连接的格式
-    const payload = {
-      env: env.value,
-      modality: modality.value,
-      [modality.value]: {
-        provider: currentConfig.provider,
-        model: currentConfig.model,
-        apiKey: currentConfig.apiKey || "",
-        baseURL: currentConfig.baseURL || "",
-        organization: currentConfig.organization || "",
-        region: currentConfig.region || "",
-        azureDeployment: currentConfig.azureDeployment || "",
-        // 添加模态特定的参数
-        ...(modality.value === "llm" && {
-          temperature: currentConfig.temperature || 0.7,
-          maxTokens: currentConfig.maxTokens || 4096,
-          topP: currentConfig.topP || 1,
-          stream:
-            currentConfig.stream !== undefined ? currentConfig.stream : true,
-        }),
-      },
-    };
-
-    console.log("保存设置请求参数:", payload);
+    const payload = buildPayloadForCurrentModality();
     await aiSettingsStore.saveSettings(payload);
+    toast.add({
+      title: "保存成功",
+      description: `${currentTitle.value} 配置已更新`,
+      color: "success",
+    });
   } catch (error) {
+    const message = getErrorMessage(error);
+    toast.add({
+      title: "保存失败",
+      description: message,
+      color: "error",
+    });
     console.error("保存设置失败:", error);
   }
 }
@@ -563,80 +663,90 @@ async function resetSettings() {
 
 async function testConnection() {
   try {
-    const payload = {
-      env: "default",
-      modality: modality.value,
-      [modality.value]: {
-        provider: currentState.value.provider,
-        model: currentState.value.model,
-        apiKey: currentState.value.apiKey,
-        baseURL: currentState.value.baseURL,
-        organization: currentState.value.organization,
-        region: currentState.value.region,
-        azureDeployment: currentState.value.azureDeployment,
-      },
-    };
-
-    console.log("测试连接请求参数:", payload);
-    await aiSettingsStore.testConnection(currentState.value.provider, payload);
+    const payload = buildPayloadForCurrentModality();
+    await aiSettingsStore.testConnection(
+      currentState.value.provider || "",
+      payload
+    );
+    toast.add({
+      title: "连接测试成功",
+      description: `${currentTitle.value} 连接正常`,
+      color: "success",
+    });
   } catch (error) {
+    const message = getErrorMessage(error);
+    toast.add({
+      title: "连接测试失败",
+      description: message,
+      color: "error",
+    });
     console.error("连接测试失败:", error);
   }
 }
 
 async function testQuickCall() {
   try {
-    const payload = {
-      env: "default",
-      modality: modality.value,
-      [modality.value]: {
-        provider: currentState.value.provider,
-        model: currentState.value.model,
-        apiKey: currentState.value.apiKey,
-        baseURL: currentState.value.baseURL,
-        organization: currentState.value.organization,
-        region: currentState.value.region,
-        azureDeployment: currentState.value.azureDeployment,
-      },
-    };
-
-    console.log("快速调用测试请求参数:", payload);
+    const payload = buildPayloadForCurrentModality(
+      "Hello, this is a test message."
+    );
     await aiSettingsStore.testQuickCall(
-      currentState.value.provider,
-      currentState.value.model,
+      currentState.value.provider || "",
+      currentState.value.model || "",
       payload,
       "Hello, this is a test message."
     );
+    toast.add({
+      title: "快速调用成功",
+      description: `${currentTitle.value} 已返回测试结果`,
+      color: "success",
+    });
   } catch (error) {
+    const message = getErrorMessage(error);
+    toast.add({
+      title: "快速调用失败",
+      description: message,
+      color: "error",
+    });
     console.error("快速调用测试失败:", error);
   }
 }
+async function refreshStateForEnvAndModality() {
+  aiSettingsStore.setCurrentEnv(env.value);
+  await loadActiveConfiguration();
+  if (!currentState.value.provider) {
+    loadExistingConfiguration();
+  }
+  if (currentState.value.provider) {
+    await onProviderChanged(currentState.value.provider);
+  }
+}
+
+async function handleEnvChange(nextEnv: string) {
+  aiSettingsStore.setCurrentEnv(nextEnv);
+  try {
+    await aiSettingsStore.refreshEnvData(nextEnv);
+  } catch (error) {
+    toast.add({
+      title: "环境加载失败",
+      description: getErrorMessage(error),
+      color: "error",
+    });
+  }
+  await refreshStateForEnvAndModality();
+}
+
 // 页面初始化
 onMounted(async () => {
   try {
-    // 初始化环境store
     envStore.initialize();
-
-    // 等待全局初始化完成（如果还没完成的话）
-    if (aiSettingsStore.loading) {
-      console.log("等待全局初始化完成...");
-      // 简单的轮询等待，也可以用 watch 监听
-      while (aiSettingsStore.loading) {
-        await new Promise((resolve) => setTimeout(resolve, 100));
-      }
-    }
-
-    // 优先加载激活配置，如果没有则加载现有配置
-    await loadActiveConfiguration();
-    if (!currentState.value.provider) {
-      loadExistingConfiguration(); // 再把 provider / model 写回表单
-    }
-
-    if (currentState.value.provider) {
-      // 最后拉模型
-      await onProviderChanged(currentState.value.provider);
-    }
+    await aiSettingsStore.initialize(env.value);
+    await refreshStateForEnvAndModality();
   } catch (error) {
+    toast.add({
+      title: "初始化失败",
+      description: getErrorMessage(error),
+      color: "error",
+    });
     console.error("初始化AI设置页面失败:", error);
   }
 });
@@ -720,12 +830,16 @@ watch(
 
 // 监听模态切换，重新加载配置
 watch(modality, async () => {
-  // 优先加载激活配置，如果没有则加载现有配置
-  await loadActiveConfiguration();
-  if (!currentState.value.provider) {
-    loadExistingConfiguration();
-  }
-  // 模态切换时重新获取模型列表
-  await onProviderChanged();
+  await refreshStateForEnvAndModality();
 });
+
+watch(
+  () => env.value,
+  async (next, prev) => {
+    if (!next || next === prev) {
+      return;
+    }
+    await handleEnvChange(next);
+  }
+);
 </script>

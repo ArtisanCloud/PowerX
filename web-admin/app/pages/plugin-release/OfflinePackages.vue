@@ -145,7 +145,6 @@
 </template>
 
 <script setup lang="ts">
-import { useToast } from '#app'
 
 // 页面元信息
 definePageMeta({

@@ -4,6 +4,10 @@ var PowerXSchema = "public"
 
 const TableAgentPlanRun = "agent_plan_runs"
 const TableAgentEvent = "agent_task_events"
+const TableAgentProviderProfiles = "agent_provider_profiles"
+const TableAgentRoutingPolicies = "agent_routing_policies"
+const TableAgentConnectorInstances = "agent_connector_instances"
+const TableAgentCostQuotaLedgers = "agent_cost_quota_ledgers"
 
 const TableMediaAsset = "media_assets"
 

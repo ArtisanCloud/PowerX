@@ -1,0 +1,63 @@
+{
+  "providerId": "2b92d17c-9d35-4c22-8a8d-24ddf9a6f1d3",
+  "env": {
+    "API_KEY": "<replace-with-openai-key>",
+    "BASE_URL": "https://api.openai.com/v1",
+    "MODEL_LLM": "gpt-4o-mini",
+    "MODEL_EMBED": "text-embedding-3-large"
+  },
+  "tests": [
+    {
+      "name": "LLM echo",
+      "modality": "llm",
+      "request": {
+        "url": "${BASE_URL}/chat/completions",
+        "method": "POST",
+        "headers": {
+          "Authorization": "Bearer ${API_KEY}",
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "model": "${MODEL_LLM}",
+          "messages": [
+            {
+              "role": "system",
+              "content": "You are a health-check probe."
+            },
+            {
+              "role": "user",
+              "content": "Respond with the word 'hello'."
+            }
+          ],
+          "temperature": 0
+        },
+        "timeout": 15000
+      },
+      "expect": {
+        "status": 200,
+        "bodyIncludes": "hello"
+      }
+    },
+    {
+      "name": "Embedding ping",
+      "modality": "embed",
+      "request": {
+        "url": "${BASE_URL}/embeddings",
+        "method": "POST",
+        "headers": {
+          "Authorization": "Bearer ${API_KEY}",
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "model": "${MODEL_EMBED}",
+          "input": "health-check ping from PowerX"
+        },
+        "timeout": 15000
+      },
+      "expect": {
+        "status": 200,
+        "bodyIncludes": "embedding"
+      }
+    }
+  ]
+}

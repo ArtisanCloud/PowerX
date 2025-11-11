@@ -135,28 +135,6 @@ export interface SaveSettingsPayload {
   };
 }
 
-export interface TestConnectionPayload {
-  provider: string;
-  credentials: {
-    api_key: string;
-    base_url: string;
-    organization?: string;
-    region?: string;
-  };
-}
-
-export interface TestQuickCallPayload {
-  provider: string;
-  model: string;
-  credentials: {
-    api_key: string;
-    base_url: string;
-    organization?: string;
-    region?: string;
-  };
-  message?: string;
-}
-
 export class AISettingService {
   /**
    * 获取可用的供应商列表
@@ -174,12 +152,14 @@ export class AISettingService {
    */
   static async getModels(
     provider?: string,
-    modality?: string
+    modality?: string,
+    env?: string
   ): Promise<string[]> {
     const { get } = useApiClient();
     const params = new URLSearchParams();
     if (provider) params.append("provider", provider);
     if (modality) params.append("modality", modality);
+    if (env) params.append("env", env);
 
     const url = params.toString()
       ? `${ApiEndpoints.ADMIN_AGENTS.MODELS}?${params.toString()}`
@@ -206,7 +186,7 @@ export class AISettingService {
   /**
    * 测试连接
    */
-  static async testConnection(payload: TestConnectionPayload): Promise<any> {
+  static async testConnection(payload: SaveSettingsPayload): Promise<any> {
     const { post } = useApiClient();
     const response = await post<ApiResponse<any>>(
       ApiEndpoints.ADMIN_AGENTS.TEST_CONNECTION,
@@ -218,7 +198,7 @@ export class AISettingService {
   /**
    * 测试快速调用
    */
-  static async testQuickCall(payload: TestQuickCallPayload): Promise<any> {
+  static async testQuickCall(payload: SaveSettingsPayload): Promise<any> {
     const { post } = useApiClient();
     const response = await post<ApiResponse<any>>(
       ApiEndpoints.ADMIN_AGENTS.TEST_CALL,
@@ -230,28 +210,44 @@ export class AISettingService {
   /**
    * 获取配置文件列表
    */
-  static async getProfiles(): Promise<{
+  static async getProfiles(
+    env?: string,
+    modalities?: string[]
+  ): Promise<{
     env: string;
     profiles: AgentProfile[];
   }> {
     const { get } = useApiClient();
+    const params = new URLSearchParams();
+    if (env) params.append("env", env);
+    if (modalities?.length) {
+      params.append("modalities", modalities.join(","));
+    }
+    const url = params.toString()
+      ? `${ApiEndpoints.ADMIN_AGENTS.PROFILES}?${params.toString()}`
+      : ApiEndpoints.ADMIN_AGENTS.PROFILES;
     const response = await get<
       ApiResponse<{ env: string; profiles: AgentProfile[] }>
-    >(ApiEndpoints.ADMIN_AGENTS.PROFILES);
+    >(url);
     return response.data || { env: "default", profiles: [] };
   }
 
   /**
    * 获取凭证列表
    */
-  static async getCredentials(): Promise<{
+  static async getCredentials(env?: string): Promise<{
     env: string;
     credentials: AgentCredential[];
   }> {
     const { get } = useApiClient();
+    const params = new URLSearchParams();
+    if (env) params.append("env", env);
+    const url = params.toString()
+      ? `${ApiEndpoints.ADMIN_AGENTS.CREDENTIALS}?${params.toString()}`
+      : ApiEndpoints.ADMIN_AGENTS.CREDENTIALS;
     const response = await get<
       ApiResponse<{ env: string; credentials: AgentCredential[] }>
-    >(ApiEndpoints.ADMIN_AGENTS.CREDENTIALS);
+    >(url);
     return response.data || { env: "default", credentials: [] };
   }
 

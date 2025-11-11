@@ -3,19 +3,19 @@ package agent
 import (
 	"context"
 	"fmt"
-	"github.com/ArtisanCloud/PowerX/internal/server/agent/catalog"
-	"github.com/ArtisanCloud/PowerX/internal/server/agent/contract"
-	agentcfg "github.com/ArtisanCloud/PowerX/internal/server/agent/drivers/eino/config"
-	repoai "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/repository"
-	"github.com/ArtisanCloud/PowerX/pkg/corex/tenantkeys"
-	"github.com/ArtisanCloud/PowerX/pkg/utils"
+	"net/url"
 	"strings"
 	"time"
 
-	dbmodel "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/model"
-
-	// 直接复用你已有的一次性聊天能力
+	"github.com/ArtisanCloud/PowerX/internal/server/agent/catalog"
+	"github.com/ArtisanCloud/PowerX/internal/server/agent/contract"
+	agentcfg "github.com/ArtisanCloud/PowerX/internal/server/agent/drivers/eino/config"
 	agentllm "github.com/ArtisanCloud/PowerX/internal/server/agent/drivers/eino/llm"
+	dbmodel "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/model"
+	repoai "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/repository"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/tenantkeys"
+	"github.com/ArtisanCloud/PowerX/pkg/utils"
+	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
@@ -24,6 +24,8 @@ type ModelRule struct {
 	RequireBaseURL bool
 	DefaultBaseURL string
 }
+
+var sensitiveCredentialKeys = []string{"api_key", "secret", "client_secret", "access_token"}
 
 type AgentSettingService struct {
 	db        *gorm.DB
@@ -78,6 +80,7 @@ func (s *AgentSettingService) SaveCredentialAndProfile(
 ) error {
 	cred.Env, cred.TenantID = env, tenantID
 	prof.Env, prof.TenantID = env, tenantID
+	s.applyManifestToProfile(prof)
 
 	// 是否提交了新密钥？
 	sensKeys := []string{"api_key", "access_token", "client_secret", "secret"}
@@ -224,63 +227,88 @@ func (s *AgentSettingService) TestConnectionPreferInput(
 
 	switch contract.Modality(mod) {
 	case contract.ModLLM:
-		// 1) 从 catalog 读取鉴权要求与默认值
-		req := catalog.AuthReqFromCatalog(prov) // ← 见下方
-
-		// 2) 先用这次提交的值
-		bu := strings.TrimSpace(baseURL)
-		ak := strings.TrimSpace(apiKey)
-
-		// 3) baseURL：若该 provider 声明需要 base_url 且未传，先用 defaults.base_url 再用已保存
-		if req.NeedBaseURL && bu == "" {
-			if req.DefaultBaseURL != "" {
-				bu = req.DefaultBaseURL
-			}
-			if bu == "" {
-				// 再从已保存补 base_url（不解密）
-				if cred, err := s.credRepo.FindByScopeNameProvider(ctx, env, tenantID, utils.Slug(env+"-"+prov), prov); err == nil && cred != nil {
-					if v, ok := cred.Data["base_url"].(string); ok && strings.TrimSpace(v) != "" {
-						bu = strings.TrimSpace(v)
-					}
-				}
-			}
-			if bu == "" {
-				return fmt.Errorf("缺少 BaseURL（%s 要求 base_url）", provider)
-			}
+		req := catalog.AuthReqFromCatalog(prov)
+		bu, ak, err := s.prepareAuthInputs(ctx, env, tenantID, prov, baseURL, apiKey, req.NeedBaseURL, req.DefaultBaseURL, req.NeedKey)
+		if err != nil {
+			return err
 		}
-
-		// 4) api_key：若该 provider 需要 key 且未传，尝试从已保存配置解封；仍然没有则报错
-		if req.NeedKey && ak == "" {
-			_, ak2, err := s.resolveConnFromStore(ctx, env, tenantID, prov, bu, ak)
-			if err == nil && strings.TrimSpace(ak2) != "" {
-				ak = strings.TrimSpace(ak2)
-			}
-			if ak == "" {
-				return fmt.Errorf("缺少 API Key（%s 要求 api_key）", provider)
-			}
-		}
-
-		// 5) 严格直连：只用我们最终算出的 bu/ak，不再做其他回退
 		return s.PingStrict(ctx, mod, prov, model, bu, ak)
 
 	default:
-		return fmt.Errorf("暂未实现该模态测试: %s", modality)
+		return s.PingGeneric(ctx, env, tenantID, contract.Modality(mod), provider, model, baseURL, apiKey)
 	}
+}
+
+// 对非 LLM 模态的基础校验，暂不做真实连通测试
+func (s *AgentSettingService) RotateTenantCredentials(
+	ctx context.Context, env string, tenantID *uint64,
+) error {
+	creds, err := s.credRepo.ListByScope(ctx, env, tenantID)
+	if err != nil {
+		return err
+	}
+	if len(creds) == 0 {
+		_, err := s.tks.RotateKeyPair(ctx, env, tenantID)
+		return err
+	}
+
+	type rotationItem struct {
+		cred    *dbmodel.AIProviderCredential
+		secrets map[string]any
+	}
+	items := make([]rotationItem, 0, len(creds))
+	for i := range creds {
+		clone := utils.CloneJSONMap(creds[i].Data)
+		secret := map[string]any{}
+		if err := s.tks.UnsealSensitive(ctx, env, tenantID, clone, &secret); err != nil {
+			return err
+		}
+		items = append(items, rotationItem{cred: &creds[i], secrets: secret})
+	}
+	if len(items) == 0 {
+		return nil
+	}
+
+	if _, err := s.tks.RotateKeyPair(ctx, env, tenantID); err != nil {
+		return err
+	}
+
+	for _, item := range items {
+		if item.cred.Data == nil {
+			item.cred.Data = datatypes.JSONMap{}
+		}
+		delete(item.cred.Data, "__sealed")
+		for k, v := range item.secrets {
+			item.cred.Data[k] = v
+		}
+		sealed, err := s.tks.SealSensitive(ctx, env, tenantID, item.cred.Data, sensitiveCredentialKeys...)
+		if err != nil {
+			return err
+		}
+		item.cred.Data = sealed
+		if err := s.credRepo.UpsertByScopeNameProvider(ctx, env, tenantID, item.cred); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // 修改 PingLLM：多两个参数 env/tenantID，并支持回退解密
 func (s *AgentSettingService) PingLLM(ctx context.Context, env string, tenantID *uint64,
 	provider, model, baseURL, apiKey string,
 ) error {
-	if provider == "" || model == "" {
-		return fmt.Errorf("provider/model 不能为空")
+	if err := ensureModelExists(string(contract.ModLLM), provider, model); err != nil {
+		return err
 	}
-	// 回退解密
+	req := catalog.AuthReqFromCatalog(provider)
 	var err error
-	baseURL, apiKey, err = s.resolveConnFromStore(ctx, env, tenantID, provider, baseURL, apiKey)
-	if err != nil { /* 忽略查不到，走传入的 */
+	baseURL, apiKey, err = s.prepareAuthInputs(ctx, env, tenantID, provider, baseURL, apiKey, req.NeedBaseURL, req.DefaultBaseURL, req.NeedKey)
+	if err != nil {
+		return err
 	}
-
+	if err := validateEndpoint(baseURL); err != nil {
+		return err
+	}
 	mc := agentcfg.ModelConfig{
 		Provider:     provider,
 		Endpoint:     baseURL,
@@ -297,6 +325,25 @@ func (s *AgentSettingService) PingLLM(ctx context.Context, env string, tenantID 
 	}
 	_, err = cli.Invoke(ctx, &mc, "ping")
 	return err
+}
+
+func (s *AgentSettingService) PingGeneric(
+	ctx context.Context, env string, tenantID *uint64,
+	modality contract.Modality, provider, model, baseURL, apiKey string,
+) error {
+	if err := ensureModelExists(string(modality), provider, model); err != nil {
+		return err
+	}
+	req := catalog.AuthReqFromCatalog(provider)
+	bu, ak, err := s.prepareAuthInputs(ctx, env, tenantID, provider, baseURL, apiKey, req.NeedBaseURL, req.DefaultBaseURL, req.NeedKey)
+	if err != nil {
+		return err
+	}
+	if err := validateEndpoint(bu); err != nil {
+		return err
+	}
+	_ = ak
+	return nil
 }
 
 // 修改 QuickCallLLM：同样带 env/tenantID + 回退解密
@@ -332,6 +379,134 @@ func (s *AgentSettingService) QuickCallLLM(
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 	return cli.Invoke(ctx, &mc, prompt)
+}
+
+func (s *AgentSettingService) applyManifestToProfile(prof *dbmodel.AIModelProfile) {
+	if prof == nil {
+		return
+	}
+	if prof.Defaults == nil {
+		prof.Defaults = datatypes.JSONMap{}
+	}
+	manifest := findModelManifest(prof.Modality, prof.Provider, prof.Model)
+	if manifest != nil {
+		if prof.Label == "" {
+			prof.Label = manifest.Label
+		}
+		prof.Defaults = mergeManifestDefaults(prof.Defaults, manifest.Defaults)
+		prof.Tags = mergeTags(prof.Modality, manifest.Tags, prof.Tags)
+	} else {
+		prof.Tags = mergeTags(prof.Modality, nil, prof.Tags)
+	}
+}
+
+func (s *AgentSettingService) prepareAuthInputs(
+	ctx context.Context, env string, tenantID *uint64,
+	provider, baseURL, apiKey string,
+	needBase bool, defaultBase string, needKey bool,
+) (string, string, error) {
+	bu := strings.TrimSpace(baseURL)
+	ak := strings.TrimSpace(apiKey)
+
+	if bu == "" || ak == "" {
+		if resolvedBase, resolvedKey, err := s.resolveConnFromStore(ctx, env, tenantID, provider, bu, ak); err == nil {
+			if bu == "" && strings.TrimSpace(resolvedBase) != "" {
+				bu = strings.TrimSpace(resolvedBase)
+			}
+			if ak == "" && strings.TrimSpace(resolvedKey) != "" {
+				ak = strings.TrimSpace(resolvedKey)
+			}
+		}
+	}
+
+	if needBase && bu == "" {
+		bu = strings.TrimSpace(defaultBase)
+		if bu == "" {
+			return "", "", fmt.Errorf("缺少 BaseURL（%s 要求 base_url）", provider)
+		}
+	}
+	if needKey && ak == "" {
+		return bu, ak, fmt.Errorf("缺少 API Key（%s 要求 api_key）", provider)
+	}
+	return bu, ak, nil
+}
+
+func validateEndpoint(raw string) error {
+	if strings.TrimSpace(raw) == "" {
+		return nil
+	}
+	u, err := url.Parse(raw)
+	if err != nil {
+		return fmt.Errorf("base_url 非法: %w", err)
+	}
+	if u.Scheme == "" || u.Host == "" {
+		return fmt.Errorf("base_url 非法: %s", raw)
+	}
+	return nil
+}
+
+func ensureModelExists(modality, provider, model string) error {
+	if strings.TrimSpace(provider) == "" || strings.TrimSpace(model) == "" {
+		return fmt.Errorf("%s provider/model 不能为空", modality)
+	}
+	if manifest := findModelManifest(modality, provider, model); manifest == nil {
+		return fmt.Errorf("provider %s 不包含模型 %s (%s)", provider, model, modality)
+	}
+	return nil
+}
+
+func mergeManifestDefaults(user datatypes.JSONMap, manifest map[string]any) datatypes.JSONMap {
+	out := datatypes.JSONMap{}
+	if manifest != nil {
+		for k, v := range manifest {
+			out[k] = v
+		}
+	}
+	if user != nil {
+		for k, v := range user {
+			out[k] = v
+		}
+	}
+	return out
+}
+
+func mergeTags(modality string, manifestTags []string, existing datatypes.JSONSlice[string]) datatypes.JSONSlice[string] {
+	all := make([]string, 0, len(manifestTags)+len(existing)+1)
+	all = append(all, strings.ToLower(strings.TrimSpace(modality)))
+	all = append(all, manifestTags...)
+	for _, tag := range existing {
+		all = append(all, tag)
+	}
+	dedup := make([]string, 0, len(all))
+	seen := map[string]struct{}{}
+	for _, tag := range all {
+		t := strings.TrimSpace(tag)
+		if t == "" {
+			continue
+		}
+		key := strings.ToLower(t)
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		dedup = append(dedup, t)
+	}
+	return datatypes.JSONSlice[string](dedup)
+}
+
+func findModelManifest(modality, provider, model string) *catalog.ModelManifest {
+	reg := catalog.GetGlobalAIRegister()
+	models, err := reg.Models(modality, provider)
+	if err != nil {
+		return nil
+	}
+	for _, m := range models {
+		if strings.EqualFold(m.ID, model) {
+			copy := m
+			return &copy
+		}
+	}
+	return nil
 }
 
 // —— catalog 适配：在 service 层做轻薄封装，避免 handler 直依赖 —— //

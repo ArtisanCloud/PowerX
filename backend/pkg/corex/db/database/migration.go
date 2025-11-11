@@ -2,6 +2,7 @@ package database
 
 import (
 	migration "github.com/ArtisanCloud/PowerX/pkg/corex/db/migration"
+	modelAgentHub "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/agent_model_hub"
 	modelAudit "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/audit"
 	modelCapability "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/capability"
 	modelEventFabric "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/event_fabric"
@@ -119,6 +120,10 @@ func MigrateCoreModels(db *gorm.DB) (err error) {
 		return err
 	}
 
+	if err = migrateAgentModelHubModels(db); err != nil {
+		return err
+	}
+
 	if err = migration.CreatePluginReleaseStatusView(db); err != nil {
 		return err
 	}
@@ -224,5 +229,14 @@ func migratePluginDebugModels(db *gorm.DB) error {
 func migratePluginSandboxModels(db *gorm.DB) error {
 	return db.AutoMigrate(
 		&modelPluginSandbox.SandboxValidationRun{},
+	)
+}
+
+func migrateAgentModelHubModels(db *gorm.DB) error {
+	return db.AutoMigrate(
+		&modelAgentHub.ProviderProfile{},
+		&modelAgentHub.RoutingPolicy{},
+		&modelAgentHub.ConnectorInstance{},
+		&modelAgentHub.CostQuotaLedger{},
 	)
 }
