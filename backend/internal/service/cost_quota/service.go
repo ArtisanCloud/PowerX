@@ -41,6 +41,8 @@ type Options struct {
 	Ledgers *repo.CostQuotaLedgerRepository
 }
 
+const maxEnforcementHistory = 20
+
 func NewService(opts Options) *Service {
 	opts.Options.Normalize()
 	r := opts.Ledgers
@@ -108,6 +110,27 @@ type UsageReport struct {
 	SensitiveMetadata map[string]string
 }
 
+type UsageIngestEvent struct {
+	CostUSD float64
+	Tokens  uint64
+}
+
+type UsageIngestInput struct {
+	TenantID     string
+	ProviderID   *uuid.UUID
+	BudgetPeriod string
+	Events       []UsageIngestEvent
+}
+
+type EnforcementInput struct {
+	TenantID    string
+	ProviderID  *uuid.UUID
+	Action      string
+	Reason      string
+	TicketID    string
+	RequestedBy string
+}
+
 // ReportUsage updates usage + anomaly metadata and seals optional sensitive notes.
 func (s *Service) ReportUsage(ctx context.Context, env string, report UsageReport) error {
 	if s.repo == nil {
@@ -135,6 +158,142 @@ func (s *Service) ReportUsage(ctx context.Context, env string, report UsageRepor
 		s.emitAudit(ctx, "cost_quota.usage.reported", ledger, nil)
 	}
 	return nil
+}
+
+// ProcessUsage ingests raw events and rolls them into the ledger usage totals.
+func (s *Service) ProcessUsage(ctx context.Context, env string, input UsageIngestInput) (*model.CostQuotaLedger, error) {
+	if s.repo == nil {
+		return nil, errors.New("quota repository is not configured")
+	}
+	tenant := strings.TrimSpace(input.TenantID)
+	if tenant == "" {
+		return nil, errors.New("tenant_id required")
+	}
+	period := strings.TrimSpace(input.BudgetPeriod)
+	if period == "" {
+		period = "monthly"
+	}
+	ledger, err := s.ensureLedgerExists(ctx, env, tenant, input.ProviderID, period)
+	if err != nil {
+		return nil, err
+	}
+	var delta float64
+	for _, evt := range input.Events {
+		delta += evt.CostUSD
+	}
+	if delta == 0 {
+		return ledger, nil
+	}
+	newUsage := ledger.UsageActual + delta
+	anomaly := cloneJSONMap(ledger.AnomalyState)
+	var lastAnomaly *time.Time
+	if ledger.QuotaLimit > 0 && newUsage > ledger.QuotaLimit {
+		if anomaly == nil {
+			anomaly = datatypes.JSONMap{}
+		}
+		anomaly["status"] = "breached"
+		anomaly["breach_at"] = s.clock().UTC().Format(time.RFC3339)
+		last := s.clock()
+		lastAnomaly = &last
+		s.inst.RecordMetric(ctx, "agent.provider.cost.anomaly", 1, map[string]string{
+			"tenant_id":   tenant,
+			"provider_id": providerKey(input.ProviderID),
+		})
+	}
+	if err := s.repo.UpdateUsage(ctx, ledger.UUID, newUsage, anomaly, nil, lastAnomaly); err != nil {
+		return nil, err
+	}
+	ledger, err = s.repo.GetByUUID(ctx, ledger.UUID)
+	if err != nil {
+		return nil, err
+	}
+	if ledger == nil {
+		return nil, errors.New("ledger missing after usage update")
+	}
+
+	labels := map[string]string{
+		"tenant_id":     tenant,
+		"provider_id":   providerKey(input.ProviderID),
+		"budget_period": period,
+	}
+	s.inst.RecordMetric(ctx, "agent.provider.cost_usage", newUsage, labels)
+	s.cacheSnapshot(ctx, ledger)
+	s.emitAudit(ctx, "cost_quota.usage.reported", ledger, map[string]any{
+		"usage_delta": delta,
+	})
+	return ledger, nil
+}
+
+// ListLedgers returns quota ledgers for a tenant.
+func (s *Service) ListLedgers(ctx context.Context, env, tenantID string) ([]model.CostQuotaLedger, error) {
+	if s.repo == nil {
+		return nil, errors.New("quota repository is not configured")
+	}
+	return s.repo.ListByTenant(ctx, env, tenantID, 0)
+}
+
+// EnforceAction records throttle/degrade/disable decisions.
+func (s *Service) EnforceAction(ctx context.Context, env string, input EnforcementInput) (*model.CostQuotaLedger, error) {
+	if s.repo == nil {
+		return nil, errors.New("quota repository is not configured")
+	}
+	tenant := strings.TrimSpace(input.TenantID)
+	if tenant == "" {
+		return nil, errors.New("tenant_id required")
+	}
+	ledger, err := s.ensureLedgerExists(ctx, env, tenant, input.ProviderID, "monthly")
+	if err != nil {
+		return nil, err
+	}
+	enforcement := cloneJSONMap(ledger.EnforcementState)
+	updated := s.clock().UTC().Format(time.RFC3339)
+	action := strings.ToLower(strings.TrimSpace(input.Action))
+	enforcement["action"] = action
+	enforcement["reason"] = strings.TrimSpace(input.Reason)
+	enforcement["ticketId"] = strings.TrimSpace(input.TicketID)
+	enforcement["requestedBy"] = strings.TrimSpace(input.RequestedBy)
+	enforcement["updatedAt"] = updated
+	event := map[string]any{
+		"action":      action,
+		"reason":      enforcement["reason"],
+		"ticketId":    enforcement["ticketId"],
+		"requestedBy": enforcement["requestedBy"],
+		"timestamp":   updated,
+	}
+	enforcement = appendHistoryEvent(enforcement, event)
+
+	if err := s.repo.UpdateUsage(ctx, ledger.UUID, ledger.UsageActual, nil, enforcement, nil); err != nil {
+		return nil, err
+	}
+	ledger, err = s.repo.GetByUUID(ctx, ledger.UUID)
+	if err != nil {
+		return nil, err
+	}
+	ledger.EnforcementState = enforcement
+	s.cacheSnapshot(ctx, ledger)
+	s.emitAudit(ctx, "cost_quota.enforcement", ledger, map[string]any{
+		"action": enforcement["action"],
+		"reason": enforcement["reason"],
+	})
+	return ledger, nil
+}
+
+func (s *Service) ensureLedgerExists(ctx context.Context, env, tenantID string, providerID *uuid.UUID, period string) (*model.CostQuotaLedger, error) {
+	ledger, err := s.repo.FindScope(ctx, env, tenantID, providerID, period)
+	if err != nil {
+		return nil, err
+	}
+	if ledger != nil {
+		return ledger, nil
+	}
+	input := LedgerInput{
+		TenantID:       tenantID,
+		ProviderID:     providerID,
+		BudgetPeriod:   period,
+		QuotaLimit:     0,
+		DashboardScope: "tenant",
+	}
+	return s.EnsureLedger(ctx, env, input)
 }
 
 // Snapshot returns cached ledger state if present.
@@ -226,4 +385,56 @@ func providerKey(id *uuid.UUID) string {
 
 func timePtr(t time.Time) *time.Time {
 	return &t
+}
+
+func appendHistoryEvent(state datatypes.JSONMap, event map[string]any) datatypes.JSONMap {
+	if state == nil {
+		state = datatypes.JSONMap{}
+	}
+	history := historyRecords(state)
+	history = append([]map[string]any{event}, history...)
+	if len(history) > maxEnforcementHistory {
+		history = history[:maxEnforcementHistory]
+	}
+	next := make([]any, len(history))
+	for i, item := range history {
+		next[i] = item
+	}
+	state["history"] = next
+	return state
+}
+
+func historyRecords(state datatypes.JSONMap) []map[string]any {
+	if state == nil {
+		return nil
+	}
+	raw, ok := state["history"]
+	if !ok {
+		return nil
+	}
+	switch arr := raw.(type) {
+	case []map[string]any:
+		return append([]map[string]any(nil), arr...)
+	case []any:
+		items := make([]map[string]any, 0, len(arr))
+		for _, item := range arr {
+			if m, ok := item.(map[string]any); ok {
+				items = append(items, m)
+			}
+		}
+		return items
+	default:
+		return nil
+	}
+}
+
+func cloneJSONMap(src datatypes.JSONMap) datatypes.JSONMap {
+	if src == nil {
+		return datatypes.JSONMap{}
+	}
+	out := datatypes.JSONMap{}
+	for k, v := range src {
+		out[k] = v
+	}
+	return out
 }

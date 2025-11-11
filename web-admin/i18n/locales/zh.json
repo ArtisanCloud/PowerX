@@ -51,6 +51,7 @@
     "collapse": "收起",
     "toggleDensity": "切换密度",
     "loadMore": "加载更多",
+    "refresh": "刷新",
     "settings": "设置",
     "trash": "回收站"
   },
@@ -72,6 +73,8 @@
     "roleManagement": "角色管理",
     "systemConfig": "系统配置",
     "aiSettings": "AI设置",
+    "aiSettingsModel": "模型配置",
+    "aiSettingsCost": "成本守护",
     "loadFailed": "菜单加载失败",
     "loadFailedDesc": "无法加载菜单数据，请检查网络连接或联系管理员",
     "noItemsFound": "暂无菜单项",
@@ -163,6 +166,49 @@
     },
     "common": {
       "viewDetails": "查看详情"
+    }
+  },
+  "dashboards": {
+    "tenantCost": {
+      "title": "租户 {tenant} 成本看板",
+      "environmentLabel": "环境：{env}",
+      "lastSynced": "最后同步 {time}",
+      "errorTitle": "拉取成本配额失败",
+      "errorDesc": "请刷新后重试。",
+      "cards": {
+        "limit": "当期预算",
+        "usage": "已使用",
+        "remaining": "剩余额度"
+      },
+      "tables": {
+        "quota": "配额列表",
+        "history": "执行历史"
+      },
+      "columns": {
+        "provider": "Provider",
+        "limit": "预算",
+        "usage": "使用",
+        "status": "状态",
+        "timestamp": "时间",
+        "action": "动作",
+        "reason": "原因",
+        "actor": "执行人"
+      },
+      "badges": {
+        "breached": "超额 {count}",
+        "warning": "预警 {count}"
+      },
+      "historyEmpty": "暂无治理历史",
+      "reasonFallback": "未填写",
+      "actorFallback": "system",
+      "status": {
+        "breached": "超额",
+        "warning": "预警",
+        "throttle": "限流",
+        "degrade": "降级",
+        "disable": "禁用",
+        "healthy": "健康"
+      }
     }
   },
   "home": {
@@ -1003,9 +1049,79 @@
     "theme": "主题",
     "ai": {
       "title": "AI 设置",
+      "description": "配置多模态模型供应商、凭证与参数。",
+      "environment": "环境配置",
+      "modalityTabs": "模态类型",
       "providers": "AI 提供商",
       "models": "模型",
-      "testPanel": "测试面板"
+      "testPanel": "测试面板",
+      "sections": {
+        "general": "通用",
+        "parameters": "参数"
+      },
+      "actions": {
+        "openCostGuard": "打开成本守护",
+        "backToModels": "返回模型配置"
+      },
+      "costGuardPageTitle": "成本与配额守护",
+      "costGuardPageDesc": "实时监控租户预算、调查异常并执行限流/降级/禁用动作。",
+      "costGuard": {
+        "panelTitle": "实时预算快照",
+        "panelDesc": "选择租户查看使用情况并执行治理动作。",
+        "tenantLabel": "目标租户",
+        "tenantPlaceholder": "选择租户",
+        "refresh": "刷新",
+        "openDashboard": "打开租户看板",
+        "lastUpdated": "上次更新时间",
+        "errorTitle": "拉取成本配额失败",
+        "emptyTitle": "暂无配额信息",
+        "emptyDesc": "请选择租户后刷新，即可查看当前预算与使用情况。",
+        "actionPlaceholder": "选择操作",
+        "reasonPlaceholder": "操作说明（可选）",
+        "executeAction": "执行治理动作",
+        "historyTitle": "最近操作",
+        "historyEmpty": "暂无治理历史",
+        "reasonFallback": "未填写",
+        "defaultTenants": {
+          "demo": "Demo 租户",
+          "ops": "运营租户"
+        },
+        "actions": {
+          "throttle": "限流 (Throttle)",
+          "degrade": "降级 (Degrade)",
+          "disable": "禁用 (Disable)"
+        },
+        "status": {
+          "breached": "超额",
+          "warning": "预警",
+          "throttle": "限流",
+          "healthy": "健康",
+          "default": "健康"
+        },
+        "toast": {
+          "loadFailedTitle": "刷新失败",
+          "loadFailedDesc": "无法加载成本快照",
+          "actionSuccessTitle": "操作成功",
+          "actionSuccessDesc": "已对 {provider} 执行 {action}",
+          "actionFailedTitle": "操作失败",
+          "actionFailedDesc": "请稍后再试"
+        },
+        "playbookTitle": "治理动作模版",
+        "playbooks": {
+          "throttle": {
+            "title": "限流 (Throttle)",
+            "desc": "临时降低该租户/Provider 的 TPS，观察 30 分钟后恢复。"
+          },
+          "degrade": {
+            "title": "降级 (Degrade)",
+            "desc": "切换到低成本模型，保留核心能力以减轻预算压力。"
+          },
+          "disable": {
+            "title": "禁用 (Disable)",
+            "desc": "发生泄漏或严重超额时立即禁用，并关联工单或告警。"
+          }
+        }
+      }
     }
   },
   "plugins": {

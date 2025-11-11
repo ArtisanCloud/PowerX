@@ -86,6 +86,11 @@ func (r *CostQuotaLedgerRepository) findScope(ctx context.Context, env, tenantID
 	return &record, nil
 }
 
+// FindScope exposes scoped lookup for service layer consumers.
+func (r *CostQuotaLedgerRepository) FindScope(ctx context.Context, env, tenantID string, providerID *uuid.UUID, period string) (*model.CostQuotaLedger, error) {
+	return r.findScope(ctx, env, tenantID, providerID, period)
+}
+
 // UpdateUsage atomically updates usage/anomaly state by ledger UUID.
 func (r *CostQuotaLedgerRepository) UpdateUsage(ctx context.Context, ledgerID uuid.UUID, usage float64, anomaly, enforcement datatypes.JSONMap, lastAnomalyAt *time.Time) error {
 	update := map[string]any{

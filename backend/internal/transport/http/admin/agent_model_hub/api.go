@@ -13,6 +13,7 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 
 	providerHandler := NewProviderHandler(deps)
 	routingHandler := NewRoutingHandler(deps)
+	costHandler := NewCostHandler(deps)
 	internalGroup := protectedGroup.Group("/internal")
 	{
 		internalGroup.POST("/providers/register", providerHandler.registerProvider)
@@ -26,5 +27,9 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 		internalGroup.POST("/model-routing/route", routingHandler.routeTask)
 		internalGroup.POST("/model-routing/rollback", routingHandler.rollbackPolicy)
 		internalGroup.POST("/model-routing/safe-mode", routingHandler.toggleSafeMode)
+
+		internalGroup.POST("/provider-usage/report", costHandler.reportUsage)
+		internalGroup.GET("/provider-quotas", costHandler.getQuotaSnapshot)
+		internalGroup.POST("/provider-quotas/enforce", costHandler.enforceAction)
 	}
 }

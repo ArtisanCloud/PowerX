@@ -80,12 +80,12 @@
 
 ### Phase 5 – User Story 3：Cost & Quota Guard（P3）
 
-- [ ] **T025 [P]** HTTP 契约测试 `tests/contract/http/admin/agent_model_hub_cost_test.go`。
-- [ ] **T026** 成本/配额服务 `backend/internal/service/cost_quota/cost_quota_service.go`（写入 ledger、发布 `agent.provider.cost.anomaly`、人工确认）。
-- [ ] **T027** HTTP/gRPC cost handler。
-- [ ] **T028** 在 `web-admin/app/pages/settings/ai/index.vue` 与新建 `web-admin/app/pages/dashboards/tenants/[tenantId].vue` 展示租户路由命中率、连接器状态、成本配额与限流标记（含指标解释与告警链接）。
-- [ ] **T029** Grafana/PagerDuty 及 `scripts/qa/provider-drill.mjs` 校验告警与确认流。
-- [ ] **T030** 集成测试 `tests/integration/agent_model_hub/cost_guard_test.go`（异常 → 人工确认 → 回滚）。
+- [X] **T025 [P]** HTTP 契约测试 `tests/contract/http/admin/agent_model_hub_cost_test.go`。
+- [X] **T026** 成本/配额服务 `backend/internal/service/cost_quota/cost_quota_service.go`（写入 ledger、发布 `agent.provider.cost.anomaly`、人工确认）。
+- [X] **T027** HTTP/gRPC cost handler。
+- [X] **T028** 在 `web-admin/app/pages/settings/ai/index.vue` 与新建 `web-admin/app/pages/dashboards/tenants/[tenantId].vue` 展示租户路由命中率、连接器状态、成本配额与限流标记（含指标解释与告警链接）。
+- [X] **T029** Grafana/PagerDuty 及 `scripts/qa/provider-drill.mjs` 校验告警与确认流。
+- [X] **T030** 集成测试 `tests/integration/agent_model_hub/cost_guard_test.go`（异常 → 人工确认 → 回滚）。
 
 ### Phase 6 – User Story 4：Connector Platform（P4）
 

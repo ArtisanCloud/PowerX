@@ -4,10 +4,10 @@
     <div class="flex items-center justify-between">
       <div>
         <h1 class="text-lg font-semibold text-[var(--text-primary)]">
-          大模型设置
+          {{ $t("settings.ai.title") }}
         </h1>
         <p class="text-sm text-[var(--text-secondary)]">
-          配置系统使用的多模态模型供应商与参数（LLM / 图像 / 向量 / 视频）
+          {{ $t("settings.ai.description") }}
         </p>
       </div>
       <div class="flex items-center gap-2">
@@ -18,7 +18,7 @@
           :loading="saving"
           @click="saveSettings"
         >
-          保存
+          {{ $t("common.save") }}
         </UButton>
         <UButton
           variant="ghost"
@@ -26,21 +26,27 @@
           class="whitespace-nowrap"
           @click="resetSettings"
         >
-          重置
+          {{ $t("common.reset") }}
+        </UButton>
+        <UButton
+          variant="soft"
+          icon="i-heroicons-banknotes"
+          class="whitespace-nowrap"
+          :to="costGuardLink"
+        >
+          {{ $t("settings.ai.actions.openCostGuard") }}
         </UButton>
       </div>
     </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
-      <!-- 左侧：垂直Tab导航 -->
+    <div class="grid grid-cols-1 gap-6 lg:grid-cols-4">
       <div class="lg:col-span-1">
         <div class="space-y-4">
-          <!-- 环境选择 -->
           <div
             class="rounded-lg border border-[var(--border-color)] bg-[var(--card-bg)] p-4"
           >
             <div class="mb-3 text-sm font-medium text-[var(--text-primary)]">
-              环境配置
+              {{ $t("settings.ai.environment") }}
             </div>
             <USelect
               v-model="env"
@@ -57,12 +63,11 @@
             </USelect>
           </div>
 
-          <!-- 垂直Tab -->
           <div
             class="rounded-lg border border-[var(--border-color)] bg-[var(--card-bg)] p-4"
           >
             <div class="mb-3 text-sm font-medium text-[var(--text-primary)]">
-              模态类型
+              {{ $t("settings.ai.modalityTabs") }}
             </div>
             <div class="space-y-2">
               <button
@@ -84,14 +89,12 @@
         </div>
       </div>
 
-      <!-- 中间：表单 -->
       <div class="lg:col-span-2 space-y-6">
-        <!-- Provider/Model/凭证（随当前模态绑定） -->
         <div
           class="rounded-lg border border-[var(--border-color)] bg-[var(--card-bg)] p-4"
         >
           <div class="mb-4 font-medium text-[var(--text-primary)]">
-            {{ currentTitle }} - 通用
+            {{ currentTitle }} - {{ $t("settings.ai.sections.general") }}
           </div>
           <ProviderModelForm
             :provider-options="providerOptions"
@@ -101,12 +104,11 @@
           />
         </div>
 
-        <!-- 参数配置（随模态切换） -->
         <div
           class="rounded-lg border border-[var(--border-color)] bg-[var(--card-bg)] p-4"
         >
           <div class="mb-4 font-medium text-[var(--text-primary)]">
-            {{ currentTitle }} - 参数
+            {{ currentTitle }} - {{ $t("settings.ai.sections.parameters") }}
           </div>
           <ModalityParamsForm
             :active-modality="modality"
@@ -132,8 +134,7 @@
         </div>
       </div>
 
-      <!-- 右侧：测试 -->
-      <div class="lg:col-span-1 space-y-6">
+      <div class="space-y-6 lg:col-span-1">
         <TestPanel
           :current-title="currentTitle"
           :current-state="currentState"
@@ -170,6 +171,8 @@ type Modality =
 // 使用 AI 设置 store
 const aiSettingsStore = useAISettingsStore();
 const toast = useToast();
+const localePath = useLocalePath();
+const costGuardLink = computed(() => localePath("/settings/ai/cost"));
 
 /**
  * Tab & 环境

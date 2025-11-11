@@ -12,6 +12,7 @@ import (
 	appshared "github.com/ArtisanCloud/PowerX/internal/app/shared"
 	amhinst "github.com/ArtisanCloud/PowerX/internal/service/agent_model_hub/instrumentation"
 	amhshared "github.com/ArtisanCloud/PowerX/internal/service/agent_model_hub/shared"
+	costquota "github.com/ArtisanCloud/PowerX/internal/service/cost_quota"
 	modelrouting "github.com/ArtisanCloud/PowerX/internal/service/model_routing"
 	providerregistry "github.com/ArtisanCloud/PowerX/internal/service/provider_registry"
 	"github.com/ArtisanCloud/PowerX/pkg/cache"
@@ -29,12 +30,14 @@ type Server struct {
 	agentmodelhubv1.UnimplementedAgentModelHubServiceServer
 	providerRegistry *providerregistry.Service
 	routingSvc       *modelrouting.Service
+	costSvc          *costquota.Service
 }
 
 func NewServer(deps *appshared.Deps) *Server {
 	return &Server{
 		providerRegistry: newProviderRegistryService(deps),
 		routingSvc:       newRoutingService(deps),
+		costSvc:          newCostService(deps),
 	}
 }
 
@@ -225,6 +228,82 @@ func (s *Server) ToggleSafeMode(ctx context.Context, req *agentmodelhubv1.Toggle
 	}, nil
 }
 
+func (s *Server) ReportUsage(ctx context.Context, req *agentmodelhubv1.ReportUsageRequest) (*agentmodelhubv1.ReportUsageResponse, error) {
+	report := req.GetReport()
+	if report == nil || strings.TrimSpace(report.GetTenantId()) == "" {
+		return nil, status.Error(codes.InvalidArgument, "report.tenant_id required")
+	}
+	if s.costSvc == nil {
+		return nil, status.Error(codes.Unavailable, "cost quota service unavailable")
+	}
+	input := costquota.UsageIngestInput{
+		TenantID: strings.TrimSpace(report.GetTenantId()),
+	}
+	if parsed, err := uuid.Parse(strings.TrimSpace(report.GetProviderId())); err == nil {
+		input.ProviderID = &parsed
+	}
+	for _, evt := range report.GetEvents() {
+		input.Events = append(input.Events, costquota.UsageIngestEvent{
+			CostUSD: evt.GetCostUsd(),
+			Tokens:  evt.GetTokens(),
+		})
+	}
+	if _, err := s.costSvc.ProcessUsage(ctx, "default", input); err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	return &agentmodelhubv1.ReportUsageResponse{}, nil
+}
+
+func (s *Server) GetQuotaSnapshot(ctx context.Context, req *agentmodelhubv1.GetQuotaSnapshotRequest) (*agentmodelhubv1.GetQuotaSnapshotResponse, error) {
+	if req == nil || strings.TrimSpace(req.GetTenantId()) == "" {
+		return nil, status.Error(codes.InvalidArgument, "tenant_id required")
+	}
+	if s.costSvc == nil {
+		return nil, status.Error(codes.Unavailable, "cost quota service unavailable")
+	}
+	ledgers, err := s.costSvc.ListLedgers(ctx, "default", req.GetTenantId())
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	snapshot := &agentmodelhubv1.QuotaSnapshot{
+		TenantId: req.GetTenantId(),
+	}
+	for _, ledger := range ledgers {
+		health := quotaHealthStatus(&ledger)
+		snapshot.Quotas = append(snapshot.Quotas, &agentmodelhubv1.QuotaEntry{
+			ProviderId: providerDisplayID(ledger.ProviderProfileID),
+			Limit:      ledger.QuotaLimit,
+			Usage:      ledger.UsageActual,
+			Status:     mapQuotaStatus(health),
+		})
+	}
+	return &agentmodelhubv1.GetQuotaSnapshotResponse{Snapshot: snapshot}, nil
+}
+
+func (s *Server) EnforceQuotaAction(ctx context.Context, req *agentmodelhubv1.EnforceQuotaActionRequest) (*agentmodelhubv1.EnforceQuotaActionResponse, error) {
+	if req == nil || req.GetRequest() == nil {
+		return nil, status.Error(codes.InvalidArgument, "request required")
+	}
+	if s.costSvc == nil {
+		return nil, status.Error(codes.Unavailable, "cost quota service unavailable")
+	}
+	body := req.GetRequest()
+	input := costquota.EnforcementInput{
+		TenantID:    body.GetTenantId(),
+		Reason:      body.GetReason(),
+		TicketID:    body.GetTicketId(),
+		RequestedBy: "",
+		Action:      mapEnforcementAction(body.GetAction()),
+	}
+	if parsed, err := uuid.Parse(strings.TrimSpace(body.GetProviderId())); err == nil {
+		input.ProviderID = &parsed
+	}
+	if _, err := s.costSvc.EnforceAction(ctx, "default", input); err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	return &agentmodelhubv1.EnforceQuotaActionResponse{}, nil
+}
+
 func newProviderRegistryService(deps *appshared.Deps) *providerregistry.Service {
 	if deps == nil || deps.DB == nil {
 		return nil
@@ -250,6 +329,20 @@ func newRoutingService(deps *appshared.Deps) *modelrouting.Service {
 		return nil
 	}
 	return modelrouting.NewService(modelrouting.Options{
+		Options: amhshared.Options{
+			DB:              deps.DB,
+			Cache:           cache.NewMemoryCache(),
+			AuditSvc:        deps.AuditSvc,
+			Instrumentation: amhinst.NewInstrumentation(nil, nil),
+		},
+	})
+}
+
+func newCostService(deps *appshared.Deps) *costquota.Service {
+	if deps == nil || deps.DB == nil {
+		return nil
+	}
+	return costquota.NewService(costquota.Options{
 		Options: amhshared.Options{
 			DB:              deps.DB,
 			Cache:           cache.NewMemoryCache(),
@@ -587,6 +680,50 @@ func safeModeStateToProto(state *modelrouting.SafeModeState) *agentmodelhubv1.Sa
 		result.ExpiresAt = timestamppb.New(state.ExpiresAt.UTC())
 	}
 	return result
+}
+
+func mapQuotaStatus(status string) agentmodelhubv1.QuotaStatus {
+	switch strings.ToLower(status) {
+	case "warning":
+		return agentmodelhubv1.QuotaStatus_QUOTA_STATUS_WARNING
+	case "breached":
+		return agentmodelhubv1.QuotaStatus_QUOTA_STATUS_BREACHED
+	default:
+		return agentmodelhubv1.QuotaStatus_QUOTA_STATUS_HEALTHY
+	}
+}
+
+func mapEnforcementAction(action agentmodelhubv1.EnforcementAction) string {
+	switch action {
+	case agentmodelhubv1.EnforcementAction_ENFORCEMENT_ACTION_DEGRADE:
+		return "degrade"
+	case agentmodelhubv1.EnforcementAction_ENFORCEMENT_ACTION_DISABLE:
+		return "disable"
+	default:
+		return "throttle"
+	}
+}
+
+func quotaHealthStatus(ledger *model.CostQuotaLedger) string {
+	if ledger == nil || ledger.QuotaLimit <= 0 {
+		return "healthy"
+	}
+	usage := ledger.UsageActual / ledger.QuotaLimit
+	switch {
+	case usage >= 1:
+		return "breached"
+	case usage >= 0.9:
+		return "warning"
+	default:
+		return "healthy"
+	}
+}
+
+func providerDisplayID(id *uuid.UUID) string {
+	if id == nil {
+		return "tenant"
+	}
+	return id.String()
 }
 
 func pickPrimaryAndFallbackRouting(policy *model.RoutingPolicy) (string, []string) {

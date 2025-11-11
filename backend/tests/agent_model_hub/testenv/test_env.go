@@ -95,6 +95,33 @@ CREATE TABLE IF NOT EXISTS %s (
 		return err
 	}
 
+	costLedgerTable := fmt.Sprintf("%s.%s", schema, "agent_cost_quota_ledgers")
+	createCostLedgers := fmt.Sprintf(`
+CREATE TABLE IF NOT EXISTS %s (
+	id INTEGER PRIMARY KEY AUTOINCREMENT,
+	uuid TEXT NOT NULL,
+	created_at DATETIME,
+	updated_at DATETIME,
+	deleted_at DATETIME,
+	env TEXT NOT NULL,
+	tenant_id TEXT NOT NULL,
+	budget_period TEXT NOT NULL,
+	provider_profile_id TEXT,
+	quota_limit REAL DEFAULT 0,
+	usage_actual REAL DEFAULT 0,
+	anomaly_state TEXT DEFAULT '{}',
+	enforcement_state TEXT DEFAULT '{}',
+	sealed_metadata TEXT DEFAULT '{}',
+	dashboard_scope TEXT DEFAULT '',
+	last_anomaly_at DATETIME
+);`, costLedgerTable)
+	if err := db.Exec(createCostLedgers).Error; err != nil {
+		return err
+	}
+	if err := db.Exec(fmt.Sprintf(`CREATE INDEX IF NOT EXISTS %s.idx_cost_quota_scope ON agent_cost_quota_ledgers(env, tenant_id);`, schema)).Error; err != nil {
+		return err
+	}
+
 	tenantKeysTable := fmt.Sprintf("%s.%s", schema, "iam_tenant_key_pairs")
 	createTenantKeys := fmt.Sprintf(`
 CREATE TABLE IF NOT EXISTS %s (

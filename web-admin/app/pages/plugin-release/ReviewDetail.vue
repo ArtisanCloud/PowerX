@@ -240,7 +240,6 @@
 </template>
 
 <script setup lang="ts">
-import { useToast } from '#imports'
 
 // 页面元信息
 definePageMeta({

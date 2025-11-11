@@ -43,9 +43,19 @@
 
 6. **Feed cost telemetry & confirm enforcement flow**  
    ```bash
-   curl -X POST https://api.powerx.local/internal/provider-usage/report -d @examples/usage-spike.json
+   node scripts/qa/provider-drill.mjs \
+     --tenant-id demo-tenant \
+     --provider-id 2b92d17c-9d35-4c22-8a8d-24ddf9a6f1d3 \
+     --env staging \
+     --spike 1500 \
+     --events 5 \
+     --api-base https://api.powerx.local/internal \
+     --token "$ADMIN_TOKEN" \
+     --grafana-url https://grafana.powerx.local/d/cost-guard \
+     --pagerduty-url https://events.pagerduty.com/v2/enqueue \
+     --pagerduty-routing-key "$PD_KEY"
    ```
-   When an anomaly fires, log into the Ops console, review the recommended action, and confirm to execute throttle/degrade. Tenant dashboards will reflect the new enforcement state within one minute.
+   The drill script reports a spike, polls `/provider-quotas`, and (optionally) pings Grafana/PagerDuty webhooks so you can confirm alarms + manual enforcement. Tenant dashboards will reflect the new enforcement state within one minute.
 
 7. **Observability checklist**  
    - Metrics: `agent.provider.*`, `agent.routing.*`, `agent.platform.*` visible in Grafana dashboards.
