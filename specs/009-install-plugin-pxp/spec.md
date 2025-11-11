@@ -139,6 +139,24 @@ Marketplace 运营与企业租户管理员需要在 2 个工作日内分别完�
 - **FR-021**: 兼容性引擎需在安装/升级前调用 `POST /internal/version/compat/check`，阻断不兼容请求、输出冲突项并支持 `POST /internal/version/compat/exception` 例外审批与审计。
 - **FR-022**: 多租户版本治理需提供 `px version board --tenant <org>` 或 Web Admin 面板，展示版本偏差、批量对齐/灰度策略与执行状态，并将决策写入 365 天可追溯的审计记录。
 
+## Future Work – Dev API Hotload Gateway *(Planned in follow-up milestone)*
+
+- **目标差异**：目前 FR-001/Phase 3 已交付 `POST /api/internal/plugins/local/{install,reload}` + gRPC `StartLocalInstall/PushHotReload` 闭环，为 release 流程和 `--host-api` 模式服务；但 `SCN-PUBLISH-HUB-001` / `PLG-DEV-HOTLOAD-001` 额外要求的 Dev API 网关（`/internal/dev/plugins/{register,reload,delete}`）尚未在 PowerX Core 中实现。
+- **范围**：在 `server.apiPrefix`（推荐 `/api/v1`）之下新增 `/internal/dev/plugins/*` 路由层，向 `px-plugin dev --watch --dev-api` 暴露 register → reload → delete 全生命周期、SSE 日志流和会话审计；与既有 Local Install API 并存，定位面向“开发态热启动”体验。
+- **计划要点**：
+  1. **配置与 Feature Flag**：扩展 `backend/config/schema` 与 `PX_DEV_PLUGIN_HOTLOAD`、`PX_DEV_SESSION_AUDIT` 控制，支持 mTLS/PAT 校验、沙箱配额、TTL 配置。
+  2. **数据 & Registry**：新增 `dev_plugin_sessions`/`dev_plugin_session_events` 表 + Redis 缓存，封装 `internal/devhotload/registry.go` 维护 session/reloadToken/TTL，并接入审计。
+  3. **Service 逻辑**：实现 `internal/devhotload/service.go`（register→validate→sandbox orchestration）、`reload.go`（增量推送、`X-Reload-ID` 幂等、失败回滚）、`cleanup.go`（终止/超时）以及 `security/policy.go`（tenant + plugin 权限校验）。
+  4. **HTTP Handler & SSE**：在 `internal/transport/http/admin` 下新增 handler（`POST /register`, `POST /reload`, `DELETE /register/:sessionId`, `GET /:sessionId`, `GET /stream`），向 Admin Dev 面板推送 `SessionStarted/Reloaded/Terminated` SSE 事件。
+  5. **Observability**：采集 `dev.hotload.register_ms`, `dev.hotload.reload_ms`, `dev.hotload.active_sessions`, `dev.hotload.fail_total` 等指标，确保 reload 失败触发自动回滚和审计。
+  6. **CLI/Docs 联调**：当接口就绪后，将 `px-plugin dev --watch --dev-api` 默认指向 `http://localhost:8077/api/v1`，落地新的 Quickstart/标准文档与合同测试，验证 `~/.px-plugin/sessions` 缓存写入 sessionId/reloadToken。
+- **里程碑**：
+  1. *Week 1*：Schema/配置、Registry/Store 框架、`POST /register` + `DELETE /register/:id` handler。
+  2. *Week 2*：`POST /reload`、Sandbox 调用、SSE/metrics 集成。
+  3. *Week 3*：回滚/诊断联动、CLI 联调、文档与测试更新，确保 `px-plugin dev --watch --dev-api` 200。
+
+> 该计划与 `docs/use_cases/_from_hub/SCN-PUBLISH-HUB-001/{PX,PLG}-DEV-HOTLOAD-*.md` 契约保持一致，交付后将替代目前仅支持 `--host-api` 的临时方案。
+
 ### Non-Functional Requirements
 
 - **NFR-OBS-001**: 灰度与全量发布的指标、日志与告警应沿用现有 PowerX Prometheus + Grafana 栈，并针对发布场景补充所需的观测指标、告警规则与回滚触发通知，确保能在 5 分钟内完成异常检测与响应。
