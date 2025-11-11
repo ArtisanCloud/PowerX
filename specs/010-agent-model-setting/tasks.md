@@ -97,17 +97,17 @@
 
 ### Phase 7 – 观测、文档与成功指标验证
 
-- [ ] **T036** 在 `backend/internal/service/{provider_registry,model_routing,connector_guard,cost_quota}` 增加 OTel 指标/日志，实现 spec 中的 Telemetry 列表。
-- [ ] **T037 [P]** 更新 `docs/use_cases/_from_hub/SCN-AGENT-MODEL-HUB-001/*`、`quickstart.md`、web-admin README。
-- [ ] **T038 [P]** 按 quickstart 全链路回归，收集日志并附加至 checklist。
-- [ ] **T042 [P]** `scripts/qa/provider-onboard-benchmark.mjs` 验证 SC-001：模拟批量上线，统计 95% 以内上线时间，并结合静态扫描 + HTTP 契约测试确认“零明文密钥”。
-- [ ] **T042a [P]** 在 `tests/contract/http/admin/agent_model_hub_provider_test.go` 增加断言：响应中禁止出现 `api_key`/`secret` 字段，配合 Vault 审计日志验证。
-- [ ] **T042b [P]** 基准脚本输出 JSON 报告，若任何 Provider 超过 24h 或秘钥泄露即失败。
-- [ ] **T043 [P]** 扩展 `scripts/ops/routing-simulator.mjs` + Grafana，验证 SC-002：命中率 ≥90%、回退成功率 ≥95%、safe-mode 自动触发并在 5 分钟内回滚。
-- [ ] **T043a [P]** Chaos 测试：人为注入主模型故障，确认 safe-mode 指标/告警与 Redis 切换生效。
-- [ ] **T044 [P]** `tests/integration/agent_model_hub/connector_reliability_test.go` 验证 SC-003：模拟 100 次调用，统计成功率/签名失败率，并将结果写入 Grafana 面板。
-- [ ] **T045 [P]** 在 `scripts/qa/provider-drill.mjs` 增加成本金丝雀，记录异常触发到告警送达/推荐执行耗时，需 <5 分钟（SC-004）。
-- [ ] **T046 [P]** `tests/integration/agent_model_hub/audit_latency_test.go` 验证 SC-005：测量 rollout/enforcement 审计写入 + 查询耗时，并生成 Trace 供稽核。
+- [x] **T036** 在 `backend/internal/service/{provider_registry,model_routing,connector_guard,cost_quota}` 增加 OTel 指标/日志，实现 spec 中的 Telemetry 列表。
+- [x] **T037 [P]** 更新 `docs/use_cases/_from_hub/SCN-AGENT-MODEL-HUB-001/*`、`quickstart.md`、web-admin README。
+- [x] **T038 [P]** 按 quickstart 全链路回归，收集日志并附加至 checklist。
+- [x] **T042 [P]** `scripts/qa/provider-onboard-benchmark.mjs` 验证 SC-001：模拟批量上线，统计 95% 以内上线时间，并结合静态扫描 + HTTP 契约测试确认“零明文密钥”。
+- [x] **T042a [P]** 在 `tests/contract/http/admin/agent_model_hub_provider_test.go` 增加断言：响应中禁止出现 `api_key`/`secret` 字段，配合 Vault 审计日志验证。
+- [x] **T042b [P]** 基准脚本输出 JSON 报告，若任何 Provider 超过 24h 或秘钥泄露即失败。
+- [x] **T043 [P]** 扩展 `scripts/ops/routing-simulator.mjs` + Grafana，验证 SC-002：命中率 ≥90%、回退成功率 ≥95%、safe-mode 自动触发并在 5 分钟内回滚。
+- [x] **T043a [P]** Chaos 测试：人为注入主模型故障，确认 safe-mode 指标/告警与 Redis 切换生效。
+- [x] **T044 [P]** `tests/integration/agent_model_hub/connector_reliability_test.go` 验证 SC-003：模拟 100 次调用，统计成功率/签名失败率，并将结果写入 Grafana 面板。
+- [x] **T045 [P]** 在 `scripts/qa/provider-drill.mjs` 增加成本金丝雀，记录异常触发到告警送达/推荐执行耗时，需 <5 分钟（SC-004）。
+- [x] **T046 [P]** `tests/integration/agent_model_hub/audit_latency_test.go` 验证 SC-005：测量 rollout/enforcement 审计写入 + 查询耗时，并生成 Trace 供稽核。
 
 
 ## 依赖关系与并行指导

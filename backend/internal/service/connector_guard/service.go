@@ -48,6 +48,8 @@ const (
 	mappingTemplateMaxBytes = 64 * 1024
 	defaultSignatureDrift   = 5 * time.Minute
 	errorRateAlpha          = 0.2
+	degradeSourceManual     = "manual"
+	degradeSourceAuto       = "auto"
 )
 
 var (
@@ -87,6 +89,7 @@ type CallbackMetricInput struct {
 	Success    bool
 	Threshold  float64
 	Reason     string
+	LatencyMs  float64
 }
 
 func NewService(opts Options) *Service {
@@ -203,15 +206,38 @@ func (s *Service) UpsertInstance(ctx context.Context, env string, input Connecto
 }
 
 // PauseInstance updates status and audit trail for degraded connectors.
-func (s *Service) PauseInstance(ctx context.Context, id uuid.UUID, reason string) error {
+func (s *Service) PauseInstance(ctx context.Context, id uuid.UUID, reason string, source string) error {
+	ctx, _ = instrumentation.EnsureTraceContext(ctx)
+	if strings.TrimSpace(source) == "" {
+		source = degradeSourceManual
+	}
+	inst, err := s.repo.FindByUUID(ctx, id)
+	if err != nil {
+		return err
+	}
+	if inst == nil {
+		return ErrConnectorNotFound
+	}
 	if err := s.repo.UpdateStatus(ctx, id, "paused", reason); err != nil {
 		return err
 	}
+	inst.Status = "paused"
+	inst.LastPauseReason = reason
 	s.cacheStatus(ctx, id, "paused")
-	s.inst.RecordMetric(ctx, "agent.connector.pause_total", 1, map[string]string{})
-	s.emitAudit(ctx, "connector.instance.paused", &model.ConnectorInstance{
-		PowerUUIDModel: coremodel.PowerUUIDModel{UUID: id},
-	}, map[string]any{"reason": reason})
+	pauseLabels := map[string]string{
+		"platform":     inst.Platform,
+		"tenant_scope": inst.TenantScope,
+		"instance_id":  inst.UUID.String(),
+	}
+	s.inst.RecordMetric(ctx, "agent.connector.pause_total", 1, pauseLabels)
+	degradeLabels := map[string]string{
+		"platform":     inst.Platform,
+		"tenant_scope": inst.TenantScope,
+		"instance_id":  inst.UUID.String(),
+		"source":       source,
+	}
+	s.inst.RecordMetric(ctx, "agent.platform.degrade_total", 1, degradeLabels)
+	s.emitAudit(ctx, "connector.instance.paused", inst, map[string]any{"reason": reason})
 	return nil
 }
 
@@ -266,6 +292,7 @@ func (s *Service) RotateInstanceSecrets(ctx context.Context, env, tenantScope st
 
 // TrackCallbackMetric updates rolling error rates and auto-pauses if thresholds are crossed.
 func (s *Service) TrackCallbackMetric(ctx context.Context, input CallbackMetricInput) (float64, bool, error) {
+	ctx, _ = instrumentation.EnsureTraceContext(ctx)
 	if s.repo == nil {
 		return 0, false, errors.New("connector repository is not configured")
 	}
@@ -275,6 +302,25 @@ func (s *Service) TrackCallbackMetric(ctx context.Context, input CallbackMetricI
 	}
 	if inst == nil {
 		return 0, false, ErrConnectorNotFound
+	}
+	ctx = instrumentation.WithTenant(ctx, inst.TenantScope)
+	labels := map[string]string{
+		"platform":     inst.Platform,
+		"tenant_scope": inst.TenantScope,
+		"instance_id":  inst.UUID.String(),
+	}
+	if input.LatencyMs > 0 {
+		s.inst.RecordMetric(ctx, "agent.platform.latency_p95", input.LatencyMs, labels)
+	}
+	if !input.Success {
+		failLabels := map[string]string{}
+		for k, v := range labels {
+			failLabels[k] = v
+		}
+		if trimmed := strings.TrimSpace(input.Reason); trimmed != "" {
+			failLabels["reason"] = trimmed
+		}
+		s.inst.RecordMetric(ctx, "agent.platform.callback_failure_total", 1, failLabels)
 	}
 	fail := 0.0
 	if !input.Success {
@@ -292,7 +338,7 @@ func (s *Service) TrackCallbackMetric(ctx context.Context, input CallbackMetricI
 		if reason == "" {
 			reason = fmt.Sprintf("auto-pause: error_rate %.4f ≥ %.4f", newRate, threshold)
 		}
-		if err := s.PauseInstance(ctx, inst.UUID, reason); err != nil {
+		if err := s.PauseInstance(ctx, inst.UUID, reason, degradeSourceAuto); err != nil {
 			return newRate, false, err
 		}
 	}

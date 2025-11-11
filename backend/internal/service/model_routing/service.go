@@ -280,6 +280,20 @@ func (s *Service) DecideRoute(ctx context.Context, env, tenantScope string, task
 	if input.SafeModeEnabled {
 		s.inst.RecordMetric(ctx, "agent.routing.safe_mode_active", 1, labels)
 	}
+	hit := 1.0
+	if result.FallbackUsed {
+		hit = 0
+	}
+	providerLabel := result.PrimaryProviderID
+	if strings.TrimSpace(providerLabel) == "" {
+		providerLabel = "unknown"
+	}
+	hitLabels := map[string]string{
+		"tenant_scope": scope,
+		"env":          env,
+		"provider_id":  providerLabel,
+	}
+	s.inst.RecordMetric(ctx, "agent.routing.hit_rate", hit, hitLabels)
 	return result, nil
 }
 

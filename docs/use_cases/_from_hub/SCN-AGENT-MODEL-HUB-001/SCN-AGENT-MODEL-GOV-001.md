@@ -56,8 +56,10 @@ last_reviewed_at: 2025-02-18
 
 # Telemetry & Ops
 
-- 指标：`agent.provider.cost_total`, `agent.provider.quota_usage`, `agent.provider.alert_total`, `agent.provider.degrade_total`。
-- 告警：成本突增、配额超限、降级失败。
+- 指标：`agent.provider.cost_total`、`agent.provider.cost_delta_percent`、`agent.provider.quota_usage`、`agent.provider.alert_total`、`agent.provider.cost.anomaly`、`agent.connector.pause_total`。
+- 仪表板：Grafana「Cost & Quota Guard」展示实时预算快照、警报历史、限流/降级执行情况；web-admin「AI 设置 → 成本守护」页面提供租户视角。
+- 告警：成本突增、配额超限、降级失败、人工 enforcement 超时；PagerDuty 路由到 Ops Reliability Center。
+- Runbook 工具：`scripts/qa/provider-drill.mjs` 触发金丝雀、`scripts/ops/provider-release.mjs --enforce` 执行限流，输出 JSON 报告归档至审计。
 
 # References
 

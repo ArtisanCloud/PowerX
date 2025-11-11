@@ -352,7 +352,7 @@ func (s *Server) PauseConnectorInstance(ctx context.Context, req *agentmodelhubv
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid instance_id")
 	}
-	if err := s.connectorSvc.PauseInstance(ctx, id, req.GetReason()); err != nil {
+	if err := s.connectorSvc.PauseInstance(ctx, id, req.GetReason(), ""); err != nil {
 		if errors.Is(err, connectorguard.ErrConnectorNotFound) {
 			return nil, status.Error(codes.NotFound, err.Error())
 		}

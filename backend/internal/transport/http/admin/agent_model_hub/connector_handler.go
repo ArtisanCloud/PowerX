@@ -135,7 +135,7 @@ func (h *ConnectorHandler) pauseInstance(c *gin.Context) {
 		Reason string `json:"reason"`
 	}
 	_ = c.ShouldBindJSON(&body)
-	if err := h.svc.PauseInstance(c.Request.Context(), instanceID, strings.TrimSpace(body.Reason)); err != nil {
+	if err := h.svc.PauseInstance(c.Request.Context(), instanceID, strings.TrimSpace(body.Reason), ""); err != nil {
 		dtoRequest.ResponseError(c, http.StatusBadRequest, err.Error(), err)
 		return
 	}

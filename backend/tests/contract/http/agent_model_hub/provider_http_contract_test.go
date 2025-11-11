@@ -68,6 +68,10 @@ func TestProviderHTTPContract(t *testing.T) {
 	providerID := provider["provider_id"].(string)
 	require.NotEmpty(t, providerID)
 	require.Equal(t, "draft", strings.ToLower(provider["rollout_status"].(string)))
+	for _, field := range []string{"api_key", "apikey", "secret", "secretKey"} {
+		_, exists := provider[field]
+		require.Falsef(t, exists, "provider JSON must not expose field %s", field)
+	}
 
 	failReport := map[string]any{
 		"report": map[string]any{

@@ -151,10 +151,22 @@ func (s *Service) ReportUsage(ctx context.Context, env string, report UsageRepor
 	ledger, err := s.repo.GetByUUID(ctx, report.LedgerID)
 	if err == nil && ledger != nil {
 		s.cacheSnapshot(ctx, ledger)
-		s.inst.RecordMetric(ctx, "agent.cost.usage_actual", report.UsageActual, map[string]string{
+		labels := map[string]string{
 			"tenant_id":     ledger.TenantID,
+			"provider_id":   providerKey(ledger.ProviderProfileID),
 			"budget_period": ledger.BudgetPeriod,
-		})
+		}
+		s.inst.RecordMetric(ctx, "agent.provider.cost_total", report.UsageActual, labels)
+		if ledger.QuotaLimit > 0 {
+			usageRatio := report.UsageActual / ledger.QuotaLimit
+			s.inst.RecordMetric(ctx, "agent.provider.quota_usage", usageRatio, labels)
+		}
+		if strings.EqualFold(jsonString(report.AnomalyState, "status"), "breached") {
+			alertLabels := cloneLabels(labels)
+			alertLabels["type"] = "anomaly"
+			s.inst.RecordMetric(ctx, "agent.provider.alert_total", 1, alertLabels)
+			s.inst.RecordMetric(ctx, "agent.provider.cost.anomaly", 1, alertLabels)
+		}
 		s.emitAudit(ctx, "cost_quota.usage.reported", ledger, nil)
 	}
 	return nil
@@ -195,10 +207,13 @@ func (s *Service) ProcessUsage(ctx context.Context, env string, input UsageInges
 		anomaly["breach_at"] = s.clock().UTC().Format(time.RFC3339)
 		last := s.clock()
 		lastAnomaly = &last
-		s.inst.RecordMetric(ctx, "agent.provider.cost.anomaly", 1, map[string]string{
+		alertLabels := map[string]string{
 			"tenant_id":   tenant,
 			"provider_id": providerKey(input.ProviderID),
-		})
+			"type":        "anomaly",
+		}
+		s.inst.RecordMetric(ctx, "agent.provider.alert_total", 1, alertLabels)
+		s.inst.RecordMetric(ctx, "agent.provider.cost.anomaly", 1, alertLabels)
 	}
 	if err := s.repo.UpdateUsage(ctx, ledger.UUID, newUsage, anomaly, nil, lastAnomaly); err != nil {
 		return nil, err
@@ -216,7 +231,15 @@ func (s *Service) ProcessUsage(ctx context.Context, env string, input UsageInges
 		"provider_id":   providerKey(input.ProviderID),
 		"budget_period": period,
 	}
-	s.inst.RecordMetric(ctx, "agent.provider.cost_usage", newUsage, labels)
+	s.inst.RecordMetric(ctx, "agent.provider.cost_total", newUsage, labels)
+	if ledger.QuotaLimit > 0 {
+		usageRatio := newUsage / ledger.QuotaLimit
+		s.inst.RecordMetric(ctx, "agent.provider.quota_usage", usageRatio, labels)
+		deltaPercent := (delta / ledger.QuotaLimit) * 100
+		if deltaPercent != 0 {
+			s.inst.RecordMetric(ctx, "agent.provider.cost_delta_percent", deltaPercent, labels)
+		}
+	}
 	s.cacheSnapshot(ctx, ledger)
 	s.emitAudit(ctx, "cost_quota.usage.reported", ledger, map[string]any{
 		"usage_delta": delta,
@@ -271,6 +294,13 @@ func (s *Service) EnforceAction(ctx context.Context, env string, input Enforceme
 	}
 	ledger.EnforcementState = enforcement
 	s.cacheSnapshot(ctx, ledger)
+	alertLabels := map[string]string{
+		"tenant_id":   tenant,
+		"provider_id": providerKey(input.ProviderID),
+		"type":        "enforcement",
+		"action":      action,
+	}
+	s.inst.RecordMetric(ctx, "agent.provider.alert_total", 1, alertLabels)
 	s.emitAudit(ctx, "cost_quota.enforcement", ledger, map[string]any{
 		"action": enforcement["action"],
 		"reason": enforcement["reason"],
@@ -381,6 +411,27 @@ func providerKey(id *uuid.UUID) string {
 		return "tenant"
 	}
 	return id.String()
+}
+
+func cloneLabels(src map[string]string) map[string]string {
+	if len(src) == 0 {
+		return map[string]string{}
+	}
+	dup := make(map[string]string, len(src))
+	for k, v := range src {
+		dup[k] = v
+	}
+	return dup
+}
+
+func jsonString(data datatypes.JSONMap, key string) string {
+	if data == nil {
+		return ""
+	}
+	if val, ok := data[key]; ok {
+		return strings.TrimSpace(fmt.Sprint(val))
+	}
+	return ""
 }
 
 func timePtr(t time.Time) *time.Time {

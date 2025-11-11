@@ -26,6 +26,7 @@ import process from "node:process";
 
 const DEFAULT_API_BASE = "https://api.powerx.local/internal";
 const DEFAULT_OUTPUT = "reports/provider-drill.json";
+const DEFAULT_ALERT_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
@@ -104,6 +105,14 @@ async function main() {
   if (args.grafanaUrl) {
     await pingGrafana(args.grafanaUrl);
   }
+  const alertResult = await waitForAlert(context, {
+    tenantId: args.tenantId,
+    env: args.env,
+    targetStates: args.alertTargets || ["anomaly", "enforcement_required"],
+    timeoutMs: args.alertTimeoutMs || DEFAULT_ALERT_TIMEOUT_MS,
+    pollInterval: args.alertPollInterval || 5000,
+  });
+
   if (args.pagerdutyUrl) {
     await notifyPagerDuty(args.pagerdutyUrl, {
       tenantId: args.tenantId,
@@ -131,6 +140,7 @@ async function main() {
     triggeredStatuses: poll.statusFlags,
     grafanaUrl: args.grafanaUrl || null,
     pagerdutyUrl: args.pagerdutyUrl || null,
+    alertResult,
   };
 
   if (args.output !== false) {
@@ -219,6 +229,18 @@ function parseArgs(argv) {
         break;
       case "verbose":
         args.verbose = true;
+        break;
+      case "alert-timeout":
+        args.alertTimeoutMs = Number(value);
+        if (!raw.includes("=")) i++;
+        break;
+      case "alert-poll-interval":
+        args.alertPollInterval = Number(value);
+        if (!raw.includes("=")) i++;
+        break;
+      case "alert-targets":
+        args.alertTargets = value.split(",").map((item) => item.trim()).filter(Boolean);
+        if (!raw.includes("=")) i++;
         break;
       default:
         console.warn(`Unknown flag: --${flag}`);
@@ -383,6 +405,38 @@ function withBase(base, path) {
 }
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+async function waitForAlert(context, { tenantId, env = "default", targetStates, timeoutMs, pollInterval }) {
+  if (!targetStates || targetStates.length === 0) {
+    return { awaited: false };
+  }
+  const started = Date.now();
+  let attempts = 0;
+  while (Date.now() - started < timeoutMs) {
+    attempts++;
+    const snapshot = await fetchSnapshot(context, { tenantId, env });
+    const states =
+      snapshot?.quotas
+        ?.map((quota) => quota.status)
+        .filter((status) => typeof status === "string" && status !== "healthy") || [];
+    if (states.some((state) => targetStates.includes(state))) {
+      return {
+        awaited: true,
+        succeeded: true,
+        states,
+        attempts,
+        durationMs: Date.now() - started,
+      };
+    }
+    await delay(pollInterval);
+  }
+  return {
+    awaited: true,
+    succeeded: false,
+    attempts,
+    durationMs: Date.now() - started,
+  };
+}
 
 main().catch((err) => {
   console.error("[ERROR]", err.message);

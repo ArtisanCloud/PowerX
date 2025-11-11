@@ -21,6 +21,9 @@ const DEFAULT_SCENARIO_FILE = "scripts/ops/scenarios/routing/default.json";
 const DEFAULT_OUTPUT = "reports/routing-simulator-report.json";
 const DEFAULT_ENV = "default";
 const DEFAULT_TIMEOUT = 10000; // ms
+const DEFAULT_HIT_THRESHOLD = 0.9;
+const DEFAULT_FALLBACK_THRESHOLD = 0.95;
+const DEFAULT_SAFE_MODE_WINDOW_SECONDS = 300; // 5 minutes
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
@@ -51,6 +54,12 @@ async function main() {
     scenario,
     timeout: args.timeout,
     iterations: args.iterations,
+    thresholds: {
+      hit: args.hitThreshold,
+      fallback: args.fallbackThreshold,
+      safeModeWindowMs: args.safeModeWindowSeconds * 1000,
+    },
+    requireSafeMode: args.requireSafeMode,
   });
 
   await writeReport(args.output, summary);
@@ -59,6 +68,10 @@ async function main() {
       2
     )}. Report saved to ${args.output}`
   );
+  logSloResults(summary.slo);
+  if (!summary.slo.overall) {
+    process.exitCode = 2;
+  }
 }
 
 function parseArgs(argv) {
@@ -69,6 +82,10 @@ function parseArgs(argv) {
     env: DEFAULT_ENV,
     timeout: DEFAULT_TIMEOUT,
     iterations: 1,
+    hitThreshold: DEFAULT_HIT_THRESHOLD,
+    fallbackThreshold: DEFAULT_FALLBACK_THRESHOLD,
+    safeModeWindowSeconds: DEFAULT_SAFE_MODE_WINDOW_SECONDS,
+    requireSafeMode: false,
   };
   for (let i = 0; i < argv.length; i++) {
     const raw = argv[i];
@@ -122,6 +139,21 @@ function parseArgs(argv) {
         args.iterations = Math.max(1, Number(value) || 1);
         consume();
         break;
+      case "hit-threshold":
+        args.hitThreshold = clamp01(Number(value), DEFAULT_HIT_THRESHOLD);
+        consume();
+        break;
+      case "fallback-threshold":
+        args.fallbackThreshold = clamp01(Number(value), DEFAULT_FALLBACK_THRESHOLD);
+        consume();
+        break;
+      case "safe-mode-window":
+        args.safeModeWindowSeconds = Math.max(1, Number(value) || DEFAULT_SAFE_MODE_WINDOW_SECONDS);
+        consume();
+        break;
+      case "require-safe-mode":
+        args.requireSafeMode = true;
+        break;
       case "list":
         args.list = true;
         break;
@@ -174,6 +206,8 @@ async function runScenario(options) {
     scenario,
     timeout,
     iterations,
+    thresholds,
+    requireSafeMode,
   } = options;
 
   const tasks = Array.isArray(scenario.tasks) ? scenario.tasks : [];
@@ -181,6 +215,8 @@ async function runScenario(options) {
     throw new Error(`Scenario "${scenarioName}" has no tasks defined`);
   }
 
+  const runStartedAt = Date.now();
+  let safeModeFirstMs = null;
   const results = [];
   for (let iteration = 0; iteration < iterations; iteration++) {
     for (const task of tasks) {
@@ -195,10 +231,19 @@ async function runScenario(options) {
       result.iteration = iteration + 1;
       results.push(result);
       logTaskResult(result);
+      if (result.safeMode && safeModeFirstMs === null) {
+        safeModeFirstMs = Date.now() - runStartedAt;
+      }
     }
   }
 
   const metrics = summarizeResults(results);
+  const slo = evaluateSlo({
+    metrics,
+    thresholds,
+    safeModeFirstMs,
+    requireSafeMode,
+  });
   return {
     policy: policyLabel || "active",
     tenant,
@@ -207,6 +252,11 @@ async function runScenario(options) {
     generatedAt: new Date().toISOString(),
     iterations,
     metrics,
+    thresholds,
+    safeModeFirstTriggerMs: safeModeFirstMs,
+    safeModeFirstTriggerSeconds: safeModeFirstMs != null ? safeModeFirstMs / 1000 : null,
+    requireSafeMode,
+    slo,
     results,
   };
 }
@@ -249,8 +299,10 @@ async function replayTask({ apiBase, token, env, tenant, task, timeout }) {
       fallbackUsed: Boolean(data.fallbackUsed),
       safeMode: Boolean(data.safeMode),
       matchedRule: data.matchedRule || "",
+      traceId: data.traceId,
       success,
       error: success ? undefined : "Expectation mismatch",
+      timestamp: new Date().toISOString(),
     };
   } catch (err) {
     return {
@@ -263,6 +315,7 @@ async function replayTask({ apiBase, token, env, tenant, task, timeout }) {
       matchedRule: "",
       success: false,
       error: err.name === "AbortError" ? "Request timed out" : err.message,
+      timestamp: new Date().toISOString(),
     };
   } finally {
     clearTimeout(timer);
@@ -292,6 +345,7 @@ function summarizeResults(results) {
   const failures = results.filter((r) => !r.success).length;
   const fallbackCount = results.filter((r) => r.fallbackUsed).length;
   const safeModeCount = results.filter((r) => r.safeMode).length;
+  const fallbackSuccessCount = results.filter((r) => r.fallbackUsed && r.success).length;
   const latencyAvg =
     results.reduce((sum, r) => sum + (r.latencyMs || 0), 0) / Math.max(total, 1);
 
@@ -306,6 +360,8 @@ function summarizeResults(results) {
     failures,
     fallbackRate: total > 0 ? fallbackCount / total : 0,
     safeModeRate: total > 0 ? safeModeCount / total : 0,
+    fallbackSuccessRate: fallbackCount > 0 ? fallbackSuccessCount / fallbackCount : 1,
+    hitRate: total > 0 ? (total - fallbackCount) / total : 0,
     avgLatencyMs: Number(latencyAvg.toFixed(2)),
     providerBreakdown,
   };
@@ -324,6 +380,43 @@ function logTaskResult(result) {
 async function writeReport(outputPath, summary) {
   await fs.mkdir(path.dirname(outputPath), { recursive: true });
   await fs.writeFile(outputPath, JSON.stringify(summary, null, 2), "utf8");
+}
+
+function evaluateSlo({ metrics, thresholds, safeModeFirstMs, requireSafeMode }) {
+  const hitPass = metrics.hitRate >= thresholds.hit;
+  const fallbackPass = metrics.fallbackSuccessRate >= thresholds.fallback;
+  let safeModePass = true;
+  if (requireSafeMode) {
+    safeModePass =
+      safeModeFirstMs !== null && safeModeFirstMs <= thresholds.safeModeWindowMs;
+  }
+  return {
+    hitPass,
+    fallbackPass,
+    safeModePass,
+    overall: hitPass && fallbackPass && safeModePass,
+    details: {
+      hitRate: metrics.hitRate,
+      fallbackSuccessRate: metrics.fallbackSuccessRate,
+      safeModeFirstTriggerMs: safeModeFirstMs,
+      safeModeRequirement: requireSafeMode,
+      thresholds,
+    },
+  };
+}
+
+function logSloResults(slo) {
+  console.log(
+    `[SLO] hitRate ok=${slo.hitPass} fallbackSuccess ok=${slo.fallbackPass} safeMode ok=${slo.safeModePass} overall=${slo.overall}`,
+  );
+  if (!slo.overall) {
+    console.warn("[SLO] details:", JSON.stringify(slo.details, null, 2));
+  }
+}
+
+function clamp01(value, fallback) {
+  if (Number.isNaN(value)) return fallback;
+  return Math.min(1, Math.max(0, value));
 }
 
 main().catch((err) => {

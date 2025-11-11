@@ -104,6 +104,7 @@ var (
 // RegisterProvider stores or updates a provider profile using Vault-style sealed secrets.
 func (s *Service) RegisterProvider(ctx context.Context, env string, tenantID *uint64, input ProviderProfileInput) (*model.ProviderProfile, error) {
 	ctx, _ = instrumentation.EnsureTraceContext(ctx)
+	start := s.clock()
 	if s.repo == nil {
 		return nil, errors.New("provider repository is not configured")
 	}
@@ -156,6 +157,11 @@ func (s *Service) RegisterProvider(ctx context.Context, env string, tenantID *ui
 	s.inst.RecordMetric(ctx, "agent.provider.onboard_total", 1, map[string]string{
 		"provider_id": result.UUID.String(),
 		"status":      result.RolloutStatus,
+	})
+	duration := s.clock().Sub(start).Seconds()
+	s.inst.RecordMetric(ctx, "agent.provider.onboard_duration", duration, map[string]string{
+		"provider_id": result.UUID.String(),
+		"env":         result.Env,
 	})
 	return result, nil
 }
@@ -269,6 +275,11 @@ func (s *Service) ValidateProvider(ctx context.Context, providerID uuid.UUID, su
 	profile.Metadata = meta
 	s.emitAudit(ctx, "provider.validated", profile, map[string]any{"suite": suite, "status": status})
 	s.inst.RecordMetric(ctx, "agent.provider.validation_total", 1, map[string]string{
+		"provider_id": profile.UUID.String(),
+		"suite":       suite,
+		"status":      status,
+	})
+	s.inst.RecordMetric(ctx, "agent.provider.health_score", health, map[string]string{
 		"provider_id": profile.UUID.String(),
 		"suite":       suite,
 		"status":      status,
@@ -420,6 +431,7 @@ func (s *Service) rotateScope(ctx context.Context, env string, tenantID *uint64,
 		s.emitAudit(ctx, "provider.secret_rotated", &prof, nil)
 		s.inst.RecordMetric(ctx, "agent.provider.secret_rotation_total", 1, map[string]string{
 			"provider_id": prof.UUID.String(),
+			"env":         prof.Env,
 		})
 	}
 	return nil
