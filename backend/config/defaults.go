@@ -169,6 +169,7 @@ func GetDefaults() *Config {
 		FeatureGate: FeatureGateConfig{
 			LicenseKey: "demo-license-xyz",
 		},
+		DevHotload:      DefaultDevHotloadConfig(),
 		PluginRelease:   DefaultPluginReleaseConfig(),
 		PluginBootstrap: DefaultPluginBootstrapConfig(),
 		PluginDebug:     DefaultPluginDebugConfig(),

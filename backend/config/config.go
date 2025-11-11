@@ -61,6 +61,7 @@ type Config struct {
 	AgentLifecycle     AgentLifecycleConfig     `yaml:"agent_lifecycle"`     // Agent 生命周期治理
 	LowCode            LowCodeConfig            `yaml:"dynamic_form"`        // flow 执行相关
 	FeatureGate        FeatureGateConfig        `yaml:"feature_gate"`        // 细粒度开关、license
+	DevHotload         DevHotloadConfig         `yaml:"dev_hotload"`
 	PluginRelease      PluginReleaseConfig      `yaml:"plugin_release"`
 	PluginBootstrap    PluginBootstrapConfig    `yaml:"plugin_bootstrap"`
 	PluginDebug        PluginDebugConfig        `yaml:"plugin_debug"`

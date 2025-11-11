@@ -10,6 +10,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/internal/transport/http/admin/auth"
 	"github.com/ArtisanCloud/PowerX/internal/transport/http/admin/capability"
 	capabilityRegistryHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/capability_registry"
+	devHotloadHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/dev_hotload"
 	eventFabricHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/event_fabric"
 	"github.com/ArtisanCloud/PowerX/internal/transport/http/admin/iam"
 	integrationGatewayHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/integration_gateway"
@@ -59,6 +60,7 @@ func RegisterAPIRoutes(
 	plugin.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	pluginReleaseHTTP.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	pluginDevHTTP.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
+	devHotloadHTTP.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	pluginSandboxHTTP.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	versionHTTP.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	eventFabricHTTP.RegisterAPIRoutes(publicGroup, protectedGroup, deps)

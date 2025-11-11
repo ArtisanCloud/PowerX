@@ -93,6 +93,19 @@ go run cmd/server/main.go --enable-plugin-release
    - 失败重试会自动附带最后一次错误信息；当 CLI 检测到 “version mismatch” 字样时，会在后台累加 `debug.host.version_mismatch_total`。
 4. （可选）`px debug attach` 预留命令会在后续版本补充断点/日志聚合；在此之前，可通过 `POST /internal/debug/report` 触发调试诊断（见 Phase 10 任务）。
 
+5. 若已启用 Dev Hotload API（`config/dev_hotload.yaml` + Feature Flag `PX_DEV_PLUGIN_HOTLOAD=1`），可直接使用新的 `--dev-api` 模式，让 CLI 调 `/api/v1/internal/dev/plugins/*` 完成注册/热更新/终止，并写入 `~/.px-plugin/sessions/<session>.json`，避免手工拼 host API：
+   ```bash
+   px-plugin dev --watch \
+     --dev-api http://localhost:8077/api/v1 \
+     --token "$POWERX_ADMIN_TOKEN" \
+     --tenant-id 101 \
+     --developer-id 2025 \
+     --entry . \
+     --artifact ./dist/plugin-bundle.zip
+   ```
+   - CLI 会调用 `POST /api/v1/internal/dev/plugins/register` 获取 `sessionId/reloadToken`，随后在每次文件变化时 `POST /reload`、终止时 `DELETE /register/{sessionId}`，同时监听 `GET /stream` 推送的会话事件。
+   - `--dev-api` 与 `--host-api` 可择一使用：前者面向 Dev API Gateway（多 session/SSE），后者沿用 plugin_release local install 流程。两者都会在成功后更新 `~/.px-plugin/sessions/*.json`，便于 CLI 恢复/回溯。
+
 ### 4.2 版本治理 & 兼容性指令
 1. 准备治理配置：`config/version/governance_rules.yaml`、`config/version/upgrade_policies.yaml`、`config/version/compat_matrix.yaml` 已提供默认模板，可根据租户标签/优先级定制扫描节奏与灰度策略。部署到测试环境时，保持 `PX_VERSION_GOVERNANCE=enabled` 以便服务加载这些配置。
 2. 执行巡检：

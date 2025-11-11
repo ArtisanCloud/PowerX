@@ -184,12 +184,12 @@
 
 ## Phase 12: Dev API Hotload Gateway（Planned / SCN-PUBLISH-HUB-001）
 
-- [ ] T080 [FR-NEW] Dev API 配置与 Feature Flag：扩展 `backend/config/schema/dev_hotload.yaml`、`config/dev_hotload.yaml` 与 `PX_DEV_PLUGIN_HOTLOAD` / `PX_DEV_SESSION_AUDIT` 注入，更新 `backend/internal/app/shared/deps.go`/`bootstrap/app.go`，确保 `server.apiPrefix`（默认 `/api/v1`）可挂载 `/internal/dev/plugins/*`，并预置 mTLS/PAT 校验选项。
-- [ ] T081 [FR-NEW] 会话 Registry & 存储：设计 `dev_plugin_sessions`、`dev_plugin_session_events` 迁移，补充 Redis key 布局，落地 `backend/internal/devhotload/{registry,store}`，负责 session TTL、reloadToken、冲突检测与审计。
-- [ ] T082 [FR-NEW] DevHotload Service：在 `backend/internal/devhotload/service.go` 实现 register → validate → sandbox orchestration、`reload.go` 处理增量/`X-Reload-ID` 幂等、`cleanup.go` 统一终止/回滚；整合安全策略（tenant/plugin 权限、资源配额、artifact 校验）。
-- [ ] T083 [FR-NEW] HTTP Handler & SSE：新增 `backend/internal/transport/http/admin/dev_hotload/routes.go`，提供 `POST /internal/dev/plugins/register`、`POST /internal/dev/plugins/reload`、`DELETE /internal/dev/plugins/register/:sessionId`、`GET /internal/dev/plugins/:sessionId`、`GET /internal/dev/plugins/stream`，并将 SSE 事件推送到 Admin Dev 面板。
-- [ ] T084 [FR-NEW] Observability & Cleanup：实现 `backend/internal/devhotload/instrumentation`，采集 `dev.hotload.register_ms`、`dev.hotload.reload_ms`、`dev.hotload.active_sessions`、`dev.hotload.fail_total`；集成审计、回滚钩子、宿主模拟器/沙箱清理脚本。
-- [ ] T085 [FR-NEW] CLI/合同测试联调：为 `px-plugin dev --watch --dev-api` 增加端到端集成测试（`backend/tests/integration/devhotload/test_dev_api_flow.go`），更新 Quickstart/Standards 文档与 `specs/009-install-plugin-pxp/checklists/regression.md`，确保 CLI 默认指向 `/api/v1/internal/dev/plugins` 并生成 `~/.px-plugin/sessions/*.json`。
+- [X] T080 [FR-NEW] Dev API 配置与 Feature Flag：扩展 `backend/config/schema/dev_hotload.yaml`、`config/dev_hotload.yaml` 与 `PX_DEV_PLUGIN_HOTLOAD` / `PX_DEV_SESSION_AUDIT` 注入，更新 `backend/internal/app/shared/deps.go`/`bootstrap/app.go`，确保 `server.apiPrefix`（默认 `/api/v1`）可挂载 `/internal/dev/plugins/*`，并预置 mTLS/PAT 校验选项。
+- [X] T081 [FR-NEW] 会话 Registry & 存储：设计 `dev_plugin_sessions`、`dev_plugin_session_events` 迁移，补充 Redis key 布局，落地 `backend/internal/service/dev_hotload/{registry,store}`，负责 session TTL、reloadToken、冲突检测与审计。
+- [X] T082 [FR-NEW] DevHotload Service：在 `backend/internal/service/dev_hotload/service.go` 实现 register → validate → sandbox orchestration、`reload.go` 处理增量/`X-Reload-ID` 幂等、`cleanup.go` 统一终止/回滚；整合安全策略（tenant/plugin 权限、资源配额、artifact 校验）。
+- [X] T083 [FR-NEW] HTTP Handler & SSE：新增 `backend/internal/transport/http/admin/dev_hotload/routes.go`，提供 `POST /internal/dev/plugins/register`、`POST /internal/dev/plugins/reload`、`DELETE /internal/dev/plugins/register/:sessionId`、`GET /internal/dev/plugins/:sessionId`、`GET /internal/dev/plugins/stream`，并将 SSE 事件推送到 Admin Dev 面板。
+- [X] T084 [FR-NEW] Observability & Cleanup：实现 `backend/internal/service/dev_hotload/instrumentation`，采集 `dev.hotload.register_ms`、`dev.hotload.reload_ms`、`dev.hotload.active_sessions`、`dev.hotload.fail_total`；集成审计、回滚钩子、宿主模拟器/沙箱清理脚本。
+- [X] T085 [FR-NEW] CLI/合同测试联调：为 `px-plugin dev --watch --dev-api` 增加端到端集成测试（`backend/tests/integration/dev_hotload/dev_api_flow_test.go`），更新 Quickstart/Standards 文档与 `specs/009-install-plugin-pxp/checklists/regression.md`，确保 CLI 默认指向 `/api/v1/internal/dev/plugins` 并生成 `~/.px-plugin/sessions/*.json`。
 
 **Checkpoint**：`px-plugin dev --watch --dev-api http://localhost:8077/api/v1` 能完成 register → reload → delete，全链路指标/SSE/审计可用；Admin Dev 面板能够实时查看会话状态。
 

@@ -276,6 +276,35 @@ func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error)
 				DataSuitePath: cfg.PluginDebug.Sandbox.DataSuitePath,
 			},
 		},
+		DevHotload: shared.DevHotloadOptions{
+			FeatureFlags: shared.DevHotloadFeatureFlagsOptions{
+				Enabled:          cfg.DevHotload.FeatureFlags.Enabled,
+				GatewayFlag:      cfg.DevHotload.FeatureFlags.GatewayFlag,
+				SessionAuditFlag: cfg.DevHotload.FeatureFlags.SessionAuditFlag,
+			},
+			Sessions: shared.DevHotloadSessionOptions{
+				TTL:             time.Duration(cfg.DevHotload.Sessions.TTLMinutes) * time.Minute,
+				MaxConcurrent:   cfg.DevHotload.Sessions.MaxConcurrentSessions,
+				CleanupInterval: time.Duration(cfg.DevHotload.Sessions.CleanupIntervalSeconds) * time.Second,
+			},
+			Sandbox: shared.DevHotloadSandboxOptions{
+				Image:          cfg.DevHotload.Sandbox.Image,
+				MaxCPUPercent:  cfg.DevHotload.Sandbox.MaxCPUPercent,
+				MaxMemoryMB:    cfg.DevHotload.Sandbox.MaxMemoryMB,
+				WatchFileLimit: cfg.DevHotload.Sandbox.WatchFileLimit,
+			},
+			Security: shared.DevHotloadSecurityOptions{
+				RequireMTLS:     cfg.DevHotload.Security.RequireMTLS,
+				AllowedSubjects: cfg.DevHotload.Security.AllowedSubjects,
+				PATHeader:       cfg.DevHotload.Security.PATHeader,
+				TokenTTL:        time.Duration(cfg.DevHotload.Security.TokenTTLSeconds) * time.Second,
+			},
+			Observability: shared.DevHotloadObservabilityOptions{
+				MetricsNamespace: cfg.DevHotload.Observability.MetricsNamespace,
+				SSEBufferSize:    cfg.DevHotload.Observability.SSEBufferSize,
+				AuditTopic:       cfg.DevHotload.Observability.AuditTopic,
+			},
+		},
 	}
 
 	deps := shared.NewDeps(db, opts)

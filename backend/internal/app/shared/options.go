@@ -21,6 +21,7 @@ type DepsOptions struct {
 	Workflow           WorkflowOptions
 	IntegrationGateway IntegrationGatewayOptions
 	AgentLifecycle     AgentLifecycleOptions
+	DevHotload         DevHotloadOptions
 	PluginRelease      PluginReleaseOptions
 	PluginBootstrap    PluginBootstrapOptions
 	PluginDebug        PluginDebugOptions
@@ -174,6 +175,47 @@ type PluginReleaseObservabilityOptions struct {
 type PluginReleaseKPITargetsOptions struct {
 	CanRollbackWithin time.Duration
 	HotloadLatencyP95 time.Duration
+}
+
+// DevHotloadOptions exposes Dev API gateway runtime configuration.
+type DevHotloadOptions struct {
+	FeatureFlags  DevHotloadFeatureFlagsOptions
+	Sessions      DevHotloadSessionOptions
+	Sandbox       DevHotloadSandboxOptions
+	Security      DevHotloadSecurityOptions
+	Observability DevHotloadObservabilityOptions
+}
+
+type DevHotloadFeatureFlagsOptions struct {
+	Enabled          bool
+	GatewayFlag      string
+	SessionAuditFlag string
+}
+
+type DevHotloadSessionOptions struct {
+	TTL             time.Duration
+	MaxConcurrent   int
+	CleanupInterval time.Duration
+}
+
+type DevHotloadSandboxOptions struct {
+	Image          string
+	MaxCPUPercent  int
+	MaxMemoryMB    int
+	WatchFileLimit int
+}
+
+type DevHotloadSecurityOptions struct {
+	RequireMTLS     bool
+	AllowedSubjects []string
+	PATHeader       string
+	TokenTTL        time.Duration
+}
+
+type DevHotloadObservabilityOptions struct {
+	MetricsNamespace string
+	SSEBufferSize    int
+	AuditTopic       string
 }
 
 // PluginDebugOptions configures plugin debug utilities.
