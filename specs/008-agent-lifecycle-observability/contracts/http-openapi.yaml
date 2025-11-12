@@ -228,9 +228,164 @@ paths:
                 type: object
                 properties:
                   snapshots:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/HealthSnapshot'
+            type: array
+            items:
+              $ref: '#/components/schemas/HealthSnapshot'
+  /autoreg/manifests:
+    post:
+      tags: [Agents]
+      summary: 插件 manifest 自动注册 Agent
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AutoRegisterManifestRequest'
+      responses:
+        '201':
+          description: 自动注册结果
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AutoRegisterResponse'
+        '400':
+          description: manifest 载荷非法
+        '401':
+          description: 签名校验失败
+  /agents/{agentId}/sandbox:
+    post:
+      tags: [Agents]
+      summary: 手动重跑沙箱验证
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/AgentId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SandboxRunRequest'
+      responses:
+        '200':
+          description: 沙箱执行结果
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SandboxResult'
+        '502':
+          description: 沙箱执行失败
+  /admin/agents/tenant/forms:
+    post:
+      tags: [Agents]
+      summary: 租户管理员提交 Agent 表单
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TenantAgentFormRequest'
+      responses:
+        '201':
+          description: 表单已创建
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TenantAgentFormResponse'
+        '400':
+          description: 校验失败或策略冲突
+    get:
+      tags: [Agents]
+      summary: 列出租户提交的表单
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: query
+          name: tenant_id
+          schema:
+            type: string
+          required: true
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [pending_approval, approved, rejected, activated]
+      responses:
+        '200':
+          description: 表单列表
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TenantAgentFormResponse'
+  /admin/agents/tenant/forms/{formId}:
+    get:
+      tags: [Agents]
+      summary: 查看单个租户表单
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/FormId'
+      responses:
+        '200':
+          description: 表单详情
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TenantAgentFormResponse'
+        '404':
+          description: 未找到
+  /admin/agents/tenant/forms/{formId}/approve:
+    post:
+      tags: [Agents]
+      summary: 审批通过租户表单并激活 Agent
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/FormId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TenantAgentFormActionRequest'
+      responses:
+        '200':
+          description: 表单已审批
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TenantAgentFormResponse'
+        '409':
+          description: 状态不允许
+  /admin/agents/tenant/forms/{formId}/reject:
+    post:
+      tags: [Agents]
+      summary: 拒绝租户表单
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/FormId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TenantAgentFormActionRequest'
+      responses:
+        '200':
+          description: 表单已拒绝
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TenantAgentFormResponse'
+        '409':
+          description: 状态不允许
 
 components:
   securitySchemes:
@@ -241,6 +396,13 @@ components:
   parameters:
     AgentId:
       name: agentId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    FormId:
+      name: formId
       in: path
       required: true
       schema:
@@ -279,6 +441,213 @@ components:
         metadata:
           type: object
           additionalProperties: true
+    AutoRegisterManifestRequest:
+      type: object
+      required:
+        - pluginId
+        - pluginVersion
+        - manifestVersion
+        - tenantId
+        - alias
+        - telemetryContractVersion
+        - signature
+      properties:
+        pluginId:
+          type: string
+        pluginVersion:
+          type: string
+        manifestVersion:
+          type: string
+        tenantId:
+          type: string
+        alias:
+          type: string
+        displayName:
+          type: string
+        telemetryContractVersion:
+          type: string
+        toolGrants:
+          type: array
+          items:
+            $ref: '#/components/schemas/ToolGrant'
+        defaultCapacityInstances:
+          type: integer
+          minimum: 1
+        maxCapacityInstances:
+          type: integer
+        notificationChannel:
+          type: string
+        metadata:
+          type: object
+          additionalProperties: true
+        capabilities:
+          type: array
+          items:
+            type: string
+        permissions:
+          type: array
+          items:
+            type: string
+        rateLimits:
+          type: object
+          additionalProperties:
+            type: integer
+        sandboxProfile:
+          type: string
+        signature:
+          type: string
+        dryRun:
+          type: boolean
+        requestedBy:
+          type: string
+        traceId:
+          type: string
+    AutoRegisterResponse:
+      type: object
+      properties:
+        agent:
+          $ref: '#/components/schemas/AgentResource'
+        sandbox:
+          $ref: '#/components/schemas/SandboxResult'
+        dryRun:
+          type: boolean
+    SandboxResult:
+      type: object
+      properties:
+        status:
+          type: string
+        reportUrl:
+          type: string
+        profile:
+          type: string
+        executedAt:
+          type: string
+          format: date-time
+        metrics:
+          type: object
+          additionalProperties:
+            type: number
+    SandboxRunRequest:
+      type: object
+      properties:
+        profile:
+          type: string
+        requestedBy:
+          type: string
+        traceId:
+          type: string
+    TenantAgentFormRequest:
+      type: object
+      required: [tenantId, alias, telemetryContractVersion]
+      properties:
+        tenantId:
+          type: string
+        alias:
+          type: string
+        displayName:
+          type: string
+        purpose:
+          type: string
+        promptTemplate:
+          type: string
+        telemetryContractVersion:
+          type: string
+        toolGrants:
+          type: array
+          items:
+            $ref: '#/components/schemas/ToolGrant'
+        permissions:
+          type: array
+          items:
+            type: string
+        rateLimit:
+          type: integer
+        sandboxProfile:
+          type: string
+        metadata:
+          type: object
+          additionalProperties: true
+        requestedBy:
+          type: string
+        traceId:
+          type: string
+    TenantAgentFormActionRequest:
+      type: object
+      required: [operator]
+      properties:
+        operator:
+          type: string
+        reason:
+          type: string
+        traceId:
+          type: string
+    PolicyConflict:
+      type: object
+      properties:
+        field:
+          type: string
+        code:
+          type: string
+        message:
+          type: string
+    TenantAgentFormResponse:
+      allOf:
+        - type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            tenantId:
+              type: string
+            alias:
+              type: string
+            displayName:
+              type: string
+            purpose:
+              type: string
+            promptTemplate:
+              type: string
+            telemetryContractVersion:
+              type: string
+            toolGrants:
+              type: array
+              items:
+                $ref: '#/components/schemas/ToolGrant'
+            permissions:
+              type: array
+              items:
+                type: string
+            rateLimit:
+              type: integer
+            sandboxProfile:
+              type: string
+            status:
+              type: string
+            workflowTicketId:
+              type: string
+            conflictReasons:
+              type: array
+              items:
+                $ref: '#/components/schemas/PolicyConflict'
+            requestedBy:
+              type: string
+            approvedBy:
+              type: string
+            approvedAt:
+              type: string
+              format: date-time
+            activatedAgentId:
+              type: string
+              format: uuid
+            metadata:
+              type: object
+              additionalProperties: true
+            createdAt:
+              type: string
+              format: date-time
+            updatedAt:
+              type: string
+              format: date-time
     AgentResource:
       type: object
       properties:

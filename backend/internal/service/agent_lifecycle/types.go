@@ -49,6 +49,58 @@ type RegisterInput struct {
 	TraceID                  string
 }
 
+// ManifestRegistrationInput 描述插件 manifest 自动注册所需字段。
+type ManifestRegistrationInput struct {
+	PluginID                 string
+	PluginVersion            string
+	ManifestVersion          string
+	TenantID                 string
+	Alias                    string
+	DisplayName              string
+	ToolGrants               []ToolGrant
+	TelemetryContractVersion string
+	DefaultCapacityInstances int32
+	MaxCapacityInstances     *int32
+	NotificationChannel      string
+	Metadata                 map[string]string
+	Capabilities             []string
+	Permissions              []string
+	RateLimits               map[string]int32
+	SandboxProfile           string
+	Signature                string
+	RequestedBy              string
+	TraceID                  string
+	DryRun                   bool
+	SkipSandbox              bool
+}
+
+// ManifestRegistrationResult 表示自动注册结果。
+type ManifestRegistrationResult struct {
+	Agent   *Agent
+	Sandbox *SandboxRunResult
+	DryRun  bool
+}
+
+// SandboxRunInput 描述沙箱执行输入。
+type SandboxRunInput struct {
+	AgentID       uuid.UUID
+	PluginID      string
+	PluginVersion string
+	Profile       string
+	RequestedBy   string
+	TraceID       string
+	Metadata      map[string]string
+}
+
+// SandboxRunResult 描述沙箱执行结果。
+type SandboxRunResult struct {
+	Status     string
+	ReportURL  string
+	Profile    string
+	ExecutedAt time.Time
+	Metrics    map[string]float64
+}
+
 // ActivateInput 激活代理的输入。
 type ActivateInput struct {
 	AgentID     uuid.UUID
@@ -143,4 +195,54 @@ type SubscriptionUpdateInput struct {
 	Config      SubscriptionConfig
 	RequestedBy string
 	TraceID     string
+}
+
+// TenantFormInput 描述租户提交表单内容。
+type TenantFormInput struct {
+	TenantID                 string
+	Alias                    string
+	DisplayName              string
+	Purpose                  string
+	PromptTemplate           string
+	TelemetryContractVersion string
+	ToolGrants               []ToolGrant
+	Permissions              []string
+	RateLimit                int32
+	SandboxProfile           string
+	RequestedBy              string
+	TraceID                  string
+	Metadata                 map[string]string
+}
+
+// PolicyConflictInput 传递给策略冲突检测。
+type PolicyConflictInput struct {
+	TenantID    string
+	Alias       string
+	Permissions []string
+	RateLimit   int32
+}
+
+// TenantForm 表示对外返回的租户表单。
+type TenantForm struct {
+	ID                       uuid.UUID         `json:"id"`
+	TenantID                 string            `json:"tenant_id"`
+	Alias                    string            `json:"alias"`
+	DisplayName              string            `json:"display_name"`
+	Purpose                  string            `json:"purpose"`
+	PromptTemplate           string            `json:"prompt_template"`
+	TelemetryContractVersion string            `json:"telemetry_contract_version"`
+	ToolGrants               []ToolGrant       `json:"tool_grants"`
+	Permissions              []string          `json:"permissions"`
+	RateLimit                int32             `json:"rate_limit"`
+	SandboxProfile           string            `json:"sandbox_profile"`
+	Status                   string            `json:"status"`
+	WorkflowTicketID         string            `json:"workflow_ticket_id"`
+	ConflictReasons          []PolicyConflict  `json:"conflict_reasons"`
+	RequestedBy              string            `json:"requested_by"`
+	ApprovedBy               string            `json:"approved_by,omitempty"`
+	ApprovedAt               *time.Time        `json:"approved_at,omitempty"`
+	ActivatedAgentID         *uuid.UUID        `json:"activated_agent_id,omitempty"`
+	Metadata                 map[string]string `json:"metadata,omitempty"`
+	UpdatedAt                time.Time         `json:"updated_at"`
+	CreatedAt                time.Time         `json:"created_at"`
 }

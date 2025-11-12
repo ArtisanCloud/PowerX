@@ -13,6 +13,7 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 	chatH := NewAgentChatHandler(deps)
 
 	sessionH := NewAgentSessionHandler(deps)
+	tenantFormH := NewTenantAgentFormHandler(deps)
 
 	agentGroup := protectedGroup.Group("/agents")
 	{
@@ -68,5 +69,13 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 		agentAdminGroup.DELETE("/:id/ai-setting", agentH.DeleteAgentAISetting)
 		agentAdminGroup.POST("/:id/health-check", agentH.AgentHealthCheck)
 
+		tenantFormsGroup := agentAdminGroup.Group("/tenant/forms")
+		{
+			tenantFormsGroup.POST("", tenantFormH.SubmitTenantForm)
+			tenantFormsGroup.GET("", tenantFormH.ListTenantForms)
+			tenantFormsGroup.GET("/:form_id", tenantFormH.GetTenantForm)
+			tenantFormsGroup.POST("/:form_id/approve", tenantFormH.ApproveTenantForm)
+			tenantFormsGroup.POST("/:form_id/reject", tenantFormH.RejectTenantForm)
+		}
 	}
 }

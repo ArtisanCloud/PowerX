@@ -49,14 +49,19 @@ type cachedSubscription struct {
 
 // ServiceOptions 构建 Service 所需依赖。
 type ServiceOptions struct {
-	ProfileRepo     *agentrepo.AgentProfileLifecycleRepository
-	LifecycleRepo   *agentrepo.AgentLifecycleEventRepository
-	HealthRepo      *agentrepo.AgentHealthSnapshotRepository
-	EventBus        event_bus.EventBus
-	Instrumentation *agentinstr.Instrumentation
-	Notifier        Notifier
-	Config          Config
-	Clock           func() time.Time
+	ProfileRepo       *agentrepo.AgentProfileLifecycleRepository
+	LifecycleRepo     *agentrepo.AgentLifecycleEventRepository
+	HealthRepo        *agentrepo.AgentHealthSnapshotRepository
+	TenantFormRepo    *agentrepo.AgentTenantFormRepository
+	EventBus          event_bus.EventBus
+	Instrumentation   *agentinstr.Instrumentation
+	Notifier          Notifier
+	Config            Config
+	Clock             func() time.Time
+	ManifestValidator ManifestValidator
+	SandboxRunner     SandboxRunner
+	PolicyEngine      PolicyConflictEngine
+	ApprovalFlow      ApprovalFlow
 }
 
 // Service 封装 Agent 生命周期核心逻辑。
@@ -64,6 +69,7 @@ type Service struct {
 	profiles          *agentrepo.AgentProfileLifecycleRepository
 	events            *agentrepo.AgentLifecycleEventRepository
 	health            *agentrepo.AgentHealthSnapshotRepository
+	tenantForms       *agentrepo.AgentTenantFormRepository
 	bus               event_bus.EventBus
 	instr             *agentinstr.Instrumentation
 	notifier          Notifier
@@ -71,6 +77,10 @@ type Service struct {
 	clock             func() time.Time
 	subscriptionMu    sync.RWMutex
 	subscriptionCache map[uuid.UUID]cachedSubscription
+	manifestValidator ManifestValidator
+	sandboxRunner     SandboxRunner
+	policyEngine      PolicyConflictEngine
+	approvalFlow      ApprovalFlow
 }
 
 // NewService 构建 Service。
@@ -101,17 +111,34 @@ func NewService(opts ServiceOptions) *Service {
 			AlertCooldown: opts.Config.AlertCooldown,
 		})
 	}
+	if opts.ManifestValidator == nil {
+		opts.ManifestValidator = defaultManifestValidator{}
+	}
+	if opts.SandboxRunner == nil {
+		opts.SandboxRunner = noopSandboxRunner{}
+	}
+	if opts.PolicyEngine == nil {
+		opts.PolicyEngine = NewDefaultPolicyConflictEngine(PolicyEngineOptions{})
+	}
+	if opts.ApprovalFlow == nil {
+		opts.ApprovalFlow = newInMemoryApprovalFlow()
+	}
 
 	return &Service{
 		profiles:          opts.ProfileRepo,
 		events:            opts.LifecycleRepo,
 		health:            opts.HealthRepo,
+		tenantForms:       opts.TenantFormRepo,
 		bus:               opts.EventBus,
 		instr:             opts.Instrumentation,
 		notifier:          opts.Notifier,
 		config:            opts.Config,
 		clock:             opts.Clock,
 		subscriptionCache: make(map[uuid.UUID]cachedSubscription),
+		manifestValidator: opts.ManifestValidator,
+		sandboxRunner:     opts.SandboxRunner,
+		policyEngine:      opts.PolicyEngine,
+		approvalFlow:      opts.ApprovalFlow,
 	}
 }
 

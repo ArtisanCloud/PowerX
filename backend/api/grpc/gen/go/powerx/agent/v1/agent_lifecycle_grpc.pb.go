@@ -31,6 +31,8 @@ const (
 	AgentLifecycleService_ListHealthSnapshots_FullMethodName = "/powerx.agent.v1.AgentLifecycleService/ListHealthSnapshots"
 	AgentLifecycleService_UpdateSubscription_FullMethodName  = "/powerx.agent.v1.AgentLifecycleService/UpdateSubscription"
 	AgentLifecycleService_GetSubscription_FullMethodName     = "/powerx.agent.v1.AgentLifecycleService/GetSubscription"
+	AgentLifecycleService_RegisterManifest_FullMethodName    = "/powerx.agent.v1.AgentLifecycleService/RegisterManifest"
+	AgentLifecycleService_RunSandbox_FullMethodName          = "/powerx.agent.v1.AgentLifecycleService/RunSandbox"
 )
 
 // AgentLifecycleServiceClient is the client API for AgentLifecycleService service.
@@ -51,6 +53,8 @@ type AgentLifecycleServiceClient interface {
 	ListHealthSnapshots(ctx context.Context, in *ListHealthSnapshotsRequest, opts ...grpc.CallOption) (*ListHealthSnapshotsResponse, error)
 	UpdateSubscription(ctx context.Context, in *UpdateSubscriptionRequest, opts ...grpc.CallOption) (*UpdateSubscriptionResponse, error)
 	GetSubscription(ctx context.Context, in *GetSubscriptionRequest, opts ...grpc.CallOption) (*GetSubscriptionResponse, error)
+	RegisterManifest(ctx context.Context, in *RegisterManifestRequest, opts ...grpc.CallOption) (*RegisterManifestResponse, error)
+	RunSandbox(ctx context.Context, in *RunSandboxRequest, opts ...grpc.CallOption) (*RunSandboxResponse, error)
 }
 
 type agentLifecycleServiceClient struct {
@@ -181,6 +185,26 @@ func (c *agentLifecycleServiceClient) GetSubscription(ctx context.Context, in *G
 	return out, nil
 }
 
+func (c *agentLifecycleServiceClient) RegisterManifest(ctx context.Context, in *RegisterManifestRequest, opts ...grpc.CallOption) (*RegisterManifestResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RegisterManifestResponse)
+	err := c.cc.Invoke(ctx, AgentLifecycleService_RegisterManifest_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *agentLifecycleServiceClient) RunSandbox(ctx context.Context, in *RunSandboxRequest, opts ...grpc.CallOption) (*RunSandboxResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RunSandboxResponse)
+	err := c.cc.Invoke(ctx, AgentLifecycleService_RunSandbox_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // AgentLifecycleServiceServer is the server API for AgentLifecycleService service.
 // All implementations must embed UnimplementedAgentLifecycleServiceServer
 // for forward compatibility.
@@ -199,6 +223,8 @@ type AgentLifecycleServiceServer interface {
 	ListHealthSnapshots(context.Context, *ListHealthSnapshotsRequest) (*ListHealthSnapshotsResponse, error)
 	UpdateSubscription(context.Context, *UpdateSubscriptionRequest) (*UpdateSubscriptionResponse, error)
 	GetSubscription(context.Context, *GetSubscriptionRequest) (*GetSubscriptionResponse, error)
+	RegisterManifest(context.Context, *RegisterManifestRequest) (*RegisterManifestResponse, error)
+	RunSandbox(context.Context, *RunSandboxRequest) (*RunSandboxResponse, error)
 	mustEmbedUnimplementedAgentLifecycleServiceServer()
 }
 
@@ -244,6 +270,12 @@ func (UnimplementedAgentLifecycleServiceServer) UpdateSubscription(context.Conte
 }
 func (UnimplementedAgentLifecycleServiceServer) GetSubscription(context.Context, *GetSubscriptionRequest) (*GetSubscriptionResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetSubscription not implemented")
+}
+func (UnimplementedAgentLifecycleServiceServer) RegisterManifest(context.Context, *RegisterManifestRequest) (*RegisterManifestResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RegisterManifest not implemented")
+}
+func (UnimplementedAgentLifecycleServiceServer) RunSandbox(context.Context, *RunSandboxRequest) (*RunSandboxResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RunSandbox not implemented")
 }
 func (UnimplementedAgentLifecycleServiceServer) mustEmbedUnimplementedAgentLifecycleServiceServer() {}
 func (UnimplementedAgentLifecycleServiceServer) testEmbeddedByValue()                               {}
@@ -482,6 +514,42 @@ func _AgentLifecycleService_GetSubscription_Handler(srv interface{}, ctx context
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AgentLifecycleService_RegisterManifest_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RegisterManifestRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentLifecycleServiceServer).RegisterManifest(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AgentLifecycleService_RegisterManifest_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentLifecycleServiceServer).RegisterManifest(ctx, req.(*RegisterManifestRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AgentLifecycleService_RunSandbox_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RunSandboxRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentLifecycleServiceServer).RunSandbox(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AgentLifecycleService_RunSandbox_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentLifecycleServiceServer).RunSandbox(ctx, req.(*RunSandboxRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // AgentLifecycleService_ServiceDesc is the grpc.ServiceDesc for AgentLifecycleService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -536,6 +604,14 @@ var AgentLifecycleService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetSubscription",
 			Handler:    _AgentLifecycleService_GetSubscription_Handler,
+		},
+		{
+			MethodName: "RegisterManifest",
+			Handler:    _AgentLifecycleService_RegisterManifest_Handler,
+		},
+		{
+			MethodName: "RunSandbox",
+			Handler:    _AgentLifecycleService_RunSandbox_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

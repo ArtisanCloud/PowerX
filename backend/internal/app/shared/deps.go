@@ -66,6 +66,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
+
+	"github.com/ArtisanCloud/PowerX/internal/workflow"
 )
 
 type auditViolationReporter struct {
@@ -517,12 +519,15 @@ type AgentLifecycleDeps struct {
 	ProfileRepo     *agentrepo.AgentProfileLifecycleRepository
 	LifecycleRepo   *agentrepo.AgentLifecycleEventRepository
 	HealthRepo      *agentrepo.AgentHealthSnapshotRepository
+	TenantFormRepo  *agentrepo.AgentTenantFormRepository
 	Instrumentation *agentinstr.Instrumentation
 	Notifications   agentlifecycle.Notifier
 	RedisClient     *redis.Client
 	EventBus        event_bus.EventBus
 	Config          AgentLifecycleRuntimeConfig
 	Service         *agentlifecycle.Service
+	PolicyEngine    agentlifecycle.PolicyConflictEngine
+	ApprovalFlow    agentlifecycle.ApprovalFlow
 }
 
 // AgentLifecycleRuntimeConfig 提供运行时常用配置。
@@ -883,11 +888,15 @@ func newAgentLifecycleDeps(db *gorm.DB, opts AgentLifecycleOptions, bus event_bu
 	profileRepo := agentrepo.NewAgentProfileLifecycleRepository(db)
 	lifecycleRepo := agentrepo.NewAgentLifecycleEventRepository(db)
 	healthRepo := agentrepo.NewAgentHealthSnapshotRepository(db)
+	tenantFormRepo := agentrepo.NewAgentTenantFormRepository(db)
+	policyEngine := agentlifecycle.NewDefaultPolicyConflictEngine(agentlifecycle.PolicyEngineOptions{})
+	approvalFlow := workflow.NewAgentApprovalFlow()
 
 	service := agentlifecycle.NewService(agentlifecycle.ServiceOptions{
 		ProfileRepo:     profileRepo,
 		LifecycleRepo:   lifecycleRepo,
 		HealthRepo:      healthRepo,
+		TenantFormRepo:  tenantFormRepo,
 		EventBus:        bus,
 		Instrumentation: inst,
 		Notifier:        notifier,
@@ -899,13 +908,16 @@ func newAgentLifecycleDeps(db *gorm.DB, opts AgentLifecycleOptions, bus event_bu
 			},
 			AlertCooldown: alertCooldown,
 		},
-		Clock: time.Now,
+		Clock:             time.Now,
+		PolicyEngine:      policyEngine,
+		ApprovalFlow:      approvalFlow,
 	})
 
 	return &AgentLifecycleDeps{
 		ProfileRepo:     profileRepo,
 		LifecycleRepo:   lifecycleRepo,
 		HealthRepo:      healthRepo,
+		TenantFormRepo:  tenantFormRepo,
 		Instrumentation: inst,
 		Notifications:   notifier,
 		RedisClient:     redisClient,
@@ -919,7 +931,9 @@ func newAgentLifecycleDeps(db *gorm.DB, opts AgentLifecycleOptions, bus event_bu
 				HealthPrefix:    opts.EventTopics.HealthPrefix,
 			},
 		},
-		Service: service,
+		Service:      service,
+		PolicyEngine: policyEngine,
+		ApprovalFlow: approvalFlow,
 	}
 }
 

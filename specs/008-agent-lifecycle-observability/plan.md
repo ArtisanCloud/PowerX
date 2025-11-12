@@ -5,7 +5,7 @@
 
 ## Summary
 
-交付统一的 Agent 生命周期治理：支持管理员注册与激活代理、运维按需启动/暂停/扩缩容、SRE 实时观测健康评分并接收告警，并提供可观测性订阅配置及退役后 13 个月的数据保留。方案依托 CoreX Go 模块栈，复用 Postgres + GORM 存储代理档案与历史，使用 Redis 缓存实例容量，借助 EventBus 发布生命周期事件，统一通过 HTTP（Admin/OpenAPI）与 gRPC 控制面暴露操作，并串接 OpenTelemetry 指标模型、企业 IM 告警与归档策略。
+交付统一的 Agent 生命周期治理：支持管理员注册与激活代理、运维按需启动/暂停/扩缩容、SRE 实时观测健康评分并接收告警，并提供可观测性订阅配置及退役后 13 个月的数据保留。新增覆盖 `UC-AGENT-REG-AUTO/TENANT/SHARE-001` 的插件自动注册、租户自助表单与跨租户共享流程，并把生命周期事件/告警桥接到 `SCN-AGENT-REACT-ORCH-001` 与 `SCN-AGENT-TASK-EXEC-001`。方案依托 CoreX Go 模块栈，复用 Postgres + GORM 存储代理档案与历史，使用 Redis 缓存实例容量，借助 EventBus 发布生命周期事件，统一通过 HTTP（Admin/OpenAPI）与 gRPC 控制面暴露操作，并串接 OpenTelemetry 指标模型、企业 IM 告警、沙箱验证及归档策略。
 
 ## Technical Context
 
@@ -89,3 +89,14 @@ tests/
 ## Complexity Tracking
 
 （当前无额外复杂度豁免需求。）
+
+## Use Case Addendum
+
+为闭环先前未覆盖的 Use Case，本计划新增以下交付面：
+
+- **插件自动注册（UC-AGENT-REG-AUTO-001）**：实现 manifest Webhook、签名/Schema 校验、IAM 策略绑定、沙箱执行与结果回写，并把成功/失败事件写入 Lifecycle/Audit。
+- **租户自助 Agent（UC-AGENT-REG-TENANT-001）**：扩展 Tenant Agent Center API、策略冲突检测与审批编排，复用生命周期激活、审计与订阅能力，确保审批链路与运行态一致。
+- **多租户共享（UC-AGENT-REG-SHARE-001）**：新增共享/撤销 API、Quota Provisioner、租户验证脚本与合规审计，输出共享事件供 StateBus 与 Compliance 消费。
+- **ReAct & 任务执行桥接（SCN-AGENT-REACT-ORCH-001、SCN-AGENT-TASK-EXEC-001）**：统一生命周期事件 Schema、StateBus 推送与 Trace 查询接口，供 Thought/Action/Memory/Audit 以及 Plan/Coord/Recovery/Closure 阶段实时消费；同时暴露冻结/解冻、健康摘要与闭环报告 API。
+
+对应的实现拆分已在 `tasks.md` 中新增 Phase 6~9 任务，确保测试、沙箱、审批与跨场景对齐均可追溯。

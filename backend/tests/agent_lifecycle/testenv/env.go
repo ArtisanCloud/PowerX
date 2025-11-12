@@ -17,6 +17,7 @@ import (
 	agentgrpc "github.com/ArtisanCloud/PowerX/internal/transport/grpc/agentlifecycle"
 	adminhttp "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/agentlifecycle"
 	agentopenapi "github.com/ArtisanCloud/PowerX/internal/transport/http/openapi/agent"
+	"github.com/ArtisanCloud/PowerX/internal/workflow"
 	coremodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
 	"github.com/ArtisanCloud/PowerX/pkg/event_bus"
 	"github.com/gin-gonic/gin"
@@ -28,12 +29,14 @@ import (
 
 // Env 为 Agent Lifecycle 测试提供独立环境。
 type Env struct {
-	T        testing.TB
-	DB       *gorm.DB
-	Deps     *shared.Deps
-	Bus      event_bus.EventBus
-	Server   *agentgrpc.Server
-	Notifier *MockNotifier
+	T                 testing.TB
+	DB                *gorm.DB
+	Deps              *shared.Deps
+	Bus               event_bus.EventBus
+	Server            *agentgrpc.Server
+	Notifier          *MockNotifier
+	ManifestValidator *MockManifestValidator
+	SandboxRunner     *MockSandboxRunner
 }
 
 // New 构造测试环境。
@@ -55,6 +58,7 @@ func New(t testing.TB) *Env {
 		&agentmodel.AgentProfileLifecycle{},
 		&agentmodel.AgentLifecycleEventRecord{},
 		&agentmodel.AgentHealthSnapshotRecord{},
+		&agentmodel.AgentTenantForm{},
 	); err != nil {
 		t.Fatalf("auto migrate: %v", err)
 	}
@@ -73,11 +77,15 @@ func New(t testing.TB) *Env {
 	profileRepo := agentrepo.NewAgentProfileLifecycleRepository(db)
 	eventRepo := agentrepo.NewAgentLifecycleEventRepository(db)
 	healthRepo := agentrepo.NewAgentHealthSnapshotRepository(db)
+	tenantFormRepo := agentrepo.NewAgentTenantFormRepository(db)
+	policyEngine := agent_lifecycle.NewDefaultPolicyConflictEngine(agent_lifecycle.PolicyEngineOptions{})
+	approvalFlow := workflow.NewAgentApprovalFlow()
 
 	service := agent_lifecycle.NewService(agent_lifecycle.ServiceOptions{
 		ProfileRepo:     profileRepo,
 		LifecycleRepo:   eventRepo,
 		HealthRepo:      healthRepo,
+		TenantFormRepo:  tenantFormRepo,
 		EventBus:        bus,
 		Notifier:        notifier,
 		Instrumentation: inst,
@@ -88,13 +96,16 @@ func New(t testing.TB) *Env {
 				HealthPrefix:    "agent.health",
 			},
 		},
-		Clock: time.Now,
+		Clock:        time.Now,
+		PolicyEngine: policyEngine,
+		ApprovalFlow: approvalFlow,
 	})
 
 	agentDeps := &shared.AgentLifecycleDeps{
 		ProfileRepo:     profileRepo,
 		LifecycleRepo:   eventRepo,
 		HealthRepo:      healthRepo,
+		TenantFormRepo:  tenantFormRepo,
 		Instrumentation: inst,
 		Notifications:   notifier,
 		RedisClient:     nil,
@@ -108,7 +119,9 @@ func New(t testing.TB) *Env {
 				HealthPrefix:    "agent.health",
 			},
 		},
-		Service: service,
+		Service:      service,
+		PolicyEngine: policyEngine,
+		ApprovalFlow: approvalFlow,
 	}
 
 	deps := &shared.Deps{
@@ -116,13 +129,20 @@ func New(t testing.TB) *Env {
 		AgentLifecycle: agentDeps,
 	}
 
+	manifestValidator := NewMockManifestValidator()
+	sandboxRunner := NewMockSandboxRunner()
+	service.SetManifestValidator(manifestValidator)
+	service.SetSandboxRunner(sandboxRunner)
+
 	return &Env{
-		T:        t,
-		DB:       db,
-		Deps:     deps,
-		Bus:      bus,
-		Server:   agentgrpc.NewServer(service),
-		Notifier: notifier,
+		T:                 t,
+		DB:                db,
+		Deps:              deps,
+		Bus:               bus,
+		Server:            agentgrpc.NewServer(service),
+		Notifier:          notifier,
+		ManifestValidator: manifestValidator,
+		SandboxRunner:     sandboxRunner,
 	}
 }
 
@@ -228,4 +248,79 @@ func (m *MockNotifier) Reset() {
 			return
 		}
 	}
+}
+
+// MockManifestValidator 用于控制 manifest 校验行为。
+type MockManifestValidator struct {
+	mu                sync.Mutex
+	RequiredSignature string
+	Err               error
+	Calls             int
+}
+
+// NewMockManifestValidator 构造默认校验器。
+func NewMockManifestValidator() *MockManifestValidator {
+	return &MockManifestValidator{
+		RequiredSignature: "valid-signature",
+	}
+}
+
+// Validate 实现 ManifestValidator 接口。
+func (m *MockManifestValidator) Validate(_ context.Context, in agent_lifecycle.ManifestRegistrationInput) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.Calls++
+	if m.Err != nil {
+		return m.Err
+	}
+	if m.RequiredSignature != "" && in.Signature != m.RequiredSignature {
+		return agent_lifecycle.ErrInvalidManifestSignature
+	}
+	return nil
+}
+
+// MockSandboxRunner 记录沙箱执行。
+type MockSandboxRunner struct {
+	mu        sync.Mutex
+	RunInputs []agent_lifecycle.SandboxRunInput
+	Result    agent_lifecycle.SandboxRunResult
+	Err       error
+}
+
+// NewMockSandboxRunner 构造默认 Runner。
+func NewMockSandboxRunner() *MockSandboxRunner {
+	return &MockSandboxRunner{
+		Result: agent_lifecycle.SandboxRunResult{
+			Status: "completed",
+		},
+	}
+}
+
+// Run 实现 SandboxRunner 接口。
+func (m *MockSandboxRunner) Run(_ context.Context, input agent_lifecycle.SandboxRunInput) (*agent_lifecycle.SandboxRunResult, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.RunInputs = append(m.RunInputs, input)
+	if m.Err != nil {
+		return nil, m.Err
+	}
+	res := m.Result
+	if res.ExecutedAt.IsZero() {
+		res.ExecutedAt = time.Now().UTC()
+	}
+	if res.Profile == "" {
+		res.Profile = input.Profile
+	}
+	return &res, nil
+}
+
+// LastInput 返回最近一次执行的输入。
+func (m *MockSandboxRunner) LastInput() *agent_lifecycle.SandboxRunInput {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if len(m.RunInputs) == 0 {
+		return nil
+	}
+	latest := m.RunInputs[len(m.RunInputs)-1]
+	return &latest
 }

@@ -256,6 +256,74 @@ func (s *Server) GetSubscription(ctx context.Context, req *agentv1.GetSubscripti
 	return &agentv1.GetSubscriptionResponse{Config: toProtoSubscriptionConfig(cfg)}, nil
 }
 
+func (s *Server) RegisterManifest(ctx context.Context, req *agentv1.RegisterManifestRequest) (*agentv1.RegisterManifestResponse, error) {
+	if s.service == nil {
+		return nil, status.Error(codes.Unavailable, "agent lifecycle service unavailable")
+	}
+	input := agent_lifecycle.ManifestRegistrationInput{
+		PluginID:                 req.GetPluginId(),
+		PluginVersion:            req.GetPluginVersion(),
+		ManifestVersion:          req.GetManifestVersion(),
+		TenantID:                 req.GetTenantId(),
+		Alias:                    req.GetAlias(),
+		DisplayName:              req.GetDisplayName(),
+		TelemetryContractVersion: req.GetTelemetryContractVersion(),
+		DefaultCapacityInstances: req.GetDefaultCapacityInstances(),
+		MaxCapacityInstances:     req.MaxCapacityInstances,
+		NotificationChannel:      req.GetNotificationChannel(),
+		Metadata:                 req.GetMetadata(),
+		Capabilities:             req.GetCapabilities(),
+		Permissions:              req.GetPermissions(),
+		RateLimits:               req.GetRateLimits(),
+		SandboxProfile:           req.GetSandboxProfile(),
+		Signature:                req.GetSignature(),
+		RequestedBy:              req.GetRequestedBy(),
+		TraceID:                  req.GetTraceId(),
+		DryRun:                   req.GetDryRun(),
+	}
+	for _, grant := range req.GetToolGrants() {
+		input.ToolGrants = append(input.ToolGrants, agent_lifecycle.ToolGrant{
+			Name:      grant.GetName(),
+			Version:   grant.GetVersion(),
+			ExpiresAt: grant.GetExpiresAt(),
+		})
+	}
+	result, err := s.service.RegisterManifest(ctx, input)
+	if err != nil {
+		return nil, toStatusError(err)
+	}
+	resp := &agentv1.RegisterManifestResponse{
+		DryRun: result.DryRun,
+	}
+	if result.Agent != nil {
+		resp.Agent = toProtoAgent(result.Agent)
+	}
+	if result.Sandbox != nil {
+		resp.Sandbox = toProtoSandboxResult(result.Sandbox)
+	}
+	return resp, nil
+}
+
+func (s *Server) RunSandbox(ctx context.Context, req *agentv1.RunSandboxRequest) (*agentv1.RunSandboxResponse, error) {
+	if s.service == nil {
+		return nil, status.Error(codes.Unavailable, "agent lifecycle service unavailable")
+	}
+	agentID, err := uuid.Parse(req.GetAgentId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid agent_id: %v", err)
+	}
+	result, err := s.service.RunSandbox(ctx, agent_lifecycle.SandboxRunInput{
+		AgentID:     agentID,
+		Profile:     req.GetProfile(),
+		RequestedBy: req.GetRequestedBy(),
+		TraceID:     req.GetTraceId(),
+	})
+	if err != nil {
+		return nil, toStatusError(err)
+	}
+	return &agentv1.RunSandboxResponse{Sandbox: toProtoSandboxResult(result)}, nil
+}
+
 func toProtoAgent(agent *agent_lifecycle.Agent) *agentv1.Agent {
 	if agent == nil {
 		return nil
@@ -438,6 +506,23 @@ func subscriptionConfigFromProto(cfg *agentv1.SubscriptionConfig) agent_lifecycl
 	}
 }
 
+func toProtoSandboxResult(res *agent_lifecycle.SandboxRunResult) *agentv1.SandboxResult {
+	if res == nil {
+		return nil
+	}
+	executedAt := ""
+	if !res.ExecutedAt.IsZero() {
+		executedAt = res.ExecutedAt.UTC().Format(time.RFC3339)
+	}
+	return &agentv1.SandboxResult{
+		Status:     res.Status,
+		ReportUrl:  res.ReportURL,
+		Profile:    res.Profile,
+		ExecutedAt: executedAt,
+		Metrics:    res.Metrics,
+	}
+}
+
 func toStatusError(err error) error {
 	switch {
 	case errors.Is(err, agent_lifecycle.ErrAliasConflict):
@@ -448,6 +533,14 @@ func toStatusError(err error) error {
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, agent_lifecycle.ErrInvalidCapacity), errors.Is(err, agent_lifecycle.ErrCapacityExceeded):
 		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, agent_lifecycle.ErrInvalidSubscription):
+		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, agent_lifecycle.ErrInvalidManifestPayload):
+		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, agent_lifecycle.ErrInvalidManifestSignature):
+		return status.Error(codes.PermissionDenied, err.Error())
+	case errors.Is(err, agent_lifecycle.ErrSandboxExecutionFailed):
+		return status.Error(codes.FailedPrecondition, err.Error())
 	default:
 		return status.Error(codes.Internal, err.Error())
 	}
