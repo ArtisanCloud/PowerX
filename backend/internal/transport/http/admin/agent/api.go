@@ -11,6 +11,7 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 	settingH := NewAgentSettingHandler(deps)
 	agentH := NewAgentHandler(deps)
 	chatH := NewAgentChatHandler(deps)
+	shareH := NewShareHandler(deps)
 
 	sessionH := NewAgentSessionHandler(deps)
 	tenantFormH := NewTenantAgentFormHandler(deps)
@@ -61,6 +62,9 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 		agentAdminGroup.PATCH("/:id", agentH.UpdateAgent)
 		agentAdminGroup.POST("/:id/enable", agentH.EnableAgent)
 		agentAdminGroup.POST("/:id/disable", agentH.DisableAgent)
+
+		agentAdminGroup.POST("/:id/shares", shareH.CreateShare)
+		agentAdminGroup.POST("/shares/:share_id/revoke", shareH.RevokeShare)
 		agentAdminGroup.DELETE("/:id", agentH.DeleteAgent)
 
 		// 智能体 AI 配置

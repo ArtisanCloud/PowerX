@@ -27,6 +27,7 @@ func MigrateAgentModels(db *gorm.DB) error {
 		&dbmodel.AgentProfileLifecycle{},
 		&dbmodel.AgentLifecycleEventRecord{},
 		&dbmodel.AgentHealthSnapshotRecord{},
+		&dbmodel.AgentShareRecord{},
 		&dbmodel.AgentTenantForm{},
 	)
 

@@ -324,6 +324,48 @@ func (s *Server) RunSandbox(ctx context.Context, req *agentv1.RunSandboxRequest)
 	return &agentv1.RunSandboxResponse{Sandbox: toProtoSandboxResult(result)}, nil
 }
 
+func (s *Server) ShareAgent(ctx context.Context, req *agentv1.CreateAgentShareRequest) (*agentv1.AgentShareResponse, error) {
+	if s.service == nil {
+		return nil, status.Error(codes.Unavailable, "agent lifecycle service unavailable")
+	}
+	agentID, err := uuid.Parse(req.GetAgentId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid agent_id: %v", err)
+	}
+	share, err := s.service.ShareAgent(ctx, agent_lifecycle.ShareInput{
+		AgentID:     agentID,
+		TenantID:    req.GetTenantId(),
+		Quotas:      shareQuotasFromProto(req.GetQuotas()),
+		Metadata:    req.GetMetadata(),
+		RequestedBy: req.GetRequestedBy(),
+		TraceID:     req.GetTraceId(),
+	})
+	if err != nil {
+		return nil, toStatusError(err)
+	}
+	return toProtoShare(share), nil
+}
+
+func (s *Server) RevokeAgentShare(ctx context.Context, req *agentv1.RevokeAgentShareRequest) (*agentv1.AgentShareResponse, error) {
+	if s.service == nil {
+		return nil, status.Error(codes.Unavailable, "agent lifecycle service unavailable")
+	}
+	shareID, err := uuid.Parse(req.GetShareId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid share_id: %v", err)
+	}
+	share, err := s.service.RevokeAgentShare(ctx, agent_lifecycle.RevokeShareInput{
+		ShareID:     shareID,
+		Reason:      req.GetReason(),
+		RequestedBy: req.GetRequestedBy(),
+		TraceID:     req.GetTraceId(),
+	})
+	if err != nil {
+		return nil, toStatusError(err)
+	}
+	return toProtoShare(share), nil
+}
+
 func toProtoAgent(agent *agent_lifecycle.Agent) *agentv1.Agent {
 	if agent == nil {
 		return nil
@@ -523,6 +565,36 @@ func toProtoSandboxResult(res *agent_lifecycle.SandboxRunResult) *agentv1.Sandbo
 	}
 }
 
+func toProtoShare(share *agent_lifecycle.AgentShare) *agentv1.AgentShareResponse {
+	if share == nil {
+		return nil
+	}
+	resp := &agentv1.AgentShareResponse{
+		ShareId:  share.ID.String(),
+		Status:   share.Status,
+		TenantId: share.TenantID,
+		IssuedAt: share.CreatedAt,
+	}
+	if share.RevokedAt != nil {
+		resp.RevokedAt = *share.RevokedAt
+	}
+	return resp
+}
+
+func shareQuotasFromProto(items []*agentv1.ShareQuota) []agent_lifecycle.ShareQuota {
+	if len(items) == 0 {
+		return nil
+	}
+	quotas := make([]agent_lifecycle.ShareQuota, 0, len(items))
+	for _, item := range items {
+		quotas = append(quotas, agent_lifecycle.ShareQuota{
+			Type:  item.GetType(),
+			Limit: item.GetLimit(),
+		})
+	}
+	return quotas
+}
+
 func toStatusError(err error) error {
 	switch {
 	case errors.Is(err, agent_lifecycle.ErrAliasConflict):
@@ -541,6 +613,12 @@ func toStatusError(err error) error {
 		return status.Error(codes.PermissionDenied, err.Error())
 	case errors.Is(err, agent_lifecycle.ErrSandboxExecutionFailed):
 		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, agent_lifecycle.ErrAgentShareExists):
+		return status.Error(codes.AlreadyExists, err.Error())
+	case errors.Is(err, agent_lifecycle.ErrAgentShareNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, agent_lifecycle.ErrShareValidationFailed):
+		return status.Error(codes.InvalidArgument, err.Error())
 	default:
 		return status.Error(codes.Internal, err.Error())
 	}

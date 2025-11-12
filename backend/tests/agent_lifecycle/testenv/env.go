@@ -37,6 +37,8 @@ type Env struct {
 	Notifier          *MockNotifier
 	ManifestValidator *MockManifestValidator
 	SandboxRunner     *MockSandboxRunner
+	ShareValidator    *MockShareValidator
+	QuotaProvisioner  *MockQuotaProvisioner
 }
 
 // New 构造测试环境。
@@ -58,6 +60,7 @@ func New(t testing.TB) *Env {
 		&agentmodel.AgentProfileLifecycle{},
 		&agentmodel.AgentLifecycleEventRecord{},
 		&agentmodel.AgentHealthSnapshotRecord{},
+		&agentmodel.AgentShareRecord{},
 		&agentmodel.AgentTenantForm{},
 	); err != nil {
 		t.Fatalf("auto migrate: %v", err)
@@ -77,14 +80,21 @@ func New(t testing.TB) *Env {
 	profileRepo := agentrepo.NewAgentProfileLifecycleRepository(db)
 	eventRepo := agentrepo.NewAgentLifecycleEventRepository(db)
 	healthRepo := agentrepo.NewAgentHealthSnapshotRepository(db)
+	shareRepo := agentrepo.NewAgentShareRepository(db)
 	tenantFormRepo := agentrepo.NewAgentTenantFormRepository(db)
 	policyEngine := agent_lifecycle.NewDefaultPolicyConflictEngine(agent_lifecycle.PolicyEngineOptions{})
 	approvalFlow := workflow.NewAgentApprovalFlow()
+
+	manifestValidator := NewMockManifestValidator()
+	sandboxRunner := NewMockSandboxRunner()
+	shareValidator := NewMockShareValidator()
+	quotaProvisioner := NewMockQuotaProvisioner()
 
 	service := agent_lifecycle.NewService(agent_lifecycle.ServiceOptions{
 		ProfileRepo:     profileRepo,
 		LifecycleRepo:   eventRepo,
 		HealthRepo:      healthRepo,
+		ShareRepo:       shareRepo,
 		TenantFormRepo:  tenantFormRepo,
 		EventBus:        bus,
 		Notifier:        notifier,
@@ -96,15 +106,20 @@ func New(t testing.TB) *Env {
 				HealthPrefix:    "agent.health",
 			},
 		},
-		Clock:        time.Now,
-		PolicyEngine: policyEngine,
-		ApprovalFlow: approvalFlow,
+		Clock:             time.Now,
+		PolicyEngine:      policyEngine,
+		ApprovalFlow:      approvalFlow,
+		ManifestValidator: manifestValidator,
+		SandboxRunner:     sandboxRunner,
+		ShareValidator:    shareValidator,
+		QuotaProvisioner:  quotaProvisioner,
 	})
 
 	agentDeps := &shared.AgentLifecycleDeps{
 		ProfileRepo:     profileRepo,
 		LifecycleRepo:   eventRepo,
 		HealthRepo:      healthRepo,
+		ShareRepo:       shareRepo,
 		TenantFormRepo:  tenantFormRepo,
 		Instrumentation: inst,
 		Notifications:   notifier,
@@ -119,20 +134,17 @@ func New(t testing.TB) *Env {
 				HealthPrefix:    "agent.health",
 			},
 		},
-		Service:      service,
-		PolicyEngine: policyEngine,
-		ApprovalFlow: approvalFlow,
+		Service:          service,
+		PolicyEngine:     policyEngine,
+		ApprovalFlow:     approvalFlow,
+		ShareValidator:   shareValidator,
+		QuotaProvisioner: quotaProvisioner,
 	}
 
 	deps := &shared.Deps{
 		EventBus:       bus,
 		AgentLifecycle: agentDeps,
 	}
-
-	manifestValidator := NewMockManifestValidator()
-	sandboxRunner := NewMockSandboxRunner()
-	service.SetManifestValidator(manifestValidator)
-	service.SetSandboxRunner(sandboxRunner)
 
 	return &Env{
 		T:                 t,
@@ -143,6 +155,8 @@ func New(t testing.TB) *Env {
 		Notifier:          notifier,
 		ManifestValidator: manifestValidator,
 		SandboxRunner:     sandboxRunner,
+		ShareValidator:    shareValidator,
+		QuotaProvisioner:  quotaProvisioner,
 	}
 }
 
@@ -323,4 +337,69 @@ func (m *MockSandboxRunner) LastInput() *agent_lifecycle.SandboxRunInput {
 	}
 	latest := m.RunInputs[len(m.RunInputs)-1]
 	return &latest
+}
+
+// MockShareValidator 控制共享验证。
+type ShareValidationCall struct {
+	AgentID  uuid.UUID
+	TenantID string
+	Quotas   []agent_lifecycle.ShareQuota
+	Metadata map[string]string
+}
+
+type MockShareValidator struct {
+	mu    sync.Mutex
+	Err   error
+	Calls []ShareValidationCall
+}
+
+func NewMockShareValidator() *MockShareValidator {
+	return &MockShareValidator{}
+}
+
+func (m *MockShareValidator) Validate(_ context.Context, agent *agent_lifecycle.Agent, tenantID string, quotas []agent_lifecycle.ShareQuota, metadata map[string]string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	call := ShareValidationCall{
+		TenantID: tenantID,
+		Quotas:   append([]agent_lifecycle.ShareQuota(nil), quotas...),
+	}
+	if agent != nil {
+		call.AgentID = agent.ID
+	}
+	if len(metadata) > 0 {
+		call.Metadata = make(map[string]string, len(metadata))
+		for k, v := range metadata {
+			call.Metadata[k] = v
+		}
+	}
+	m.Calls = append(m.Calls, call)
+	return m.Err
+}
+
+// MockQuotaProvisioner 控制配额复制。
+type MockQuotaProvisioner struct {
+	mu             sync.Mutex
+	ProvisionCalls int
+	ReleaseCalls   int
+	ErrProvision   error
+	ErrRelease     error
+}
+
+func NewMockQuotaProvisioner() *MockQuotaProvisioner {
+	return &MockQuotaProvisioner{}
+}
+
+func (m *MockQuotaProvisioner) Provision(_ context.Context, _ *agent_lifecycle.Agent, _ string, _ []agent_lifecycle.ShareQuota, _ map[string]string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.ProvisionCalls++
+	return m.ErrProvision
+}
+
+func (m *MockQuotaProvisioner) Release(_ context.Context, _ *agent_lifecycle.AgentShare) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.ReleaseCalls++
+	return m.ErrRelease
 }

@@ -2229,6 +2229,286 @@ func (x *RunSandboxResponse) GetSandbox() *SandboxResult {
 	return nil
 }
 
+type CreateAgentShareRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	AgentId       string                 `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
+	TenantId      string                 `protobuf:"bytes,2,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	RequestedBy   string                 `protobuf:"bytes,3,opt,name=requested_by,json=requestedBy,proto3" json:"requested_by,omitempty"`
+	TraceId       string                 `protobuf:"bytes,4,opt,name=trace_id,json=traceId,proto3" json:"trace_id,omitempty"`
+	Quotas        []*ShareQuota          `protobuf:"bytes,5,rep,name=quotas,proto3" json:"quotas,omitempty"`
+	Metadata      map[string]string      `protobuf:"bytes,6,rep,name=metadata,proto3" json:"metadata,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateAgentShareRequest) Reset() {
+	*x = CreateAgentShareRequest{}
+	mi := &file_powerx_agent_v1_agent_lifecycle_proto_msgTypes[29]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateAgentShareRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateAgentShareRequest) ProtoMessage() {}
+
+func (x *CreateAgentShareRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_powerx_agent_v1_agent_lifecycle_proto_msgTypes[29]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateAgentShareRequest.ProtoReflect.Descriptor instead.
+func (*CreateAgentShareRequest) Descriptor() ([]byte, []int) {
+	return file_powerx_agent_v1_agent_lifecycle_proto_rawDescGZIP(), []int{29}
+}
+
+func (x *CreateAgentShareRequest) GetAgentId() string {
+	if x != nil {
+		return x.AgentId
+	}
+	return ""
+}
+
+func (x *CreateAgentShareRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *CreateAgentShareRequest) GetRequestedBy() string {
+	if x != nil {
+		return x.RequestedBy
+	}
+	return ""
+}
+
+func (x *CreateAgentShareRequest) GetTraceId() string {
+	if x != nil {
+		return x.TraceId
+	}
+	return ""
+}
+
+func (x *CreateAgentShareRequest) GetQuotas() []*ShareQuota {
+	if x != nil {
+		return x.Quotas
+	}
+	return nil
+}
+
+func (x *CreateAgentShareRequest) GetMetadata() map[string]string {
+	if x != nil {
+		return x.Metadata
+	}
+	return nil
+}
+
+type ShareQuota struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Type          string                 `protobuf:"bytes,1,opt,name=type,proto3" json:"type,omitempty"`
+	Limit         int32                  `protobuf:"varint,2,opt,name=limit,proto3" json:"limit,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ShareQuota) Reset() {
+	*x = ShareQuota{}
+	mi := &file_powerx_agent_v1_agent_lifecycle_proto_msgTypes[30]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ShareQuota) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ShareQuota) ProtoMessage() {}
+
+func (x *ShareQuota) ProtoReflect() protoreflect.Message {
+	mi := &file_powerx_agent_v1_agent_lifecycle_proto_msgTypes[30]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ShareQuota.ProtoReflect.Descriptor instead.
+func (*ShareQuota) Descriptor() ([]byte, []int) {
+	return file_powerx_agent_v1_agent_lifecycle_proto_rawDescGZIP(), []int{30}
+}
+
+func (x *ShareQuota) GetType() string {
+	if x != nil {
+		return x.Type
+	}
+	return ""
+}
+
+func (x *ShareQuota) GetLimit() int32 {
+	if x != nil {
+		return x.Limit
+	}
+	return 0
+}
+
+type AgentShareResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ShareId       string                 `protobuf:"bytes,1,opt,name=share_id,json=shareId,proto3" json:"share_id,omitempty"`
+	Status        string                 `protobuf:"bytes,2,opt,name=status,proto3" json:"status,omitempty"`
+	IssuedAt      string                 `protobuf:"bytes,3,opt,name=issued_at,json=issuedAt,proto3" json:"issued_at,omitempty"`
+	RevokedAt     string                 `protobuf:"bytes,4,opt,name=revoked_at,json=revokedAt,proto3" json:"revoked_at,omitempty"`
+	TenantId      string                 `protobuf:"bytes,5,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AgentShareResponse) Reset() {
+	*x = AgentShareResponse{}
+	mi := &file_powerx_agent_v1_agent_lifecycle_proto_msgTypes[31]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AgentShareResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AgentShareResponse) ProtoMessage() {}
+
+func (x *AgentShareResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_powerx_agent_v1_agent_lifecycle_proto_msgTypes[31]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AgentShareResponse.ProtoReflect.Descriptor instead.
+func (*AgentShareResponse) Descriptor() ([]byte, []int) {
+	return file_powerx_agent_v1_agent_lifecycle_proto_rawDescGZIP(), []int{31}
+}
+
+func (x *AgentShareResponse) GetShareId() string {
+	if x != nil {
+		return x.ShareId
+	}
+	return ""
+}
+
+func (x *AgentShareResponse) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *AgentShareResponse) GetIssuedAt() string {
+	if x != nil {
+		return x.IssuedAt
+	}
+	return ""
+}
+
+func (x *AgentShareResponse) GetRevokedAt() string {
+	if x != nil {
+		return x.RevokedAt
+	}
+	return ""
+}
+
+func (x *AgentShareResponse) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+type RevokeAgentShareRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ShareId       string                 `protobuf:"bytes,1,opt,name=share_id,json=shareId,proto3" json:"share_id,omitempty"`
+	Reason        string                 `protobuf:"bytes,2,opt,name=reason,proto3" json:"reason,omitempty"`
+	RequestedBy   string                 `protobuf:"bytes,3,opt,name=requested_by,json=requestedBy,proto3" json:"requested_by,omitempty"`
+	TraceId       string                 `protobuf:"bytes,4,opt,name=trace_id,json=traceId,proto3" json:"trace_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RevokeAgentShareRequest) Reset() {
+	*x = RevokeAgentShareRequest{}
+	mi := &file_powerx_agent_v1_agent_lifecycle_proto_msgTypes[32]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RevokeAgentShareRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RevokeAgentShareRequest) ProtoMessage() {}
+
+func (x *RevokeAgentShareRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_powerx_agent_v1_agent_lifecycle_proto_msgTypes[32]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RevokeAgentShareRequest.ProtoReflect.Descriptor instead.
+func (*RevokeAgentShareRequest) Descriptor() ([]byte, []int) {
+	return file_powerx_agent_v1_agent_lifecycle_proto_rawDescGZIP(), []int{32}
+}
+
+func (x *RevokeAgentShareRequest) GetShareId() string {
+	if x != nil {
+		return x.ShareId
+	}
+	return ""
+}
+
+func (x *RevokeAgentShareRequest) GetReason() string {
+	if x != nil {
+		return x.Reason
+	}
+	return ""
+}
+
+func (x *RevokeAgentShareRequest) GetRequestedBy() string {
+	if x != nil {
+		return x.RequestedBy
+	}
+	return ""
+}
+
+func (x *RevokeAgentShareRequest) GetTraceId() string {
+	if x != nil {
+		return x.TraceId
+	}
+	return ""
+}
+
 var File_powerx_agent_v1_agent_lifecycle_proto protoreflect.FileDescriptor
 
 var file_powerx_agent_v1_agent_lifecycle_proto_rawDesc = string([]byte{
@@ -2616,7 +2896,51 @@ var file_powerx_agent_v1_agent_lifecycle_proto_rawDesc = string([]byte{
 	0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x38, 0x0a, 0x07, 0x73, 0x61, 0x6e, 0x64, 0x62, 0x6f, 0x78,
 	0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x1e, 0x2e, 0x70, 0x6f, 0x77, 0x65, 0x72, 0x78, 0x2e,
 	0x61, 0x67, 0x65, 0x6e, 0x74, 0x2e, 0x76, 0x31, 0x2e, 0x53, 0x61, 0x6e, 0x64, 0x62, 0x6f, 0x78,
-	0x52, 0x65, 0x73, 0x75, 0x6c, 0x74, 0x52, 0x07, 0x73, 0x61, 0x6e, 0x64, 0x62, 0x6f, 0x78, 0x2a,
+	0x52, 0x65, 0x73, 0x75, 0x6c, 0x74, 0x52, 0x07, 0x73, 0x61, 0x6e, 0x64, 0x62, 0x6f, 0x78, 0x22,
+	0xd5, 0x02, 0x0a, 0x17, 0x43, 0x72, 0x65, 0x61, 0x74, 0x65, 0x41, 0x67, 0x65, 0x6e, 0x74, 0x53,
+	0x68, 0x61, 0x72, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x19, 0x0a, 0x08, 0x61,
+	0x67, 0x65, 0x6e, 0x74, 0x5f, 0x69, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x07, 0x61,
+	0x67, 0x65, 0x6e, 0x74, 0x49, 0x64, 0x12, 0x1b, 0x0a, 0x09, 0x74, 0x65, 0x6e, 0x61, 0x6e, 0x74,
+	0x5f, 0x69, 0x64, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x08, 0x74, 0x65, 0x6e, 0x61, 0x6e,
+	0x74, 0x49, 0x64, 0x12, 0x21, 0x0a, 0x0c, 0x72, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x65, 0x64,
+	0x5f, 0x62, 0x79, 0x18, 0x03, 0x20, 0x01, 0x28, 0x09, 0x52, 0x0b, 0x72, 0x65, 0x71, 0x75, 0x65,
+	0x73, 0x74, 0x65, 0x64, 0x42, 0x79, 0x12, 0x19, 0x0a, 0x08, 0x74, 0x72, 0x61, 0x63, 0x65, 0x5f,
+	0x69, 0x64, 0x18, 0x04, 0x20, 0x01, 0x28, 0x09, 0x52, 0x07, 0x74, 0x72, 0x61, 0x63, 0x65, 0x49,
+	0x64, 0x12, 0x33, 0x0a, 0x06, 0x71, 0x75, 0x6f, 0x74, 0x61, 0x73, 0x18, 0x05, 0x20, 0x03, 0x28,
+	0x0b, 0x32, 0x1b, 0x2e, 0x70, 0x6f, 0x77, 0x65, 0x72, 0x78, 0x2e, 0x61, 0x67, 0x65, 0x6e, 0x74,
+	0x2e, 0x76, 0x31, 0x2e, 0x53, 0x68, 0x61, 0x72, 0x65, 0x51, 0x75, 0x6f, 0x74, 0x61, 0x52, 0x06,
+	0x71, 0x75, 0x6f, 0x74, 0x61, 0x73, 0x12, 0x52, 0x0a, 0x08, 0x6d, 0x65, 0x74, 0x61, 0x64, 0x61,
+	0x74, 0x61, 0x18, 0x06, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x36, 0x2e, 0x70, 0x6f, 0x77, 0x65, 0x72,
+	0x78, 0x2e, 0x61, 0x67, 0x65, 0x6e, 0x74, 0x2e, 0x76, 0x31, 0x2e, 0x43, 0x72, 0x65, 0x61, 0x74,
+	0x65, 0x41, 0x67, 0x65, 0x6e, 0x74, 0x53, 0x68, 0x61, 0x72, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65,
+	0x73, 0x74, 0x2e, 0x4d, 0x65, 0x74, 0x61, 0x64, 0x61, 0x74, 0x61, 0x45, 0x6e, 0x74, 0x72, 0x79,
+	0x52, 0x08, 0x6d, 0x65, 0x74, 0x61, 0x64, 0x61, 0x74, 0x61, 0x1a, 0x3b, 0x0a, 0x0d, 0x4d, 0x65,
+	0x74, 0x61, 0x64, 0x61, 0x74, 0x61, 0x45, 0x6e, 0x74, 0x72, 0x79, 0x12, 0x10, 0x0a, 0x03, 0x6b,
+	0x65, 0x79, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x03, 0x6b, 0x65, 0x79, 0x12, 0x14, 0x0a,
+	0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x05, 0x76, 0x61,
+	0x6c, 0x75, 0x65, 0x3a, 0x02, 0x38, 0x01, 0x22, 0x36, 0x0a, 0x0a, 0x53, 0x68, 0x61, 0x72, 0x65,
+	0x51, 0x75, 0x6f, 0x74, 0x61, 0x12, 0x12, 0x0a, 0x04, 0x74, 0x79, 0x70, 0x65, 0x18, 0x01, 0x20,
+	0x01, 0x28, 0x09, 0x52, 0x04, 0x74, 0x79, 0x70, 0x65, 0x12, 0x14, 0x0a, 0x05, 0x6c, 0x69, 0x6d,
+	0x69, 0x74, 0x18, 0x02, 0x20, 0x01, 0x28, 0x05, 0x52, 0x05, 0x6c, 0x69, 0x6d, 0x69, 0x74, 0x22,
+	0xa0, 0x01, 0x0a, 0x12, 0x41, 0x67, 0x65, 0x6e, 0x74, 0x53, 0x68, 0x61, 0x72, 0x65, 0x52, 0x65,
+	0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x19, 0x0a, 0x08, 0x73, 0x68, 0x61, 0x72, 0x65, 0x5f,
+	0x69, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x07, 0x73, 0x68, 0x61, 0x72, 0x65, 0x49,
+	0x64, 0x12, 0x16, 0x0a, 0x06, 0x73, 0x74, 0x61, 0x74, 0x75, 0x73, 0x18, 0x02, 0x20, 0x01, 0x28,
+	0x09, 0x52, 0x06, 0x73, 0x74, 0x61, 0x74, 0x75, 0x73, 0x12, 0x1b, 0x0a, 0x09, 0x69, 0x73, 0x73,
+	0x75, 0x65, 0x64, 0x5f, 0x61, 0x74, 0x18, 0x03, 0x20, 0x01, 0x28, 0x09, 0x52, 0x08, 0x69, 0x73,
+	0x73, 0x75, 0x65, 0x64, 0x41, 0x74, 0x12, 0x1d, 0x0a, 0x0a, 0x72, 0x65, 0x76, 0x6f, 0x6b, 0x65,
+	0x64, 0x5f, 0x61, 0x74, 0x18, 0x04, 0x20, 0x01, 0x28, 0x09, 0x52, 0x09, 0x72, 0x65, 0x76, 0x6f,
+	0x6b, 0x65, 0x64, 0x41, 0x74, 0x12, 0x1b, 0x0a, 0x09, 0x74, 0x65, 0x6e, 0x61, 0x6e, 0x74, 0x5f,
+	0x69, 0x64, 0x18, 0x05, 0x20, 0x01, 0x28, 0x09, 0x52, 0x08, 0x74, 0x65, 0x6e, 0x61, 0x6e, 0x74,
+	0x49, 0x64, 0x22, 0x8a, 0x01, 0x0a, 0x17, 0x52, 0x65, 0x76, 0x6f, 0x6b, 0x65, 0x41, 0x67, 0x65,
+	0x6e, 0x74, 0x53, 0x68, 0x61, 0x72, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x19,
+	0x0a, 0x08, 0x73, 0x68, 0x61, 0x72, 0x65, 0x5f, 0x69, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09,
+	0x52, 0x07, 0x73, 0x68, 0x61, 0x72, 0x65, 0x49, 0x64, 0x12, 0x16, 0x0a, 0x06, 0x72, 0x65, 0x61,
+	0x73, 0x6f, 0x6e, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x06, 0x72, 0x65, 0x61, 0x73, 0x6f,
+	0x6e, 0x12, 0x21, 0x0a, 0x0c, 0x72, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x65, 0x64, 0x5f, 0x62,
+	0x79, 0x18, 0x03, 0x20, 0x01, 0x28, 0x09, 0x52, 0x0b, 0x72, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74,
+	0x65, 0x64, 0x42, 0x79, 0x12, 0x19, 0x0a, 0x08, 0x74, 0x72, 0x61, 0x63, 0x65, 0x5f, 0x69, 0x64,
+	0x18, 0x04, 0x20, 0x01, 0x28, 0x09, 0x52, 0x07, 0x74, 0x72, 0x61, 0x63, 0x65, 0x49, 0x64, 0x2a,
 	0x91, 0x01, 0x0a, 0x0b, 0x41, 0x67, 0x65, 0x6e, 0x74, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x12,
 	0x1c, 0x0a, 0x18, 0x41, 0x47, 0x45, 0x4e, 0x54, 0x5f, 0x53, 0x54, 0x41, 0x54, 0x55, 0x53, 0x5f,
 	0x55, 0x4e, 0x53, 0x50, 0x45, 0x43, 0x49, 0x46, 0x49, 0x45, 0x44, 0x10, 0x00, 0x12, 0x18, 0x0a,
@@ -2660,7 +2984,7 @@ var file_powerx_agent_v1_agent_lifecycle_proto_rawDesc = string([]byte{
 	0x53, 0x54, 0x41, 0x54, 0x55, 0x53, 0x5f, 0x55, 0x4e, 0x41, 0x56, 0x41, 0x49, 0x4c, 0x41, 0x42,
 	0x4c, 0x45, 0x10, 0x03, 0x12, 0x19, 0x0a, 0x15, 0x48, 0x45, 0x41, 0x4c, 0x54, 0x48, 0x5f, 0x53,
 	0x54, 0x41, 0x54, 0x55, 0x53, 0x5f, 0x55, 0x4e, 0x4b, 0x4e, 0x4f, 0x57, 0x4e, 0x10, 0x04, 0x32,
-	0x8e, 0x0b, 0x0a, 0x15, 0x41, 0x67, 0x65, 0x6e, 0x74, 0x4c, 0x69, 0x66, 0x65, 0x63, 0x79, 0x63,
+	0xce, 0x0c, 0x0a, 0x15, 0x41, 0x67, 0x65, 0x6e, 0x74, 0x4c, 0x69, 0x66, 0x65, 0x63, 0x79, 0x63,
 	0x6c, 0x65, 0x53, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x12, 0x5e, 0x0a, 0x0d, 0x52, 0x65, 0x67,
 	0x69, 0x73, 0x74, 0x65, 0x72, 0x41, 0x67, 0x65, 0x6e, 0x74, 0x12, 0x25, 0x2e, 0x70, 0x6f, 0x77,
 	0x65, 0x72, 0x78, 0x2e, 0x61, 0x67, 0x65, 0x6e, 0x74, 0x2e, 0x76, 0x31, 0x2e, 0x52, 0x65, 0x67,
@@ -2749,6 +3073,18 @@ var file_powerx_agent_v1_agent_lifecycle_proto_rawDesc = string([]byte{
 	0x64, 0x62, 0x6f, 0x78, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x23, 0x2e, 0x70, 0x6f,
 	0x77, 0x65, 0x72, 0x78, 0x2e, 0x61, 0x67, 0x65, 0x6e, 0x74, 0x2e, 0x76, 0x31, 0x2e, 0x52, 0x75,
 	0x6e, 0x53, 0x61, 0x6e, 0x64, 0x62, 0x6f, 0x78, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65,
+	0x12, 0x5b, 0x0a, 0x0a, 0x53, 0x68, 0x61, 0x72, 0x65, 0x41, 0x67, 0x65, 0x6e, 0x74, 0x12, 0x28,
+	0x2e, 0x70, 0x6f, 0x77, 0x65, 0x72, 0x78, 0x2e, 0x61, 0x67, 0x65, 0x6e, 0x74, 0x2e, 0x76, 0x31,
+	0x2e, 0x43, 0x72, 0x65, 0x61, 0x74, 0x65, 0x41, 0x67, 0x65, 0x6e, 0x74, 0x53, 0x68, 0x61, 0x72,
+	0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x23, 0x2e, 0x70, 0x6f, 0x77, 0x65, 0x72,
+	0x78, 0x2e, 0x61, 0x67, 0x65, 0x6e, 0x74, 0x2e, 0x76, 0x31, 0x2e, 0x41, 0x67, 0x65, 0x6e, 0x74,
+	0x53, 0x68, 0x61, 0x72, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x61, 0x0a,
+	0x10, 0x52, 0x65, 0x76, 0x6f, 0x6b, 0x65, 0x41, 0x67, 0x65, 0x6e, 0x74, 0x53, 0x68, 0x61, 0x72,
+	0x65, 0x12, 0x28, 0x2e, 0x70, 0x6f, 0x77, 0x65, 0x72, 0x78, 0x2e, 0x61, 0x67, 0x65, 0x6e, 0x74,
+	0x2e, 0x76, 0x31, 0x2e, 0x52, 0x65, 0x76, 0x6f, 0x6b, 0x65, 0x41, 0x67, 0x65, 0x6e, 0x74, 0x53,
+	0x68, 0x61, 0x72, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x23, 0x2e, 0x70, 0x6f,
+	0x77, 0x65, 0x72, 0x78, 0x2e, 0x61, 0x67, 0x65, 0x6e, 0x74, 0x2e, 0x76, 0x31, 0x2e, 0x41, 0x67,
+	0x65, 0x6e, 0x74, 0x53, 0x68, 0x61, 0x72, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65,
 	0x42, 0xd0, 0x01, 0x0a, 0x13, 0x63, 0x6f, 0x6d, 0x2e, 0x70, 0x6f, 0x77, 0x65, 0x72, 0x78, 0x2e,
 	0x61, 0x67, 0x65, 0x6e, 0x74, 0x2e, 0x76, 0x31, 0x42, 0x13, 0x41, 0x67, 0x65, 0x6e, 0x74, 0x4c,
 	0x69, 0x66, 0x65, 0x63, 0x79, 0x63, 0x6c, 0x65, 0x50, 0x72, 0x6f, 0x74, 0x6f, 0x50, 0x01, 0x5a,
@@ -2778,7 +3114,7 @@ func file_powerx_agent_v1_agent_lifecycle_proto_rawDescGZIP() []byte {
 }
 
 var file_powerx_agent_v1_agent_lifecycle_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
-var file_powerx_agent_v1_agent_lifecycle_proto_msgTypes = make([]protoimpl.MessageInfo, 33)
+var file_powerx_agent_v1_agent_lifecycle_proto_msgTypes = make([]protoimpl.MessageInfo, 38)
 var file_powerx_agent_v1_agent_lifecycle_proto_goTypes = []any{
 	(AgentStatus)(0),                    // 0: powerx.agent.v1.AgentStatus
 	(LifecycleEventType)(0),             // 1: powerx.agent.v1.LifecycleEventType
@@ -2812,14 +3148,19 @@ var file_powerx_agent_v1_agent_lifecycle_proto_goTypes = []any{
 	(*SandboxResult)(nil),               // 29: powerx.agent.v1.SandboxResult
 	(*RunSandboxRequest)(nil),           // 30: powerx.agent.v1.RunSandboxRequest
 	(*RunSandboxResponse)(nil),          // 31: powerx.agent.v1.RunSandboxResponse
-	nil,                                 // 32: powerx.agent.v1.RegisterAgentRequest.MetadataEntry
-	nil,                                 // 33: powerx.agent.v1.RegisterManifestRequest.MetadataEntry
-	nil,                                 // 34: powerx.agent.v1.RegisterManifestRequest.RateLimitsEntry
-	nil,                                 // 35: powerx.agent.v1.SandboxResult.MetricsEntry
+	(*CreateAgentShareRequest)(nil),     // 32: powerx.agent.v1.CreateAgentShareRequest
+	(*ShareQuota)(nil),                  // 33: powerx.agent.v1.ShareQuota
+	(*AgentShareResponse)(nil),          // 34: powerx.agent.v1.AgentShareResponse
+	(*RevokeAgentShareRequest)(nil),     // 35: powerx.agent.v1.RevokeAgentShareRequest
+	nil,                                 // 36: powerx.agent.v1.RegisterAgentRequest.MetadataEntry
+	nil,                                 // 37: powerx.agent.v1.RegisterManifestRequest.MetadataEntry
+	nil,                                 // 38: powerx.agent.v1.RegisterManifestRequest.RateLimitsEntry
+	nil,                                 // 39: powerx.agent.v1.SandboxResult.MetricsEntry
+	nil,                                 // 40: powerx.agent.v1.CreateAgentShareRequest.MetadataEntry
 }
 var file_powerx_agent_v1_agent_lifecycle_proto_depIdxs = []int32{
 	17, // 0: powerx.agent.v1.RegisterAgentRequest.tool_grants:type_name -> powerx.agent.v1.ToolGrant
-	32, // 1: powerx.agent.v1.RegisterAgentRequest.metadata:type_name -> powerx.agent.v1.RegisterAgentRequest.MetadataEntry
+	36, // 1: powerx.agent.v1.RegisterAgentRequest.metadata:type_name -> powerx.agent.v1.RegisterAgentRequest.MetadataEntry
 	16, // 2: powerx.agent.v1.RegisterAgentResponse.agent:type_name -> powerx.agent.v1.Agent
 	16, // 3: powerx.agent.v1.GetAgentResponse.agent:type_name -> powerx.agent.v1.Agent
 	18, // 4: powerx.agent.v1.LifecycleEventResponse.event:type_name -> powerx.agent.v1.LifecycleEvent
@@ -2839,45 +3180,51 @@ var file_powerx_agent_v1_agent_lifecycle_proto_depIdxs = []int32{
 	22, // 18: powerx.agent.v1.UpdateSubscriptionResponse.config:type_name -> powerx.agent.v1.SubscriptionConfig
 	22, // 19: powerx.agent.v1.GetSubscriptionResponse.config:type_name -> powerx.agent.v1.SubscriptionConfig
 	17, // 20: powerx.agent.v1.RegisterManifestRequest.tool_grants:type_name -> powerx.agent.v1.ToolGrant
-	33, // 21: powerx.agent.v1.RegisterManifestRequest.metadata:type_name -> powerx.agent.v1.RegisterManifestRequest.MetadataEntry
-	34, // 22: powerx.agent.v1.RegisterManifestRequest.rate_limits:type_name -> powerx.agent.v1.RegisterManifestRequest.RateLimitsEntry
+	37, // 21: powerx.agent.v1.RegisterManifestRequest.metadata:type_name -> powerx.agent.v1.RegisterManifestRequest.MetadataEntry
+	38, // 22: powerx.agent.v1.RegisterManifestRequest.rate_limits:type_name -> powerx.agent.v1.RegisterManifestRequest.RateLimitsEntry
 	16, // 23: powerx.agent.v1.RegisterManifestResponse.agent:type_name -> powerx.agent.v1.Agent
 	29, // 24: powerx.agent.v1.RegisterManifestResponse.sandbox:type_name -> powerx.agent.v1.SandboxResult
-	35, // 25: powerx.agent.v1.SandboxResult.metrics:type_name -> powerx.agent.v1.SandboxResult.MetricsEntry
+	39, // 25: powerx.agent.v1.SandboxResult.metrics:type_name -> powerx.agent.v1.SandboxResult.MetricsEntry
 	29, // 26: powerx.agent.v1.RunSandboxResponse.sandbox:type_name -> powerx.agent.v1.SandboxResult
-	3,  // 27: powerx.agent.v1.AgentLifecycleService.RegisterAgent:input_type -> powerx.agent.v1.RegisterAgentRequest
-	5,  // 28: powerx.agent.v1.AgentLifecycleService.GetAgent:input_type -> powerx.agent.v1.GetAgentRequest
-	7,  // 29: powerx.agent.v1.AgentLifecycleService.ActivateAgent:input_type -> powerx.agent.v1.LifecycleCommandRequest
-	7,  // 30: powerx.agent.v1.AgentLifecycleService.PauseAgent:input_type -> powerx.agent.v1.LifecycleCommandRequest
-	7,  // 31: powerx.agent.v1.AgentLifecycleService.ResumeAgent:input_type -> powerx.agent.v1.LifecycleCommandRequest
-	7,  // 32: powerx.agent.v1.AgentLifecycleService.RetireAgent:input_type -> powerx.agent.v1.LifecycleCommandRequest
-	8,  // 33: powerx.agent.v1.AgentLifecycleService.ScaleAgent:input_type -> powerx.agent.v1.ScaleAgentRequest
-	10, // 34: powerx.agent.v1.AgentLifecycleService.ListLifecycleEvents:input_type -> powerx.agent.v1.ListLifecycleEventsRequest
-	12, // 35: powerx.agent.v1.AgentLifecycleService.GetHealthSummary:input_type -> powerx.agent.v1.GetHealthSummaryRequest
-	14, // 36: powerx.agent.v1.AgentLifecycleService.ListHealthSnapshots:input_type -> powerx.agent.v1.ListHealthSnapshotsRequest
-	23, // 37: powerx.agent.v1.AgentLifecycleService.UpdateSubscription:input_type -> powerx.agent.v1.UpdateSubscriptionRequest
-	25, // 38: powerx.agent.v1.AgentLifecycleService.GetSubscription:input_type -> powerx.agent.v1.GetSubscriptionRequest
-	27, // 39: powerx.agent.v1.AgentLifecycleService.RegisterManifest:input_type -> powerx.agent.v1.RegisterManifestRequest
-	30, // 40: powerx.agent.v1.AgentLifecycleService.RunSandbox:input_type -> powerx.agent.v1.RunSandboxRequest
-	4,  // 41: powerx.agent.v1.AgentLifecycleService.RegisterAgent:output_type -> powerx.agent.v1.RegisterAgentResponse
-	6,  // 42: powerx.agent.v1.AgentLifecycleService.GetAgent:output_type -> powerx.agent.v1.GetAgentResponse
-	9,  // 43: powerx.agent.v1.AgentLifecycleService.ActivateAgent:output_type -> powerx.agent.v1.LifecycleEventResponse
-	9,  // 44: powerx.agent.v1.AgentLifecycleService.PauseAgent:output_type -> powerx.agent.v1.LifecycleEventResponse
-	9,  // 45: powerx.agent.v1.AgentLifecycleService.ResumeAgent:output_type -> powerx.agent.v1.LifecycleEventResponse
-	9,  // 46: powerx.agent.v1.AgentLifecycleService.RetireAgent:output_type -> powerx.agent.v1.LifecycleEventResponse
-	9,  // 47: powerx.agent.v1.AgentLifecycleService.ScaleAgent:output_type -> powerx.agent.v1.LifecycleEventResponse
-	11, // 48: powerx.agent.v1.AgentLifecycleService.ListLifecycleEvents:output_type -> powerx.agent.v1.ListLifecycleEventsResponse
-	13, // 49: powerx.agent.v1.AgentLifecycleService.GetHealthSummary:output_type -> powerx.agent.v1.GetHealthSummaryResponse
-	15, // 50: powerx.agent.v1.AgentLifecycleService.ListHealthSnapshots:output_type -> powerx.agent.v1.ListHealthSnapshotsResponse
-	24, // 51: powerx.agent.v1.AgentLifecycleService.UpdateSubscription:output_type -> powerx.agent.v1.UpdateSubscriptionResponse
-	26, // 52: powerx.agent.v1.AgentLifecycleService.GetSubscription:output_type -> powerx.agent.v1.GetSubscriptionResponse
-	28, // 53: powerx.agent.v1.AgentLifecycleService.RegisterManifest:output_type -> powerx.agent.v1.RegisterManifestResponse
-	31, // 54: powerx.agent.v1.AgentLifecycleService.RunSandbox:output_type -> powerx.agent.v1.RunSandboxResponse
-	41, // [41:55] is the sub-list for method output_type
-	27, // [27:41] is the sub-list for method input_type
-	27, // [27:27] is the sub-list for extension type_name
-	27, // [27:27] is the sub-list for extension extendee
-	0,  // [0:27] is the sub-list for field type_name
+	33, // 27: powerx.agent.v1.CreateAgentShareRequest.quotas:type_name -> powerx.agent.v1.ShareQuota
+	40, // 28: powerx.agent.v1.CreateAgentShareRequest.metadata:type_name -> powerx.agent.v1.CreateAgentShareRequest.MetadataEntry
+	3,  // 29: powerx.agent.v1.AgentLifecycleService.RegisterAgent:input_type -> powerx.agent.v1.RegisterAgentRequest
+	5,  // 30: powerx.agent.v1.AgentLifecycleService.GetAgent:input_type -> powerx.agent.v1.GetAgentRequest
+	7,  // 31: powerx.agent.v1.AgentLifecycleService.ActivateAgent:input_type -> powerx.agent.v1.LifecycleCommandRequest
+	7,  // 32: powerx.agent.v1.AgentLifecycleService.PauseAgent:input_type -> powerx.agent.v1.LifecycleCommandRequest
+	7,  // 33: powerx.agent.v1.AgentLifecycleService.ResumeAgent:input_type -> powerx.agent.v1.LifecycleCommandRequest
+	7,  // 34: powerx.agent.v1.AgentLifecycleService.RetireAgent:input_type -> powerx.agent.v1.LifecycleCommandRequest
+	8,  // 35: powerx.agent.v1.AgentLifecycleService.ScaleAgent:input_type -> powerx.agent.v1.ScaleAgentRequest
+	10, // 36: powerx.agent.v1.AgentLifecycleService.ListLifecycleEvents:input_type -> powerx.agent.v1.ListLifecycleEventsRequest
+	12, // 37: powerx.agent.v1.AgentLifecycleService.GetHealthSummary:input_type -> powerx.agent.v1.GetHealthSummaryRequest
+	14, // 38: powerx.agent.v1.AgentLifecycleService.ListHealthSnapshots:input_type -> powerx.agent.v1.ListHealthSnapshotsRequest
+	23, // 39: powerx.agent.v1.AgentLifecycleService.UpdateSubscription:input_type -> powerx.agent.v1.UpdateSubscriptionRequest
+	25, // 40: powerx.agent.v1.AgentLifecycleService.GetSubscription:input_type -> powerx.agent.v1.GetSubscriptionRequest
+	27, // 41: powerx.agent.v1.AgentLifecycleService.RegisterManifest:input_type -> powerx.agent.v1.RegisterManifestRequest
+	30, // 42: powerx.agent.v1.AgentLifecycleService.RunSandbox:input_type -> powerx.agent.v1.RunSandboxRequest
+	32, // 43: powerx.agent.v1.AgentLifecycleService.ShareAgent:input_type -> powerx.agent.v1.CreateAgentShareRequest
+	35, // 44: powerx.agent.v1.AgentLifecycleService.RevokeAgentShare:input_type -> powerx.agent.v1.RevokeAgentShareRequest
+	4,  // 45: powerx.agent.v1.AgentLifecycleService.RegisterAgent:output_type -> powerx.agent.v1.RegisterAgentResponse
+	6,  // 46: powerx.agent.v1.AgentLifecycleService.GetAgent:output_type -> powerx.agent.v1.GetAgentResponse
+	9,  // 47: powerx.agent.v1.AgentLifecycleService.ActivateAgent:output_type -> powerx.agent.v1.LifecycleEventResponse
+	9,  // 48: powerx.agent.v1.AgentLifecycleService.PauseAgent:output_type -> powerx.agent.v1.LifecycleEventResponse
+	9,  // 49: powerx.agent.v1.AgentLifecycleService.ResumeAgent:output_type -> powerx.agent.v1.LifecycleEventResponse
+	9,  // 50: powerx.agent.v1.AgentLifecycleService.RetireAgent:output_type -> powerx.agent.v1.LifecycleEventResponse
+	9,  // 51: powerx.agent.v1.AgentLifecycleService.ScaleAgent:output_type -> powerx.agent.v1.LifecycleEventResponse
+	11, // 52: powerx.agent.v1.AgentLifecycleService.ListLifecycleEvents:output_type -> powerx.agent.v1.ListLifecycleEventsResponse
+	13, // 53: powerx.agent.v1.AgentLifecycleService.GetHealthSummary:output_type -> powerx.agent.v1.GetHealthSummaryResponse
+	15, // 54: powerx.agent.v1.AgentLifecycleService.ListHealthSnapshots:output_type -> powerx.agent.v1.ListHealthSnapshotsResponse
+	24, // 55: powerx.agent.v1.AgentLifecycleService.UpdateSubscription:output_type -> powerx.agent.v1.UpdateSubscriptionResponse
+	26, // 56: powerx.agent.v1.AgentLifecycleService.GetSubscription:output_type -> powerx.agent.v1.GetSubscriptionResponse
+	28, // 57: powerx.agent.v1.AgentLifecycleService.RegisterManifest:output_type -> powerx.agent.v1.RegisterManifestResponse
+	31, // 58: powerx.agent.v1.AgentLifecycleService.RunSandbox:output_type -> powerx.agent.v1.RunSandboxResponse
+	34, // 59: powerx.agent.v1.AgentLifecycleService.ShareAgent:output_type -> powerx.agent.v1.AgentShareResponse
+	34, // 60: powerx.agent.v1.AgentLifecycleService.RevokeAgentShare:output_type -> powerx.agent.v1.AgentShareResponse
+	45, // [45:61] is the sub-list for method output_type
+	29, // [29:45] is the sub-list for method input_type
+	29, // [29:29] is the sub-list for extension type_name
+	29, // [29:29] is the sub-list for extension extendee
+	0,  // [0:29] is the sub-list for field type_name
 }
 
 func init() { file_powerx_agent_v1_agent_lifecycle_proto_init() }
@@ -2895,7 +3242,7 @@ func file_powerx_agent_v1_agent_lifecycle_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_powerx_agent_v1_agent_lifecycle_proto_rawDesc), len(file_powerx_agent_v1_agent_lifecycle_proto_rawDesc)),
 			NumEnums:      3,
-			NumMessages:   33,
+			NumMessages:   38,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

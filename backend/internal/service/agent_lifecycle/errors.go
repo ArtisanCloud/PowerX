@@ -27,6 +27,12 @@ var (
 	ErrTenantFormNotFound = errors.New("tenant agent form not found")
 	// ErrTenantFormInvalidStatus 表示当前状态不允许该操作。
 	ErrTenantFormInvalidStatus = errors.New("tenant agent form status invalid")
+	// ErrAgentShareExists 表示租户已被共享。
+	ErrAgentShareExists = errors.New("agent already shared to tenant")
+	// ErrAgentShareNotFound 表示共享记录不存在。
+	ErrAgentShareNotFound = errors.New("agent share record not found")
+	// ErrShareValidationFailed 表示共享白名单或合规校验失败。
+	ErrShareValidationFailed = errors.New("agent share validation failed")
 )
 
 // PolicyConflict 描述策略冲突详情。

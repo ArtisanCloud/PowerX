@@ -32,6 +32,7 @@ type Config struct {
 	HealthUnavailableThreshold int32
 	SubscriptionCacheTTL       time.Duration
 	AlertCooldown              time.Duration
+	ShareReviewInterval        time.Duration
 }
 
 // EventTopics 定义事件主题前缀。
@@ -52,6 +53,7 @@ type ServiceOptions struct {
 	ProfileRepo       *agentrepo.AgentProfileLifecycleRepository
 	LifecycleRepo     *agentrepo.AgentLifecycleEventRepository
 	HealthRepo        *agentrepo.AgentHealthSnapshotRepository
+	ShareRepo         *agentrepo.AgentShareRepository
 	TenantFormRepo    *agentrepo.AgentTenantFormRepository
 	EventBus          event_bus.EventBus
 	Instrumentation   *agentinstr.Instrumentation
@@ -62,6 +64,8 @@ type ServiceOptions struct {
 	SandboxRunner     SandboxRunner
 	PolicyEngine      PolicyConflictEngine
 	ApprovalFlow      ApprovalFlow
+	ShareValidator    ShareValidator
+	QuotaProvisioner  QuotaProvisioner
 }
 
 // Service 封装 Agent 生命周期核心逻辑。
@@ -69,6 +73,7 @@ type Service struct {
 	profiles          *agentrepo.AgentProfileLifecycleRepository
 	events            *agentrepo.AgentLifecycleEventRepository
 	health            *agentrepo.AgentHealthSnapshotRepository
+	shares            *agentrepo.AgentShareRepository
 	tenantForms       *agentrepo.AgentTenantFormRepository
 	bus               event_bus.EventBus
 	instr             *agentinstr.Instrumentation
@@ -81,6 +86,8 @@ type Service struct {
 	sandboxRunner     SandboxRunner
 	policyEngine      PolicyConflictEngine
 	approvalFlow      ApprovalFlow
+	shareValidator    ShareValidator
+	quotaProvisioner  QuotaProvisioner
 }
 
 // NewService 构建 Service。
@@ -106,6 +113,9 @@ func NewService(opts ServiceOptions) *Service {
 	if opts.Config.AlertCooldown <= 0 {
 		opts.Config.AlertCooldown = 2 * time.Minute
 	}
+	if opts.Config.ShareReviewInterval <= 0 {
+		opts.Config.ShareReviewInterval = 30 * 24 * time.Hour
+	}
 	if opts.Instrumentation == nil {
 		opts.Instrumentation = agentinstr.New(agentinstr.Options{
 			AlertCooldown: opts.Config.AlertCooldown,
@@ -123,11 +133,18 @@ func NewService(opts ServiceOptions) *Service {
 	if opts.ApprovalFlow == nil {
 		opts.ApprovalFlow = newInMemoryApprovalFlow()
 	}
+	if opts.ShareValidator == nil {
+		opts.ShareValidator = NewTenantShareValidator(opts.PolicyEngine, opts.SandboxRunner)
+	}
+	if opts.QuotaProvisioner == nil {
+		opts.QuotaProvisioner = NewDefaultQuotaProvisioner()
+	}
 
 	return &Service{
 		profiles:          opts.ProfileRepo,
 		events:            opts.LifecycleRepo,
 		health:            opts.HealthRepo,
+		shares:            opts.ShareRepo,
 		tenantForms:       opts.TenantFormRepo,
 		bus:               opts.EventBus,
 		instr:             opts.Instrumentation,
@@ -139,6 +156,8 @@ func NewService(opts ServiceOptions) *Service {
 		sandboxRunner:     opts.SandboxRunner,
 		policyEngine:      opts.PolicyEngine,
 		approvalFlow:      opts.ApprovalFlow,
+		shareValidator:    opts.ShareValidator,
+		quotaProvisioner:  opts.QuotaProvisioner,
 	}
 }
 

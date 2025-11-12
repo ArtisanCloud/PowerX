@@ -516,18 +516,21 @@ type IntegrationGatewayDeps struct {
 
 // AgentLifecycleDeps 聚合 Agent 生命周期运行所需依赖。
 type AgentLifecycleDeps struct {
-	ProfileRepo     *agentrepo.AgentProfileLifecycleRepository
-	LifecycleRepo   *agentrepo.AgentLifecycleEventRepository
-	HealthRepo      *agentrepo.AgentHealthSnapshotRepository
-	TenantFormRepo  *agentrepo.AgentTenantFormRepository
-	Instrumentation *agentinstr.Instrumentation
-	Notifications   agentlifecycle.Notifier
-	RedisClient     *redis.Client
-	EventBus        event_bus.EventBus
-	Config          AgentLifecycleRuntimeConfig
-	Service         *agentlifecycle.Service
-	PolicyEngine    agentlifecycle.PolicyConflictEngine
-	ApprovalFlow    agentlifecycle.ApprovalFlow
+	ProfileRepo      *agentrepo.AgentProfileLifecycleRepository
+	LifecycleRepo    *agentrepo.AgentLifecycleEventRepository
+	HealthRepo       *agentrepo.AgentHealthSnapshotRepository
+	ShareRepo        *agentrepo.AgentShareRepository
+	TenantFormRepo   *agentrepo.AgentTenantFormRepository
+	Instrumentation  *agentinstr.Instrumentation
+	Notifications    agentlifecycle.Notifier
+	RedisClient      *redis.Client
+	EventBus         event_bus.EventBus
+	Config           AgentLifecycleRuntimeConfig
+	Service          *agentlifecycle.Service
+	PolicyEngine     agentlifecycle.PolicyConflictEngine
+	ApprovalFlow     agentlifecycle.ApprovalFlow
+	ShareValidator   agentlifecycle.ShareValidator
+	QuotaProvisioner agentlifecycle.QuotaProvisioner
 }
 
 // AgentLifecycleRuntimeConfig 提供运行时常用配置。
@@ -888,14 +891,20 @@ func newAgentLifecycleDeps(db *gorm.DB, opts AgentLifecycleOptions, bus event_bu
 	profileRepo := agentrepo.NewAgentProfileLifecycleRepository(db)
 	lifecycleRepo := agentrepo.NewAgentLifecycleEventRepository(db)
 	healthRepo := agentrepo.NewAgentHealthSnapshotRepository(db)
+	shareRepo := agentrepo.NewAgentShareRepository(db)
 	tenantFormRepo := agentrepo.NewAgentTenantFormRepository(db)
 	policyEngine := agentlifecycle.NewDefaultPolicyConflictEngine(agentlifecycle.PolicyEngineOptions{})
 	approvalFlow := workflow.NewAgentApprovalFlow()
+	var (
+		shareValidator   agentlifecycle.ShareValidator
+		quotaProvisioner agentlifecycle.QuotaProvisioner
+	)
 
 	service := agentlifecycle.NewService(agentlifecycle.ServiceOptions{
 		ProfileRepo:     profileRepo,
 		LifecycleRepo:   lifecycleRepo,
 		HealthRepo:      healthRepo,
+		ShareRepo:       shareRepo,
 		TenantFormRepo:  tenantFormRepo,
 		EventBus:        bus,
 		Instrumentation: inst,
@@ -908,15 +917,18 @@ func newAgentLifecycleDeps(db *gorm.DB, opts AgentLifecycleOptions, bus event_bu
 			},
 			AlertCooldown: alertCooldown,
 		},
-		Clock:             time.Now,
-		PolicyEngine:      policyEngine,
-		ApprovalFlow:      approvalFlow,
+		Clock:            time.Now,
+		PolicyEngine:     policyEngine,
+		ApprovalFlow:     approvalFlow,
+		ShareValidator:   shareValidator,
+		QuotaProvisioner: quotaProvisioner,
 	})
 
 	return &AgentLifecycleDeps{
 		ProfileRepo:     profileRepo,
 		LifecycleRepo:   lifecycleRepo,
 		HealthRepo:      healthRepo,
+		ShareRepo:       shareRepo,
 		TenantFormRepo:  tenantFormRepo,
 		Instrumentation: inst,
 		Notifications:   notifier,
@@ -931,9 +943,11 @@ func newAgentLifecycleDeps(db *gorm.DB, opts AgentLifecycleOptions, bus event_bu
 				HealthPrefix:    opts.EventTopics.HealthPrefix,
 			},
 		},
-		Service:      service,
-		PolicyEngine: policyEngine,
-		ApprovalFlow: approvalFlow,
+		Service:          service,
+		PolicyEngine:     policyEngine,
+		ApprovalFlow:     approvalFlow,
+		ShareValidator:   shareValidator,
+		QuotaProvisioner: quotaProvisioner,
 	}
 }
 

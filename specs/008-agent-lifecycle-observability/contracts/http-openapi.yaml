@@ -16,6 +16,8 @@ tags:
     description: 生命周期控制与事件查询
   - name: Health
     description: 健康观测与告警
+  - name: Sharing
+    description: 多租户共享与撤销
 paths:
   /agents:
     post:
@@ -396,6 +398,13 @@ components:
   parameters:
     AgentId:
       name: agentId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    ShareId:
+      name: shareId
       in: path
       required: true
       schema:
@@ -800,3 +809,119 @@ components:
           type: array
           items:
             type: string
+  /agents/{agentId}/shares:
+    post:
+      tags: [Sharing]
+      summary: 将代理共享给目标租户
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/AgentId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ShareAgentRequest'
+      responses:
+        '201':
+          description: 共享记录已创建
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentShareResource'
+        '400':
+          description: 参数或白名单校验失败
+        '409':
+          description: 已存在共享记录
+  /agents/shares/{shareId}/revoke:
+    post:
+      tags: [Sharing]
+      summary: 撤销现有共享
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ShareId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RevokeShareRequest'
+      responses:
+        '200':
+          description: 共享已撤销
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentShareResource'
+        '404':
+          description: 未找到共享记录
+    ShareAgentRequest:
+      type: object
+      required:
+        - tenantId
+      properties:
+        tenantId:
+          type: string
+        requestedBy:
+          type: string
+        traceId:
+          type: string
+        quotas:
+          type: array
+          items:
+            $ref: '#/components/schemas/ShareQuota'
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+    RevokeShareRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+        requestedBy:
+          type: string
+        traceId:
+          type: string
+    ShareQuota:
+      type: object
+      properties:
+        type:
+          type: string
+        limit:
+          type: integer
+    AgentShareResource:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        agentId:
+          type: string
+          format: uuid
+        tenantId:
+          type: string
+        status:
+          type: string
+        quotas:
+          type: array
+          items:
+            $ref: '#/components/schemas/ShareQuota'
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        revokedAt:
+          type: string
+          format: date-time
+          nullable: true
+        reason:
+          type: string

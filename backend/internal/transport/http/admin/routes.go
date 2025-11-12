@@ -50,6 +50,7 @@ func RegisterAPIRoutes(
 	iam.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	menu.RegisterAPIRoutes(publicGroup, protectedGroup)
 	auth.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
+	// Agent admin routes (includes share/revoke APIs under /admin/agents)
 	agent.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	agentmodelhubHTTP.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	agentlifecycleHTTP.Register(publicGroup, protectedGroup, deps)

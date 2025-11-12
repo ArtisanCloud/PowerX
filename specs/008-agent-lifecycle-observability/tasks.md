@@ -143,15 +143,27 @@
 
 ### Tests
 
-- [ ] T055 [P] [SHARE] 在 `tests/contract/agent_lifecycle/share_http_test.go` 编写共享/撤销合同测试，覆盖白名单/权限校验。
-- [ ] T056 [P] [SHARE] 在 `tests/integration/agent_lifecycle/share_validation_flow_test.go` 演练共享→租户验证→撤销，确认配额复制与撤销回滚。
+- [x] T055a [P] [SHARE] 在 `tests/contract/agent_lifecycle/share_http_test.go` 编写共享申请成功+重复/白名单冲突场景。
+- [x] T055b [P] [SHARE] 在同文件编写撤销/自动回滚/权限拒绝场景。
+- [x] T055c [P] [SHARE] 在 `tests/contract/agent_lifecycle/share_grpc_test.go` 覆盖 ShareAgent/RevokeAgentShare RPC。
+- [x] T055d [P] [SHARE] 在 `tests/contract/agent_lifecycle/share_events_test.go` 校验 `agent.share.*` 事件载荷。
+- [x] T056a [P] [SHARE] 在 `tests/integration/agent_lifecycle/share_validation_flow_test.go` 演练共享→验证→撤销闭环。
+- [x] T056b [P] [SHARE] 在 `tests/integration/agent_lifecycle/share_revocation_failure_test.go` 模拟验证失败/撤销重试，确认告警路径。
 
 ### Implementation
 
-- [ ] T057 [SHARE] 在 `internal/transport/http/admin/agent/share_handlers.go` 与 gRPC 服务实现共享/撤销 API、审计钩子。
-- [ ] T058 [SHARE] 在 `internal/service/agent_lifecycle/quota_provisioner.go` 实现配额/凭证复制与独立速率限制。
-- [ ] T059 [SHARE] 在 `internal/service/agent_lifecycle/tenant_validator.go` 编排沙箱验证、日志分区检查与失败回滚。
-- [ ] T060 [SHARE] 在 `internal/service/agent_lifecycle/share_compliance.go` 实现周期复核、到期撤销、通知与告警。
+- [x] T057a [SHARE] 定义共享数据模型/仓储：`AgentShareRecord` + `AgentShareRepository`（含唯一索引、状态字段）。
+- [x] T057b [SHARE] 在 `internal/service/agent_lifecycle/share_service.go` 实现 ShareAgent/RevokeAgentShare 业务逻辑（审计事件、事件总线、冲突校验）。
+- [x] T057c [SHARE] 在 `internal/transport/http/admin/agent/share_handlers.go` + `grpc/agentlifecycle/server.go` 暴露共享/撤销 API。
+- [x] T057d [SHARE] 在 `internal/transport/http/admin/routes.go` & OpenAPI/Proto 中挂载新端点。
+- [x] T058a [SHARE] 在 `internal/service/agent_lifecycle/quota_provisioner.go` 实现配额/凭证复制、冲突检测、回滚补偿。
+- [x] T058b [SHARE] 接入 IAM/Secret/RateLimit 模块（可用 mock）并在失败时回滚共享记录。
+- [x] T058c [SHARE] 在 `internal/service/agent_lifecycle/share_models.go` 定义配额/共享响应结构。
+- [x] T059a [SHARE] 在 `internal/service/agent_lifecycle/tenant_validator.go` 编排租户验证（沙箱调用、日志分区/上下文隔离校验）。
+- [x] T059b [SHARE] 实现验证失败回滚逻辑（调用 RevokeAgentShare 并写审计、告警）。
+- [x] T060a [SHARE] 在 `internal/service/agent_lifecycle/share_compliance.go` 实现周期复核（到期撤销、验证失败告警、指标写入）。
+- [x] T060b [SHARE] 在 `internal/notifications/im/` & 事件模块中扩展 `agent.share.issued/revoked/validation_failed` 告警。
+- [x] T060c [SHARE] 更新 `contracts/http-openapi.yaml` 与 `agent_lifecycle.proto`、Quickstart，补充共享 API 说明。
 
 ---
 
