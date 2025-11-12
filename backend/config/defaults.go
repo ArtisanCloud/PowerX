@@ -84,6 +84,11 @@ func GetDefaults() *Config {
 				LifecyclePrefix: "agent.lifecycle",
 				HealthPrefix:    "agent.health",
 			},
+			StateBusTopics: AgentLifecycleStateBusTopics{
+				Lifecycle: "statebus.agent.lifecycle",
+				Health:    "statebus.agent.health",
+			},
+			ShareReviewDays: 30,
 			Notifications: AgentLifecycleNotificationConfig{
 				IMWebhook:        "",
 				RetryIntervalSec: 30,

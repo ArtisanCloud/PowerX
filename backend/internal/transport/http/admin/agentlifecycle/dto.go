@@ -63,6 +63,35 @@ type agentGrantDTO struct {
 	ExpiresAt string `json:"expires_at"`
 }
 
+type autoRegisterManifestRequest struct {
+	PluginID                 string            `json:"plugin_id" binding:"required"`
+	PluginVersion            string            `json:"plugin_version" binding:"required"`
+	ManifestVersion          string            `json:"manifest_version" binding:"required"`
+	TenantID                 string            `json:"tenant_id" binding:"required"`
+	Alias                    string            `json:"alias" binding:"required"`
+	DisplayName              string            `json:"display_name"`
+	TelemetryContractVersion string            `json:"telemetry_contract_version" binding:"required"`
+	ToolGrants               []agentGrantDTO   `json:"tool_grants"`
+	DefaultCapacityInstances *int32            `json:"default_capacity_instances"`
+	MaxCapacityInstances     *int32            `json:"max_capacity_instances"`
+	NotificationChannel      string            `json:"notification_channel"`
+	Metadata                 map[string]string `json:"metadata"`
+	Capabilities             []string          `json:"capabilities"`
+	Permissions              []string          `json:"permissions"`
+	RateLimits               map[string]int32  `json:"rate_limits"`
+	SandboxProfile           string            `json:"sandbox_profile"`
+	Signature                string            `json:"signature" binding:"required"`
+	DryRun                   bool              `json:"dry_run"`
+	RequestedBy              string            `json:"requested_by"`
+	TraceID                  string            `json:"trace_id"`
+}
+
+type sandboxRunRequest struct {
+	Profile     string `json:"profile"`
+	RequestedBy string `json:"requested_by"`
+	TraceID     string `json:"trace_id"`
+}
+
 type agentResponse struct {
 	ID                       string            `json:"id"`
 	TenantID                 string            `json:"tenant_id"`
@@ -79,6 +108,20 @@ type agentResponse struct {
 	Metadata                 map[string]string `json:"metadata,omitempty"`
 	CreatedAt                string            `json:"created_at"`
 	UpdatedAt                string            `json:"updated_at"`
+}
+
+type autoRegisterResponse struct {
+	Agent   agentResponse    `json:"agent"`
+	Sandbox *sandboxResponse `json:"sandbox,omitempty"`
+	DryRun  bool             `json:"dry_run"`
+}
+
+type sandboxResponse struct {
+	Status     string             `json:"status"`
+	ReportURL  string             `json:"report_url,omitempty"`
+	Profile    string             `json:"profile,omitempty"`
+	ExecutedAt string             `json:"executed_at,omitempty"`
+	Metrics    map[string]float64 `json:"metrics,omitempty"`
 }
 
 func toRegisterInput(req registerAgentRequest) agent_lifecycle.RegisterInput {
@@ -140,12 +183,83 @@ func fromAgent(agent *agent_lifecycle.Agent) agentResponse {
 	}
 }
 
+func toManifestInput(req autoRegisterManifestRequest) agent_lifecycle.ManifestRegistrationInput {
+	var grants []agent_lifecycle.ToolGrant
+	for _, item := range req.ToolGrants {
+		grants = append(grants, agent_lifecycle.ToolGrant{
+			Name:      item.Name,
+			Version:   item.Version,
+			ExpiresAt: item.ExpiresAt,
+		})
+	}
+	var defaultCapacity int32
+	if req.DefaultCapacityInstances != nil {
+		defaultCapacity = *req.DefaultCapacityInstances
+	}
+	return agent_lifecycle.ManifestRegistrationInput{
+		PluginID:                 req.PluginID,
+		PluginVersion:            req.PluginVersion,
+		ManifestVersion:          req.ManifestVersion,
+		TenantID:                 req.TenantID,
+		Alias:                    req.Alias,
+		DisplayName:              req.DisplayName,
+		ToolGrants:               grants,
+		TelemetryContractVersion: req.TelemetryContractVersion,
+		DefaultCapacityInstances: defaultCapacity,
+		MaxCapacityInstances:     req.MaxCapacityInstances,
+		NotificationChannel:      req.NotificationChannel,
+		Metadata:                 req.Metadata,
+		Capabilities:             req.Capabilities,
+		Permissions:              req.Permissions,
+		RateLimits:               req.RateLimits,
+		SandboxProfile:           req.SandboxProfile,
+		Signature:                req.Signature,
+		RequestedBy:              req.RequestedBy,
+		TraceID:                  req.TraceID,
+		DryRun:                   req.DryRun,
+	}
+}
+
+func fromManifestResult(res *agent_lifecycle.ManifestRegistrationResult) autoRegisterResponse {
+	if res == nil {
+		return autoRegisterResponse{}
+	}
+	response := autoRegisterResponse{
+		DryRun: res.DryRun,
+	}
+	if res.Agent != nil {
+		response.Agent = fromAgent(res.Agent)
+	}
+	if res.Sandbox != nil {
+		resp := fromSandboxResult(res.Sandbox)
+		response.Sandbox = &resp
+	}
+	return response
+}
+
+func fromSandboxResult(result *agent_lifecycle.SandboxRunResult) sandboxResponse {
+	if result == nil {
+		return sandboxResponse{}
+	}
+	executedAt := ""
+	if !result.ExecutedAt.IsZero() {
+		executedAt = result.ExecutedAt.UTC().Format(time.RFC3339)
+	}
+	return sandboxResponse{
+		Status:     result.Status,
+		ReportURL:  result.ReportURL,
+		Profile:    result.Profile,
+		ExecutedAt: executedAt,
+		Metrics:    result.Metrics,
+	}
+}
+
 type healthSummaryResponse struct {
-	Status      string              `json:"status"`
-	HealthScore int32               `json:"health_score"`
-	UpdatedAt   string              `json:"updated_at"`
-	Metrics     agent_lifecycle.HealthMetricsInput `json:"metrics"`
-	Recommendations []string        `json:"recommendations"`
+	Status          string                             `json:"status"`
+	HealthScore     int32                              `json:"health_score"`
+	UpdatedAt       string                             `json:"updated_at"`
+	Metrics         agent_lifecycle.HealthMetricsInput `json:"metrics"`
+	Recommendations []string                           `json:"recommendations"`
 }
 
 type healthHistoryResponse struct {

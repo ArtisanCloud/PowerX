@@ -71,6 +71,10 @@ func (h *Handler) handleError(c *gin.Context, err error) {
 	switch {
 	case errors.Is(err, agent_lifecycle.ErrAgentNotFound):
 		dto.ResponseError(c, http.StatusNotFound, "agent not found", err)
+	case errors.Is(err, agent_lifecycle.ErrInvalidStatusTransition):
+		dto.ResponseError(c, http.StatusConflict, err.Error(), err)
+	case errors.Is(err, agent_lifecycle.ErrInvalidCapacity), errors.Is(err, agent_lifecycle.ErrCapacityExceeded):
+		dto.ResponseError(c, http.StatusBadRequest, err.Error(), err)
 	default:
 		dto.ResponseError(c, http.StatusInternalServerError, "internal error", err)
 	}

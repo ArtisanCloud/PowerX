@@ -11,6 +11,7 @@ func Register(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterGroup, dep
 
 	group := protectedGroup.Group("/admin/agent/lifecycle")
 	{
+		group.POST("/autoreg/manifests", h.AutoRegisterManifest)
 		group.POST("/agents", h.RegisterAgent)
 		group.GET("/agents", h.ListAgents)
 		group.GET("/agents/:agent_id", h.GetAgent)
@@ -23,5 +24,6 @@ func Register(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterGroup, dep
 		group.GET("/agents/:agent_id/health/history", h.ListHealthHistory)
 		group.GET("/agents/:agent_id/subscription", h.GetSubscription)
 		group.PUT("/agents/:agent_id/subscription", h.UpdateSubscription)
+		group.POST("/agents/:agent_id/sandbox", h.RunSandbox)
 	}
 }

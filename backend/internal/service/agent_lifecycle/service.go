@@ -32,12 +32,20 @@ type Config struct {
 	HealthUnavailableThreshold int32
 	SubscriptionCacheTTL       time.Duration
 	AlertCooldown              time.Duration
+	ShareReviewInterval        time.Duration
+	StateBusTopics             StateBusTopics
 }
 
 // EventTopics 定义事件主题前缀。
 type EventTopics struct {
 	LifecyclePrefix string
 	HealthPrefix    string
+}
+
+// StateBusTopics 描述 StateBus 推送主题。
+type StateBusTopics struct {
+	Lifecycle string
+	Health    string
 }
 
 const subscriptionMetadataKey = "agent_subscription_config"
@@ -49,14 +57,22 @@ type cachedSubscription struct {
 
 // ServiceOptions 构建 Service 所需依赖。
 type ServiceOptions struct {
-	ProfileRepo     *agentrepo.AgentProfileLifecycleRepository
-	LifecycleRepo   *agentrepo.AgentLifecycleEventRepository
-	HealthRepo      *agentrepo.AgentHealthSnapshotRepository
-	EventBus        event_bus.EventBus
-	Instrumentation *agentinstr.Instrumentation
-	Notifier        Notifier
-	Config          Config
-	Clock           func() time.Time
+	ProfileRepo       *agentrepo.AgentProfileLifecycleRepository
+	LifecycleRepo     *agentrepo.AgentLifecycleEventRepository
+	HealthRepo        *agentrepo.AgentHealthSnapshotRepository
+	ShareRepo         *agentrepo.AgentShareRepository
+	TenantFormRepo    *agentrepo.AgentTenantFormRepository
+	EventBus          event_bus.EventBus
+	Instrumentation   *agentinstr.Instrumentation
+	Notifier          Notifier
+	Config            Config
+	Clock             func() time.Time
+	ManifestValidator ManifestValidator
+	SandboxRunner     SandboxRunner
+	PolicyEngine      PolicyConflictEngine
+	ApprovalFlow      ApprovalFlow
+	ShareValidator    ShareValidator
+	QuotaProvisioner  QuotaProvisioner
 }
 
 // Service 封装 Agent 生命周期核心逻辑。
@@ -64,6 +80,8 @@ type Service struct {
 	profiles          *agentrepo.AgentProfileLifecycleRepository
 	events            *agentrepo.AgentLifecycleEventRepository
 	health            *agentrepo.AgentHealthSnapshotRepository
+	shares            *agentrepo.AgentShareRepository
+	tenantForms       *agentrepo.AgentTenantFormRepository
 	bus               event_bus.EventBus
 	instr             *agentinstr.Instrumentation
 	notifier          Notifier
@@ -71,6 +89,14 @@ type Service struct {
 	clock             func() time.Time
 	subscriptionMu    sync.RWMutex
 	subscriptionCache map[uuid.UUID]cachedSubscription
+	manifestValidator ManifestValidator
+	sandboxRunner     SandboxRunner
+	policyEngine      PolicyConflictEngine
+	approvalFlow      ApprovalFlow
+	shareValidator    ShareValidator
+	quotaProvisioner  QuotaProvisioner
+	streamer          *EventStreamer
+	auditBridge       *AuditBridge
 }
 
 // NewService 构建 Service。
@@ -96,22 +122,62 @@ func NewService(opts ServiceOptions) *Service {
 	if opts.Config.AlertCooldown <= 0 {
 		opts.Config.AlertCooldown = 2 * time.Minute
 	}
+	if opts.Config.ShareReviewInterval <= 0 {
+		opts.Config.ShareReviewInterval = 30 * 24 * time.Hour
+	}
+	if strings.TrimSpace(opts.Config.StateBusTopics.Lifecycle) == "" {
+		opts.Config.StateBusTopics.Lifecycle = "statebus.agent.lifecycle"
+	}
+	if strings.TrimSpace(opts.Config.StateBusTopics.Health) == "" {
+		opts.Config.StateBusTopics.Health = "statebus.agent.health"
+	}
 	if opts.Instrumentation == nil {
 		opts.Instrumentation = agentinstr.New(agentinstr.Options{
 			AlertCooldown: opts.Config.AlertCooldown,
 		})
 	}
+	if opts.ManifestValidator == nil {
+		opts.ManifestValidator = defaultManifestValidator{}
+	}
+	if opts.SandboxRunner == nil {
+		opts.SandboxRunner = noopSandboxRunner{}
+	}
+	if opts.PolicyEngine == nil {
+		opts.PolicyEngine = NewDefaultPolicyConflictEngine(PolicyEngineOptions{})
+	}
+	if opts.ApprovalFlow == nil {
+		opts.ApprovalFlow = newInMemoryApprovalFlow()
+	}
+	if opts.ShareValidator == nil {
+		opts.ShareValidator = NewTenantShareValidator(opts.PolicyEngine, opts.SandboxRunner)
+	}
+	if opts.QuotaProvisioner == nil {
+		opts.QuotaProvisioner = NewDefaultQuotaProvisioner()
+	}
+
+	streamer := NewEventStreamer(opts.EventBus, opts.Config.StateBusTopics, opts.Clock)
+	auditBridge := NewAuditBridge(opts.ProfileRepo, opts.LifecycleRepo, opts.HealthRepo)
 
 	return &Service{
 		profiles:          opts.ProfileRepo,
 		events:            opts.LifecycleRepo,
 		health:            opts.HealthRepo,
+		shares:            opts.ShareRepo,
+		tenantForms:       opts.TenantFormRepo,
 		bus:               opts.EventBus,
 		instr:             opts.Instrumentation,
 		notifier:          opts.Notifier,
 		config:            opts.Config,
 		clock:             opts.Clock,
 		subscriptionCache: make(map[uuid.UUID]cachedSubscription),
+		manifestValidator: opts.ManifestValidator,
+		sandboxRunner:     opts.SandboxRunner,
+		policyEngine:      opts.PolicyEngine,
+		approvalFlow:      opts.ApprovalFlow,
+		shareValidator:    opts.ShareValidator,
+		quotaProvisioner:  opts.QuotaProvisioner,
+		streamer:          streamer,
+		auditBridge:       auditBridge,
 	}
 }
 
@@ -748,10 +814,14 @@ func (s *Service) publishLifecycle(ctx context.Context, action string, payload m
 	} else {
 		topic = action
 	}
-	s.bus.Publish(topic, map[string]any{
+	eventPayload := map[string]any{
 		"payload":  payload,
 		"trace_id": traceID,
-	}, ctx)
+	}
+	s.bus.Publish(topic, eventPayload, ctx)
+	if s.streamer != nil {
+		s.streamer.EmitLifecycle(ctx, action, payload, traceID)
+	}
 }
 
 func (s *Service) publishHealth(ctx context.Context, status string, payload map[string]any, traceID string) {
@@ -764,10 +834,25 @@ func (s *Service) publishHealth(ctx context.Context, status string, payload map[
 	} else {
 		topic = "agent.health." + status
 	}
-	s.bus.Publish(topic, map[string]any{
+	eventPayload := map[string]any{
 		"payload":  payload,
 		"trace_id": traceID,
-	}, ctx)
+	}
+	s.bus.Publish(topic, eventPayload, ctx)
+	if s.streamer != nil {
+		s.streamer.EmitHealth(ctx, status, payload, traceID)
+	}
+}
+
+// GetBridgeState 聚合 Agent 状态供 ReAct/任务执行查询。
+func (s *Service) GetBridgeState(ctx context.Context, agentID uuid.UUID, eventLimit int) (*AgentBridgeState, error) {
+	if s.auditBridge == nil {
+		return nil, fmt.Errorf("bridge state not configured")
+	}
+	if agentID == uuid.Nil {
+		return nil, fmt.Errorf("agent_id is required")
+	}
+	return s.auditBridge.Snapshot(ctx, agentID, eventLimit)
 }
 
 func toAgent(model *agentmodel.AgentProfileLifecycle, toolGrants []ToolGrant, metadata map[string]string) *Agent {

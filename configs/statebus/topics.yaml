@@ -1,0 +1,8 @@
+topics:
+  lifecycle: statebus.agent.lifecycle
+  health: statebus.agent.health
+
+# 说明：
+# - lifecycle 主题承载 `agent.lifecycle.*` 事件，供 ReAct Planner / Task Coordinator 订阅。
+# - health 主题承载 `agent.health.*` 事件，供 Recovery / Closure 场景消费。
+# 若需自定义，可在 agent_lifecycle.statebus_topics.* 中覆盖同名配置。

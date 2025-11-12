@@ -206,6 +206,11 @@ func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error)
 				LifecyclePrefix: cfg.AgentLifecycle.EventTopics.LifecyclePrefix,
 				HealthPrefix:    cfg.AgentLifecycle.EventTopics.HealthPrefix,
 			},
+			StateBusTopics: shared.AgentLifecycleStateBusTopicsOptions{
+				Lifecycle: cfg.AgentLifecycle.StateBusTopics.Lifecycle,
+				Health:    cfg.AgentLifecycle.StateBusTopics.Health,
+			},
+			ShareReviewInterval: time.Duration(cfg.AgentLifecycle.ShareReviewDays) * 24 * time.Hour,
 			Notifications: shared.AgentLifecycleNotificationOptions{
 				IMWebhook:        cfg.AgentLifecycle.Notifications.IMWebhook,
 				RetryInterval:    time.Duration(cfg.AgentLifecycle.Notifications.RetryIntervalSec) * time.Second,

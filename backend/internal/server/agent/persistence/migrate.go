@@ -27,6 +27,8 @@ func MigrateAgentModels(db *gorm.DB) error {
 		&dbmodel.AgentProfileLifecycle{},
 		&dbmodel.AgentLifecycleEventRecord{},
 		&dbmodel.AgentHealthSnapshotRecord{},
+		&dbmodel.AgentShareRecord{},
+		&dbmodel.AgentTenantForm{},
 	)
 
 	// 可以顺手确认一下（开发期）：

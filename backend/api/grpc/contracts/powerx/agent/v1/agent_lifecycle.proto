@@ -18,6 +18,10 @@ service AgentLifecycleService {
   rpc ListHealthSnapshots(ListHealthSnapshotsRequest) returns (ListHealthSnapshotsResponse);
   rpc UpdateSubscription(UpdateSubscriptionRequest) returns (UpdateSubscriptionResponse);
   rpc GetSubscription(GetSubscriptionRequest) returns (GetSubscriptionResponse);
+  rpc RegisterManifest(RegisterManifestRequest) returns (RegisterManifestResponse);
+  rpc RunSandbox(RunSandboxRequest) returns (RunSandboxResponse);
+  rpc ShareAgent(CreateAgentShareRequest) returns (AgentShareResponse);
+  rpc RevokeAgentShare(RevokeAgentShareRequest) returns (AgentShareResponse);
 }
 
 message RegisterAgentRequest {
@@ -209,4 +213,81 @@ message GetSubscriptionRequest {
 
 message GetSubscriptionResponse {
   SubscriptionConfig config = 1;
+}
+
+message RegisterManifestRequest {
+  string plugin_id = 1;
+  string plugin_version = 2;
+  string manifest_version = 3;
+  string tenant_id = 4;
+  string alias = 5;
+  string display_name = 6;
+  string telemetry_contract_version = 7;
+  repeated ToolGrant tool_grants = 8;
+  int32 default_capacity_instances = 9;
+  optional int32 max_capacity_instances = 10;
+  string notification_channel = 11;
+  map<string, string> metadata = 12;
+  repeated string capabilities = 13;
+  repeated string permissions = 14;
+  map<string, int32> rate_limits = 15;
+  string sandbox_profile = 16;
+  string signature = 17;
+  bool dry_run = 18;
+  string requested_by = 19;
+  string trace_id = 20;
+}
+
+message RegisterManifestResponse {
+  Agent agent = 1;
+  SandboxResult sandbox = 2;
+  bool dry_run = 3;
+}
+
+message SandboxResult {
+  string status = 1;
+  string report_url = 2;
+  string profile = 3;
+  string executed_at = 4;
+  map<string, double> metrics = 5;
+}
+
+message RunSandboxRequest {
+  string agent_id = 1;
+  string profile = 2;
+  string requested_by = 3;
+  string trace_id = 4;
+}
+
+message RunSandboxResponse {
+  SandboxResult sandbox = 1;
+}
+
+message CreateAgentShareRequest {
+  string agent_id = 1;
+  string tenant_id = 2;
+  string requested_by = 3;
+  string trace_id = 4;
+  repeated ShareQuota quotas = 5;
+  map<string, string> metadata = 6;
+}
+
+message ShareQuota {
+  string type = 1;
+  int32 limit = 2;
+}
+
+message AgentShareResponse {
+  string share_id = 1;
+  string status = 2;
+  string issued_at = 3;
+  string revoked_at = 4;
+  string tenant_id = 5;
+}
+
+message RevokeAgentShareRequest {
+  string share_id = 1;
+  string reason = 2;
+  string requested_by = 3;
+  string trace_id = 4;
 }

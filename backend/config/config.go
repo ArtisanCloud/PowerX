@@ -206,12 +206,20 @@ type AgentLifecycleConfig struct {
 	DefaultCapacityInstances int                              `yaml:"default_capacity_instances"`
 	EventTopics              AgentLifecycleEventTopics        `yaml:"event_topics"`
 	Notifications            AgentLifecycleNotificationConfig `yaml:"notifications"`
+	StateBusTopics           AgentLifecycleStateBusTopics     `yaml:"statebus_topics"`
+	ShareReviewDays          int                              `yaml:"share_review_days"`
 }
 
 // AgentLifecycleEventTopics 定义生命周期与健康事件主题前缀。
 type AgentLifecycleEventTopics struct {
 	LifecyclePrefix string `yaml:"lifecycle_prefix"`
 	HealthPrefix    string `yaml:"health_prefix"`
+}
+
+// AgentLifecycleStateBusTopics 定义 StateBus 主题。
+type AgentLifecycleStateBusTopics struct {
+	Lifecycle string `yaml:"lifecycle"`
+	Health    string `yaml:"health"`
 }
 
 // AgentLifecycleNotificationConfig 描述企业 IM 通知的运行参数。

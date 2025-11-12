@@ -110,12 +110,20 @@ type AgentLifecycleOptions struct {
 	DefaultCapacityInstances int
 	EventTopics              AgentLifecycleEventTopicsOptions
 	Notifications            AgentLifecycleNotificationOptions
+	StateBusTopics           AgentLifecycleStateBusTopicsOptions
+	ShareReviewInterval      time.Duration
 }
 
 // AgentLifecycleEventTopicsOptions 定义事件主题前缀。
 type AgentLifecycleEventTopicsOptions struct {
 	LifecyclePrefix string
 	HealthPrefix    string
+}
+
+// AgentLifecycleStateBusTopicsOptions 定义 StateBus 主题。
+type AgentLifecycleStateBusTopicsOptions struct {
+	Lifecycle string
+	Health    string
 }
 
 // AgentLifecycleNotificationOptions 定义通知发送行为。
