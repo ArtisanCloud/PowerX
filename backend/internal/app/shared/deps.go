@@ -23,6 +23,9 @@ import (
 	capabilityRegistry "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/registry"
 	capabilityRouter "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/router"
 	capabilitySandbox "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/sandbox"
+	devhotloadservice "github.com/ArtisanCloud/PowerX/internal/service/dev_hotload"
+	devhotloadinstrumentation "github.com/ArtisanCloud/PowerX/internal/service/dev_hotload/instrumentation"
+	devhotloadstore "github.com/ArtisanCloud/PowerX/internal/service/dev_hotload/store"
 	aclService "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/acl"
 	auditService "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/audit"
 	authorizationService "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/authorization"
@@ -116,8 +119,10 @@ type Deps struct {
 	DiscoverySvc           *discoveryService.Service
 	IntegrationGateway     *IntegrationGatewayDeps
 	AgentLifecycle         *AgentLifecycleDeps
+	DevHotloadOptions      DevHotloadOptions
 	PluginReleaseOptions   PluginReleaseOptions
 	PluginReleaseService   *pluginReleaseService.Service
+	DevHotloadService      *devhotloadservice.Service
 	PluginBootstrapService *pluginbootstrap.Service
 	PluginImportService    *pluginimport.Service
 	PluginDebugHost        *plugindebughost.Service
@@ -280,6 +285,27 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 		Now:      time.Now,
 	})
 
+	var devHotloadSvc *devhotloadservice.Service
+	devHotloadOpts := convertDevHotloadOptions(opts.DevHotload)
+	if devHotloadOpts.FeatureFlags.Enabled {
+		devStore := devhotloadstore.New(db, time.Now)
+		registry := devhotloadservice.NewRegistry(devStore, nil, devhotloadservice.RegistryOptions{
+			TTL:             devHotloadOpts.Sessions.TTL,
+			MaxConcurrent:   devHotloadOpts.Sessions.MaxConcurrent,
+			CleanupInterval: devHotloadOpts.Sessions.CleanupInterval,
+			KeyPrefix:       "devhotload",
+		})
+		metrics := devhotloadinstrumentation.New(devHotloadOpts.Observability.MetricsNamespace)
+		devHotloadSvc = devhotloadservice.NewService(devhotloadservice.ServiceDeps{
+			Store:    devStore,
+			Registry: registry,
+			Auditor:  aud,
+			Options:  devHotloadOpts,
+			Metrics:  metrics,
+			Notifier: devhotloadservice.NewNotifier(0),
+		})
+	}
+
 	tenantConfig := integrationTenant.Config{
 		DefaultRateLimit: integrationManager.RateLimitPolicy{
 			Limit:         opts.IntegrationGateway.DefaultRateLimit.Limit,
@@ -384,8 +410,10 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 		DiscoverySvc:           discoverySvc,
 		IntegrationGateway:     integrationGatewayDeps,
 		AgentLifecycle:         agentLifecycleDeps,
+		DevHotloadOptions:      opts.DevHotload,
 		PluginReleaseOptions:   opts.PluginRelease,
 		PluginReleaseService:   pluginReleaseSvc,
+		DevHotloadService:      devHotloadSvc,
 		PluginBootstrapService: pluginBootstrapSvc,
 		PluginImportService:    pluginImportSvc,
 		PluginDebugHost:        pluginDebugHostSvc,
@@ -413,6 +441,38 @@ func featureFlagEnabled(flag string) bool {
 	}
 	value = strings.ToLower(value)
 	return value == "1" || value == "true" || value == "enabled" || value == "on" || value == "yes"
+}
+
+func convertDevHotloadOptions(src DevHotloadOptions) devhotloadservice.Options {
+	return devhotloadservice.Options{
+		FeatureFlags: devhotloadservice.FeatureFlags{
+			Enabled:          src.FeatureFlags.Enabled,
+			GatewayFlag:      src.FeatureFlags.GatewayFlag,
+			SessionAuditFlag: src.FeatureFlags.SessionAuditFlag,
+		},
+		Sessions: devhotloadservice.SessionOptions{
+			TTL:             src.Sessions.TTL,
+			MaxConcurrent:   src.Sessions.MaxConcurrent,
+			CleanupInterval: src.Sessions.CleanupInterval,
+		},
+		Sandbox: devhotloadservice.SandboxOptions{
+			Image:          src.Sandbox.Image,
+			MaxCPUPercent:  src.Sandbox.MaxCPUPercent,
+			MaxMemoryMB:    src.Sandbox.MaxMemoryMB,
+			WatchFileLimit: src.Sandbox.WatchFileLimit,
+		},
+		Security: devhotloadservice.SecurityOptions{
+			RequireMTLS:     src.Security.RequireMTLS,
+			AllowedSubjects: src.Security.AllowedSubjects,
+			PATHeader:       src.Security.PATHeader,
+			TokenTTL:        src.Security.TokenTTL,
+		},
+		Observability: devhotloadservice.ObservabilityOptions{
+			MetricsNamespace: src.Observability.MetricsNamespace,
+			SSEBufferSize:    src.Observability.SSEBufferSize,
+			AuditTopic:       src.Observability.AuditTopic,
+		},
+	}
 }
 
 // EventFabricDeps 聚合事件骨干运行时依赖。

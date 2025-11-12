@@ -5,6 +5,7 @@ import (
 	modelAgentHub "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/agent_model_hub"
 	modelAudit "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/audit"
 	modelCapability "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/capability"
+	modelDevHotload "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/dev_hotload"
 	modelEventFabric "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/event_fabric"
 	modelFlow "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/flow"
 	modelIAM "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/iam"
@@ -101,6 +102,10 @@ func MigrateCoreModels(db *gorm.DB) (err error) {
 	}
 
 	if err = migratePluginReleaseModels(db); err != nil {
+		return err
+	}
+
+	if err = migrateDevHotloadModels(db); err != nil {
 		return err
 	}
 
@@ -205,6 +210,13 @@ func migratePluginReleaseModels(db *gorm.DB) error {
 		&modelPluginRelease.MarketplaceListing{},
 		&modelPluginRelease.LocalInstallSession{},
 		&modelPluginRelease.PluginImportRun{},
+	)
+}
+
+func migrateDevHotloadModels(db *gorm.DB) error {
+	return db.AutoMigrate(
+		&modelDevHotload.DevHotloadSession{},
+		&modelDevHotload.DevHotloadSessionEvent{},
 	)
 }
 

@@ -237,6 +237,44 @@ func (c *Config) Validate() error {
 		errors = append(errors, "plugin_release.observability.kpi_targets.hotload_latency_p95_ms 必须大于0")
 	}
 
+	// --- Dev Hotload ---
+	if c.DevHotload.Sessions.TTLMinutes <= 0 {
+		errors = append(errors, "dev_hotload.sessions.ttl_minutes 必须大于0")
+	}
+	if c.DevHotload.Sessions.MaxConcurrentSessions <= 0 {
+		errors = append(errors, "dev_hotload.sessions.max_concurrent_sessions 必须大于0")
+	}
+	if c.DevHotload.Sessions.CleanupIntervalSeconds <= 0 {
+		errors = append(errors, "dev_hotload.sessions.cleanup_interval_seconds 必须大于0")
+	}
+	if strings.TrimSpace(c.DevHotload.Sandbox.Image) == "" {
+		errors = append(errors, "dev_hotload.sandbox.image 不能为空")
+	}
+	if c.DevHotload.Sandbox.MaxCPUPercent <= 0 || c.DevHotload.Sandbox.MaxCPUPercent > 100 {
+		errors = append(errors, "dev_hotload.sandbox.max_cpu_percent 必须在 1-100 范围内")
+	}
+	if c.DevHotload.Sandbox.MaxMemoryMB <= 0 {
+		errors = append(errors, "dev_hotload.sandbox.max_memory_mb 必须大于0")
+	}
+	if c.DevHotload.Sandbox.WatchFileLimit <= 0 {
+		errors = append(errors, "dev_hotload.sandbox.watch_file_limit 必须大于0")
+	}
+	if strings.TrimSpace(c.DevHotload.Security.PATHeader) == "" {
+		errors = append(errors, "dev_hotload.security.pat_header 不能为空")
+	}
+	if c.DevHotload.Security.TokenTTLSeconds <= 0 {
+		errors = append(errors, "dev_hotload.security.token_ttl_seconds 必须大于0")
+	}
+	if strings.TrimSpace(c.DevHotload.Observability.MetricsNamespace) == "" {
+		errors = append(errors, "dev_hotload.observability.metrics_namespace 不能为空")
+	}
+	if strings.TrimSpace(c.DevHotload.Observability.AuditTopic) == "" {
+		errors = append(errors, "dev_hotload.observability.audit_topic 不能为空")
+	}
+	if c.DevHotload.Observability.SSEBufferSize <= 0 {
+		errors = append(errors, "dev_hotload.observability.sse_buffer_size 必须大于0")
+	}
+
 	// --- Plugin Debug ---
 	if strings.TrimSpace(c.PluginDebug.Component) == "" {
 		errors = append(errors, "plugin_debug.component 不能为空")

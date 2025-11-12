@@ -186,6 +186,22 @@ px-plugin dev --watch \
 
 - `px debug attach --session <id>` 将补充断点同步、链路日志等功能。正式开放前可以直接调用 `POST /internal/debug/report`/`POST /internal/debug/logs/export` 与 `px host start`/`px-plugin dev --watch` 联动。
 
+**Dev API 热更新（px-plugin dev --watch --dev-api）**
+
+```bash
+px-plugin dev --watch \
+  --dev-api http://localhost:8077/api/v1 \
+  --token "$POWERX_ADMIN_TOKEN" \
+  --tenant-id 101 \
+  --developer-id 2025 \
+  --entry . \
+  --artifact ./dist/plugin.zip
+```
+
+- 需要在 CoreX 侧开启 `config/dev_hotload.yaml` 与 `PX_DEV_PLUGIN_HOTLOAD`/`PX_DEV_SESSION_AUDIT`，CLI 会直接调用 `/api/v1/internal/dev/plugins/{register,reload,stream}`，并在 `~/.px-plugin/sessions/<session>.json` 缓存 `sessionId/reloadToken`。
+- Dev API Gateway 默认返回 SSE 事件流，CLI/Dev Admin 面板可以实时展示 `SessionStarted/Reloaded/Terminated`，无需额外 `--host-api`。
+- 与 `--host-api` 互斥：若配置 `--dev-api`，CLI 自动跳过 plugin_release Local Install gRPC，转而使用 REST + SSE，适合纯 HTTP 热更新或多端协同调试。
+
 ## 7. FAQ
 
 * **提示 `command not found`？**
