@@ -1,7 +1,7 @@
 version: v1
 
 deps:
-  - buf.build/googleapis/googleapis  # powerx/agent/v1 生命周期契约复用公共类型
+  - buf.build/googleapis/googleapis  # powerx/{agent,knowledge}/v1 契约复用公共类型
 
 # Buf 默认扫描整个 contracts 目录，capability/v1 proto 会随模块一起构建。
 breaking: {
