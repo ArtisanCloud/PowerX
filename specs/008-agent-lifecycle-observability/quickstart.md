@@ -150,7 +150,42 @@ grpcurl -plaintext -d '{"shareId":"{shareId}","reason":"beta tenant offboard"}' 
 
 > 复核：服务提供 `RunShareCompliance`（参见 `share_validation_flow_test.go`、`share_revocation_failure_test.go`），可由定时任务调用。若共享过期或验证失败，系统会自动发布 `validation_failed` 告警并调用撤销流程。
 
-## 7. 触发健康退化并验证告警
+## 7. StateBus 桥接与 ReAct 控制
+
+ReAct/任务执行可以通过 StateBus 订阅 `statebus.agent.lifecycle`、`statebus.agent.health` 两个主题，Schemalized 事件包含 `event/trace_id/timestamp/payload` 字段，可直接投喂到编排器或任务协调器。要在本地观察事件，可在运行期订阅：
+
+```bash
+task run bus:subscribe --topic statebus.agent.lifecycle
+```
+
+桥接控制面暴露在 OpenAPI 下：
+
+```bash
+# 查询聚合状态、最近 20 条事件与健康快照
+curl -X GET http://localhost:8077/api/openapi/agents/{agentId}/bridge/state \
+  -H "Authorization: Bearer $OPS_TOKEN"
+
+# 暂停/恢复（用于 Planner/Coordinator/Recovery）
+curl -X POST http://localhost:8077/api/openapi/agents/{agentId}/bridge/freeze \
+  -H "Authorization: Bearer $OPS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"tenant_id":"tenant-001","reason":"planner freeze","requested_by":"react-coordinator"}'
+
+curl -X POST http://localhost:8077/api/openapi/agents/{agentId}/bridge/recover \
+  -H "Authorization: Bearer $OPS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"tenant_id":"tenant-001","reason":"resume for recovery"}'
+
+# 动态扩缩容
+curl -X POST http://localhost:8077/api/openapi/agents/{agentId}/bridge/rebalance \
+  -H "Authorization: Bearer $OPS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"tenant_id":"tenant-001","target_capacity_instances":6,"reason":"dag coordinator"}'
+```
+
+冻结/恢复/扩缩容均会触发 `statebus.agent.lifecycle` 事件，并在 `bridge/state` 的 `events` 时间线中留下审计引用，供闭环/回放使用。
+
+## 8. 触发健康退化并验证告警
 
 若无法在本地引入真实遥测，可借助单元/合同测试快速验证链路：
 
@@ -172,7 +207,7 @@ go test ./tests/contract/agent_lifecycle -run 'Health|Subscription' -v
 
 若接入真实 IM Webhook，可在 `AGENT_IM_WEBHOOK` 中配置值班群地址，等待 30 秒内收到“健康退化”通知；同时可以在事件总线上看到 `agent.health.degraded` 主题的推送。
 
-## 8. gRPC 控制面验证
+## 9. gRPC 控制面验证
 （原 7 -> 8? Need to update heading number to 8? We'll adjust.)
 
 ```bash
@@ -182,7 +217,7 @@ grpcurl -plaintext -d '{"agentId":"{agentId}"}' \
 
 确保 gRPC Server 已在 `internal/server/grpc/server.go` 注册新 Service，并通过 buf 生成客户端。
 
-## 9. 快速回归 / 清理
+## 10. 快速回归 / 清理
 
 ```bash
 # 执行订阅 + 告警相关单元测试

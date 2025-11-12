@@ -857,6 +857,92 @@ components:
                 $ref: '#/components/schemas/AgentShareResource'
         '404':
           description: 未找到共享记录
+
+  /agents/{agentId}/bridge/state:
+    get:
+      tags: [Lifecycle]
+      summary: 获取 ReAct/任务执行需要的聚合状态
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/AgentId'
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+      responses:
+        '200':
+          description: 聚合状态
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BridgeStateResponse'
+  /agents/{agentId}/bridge/freeze:
+    post:
+      tags: [Lifecycle]
+      summary: Planner/Coordinator 暂停 Agent
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/AgentId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BridgeControlRequest'
+      responses:
+        '200':
+          description: 暂停成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BridgeLifecycleResponse'
+  /agents/{agentId}/bridge/recover:
+    post:
+      tags: [Lifecycle]
+      summary: Recovery 阶段恢复 Agent
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/AgentId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BridgeControlRequest'
+      responses:
+        '200':
+          description: 恢复成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BridgeLifecycleResponse'
+  /agents/{agentId}/bridge/rebalance:
+    post:
+      tags: [Lifecycle]
+      summary: Coordinator 触发扩缩容
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/AgentId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BridgeRebalanceRequest'
+      responses:
+        '200':
+          description: 扩缩容成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BridgeLifecycleResponse'
     ShareAgentRequest:
       type: object
       required:
@@ -925,3 +1011,87 @@ components:
           nullable: true
         reason:
           type: string
+    BridgeStateResponse:
+      type: object
+      properties:
+        agent:
+          $ref: '#/components/schemas/BridgeAgent'
+        health:
+          $ref: '#/components/schemas/HealthSummary'
+        events:
+          type: array
+          items:
+            $ref: '#/components/schemas/BridgeEvent'
+    BridgeAgent:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenantId:
+          type: string
+        alias:
+          type: string
+        status:
+          type: string
+        capacity:
+          type: object
+          properties:
+            default:
+              type: integer
+            current:
+              type: integer
+            max:
+              type: integer
+              nullable: true
+        updatedAt:
+          type: string
+          format: date-time
+    BridgeEvent:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          type: string
+        from_status:
+          type: string
+        to_status:
+          type: string
+        reason:
+          type: string
+        triggered_by:
+          type: string
+        trace_id:
+          type: string
+        occurred_at:
+          type: string
+          format: date-time
+    BridgeControlRequest:
+      type: object
+      required: [tenantId]
+      properties:
+        tenantId:
+          type: string
+        reason:
+          type: string
+        requestedBy:
+          type: string
+        traceId:
+          type: string
+    BridgeRebalanceRequest:
+      allOf:
+        - $ref: '#/components/schemas/BridgeControlRequest'
+        - type: object
+          required: [targetCapacityInstances]
+          properties:
+            targetCapacityInstances:
+              type: integer
+    BridgeLifecycleResponse:
+      type: object
+      properties:
+        agent:
+          $ref: '#/components/schemas/BridgeAgent'
+        event:
+          $ref: '#/components/schemas/BridgeEvent'

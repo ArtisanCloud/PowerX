@@ -895,10 +895,8 @@ func newAgentLifecycleDeps(db *gorm.DB, opts AgentLifecycleOptions, bus event_bu
 	tenantFormRepo := agentrepo.NewAgentTenantFormRepository(db)
 	policyEngine := agentlifecycle.NewDefaultPolicyConflictEngine(agentlifecycle.PolicyEngineOptions{})
 	approvalFlow := workflow.NewAgentApprovalFlow()
-	var (
-		shareValidator   agentlifecycle.ShareValidator
-		quotaProvisioner agentlifecycle.QuotaProvisioner
-	)
+	shareValidator := agentlifecycle.NewTenantShareValidator(policyEngine, nil)
+	quotaProvisioner := agentlifecycle.NewDefaultQuotaProvisioner()
 
 	service := agentlifecycle.NewService(agentlifecycle.ServiceOptions{
 		ProfileRepo:     profileRepo,
@@ -916,6 +914,11 @@ func newAgentLifecycleDeps(db *gorm.DB, opts AgentLifecycleOptions, bus event_bu
 				HealthPrefix:    opts.EventTopics.HealthPrefix,
 			},
 			AlertCooldown: alertCooldown,
+			StateBusTopics: agentlifecycle.StateBusTopics{
+				Lifecycle: opts.StateBusTopics.Lifecycle,
+				Health:    opts.StateBusTopics.Health,
+			},
+			ShareReviewInterval: opts.ShareReviewInterval,
 		},
 		Clock:            time.Now,
 		PolicyEngine:     policyEngine,

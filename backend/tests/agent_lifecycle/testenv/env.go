@@ -105,6 +105,11 @@ func New(t testing.TB) *Env {
 				LifecyclePrefix: "agent.lifecycle",
 				HealthPrefix:    "agent.health",
 			},
+			StateBusTopics: agent_lifecycle.StateBusTopics{
+				Lifecycle: "statebus.agent.lifecycle",
+				Health:    "statebus.agent.health",
+			},
+			ShareReviewInterval: 24 * time.Hour,
 		},
 		Clock:             time.Now,
 		PolicyEngine:      policyEngine,

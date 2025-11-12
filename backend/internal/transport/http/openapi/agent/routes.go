@@ -15,5 +15,9 @@ func Register(public *gin.RouterGroup, protected *gin.RouterGroup, deps *shared.
 	{
 		group.GET("/:agent_id/health/summary", handler.GetHealthSummary)
 		group.GET("/:agent_id/health/history", handler.ListHealthHistory)
+		group.GET("/:agent_id/bridge/state", handler.GetBridgeState)
+		group.POST("/:agent_id/bridge/freeze", handler.FreezeAgent)
+		group.POST("/:agent_id/bridge/recover", handler.RecoverAgent)
+		group.POST("/:agent_id/bridge/rebalance", handler.RebalanceAgent)
 	}
 }

@@ -174,15 +174,15 @@
 
 ### Tests
 
-- [ ] T061 [P] [BRIDGE] 在 `tests/contract/agent_lifecycle/statebus_event_schema_test.go` 校验 `agent.lifecycle.*` 事件 Schema 与必填字段。
-- [ ] T062 [P] [BRIDGE] 在 `tests/integration/agent_lifecycle/react_task_bridge_test.go` 模拟 ReAct/任务执行订阅事件、查询 API、触发冻结/回滚。
+- [x] T061 [P] [BRIDGE] 在 `tests/contract/agent_lifecycle/statebus_event_schema_test.go` 校验 `agent.lifecycle.*` 事件 Schema 与必填字段。
+- [x] T062 [P] [BRIDGE] 在 `tests/integration/agent_lifecycle/react_task_bridge_test.go` 模拟 ReAct/任务执行订阅事件、查询 API、触发冻结/回滚。
 
 ### Implementation
 
-- [ ] T063 [BRIDGE] 在 `internal/service/agent_lifecycle/event_streamer.go` 统一 StateBus 推送、Trace 透传与回放引用。
-- [ ] T064 [BRIDGE] 在 `internal/transport/http/openapi/agent/bridge_handlers.go` 提供 Planner/Coordinator/Recovery/Closure 所需的查询与控制接口。
-- [ ] T065 [BRIDGE] 在 `internal/service/agent_lifecycle/audit_bridge.go` 整合生命周期审计、健康摘要与回放接口，供 ReAct Audit/Task Closure 使用。
-- [ ] T066 [BRIDGE] 更新 `configs/statebus/topics.yaml`、`docs/quickstart`，同步事件 Schema、订阅示例与 Copilot Handoff 集成指南。
+- [x] T063 [BRIDGE] 在 `internal/service/agent_lifecycle/event_streamer.go` 统一 StateBus 推送、Trace 透传与回放引用。
+- [x] T064 [BRIDGE] 在 `internal/transport/http/openapi/agent/bridge_handlers.go` 提供 Planner/Coordinator/Recovery/Closure 所需的查询与控制接口。
+- [x] T065 [BRIDGE] 在 `internal/service/agent_lifecycle/audit_bridge.go` 整合生命周期审计、健康摘要与回放接口，供 ReAct Audit/Task Closure 使用。
+- [x] T066 [BRIDGE] 更新 `configs/statebus/topics.yaml`、`docs/quickstart`，同步事件 Schema、订阅示例与 Copilot Handoff 集成指南。
 
 ---
 

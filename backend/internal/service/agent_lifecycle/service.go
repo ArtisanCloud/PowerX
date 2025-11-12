@@ -33,12 +33,19 @@ type Config struct {
 	SubscriptionCacheTTL       time.Duration
 	AlertCooldown              time.Duration
 	ShareReviewInterval        time.Duration
+	StateBusTopics             StateBusTopics
 }
 
 // EventTopics 定义事件主题前缀。
 type EventTopics struct {
 	LifecyclePrefix string
 	HealthPrefix    string
+}
+
+// StateBusTopics 描述 StateBus 推送主题。
+type StateBusTopics struct {
+	Lifecycle string
+	Health    string
 }
 
 const subscriptionMetadataKey = "agent_subscription_config"
@@ -88,6 +95,8 @@ type Service struct {
 	approvalFlow      ApprovalFlow
 	shareValidator    ShareValidator
 	quotaProvisioner  QuotaProvisioner
+	streamer          *EventStreamer
+	auditBridge       *AuditBridge
 }
 
 // NewService 构建 Service。
@@ -116,6 +125,12 @@ func NewService(opts ServiceOptions) *Service {
 	if opts.Config.ShareReviewInterval <= 0 {
 		opts.Config.ShareReviewInterval = 30 * 24 * time.Hour
 	}
+	if strings.TrimSpace(opts.Config.StateBusTopics.Lifecycle) == "" {
+		opts.Config.StateBusTopics.Lifecycle = "statebus.agent.lifecycle"
+	}
+	if strings.TrimSpace(opts.Config.StateBusTopics.Health) == "" {
+		opts.Config.StateBusTopics.Health = "statebus.agent.health"
+	}
 	if opts.Instrumentation == nil {
 		opts.Instrumentation = agentinstr.New(agentinstr.Options{
 			AlertCooldown: opts.Config.AlertCooldown,
@@ -140,6 +155,9 @@ func NewService(opts ServiceOptions) *Service {
 		opts.QuotaProvisioner = NewDefaultQuotaProvisioner()
 	}
 
+	streamer := NewEventStreamer(opts.EventBus, opts.Config.StateBusTopics, opts.Clock)
+	auditBridge := NewAuditBridge(opts.ProfileRepo, opts.LifecycleRepo, opts.HealthRepo)
+
 	return &Service{
 		profiles:          opts.ProfileRepo,
 		events:            opts.LifecycleRepo,
@@ -158,6 +176,8 @@ func NewService(opts ServiceOptions) *Service {
 		approvalFlow:      opts.ApprovalFlow,
 		shareValidator:    opts.ShareValidator,
 		quotaProvisioner:  opts.QuotaProvisioner,
+		streamer:          streamer,
+		auditBridge:       auditBridge,
 	}
 }
 
@@ -794,10 +814,14 @@ func (s *Service) publishLifecycle(ctx context.Context, action string, payload m
 	} else {
 		topic = action
 	}
-	s.bus.Publish(topic, map[string]any{
+	eventPayload := map[string]any{
 		"payload":  payload,
 		"trace_id": traceID,
-	}, ctx)
+	}
+	s.bus.Publish(topic, eventPayload, ctx)
+	if s.streamer != nil {
+		s.streamer.EmitLifecycle(ctx, action, payload, traceID)
+	}
 }
 
 func (s *Service) publishHealth(ctx context.Context, status string, payload map[string]any, traceID string) {
@@ -810,10 +834,25 @@ func (s *Service) publishHealth(ctx context.Context, status string, payload map[
 	} else {
 		topic = "agent.health." + status
 	}
-	s.bus.Publish(topic, map[string]any{
+	eventPayload := map[string]any{
 		"payload":  payload,
 		"trace_id": traceID,
-	}, ctx)
+	}
+	s.bus.Publish(topic, eventPayload, ctx)
+	if s.streamer != nil {
+		s.streamer.EmitHealth(ctx, status, payload, traceID)
+	}
+}
+
+// GetBridgeState 聚合 Agent 状态供 ReAct/任务执行查询。
+func (s *Service) GetBridgeState(ctx context.Context, agentID uuid.UUID, eventLimit int) (*AgentBridgeState, error) {
+	if s.auditBridge == nil {
+		return nil, fmt.Errorf("bridge state not configured")
+	}
+	if agentID == uuid.Nil {
+		return nil, fmt.Errorf("agent_id is required")
+	}
+	return s.auditBridge.Snapshot(ctx, agentID, eventLimit)
 }
 
 func toAgent(model *agentmodel.AgentProfileLifecycle, toolGrants []ToolGrant, metadata map[string]string) *Agent {
