@@ -71,6 +71,8 @@ cli/app/
 # Specifically allow plugin-release pages within web-admin
 !web-admin/app/pages/plugin-release/
 !web-admin/app/pages/plugin-release/**
+!web-admin/app/pages/knowledge-spaces/
+!web-admin/app/pages/knowledge-spaces/**
 
 api/grpc/gen/*
 !api/grpc/gen/go/

@@ -59,6 +59,7 @@ type Config struct {
 	EventFabric        EventFabricConfig        `yaml:"event_fabric"`        // 事件骨干调度配置
 	IntegrationGateway IntegrationGatewayConfig `yaml:"integration_gateway"` // 集成网关
 	AgentLifecycle     AgentLifecycleConfig     `yaml:"agent_lifecycle"`     // Agent 生命周期治理
+	KnowledgeSpace     KnowledgeSpaceConfig     `yaml:"knowledge_space"`     // 知识空间治理
 	LowCode            LowCodeConfig            `yaml:"dynamic_form"`        // flow 执行相关
 	FeatureGate        FeatureGateConfig        `yaml:"feature_gate"`        // 细粒度开关、license
 	DevHotload         DevHotloadConfig         `yaml:"dev_hotload"`
@@ -228,6 +229,69 @@ type AgentLifecycleNotificationConfig struct {
 	RetryIntervalSec int    `yaml:"retry_interval_seconds"`
 	RetryMaxAttempts int    `yaml:"retry_max_attempts"`
 	HTTPTimeoutSec   int    `yaml:"http_timeout_seconds"`
+}
+
+// KnowledgeSpaceConfig 描述知识空间模块运行参数。
+type KnowledgeSpaceConfig struct {
+	RedisAddr              string                           `yaml:"redis_addr"`
+	RedisPassword          string                           `yaml:"redis_password"`
+	RedisDB                int                              `yaml:"redis_db"`
+	LockKeyPrefix          string                           `yaml:"lock_key_prefix"`
+	MetricsKeyPrefix       string                           `yaml:"metrics_key_prefix"`
+	DefaultRetentionMonths int                              `yaml:"default_retention_months"`
+	ProvisioningSLASeconds int                              `yaml:"provisioning_sla_seconds"`
+	IngestionSLASeconds    int                              `yaml:"ingestion_sla_seconds"`
+	EventTopics            KnowledgeSpaceEventTopics        `yaml:"event_topics"`
+	Notifications          KnowledgeSpaceNotificationConfig `yaml:"notifications"`
+	VectorStore            KnowledgeSpaceVectorStoreConfig  `yaml:"vector_store"`
+}
+
+// KnowledgeSpaceEventTopics 定义事件主题。
+type KnowledgeSpaceEventTopics struct {
+	Provisioning string `yaml:"provisioning"`
+	Ingestion    string `yaml:"ingestion"`
+	Fusion       string `yaml:"fusion"`
+	Feedback     string `yaml:"feedback"`
+}
+
+// KnowledgeSpaceNotificationConfig 定义通知渠道。
+type KnowledgeSpaceNotificationConfig struct {
+	IMWebhook        string `yaml:"im_webhook"`
+	RetryIntervalSec int    `yaml:"retry_interval_seconds"`
+	RetryMaxAttempts int    `yaml:"retry_max_attempts"`
+	HTTPTimeoutSec   int    `yaml:"http_timeout_seconds"`
+}
+
+// KnowledgeSpaceVectorStoreConfig 描述多驱动向量库配置。
+type KnowledgeSpaceVectorStoreConfig struct {
+	Driver   string                                  `yaml:"driver"`
+	PgVector KnowledgeSpaceVectorStorePGVectorConfig `yaml:"pgvector"`
+	Milvus   KnowledgeSpaceVectorStoreMilvusConfig   `yaml:"milvus"`
+	Pinecone KnowledgeSpaceVectorStorePineconeConfig `yaml:"pinecone"`
+}
+
+type KnowledgeSpaceVectorStorePGVectorConfig struct {
+	DSN              string `yaml:"dsn"`
+	Schema           string `yaml:"schema"`
+	Table            string `yaml:"table"`
+	Dimensions       int    `yaml:"dimensions"`
+	EnableMigrations bool   `yaml:"enable_migrations"`
+	BatchSize        int    `yaml:"batch_size"`
+	Lists            int    `yaml:"ivfflat_lists"`
+	TimeoutSeconds   int    `yaml:"timeout_seconds"`
+}
+
+type KnowledgeSpaceVectorStoreMilvusConfig struct {
+	Endpoint string `yaml:"endpoint"`
+	APIKey   string `yaml:"api_key"`
+	Project  string `yaml:"project"`
+}
+
+type KnowledgeSpaceVectorStorePineconeConfig struct {
+	Endpoint  string `yaml:"endpoint"`
+	APIKey    string `yaml:"api_key"`
+	Index     string `yaml:"index"`
+	Namespace string `yaml:"namespace"`
 }
 
 // 低代码引擎配置

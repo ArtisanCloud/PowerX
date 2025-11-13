@@ -9,6 +9,9 @@ import (
 	security "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/security"
 	mediasvc "github.com/ArtisanCloud/PowerX/internal/service/media"
 	auditsvc "github.com/ArtisanCloud/PowerX/pkg/corex/audit"
+	milvuscfg "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/vectorstore/milvus"
+	pgvectorcfg "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/vectorstore/pgvector"
+	pineconecfg "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/vectorstore/pinecone"
 )
 
 type DepsOptions struct {
@@ -21,6 +24,7 @@ type DepsOptions struct {
 	Workflow           WorkflowOptions
 	IntegrationGateway IntegrationGatewayOptions
 	AgentLifecycle     AgentLifecycleOptions
+	KnowledgeSpace     KnowledgeSpaceOptions
 	DevHotload         DevHotloadOptions
 	PluginRelease      PluginReleaseOptions
 	PluginBootstrap    PluginBootstrapOptions
@@ -132,6 +136,42 @@ type AgentLifecycleNotificationOptions struct {
 	RetryInterval    time.Duration
 	RetryMaxAttempts int
 	HTTPTimeout      time.Duration
+}
+
+// KnowledgeSpaceOptions 描述知识空间域依赖。
+type KnowledgeSpaceOptions struct {
+	RedisAddr              string
+	RedisPassword          string
+	RedisDB                int
+	LockKeyPrefix          string
+	MetricsKeyPrefix       string
+	DefaultRetentionMonths int
+	ProvisioningSLA        time.Duration
+	IngestionSLA           time.Duration
+	EventTopics            KnowledgeSpaceEventTopicsOptions
+	Notifications          KnowledgeSpaceNotificationOptions
+	VectorStore            KnowledgeSpaceVectorStoreOptions
+}
+
+type KnowledgeSpaceEventTopicsOptions struct {
+	Provisioning string
+	Ingestion    string
+	Fusion       string
+	Feedback     string
+}
+
+type KnowledgeSpaceNotificationOptions struct {
+	IMWebhook        string
+	RetryInterval    time.Duration
+	RetryMaxAttempts int
+	HTTPTimeout      time.Duration
+}
+
+type KnowledgeSpaceVectorStoreOptions struct {
+	Driver   string
+	PGVector pgvectorcfg.Config
+	Milvus   milvuscfg.Config
+	Pinecone pineconecfg.Config
 }
 
 // PluginReleaseOptions 暴露插件发布模块所需运行参数。

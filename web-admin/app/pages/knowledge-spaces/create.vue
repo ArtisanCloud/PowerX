@@ -1,0 +1,223 @@
+<script setup lang="ts">
+import { useKnowledgeSpaceStore } from "~/stores/knowledgeSpaces";
+import PolicySelector from "~/components/knowledge-spaces/PolicySelector.vue";
+import QuotaForm from "~/components/knowledge-spaces/QuotaForm.vue";
+import AuditPreview from "~/components/knowledge-spaces/AuditPreview.vue";
+import IamStatusBadge from "~/components/knowledge-spaces/IamStatusBadge.vue";
+import { useKnowledgeSpaces } from "~/composables/useKnowledgeSpaces";
+
+const store = useKnowledgeSpaceStore();
+const { fetchStatus } = useKnowledgeSpaces();
+const statusSnapshot = ref<{ pendingIam: number; active: number; retired: number } | null>(null);
+
+const policyOptions = [
+  {
+    label: "默认模版 v1",
+    value: "default-v1",
+    description: "启用必需的 RAG / Masking / Alerting 组合。",
+  },
+  {
+    label: "严苛模版 v2",
+    value: "strict-v2",
+    description: "针对合规租户，强化 IAM 审批与脱敏审计。",
+  },
+];
+
+const loadStatus = async () => {
+  try {
+    statusSnapshot.value = await fetchStatus();
+  } catch (error) {
+    console.warn("failed to fetch status", error);
+  }
+};
+
+onMounted(() => {
+  loadStatus();
+});
+
+const stepTitle = computed(() => {
+  switch (store.step) {
+    case 1:
+      return "基础信息";
+    case 2:
+      return "策略模版";
+    case 3:
+      return "配额与 IAM";
+    default:
+      return "审阅与创建";
+  }
+});
+
+const canSubmit = computed(
+  () =>
+    store.isBasicInfoValid &&
+    store.isPolicyStepValid &&
+    store.isQuotaStepValid &&
+    !store.loading,
+);
+
+const submitWizard = async () => {
+  await store.submit();
+};
+</script>
+
+<template>
+  <section class="space-y-6 px-6 py-8">
+    <header class="space-y-2">
+      <p class="text-sm text-gray-500">Knowledge Space</p>
+      <h1 class="text-2xl font-semibold text-gray-900">创建知识空间</h1>
+      <p class="text-gray-600">
+        通过下列四个步骤完成租户级空间的配置、策略绑定与配额校验。
+      </p>
+    </header>
+
+    <div class="grid gap-4 md:grid-cols-3">
+      <UCard>
+        <div class="space-y-1">
+          <p class="text-sm text-gray-500">当前步骤</p>
+          <p class="text-lg font-semibold text-gray-900">
+            第 {{ store.step }} 步 · {{ stepTitle }}
+          </p>
+        </div>
+      </UCard>
+      <UCard v-if="statusSnapshot">
+        <p class="text-sm text-gray-500">全局概览</p>
+        <p class="text-lg font-semibold text-gray-900">
+          等待 IAM {{ statusSnapshot.pendingIam }} · 运行中
+          {{ statusSnapshot.active }} · 已退役 {{ statusSnapshot.retired }}
+        </p>
+      </UCard>
+      <UCard v-else>
+        <p class="text-sm text-gray-500">全局概览</p>
+        <p class="text-lg font-semibold text-gray-900">加载中…</p>
+      </UCard>
+    </div>
+
+    <UCard :ui="{ body: { padding: 'p-6 space-y-6' } }">
+      <template #header>
+        <div class="flex items-center justify-between">
+          <div>
+            <h2 class="text-xl font-semibold text-gray-900">{{ stepTitle }}</h2>
+            <p class="text-sm text-gray-500">完成所有字段以进入下一步</p>
+          </div>
+          <div class="flex items-center gap-2 text-sm text-gray-500">
+            <span>步骤 {{ store.step }}/4</span>
+          </div>
+        </div>
+      </template>
+
+      <div v-if="store.step === 1" class="space-y-4">
+        <label class="flex flex-col gap-2">
+          <span class="text-sm font-medium text-gray-800">租户 ID</span>
+          <input
+            type="text"
+            class="rounded-lg border border-gray-200 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none"
+            placeholder="d86c5da9-35f4-4db8-9c2e-d879ed2b9e10"
+            :value="store.form.tenantId"
+            @input="store.form.tenantId = String(($event.target as HTMLInputElement).value)"
+          />
+        </label>
+        <label class="flex flex-col gap-2">
+          <span class="text-sm font-medium text-gray-800">空间名称</span>
+          <input
+            type="text"
+            class="rounded-lg border border-gray-200 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none"
+            placeholder="ops-handbook"
+            :value="store.form.spaceName"
+            @input="store.form.spaceName = String(($event.target as HTMLInputElement).value)"
+          />
+        </label>
+        <label class="flex flex-col gap-2">
+          <span class="text-sm font-medium text-gray-800">部门编码</span>
+          <input
+            type="text"
+            class="rounded-lg border border-gray-200 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none"
+            placeholder="OPS-01"
+            :value="store.form.departmentCode"
+            @input="
+              store.form.departmentCode = String(
+                ($event.target as HTMLInputElement).value,
+              )
+            "
+          />
+        </label>
+      </div>
+
+      <div v-else-if="store.step === 2">
+        <PolicySelector
+          :model-value="store.form.policyTemplateVersionId"
+          :feature-flags="store.form.featureFlags"
+          :options="policyOptions"
+          @update:model-value="store.form.policyTemplateVersionId = $event"
+          @update:feature-flags="store.form.featureFlags = $event"
+        />
+      </div>
+
+      <div v-else-if="store.step === 3">
+        <QuotaForm
+          :quotas="store.form.quotas"
+          :iam-email="store.iamEmail"
+          @update:quotas="store.form.quotas = $event"
+          @update:iam-email="store.iamEmail = $event"
+        />
+      </div>
+
+      <div v-else>
+        <AuditPreview
+          :payload="store.form"
+          :iam-email="store.iamEmail"
+          :sla-remaining="store.slaRemaining"
+        />
+      </div>
+
+      <div class="flex items-center justify-between border-t border-gray-100 pt-4">
+        <UButton
+          variant="ghost"
+          :disabled="store.step === 1 || store.loading"
+          @click="store.prevStep()"
+        >
+          上一步
+        </UButton>
+        <div class="flex items-center gap-3">
+          <p v-if="store.error" class="text-sm text-red-500">{{ store.error }}</p>
+          <UButton
+            v-if="store.step < 4"
+            color="primary"
+            :disabled="
+              store.loading ||
+              (store.step === 1 && !store.isBasicInfoValid) ||
+              (store.step === 2 && !store.isPolicyStepValid) ||
+              (store.step === 3 && !store.isQuotaStepValid)
+            "
+            @click="store.nextStep()"
+          >
+            下一步
+          </UButton>
+          <UButton
+            v-else
+            color="primary"
+            :loading="store.loading"
+            :disabled="!canSubmit"
+            @click="submitWizard"
+          >
+            提交创建
+          </UButton>
+        </div>
+      </div>
+    </UCard>
+
+    <div v-if="store.wizardCompleted" class="space-y-4">
+      <UAlert
+        color="primary"
+        variant="soft"
+        icon="i-heroicons-check-circle"
+        title="空间创建成功"
+        description="正在等待 IAM 确认，完成后可继续入库和融合。"
+      />
+      <IamStatusBadge
+        status="pending_iam"
+        :audit-token="store.lastSpace?.auditToken"
+      />
+    </div>
+  </section>
+</template>

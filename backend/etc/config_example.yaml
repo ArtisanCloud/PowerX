@@ -216,6 +216,46 @@ agent:
     max_interval: "10s"
   options: {}
 
+knowledge_space:
+  redis_addr: localhost:6379
+  redis_password: ""
+  redis_db: 4
+  lock_key_prefix: knowledge_space:lock
+  metrics_key_prefix: knowledge_space:metrics
+  default_retention_months: 13
+  provisioning_sla_seconds: 120
+  ingestion_sla_seconds: 14400
+  event_topics:
+    provisioning: knowledge.space.provisioning
+    ingestion: knowledge.space.ingestion
+    fusion: knowledge.space.fusion
+    feedback: knowledge.space.feedback
+  notifications:
+    im_webhook: ""
+    retry_interval_seconds: 60
+    retry_max_attempts: 3
+    http_timeout_seconds: 5
+  vector_store:
+    driver: ""
+    pgvector:
+      dsn: "postgres://vector_user:vector_pass@localhost:5432/vector_db?sslmode=disable"
+      schema: public
+      table: knowledge_vectors
+      dimensions: 1536
+      enable_migrations: false
+      batch_size: 128
+      ivfflat_lists: 100
+      timeout_seconds: 30
+    milvus:
+      endpoint: ""
+      api_key: ""
+      project: ""
+    pinecone:
+      endpoint: ""
+      api_key: ""
+      index: ""
+      namespace: ""
+
 mcp:
   server:
     host: 0.0.0.0

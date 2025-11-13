@@ -1,0 +1,21 @@
+kind: ruleset
+name: plugin/crud/frontend/nuxt_i18n
+version: 1
+
+i18n:
+  locales:
+    - { code: "en", file: "en.json" }
+    - { code: "zh", file: "zh.json" }
+  files:
+    - target: web-admin/i18n/en.json
+      template: builtin/i18n_dict_minimal
+      params:
+        entries:
+          templates: { title: "Templates", create: "Create", edit: "Edit", delete: "Delete", detail: "Detail" }
+    - target: web-admin/i18n/zh.json
+      template: builtin/i18n_dict_minimal
+      params:
+        entries:
+          templates: { title: "模板", create: "新建", edit: "编辑", delete: "删除", detail: "详情" }
+
+gates.require: [PG-FE-UI-001]

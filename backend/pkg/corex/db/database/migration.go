@@ -10,6 +10,7 @@ import (
 	modelFlow "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/flow"
 	modelIAM "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/iam"
 	modelIntegrationGateway "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/integration_gateway"
+	modelKnowledge "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/knowledge"
 	mediaModel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/media"
 	modelPluginCompat "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/plugin_compat"
 	modelPluginDebug "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/plugin_debug"
@@ -125,6 +126,10 @@ func MigrateCoreModels(db *gorm.DB) (err error) {
 		return err
 	}
 
+	if err = migrateKnowledgeModels(db); err != nil {
+		return err
+	}
+
 	if err = migrateAgentModelHubModels(db); err != nil {
 		return err
 	}
@@ -198,6 +203,19 @@ func migrateWorkflowModels(db *gorm.DB) error {
 		&modelWorkflow.WorkflowStepCompensation{},
 		&modelWorkflow.AgentAssignment{},
 		&modelWorkflow.WorkflowEvent{},
+	)
+}
+
+func migrateKnowledgeModels(db *gorm.DB) error {
+	return db.AutoMigrate(
+		&modelKnowledge.KnowledgeSpace{},
+		&modelKnowledge.PolicyTemplateVersion{},
+		&modelKnowledge.IngestionJob{},
+		&modelKnowledge.ArtifactBundle{},
+		&modelKnowledge.FusionStrategyVersion{},
+		&modelKnowledge.FeedbackCase{},
+		&modelKnowledge.IAMSyncTask{},
+		&modelKnowledge.AuditTrailEntry{},
 	)
 }
 

@@ -40,6 +40,8 @@ import (
 	integrationInstrumentation "github.com/ArtisanCloud/PowerX/internal/service/integration_gateway/instrumentation"
 	integrationManager "github.com/ArtisanCloud/PowerX/internal/service/integration_gateway/manager"
 	integrationTenant "github.com/ArtisanCloud/PowerX/internal/service/integration_gateway/tenant"
+	knowledgeService "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space"
+	knowledgeinstr "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/instrumentation"
 	mediasvc "github.com/ArtisanCloud/PowerX/internal/service/media"
 	pluginbootstrap "github.com/ArtisanCloud/PowerX/internal/service/plugin_bootstrap"
 	plugincompat "github.com/ArtisanCloud/PowerX/internal/service/plugin_compat"
@@ -51,6 +53,7 @@ import (
 	pluginsandbox "github.com/ArtisanCloud/PowerX/internal/service/plugin_sandbox"
 	tenantsvc "github.com/ArtisanCloud/PowerX/internal/service/tenant"
 	workflowsvc "github.com/ArtisanCloud/PowerX/internal/service/workflow"
+	knowledgeworkflow "github.com/ArtisanCloud/PowerX/internal/workflow/knowledge_space"
 	"github.com/ArtisanCloud/PowerX/pkg/cache"
 	auditsvc "github.com/ArtisanCloud/PowerX/pkg/corex/audit"
 	dbm "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/audit"
@@ -61,6 +64,7 @@ import (
 	govrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/plugin_governance"
 	pluginReleaseRepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/plugin_release"
 	pluginsandboxrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/plugin_sandbox"
+	vectorstorepkg "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/vectorstore"
 	"github.com/ArtisanCloud/PowerX/pkg/event_bus"
 	pxlog "github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"github.com/google/uuid"
@@ -133,8 +137,9 @@ type Deps struct {
 	PluginGovernance       *plugingovernance.Service
 	PluginCompat           *plugincompat.Service
 
-	EventFabric *EventFabricDeps
-	Workflow    *WorkflowDeps
+	EventFabric    *EventFabricDeps
+	Workflow       *WorkflowDeps
+	KnowledgeSpace *KnowledgeSpaceDeps
 }
 
 func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
@@ -221,6 +226,7 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 
 	integrationGatewayDeps := newIntegrationGatewayDeps(db, opts.IntegrationGateway, bus, aud)
 	agentLifecycleDeps := newAgentLifecycleDeps(db, opts.AgentLifecycle, bus, svc)
+	knowledgeDeps := newKnowledgeSpaceDeps(db, opts.KnowledgeSpace, bus, svc)
 
 	pluginReleaseCandidateRepo := pluginReleaseRepo.NewReleaseCandidateRepository(db)
 	pluginReleasePlanRepo := pluginReleaseRepo.NewReleasePlanRepository(db)
@@ -412,6 +418,7 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 		DiscoverySvc:           discoverySvc,
 		IntegrationGateway:     integrationGatewayDeps,
 		AgentLifecycle:         agentLifecycleDeps,
+		KnowledgeSpace:         knowledgeDeps,
 		DevHotloadOptions:      opts.DevHotload,
 		PluginReleaseOptions:   opts.PluginRelease,
 		PluginReleaseService:   pluginReleaseSvc,
@@ -512,6 +519,30 @@ type IntegrationGatewayDeps struct {
 	Manager         *integrationManager.Service
 	Tenant          *integrationTenant.Service
 	Instrumentation *integrationInstrumentation.Instrumentation
+}
+
+// KnowledgeSpaceDeps 聚合知识空间域运行依赖。
+type KnowledgeSpaceDeps struct {
+	Instrumentation *knowledgeinstr.Instrumentation
+	RedisClient     *redis.Client
+	EventBus        event_bus.EventBus
+	Config          KnowledgeSpaceRuntimeConfig
+	Service         *knowledgeService.Service
+	Ingestion       *knowledgeService.IngestionService
+	Fusion          *knowledgeService.FusionService
+	Feedback        *knowledgeService.FeedbackService
+	VectorStore     vectorstorepkg.Store
+}
+
+// KnowledgeSpaceRuntimeConfig 描述运行期常用配置。
+type KnowledgeSpaceRuntimeConfig struct {
+	LockKeyPrefix          string
+	MetricsKeyPrefix       string
+	DefaultRetentionMonths int
+	ProvisioningSLA        time.Duration
+	IngestionSLA           time.Duration
+	EventTopics            KnowledgeSpaceEventTopicsOptions
+	Notifications          KnowledgeSpaceNotificationOptions
 }
 
 // AgentLifecycleDeps 聚合 Agent 生命周期运行所需依赖。
@@ -951,6 +982,157 @@ func newAgentLifecycleDeps(db *gorm.DB, opts AgentLifecycleOptions, bus event_bu
 		ApprovalFlow:     approvalFlow,
 		ShareValidator:   shareValidator,
 		QuotaProvisioner: quotaProvisioner,
+	}
+}
+
+func newKnowledgeSpaceDeps(db *gorm.DB, opts KnowledgeSpaceOptions, bus event_bus.EventBus, auditSvc auditsvc.Service) *KnowledgeSpaceDeps {
+	var redisClient *redis.Client
+	if addr := strings.TrimSpace(opts.RedisAddr); addr != "" {
+		redisClient = redis.NewClient(&redis.Options{
+			Addr:     addr,
+			Password: opts.RedisPassword,
+			DB:       opts.RedisDB,
+		})
+	}
+
+	inst := knowledgeinstr.New(knowledgeinstr.Options{
+		Audit: auditSvc,
+	})
+
+	var vectorStore vectorstorepkg.Store
+	driverName := strings.ToLower(strings.TrimSpace(opts.VectorStore.Driver))
+	if driverName != "" {
+		var driverCfg interface{}
+		switch driverName {
+		case vectorstorepkg.DriverPGVector:
+			driverCfg = opts.VectorStore.PGVector.WithDefaults()
+		case vectorstorepkg.DriverMilvus:
+			driverCfg = opts.VectorStore.Milvus
+		case vectorstorepkg.DriverPinecone:
+			driverCfg = opts.VectorStore.Pinecone
+		default:
+			pxlog.WarnF(context.Background(), "[knowledge_space] 不支持的向量存储驱动: %s", driverName)
+		}
+		if driverCfg != nil {
+			store, err := vectorstorepkg.Open(driverName, driverCfg)
+			if err != nil {
+				if err == vectorstorepkg.ErrNotImplemented {
+					pxlog.WarnF(context.Background(), "[knowledge_space] 向量存储驱动 %s 暂未实现", driverName)
+				} else {
+					pxlog.WarnF(context.Background(), "[knowledge_space] 初始化向量存储失败: %v", err)
+				}
+			} else {
+				vectorStore = store
+			}
+		}
+	}
+
+	cfg := KnowledgeSpaceRuntimeConfig{
+		LockKeyPrefix:          strings.TrimSpace(opts.LockKeyPrefix),
+		MetricsKeyPrefix:       strings.TrimSpace(opts.MetricsKeyPrefix),
+		DefaultRetentionMonths: opts.DefaultRetentionMonths,
+		ProvisioningSLA:        opts.ProvisioningSLA,
+		IngestionSLA:           opts.IngestionSLA,
+		EventTopics:            opts.EventTopics,
+		Notifications:          opts.Notifications,
+	}
+
+	if cfg.LockKeyPrefix == "" {
+		cfg.LockKeyPrefix = "knowledge_space:lock"
+	}
+	if cfg.MetricsKeyPrefix == "" {
+		cfg.MetricsKeyPrefix = "knowledge_space:metrics"
+	}
+	if cfg.DefaultRetentionMonths <= 0 {
+		cfg.DefaultRetentionMonths = 13
+	}
+	if cfg.ProvisioningSLA <= 0 {
+		cfg.ProvisioningSLA = 2 * time.Minute
+	}
+	if cfg.IngestionSLA <= 0 {
+		cfg.IngestionSLA = 4 * time.Hour
+	}
+	if cfg.EventTopics.Provisioning == "" {
+		cfg.EventTopics.Provisioning = "knowledge.space.provisioning"
+	}
+	if cfg.EventTopics.Ingestion == "" {
+		cfg.EventTopics.Ingestion = "knowledge.space.ingestion"
+	}
+	if cfg.EventTopics.Fusion == "" {
+		cfg.EventTopics.Fusion = "knowledge.space.fusion"
+	}
+	if cfg.EventTopics.Feedback == "" {
+		cfg.EventTopics.Feedback = "knowledge.space.feedback"
+	}
+	if cfg.Notifications.RetryInterval <= 0 {
+		cfg.Notifications.RetryInterval = time.Minute
+	}
+	if cfg.Notifications.HTTPTimeout <= 0 {
+		cfg.Notifications.HTTPTimeout = 5 * time.Second
+	}
+	if cfg.Notifications.RetryMaxAttempts <= 0 {
+		cfg.Notifications.RetryMaxAttempts = 3
+	}
+
+	serviceCfg := knowledgeService.RuntimeConfig{
+		LockKeyPrefix:          cfg.LockKeyPrefix,
+		DefaultRetentionMonths: cfg.DefaultRetentionMonths,
+		ProvisioningSLA:        cfg.ProvisioningSLA,
+		EventTopics: knowledgeService.EventTopics{
+			Provisioning: cfg.EventTopics.Provisioning,
+			Ingestion:    cfg.EventTopics.Ingestion,
+			Fusion:       cfg.EventTopics.Fusion,
+			Feedback:     cfg.EventTopics.Feedback,
+		},
+	}
+
+	svc := knowledgeService.NewService(knowledgeService.ServiceOptions{
+		DB:              db,
+		Instrumentation: inst,
+		Redis:           redisClient,
+		EventBus:        bus,
+		Config:          serviceCfg,
+		Clock:           time.Now,
+	})
+
+	metricsWriter := knowledgeService.NewIngestionMetricsWriter("")
+
+	ingestionSvc := knowledgeService.NewIngestionService(knowledgeService.IngestionServiceOptions{
+		DB:              db,
+		Instrumentation: inst,
+		VectorStore:     vectorStore,
+		MetricsWriter:   metricsWriter,
+	})
+	svc.AttachIngestion(ingestionSvc)
+
+	fusionSvc := knowledgeService.NewFusionService(knowledgeService.FusionServiceOptions{
+		DB:              db,
+		Instrumentation: inst,
+		VectorStore:     vectorStore,
+		EventBus:        bus,
+		EventTopic:      cfg.EventTopics.Fusion,
+		Clock:           time.Now,
+	})
+
+	reprocessPipeline := knowledgeworkflow.NewReprocessPipeline(bus, time.Now)
+	feedbackSvc := knowledgeService.NewFeedbackService(knowledgeService.FeedbackServiceOptions{
+		DB:              db,
+		Instrumentation: inst,
+		Pipeline:        reprocessPipeline,
+		MetricsWriter:   metricsWriter,
+		Clock:           time.Now,
+	})
+
+	return &KnowledgeSpaceDeps{
+		Instrumentation: inst,
+		RedisClient:     redisClient,
+		EventBus:        bus,
+		Config:          cfg,
+		Service:         svc,
+		Ingestion:       ingestionSvc,
+		Fusion:          fusionSvc,
+		Feedback:        feedbackSvc,
+		VectorStore:     vectorStore,
 	}
 }
 

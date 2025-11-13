@@ -3,7 +3,7 @@ managed:
   enabled: true
   go_package_prefix:
     default: github.com/ArtisanCloud/PowerX/api/grpc/gen/go
-    # powerx/workflow/v1 uses默认前缀，保证生成路径与包结构对齐
+    # powerx/{workflow,knowledge}/v1 均沿用默认前缀以维持路径一致性
 plugins:
   - plugin: go
     out: ../gen/go

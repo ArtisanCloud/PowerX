@@ -1,0 +1,16 @@
+kind: ruleset
+name: plugin/crud/frontend/nuxt_components
+version: 1
+
+components:
+  files:
+    - target: web-admin/app/components/templates/TemplateForm.vue
+      template: builtin/nuxt_component_form_modal
+      params:
+        # Nuxt UI 3.3.2：使用 UModal + v-model:open；按钮 color 使用 {primary|secondary|...}
+        fields:
+          - { key: "name", label: "Name", type: "text", required: true, max: 255 }
+          - { key: "description", label: "Description", type: "textarea" }
+          - { key: "content", label: "Content", type: "textarea" }
+
+gates.require: [PG-FE-UI-001]

@@ -30,6 +30,7 @@ import (
 	eventfabricgrpc "github.com/ArtisanCloud/PowerX/internal/transport/grpc/event_fabric"
 	"github.com/ArtisanCloud/PowerX/internal/transport/grpc/iam"
 	integrationGatewayGRPC "github.com/ArtisanCloud/PowerX/internal/transport/grpc/integration_gateway"
+	knowledgegrpc "github.com/ArtisanCloud/PowerX/internal/transport/grpc/knowledge_space"
 	medigrpc "github.com/ArtisanCloud/PowerX/internal/transport/grpc/media"
 	pluginreleasegrpc "github.com/ArtisanCloud/PowerX/internal/transport/grpc/plugin_release"
 	workflowgrpc "github.com/ArtisanCloud/PowerX/internal/transport/grpc/workflow"
@@ -135,6 +136,9 @@ func New(cfg *GRPCConfig, deps *shared.Deps) (*grpc.Server, net.Listener, error)
 
 	integrationGatewayGRPC.RegisterServers(s, deps)
 	pluginreleasegrpc.RegisterServer(s, deps)
+	if ksServer := knowledgegrpc.NewServer(deps); ksServer != nil {
+		knowledgegrpc.Register(s, ksServer)
+	}
 
 	// STS（令牌换签/内发）—— 与拦截器共用同一个 KeyRing
 	stsv1.RegisterSTSServiceServer(s, authgrpc.NewSTSServiceServerWithRing(deps, ring))

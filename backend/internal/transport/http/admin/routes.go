@@ -14,6 +14,7 @@ import (
 	eventFabricHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/event_fabric"
 	"github.com/ArtisanCloud/PowerX/internal/transport/http/admin/iam"
 	integrationGatewayHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/integration_gateway"
+	knowledgeSpaceHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/knowledge_space"
 	"github.com/ArtisanCloud/PowerX/internal/transport/http/admin/media"
 	"github.com/ArtisanCloud/PowerX/internal/transport/http/admin/menu"
 	"github.com/ArtisanCloud/PowerX/internal/transport/http/admin/plugin"
@@ -24,6 +25,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/internal/transport/http/admin/tenants"
 	versionHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/version"
 	workflowHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/workflow"
+	knowledgeSpaceOpenAPI "github.com/ArtisanCloud/PowerX/internal/transport/http/openapi/knowledge_space"
 	"github.com/gin-gonic/gin"
 )
 
@@ -66,5 +68,7 @@ func RegisterAPIRoutes(
 	versionHTTP.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	eventFabricHTTP.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	workflowHTTP.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
+	knowledgeSpaceHTTP.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
+	knowledgeSpaceOpenAPI.Register(publicGroup, protectedGroup, deps)
 
 }

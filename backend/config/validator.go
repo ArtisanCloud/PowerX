@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/vectorstore"
 )
 
 // Validate 验证配置的合法性（已对齐新版 AuthConfig）
@@ -184,6 +186,26 @@ func (c *Config) Validate() error {
 		}
 		if strings.TrimSpace(c.Storage.S3.SecretKey) == "" {
 			errors = append(errors, "storage.s3.secret_key 不能为空")
+		}
+	}
+
+	vectorDriver := strings.TrimSpace(c.KnowledgeSpace.VectorStore.Driver)
+	if vectorDriver != "" {
+		switch strings.ToLower(vectorDriver) {
+		case vectorstore.DriverPGVector:
+			if strings.TrimSpace(c.KnowledgeSpace.VectorStore.PgVector.DSN) == "" {
+				errors = append(errors, "knowledge_space.vector_store.pgvector.dsn 不能为空")
+			}
+		case vectorstore.DriverMilvus:
+			if strings.TrimSpace(c.KnowledgeSpace.VectorStore.Milvus.Endpoint) == "" {
+				errors = append(errors, "knowledge_space.vector_store.milvus.endpoint 不能为空")
+			}
+		case vectorstore.DriverPinecone:
+			if strings.TrimSpace(c.KnowledgeSpace.VectorStore.Pinecone.Endpoint) == "" {
+				errors = append(errors, "knowledge_space.vector_store.pinecone.endpoint 不能为空")
+			}
+		default:
+			errors = append(errors, fmt.Sprintf("knowledge_space.vector_store.driver %s 不受支持", vectorDriver))
 		}
 	}
 

@@ -1,0 +1,15 @@
+kind: ruleset
+name: plugin/crud/frontend/nuxt_layout
+version: 1
+
+layout:
+  nav:
+    - label: "Templates"
+      to: "/templates"
+      icon: "i-lucide-file"
+      permission: "base:template:read"    # UI 可见性关联 RBAC
+  files:
+    - target: web-admin/app/app.vue
+      template: builtin/nuxt_app_shell_with_nav
+
+gates.require: [PG-FE-RBAC-001]

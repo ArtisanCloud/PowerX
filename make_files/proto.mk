@@ -38,6 +38,7 @@ proto-clean:
 	@rm -rf backend/api/grpc/gen/go/powerx/capability
 	@rm -rf backend/api/grpc/gen/go/powerx/integration
 	@rm -rf backend/api/grpc/gen/go/powerx/agent
+	@rm -rf backend/api/grpc/gen/go/powerx/knowledge
 	@rm -rf backend/api/grpc/gen/go/powerx/workflow
 	@rm -rf backend/api/grpc/gen/go/powerx/plugin_release
 	@rm -rf backend/api/grpc/gen/go/corex/event_fabric
