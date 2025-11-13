@@ -42,14 +42,15 @@ type ServiceOptions struct {
 
 // Service implements provisioning orchestration.
 type Service struct {
-	db      *gorm.DB
-	inst    *instrumentation.Instrumentation
-	redis   redis.UniversalClient
-	bus     event_bus.EventBus
-	cfg     RuntimeConfig
-	clock   func() time.Time
-	lockTTL time.Duration
-	localMu sync.Map
+	db        *gorm.DB
+	inst      *instrumentation.Instrumentation
+	redis     redis.UniversalClient
+	bus       event_bus.EventBus
+	cfg       RuntimeConfig
+	clock     func() time.Time
+	lockTTL   time.Duration
+	localMu   sync.Map
+	ingestion *IngestionService
 }
 
 // NewService builds a provisioning service.
@@ -85,6 +86,11 @@ func NewService(opts ServiceOptions) *Service {
 		clock:   opts.Clock,
 		lockTTL: lockTTL,
 	}
+}
+
+// AttachIngestion wires the ingestion service for cleanup callbacks.
+func (s *Service) AttachIngestion(ingestion *IngestionService) {
+	s.ingestion = ingestion
 }
 
 // CreateSpaceInput describes provisioning parameters.

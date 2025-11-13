@@ -224,6 +224,7 @@ func (s *Service) RetireSpace(ctx context.Context, in RetireSpaceInput) (*models
 	if in.SpaceID == uuid.Nil {
 		return nil, ErrInvalidInput
 	}
+	logger := s.inst.Logger(ctx)
 	now := s.clock()
 	var retired *models.KnowledgeSpace
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
@@ -276,6 +277,11 @@ func (s *Service) RetireSpace(ctx context.Context, in RetireSpaceInput) (*models
 		return nil, err
 	}
 	s.publishEvent(ctx, "retired", retired)
+	if s.ingestion != nil {
+		if err := s.ingestion.DropSpaceVectors(ctx, in.SpaceID); err != nil {
+			logger.WarnF(ctx, "[knowledge_space] drop space vectors failed: %v", err)
+		}
+	}
 	return retired, nil
 }
 

@@ -1097,6 +1097,7 @@ func newKnowledgeSpaceDeps(db *gorm.DB, opts KnowledgeSpaceOptions, bus event_bu
 		Instrumentation: inst,
 		VectorStore:     vectorStore,
 	})
+	svc.AttachIngestion(ingestionSvc)
 
 	return &KnowledgeSpaceDeps{
 		Instrumentation: inst,

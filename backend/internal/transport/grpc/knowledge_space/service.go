@@ -132,7 +132,14 @@ func (s *Server) TriggerIngestion(ctx context.Context, req *knowledgev1.Ingestio
 		Priority:       req.GetPriority(),
 	})
 	if err != nil {
-		return nil, status.Error(codes.Internal, err.Error())
+		switch {
+		case errors.Is(err, ksvc.ErrInvalidInput):
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		case errors.Is(err, ksvc.ErrSpaceNotFound):
+			return nil, status.Error(codes.NotFound, err.Error())
+		default:
+			return nil, status.Error(codes.Internal, err.Error())
+		}
 	}
 	return &knowledgev1.IngestionJobResponse{Job: toProtoIngestionJob(job)}, nil
 }

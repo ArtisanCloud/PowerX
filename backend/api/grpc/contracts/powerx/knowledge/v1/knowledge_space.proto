@@ -61,6 +61,8 @@ message IngestionJobRequest {
   string source_id = 2;
   string source_type = 3;
   string priority = 4;
+  string source_uri = 5;
+  string masking_profile = 6;
 }
 
 message IngestionJobStatus {

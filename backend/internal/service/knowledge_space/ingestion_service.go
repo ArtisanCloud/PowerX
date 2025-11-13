@@ -78,43 +78,59 @@ func NewIngestionService(opts IngestionServiceOptions) *IngestionService {
 
 // Trigger kicks off an ingestion job for a given space and source payload.
 func (s *IngestionService) Trigger(ctx context.Context, in TriggerIngestionInput) (*knowledge.IngestionJob, error) {
-	if in.SpaceID == uuid.Nil {
-		return nil, fmt.Errorf("space_id is required")
+	if in.SpaceID == uuid.Nil || strings.TrimSpace(in.SourceURI) == "" {
+		return nil, ErrInvalidInput
 	}
-	if !allowedSourceTypes[strings.ToLower(in.SourceType)] {
-		return nil, fmt.Errorf("unsupported sourceType: %s", in.SourceType)
+	sourceType := strings.ToLower(in.SourceType)
+	if !allowedSourceTypes[sourceType] {
+		return nil, ErrInvalidInput
 	}
-	priority := strings.ToLower(in.Priority)
+	priority := strings.ToLower(strings.TrimSpace(in.Priority))
 	if priority == "" {
 		priority = "normal"
 	}
 	if !allowedPriority[priority] {
-		return nil, fmt.Errorf("unsupported priority: %s", in.Priority)
+		return nil, ErrInvalidInput
 	}
-	logger := s.inst.Logger(ctx)
-	logger.InfoF(ctx, "[ingestion] trigger space=%s source=%s", in.SpaceID, in.SourceURI)
 
-	var result *knowledge.IngestionJob
+	logger := s.inst.Logger(ctx)
+	logger.InfoF(ctx, "[ingestion] trigger space=%s source=%s type=%s", in.SpaceID, in.SourceURI, sourceType)
+
+	chunkSet := synthesizeChunks(in.SpaceID)
+	var job *knowledge.IngestionJob
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		spaces := repo.NewKnowledgeSpaceRepository(tx)
 		jobs := repo.NewIngestionJobRepository(tx)
 		bundles := repo.NewArtifactBundleRepository(tx)
 
-		now := time.Now()
-		job := &knowledge.IngestionJob{
-			SpaceUUID:   in.SpaceID,
-			SourceID:    fmt.Sprintf("src-%s", uuid.NewString()),
-			SourceType:  strings.ToLower(in.SourceType),
-			Status:      knowledge.IngestionStatusRunning,
-			Priority:    priority,
-			SubmittedBy: in.RequestedBy,
-			StartedAt:   &now,
-		}
-		job, err := jobs.Create(ctx, job)
+		space, err := spaces.FindByUUID(ctx, in.SpaceID)
 		if err != nil {
 			return err
 		}
+		if space == nil || space.Status == knowledge.KnowledgeSpaceStatusRetired {
+			return ErrSpaceNotFound
+		}
 
-		chunkSet := synthesizeChunks(in.SpaceID)
+		now := time.Now()
+		job = &knowledge.IngestionJob{
+			SpaceUUID:           in.SpaceID,
+			SourceID:            fmt.Sprintf("src-%s", uuid.NewString()),
+			SourceType:          sourceType,
+			Status:              knowledge.IngestionStatusRunning,
+			Priority:            priority,
+			SubmittedBy:         in.RequestedBy,
+			StartedAt:           &now,
+			ChunkTotal:          chunkSet.total,
+			SummaryChunkCount:   chunkSet.summaryCount,
+			ParagraphChunkCount: chunkSet.paragraphCount,
+			ChunkCoveredPct:     100.0,
+			EmbeddingSuccessPct: 0,
+			MaskingCoveragePct:  100.0,
+		}
+		if job, err = jobs.Create(ctx, job); err != nil {
+			return err
+		}
+
 		bundle := &knowledge.ArtifactBundle{
 			IngestionJobID:      job.ID,
 			ChunkManifestURI:    fmt.Sprintf("memory://knowledge/%s/jobs/%d/chunks.json", in.SpaceID, job.ID),
@@ -126,68 +142,75 @@ func (s *IngestionService) Trigger(ctx context.Context, in TriggerIngestionInput
 			Checksum:            chunkSet.checksum,
 			StorageClass:        "standard",
 		}
-		bundle, err = bundles.Create(ctx, bundle)
-		if err != nil {
+		if bundle, err = bundles.Create(ctx, bundle); err != nil {
 			return err
 		}
 		job.ArtifactBundleID = &bundle.ID
-
-		job.ChunkTotal = chunkSet.total
-		job.SummaryChunkCount = chunkSet.summaryCount
-		job.ParagraphChunkCount = chunkSet.paragraphCount
-		job.ChunkCoveredPct = 100.0
-		job.EmbeddingSuccessPct = 100.0
-		job.MaskingCoveragePct = 100.0
-
-		if len(chunkSet.records) > 0 && s.vectorStore != nil {
-			if err := s.vectorStore.Upsert(ctx, in.SpaceID, chunkSet.records); err != nil {
-				job.Status = knowledge.IngestionStatusFailed
-				job.ErrorCode = "vector_upsert_failed"
-				job.BlockedReason = err.Error()
-				if _, updateErr := jobs.Update(ctx, job); updateErr != nil {
-					logger.WarnF(ctx, "[ingestion] failed to record vector upsert error: %v", updateErr)
-				}
-				return err
-			}
-		}
-
-		job.Status = knowledge.IngestionStatusCompleted
-		completed := time.Now()
-		job.CompletedAt = &completed
-		job.MetricsSnapshot = mustJSON(map[string]any{
-			"source_uri":  in.SourceURI,
-			"created_at":  job.CreatedAt,
-			"chunk_total": chunkSet.total,
-		})
-
 		if job, err = jobs.Update(ctx, job); err != nil {
 			return err
 		}
-
-		result = job
 		return nil
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	if result != nil {
-		if s.metrics != nil {
-			_ = s.metrics.Store(IngestionSnapshot{
-				SpaceID:             result.SpaceUUID.String(),
-				JobID:               result.UUID.String(),
-				ChunkTotal:          result.ChunkTotal,
-				SummaryChunkCount:   result.SummaryChunkCount,
-				ParagraphChunkCount: result.ParagraphChunkCount,
-				CoveragePct:         result.ChunkCoveredPct,
-				EmbeddingPct:        result.EmbeddingSuccessPct,
-				MaskingPct:          result.MaskingCoveragePct,
-				CompletedAt:         result.CompletedAt,
-			})
-		}
-		s.inst.RecordIngestionCoverage(result.ChunkCoveredPct)
+	vectorErr := s.persistVectors(ctx, in.SpaceID, chunkSet.records)
+	completed := time.Now()
+	job.CompletedAt = &completed
+	if vectorErr != nil {
+		job.Status = knowledge.IngestionStatusFailed
+		job.ErrorCode = "vector_upsert_failed"
+		job.BlockedReason = vectorErr.Error()
+		job.EmbeddingSuccessPct = 0
+	} else {
+		job.Status = knowledge.IngestionStatusCompleted
+		job.EmbeddingSuccessPct = 100.0
+		job.ErrorCode = ""
+		job.BlockedReason = ""
 	}
-	return result, nil
+	job.MetricsSnapshot = mustJSON(map[string]any{
+		"source_uri":  in.SourceURI,
+		"chunk_total": chunkSet.total,
+		"completed":   completed,
+	})
+
+	if _, err := repo.NewIngestionJobRepository(s.db).Update(ctx, job); err != nil {
+		return nil, err
+	}
+	s.emitMetrics(job)
+
+	if vectorErr != nil {
+		return job, vectorErr
+	}
+	return job, nil
+}
+
+func (s *IngestionService) persistVectors(ctx context.Context, space uuid.UUID, records []vectorstore.VectorRecord) error {
+	if s.vectorStore == nil || len(records) == 0 {
+		return nil
+	}
+	return s.vectorStore.Upsert(ctx, space, records)
+}
+
+func (s *IngestionService) emitMetrics(job *knowledge.IngestionJob) {
+	if job == nil {
+		return
+	}
+	if s.metrics != nil {
+		_ = s.metrics.Store(IngestionSnapshot{
+			SpaceID:             job.SpaceUUID.String(),
+			JobID:               job.UUID.String(),
+			ChunkTotal:          job.ChunkTotal,
+			SummaryChunkCount:   job.SummaryChunkCount,
+			ParagraphChunkCount: job.ParagraphChunkCount,
+			CoveragePct:         job.ChunkCoveredPct,
+			EmbeddingPct:        job.EmbeddingSuccessPct,
+			MaskingPct:          job.MaskingCoveragePct,
+			CompletedAt:         job.CompletedAt,
+		})
+	}
+	s.inst.RecordIngestionCoverage(job.ChunkCoveredPct)
 }
 
 // RemoveChunks removes embeddings for provided chunk IDs.

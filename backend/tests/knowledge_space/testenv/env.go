@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -25,11 +26,12 @@ import (
 
 // Env encapsulates dependencies required to exercise Knowledge Space surfaces.
 type Env struct {
-	T        testing.TB
-	DB       *gorm.DB
-	Deps     *shared.Deps
-	Bus      event_bus.EventBus
-	tenantID uuid.UUID
+	T           testing.TB
+	DB          *gorm.DB
+	Deps        *shared.Deps
+	Bus         event_bus.EventBus
+	tenantID    uuid.UUID
+	VectorStore *VectorStoreStub
 }
 
 // New spins up an isolated sqlite + redis test environment.
@@ -59,6 +61,7 @@ func New(t testing.TB) *Env {
 
 	bus := event_bus.NewLocalEventBus()
 	inst := knowledgeinstr.New(knowledgeinstr.Options{})
+	vectorStore := NewVectorStoreStub()
 
 	cfg := shared.KnowledgeSpaceRuntimeConfig{
 		LockKeyPrefix:          "test:knowledge:lock",
@@ -101,6 +104,15 @@ func New(t testing.TB) *Env {
 		Clock:           time.Now,
 	})
 
+	metricsWriter := knowledgeService.NewIngestionMetricsWriter(filepath.Join(t.TempDir(), "ingestion-metrics.json"))
+	ingestionSvc := knowledgeService.NewIngestionService(knowledgeService.IngestionServiceOptions{
+		DB:              db,
+		Instrumentation: inst,
+		VectorStore:     vectorStore,
+		MetricsWriter:   metricsWriter,
+	})
+	service.AttachIngestion(ingestionSvc)
+
 	deps := &shared.Deps{
 		DB:       db,
 		EventBus: bus,
@@ -110,15 +122,18 @@ func New(t testing.TB) *Env {
 			EventBus:        bus,
 			Config:          cfg,
 			Service:         service,
+			Ingestion:       ingestionSvc,
+			VectorStore:     vectorStore,
 		},
 	}
 
 	return &Env{
-		T:        t,
-		DB:       db,
-		Deps:     deps,
-		Bus:      bus,
-		tenantID: uuid.New(),
+		T:           t,
+		DB:          db,
+		Deps:        deps,
+		Bus:         bus,
+		tenantID:    uuid.New(),
+		VectorStore: vectorStore,
 	}
 }
 
@@ -166,4 +181,25 @@ func (e *Env) SeedPolicyTemplate(name, version string) uint64 {
 	}
 	require.NoError(e.T, e.DB.WithContext(context.Background()).Create(tpl).Error)
 	return tpl.ID
+}
+
+// CreateSpaceFixture provisions a minimal active-ready knowledge space.
+func (e *Env) CreateSpaceFixture(name string, policyID uint64) *models.KnowledgeSpace {
+	e.T.Helper()
+	require.NotNil(e.T, e.Deps)
+	require.NotNil(e.T, e.Deps.KnowledgeSpace)
+	svc := e.Deps.KnowledgeSpace.Service
+	require.NotNil(e.T, svc)
+
+	space, err := svc.CreateSpace(context.Background(), knowledgeService.CreateSpaceInput{
+		TenantID:       e.tenantID,
+		SpaceName:      name,
+		DepartmentCode: "RD",
+		QuotaCPU:       4,
+		QuotaStorageGB: 120,
+		PolicyVersion:  policyID,
+		FeatureFlags:   []string{"ingestion.dual-chunk"},
+	})
+	require.NoError(e.T, err)
+	return space
 }

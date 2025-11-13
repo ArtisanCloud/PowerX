@@ -76,20 +76,20 @@
 
 ### 测试
 
-- [ ] **T028 [P] [US2]** 在 `backend/tests/contract/knowledge_space/ingestion_http_test.go` 编写 HTTP 合同测试（正常、重试、脱敏阻断）。
-- [ ] **T029 [P] [US2]** 在 `.../ingestion_grpc_test.go` 编写 gRPC 合同测试。
-- [ ] **T030 [P] [US2]** 在 `backend/tests/integration/knowledge_space/ingestion_flow_test.go` 编写集成测试，模拟多源数据与事件上报，并断言双粒度 chunk（≈800/≈300 token）及覆盖率/嵌入/脱敏指标。
-- [ ] **T031 [P] [US2]** 在 `web-admin/tests/unit/knowledge-spaces/ingestion.spec.ts` 使用 Vitest 覆盖入库触发组件。
+- [X] **T028 [P] [US2]** 在 `backend/tests/contract/knowledge_space/ingestion_http_test.go` 编写 HTTP 合同测试（正常、重试、脱敏阻断）。
+- [X] **T029 [P] [US2]** 在 `.../ingestion_grpc_test.go` 编写 gRPC 合同测试。
+- [X] **T030 [P] [US2]** 在 `backend/tests/integration/knowledge_space/ingestion_flow_test.go` 编写集成测试，模拟多源数据与事件上报，并断言双粒度 chunk（≈800/≈300 token）及覆盖率/嵌入/脱敏指标。
+- [X] **T031 [P] [US2]** 在 `web-admin/tests/unit/knowledge-spaces/ingestion.spec.ts` 使用 Vitest 覆盖入库触发组件。
 
 ### 实现
 
-- [ ] **T032 [US2]** 在 `backend/internal/service/knowledge_space/ingestion_service.go` 实现 orchestrator、双粒度 chunk 构建（含 ArtifactBundle 写入）、重试策略、事件上报。
-- [ ] **T033 [US2]** 在 `backend/internal/transport/http/admin/knowledge_space/ingestion_handlers.go` 实现 HTTP Handler + DTO 校验。
-- [ ] **T034 [US2]** 在 `backend/internal/transport/grpc/knowledge_space/ingestion_service.go` 实现 gRPC Handler。
-- [ ] **T035 [US2]** 在 `backend/internal/service/knowledge_space/ingestion_metrics.go` 输出监控指标并写入 `reports/_state/knowledge-spaces.json`.
-- [ ] **T036 [US2]** 在 `web-admin/app/pages/knowledge-spaces/index.vue` 增加入库 CTA 与状态卡片，支持上传文件/API 配置与脱敏告警。
-- [ ] **T032A [US2]** 在 `ingestion_service.go` 中接入 `deps.KnowledgeSpace.VectorStore.Upsert`，将批量 embedding（chunk UUID + 元数据）写入默认向量驱动，并在失败时回滚/告警。
-- [ ] **T032B [US2]** 为 ArtifactBundle 退役/清理流程调用 `VectorStore.DeleteByChunkIDs` / `DropSpace`，确保空间删除与 chunk 过期同步清理向量数据。
+- [X] **T032 [US2]** 在 `backend/internal/service/knowledge_space/ingestion_service.go` 实现 orchestrator、双粒度 chunk 构建（含 ArtifactBundle 写入）、重试策略、事件上报。
+- [X] **T033 [US2]** 在 `backend/internal/transport/http/admin/knowledge_space/ingestion_handlers.go` 实现 HTTP Handler + DTO 校验。
+- [X] **T034 [US2]** 在 `backend/internal/transport/grpc/knowledge_space/ingestion_service.go` 实现 gRPC Handler。
+- [X] **T035 [US2]** 在 `backend/internal/service/knowledge_space/ingestion_metrics.go` 输出监控指标并写入 `reports/_state/knowledge-spaces.json`.
+- [X] **T036 [US2]** 在 `web-admin/app/pages/knowledge-spaces/index.vue` 增加入库 CTA 与状态卡片，支持上传文件/API 配置与脱敏告警。
+- [X] **T032A [US2]** 在 `ingestion_service.go` 中接入 `deps.KnowledgeSpace.VectorStore.Upsert`，将批量 embedding（chunk UUID + 元数据）写入默认向量驱动，并在失败时回滚/告警。
+- [X] **T032B [US2]** 为 ArtifactBundle 退役/清理流程调用 `VectorStore.DeleteByChunkIDs` / `DropSpace`，确保空间删除与 chunk 过期同步清理向量数据。
 
 ---
 

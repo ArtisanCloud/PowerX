@@ -1,6 +1,7 @@
 package knowledge_space
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -47,7 +48,14 @@ func (h *IngestionHandler) Trigger(c *gin.Context) {
 		RequestedBy:    req.RequestedBy,
 	})
 	if err != nil {
-		dto.ResponseError(c, http.StatusInternalServerError, "触发入库失败", err)
+		switch {
+		case errors.Is(err, ksvc.ErrInvalidInput):
+			dto.ResponseError(c, http.StatusBadRequest, "入库参数不合法", err)
+		case errors.Is(err, ksvc.ErrSpaceNotFound):
+			dto.ResponseError(c, http.StatusNotFound, "知识空间不存在或已退役", err)
+		default:
+			dto.ResponseError(c, http.StatusInternalServerError, "触发入库失败", err)
+		}
 		return
 	}
 	dto.ResponseSuccessWithStatus(c, http.StatusAccepted, toIngestionJobView(job))
