@@ -80,26 +80,28 @@ export const useAISettingsStore = defineStore("aiSettings", {
     /**
      * 初始化数据
      */
-    async initialize() {
+    async initialize(env: string = "default") {
       // 防止重复初始化
       if (this.initialized) {
-        console.log("AI Settings Store 已经初始化过，跳过");
+        this.setCurrentEnv(env);
         return;
       }
 
       this.loading = true;
       try {
+        this.currentEnv = env || this.currentEnv || "default";
         const [providers, profiles, credentials] = await Promise.all([
           AISettingService.getProviders(),
-          AISettingService.getProfiles(),
-          AISettingService.getCredentials(),
+          AISettingService.getProfiles(this.currentEnv),
+          AISettingService.getCredentials(this.currentEnv),
         ]);
 
         // 确保数据结构正确，添加兜底
         this.providers = providers ?? <Provider[]>[];
         this.profiles = profiles?.profiles ?? [];
         this.credentials = credentials?.credentials ?? [];
-        this.currentEnv = profiles?.env || credentials?.env || "default";
+        this.currentEnv =
+          profiles?.env || credentials?.env || this.currentEnv || "default";
 
         // console.log("AI store设置初始化成功", {
         //   providers: this.providers.length,
@@ -141,6 +143,24 @@ export const useAISettingsStore = defineStore("aiSettings", {
       }
     },
 
+    setCurrentEnv(env: string) {
+      if (env && env !== this.currentEnv) {
+        this.currentEnv = env;
+      }
+    },
+
+    async refreshEnvData(env: string, modalities?: string[]) {
+      const targetEnv = env || this.currentEnv || "default";
+      const [profiles, credentials] = await Promise.all([
+        AISettingService.getProfiles(targetEnv, modalities),
+        AISettingService.getCredentials(targetEnv),
+      ]);
+      this.profiles = profiles?.profiles ?? [];
+      this.credentials = credentials?.credentials ?? [];
+      this.currentEnv = profiles?.env || credentials?.env || targetEnv;
+      return { profiles, credentials };
+    },
+
     /**
      * 获取供应商列表
      */
@@ -168,11 +188,12 @@ export const useAISettingsStore = defineStore("aiSettings", {
         // ✅ 参数规范化
         const normProvider = provider.trim().toLowerCase(); // "OpenAI" -> "openai"
         const normModality = this.mapModality(modality);
-        // const normEnv = env === "default" ? undefined : env; // 不传 default
+        const normEnv = env || this.currentEnv || "default";
 
         const res = await AISettingService.getModels(
           normProvider,
-          normModality
+          normModality,
+          normEnv
         );
 
         // ✅ 打印原始响应
@@ -221,11 +242,14 @@ export const useAISettingsStore = defineStore("aiSettings", {
     /**
      * 获取配置文件
      */
-    async fetchProfiles() {
+    async fetchProfiles(env?: string, modalities?: string[]) {
       try {
-        const response = await AISettingService.getProfiles();
+        const response = await AISettingService.getProfiles(
+          env || this.currentEnv,
+          modalities
+        );
         this.profiles = response.profiles;
-        this.currentEnv = response.env;
+        this.currentEnv = response.env || this.currentEnv;
       } catch (error) {
         console.error("获取配置文件失败:", error);
         throw error;
@@ -235,9 +259,11 @@ export const useAISettingsStore = defineStore("aiSettings", {
     /**
      * 获取凭证
      */
-    async fetchCredentials() {
+    async fetchCredentials(env?: string) {
       try {
-        const response = await AISettingService.getCredentials();
+        const response = await AISettingService.getCredentials(
+          env || this.currentEnv
+        );
         this.credentials = response.credentials;
         if (response.env) {
           this.currentEnv = response.env;
@@ -254,17 +280,19 @@ export const useAISettingsStore = defineStore("aiSettings", {
     async saveSettings(payload: SaveSettingsPayload) {
       this.saving = true;
       try {
-        // 转换字段名以匹配后端期望的格式
-        const transformedPayload = {
+        const targetEnv = payload.env || this.currentEnv || "default";
+        const nextPayload = {
           ...payload,
-          // 如果 payload 中有 env 字段，转换为 Env
-          ...(payload.env && { Env: payload.env }),
+          env: targetEnv,
         };
-
-        const result = await AISettingService.saveSettings(transformedPayload);
+        // 转换字段名以匹配后端期望的格式
+        const result = await AISettingService.saveSettings(nextPayload);
         if (result.ok) {
           // 重新获取配置文件和凭证
-          await Promise.all([this.fetchProfiles(), this.fetchCredentials()]);
+          await Promise.all([
+            this.fetchProfiles(targetEnv),
+            this.fetchCredentials(targetEnv),
+          ]);
           this.lastTestMessage = "设置保存成功";
         }
         return result;
@@ -283,7 +311,11 @@ export const useAISettingsStore = defineStore("aiSettings", {
     async testConnection(provider: string, payload: any) {
       this.testing = true;
       try {
-        const result = await AISettingService.testConnection(payload);
+        const nextPayload = {
+          ...payload,
+          env: payload.env || this.currentEnv || "default",
+        };
+        const result = await AISettingService.testConnection(nextPayload);
         this.lastTestMessage = `连接测试成功 - Provider: ${provider}`;
         return result;
       } catch (error) {
@@ -308,7 +340,8 @@ export const useAISettingsStore = defineStore("aiSettings", {
       try {
         const result = await AISettingService.testQuickCall({
           ...payload,
-          message,
+          env: payload.env || this.currentEnv || "default",
+          prompt: message,
         });
         this.lastTestMessage = `快速调用测试成功 - Model: ${model}`;
         return result;

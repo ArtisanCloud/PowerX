@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/vectorstore"
 )
 
 // Validate 验证配置的合法性（已对齐新版 AuthConfig）
@@ -187,6 +189,26 @@ func (c *Config) Validate() error {
 		}
 	}
 
+	vectorDriver := strings.TrimSpace(c.KnowledgeSpace.VectorStore.Driver)
+	if vectorDriver != "" {
+		switch strings.ToLower(vectorDriver) {
+		case vectorstore.DriverPGVector:
+			if strings.TrimSpace(c.KnowledgeSpace.VectorStore.PgVector.DSN) == "" {
+				errors = append(errors, "knowledge_space.vector_store.pgvector.dsn 不能为空")
+			}
+		case vectorstore.DriverMilvus:
+			if strings.TrimSpace(c.KnowledgeSpace.VectorStore.Milvus.Endpoint) == "" {
+				errors = append(errors, "knowledge_space.vector_store.milvus.endpoint 不能为空")
+			}
+		case vectorstore.DriverPinecone:
+			if strings.TrimSpace(c.KnowledgeSpace.VectorStore.Pinecone.Endpoint) == "" {
+				errors = append(errors, "knowledge_space.vector_store.pinecone.endpoint 不能为空")
+			}
+		default:
+			errors = append(errors, fmt.Sprintf("knowledge_space.vector_store.driver %s 不受支持", vectorDriver))
+		}
+	}
+
 	// --- Plugin Release ---
 	if c.PluginRelease.LocalInstall.SessionTTLMinutes <= 0 {
 		errors = append(errors, "plugin_release.local_install.session_ttl_minutes 必须大于0")
@@ -235,6 +257,44 @@ func (c *Config) Validate() error {
 	}
 	if c.PluginRelease.Observability.KPITargets.HotloadLatencyP95Ms <= 0 {
 		errors = append(errors, "plugin_release.observability.kpi_targets.hotload_latency_p95_ms 必须大于0")
+	}
+
+	// --- Dev Hotload ---
+	if c.DevHotload.Sessions.TTLMinutes <= 0 {
+		errors = append(errors, "dev_hotload.sessions.ttl_minutes 必须大于0")
+	}
+	if c.DevHotload.Sessions.MaxConcurrentSessions <= 0 {
+		errors = append(errors, "dev_hotload.sessions.max_concurrent_sessions 必须大于0")
+	}
+	if c.DevHotload.Sessions.CleanupIntervalSeconds <= 0 {
+		errors = append(errors, "dev_hotload.sessions.cleanup_interval_seconds 必须大于0")
+	}
+	if strings.TrimSpace(c.DevHotload.Sandbox.Image) == "" {
+		errors = append(errors, "dev_hotload.sandbox.image 不能为空")
+	}
+	if c.DevHotload.Sandbox.MaxCPUPercent <= 0 || c.DevHotload.Sandbox.MaxCPUPercent > 100 {
+		errors = append(errors, "dev_hotload.sandbox.max_cpu_percent 必须在 1-100 范围内")
+	}
+	if c.DevHotload.Sandbox.MaxMemoryMB <= 0 {
+		errors = append(errors, "dev_hotload.sandbox.max_memory_mb 必须大于0")
+	}
+	if c.DevHotload.Sandbox.WatchFileLimit <= 0 {
+		errors = append(errors, "dev_hotload.sandbox.watch_file_limit 必须大于0")
+	}
+	if strings.TrimSpace(c.DevHotload.Security.PATHeader) == "" {
+		errors = append(errors, "dev_hotload.security.pat_header 不能为空")
+	}
+	if c.DevHotload.Security.TokenTTLSeconds <= 0 {
+		errors = append(errors, "dev_hotload.security.token_ttl_seconds 必须大于0")
+	}
+	if strings.TrimSpace(c.DevHotload.Observability.MetricsNamespace) == "" {
+		errors = append(errors, "dev_hotload.observability.metrics_namespace 不能为空")
+	}
+	if strings.TrimSpace(c.DevHotload.Observability.AuditTopic) == "" {
+		errors = append(errors, "dev_hotload.observability.audit_topic 不能为空")
+	}
+	if c.DevHotload.Observability.SSEBufferSize <= 0 {
+		errors = append(errors, "dev_hotload.observability.sse_buffer_size 必须大于0")
 	}
 
 	// --- Plugin Debug ---

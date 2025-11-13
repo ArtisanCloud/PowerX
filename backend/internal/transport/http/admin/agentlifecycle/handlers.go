@@ -47,6 +47,25 @@ func (h *Handler) RegisterAgent(c *gin.Context) {
 	dto.ResponseSuccessWithStatus(c, nethttp.StatusCreated, fromAgent(result.Agent))
 }
 
+// AutoRegisterManifest 处理插件 manifest 自动注册。
+func (h *Handler) AutoRegisterManifest(c *gin.Context) {
+	if h.service == nil {
+		dto.ResponseError(c, nethttp.StatusServiceUnavailable, "agent lifecycle service not available", nil)
+		return
+	}
+	var req autoRegisterManifestRequest
+	if err := dto.ValidateRequestWithContext(c, &req); err != nil {
+		dto.ResponseValidationError(c, err)
+		return
+	}
+	result, err := h.service.RegisterManifest(c.Request.Context(), toManifestInput(req))
+	if err != nil {
+		h.handleError(c, err)
+		return
+	}
+	dto.ResponseSuccessWithStatus(c, nethttp.StatusCreated, fromManifestResult(result))
+}
+
 // GetAgent 返回单个代理档案。
 func (h *Handler) GetAgent(c *gin.Context) {
 	if h.service == nil {
@@ -341,6 +360,35 @@ func (h *Handler) GetSubscription(c *gin.Context) {
 	dto.ResponseSuccess(c, fromSubscription(result))
 }
 
+// RunSandbox 允许手动重跑沙箱验证。
+func (h *Handler) RunSandbox(c *gin.Context) {
+	if h.service == nil {
+		dto.ResponseError(c, nethttp.StatusServiceUnavailable, "agent lifecycle service not available", nil)
+		return
+	}
+	agentID, err := uuid.Parse(c.Param("agent_id"))
+	if err != nil {
+		dto.ResponseError(c, nethttp.StatusBadRequest, "invalid agent_id", err)
+		return
+	}
+	var req sandboxRunRequest
+	if err := dto.ValidateRequestWithContext(c, &req); err != nil {
+		dto.ResponseValidationError(c, err)
+		return
+	}
+	result, err := h.service.RunSandbox(c.Request.Context(), agent_lifecycle.SandboxRunInput{
+		AgentID:     agentID,
+		Profile:     req.Profile,
+		RequestedBy: req.RequestedBy,
+		TraceID:     req.TraceID,
+	})
+	if err != nil {
+		h.handleError(c, err)
+		return
+	}
+	dto.ResponseSuccess(c, fromSandboxResult(result))
+}
+
 func (h *Handler) handleError(c *gin.Context, err error) {
 	switch {
 	case errors.Is(err, agent_lifecycle.ErrAliasConflict):
@@ -353,6 +401,12 @@ func (h *Handler) handleError(c *gin.Context, err error) {
 		dto.ResponseError(c, nethttp.StatusBadRequest, err.Error(), err)
 	case errors.Is(err, agent_lifecycle.ErrInvalidSubscription):
 		dto.ResponseError(c, nethttp.StatusBadRequest, err.Error(), err)
+	case errors.Is(err, agent_lifecycle.ErrInvalidManifestPayload):
+		dto.ResponseError(c, nethttp.StatusBadRequest, err.Error(), err)
+	case errors.Is(err, agent_lifecycle.ErrInvalidManifestSignature):
+		dto.ResponseError(c, nethttp.StatusUnauthorized, err.Error(), err)
+	case errors.Is(err, agent_lifecycle.ErrSandboxExecutionFailed):
+		dto.ResponseError(c, nethttp.StatusBadGateway, err.Error(), err)
 	default:
 		dto.ResponseError(c, nethttp.StatusInternalServerError, "internal error", err)
 	}

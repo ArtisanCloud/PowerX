@@ -48,10 +48,12 @@ const (
 	KeyWorkflow  MenuKey = "workflow"
 	KeyAgent     MenuKey = "agent"
 
-	KeyUserManagement MenuKey = "user_management"
-	KeyRoleManagement MenuKey = "role_management"
-	KeySystemConfig   MenuKey = "system_config"
-	KeyAISettings     MenuKey = "ai_settings"
+	KeyUserManagement  MenuKey = "user_management"
+	KeyRoleManagement  MenuKey = "role_management"
+	KeySystemConfig    MenuKey = "system_config"
+	KeyAISettings      MenuKey = "ai_settings"
+	KeyAISettingsModel MenuKey = "ai_settings_model"
+	KeyAISettingsCost  MenuKey = "ai_settings_cost"
 )
 
 type PluginState string

@@ -2,12 +2,15 @@ package database
 
 import (
 	migration "github.com/ArtisanCloud/PowerX/pkg/corex/db/migration"
+	modelAgentHub "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/agent_model_hub"
 	modelAudit "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/audit"
 	modelCapability "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/capability"
+	modelDevHotload "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/dev_hotload"
 	modelEventFabric "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/event_fabric"
 	modelFlow "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/flow"
 	modelIAM "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/iam"
 	modelIntegrationGateway "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/integration_gateway"
+	modelKnowledge "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/knowledge"
 	mediaModel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/media"
 	modelPluginCompat "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/plugin_compat"
 	modelPluginDebug "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/plugin_debug"
@@ -103,6 +106,10 @@ func MigrateCoreModels(db *gorm.DB) (err error) {
 		return err
 	}
 
+	if err = migrateDevHotloadModels(db); err != nil {
+		return err
+	}
+
 	if err = migratePluginGovernanceModels(db); err != nil {
 		return err
 	}
@@ -116,6 +123,14 @@ func MigrateCoreModels(db *gorm.DB) (err error) {
 	}
 
 	if err = migratePluginSandboxModels(db); err != nil {
+		return err
+	}
+
+	if err = migrateKnowledgeModels(db); err != nil {
+		return err
+	}
+
+	if err = migrateAgentModelHubModels(db); err != nil {
 		return err
 	}
 
@@ -191,6 +206,19 @@ func migrateWorkflowModels(db *gorm.DB) error {
 	)
 }
 
+func migrateKnowledgeModels(db *gorm.DB) error {
+	return db.AutoMigrate(
+		&modelKnowledge.KnowledgeSpace{},
+		&modelKnowledge.PolicyTemplateVersion{},
+		&modelKnowledge.IngestionJob{},
+		&modelKnowledge.ArtifactBundle{},
+		&modelKnowledge.FusionStrategyVersion{},
+		&modelKnowledge.FeedbackCase{},
+		&modelKnowledge.IAMSyncTask{},
+		&modelKnowledge.AuditTrailEntry{},
+	)
+}
+
 func migratePluginReleaseModels(db *gorm.DB) error {
 	return db.AutoMigrate(
 		&modelPluginRelease.PluginReleaseCandidate{},
@@ -200,6 +228,13 @@ func migratePluginReleaseModels(db *gorm.DB) error {
 		&modelPluginRelease.MarketplaceListing{},
 		&modelPluginRelease.LocalInstallSession{},
 		&modelPluginRelease.PluginImportRun{},
+	)
+}
+
+func migrateDevHotloadModels(db *gorm.DB) error {
+	return db.AutoMigrate(
+		&modelDevHotload.DevHotloadSession{},
+		&modelDevHotload.DevHotloadSessionEvent{},
 	)
 }
 
@@ -224,5 +259,14 @@ func migratePluginDebugModels(db *gorm.DB) error {
 func migratePluginSandboxModels(db *gorm.DB) error {
 	return db.AutoMigrate(
 		&modelPluginSandbox.SandboxValidationRun{},
+	)
+}
+
+func migrateAgentModelHubModels(db *gorm.DB) error {
+	return db.AutoMigrate(
+		&modelAgentHub.ProviderProfile{},
+		&modelAgentHub.RoutingPolicy{},
+		&modelAgentHub.ConnectorInstance{},
+		&modelAgentHub.CostQuotaLedger{},
 	)
 }

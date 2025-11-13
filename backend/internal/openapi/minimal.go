@@ -3,6 +3,7 @@ package openapi
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -112,6 +113,7 @@ func BuildMinimalDoc(r *gin.Engine, info Info) map[string]any {
 	if strings.TrimSpace(info.BaseURL) != "" {
 		doc["servers"] = append(doc["servers"].([]map[string]any), map[string]any{"url": info.BaseURL})
 	}
+	applyStaticStubs(doc)
 	return doc
 }
 
@@ -155,4 +157,95 @@ func coalesce(s, d string) string {
 		return d
 	}
 	return s
+}
+
+func applyStaticStubs(doc map[string]any) {
+	if len(agentModelHubStub) == 0 {
+		return
+	}
+	var stub map[string]any
+	if err := yaml.Unmarshal(agentModelHubStub, &stub); err != nil {
+		fmt.Printf("openapi: failed to parse agent model hub stub: %v\n", err)
+		return
+	}
+	mergeTags(doc, stub)
+	mergePaths(doc, stub)
+	mergeComponents(doc, stub)
+}
+
+func mergeTags(doc, stub map[string]any) {
+	stubTags, ok := stub["tags"].([]any)
+	if !ok || len(stubTags) == 0 {
+		return
+	}
+	existing, _ := doc["tags"].([]any)
+	seen := map[string]bool{}
+	for _, raw := range existing {
+		if tag, ok := raw.(map[string]any); ok {
+			if name, _ := tag["name"].(string); name != "" {
+				seen[name] = true
+			}
+		}
+	}
+	for _, raw := range stubTags {
+		tag, ok := raw.(map[string]any)
+		if !ok {
+			continue
+		}
+		name, _ := tag["name"].(string)
+		if name == "" || seen[name] {
+			continue
+		}
+		existing = append(existing, tag)
+		seen[name] = true
+	}
+	if len(existing) > 0 {
+		doc["tags"] = existing
+	}
+}
+
+func mergePaths(doc, stub map[string]any) {
+	dst := ensureMap(doc, "paths")
+	src, ok := stub["paths"].(map[string]any)
+	if !ok {
+		return
+	}
+	for path, val := range src {
+		dst[path] = val
+	}
+}
+
+func mergeComponents(doc, stub map[string]any) {
+	src, ok := stub["components"].(map[string]any)
+	if !ok {
+		return
+	}
+	dst := ensureMap(doc, "components")
+	for key, val := range src {
+		subSrc, okSrc := val.(map[string]any)
+		if !okSrc {
+			dst[key] = val
+			continue
+		}
+		subDst, okDst := dst[key].(map[string]any)
+		if !okDst {
+			dst[key] = val
+			continue
+		}
+		for innerKey, innerVal := range subSrc {
+			subDst[innerKey] = innerVal
+		}
+	}
+}
+
+func ensureMap(doc map[string]any, key string) map[string]any {
+	if doc == nil {
+		return map[string]any{}
+	}
+	if m, ok := doc[key].(map[string]any); ok {
+		return m
+	}
+	m := map[string]any{}
+	doc[key] = m
+	return m
 }

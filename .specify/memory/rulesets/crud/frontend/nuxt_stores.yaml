@@ -1,0 +1,13 @@
+kind: ruleset
+name: plugin/crud/frontend/nuxt_stores
+version: 1
+
+stores:
+  create_pinia: true
+  files:
+    - target: web-admin/app/stores/useTemplateStore.ts
+      template: builtin/nuxt_pinia_crud
+      params:
+        resource: "templates"
+
+gates.require: [PG-FE-UI-001]

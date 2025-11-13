@@ -84,11 +84,50 @@ func GetDefaults() *Config {
 				LifecyclePrefix: "agent.lifecycle",
 				HealthPrefix:    "agent.health",
 			},
+			StateBusTopics: AgentLifecycleStateBusTopics{
+				Lifecycle: "statebus.agent.lifecycle",
+				Health:    "statebus.agent.health",
+			},
+			ShareReviewDays: 30,
 			Notifications: AgentLifecycleNotificationConfig{
 				IMWebhook:        "",
 				RetryIntervalSec: 30,
 				RetryMaxAttempts: 3,
 				HTTPTimeoutSec:   5,
+			},
+		},
+		KnowledgeSpace: KnowledgeSpaceConfig{
+			RedisAddr:              "localhost:6379",
+			RedisPassword:          "",
+			RedisDB:                4,
+			LockKeyPrefix:          "knowledge_space:lock",
+			MetricsKeyPrefix:       "knowledge_space:metrics",
+			DefaultRetentionMonths: 13,
+			ProvisioningSLASeconds: 120,
+			IngestionSLASeconds:    4 * 3600,
+			EventTopics: KnowledgeSpaceEventTopics{
+				Provisioning: "knowledge.space.provisioning",
+				Ingestion:    "knowledge.space.ingestion",
+				Fusion:       "knowledge.space.fusion",
+				Feedback:     "knowledge.space.feedback",
+			},
+			Notifications: KnowledgeSpaceNotificationConfig{
+				IMWebhook:        "",
+				RetryIntervalSec: 60,
+				RetryMaxAttempts: 3,
+				HTTPTimeoutSec:   5,
+			},
+			VectorStore: KnowledgeSpaceVectorStoreConfig{
+				Driver: "",
+				PgVector: KnowledgeSpaceVectorStorePGVectorConfig{
+					Schema:           "public",
+					Table:            "knowledge_vectors",
+					Dimensions:       1536,
+					EnableMigrations: false,
+					BatchSize:        128,
+					Lists:            100,
+					TimeoutSeconds:   30,
+				},
 			},
 		},
 		EventFabric: EventFabricConfig{
@@ -169,6 +208,7 @@ func GetDefaults() *Config {
 		FeatureGate: FeatureGateConfig{
 			LicenseKey: "demo-license-xyz",
 		},
+		DevHotload:      DefaultDevHotloadConfig(),
 		PluginRelease:   DefaultPluginReleaseConfig(),
 		PluginBootstrap: DefaultPluginBootstrapConfig(),
 		PluginDebug:     DefaultPluginDebugConfig(),

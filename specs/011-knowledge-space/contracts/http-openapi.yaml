@@ -1,0 +1,422 @@
+openapi: 3.0.3
+info:
+  title: Knowledge Space Provisioning API
+  version: "0.1.0"
+  description: HTTP contract for provisioning, ingestion, fusion, and feedback workflows.
+servers:
+  - url: https://api.powerx.local
+paths:
+  /knowledge-spaces:
+    post:
+      summary: Create a knowledge space within a tenant
+      operationId: createKnowledgeSpace
+      tags: [KnowledgeSpaces]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/KnowledgeSpaceCreate'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KnowledgeSpace'
+        '409':
+          description: Quota or naming conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /knowledge-spaces/{spaceId}:
+    parameters:
+      - $ref: '#/components/parameters/SpaceId'
+    patch:
+      summary: Update quotas or policy templates
+      operationId: patchKnowledgeSpace
+      tags: [KnowledgeSpaces]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/KnowledgeSpacePatch'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KnowledgeSpace'
+        '409':
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /knowledge-spaces/{spaceId}/retire:
+    post:
+      summary: Retire a space and trigger 13-month archive
+      operationId: retireKnowledgeSpace
+      tags: [KnowledgeSpaces]
+      parameters:
+        - $ref: '#/components/parameters/SpaceId'
+      responses:
+        '202':
+          description: Retirement scheduled
+        '400':
+          description: Invalid status transition
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /knowledge-spaces/{spaceId}/ingestion-jobs:
+    post:
+      summary: Trigger multimodal ingestion
+      operationId: createIngestionJob
+      tags: [Ingestion]
+      parameters:
+        - $ref: '#/components/parameters/SpaceId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IngestionJobRequest'
+      responses:
+        '202':
+          description: Job accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IngestionJob'
+  /knowledge-spaces/{spaceId}/fusion-strategies:
+    post:
+      summary: Publish a fusion strategy version
+      operationId: publishFusionStrategy
+      tags: [Fusion]
+      parameters:
+        - $ref: '#/components/parameters/SpaceId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FusionStrategyRequest'
+      responses:
+        '201':
+          description: Strategy activated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FusionStrategy'
+        '202':
+          description: Strategy queued due to conflict policy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FusionStrategy'
+    get:
+      summary: List fusion strategy versions
+      operationId: listFusionStrategies
+      tags: [Fusion]
+      parameters:
+        - $ref: '#/components/parameters/SpaceId'
+      responses:
+        '200':
+          description: Strategy list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FusionStrategy'
+  /knowledge-spaces/{spaceId}/fusion-strategies/{strategyId}/rollback:
+    post:
+      summary: Rollback to a previous strategy version
+      operationId: rollbackFusionStrategy
+      tags: [Fusion]
+      parameters:
+        - $ref: '#/components/parameters/SpaceId'
+        - $ref: '#/components/parameters/StrategyId'
+      responses:
+        '200':
+          description: Strategy re-activated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FusionStrategy'
+  /knowledge-spaces/{spaceId}/feedback:
+    post:
+      summary: Submit accuracy or freshness feedback
+      operationId: createFeedbackCase
+      tags: [Feedback]
+      parameters:
+        - $ref: '#/components/parameters/SpaceId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FeedbackCaseRequest'
+      responses:
+        '202':
+          description: Feedback accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeedbackCase'
+        '410':
+          description: Space retired or deleted
+    get:
+      summary: List feedback cases
+      operationId: listFeedbackCases
+      tags: [Feedback]
+      parameters:
+        - $ref: '#/components/parameters/SpaceId'
+      responses:
+        '200':
+          description: Feedback list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FeedbackCase'
+  /openapi/knowledge-spaces/status:
+    get:
+      summary: Knowledge space provisioning summary
+      operationId: getKnowledgeSpaceStatus
+      tags: [KnowledgeSpaces]
+      responses:
+        '200':
+          description: Current provisioning counts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KnowledgeSpaceStatus'
+        '201':
+          description: Feedback registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeedbackCase'
+
+components:
+  parameters:
+    SpaceId:
+      name: spaceId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    StrategyId:
+      name: strategyId
+      in: path
+      required: true
+      schema:
+        type: string
+  schemas:
+    KnowledgeSpaceCreate:
+      type: object
+      required: [tenantId, spaceName, departmentCode, quotas, policyTemplateVersionId]
+      properties:
+        tenantId:
+          type: string
+          format: uuid
+        spaceName:
+          type: string
+        departmentCode:
+          type: string
+        quotas:
+          $ref: '#/components/schemas/Quota'
+        policyTemplateVersionId:
+          type: string
+        featureFlags:
+          type: array
+          items:
+            type: string
+    KnowledgeSpacePatch:
+      type: object
+      properties:
+        quotas:
+          $ref: '#/components/schemas/Quota'
+        policyTemplateVersionId:
+          type: string
+        featureFlags:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+          enum: [draft, active, pending_iam, retired]
+    KnowledgeSpace:
+      allOf:
+        - $ref: '#/components/schemas/KnowledgeSpaceCreate'
+        - type: object
+          properties:
+            spaceId:
+              type: string
+              format: uuid
+            status:
+              type: string
+            retentionExpiresAt:
+              type: string
+              format: date-time
+            auditToken:
+              type: string
+    Quota:
+      type: object
+      required: [cpuCores, storageGb, ingestionConcurrency]
+      properties:
+        cpuCores:
+          type: integer
+          minimum: 1
+        storageGb:
+          type: integer
+          minimum: 50
+        ingestionConcurrency:
+          type: integer
+          minimum: 1
+    IngestionJobRequest:
+      type: object
+      required: [sourceType, sourceUri]
+      properties:
+        sourceType:
+          type: string
+          enum: [pdf, markdown, table, api]
+        sourceUri:
+          type: string
+        maskingProfile:
+          type: string
+        priority:
+          type: string
+          enum: [normal, high]
+    IngestionJob:
+      type: object
+      properties:
+        jobId:
+          type: string
+        status:
+          type: string
+          enum: [pending, running, retrying, paused, completed, failed, blocked]
+        chunkCoveragePct:
+          type: number
+        embeddingSuccessPct:
+          type: number
+        maskingCoveragePct:
+          type: number
+    FusionStrategyRequest:
+      type: object
+      required: [label, bm25Weight, vectorWeight, graphConstraint, rerankerModel]
+      properties:
+        label:
+          type: string
+        bm25Weight:
+          type: number
+          minimum: 0
+          maximum: 1
+        vectorWeight:
+          type: number
+          minimum: 0
+          maximum: 1
+        graphConstraint:
+          type: string
+        rerankerModel:
+          type: string
+        conflictPolicy:
+          type: string
+          enum: [block, queue, allow_with_flag]
+        requestedBy:
+          type: string
+    FusionStrategy:
+      type: object
+      properties:
+        strategyId:
+          type: string
+        spaceId:
+          type: string
+          format: uuid
+        label:
+          type: string
+        bm25Weight:
+          type: number
+        vectorWeight:
+          type: number
+        graphConstraint:
+          type: string
+        rerankerModel:
+          type: string
+        conflictPolicy:
+          type: string
+          enum: [block, queue, allow_with_flag]
+        deploymentState:
+          type: string
+          enum: [draft, active, rollback]
+        publishedAt:
+          type: string
+          format: date-time
+    FeedbackCaseRequest:
+      type: object
+      required: [severity, linkedChunks, issueType]
+      properties:
+        issueType:
+          type: string
+          enum: [accuracy, freshness, compliance]
+        severity:
+          type: string
+          enum: [low, medium, high, critical]
+        linkedChunks:
+          type: array
+          items:
+            type: string
+            format: uuid
+        notes:
+          type: string
+        reportedBy:
+          type: string
+          format: email
+        toolTraceRef:
+          type: string
+    FeedbackCase:
+      allOf:
+        - $ref: '#/components/schemas/FeedbackCaseRequest'
+        - type: object
+          properties:
+            caseId:
+              type: string
+            status:
+              type: string
+              enum: [open, in_progress, reprocessed, escalated, closed]
+            slaDueAt:
+              type: string
+              format: date-time
+            qualityScore:
+              type: number
+            reprocessJobId:
+              type: string
+            createdAt:
+              type: string
+              format: date-time
+            updatedAt:
+              type: string
+              format: date-time
+    Error:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+    KnowledgeSpaceStatus:
+      type: object
+      properties:
+        pendingIam:
+          type: integer
+        active:
+          type: integer
+        retired:
+          type: integer

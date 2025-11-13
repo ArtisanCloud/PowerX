@@ -1,0 +1,22 @@
+feature_flags:
+  enabled: true
+  gateway_flag: PX_DEV_PLUGIN_HOTLOAD
+  session_audit_flag: PX_DEV_SESSION_AUDIT
+sessions:
+  ttl_minutes: 15
+  max_concurrent_sessions: 25
+  cleanup_interval_seconds: 30
+sandbox:
+  image: ghcr.io/artisancloud/powerx/dev-hotload-host:latest
+  max_cpu_percent: 25
+  max_memory_mb: 512
+  watch_file_limit: 10000
+security:
+  require_mtls: false
+  allowed_subjects: []
+  pat_header: X-PowerX-Dev-Token
+  token_ttl_seconds: 900
+observability:
+  metrics_namespace: dev.hotload
+  sse_buffer_size: 128
+  audit_topic: dev.hotload.sessions

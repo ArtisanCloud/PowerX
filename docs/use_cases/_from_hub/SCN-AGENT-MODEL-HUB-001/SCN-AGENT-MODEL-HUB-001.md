@@ -119,9 +119,13 @@ sequenceDiagram
 
 # Telemetry & Ops
 
-- 指标：`agent.provider.health_score`、`agent.routing.hit_rate`、`agent.platform.latency_p95`、`agent.provider.cost_per_call`、`agent.provider.quota_usage`。
-- 告警阈值：健康评分 <0.7、成本超预算 10%、回调失败率 >5%、密钥 7 天内过期。
-- 观测来源：Grafana「Model Hub」、Datadog `agent.provider.*`、Cost Warehouse、`scripts/qa/provider-drill.mjs`、Ops 告警面板。
+- 指标族：  
+  - Provider：`agent.provider.onboard_duration`、`agent.provider.health_score`、`agent.provider.secret_rotation_total`。  
+  - Routing：`agent.routing.decision_latency`、`agent.routing.hit_rate`、`agent.routing.fallback_total`、`agent.routing.safe_mode_active`。  
+  - Connector：`agent.platform.latency_p95`、`agent.platform.callback_failure_total`、`agent.platform.degrade_total`。  
+  - Cost：`agent.provider.cost_total`、`agent.provider.cost_delta_percent`、`agent.provider.quota_usage`、`agent.provider.alert_total`、`agent.provider.cost.anomaly`。
+- 告警阈值：健康评分 <0.7、路由命中率 <90%、回调失败率 >5%、成本超预算 10%、密钥 7 天内过期。
+- 观测路径：Grafana「Model Hub Overview」「Cost & Quota Guard」仪表板、Datadog `agent.*` 指标、Cost Warehouse 报表、`scripts/qa/provider-drill.mjs` 与 `scripts/ops/routing-simulator.mjs` Drill、PagerDuty 通道。
 
 # Validation Workflow
 

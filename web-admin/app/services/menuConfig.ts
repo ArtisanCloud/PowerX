@@ -50,6 +50,32 @@ export const pluginReleaseMenuConfig: MenuConfig = {
 }
 
 /**
+ * 知识空间菜单配置
+ */
+export const knowledgeSpaceMenuConfig: MenuConfig = {
+  parentMenu: {
+    title: '知识空间',
+    path: '/knowledge-spaces',
+    icon: 'i-heroicons-globe-alt',
+    order: 40
+  },
+  items: [
+    {
+      title: '空间列表',
+      path: '/knowledge-spaces',
+      icon: 'i-heroicons-rectangle-stack',
+      order: 1
+    },
+    {
+      title: '创建空间',
+      path: '/knowledge-spaces/create',
+      icon: 'i-heroicons-plus-circle',
+      order: 2
+    }
+  ]
+}
+
+/**
  * 通过后端API创建菜单
  */
 export async function createMenusViaAPI() {
@@ -177,5 +203,5 @@ fetch('/api/admin/menus', {
 })
 ```
 
-4. 刷新页面，查看新创建的菜单
+4. 如需新增“知识空间”导航，可复用上述脚本，将 \`title/path/icon\` 调整为 \`knowledgeSpaceMenuConfig\` 中的值；刷新页面即可看到“知识空间 → 空间列表 / 创建空间”入口。
 `

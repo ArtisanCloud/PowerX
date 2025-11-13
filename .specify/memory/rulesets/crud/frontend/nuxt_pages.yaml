@@ -1,0 +1,19 @@
+kind: ruleset
+name: plugin/crud/frontend/nuxt_pages
+version: 1
+
+pages:
+  resource: template
+  files:
+    - target: web-admin/app/pages/templates/index.vue
+      template: builtin/nuxt_page_table
+      params:
+        title: "Templates"
+        columns: ["name","description","updated_at"]
+        actions: ["create","edit","delete","view"]
+    - target: web-admin/app/pages/templates/[id].vue
+      template: builtin/nuxt_page_detail
+      params:
+        title: "Template Detail"
+
+gates.require: [PG-FE-UI-001, PG-FE-RBAC-001]

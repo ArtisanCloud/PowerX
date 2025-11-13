@@ -1,0 +1,40 @@
+envs:
+  default:
+    provider_registry:
+      onboarding_enabled: true
+      rotation_interval_minutes: 720
+    routing:
+      safe_mode_enabled: true
+      telemetry_gates: ["latency", "fallback"]
+    connector_guard:
+      auto_pause_threshold: 0.07
+      resume_requires_approval: true
+    cost_quota:
+      anomaly_detection: "standard"
+      enforcement_mode: "manual"
+  staging:
+    provider_registry:
+      onboarding_enabled: true
+      rotation_interval_minutes: 240
+    routing:
+      safe_mode_enabled: true
+      telemetry_gates: ["latency", "fallback", "error_rate"]
+    connector_guard:
+      auto_pause_threshold: 0.05
+      resume_requires_approval: false
+    cost_quota:
+      anomaly_detection: "aggressive"
+      enforcement_mode: "hybrid"
+  production:
+    provider_registry:
+      onboarding_enabled: true
+      rotation_interval_minutes: 720
+    routing:
+      safe_mode_enabled: true
+      telemetry_gates: ["latency", "fallback", "cost"]
+    connector_guard:
+      auto_pause_threshold: 0.04
+      resume_requires_approval: true
+    cost_quota:
+      anomaly_detection: "conservative"
+      enforcement_mode: "manual"

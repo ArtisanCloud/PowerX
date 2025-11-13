@@ -50,6 +50,7 @@
     "collapse": "Collapse",
     "toggleDensity": "Toggle Density",
     "loadMore": "Load More",
+    "refresh": "Refresh",
     "settings": "Settings",
     "trash": "Trash"
   },
@@ -71,6 +72,8 @@
     "roleManagement": "Role Management",
     "systemConfig": "System Configuration",
     "aiSettings": "AI Settings",
+    "aiSettingsModel": "Model Configuration",
+    "aiSettingsCost": "Cost & Quota Guard",
     "loadFailed": "Menu loading failed",
     "loadFailedDesc": "Unable to load menu data, please check network connection or contact administrator",
     "noItemsFound": "No menu items found",
@@ -162,6 +165,49 @@
     },
     "common": {
       "viewDetails": "View Details"
+    }
+  },
+  "dashboards": {
+    "tenantCost": {
+      "title": "Tenant {tenant} cost dashboard",
+      "environmentLabel": "Environment: {env}",
+      "lastSynced": "Last sync {time}",
+      "errorTitle": "Failed to load quotas",
+      "errorDesc": "Please refresh to try again.",
+      "cards": {
+        "limit": "Budget limit",
+        "usage": "Usage",
+        "remaining": "Remaining"
+      },
+      "tables": {
+        "quota": "Quota list",
+        "history": "Enforcement history"
+      },
+      "columns": {
+        "provider": "Provider",
+        "limit": "Budget",
+        "usage": "Usage",
+        "status": "Status",
+        "timestamp": "Time",
+        "action": "Action",
+        "reason": "Reason",
+        "actor": "Actor"
+      },
+      "badges": {
+        "breached": "Breach {count}",
+        "warning": "Warning {count}"
+      },
+      "historyEmpty": "No governance history yet",
+      "reasonFallback": "Not provided",
+      "actorFallback": "system",
+      "status": {
+        "breached": "Breach",
+        "warning": "Warning",
+        "throttle": "Throttle",
+        "degrade": "Degrade",
+        "disable": "Disable",
+        "healthy": "Healthy"
+      }
     }
   },
   "home": {
@@ -1002,9 +1048,79 @@
     "theme": "Theme",
     "ai": {
       "title": "AI Settings",
+      "description": "Configure multimodal providers, credentials, and parameters.",
+      "environment": "Environment",
+      "modalityTabs": "Modalities",
       "providers": "AI Providers",
       "models": "Models",
-      "testPanel": "Test Panel"
+      "testPanel": "Test Panel",
+      "sections": {
+        "general": "General",
+        "parameters": "Parameters"
+      },
+      "actions": {
+        "openCostGuard": "Open Cost Guard",
+        "backToModels": "Back to Model Configuration"
+      },
+      "costGuardPageTitle": "Cost & Quota Guard",
+      "costGuardPageDesc": "Monitor tenant budgets, investigate anomalies, and run throttle / degrade actions.",
+      "costGuard": {
+        "panelTitle": "Realtime budget snapshot",
+        "panelDesc": "Select a tenant to view usage and trigger governance actions.",
+        "tenantLabel": "Target tenant",
+        "tenantPlaceholder": "Select a tenant",
+        "refresh": "Refresh",
+        "openDashboard": "Open tenant dashboard",
+        "lastUpdated": "Last updated",
+        "errorTitle": "Failed to load quotas",
+        "emptyTitle": "No quota data",
+        "emptyDesc": "Select a tenant and refresh to load budget usage.",
+        "actionPlaceholder": "Choose an action",
+        "reasonPlaceholder": "Action notes (optional)",
+        "executeAction": "Execute governance action",
+        "historyTitle": "Recent actions",
+        "historyEmpty": "No enforcement history yet",
+        "reasonFallback": "Not provided",
+        "defaultTenants": {
+          "demo": "Demo tenant",
+          "ops": "Ops tenant"
+        },
+        "actions": {
+          "throttle": "Throttle",
+          "degrade": "Degrade",
+          "disable": "Disable"
+        },
+        "status": {
+          "breached": "Breach",
+          "warning": "Warning",
+          "throttle": "Throttle",
+          "healthy": "Healthy",
+          "default": "Healthy"
+        },
+        "toast": {
+          "loadFailedTitle": "Refresh failed",
+          "loadFailedDesc": "Unable to load quota snapshot",
+          "actionSuccessTitle": "Action executed",
+          "actionSuccessDesc": "Applied {action} to {provider}",
+          "actionFailedTitle": "Action failed",
+          "actionFailedDesc": "Please try again later"
+        },
+        "playbookTitle": "Governance playbooks",
+        "playbooks": {
+          "throttle": {
+            "title": "Throttle",
+            "desc": "Lower TPS temporarily and observe recovery for 30 minutes."
+          },
+          "degrade": {
+            "title": "Degrade",
+            "desc": "Switch routing to lower-cost providers while preserving core capabilities."
+          },
+          "disable": {
+            "title": "Disable",
+            "desc": "Shut down the provider when leakage or severe overruns happen. Always link to an incident ticket."
+          }
+        }
+      }
     }
   },
   "plugins": {

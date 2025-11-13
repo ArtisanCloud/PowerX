@@ -31,6 +31,9 @@ export class ApiEndpoints {
     TEST_CALL: `${API_CONFIG.ADMIN_AGENTS}/test/call`,
     PROFILES: `${API_CONFIG.ADMIN_AGENTS}/settings/profiles`,
     CREDENTIALS: `${API_CONFIG.ADMIN_AGENTS}/settings/credentials`,
+    COST_USAGE_REPORT: `/internal/provider-usage/report`,
+    COST_QUOTAS: `/internal/provider-quotas`,
+    COST_ENFORCE: `/internal/provider-quotas/enforce`,
   } as const;
 
   /**

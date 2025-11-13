@@ -98,7 +98,95 @@
 
 ---
 
-## Phase 6: Polish & Cross-Cutting
+## Phase 6: 用例对齐 - 插件自动注册与沙箱准入 (UC-AGENT-REG-AUTO-001)
+
+**目标**：实现插件 manifest 自动注册、签名/Schema 校验、IAM 策略绑定、沙箱验证与审计闭环。
+**Independent Test**：使用沙箱插件包触发 HTTP/gRPC Webhook，验证 5 秒 SLA、回滚与事件输出。
+
+### Tests
+
+ - [x] T043 [P] [AUTO] 在 `tests/contract/agent_lifecycle/autoreg_http_test.go` 编写 HTTP 合同测试，覆盖 manifest 提交、签名异常、重复注册阻断。
+ - [x] T044 [P] [AUTO] 在 `tests/contract/agent_lifecycle/autoreg_grpc_test.go` 编写 gRPC 合同测试，验证 RegisterManifest/FinalizeSandbox RPC。
+ - [x] T045 [P] [AUTO] 在 `tests/integration/agent_lifecycle/autoreg_sandbox_flow_test.go` 模拟完整注册→沙箱→激活流程，校验 IAM 策略、审计与回滚记录。
+
+### Implementation
+
+ - [x] T046 [AUTO] 在 `internal/transport/http/openapi/agent/autoreg_handlers.go` 与 gRPC 服务中实现 manifest Webhook、重试与速率限制。
+ - [x] T047 [AUTO] 在 `internal/service/agent_lifecycle/autoreg_validator.go` 实现 Schema/签名校验、重复检测与错误回滚，复用安全组件。
+ - [x] T048 [AUTO] 在 `internal/service/agent_lifecycle/sandbox_runner.go` 编排沙箱执行、指标采集、报告上传，并与生命周期事件/审计集成。
+
+---
+
+## Phase 7: 用例对齐 - 租户自助创建与审批 (UC-AGENT-REG-TENANT-001)
+
+**目标**：为租户管理员提供表单、策略冲突检测、审批编排、沙箱激活与审计记录能力。
+**Independent Test**：通过租户 API 驱动提交流程，验证权限冲突、审批驳回与沙箱失败场景。
+
+### Tests
+
+ - [x] T049 [P] [TENANT] 在 `tests/contract/agent_lifecycle/tenant_form_http_test.go` 覆盖表单提交、校验错误与回退。
+ - [x] T050 [P] [TENANT] 在 `tests/integration/agent_lifecycle/tenant_approval_flow_test.go` 演练提交→审批→沙箱→激活路径，断言状态同步与通知。
+
+### Implementation
+
+ - [x] T051 [TENANT] 在 `internal/transport/http/admin/agent/tenant_handlers.go` 与 `dto_tenant.go` 实现表单 API、版本化字段及草稿存储。
+ - [x] T052 [TENANT] 在 `internal/service/agent_lifecycle/policy_conflict_engine.go` 实现权限/速率冲突检测与提示。
+ - [x] T053 [TENANT] 在 `internal/workflow/agent_approval_flow.go` 对接 Workflow/Notification，支持多级审批、驳回、撤销。
+ - [x] T054 [TENANT] 在 `internal/service/agent_lifecycle/tenant_activation.go` 对接沙箱 runner、凭证发放与生命周期激活事件。
+
+---
+
+## Phase 8: 用例对齐 - 多租户共享与撤销 (UC-AGENT-REG-SHARE-001)
+
+**目标**：实现共享/撤销 API、配额复制、租户验证、合规审计与告警。
+**Independent Test**：模拟共享申请、租户验证失败与撤销流程，验证配额/凭证复制与告警链路。
+
+### Tests
+
+- [x] T055a [P] [SHARE] 在 `tests/contract/agent_lifecycle/share_http_test.go` 编写共享申请成功+重复/白名单冲突场景。
+- [x] T055b [P] [SHARE] 在同文件编写撤销/自动回滚/权限拒绝场景。
+- [x] T055c [P] [SHARE] 在 `tests/contract/agent_lifecycle/share_grpc_test.go` 覆盖 ShareAgent/RevokeAgentShare RPC。
+- [x] T055d [P] [SHARE] 在 `tests/contract/agent_lifecycle/share_events_test.go` 校验 `agent.share.*` 事件载荷。
+- [x] T056a [P] [SHARE] 在 `tests/integration/agent_lifecycle/share_validation_flow_test.go` 演练共享→验证→撤销闭环。
+- [x] T056b [P] [SHARE] 在 `tests/integration/agent_lifecycle/share_revocation_failure_test.go` 模拟验证失败/撤销重试，确认告警路径。
+
+### Implementation
+
+- [x] T057a [SHARE] 定义共享数据模型/仓储：`AgentShareRecord` + `AgentShareRepository`（含唯一索引、状态字段）。
+- [x] T057b [SHARE] 在 `internal/service/agent_lifecycle/share_service.go` 实现 ShareAgent/RevokeAgentShare 业务逻辑（审计事件、事件总线、冲突校验）。
+- [x] T057c [SHARE] 在 `internal/transport/http/admin/agent/share_handlers.go` + `grpc/agentlifecycle/server.go` 暴露共享/撤销 API。
+- [x] T057d [SHARE] 在 `internal/transport/http/admin/routes.go` & OpenAPI/Proto 中挂载新端点。
+- [x] T058a [SHARE] 在 `internal/service/agent_lifecycle/quota_provisioner.go` 实现配额/凭证复制、冲突检测、回滚补偿。
+- [x] T058b [SHARE] 接入 IAM/Secret/RateLimit 模块（可用 mock）并在失败时回滚共享记录。
+- [x] T058c [SHARE] 在 `internal/service/agent_lifecycle/share_models.go` 定义配额/共享响应结构。
+- [x] T059a [SHARE] 在 `internal/service/agent_lifecycle/tenant_validator.go` 编排租户验证（沙箱调用、日志分区/上下文隔离校验）。
+- [x] T059b [SHARE] 实现验证失败回滚逻辑（调用 RevokeAgentShare 并写审计、告警）。
+- [x] T060a [SHARE] 在 `internal/service/agent_lifecycle/share_compliance.go` 实现周期复核（到期撤销、验证失败告警、指标写入）。
+- [x] T060b [SHARE] 在 `internal/notifications/im/` & 事件模块中扩展 `agent.share.issued/revoked/validation_failed` 告警。
+- [x] T060c [SHARE] 更新 `contracts/http-openapi.yaml` 与 `agent_lifecycle.proto`、Quickstart，补充共享 API 说明。
+
+---
+
+## Phase 9: 场景桥接 - ReAct & 任务执行可观测 (SCN-AGENT-REACT-ORCH-001 & SCN-AGENT-TASK-EXEC-001)
+
+**目标**：为 ReAct Thought/Action/Memory/Audit 以及 Task Execution Plan/Coord/Recovery/Closure 提供实时事件、Trace、查询与控制接口。
+**Independent Test**：通过 StateBus 与 API 模拟 ReAct/任务执行链路，验证事件延迟、Trace 完整性与控制操作。
+
+### Tests
+
+- [x] T061 [P] [BRIDGE] 在 `tests/contract/agent_lifecycle/statebus_event_schema_test.go` 校验 `agent.lifecycle.*` 事件 Schema 与必填字段。
+- [x] T062 [P] [BRIDGE] 在 `tests/integration/agent_lifecycle/react_task_bridge_test.go` 模拟 ReAct/任务执行订阅事件、查询 API、触发冻结/回滚。
+
+### Implementation
+
+- [x] T063 [BRIDGE] 在 `internal/service/agent_lifecycle/event_streamer.go` 统一 StateBus 推送、Trace 透传与回放引用。
+- [x] T064 [BRIDGE] 在 `internal/transport/http/openapi/agent/bridge_handlers.go` 提供 Planner/Coordinator/Recovery/Closure 所需的查询与控制接口。
+- [x] T065 [BRIDGE] 在 `internal/service/agent_lifecycle/audit_bridge.go` 整合生命周期审计、健康摘要与回放接口，供 ReAct Audit/Task Closure 使用。
+- [x] T066 [BRIDGE] 更新 `configs/statebus/topics.yaml`、`docs/quickstart`，同步事件 Schema、订阅示例与 Copilot Handoff 集成指南。
+
+---
+
+## Phase 10: Polish & Cross-Cutting
 
 - [x] T039 [P] 在 `tests/unit/agent_lifecycle/` 补充仓储、事件发布、告警与订阅逻辑单元测试。
 - [x] T040 在 `specs/008-agent-lifecycle-observability/quickstart.md`、`README.md` 更新运行指南，覆盖订阅配置与保留策略说明。
@@ -109,11 +197,12 @@
 
 ## Dependencies & Execution Order
 
-- Phase 1 → Phase 2 → User Stories → Phase 6；任何用户故事开始前必须完成 Phase 2。
-- T016/T024/T035/T038 依赖同一 gRPC 文件，严格按 US1 → US2 → US3 顺序编辑，避免冲突。
-- Redis/EventBus 集成（T008, T022, T025）顺序执行，确保缓存结构先定义再在服务层使用。
-- 数据保留（T026）依赖仓储实现（T004、T006）与配置加载（T007）。
-- 告警实现（T036）依赖通知发送器（T010）与健康聚合（T033）。
+- Phase 1 → Phase 2 → Phase 3~5（US1~US3）→ Phase 6（AutoReg）→ Phase 7（Tenant）→ Phase 8（Share）→ Phase 9（Bridge）→ Phase 10（Polish）；任何新 Phase 必须在前序阶段完成后再启动。
+- T016/T024/T035/T038/T046/T057/T063 依赖同一 Proto/事件 Schema，按时间顺序更新以避免冲突；Schema 变更需同步 buf 生成。
+- Redis/EventBus 集成（T008, T022, T025, T063）需按序执行，确保缓存与 StateBus 主题在事件桥接前就绪。
+- 数据保留（T026）依赖仓储实现（T004、T006）与配置加载（T007），共享/桥接任务引用相同查询接口。
+- 告警实现（T036、T060）依赖通知发送器（T010）与健康/共享策略（T033、T058）。
+- AutoReg 与 Tenant/Share 阶段均依赖 Sandbox Runner（T048、T054、T059），需在 Phase 6 完成核心 Runner 后复用。
 
 ### 可并行任务示例
 
@@ -125,6 +214,10 @@ task run --id T012 &
 # 并行实现仓储模型
 task run --id T004 &
 task run --id T006 &
+
+# 并行推进共享/桥接测试
+task run --id T055 &
+task run --id T061 &
 ```
 
 完成每个阶段后建议执行相关测试与 lint，确保增量可演示与可回滚。任务完成后，更新任务清单与提交记录以保持可追溯性。

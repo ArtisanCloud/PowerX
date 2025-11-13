@@ -13,6 +13,25 @@
 - Q: 当健康评分触发“退化”告警时，系统应通过哪类主要渠道向值班团队发送通知？ → A: 通过企业即时通讯渠道群发（如 Slack、钉钉、企业微信）
 - Q: 退役代理后，其历史指标与审计记录需要保留多长时间？ → A: 13 个月，与审计日志保留期一致
 
+## Use Case Alignment
+
+为满足跨场景对齐需求，`008-agent-lifecycle-observability` 在交付范围内落实以下 Use Case：
+
+| Use Case | 关键诉求 | 本规范承诺 |
+|----------|----------|------------|
+| `UC-AGENT-REG-AUTO-001` | 插件启动时 5 秒内完成 manifest 自动注册、签名校验与沙箱准入 | 新增插件自动注册 Webhook、签名/Schema 校验、IAM 策略绑定与沙箱回执并写入生命周期档案 |
+| `UC-AGENT-REG-TENANT-001` | 租户自助表单、策略校验、审批与沙箱激活 | 新增 Tenant Agent Center API、策略冲突引擎、审批工作流以及与生命周期服务共享的激活/审计通道 |
+| `UC-AGENT-REG-LIFECYCLE-001` | 全量运行状态监控、僵尸治理、冻结/回收与审计 | 现有生命周期与健康引擎继续作为主干能力，扩展事件模型供其它场景消费 |
+| `UC-AGENT-REG-SHARE-001` | 多租户共享、配额复制、验证与撤销 | 新增共享 API、Quota Provisioner、验证/撤销流程与事件/Audit 输出 |
+| `UC-AGENT-REACT-THOUGHT-001` | ReAct 思考链需要可引用的 Agent 健康与授权上下文 | 输出标准化健康/审批快照 API 供 Thought Manager 检索与审计 |
+| `UC-AGENT-REACT-ACTION-001` | Action Router 需实时校验代理状态、风险与 Trace | Lifecycle 控制面暴露低延迟状态/Trace 接口，并把审批/告警事件推入 `react.action` 订阅流 |
+| `UC-AGENT-REACT-MEMORY-001` | Observation/记忆写回依赖代理健康、容量和 Loop 信号 | 将健康快照与 Loop Guard 指标对齐至 `react.loop.state`，并提供记忆写入审批勾子 |
+| `UC-AGENT-REACT-AUDIT-001` | 30 秒内生成回放需完整生命周期与健康轨迹 | Lifecycle/Audit Schema 扩展 trace_id、事件引用，供 Playback 构建时间线 |
+| `UC-AGENT-EXEC-PLAN-001` | 任务规划阶段需要代理能力/配额/健康基线 | 暴露用于 Planner 的查询接口，含容量、默认订阅与 SLA 元数据 |
+| `UC-AGENT-EXEC-COORD-001` | DAG 调度需实时生命周期事件与阻塞告警 | 将状态事件流与阻塞/扩缩容动作同步到 StateBus，供协调器消费 |
+| `UC-AGENT-EXEC-RECOVERY-001` | 失败恢复需要查询生命周期/告警记录并触发回滚 | 暴露恢复 API（冻结/解冻、退避参数）并把告警上下文注入 Copilot 工单 |
+| `UC-AGENT-EXEC-CLOSURE-001` | 闭环验证需审计与健康摘要形成交付报告 | 提供闭环状态 API、审计链接与 13 个月保留策略，供报告/对账使用 |
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - 统一注册与启用代理 (Priority: P1)
@@ -60,11 +79,74 @@
 
 ---
 
+### User Story 4 - 插件自动注册与沙箱准入 (Priority: P1)
+
+作为插件 Guild 维护者，我希望插件在上线时通过 manifest Webhook 自动注册 Agent，系统需在 5 秒内完成签名/Schema 校验、IAM 策略绑定以及沙箱验证结果同步，并写入生命周期目录。
+
+**Why this priority**: 平台超过 60% 的 Agent 来自插件随包自动注册，若缺少标准化流程将导致配额、授权与观测基线缺失，直接阻塞 `UC-AGENT-REG-AUTO-001`。
+
+**Independent Test**: 仅启用自动注册 HTTP/gRPC 接口，通过发送 manifest（含签名）验证 Schema 校验、策略绑定、沙箱执行与审计事件。
+
+**Acceptance Scenarios**:
+
+1. **Given** 插件 webhook 提交包含签名、版本及能力声明的 manifest，**When** 注册接口校验通过，**Then** 系统生成 Agent ID、绑定 IAM 策略、触发沙箱验证并把过程写入审计。
+2. **Given** manifest 签名无效或缺字段，**When** 校验失败，**Then** 系统拒绝注册、输出可调试错误码并触发告警，无任何脏数据写入。
+
+---
+
+### User Story 5 - 租户自助创建与审批 (Priority: P1.5)
+
+作为租户管理员，我需要在 Tenant Agent Center 中配置自定义 Agent（用途、Prompt、引用插件、权限范围），系统应自动执行策略冲突检测、审批编排、沙箱激活，并将结果写入生命周期与可观测性链路。
+
+**Why this priority**: 租户自建 Agent 是 `UC-AGENT-REG-TENANT-001` 的关键入口，若与生命周期能力割裂，将导致审批无法绑定运行态、审计不可追溯。
+
+**Independent Test**: 通过租户 API 提交表单，模拟权限冲突、审批驳回与沙箱失败，验证状态机与审计记录。
+
+**Acceptance Scenarios**:
+
+1. **Given** 租户管理员提交完整表单，**When** 模板扫描、策略校验与审批全部通过，**Then** 系统生成 Agent ID、凭证与订阅配置，并把激活事件写入生命周期服务。
+2. **Given** 表单存在权限冲突或审批逾期，**When** 状态机触发阻断，**Then** 系统返回冲突详情、保持 Agent 为 `pending`，并推送审批升级通知。
+
+---
+
+### User Story 6 - 多租户共享与撤销 (Priority: P2)
+
+作为平台治理团队，我需要在 Agent Catalog 中将成熟 Agent 共享给其它租户，系统必须校验白名单、复制独立配额/凭证、执行租户验证，并支持一键撤销、审计与告警。
+
+**Why this priority**: 共享能力是 `UC-AGENT-REG-SHARE-001` 的核心，缺少共享/撤销闭环会导致跨租户越权或资源泄露。
+
+**Independent Test**: 通过共享 API 提交共享/撤销请求，验证白名单、配额复制、租户验证脚本与撤销告警路径。
+
+**Acceptance Scenarios**:
+
+1. **Given** 管理员为 Agent 配置共享请求并指定目标租户，**When** 白名单校验通过，**Then** 系统复制配额、生成独立凭证、触发租户验证并写入共享事件。
+2. **Given** 共享租户验证失败或到期，**When** Compliance 引擎触发撤销，**Then** 系统收回凭证、释放配额、通知双方并写入审计。
+
+---
+
+### User Story 7 - ReAct & 任务执行可观测桥接 (Priority: P2)
+
+作为 ReAct 编排与任务执行团队，我需要在思考/行动/协调/恢复/闭环过程中实时消费 Agent 生命周期、健康、审批与告警事件，以便在 30 秒内生成回放、调度 DAG，或触发 Copilot。
+
+**Why this priority**: `SCN-AGENT-REACT-ORCH-001` 与 `SCN-AGENT-TASK-EXEC-001` 依赖生命周期服务提供可信遥测与恢复控制面，缺口会导致 ReAct 循环与任务执行无法合规运行。
+
+**Independent Test**: 对接内部 StateBus，模拟 ReAct 与任务执行流程拉取生命周期/健康 API，验证事件延迟、Trace 关联与播放/回滚能力。
+
+**Acceptance Scenarios**:
+
+1. **Given** ReAct 思考链请求代理健康与审批快照，**When** 生命周期服务接收查询，**Then** 返回包含状态、容量、订阅与 Trace 的标准化文档，并附带审计引用供回放使用。
+2. **Given** 任务执行引擎订阅 `agent.lifecycle.*` 事件，**When** 某节点被暂停、扩容或告警，**Then** 状态流在 <1 秒内推送到 StateBus，协调器可据此重排任务或触发 Copilot Handoff。
+
+---
+
 ### Edge Cases
 
 - 当管理员尝试使用已存在的代理别名或租户组合进行注册时，系统必须拒绝请求并返回冲突提示，同时保留原记录不变。
 - 当生命周期指令与当前状态冲突（例如重复启动已运行的代理）时，系统需要阻止执行并告知当前状态及可用动作。
 - 当连续两个采集周期未接收到代理的遥测数据时，系统应将健康状态标记为“未知”并提醒值班人员确认代理连通性。
+- 当插件 manifest 签名失效或沙箱执行失败时，必须回滚所有 IAM/配额写入并仍保留完整审计记录供追查。
+- 当共享 Agent 撤销过程中通知渠道不可用时，系统需自动重试并在 5 分钟内升级至值班渠道，防止凭证残留。
+- 当 ReAct/任务执行循环订阅事件但生命周期服务检测到 Trace 缺失时，必须立刻阻断调用并提示人工补充 Trace。
 
 ## Requirements *(mandatory)*
 
@@ -81,6 +163,11 @@
 - **FR-009**：系统必须将所有注册、激活、生命周期和健康状态变更写入审计日志，记录操作者、时间、请求摘要与关联追踪 ID，保留不少于 13 个月。
 - **FR-010**：系统必须允许管理员为代理配置可观测性订阅（例如特定指标或追踪过滤器），并在成功保存后即时生效且可回滚。
 - **FR-011**：当代理退役后，系统必须继续保留其健康指标汇总与相关审计记录至少 13 个月，支持历史回溯与合规稽核。
+- **FR-012**：系统必须提供插件自动注册 Webhook（HTTP+gRPC）、manifest Schema 校验、签名验证、IAM 策略绑定、沙箱验证与错误回滚能力，满足 `UC-AGENT-REG-AUTO-001` 的 5 秒 SLA 与审计要求。
+- **FR-013**：系统必须提供租户自建 Agent 控制面（表单、策略冲突检测、审批状态机、沙箱激活），并与生命周期目录、告警与审计保持一致，满足 `UC-AGENT-REG-TENANT-001`。
+- **FR-014**：系统必须实现多租户共享/撤销 API，覆盖白名单校验、配额复制、租户验证、合规撤销与审计通知，满足 `UC-AGENT-REG-SHARE-001`。
+- **FR-015**：系统必须把生命周期、健康、审批与告警事件以标准化 Schema 推送到 StateBus，供 `UC-AGENT-REACT-THOUGHT/ACTION/MEMORY/AUDIT` 消费，并提供按 Trace 查询接口。
+- **FR-016**：系统必须向 `UC-AGENT-EXEC-PLAN/COORD/RECOVERY/CLOSURE` 暴露查询与控制 API（容量、状态变更、冻结/解冻、闭环摘要），并与 Copilot/Workflow 打通以执行回滚与闭环审计。
 
 ### Key Entities *(include if feature involves data)*
 
@@ -97,6 +184,10 @@
 - **SC-002**：99% 的生命周期指令在 30 秒内完成状态更新并成功发布对应事件。
 - **SC-003**：90% 的健康异常在发生后的 2 分钟内被检测并通知到值班团队。
 - **SC-004**：100% 的生命周期和健康状态变更可在审计查询中于 10 秒内返回完整记录。
+- **SC-005**：插件自动注册成功率 ≥98%，manifest 校验与沙箱回执 p95 <5 秒，失败全部具备审计溯源。
+- **SC-006**：租户自助 Agent 审批平均耗时 <2 个工作日，权限冲突阻断率 100%，沙箱验证成功率 ≥95%。
+- **SC-007**：跨租户共享/撤销请求 1 分钟内完成 ≥95%，撤销失败率 <1%，共享事件 100% 写入审计。
+- **SC-008**：ReAct 与任务执行场景订阅到的生命周期/健康事件延迟 <1 秒，Trace 丢失率 0%，回放生成成功率 100%。
 
 ## Assumptions & Dependencies
 
@@ -104,3 +195,4 @@
 - 假设 Tool Grant 管理服务已能返回代理可用的授权清单，并由其负责授权内容的准确性。
 - 假设遥测契约（指标、追踪、日志模式）已有版本化合同，可在注册时引用并在后续保持向后兼容。
 - 功能范围不涵盖编排逻辑、事件织构或 Grant 体系的定义，本规范仅消费这些能力。
+- 插件构建链路可在注册时提供签名 manifest 与沙箱脚本，Tenant Agent Center 与 Agent Catalog 已具备基础 UI/工作流能力，可直接接入生命周期服务。

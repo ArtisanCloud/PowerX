@@ -1,0 +1,43 @@
+{
+  "scenarios": {
+    "critical_tasks": {
+      "description": "High priority chat and vision tasks that must stay on premium providers.",
+      "tasks": [
+        {
+          "name": "Chat general premium",
+          "context": {
+            "taskType": "chat/general",
+            "modality": "llm",
+            "slaTier": "premium"
+          },
+          "expect": {
+            "preferredProvider": "provider-primary"
+          }
+        },
+        {
+          "name": "Vision fallback",
+          "context": {
+            "taskType": "vision/describe",
+            "modality": "image",
+            "requirement": "high-accuracy"
+          },
+          "expect": {
+            "allowFallback": true
+          }
+        }
+      ]
+    },
+    "smoke": {
+      "description": "Lightweight scenario to ensure policy responds for at least one chat task.",
+      "tasks": [
+        {
+          "name": "Chat smoke",
+          "context": {
+            "taskType": "chat/smoke",
+            "modality": "llm"
+          }
+        }
+      ]
+    }
+  }
+}

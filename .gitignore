@@ -51,25 +51,8 @@ build/
 
 backend/etc/config.yaml
 
-# PowerX plugin runtime
-backend/plugins/installed/
-backend/plugins/market_cache/
-backend/plugins/registry.json
-
-# Local test artifacts
-backend/plugins/**/*.zip
-backend/plugins/**/*.tgz
-backend/plugins/**/*.tar
-backend/plugins/**/*.tar.gz
-
-# Temps & logs
-backend/plugins/**/*.tmp
-backend/plugins/**/*.log
-backend/plugins/**/*.lock
-backend/plugins/**/*.bak
-
-# Keep the folder itself
-!backend/plugins/.gitkeep
+# PowerX plugin runtime（整目录忽略）
+backend/plugins/
 
 # Ignore compiled binary files and specific app directories
 # Binary file 'app' (compiled executable)
@@ -88,6 +71,8 @@ cli/app/
 # Specifically allow plugin-release pages within web-admin
 !web-admin/app/pages/plugin-release/
 !web-admin/app/pages/plugin-release/**
+!web-admin/app/pages/knowledge-spaces/
+!web-admin/app/pages/knowledge-spaces/**
 
 api/grpc/gen/*
 !api/grpc/gen/go/

@@ -1,0 +1,26 @@
+kind: ruleset
+name: plugin/crud/frontend/nuxt_api_client
+version: 1
+
+client:
+  runtime_config:
+    public_keys:
+      apiBase: "NUXT_PUBLIC_API_BASE"
+      pluginId: "NUXT_PUBLIC_PLUGIN_ID"
+      powerxProxy: "NUXT_PUBLIC_POWERX_PROXY"
+    defaults:
+      apiBase: "/_p/<plugin-id>/api/v1"
+      powerxProxy: 1
+  files:
+    - target: web-admin/plugins/api.ts
+      template: builtin/nuxt_api_plugin_fetch
+    - target: web-admin/composables/useTemplates.ts
+      template: builtin/nuxt_composable_crud
+      params:
+        resource: "templates"
+        dto:
+          item: "TemplateItem"
+          create: "TemplateCreateReq"
+          update: "TemplateUpdateReq"
+
+gates.require: [PG-FE-API-001]
