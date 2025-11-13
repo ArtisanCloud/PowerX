@@ -23,19 +23,21 @@
 
 > 所有用户故事开始前必须完成，涵盖模型、仓储、配置、依赖注入与 proto。
 
-- [ ] **T004 [P] [Foundational]** 在 `backend/pkg/corex/db/persistence/model/knowledge/knowledge_space.go` 定义 `KnowledgeSpace` 模型，含租户级唯一约束、保留字段与审计列。
-- [ ] **T005 [P] [Foundational]** 在 `.../policy_template_version.go` 定义策略模版版本模型。
-- [ ] **T006 [P] [Foundational]** 在 `.../ingestion_job.go` 定义入库任务模型，记录重试计数与覆盖率指标。
-- [ ] **T007 [P] [Foundational]** 在 `.../fusion_strategy_version.go` 定义融合策略版本模型。
-- [ ] **T008 [P] [Foundational]** 在 `.../feedback_case.go` 定义反馈案例模型，携带 SLA 与匿名化字段。
-- [ ] **T009 [P] [Foundational]** 在 `.../iam_sync_task.go` 定义 IAM 同步任务模型。
-- [ ] **T010 [P] [Foundational]** 在 `.../audit_trail_entry.go` 定义审计轨迹模型。
-- [ ] **T011 [Foundational]** 将上述模型注册到 `backend/pkg/corex/db/database/migration.go` 与 `backend/cmd/database/migrate.go`，包括索引与排序。
-- [ ] **T012 [Foundational]** 在 `backend/pkg/corex/db/persistence/repository/knowledge/` 下实现各实体仓储（包含 KnowledgeSpace、PolicyTemplateVersion、IngestionJob、ArtifactBundle、FusionStrategyVersion、FeedbackCase、IAMSyncTask、AuditTrailEntry；继承 `BaseRepository`），提供 CRUD 与筛选接口。
-- [ ] **T013 [Foundational]** 在 `backend/config/defaults.go`、`backend/etc/config.yaml`、`backend/config/config.go` 中新增 `knowledge_space` 配置段（SLA、保留期、Webhook 等）并完成校验。
-- [ ] **T014 [Foundational]** 在 `backend/internal/service/knowledge_space/instrumentation/` 构建指标封装（OpenTelemetry），暴露 provisioning p95、ingestion 覆盖率、fusion rollback、feedback SLA 等指标。
-- [ ] **T015 [Foundational]** 更新 `backend/internal/app/shared/deps.go`，注入 Redis key 前缀、事件总线、审计、通知依赖，供服务层使用。
-- [ ] **T016 [Foundational]** 编写 `api/grpc/contracts/powerx/knowledge/v1/knowledge_space.proto`，包含配置/入库/融合/反馈 RPC，并执行 `make proto-gen` 生成代码。
+- [X] **T004 [P] [Foundational]** 在 `backend/pkg/corex/db/persistence/model/knowledge/knowledge_space.go` 定义 `KnowledgeSpace` 模型，含租户级唯一约束、保留字段与审计列。
+- [X] **T005 [P] [Foundational]** 在 `.../policy_template_version.go` 定义策略模版版本模型。
+- [X] **T006 [P] [Foundational]** 在 `.../ingestion_job.go` 定义入库任务模型，记录重试计数与覆盖率指标。
+- [X] **T007 [P] [Foundational]** 在 `.../fusion_strategy_version.go` 定义融合策略版本模型。
+- [X] **T008 [P] [Foundational]** 在 `.../feedback_case.go` 定义反馈案例模型，携带 SLA 与匿名化字段。
+- [X] **T009 [P] [Foundational]** 在 `.../iam_sync_task.go` 定义 IAM 同步任务模型。
+- [X] **T010 [P] [Foundational]** 在 `.../audit_trail_entry.go` 定义审计轨迹模型。
+- [X] **T011 [Foundational]** 将上述模型注册到 `backend/pkg/corex/db/database/migration.go` 与 `backend/cmd/database/migrate.go`，包括索引与排序。
+- [X] **T012 [Foundational]** 在 `backend/pkg/corex/db/persistence/repository/knowledge/` 下实现各实体仓储（包含 KnowledgeSpace、PolicyTemplateVersion、IngestionJob、ArtifactBundle、FusionStrategyVersion、FeedbackCase、IAMSyncTask、AuditTrailEntry；继承 `BaseRepository`），提供 CRUD 与筛选接口。
+- [X] **T012A [Foundational]** 在 `backend/pkg/corex/db/persistence/vectorstore/` 设计统一向量存储接口（抽象 CRUD、查询、批量 upsert、空间隔离等能力），并定义驱动注册/配置机制，供服务层按 driver 名称加载。
+- [X] **T012B [Foundational]** 实现默认 `pgvector` 驱动：封装 `pgvector` schema/migration、连接池与批量写入 API，确保 `IngestionJob` / `ArtifactBundle` 可以将 embedding/chunk reference 交由驱动落地；同时预留 `milvus`, `pinecone` 等驱动骨架文件（空实现+TODO）以便后续扩展。
+- [X] **T013 [Foundational]** 在 `backend/config/defaults.go`、`backend/etc/config.yaml`、`backend/config/config.go` 中新增 `knowledge_space` 配置段（SLA、保留期、Webhook 等）并完成校验。
+- [X] **T014 [Foundational]** 在 `backend/internal/service/knowledge_space/instrumentation/` 构建指标封装（OpenTelemetry），暴露 provisioning p95、ingestion 覆盖率、fusion rollback、feedback SLA 等指标。
+- [X] **T015 [Foundational]** 更新 `backend/internal/app/shared/deps.go`，注入 Redis key 前缀、事件总线、审计、通知依赖，供服务层使用。
+- [X] **T016 [Foundational]** 编写 `api/grpc/contracts/powerx/knowledge/v1/knowledge_space.proto`，包含配置/入库/融合/反馈 RPC，并执行 `make proto-gen` 生成代码。
 
 **检查点**：核心模型、配置、依赖可用 → 可进入用户故事开发。
 
@@ -48,20 +50,20 @@
 
 ### 测试（先于实现）
 
-- [ ] **T017 [P] [US1]** 在 `backend/tests/contract/knowledge_space/provisioning_http_test.go` 编写 HTTP 合同测试（创建、更新、退役、冲突 409）。
-- [ ] **T018 [P] [US1]** 在 `.../provisioning_grpc_test.go` 编写 gRPC 合同测试（Create/Update/Retire RPC）。
-- [ ] **T019 [P] [US1]** 在 `backend/tests/integration/knowledge_space/provisioning_flow_test.go` 编写集成测试，覆盖创建 → IAM Pending → 激活，并模拟同一租户并发创建以验证锁/队列生效。
-- [ ] **T020 [P] [US1]** 在 `web-admin/tests/e2e/knowledge-spaces.spec.ts` 使用 Playwright 覆盖多步骤向导（表单校验、IAM 待确认、成功提示）。
+- [X] **T017 [P] [US1]** 在 `backend/tests/contract/knowledge_space/provisioning_http_test.go` 编写 HTTP 合同测试（创建、更新、退役、冲突 409）。
+- [X] **T018 [P] [US1]** 在 `.../provisioning_grpc_test.go` 编写 gRPC 合同测试（Create/Update/Retire RPC）。
+- [X] **T019 [P] [US1]** 在 `backend/tests/integration/knowledge_space/provisioning_flow_test.go` 编写集成测试，覆盖创建 → IAM Pending → 激活，并模拟同一租户并发创建以验证锁/队列生效。
+- [X] **T020 [P] [US1]** 在 `web-admin/tests/e2e/knowledge-spaces.spec.ts` 使用 Playwright 覆盖多步骤向导（表单校验、IAM 待确认、成功提示）。
 
 ### 实现
 
-- [ ] **T021 [US1]** 在 `backend/internal/service/knowledge_space/provisioning.go` 实现业务逻辑：租户内唯一校验、配额校验、基于 Redis/DB 的串行锁、IAM 任务、13 个月只读计划。
-- [ ] **T022 [US1]** 在 `backend/internal/service/knowledge_space/audit_events.go` 实现审计/事件写入，发布 `knowledge.space.*` 事件。
-- [ ] **T023 [US1]** 在 `backend/internal/transport/http/admin/knowledge_space/handlers.go` + `dto.go` 实现 HTTP Admin 处理器及请求校验。
-- [ ] **T024 [US1]** 在 `backend/internal/transport/grpc/knowledge_space/service.go` 实现 gRPC 服务并注册到 `backend/internal/server/grpc/server.go`.
-- [ ] **T025 [US1]** 在 `backend/internal/transport/http/openapi/knowledge_space/routes.go` 挂载 OpenAPI 路由并同步 `contracts/http-openapi.yaml`.
-- [ ] **T026 [US1]** 在 `web-admin/app/pages/knowledge-spaces/create.vue` 及组件（`QuotaForm.vue`、`PolicySelector.vue`、`AuditPreview.vue`、`IamStatusBadge.vue`）实现多步骤向导。
-- [ ] **T027 [US1]** 在 `web-admin/app/stores/knowledgeSpaces.ts` 与 `app/composables/useKnowledgeSpaces.ts` 建立 Pinia + 组合式 API，处理 SLA 计时与冲突提示。
+- [X] **T021 [US1]** 在 `backend/internal/service/knowledge_space/provisioning.go` 实现业务逻辑：租户内唯一校验、配额校验、基于 Redis/DB 的串行锁、IAM 任务、13 个月只读计划。
+- [X] **T022 [US1]** 在 `backend/internal/service/knowledge_space/audit_events.go` 实现审计/事件写入，发布 `knowledge.space.*` 事件。
+- [X] **T023 [US1]** 在 `backend/internal/transport/http/admin/knowledge_space/handlers.go` + `dto.go` 实现 HTTP Admin 处理器及请求校验。
+- [X] **T024 [US1]** 在 `backend/internal/transport/grpc/knowledge_space/service.go` 实现 gRPC 服务并注册到 `backend/internal/server/grpc/server.go`.
+- [X] **T025 [US1]** 在 `backend/internal/transport/http/openapi/knowledge_space/routes.go` 挂载 OpenAPI 路由并同步 `contracts/http-openapi.yaml`.
+- [X] **T026 [US1]** 在 `web-admin/app/pages/knowledge-spaces/create.vue` 及组件（`QuotaForm.vue`、`PolicySelector.vue`、`AuditPreview.vue`、`IamStatusBadge.vue`）实现多步骤向导。
+- [X] **T027 [US1]** 在 `web-admin/app/stores/knowledgeSpaces.ts` 与 `app/composables/useKnowledgeSpaces.ts` 建立 Pinia + 组合式 API，处理 SLA 计时与冲突提示。
 
 **检查点**：配置向导闭环完成，IAM Pending 状态可视化。
 
@@ -86,6 +88,8 @@
 - [ ] **T034 [US2]** 在 `backend/internal/transport/grpc/knowledge_space/ingestion_service.go` 实现 gRPC Handler。
 - [ ] **T035 [US2]** 在 `backend/internal/service/knowledge_space/ingestion_metrics.go` 输出监控指标并写入 `reports/_state/knowledge-spaces.json`.
 - [ ] **T036 [US2]** 在 `web-admin/app/pages/knowledge-spaces/index.vue` 增加入库 CTA 与状态卡片，支持上传文件/API 配置与脱敏告警。
+- [ ] **T032A [US2]** 在 `ingestion_service.go` 中接入 `deps.KnowledgeSpace.VectorStore.Upsert`，将批量 embedding（chunk UUID + 元数据）写入默认向量驱动，并在失败时回滚/告警。
+- [ ] **T032B [US2]** 为 ArtifactBundle 退役/清理流程调用 `VectorStore.DeleteByChunkIDs` / `DropSpace`，确保空间删除与 chunk 过期同步清理向量数据。
 
 ---
 
@@ -108,6 +112,7 @@
 - [ ] **T043 [US3]** 在 `backend/internal/transport/grpc/knowledge_space/fusion_service.go` 提供 gRPC 接口及降级触发。
 - [ ] **T044 [US3]** 在 `web-admin/app/pages/knowledge-spaces/fusion.vue` 构建策略管理界面，含冲突队列与缓存模式提示。
 - [ ] **T045 [US3]** 添加 `scripts/fusion/rollback_strategy.mjs` 等运维脚本，并在后端 CLI/告警中接入 `fusion.source.failed`.
+- [ ] **T043A [US3]** 在服务层检索路径对接 `VectorStore.Query`，根据策略权重融合向量召回结果，输出命中 chunk 及分数，为后续 rerank 提供输入。
 
 ---
 

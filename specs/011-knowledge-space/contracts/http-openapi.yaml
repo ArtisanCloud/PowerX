@@ -56,7 +56,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-  /knowledge-spaces/{spaceId}:retire:
+  /knowledge-spaces/{spaceId}/retire:
     post:
       summary: Retire a space and trigger 13-month archive
       operationId: retireKnowledgeSpace
@@ -126,6 +126,18 @@ paths:
             schema:
               $ref: '#/components/schemas/FeedbackCaseRequest'
       responses:
+  /openapi/knowledge-spaces/status:
+    get:
+      summary: Knowledge space provisioning summary
+      operationId: getKnowledgeSpaceStatus
+      tags: [KnowledgeSpaces]
+      responses:
+        '200':
+          description: Current provisioning counts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KnowledgeSpaceStatus'
         '201':
           description: Feedback registered
           content:
@@ -302,3 +314,12 @@ components:
           type: string
         message:
           type: string
+    KnowledgeSpaceStatus:
+      type: object
+      properties:
+        pendingIam:
+          type: integer
+        active:
+          type: integer
+        retired:
+          type: integer

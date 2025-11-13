@@ -1,0 +1,114 @@
+syntax = "proto3";
+
+package powerx.knowledge.v1;
+
+option go_package = "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/knowledge/v1;knowledgev1";
+
+import "google/protobuf/timestamp.proto";
+
+message KnowledgeSpace {
+  string space_id = 1;
+  string tenant_id = 2;
+  string name = 3;
+  string department_code = 4;
+  string status = 5;
+  uint32 quota_cpu = 6;
+  uint32 quota_storage_gb = 7;
+  repeated string feature_flags = 8;
+  string policy_template_version_id = 9;
+  google.protobuf.Timestamp created_at = 10;
+  google.protobuf.Timestamp updated_at = 11;
+}
+
+message CreateKnowledgeSpaceRequest {
+  string tenant_id = 1;
+  string name = 2;
+  string department_code = 3;
+  uint32 quota_cpu = 4;
+  uint32 quota_storage_gb = 5;
+  string policy_template_version_id = 6;
+  repeated string feature_flags = 7;
+}
+
+message CreateKnowledgeSpaceResponse {
+  KnowledgeSpace space = 1;
+}
+
+message UpdateKnowledgeSpaceRequest {
+  string space_id = 1;
+  uint32 quota_cpu = 2;
+  uint32 quota_storage_gb = 3;
+  repeated string feature_flags = 4;
+  string policy_template_version_id = 5;
+  string status = 6;
+}
+
+message UpdateKnowledgeSpaceResponse {
+  KnowledgeSpace space = 1;
+}
+
+message RetireKnowledgeSpaceRequest {
+  string space_id = 1;
+  string reason = 2;
+}
+
+message RetireKnowledgeSpaceResponse {
+  KnowledgeSpace space = 1;
+}
+
+message IngestionJobRequest {
+  string space_id = 1;
+  string source_id = 2;
+  string source_type = 3;
+  string priority = 4;
+}
+
+message IngestionJobStatus {
+  string job_id = 1;
+  string status = 2;
+  uint32 chunk_total = 3;
+  float chunk_covered_pct = 4;
+  float embedding_success_pct = 5;
+  float masking_coverage_pct = 6;
+}
+
+message IngestionJobResponse {
+  IngestionJobStatus job = 1;
+}
+
+message FusionStrategyRequest {
+  string space_id = 1;
+  string label = 2;
+  double bm25_weight = 3;
+  double vector_weight = 4;
+  string graph_constraint = 5;
+  string reranker_model = 6;
+  string conflict_policy = 7;
+}
+
+message FusionStrategyResponse {
+  string strategy_id = 1;
+  string deployment_state = 2;
+}
+
+message FeedbackRequest {
+  string space_id = 1;
+  string severity = 2;
+  string notes = 3;
+  repeated string linked_chunks = 4;
+}
+
+message FeedbackResponse {
+  string case_id = 1;
+  string status = 2;
+  google.protobuf.Timestamp sla_due_at = 3;
+}
+
+service KnowledgeSpaceAdminService {
+  rpc CreateKnowledgeSpace(CreateKnowledgeSpaceRequest) returns (CreateKnowledgeSpaceResponse);
+  rpc UpdateKnowledgeSpace(UpdateKnowledgeSpaceRequest) returns (UpdateKnowledgeSpaceResponse);
+  rpc RetireKnowledgeSpace(RetireKnowledgeSpaceRequest) returns (RetireKnowledgeSpaceResponse);
+  rpc TriggerIngestion(IngestionJobRequest) returns (IngestionJobResponse);
+  rpc PublishFusionStrategy(FusionStrategyRequest) returns (FusionStrategyResponse);
+  rpc SubmitFeedback(FeedbackRequest) returns (FeedbackResponse);
+}

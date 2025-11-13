@@ -3,6 +3,10 @@ package bootstrap
 
 import (
 	"context"
+	"log"
+	"strings"
+	"time"
+
 	"github.com/ArtisanCloud/PowerX/config"
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
 	"github.com/ArtisanCloud/PowerX/internal/server/agent/bootstrap"
@@ -14,11 +18,11 @@ import (
 	"github.com/ArtisanCloud/PowerX/pkg/cache"
 	auditsvc "github.com/ArtisanCloud/PowerX/pkg/corex/audit"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/db/database"
+	milvuscfg "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/vectorstore/milvus"
+	pgvectorcfg "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/vectorstore/pgvector"
+	pineconecfg "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/vectorstore/pinecone"
 	"github.com/ArtisanCloud/PowerX/pkg/event_bus"
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
-	"log"
-	"strings"
-	"time"
 )
 
 func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error) {
@@ -216,6 +220,52 @@ func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error)
 				RetryInterval:    time.Duration(cfg.AgentLifecycle.Notifications.RetryIntervalSec) * time.Second,
 				RetryMaxAttempts: cfg.AgentLifecycle.Notifications.RetryMaxAttempts,
 				HTTPTimeout:      time.Duration(cfg.AgentLifecycle.Notifications.HTTPTimeoutSec) * time.Second,
+			},
+		},
+		KnowledgeSpace: shared.KnowledgeSpaceOptions{
+			RedisAddr:              cfg.KnowledgeSpace.RedisAddr,
+			RedisPassword:          cfg.KnowledgeSpace.RedisPassword,
+			RedisDB:                cfg.KnowledgeSpace.RedisDB,
+			LockKeyPrefix:          cfg.KnowledgeSpace.LockKeyPrefix,
+			MetricsKeyPrefix:       cfg.KnowledgeSpace.MetricsKeyPrefix,
+			DefaultRetentionMonths: cfg.KnowledgeSpace.DefaultRetentionMonths,
+			ProvisioningSLA:        time.Duration(cfg.KnowledgeSpace.ProvisioningSLASeconds) * time.Second,
+			IngestionSLA:           time.Duration(cfg.KnowledgeSpace.IngestionSLASeconds) * time.Second,
+			EventTopics: shared.KnowledgeSpaceEventTopicsOptions{
+				Provisioning: cfg.KnowledgeSpace.EventTopics.Provisioning,
+				Ingestion:    cfg.KnowledgeSpace.EventTopics.Ingestion,
+				Fusion:       cfg.KnowledgeSpace.EventTopics.Fusion,
+				Feedback:     cfg.KnowledgeSpace.EventTopics.Feedback,
+			},
+			Notifications: shared.KnowledgeSpaceNotificationOptions{
+				IMWebhook:        cfg.KnowledgeSpace.Notifications.IMWebhook,
+				RetryInterval:    time.Duration(cfg.KnowledgeSpace.Notifications.RetryIntervalSec) * time.Second,
+				RetryMaxAttempts: cfg.KnowledgeSpace.Notifications.RetryMaxAttempts,
+				HTTPTimeout:      time.Duration(cfg.KnowledgeSpace.Notifications.HTTPTimeoutSec) * time.Second,
+			},
+			VectorStore: shared.KnowledgeSpaceVectorStoreOptions{
+				Driver: cfg.KnowledgeSpace.VectorStore.Driver,
+				PGVector: pgvectorcfg.Config{
+					DSN:              cfg.KnowledgeSpace.VectorStore.PgVector.DSN,
+					Schema:           cfg.KnowledgeSpace.VectorStore.PgVector.Schema,
+					Table:            cfg.KnowledgeSpace.VectorStore.PgVector.Table,
+					Dimensions:       cfg.KnowledgeSpace.VectorStore.PgVector.Dimensions,
+					EnableMigrations: cfg.KnowledgeSpace.VectorStore.PgVector.EnableMigrations,
+					BatchSize:        cfg.KnowledgeSpace.VectorStore.PgVector.BatchSize,
+					Lists:            cfg.KnowledgeSpace.VectorStore.PgVector.Lists,
+					TimeoutSeconds:   cfg.KnowledgeSpace.VectorStore.PgVector.TimeoutSeconds,
+				},
+				Milvus: milvuscfg.Config{
+					Endpoint: cfg.KnowledgeSpace.VectorStore.Milvus.Endpoint,
+					APIKey:   cfg.KnowledgeSpace.VectorStore.Milvus.APIKey,
+					Project:  cfg.KnowledgeSpace.VectorStore.Milvus.Project,
+				},
+				Pinecone: pineconecfg.Config{
+					Endpoint:  cfg.KnowledgeSpace.VectorStore.Pinecone.Endpoint,
+					APIKey:    cfg.KnowledgeSpace.VectorStore.Pinecone.APIKey,
+					Index:     cfg.KnowledgeSpace.VectorStore.Pinecone.Index,
+					Namespace: cfg.KnowledgeSpace.VectorStore.Pinecone.Namespace,
+				},
 			},
 		},
 		PluginRelease: shared.PluginReleaseOptions{
