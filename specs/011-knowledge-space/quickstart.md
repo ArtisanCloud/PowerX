@@ -31,7 +31,7 @@ cd web-admin
 npm install
 npm run dev
 ```
-Navigate to `/knowledge-spaces` to access the provisioning wizard. Use `.env` or `.env.local` to point API calls at the local server; SDK/composable bindings reside in `app/services/knowledge-spaces/client.ts` and `app/composables/useKnowledgeSpaces.ts`.
+Navigate to `/knowledge-spaces` for provisioning、`/knowledge-spaces/fusion` 管理融合策略、`/knowledge-spaces/feedback` 监控反馈闭环。使用 `.env` / `.env.local` 指向本地 API，组合式调用位于 `app/composables/useKnowledgeSpaces.ts`。
 
 ## 6. Execute tests
 ```bash
@@ -39,15 +39,21 @@ go test ./internal/service/knowledge_space/...
 go test ./internal/transport/http/admin/knowledge_space/...
 go test ./tests/contract/knowledge_space/...
 go test ./tests/integration/knowledge_space/...
-cd web-admin && npm run test:unit
-cd web-admin && npm run test:e2e -- --grep \"knowledge-spaces\"
+cd web-admin && npm run test:unit -- knowledge-spaces/ingestion.spec.ts
+cd web-admin && npm run test:e2e -- --grep "knowledge-spaces"
+cd web-admin && npm run test:e2e -- --grep "knowledge-spaces-fusion"
+cd web-admin && npm run test:e2e -- --grep "knowledge-spaces-feedback"
 ```
 Contract tests rely on `specs/011-docs-use-cases/contracts/http-openapi.yaml` and the gRPC proto in `api/grpc/contracts/powerx/knowledge/v1/`.
 
 ## 7. End-to-end smoke
-1. Use the Nuxt Web Admin “Create Knowledge Space” wizard to submit a new space and confirm SLA + audit badges.
-2. Trigger ingestion job via `POST /knowledge-spaces/{id}/ingestion-jobs` (or the UI CTA) using sandbox PDF + Excel fixtures.
-3. Publish a fusion strategy `POST /knowledge-spaces/{id}/fusion-strategies` or the Fusion tab in Web Admin.
-4. Submit feedback `POST /knowledge-spaces/{id}/feedback` or the Feedback board, then verify SLA timers plus reprocess job creation.
+1. Use the Nuxt Web Admin “Create Knowledge Space” wizard to submit a new space并确认 SLA + 审计徽章。
+2. Trigger ingestion job via `POST /knowledge-spaces/{id}/ingestion-jobs`（或 UI CTA），使用 PDF/Excel 样本。
+3. Publish a fusion strategy `POST /knowledge-spaces/{id}/fusion-strategies` 或 `/knowledge-spaces/fusion`，如需回滚执行 `node scripts/fusion/rollback_strategy.mjs <space> <strategy>`.
+4. Submit feedback `POST /knowledge-spaces/{id}/feedback` 或 `/knowledge-spaces/feedback`，观察 SLA 倒计时与 `knowledge.feedback.reprocess` 事件。
+5. 检查 `reports/_state/knowledge-spaces.json` 中 `ingestion` 与 `feedback` 节点均更新，Grafana `Knowledge Space` / `fusion-pipeline` / `feedback-loop` Dashboard 无红色告警。
 
-Monitor Grafana dashboards (`Knowledge Space`, `fusion-pipeline`, `feedback-loop`) and confirm `reports/_state/knowledge-spaces.json` updates after each step.
+更多运维/弹性细节见：
+- [Knowledge Space Runbook](../../docs/guides/knowledge_space/runbook.md)
+- [Perf & Resiliency Validation](../../docs/guides/knowledge_space/perf_validation.md)
+- [Smoke Checklist](../../docs/guides/knowledge_space/smoke_checklist.md)

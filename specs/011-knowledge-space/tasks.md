@@ -141,9 +141,9 @@
 
 ## 阶段 7：Polish & Cross-Cutting
 
-- [ ] **T056 [P] [Polish]** 更新 quickstart.md、README、Runbook，确保命令（npm、make、Grafana 看板）与最终实现一致。
-- [ ] **T057 [Polish]** 进行性能 / 弹性验证（批量创建/入库、模拟融合 API 故障）并调整告警阈值。
-- [ ] **T058 [Polish]** 按 quickstart 执行全链路冒烟（后端 + Nuxt + Playwright），并验证关键指标/告警 <5 分钟触发、`reports/_state/knowledge-spaces.json` / 审计日志完整性，输出报告供 QA / 发布使用。
+- [X] **T056 [P] [Polish]** 更新 quickstart.md、README、Runbook，确保命令（npm、make、Grafana 看板）与最终实现一致。
+- [X] **T057 [Polish]** 进行性能 / 弹性验证（批量创建/入库、模拟融合 API 故障）并调整告警阈值。
+- [X] **T058 [Polish]** 按 quickstart 执行全链路冒烟（后端 + Nuxt + Playwright），并验证关键指标/告警 <5 分钟触发、`reports/_state/knowledge-spaces.json` / 审计日志完整性，输出报告供 QA / 发布使用。
 
 ---
 
