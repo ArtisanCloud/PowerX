@@ -32,6 +32,7 @@ type Env struct {
 	Bus         event_bus.EventBus
 	tenantID    uuid.UUID
 	VectorStore *VectorStoreStub
+	Pipeline    *ReprocessPipelineStub
 }
 
 // New spins up an isolated sqlite + redis test environment.
@@ -122,6 +123,15 @@ func New(t testing.TB) *Env {
 		Clock:           time.Now,
 	})
 
+	pipelineStub := NewReprocessPipelineStub()
+	feedbackSvc := knowledgeService.NewFeedbackService(knowledgeService.FeedbackServiceOptions{
+		DB:              db,
+		Instrumentation: inst,
+		Pipeline:        pipelineStub,
+		MetricsWriter:   metricsWriter,
+		Clock:           time.Now,
+	})
+
 	deps := &shared.Deps{
 		DB:       db,
 		EventBus: bus,
@@ -133,6 +143,7 @@ func New(t testing.TB) *Env {
 			Service:         service,
 			Ingestion:       ingestionSvc,
 			Fusion:          fusionSvc,
+			Feedback:        feedbackSvc,
 			VectorStore:     vectorStore,
 		},
 	}
@@ -144,6 +155,7 @@ func New(t testing.TB) *Env {
 		Bus:         bus,
 		tenantID:    uuid.New(),
 		VectorStore: vectorStore,
+		Pipeline:    pipelineStub,
 	}
 }
 

@@ -162,6 +162,29 @@ paths:
             schema:
               $ref: '#/components/schemas/FeedbackCaseRequest'
       responses:
+        '202':
+          description: Feedback accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeedbackCase'
+        '410':
+          description: Space retired or deleted
+    get:
+      summary: List feedback cases
+      operationId: listFeedbackCases
+      tags: [Feedback]
+      parameters:
+        - $ref: '#/components/parameters/SpaceId'
+      responses:
+        '200':
+          description: Feedback list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FeedbackCase'
   /openapi/knowledge-spaces/status:
     get:
       summary: Knowledge space provisioning summary
@@ -350,7 +373,13 @@ components:
           type: array
           items:
             type: string
+            format: uuid
         notes:
+          type: string
+        reportedBy:
+          type: string
+          format: email
+        toolTraceRef:
           type: string
     FeedbackCase:
       allOf:
@@ -363,6 +392,16 @@ components:
               type: string
               enum: [open, in_progress, reprocessed, escalated, closed]
             slaDueAt:
+              type: string
+              format: date-time
+            qualityScore:
+              type: number
+            reprocessJobId:
+              type: string
+            createdAt:
+              type: string
+              format: date-time
+            updatedAt:
               type: string
               format: date-time
     Error:

@@ -123,19 +123,19 @@
 
 ### 测试
 
-- [ ] **T046 [P] [US4]** 在 `backend/tests/contract/knowledge_space/feedback_http_test.go` 编写 HTTP 合同测试。
-- [ ] **T047 [P] [US4]** 在 `.../feedback_grpc_test.go` 编写 gRPC 合同测试。
-- [ ] **T048 [P] [US4]** 在 `backend/tests/integration/knowledge_space/feedback_loop_test.go` 验证反馈→再加工→热更新→失败回滚，并覆盖“针对已删除/退役空间的反馈被拒绝并提示迁移”场景。
-- [ ] **T049 [P] [US4]** 在 `web-admin/tests/e2e/knowledge-spaces-feedback.spec.ts` 覆盖反馈看板、SLA 倒计时、升级流程。
+- [X] **T046 [P] [US4]** 在 `backend/tests/contract/knowledge_space/feedback_http_test.go` 编写 HTTP 合同测试。
+- [X] **T047 [P] [US4]** 在 `.../feedback_grpc_test.go` 编写 gRPC 合同测试。
+- [X] **T048 [P] [US4]** 在 `backend/tests/integration/knowledge_space/feedback_loop_test.go` 验证反馈→再加工→热更新→失败回滚，并覆盖“针对已删除/退役空间的反馈被拒绝并提示迁移”场景。
+- [X] **T049 [P] [US4]** 在 `web-admin/tests/e2e/knowledge-spaces-feedback.spec.ts` 覆盖反馈看板、SLA 倒计时、升级流程。
 
 ### 实现
 
-- [ ] **T050 [US4]** 在 `backend/internal/service/knowledge_space/feedback_service.go` 实现反馈接收、质量评分、PII 处理，并对退役/已删除空间的反馈进行拦截与指引。
-- [ ] **T051 [US4]** 在 `backend/internal/transport/http/admin/knowledge_space/feedback_handlers.go` 实现 HTTP 接口。
-- [ ] **T052 [US4]** 在 `backend/internal/transport/grpc/knowledge_space/feedback_service.go` 实现 gRPC 接口。
-- [ ] **T053 [US4]** 在 `backend/internal/workflow/knowledge_space/reprocess_pipeline.go` 构建再加工与热更新编排（含回滚逻辑）。
-- [ ] **T054 [US4]** 在 `web-admin/app/pages/knowledge-spaces/feedback.vue` 及相关组件实现反馈看板、SLA 徽章、升级弹窗。
-- [ ] **T055 [US4]** 将反馈与再加工指标写入 Grafana 与 `backend/reports/_state/knowledge-spaces.json`。
+- [X] **T050 [US4]** 在 `backend/internal/service/knowledge_space/feedback_service.go` 实现反馈接收、质量评分、PII 处理，并对退役/已删除空间的反馈进行拦截与指引。
+- [X] **T051 [US4]** 在 `backend/internal/transport/http/admin/knowledge_space/feedback_handlers.go` 实现 HTTP 接口。
+- [X] **T052 [US4]** 在 `backend/internal/transport/grpc/knowledge_space/feedback_service.go` 实现 gRPC 接口。
+- [X] **T053 [US4]** 在 `backend/internal/workflow/knowledge_space/reprocess_pipeline.go` 构建再加工与热更新编排（含回滚逻辑）。
+- [X] **T054 [US4]** 在 `web-admin/app/pages/knowledge-spaces/feedback.vue` 及相关组件实现反馈看板、SLA 徽章、升级弹窗。
+- [X] **T055 [US4]** 将反馈与再加工指标写入 Grafana 与 `backend/reports/_state/knowledge-spaces.json`。
 
 ---
 

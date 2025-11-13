@@ -1,11 +1,13 @@
 package knowledge_space
 
 import (
+	"encoding/json"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
+	"gorm.io/datatypes"
 
 	ksvc "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space"
 	models "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/knowledge"
@@ -118,6 +120,65 @@ func toIngestionJobView(job *models.IngestionJob) ingestionJobView {
 		EmbeddingSuccessPct: job.EmbeddingSuccessPct,
 		MaskingCoveragePct:  job.MaskingCoveragePct,
 	}
+}
+
+type feedbackRequest struct {
+	Severity     string   `json:"severity" binding:"required,oneof=low medium high critical"`
+	IssueType    string   `json:"issueType" binding:"required,oneof=accuracy freshness compliance"`
+	LinkedChunks []string `json:"linkedChunks" binding:"required,dive,uuid4"`
+	Notes        string   `json:"notes"`
+	ToolTraceRef string   `json:"toolTraceRef"`
+	ReportedBy   string   `json:"reportedBy"`
+}
+
+type feedbackResponse struct {
+	CaseID        string     `json:"caseId"`
+	Status        string     `json:"status"`
+	Severity      string     `json:"severity"`
+	IssueType     string     `json:"issueType"`
+	LinkedChunks  []string   `json:"linkedChunks"`
+	ReportedBy    string     `json:"reportedBy"`
+	SlaDueAt      *time.Time `json:"slaDueAt,omitempty"`
+	QualityScore  float64    `json:"qualityScore"`
+	ReprocessJob  string     `json:"reprocessJobId,omitempty"`
+	ToolTraceRef  string     `json:"toolTraceRef,omitempty"`
+	CreatedAt     time.Time  `json:"createdAt"`
+	LastUpdatedAt time.Time  `json:"updatedAt"`
+}
+
+func toFeedbackResponse(caseModel *models.FeedbackCase) feedbackResponse {
+	if caseModel == nil {
+		return feedbackResponse{}
+	}
+	chunks := decodeChunks(caseModel.LinkedChunks)
+	resp := feedbackResponse{
+		CaseID:        caseModel.UUID.String(),
+		Status:        caseModel.Status,
+		Severity:      caseModel.Severity,
+		IssueType:     caseModel.IssueType,
+		LinkedChunks:  chunks,
+		ReportedBy:    caseModel.ReportedBy,
+		SlaDueAt:      caseModel.SLADueAt,
+		QualityScore:  caseModel.QualityScore,
+		ToolTraceRef:  caseModel.ToolTraceRef,
+		CreatedAt:     caseModel.CreatedAt,
+		LastUpdatedAt: caseModel.UpdatedAt,
+	}
+	if caseModel.ReprocessJobID != nil {
+		resp.ReprocessJob = strconv.FormatUint(*caseModel.ReprocessJobID, 10)
+	}
+	return resp
+}
+
+func decodeChunks(raw datatypes.JSON) []string {
+	if len(raw) == 0 {
+		return nil
+	}
+	var chunks []string
+	if err := json.Unmarshal(raw, &chunks); err != nil {
+		return nil
+	}
+	return chunks
 }
 
 type fusionStrategyRequest struct {

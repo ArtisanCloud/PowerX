@@ -73,7 +73,7 @@ func TestFusionStrategyFlow(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, queryResult.Matches, 1)
 	require.Equal(t, matchID, queryResult.Matches[0].ChunkID)
-	require.Greater(t, queryResult.Matches[0].Score, 0)
+	require.Greater(t, queryResult.Matches[0].Score, 0.0)
 	lastQuery := env.VectorStore.LastQuery()
 	require.Equal(t, space.UUID, lastQuery.SpaceID)
 	require.Equal(t, 5, lastQuery.TopK)

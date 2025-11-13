@@ -131,12 +131,38 @@ message FeedbackRequest {
   string severity = 2;
   string notes = 3;
   repeated string linked_chunks = 4;
+  string issue_type = 5;
+  string reported_by = 6;
+  string tool_trace_ref = 7;
 }
 
 message FeedbackResponse {
+  FeedbackCase case = 1;
+}
+
+message ListFeedbackCasesRequest {
+  string space_id = 1;
+  uint32 limit = 2;
+}
+
+message ListFeedbackCasesResponse {
+  repeated FeedbackCase cases = 1;
+}
+
+message FeedbackCase {
   string case_id = 1;
-  string status = 2;
-  google.protobuf.Timestamp sla_due_at = 3;
+  string space_id = 2;
+  string status = 3;
+  string severity = 4;
+  string issue_type = 5;
+  repeated string linked_chunks = 6;
+  string reported_by = 7;
+  string notes = 8;
+  string tool_trace_ref = 9;
+  double quality_score = 10;
+  google.protobuf.Timestamp sla_due_at = 11;
+  google.protobuf.Timestamp created_at = 12;
+  google.protobuf.Timestamp updated_at = 13;
 }
 
 service KnowledgeSpaceAdminService {
@@ -148,4 +174,5 @@ service KnowledgeSpaceAdminService {
   rpc ListFusionStrategies(ListFusionStrategiesRequest) returns (ListFusionStrategiesResponse);
   rpc RollbackFusionStrategy(RollbackFusionStrategyRequest) returns (FusionStrategyResponse);
   rpc SubmitFeedback(FeedbackRequest) returns (FeedbackResponse);
+  rpc ListFeedbackCases(ListFeedbackCasesRequest) returns (ListFeedbackCasesResponse);
 }

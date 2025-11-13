@@ -53,6 +53,7 @@ import (
 	pluginsandbox "github.com/ArtisanCloud/PowerX/internal/service/plugin_sandbox"
 	tenantsvc "github.com/ArtisanCloud/PowerX/internal/service/tenant"
 	workflowsvc "github.com/ArtisanCloud/PowerX/internal/service/workflow"
+	knowledgeworkflow "github.com/ArtisanCloud/PowerX/internal/workflow/knowledge_space"
 	"github.com/ArtisanCloud/PowerX/pkg/cache"
 	auditsvc "github.com/ArtisanCloud/PowerX/pkg/corex/audit"
 	dbm "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/audit"
@@ -529,6 +530,7 @@ type KnowledgeSpaceDeps struct {
 	Service         *knowledgeService.Service
 	Ingestion       *knowledgeService.IngestionService
 	Fusion          *knowledgeService.FusionService
+	Feedback        *knowledgeService.FeedbackService
 	VectorStore     vectorstorepkg.Store
 }
 
@@ -1093,10 +1095,13 @@ func newKnowledgeSpaceDeps(db *gorm.DB, opts KnowledgeSpaceOptions, bus event_bu
 		Clock:           time.Now,
 	})
 
+	metricsWriter := knowledgeService.NewIngestionMetricsWriter("")
+
 	ingestionSvc := knowledgeService.NewIngestionService(knowledgeService.IngestionServiceOptions{
 		DB:              db,
 		Instrumentation: inst,
 		VectorStore:     vectorStore,
+		MetricsWriter:   metricsWriter,
 	})
 	svc.AttachIngestion(ingestionSvc)
 
@@ -1109,6 +1114,15 @@ func newKnowledgeSpaceDeps(db *gorm.DB, opts KnowledgeSpaceOptions, bus event_bu
 		Clock:           time.Now,
 	})
 
+	reprocessPipeline := knowledgeworkflow.NewReprocessPipeline(bus, time.Now)
+	feedbackSvc := knowledgeService.NewFeedbackService(knowledgeService.FeedbackServiceOptions{
+		DB:              db,
+		Instrumentation: inst,
+		Pipeline:        reprocessPipeline,
+		MetricsWriter:   metricsWriter,
+		Clock:           time.Now,
+	})
+
 	return &KnowledgeSpaceDeps{
 		Instrumentation: inst,
 		RedisClient:     redisClient,
@@ -1117,6 +1131,7 @@ func newKnowledgeSpaceDeps(db *gorm.DB, opts KnowledgeSpaceOptions, bus event_bu
 		Service:         svc,
 		Ingestion:       ingestionSvc,
 		Fusion:          fusionSvc,
+		Feedback:        feedbackSvc,
 		VectorStore:     vectorStore,
 	}
 }

@@ -27,6 +27,7 @@ const (
 	KnowledgeSpaceAdminService_ListFusionStrategies_FullMethodName   = "/powerx.knowledge.v1.KnowledgeSpaceAdminService/ListFusionStrategies"
 	KnowledgeSpaceAdminService_RollbackFusionStrategy_FullMethodName = "/powerx.knowledge.v1.KnowledgeSpaceAdminService/RollbackFusionStrategy"
 	KnowledgeSpaceAdminService_SubmitFeedback_FullMethodName         = "/powerx.knowledge.v1.KnowledgeSpaceAdminService/SubmitFeedback"
+	KnowledgeSpaceAdminService_ListFeedbackCases_FullMethodName      = "/powerx.knowledge.v1.KnowledgeSpaceAdminService/ListFeedbackCases"
 )
 
 // KnowledgeSpaceAdminServiceClient is the client API for KnowledgeSpaceAdminService service.
@@ -41,6 +42,7 @@ type KnowledgeSpaceAdminServiceClient interface {
 	ListFusionStrategies(ctx context.Context, in *ListFusionStrategiesRequest, opts ...grpc.CallOption) (*ListFusionStrategiesResponse, error)
 	RollbackFusionStrategy(ctx context.Context, in *RollbackFusionStrategyRequest, opts ...grpc.CallOption) (*FusionStrategyResponse, error)
 	SubmitFeedback(ctx context.Context, in *FeedbackRequest, opts ...grpc.CallOption) (*FeedbackResponse, error)
+	ListFeedbackCases(ctx context.Context, in *ListFeedbackCasesRequest, opts ...grpc.CallOption) (*ListFeedbackCasesResponse, error)
 }
 
 type knowledgeSpaceAdminServiceClient struct {
@@ -131,6 +133,16 @@ func (c *knowledgeSpaceAdminServiceClient) SubmitFeedback(ctx context.Context, i
 	return out, nil
 }
 
+func (c *knowledgeSpaceAdminServiceClient) ListFeedbackCases(ctx context.Context, in *ListFeedbackCasesRequest, opts ...grpc.CallOption) (*ListFeedbackCasesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListFeedbackCasesResponse)
+	err := c.cc.Invoke(ctx, KnowledgeSpaceAdminService_ListFeedbackCases_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // KnowledgeSpaceAdminServiceServer is the server API for KnowledgeSpaceAdminService service.
 // All implementations must embed UnimplementedKnowledgeSpaceAdminServiceServer
 // for forward compatibility.
@@ -143,6 +155,7 @@ type KnowledgeSpaceAdminServiceServer interface {
 	ListFusionStrategies(context.Context, *ListFusionStrategiesRequest) (*ListFusionStrategiesResponse, error)
 	RollbackFusionStrategy(context.Context, *RollbackFusionStrategyRequest) (*FusionStrategyResponse, error)
 	SubmitFeedback(context.Context, *FeedbackRequest) (*FeedbackResponse, error)
+	ListFeedbackCases(context.Context, *ListFeedbackCasesRequest) (*ListFeedbackCasesResponse, error)
 	mustEmbedUnimplementedKnowledgeSpaceAdminServiceServer()
 }
 
@@ -176,6 +189,9 @@ func (UnimplementedKnowledgeSpaceAdminServiceServer) RollbackFusionStrategy(cont
 }
 func (UnimplementedKnowledgeSpaceAdminServiceServer) SubmitFeedback(context.Context, *FeedbackRequest) (*FeedbackResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SubmitFeedback not implemented")
+}
+func (UnimplementedKnowledgeSpaceAdminServiceServer) ListFeedbackCases(context.Context, *ListFeedbackCasesRequest) (*ListFeedbackCasesResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListFeedbackCases not implemented")
 }
 func (UnimplementedKnowledgeSpaceAdminServiceServer) mustEmbedUnimplementedKnowledgeSpaceAdminServiceServer() {
 }
@@ -343,6 +359,24 @@ func _KnowledgeSpaceAdminService_SubmitFeedback_Handler(srv interface{}, ctx con
 	return interceptor(ctx, in, info, handler)
 }
 
+func _KnowledgeSpaceAdminService_ListFeedbackCases_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListFeedbackCasesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(KnowledgeSpaceAdminServiceServer).ListFeedbackCases(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: KnowledgeSpaceAdminService_ListFeedbackCases_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(KnowledgeSpaceAdminServiceServer).ListFeedbackCases(ctx, req.(*ListFeedbackCasesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // KnowledgeSpaceAdminService_ServiceDesc is the grpc.ServiceDesc for KnowledgeSpaceAdminService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -381,6 +415,10 @@ var KnowledgeSpaceAdminService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "SubmitFeedback",
 			Handler:    _KnowledgeSpaceAdminService_SubmitFeedback_Handler,
+		},
+		{
+			MethodName: "ListFeedbackCases",
+			Handler:    _KnowledgeSpaceAdminService_ListFeedbackCases_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

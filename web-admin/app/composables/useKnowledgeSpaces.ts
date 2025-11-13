@@ -63,6 +63,29 @@ export interface FusionStrategyRecord {
   publishedAt?: string;
 }
 
+export interface FeedbackCasePayload {
+  severity: "low" | "medium" | "high" | "critical";
+  issueType: "accuracy" | "freshness" | "compliance";
+  linkedChunks: string[];
+  notes?: string;
+  reportedBy?: string;
+  toolTraceRef?: string;
+}
+
+export interface FeedbackCaseRecord {
+  caseId: string;
+  status: string;
+  severity: string;
+  issueType: string;
+  linkedChunks: string[];
+  reportedBy: string;
+  slaDueAt?: string;
+  qualityScore: number;
+  reprocessJobId?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 interface ApiResponse<T> {
   code: number;
   message: string;
@@ -153,6 +176,35 @@ export const useKnowledgeSpaces = () => {
     return response.data;
   };
 
+  const listFeedbackCases = async (
+    spaceId: string,
+  ): Promise<FeedbackCaseRecord[]> => {
+    if (!spaceId) {
+      return [];
+    }
+    const response = await $fetch<ApiResponse<FeedbackCaseRecord[]>>(
+      `${adminPath(`/${spaceId}/feedback`)}`,
+      {
+        method: "GET",
+      },
+    );
+    return response.data ?? [];
+  };
+
+  const submitFeedbackCase = async (
+    spaceId: string,
+    payload: FeedbackCasePayload,
+  ): Promise<FeedbackCaseRecord> => {
+    const response = await $fetch<ApiResponse<FeedbackCaseRecord>>(
+      `${adminPath(`/${spaceId}/feedback`)}`,
+      {
+        method: "POST",
+        body: payload,
+      },
+    );
+    return response.data;
+  };
+
   const fetchStatus = async (): Promise<StatusSnapshot> => {
     return await $fetch<StatusSnapshot>(
       `${baseURL}/openapi/knowledge-spaces/status`,
@@ -166,5 +218,7 @@ export const useKnowledgeSpaces = () => {
     listFusionStrategies,
     publishFusionStrategy,
     rollbackFusionStrategy,
+    listFeedbackCases,
+    submitFeedbackCase,
   };
 };
