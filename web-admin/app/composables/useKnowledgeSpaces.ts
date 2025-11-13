@@ -40,6 +40,29 @@ export interface IngestionJobRecord {
   maskingCoveragePct: number;
 }
 
+export interface FusionStrategyPayload {
+  label: string;
+  bm25Weight: number;
+  vectorWeight: number;
+  graphConstraint: string;
+  rerankerModel: string;
+  conflictPolicy?: "block" | "queue" | "allow_with_flag";
+  requestedBy?: string;
+}
+
+export interface FusionStrategyRecord {
+  strategyId: string;
+  spaceId?: string;
+  label: string;
+  bm25Weight: number;
+  vectorWeight: number;
+  graphConstraint: string;
+  rerankerModel: string;
+  conflictPolicy: string;
+  deploymentState: string;
+  publishedAt?: string;
+}
+
 interface ApiResponse<T> {
   code: number;
   message: string;
@@ -88,6 +111,48 @@ export const useKnowledgeSpaces = () => {
     return response.data;
   };
 
+  const listFusionStrategies = async (
+    spaceId: string,
+  ): Promise<FusionStrategyRecord[]> => {
+    if (!spaceId) {
+      return [];
+    }
+    const response = await $fetch<ApiResponse<FusionStrategyRecord[]>>(
+      `${adminPath(`/${spaceId}/fusion-strategies`)}`,
+      {
+        method: "GET",
+      },
+    );
+    return response.data ?? [];
+  };
+
+  const publishFusionStrategy = async (
+    spaceId: string,
+    payload: FusionStrategyPayload,
+  ): Promise<FusionStrategyRecord> => {
+    const response = await $fetch<ApiResponse<FusionStrategyRecord>>(
+      `${adminPath(`/${spaceId}/fusion-strategies`)}`,
+      {
+        method: "POST",
+        body: payload,
+      },
+    );
+    return response.data;
+  };
+
+  const rollbackFusionStrategy = async (
+    spaceId: string,
+    strategyId: string,
+  ): Promise<FusionStrategyRecord> => {
+    const response = await $fetch<ApiResponse<FusionStrategyRecord>>(
+      `${adminPath(`/${spaceId}/fusion-strategies/${strategyId}/rollback`)}`,
+      {
+        method: "POST",
+      },
+    );
+    return response.data;
+  };
+
   const fetchStatus = async (): Promise<StatusSnapshot> => {
     return await $fetch<StatusSnapshot>(
       `${baseURL}/openapi/knowledge-spaces/status`,
@@ -98,5 +163,8 @@ export const useKnowledgeSpaces = () => {
     createSpace,
     fetchStatus,
     triggerIngestion,
+    listFusionStrategies,
+    publishFusionStrategy,
+    rollbackFusionStrategy,
   };
 };

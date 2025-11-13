@@ -13,6 +13,10 @@ var (
 	ErrProvisioningBusy = errors.New("tenant provisioning in progress")
 	// ErrInvalidStatusTransition indicates unsupported status change.
 	ErrInvalidStatusTransition = errors.New("invalid status transition")
+	// ErrFusionConflict indicates conflicting fusion publish policy.
+	ErrFusionConflict = errors.New("fusion strategy conflict")
+	// ErrFusionStrategyNotFound indicates requested strategy does not exist.
+	ErrFusionStrategyNotFound = errors.New("fusion strategy not found")
 )
 
 // IsConflictError reports whether err is caused by a duplicate space.

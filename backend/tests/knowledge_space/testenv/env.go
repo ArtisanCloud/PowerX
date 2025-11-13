@@ -113,6 +113,15 @@ func New(t testing.TB) *Env {
 	})
 	service.AttachIngestion(ingestionSvc)
 
+	fusionSvc := knowledgeService.NewFusionService(knowledgeService.FusionServiceOptions{
+		DB:              db,
+		Instrumentation: inst,
+		VectorStore:     vectorStore,
+		EventBus:        bus,
+		EventTopic:      cfg.EventTopics.Fusion,
+		Clock:           time.Now,
+	})
+
 	deps := &shared.Deps{
 		DB:       db,
 		EventBus: bus,
@@ -123,6 +132,7 @@ func New(t testing.TB) *Env {
 			Config:          cfg,
 			Service:         service,
 			Ingestion:       ingestionSvc,
+			Fusion:          fusionSvc,
 			VectorStore:     vectorStore,
 		},
 	}

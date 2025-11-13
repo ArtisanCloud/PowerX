@@ -528,6 +528,7 @@ type KnowledgeSpaceDeps struct {
 	Config          KnowledgeSpaceRuntimeConfig
 	Service         *knowledgeService.Service
 	Ingestion       *knowledgeService.IngestionService
+	Fusion          *knowledgeService.FusionService
 	VectorStore     vectorstorepkg.Store
 }
 
@@ -1099,6 +1100,15 @@ func newKnowledgeSpaceDeps(db *gorm.DB, opts KnowledgeSpaceOptions, bus event_bu
 	})
 	svc.AttachIngestion(ingestionSvc)
 
+	fusionSvc := knowledgeService.NewFusionService(knowledgeService.FusionServiceOptions{
+		DB:              db,
+		Instrumentation: inst,
+		VectorStore:     vectorStore,
+		EventBus:        bus,
+		EventTopic:      cfg.EventTopics.Fusion,
+		Clock:           time.Now,
+	})
+
 	return &KnowledgeSpaceDeps{
 		Instrumentation: inst,
 		RedisClient:     redisClient,
@@ -1106,6 +1116,7 @@ func newKnowledgeSpaceDeps(db *gorm.DB, opts KnowledgeSpaceOptions, bus event_bu
 		Config:          cfg,
 		Service:         svc,
 		Ingestion:       ingestionSvc,
+		Fusion:          fusionSvc,
 		VectorStore:     vectorStore,
 	}
 }

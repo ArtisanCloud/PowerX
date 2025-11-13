@@ -19,12 +19,14 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	KnowledgeSpaceAdminService_CreateKnowledgeSpace_FullMethodName  = "/powerx.knowledge.v1.KnowledgeSpaceAdminService/CreateKnowledgeSpace"
-	KnowledgeSpaceAdminService_UpdateKnowledgeSpace_FullMethodName  = "/powerx.knowledge.v1.KnowledgeSpaceAdminService/UpdateKnowledgeSpace"
-	KnowledgeSpaceAdminService_RetireKnowledgeSpace_FullMethodName  = "/powerx.knowledge.v1.KnowledgeSpaceAdminService/RetireKnowledgeSpace"
-	KnowledgeSpaceAdminService_TriggerIngestion_FullMethodName      = "/powerx.knowledge.v1.KnowledgeSpaceAdminService/TriggerIngestion"
-	KnowledgeSpaceAdminService_PublishFusionStrategy_FullMethodName = "/powerx.knowledge.v1.KnowledgeSpaceAdminService/PublishFusionStrategy"
-	KnowledgeSpaceAdminService_SubmitFeedback_FullMethodName        = "/powerx.knowledge.v1.KnowledgeSpaceAdminService/SubmitFeedback"
+	KnowledgeSpaceAdminService_CreateKnowledgeSpace_FullMethodName   = "/powerx.knowledge.v1.KnowledgeSpaceAdminService/CreateKnowledgeSpace"
+	KnowledgeSpaceAdminService_UpdateKnowledgeSpace_FullMethodName   = "/powerx.knowledge.v1.KnowledgeSpaceAdminService/UpdateKnowledgeSpace"
+	KnowledgeSpaceAdminService_RetireKnowledgeSpace_FullMethodName   = "/powerx.knowledge.v1.KnowledgeSpaceAdminService/RetireKnowledgeSpace"
+	KnowledgeSpaceAdminService_TriggerIngestion_FullMethodName       = "/powerx.knowledge.v1.KnowledgeSpaceAdminService/TriggerIngestion"
+	KnowledgeSpaceAdminService_PublishFusionStrategy_FullMethodName  = "/powerx.knowledge.v1.KnowledgeSpaceAdminService/PublishFusionStrategy"
+	KnowledgeSpaceAdminService_ListFusionStrategies_FullMethodName   = "/powerx.knowledge.v1.KnowledgeSpaceAdminService/ListFusionStrategies"
+	KnowledgeSpaceAdminService_RollbackFusionStrategy_FullMethodName = "/powerx.knowledge.v1.KnowledgeSpaceAdminService/RollbackFusionStrategy"
+	KnowledgeSpaceAdminService_SubmitFeedback_FullMethodName         = "/powerx.knowledge.v1.KnowledgeSpaceAdminService/SubmitFeedback"
 )
 
 // KnowledgeSpaceAdminServiceClient is the client API for KnowledgeSpaceAdminService service.
@@ -36,6 +38,8 @@ type KnowledgeSpaceAdminServiceClient interface {
 	RetireKnowledgeSpace(ctx context.Context, in *RetireKnowledgeSpaceRequest, opts ...grpc.CallOption) (*RetireKnowledgeSpaceResponse, error)
 	TriggerIngestion(ctx context.Context, in *IngestionJobRequest, opts ...grpc.CallOption) (*IngestionJobResponse, error)
 	PublishFusionStrategy(ctx context.Context, in *FusionStrategyRequest, opts ...grpc.CallOption) (*FusionStrategyResponse, error)
+	ListFusionStrategies(ctx context.Context, in *ListFusionStrategiesRequest, opts ...grpc.CallOption) (*ListFusionStrategiesResponse, error)
+	RollbackFusionStrategy(ctx context.Context, in *RollbackFusionStrategyRequest, opts ...grpc.CallOption) (*FusionStrategyResponse, error)
 	SubmitFeedback(ctx context.Context, in *FeedbackRequest, opts ...grpc.CallOption) (*FeedbackResponse, error)
 }
 
@@ -97,6 +101,26 @@ func (c *knowledgeSpaceAdminServiceClient) PublishFusionStrategy(ctx context.Con
 	return out, nil
 }
 
+func (c *knowledgeSpaceAdminServiceClient) ListFusionStrategies(ctx context.Context, in *ListFusionStrategiesRequest, opts ...grpc.CallOption) (*ListFusionStrategiesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListFusionStrategiesResponse)
+	err := c.cc.Invoke(ctx, KnowledgeSpaceAdminService_ListFusionStrategies_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *knowledgeSpaceAdminServiceClient) RollbackFusionStrategy(ctx context.Context, in *RollbackFusionStrategyRequest, opts ...grpc.CallOption) (*FusionStrategyResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(FusionStrategyResponse)
+	err := c.cc.Invoke(ctx, KnowledgeSpaceAdminService_RollbackFusionStrategy_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *knowledgeSpaceAdminServiceClient) SubmitFeedback(ctx context.Context, in *FeedbackRequest, opts ...grpc.CallOption) (*FeedbackResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(FeedbackResponse)
@@ -116,6 +140,8 @@ type KnowledgeSpaceAdminServiceServer interface {
 	RetireKnowledgeSpace(context.Context, *RetireKnowledgeSpaceRequest) (*RetireKnowledgeSpaceResponse, error)
 	TriggerIngestion(context.Context, *IngestionJobRequest) (*IngestionJobResponse, error)
 	PublishFusionStrategy(context.Context, *FusionStrategyRequest) (*FusionStrategyResponse, error)
+	ListFusionStrategies(context.Context, *ListFusionStrategiesRequest) (*ListFusionStrategiesResponse, error)
+	RollbackFusionStrategy(context.Context, *RollbackFusionStrategyRequest) (*FusionStrategyResponse, error)
 	SubmitFeedback(context.Context, *FeedbackRequest) (*FeedbackResponse, error)
 	mustEmbedUnimplementedKnowledgeSpaceAdminServiceServer()
 }
@@ -141,6 +167,12 @@ func (UnimplementedKnowledgeSpaceAdminServiceServer) TriggerIngestion(context.Co
 }
 func (UnimplementedKnowledgeSpaceAdminServiceServer) PublishFusionStrategy(context.Context, *FusionStrategyRequest) (*FusionStrategyResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method PublishFusionStrategy not implemented")
+}
+func (UnimplementedKnowledgeSpaceAdminServiceServer) ListFusionStrategies(context.Context, *ListFusionStrategiesRequest) (*ListFusionStrategiesResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListFusionStrategies not implemented")
+}
+func (UnimplementedKnowledgeSpaceAdminServiceServer) RollbackFusionStrategy(context.Context, *RollbackFusionStrategyRequest) (*FusionStrategyResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RollbackFusionStrategy not implemented")
 }
 func (UnimplementedKnowledgeSpaceAdminServiceServer) SubmitFeedback(context.Context, *FeedbackRequest) (*FeedbackResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SubmitFeedback not implemented")
@@ -257,6 +289,42 @@ func _KnowledgeSpaceAdminService_PublishFusionStrategy_Handler(srv interface{}, 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _KnowledgeSpaceAdminService_ListFusionStrategies_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListFusionStrategiesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(KnowledgeSpaceAdminServiceServer).ListFusionStrategies(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: KnowledgeSpaceAdminService_ListFusionStrategies_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(KnowledgeSpaceAdminServiceServer).ListFusionStrategies(ctx, req.(*ListFusionStrategiesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _KnowledgeSpaceAdminService_RollbackFusionStrategy_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RollbackFusionStrategyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(KnowledgeSpaceAdminServiceServer).RollbackFusionStrategy(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: KnowledgeSpaceAdminService_RollbackFusionStrategy_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(KnowledgeSpaceAdminServiceServer).RollbackFusionStrategy(ctx, req.(*RollbackFusionStrategyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _KnowledgeSpaceAdminService_SubmitFeedback_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(FeedbackRequest)
 	if err := dec(in); err != nil {
@@ -301,6 +369,14 @@ var KnowledgeSpaceAdminService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "PublishFusionStrategy",
 			Handler:    _KnowledgeSpaceAdminService_PublishFusionStrategy_Handler,
+		},
+		{
+			MethodName: "ListFusionStrategies",
+			Handler:    _KnowledgeSpaceAdminService_ListFusionStrategies_Handler,
+		},
+		{
+			MethodName: "RollbackFusionStrategy",
+			Handler:    _KnowledgeSpaceAdminService_RollbackFusionStrategy_Handler,
 		},
 		{
 			MethodName: "SubmitFeedback",

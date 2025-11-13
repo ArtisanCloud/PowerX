@@ -23,6 +23,7 @@ type Server struct {
 	knowledgev1.UnimplementedKnowledgeSpaceAdminServiceServer
 	svc       *ksvc.Service
 	ingestion *ksvc.IngestionService
+	fusion    *ksvc.FusionService
 }
 
 // NewServer builds a gRPC server wrapper.
@@ -33,6 +34,7 @@ func NewServer(deps *shared.Deps) *Server {
 	return &Server{
 		svc:       deps.KnowledgeSpace.Service,
 		ingestion: deps.KnowledgeSpace.Ingestion,
+		fusion:    deps.KnowledgeSpace.Fusion,
 	}
 }
 
@@ -145,7 +147,61 @@ func (s *Server) TriggerIngestion(ctx context.Context, req *knowledgev1.Ingestio
 }
 
 func (s *Server) PublishFusionStrategy(ctx context.Context, req *knowledgev1.FusionStrategyRequest) (*knowledgev1.FusionStrategyResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "fusion API pending")
+	if s.fusion == nil {
+		return nil, status.Error(codes.Unimplemented, "fusion service not available")
+	}
+	spaceID, err := uuid.Parse(strings.TrimSpace(req.GetSpaceId()))
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid space id: %v", err)
+	}
+	strategy, err := s.fusion.PublishStrategy(ctx, ksvc.PublishStrategyInput{
+		SpaceID:         spaceID,
+		Label:           req.GetLabel(),
+		BM25Weight:      req.GetBm25Weight(),
+		VectorWeight:    req.GetVectorWeight(),
+		GraphConstraint: req.GetGraphConstraint(),
+		RerankerModel:   req.GetRerankerModel(),
+		ConflictPolicy:  req.GetConflictPolicy(),
+	})
+	if err != nil {
+		return nil, mapFusionError(err)
+	}
+	return &knowledgev1.FusionStrategyResponse{Strategy: toProtoFusionStrategy(strategy)}, nil
+}
+
+func (s *Server) ListFusionStrategies(ctx context.Context, req *knowledgev1.ListFusionStrategiesRequest) (*knowledgev1.ListFusionStrategiesResponse, error) {
+	if s.fusion == nil {
+		return nil, status.Error(codes.Unimplemented, "fusion service not available")
+	}
+	spaceID, err := uuid.Parse(strings.TrimSpace(req.GetSpaceId()))
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid space id: %v", err)
+	}
+	strategies, err := s.fusion.ListStrategies(ctx, spaceID, int(req.GetLimit()))
+	if err != nil {
+		return nil, mapFusionError(err)
+	}
+	return &knowledgev1.ListFusionStrategiesResponse{
+		Strategies: toProtoFusionStrategyList(strategies),
+	}, nil
+}
+
+func (s *Server) RollbackFusionStrategy(ctx context.Context, req *knowledgev1.RollbackFusionStrategyRequest) (*knowledgev1.FusionStrategyResponse, error) {
+	if s.fusion == nil {
+		return nil, status.Error(codes.Unimplemented, "fusion service not available")
+	}
+	spaceID, err := uuid.Parse(strings.TrimSpace(req.GetSpaceId()))
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid space id: %v", err)
+	}
+	strategy, err := s.fusion.RollbackStrategy(ctx, ksvc.RollbackStrategyInput{
+		SpaceID:    spaceID,
+		StrategyID: req.GetStrategyId(),
+	})
+	if err != nil {
+		return nil, mapFusionError(err)
+	}
+	return &knowledgev1.FusionStrategyResponse{Strategy: toProtoFusionStrategy(strategy)}, nil
 }
 
 func (s *Server) SubmitFeedback(ctx context.Context, req *knowledgev1.FeedbackRequest) (*knowledgev1.FeedbackResponse, error) {
@@ -211,5 +267,63 @@ func toProtoIngestionJob(job *models.IngestionJob) *knowledgev1.IngestionJobStat
 		ChunkCoveredPct:     float32(job.ChunkCoveredPct),
 		EmbeddingSuccessPct: float32(job.EmbeddingSuccessPct),
 		MaskingCoveragePct:  float32(job.MaskingCoveragePct),
+	}
+}
+
+func toProtoFusionStrategy(strategy *models.FusionStrategyVersion) *knowledgev1.FusionStrategy {
+	if strategy == nil {
+		return nil
+	}
+	var publishedAt *timestamppb.Timestamp
+	if strategy.PublishedAt != nil {
+		publishedAt = timestamppb.New(*strategy.PublishedAt)
+	}
+	return &knowledgev1.FusionStrategy{
+		StrategyId:      strategy.ID,
+		SpaceId:         strategy.SpaceUUID.String(),
+		Label:           strategy.Label,
+		Bm25Weight:      strategy.BM25Weight,
+		VectorWeight:    strategy.VectorWeight,
+		GraphConstraint: strategy.GraphConstraint,
+		RerankerModel:   strategy.RerankerModel,
+		ConflictPolicy:  strategy.ConflictPolicy,
+		DeploymentState: protoDeploymentState(strategy.DeploymentState),
+		PublishedAt:     publishedAt,
+	}
+}
+
+func toProtoFusionStrategyList(list []*models.FusionStrategyVersion) []*knowledgev1.FusionStrategy {
+	out := make([]*knowledgev1.FusionStrategy, 0, len(list))
+	for _, item := range list {
+		out = append(out, toProtoFusionStrategy(item))
+	}
+	return out
+}
+
+func protoDeploymentState(state string) knowledgev1.FusionStrategy_DeploymentState {
+	switch state {
+	case models.FusionDeploymentActive:
+		return knowledgev1.FusionStrategy_DEPLOYMENT_STATE_ACTIVE
+	case models.FusionDeploymentRollback:
+		return knowledgev1.FusionStrategy_DEPLOYMENT_STATE_ROLLBACK
+	case models.FusionDeploymentDraft:
+		return knowledgev1.FusionStrategy_DEPLOYMENT_STATE_DRAFT
+	default:
+		return knowledgev1.FusionStrategy_DEPLOYMENT_STATE_UNSPECIFIED
+	}
+}
+
+func mapFusionError(err error) error {
+	switch {
+	case errors.Is(err, ksvc.ErrInvalidInput):
+		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, ksvc.ErrSpaceNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, ksvc.ErrFusionConflict):
+		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, ksvc.ErrFusionStrategyNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	default:
+		return status.Error(codes.Internal, err.Error())
 	}
 }

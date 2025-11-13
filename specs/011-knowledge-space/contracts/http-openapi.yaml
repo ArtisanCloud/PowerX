@@ -107,7 +107,43 @@ paths:
               $ref: '#/components/schemas/FusionStrategyRequest'
       responses:
         '201':
-          description: Strategy published
+          description: Strategy activated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FusionStrategy'
+        '202':
+          description: Strategy queued due to conflict policy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FusionStrategy'
+    get:
+      summary: List fusion strategy versions
+      operationId: listFusionStrategies
+      tags: [Fusion]
+      parameters:
+        - $ref: '#/components/parameters/SpaceId'
+      responses:
+        '200':
+          description: Strategy list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FusionStrategy'
+  /knowledge-spaces/{spaceId}/fusion-strategies/{strategyId}/rollback:
+    post:
+      summary: Rollback to a previous strategy version
+      operationId: rollbackFusionStrategy
+      tags: [Fusion]
+      parameters:
+        - $ref: '#/components/parameters/SpaceId'
+        - $ref: '#/components/parameters/StrategyId'
+      responses:
+        '200':
+          description: Strategy re-activated
           content:
             application/json:
               schema:
@@ -154,6 +190,12 @@ components:
       schema:
         type: string
         format: uuid
+    StrategyId:
+      name: strategyId
+      in: path
+      required: true
+      schema:
+        type: string
   schemas:
     KnowledgeSpaceCreate:
       type: object
@@ -265,19 +307,35 @@ components:
         conflictPolicy:
           type: string
           enum: [block, queue, allow_with_flag]
+        requestedBy:
+          type: string
     FusionStrategy:
-      allOf:
-        - $ref: '#/components/schemas/FusionStrategyRequest'
-        - type: object
-          properties:
-            strategyVersionId:
-              type: string
-            deploymentState:
-              type: string
-              enum: [draft, active, rollback]
-            publishedAt:
-              type: string
-              format: date-time
+      type: object
+      properties:
+        strategyId:
+          type: string
+        spaceId:
+          type: string
+          format: uuid
+        label:
+          type: string
+        bm25Weight:
+          type: number
+        vectorWeight:
+          type: number
+        graphConstraint:
+          type: string
+        rerankerModel:
+          type: string
+        conflictPolicy:
+          type: string
+          enum: [block, queue, allow_with_flag]
+        deploymentState:
+          type: string
+          enum: [draft, active, rollback]
+        publishedAt:
+          type: string
+          format: date-time
     FeedbackCaseRequest:
       type: object
       required: [severity, linkedChunks, issueType]

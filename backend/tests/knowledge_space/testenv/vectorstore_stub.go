@@ -10,14 +10,17 @@ import (
 
 // VectorStoreStub 提供简单的内存实现，便于在测试中验证向量写入/清理。
 type VectorStoreStub struct {
-	mu   sync.Mutex
-	data map[uuid.UUID]map[uuid.UUID]vectorstore.VectorRecord
+	mu             sync.Mutex
+	data           map[uuid.UUID]map[uuid.UUID]vectorstore.VectorRecord
+	queryResponses map[uuid.UUID]vectorstore.QueryResponse
+	lastQuery      vectorstore.QueryRequest
 }
 
 // NewVectorStoreStub 构造内存驱动。
 func NewVectorStoreStub() *VectorStoreStub {
 	return &VectorStoreStub{
-		data: make(map[uuid.UUID]map[uuid.UUID]vectorstore.VectorRecord),
+		data:           make(map[uuid.UUID]map[uuid.UUID]vectorstore.VectorRecord),
+		queryResponses: make(map[uuid.UUID]vectorstore.QueryResponse),
 	}
 }
 
@@ -68,9 +71,29 @@ func (s *VectorStoreStub) DropSpace(_ context.Context, space uuid.UUID) error {
 	return nil
 }
 
-// Query returns an empty match set; retrieval coverage is validated in later stories.
-func (s *VectorStoreStub) Query(_ context.Context, _ vectorstore.QueryRequest) (vectorstore.QueryResponse, error) {
+// Query returns predefined matches if available and records last request.
+func (s *VectorStoreStub) Query(_ context.Context, req vectorstore.QueryRequest) (vectorstore.QueryResponse, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.lastQuery = req
+	if resp, ok := s.queryResponses[req.SpaceID]; ok {
+		return resp, nil
+	}
 	return vectorstore.QueryResponse{}, nil
+}
+
+// SetQueryResponse configures deterministic query results for a space.
+func (s *VectorStoreStub) SetQueryResponse(space uuid.UUID, resp vectorstore.QueryResponse) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.queryResponses[space] = resp
+}
+
+// LastQuery exposes the last query payload for assertions.
+func (s *VectorStoreStub) LastQuery() vectorstore.QueryRequest {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.lastQuery
 }
 
 // Health reports stub availability.

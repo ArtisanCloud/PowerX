@@ -1,0 +1,17 @@
+kind: ruleset
+name: plugin/crud/frontend/nuxt_tests
+version: 1
+
+tests:
+  runner: vitest
+  files:
+    - target: web-admin/tests/templates.spec.ts
+      template: builtin/nuxt_test_table_page
+      params:
+        route: "/templates"
+        expect:
+          - "renders table"
+          - "open create modal"
+          - "submit form calls API"
+
+gates.require: [PG-FE-UI-001]

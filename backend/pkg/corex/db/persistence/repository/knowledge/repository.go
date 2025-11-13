@@ -196,6 +196,38 @@ func (r *FusionStrategyRepository) FindActiveBySpace(ctx context.Context, space 
 	return &strategy, nil
 }
 
+func (r *FusionStrategyRepository) ListBySpace(ctx context.Context, space uuid.UUID, limit int) ([]*models.FusionStrategyVersion, error) {
+	if space == uuid.Nil {
+		return nil, gorm.ErrInvalidData
+	}
+	var strategies []*models.FusionStrategyVersion
+	query := r.db.WithContext(ctx).
+		Where("space_uuid = ?", space).
+		Order("id DESC")
+	if limit > 0 {
+		query = query.Limit(limit)
+	}
+	if err := query.Find(&strategies).Error; err != nil {
+		return nil, err
+	}
+	return strategies, nil
+}
+
+func (r *FusionStrategyRepository) FindByID(ctx context.Context, id uint64) (*models.FusionStrategyVersion, error) {
+	if id == 0 {
+		return nil, gorm.ErrInvalidData
+	}
+	var strategy models.FusionStrategyVersion
+	err := r.db.WithContext(ctx).Where("id = ?", id).Take(&strategy).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &strategy, nil
+}
+
 // FeedbackCaseRepository 管理反馈案例。
 type FeedbackCaseRepository struct {
 	*baseRepo.BaseRepository[models.FeedbackCase]

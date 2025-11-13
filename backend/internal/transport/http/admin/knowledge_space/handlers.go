@@ -21,6 +21,7 @@ func RegisterAPIRoutes(public, protected *gin.RouterGroup, deps *shared.Deps) {
 	}
 	handler := &Handler{svc: deps.KnowledgeSpace.Service}
 	ingestionHandler := NewIngestionHandler(deps)
+	fusionHandler := NewFusionHandler(deps)
 	group := protected.Group("/admin/knowledge-spaces")
 	{
 		group.POST("", handler.create)
@@ -28,6 +29,11 @@ func RegisterAPIRoutes(public, protected *gin.RouterGroup, deps *shared.Deps) {
 		group.POST("/:spaceId/retire", handler.retire)
 		if ingestionHandler != nil {
 			group.POST("/:spaceId/ingestion-jobs", ingestionHandler.Trigger)
+		}
+		if fusionHandler != nil {
+			group.GET("/:spaceId/fusion-strategies", fusionHandler.List)
+			group.POST("/:spaceId/fusion-strategies", fusionHandler.Publish)
+			group.POST("/:spaceId/fusion-strategies/:strategyId/rollback", fusionHandler.Rollback)
 		}
 	}
 }

@@ -89,8 +89,41 @@ message FusionStrategyRequest {
 }
 
 message FusionStrategyResponse {
-  string strategy_id = 1;
-  string deployment_state = 2;
+  FusionStrategy strategy = 1;
+}
+
+message ListFusionStrategiesRequest {
+  string space_id = 1;
+  uint32 limit = 2;
+}
+
+message ListFusionStrategiesResponse {
+  repeated FusionStrategy strategies = 1;
+}
+
+message RollbackFusionStrategyRequest {
+  string space_id = 1;
+  uint64 strategy_id = 2;
+}
+
+message FusionStrategy {
+  enum DeploymentState {
+    DEPLOYMENT_STATE_UNSPECIFIED = 0;
+    DEPLOYMENT_STATE_DRAFT = 1;
+    DEPLOYMENT_STATE_ACTIVE = 2;
+    DEPLOYMENT_STATE_ROLLBACK = 3;
+  }
+
+  uint64 strategy_id = 1;
+  string space_id = 2;
+  string label = 3;
+  double bm25_weight = 4;
+  double vector_weight = 5;
+  string graph_constraint = 6;
+  string reranker_model = 7;
+  string conflict_policy = 8;
+  DeploymentState deployment_state = 9;
+  google.protobuf.Timestamp published_at = 10;
 }
 
 message FeedbackRequest {
@@ -112,5 +145,7 @@ service KnowledgeSpaceAdminService {
   rpc RetireKnowledgeSpace(RetireKnowledgeSpaceRequest) returns (RetireKnowledgeSpaceResponse);
   rpc TriggerIngestion(IngestionJobRequest) returns (IngestionJobResponse);
   rpc PublishFusionStrategy(FusionStrategyRequest) returns (FusionStrategyResponse);
+  rpc ListFusionStrategies(ListFusionStrategiesRequest) returns (ListFusionStrategiesResponse);
+  rpc RollbackFusionStrategy(RollbackFusionStrategyRequest) returns (FusionStrategyResponse);
   rpc SubmitFeedback(FeedbackRequest) returns (FeedbackResponse);
 }
