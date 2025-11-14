@@ -150,6 +150,11 @@ func GetDefaults() *Config {
 				RetryMax:            3,
 				ReplayWindowSeconds: 300,
 			},
+			Decay: KnowledgeSpaceDecayConfig{
+				ThresholdPath:       "configs/knowledge/decay_thresholds.yaml",
+				ReportPath:          "backend/reports/_state/knowledge-decay.json",
+				AggregateReportPath: "reports/_state/knowledge-update.json",
+			},
 		},
 		EventFabric: EventFabricConfig{
 			AckTimeoutSeconds: 30,

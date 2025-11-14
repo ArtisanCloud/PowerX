@@ -12,6 +12,7 @@ import (
 
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
 	knowledgeService "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space"
+	decay_guard "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/decay_guard"
 	ksdelta "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/delta"
 	event_hotfix "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/event_hotfix"
 	knowledgeinstr "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/instrumentation"
@@ -43,6 +44,7 @@ type Env struct {
 	KnowledgeUpdateReportPath string
 	DeltaReportPath           string
 	EventReportPath           string
+	DecayReportPath           string
 }
 
 // New spins up an isolated sqlite + redis test environment.
@@ -69,6 +71,7 @@ func New(t testing.TB) *Env {
 		&models.IAMSyncTask{},
 		&models.AuditTrailEntry{},
 		&models.DeltaJob{},
+		&models.DecayTask{},
 	))
 
 	bus := event_bus.NewLocalEventBus()
@@ -122,10 +125,12 @@ func New(t testing.TB) *Env {
 	updateReportPath := filepath.Join(tempDir, "knowledge-update.json")
 	deltaReportPath := filepath.Join(tempDir, "knowledge-delta.json")
 	eventReportPath := filepath.Join(tempDir, "knowledge-event.json")
+	decayReportPath := filepath.Join(tempDir, "knowledge-decay.json")
 	deltaSourcesPath := filepath.Join(tempDir, "delta-sources.json")
 	partialReleasePath := filepath.Join(tempDir, "partial-release.json")
 	eventPoliciesPath := filepath.Join(tempDir, "event-policies.json")
 	agentMatrixPath := filepath.Join(tempDir, "agent-weight-matrix.json")
+	decayThresholdsPath := filepath.Join(tempDir, "decay-thresholds.json")
 	writeSeedJSON(t, deltaSourcesPath, map[string]any{
 		"sources": []map[string]any{{
 			"name":     "handbook",
@@ -152,10 +157,18 @@ func New(t testing.TB) *Env {
 			"policy-update": map[string]any{"tool": "reranker", "weight": 0.9},
 		},
 	})
+	writeSeedJSON(t, decayThresholdsPath, map[string]any{
+		"thresholds": []map[string]any{{
+			"category":    "coverage",
+			"maxAgeHours": 48,
+			"severity":    "p1",
+		}},
+	})
 	metricsWriter := knowledgeService.NewIngestionMetricsWriter(ingestionReportPath)
 	feedbackMetricsWriter := knowledgeService.NewFeedbackMetricsWriter(feedbackReportPath, updateReportPath)
 	deltaMetricsWriter := knowledgeinstr.NewDeltaMetricsWriter(deltaReportPath, updateReportPath)
 	eventMetricsWriter := knowledgeinstr.NewEventMetricsWriter(eventReportPath, updateReportPath)
+	decayMetricsWriter := knowledgeinstr.NewDecayMetricsWriter(decayReportPath, updateReportPath)
 	ingestionSvc := knowledgeService.NewIngestionService(knowledgeService.IngestionServiceOptions{
 		DB:              db,
 		Instrumentation: inst,
@@ -208,6 +221,13 @@ func New(t testing.TB) *Env {
 		Clock:           time.Now,
 		ReportPath:      filepath.Join(t.TempDir(), "qa-reasoning.json"),
 	})
+	decaySvc := decay_guard.NewService(decay_guard.Options{
+		DB:              db,
+		Instrumentation: inst,
+		MetricsWriter:   decayMetricsWriter,
+		ThresholdsPath:  decayThresholdsPath,
+		Clock:           time.Now,
+	})
 
 	deps := &shared.Deps{
 		DB:       db,
@@ -223,6 +243,7 @@ func New(t testing.TB) *Env {
 			Feedback:        feedbackSvc,
 			Delta:           deltaSvc,
 			EventHotfix:     eventHotfixSvc,
+			DecayGuard:      decaySvc,
 			VectorStore:     vectorStore,
 			QABridge:        qaBridgeSvc,
 		},
@@ -240,6 +261,7 @@ func New(t testing.TB) *Env {
 		KnowledgeUpdateReportPath: updateReportPath,
 		DeltaReportPath:           deltaReportPath,
 		EventReportPath:           eventReportPath,
+		DecayReportPath:           decayReportPath,
 	}
 }
 

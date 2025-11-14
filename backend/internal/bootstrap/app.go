@@ -288,6 +288,11 @@ func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error)
 				RetryMax:            cfg.KnowledgeSpace.EventHotfix.RetryMax,
 				ReplayWindow:        time.Duration(cfg.KnowledgeSpace.EventHotfix.ReplayWindowSeconds) * time.Second,
 			},
+			Decay: shared.KnowledgeSpaceDecayOptions{
+				ThresholdPath:       cfg.KnowledgeSpace.Decay.ThresholdPath,
+				ReportPath:          cfg.KnowledgeSpace.Decay.ReportPath,
+				AggregateReportPath: cfg.KnowledgeSpace.Decay.AggregateReportPath,
+			},
 		},
 		PluginRelease: shared.PluginReleaseOptions{
 			FeatureFlags: shared.PluginReleaseFeatureFlagsOptions{

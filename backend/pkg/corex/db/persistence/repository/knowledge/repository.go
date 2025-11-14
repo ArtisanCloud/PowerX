@@ -285,6 +285,36 @@ func (r *FeedbackCaseRepository) ListOpenBySpace(ctx context.Context, space uuid
 	return cases, nil
 }
 
+// DecayTaskRepository 管理衰减任务。
+type DecayTaskRepository struct {
+	*baseRepo.BaseRepository[models.DecayTask]
+	db *gorm.DB
+}
+
+func NewDecayTaskRepository(db *gorm.DB) *DecayTaskRepository {
+	if db == nil {
+		panic("decay task repository requires db")
+	}
+	return &DecayTaskRepository{
+		BaseRepository: baseRepo.NewBaseRepository[models.DecayTask](db),
+		db:             db,
+	}
+}
+
+func (r *DecayTaskRepository) ListOpenBySpace(ctx context.Context, space uuid.UUID) ([]*models.DecayTask, error) {
+	if space == uuid.Nil {
+		return nil, gorm.ErrInvalidData
+	}
+	var tasks []*models.DecayTask
+	if err := r.db.WithContext(ctx).
+		Where("space_uuid = ? AND status IN ?", space, []string{"open", "assigned"}).
+		Order("sla_due_at ASC").
+		Find(&tasks).Error; err != nil {
+		return nil, err
+	}
+	return tasks, nil
+}
+
 // IAMSyncTaskRepository 管理 IAM 同步任务。
 type IAMSyncTaskRepository struct {
 	*baseRepo.BaseRepository[models.IAMSyncTask]

@@ -267,6 +267,44 @@ message RefreshAgentResponse {
   string status = 1;
 }
 
+message DecayTask {
+  string task_id = 1;
+  string space_id = 2;
+  string category = 3;
+  string severity = 4;
+  string status = 5;
+  google.protobuf.Timestamp detected_at = 6;
+  google.protobuf.Timestamp sla_due_at = 7;
+  bool false_positive = 8;
+}
+
+message RunDecayScanRequest {
+  string space_id = 1;
+  int32 detected = 2;
+}
+
+message RunDecayScanResponse {
+  repeated DecayTask tasks = 1;
+}
+
+message ListDecayTasksRequest {
+  string space_id = 1;
+}
+
+message ListDecayTasksResponse {
+  repeated DecayTask tasks = 1;
+}
+
+message RestoreDecayTaskRequest {
+  string task_id = 1;
+  string notes = 2;
+  bool false_positive = 3;
+}
+
+message RestoreDecayTaskResponse {
+  DecayTask task = 1;
+}
+
 service KnowledgeSpaceAdminService {
   rpc CreateKnowledgeSpace(CreateKnowledgeSpaceRequest) returns (CreateKnowledgeSpaceResponse);
   rpc UpdateKnowledgeSpace(UpdateKnowledgeSpaceRequest) returns (UpdateKnowledgeSpaceResponse);
@@ -285,6 +323,9 @@ service KnowledgeSpaceAdminService {
   rpc RetryEvent(RetryEventRequest) returns (RetryEventResponse);
   rpc HotUpdateIndex(HotUpdateRequest) returns (HotUpdateResponse);
   rpc RefreshAgentWeights(RefreshAgentRequest) returns (RefreshAgentResponse);
+  rpc RunDecayScan(RunDecayScanRequest) returns (RunDecayScanResponse);
+  rpc ListDecayTasks(ListDecayTasksRequest) returns (ListDecayTasksResponse);
+  rpc RestoreDecayTask(RestoreDecayTaskRequest) returns (RestoreDecayTaskResponse);
 }
 
 message QARetrievalPlanRequest {

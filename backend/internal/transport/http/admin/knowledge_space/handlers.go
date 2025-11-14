@@ -25,6 +25,7 @@ func RegisterAPIRoutes(public, protected *gin.RouterGroup, deps *shared.Deps) {
 	feedbackHandler := NewFeedbackHandler(deps)
 	deltaHandler := NewDeltaHandler(deps)
 	eventHandler := NewEventHandler(deps)
+	decayHandler := NewDecayHandler(deps)
 	group := protected.Group("/admin/knowledge-spaces")
 	{
 		group.POST("", handler.create)
@@ -60,6 +61,14 @@ func RegisterAPIRoutes(public, protected *gin.RouterGroup, deps *shared.Deps) {
 		}
 		protected.POST("/knowledge/index/hot-update", eventHandler.HotUpdate)
 		protected.POST("/agent/weights/refresh", eventHandler.RefreshAgent)
+	}
+	if decayHandler != nil {
+		decayGroup := protected.Group("/knowledge/decay")
+		{
+			decayGroup.POST("/tasks", decayHandler.Scan)
+			decayGroup.POST("/restore", decayHandler.Restore)
+			decayGroup.GET("/status", decayHandler.Status)
+		}
 	}
 }
 

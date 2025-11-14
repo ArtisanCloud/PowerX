@@ -44,6 +44,7 @@ import (
 	knowledgeService "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space"
 	kncompliance "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/compliance"
 	knctxsnapshot "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/context_snapshot"
+	decay_guard "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/decay_guard"
 	ksdelta "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/delta"
 	event_hotfix "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/event_hotfix"
 	knowledgeinstr "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/instrumentation"
@@ -540,6 +541,7 @@ type KnowledgeSpaceDeps struct {
 	Feedback        *knowledgeService.FeedbackService
 	Delta           *ksdelta.Service
 	EventHotfix     *event_hotfix.Service
+	DecayGuard      *decay_guard.Service
 	VectorStore     vectorstorepkg.Store
 	QABridge        *knowledgeqa.Service
 }
@@ -1126,13 +1128,22 @@ func newKnowledgeSpaceDeps(db *gorm.DB, opts KnowledgeSpaceOptions, bus event_bu
 	if eventReportPath == "" {
 		eventReportPath = filepath.Join("backend", "reports", "_state", "knowledge-event.json")
 	}
+	decayReportPath := strings.TrimSpace(opts.Decay.ReportPath)
+	if decayReportPath == "" {
+		decayReportPath = filepath.Join("backend", "reports", "_state", "knowledge-decay.json")
+	}
 	eventAggregatePath := strings.TrimSpace(opts.EventHotfix.AggregateReportPath)
 	if eventAggregatePath == "" {
 		eventAggregatePath = aggregateReportPath
 	}
+	decayAggregatePath := strings.TrimSpace(opts.Decay.AggregateReportPath)
+	if decayAggregatePath == "" {
+		decayAggregatePath = aggregateReportPath
+	}
 	feedbackMetricsWriter := knowledgeService.NewFeedbackMetricsWriter(feedbackReportPath, aggregateReportPath)
 	deltaMetricsWriter := knowledgeinstr.NewDeltaMetricsWriter(deltaReportPath, aggregateReportPath)
 	eventMetricsWriter := knowledgeinstr.NewEventMetricsWriter(eventReportPath, eventAggregatePath)
+	decayMetricsWriter := knowledgeinstr.NewDecayMetricsWriter(decayReportPath, decayAggregatePath)
 
 	ingestionSvc := knowledgeService.NewIngestionService(knowledgeService.IngestionServiceOptions{
 		DB:              db,
@@ -1195,6 +1206,13 @@ func newKnowledgeSpaceDeps(db *gorm.DB, opts KnowledgeSpaceOptions, bus event_bu
 		Clock:           time.Now,
 		RetryMax:        opts.EventHotfix.RetryMax,
 	})
+	decaySvc := decay_guard.NewService(decay_guard.Options{
+		DB:              db,
+		Instrumentation: inst,
+		MetricsWriter:   decayMetricsWriter,
+		ThresholdsPath:  opts.Decay.ThresholdPath,
+		Clock:           time.Now,
+	})
 
 	return &KnowledgeSpaceDeps{
 		Instrumentation: inst,
@@ -1207,6 +1225,7 @@ func newKnowledgeSpaceDeps(db *gorm.DB, opts KnowledgeSpaceOptions, bus event_bu
 		Feedback:        feedbackSvc,
 		Delta:           deltaSvc,
 		EventHotfix:     eventHotfixSvc,
+		DecayGuard:      decaySvc,
 		VectorStore:     vectorStore,
 		QABridge:        qaBridgeSvc,
 	}

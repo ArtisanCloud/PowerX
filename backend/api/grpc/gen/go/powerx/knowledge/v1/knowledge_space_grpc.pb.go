@@ -36,6 +36,9 @@ const (
 	KnowledgeSpaceAdminService_RetryEvent_FullMethodName             = "/powerx.knowledge.v1.KnowledgeSpaceAdminService/RetryEvent"
 	KnowledgeSpaceAdminService_HotUpdateIndex_FullMethodName         = "/powerx.knowledge.v1.KnowledgeSpaceAdminService/HotUpdateIndex"
 	KnowledgeSpaceAdminService_RefreshAgentWeights_FullMethodName    = "/powerx.knowledge.v1.KnowledgeSpaceAdminService/RefreshAgentWeights"
+	KnowledgeSpaceAdminService_RunDecayScan_FullMethodName           = "/powerx.knowledge.v1.KnowledgeSpaceAdminService/RunDecayScan"
+	KnowledgeSpaceAdminService_ListDecayTasks_FullMethodName         = "/powerx.knowledge.v1.KnowledgeSpaceAdminService/ListDecayTasks"
+	KnowledgeSpaceAdminService_RestoreDecayTask_FullMethodName       = "/powerx.knowledge.v1.KnowledgeSpaceAdminService/RestoreDecayTask"
 )
 
 // KnowledgeSpaceAdminServiceClient is the client API for KnowledgeSpaceAdminService service.
@@ -59,6 +62,9 @@ type KnowledgeSpaceAdminServiceClient interface {
 	RetryEvent(ctx context.Context, in *RetryEventRequest, opts ...grpc.CallOption) (*RetryEventResponse, error)
 	HotUpdateIndex(ctx context.Context, in *HotUpdateRequest, opts ...grpc.CallOption) (*HotUpdateResponse, error)
 	RefreshAgentWeights(ctx context.Context, in *RefreshAgentRequest, opts ...grpc.CallOption) (*RefreshAgentResponse, error)
+	RunDecayScan(ctx context.Context, in *RunDecayScanRequest, opts ...grpc.CallOption) (*RunDecayScanResponse, error)
+	ListDecayTasks(ctx context.Context, in *ListDecayTasksRequest, opts ...grpc.CallOption) (*ListDecayTasksResponse, error)
+	RestoreDecayTask(ctx context.Context, in *RestoreDecayTaskRequest, opts ...grpc.CallOption) (*RestoreDecayTaskResponse, error)
 }
 
 type knowledgeSpaceAdminServiceClient struct {
@@ -239,6 +245,36 @@ func (c *knowledgeSpaceAdminServiceClient) RefreshAgentWeights(ctx context.Conte
 	return out, nil
 }
 
+func (c *knowledgeSpaceAdminServiceClient) RunDecayScan(ctx context.Context, in *RunDecayScanRequest, opts ...grpc.CallOption) (*RunDecayScanResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RunDecayScanResponse)
+	err := c.cc.Invoke(ctx, KnowledgeSpaceAdminService_RunDecayScan_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *knowledgeSpaceAdminServiceClient) ListDecayTasks(ctx context.Context, in *ListDecayTasksRequest, opts ...grpc.CallOption) (*ListDecayTasksResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListDecayTasksResponse)
+	err := c.cc.Invoke(ctx, KnowledgeSpaceAdminService_ListDecayTasks_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *knowledgeSpaceAdminServiceClient) RestoreDecayTask(ctx context.Context, in *RestoreDecayTaskRequest, opts ...grpc.CallOption) (*RestoreDecayTaskResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RestoreDecayTaskResponse)
+	err := c.cc.Invoke(ctx, KnowledgeSpaceAdminService_RestoreDecayTask_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // KnowledgeSpaceAdminServiceServer is the server API for KnowledgeSpaceAdminService service.
 // All implementations must embed UnimplementedKnowledgeSpaceAdminServiceServer
 // for forward compatibility.
@@ -260,6 +296,9 @@ type KnowledgeSpaceAdminServiceServer interface {
 	RetryEvent(context.Context, *RetryEventRequest) (*RetryEventResponse, error)
 	HotUpdateIndex(context.Context, *HotUpdateRequest) (*HotUpdateResponse, error)
 	RefreshAgentWeights(context.Context, *RefreshAgentRequest) (*RefreshAgentResponse, error)
+	RunDecayScan(context.Context, *RunDecayScanRequest) (*RunDecayScanResponse, error)
+	ListDecayTasks(context.Context, *ListDecayTasksRequest) (*ListDecayTasksResponse, error)
+	RestoreDecayTask(context.Context, *RestoreDecayTaskRequest) (*RestoreDecayTaskResponse, error)
 	mustEmbedUnimplementedKnowledgeSpaceAdminServiceServer()
 }
 
@@ -320,6 +359,15 @@ func (UnimplementedKnowledgeSpaceAdminServiceServer) HotUpdateIndex(context.Cont
 }
 func (UnimplementedKnowledgeSpaceAdminServiceServer) RefreshAgentWeights(context.Context, *RefreshAgentRequest) (*RefreshAgentResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RefreshAgentWeights not implemented")
+}
+func (UnimplementedKnowledgeSpaceAdminServiceServer) RunDecayScan(context.Context, *RunDecayScanRequest) (*RunDecayScanResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RunDecayScan not implemented")
+}
+func (UnimplementedKnowledgeSpaceAdminServiceServer) ListDecayTasks(context.Context, *ListDecayTasksRequest) (*ListDecayTasksResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListDecayTasks not implemented")
+}
+func (UnimplementedKnowledgeSpaceAdminServiceServer) RestoreDecayTask(context.Context, *RestoreDecayTaskRequest) (*RestoreDecayTaskResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RestoreDecayTask not implemented")
 }
 func (UnimplementedKnowledgeSpaceAdminServiceServer) mustEmbedUnimplementedKnowledgeSpaceAdminServiceServer() {
 }
@@ -649,6 +697,60 @@ func _KnowledgeSpaceAdminService_RefreshAgentWeights_Handler(srv interface{}, ct
 	return interceptor(ctx, in, info, handler)
 }
 
+func _KnowledgeSpaceAdminService_RunDecayScan_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RunDecayScanRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(KnowledgeSpaceAdminServiceServer).RunDecayScan(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: KnowledgeSpaceAdminService_RunDecayScan_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(KnowledgeSpaceAdminServiceServer).RunDecayScan(ctx, req.(*RunDecayScanRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _KnowledgeSpaceAdminService_ListDecayTasks_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListDecayTasksRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(KnowledgeSpaceAdminServiceServer).ListDecayTasks(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: KnowledgeSpaceAdminService_ListDecayTasks_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(KnowledgeSpaceAdminServiceServer).ListDecayTasks(ctx, req.(*ListDecayTasksRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _KnowledgeSpaceAdminService_RestoreDecayTask_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RestoreDecayTaskRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(KnowledgeSpaceAdminServiceServer).RestoreDecayTask(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: KnowledgeSpaceAdminService_RestoreDecayTask_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(KnowledgeSpaceAdminServiceServer).RestoreDecayTask(ctx, req.(*RestoreDecayTaskRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // KnowledgeSpaceAdminService_ServiceDesc is the grpc.ServiceDesc for KnowledgeSpaceAdminService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -723,6 +825,18 @@ var KnowledgeSpaceAdminService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "RefreshAgentWeights",
 			Handler:    _KnowledgeSpaceAdminService_RefreshAgentWeights_Handler,
+		},
+		{
+			MethodName: "RunDecayScan",
+			Handler:    _KnowledgeSpaceAdminService_RunDecayScan_Handler,
+		},
+		{
+			MethodName: "ListDecayTasks",
+			Handler:    _KnowledgeSpaceAdminService_ListDecayTasks_Handler,
+		},
+		{
+			MethodName: "RestoreDecayTask",
+			Handler:    _KnowledgeSpaceAdminService_RestoreDecayTask_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

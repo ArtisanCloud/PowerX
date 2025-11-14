@@ -168,6 +168,7 @@
 
 **目标**：实现 `docs/use_cases/_from_hub/SCN-KNOWLEDGE-UPDATE-001/SCN-KNOWLEDGE-UPDATE-SYNC-001.md` 中的增量抓取、差异报告、审批、部分发布、回滚闭环，确保 ≤30 分钟 SLA、≥98% 差异准确率、全量审计与 `knowledge.delta.*` 指标。  
 **独立验证**：通过 `scripts/ops/knowledge-delta-job.mjs` 生成增量包，跑审批→部分发布→回滚→审计流程，并核对 `backend/reports/_state/knowledge-delta.json`。
+**约束**：开启 `PX_KNOWLEDGE_DELTA_SYNC`、`PX_KNOWLEDGE_VERSIONED_STORAGE`、`PX_KNOWLEDGE_PARTIAL_RELEASE` flag，所有 embedding/向量读写依赖 `backend/pkg/corex/db/persistence/vectorstore` 多驱动注册表，禁止在 delta service 内重复实现驱动；审批 & 回滚动作必须写入 `audit-ledger` 且更新 `reports/_state/knowledge-update.json` 聚合。
 
 ### 测试
 
@@ -190,6 +191,7 @@
 
 **目标**：落实 `SCN-KNOWLEDGE-UPDATE-EVENT-001.md` 的事件订阅、策略匹配、≤5 分钟热修与 Agent 权重刷新，具备幂等控制与失败回放脚本。  
 **独立验证**：向事件总线注入法规/价格事件，观察 `knowledge.event.latency ≤5m`、重复事件被幂等跳过、Agent 权重成功刷新并记录审计。
+**约束**：启用 `PX_KNOWLEDGE_EVENT_HOTFIX`、`PX_KNOWLEDGE_EVENT_IDEMPOTENT`、`PX_AGENT_WEIGHT_REFRESH` flag，对所有事件执行签名校验与幂等键去重；HTTP/gRPC/CLI 需复用现有 vectorstore/agent 通知依赖，输出 `backend/reports/_state/knowledge-event.json` 并回填 `reports/_state/knowledge-update.json`。
 
 ### 测试
 
@@ -211,19 +213,20 @@
 
 **目标**：根据 `SCN-KNOWLEDGE-UPDATE-DECAY-001.md` 建立 100% 覆盖的巡检、空白识别、任务派发、误判恢复（≤10 分钟）与 7 天 SLA 的补齐流程。  
 **独立验证**：运行 `scripts/ops/knowledge-decay-scan.mjs`，确认 `knowledge.decay.*` 指标、任务、恢复、`backend/reports/_state/knowledge-decay.json` 与 `reports/_state/knowledge-update.json` 更新。
+**约束**：Flag `PX_KNOWLEDGE_DECAY_GUARD`、`PX_KNOWLEDGE_GAP_ALERT`、`PX_KNOWLEDGE_RESTORE_FLOW` 必须在 CI/ops 场景可控；巡检阈值读取 `configs/knowledge/decay_thresholds.yaml`，任务派发复用 `task-center` / 审批流程，恢复路径必须记录审批人、误判理由并写入审计。
 
 ### 测试
 
-- [ ] **T086 [P] [US8]** 在 `backend/tests/contract/knowledge_space/decay_http_test.go` 覆盖 `POST /knowledge/decay/tasks`、`POST /knowledge/decay/restore`、`GET /knowledge/decay/status`，含租户隔离。
-- [ ] **T087 [US8]** 在 `backend/tests/integration/knowledge_space/decay_guard_flow_test.go` 演练巡检→任务→补齐→误判撤回，验证 SLA 及告警。
+- [X] **T086 [P] [US8]** 在 `backend/tests/contract/knowledge_space/decay_http_test.go` 覆盖 `POST /knowledge/decay/tasks`、`POST /knowledge/decay/restore`、`GET /knowledge/decay/status`，含租户隔离、误判恢复 ≤10 分钟、`knowledge.decay.*` 指标写入断言。
+- [X] **T087 [US8]** 在 `backend/tests/integration/knowledge_space/decay_guard_flow_test.go` 演练巡检→任务→补齐→误判撤回，验证 7 天 SLA 计算、false-positive <10% 告警与 `task-center` 审批联动。
 
 ### 实现
 
-- [ ] **T088 [US8]** 在 `backend/internal/service/knowledge_space/decay_guard/service.go` 实现巡检调度、阈值计算、任务派发、恢复/误判处理、audit 记录。
-- [ ] **T089 [US8]** 在 `backend/internal/transport/http/admin/knowledge_space/decay_handlers.go` 实现 HTTP API（含严重度/租户过滤、批量导出）。
-- [ ] **T090 [US8]** 在 `backend/internal/transport/grpc/knowledge_space/decay_service.go` 实现 gRPC API，供任务中心与 Workflow 调用。
-- [ ] **T091 [US8]** 创建 `scripts/ops/knowledge-decay-scan.mjs`，并在 `docs/ops/gap_task_template.md` 记录任务模板、审批字段。
-- [ ] **T092 [US8]** 新增 `configs/knowledge/decay_thresholds.yaml`、`backend/reports/_state/knowledge-decay.json`，输出 `knowledge.decay.{detected,false_positive,gap_backlog,fill_time}` 指标，更新 Grafana《Knowledge Decay Monitor》。
+- [X] **T088 [US8]** 在 `backend/internal/service/knowledge_space/decay_guard/service.go` 实现巡检调度、阈值计算、任务派发、恢复/误判处理、audit 记录，并复用 `task-center`/`audit-ledger`/`vectorstore` 依赖注入模式，确保 `reports/_state/knowledge-update.json` 聚合更新。
+- [X] **T089 [US8]** 在 `backend/internal/transport/http/admin/knowledge_space/decay_handlers.go` 实现 HTTP API（含严重度/租户过滤、批量导出、flag 校验），返回任务 ID、SLA 倒计时与 `knowledge.decay` 指标片段。
+- [X] **T090 [US8]** 在 `backend/internal/transport/grpc/knowledge_space/decay_service.go` 实现 gRPC API，供任务中心与 Workflow 调用，包括 Run/List/Restore 方法及租户隔离校验。
+- [X] **T091 [US8]** 创建 `scripts/ops/knowledge-decay-scan.mjs`，并在 `docs/ops/gap_task_template.md` 记录任务模板、审批字段、恢复/误判剧本，提供 dry-run 与报告导出。
+- [X] **T092 [US8]** 新增 `configs/knowledge/decay_thresholds.yaml`、`backend/reports/_state/knowledge-decay.json`，输出 `knowledge.decay.{detected,false_positive,gap_backlog,fill_time}` 指标，更新 Grafana《Knowledge Decay Monitor》与 `knowledge-update.json` 聚合。
 
 ---
 

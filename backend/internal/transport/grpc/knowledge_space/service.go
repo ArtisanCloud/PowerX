@@ -12,6 +12,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
 	ksvc "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space"
 	"github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/context_snapshot"
+	decay_guard "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/decay_guard"
 	ksdelta "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/delta"
 	event_hotfix "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/event_hotfix"
 	qaBridge "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/qa_bridge"
@@ -23,6 +24,7 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"gorm.io/datatypes"
+	"gorm.io/gorm"
 )
 
 // Server implements KnowledgeSpaceAdminService + QABridge APIs.
@@ -34,6 +36,7 @@ type Server struct {
 	fusion      *ksvc.FusionService
 	feedback    *ksvc.FeedbackService
 	delta       *ksdelta.Service
+	decay       *decay_guard.Service
 	eventHotfix *event_hotfix.Service
 	qa          *qaBridge.Service
 }
@@ -49,6 +52,7 @@ func NewServer(deps *shared.Deps) *Server {
 		fusion:      deps.KnowledgeSpace.Fusion,
 		feedback:    deps.KnowledgeSpace.Feedback,
 		delta:       deps.KnowledgeSpace.Delta,
+		decay:       deps.KnowledgeSpace.DecayGuard,
 		eventHotfix: deps.KnowledgeSpace.EventHotfix,
 		qa:          deps.KnowledgeSpace.QABridge,
 	}
@@ -518,6 +522,35 @@ func toProtoCitations(items []context_snapshot.Citation) []*knowledgev1.QACitati
 	return out
 }
 
+func toProtoDecayTasks(tasks []*models.DecayTask) []*knowledgev1.DecayTask {
+	if len(tasks) == 0 {
+		return []*knowledgev1.DecayTask{}
+	}
+	result := make([]*knowledgev1.DecayTask, 0, len(tasks))
+	for _, task := range tasks {
+		if dto := toProtoDecayTask(task); dto != nil {
+			result = append(result, dto)
+		}
+	}
+	return result
+}
+
+func toProtoDecayTask(task *models.DecayTask) *knowledgev1.DecayTask {
+	if task == nil {
+		return nil
+	}
+	return &knowledgev1.DecayTask{
+		TaskId:        task.UUID.String(),
+		SpaceId:       task.SpaceUUID.String(),
+		Category:      task.Category,
+		Severity:      task.Severity,
+		Status:        task.Status,
+		DetectedAt:    timestampValue(task.DetectedAt),
+		SlaDueAt:      timestampValue(task.SLADueAt),
+		FalsePositive: task.FalsePositive,
+	}
+}
+
 func protoDeploymentState(state string) knowledgev1.FusionStrategy_DeploymentState {
 	switch state {
 	case models.FusionDeploymentActive:
@@ -559,6 +592,17 @@ func mapDeltaError(err error) error {
 	}
 }
 
+func mapDecayError(err error) error {
+	switch {
+	case errors.Is(err, decay_guard.ErrInvalidInput):
+		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, decay_guard.ErrTaskNotFound), errors.Is(err, gorm.ErrRecordNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	default:
+		return status.Error(codes.Internal, err.Error())
+	}
+}
+
 func toProtoDeltaJob(job *models.DeltaJob) *knowledgev1.DeltaJob {
 	if job == nil {
 		return nil
@@ -584,6 +628,13 @@ func toProtoDeltaJob(job *models.DeltaJob) *knowledgev1.DeltaJob {
 
 func toTimestamp(ts *time.Time) *timestamppb.Timestamp {
 	if ts == nil {
+		return nil
+	}
+	return timestamppb.New(ts.UTC())
+}
+
+func timestampValue(ts time.Time) *timestamppb.Timestamp {
+	if ts.IsZero() {
 		return nil
 	}
 	return timestamppb.New(ts.UTC())
@@ -741,6 +792,57 @@ func (s *Server) HotUpdateIndex(ctx context.Context, _ *knowledgev1.HotUpdateReq
 	return &knowledgev1.HotUpdateResponse{Status: "enqueued"}, nil
 }
 
-func (s *Server) RefreshAgentWeights(ctx context.Context, _ *knowledgev1.RefreshAgentRequest) (*knowledgev1.RefreshAgentResponse, error) {
-	return &knowledgev1.RefreshAgentResponse{Status: "refreshing"}, nil
+func (s *Server) RefreshAgentWeights(ctx context.Context, req *knowledgev1.RefreshAgentRequest) (*knowledgev1.RefreshAgentResponse, error) {
+	if s.eventHotfix == nil {
+		return nil, status.Error(codes.Unimplemented, "agent notifier not available")
+	}
+	if err := s.eventHotfix.RefreshAgent(ctx, strings.TrimSpace(req.GetTenantId())); err != nil {
+		return nil, mapEventError(err)
+	}
+	return &knowledgev1.RefreshAgentResponse{Status: "ok"}, nil
+}
+
+func (s *Server) RunDecayScan(ctx context.Context, req *knowledgev1.RunDecayScanRequest) (*knowledgev1.RunDecayScanResponse, error) {
+	if s.decay == nil {
+		return nil, status.Error(codes.Unimplemented, "decay service not available")
+	}
+	spaceID, err := uuid.Parse(strings.TrimSpace(req.GetSpaceId()))
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid space id: %v", err)
+	}
+	tasks, err := s.decay.RunScan(ctx, spaceID, int(req.GetDetected()))
+	if err != nil {
+		return nil, mapDecayError(err)
+	}
+	return &knowledgev1.RunDecayScanResponse{Tasks: toProtoDecayTasks(tasks)}, nil
+}
+
+func (s *Server) ListDecayTasks(ctx context.Context, req *knowledgev1.ListDecayTasksRequest) (*knowledgev1.ListDecayTasksResponse, error) {
+	if s.decay == nil {
+		return nil, status.Error(codes.Unimplemented, "decay service not available")
+	}
+	spaceID, err := uuid.Parse(strings.TrimSpace(req.GetSpaceId()))
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid space id: %v", err)
+	}
+	tasks, err := s.decay.ListOpen(ctx, spaceID)
+	if err != nil {
+		return nil, mapDecayError(err)
+	}
+	return &knowledgev1.ListDecayTasksResponse{Tasks: toProtoDecayTasks(tasks)}, nil
+}
+
+func (s *Server) RestoreDecayTask(ctx context.Context, req *knowledgev1.RestoreDecayTaskRequest) (*knowledgev1.RestoreDecayTaskResponse, error) {
+	if s.decay == nil {
+		return nil, status.Error(codes.Unimplemented, "decay service not available")
+	}
+	taskID, err := uuid.Parse(strings.TrimSpace(req.GetTaskId()))
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid task id: %v", err)
+	}
+	task, err := s.decay.Restore(ctx, taskID, req.GetNotes(), req.GetFalsePositive())
+	if err != nil {
+		return nil, mapDecayError(err)
+	}
+	return &knowledgev1.RestoreDecayTaskResponse{Task: toProtoDecayTask(task)}, nil
 }

@@ -154,6 +154,7 @@ type KnowledgeSpaceOptions struct {
 	Delta                  KnowledgeSpaceDeltaOptions
 	Reports                KnowledgeSpaceReportOptions
 	EventHotfix            KnowledgeSpaceEventHotfixOptions
+	Decay                  KnowledgeSpaceDecayOptions
 }
 
 type KnowledgeSpaceEventTopicsOptions struct {
@@ -199,6 +200,12 @@ type KnowledgeSpaceEventHotfixOptions struct {
 	AggregateReportPath string
 	RetryMax            int
 	ReplayWindow        time.Duration
+}
+
+type KnowledgeSpaceDecayOptions struct {
+	ThresholdPath       string
+	ReportPath          string
+	AggregateReportPath string
 }
 
 // PluginReleaseOptions 暴露插件发布模块所需运行参数。

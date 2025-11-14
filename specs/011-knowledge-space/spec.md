@@ -104,11 +104,20 @@ Knowledge governance operators run the continuous-update control room described 
 
 **Independent Test**: Execute `scripts/ops/knowledge-delta-job.mjs --tenant demo-retail` to generate a delta package, review the diff + approval UI, promote to pilot tenants, then push a simulated regulation-update event into the bus and confirm ≤5m hotfix latency. Immediately follow with `scripts/ops/knowledge-decay-scan.mjs` to produce decay tasks, resolve one false positive within 10 minutes, and finally promote the new version through the gray-release UI/CLI while verifying `backend/reports/_state/knowledge-*.json` snapshots.
 
+**Scenario Inputs & Guardrails**:
+
+- `SCN-KNOWLEDGE-UPDATE-SYNC-001.md` (delta/approval/version) → requires `PX_KNOWLEDGE_DELTA_SYNC`, `PX_KNOWLEDGE_VERSIONED_STORAGE`, and partial-release controls mapped to HTTP+gRPC contracts.
+- `SCN-KNOWLEDGE-UPDATE-EVENT-001.md` (event hotfix/agent notify) → enforces event signatures, idempotent keys, ≤5m latency, and `PX_AGENT_WEIGHT_REFRESH` gating.
+- `SCN-KNOWLEDGE-UPDATE-DECAY-001.md` (decay/gap watchdog) → drives schedule frequency, severity thresholds, ≤10m restore, and `PX_KNOWLEDGE_DECAY_GUARD` / `PX_KNOWLEDGE_GAP_ALERT` flags.
+- All loops must write telemetry snapshots into `backend/reports/_state/knowledge-{delta,event,decay}.json` and aggregate into `reports/_state/knowledge-update.json` per constitution.
+
+**Implementation Notes**: Delta + event flows reuse the shared multi-driver vectorstore abstraction defined in `backend/pkg/corex/db/persistence/vectorstore` instead of bespoke embedding clients, so pgvector/milvus/pinecone drivers stay centrally configurable. Task orchestration reuses the existing approval-center connectors, audit-ledger client, and `task-center` integration for decay gap workloads.
+
 **Acceptance Scenarios**:
 
-1. **Given** a delta job referencing updated PDFs + API sources, **When** operators run the approval flow, **Then** the system enforces ≤30 minute detect→publish SLA, emits `knowledge.delta.sla` + `knowledge.delta.diff_accuracy` (target ≥98%), stores partial-release + rollback tokens, and writes audit IDs matching `SCN-KNOWLEDGE-UPDATE-SYNC-001`.
-2. **Given** a policy-change event lands on the bus, **When** the event-hotfix handler matches `configs/knowledge/event_hotfix_policies.yaml`, **Then** it completes the refresh within five minutes, produces `knowledge.event.idempotent_skips` for duplicates, refreshes Agent weights, and records the hotfix in `backend/reports/_state/knowledge-event.json`.
-3. **Given** the nightly decay scan identifies low-quality or empty topics, **When** the decay guard triages them, **Then** it generates restoration tasks with SLA ≤7 days, flags potential false positives, allows a one-click restore in ≤10 minutes, and exports `knowledge.decay.detected` + `knowledge.gap.backlog` metrics as specified by `SCN-KNOWLEDGE-UPDATE-DECAY-001.md`.
+1. **Given** a delta job referencing updated PDFs + API sources, **When** operators run the approval flow, **Then** the system enforces ≤30 minute detect→publish SLA, emits `knowledge.delta.{sla,diff_accuracy,partial_release}` (target ≥98% diff accuracy), stores partial-release + rollback tokens, reuses the vectorstore driver registry for embedding comparisons, and writes audit IDs matching `SCN-KNOWLEDGE-UPDATE-SYNC-001`.
+2. **Given** a policy-change event lands on the bus, **When** the event-hotfix handler matches `configs/knowledge/event_hotfix_policies.yaml`, **Then** it completes the refresh within five minutes, validates payload signatures, produces `knowledge.event.{latency,idempotent_skips}` for duplicates, refreshes Agent weights through the notifier component, and records the hotfix in `backend/reports/_state/knowledge-event.json`.
+3. **Given** the nightly decay scan identifies low-quality or empty topics, **When** the decay guard triages them, **Then** it generates restoration tasks in `task-center` with SLA ≤7 days, flags potential false positives, allows a one-click restore in ≤10 minutes, and exports `knowledge.decay.detected`, `knowledge.decay.false_positive`, and `knowledge.gap.backlog` metrics as specified by `SCN-KNOWLEDGE-UPDATE-DECAY-001.md`.
 4. **Given** new content needs tenant-aware rollout, **When** operators configure `configs/knowledge/tenant_release_matrix.yaml` and start a gray release, **Then** the release controller promotes pilots, pauses automatically when metrics violate guardrails, rolls back affected tenants inside five minutes, and emits auditable `knowledge.release.gray_state` entries covering approvals + rollback reasons per `SCN-KNOWLEDGE-UPDATE-TENANT-001.md`.
 
 ---

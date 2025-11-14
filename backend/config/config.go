@@ -247,6 +247,7 @@ type KnowledgeSpaceConfig struct {
 	Delta                  KnowledgeSpaceDeltaConfig        `yaml:"delta"`
 	Reports                KnowledgeSpaceReportConfig       `yaml:"reports"`
 	EventHotfix            KnowledgeSpaceEventHotfixConfig  `yaml:"event_hotfix"`
+	Decay                  KnowledgeSpaceDecayConfig        `yaml:"decay"`
 }
 
 // KnowledgeSpaceEventTopics 定义事件主题。
@@ -295,6 +296,12 @@ type KnowledgeSpaceEventHotfixConfig struct {
 	AggregateReportPath   string `yaml:"aggregate_report_path"`
 	RetryMax              int    `yaml:"retry_max"`
 	ReplayWindowSeconds   int    `yaml:"replay_window_seconds"`
+}
+
+type KnowledgeSpaceDecayConfig struct {
+	ThresholdPath        string `yaml:"threshold_path"`
+	ReportPath           string `yaml:"report_path"`
+	AggregateReportPath  string `yaml:"aggregate_report_path"`
 }
 
 type KnowledgeSpaceVectorStorePGVectorConfig struct {
