@@ -28,6 +28,10 @@ const (
 	KnowledgeSpaceAdminService_RollbackFusionStrategy_FullMethodName = "/powerx.knowledge.v1.KnowledgeSpaceAdminService/RollbackFusionStrategy"
 	KnowledgeSpaceAdminService_SubmitFeedback_FullMethodName         = "/powerx.knowledge.v1.KnowledgeSpaceAdminService/SubmitFeedback"
 	KnowledgeSpaceAdminService_ListFeedbackCases_FullMethodName      = "/powerx.knowledge.v1.KnowledgeSpaceAdminService/ListFeedbackCases"
+	KnowledgeSpaceAdminService_StartDeltaJob_FullMethodName          = "/powerx.knowledge.v1.KnowledgeSpaceAdminService/StartDeltaJob"
+	KnowledgeSpaceAdminService_GetDeltaReport_FullMethodName         = "/powerx.knowledge.v1.KnowledgeSpaceAdminService/GetDeltaReport"
+	KnowledgeSpaceAdminService_PublishDeltaJob_FullMethodName        = "/powerx.knowledge.v1.KnowledgeSpaceAdminService/PublishDeltaJob"
+	KnowledgeSpaceAdminService_RollbackDelta_FullMethodName          = "/powerx.knowledge.v1.KnowledgeSpaceAdminService/RollbackDelta"
 )
 
 // KnowledgeSpaceAdminServiceClient is the client API for KnowledgeSpaceAdminService service.
@@ -43,6 +47,10 @@ type KnowledgeSpaceAdminServiceClient interface {
 	RollbackFusionStrategy(ctx context.Context, in *RollbackFusionStrategyRequest, opts ...grpc.CallOption) (*FusionStrategyResponse, error)
 	SubmitFeedback(ctx context.Context, in *FeedbackRequest, opts ...grpc.CallOption) (*FeedbackResponse, error)
 	ListFeedbackCases(ctx context.Context, in *ListFeedbackCasesRequest, opts ...grpc.CallOption) (*ListFeedbackCasesResponse, error)
+	StartDeltaJob(ctx context.Context, in *StartDeltaJobRequest, opts ...grpc.CallOption) (*StartDeltaJobResponse, error)
+	GetDeltaReport(ctx context.Context, in *GetDeltaReportRequest, opts ...grpc.CallOption) (*GetDeltaReportResponse, error)
+	PublishDeltaJob(ctx context.Context, in *PublishDeltaJobRequest, opts ...grpc.CallOption) (*PublishDeltaJobResponse, error)
+	RollbackDelta(ctx context.Context, in *RollbackDeltaRequest, opts ...grpc.CallOption) (*RollbackDeltaResponse, error)
 }
 
 type knowledgeSpaceAdminServiceClient struct {
@@ -143,6 +151,46 @@ func (c *knowledgeSpaceAdminServiceClient) ListFeedbackCases(ctx context.Context
 	return out, nil
 }
 
+func (c *knowledgeSpaceAdminServiceClient) StartDeltaJob(ctx context.Context, in *StartDeltaJobRequest, opts ...grpc.CallOption) (*StartDeltaJobResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(StartDeltaJobResponse)
+	err := c.cc.Invoke(ctx, KnowledgeSpaceAdminService_StartDeltaJob_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *knowledgeSpaceAdminServiceClient) GetDeltaReport(ctx context.Context, in *GetDeltaReportRequest, opts ...grpc.CallOption) (*GetDeltaReportResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetDeltaReportResponse)
+	err := c.cc.Invoke(ctx, KnowledgeSpaceAdminService_GetDeltaReport_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *knowledgeSpaceAdminServiceClient) PublishDeltaJob(ctx context.Context, in *PublishDeltaJobRequest, opts ...grpc.CallOption) (*PublishDeltaJobResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(PublishDeltaJobResponse)
+	err := c.cc.Invoke(ctx, KnowledgeSpaceAdminService_PublishDeltaJob_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *knowledgeSpaceAdminServiceClient) RollbackDelta(ctx context.Context, in *RollbackDeltaRequest, opts ...grpc.CallOption) (*RollbackDeltaResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RollbackDeltaResponse)
+	err := c.cc.Invoke(ctx, KnowledgeSpaceAdminService_RollbackDelta_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // KnowledgeSpaceAdminServiceServer is the server API for KnowledgeSpaceAdminService service.
 // All implementations must embed UnimplementedKnowledgeSpaceAdminServiceServer
 // for forward compatibility.
@@ -156,6 +204,10 @@ type KnowledgeSpaceAdminServiceServer interface {
 	RollbackFusionStrategy(context.Context, *RollbackFusionStrategyRequest) (*FusionStrategyResponse, error)
 	SubmitFeedback(context.Context, *FeedbackRequest) (*FeedbackResponse, error)
 	ListFeedbackCases(context.Context, *ListFeedbackCasesRequest) (*ListFeedbackCasesResponse, error)
+	StartDeltaJob(context.Context, *StartDeltaJobRequest) (*StartDeltaJobResponse, error)
+	GetDeltaReport(context.Context, *GetDeltaReportRequest) (*GetDeltaReportResponse, error)
+	PublishDeltaJob(context.Context, *PublishDeltaJobRequest) (*PublishDeltaJobResponse, error)
+	RollbackDelta(context.Context, *RollbackDeltaRequest) (*RollbackDeltaResponse, error)
 	mustEmbedUnimplementedKnowledgeSpaceAdminServiceServer()
 }
 
@@ -192,6 +244,18 @@ func (UnimplementedKnowledgeSpaceAdminServiceServer) SubmitFeedback(context.Cont
 }
 func (UnimplementedKnowledgeSpaceAdminServiceServer) ListFeedbackCases(context.Context, *ListFeedbackCasesRequest) (*ListFeedbackCasesResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListFeedbackCases not implemented")
+}
+func (UnimplementedKnowledgeSpaceAdminServiceServer) StartDeltaJob(context.Context, *StartDeltaJobRequest) (*StartDeltaJobResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method StartDeltaJob not implemented")
+}
+func (UnimplementedKnowledgeSpaceAdminServiceServer) GetDeltaReport(context.Context, *GetDeltaReportRequest) (*GetDeltaReportResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetDeltaReport not implemented")
+}
+func (UnimplementedKnowledgeSpaceAdminServiceServer) PublishDeltaJob(context.Context, *PublishDeltaJobRequest) (*PublishDeltaJobResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method PublishDeltaJob not implemented")
+}
+func (UnimplementedKnowledgeSpaceAdminServiceServer) RollbackDelta(context.Context, *RollbackDeltaRequest) (*RollbackDeltaResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RollbackDelta not implemented")
 }
 func (UnimplementedKnowledgeSpaceAdminServiceServer) mustEmbedUnimplementedKnowledgeSpaceAdminServiceServer() {
 }
@@ -377,6 +441,78 @@ func _KnowledgeSpaceAdminService_ListFeedbackCases_Handler(srv interface{}, ctx 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _KnowledgeSpaceAdminService_StartDeltaJob_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(StartDeltaJobRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(KnowledgeSpaceAdminServiceServer).StartDeltaJob(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: KnowledgeSpaceAdminService_StartDeltaJob_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(KnowledgeSpaceAdminServiceServer).StartDeltaJob(ctx, req.(*StartDeltaJobRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _KnowledgeSpaceAdminService_GetDeltaReport_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetDeltaReportRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(KnowledgeSpaceAdminServiceServer).GetDeltaReport(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: KnowledgeSpaceAdminService_GetDeltaReport_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(KnowledgeSpaceAdminServiceServer).GetDeltaReport(ctx, req.(*GetDeltaReportRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _KnowledgeSpaceAdminService_PublishDeltaJob_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PublishDeltaJobRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(KnowledgeSpaceAdminServiceServer).PublishDeltaJob(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: KnowledgeSpaceAdminService_PublishDeltaJob_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(KnowledgeSpaceAdminServiceServer).PublishDeltaJob(ctx, req.(*PublishDeltaJobRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _KnowledgeSpaceAdminService_RollbackDelta_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RollbackDeltaRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(KnowledgeSpaceAdminServiceServer).RollbackDelta(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: KnowledgeSpaceAdminService_RollbackDelta_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(KnowledgeSpaceAdminServiceServer).RollbackDelta(ctx, req.(*RollbackDeltaRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // KnowledgeSpaceAdminService_ServiceDesc is the grpc.ServiceDesc for KnowledgeSpaceAdminService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -419,6 +555,22 @@ var KnowledgeSpaceAdminService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListFeedbackCases",
 			Handler:    _KnowledgeSpaceAdminService_ListFeedbackCases_Handler,
+		},
+		{
+			MethodName: "StartDeltaJob",
+			Handler:    _KnowledgeSpaceAdminService_StartDeltaJob_Handler,
+		},
+		{
+			MethodName: "GetDeltaReport",
+			Handler:    _KnowledgeSpaceAdminService_GetDeltaReport_Handler,
+		},
+		{
+			MethodName: "PublishDeltaJob",
+			Handler:    _KnowledgeSpaceAdminService_PublishDeltaJob_Handler,
+		},
+		{
+			MethodName: "RollbackDelta",
+			Handler:    _KnowledgeSpaceAdminService_RollbackDelta_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

@@ -2,14 +2,17 @@ package testenv
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
 	knowledgeService "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space"
+	ksdelta "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/delta"
 	knowledgeinstr "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/instrumentation"
 	qaBridge "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/qa_bridge"
 	knowledgegrpc "github.com/ArtisanCloud/PowerX/internal/transport/grpc/knowledge_space"
@@ -37,6 +40,7 @@ type Env struct {
 	Pipeline                  *ReprocessPipelineStub
 	FeedbackReportPath        string
 	KnowledgeUpdateReportPath string
+	DeltaReportPath           string
 }
 
 // New spins up an isolated sqlite + redis test environment.
@@ -62,6 +66,7 @@ func New(t testing.TB) *Env {
 		&models.FeedbackCase{},
 		&models.IAMSyncTask{},
 		&models.AuditTrailEntry{},
+		&models.DeltaJob{},
 	))
 
 	bus := event_bus.NewLocalEventBus()
@@ -109,11 +114,30 @@ func New(t testing.TB) *Env {
 		Clock:           time.Now,
 	})
 
-	ingestionReportPath := filepath.Join(t.TempDir(), "ingestion-metrics.json")
-	feedbackReportPath := filepath.Join(t.TempDir(), "knowledge-feedback.json")
-	updateReportPath := filepath.Join(t.TempDir(), "knowledge-update.json")
+	tempDir := t.TempDir()
+	ingestionReportPath := filepath.Join(tempDir, "ingestion-metrics.json")
+	feedbackReportPath := filepath.Join(tempDir, "knowledge-feedback.json")
+	updateReportPath := filepath.Join(tempDir, "knowledge-update.json")
+	deltaReportPath := filepath.Join(tempDir, "knowledge-delta.json")
+	deltaSourcesPath := filepath.Join(tempDir, "delta-sources.yaml")
+	partialReleasePath := filepath.Join(tempDir, "partial-release.yaml")
+	writeSeedJSON(t, deltaSourcesPath, map[string]any{
+		"sources": []map[string]any{{
+			"name":     "handbook",
+			"type":     "markdown",
+			"endpoint": "s3://demo",
+			"enabled":  true,
+		}},
+	})
+	writeSeedJSON(t, partialReleasePath, map[string]any{
+		"rules": []map[string]any{{
+			"tenants": []string{"*"},
+			"spaces":  []string{"*"},
+		}},
+	})
 	metricsWriter := knowledgeService.NewIngestionMetricsWriter(ingestionReportPath)
 	feedbackMetricsWriter := knowledgeService.NewFeedbackMetricsWriter(feedbackReportPath, updateReportPath)
+	deltaMetricsWriter := knowledgeinstr.NewDeltaMetricsWriter(deltaReportPath, updateReportPath)
 	ingestionSvc := knowledgeService.NewIngestionService(knowledgeService.IngestionServiceOptions{
 		DB:              db,
 		Instrumentation: inst,
@@ -140,6 +164,14 @@ func New(t testing.TB) *Env {
 		FeedbackMetrics: feedbackMetricsWriter,
 		Clock:           time.Now,
 	})
+	deltaSvc := ksdelta.NewService(ksdelta.Options{
+		DB:                       db,
+		Instrumentation:          inst,
+		MetricsWriter:            deltaMetricsWriter,
+		SourcesConfigPath:        deltaSourcesPath,
+		PartialReleaseConfigPath: partialReleasePath,
+		Clock:                    time.Now,
+	})
 	qaBridgeSvc := qaBridge.NewService(qaBridge.Options{
 		DB:              db,
 		Instrumentation: inst,
@@ -160,6 +192,7 @@ func New(t testing.TB) *Env {
 			Ingestion:       ingestionSvc,
 			Fusion:          fusionSvc,
 			Feedback:        feedbackSvc,
+			Delta:           deltaSvc,
 			VectorStore:     vectorStore,
 			QABridge:        qaBridgeSvc,
 		},
@@ -175,7 +208,15 @@ func New(t testing.TB) *Env {
 		Pipeline:                  pipelineStub,
 		FeedbackReportPath:        feedbackReportPath,
 		KnowledgeUpdateReportPath: updateReportPath,
+		DeltaReportPath:           deltaReportPath,
 	}
+}
+
+func writeSeedJSON(t testing.TB, path string, payload any) {
+	t.Helper()
+	data, err := json.Marshal(payload)
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(path, data, 0o644))
 }
 
 // Close releases resources created for the environment.

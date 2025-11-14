@@ -216,6 +216,7 @@ func migrateKnowledgeModels(db *gorm.DB) error {
 		&modelKnowledge.FeedbackCase{},
 		&modelKnowledge.IAMSyncTask{},
 		&modelKnowledge.AuditTrailEntry{},
+		&modelKnowledge.DeltaJob{},
 	)
 }
 

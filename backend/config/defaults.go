@@ -129,6 +129,19 @@ func GetDefaults() *Config {
 					TimeoutSeconds:   30,
 				},
 			},
+			Delta: KnowledgeSpaceDeltaConfig{
+				SourcesConfig:        "configs/knowledge/delta_sources.yaml",
+				PartialReleaseConfig: "configs/knowledge/partial_release.yaml",
+				ReportPath:           "backend/reports/_state/knowledge-delta.json",
+				AggregateReportPath:  "reports/_state/knowledge-update.json",
+				SLAMinutes:           30,
+				ApprovalMinutes:      15,
+				DefaultDiffAccuracy:  98.0,
+			},
+			Reports: KnowledgeSpaceReportConfig{
+				FeedbackPath: "backend/reports/_state/knowledge-feedback.json",
+				QABridgePath: "reports/_state/qa-reasoning.json",
+			},
 		},
 		EventFabric: EventFabricConfig{
 			AckTimeoutSeconds: 30,

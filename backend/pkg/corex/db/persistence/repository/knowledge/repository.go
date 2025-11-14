@@ -60,6 +60,36 @@ func (r *KnowledgeSpaceRepository) FindByTenantAndName(ctx context.Context, tena
 	return &space, nil
 }
 
+// DeltaJobRepository 管理增量同步任务。
+type DeltaJobRepository struct {
+	*baseRepo.BaseRepository[models.DeltaJob]
+	db *gorm.DB
+}
+
+func NewDeltaJobRepository(db *gorm.DB) *DeltaJobRepository {
+	if db == nil {
+		panic("delta job repository requires db")
+	}
+	return &DeltaJobRepository{
+		BaseRepository: baseRepo.NewBaseRepository[models.DeltaJob](db),
+		db:             db,
+	}
+}
+
+func (r *DeltaJobRepository) FindByUUID(ctx context.Context, jobUUID uuid.UUID) (*models.DeltaJob, error) {
+	if jobUUID == uuid.Nil {
+		return nil, gorm.ErrInvalidData
+	}
+	var job models.DeltaJob
+	if err := r.db.WithContext(ctx).Where("uuid = ?", jobUUID).Take(&job).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &job, nil
+}
+
 // PolicyTemplateRepository 管理策略模版。
 type PolicyTemplateRepository struct {
 	*baseRepo.BaseRepository[models.PolicyTemplateVersion]

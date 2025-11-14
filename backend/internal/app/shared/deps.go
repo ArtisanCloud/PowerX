@@ -44,6 +44,7 @@ import (
 	knowledgeService "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space"
 	kncompliance "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/compliance"
 	knctxsnapshot "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/context_snapshot"
+	ksdelta "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/delta"
 	knowledgeinstr "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/instrumentation"
 	knowledgeqa "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/qa_bridge"
 	kntoolchain "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/toolchain"
@@ -536,6 +537,7 @@ type KnowledgeSpaceDeps struct {
 	Ingestion       *knowledgeService.IngestionService
 	Fusion          *knowledgeService.FusionService
 	Feedback        *knowledgeService.FeedbackService
+	Delta           *ksdelta.Service
 	VectorStore     vectorstorepkg.Store
 	QABridge        *knowledgeqa.Service
 }
@@ -1102,6 +1104,24 @@ func newKnowledgeSpaceDeps(db *gorm.DB, opts KnowledgeSpaceOptions, bus event_bu
 	})
 
 	metricsWriter := knowledgeService.NewIngestionMetricsWriter("")
+	feedbackReportPath := strings.TrimSpace(opts.Reports.FeedbackPath)
+	if feedbackReportPath == "" {
+		feedbackReportPath = filepath.Join("backend", "reports", "_state", "knowledge-feedback.json")
+	}
+	aggregateReportPath := strings.TrimSpace(opts.Delta.AggregateReportPath)
+	if aggregateReportPath == "" {
+		aggregateReportPath = filepath.Join("reports", "_state", "knowledge-update.json")
+	}
+	deltaReportPath := strings.TrimSpace(opts.Delta.ReportPath)
+	if deltaReportPath == "" {
+		deltaReportPath = filepath.Join("backend", "reports", "_state", "knowledge-delta.json")
+	}
+	qaBridgeReportPath := strings.TrimSpace(opts.Reports.QABridgePath)
+	if qaBridgeReportPath == "" {
+		qaBridgeReportPath = filepath.Join("reports", "_state", "qa-reasoning.json")
+	}
+	feedbackMetricsWriter := knowledgeService.NewFeedbackMetricsWriter(feedbackReportPath, aggregateReportPath)
+	deltaMetricsWriter := knowledgeinstr.NewDeltaMetricsWriter(deltaReportPath, aggregateReportPath)
 
 	ingestionSvc := knowledgeService.NewIngestionService(knowledgeService.IngestionServiceOptions{
 		DB:              db,
@@ -1126,7 +1146,17 @@ func newKnowledgeSpaceDeps(db *gorm.DB, opts KnowledgeSpaceOptions, bus event_bu
 		Instrumentation: inst,
 		Pipeline:        reprocessPipeline,
 		MetricsWriter:   metricsWriter,
+		FeedbackMetrics: feedbackMetricsWriter,
 		Clock:           time.Now,
+	})
+
+	deltaSvc := ksdelta.NewService(ksdelta.Options{
+		DB:                       db,
+		Instrumentation:          inst,
+		MetricsWriter:            deltaMetricsWriter,
+		SourcesConfigPath:        opts.Delta.SourcesConfig,
+		PartialReleaseConfigPath: opts.Delta.PartialReleaseConfig,
+		Clock:                    time.Now,
 	})
 
 	snapshotStore := knctxsnapshot.NewStore()
@@ -1140,7 +1170,7 @@ func newKnowledgeSpaceDeps(db *gorm.DB, opts KnowledgeSpaceOptions, bus event_bu
 		ToolRegistry:    toolRegistry,
 		Guard:           guard,
 		Clock:           time.Now,
-		ReportPath:      filepath.Join("reports", "_state", "qa-reasoning.json"),
+		ReportPath:      qaBridgeReportPath,
 	})
 
 	return &KnowledgeSpaceDeps{
@@ -1152,6 +1182,7 @@ func newKnowledgeSpaceDeps(db *gorm.DB, opts KnowledgeSpaceOptions, bus event_bu
 		Ingestion:       ingestionSvc,
 		Fusion:          fusionSvc,
 		Feedback:        feedbackSvc,
+		Delta:           deltaSvc,
 		VectorStore:     vectorStore,
 		QABridge:        qaBridgeSvc,
 	}

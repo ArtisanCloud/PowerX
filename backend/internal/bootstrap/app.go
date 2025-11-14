@@ -267,6 +267,19 @@ func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error)
 					Namespace: cfg.KnowledgeSpace.VectorStore.Pinecone.Namespace,
 				},
 			},
+			Delta: shared.KnowledgeSpaceDeltaOptions{
+				SourcesConfig:        cfg.KnowledgeSpace.Delta.SourcesConfig,
+				PartialReleaseConfig: cfg.KnowledgeSpace.Delta.PartialReleaseConfig,
+				ReportPath:           cfg.KnowledgeSpace.Delta.ReportPath,
+				AggregateReportPath:  cfg.KnowledgeSpace.Delta.AggregateReportPath,
+				SLAMinutes:           cfg.KnowledgeSpace.Delta.SLAMinutes,
+				ApprovalMinutes:      cfg.KnowledgeSpace.Delta.ApprovalMinutes,
+				DefaultDiffAccuracy:  cfg.KnowledgeSpace.Delta.DefaultDiffAccuracy,
+			},
+			Reports: shared.KnowledgeSpaceReportOptions{
+				FeedbackPath: cfg.KnowledgeSpace.Reports.FeedbackPath,
+				QABridgePath: cfg.KnowledgeSpace.Reports.QABridgePath,
+			},
 		},
 		PluginRelease: shared.PluginReleaseOptions{
 			FeatureFlags: shared.PluginReleaseFeatureFlagsOptions{

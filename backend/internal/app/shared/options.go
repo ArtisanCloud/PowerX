@@ -151,6 +151,8 @@ type KnowledgeSpaceOptions struct {
 	EventTopics            KnowledgeSpaceEventTopicsOptions
 	Notifications          KnowledgeSpaceNotificationOptions
 	VectorStore            KnowledgeSpaceVectorStoreOptions
+	Delta                  KnowledgeSpaceDeltaOptions
+	Reports                KnowledgeSpaceReportOptions
 }
 
 type KnowledgeSpaceEventTopicsOptions struct {
@@ -172,6 +174,21 @@ type KnowledgeSpaceVectorStoreOptions struct {
 	PGVector pgvectorcfg.Config
 	Milvus   milvuscfg.Config
 	Pinecone pineconecfg.Config
+}
+
+type KnowledgeSpaceDeltaOptions struct {
+	SourcesConfig        string
+	PartialReleaseConfig string
+	ReportPath           string
+	AggregateReportPath  string
+	SLAMinutes           int
+	ApprovalMinutes      int
+	DefaultDiffAccuracy  float64
+}
+
+type KnowledgeSpaceReportOptions struct {
+	FeedbackPath string
+	QABridgePath string
 }
 
 // PluginReleaseOptions 暴露插件发布模块所需运行参数。

@@ -23,6 +23,7 @@ func RegisterAPIRoutes(public, protected *gin.RouterGroup, deps *shared.Deps) {
 	ingestionHandler := NewIngestionHandler(deps)
 	fusionHandler := NewFusionHandler(deps)
 	feedbackHandler := NewFeedbackHandler(deps)
+	deltaHandler := NewDeltaHandler(deps)
 	group := protected.Group("/admin/knowledge-spaces")
 	{
 		group.POST("", handler.create)
@@ -40,6 +41,15 @@ func RegisterAPIRoutes(public, protected *gin.RouterGroup, deps *shared.Deps) {
 			group.GET("/:spaceId/feedback", feedbackHandler.List)
 			group.POST("/:spaceId/feedback", feedbackHandler.Submit)
 		}
+	}
+	if deltaHandler != nil {
+		deltaGroup := protected.Group("/knowledge/delta")
+		{
+			deltaGroup.POST("/jobs", deltaHandler.Start)
+			deltaGroup.GET("/reports/:jobId", deltaHandler.Report)
+			deltaGroup.POST("/publish", deltaHandler.Publish)
+		}
+		protected.POST("/knowledge/version/rollback", deltaHandler.Rollback)
 	}
 }
 

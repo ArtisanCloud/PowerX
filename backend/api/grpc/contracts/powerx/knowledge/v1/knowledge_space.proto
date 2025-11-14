@@ -165,6 +165,63 @@ message FeedbackCase {
   google.protobuf.Timestamp updated_at = 13;
 }
 
+message DeltaJob {
+  string job_id = 1;
+  string space_id = 2;
+  string source = 3;
+  string status = 4;
+  string approval_state = 5;
+  double diff_accuracy = 6;
+  bool partial_release = 7;
+  int32 rollback_count = 8;
+  google.protobuf.Timestamp created_at = 9;
+  google.protobuf.Timestamp published_at = 10;
+  string report_json = 11;
+}
+
+message StartDeltaJobRequest {
+  string space_id = 1;
+  string source = 2;
+  string package_uri = 3;
+  double diff_accuracy = 4;
+  string requested_by = 5;
+  string notes = 6;
+}
+
+message StartDeltaJobResponse {
+  DeltaJob job = 1;
+}
+
+message GetDeltaReportRequest {
+  string job_id = 1;
+}
+
+message GetDeltaReportResponse {
+  DeltaJob job = 1;
+}
+
+message PublishDeltaJobRequest {
+  string job_id = 1;
+  string decision = 2;
+  string approved_by = 3;
+  double diff_accuracy = 4;
+  bool partial_release = 5;
+}
+
+message PublishDeltaJobResponse {
+  DeltaJob job = 1;
+}
+
+message RollbackDeltaRequest {
+  string job_id = 1;
+  string requested_by = 2;
+  string reason = 3;
+}
+
+message RollbackDeltaResponse {
+  DeltaJob job = 1;
+}
+
 service KnowledgeSpaceAdminService {
   rpc CreateKnowledgeSpace(CreateKnowledgeSpaceRequest) returns (CreateKnowledgeSpaceResponse);
   rpc UpdateKnowledgeSpace(UpdateKnowledgeSpaceRequest) returns (UpdateKnowledgeSpaceResponse);
@@ -175,6 +232,10 @@ service KnowledgeSpaceAdminService {
   rpc RollbackFusionStrategy(RollbackFusionStrategyRequest) returns (FusionStrategyResponse);
   rpc SubmitFeedback(FeedbackRequest) returns (FeedbackResponse);
   rpc ListFeedbackCases(ListFeedbackCasesRequest) returns (ListFeedbackCasesResponse);
+  rpc StartDeltaJob(StartDeltaJobRequest) returns (StartDeltaJobResponse);
+  rpc GetDeltaReport(GetDeltaReportRequest) returns (GetDeltaReportResponse);
+  rpc PublishDeltaJob(PublishDeltaJobRequest) returns (PublishDeltaJobResponse);
+  rpc RollbackDelta(RollbackDeltaRequest) returns (RollbackDeltaResponse);
 }
 
 message QARetrievalPlanRequest {

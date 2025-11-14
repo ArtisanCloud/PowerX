@@ -204,6 +204,66 @@ type fusionStrategyResponse struct {
 	PublishedAt     *time.Time `json:"publishedAt,omitempty"`
 }
 
+type startDeltaJobRequest struct {
+	SpaceID      string  `json:"spaceId" binding:"required,uuid4"`
+	Source       string  `json:"source" binding:"required"`
+	PackageURI   string  `json:"packageUri"`
+	DiffAccuracy float64 `json:"diffAccuracy"`
+	RequestedBy  string  `json:"requestedBy"`
+	Notes        string  `json:"notes"`
+}
+
+type publishDeltaJobRequest struct {
+	JobID          string  `json:"jobId" binding:"required,uuid4"`
+	Decision       string  `json:"decision" binding:"required"`
+	ApprovedBy     string  `json:"approvedBy"`
+	DiffAccuracy   float64 `json:"diffAccuracy"`
+	PartialRelease bool    `json:"partialRelease"`
+}
+
+type rollbackDeltaRequest struct {
+	JobID       string `json:"jobId" binding:"required,uuid4"`
+	Reason      string `json:"reason"`
+	RequestedBy string `json:"requestedBy"`
+}
+
+type deltaJobView struct {
+	JobID          string     `json:"jobId"`
+	SpaceID        string     `json:"spaceId"`
+	Source         string     `json:"source"`
+	Status         string     `json:"status"`
+	ApprovalState  string     `json:"approvalState"`
+	DiffAccuracy   float64    `json:"diffAccuracy"`
+	PartialRelease bool       `json:"partialRelease"`
+	RollbackCount  int        `json:"rollbackCount"`
+	CreatedAt      time.Time  `json:"createdAt"`
+	PublishedAt    *time.Time `json:"publishedAt,omitempty"`
+	Report         any        `json:"report"`
+}
+
+func toDeltaJobView(job *models.DeltaJob) deltaJobView {
+	if job == nil {
+		return deltaJobView{}
+	}
+	var report any
+	if len(job.Report) > 0 {
+		_ = json.Unmarshal(job.Report, &report)
+	}
+	return deltaJobView{
+		JobID:          job.UUID.String(),
+		SpaceID:        job.SpaceUUID.String(),
+		Source:         job.Source,
+		Status:         job.Status,
+		ApprovalState:  job.ApprovalState,
+		DiffAccuracy:   job.DiffAccuracy,
+		PartialRelease: job.PartialRelease,
+		RollbackCount:  job.RollbackCount,
+		CreatedAt:      job.CreatedAt,
+		PublishedAt:    job.PublishedAt,
+		Report:         report,
+	}
+}
+
 func toFusionStrategyResponse(strategy *models.FusionStrategyVersion) fusionStrategyResponse {
 	if strategy == nil {
 		return fusionStrategyResponse{}

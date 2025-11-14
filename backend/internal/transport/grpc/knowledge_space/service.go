@@ -6,11 +6,13 @@ import (
 	"errors"
 	"strconv"
 	"strings"
+	"time"
 
 	knowledgev1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/knowledge/v1"
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
 	ksvc "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space"
 	"github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/context_snapshot"
+	ksdelta "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/delta"
 	qaBridge "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/qa_bridge"
 	"github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/toolchain"
 	models "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/knowledge"
@@ -30,6 +32,7 @@ type Server struct {
 	ingestion *ksvc.IngestionService
 	fusion    *ksvc.FusionService
 	feedback  *ksvc.FeedbackService
+	delta     *ksdelta.Service
 	qa        *qaBridge.Service
 }
 
@@ -43,6 +46,7 @@ func NewServer(deps *shared.Deps) *Server {
 		ingestion: deps.KnowledgeSpace.Ingestion,
 		fusion:    deps.KnowledgeSpace.Fusion,
 		feedback:  deps.KnowledgeSpace.Feedback,
+		delta:     deps.KnowledgeSpace.Delta,
 		qa:        deps.KnowledgeSpace.QABridge,
 	}
 }
@@ -539,6 +543,49 @@ func mapFusionError(err error) error {
 	}
 }
 
+func mapDeltaError(err error) error {
+	switch {
+	case errors.Is(err, ksdelta.ErrInvalidInput), errors.Is(err, ksdelta.ErrUnknownSource):
+		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, ksdelta.ErrSpaceNotFound), errors.Is(err, ksdelta.ErrJobNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, ksdelta.ErrPartialReleaseDenied):
+		return status.Error(codes.PermissionDenied, err.Error())
+	default:
+		return status.Error(codes.Internal, err.Error())
+	}
+}
+
+func toProtoDeltaJob(job *models.DeltaJob) *knowledgev1.DeltaJob {
+	if job == nil {
+		return nil
+	}
+	var report string
+	if len(job.Report) > 0 {
+		report = string(job.Report)
+	}
+	return &knowledgev1.DeltaJob{
+		JobId:          job.UUID.String(),
+		SpaceId:        job.SpaceUUID.String(),
+		Source:         job.Source,
+		Status:         job.Status,
+		ApprovalState:  job.ApprovalState,
+		DiffAccuracy:   job.DiffAccuracy,
+		PartialRelease: job.PartialRelease,
+		RollbackCount:  int32(job.RollbackCount),
+		CreatedAt:      timestamppb.New(job.CreatedAt),
+		PublishedAt:    toTimestamp(job.PublishedAt),
+		ReportJson:     report,
+	}
+}
+
+func toTimestamp(ts *time.Time) *timestamppb.Timestamp {
+	if ts == nil {
+		return nil
+	}
+	return timestamppb.New(ts.UTC())
+}
+
 func mapFeedbackError(err error) error {
 	switch {
 	case errors.Is(err, ksvc.ErrInvalidInput):
@@ -548,4 +595,81 @@ func mapFeedbackError(err error) error {
 	default:
 		return status.Error(codes.Internal, err.Error())
 	}
+}
+
+func (s *Server) StartDeltaJob(ctx context.Context, req *knowledgev1.StartDeltaJobRequest) (*knowledgev1.StartDeltaJobResponse, error) {
+	if s.delta == nil {
+		return nil, status.Error(codes.Unimplemented, "delta service not available")
+	}
+	spaceID, err := uuid.Parse(strings.TrimSpace(req.GetSpaceId()))
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid space id: %v", err)
+	}
+	job, err := s.delta.StartJob(ctx, ksdelta.StartJobInput{
+		SpaceID:      spaceID,
+		Source:       req.GetSource(),
+		PackageURI:   req.GetPackageUri(),
+		DiffAccuracy: req.GetDiffAccuracy(),
+		RequestedBy:  req.GetRequestedBy(),
+		Notes:        req.GetNotes(),
+	})
+	if err != nil {
+		return nil, mapDeltaError(err)
+	}
+	return &knowledgev1.StartDeltaJobResponse{Job: toProtoDeltaJob(job)}, nil
+}
+
+func (s *Server) GetDeltaReport(ctx context.Context, req *knowledgev1.GetDeltaReportRequest) (*knowledgev1.GetDeltaReportResponse, error) {
+	if s.delta == nil {
+		return nil, status.Error(codes.Unimplemented, "delta service not available")
+	}
+	jobID, err := uuid.Parse(strings.TrimSpace(req.GetJobId()))
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid job id: %v", err)
+	}
+	job, err := s.delta.GetReport(ctx, jobID)
+	if err != nil {
+		return nil, mapDeltaError(err)
+	}
+	return &knowledgev1.GetDeltaReportResponse{Job: toProtoDeltaJob(job)}, nil
+}
+
+func (s *Server) PublishDeltaJob(ctx context.Context, req *knowledgev1.PublishDeltaJobRequest) (*knowledgev1.PublishDeltaJobResponse, error) {
+	if s.delta == nil {
+		return nil, status.Error(codes.Unimplemented, "delta service not available")
+	}
+	jobID, err := uuid.Parse(strings.TrimSpace(req.GetJobId()))
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid job id: %v", err)
+	}
+	job, err := s.delta.Publish(ctx, ksdelta.PublishJobInput{
+		JobID:          jobID,
+		Decision:       req.GetDecision(),
+		ApprovedBy:     req.GetApprovedBy(),
+		DiffAccuracy:   req.GetDiffAccuracy(),
+		PartialRelease: req.GetPartialRelease(),
+	})
+	if err != nil {
+		return nil, mapDeltaError(err)
+	}
+	return &knowledgev1.PublishDeltaJobResponse{Job: toProtoDeltaJob(job)}, nil
+}
+
+func (s *Server) RollbackDelta(ctx context.Context, req *knowledgev1.RollbackDeltaRequest) (*knowledgev1.RollbackDeltaResponse, error) {
+	if s.delta == nil {
+		return nil, status.Error(codes.Unimplemented, "delta service not available")
+	}
+	jobID, err := uuid.Parse(strings.TrimSpace(req.GetJobId()))
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid job id: %v", err)
+	}
+	job, err := s.delta.Rollback(ctx, ksdelta.RollbackInput{
+		JobID:       jobID,
+		RequestedBy: req.GetRequestedBy(),
+		Reason:      req.GetReason(),
+	})
+	if err != nil {
+		return nil, mapDeltaError(err)
+	}
+	return &knowledgev1.RollbackDeltaResponse{Job: toProtoDeltaJob(job)}, nil
 }

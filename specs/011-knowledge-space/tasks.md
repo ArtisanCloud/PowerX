@@ -171,18 +171,18 @@
 
 ### 测试
 
-- [ ] **T069 [P] [US6]** 在 `backend/tests/contract/knowledge_space/delta_http_test.go` 覆盖 `POST /knowledge/delta/jobs`、`GET /knowledge/delta/reports/:id`、`POST /knowledge/delta/publish`、`POST /knowledge/version/rollback` 的成功、冲突、部分发布、审计分支。
-- [ ] **T070 [P] [US6]** 在 `backend/tests/contract/knowledge_space/delta_grpc_test.go` 覆盖对应 RPC 接口与 SLA 断言。
-- [ ] **T071 [US6]** 在 `backend/tests/integration/knowledge_space/delta_sync_flow_test.go` 演练多源抓取→diff→审批→部分发布→回滚，校验差异准确率 ≥98%、`knowledge.delta.*` 指标写入。
+- [X] **T069 [P] [US6]** 在 `backend/tests/contract/knowledge_space/delta_http_test.go` 覆盖 `POST /knowledge/delta/jobs`、`GET /knowledge/delta/reports/:id`、`POST /knowledge/delta/publish`、`POST /knowledge/version/rollback` 的成功、冲突、部分发布、审计分支。
+- [X] **T070 [P] [US6]** 在 `backend/tests/contract/knowledge_space/delta_grpc_test.go` 覆盖对应 RPC 接口与 SLA 断言。
+- [X] **T071 [US6]** 在 `backend/tests/integration/knowledge_space/delta_sync_flow_test.go` 演练多源抓取→diff→审批→部分发布→回滚，校验差异准确率 ≥98%、`knowledge.delta.*` 指标写入。
 
 ### 实现
 
-- [ ] **T072 [US6]** 在 `backend/internal/service/knowledge_space/delta/service.go` 实现 orchestrator（抓取、diff、审批、版本落地）、部分发布、回滚命令，并写入 `audit-ledger` 与 `reports/_state/knowledge-update.json`。
-- [ ] **T073 [US6]** 在 `backend/internal/transport/http/admin/knowledge_space/delta_handlers.go` 实现 HTTP Handler，支持审批签名、payload hash 校验。
-- [ ] **T074 [US6]** 在 `backend/internal/transport/grpc/knowledge_space/delta_service.go` 实现 gRPC Handler 与 Stream 报告输出。
-- [ ] **T075 [US6]** 创建 `scripts/ops/knowledge-delta-job.mjs`、`scripts/ops/knowledge-diff-report.mjs`，支持 dry-run、拆包、回滚 CLI，并补充 quickstart/Runbook。
-- [ ] **T076 [US6]** 新增 `configs/knowledge/delta_sources.yaml`、`configs/knowledge/partial_release.yaml`，更新 `backend/etc/config.yaml`、`backend/config/config.go` 校验逻辑与 feature flag 依赖。
-- [ ] **T077 [US6]** 在 `backend/internal/service/knowledge_space/instrumentation/delta_metrics.go` 输出 `knowledge.delta.{sla,approval_time,diff_accuracy,rollback_count,partial_release}`，生成 `backend/reports/_state/knowledge-delta.json` 并更新 Grafana《Knowledge Delta Sync》。
+- [X] **T072 [US6]** 在 `backend/internal/service/knowledge_space/delta/service.go` 实现 orchestrator（抓取、diff、审批、版本落地）、部分发布、回滚命令，并写入 `audit-ledger` 与 `reports/_state/knowledge-update.json`。
+- [X] **T073 [US6]** 在 `backend/internal/transport/http/admin/knowledge_space/delta_handlers.go` 实现 HTTP Handler，支持审批签名、payload hash 校验。
+- [X] **T074 [US6]** 在 `backend/internal/transport/grpc/knowledge_space/delta_service.go` 实现 gRPC Handler 与 Stream 报告输出。
+- [X] **T075 [US6]** 创建 `scripts/ops/knowledge-delta-job.mjs`、`scripts/ops/knowledge-diff-report.mjs`，支持 dry-run、拆包、回滚 CLI，并补充 quickstart/Runbook。
+- [X] **T076 [US6]** 新增 `configs/knowledge/delta_sources.yaml`、`configs/knowledge/partial_release.yaml`，更新 `backend/etc/config.yaml`、`backend/config/config.go` 校验逻辑与 feature flag 依赖。
+- [X] **T077 [US6]** 在 `backend/internal/service/knowledge_space/instrumentation/delta_metrics.go` 输出 `knowledge.delta.{sla,approval_time,diff_accuracy,rollback_count,partial_release}`，生成 `backend/reports/_state/knowledge-delta.json` 并更新 Grafana《Knowledge Delta Sync》。
 
 ---
 
