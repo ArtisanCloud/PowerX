@@ -245,6 +245,13 @@ func (r *DynamicRouter) SetContextHMACSecret(secret []byte) {
 func (r *DynamicRouter) serveAdmin(c *gin.Context) {
 	pluginID := c.Param("id")
 	clientPath := c.Param("filepath") // 例如：/、/en/dashboard、/assets/...
+	if clientPath == "" {
+		clientPath = "/"
+	}
+	if clean, changed := normalizeAdminClientPath(pluginID, clientPath); changed {
+		log.Printf("[ADMIN-CLEAN] plugin=%s raw=%q clean=%q", pluginID, clientPath, clean)
+		clientPath = clean
+	}
 
 	// 反代优先
 	r.mu.RLock()
@@ -299,14 +306,16 @@ func (r *DynamicRouter) serveAdmin(c *gin.Context) {
 	}
 
 	// 未挂反代时，落回静态目录（若没有，将 404）
-	r.serveAdminStatic(c)
+	r.serveAdminStatic(c, pluginID, clientPath)
 }
 
-func (r *DynamicRouter) serveAdminStatic(c *gin.Context) {
-	pluginID := c.Param("id")
-	p := c.Param("filepath")
+func (r *DynamicRouter) serveAdminStatic(c *gin.Context, pluginID, clientPath string) {
+	p := clientPath
 	if p == "" || p == "/" {
 		p = "/index.html"
+	} else if clean, changed := normalizeAdminClientPath(pluginID, p); changed {
+		log.Printf("[ADMIN-CLEAN-STATIC] plugin=%s raw=%q clean=%q", pluginID, p, clean)
+		p = clean
 	}
 
 	r.mu.RLock()
@@ -334,6 +343,9 @@ func (r *DynamicRouter) serveAPIProxy(c *gin.Context) {
 	clientPath := c.Param("filepath")
 	if clientPath == "" {
 		clientPath = "/"
+	}
+	if r.redirectAdminFromAPI(c, pluginID, clientPath) {
+		return
 	}
 	// === 关键日志：API 入口 ===
 	log.Printf("[API-IN] %s %s plugin=%s clientPath=%s",
@@ -594,6 +606,97 @@ func trimToAPIClientPath(p string) string {
 		return p
 	}
 	return rest[i+len("/api/")-1:] // 保留前导 '/'
+}
+
+func normalizeAdminClientPath(pluginID, clientPath string) (string, bool) {
+	if clientPath == "" {
+		return "/", false
+	}
+	if pluginID == "" {
+		return clientPath, false
+	}
+	clean := clientPath
+	changed := false
+
+	if !strings.HasPrefix(clean, "/") {
+		clean = "/" + clean
+		changed = true
+	}
+	for strings.Contains(clean, "//") {
+		clean = strings.ReplaceAll(clean, "//", "/")
+		changed = true
+	}
+
+	needle := "/_p/" + pluginID + "/admin"
+	variants := []string{
+		needle,
+		"/__up" + needle,
+	}
+
+	trimmedOnce := func() bool {
+		trimmed := false
+		for _, v := range variants {
+			if strings.HasPrefix(clean, v) {
+				clean = strings.TrimPrefix(clean, v)
+				trimmed = true
+			}
+		}
+		if strings.HasPrefix(clean, "/api/") {
+			rest := clean[len("/api/"):]
+			if idx := strings.Index(rest, needle); idx >= 0 {
+				prefix := rest[:idx]
+				if !strings.Contains(prefix, "/") { // 只允许一个版本段，例如 v1
+					clean = rest[idx+len(needle):]
+					trimmed = true
+				}
+			}
+		}
+		if trimmed {
+			if clean == "" {
+				clean = "/"
+			}
+			if !strings.HasPrefix(clean, "/") {
+				clean = "/" + clean
+			}
+			changed = true
+		}
+		return trimmed
+	}
+
+	for trimmedOnce() {
+	}
+
+	if clean == "" {
+		clean = "/"
+	}
+	return clean, changed
+}
+
+func (r *DynamicRouter) redirectAdminFromAPI(c *gin.Context, pluginID, clientPath string) bool {
+	if pluginID == "" {
+		return false
+	}
+	needle := "/_p/" + pluginID + "/admin"
+	idx := strings.Index(clientPath, needle)
+	if idx < 0 {
+		return false
+	}
+	tail := clientPath[idx+len(needle):]
+	if tail == "" {
+		tail = "/"
+	}
+	if !strings.HasPrefix(tail, "/") {
+		tail = "/" + tail
+	}
+	cleanTail, _ := normalizeAdminClientPath(pluginID, tail)
+	dest := joinURLPath(r.basePrefix, pluginID, "admin", cleanTail)
+	if q := c.Request.URL.RawQuery; q != "" {
+		dest += "?" + q
+	}
+	log.Printf("[ADMIN-REDIRECT] plugin=%s apiPath=%s => %s", pluginID, clientPath, dest)
+	c.Redirect(http.StatusFound, dest)
+	c.Abort()
+	return true
 }
 
 func fixAdminLocationNoLocale(resp *http.Response) {
