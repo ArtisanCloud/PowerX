@@ -204,6 +204,20 @@ type fusionStrategyResponse struct {
 	PublishedAt     *time.Time `json:"publishedAt,omitempty"`
 }
 
+type eventApplyRequest struct {
+	EventID    string         `json:"eventId" binding:"required"`
+	EventType  string         `json:"eventType" binding:"required"`
+	Payload    map[string]any `json:"payload"`
+	RetryCount int            `json:"retryCount"`
+	ReceivedAt *time.Time     `json:"receivedAt"`
+}
+
+type eventResponse struct {
+	Status    string    `json:"status"`
+	EventID   string    `json:"eventId"`
+	Processed time.Time `json:"processedAt"`
+}
+
 type startDeltaJobRequest struct {
 	SpaceID      string  `json:"spaceId" binding:"required,uuid4"`
 	Source       string  `json:"source" binding:"required"`

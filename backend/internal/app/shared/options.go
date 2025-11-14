@@ -153,6 +153,7 @@ type KnowledgeSpaceOptions struct {
 	VectorStore            KnowledgeSpaceVectorStoreOptions
 	Delta                  KnowledgeSpaceDeltaOptions
 	Reports                KnowledgeSpaceReportOptions
+	EventHotfix            KnowledgeSpaceEventHotfixOptions
 }
 
 type KnowledgeSpaceEventTopicsOptions struct {
@@ -189,6 +190,15 @@ type KnowledgeSpaceDeltaOptions struct {
 type KnowledgeSpaceReportOptions struct {
 	FeedbackPath string
 	QABridgePath string
+}
+
+type KnowledgeSpaceEventHotfixOptions struct {
+	PoliciesPath        string
+	AgentMatrixPath     string
+	ReportPath          string
+	AggregateReportPath string
+	RetryMax            int
+	ReplayWindow        time.Duration
 }
 
 // PluginReleaseOptions 暴露插件发布模块所需运行参数。

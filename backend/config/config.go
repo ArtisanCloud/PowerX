@@ -246,6 +246,7 @@ type KnowledgeSpaceConfig struct {
 	VectorStore            KnowledgeSpaceVectorStoreConfig  `yaml:"vector_store"`
 	Delta                  KnowledgeSpaceDeltaConfig        `yaml:"delta"`
 	Reports                KnowledgeSpaceReportConfig       `yaml:"reports"`
+	EventHotfix            KnowledgeSpaceEventHotfixConfig  `yaml:"event_hotfix"`
 }
 
 // KnowledgeSpaceEventTopics 定义事件主题。
@@ -285,6 +286,15 @@ type KnowledgeSpaceDeltaConfig struct {
 type KnowledgeSpaceReportConfig struct {
 	FeedbackPath string `yaml:"feedback_path"`
 	QABridgePath string `yaml:"qa_bridge_path"`
+}
+
+type KnowledgeSpaceEventHotfixConfig struct {
+	PoliciesPath          string `yaml:"policies_path"`
+	AgentMatrixPath       string `yaml:"agent_weight_matrix_path"`
+	ReportPath            string `yaml:"report_path"`
+	AggregateReportPath   string `yaml:"aggregate_report_path"`
+	RetryMax              int    `yaml:"retry_max"`
+	ReplayWindowSeconds   int    `yaml:"replay_window_seconds"`
 }
 
 type KnowledgeSpaceVectorStorePGVectorConfig struct {

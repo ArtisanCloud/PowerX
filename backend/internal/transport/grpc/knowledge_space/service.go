@@ -13,6 +13,7 @@ import (
 	ksvc "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space"
 	"github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/context_snapshot"
 	ksdelta "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/delta"
+	event_hotfix "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/event_hotfix"
 	qaBridge "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/qa_bridge"
 	"github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/toolchain"
 	models "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/knowledge"
@@ -28,12 +29,13 @@ import (
 type Server struct {
 	knowledgev1.UnimplementedKnowledgeSpaceAdminServiceServer
 	knowledgev1.UnimplementedKnowledgeSpaceQABridgeServiceServer
-	svc       *ksvc.Service
-	ingestion *ksvc.IngestionService
-	fusion    *ksvc.FusionService
-	feedback  *ksvc.FeedbackService
-	delta     *ksdelta.Service
-	qa        *qaBridge.Service
+	svc         *ksvc.Service
+	ingestion   *ksvc.IngestionService
+	fusion      *ksvc.FusionService
+	feedback    *ksvc.FeedbackService
+	delta       *ksdelta.Service
+	eventHotfix *event_hotfix.Service
+	qa          *qaBridge.Service
 }
 
 // NewServer builds a gRPC server wrapper.
@@ -42,12 +44,13 @@ func NewServer(deps *shared.Deps) *Server {
 		return nil
 	}
 	return &Server{
-		svc:       deps.KnowledgeSpace.Service,
-		ingestion: deps.KnowledgeSpace.Ingestion,
-		fusion:    deps.KnowledgeSpace.Fusion,
-		feedback:  deps.KnowledgeSpace.Feedback,
-		delta:     deps.KnowledgeSpace.Delta,
-		qa:        deps.KnowledgeSpace.QABridge,
+		svc:         deps.KnowledgeSpace.Service,
+		ingestion:   deps.KnowledgeSpace.Ingestion,
+		fusion:      deps.KnowledgeSpace.Fusion,
+		feedback:    deps.KnowledgeSpace.Feedback,
+		delta:       deps.KnowledgeSpace.Delta,
+		eventHotfix: deps.KnowledgeSpace.EventHotfix,
+		qa:          deps.KnowledgeSpace.QABridge,
 	}
 }
 
@@ -586,6 +589,36 @@ func toTimestamp(ts *time.Time) *timestamppb.Timestamp {
 	return timestamppb.New(ts.UTC())
 }
 
+func mapEventError(err error) error {
+	switch {
+	case errors.Is(err, event_hotfix.ErrInvalidEvent), errors.Is(err, event_hotfix.ErrPolicyMissing):
+		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, event_hotfix.ErrDuplicateEvent):
+		return status.Error(codes.AlreadyExists, err.Error())
+	default:
+		return status.Error(codes.Internal, err.Error())
+	}
+}
+
+func toEventInput(eventID, eventType string, payload map[string]string, ts *timestamppb.Timestamp, retry int) event_hotfix.ApplyInput {
+	received := time.Now().UTC()
+	if ts != nil {
+		received = ts.AsTime()
+	}
+	converted := make(map[string]any, len(payload)+1)
+	for k, v := range payload {
+		converted[k] = v
+	}
+	converted["eventType"] = eventType
+	return event_hotfix.ApplyInput{
+		EventID:    strings.TrimSpace(eventID),
+		EventType:  strings.TrimSpace(eventType),
+		Payload:    converted,
+		ReceivedAt: received,
+		RetryCount: retry,
+	}
+}
+
 func mapFeedbackError(err error) error {
 	switch {
 	case errors.Is(err, ksvc.ErrInvalidInput):
@@ -672,4 +705,42 @@ func (s *Server) RollbackDelta(ctx context.Context, req *knowledgev1.RollbackDel
 		return nil, mapDeltaError(err)
 	}
 	return &knowledgev1.RollbackDeltaResponse{Job: toProtoDeltaJob(job)}, nil
+}
+
+func (s *Server) ApplyEvent(ctx context.Context, req *knowledgev1.ApplyEventRequest) (*knowledgev1.ApplyEventResponse, error) {
+	if s.eventHotfix == nil {
+		return nil, status.Error(codes.Unimplemented, "event hotfix not available")
+	}
+	res, err := s.eventHotfix.Apply(ctx, toEventInput(req.GetEventId(), req.GetEventType(), req.GetPayload(), req.GetReceivedAt(), int(req.GetRetryCount())))
+	if err != nil {
+		return nil, mapEventError(err)
+	}
+	return &knowledgev1.ApplyEventResponse{
+		Status:      res.Status,
+		EventId:     res.EventID,
+		ProcessedAt: timestamppb.New(res.Processed),
+	}, nil
+}
+
+func (s *Server) RetryEvent(ctx context.Context, req *knowledgev1.RetryEventRequest) (*knowledgev1.RetryEventResponse, error) {
+	if s.eventHotfix == nil {
+		return nil, status.Error(codes.Unimplemented, "event hotfix not available")
+	}
+	res, err := s.eventHotfix.Retry(ctx, toEventInput(req.GetEventId(), req.GetEventType(), req.GetPayload(), req.GetReceivedAt(), int(req.GetRetryCount())))
+	if err != nil {
+		return nil, mapEventError(err)
+	}
+	return &knowledgev1.RetryEventResponse{
+		Status:      res.Status,
+		EventId:     res.EventID,
+		ProcessedAt: timestamppb.New(res.Processed),
+	}, nil
+}
+
+func (s *Server) HotUpdateIndex(ctx context.Context, _ *knowledgev1.HotUpdateRequest) (*knowledgev1.HotUpdateResponse, error) {
+	return &knowledgev1.HotUpdateResponse{Status: "enqueued"}, nil
+}
+
+func (s *Server) RefreshAgentWeights(ctx context.Context, _ *knowledgev1.RefreshAgentRequest) (*knowledgev1.RefreshAgentResponse, error) {
+	return &knowledgev1.RefreshAgentResponse{Status: "refreshing"}, nil
 }

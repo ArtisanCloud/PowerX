@@ -1,0 +1,6 @@
+{
+  "entries": {
+    "policy-update": {"tool": "reranker", "weight": 0.9},
+    "price-change": {"tool": "sql", "weight": 0.8}
+  }
+}

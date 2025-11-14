@@ -142,6 +142,14 @@ func GetDefaults() *Config {
 				FeedbackPath: "backend/reports/_state/knowledge-feedback.json",
 				QABridgePath: "reports/_state/qa-reasoning.json",
 			},
+			EventHotfix: KnowledgeSpaceEventHotfixConfig{
+				PoliciesPath:        "configs/knowledge/event_hotfix_policies.yaml",
+				AgentMatrixPath:     "configs/knowledge/agent_weight_matrix.yaml",
+				ReportPath:          "backend/reports/_state/knowledge-event.json",
+				AggregateReportPath: "reports/_state/knowledge-update.json",
+				RetryMax:            3,
+				ReplayWindowSeconds: 300,
+			},
 		},
 		EventFabric: EventFabricConfig{
 			AckTimeoutSeconds: 30,

@@ -13,6 +13,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
 	knowledgeService "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space"
 	ksdelta "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/delta"
+	event_hotfix "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/event_hotfix"
 	knowledgeinstr "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/instrumentation"
 	qaBridge "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/qa_bridge"
 	knowledgegrpc "github.com/ArtisanCloud/PowerX/internal/transport/grpc/knowledge_space"
@@ -41,6 +42,7 @@ type Env struct {
 	FeedbackReportPath        string
 	KnowledgeUpdateReportPath string
 	DeltaReportPath           string
+	EventReportPath           string
 }
 
 // New spins up an isolated sqlite + redis test environment.
@@ -119,8 +121,11 @@ func New(t testing.TB) *Env {
 	feedbackReportPath := filepath.Join(tempDir, "knowledge-feedback.json")
 	updateReportPath := filepath.Join(tempDir, "knowledge-update.json")
 	deltaReportPath := filepath.Join(tempDir, "knowledge-delta.json")
-	deltaSourcesPath := filepath.Join(tempDir, "delta-sources.yaml")
-	partialReleasePath := filepath.Join(tempDir, "partial-release.yaml")
+	eventReportPath := filepath.Join(tempDir, "knowledge-event.json")
+	deltaSourcesPath := filepath.Join(tempDir, "delta-sources.json")
+	partialReleasePath := filepath.Join(tempDir, "partial-release.json")
+	eventPoliciesPath := filepath.Join(tempDir, "event-policies.json")
+	agentMatrixPath := filepath.Join(tempDir, "agent-weight-matrix.json")
 	writeSeedJSON(t, deltaSourcesPath, map[string]any{
 		"sources": []map[string]any{{
 			"name":     "handbook",
@@ -135,9 +140,22 @@ func New(t testing.TB) *Env {
 			"spaces":  []string{"*"},
 		}},
 	})
+	writeSeedJSON(t, eventPoliciesPath, map[string]any{
+		"policies": []map[string]any{{
+			"eventType": "policy-update",
+			"actions":   []string{"fetch", "hot-update"},
+			"severity":  "p1",
+		}},
+	})
+	writeSeedJSON(t, agentMatrixPath, map[string]any{
+		"entries": map[string]any{
+			"policy-update": map[string]any{"tool": "reranker", "weight": 0.9},
+		},
+	})
 	metricsWriter := knowledgeService.NewIngestionMetricsWriter(ingestionReportPath)
 	feedbackMetricsWriter := knowledgeService.NewFeedbackMetricsWriter(feedbackReportPath, updateReportPath)
 	deltaMetricsWriter := knowledgeinstr.NewDeltaMetricsWriter(deltaReportPath, updateReportPath)
+	eventMetricsWriter := knowledgeinstr.NewEventMetricsWriter(eventReportPath, updateReportPath)
 	ingestionSvc := knowledgeService.NewIngestionService(knowledgeService.IngestionServiceOptions{
 		DB:              db,
 		Instrumentation: inst,
@@ -163,6 +181,17 @@ func New(t testing.TB) *Env {
 		MetricsWriter:   metricsWriter,
 		FeedbackMetrics: feedbackMetricsWriter,
 		Clock:           time.Now,
+	})
+	agentNotifier := event_hotfix.NewAgentNotifier(agentMatrixPath)
+	eventHotfixSvc := event_hotfix.NewService(event_hotfix.Options{
+		Instrumentation: inst,
+		EventBus:        bus,
+		MetricsWriter:   eventMetricsWriter,
+		AgentNotifier:   agentNotifier,
+		PoliciesPath:    eventPoliciesPath,
+		ReportPath:      eventReportPath,
+		Clock:           time.Now,
+		RetryMax:        3,
 	})
 	deltaSvc := ksdelta.NewService(ksdelta.Options{
 		DB:                       db,
@@ -193,6 +222,7 @@ func New(t testing.TB) *Env {
 			Fusion:          fusionSvc,
 			Feedback:        feedbackSvc,
 			Delta:           deltaSvc,
+			EventHotfix:     eventHotfixSvc,
 			VectorStore:     vectorStore,
 			QABridge:        qaBridgeSvc,
 		},
@@ -209,6 +239,7 @@ func New(t testing.TB) *Env {
 		FeedbackReportPath:        feedbackReportPath,
 		KnowledgeUpdateReportPath: updateReportPath,
 		DeltaReportPath:           deltaReportPath,
+		EventReportPath:           eventReportPath,
 	}
 }
 

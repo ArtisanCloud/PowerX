@@ -45,6 +45,7 @@ import (
 	kncompliance "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/compliance"
 	knctxsnapshot "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/context_snapshot"
 	ksdelta "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/delta"
+	event_hotfix "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/event_hotfix"
 	knowledgeinstr "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/instrumentation"
 	knowledgeqa "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/qa_bridge"
 	kntoolchain "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/toolchain"
@@ -538,6 +539,7 @@ type KnowledgeSpaceDeps struct {
 	Fusion          *knowledgeService.FusionService
 	Feedback        *knowledgeService.FeedbackService
 	Delta           *ksdelta.Service
+	EventHotfix     *event_hotfix.Service
 	VectorStore     vectorstorepkg.Store
 	QABridge        *knowledgeqa.Service
 }
@@ -1120,8 +1122,17 @@ func newKnowledgeSpaceDeps(db *gorm.DB, opts KnowledgeSpaceOptions, bus event_bu
 	if qaBridgeReportPath == "" {
 		qaBridgeReportPath = filepath.Join("reports", "_state", "qa-reasoning.json")
 	}
+	eventReportPath := strings.TrimSpace(opts.EventHotfix.ReportPath)
+	if eventReportPath == "" {
+		eventReportPath = filepath.Join("backend", "reports", "_state", "knowledge-event.json")
+	}
+	eventAggregatePath := strings.TrimSpace(opts.EventHotfix.AggregateReportPath)
+	if eventAggregatePath == "" {
+		eventAggregatePath = aggregateReportPath
+	}
 	feedbackMetricsWriter := knowledgeService.NewFeedbackMetricsWriter(feedbackReportPath, aggregateReportPath)
 	deltaMetricsWriter := knowledgeinstr.NewDeltaMetricsWriter(deltaReportPath, aggregateReportPath)
+	eventMetricsWriter := knowledgeinstr.NewEventMetricsWriter(eventReportPath, eventAggregatePath)
 
 	ingestionSvc := knowledgeService.NewIngestionService(knowledgeService.IngestionServiceOptions{
 		DB:              db,
@@ -1173,6 +1184,18 @@ func newKnowledgeSpaceDeps(db *gorm.DB, opts KnowledgeSpaceOptions, bus event_bu
 		ReportPath:      qaBridgeReportPath,
 	})
 
+	agentNotifier := event_hotfix.NewAgentNotifier(opts.EventHotfix.AgentMatrixPath)
+	eventHotfixSvc := event_hotfix.NewService(event_hotfix.Options{
+		Instrumentation: inst,
+		EventBus:        bus,
+		MetricsWriter:   eventMetricsWriter,
+		AgentNotifier:   agentNotifier,
+		PoliciesPath:    opts.EventHotfix.PoliciesPath,
+		ReportPath:      eventReportPath,
+		Clock:           time.Now,
+		RetryMax:        opts.EventHotfix.RetryMax,
+	})
+
 	return &KnowledgeSpaceDeps{
 		Instrumentation: inst,
 		RedisClient:     redisClient,
@@ -1183,6 +1206,7 @@ func newKnowledgeSpaceDeps(db *gorm.DB, opts KnowledgeSpaceOptions, bus event_bu
 		Fusion:          fusionSvc,
 		Feedback:        feedbackSvc,
 		Delta:           deltaSvc,
+		EventHotfix:     eventHotfixSvc,
 		VectorStore:     vectorStore,
 		QABridge:        qaBridgeSvc,
 	}

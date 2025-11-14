@@ -222,6 +222,51 @@ message RollbackDeltaResponse {
   DeltaJob job = 1;
 }
 
+message ApplyEventRequest {
+  string event_id = 1;
+  string event_type = 2;
+  map<string, string> payload = 3;
+  google.protobuf.Timestamp received_at = 4;
+  int32 retry_count = 5;
+}
+
+message ApplyEventResponse {
+  string status = 1;
+  string event_id = 2;
+  google.protobuf.Timestamp processed_at = 3;
+}
+
+message RetryEventRequest {
+  string event_id = 1;
+  string event_type = 2;
+  map<string, string> payload = 3;
+  google.protobuf.Timestamp received_at = 4;
+  int32 retry_count = 5;
+}
+
+message RetryEventResponse {
+  string status = 1;
+  string event_id = 2;
+  google.protobuf.Timestamp processed_at = 3;
+}
+
+message HotUpdateRequest {
+  string space_id = 1;
+  string reason = 2;
+}
+
+message HotUpdateResponse {
+  string status = 1;
+}
+
+message RefreshAgentRequest {
+  string tenant_id = 1;
+}
+
+message RefreshAgentResponse {
+  string status = 1;
+}
+
 service KnowledgeSpaceAdminService {
   rpc CreateKnowledgeSpace(CreateKnowledgeSpaceRequest) returns (CreateKnowledgeSpaceResponse);
   rpc UpdateKnowledgeSpace(UpdateKnowledgeSpaceRequest) returns (UpdateKnowledgeSpaceResponse);
@@ -236,6 +281,10 @@ service KnowledgeSpaceAdminService {
   rpc GetDeltaReport(GetDeltaReportRequest) returns (GetDeltaReportResponse);
   rpc PublishDeltaJob(PublishDeltaJobRequest) returns (PublishDeltaJobResponse);
   rpc RollbackDelta(RollbackDeltaRequest) returns (RollbackDeltaResponse);
+  rpc ApplyEvent(ApplyEventRequest) returns (ApplyEventResponse);
+  rpc RetryEvent(RetryEventRequest) returns (RetryEventResponse);
+  rpc HotUpdateIndex(HotUpdateRequest) returns (HotUpdateResponse);
+  rpc RefreshAgentWeights(RefreshAgentRequest) returns (RefreshAgentResponse);
 }
 
 message QARetrievalPlanRequest {

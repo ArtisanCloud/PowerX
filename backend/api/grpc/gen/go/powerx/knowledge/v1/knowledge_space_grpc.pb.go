@@ -32,6 +32,10 @@ const (
 	KnowledgeSpaceAdminService_GetDeltaReport_FullMethodName         = "/powerx.knowledge.v1.KnowledgeSpaceAdminService/GetDeltaReport"
 	KnowledgeSpaceAdminService_PublishDeltaJob_FullMethodName        = "/powerx.knowledge.v1.KnowledgeSpaceAdminService/PublishDeltaJob"
 	KnowledgeSpaceAdminService_RollbackDelta_FullMethodName          = "/powerx.knowledge.v1.KnowledgeSpaceAdminService/RollbackDelta"
+	KnowledgeSpaceAdminService_ApplyEvent_FullMethodName             = "/powerx.knowledge.v1.KnowledgeSpaceAdminService/ApplyEvent"
+	KnowledgeSpaceAdminService_RetryEvent_FullMethodName             = "/powerx.knowledge.v1.KnowledgeSpaceAdminService/RetryEvent"
+	KnowledgeSpaceAdminService_HotUpdateIndex_FullMethodName         = "/powerx.knowledge.v1.KnowledgeSpaceAdminService/HotUpdateIndex"
+	KnowledgeSpaceAdminService_RefreshAgentWeights_FullMethodName    = "/powerx.knowledge.v1.KnowledgeSpaceAdminService/RefreshAgentWeights"
 )
 
 // KnowledgeSpaceAdminServiceClient is the client API for KnowledgeSpaceAdminService service.
@@ -51,6 +55,10 @@ type KnowledgeSpaceAdminServiceClient interface {
 	GetDeltaReport(ctx context.Context, in *GetDeltaReportRequest, opts ...grpc.CallOption) (*GetDeltaReportResponse, error)
 	PublishDeltaJob(ctx context.Context, in *PublishDeltaJobRequest, opts ...grpc.CallOption) (*PublishDeltaJobResponse, error)
 	RollbackDelta(ctx context.Context, in *RollbackDeltaRequest, opts ...grpc.CallOption) (*RollbackDeltaResponse, error)
+	ApplyEvent(ctx context.Context, in *ApplyEventRequest, opts ...grpc.CallOption) (*ApplyEventResponse, error)
+	RetryEvent(ctx context.Context, in *RetryEventRequest, opts ...grpc.CallOption) (*RetryEventResponse, error)
+	HotUpdateIndex(ctx context.Context, in *HotUpdateRequest, opts ...grpc.CallOption) (*HotUpdateResponse, error)
+	RefreshAgentWeights(ctx context.Context, in *RefreshAgentRequest, opts ...grpc.CallOption) (*RefreshAgentResponse, error)
 }
 
 type knowledgeSpaceAdminServiceClient struct {
@@ -191,6 +199,46 @@ func (c *knowledgeSpaceAdminServiceClient) RollbackDelta(ctx context.Context, in
 	return out, nil
 }
 
+func (c *knowledgeSpaceAdminServiceClient) ApplyEvent(ctx context.Context, in *ApplyEventRequest, opts ...grpc.CallOption) (*ApplyEventResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ApplyEventResponse)
+	err := c.cc.Invoke(ctx, KnowledgeSpaceAdminService_ApplyEvent_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *knowledgeSpaceAdminServiceClient) RetryEvent(ctx context.Context, in *RetryEventRequest, opts ...grpc.CallOption) (*RetryEventResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RetryEventResponse)
+	err := c.cc.Invoke(ctx, KnowledgeSpaceAdminService_RetryEvent_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *knowledgeSpaceAdminServiceClient) HotUpdateIndex(ctx context.Context, in *HotUpdateRequest, opts ...grpc.CallOption) (*HotUpdateResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(HotUpdateResponse)
+	err := c.cc.Invoke(ctx, KnowledgeSpaceAdminService_HotUpdateIndex_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *knowledgeSpaceAdminServiceClient) RefreshAgentWeights(ctx context.Context, in *RefreshAgentRequest, opts ...grpc.CallOption) (*RefreshAgentResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RefreshAgentResponse)
+	err := c.cc.Invoke(ctx, KnowledgeSpaceAdminService_RefreshAgentWeights_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // KnowledgeSpaceAdminServiceServer is the server API for KnowledgeSpaceAdminService service.
 // All implementations must embed UnimplementedKnowledgeSpaceAdminServiceServer
 // for forward compatibility.
@@ -208,6 +256,10 @@ type KnowledgeSpaceAdminServiceServer interface {
 	GetDeltaReport(context.Context, *GetDeltaReportRequest) (*GetDeltaReportResponse, error)
 	PublishDeltaJob(context.Context, *PublishDeltaJobRequest) (*PublishDeltaJobResponse, error)
 	RollbackDelta(context.Context, *RollbackDeltaRequest) (*RollbackDeltaResponse, error)
+	ApplyEvent(context.Context, *ApplyEventRequest) (*ApplyEventResponse, error)
+	RetryEvent(context.Context, *RetryEventRequest) (*RetryEventResponse, error)
+	HotUpdateIndex(context.Context, *HotUpdateRequest) (*HotUpdateResponse, error)
+	RefreshAgentWeights(context.Context, *RefreshAgentRequest) (*RefreshAgentResponse, error)
 	mustEmbedUnimplementedKnowledgeSpaceAdminServiceServer()
 }
 
@@ -256,6 +308,18 @@ func (UnimplementedKnowledgeSpaceAdminServiceServer) PublishDeltaJob(context.Con
 }
 func (UnimplementedKnowledgeSpaceAdminServiceServer) RollbackDelta(context.Context, *RollbackDeltaRequest) (*RollbackDeltaResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RollbackDelta not implemented")
+}
+func (UnimplementedKnowledgeSpaceAdminServiceServer) ApplyEvent(context.Context, *ApplyEventRequest) (*ApplyEventResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ApplyEvent not implemented")
+}
+func (UnimplementedKnowledgeSpaceAdminServiceServer) RetryEvent(context.Context, *RetryEventRequest) (*RetryEventResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RetryEvent not implemented")
+}
+func (UnimplementedKnowledgeSpaceAdminServiceServer) HotUpdateIndex(context.Context, *HotUpdateRequest) (*HotUpdateResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method HotUpdateIndex not implemented")
+}
+func (UnimplementedKnowledgeSpaceAdminServiceServer) RefreshAgentWeights(context.Context, *RefreshAgentRequest) (*RefreshAgentResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RefreshAgentWeights not implemented")
 }
 func (UnimplementedKnowledgeSpaceAdminServiceServer) mustEmbedUnimplementedKnowledgeSpaceAdminServiceServer() {
 }
@@ -513,6 +577,78 @@ func _KnowledgeSpaceAdminService_RollbackDelta_Handler(srv interface{}, ctx cont
 	return interceptor(ctx, in, info, handler)
 }
 
+func _KnowledgeSpaceAdminService_ApplyEvent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ApplyEventRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(KnowledgeSpaceAdminServiceServer).ApplyEvent(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: KnowledgeSpaceAdminService_ApplyEvent_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(KnowledgeSpaceAdminServiceServer).ApplyEvent(ctx, req.(*ApplyEventRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _KnowledgeSpaceAdminService_RetryEvent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RetryEventRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(KnowledgeSpaceAdminServiceServer).RetryEvent(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: KnowledgeSpaceAdminService_RetryEvent_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(KnowledgeSpaceAdminServiceServer).RetryEvent(ctx, req.(*RetryEventRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _KnowledgeSpaceAdminService_HotUpdateIndex_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(HotUpdateRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(KnowledgeSpaceAdminServiceServer).HotUpdateIndex(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: KnowledgeSpaceAdminService_HotUpdateIndex_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(KnowledgeSpaceAdminServiceServer).HotUpdateIndex(ctx, req.(*HotUpdateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _KnowledgeSpaceAdminService_RefreshAgentWeights_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RefreshAgentRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(KnowledgeSpaceAdminServiceServer).RefreshAgentWeights(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: KnowledgeSpaceAdminService_RefreshAgentWeights_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(KnowledgeSpaceAdminServiceServer).RefreshAgentWeights(ctx, req.(*RefreshAgentRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // KnowledgeSpaceAdminService_ServiceDesc is the grpc.ServiceDesc for KnowledgeSpaceAdminService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -571,6 +707,22 @@ var KnowledgeSpaceAdminService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "RollbackDelta",
 			Handler:    _KnowledgeSpaceAdminService_RollbackDelta_Handler,
+		},
+		{
+			MethodName: "ApplyEvent",
+			Handler:    _KnowledgeSpaceAdminService_ApplyEvent_Handler,
+		},
+		{
+			MethodName: "RetryEvent",
+			Handler:    _KnowledgeSpaceAdminService_RetryEvent_Handler,
+		},
+		{
+			MethodName: "HotUpdateIndex",
+			Handler:    _KnowledgeSpaceAdminService_HotUpdateIndex_Handler,
+		},
+		{
+			MethodName: "RefreshAgentWeights",
+			Handler:    _KnowledgeSpaceAdminService_RefreshAgentWeights_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

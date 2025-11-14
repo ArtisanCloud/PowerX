@@ -280,6 +280,14 @@ func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error)
 				FeedbackPath: cfg.KnowledgeSpace.Reports.FeedbackPath,
 				QABridgePath: cfg.KnowledgeSpace.Reports.QABridgePath,
 			},
+			EventHotfix: shared.KnowledgeSpaceEventHotfixOptions{
+				PoliciesPath:        cfg.KnowledgeSpace.EventHotfix.PoliciesPath,
+				AgentMatrixPath:     cfg.KnowledgeSpace.EventHotfix.AgentMatrixPath,
+				ReportPath:          cfg.KnowledgeSpace.EventHotfix.ReportPath,
+				AggregateReportPath: cfg.KnowledgeSpace.EventHotfix.AggregateReportPath,
+				RetryMax:            cfg.KnowledgeSpace.EventHotfix.RetryMax,
+				ReplayWindow:        time.Duration(cfg.KnowledgeSpace.EventHotfix.ReplayWindowSeconds) * time.Second,
+			},
 		},
 		PluginRelease: shared.PluginReleaseOptions{
 			FeatureFlags: shared.PluginReleaseFeatureFlagsOptions{

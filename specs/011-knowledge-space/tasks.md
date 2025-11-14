@@ -193,17 +193,17 @@
 
 ### 测试
 
-- [ ] **T078 [P] [US7]** 在 `backend/tests/contract/knowledge_space/event_http_test.go` 覆盖 `POST /knowledge/events/apply`、`POST /knowledge/events/retry`、`POST /knowledge/index/hot-update`、`POST /agent/weights/refresh`。
-- [ ] **T079 [P] [US7]** 在 `backend/tests/contract/knowledge_space/event_grpc_test.go` 覆盖 gRPC 事件处理接口与幂等键冲突。
-- [ ] **T080 [US7]** 在 `backend/tests/integration/knowledge_space/event_hotfix_flow_test.go` 模拟事件→策略→热修→Agent 通知→失败重试→幂等忽略。
+- [X] **T078 [P] [US7]** 在 `backend/tests/contract/knowledge_space/event_http_test.go` 覆盖 `POST /knowledge/events/apply`、`POST /knowledge/events/retry`、`POST /knowledge/index/hot-update`、`POST /agent/weights/refresh`。
+- [X] **T079 [P] [US7]** 在 `backend/tests/contract/knowledge_space/event_grpc_test.go` 覆盖 gRPC 事件处理接口与幂等键冲突。
+- [X] **T080 [US7]** 在 `backend/tests/integration/knowledge_space/event_hotfix_flow_test.go` 模拟事件→策略→热修→Agent 通知→失败重试→幂等忽略。
 
 ### 实现
 
-- [ ] **T081 [US7]** 在 `backend/internal/service/knowledge_space/event_hotfix/service.go` 实现事件 intake、策略匹配、热更新、幂等/重试控制与 `audit-ledger` 写入。
-- [ ] **T082 [US7]** 在 `backend/internal/transport/http/admin/knowledge_space/event_handlers.go` 实现 HTTP Handler，校验事件签名与 payload schema。
-- [ ] **T083 [US7]** 在 `backend/internal/transport/grpc/knowledge_space/event_service.go` 实现 gRPC Handler + 订阅注册，注入事件总线。
-- [ ] **T084 [US7]** 在 `backend/internal/service/knowledge_space/event_hotfix/agent_notifier.go` 刷新 Agent 检索权重/模板，写入 `agent.refresh.success_rate`。
-- [ ] **T085 [US7]** 新增 `configs/knowledge/event_hotfix_policies.yaml`、`configs/knowledge/agent_weight_matrix.yaml`、`scripts/ops/knowledge-event-replay.mjs`，输出 `backend/reports/_state/knowledge-event.json` 并更新 Grafana《Event Hotfix》。
+- [X] **T081 [US7]** 在 `backend/internal/service/knowledge_space/event_hotfix/service.go` 实现事件 intake、策略匹配、热更新、幂等/重试控制与 `audit-ledger` 写入。
+- [X] **T082 [US7]** 在 `backend/internal/transport/http/admin/knowledge_space/event_handlers.go` 实现 HTTP Handler，校验事件签名与 payload schema。
+- [X] **T083 [US7]** 在 `backend/internal/transport/grpc/knowledge_space/event_service.go` 实现 gRPC Handler + 订阅注册，注入事件总线。
+- [X] **T084 [US7]** 在 `backend/internal/service/knowledge_space/event_hotfix/agent_notifier.go` 刷新 Agent 检索权重/模板，写入 `agent.refresh.success_rate`。
+- [X] **T085 [US7]** 新增 `configs/knowledge/event_hotfix_policies.yaml`、`configs/knowledge/agent_weight_matrix.yaml`、`scripts/ops/knowledge-event-replay.mjs`，输出 `backend/reports/_state/knowledge-event.json` 并更新 Grafana《Event Hotfix》。
 
 ---
 
