@@ -24,6 +24,13 @@ export const useAuth = () => {
       // 计算过期时间
       const expiresAt = Date.now() + authData.expires_in * 1000;
       localStorage.setItem("expires_at", expiresAt.toString());
+
+      // 同步一份 cookie 供 iframe/插件使用（保持与 localStorage 同步）
+      const tokenCookie = useCookie("token", {
+        sameSite: "lax",
+        path: "/",
+      });
+      tokenCookie.value = authData.access_token;
     }
 
     // 更新状态
@@ -41,6 +48,12 @@ export const useAuth = () => {
       localStorage.removeItem("token_type");
       localStorage.removeItem("expires_in");
       localStorage.removeItem("expires_at");
+
+      const tokenCookie = useCookie<string | null>("token", {
+        sameSite: "lax",
+        path: "/",
+      });
+      tokenCookie.value = null;
     }
 
     token.value = null;
