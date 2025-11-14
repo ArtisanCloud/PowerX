@@ -424,3 +424,144 @@ var KnowledgeSpaceAdminService_ServiceDesc = grpc.ServiceDesc{
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "powerx/knowledge/v1/knowledge_space.proto",
 }
+
+const (
+	KnowledgeSpaceQABridgeService_PlanRetrieval_FullMethodName        = "/powerx.knowledge.v1.KnowledgeSpaceQABridgeService/PlanRetrieval"
+	KnowledgeSpaceQABridgeService_UpsertMemorySnapshot_FullMethodName = "/powerx.knowledge.v1.KnowledgeSpaceQABridgeService/UpsertMemorySnapshot"
+)
+
+// KnowledgeSpaceQABridgeServiceClient is the client API for KnowledgeSpaceQABridgeService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type KnowledgeSpaceQABridgeServiceClient interface {
+	PlanRetrieval(ctx context.Context, in *QARetrievalPlanRequest, opts ...grpc.CallOption) (*QARetrievalPlanResponse, error)
+	UpsertMemorySnapshot(ctx context.Context, in *QAMemorySnapshotRequest, opts ...grpc.CallOption) (*QAMemorySnapshotResponse, error)
+}
+
+type knowledgeSpaceQABridgeServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewKnowledgeSpaceQABridgeServiceClient(cc grpc.ClientConnInterface) KnowledgeSpaceQABridgeServiceClient {
+	return &knowledgeSpaceQABridgeServiceClient{cc}
+}
+
+func (c *knowledgeSpaceQABridgeServiceClient) PlanRetrieval(ctx context.Context, in *QARetrievalPlanRequest, opts ...grpc.CallOption) (*QARetrievalPlanResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(QARetrievalPlanResponse)
+	err := c.cc.Invoke(ctx, KnowledgeSpaceQABridgeService_PlanRetrieval_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *knowledgeSpaceQABridgeServiceClient) UpsertMemorySnapshot(ctx context.Context, in *QAMemorySnapshotRequest, opts ...grpc.CallOption) (*QAMemorySnapshotResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(QAMemorySnapshotResponse)
+	err := c.cc.Invoke(ctx, KnowledgeSpaceQABridgeService_UpsertMemorySnapshot_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// KnowledgeSpaceQABridgeServiceServer is the server API for KnowledgeSpaceQABridgeService service.
+// All implementations must embed UnimplementedKnowledgeSpaceQABridgeServiceServer
+// for forward compatibility.
+type KnowledgeSpaceQABridgeServiceServer interface {
+	PlanRetrieval(context.Context, *QARetrievalPlanRequest) (*QARetrievalPlanResponse, error)
+	UpsertMemorySnapshot(context.Context, *QAMemorySnapshotRequest) (*QAMemorySnapshotResponse, error)
+	mustEmbedUnimplementedKnowledgeSpaceQABridgeServiceServer()
+}
+
+// UnimplementedKnowledgeSpaceQABridgeServiceServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedKnowledgeSpaceQABridgeServiceServer struct{}
+
+func (UnimplementedKnowledgeSpaceQABridgeServiceServer) PlanRetrieval(context.Context, *QARetrievalPlanRequest) (*QARetrievalPlanResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method PlanRetrieval not implemented")
+}
+func (UnimplementedKnowledgeSpaceQABridgeServiceServer) UpsertMemorySnapshot(context.Context, *QAMemorySnapshotRequest) (*QAMemorySnapshotResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpsertMemorySnapshot not implemented")
+}
+func (UnimplementedKnowledgeSpaceQABridgeServiceServer) mustEmbedUnimplementedKnowledgeSpaceQABridgeServiceServer() {
+}
+func (UnimplementedKnowledgeSpaceQABridgeServiceServer) testEmbeddedByValue() {}
+
+// UnsafeKnowledgeSpaceQABridgeServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to KnowledgeSpaceQABridgeServiceServer will
+// result in compilation errors.
+type UnsafeKnowledgeSpaceQABridgeServiceServer interface {
+	mustEmbedUnimplementedKnowledgeSpaceQABridgeServiceServer()
+}
+
+func RegisterKnowledgeSpaceQABridgeServiceServer(s grpc.ServiceRegistrar, srv KnowledgeSpaceQABridgeServiceServer) {
+	// If the following call pancis, it indicates UnimplementedKnowledgeSpaceQABridgeServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&KnowledgeSpaceQABridgeService_ServiceDesc, srv)
+}
+
+func _KnowledgeSpaceQABridgeService_PlanRetrieval_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QARetrievalPlanRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(KnowledgeSpaceQABridgeServiceServer).PlanRetrieval(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: KnowledgeSpaceQABridgeService_PlanRetrieval_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(KnowledgeSpaceQABridgeServiceServer).PlanRetrieval(ctx, req.(*QARetrievalPlanRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _KnowledgeSpaceQABridgeService_UpsertMemorySnapshot_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QAMemorySnapshotRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(KnowledgeSpaceQABridgeServiceServer).UpsertMemorySnapshot(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: KnowledgeSpaceQABridgeService_UpsertMemorySnapshot_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(KnowledgeSpaceQABridgeServiceServer).UpsertMemorySnapshot(ctx, req.(*QAMemorySnapshotRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// KnowledgeSpaceQABridgeService_ServiceDesc is the grpc.ServiceDesc for KnowledgeSpaceQABridgeService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var KnowledgeSpaceQABridgeService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "powerx.knowledge.v1.KnowledgeSpaceQABridgeService",
+	HandlerType: (*KnowledgeSpaceQABridgeServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "PlanRetrieval",
+			Handler:    _KnowledgeSpaceQABridgeService_PlanRetrieval_Handler,
+		},
+		{
+			MethodName: "UpsertMemorySnapshot",
+			Handler:    _KnowledgeSpaceQABridgeService_UpsertMemorySnapshot_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "powerx/knowledge/v1/knowledge_space.proto",
+}

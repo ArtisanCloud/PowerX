@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -41,7 +42,11 @@ import (
 	integrationManager "github.com/ArtisanCloud/PowerX/internal/service/integration_gateway/manager"
 	integrationTenant "github.com/ArtisanCloud/PowerX/internal/service/integration_gateway/tenant"
 	knowledgeService "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space"
+	kncompliance "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/compliance"
+	knctxsnapshot "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/context_snapshot"
 	knowledgeinstr "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/instrumentation"
+	knowledgeqa "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/qa_bridge"
+	kntoolchain "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/toolchain"
 	mediasvc "github.com/ArtisanCloud/PowerX/internal/service/media"
 	pluginbootstrap "github.com/ArtisanCloud/PowerX/internal/service/plugin_bootstrap"
 	plugincompat "github.com/ArtisanCloud/PowerX/internal/service/plugin_compat"
@@ -532,6 +537,7 @@ type KnowledgeSpaceDeps struct {
 	Fusion          *knowledgeService.FusionService
 	Feedback        *knowledgeService.FeedbackService
 	VectorStore     vectorstorepkg.Store
+	QABridge        *knowledgeqa.Service
 }
 
 // KnowledgeSpaceRuntimeConfig 描述运行期常用配置。
@@ -1123,6 +1129,20 @@ func newKnowledgeSpaceDeps(db *gorm.DB, opts KnowledgeSpaceOptions, bus event_bu
 		Clock:           time.Now,
 	})
 
+	snapshotStore := knctxsnapshot.NewStore()
+	toolRegistry := kntoolchain.NewRegistry()
+	guard := kncompliance.NewGuard()
+	qaBridgeSvc := knowledgeqa.NewService(knowledgeqa.Options{
+		DB:              db,
+		Instrumentation: inst,
+		VectorStore:     vectorStore,
+		SnapshotStore:   snapshotStore,
+		ToolRegistry:    toolRegistry,
+		Guard:           guard,
+		Clock:           time.Now,
+		ReportPath:      filepath.Join("reports", "_state", "qa-reasoning.json"),
+	})
+
 	return &KnowledgeSpaceDeps{
 		Instrumentation: inst,
 		RedisClient:     redisClient,
@@ -1133,6 +1153,7 @@ func newKnowledgeSpaceDeps(db *gorm.DB, opts KnowledgeSpaceOptions, bus event_bu
 		Fusion:          fusionSvc,
 		Feedback:        feedbackSvc,
 		VectorStore:     vectorStore,
+		QABridge:        qaBridgeSvc,
 	}
 }
 

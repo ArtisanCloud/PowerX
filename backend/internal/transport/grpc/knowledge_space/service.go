@@ -10,6 +10,9 @@ import (
 	knowledgev1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/knowledge/v1"
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
 	ksvc "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space"
+	"github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/context_snapshot"
+	qaBridge "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/qa_bridge"
+	"github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/toolchain"
 	models "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/knowledge"
 	"github.com/google/uuid"
 	"google.golang.org/grpc"
@@ -19,13 +22,15 @@ import (
 	"gorm.io/datatypes"
 )
 
-// Server implements the KnowledgeSpaceAdminService.
+// Server implements KnowledgeSpaceAdminService + QABridge APIs.
 type Server struct {
 	knowledgev1.UnimplementedKnowledgeSpaceAdminServiceServer
+	knowledgev1.UnimplementedKnowledgeSpaceQABridgeServiceServer
 	svc       *ksvc.Service
 	ingestion *ksvc.IngestionService
 	fusion    *ksvc.FusionService
 	feedback  *ksvc.FeedbackService
+	qa        *qaBridge.Service
 }
 
 // NewServer builds a gRPC server wrapper.
@@ -38,6 +43,7 @@ func NewServer(deps *shared.Deps) *Server {
 		ingestion: deps.KnowledgeSpace.Ingestion,
 		fusion:    deps.KnowledgeSpace.Fusion,
 		feedback:  deps.KnowledgeSpace.Feedback,
+		qa:        deps.KnowledgeSpace.QABridge,
 	}
 }
 
@@ -47,6 +53,7 @@ func Register(registrar grpc.ServiceRegistrar, srv *Server) {
 		return
 	}
 	knowledgev1.RegisterKnowledgeSpaceAdminServiceServer(registrar, srv)
+	knowledgev1.RegisterKnowledgeSpaceQABridgeServiceServer(registrar, srv)
 }
 
 func (s *Server) CreateKnowledgeSpace(ctx context.Context, req *knowledgev1.CreateKnowledgeSpaceRequest) (*knowledgev1.CreateKnowledgeSpaceResponse, error) {
@@ -205,6 +212,73 @@ func (s *Server) RollbackFusionStrategy(ctx context.Context, req *knowledgev1.Ro
 		return nil, mapFusionError(err)
 	}
 	return &knowledgev1.FusionStrategyResponse{Strategy: toProtoFusionStrategy(strategy)}, nil
+}
+
+func (s *Server) PlanRetrieval(ctx context.Context, req *knowledgev1.QARetrievalPlanRequest) (*knowledgev1.QARetrievalPlanResponse, error) {
+	if s.qa == nil {
+		return nil, status.Error(codes.Unavailable, "qa bridge not available")
+	}
+	tenantID, err := uuid.Parse(strings.TrimSpace(req.GetTenantId()))
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant id: %v", err)
+	}
+	out, err := s.qa.Plan(ctx, qaBridge.PlanInput{
+		TenantID:        tenantID,
+		Intent:          req.GetIntent(),
+		DomainTags:      req.GetDomainTags(),
+		SessionID:       req.GetSessionId(),
+		LatencyBudgetMs: int(req.GetLatencyBudgetMs()),
+	})
+	if err != nil {
+		switch {
+		case errors.Is(err, qaBridge.ErrInvalidInput):
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		case errors.Is(err, qaBridge.ErrSpacesMissing):
+			return nil, status.Error(codes.NotFound, err.Error())
+		default:
+			return nil, status.Error(codes.Internal, err.Error())
+		}
+	}
+	return &knowledgev1.QARetrievalPlanResponse{
+		TenantId:        out.TenantID.String(),
+		Intent:          out.Intent,
+		DomainTags:      out.DomainTags,
+		CandidateSpaces: toProtoCandidateSpaces(out.CandidateSpaces),
+		Toolings:        toProtoToolings(out.Toolings),
+		Telemetry: &knowledgev1.QATelemetry{
+			TraceId:    out.TraceID,
+			RecordedAt: timestamppb.New(out.RecordedAt),
+		},
+		DegradeCount:    int32(out.DegradeCount),
+		SessionId:       out.SessionID,
+		LatencyBudgetMs: int32(out.LatencyBudgetMs),
+	}, nil
+}
+
+func (s *Server) UpsertMemorySnapshot(ctx context.Context, req *knowledgev1.QAMemorySnapshotRequest) (*knowledgev1.QAMemorySnapshotResponse, error) {
+	if s.qa == nil {
+		return nil, status.Error(codes.Unavailable, "qa bridge not available")
+	}
+	tenantID, err := uuid.Parse(strings.TrimSpace(req.GetTenantId()))
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant id: %v", err)
+	}
+	out, err := s.qa.UpsertMemorySnapshot(ctx, qaBridge.MemoryInput{
+		TenantID:  tenantID,
+		SessionID: req.GetSessionId(),
+		Updates:   fromProtoUpdates(req.GetUpdates()),
+	})
+	if err != nil {
+		if errors.Is(err, qaBridge.ErrInvalidInput) {
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		}
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	return &knowledgev1.QAMemorySnapshotResponse{
+		TenantId:  out.TenantID.String(),
+		SessionId: out.SessionID,
+		Citations: toProtoCitations(out.Citations),
+	}, nil
 }
 
 func (s *Server) SubmitFeedback(ctx context.Context, req *knowledgev1.FeedbackRequest) (*knowledgev1.FeedbackResponse, error) {
@@ -374,6 +448,65 @@ func toProtoFusionStrategyList(list []*models.FusionStrategyVersion) []*knowledg
 	out := make([]*knowledgev1.FusionStrategy, 0, len(list))
 	for _, item := range list {
 		out = append(out, toProtoFusionStrategy(item))
+	}
+	return out
+}
+
+func toProtoCandidateSpaces(spaces []qaBridge.CandidateSpace) []*knowledgev1.QACandidateSpace {
+	out := make([]*knowledgev1.QACandidateSpace, 0, len(spaces))
+	for _, item := range spaces {
+		out = append(out, &knowledgev1.QACandidateSpace{
+			SpaceId:          item.SpaceID.String(),
+			SpaceName:        item.SpaceName,
+			Strategy:         item.Strategy,
+			CitationCoverage: item.CitationCoverage,
+			DegradeReason:    item.DegradeReason,
+		})
+	}
+	return out
+}
+
+func toProtoToolings(items []toolchain.Metadata) []*knowledgev1.QAToolMetadata {
+	out := make([]*knowledgev1.QAToolMetadata, 0, len(items))
+	for _, item := range items {
+		out = append(out, &knowledgev1.QAToolMetadata{
+			ToolId:   item.ToolID,
+			Name:     item.Name,
+			Category: item.Category,
+			Endpoint: item.Endpoint,
+		})
+	}
+	return out
+}
+
+func fromProtoUpdates(items []*knowledgev1.QAMemoryUpdate) []context_snapshot.Citation {
+	out := make([]context_snapshot.Citation, 0, len(items))
+	for _, item := range items {
+		out = append(out, context_snapshot.Citation{
+			ChunkID:     item.GetChunkId(),
+			SpaceID:     item.GetSpaceId(),
+			Status:      item.GetStatus(),
+			Citations:   item.GetCitations(),
+			SourceType:  item.GetSourceType(),
+			Confidence:  item.GetConfidence(),
+			DeltaReason: item.GetDeltaReason(),
+		})
+	}
+	return out
+}
+
+func toProtoCitations(items []context_snapshot.Citation) []*knowledgev1.QACitationSummary {
+	out := make([]*knowledgev1.QACitationSummary, 0, len(items))
+	for _, item := range items {
+		out = append(out, &knowledgev1.QACitationSummary{
+			ChunkId:     item.ChunkID,
+			SpaceId:     item.SpaceID,
+			Citations:   item.Citations,
+			Status:      item.Status,
+			SourceType:  item.SourceType,
+			Confidence:  item.Confidence,
+			DeltaReason: item.DeltaReason,
+		})
 	}
 	return out
 }

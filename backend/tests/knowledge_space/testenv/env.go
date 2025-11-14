@@ -11,8 +11,10 @@ import (
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
 	knowledgeService "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space"
 	knowledgeinstr "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/instrumentation"
+	qaBridge "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/qa_bridge"
 	knowledgegrpc "github.com/ArtisanCloud/PowerX/internal/transport/grpc/knowledge_space"
 	adminhttp "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/knowledge_space"
+	openapihttp "github.com/ArtisanCloud/PowerX/internal/transport/http/openapi/knowledge_space"
 	coremodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
 	models "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/knowledge"
 	"github.com/ArtisanCloud/PowerX/pkg/event_bus"
@@ -131,6 +133,13 @@ func New(t testing.TB) *Env {
 		MetricsWriter:   metricsWriter,
 		Clock:           time.Now,
 	})
+	qaBridgeSvc := qaBridge.NewService(qaBridge.Options{
+		DB:              db,
+		Instrumentation: inst,
+		VectorStore:     vectorStore,
+		Clock:           time.Now,
+		ReportPath:      filepath.Join(t.TempDir(), "qa-reasoning.json"),
+	})
 
 	deps := &shared.Deps{
 		DB:       db,
@@ -145,6 +154,7 @@ func New(t testing.TB) *Env {
 			Fusion:          fusionSvc,
 			Feedback:        feedbackSvc,
 			VectorStore:     vectorStore,
+			QABridge:        qaBridgeSvc,
 		},
 	}
 
@@ -179,6 +189,7 @@ func (e *Env) Engine() *gin.Engine {
 		c.Next()
 	})
 	adminhttp.RegisterAPIRoutes(public, protected, e.Deps)
+	openapihttp.Register(public, protected, e.Deps)
 	return engine
 }
 
@@ -224,4 +235,35 @@ func (e *Env) CreateSpaceFixture(name string, policyID uint64) *models.Knowledge
 	})
 	require.NoError(e.T, err)
 	return space
+}
+
+// ActivateSpace forces a space status to active for downstream flows.
+func (e *Env) ActivateSpace(spaceID uuid.UUID) error {
+	if e.Deps == nil || e.Deps.KnowledgeSpace == nil || e.Deps.KnowledgeSpace.Service == nil {
+		return fmt.Errorf("knowledge space service not initialized")
+	}
+	_, err := e.Deps.KnowledgeSpace.Service.UpdateSpace(context.Background(), knowledgeService.UpdateSpaceInput{
+		SpaceID: spaceID,
+		Status:  models.KnowledgeSpaceStatusActive,
+	})
+	return err
+}
+
+// SetSpaceStatus updates the runtime status for a given space.
+func (e *Env) SetSpaceStatus(spaceID uuid.UUID, status string) error {
+	if e.Deps == nil || e.Deps.KnowledgeSpace == nil || e.Deps.KnowledgeSpace.Service == nil {
+		return fmt.Errorf("knowledge space service not initialized")
+	}
+	if status == models.KnowledgeSpaceStatusRetired {
+		_, err := e.Deps.KnowledgeSpace.Service.RetireSpace(context.Background(), knowledgeService.RetireSpaceInput{
+			SpaceID: spaceID,
+			Reason:  "test-retired",
+		})
+		return err
+	}
+	_, err := e.Deps.KnowledgeSpace.Service.UpdateSpace(context.Background(), knowledgeService.UpdateSpaceInput{
+		SpaceID: spaceID,
+		Status:  status,
+	})
+	return err
 }

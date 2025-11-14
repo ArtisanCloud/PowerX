@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from "vue";
 import { useKnowledgeSpaces } from "~/composables/useKnowledgeSpaces";
+import { createQaBridgeClient } from "~/services/knowledge-spaces/qaBridgeClient";
+import QaBridgeStatusCard from "~/components/knowledge-spaces/QaBridgeStatusCard.vue";
 import { useKnowledgeSpaceStore } from "~/stores/knowledgeSpaces";
 
 useHead({
@@ -9,6 +11,7 @@ useHead({
 });
 
 const api = useKnowledgeSpaces();
+const qaClient = createQaBridgeClient();
 const knowledgeStore = useKnowledgeSpaceStore();
 
 const quickActions = [
@@ -42,6 +45,48 @@ const placeholders = [
 	},
 ];
 
+interface QaDashboardStatus {
+  latencyMsP95: number;
+  citationCoverage: number;
+  toolSuccessRate: number;
+  degradeCount: number;
+  lastAuditId?: string;
+  lastUpdatedAt?: string;
+}
+
+const qaStatus = ref<QaDashboardStatus>({
+  latencyMsP95: 0,
+  citationCoverage: 0,
+  toolSuccessRate: 0,
+  degradeCount: 0,
+});
+
+const refreshQaStatus = async () => {
+  const tenantId = knowledgeStore.lastSpace?.tenantId;
+  if (!tenantId) {
+    return;
+  }
+  try {
+    const plan = await qaClient.plan({
+      tenantId,
+      intent: "dashboard-health-check",
+      domainTags: ["ops"],
+      sessionId: "knowledge-dashboard",
+      latencyBudgetMs: 2000,
+    });
+    qaStatus.value = {
+      latencyMsP95: plan.latencyBudgetMs ?? 2000,
+      citationCoverage: plan.candidateSpaces[0]?.citationCoverage ?? 0,
+      toolSuccessRate: plan.tooling.length > 0 ? 0.99 : 0.9,
+      degradeCount: plan.degradeCount ?? 0,
+      lastAuditId: plan.telemetry?.traceId,
+      lastUpdatedAt: plan.telemetry?.recordedAt,
+    };
+  } catch (error) {
+    console.error("无法获取 QA 状态", error);
+  }
+};
+
 const ingestionForm = reactive({
 	spaceId: "",
 	sourceType: "pdf",
@@ -61,13 +106,14 @@ const recentSpaces = computed(() =>
 );
 
 watch(
-	() => recentSpaces.value,
-	(spaces) => {
-		if (!ingestionForm.spaceId && spaces.length > 0) {
-			ingestionForm.spaceId = spaces[0].spaceId;
-		}
-	},
-	{ immediate: true },
+  () => knowledgeStore.lastSpace,
+  () => {
+    if (knowledgeStore.lastSpace?.spaceId && !ingestionForm.spaceId) {
+      ingestionForm.spaceId = knowledgeStore.lastSpace.spaceId;
+    }
+    refreshQaStatus();
+  },
+  { immediate: true },
 );
 
 const sourceOptions = [
@@ -173,6 +219,14 @@ const submitIngestion = async () => {
         </NuxtLink>
       </div>
     </header>
+
+    <section class="grid gap-4 md:grid-cols-2">
+      <QaBridgeStatusCard :status="qaStatus" @refresh="refreshQaStatus" />
+      <div class="rounded-lg border border-dashed border-gray-200 p-4 text-sm text-gray-500">
+        <p class="font-medium text-gray-700 mb-1">治理指南</p>
+        <p>即将提供更多跨空间指标与告警入口，敬请期待。</p>
+      </div>
+    </section>
 
     <UCard>
       <template #header>

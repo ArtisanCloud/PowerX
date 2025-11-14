@@ -79,12 +79,30 @@ Agent operators submit feedback whenever answers look stale or inaccurate, trigg
 
 ---
 
+### User Story 5 - QA orchestrator-ready cross-space reasoning surfaces (Priority: P1)
+
+QA Orchestrator and Agent Dialogue services (per `SCN-KNOWLEDGE-QA-REASON-001`) consume knowledge-space metadata to pick the right spaces, stream conversation memory, assemble reasoning plans that mix chunks + tools, and enforce security checks before responding to end users. Knowledge spaces must therefore expose cross-space retrieval readiness, citation deltas, and toolchain contracts with ≤2s SLA so QA flows can stay trustworthy across multiple tenants.
+
+**Why this priority**: Intelligent QA is the downstream consumer that validates the value of every knowledge space. Without first-class orchestration hooks, the scenario’s KPIs (≤2s retrieval, ≥95% citation coverage, ≥99% tool success, 24h negative-feedback closure) cannot be met even if ingestion quality is high.
+
+**Independent Test**: Point the sandbox QA Orchestrator at two active knowledge spaces, call the new `POST /knowledge-spaces/qa/retrieval-plan` API with labeled intents, watch it return within 2 seconds with citation scores + degrade reasons, trigger a follow-up request to verify conversation-memory deltas, and force a tool failure to confirm failover + audit events fire before the Agent completes the answer.
+
+**Acceptance Scenarios**:
+
+1. **Given** a QA Orchestrator request carrying `intent`, `domain_tags`, and desired latency, **When** the knowledge-space service computes the cross-space retrieval plan, **Then** it returns ≤2s with ≥95% citation coverage, identifies at least two eligible spaces, and emits `qa.retrieval.plan` telemetry that records degrade reasons for any skipped space.
+2. **Given** a multi-turn follow-up, **When** the Agent Dialogue service queries `/knowledge-spaces/qa/memory-snapshot`, **Then** it receives citation deltas mapped to chunk IDs + knowledge space IDs, with an audit pointer so security reviewers can replay the reasoning chain.
+3. **Given** the reasoning plan references SQL/REST tools registered for a knowledge space, **When** the QA Orchestrator invokes the new toolchain contract, **Then** the service resolves tool metadata, enforces IAM scopes, logs each step under `audit.reasoning_steps`, and automatically fails over to cached data if real-time calls fall below the 99% success target.
+4. **Given** sensitive fields or unauthorized spaces are detected during plan generation, **When** the compliance hooks run, **Then** the request is blocked with `security.access.denied`, a masked preview is returned, an incident alert is raised, and the original QA session automatically links to the audit ID for follow-up.
+
+---
+
 - Concurrent space creation for the same tenant must detect quota conflicts and serialize provisioning to avoid double-allocation; the UI should lock the wizard and surface a toast when another admin is mid-creation.
 - Import payloads referencing unsupported formats (e.g., password-protected PDFs) should fail fast with actionable remediation guidance.
 - Structured ingestion must block uploads that contain confidential identifiers the masking policy cannot cover.
 - Fusion strategies referencing deprecated pipelines should not publish; operators must be prompted to re-link compatible sources.
 - Feedback submitted on deleted spaces must be rejected with guidance to reassign or restore the source space.
 - Bulk reprocessing triggered by spikes (>50 feedback/hour) should throttle job creation to protect shared GPU/OCR capacity and show banner alerts in the Web Admin dashboard.
+- Cross-space retrieval plan requests must degrade gracefully when a knowledge space is offline or unauthorized by returning structured `degrade_reason` codes, emitting `qa.degrade.count`, and blocking propagation to QA Orchestrator until compliance gates pass.
 
 ## Requirements *(mandatory)*
 
@@ -104,6 +122,11 @@ Agent operators submit feedback whenever answers look stale or inaccurate, trigg
 - **FR-012**: Feedback submission MUST capture the answer context, chunk/tool trace, and severity, then trigger quality scoring and reprocess jobs with SLA monitoring (≤24 hours to completion).
 - **FR-013**: Hot index updates MUST swap vector, keyword, and graph artifacts atomically, ensuring no more than five minutes of stale responses during deployment.
 - **FR-014**: All flows (provisioning, ingestion, fusion, feedback) MUST expose metrics to Grafana dashboards (`Knowledge Space`, `fusion-pipeline`, `feedback-loop`) and export summarized JSON under `reports/_state`.
+- **FR-015**: Knowledge spaces MUST expose a QA Orchestrator bridge (HTTP + gRPC) that accepts intent/tag payloads, returns cross-space retrieval plans within ≤2 seconds, annotates citation coverage (goal ≥95%), and encodes degrade reasons aligned with `SCN-KNOWLEDGE-QA-RETRIEVE-001`.
+- **FR-016**: The service MUST provide conversation-memory snapshots/deltas per tenant + knowledge space so Agent Dialogue flows can reuse citations, highlight differences, and persist audits as outlined in `SCN-KNOWLEDGE-QA-CONTEXT-001`.
+- **FR-017**: Toolchain metadata (SQL/REST/rule engines) tied to each knowledge space MUST be discoverable and invocable via the bridge, including failover policies, audit identifiers, and cached outputs to satisfy `SCN-KNOWLEDGE-QA-TOOL-001`.
+- **FR-018**: Each QA Orchestrator interaction MUST call IAM access checks and sensitive-data detectors before responding, block unauthorized requests, and write `audit.reasoning_steps` + `audit.security` records that comply with `SCN-KNOWLEDGE-QA-COMPLIANCE-001`.
+- **FR-019**: QA-feedback events sourced from Agent sessions MUST funnel into the existing feedback loop, keeping the ≤24h SLA, tagging the originating QA session, and producing `qa.feedback.loop_time` metrics per `SCN-KNOWLEDGE-QA-FEEDBACK-001`.
 
 ### Key Entities *(include if feature involves data)*
 
@@ -131,3 +154,4 @@ Agent operators submit feedback whenever answers look stale or inaccurate, trigg
 - **SC-004**: Feedback cases close (reprocessed + hot-updated) within 24 hours in ≥95% of instances; unresolved cases automatically escalate after SLA breach.
 - **SC-005**: All critical pipelines emit health metrics and alerts with <5 minutes detection time, and there are zero gaps in audit trails for provisioning, ingestion, fusion, or feedback events.
 - **SC-006**: Compliance metrics (masking coverage, IAM sync success, audit completeness) stay at 100% for production tenants during pilot rollout.
+- **SC-007**: QA Orchestrator calls spanning at least two knowledge spaces complete cross-space retrieval plans in ≤2 seconds, maintain ≥95% citation coverage, keep real-time tool success ≥99%, and auto-close ≥95% of QA-sourced feedback within 24 hours.

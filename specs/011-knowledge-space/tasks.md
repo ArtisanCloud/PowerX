@@ -139,7 +139,30 @@
 
 ---
 
-## 阶段 7：Polish & Cross-Cutting
+## 阶段 7：用户故事 US5（P1）— QA 推理桥接
+
+**目标**：让 QA Orchestrator / Agent Dialogue 能在 2 秒内拿到跨知识空间检索计划、对话记忆差异、工具链元数据与合规审计钩子，满足 `SCN-KNOWLEDGE-QA-REASON-001` 全链路 KPI。  
+**独立验证**：从 QA Orchestrator 沙箱发送多租户、带标签的检索请求，确认返回计划含 citation 覆盖 ≥95%、降级原因、IAM/敏感校验；触发多轮追问与工具 failover，并核对 `qa.*` 指标、`audit.reasoning_steps`、`reports/_state/qa-reasoning.json`。
+
+### 测试
+
+- [X] **T059 [P] [US5]** 在 `backend/tests/contract/knowledge_space/qa_bridge_http_test.go` 覆盖 `POST /knowledge-spaces/qa/retrieval-plan`、`/memory-snapshot` 的 SLA、降级、越权/敏感阻断返回。
+- [X] **T060 [P] [US5]** 在 `backend/tests/contract/knowledge_space/qa_bridge_grpc_test.go` 覆盖 gRPC Planner（多空间路由、工具元数据、failover）。
+- [X] **T061 [US5]** 在 `backend/tests/integration/knowledge_space/qa_reasoning_flow_test.go` 模拟 Agent Session → 检索计划 → 工具调用 → failover → 反馈闭环，断言 2 秒 SLA、≥99% 工具成功、审计写入。
+- [X] **T062 [P] [US5]** 在 `web-admin/tests/unit/knowledge-spaces/qa-bridge-card.spec.ts` 校验 `QaBridgeStatusCard.vue` 渲染 QA 指标、降级告警与审计链接。
+
+### 实现
+
+- [X] **T063 [US5]** 在 `backend/internal/service/knowledge_space/qa_bridge/service.go` 实现检索计划计算（向量/BM25/图谱权重、降级原因、SLA 计时）并输出 `qa.retrieval.*` 指标。
+- [X] **T064 [US5]** 在 `backend/internal/service/knowledge_space/context_snapshot/store.go` 构建 Redis + 向量的记忆快照/差异存储，暴露 `GetMemorySnapshot` / `WriteDelta` API，保证 150ms 内返回。
+- [X] **T065 [US5]** 在 `backend/internal/service/knowledge_space/toolchain/registry.go` & `executor.go` 注册 SQL/REST/规则工具，封装 IAM scope 校验、重试、缓存降级，失败时写入 `qa.failover.count`。
+- [X] **T066 [US5]** 在 `backend/internal/service/knowledge_space/compliance/hooks.go` 统一接入 `security.AccessCheck`、敏感检测、`audit.reasoning_steps`，阻断越权并生成审计 ID。
+- [X] **T067 [US5]** 在 `backend/internal/transport/http/openapi/knowledge_space/qa_bridge_handlers.go` 与 `grpc/knowledge_space/qa_bridge_service.go` 暴露 QA Bridge API，更新 `contracts/http-openapi.yaml`/proto。
+- [X] **T068 [US5]** 在 `backend/reports/_state/qa-reasoning.json` & Grafana 面板写入 `qa.retrieval.latency_ms`, `qa.cross_space.hit_rate`, `qa.tool.success_rate`, `qa.feedback.loop_time`，并在 `web-admin/app/components/knowledge-spaces/QaBridgeStatusCard.vue` + `app/services/knowledge-spaces/qaBridgeClient.ts` 显示健康状态。
+
+---
+
+## 阶段 8：Polish & Cross-Cutting
 
 - [X] **T056 [P] [Polish]** 更新 quickstart.md、README、Runbook，确保命令（npm、make、Grafana 看板）与最终实现一致。
 - [X] **T057 [Polish]** 进行性能 / 弹性验证（批量创建/入库、模拟融合 API 故障）并调整告警阈值。
@@ -149,9 +172,9 @@
 
 ## 依赖与执行顺序
 
-- Setup → Foundational → 各用户故事 → Polish；Foundational 未完成前，任何用户故事不得开始。
+- Setup → Foundational → US1 → US2/US3/US4（可并行但依赖共享模型）→ US5（需要 US2–US4 的数据/策略/反馈能力）→ Polish；Foundational 未完成前，任何用户故事不得开始。
 - 每个故事内部遵循：合同测试 → 集成/E2E → 服务层 → 传输层 → 前端界面。
-- US1 完成后，其余故事可按优先级并行推进，但需复用共享组件。
+- US1 完成后，其余故事可按优先级并行推进；US5 需等 US2–US4 的 API/指标稳定后再启动，以避免重复实现。
 
 ### 并行示例
 
