@@ -7,7 +7,16 @@
 
 ## Summary
 
-Deliver a CoreX knowledge-space service slice that (1) provisions tenant-scoped spaces with IAM/audit guardrails under 2 minutes, (2) orchestrates multimodal ingestion pipelines with ≥95% coverage & 100% masking, including deterministic dual-granularity chunking, (3) coordinates fusion strategies plus hot feedback loops, and (4) enforces 13-month read-only retention for retired assets. The plan now also covers a Web Admin provisioning wizard built on Nuxt 4 (Vue 3 + Node 20) that guides operators through tenant/department, templates, quotas, and IAM confirmation with inline validation, SLA timers, and audit previews, ensuring backend contracts are consumable through a polished UI. In addition, per `SCN-KNOWLEDGE-QA-REASON-001`, this iteration extends knowledge-space services with QA Orchestrator bridges that publish cross-space retrieval plans (≤2s), conversation-memory deltas, toolchain metadata + failover, and compliance/audit hooks so intelligent QA flows can trust every space.
+Deliver a CoreX knowledge-space service slice that (1) provisions tenant-scoped spaces with IAM/audit guardrails under 2 minutes, (2) orchestrates multimodal ingestion pipelines with ≥95% coverage & 100% masking, including deterministic dual-granularity chunking, (3) coordinates fusion strategies plus hot feedback loops, and (4) enforces 13-month read-only retention for retired assets. The plan now also covers a Web Admin provisioning wizard built on Nuxt 4 (Vue 3 + Node 20) that guides operators through tenant/department, templates, quotas, and IAM confirmation with inline validation, SLA timers, and audit previews, ensuring backend contracts are consumable through a polished UI. In addition, per `SCN-KNOWLEDGE-QA-REASON-001`, this iteration extends knowledge-space services with QA Orchestrator bridges that publish cross-space retrieval plans (≤2s), conversation-memory deltas, toolchain metadata + failover, and compliance/audit hooks so intelligent QA flows can trust every space. Building on `docs/use_cases/_from_hub/SCN-KNOWLEDGE-UPDATE-001`, we now commit to the full knowledge-update lifecycle: delta sync + version governance (≤30m SLA, 98% diff accuracy), feedback-driven reprocessing (+25% fix accuracy), event-driven hot refresh (≤5m), decay/gap watchdogs (100% coverage, ≤10m recovery), and tenant-aware gray release (audited rollout + rollback) spanning HTTP + gRPC transports, CLI/Playwright validation, and Grafana/`reports/_state` telemetry exports.
+
+## Scenario Inputs – Knowledge Update & Feedback (`docs/use_cases/_from_hub/SCN-KNOWLEDGE-UPDATE-001`)
+
+- **SCN-KNOWLEDGE-UPDATE-001.md** – master brief for delta → feedback → event → decay → tenant release loop, including SLA/metric guardrails consumed by this plan.
+- **SCN-KNOWLEDGE-UPDATE-SYNC-001.md** + `UC-KNOWLEDGE-UPDATE-SYNC-001.md` – detailed delta orchestration, approval, partial release tasks that must map to `backend/internal/service/knowledge_space/delta` and `scripts/ops/knowledge-delta-*.mjs`.
+- **SCN-KNOWLEDGE-UPDATE-FEEDBACK-001.md** + `UC-KNOWLEDGE-UPDATE-FEEDBACK-001.md` – feedback intelligence, SLA, +25% accuracy lift requirements already threaded through US4 tasks and extended here with telemetry duties.
+- **SCN-KNOWLEDGE-UPDATE-EVENT-001.md** + `UC-KNOWLEDGE-UPDATE-EVENT-001.md` – event hotfix intake, idempotency, agent notification expectations that back new event-handler transport layers.
+- **SCN-KNOWLEDGE-UPDATE-DECAY-001.md** + `UC-KNOWLEDGE-UPDATE-DECAY-001.md` – decay/gap detection scripts, task routing, false-positive constraints for the watchdog service + Grafana board.
+- **SCN-KNOWLEDGE-UPDATE-TENANT-001.md** + `UC-KNOWLEDGE-UPDATE-TENANT-001.md` – tenant release matrix, gray rollout, rollback, and audit controls informing the release controller deliverables.
 
 ## Technical Context
 
@@ -154,6 +163,33 @@ All clarifications from the spec are now grounded in explicit decisions—no out
 - **Toolchain + Failover Wiring**: Add `toolchain` subpackage that hydrates SQL/REST/rule tool configs from knowledge space metadata, validates IAM scopes, and orchestrates failover to cached outputs with audit hooks per `SCN-KNOWLEDGE-QA-TOOL-001`.
 - **Compliance & Audit Hooks**: Build `compliance` helpers that wrap IAM access checks, sensitive masking, and `audit.reasoning_steps` writes for every QA call, ensuring 100% coverage demanded by `SCN-KNOWLEDGE-QA-COMPLIANCE-001`.
 - **Telemetry & Dashboarding**: Publish new metrics (`qa.retrieval.latency_ms`, `qa.cross_space.hit_rate`, `qa.tool.success_rate`, `qa.feedback.loop_time`) plus degrade/alarm exports to `reports/_state/qa-reasoning.json`, and surface aggregated status in `QaBridgeStatusCard.vue`.
+
+## Phase 3 – Knowledge Update & Release Loop (SCN-KNOWLEDGE-UPDATE-001)
+
+### Delta Sync & Version Governance (`SCN-KNOWLEDGE-UPDATE-SYNC-001.md`)
+- Stand up `backend/internal/service/knowledge_space/delta` with orchestrators for `run_delta_job` inputs, diff computation, approval adapters, and version-store wiring; expose HTTP (`internal/transport/http/admin/knowledge_space/delta_handlers.go`) + gRPC transports + CLI (`scripts/ops/knowledge-delta-job.mjs`, `scripts/ops/knowledge-diff-report.mjs`).
+- Persist configs at `configs/knowledge/delta_sources.yaml`, `configs/knowledge/partial_release.yaml`, and embed partial-release + rollback logic inside `pkg/corex/db/persistence/model/knowledge/artifact_bundle.go` relationships.
+- Emit `knowledge.delta.{sla,approval_time,diff_accuracy,rollback_count,partial_release}` via `backend/internal/service/knowledge_space/instrumentation/delta_metrics.go`, surface Grafana + `backend/reports/_state/knowledge-delta.json`, and enforce ≤30m SLA & ≥98% diff accuracy across contract/integration tests.
+
+### Feedback-driven Reprocessing Reinforcement (`SCN-KNOWLEDGE-UPDATE-FEEDBACK-001.md`)
+- Extend existing US4 scope with quality scoring adapters (`feedback_playbook.yaml`, `reprocess_pipeline.yaml`) that capture +25% accuracy deltas post-fix, severity-based SLA clocks, and closed-loop notifications via `notifications` + audit logs.
+- Add `knowledge.feedback.fix_accuracy`, `knowledge.feedback.auto_rate`, `knowledge.feedback.backlog` to instrumentation, persist snapshots to `backend/reports/_state/knowledge-feedback.json`, and codify validation scripts under `scripts/ops/knowledge-feedback-loop.mjs`.
+
+### Event-driven Hot Refresh (`SCN-KNOWLEDGE-UPDATE-EVENT-001.md`)
+- Create `backend/internal/service/knowledge_space/event_hotfix` (intake, planner, hot index updater, agent notifier) with HTTP + gRPC transports and event-bus subscribers that honor ≤5m latency and idempotent skips.
+- Manage playbooks/config at `configs/knowledge/event_hotfix_policies.yaml` + `configs/knowledge/agent_weight_matrix.yaml`, add operational CLI `scripts/ops/knowledge-event-replay.mjs`, and emit `knowledge.event.{latency,retry_count,idempotent_skips}` + `agent.refresh.success_rate` alongside `backend/reports/_state/knowledge-event.json`.
+
+### Decay & Gap Guardrail (`SCN-KNOWLEDGE-UPDATE-DECAY-001.md`)
+- Introduce `backend/internal/service/knowledge_space/decay_guard` with schedulable scans (cron + manual) referencing `configs/knowledge/decay_thresholds.yaml`, `gap_task_template.md`, and tasks for restore/false-positive handling via HTTP/gRPC endpoints.
+- Ship automation in `scripts/ops/knowledge-decay-scan.mjs`, create `backend/reports/_state/knowledge-decay.json`, and uphold 100% coverage, ≥90% detection accuracy, ≤10m restore SLA, ≤10% false-positive ceilings with alerting to Governance.
+
+### Tenant-aware Release Governance (`SCN-KNOWLEDGE-UPDATE-TENANT-001.md`)
+- Build `backend/internal/service/knowledge_space/tenant_release` orchestrating release policies, pilot tenants, expansion, rollback, and audit writes; expose HTTP/gRPC endpoints plus `cmd/knowledge/release.go` CLI + `web-admin/app/pages/knowledge-spaces/release.vue` dashboard.
+- Manage `configs/knowledge/tenant_release_matrix.yaml`, `release_guardrails.md`, push telemetry to `backend/reports/_state/knowledge-release.json`, and ensure audit trails capture strategy, approvals, publish/rollback IDs per tenant.
+
+### Telemetry & Ops Alignment
+- Extend `Makefile` / CI to include delta/event/decay/release smoke targets, update Grafana dashboards: `Knowledge Delta Sync`, `QA Feedback Loop`, `Event Hotfix`, `Knowledge Decay Monitor`, `Tenant Release Control`.
+- Update Quickstart + Runbooks with flag dependencies `PX_KNOWLEDGE_DELTA_SYNC`, `PX_KNOWLEDGE_FEEDBACK_LOOP`, `PX_KNOWLEDGE_EVENT_HOTFIX`, `PX_KNOWLEDGE_DECAY_GUARD`, `PX_KNOWLEDGE_GRAY_RELEASE`, plus `reports/_state/knowledge-update.json` aggregator for leadership snapshots.
 
 ### Agent Context Update
 - Command executed: `.specify/scripts/bash/update-agent-context.sh codex` (see terminal output in this run) to persist new technology mentions for Codex agent memory.

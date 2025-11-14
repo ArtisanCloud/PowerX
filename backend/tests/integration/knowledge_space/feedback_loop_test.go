@@ -3,6 +3,7 @@ package knowledge_space_integration
 import (
 	"context"
 	"encoding/json"
+	"os"
 	"testing"
 
 	ksvc "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space"
@@ -46,4 +47,13 @@ func TestFeedbackLoopSchedulesReprocess(t *testing.T) {
 	var storedChunks []string
 	require.NoError(t, json.Unmarshal(caseModel.LinkedChunks, &storedChunks))
 	require.Contains(t, storedChunks, chunkID.String())
+
+	require.FileExists(t, env.FeedbackReportPath)
+	metricsBlob, err := os.ReadFile(env.FeedbackReportPath)
+	require.NoError(t, err)
+	var metrics ksvc.FeedbackMetrics
+	require.NoError(t, json.Unmarshal(metricsBlob, &metrics))
+	require.GreaterOrEqual(t, metrics.Backlog, 1)
+	require.NotZero(t, metrics.RecordedAt.Unix())
+	require.FileExists(t, env.KnowledgeUpdateReportPath)
 }

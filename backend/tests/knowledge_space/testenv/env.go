@@ -28,13 +28,15 @@ import (
 
 // Env encapsulates dependencies required to exercise Knowledge Space surfaces.
 type Env struct {
-	T           testing.TB
-	DB          *gorm.DB
-	Deps        *shared.Deps
-	Bus         event_bus.EventBus
-	tenantID    uuid.UUID
-	VectorStore *VectorStoreStub
-	Pipeline    *ReprocessPipelineStub
+	T                         testing.TB
+	DB                        *gorm.DB
+	Deps                      *shared.Deps
+	Bus                       event_bus.EventBus
+	tenantID                  uuid.UUID
+	VectorStore               *VectorStoreStub
+	Pipeline                  *ReprocessPipelineStub
+	FeedbackReportPath        string
+	KnowledgeUpdateReportPath string
 }
 
 // New spins up an isolated sqlite + redis test environment.
@@ -107,7 +109,11 @@ func New(t testing.TB) *Env {
 		Clock:           time.Now,
 	})
 
-	metricsWriter := knowledgeService.NewIngestionMetricsWriter(filepath.Join(t.TempDir(), "ingestion-metrics.json"))
+	ingestionReportPath := filepath.Join(t.TempDir(), "ingestion-metrics.json")
+	feedbackReportPath := filepath.Join(t.TempDir(), "knowledge-feedback.json")
+	updateReportPath := filepath.Join(t.TempDir(), "knowledge-update.json")
+	metricsWriter := knowledgeService.NewIngestionMetricsWriter(ingestionReportPath)
+	feedbackMetricsWriter := knowledgeService.NewFeedbackMetricsWriter(feedbackReportPath, updateReportPath)
 	ingestionSvc := knowledgeService.NewIngestionService(knowledgeService.IngestionServiceOptions{
 		DB:              db,
 		Instrumentation: inst,
@@ -131,6 +137,7 @@ func New(t testing.TB) *Env {
 		Instrumentation: inst,
 		Pipeline:        pipelineStub,
 		MetricsWriter:   metricsWriter,
+		FeedbackMetrics: feedbackMetricsWriter,
 		Clock:           time.Now,
 	})
 	qaBridgeSvc := qaBridge.NewService(qaBridge.Options{
@@ -159,13 +166,15 @@ func New(t testing.TB) *Env {
 	}
 
 	return &Env{
-		T:           t,
-		DB:          db,
-		Deps:        deps,
-		Bus:         bus,
-		tenantID:    uuid.New(),
-		VectorStore: vectorStore,
-		Pipeline:    pipelineStub,
+		T:                         t,
+		DB:                        db,
+		Deps:                      deps,
+		Bus:                       bus,
+		tenantID:                  uuid.New(),
+		VectorStore:               vectorStore,
+		Pipeline:                  pipelineStub,
+		FeedbackReportPath:        feedbackReportPath,
+		KnowledgeUpdateReportPath: updateReportPath,
 	}
 }
 
