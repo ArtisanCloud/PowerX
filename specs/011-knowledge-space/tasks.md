@@ -238,17 +238,17 @@
 
 ### 测试
 
-- [ ] **T093 [P] [US9]** 在 `backend/tests/contract/knowledge_space/release_http_test.go` 覆盖 `POST /knowledge/release/policies`、`POST /knowledge/release/publish`、`POST /knowledge/release/promote`、`POST /knowledge/release/rollback`，含策略冲突、租户隔离、指标未达标触发 `release.gray.alert` 的分支。
-- [ ] **T094 [P] [US9]** 在 `backend/tests/contract/knowledge_space/release_grpc_test.go` 覆盖 gRPC 接口，断言审批 ID、滚动窗口策略、批次 token，以及版本 drift ≤1 的守卫。
-- [ ] **T095 [US9]** 在 `backend/tests/integration/knowledge_space/tenant_release_flow_test.go` 演练试点→扩散→指标异常→自动暂停→回滚→审计报告，校验 `knowledge.release.*` 指标、IM 通知与 `knowledge-release.json` 快照。
+- [X] **T093 [P] [US9]** 在 `backend/tests/contract/knowledge_space/release_http_test.go` 覆盖 `POST /knowledge/release/policies`、`POST /knowledge/release/publish`、`POST /knowledge/release/promote`、`POST /knowledge/release/rollback`，含策略冲突、租户隔离、指标未达标触发 `release.gray.alert` 的分支。
+- [X] **T094 [P] [US9]** 在 `backend/tests/contract/knowledge_space/release_grpc_test.go` 覆盖 gRPC 接口，断言审批 ID、滚动窗口策略、批次 token，以及版本 drift ≤1 的守卫。
+- [X] **T095 [US9]** 在 `backend/tests/integration/knowledge_space/tenant_release_flow_test.go` 演练试点→扩散→指标异常→自动暂停→回滚→审计报告，校验 `knowledge.release.*` 指标、IM 通知与 `knowledge-release.json` 快照。
 
 ### 实现
 
-- [ ] **T096 [US9]** 在 `backend/internal/service/knowledge_space/tenant_release/service.go` 实现策略管理、灰度调度、扩散/暂停/回滚状态机、audit 写入，复用版本存储/通知/metrics 依赖并输出 `knowledge.release.*` 指标。
-- [ ] **T097 [US9]** 在 `backend/internal/transport/http/admin/knowledge_space/tenant_release_handlers.go` 实现 HTTP Handler，并在 `web-admin/app/pages/knowledge-spaces/release.vue` 展示策略、指标、回滚按钮与 guardrail 告警。
-- [ ] **T098 [US9]** 在 `backend/internal/transport/grpc/knowledge_space/tenant_release_service.go` 实现 gRPC API，供 CLI/Workflow 调用，返回批次 token、版本号、租户覆盖率。
-- [ ] **T099 [US9]** 创建 `cmd/knowledge/release.go`（PowerX CLI）与 `scripts/ops/knowledge-release-matrix.mjs`，支持策略校验、批次推进、报告导出，并引用同一配置/Flag 管理。
-- [ ] **T100 [US9]** 新增 `configs/knowledge/tenant_release_matrix.yaml`、`release_guardrails.md`、`backend/reports/_state/knowledge-release.json`，输出 `knowledge.release.{gray_state,rollback_count,tenant_coverage,alerts}` 并写入 `reports/_state/knowledge-update.json`，同时记录版本 drift 报表供审计。
+- [X] **T096 [US9]** 在 `backend/internal/service/knowledge_space/tenant_release/service.go` 实现策略管理、灰度调度、扩散/暂停/回滚状态机、audit 写入，复用版本存储/通知/metrics 依赖并输出 `knowledge.release.*` 指标。
+- [X] **T097 [US9]** 在 `backend/internal/transport/http/admin/knowledge_space/tenant_release_handlers.go` 实现 HTTP Handler，并在 `web-admin/app/pages/knowledge-spaces/release.vue` 展示策略、指标、回滚按钮与 guardrail 告警。
+- [X] **T098 [US9]** 在 `backend/internal/transport/grpc/knowledge_space/tenant_release_service.go` 实现 gRPC API，供 CLI/Workflow 调用，返回批次 token、版本号、租户覆盖率。
+- [X] **T099 [US9]** 创建 `cmd/knowledge/release.go`（PowerX CLI）与 `scripts/ops/knowledge-release-matrix.mjs`，支持策略校验、批次推进、报告导出，并引用同一配置/Flag 管理。
+- [X] **T100 [US9]** 新增 `configs/knowledge/tenant_release_matrix.yaml`、`release_guardrails.md`、`backend/reports/_state/knowledge-release.json`，输出 `knowledge.release.{gray_state,rollback_count,tenant_coverage,alerts}` 并写入 `reports/_state/knowledge-update.json`，同时记录版本 drift 报表供审计。
 
 ---
 

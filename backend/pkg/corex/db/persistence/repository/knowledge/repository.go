@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -360,6 +361,39 @@ func (r *TenantReleaseBatchRepository) ListByPolicyAndVersion(ctx context.Contex
 		return nil, err
 	}
 	return batches, nil
+}
+
+// SaveState updates mutable columns for a release batch without inserting duplicates.
+func (r *TenantReleaseBatchRepository) SaveState(ctx context.Context, batch *models.TenantReleaseBatch) (*models.TenantReleaseBatch, error) {
+	if batch == nil {
+		return nil, gorm.ErrInvalidData
+	}
+	query := r.db.WithContext(ctx).Model(&models.TenantReleaseBatch{})
+	switch {
+	case batch.ID != 0:
+		query = query.Where("id = ?", batch.ID)
+	case batch.UUID != uuid.Nil:
+		query = query.Where("uuid = ?", batch.UUID)
+	case strings.TrimSpace(batch.BatchToken) != "":
+		query = query.Where("batch_token = ?", batch.BatchToken)
+	default:
+		return nil, gorm.ErrInvalidData
+	}
+	batch.UpdatedAt = time.Now().UTC()
+	updates := map[string]any{
+		"state":         batch.State,
+		"alerts":        batch.Alerts,
+		"metrics":       batch.Metrics,
+		"tenants":       batch.Tenants,
+		"promoted_at":   batch.PromotedAt,
+		"completed_at":  batch.CompletedAt,
+		"rolled_back_at": batch.RolledBackAt,
+		"updated_at":    batch.UpdatedAt,
+	}
+	if err := query.Updates(updates).Error; err != nil {
+		return nil, err
+	}
+	return batch, nil
 }
 
 func (r *DecayTaskRepository) ListOpenBySpace(ctx context.Context, space uuid.UUID) ([]*models.DecayTask, error) {

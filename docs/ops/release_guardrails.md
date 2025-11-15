@@ -8,4 +8,4 @@
 - **隔离校验**：灰度期间需持续校验跨租户访问控制与版本漂移 ≤ 1 的要求。
 - **告警矩阵**：当 `knowledge.release.alerts` 触发时的升级路径与自动化脚本（暂停、回滚、重试）。
 
-> 更新策略或 guardrail 时，请同步修改 `configs/knowledge/tenant_release_matrix.yaml` 并通过 CLI 脚本 `scripts/ops/knowledge-release-matrix.mjs`（待实现）校验。
+> 更新策略或 guardrail 时，请同步修改 `configs/knowledge/tenant_release_matrix.yaml` 并使用 `scripts/ops/knowledge-release-matrix.mjs` 脚本执行校验与导出。

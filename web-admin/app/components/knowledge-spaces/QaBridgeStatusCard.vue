@@ -1,49 +1,52 @@
 <template>
-  <div class="qa-bridge-card">
-    <div class="card-header">
+  <div class="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+    <div class="mb-4 flex items-center justify-between">
       <div>
-        <p class="text-sm text-gray-500">QA Bridge</p>
-        <h3 class="text-lg font-semibold">检索健康监控</h3>
+        <p class="text-sm text-gray-500">{{ t("knowledgeSpaces.qaCard.badge") }}</p>
+        <h3 class="text-lg font-semibold">{{ t("knowledgeSpaces.qaCard.title") }}</h3>
       </div>
-      <button class="refresh-btn" @click="$emit('refresh')">
-        刷新
+      <button
+        class="rounded border border-gray-300 px-3 py-1 text-sm text-gray-700 hover:bg-gray-50"
+        @click="$emit('refresh')"
+      >
+        {{ t("knowledgeSpaces.qaCard.refresh") }}
       </button>
     </div>
 
     <div
       v-if="status.degradeCount > 0"
-      class="degrade-badge"
+      class="mb-4 rounded bg-orange-100 px-3 py-1 text-sm text-orange-700"
       data-test="degrade-badge"
     >
-      {{ status.degradeCount }} 个空间降级
+      {{ degradeLabel }}
     </div>
 
-    <div class="metrics">
+    <div class="grid grid-cols-3 gap-4">
       <div>
-        <p class="metric-label">检索 P95</p>
-        <p class="metric-value" data-test="latency">
+        <p class="text-xs text-gray-500">{{ t("knowledgeSpaces.qaCard.metrics.latency") }}</p>
+        <p class="text-xl font-semibold" data-test="latency">
           {{ latencySeconds }}s
         </p>
       </div>
       <div>
-        <p class="metric-label">引用覆盖</p>
-        <p class="metric-value" data-test="coverage">
+        <p class="text-xs text-gray-500">{{ t("knowledgeSpaces.qaCard.metrics.coverage") }}</p>
+        <p class="text-xl font-semibold" data-test="coverage">
           {{ coveragePercent }}%
         </p>
       </div>
       <div>
-        <p class="metric-label">工具成功率</p>
-        <p class="metric-value" data-test="tool-success">
+        <p class="text-xs text-gray-500">{{ t("knowledgeSpaces.qaCard.metrics.toolSuccess") }}</p>
+        <p class="text-xl font-semibold" data-test="tool-success">
           {{ toolSuccessPercent }}%
         </p>
       </div>
     </div>
 
-    <p v-if="status.lastAuditId" class="audit" data-test="audit-link">
-      最近审计：<span>{{ status.lastAuditId }}</span>
+    <p v-if="status.lastAuditId" class="mt-4 text-sm text-gray-600" data-test="audit-link">
+      {{ t("knowledgeSpaces.qaCard.audit", { id: status.lastAuditId }) }}
     </p>
-    <p v-if="status.lastUpdatedAt" class="timestamp">
-      更新时间：{{ new Date(status.lastUpdatedAt).toLocaleString() }}
+    <p v-if="status.lastUpdatedAt" class="text-xs text-gray-400">
+      {{ t("knowledgeSpaces.qaCard.updatedAt", { time: new Date(status.lastUpdatedAt).toLocaleString() }) }}
     </p>
   </div>
 </template>
@@ -62,6 +65,8 @@ const props = defineProps<{
   status: QaBridgeStatus;
 }>();
 
+const { t } = useI18n();
+
 defineEmits<{
   (e: "refresh"): void;
 }>();
@@ -75,34 +80,10 @@ const coveragePercent = computed(
 const toolSuccessPercent = computed(
   () => Math.round((props.status.toolSuccessRate ?? 0) * 100),
 );
+
+const degradeLabel = computed(() =>
+  t("knowledgeSpaces.qaCard.degrade", { count: props.status.degradeCount }),
+);
 </script>
 
-<style scoped>
-.qa-bridge-card {
-  @apply rounded-lg border border-gray-200 bg-white p-4 shadow-sm;
-}
-.card-header {
-  @apply mb-4 flex items-center justify-between;
-}
-.refresh-btn {
-  @apply rounded border border-gray-300 px-3 py-1 text-sm text-gray-700 hover:bg-gray-50;
-}
-.metrics {
-  @apply grid grid-cols-3 gap-4;
-}
-.metric-label {
-  @apply text-xs text-gray-500;
-}
-.metric-value {
-  @apply text-xl font-semibold;
-}
-.degrade-badge {
-  @apply mb-4 rounded bg-orange-100 px-3 py-1 text-sm text-orange-700;
-}
-.audit {
-  @apply mt-4 text-sm text-gray-600;
-}
-.timestamp {
-  @apply text-xs text-gray-400;
-}
-</style>
+<style scoped></style>

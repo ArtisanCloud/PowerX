@@ -86,9 +86,106 @@
     },
     "aiSettings": "모델 설정",
     "workflow": "워크플로우",
+    "knowledgeSpace": "지식 공간",
     "pluginMarketplace": "마켓",
     "pluginsInstalled": "설치됨",
     "pluginsMarket": "마켓"
+  },
+  "knowledgeSpaces": {
+    "head": {
+      "title": "지식 공간",
+      "description": "입고·융합·피드백 루프를 하나로 묶어 다중 테넌트 지식 공간을 계획하고 운영합니다."
+    },
+    "hero": {
+      "badge": "Knowledge Space",
+      "title": "지식 공간 워크벤치",
+      "description": "입고, 융합, 피드백 파이프라인을 한 곳에서 관리합니다.",
+      "actions": {
+        "create": "지식 공간 생성",
+        "createDesc": "위저드로 테넌트·정책·쿼터·IAM 을 설정합니다.",
+        "docs": "운영 가이드",
+        "docsDesc": "절차와 가드레일을 확인합니다."
+      }
+    },
+    "qaCard": {
+      "badge": "QA Bridge",
+      "title": "검색 상태 모니터",
+      "refresh": "새로고침",
+      "degrade": "{count}개 공간이 강등됨",
+      "metrics": {
+        "latency": "검색 P95",
+        "coverage": "인용 커버리지",
+        "toolSuccess": "툴 성공률"
+      },
+      "audit": "최근 감사: {id}",
+      "updatedAt": "업데이트: {time}",
+      "loadError": "QA 상태를 가져오지 못했습니다"
+    },
+    "governance": {
+      "title": "거버넌스 가이드",
+      "description": "곧 더 많은 지표와 알림을 제공할 예정입니다."
+    },
+    "ingestion": {
+      "title": "입고 오케스트레이터",
+      "subtitle": "문서 또는 API 소스를 제출하면 자동으로 청크와 임베딩을 생성합니다.",
+      "recentSpace": "최근 공간",
+      "recentSpaceHint": "위저드에서 동기화된 최신 공간입니다.",
+      "spaceId": "공간 ID",
+      "sourceType": "소스 유형",
+      "mode": "입고 모드",
+      "modeDocument": "문서 업로드",
+      "modeApi": "API / URL",
+      "uploadFile": "파일 업로드",
+      "uploadHint": "파일은 객체 스토리지에 업로드된 후 파이프라인으로 전송됩니다.",
+      "selectedFile": "선택됨: {name}",
+      "sourceUri": "소스 주소",
+      "maskingProfile": "마스킹 정책",
+      "priority": "우선순위",
+      "sourceOptions": {
+        "pdf": "PDF",
+        "markdown": "Markdown",
+        "table": "스프레드시트",
+        "api": "API"
+      },
+      "priorityOptions": {
+        "normal": "표준",
+        "high": "높음"
+      },
+      "errors": {
+        "missingSpaceId": "공간 ID를 입력하세요",
+        "missingSource": "소스 정보를 입력하세요",
+        "runFailed": "입고 실행에 실패했습니다"
+      },
+      "actions": {
+        "ingestNow": "입고 실행"
+      },
+      "result": {
+        "latestTitle": "최근 작업",
+        "jobSummary": "작업 {jobId} · 상태 {status} · 청크 {chunkTotal}",
+        "metricSummary": "커버리지 {coverage}% · 임베딩 {embedding}% · 마스킹 {masking}%"
+      },
+      "history": "최근 작업",
+      "historyEntry": "{job} · {status} · {time}"
+    },
+    "placeholders": {
+      "spaces": {
+        "title": "공간 목록",
+        "description": "테넌트별 쿼터와 상태가 표시됩니다."
+      },
+      "fusion": {
+        "title": "융합 요약",
+        "description": "최근 융합 작업과 충돌 경고가 표시됩니다."
+      },
+      "feedback": {
+        "title": "피드백 및 알림",
+        "description": "SLA 초과와 재처리 작업을 추적합니다."
+      }
+    },
+    "timeline": {
+      "title": "공간 활동",
+      "description": "곧 실데이터 카드가 제공됩니다.",
+      "badge": "준비 중"
+    }
   },
   "header": {
     "profile": "프로필",

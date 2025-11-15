@@ -5,45 +5,47 @@ import { createQaBridgeClient } from "~/services/knowledge-spaces/qaBridgeClient
 import QaBridgeStatusCard from "~/components/knowledge-spaces/QaBridgeStatusCard.vue";
 import { useKnowledgeSpaceStore } from "~/stores/knowledgeSpaces";
 
-useHead({
-  title: "知识空间",
-  meta: [{ name: "description", content: "统一管理知识空间的配额、策略与告警入口" }],
-});
+const { t } = useI18n();
+
+useHead(() => ({
+  title: t("knowledgeSpaces.head.title"),
+  meta: [{ name: "description", content: t("knowledgeSpaces.head.description") }],
+}));
 
 const api = useKnowledgeSpaces();
 const qaClient = createQaBridgeClient();
 const knowledgeStore = useKnowledgeSpaceStore();
 
-const quickActions = [
+const quickActions = computed(() => [
   {
     icon: "i-heroicons-plus-circle",
-    title: "创建知识空间",
-    description: "通过向导配置租户、策略、配额与 IAM",
+    title: t("knowledgeSpaces.hero.actions.create"),
+    description: t("knowledgeSpaces.hero.actions.createDesc"),
     to: "/knowledge-spaces/create",
     primary: true,
   },
   {
     icon: "i-heroicons-book-open",
-    title: "操作指南",
-    description: "查看配置流程与准入条件",
+    title: t("knowledgeSpaces.hero.actions.docs"),
+    description: t("knowledgeSpaces.hero.actions.docsDesc"),
     to: "/docs/knowledge-spaces",
   },
-];
+]);
 
-const placeholders = [
+const placeholders = computed(() => [
 	{
-		title: "空间列表",
-		description: "即将展示租户维度的空间概览、配额与健康状态。",
+		title: t("knowledgeSpaces.placeholders.spaces.title"),
+		description: t("knowledgeSpaces.placeholders.spaces.description"),
 	},
 	{
-		title: "融合策略概览",
-		description: "这里会汇总最近的融合任务与冲突提示。",
+		title: t("knowledgeSpaces.placeholders.fusion.title"),
+		description: t("knowledgeSpaces.placeholders.fusion.description"),
 	},
 	{
-		title: "反馈与告警",
-		description: "追踪 SLA 超时、告警升级与再加工任务。",
+		title: t("knowledgeSpaces.placeholders.feedback.title"),
+		description: t("knowledgeSpaces.placeholders.feedback.description"),
 	},
-];
+]);
 
 interface QaDashboardStatus {
   latencyMsP95: number;
@@ -83,7 +85,7 @@ const refreshQaStatus = async () => {
       lastUpdatedAt: plan.telemetry?.recordedAt,
     };
   } catch (error) {
-    console.error("无法获取 QA 状态", error);
+    console.error(t("knowledgeSpaces.qaCard.loadError"), error);
   }
 };
 
@@ -116,17 +118,17 @@ watch(
   { immediate: true },
 );
 
-const sourceOptions = [
-	{ label: "PDF", value: "pdf" },
-	{ label: "Markdown", value: "markdown" },
-	{ label: "表格/Excel", value: "table" },
-	{ label: "API", value: "api" },
-];
+const sourceOptions = computed(() => [
+	{ label: t("knowledgeSpaces.ingestion.sourceOptions.pdf"), value: "pdf" },
+	{ label: t("knowledgeSpaces.ingestion.sourceOptions.markdown"), value: "markdown" },
+	{ label: t("knowledgeSpaces.ingestion.sourceOptions.table"), value: "table" },
+	{ label: t("knowledgeSpaces.ingestion.sourceOptions.api"), value: "api" },
+]);
 
-const priorityOptions = [
-	{ label: "标准", value: "normal" },
-	{ label: "高优先级", value: "high" },
-];
+const priorityOptions = computed(() => [
+	{ label: t("knowledgeSpaces.ingestion.priorityOptions.normal"), value: "normal" },
+	{ label: t("knowledgeSpaces.ingestion.priorityOptions.high"), value: "high" },
+]);
 
 const canSubmit = computed(() => {
 	if (!ingestionForm.spaceId) return false;
@@ -152,14 +154,14 @@ const handleSpaceSelect = (event: Event) => {
 
 const submitIngestion = async () => {
 	ingestionError.value = "";
-	if (!ingestionForm.spaceId) {
-		ingestionError.value = "请输入空间 ID";
-		return;
-	}
-	if (!canSubmit.value) {
-		ingestionError.value = "请完善来源信息";
-		return;
-	}
+		if (!ingestionForm.spaceId) {
+			ingestionError.value = t("knowledgeSpaces.ingestion.errors.missingSpaceId");
+			return;
+		}
+		if (!canSubmit.value) {
+			ingestionError.value = t("knowledgeSpaces.ingestion.errors.missingSource");
+			return;
+		}
 	ingestionSubmitting.value = true;
 	try {
 		const resolvedSource =
@@ -188,7 +190,7 @@ const submitIngestion = async () => {
 			}
 		}
 	} catch (error) {
-		const message = error instanceof Error ? error.message : "触发入库失败";
+		const message = error instanceof Error ? error.message : t("knowledgeSpaces.ingestion.errors.runFailed");
 		ingestionError.value = message;
 	} finally {
 		ingestionSubmitting.value = false;
@@ -197,13 +199,13 @@ const submitIngestion = async () => {
 </script>
 
 <template>
-  <section class="px-6 py-8 space-y-8">
-    <header class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+  <section class="px-6 py-8 space-y-8 lg:px-10">
+    <header class="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
       <div>
-        <p class="text-sm text-gray-500">Knowledge Space</p>
-        <h1 class="text-2xl font-semibold text-gray-900">知识空间工作台</h1>
+        <p class="text-sm text-gray-500">{{ t("knowledgeSpaces.hero.badge") }}</p>
+        <h1 class="text-2xl font-semibold text-gray-900">{{ t("knowledgeSpaces.hero.title") }}</h1>
         <p class="text-gray-600 mt-2">
-          统一创建与管理多租户知识空间，串联入库、融合与反馈闭环。
+          {{ t("knowledgeSpaces.hero.description") }}
         </p>
       </div>
       <div class="flex flex-wrap gap-3">
@@ -223,8 +225,8 @@ const submitIngestion = async () => {
     <section class="grid gap-4 md:grid-cols-2">
       <QaBridgeStatusCard :status="qaStatus" @refresh="refreshQaStatus" />
       <div class="rounded-lg border border-dashed border-gray-200 p-4 text-sm text-gray-500">
-        <p class="font-medium text-gray-700 mb-1">治理指南</p>
-        <p>即将提供更多跨空间指标与告警入口，敬请期待。</p>
+        <p class="font-medium text-gray-700 mb-1">{{ t("knowledgeSpaces.governance.title") }}</p>
+        <p>{{ t("knowledgeSpaces.governance.description") }}</p>
       </div>
     </section>
 
@@ -232,8 +234,8 @@ const submitIngestion = async () => {
       <template #header>
         <div class="flex items-center justify-between">
           <div>
-            <h2 class="text-lg font-semibold">入库 orchestrator</h2>
-            <p class="text-gray-500 text-sm">提交文档或 API 源，自动生成 chunk 与 embedding。</p>
+            <h2 class="text-lg font-semibold">{{ t("knowledgeSpaces.ingestion.title") }}</h2>
+            <p class="text-gray-500 text-sm">{{ t("knowledgeSpaces.ingestion.subtitle") }}</p>
           </div>
           <UBadge color="primary" variant="soft">US2</UBadge>
         </div>
@@ -241,7 +243,7 @@ const submitIngestion = async () => {
 
       <div class="grid gap-4 md:grid-cols-2">
         <label class="flex flex-col gap-2" v-if="recentSpaces.length">
-          <span class="text-sm font-medium text-gray-700">最近空间</span>
+          <span class="text-sm font-medium text-gray-700">{{ t("knowledgeSpaces.ingestion.recentSpace") }}</span>
           <select
             class="rounded-lg border border-gray-200 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none"
             :value="ingestionForm.spaceId"
@@ -251,10 +253,10 @@ const submitIngestion = async () => {
               {{ space.spaceName }} · {{ space.spaceId.slice(0, 8) }}
             </option>
           </select>
-          <p class="text-xs text-gray-500">同步来自向导的最新空间，快速触发入库。</p>
+          <p class="text-xs text-gray-500">{{ t("knowledgeSpaces.ingestion.recentSpaceHint") }}</p>
         </label>
         <label class="flex flex-col gap-2">
-          <span class="text-sm font-medium text-gray-700">空间 ID</span>
+          <span class="text-sm font-medium text-gray-700">{{ t("knowledgeSpaces.ingestion.spaceId") }}</span>
           <input
             v-model="ingestionForm.spaceId"
             type="text"
@@ -263,7 +265,7 @@ const submitIngestion = async () => {
           />
         </label>
         <label class="flex flex-col gap-2">
-          <span class="text-sm font-medium text-gray-700">来源类型</span>
+          <span class="text-sm font-medium text-gray-700">{{ t("knowledgeSpaces.ingestion.sourceType") }}</span>
           <select
             v-model="ingestionForm.sourceType"
             class="rounded-lg border border-gray-200 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none"
@@ -274,7 +276,7 @@ const submitIngestion = async () => {
           </select>
         </label>
         <div class="md:col-span-2">
-          <span class="text-sm font-medium text-gray-700">入库模式</span>
+          <span class="text-sm font-medium text-gray-700">{{ t("knowledgeSpaces.ingestion.mode") }}</span>
           <div class="mt-2 flex flex-wrap gap-4 text-sm text-gray-700">
             <label class="inline-flex items-center gap-2">
               <input
@@ -283,7 +285,7 @@ const submitIngestion = async () => {
                 v-model="ingestionMode"
                 class="text-primary-600 focus:ring-primary-500"
               />
-              文档上传
+              {{ t("knowledgeSpaces.ingestion.modeDocument") }}
             </label>
             <label class="inline-flex items-center gap-2">
               <input
@@ -292,13 +294,13 @@ const submitIngestion = async () => {
                 v-model="ingestionMode"
                 class="text-primary-600 focus:ring-primary-500"
               />
-              API / URL
+              {{ t("knowledgeSpaces.ingestion.modeApi") }}
             </label>
           </div>
         </div>
 
         <div v-if="ingestionMode === 'document'" class="md:col-span-2 space-y-2">
-          <span class="text-sm font-medium text-gray-700">上传文件</span>
+          <span class="text-sm font-medium text-gray-700">{{ t("knowledgeSpaces.ingestion.uploadFile") }}</span>
           <input
             type="file"
             accept=".pdf,.md,.txt,.xlsx"
@@ -306,16 +308,16 @@ const submitIngestion = async () => {
             class="text-sm"
           />
           <p class="text-xs text-gray-500">
-            文件会自动上传到对象存储后进入 chunk pipeline。
+            {{ t("knowledgeSpaces.ingestion.uploadHint") }}
           </p>
           <p v-if="selectedFile" class="text-xs text-primary-600">
-            已选择：{{ selectedFile.name }}
+            {{ t("knowledgeSpaces.ingestion.selectedFile", { name: selectedFile.name }) }}
           </p>
         </div>
 
         <template v-else>
           <label class="flex flex-col gap-2 md:col-span-2">
-            <span class="text-sm font-medium text-gray-700">来源地址</span>
+            <span class="text-sm font-medium text-gray-700">{{ t("knowledgeSpaces.ingestion.sourceUri") }}</span>
             <input
               v-model="ingestionForm.sourceUri"
               type="text"
@@ -324,7 +326,7 @@ const submitIngestion = async () => {
             />
           </label>
           <label class="flex flex-col gap-2">
-            <span class="text-sm font-medium text-gray-700">脱敏策略</span>
+            <span class="text-sm font-medium text-gray-700">{{ t("knowledgeSpaces.ingestion.maskingProfile") }}</span>
             <input
               v-model="ingestionForm.maskingProfile"
               type="text"
@@ -335,7 +337,7 @@ const submitIngestion = async () => {
         </template>
 
         <label class="flex flex-col gap-2">
-          <span class="text-sm font-medium text-gray-700">优先级</span>
+          <span class="text-sm font-medium text-gray-700">{{ t("knowledgeSpaces.ingestion.priority") }}</span>
           <select
             v-model="ingestionForm.priority"
             class="rounded-lg border border-gray-200 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none"
@@ -350,24 +352,42 @@ const submitIngestion = async () => {
         <span class="text-sm text-red-500" v-if="ingestionError">{{ ingestionError }}</span>
         <div class="flex items-center gap-2">
           <UButton :loading="ingestionSubmitting" :disabled="!canSubmit" @click="submitIngestion">
-            立即入库
+            {{ t("knowledgeSpaces.ingestion.actions.ingestNow") }}
           </UButton>
         </div>
       </div>
       <div v-if="ingestionResult" class="mt-4 rounded-lg border border-primary-100 bg-primary-50 p-4 text-sm space-y-1">
-        <p class="font-medium text-primary-700">最近一次任务</p>
+        <p class="font-medium text-primary-700">{{ t("knowledgeSpaces.ingestion.result.latestTitle") }}</p>
         <p class="text-primary-600">
-          任务 {{ ingestionResult.jobId }} · 状态 {{ ingestionResult.status }} · Chunk {{ ingestionResult.chunkTotal }} 个
+          {{
+            t("knowledgeSpaces.ingestion.result.jobSummary", {
+              jobId: ingestionResult.jobId,
+              status: ingestionResult.status,
+              chunkTotal: ingestionResult.chunkTotal,
+            })
+          }}
         </p>
         <p class="text-primary-600">
-          覆盖率 {{ ingestionResult.chunkCoveragePct }}% · Embedding {{ ingestionResult.embeddingSuccessPct }}% · Masking {{ ingestionResult.maskingCoveragePct }}%
+          {{
+            t("knowledgeSpaces.ingestion.result.metricSummary", {
+              coverage: ingestionResult.chunkCoveragePct,
+              embedding: ingestionResult.embeddingSuccessPct,
+              masking: ingestionResult.maskingCoveragePct,
+            })
+          }}
         </p>
       </div>
       <div v-if="ingestionHistory.length" class="mt-4 rounded-lg border border-gray-200 p-4">
-        <p class="text-sm font-medium text-gray-700">最近任务</p>
+        <p class="text-sm font-medium text-gray-700">{{ t("knowledgeSpaces.ingestion.history") }}</p>
         <ul class="mt-2 space-y-1 text-sm text-gray-600">
           <li v-for="task in ingestionHistory" :key="task.jobId">
-            {{ task.jobId.slice(0, 8) }} · {{ task.status }} · {{ new Date(task.completedAt).toLocaleTimeString() }}
+            {{
+              t("knowledgeSpaces.ingestion.historyEntry", {
+                job: task.jobId.slice(0, 8),
+                status: task.status,
+                time: new Date(task.completedAt).toLocaleTimeString(),
+              })
+            }}
           </li>
         </ul>
       </div>
@@ -377,10 +397,10 @@ const submitIngestion = async () => {
       <template #header>
         <div class="flex items-center justify-between">
           <div>
-            <h2 class="text-lg font-semibold">空间动态</h2>
-            <p class="text-gray-500 text-sm">后续将展示真实空间/融合数据。</p>
+            <h2 class="text-lg font-semibold">{{ t("knowledgeSpaces.timeline.title") }}</h2>
+            <p class="text-gray-500 text-sm">{{ t("knowledgeSpaces.timeline.description") }}</p>
           </div>
-          <UBadge color="orange" variant="soft">规划中</UBadge>
+          <UBadge color="orange" variant="soft">{{ t("knowledgeSpaces.timeline.badge") }}</UBadge>
         </div>
       </template>
 

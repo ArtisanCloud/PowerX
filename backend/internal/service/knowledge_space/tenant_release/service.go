@@ -221,7 +221,7 @@ func (s *Service) Promote(ctx context.Context, in PromoteInput) (*PromoteResult,
 	if len(in.Alerts) > 0 {
 		current.State = "paused"
 		current.Alerts = encodeJSON(in.Alerts)
-		if _, err := batchRepo.Update(ctx, current); err != nil {
+		if _, err := batchRepo.SaveState(ctx, current); err != nil {
 			return nil, err
 		}
 		s.recordMetrics("paused", 0, coverage(current.BatchIndex+1, specsCount), in.Alerts)
@@ -236,7 +236,7 @@ func (s *Service) Promote(ctx context.Context, in PromoteInput) (*PromoteResult,
 	now := s.clock().UTC()
 	current.State = "completed"
 	current.CompletedAt = &now
-	if _, err := batchRepo.Update(ctx, current); err != nil {
+	if _, err := batchRepo.SaveState(ctx, current); err != nil {
 		return nil, err
 	}
 	next, err := s.nextBatch(ctx, in.PolicyID, strings.TrimSpace(in.VersionID), current.BatchIndex)
@@ -260,7 +260,7 @@ func (s *Service) Promote(ctx context.Context, in PromoteInput) (*PromoteResult,
 	next.State = "promoted"
 	tNow := s.clock().UTC()
 	next.PromotedAt = &tNow
-	if _, err := batchRepo.Update(ctx, next); err != nil {
+	if _, err := batchRepo.SaveState(ctx, next); err != nil {
 		return nil, err
 	}
 	cov := coverage(next.BatchIndex+1, specsCount)
@@ -292,7 +292,7 @@ func (s *Service) Rollback(ctx context.Context, in RollbackInput) (*RollbackResu
 	for _, batch := range batches {
 		batch.State = "rolled_back"
 		batch.RolledBackAt = &now
-		if _, err := repo.NewTenantReleaseBatchRepository(s.db).Update(ctx, batch); err != nil {
+		if _, err := repo.NewTenantReleaseBatchRepository(s.db).SaveState(ctx, batch); err != nil {
 			return nil, err
 		}
 		count++

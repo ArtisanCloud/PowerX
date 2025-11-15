@@ -60,7 +60,7 @@ func New(t testing.TB) *Env {
 	require.NoError(t, err)
 
 	prevSchema := coremodel.PowerXSchema
-	coremodel.PowerXSchema = ""
+	coremodel.PowerXSchema = "main"
 	t.Cleanup(func() { coremodel.PowerXSchema = prevSchema })
 
 	require.NoError(t, db.AutoMigrate(
@@ -74,6 +74,8 @@ func New(t testing.TB) *Env {
 		&models.AuditTrailEntry{},
 		&models.DeltaJob{},
 		&models.DecayTask{},
+		&models.TenantReleasePolicy{},
+		&models.TenantReleaseBatch{},
 	))
 
 	bus := event_bus.NewLocalEventBus()
