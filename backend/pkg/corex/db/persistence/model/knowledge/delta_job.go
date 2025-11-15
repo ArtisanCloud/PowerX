@@ -29,5 +29,5 @@ type DeltaJob struct {
 }
 
 func (DeltaJob) TableName() string {
-	return tableName(coremodel.TableKnowledgeDeltaJobs)
+	return coremodel.PowerXSchema + "." + coremodel.TableKnowledgeDeltaJobs
 }

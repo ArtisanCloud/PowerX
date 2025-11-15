@@ -187,7 +187,8 @@ All clarifications from the spec are now grounded in explicit decisions—no out
 
 ### Tenant-aware Release Governance (`SCN-KNOWLEDGE-UPDATE-TENANT-001.md`)
 - Build `backend/internal/service/knowledge_space/tenant_release` orchestrating release policies, pilot tenants, expansion, rollback, and audit writes; expose HTTP/gRPC endpoints plus `cmd/knowledge/release.go` CLI + `web-admin/app/pages/knowledge-spaces/release.vue` dashboard.
-- Manage `configs/knowledge/tenant_release_matrix.yaml`, `release_guardrails.md`, push telemetry to `backend/reports/_state/knowledge-release.json`, and ensure audit trails capture strategy, approvals, publish/rollback IDs per tenant.
+- Manage `configs/knowledge/tenant_release_matrix.yaml`, `release_guardrails.md`, and scripts (`scripts/ops/knowledge-release-matrix.mjs`) so ops can lint policies and simulate gray waves. Telemetry from the release service must write `backend/reports/_state/knowledge-release.json` and update the aggregate `knowledge-update.json`, emitting `knowledge.release.{gray_state,rollback_count,tenant_coverage,alerts}` for the Grafana “Tenant Release Control” board.
+- Enforce feature flags `PX_KNOWLEDGE_GRAY_RELEASE`, `PX_TENANT_RELEASE_MATRIX`, `PX_KNOWLEDGE_RELEASE_GUARD`; approvals/rollbacks must flow through `audit-ledger` with tenant/space/version metadata and notify governance IM webhooks when guardrails fail.
 
 ### Telemetry & Ops Alignment
 - Extend `Makefile` / CI to include delta/event/decay/release smoke targets, update Grafana dashboards: `Knowledge Delta Sync`, `QA Feedback Loop`, `Event Hotfix`, `Knowledge Decay Monitor`, `Tenant Release Control`.

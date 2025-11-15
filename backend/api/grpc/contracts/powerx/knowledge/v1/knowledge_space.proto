@@ -305,6 +305,66 @@ message RestoreDecayTaskResponse {
   DecayTask task = 1;
 }
 
+message UpsertReleasePolicyRequest {
+  string matrix_version = 1;
+  repeated string pilot_tenants = 2;
+  repeated ReleaseBatch batches = 3;
+  map<string, string> guardrails = 4;
+  string approved_by = 5;
+  string created_by = 6;
+}
+
+message ReleaseBatch {
+  string name = 1;
+  repeated string tenants = 2;
+}
+
+message UpsertReleasePolicyResponse {
+  string policy_id = 1;
+  string status = 2;
+}
+
+message PublishReleaseRequest {
+  string policy_id = 1;
+  string version_id = 2;
+  string requested_by = 3;
+}
+
+message PublishReleaseResponse {
+  string release_id = 1;
+  string version_id = 2;
+  string batch_token = 3;
+  int32 batch_index = 4;
+  repeated string tenants = 5;
+}
+
+message PromoteReleaseRequest {
+  string policy_id = 1;
+  string version_id = 2;
+  string batch_token = 3;
+  repeated string alerts = 4;
+  string requested_by = 5;
+}
+
+message PromoteReleaseResponse {
+  string next_batch_token = 1;
+  int32 batch_index = 2;
+  repeated string tenants = 3;
+  string state = 4;
+  double tenant_coverage = 5;
+}
+
+message RollbackReleaseRequest {
+  string policy_id = 1;
+  string version_id = 2;
+  string reason = 3;
+  string requested_by = 4;
+}
+
+message RollbackReleaseResponse {
+  string status = 1;
+}
+
 service KnowledgeSpaceAdminService {
   rpc CreateKnowledgeSpace(CreateKnowledgeSpaceRequest) returns (CreateKnowledgeSpaceResponse);
   rpc UpdateKnowledgeSpace(UpdateKnowledgeSpaceRequest) returns (UpdateKnowledgeSpaceResponse);
@@ -326,6 +386,10 @@ service KnowledgeSpaceAdminService {
   rpc RunDecayScan(RunDecayScanRequest) returns (RunDecayScanResponse);
   rpc ListDecayTasks(ListDecayTasksRequest) returns (ListDecayTasksResponse);
   rpc RestoreDecayTask(RestoreDecayTaskRequest) returns (RestoreDecayTaskResponse);
+  rpc UpsertReleasePolicy(UpsertReleasePolicyRequest) returns (UpsertReleasePolicyResponse);
+  rpc PublishRelease(PublishReleaseRequest) returns (PublishReleaseResponse);
+  rpc PromoteRelease(PromoteReleaseRequest) returns (PromoteReleaseResponse);
+  rpc RollbackRelease(RollbackReleaseRequest) returns (RollbackReleaseResponse);
 }
 
 message QARetrievalPlanRequest {

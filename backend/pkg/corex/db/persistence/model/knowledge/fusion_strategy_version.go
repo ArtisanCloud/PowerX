@@ -28,7 +28,7 @@ type FusionStrategyVersion struct {
 }
 
 func (FusionStrategyVersion) TableName() string {
-	return tableName(coremodel.TableKnowledgeFusionStrategies)
+	return coremodel.PowerXSchema + "." + coremodel.TableKnowledgeFusionStrategies
 }
 
 const (

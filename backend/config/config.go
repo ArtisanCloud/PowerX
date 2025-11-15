@@ -248,6 +248,7 @@ type KnowledgeSpaceConfig struct {
 	Reports                KnowledgeSpaceReportConfig       `yaml:"reports"`
 	EventHotfix            KnowledgeSpaceEventHotfixConfig  `yaml:"event_hotfix"`
 	Decay                  KnowledgeSpaceDecayConfig        `yaml:"decay"`
+	Release                KnowledgeSpaceReleaseConfig      `yaml:"release"`
 }
 
 // KnowledgeSpaceEventTopics 定义事件主题。
@@ -300,6 +301,13 @@ type KnowledgeSpaceEventHotfixConfig struct {
 
 type KnowledgeSpaceDecayConfig struct {
 	ThresholdPath        string `yaml:"threshold_path"`
+	ReportPath           string `yaml:"report_path"`
+	AggregateReportPath  string `yaml:"aggregate_report_path"`
+}
+
+type KnowledgeSpaceReleaseConfig struct {
+	MatrixPath           string `yaml:"matrix_path"`
+	GuardrailsDoc        string `yaml:"guardrails_doc"`
 	ReportPath           string `yaml:"report_path"`
 	AggregateReportPath  string `yaml:"aggregate_report_path"`
 }

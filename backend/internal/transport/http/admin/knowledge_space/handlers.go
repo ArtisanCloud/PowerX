@@ -26,6 +26,7 @@ func RegisterAPIRoutes(public, protected *gin.RouterGroup, deps *shared.Deps) {
 	deltaHandler := NewDeltaHandler(deps)
 	eventHandler := NewEventHandler(deps)
 	decayHandler := NewDecayHandler(deps)
+	releaseHandler := NewReleaseHandler(deps)
 	group := protected.Group("/admin/knowledge-spaces")
 	{
 		group.POST("", handler.create)
@@ -68,6 +69,15 @@ func RegisterAPIRoutes(public, protected *gin.RouterGroup, deps *shared.Deps) {
 			decayGroup.POST("/tasks", decayHandler.Scan)
 			decayGroup.POST("/restore", decayHandler.Restore)
 			decayGroup.GET("/status", decayHandler.Status)
+		}
+	}
+	if releaseHandler != nil {
+		releaseGroup := protected.Group("/knowledge/release")
+		{
+			releaseGroup.POST("/policies", releaseHandler.UpsertPolicy)
+			releaseGroup.POST("/publish", releaseHandler.Publish)
+			releaseGroup.POST("/promote", releaseHandler.Promote)
+			releaseGroup.POST("/rollback", releaseHandler.Rollback)
 		}
 	}
 }

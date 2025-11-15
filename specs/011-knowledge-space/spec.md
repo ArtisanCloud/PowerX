@@ -109,6 +109,7 @@ Knowledge governance operators run the continuous-update control room described 
 - `SCN-KNOWLEDGE-UPDATE-SYNC-001.md` (delta/approval/version) → requires `PX_KNOWLEDGE_DELTA_SYNC`, `PX_KNOWLEDGE_VERSIONED_STORAGE`, and partial-release controls mapped to HTTP+gRPC contracts.
 - `SCN-KNOWLEDGE-UPDATE-EVENT-001.md` (event hotfix/agent notify) → enforces event signatures, idempotent keys, ≤5m latency, and `PX_AGENT_WEIGHT_REFRESH` gating.
 - `SCN-KNOWLEDGE-UPDATE-DECAY-001.md` (decay/gap watchdog) → drives schedule frequency, severity thresholds, ≤10m restore, and `PX_KNOWLEDGE_DECAY_GUARD` / `PX_KNOWLEDGE_GAP_ALERT` flags.
+- `SCN-KNOWLEDGE-UPDATE-TENANT-001.md` (tenant-aware gray release) → mandates `PX_KNOWLEDGE_GRAY_RELEASE`, `PX_TENANT_RELEASE_MATRIX`, `PX_KNOWLEDGE_RELEASE_GUARD`, version drift ≤1 release, 5-minute rollback SLA, and per-tenant audit exports sourced from `tenant_release_matrix.yaml` + `release_guardrails.md`.
 - All loops must write telemetry snapshots into `backend/reports/_state/knowledge-{delta,event,decay}.json` and aggregate into `reports/_state/knowledge-update.json` per constitution.
 
 **Implementation Notes**: Delta + event flows reuse the shared multi-driver vectorstore abstraction defined in `backend/pkg/corex/db/persistence/vectorstore` instead of bespoke embedding clients, so pgvector/milvus/pinecone drivers stay centrally configurable. Task orchestration reuses the existing approval-center connectors, audit-ledger client, and `task-center` integration for decay gap workloads.

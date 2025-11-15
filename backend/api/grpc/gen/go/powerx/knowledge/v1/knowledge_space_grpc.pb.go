@@ -39,6 +39,10 @@ const (
 	KnowledgeSpaceAdminService_RunDecayScan_FullMethodName           = "/powerx.knowledge.v1.KnowledgeSpaceAdminService/RunDecayScan"
 	KnowledgeSpaceAdminService_ListDecayTasks_FullMethodName         = "/powerx.knowledge.v1.KnowledgeSpaceAdminService/ListDecayTasks"
 	KnowledgeSpaceAdminService_RestoreDecayTask_FullMethodName       = "/powerx.knowledge.v1.KnowledgeSpaceAdminService/RestoreDecayTask"
+	KnowledgeSpaceAdminService_UpsertReleasePolicy_FullMethodName    = "/powerx.knowledge.v1.KnowledgeSpaceAdminService/UpsertReleasePolicy"
+	KnowledgeSpaceAdminService_PublishRelease_FullMethodName         = "/powerx.knowledge.v1.KnowledgeSpaceAdminService/PublishRelease"
+	KnowledgeSpaceAdminService_PromoteRelease_FullMethodName         = "/powerx.knowledge.v1.KnowledgeSpaceAdminService/PromoteRelease"
+	KnowledgeSpaceAdminService_RollbackRelease_FullMethodName        = "/powerx.knowledge.v1.KnowledgeSpaceAdminService/RollbackRelease"
 )
 
 // KnowledgeSpaceAdminServiceClient is the client API for KnowledgeSpaceAdminService service.
@@ -65,6 +69,10 @@ type KnowledgeSpaceAdminServiceClient interface {
 	RunDecayScan(ctx context.Context, in *RunDecayScanRequest, opts ...grpc.CallOption) (*RunDecayScanResponse, error)
 	ListDecayTasks(ctx context.Context, in *ListDecayTasksRequest, opts ...grpc.CallOption) (*ListDecayTasksResponse, error)
 	RestoreDecayTask(ctx context.Context, in *RestoreDecayTaskRequest, opts ...grpc.CallOption) (*RestoreDecayTaskResponse, error)
+	UpsertReleasePolicy(ctx context.Context, in *UpsertReleasePolicyRequest, opts ...grpc.CallOption) (*UpsertReleasePolicyResponse, error)
+	PublishRelease(ctx context.Context, in *PublishReleaseRequest, opts ...grpc.CallOption) (*PublishReleaseResponse, error)
+	PromoteRelease(ctx context.Context, in *PromoteReleaseRequest, opts ...grpc.CallOption) (*PromoteReleaseResponse, error)
+	RollbackRelease(ctx context.Context, in *RollbackReleaseRequest, opts ...grpc.CallOption) (*RollbackReleaseResponse, error)
 }
 
 type knowledgeSpaceAdminServiceClient struct {
@@ -275,6 +283,46 @@ func (c *knowledgeSpaceAdminServiceClient) RestoreDecayTask(ctx context.Context,
 	return out, nil
 }
 
+func (c *knowledgeSpaceAdminServiceClient) UpsertReleasePolicy(ctx context.Context, in *UpsertReleasePolicyRequest, opts ...grpc.CallOption) (*UpsertReleasePolicyResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UpsertReleasePolicyResponse)
+	err := c.cc.Invoke(ctx, KnowledgeSpaceAdminService_UpsertReleasePolicy_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *knowledgeSpaceAdminServiceClient) PublishRelease(ctx context.Context, in *PublishReleaseRequest, opts ...grpc.CallOption) (*PublishReleaseResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(PublishReleaseResponse)
+	err := c.cc.Invoke(ctx, KnowledgeSpaceAdminService_PublishRelease_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *knowledgeSpaceAdminServiceClient) PromoteRelease(ctx context.Context, in *PromoteReleaseRequest, opts ...grpc.CallOption) (*PromoteReleaseResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(PromoteReleaseResponse)
+	err := c.cc.Invoke(ctx, KnowledgeSpaceAdminService_PromoteRelease_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *knowledgeSpaceAdminServiceClient) RollbackRelease(ctx context.Context, in *RollbackReleaseRequest, opts ...grpc.CallOption) (*RollbackReleaseResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RollbackReleaseResponse)
+	err := c.cc.Invoke(ctx, KnowledgeSpaceAdminService_RollbackRelease_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // KnowledgeSpaceAdminServiceServer is the server API for KnowledgeSpaceAdminService service.
 // All implementations must embed UnimplementedKnowledgeSpaceAdminServiceServer
 // for forward compatibility.
@@ -299,6 +347,10 @@ type KnowledgeSpaceAdminServiceServer interface {
 	RunDecayScan(context.Context, *RunDecayScanRequest) (*RunDecayScanResponse, error)
 	ListDecayTasks(context.Context, *ListDecayTasksRequest) (*ListDecayTasksResponse, error)
 	RestoreDecayTask(context.Context, *RestoreDecayTaskRequest) (*RestoreDecayTaskResponse, error)
+	UpsertReleasePolicy(context.Context, *UpsertReleasePolicyRequest) (*UpsertReleasePolicyResponse, error)
+	PublishRelease(context.Context, *PublishReleaseRequest) (*PublishReleaseResponse, error)
+	PromoteRelease(context.Context, *PromoteReleaseRequest) (*PromoteReleaseResponse, error)
+	RollbackRelease(context.Context, *RollbackReleaseRequest) (*RollbackReleaseResponse, error)
 	mustEmbedUnimplementedKnowledgeSpaceAdminServiceServer()
 }
 
@@ -368,6 +420,18 @@ func (UnimplementedKnowledgeSpaceAdminServiceServer) ListDecayTasks(context.Cont
 }
 func (UnimplementedKnowledgeSpaceAdminServiceServer) RestoreDecayTask(context.Context, *RestoreDecayTaskRequest) (*RestoreDecayTaskResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RestoreDecayTask not implemented")
+}
+func (UnimplementedKnowledgeSpaceAdminServiceServer) UpsertReleasePolicy(context.Context, *UpsertReleasePolicyRequest) (*UpsertReleasePolicyResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpsertReleasePolicy not implemented")
+}
+func (UnimplementedKnowledgeSpaceAdminServiceServer) PublishRelease(context.Context, *PublishReleaseRequest) (*PublishReleaseResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method PublishRelease not implemented")
+}
+func (UnimplementedKnowledgeSpaceAdminServiceServer) PromoteRelease(context.Context, *PromoteReleaseRequest) (*PromoteReleaseResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method PromoteRelease not implemented")
+}
+func (UnimplementedKnowledgeSpaceAdminServiceServer) RollbackRelease(context.Context, *RollbackReleaseRequest) (*RollbackReleaseResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RollbackRelease not implemented")
 }
 func (UnimplementedKnowledgeSpaceAdminServiceServer) mustEmbedUnimplementedKnowledgeSpaceAdminServiceServer() {
 }
@@ -751,6 +815,78 @@ func _KnowledgeSpaceAdminService_RestoreDecayTask_Handler(srv interface{}, ctx c
 	return interceptor(ctx, in, info, handler)
 }
 
+func _KnowledgeSpaceAdminService_UpsertReleasePolicy_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpsertReleasePolicyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(KnowledgeSpaceAdminServiceServer).UpsertReleasePolicy(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: KnowledgeSpaceAdminService_UpsertReleasePolicy_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(KnowledgeSpaceAdminServiceServer).UpsertReleasePolicy(ctx, req.(*UpsertReleasePolicyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _KnowledgeSpaceAdminService_PublishRelease_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PublishReleaseRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(KnowledgeSpaceAdminServiceServer).PublishRelease(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: KnowledgeSpaceAdminService_PublishRelease_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(KnowledgeSpaceAdminServiceServer).PublishRelease(ctx, req.(*PublishReleaseRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _KnowledgeSpaceAdminService_PromoteRelease_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PromoteReleaseRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(KnowledgeSpaceAdminServiceServer).PromoteRelease(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: KnowledgeSpaceAdminService_PromoteRelease_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(KnowledgeSpaceAdminServiceServer).PromoteRelease(ctx, req.(*PromoteReleaseRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _KnowledgeSpaceAdminService_RollbackRelease_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RollbackReleaseRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(KnowledgeSpaceAdminServiceServer).RollbackRelease(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: KnowledgeSpaceAdminService_RollbackRelease_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(KnowledgeSpaceAdminServiceServer).RollbackRelease(ctx, req.(*RollbackReleaseRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // KnowledgeSpaceAdminService_ServiceDesc is the grpc.ServiceDesc for KnowledgeSpaceAdminService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -837,6 +973,22 @@ var KnowledgeSpaceAdminService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "RestoreDecayTask",
 			Handler:    _KnowledgeSpaceAdminService_RestoreDecayTask_Handler,
+		},
+		{
+			MethodName: "UpsertReleasePolicy",
+			Handler:    _KnowledgeSpaceAdminService_UpsertReleasePolicy_Handler,
+		},
+		{
+			MethodName: "PublishRelease",
+			Handler:    _KnowledgeSpaceAdminService_PublishRelease_Handler,
+		},
+		{
+			MethodName: "PromoteRelease",
+			Handler:    _KnowledgeSpaceAdminService_PromoteRelease_Handler,
+		},
+		{
+			MethodName: "RollbackRelease",
+			Handler:    _KnowledgeSpaceAdminService_RollbackRelease_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

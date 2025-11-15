@@ -293,6 +293,12 @@ func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error)
 				ReportPath:          cfg.KnowledgeSpace.Decay.ReportPath,
 				AggregateReportPath: cfg.KnowledgeSpace.Decay.AggregateReportPath,
 			},
+			Release: shared.KnowledgeSpaceReleaseOptions{
+				MatrixPath:          cfg.KnowledgeSpace.Release.MatrixPath,
+				GuardrailsDoc:       cfg.KnowledgeSpace.Release.GuardrailsDoc,
+				ReportPath:          cfg.KnowledgeSpace.Release.ReportPath,
+				AggregateReportPath: cfg.KnowledgeSpace.Release.AggregateReportPath,
+			},
 		},
 		PluginRelease: shared.PluginReleaseOptions{
 			FeatureFlags: shared.PluginReleaseFeatureFlagsOptions{

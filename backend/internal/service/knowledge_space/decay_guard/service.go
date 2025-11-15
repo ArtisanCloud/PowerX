@@ -45,7 +45,7 @@ type Service struct {
 	db         *gorm.DB
 	inst       *instrumentation.Instrumentation
 	metrics    *instrumentation.DecayMetricsWriter
-	dispatch   TaskDispatcher
+	dispatcher TaskDispatcher
 	thresholds []Threshold
 	clock      func() time.Time
 }
@@ -68,15 +68,15 @@ func NewService(opts Options) *Service {
 		opts.Clock = time.Now
 	}
 	thresholds := loadThresholds(opts.ThresholdsPath)
-	dispatcher := opts.Dispatcher
-	if dispatcher == nil {
-		dispatcher = noopDispatcher{}
+	d := opts.Dispatcher
+	if d == nil {
+		d = noopDispatcher{}
 	}
 	return &Service{
 		db:         opts.DB,
 		inst:       opts.Instrumentation,
 		metrics:    opts.MetricsWriter,
-		dispatch:   dispatcher,
+		dispatcher: d,
 		thresholds: thresholds,
 		clock:      opts.Clock,
 	}
@@ -137,8 +137,8 @@ func (s *Service) RunScan(ctx context.Context, spaceID uuid.UUID, detected int) 
 		if err != nil {
 			return nil, err
 		}
-		if err := s.dispatch(ctx, func(d TaskDispatcher) error { return d.Dispatch(ctx, created) }); err != nil {
-			s.log(ctx).WarnF("decay guard: dispatch task failed: %v", err)
+		if err := s.withDispatcher(func(d TaskDispatcher) error { return d.Dispatch(ctx, created) }); err != nil {
+			s.log(ctx).WarnF(ctx, "decay guard: dispatch task failed: %v", err)
 		}
 		tasks = append(tasks, created)
 	}
@@ -167,7 +167,7 @@ func (s *Service) Restore(ctx context.Context, taskID uuid.UUID, notes string, f
 	}
 	repoTask := repo.NewDecayTaskRepository(s.db)
 	repoSpace := repo.NewKnowledgeSpaceRepository(s.db)
-	task, err := repoTask.FindByUUID(ctx, taskID)
+	task, err := repoTask.GetByUUID(ctx, taskID.String(), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -186,8 +186,8 @@ func (s *Service) Restore(ctx context.Context, taskID uuid.UUID, notes string, f
 	if falsePositive {
 		fp = 1
 	}
-	if err := s.dispatch(ctx, func(d TaskDispatcher) error { return d.Close(ctx, task) }); err != nil {
-		s.log(ctx).WarnF("decay guard: close task failed: %v", err)
+	if err := s.withDispatcher(func(d TaskDispatcher) error { return d.Close(ctx, task) }); err != nil {
+		s.log(ctx).WarnF(ctx, "decay guard: close task failed: %v", err)
 	}
 	openTasks, _ := repoTask.ListOpenBySpace(ctx, task.SpaceUUID)
 	s.recordMetrics(ctx, instrumentation.DecayMetricsSnapshot{
@@ -229,7 +229,7 @@ func (s *Service) slaDuration(hours float64) time.Duration {
 func (s *Service) countBacklog(ctx context.Context, repoTask *repo.DecayTaskRepository, spaceID uuid.UUID) int {
 	open, err := repoTask.ListOpenBySpace(ctx, spaceID)
 	if err != nil {
-		s.log(ctx).WarnF("decay guard: backlog query failed: %v", err)
+		s.log(ctx).WarnF(ctx, "decay guard: backlog query failed: %v", err)
 		return 0
 	}
 	return len(open)
@@ -243,7 +243,7 @@ func (s *Service) recordMetrics(ctx context.Context, snapshot instrumentation.De
 		snapshot.RecordedAt = s.clock().UTC()
 	}
 	if err := s.metrics.Store(snapshot); err != nil {
-		s.log(ctx).WarnF("decay guard: write metrics failed: %v", err)
+		s.log(ctx).WarnF(ctx, "decay guard: write metrics failed: %v", err)
 	}
 }
 
@@ -264,11 +264,11 @@ func (s *Service) emitAudit(ctx context.Context, space *models.KnowledgeSpace, a
 	})
 }
 
-func (s *Service) dispatch(ctx context.Context, fn func(TaskDispatcher) error) error {
-	if s.dispatch == nil || fn == nil {
+func (s *Service) withDispatcher(fn func(TaskDispatcher) error) error {
+	if s.dispatcher == nil || fn == nil {
 		return nil
 	}
-	return fn(s.dispatch)
+	return fn(s.dispatcher)
 }
 
 func (s *Service) fillHours(task *models.DecayTask, now time.Time) float64 {

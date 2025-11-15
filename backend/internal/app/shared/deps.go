@@ -49,6 +49,7 @@ import (
 	event_hotfix "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/event_hotfix"
 	knowledgeinstr "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/instrumentation"
 	knowledgeqa "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/qa_bridge"
+	tenant_release "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/tenant_release"
 	kntoolchain "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/toolchain"
 	mediasvc "github.com/ArtisanCloud/PowerX/internal/service/media"
 	pluginbootstrap "github.com/ArtisanCloud/PowerX/internal/service/plugin_bootstrap"
@@ -542,6 +543,7 @@ type KnowledgeSpaceDeps struct {
 	Delta           *ksdelta.Service
 	EventHotfix     *event_hotfix.Service
 	DecayGuard      *decay_guard.Service
+	Release         *tenant_release.Service
 	VectorStore     vectorstorepkg.Store
 	QABridge        *knowledgeqa.Service
 }
@@ -1128,6 +1130,10 @@ func newKnowledgeSpaceDeps(db *gorm.DB, opts KnowledgeSpaceOptions, bus event_bu
 	if eventReportPath == "" {
 		eventReportPath = filepath.Join("backend", "reports", "_state", "knowledge-event.json")
 	}
+	releaseReportPath := strings.TrimSpace(opts.Release.ReportPath)
+	if releaseReportPath == "" {
+		releaseReportPath = filepath.Join("backend", "reports", "_state", "knowledge-release.json")
+	}
 	decayReportPath := strings.TrimSpace(opts.Decay.ReportPath)
 	if decayReportPath == "" {
 		decayReportPath = filepath.Join("backend", "reports", "_state", "knowledge-decay.json")
@@ -1136,6 +1142,10 @@ func newKnowledgeSpaceDeps(db *gorm.DB, opts KnowledgeSpaceOptions, bus event_bu
 	if eventAggregatePath == "" {
 		eventAggregatePath = aggregateReportPath
 	}
+	releaseAggregatePath := strings.TrimSpace(opts.Release.AggregateReportPath)
+	if releaseAggregatePath == "" {
+		releaseAggregatePath = aggregateReportPath
+	}
 	decayAggregatePath := strings.TrimSpace(opts.Decay.AggregateReportPath)
 	if decayAggregatePath == "" {
 		decayAggregatePath = aggregateReportPath
@@ -1143,6 +1153,7 @@ func newKnowledgeSpaceDeps(db *gorm.DB, opts KnowledgeSpaceOptions, bus event_bu
 	feedbackMetricsWriter := knowledgeService.NewFeedbackMetricsWriter(feedbackReportPath, aggregateReportPath)
 	deltaMetricsWriter := knowledgeinstr.NewDeltaMetricsWriter(deltaReportPath, aggregateReportPath)
 	eventMetricsWriter := knowledgeinstr.NewEventMetricsWriter(eventReportPath, eventAggregatePath)
+	releaseMetricsWriter := knowledgeinstr.NewReleaseMetricsWriter(releaseReportPath, releaseAggregatePath)
 	decayMetricsWriter := knowledgeinstr.NewDecayMetricsWriter(decayReportPath, decayAggregatePath)
 
 	ingestionSvc := knowledgeService.NewIngestionService(knowledgeService.IngestionServiceOptions{
@@ -1206,6 +1217,12 @@ func newKnowledgeSpaceDeps(db *gorm.DB, opts KnowledgeSpaceOptions, bus event_bu
 		Clock:           time.Now,
 		RetryMax:        opts.EventHotfix.RetryMax,
 	})
+	releaseSvc := tenant_release.NewService(tenant_release.Options{
+		DB:              db,
+		Instrumentation: inst,
+		MetricsWriter:   releaseMetricsWriter,
+		Clock:           time.Now,
+	})
 	decaySvc := decay_guard.NewService(decay_guard.Options{
 		DB:              db,
 		Instrumentation: inst,
@@ -1226,6 +1243,7 @@ func newKnowledgeSpaceDeps(db *gorm.DB, opts KnowledgeSpaceOptions, bus event_bu
 		Delta:           deltaSvc,
 		EventHotfix:     eventHotfixSvc,
 		DecayGuard:      decaySvc,
+		Release:         releaseSvc,
 		VectorStore:     vectorStore,
 		QABridge:        qaBridgeSvc,
 	}

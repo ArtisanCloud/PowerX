@@ -301,6 +301,67 @@ func NewDecayTaskRepository(db *gorm.DB) *DecayTaskRepository {
 	}
 }
 
+// TenantReleasePolicyRepository 管理租户灰度策略。
+type TenantReleasePolicyRepository struct {
+	*baseRepo.BaseRepository[models.TenantReleasePolicy]
+	db *gorm.DB
+}
+
+func NewTenantReleasePolicyRepository(db *gorm.DB) *TenantReleasePolicyRepository {
+	return &TenantReleasePolicyRepository{
+		BaseRepository: baseRepo.NewBaseRepository[models.TenantReleasePolicy](db),
+		db:             db,
+	}
+}
+
+func (r *TenantReleasePolicyRepository) FindByID(ctx context.Context, id uint64) (*models.TenantReleasePolicy, error) {
+	policy := &models.TenantReleasePolicy{}
+	if err := r.db.WithContext(ctx).Where("id = ?", id).Take(policy).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return policy, nil
+}
+
+// TenantReleaseBatchRepository 管理灰度批次执行状态。
+type TenantReleaseBatchRepository struct {
+	*baseRepo.BaseRepository[models.TenantReleaseBatch]
+	db *gorm.DB
+}
+
+func NewTenantReleaseBatchRepository(db *gorm.DB) *TenantReleaseBatchRepository {
+	return &TenantReleaseBatchRepository{
+		BaseRepository: baseRepo.NewBaseRepository[models.TenantReleaseBatch](db),
+		db:             db,
+	}
+}
+
+func (r *TenantReleaseBatchRepository) FindByToken(ctx context.Context, token string) (*models.TenantReleaseBatch, error) {
+	if strings.TrimSpace(token) == "" {
+		return nil, gorm.ErrInvalidData
+	}
+	var batch models.TenantReleaseBatch
+	if err := r.db.WithContext(ctx).Where("batch_token = ?", token).Take(&batch).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &batch, nil
+}
+
+func (r *TenantReleaseBatchRepository) ListByPolicyAndVersion(ctx context.Context, policyID uint64, versionID string) ([]*models.TenantReleaseBatch, error) {
+	var batches []*models.TenantReleaseBatch
+	if err := r.db.WithContext(ctx).
+		Where("policy_id = ? AND version_id = ?", policyID, strings.TrimSpace(versionID)).
+		Order("batch_index ASC").Find(&batches).Error; err != nil {
+		return nil, err
+	}
+	return batches, nil
+}
+
 func (r *DecayTaskRepository) ListOpenBySpace(ctx context.Context, space uuid.UUID) ([]*models.DecayTask, error) {
 	if space == uuid.Nil {
 		return nil, gorm.ErrInvalidData

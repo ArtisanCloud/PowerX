@@ -17,6 +17,7 @@ import (
 	event_hotfix "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/event_hotfix"
 	knowledgeinstr "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/instrumentation"
 	qaBridge "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/qa_bridge"
+	tenant_release "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/tenant_release"
 	knowledgegrpc "github.com/ArtisanCloud/PowerX/internal/transport/grpc/knowledge_space"
 	adminhttp "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/knowledge_space"
 	openapihttp "github.com/ArtisanCloud/PowerX/internal/transport/http/openapi/knowledge_space"
@@ -45,6 +46,7 @@ type Env struct {
 	DeltaReportPath           string
 	EventReportPath           string
 	DecayReportPath           string
+	ReleaseReportPath         string
 }
 
 // New spins up an isolated sqlite + redis test environment.
@@ -125,6 +127,7 @@ func New(t testing.TB) *Env {
 	updateReportPath := filepath.Join(tempDir, "knowledge-update.json")
 	deltaReportPath := filepath.Join(tempDir, "knowledge-delta.json")
 	eventReportPath := filepath.Join(tempDir, "knowledge-event.json")
+	releaseReportPath := filepath.Join(tempDir, "knowledge-release.json")
 	decayReportPath := filepath.Join(tempDir, "knowledge-decay.json")
 	deltaSourcesPath := filepath.Join(tempDir, "delta-sources.json")
 	partialReleasePath := filepath.Join(tempDir, "partial-release.json")
@@ -169,6 +172,7 @@ func New(t testing.TB) *Env {
 	deltaMetricsWriter := knowledgeinstr.NewDeltaMetricsWriter(deltaReportPath, updateReportPath)
 	eventMetricsWriter := knowledgeinstr.NewEventMetricsWriter(eventReportPath, updateReportPath)
 	decayMetricsWriter := knowledgeinstr.NewDecayMetricsWriter(decayReportPath, updateReportPath)
+	releaseMetricsWriter := knowledgeinstr.NewReleaseMetricsWriter(releaseReportPath, updateReportPath)
 	ingestionSvc := knowledgeService.NewIngestionService(knowledgeService.IngestionServiceOptions{
 		DB:              db,
 		Instrumentation: inst,
@@ -228,6 +232,12 @@ func New(t testing.TB) *Env {
 		ThresholdsPath:  decayThresholdsPath,
 		Clock:           time.Now,
 	})
+	releaseSvc := tenant_release.NewService(tenant_release.Options{
+		DB:              db,
+		Instrumentation: inst,
+		MetricsWriter:   releaseMetricsWriter,
+		Clock:           time.Now,
+	})
 
 	deps := &shared.Deps{
 		DB:       db,
@@ -244,6 +254,7 @@ func New(t testing.TB) *Env {
 			Delta:           deltaSvc,
 			EventHotfix:     eventHotfixSvc,
 			DecayGuard:      decaySvc,
+			Release:         releaseSvc,
 			VectorStore:     vectorStore,
 			QABridge:        qaBridgeSvc,
 		},
@@ -262,6 +273,7 @@ func New(t testing.TB) *Env {
 		DeltaReportPath:           deltaReportPath,
 		EventReportPath:           eventReportPath,
 		DecayReportPath:           decayReportPath,
+		ReleaseReportPath:         releaseReportPath,
 	}
 }
 

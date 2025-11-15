@@ -155,6 +155,7 @@ type KnowledgeSpaceOptions struct {
 	Reports                KnowledgeSpaceReportOptions
 	EventHotfix            KnowledgeSpaceEventHotfixOptions
 	Decay                  KnowledgeSpaceDecayOptions
+	Release                KnowledgeSpaceReleaseOptions
 }
 
 type KnowledgeSpaceEventTopicsOptions struct {
@@ -204,6 +205,13 @@ type KnowledgeSpaceEventHotfixOptions struct {
 
 type KnowledgeSpaceDecayOptions struct {
 	ThresholdPath       string
+	ReportPath          string
+	AggregateReportPath string
+}
+
+type KnowledgeSpaceReleaseOptions struct {
+	MatrixPath          string
+	GuardrailsDoc       string
 	ReportPath          string
 	AggregateReportPath string
 }

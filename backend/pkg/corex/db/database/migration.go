@@ -218,6 +218,8 @@ func migrateKnowledgeModels(db *gorm.DB) error {
 		&modelKnowledge.AuditTrailEntry{},
 		&modelKnowledge.DeltaJob{},
 		&modelKnowledge.DecayTask{},
+		&modelKnowledge.TenantReleasePolicy{},
+		&modelKnowledge.TenantReleaseBatch{},
 	)
 }
 

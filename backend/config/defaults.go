@@ -155,6 +155,12 @@ func GetDefaults() *Config {
 				ReportPath:          "backend/reports/_state/knowledge-decay.json",
 				AggregateReportPath: "reports/_state/knowledge-update.json",
 			},
+			Release: KnowledgeSpaceReleaseConfig{
+				MatrixPath:          "configs/knowledge/tenant_release_matrix.yaml",
+				GuardrailsDoc:       "docs/ops/release_guardrails.md",
+				ReportPath:          "backend/reports/_state/knowledge-release.json",
+				AggregateReportPath: "reports/_state/knowledge-update.json",
+			},
 		},
 		EventFabric: EventFabricConfig{
 			AckTimeoutSeconds: 30,

@@ -25,5 +25,5 @@ type PolicyTemplateVersion struct {
 }
 
 func (PolicyTemplateVersion) TableName() string {
-	return tableName(coremodel.TableKnowledgePolicyTemplates)
+	return coremodel.PowerXSchema + "." + coremodel.TableKnowledgePolicyTemplates
 }

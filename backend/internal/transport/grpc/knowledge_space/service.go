@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -16,6 +17,7 @@ import (
 	ksdelta "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/delta"
 	event_hotfix "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/event_hotfix"
 	qaBridge "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/qa_bridge"
+	tenant_release "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/tenant_release"
 	"github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/toolchain"
 	models "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/knowledge"
 	"github.com/google/uuid"
@@ -38,6 +40,7 @@ type Server struct {
 	delta       *ksdelta.Service
 	decay       *decay_guard.Service
 	eventHotfix *event_hotfix.Service
+	release     *tenant_release.Service
 	qa          *qaBridge.Service
 }
 
@@ -54,6 +57,7 @@ func NewServer(deps *shared.Deps) *Server {
 		delta:       deps.KnowledgeSpace.Delta,
 		decay:       deps.KnowledgeSpace.DecayGuard,
 		eventHotfix: deps.KnowledgeSpace.EventHotfix,
+		release:     deps.KnowledgeSpace.Release,
 		qa:          deps.KnowledgeSpace.QABridge,
 	}
 }
@@ -603,6 +607,40 @@ func mapDecayError(err error) error {
 	}
 }
 
+func mapReleaseError(err error) error {
+	switch {
+	case errors.Is(err, tenant_release.ErrInvalidInput):
+		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, tenant_release.ErrPolicyNotFound), errors.Is(err, tenant_release.ErrBatchNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, tenant_release.ErrBatchPaused):
+		return status.Error(codes.Aborted, err.Error())
+	default:
+		return status.Error(codes.Internal, err.Error())
+	}
+}
+
+func fromProtoBatches(items []*knowledgev1.ReleaseBatch) []tenant_release.BatchSpec {
+	if len(items) == 0 {
+		return nil
+	}
+	result := make([]tenant_release.BatchSpec, 0, len(items))
+	for _, item := range items {
+		if item == nil {
+			continue
+		}
+		result = append(result, tenant_release.BatchSpec{
+			Name:    item.GetName(),
+			Tenants: item.GetTenants(),
+		})
+	}
+	return result
+}
+
+func parsePolicyID(raw string) (uint64, error) {
+	return strconv.ParseUint(strings.TrimSpace(raw), 10, 64)
+}
+
 func toProtoDeltaJob(job *models.DeltaJob) *knowledgev1.DeltaJob {
 	if job == nil {
 		return nil
@@ -796,10 +834,20 @@ func (s *Server) RefreshAgentWeights(ctx context.Context, req *knowledgev1.Refre
 	if s.eventHotfix == nil {
 		return nil, status.Error(codes.Unimplemented, "agent notifier not available")
 	}
-	if err := s.eventHotfix.RefreshAgent(ctx, strings.TrimSpace(req.GetTenantId())); err != nil {
+	payload := map[string]string{
+		"eventType": strings.TrimSpace(req.GetTenantId()),
+	}
+	res, err := s.eventHotfix.Apply(ctx, toEventInput("manual-refresh:"+uuid.NewString(), "agent.weight.refresh", payload, timestamppb.Now(), 0))
+	if err != nil && !errors.Is(err, event_hotfix.ErrDuplicateEvent) {
 		return nil, mapEventError(err)
 	}
-	return &knowledgev1.RefreshAgentResponse{Status: "ok"}, nil
+	statusText := "ok"
+	if err != nil {
+		statusText = "duplicate"
+	} else if res != nil {
+		statusText = res.Status
+	}
+	return &knowledgev1.RefreshAgentResponse{Status: statusText}, nil
 }
 
 func (s *Server) RunDecayScan(ctx context.Context, req *knowledgev1.RunDecayScanRequest) (*knowledgev1.RunDecayScanResponse, error) {
@@ -845,4 +893,97 @@ func (s *Server) RestoreDecayTask(ctx context.Context, req *knowledgev1.RestoreD
 		return nil, mapDecayError(err)
 	}
 	return &knowledgev1.RestoreDecayTaskResponse{Task: toProtoDecayTask(task)}, nil
+}
+
+func (s *Server) UpsertReleasePolicy(ctx context.Context, req *knowledgev1.UpsertReleasePolicyRequest) (*knowledgev1.UpsertReleasePolicyResponse, error) {
+	if s.release == nil {
+		return nil, status.Error(codes.Unimplemented, "release service not available")
+	}
+	policy, err := s.release.UpsertPolicy(ctx, tenant_release.UpsertPolicyInput{
+		MatrixVersion: req.GetMatrixVersion(),
+		PilotTenants:  req.GetPilotTenants(),
+		Batches:       fromProtoBatches(req.GetBatches()),
+		Guardrails:    req.GetGuardrails(),
+		ApprovedBy:    req.GetApprovedBy(),
+		CreatedBy:     req.GetCreatedBy(),
+	})
+	if err != nil {
+		return nil, mapReleaseError(err)
+	}
+	return &knowledgev1.UpsertReleasePolicyResponse{
+		PolicyId: fmt.Sprintf("%d", policy.ID),
+		Status:   policy.Status,
+	}, nil
+}
+
+func (s *Server) PublishRelease(ctx context.Context, req *knowledgev1.PublishReleaseRequest) (*knowledgev1.PublishReleaseResponse, error) {
+	if s.release == nil {
+		return nil, status.Error(codes.Unimplemented, "release service not available")
+	}
+	policyID, err := parsePolicyID(req.GetPolicyId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid policy id: %v", err)
+	}
+	res, err := s.release.Publish(ctx, tenant_release.PublishInput{
+		PolicyID:    policyID,
+		VersionID:   req.GetVersionId(),
+		RequestedBy: req.GetRequestedBy(),
+	})
+	if err != nil {
+		return nil, mapReleaseError(err)
+	}
+	return &knowledgev1.PublishReleaseResponse{
+		ReleaseId:  res.ReleaseID,
+		VersionId:  res.VersionID,
+		BatchToken: res.BatchToken,
+		BatchIndex: int32(res.BatchIndex),
+		Tenants:    res.Tenants,
+	}, nil
+}
+
+func (s *Server) PromoteRelease(ctx context.Context, req *knowledgev1.PromoteReleaseRequest) (*knowledgev1.PromoteReleaseResponse, error) {
+	if s.release == nil {
+		return nil, status.Error(codes.Unimplemented, "release service not available")
+	}
+	policyID, err := parsePolicyID(req.GetPolicyId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid policy id: %v", err)
+	}
+	result, serr := s.release.Promote(ctx, tenant_release.PromoteInput{
+		PolicyID:    policyID,
+		VersionID:   req.GetVersionId(),
+		BatchToken:  req.GetBatchToken(),
+		Alerts:      req.GetAlerts(),
+		RequestedBy: req.GetRequestedBy(),
+	})
+	if serr != nil && !errors.Is(serr, tenant_release.ErrBatchPaused) {
+		return nil, mapReleaseError(serr)
+	}
+	return &knowledgev1.PromoteReleaseResponse{
+		NextBatchToken: result.BatchToken,
+		BatchIndex:     int32(result.BatchIndex),
+		Tenants:        result.Tenants,
+		State:          result.State,
+		TenantCoverage: result.TenantCoverage,
+	}, nil
+}
+
+func (s *Server) RollbackRelease(ctx context.Context, req *knowledgev1.RollbackReleaseRequest) (*knowledgev1.RollbackReleaseResponse, error) {
+	if s.release == nil {
+		return nil, status.Error(codes.Unimplemented, "release service not available")
+	}
+	policyID, err := parsePolicyID(req.GetPolicyId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid policy id: %v", err)
+	}
+	res, err := s.release.Rollback(ctx, tenant_release.RollbackInput{
+		PolicyID:    policyID,
+		VersionID:   req.GetVersionId(),
+		Reason:      req.GetReason(),
+		RequestedBy: req.GetRequestedBy(),
+	})
+	if err != nil {
+		return nil, mapReleaseError(err)
+	}
+	return &knowledgev1.RollbackReleaseResponse{Status: res.Status}, nil
 }

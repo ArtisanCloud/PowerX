@@ -23,5 +23,5 @@ type AuditTrailEntry struct {
 }
 
 func (AuditTrailEntry) TableName() string {
-	return tableName(coremodel.TableKnowledgeAuditTrailEntries)
+	return coremodel.PowerXSchema + "." + coremodel.TableKnowledgeAuditTrailEntries
 }
