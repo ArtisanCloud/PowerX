@@ -57,6 +57,34 @@ px-plugin --version
 px-market --version
 ```
 
+> **配置 API 凭证与 mTLS**：`px auth configure` 会调用 Admin API 登录并把访问令牌写入 `~/.powerx/credentials.json`，同时在 `~/.powerx/cli/` 下生成（或拷贝） `client.crt`、`client.key`、`ca.crt`，供 `px-plugin dev --watch` 等命令复用。如果你的 Admin API 前缀不是 `/api`，可改用 `--api http://localhost:8077` / `--api http://localhost:8077/api/v1`，CLI 会自动尝试常见路径；仅需生成 mTLS 证书时可加 `--mtls-only` 跳过登录。
+>
+> ```bash
+> # 交互式输入账号密码，也可以通过 --identifier/--password 直接传递
+> px auth configure \
+>   --api http://localhost:8077/api \
+>   --tenant system \
+>   --mtls-cn dev-client
+>
+> # 如已有证书，可指定路径避免重新生成
+> px auth configure \
+>   --mtls-cert ./client.crt \
+>   --mtls-key ./client.key \
+>   --mtls-ca ./ca.crt
+> ```
+>
+> 生成的 `~/.powerx/credentials.json` 与 `~/.powerx/cli/*` 由 `px-plugin dev --watch`、`px host start --mock` 等工具共用，可通过 `--credentials`、`--mtls-dir` 覆盖默认路径。
+
+> **从源码构建时请注入版本号**：例如在 `PowerX/backend` 下编译 `px`，需通过 `ldflags` 注入版本，避免 `px --version` 一直返回 `dev`。
+>
+> ```bash
+> cd backend
+> go install -ldflags "-X main.version=v0.1.22" ./cmd/px
+> px --version   # px version v0.1.22
+> ```
+>
+> 将 `v0.1.22` 替换为当前构建版本；CI 里也沿用同样的命令以确保版本一致性。
+
 ## 3. 通过 GitHub Releases 安装（可选）
 
 > 若各仓提供预编译二进制（建议命名）：

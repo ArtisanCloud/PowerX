@@ -79,12 +79,57 @@ Agent operators submit feedback whenever answers look stale or inaccurate, trigg
 
 ---
 
+### User Story 5 - QA orchestrator-ready cross-space reasoning surfaces (Priority: P1)
+
+QA Orchestrator and Agent Dialogue services (per `SCN-KNOWLEDGE-QA-REASON-001`) consume knowledge-space metadata to pick the right spaces, stream conversation memory, assemble reasoning plans that mix chunks + tools, and enforce security checks before responding to end users. Knowledge spaces must therefore expose cross-space retrieval readiness, citation deltas, and toolchain contracts with ≤2s SLA so QA flows can stay trustworthy across multiple tenants.
+
+**Why this priority**: Intelligent QA is the downstream consumer that validates the value of every knowledge space. Without first-class orchestration hooks, the scenario’s KPIs (≤2s retrieval, ≥95% citation coverage, ≥99% tool success, 24h negative-feedback closure) cannot be met even if ingestion quality is high.
+
+**Independent Test**: Point the sandbox QA Orchestrator at two active knowledge spaces, call the new `POST /knowledge-spaces/qa/retrieval-plan` API with labeled intents, watch it return within 2 seconds with citation scores + degrade reasons, trigger a follow-up request to verify conversation-memory deltas, and force a tool failure to confirm failover + audit events fire before the Agent completes the answer.
+
+**Acceptance Scenarios**:
+
+1. **Given** a QA Orchestrator request carrying `intent`, `domain_tags`, and desired latency, **When** the knowledge-space service computes the cross-space retrieval plan, **Then** it returns ≤2s with ≥95% citation coverage, identifies at least two eligible spaces, and emits `qa.retrieval.plan` telemetry that records degrade reasons for any skipped space.
+2. **Given** a multi-turn follow-up, **When** the Agent Dialogue service queries `/knowledge-spaces/qa/memory-snapshot`, **Then** it receives citation deltas mapped to chunk IDs + knowledge space IDs, with an audit pointer so security reviewers can replay the reasoning chain.
+3. **Given** the reasoning plan references SQL/REST tools registered for a knowledge space, **When** the QA Orchestrator invokes the new toolchain contract, **Then** the service resolves tool metadata, enforces IAM scopes, logs each step under `audit.reasoning_steps`, and automatically fails over to cached data if real-time calls fall below the 99% success target.
+4. **Given** sensitive fields or unauthorized spaces are detected during plan generation, **When** the compliance hooks run, **Then** the request is blocked with `security.access.denied`, a masked preview is returned, an incident alert is raised, and the original QA session automatically links to the audit ID for follow-up.
+
+---
+
+### User Story 6 - Knowledge update, decay guard, and tenant release operations (Priority: P1)
+
+Knowledge governance operators run the continuous-update control room described in `docs/use_cases/_from_hub/SCN-KNOWLEDGE-UPDATE-001/SCN-KNOWLEDGE-UPDATE-001.md`: they launch delta sync jobs, approve diffs, trigger event hotfixes, monitor decay scans, and orchestrate tenant-level gray releases with full auditability and SLA-backed telemetry.
+
+**Why this priority**: Without delta/feedback/event/decay/release loops, knowledge spaces drift from reality even if provisioning + ingestion are solid. The scenario mandates ≤30m delta pipelines with ≥98% diff accuracy, ≤5m event refresh, 100% decay coverage, and auditable tenant releases, all of which unlock safe incremental updates for regulated tenants.
+
+**Independent Test**: Execute `scripts/ops/knowledge-delta-job.mjs --tenant demo-retail` to generate a delta package, review the diff + approval UI, promote to pilot tenants, then push a simulated regulation-update event into the bus and confirm ≤5m hotfix latency. Immediately follow with `scripts/ops/knowledge-decay-scan.mjs` to produce decay tasks, resolve one false positive within 10 minutes, and finally promote the new version through the gray-release UI/CLI while verifying `backend/reports/_state/knowledge-*.json` snapshots.
+
+**Scenario Inputs & Guardrails**:
+
+- `SCN-KNOWLEDGE-UPDATE-SYNC-001.md` (delta/approval/version) → requires `PX_KNOWLEDGE_DELTA_SYNC`, `PX_KNOWLEDGE_VERSIONED_STORAGE`, and partial-release controls mapped to HTTP+gRPC contracts.
+- `SCN-KNOWLEDGE-UPDATE-EVENT-001.md` (event hotfix/agent notify) → enforces event signatures, idempotent keys, ≤5m latency, and `PX_AGENT_WEIGHT_REFRESH` gating.
+- `SCN-KNOWLEDGE-UPDATE-DECAY-001.md` (decay/gap watchdog) → drives schedule frequency, severity thresholds, ≤10m restore, and `PX_KNOWLEDGE_DECAY_GUARD` / `PX_KNOWLEDGE_GAP_ALERT` flags.
+- `SCN-KNOWLEDGE-UPDATE-TENANT-001.md` (tenant-aware gray release) → mandates `PX_KNOWLEDGE_GRAY_RELEASE`, `PX_TENANT_RELEASE_MATRIX`, `PX_KNOWLEDGE_RELEASE_GUARD`, version drift ≤1 release, 5-minute rollback SLA, and per-tenant audit exports sourced from `tenant_release_matrix.yaml` + `release_guardrails.md`.
+- All loops must write telemetry snapshots into `backend/reports/_state/knowledge-{delta,event,decay}.json` and aggregate into `reports/_state/knowledge-update.json` per constitution.
+
+**Implementation Notes**: Delta + event flows reuse the shared multi-driver vectorstore abstraction defined in `backend/pkg/corex/db/persistence/vectorstore` instead of bespoke embedding clients, so pgvector/milvus/pinecone drivers stay centrally configurable. Task orchestration reuses the existing approval-center connectors, audit-ledger client, and `task-center` integration for decay gap workloads.
+
+**Acceptance Scenarios**:
+
+1. **Given** a delta job referencing updated PDFs + API sources, **When** operators run the approval flow, **Then** the system enforces ≤30 minute detect→publish SLA, emits `knowledge.delta.{sla,diff_accuracy,partial_release}` (target ≥98% diff accuracy), stores partial-release + rollback tokens, reuses the vectorstore driver registry for embedding comparisons, and writes audit IDs matching `SCN-KNOWLEDGE-UPDATE-SYNC-001`.
+2. **Given** a policy-change event lands on the bus, **When** the event-hotfix handler matches `configs/knowledge/event_hotfix_policies.yaml`, **Then** it completes the refresh within five minutes, validates payload signatures, produces `knowledge.event.{latency,idempotent_skips}` for duplicates, refreshes Agent weights through the notifier component, and records the hotfix in `backend/reports/_state/knowledge-event.json`.
+3. **Given** the nightly decay scan identifies low-quality or empty topics, **When** the decay guard triages them, **Then** it generates restoration tasks in `task-center` with SLA ≤7 days, flags potential false positives, allows a one-click restore in ≤10 minutes, and exports `knowledge.decay.detected`, `knowledge.decay.false_positive`, and `knowledge.gap.backlog` metrics as specified by `SCN-KNOWLEDGE-UPDATE-DECAY-001.md`.
+4. **Given** new content needs tenant-aware rollout, **When** operators configure `configs/knowledge/tenant_release_matrix.yaml` and start a gray release, **Then** the release controller promotes pilots, pauses automatically when metrics violate guardrails, rolls back affected tenants inside five minutes, and emits auditable `knowledge.release.gray_state` entries covering approvals + rollback reasons per `SCN-KNOWLEDGE-UPDATE-TENANT-001.md`.
+
+---
+
 - Concurrent space creation for the same tenant must detect quota conflicts and serialize provisioning to avoid double-allocation; the UI should lock the wizard and surface a toast when another admin is mid-creation.
 - Import payloads referencing unsupported formats (e.g., password-protected PDFs) should fail fast with actionable remediation guidance.
 - Structured ingestion must block uploads that contain confidential identifiers the masking policy cannot cover.
 - Fusion strategies referencing deprecated pipelines should not publish; operators must be prompted to re-link compatible sources.
 - Feedback submitted on deleted spaces must be rejected with guidance to reassign or restore the source space.
 - Bulk reprocessing triggered by spikes (>50 feedback/hour) should throttle job creation to protect shared GPU/OCR capacity and show banner alerts in the Web Admin dashboard.
+- Cross-space retrieval plan requests must degrade gracefully when a knowledge space is offline or unauthorized by returning structured `degrade_reason` codes, emitting `qa.degrade.count`, and blocking propagation to QA Orchestrator until compliance gates pass.
 
 ## Requirements *(mandatory)*
 
@@ -104,6 +149,16 @@ Agent operators submit feedback whenever answers look stale or inaccurate, trigg
 - **FR-012**: Feedback submission MUST capture the answer context, chunk/tool trace, and severity, then trigger quality scoring and reprocess jobs with SLA monitoring (≤24 hours to completion).
 - **FR-013**: Hot index updates MUST swap vector, keyword, and graph artifacts atomically, ensuring no more than five minutes of stale responses during deployment.
 - **FR-014**: All flows (provisioning, ingestion, fusion, feedback) MUST expose metrics to Grafana dashboards (`Knowledge Space`, `fusion-pipeline`, `feedback-loop`) and export summarized JSON under `reports/_state`.
+- **FR-015**: Knowledge spaces MUST expose a QA Orchestrator bridge (HTTP + gRPC) that accepts intent/tag payloads, returns cross-space retrieval plans within ≤2 seconds, annotates citation coverage (goal ≥95%), and encodes degrade reasons aligned with `SCN-KNOWLEDGE-QA-RETRIEVE-001`.
+- **FR-016**: The service MUST provide conversation-memory snapshots/deltas per tenant + knowledge space so Agent Dialogue flows can reuse citations, highlight differences, and persist audits as outlined in `SCN-KNOWLEDGE-QA-CONTEXT-001`.
+- **FR-017**: Toolchain metadata (SQL/REST/rule engines) tied to each knowledge space MUST be discoverable and invocable via the bridge, including failover policies, audit identifiers, and cached outputs to satisfy `SCN-KNOWLEDGE-QA-TOOL-001`.
+- **FR-018**: Each QA Orchestrator interaction MUST call IAM access checks and sensitive-data detectors before responding, block unauthorized requests, and write `audit.reasoning_steps` + `audit.security` records that comply with `SCN-KNOWLEDGE-QA-COMPLIANCE-001`.
+- **FR-019**: QA-feedback events sourced from Agent sessions MUST funnel into the existing feedback loop, keeping the ≤24h SLA, tagging the originating QA session, and producing `qa.feedback.loop_time` metrics per `SCN-KNOWLEDGE-QA-FEEDBACK-001`.
+- **FR-020**: Delta sync + version governance flows MUST implement the APIs/events enumerated in `docs/use_cases/_from_hub/SCN-KNOWLEDGE-UPDATE-001/SCN-KNOWLEDGE-UPDATE-SYNC-001.md`—including schedulable `POST /knowledge/delta/jobs`, diff reports, approval adapters, partial release, and rollback endpoints—while ensuring ≤30m SLA, ≥98% diff accuracy, and audit-aligned rollback tokens.
+- **FR-021**: Event hotfix orchestration per `SCN-KNOWLEDGE-UPDATE-EVENT-001.md` MUST subscribe to `knowledge.event.received`, validate signatures, apply playbook policies, refresh indexes/Agent weights within ≤5 minutes, and expose HTTP + gRPC transports plus CLI tooling for replay along with idempotent skip tracking.
+- **FR-022**: Decay/gap detection described in `SCN-KNOWLEDGE-UPDATE-DECAY-001.md` MUST run automated scans (cron + on-demand), classify severity, spawn restoration tasks with ≤7-day SLA, support ≤10-minute false-positive recovery, and guard rail multi-tenant visibility with audit logging.
+- **FR-023**: Tenant release governance per `SCN-KNOWLEDGE-UPDATE-TENANT-001.md` MUST manage `tenant_release_matrix.yaml`, pilot selection, automated expansion, failure-induced rollback (<5 minutes), and cross-tenant audit/export capabilities accessible via HTTP/gRPC + CLI + Web Admin surfaces.
+- **FR-024**: All knowledge-update flows (delta, feedback, event, decay, tenant release) MUST emit metrics (`knowledge.delta.*`, `knowledge.feedback.*`, `knowledge.event.*`, `knowledge.decay.*`, `knowledge.release.*`) into OpenTelemetry, Grafana dashboards, and JSON exports (`backend/reports/_state/knowledge-{delta,feedback,event,decay,release}.json` + aggregated `knowledge-update.json`).
 
 ### Key Entities *(include if feature involves data)*
 
@@ -119,7 +174,7 @@ Agent operators submit feedback whenever answers look stale or inaccurate, trigg
 - Front-end UX for admins and operators already exists; this feature delivers backend service surfaces and contracts consumed by those experiences.
 - Required IAM, audit, and monitoring services are available and can accept new events/metrics without additional provisioning work in this feature.
 - Sample corpora (long PDF, structured expense sheets, test APIs) are available in non-production environments for automated validation.
-- Feature flags (`knowledge-space-v1`, `knowledge-ingestion`, `structured-ingestion`, `fusion.pipeline`, `feedback.loop`) will be enabled per-tenant via existing configuration management.
+- Feature flags (`knowledge-space-v1`, `knowledge-ingestion`, `structured-ingestion`, `fusion.pipeline`, `feedback.loop`, `PX_KNOWLEDGE_DELTA_SYNC`, `PX_KNOWLEDGE_FEEDBACK_LOOP`, `PX_KNOWLEDGE_EVENT_HOTFIX`, `PX_KNOWLEDGE_DECAY_GUARD`, `PX_KNOWLEDGE_GRAY_RELEASE`) will be enabled per-tenant via existing configuration management with rollout plans captured in `tenant_release_matrix.yaml`.
 
 ## Success Criteria *(mandatory)*
 
@@ -131,3 +186,8 @@ Agent operators submit feedback whenever answers look stale or inaccurate, trigg
 - **SC-004**: Feedback cases close (reprocessed + hot-updated) within 24 hours in ≥95% of instances; unresolved cases automatically escalate after SLA breach.
 - **SC-005**: All critical pipelines emit health metrics and alerts with <5 minutes detection time, and there are zero gaps in audit trails for provisioning, ingestion, fusion, or feedback events.
 - **SC-006**: Compliance metrics (masking coverage, IAM sync success, audit completeness) stay at 100% for production tenants during pilot rollout.
+- **SC-007**: QA Orchestrator calls spanning at least two knowledge spaces complete cross-space retrieval plans in ≤2 seconds, maintain ≥95% citation coverage, keep real-time tool success ≥99%, and auto-close ≥95% of QA-sourced feedback within 24 hours.
+- **SC-008**: Knowledge delta jobs detected via `scripts/ops/knowledge-delta-job.mjs` publish within ≤30 minutes in ≥95% of cases, diff accuracy stays ≥98%, and rollback from any failed release completes in ≤5 minutes with full audit coverage.
+- **SC-009**: Event hotfixes sourced from `knowledge.event.received` complete refresh + Agent notifications within ≤5 minutes, idempotent skips are recorded for 100% of duplicate payloads, and `knowledge.event.retry_count` never exceeds three without escalation.
+- **SC-010**: Decay scans achieve 100% coverage of active knowledge spaces, detect low-quality/empty segments with ≥90% precision, auto-create restoration tasks with SLA ≤7 days, and resolve false positives or restores within 10 minutes.
+- **SC-011**: Tenant gray releases apply policies from `tenant_release_matrix.yaml`, keep version drift ≤1 release across tenants, roll back failing batches in ≤5 minutes, and expose `knowledge.release.gray_state` / `knowledge-release.json` snapshots that auditors can reconcile without manual reconstruction.

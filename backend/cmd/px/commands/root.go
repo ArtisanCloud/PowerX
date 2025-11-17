@@ -2,7 +2,9 @@ package commands
 
 import (
 	"os"
+	"strings"
 
+	authcmd "github.com/ArtisanCloud/PowerX/cmd/px/commands/auth"
 	hostcmd "github.com/ArtisanCloud/PowerX/cmd/px/commands/host"
 	plugincmd "github.com/ArtisanCloud/PowerX/cmd/px/commands/plugin"
 	publishcmd "github.com/ArtisanCloud/PowerX/cmd/px/commands/publish"
@@ -17,7 +19,10 @@ var rootCmd = &cobra.Command{
 }
 
 // Execute runs the root command.
-func Execute() {
+func Execute(cliVersion string) {
+	rootCmd.Version = normalizeVersion(cliVersion)
+	rootCmd.SetVersionTemplate("px version {{.Version}}\n")
+
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
 	}
@@ -28,4 +33,13 @@ func init() {
 	rootCmd.AddCommand(plugincmd.Command)
 	rootCmd.AddCommand(hostcmd.Command)
 	rootCmd.AddCommand(versioncmd.Command)
+	rootCmd.AddCommand(authcmd.Command)
+}
+
+func normalizeVersion(v string) string {
+	v = strings.TrimSpace(v)
+	if v == "" {
+		return "dev"
+	}
+	return v
 }

@@ -64,6 +64,7 @@
     },
     "agent": "智能助手",
     "workflow": "工作流",
+    "knowledgeSpace": "知识空间",
     "pluginMarketplace": "应用广场",
     "pluginsInstalled": "已安装",
     "pluginsMarket": "应用市场",
@@ -90,6 +91,102 @@
     "orders": "订单管理",
     "badge": {
       "new": "新"
+    }
+  },
+  "knowledgeSpaces": {
+    "head": {
+      "title": "知识空间",
+      "description": "统一规划、交付并观测多租户知识空间的入库、融合与反馈闭环。"
+    },
+    "hero": {
+      "badge": "Knowledge Space",
+      "title": "知识空间工作台",
+      "description": "统一创建与管理多租户知识空间，串联入库、融合与反馈闭环。",
+      "actions": {
+        "create": "创建知识空间",
+        "createDesc": "通过向导配置租户、策略、配额与 IAM。",
+        "docs": "操作指南",
+        "docsDesc": "查看流程、准入条件与治理守护。"
+      }
+    },
+    "qaCard": {
+      "badge": "QA Bridge",
+      "title": "检索健康监控",
+      "refresh": "刷新",
+      "degrade": "{count} 个空间降级",
+      "metrics": {
+        "latency": "检索 P95",
+        "coverage": "引用覆盖",
+        "toolSuccess": "工具成功率"
+      },
+      "audit": "最近审计：{id}",
+      "updatedAt": "更新时间：{time}",
+      "loadError": "无法获取 QA 状态"
+    },
+    "governance": {
+      "title": "治理指南",
+      "description": "即将提供更多跨空间指标与告警入口。"
+    },
+    "ingestion": {
+      "title": "入库 orchestrator",
+      "subtitle": "提交文档或 API 源，自动生成 chunk 与 embedding。",
+      "recentSpace": "最近空间",
+      "recentSpaceHint": "同步来自向导的最新空间，快速触发入库。",
+      "spaceId": "空间 ID",
+      "sourceType": "来源类型",
+      "mode": "入库模式",
+      "modeDocument": "文档上传",
+      "modeApi": "API / URL",
+      "uploadFile": "上传文件",
+      "uploadHint": "文件会自动上传到对象存储后进入 chunk pipeline。",
+      "selectedFile": "已选择：{name}",
+      "sourceUri": "来源地址",
+      "maskingProfile": "脱敏策略",
+      "priority": "优先级",
+      "sourceOptions": {
+        "pdf": "PDF",
+        "markdown": "Markdown",
+        "table": "表格/Excel",
+        "api": "API"
+      },
+      "priorityOptions": {
+        "normal": "标准",
+        "high": "高优先级"
+      },
+      "errors": {
+        "missingSpaceId": "请输入空间 ID",
+        "missingSource": "请完善来源信息",
+        "runFailed": "触发入库失败"
+      },
+      "actions": {
+        "ingestNow": "立即入库"
+      },
+      "result": {
+        "latestTitle": "最近一次任务",
+        "jobSummary": "任务 {jobId} · 状态 {status} · Chunk {chunkTotal} 个",
+        "metricSummary": "覆盖率 {coverage}% · Embedding {embedding}% · Masking {masking}%"
+      },
+      "history": "最近任务",
+      "historyEntry": "{job} · {status} · {time}"
+    },
+    "placeholders": {
+      "spaces": {
+        "title": "空间列表",
+        "description": "即将展示租户维度的空间概览、配额与健康状态。"
+      },
+      "fusion": {
+        "title": "融合策略概览",
+        "description": "这里会汇总最近的融合任务与冲突提示。"
+      },
+      "feedback": {
+        "title": "反馈与告警",
+        "description": "追踪 SLA 超时、告警升级与再加工任务。"
+      }
+    },
+    "timeline": {
+      "title": "空间动态",
+      "description": "后续将展示真实空间/融合数据。",
+      "badge": "规划中"
     }
   },
   "navigation": {

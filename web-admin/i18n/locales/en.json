@@ -63,6 +63,7 @@
     },
     "agent": "AI Agent",
     "workflow": "Workflow",
+    "knowledgeSpace": "Knowledge Spaces",
     "pluginMarketplace": "Marketplace",
     "pluginsInstalled": "Installed",
     "pluginsMarket": "Marketplace",
@@ -89,6 +90,102 @@
     "orders": "Order Management",
     "badge": {
       "new": "New"
+    }
+  },
+  "knowledgeSpaces": {
+    "head": {
+      "title": "Knowledge Spaces",
+      "description": "Plan, provision, and observe multi-tenant knowledge spaces across ingestion, fusion, and feedback."
+    },
+    "hero": {
+      "badge": "Knowledge Space",
+      "title": "Knowledge Space Workbench",
+      "description": "Create and govern multi-tenant knowledge spaces, keeping ingestion, fusion, and feedback loops aligned.",
+      "actions": {
+        "create": "Create Knowledge Space",
+        "createDesc": "Configure tenant, policy, quota, and IAM via the wizard.",
+        "docs": "Operations Guide",
+        "docsDesc": "Review rollout procedures and guardrails."
+      }
+    },
+    "qaCard": {
+      "badge": "QA Bridge",
+      "title": "Retrieval Health Monitor",
+      "refresh": "Refresh",
+      "degrade": "{count} space(s) degraded",
+      "metrics": {
+        "latency": "Retrieval P95",
+        "coverage": "Citation coverage",
+        "toolSuccess": "Tool success rate"
+      },
+      "audit": "Last audit: {id}",
+      "updatedAt": "Updated at {time}",
+      "loadError": "Unable to fetch QA status"
+    },
+    "governance": {
+      "title": "Governance Guide",
+      "description": "Additional cross-space metrics and alerts will appear here soon."
+    },
+    "ingestion": {
+      "title": "Ingestion Orchestrator",
+      "subtitle": "Submit documents or APIs to produce chunks and embeddings automatically.",
+      "recentSpace": "Recent space",
+      "recentSpaceHint": "Synced from the wizard for quick triggers.",
+      "spaceId": "Space ID",
+      "sourceType": "Source type",
+      "mode": "Ingestion mode",
+      "modeDocument": "Document upload",
+      "modeApi": "API / URL",
+      "uploadFile": "Upload file",
+      "uploadHint": "Files are uploaded to object storage before entering the chunk pipeline.",
+      "selectedFile": "Selected: {name}",
+      "sourceUri": "Source URI",
+      "maskingProfile": "Masking profile",
+      "priority": "Priority",
+      "sourceOptions": {
+        "pdf": "PDF",
+        "markdown": "Markdown",
+        "table": "Spreadsheet / Table",
+        "api": "API"
+      },
+      "priorityOptions": {
+        "normal": "Standard",
+        "high": "High priority"
+      },
+      "errors": {
+        "missingSpaceId": "Enter a space ID first",
+        "missingSource": "Provide source information before running",
+        "runFailed": "Failed to trigger ingestion"
+      },
+      "actions": {
+        "ingestNow": "Run Ingestion"
+      },
+      "result": {
+        "latestTitle": "Latest task",
+        "jobSummary": "Job {jobId} · Status {status} · Chunks {chunkTotal}",
+        "metricSummary": "Coverage {coverage}% · Embedding {embedding}% · Masking {masking}%"
+      },
+      "history": "Recent tasks",
+      "historyEntry": "{job} · {status} · {time}"
+    },
+    "placeholders": {
+      "spaces": {
+        "title": "Space overview",
+        "description": "Tenant-level quotas and health snapshots will be shown here."
+      },
+      "fusion": {
+        "title": "Fusion summary",
+        "description": "Recent fusion jobs and conflict alerts will surface here."
+      },
+      "feedback": {
+        "title": "Feedback & Alerts",
+        "description": "Track SLA breaches, escalations, and reprocessing tasks here."
+      }
+    },
+    "timeline": {
+      "title": "Space activity",
+      "description": "Live fusion and telemetry cards will be added soon.",
+      "badge": "Planned"
     }
   },
   "navigation": {

@@ -136,6 +136,12 @@ install-swag:
 	@go install github.com/swaggo/swag/cmd/swag@latest
 	@echo "✅ Swag 安装完成"
 
+# 更新 knowledge-update 报表快照
+.PHONY: report-update
+report-update:
+	@echo "🗂  刷新知识更新报表..."
+	@node scripts/ops/knowledge-feedback-loop.mjs
+
 # 开发环境初始化
 .PHONY: dev-init dev-setup
 dev-init: deps install-tools

@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=https://json.schemastore.org/yaml
+defaults:
+  sla_hours: 24
+  min_fix_accuracy_pct: 25
+  min_auto_rate_pct: 60
+  backlog_soft_limit: 40
+routes:
+  auto: "自动热修 + 指标校验"
+  hybrid: "自动热修 + Ops 复核"
+  manual: "Ops 专家托管"
+severities:
+  critical:
+    sla_hours: 12
+    route: manual
+    audit_priority: P1
+  high:
+    sla_hours: 24
+    route: hybrid
+    audit_priority: P1
+  medium:
+    sla_hours: 36
+    route: auto
+    audit_priority: P2
+  low:
+    sla_hours: 72
+    route: auto
+    audit_priority: P3

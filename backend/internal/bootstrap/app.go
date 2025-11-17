@@ -267,6 +267,38 @@ func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error)
 					Namespace: cfg.KnowledgeSpace.VectorStore.Pinecone.Namespace,
 				},
 			},
+			Delta: shared.KnowledgeSpaceDeltaOptions{
+				SourcesConfig:        cfg.KnowledgeSpace.Delta.SourcesConfig,
+				PartialReleaseConfig: cfg.KnowledgeSpace.Delta.PartialReleaseConfig,
+				ReportPath:           cfg.KnowledgeSpace.Delta.ReportPath,
+				AggregateReportPath:  cfg.KnowledgeSpace.Delta.AggregateReportPath,
+				SLAMinutes:           cfg.KnowledgeSpace.Delta.SLAMinutes,
+				ApprovalMinutes:      cfg.KnowledgeSpace.Delta.ApprovalMinutes,
+				DefaultDiffAccuracy:  cfg.KnowledgeSpace.Delta.DefaultDiffAccuracy,
+			},
+			Reports: shared.KnowledgeSpaceReportOptions{
+				FeedbackPath: cfg.KnowledgeSpace.Reports.FeedbackPath,
+				QABridgePath: cfg.KnowledgeSpace.Reports.QABridgePath,
+			},
+			EventHotfix: shared.KnowledgeSpaceEventHotfixOptions{
+				PoliciesPath:        cfg.KnowledgeSpace.EventHotfix.PoliciesPath,
+				AgentMatrixPath:     cfg.KnowledgeSpace.EventHotfix.AgentMatrixPath,
+				ReportPath:          cfg.KnowledgeSpace.EventHotfix.ReportPath,
+				AggregateReportPath: cfg.KnowledgeSpace.EventHotfix.AggregateReportPath,
+				RetryMax:            cfg.KnowledgeSpace.EventHotfix.RetryMax,
+				ReplayWindow:        time.Duration(cfg.KnowledgeSpace.EventHotfix.ReplayWindowSeconds) * time.Second,
+			},
+			Decay: shared.KnowledgeSpaceDecayOptions{
+				ThresholdPath:       cfg.KnowledgeSpace.Decay.ThresholdPath,
+				ReportPath:          cfg.KnowledgeSpace.Decay.ReportPath,
+				AggregateReportPath: cfg.KnowledgeSpace.Decay.AggregateReportPath,
+			},
+			Release: shared.KnowledgeSpaceReleaseOptions{
+				MatrixPath:          cfg.KnowledgeSpace.Release.MatrixPath,
+				GuardrailsDoc:       cfg.KnowledgeSpace.Release.GuardrailsDoc,
+				ReportPath:          cfg.KnowledgeSpace.Release.ReportPath,
+				AggregateReportPath: cfg.KnowledgeSpace.Release.AggregateReportPath,
+			},
 		},
 		PluginRelease: shared.PluginReleaseOptions{
 			FeatureFlags: shared.PluginReleaseFeatureFlagsOptions{

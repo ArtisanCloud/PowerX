@@ -42,11 +42,12 @@ const (
 type MenuKey string
 
 const (
-	KeyPlugins   MenuKey = "plugins"
-	KeySettings  MenuKey = "settings"
-	KeyDashboard MenuKey = "dashboard"
-	KeyWorkflow  MenuKey = "workflow"
-	KeyAgent     MenuKey = "agent"
+	KeyPlugins        MenuKey = "plugins"
+	KeySettings       MenuKey = "settings"
+	KeyDashboard      MenuKey = "dashboard"
+	KeyWorkflow       MenuKey = "workflow"
+	KeyAgent          MenuKey = "agent"
+	KeyKnowledgeSpace MenuKey = "knowledge_space"
 
 	KeyUserManagement  MenuKey = "user_management"
 	KeyRoleManagement  MenuKey = "role_management"

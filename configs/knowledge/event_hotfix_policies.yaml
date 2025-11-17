@@ -1,0 +1,14 @@
+{
+  "policies": [
+    {
+      "eventType": "policy-update",
+      "actions": ["fetch", "hot-update"],
+      "severity": "p1"
+    },
+    {
+      "eventType": "price-change",
+      "actions": ["patch", "agent-refresh"],
+      "severity": "p0"
+    }
+  ]
+}

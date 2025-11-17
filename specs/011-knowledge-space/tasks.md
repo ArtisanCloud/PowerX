@@ -6,7 +6,7 @@
 ## 说明
 - 任务格式：`[编号] [P?] [所属故事] 描述`
 - `[P]` 代表可并行执行（不同文件、无依赖）
-- 故事标签：`Setup`、`Foundational`、`US1`（Web 管理台配置向导）、`US2`（多模态入库基线）、`US3`（多源融合策略管理）、`US4`（反馈驱动再加工与热更新）、`Polish`
+- 故事标签：`Setup`、`Foundational`、`US1`（Web 管理台配置向导）、`US2`（多模态入库基线）、`US3`（多源融合策略管理）、`US4`（反馈驱动再加工与热更新 / SCN-KNOWLEDGE-UPDATE-FEEDBACK-001）、`US5`（QA 推理桥接）、`US6`（增量同步与版本治理 / SCN-KNOWLEDGE-UPDATE-SYNC-001）、`US7`（事件热更新 / SCN-KNOWLEDGE-UPDATE-EVENT-001）、`US8`（衰减巡检与空白治理 / SCN-KNOWLEDGE-UPDATE-DECAY-001）、`US9`（租户灰度发布 / SCN-KNOWLEDGE-UPDATE-TENANT-001）、`Polish`
 - 所有路径均为仓库内真实路径，确保可直接执行
 
 ---
@@ -118,7 +118,7 @@
 
 ## 阶段 6：用户故事 US4（P3）— 反馈驱动再加工与热更新
 
-**目标**：采集反馈、计算质量分、触发再加工、在 24 小时内热更新索引/图谱并留存审计。  
+**目标**：采集反馈、计算质量分、触发再加工、在 24 小时内热更新索引/图谱并留存审计，对齐 `docs/use_cases/_from_hub/SCN-KNOWLEDGE-UPDATE-001/SCN-KNOWLEDGE-UPDATE-FEEDBACK-001.md` 中关于 +25% 准确率提升与闭环通知的要求。  
 **独立验证**：提交反馈→生成再加工任务→成功热更新；若失败则回滚并升级告警。
 
 ### 测试
@@ -136,10 +136,123 @@
 - [X] **T053 [US4]** 在 `backend/internal/workflow/knowledge_space/reprocess_pipeline.go` 构建再加工与热更新编排（含回滚逻辑）。
 - [X] **T054 [US4]** 在 `web-admin/app/pages/knowledge-spaces/feedback.vue` 及相关组件实现反馈看板、SLA 徽章、升级弹窗。
 - [X] **T055 [US4]** 将反馈与再加工指标写入 Grafana 与 `backend/reports/_state/knowledge-spaces.json`。
+- [X] **T055A [US4]** 在 `backend/internal/service/knowledge_space/feedback_metrics.go` 扩展 `knowledge.feedback.{loop_time,fix_accuracy,auto_rate,backlog}` 指标，落盘至 `backend/reports/_state/knowledge-feedback.json`，并将 `reports/_state/knowledge-update.json` 聚合更新纳入 `Makefile report-update` 目标。
+- [X] **T055B [US4]** 在 `configs/knowledge/feedback_playbook.yaml`、`scripts/ops/knowledge-feedback-loop.mjs` 定义严重等级→SLA→处理路线映射与回归脚本，确保 +25% 准确率提升与 24 小时闭环可被自动验证并写入 `audit-ledger`。
 
 ---
 
-## 阶段 7：Polish & Cross-Cutting
+## 阶段 7：用户故事 US5（P1）— QA 推理桥接
+
+**目标**：让 QA Orchestrator / Agent Dialogue 能在 2 秒内拿到跨知识空间检索计划、对话记忆差异、工具链元数据与合规审计钩子，满足 `SCN-KNOWLEDGE-QA-REASON-001` 全链路 KPI。  
+**独立验证**：从 QA Orchestrator 沙箱发送多租户、带标签的检索请求，确认返回计划含 citation 覆盖 ≥95%、降级原因、IAM/敏感校验；触发多轮追问与工具 failover，并核对 `qa.*` 指标、`audit.reasoning_steps`、`reports/_state/qa-reasoning.json`。
+
+### 测试
+
+- [X] **T059 [P] [US5]** 在 `backend/tests/contract/knowledge_space/qa_bridge_http_test.go` 覆盖 `POST /knowledge-spaces/qa/retrieval-plan`、`/memory-snapshot` 的 SLA、降级、越权/敏感阻断返回。
+- [X] **T060 [P] [US5]** 在 `backend/tests/contract/knowledge_space/qa_bridge_grpc_test.go` 覆盖 gRPC Planner（多空间路由、工具元数据、failover）。
+- [X] **T061 [US5]** 在 `backend/tests/integration/knowledge_space/qa_reasoning_flow_test.go` 模拟 Agent Session → 检索计划 → 工具调用 → failover → 反馈闭环，断言 2 秒 SLA、≥99% 工具成功、审计写入。
+- [X] **T062 [P] [US5]** 在 `web-admin/tests/unit/knowledge-spaces/qa-bridge-card.spec.ts` 校验 `QaBridgeStatusCard.vue` 渲染 QA 指标、降级告警与审计链接。
+
+### 实现
+
+- [X] **T063 [US5]** 在 `backend/internal/service/knowledge_space/qa_bridge/service.go` 实现检索计划计算（向量/BM25/图谱权重、降级原因、SLA 计时）并输出 `qa.retrieval.*` 指标。
+- [X] **T064 [US5]** 在 `backend/internal/service/knowledge_space/context_snapshot/store.go` 构建 Redis + 向量的记忆快照/差异存储，暴露 `GetMemorySnapshot` / `WriteDelta` API，保证 150ms 内返回。
+- [X] **T065 [US5]** 在 `backend/internal/service/knowledge_space/toolchain/registry.go` & `executor.go` 注册 SQL/REST/规则工具，封装 IAM scope 校验、重试、缓存降级，失败时写入 `qa.failover.count`。
+- [X] **T066 [US5]** 在 `backend/internal/service/knowledge_space/compliance/hooks.go` 统一接入 `security.AccessCheck`、敏感检测、`audit.reasoning_steps`，阻断越权并生成审计 ID。
+- [X] **T067 [US5]** 在 `backend/internal/transport/http/openapi/knowledge_space/qa_bridge_handlers.go` 与 `grpc/knowledge_space/qa_bridge_service.go` 暴露 QA Bridge API，更新 `contracts/http-openapi.yaml`/proto。
+- [X] **T068 [US5]** 在 `backend/reports/_state/qa-reasoning.json` & Grafana 面板写入 `qa.retrieval.latency_ms`, `qa.cross_space.hit_rate`, `qa.tool.success_rate`, `qa.feedback.loop_time`，并在 `web-admin/app/components/knowledge-spaces/QaBridgeStatusCard.vue` + `app/services/knowledge-spaces/qaBridgeClient.ts` 显示健康状态。
+
+---
+
+## 阶段 8：用户故事 US6（P1）— 增量同步与版本治理
+
+**目标**：实现 `docs/use_cases/_from_hub/SCN-KNOWLEDGE-UPDATE-001/SCN-KNOWLEDGE-UPDATE-SYNC-001.md` 中的增量抓取、差异报告、审批、部分发布、回滚闭环，确保 ≤30 分钟 SLA、≥98% 差异准确率、全量审计与 `knowledge.delta.*` 指标。  
+**独立验证**：通过 `scripts/ops/knowledge-delta-job.mjs` 生成增量包，跑审批→部分发布→回滚→审计流程，并核对 `backend/reports/_state/knowledge-delta.json`。
+**约束**：开启 `PX_KNOWLEDGE_DELTA_SYNC`、`PX_KNOWLEDGE_VERSIONED_STORAGE`、`PX_KNOWLEDGE_PARTIAL_RELEASE` flag，所有 embedding/向量读写依赖 `backend/pkg/corex/db/persistence/vectorstore` 多驱动注册表，禁止在 delta service 内重复实现驱动；审批 & 回滚动作必须写入 `audit-ledger` 且更新 `reports/_state/knowledge-update.json` 聚合。
+
+### 测试
+
+- [X] **T069 [P] [US6]** 在 `backend/tests/contract/knowledge_space/delta_http_test.go` 覆盖 `POST /knowledge/delta/jobs`、`GET /knowledge/delta/reports/:id`、`POST /knowledge/delta/publish`、`POST /knowledge/version/rollback` 的成功、冲突、部分发布、审计分支。
+- [X] **T070 [P] [US6]** 在 `backend/tests/contract/knowledge_space/delta_grpc_test.go` 覆盖对应 RPC 接口与 SLA 断言。
+- [X] **T071 [US6]** 在 `backend/tests/integration/knowledge_space/delta_sync_flow_test.go` 演练多源抓取→diff→审批→部分发布→回滚，校验差异准确率 ≥98%、`knowledge.delta.*` 指标写入。
+
+### 实现
+
+- [X] **T072 [US6]** 在 `backend/internal/service/knowledge_space/delta/service.go` 实现 orchestrator（抓取、diff、审批、版本落地）、部分发布、回滚命令，并写入 `audit-ledger` 与 `reports/_state/knowledge-update.json`。
+- [X] **T073 [US6]** 在 `backend/internal/transport/http/admin/knowledge_space/delta_handlers.go` 实现 HTTP Handler，支持审批签名、payload hash 校验。
+- [X] **T074 [US6]** 在 `backend/internal/transport/grpc/knowledge_space/delta_service.go` 实现 gRPC Handler 与 Stream 报告输出。
+- [X] **T075 [US6]** 创建 `scripts/ops/knowledge-delta-job.mjs`、`scripts/ops/knowledge-diff-report.mjs`，支持 dry-run、拆包、回滚 CLI，并补充 quickstart/Runbook。
+- [X] **T076 [US6]** 新增 `configs/knowledge/delta_sources.yaml`、`configs/knowledge/partial_release.yaml`，更新 `backend/etc/config.yaml`、`backend/config/config.go` 校验逻辑与 feature flag 依赖。
+- [X] **T077 [US6]** 在 `backend/internal/service/knowledge_space/instrumentation/delta_metrics.go` 输出 `knowledge.delta.{sla,approval_time,diff_accuracy,rollback_count,partial_release}`，生成 `backend/reports/_state/knowledge-delta.json` 并更新 Grafana《Knowledge Delta Sync》。
+
+---
+
+## 阶段 9：用户故事 US7（P1）— 事件热更新与 Agent 通知
+
+**目标**：落实 `SCN-KNOWLEDGE-UPDATE-EVENT-001.md` 的事件订阅、策略匹配、≤5 分钟热修与 Agent 权重刷新，具备幂等控制与失败回放脚本。  
+**独立验证**：向事件总线注入法规/价格事件，观察 `knowledge.event.latency ≤5m`、重复事件被幂等跳过、Agent 权重成功刷新并记录审计。
+**约束**：启用 `PX_KNOWLEDGE_EVENT_HOTFIX`、`PX_KNOWLEDGE_EVENT_IDEMPOTENT`、`PX_AGENT_WEIGHT_REFRESH` flag，对所有事件执行签名校验与幂等键去重；HTTP/gRPC/CLI 需复用现有 vectorstore/agent 通知依赖，输出 `backend/reports/_state/knowledge-event.json` 并回填 `reports/_state/knowledge-update.json`。
+
+### 测试
+
+- [X] **T078 [P] [US7]** 在 `backend/tests/contract/knowledge_space/event_http_test.go` 覆盖 `POST /knowledge/events/apply`、`POST /knowledge/events/retry`、`POST /knowledge/index/hot-update`、`POST /agent/weights/refresh`。
+- [X] **T079 [P] [US7]** 在 `backend/tests/contract/knowledge_space/event_grpc_test.go` 覆盖 gRPC 事件处理接口与幂等键冲突。
+- [X] **T080 [US7]** 在 `backend/tests/integration/knowledge_space/event_hotfix_flow_test.go` 模拟事件→策略→热修→Agent 通知→失败重试→幂等忽略。
+
+### 实现
+
+- [X] **T081 [US7]** 在 `backend/internal/service/knowledge_space/event_hotfix/service.go` 实现事件 intake、策略匹配、热更新、幂等/重试控制与 `audit-ledger` 写入。
+- [X] **T082 [US7]** 在 `backend/internal/transport/http/admin/knowledge_space/event_handlers.go` 实现 HTTP Handler，校验事件签名与 payload schema。
+- [X] **T083 [US7]** 在 `backend/internal/transport/grpc/knowledge_space/event_service.go` 实现 gRPC Handler + 订阅注册，注入事件总线。
+- [X] **T084 [US7]** 在 `backend/internal/service/knowledge_space/event_hotfix/agent_notifier.go` 刷新 Agent 检索权重/模板，写入 `agent.refresh.success_rate`。
+- [X] **T085 [US7]** 新增 `configs/knowledge/event_hotfix_policies.yaml`、`configs/knowledge/agent_weight_matrix.yaml`、`scripts/ops/knowledge-event-replay.mjs`，输出 `backend/reports/_state/knowledge-event.json` 并更新 Grafana《Event Hotfix》。
+
+---
+
+## 阶段 10：用户故事 US8（P2）— 衰减巡检与空白治理
+
+**目标**：根据 `SCN-KNOWLEDGE-UPDATE-DECAY-001.md` 建立 100% 覆盖的巡检、空白识别、任务派发、误判恢复（≤10 分钟）与 7 天 SLA 的补齐流程。  
+**独立验证**：运行 `scripts/ops/knowledge-decay-scan.mjs`，确认 `knowledge.decay.*` 指标、任务、恢复、`backend/reports/_state/knowledge-decay.json` 与 `reports/_state/knowledge-update.json` 更新。
+**约束**：Flag `PX_KNOWLEDGE_DECAY_GUARD`、`PX_KNOWLEDGE_GAP_ALERT`、`PX_KNOWLEDGE_RESTORE_FLOW` 必须在 CI/ops 场景可控；巡检阈值读取 `configs/knowledge/decay_thresholds.yaml`，任务派发复用 `task-center` / 审批流程，恢复路径必须记录审批人、误判理由并写入审计。
+
+### 测试
+
+- [X] **T086 [P] [US8]** 在 `backend/tests/contract/knowledge_space/decay_http_test.go` 覆盖 `POST /knowledge/decay/tasks`、`POST /knowledge/decay/restore`、`GET /knowledge/decay/status`，含租户隔离、误判恢复 ≤10 分钟、`knowledge.decay.*` 指标写入断言。
+- [X] **T087 [US8]** 在 `backend/tests/integration/knowledge_space/decay_guard_flow_test.go` 演练巡检→任务→补齐→误判撤回，验证 7 天 SLA 计算、false-positive <10% 告警与 `task-center` 审批联动。
+
+### 实现
+
+- [X] **T088 [US8]** 在 `backend/internal/service/knowledge_space/decay_guard/service.go` 实现巡检调度、阈值计算、任务派发、恢复/误判处理、audit 记录，并复用 `task-center`/`audit-ledger`/`vectorstore` 依赖注入模式，确保 `reports/_state/knowledge-update.json` 聚合更新。
+- [X] **T089 [US8]** 在 `backend/internal/transport/http/admin/knowledge_space/decay_handlers.go` 实现 HTTP API（含严重度/租户过滤、批量导出、flag 校验），返回任务 ID、SLA 倒计时与 `knowledge.decay` 指标片段。
+- [X] **T090 [US8]** 在 `backend/internal/transport/grpc/knowledge_space/decay_service.go` 实现 gRPC API，供任务中心与 Workflow 调用，包括 Run/List/Restore 方法及租户隔离校验。
+- [X] **T091 [US8]** 创建 `scripts/ops/knowledge-decay-scan.mjs`，并在 `docs/ops/gap_task_template.md` 记录任务模板、审批字段、恢复/误判剧本，提供 dry-run 与报告导出。
+- [X] **T092 [US8]** 新增 `configs/knowledge/decay_thresholds.yaml`、`backend/reports/_state/knowledge-decay.json`，输出 `knowledge.decay.{detected,false_positive,gap_backlog,fill_time}` 指标，更新 Grafana《Knowledge Decay Monitor》与 `knowledge-update.json` 聚合。
+
+---
+
+## 阶段 11：用户故事 US9（P1）— 租户灰度发布与治理
+
+**目标**：落实 `SCN-KNOWLEDGE-UPDATE-TENANT-001.md` 的租户策略、灰度排期、指标监控、自动扩散/回滚、审计追踪，保障跨租户隔离。  
+**独立验证**：配置 `configs/knowledge/tenant_release_matrix.yaml`，通过 Web Admin + CLI 完成试点→扩散→指标异常→回滚流程，并核对 `backend/reports/_state/knowledge-release.json` 与聚合 `reports/_state/knowledge-update.json` 的版本轨迹。
+**约束**：`PX_KNOWLEDGE_GRAY_RELEASE`、`PX_TENANT_RELEASE_MATRIX`、`PX_KNOWLEDGE_RELEASE_GUARD` flag 必须可控；发布策略需写入/导出 `release_guardrails.md`，所有扩散/暂停/回滚动作写 `audit-ledger` 并推送 IM 通知；指标与 CLI/脚本复用共享依赖（version-store、notifications、metrics-gateway），不得重复实现监控或嵌套版本存储逻辑。
+
+### 测试
+
+- [X] **T093 [P] [US9]** 在 `backend/tests/contract/knowledge_space/release_http_test.go` 覆盖 `POST /knowledge/release/policies`、`POST /knowledge/release/publish`、`POST /knowledge/release/promote`、`POST /knowledge/release/rollback`，含策略冲突、租户隔离、指标未达标触发 `release.gray.alert` 的分支。
+- [X] **T094 [P] [US9]** 在 `backend/tests/contract/knowledge_space/release_grpc_test.go` 覆盖 gRPC 接口，断言审批 ID、滚动窗口策略、批次 token，以及版本 drift ≤1 的守卫。
+- [X] **T095 [US9]** 在 `backend/tests/integration/knowledge_space/tenant_release_flow_test.go` 演练试点→扩散→指标异常→自动暂停→回滚→审计报告，校验 `knowledge.release.*` 指标、IM 通知与 `knowledge-release.json` 快照。
+
+### 实现
+
+- [X] **T096 [US9]** 在 `backend/internal/service/knowledge_space/tenant_release/service.go` 实现策略管理、灰度调度、扩散/暂停/回滚状态机、audit 写入，复用版本存储/通知/metrics 依赖并输出 `knowledge.release.*` 指标。
+- [X] **T097 [US9]** 在 `backend/internal/transport/http/admin/knowledge_space/tenant_release_handlers.go` 实现 HTTP Handler，并在 `web-admin/app/pages/knowledge-spaces/release.vue` 展示策略、指标、回滚按钮与 guardrail 告警。
+- [X] **T098 [US9]** 在 `backend/internal/transport/grpc/knowledge_space/tenant_release_service.go` 实现 gRPC API，供 CLI/Workflow 调用，返回批次 token、版本号、租户覆盖率。
+- [X] **T099 [US9]** 创建 `cmd/knowledge/release.go`（PowerX CLI）与 `scripts/ops/knowledge-release-matrix.mjs`，支持策略校验、批次推进、报告导出，并引用同一配置/Flag 管理。
+- [X] **T100 [US9]** 新增 `configs/knowledge/tenant_release_matrix.yaml`、`release_guardrails.md`、`backend/reports/_state/knowledge-release.json`，输出 `knowledge.release.{gray_state,rollback_count,tenant_coverage,alerts}` 并写入 `reports/_state/knowledge-update.json`，同时记录版本 drift 报表供审计。
+
+---
+
+## 阶段 12：Polish & Cross-Cutting
 
 - [X] **T056 [P] [Polish]** 更新 quickstart.md、README、Runbook，确保命令（npm、make、Grafana 看板）与最终实现一致。
 - [X] **T057 [Polish]** 进行性能 / 弹性验证（批量创建/入库、模拟融合 API 故障）并调整告警阈值。
@@ -149,9 +262,9 @@
 
 ## 依赖与执行顺序
 
-- Setup → Foundational → 各用户故事 → Polish；Foundational 未完成前，任何用户故事不得开始。
+- Setup → Foundational → US1 → US2/US3/US4（可并行但依赖共享模型）→ US5（需要 US2–US4 的数据/策略/反馈能力）→ US6（复用 US2/US3/US4 的模型与审计）→ US7（依赖 US6 的版本/指标）→ US8（依赖 US6/US7 的监控与任务数据）→ US9（依赖 US6–US8 的版本与告警) → Polish；Foundational 未完成前，任何用户故事不得开始。
 - 每个故事内部遵循：合同测试 → 集成/E2E → 服务层 → 传输层 → 前端界面。
-- US1 完成后，其余故事可按优先级并行推进，但需复用共享组件。
+- US1 完成后，其余故事可按优先级并行推进；US5 需等 US2–US4 的 API/指标稳定后再启动，US6 需要 US2/US3/US4/US5 的实体与告警落位，US7 依赖 US6 的版本/监控，US8 依赖 US6/US7 的数据资产，US9 依赖 US6–US8 的指标/审计能力，以避免重复实现。
 
 ### 并行示例
 

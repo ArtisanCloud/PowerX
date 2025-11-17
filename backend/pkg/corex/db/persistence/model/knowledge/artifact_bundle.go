@@ -24,7 +24,7 @@ type ArtifactBundle struct {
 }
 
 func (ArtifactBundle) TableName() string {
-	return tableName(coremodel.TableKnowledgeArtifactBundles)
+	return coremodel.PowerXSchema + "." + coremodel.TableKnowledgeArtifactBundles
 }
 
 const (

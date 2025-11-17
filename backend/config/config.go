@@ -244,6 +244,11 @@ type KnowledgeSpaceConfig struct {
 	EventTopics            KnowledgeSpaceEventTopics        `yaml:"event_topics"`
 	Notifications          KnowledgeSpaceNotificationConfig `yaml:"notifications"`
 	VectorStore            KnowledgeSpaceVectorStoreConfig  `yaml:"vector_store"`
+	Delta                  KnowledgeSpaceDeltaConfig        `yaml:"delta"`
+	Reports                KnowledgeSpaceReportConfig       `yaml:"reports"`
+	EventHotfix            KnowledgeSpaceEventHotfixConfig  `yaml:"event_hotfix"`
+	Decay                  KnowledgeSpaceDecayConfig        `yaml:"decay"`
+	Release                KnowledgeSpaceReleaseConfig      `yaml:"release"`
 }
 
 // KnowledgeSpaceEventTopics 定义事件主题。
@@ -268,6 +273,43 @@ type KnowledgeSpaceVectorStoreConfig struct {
 	PgVector KnowledgeSpaceVectorStorePGVectorConfig `yaml:"pgvector"`
 	Milvus   KnowledgeSpaceVectorStoreMilvusConfig   `yaml:"milvus"`
 	Pinecone KnowledgeSpaceVectorStorePineconeConfig `yaml:"pinecone"`
+}
+
+type KnowledgeSpaceDeltaConfig struct {
+	SourcesConfig        string  `yaml:"sources_config"`
+	PartialReleaseConfig string  `yaml:"partial_release_config"`
+	ReportPath           string  `yaml:"report_path"`
+	AggregateReportPath  string  `yaml:"aggregate_report_path"`
+	SLAMinutes           int     `yaml:"sla_minutes"`
+	ApprovalMinutes      int     `yaml:"approval_minutes"`
+	DefaultDiffAccuracy  float64 `yaml:"default_diff_accuracy"`
+}
+
+type KnowledgeSpaceReportConfig struct {
+	FeedbackPath string `yaml:"feedback_path"`
+	QABridgePath string `yaml:"qa_bridge_path"`
+}
+
+type KnowledgeSpaceEventHotfixConfig struct {
+	PoliciesPath          string `yaml:"policies_path"`
+	AgentMatrixPath       string `yaml:"agent_weight_matrix_path"`
+	ReportPath            string `yaml:"report_path"`
+	AggregateReportPath   string `yaml:"aggregate_report_path"`
+	RetryMax              int    `yaml:"retry_max"`
+	ReplayWindowSeconds   int    `yaml:"replay_window_seconds"`
+}
+
+type KnowledgeSpaceDecayConfig struct {
+	ThresholdPath        string `yaml:"threshold_path"`
+	ReportPath           string `yaml:"report_path"`
+	AggregateReportPath  string `yaml:"aggregate_report_path"`
+}
+
+type KnowledgeSpaceReleaseConfig struct {
+	MatrixPath           string `yaml:"matrix_path"`
+	GuardrailsDoc        string `yaml:"guardrails_doc"`
+	ReportPath           string `yaml:"report_path"`
+	AggregateReportPath  string `yaml:"aggregate_report_path"`
 }
 
 type KnowledgeSpaceVectorStorePGVectorConfig struct {

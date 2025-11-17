@@ -22,7 +22,7 @@ type IAMSyncTask struct {
 }
 
 func (IAMSyncTask) TableName() string {
-	return tableName(coremodel.TableKnowledgeIAMSyncTasks)
+	return coremodel.PowerXSchema + "." + coremodel.TableKnowledgeIAMSyncTasks
 }
 
 const (
