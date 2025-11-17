@@ -1,0 +1,18 @@
+{
+  "sources": [
+    {
+      "name": "handbook",
+      "type": "markdown",
+      "endpoint": "s3://knowledge/delta/handbook.tar.gz",
+      "schedule": "30m",
+      "enabled": true
+    },
+    {
+      "name": "policy-api",
+      "type": "api",
+      "endpoint": "https://delta.powerx.local/policies",
+      "schedule": "5m",
+      "enabled": true
+    }
+  ]
+}

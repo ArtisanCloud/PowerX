@@ -165,6 +165,206 @@ message FeedbackCase {
   google.protobuf.Timestamp updated_at = 13;
 }
 
+message DeltaJob {
+  string job_id = 1;
+  string space_id = 2;
+  string source = 3;
+  string status = 4;
+  string approval_state = 5;
+  double diff_accuracy = 6;
+  bool partial_release = 7;
+  int32 rollback_count = 8;
+  google.protobuf.Timestamp created_at = 9;
+  google.protobuf.Timestamp published_at = 10;
+  string report_json = 11;
+}
+
+message StartDeltaJobRequest {
+  string space_id = 1;
+  string source = 2;
+  string package_uri = 3;
+  double diff_accuracy = 4;
+  string requested_by = 5;
+  string notes = 6;
+}
+
+message StartDeltaJobResponse {
+  DeltaJob job = 1;
+}
+
+message GetDeltaReportRequest {
+  string job_id = 1;
+}
+
+message GetDeltaReportResponse {
+  DeltaJob job = 1;
+}
+
+message PublishDeltaJobRequest {
+  string job_id = 1;
+  string decision = 2;
+  string approved_by = 3;
+  double diff_accuracy = 4;
+  bool partial_release = 5;
+}
+
+message PublishDeltaJobResponse {
+  DeltaJob job = 1;
+}
+
+message RollbackDeltaRequest {
+  string job_id = 1;
+  string requested_by = 2;
+  string reason = 3;
+}
+
+message RollbackDeltaResponse {
+  DeltaJob job = 1;
+}
+
+message ApplyEventRequest {
+  string event_id = 1;
+  string event_type = 2;
+  map<string, string> payload = 3;
+  google.protobuf.Timestamp received_at = 4;
+  int32 retry_count = 5;
+}
+
+message ApplyEventResponse {
+  string status = 1;
+  string event_id = 2;
+  google.protobuf.Timestamp processed_at = 3;
+}
+
+message RetryEventRequest {
+  string event_id = 1;
+  string event_type = 2;
+  map<string, string> payload = 3;
+  google.protobuf.Timestamp received_at = 4;
+  int32 retry_count = 5;
+}
+
+message RetryEventResponse {
+  string status = 1;
+  string event_id = 2;
+  google.protobuf.Timestamp processed_at = 3;
+}
+
+message HotUpdateRequest {
+  string space_id = 1;
+  string reason = 2;
+}
+
+message HotUpdateResponse {
+  string status = 1;
+}
+
+message RefreshAgentRequest {
+  string tenant_id = 1;
+}
+
+message RefreshAgentResponse {
+  string status = 1;
+}
+
+message DecayTask {
+  string task_id = 1;
+  string space_id = 2;
+  string category = 3;
+  string severity = 4;
+  string status = 5;
+  google.protobuf.Timestamp detected_at = 6;
+  google.protobuf.Timestamp sla_due_at = 7;
+  bool false_positive = 8;
+}
+
+message RunDecayScanRequest {
+  string space_id = 1;
+  int32 detected = 2;
+}
+
+message RunDecayScanResponse {
+  repeated DecayTask tasks = 1;
+}
+
+message ListDecayTasksRequest {
+  string space_id = 1;
+}
+
+message ListDecayTasksResponse {
+  repeated DecayTask tasks = 1;
+}
+
+message RestoreDecayTaskRequest {
+  string task_id = 1;
+  string notes = 2;
+  bool false_positive = 3;
+}
+
+message RestoreDecayTaskResponse {
+  DecayTask task = 1;
+}
+
+message UpsertReleasePolicyRequest {
+  string matrix_version = 1;
+  repeated string pilot_tenants = 2;
+  repeated ReleaseBatch batches = 3;
+  map<string, string> guardrails = 4;
+  string approved_by = 5;
+  string created_by = 6;
+}
+
+message ReleaseBatch {
+  string name = 1;
+  repeated string tenants = 2;
+}
+
+message UpsertReleasePolicyResponse {
+  string policy_id = 1;
+  string status = 2;
+}
+
+message PublishReleaseRequest {
+  string policy_id = 1;
+  string version_id = 2;
+  string requested_by = 3;
+}
+
+message PublishReleaseResponse {
+  string release_id = 1;
+  string version_id = 2;
+  string batch_token = 3;
+  int32 batch_index = 4;
+  repeated string tenants = 5;
+}
+
+message PromoteReleaseRequest {
+  string policy_id = 1;
+  string version_id = 2;
+  string batch_token = 3;
+  repeated string alerts = 4;
+  string requested_by = 5;
+}
+
+message PromoteReleaseResponse {
+  string next_batch_token = 1;
+  int32 batch_index = 2;
+  repeated string tenants = 3;
+  string state = 4;
+  double tenant_coverage = 5;
+}
+
+message RollbackReleaseRequest {
+  string policy_id = 1;
+  string version_id = 2;
+  string reason = 3;
+  string requested_by = 4;
+}
+
+message RollbackReleaseResponse {
+  string status = 1;
+}
+
 service KnowledgeSpaceAdminService {
   rpc CreateKnowledgeSpace(CreateKnowledgeSpaceRequest) returns (CreateKnowledgeSpaceResponse);
   rpc UpdateKnowledgeSpace(UpdateKnowledgeSpaceRequest) returns (UpdateKnowledgeSpaceResponse);
@@ -175,4 +375,96 @@ service KnowledgeSpaceAdminService {
   rpc RollbackFusionStrategy(RollbackFusionStrategyRequest) returns (FusionStrategyResponse);
   rpc SubmitFeedback(FeedbackRequest) returns (FeedbackResponse);
   rpc ListFeedbackCases(ListFeedbackCasesRequest) returns (ListFeedbackCasesResponse);
+  rpc StartDeltaJob(StartDeltaJobRequest) returns (StartDeltaJobResponse);
+  rpc GetDeltaReport(GetDeltaReportRequest) returns (GetDeltaReportResponse);
+  rpc PublishDeltaJob(PublishDeltaJobRequest) returns (PublishDeltaJobResponse);
+  rpc RollbackDelta(RollbackDeltaRequest) returns (RollbackDeltaResponse);
+  rpc ApplyEvent(ApplyEventRequest) returns (ApplyEventResponse);
+  rpc RetryEvent(RetryEventRequest) returns (RetryEventResponse);
+  rpc HotUpdateIndex(HotUpdateRequest) returns (HotUpdateResponse);
+  rpc RefreshAgentWeights(RefreshAgentRequest) returns (RefreshAgentResponse);
+  rpc RunDecayScan(RunDecayScanRequest) returns (RunDecayScanResponse);
+  rpc ListDecayTasks(ListDecayTasksRequest) returns (ListDecayTasksResponse);
+  rpc RestoreDecayTask(RestoreDecayTaskRequest) returns (RestoreDecayTaskResponse);
+  rpc UpsertReleasePolicy(UpsertReleasePolicyRequest) returns (UpsertReleasePolicyResponse);
+  rpc PublishRelease(PublishReleaseRequest) returns (PublishReleaseResponse);
+  rpc PromoteRelease(PromoteReleaseRequest) returns (PromoteReleaseResponse);
+  rpc RollbackRelease(RollbackReleaseRequest) returns (RollbackReleaseResponse);
+}
+
+message QARetrievalPlanRequest {
+  string tenant_id = 1;
+  string intent = 2;
+  repeated string domain_tags = 3;
+  string session_id = 4;
+  int32 latency_budget_ms = 5;
+}
+
+message QACandidateSpace {
+  string space_id = 1;
+  string space_name = 2;
+  string strategy = 3;
+  double citation_coverage = 4;
+  string degrade_reason = 5;
+}
+
+message QAToolMetadata {
+  string tool_id = 1;
+  string name = 2;
+  string category = 3;
+  string endpoint = 4;
+}
+
+message QATelemetry {
+  string trace_id = 1;
+  google.protobuf.Timestamp recorded_at = 2;
+}
+
+message QARetrievalPlanResponse {
+  string tenant_id = 1;
+  string intent = 2;
+  repeated string domain_tags = 3;
+  repeated QACandidateSpace candidate_spaces = 4;
+  repeated QAToolMetadata toolings = 5;
+  QATelemetry telemetry = 6;
+  int32 degrade_count = 7;
+  string session_id = 8;
+  int32 latency_budget_ms = 9;
+}
+
+message QAMemoryUpdate {
+  string chunk_id = 1;
+  string space_id = 2;
+  repeated string citations = 3;
+  string status = 4;
+  string source_type = 5;
+  double confidence = 6;
+  string delta_reason = 7;
+}
+
+message QAMemorySnapshotRequest {
+  string tenant_id = 1;
+  string session_id = 2;
+  repeated QAMemoryUpdate updates = 3;
+}
+
+message QACitationSummary {
+  string chunk_id = 1;
+  string space_id = 2;
+  repeated string citations = 3;
+  string status = 4;
+  string source_type = 5;
+  double confidence = 6;
+  string delta_reason = 7;
+}
+
+message QAMemorySnapshotResponse {
+  string tenant_id = 1;
+  string session_id = 2;
+  repeated QACitationSummary citations = 3;
+}
+
+service KnowledgeSpaceQABridgeService {
+  rpc PlanRetrieval(QARetrievalPlanRequest) returns (QARetrievalPlanResponse);
+  rpc UpsertMemorySnapshot(QAMemorySnapshotRequest) returns (QAMemorySnapshotResponse);
 }

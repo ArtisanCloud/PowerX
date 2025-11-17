@@ -35,7 +35,7 @@ type IngestionJob struct {
 }
 
 func (IngestionJob) TableName() string {
-	return tableName(coremodel.TableKnowledgeIngestionJobs)
+	return coremodel.PowerXSchema + "." + coremodel.TableKnowledgeIngestionJobs
 }
 
 const (

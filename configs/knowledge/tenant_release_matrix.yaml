@@ -1,0 +1,12 @@
+{
+  "matrixVersion": "v2025.02",
+  "pilotTenants": ["demo-retail"],
+  "batches": [
+    {"name": "pilot", "tenants": ["demo-retail"]},
+    {"name": "wave-2", "tenants": ["demo-lite", "demo-enterprise"]}
+  ],
+  "guardrails": {
+    "latency_p95": "<5m",
+    "rollback_sla_minutes": "5"
+  }
+}

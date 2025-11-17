@@ -30,7 +30,7 @@ type FeedbackCase struct {
 }
 
 func (FeedbackCase) TableName() string {
-	return tableName(coremodel.TableKnowledgeFeedbackCases)
+	return coremodel.PowerXSchema + "." + coremodel.TableKnowledgeFeedbackCases
 }
 
 const (

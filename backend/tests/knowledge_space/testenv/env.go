@@ -2,17 +2,25 @@ package testenv
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
 	knowledgeService "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space"
+	decay_guard "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/decay_guard"
+	ksdelta "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/delta"
+	event_hotfix "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/event_hotfix"
 	knowledgeinstr "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/instrumentation"
+	qaBridge "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/qa_bridge"
+	tenant_release "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/tenant_release"
 	knowledgegrpc "github.com/ArtisanCloud/PowerX/internal/transport/grpc/knowledge_space"
 	adminhttp "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/knowledge_space"
+	openapihttp "github.com/ArtisanCloud/PowerX/internal/transport/http/openapi/knowledge_space"
 	coremodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
 	models "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/knowledge"
 	"github.com/ArtisanCloud/PowerX/pkg/event_bus"
@@ -26,13 +34,19 @@ import (
 
 // Env encapsulates dependencies required to exercise Knowledge Space surfaces.
 type Env struct {
-	T           testing.TB
-	DB          *gorm.DB
-	Deps        *shared.Deps
-	Bus         event_bus.EventBus
-	tenantID    uuid.UUID
-	VectorStore *VectorStoreStub
-	Pipeline    *ReprocessPipelineStub
+	T                         testing.TB
+	DB                        *gorm.DB
+	Deps                      *shared.Deps
+	Bus                       event_bus.EventBus
+	tenantID                  uuid.UUID
+	VectorStore               *VectorStoreStub
+	Pipeline                  *ReprocessPipelineStub
+	FeedbackReportPath        string
+	KnowledgeUpdateReportPath string
+	DeltaReportPath           string
+	EventReportPath           string
+	DecayReportPath           string
+	ReleaseReportPath         string
 }
 
 // New spins up an isolated sqlite + redis test environment.
@@ -46,7 +60,7 @@ func New(t testing.TB) *Env {
 	require.NoError(t, err)
 
 	prevSchema := coremodel.PowerXSchema
-	coremodel.PowerXSchema = ""
+	coremodel.PowerXSchema = "main"
 	t.Cleanup(func() { coremodel.PowerXSchema = prevSchema })
 
 	require.NoError(t, db.AutoMigrate(
@@ -58,6 +72,10 @@ func New(t testing.TB) *Env {
 		&models.FeedbackCase{},
 		&models.IAMSyncTask{},
 		&models.AuditTrailEntry{},
+		&models.DeltaJob{},
+		&models.DecayTask{},
+		&models.TenantReleasePolicy{},
+		&models.TenantReleaseBatch{},
 	))
 
 	bus := event_bus.NewLocalEventBus()
@@ -105,7 +123,58 @@ func New(t testing.TB) *Env {
 		Clock:           time.Now,
 	})
 
-	metricsWriter := knowledgeService.NewIngestionMetricsWriter(filepath.Join(t.TempDir(), "ingestion-metrics.json"))
+	tempDir := t.TempDir()
+	ingestionReportPath := filepath.Join(tempDir, "ingestion-metrics.json")
+	feedbackReportPath := filepath.Join(tempDir, "knowledge-feedback.json")
+	updateReportPath := filepath.Join(tempDir, "knowledge-update.json")
+	deltaReportPath := filepath.Join(tempDir, "knowledge-delta.json")
+	eventReportPath := filepath.Join(tempDir, "knowledge-event.json")
+	releaseReportPath := filepath.Join(tempDir, "knowledge-release.json")
+	decayReportPath := filepath.Join(tempDir, "knowledge-decay.json")
+	deltaSourcesPath := filepath.Join(tempDir, "delta-sources.json")
+	partialReleasePath := filepath.Join(tempDir, "partial-release.json")
+	eventPoliciesPath := filepath.Join(tempDir, "event-policies.json")
+	agentMatrixPath := filepath.Join(tempDir, "agent-weight-matrix.json")
+	decayThresholdsPath := filepath.Join(tempDir, "decay-thresholds.json")
+	writeSeedJSON(t, deltaSourcesPath, map[string]any{
+		"sources": []map[string]any{{
+			"name":     "handbook",
+			"type":     "markdown",
+			"endpoint": "s3://demo",
+			"enabled":  true,
+		}},
+	})
+	writeSeedJSON(t, partialReleasePath, map[string]any{
+		"rules": []map[string]any{{
+			"tenants": []string{"*"},
+			"spaces":  []string{"*"},
+		}},
+	})
+	writeSeedJSON(t, eventPoliciesPath, map[string]any{
+		"policies": []map[string]any{{
+			"eventType": "policy-update",
+			"actions":   []string{"fetch", "hot-update"},
+			"severity":  "p1",
+		}},
+	})
+	writeSeedJSON(t, agentMatrixPath, map[string]any{
+		"entries": map[string]any{
+			"policy-update": map[string]any{"tool": "reranker", "weight": 0.9},
+		},
+	})
+	writeSeedJSON(t, decayThresholdsPath, map[string]any{
+		"thresholds": []map[string]any{{
+			"category":    "coverage",
+			"maxAgeHours": 48,
+			"severity":    "p1",
+		}},
+	})
+	metricsWriter := knowledgeService.NewIngestionMetricsWriter(ingestionReportPath)
+	feedbackMetricsWriter := knowledgeService.NewFeedbackMetricsWriter(feedbackReportPath, updateReportPath)
+	deltaMetricsWriter := knowledgeinstr.NewDeltaMetricsWriter(deltaReportPath, updateReportPath)
+	eventMetricsWriter := knowledgeinstr.NewEventMetricsWriter(eventReportPath, updateReportPath)
+	decayMetricsWriter := knowledgeinstr.NewDecayMetricsWriter(decayReportPath, updateReportPath)
+	releaseMetricsWriter := knowledgeinstr.NewReleaseMetricsWriter(releaseReportPath, updateReportPath)
 	ingestionSvc := knowledgeService.NewIngestionService(knowledgeService.IngestionServiceOptions{
 		DB:              db,
 		Instrumentation: inst,
@@ -129,6 +198,46 @@ func New(t testing.TB) *Env {
 		Instrumentation: inst,
 		Pipeline:        pipelineStub,
 		MetricsWriter:   metricsWriter,
+		FeedbackMetrics: feedbackMetricsWriter,
+		Clock:           time.Now,
+	})
+	agentNotifier := event_hotfix.NewAgentNotifier(agentMatrixPath)
+	eventHotfixSvc := event_hotfix.NewService(event_hotfix.Options{
+		Instrumentation: inst,
+		EventBus:        bus,
+		MetricsWriter:   eventMetricsWriter,
+		AgentNotifier:   agentNotifier,
+		PoliciesPath:    eventPoliciesPath,
+		ReportPath:      eventReportPath,
+		Clock:           time.Now,
+		RetryMax:        3,
+	})
+	deltaSvc := ksdelta.NewService(ksdelta.Options{
+		DB:                       db,
+		Instrumentation:          inst,
+		MetricsWriter:            deltaMetricsWriter,
+		SourcesConfigPath:        deltaSourcesPath,
+		PartialReleaseConfigPath: partialReleasePath,
+		Clock:                    time.Now,
+	})
+	qaBridgeSvc := qaBridge.NewService(qaBridge.Options{
+		DB:              db,
+		Instrumentation: inst,
+		VectorStore:     vectorStore,
+		Clock:           time.Now,
+		ReportPath:      filepath.Join(t.TempDir(), "qa-reasoning.json"),
+	})
+	decaySvc := decay_guard.NewService(decay_guard.Options{
+		DB:              db,
+		Instrumentation: inst,
+		MetricsWriter:   decayMetricsWriter,
+		ThresholdsPath:  decayThresholdsPath,
+		Clock:           time.Now,
+	})
+	releaseSvc := tenant_release.NewService(tenant_release.Options{
+		DB:              db,
+		Instrumentation: inst,
+		MetricsWriter:   releaseMetricsWriter,
 		Clock:           time.Now,
 	})
 
@@ -144,19 +253,37 @@ func New(t testing.TB) *Env {
 			Ingestion:       ingestionSvc,
 			Fusion:          fusionSvc,
 			Feedback:        feedbackSvc,
+			Delta:           deltaSvc,
+			EventHotfix:     eventHotfixSvc,
+			DecayGuard:      decaySvc,
+			Release:         releaseSvc,
 			VectorStore:     vectorStore,
+			QABridge:        qaBridgeSvc,
 		},
 	}
 
 	return &Env{
-		T:           t,
-		DB:          db,
-		Deps:        deps,
-		Bus:         bus,
-		tenantID:    uuid.New(),
-		VectorStore: vectorStore,
-		Pipeline:    pipelineStub,
+		T:                         t,
+		DB:                        db,
+		Deps:                      deps,
+		Bus:                       bus,
+		tenantID:                  uuid.New(),
+		VectorStore:               vectorStore,
+		Pipeline:                  pipelineStub,
+		FeedbackReportPath:        feedbackReportPath,
+		KnowledgeUpdateReportPath: updateReportPath,
+		DeltaReportPath:           deltaReportPath,
+		EventReportPath:           eventReportPath,
+		DecayReportPath:           decayReportPath,
+		ReleaseReportPath:         releaseReportPath,
 	}
+}
+
+func writeSeedJSON(t testing.TB, path string, payload any) {
+	t.Helper()
+	data, err := json.Marshal(payload)
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(path, data, 0o644))
 }
 
 // Close releases resources created for the environment.
@@ -179,6 +306,7 @@ func (e *Env) Engine() *gin.Engine {
 		c.Next()
 	})
 	adminhttp.RegisterAPIRoutes(public, protected, e.Deps)
+	openapihttp.Register(public, protected, e.Deps)
 	return engine
 }
 
@@ -224,4 +352,35 @@ func (e *Env) CreateSpaceFixture(name string, policyID uint64) *models.Knowledge
 	})
 	require.NoError(e.T, err)
 	return space
+}
+
+// ActivateSpace forces a space status to active for downstream flows.
+func (e *Env) ActivateSpace(spaceID uuid.UUID) error {
+	if e.Deps == nil || e.Deps.KnowledgeSpace == nil || e.Deps.KnowledgeSpace.Service == nil {
+		return fmt.Errorf("knowledge space service not initialized")
+	}
+	_, err := e.Deps.KnowledgeSpace.Service.UpdateSpace(context.Background(), knowledgeService.UpdateSpaceInput{
+		SpaceID: spaceID,
+		Status:  models.KnowledgeSpaceStatusActive,
+	})
+	return err
+}
+
+// SetSpaceStatus updates the runtime status for a given space.
+func (e *Env) SetSpaceStatus(spaceID uuid.UUID, status string) error {
+	if e.Deps == nil || e.Deps.KnowledgeSpace == nil || e.Deps.KnowledgeSpace.Service == nil {
+		return fmt.Errorf("knowledge space service not initialized")
+	}
+	if status == models.KnowledgeSpaceStatusRetired {
+		_, err := e.Deps.KnowledgeSpace.Service.RetireSpace(context.Background(), knowledgeService.RetireSpaceInput{
+			SpaceID: spaceID,
+			Reason:  "test-retired",
+		})
+		return err
+	}
+	_, err := e.Deps.KnowledgeSpace.Service.UpdateSpace(context.Background(), knowledgeService.UpdateSpaceInput{
+		SpaceID: spaceID,
+		Status:  status,
+	})
+	return err
 }

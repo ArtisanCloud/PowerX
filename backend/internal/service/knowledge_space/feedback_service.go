@@ -20,11 +20,12 @@ import (
 
 // FeedbackService orchestrates feedback intake and reprocessing.
 type FeedbackService struct {
-	db       *gorm.DB
-	inst     *instrumentation.Instrumentation
-	pipeline workflow.ReprocessPipeline
-	metrics  *IngestionMetricsWriter
-	clock    func() time.Time
+	db        *gorm.DB
+	inst      *instrumentation.Instrumentation
+	pipeline  workflow.ReprocessPipeline
+	metrics   *IngestionMetricsWriter
+	telemetry *FeedbackMetricsWriter
+	clock     func() time.Time
 }
 
 // FeedbackServiceOptions configures runtime dependencies.
@@ -33,6 +34,7 @@ type FeedbackServiceOptions struct {
 	Instrumentation *instrumentation.Instrumentation
 	Pipeline        workflow.ReprocessPipeline
 	MetricsWriter   *IngestionMetricsWriter
+	FeedbackMetrics *FeedbackMetricsWriter
 	Clock           func() time.Time
 }
 
@@ -61,12 +63,16 @@ func NewFeedbackService(opts FeedbackServiceOptions) *FeedbackService {
 	if opts.MetricsWriter == nil {
 		opts.MetricsWriter = NewIngestionMetricsWriter(defaultMetricsPath)
 	}
+	if opts.FeedbackMetrics == nil {
+		opts.FeedbackMetrics = NewFeedbackMetricsWriter(defaultFeedbackMetricsPath, defaultKnowledgeUpdatePath)
+	}
 	return &FeedbackService{
-		db:       opts.DB,
-		inst:     opts.Instrumentation,
-		pipeline: opts.Pipeline,
-		metrics:  opts.MetricsWriter,
-		clock:    opts.Clock,
+		db:        opts.DB,
+		inst:      opts.Instrumentation,
+		pipeline:  opts.Pipeline,
+		metrics:   opts.MetricsWriter,
+		telemetry: opts.FeedbackMetrics,
+		clock:     opts.Clock,
 	}
 }
 
@@ -177,7 +183,17 @@ func (s *FeedbackService) SubmitFeedback(ctx context.Context, in SubmitFeedbackI
 		snapshot.OpenCases = len(openCases)
 	}
 	_ = s.metrics.StoreFeedback(snapshot)
+	s.refreshFeedbackMetrics(ctx)
 	return created, nil
+}
+
+func (s *FeedbackService) refreshFeedbackMetrics(ctx context.Context) {
+	if s.telemetry == nil {
+		return
+	}
+	if _, err := s.telemetry.Refresh(ctx, s.db); err != nil {
+		s.inst.Logger(ctx).WarnF(ctx, "[feedback] refresh metrics failed: %v", err)
+	}
 }
 
 // ListCases returns the latest feedback cases for a space.

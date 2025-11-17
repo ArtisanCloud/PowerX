@@ -1,0 +1,25 @@
+{
+  "thresholds": [
+    {
+      "category": "coverage",
+      "severity": "p1",
+      "maxAgeHours": 48,
+      "slaHours": 168,
+      "reason": "引用跌破阈值且反馈 SLA 紧急"
+    },
+    {
+      "category": "quality",
+      "severity": "p2",
+      "maxAgeHours": 72,
+      "slaHours": 240,
+      "reason": "投诉率高/评分过低"
+    },
+    {
+      "category": "blank",
+      "severity": "p3",
+      "maxAgeHours": 96,
+      "slaHours": 336,
+      "reason": "租户存在知识空白，需要补齐"
+    }
+  ]
+}

@@ -129,6 +129,38 @@ func GetDefaults() *Config {
 					TimeoutSeconds:   30,
 				},
 			},
+			Delta: KnowledgeSpaceDeltaConfig{
+				SourcesConfig:        "configs/knowledge/delta_sources.yaml",
+				PartialReleaseConfig: "configs/knowledge/partial_release.yaml",
+				ReportPath:           "backend/reports/_state/knowledge-delta.json",
+				AggregateReportPath:  "reports/_state/knowledge-update.json",
+				SLAMinutes:           30,
+				ApprovalMinutes:      15,
+				DefaultDiffAccuracy:  98.0,
+			},
+			Reports: KnowledgeSpaceReportConfig{
+				FeedbackPath: "backend/reports/_state/knowledge-feedback.json",
+				QABridgePath: "reports/_state/qa-reasoning.json",
+			},
+			EventHotfix: KnowledgeSpaceEventHotfixConfig{
+				PoliciesPath:        "configs/knowledge/event_hotfix_policies.yaml",
+				AgentMatrixPath:     "configs/knowledge/agent_weight_matrix.yaml",
+				ReportPath:          "backend/reports/_state/knowledge-event.json",
+				AggregateReportPath: "reports/_state/knowledge-update.json",
+				RetryMax:            3,
+				ReplayWindowSeconds: 300,
+			},
+			Decay: KnowledgeSpaceDecayConfig{
+				ThresholdPath:       "configs/knowledge/decay_thresholds.yaml",
+				ReportPath:          "backend/reports/_state/knowledge-decay.json",
+				AggregateReportPath: "reports/_state/knowledge-update.json",
+			},
+			Release: KnowledgeSpaceReleaseConfig{
+				MatrixPath:          "configs/knowledge/tenant_release_matrix.yaml",
+				GuardrailsDoc:       "docs/ops/release_guardrails.md",
+				ReportPath:          "backend/reports/_state/knowledge-release.json",
+				AggregateReportPath: "reports/_state/knowledge-update.json",
+			},
 		},
 		EventFabric: EventFabricConfig{
 			AckTimeoutSeconds: 30,

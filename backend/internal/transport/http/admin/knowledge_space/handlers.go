@@ -23,6 +23,10 @@ func RegisterAPIRoutes(public, protected *gin.RouterGroup, deps *shared.Deps) {
 	ingestionHandler := NewIngestionHandler(deps)
 	fusionHandler := NewFusionHandler(deps)
 	feedbackHandler := NewFeedbackHandler(deps)
+	deltaHandler := NewDeltaHandler(deps)
+	eventHandler := NewEventHandler(deps)
+	decayHandler := NewDecayHandler(deps)
+	releaseHandler := NewReleaseHandler(deps)
 	group := protected.Group("/admin/knowledge-spaces")
 	{
 		group.POST("", handler.create)
@@ -39,6 +43,41 @@ func RegisterAPIRoutes(public, protected *gin.RouterGroup, deps *shared.Deps) {
 		if feedbackHandler != nil {
 			group.GET("/:spaceId/feedback", feedbackHandler.List)
 			group.POST("/:spaceId/feedback", feedbackHandler.Submit)
+		}
+	}
+	if deltaHandler != nil {
+		deltaGroup := protected.Group("/knowledge/delta")
+		{
+			deltaGroup.POST("/jobs", deltaHandler.Start)
+			deltaGroup.GET("/reports/:jobId", deltaHandler.Report)
+			deltaGroup.POST("/publish", deltaHandler.Publish)
+		}
+		protected.POST("/knowledge/version/rollback", deltaHandler.Rollback)
+	}
+	if eventHandler != nil {
+		eventGroup := protected.Group("/knowledge/events")
+		{
+			eventGroup.POST("/apply", eventHandler.Apply)
+			eventGroup.POST("/retry", eventHandler.Retry)
+		}
+		protected.POST("/knowledge/index/hot-update", eventHandler.HotUpdate)
+		protected.POST("/agent/weights/refresh", eventHandler.RefreshAgent)
+	}
+	if decayHandler != nil {
+		decayGroup := protected.Group("/knowledge/decay")
+		{
+			decayGroup.POST("/tasks", decayHandler.Scan)
+			decayGroup.POST("/restore", decayHandler.Restore)
+			decayGroup.GET("/status", decayHandler.Status)
+		}
+	}
+	if releaseHandler != nil {
+		releaseGroup := protected.Group("/knowledge/release")
+		{
+			releaseGroup.POST("/policies", releaseHandler.UpsertPolicy)
+			releaseGroup.POST("/publish", releaseHandler.Publish)
+			releaseGroup.POST("/promote", releaseHandler.Promote)
+			releaseGroup.POST("/rollback", releaseHandler.Rollback)
 		}
 	}
 }

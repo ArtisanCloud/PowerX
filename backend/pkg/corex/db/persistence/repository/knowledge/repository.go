@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -58,6 +59,36 @@ func (r *KnowledgeSpaceRepository) FindByTenantAndName(ctx context.Context, tena
 		return nil, err
 	}
 	return &space, nil
+}
+
+// DeltaJobRepository 管理增量同步任务。
+type DeltaJobRepository struct {
+	*baseRepo.BaseRepository[models.DeltaJob]
+	db *gorm.DB
+}
+
+func NewDeltaJobRepository(db *gorm.DB) *DeltaJobRepository {
+	if db == nil {
+		panic("delta job repository requires db")
+	}
+	return &DeltaJobRepository{
+		BaseRepository: baseRepo.NewBaseRepository[models.DeltaJob](db),
+		db:             db,
+	}
+}
+
+func (r *DeltaJobRepository) FindByUUID(ctx context.Context, jobUUID uuid.UUID) (*models.DeltaJob, error) {
+	if jobUUID == uuid.Nil {
+		return nil, gorm.ErrInvalidData
+	}
+	var job models.DeltaJob
+	if err := r.db.WithContext(ctx).Where("uuid = ?", jobUUID).Take(&job).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &job, nil
 }
 
 // PolicyTemplateRepository 管理策略模版。
@@ -253,6 +284,130 @@ func (r *FeedbackCaseRepository) ListOpenBySpace(ctx context.Context, space uuid
 		return nil, err
 	}
 	return cases, nil
+}
+
+// DecayTaskRepository 管理衰减任务。
+type DecayTaskRepository struct {
+	*baseRepo.BaseRepository[models.DecayTask]
+	db *gorm.DB
+}
+
+func NewDecayTaskRepository(db *gorm.DB) *DecayTaskRepository {
+	if db == nil {
+		panic("decay task repository requires db")
+	}
+	return &DecayTaskRepository{
+		BaseRepository: baseRepo.NewBaseRepository[models.DecayTask](db),
+		db:             db,
+	}
+}
+
+// TenantReleasePolicyRepository 管理租户灰度策略。
+type TenantReleasePolicyRepository struct {
+	*baseRepo.BaseRepository[models.TenantReleasePolicy]
+	db *gorm.DB
+}
+
+func NewTenantReleasePolicyRepository(db *gorm.DB) *TenantReleasePolicyRepository {
+	return &TenantReleasePolicyRepository{
+		BaseRepository: baseRepo.NewBaseRepository[models.TenantReleasePolicy](db),
+		db:             db,
+	}
+}
+
+func (r *TenantReleasePolicyRepository) FindByID(ctx context.Context, id uint64) (*models.TenantReleasePolicy, error) {
+	policy := &models.TenantReleasePolicy{}
+	if err := r.db.WithContext(ctx).Where("id = ?", id).Take(policy).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return policy, nil
+}
+
+// TenantReleaseBatchRepository 管理灰度批次执行状态。
+type TenantReleaseBatchRepository struct {
+	*baseRepo.BaseRepository[models.TenantReleaseBatch]
+	db *gorm.DB
+}
+
+func NewTenantReleaseBatchRepository(db *gorm.DB) *TenantReleaseBatchRepository {
+	return &TenantReleaseBatchRepository{
+		BaseRepository: baseRepo.NewBaseRepository[models.TenantReleaseBatch](db),
+		db:             db,
+	}
+}
+
+func (r *TenantReleaseBatchRepository) FindByToken(ctx context.Context, token string) (*models.TenantReleaseBatch, error) {
+	if strings.TrimSpace(token) == "" {
+		return nil, gorm.ErrInvalidData
+	}
+	var batch models.TenantReleaseBatch
+	if err := r.db.WithContext(ctx).Where("batch_token = ?", token).Take(&batch).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &batch, nil
+}
+
+func (r *TenantReleaseBatchRepository) ListByPolicyAndVersion(ctx context.Context, policyID uint64, versionID string) ([]*models.TenantReleaseBatch, error) {
+	var batches []*models.TenantReleaseBatch
+	if err := r.db.WithContext(ctx).
+		Where("policy_id = ? AND version_id = ?", policyID, strings.TrimSpace(versionID)).
+		Order("batch_index ASC").Find(&batches).Error; err != nil {
+		return nil, err
+	}
+	return batches, nil
+}
+
+// SaveState updates mutable columns for a release batch without inserting duplicates.
+func (r *TenantReleaseBatchRepository) SaveState(ctx context.Context, batch *models.TenantReleaseBatch) (*models.TenantReleaseBatch, error) {
+	if batch == nil {
+		return nil, gorm.ErrInvalidData
+	}
+	query := r.db.WithContext(ctx).Model(&models.TenantReleaseBatch{})
+	switch {
+	case batch.ID != 0:
+		query = query.Where("id = ?", batch.ID)
+	case batch.UUID != uuid.Nil:
+		query = query.Where("uuid = ?", batch.UUID)
+	case strings.TrimSpace(batch.BatchToken) != "":
+		query = query.Where("batch_token = ?", batch.BatchToken)
+	default:
+		return nil, gorm.ErrInvalidData
+	}
+	batch.UpdatedAt = time.Now().UTC()
+	updates := map[string]any{
+		"state":         batch.State,
+		"alerts":        batch.Alerts,
+		"metrics":       batch.Metrics,
+		"tenants":       batch.Tenants,
+		"promoted_at":   batch.PromotedAt,
+		"completed_at":  batch.CompletedAt,
+		"rolled_back_at": batch.RolledBackAt,
+		"updated_at":    batch.UpdatedAt,
+	}
+	if err := query.Updates(updates).Error; err != nil {
+		return nil, err
+	}
+	return batch, nil
+}
+
+func (r *DecayTaskRepository) ListOpenBySpace(ctx context.Context, space uuid.UUID) ([]*models.DecayTask, error) {
+	if space == uuid.Nil {
+		return nil, gorm.ErrInvalidData
+	}
+	var tasks []*models.DecayTask
+	if err := r.db.WithContext(ctx).
+		Where("space_uuid = ? AND status IN ?", space, []string{"open", "assigned"}).
+		Order("sla_due_at ASC").
+		Find(&tasks).Error; err != nil {
+		return nil, err
+	}
+	return tasks, nil
 }
 
 // IAMSyncTaskRepository 管理 IAM 同步任务。

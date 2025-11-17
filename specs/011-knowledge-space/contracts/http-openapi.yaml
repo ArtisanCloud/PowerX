@@ -203,6 +203,42 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/FeedbackCase'
+  /openapi/knowledge-spaces/qa/retrieval-plan:
+    post:
+      summary: Compute QA retrieval plan across knowledge spaces
+      operationId: planQARetrieval
+      tags: [KnowledgeSpacesQA]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QARetrievalPlanRequest'
+      responses:
+        '200':
+          description: Retrieval plan payload
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QARetrievalPlanResponse'
+  /openapi/knowledge-spaces/qa/memory-snapshot:
+    post:
+      summary: Upsert or fetch QA memory snapshot
+      operationId: upsertQAMemorySnapshot
+      tags: [KnowledgeSpacesQA]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QAMemorySnapshotRequest'
+      responses:
+        '200':
+          description: Snapshot payload
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QAMemorySnapshotResponse'
 
 components:
   parameters:
@@ -420,3 +456,132 @@ components:
           type: integer
         retired:
           type: integer
+      required: [pendingIam, active, retired]
+    QARetrievalPlanRequest:
+      type: object
+      required: [tenantId, intent]
+      properties:
+        tenantId:
+          type: string
+          format: uuid
+        intent:
+          type: string
+        domainTags:
+          type: array
+          items:
+            type: string
+        sessionId:
+          type: string
+        latencyBudgetMs:
+          type: integer
+    QARetrievalPlanResponse:
+      type: object
+      required: [tenantId, intent, candidateSpaces, telemetry]
+      properties:
+        tenantId:
+          type: string
+          format: uuid
+        intent:
+          type: string
+        domainTags:
+          type: array
+          items:
+            type: string
+        candidateSpaces:
+          type: array
+          items:
+            $ref: '#/components/schemas/QACandidateSpace'
+        tooling:
+          type: array
+          items:
+            $ref: '#/components/schemas/QAToolMetadata'
+        telemetry:
+          $ref: '#/components/schemas/QATelemetry'
+        degradeCount:
+          type: integer
+        sessionId:
+          type: string
+        latencyBudgetMs:
+          type: integer
+        metadata:
+          type: object
+          additionalProperties: true
+    QACandidateSpace:
+      type: object
+      required: [spaceId, spaceName, strategy, citationCoverage]
+      properties:
+        spaceId:
+          type: string
+          format: uuid
+        spaceName:
+          type: string
+        strategy:
+          type: string
+        citationCoverage:
+          type: number
+        degradeReason:
+          type: string
+    QAToolMetadata:
+      type: object
+      properties:
+        toolId:
+          type: string
+        name:
+          type: string
+        category:
+          type: string
+        endpoint:
+          type: string
+    QATelemetry:
+      type: object
+      properties:
+        traceId:
+          type: string
+        recordedAt:
+          type: string
+          format: date-time
+    QAMemorySnapshotRequest:
+      type: object
+      required: [tenantId, sessionId]
+      properties:
+        tenantId:
+          type: string
+          format: uuid
+        sessionId:
+          type: string
+        updates:
+          type: array
+          items:
+            $ref: '#/components/schemas/QACitationSummary'
+    QAMemorySnapshotResponse:
+      type: object
+      properties:
+        tenantId:
+          type: string
+          format: uuid
+        sessionId:
+          type: string
+        citations:
+          type: array
+          items:
+            $ref: '#/components/schemas/QACitationSummary'
+    QACitationSummary:
+      type: object
+      required: [chunkId, spaceId]
+      properties:
+        chunkId:
+          type: string
+        spaceId:
+          type: string
+        status:
+          type: string
+        citations:
+          type: array
+          items:
+            type: string
+        sourceType:
+          type: string
+        confidence:
+          type: number
+        deltaReason:
+          type: string

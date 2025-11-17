@@ -86,9 +86,106 @@
     },
     "aiSettings": "モデル設定",
     "workflow": "ワークフロー",
+    "knowledgeSpace": "ナレッジスペース",
     "pluginMarketplace": "マーケット",
     "pluginsInstalled": "インストール済み",
     "pluginsMarket": "マーケット"
+  },
+  "knowledgeSpaces": {
+    "head": {
+      "title": "ナレッジスペース",
+      "description": "複数テナントのナレッジスペースを計画・提供・監視し、取り込みから融合、フィードバックまでをつなぎます。"
+    },
+    "hero": {
+      "badge": "Knowledge Space",
+      "title": "ナレッジスペースワークベンチ",
+      "description": "取り込み・融合・フィードバックを一元管理し、テナント別のナレッジスペースを統合管理します。",
+      "actions": {
+        "create": "ナレッジスペースを作成",
+        "createDesc": "ウィザードでテナント、ポリシー、クォータ、IAM を設定します。",
+        "docs": "運用ガイド",
+        "docsDesc": "手順とガードレールを確認します。"
+      }
+    },
+    "qaCard": {
+      "badge": "QA Bridge",
+      "title": "検索ヘルスモニター",
+      "refresh": "更新",
+      "degrade": "{count} 件のスペースが降格",
+      "metrics": {
+        "latency": "検索 P95",
+        "coverage": "引用カバレッジ",
+        "toolSuccess": "ツール成功率"
+      },
+      "audit": "最新監査: {id}",
+      "updatedAt": "更新日時: {time}",
+      "loadError": "QA 状態を取得できません"
+    },
+    "governance": {
+      "title": "ガバナンスガイド",
+      "description": "まもなくクロススペース指標とアラートを提供します。"
+    },
+    "ingestion": {
+      "title": "取り込みオーケストレーター",
+      "subtitle": "ドキュメントや API を投入すると自動でチャンクと埋め込みを生成します。",
+      "recentSpace": "最近のスペース",
+      "recentSpaceHint": "ウィザードから同期された最新スペースです。",
+      "spaceId": "スペース ID",
+      "sourceType": "ソース種別",
+      "mode": "取り込みモード",
+      "modeDocument": "ドキュメントアップロード",
+      "modeApi": "API / URL",
+      "uploadFile": "ファイルをアップロード",
+      "uploadHint": "ファイルはオブジェクトストレージに保存後、チャンクパイプラインに入ります。",
+      "selectedFile": "選択済み: {name}",
+      "sourceUri": "ソース URI",
+      "maskingProfile": "マスキングポリシー",
+      "priority": "優先度",
+      "sourceOptions": {
+        "pdf": "PDF",
+        "markdown": "Markdown",
+        "table": "表計算",
+        "api": "API"
+      },
+      "priorityOptions": {
+        "normal": "標準",
+        "high": "高優先度"
+      },
+      "errors": {
+        "missingSpaceId": "スペース ID を入力してください",
+        "missingSource": "ソース情報を入力してください",
+        "runFailed": "取り込みの実行に失敗しました"
+      },
+      "actions": {
+        "ingestNow": "取り込みを実行"
+      },
+      "result": {
+        "latestTitle": "最新タスク",
+        "jobSummary": "ジョブ {jobId} · ステータス {status} · チャンク {chunkTotal}",
+        "metricSummary": "カバレッジ {coverage}% · 埋め込み {embedding}% · マスキング {masking}%"
+      },
+      "history": "最近のタスク",
+      "historyEntry": "{job} · {status} · {time}"
+    },
+    "placeholders": {
+      "spaces": {
+        "title": "スペース一覧",
+        "description": "テナント別のクォータとヘルスをここに表示します。"
+      },
+      "fusion": {
+        "title": "融合サマリー",
+        "description": "最近の融合ジョブと衝突アラートを表示します。"
+      },
+      "feedback": {
+        "title": "フィードバックとアラート",
+        "description": "SLA 超過や再加工タスクを追跡します。"
+      }
+    },
+    "timeline": {
+      "title": "スペースアクティビティ",
+      "description": "まもなく実データを表示します。",
+      "badge": "計画中"
+    }
   },
   "header": {
     "profile": "プロフィール",

@@ -30,7 +30,7 @@ type KnowledgeSpace struct {
 }
 
 func (KnowledgeSpace) TableName() string {
-	return tableName(coremodel.TableKnowledgeSpaces)
+	return coremodel.PowerXSchema + "." + coremodel.TableKnowledgeSpaces
 }
 
 const (

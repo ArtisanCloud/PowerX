@@ -28,6 +28,21 @@ const (
 	KnowledgeSpaceAdminService_RollbackFusionStrategy_FullMethodName = "/powerx.knowledge.v1.KnowledgeSpaceAdminService/RollbackFusionStrategy"
 	KnowledgeSpaceAdminService_SubmitFeedback_FullMethodName         = "/powerx.knowledge.v1.KnowledgeSpaceAdminService/SubmitFeedback"
 	KnowledgeSpaceAdminService_ListFeedbackCases_FullMethodName      = "/powerx.knowledge.v1.KnowledgeSpaceAdminService/ListFeedbackCases"
+	KnowledgeSpaceAdminService_StartDeltaJob_FullMethodName          = "/powerx.knowledge.v1.KnowledgeSpaceAdminService/StartDeltaJob"
+	KnowledgeSpaceAdminService_GetDeltaReport_FullMethodName         = "/powerx.knowledge.v1.KnowledgeSpaceAdminService/GetDeltaReport"
+	KnowledgeSpaceAdminService_PublishDeltaJob_FullMethodName        = "/powerx.knowledge.v1.KnowledgeSpaceAdminService/PublishDeltaJob"
+	KnowledgeSpaceAdminService_RollbackDelta_FullMethodName          = "/powerx.knowledge.v1.KnowledgeSpaceAdminService/RollbackDelta"
+	KnowledgeSpaceAdminService_ApplyEvent_FullMethodName             = "/powerx.knowledge.v1.KnowledgeSpaceAdminService/ApplyEvent"
+	KnowledgeSpaceAdminService_RetryEvent_FullMethodName             = "/powerx.knowledge.v1.KnowledgeSpaceAdminService/RetryEvent"
+	KnowledgeSpaceAdminService_HotUpdateIndex_FullMethodName         = "/powerx.knowledge.v1.KnowledgeSpaceAdminService/HotUpdateIndex"
+	KnowledgeSpaceAdminService_RefreshAgentWeights_FullMethodName    = "/powerx.knowledge.v1.KnowledgeSpaceAdminService/RefreshAgentWeights"
+	KnowledgeSpaceAdminService_RunDecayScan_FullMethodName           = "/powerx.knowledge.v1.KnowledgeSpaceAdminService/RunDecayScan"
+	KnowledgeSpaceAdminService_ListDecayTasks_FullMethodName         = "/powerx.knowledge.v1.KnowledgeSpaceAdminService/ListDecayTasks"
+	KnowledgeSpaceAdminService_RestoreDecayTask_FullMethodName       = "/powerx.knowledge.v1.KnowledgeSpaceAdminService/RestoreDecayTask"
+	KnowledgeSpaceAdminService_UpsertReleasePolicy_FullMethodName    = "/powerx.knowledge.v1.KnowledgeSpaceAdminService/UpsertReleasePolicy"
+	KnowledgeSpaceAdminService_PublishRelease_FullMethodName         = "/powerx.knowledge.v1.KnowledgeSpaceAdminService/PublishRelease"
+	KnowledgeSpaceAdminService_PromoteRelease_FullMethodName         = "/powerx.knowledge.v1.KnowledgeSpaceAdminService/PromoteRelease"
+	KnowledgeSpaceAdminService_RollbackRelease_FullMethodName        = "/powerx.knowledge.v1.KnowledgeSpaceAdminService/RollbackRelease"
 )
 
 // KnowledgeSpaceAdminServiceClient is the client API for KnowledgeSpaceAdminService service.
@@ -43,6 +58,21 @@ type KnowledgeSpaceAdminServiceClient interface {
 	RollbackFusionStrategy(ctx context.Context, in *RollbackFusionStrategyRequest, opts ...grpc.CallOption) (*FusionStrategyResponse, error)
 	SubmitFeedback(ctx context.Context, in *FeedbackRequest, opts ...grpc.CallOption) (*FeedbackResponse, error)
 	ListFeedbackCases(ctx context.Context, in *ListFeedbackCasesRequest, opts ...grpc.CallOption) (*ListFeedbackCasesResponse, error)
+	StartDeltaJob(ctx context.Context, in *StartDeltaJobRequest, opts ...grpc.CallOption) (*StartDeltaJobResponse, error)
+	GetDeltaReport(ctx context.Context, in *GetDeltaReportRequest, opts ...grpc.CallOption) (*GetDeltaReportResponse, error)
+	PublishDeltaJob(ctx context.Context, in *PublishDeltaJobRequest, opts ...grpc.CallOption) (*PublishDeltaJobResponse, error)
+	RollbackDelta(ctx context.Context, in *RollbackDeltaRequest, opts ...grpc.CallOption) (*RollbackDeltaResponse, error)
+	ApplyEvent(ctx context.Context, in *ApplyEventRequest, opts ...grpc.CallOption) (*ApplyEventResponse, error)
+	RetryEvent(ctx context.Context, in *RetryEventRequest, opts ...grpc.CallOption) (*RetryEventResponse, error)
+	HotUpdateIndex(ctx context.Context, in *HotUpdateRequest, opts ...grpc.CallOption) (*HotUpdateResponse, error)
+	RefreshAgentWeights(ctx context.Context, in *RefreshAgentRequest, opts ...grpc.CallOption) (*RefreshAgentResponse, error)
+	RunDecayScan(ctx context.Context, in *RunDecayScanRequest, opts ...grpc.CallOption) (*RunDecayScanResponse, error)
+	ListDecayTasks(ctx context.Context, in *ListDecayTasksRequest, opts ...grpc.CallOption) (*ListDecayTasksResponse, error)
+	RestoreDecayTask(ctx context.Context, in *RestoreDecayTaskRequest, opts ...grpc.CallOption) (*RestoreDecayTaskResponse, error)
+	UpsertReleasePolicy(ctx context.Context, in *UpsertReleasePolicyRequest, opts ...grpc.CallOption) (*UpsertReleasePolicyResponse, error)
+	PublishRelease(ctx context.Context, in *PublishReleaseRequest, opts ...grpc.CallOption) (*PublishReleaseResponse, error)
+	PromoteRelease(ctx context.Context, in *PromoteReleaseRequest, opts ...grpc.CallOption) (*PromoteReleaseResponse, error)
+	RollbackRelease(ctx context.Context, in *RollbackReleaseRequest, opts ...grpc.CallOption) (*RollbackReleaseResponse, error)
 }
 
 type knowledgeSpaceAdminServiceClient struct {
@@ -143,6 +173,156 @@ func (c *knowledgeSpaceAdminServiceClient) ListFeedbackCases(ctx context.Context
 	return out, nil
 }
 
+func (c *knowledgeSpaceAdminServiceClient) StartDeltaJob(ctx context.Context, in *StartDeltaJobRequest, opts ...grpc.CallOption) (*StartDeltaJobResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(StartDeltaJobResponse)
+	err := c.cc.Invoke(ctx, KnowledgeSpaceAdminService_StartDeltaJob_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *knowledgeSpaceAdminServiceClient) GetDeltaReport(ctx context.Context, in *GetDeltaReportRequest, opts ...grpc.CallOption) (*GetDeltaReportResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetDeltaReportResponse)
+	err := c.cc.Invoke(ctx, KnowledgeSpaceAdminService_GetDeltaReport_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *knowledgeSpaceAdminServiceClient) PublishDeltaJob(ctx context.Context, in *PublishDeltaJobRequest, opts ...grpc.CallOption) (*PublishDeltaJobResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(PublishDeltaJobResponse)
+	err := c.cc.Invoke(ctx, KnowledgeSpaceAdminService_PublishDeltaJob_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *knowledgeSpaceAdminServiceClient) RollbackDelta(ctx context.Context, in *RollbackDeltaRequest, opts ...grpc.CallOption) (*RollbackDeltaResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RollbackDeltaResponse)
+	err := c.cc.Invoke(ctx, KnowledgeSpaceAdminService_RollbackDelta_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *knowledgeSpaceAdminServiceClient) ApplyEvent(ctx context.Context, in *ApplyEventRequest, opts ...grpc.CallOption) (*ApplyEventResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ApplyEventResponse)
+	err := c.cc.Invoke(ctx, KnowledgeSpaceAdminService_ApplyEvent_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *knowledgeSpaceAdminServiceClient) RetryEvent(ctx context.Context, in *RetryEventRequest, opts ...grpc.CallOption) (*RetryEventResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RetryEventResponse)
+	err := c.cc.Invoke(ctx, KnowledgeSpaceAdminService_RetryEvent_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *knowledgeSpaceAdminServiceClient) HotUpdateIndex(ctx context.Context, in *HotUpdateRequest, opts ...grpc.CallOption) (*HotUpdateResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(HotUpdateResponse)
+	err := c.cc.Invoke(ctx, KnowledgeSpaceAdminService_HotUpdateIndex_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *knowledgeSpaceAdminServiceClient) RefreshAgentWeights(ctx context.Context, in *RefreshAgentRequest, opts ...grpc.CallOption) (*RefreshAgentResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RefreshAgentResponse)
+	err := c.cc.Invoke(ctx, KnowledgeSpaceAdminService_RefreshAgentWeights_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *knowledgeSpaceAdminServiceClient) RunDecayScan(ctx context.Context, in *RunDecayScanRequest, opts ...grpc.CallOption) (*RunDecayScanResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RunDecayScanResponse)
+	err := c.cc.Invoke(ctx, KnowledgeSpaceAdminService_RunDecayScan_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *knowledgeSpaceAdminServiceClient) ListDecayTasks(ctx context.Context, in *ListDecayTasksRequest, opts ...grpc.CallOption) (*ListDecayTasksResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListDecayTasksResponse)
+	err := c.cc.Invoke(ctx, KnowledgeSpaceAdminService_ListDecayTasks_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *knowledgeSpaceAdminServiceClient) RestoreDecayTask(ctx context.Context, in *RestoreDecayTaskRequest, opts ...grpc.CallOption) (*RestoreDecayTaskResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RestoreDecayTaskResponse)
+	err := c.cc.Invoke(ctx, KnowledgeSpaceAdminService_RestoreDecayTask_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *knowledgeSpaceAdminServiceClient) UpsertReleasePolicy(ctx context.Context, in *UpsertReleasePolicyRequest, opts ...grpc.CallOption) (*UpsertReleasePolicyResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UpsertReleasePolicyResponse)
+	err := c.cc.Invoke(ctx, KnowledgeSpaceAdminService_UpsertReleasePolicy_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *knowledgeSpaceAdminServiceClient) PublishRelease(ctx context.Context, in *PublishReleaseRequest, opts ...grpc.CallOption) (*PublishReleaseResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(PublishReleaseResponse)
+	err := c.cc.Invoke(ctx, KnowledgeSpaceAdminService_PublishRelease_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *knowledgeSpaceAdminServiceClient) PromoteRelease(ctx context.Context, in *PromoteReleaseRequest, opts ...grpc.CallOption) (*PromoteReleaseResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(PromoteReleaseResponse)
+	err := c.cc.Invoke(ctx, KnowledgeSpaceAdminService_PromoteRelease_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *knowledgeSpaceAdminServiceClient) RollbackRelease(ctx context.Context, in *RollbackReleaseRequest, opts ...grpc.CallOption) (*RollbackReleaseResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RollbackReleaseResponse)
+	err := c.cc.Invoke(ctx, KnowledgeSpaceAdminService_RollbackRelease_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // KnowledgeSpaceAdminServiceServer is the server API for KnowledgeSpaceAdminService service.
 // All implementations must embed UnimplementedKnowledgeSpaceAdminServiceServer
 // for forward compatibility.
@@ -156,6 +336,21 @@ type KnowledgeSpaceAdminServiceServer interface {
 	RollbackFusionStrategy(context.Context, *RollbackFusionStrategyRequest) (*FusionStrategyResponse, error)
 	SubmitFeedback(context.Context, *FeedbackRequest) (*FeedbackResponse, error)
 	ListFeedbackCases(context.Context, *ListFeedbackCasesRequest) (*ListFeedbackCasesResponse, error)
+	StartDeltaJob(context.Context, *StartDeltaJobRequest) (*StartDeltaJobResponse, error)
+	GetDeltaReport(context.Context, *GetDeltaReportRequest) (*GetDeltaReportResponse, error)
+	PublishDeltaJob(context.Context, *PublishDeltaJobRequest) (*PublishDeltaJobResponse, error)
+	RollbackDelta(context.Context, *RollbackDeltaRequest) (*RollbackDeltaResponse, error)
+	ApplyEvent(context.Context, *ApplyEventRequest) (*ApplyEventResponse, error)
+	RetryEvent(context.Context, *RetryEventRequest) (*RetryEventResponse, error)
+	HotUpdateIndex(context.Context, *HotUpdateRequest) (*HotUpdateResponse, error)
+	RefreshAgentWeights(context.Context, *RefreshAgentRequest) (*RefreshAgentResponse, error)
+	RunDecayScan(context.Context, *RunDecayScanRequest) (*RunDecayScanResponse, error)
+	ListDecayTasks(context.Context, *ListDecayTasksRequest) (*ListDecayTasksResponse, error)
+	RestoreDecayTask(context.Context, *RestoreDecayTaskRequest) (*RestoreDecayTaskResponse, error)
+	UpsertReleasePolicy(context.Context, *UpsertReleasePolicyRequest) (*UpsertReleasePolicyResponse, error)
+	PublishRelease(context.Context, *PublishReleaseRequest) (*PublishReleaseResponse, error)
+	PromoteRelease(context.Context, *PromoteReleaseRequest) (*PromoteReleaseResponse, error)
+	RollbackRelease(context.Context, *RollbackReleaseRequest) (*RollbackReleaseResponse, error)
 	mustEmbedUnimplementedKnowledgeSpaceAdminServiceServer()
 }
 
@@ -192,6 +387,51 @@ func (UnimplementedKnowledgeSpaceAdminServiceServer) SubmitFeedback(context.Cont
 }
 func (UnimplementedKnowledgeSpaceAdminServiceServer) ListFeedbackCases(context.Context, *ListFeedbackCasesRequest) (*ListFeedbackCasesResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListFeedbackCases not implemented")
+}
+func (UnimplementedKnowledgeSpaceAdminServiceServer) StartDeltaJob(context.Context, *StartDeltaJobRequest) (*StartDeltaJobResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method StartDeltaJob not implemented")
+}
+func (UnimplementedKnowledgeSpaceAdminServiceServer) GetDeltaReport(context.Context, *GetDeltaReportRequest) (*GetDeltaReportResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetDeltaReport not implemented")
+}
+func (UnimplementedKnowledgeSpaceAdminServiceServer) PublishDeltaJob(context.Context, *PublishDeltaJobRequest) (*PublishDeltaJobResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method PublishDeltaJob not implemented")
+}
+func (UnimplementedKnowledgeSpaceAdminServiceServer) RollbackDelta(context.Context, *RollbackDeltaRequest) (*RollbackDeltaResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RollbackDelta not implemented")
+}
+func (UnimplementedKnowledgeSpaceAdminServiceServer) ApplyEvent(context.Context, *ApplyEventRequest) (*ApplyEventResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ApplyEvent not implemented")
+}
+func (UnimplementedKnowledgeSpaceAdminServiceServer) RetryEvent(context.Context, *RetryEventRequest) (*RetryEventResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RetryEvent not implemented")
+}
+func (UnimplementedKnowledgeSpaceAdminServiceServer) HotUpdateIndex(context.Context, *HotUpdateRequest) (*HotUpdateResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method HotUpdateIndex not implemented")
+}
+func (UnimplementedKnowledgeSpaceAdminServiceServer) RefreshAgentWeights(context.Context, *RefreshAgentRequest) (*RefreshAgentResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RefreshAgentWeights not implemented")
+}
+func (UnimplementedKnowledgeSpaceAdminServiceServer) RunDecayScan(context.Context, *RunDecayScanRequest) (*RunDecayScanResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RunDecayScan not implemented")
+}
+func (UnimplementedKnowledgeSpaceAdminServiceServer) ListDecayTasks(context.Context, *ListDecayTasksRequest) (*ListDecayTasksResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListDecayTasks not implemented")
+}
+func (UnimplementedKnowledgeSpaceAdminServiceServer) RestoreDecayTask(context.Context, *RestoreDecayTaskRequest) (*RestoreDecayTaskResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RestoreDecayTask not implemented")
+}
+func (UnimplementedKnowledgeSpaceAdminServiceServer) UpsertReleasePolicy(context.Context, *UpsertReleasePolicyRequest) (*UpsertReleasePolicyResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpsertReleasePolicy not implemented")
+}
+func (UnimplementedKnowledgeSpaceAdminServiceServer) PublishRelease(context.Context, *PublishReleaseRequest) (*PublishReleaseResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method PublishRelease not implemented")
+}
+func (UnimplementedKnowledgeSpaceAdminServiceServer) PromoteRelease(context.Context, *PromoteReleaseRequest) (*PromoteReleaseResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method PromoteRelease not implemented")
+}
+func (UnimplementedKnowledgeSpaceAdminServiceServer) RollbackRelease(context.Context, *RollbackReleaseRequest) (*RollbackReleaseResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RollbackRelease not implemented")
 }
 func (UnimplementedKnowledgeSpaceAdminServiceServer) mustEmbedUnimplementedKnowledgeSpaceAdminServiceServer() {
 }
@@ -377,6 +617,276 @@ func _KnowledgeSpaceAdminService_ListFeedbackCases_Handler(srv interface{}, ctx 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _KnowledgeSpaceAdminService_StartDeltaJob_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(StartDeltaJobRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(KnowledgeSpaceAdminServiceServer).StartDeltaJob(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: KnowledgeSpaceAdminService_StartDeltaJob_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(KnowledgeSpaceAdminServiceServer).StartDeltaJob(ctx, req.(*StartDeltaJobRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _KnowledgeSpaceAdminService_GetDeltaReport_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetDeltaReportRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(KnowledgeSpaceAdminServiceServer).GetDeltaReport(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: KnowledgeSpaceAdminService_GetDeltaReport_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(KnowledgeSpaceAdminServiceServer).GetDeltaReport(ctx, req.(*GetDeltaReportRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _KnowledgeSpaceAdminService_PublishDeltaJob_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PublishDeltaJobRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(KnowledgeSpaceAdminServiceServer).PublishDeltaJob(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: KnowledgeSpaceAdminService_PublishDeltaJob_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(KnowledgeSpaceAdminServiceServer).PublishDeltaJob(ctx, req.(*PublishDeltaJobRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _KnowledgeSpaceAdminService_RollbackDelta_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RollbackDeltaRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(KnowledgeSpaceAdminServiceServer).RollbackDelta(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: KnowledgeSpaceAdminService_RollbackDelta_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(KnowledgeSpaceAdminServiceServer).RollbackDelta(ctx, req.(*RollbackDeltaRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _KnowledgeSpaceAdminService_ApplyEvent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ApplyEventRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(KnowledgeSpaceAdminServiceServer).ApplyEvent(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: KnowledgeSpaceAdminService_ApplyEvent_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(KnowledgeSpaceAdminServiceServer).ApplyEvent(ctx, req.(*ApplyEventRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _KnowledgeSpaceAdminService_RetryEvent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RetryEventRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(KnowledgeSpaceAdminServiceServer).RetryEvent(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: KnowledgeSpaceAdminService_RetryEvent_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(KnowledgeSpaceAdminServiceServer).RetryEvent(ctx, req.(*RetryEventRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _KnowledgeSpaceAdminService_HotUpdateIndex_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(HotUpdateRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(KnowledgeSpaceAdminServiceServer).HotUpdateIndex(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: KnowledgeSpaceAdminService_HotUpdateIndex_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(KnowledgeSpaceAdminServiceServer).HotUpdateIndex(ctx, req.(*HotUpdateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _KnowledgeSpaceAdminService_RefreshAgentWeights_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RefreshAgentRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(KnowledgeSpaceAdminServiceServer).RefreshAgentWeights(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: KnowledgeSpaceAdminService_RefreshAgentWeights_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(KnowledgeSpaceAdminServiceServer).RefreshAgentWeights(ctx, req.(*RefreshAgentRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _KnowledgeSpaceAdminService_RunDecayScan_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RunDecayScanRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(KnowledgeSpaceAdminServiceServer).RunDecayScan(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: KnowledgeSpaceAdminService_RunDecayScan_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(KnowledgeSpaceAdminServiceServer).RunDecayScan(ctx, req.(*RunDecayScanRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _KnowledgeSpaceAdminService_ListDecayTasks_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListDecayTasksRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(KnowledgeSpaceAdminServiceServer).ListDecayTasks(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: KnowledgeSpaceAdminService_ListDecayTasks_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(KnowledgeSpaceAdminServiceServer).ListDecayTasks(ctx, req.(*ListDecayTasksRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _KnowledgeSpaceAdminService_RestoreDecayTask_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RestoreDecayTaskRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(KnowledgeSpaceAdminServiceServer).RestoreDecayTask(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: KnowledgeSpaceAdminService_RestoreDecayTask_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(KnowledgeSpaceAdminServiceServer).RestoreDecayTask(ctx, req.(*RestoreDecayTaskRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _KnowledgeSpaceAdminService_UpsertReleasePolicy_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpsertReleasePolicyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(KnowledgeSpaceAdminServiceServer).UpsertReleasePolicy(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: KnowledgeSpaceAdminService_UpsertReleasePolicy_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(KnowledgeSpaceAdminServiceServer).UpsertReleasePolicy(ctx, req.(*UpsertReleasePolicyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _KnowledgeSpaceAdminService_PublishRelease_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PublishReleaseRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(KnowledgeSpaceAdminServiceServer).PublishRelease(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: KnowledgeSpaceAdminService_PublishRelease_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(KnowledgeSpaceAdminServiceServer).PublishRelease(ctx, req.(*PublishReleaseRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _KnowledgeSpaceAdminService_PromoteRelease_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PromoteReleaseRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(KnowledgeSpaceAdminServiceServer).PromoteRelease(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: KnowledgeSpaceAdminService_PromoteRelease_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(KnowledgeSpaceAdminServiceServer).PromoteRelease(ctx, req.(*PromoteReleaseRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _KnowledgeSpaceAdminService_RollbackRelease_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RollbackReleaseRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(KnowledgeSpaceAdminServiceServer).RollbackRelease(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: KnowledgeSpaceAdminService_RollbackRelease_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(KnowledgeSpaceAdminServiceServer).RollbackRelease(ctx, req.(*RollbackReleaseRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // KnowledgeSpaceAdminService_ServiceDesc is the grpc.ServiceDesc for KnowledgeSpaceAdminService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -419,6 +929,207 @@ var KnowledgeSpaceAdminService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListFeedbackCases",
 			Handler:    _KnowledgeSpaceAdminService_ListFeedbackCases_Handler,
+		},
+		{
+			MethodName: "StartDeltaJob",
+			Handler:    _KnowledgeSpaceAdminService_StartDeltaJob_Handler,
+		},
+		{
+			MethodName: "GetDeltaReport",
+			Handler:    _KnowledgeSpaceAdminService_GetDeltaReport_Handler,
+		},
+		{
+			MethodName: "PublishDeltaJob",
+			Handler:    _KnowledgeSpaceAdminService_PublishDeltaJob_Handler,
+		},
+		{
+			MethodName: "RollbackDelta",
+			Handler:    _KnowledgeSpaceAdminService_RollbackDelta_Handler,
+		},
+		{
+			MethodName: "ApplyEvent",
+			Handler:    _KnowledgeSpaceAdminService_ApplyEvent_Handler,
+		},
+		{
+			MethodName: "RetryEvent",
+			Handler:    _KnowledgeSpaceAdminService_RetryEvent_Handler,
+		},
+		{
+			MethodName: "HotUpdateIndex",
+			Handler:    _KnowledgeSpaceAdminService_HotUpdateIndex_Handler,
+		},
+		{
+			MethodName: "RefreshAgentWeights",
+			Handler:    _KnowledgeSpaceAdminService_RefreshAgentWeights_Handler,
+		},
+		{
+			MethodName: "RunDecayScan",
+			Handler:    _KnowledgeSpaceAdminService_RunDecayScan_Handler,
+		},
+		{
+			MethodName: "ListDecayTasks",
+			Handler:    _KnowledgeSpaceAdminService_ListDecayTasks_Handler,
+		},
+		{
+			MethodName: "RestoreDecayTask",
+			Handler:    _KnowledgeSpaceAdminService_RestoreDecayTask_Handler,
+		},
+		{
+			MethodName: "UpsertReleasePolicy",
+			Handler:    _KnowledgeSpaceAdminService_UpsertReleasePolicy_Handler,
+		},
+		{
+			MethodName: "PublishRelease",
+			Handler:    _KnowledgeSpaceAdminService_PublishRelease_Handler,
+		},
+		{
+			MethodName: "PromoteRelease",
+			Handler:    _KnowledgeSpaceAdminService_PromoteRelease_Handler,
+		},
+		{
+			MethodName: "RollbackRelease",
+			Handler:    _KnowledgeSpaceAdminService_RollbackRelease_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "powerx/knowledge/v1/knowledge_space.proto",
+}
+
+const (
+	KnowledgeSpaceQABridgeService_PlanRetrieval_FullMethodName        = "/powerx.knowledge.v1.KnowledgeSpaceQABridgeService/PlanRetrieval"
+	KnowledgeSpaceQABridgeService_UpsertMemorySnapshot_FullMethodName = "/powerx.knowledge.v1.KnowledgeSpaceQABridgeService/UpsertMemorySnapshot"
+)
+
+// KnowledgeSpaceQABridgeServiceClient is the client API for KnowledgeSpaceQABridgeService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type KnowledgeSpaceQABridgeServiceClient interface {
+	PlanRetrieval(ctx context.Context, in *QARetrievalPlanRequest, opts ...grpc.CallOption) (*QARetrievalPlanResponse, error)
+	UpsertMemorySnapshot(ctx context.Context, in *QAMemorySnapshotRequest, opts ...grpc.CallOption) (*QAMemorySnapshotResponse, error)
+}
+
+type knowledgeSpaceQABridgeServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewKnowledgeSpaceQABridgeServiceClient(cc grpc.ClientConnInterface) KnowledgeSpaceQABridgeServiceClient {
+	return &knowledgeSpaceQABridgeServiceClient{cc}
+}
+
+func (c *knowledgeSpaceQABridgeServiceClient) PlanRetrieval(ctx context.Context, in *QARetrievalPlanRequest, opts ...grpc.CallOption) (*QARetrievalPlanResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(QARetrievalPlanResponse)
+	err := c.cc.Invoke(ctx, KnowledgeSpaceQABridgeService_PlanRetrieval_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *knowledgeSpaceQABridgeServiceClient) UpsertMemorySnapshot(ctx context.Context, in *QAMemorySnapshotRequest, opts ...grpc.CallOption) (*QAMemorySnapshotResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(QAMemorySnapshotResponse)
+	err := c.cc.Invoke(ctx, KnowledgeSpaceQABridgeService_UpsertMemorySnapshot_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// KnowledgeSpaceQABridgeServiceServer is the server API for KnowledgeSpaceQABridgeService service.
+// All implementations must embed UnimplementedKnowledgeSpaceQABridgeServiceServer
+// for forward compatibility.
+type KnowledgeSpaceQABridgeServiceServer interface {
+	PlanRetrieval(context.Context, *QARetrievalPlanRequest) (*QARetrievalPlanResponse, error)
+	UpsertMemorySnapshot(context.Context, *QAMemorySnapshotRequest) (*QAMemorySnapshotResponse, error)
+	mustEmbedUnimplementedKnowledgeSpaceQABridgeServiceServer()
+}
+
+// UnimplementedKnowledgeSpaceQABridgeServiceServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedKnowledgeSpaceQABridgeServiceServer struct{}
+
+func (UnimplementedKnowledgeSpaceQABridgeServiceServer) PlanRetrieval(context.Context, *QARetrievalPlanRequest) (*QARetrievalPlanResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method PlanRetrieval not implemented")
+}
+func (UnimplementedKnowledgeSpaceQABridgeServiceServer) UpsertMemorySnapshot(context.Context, *QAMemorySnapshotRequest) (*QAMemorySnapshotResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpsertMemorySnapshot not implemented")
+}
+func (UnimplementedKnowledgeSpaceQABridgeServiceServer) mustEmbedUnimplementedKnowledgeSpaceQABridgeServiceServer() {
+}
+func (UnimplementedKnowledgeSpaceQABridgeServiceServer) testEmbeddedByValue() {}
+
+// UnsafeKnowledgeSpaceQABridgeServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to KnowledgeSpaceQABridgeServiceServer will
+// result in compilation errors.
+type UnsafeKnowledgeSpaceQABridgeServiceServer interface {
+	mustEmbedUnimplementedKnowledgeSpaceQABridgeServiceServer()
+}
+
+func RegisterKnowledgeSpaceQABridgeServiceServer(s grpc.ServiceRegistrar, srv KnowledgeSpaceQABridgeServiceServer) {
+	// If the following call pancis, it indicates UnimplementedKnowledgeSpaceQABridgeServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&KnowledgeSpaceQABridgeService_ServiceDesc, srv)
+}
+
+func _KnowledgeSpaceQABridgeService_PlanRetrieval_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QARetrievalPlanRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(KnowledgeSpaceQABridgeServiceServer).PlanRetrieval(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: KnowledgeSpaceQABridgeService_PlanRetrieval_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(KnowledgeSpaceQABridgeServiceServer).PlanRetrieval(ctx, req.(*QARetrievalPlanRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _KnowledgeSpaceQABridgeService_UpsertMemorySnapshot_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QAMemorySnapshotRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(KnowledgeSpaceQABridgeServiceServer).UpsertMemorySnapshot(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: KnowledgeSpaceQABridgeService_UpsertMemorySnapshot_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(KnowledgeSpaceQABridgeServiceServer).UpsertMemorySnapshot(ctx, req.(*QAMemorySnapshotRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// KnowledgeSpaceQABridgeService_ServiceDesc is the grpc.ServiceDesc for KnowledgeSpaceQABridgeService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var KnowledgeSpaceQABridgeService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "powerx.knowledge.v1.KnowledgeSpaceQABridgeService",
+	HandlerType: (*KnowledgeSpaceQABridgeServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "PlanRetrieval",
+			Handler:    _KnowledgeSpaceQABridgeService_PlanRetrieval_Handler,
+		},
+		{
+			MethodName: "UpsertMemorySnapshot",
+			Handler:    _KnowledgeSpaceQABridgeService_UpsertMemorySnapshot_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

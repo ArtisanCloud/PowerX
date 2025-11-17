@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -41,7 +42,15 @@ import (
 	integrationManager "github.com/ArtisanCloud/PowerX/internal/service/integration_gateway/manager"
 	integrationTenant "github.com/ArtisanCloud/PowerX/internal/service/integration_gateway/tenant"
 	knowledgeService "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space"
+	kncompliance "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/compliance"
+	knctxsnapshot "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/context_snapshot"
+	decay_guard "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/decay_guard"
+	ksdelta "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/delta"
+	event_hotfix "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/event_hotfix"
 	knowledgeinstr "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/instrumentation"
+	knowledgeqa "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/qa_bridge"
+	tenant_release "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/tenant_release"
+	kntoolchain "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/toolchain"
 	mediasvc "github.com/ArtisanCloud/PowerX/internal/service/media"
 	pluginbootstrap "github.com/ArtisanCloud/PowerX/internal/service/plugin_bootstrap"
 	plugincompat "github.com/ArtisanCloud/PowerX/internal/service/plugin_compat"
@@ -531,7 +540,12 @@ type KnowledgeSpaceDeps struct {
 	Ingestion       *knowledgeService.IngestionService
 	Fusion          *knowledgeService.FusionService
 	Feedback        *knowledgeService.FeedbackService
+	Delta           *ksdelta.Service
+	EventHotfix     *event_hotfix.Service
+	DecayGuard      *decay_guard.Service
+	Release         *tenant_release.Service
 	VectorStore     vectorstorepkg.Store
+	QABridge        *knowledgeqa.Service
 }
 
 // KnowledgeSpaceRuntimeConfig 描述运行期常用配置。
@@ -1096,6 +1110,51 @@ func newKnowledgeSpaceDeps(db *gorm.DB, opts KnowledgeSpaceOptions, bus event_bu
 	})
 
 	metricsWriter := knowledgeService.NewIngestionMetricsWriter("")
+	feedbackReportPath := strings.TrimSpace(opts.Reports.FeedbackPath)
+	if feedbackReportPath == "" {
+		feedbackReportPath = filepath.Join("backend", "reports", "_state", "knowledge-feedback.json")
+	}
+	aggregateReportPath := strings.TrimSpace(opts.Delta.AggregateReportPath)
+	if aggregateReportPath == "" {
+		aggregateReportPath = filepath.Join("reports", "_state", "knowledge-update.json")
+	}
+	deltaReportPath := strings.TrimSpace(opts.Delta.ReportPath)
+	if deltaReportPath == "" {
+		deltaReportPath = filepath.Join("backend", "reports", "_state", "knowledge-delta.json")
+	}
+	qaBridgeReportPath := strings.TrimSpace(opts.Reports.QABridgePath)
+	if qaBridgeReportPath == "" {
+		qaBridgeReportPath = filepath.Join("reports", "_state", "qa-reasoning.json")
+	}
+	eventReportPath := strings.TrimSpace(opts.EventHotfix.ReportPath)
+	if eventReportPath == "" {
+		eventReportPath = filepath.Join("backend", "reports", "_state", "knowledge-event.json")
+	}
+	releaseReportPath := strings.TrimSpace(opts.Release.ReportPath)
+	if releaseReportPath == "" {
+		releaseReportPath = filepath.Join("backend", "reports", "_state", "knowledge-release.json")
+	}
+	decayReportPath := strings.TrimSpace(opts.Decay.ReportPath)
+	if decayReportPath == "" {
+		decayReportPath = filepath.Join("backend", "reports", "_state", "knowledge-decay.json")
+	}
+	eventAggregatePath := strings.TrimSpace(opts.EventHotfix.AggregateReportPath)
+	if eventAggregatePath == "" {
+		eventAggregatePath = aggregateReportPath
+	}
+	releaseAggregatePath := strings.TrimSpace(opts.Release.AggregateReportPath)
+	if releaseAggregatePath == "" {
+		releaseAggregatePath = aggregateReportPath
+	}
+	decayAggregatePath := strings.TrimSpace(opts.Decay.AggregateReportPath)
+	if decayAggregatePath == "" {
+		decayAggregatePath = aggregateReportPath
+	}
+	feedbackMetricsWriter := knowledgeService.NewFeedbackMetricsWriter(feedbackReportPath, aggregateReportPath)
+	deltaMetricsWriter := knowledgeinstr.NewDeltaMetricsWriter(deltaReportPath, aggregateReportPath)
+	eventMetricsWriter := knowledgeinstr.NewEventMetricsWriter(eventReportPath, eventAggregatePath)
+	releaseMetricsWriter := knowledgeinstr.NewReleaseMetricsWriter(releaseReportPath, releaseAggregatePath)
+	decayMetricsWriter := knowledgeinstr.NewDecayMetricsWriter(decayReportPath, decayAggregatePath)
 
 	ingestionSvc := knowledgeService.NewIngestionService(knowledgeService.IngestionServiceOptions{
 		DB:              db,
@@ -1120,6 +1179,55 @@ func newKnowledgeSpaceDeps(db *gorm.DB, opts KnowledgeSpaceOptions, bus event_bu
 		Instrumentation: inst,
 		Pipeline:        reprocessPipeline,
 		MetricsWriter:   metricsWriter,
+		FeedbackMetrics: feedbackMetricsWriter,
+		Clock:           time.Now,
+	})
+
+	deltaSvc := ksdelta.NewService(ksdelta.Options{
+		DB:                       db,
+		Instrumentation:          inst,
+		MetricsWriter:            deltaMetricsWriter,
+		SourcesConfigPath:        opts.Delta.SourcesConfig,
+		PartialReleaseConfigPath: opts.Delta.PartialReleaseConfig,
+		Clock:                    time.Now,
+	})
+
+	snapshotStore := knctxsnapshot.NewStore()
+	toolRegistry := kntoolchain.NewRegistry()
+	guard := kncompliance.NewGuard()
+	qaBridgeSvc := knowledgeqa.NewService(knowledgeqa.Options{
+		DB:              db,
+		Instrumentation: inst,
+		VectorStore:     vectorStore,
+		SnapshotStore:   snapshotStore,
+		ToolRegistry:    toolRegistry,
+		Guard:           guard,
+		Clock:           time.Now,
+		ReportPath:      qaBridgeReportPath,
+	})
+
+	agentNotifier := event_hotfix.NewAgentNotifier(opts.EventHotfix.AgentMatrixPath)
+	eventHotfixSvc := event_hotfix.NewService(event_hotfix.Options{
+		Instrumentation: inst,
+		EventBus:        bus,
+		MetricsWriter:   eventMetricsWriter,
+		AgentNotifier:   agentNotifier,
+		PoliciesPath:    opts.EventHotfix.PoliciesPath,
+		ReportPath:      eventReportPath,
+		Clock:           time.Now,
+		RetryMax:        opts.EventHotfix.RetryMax,
+	})
+	releaseSvc := tenant_release.NewService(tenant_release.Options{
+		DB:              db,
+		Instrumentation: inst,
+		MetricsWriter:   releaseMetricsWriter,
+		Clock:           time.Now,
+	})
+	decaySvc := decay_guard.NewService(decay_guard.Options{
+		DB:              db,
+		Instrumentation: inst,
+		MetricsWriter:   decayMetricsWriter,
+		ThresholdsPath:  opts.Decay.ThresholdPath,
 		Clock:           time.Now,
 	})
 
@@ -1132,7 +1240,12 @@ func newKnowledgeSpaceDeps(db *gorm.DB, opts KnowledgeSpaceOptions, bus event_bu
 		Ingestion:       ingestionSvc,
 		Fusion:          fusionSvc,
 		Feedback:        feedbackSvc,
+		Delta:           deltaSvc,
+		EventHotfix:     eventHotfixSvc,
+		DecayGuard:      decaySvc,
+		Release:         releaseSvc,
 		VectorStore:     vectorStore,
+		QABridge:        qaBridgeSvc,
 	}
 }
 
