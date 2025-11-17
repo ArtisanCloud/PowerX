@@ -112,6 +112,14 @@ PowerX 内置四类前端壳，共享 **统一契约**，SDK 自动生成，支�
 
 ---
 
+## 📬 联系我们
+
+如需商务合作或社区支持，请扫描下方二维码添加官方微信：
+
+<img src="https://powerx.artisan-cloud.com/images/wx-qr-code.jpg" alt="PowerX 微信二维码" width="220" />
+
+---
+
 ## 🤝 贡献指南
 
 我们欢迎所有形式的贡献！
