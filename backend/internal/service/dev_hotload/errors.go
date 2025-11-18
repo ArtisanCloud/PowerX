@@ -12,6 +12,8 @@ var (
 	ErrSessionNotFound = errors.New("dev hotload session not found")
 	ErrReloadToken     = errors.New("dev hotload reload token mismatch")
 	ErrCapacityReached = errors.New("dev hotload concurrent session limit reached")
+	ErrForceRequired   = errors.New("force required to delete active sessions")
+	ErrForceConfirm    = errors.New("force delete requires confirmation")
 )
 
 // SessionConflictError surfaces information about the conflicting session.

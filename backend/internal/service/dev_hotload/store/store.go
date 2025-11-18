@@ -84,6 +84,16 @@ func (s *Store) ListExpired(ctx context.Context, before time.Time) ([]model.DevH
 	return s.repo.ListExpired(ctx, before)
 }
 
+// DeleteSessions deletes sessions by filter and returns deleted records.
+func (s *Store) DeleteSessions(ctx context.Context, pluginID string, tenantID *uint64, statuses []string) ([]model.DevHotloadSession, error) {
+	filter := repository.DeleteSessionsFilter{
+		PluginID: strings.TrimSpace(pluginID),
+		TenantID: tenantID,
+		Statuses: statuses,
+	}
+	return s.repo.DeleteSessions(ctx, filter)
+}
+
 func (s *Store) AppendEvent(ctx context.Context, sessionID uuid.UUID, eventType string, payload any) error {
 	sequence, err := s.repo.NextEventSequence(ctx, sessionID)
 	if err != nil {

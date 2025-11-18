@@ -40,6 +40,7 @@ func RegisterAPIRoutes(public, protected *gin.RouterGroup, deps *shared.Deps) {
 	group.GET("/stream", handler.stream)
 	group.GET("/sessions", handler.listSessions)
 	group.GET("/sessions/:sessionId", handler.getSession)
+	group.DELETE("/sessions", handler.clearSessions)
 	group.DELETE("/sessions/:sessionId", handler.terminate)
 	group.GET("/:sessionId", handler.getSession)
 	group.DELETE("/register/:sessionId", handler.terminate)
@@ -202,6 +203,54 @@ func (h *apiHandler) listSessions(c *gin.Context) {
 	})
 }
 
+func (h *apiHandler) clearSessions(c *gin.Context) {
+	pluginID := c.Query("pluginId")
+	var tenantID *uint64
+	if tidStr := strings.TrimSpace(c.Query("tenantId")); tidStr != "" {
+		tid, parseErr := strconv.ParseUint(tidStr, 10, 64)
+		if parseErr != nil || tid == 0 {
+			if parseErr == nil {
+				parseErr = fmt.Errorf("tenantId must be positive")
+			}
+			dto.ResponseError(c, http.StatusBadRequest, "invalid tenantId", parseErr)
+			return
+		}
+		tenantID = &tid
+	}
+	statuses := normalizeSessionStatuses(c.QueryArray("status"))
+	if len(statuses) == 0 {
+		statuses = []string{model.DevHotloadSessionStatusTerminated}
+	}
+	force, err := parseBoolFlag(c.Query("force"), false)
+	if err != nil {
+		dto.ResponseError(c, http.StatusBadRequest, "invalid force flag", err)
+		return
+	}
+	confirm, err := parseBoolFlag(c.Query("confirm"), false)
+	if err != nil {
+		dto.ResponseError(c, http.StatusBadRequest, "invalid confirm flag", err)
+		return
+	}
+	if strings.EqualFold(c.GetHeader("X-Force-Delete"), "true") {
+		confirm = true
+	}
+
+	ids, err := h.svc.DeleteSessions(c.Request.Context(), pluginID, tenantID, statuses, force, confirm)
+	if err != nil {
+		h.writeError(c, err)
+		return
+	}
+	var sessionIDs []string
+	for _, id := range ids {
+		sessionIDs = append(sessionIDs, id.String())
+	}
+	dto.ResponseSuccess(c, gin.H{
+		"deleted":    len(sessionIDs),
+		"sessionIds": sessionIDs,
+		"force":      force,
+	})
+}
+
 func (h *apiHandler) writeError(c *gin.Context, err error) {
 	switch {
 	case errors.Is(err, devhotload.ErrFeatureDisabled):
@@ -222,6 +271,8 @@ func (h *apiHandler) writeError(c *gin.Context, err error) {
 		dto.ResponseError(c, http.StatusNotFound, err.Error(), err)
 	case errors.Is(err, devhotload.ErrReloadToken):
 		dto.ResponseError(c, http.StatusUnauthorized, err.Error(), err)
+	case errors.Is(err, devhotload.ErrForceRequired), errors.Is(err, devhotload.ErrForceConfirm):
+		dto.ResponseError(c, http.StatusBadRequest, err.Error(), err)
 	default:
 		dto.ResponseError(c, http.StatusInternalServerError, err.Error(), err)
 	}
@@ -292,6 +343,12 @@ func normalizeSessionStatuses(values []string) []string {
 		model.DevHotloadSessionStatusTerminated: {},
 		model.DevHotloadSessionStatusExpired:    {},
 	}
+	allStatuses := []string{
+		model.DevHotloadSessionStatusPending,
+		model.DevHotloadSessionStatusActive,
+		model.DevHotloadSessionStatusTerminated,
+		model.DevHotloadSessionStatusExpired,
+	}
 	result := make([]string, 0, len(values))
 	seen := make(map[string]struct{})
 	for _, value := range values {
@@ -302,6 +359,9 @@ func normalizeSessionStatuses(values []string) []string {
 			status := strings.ToLower(strings.TrimSpace(token))
 			if status == "" {
 				continue
+			}
+			if status == "all" || status == "*" {
+				return allStatuses
 			}
 			if _, ok := valid[status]; !ok {
 				continue
@@ -345,4 +405,19 @@ func parseOffset(value string) (int, error) {
 		return 0, fmt.Errorf("offset must be >= 0")
 	}
 	return offset, nil
+}
+
+func parseBoolFlag(value string, def bool) (bool, error) {
+	val := strings.TrimSpace(value)
+	if val == "" {
+		return def, nil
+	}
+	switch strings.ToLower(val) {
+	case "1", "true", "t", "yes", "y":
+		return true, nil
+	case "0", "false", "f", "no", "n":
+		return false, nil
+	default:
+		return false, fmt.Errorf("invalid boolean value: %s", value)
+	}
 }
