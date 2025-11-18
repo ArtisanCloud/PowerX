@@ -1,6 +1,10 @@
 package devhotload
 
-import "errors"
+import (
+	"errors"
+
+	model "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/dev_hotload"
+)
 
 var (
 	ErrFeatureDisabled = errors.New("dev hotload gateway disabled")
@@ -9,3 +13,21 @@ var (
 	ErrReloadToken     = errors.New("dev hotload reload token mismatch")
 	ErrCapacityReached = errors.New("dev hotload concurrent session limit reached")
 )
+
+// SessionConflictError surfaces information about the conflicting session.
+type SessionConflictError struct {
+	Session *model.DevHotloadSession
+}
+
+func (e *SessionConflictError) Error() string {
+	return ErrSessionConflict.Error()
+}
+
+func (e *SessionConflictError) Unwrap() error { return ErrSessionConflict }
+
+func newSessionConflictError(session *model.DevHotloadSession) error {
+	if session == nil {
+		return ErrSessionConflict
+	}
+	return &SessionConflictError{Session: session}
+}

@@ -2,6 +2,7 @@ package devhotload
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	model "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/dev_hotload"
@@ -15,6 +16,15 @@ type SessionRepository struct {
 	*baseRepo.BaseRepository[model.DevHotloadSession]
 	eventsRepo *baseRepo.BaseRepository[model.DevHotloadSessionEvent]
 	db         *gorm.DB
+}
+
+// ListSessionsFilter scopes plugin/tenant/status queries.
+type ListSessionsFilter struct {
+	PluginID string
+	TenantID *uint64
+	Statuses []string
+	Limit    int
+	Offset   int
 }
 
 // NewSessionRepository constructs a repository compliant with CRUD ruleset.
@@ -82,6 +92,30 @@ func (r *SessionRepository) CountActive(ctx context.Context) (int64, error) {
 		Where("status IN ?", []string{model.DevHotloadSessionStatusPending, model.DevHotloadSessionStatusActive}).
 		Count(&count).Error
 	return count, err
+}
+
+// ListSessions returns sessions filtered by plugin, tenant, and statuses.
+func (r *SessionRepository) ListSessions(ctx context.Context, filter ListSessionsFilter) ([]model.DevHotloadSession, error) {
+	query := r.db.WithContext(ctx).Model(&model.DevHotloadSession{})
+	if plugin := strings.TrimSpace(filter.PluginID); plugin != "" {
+		query = query.Where("plugin_id = ?", plugin)
+	}
+	if filter.TenantID != nil && *filter.TenantID > 0 {
+		query = query.Where("tenant_id = ?", *filter.TenantID)
+	}
+	if len(filter.Statuses) > 0 {
+		query = query.Where("status IN ?", filter.Statuses)
+	}
+	limit := filter.Limit
+	if limit <= 0 || limit > 200 {
+		limit = 50
+	}
+	if filter.Offset > 0 {
+		query = query.Offset(filter.Offset)
+	}
+	var sessions []model.DevHotloadSession
+	err := query.Order("created_at DESC").Limit(limit).Find(&sessions).Error
+	return sessions, err
 }
 
 // ListExpired returns sessions whose expiration is before provided timestamp.

@@ -180,6 +180,11 @@ func (s *Service) GetSession(ctx context.Context, sessionID uuid.UUID) (*model.D
 	return s.store.FindSession(ctx, sessionID)
 }
 
+// ListSessions queries sessions with optional filters.
+func (s *Service) ListSessions(ctx context.Context, pluginID string, tenantID *uint64, statuses []string, limit, offset int) ([]model.DevHotloadSession, error) {
+	return s.store.ListSessions(ctx, pluginID, tenantID, statuses, limit, offset)
+}
+
 // SubscribeEvents registers an SSE subscriber.
 func (s *Service) SubscribeEvents(buffer int) (string, <-chan Event, func()) {
 	return s.notifier.Subscribe(buffer)

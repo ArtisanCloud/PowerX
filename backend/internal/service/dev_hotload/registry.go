@@ -93,6 +93,11 @@ func (r *Registry) Register(ctx context.Context, req RegisterRequest) (*model.De
 
 	lockKey := sessionLockKey(r.keyPrefix, req.PluginID, req.TenantID)
 	if err := r.acquireLock(ctx, lockKey); err != nil {
+		if errors.Is(err, ErrSessionConflict) {
+			if active, findErr := r.store.FindActiveByPlugin(ctx, req.PluginID, req.TenantID); findErr == nil {
+				return nil, newSessionConflictError(active)
+			}
+		}
 		return nil, err
 	}
 	defer func() {
@@ -103,9 +108,9 @@ func (r *Registry) Register(ctx context.Context, req RegisterRequest) (*model.De
 		}
 	}()
 
-	if _, err := r.store.FindActiveByPlugin(ctx, req.PluginID, req.TenantID); err == nil {
+	if active, err := r.store.FindActiveByPlugin(ctx, req.PluginID, req.TenantID); err == nil {
 		_ = r.releaseLock(ctx, lockKey)
-		return nil, ErrSessionConflict
+		return nil, newSessionConflictError(active)
 	} else if !errors.Is(err, store.ErrNotFound) {
 		_ = r.releaseLock(ctx, lockKey)
 		return nil, err

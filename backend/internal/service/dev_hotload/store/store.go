@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 	"time"
 
 	model "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/dev_hotload"
@@ -65,6 +66,18 @@ func (s *Store) FindActiveByPlugin(ctx context.Context, pluginID string, tenantI
 
 func (s *Store) CountActive(ctx context.Context) (int64, error) {
 	return s.repo.CountActive(ctx)
+}
+
+// ListSessions returns sessions filtered by plugin/tenant/status.
+func (s *Store) ListSessions(ctx context.Context, pluginID string, tenantID *uint64, statuses []string, limit, offset int) ([]model.DevHotloadSession, error) {
+	filter := repository.ListSessionsFilter{
+		PluginID: strings.TrimSpace(pluginID),
+		TenantID: tenantID,
+		Statuses: statuses,
+		Limit:    limit,
+		Offset:   offset,
+	}
+	return s.repo.ListSessions(ctx, filter)
 }
 
 func (s *Store) ListExpired(ctx context.Context, before time.Time) ([]model.DevHotloadSession, error) {
