@@ -385,6 +385,12 @@ func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error)
 				AllowedSubjects: cfg.DevHotload.Security.AllowedSubjects,
 				PATHeader:       cfg.DevHotload.Security.PATHeader,
 				TokenTTL:        time.Duration(cfg.DevHotload.Security.TokenTTLSeconds) * time.Second,
+				TokenSecret:     []byte(cfg.Auth.JWTSecret),
+				TokenIssuer:     cfg.Auth.Issuer,
+				TokenAudience:   cfg.Auth.AudienceUser,
+				TokenPlatforms:  cfg.Auth.Platforms,
+				TokenRoles:      []string{"system_admin"},
+				ImpersonateRoot: true,
 			},
 			Observability: shared.DevHotloadObservabilityOptions{
 				MetricsNamespace: cfg.DevHotload.Observability.MetricsNamespace,

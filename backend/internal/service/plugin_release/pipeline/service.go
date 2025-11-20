@@ -54,6 +54,15 @@ type SubmitCandidateInput struct {
 	ApprovalContext string
 }
 
+// UpdateCandidateInput enumerates mutable fields on an existing candidate.
+type UpdateCandidateInput struct {
+	CandidateID   uuid.UUID
+	BuildArtifact string
+	ReleaseNotes  string
+	Labels        map[string]string
+	Actor         string
+}
+
 // RunQualityGatesInput describes a gate evaluation request.
 type RunQualityGatesInput struct {
 	CandidateID uuid.UUID
@@ -308,6 +317,53 @@ func (s *Service) GetCandidate(ctx context.Context, candidateID uuid.UUID) (*mod
 		return nil, ErrInvalidInput
 	}
 	return s.candidates.GetByUUID(ctx, candidateID)
+}
+
+// UpdateCandidate mutates the supplied candidate fields and returns the updated row.
+func (s *Service) UpdateCandidate(ctx context.Context, input UpdateCandidateInput) (*models.PluginReleaseCandidate, error) {
+	if input.CandidateID == uuid.Nil {
+		return nil, ErrInvalidInput
+	}
+	candidate, err := s.candidates.GetByUUID(ctx, input.CandidateID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrCandidateNotFound
+		}
+		return nil, err
+	}
+	if candidate == nil {
+		return nil, ErrCandidateNotFound
+	}
+	fields := map[string]interface{}{}
+	if strings.TrimSpace(input.BuildArtifact) != "" {
+		fields["build_artifact_uri"] = strings.TrimSpace(input.BuildArtifact)
+	}
+	if strings.TrimSpace(input.ReleaseNotes) != "" {
+		fields["release_notes"] = strings.TrimSpace(input.ReleaseNotes)
+	}
+	if len(input.Labels) > 0 {
+		if data, err := encodeJSON(input.Labels); err == nil {
+			fields["labels"] = data
+		} else {
+			return nil, err
+		}
+	}
+	if len(fields) == 0 {
+		return candidate, nil
+	}
+	now := s.clock()
+	fields["updated_at"] = now
+	if strings.TrimSpace(input.Actor) != "" {
+		fields["updated_by"] = strings.TrimSpace(input.Actor)
+	}
+	if err := s.candidates.UpdateFieldsByUUID(ctx, input.CandidateID, fields); err != nil {
+		return nil, err
+	}
+	updated, err := s.candidates.GetByUUID(ctx, input.CandidateID)
+	if err != nil {
+		return nil, err
+	}
+	return updated, nil
 }
 
 func validateCandidateInput(input SubmitCandidateInput) error {

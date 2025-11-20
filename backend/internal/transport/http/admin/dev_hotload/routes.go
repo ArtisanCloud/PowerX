@@ -13,8 +13,8 @@ import (
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
 	devhotload "github.com/ArtisanCloud/PowerX/internal/service/dev_hotload"
 	"github.com/ArtisanCloud/PowerX/internal/service/dev_hotload/store"
-	model "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/dev_hotload"
 	"github.com/ArtisanCloud/PowerX/pkg/auth/middleware"
+	model "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/dev_hotload"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -73,7 +73,14 @@ func (h *apiHandler) register(c *gin.Context) {
 		h.writeError(c, err)
 		return
 	}
-	dto.ResponseSuccessWithStatus(c, http.StatusCreated, result)
+	dto.ResponseSuccessWithStatusAndPayload(c, http.StatusCreated, map[string]interface{}{
+		"sessionId":       result.SessionID.String(),
+		"reloadToken":     result.ReloadToken,
+		"status":          result.Status,
+		"expiresAt":       result.ExpiresAt,
+		"sandboxEndpoint": result.SandboxEndpoint,
+		"logUrl":          result.LogURL,
+	})
 }
 
 func (h *apiHandler) reload(c *gin.Context) {

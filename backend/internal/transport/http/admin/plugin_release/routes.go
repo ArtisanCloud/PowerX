@@ -35,4 +35,13 @@ func RegisterAPIRoutes(public, protected *gin.RouterGroup, deps *shared.Deps) {
 		group.POST("/marketplace/listings", distHandler.createListing)
 		group.POST("/marketplace/listings/:listingId/reviews", distHandler.reviewListing)
 	}
+
+	if publishHandler := newPublishHandler(deps.PluginReleaseService); publishHandler != nil {
+		registry := protected.Group("/internal/plugins")
+		registry.Use(middleware.AdminOnlyMiddleware())
+		registry.POST("/releases", publishHandler.createRelease)
+		registry.GET("/releases/:candidateId", publishHandler.getRelease)
+		registry.PATCH("/releases/:candidateId", publishHandler.updateRelease)
+		registry.POST("/releases/:candidateId/artifacts", publishHandler.uploadArtifact)
+	}
 }

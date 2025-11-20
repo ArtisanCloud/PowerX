@@ -110,6 +110,10 @@ func MigrateCoreModels(db *gorm.DB) (err error) {
 		return err
 	}
 
+	if err = migration.EnsureDevHotloadReloadTokenText(db); err != nil {
+		return err
+	}
+
 	if err = migratePluginGovernanceModels(db); err != nil {
 		return err
 	}

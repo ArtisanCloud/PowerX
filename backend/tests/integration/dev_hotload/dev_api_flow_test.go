@@ -140,6 +140,7 @@ func newDevHotloadEnv(t *testing.T) *devHotloadEnv {
 		TTL:             opts.Sessions.TTL,
 		MaxConcurrent:   opts.Sessions.MaxConcurrent,
 		CleanupInterval: opts.Sessions.CleanupInterval,
+		Security:        opts.Security,
 	})
 	service := devhotload.NewService(devhotload.ServiceDeps{
 		Store:    store,

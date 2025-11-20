@@ -138,6 +138,7 @@ Marketplace 运营与企业租户管理员需要在 2 个工作日内分别完�
 - **FR-020**: 版本治理服务必须提供 `px version scan` / `POST /internal/version/governance/scan`、策略配置与通知接口，5 分钟内推送升级建议并记录决策。
 - **FR-021**: 兼容性引擎需在安装/升级前调用 `POST /internal/version/compat/check`，阻断不兼容请求、输出冲突项并支持 `POST /internal/version/compat/exception` 例外审批与审计。
 - **FR-022**: 多租户版本治理需提供 `px version board --tenant <org>` 或 Web Admin 面板，展示版本偏差、批量对齐/灰度策略与执行状态，并将决策写入 365 天可追溯的审计记录。
+- **FR-023**: Registry 必须暴露 `/internal/plugins/releases` REST API（`POST` 创建、`GET /:id` 查询、`PATCH /:id` 审核状态、`POST /:id/artifacts` 追加制品），供 `px-plugin publish` 及 Web Admin 发布入口统一接入；接口需校验插件/租户可见性、版本号唯一性、artifact 签名与 manifest 元数据，成功后返回 release candidate ID、审计引用与下一步处理指引（如审批/灰度计划）。API 应复用 AdminOnly/Token 校验，失败时提供机器可读错误码，便于 CLI 重试与补件。
 
 ## Future Work – Dev API Hotload Gateway *(Planned in follow-up milestone)*
 
