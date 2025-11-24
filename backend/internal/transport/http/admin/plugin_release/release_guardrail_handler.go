@@ -178,6 +178,7 @@ type candidateResponse struct {
 	ReleaseNotes   string            `json:"releaseNotes"`
 	GateStatus     string            `json:"gateStatus"`
 	ApprovalStatus string            `json:"approvalStatus"`
+	CreatedBy      string            `json:"createdBy,omitempty"`
 	SubmittedAt    string            `json:"submittedAt,omitempty"`
 	GatesCheckedAt string            `json:"gatesCheckedAt,omitempty"`
 	ApprovedAt     string            `json:"approvedAt,omitempty"`
@@ -204,6 +205,11 @@ func toCandidateResponse(candidate *models.PluginReleaseCandidate) candidateResp
 	}
 	if candidate.ApprovedAt != nil {
 		resp.ApprovedAt = candidate.ApprovedAt.UTC().Format(time.RFC3339)
+	}
+	if strings.TrimSpace(candidate.CreatedBy) != "" {
+		resp.CreatedBy = strings.TrimSpace(candidate.CreatedBy)
+	} else {
+		resp.CreatedBy = "system"
 	}
 	resp.Labels = decodeStringMap(candidate.Labels)
 	return resp

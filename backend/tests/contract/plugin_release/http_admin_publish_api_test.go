@@ -183,4 +183,38 @@ func TestAdminPublishAPIContract(t *testing.T) {
 	require.NoError(t, db.Where("release_candidate_id = ?", candidate.ID).Take(&offlinePackage).Error)
 	require.Equal(t, artifactData.Data.OfflinePackageID, offlinePackage.ID)
 	require.Equal(t, "sig-cli-publish", offlinePackage.SignatureFingerprint)
+
+	listReq := httptest.NewRequest(http.MethodGet, "/api/admin/internal/plugins/releases?page=1&size=10&pluginId=com.powerx.helloworld", nil)
+	listReq.Header.Set("Authorization", "Bearer admin")
+	listResp := httptest.NewRecorder()
+	engine.ServeHTTP(listResp, listReq)
+	require.Equal(t, http.StatusOK, listResp.Code)
+
+	var listData struct {
+		Code int `json:"code"`
+		Data struct {
+			Items []struct {
+				CandidateID          string `json:"candidateId"`
+				PluginID             string `json:"pluginId"`
+				PlanStatus           string `json:"planStatus"`
+				OfflinePackageStatus string `json:"offlinePackageStatus"`
+				OfflinePackageCount  int64  `json:"offlinePackageCount"`
+			} `json:"items"`
+			Pagination struct {
+				Total int64 `json:"total"`
+				Page  int   `json:"page"`
+			} `json:"pagination"`
+		} `json:"data"`
+	}
+	require.NoError(t, json.Unmarshal(listResp.Body.Bytes(), &listData))
+	require.GreaterOrEqual(t, listData.Data.Pagination.Total, int64(1))
+	found := false
+	for _, item := range listData.Data.Items {
+		if item.CandidateID == createData.Data.CandidateID {
+			found = true
+			require.Equal(t, "com.powerx.helloworld", item.PluginID)
+			require.Equal(t, int64(1), item.OfflinePackageCount)
+		}
+	}
+	require.True(t, found, "created candidate should be listed")
 }

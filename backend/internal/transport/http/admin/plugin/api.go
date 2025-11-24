@@ -15,8 +15,8 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 	// 如果你已有 Admin 的中间件（鉴权/租户），可以在这里加到 Group 上
 	grp.Use(middleware.AdminOnlyMiddleware())
 	{
-		grp.GET("/marketplace/plugins", MarketplaceListHandler(cfg.Plugin.BasePrefix))
-		grp.GET("/marketplace/plugins_v2", MarketplaceListV2Handler(cfg.Plugin.BasePrefix))
+		// 统一使用 v2 响应格式，仅保留一个入口
+		grp.GET("/marketplace/plugins", MarketplaceListV2Handler(cfg.Plugin.BasePrefix))
 
 		grp.GET("/", PluginListHandler)       // GET  /api/v1/admin/plugins
 		grp.GET("/:id", PluginGetHandler)     // GET  /api/v1/admin/plugins/:id

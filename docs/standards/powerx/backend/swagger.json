@@ -1277,20 +1277,6 @@
         ]
       }
     },
-    "/api/v1/admin/plugins/marketplace/plugins_v2": {
-      "get": {
-        "operationId": "GET /api/v1/admin/plugins/marketplace/plugins_v2",
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "summary": "GET /api/v1/admin/plugins/marketplace/plugins_v2",
-        "tags": [
-          "api"
-        ]
-      }
-    },
     "/api/v1/admin/plugins/menus": {
       "get": {
         "operationId": "GET /api/v1/admin/plugins/menus",
@@ -1922,6 +1908,78 @@
         "summary": "GET /ws/agents/stream/ws",
         "tags": [
           "ws"
+        ]
+      }
+    },
+    "/api/v1/internal/plugins/releases": {
+      "get": {
+        "operationId": "GET /api/v1/internal/plugins/releases",
+        "summary": "GET /api/v1/internal/plugins/releases",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "size",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "tenantId",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "pluginId",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "version",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "approvalStatus",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "gateStatus",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "createdBy",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "api"
         ]
       }
     }

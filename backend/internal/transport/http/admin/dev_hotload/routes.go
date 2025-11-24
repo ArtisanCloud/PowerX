@@ -15,6 +15,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/internal/service/dev_hotload/store"
 	"github.com/ArtisanCloud/PowerX/pkg/auth/middleware"
 	model "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/dev_hotload"
+	tenantrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/tenant"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -29,6 +30,7 @@ func RegisterAPIRoutes(public, protected *gin.RouterGroup, deps *shared.Deps) {
 	handler := &apiHandler{
 		svc:       deps.DevHotloadService,
 		sseBuffer: deps.DevHotloadOptions.Observability.SSEBufferSize,
+		tenants:   tenantrepo.NewTenantRepository(deps.DB),
 	}
 	if handler.sseBuffer <= 0 {
 		handler.sseBuffer = 16
@@ -49,6 +51,7 @@ func RegisterAPIRoutes(public, protected *gin.RouterGroup, deps *shared.Deps) {
 type apiHandler struct {
 	svc       *devhotload.Service
 	sseBuffer int
+	tenants   *tenantrepo.TenantRepository
 }
 
 func (h *apiHandler) register(c *gin.Context) {
@@ -57,9 +60,24 @@ func (h *apiHandler) register(c *gin.Context) {
 		dto.ResponseError(c, http.StatusBadRequest, err.Error(), err)
 		return
 	}
+	tenantID := req.TenantID
+	if tenantID == 0 && strings.TrimSpace(req.TenantUUID) != "" {
+		t, err := h.tenants.GetByUUID(c.Request.Context(), strings.TrimSpace(req.TenantUUID))
+		if err != nil {
+			dto.ResponseError(c, http.StatusBadRequest, "invalid tenantUuid", err)
+			return
+		}
+		if t != nil {
+			tenantID = t.ID
+		}
+	}
+	if tenantID == 0 {
+		dto.ResponseError(c, http.StatusBadRequest, "tenantId or tenantUuid is required", nil)
+		return
+	}
 	result, err := h.svc.Register(c.Request.Context(), devhotload.RegisterInput{
 		PluginID:        req.PluginID,
-		TenantID:        req.TenantID,
+		TenantID:        tenantID,
 		DeveloperID:     req.DeveloperID,
 		BuildHash:       req.BuildHash,
 		EntryPoints:     req.EntryPoints,
@@ -287,7 +305,8 @@ func (h *apiHandler) writeError(c *gin.Context, err error) {
 
 type registerRequest struct {
 	PluginID        string         `json:"pluginId" binding:"required"`
-	TenantID        uint64         `json:"tenantId" binding:"required"`
+	TenantUUID      string         `json:"tenantUuid"`
+	TenantID        uint64         `json:"tenantId"`
 	DeveloperID     uint64         `json:"developerId" binding:"required"`
 	BuildHash       string         `json:"buildHash"`
 	EntryPoints     []string       `json:"entryPoints"`

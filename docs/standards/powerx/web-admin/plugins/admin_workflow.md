@@ -10,7 +10,7 @@
 所有路由位于受保护组 `/api/v1/admin/plugins` 下（已加 `AdminOnlyMiddleware`）。
 
 - 市场列表
-  - GET `/marketplace/plugins_v2`
+  - GET `/marketplace/plugins`
   - 返回：已安装插件为主的“本地市场”视图（含 `systemStatus`、`isSystemInstalled`、`isSystemEnabled`、`icon` 等）。
 - 系统级管理
   - GET `/`：插件列表（含 Admin URL、菜单、状态）
@@ -47,16 +47,21 @@
   - 未安装：弹框“从 URL 安装”（输入包地址与可选 SHA256，是否安装后启用）。
   - 已安装：按钮“启用/停用”、“卸载”（二次确认）。
   - 详情抽屉：展示元信息（作者、标签、首页）、系统运行状态与日志入口。
-- 数据源：GET `/marketplace/plugins_v2` + 系统级操作接口。
+- 数据源：GET `/marketplace/plugins` + 系统级操作接口。
 
 2) 插件详情（系统级）
 - 路由：`/admin/plugins/:id`
 - 区块：
-  - 基本信息：版本、描述、作者、图标；
+ - 基本信息：版本、描述、作者、图标；
   - 运行状态：`GET /:id/status`；
   - 控制：启用/停用、切换版本、卸载、查看日志。
 
-3) 租户启用（租户级）
+3) 发布候选（登记/审批）
+- 路由：`/plugin-release`（列表）、`/plugin-release/:id`（详情）
+- 数据源：`GET /api/v1/internal/plugins/releases`（支持按 pluginId/version/gateStatus/approvalStatus 筛选）、`GET /api/v1/internal/plugins/releases/:id`（详情）、`POST /api/v1/internal/plugins/releases/:id/artifacts`（补件）。
+- 操作：查看 publish 登记的候选、补件上传、跳转到市场页查看已上线版本。
+
+4) 租户启用（租户级）
 - 路由：`/admin/plugins/:id/tenant`
 - 区块：
   - 启用开关：`POST /:id/tenant_enable {enabled}`；
@@ -70,7 +75,7 @@
 - 获取市场列表：
 ```
 curl -H "Authorization: Bearer <token>" \
-  http://localhost:8080/api/v1/admin/plugins/marketplace/plugins_v2
+  http://localhost:8080/api/v1/admin/plugins/marketplace/plugins
 ```
 - 从 URL 安装并启用：
 ```
@@ -101,4 +106,3 @@ curl -X POST -H "Authorization: Bearer <token>" \
 - `tenant_enable` 在首次创建凭证时会尝试 gRPC 下发（best-effort，失败不阻断）。
 - 明文 secret 仅在“首次创建”或“轮换”响应中出现一次；后续只可通过轮换获取新 secret。
 - 构建时如需启用 gRPC 推送，请使用：`go build -tags plugin_control ./cmd/app`。
-

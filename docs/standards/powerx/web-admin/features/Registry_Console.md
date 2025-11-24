@@ -17,7 +17,7 @@
 - 左侧切换标签：`应用市场`（当前页）、`已安装`（跳转 `/plugins/installed`）。  
 - 右侧操作：  
   - `安装`：仅 Root 用户可见，触发 `InstallDialog`（`app/components/plugins/InstallDialog.vue`）。  
-  - `刷新`：调用 `refresh()` 重新拉取 `getMarketplaceV2()`。
+- `刷新`：调用 `refresh()` 重新拉取 `getMarketplace()`。
 
 角色判断通过 `useUserStore().isRoot`（`app/pages/plugins/market.vue:74`），普通用户看不到安装按钮。
 
@@ -59,7 +59,7 @@
 
 ## 6. 数据来源
 
-- `useAdminPluginsService().getMarketplaceV2()` 拉取后端数据，映射为统一结构（`app/pages/plugins/market.vue:90`）。  
+- `useAdminPluginsService().getMarketplace()` 拉取后端数据，映射为统一结构（`app/pages/plugins/market.vue:90`）。  
 - 如果后端暂不可用，可考虑在服务层提供 Mock（参考 `docs/environment/Local_Mocks_and_Fixtures.md`），确保 UI 可回归。
 
 ---

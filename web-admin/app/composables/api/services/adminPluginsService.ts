@@ -19,9 +19,9 @@ export const useAdminPluginsService = () => {
   const unwrap = (r: any) => (r && typeof r === 'object' && 'data' in r ? (r as any).data : r);
 
   return {
-    // 市场列表（已安装为主的本地视图）
-    getMarketplaceV2: async (): Promise<AdminPluginItem[]> => {
-      const r = await api.get<any>(`${base}/marketplace/plugins_v2`);
+    // 市场列表
+    getMarketplace: async (): Promise<AdminPluginItem[]> => {
+      const r = await api.get<any>(`${base}/marketplace/plugins`);
       const d = unwrap(r);
       if (d && typeof d === 'object') {
         if (Array.isArray(d.items)) return d.items as AdminPluginItem[];

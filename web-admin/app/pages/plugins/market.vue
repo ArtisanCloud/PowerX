@@ -181,7 +181,7 @@ async function fetchMarketplace() {
       "~/composables/api/services/adminPluginsService"
     );
     const svc = useAdminPluginsService();
-    const list = await svc.getMarketplaceV2();
+    const list = await svc.getMarketplace();
     if (Array.isArray(list)) {
       all.value = (list as any[]).map((p: any) => ({
         id: String(p.id || p.slug || p.name || ""),

@@ -198,6 +198,18 @@
 
 ---
 
+## Phase 13: Release Candidates Admin Console & List API（Planned / P1）
+
+- [X] T086 [US1|FR-023] 补充 release candidate 列表接口：`GET /api/v1/internal/plugins/releases` 支持分页/筛选（tenantId/pluginId/version prefix/approvalStatus/gateStatus/createdBy），返回 artifact/plan 摘要；更新 swagger（`docs/standards/powerx/backend/swagger.yaml,json`）与合同测试（`backend/tests/contract/plugin_release/http_admin_publish_api_test.go`）。（依赖 T039a）
+- [X] T087 [US1|FR-023] 丰富 `GET /api/v1/internal/plugins/releases/:id` 返回字段（artifact 状态、审批/门禁时间、提交人），补充集成测试覆盖 publish→list→get 闭环（新增 `backend/tests/integration/plugin_release/test_registry_publish_flow.go` 或扩展现有用例）。（依赖 T086）
+- [X] T088 [US1|FR-023] Web Admin 发布候选列表页：`/plugin-release`（目录 `web-admin/app/pages/plugin-release/index.vue`），调用 T086 接口，提供筛选、分页、状态标签、操作按钮（查看详情/上传制品/运行门禁）。（依赖 T086）
+- [X] T089 [US1|FR-023] Web Admin 发布候选详情页：`/plugin-release/[id].vue`，展示 metadata/labels/审批&门禁轨迹/制品列表，串联现有 `POST /:id/artifacts`、gates、plan/部署入口；在市场页卡片/详情追加“查看候选”跳转（`/plugin-release?pluginId=xxx`）。（依赖 T088, T037, T039a, T046）
+- [X] T090 [US1|FR-023] 文档与菜单：更新前端菜单配置与路由说明（`web-admin/app/services/menuConfig.ts` 或对应配置），在 UI 指南中标注新入口（`docs/standards/powerx/web-admin/plugins/admin_workflow.md`、`docs/guides/develop/dev_hotload.md` 对 publish 步骤追加“在 Admin 发布候选页可见”说明）。（依赖 T088-T089）
+
+**Checkpoint**：管理员可在 Web Admin 中看到发布候选列表/详情，并从市场页跳转；CLI publish 登记的版本可视化、可维护。
+
+---
+
 ## Regression & Certification
 
 - [X] TR001 将 Phase 9–11 场景映射到可重复执行的自动化：新增 `scripts/ci/regression_pxp.sh` + `make regression-pxp`，根据 `docs/use_cases/_from_hub/SCN-DEV-PLUGIN-{INIT,DEBUG,PUBLISH,VERSION-COMPAT}-001` 归档的 acceptance 覆盖 CLI/Service/HTTP 路由，并在 `specs/009-install-plugin-pxp/checklists/regression.md` 记录执行清单。

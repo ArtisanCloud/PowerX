@@ -13,4 +13,51 @@ components:
           - { key: "description", label: "Description", type: "textarea" }
           - { key: "content", label: "Content", type: "textarea" }
 
+nuxt_ui:
+  colors: [primary, secondary, success, info, warning, error, neutral]  # palette reference
+  select:
+    syntax: '<USelect v-model="value" :items="items" class="w-48" />'
+    notes:
+      - Use `items` (not `options`) to pass choices.
+      - Add width classes (e.g., `w-full`) when needed.
+  modal:
+    preferUModal: true
+    paddingClass: "p-4 sm:p-5"
+    width: "max-w-3xl w-full"
+    close:
+      useCloseProp: true
+      preventClose: true
+    slots:
+      body: Place form fields in `#body` slot to ensure they render.
+      footer: Place action buttons in `#footer`.
+      contentSlot: content
+    accessibility:
+      - Blur active element before closing to avoid aria-hidden focus warnings.
+      - Provide `title` and `description` for dialog accessibility.
+  form:
+    useFormComponent: true
+    schemaLibrary: valibot
+    submitEvent: FormSubmitEvent
+    layout:
+      spacingClass: space-y-4
+      containerClass: "p-4 sm:p-5"
+      buttonsAlign: end
+    fields:
+      wrapWithFormField: true
+      labelI18nKey: recommended
+      inputs:
+        useModelValue: true
+        textareaRowsDefault: 3
+    buttons:
+      cancel:
+        color: neutral
+        variant: subtle
+        type: button
+      submit:
+        color: primary
+        type: submit
+    errorHandling:
+      schemaValidation: true
+      toastOnError: optional
+
 gates.require: [PG-FE-UI-001]

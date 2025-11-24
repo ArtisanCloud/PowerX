@@ -39,9 +39,11 @@ func RegisterAPIRoutes(public, protected *gin.RouterGroup, deps *shared.Deps) {
 	if publishHandler := newPublishHandler(deps.PluginReleaseService); publishHandler != nil {
 		registry := protected.Group("/internal/plugins")
 		registry.Use(middleware.AdminOnlyMiddleware())
+		registry.GET("/releases", publishHandler.listReleases)
 		registry.POST("/releases", publishHandler.createRelease)
 		registry.GET("/releases/:candidateId", publishHandler.getRelease)
 		registry.PATCH("/releases/:candidateId", publishHandler.updateRelease)
+		registry.DELETE("/releases/:candidateId", publishHandler.deleteRelease)
 		registry.POST("/releases/:candidateId/artifacts", publishHandler.uploadArtifact)
 	}
 }

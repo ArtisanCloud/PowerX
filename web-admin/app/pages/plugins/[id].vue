@@ -325,7 +325,7 @@ onMounted(async () => {
       "~/composables/api/services/adminPluginsService"
     );
     const svc = useAdminPluginsService();
-    const list = await svc.getMarketplaceV2();
+    const list = await svc.getMarketplace();
     const item = Array.isArray(list)
       ? (list as any[]).find(
           (p) => String(p.id || p.slug || p.name || "") === id.value
@@ -361,7 +361,7 @@ async function refreshMeta() {
       "~/composables/api/services/adminPluginsService"
     );
     const svc = useAdminPluginsService();
-    const list = await svc.getMarketplaceV2();
+    const list = await svc.getMarketplace();
     const item = Array.isArray(list)
       ? (list as any[]).find(
           (p) => String(p.id || p.slug || p.name || "") === id.value

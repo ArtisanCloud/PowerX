@@ -13,9 +13,11 @@
 ## 🌟 预览图
 
 ### 管理后台
+
 ![管理后台](https://raw.githubusercontent.com/ArtisanCloud/PowerXDoc/dev/michaelhu/docs/website/public/images/px-home-zh.png)
 
 ### 插件市场
+
 ![插件市场](https://raw.githubusercontent.com/ArtisanCloud/PowerXDoc/dev/michaelhu/docs/website/public/images/px-market-zh.png)
 
 ---
@@ -25,6 +27,7 @@
 PowerX 是 **企业级 AgentOS（Agent Operating System）**，遵循三个核心原则：
 
 ### 1. 内核最小化
+
 - 内核只提供通用能力：用户与组织（IAM）、权限与访问控制（RBAC）、事件总线（Event Bus）、审计（Audit）、数据库抽象（DB Layer）、运行时流引擎（Flow）
 - 这些能力作为 SDK (`pkg/corex/*`) 暴露，任何插件和外部系统都可以复用
 
@@ -60,6 +63,7 @@ PowerX 是 **企业级 AgentOS（Agent Operating System）**，遵循三个核�
 ## 🔌 插件机制
 
 ### 插件结构
+
 ```
 插件包/
 ├── plugin.yaml          # 插件元数据
@@ -73,6 +77,7 @@ PowerX 是 **企业级 AgentOS（Agent Operating System）**，遵循三个核�
 ```
 
 ### 插件生命周期
+
 - **安装**：将插件包放入 `/plugins` 目录
 - **注册**：系统启动时自动扫描并注册插件
 - **加载**：动态加载插件菜单和页面
@@ -116,6 +121,8 @@ PowerX 内置四类前端壳，共享 **统一契约**，SDK 自动生成，支�
 
 如需商务合作或社区支持，请扫描下方二维码添加官方微信：
 
+申请添加好友时，请备注产品名称，比如：“我关注PowerX”
+
 <img src="https://powerx.artisan-cloud.com/images/wx-qr-code.jpg" alt="PowerX 微信二维码" width="220" />
 
 ---
@@ -129,6 +136,7 @@ PowerX 内置四类前端壳，共享 **统一契约**，SDK 自动生成，支�
 - 查看 [贡献指南](./CONTRIBUTING.md) 了解更多细节
 
 ### 贡献者
+
 感谢所有为 PowerX 做出贡献的开发者！ 🙏
 
 ---

@@ -41,7 +41,7 @@ describe('PluginReleaseService', () => {
       })
 
       expect(result).toEqual(mockResponse)
-      expect(mockFetch).toHaveBeenCalledWith('/api/admin/plugin-release/offline-packages', {
+      expect(mockFetch).toHaveBeenCalledWith('/api/plugin-release/offline-packages', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -104,7 +104,7 @@ describe('PluginReleaseService', () => {
 
       expect(result).toEqual(mockResponse)
       expect(mockFetch).toHaveBeenCalledWith(
-        '/api/admin/plugin-release/marketplace/listings?page=1&size=20',
+        '/api/plugin-release/marketplace/listings?page=1&size=20',
         expect.any(Object)
       )
     })
@@ -148,7 +148,7 @@ describe('PluginReleaseService', () => {
 
       expect(result).toEqual(mockResponse)
       expect(mockFetch).toHaveBeenCalledWith(
-        '/api/admin/plugin-release/marketplace/listings/1',
+        '/api/plugin-release/marketplace/listings/1',
         expect.any(Object)
       )
     })
@@ -175,7 +175,7 @@ describe('PluginReleaseService', () => {
 
       expect(result).toEqual(mockResponse)
       expect(mockFetch).toHaveBeenCalledWith(
-        '/api/admin/plugin-release/marketplace/listings/1/reviews',
+        '/api/plugin-release/marketplace/listings/1/reviews',
         expect.objectContaining({
           method: 'POST',
           body: JSON.stringify({
@@ -225,7 +225,7 @@ describe('PluginReleaseService', () => {
 
       expect(result).toEqual(mockResponse)
       expect(mockFetch).toHaveBeenCalledWith(
-        '/api/admin/plugin-release/plans/1/deploy/canary',
+        '/api/plugin-release/plans/1/deploy/canary',
         expect.objectContaining({
           method: 'POST',
           body: JSON.stringify({

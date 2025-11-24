@@ -2,6 +2,11 @@
 
 PowerX 的 Dev Hotload 流程允许你在不重新打包/发布插件的情况下，把本地构建产物推送到 Dev API 的沙盒环境，即刻在 Web Admin 中体验最新 UI/接口。本文总结常见问题与正确姿势。
 
+## CLI 对应接口速查
+
+- `px-plugin dev` → `POST /api/v1/internal/dev/plugins/register`（注册热加载会话，返回 sessionId/reloadToken，用于后续 reload/terminate）
+- `px-plugin publish` → `POST /api/v1/internal/plugins/releases`（登记发布候选，上传构建产物，进入发布候选列表）
+
 ## 核心概念
 
 - **会话 (Session)**：热加载时 CLI 与 Dev API 之间的逻辑上下文，包含 `sessionId` 与 `reloadToken`。Dev API 将会话元数据持久化在 `dev_hotload_sessions`/`dev_hotload_session_events` 表中，CLI 和插件只通过 Dev API 获取会话状态，不直接访问数据库。会话标识当前 artefact 属于哪个插件/租户，并允许多次 reload 复用同一身份。
@@ -17,6 +22,7 @@ PowerX 的插件发布链路分为 4 步，热加载属于独立的调试通道�
 
 2. **publish**（开发者机器执行）  
    `px-plugin publish` 读取你的 PowerX 配置（`px auth configure` 写入的 dev/publish 基址、API Token，也可以在 `~/.px-plugin/config.json` 或环境变量中重写），然后把包 POST 到该 PowerX 实例的插件发布 API。也就是说，它只是上传到**你当前连接的 PowerX Registry**；不会默认跑去某个云端 Marketplace。Registry 接收后，PowerX Marketplace/插件管理后台才会看到“待审核版本”。
+   - 管理员可在 Web Admin 的 `/plugin-release` 页面查看和筛选候选，补件或推动审批。
 
 3. **install**（PowerX 管理后台执行）  
    管理员在 PowerX UI 中选择某个发布版本（或上传本地包），宿主会将 artefact 解压到 `backend/plugins/installed` 等目录、更新数据库、生成菜单。只有安装完成，插件的菜单入口/权限才被注册。

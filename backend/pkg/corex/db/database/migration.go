@@ -105,6 +105,12 @@ func MigrateCoreModels(db *gorm.DB) (err error) {
 	if err = migratePluginReleaseModels(db); err != nil {
 		return err
 	}
+	if err = migration.EnsurePluginReleaseCandidateUniqueIndex(db); err != nil {
+		return err
+	}
+	if err = migration.EnsurePluginReleaseActorToken(db); err != nil {
+		return err
+	}
 
 	if err = migrateDevHotloadModels(db); err != nil {
 		return err

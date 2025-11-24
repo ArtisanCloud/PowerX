@@ -31,6 +31,7 @@ type PluginReleaseCandidate struct {
 	AuditRef         *uuid.UUID     `gorm:"column:audit_ref;type:uuid" json:"audit_ref,omitempty"`
 	CreatedBy        string         `gorm:"column:created_by;type:varchar(128)" json:"created_by,omitempty"`
 	UpdatedBy        string         `gorm:"column:updated_by;type:varchar(128)" json:"updated_by,omitempty"`
+	ActorToken       string         `gorm:"column:actor_token;type:varchar(256)" json:"actor_token,omitempty"`
 }
 
 func (PluginReleaseCandidate) TableName() string {
