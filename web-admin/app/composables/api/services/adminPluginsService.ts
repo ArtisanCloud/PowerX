@@ -40,9 +40,15 @@ export const useAdminPluginsService = () => {
       return []
     },
 
-    // 系统启用/停用
-    enable: (id: string) => api.post(`${base}/${encodeURIComponent(id)}/enable`),
-    disable: (id: string) => api.post(`${base}/${encodeURIComponent(id)}/disable`),
+    // 系统启用/停用（启用可能耗时，单独放宽超时时间）
+    enable: (id: string) =>
+      api.post(`${base}/${encodeURIComponent(id)}/enable`, undefined, {
+        timeout: 120000, // 120s 防止启动耗时导致超时
+      }),
+    disable: (id: string) =>
+      api.post(`${base}/${encodeURIComponent(id)}/disable`, undefined, {
+        timeout: 120000,
+      }),
 
     // 安装（从 URL）
     installFromUrl: (payload: { url: string; sha256?: string; enable?: boolean }) =>

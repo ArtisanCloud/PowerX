@@ -182,6 +182,8 @@ type candidateResponse struct {
 	SubmittedAt    string            `json:"submittedAt,omitempty"`
 	GatesCheckedAt string            `json:"gatesCheckedAt,omitempty"`
 	ApprovedAt     string            `json:"approvedAt,omitempty"`
+	CreatedAt      string            `json:"createdAt,omitempty"`
+	UpdatedAt      string            `json:"updatedAt,omitempty"`
 	Labels         map[string]string `json:"labels,omitempty"`
 }
 
@@ -210,6 +212,12 @@ func toCandidateResponse(candidate *models.PluginReleaseCandidate) candidateResp
 		resp.CreatedBy = strings.TrimSpace(candidate.CreatedBy)
 	} else {
 		resp.CreatedBy = "system"
+	}
+	if !candidate.CreatedAt.IsZero() {
+		resp.CreatedAt = candidate.CreatedAt.UTC().Format(time.RFC3339)
+	}
+	if !candidate.UpdatedAt.IsZero() {
+		resp.UpdatedAt = candidate.UpdatedAt.UTC().Format(time.RFC3339)
 	}
 	resp.Labels = decodeStringMap(candidate.Labels)
 	return resp

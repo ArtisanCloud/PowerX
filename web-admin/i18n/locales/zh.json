@@ -105,6 +105,8 @@
     "gate": "门禁",
     "tenant": "租户",
     "createdBy": "提交人",
+    "createdAt": "创建时间",
+    "updatedAt": "更新时间",
     "artifact": "构建产物",
     "submittedAt": "提交时间",
     "releaseNotes": "发布说明",

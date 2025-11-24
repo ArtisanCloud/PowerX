@@ -105,6 +105,8 @@
     "gate": "Gate",
     "tenant": "Tenant",
     "createdBy": "Submitted By",
+    "createdAt": "Created At",
+    "updatedAt": "Updated At",
     "artifact": "Build Artifact",
     "submittedAt": "Submitted At",
     "releaseNotes": "Release Notes",

@@ -44,6 +44,14 @@
           <div class="text-gray-500">{{ t('pluginRelease.submittedAt', '提交时间') }}</div>
           <div class="font-medium">{{ detail.submittedAt || detail.createdAt || '-' }}</div>
         </div>
+        <div class="space-y-1">
+          <div class="text-gray-500">{{ t('pluginRelease.createdAt', '创建时间') }}</div>
+          <div class="font-medium">{{ detail.createdAt || '-' }}</div>
+        </div>
+        <div class="space-y-1">
+          <div class="text-gray-500">{{ t('pluginRelease.updatedAt', '更新时间') }}</div>
+          <div class="font-medium">{{ detail.updatedAt || '-' }}</div>
+        </div>
       <div class="space-y-1">
         <div class="text-gray-500">{{ t('pluginRelease.createdBy', '提交人') }}</div>
         <div class="font-medium">{{ detail.createdByDisplay || '-' }}</div>
@@ -92,6 +100,7 @@ const detail = reactive<any>({
   createdByDisplay: '',
   submittedAt: '',
   createdAt: '',
+  updatedAt: '',
   labels: {}
 })
 

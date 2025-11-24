@@ -1,6 +1,14 @@
 package plugin
 
 import (
+	"archive/tar"
+	"compress/gzip"
+	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+	"strings"
+
 	mgrimpl "github.com/ArtisanCloud/PowerX/internal/infra/plugin/manager"
 	dtoRequest "github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/ArtisanCloud/PowerX/pkg/plugin_mgr"
@@ -22,8 +30,18 @@ func PluginInstallLocalHandler(c *gin.Context) {
 		return
 	}
 
+	// 解析 src_dir：支持直接传 tar.gz 包，或传入包含 package.tar.gz 的 build 目录，或包含 plugin.yaml 的目录
+	srcDir, cleanup, err := resolveInstallSource(req.SrcDir)
+	if err != nil {
+		dtoRequest.ResponseError(c, plugin_mgr.HTTPStatusOf(plugin_mgr.CodeOf(err)), "安装失败", err)
+		return
+	}
+	if cleanup != nil {
+		defer cleanup()
+	}
+
 	mgr := mgrimpl.GetPluginManager() // 你走“实现包全局”
-	p, err := mgr.InstallFromFile(c, req.SrcDir, plugin_mgr.InstallOptions{
+	p, err := mgr.InstallFromFile(c, srcDir, plugin_mgr.InstallOptions{
 		AutoEnable: req.Enable,
 		Force:      req.Force,
 	})
@@ -38,6 +56,166 @@ func PluginInstallLocalHandler(c *gin.Context) {
 			"version": p.Version,
 			"state":   p.State,
 		},
+	})
+}
+
+// resolveInstallSource 尝试将传入路径解析为可安装目录：
+// - 若是目录且包含 plugin.yaml：直接使用
+// - 若是目录且包含 payload/plugin.yaml：使用 payload 子目录
+// - 若目录下存在 package.tar.gz：解压到临时目录后使用 payload/ 或根目录
+// - 若直接传入 .tar.gz 文件：解压到临时目录后使用
+func resolveInstallSource(src string) (string, func(), error) {
+	if strings.TrimSpace(src) == "" {
+		return "", nil, plugin_mgr.NewError(plugin_mgr.CodeInvalidArg, plugin_mgr.WithMsg("srcDir is empty"))
+	}
+	abs, err := filepath.Abs(src)
+	if err != nil {
+		return "", nil, plugin_mgr.Wrap(plugin_mgr.CodeIOError, err, plugin_mgr.WithOp("resolve_src"))
+	}
+	stat, err := os.Stat(abs)
+	if err != nil {
+		return "", nil, plugin_mgr.Wrap(plugin_mgr.CodeIOError, err, plugin_mgr.WithOp("resolve_src"))
+	}
+
+	isDir := stat.IsDir()
+	if isDir {
+		// 目录直接包含 manifest
+		if hasManifest(abs) {
+			_ = ensureBackendBinsExecutable(abs)
+			return abs, nil, nil
+		}
+		if payload := filepath.Join(abs, "payload"); hasManifest(payload) {
+			_ = ensureBackendBinsExecutable(payload)
+			return payload, nil, nil
+		}
+		// 目录下寻找 package.tar.gz
+		if pkgPath := findPackage(abs); pkgPath != "" {
+			return untarToTemp(pkgPath)
+		}
+		return "", nil, plugin_mgr.NewError(plugin_mgr.CodeMissingFile, plugin_mgr.WithMsg("plugin.yaml not found in srcDir"))
+	}
+
+	// 文件：若是 tar.gz 则解压
+	if strings.HasSuffix(strings.ToLower(abs), ".tar.gz") {
+		return untarToTemp(abs)
+	}
+
+	return "", nil, plugin_mgr.NewError(plugin_mgr.CodeInvalidArg, plugin_mgr.WithMsg("srcDir must be a directory with plugin.yaml or a package.tar.gz"))
+}
+
+func hasManifest(dir string) bool {
+	if dir == "" {
+		return false
+	}
+	_, err := os.Stat(filepath.Join(dir, "plugin.yaml"))
+	return err == nil
+}
+
+func findPackage(dir string) string {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return ""
+	}
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		name := strings.ToLower(e.Name())
+		if strings.HasSuffix(name, ".tar.gz") && strings.Contains(name, "package") {
+			return filepath.Join(dir, e.Name())
+		}
+	}
+	return ""
+}
+
+func untarToTemp(pkgPath string) (string, func(), error) {
+	tmpDir, err := os.MkdirTemp("", "px-plugin-install-*")
+	if err != nil {
+		return "", nil, plugin_mgr.Wrap(plugin_mgr.CodeIOError, err, plugin_mgr.WithOp("untar_temp"))
+	}
+	cleanup := func() {
+		_ = os.RemoveAll(tmpDir)
+	}
+
+	f, err := os.Open(pkgPath)
+	if err != nil {
+		cleanup()
+		return "", nil, plugin_mgr.Wrap(plugin_mgr.CodeIOError, err, plugin_mgr.WithOp("untar_open"))
+	}
+	defer f.Close()
+	gzr, err := gzip.NewReader(f)
+	if err != nil {
+		cleanup()
+		return "", nil, plugin_mgr.Wrap(plugin_mgr.CodeInvalidManifest, err, plugin_mgr.WithOp("untar_gzip"))
+	}
+	defer gzr.Close()
+
+	tr := tar.NewReader(gzr)
+	for {
+		hdr, err := tr.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			cleanup()
+			return "", nil, plugin_mgr.Wrap(plugin_mgr.CodeIOError, err, plugin_mgr.WithOp("untar_read"))
+		}
+		target := filepath.Join(tmpDir, hdr.Name)
+		switch hdr.Typeflag {
+		case tar.TypeDir:
+			if err := os.MkdirAll(target, os.FileMode(hdr.Mode)); err != nil {
+				cleanup()
+				return "", nil, plugin_mgr.Wrap(plugin_mgr.CodeIOError, err, plugin_mgr.WithOp("untar_mkdir"))
+			}
+		case tar.TypeReg:
+			if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+				cleanup()
+				return "", nil, plugin_mgr.Wrap(plugin_mgr.CodeIOError, err, plugin_mgr.WithOp("untar_mkdir_file"))
+			}
+			out, err := os.OpenFile(target, os.O_CREATE|os.O_WRONLY, os.FileMode(hdr.Mode))
+			if err != nil {
+				cleanup()
+				return "", nil, plugin_mgr.Wrap(plugin_mgr.CodeIOError, err, plugin_mgr.WithOp("untar_create"))
+			}
+			if _, err := io.Copy(out, tr); err != nil {
+				out.Close()
+				cleanup()
+				return "", nil, plugin_mgr.Wrap(plugin_mgr.CodeIOError, err, plugin_mgr.WithOp("untar_copy"))
+			}
+			out.Close()
+		}
+	}
+
+	// 选择 payload/plugin.yaml 或根目录 plugin.yaml
+	payloadDir := filepath.Join(tmpDir, "payload")
+	if hasManifest(payloadDir) {
+		_ = ensureBackendBinsExecutable(payloadDir)
+		return payloadDir, cleanup, nil
+	}
+	if hasManifest(tmpDir) {
+		_ = ensureBackendBinsExecutable(tmpDir)
+		return tmpDir, cleanup, nil
+	}
+	return "", cleanup, plugin_mgr.NewError(plugin_mgr.CodeInvalidManifest, plugin_mgr.WithMsg(fmt.Sprintf("plugin.yaml not found in package %s", pkgPath)))
+}
+
+// ensureBackendBinsExecutable makes sure backend/bin/* files are executable after extraction.
+func ensureBackendBinsExecutable(root string) error {
+	if root == "" {
+		return nil
+	}
+	return filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return nil // ignore individual path errors
+		}
+		if d.Type().IsRegular() && strings.Contains(path, string(filepath.Separator)+"backend"+string(filepath.Separator)+"bin"+string(filepath.Separator)) {
+			info, statErr := d.Info()
+			if statErr != nil {
+				return nil
+			}
+			_ = os.Chmod(path, info.Mode()|0o755)
+		}
+		return nil
 	})
 }
 
