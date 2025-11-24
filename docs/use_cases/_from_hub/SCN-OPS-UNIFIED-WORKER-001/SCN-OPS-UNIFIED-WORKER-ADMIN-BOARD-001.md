@@ -26,6 +26,7 @@ last_reviewed_at: 2025-10-19
 # Executive Summary
 
 PowerX Admin 任务看板为运维/管理员提供统一视图，按租户/插件/运行模式查看异步任务的队列、并发、成功/失败/重试/取消占比、耗时分布、告警与日志片段，并在 ACL 与审计保护下发起取消/重试。目标是提升跨模式的可见性与操作效率。
+- PowerXPlugin 脚手架默认输出模式标识、回写上下文字段与日志片段模板，使看板在 standalone/宿主场景下能直接消费一致的数据。
 
 # Scope & Guardrails
 
@@ -38,7 +39,7 @@ PowerX Admin 任务看板为运维/管理员提供统一视图，按租户/插�
 | Scope | Repository | Layer | 责任与交付物 | Owners |
 |-------|------------|-------|--------------|--------|
 | core-platform | powerx | ops | 看板 API、数据聚合、权限/审计、受控操作（取消/重试） | Michael Hu（matrix-x@artisan-cloud.com） |
-| plugin-ecosystem | powerx-plugin | service | 提供回写上下文、日志片段、模式标识，保证字段一致 | Michael Hu（matrix-x@artisan-cloud.com） |
+| plugin-ecosystem | powerx-plugin | service | 提供回写上下文、日志片段、模式标识，保证字段一致；脚手架模板预置上述字段与回写规范 | Michael Hu（matrix-x@artisan-cloud.com） |
 
 # End-to-End Flow
 

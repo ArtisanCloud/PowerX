@@ -25,6 +25,7 @@ last_reviewed_at: 2025-10-19
 # Positioning & Goals
 
 PowerX 为插件提供统一的异步任务执行层，屏蔽 standalone（本地队列+goroutine 池）与宿主模式（底座任务分发）的差异，确保提交/取消/查询、进度回写、超时/重试、观测与降级一致。面向长耗时任务（下载、转码、数据同步、模型推理等），业务 Handler 仅需实现一次，封装层负责策略与可观测性；PowerX Admin 任务看板则跨租户/插件统一呈现状态、日志与受控的运维操作。
+- PowerXPlugin 脚手架生成的插件工程默认内置 Worker 启动模板与 standalone 配置，复用同一 Handler 即可在本地模式跑通异步任务、回写与观测，避免与宿主模式分叉。
 
 # Scope & Guardrails
 
@@ -45,6 +46,7 @@ PowerX 为插件提供统一的异步任务执行层，屏蔽 standalone（本�
 2. 双模式执行抽象：standalone 本地队列+池，与宿主任务分发透传，Handler 复用不分叉。
 3. 一致的可观测性与降级：进度/状态/日志/指标、告警、宿主不可用回退或显式失败。
 4. Admin 任务看板：跨租户/插件/模式查看状态、日志、告警，并受控执行取消/重试。
+5. 脚手架开箱支持：PowerXPlugin 提供双模式启动/配置模板（含 standalone 入口与宿主接入配置），便于本地自验与演示。
 
 # Validation Workflow
 

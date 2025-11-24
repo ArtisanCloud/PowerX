@@ -26,6 +26,7 @@ last_reviewed_at: 2025-10-19
 # Executive Summary
 
 在宿主模式下，插件通过统一接口将任务透传至底座任务分发，由宿主承担排队、并发与监控。目标是保持与 standalone 一致的提交/取消/查询与回写契约，让 Handler 复用不分叉，并在宿主不可用时具备降级路径。
+- PowerXPlugin 脚手架默认提供宿主/standalone 双模式配置与启动模板，开发者仅需复用 Handler 与回写格式即可切换至宿主接入，无需额外分支代码。
 
 # Scope & Guardrails
 
@@ -38,11 +39,11 @@ last_reviewed_at: 2025-10-19
 | Scope | Repository | Layer | 责任与交付物 | Owners |
 |-------|------------|-------|--------------|--------|
 | core-platform | powerx | service | 透传接口、宿主分发适配、回写同步、降级开关与审计 | Michael Hu（matrix-x@artisan-cloud.com） |
-| plugin-ecosystem | powerx-plugin | integration | Handler 复用、宿主模式配置、进度/状态回写一致性 | Michael Hu（matrix-x@artisan-cloud.com） |
+| plugin-ecosystem | powerx-plugin | integration | Handler 复用、宿主模式配置、进度/状态回写一致性、脚手架提供宿主接入模板与模式开关 | Michael Hu（matrix-x@artisan-cloud.com） |
 
 # End-to-End Flow
 
-1. **注册与提交**：插件启动时注册 Handler；业务提交任务，封装层附带策略透传宿主分发。
+1. **注册与提交**：插件通过脚手架加载宿主接入配置并注册 Handler；业务提交任务，封装层附带策略透传宿主分发。
 2. **宿主执行与回写**：宿主排队/执行并回写进度/状态，封装层同步给业务/前端。
 3. **取消/超时**：取消或超时指令透传宿主，确保幂等与审计。
 4. **异常与降级**：宿主不可用时按策略回退本地或失败返回，并记录降级事件。

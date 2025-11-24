@@ -26,6 +26,7 @@ last_reviewed_at: 2025-10-19
 # Executive Summary
 
 为双模式任务执行提供一致的可观测性与告警能力，包括进度/状态、队列与并发指标、重试与取消统计，并支持宿主不可用时的降级（回退本地或显式失败）。目标是让运维在统一视图下追踪执行链路、及时发现异常并审计降级决策。
+- PowerXPlugin 脚手架默认在 Handler 模板与 standalone 启动入口中输出运行模式标识、进度/日志字段，便于无宿主环境也能对齐观测与告警。
 
 # Scope & Guardrails
 
@@ -38,7 +39,7 @@ last_reviewed_at: 2025-10-19
 | Scope | Repository | Layer | 责任与交付物 | Owners |
 |-------|------------|-------|--------------|--------|
 | core-platform | powerx | ops | 指标与日志采集、告警策略、降级控制与审计、宿主观测对接 | Michael Hu（matrix-x@artisan-cloud.com） |
-| plugin-ecosystem | powerx-plugin | service | 回写上下文补充、插件日志/指标接入、降级兼容处理 | Michael Hu（matrix-x@artisan-cloud.com） |
+| plugin-ecosystem | powerx-plugin | service | 回写上下文补充、插件日志/指标接入、降级兼容处理、脚手架输出模式标识/日志字段模板 | Michael Hu（matrix-x@artisan-cloud.com） |
 
 # End-to-End Flow
 

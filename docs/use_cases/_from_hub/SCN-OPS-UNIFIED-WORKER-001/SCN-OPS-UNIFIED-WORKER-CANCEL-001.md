@@ -26,6 +26,7 @@ last_reviewed_at: 2025-10-19
 # Executive Summary
 
 用户或系统需要在配置的 SLA 内取消或超时终止任务，包括停止外部进程，并在 standalone 与宿主模式下保持一致的状态回写与审计。目标是快速止损、避免僵尸任务，并提供可追溯的取消结果。
+- PowerXPlugin 脚手架的 Handler 模板默认包含可中断钩子与进度回写约定，standalone 启动入口也接入取消/超时信号，便于插件在无宿主场景自测中断能力。
 
 # Scope & Guardrails
 
@@ -38,7 +39,7 @@ last_reviewed_at: 2025-10-19
 | Scope | Repository | Layer | 责任与交付物 | Owners |
 |-------|------------|-------|--------------|--------|
 | core-platform | powerx | service | 取消/超时 API、状态机、宿主取消透传、审计与告警 | Michael Hu（matrix-x@artisan-cloud.com） |
-| plugin-ecosystem | powerx-plugin | ops | Handler 可中断实现、子进程终止、回写一致性、超时处理 | Michael Hu（matrix-x@artisan-cloud.com） |
+| plugin-ecosystem | powerx-plugin | ops | Handler 可中断实现、子进程终止、回写一致性、超时处理、脚手架提供取消/超时钩子模板 | Michael Hu（matrix-x@artisan-cloud.com） |
 
 # End-to-End Flow
 
