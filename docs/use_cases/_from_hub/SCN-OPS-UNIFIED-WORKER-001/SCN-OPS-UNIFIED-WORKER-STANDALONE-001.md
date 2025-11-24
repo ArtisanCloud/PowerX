@@ -14,7 +14,7 @@ repos:
     responsibility: Worker 接口、本地队列与 goroutine 池调度、进度/日志存储、审计
   - key: powerx-plugin
     scope: plugin-ecosystem
-    responsibility: Handler/SDK 实现、进度回写、子进程管理
+responsibility: Handler/SDK 实现、进度回写、子进程管理
 related_usecases:
   - doc_id: UC-OPS-WORKER-STANDALONE-001
     layer: service
@@ -26,6 +26,7 @@ last_reviewed_at: 2025-10-19
 # Executive Summary
 
 在独立运行模式下，插件需要通过统一 Worker 接口，将长耗时任务提交到本地队列并由 goroutine 池执行。目标是以一致的并发/队列/超时/重试策略保障任务可靠完成，进度与状态可查、日志可追溯，并防止队列溢出或资源耗尽。
+- PowerXPlugin 脚手架生成的插件工程内置 standalone 启动入口与默认配置，复用同一 Handler 代码即可本地跑通任务、进度回写与观测，无需改造业务。
 
 # Scope & Guardrails
 
@@ -38,14 +39,15 @@ last_reviewed_at: 2025-10-19
 | Scope | Repository | Layer | 责任与交付物 | Owners |
 |-------|------------|-------|--------------|--------|
 | core-platform | powerx | service | Worker 接口、排队与并发控制、超时/重试、状态/日志回写、审计 | Michael Hu（matrix-x@artisan-cloud.com） |
-| plugin-ecosystem | powerx-plugin | ops | Handler 复用、进度回写、子进程与信号管理 | Michael Hu（matrix-x@artisan-cloud.com） |
+| plugin-ecosystem | powerx-plugin | ops | Handler 复用、进度回写、子进程与信号管理、脚手架提供 standalone 启动入口与默认策略 | Michael Hu（matrix-x@artisan-cloud.com） |
 
 # End-to-End Flow
 
-1. **提交与入队**：业务调用统一接口提交任务，校验并发/队列/幂等策略后入队。
-2. **执行与回写**：goroutine 池按容量取任务执行 Handler（可调用外部工具），周期性回写进度/状态与日志。
-3. **超时与重试**：执行超时或失败按退避策略重试，达上限后告警并标记失败。
-4. **完成与审计**：成功或终止后写入最终状态、耗时与输出，记录审计。
+1. **启动与注册**：通过脚手架提供的 standalone 入口启动 Worker，加载默认并发/队列/超时/重试策略并完成 Handler 注册。
+2. **提交与入队**：业务调用统一接口提交任务，校验并发/队列/幂等策略后入队。
+3. **执行与回写**：goroutine 池按容量取任务执行 Handler（可调用外部工具），周期性回写进度/状态与日志。
+4. **超时与重试**：执行超时或失败按退避策略重试，达上限后告警并标记失败。
+5. **完成与审计**：成功或终止后写入最终状态、耗时与输出，记录审计。
 
 # Key Interactions & Contracts
 
