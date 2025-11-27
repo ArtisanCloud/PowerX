@@ -47,6 +47,9 @@ const normalizeThemePreference = (input?: string | null): ThemeKey => {
   return "system";
 };
 
+// 日志开关：仅当 NUXT_PUBLIC_BRIDGE_DEBUG === 'true' 时输出
+const shouldLogBridge = process.env.NUXT_PUBLIC_BRIDGE_DEBUG === 'true'
+
 // 统一把 locale 转成字符串（防止传入对象）
 function toLocaleCode(input: any): string {
   if (typeof input === 'string') return input
@@ -58,7 +61,7 @@ function toLocaleCode(input: any): string {
 }
 
 const log = (...args: any[]) => {
-  if (process.env.NODE_ENV !== 'production') {
+  if (shouldLogBridge) {
     // eslint-disable-next-line no-console
     console.info('[Bridge][Admin]', ...args)
   }
