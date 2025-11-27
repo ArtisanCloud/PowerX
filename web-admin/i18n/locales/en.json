@@ -3,6 +3,10 @@
     "openMarket": "Open Market",
     "pluginMarketplace": "Plugin Marketplace",
     "pluginReleaseCandidates": "Release Candidates",
+    "agent": "Agent",
+    "knowledgeSpace": "Knowledge Space",
+    "workflow": "Workflow",
+    "dashboard": "Dashboard",
     "untitled": "Untitled",
     "pluginsMarket": "Plugins Market",
     "pluginsInstalled": "Installed Plugins",
@@ -47,8 +51,127 @@
   },
   "welcome": "Welcome",
   "login": "Login",
-  "register": "Register"
-  ,
+  "register": "Register",
+  "auth": {
+    "backToHome": "Back to home",
+    "welcomeBack": "Welcome back",
+    "loginSubtitle": "Sign in with your account to continue.",
+    "identifier": "Email or phone",
+    "password": "Password",
+    "remember": "Remember me",
+    "signUpNow": "Sign up now",
+    "login": {
+      "noAccount": "Don’t have an account?",
+      "forgotPassword": "Forgot password?"
+    }
+  },
+  "knowledgeSpaces": {
+    "head": {
+      "title": "Knowledge Spaces",
+      "description": "Manage knowledge spaces and ingestion"
+    },
+    "hero": {
+      "badge": "Knowledge",
+      "title": "Knowledge Space Overview",
+      "description": "Create and manage knowledge spaces",
+      "actions": {
+        "create": "Create Space",
+        "createDesc": "Start a new knowledge space",
+        "docs": "Docs",
+        "docsDesc": "Read the guide"
+      }
+    },
+    "governance": {
+      "title": "Governance",
+      "description": "Policies and permissions"
+    },
+    "qaCard": {
+      "badge": "QA",
+      "title": "QA Bridge",
+      "refresh": "Refresh",
+      "metrics": {
+        "latency": "Latency",
+        "coverage": "Coverage",
+        "toolSuccess": "Tool success"
+      }
+    },
+    "ingestion": {
+      "title": "Ingestion",
+      "subtitle": "Import content into spaces",
+      "spaceId": "Space ID",
+      "sourceType": "Source Type",
+      "sourceOptions": {
+        "pdf": "PDF",
+        "markdown": "Markdown",
+        "table": "Table",
+        "api": "API"
+      },
+      "mode": "Mode",
+      "modeDocument": "Document",
+      "modeApi": "API",
+      "uploadFile": "Upload file",
+      "uploadHint": "Support PDF/Markdown/Table",
+      "priority": "Priority",
+      "priorityOptions": {
+        "normal": "Normal",
+        "high": "High"
+      },
+      "actions": {
+        "ingestNow": "Ingest now"
+      }
+    },
+    "timeline": {
+      "title": "Timeline",
+      "description": "Recent activities",
+      "badge": "Log"
+    },
+    "placeholders": {
+      "spaces": {
+        "title": "No spaces yet",
+        "description": "Create your first knowledge space"
+      },
+      "fusion": {
+        "title": "Fusion not configured",
+        "description": "Connect data sources to start"
+      },
+      "feedback": {
+        "title": "No feedback",
+        "description": "Collect feedback to improve"
+      }
+    }
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "description": "Overview of key metrics",
+    "stats": {
+      "totalUsers": "Total Users",
+      "todayVisits": "Today Visits",
+      "totalRevenue": "Total Revenue",
+      "activeUsers": "Active Users",
+      "vsLastMonth": "vs last month"
+    },
+    "activities": {
+      "title": "Recent Activities",
+      "viewAll": "View all",
+      "users": {
+        "zhangsan": "Zhangsan",
+        "lisi": "Lisi",
+        "wangwu": "Wangwu"
+      },
+      "actions": {
+        "createArticle": "created an article",
+        "updateProfile": "updated profile",
+        "deleteComment": "deleted a comment"
+      },
+      "targets": {
+        "vueBestPractices": "Vue best practices",
+        "onTechShare": "Tech share"
+      },
+      "times": {
+        "minutesAgo": "{n} minutes ago"
+      }
+    }
+  },
   "agent": {
     "selector": {
       "pickAgent": "Pick an agent",

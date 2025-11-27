@@ -53,6 +53,7 @@ backend/etc/config.yaml
 
 # PowerX plugin runtime（整目录忽略）
 backend/plugins/
+backend/.gopath
 
 # Ignore compiled binary files and specific app directories
 # Binary file 'app' (compiled executable)

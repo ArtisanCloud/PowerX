@@ -3,6 +3,10 @@
     "openMarket": "开放市场",
     "pluginMarketplace": "插件市场",
     "pluginReleaseCandidates": "发布候选",
+    "agent": "智能体",
+    "knowledgeSpace": "知识空间",
+    "workflow": "流程",
+    "dashboard": "仪表盘",
     "untitled": "未命名菜单",
     "pluginsMarket": "应用市场",
     "pluginsInstalled": "已安装",
@@ -49,6 +53,113 @@
   "login": "登录",
   "register": "注册"
   ,
+  "knowledgeSpaces": {
+    "head": {
+      "title": "知识空间",
+      "description": "管理知识空间与入库"
+    },
+    "hero": {
+      "badge": "知识",
+      "title": "知识空间总览",
+      "description": "创建并管理知识空间",
+      "actions": {
+        "create": "新建空间",
+        "createDesc": "创建一个新的知识空间",
+        "docs": "文档",
+        "docsDesc": "查看使用指南"
+      }
+    },
+    "governance": {
+      "title": "治理",
+      "description": "策略与权限"
+    },
+    "qaCard": {
+      "badge": "问答",
+      "title": "QA 桥接",
+      "refresh": "刷新",
+      "metrics": {
+        "latency": "延迟",
+        "coverage": "覆盖率",
+        "toolSuccess": "工具成功率"
+      }
+    },
+    "ingestion": {
+      "title": "入库",
+      "subtitle": "导入内容到空间",
+      "spaceId": "空间 ID",
+      "sourceType": "来源类型",
+      "sourceOptions": {
+        "pdf": "PDF",
+        "markdown": "Markdown",
+        "table": "表格",
+        "api": "API"
+      },
+      "mode": "模式",
+      "modeDocument": "文档模式",
+      "modeApi": "API 模式",
+      "uploadFile": "上传文件",
+      "uploadHint": "支持 PDF/Markdown/表格",
+      "priority": "优先级",
+      "priorityOptions": {
+        "normal": "普通",
+        "high": "高"
+      },
+      "actions": {
+        "ingestNow": "立即入库"
+      }
+    },
+    "timeline": {
+      "title": "时间线",
+      "description": "最近活动",
+      "badge": "日志"
+    },
+    "placeholders": {
+      "spaces": {
+        "title": "暂无空间",
+        "description": "创建你的第一个知识空间"
+      },
+      "fusion": {
+        "title": "融合未配置",
+        "description": "连接数据源后开始使用"
+      },
+      "feedback": {
+        "title": "暂无反馈",
+        "description": "收集反馈以便改进"
+      }
+    }
+  },
+  "dashboard": {
+    "title": "仪表盘",
+    "description": "关键指标概览",
+    "stats": {
+      "totalUsers": "用户总数",
+      "todayVisits": "今日访问",
+      "totalRevenue": "总收入",
+      "activeUsers": "活跃用户",
+      "vsLastMonth": "较上月"
+    },
+    "activities": {
+      "title": "最近活动",
+      "viewAll": "查看全部",
+      "users": {
+        "zhangsan": "张三",
+        "lisi": "李四",
+        "wangwu": "王五"
+      },
+      "actions": {
+        "createArticle": "创建了文章",
+        "updateProfile": "更新了资料",
+        "deleteComment": "删除了评论"
+      },
+      "targets": {
+        "vueBestPractices": "Vue 最佳实践",
+        "onTechShare": "技术分享"
+      },
+      "times": {
+        "minutesAgo": "{n} 分钟前"
+      }
+    }
+  },
   "agent": {
     "selector": {
       "pickAgent": "选择一个智能体",

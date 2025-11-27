@@ -141,12 +141,15 @@ function onError() {
   applyViewportFill();
 }
 
-/** 归一化 src 为绝对 URL（以 upstream 为基底） */
+/** 归一化 src 为绝对 URL
+ * - 若为 /_p/** 相对路径，直接使用 upstream（http://127.0.0.1:8077），避免宿主自身路由导致画中画
+ * - 其他相对路径亦使用 upstream，绝对路径保持原样
+ */
 const cleanSrc = computed(() => {
   const raw = typeof props.src === 'string' ? props.src : props.src?.href || '/'
 
   try {
-    // 1) 相对路径 → 以后端 upstream 为基准；绝对路径 → 原样解析
+    // 统一：绝对路径原样，相对路径一律基于 upstream
     const u = (raw.startsWith('http://') || raw.startsWith('https://'))
       ? new URL(raw)
       : new URL(raw, upstream)
