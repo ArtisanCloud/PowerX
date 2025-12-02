@@ -56,6 +56,11 @@ nuxt_ui:
       submit:
         color: primary
         type: submit
+    dropdown_menu:
+      items:
+        handlerProp: onSelect
+        notes:
+          - "子项点击使用 `onSelect` 回调（Nuxt UI 3 语义），而不是自定义 click。例：`[{ label: '删除', icon: 'i-heroicons-trash', onSelect() { ... } }]`。"
     errorHandling:
       schemaValidation: true
       toastOnError: optional
