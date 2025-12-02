@@ -93,11 +93,9 @@ export default defineNuxtConfig({
     ],
     langDir: "locales",
     detectBrowserLanguage: {
-      useCookie: true,
-      cookieKey: "px_lang",
-      redirectOn: "no prefix",
+      enabled: false,
+      useCookie: false,
       alwaysRedirect: false,
-      fallbackLocale: process.env.NUXT_DEFAULT_LANGUAGE || "zh",
     },
   },
 

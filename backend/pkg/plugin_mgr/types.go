@@ -11,6 +11,24 @@ type InstallOptions struct {
 	Force           bool
 	AutoEnable      bool
 	HostConfigSeed  *HostConfig
+	Metadata        InstallMetadata
+}
+
+// InstallMetadata 记录一次安装请求携带的额外上下文。
+type InstallMetadata struct {
+	Scope       string             `json:"scope"`
+	Namespace   string             `json:"namespace"`
+	Environment string             `json:"environment"`
+	AutoUpdate  bool               `json:"auto_update"`
+	Permissions InstallPermissions `json:"permissions"`
+	Notes       string             `json:"notes"`
+}
+
+// InstallPermissions 描述插件在安装阶段声明的最小权限需求。
+type InstallPermissions struct {
+	Network bool `json:"network"`
+	Storage bool `json:"storage"`
+	Files   bool `json:"files"`
 }
 
 type InstallSource struct {
@@ -90,8 +108,9 @@ type Plugin struct {
 
 	Paths InstalledPaths `json:"paths"`
 
-	HostConfig *HostConfig      `json:"host_config,omitempty"`
-	Migration  *MigrationRecord `json:"migration,omitempty"`
+	HostConfig      *HostConfig      `json:"host_config,omitempty"`
+	Migration       *MigrationRecord `json:"migration,omitempty"`
+	InstallMetadata InstallMetadata  `json:"install_metadata,omitempty"`
 }
 
 type MigrationStatus string

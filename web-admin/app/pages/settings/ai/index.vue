@@ -67,7 +67,7 @@
             class="rounded-lg border border-[var(--border-color)] bg-[var(--card-bg)] p-4"
           >
             <div class="mb-3 text-sm font-medium text-[var(--text-primary)]">
-              {{ $t("settings.ai.modalityTabs") }}
+              {{ $t("settings.ai.modalityTabsLabel") }}
             </div>
             <div class="space-y-2">
               <button

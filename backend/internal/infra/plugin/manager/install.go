@@ -119,9 +119,10 @@ func (m *managerImpl) InstallFromFile(ctx context.Context, srcDir string, opts p
 		paths.HostValuesFile = hostCfg.ValuesFile
 	}
 	desc := Descriptor{
-		Manifest:   man,
-		Paths:      paths,
-		HostConfig: hostCfg,
+		Manifest:        man,
+		Paths:           paths,
+		HostConfig:      hostCfg,
+		InstallMetadata: opts.Metadata,
 	}
 
 	if rec, err := m.runPluginMigrate(ctx, desc, opts); err != nil {
@@ -149,16 +150,17 @@ func (m *managerImpl) InstallFromFile(ctx context.Context, srcDir string, opts p
 
 	// 7) 直接返回“刚安装的版本”视图（避免读 current 造成显示老版本）
 	return plugin_mgr.Plugin{
-		ID:         man.ID,
-		Version:    man.Version,
-		State:      installedState,
-		Runtime:    man.Runtime,
-		Frontend:   man.Frontend,
-		Endpoints:  man.Endpoints,
-		RBAC:       man.RBAC,
-		Events:     man.Events,
-		Paths:      desc.Paths,
-		HostConfig: hostCfg,
+		ID:              man.ID,
+		Version:         man.Version,
+		State:           installedState,
+		Runtime:         man.Runtime,
+		Frontend:        man.Frontend,
+		Endpoints:       man.Endpoints,
+		RBAC:            man.RBAC,
+		Events:          man.Events,
+		Paths:           desc.Paths,
+		HostConfig:      hostCfg,
+		InstallMetadata: opts.Metadata,
 	}, nil
 }
 

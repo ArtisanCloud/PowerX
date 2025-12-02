@@ -4,12 +4,31 @@
     "pluginMarketplace": "Plugin Marketplace",
     "pluginReleaseCandidates": "Release Candidates",
     "agent": "Agent",
+    "aiSettings": "AI Settings",
+    "aiSettingsModel": "Model Settings",
+    "aiSettingsCost": "Cost Settings",
+    "badge": "Badge",
+    "customers": "Customers",
+    "customerList": "Customer List",
+    "customerGroups": "Customer Groups",
+    "products": "Products",
+    "productList": "Product List",
+    "productCategories": "Product Categories",
+    "orders": "Orders",
     "knowledgeSpace": "Knowledge Space",
     "workflow": "Workflow",
     "dashboard": "Dashboard",
-    "untitled": "Untitled",
+    "settings": "Settings",
+    "userManagement": "User Management",
+    "roleManagement": "Role Management",
+    "systemConfig": "System Config",
     "pluginsMarket": "Plugins Market",
     "pluginsInstalled": "Installed Plugins",
+    "loadFailed": "Menu failed to load",
+    "loadFailedDesc": "Unable to load menu data. Please check your network connection.",
+    "noItemsWarning": "No menu items found",
+    "itemCount": "{count} items",
+    "untitled": "Untitled",
     "section": {
       "untitled": "Untitled Section"
     }
@@ -21,7 +40,146 @@
     "settings": "Settings",
     "trash": "Trash",
     "cancel": "Cancel",
-    "save": "Save"
+    "save": "Save",
+    "reload": "Reload",
+    "reset": "Reset"
+  },
+  "organization": {
+    "description": "Manage your organization, members and permissions.",
+    "common": {
+      "cancel": "Cancel",
+      "save": "Save",
+      "reset": "Reset",
+      "up": "Up",
+      "down": "Down",
+      "edit": "Edit",
+      "delete": "Delete",
+      "none": "None",
+      "enabled": "Enabled",
+      "disabled": "Disabled"
+    },
+    "tabs": {
+      "departments": "Departments",
+      "users": "Users",
+      "permissions": "Permissions"
+    },
+    "department": {
+      "title": "Departments",
+      "description": "Organize teams and hierarchy.",
+      "search": "Search departments…",
+      "add": "Add department",
+      "edit": "Edit department",
+      "empty": {
+        "title": "No departments yet",
+        "noResults": "No departments found"
+      },
+      "table": {
+        "name": "Name",
+        "actions": "Actions"
+      },
+      "form": {
+        "name": "Name",
+        "parent": "Parent",
+        "noParent": "No parent",
+        "moveParent": "Move to parent",
+        "key": "Key",
+        "sort": "Sort order",
+        "leader": "Leader",
+        "status": "Status",
+        "meta": "Meta (JSON)"
+      },
+      "confirmDelete": "Delete this department?",
+      "pagination": {
+        "showing": "Showing {start}-{end} of {total}"
+      }
+    },
+    "user": {
+      "status": {
+        "active": "Active",
+        "inactive": "Inactive",
+        "suspended": "Suspended"
+      },
+      "title": "Tenant directory",
+      "rootManagement": "Root management",
+      "selectTenantDesc": "Select a tenant to manage its users and roles.",
+      "searchTenants": "Search tenants…",
+      "filter": {
+        "status": "Status",
+        "plan": "Plan",
+        "allStatus": "All status",
+        "allPlans": "All plans"
+      },
+      "plan": {
+        "free": "Free",
+        "pro": "Pro",
+        "enterprise": "Enterprise"
+      },
+      "noTenantsFound": "No tenants found",
+      "noDomain": "No domain",
+      "userCount": "Users",
+      "createdAt": "Created at",
+      "loadFailed": "Failed to load tenants"
+    }
+  },
+  "tenant": {
+    "add": "Add tenant",
+    "tooltips": {
+      "saasSupport": "SaaS onboarding is coming soon"
+    }
+  },
+  "settings": {
+    "ai": {
+      "title": "AI Settings",
+      "description": "Configure providers, models and parameters.",
+      "environment": "Environment",
+      "modalityTabsLabel": "Modalities",
+      "modalityTabs": {
+        "llm": "LLM",
+        "embedding": "Embedding",
+        "speech": "Speech",
+        "vision": "Vision"
+      },
+      "sections": {
+        "general": "General",
+        "parameters": "Parameters"
+      },
+      "actions": {
+        "openCostGuard": "Open Cost Guard",
+        "backToModels": "Back to models"
+      },
+      "costGuardPageTitle": "Cost Guard",
+      "costGuardPageDesc": "Manage quota and throttling for AI usage.",
+      "costGuard": {
+        "panelTitle": "Cost guard policies",
+        "panelDesc": "Configure quotas, throttles and fallbacks.",
+        "tenantLabel": "Tenant",
+        "tenantPlaceholder": "Select tenant",
+        "refresh": "Refresh",
+        "openDashboard": "Open dashboard",
+        "lastUpdated": "Last updated",
+        "emptyTitle": "No quota data",
+        "emptyDesc": "Add quota rules to start tracking usage.",
+        "playbookTitle": "Playbooks",
+        "playbooks": {
+          "throttle": {
+            "title": "Throttle",
+            "desc": "Rate limit requests when budget is tight."
+          },
+          "degrade": {
+            "title": "Degrade",
+            "desc": "Fallback to cheaper models automatically."
+          },
+          "disable": {
+            "title": "Disable",
+            "desc": "Turn off the service when budget is exceeded."
+          }
+        },
+        "defaultTenants": {
+          "demo": "Demo",
+          "ops": "Ops"
+        }
+      }
+    }
   },
   "connection": {
     "chatSignal": "Chat Signal",
@@ -34,9 +192,6 @@
     }
   },
   "privacyPolicy": "Privacy Policy",
-  "dashboard": {
-    "title": "Dashboard"
-  },
   "header": {
     "searchPlaceholder": "Search…",
     "profile": "Profile",
@@ -206,11 +361,14 @@
         "analystPrompt": "Analyst prompt"
       },
       "title": "Title",
-      "description": "Description"
+      "description": "Description",
+      "selectProvider": "Select provider",
+      "selectModel": "Select model"
     },
     "chat": {
       "defaultAgent": "Default agent",
       "connected": "Connected",
+      "disconnected": "Connection lost",
       "welcomeTitle": "Welcome",
       "welcomeMessage": "Ask me anything to get started",
       "disconnectedPlaceholder": "Disconnected",

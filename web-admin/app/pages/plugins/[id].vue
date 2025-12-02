@@ -252,6 +252,7 @@ definePageMeta({
 });
 
 const route = useRoute();
+const router = useRouter();
 const id = computed(() => String(route.params.id || ""));
 const plugin = ref<MarketplacePlugin | undefined>(undefined);
 
@@ -262,6 +263,7 @@ const toast = useToast();
 const sysEnabled = ref<boolean>(false);
 const sysInstalled = ref<boolean>(false);
 const sysStatus = ref<string>("");
+const currentVersion = ref<string>("");
 const tenantEnabled = ref<boolean>(false);
 const clientId = ref<string>("");
 
@@ -276,6 +278,7 @@ async function refreshStatus() {
     const svc = useAdminPluginsService();
     const s: any = await svc.status(id.value);
     sysStatus.value = typeof s === "string" ? s : s?.state || s?.status || "";
+    currentVersion.value = typeof s?.version === "string" ? s.version : "";
     // 优先后端字段，其次根据状态推断：仅 enabled/running 视为启用，installed/default 视为未启用
     if (s?.enabled !== undefined) {
       sysEnabled.value = Boolean(s.enabled);
@@ -593,14 +596,28 @@ async function uninstallPlugin() {
     tone: "danger",
   });
   if (!ok) return;
+  const purge = await confirm({
+    title: "清理磁盘产物？",
+    description: "选择“清理”将删除该插件的安装目录，操作不可恢复。",
+    message: "是否在卸载后同时删除磁盘产物？",
+    confirmLabel: "清理并卸载",
+    cancelLabel: "仅卸载",
+    tone: "warning",
+  });
   try {
     const { useAdminPluginsService } = await import(
       "~/composables/api/services/adminPluginsService"
     );
     const svc = useAdminPluginsService();
-    await svc.uninstall(id.value);
+    const version = (currentVersion.value || plugin.value?.version || "").trim();
+    const payload: Record<string, any> = { purge };
+    if (version && version !== "-") {
+      payload.version = version;
+    }
+    await svc.uninstall(id.value, payload);
     await refreshMeta();
     await refreshStatus();
+    router.push("/plugins/market");
   } catch (e) {
     console.error("uninstall failed:", e);
   }

@@ -3,6 +3,7 @@ package plugin
 import (
 	"archive/tar"
 	"compress/gzip"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -18,9 +19,10 @@ import (
 // POST /api/admin/plugins/install/local
 // body: {"src_dir": "/absolute/or/relative/path", "enable": false}
 type installLocalReq struct {
-	SrcDir string `json:"src_dir" binding:"required"`
-	Enable bool   `json:"enable"`
-	Force  bool   `json:"force"`
+	SrcDir   string                     `json:"src_dir" binding:"required"`
+	Enable   bool                       `json:"enable"`
+	Force    bool                       `json:"force"`
+	Metadata plugin_mgr.InstallMetadata `json:"metadata"`
 }
 
 func PluginInstallLocalHandler(c *gin.Context) {
@@ -41,9 +43,11 @@ func PluginInstallLocalHandler(c *gin.Context) {
 	}
 
 	mgr := mgrimpl.GetPluginManager() // 你走“实现包全局”
+	meta := coalesceInstallMetadata(c, req.Metadata)
 	p, err := mgr.InstallFromFile(c, srcDir, plugin_mgr.InstallOptions{
 		AutoEnable: req.Enable,
 		Force:      req.Force,
+		Metadata:   meta,
 	})
 	if err != nil {
 		dtoRequest.ResponseError(c, plugin_mgr.HTTPStatusOf(plugin_mgr.CodeOf(err)), "安装失败", err)
@@ -56,6 +60,7 @@ func PluginInstallLocalHandler(c *gin.Context) {
 			"version": p.Version,
 			"state":   p.State,
 		},
+		"metadata": meta,
 	})
 }
 
@@ -255,10 +260,11 @@ func PluginSwitchVersionHandler(c *gin.Context) {
 // POST /api/admin/plugins/install/url
 // body: {"url":"https://.../com.powerx.demo.hello_world-0.1.2.zip","sha256":"...","enable":true}
 type installURLReq struct {
-	URL    string `json:"url"     validate:"required,url"`
-	SHA256 string `json:"sha256"`    // 可选
-	Enable bool   `json:"enable"`    // 安装后是否启用并切 current
-	Sign   string `json:"signature"` // 可选：预留
+	URL      string                     `json:"url"     validate:"required,url"`
+	SHA256   string                     `json:"sha256"`
+	Enable   bool                       `json:"enable"`
+	Sign     string                     `json:"signature"`
+	Metadata plugin_mgr.InstallMetadata `json:"metadata"`
 }
 
 func PluginInstallURLHandler(c *gin.Context) {
@@ -270,10 +276,12 @@ func PluginInstallURLHandler(c *gin.Context) {
 	mgr := mgrimpl.GetPluginManager()
 
 	// 安装（只登记、不自动启用）
+	meta := coalesceInstallMetadata(c, req.Metadata)
 	p, err := mgr.InstallFromURL(c, req.URL, req.SHA256, req.Sign, plugin_mgr.InstallOptions{
 		VerifyChecksum:  req.SHA256 != "", // 传了就校验
 		VerifySignature: false,            // 先关；后续接公钥再开
 		AutoEnable:      req.Enable,
+		Metadata:        meta,
 	})
 	if err != nil {
 		dtoRequest.ResponseError(c, plugin_mgr.HTTPStatusOf(plugin_mgr.CodeOf(err)), "安装失败", err)
@@ -294,6 +302,91 @@ func PluginInstallURLHandler(c *gin.Context) {
 			"version": p.Version,
 			"state":   string(p.State),
 		},
-		"enabled": req.Enable,
+		"enabled":  req.Enable,
+		"metadata": meta,
 	})
+}
+
+func coalesceInstallMetadata(c *gin.Context, body plugin_mgr.InstallMetadata) plugin_mgr.InstallMetadata {
+	fromForm := plugin_mgr.InstallMetadata{}
+	if raw := strings.TrimSpace(c.PostForm("metadata")); raw != "" {
+		var parsed plugin_mgr.InstallMetadata
+		if err := json.Unmarshal([]byte(raw), &parsed); err == nil {
+			fromForm = parsed
+		}
+	}
+	meta := mergeInstallMetadata(body, fromForm)
+	return normalizeInstallMetadata(meta)
+}
+
+func mergeInstallMetadata(primary, secondary plugin_mgr.InstallMetadata) plugin_mgr.InstallMetadata {
+	if isZeroMetadata(primary) {
+		return secondary
+	}
+	if isZeroMetadata(secondary) {
+		return primary
+	}
+	meta := primary
+	if meta.Scope == "" {
+		meta.Scope = secondary.Scope
+	}
+	if meta.Namespace == "" {
+		meta.Namespace = secondary.Namespace
+	}
+	if meta.Environment == "" {
+		meta.Environment = secondary.Environment
+	}
+	if !meta.AutoUpdate && secondary.AutoUpdate {
+		meta.AutoUpdate = true
+	}
+	if !meta.Permissions.Network && secondary.Permissions.Network {
+		meta.Permissions.Network = true
+	}
+	if !meta.Permissions.Storage && secondary.Permissions.Storage {
+		meta.Permissions.Storage = true
+	}
+	if !meta.Permissions.Files && secondary.Permissions.Files {
+		meta.Permissions.Files = true
+	}
+	if meta.Notes == "" {
+		meta.Notes = secondary.Notes
+	}
+	return meta
+}
+
+func normalizeInstallMetadata(meta plugin_mgr.InstallMetadata) plugin_mgr.InstallMetadata {
+	meta.Scope = normalizeScope(meta.Scope)
+	if meta.Environment == "" {
+		meta.Environment = "default"
+	} else {
+		meta.Environment = strings.ToLower(strings.TrimSpace(meta.Environment))
+	}
+	meta.Namespace = strings.TrimSpace(meta.Namespace)
+	meta.Notes = strings.TrimSpace(meta.Notes)
+	return meta
+}
+
+func isZeroMetadata(meta plugin_mgr.InstallMetadata) bool {
+	return strings.TrimSpace(meta.Scope) == "" &&
+		strings.TrimSpace(meta.Namespace) == "" &&
+		strings.TrimSpace(meta.Environment) == "" &&
+		!meta.AutoUpdate &&
+		!meta.Permissions.Network &&
+		!meta.Permissions.Storage &&
+		!meta.Permissions.Files &&
+		strings.TrimSpace(meta.Notes) == ""
+}
+
+func normalizeScope(scope string) string {
+	s := strings.TrimSpace(strings.ToLower(scope))
+	switch s {
+	case "", "system", "systems", "sys", "system级", "系统级":
+		return "system"
+	case "user", "users", "user级", "用户级":
+		return "user"
+	case "org", "organisation", "organization", "tenant", "组织级", "tenant级":
+		return "org"
+	default:
+		return s
+	}
 }

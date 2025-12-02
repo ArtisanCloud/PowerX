@@ -37,6 +37,10 @@ type MeContextResp struct {
 	CurrentMemberID *uint64         `json:"current_member_id,omitempty"`
 	User            *MeUserBrief    `json:"user,omitempty"`
 	Members         []MeMemberBrief `json:"members"`
+	// PowerX 上下文签名（由网关生成），用于插件侧转发
+	Ctx    string `json:"ctx,omitempty"`
+	CtxSig string `json:"ctx_sig,omitempty"`
+	CtxJwt string `json:"ctx_jwt,omitempty"`
 }
 
 // ======= Service =======
