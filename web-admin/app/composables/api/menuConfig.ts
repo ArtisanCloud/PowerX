@@ -29,22 +29,28 @@ export interface MenuConfig {
 export const pluginReleaseMenuConfig: MenuConfig = {
   parentMenu: {
     title: '插件发布',
-    path: '/admin/plugin-release',
+    path: '/plugin-release',
     icon: 'i-heroicons-cube-transparent',
     order: 50
   },
   items: [
     {
       title: '离线包入库',
-      path: '/admin/plugin-release/offline-packages',
+      path: '/plugin-release/offline-packages',
       icon: 'i-heroicons-cloud-arrow-up',
       order: 1
     },
     {
       title: 'Marketplace审核',
-      path: '/admin/plugin-release/marketplace',
+      path: '/plugin-release/marketplace',
       icon: 'i-heroicons-check-badge',
       order: 2
+    },
+    {
+      title: '发布候选',
+      path: '/plugin-release',
+      icon: 'i-heroicons-queue-list',
+      order: 0
     }
   ]
 }

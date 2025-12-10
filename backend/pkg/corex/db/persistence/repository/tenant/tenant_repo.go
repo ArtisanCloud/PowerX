@@ -6,6 +6,8 @@ import (
 	"errors"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
 	dbm "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/tenant"
+	"github.com/google/uuid"
+	"strings"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -36,6 +38,19 @@ func (r *TenantRepository) GetByID(ctx context.Context, id uint64) (*dbm.Tenant,
 func (r *TenantRepository) GetByKey(ctx context.Context, key string) (*dbm.Tenant, error) {
 	var t dbm.Tenant
 	if err := r.db.WithContext(ctx).Where("key = ?", key).First(&t).Error; err != nil {
+		return nil, err
+	}
+	return &t, nil
+}
+
+// GetByUUID fetches tenant by UUID.
+func (r *TenantRepository) GetByUUID(ctx context.Context, id string) (*dbm.Tenant, error) {
+	parsed, err := uuid.Parse(strings.TrimSpace(id))
+	if err != nil {
+		return nil, err
+	}
+	var t dbm.Tenant
+	if err := r.db.WithContext(ctx).Where("uuid = ?", parsed).First(&t).Error; err != nil {
 		return nil, err
 	}
 	return &t, nil

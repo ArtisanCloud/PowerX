@@ -70,6 +70,7 @@
 - [X] T032 [P] [US1] gRPC 合同测试：CreateReleaseCandidate / RunQualityGates / GenerateReleasePlan (`backend/tests/contract/plugin_release/grpc_release_guardrail_test.go`，依赖 T021)
 - [X] T033 [P] [US1] HTTP Admin 合同测试：`/candidates` & `/plans` (`backend/tests/contract/plugin_release/http_admin_release_guardrail_test.go`，依赖 T022)
 - [X] T034 [P] [US1] 集成测试：本地构建 → 流水线审批 → 发布计划 (`backend/tests/integration/plugin_release/test_release_guardrail_flow.go`，依赖 T020)
+- [X] T034a [P] [US1|FR-023] HTTP 合同测试：`/internal/plugins/releases`（含 POST/GET/PATCH/POST :id/artifacts），验证 CLI publish→补件→审批前置流程 (`backend/tests/contract/plugin_release/http_admin_publish_api_test.go`，依赖 T022)
 
 ### 实现
 - [X] T035 [US1] 实现流水线 orchestration（构建元数据、Workflow 调用、通知）`backend/internal/service/plugin_release/pipeline/service.go`（依赖 T015, T020, T027）
@@ -78,6 +79,8 @@
 - [X] T038 [US1] 实现 gRPC 方法（CreateReleaseCandidate/RunQualityGates/GenerateReleasePlan）`backend/internal/transport/grpc/plugin_release/server.go`（依赖 T036-T037, T021）
 - [X] T039 [US1] 加强 CLI `px publish create` 上传与提交逻辑（`backend/cmd/px/commands/publish/create.go`，依赖 T023, T035）
 - [X] T040 [US1] 补充审计与失败通知链路 `backend/internal/service/plugin_release/pipeline/audit_hooks.go`（依赖 T035-T036, T019）
+- [X] T039a [US1|FR-023] 实现 `/internal/plugins/releases` REST Handler（`backend/internal/transport/http/admin/plugin_release/publish_handler.go`），处理 artifact 上传、版本唯一性校验、补件/状态修改，并对接 AdminOnly/CLI Token（依赖 T035, T022）
+- [X] T039b [US1|FR-023] 扩展 pipeline service 支持 `SubmitRelease`/`UpdateRelease` 流程（`backend/internal/service/plugin_release/pipeline/submit_service.go`）+ MinIO 上传、审计记录，以及 CLI `px-plugin publish` & smoke (`scripts/ci/smoke_px_plugin_publish.sh`)（依赖 T035, T039a）
 
 **Checkpoint**：US1 流水线具备门禁、审批与审计能力。
 
@@ -192,6 +195,18 @@
 - [X] T085 [FR-NEW] CLI/合同测试联调：为 `px-plugin dev --watch --dev-api` 增加端到端集成测试（`backend/tests/integration/dev_hotload/dev_api_flow_test.go`），更新 Quickstart/Standards 文档与 `specs/009-install-plugin-pxp/checklists/regression.md`，确保 CLI 默认指向 `/api/v1/internal/dev/plugins` 并生成 `~/.px-plugin/sessions/*.json`。
 
 **Checkpoint**：`px-plugin dev --watch --dev-api http://localhost:8077/api/v1` 能完成 register → reload → delete，全链路指标/SSE/审计可用；Admin Dev 面板能够实时查看会话状态。
+
+---
+
+## Phase 13: Release Candidates Admin Console & List API（Planned / P1）
+
+- [X] T086 [US1|FR-023] 补充 release candidate 列表接口：`GET /api/v1/internal/plugins/releases` 支持分页/筛选（tenantId/pluginId/version prefix/approvalStatus/gateStatus/createdBy），返回 artifact/plan 摘要；更新 swagger（`docs/standards/powerx/backend/swagger.yaml,json`）与合同测试（`backend/tests/contract/plugin_release/http_admin_publish_api_test.go`）。（依赖 T039a）
+- [X] T087 [US1|FR-023] 丰富 `GET /api/v1/internal/plugins/releases/:id` 返回字段（artifact 状态、审批/门禁时间、提交人），补充集成测试覆盖 publish→list→get 闭环（新增 `backend/tests/integration/plugin_release/test_registry_publish_flow.go` 或扩展现有用例）。（依赖 T086）
+- [X] T088 [US1|FR-023] Web Admin 发布候选列表页：`/plugin-release`（目录 `web-admin/app/pages/plugin-release/index.vue`），调用 T086 接口，提供筛选、分页、状态标签、操作按钮（查看详情/上传制品/运行门禁）。（依赖 T086）
+- [X] T089 [US1|FR-023] Web Admin 发布候选详情页：`/plugin-release/[id].vue`，展示 metadata/labels/审批&门禁轨迹/制品列表，串联现有 `POST /:id/artifacts`、gates、plan/部署入口；在市场页卡片/详情追加“查看候选”跳转（`/plugin-release?pluginId=xxx`）。（依赖 T088, T037, T039a, T046）
+- [X] T090 [US1|FR-023] 文档与菜单：更新前端菜单配置与路由说明（`web-admin/app/services/menuConfig.ts` 或对应配置），在 UI 指南中标注新入口（`docs/standards/powerx/web-admin/plugins/admin_workflow.md`、`docs/guides/develop/dev_hotload.md` 对 publish 步骤追加“在 Admin 发布候选页可见”说明）。（依赖 T088-T089）
+
+**Checkpoint**：管理员可在 Web Admin 中看到发布候选列表/详情，并从市场页跳转；CLI publish 登记的版本可视化、可维护。
 
 ---
 

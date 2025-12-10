@@ -180,6 +180,45 @@ func (s *Service) GetSession(ctx context.Context, sessionID uuid.UUID) (*model.D
 	return s.store.FindSession(ctx, sessionID)
 }
 
+// ListSessions queries sessions with optional filters.
+func (s *Service) ListSessions(ctx context.Context, pluginID string, tenantID *uint64, statuses []string, limit, offset int) ([]model.DevHotloadSession, error) {
+	return s.store.ListSessions(ctx, pluginID, tenantID, statuses, limit, offset)
+}
+
+// DeleteSessions purges sessions by filter, optionally forcing active deletions with confirmation.
+func (s *Service) DeleteSessions(ctx context.Context, pluginID string, tenantID *uint64, statuses []string, force, confirm bool) ([]uuid.UUID, error) {
+	if len(statuses) == 0 {
+		statuses = []string{model.DevHotloadSessionStatusTerminated}
+	}
+	if !force {
+		for _, st := range statuses {
+			if st == model.DevHotloadSessionStatusActive || st == model.DevHotloadSessionStatusPending {
+				return nil, ErrForceRequired
+			}
+		}
+	} else if !confirm {
+		return nil, ErrForceConfirm
+	}
+
+	sessions, err := s.store.DeleteSessions(ctx, pluginID, tenantID, statuses)
+	if err != nil {
+		return nil, err
+	}
+
+	var ids []uuid.UUID
+	activeDelta := int64(0)
+	for _, sess := range sessions {
+		ids = append(ids, sess.UUID)
+		if sess.Status == model.DevHotloadSessionStatusActive || sess.Status == model.DevHotloadSessionStatusPending {
+			activeDelta--
+		}
+	}
+	if s.metrics != nil && activeDelta != 0 {
+		s.metrics.IncActiveSessions(ctx, activeDelta)
+	}
+	return ids, nil
+}
+
 // SubscribeEvents registers an SSE subscriber.
 func (s *Service) SubscribeEvents(buffer int) (string, <-chan Event, func()) {
 	return s.notifier.Subscribe(buffer)

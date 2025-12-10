@@ -68,6 +68,15 @@ type ListResponse struct {
 // 全局验证器实例
 var validate *validator.Validate
 
+// 保留的响应字段，防止业务 payload 覆盖 envelope。
+var reservedSuccessFields = map[string]struct{}{
+	"code":       {},
+	"message":    {},
+	"data":       {},
+	"timestamp":  {},
+	"request_id": {},
+}
+
 // 初始化验证器
 func init() {
 	validate = validator.New()
@@ -165,6 +174,34 @@ func ResponseSuccessWithStatus(c *gin.Context, status int, data interface{}) {
 		Timestamp: time.Now().Unix(),
 		RequestID: getRequestID(c),
 	}
+	c.JSON(status, response)
+}
+
+// ResponseSuccessWithStatusAndPayload 返回成功响应，并将 payload 同时暴露在 data 与顶层字段。
+func ResponseSuccessWithStatusAndPayload(c *gin.Context, status int, payload map[string]interface{}) {
+	if status <= 0 {
+		status = http.StatusOK
+	}
+	if payload == nil {
+		payload = make(map[string]interface{})
+	}
+
+	response := map[string]interface{}{
+		"code":      status,
+		"message":   "success",
+		"data":      payload,
+		"timestamp": time.Now().Unix(),
+	}
+	if requestID := getRequestID(c); requestID != "" {
+		response["request_id"] = requestID
+	}
+	for k, v := range payload {
+		if _, reserved := reservedSuccessFields[k]; reserved {
+			continue
+		}
+		response[k] = v
+	}
+
 	c.JSON(status, response)
 }
 

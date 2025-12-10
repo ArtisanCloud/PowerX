@@ -311,6 +311,7 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 			MaxConcurrent:   devHotloadOpts.Sessions.MaxConcurrent,
 			CleanupInterval: devHotloadOpts.Sessions.CleanupInterval,
 			KeyPrefix:       "devhotload",
+			Security:        devHotloadOpts.Security,
 		})
 		metrics := devhotloadinstrumentation.New(devHotloadOpts.Observability.MetricsNamespace)
 		devHotloadSvc = devhotloadservice.NewService(devhotloadservice.ServiceDeps{
@@ -484,6 +485,12 @@ func convertDevHotloadOptions(src DevHotloadOptions) devhotloadservice.Options {
 			AllowedSubjects: src.Security.AllowedSubjects,
 			PATHeader:       src.Security.PATHeader,
 			TokenTTL:        src.Security.TokenTTL,
+			TokenSecret:     src.Security.TokenSecret,
+			TokenIssuer:     src.Security.TokenIssuer,
+			TokenAudience:   src.Security.TokenAudience,
+			TokenPlatforms:  append([]string{}, src.Security.TokenPlatforms...),
+			TokenRoles:      append([]string{}, src.Security.TokenRoles...),
+			ImpersonateRoot: src.Security.ImpersonateRoot,
 		},
 		Observability: devhotloadservice.ObservabilityOptions{
 			MetricsNamespace: src.Observability.MetricsNamespace,

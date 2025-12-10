@@ -300,6 +300,12 @@ type DevHotloadSecurityOptions struct {
 	AllowedSubjects []string
 	PATHeader       string
 	TokenTTL        time.Duration
+	TokenSecret     []byte
+	TokenIssuer     string
+	TokenAudience   string
+	TokenPlatforms  []string
+	TokenRoles      []string
+	ImpersonateRoot bool
 }
 
 type DevHotloadObservabilityOptions struct {

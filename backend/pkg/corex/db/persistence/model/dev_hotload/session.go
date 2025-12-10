@@ -20,7 +20,7 @@ type DevHotloadSession struct {
 	EntryPoints     datatypes.JSON `gorm:"column:entry_points;type:jsonb;default:'[]'" json:"entry_points,omitempty"`
 	Manifest        datatypes.JSON `gorm:"column:manifest;type:jsonb;default:'{}'" json:"manifest,omitempty"`
 	Metadata        datatypes.JSON `gorm:"column:metadata;type:jsonb;default:'{}'" json:"metadata,omitempty"`
-	ReloadToken     string         `gorm:"column:reload_token;type:varchar(128);not null" json:"reload_token"`
+	ReloadToken     string         `gorm:"column:reload_token;type:text;not null" json:"reload_token"`
 	Status          string         `gorm:"column:status;type:varchar(32);not null;index" json:"status"`
 	SandboxEndpoint string         `gorm:"column:sandbox_endpoint;type:text" json:"sandbox_endpoint,omitempty"`
 	LogURL          string         `gorm:"column:log_url;type:text" json:"log_url,omitempty"`

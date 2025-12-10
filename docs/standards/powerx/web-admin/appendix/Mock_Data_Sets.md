@@ -13,7 +13,7 @@
 | 通知中心 | `app/composables/useNotifications.ts: "17` | `mockNotifications` | 模拟通知列表、统计、操作按钮，便于 Notification 组件开发。 |"
 | Agent 流 Mock（注释） | `app/composables/agent/useDualChannelConnection.ts: "249` | `/agents/stream/mock`（预留） | 本地可切换至 Mock 流，实现离线演示。 |"
 | 测试页面数据 | `app/pages/test/*.vue` | 例如 `mockResults`、`mockSuggestions` | `/test/connection`, `/test/search-showcase` 等测试页的静态数据。 |
-| 插件市场 | 无（待补充） | — | 可通过 `useAdminPluginsService().getMarketplaceV2` 返回后端数据；若需要 Mock，请在此文档登记。 |
+| 插件市场 | 无（待补充） | — | 可通过 `useAdminPluginsService().getMarketplace` 返回后端数据；若需要 Mock，请在此文档登记。 |
 
 ---
 

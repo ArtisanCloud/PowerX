@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from "vue";
 import { useKnowledgeSpaces } from "~/composables/useKnowledgeSpaces";
-import { createQaBridgeClient } from "~/services/knowledge-spaces/qaBridgeClient";
+import { createQaBridgeClient } from "~/composables/api/services/knowledge-spaces/qaBridgeClient";
 import QaBridgeStatusCard from "~/components/knowledge-spaces/QaBridgeStatusCard.vue";
 import { useKnowledgeSpaceStore } from "~/stores/knowledgeSpaces";
 

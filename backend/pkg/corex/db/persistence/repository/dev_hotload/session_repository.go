@@ -2,6 +2,7 @@ package devhotload
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	model "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/dev_hotload"
@@ -15,6 +16,35 @@ type SessionRepository struct {
 	*baseRepo.BaseRepository[model.DevHotloadSession]
 	eventsRepo *baseRepo.BaseRepository[model.DevHotloadSessionEvent]
 	db         *gorm.DB
+}
+
+// ListSessionsFilter scopes plugin/tenant/status queries.
+type ListSessionsFilter struct {
+	PluginID string
+	TenantID *uint64
+	Statuses []string
+	Limit    int
+	Offset   int
+}
+
+// DeleteSessionsFilter scopes bulk delete operations.
+type DeleteSessionsFilter struct {
+	PluginID string
+	TenantID *uint64
+	Statuses []string
+}
+
+func applySessionFilters(query *gorm.DB, pluginID string, tenantID *uint64, statuses []string) *gorm.DB {
+	if plugin := strings.TrimSpace(pluginID); plugin != "" {
+		query = query.Where("plugin_id = ?", plugin)
+	}
+	if tenantID != nil && *tenantID > 0 {
+		query = query.Where("tenant_id = ?", *tenantID)
+	}
+	if len(statuses) > 0 {
+		query = query.Where("status IN ?", statuses)
+	}
+	return query
 }
 
 // NewSessionRepository constructs a repository compliant with CRUD ruleset.
@@ -82,6 +112,51 @@ func (r *SessionRepository) CountActive(ctx context.Context) (int64, error) {
 		Where("status IN ?", []string{model.DevHotloadSessionStatusPending, model.DevHotloadSessionStatusActive}).
 		Count(&count).Error
 	return count, err
+}
+
+// ListSessions returns sessions filtered by plugin, tenant, and statuses.
+func (r *SessionRepository) ListSessions(ctx context.Context, filter ListSessionsFilter) ([]model.DevHotloadSession, error) {
+	query := applySessionFilters(r.db.WithContext(ctx).Model(&model.DevHotloadSession{}), filter.PluginID, filter.TenantID, filter.Statuses)
+	limit := filter.Limit
+	if limit <= 0 || limit > 200 {
+		limit = 50
+	}
+	if filter.Offset > 0 {
+		query = query.Offset(filter.Offset)
+	}
+	var sessions []model.DevHotloadSession
+	err := query.Order("created_at DESC").Limit(limit).Find(&sessions).Error
+	return sessions, err
+}
+
+// DeleteSessions removes sessions filtered by plugin/tenant/status and returns deleted records.
+func (r *SessionRepository) DeleteSessions(ctx context.Context, filter DeleteSessionsFilter) ([]model.DevHotloadSession, error) {
+	query := applySessionFilters(r.db.WithContext(ctx).Model(&model.DevHotloadSession{}), filter.PluginID, filter.TenantID, filter.Statuses)
+	var sessions []model.DevHotloadSession
+	if err := query.Find(&sessions).Error; err != nil {
+		return nil, err
+	}
+	if len(sessions) == 0 {
+		return sessions, nil
+	}
+	ids := make([]uuid.UUID, 0, len(sessions))
+	for _, s := range sessions {
+		ids = append(ids, s.UUID)
+	}
+	if err := applySessionFilters(
+		r.db.WithContext(ctx).Model(&model.DevHotloadSession{}).Where("uuid IN ?", ids),
+		filter.PluginID,
+		filter.TenantID,
+		filter.Statuses,
+	).Delete(&model.DevHotloadSession{}).Error; err != nil {
+		return nil, err
+	}
+	if err := r.db.WithContext(ctx).
+		Where("session_id IN ?", ids).
+		Delete(&model.DevHotloadSessionEvent{}).Error; err != nil {
+		return sessions, err
+	}
+	return sessions, nil
 }
 
 // ListExpired returns sessions whose expiration is before provided timestamp.

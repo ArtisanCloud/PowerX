@@ -14,7 +14,7 @@
 | Agent 详情 | `/agent` | `useAgentManager().fetchAgentDetail` | `GET` | `/admin/agents/{id}` | `agent.read` |
 | Agent 会话列表 | `/agent` | `useChatSessions().listSessions` | `GET` | `/admin/agents/{id}/sessions`（待确认） | `agent.session.list` |
 | Agent 聊天流 | `/agent` | `useDualChannelConnection().sendMessage` | `GET` SSE / `WS` | `/agents/stream/sse` / `/agents/stream/ws` | `agent.chat` |
-| 插件市场 | `/plugins/market` | `useAdminPluginsService().getMarketplaceV2` | `GET` | `/admin/plugins/marketplace/plugins_v2` | `plugin.market.view` |
+| 插件市场 | `/plugins/market` | `useAdminPluginsService().getMarketplace` | `GET` | `/admin/plugins/marketplace/plugins` | `plugin.market.view` |
 | 插件启停 | `/plugins/installed`（TODO） | `useAdminPluginsService().enable/disable` | `POST` | `/admin/plugins/{id}/enable|disable` | `plugin.manage` |
 | 插件安装 | `/plugins/market` | `useAdminPluginsService().installFromUrl` | `POST` | `/admin/plugins/install/url` | `plugin.install` |
 | 插件卸载 | `/plugins/installed` | `useAdminPluginsService().uninstall` | `POST` | `/admin/plugins/{id}/uninstall` | `plugin.uninstall` |

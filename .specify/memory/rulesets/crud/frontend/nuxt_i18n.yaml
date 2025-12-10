@@ -6,16 +6,171 @@ i18n:
   locales:
     - { code: "en", file: "en.json" }
     - { code: "zh", file: "zh.json" }
+  langDir: "locales"
   files:
-    - target: web-admin/i18n/en.json
+    - target: web-admin/i18n/locales/en.json
       template: builtin/i18n_dict_minimal
       params:
         entries:
-          templates: { title: "Templates", create: "Create", edit: "Edit", delete: "Delete", detail: "Detail" }
-    - target: web-admin/i18n/zh.json
+          menu:
+            openMarket: "Open Market"
+            pluginMarketplace: "Plugin Marketplace"
+            pluginReleaseCandidates: "Release Candidates"
+            untitled: "Untitled"
+            section:
+              untitled: "Untitled Section"
+          common:
+            collapse: "Collapse"
+            toggleDensity: "Toggle density"
+            settings: "Settings"
+            trash: "Trash"
+          connection:
+            chatSignal: "Chat Signal"
+            commandChannel: "Command Channel"
+          header:
+            searchPlaceholder: "Search…"
+            profile: "Profile"
+            settings: "Settings"
+            logout: "Logout"
+          intro:
+            footer:
+              contactUs: "Contact Us"
+              aboutUs: "About Us"
+          privacyPolicy: "Privacy Policy"
+          dashboard:
+            title: "Dashboard"
+          home:
+            footer: "Home footer"
+            subtitle: "Your workspace to start"
+            getStarted: "Get Started"
+            learnMore: "Learn More"
+          welcome: "Welcome"
+          login: "Login"
+          register: "Register"
+          agent:
+            selector:
+              pickAgent: "Pick an agent"
+              editAgent: "Edit agent"
+              newAgent: "New agent"
+              searchSessions: "Search sessions"
+              pickAgentToSeeSessions: "Pick an agent to see sessions"
+              totalCount: "Total"
+              newSession: "New session"
+              recents: "Recent sessions"
+              noSessions: "No sessions"
+            config:
+              capabilities:
+                textGeneration: "Text generation"
+                codeGeneration: "Code generation"
+                imageAnalysis: "Image analysis"
+                webSearch: "Web search"
+                fileProcessing: "File processing"
+                dataAnalysis: "Data analysis"
+                translation: "Translation"
+                summarization: "Summarization"
+              presets:
+                assistant: "Assistant"
+                assistantPrompt: "Assistant prompt"
+                coder: "Coder"
+                coderPrompt: "Coder prompt"
+                translator: "Translator"
+                translatorPrompt: "Translator prompt"
+                analyst: "Analyst"
+                analystPrompt: "Analyst prompt"
+              title: "Title"
+              description: "Description"
+            chat:
+              defaultAgent: "Default agent"
+              connected: "Connected"
+              welcomeTitle: "Welcome"
+              welcomeMessage: "Ask me anything to get started"
+              disconnectedPlaceholder: "Disconnected"
+              inputPlaceholder: "Type a message"
+              model: "Model"
+              temperature: "Temperature"
+              ctrlEnterToSend: "Ctrl+Enter to send"
+              enterNewLine: "Enter new line"
+    - target: web-admin/i18n/locales/zh.json
       template: builtin/i18n_dict_minimal
       params:
         entries:
-          templates: { title: "模板", create: "新建", edit: "编辑", delete: "删除", detail: "详情" }
+          menu:
+            openMarket: "开放市场"
+            pluginMarketplace: "插件市场"
+            pluginReleaseCandidates: "发布候选"
+            untitled: "未命名菜单"
+            section:
+              untitled: "未命名分类"
+          common:
+            collapse: "收起"
+            toggleDensity: "切换紧凑模式"
+            settings: "设置"
+            trash: "回收站"
+          connection:
+            chatSignal: "聊天信令"
+            commandChannel: "控制通道"
+          header:
+            searchPlaceholder: "搜索…"
+            profile: "个人中心"
+            settings: "设置"
+            logout: "退出登录"
+          intro:
+            footer:
+              contactUs: "联系我们"
+              aboutUs: "关于我们"
+          privacyPolicy: "隐私政策"
+          dashboard:
+            title: "仪表盘"
+          home:
+            footer: "首页底部"
+            subtitle: "你的工作空间从这里开始"
+            getStarted: "开始使用"
+            learnMore: "了解更多"
+          welcome: "欢迎"
+          login: "登录"
+          register: "注册"
+          agent:
+            selector:
+              pickAgent: "选择一个智能体"
+              editAgent: "编辑智能体"
+              newAgent: "新建智能体"
+              searchSessions: "搜索会话"
+              pickAgentToSeeSessions: "选择智能体查看会话"
+              totalCount: "总数"
+              newSession: "新建会话"
+              recents: "最近会话"
+              noSessions: "暂无会话"
+            config:
+              capabilities:
+                textGeneration: "文本生成"
+                codeGeneration: "代码生成"
+                imageAnalysis: "图像分析"
+                webSearch: "网页搜索"
+                fileProcessing: "文件处理"
+                dataAnalysis: "数据分析"
+                translation: "翻译"
+                summarization: "摘要生成"
+              presets:
+                assistant: "通用助手"
+                assistantPrompt: "通用助手提示词"
+                coder: "编程助手"
+                coderPrompt: "编程助手提示词"
+                translator: "翻译助手"
+                translatorPrompt: "翻译助手提示词"
+                analyst: "分析助手"
+                analystPrompt: "分析助手提示词"
+              title: "标题"
+              description: "描述"
+            chat:
+              defaultAgent: "默认智能体"
+              connected: "已连接"
+              welcomeTitle: "欢迎"
+              welcomeMessage: "随便问我任何问题开始对话吧"
+              disconnectedPlaceholder: "已断开"
+              inputPlaceholder: "输入消息"
+              model: "模型"
+              temperature: "随机性"
+              ctrlEnterToSend: "Ctrl+Enter 发送"
+              enterNewLine: "Enter 换行"
 
 gates.require: [PG-FE-UI-001]

@@ -41,6 +41,8 @@ func SeedSystemPermissions(db *gorm.DB) error {
 		{Plugin: "iam", Resource: "department", Action: "delete", Meta: mAction("iam", "department", "delete")},
 		// IAM / Permission（只读）
 		{Plugin: "iam", Resource: "permission", Action: "read", Meta: mAction("iam", "permission", "read")},
+		// Admin root guard（用于开放市场/发布候选菜单）
+		{Plugin: "admin", Resource: "root", Action: "view", Meta: mAction("admin", "root", "view")},
 	}
 
 	// 你仓储里已有 UpsertBatch：幂等插入/更新

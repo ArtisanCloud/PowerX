@@ -152,6 +152,16 @@ web-admin/
 - **Storage**: 需要新的表/视图：`plugin_scaffold_templates`（元数据）、`plugin_import_runs`、`debug_sessions`、`sandbox_validation_runs`、`version_governance_reports`、`compat_exceptions`。
 - **Docs & Tooling**: Update `specs/009-install-plugin-pxp/quickstart.md` + README，新增 CLI 手册章节；在 `docs/use_cases/_from_hub/...` 反向链接新的实现路径。
 
+## Registry Publish API（Phase 4~6）落地补充
+
+- 对齐 `docs/guides/develop/dev_hotload.md` 中对 “publish” 步骤的描述，Phase 4~6 需要专门交付 `/internal/plugins/releases` REST 网关：CLI `px-plugin publish`、Web Admin 发布入口与未来离线上传都用该路由，并由 pipeline service 驱动 release candidate 生命周期。
+- 具体交付项：
+  1. **HTTP Handler**：在 `backend/internal/transport/http/admin/plugin_release/` 新增 `publish_handler.go` 与 routing，覆盖 `POST /internal/plugins/releases`（接收 artifact、manifest、meta 并创建 release candidate）、`GET /internal/plugins/releases/:id`、`PATCH /internal/plugins/releases/:id`（补件、推进审批）、`POST /internal/plugins/releases/:id/artifacts`（追加离线包或扫描报告），复用 AdminOnly/Tenant 校验与审计。
+  2. **Service 集成**：为 pipeline service 补充 `SubmitRelease`/`UpdateRelease` 方法，将 HTTP 入参映射到 `ReleaseCandidateRepository`、对象存储（MinIO/S3）与通知通道；失败场景需返回机器可读错误码供 CLI 展示。
+  3. **合约测试**：新增 `backend/tests/contract/plugin_release/http_admin_publish_api_test.go`、`backend/tests/integration/plugin_release/test_registry_publish_flow.go` 验证 `package -> publish -> plan` 流程，以及 CLI smoke（`scripts/ci/smoke_px_plugin_publish.sh`）确保 `px-plugin publish --registry http://localhost:8077/api/v1` 能 200。
+  4. **文档/CLI 对齐**：更新 `specs/009-install-plugin-pxp/quickstart.md`、`docs/guides/develop/dev_hotload.md`、`powerx-plugin` README 描述 publish 流程与错误提示；CLI `px-plugin publish` 默认为 `/internal/plugins/releases`，并在配置里暴露 `publishApi.baseUrl`。
+- 上述交付与 Phase 5（灰度 execution）/Phase 6（Marketplace 分发）共享数据模型，因此需要在实现时同步补充 ReleaseCandidate 状态机、审批字段以及审计指纹，避免后续迭代重复施工。
+
 ## Complexity Tracking
 
 | Violation | Why Needed | Simpler Alternative Rejected Because |

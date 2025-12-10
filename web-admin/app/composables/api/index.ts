@@ -380,6 +380,18 @@ export const useApiClient = () => {
     return request<T>("POST", url, formData, uploadConfig as any);
   };
 
+  // 统一解包 data（适配后端 SuccessResponse/ResponseList）
+  const unwrap = <T = any>(resp: any): T =>
+    resp && typeof resp === "object" && "data" in resp ? (resp as any).data : resp;
+
+  // 专用于列表：返回 { items, pagination }
+  const unwrapList = <T = any>(resp: any): { items: T[]; pagination?: any } => {
+    const unwrapped: any = unwrap(resp) || {};
+    const items = Array.isArray(unwrapped.items) ? (unwrapped.items as T[]) : [];
+    const pagination = unwrapped.pagination || {};
+    return { items, pagination };
+  };
+
   return {
     request,
     get,
@@ -388,5 +400,7 @@ export const useApiClient = () => {
     delete: del,
     patch,
     upload,
+    unwrap,
+    unwrapList,
   };
 };

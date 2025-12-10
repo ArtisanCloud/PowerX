@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 	"time"
 
 	model "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/dev_hotload"
@@ -67,8 +68,30 @@ func (s *Store) CountActive(ctx context.Context) (int64, error) {
 	return s.repo.CountActive(ctx)
 }
 
+// ListSessions returns sessions filtered by plugin/tenant/status.
+func (s *Store) ListSessions(ctx context.Context, pluginID string, tenantID *uint64, statuses []string, limit, offset int) ([]model.DevHotloadSession, error) {
+	filter := repository.ListSessionsFilter{
+		PluginID: strings.TrimSpace(pluginID),
+		TenantID: tenantID,
+		Statuses: statuses,
+		Limit:    limit,
+		Offset:   offset,
+	}
+	return s.repo.ListSessions(ctx, filter)
+}
+
 func (s *Store) ListExpired(ctx context.Context, before time.Time) ([]model.DevHotloadSession, error) {
 	return s.repo.ListExpired(ctx, before)
+}
+
+// DeleteSessions deletes sessions by filter and returns deleted records.
+func (s *Store) DeleteSessions(ctx context.Context, pluginID string, tenantID *uint64, statuses []string) ([]model.DevHotloadSession, error) {
+	filter := repository.DeleteSessionsFilter{
+		PluginID: strings.TrimSpace(pluginID),
+		TenantID: tenantID,
+		Statuses: statuses,
+	}
+	return s.repo.DeleteSessions(ctx, filter)
 }
 
 func (s *Store) AppendEvent(ctx context.Context, sessionID uuid.UUID, eventType string, payload any) error {
