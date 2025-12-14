@@ -23,17 +23,17 @@ func NewAgentSettingRepository(db *gorm.DB) *AgentSettingRepository {
 }
 
 // Upsert 唯一键：
-// - 全局：env + agent_id（且 tenant_id IS NULL）
-// - 租户：env + tenant_id + agent_id
+// - 全局：env + agent_id（且 tenant_uuid IS NULL）
+// - 租户：env + tenant_uuid + agent_id
 func (r *AgentSettingRepository) UpsertByAgent(
-	ctx context.Context, env string, tenantID *uint64, in *dbmodel.AgentSetting,
+	ctx context.Context, env string, tenantUUID *string, in *dbmodel.AgentSetting,
 ) error {
-	if tenantID == nil {
-		return fmt.Errorf("UpsertByAgent: tenantID must not be nil (system tenant=1)")
+	if tenantUUID == nil {
+		return fmt.Errorf("UpsertByAgent: tenantUUID must not be nil (system tenant=uuid)")
 	}
 	tx := r.db.WithContext(ctx)
 	in.Env = env
-	in.TenantID = tenantID
+	in.TenantUUID = tenantUUID
 
 	assign := clause.Assignments(map[string]any{
 		"provider":       in.Provider,
@@ -49,7 +49,7 @@ func (r *AgentSettingRepository) UpsertByAgent(
 	return tx.
 		Clauses(
 			clause.OnConflict{
-				Columns:   []clause.Column{{Name: "env"}, {Name: "tenant_id"}, {Name: "agent_id"}},
+				Columns:   []clause.Column{{Name: "env"}, {Name: "tenant_uuid"}, {Name: "agent_id"}},
 				DoUpdates: assign,
 			},
 			clause.Returning{Columns: []clause.Column{{Name: "id"}}},
@@ -57,10 +57,10 @@ func (r *AgentSettingRepository) UpsertByAgent(
 		Create(in).Error
 }
 
-func (r *AgentSettingRepository) FindByAgent(ctx context.Context, env string, tenantID *uint64, agentID uint64) (*dbmodel.AgentSetting, error) {
+func (r *AgentSettingRepository) FindByAgent(ctx context.Context, env string, tenantUUID *string, agentID uint64) (*dbmodel.AgentSetting, error) {
 	var out dbmodel.AgentSetting
 	err := r.db.WithContext(ctx).
-		Scopes(dbmodel.WithScope(env, tenantID)).
+		Scopes(dbmodel.WithScope(env, tenantUUID)).
 		Where("agent_id = ?", agentID).
 		First(&out).Error
 	if err != nil {

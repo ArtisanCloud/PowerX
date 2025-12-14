@@ -28,6 +28,9 @@ func SetupRouter(cfg *config.Config, r *gin.Engine, deps *shared.Deps) error {
 		[]string{cfg.Auth.AudienceUser},
 		[]string{"access"},
 		nil,
+		middleware.WithTenantHeaderPolicy(middleware.TenantHeaderPolicy{
+			RequireUUID: cfg.Tenants.RequireUUID,
+		}),
 	)
 	// 给外部注册 CoreX 相关 routes（discovery / sample orchestrator/tool 等）
 	httpAdmin.RegisterAPIRoutes(r, authUser, cfg, deps)

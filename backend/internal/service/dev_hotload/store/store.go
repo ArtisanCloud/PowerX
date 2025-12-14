@@ -53,8 +53,8 @@ func (s *Store) FindSession(ctx context.Context, id uuid.UUID) (*model.DevHotloa
 	return result, nil
 }
 
-func (s *Store) FindActiveByPlugin(ctx context.Context, pluginID string, tenantID uint64) (*model.DevHotloadSession, error) {
-	result, err := s.repo.FindActiveByPlugin(ctx, pluginID, tenantID)
+func (s *Store) FindActiveByPlugin(ctx context.Context, pluginID string, tenantUUID string) (*model.DevHotloadSession, error) {
+	result, err := s.repo.FindActiveByPlugin(ctx, pluginID, tenantUUID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrNotFound
@@ -69,13 +69,13 @@ func (s *Store) CountActive(ctx context.Context) (int64, error) {
 }
 
 // ListSessions returns sessions filtered by plugin/tenant/status.
-func (s *Store) ListSessions(ctx context.Context, pluginID string, tenantID *uint64, statuses []string, limit, offset int) ([]model.DevHotloadSession, error) {
+func (s *Store) ListSessions(ctx context.Context, pluginID string, tenantUUID *string, statuses []string, limit, offset int) ([]model.DevHotloadSession, error) {
 	filter := repository.ListSessionsFilter{
-		PluginID: strings.TrimSpace(pluginID),
-		TenantID: tenantID,
-		Statuses: statuses,
-		Limit:    limit,
-		Offset:   offset,
+		PluginID:   strings.TrimSpace(pluginID),
+		TenantUUID: tenantUUID,
+		Statuses:   statuses,
+		Limit:      limit,
+		Offset:     offset,
 	}
 	return s.repo.ListSessions(ctx, filter)
 }
@@ -85,11 +85,11 @@ func (s *Store) ListExpired(ctx context.Context, before time.Time) ([]model.DevH
 }
 
 // DeleteSessions deletes sessions by filter and returns deleted records.
-func (s *Store) DeleteSessions(ctx context.Context, pluginID string, tenantID *uint64, statuses []string) ([]model.DevHotloadSession, error) {
+func (s *Store) DeleteSessions(ctx context.Context, pluginID string, tenantUUID *string, statuses []string) ([]model.DevHotloadSession, error) {
 	filter := repository.DeleteSessionsFilter{
-		PluginID: strings.TrimSpace(pluginID),
-		TenantID: tenantID,
-		Statuses: statuses,
+		PluginID:   strings.TrimSpace(pluginID),
+		TenantUUID: tenantUUID,
+		Statuses:   statuses,
 	}
 	return s.repo.DeleteSessions(ctx, filter)
 }

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"sort"
-	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -17,10 +16,10 @@ var (
 	}
 
 	boardOpts = struct {
-		api      string
-		token    string
-		tenantID string
-		limit    int
+		api        string
+		token      string
+		tenantUUID string
+		limit      int
 	}{
 		api:   defaultAdminAPI,
 		limit: 20,
@@ -36,16 +35,14 @@ type boardSummary struct {
 func init() {
 	boardCmd.Flags().StringVar(&boardOpts.api, "api", boardOpts.api, "PowerX Admin API base URL")
 	boardCmd.Flags().StringVar(&boardOpts.token, "token", "", "Bearer token for Admin API")
-	boardCmd.Flags().StringVar(&boardOpts.tenantID, "tenant-id", "", "Optionally filter by tenant ID")
+	boardCmd.Flags().StringVar(&boardOpts.tenantUUID, "tenant-uuid", "", "Impersonate tenant via as_tenant_uuid query")
 	boardCmd.Flags().IntVar(&boardOpts.limit, "limit", boardOpts.limit, "Number of reports to fetch (default 20)")
 }
 
 func runVersionBoard(cmd *cobra.Command, _ []string) error {
 	client := newAPIClient(boardOpts.api, boardOpts.token)
 	query := fmt.Sprintf("/internal/version/governance/board?limit=%d", boardOpts.limit)
-	if tid := strings.TrimSpace(boardOpts.tenantID); tid != "" {
-		query += "&tenantId=" + tid
-	}
+	query = withTenantScope(query, boardOpts.tenantUUID)
 	var summary boardSummary
 	if err := client.do("GET", query, nil, &summary); err != nil {
 		return err

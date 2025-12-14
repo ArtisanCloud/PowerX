@@ -5,7 +5,6 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -29,7 +28,12 @@ import (
 	"gorm.io/gorm"
 )
 
-const bufSize = 1024 * 1024
+const (
+	bufSize                       = 1024 * 1024
+	localTenantUUID               = "c1d96f26-51cd-4e6a-9fbc-0e41a887c705"
+	offlineDistributionTenantUUID = "d3a17b7c-4a0b-4f0d-b9d3-4c7dbd4f55cb"
+	offlineImportTenantUUID       = "58c7b9cf-74fb-4a1b-8f6b-2f2fd0d1f1aa"
+)
 
 type pluginReleaseEnv struct {
 	DB      *gorm.DB
@@ -56,7 +60,7 @@ func newPluginReleaseEnv(t *testing.T) *pluginReleaseEnv {
 		&models.OfflineDistributionPackage{},
 		&models.MarketplaceListing{},
 	))
-	require.NoError(t, db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_plugin_release_candidate_tenant_plugin_version ON plugin_release_candidates(tenant_id, plugin_id, version)").Error)
+	require.NoError(t, db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_plugin_release_candidate_tenant_plugin_version ON plugin_release_candidates(tenant_uuid, plugin_id, version)").Error)
 
 	candidateRepo := repo.NewReleaseCandidateRepository(db)
 	planRepo := repo.NewReleasePlanRepository(db)
@@ -124,12 +128,12 @@ type pluginReleaseServer struct {
 }
 
 func (s *pluginReleaseServer) StartLocalInstall(ctx context.Context, req *pluginreleasepb.StartLocalInstallRequest) (*pluginreleasepb.LocalInstallSession, error) {
-	tenantID, err := strconv.ParseUint(strings.TrimSpace(req.GetTenantId()), 10, 64)
-	if err != nil || tenantID == 0 {
-		return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
+	tenantUUID := strings.TrimSpace(req.GetTenantUuid())
+	if tenantUUID == "" {
+		return nil, status.Error(codes.InvalidArgument, "tenant_uuid is required")
 	}
 	session, err := s.svc.LocalInstall().Start(ctx, local.StartInput{
-		TenantID:     tenantID,
+		TenantUUID:   tenantUUID,
 		DeveloperID:  req.GetDeveloperId(),
 		ArtifactURI:  req.GetArtifactUri(),
 		FeatureFlags: req.GetFeatureFlags(),
@@ -141,7 +145,7 @@ func (s *pluginReleaseServer) StartLocalInstall(ctx context.Context, req *plugin
 
 	resp := &pluginreleasepb.LocalInstallSession{
 		SessionId:   session.UUID.String(),
-		TenantId:    strconv.FormatUint(session.TenantID, 10),
+		TenantUuid:  tenantUUID,
 		DeveloperId: session.DeveloperID,
 		ArtifactUri: session.ArtifactURI,
 		FeatureFlags: func() []string {
@@ -189,7 +193,7 @@ func TestLocalHotloadFlow(t *testing.T) {
 
 	client := pluginreleasepb.NewPluginReleaseServiceClient(conn)
 	startResp, err := client.StartLocalInstall(ctx, &pluginreleasepb.StartLocalInstallRequest{
-		TenantId:     "101",
+		TenantUuid:   localTenantUUID,
 		DeveloperId:  2025,
 		ArtifactUri:  "s3://bucket/hotload.zip",
 		FeatureFlags: []string{"beta_ui"},
@@ -209,7 +213,11 @@ func TestLocalHotloadFlow(t *testing.T) {
 	engine.ServeHTTP(getResp, getReq)
 	require.Equal(t, http.StatusOK, getResp.Code)
 
-	req := httptest.NewRequest(http.MethodDelete, "/api/tenant/plugin-release/local/sessions/"+startResp.GetSessionId(), nil)
+	req := httptest.NewRequest(
+		http.MethodDelete,
+		"/api/tenant/plugin-release/local/sessions/"+startResp.GetSessionId()+"?tenant_uuid="+localTenantUUID,
+		nil,
+	)
 	req.Header.Set("Authorization", "Bearer admin")
 	resp := httptest.NewRecorder()
 	engine.ServeHTTP(resp, req)

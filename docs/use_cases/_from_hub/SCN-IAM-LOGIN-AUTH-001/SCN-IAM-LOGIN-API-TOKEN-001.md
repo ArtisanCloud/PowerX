@@ -77,11 +77,11 @@ sequenceDiagram
 
 # Key Interactions & Contracts
 
-- `POST /internal/auth/clients` — 创建客户端，必填字段：`name`, `tenant_id`, `scopes[]`, `ip_whitelist[]`, `expires_in_hours`。
+- `POST /internal/auth/clients` — 创建客户端，必填字段：`name`, `tenant_uuid`, `scopes[]`, `ip_whitelist[]`, `expires_in_hours`。
 - `POST /oauth/token` — Client Credentials 交换接口，返回 `access_token`, `token_type`, `expires_in`, `scope`。
 - `DELETE /internal/auth/clients/{id}` — 吊销客户端；网关通过事件订阅刷新缓存。
 - `POST /internal/auth/clients/{id}/rotate` — Secret 轮换，提供新旧并行窗口。
-- `EVENT security.token.anomaly` — 越权、黑名单或速率异常事件，字段含 `client_id`, `tenant_id`, `error_code`, `count`。
+- `EVENT security.token.anomaly` — 越权、黑名单或速率异常事件，字段含 `client_id`, `tenant_uuid`, `error_code`, `count`。
 
 # Usecase Links
 

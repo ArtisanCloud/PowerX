@@ -32,10 +32,10 @@ func (r *VersionPolicyRepository) WithDB(db *gorm.DB) *VersionPolicyRepository {
 }
 
 // GetByKey 根据租户与能力 Key 获取版本策略。
-func (r *VersionPolicyRepository) GetByKey(ctx context.Context, tenantID uint64, capabilityKey string) (*capmodel.CapabilityVersionPolicy, error) {
+func (r *VersionPolicyRepository) GetByKey(ctx context.Context, tenantUUID string, capabilityKey string) (*capmodel.CapabilityVersionPolicy, error) {
 	var policy capmodel.CapabilityVersionPolicy
 	err := r.db.WithContext(ctx).
-		Where("tenant_id = ? AND capability_key = ?", tenantID, capabilityKey).
+		Where("tenant_uuid = ? AND capability_key = ?", tenantUUID, capabilityKey).
 		First(&policy).Error
 	if err != nil {
 		return nil, err
@@ -47,7 +47,7 @@ func (r *VersionPolicyRepository) GetByKey(ctx context.Context, tenantID uint64,
 func (r *VersionPolicyRepository) UpsertPolicy(ctx context.Context, policy *capmodel.CapabilityVersionPolicy) (*capmodel.CapabilityVersionPolicy, error) {
 	var existing capmodel.CapabilityVersionPolicy
 	err := r.db.WithContext(ctx).
-		Where("tenant_id = ? AND capability_key = ?", policy.TenantID, policy.CapabilityKey).
+		Where("tenant_uuid = ? AND capability_key = ?", policy.TenantUUID, policy.CapabilityKey).
 		First(&existing).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		if err := r.db.WithContext(ctx).Create(policy).Error; err != nil {

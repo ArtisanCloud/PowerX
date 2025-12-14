@@ -12,6 +12,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const auditExportTenantUUID = "workflow-integration-tenant-4010"
+
 func TestAuditExportFlow(t *testing.T) {
 	env := testenv.New(t)
 	ctx := context.Background()
@@ -22,7 +24,7 @@ func TestAuditExportFlow(t *testing.T) {
 	}
 
 	definition, err := env.Service.CreateDefinition(ctx, workflowsvc.CreateDefinitionInput{
-		TenantID:    4010,
+		TenantUUID:  auditExportTenantUUID,
 		Name:        "audit-export",
 		Description: "integration export",
 		CreatedBy:   uuid.New(),
@@ -31,14 +33,14 @@ func TestAuditExportFlow(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = env.Service.PublishDefinition(ctx, workflowsvc.PublishDefinitionInput{
-		TenantID:       4010,
+		TenantUUID:     auditExportTenantUUID,
 		DefinitionUUID: definition.UUID,
 		PublishedBy:    uuid.New(),
 	})
 	require.NoError(t, err)
 
 	instance, err := env.Service.StartInstance(ctx, workflowsvc.StartInstanceInput{
-		TenantID:       4010,
+		TenantUUID:     auditExportTenantUUID,
 		DefinitionUUID: definition.UUID,
 		CorrelationID:  "export-int-001",
 		Input:          map[string]any{"case": "B"},
@@ -62,7 +64,7 @@ func TestAuditExportFlow(t *testing.T) {
 	require.NoError(t, err)
 
 	result, err := env.Service.ExportInstances(ctx, workflowsvc.ExportFilter{
-		TenantID:           4010,
+		TenantUUID:         auditExportTenantUUID,
 		DefinitionUUID:     &definition.UUID,
 		IncludeStepDetails: true,
 		Format:             workflowsvc.ExportFormatJSON,
@@ -81,7 +83,7 @@ func TestAuditExportFlow(t *testing.T) {
 
 	// When step details are disabled we only expect top-level rows.
 	resultNoSteps, err := env.Service.ExportInstances(ctx, workflowsvc.ExportFilter{
-		TenantID:           4010,
+		TenantUUID:         auditExportTenantUUID,
 		DefinitionUUID:     &definition.UUID,
 		IncludeStepDetails: false,
 		Format:             workflowsvc.ExportFormatJSON,

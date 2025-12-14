@@ -112,7 +112,7 @@ func NewService(opts ServiceOptions) *Service {
 
 // CreateRouteInput 描述创建集成路由的输入。
 type CreateRouteInput struct {
-	TenantID     string
+	TenantUUID   string
 	Actor        string
 	RouteSlug    string
 	CapabilityID string
@@ -126,7 +126,7 @@ type CreateRouteInput struct {
 // UpdateRouteInput 描述更新路由的输入。
 type UpdateRouteInput struct {
 	RouteID      uuid.UUID
-	TenantID     string
+	TenantUUID   string
 	Actor        string
 	Version      uint32
 	CapabilityID string
@@ -141,7 +141,7 @@ type UpdateRouteInput struct {
 // ChangeLifecycleInput 描述生命周期变更的输入。
 type ChangeLifecycleInput struct {
 	RouteID  uuid.UUID
-	TenantID string
+	TenantUUID string
 	Actor    string
 	Action   string
 	Reason   string
@@ -150,7 +150,7 @@ type ChangeLifecycleInput struct {
 
 // ListRoutesInput 控制列表查询。
 type ListRoutesInput struct {
-	TenantID       string
+	TenantUUID     string
 	CapabilityID   string
 	LifecycleState string
 	Page           int
@@ -182,7 +182,7 @@ func (s *Service) CreateRoute(ctx context.Context, in CreateRouteInput) (Route, 
 
 	now := s.now().UTC()
 	routeModel := &models.IntegrationRoute{
-		TenantID:        in.TenantID,
+		TenantUUID:      in.TenantUUID,
 		RouteSlug:       slug,
 		CapabilityID:    in.CapabilityID,
 		ToolGrantIDs:    mustJSON(toolGrants),
@@ -199,7 +199,7 @@ func (s *Service) CreateRoute(ctx context.Context, in CreateRouteInput) (Route, 
 		LastPublishedAt: &now,
 	}
 
-	if _, err := s.routes.GetBySlug(ctx, in.TenantID, slug); err == nil {
+	if _, err := s.routes.GetBySlug(ctx, in.TenantUUID, slug); err == nil {
 		return Route{}, ErrSlugConflict
 	} else if err != nil && !errors.Is(err, repo.ErrRouteNotFound) {
 		return Route{}, err
@@ -253,10 +253,7 @@ func (s *Service) UpdateRoute(ctx context.Context, in UpdateRouteInput) (Route, 
 		}
 		return Route{}, err
 	}
-	if strings.TrimSpace(in.TenantID) != "" && current.TenantID != strings.TrimSpace(in.TenantID) {
-		return Route{}, errors.New("tenant mismatch")
-	}
-	if current.TenantID != in.TenantID {
+	if trimmed := strings.TrimSpace(in.TenantUUID); trimmed != "" && !strings.EqualFold(current.TenantUUID, trimmed) {
 		return Route{}, errors.New("tenant mismatch")
 	}
 	if current.CurrentVersion != in.Version {
@@ -477,7 +474,7 @@ func (s *Service) ListRoutes(ctx context.Context, in ListRoutesInput) ([]Route, 
 		in.PageSize = 20
 	}
 
-	routes, total, err := s.routes.ListByTenant(ctx, in.TenantID, (in.Page-1)*in.PageSize, in.PageSize)
+	routes, total, err := s.routes.ListByTenant(ctx, in.TenantUUID, (in.Page-1)*in.PageSize, in.PageSize)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -567,7 +564,7 @@ func (s *Service) enqueueEvent(ctx context.Context, route *models.IntegrationRou
 	}
 	eventModel := &models.IntegrationEventPublication{
 		RouteUUID: route.UUID,
-		TenantID:  route.TenantID,
+		TenantUUID:  route.TenantUUID,
 		Topic:     topic,
 		Payload:   mustJSON(payload),
 		Status:    "pending",
@@ -597,7 +594,7 @@ func routeFromModel(model *models.IntegrationRoute) Route {
 
 	return Route{
 		RouteID:         model.UUID,
-		TenantID:        model.TenantID,
+		TenantUUID:      model.TenantUUID,
 		RouteSlug:       model.RouteSlug,
 		CapabilityID:    model.CapabilityID,
 		ToolGrantIDs:    toolGrants,

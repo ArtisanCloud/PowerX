@@ -20,11 +20,11 @@ func TestAutoRegisterSandboxFlow(t *testing.T) {
 
 	engine := env.Engine()
 
+	tenantUUID := "tenant-int"
 	manifest := map[string]any{
 		"plugin_id":                  "plugins.integration.analytics",
 		"plugin_version":             "2.0.0",
 		"manifest_version":           "2025-04-01",
-		"tenant_id":                  "tenant-int",
 		"alias":                      "int-agent",
 		"telemetry_contract_version": "otel-agent-v1",
 		"signature":                  "valid-signature",
@@ -34,6 +34,7 @@ func TestAutoRegisterSandboxFlow(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/api/admin/agent/lifecycle/autoreg/manifests", bytes.NewReader(payload))
 	req.Header.Set("Authorization", "Bearer token")
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Tenant-UUID", tenantUUID)
 	resp := httptest.NewRecorder()
 	engine.ServeHTTP(resp, req)
 	require.Equal(t, http.StatusCreated, resp.Code)
@@ -58,6 +59,7 @@ func TestAutoRegisterSandboxFlow(t *testing.T) {
 	runReq := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/api/admin/agent/lifecycle/agents/%s/sandbox", registerResp.Data.Agent.ID), bytes.NewReader(runBody))
 	runReq.Header.Set("Authorization", "Bearer token")
 	runReq.Header.Set("Content-Type", "application/json")
+	runReq.Header.Set("X-Tenant-UUID", tenantUUID)
 	runResp := httptest.NewRecorder()
 	engine.ServeHTTP(runResp, runReq)
 	require.Equal(t, http.StatusOK, runResp.Code)

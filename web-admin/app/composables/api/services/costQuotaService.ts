@@ -15,13 +15,12 @@ export interface QuotaEntryResponse {
 }
 
 export interface QuotaSnapshotResponse {
-  tenantId: string;
+  tenantUuid: string;
   quotas: QuotaEntryResponse[];
 }
 
 export interface EnforceActionPayload {
   env?: string;
-  tenantId: string;
   providerId?: string;
   action: string;
   reason?: string;
@@ -30,38 +29,61 @@ export interface EnforceActionPayload {
 }
 
 export class CostQuotaService {
-  static async getQuotaSnapshot(params: {
-    tenantId: string;
-    env?: string;
-  }): Promise<QuotaSnapshotResponse | undefined> {
+  static async getQuotaSnapshot(
+    params: {
+      env?: string;
+    },
+    opts?: { tenantUuid?: string }
+  ): Promise<QuotaSnapshotResponse | undefined> {
     const { get } = useApiClient();
     const response = await get<ApiResponse<QuotaSnapshotResponse>>(
       ApiEndpoints.ADMIN_AGENTS.COST_QUOTAS,
       {
         params,
+        headers: opts?.tenantUuid
+          ? { "X-Tenant-UUID": opts.tenantUuid }
+          : undefined,
       }
     );
     return response.data;
   }
 
-  static async enforceAction(payload: EnforceActionPayload): Promise<{
+  static async enforceAction(
+    payload: EnforceActionPayload,
+    opts?: { tenantUuid?: string }
+  ): Promise<{
     ok: boolean;
   }> {
     const { post } = useApiClient();
     const response = await post<ApiResponse<{ ok: boolean }>>(
       ApiEndpoints.ADMIN_AGENTS.COST_ENFORCE,
-      payload
+      payload,
+      {
+        headers: opts?.tenantUuid
+          ? { "X-Tenant-UUID": opts.tenantUuid }
+          : undefined,
+      }
     );
     return response.data || { ok: false };
   }
 
-  static async reportUsage(payload: {
-    tenantId: string;
-    providerId?: string;
-    env?: string;
-    events: Array<{ costUsd: number; tokens?: number; timestamp?: string }>;
-  }) {
+  static async reportUsage(
+    payload: {
+      providerId?: string;
+      env?: string;
+      events: Array<{ costUsd: number; tokens?: number; timestamp?: string }>;
+    },
+    opts?: { tenantUuid?: string }
+  ) {
     const { post } = useApiClient();
-    return post(ApiEndpoints.ADMIN_AGENTS.COST_USAGE_REPORT, payload);
+    return post(
+      ApiEndpoints.ADMIN_AGENTS.COST_USAGE_REPORT,
+      payload,
+      {
+        headers: opts?.tenantUuid
+          ? { "X-Tenant-UUID": opts.tenantUuid }
+          : undefined,
+      }
+    );
   }
 }

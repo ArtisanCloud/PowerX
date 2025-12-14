@@ -76,15 +76,15 @@ const isRootUser = ref(true); // 假设当前是 root 用户，实际应该从�
 const tenantTreeItems = computed<TreeNode[]>(() => {
   return tenants.value.map((t) => ({
     label: t.name,
-    value: String(t.id),
+    value: t.uuid || String(t.id),
     icon: "i-heroicons-building-office",
     disabled: t.status === 0, // 假设 status 为 0 表示禁用
   }));
 });
 
 // 监听租户选择变化，同步到表单
-watch(selectedTenant, (tenantId) => {
-  roleForm.tenant_id = tenantId ? parseInt(tenantId) : undefined;
+watch(selectedTenant, (tenantUuid) => {
+  roleForm.tenant_uuid = tenantUuid || undefined;
 });
 
 /** 页面展示用权限数组 */
@@ -141,7 +141,7 @@ const roleForm = reactive({
   code: "",
   description: "",
   scope: "tenant" as "system" | "tenant",
-  tenant_id: undefined as number | undefined,
+  tenant_uuid: undefined as string | undefined,
   permissions: [] as number[],
 });
 
@@ -172,7 +172,7 @@ const resetRoleForm = () => {
   roleForm.code = "";
   roleForm.description = "";
   roleForm.scope = "tenant";
-  roleForm.tenant_id = undefined;
+  roleForm.tenant_uuid = undefined;
   roleForm.permissions = [];
   selectedTenant.value = null;
   isEditing.value = false;
@@ -241,7 +241,7 @@ const saveRole = async () => {
         code: roleForm.code,
         description: roleForm.description,
         scope: roleForm.scope,
-        tenant_id: roleForm.tenant_id, // 添加租户ID
+        tenant_uuid: roleForm.tenant_uuid,
         perm_ids: roleForm.permissions, // 直接传递权限ID
       });
 

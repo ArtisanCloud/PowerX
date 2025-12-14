@@ -38,12 +38,12 @@ func (s *Service) triggerCompensation(ctx context.Context, instance *modelworkfl
 	updates := map[string]interface{}{
 		"last_error": reason,
 	}
-	if err := s.instances.UpdateState(ctx, instance.TenantID, instance.UUID, "compensating", updates); err != nil {
+	if err := s.instances.UpdateState(ctx, instance.TenantUUID, instance.UUID, "compensating", updates); err != nil {
 		return err
 	}
 
 	instanceEvent := newWorkflowEvent(
-		instance.TenantID,
+		instance.TenantUUID,
 		instance.UUID,
 		"workflow.instance.compensating",
 		fmt.Sprintf("workflow instance %s entering compensation", instance.UUID),
@@ -58,7 +58,7 @@ func (s *Service) triggerCompensation(ctx context.Context, instance *modelworkfl
 	s.em.emit(ctx, instanceEvent)
 
 	stepEvent := newWorkflowEvent(
-		instance.TenantID,
+		instance.TenantUUID,
 		instance.UUID,
 		"workflow.step.compensation_triggered",
 		fmt.Sprintf("compensation triggered for step %s", step.ID),
@@ -94,12 +94,12 @@ func (s *Service) createManualCompensation(ctx context.Context, instance *modelw
 	if err != nil {
 		return nil, err
 	}
-	if err := s.instances.UpdateState(ctx, instance.TenantID, instance.UUID, "compensating", map[string]interface{}{"last_error": reason}); err != nil {
+	if err := s.instances.UpdateState(ctx, instance.TenantUUID, instance.UUID, "compensating", map[string]interface{}{"last_error": reason}); err != nil {
 		return nil, err
 	}
 
 	instanceEvent := newWorkflowEvent(
-		instance.TenantID,
+		instance.TenantUUID,
 		instance.UUID,
 		"workflow.instance.compensating",
 		fmt.Sprintf("workflow instance %s entering compensation", instance.UUID),
@@ -119,7 +119,7 @@ func (s *Service) createManualCompensation(ctx context.Context, instance *modelw
 	s.em.emit(ctx, instanceEvent)
 
 	stepEvent := newWorkflowEvent(
-		instance.TenantID,
+		instance.TenantUUID,
 		instance.UUID,
 		"workflow.step.compensation_requested",
 		fmt.Sprintf("manual compensation requested for step %s", step.ID),
@@ -160,16 +160,16 @@ func (s *Service) completeCompensation(ctx context.Context, instance *modelworkf
 		return err
 	}
 	if success {
-		if err := s.instances.UpdateState(ctx, instance.TenantID, instance.UUID, "compensated", nil); err != nil {
+		if err := s.instances.UpdateState(ctx, instance.TenantUUID, instance.UUID, "compensated", nil); err != nil {
 			return err
 		}
 	} else {
-		if err := s.instances.UpdateState(ctx, instance.TenantID, instance.UUID, "compensation_failed", map[string]interface{}{"last_error": notes}); err != nil {
+		if err := s.instances.UpdateState(ctx, instance.TenantUUID, instance.UUID, "compensation_failed", map[string]interface{}{"last_error": notes}); err != nil {
 			return err
 		}
 	}
 	if s.metrics != nil {
-		s.metrics.ObserveCompensationResult(ctx, instance.TenantID, comp.Handler, success)
+		s.metrics.ObserveCompensationResult(ctx, instance.TenantUUID, comp.Handler, success)
 	}
 
 	eventType := "workflow.step.compensation_completed"
@@ -193,7 +193,7 @@ func (s *Service) emitStepCompensationResult(ctx context.Context, instance *mode
 		payload["notes"] = notes
 	}
 	event := newWorkflowEvent(
-		instance.TenantID,
+		instance.TenantUUID,
 		instance.UUID,
 		eventType,
 		fmt.Sprintf("compensation %s for step record %d", ternary(success, "completed", "failed"), comp.StepRecordID),

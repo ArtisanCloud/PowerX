@@ -19,7 +19,7 @@ const (
 type AgentProfileLifecycle struct {
 	coremodel.PowerUUIDModel
 
-	TenantID                 string         `gorm:"column:tenant_id;type:varchar(128);not null;index:idx_agent_profile_tenant_alias,priority:1;index:idx_agent_profile_tenant_status,priority:1" json:"tenant_id"`
+	TenantUUID               string         `gorm:"column:tenant_uuid;type:varchar(128);not null;index:idx_agent_profile_tenant_alias,priority:1;index:idx_agent_profile_tenant_status,priority:1" json:"tenant_uuid"`
 	Alias                    string         `gorm:"column:alias;type:varchar(128);not null;index:idx_agent_profile_tenant_alias,priority:2" json:"alias"`
 	DisplayName              string         `gorm:"column:display_name;type:varchar(128);not null" json:"display_name"`
 	Status                   string         `gorm:"column:status;type:varchar(32);not null;default:'pending';index:idx_agent_profile_tenant_status,priority:2" json:"status"`
@@ -45,7 +45,7 @@ type AgentLifecycleEventRecord struct {
 	coremodel.PowerUUIDModel
 
 	AgentUUID           uuid.UUID      `gorm:"column:agent_uuid;type:uuid;not null;index:idx_agent_lifecycle_agent" json:"agent_uuid"`
-	TenantID            string         `gorm:"column:tenant_id;type:varchar(128);not null;index:idx_agent_lifecycle_tenant,priority:1" json:"tenant_id"`
+	TenantUUID          string         `gorm:"column:tenant_uuid;type:varchar(128);not null;index:idx_agent_lifecycle_tenant,priority:1" json:"tenant_uuid"`
 	EventType           string         `gorm:"column:event_type;type:varchar(64);not null;index:idx_agent_lifecycle_type" json:"event_type"`
 	FromStatus          string         `gorm:"column:from_status;type:varchar(32)" json:"from_status,omitempty"`
 	ToStatus            string         `gorm:"column:to_status;type:varchar(32);not null;index:idx_agent_lifecycle_tenant,priority:2" json:"to_status"`
@@ -68,7 +68,7 @@ type AgentHealthSnapshotRecord struct {
 	coremodel.PowerUUIDModel
 
 	AgentUUID         uuid.UUID      `gorm:"column:agent_uuid;type:uuid;not null;index:idx_agent_health_agent_window,priority:1" json:"agent_uuid"`
-	TenantID          string         `gorm:"column:tenant_id;type:varchar(128);not null;index:idx_agent_health_tenant" json:"tenant_id"`
+	TenantUUID        string         `gorm:"column:tenant_uuid;type:varchar(128);not null;index:idx_agent_health_tenant" json:"tenant_uuid"`
 	WindowStartedAt   time.Time      `gorm:"column:window_started_at;not null;index:idx_agent_health_agent_window,priority:2" json:"window_started_at"`
 	WindowDurationSec int32          `gorm:"column:window_duration_sec;not null" json:"window_duration_sec"`
 	ThroughputPerMin  float64        `gorm:"column:throughput_per_min;type:double precision;not null;default:0" json:"throughput_per_min"`

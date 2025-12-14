@@ -29,7 +29,7 @@ type ReportingServiceOptions struct {
 
 // ReportingFilter 控制查询过滤条件。
 type ReportingFilter struct {
-	TenantID    uuid.UUID
+	TenantUUID  uuid.UUID
 	SubjectID   *uuid.UUID
 	SubjectType string
 	Capability  string
@@ -58,7 +58,7 @@ type ReportingEvent struct {
 	Outcome     string            `json:"outcome"`
 	Source      string            `json:"source"`
 	Category    string            `json:"category"`
-	TenantID    string            `json:"tenantId"`
+	TenantUUID  string            `json:"tenant_uuid"`
 	SubjectType string            `json:"subjectType,omitempty"`
 	SubjectID   string            `json:"subjectId,omitempty"`
 	Capability  string            `json:"capability,omitempty"`
@@ -96,8 +96,8 @@ func NewReportingService(opts ReportingServiceOptions) ReportingService {
 }
 
 func (s *reportingService) Query(ctx context.Context, filter ReportingFilter) (ReportingResult, error) {
-	if filter.TenantID == uuid.Nil {
-		return ReportingResult{}, fmt.Errorf("tenant id is required")
+	if filter.TenantUUID == uuid.Nil {
+		return ReportingResult{}, fmt.Errorf("tenant uuid is required")
 	}
 	if filter.Page <= 0 {
 		filter.Page = 1
@@ -188,6 +188,7 @@ type eventTransformer struct {
 	filter    ReportingFilter
 	logger    *pxlog.Logger
 	grantPool map[uuid.UUID]*eventfabricmodel.AuthorizationGrant
+	tenantKey string
 }
 
 func newEventTransformer(ctx context.Context, repo *eventfabricrepo.AuthorizationRepository, filter ReportingFilter, logger *pxlog.Logger) *eventTransformer {
@@ -196,6 +197,7 @@ func newEventTransformer(ctx context.Context, repo *eventfabricrepo.Authorizatio
 		repo:      repo,
 		filter:    filter,
 		logger:    logger,
+		tenantKey: canonicalTenantKey(filter.TenantUUID.String()),
 		grantPool: make(map[uuid.UUID]*eventfabricmodel.AuthorizationGrant),
 	}
 }
@@ -222,10 +224,11 @@ func (t *eventTransformer) transform(evt auditmodel.AuditEvent) (ReportingEvent,
 		if grant == nil {
 			return ReportingEvent{}, false
 		}
-		if grant.TenantID == uuid.Nil {
+		tenantKey := canonicalTenantKey(grant.TenantUUID)
+		if tenantKey == "" {
 			return ReportingEvent{}, false
 		}
-		if grant.TenantID != t.filter.TenantID {
+		if tenantKey != t.tenantKey {
 			return ReportingEvent{}, false
 		}
 		if t.filter.SubjectID != nil && grant.SubjectID != *t.filter.SubjectID {
@@ -250,6 +253,7 @@ func (t *eventTransformer) transform(evt auditmodel.AuditEvent) (ReportingEvent,
 		}
 	}
 
+	tenantKey := canonicalTenantKey(grant.TenantUUID)
 	event := ReportingEvent{
 		ID:          evt.ID,
 		OccurredAt:  evt.OccurredAt,
@@ -257,7 +261,7 @@ func (t *eventTransformer) transform(evt auditmodel.AuditEvent) (ReportingEvent,
 		Outcome:     evt.Outcome,
 		Source:      evt.Source,
 		Category:    category,
-		TenantID:    grant.TenantID.String(),
+		TenantUUID:  tenantKey,
 		SubjectType: strings.ToLower(grant.SubjectType),
 		SubjectID:   grant.SubjectID.String(),
 		Capability:  meta["capability"],

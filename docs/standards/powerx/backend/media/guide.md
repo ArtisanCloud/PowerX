@@ -37,7 +37,7 @@ storage:
 curl -X POST "http://127.0.0.1:8077/api/v1/admin/media/assets" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer <JWT>" \
-  -H "X-Tenant-Id: 1" \
+  -H "X-Tenant-UUID: 1" \
   -d '{
         "name": "demo-banner.jpg",
         "mime_type": "image/jpeg",
@@ -182,7 +182,7 @@ curl -s -X POST "http://127.0.0.1:8077/api/v1/admin/media/assets/$UUID/presign" 
       "headers": [
         {"name": "Content-Type", "value": "application/json"},
         {"name": "Authorization", "value": "Bearer <JWT>"},
-        {"name": "X-Tenant-Id", "value": "1"}
+        {"name": "X-Tenant-UUID", "value": "1"}
       ],
       "_type": "request"
     },
@@ -199,7 +199,7 @@ curl -s -X POST "http://127.0.0.1:8077/api/v1/admin/media/assets/$UUID/presign" 
       "headers": [
         {"name": "Content-Type", "value": "application/json"},
         {"name": "Authorization", "value": "Bearer <JWT>"},
-        {"name": "X-Tenant-Id", "value": "1"}
+        {"name": "X-Tenant-UUID", "value": "1"}
       ],
       "_type": "request"
     },
@@ -216,7 +216,7 @@ curl -s -X POST "http://127.0.0.1:8077/api/v1/admin/media/assets/$UUID/presign" 
       "headers": [
         {"name": "Content-Type", "value": "application/json"},
         {"name": "Authorization", "value": "Bearer <JWT>"},
-        {"name": "X-Tenant-Id", "value": "1"}
+        {"name": "X-Tenant-UUID", "value": "1"}
       ],
       "_type": "request"
     },
@@ -233,7 +233,7 @@ curl -s -X POST "http://127.0.0.1:8077/api/v1/admin/media/assets/$UUID/presign" 
       "headers": [
         {"name": "Content-Type", "value": "application/json"},
         {"name": "Authorization", "value": "Bearer <JWT>"},
-        {"name": "X-Tenant-Id", "value": "1"}
+        {"name": "X-Tenant-UUID", "value": "1"}
       ],
       "_type": "request"
     }

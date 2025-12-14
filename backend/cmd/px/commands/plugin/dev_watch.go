@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -41,7 +40,7 @@ var (
 	devWatchOpts = struct {
 		grpcAddr     string
 		hostAPI      string
-		tenantID     string
+		tenantUUID   string
 		developerID  uint64
 		artifactPath string
 		artifactURI  string
@@ -75,7 +74,7 @@ func init() {
 
 	devWatchCmd.Flags().StringVar(&devWatchOpts.grpcAddr, "grpc-addr", defaultGRPCAddr, "Plugin release gRPC endpoint")
 	devWatchCmd.Flags().StringVar(&devWatchOpts.hostAPI, "host-api", "", "Optional PowerX Admin API base (e.g., http://localhost:8077/api) used for local install REST endpoints")
-	devWatchCmd.Flags().StringVar(&devWatchOpts.tenantID, "tenant-id", "", "Tenant identifier used during local install (required)")
+	devWatchCmd.Flags().StringVar(&devWatchOpts.tenantUUID, "tenant-uuid", "", "Tenant UUID used during local install (required)")
 	devWatchCmd.Flags().Uint64Var(&devWatchOpts.developerID, "developer-id", 0, "Developer identifier used for the session (required)")
 	devWatchCmd.Flags().StringVar(&devWatchOpts.artifactPath, "artifact", "", "Path to the hotload artifact to stream via PushHotReload")
 	devWatchCmd.Flags().StringVar(&devWatchOpts.artifactURI, "artifact-uri", "", "Override artifact URI sent in StartLocalInstall; defaults to derived file:// URI when --artifact is supplied")
@@ -89,7 +88,7 @@ func init() {
 	devWatchCmd.Flags().StringVar(&devWatchOpts.logFile, "log-file", "", "Path to a log file whose tail will be attached as changelog (use - for stdin)")
 	devWatchCmd.Flags().IntVar(&devWatchOpts.logLines, "log-lines", devWatchOpts.logLines, "Number of lines to include from --log-file (0 to disable)")
 
-	_ = devWatchCmd.MarkFlagRequired("tenant-id")
+	_ = devWatchCmd.MarkFlagRequired("tenant-uuid")
 	_ = devWatchCmd.MarkFlagRequired("developer-id")
 }
 
@@ -126,7 +125,11 @@ func runDevWatch(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	fmt.Fprintf(cmd.OutOrStdout(), "Session %s started for tenant %s developer %d\n", session.SessionID, devWatchOpts.tenantID, devWatchOpts.developerID)
+	tenantDescriptor := session.TenantUUID
+	if tenantDescriptor == "" {
+		tenantDescriptor = strings.TrimSpace(devWatchOpts.tenantUUID)
+	}
+	fmt.Fprintf(cmd.OutOrStdout(), "Session %s started for tenant %s developer %d\n", session.SessionID, tenantDescriptor, devWatchOpts.developerID)
 
 	reloadStart := time.Now()
 	sequence, reloadErr := pushHotReload(callCtx, client, session.SessionID, devWatchOpts.artifactPath, devWatchOpts.chunkSize, changelog, cmd.OutOrStdout())
@@ -413,17 +416,18 @@ func truncateChangelog(content string) string {
 }
 
 type localSession struct {
-	SessionID string
-	TenantID  uint64
-	LogURL    string
+	SessionID  string
+	TenantUUID string
+	LogURL     string
 }
 
 func startLocalSession(cmd *cobra.Command, ctx context.Context, client pluginreleasepb.PluginReleaseServiceClient, artifactURI string) (*localSession, error) {
 	if hostAPIEnabled() {
 		return startSessionViaHTTP(ctx, artifactURI)
 	}
+	tenantUUID := strings.TrimSpace(devWatchOpts.tenantUUID)
 	startResp, err := client.StartLocalInstall(ctx, &pluginreleasepb.StartLocalInstallRequest{
-		TenantId:     strings.TrimSpace(devWatchOpts.tenantID),
+		TenantUuid:   tenantUUID,
 		DeveloperId:  devWatchOpts.developerID,
 		ArtifactUri:  artifactURI,
 		FeatureFlags: devWatchOpts.featureFlags,
@@ -432,21 +436,23 @@ func startLocalSession(cmd *cobra.Command, ctx context.Context, client pluginrel
 	if err != nil {
 		return nil, fmt.Errorf("start local install: %w", err)
 	}
-	tenantNumeric, _ := strconv.ParseUint(strings.TrimSpace(devWatchOpts.tenantID), 10, 64)
+	responseTenant := strings.TrimSpace(startResp.GetTenantUuid())
+	if responseTenant == "" {
+		responseTenant = tenantUUID
+	}
 	return &localSession{
-		SessionID: startResp.GetSessionId(),
-		TenantID:  tenantNumeric,
-		LogURL:    startResp.GetLogUrl(),
+		SessionID:  startResp.GetSessionId(),
+		TenantUUID: responseTenant,
+		LogURL:     startResp.GetLogUrl(),
 	}, nil
 }
 
 func startSessionViaHTTP(ctx context.Context, artifactURI string) (*localSession, error) {
-	tenantNumeric, err := strconv.ParseUint(strings.TrimSpace(devWatchOpts.tenantID), 10, 64)
-	if err != nil {
-		return nil, fmt.Errorf("tenant-id must be numeric when --host-api is set: %w", err)
+	tenantUUID := strings.TrimSpace(devWatchOpts.tenantUUID)
+	if tenantUUID == "" {
+		return nil, errors.New("tenant-uuid is required when --host-api is set")
 	}
 	payload := localInstallHTTPRequest{
-		TenantID:     tenantNumeric,
 		DeveloperID:  devWatchOpts.developerID,
 		ArtifactURI:  artifactURI,
 		FeatureFlags: devWatchOpts.featureFlags,
@@ -463,9 +469,9 @@ func startSessionViaHTTP(ctx context.Context, artifactURI string) (*localSession
 		return nil, errors.New("host API returned empty session id")
 	}
 	return &localSession{
-		SessionID: resp.Data.SessionID,
-		TenantID:  resp.Data.TenantID,
-		LogURL:    resp.Data.LogURL,
+		SessionID:  resp.Data.SessionID,
+		TenantUUID: strings.TrimSpace(resp.Data.TenantUUID),
+		LogURL:     resp.Data.LogURL,
 	}, nil
 }
 
@@ -513,6 +519,9 @@ func doHostAPIRequest(ctx context.Context, method, path string, payload any, des
 	if payload != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
+	if tenant := strings.TrimSpace(devWatchOpts.tenantUUID); tenant != "" {
+		req.Header.Set("X-Tenant-UUID", tenant)
+	}
 	token := strings.TrimSpace(devWatchOpts.token)
 	if token != "" {
 		if !strings.HasPrefix(strings.ToLower(token), "bearer ") {
@@ -540,7 +549,6 @@ func doHostAPIRequest(ctx context.Context, method, path string, payload any, des
 }
 
 type localInstallHTTPRequest struct {
-	TenantID     uint64   `json:"tenantId"`
 	DeveloperID  uint64   `json:"developerId"`
 	ArtifactURI  string   `json:"artifactUri"`
 	FeatureFlags []string `json:"featureFlags"`
@@ -553,9 +561,10 @@ type localInstallHTTPResponse struct {
 }
 
 type localInstallHTTPData struct {
-	SessionID string `json:"sessionId"`
-	TenantID  uint64 `json:"tenantId"`
-	LogURL    string `json:"logUrl"`
+	SessionID  string `json:"sessionId"`
+	TenantUUID string `json:"tenant_uuid"`
+	Status     string `json:"status"`
+	LogURL     string `json:"logUrl"`
 }
 
 type localReloadPayload struct {

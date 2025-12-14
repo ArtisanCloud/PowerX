@@ -54,7 +54,7 @@ sequenceDiagram
 # Key Interactions & Contracts
 
 - `POST /events/publish`、`POST /events/bulk`.
-- Headers：`x-idempotency-key`, `x-tenant-id`, `x-trace-id`.
+- Headers：`x-idempotency-key`, `x-tenant-uuid`, `x-trace-id`.
 - `POST /events/ack`, `POST /events/replay`.
 - Config：`event_schema_registry`, `event_retry_policies.yaml`.
 

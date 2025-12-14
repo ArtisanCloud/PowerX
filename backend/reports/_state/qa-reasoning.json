@@ -1,6 +1,6 @@
 {
   "traceId": "",
-  "tenantId": "",
+  "tenant_uuid": "",
   "intent": "",
   "candidateTotal": 0,
   "degradeCount": 0,

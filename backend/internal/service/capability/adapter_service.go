@@ -58,7 +58,7 @@ type RetryableError interface {
 type TransportRequest struct {
 	RequestID      string
 	TraceID        string
-	TenantID       uint64
+	TenantUUID     string
 	ActorID        string
 	CapabilityKey  string
 	Version        string
@@ -364,8 +364,8 @@ func (s *AdapterService) Stream(ctx context.Context, req *TransportRequest, sink
 }
 
 // HealthCheck 调用适配器的健康检查并持久化结果。
-func (s *AdapterService) HealthCheck(ctx context.Context, tenantID uint64, capabilityKey, version string, transport capb.TransportKind) (*TransportHealthReport, error) {
-	contract, err := s.contractRepo.FindByKeyVersion(ctx, tenantID, capabilityKey, version, false)
+func (s *AdapterService) HealthCheck(ctx context.Context, tenantUUID string, capabilityKey, version string, transport capb.TransportKind) (*TransportHealthReport, error) {
+	contract, err := s.contractRepo.FindByKeyVersion(ctx, strings.TrimSpace(tenantUUID), capabilityKey, version, false)
 	if err != nil {
 		return nil, err
 	}
@@ -409,8 +409,8 @@ func (s *AdapterService) Close(ctx context.Context) error {
 }
 
 // ListProfiles 列出指定能力版本的传输配置。
-func (s *AdapterService) ListProfiles(ctx context.Context, tenantID uint64, capabilityKey, version string) ([]TransportProfile, error) {
-	contract, err := s.contractRepo.FindByKeyVersion(ctx, tenantID, capabilityKey, version, false)
+func (s *AdapterService) ListProfiles(ctx context.Context, tenantUUID string, capabilityKey, version string) ([]TransportProfile, error) {
+	contract, err := s.contractRepo.FindByKeyVersion(ctx, strings.TrimSpace(tenantUUID), capabilityKey, version, false)
 	if err != nil {
 		return nil, err
 	}
@@ -436,12 +436,12 @@ func (s *AdapterService) ListProfiles(ctx context.Context, tenantID uint64, capa
 }
 
 // ReplaceProfiles 覆盖指定能力版本的传输配置。
-func (s *AdapterService) ReplaceProfiles(ctx context.Context, tenantID uint64, capabilityKey, version string, profiles []capability.TransportProfile) error {
-	contract, err := s.contractRepo.FindByKeyVersion(ctx, tenantID, capabilityKey, version, false)
+func (s *AdapterService) ReplaceProfiles(ctx context.Context, tenantUUID string, capabilityKey, version string, profiles []capability.TransportProfile) error {
+	contract, err := s.contractRepo.FindByKeyVersion(ctx, strings.TrimSpace(tenantUUID), capabilityKey, version, false)
 	if err != nil {
 		return err
 	}
-	models := toModelTransportProfiles(tenantID, contract.ID, capabilityKey, profiles)
+	models := toModelTransportProfiles(strings.TrimSpace(tenantUUID), contract.ID, capabilityKey, profiles)
 	if err := s.transportRepo.DeleteByContract(ctx, contract.ID); err != nil {
 		return err
 	}
@@ -452,8 +452,8 @@ func (s *AdapterService) ReplaceProfiles(ctx context.Context, tenantID uint64, c
 }
 
 // UpdateHealthStatus 直接写入健康状态（用于外部上报）。
-func (s *AdapterService) UpdateHealthStatus(ctx context.Context, tenantID uint64, capabilityKey, version string, transport capb.TransportKind, report *TransportHealthReport) error {
-	contract, err := s.contractRepo.FindByKeyVersion(ctx, tenantID, capabilityKey, version, false)
+func (s *AdapterService) UpdateHealthStatus(ctx context.Context, tenantUUID string, capabilityKey, version string, transport capb.TransportKind, report *TransportHealthReport) error {
+	contract, err := s.contractRepo.FindByKeyVersion(ctx, strings.TrimSpace(tenantUUID), capabilityKey, version, false)
 	if err != nil {
 		return err
 	}

@@ -1,0 +1,68 @@
+# PrometheusRule for Tenant UUID-only GA KPIs
+# 可直接交由 Prometheus Operator 或 Alertmanager 载入。
+# 默认路由应把 namespace=tenant-uuid 字段映射到 #tenant-uuid-alerts + PagerDuty 服务。
+groups:
+  - name: tenant-uuid-ga
+    rules:
+      - alert: TenantUUIDLowRatio
+        expr: |
+          sum(rate(tenant_uuid_only_request_total[5m])) /
+          (sum(rate(tenant_uuid_only_request_total[5m])) + sum(rate(tenant_header_reject_total[5m])))
+            < 0.995
+        for: 5m
+        labels:
+          severity: critical
+          team: tenant-identity
+          namespace: tenant-uuid
+        annotations:
+          summary: "UUID-only 请求占比下降 ({{ $value | printf \"%.2f\" }})"
+          description: |
+            UUID-only 请求占比低于 99.5%。检查 Web Admin/CLI/插件版本是否回退，必要时参考 docs/operations/tenant-uuid-upgrade.md#观测性。
+
+      - alert: TenantLegacyHeaderReject
+        expr: sum(rate(tenant_header_reject_total[5m])) > 0
+        for: 1m
+        labels:
+          severity: warning
+          team: tenant-identity
+          namespace: tenant-uuid
+        annotations:
+          summary: "检测到 legacy header 请求"
+          description: |
+            最近 5 分钟内有客户端发送 X-Tenant-ID。请在 #tenant-uuid-migration 标记相关租户并联系 Support 协助升级。
+
+      - alert: TenantUUIDSchemaDrift
+        expr: sum(tenant_uuid_schema_drift) > 0
+        for: 0m
+        labels:
+          severity: critical
+          team: db-infra
+          namespace: tenant-uuid
+        annotations:
+          summary: "仍存在包含 tenant_id 列的表"
+          description: |
+            Schema drift 检测到 {{ $value }} 个表仍含 tenant_id。运行 scripts/ops/tenant-id-cleanup.sh plan 并按 playbook 回滚或补齐迁移。
+
+      - alert: TenantUUIDMissingColumns
+        expr: sum(tenant_uuid_tables_without_uuid) > 0
+        for: 0m
+        labels:
+          severity: critical
+          team: db-infra
+          namespace: tenant-uuid
+        annotations:
+          summary: "部分表缺少 tenant_uuid 列"
+          description: |
+            有 {{ $value }} 个表尚未创建 tenant_uuid 列。请执行 001_add_tenant_uuid_columns.sql 并重新回填。
+
+      - alert: TenantUUIDClientUpgradeLow
+        expr: sum(clients_uuid_only) / sum(clients_total) < 0.90
+        for: 24h
+        labels:
+          severity: warning
+          team: devrel
+          namespace: tenant-uuid
+        annotations:
+          summary: "客户端 UUID-only 升级率低于 90%"
+          description: |
+            CLI/Web Admin/插件客户端的 UUID-only 自检通过率过低。参考 docs/releases/tenant-uuid-ga.md 触达客户并推动升级。

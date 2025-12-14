@@ -77,7 +77,7 @@ sequenceDiagram
 - `GET /auth/sso/redirect` — 生成 `state`、`nonce` 并缓存到 Redis，返回 IdP 授权地址。
 - `GET /auth/sso/callback` — 校验 `state`、`nonce`，处理错误码 `access_denied`、`interaction_required` 等。
 - `POST /idp/token` — 授权码交换为 Access/ID Token，超时 3 秒，失败重试 1 次。
-- `POST /internal/sessions` — 写入 Session Store，绑定 `tenant_id`、设备指纹、IP。
+- `POST /internal/sessions` — 写入 Session Store，绑定 `tenant_uuid`、设备指纹、IP。
 - `EVENT security.login.success/failure` — 审计事件，包含租户、用户、来源 IP、UA、耗时。
 
 # Usecase Links

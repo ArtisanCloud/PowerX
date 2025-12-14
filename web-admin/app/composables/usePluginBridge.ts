@@ -1,6 +1,9 @@
 import { computed, watch } from "vue";
 import { useI18n } from "#imports";
+import { storeToRefs } from "pinia";
 import { useApiClient } from "~/composables/api";
+import { useUserStore } from "~/stores/user";
+import { getStoredTenantUUID } from "~/utils/tenant-context";
 
 type PluginMeta = {
   pluginId: string
@@ -35,6 +38,7 @@ type PowerXToPlugin =
   ctx?: string;
   ctxSig?: string;
   ctxJwt?: string;
+  tenantUuid?: string;
 }
 
 type PluginToPowerX =
@@ -127,6 +131,8 @@ const fetchCtxOnce = () => {
 export function usePluginBridge() {
   const registry = useState<Map<HTMLIFrameElement, PluginMeta>>('px:iframes', () => new Map())
   const auth = useAuth()
+  const userStore = useUserStore()
+  const { currentTenantUuid } = storeToRefs(userStore)
 
   const {locale} = useI18n()
   const colorMode = useColorMode()
@@ -167,6 +173,9 @@ export function usePluginBridge() {
     sendTo(m, payload)
   }
 
+  const resolveTenantUUID = () =>
+    currentTenantUuid.value || getStoredTenantUUID() || undefined
+
   const buildAuthPayload = (pluginId?: string): PowerXToPlugin | null => {
     if (!process.client) return null
     const accessToken = localStorage.getItem('access_token') || ''
@@ -183,6 +192,7 @@ export function usePluginBridge() {
     const ctx = (window as any).__PX_CTX__ || localStorage.getItem('px_ctx') || readCookie('px_ctx') || undefined
     const ctxSig = (window as any).__PX_CTX_SIG__ || localStorage.getItem('px_ctx_sig') || readCookie('px_ctx_sig') || undefined
     const ctxJwt = (window as any).__PX_CTX_JWT__ || localStorage.getItem('px_ctx_jwt') || readCookie('px_ctx_jwt') || undefined
+    const tenantUuid = resolveTenantUUID()
 
     if (!accessToken || expiresIn <= 0) {
       log('skip auth-token broadcast: missing or expired', { pluginId, expiresAt: expiresAtRaw })
@@ -203,6 +213,7 @@ export function usePluginBridge() {
       ctx,
       ctxSig,
       ctxJwt,
+      tenantUuid,
     }
     log('prepared auth-token', { pluginId, token: maskToken(accessToken), expiresIn })
     return payload
@@ -270,6 +281,10 @@ export function usePluginBridge() {
     )
     watch(
       () => auth.token.value,
+      () => broadcastAuthToken()
+    )
+    watch(
+      () => currentTenantUuid.value,
       () => broadcastAuthToken()
     )
   }

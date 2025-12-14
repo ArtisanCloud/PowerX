@@ -12,6 +12,7 @@ import (
 
 	pbintegration "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/integration_gateway/v1"
 	manager "github.com/ArtisanCloud/PowerX/internal/service/integration_gateway/manager"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -33,8 +34,12 @@ func (s *AdminServer) CreateRoute(ctx context.Context, req *pbintegration.Create
 		return nil, status.Error(codes.InvalidArgument, "request is required")
 	}
 
+	tenantUUID, err := tenantUUIDFromRequest(ctx, req.GetTenantUuid())
+	if err != nil {
+		return nil, err
+	}
 	route, err := s.svc.CreateRoute(ctx, manager.CreateRouteInput{
-		TenantID:     strings.TrimSpace(req.GetTenantId()),
+		TenantUUID:   tenantUUID,
 		Actor:        "grpc-admin",
 		RouteSlug:    req.GetRouteSlug(),
 		ToolGrantIDs: req.GetToolGrantIds(),
@@ -86,7 +91,7 @@ func (s *AdminServer) UpdateRoute(ctx context.Context, req *pbintegration.Update
 
 	route, err := s.svc.UpdateRoute(ctx, manager.UpdateRouteInput{
 		RouteID:      routeID,
-		TenantID:     "",
+		TenantUUID:   "",
 		Actor:        "grpc-admin",
 		Version:      req.GetExpectVersion(),
 		ToolGrantIDs: req.GetToolGrantIds(),
@@ -106,8 +111,12 @@ func (s *AdminServer) UpdateRoute(ctx context.Context, req *pbintegration.Update
 }
 
 func (s *AdminServer) ListRoutes(ctx context.Context, req *pbintegration.ListRoutesRequest) (*pbintegration.ListRoutesResponse, error) {
-	if req == nil || strings.TrimSpace(req.GetTenantId()) == "" {
-		return nil, status.Error(codes.InvalidArgument, "tenant_id is required")
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "request is required")
+	}
+	tenantUUID, err := tenantUUIDFromRequest(ctx, req.GetTenantUuid())
+	if err != nil {
+		return nil, err
 	}
 
 	lifecycle := ""
@@ -121,7 +130,7 @@ func (s *AdminServer) ListRoutes(ctx context.Context, req *pbintegration.ListRou
 	}
 
 	routes, total, err := s.svc.ListRoutes(ctx, manager.ListRoutesInput{
-		TenantID:       strings.TrimSpace(req.GetTenantId()),
+		TenantUUID:     tenantUUID,
 		CapabilityID:   strings.TrimSpace(req.GetCapabilityId()),
 		LifecycleState: lifecycle,
 		Page:           int(req.GetPage()),
@@ -159,11 +168,11 @@ func (s *AdminServer) ChangeLifecycle(ctx context.Context, req *pbintegration.Ch
 	}
 
 	route, err := s.svc.ChangeLifecycle(ctx, manager.ChangeLifecycleInput{
-		RouteID:  routeID,
-		TenantID: "",
-		Actor:    "grpc-admin",
-		Action:   action,
-		Reason:   req.GetReason(),
+		RouteID:    routeID,
+		TenantUUID: "",
+		Actor:      "grpc-admin",
+		Action:     action,
+		Reason:     req.GetReason(),
 	})
 	if err != nil {
 		return nil, translateError(err)
@@ -231,7 +240,7 @@ func protoToEventTopics(cfg *pbintegration.EventTopicConfig) *manager.EventTopic
 func routeToProto(route manager.Route) *pbintegration.IntegrationRoute {
 	resp := &pbintegration.IntegrationRoute{
 		RouteId:        route.RouteID.String(),
-		TenantId:       route.TenantID,
+		TenantUuid:     route.TenantUUID,
 		RouteSlug:      route.RouteSlug,
 		CapabilityId:   route.CapabilityID,
 		ToolGrantIds:   route.ToolGrantIDs,
@@ -264,7 +273,7 @@ func routeToProto(route manager.Route) *pbintegration.IntegrationRoute {
 func routeToSummaryProto(route manager.Route) *pbintegration.IntegrationRouteSummary {
 	summary := &pbintegration.IntegrationRouteSummary{
 		RouteId:      route.RouteID.String(),
-		TenantId:     route.TenantID,
+		TenantUuid:   route.TenantUUID,
 		RouteSlug:    route.RouteSlug,
 		CapabilityId: route.CapabilityID,
 		Channels:     route.Channels,
@@ -310,6 +319,25 @@ func rateLimitToProto(policy manager.RateLimitPolicy) *pbintegration.RateLimitPo
 		resp.Scope = pbintegration.RateLimitPolicy_PER_ROUTE_PER_TENANT
 	}
 	return resp
+}
+
+func tenantUUIDFromRequest(ctx context.Context, candidate string) (string, error) {
+	if trimmed := strings.TrimSpace(candidate); trimmed != "" {
+		canonical, err := reqctx.CanonicalTenantUUID(trimmed)
+		if err != nil {
+			return "", status.Error(codes.InvalidArgument, "tenant uuid is invalid")
+		}
+		return canonical, nil
+	}
+	ctxUUID := strings.TrimSpace(reqctx.GetTenantUUID(ctx))
+	if ctxUUID == "" {
+		return "", status.Error(codes.InvalidArgument, "tenant uuid is required")
+	}
+	canonical, err := reqctx.CanonicalTenantUUID(ctxUUID)
+	if err != nil {
+		return "", status.Error(codes.InvalidArgument, "tenant uuid is invalid")
+	}
+	return canonical, nil
 }
 
 func eventTopicsToProto(topics manager.EventTopics) *pbintegration.EventTopicConfig {

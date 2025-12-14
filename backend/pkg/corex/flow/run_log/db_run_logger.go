@@ -79,7 +79,7 @@ func (l *DBRunLogger) handle(e models.AgentTaskEvent) {
 			PlanID:     e.PlanID,
 			RequestID:  reqID,
 			TraceID:    traceID,
-			TenantID:   e.TenantID,
+			TenantUUID: e.TenantUUID,
 			UserID:     e.UserID,
 			CustomerID: e.CustomerID,
 			Status:     status,
@@ -103,7 +103,7 @@ func (l *DBRunLogger) handle(e models.AgentTaskEvent) {
 	case "task.start", "task.ok", "task.err":
 		// 如需确保 plan 头存在，可在此冪等 UpsertStart 一次（可选）
 		// _ = l.planRepo.UpsertStart(context.Background(), &models.AgentPlanRun{
-		//   PlanID: e.PlanID, TenantID: e.TenantID, UserID: e.UserID, CustomerID: e.CustomerID,
+		//   PlanID: e.PlanID, TenantUUID: e.TenantUUID, UserID: e.UserID, CustomerID: e.CustomerID,
 		//   Status: "running", StartedAt: nzTime(e.Ts, time.Now()),
 		// })
 		_ = l.eventRepo.Insert(context.Background(), &e)

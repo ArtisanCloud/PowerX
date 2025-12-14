@@ -18,9 +18,9 @@ import (
 )
 
 type adapterService interface {
-	ListProfiles(ctx context.Context, tenantID uint64, capabilityKey, version string) ([]svc.TransportProfile, error)
-	ReplaceProfiles(ctx context.Context, tenantID uint64, capabilityKey, version string, profiles []capvalidator.TransportProfile) error
-	HealthCheck(ctx context.Context, tenantID uint64, capabilityKey, version string, transport capb.TransportKind) (*svc.TransportHealthReport, error)
+	ListProfiles(ctx context.Context, tenantUUID string, capabilityKey, version string) ([]svc.TransportProfile, error)
+	ReplaceProfiles(ctx context.Context, tenantUUID string, capabilityKey, version string, profiles []capvalidator.TransportProfile) error
+	HealthCheck(ctx context.Context, tenantUUID string, capabilityKey, version string, transport capb.TransportKind) (*svc.TransportHealthReport, error)
 }
 
 // AdapterHandler 管理传输配置的 HTTP handler。
@@ -52,11 +52,14 @@ type transportProfileView struct {
 
 // ListTransportProfiles 查询传输配置列表。
 func (h *AdapterHandler) ListTransportProfiles(c *gin.Context) {
-	tenantID := tenantIDFromRequest(c, nil)
+	tenantUUID, ok := requireTenantUUID(c)
+	if !ok {
+		return
+	}
 	capabilityKey := c.Param("capabilityKey")
 	version := c.Param("version")
 
-	profiles, err := h.svc.ListProfiles(c.Request.Context(), tenantID, capabilityKey, version)
+	profiles, err := h.svc.ListProfiles(c.Request.Context(), tenantUUID, capabilityKey, version)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			dto.ResponseError(c, http.StatusNotFound, "传输配置不存在", err)
@@ -79,12 +82,15 @@ func (h *AdapterHandler) UpsertTransportProfiles(c *gin.Context) {
 		return
 	}
 
-	tenantID := tenantIDFromRequest(c, nil)
+	tenantUUID, ok := requireTenantUUID(c)
+	if !ok {
+		return
+	}
 	capabilityKey := c.Param("capabilityKey")
 	version := c.Param("version")
 
 	profiles := toTransportProfiles(reqBody.Transports)
-	if err := h.svc.ReplaceProfiles(c.Request.Context(), tenantID, capabilityKey, version, profiles); err != nil {
+	if err := h.svc.ReplaceProfiles(c.Request.Context(), tenantUUID, capabilityKey, version, profiles); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			dto.ResponseError(c, http.StatusNotFound, "能力契约不存在", err)
 			return
@@ -93,7 +99,7 @@ func (h *AdapterHandler) UpsertTransportProfiles(c *gin.Context) {
 		return
 	}
 
-	updated, err := h.svc.ListProfiles(c.Request.Context(), tenantID, capabilityKey, version)
+	updated, err := h.svc.ListProfiles(c.Request.Context(), tenantUUID, capabilityKey, version)
 	if err != nil {
 		writeInternalError(c, err)
 		return
@@ -106,7 +112,10 @@ func (h *AdapterHandler) UpsertTransportProfiles(c *gin.Context) {
 
 // RunHealthCheck 执行健康检查并返回结果。
 func (h *AdapterHandler) RunHealthCheck(c *gin.Context) {
-	tenantID := tenantIDFromRequest(c, nil)
+	tenantUUID, ok := requireTenantUUID(c)
+	if !ok {
+		return
+	}
 	capabilityKey := c.Param("capabilityKey")
 	version := c.Param("version")
 	transportRaw := c.Param("transport")
@@ -117,7 +126,7 @@ func (h *AdapterHandler) RunHealthCheck(c *gin.Context) {
 		return
 	}
 
-	report, err := h.svc.HealthCheck(c.Request.Context(), tenantID, capabilityKey, version, kind)
+	report, err := h.svc.HealthCheck(c.Request.Context(), tenantUUID, capabilityKey, version, kind)
 	if err != nil {
 		switch {
 		case errors.Is(err, gorm.ErrRecordNotFound):

@@ -12,7 +12,7 @@ var (
 	ErrRoleNotFound     = errors.New("role not found")
 	ErrForbidden        = errors.New("forbidden: insufficient privilege")
 	ErrInvalidScope     = errors.New("invalid scope (system|tenant)")
-	ErrTenantRequired   = errors.New("tenant role requires tenant_id (>0)")
+	ErrTenantRequired   = errors.New("tenant role requires tenant_uuid")
 	ErrRoleCodeConflict = errors.New("role code already exists in scope")
 )
 

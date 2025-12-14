@@ -20,6 +20,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const tenantFlowUUID = "35e8a2b2-38f5-4e7f-9075-0bc96d0e1907"
+
 func TestTenantInvocationFlow(t *testing.T) {
 	env := testenv.New(t)
 	t.Cleanup(env.Close)
@@ -27,7 +29,7 @@ func TestTenantInvocationFlow(t *testing.T) {
 	ctx := context.Background()
 
 	_, err := env.Service.CreateRoute(ctx, manager.CreateRouteInput{
-		TenantID:     "tenant-flow",
+		TenantUUID:   tenantFlowUUID,
 		Actor:        "tenant-flow-test",
 		RouteSlug:    "flow-sync",
 		CapabilityID: "cap.flow.sync",
@@ -86,7 +88,7 @@ func TestTenantInvocationFlow(t *testing.T) {
 	defer unsub()
 
 	result, err := tenantSvc.Invoke(ctx, tenant.InvokeInput{
-		TenantID:  "tenant-flow",
+		TenantUUID: tenantFlowUUID,
 		RouteSlug: "flow-sync",
 		Payload:   map[string]any{"order_id": "o-1"},
 	})

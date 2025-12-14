@@ -82,10 +82,10 @@ func (r *IntegrationRouteRepository) UpdateWithVersion(
 }
 
 // GetBySlug 根据租户与别名获取路由。
-func (r *IntegrationRouteRepository) GetBySlug(ctx context.Context, tenantID, slug string) (*models.IntegrationRoute, error) {
+func (r *IntegrationRouteRepository) GetBySlug(ctx context.Context, tenantUUID, slug string) (*models.IntegrationRoute, error) {
 	var route models.IntegrationRoute
 	err := r.db.WithContext(ctx).
-		Where("tenant_id = ? AND route_slug = ?", tenantID, slug).
+		Where("tenant_uuid = ? AND route_slug = ?", tenantUUID, slug).
 		First(&route).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -112,9 +112,9 @@ func (r *IntegrationRouteRepository) GetByUUID(ctx context.Context, routeUUID uu
 }
 
 // ListByTenant 按租户分页返回路由列表。
-func (r *IntegrationRouteRepository) ListByTenant(ctx context.Context, tenantID string, offset, limit int) ([]models.IntegrationRoute, int64, error) {
+func (r *IntegrationRouteRepository) ListByTenant(ctx context.Context, tenantUUID string, offset, limit int) ([]models.IntegrationRoute, int64, error) {
 	query := r.db.WithContext(ctx).Model(&models.IntegrationRoute{}).
-		Where("tenant_id = ?", tenantID).
+		Where("tenant_uuid = ?", tenantUUID).
 		Order("route_slug ASC")
 
 	var total int64

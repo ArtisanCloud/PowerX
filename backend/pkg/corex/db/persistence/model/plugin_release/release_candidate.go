@@ -13,7 +13,7 @@ import (
 type PluginReleaseCandidate struct {
 	coremodel.PowerUUIDModel
 
-	TenantID         string         `gorm:"column:tenant_id;type:varchar(128);not null;index:idx_plugin_release_candidate_tenant_plugin_version,priority:1" json:"tenant_id"`
+	TenantUUID       string         `gorm:"column:tenant_uuid;type:varchar(128);not null;index:idx_plugin_release_candidate_tenant_plugin_version,priority:1" json:"tenant_uuid"`
 	PluginID         string         `gorm:"column:plugin_id;type:varchar(128);not null;index:idx_plugin_release_candidate_tenant_plugin_version,priority:2" json:"plugin_id"`
 	Version          string         `gorm:"column:version;type:varchar(64);not null;index:idx_plugin_release_candidate_tenant_plugin_version,priority:3" json:"version"`
 	BuildArtifactURI string         `gorm:"column:build_artifact_uri;type:text;not null" json:"build_artifact_uri"`
@@ -44,7 +44,7 @@ func (PluginReleaseCandidate) TableName() string {
 
 // EnsureUniqueConstraint returns the fields that must remain unique across records.
 func (PluginReleaseCandidate) EnsureUniqueConstraint() []string {
-	return []string{"tenant_id", "plugin_id", "version"}
+	return []string{"tenant_uuid", "plugin_id", "version"}
 }
 
 const (

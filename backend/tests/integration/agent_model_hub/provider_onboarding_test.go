@@ -20,17 +20,12 @@ func TestProviderOnboardingIntegration(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	env := ammatestenv.New(t)
+	env.MustInsertTenant(3001, ammatestenv.AgentModelHubTenantUUID)
 
 	engine := gin.New()
 	public := engine.Group("/api")
 	protected := engine.Group("/api")
-	protected.Use(func(c *gin.Context) {
-		if c.GetHeader("Authorization") == "" {
-			c.AbortWithStatus(http.StatusUnauthorized)
-			return
-		}
-		c.Next()
-	})
+	protected.Use(ammatestenv.RequireAgentModelHubAuth())
 
 	deps := &shared.Deps{DB: env.DB}
 	agentmodelhubhttp.RegisterAPIRoutes(public, protected, deps)
@@ -42,16 +37,14 @@ func TestProviderOnboardingIntegration(t *testing.T) {
 		"primary_endpoint": "https://example.invalid",
 		"regions":          []string{"us"},
 		"tenantWhitelist": []map[string]string{
-			{"tenantId": "demo", "environment": "staging"},
+			{"tenant_uuid": ammatestenv.AgentModelHubTenantUUID, "environment": "staging"},
 		},
 		"credentials": map[string]string{
 			"api_key": "sk-integration-test",
 		},
 	})))
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer token")
-	rr := httptest.NewRecorder()
-	engine.ServeHTTP(rr, req)
+	rr := serveAgentModelHubRequest(t, engine, req)
 	require.Equal(t, http.StatusAccepted, rr.Code)
 
 	var reg struct {
@@ -79,17 +72,13 @@ func TestProviderOnboardingIntegration(t *testing.T) {
 		},
 	})))
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer token")
-	rr = httptest.NewRecorder()
-	engine.ServeHTTP(rr, req)
+	rr = serveAgentModelHubRequest(t, engine, req)
 	require.Equal(t, http.StatusAccepted, rr.Code)
 
 	// publish should still be blocked
 	req = httptest.NewRequest(http.MethodPost, "/api/internal/providers/"+providerID+"/publish", bytes.NewReader(mustJSON(t, publishPayload)))
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer token")
-	rr = httptest.NewRecorder()
-	engine.ServeHTTP(rr, req)
+	rr = serveAgentModelHubRequest(t, engine, req)
 	require.Equal(t, http.StatusBadRequest, rr.Code)
 
 	// validate with passing report
@@ -105,17 +94,13 @@ func TestProviderOnboardingIntegration(t *testing.T) {
 		},
 	})))
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer token")
-	rr = httptest.NewRecorder()
-	engine.ServeHTTP(rr, req)
+	rr = serveAgentModelHubRequest(t, engine, req)
 	require.Equal(t, http.StatusAccepted, rr.Code)
 
 	// publish succeeds now
 	req = httptest.NewRequest(http.MethodPost, "/api/internal/providers/"+providerID+"/publish", bytes.NewReader(mustJSON(t, publishPayload)))
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer token")
-	rr = httptest.NewRecorder()
-	engine.ServeHTTP(rr, req)
+	rr = serveAgentModelHubRequest(t, engine, req)
 	require.Equal(t, http.StatusOK, rr.Code)
 }
 

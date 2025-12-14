@@ -132,7 +132,7 @@ func splitAlerts(raw string) []string {
 
 func ensure(ok bool, msg string) {
 	if !ok {
-		log.Fatalf(msg)
+		log.Fatalf("%s", msg)
 	}
 }
 

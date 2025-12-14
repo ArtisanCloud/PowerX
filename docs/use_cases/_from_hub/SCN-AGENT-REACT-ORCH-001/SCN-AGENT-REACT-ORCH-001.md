@@ -113,7 +113,7 @@ sequenceDiagram
 # Key Interactions & Contracts
 
 - **APIs / Events**
-  - `POST /internal/react/session`：创建会话与追踪 ID，Body 包含 `tenant_id`, `question`, `risk_profile`。
+  - `POST /internal/react/session`：创建会话与追踪 ID，Body 包含 `tenant_uuid`, `question`, `risk_profile`。
   - `POST /internal/knowledge/search`：支持 `mode=[vector|keyword|graph|hybrid]`，返回片段、评分、引用 ID。
   - `POST /internal/react/action` 与 `POST /internal/react/action/{id}/approve`：Action Router 提交工具调用与风控审批。
   - `EVENT react.chain.state.changed`：广播 Thought/Action/Observation 状态，供 Telemetry/Audit 订阅。

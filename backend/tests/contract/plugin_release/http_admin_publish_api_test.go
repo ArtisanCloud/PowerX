@@ -14,7 +14,6 @@ import (
 
 	adminhandler "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/plugin_release"
 	models "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/plugin_release"
-	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
@@ -27,22 +26,10 @@ func TestAdminPublishAPIContract(t *testing.T) {
 
 	engine := gin.New()
 	protected := engine.Group("/api/admin")
-	protected.Use(func(c *gin.Context) {
-		if c.GetHeader("Authorization") == "" {
-			c.AbortWithStatus(http.StatusUnauthorized)
-			return
-		}
-		ctx := reqctx.WithClaims(c.Request.Context(), &reqctx.CoreXClaims{
-			IsRoot: true,
-			Roles:  []string{"system_admin"},
-		})
-		c.Request = c.Request.WithContext(ctx)
-		c.Next()
-	})
+	protected.Use(requirePluginAdminAuth(publishCLITenantUUID))
 	adminhandler.RegisterAPIRoutes(nil, protected, deps)
 
 	createPayload := map[string]any{
-		"tenantId":         "tenant-cli",
 		"pluginId":         "com.powerx.helloworld",
 		"version":          "0.1.0",
 		"buildArtifactUri": "s3://objects/plugins/com.powerx.helloworld/0.1.0/package.tar.gz",
@@ -61,10 +48,8 @@ func TestAdminPublishAPIContract(t *testing.T) {
 	require.NoError(t, err)
 
 	createReq := httptest.NewRequest(http.MethodPost, "/api/admin/internal/plugins/releases", bytes.NewReader(body))
-	createReq.Header.Set("Authorization", "Bearer admin")
 	createReq.Header.Set("Content-Type", "application/json")
-	createResp := httptest.NewRecorder()
-	engine.ServeHTTP(createResp, createReq)
+	createResp := servePluginAdminRequest(t, engine, createReq, publishCLITenantUUID)
 	require.Equal(t, http.StatusCreated, createResp.Code)
 
 	var createData struct {
@@ -73,7 +58,7 @@ func TestAdminPublishAPIContract(t *testing.T) {
 			CandidateID    string            `json:"candidateId"`
 			ApprovalStatus string            `json:"approvalStatus"`
 			GateStatus     string            `json:"gateStatus"`
-			TenantID       string            `json:"tenantId"`
+			TenantUUID     string            `json:"tenant_uuid"`
 			PluginID       string            `json:"pluginId"`
 			Version        string            `json:"version"`
 			Labels         map[string]string `json:"labels"`
@@ -82,16 +67,14 @@ func TestAdminPublishAPIContract(t *testing.T) {
 	}
 	require.NoError(t, json.Unmarshal(createResp.Body.Bytes(), &createData))
 	require.NotEmpty(t, createData.Data.CandidateID)
-	require.Equal(t, "tenant-cli", createData.Data.TenantID)
+	require.Equal(t, publishCLITenantUUID, createData.Data.TenantUUID)
 	require.Equal(t, "com.powerx.helloworld", createData.Data.PluginID)
 	require.Equal(t, "0.1.0", createData.Data.Version)
 	require.Equal(t, "submitted", createData.Data.ApprovalStatus)
 	require.Equal(t, "pending", createData.Data.GateStatus)
 
 	getReq := httptest.NewRequest(http.MethodGet, "/api/admin/internal/plugins/releases/"+createData.Data.CandidateID, nil)
-	getReq.Header.Set("Authorization", "Bearer admin")
-	getResp := httptest.NewRecorder()
-	engine.ServeHTTP(getResp, getReq)
+	getResp := servePluginAdminRequest(t, engine, getReq, publishCLITenantUUID)
 	require.Equal(t, http.StatusOK, getResp.Code)
 
 	var getData struct {
@@ -120,10 +103,8 @@ func TestAdminPublishAPIContract(t *testing.T) {
 	require.NoError(t, err)
 
 	patchReq := httptest.NewRequest(http.MethodPatch, "/api/admin/internal/plugins/releases/"+createData.Data.CandidateID, bytes.NewReader(patchBody))
-	patchReq.Header.Set("Authorization", "Bearer admin")
 	patchReq.Header.Set("Content-Type", "application/json")
-	patchResp := httptest.NewRecorder()
-	engine.ServeHTTP(patchResp, patchReq)
+	patchResp := servePluginAdminRequest(t, engine, patchReq, publishCLITenantUUID)
 	require.Equal(t, http.StatusOK, patchResp.Code)
 
 	var patchData struct {
@@ -155,10 +136,8 @@ func TestAdminPublishAPIContract(t *testing.T) {
 	require.NoError(t, writer.Close())
 
 	artifactReq := httptest.NewRequest(http.MethodPost, "/api/admin/internal/plugins/releases/"+createData.Data.CandidateID+"/artifacts", &buf)
-	artifactReq.Header.Set("Authorization", "Bearer admin")
 	artifactReq.Header.Set("Content-Type", writer.FormDataContentType())
-	artifactResp := httptest.NewRecorder()
-	engine.ServeHTTP(artifactResp, artifactReq)
+	artifactResp := servePluginAdminRequest(t, engine, artifactReq, publishCLITenantUUID)
 	require.Equal(t, http.StatusCreated, artifactResp.Code)
 
 	var artifactData struct {
@@ -185,10 +164,14 @@ func TestAdminPublishAPIContract(t *testing.T) {
 	require.Equal(t, "sig-cli-publish", offlinePackage.SignatureFingerprint)
 
 	listReq := httptest.NewRequest(http.MethodGet, "/api/admin/internal/plugins/releases?page=1&size=10&pluginId=com.powerx.helloworld", nil)
-	listReq.Header.Set("Authorization", "Bearer admin")
-	listResp := httptest.NewRecorder()
-	engine.ServeHTTP(listResp, listReq)
+	listResp := servePluginAdminRequest(t, engine, listReq, publishCLITenantUUID)
 	require.Equal(t, http.StatusOK, listResp.Code)
+
+	missingHeaderReq := httptest.NewRequest(http.MethodGet, "/api/admin/internal/plugins/releases", nil)
+	missingHeaderReq.Header.Set("Authorization", "Bearer admin")
+	missingResp := httptest.NewRecorder()
+	engine.ServeHTTP(missingResp, missingHeaderReq)
+	require.Equal(t, http.StatusUnauthorized, missingResp.Code)
 
 	var listData struct {
 		Code int `json:"code"`

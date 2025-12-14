@@ -9,7 +9,6 @@ import (
 
 // SubscriptionOffset 记录订阅者最近确认的投递位置。
 type SubscriptionOffset struct {
-	TenantID     uint64    `gorm:"column:tenant_id;type:bigint;not null;primaryKey" json:"tenant_id"`
 	TenantKey    string    `gorm:"column:tenant_key;type:varchar(128);not null;primaryKey" json:"tenant_key"`
 	TopicUUID    uuid.UUID `gorm:"column:topic_uuid;type:uuid;not null;primaryKey" json:"topic_uuid"`
 	SubscriberID string    `gorm:"column:subscriber_id;type:varchar(128);not null;primaryKey" json:"subscriber_id"`

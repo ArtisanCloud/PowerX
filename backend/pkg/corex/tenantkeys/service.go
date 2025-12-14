@@ -98,8 +98,8 @@ func NewTenantKeyServiceWithWrapper(db *gorm.DB, w KeyWrapper) *TenantKeyService
 }
 
 // EnsureActiveKeyPair：确保 (env, tenantID) 有激活密钥对；没有则生成一把。
-func (s *TenantKeyService) EnsureActiveKeyPair(ctx context.Context, env string, tenantID *uint64) (*modeltenant.TenantKeyPair, error) {
-	if kp, err := s.kpRepo.GetActiveByScope(ctx, env, tenantID); err == nil {
+func (s *TenantKeyService) EnsureActiveKeyPair(ctx context.Context, env string, tenantUUID string) (*modeltenant.TenantKeyPair, error) {
+	if kp, err := s.kpRepo.GetActiveByScope(ctx, env, tenantUUID); err == nil {
 		return kp, nil
 	}
 
@@ -114,13 +114,10 @@ func (s *TenantKeyService) EnsureActiveKeyPair(ctx context.Context, env string, 
 		return nil, err
 	}
 
-	kid := "t:global"
-	if tenantID != nil {
-		kid = fmt.Sprintf("t:%d:v1", *tenantID)
-	}
+	kid := s.nextKeyPrefix(tenantUUID) + ":v1"
 
 	kp := &modeltenant.TenantKeyPair{
-		ScopeRef:   coremodel.ScopeRef{Env: env, TenantID: tenantID},
+		ScopeRef:   coremodel.ScopeRef{Env: env, TenantUUID: tenantUUID},
 		KID:        kid,
 		Alg:        "RSA-OAEP-256",
 		PublicPEM:  string(pubPEM),
@@ -130,7 +127,7 @@ func (s *TenantKeyService) EnsureActiveKeyPair(ctx context.Context, env string, 
 
 	return kp, s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		txRepo := repotenant.NewTenantKeyPairRepository(tx)
-		if err := txRepo.DeactivateAll(ctx, env, tenantID); err != nil {
+		if err := txRepo.DeactivateAll(ctx, env, tenantUUID); err != nil {
 			return err
 		}
 		return txRepo.Create(ctx, kp)
@@ -138,13 +135,13 @@ func (s *TenantKeyService) EnsureActiveKeyPair(ctx context.Context, env string, 
 }
 
 // ActiveKeyPair 返回当前 scope 的激活密钥。
-func (s *TenantKeyService) ActiveKeyPair(ctx context.Context, env string, tenantID *uint64) (*modeltenant.TenantKeyPair, error) {
-	return s.kpRepo.GetActiveByScope(ctx, env, tenantID)
+func (s *TenantKeyService) ActiveKeyPair(ctx context.Context, env string, tenantUUID string) (*modeltenant.TenantKeyPair, error) {
+	return s.kpRepo.GetActiveByScope(ctx, env, tenantUUID)
 }
 
 // RotateKeyPair 生成新密钥对并替换为激活状态。
-func (s *TenantKeyService) RotateKeyPair(ctx context.Context, env string, tenantID *uint64) (*modeltenant.TenantKeyPair, error) {
-	old, _ := s.kpRepo.GetActiveByScope(ctx, env, tenantID)
+func (s *TenantKeyService) RotateKeyPair(ctx context.Context, env string, tenantUUID string) (*modeltenant.TenantKeyPair, error) {
+	old, _ := s.kpRepo.GetActiveByScope(ctx, env, tenantUUID)
 
 	pubPEM, privPEM, err := crypto.GenerateRSA()
 	if err != nil {
@@ -157,10 +154,10 @@ func (s *TenantKeyService) RotateKeyPair(ctx context.Context, env string, tenant
 
 	kp := &modeltenant.TenantKeyPair{
 		ScopeRef: coremodel.ScopeRef{
-			Env:      env,
-			TenantID: tenantID,
+			Env:        env,
+			TenantUUID: tenantUUID,
 		},
-		KID:       nextKeyID(old, tenantID),
+		KID:       s.nextKeyID(old, tenantUUID),
 		Alg:       "RSA-OAEP-256",
 		PublicPEM: string(pubPEM),
 		EncPrivate: datatypes.JSONMap{
@@ -174,7 +171,7 @@ func (s *TenantKeyService) RotateKeyPair(ctx context.Context, env string, tenant
 
 	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		repo := repotenant.NewTenantKeyPairRepository(tx)
-		if err := repo.DeactivateAll(ctx, env, tenantID); err != nil {
+		if err := repo.DeactivateAll(ctx, env, tenantUUID); err != nil {
 			return err
 		}
 		return repo.Create(ctx, kp)
@@ -186,11 +183,11 @@ func (s *TenantKeyService) RotateKeyPair(ctx context.Context, env string, tenant
 }
 
 // SealSensitive：把 data 中 keys… 的明文装进 data["__sealed"]（公钥加密），并删除这些明文键。
-func (s *TenantKeyService) SealSensitive(ctx context.Context, env string, tenantID *uint64, data datatypes.JSONMap, keys ...string) (datatypes.JSONMap, error) {
+func (s *TenantKeyService) SealSensitive(ctx context.Context, env string, tenantUUID string, data datatypes.JSONMap, keys ...string) (datatypes.JSONMap, error) {
 	if data == nil {
 		data = datatypes.JSONMap{}
 	}
-	kp, err := s.EnsureActiveKeyPair(ctx, env, tenantID)
+	kp, err := s.EnsureActiveKeyPair(ctx, env, tenantUUID)
 	if err != nil {
 		return nil, err
 	}
@@ -218,7 +215,7 @@ func (s *TenantKeyService) SealSensitive(ctx context.Context, env string, tenant
 }
 
 // UnsealSensitive：仅在后端需要明文时使用（例如连通性测试），解开 data["__sealed"] 到 out。
-func (s *TenantKeyService) UnsealSensitive(ctx context.Context, env string, tenantID *uint64, data datatypes.JSONMap, out any) error {
+func (s *TenantKeyService) UnsealSensitive(ctx context.Context, env string, tenantUUID string, data datatypes.JSONMap, out any) error {
 	if data == nil {
 		return errors.New("no data")
 	}
@@ -232,7 +229,7 @@ func (s *TenantKeyService) UnsealSensitive(ctx context.Context, env string, tena
 		return err
 	}
 
-	kp, err := s.kpRepo.GetActiveByScope(ctx, env, tenantID)
+	kp, err := s.kpRepo.GetActiveByScope(ctx, env, tenantUUID)
 	if err != nil {
 		return err
 	}
@@ -268,8 +265,8 @@ func wrappedFromJSONMap(m datatypes.JSONMap) (crypto.Wrapped, error) {
 	return w, nil
 }
 
-func nextKeyID(old *modeltenant.TenantKeyPair, tenantID *uint64) string {
-	prefix := baseKeyPrefix(tenantID)
+func (s *TenantKeyService) nextKeyID(old *modeltenant.TenantKeyPair, tenantUUID string) string {
+	prefix := s.nextKeyPrefix(tenantUUID)
 	version := 1
 	if old != nil {
 		if idx := strings.LastIndex(old.KID, ":v"); idx != -1 {
@@ -281,9 +278,10 @@ func nextKeyID(old *modeltenant.TenantKeyPair, tenantID *uint64) string {
 	return fmt.Sprintf("%s:v%d", prefix, version)
 }
 
-func baseKeyPrefix(tenantID *uint64) string {
-	if tenantID == nil {
+func (s *TenantKeyService) nextKeyPrefix(tenantUUID string) string {
+	canon := strings.TrimSpace(strings.ToLower(tenantUUID))
+	if canon == "" {
 		return "t:global"
 	}
-	return fmt.Sprintf("t:%d", *tenantID)
+	return fmt.Sprintf("t:%s", canon)
 }

@@ -24,19 +24,19 @@ var ErrNotImplemented = errors.New("workflow service: not implemented")
 // DefinitionStore 定义层持久化接口。
 type DefinitionStore interface {
 	CreateDefinition(ctx context.Context, def *modelworkflow.WorkflowDefinition) (*modelworkflow.WorkflowDefinition, error)
-	NextVersion(ctx context.Context, tenantID uint64, name string) (int32, error)
-	GetByUUID(ctx context.Context, tenantID uint64, definitionUUID uuid.UUID, version *int32) (*modelworkflow.WorkflowDefinition, error)
-	GetLatestPublished(ctx context.Context, tenantID uint64, definitionUUID uuid.UUID) (*modelworkflow.WorkflowDefinition, error)
-	ListByTenant(ctx context.Context, tenantID uint64, status []string, keyword string, limit, offset int) ([]modelworkflow.WorkflowDefinition, int64, error)
-	UpdateStatus(ctx context.Context, tenantID uint64, definitionUUID uuid.UUID, version int32, status string, updates map[string]interface{}) error
+	NextVersion(ctx context.Context, tenantUUID string, name string) (int32, error)
+	GetByUUID(ctx context.Context, tenantUUID string, definitionUUID uuid.UUID, version *int32) (*modelworkflow.WorkflowDefinition, error)
+	GetLatestPublished(ctx context.Context, tenantUUID string, definitionUUID uuid.UUID) (*modelworkflow.WorkflowDefinition, error)
+	ListByTenant(ctx context.Context, tenantUUID string, status []string, keyword string, limit, offset int) ([]modelworkflow.WorkflowDefinition, int64, error)
+	UpdateStatus(ctx context.Context, tenantUUID string, definitionUUID uuid.UUID, version int32, status string, updates map[string]interface{}) error
 }
 
 // InstanceStore 实例层持久化接口。
 type InstanceStore interface {
 	CreateInstance(ctx context.Context, instance *modelworkflow.WorkflowInstance) (*modelworkflow.WorkflowInstance, error)
-	GetByUUID(ctx context.Context, tenantID uint64, instanceUUID uuid.UUID) (*modelworkflow.WorkflowInstance, error)
+	GetByUUID(ctx context.Context, tenantUUID string, instanceUUID uuid.UUID) (*modelworkflow.WorkflowInstance, error)
 	ListInstances(ctx context.Context, filter workflowrepo.InstanceListFilter) ([]modelworkflow.WorkflowInstance, int64, error)
-	UpdateState(ctx context.Context, tenantID uint64, instanceUUID uuid.UUID, nextState string, updates map[string]interface{}) error
+	UpdateState(ctx context.Context, tenantUUID string, instanceUUID uuid.UUID, nextState string, updates map[string]interface{}) error
 }
 
 // StepRecordStore 步骤记录持久化接口。
@@ -54,7 +54,7 @@ type AssignmentStore interface {
 	GetLatestByStep(ctx context.Context, stepRecordID uint64) (*modelworkflow.AgentAssignment, error)
 	FindOpenAssignments(ctx context.Context, agentUUID uuid.UUID, statuses []string, limit int) ([]modelworkflow.AgentAssignment, error)
 	UpdateStatus(ctx context.Context, id uint64, status string, updates map[string]interface{}) error
-	FindTimedOutAssignments(ctx context.Context, tenantID uint64, before time.Time, limit int) ([]modelworkflow.AgentAssignment, error)
+	FindTimedOutAssignments(ctx context.Context, tenantUUID string, before time.Time, limit int) ([]modelworkflow.AgentAssignment, error)
 }
 
 // CompensationStore 补偿记录持久化接口。
@@ -185,7 +185,7 @@ func NewService(db *gorm.DB, opts ServiceOptions) *Service {
 
 // CreateDefinitionInput 定义创建工作流所需参数。
 type CreateDefinitionInput struct {
-	TenantID           uint64
+	TenantUUID         string
 	Name               string
 	Description        string
 	CreatedBy          uuid.UUID
@@ -198,7 +198,7 @@ type CreateDefinitionInput struct {
 
 // PublishDefinitionInput 定义发布工作流所需参数。
 type PublishDefinitionInput struct {
-	TenantID       uint64
+	TenantUUID     string
 	DefinitionUUID uuid.UUID
 	Version        int32
 	PublishedBy    uuid.UUID
@@ -210,8 +210,9 @@ func (s *Service) CreateDefinition(ctx context.Context, input CreateDefinitionIn
 	if s == nil {
 		return nil, errors.New("workflow service unavailable")
 	}
-	if input.TenantID == 0 {
-		return nil, errors.New("tenant_id is required")
+	tenantUUID, err := normalizeTenantUUID(input.TenantUUID)
+	if err != nil {
+		return nil, err
 	}
 	if strings.TrimSpace(input.Name) == "" {
 		return nil, errors.New("name is required")
@@ -225,7 +226,7 @@ func (s *Service) CreateDefinition(ctx context.Context, input CreateDefinitionIn
 		return nil, err
 	}
 
-	version, err := s.definitions.NextVersion(ctx, input.TenantID, input.Name)
+	version, err := s.definitions.NextVersion(ctx, tenantUUID, input.Name)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve next version: %w", err)
 	}
@@ -236,7 +237,7 @@ func (s *Service) CreateDefinition(ctx context.Context, input CreateDefinitionIn
 	}
 
 	def := &modelworkflow.WorkflowDefinition{
-		TenantID:             input.TenantID,
+		TenantUUID:           tenantUUID,
 		Name:                 strings.TrimSpace(input.Name),
 		Description:          strings.TrimSpace(input.Description),
 		Version:              version,
@@ -256,7 +257,7 @@ func (s *Service) CreateDefinition(ctx context.Context, input CreateDefinitionIn
 	}
 
 	s.em.emit(ctx, newWorkflowEvent(
-		created.TenantID,
+		created.TenantUUID,
 		uuid.Nil,
 		"workflow.definition.created",
 		fmt.Sprintf("workflow %s@v%d created", created.Name, created.Version),
@@ -271,8 +272,9 @@ func (s *Service) PublishDefinition(ctx context.Context, input PublishDefinition
 	if s == nil {
 		return nil, errors.New("workflow service unavailable")
 	}
-	if input.TenantID == 0 {
-		return nil, errors.New("tenant_id is required")
+	tenantUUID, err := normalizeTenantUUID(input.TenantUUID)
+	if err != nil {
+		return nil, err
 	}
 	if input.DefinitionUUID == uuid.Nil {
 		return nil, errors.New("definition_id is required")
@@ -286,7 +288,7 @@ func (s *Service) PublishDefinition(ctx context.Context, input PublishDefinition
 		versionPtr = &input.Version
 	}
 
-	definition, err := s.definitions.GetByUUID(ctx, input.TenantID, input.DefinitionUUID, versionPtr)
+	definition, err := s.definitions.GetByUUID(ctx, tenantUUID, input.DefinitionUUID, versionPtr)
 	if err != nil {
 		return nil, err
 	}
@@ -301,17 +303,17 @@ func (s *Service) PublishDefinition(ctx context.Context, input PublishDefinition
 		"last_change_note":  strings.TrimSpace(input.ChangeNote),
 	}
 
-	if err := s.definitions.UpdateStatus(ctx, input.TenantID, input.DefinitionUUID, definition.Version, "published", update); err != nil {
+	if err := s.definitions.UpdateStatus(ctx, tenantUUID, input.DefinitionUUID, definition.Version, "published", update); err != nil {
 		return nil, err
 	}
 
-	definition, err = s.definitions.GetByUUID(ctx, input.TenantID, input.DefinitionUUID, &definition.Version)
+	definition, err = s.definitions.GetByUUID(ctx, tenantUUID, input.DefinitionUUID, &definition.Version)
 	if err != nil {
 		return nil, err
 	}
 
 	s.em.emit(ctx, newWorkflowEvent(
-		definition.TenantID,
+		definition.TenantUUID,
 		uuid.Nil,
 		"workflow.definition.published",
 		fmt.Sprintf("workflow %s@v%d published", definition.Name, definition.Version),
@@ -323,7 +325,7 @@ func (s *Service) PublishDefinition(ctx context.Context, input PublishDefinition
 
 // StartInstanceInput 定义启动实例的入参。
 type StartInstanceInput struct {
-	TenantID          uint64
+	TenantUUID        string
 	DefinitionUUID    uuid.UUID
 	DefinitionVersion int32
 	Initiator         uuid.UUID
@@ -337,8 +339,9 @@ func (s *Service) StartInstance(ctx context.Context, input StartInstanceInput) (
 	if s == nil {
 		return nil, errors.New("workflow service unavailable")
 	}
-	if input.TenantID == 0 {
-		return nil, errors.New("tenant_id is required")
+	tenantUUID, err := normalizeTenantUUID(input.TenantUUID)
+	if err != nil {
+		return nil, err
 	}
 	if input.DefinitionUUID == uuid.Nil {
 		return nil, errors.New("definition_id is required")
@@ -348,7 +351,7 @@ func (s *Service) StartInstance(ctx context.Context, input StartInstanceInput) (
 	if input.DefinitionVersion > 0 {
 		versionPtr = &input.DefinitionVersion
 	}
-	definition, err := s.definitions.GetByUUID(ctx, input.TenantID, input.DefinitionUUID, versionPtr)
+	definition, err := s.definitions.GetByUUID(ctx, tenantUUID, input.DefinitionUUID, versionPtr)
 	if err != nil {
 		return nil, err
 	}
@@ -368,7 +371,7 @@ func (s *Service) StartInstance(ctx context.Context, input StartInstanceInput) (
 	now := s.now().UTC()
 
 	instance := &modelworkflow.WorkflowInstance{
-		TenantID:          input.TenantID,
+		TenantUUID:        tenantUUID,
 		DefinitionUUID:    definition.UUID,
 		DefinitionVersion: definition.Version,
 		State:             "running",
@@ -424,7 +427,7 @@ func (s *Service) StartInstance(ctx context.Context, input StartInstanceInput) (
 			agentID, capability := extractAgentConfig(stepDef)
 			if agentID != uuid.Nil {
 				if _, err := s.tracker.Dispatch(ctx, AssignmentDispatchInput{
-					TenantID:     instance.TenantID,
+					TenantUUID:   input.TenantUUID,
 					InstanceUUID: instance.UUID,
 					StepRecordID: created.ID,
 					StepID:       stepDef.ID,
@@ -438,7 +441,7 @@ func (s *Service) StartInstance(ctx context.Context, input StartInstanceInput) (
 	}
 
 	s.em.emit(ctx, newWorkflowEvent(
-		instance.TenantID,
+		instance.TenantUUID,
 		instance.UUID,
 		"workflow.instance.started",
 		fmt.Sprintf("workflow instance %s started", instance.UUID.String()),
@@ -453,7 +456,7 @@ func (s *Service) StartInstance(ctx context.Context, input StartInstanceInput) (
 
 // ControlInstanceInput 描述人工控制动作。
 type ControlInstanceInput struct {
-	TenantID     uint64
+	TenantUUID   string
 	InstanceUUID uuid.UUID
 	Action       string
 	Operator     uuid.UUID
@@ -464,27 +467,27 @@ type ControlInstanceInput struct {
 }
 
 // GetDefinition 按租户与 UUID 获取工作流定义，支持可选版本过滤。
-func (s *Service) GetDefinition(ctx context.Context, tenantID uint64, definitionUUID uuid.UUID, version *int32) (*modelworkflow.WorkflowDefinition, error) {
+func (s *Service) GetDefinition(ctx context.Context, tenantUUID string, definitionUUID uuid.UUID, version *int32) (*modelworkflow.WorkflowDefinition, error) {
 	if s == nil {
 		return nil, errors.New("workflow service unavailable")
 	}
-	return s.definitions.GetByUUID(ctx, tenantID, definitionUUID, version)
+	return s.definitions.GetByUUID(ctx, tenantUUID, definitionUUID, version)
 }
 
 // ListDefinitions 分页查询工作流定义。
-func (s *Service) ListDefinitions(ctx context.Context, tenantID uint64, status []string, keyword string, limit, offset int) ([]modelworkflow.WorkflowDefinition, int64, error) {
+func (s *Service) ListDefinitions(ctx context.Context, tenantUUID string, status []string, keyword string, limit, offset int) ([]modelworkflow.WorkflowDefinition, int64, error) {
 	if s == nil {
 		return nil, 0, errors.New("workflow service unavailable")
 	}
-	return s.definitions.ListByTenant(ctx, tenantID, status, keyword, limit, offset)
+	return s.definitions.ListByTenant(ctx, tenantUUID, status, keyword, limit, offset)
 }
 
 // GetInstance 获取实例及可选的步骤列表。
-func (s *Service) GetInstance(ctx context.Context, tenantID uint64, instanceUUID uuid.UUID, includeSteps bool) (*modelworkflow.WorkflowInstance, []modelworkflow.WorkflowStepRecord, error) {
+func (s *Service) GetInstance(ctx context.Context, tenantUUID string, instanceUUID uuid.UUID, includeSteps bool) (*modelworkflow.WorkflowInstance, []modelworkflow.WorkflowStepRecord, error) {
 	if s == nil {
 		return nil, nil, errors.New("workflow service unavailable")
 	}
-	instance, err := s.instances.GetByUUID(ctx, tenantID, instanceUUID)
+	instance, err := s.instances.GetByUUID(ctx, tenantUUID, instanceUUID)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -554,4 +557,12 @@ func extractAgentConfig(step StepDefinition) (uuid.UUID, string) {
 		}
 	}
 	return agentID, capability
+}
+
+func (s *Service) requireTenantUUID(tenantUUID string) (string, error) {
+	trimmed := strings.TrimSpace(strings.ToLower(tenantUUID))
+	if trimmed == "" {
+		return "", errors.New("tenant uuid is required")
+	}
+	return trimmed, nil
 }

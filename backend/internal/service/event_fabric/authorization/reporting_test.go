@@ -71,7 +71,7 @@ func newReportingTestEnv(t *testing.T) *reportingTestEnv {
 
 func (env *reportingTestEnv) insertGrant(tenant uuid.UUID, subject uuid.UUID, subjectType string) eventfabricmodel.AuthorizationGrant {
 	grant := eventfabricmodel.AuthorizationGrant{
-		TenantID:    tenant,
+		TenantUUID:  tenant.String(),
 		SubjectType: subjectType,
 		SubjectID:   subject,
 		Status:      eventfabricmodel.GrantStatusActive,
@@ -93,7 +93,7 @@ func (env *reportingTestEnv) insertAuditEvent(op string, outcome string, grant e
 	require.NoError(env.t, err)
 	row := auditmodel.AuditEvent{
 		OccurredAt:   occurred,
-		TenantID:     0,
+		TenantUUID:   grant.TenantUUID,
 		Source:       "event_fabric",
 		Operation:    strings.ToUpper(op),
 		ResourceType: "event",
@@ -116,7 +116,7 @@ func TestReportingQuery(t *testing.T) {
 
 	env.insertAuditEvent("grant.created", "success", grant, map[string]string{
 		"grant_id":      grant.UUID.String(),
-		"tenant_id":     tenantID.String(),
+		"tenant_uuid":   tenantID.String(),
 		"subject_id":    subjectID.String(),
 		"subject_type":  SubjectTypeAgent,
 		"grant_status":  grant.Status,
@@ -125,7 +125,7 @@ func TestReportingQuery(t *testing.T) {
 
 	env.insertAuditEvent("evaluation.allow", "SUCCESS", grant, map[string]string{
 		"grant_id":     grant.UUID.String(),
-		"tenant_id":    tenantID.String(),
+		"tenant_uuid":  tenantID.String(),
 		"subject_id":   subjectID.String(),
 		"subject_type": SubjectTypeAgent,
 		"capability":   "event_fabric.publish",
@@ -134,11 +134,11 @@ func TestReportingQuery(t *testing.T) {
 	}, env.now.Add(-time.Hour))
 
 	filter := ReportingFilter{
-		TenantID: tenantID,
-		From:     env.now.Add(-3 * time.Hour),
-		To:       env.now,
-		Page:     1,
-		PageSize: 10,
+		TenantUUID: tenantID,
+		From:       env.now.Add(-3 * time.Hour),
+		To:         env.now,
+		Page:       1,
+		PageSize:   10,
 	}
 	result, err := env.reporting.Query(ctx, filter)
 	require.NoError(t, err)

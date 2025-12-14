@@ -33,7 +33,7 @@ const (
 
 type RoleBinding struct {
 	ID          uint64      `gorm:"primaryKey"`
-	TenantID    uint64      `gorm:"index;not null"`
+	TenantUUID  string      `gorm:"column:tenant_uuid;type:char(36);index;not null"`
 	RoleID      uint64      `gorm:"index;not null"`
 	SubjectType SubjectType `gorm:"type:varchar(24);index;not null"`
 	SubjectID   uint64      `gorm:"index;not null"`

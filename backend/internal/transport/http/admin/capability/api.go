@@ -23,6 +23,9 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 		[]string{cfg.Auth.AudienceUser},
 		[]string{"access"},
 		reqctx.RootOnlyCB(),
+		middleware.WithTenantHeaderPolicy(middleware.TenantHeaderPolicy{
+			RequireUUID: cfg.Tenants.RequireUUID,
+		}),
 	))
 	{
 		grp.GET("", contractHandler.ListContracts)

@@ -41,13 +41,14 @@ func NewUserService(db *gorm.DB) *UserService {
 // ListUsers - 平台全局视角用户列表
 // orderBy 传入例如："id desc" / "created_at asc"
 func (s *UserService) ListUsers(ctx context.Context, f repoi.UserListFilter) ([]iam.MemberWithProfile, int64, error) {
-	// 基础查询：u LEFT JOIN m（当指定租户时，限定 m.tenant_id；否则不限定）
+	// 基础查询：u LEFT JOIN m（当指定租户时，限定 m.tenant_uuid；否则不限定）
 	base := s.DB.WithContext(ctx).Table(coremdl.TableIAMUser + " AS u").
 		Joins("LEFT JOIN " + coremdl.TableIAMMember + " AS m ON m.user_id = u.id AND m.deleted_at IS NULL")
 
-	if f.TenantID > 0 {
-		// 指定租户视角：限定 m.tenant_id，并过滤掉不是该租户成员的行
-		base = base.Joins("/* tenant filter */").Where("m.tenant_id = ?", f.TenantID).
+	tenantUUID := strings.TrimSpace(f.TenantUUID)
+	if tenantUUID != "" {
+		// 指定租户视角：限定 m.tenant_uuid，并过滤掉不是该租户成员的行
+		base = base.Joins("/* tenant filter */").Where("m.tenant_uuid = ?", tenantUUID).
 			Where("m.id IS NOT NULL")
 	}
 
@@ -136,11 +137,11 @@ func (s *UserService) ListUsers(ctx context.Context, f repoi.UserListFilter) ([]
 
 	// 如果是租户视角，再取 tenant 下的 member（user_id -> member）
 	var mMap map[uint64]m.Member
-	if f.TenantID > 0 {
+	if tenantUUID != "" {
 		var rows []m.Member
 		if err := s.DB.WithContext(ctx).
 			Table(coremdl.TableIAMMember).
-			Where("tenant_id = ? AND user_id IN ?", f.TenantID, ids).
+			Where("tenant_uuid = ? AND user_id IN ?", tenantUUID, ids).
 			Where("deleted_at IS NULL").
 			Find(&rows).Error; err != nil {
 			return nil, 0, err
@@ -157,7 +158,7 @@ func (s *UserService) ListUsers(ctx context.Context, f repoi.UserListFilter) ([]
 	for _, id := range ids {
 		u := uMap[id]
 		var mem *m.Member
-		if f.TenantID > 0 {
+		if tenantUUID != "" {
 			if mm, ok := mMap[id]; ok {
 				mem = &mm
 			}
@@ -178,14 +179,15 @@ func (s *UserService) GetUser(ctx context.Context, id uint64) (*m.User, error) {
 func (s *UserService) CreateSystemUser(
 	ctx context.Context,
 	user *m.User, // 直接用 GORM 模型
-	tenantID uint64, // 要加入的租户
+	tenantUUID string, // 要加入的租户
 	username string, // 租户内用户名（唯一）
 	initialPwd string, // 可选：初始化密码
 	deptIDs []uint64, // 可选：部门
 ) (uint64, error) {
 
-	if tenantID == 0 {
-		return 0, errors.New("tenant_id required")
+	tenantUUID = strings.TrimSpace(tenantUUID)
+	if tenantUUID == "" {
+		return 0, errors.New("tenant_uuid required")
 	}
 	username = utils.TrimLower(username)
 	if username == "" {
@@ -211,16 +213,16 @@ func (s *UserService) CreateSystemUser(
 		if dup, err := s.MemberRepo.
 			WithDB(tx).
 			GetByCondition(ctx, map[string]any{
-				//coremdl.TableIAMMember + ".tenant_id = ?": tenantID,
-				coremdl.TableIAMMember + ".username = ?": username,
+				coremdl.TableIAMMember + ".tenant_uuid = ?": tenantUUID,
+				coremdl.TableIAMMember + ".username = ?":    username,
 			}, nil); err != nil {
 			return err
 		} else if dup != nil {
 			return errors.New("username already taken in this tenant")
 		}
 		if existed, err := s.MemberRepo.GetByCondition(ctx, map[string]any{
-			//coremdl.TableIAMMember + ".tenant_id = ?": tenantID,
-			coremdl.TableIAMMember + ".user_id = ?": user.ID,
+			coremdl.TableIAMMember + ".tenant_uuid = ?": tenantUUID,
+			coremdl.TableIAMMember + ".user_id = ?":     user.ID,
 		}, nil); err != nil {
 			return err
 		} else if existed != nil {
@@ -229,7 +231,7 @@ func (s *UserService) CreateSystemUser(
 
 		// 3) Create Member
 		mem := &m.Member{
-			TenantID:    tenantID,
+			TenantUUID:  tenantUUID,
 			UserID:      user.ID,
 			Username:    username,
 			DisplayName: utils.FirstNonEmpty(user.DisplayName, username),
@@ -267,7 +269,7 @@ func (s *UserService) CreateSystemUser(
 			rows := make([]*m.MemberDepartment, 0, len(deptIDs))
 			for _, did := range deptIDs {
 				rows = append(rows, &m.MemberDepartment{
-					TenantID:     tenantID,
+					TenantUUID:   tenantUUID,
 					MemberID:     mem.ID,
 					DepartmentID: did,
 				})
@@ -285,9 +287,10 @@ func (s *UserService) CreateSystemUser(
 }
 
 // AddUserToTenant - 把已存在的 User 加入指定租户（创建 member）
-func (s *UserService) AddUserToTenant(ctx context.Context, userID uint64, tenantID uint64) (memberID uint64, err error) {
-	if userID == 0 || tenantID == 0 {
-		return 0, errors.New("user_id/tenant_id required")
+func (s *UserService) AddUserToTenant(ctx context.Context, userID uint64, tenantUUID string) (memberID uint64, err error) {
+	tenantUUID = strings.TrimSpace(tenantUUID)
+	if userID == 0 || tenantUUID == "" {
+		return 0, errors.New("user_id/tenant_uuid required")
 	}
 
 	err = s.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
@@ -302,8 +305,8 @@ func (s *UserService) AddUserToTenant(ctx context.Context, userID uint64, tenant
 
 		// 2) 已是该租户成员？
 		if existed, err := s.MemberRepo.GetByCondition(ctx, map[string]any{
-			coremdl.TableIAMMember + ".tenant_id = ?": tenantID,
-			coremdl.TableIAMMember + ".user_id = ?":   userID,
+			coremdl.TableIAMMember + ".tenant_uuid = ?": tenantUUID,
+			coremdl.TableIAMMember + ".user_id = ?":     userID,
 		}, nil); err != nil {
 			return err
 		} else if existed != nil {
@@ -313,7 +316,7 @@ func (s *UserService) AddUserToTenant(ctx context.Context, userID uint64, tenant
 		// 3) 生成 base username
 		base := deriveBaseUserName(u)
 		// 4) 确保租户内唯一
-		username, err := s.ensureUniqueUserName(ctx, tenantID, base)
+		username, err := s.ensureUniqueUserName(ctx, tenantUUID, base)
 		if err != nil {
 			return err
 		}
@@ -330,7 +333,7 @@ func (s *UserService) AddUserToTenant(ctx context.Context, userID uint64, tenant
 		}
 
 		mem := &m.Member{
-			TenantID:    tenantID,
+			TenantUUID:  tenantUUID,
 			UserID:      userID,
 			Username:    username,
 			DisplayName: displayName,
@@ -364,14 +367,16 @@ func deriveBaseUserName(u *m.User) string {
 }
 
 // ensureUniqueUserName 在指定租户下保证 username 唯一，不唯一则在后缀加 -2, -3...
-func (s *UserService) ensureUniqueUserName(ctx context.Context, tenantID uint64, base string) (string, error) {
+func (s *UserService) ensureUniqueUserName(ctx context.Context, tenantUUID string, base string) (string, error) {
+	tenantUUID = strings.TrimSpace(tenantUUID)
 	username := strings.ToLower(strings.TrimSpace(base))
 	if username == "" {
 		username = "user"
 	}
 	try := func(name string) (bool, error) {
 		dup, err := s.MemberRepo.GetByCondition(ctx, map[string]any{
-			coremdl.TableIAMMember + ".username = ?": name,
+			coremdl.TableIAMMember + ".tenant_uuid = ?": tenantUUID,
+			coremdl.TableIAMMember + ".username = ?":    name,
 		}, nil)
 		if err != nil {
 			return false, err

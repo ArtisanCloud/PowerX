@@ -40,8 +40,12 @@ func (s *DiscoveryServer) GetSnapshot(ctx context.Context, req *capabilityRegist
 	if req.GetId() == nil {
 		return nil, status.Error(codes.InvalidArgument, "tenant scoped id required")
 	}
+	tenantUUID, err := tenantUUIDFromScopedID(req.GetId())
+	if err != nil {
+		return nil, err
+	}
 	id := req.GetId()
-	snapshot, err := s.service.GetSnapshot(ctx, id.GetTenantId(), id.GetCapabilityId(), "")
+	snapshot, err := s.service.GetSnapshot(ctx, tenantUUID, id.GetCapabilityId(), "")
 	if err != nil {
 		switch err {
 		case discovery.ErrInvalidRequest:
@@ -63,11 +67,12 @@ func (s *DiscoveryServer) ListSnapshots(ctx context.Context, req *capabilityRegi
 	if s.service == nil {
 		return nil, status.Error(codes.FailedPrecondition, "discovery service unavailable")
 	}
-	if req.GetTenantId() == "" {
-		return nil, status.Error(codes.InvalidArgument, "tenant id required")
+	tenantUUID, err := canonicalTenantUUID(req.GetTenantUuid())
+	if err != nil {
+		return nil, err
 	}
 	snapshots, err := s.service.Sync(ctx, discovery.SyncRequest{
-		TenantID:     req.GetTenantId(),
+		TenantUUID:   tenantUUID,
 		Capabilities: req.GetCapabilityIds(),
 		ClientID:     "",
 		Force:        true,
@@ -94,7 +99,7 @@ func toProtoRegistration(snapshot discovery.Snapshot) *capabilityRegistryPB.Capa
 	return &capabilityRegistryPB.CapabilityRegistration{
 		Id: &capabilityRegistryPB.TenantScopedId{
 			CapabilityId: snapshot.CapabilityID,
-			TenantId:     snapshot.TenantID,
+			TenantUuid:   snapshot.TenantUUID,
 		},
 		Status:              "published",
 		Version:             snapshot.Version,

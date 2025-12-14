@@ -19,6 +19,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/internal/service/plugin_release/pipeline"
 	"github.com/ArtisanCloud/PowerX/internal/service/plugin_release/runtime"
 	models "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/plugin_release"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"github.com/google/uuid"
 	"google.golang.org/grpc"
@@ -49,13 +50,12 @@ func (s *server) StartLocalInstall(ctx context.Context, req *pluginreleasepb.Sta
 		return nil, status.Error(codes.Unavailable, "local install service unavailable")
 	}
 
-	tenantID, err := parseTenantID(req.GetTenantId())
+	tenantUUID, err := s.resolveTenantUUID(ctx, req.GetTenantUuid())
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-
 	session, err := localSvc.Start(ctx, local.StartInput{
-		TenantID:     tenantID,
+		TenantUUID:   tenantUUID,
 		DeveloperID:  req.GetDeveloperId(),
 		ArtifactURI:  req.GetArtifactUri(),
 		FeatureFlags: req.GetFeatureFlags(),
@@ -74,15 +74,20 @@ func (s *server) StopLocalInstall(ctx context.Context, req *pluginreleasepb.Stop
 	if localSvc == nil {
 		return nil, status.Error(codes.Unavailable, "local install service unavailable")
 	}
+	tenantUUID, err := s.resolveTenantUUID(ctx, "")
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
 	sessionUUID, err := parseSessionID(req.GetSessionId())
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
 	if err := localSvc.Stop(ctx, local.StopInput{
-		SessionID: sessionUUID,
-		Force:     req.GetForce(),
-		Actor:     actorFromContext(ctx),
+		SessionID:  sessionUUID,
+		TenantUUID: tenantUUID,
+		Force:      req.GetForce(),
+		Actor:      actorFromContext(ctx),
 	}); err != nil {
 		return nil, mapLocalError(err)
 	}
@@ -113,10 +118,10 @@ func (s *server) GetLocalInstallSession(ctx context.Context, req *pluginreleasep
 		return nil, mapLocalError(err)
 	}
 
-	if tenant := strings.TrimSpace(req.GetTenantId()); tenant != "" {
-		if tenant != strconv.FormatUint(session.TenantID, 10) {
-			return nil, status.Error(codes.NotFound, "local install session not found")
-		}
+	if requestUUID, err := s.optionalTenantUUID(ctx, req.GetTenantUuid()); err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	} else if requestUUID != "" && !strings.EqualFold(requestUUID, strings.TrimSpace(session.TenantUUID)) {
+		return nil, status.Error(codes.NotFound, "local install session not found")
 	}
 
 	return toProtoSession(session), nil
@@ -193,8 +198,15 @@ func (s *server) CreateReleaseCandidate(ctx context.Context, req *pluginreleasep
 	if pipelineSvc == nil {
 		return nil, status.Error(codes.Unavailable, "pipeline service unavailable")
 	}
+	tenantUUID, err := s.resolveTenantUUID(ctx, req.GetTenantUuid())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	if tenantUUID == "" {
+		return nil, status.Error(codes.InvalidArgument, "tenant uuid required")
+	}
 	input := pipeline.SubmitCandidateInput{
-		TenantID:      strings.TrimSpace(req.GetTenantId()),
+		TenantUUID:    tenantUUID,
 		PluginID:      strings.TrimSpace(req.GetPluginId()),
 		Version:       strings.TrimSpace(req.GetVersion()),
 		BuildArtifact: strings.TrimSpace(req.GetBuildArtifactUri()),
@@ -418,12 +430,15 @@ func (s *server) ImportOfflinePackage(ctx context.Context, req *pluginreleasepb.
 	if distSvc == nil {
 		return nil, status.Error(codes.Unavailable, "distribution service unavailable")
 	}
-	tenantID := strings.TrimSpace(req.GetTenantId())
-	if tenantID == "" {
-		return nil, status.Error(codes.InvalidArgument, "tenant_id is required")
+	tenantUUID, err := s.resolveTenantUUID(ctx, req.GetTenantUuid())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	if tenantUUID == "" {
+		return nil, status.Error(codes.InvalidArgument, "tenant uuid required")
 	}
 	job, err := distSvc.StartOfflineImport(ctx, distribution.OfflineImportInput{
-		TenantID:        tenantID,
+		TenantUUID:      tenantUUID,
 		PackageURI:      strings.TrimSpace(req.GetPackageUri()),
 		Checksum:        strings.TrimSpace(req.GetChecksum()),
 		DryRun:          req.GetDryRun(),
@@ -446,6 +461,45 @@ func (s *server) localInstall() *local.InstallService {
 	return s.svc.LocalInstall()
 }
 
+func (s *server) resolveTenantUUID(ctx context.Context, payload string) (string, error) {
+	if canonical, err := s.optionalTenantUUID(ctx, payload); err != nil {
+		return "", err
+	} else if canonical != "" {
+		return canonical, nil
+	}
+	if ctxUUID := strings.TrimSpace(reqctx.GetTenantUUID(ctx)); ctxUUID != "" {
+		canonical, err := reqctx.CanonicalTenantUUID(ctxUUID)
+		if err != nil {
+			return "", fmt.Errorf("tenant uuid invalid")
+		}
+		return canonical, nil
+	}
+	if md, ok := metadata.FromIncomingContext(ctx); ok {
+		for _, key := range []string{"x-tenant-uuid", "tenant-uuid", "x-powerx-tenant-uuid"} {
+			if vals := md.Get(key); len(vals) > 0 {
+				if canonical, err := s.optionalTenantUUID(ctx, vals[0]); err == nil && canonical != "" {
+					return canonical, nil
+				} else if err != nil {
+					return "", err
+				}
+			}
+		}
+	}
+	return "", errors.New("tenant uuid required")
+}
+
+func (s *server) optionalTenantUUID(_ context.Context, candidate string) (string, error) {
+	trimmed := strings.TrimSpace(candidate)
+	if trimmed == "" {
+		return "", nil
+	}
+	canonical, err := reqctx.CanonicalTenantUUID(trimmed)
+	if err != nil {
+		return "", fmt.Errorf("tenant uuid invalid")
+	}
+	return canonical, nil
+}
+
 func (s *server) pipeline() *pipeline.Service {
 	if s == nil || s.svc == nil {
 		return nil
@@ -465,18 +519,6 @@ func (s *server) distribution() *distribution.Service {
 		return nil
 	}
 	return s.svc.Distribution()
-}
-
-func parseTenantID(raw string) (uint64, error) {
-	tenant := strings.TrimSpace(raw)
-	if tenant == "" {
-		return 0, fmt.Errorf("tenant_id is required")
-	}
-	value, err := strconv.ParseUint(tenant, 10, 64)
-	if err != nil {
-		return 0, fmt.Errorf("tenant_id must be numeric")
-	}
-	return value, nil
 }
 
 func parseSessionID(value string) (uuid.UUID, error) {
@@ -536,7 +578,7 @@ func toProtoSession(session *models.LocalInstallSession) *pluginreleasepb.LocalI
 	}
 	resp := &pluginreleasepb.LocalInstallSession{
 		SessionId:   session.UUID.String(),
-		TenantId:    strconv.FormatUint(session.TenantID, 10),
+		TenantUuid:  strings.TrimSpace(session.TenantUUID),
 		DeveloperId: session.DeveloperID,
 		ArtifactUri: session.ArtifactURI,
 		FeatureFlags: func() []string {
@@ -564,7 +606,7 @@ func toProtoCandidate(candidate *models.PluginReleaseCandidate) *pluginreleasepb
 	}
 	resp := &pluginreleasepb.ReleaseCandidate{
 		CandidateId:      candidate.UUID.String(),
-		TenantId:         candidate.TenantID,
+		TenantUuid:       candidate.TenantUUID,
 		PluginId:         candidate.PluginID,
 		Version:          candidate.Version,
 		GateStatus:       candidate.GateStatus,

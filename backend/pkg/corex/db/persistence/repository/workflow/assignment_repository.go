@@ -3,6 +3,7 @@ package workflow
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -103,9 +104,10 @@ func (r *AgentAssignmentRepository) UpdateStatus(ctx context.Context, id uint64,
 }
 
 // FindTimedOutAssignments 查找在 Ack 截止前未响应的派发。
-func (r *AgentAssignmentRepository) FindTimedOutAssignments(ctx context.Context, tenantID uint64, before time.Time, limit int) ([]modelworkflow.AgentAssignment, error) {
-	if tenantID == 0 {
-		return nil, errors.New("tenant id is required")
+func (r *AgentAssignmentRepository) FindTimedOutAssignments(ctx context.Context, tenantUUID string, before time.Time, limit int) ([]modelworkflow.AgentAssignment, error) {
+	tenantUUID = strings.TrimSpace(strings.ToLower(tenantUUID))
+	if tenantUUID == "" {
+		return nil, errors.New("tenant uuid is required")
 	}
 	if limit <= 0 {
 		limit = 50
@@ -123,7 +125,7 @@ func (r *AgentAssignmentRepository) FindTimedOutAssignments(ctx context.Context,
 		Where(assignmentTable+".status IN ?", []string{"dispatched", "acknowledged"}).
 		Where(assignmentTable+".ack_deadline IS NOT NULL").
 		Where(assignmentTable+".ack_deadline <= ?", before).
-		Where("inst.tenant_id = ?", tenantID).
+		Where("inst.tenant_uuid = ?", tenantUUID).
 		Order(assignmentTable + ".ack_deadline ASC").
 		Limit(limit).
 		Select(assignmentTable + ".*").

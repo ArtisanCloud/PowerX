@@ -43,14 +43,15 @@ func (r *KnowledgeSpaceRepository) FindByUUID(ctx context.Context, spaceUUID uui
 	return &space, nil
 }
 
-func (r *KnowledgeSpaceRepository) FindByTenantAndName(ctx context.Context, tenant uuid.UUID, name string) (*models.KnowledgeSpace, error) {
+func (r *KnowledgeSpaceRepository) FindByTenantAndName(ctx context.Context, tenantUUID string, name string) (*models.KnowledgeSpace, error) {
 	name = strings.TrimSpace(name)
-	if tenant == uuid.Nil || name == "" {
+	tenantUUID = strings.ToLower(strings.TrimSpace(tenantUUID))
+	if tenantUUID == "" || name == "" {
 		return nil, gorm.ErrInvalidData
 	}
 	var space models.KnowledgeSpace
 	err := r.db.WithContext(ctx).
-		Where("tenant_id = ? AND space_name = ?", tenant, name).
+		Where("tenant_uuid = ? AND space_name = ?", tenantUUID, name).
 		Take(&space).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -381,14 +382,14 @@ func (r *TenantReleaseBatchRepository) SaveState(ctx context.Context, batch *mod
 	}
 	batch.UpdatedAt = time.Now().UTC()
 	updates := map[string]any{
-		"state":         batch.State,
-		"alerts":        batch.Alerts,
-		"metrics":       batch.Metrics,
-		"tenants":       batch.Tenants,
-		"promoted_at":   batch.PromotedAt,
-		"completed_at":  batch.CompletedAt,
+		"state":          batch.State,
+		"alerts":         batch.Alerts,
+		"metrics":        batch.Metrics,
+		"tenants":        batch.Tenants,
+		"promoted_at":    batch.PromotedAt,
+		"completed_at":   batch.CompletedAt,
 		"rolled_back_at": batch.RolledBackAt,
-		"updated_at":    batch.UpdatedAt,
+		"updated_at":     batch.UpdatedAt,
 	}
 	if err := query.Updates(updates).Error; err != nil {
 		return nil, err

@@ -46,10 +46,10 @@ const (
 // MediaService 聚合媒体资产业务逻辑（状态流转、审计、预签名等）。
 type assetRepository interface {
 	List(ctx context.Context, filter mediarepo.AssetListFilter) ([]mediamodel.MediaAsset, int64, error)
-	FindByUUID(ctx context.Context, tenantID uint64, uuid string, includeDeleted bool) (*mediamodel.MediaAsset, error)
+	FindByUUID(ctx context.Context, tenantUUID string, uuid string, includeDeleted bool) (*mediamodel.MediaAsset, error)
 	CreateAsset(ctx context.Context, asset *mediamodel.MediaAsset) (*mediamodel.MediaAsset, error)
 	UpdateAsset(ctx context.Context, asset *mediamodel.MediaAsset) (*mediamodel.MediaAsset, error)
-	SoftDeleteByUUID(ctx context.Context, tenantID uint64, uuid string, deletedBy *uint64) error
+	SoftDeleteByUUID(ctx context.Context, tenantUUID string, uuid string, deletedBy *uint64) error
 }
 
 type MediaService struct {
@@ -79,7 +79,7 @@ func NewMediaService(db *gorm.DB, repo assetRepository, manager *mediamgr.MediaM
 
 // CreateAssetInput 定义创建媒体资产所需参数。
 type CreateAssetInput struct {
-	TenantID     uint64
+	TenantUUID   string
 	OperatorID   *uint64
 	Name         string
 	Description  string
@@ -100,7 +100,7 @@ type CreateAssetInput struct {
 
 // UpdateAssetInput 定义更新媒体资产所需参数。
 type UpdateAssetInput struct {
-	TenantID       uint64
+	TenantUUID     string
 	UUID           string
 	OperatorID     *uint64
 	Name           *string
@@ -112,14 +112,14 @@ type UpdateAssetInput struct {
 
 // DeleteAssetInput 定义删除媒体资产所需参数。
 type DeleteAssetInput struct {
-	TenantID   uint64
+	TenantUUID string
 	UUID       string
 	OperatorID *uint64
 }
 
 // PresignAssetInput 定义生成预签名链接所需参数。
 type PresignAssetInput struct {
-	TenantID    uint64
+	TenantUUID string
 	UUID        string
 	OperatorID  *uint64
 	Action      string
@@ -131,7 +131,7 @@ type PresignAssetInput struct {
 
 // ListAssetsInput 定义分页查询参数。
 type ListAssetsInput struct {
-	TenantID       uint64
+	TenantUUID     string
 	UUIDs          []string
 	Drivers        []string
 	OwnerType      string
@@ -149,7 +149,7 @@ type ListAssetsInput struct {
 // Asset 为对外视图。
 type Asset struct {
 	UUID           string
-	TenantID       uint64
+	TenantUUID     string
 	Name           string
 	Description    string
 	Driver         string
@@ -176,8 +176,9 @@ type Asset struct {
 
 // CreateAsset 创建媒体资产，默认进入 draft 状态。
 func (s *MediaService) CreateAsset(ctx context.Context, in CreateAssetInput) (*Asset, error) {
-	if in.TenantID == 0 {
-		return nil, fmt.Errorf("tenant id required")
+	tenantUUID := strings.TrimSpace(in.TenantUUID)
+	if tenantUUID == "" {
+		return nil, fmt.Errorf("tenant uuid required")
 	}
 	name := strings.TrimSpace(in.Name)
 	if name == "" {
@@ -255,7 +256,7 @@ func (s *MediaService) CreateAsset(ctx context.Context, in CreateAssetInput) (*A
 	}
 
 	asset := &mediamodel.MediaAsset{
-		TenantID:                in.TenantID,
+		TenantUUID:              tenantUUID,
 		Name:                    name,
 		Driver:                  driverName,
 		StorageKey:              storageKey,
@@ -279,14 +280,14 @@ func (s *MediaService) CreateAsset(ctx context.Context, in CreateAssetInput) (*A
 	if err != nil {
 		return nil, err
 	}
-	s.emitAudit(ctx, in.TenantID, "media.asset.create", created.UUID.String(), in.OperatorID, map[string]any{"name": created.Name})
+	s.emitAudit(ctx, tenantUUID, "media.asset.create", created.UUID.String(), in.OperatorID, map[string]any{"name": created.Name})
 	return toAsset(created), nil
 }
 
 // ListAssets 按条件分页检索媒体资产。
 func (s *MediaService) ListAssets(ctx context.Context, in ListAssetsInput) ([]Asset, int64, error) {
 	filter := mediarepo.AssetListFilter{
-		TenantID:       in.TenantID,
+		TenantUUID:     strings.TrimSpace(in.TenantUUID),
 		UUIDs:          normalizeStrings(in.UUIDs),
 		Drivers:        normalizeStrings(in.Drivers),
 		OwnerType:      strings.TrimSpace(in.OwnerType),
@@ -312,8 +313,8 @@ func (s *MediaService) ListAssets(ctx context.Context, in ListAssetsInput) ([]As
 }
 
 // GetAsset 读取单个媒体资产。
-func (s *MediaService) GetAsset(ctx context.Context, tenantID uint64, uuid string, includeDeleted bool) (*Asset, error) {
-	entity, err := s.repo.FindByUUID(ctx, tenantID, uuid, includeDeleted)
+func (s *MediaService) GetAsset(ctx context.Context, tenantUUID string, uuid string, includeDeleted bool) (*Asset, error) {
+	entity, err := s.repo.FindByUUID(ctx, strings.TrimSpace(tenantUUID), uuid, includeDeleted)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrAssetNotFound
@@ -325,7 +326,8 @@ func (s *MediaService) GetAsset(ctx context.Context, tenantID uint64, uuid strin
 
 // UpdateAsset 更新媒体资产信息并校验状态机。
 func (s *MediaService) UpdateAsset(ctx context.Context, in UpdateAssetInput) (*Asset, error) {
-	entity, err := s.repo.FindByUUID(ctx, in.TenantID, in.UUID, false)
+	tenantUUID := strings.TrimSpace(in.TenantUUID)
+	entity, err := s.repo.FindByUUID(ctx, tenantUUID, in.UUID, false)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrAssetNotFound
@@ -396,39 +398,42 @@ func (s *MediaService) UpdateAsset(ctx context.Context, in UpdateAssetInput) (*A
 	if err != nil {
 		return nil, err
 	}
-	s.emitAudit(ctx, in.TenantID, "media.asset.update", updated.UUID.String(), in.OperatorID, map[string]any{"status": updated.BusinessStatus})
+	s.emitAudit(ctx, tenantUUID, "media.asset.update", updated.UUID.String(), in.OperatorID, map[string]any{"status": updated.BusinessStatus})
 	return toAsset(updated), nil
 }
 
 // DeleteAsset 执行软删除。
 func (s *MediaService) DeleteAsset(ctx context.Context, in DeleteAssetInput) error {
-	err := s.repo.SoftDeleteByUUID(ctx, in.TenantID, in.UUID, in.OperatorID)
+	tenantUUID := strings.TrimSpace(in.TenantUUID)
+	err := s.repo.SoftDeleteByUUID(ctx, tenantUUID, in.UUID, in.OperatorID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return ErrAssetNotFound
 		}
 		return err
 	}
-	s.emitAudit(ctx, in.TenantID, "media.asset.delete", in.UUID, in.OperatorID, nil)
+	s.emitAudit(ctx, tenantUUID, "media.asset.delete", in.UUID, in.OperatorID, nil)
 	return nil
 }
 
 // RollbackAsset 用于异常回滚（测试夹具使用）。
 func (s *MediaService) RollbackAsset(ctx context.Context, in DeleteAssetInput) error {
-	err := s.repo.SoftDeleteByUUID(ctx, in.TenantID, in.UUID, in.OperatorID)
+	tenantUUID := strings.TrimSpace(in.TenantUUID)
+	err := s.repo.SoftDeleteByUUID(ctx, tenantUUID, in.UUID, in.OperatorID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return ErrAssetNotFound
 		}
 		return err
 	}
-	s.emitAudit(ctx, in.TenantID, "media.asset.rollback", in.UUID, in.OperatorID, nil)
+	s.emitAudit(ctx, tenantUUID, "media.asset.rollback", in.UUID, in.OperatorID, nil)
 	return nil
 }
 
 // PresignAsset 生成预签名链接并记录审计事件。
 func (s *MediaService) PresignAsset(ctx context.Context, in PresignAssetInput) (*driver.GenerateURLOutput, error) {
-	entity, err := s.repo.FindByUUID(ctx, in.TenantID, in.UUID, false)
+	tenantUUID := strings.TrimSpace(in.TenantUUID)
+	entity, err := s.repo.FindByUUID(ctx, tenantUUID, in.UUID, false)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrAssetNotFound
@@ -517,7 +522,7 @@ func (s *MediaService) PresignAsset(ctx context.Context, in PresignAssetInput) (
 	}
 	entity = updated
 
-	s.emitAudit(ctx, in.TenantID, "media.asset.presign", in.UUID, in.OperatorID, map[string]any{
+	s.emitAudit(ctx, tenantUUID, "media.asset.presign", in.UUID, in.OperatorID, map[string]any{
 		"method": method,
 		"ttl":    ttl.Seconds(),
 		"action": action,
@@ -526,7 +531,7 @@ func (s *MediaService) PresignAsset(ctx context.Context, in PresignAssetInput) (
 	return urlOut, nil
 }
 
-func (s *MediaService) emitAudit(ctx context.Context, tenantID uint64, operation, resourceID string, operatorID *uint64, meta map[string]any) {
+func (s *MediaService) emitAudit(ctx context.Context, tenantUUID string, operation, resourceID string, operatorID *uint64, meta map[string]any) {
 	if s.audit == nil {
 		return
 	}
@@ -538,7 +543,7 @@ func (s *MediaService) emitAudit(ctx context.Context, tenantID uint64, operation
 	}
 	_ = s.audit.Emit(ctx, &dbmaudit.AuditEvent{
 		OccurredAt:   time.Now(),
-		TenantID:     tenantID,
+		TenantUUID:   tenantUUID,
 		Source:       "media.service",
 		Operation:    operation,
 		ResourceType: "media.asset",
@@ -574,7 +579,7 @@ func toAsset(entity *mediamodel.MediaAsset) *Asset {
 
 	return &Asset{
 		UUID:           entity.UUID.String(),
-		TenantID:       entity.TenantID,
+		TenantUUID:     entity.TenantUUID,
 		Name:           entity.Name,
 		Description:    description,
 		Driver:         entity.Driver,

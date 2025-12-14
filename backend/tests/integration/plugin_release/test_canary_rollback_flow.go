@@ -11,6 +11,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const (
+	integrationRuntimeTenantUUID  = "2a7963df-0a55-4823-86de-41b83b3c2df8"
+	integrationRuntimeScopeTenant = "e0f2d6db-7f1c-4ad1-8612-517fad5c51df"
+)
+
 func TestCanaryRollbackFlow(t *testing.T) {
 	env := newPluginReleaseEnv(t)
 	pipelineSvc := env.Service.Pipeline()
@@ -19,7 +24,7 @@ func TestCanaryRollbackFlow(t *testing.T) {
 
 	ctx := context.Background()
 	candidate, err := pipelineSvc.SubmitCandidate(ctx, pipeline.SubmitCandidateInput{
-		TenantID:      "tenant-runtime",
+		TenantUUID:    integrationRuntimeTenantUUID,
 		PluginID:      "px.demo.runtime",
 		Version:       "v4.0.0",
 		BuildArtifact: "s3://bucket/releases/v4.0.0.zip",
@@ -37,7 +42,7 @@ func TestCanaryRollbackFlow(t *testing.T) {
 		CanaryBatches: []pipeline.CanaryBatchInput{
 			{
 				Name:        "batch-critical",
-				TenantScope: []string{"tenant-critical"},
+				TenantScope: []string{integrationRuntimeScopeTenant},
 				MetricThresholds: map[string]float64{
 					"error_rate": 0.005,
 				},

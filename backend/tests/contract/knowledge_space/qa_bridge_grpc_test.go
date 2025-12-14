@@ -43,8 +43,9 @@ func TestQABridgeGRPCPlanAndSnapshot(t *testing.T) {
 
 	client := knowledgev1.NewKnowledgeSpaceQABridgeServiceClient(conn)
 
-	planResp, err := client.PlanRetrieval(ctx, &knowledgev1.QARetrievalPlanRequest{
-		TenantId:        env.TenantID().String(),
+	rpcCtx := knowledgeGRPCContext(t, env)
+	planResp, err := client.PlanRetrieval(rpcCtx, &knowledgev1.QARetrievalPlanRequest{
+		TenantUuid:      env.TenantUUID().String(),
 		Intent:          "供应商是否超限",
 		DomainTags:      []string{"finance"},
 		SessionId:       "grpc-session",
@@ -55,11 +56,12 @@ func TestQABridgeGRPCPlanAndSnapshot(t *testing.T) {
 	require.Equal(t, spaceA.UUID.String(), planResp.GetCandidateSpaces()[0].GetSpaceId())
 	require.Empty(t, planResp.GetCandidateSpaces()[0].GetDegradeReason())
 	require.Equal(t, "hybrid", planResp.GetCandidateSpaces()[0].GetStrategy())
+	assertNoLegacyTenantProto(t, planResp)
 
 	// degrade scenario
 	require.NoError(t, env.SetSpaceStatus(spaceB.UUID, "retired"))
-	planResp, err = client.PlanRetrieval(ctx, &knowledgev1.QARetrievalPlanRequest{
-		TenantId:        env.TenantID().String(),
+	planResp, err = client.PlanRetrieval(rpcCtx, &knowledgev1.QARetrievalPlanRequest{
+		TenantUuid:      env.TenantUUID().String(),
 		Intent:          "供应商是否超限",
 		DomainTags:      []string{"finance"},
 		SessionId:       "grpc-session",
@@ -68,10 +70,11 @@ func TestQABridgeGRPCPlanAndSnapshot(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 2, len(planResp.GetCandidateSpaces()))
 	require.NotEmpty(t, planResp.GetCandidateSpaces()[1].GetDegradeReason())
+	assertNoLegacyTenantProto(t, planResp)
 
-	snapshotResp, err := client.UpsertMemorySnapshot(ctx, &knowledgev1.QAMemorySnapshotRequest{
-		TenantId:  env.TenantID().String(),
-		SessionId: "grpc-session",
+	snapshotResp, err := client.UpsertMemorySnapshot(rpcCtx, &knowledgev1.QAMemorySnapshotRequest{
+		TenantUuid: env.TenantUUID().String(),
+		SessionId:  "grpc-session",
 		Updates: []*knowledgev1.QAMemoryUpdate{
 			{
 				ChunkId:    "chunk-grpc-1",
@@ -94,12 +97,14 @@ func TestQABridgeGRPCPlanAndSnapshot(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, snapshotResp.GetCitations(), 2)
 	require.Equal(t, "chunk-grpc-1", snapshotResp.GetCitations()[0].GetChunkId())
+	assertNoLegacyTenantProto(t, snapshotResp)
 
 	// Read without updates
-	snapshotResp, err = client.UpsertMemorySnapshot(ctx, &knowledgev1.QAMemorySnapshotRequest{
-		TenantId:  env.TenantID().String(),
-		SessionId: "grpc-session",
+	snapshotResp, err = client.UpsertMemorySnapshot(rpcCtx, &knowledgev1.QAMemorySnapshotRequest{
+		TenantUuid: env.TenantUUID().String(),
+		SessionId:  "grpc-session",
 	})
 	require.NoError(t, err)
 	require.Len(t, snapshotResp.GetCitations(), 2)
+	assertNoLegacyTenantProto(t, snapshotResp)
 }

@@ -11,8 +11,8 @@ import (
 type ProviderProfile struct {
 	coremodel.PowerUUIDModel
 
-	Env      string  `gorm:"column:env;type:varchar(32);not null;index:idx_provider_profiles_scope_name,unique,priority:1" json:"env"`
-	TenantID *uint64 `gorm:"column:tenant_id;index:idx_provider_profiles_scope_name,unique,priority:2" json:"tenant_id,omitempty"`
+	Env        string `gorm:"column:env;type:varchar(32);not null;index:idx_provider_profiles_scope_name,unique,priority:1" json:"env"`
+	TenantUUID string `gorm:"column:tenant_uuid;type:varchar(128);index:idx_provider_profiles_scope_name,unique,priority:2" json:"tenant_uuid,omitempty"`
 
 	Name            string                      `gorm:"column:name;type:varchar(128);not null;index:idx_provider_profiles_scope_name,unique,priority:3" json:"name"`
 	Capabilities    datatypes.JSONSlice[string] `gorm:"column:capabilities;type:jsonb;default:'[]'::jsonb" json:"capabilities"`

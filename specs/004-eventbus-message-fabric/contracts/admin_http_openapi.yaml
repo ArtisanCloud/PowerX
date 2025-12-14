@@ -189,7 +189,7 @@ paths:
 components:
   parameters:
     TenantId:
-      name: tenant_id
+      name: tenant_uuid
       in: query
       required: true
       schema:
@@ -197,9 +197,9 @@ components:
   schemas:
     TopicUpsertRequest:
       type: object
-      required: [tenant_id, namespace, name]
+      required: [tenant_uuid, namespace, name]
       properties:
-        tenant_id:
+        tenant_uuid:
           type: string
         namespace:
           type: string
@@ -254,7 +254,7 @@ components:
       properties:
         id:
           type: string
-        tenant_id:
+        tenant_uuid:
           type: string
         tenant_key:
           type: string
@@ -285,9 +285,9 @@ components:
           format: date-time
     AclBatchRequest:
       type: object
-      required: [tenant_id, topic_full_name]
+      required: [tenant_uuid, topic_full_name]
       properties:
-        tenant_id:
+        tenant_uuid:
           type: string
         topic_full_name:
           type: string
@@ -337,9 +337,9 @@ components:
             $ref: '#/components/schemas/AclBinding'
     PublishRequest:
       type: object
-      required: [tenant_id, topic_full_name, event_id, payload]
+      required: [tenant_uuid, topic_full_name, event_id, payload]
       properties:
-        tenant_id:
+        tenant_uuid:
           type: string
         topic_full_name:
           type: string

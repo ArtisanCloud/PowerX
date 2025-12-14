@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './fixtures/authenticatedTest'
 
 /**
  * 插件发布功能 E2E 测试

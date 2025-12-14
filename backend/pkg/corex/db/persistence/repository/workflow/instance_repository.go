@@ -3,6 +3,7 @@ package workflow
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -22,7 +23,7 @@ type InstanceRepository struct {
 
 // InstanceListFilter 用于筛选实例列表。
 type InstanceListFilter struct {
-	TenantID       uint64
+	TenantUUID     string
 	DefinitionUUID uuid.UUID
 	State          string
 	From           *time.Time
@@ -51,9 +52,9 @@ func (r *InstanceRepository) CreateInstance(ctx context.Context, instance *model
 }
 
 // GetByUUID 通过 UUID 查询单个实例。
-func (r *InstanceRepository) GetByUUID(ctx context.Context, tenantID uint64, instanceUUID uuid.UUID) (*modelworkflow.WorkflowInstance, error) {
-	if tenantID == 0 {
-		return nil, errors.New("tenantID is required")
+func (r *InstanceRepository) GetByUUID(ctx context.Context, tenantUUID string, instanceUUID uuid.UUID) (*modelworkflow.WorkflowInstance, error) {
+	if strings.TrimSpace(tenantUUID) == "" {
+		return nil, errors.New("tenant uuid is required")
 	}
 	if instanceUUID == uuid.Nil {
 		return nil, errors.New("instance uuid is required")
@@ -61,7 +62,7 @@ func (r *InstanceRepository) GetByUUID(ctx context.Context, tenantID uint64, ins
 
 	var instance modelworkflow.WorkflowInstance
 	err := r.db.WithContext(ctx).
-		Where("tenant_id = ? AND uuid = ?", tenantID, instanceUUID).
+		Where("tenant_uuid = ? AND uuid = ?", strings.ToLower(strings.TrimSpace(tenantUUID)), instanceUUID).
 		First(&instance).Error
 	if err != nil {
 		return nil, err
@@ -71,11 +72,12 @@ func (r *InstanceRepository) GetByUUID(ctx context.Context, tenantID uint64, ins
 
 // ListInstances 根据过滤条件分页查询实例。
 func (r *InstanceRepository) ListInstances(ctx context.Context, filter InstanceListFilter) ([]modelworkflow.WorkflowInstance, int64, error) {
-	if filter.TenantID == 0 {
-		return nil, 0, errors.New("tenantID is required")
+	tenantUUID := strings.ToLower(strings.TrimSpace(filter.TenantUUID))
+	if tenantUUID == "" {
+		return nil, 0, errors.New("tenant uuid is required")
 	}
 
-	query := r.db.WithContext(ctx).Model(&modelworkflow.WorkflowInstance{}).Where("tenant_id = ?", filter.TenantID)
+	query := r.db.WithContext(ctx).Model(&modelworkflow.WorkflowInstance{}).Where("tenant_uuid = ?", tenantUUID)
 	if filter.DefinitionUUID != uuid.Nil {
 		query = query.Where("definition_uuid = ?", filter.DefinitionUUID)
 	}
@@ -129,8 +131,8 @@ func (r *InstanceRepository) ListInstances(ctx context.Context, filter InstanceL
 }
 
 // UpdateState 更新实例状态及关联字段。
-func (r *InstanceRepository) UpdateState(ctx context.Context, tenantID uint64, instanceUUID uuid.UUID, nextState string, updates map[string]interface{}) error {
-	if tenantID == 0 || instanceUUID == uuid.Nil {
+func (r *InstanceRepository) UpdateState(ctx context.Context, tenantUUID string, instanceUUID uuid.UUID, nextState string, updates map[string]interface{}) error {
+	if strings.TrimSpace(tenantUUID) == "" || instanceUUID == uuid.Nil {
 		return errors.New("invalid parameters for update")
 	}
 	if updates == nil {
@@ -143,6 +145,6 @@ func (r *InstanceRepository) UpdateState(ctx context.Context, tenantID uint64, i
 
 	return r.db.WithContext(ctx).
 		Model(&modelworkflow.WorkflowInstance{}).
-		Where("tenant_id = ? AND uuid = ?", tenantID, instanceUUID).
+		Where("tenant_uuid = ? AND uuid = ?", strings.ToLower(strings.TrimSpace(tenantUUID)), instanceUUID).
 		Updates(updates).Error
 }

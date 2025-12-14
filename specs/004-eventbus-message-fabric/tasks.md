@@ -65,7 +65,7 @@
 
 ### Implementation
 
-- [x] **T017 [US2]** 在迁移文件 `pkg/corex/db/migration/202510170001_create_event_topics.go` 中补充 `event_acl_bindings` 表结构（或新增 `202510170002_create_event_acl_bindings.go`），包含唯一键 (`tenant_id`,`topic_id`,`principal_id`,`action`) 与过期时间。
+- [x] **T017 [US2]** 在迁移文件 `pkg/corex/db/migration/202510170001_create_event_topics.go` 中补充 `event_acl_bindings` 表结构（或新增 `202510170002_create_event_acl_bindings.go`），包含唯一键 (`tenant_uuid`,`topic_id`,`principal_id`,`action`) 与过期时间。
 - [x] **T018 [US2]** 增加模型 `pkg/corex/db/persistence/model/event_fabric/acl_binding.go`。
 - [x] **T019 [US2]** 编写仓储 `pkg/corex/db/persistence/repository/event_fabric/acl_repository.go`，支持批量授予/撤销与有效期过滤。
 - [x] **T020 [US2]** 实现 `internal/service/event_fabric/acl/acl_service.go`：整合权限校验、授予/撤销与冲突检测。

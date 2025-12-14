@@ -30,7 +30,7 @@
         </div>
         <div class="space-y-1">
           <div class="text-gray-500">{{ t('pluginRelease.tenant', '租户') }}</div>
-          <div class="font-medium">{{ detail.tenantId || '-' }}</div>
+          <div class="font-medium">{{ detail.tenant_uuid || '-' }}</div>
         </div>
         <div class="space-y-1">
           <div class="text-gray-500">{{ t('pluginRelease.commitHash', '提交哈希') }}</div>
@@ -90,7 +90,7 @@ const loading = ref(false)
 const detail = reactive<any>({
   pluginId: '',
   version: '',
-  tenantId: '',
+  tenant_uuid: '',
   releaseNotes: '',
   buildArtifactUri: '',
   commitHash: '',

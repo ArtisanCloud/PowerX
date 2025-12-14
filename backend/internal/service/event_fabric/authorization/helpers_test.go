@@ -220,7 +220,7 @@ func (env *testEnv) insertCapability(namespace, action string) eventfabricmodel.
 
 func (env *testEnv) insertGrant(tenantID, subjectID uuid.UUID, subjectType, status string, ttl time.Time) eventfabricmodel.AuthorizationGrant {
 	grant := eventfabricmodel.AuthorizationGrant{
-		TenantID:     tenantID,
+		TenantUUID:   tenantID.String(),
 		SubjectType:  subjectType,
 		SubjectID:    subjectID,
 		Status:       status,
@@ -251,7 +251,7 @@ func (env *testEnv) insertGrantCondition(grantID uuid.UUID, condType string, exp
 
 func (env *testEnv) insertTicket(grantID uuid.UUID, status string, sla time.Time) eventfabricmodel.AuthorizationApprovalTicket {
 	ticket := eventfabricmodel.AuthorizationApprovalTicket{
-		TenantID:           uuid.New(),
+		TenantUUID:         uuid.New().String(),
 		GrantID:            &grantID,
 		RequestFingerprint: uuid.New(),
 		Status:             status,

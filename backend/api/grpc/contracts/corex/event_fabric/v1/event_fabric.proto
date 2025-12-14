@@ -18,7 +18,7 @@ enum TopicLifecycle {
 
 message Topic {
   string id = 1;
-  string tenant_id = 2;
+  string tenant_uuid = 2;
   string namespace = 3;
   string name = 4;
   string payload_format = 5;
@@ -44,7 +44,7 @@ service TopicDirectoryService {
 }
 
 message CreateTopicRequest {
-  string tenant_id = 1;
+  string tenant_uuid = 1;
   string namespace = 2;
   string name = 3;
   string payload_format = 4;
@@ -68,7 +68,7 @@ message UpdateLifecycleResponse {
 }
 
 message ListTopicsRequest {
-  string tenant_id = 1;
+  string tenant_uuid = 1;
   string namespace = 2;
   TopicLifecycle lifecycle = 3;
   int32 page = 4;
@@ -98,7 +98,7 @@ enum PrincipalAction {
 
 message Binding {
   string id = 1;
-  string tenant_id = 2;
+  string tenant_uuid = 2;
   string topic_id = 3;
   string principal_id = 4;
   PrincipalAction action = 5;
@@ -107,7 +107,7 @@ message Binding {
 }
 
 message GrantBindingsRequest {
-  string tenant_id = 1;
+  string tenant_uuid = 1;
   string topic_id = 2;
   string principal_id = 3;
   repeated PrincipalAction actions = 4;
@@ -120,7 +120,7 @@ message GrantBindingsResponse {
 }
 
 message RevokeBindingsRequest {
-  string tenant_id = 1;
+  string tenant_uuid = 1;
   string topic_id = 2;
   string principal_id = 3;
   repeated PrincipalAction actions = 4;
@@ -128,7 +128,7 @@ message RevokeBindingsRequest {
 }
 
 message ListBindingsRequest {
-  string tenant_id = 1;
+  string tenant_uuid = 1;
   string topic_id = 2;
   int32 page = 3;
   int32 page_size = 4;
@@ -140,7 +140,7 @@ message ListBindingsResponse {
 }
 
 message CanAccessRequest {
-  string tenant_id = 1;
+  string tenant_uuid = 1;
   string principal_id = 2;
   string topic_id = 3;
   PrincipalAction action = 4;
@@ -170,7 +170,7 @@ enum VersionCompatibilityMode {
 }
 
 message PublishEventRequest {
-  string tenant_id = 1;
+  string tenant_uuid = 1;
   string topic = 2;
   string event_id = 3;
   string trace_id = 4;
@@ -199,7 +199,7 @@ message NackDeliveryResponse {
 }
 
 message SubscribeRequest {
-  string tenant_id = 1;
+  string tenant_uuid = 1;
   string subscriber_id = 2;
   repeated string topics = 3;
   int32 batch_size = 4;
@@ -233,7 +233,7 @@ service EventDlqService {
 
 message DlqMessage {
   string id = 1;
-  string tenant_id = 2;
+  string tenant_uuid = 2;
   string topic = 3;
   string event_id = 4;
   string last_error = 5;
@@ -242,7 +242,7 @@ message DlqMessage {
 }
 
 message ListMessagesRequest {
-  string tenant_id = 1;
+  string tenant_uuid = 1;
   string topic = 2;
   int32 page = 3;
   int32 page_size = 4;
@@ -264,7 +264,7 @@ message ReplayMessagesResponse {
 }
 
 message PurgeMessagesRequest {
-  string tenant_id = 1;
+  string tenant_uuid = 1;
   string topic = 2;
 }
 
@@ -287,7 +287,7 @@ message ReplayWindow {
 
 message ReplayTask {
   string id = 1;
-  string tenant_id = 2;
+  string tenant_uuid = 2;
   string topic = 3;
   string trace_id = 4;
   string status = 5;
@@ -299,7 +299,7 @@ message ReplayTask {
 }
 
 message CreateReplayTaskRequest {
-  string tenant_id = 1;
+  string tenant_uuid = 1;
   string topic = 2;
   string trace_id = 3;
   ReplayWindow window = 4;

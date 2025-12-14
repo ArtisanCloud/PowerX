@@ -168,7 +168,7 @@ Body: { ops: [ { op: "grant|revoke", principal: "user:xxx|role:xxx", permissions
 ```
 
 GET /api/v1/audit/logs?resource=&action=&actor=&space_id=&from=&to=&q=&page=&page_size=
-Headers: Authorization, X-Tenant-Id
+Headers: Authorization, X-Tenant-UUID
 
 ```
 

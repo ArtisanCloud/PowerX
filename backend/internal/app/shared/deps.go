@@ -184,7 +184,6 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 
 	// --- TenantService ---
 	tenantSvc := tenantsvc.NewTenantService(db, authUser)
-
 	// --- Media Manager & Service ---
 	mediaManager, mediaSvc := mediasvc.BuildMediaStack(ctx, db, svc, opts.Storage)
 
@@ -231,7 +230,10 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 			workflowScheduler = workflowsvc.NewScheduler(workflowReliable)
 		}
 	}
-	workflowSvc := workflowsvc.NewService(db, workflowsvc.ServiceOptions{})
+	workflowSvc := workflowsvc.NewService(db, workflowsvc.ServiceOptions{
+		ReliableQueue: workflowReliable,
+		Scheduler:     workflowScheduler,
+	})
 
 	integrationGatewayDeps := newIntegrationGatewayDeps(db, opts.IntegrationGateway, bus, aud)
 	agentLifecycleDeps := newAgentLifecycleDeps(db, opts.AgentLifecycle, bus, svc)

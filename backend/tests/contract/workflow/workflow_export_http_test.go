@@ -16,11 +16,14 @@ import (
 	workflowhttp "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/workflow"
 	modelworkflow "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/workflow"
 	workflowrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/workflow"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/tests/workflow/testenv"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 )
+
+const workflowExportTenantUUID = "cb4d7184-19c7-4231-8bcb-39b6fa34b1ac"
 
 func TestWorkflowExportHTTP(t *testing.T) {
 	gin.SetMode(gin.TestMode)
@@ -34,6 +37,9 @@ func TestWorkflowExportHTTP(t *testing.T) {
 			c.AbortWithStatus(http.StatusUnauthorized)
 			return
 		}
+		ctx := reqctx.WithTenantUUID(c.Request.Context(), workflowExportTenantUUID)
+		c.Request = c.Request.WithContext(ctx)
+		reqctx.CopyCtxToGin(c)
 		c.Next()
 	})
 
@@ -47,7 +53,7 @@ func TestWorkflowExportHTTP(t *testing.T) {
 	ctx := context.Background()
 
 	definition, err := env.Service.CreateDefinition(ctx, workflowsvc.CreateDefinitionInput{
-		TenantID:    2001,
+		TenantUUID:  workflowExportTenantUUID,
 		Name:        "export-http",
 		Description: "http export contract",
 		CreatedBy:   uuid.New(),
@@ -59,14 +65,14 @@ func TestWorkflowExportHTTP(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = env.Service.PublishDefinition(ctx, workflowsvc.PublishDefinitionInput{
-		TenantID:       2001,
+		TenantUUID:     workflowExportTenantUUID,
 		DefinitionUUID: definition.UUID,
 		PublishedBy:    uuid.New(),
 	})
 	require.NoError(t, err)
 
 	instance, err := env.Service.StartInstance(ctx, workflowsvc.StartInstanceInput{
-		TenantID:       2001,
+		TenantUUID:     workflowExportTenantUUID,
 		DefinitionUUID: definition.UUID,
 		CorrelationID:  "audit-001",
 		Input:          map[string]any{"topic": "compliance"},
@@ -105,11 +111,8 @@ func TestWorkflowExportHTTP(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/admin/workflows/instances/export?tenant_id=%d&format=json", 2001), nil)
-	req.Header.Set("Authorization", "Bearer token")
-
-	rr := httptest.NewRecorder()
-	engine.ServeHTTP(rr, req)
+	req := httptest.NewRequest(http.MethodGet, "/api/admin/workflows/instances/export?format=json", nil)
+	rr := serveWorkflowRequest(t, engine, req, workflowExportTenantUUID)
 	require.Equal(t, http.StatusOK, rr.Code)
 
 	var resp exportHTTPResponse
@@ -121,6 +124,7 @@ func TestWorkflowExportHTTP(t *testing.T) {
 	require.Equal(t, instance.UUID.String(), row.InstanceID)
 	require.Equal(t, definition.UUID.String(), row.DefinitionID)
 	require.Equal(t, "audit-001", row.CorrelationID)
+	require.Equal(t, workflowExportTenantUUID, row.TenantUUID)
 	require.NotEmpty(t, row.Steps)
 
 	var hasAgent bool
@@ -143,6 +147,7 @@ type exportHTTPResponse struct {
 			DefinitionID      string           `json:"definition_id"`
 			DefinitionVersion int32            `json:"definition_version"`
 			State             string           `json:"state"`
+			TenantUUID        string           `json:"tenant_uuid"`
 			CorrelationID     string           `json:"correlation_id"`
 			Steps             []exportHTTPStep `json:"steps"`
 		} `json:"rows"`

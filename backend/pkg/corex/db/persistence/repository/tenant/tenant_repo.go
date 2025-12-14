@@ -112,6 +112,65 @@ func (r *TenantRepository) MapNamesByIDs(ctx context.Context, ids []uint64) (map
 	return mm, nil
 }
 
+// MapBasicByIDs 返回租户的 name/uuid 等基础信息。
+func (r *TenantRepository) MapBasicByIDs(ctx context.Context, ids []uint64) (map[uint64]dbm.Tenant, error) {
+	out := make(map[uint64]dbm.Tenant, len(ids))
+	if len(ids) == 0 {
+		return out, nil
+	}
+	var ts []dbm.Tenant
+	if err := r.DB.WithContext(ctx).
+		Table(model.TableIAMTenant).
+		Where("id IN ?", ids).
+		Find(&ts).Error; err != nil {
+		return out, err
+	}
+	for _, t := range ts {
+		out[t.ID] = t
+	}
+	return out, nil
+}
+
+// MapBasicByUUIDs 根据 UUID 列表批量抓取租户基础信息。
+func (r *TenantRepository) MapBasicByUUIDs(ctx context.Context, uuids []string) (map[string]dbm.Tenant, error) {
+	out := make(map[string]dbm.Tenant, len(uuids))
+	if len(uuids) == 0 {
+		return out, nil
+	}
+	seen := make(map[string]struct{}, len(uuids))
+	var parsed []uuid.UUID
+	for _, raw := range uuids {
+		trimmed := strings.TrimSpace(raw)
+		if trimmed == "" {
+			continue
+		}
+		key := strings.ToLower(trimmed)
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		u, err := uuid.Parse(trimmed)
+		if err != nil {
+			continue
+		}
+		seen[key] = struct{}{}
+		parsed = append(parsed, u)
+	}
+	if len(parsed) == 0 {
+		return out, nil
+	}
+	var ts []dbm.Tenant
+	if err := r.DB.WithContext(ctx).
+		Table(model.TableIAMTenant).
+		Where("uuid IN ?", parsed).
+		Find(&ts).Error; err != nil {
+		return out, err
+	}
+	for _, t := range ts {
+		out[t.UUID.String()] = t
+	}
+	return out, nil
+}
+
 // 追加：列表查询条件
 type FindTenantsCond struct {
 	Page, PageSize int

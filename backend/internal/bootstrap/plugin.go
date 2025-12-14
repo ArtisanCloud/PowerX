@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
 	"github.com/ArtisanCloud/PowerX/internal/service/setting"
+	"github.com/ArtisanCloud/PowerX/pkg/auth/middleware"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam"
 	"strings"
 	"time"
@@ -53,7 +54,15 @@ func abs(p string) string {
 }
 
 func BootstrapPlugin(ctx context.Context, deps *shared.Deps, cfg *config.Config, r *gin.Engine) (pm.Manager, error) {
-	dr := router.NewDynamicRouter(cfg.Plugin.BasePrefix, r)
+	pluginAuth := middleware.JwtMiddleware(
+		[]byte(cfg.Auth.JWTSecret),
+		cfg.Auth.Issuer,
+		[]string{cfg.Auth.AudienceUser},
+		[]string{"access"},
+		nil,
+		middleware.WithTenantHeaderPolicy(middleware.TenantHeaderPolicy{RequireUUID: cfg.Tenants.RequireUUID}),
+	)
+	dr := router.NewDynamicRouter(cfg.Plugin.BasePrefix, r, pluginAuth)
 	if sec := strings.TrimSpace(cfg.Auth.JWTSecret); sec != "" {
 		dr.SetContextHMACSecret([]byte(sec))
 	}
@@ -72,21 +81,21 @@ func BootstrapPlugin(ctx context.Context, deps *shared.Deps, cfg *config.Config,
 		Registry:      pmimpl.NewJSONRegistry(registryFile),
 		HTTP:          dr,
 		Supervisor:    sup,
-		PostEnable: func(ctx context.Context, tenantID uint64, pluginID string) error {
+		PostEnable: func(ctx context.Context, tenantUUID, pluginID string) error {
 			svc := setting.NewPluginInstanceConfigService(deps)
 
 			// 注意：EnsureCredentials 有 3 个返回值
-			clientID, clientSecret, err := svc.EnsureCredentials(ctx, tenantID, pluginID, nil)
+			clientID, clientSecret, err := svc.EnsureCredentials(ctx, tenantUUID, pluginID, nil)
 			if err != nil {
 				return err
 			}
 
 			// 推送到插件（若首次创建有明文 secret）
 			if clientSecret != "" {
-				if err := pmimplnotify.PushTenantCredentials(ctx, pluginID, tenantID, clientID, clientSecret); err != nil {
-					logger.WarnF(ctx, "push credentials to plugin failed: plugin=%s tenant=%d err=%v", pluginID, tenantID, err)
+				if err := pmimplnotify.PushTenantCredentials(ctx, pluginID, tenantUUID, clientID, clientSecret); err != nil {
+					logger.WarnF(ctx, "push credentials to plugin failed: plugin=%s tenant=%s err=%v", pluginID, tenantUUID, err)
 				} else {
-					logger.InfoF(ctx, "pushed credentials to plugin: plugin=%s tenant=%d", pluginID, tenantID)
+					logger.InfoF(ctx, "pushed credentials to plugin: plugin=%s tenant=%s", pluginID, tenantUUID)
 				}
 			}
 

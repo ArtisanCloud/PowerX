@@ -3,7 +3,6 @@
 package agentmodelhubcontract
 
 import (
-	"context"
 	"net"
 	"testing"
 
@@ -37,10 +36,11 @@ func TestConnectorGRPCContract(t *testing.T) {
 
 	client := agentmodelhubv1.NewAgentModelHubServiceClient(conn)
 
-	upsertResp, err := client.UpsertConnectorInstance(context.Background(), &agentmodelhubv1.UpsertConnectorInstanceRequest{
+	ctx := agentModelHubContext(t, "demo-tenant")
+	upsertResp, err := client.UpsertConnectorInstance(ctx, &agentmodelhubv1.UpsertConnectorInstanceRequest{
 		Platform: "coze",
 		Instance: &agentmodelhubv1.ConnectorInstanceInput{
-			TenantId:             "demo-tenant",
+			TenantUuid:           "demo-tenant",
 			Region:               "us-east-1",
 			OauthRef:             "vault://connectors/coze/demo",
 			WebhookSigningKeyRef: "vault://connectors/coze/signing",
@@ -50,11 +50,13 @@ func TestConnectorGRPCContract(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.NotEmpty(t, upsertResp.GetInstance().GetInstanceId())
+	assertNoAgentModelHubTenantLeak(t, upsertResp)
 
-	_, err = client.PauseConnectorInstance(context.Background(), &agentmodelhubv1.PauseConnectorInstanceRequest{
+	pauseResp, err := client.PauseConnectorInstance(ctx, &agentmodelhubv1.PauseConnectorInstanceRequest{
 		Platform:   "coze",
 		InstanceId: upsertResp.GetInstance().GetInstanceId(),
 		Reason:     "observed error rate spike",
 	})
 	require.NoError(t, err)
+	assertNoAgentModelHubTenantLeak(t, pauseResp)
 }

@@ -228,13 +228,13 @@ func (r *PermissionRepository) Sync(ctx context.Context, source, introduced stri
 }
 
 // UserHasPermission 判断用户在租户下是否拥有某资源-动作
-func (r *PermissionRepository) UserHasPermission(ctx context.Context, tenantID, userID uint64, resource, action string) (bool, error) {
+func (r *PermissionRepository) UserHasPermission(ctx context.Context, tenantUUID string, userID uint64, resource, action string) (bool, error) {
 	var cnt int64
 	err := r.db.WithContext(ctx).
 		Table((&dbm.Permission{}).GetTableName(true)+" AS p").
 		Select("COUNT(1)").
 		Joins("JOIN "+(&dbm.RolePermission{}).GetTableName(true)+" rp ON rp.permission_id = p.id").
-		Joins("JOIN "+(&dbm.RoleBinding{}).GetTableName(true)+" ur ON ur.role_id = rp.role_id AND ur.tenant_id = ?", tenantID).
+		Joins("JOIN "+(&dbm.RoleBinding{}).GetTableName(true)+" ur ON ur.role_id = rp.role_id AND ur.tenant_uuid = ?", tenantUUID).
 		Where("ur.user_id = ? AND p.resource = ? AND p.action = ?", userID, resource, action).
 		Count(&cnt).Error
 	return cnt > 0, err
@@ -243,7 +243,7 @@ func (r *PermissionRepository) UserHasPermission(ctx context.Context, tenantID, 
 // MemberHasPermissionViaBinding：成员在某租户下是否拥有 resource/action 权限
 func (r *PermissionRepository) MemberHasPermissionViaBinding(
 	ctx context.Context,
-	tenantID, memberID uint64,
+	tenantUUID string, memberID uint64,
 	resource, action string,
 ) (bool, error) {
 	var cnt int64
@@ -251,7 +251,7 @@ func (r *PermissionRepository) MemberHasPermissionViaBinding(
 		Table((&dbm.Permission{}).GetTableName(true)+" AS p").
 		Select("COUNT(1)").
 		Joins("JOIN "+(&dbm.RolePermission{}).GetTableName(true)+" rp ON rp.permission_id = p.id").
-		Joins("JOIN "+(&dbm.RoleBinding{}).GetTableName(true)+" rb ON rb.role_id = rp.role_id AND rb.tenant_id = ? AND rb.subject_type = ?", tenantID, dbm.SubMember).
+		Joins("JOIN "+(&dbm.RoleBinding{}).GetTableName(true)+" rb ON rb.role_id = rp.role_id AND rb.tenant_uuid = ? AND rb.subject_type = ?", tenantUUID, dbm.SubMember).
 		Where("rb.subject_id = ? AND p.resource = ? AND p.action = ?", memberID, resource, action).
 		Count(&cnt).Error
 	return cnt > 0, err

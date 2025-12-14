@@ -27,7 +27,8 @@ func TestReleaseGRPCFlow(t *testing.T) {
 
 	client := knowledgev1.NewKnowledgeSpaceAdminServiceClient(conn)
 
-	upsertResp, err := client.UpsertReleasePolicy(context.Background(), &knowledgev1.UpsertReleasePolicyRequest{
+	ctx := knowledgeGRPCContext(t, env)
+	upsertResp, err := client.UpsertReleasePolicy(ctx, &knowledgev1.UpsertReleasePolicyRequest{
 		MatrixVersion: "v2025.02",
 		PilotTenants:  []string{"demo-retail"},
 		Batches: []*knowledgev1.ReleaseBatch{
@@ -39,16 +40,18 @@ func TestReleaseGRPCFlow(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.NotEmpty(t, upsertResp.GetPolicyId())
+	assertNoLegacyTenantProto(t, upsertResp)
 
-	publishResp, err := client.PublishRelease(context.Background(), &knowledgev1.PublishReleaseRequest{
+	publishResp, err := client.PublishRelease(ctx, &knowledgev1.PublishReleaseRequest{
 		PolicyId:    upsertResp.GetPolicyId(),
 		VersionId:   "ver-2025.02",
 		RequestedBy: "qa@powerx.io",
 	})
 	require.NoError(t, err)
 	require.NotEmpty(t, publishResp.GetBatchToken())
+	assertNoLegacyTenantProto(t, publishResp)
 
-	promoteResp, err := client.PromoteRelease(context.Background(), &knowledgev1.PromoteReleaseRequest{
+	promoteResp, err := client.PromoteRelease(ctx, &knowledgev1.PromoteReleaseRequest{
 		PolicyId:    upsertResp.GetPolicyId(),
 		VersionId:   "ver-2025.02",
 		BatchToken:  publishResp.GetBatchToken(),
@@ -56,8 +59,9 @@ func TestReleaseGRPCFlow(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.NotEmpty(t, promoteResp.GetNextBatchToken())
+	assertNoLegacyTenantProto(t, promoteResp)
 
-	rollbackResp, err := client.RollbackRelease(context.Background(), &knowledgev1.RollbackReleaseRequest{
+	rollbackResp, err := client.RollbackRelease(ctx, &knowledgev1.RollbackReleaseRequest{
 		PolicyId:    upsertResp.GetPolicyId(),
 		VersionId:   "ver-2025.02",
 		Reason:      "metrics breached",
@@ -65,4 +69,5 @@ func TestReleaseGRPCFlow(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.Equal(t, "rolled_back", rollbackResp.GetStatus())
+	assertNoLegacyTenantProto(t, rollbackResp)
 }

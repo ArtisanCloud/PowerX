@@ -7,7 +7,7 @@ const (
 	DomainName = "event_fabric"
 
 	// ContextTenantKey 标识上下文里租户信息的键名。
-	ContextTenantKey = "tenant_id"
+	ContextTenantKey = "tenant_uuid"
 
 	// ContextSubscriberKey 标识上下文中订阅者的键名。
 	ContextSubscriberKey = "subscriber_id"

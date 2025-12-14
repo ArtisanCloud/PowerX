@@ -13,6 +13,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/context_snapshot"
 	"github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/qa_bridge"
 	"github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/toolchain"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
 )
 
@@ -28,7 +29,6 @@ func newQABridgeHandler(deps *shared.Deps) *qaBridgeHandler {
 }
 
 type qaPlanRequest struct {
-	TenantID        string   `json:"tenantId" binding:"required"`
 	Intent          string   `json:"intent" binding:"required"`
 	DomainTags      []string `json:"domainTags"`
 	SessionID       string   `json:"sessionId"`
@@ -36,7 +36,7 @@ type qaPlanRequest struct {
 }
 
 type qaPlanResponse struct {
-	TenantID        string               `json:"tenantId"`
+	TenantUUID      string               `json:"tenant_uuid"`
 	Intent          string               `json:"intent"`
 	DomainTags      []string             `json:"domainTags"`
 	CandidateSpaces []qaPlanSpaceView    `json:"candidateSpaces"`
@@ -74,13 +74,12 @@ func (h *qaBridgeHandler) plan(c *gin.Context) {
 		dto.ResponseValidationError(c, err)
 		return
 	}
-	tenantID, err := uuid.Parse(strings.TrimSpace(req.TenantID))
-	if err != nil {
-		dto.ResponseError(c, http.StatusBadRequest, "无效的 tenantId", err)
+	tenantUUID, ok := h.requireTenantUUID(c)
+	if !ok {
 		return
 	}
 	out, err := h.svc.Plan(c.Request.Context(), qa_bridge.PlanInput{
-		TenantID:        tenantID,
+		TenantUUID:      tenantUUID,
 		Intent:          req.Intent,
 		DomainTags:      req.DomainTags,
 		SessionID:       req.SessionID,
@@ -99,7 +98,7 @@ func (h *qaBridgeHandler) plan(c *gin.Context) {
 		return
 	}
 	dto.ResponseSuccess(c, qaPlanResponse{
-		TenantID:        out.TenantID.String(),
+		TenantUUID:      out.TenantUUID.String(),
 		Intent:          out.Intent,
 		DomainTags:      out.DomainTags,
 		CandidateSpaces: toPlanSpaces(out.CandidateSpaces),
@@ -116,7 +115,6 @@ func (h *qaBridgeHandler) plan(c *gin.Context) {
 }
 
 type qaMemoryRequest struct {
-	TenantID  string               `json:"tenantId" binding:"required"`
 	SessionID string               `json:"sessionId" binding:"required"`
 	Updates   []qaMemoryUpdateView `json:"updates"`
 }
@@ -132,9 +130,9 @@ type qaMemoryUpdateView struct {
 }
 
 type qaMemoryResponse struct {
-	TenantID  string               `json:"tenantId"`
-	SessionID string               `json:"sessionId"`
-	Citations []qaMemoryUpdateView `json:"citations"`
+	TenantUUID string               `json:"tenant_uuid"`
+	SessionID  string               `json:"sessionId"`
+	Citations  []qaMemoryUpdateView `json:"citations"`
 }
 
 func (h *qaBridgeHandler) memorySnapshot(c *gin.Context) {
@@ -143,15 +141,14 @@ func (h *qaBridgeHandler) memorySnapshot(c *gin.Context) {
 		dto.ResponseValidationError(c, err)
 		return
 	}
-	tenantID, err := uuid.Parse(strings.TrimSpace(req.TenantID))
-	if err != nil {
-		dto.ResponseError(c, http.StatusBadRequest, "无效的 tenantId", err)
+	tenantUUID, ok := h.requireTenantUUID(c)
+	if !ok {
 		return
 	}
 	input := qa_bridge.MemoryInput{
-		TenantID:  tenantID,
-		SessionID: req.SessionID,
-		Updates:   fromMemoryView(req.Updates),
+		TenantUUID: tenantUUID,
+		SessionID:  req.SessionID,
+		Updates:    fromMemoryView(req.Updates),
 	}
 	out, err := h.svc.UpsertMemorySnapshot(c.Request.Context(), input)
 	if err != nil {
@@ -163,10 +160,25 @@ func (h *qaBridgeHandler) memorySnapshot(c *gin.Context) {
 		return
 	}
 	dto.ResponseSuccess(c, qaMemoryResponse{
-		TenantID:  out.TenantID.String(),
-		SessionID: out.SessionID,
-		Citations: toMemoryView(out.Citations),
+		TenantUUID: out.TenantUUID.String(),
+		SessionID:  out.SessionID,
+		Citations:  toMemoryView(out.Citations),
 	})
+}
+
+func (h *qaBridgeHandler) requireTenantUUID(c *gin.Context) (uuid.UUID, bool) {
+	uuidStr, err := reqctx.RequireTenantUUIDFromGin(c)
+	if err != nil {
+		dto.ResponseError(c, http.StatusUnauthorized, "缺少租户上下文", err)
+		return uuid.Nil, false
+	}
+	trimmed := strings.TrimSpace(uuidStr)
+	parsed, parseErr := uuid.Parse(trimmed)
+	if parseErr != nil {
+		dto.ResponseError(c, http.StatusBadRequest, "tenant_uuid 格式错误", parseErr)
+		return uuid.Nil, false
+	}
+	return parsed, true
 }
 
 func toPlanSpaces(items []qa_bridge.CandidateSpace) []qaPlanSpaceView {

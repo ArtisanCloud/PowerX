@@ -58,7 +58,7 @@ last_reviewed_at: 2025-02-21
   - 租户策略与数据域标签已同步至 Thought Engine，可在请求中获取。
   - `docs/scenarios/agent-orchestration/SCN-AGENT-REACT-THOUGHT-001.md` 已定义流程、指标与风控。
 - **输入/输出**
-  - 输入：`question`, `tenant_id`, `risk_profile`, `conversation_context`, 可选 `follow_up_hint`。
+  - 输入：`question`, `tenant_uuid`, `risk_profile`, `conversation_context`, 可选 `follow_up_hint`。
   - 输出：`thought_id`, `task_type`, `hypothesis`, `missing_slots`, `retrieval_plan`, `snippets[]`（含 score、source_ref、safety_tag）、审计 Trace。
 - **边界**
   - 不负责插件调用、参数组装或行动审批（由 Action 用例覆盖）。
@@ -105,7 +105,7 @@ sequenceDiagram
 # Contracts & Interfaces
 
 - **Inbound APIs / Events**
-  - `POST /internal/react/thought` — Body: `question`, `tenant_id`, `context`, `trace_id?`, `risk_profile?`; Headers: `x-tenant`, `x-trace`; 返回 `thought_id`, `task_type`, `retrieval_plan`, `missing_slots`, `snippets`.
+- `POST /internal/react/thought` — Body: `question`, `tenant_uuid`, `context`, `trace_id?`, `risk_profile?`; Headers: `x-tenant-uuid`, `x-trace`; 返回 `thought_id`, `task_type`, `retrieval_plan`, `missing_slots`, `snippets`.
 - **Outbound 调用**
   - `POST /internal/intent/classify` — 传入问题、租户、历史上下文，返回任务类型、置信度、缺口列表。
   - `POST /internal/knowledge/search` — 参数 `mode`, `filters`, `max_tokens`; 返回片段与相似度；需 2s 超时、重试 1 次。

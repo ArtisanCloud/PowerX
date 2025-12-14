@@ -7,6 +7,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/internal/service/event_fabric/directory"
 	model "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/event_fabric"
 	repository "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/event_fabric"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/gin-gonic/gin"
 )
@@ -24,7 +25,6 @@ func NewAdminDirectoryHandler(opts AdminDirectoryHandlerOptions) *AdminDirectory
 }
 
 type createTopicRequest struct {
-	TenantID        string                 `json:"tenant_id"`
 	Namespace       string                 `json:"namespace"`
 	Name            string                 `json:"name"`
 	PayloadFormat   string                 `json:"payload_format"`
@@ -52,9 +52,14 @@ func (h *AdminDirectoryHandler) CreateTopic(c *gin.Context) {
 		dto.RespondErrorFrom(c, dto.NewBadRequest("invalid request", err))
 		return
 	}
+	tenantUUID, err := reqctx.RequireTenantUUIDFromGin(c)
+	if err != nil {
+		dto.RespondErrorFrom(c, dto.NewUnauthorized("tenant context missing", err))
+		return
+	}
 
 	topic, err := h.service.CreateTopic(c.Request.Context(), directory.CreateTopicInput{
-		TenantID:        req.TenantID,
+		TenantUUID:      tenantUUID,
 		Namespace:       req.Namespace,
 		Name:            req.Name,
 		PayloadFormat:   req.PayloadFormat,
@@ -96,9 +101,15 @@ func (h *AdminDirectoryHandler) ListTopics(c *gin.Context) {
 		}
 	}
 
+	tenantUUID, err := reqctx.RequireTenantUUIDFromGin(c)
+	if err != nil {
+		dto.RespondErrorFrom(c, dto.NewUnauthorized("tenant context missing", err))
+		return
+	}
+
 	list, total, err := h.service.ListTopics(c.Request.Context(), repository.QueryContext{
 		Filter: repository.TopicFilter{
-			TenantID:  c.Query("tenant_id"),
+			TenantID:  tenantUUID,
 			Namespace: c.Query("namespace"),
 			Lifecycle: lifecycles,
 		},

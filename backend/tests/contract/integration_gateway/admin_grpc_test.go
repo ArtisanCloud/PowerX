@@ -43,11 +43,12 @@ func TestAdminGRPCWorkflow(t *testing.T) {
 	t.Cleanup(func() { _ = conn.Close() })
 
 	client := pbintegration.NewIntegrationGatewayAdminServiceClient(conn)
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	baseCtx := integrationGatewayGRPCContext(t, "tenant-001")
+	ctx, cancel := context.WithTimeout(baseCtx, 5*time.Second)
 	t.Cleanup(cancel)
 
 	createResp, err := client.CreateRoute(ctx, &pbintegration.CreateRouteRequest{
-		TenantId:     "tenant-001",
+		TenantUuid:   "tenant-001",
 		RouteSlug:    "grpc-sync",
 		CapabilityId: "cap.grpc.sync",
 		ToolGrantIds: []string{"grant-grpc"},
@@ -55,12 +56,14 @@ func TestAdminGRPCWorkflow(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, createResp)
 	require.NotEmpty(t, createResp.Route.RouteId)
+	assertIGNoLegacyProto(t, createResp)
 
 	routeID := createResp.Route.RouteId
 
 	getResp, err := client.GetRoute(ctx, &pbintegration.GetRouteRequest{RouteId: routeID})
 	require.NoError(t, err)
 	require.Equal(t, routeID, getResp.Route.RouteId)
+	assertIGNoLegacyProto(t, getResp)
 
 	updateResp, err := client.UpdateRoute(ctx, &pbintegration.UpdateRouteRequest{
 		RouteId:       routeID,
@@ -70,32 +73,38 @@ func TestAdminGRPCWorkflow(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.Contains(t, updateResp.Route.Channels, "mcp")
+	assertIGNoLegacyProto(t, updateResp)
 
-	_, err = client.ChangeLifecycle(ctx, &pbintegration.ChangeLifecycleRequest{
+	changeResp, err := client.ChangeLifecycle(ctx, &pbintegration.ChangeLifecycleRequest{
 		RouteId:     routeID,
 		TargetState: pbintegration.IntegrationRoute_SUSPENDED,
 		Reason:      "maintenance",
 	})
 	require.NoError(t, err)
+	assertIGNoLegacyProto(t, changeResp)
 
-	_, err = client.ChangeLifecycle(ctx, &pbintegration.ChangeLifecycleRequest{
+	changeResp, err = client.ChangeLifecycle(ctx, &pbintegration.ChangeLifecycleRequest{
 		RouteId:     routeID,
 		TargetState: pbintegration.IntegrationRoute_ACTIVE,
 		Reason:      "resume",
 	})
 	require.NoError(t, err)
+	assertIGNoLegacyProto(t, changeResp)
 
-	_, err = client.ChangeLifecycle(ctx, &pbintegration.ChangeLifecycleRequest{
+	changeResp, err = client.ChangeLifecycle(ctx, &pbintegration.ChangeLifecycleRequest{
 		RouteId:     routeID,
 		TargetState: pbintegration.IntegrationRoute_RETIRED,
 	})
 	require.NoError(t, err)
+	assertIGNoLegacyProto(t, changeResp)
 
-	listResp, err := client.ListRoutes(ctx, &pbintegration.ListRoutesRequest{TenantId: "tenant-001"})
+	listResp, err := client.ListRoutes(ctx, &pbintegration.ListRoutesRequest{TenantUuid: "tenant-001"})
 	require.NoError(t, err)
 	require.GreaterOrEqual(t, len(listResp.Items), 1)
+	assertIGNoLegacyProto(t, listResp)
 
 	versionsResp, err := client.ListRouteVersions(ctx, &pbintegration.ListRouteVersionsRequest{RouteId: routeID})
 	require.NoError(t, err)
 	require.GreaterOrEqual(t, len(versionsResp.Versions), 2)
+	assertIGNoLegacyProto(t, versionsResp)
 }

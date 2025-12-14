@@ -35,7 +35,7 @@ func (r *CostQuotaLedgerRepository) UpsertScope(ctx context.Context, ledger *mod
 	if ledger == nil {
 		return nil, errors.New("ledger is nil")
 	}
-	existing, err := r.findScope(ctx, ledger.Env, ledger.TenantID, ledger.ProviderProfileID, ledger.BudgetPeriod)
+	existing, err := r.findScope(ctx, ledger.Env, ledger.TenantUUID, ledger.ProviderProfileID, ledger.BudgetPeriod)
 	if err != nil {
 		return nil, err
 	}
@@ -67,10 +67,10 @@ func (r *CostQuotaLedgerRepository) UpsertScope(ctx context.Context, ledger *mod
 	return existing, nil
 }
 
-func (r *CostQuotaLedgerRepository) findScope(ctx context.Context, env, tenantID string, providerID *uuid.UUID, period string) (*model.CostQuotaLedger, error) {
+func (r *CostQuotaLedgerRepository) findScope(ctx context.Context, env, tenantUUID string, providerID *uuid.UUID, period string) (*model.CostQuotaLedger, error) {
 	var record model.CostQuotaLedger
 	query := r.db.WithContext(ctx).
-		Where("env = ? AND tenant_id = ? AND budget_period = ?", env, tenantID, period)
+		Where("env = ? AND tenant_uuid = ? AND budget_period = ?", env, tenantUUID, period)
 	if providerID == nil {
 		query = query.Where("provider_profile_id IS NULL")
 	} else {
@@ -87,8 +87,8 @@ func (r *CostQuotaLedgerRepository) findScope(ctx context.Context, env, tenantID
 }
 
 // FindScope exposes scoped lookup for service layer consumers.
-func (r *CostQuotaLedgerRepository) FindScope(ctx context.Context, env, tenantID string, providerID *uuid.UUID, period string) (*model.CostQuotaLedger, error) {
-	return r.findScope(ctx, env, tenantID, providerID, period)
+func (r *CostQuotaLedgerRepository) FindScope(ctx context.Context, env, tenantUUID string, providerID *uuid.UUID, period string) (*model.CostQuotaLedger, error) {
+	return r.findScope(ctx, env, tenantUUID, providerID, period)
 }
 
 // UpdateUsage atomically updates usage/anomaly state by ledger UUID.
@@ -112,9 +112,9 @@ func (r *CostQuotaLedgerRepository) UpdateUsage(ctx context.Context, ledgerID uu
 }
 
 // ListByTenant returns ledgers for dashboards.
-func (r *CostQuotaLedgerRepository) ListByTenant(ctx context.Context, env, tenantID string, limit int) ([]model.CostQuotaLedger, error) {
+func (r *CostQuotaLedgerRepository) ListByTenant(ctx context.Context, env, tenantUUID string, limit int) ([]model.CostQuotaLedger, error) {
 	query := r.db.WithContext(ctx).
-		Where("env = ? AND tenant_id = ?", env, tenantID).
+		Where("env = ? AND tenant_uuid = ?", env, tenantUUID).
 		Order("budget_period DESC, created_at DESC")
 	if limit > 0 {
 		query = query.Limit(limit)

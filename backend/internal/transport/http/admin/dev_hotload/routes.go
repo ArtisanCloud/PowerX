@@ -15,7 +15,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/internal/service/dev_hotload/store"
 	"github.com/ArtisanCloud/PowerX/pkg/auth/middleware"
 	model "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/dev_hotload"
-	tenantrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/tenant"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -30,7 +30,6 @@ func RegisterAPIRoutes(public, protected *gin.RouterGroup, deps *shared.Deps) {
 	handler := &apiHandler{
 		svc:       deps.DevHotloadService,
 		sseBuffer: deps.DevHotloadOptions.Observability.SSEBufferSize,
-		tenants:   tenantrepo.NewTenantRepository(deps.DB),
 	}
 	if handler.sseBuffer <= 0 {
 		handler.sseBuffer = 16
@@ -51,7 +50,6 @@ func RegisterAPIRoutes(public, protected *gin.RouterGroup, deps *shared.Deps) {
 type apiHandler struct {
 	svc       *devhotload.Service
 	sseBuffer int
-	tenants   *tenantrepo.TenantRepository
 }
 
 func (h *apiHandler) register(c *gin.Context) {
@@ -60,24 +58,14 @@ func (h *apiHandler) register(c *gin.Context) {
 		dto.ResponseError(c, http.StatusBadRequest, err.Error(), err)
 		return
 	}
-	tenantID := req.TenantID
-	if tenantID == 0 && strings.TrimSpace(req.TenantUUID) != "" {
-		t, err := h.tenants.GetByUUID(c.Request.Context(), strings.TrimSpace(req.TenantUUID))
-		if err != nil {
-			dto.ResponseError(c, http.StatusBadRequest, "invalid tenantUuid", err)
-			return
-		}
-		if t != nil {
-			tenantID = t.ID
-		}
-	}
-	if tenantID == 0 {
-		dto.ResponseError(c, http.StatusBadRequest, "tenantId or tenantUuid is required", nil)
+	tenantUUID, err := reqctx.RequireTenantUUIDFromGin(c)
+	if err != nil {
+		dto.ResponseError(c, http.StatusUnauthorized, "缺少有效租户上下文", err)
 		return
 	}
 	result, err := h.svc.Register(c.Request.Context(), devhotload.RegisterInput{
 		PluginID:        req.PluginID,
-		TenantID:        tenantID,
+		TenantUUID:      tenantUUID,
 		DeveloperID:     req.DeveloperID,
 		BuildHash:       req.BuildHash,
 		EntryPoints:     req.EntryPoints,
@@ -188,17 +176,14 @@ func (h *apiHandler) stream(c *gin.Context) {
 
 func (h *apiHandler) listSessions(c *gin.Context) {
 	pluginID := c.Query("pluginId")
-	var tenantID *uint64
-	if tidStr := strings.TrimSpace(c.Query("tenant")); tidStr != "" {
-		tid, parseErr := strconv.ParseUint(tidStr, 10, 64)
-		if parseErr != nil || tid == 0 {
-			if parseErr == nil {
-				parseErr = fmt.Errorf("tenant must be positive")
-			}
-			dto.ResponseError(c, http.StatusBadRequest, "invalid tenant", parseErr)
-			return
-		}
-		tenantID = &tid
+	rawTenant := c.Query("tenant_uuid")
+	if rawTenant == "" {
+		rawTenant = c.Query("tenantUuid")
+	}
+	tenantUUID, err := optionalTenantUUIDFilter(rawTenant)
+	if err != nil {
+		dto.ResponseError(c, http.StatusBadRequest, "invalid tenant_uuid", err)
+		return
 	}
 	statuses := normalizeSessionStatuses(c.QueryArray("status"))
 	limit, err := parseLimit(c.Query("limit"))
@@ -212,7 +197,7 @@ func (h *apiHandler) listSessions(c *gin.Context) {
 		return
 	}
 
-	sessions, err := h.svc.ListSessions(c.Request.Context(), pluginID, tenantID, statuses, limit, offset)
+	sessions, err := h.svc.ListSessions(c.Request.Context(), pluginID, tenantUUID, statuses, limit, offset)
 	if err != nil {
 		h.writeError(c, err)
 		return
@@ -230,17 +215,14 @@ func (h *apiHandler) listSessions(c *gin.Context) {
 
 func (h *apiHandler) clearSessions(c *gin.Context) {
 	pluginID := c.Query("pluginId")
-	var tenantID *uint64
-	if tidStr := strings.TrimSpace(c.Query("tenantId")); tidStr != "" {
-		tid, parseErr := strconv.ParseUint(tidStr, 10, 64)
-		if parseErr != nil || tid == 0 {
-			if parseErr == nil {
-				parseErr = fmt.Errorf("tenantId must be positive")
-			}
-			dto.ResponseError(c, http.StatusBadRequest, "invalid tenantId", parseErr)
-			return
-		}
-		tenantID = &tid
+	rawTenant := c.Query("tenant_uuid")
+	if rawTenant == "" {
+		rawTenant = c.Query("tenantUuid")
+	}
+	tenantUUID, err := optionalTenantUUIDFilter(rawTenant)
+	if err != nil {
+		dto.ResponseError(c, http.StatusBadRequest, "invalid tenant_uuid", err)
+		return
 	}
 	statuses := normalizeSessionStatuses(c.QueryArray("status"))
 	if len(statuses) == 0 {
@@ -260,7 +242,7 @@ func (h *apiHandler) clearSessions(c *gin.Context) {
 		confirm = true
 	}
 
-	ids, err := h.svc.DeleteSessions(c.Request.Context(), pluginID, tenantID, statuses, force, confirm)
+	ids, err := h.svc.DeleteSessions(c.Request.Context(), pluginID, tenantUUID, statuses, force, confirm)
 	if err != nil {
 		h.writeError(c, err)
 		return
@@ -284,10 +266,10 @@ func (h *apiHandler) writeError(c *gin.Context, err error) {
 		var conflict *devhotload.SessionConflictError
 		if errors.As(err, &conflict) && conflict != nil && conflict.Session != nil {
 			dto.ResponseErrorWithDetails(c, http.StatusConflict, err.Error(), err, map[string]any{
-				"sessionId": conflict.Session.UUID.String(),
-				"pluginId":  conflict.Session.PluginID,
-				"tenantId":  conflict.Session.TenantID,
-				"status":    conflict.Session.Status,
+				"sessionId":   conflict.Session.UUID.String(),
+				"pluginId":    conflict.Session.PluginID,
+				"tenant_uuid": conflict.Session.TenantUUID,
+				"status":      conflict.Session.Status,
 			})
 			return
 		}
@@ -305,8 +287,6 @@ func (h *apiHandler) writeError(c *gin.Context, err error) {
 
 type registerRequest struct {
 	PluginID        string         `json:"pluginId" binding:"required"`
-	TenantUUID      string         `json:"tenantUuid"`
-	TenantID        uint64         `json:"tenantId"`
 	DeveloperID     uint64         `json:"developerId" binding:"required"`
 	BuildHash       string         `json:"buildHash"`
 	EntryPoints     []string       `json:"entryPoints"`
@@ -331,7 +311,7 @@ type reloadRequest struct {
 type sessionView struct {
 	SessionID       string         `json:"sessionId"`
 	PluginID        string         `json:"pluginId"`
-	TenantID        uint64         `json:"tenantId"`
+	TenantUUID      string         `json:"tenant_uuid"`
 	DeveloperID     uint64         `json:"developerId"`
 	Status          string         `json:"status"`
 	ReloadToken     string         `json:"reloadToken"`
@@ -345,7 +325,7 @@ func sessionViewFromModel(m *model.DevHotloadSession) sessionView {
 	view := sessionView{
 		SessionID:       m.UUID.String(),
 		PluginID:        m.PluginID,
-		TenantID:        m.TenantID,
+		TenantUUID:      m.TenantUUID,
 		DeveloperID:     m.DeveloperID,
 		Status:          m.Status,
 		ReloadToken:     m.ReloadToken,
@@ -446,4 +426,16 @@ func parseBoolFlag(value string, def bool) (bool, error) {
 	default:
 		return false, fmt.Errorf("invalid boolean value: %s", value)
 	}
+}
+
+func optionalTenantUUIDFilter(raw string) (*string, error) {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return nil, nil
+	}
+	canonical, err := reqctx.CanonicalTenantUUID(trimmed)
+	if err != nil {
+		return nil, err
+	}
+	return &canonical, nil
 }

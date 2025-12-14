@@ -19,11 +19,11 @@ type serviceAuditor struct{ svc ServicePort }
 func NewAuditor(svc ServicePort) Auditor { return &serviceAuditor{svc: svc} }
 
 func (a *serviceAuditor) LogAPI(ctx context.Context, methodPath string, status int, latency time.Duration) {
-	tid := reqctx.GetTenantID(ctx)
+	tid := reqctx.GetTenantUUID(ctx)
 	cid := CorrelationIDFromContext(ctx)
 	_ = a.svc.Emit(ctx, &dbm.AuditEvent{
 		OccurredAt:    time.Now(),
-		TenantID:      tid,
+		TenantUUID:    tid,
 		CorrelationID: cid,
 		Source:        "http",
 		Operation:     "API_CALL",
@@ -36,11 +36,11 @@ func (a *serviceAuditor) LogAPI(ctx context.Context, methodPath string, status i
 }
 
 func (a *serviceAuditor) LogBusPublish(ctx context.Context, topic string, subCount int) {
-	tid := reqctx.GetTenantID(ctx)
+	tid := reqctx.GetTenantUUID(ctx)
 	cid := CorrelationIDFromContext(ctx)
 	_ = a.svc.Emit(ctx, &dbm.AuditEvent{
 		OccurredAt:    time.Now(),
-		TenantID:      tid,
+		TenantUUID:    tid,
 		CorrelationID: cid,
 		Source:        "bus",
 		Operation:     "BUS_PUBLISH",
@@ -53,12 +53,12 @@ func (a *serviceAuditor) LogBusPublish(ctx context.Context, topic string, subCou
 }
 
 func (a *serviceAuditor) LogBusDeliver(ctx context.Context, topic, pluginID string, status int, err string) {
-	tid := reqctx.GetTenantID(ctx)
+	tid := reqctx.GetTenantUUID(ctx)
 	cid := CorrelationIDFromContext(ctx)
 
 	_ = a.svc.Emit(ctx, &dbm.AuditEvent{
 		OccurredAt:    time.Now(),
-		TenantID:      tid,
+		TenantUUID:    tid,
 		CorrelationID: cid,
 		Source:        "bus",
 		Operation:     "BUS_DELIVER",
@@ -75,11 +75,11 @@ func (a *serviceAuditor) LogRBAC(ctx context.Context, subject, resource, action 
 	if allow {
 		out = "SUCCESS"
 	}
-	tid := reqctx.GetTenantID(ctx)
+	tid := reqctx.GetTenantUUID(ctx)
 	cid := CorrelationIDFromContext(ctx)
 	_ = a.svc.Emit(ctx, &dbm.AuditEvent{
 		OccurredAt:    time.Now(),
-		TenantID:      tid,
+		TenantUUID:    tid,
 		CorrelationID: cid,
 		Source:        "rbac",
 		Operation:     "RBAC_CHECK",

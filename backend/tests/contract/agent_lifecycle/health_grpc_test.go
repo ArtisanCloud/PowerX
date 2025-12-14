@@ -49,7 +49,7 @@ func TestHealthGRPC(t *testing.T) {
 
 	// 直接通过 service 注册代理，聚焦健康接口合同
 	reg, err := env.Deps.AgentLifecycle.Service.Register(ctx, agent_lifecycle.RegisterInput{
-		TenantID:                 "tenant-002",
+		TenantUUID:               "tenant-002",
 		Alias:                    "health-grpc",
 		TelemetryContractVersion: "otel-agent-v1",
 	})
@@ -59,7 +59,7 @@ func TestHealthGRPC(t *testing.T) {
 	record := func(offset time.Duration, status string, metrics agent_lifecycle.HealthMetricsInput) {
 		err := env.Deps.AgentLifecycle.Service.RecordHealthSnapshot(ctx, agent_lifecycle.HealthInput{
 			AgentID:         reg.Agent.ID,
-			TenantID:        "tenant-002",
+			TenantUUID:      "tenant-002",
 			WindowStartedAt: time.Now().Add(offset * -1),
 			WindowDuration:  time.Minute,
 			Status:          status,

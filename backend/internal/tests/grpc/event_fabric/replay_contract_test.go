@@ -24,14 +24,15 @@ func TestEventReplayGRPCContracts(t *testing.T) {
 	env := newReplayGRPCTestEnv(t)
 	t.Cleanup(env.Close)
 
-	ctx := context.Background()
+	baseCtx := context.Background()
+	tenantCtx := eventFabricGRPCContext(t, baseCtx, "tenant-corex")
 	window := &eventfabricv1.ReplayWindow{
 		Start: timestamppb.New(time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)),
 		End:   timestamppb.New(time.Date(2025, 1, 2, 0, 0, 0, 0, time.UTC)),
 	}
 
-	createResp, err := env.client.CreateReplayTask(ctx, &eventfabricv1.CreateReplayTaskRequest{
-		TenantId:   "tenant-corex",
+	createResp, err := env.client.CreateReplayTask(tenantCtx, &eventfabricv1.CreateReplayTaskRequest{
+		TenantUuid: "tenant-corex",
 		Topic:      "tenant-corex.corex.workflow.approved",
 		TraceId:    "trace-abc",
 		Window:     window,
@@ -42,22 +43,25 @@ func TestEventReplayGRPCContracts(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateReplayTask unexpected error: %v", err)
 	}
+	assertNoEventFabricTenantLeakProto(t, createResp)
 	if createResp.GetId() != "task-1" {
 		t.Fatalf("unexpected task id %s", createResp.GetId())
 	}
 
-	got, err := env.client.GetReplayTask(ctx, &eventfabricv1.GetReplayTaskRequest{TaskId: "task-1"})
+	got, err := env.client.GetReplayTask(tenantCtx, &eventfabricv1.GetReplayTaskRequest{TaskId: "task-1"})
 	if err != nil {
 		t.Fatalf("GetReplayTask unexpected error: %v", err)
 	}
+	assertNoEventFabricTenantLeakProto(t, got)
 	if got.GetStatus() != "completed" {
 		t.Fatalf("expected status completed got %s", got.GetStatus())
 	}
 
-	_, err = env.client.CancelReplayTask(ctx, &eventfabricv1.CancelReplayTaskRequest{TaskId: "task-1", OperatorId: "ops-user"})
+	cancelResp, err := env.client.CancelReplayTask(tenantCtx, &eventfabricv1.CancelReplayTaskRequest{TaskId: "task-1", OperatorId: "ops-user"})
 	if err != nil {
 		t.Fatalf("CancelReplayTask unexpected error: %v", err)
 	}
+	assertNoEventFabricTenantLeakProto(t, cancelResp)
 }
 
 func TestEventReplayGRPCErrors(t *testing.T) {
@@ -65,7 +69,7 @@ func TestEventReplayGRPCErrors(t *testing.T) {
 	t.Cleanup(env.Close)
 
 	env.stub.shouldFail = true
-	_, err := env.client.CreateReplayTask(context.Background(), &eventfabricv1.CreateReplayTaskRequest{TenantId: "tenant-corex", Topic: "topic"})
+	_, err := env.client.CreateReplayTask(eventFabricGRPCContext(t, context.Background(), "tenant-corex"), &eventfabricv1.CreateReplayTaskRequest{TenantUuid: "tenant-corex", Topic: "topic"})
 	if status.Code(err) != codes.Internal {
 		t.Fatalf("expected internal error got %v", status.Code(err))
 	}

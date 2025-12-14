@@ -120,12 +120,17 @@ func (m *Manager) ExecutePlan(ctx context.Context, plan flowschema.ExecutionPlan
 	defer cancel()
 
 	results := aschema.NewResultStore() // 你自己的并发安全结果仓库
+	tenantUUID := strings.TrimSpace(mt.TenantUUID)
+	var tenantPtr *string
+	if tenantUUID != "" {
+		tenantPtr = &tenantUUID
+	}
 
 	// ---- 运行日志：PlanStart ----
 	m.log().PlanStart(ctx, flow.AgentTaskEvent{
 		PlanID:     plan.PlanID,
 		Kind:       "plan.start",
-		TenantID:   mt.TenantID,
+		TenantUUID: tenantPtr,
 		UserID:     mt.UserID,
 		CustomerID: mt.CustomerID,
 		Ts:         time.Now(),
@@ -161,7 +166,7 @@ func (m *Manager) ExecutePlan(ctx context.Context, plan flowschema.ExecutionPlan
 					// 任务级错误日志
 					m.log().TaskErr(egCtx, flow.AgentTaskEvent{
 						PlanID: plan.PlanID, TaskID: task.TaskID, FlowID: task.FlowID, Stage: task.Stage,
-						AgentID: agID, Kind: "task.err", TenantID: mt.TenantID, UserID: mt.UserID, CustomerID: mt.CustomerID,
+						AgentID: agID, Kind: "task.err", TenantUUID: tenantPtr, UserID: mt.UserID, CustomerID: mt.CustomerID,
 						Ts: time.Now(), Error: err.Error(),
 					})
 					return fmt.Errorf("resolve agent for task(%s/%s) failed: %w", task.TaskID, task.FlowID, err)
@@ -182,7 +187,7 @@ func (m *Manager) ExecutePlan(ctx context.Context, plan flowschema.ExecutionPlan
 					if rerr != nil {
 						m.log().TaskErr(egCtx, flow.AgentTaskEvent{
 							PlanID: plan.PlanID, TaskID: task.TaskID, FlowID: task.FlowID, Stage: task.Stage,
-							AgentID: agID, Kind: "task.err", TenantID: mt.TenantID, UserID: mt.UserID, CustomerID: mt.CustomerID,
+							AgentID: agID, Kind: "task.err", TenantUUID: tenantPtr, UserID: mt.UserID, CustomerID: mt.CustomerID,
 							Ts: time.Now(), Error: fmt.Sprintf("param_ref(%s): %v", pk, rerr),
 							Input: inSan.JSON(finalParams),
 						})
@@ -191,7 +196,7 @@ func (m *Manager) ExecutePlan(ctx context.Context, plan flowschema.ExecutionPlan
 					if !ok {
 						m.log().TaskErr(egCtx, flow.AgentTaskEvent{
 							PlanID: plan.PlanID, TaskID: task.TaskID, FlowID: task.FlowID, Stage: task.Stage,
-							AgentID: agID, Kind: "task.err", TenantID: mt.TenantID, UserID: mt.UserID, CustomerID: mt.CustomerID,
+							AgentID: agID, Kind: "task.err", TenantUUID: tenantPtr, UserID: mt.UserID, CustomerID: mt.CustomerID,
 							Ts: time.Now(), Error: fmt.Sprintf("param_ref not found (%s)", ref),
 							Input: inSan.JSON(finalParams),
 						})
@@ -207,7 +212,7 @@ func (m *Manager) ExecutePlan(ctx context.Context, plan flowschema.ExecutionPlan
 				start := time.Now()
 				m.log().TaskStart(egCtx, flow.AgentTaskEvent{
 					PlanID: plan.PlanID, TaskID: task.TaskID, FlowID: task.FlowID, Stage: task.Stage,
-					AgentID: agID, Kind: "task.start", TenantID: mt.TenantID, UserID: mt.UserID, CustomerID: mt.CustomerID,
+					AgentID: agID, Kind: "task.start", TenantUUID: tenantPtr, UserID: mt.UserID, CustomerID: mt.CustomerID,
 					Ts: start, Input: inSan.JSON(finalParams),
 				})
 
@@ -217,7 +222,7 @@ func (m *Manager) ExecutePlan(ctx context.Context, plan flowschema.ExecutionPlan
 				if err != nil {
 					m.log().TaskErr(egCtx, flow.AgentTaskEvent{
 						PlanID: plan.PlanID, TaskID: task.TaskID, FlowID: task.FlowID, Stage: task.Stage,
-						AgentID: agID, Kind: "task.err", TenantID: mt.TenantID, UserID: mt.UserID, CustomerID: mt.CustomerID,
+						AgentID: agID, Kind: "task.err", TenantUUID: tenantPtr, UserID: mt.UserID, CustomerID: mt.CustomerID,
 						Ts: time.Now(), DurationMS: dur, Error: err.Error(),
 					})
 					return fmt.Errorf("invoke flow(%s) failed: %w", task.FlowID, err)
@@ -237,7 +242,7 @@ func (m *Manager) ExecutePlan(ctx context.Context, plan flowschema.ExecutionPlan
 					safeOut := outSan.SanitizeResult(out) // 得到瘦身后的 ExecutionResult
 					m.log().TaskOK(egCtx, flow.AgentTaskEvent{
 						PlanID: plan.PlanID, TaskID: task.TaskID, FlowID: task.FlowID, Stage: task.Stage,
-						AgentID: agID, Kind: "task.ok", TenantID: mt.TenantID, UserID: mt.UserID, CustomerID: mt.CustomerID,
+						AgentID: agID, Kind: "task.ok", TenantUUID: tenantPtr, UserID: mt.UserID, CustomerID: mt.CustomerID,
 						Ts: time.Now(), DurationMS: dur,
 						Output: outSan.JSON(safeOut.Data),
 						Meta:   outSan.JSON(safeOut.Metadata),
@@ -250,7 +255,7 @@ func (m *Manager) ExecutePlan(ctx context.Context, plan flowschema.ExecutionPlan
 		if err := eg.Wait(); err != nil {
 			// 计划结束（失败）
 			m.log().PlanEnd(ctx, flow.AgentTaskEvent{
-				PlanID: plan.PlanID, Kind: "plan.end", TenantID: mt.TenantID, UserID: mt.UserID, CustomerID: mt.CustomerID,
+				PlanID: plan.PlanID, Kind: "plan.end", TenantUUID: tenantPtr, UserID: mt.UserID, CustomerID: mt.CustomerID,
 				Ts: time.Now(), Meta: outSan.JSON(map[string]any{"status": "failed", "error": err.Error()}),
 			})
 			return nil, err
@@ -267,7 +272,7 @@ func (m *Manager) ExecutePlan(ctx context.Context, plan flowschema.ExecutionPlan
 
 	// 计划结束（成功）
 	m.log().PlanEnd(ctx, flow.AgentTaskEvent{
-		PlanID: plan.PlanID, Kind: "plan.end", TenantID: mt.TenantID, UserID: mt.UserID, CustomerID: mt.CustomerID,
+		PlanID: plan.PlanID, Kind: "plan.end", TenantUUID: tenantPtr, UserID: mt.UserID, CustomerID: mt.CustomerID,
 		Ts: time.Now(), Meta: outSan.JSON(map[string]any{"status": "completed"}),
 	})
 

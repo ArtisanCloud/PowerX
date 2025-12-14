@@ -18,11 +18,13 @@ func TestWorkflowDefinitionGRPCFlow(t *testing.T) {
 	client, cleanup := env.StartGRPCServer()
 	defer cleanup()
 
-	ctx := context.Background()
+	ctx := workflowGRPCContext(t, testenv.ContractTenantUUID)
 	reqCtx := &commonv1.RequestContext{
-		TenantId:  1001,
 		MemberId:  42,
 		RequestId: "req-grpc-001",
+		Attributes: map[string]string{
+			"tenant_uuid": testenv.ContractTenantUUID,
+		},
 	}
 
 	createResp, err := client.CreateDefinition(ctx, &workflowv1.CreateDefinitionRequest{
@@ -47,6 +49,7 @@ func TestWorkflowDefinitionGRPCFlow(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, createResp.GetDefinition())
 	require.Equal(t, int32(1), createResp.GetDefinition().GetVersion())
+	assertNoWorkflowTenantLeakProto(t, createResp)
 
 	publishResp, err := client.PublishDefinition(ctx, &workflowv1.PublishDefinitionRequest{
 		Ctx:          reqCtx,
@@ -57,12 +60,14 @@ func TestWorkflowDefinitionGRPCFlow(t *testing.T) {
 		workflowv1.WorkflowDefinitionStatus_WORKFLOW_DEFINITION_STATUS_PUBLISHED,
 		publishResp.GetDefinition().GetStatus(),
 	)
+	assertNoWorkflowTenantLeakProto(t, publishResp)
 
 	listResp, err := client.ListDefinitions(ctx, &workflowv1.ListDefinitionsRequest{
 		Ctx: reqCtx,
 	})
 	require.NoError(t, err)
 	require.NotEmpty(t, listResp.GetDefinitions())
+	assertNoWorkflowTenantLeakProto(t, listResp)
 
 	startResp, err := client.StartInstance(ctx, &workflowv1.StartInstanceRequest{
 		Ctx:           reqCtx,
@@ -76,6 +81,7 @@ func TestWorkflowDefinitionGRPCFlow(t *testing.T) {
 		workflowv1.WorkflowInstanceState_WORKFLOW_INSTANCE_STATE_RUNNING,
 		startResp.GetInstance().GetState(),
 	)
+	assertNoWorkflowTenantLeakProto(t, startResp)
 }
 
 func mustStruct(v map[string]any) *structpb.Struct {

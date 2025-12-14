@@ -74,10 +74,10 @@ func (r *AgentProfileLifecycleRepository) GetByUUID(ctx context.Context, id uuid
 	return &out, nil
 }
 
-func (r *AgentProfileLifecycleRepository) GetByTenantAlias(ctx context.Context, tenantID, alias string) (*dbmodel.AgentProfileLifecycle, error) {
+func (r *AgentProfileLifecycleRepository) GetByTenantAlias(ctx context.Context, tenantUUID, alias string) (*dbmodel.AgentProfileLifecycle, error) {
 	var out dbmodel.AgentProfileLifecycle
 	if err := r.db.WithContext(ctx).
-		Where("tenant_id = ? AND alias = ?", tenantID, alias).
+		Where("tenant_uuid = ? AND alias = ?", tenantUUID, alias).
 		First(&out).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrAgentProfileNotFound
@@ -87,10 +87,10 @@ func (r *AgentProfileLifecycleRepository) GetByTenantAlias(ctx context.Context, 
 	return &out, nil
 }
 
-func (r *AgentProfileLifecycleRepository) ListByTenant(ctx context.Context, tenantID string, offset, limit int) ([]dbmodel.AgentProfileLifecycle, int64, error) {
+func (r *AgentProfileLifecycleRepository) ListByTenant(ctx context.Context, tenantUUID string, offset, limit int) ([]dbmodel.AgentProfileLifecycle, int64, error) {
 	query := r.db.WithContext(ctx).
 		Model(&dbmodel.AgentProfileLifecycle{}).
-		Where("tenant_id = ?", tenantID).
+		Where("tenant_uuid = ?", tenantUUID).
 		Order("alias ASC")
 
 	var total int64

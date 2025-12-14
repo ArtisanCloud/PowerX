@@ -30,31 +30,36 @@ func TestDecayGRPCFlow(t *testing.T) {
 	tpl := env.SeedPolicyTemplate("decay-grpc", "v1")
 	space := env.CreateSpaceFixture("decay-grpc-space", tpl)
 
-	runResp, err := client.RunDecayScan(context.Background(), &knowledgev1.RunDecayScanRequest{
+	ctx := knowledgeGRPCContext(t, env)
+	runResp, err := client.RunDecayScan(ctx, &knowledgev1.RunDecayScanRequest{
 		SpaceId:  space.UUID.String(),
 		Detected: 2,
 	})
 	require.NoError(t, err)
 	require.Len(t, runResp.GetTasks(), 2)
+	assertNoLegacyTenantProto(t, runResp)
 
-	listResp, err := client.ListDecayTasks(context.Background(), &knowledgev1.ListDecayTasksRequest{SpaceId: space.UUID.String()})
+	listResp, err := client.ListDecayTasks(ctx, &knowledgev1.ListDecayTasksRequest{SpaceId: space.UUID.String()})
 	require.NoError(t, err)
 	require.Len(t, listResp.GetTasks(), 2)
+	assertNoLegacyTenantProto(t, listResp)
 
 	taskID := listResp.GetTasks()[0].GetTaskId()
-	restoreResp, err := client.RestoreDecayTask(context.Background(), &knowledgev1.RestoreDecayTaskRequest{
+	restoreResp, err := client.RestoreDecayTask(ctx, &knowledgev1.RestoreDecayTaskRequest{
 		TaskId:        taskID,
 		Notes:         "false positive",
 		FalsePositive: true,
 	})
 	require.NoError(t, err)
 	require.True(t, restoreResp.GetTask().GetFalsePositive())
+	assertNoLegacyTenantProto(t, restoreResp)
 
-	listRespAfter, err := client.ListDecayTasks(context.Background(), &knowledgev1.ListDecayTasksRequest{SpaceId: space.UUID.String()})
+	listRespAfter, err := client.ListDecayTasks(ctx, &knowledgev1.ListDecayTasksRequest{SpaceId: space.UUID.String()})
 	require.NoError(t, err)
 	require.Len(t, listRespAfter.GetTasks(), 1)
+	assertNoLegacyTenantProto(t, listRespAfter)
 
-	_, err = client.RestoreDecayTask(context.Background(), &knowledgev1.RestoreDecayTaskRequest{
+	_, err = client.RestoreDecayTask(ctx, &knowledgev1.RestoreDecayTaskRequest{
 		TaskId: uuid.New().String(),
 	})
 	require.Error(t, err)

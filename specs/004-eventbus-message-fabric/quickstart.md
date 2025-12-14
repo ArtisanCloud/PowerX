@@ -19,7 +19,7 @@
 curl -X POST http://localhost:8077/admin/event-fabric/topics \
   -H 'Content-Type: application/json' \
   -d '{
-    "tenant_id": "'"$DEV_TENANT"'",
+    "tenant_uuid": "'"$DEV_TENANT"'",
     "namespace": "corex.workflow",
     "name": "approved",
     "payload_format": "json",
@@ -35,7 +35,7 @@ curl -X POST http://localhost:8077/admin/event-fabric/topics \
 curl -X POST http://localhost:8077/admin/event-fabric/acl \
   -H 'Content-Type: application/json' \
   -d '{
-    "tenant_id": "'"$DEV_TENANT"'",
+    "tenant_uuid": "'"$DEV_TENANT"'",
     "topic_full_name": "'"$DEV_TENANT"'.corex.workflow.approved",
     "grants": [
       {"principal_type":"service","principal_id":"'"$DEV_PRINCIPAL"'","action":"publish"},
@@ -63,7 +63,7 @@ PAYLOAD=$(printf '{"requestId":"req-123","status":"approved"}' | base64)
 curl -X POST http://localhost:8077/admin/event-fabric/events:publish \
   -H 'Content-Type: application/json' \
   -d '{
-    "tenant_id": "'"$DEV_TENANT"'",
+    "tenant_uuid": "'"$DEV_TENANT"'",
     "topic": "'"$DEV_TENANT"'.corex.workflow.approved",
     "event_id": "evt-001",
     "trace_id": "trace-abc",
@@ -85,7 +85,7 @@ redis-cli zrangebyscore event:retry:$DEV_TENANT -inf +inf WITHSCORES
 ## 6. 验证 DLQ
 在订阅端禁用 Ack，等待重试超出次数。查询 DLQ：
 ```bash
-curl "http://localhost:8077/admin/event-fabric/dlq/messages?tenant_id=$DEV_TENANT&status=queued"
+curl "http://localhost:8077/admin/event-fabric/dlq/messages?tenant_uuid=$DEV_TENANT&status=queued"
 ```
 - 预期：返回 `evt-001` 记录，含失败原因。
  - 可通过 REST 重放：
@@ -100,7 +100,7 @@ curl -X POST http://localhost:8077/admin/event-fabric/dlq/messages:replay \
 curl -X POST http://localhost:8077/admin/event-fabric/replay/tasks \
   -H 'Content-Type: application/json' \
   -d '{
-    "tenant_id": "'"$DEV_TENANT"'",
+    "tenant_uuid": "'"$DEV_TENANT"'",
     "topic": "'"$DEV_TENANT"'.corex.workflow.approved",
     "trace_id": "trace-abc",
     "shadow": true,
@@ -121,7 +121,7 @@ curl -X POST http://localhost:8077/admin/event-fabric/replay/tasks \
 
 ## 清理
 ```bash
-curl -X DELETE http://localhost:8077/admin/event-fabric/topics/$TOPIC_ID?tenantId=$DEV_TENANT
+curl -X DELETE http://localhost:8077/admin/event-fabric/topics/$TOPIC_ID?tenant_uuid=$DEV_TENANT
 redis-cli del event:retry:$DEV_TENANT
 ```
 - 确保删除测试数据，避免影响后续演示。

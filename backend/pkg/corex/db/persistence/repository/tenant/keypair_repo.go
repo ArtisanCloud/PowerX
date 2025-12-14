@@ -14,10 +14,10 @@ func NewTenantKeyPairRepository(db *gorm.DB) *TenantKeyPairRepository {
 	return &TenantKeyPairRepository{db}
 }
 
-func (r *TenantKeyPairRepository) GetActiveByScope(ctx context.Context, env string, tenantID *uint64) (*dbmodel.TenantKeyPair, error) {
+func (r *TenantKeyPairRepository) GetActiveByScope(ctx context.Context, env string, tenantUUID string) (*dbmodel.TenantKeyPair, error) {
 	var kp dbmodel.TenantKeyPair
 	err := r.db.WithContext(ctx).
-		Where("env = ? AND (tenant_id IS NOT DISTINCT FROM ?) AND active = ?", env, tenantID, true).
+		Where("env = ? AND tenant_uuid = ? AND active = ?", env, tenantUUID, true).
 		First(&kp).Error
 	if err != nil {
 		return nil, err
@@ -29,9 +29,9 @@ func (r *TenantKeyPairRepository) Create(ctx context.Context, kp *dbmodel.Tenant
 	return r.db.WithContext(ctx).Create(kp).Error
 }
 
-func (r *TenantKeyPairRepository) DeactivateAll(ctx context.Context, env string, tenantID *uint64) error {
+func (r *TenantKeyPairRepository) DeactivateAll(ctx context.Context, env string, tenantUUID string) error {
 	return r.db.WithContext(ctx).
 		Model(&dbmodel.TenantKeyPair{}).
-		Where("env = ? AND (tenant_id IS NOT DISTINCT FROM ?)", env, tenantID).
+		Where("env = ? AND tenant_uuid = ?", env, tenantUUID).
 		Update("active", false).Error
 }

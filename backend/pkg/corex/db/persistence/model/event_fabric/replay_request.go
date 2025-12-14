@@ -12,7 +12,6 @@ import (
 type ReplayRequest struct {
 	coremodel.PowerUUIDModel
 
-	TenantID    uint64    `gorm:"column:tenant_id;type:bigint;not null;index:idx_event_replay_tenant" json:"tenant_id"`
 	TenantKey   string    `gorm:"column:tenant_key;type:varchar(128);not null;index:idx_event_replay_tenant_key" json:"tenant_key"`
 	TopicUUID   uuid.UUID `gorm:"column:topic_uuid;type:uuid;not null;index:idx_event_replay_topic" json:"topic_uuid"`
 	TraceID     string    `gorm:"column:trace_id;type:varchar(128);index:idx_event_replay_trace" json:"trace_id"`

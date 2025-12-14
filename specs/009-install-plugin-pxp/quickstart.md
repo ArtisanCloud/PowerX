@@ -54,12 +54,12 @@ go run cmd/server/main.go --enable-plugin-release
    px-plugin build --target local
    px-plugin dev --watch \
      --grpc-addr localhost:9090 \
-     --tenant-id 101 --developer-id 2025 \
+     --tenant-uuid 101 --developer-id 2025 \
      --artifact ./dist/plugin-bundle.zip \
      --feature-flag beta_ui
    ```
    该命令会通过 gRPC `StartLocalInstall`/`PushHotReload`，并在 15 分钟 SLA 内把调试日志写入 `plugin_release.hotload.latency_ms`。
-3. 运行 `px publish create --tenant-id 1001 --plugin-id px.demo --version v1.2.3 --artifact-uri s3://bucket/px-demo-v1.2.3.zip --commit <sha>` 触发 Release Candidate，随后 `px publish deploy --plan-id <id> --batch-name batch-a` 验证灰度。
+3. 运行 `px publish create --tenant-uuid 1001 --plugin-id px.demo --version v1.2.3 --artifact-uri s3://bucket/px-demo-v1.2.3.zip --commit <sha>` 触发 Release Candidate，随后 `px publish deploy --plan-id <id> --batch-name batch-a` 验证灰度。
 
 ### 4.1 宿主模拟器 + 热更新回路
 1. 保证 `backend/etc/config.yaml` 中 `plugin_debug.host_simulator.enabled: true`，并在启动 CoreX 前启用 Feature Flag（默认读取 `PX_PLUGIN_HOST_SIMULATOR` 环境变量，未配置时保持开启）。如需定制端口或镜像，可编辑 `config/plugins/debug/host_simulator.yaml`。
@@ -80,14 +80,14 @@ go run cmd/server/main.go --enable-plugin-release
 3. 当需要通过 REST 直接汇报热更新（绕过 gRPC 或在 CI 中上传产物）时，使用 `--host-api` 模式：
    ```bash
    px-plugin dev --watch \
-     --host-api http://localhost:8077/api \
-     --token "$(cat ~/.powerx/admin.token)" \
-     --tenant-id 101 \
-     --developer-id 2025 \
-     --artifact ./dist/plugin-bundle.zip \
-     --artifact-uri file://$(pwd)/dist/plugin-bundle.zip \
-     --feature-flag beta_ui \
-     --reset-cache
+      --host-api http://localhost:8077/api \
+      --token "$(cat ~/.powerx/admin.token)" \
+      --tenant-uuid 101 \
+      --developer-id 2025 \
+      --artifact ./dist/plugin-bundle.zip \
+      --artifact-uri file://$(pwd)/dist/plugin-bundle.zip \
+      --feature-flag beta_ui \
+      --reset-cache
    ```
    - CLI 会先调用 `POST /internal/plugins/local/install` 启动 session，再将 chunk 上传到 gRPC；若 `--host-api` 存在，则在每次热更新后额外调用 `POST /internal/plugins/local/reload` 记录 `debug.hot_reload.*` 指标。
    - 失败重试会自动附带最后一次错误信息；当 CLI 检测到 “version mismatch” 字样时，会在后台累加 `debug.host.version_mismatch_total`。
@@ -98,7 +98,7 @@ go run cmd/server/main.go --enable-plugin-release
    px-plugin dev --watch \
      --dev-api http://localhost:8077/api/v1 \
      --token "$POWERX_ADMIN_TOKEN" \
-     --tenant-id 101 \
+     --tenant-uuid 101 \
      --developer-id 2025 \
      --entry . \
      --artifact ./dist/plugin-bundle.zip
@@ -110,18 +110,18 @@ go run cmd/server/main.go --enable-plugin-release
 1. 准备治理配置：`config/version/governance_rules.yaml`、`config/version/upgrade_policies.yaml`、`config/version/compat_matrix.yaml` 已提供默认模板，可根据租户标签/优先级定制扫描节奏与灰度策略。部署到测试环境时，保持 `PX_VERSION_GOVERNANCE=enabled` 以便服务加载这些配置。
 2. 执行巡检：
    ```bash
-   go run cmd/px/main.go version scan \
+  go run cmd/px/main.go version scan \
      --api http://localhost:8077/api \
-     --tenant-id 88001 \
+     --tenant-uuid 88001 \
      --plugin-id com.powerx.demo \
      --token "$(cat ~/.powerx/admin.token)"
    ```
    该命令会调用 `POST /internal/version/governance/scan`，结合最新 Release Candidate 生成报告并打印风险等级。可通过 `--current-version`/`--target-version` 覆盖自动探测结果。
 3. 查看多租户版本看板：
    ```bash
-   go run cmd/px/main.go version board \
+  go run cmd/px/main.go version board \
      --api http://localhost:8077/api \
-     --tenant-id "" \
+     --tenant-uuid "" \
      --limit 25 \
      --token "$(cat ~/.powerx/admin.token)"
    ```
@@ -135,9 +135,9 @@ go run cmd/server/main.go --enable-plugin-release
      --plugin-version 2.0.0
 
    # 提交例外申请
-   go run cmd/px/main.go version compat exception \
+  go run cmd/px/main.go version compat exception \
      --api http://localhost:8077/api \
-     --tenant-id 88001 \
+     --tenant-uuid 88001 \
      --plugin-id com.powerx.demo \
      --current-version 1.0.0 \
      --target-version 2.0.0 \
@@ -188,7 +188,7 @@ go run cmd/server/main.go --enable-plugin-release
    ```bash
    px plugin import \
      --offline \
-     --tenant-id 88001 \
+     --tenant-uuid 88001 \
      --package-uri s3://plugin-release/offline/<id>.pxp \
      --checksum <sha256> \
      --grpc-addr localhost:9090

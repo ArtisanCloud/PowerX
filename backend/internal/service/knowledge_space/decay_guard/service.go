@@ -151,12 +151,12 @@ func (s *Service) RunScan(ctx context.Context, spaceID uuid.UUID, detected int) 
 		Backlog:  backlog,
 	})
 	s.emitAudit(ctx, space, "knowledge.decay.detected", map[string]any{
-		"space_id":   space.UUID.String(),
-		"tenant_id":  space.TenantID.String(),
-		"task_count": len(tasks),
-		"severity":   threshold.Severity,
-		"category":   threshold.Category,
-		"reason":     threshold.Reason,
+		"space_id":    space.UUID.String(),
+		"tenant_uuid": space.TenantUUID,
+		"task_count":  len(tasks),
+		"severity":    threshold.Severity,
+		"category":    threshold.Category,
+		"reason":      threshold.Reason,
 	})
 	return tasks, nil
 }
@@ -179,7 +179,13 @@ func (s *Service) Restore(ctx context.Context, taskID uuid.UUID, notes string, f
 	task.ResolvedAt = &now
 	task.Resolution = notes
 	task.FalsePositive = falsePositive
-	if _, err := repoTask.Update(ctx, task); err != nil {
+	updates := map[string]any{
+		"status":         task.Status,
+		"resolved_at":    task.ResolvedAt,
+		"resolution":     task.Resolution,
+		"false_positive": task.FalsePositive,
+	}
+	if _, err := repoTask.Patch(ctx, map[string]any{"uuid": task.UUID.String()}, updates); err != nil {
 		return nil, err
 	}
 	fp := 0
@@ -254,6 +260,7 @@ func (s *Service) emitAudit(ctx context.Context, space *models.KnowledgeSpace, a
 	raw, _ := json.Marshal(payload)
 	s.inst.Audit(ctx, &dbm.AuditEvent{
 		OccurredAt:   s.clock(),
+		TenantUUID:   space.TenantUUID,
 		Source:       "knowledge.decay",
 		Operation:    action,
 		ResourceType: "knowledge_space",

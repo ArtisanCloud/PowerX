@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/base64"
 	"net/http"
-	"net/http/httptest"
 	"sync"
 	"testing"
 	"time"
@@ -22,14 +21,11 @@ func TestDeliveryAdminPublishEndpoint(t *testing.T) {
 	deliveryStub := newStubDeliveryService()
 	router := gin.New()
 	group := router.Group("/event-fabric")
+	attachTenantContext(group, "tenant-corex")
 	group.POST("/events:publish", admin.NewAdminDeliveryHandler(admin.AdminDeliveryHandlerOptions{Service: deliveryStub}).PublishEvent)
 
-	server := httptest.NewServer(router)
-	t.Cleanup(server.Close)
-
 	payload := base64.StdEncoding.EncodeToString([]byte(`{"hello":"world"}`))
-	resp := httpRequest(t, server, http.MethodPost, "/event-fabric/events:publish", map[string]interface{}{
-		"tenant_id":  "tenant-corex",
+	resp := httpRequest(t, router, http.MethodPost, "/event-fabric/events:publish", map[string]interface{}{
 		"topic":      "tenant-corex.corex.workflow.approved",
 		"event_id":   "evt-001",
 		"trace_id":   "trace-123",
@@ -48,19 +44,18 @@ func TestDeliveryAdminPublishEndpoint(t *testing.T) {
 	req := deliveryStub.publishRequests[0]
 	deliveryStub.mu.Unlock()
 
-	if req.TenantID != "tenant-corex" || req.Topic != "tenant-corex.corex.workflow.approved" || req.EventID != "evt-001" {
+	if req.TenantUUID != "tenant-corex" || req.Topic != "tenant-corex.corex.workflow.approved" || req.EventID != "evt-001" {
 		t.Fatalf("unexpected publish payload: %#v", req)
 	}
 	if string(req.Payload) != `{"hello":"world"}` {
 		t.Fatalf("unexpected payload bytes: %s", string(req.Payload))
 	}
 
-	badResp := httpRequest(t, server, http.MethodPost, "/event-fabric/events:publish", map[string]interface{}{
-		"tenant_id": "tenant-corex",
-		"topic":     "tenant-corex.corex.workflow.approved",
-		"event_id":  "evt-002",
-		"version":   "v1",
-		"payload":   "not-base64",
+	badResp := httpRequest(t, router, http.MethodPost, "/event-fabric/events:publish", map[string]interface{}{
+		"topic":    "tenant-corex.corex.workflow.approved",
+		"event_id": "evt-002",
+		"version":  "v1",
+		"payload":  "not-base64",
 	})
 	if badResp.StatusCode != http.StatusBadRequest {
 		t.Fatalf("expected 400 for invalid payload got %d", badResp.StatusCode)
@@ -72,8 +67,8 @@ func TestDLQAdminEndpoints(t *testing.T) {
 
 	stub := &stubDLQService{
 		listMessages: []*dlq.Message{
-			{ID: "msg-1", TenantID: "tenant-corex", Topic: "tenant-corex.topic.a", EventID: "evt-001", RetryCount: 3, LastError: "timeout", CreatedAt: time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)},
-			{ID: "msg-2", TenantID: "tenant-corex", Topic: "tenant-corex.topic.b", EventID: "evt-002", RetryCount: 2, LastError: "nack", CreatedAt: time.Date(2025, 1, 2, 0, 0, 0, 0, time.UTC)},
+			{ID: "msg-1", TenantUUID: "tenant-corex", TenantID: "tenant-corex", Topic: "tenant-corex.topic.a", EventID: "evt-001", RetryCount: 3, LastError: "timeout", CreatedAt: time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)},
+			{ID: "msg-2", TenantUUID: "tenant-corex", TenantID: "tenant-corex", Topic: "tenant-corex.topic.b", EventID: "evt-002", RetryCount: 2, LastError: "nack", CreatedAt: time.Date(2025, 1, 2, 0, 0, 0, 0, time.UTC)},
 		},
 		listTotal:    2,
 		replayResult: 2,
@@ -82,15 +77,13 @@ func TestDLQAdminEndpoints(t *testing.T) {
 
 	router := gin.New()
 	group := router.Group("/event-fabric")
+	attachTenantContext(group, "tenant-corex")
 	handler := admin.NewAdminDLQHandler(admin.AdminDLQHandlerOptions{Service: stub})
 	group.GET("/dlq/messages", handler.ListMessages)
 	group.POST("/dlq/messages:replay", handler.ReplayMessages)
 	group.DELETE("/dlq/messages", handler.PurgeMessages)
 
-	server := httptest.NewServer(router)
-	t.Cleanup(server.Close)
-
-	listResp := httpRequest(t, server, http.MethodGet, "/event-fabric/dlq/messages?tenant_id=tenant-corex&page=1&page_size=10", nil)
+	listResp := httpRequest(t, router, http.MethodGet, "/event-fabric/dlq/messages?page=1&page_size=10", nil)
 	if listResp.StatusCode != http.StatusOK {
 		t.Fatalf("expected 200 got %d", listResp.StatusCode)
 	}
@@ -102,7 +95,7 @@ func TestDLQAdminEndpoints(t *testing.T) {
 		t.Fatalf("expected 2 items got %d", len(items))
 	}
 
-	replayResp := httpRequest(t, server, http.MethodPost, "/event-fabric/dlq/messages:replay", map[string]interface{}{
+	replayResp := httpRequest(t, router, http.MethodPost, "/event-fabric/dlq/messages:replay", map[string]interface{}{
 		"message_ids": []string{"msg-1", "msg-2"},
 		"operator_id": "ops-user",
 	})
@@ -116,7 +109,7 @@ func TestDLQAdminEndpoints(t *testing.T) {
 		t.Fatalf("expected replayed=2 got %v", replayData["replayed"])
 	}
 
-	purgeResp := httpRequest(t, server, http.MethodDelete, "/event-fabric/dlq/messages?tenant_id=tenant-corex&topic=tenant-corex.topic.a", nil)
+	purgeResp := httpRequest(t, router, http.MethodDelete, "/event-fabric/dlq/messages?topic=tenant-corex.topic.a", nil)
 	if purgeResp.StatusCode != http.StatusOK {
 		t.Fatalf("expected 200 got %d", purgeResp.StatusCode)
 	}
@@ -145,16 +138,13 @@ func TestReplayAdminEndpoints(t *testing.T) {
 
 	router := gin.New()
 	group := router.Group("/event-fabric")
+	attachTenantContext(group, "tenant-corex")
 	replayHandler := admin.NewAdminReplayHandler(admin.AdminReplayHandlerOptions{Service: replayStub})
 	group.POST("/replay/tasks", replayHandler.CreateTask)
 	group.GET("/replay/tasks/:task_id", replayHandler.GetTask)
 	group.POST("/replay/tasks/:task_id/cancel", replayHandler.CancelTask)
 
-	server := httptest.NewServer(router)
-	t.Cleanup(server.Close)
-
-	createResp := httpRequest(t, server, http.MethodPost, "/event-fabric/replay/tasks", map[string]interface{}{
-		"tenant_id":   "tenant-corex",
+	createResp := httpRequest(t, router, http.MethodPost, "/event-fabric/replay/tasks", map[string]interface{}{
 		"topic":       "tenant-corex.corex.workflow.approved",
 		"trace_id":    "trace-abc",
 		"reason":      "investigate",
@@ -174,12 +164,12 @@ func TestReplayAdminEndpoints(t *testing.T) {
 		t.Fatalf("unexpected task id in create response")
 	}
 
-	getResp := httpRequest(t, server, http.MethodGet, "/event-fabric/replay/tasks/task-123", nil)
+	getResp := httpRequest(t, router, http.MethodGet, "/event-fabric/replay/tasks/task-123", nil)
 	if getResp.StatusCode != http.StatusOK {
 		t.Fatalf("expected 200 got %d", getResp.StatusCode)
 	}
 
-	cancelResp := httpRequest(t, server, http.MethodPost, "/event-fabric/replay/tasks/task-123/cancel", map[string]interface{}{
+	cancelResp := httpRequest(t, router, http.MethodPost, "/event-fabric/replay/tasks/task-123/cancel", map[string]interface{}{
 		"operator_id": "ops-user",
 	})
 	if cancelResp.StatusCode != http.StatusNoContent {

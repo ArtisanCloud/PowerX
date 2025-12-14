@@ -3,7 +3,6 @@ package instrumentation
 import (
 	"context"
 	"encoding/json"
-	"strconv"
 	"strings"
 	"time"
 
@@ -16,8 +15,8 @@ import (
 )
 
 const (
-	contextTraceIDKey  = "agent_trace_id"
-	contextTenantIDKey = "agent_tenant_id"
+	contextTraceIDKey    = "agent_trace_id"
+	contextTenantUUIDKey = "agent_tenant_uuid"
 )
 
 // Span 定义可结束的追踪跨度。
@@ -111,11 +110,11 @@ func EnsureTraceContext(ctx context.Context) (context.Context, string) {
 }
 
 // WithTenant 将租户信息写入上下文。
-func WithTenant(ctx context.Context, tenantID string) context.Context {
+func WithTenant(ctx context.Context, tenantUUID string) context.Context {
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	return context.WithValue(ctx, contextTenantIDKey, tenantID)
+	return context.WithValue(ctx, contextTenantUUIDKey, tenantUUID)
 }
 
 // SpanAttributes 合成追踪属性。
@@ -129,8 +128,8 @@ func SpanAttributes(ctx context.Context, extra map[string]string) map[string]str
 	if traceID, ok := ctx.Value(contextTraceIDKey).(string); ok && traceID != "" {
 		attrs["trace.id"] = traceID
 	}
-	if tenantID, ok := ctx.Value(contextTenantIDKey).(string); ok && tenantID != "" {
-		attrs["tenant.id"] = tenantID
+	if tenantUUID, ok := ctx.Value(contextTenantUUIDKey).(string); ok && tenantUUID != "" {
+		attrs["tenant.uuid"] = tenantUUID
 	}
 	return attrs
 }
@@ -158,19 +157,15 @@ func (i *Instrumentation) RecordHealthLatency(ctx context.Context, status string
 }
 
 // AuditLifecycleEvent 写入审计事件。
-func (i *Instrumentation) AuditLifecycleEvent(ctx context.Context, tenantID, agentID, operation, outcome string, meta map[string]any) {
+func (i *Instrumentation) AuditLifecycleEvent(ctx context.Context, tenantUUID, agentID, operation, outcome string, meta map[string]any) {
 	if i.audit == nil {
 		return
 	}
 	ctx, traceID := EnsureTraceContext(ctx)
 	payload := marshalMeta(meta)
-	var tenantNumeric uint64
-	if parsed, err := strconv.ParseUint(strings.TrimSpace(tenantID), 10, 64); err == nil {
-		tenantNumeric = parsed
-	}
 	_ = i.audit.Emit(ctx, &dbm.AuditEvent{
 		OccurredAt:    time.Now().UTC(),
-		TenantID:      tenantNumeric,
+		TenantUUID:    strings.TrimSpace(tenantUUID),
 		CorrelationID: traceID,
 		Source:        "agent.lifecyle",
 		Operation:     operation,

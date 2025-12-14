@@ -2,14 +2,16 @@ package iam
 
 import (
 	"errors"
-	"github.com/ArtisanCloud/PowerX/internal/app/shared"
-	"github.com/ArtisanCloud/PowerX/internal/service"
-	"github.com/ArtisanCloud/PowerX/pkg/dto"
-	"github.com/gin-gonic/gin"
 	"net/http"
 	"strconv"
+	"strings"
 
+	"github.com/ArtisanCloud/PowerX/internal/app/shared"
+	"github.com/ArtisanCloud/PowerX/internal/service"
 	iamsvc "github.com/ArtisanCloud/PowerX/internal/service/iam"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
+	"github.com/ArtisanCloud/PowerX/pkg/dto"
+	"github.com/gin-gonic/gin"
 )
 
 // ---- DTOs（最小化，仅此文件内使用） ----
@@ -24,14 +26,41 @@ type grantTriplesReq struct {
 	} `json:"items" binding:"required,min=1"`
 }
 type bindMemberReq struct {
-	TenantID uint64 `json:"tenant_id" binding:"required"`
 	MemberID uint64 `json:"member_id" binding:"required"`
 }
 
-type RBACHandler struct{ svc *iamsvc.RBACService }
+type RBACHandler struct {
+	svc *iamsvc.RBACService
+}
 
 func NewRBACHandler(deps *shared.Deps) *RBACHandler {
-	return &RBACHandler{svc: iamsvc.NewRBACService(deps.DB)}
+	return &RBACHandler{
+		svc: iamsvc.NewRBACService(deps.DB),
+	}
+}
+
+func (h *RBACHandler) actorContextFromGin(c *gin.Context) (iamsvc.ActorContext, bool) {
+	ctx := c.Request.Context()
+	actor := iamsvc.ActorContext{
+		IsRoot: reqctx.IsRoot(ctx),
+	}
+	if actor.IsRoot {
+		if uuid := strings.TrimSpace(reqctx.TenantUUIDFromGin(c)); uuid != "" {
+			canonical, err := reqctx.CanonicalTenantUUID(uuid)
+			if err != nil {
+				dto.ResponseError(c, http.StatusBadRequest, "tenant_uuid must be valid", err)
+				return iamsvc.ActorContext{}, false
+			}
+			actor.TenantUUID = canonical
+		}
+		return actor, true
+	}
+	uuid, ok := requireTenantUUIDFromContext(c)
+	if !ok {
+		return iamsvc.ActorContext{}, false
+	}
+	actor.TenantUUID = uuid
+	return actor, true
 }
 
 // 角色授予权限（通过权限ID列表）
@@ -43,7 +72,11 @@ func (h *RBACHandler) GrantByIDs(c *gin.Context) {
 		dto.ResponseError(c, http.StatusBadRequest, "参数绑定失败", err)
 		return
 	}
-	if err := h.svc.GrantPermsByIDs(c.Request.Context(), roleID, req.PermIDs); err != nil {
+	actor, ok := h.actorContextFromGin(c)
+	if !ok {
+		return
+	}
+	if err := h.svc.GrantPermsByIDs(c.Request.Context(), actor, roleID, req.PermIDs); err != nil {
 		dto.ResponseError(c, http.StatusBadRequest, "授予权限失败", err)
 		return
 	}
@@ -59,11 +92,15 @@ func (h *RBACHandler) GrantByTriples(c *gin.Context) {
 		dto.ResponseError(c, http.StatusBadRequest, "参数绑定失败", err)
 		return
 	}
+	actor, ok := h.actorContextFromGin(c)
+	if !ok {
+		return
+	}
 	ts := make([]iamsvc.PermTriple, 0, len(req.Items))
 	for _, it := range req.Items {
 		ts = append(ts, iamsvc.PermTriple{Plugin: it.Plugin, Resource: it.Resource, Action: it.Action})
 	}
-	if err := h.svc.GrantPermsByTriples(c.Request.Context(), roleID, ts); err != nil {
+	if err := h.svc.GrantPermsByTriples(c.Request.Context(), actor, roleID, ts); err != nil {
 		dto.ResponseError(c, http.StatusBadRequest, "授予权限失败", err)
 		return
 	}
@@ -79,7 +116,11 @@ func (h *RBACHandler) RevokeByIDs(c *gin.Context) {
 		dto.ResponseError(c, http.StatusBadRequest, "参数绑定失败", err)
 		return
 	}
-	if err := h.svc.RevokePermissionsFromRole(c.Request.Context(), roleID, req.PermIDs); err != nil {
+	actor, ok := h.actorContextFromGin(c)
+	if !ok {
+		return
+	}
+	if err := h.svc.RevokePermissionsFromRole(c.Request.Context(), actor, roleID, req.PermIDs); err != nil {
 		dto.ResponseError(c, http.StatusBadRequest, "撤销权限失败", err)
 		return
 	}
@@ -107,7 +148,15 @@ func (h *RBACHandler) BindRoleToMember(c *gin.Context) {
 		dto.ResponseError(c, http.StatusBadRequest, "参数绑定失败", err)
 		return
 	}
-	if err := h.svc.BindRoleToMember(c.Request.Context(), req.TenantID, roleID, req.MemberID); err != nil {
+	actor, ok := h.actorContextFromGin(c)
+	if !ok {
+		return
+	}
+	tenantUUID, ok := requireTenantUUIDFromContext(c)
+	if !ok {
+		return
+	}
+	if err := h.svc.BindRoleToMember(c.Request.Context(), actor, tenantUUID, roleID, req.MemberID); err != nil {
 		dto.ResponseError(c, http.StatusBadRequest, "绑定角色失败", err)
 		return
 	}
@@ -118,8 +167,15 @@ func (h *RBACHandler) BindRoleToMember(c *gin.Context) {
 // DELETE /api/v1/admin/iam/roles/:id/bindings/:binding_id
 func (h *RBACHandler) UnbindRoleFromMember(c *gin.Context) {
 	bindingID, _ := strconv.ParseUint(c.Param("binding_id"), 10, 64)
-	tenantID, _ := strconv.ParseUint(c.Query("tenant_id"), 10, 64) // 非 root 必须是本租户
-	if err := h.svc.UnbindRoleFromMember(c.Request.Context(), tenantID, bindingID); err != nil {
+	actor, ok := h.actorContextFromGin(c)
+	if !ok {
+		return
+	}
+	tenantUUID, ok := requireTenantUUIDFromContext(c)
+	if !ok {
+		return
+	}
+	if err := h.svc.UnbindRoleFromMember(c.Request.Context(), actor, tenantUUID, bindingID); err != nil {
 		dto.ResponseError(c, http.StatusBadRequest, "解绑角色失败", err)
 		return
 	}
@@ -133,15 +189,33 @@ func (h *RBACHandler) CheckPermission(c *gin.Context) {
 	resource := c.Query("resource")
 	action := c.Query("action")
 
-	tenantID, _ := strconv.ParseUint(c.Query("tenant_id"), 10, 64) // 可选，不传用上下文
+	actor, ok := h.actorContextFromGin(c)
+	if !ok {
+		return
+	}
+	tenantUUID := strings.TrimSpace(c.Query("tenant_uuid"))
+	if tenantUUID == "" {
+		var okTenant bool
+		tenantUUID, okTenant = requireTenantUUIDFromContext(c)
+		if !okTenant {
+			return
+		}
+	} else {
+		canonical, err := reqctx.CanonicalTenantUUID(tenantUUID)
+		if err != nil {
+			dto.ResponseError(c, http.StatusBadRequest, "tenant_uuid must be valid", err)
+			return
+		}
+		tenantUUID = canonical
+	}
 	memberID, _ := strconv.ParseUint(c.Query("member_id"), 10, 64) // 可选，不传用上下文
 
-	ok, err := h.svc.Enforce(c.Request.Context(), tenantID, memberID, plugin, resource, action)
+	pass, err := h.svc.Enforce(c.Request.Context(), actor, tenantUUID, memberID, plugin, resource, action)
 	if err != nil {
 		dto.ResponseError(c, http.StatusBadRequest, "鉴权检查失败", err)
 		return
 	}
-	dto.ResponseSuccess(c, gin.H{"ok": ok})
+	dto.ResponseSuccess(c, gin.H{"ok": pass})
 }
 
 type setIDsReq struct {
@@ -150,7 +224,11 @@ type setIDsReq struct {
 
 func (h *RBACHandler) ListPermIDs(c *gin.Context) {
 	roleID, _ := strconv.ParseUint(c.Param("id"), 10, 64)
-	ids, err := h.svc.ListPermissionIDs(c.Request.Context(), roleID)
+	actor, ok := h.actorContextFromGin(c)
+	if !ok {
+		return
+	}
+	ids, err := h.svc.ListPermissionIDs(c.Request.Context(), actor, roleID)
 	if err != nil {
 		status := http.StatusBadRequest
 		if errors.Is(err, service.ErrForbidden) {
@@ -175,7 +253,11 @@ func (h *RBACHandler) SetPermIDs(c *gin.Context) {
 		dto.ResponseError(c, http.StatusBadRequest, "参数绑定失败", err)
 		return
 	}
-	res, err := h.svc.SetPermissionIDs(c.Request.Context(), roleID, req.IDs)
+	actor, ok := h.actorContextFromGin(c)
+	if !ok {
+		return
+	}
+	res, err := h.svc.SetPermissionIDs(c.Request.Context(), actor, roleID, req.IDs)
 	if err != nil {
 		status := http.StatusBadRequest
 		if errors.Is(err, service.ErrForbidden) {

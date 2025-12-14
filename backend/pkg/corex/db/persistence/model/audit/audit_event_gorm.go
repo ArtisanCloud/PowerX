@@ -1,17 +1,18 @@
 package audit
 
 import (
-	"github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
 	"time"
 
 	"gorm.io/datatypes"
+
+	"github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
 )
 
 type AuditEvent struct {
 	model.PowerModel
 
 	OccurredAt      time.Time      `gorm:"not null;index:idx_audit_tenant_time,priority:2,sort:desc"`
-	TenantID        uint64         `gorm:"not null;index:idx_audit_tenant_time,priority:1"`
+	TenantUUID      string         `gorm:"column:tenant_uuid;type:char(36);not null;index:idx_audit_tenant_time,priority:1"`
 	CorrelationID   string         `gorm:"type:text;index:idx_audit_corr"`
 	Source          string         `gorm:"type:text;not null"`
 	Operation       string         `gorm:"type:text;not null;index:idx_audit_op_outcome,priority:2"`

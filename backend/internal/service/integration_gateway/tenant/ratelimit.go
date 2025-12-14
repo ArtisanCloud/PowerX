@@ -43,14 +43,14 @@ func rateLimitScope(policy manager.RateLimitPolicy, fallback manager.RateLimitPo
 	return scope
 }
 
-func buildRateLimitKey(scope string, tenantID string, routeID uuid.UUID) string {
+func buildRateLimitKey(scope string, tenantUUID string, routeID uuid.UUID) string {
 	switch scope {
 	case "per_tenant":
-		return fmt.Sprintf("tenant:%s", tenantID)
+		return fmt.Sprintf("tenant:%s", tenantUUID)
 	case "per_route":
 		return fmt.Sprintf("route:%s", routeID)
 	default:
-		return fmt.Sprintf("route:%s:tenant:%s", routeID, tenantID)
+		return fmt.Sprintf("route:%s:tenant:%s", routeID, tenantUUID)
 	}
 }
 
@@ -59,7 +59,7 @@ func (s *Service) checkRateLimit(ctx context.Context, route manager.Route, polic
 		return authorization.RateLimitResult{Allowed: true, Remaining: -1}, rateLimitScope(policy, s.config.DefaultRateLimit), nil
 	}
 	scope := rateLimitScope(policy, s.config.DefaultRateLimit)
-	key := buildRateLimitKey(scope, route.TenantID, route.RouteID)
+	key := buildRateLimitKey(scope, route.TenantUUID, route.RouteID)
 	result, err := s.rateLimiter.Allow(ctx, key, convertPolicy(policy, s.config.DefaultRateLimit))
 	return result, scope, err
 }

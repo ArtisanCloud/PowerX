@@ -68,13 +68,13 @@ func (s *Store) Delete(ctx context.Context, key discovery.CacheKey) error {
 }
 
 func (s *Store) redisKey(key discovery.CacheKey) string {
-	parts := []string{s.prefix, key.TenantID, key.CapabilityID, key.ClientID}
+	parts := []string{s.prefix, key.TenantUUID, key.CapabilityID, key.ClientID}
 	return strings.Join(parts, ":")
 }
 
 type snapshotRecord struct {
 	CapabilityID   string                     `json:"capability_id"`
-	TenantID       string                     `json:"tenant_id"`
+	TenantUUID     string                     `json:"tenant_uuid"`
 	Version        uint64                     `json:"version"`
 	IssuedAt       time.Time                  `json:"issued_at"`
 	ExpiresAt      time.Time                  `json:"expires_at"`
@@ -91,7 +91,7 @@ type snapshotRecord struct {
 func fromSnapshot(snapshot discovery.Snapshot) snapshotRecord {
 	return snapshotRecord{
 		CapabilityID:   snapshot.CapabilityID,
-		TenantID:       snapshot.TenantID,
+		TenantUUID:     snapshot.TenantUUID,
 		Version:        snapshot.Version,
 		IssuedAt:       snapshot.IssuedAt,
 		ExpiresAt:      snapshot.ExpiresAt,
@@ -109,7 +109,7 @@ func fromSnapshot(snapshot discovery.Snapshot) snapshotRecord {
 func (r snapshotRecord) toSnapshot() discovery.Snapshot {
 	return discovery.Snapshot{
 		CapabilityID:   r.CapabilityID,
-		TenantID:       r.TenantID,
+		TenantUUID:     r.TenantUUID,
 		Version:        r.Version,
 		IssuedAt:       r.IssuedAt,
 		ExpiresAt:      r.ExpiresAt,

@@ -1,23 +1,57 @@
-import { test as setup, expect } from '@playwright/test'
+import type { FullConfig } from '@playwright/test'
+import { promises as fs } from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 
-const adminState = './tests/e2e/.auth/admin.json'
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
+const adminState = path.resolve(__dirname, './.auth/admin.json')
 
-setup('authenticate as admin', async ({ page }) => {
-  // 模拟登录（在实际项目中需要替换为真实的登录URL和凭据）
-  await page.goto('/login')
+export default async function globalSetup(config: FullConfig) {
+  const baseURL =
+    (config.projects[0]?.use?.baseURL as string | undefined) ||
+    process.env.PLAYWRIGHT_BASE_URL ||
+    'http://127.0.0.1:3000'
+  const origin = baseURL.endsWith('/') ? baseURL.slice(0, -1) : baseURL
 
-  // 模拟输入登录信息
-  await page.getByLabel(/邮箱|identifier/i).fill('admin@test.com')
-  await page.getByLabel(/密码|password/i).fill('password123')
+  const expiresAt = Date.now() + 60 * 60 * 1000
+  const storageState = {
+    cookies: [
+      {
+        name: 'token',
+        value: 'test-token',
+        domain: '127.0.0.1',
+        path: '/',
+        httpOnly: false,
+        sameSite: 'Lax' as const,
+        expires: Math.floor(expiresAt / 1000),
+      },
+    ],
+    origins: [
+      {
+        origin,
+        localStorage: [
+          { name: 'token', value: 'test-token' },
+          { name: 'access_token', value: 'test-token' },
+          { name: 'refresh_token', value: 'test-refresh-token' },
+          { name: 'token_type', value: 'Bearer' },
+          { name: 'expires_in', value: (60 * 60).toString() },
+          { name: 'expires_at', value: expiresAt.toString() },
+          { name: 'scope', value: 'admin' },
+          {
+            name: 'user',
+            value: JSON.stringify({
+              id: 1,
+              email: 'admin@test.com',
+              role: 'admin',
+            }),
+          },
+        ],
+      },
+    ],
+  }
 
-  // 点击登录按钮
-  await page.getByRole('button', { name: /登录|登入|sign in/i }).click()
-
-  // 等待跳转到仪表盘
-  await page.waitForURL('/**', { timeout: 10000 }).catch(() => {})
-
-  // 保存认证状态
-  await page.context().storageState({ path: adminState })
-
-  console.log('✅ Admin authentication completed')
-})
+  await fs.mkdir(path.dirname(adminState), { recursive: true })
+  await fs.writeFile(adminState, JSON.stringify(storageState, null, 2), 'utf-8')
+  console.log(`✅ Global auth storage prepared at ${adminState}`)
+}

@@ -7,6 +7,7 @@ import (
 
 	"github.com/ArtisanCloud/PowerX/internal/service/event_fabric/acl"
 	directory "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/directory"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/gin-gonic/gin"
 )
@@ -36,7 +37,6 @@ type bindingRequest struct {
 }
 
 type aclBatchRequest struct {
-	TenantID      string           `json:"tenant_id"`
 	TopicFullName string           `json:"topic_full_name"`
 	Grants        []bindingRequest `json:"grants"`
 	Revokes       []bindingRequest `json:"revokes"`
@@ -45,6 +45,11 @@ type aclBatchRequest struct {
 func (h *AdminACLHandler) UpsertBindings(c *gin.Context) {
 	if h.service == nil || h.directory == nil {
 		dto.RespondErrorFrom(c, dto.NewInternal("service unavailable", nil))
+		return
+	}
+	tenantUUID, err := reqctx.RequireTenantUUIDFromGin(c)
+	if err != nil {
+		dto.RespondErrorFrom(c, dto.NewUnauthorized("tenant context missing", err))
 		return
 	}
 
@@ -59,8 +64,12 @@ func (h *AdminACLHandler) UpsertBindings(c *gin.Context) {
 		dto.RespondErrorFrom(c, dto.NewBadRequest("invalid topic", err))
 		return
 	}
+	if tenantKey != "" && !strings.EqualFold(tenantKey, tenantUUID) {
+		dto.RespondErrorFrom(c, dto.NewForbidden("tenant scope mismatch", nil))
+		return
+	}
 
-	topic, err := h.directory.FindTopicByFullName(c.Request.Context(), tenantKey, namespace, name)
+	topic, err := h.directory.FindTopicByFullName(c.Request.Context(), tenantUUID, namespace, name)
 	if err != nil {
 		dto.RespondErrorFrom(c, dto.NewInternal("lookup topic failed", err))
 		return
@@ -84,7 +93,7 @@ func (h *AdminACLHandler) UpsertBindings(c *gin.Context) {
 			return
 		}
 		bindings, err := h.service.Grant(c.Request.Context(), acl.GrantRequest{
-			TenantID:      req.TenantID,
+			TenantUUID:    tenantUUID,
 			TopicUUID:     topic.UUID.String(),
 			PrincipalType: grant.PrincipalType,
 			PrincipalID:   grant.PrincipalID,
@@ -105,7 +114,7 @@ func (h *AdminACLHandler) UpsertBindings(c *gin.Context) {
 	for _, revoke := range req.Revokes {
 		actions := []acl.PrincipalAction{acl.PrincipalAction(strings.ToLower(strings.TrimSpace(revoke.Action)))}
 		if err := h.service.Revoke(c.Request.Context(), acl.RevokeRequest{
-			TenantID:    req.TenantID,
+			TenantUUID:  tenantUUID,
 			TopicUUID:   topic.UUID.String(),
 			PrincipalID: revoke.PrincipalID,
 			Actions:     actions,
@@ -129,7 +138,11 @@ func (h *AdminACLHandler) ListBindings(c *gin.Context) {
 		return
 	}
 
-	tenantID := strings.TrimSpace(c.Query("tenant_id"))
+	tenantUUID, err := reqctx.RequireTenantUUIDFromGin(c)
+	if err != nil {
+		dto.RespondErrorFrom(c, dto.NewUnauthorized("tenant context missing", err))
+		return
+	}
 	topicFull := strings.TrimSpace(c.Query("topic_full_name"))
 	topicID := strings.TrimSpace(c.Query("topic_uuid"))
 
@@ -142,7 +155,11 @@ func (h *AdminACLHandler) ListBindings(c *gin.Context) {
 			dto.RespondErrorFrom(c, dto.NewBadRequest("invalid topic", err))
 			return
 		}
-		topic, err := h.directory.FindTopicByFullName(c.Request.Context(), tenantKey, namespace, name)
+		if tenantKey != "" && !strings.EqualFold(tenantKey, tenantUUID) {
+			dto.RespondErrorFrom(c, dto.NewForbidden("tenant scope mismatch", nil))
+			return
+		}
+		topic, err := h.directory.FindTopicByFullName(c.Request.Context(), tenantUUID, namespace, name)
 		if err != nil {
 			dto.RespondErrorFrom(c, dto.NewInternal("lookup topic failed", err))
 			return
@@ -152,14 +169,11 @@ func (h *AdminACLHandler) ListBindings(c *gin.Context) {
 			return
 		}
 		topicUUID = topic.UUID.String()
-		if tenantID == "" {
-			tenantID = topic.TenantKey
-		}
 	}
 
 	bindings, err := h.service.ListBindings(c.Request.Context(), acl.ListRequest{
-		TenantID:  tenantID,
-		TopicUUID: topicUUID,
+		TenantUUID: tenantUUID,
+		TopicUUID:  topicUUID,
 	})
 	if err != nil {
 		dto.RespondErrorFrom(c, dto.NewInternal("list acl failed", err))

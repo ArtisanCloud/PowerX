@@ -12,7 +12,6 @@ import (
 
 // 依赖注入（你项目已有 Deps 可替换）
 func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterGroup, deps *shared.Deps) {
-
 	hDept := NewDepartmentHandler(deps)
 	gDept := protectedGroup.Group("/admin/iam/departments")
 	{
@@ -90,6 +89,9 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 		[]string{cfg.Auth.AudienceUser},
 		[]string{"access"},
 		reqctx.RootOnlyCB(),
+		middleware.WithTenantHeaderPolicy(middleware.TenantHeaderPolicy{
+			RequireUUID: cfg.Tenants.RequireUUID,
+		}),
 	))
 	{
 		gPerm.GET("", hPerm.List)

@@ -21,7 +21,6 @@ func TestAdminHTTPRegisterAndActivate(t *testing.T) {
 	engine := env.Engine()
 
 	body := map[string]any{
-		"tenant_id":                  "tenant-001",
 		"alias":                      "content-writer",
 		"display_name":               "Content Writer",
 		"telemetry_contract_version": "otel-agent-v1",
@@ -38,6 +37,7 @@ func TestAdminHTTPRegisterAndActivate(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/api/admin/agent/lifecycle/agents", bytes.NewReader(payload))
 	req.Header.Set("Authorization", "Bearer token")
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Tenant-UUID", "tenant-001")
 	resp := httptest.NewRecorder()
 	engine.ServeHTTP(resp, req)
 	require.Equal(t, http.StatusCreated, resp.Code)
@@ -46,7 +46,7 @@ func TestAdminHTTPRegisterAndActivate(t *testing.T) {
 		Code int `json:"code"`
 		Data struct {
 			ID              string `json:"id"`
-			TenantID        string `json:"tenant_id"`
+			TenantUUID      string `json:"tenant_uuid"`
 			Alias           string `json:"alias"`
 			Status          string `json:"status"`
 			EventTopic      string `json:"event_topic_prefix"`
@@ -58,13 +58,14 @@ func TestAdminHTTPRegisterAndActivate(t *testing.T) {
 	require.NotEmpty(t, registerResp.Data.ID)
 	require.Equal(t, http.StatusCreated, registerResp.Code)
 	require.Equal(t, "pending", registerResp.Data.Status)
-	require.Equal(t, "tenant-001", registerResp.Data.TenantID)
+	require.Equal(t, "tenant-001", registerResp.Data.TenantUUID)
 
 	agentID := registerResp.Data.ID
 
 	// 获取 agent
 	getReq := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/admin/agent/lifecycle/agents/%s", agentID), nil)
 	getReq.Header.Set("Authorization", "Bearer token")
+	getReq.Header.Set("X-Tenant-UUID", "tenant-001")
 	getResp := httptest.NewRecorder()
 	engine.ServeHTTP(getResp, getReq)
 	require.Equal(t, http.StatusOK, getResp.Code)
@@ -82,12 +83,12 @@ func TestAdminHTTPRegisterAndActivate(t *testing.T) {
 
 	// 激活 agent
 	activateBody, _ := json.Marshal(map[string]string{
-		"tenant_id": "tenant-001",
-		"reason":    "initial rollout",
+		"reason": "initial rollout",
 	})
 	actReq := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/api/admin/agent/lifecycle/agents/%s/activate", agentID), bytes.NewReader(activateBody))
 	actReq.Header.Set("Authorization", "Bearer token")
 	actReq.Header.Set("Content-Type", "application/json")
+	actReq.Header.Set("X-Tenant-UUID", "tenant-001")
 	actResp := httptest.NewRecorder()
 	engine.ServeHTTP(actResp, actReq)
 	require.Equal(t, http.StatusOK, actResp.Code)
@@ -103,12 +104,12 @@ func TestAdminHTTPRegisterAndActivate(t *testing.T) {
 
 	// pause agent
 	pauseBody, _ := json.Marshal(map[string]string{
-		"tenant_id": "tenant-001",
-		"reason":    "maintenance",
+		"reason": "maintenance",
 	})
 	pauseReq := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/api/admin/agent/lifecycle/agents/%s/pause", agentID), bytes.NewReader(pauseBody))
 	pauseReq.Header.Set("Authorization", "Bearer token")
 	pauseReq.Header.Set("Content-Type", "application/json")
+	pauseReq.Header.Set("X-Tenant-UUID", "tenant-001")
 	pauseResp := httptest.NewRecorder()
 	engine.ServeHTTP(pauseResp, pauseReq)
 	require.Equal(t, http.StatusOK, pauseResp.Code)
@@ -123,12 +124,11 @@ func TestAdminHTTPRegisterAndActivate(t *testing.T) {
 	require.Equal(t, "paused", pauseData.Data.Status)
 
 	// resume agent
-	resumeBody, _ := json.Marshal(map[string]string{
-		"tenant_id": "tenant-001",
-	})
+	resumeBody, _ := json.Marshal(map[string]string{})
 	resumeReq := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/api/admin/agent/lifecycle/agents/%s/resume", agentID), bytes.NewReader(resumeBody))
 	resumeReq.Header.Set("Authorization", "Bearer token")
 	resumeReq.Header.Set("Content-Type", "application/json")
+	resumeReq.Header.Set("X-Tenant-UUID", "tenant-001")
 	resumeResp := httptest.NewRecorder()
 	engine.ServeHTTP(resumeResp, resumeReq)
 	require.Equal(t, http.StatusOK, resumeResp.Code)
@@ -144,12 +144,12 @@ func TestAdminHTTPRegisterAndActivate(t *testing.T) {
 
 	// scale agent
 	scaleBody, _ := json.Marshal(map[string]any{
-		"tenant_id":                 "tenant-001",
 		"target_capacity_instances": 5,
 	})
 	scaleReq := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/api/admin/agent/lifecycle/agents/%s/scale", agentID), bytes.NewReader(scaleBody))
 	scaleReq.Header.Set("Authorization", "Bearer token")
 	scaleReq.Header.Set("Content-Type", "application/json")
+	scaleReq.Header.Set("X-Tenant-UUID", "tenant-001")
 	scaleResp := httptest.NewRecorder()
 	engine.ServeHTTP(scaleResp, scaleReq)
 	require.Equal(t, http.StatusOK, scaleResp.Code)
@@ -167,12 +167,12 @@ func TestAdminHTTPRegisterAndActivate(t *testing.T) {
 
 	// retire agent
 	retireBody, _ := json.Marshal(map[string]string{
-		"tenant_id": "tenant-001",
-		"reason":    "sunset",
+		"reason": "sunset",
 	})
 	retireReq := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/api/admin/agent/lifecycle/agents/%s/retire", agentID), bytes.NewReader(retireBody))
 	retireReq.Header.Set("Authorization", "Bearer token")
 	retireReq.Header.Set("Content-Type", "application/json")
+	retireReq.Header.Set("X-Tenant-UUID", "tenant-001")
 	retireResp := httptest.NewRecorder()
 	engine.ServeHTTP(retireResp, retireReq)
 	require.Equal(t, http.StatusOK, retireResp.Code)

@@ -2,6 +2,7 @@ package version
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -18,11 +19,14 @@ import (
 	compatrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/plugin_compat"
 	govrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/plugin_governance"
 	pluginreleaserepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/plugin_release"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
+
+const versionTenantUUID = "3f71dff7-89a1-4eb7-82d9-818f2b6ec3b8"
 
 func TestHandlerScanAndBoard(t *testing.T) {
 	t.Parallel()
@@ -32,7 +36,7 @@ func TestHandlerScanAndBoard(t *testing.T) {
 	govRepo := govrepo.NewReportRepository(db)
 
 	require.NoError(t, db.Create(&pluginrelease.PluginReleaseCandidate{
-		TenantID:       "tenant-1",
+		TenantUUID:     versionTenantUUID,
 		PluginID:       "plugin.demo",
 		Version:        "1.2.3",
 		GateStatus:     pluginrelease.PluginReleaseGateStatusPassed,
@@ -47,7 +51,7 @@ func TestHandlerScanAndBoard(t *testing.T) {
 	rec := httptest.NewRecorder()
 	ctx, _ := gin.CreateTestContext(rec)
 	body := map[string]any{
-		"tenantId": "tenant-1",
+		"tenantId": versionTenantUUID,
 		"pluginId": "plugin.demo",
 	}
 	payload, err := json.Marshal(body)
@@ -56,7 +60,7 @@ func TestHandlerScanAndBoard(t *testing.T) {
 	req, err := http.NewRequest(http.MethodPost, "/internal/version/governance/scan", bytes.NewReader(payload))
 	require.NoError(t, err)
 	req.Header.Set("Content-Type", "application/json")
-	ctx.Request = req
+	ctx.Request = withTenant(req)
 
 	h.scan(ctx)
 	require.Equal(t, http.StatusCreated, rec.Code)
@@ -65,9 +69,9 @@ func TestHandlerScanAndBoard(t *testing.T) {
 	// board should return summary with the generated report
 	rec = httptest.NewRecorder()
 	ctx, _ = gin.CreateTestContext(rec)
-	req, err = http.NewRequest(http.MethodGet, "/internal/version/governance/board?tenantId=tenant-1&limit=5", nil)
+	req, err = http.NewRequest(http.MethodGet, "/internal/version/governance/board?limit=5", nil)
 	require.NoError(t, err)
-	ctx.Request = req
+	ctx.Request = withTenant(req)
 	h.board(ctx)
 	require.Equal(t, http.StatusOK, rec.Code)
 	require.Contains(t, rec.Body.String(), `"total":1`)
@@ -86,7 +90,7 @@ func TestHandlerCompatFlow(t *testing.T) {
 	rec := httptest.NewRecorder()
 	ctx, _ := gin.CreateTestContext(rec)
 	payload := map[string]any{
-		"tenantId":       "tenant-1",
+		"tenantId":       versionTenantUUID,
 		"pluginId":       "plugin.demo",
 		"currentVersion": "1.0.0",
 		"targetVersion":  "2.0.0",
@@ -97,7 +101,7 @@ func TestHandlerCompatFlow(t *testing.T) {
 	req, err := http.NewRequest(http.MethodPost, "/internal/version/compat/exception", bytes.NewReader(body))
 	require.NoError(t, err)
 	req.Header.Set("Content-Type", "application/json")
-	ctx.Request = req
+	ctx.Request = withTenant(req)
 
 	h.createException(ctx)
 	require.Equal(t, http.StatusCreated, rec.Code)
@@ -120,7 +124,7 @@ func TestHandlerCompatFlow(t *testing.T) {
 	req, err = http.NewRequest(http.MethodPost, "/internal/version/compat/approve", bytes.NewReader(body))
 	require.NoError(t, err)
 	req.Header.Set("Content-Type", "application/json")
-	ctx.Request = req
+	ctx.Request = withTenant(req)
 	h.approveException(ctx)
 	require.Equal(t, http.StatusOK, rec.Code)
 	require.Contains(t, rec.Body.String(), `"status":"approved"`)
@@ -141,4 +145,13 @@ func openVersionDB(t *testing.T) *gorm.DB {
 		&compatmodel.CompatException{},
 	))
 	return db
+}
+
+func withTenant(req *http.Request) *http.Request {
+	ctx := req.Context()
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	ctx = reqctx.WithTenantUUID(ctx, versionTenantUUID)
+	return req.WithContext(ctx)
 }

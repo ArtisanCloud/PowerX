@@ -14,7 +14,7 @@
       <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
         <UInput v-model="filters.pluginId" placeholder="插件ID" />
         <UInput v-model="filters.version" placeholder="版本前缀" />
-        <UInput v-model="filters.tenantId" placeholder="租户ID" />
+        <UInput v-model="filters.tenantUuid" placeholder="租户 UUID" />
       </div>
       <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
         <USelect v-model="filters.approvalStatus" :items="statusOptions" placeholder="审批状态" />
@@ -62,7 +62,7 @@ const editModal = overlay.create(LazyPluginReleaseEditCandidateModal)
 const confirmModal = overlay.create(LazyCommonConfirmModal)
 const filters = reactive({
   pluginId: '',
-  tenantId: '',
+  tenantUuid: '',
   version: '',
   approvalStatus: '',
   gateStatus: ''
@@ -110,10 +110,10 @@ const columns = [
       ]),
   },
   {
-    accessorKey: 'tenantId',
+    accessorKey: 'tenant_uuid',
     header: '租户',
     cell: ({ row }: any) =>
-      h('div', { class: 'text-sm text-gray-200' }, row.original.tenantId || '-'),
+      h('div', { class: 'text-sm text-gray-200' }, row.original.tenant_uuid || '-'),
   },
   {
     accessorKey: 'approvalStatus',
@@ -168,7 +168,7 @@ async function fetchList() {
       page: pagination.page,
       size: pagination.pageSize,
       pluginId: filters.pluginId || undefined,
-      tenantId: filters.tenantId || undefined,
+      tenantUuid: filters.tenantUuid || undefined,
       version: filters.version || undefined,
       approvalStatus: toFilterValue(filters.approvalStatus),
       gateStatus: toFilterValue(filters.gateStatus)
@@ -192,7 +192,7 @@ function applyFilters() {
 
 function resetFilters() {
   filters.pluginId = ''
-  filters.tenantId = ''
+  filters.tenantUuid = ''
   filters.version = ''
   filters.approvalStatus = ''
   filters.gateStatus = ''

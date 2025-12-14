@@ -20,7 +20,7 @@ const (
 type AgentShare struct {
 	ID               uuid.UUID
 	AgentID          uuid.UUID
-	TenantID         string
+	TenantUUID       string
 	Status           string
 	Quotas           []ShareQuota
 	Metadata         map[string]string
@@ -50,7 +50,7 @@ func toAgentShare(model *agentmodel.AgentShareRecord) *AgentShare {
 	return &AgentShare{
 		ID:               model.UUID,
 		AgentID:          model.AgentUUID,
-		TenantID:         model.TargetTenantID,
+		TenantUUID:       model.TargetTenantUUID,
 		Status:           model.Status,
 		Quotas:           decodeShareQuotas(model.Quotas),
 		Metadata:         decodeStringMap(model.Metadata),
@@ -92,7 +92,7 @@ func formatPtrTime(t *time.Time) *string {
 // ShareInput 共享请求。
 type ShareInput struct {
 	AgentID     uuid.UUID
-	TenantID    string
+	TenantUUID  string
 	Quotas      []ShareQuota
 	Metadata    map[string]string
 	RequestedBy string

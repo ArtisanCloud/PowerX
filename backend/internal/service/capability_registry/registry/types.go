@@ -3,6 +3,7 @@ package registry
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
@@ -39,24 +40,24 @@ var (
 type Repository interface {
 	Create(ctx context.Context, db *gorm.DB, reg Registration) (Registration, error)
 	Update(ctx context.Context, db *gorm.DB, reg Registration, expectedVersion uint64) (Registration, error)
-	Disable(ctx context.Context, db *gorm.DB, capabilityID, tenantID, reason, actor string, expectedVersion uint64, next Registration) (Registration, error)
-	GetLatest(ctx context.Context, db *gorm.DB, capabilityID, tenantID string) (Registration, error)
-	GetVersion(ctx context.Context, db *gorm.DB, capabilityID, tenantID string, version uint64) (Registration, error)
-	ListLatest(ctx context.Context, db *gorm.DB, tenantID string, limit, offset int) ([]Registration, int64, error)
+	Disable(ctx context.Context, db *gorm.DB, capabilityID, tenantUUID, reason, actor string, expectedVersion uint64, next Registration) (Registration, error)
+	GetLatest(ctx context.Context, db *gorm.DB, capabilityID, tenantUUID string) (Registration, error)
+	GetVersion(ctx context.Context, db *gorm.DB, capabilityID, tenantUUID string, version uint64) (Registration, error)
+	ListLatest(ctx context.Context, db *gorm.DB, tenantUUID string, limit, offset int) ([]Registration, int64, error)
 }
 
 // ContractVerifier 校验契约是否存在且有效。
 type ContractVerifier interface {
-	VerifyContract(ctx context.Context, tenantID, contractRef string) error
+	VerifyContract(ctx context.Context, tenantUUID, contractRef string) error
 }
 
 // ToolGrantVerifier 校验 Tool Grant ID 列表是否有效。
 type ToolGrantVerifier interface {
-	VerifyToolGrants(ctx context.Context, tenantID string, grantIDs []string) error
+	VerifyToolGrants(ctx context.Context, tenantUUID string, grantIDs []string) error
 }
 
 // VersionGenerator 负责生成下一个版本号。
-type VersionGenerator func(ctx context.Context, capabilityID, tenantID string, currentVersion uint64) (uint64, error)
+type VersionGenerator func(ctx context.Context, capabilityID, tenantUUID string, currentVersion uint64) (uint64, error)
 
 // SystemActorResolver 根据上下文推断操作者身份。
 type SystemActorResolver func(ctx context.Context) string
@@ -90,7 +91,7 @@ type UpdateRegistrationInput struct {
 // DisableRegistrationInput 禁用能力注册操作字段。
 type DisableRegistrationInput struct {
 	CapabilityID string
-	TenantID     string
+	TenantUUID   string
 	Reason       string
 	Actor        string
 	Version      uint64
@@ -99,7 +100,7 @@ type DisableRegistrationInput struct {
 // RegistrationPayload 提供注册信息载荷，Update 需要携带 Version。
 type RegistrationPayload struct {
 	CapabilityID        string
-	TenantID            string
+	TenantUUID          string
 	ContractRef         string
 	Status              string
 	EnvironmentPolicies map[string]EnvironmentPolicy
@@ -120,3 +121,11 @@ type GetRegistrationOptions struct {
 
 // Instrumentation 聚合观测依赖；在 domain 包中定义。
 type Instrumentation = domain.Instrumentation
+
+func (p RegistrationPayload) canonicalTenantUUID() string {
+	return strings.TrimSpace(p.TenantUUID)
+}
+
+func (in DisableRegistrationInput) canonicalTenantUUID() string {
+	return strings.TrimSpace(in.TenantUUID)
+}

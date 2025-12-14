@@ -51,6 +51,11 @@ type SecurityConfig struct {
 	FrameAncestors []string `yaml:"frame_ancestors"`
 }
 
+// TenantConfig 控制租户头部解析与缓存策略。
+type TenantConfig struct {
+	RequireUUID bool `yaml:"require_uuid"`
+}
+
 // CoreX 全局配置
 type Config struct {
 	Server             ServerConfig             `yaml:"server"`              // HTTP/gRPC 监听与行为
@@ -75,6 +80,7 @@ type Config struct {
 	Plugin             PluginConfig             `yaml:"plugin"`
 	Security           SecurityConfig           `yaml:"security"`
 	Storage            StorageConfig            `yaml:"storage"`
+	Tenants            TenantConfig             `yaml:"tenants"`
 }
 
 // HTTP服务器配置
@@ -291,25 +297,25 @@ type KnowledgeSpaceReportConfig struct {
 }
 
 type KnowledgeSpaceEventHotfixConfig struct {
-	PoliciesPath          string `yaml:"policies_path"`
-	AgentMatrixPath       string `yaml:"agent_weight_matrix_path"`
-	ReportPath            string `yaml:"report_path"`
-	AggregateReportPath   string `yaml:"aggregate_report_path"`
-	RetryMax              int    `yaml:"retry_max"`
-	ReplayWindowSeconds   int    `yaml:"replay_window_seconds"`
+	PoliciesPath        string `yaml:"policies_path"`
+	AgentMatrixPath     string `yaml:"agent_weight_matrix_path"`
+	ReportPath          string `yaml:"report_path"`
+	AggregateReportPath string `yaml:"aggregate_report_path"`
+	RetryMax            int    `yaml:"retry_max"`
+	ReplayWindowSeconds int    `yaml:"replay_window_seconds"`
 }
 
 type KnowledgeSpaceDecayConfig struct {
-	ThresholdPath        string `yaml:"threshold_path"`
-	ReportPath           string `yaml:"report_path"`
-	AggregateReportPath  string `yaml:"aggregate_report_path"`
+	ThresholdPath       string `yaml:"threshold_path"`
+	ReportPath          string `yaml:"report_path"`
+	AggregateReportPath string `yaml:"aggregate_report_path"`
 }
 
 type KnowledgeSpaceReleaseConfig struct {
-	MatrixPath           string `yaml:"matrix_path"`
-	GuardrailsDoc        string `yaml:"guardrails_doc"`
-	ReportPath           string `yaml:"report_path"`
-	AggregateReportPath  string `yaml:"aggregate_report_path"`
+	MatrixPath          string `yaml:"matrix_path"`
+	GuardrailsDoc       string `yaml:"guardrails_doc"`
+	ReportPath          string `yaml:"report_path"`
+	AggregateReportPath string `yaml:"aggregate_report_path"`
 }
 
 type KnowledgeSpaceVectorStorePGVectorConfig struct {

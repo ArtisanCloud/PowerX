@@ -2,19 +2,20 @@ package auth
 
 import (
 	"context"
+	"net/http"
+	"strings"
+
 	"github.com/ArtisanCloud/PowerX/internal/service"
+	repo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/iam"
 	repotenant "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/tenant"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"gorm.io/gorm"
-	"net/http"
-
-	repo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/iam"
 )
 
 // ======= 对外返回结构（供 Handler 使用） =======
 type MeMemberBrief struct {
-	TenantID   uint64 `json:"tenant_id"`
+	TenantUUID string `json:"tenant_uuid"`
 	TenantName string `json:"tenant_name"`
 	MemberID   uint64 `json:"member_id"`
 	IsAdmin    bool   `json:"is_admin"`
@@ -32,11 +33,11 @@ type MeUserBrief struct {
 }
 
 type MeContextResp struct {
-	IsRoot          bool            `json:"is_root"`
-	CurrentTenantID uint64          `json:"current_tenant_id"`
-	CurrentMemberID *uint64         `json:"current_member_id,omitempty"`
-	User            *MeUserBrief    `json:"user,omitempty"`
-	Members         []MeMemberBrief `json:"members"`
+	IsRoot            bool            `json:"is_root"`
+	CurrentTenantUUID string          `json:"current_tenant_uuid"`
+	CurrentMemberID   *uint64         `json:"current_member_id,omitempty"`
+	User              *MeUserBrief    `json:"user,omitempty"`
+	Members           []MeMemberBrief `json:"members"`
 	// PowerX 上下文签名（由网关生成），用于插件侧转发
 	Ctx    string `json:"ctx,omitempty"`
 	CtxSig string `json:"ctx_sig,omitempty"`
@@ -65,7 +66,7 @@ func NewMeService(db *gorm.DB) *MeService {
 // GetMeContext 业务逻辑：从 ctx 解析身份 → 加载画像与成员列表 → 组装返回
 func (s *MeService) GetMeContext(ctx context.Context) (*MeContextResp, error) {
 	userID := reqctx.GetUserID(ctx)
-	tenantID := reqctx.GetTenantID(ctx)
+	tenantUUID := strings.TrimSpace(reqctx.GetTenantUUID(ctx))
 	memberID := reqctx.GetMemberID(ctx)
 
 	var currentMemberID *uint64
@@ -101,28 +102,35 @@ func (s *MeService) GetMeContext(ctx context.Context) (*MeContextResp, error) {
 	}
 
 	// 3) 批量取租户名
-	tenantIDs := make([]uint64, 0, len(members))
+	tenantUUIDs := make([]string, 0, len(members))
 	for _, mem := range members {
-		tenantIDs = append(tenantIDs, mem.TenantID)
+		tenantUUIDs = append(tenantUUIDs, mem.TenantUUID)
 	}
-	tenantNameMap, _ := s.TenantRepo.MapNamesByIDs(ctx, tenantIDs)
+	tenantBasicMap, _ := s.TenantRepo.MapBasicByUUIDs(ctx, tenantUUIDs)
 
 	// 4) 组装 members brief（is_admin 先 false，等你接 RBAC 再填充）
 	brs := make([]MeMemberBrief, 0, len(members))
 	for _, mem := range members {
+		info := tenantBasicMap[mem.TenantUUID]
+		uuidStr := strings.TrimSpace(mem.TenantUUID)
+		name := ""
+		if info.ID != 0 {
+			uuidStr = info.UUID.String()
+			name = info.Name
+		}
 		brs = append(brs, MeMemberBrief{
-			TenantID:   mem.TenantID,
-			TenantName: tenantNameMap[mem.TenantID],
+			TenantUUID: uuidStr,
+			TenantName: name,
 			MemberID:   mem.ID,
 			IsAdmin:    false, // TODO: 用 RoleBinding 判断是否为该租户管理员
 		})
 	}
 
 	return &MeContextResp{
-		IsRoot:          isRoot,
-		CurrentTenantID: tenantID,
-		CurrentMemberID: currentMemberID,
-		User:            userBrief,
-		Members:         brs,
+		IsRoot:            isRoot,
+		CurrentTenantUUID: tenantUUID,
+		CurrentMemberID:   currentMemberID,
+		User:              userBrief,
+		Members:           brs,
 	}, nil
 }

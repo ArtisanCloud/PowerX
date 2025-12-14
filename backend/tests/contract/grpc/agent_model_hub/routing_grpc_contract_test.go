@@ -36,7 +36,8 @@ func TestRoutingGRPCContract(t *testing.T) {
 	client := agentmodelhubv1.NewAgentModelHubServiceClient(conn)
 
 	policyID := uuid.NewString()
-	resp, err := client.UpsertRoutingPolicy(context.Background(), &agentmodelhubv1.UpsertRoutingPolicyRequest{
+	ctx := agentModelHubContext(t, "tenant-contract")
+	resp, err := client.UpsertRoutingPolicy(ctx, &agentmodelhubv1.UpsertRoutingPolicyRequest{
 		Policy: &agentmodelhubv1.RoutingPolicyInput{
 			TenantScope: "tenant-contract",
 			Rules: []*agentmodelhubv1.RoutingRule{
@@ -53,33 +54,38 @@ func TestRoutingGRPCContract(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.NotNil(t, resp.GetPolicy())
+	assertNoAgentModelHubTenantLeak(t, resp)
 
-	_, err = client.UpdateRoutingPolicyStatus(context.Background(), &agentmodelhubv1.UpdateRoutingPolicyStatusRequest{
+	statusResp, err := client.UpdateRoutingPolicyStatus(ctx, &agentmodelhubv1.UpdateRoutingPolicyStatusRequest{
 		TenantScope:  "tenant-contract",
 		TargetStatus: agentmodelhubv1.PolicyStatus_POLICY_STATUS_ACTIVE,
 	})
 	require.NoError(t, err)
+	assertNoAgentModelHubTenantLeak(t, statusResp)
 
-	decisionResp, err := client.RouteTask(context.Background(), &agentmodelhubv1.RouteTaskRequest{
-		TenantId:    "tenant-contract",
+	decisionResp, err := client.RouteTask(ctx, &agentmodelhubv1.RouteTaskRequest{
+		TenantUuid:  "tenant-contract",
 		TaskContext: map[string]string{"taskType": "chat"},
 	})
 	require.NoError(t, err)
 	require.Equal(t, "provider-primary", decisionResp.GetPrimaryProviderId())
+	assertNoAgentModelHubTenantLeak(t, decisionResp)
 
-	_, err = client.RollbackRoutingPolicy(context.Background(), &agentmodelhubv1.RollbackRoutingPolicyRequest{
+	rollbackResp, err := client.RollbackRoutingPolicy(ctx, &agentmodelhubv1.RollbackRoutingPolicyRequest{
 		TenantScope:   "tenant-contract",
 		TargetVersion: resp.GetPolicy().GetVersion(),
 	})
 	require.NoError(t, err)
+	assertNoAgentModelHubTenantLeak(t, rollbackResp)
 
-	_, err = client.ToggleSafeMode(context.Background(), &agentmodelhubv1.ToggleSafeModeRequest{
+	safeModeResp, err := client.ToggleSafeMode(ctx, &agentmodelhubv1.ToggleSafeModeRequest{
 		TenantScope: "tenant-contract",
 		Enabled:     true,
 		TtlSeconds:  60,
 		Reason:      "contract-test",
 	})
 	require.NoError(t, err)
+	assertNoAgentModelHubTenantLeak(t, safeModeResp)
 
 	_ = policyID // placeholder to ensure uuid import used when extending tests
 }

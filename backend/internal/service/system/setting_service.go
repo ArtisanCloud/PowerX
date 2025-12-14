@@ -75,13 +75,13 @@ func (s *SettingService) DeleteSystem(ctx context.Context, key string, soft bool
 }
 
 // =============== Tenant ===============
-func (s *SettingService) ListTenant(ctx context.Context, tenantID uint64, prefix string, page, size int) (items []*dbsetting.TenantSetting, total int64, err error) {
+func (s *SettingService) ListTenant(ctx context.Context, tenantUUID, prefix string, page, size int) (items []*dbsetting.TenantSetting, total int64, err error) {
 	db := s.db.WithContext(ctx)
 	if debug, ok := ctx.Value(utils.DebugKey).(bool); ok && debug {
 		db = db.Debug()
 	}
 
-	q := db.Model(&dbsetting.TenantSetting{}).Where("tenant_id = ?", tenantID)
+	q := db.Model(&dbsetting.TenantSetting{}).Where("tenant_uuid = ?", tenantUUID)
 	if prefix != "" {
 		q = q.Where("key LIKE ?", prefix+"%")
 	}
@@ -95,15 +95,15 @@ func (s *SettingService) ListTenant(ctx context.Context, tenantID uint64, prefix
 	return
 }
 
-func (s *SettingService) GetTenant(ctx context.Context, tenantID uint64, key string) (*dbsetting.TenantSetting, error) {
-	return s.tenantRepo.GetByTenantAndKey(ctx, tenantID, key)
+func (s *SettingService) GetTenant(ctx context.Context, tenantUUID, key string) (*dbsetting.TenantSetting, error) {
+	return s.tenantRepo.GetByTenantAndKey(ctx, tenantUUID, key)
 }
 
-func (s *SettingService) UpsertTenant(ctx context.Context, tenantID uint64, key string, value datatypes.JSON, group, desc *string, editable *bool) error {
+func (s *SettingService) UpsertTenant(ctx context.Context, tenantUUID, key string, value datatypes.JSON, group, desc *string, editable *bool) error {
 	m := &dbsetting.TenantSetting{
-		TenantID:  tenantID,
-		Key:       key,
-		ValueJSON: value,
+		TenantUUID: tenantUUID,
+		Key:        key,
+		ValueJSON:  value,
 	}
 	if group != nil {
 		m.Group = *group
@@ -117,11 +117,11 @@ func (s *SettingService) UpsertTenant(ctx context.Context, tenantID uint64, key 
 	return s.tenantRepo.Upsert(ctx, m)
 }
 
-func (s *SettingService) DeleteTenant(ctx context.Context, tenantID uint64, key string, soft bool) error {
-	return s.tenantRepo.Delete(ctx, tenantID, key, soft)
+func (s *SettingService) DeleteTenant(ctx context.Context, tenantUUID, key string, soft bool) error {
+	return s.tenantRepo.Delete(ctx, tenantUUID, key, soft)
 }
 
 // =============== Effective (DB 层) ===============
-func (s *SettingService) GetEffectiveFromDB(ctx context.Context, tenantID *uint64, key string) (json.RawMessage, string, error) {
-	return s.tenantRepo.GetEffective(ctx, tenantID, key, s.sysRepo)
+func (s *SettingService) GetEffectiveFromDB(ctx context.Context, tenantUUID *string, key string) (json.RawMessage, string, error) {
+	return s.tenantRepo.GetEffective(ctx, tenantUUID, key, s.sysRepo)
 }

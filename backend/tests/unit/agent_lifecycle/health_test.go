@@ -29,7 +29,7 @@ func TestRecordHealthSnapshotPublishesEventAndThrottlesAlerts(t *testing.T) {
 
 	input := agent_lifecycle.HealthInput{
 		AgentID:        profile.UUID,
-		TenantID:       profile.TenantID,
+		TenantUUID:     profile.TenantUUID,
 		WindowDuration: time.Minute,
 		Status:         "degraded",
 		Metrics: agent_lifecycle.HealthMetricsInput{
@@ -68,7 +68,7 @@ func TestHealthSnapshotRepositoryUpsert(t *testing.T) {
 
 	record := &agentmodel.AgentHealthSnapshotRecord{
 		AgentUUID:         profile.UUID,
-		TenantID:          profile.TenantID,
+		TenantUUID:        profile.TenantUUID,
 		WindowStartedAt:   window,
 		WindowDurationSec: 60,
 		HealthScore:       90,

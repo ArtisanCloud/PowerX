@@ -29,7 +29,7 @@ service EventReplayService {
 }
 
 message TenantContext {
-  string tenant_id = 1;
+  string tenant_uuid = 1;
   string trace_id = 2;
 }
 

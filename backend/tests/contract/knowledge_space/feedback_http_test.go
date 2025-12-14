@@ -32,10 +32,8 @@ func TestFeedbackHTTPHandlers(t *testing.T) {
 	}
 	payload, _ := json.Marshal(body)
 	req := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/api/admin/knowledge-spaces/%s/feedback", space.UUID), bytes.NewReader(payload))
-	req.Header.Set("Authorization", "Bearer token")
 	req.Header.Set("Content-Type", "application/json")
-	resp := httptest.NewRecorder()
-	engine.ServeHTTP(resp, req)
+	resp := serveKnowledgeRequest(t, engine, req, env.TenantUUID().String())
 	require.Equal(t, http.StatusAccepted, resp.Code)
 
 	var apiResp struct {
@@ -49,9 +47,7 @@ func TestFeedbackHTTPHandlers(t *testing.T) {
 	require.Equal(t, "in_progress", apiResp.Data.Status)
 
 	listReq := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/admin/knowledge-spaces/%s/feedback", space.UUID), nil)
-	listReq.Header.Set("Authorization", "Bearer token")
-	listResp := httptest.NewRecorder()
-	engine.ServeHTTP(listResp, listReq)
+	listResp := serveKnowledgeRequest(t, engine, listReq, env.TenantUUID().String())
 	require.Equal(t, http.StatusOK, listResp.Code)
 
 	var listData struct {
@@ -66,9 +62,7 @@ func TestFeedbackHTTPHandlers(t *testing.T) {
 	})
 	require.NoError(t, err)
 	req2 := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/api/admin/knowledge-spaces/%s/feedback", space.UUID), bytes.NewReader(payload))
-	req2.Header.Set("Authorization", "Bearer token")
 	req2.Header.Set("Content-Type", "application/json")
-	resp2 := httptest.NewRecorder()
-	engine.ServeHTTP(resp2, req2)
+	resp2 := serveKnowledgeRequest(t, engine, req2, env.TenantUUID().String())
 	require.Equal(t, http.StatusGone, resp2.Code)
 }

@@ -34,7 +34,7 @@ func (r *TransportProfileRepository) WithDB(db *gorm.DB) *TransportProfileReposi
 	}
 }
 
-// UpsertProfiles 以 (tenant_id, contract_id, transport) 作为唯一键批量写入。
+// UpsertProfiles 以 (tenant_uuid, contract_id, transport) 作为唯一键批量写入。
 func (r *TransportProfileRepository) UpsertProfiles(ctx context.Context, profiles []*capmodel.CapabilityTransportProfile) error {
 	if len(profiles) == 0 {
 		return nil
@@ -47,8 +47,8 @@ func (r *TransportProfileRepository) UpsertProfiles(ctx context.Context, profile
 		profile.Mode = strings.ToLower(profile.Mode)
 		var existing capmodel.CapabilityTransportProfile
 		err := r.db.WithContext(ctx).
-			Where("tenant_id = ? AND contract_id = ? AND transport = ?",
-				profile.TenantID, profile.ContractID, profile.Transport).
+			Where("tenant_uuid = ? AND contract_id = ? AND transport = ?",
+				profile.TenantUUID, profile.ContractID, profile.Transport).
 			First(&existing).Error
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			if err := r.db.WithContext(ctx).Create(profile).Error; err != nil {
@@ -106,8 +106,8 @@ func (r *TransportProfileRepository) UpsertProfile(ctx context.Context, profile 
 
 	var existing capmodel.CapabilityTransportProfile
 	err := r.db.WithContext(ctx).
-		Where("tenant_id = ? AND contract_id = ? AND transport = ?",
-			profile.TenantID, profile.ContractID, profile.Transport).
+		Where("tenant_uuid = ? AND contract_id = ? AND transport = ?",
+			profile.TenantUUID, profile.ContractID, profile.Transport).
 		First(&existing).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		if err := r.db.WithContext(ctx).Create(profile).Error; err != nil {

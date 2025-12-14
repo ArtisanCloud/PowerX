@@ -20,6 +20,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const (
+	adminCanaryTenantUUID  = "4d2b07b5-6a5d-4a86-8ce6-78b22a6e4c9c"
+	adminCanaryScopeTenant = "d1aa2dda-7e30-4dcc-8c56-7b97b8d357c8"
+)
+
 func TestAdminCanaryDeployEndpoints(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	deps, _ := setupPluginReleaseDeps(t)
@@ -27,7 +32,7 @@ func TestAdminCanaryDeployEndpoints(t *testing.T) {
 
 	ctx := context.Background()
 	candidate, err := pipelineSvc.SubmitCandidate(ctx, pipeline.SubmitCandidateInput{
-		TenantID:      "tenant-admin",
+		TenantUUID:    adminCanaryTenantUUID,
 		PluginID:      "px.demo",
 		Version:       "v3.2.1",
 		BuildArtifact: "s3://releases/v3.2.1.zip",
@@ -48,7 +53,7 @@ func TestAdminCanaryDeployEndpoints(t *testing.T) {
 		CanaryBatches: []pipeline.CanaryBatchInput{
 			{
 				Name:        "batch-http",
-				TenantScope: []string{"tenant-west"},
+				TenantScope: []string{adminCanaryScopeTenant},
 				MetricThresholds: map[string]float64{
 					"error_rate": 0.05,
 				},

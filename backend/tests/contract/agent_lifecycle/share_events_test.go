@@ -14,6 +14,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const (
+	shareEventOwnerUUID  = "90a3522a-0fa0-45ae-8d83-5f05ebc9ecdf"
+	shareEventTargetUUID = "2a17f6c9-7ad7-46de-aec7-82058f6a0a5d"
+)
+
 func TestShareEventsPublished(t *testing.T) {
 	env := testenv.New(t)
 	t.Cleanup(env.Close)
@@ -38,11 +43,11 @@ func TestShareEventsPublished(t *testing.T) {
 		}
 	})
 
-	agentID := env.SeedAgent("tenant-event-share", "event-share")
+	agentID := env.SeedAgent(shareEventOwnerUUID, "event-share")
 
 	share, err := env.Deps.AgentLifecycle.Service.ShareAgent(context.Background(), agent_lifecycle.ShareInput{
 		AgentID:     agentID,
-		TenantID:    "tenant-event-target",
+		TenantUUID:  shareEventTargetUUID,
 		RequestedBy: "ops-events",
 		TraceID:     "trace-events-1",
 	})
@@ -54,7 +59,7 @@ func TestShareEventsPublished(t *testing.T) {
 		require.True(t, ok)
 		require.Equal(t, share.ID.String(), payload["share_id"])
 		require.Equal(t, share.AgentID.String(), payload["agent_id"])
-		require.Equal(t, share.TenantID, payload["tenant_id"])
+		require.Equal(t, share.TenantUUID, payload["target_tenant_uuid"])
 	case <-time.After(2 * time.Second):
 		t.Fatal("expected agent.share.issued event")
 	}

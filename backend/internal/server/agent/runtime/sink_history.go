@@ -14,7 +14,7 @@ type HistorySink struct {
 	his      *agentSvc.ChatHistoryService
 	ginCtx   *gin.Context
 	env      string
-	tenantID *uint64
+	tenantUUID *string
 	session  *dbmodel.AgentChatSession
 	agentID  uint64
 	buf      strings.Builder
@@ -22,9 +22,9 @@ type HistorySink struct {
 }
 
 func NewHistorySink(next EventSink, his *agentSvc.ChatHistoryService, ginCtx *gin.Context,
-	env string, tenantID *uint64, session *dbmodel.AgentChatSession, agentID uint64, enabled bool,
+	env string, tenantUUID *string, session *dbmodel.AgentChatSession, agentID uint64, enabled bool,
 ) *HistorySink {
-	return &HistorySink{next: next, his: his, ginCtx: ginCtx, env: env, tenantID: tenantID, session: session, agentID: agentID, enabled: enabled}
+	return &HistorySink{next: next, his: his, ginCtx: ginCtx, env: env, tenantUUID: tenantUUID, session: session, agentID: agentID, enabled: enabled}
 }
 
 func (h *HistorySink) Emit(event string, payload any) error {
@@ -54,8 +54,8 @@ func (h *HistorySink) Emit(event string, payload any) error {
 		}
 		if strings.TrimSpace(text) != "" {
 			_, _ = h.his.AppendMessage(h.ginCtx.Request.Context(),
-				h.env, h.tenantID, h.session.ID, h.agentID, "assistant", text, "text", 0, 0, false, nil)
-			_, _ = h.his.SummarizeIfNeeded(h.ginCtx.Request.Context(), h.env, h.tenantID, h.session)
+				h.env, h.tenantUUID, h.session.ID, h.agentID, "assistant", text, "text", 0, 0, false, nil)
+			_, _ = h.his.SummarizeIfNeeded(h.ginCtx.Request.Context(), h.env, h.tenantUUID, h.session)
 		}
 	}
 	return nil

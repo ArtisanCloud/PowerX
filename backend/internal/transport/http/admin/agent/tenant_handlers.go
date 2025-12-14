@@ -3,9 +3,11 @@ package agent
 import (
 	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
 	"github.com/ArtisanCloud/PowerX/internal/service/agent_lifecycle"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/gin-gonic/gin"
 )
@@ -48,9 +50,14 @@ func (h *TenantAgentFormHandler) ListTenantForms(c *gin.Context) {
 		dto.ResponseError(c, http.StatusServiceUnavailable, "agent lifecycle service not available", nil)
 		return
 	}
-	tenantID := c.Query("tenant_id")
-	if tenantID == "" {
-		dto.ResponseValidationError(c, errors.New("tenant_id is required"))
+	rawUUID := strings.TrimSpace(c.Query("tenant_uuid"))
+	if rawUUID == "" {
+		dto.ResponseValidationError(c, errors.New("tenant_uuid is required"))
+		return
+	}
+	tenantUUID, err := reqctx.CanonicalTenantUUID(rawUUID)
+	if err != nil {
+		dto.ResponseValidationError(c, errors.New("tenant_uuid must be a valid UUID"))
 		return
 	}
 	status := c.Query("status")
@@ -58,7 +65,7 @@ func (h *TenantAgentFormHandler) ListTenantForms(c *gin.Context) {
 	if status != "" {
 		statuses = []string{status}
 	}
-	forms, err := h.service.ListTenantForms(c.Request.Context(), tenantID, statuses)
+	forms, err := h.service.ListTenantForms(c.Request.Context(), tenantUUID, statuses)
 	if err != nil {
 		h.handleError(c, err)
 		return

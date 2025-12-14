@@ -14,7 +14,7 @@ const (
 
 // TenantScopedModel 为事件骨干中所有租户隔离表提供统一字段。
 type TenantScopedModel struct {
-	TenantID string `json:"tenant_id"`
+	TenantUUID string `json:"tenant_uuid"`
 }
 
 // AuditTrail 统一审计字段，鼓励后续模型嵌入使用。

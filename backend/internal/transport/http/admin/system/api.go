@@ -10,7 +10,7 @@ import (
 )
 
 func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterGroup, deps *shared.Deps) {
-	hUser := NewUserHandler(deps.DB)
+	hUser := NewUserHandler(deps)
 	gSys := protectedGroup.Group("/admin/system")
 	cfg := config.GetGlobalConfig()
 	gSys.Use(middleware.JwtMiddleware(
@@ -19,6 +19,9 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 		[]string{cfg.Auth.AudienceUser},
 		[]string{"access"},
 		reqctx.RootOnlyCB(),
+		middleware.WithTenantHeaderPolicy(middleware.TenantHeaderPolicy{
+			RequireUUID: cfg.Tenants.RequireUUID,
+		}),
 	))
 
 	hSTS := NewSTSHandler(cfg)
@@ -48,14 +51,14 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 		g.PUT("/system/:key", h.UpsertSystem)    // body: { value_json, group?, description?, editable? }
 		g.DELETE("/system/:key", h.DeleteSystem) // body: { soft?: true }
 
-		// 租户级 KV
-		g.GET("/tenant/:tenant_id", h.ListTenant) // ?prefix=&page=&pageSize=
-		g.GET("/tenant/:tenant_id/:key", h.GetTenant)
-		g.PUT("/tenant/:tenant_id/:key", h.UpsertTenant) // body 同上
-		g.DELETE("/tenant/:tenant_id/:key", h.DeleteTenant)
+		// 租户级 KV（上下文租户，不再依赖路径参数）
+		g.GET("/tenant", h.ListTenant) // ?prefix=&page=&pageSize=
+		g.GET("/tenant/:key", h.GetTenant)
+		g.PUT("/tenant/:key", h.UpsertTenant) // body 同上
+		g.DELETE("/tenant/:key", h.DeleteTenant)
 
 		// 生效值（仅 DB 层：tenant > system）
-		g.GET("/effective/:key", h.GetEffective) // ?tenant_id=
+		g.GET("/effective/:key", h.GetEffective) // ?tenant_uuid=（可选，默认使用上下文）
 	}
 
 }

@@ -25,14 +25,14 @@ func (r *AIUsageLogRepository) CreateOne(ctx context.Context, row *dbmodel.AIUsa
 }
 
 func (r *AIUsageLogRepository) ListRecent(
-	ctx context.Context, env string, tenantID *uint64, modality string, limit int,
+	ctx context.Context, env string, tenantUUID *string, modality string, limit int,
 ) ([]dbmodel.AIUsageLog, error) {
 	if limit <= 0 {
 		limit = 50
 	}
 	var list []dbmodel.AIUsageLog
 	err := r.db.WithContext(ctx).
-		Scopes(dbmodel.WithScope(env, tenantID)).
+		Scopes(dbmodel.WithScope(env, tenantUUID)).
 		Where("modality = ?", modality).
 		Order("id DESC").
 		Limit(limit).
@@ -50,11 +50,11 @@ type UsageAggRow struct {
 }
 
 func (r *AIUsageLogRepository) AggregateByModel(
-	ctx context.Context, env string, tenantID *uint64, modality string,
+	ctx context.Context, env string, tenantUUID *string, modality string,
 ) ([]UsageAggRow, error) {
 	var rows []UsageAggRow
 	err := r.db.WithContext(ctx).Model(&dbmodel.AIUsageLog{}).
-		Scopes(dbmodel.WithScope(env, tenantID)).
+		Scopes(dbmodel.WithScope(env, tenantUUID)).
 		Select(`
 			provider, model,
 			COUNT(*)                       AS count,

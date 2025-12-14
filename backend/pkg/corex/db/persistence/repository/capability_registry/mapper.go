@@ -108,9 +108,10 @@ func encodeFallbackPlan(plan *FallbackPlan, primaryCapabilityID string) (*models
 	return model, nil
 }
 
-func encodeAdapterEndpoints(reg Registration, registrationID uint64) ([]models.AdapterEndpoint, error) {
+func encodeAdapterEndpoints(reg Registration, tenantUUID string, registrationID uint64) ([]models.AdapterEndpoint, error) {
 	adapters := make([]models.AdapterEndpoint, 0, len(reg.Adapters))
 	seen := make(map[string]struct{}, len(reg.Adapters))
+	canonicalTenant := canonicalTenantUUID(tenantUUID)
 	for _, adapter := range reg.Adapters {
 		if _, ok := seen[adapter.AdapterID]; ok {
 			return nil, ErrDuplicateAdapterID
@@ -128,7 +129,7 @@ func encodeAdapterEndpoints(reg Registration, registrationID uint64) ([]models.A
 		record := models.AdapterEndpoint{
 			RegistrationID: registrationID,
 			CapabilityID:   reg.CapabilityID,
-			TenantID:       reg.TenantID,
+			TenantUUID:     canonicalTenant,
 			AdapterID:      adapter.AdapterID,
 			TransportType:  adapter.TransportType,
 			Endpoint:       adapter.Endpoint,
@@ -151,7 +152,7 @@ func encodeAdapterEndpoints(reg Registration, registrationID uint64) ([]models.A
 func decodeRegistration(model models.CapabilityRegistration) (Registration, error) {
 	reg := Registration{
 		CapabilityID:  model.CapabilityID,
-		TenantID:      model.TenantID,
+		TenantUUID:    model.TenantUUID,
 		ContractRef:   model.ContractRef,
 		Status:        model.Status,
 		Version:       model.Version,

@@ -39,7 +39,7 @@ type ClientCredential struct {
 
 // Service
 type PluginInstanceConfigService struct {
-    PluginInstanceRepo *reposetting.PluginInstanceConfigRepository
+	PluginInstanceRepo *reposetting.PluginInstanceConfigRepository
 }
 
 func NewPluginInstanceConfigService(deps *shared.Deps) *PluginInstanceConfigService {
@@ -50,24 +50,24 @@ func NewPluginInstanceConfigService(deps *shared.Deps) *PluginInstanceConfigServ
 
 /* ==================== 基本读写 ==================== */
 
-func (s *PluginInstanceConfigService) Get(ctx context.Context, tenantID uint64, pluginID, key string) (*dbsetting.PluginInstanceConfig, error) {
-	return s.PluginInstanceRepo.Get(ctx, tenantID, strings.TrimSpace(pluginID), strings.TrimSpace(key))
+func (s *PluginInstanceConfigService) Get(ctx context.Context, tenantUUID, pluginID, key string) (*dbsetting.PluginInstanceConfig, error) {
+	return s.PluginInstanceRepo.Get(ctx, strings.TrimSpace(tenantUUID), strings.TrimSpace(pluginID), strings.TrimSpace(key))
 }
 
 func (s *PluginInstanceConfigService) Upsert(ctx context.Context, m *dbsetting.PluginInstanceConfig) error {
 	return s.PluginInstanceRepo.Upsert(ctx, m)
 }
 
-func (s *PluginInstanceConfigService) SetEnabled(ctx context.Context, tenantID uint64, pluginID string, enabled bool) error {
-	return s.PluginInstanceRepo.SetEnabled(ctx, tenantID, strings.TrimSpace(pluginID), enabled)
+func (s *PluginInstanceConfigService) SetEnabled(ctx context.Context, tenantUUID, pluginID string, enabled bool) error {
+	return s.PluginInstanceRepo.SetEnabled(ctx, strings.TrimSpace(tenantUUID), strings.TrimSpace(pluginID), enabled)
 }
 
-func (s *PluginInstanceConfigService) ListByTenantAndPlugin(ctx context.Context, tenantID uint64, pluginID string) ([]*dbsetting.PluginInstanceConfig, error) {
-	return s.PluginInstanceRepo.ListByTenantAndPlugin(ctx, tenantID, strings.TrimSpace(pluginID))
+func (s *PluginInstanceConfigService) ListByTenantAndPlugin(ctx context.Context, tenantUUID, pluginID string) ([]*dbsetting.PluginInstanceConfig, error) {
+	return s.PluginInstanceRepo.ListByTenantAndPlugin(ctx, strings.TrimSpace(tenantUUID), strings.TrimSpace(pluginID))
 }
 
-func (s *PluginInstanceConfigService) ListEnabledPluginsByTenant(ctx context.Context, tenantID uint64) ([]string, error) {
-	return s.PluginInstanceRepo.ListEnabledPluginsByTenant(ctx, tenantID)
+func (s *PluginInstanceConfigService) ListEnabledPluginsByTenant(ctx context.Context, tenantUUID string) ([]string, error) {
+	return s.PluginInstanceRepo.ListEnabledPluginsByTenant(ctx, strings.TrimSpace(tenantUUID))
 }
 
 /* ============== client_id / client_secret 生命周期 ============== */
@@ -75,16 +75,20 @@ func (s *PluginInstanceConfigService) ListEnabledPluginsByTenant(ctx context.Con
 // EnsureCredentials：若不存在则创建并返回“明文 secret”（只此一次）；若已存在仅返回 client_id，secret 置空
 func (s *PluginInstanceConfigService) EnsureCredentials(
 	ctx context.Context,
-	tenantID uint64,
+	tenantUUID string,
 	pluginID string,
 	opts *ClientCredential, // 可传入能力约束（aud/scopes/actorKinds），为 nil 则用默认
 ) (clientID, clientSecretPlain string, err error) {
 	pluginID = strings.TrimSpace(pluginID)
+	tenantUUID = strings.TrimSpace(tenantUUID)
 	if pluginID == "" {
 		return "", "", errors.New("plugin_id required")
 	}
+	if tenantUUID == "" {
+		return "", "", errors.New("tenant_uuid required")
+	}
 
-	cfg, err := s.PluginInstanceRepo.Get(ctx, tenantID, pluginID, KeyClientCredentials)
+	cfg, err := s.PluginInstanceRepo.Get(ctx, tenantUUID, pluginID, KeyClientCredentials)
 	if err != nil {
 		return "", "", err
 	}
@@ -97,7 +101,7 @@ func (s *PluginInstanceConfigService) EnsureCredentials(
 	}
 
 	// 生成：client_id 建议稳定可读；secret 仅展示一次
-	clientID = fmt.Sprintf("%s.%d", pluginID, tenantID) // 也可用 uuid/slug
+	clientID = fmt.Sprintf("%s.%s", pluginID, tenantUUID)
 	clientSecretPlain = utils.RandomString(48)
 	hash, err := bcrypt.GenerateFromPassword([]byte(clientSecretPlain), bcrypt.DefaultCost)
 	if err != nil {
@@ -120,11 +124,11 @@ func (s *PluginInstanceConfigService) EnsureCredentials(
 	b, _ := json.Marshal(cc)
 
 	rec := &dbsetting.PluginInstanceConfig{
-		TenantID:  tenantID,
-		PluginID:  pluginID,
-		Key:       KeyClientCredentials,
-		ValueJSON: datatypes.JSON(b),
-		Enabled:   true,
+		TenantUUID: tenantUUID,
+		PluginID:   pluginID,
+		Key:        KeyClientCredentials,
+		ValueJSON:  datatypes.JSON(b),
+		Enabled:    true,
 	}
 	if err := s.PluginInstanceRepo.Upsert(ctx, rec); err != nil {
 		return "", "", err
@@ -133,8 +137,8 @@ func (s *PluginInstanceConfigService) EnsureCredentials(
 }
 
 // RotateSecret：轮换并返回新的“明文 secret”，立即替换旧 hash（如需双活，可扩展为存多版本）
-func (s *PluginInstanceConfigService) RotateSecret(ctx context.Context, tenantID uint64, pluginID string) (newSecret string, err error) {
-	cfg, err := s.PluginInstanceRepo.Get(ctx, tenantID, pluginID, KeyClientCredentials)
+func (s *PluginInstanceConfigService) RotateSecret(ctx context.Context, tenantUUID, pluginID string) (newSecret string, err error) {
+	cfg, err := s.PluginInstanceRepo.Get(ctx, strings.TrimSpace(tenantUUID), strings.TrimSpace(pluginID), KeyClientCredentials)
 	if err != nil {
 		return "", err
 	}
@@ -168,13 +172,13 @@ func (s *PluginInstanceConfigService) RotateSecret(ctx context.Context, tenantID
 // VerifyClient：校验 client_id/secret，并可选校验 audience/scope/actorKind
 func (s *PluginInstanceConfigService) VerifyClient(
 	ctx context.Context,
-	tenantID uint64,
+	tenantUUID string,
 	pluginID, clientID, clientSecret, wantAudience, wantScope, wantActorKind string,
 ) error {
 	if strings.TrimSpace(clientID) == "" || strings.TrimSpace(clientSecret) == "" {
 		return errors.New("missing client credentials")
 	}
-	cfg, err := s.PluginInstanceRepo.Get(ctx, tenantID, pluginID, KeyClientCredentials)
+	cfg, err := s.PluginInstanceRepo.Get(ctx, strings.TrimSpace(tenantUUID), strings.TrimSpace(pluginID), KeyClientCredentials)
 	if err != nil {
 		return err
 	}
@@ -214,17 +218,17 @@ func (s *PluginInstanceConfigService) VerifyClient(
 /* ==================== 小工具 ==================== */
 
 func contains[T comparable](ss []T, x T) bool {
-    for _, v := range ss {
-        if v == x {
-            return true
-        }
-    }
-    return false
+	for _, v := range ss {
+		if v == x {
+			return true
+		}
+	}
+	return false
 }
 
 /* ============== 删除（按需彻底删除） ============== */
 
 // DeleteCredentials 删除本租户-插件的凭证配置；soft=false 为硬删除
-func (s *PluginInstanceConfigService) DeleteCredentials(ctx context.Context, tenantID uint64, pluginID string, soft bool) error {
-    return s.PluginInstanceRepo.Delete(ctx, tenantID, strings.TrimSpace(pluginID), KeyClientCredentials, soft)
+func (s *PluginInstanceConfigService) DeleteCredentials(ctx context.Context, tenantUUID, pluginID string, soft bool) error {
+	return s.PluginInstanceRepo.Delete(ctx, strings.TrimSpace(tenantUUID), strings.TrimSpace(pluginID), KeyClientCredentials, soft)
 }

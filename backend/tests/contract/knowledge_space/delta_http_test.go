@@ -32,10 +32,8 @@ func TestDeltaHTTPFlow(t *testing.T) {
 		}
 		body, _ := json.Marshal(payload)
 		req := httptest.NewRequest(http.MethodPost, "/api/knowledge/delta/jobs", bytes.NewReader(body))
-		req.Header.Set("Authorization", "Bearer token")
 		req.Header.Set("Content-Type", "application/json")
-		resp := httptest.NewRecorder()
-		engine.ServeHTTP(resp, req)
+		resp := serveKnowledgeRequest(t, engine, req, env.TenantUUID().String())
 		require.Equal(t, http.StatusAccepted, resp.Code)
 		var apiResp struct {
 			Data struct {
@@ -51,9 +49,7 @@ func TestDeltaHTTPFlow(t *testing.T) {
 
 	t.Run("fetch report", func(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/knowledge/delta/reports/%s", jobID), nil)
-		req.Header.Set("Authorization", "Bearer token")
-		resp := httptest.NewRecorder()
-		engine.ServeHTTP(resp, req)
+		resp := serveKnowledgeRequest(t, engine, req, env.TenantUUID().String())
 		require.Equal(t, http.StatusOK, resp.Code)
 	})
 
@@ -66,10 +62,8 @@ func TestDeltaHTTPFlow(t *testing.T) {
 		}
 		body, _ := json.Marshal(payload)
 		req := httptest.NewRequest(http.MethodPost, "/api/knowledge/delta/publish", bytes.NewReader(body))
-		req.Header.Set("Authorization", "Bearer token")
 		req.Header.Set("Content-Type", "application/json")
-		resp := httptest.NewRecorder()
-		engine.ServeHTTP(resp, req)
+		resp := serveKnowledgeRequest(t, engine, req, env.TenantUUID().String())
 		require.Equal(t, http.StatusOK, resp.Code)
 	})
 
@@ -80,10 +74,8 @@ func TestDeltaHTTPFlow(t *testing.T) {
 		}
 		body, _ := json.Marshal(payload)
 		req := httptest.NewRequest(http.MethodPost, "/api/knowledge/version/rollback", bytes.NewReader(body))
-		req.Header.Set("Authorization", "Bearer token")
 		req.Header.Set("Content-Type", "application/json")
-		resp := httptest.NewRecorder()
-		engine.ServeHTTP(resp, req)
+		resp := serveKnowledgeRequest(t, engine, req, env.TenantUUID().String())
 		require.Equal(t, http.StatusOK, resp.Code)
 	})
 
@@ -94,10 +86,8 @@ func TestDeltaHTTPFlow(t *testing.T) {
 		}
 		body, _ := json.Marshal(payload)
 		req := httptest.NewRequest(http.MethodPost, "/api/knowledge/delta/publish", bytes.NewReader(body))
-		req.Header.Set("Authorization", "Bearer token")
 		req.Header.Set("Content-Type", "application/json")
-		resp := httptest.NewRecorder()
-		engine.ServeHTTP(resp, req)
+		resp := serveKnowledgeRequest(t, engine, req, env.TenantUUID().String())
 		require.Equal(t, http.StatusNotFound, resp.Code)
 	})
 }

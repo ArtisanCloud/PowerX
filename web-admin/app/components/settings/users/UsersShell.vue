@@ -12,7 +12,7 @@ const userStore = useUserStore();
 const {
   isRoot,
   isCurrentTenantAdmin,
-  currentTenantId,
+  currentTenantUuid,
   isLoading,
   error,
   displayName,
@@ -78,7 +78,7 @@ onMounted(async () => {
       <UsersRoot v-if="view === 'root'" />
       <UsersTenantAdmin
         v-else-if="view === 'admin'"
-        :tenant-id="currentTenantId!"
+        :tenant-uuid="currentTenantUuid!"
       />
       <UsersTenantMember v-else />
     </div>

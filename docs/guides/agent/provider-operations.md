@@ -73,7 +73,7 @@ node scripts/qa/provider-onboard-benchmark.mjs \
 
 | 目的 | 命令 | 说明 |
 |------|------|------|
-| 成本金丝雀 (SC-004) | `node scripts/qa/provider-drill.mjs --tenant-id demo --spike 1500 --events 5 --alert-timeout 300000 --token "$ADMIN_TOKEN"` | 上报 usage，轮询 `/provider-quotas`，并等待告警状态出现，`alertResult` 会记录耗时与状态。 |
+| 成本金丝雀 (SC-004) | `node scripts/qa/provider-drill.mjs --tenant-uuid demo --spike 1500 --events 5 --alert-timeout 300000 --token "$ADMIN_TOKEN"` | 上报 usage，轮询 `/provider-quotas`，并等待告警状态出现，`alertResult` 会记录耗时与状态。 |
 | 路由 SLO (SC-002) | `node scripts/ops/routing-simulator.mjs --tenant demo --scenario critical_tasks --token "$ADMIN_TOKEN" --require-safe-mode` | 输出 `slo` 字段（hit ≥90%、fallback ≥95%、safe-mode ≤5 min）。 |
 | Safe-mode 混沌 (T043a) | `node scripts/qa/routing-chaos.mjs --tenant demo --task-type chat/general --token "$ADMIN_TOKEN"` | 自动启用/关闭 safe-mode，验证 fallback & recovery。 |
 

@@ -26,7 +26,9 @@ type AgentChatHandler struct {
 }
 
 func NewAgentChatHandler(dep *shared.Deps) *AgentChatHandler {
-	return &AgentChatHandler{his: agentSvc.NewChatHistoryService(dep.DB)}
+	return &AgentChatHandler{
+		his: agentSvc.NewChatHistoryService(dep.DB),
+	}
 }
 
 func (h *AgentChatHandler) SimulateSSE(c *gin.Context) {
@@ -149,19 +151,24 @@ func (h *AgentChatHandler) StreamSSE(c *gin.Context) {
 		return
 	}
 	agentID, _ := utils.ParseUintID(strings.TrimSpace(c.Query("agent_id")))
-	tid, _ := reqctx.RequireTenantIDFromGin(c)
+	tenantCtx, err := requireTenantContext(c)
+	if err != nil {
+		dto.ResponseError(c, 400, err.Error(), nil)
+		return
+	}
+	tenantRef := tenantCtx.UUIDPtr()
 	uid := reqctx.GetUserID(c.Request.Context())
 
 	// 会话：session_id 优先，否则 sticky
 	var sess *dbmodel.AgentChatSession
 	if sidStr := strings.TrimSpace(c.Query("session_id")); sidStr != "" {
 		if sid, err := utils.ParseUintID(sidStr); err == nil && sid > 0 {
-			sess, _ = h.his.FindSessionByID(c, env, &tid, sid)
+			sess, _ = h.his.FindSessionByID(c, env, tenantRef, sid)
 		}
 	}
 	if sess == nil {
 		var err error
-		sess, err = h.his.GetOrCreateSession(c, env, &tid, agentID, uid, false, nil)
+		sess, err = h.his.GetOrCreateSession(c, env, tenantRef, agentID, uid, false, nil)
 		if err != nil {
 			dto.ResponseError(c, 500, "创建会话失败", err)
 			return
@@ -169,12 +176,12 @@ func (h *AgentChatHandler) StreamSSE(c *gin.Context) {
 	}
 
 	// 写入 user 消息
-	_, _ = h.his.AppendMessage(c, env, &tid, sess.ID, agentID, "user", q, "text", 0, 0, false, nil)
+	_, _ = h.his.AppendMessage(c, env, tenantRef, sess.ID, agentID, "user", q, "text", 0, 0, false, nil)
 
 	// 3) 适配器 + Engine
 	runtime.SetSSEHeaders(c)
 	baseSink := runtime.NewSSESink(c)
-	histSink := runtime.NewHistorySink(baseSink, h.his, c, env, &tid, sess, agentID, true)
+	histSink := runtime.NewHistorySink(baseSink, h.his, c, env, tenantRef, sess, agentID, true)
 
 	cfg := &dto.ChatConfig{}                             // 如需从 query/form 取开关可补
 	_ = runtime.NewEngine().Run(c, q, cfg, "", histSink) // explicitFlow 传空，交给意图/plan 选择
@@ -191,7 +198,14 @@ func (h *AgentChatHandler) streamCore(c *gin.Context, req dto.StreamChatRequest)
 
 	// 解析上下文（容错类型）
 	env := reqctx.GetEnv(c.Request.Context())
-	tid := reqctx.GetTenantID(c.Request.Context())
+	tenantCtx, err := requireTenantContext(c)
+	if err != nil {
+		c.SSEvent(dto.EventError, gin.H{"message": "租户上下文缺失", "detail": err.Error()})
+		c.SSEvent(dto.EventEnd, gin.H{"ok": false})
+		return
+	}
+	tenantRef := tenantCtx.UUIDPtr()
+	tenantUUID := tenantCtx.UUID()
 	userID := reqctx.GetUserID(c.Request.Context())
 	agentID, _ := utils.AsUint64(req.Context["agent_id"])
 
@@ -199,25 +213,25 @@ func (h *AgentChatHandler) streamCore(c *gin.Context, req dto.StreamChatRequest)
 	var sess *dbmodel.AgentChatSession
 	if sidStr := utils.StrOr(req.Context["session_id"].(string), ""); sidStr != "" {
 		if sid, err := utils.ParseUintID(sidStr); err == nil && sid > 0 {
-			sess, _ = h.his.FindSessionByID(ctx, env, &tid, sid)
+			sess, _ = h.his.FindSessionByID(ctx, env, tenantRef, sid)
 		}
 	}
 	if sess == nil {
-		var err error
-		sess, err = h.his.GetOrCreateSession(ctx, env, &tid, agentID, userID, false, nil)
-		if err != nil {
-			c.SSEvent(dto.EventError, gin.H{"message": "创建会话失败", "detail": err.Error()})
+		var sessErr error
+		sess, sessErr = h.his.GetOrCreateSession(ctx, env, tenantRef, agentID, userID, false, nil)
+		if sessErr != nil {
+			c.SSEvent(dto.EventError, gin.H{"message": "创建会话失败", "detail": sessErr.Error()})
 			c.SSEvent(dto.EventEnd, gin.H{"ok": false})
 			return
 		}
 	}
 	if strings.TrimSpace(sess.Title) == "" {
 		title := runtime.MakeDefaultSessionTitle(req.Message, 24)
-		_ = h.his.RenameSession(c, env, &tid, sess.ID, title)
+		_ = h.his.RenameSession(c, env, tenantRef, sess.ID, title)
 	}
 
 	// 写入 user 消息
-	if _, err := h.his.AppendMessage(ctx, env, &tid, sess.ID, agentID, "user", msg, "text", 0, 0, false, nil); err != nil {
+	if _, err := h.his.AppendMessage(ctx, env, tenantRef, sess.ID, agentID, "user", msg, "text", 0, 0, false, nil); err != nil {
 		c.SSEvent(dto.EventError, gin.H{"message": "写入用户消息失败", "detail": err.Error()})
 		c.SSEvent(dto.EventEnd, gin.H{"ok": false})
 		return
@@ -280,22 +294,22 @@ func (h *AgentChatHandler) streamCore(c *gin.Context, req dto.StreamChatRequest)
 	params := flowschema.Context{
 		"message": msg,
 		"context": map[string]any{
-			"env":        env,
-			"tenant_id":  tid,
-			"agent_id":   agentID,
-			"session_id": sess.ID,
-			"user_id":    userID,
+			"env":         env,
+			"tenant_uuid": tenantUUID,
+			"agent_id":    agentID,
+			"session_id":  sess.ID,
+			"user_id":     userID,
 		},
 		"plan": plan,
 	}
 	execID := fmt.Sprintf("sess_%d_%d", sess.ID, time.Now().UnixNano())
 	meta := agentschema.ExecutionMeta{
-		RequestID: execID,
-		UserID:    userID,
-		TenantID:  tid,
-		TraceID:   fmt.Sprintf("trace_%d", time.Now().UnixNano()),
-		Priority:  1,
-		Timeout:   60,
+		RequestID:  execID,
+		UserID:     userID,
+		TenantUUID: tenantUUID,
+		TraceID:    fmt.Sprintf("trace_%d", time.Now().UnixNano()),
+		Priority:   1,
+		Timeout:    60,
 	}
 
 	runCtx, cancel := context.WithTimeout(ctx, 60*time.Second)
@@ -323,9 +337,9 @@ func (h *AgentChatHandler) streamCore(c *gin.Context, req dto.StreamChatRequest)
 				text = buf.String()
 			}
 			if strings.TrimSpace(text) != "" {
-				_, _ = h.his.AppendMessage(c.Request.Context(), env, &tid, sess.ID, agentID, "assistant", text, "text", 0, 0, false, nil)
+				_, _ = h.his.AppendMessage(c.Request.Context(), env, tenantRef, sess.ID, agentID, "assistant", text, "text", 0, 0, false, nil)
 			}
-			_, _ = h.his.SummarizeIfNeeded(c.Request.Context(), env, &tid, sess)
+			_, _ = h.his.SummarizeIfNeeded(c.Request.Context(), env, tenantRef, sess)
 		},
 	}
 	_ = dto.WriteToSSEWithTap(c, flowID, execID, sr, hooks)

@@ -10,7 +10,7 @@ import (
 type CapabilityTransportProfile struct {
 	coremodel.PowerModel
 
-	TenantID         uint64         `gorm:"column:tenant_id;not null;index:idx_capability_transport_profile_tenant;uniqueIndex:uk_capability_transport_contract,priority:1" json:"tenant_id"`
+	TenantUUID       string         `gorm:"column:tenant_uuid;type:varchar(128);not null;index:idx_capability_transport_profile_tenant_uuid;uniqueIndex:uk_capability_transport_contract,priority:1" json:"tenant_uuid"`
 	ContractID       uint64         `gorm:"column:contract_id;not null;index:idx_capability_transport_profile_contract;uniqueIndex:uk_capability_transport_contract,priority:2" json:"contract_id"`
 	CapabilityKey    string         `gorm:"column:capability_key;type:varchar(128);not null;index:idx_capability_transport_profile_tenant" json:"capability_key"`
 	Transport        string         `gorm:"column:transport;type:varchar(16);not null;uniqueIndex:uk_capability_transport_contract,priority:3" json:"transport"`

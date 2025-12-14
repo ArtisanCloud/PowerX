@@ -23,7 +23,7 @@ func (s *LoggerSink) Emit(ctx context.Context, evt *dbm.AuditEvent) error {
 		zap.String("resource_type", evt.ResourceType),
 		zap.String("resource_id", evt.ResourceID),
 		zap.String("correlation_id", evt.CorrelationID),
-		zap.Uint64("tenant_id", evt.TenantID),
+		zap.String("tenant_uuid", evt.TenantUUID),
 		zap.ByteString("meta", evt.Meta),
 	)
 	return nil

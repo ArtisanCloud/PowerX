@@ -4,7 +4,6 @@ import (
 	"archive/tar"
 	"compress/gzip"
 	"encoding/json"
-	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -201,7 +200,11 @@ func untarToTemp(pkgPath string) (string, func(), error) {
 		_ = ensureBackendBinsExecutable(tmpDir)
 		return tmpDir, cleanup, nil
 	}
-	return "", cleanup, plugin_mgr.NewError(plugin_mgr.CodeInvalidManifest, plugin_mgr.WithMsg(fmt.Sprintf("plugin.yaml not found in package %s", pkgPath)))
+	return "", cleanup, plugin_mgr.NewError(
+		plugin_mgr.CodeInvalidManifest,
+		plugin_mgr.WithMsg("plugin.yaml not found in package"),
+		plugin_mgr.WithPath(pkgPath),
+	)
 }
 
 // ensureBackendBinsExecutable makes sure backend/bin/* files are executable after extraction.

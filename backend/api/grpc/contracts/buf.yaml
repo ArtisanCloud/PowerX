@@ -17,7 +17,17 @@ lint: {
   ],
   ignore_only: {
     RPC_REQUEST_STANDARD_NAME: [
-      "powerx/capability/registry/v1/registry.proto"
+      "powerx/capability/registry/v1/registry.proto",
+      "powerx/agent/v1/agent_lifecycle.proto",
+      "powerx/integration_gateway/v1/integration_gateway.proto",
+      "powerx/knowledge/v1/knowledge_space.proto",
+      "powerx/plugin_release/v1/plugin_release.proto"
+    ],
+    ENUM_ZERO_VALUE_SUFFIX: [
+      "powerx/agent_model_hub/v1/agent_model_hub.proto"
+    ],
+    ENUM_VALUE_PREFIX: [
+      "powerx/integration_gateway/v1/integration_gateway.proto"
     ]
   }
 }

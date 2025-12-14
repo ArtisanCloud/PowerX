@@ -14,6 +14,8 @@ import (
 	"gorm.io/gorm"
 )
 
+const runtimeTenantUUID = "9e8f2d3c-4578-41ab-9df0-bf556799acd2"
+
 func TestTriggerCanaryRollsBackWhenThresholdBreached(t *testing.T) {
 	prevSchema := coremodel.PowerXSchema
 	coremodel.PowerXSchema = ""
@@ -32,7 +34,7 @@ func TestTriggerCanaryRollsBackWhenThresholdBreached(t *testing.T) {
 	planRepo := repo.NewReleasePlanRepository(db)
 
 	candidate, err := candidateRepo.CreateCandidate(context.Background(), &models.PluginReleaseCandidate{
-		TenantID:         "tenant-runtime",
+		TenantUUID:       runtimeTenantUUID,
 		PluginID:         "px.demo",
 		Version:          "v4.2.0",
 		BuildArtifactURI: "s3://bucket/build.zip",

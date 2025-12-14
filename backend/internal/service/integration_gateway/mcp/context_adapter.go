@@ -34,9 +34,9 @@ func (a *Adapter) PrepareContext(ctx context.Context, args map[string]interface{
 		ctx = context.Background()
 	}
 
-	tenantID := readStringArg(args, "tenant_id")
-	if tenantID == "" {
-		return ctx, "", "", "", errors.New("tenant_id is required")
+	tenantUUID := readStringArg(args, "tenant_uuid")
+	if tenantUUID == "" {
+		return ctx, "", "", "", errors.New("tenant_uuid is required")
 	}
 
 	actor := readStringArg(args, "actor")
@@ -49,10 +49,10 @@ func (a *Adapter) PrepareContext(ctx context.Context, args map[string]interface{
 		ctx = context.WithValue(ctx, "trace_id", traceInput)
 	}
 
-	ctx = instrumentation.WithTenant(ctx, tenantID)
+	ctx = instrumentation.WithTenant(ctx, tenantUUID)
 	ctx, traceID := instrumentation.EnsureTraceContext(ctx)
 
-	return ctx, tenantID, actor, traceID, nil
+	return ctx, tenantUUID, actor, traceID, nil
 }
 
 func readStringArg(args map[string]interface{}, key string) string {

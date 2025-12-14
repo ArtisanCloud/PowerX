@@ -25,7 +25,7 @@ func NewRouterHandler(service *router.Service) *RouterHandler {
 
 type invokeRequest struct {
 	CapabilityID string            `json:"capability_id" binding:"required"`
-	TenantID     string            `json:"tenant_id" binding:"required"`
+	TenantUUID   string            `json:"tenant_uuid" binding:"required"`
 	Payload      json.RawMessage   `json:"payload"`
 	StickyKey    string            `json:"sticky_key"`
 	TimeoutMs    int               `json:"timeout_ms"`
@@ -43,7 +43,7 @@ type invokeResponse struct {
 
 type reportHealthRequest struct {
 	CapabilityID string `json:"capability_id" binding:"required"`
-	TenantID     string `json:"tenant_id" binding:"required"`
+	TenantUUID   string `json:"tenant_uuid" binding:"required"`
 	AdapterID    string `json:"adapter_id" binding:"required"`
 	Status       string `json:"status" binding:"required"`
 	Reason       string `json:"reason"`
@@ -59,7 +59,7 @@ func (h *RouterHandler) Invoke(ctx *gin.Context) {
 	}
 	result, err := h.service.Invoke(ctx.Request.Context(), router.InvokeRequest{
 		CapabilityID: req.CapabilityID,
-		TenantID:     req.TenantID,
+		TenantUUID:   trimTenantUUID(req.TenantUUID),
 		Payload:      req.Payload,
 		Timeout:      timeDuration(req.TimeoutMs),
 		StickyKey:    req.StickyKey,
@@ -96,7 +96,7 @@ func (h *RouterHandler) ReportHealth(ctx *gin.Context) {
 	}
 	if err := h.service.ReportHealth(ctx.Request.Context(), router.ReportHealthInput{
 		CapabilityID: req.CapabilityID,
-		TenantID:     req.TenantID,
+		TenantUUID:   trimTenantUUID(req.TenantUUID),
 		AdapterID:    req.AdapterID,
 		Status:       req.Status,
 		Reason:       req.Reason,

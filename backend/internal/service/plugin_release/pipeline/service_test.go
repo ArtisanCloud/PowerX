@@ -13,6 +13,12 @@ import (
 	"gorm.io/gorm"
 )
 
+const (
+	pipelineTenantUUID      = "5f302de1-1a93-4f36-a13a-0cb46b1d4efa"
+	pipelineTenantScopeUUID = "b6a648d1-82de-47fa-8d38-1ebccbb55222"
+	pipelineOtherTenantUUID = "a3fb3f91-bc6d-4c20-995c-0c0f6860a2bd"
+)
+
 func TestPipelineGeneratesPlanAfterGates(t *testing.T) {
 	prevSchema := coremodel.PowerXSchema
 	coremodel.PowerXSchema = ""
@@ -28,7 +34,7 @@ func TestPipelineGeneratesPlanAfterGates(t *testing.T) {
 	require.NotNil(t, pipelineSvc)
 
 	candidate, err := pipelineSvc.SubmitCandidate(context.Background(), SubmitCandidateInput{
-		TenantID:      "tenant-test",
+		TenantUUID:    pipelineTenantUUID,
 		PluginID:      "px.demo",
 		Version:       "v1.0.0",
 		BuildArtifact: "s3://bucket/plugins/v1.0.0.zip",
@@ -38,7 +44,7 @@ func TestPipelineGeneratesPlanAfterGates(t *testing.T) {
 			"channel":  "beta",
 			"coverage": "95",
 		},
-		Actor:         "unittest",
+		Actor: "unittest",
 	})
 	require.NoError(t, err)
 	require.Equal(t, models.PluginReleaseGateStatusPending, candidate.GateStatus)
@@ -62,7 +68,7 @@ func TestPipelineGeneratesPlanAfterGates(t *testing.T) {
 		CanaryBatches: []CanaryBatchInput{
 			{
 				Name:        "batch-a",
-				TenantScope: []string{"tenant-a"},
+				TenantScope: []string{pipelineTenantScopeUUID},
 			},
 		},
 		RollbackScripts: []string{"rollback.sh"},
@@ -88,7 +94,7 @@ func TestSubmitCandidateValidation(t *testing.T) {
 
 	svc := NewService(candidateRepo, planRepo, nil, Options{})
 	_, err = svc.SubmitCandidate(context.Background(), SubmitCandidateInput{
-		TenantID:      "tenant-id",
+		TenantUUID:    pipelineOtherTenantUUID,
 		PluginID:      "",
 		Version:       "v1",
 		BuildArtifact: "s3://bucket/artifact.zip",

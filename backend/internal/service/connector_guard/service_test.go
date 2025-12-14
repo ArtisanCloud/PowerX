@@ -149,6 +149,7 @@ CREATE TABLE IF NOT EXISTS main.iam_tenant_key_pairs (
 	deleted_at DATETIME,
 	env TEXT NOT NULL,
 	tenant_id INTEGER,
+	tenant_uuid TEXT,
 	k_id TEXT,
 	alg TEXT,
 	public_pem TEXT,
@@ -158,7 +159,10 @@ CREATE TABLE IF NOT EXISTS main.iam_tenant_key_pairs (
 	if err := db.Exec(tenantSQL).Error; err != nil {
 		return err
 	}
-	return db.Exec(`CREATE INDEX IF NOT EXISTS idx_tenant_keys_scope ON iam_tenant_key_pairs(env, IFNULL(tenant_id, 0));`).Error
+	if err := db.Exec(`CREATE INDEX IF NOT EXISTS idx_tenant_keys_scope ON iam_tenant_key_pairs(env, IFNULL(tenant_id, 0));`).Error; err != nil {
+		return err
+	}
+	return db.Exec(`CREATE INDEX IF NOT EXISTS idx_tenant_keys_scope_uuid ON iam_tenant_key_pairs(env, IFNULL(tenant_uuid, ''));`).Error
 }
 
 func datatypesJSON(t *testing.T, payload string) datatypes.JSON {

@@ -34,7 +34,7 @@ type cleanupFlags struct {
 	dryRun     bool
 	before     time.Duration
 	limit      int
-	tenantID   uint64
+	tenantUUID string
 	drivers    []string
 }
 
@@ -107,10 +107,10 @@ func runCleanupCommand(args []string) error {
 	}
 
 	filter := mediarepo.CleanupFilter{
-		TenantID: flags.tenantID,
-		Drivers:  flags.drivers,
-		Before:   time.Now().Add(-flags.before),
-		Limit:    flags.limit,
+		TenantUUID: strings.TrimSpace(flags.tenantUUID),
+		Drivers:    flags.drivers,
+		Before:     time.Now().Add(-flags.before),
+		Limit:      flags.limit,
 	}
 
 	stats := executeCleanup(ctx, repo, manager, deps.AuditSvc, filter, flags.dryRun)
@@ -132,7 +132,7 @@ func parseCleanupFlags(args []string) (cleanupFlags, error) {
 	flagSet.BoolVar(&cfg.dryRun, "dry-run", false, "仅打印待清理对象，不执行删除")
 	flagSet.DurationVar(&cfg.before, "before", 24*time.Hour, "仅清理早于该时长的软删除记录")
 	flagSet.IntVar(&cfg.limit, "limit", 100, "单次扫描的最大数量")
-	flagSet.Uint64Var(&cfg.tenantID, "tenant", 0, "仅处理指定租户 ID，0 表示全部租户")
+	flagSet.StringVar(&cfg.tenantUUID, "tenant", "", "仅处理指定租户 UUID，留空表示全部租户")
 	flagSet.StringVar(&drivers, "drivers", "", "仅处理指定驱动，逗号分隔")
 
 	if err := flagSet.Parse(args); err != nil {
@@ -169,7 +169,7 @@ func executeCleanup(ctx context.Context, repo *mediarepo.AssetRepository, manage
 
 		var batch []mediamodel.MediaAsset
 		for _, asset := range assets {
-			key := fmt.Sprintf("%d:%s", asset.TenantID, asset.UUID.String())
+			key := fmt.Sprintf("%s:%s", asset.TenantUUID, asset.UUID.String())
 			if _, seen := processedKeys[key]; seen {
 				continue
 			}
@@ -184,24 +184,24 @@ func executeCleanup(ctx context.Context, repo *mediarepo.AssetRepository, manage
 		for _, asset := range batch {
 			stats.processed++
 			if dryRun {
-				log.Printf("[DRY-RUN] tenant=%d uuid=%s driver=%s key=%s", asset.TenantID, asset.UUID.String(), asset.Driver, asset.StorageKey)
+				log.Printf("[DRY-RUN] tenant=%s uuid=%s driver=%s key=%s", asset.TenantUUID, asset.UUID.String(), asset.Driver, asset.StorageKey)
 				continue
 			}
 			if err := purgeObject(ctx, manager, &asset); err != nil {
 				stats.failed++
 				emitCleanupAudit(ctx, audit, &asset, err)
-				log.Printf("清理对象失败 tenant=%d uuid=%s: %v", asset.TenantID, asset.UUID.String(), err)
+				log.Printf("清理对象失败 tenant=%s uuid=%s: %v", asset.TenantUUID, asset.UUID.String(), err)
 				continue
 			}
 			if err := removeRecord(ctx, repo, &asset); err != nil {
 				stats.failed++
 				emitCleanupAudit(ctx, audit, &asset, err)
-				log.Printf("删除数据库记录失败 tenant=%d uuid=%s: %v", asset.TenantID, asset.UUID.String(), err)
+				log.Printf("删除数据库记录失败 tenant=%s uuid=%s: %v", asset.TenantUUID, asset.UUID.String(), err)
 				continue
 			}
 			stats.succeeded++
 			emitCleanupAudit(ctx, audit, &asset, nil)
-			logger.InfoF(ctx, "[media_tool.cleanup] 已清理 tenant=%d uuid=%s", asset.TenantID, asset.UUID.String())
+			logger.InfoF(ctx, "[media_tool.cleanup] 已清理 tenant=%s uuid=%s", asset.TenantUUID, asset.UUID.String())
 		}
 		if len(assets) < filter.Limit {
 			return stats
@@ -233,7 +233,7 @@ func removeRecord(ctx context.Context, repo *mediarepo.AssetRepository, asset *m
 	}
 	result := repo.BaseRepository.DB.WithContext(ctx).
 		Unscoped().
-		Where("tenant_id = ? AND uuid = ?", asset.TenantID, asset.UUID).
+		Where("tenant_uuid = ? AND uuid = ?", asset.TenantUUID, asset.UUID).
 		Delete(&mediamodel.MediaAsset{})
 	if result.Error != nil {
 		return result.Error
@@ -266,7 +266,7 @@ func emitCleanupAudit(ctx context.Context, audit auditsvc.Service, asset *mediam
 	payload, _ := json.Marshal(meta)
 	_ = audit.Emit(ctx, &dbmaudit.AuditEvent{
 		OccurredAt:   time.Now(),
-		TenantID:     asset.TenantID,
+		TenantUUID:   asset.TenantUUID,
 		Source:       "media.tool.cleanup",
 		Operation:    "media.asset.cleanup",
 		ResourceType: "media.asset",
@@ -320,7 +320,7 @@ func printCommandUsage(cmd string) {
 		flagSet.BoolVar(&dummy.dryRun, "dry-run", false, "仅打印待清理对象，不执行删除")
 		flagSet.DurationVar(&dummy.before, "before", 24*time.Hour, "仅清理早于该时长的软删除记录")
 		flagSet.IntVar(&dummy.limit, "limit", 100, "单次扫描的最大数量")
-		flagSet.Uint64Var(&dummy.tenantID, "tenant", 0, "仅处理指定租户 ID，0 表示全部租户")
+		flagSet.StringVar(&dummy.tenantUUID, "tenant", "", "仅处理指定租户 UUID，留空表示全部租户")
 		flagSet.StringVar(&drivers, "drivers", "", "仅处理指定驱动，逗号分隔")
 		fmt.Fprintf(os.Stderr, "用法: %s %s [参数]\n\n", os.Args[0], commandCleanup)
 		flagSet.PrintDefaults()

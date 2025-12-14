@@ -44,8 +44,11 @@ func (s *ContractServer) GetCapability(ctx context.Context, req *capb.GetCapabil
 	if req == nil {
 		return capabilityErrorResponse(ctx, http.StatusBadRequest, "request cannot be nil", nil), nil
 	}
-	tenantID := parseTenantID(req.GetTenantId())
-	contract, err := s.contractSvc.GetContract(ctx, tenantID, req.GetCapabilityKey(), req.GetVersion())
+	tenantUUID, err := s.tenantUUIDFromContext(ctx, req.GetTenantUuid())
+	if err != nil {
+		return nil, err
+	}
+	contract, err := s.contractSvc.GetContract(ctx, tenantUUID, req.GetCapabilityKey(), req.GetVersion())
 	if err != nil {
 		return capabilityServiceErrorResponse(ctx, err)
 	}
@@ -63,14 +66,17 @@ func (s *ContractServer) ListCapabilities(ctx context.Context, req *capb.ListCap
 	if req == nil {
 		req = &capb.ListCapabilitiesRequest{}
 	}
-	tenantID := parseTenantID(req.GetTenantId())
+	tenantUUID, err := s.tenantUUIDFromContext(ctx, req.GetTenantUuid())
+	if err != nil {
+		return nil, err
+	}
 	limit := int(req.GetPageSize())
 	if limit <= 0 || limit > 100 {
 		limit = 20
 	}
 	offset := parsePageToken(req.GetPageToken())
 
-	items, total, err := s.contractSvc.ListContracts(ctx, tenantID, req.GetCapabilityKey(), limit, offset)
+	items, total, err := s.contractSvc.ListContracts(ctx, tenantUUID, req.GetCapabilityKey(), limit, offset)
 	if err != nil {
 		return listCapabilitiesServiceErrorResponse(ctx, err)
 	}
@@ -106,6 +112,11 @@ func (s *ContractServer) UpsertCapability(ctx context.Context, req *capb.UpsertC
 	if err != nil {
 		return capabilityErrorResponse(ctx, http.StatusBadRequest, err.Error(), err), nil
 	}
+	tenantUUID, err := s.tenantUUIDFromContext(ctx, req.GetContract().GetTenantUuid())
+	if err != nil {
+		return nil, err
+	}
+	input.TenantUUID = tenantUUID
 	contract, issues, err := s.contractSvc.UpsertDraft(ctx, input)
 	if err != nil {
 		if errors.Is(err, svc.ErrValidation) {
@@ -130,8 +141,12 @@ func (s *ContractServer) PublishCapability(ctx context.Context, req *capb.Publis
 	if req.GetEffectiveAt() == nil {
 		return publishCapabilityErrorResponse(ctx, http.StatusBadRequest, "effective_at is required", nil), nil
 	}
+	tenantUUID, err := s.tenantUUIDFromContext(ctx, "")
+	if err != nil {
+		return nil, err
+	}
 	input := &svc.PublishInput{
-		TenantID:      0,
+		TenantUUID:    tenantUUID,
 		CapabilityKey: req.GetCapabilityKey(),
 		Version:       req.GetVersion(),
 		EffectiveAt:   req.GetEffectiveAt().AsTime(),
@@ -166,8 +181,12 @@ func (s *ContractServer) DeprecateCapability(ctx context.Context, req *capb.Depr
 	if req.GetDeprecatedAt() == nil {
 		return capabilityErrorResponse(ctx, http.StatusBadRequest, "deprecated_at is required", nil), nil
 	}
+	tenantUUID, err := s.tenantUUIDFromContext(ctx, "")
+	if err != nil {
+		return nil, err
+	}
 	input := &svc.DeprecateInput{
-		TenantID:              0,
+		TenantUUID:            tenantUUID,
 		CapabilityKey:         req.GetCapabilityKey(),
 		Version:               req.GetVersion(),
 		DeprecatedAt:          req.GetDeprecatedAt().AsTime(),
@@ -192,8 +211,11 @@ func (s *ContractServer) ListTransportProfiles(ctx context.Context, req *capb.Li
 	if req == nil {
 		return listTransportProfilesErrorResponse(ctx, http.StatusBadRequest, "request cannot be nil", nil), nil
 	}
-	tenantID := reqctx.GetTenantID(ctx)
-	items, err := s.adapterSvc.ListProfiles(ctx, tenantID, req.GetCapabilityKey(), req.GetVersion())
+	tenantUUID, err := s.tenantUUIDFromContext(ctx, "")
+	if err != nil {
+		return nil, err
+	}
+	items, err := s.adapterSvc.ListProfiles(ctx, tenantUUID, req.GetCapabilityKey(), req.GetVersion())
 	if err != nil {
 		return listTransportProfilesServiceErrorResponse(ctx, err)
 	}
@@ -215,7 +237,11 @@ func (s *ContractServer) GetVersionPolicy(ctx context.Context, req *capb.GetVers
 	if req == nil {
 		return capabilityPolicyErrorResponse(ctx, http.StatusBadRequest, "request cannot be nil", nil), nil
 	}
-	policy, err := s.policySvc.GetVersionPolicy(ctx, 0, req.GetCapabilityKey())
+	tenantUUID, err := s.tenantUUIDFromContext(ctx, "")
+	if err != nil {
+		return nil, err
+	}
+	policy, err := s.policySvc.GetVersionPolicy(ctx, tenantUUID, req.GetCapabilityKey())
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return &capb.CapabilityVersionPolicyResponse{
@@ -243,6 +269,11 @@ func (s *ContractServer) UpsertVersionPolicy(ctx context.Context, req *capb.Upse
 	if err != nil {
 		return capabilityPolicyErrorResponse(ctx, http.StatusBadRequest, err.Error(), err), nil
 	}
+	tenantUUID, err := s.tenantUUIDFromContext(ctx, req.GetPolicy().GetTenantUuid())
+	if err != nil {
+		return nil, err
+	}
+	input.TenantUUID = tenantUUID
 	policy, err := s.policySvc.UpsertVersionPolicy(ctx, input)
 	if err != nil {
 		if errors.Is(err, svc.ErrPolicyValidation) {
@@ -260,15 +291,24 @@ func (s *ContractServer) UpsertVersionPolicy(ctx context.Context, req *capb.Upse
 	}, nil
 }
 
-func parseTenantID(val string) uint64 {
-	if val == "" {
-		return 0
+func (s *ContractServer) tenantUUIDFromContext(ctx context.Context, override string) (string, error) {
+	override = strings.TrimSpace(override)
+	if override != "" {
+		canonical, err := reqctx.CanonicalTenantUUID(override)
+		if err != nil {
+			return "", status.Error(codes.InvalidArgument, "tenant uuid is invalid")
+		}
+		return canonical, nil
 	}
-	id, err := strconv.ParseUint(val, 10, 64)
+	uuid := strings.TrimSpace(reqctx.GetTenantUUID(ctx))
+	if uuid == "" {
+		return "", status.Error(codes.Unauthenticated, "tenant context required")
+	}
+	canonical, err := reqctx.CanonicalTenantUUID(uuid)
 	if err != nil {
-		return 0
+		return "", status.Error(codes.InvalidArgument, "tenant uuid is invalid")
 	}
-	return id
+	return canonical, nil
 }
 
 func parsePageToken(token string) int {
@@ -478,7 +518,7 @@ func toPBContract(model *svc.Contract) (*capb.CapabilityContract, error) {
 	pb := &capb.CapabilityContract{
 		CapabilityKey:       model.CapabilityKey,
 		Version:             model.Version,
-		TenantId:            strconv.FormatUint(model.TenantID, 10),
+		TenantUuid:          model.TenantUUID,
 		ProviderId:          model.ProviderID,
 		DisplayName:         model.DisplayName,
 		Description:         model.Description,
@@ -589,7 +629,7 @@ func fromPBContract(pb *capb.CapabilityContract) (*svc.ContractUpsertInput, erro
 	if pb == nil {
 		return nil, errors.New("contract payload is nil")
 	}
-	tenantID := parseTenantID(pb.GetTenantId())
+	tenantUUID := strings.TrimSpace(pb.GetTenantUuid())
 	obs := mapFromStruct(pb.GetObservabilityConfig())
 
 	ios := make([]validator.IOSchemaDescriptor, 0, len(pb.GetIoSchemas()))
@@ -624,7 +664,7 @@ func fromPBContract(pb *capb.CapabilityContract) (*svc.ContractUpsertInput, erro
 		})
 	}
 	return &svc.ContractUpsertInput{
-		TenantID:             tenantID,
+		TenantUUID:           tenantUUID,
 		CapabilityKey:        pb.GetCapabilityKey(),
 		Version:              pb.GetVersion(),
 		ProviderID:           pb.GetProviderId(),
@@ -649,6 +689,7 @@ func toPBVersionPolicy(policy *svc.VersionPolicy) (*capb.CapabilityVersionPolicy
 		return nil, err
 	}
 	pb := &capb.CapabilityVersionPolicy{
+		TenantUuid:          policy.TenantUUID,
 		CapabilityKey:       policy.CapabilityKey,
 		DefaultStrategy:     versionStrategyToPB(policy.DefaultStrategy),
 		CompatibilityMatrix: matrixStruct,
@@ -678,7 +719,7 @@ func fromPBVersionPolicy(pbPolicy *capb.CapabilityVersionPolicy) (*svc.VersionPo
 		})
 	}
 	return &svc.VersionPolicyUpsertInput{
-		TenantID:            0,
+		TenantUUID:          strings.TrimSpace(pbPolicy.GetTenantUuid()),
 		CapabilityKey:       pbPolicy.GetCapabilityKey(),
 		DefaultStrategy:     pbVersionStrategyToString(pbPolicy.GetDefaultStrategy()),
 		AllowedVersions:     rules,

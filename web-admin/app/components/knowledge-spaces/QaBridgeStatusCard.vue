@@ -52,6 +52,9 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from "vue";
+import { useI18n } from "#imports";
+
 interface QaBridgeStatus {
   latencyMsP95: number;
   citationCoverage: number;

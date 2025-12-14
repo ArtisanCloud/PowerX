@@ -20,26 +20,28 @@ type SessionRepository struct {
 
 // ListSessionsFilter scopes plugin/tenant/status queries.
 type ListSessionsFilter struct {
-	PluginID string
-	TenantID *uint64
-	Statuses []string
-	Limit    int
-	Offset   int
+	PluginID   string
+	TenantUUID *string
+	Statuses   []string
+	Limit      int
+	Offset     int
 }
 
 // DeleteSessionsFilter scopes bulk delete operations.
 type DeleteSessionsFilter struct {
-	PluginID string
-	TenantID *uint64
-	Statuses []string
+	PluginID   string
+	TenantUUID *string
+	Statuses   []string
 }
 
-func applySessionFilters(query *gorm.DB, pluginID string, tenantID *uint64, statuses []string) *gorm.DB {
+func applySessionFilters(query *gorm.DB, pluginID string, tenantUUID *string, statuses []string) *gorm.DB {
 	if plugin := strings.TrimSpace(pluginID); plugin != "" {
 		query = query.Where("plugin_id = ?", plugin)
 	}
-	if tenantID != nil && *tenantID > 0 {
-		query = query.Where("tenant_id = ?", *tenantID)
+	if tenantUUID != nil {
+		if trimmed := strings.TrimSpace(*tenantUUID); trimmed != "" {
+			query = query.Where("tenant_uuid = ?", trimmed)
+		}
 	}
 	if len(statuses) > 0 {
 		query = query.Where("status IN ?", statuses)
@@ -89,10 +91,10 @@ func (r *SessionRepository) FindByUUID(ctx context.Context, id uuid.UUID) (*mode
 }
 
 // FindActiveByPlugin returns the latest active session scoped to plugin + tenant.
-func (r *SessionRepository) FindActiveByPlugin(ctx context.Context, pluginID string, tenantID uint64) (*model.DevHotloadSession, error) {
+func (r *SessionRepository) FindActiveByPlugin(ctx context.Context, pluginID string, tenantUUID string) (*model.DevHotloadSession, error) {
 	var session model.DevHotloadSession
 	err := r.db.WithContext(ctx).
-		Where("plugin_id = ? AND tenant_id = ? AND status IN ?", pluginID, tenantID,
+		Where("plugin_id = ? AND tenant_uuid = ? AND status IN ?", pluginID, tenantUUID,
 			[]string{model.DevHotloadSessionStatusPending, model.DevHotloadSessionStatusActive},
 		).
 		Order("created_at DESC").
@@ -116,7 +118,7 @@ func (r *SessionRepository) CountActive(ctx context.Context) (int64, error) {
 
 // ListSessions returns sessions filtered by plugin, tenant, and statuses.
 func (r *SessionRepository) ListSessions(ctx context.Context, filter ListSessionsFilter) ([]model.DevHotloadSession, error) {
-	query := applySessionFilters(r.db.WithContext(ctx).Model(&model.DevHotloadSession{}), filter.PluginID, filter.TenantID, filter.Statuses)
+	query := applySessionFilters(r.db.WithContext(ctx).Model(&model.DevHotloadSession{}), filter.PluginID, filter.TenantUUID, filter.Statuses)
 	limit := filter.Limit
 	if limit <= 0 || limit > 200 {
 		limit = 50
@@ -131,7 +133,7 @@ func (r *SessionRepository) ListSessions(ctx context.Context, filter ListSession
 
 // DeleteSessions removes sessions filtered by plugin/tenant/status and returns deleted records.
 func (r *SessionRepository) DeleteSessions(ctx context.Context, filter DeleteSessionsFilter) ([]model.DevHotloadSession, error) {
-	query := applySessionFilters(r.db.WithContext(ctx).Model(&model.DevHotloadSession{}), filter.PluginID, filter.TenantID, filter.Statuses)
+	query := applySessionFilters(r.db.WithContext(ctx).Model(&model.DevHotloadSession{}), filter.PluginID, filter.TenantUUID, filter.Statuses)
 	var sessions []model.DevHotloadSession
 	if err := query.Find(&sessions).Error; err != nil {
 		return nil, err
@@ -146,7 +148,7 @@ func (r *SessionRepository) DeleteSessions(ctx context.Context, filter DeleteSes
 	if err := applySessionFilters(
 		r.db.WithContext(ctx).Model(&model.DevHotloadSession{}).Where("uuid IN ?", ids),
 		filter.PluginID,
-		filter.TenantID,
+		filter.TenantUUID,
 		filter.Statuses,
 	).Delete(&model.DevHotloadSession{}).Error; err != nil {
 		return nil, err

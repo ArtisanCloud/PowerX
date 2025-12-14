@@ -14,7 +14,7 @@ import (
 type CapabilityContract struct {
 	coremodel.PowerModel
 
-	TenantID              uint64         `gorm:"column:tenant_id;not null;index:idx_capability_contract_tenant_key_version,priority:1;index:idx_capability_contract_tenant;uniqueIndex:uk_capability_contract_tenant_key_version,priority:1" json:"tenant_id"`
+	TenantUUID            string         `gorm:"column:tenant_uuid;type:varchar(128);not null;index:idx_capability_contract_tenant_key_version,priority:1;index:idx_capability_contract_tenant_uuid;uniqueIndex:uk_capability_contract_tenant_key_version,priority:1" json:"tenant_uuid"`
 	CapabilityKey         string         `gorm:"column:capability_key;type:varchar(128);not null;index:idx_capability_contract_tenant_key_version,priority:2;index:idx_capability_contract_key;uniqueIndex:uk_capability_contract_tenant_key_version,priority:2" json:"capability_key"`
 	Version               string         `gorm:"column:version;type:varchar(32);not null;index:idx_capability_contract_tenant_key_version,priority:3;uniqueIndex:uk_capability_contract_tenant_key_version,priority:3" json:"version"`
 	ProviderID            string         `gorm:"column:provider_id;type:varchar(128);not null;index:idx_capability_contract_provider" json:"provider_id"`
@@ -60,7 +60,7 @@ func (m *CapabilityContract) BeforeCreate(tx *gorm.DB) error {
 type CapabilityIOSchema struct {
 	coremodel.PowerModel
 
-	TenantID        uint64         `gorm:"column:tenant_id;not null;index:idx_capability_io_schema_tenant_contract,priority:1" json:"tenant_id"`
+	TenantUUID      string         `gorm:"column:tenant_uuid;type:varchar(128);not null;index:idx_capability_io_schema_tenant_contract,priority:1" json:"tenant_uuid"`
 	ContractID      uint64         `gorm:"column:contract_id;not null;index:idx_capability_io_schema_tenant_contract,priority:2" json:"contract_id"`
 	Direction       string         `gorm:"column:direction;type:varchar(16);not null;index:idx_capability_io_schema_contract_direction,priority:3" json:"direction"`
 	Format          string         `gorm:"column:format;type:varchar(32);not null" json:"format"`
@@ -85,7 +85,7 @@ func (m *CapabilityIOSchema) GetTableName(full bool) string {
 type CapabilityErrorTaxonomy struct {
 	coremodel.PowerModel
 
-	TenantID        uint64         `gorm:"column:tenant_id;not null;index:idx_capability_error_taxonomy_ns_code,priority:1" json:"tenant_id"`
+	TenantUUID      string         `gorm:"column:tenant_uuid;type:varchar(128);not null;index:idx_capability_error_taxonomy_ns_code,priority:1" json:"tenant_uuid"`
 	Namespace       string         `gorm:"column:namespace;type:varchar(64);not null;index:idx_capability_error_taxonomy_ns_code,priority:2" json:"namespace"`
 	Category        string         `gorm:"column:category;type:varchar(64);not null;index:idx_capability_error_taxonomy_ns_code,priority:3" json:"category"`
 	Code            string         `gorm:"column:code;type:varchar(128);not null;index:idx_capability_error_taxonomy_ns_code,priority:4" json:"code"`
@@ -121,7 +121,7 @@ func (m *CapabilityErrorTaxonomy) BeforeCreate(tx *gorm.DB) error {
 type CapabilityContractErrorTaxonomy struct {
 	coremodel.PowerModel
 
-	TenantID        uint64 `gorm:"column:tenant_id;not null;index:idx_capability_contract_error_rel,priority:1;uniqueIndex:uk_capability_contract_error,priority:1" json:"tenant_id"`
+	TenantUUID      string `gorm:"column:tenant_uuid;type:varchar(128);not null;index:idx_capability_contract_error_rel,priority:1;uniqueIndex:uk_capability_contract_error,priority:1" json:"tenant_uuid"`
 	ContractID      uint64 `gorm:"column:contract_id;not null;index:idx_capability_contract_error_rel,priority:2;uniqueIndex:uk_capability_contract_error,priority:2" json:"contract_id"`
 	ErrorTaxonomyID uint64 `gorm:"column:error_taxonomy_id;not null;index:idx_capability_contract_error_rel,priority:3;uniqueIndex:uk_capability_contract_error,priority:3" json:"error_taxonomy_id"`
 

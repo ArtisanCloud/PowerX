@@ -31,11 +31,11 @@ func (r *ContractRepository) WithDB(db *gorm.DB) *ContractRepository {
 	}
 }
 
-// UpsertContract 根据 (tenant_id, capability_key, version) 唯一键插入或更新契约主体。
+// UpsertContract 根据 (tenant_uuid, capability_key, version) 唯一键插入或更新契约主体。
 func (r *ContractRepository) UpsertContract(ctx context.Context, contract *capmodel.CapabilityContract) (*capmodel.CapabilityContract, error) {
 	var existing capmodel.CapabilityContract
 	err := r.db.WithContext(ctx).
-		Where("tenant_id = ? AND capability_key = ? AND version = ?", contract.TenantID, contract.CapabilityKey, contract.Version).
+		Where("tenant_uuid = ? AND capability_key = ? AND version = ?", contract.TenantUUID, contract.CapabilityKey, contract.Version).
 		First(&existing).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		if err := r.db.WithContext(ctx).Create(contract).Error; err != nil {
@@ -82,13 +82,13 @@ func (r *ContractRepository) UpsertContract(ctx context.Context, contract *capmo
 }
 
 // FindByKeyVersion 获取单个契约，optionally 预加载关联。
-func (r *ContractRepository) FindByKeyVersion(ctx context.Context, tenantID uint64, capabilityKey, version string, preload bool) (*capmodel.CapabilityContract, error) {
+func (r *ContractRepository) FindByKeyVersion(ctx context.Context, tenantUUID string, capabilityKey, version string, preload bool) (*capmodel.CapabilityContract, error) {
 	if capabilityKey == "" || version == "" {
 		return nil, errors.New("capability key/version 不能为空")
 	}
 
 	query := r.db.WithContext(ctx).
-		Where("tenant_id = ? AND capability_key = ? AND version = ?", tenantID, capabilityKey, version)
+		Where("tenant_uuid = ? AND capability_key = ? AND version = ?", tenantUUID, capabilityKey, version)
 
 	if preload {
 		query = query.
@@ -139,9 +139,9 @@ func (r *ContractRepository) ReplaceErrorBindings(ctx context.Context, contractI
 }
 
 // ListContracts 按租户与关键字简单分页查询。
-func (r *ContractRepository) ListContracts(ctx context.Context, tenantID uint64, keyword string, limit, offset int) ([]capmodel.CapabilityContract, int64, error) {
+func (r *ContractRepository) ListContracts(ctx context.Context, tenantUUID string, keyword string, limit, offset int) ([]capmodel.CapabilityContract, int64, error) {
 	query := r.db.WithContext(ctx).Model(&capmodel.CapabilityContract{}).
-		Where("tenant_id = ?", tenantID)
+		Where("tenant_uuid = ?", tenantUUID)
 
 	if keyword != "" {
 		like := "%" + keyword + "%"

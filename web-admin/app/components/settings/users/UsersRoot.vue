@@ -7,6 +7,8 @@ import {
   useTenantService,
   type Tenant,
 } from "~/composables/api/services/tenantService";
+import { useUserStore } from "~/stores/user";
+import { useToast } from "#imports";
 
 import {
   TenantStatus,
@@ -22,6 +24,7 @@ const tenantService = useTenantService();
 // 转换后的租户数据结构
 interface DisplayTenant {
   id: number;
+  uuid: string;
   name: string;
   domain: string;
   status: TenantStatus;
@@ -73,6 +76,9 @@ const planOptions = computed(() => [
 const paginatedTenants = computed(() => tenants.value);
 
 // 方法
+const userStore = useUserStore();
+const toast = useToast();
+
 async function loadTenants() {
   try {
     const response = await tenantService.getTenants({
@@ -88,6 +94,7 @@ async function loadTenants() {
       tenants.value = response.data.items.map(
         (tenant: Tenant): DisplayTenant => ({
           id: tenant.id,
+          uuid: tenant.uuid,
           name: tenant.name,
           domain: tenant.domain,
           status: tenant.status as TenantStatus,
@@ -107,8 +114,18 @@ async function loadTenants() {
   }
 }
 
-function selectTenant(tenant: DisplayTenant) {
-  selectedTenant.value = tenant;
+async function selectTenant(tenant: DisplayTenant) {
+  try {
+    await userStore.switchTenant(tenant.uuid);
+    selectedTenant.value = tenant;
+  } catch (error: any) {
+    console.error("切换租户失败:", error);
+    toast.add({
+      color: "red",
+      title: t("common.error"),
+      description: error?.message || t("common.retry"),
+    });
+  }
 }
 
 function backToTenantList() {
@@ -390,7 +407,7 @@ onMounted(() => {
         </div>
       </div>
 
-      <UsersTenantAdmin :tenant-id="selectedTenant.id" />
+      <UsersTenantAdmin :tenant-uuid="selectedTenant.uuid" />
     </div>
   </div>
 </template>

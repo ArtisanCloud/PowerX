@@ -12,8 +12,8 @@ var (
 )
 
 func validateCreateInput(input CreateTopicInput) error {
-	if strings.TrimSpace(input.TenantID) == "" {
-		return fmt.Errorf("tenant_id is required")
+	if strings.TrimSpace(input.TenantUUID) == "" {
+		return fmt.Errorf("tenant_uuid is required")
 	}
 	if strings.TrimSpace(input.Namespace) == "" {
 		return fmt.Errorf("namespace is required")

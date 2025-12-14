@@ -26,11 +26,11 @@ func NewTenantShareValidator(policy PolicyConflictEngine, sandbox SandboxRunner)
 	}
 }
 
-func (v *TenantShareValidator) Validate(ctx context.Context, agent *Agent, tenantID string, quotas []ShareQuota, metadata map[string]string) error {
-	if strings.TrimSpace(tenantID) == "" {
-		return fmt.Errorf("tenant_id is required for sharing")
+func (v *TenantShareValidator) Validate(ctx context.Context, agent *Agent, tenantUUID string, quotas []ShareQuota, metadata map[string]string) error {
+	if strings.TrimSpace(tenantUUID) == "" {
+		return fmt.Errorf("tenant_uuid is required for sharing")
 	}
-	if agent != nil && agent.TenantID == tenantID {
+	if agent != nil && agent.TenantUUID == tenantUUID {
 		return fmt.Errorf("cannot share agent to its owning tenant")
 	}
 	for _, q := range quotas {
@@ -41,7 +41,7 @@ func (v *TenantShareValidator) Validate(ctx context.Context, agent *Agent, tenan
 
 	if v.policy != nil {
 		input := PolicyConflictInput{
-			TenantID:    tenantID,
+			TenantUUID:  tenantUUID,
 			Alias:       agentAlias(agent),
 			Permissions: metadataList(metadata["permissions"]),
 			RateLimit:   parseRateLimit(metadata["rate_limit"]),

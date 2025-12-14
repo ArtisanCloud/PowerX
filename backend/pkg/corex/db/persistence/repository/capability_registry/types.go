@@ -9,7 +9,7 @@ import (
 // Registration 描述能力注册的领域快照。
 type Registration struct {
 	CapabilityID        string
-	TenantID            string
+	TenantUUID          string
 	ContractRef         string
 	Status              string
 	EnvironmentPolicies map[string]EnvironmentPolicy

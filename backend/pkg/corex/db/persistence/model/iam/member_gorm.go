@@ -7,7 +7,7 @@ import (
 
 type Member struct {
 	model.PowerUUIDModel
-	TenantID    uint64         `gorm:"column:tenant_id;not null;index:idx_member_tenant_user" json:"tenant_id"`
+	TenantUUID  string         `gorm:"column:tenant_uuid;type:char(36);not null;index:idx_member_tenant_user" json:"tenant_uuid"`
 	UserID      uint64         `gorm:"column:user_id;not null;index:idx_member_tenant_user" json:"user_id"`
 	Username    string         `gorm:"column:username;type:varchar(64);not null;unique" json:"username"`
 	DisplayName string         `gorm:"column:display_name;type:varchar(128)" json:"display_name,omitempty"`
@@ -27,14 +27,14 @@ func (mdl *Member) GetTableName(needFull bool) string {
 
 func (mdl *Member) ToLite() map[string]any {
 	return map[string]any{
-		"id":         mdl.ID,
-		"uuid":       mdl.UUID,
-		"tenant_id":  mdl.TenantID,
-		"user_id":    mdl.UserID,
-		"status":     mdl.Status,
-		"username":   mdl.Username,
-		"name":       mdl.DisplayName,
-		"avatar_url": mdl.AvatarURL,
-		"meta":       mdl.Meta,
+		"id":          mdl.ID,
+		"uuid":        mdl.UUID,
+		"tenant_uuid": mdl.TenantUUID,
+		"user_id":     mdl.UserID,
+		"status":      mdl.Status,
+		"username":    mdl.Username,
+		"name":        mdl.DisplayName,
+		"avatar_url":  mdl.AvatarURL,
+		"meta":        mdl.Meta,
 	}
 }

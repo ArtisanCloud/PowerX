@@ -1,39 +1,49 @@
 package authgrpc
 
 import (
-    "context"
-    "errors"
-    "strings"
-    "time"
+	"context"
+	"errors"
+	"fmt"
+	"strings"
+	"time"
 
-    "github.com/golang-jwt/jwt/v5"
+	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 
-    commonv1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/common/v1"
-    stsv1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/auth/sts/v1"
+	commonv1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/common/v1"
+	stsv1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/auth/sts/v1"
 
-    "github.com/ArtisanCloud/PowerX/internal/app/shared"
-    "github.com/ArtisanCloud/PowerX/internal/service/setting"
-    "github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
+	"github.com/ArtisanCloud/PowerX/internal/app/shared"
+	"github.com/ArtisanCloud/PowerX/internal/service/setting"
+	tenantrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/tenant"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
+	"gorm.io/gorm"
 )
 
 type STSServiceServer struct {
-    stsv1.UnimplementedSTSServiceServer
-    issuer string
-    ring   *KeyRing
-    cred   *setting.PluginInstanceConfigService
+	stsv1.UnimplementedSTSServiceServer
+	issuer     string
+	ring       *KeyRing
+	cred       *setting.PluginInstanceConfigService
+	tenantRepo *tenantrepo.TenantRepository
 }
 
 func NewSTSServiceServer(deps *shared.Deps) *STSServiceServer {
-    return NewSTSServiceServerWithRing(deps, NewDefaultKeyRing(deps))
+	return NewSTSServiceServerWithRing(deps, NewDefaultKeyRing(deps))
 }
 func NewSTSServiceServerWithRing(deps *shared.Deps, ring *KeyRing) *STSServiceServer {
-    // 默认 issuer（gRPC 验证不校验 issuer，仅用于回显）
-    issuer := "powerx-sts"
-    srv := &STSServiceServer{issuer: issuer, ring: ring}
-    if deps != nil {
-        srv.cred = setting.NewPluginInstanceConfigService(deps)
-    }
-    return srv
+	// 默认 issuer（gRPC 验证不校验 issuer，仅用于回显）
+	issuer := "powerx-sts"
+	srv := &STSServiceServer{issuer: issuer, ring: ring}
+	if deps != nil {
+		srv.cred = setting.NewPluginInstanceConfigService(deps)
+		if deps.TenantSvc != nil && deps.TenantSvc.Repo != nil {
+			srv.tenantRepo = deps.TenantSvc.Repo
+		} else if deps.DB != nil {
+			srv.tenantRepo = tenantrepo.NewTenantRepository(deps.DB)
+		}
+	}
+	return srv
 }
 
 /******** meta helpers ********/
@@ -49,82 +59,127 @@ func badMeta(ctx context.Context, code int32, msg, reqID string) *commonv1.Respo
 
 /******** Exchange ********/
 func (s *STSServiceServer) Exchange(ctx context.Context, req *stsv1.ExchangeRequest) (*stsv1.ExchangeResponse, error) {
-    // 1) 鉴别调用方：优先 client_credentials（plugin_id + tenant_id）
-    var subject string
-    var tenantID uint64
-    var pluginID string
-    if cid, sec := req.GetClientId(), req.GetClientSecret(); cid != "" && sec != "" {
-        // 解析 client_id（约定：<pluginID>.<tenantID>）
-        pID, tID, perr := parseClientID(cid)
-        if perr != nil {
-            return &stsv1.ExchangeResponse{Meta: badMeta(ctx, 400, "invalid client_id format", req.GetCtx().GetRequestId())}, nil
-        }
-        pluginID, tenantID = pID, tID
+	// 1) 鉴别调用方：优先 client_credentials（plugin_id + tenant_uuid）
+	var subject string
+	var tenantID uint64
+	var tenantUUID string
+	var pluginID string
+	if cid, sec := req.GetClientId(), req.GetClientSecret(); cid != "" && sec != "" {
+		// 解析 client_id（格式：<pluginID>.<tenantUUID>，兼容旧的 tenantID 格式）
+		pID, tenantUUIDToken, tenantIDToken, perr := parseClientID(cid)
+		if perr != nil {
+			return &stsv1.ExchangeResponse{Meta: badMeta(ctx, 400, "invalid client_id format", req.GetCtx().GetRequestId())}, nil
+		}
+		resolveTenant := func() error {
+			switch {
+			case tenantUUIDToken != "":
+				id, uuidStr, err := s.lookupTenantByUUID(ctx, tenantUUIDToken)
+				if err != nil {
+					return err
+				}
+				tenantID = id
+				tenantUUID = uuidStr
+			case tenantIDToken != 0:
+				id, uuidStr, err := s.lookupTenantByID(ctx, tenantIDToken)
+				if err != nil {
+					return err
+				}
+				tenantID = id
+				tenantUUID = uuidStr
+			default:
+				return errors.New("tenant identifier missing")
+			}
+			return nil
+		}
+		if err := resolveTenant(); err != nil {
+			return &stsv1.ExchangeResponse{Meta: badMeta(ctx, 400, err.Error(), req.GetCtx().GetRequestId())}, nil
+		}
+		pluginID = pID
 
-        // 校验凭证与能力约束
-        if s.cred == nil { return &stsv1.ExchangeResponse{Meta: badMeta(ctx, 500, "sts not initialized", req.GetCtx().GetRequestId())}, nil }
-        wantAud := req.GetAudience()
-        wantScope := req.GetScope()
-        if err := s.cred.VerifyClient(ctx, tenantID, pluginID, cid, sec, wantAud, wantScope, ""); err != nil {
-            return &stsv1.ExchangeResponse{Meta: badMeta(ctx, 401, "invalid client credentials", req.GetCtx().GetRequestId())}, nil
-        }
-        subject = "client:" + cid
-    } else if req.GetSubjectToken() != "" {
-        // 预留：基于 subject_token 的交换（未实现）
-        subject = "subject_token"
-    } else {
-        return &stsv1.ExchangeResponse{Meta: badMeta(ctx, 400, "missing subject_token or client credentials", req.GetCtx().GetRequestId())}, nil
-    }
+		// 校验凭证与能力约束
+		if s.cred == nil {
+			return &stsv1.ExchangeResponse{Meta: badMeta(ctx, 500, "sts not initialized", req.GetCtx().GetRequestId())}, nil
+		}
+		wantAud := req.GetAudience()
+		wantScope := req.GetScope()
+		if err := s.cred.VerifyClient(ctx, tenantUUID, pluginID, cid, sec, wantAud, wantScope, ""); err != nil {
+			return &stsv1.ExchangeResponse{Meta: badMeta(ctx, 401, "invalid client credentials", req.GetCtx().GetRequestId())}, nil
+		}
+		subject = "client:" + cid
+	} else if req.GetSubjectToken() != "" {
+		// 预留：基于 subject_token 的交换（未实现）
+		subject = "subject_token"
+	} else {
+		return &stsv1.ExchangeResponse{Meta: badMeta(ctx, 400, "missing subject_token or client credentials", req.GetCtx().GetRequestId())}, nil
+	}
 
 	// 2) audience/scope/ttl
-    aud := req.GetAudience()
-    if aud == "" { aud = "powerx:api" }
-    scope := req.GetScope()
-    if scope == "" { scope = "access" }
-    ttl := time.Duration(req.GetTtlSeconds())
-    if ttl <= 0 {
-        ttl = 300
-    }
-    ttlDur := ttl * time.Second
+	aud := req.GetAudience()
+	if aud == "" {
+		aud = "powerx:api"
+	}
+	scope := req.GetScope()
+	if scope == "" {
+		scope = "access"
+	}
+	ttl := time.Duration(req.GetTtlSeconds())
+	if ttl <= 0 {
+		ttl = 300
+	}
+	ttlDur := ttl * time.Second
 
-    // 3) 代办主体 → CoreXClaims
-    if a := req.GetActor(); a != nil {
-        // 允许覆盖来自 client_id 的 tenantID（如需）
-        if a.GetTenantId() > 0 { tenantID = a.GetTenantId() }
-        switch a.GetKind() {
-        case stsv1.ActorKind_ACTOR_KIND_USER:
-            userID := a.GetUserId()
-            _ = userID
-        case stsv1.ActorKind_ACTOR_KIND_CUSTOMER:
-            memberID := a.GetMemberId()
-            _ = memberID
-        }
-    }
+	// 3) 代办主体 → CoreXClaims
+	if a := req.GetActor(); a != nil {
+		if uuidStr := strings.TrimSpace(a.GetTenantUuid()); uuidStr != "" {
+			id, resolvedUUID, err := s.lookupTenantByUUID(ctx, uuidStr)
+			if err != nil {
+				return &stsv1.ExchangeResponse{Meta: badMeta(ctx, 400, err.Error(), req.GetCtx().GetRequestId())}, nil
+			}
+			tenantID = id
+			tenantUUID = resolvedUUID
+		}
+		switch a.GetKind() {
+		case stsv1.ActorKind_ACTOR_KIND_USER:
+			_ = a.GetUserId()
+		case stsv1.ActorKind_ACTOR_KIND_CUSTOMER:
+			_ = a.GetMemberId()
+		}
+	}
 
-    // 4) 构造并签发 JWT（使用 KeyRing 的 HS256 key，并附带 kid，便于 gRPC 拦截器验证）
-    now := time.Now()
-    claims := &reqctx.CoreXClaims{
-        TenantID: tenantID,
-        Scope:    scope,
-        RegisteredClaims: jwt.RegisteredClaims{
-            Issuer:   s.issuer,
-            Subject:  subject,
-            Audience: []string{aud},
-            IssuedAt: jwt.NewNumericDate(now),
-            ExpiresAt: jwt.NewNumericDate(now.Add(ttlDur)),
-        },
-    }
-    // 选择 kid & key：按 Actor 决定 kid；若无则取 default
-    kid := s.ring.ResolveKIDForActor(req.GetActor())
-    key := s.ring.GetHSByKID(kid)
-    if len(key) == 0 { kid = "default"; key = s.ring.GetHSByKID("default") }
-    if len(key) == 0 { return &stsv1.ExchangeResponse{Meta: badMeta(ctx, 500, "no signing key", req.GetCtx().GetRequestId())}, nil }
-    tok := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-    tok.Header["kid"] = kid
-    ss, err := tok.SignedString(key)
-    if err != nil {
-        return &stsv1.ExchangeResponse{Meta: badMeta(ctx, 500, "sign failed: "+err.Error(), req.GetCtx().GetRequestId())}, nil
-    }
+	if tenantID == 0 || tenantUUID == "" {
+		return &stsv1.ExchangeResponse{Meta: badMeta(ctx, 400, "tenant_uuid required", req.GetCtx().GetRequestId())}, nil
+	}
+
+	// 4) 构造并签发 JWT（使用 KeyRing 的 HS256 key，并附带 kid，便于 gRPC 拦截器验证）
+	now := time.Now()
+	claims := &reqctx.CoreXClaims{
+		TenantUUID: tenantUUID,
+		TenantID:   tenantID,
+		Scope:      scope,
+		RegisteredClaims: jwt.RegisteredClaims{
+			Issuer:    s.issuer,
+			Subject:   subject,
+			Audience:  []string{aud},
+			IssuedAt:  jwt.NewNumericDate(now),
+			ExpiresAt: jwt.NewNumericDate(now.Add(ttlDur)),
+		},
+	}
+	// 选择 kid & key：按 Actor 决定 kid；若无则取 default
+	kid := s.ring.ResolveKIDForActor(req.GetActor())
+	key := s.ring.GetHSByKID(kid)
+	if len(key) == 0 {
+		kid = "default"
+		key = s.ring.GetHSByKID("default")
+	}
+	if len(key) == 0 {
+		return &stsv1.ExchangeResponse{Meta: badMeta(ctx, 500, "no signing key", req.GetCtx().GetRequestId())}, nil
+	}
+	tok := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	tok.Header["kid"] = kid
+	ss, err := tok.SignedString(key)
+	if err != nil {
+		return &stsv1.ExchangeResponse{Meta: badMeta(ctx, 500, "sign failed: "+err.Error(), req.GetCtx().GetRequestId())}, nil
+	}
 
 	return &stsv1.ExchangeResponse{
 		Meta: okMeta(ctx, req.GetCtx().GetRequestId()),
@@ -141,17 +196,69 @@ func (s *STSServiceServer) Exchange(ctx context.Context, req *stsv1.ExchangeRequ
 	}, nil
 }
 
-// parseClientID: 约定 client_id = "<pluginID>.<tenantID>"
-func parseClientID(cid string) (pluginID string, tenantID uint64, err error) {
-    parts := strings.Split(cid, ".")
-    if len(parts) < 2 { return "", 0, errors.New("invalid") }
-    last := parts[len(parts)-1]
-    var tid uint64
-    for i := 0; i < len(last); i++ { if last[i] < '0' || last[i] > '9' { return "", 0, errors.New("invalid") } }
-    // 简单无依赖转换
-    for i := 0; i < len(last); i++ { tid = tid*10 + uint64(last[i]-'0') }
-    if tid == 0 { return "", 0, errors.New("invalid") }
-    return strings.Join(parts[:len(parts)-1], "."), tid, nil
+// parseClientID: 约定 client_id = "<pluginID>.<tenantUUID>"，兼容 legacy "<pluginID>.<tenantID>"
+func parseClientID(cid string) (pluginID string, tenantUUID string, tenantID uint64, err error) {
+	parts := strings.Split(cid, ".")
+	if len(parts) < 2 {
+		return "", "", 0, errors.New("invalid")
+	}
+	suffix := parts[len(parts)-1]
+	pluginID = strings.Join(parts[:len(parts)-1], ".")
+	if pluginID == "" || strings.TrimSpace(suffix) == "" {
+		return "", "", 0, errors.New("invalid")
+	}
+	if _, parseErr := uuid.Parse(suffix); parseErr == nil {
+		return pluginID, suffix, 0, nil
+	}
+	var legacyID uint64
+	for i := 0; i < len(suffix); i++ {
+		if suffix[i] < '0' || suffix[i] > '9' {
+			return "", "", 0, errors.New("invalid")
+		}
+		legacyID = legacyID*10 + uint64(suffix[i]-'0')
+	}
+	if legacyID == 0 {
+		return "", "", 0, errors.New("invalid")
+	}
+	return pluginID, "", legacyID, nil
+}
+
+func (s *STSServiceServer) lookupTenantByID(ctx context.Context, id uint64) (uint64, string, error) {
+	if id == 0 {
+		return 0, "", errors.New("tenant id required")
+	}
+	if s.tenantRepo == nil {
+		return 0, "", errors.New("tenant repository unavailable")
+	}
+	tenant, err := s.tenantRepo.GetByID(ctx, id)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return 0, "", fmt.Errorf("tenant id %d not found", id)
+		}
+		return 0, "", err
+	}
+	uuid := strings.TrimSpace(tenant.UUID.String())
+	if uuid == "" {
+		return 0, "", fmt.Errorf("tenant id %d missing uuid", id)
+	}
+	return tenant.ID, uuid, nil
+}
+
+func (s *STSServiceServer) lookupTenantByUUID(ctx context.Context, uuid string) (uint64, string, error) {
+	if uuid = strings.TrimSpace(uuid); uuid == "" {
+		return 0, "", errors.New("tenant_uuid required")
+	}
+	if s.tenantRepo == nil {
+		return 0, "", errors.New("tenant repository unavailable")
+	}
+	tenant, err := s.tenantRepo.GetByUUID(ctx, uuid)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return 0, "", fmt.Errorf("tenant uuid %s not found", uuid)
+		}
+		return 0, "", err
+	}
+	return tenant.ID, tenant.UUID.String(), nil
 }
 
 /******** Introspect（可选） ********/

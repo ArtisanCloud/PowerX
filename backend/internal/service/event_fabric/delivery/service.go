@@ -23,7 +23,7 @@ import (
 
 // PublishRequest 统一发布事件所需字段。
 type PublishRequest struct {
-	TenantID       string
+	TenantUUID     string
 	Topic          string
 	EventID        string
 	TraceID        string
@@ -213,7 +213,11 @@ func NewService(opts Options) (Service, error) {
 
 func (s *serviceImpl) Publish(ctx context.Context, req PublishRequest) (err error) {
 	start := s.clock().UTC()
-	tenantKey := strings.TrimSpace(req.TenantID)
+	tenantKey, tenantErr := resolveTenantKey(req.TenantUUID)
+	if tenantErr != nil {
+		err = tenantErr
+		return err
+	}
 	eventID := strings.TrimSpace(req.EventID)
 	principal := strings.TrimSpace(req.Attributes["principal_id"])
 	auditTopic := strings.TrimSpace(req.Topic)
@@ -229,6 +233,9 @@ func (s *serviceImpl) Publish(ctx context.Context, req PublishRequest) (err erro
 		}
 		meta := map[string]string{
 			"event_id": eventID,
+		}
+		if tenantKey != "" {
+			meta["tenant_uuid"] = tenantKey
 		}
 		for k, v := range req.Attributes {
 			if _, exists := meta[k]; !exists {
@@ -250,10 +257,6 @@ func (s *serviceImpl) Publish(ctx context.Context, req PublishRequest) (err erro
 		})
 	}()
 
-	if tenantKey == "" {
-		err = fmt.Errorf("tenant_id is required")
-		return err
-	}
 	if auditTopic == "" {
 		err = fmt.Errorf("topic is required")
 		return err
@@ -324,7 +327,6 @@ func (s *serviceImpl) Publish(ctx context.Context, req PublishRequest) (err erro
 	}
 
 	envelope := &eventfabricmodel.EventEnvelope{
-		TenantID:       topic.TenantID,
 		TenantKey:      tenantKey,
 		TopicUUID:      topic.UUID,
 		EventID:        eventID,
@@ -359,7 +361,6 @@ func (s *serviceImpl) Publish(ctx context.Context, req PublishRequest) (err erro
 
 	for _, subscriber := range subscribers {
 		attempt := &eventfabricmodel.DeliveryAttempt{
-			TenantID:     topic.TenantID,
 			TenantKey:    tenantKey,
 			EnvelopeUUID: storedEnvelope.UUID,
 			EventID:      storedEnvelope.EventID,
@@ -423,6 +424,10 @@ func (s *serviceImpl) Ack(ctx context.Context, deliveryID string, subscriberID s
 			traceID = envelope.TraceID
 			tenantKey = envelope.TenantKey
 			eventID = envelope.EventID
+			if tenantKey != "" {
+				meta["tenant_uuid"] = tenantKey
+				meta["tenant_uuid"] = tenantKey
+			}
 		}
 		_ = s.audit.Write(ctx, eventaudit.Record{
 			ID:           eventID,
@@ -548,6 +553,10 @@ func (s *serviceImpl) Nack(ctx context.Context, deliveryID string, subscriberID 
 			traceID = envelope.TraceID
 			tenantKey = envelope.TenantKey
 			eventID = envelope.EventID
+			if tenantKey != "" {
+				meta["tenant_uuid"] = tenantKey
+				meta["tenant_uuid"] = tenantKey
+			}
 		}
 		_ = s.audit.Write(ctx, eventaudit.Record{
 			ID:           eventID,
@@ -656,7 +665,6 @@ func (s *serviceImpl) Nack(ctx context.Context, deliveryID string, subscriberID 
 	}
 
 	newAttempt := &eventfabricmodel.DeliveryAttempt{
-		TenantID:     attempt.TenantID,
 		TenantKey:    attempt.TenantKey,
 		EnvelopeUUID: attempt.EnvelopeUUID,
 		EventID:      attempt.EventID,
@@ -916,7 +924,6 @@ func (s *serviceImpl) pushToDLQ(ctx context.Context, envelope *eventfabricmodel.
 		return nil
 	}
 	_, err := s.dlq.Create(ctx, &eventfabricmodel.DlqMessage{
-		TenantID:        envelope.TenantID,
 		TenantKey:       envelope.TenantKey,
 		TopicUUID:       envelope.TopicUUID,
 		EnvelopeUUID:    envelope.UUID,
@@ -987,6 +994,13 @@ func (s *serviceImpl) rescheduleAttempt(ctx context.Context, attempt *eventfabri
 	if err == nil {
 		s.metrics.ObserveRetry(ctx, item.Backoff)
 	}
+}
+
+func resolveTenantKey(value string) (string, error) {
+	if key := strings.TrimSpace(value); key != "" {
+		return key, nil
+	}
+	return "", fmt.Errorf("tenant_uuid is required")
 }
 
 func parseTopicName(topic string) (tenant, namespace, name string, err error) {

@@ -23,7 +23,7 @@ type ReleaseCandidateRepository struct {
 type ReleaseCandidateListFilter struct {
 	Page           int
 	Size           int
-	TenantID       string
+	TenantUUID     string
 	PluginID       string
 	VersionPrefix  string
 	ApprovalStatus string
@@ -61,7 +61,7 @@ func (r *ReleaseCandidateRepository) CreateCandidate(ctx context.Context, candid
 	_ = r.ensureUniqueIndex(ctx) // best-effort; ignore error to allow retry logic below
 	orig := candidate
 	unique := []clause.Column{
-		{Name: "tenant_id"},
+		{Name: "tenant_uuid"},
 		{Name: "plugin_id"},
 		{Name: "version"},
 	}
@@ -81,7 +81,7 @@ func (r *ReleaseCandidateRepository) CreateCandidate(ctx context.Context, candid
 		if active == nil {
 			return nil, err
 		}
-		if existing, findErr := r.GetByTenantPluginVersion(ctx, active.TenantID, active.PluginID, active.Version); findErr == nil && existing != nil {
+		if existing, findErr := r.GetByTenantPluginVersion(ctx, active.TenantUUID, active.PluginID, active.Version); findErr == nil && existing != nil {
 			copyCandidateFields(existing, active)
 			if saveErr := r.db.WithContext(ctx).Save(existing).Error; saveErr == nil {
 				return existing, nil
@@ -133,10 +133,10 @@ func (r *ReleaseCandidateRepository) UpdateApprovalStatus(ctx context.Context, c
 }
 
 // GetByTenantPluginVersion returns a candidate keyed by tenant/plugin/version.
-func (r *ReleaseCandidateRepository) GetByTenantPluginVersion(ctx context.Context, tenantID, pluginID, version string) (*models.PluginReleaseCandidate, error) {
+func (r *ReleaseCandidateRepository) GetByTenantPluginVersion(ctx context.Context, tenantUUID, pluginID, version string) (*models.PluginReleaseCandidate, error) {
 	var candidate models.PluginReleaseCandidate
 	err := r.db.WithContext(ctx).
-		Where("tenant_id = ? AND plugin_id = ? AND version = ?", tenantID, pluginID, version).
+		Where("tenant_uuid = ? AND plugin_id = ? AND version = ?", tenantUUID, pluginID, version).
 		Take(&candidate).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -200,10 +200,10 @@ func (r *ReleaseCandidateRepository) GetByUUID(ctx context.Context, candidateUUI
 }
 
 // FindLatestByTenantPlugin returns the latest candidate ordered by creation time.
-func (r *ReleaseCandidateRepository) FindLatestByTenantPlugin(ctx context.Context, tenantID, pluginID string) (*models.PluginReleaseCandidate, error) {
+func (r *ReleaseCandidateRepository) FindLatestByTenantPlugin(ctx context.Context, tenantUUID, pluginID string) (*models.PluginReleaseCandidate, error) {
 	var candidate models.PluginReleaseCandidate
 	err := r.db.WithContext(ctx).
-		Where("tenant_id = ? AND plugin_id = ?", tenantID, pluginID).
+		Where("tenant_uuid = ? AND plugin_id = ?", tenantUUID, pluginID).
 		Order("created_at DESC").
 		Take(&candidate).Error
 	if err != nil {
@@ -240,7 +240,7 @@ func (r *ReleaseCandidateRepository) UpdateFieldsByUUID(ctx context.Context, can
 // ensureUniqueIndex guarantees the unique index exists (needed for Postgres ON CONFLICT).
 func (r *ReleaseCandidateRepository) ensureUniqueIndex(ctx context.Context) error {
 	table := models.PluginReleaseCandidate{}.TableName()
-	sql := fmt.Sprintf(`CREATE UNIQUE INDEX IF NOT EXISTS idx_plugin_release_candidate_tenant_plugin_version ON %s (tenant_id, plugin_id, version);`, table)
+	sql := fmt.Sprintf(`CREATE UNIQUE INDEX IF NOT EXISTS idx_plugin_release_candidate_tenant_plugin_version ON %s (tenant_uuid, plugin_id, version);`, table)
 	return r.db.WithContext(ctx).Exec(sql).Error
 }
 
@@ -281,8 +281,8 @@ func (r *ReleaseCandidateRepository) List(ctx context.Context, filter ReleaseCan
 	pkgTable := models.OfflineDistributionPackage{}.TableName()
 
 	query := r.db.WithContext(ctx).Model(&models.PluginReleaseCandidate{})
-	if v := strings.TrimSpace(filter.TenantID); v != "" {
-		query = query.Where("tenant_id = ?", v)
+	if v := strings.TrimSpace(filter.TenantUUID); v != "" {
+		query = query.Where("tenant_uuid = ?", v)
 	}
 	if v := strings.TrimSpace(filter.PluginID); v != "" {
 		query = query.Where("plugin_id = ?", v)

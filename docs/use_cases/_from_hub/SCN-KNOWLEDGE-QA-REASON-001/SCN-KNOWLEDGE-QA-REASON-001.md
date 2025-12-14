@@ -67,7 +67,7 @@ PowerX 需要在现有知识空间与 Agent 编排能力之上，补齐跨空间
 
 - **APIs / Events**：`POST /qa/intents/analyze`, `POST /qa/retrieval/multi-space`, `POST /qa/answers/compose`, `POST /tools/sql/run`, `POST /audit/logs`, `POST /feedback/events`。
 - **Configs / Schemas**：`docs/standards/knowledge/knowledge_space_schema.md`, `docs/standards/security/audit_event.md`, `docs/standards/agent/memory_record.md`。
-- **Security / Compliance**：必须在检索与回答阶段校验 `tenant_id + knowledge_space_id` 访问矩阵；敏感字段由 `data_masking_policies` 表驱动；所有推理链节点写入 `audit.reasoning_steps`，便于合规复盘。
+- **Security / Compliance**：必须在检索与回答阶段校验 `tenant_uuid + knowledge_space_id` 访问矩阵；敏感字段由 `data_masking_policies` 表驱动；所有推理链节点写入 `audit.reasoning_steps`，便于合规复盘。
 
 # Validation Workflow
 

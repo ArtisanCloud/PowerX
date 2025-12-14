@@ -78,7 +78,7 @@ message UpdateRoutingPolicyStatusResponse {
 }
 
 message RouteTaskRequest {
-  string tenant_id = 1;
+  string tenant_uuid = 1;
   map<string, string> task_context = 2;
 }
 
@@ -132,7 +132,7 @@ message ReportUsageRequest {
 message ReportUsageResponse {}
 
 message GetQuotaSnapshotRequest {
-  string tenant_id = 1;
+  string tenant_uuid = 1;
 }
 
 message GetQuotaSnapshotResponse {
@@ -239,7 +239,7 @@ message SafeModeState {
 }
 
 message ConnectorInstanceInput {
-  string tenant_id = 1;
+  string tenant_uuid = 1;
   string region = 2;
   string oauth_ref = 3;
   string webhook_signing_key_ref = 4;
@@ -262,7 +262,7 @@ enum ConnectorStatus {
 }
 
 message UsageReport {
-  string tenant_id = 1;
+  string tenant_uuid = 1;
   string provider_id = 2;
   repeated UsageEvent events = 3;
 }
@@ -275,7 +275,7 @@ message UsageEvent {
 }
 
 message QuotaSnapshot {
-  string tenant_id = 1;
+  string tenant_uuid = 1;
   repeated QuotaEntry quotas = 2;
 }
 
@@ -293,7 +293,7 @@ enum QuotaStatus {
 }
 
 message EnforcementRequest {
-  string tenant_id = 1;
+  string tenant_uuid = 1;
   string provider_id = 2;
   EnforcementAction action = 3;
   string reason = 4;
@@ -307,7 +307,7 @@ enum EnforcementAction {
 }
 
 message TenantRef {
-  string tenant_id = 1;
+  string tenant_uuid = 1;
   string environment = 2;
 }
 

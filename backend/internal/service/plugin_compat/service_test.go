@@ -24,7 +24,7 @@ func TestCompatService(t *testing.T) {
 	require.False(t, res.Compatible)
 
 	exception, err := service.CreateException(context.Background(), ExceptionRequest{
-		TenantID:       "tenant",
+		TenantUUID:     "tenant",
 		PluginID:       "plugin",
 		CurrentVersion: "1.0.0",
 		TargetVersion:  "2.0.0",

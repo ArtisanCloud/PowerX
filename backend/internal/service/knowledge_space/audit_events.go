@@ -34,6 +34,7 @@ func (s *Service) emitAuditEvent(ctx context.Context, space *models.KnowledgeSpa
 		raw := marshalJSON(payload)
 		s.inst.Audit(ctx, &dbm.AuditEvent{
 			OccurredAt:   time.Now(),
+			TenantUUID:   space.TenantUUID,
 			Source:       "knowledge_space",
 			Operation:    action,
 			ResourceType: "knowledge_space",
@@ -51,7 +52,7 @@ func (s *Service) publishEvent(ctx context.Context, verb string, space *models.K
 	}
 	payload := map[string]any{
 		"space_id":      space.UUID.String(),
-		"tenant_id":     space.TenantID.String(),
+		"tenant_uuid":   space.TenantUUID,
 		"space_name":    space.SpaceName,
 		"status":        space.Status,
 		"policy_id":     space.PolicyTemplateVersionID,

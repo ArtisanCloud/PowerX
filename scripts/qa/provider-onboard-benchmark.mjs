@@ -21,7 +21,7 @@
  *       "capabilities": ["llm"],
  *       "primary_endpoint": "https://api.openai.com/v1",
  *       "regions": ["us-east-1"],
- *       "tenantWhitelist": [{"tenantId":"demo","environment":"staging"}],
+ *       "tenantWhitelist": [{"tenant_uuid":"demo","environment":"staging"}],
  *       "credentials": {"api_key": "${OPENAI_KEY}"},
  *       "publish": {"rolloutStrategy": "gray"}
  *     }
@@ -390,4 +390,3 @@ if (import.meta.main) {
     process.exit(1);
   });
 }
-

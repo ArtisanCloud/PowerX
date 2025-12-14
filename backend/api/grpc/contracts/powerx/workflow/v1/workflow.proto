@@ -173,7 +173,7 @@ message ExportInstancesResponse {
 
 message WorkflowDefinition {
   string definition_id = 1;
-  string tenant_id = 2;
+  string tenant_uuid = 2;
   string name = 3;
   string description = 4;
   int32 version = 5;
@@ -201,7 +201,7 @@ message WorkflowStepDefinition {
 
 message WorkflowInstance {
   string instance_id = 1;
-  string tenant_id = 2;
+  string tenant_uuid = 2;
   string definition_id = 3;
   int32 definition_version = 4;
   WorkflowInstanceState state = 5;
@@ -243,7 +243,7 @@ message WorkflowInstanceExportRow {
   google.protobuf.Timestamp started_at = 5;
   google.protobuf.Timestamp completed_at = 6;
   repeated StepExecutionExport steps = 7;
-  string tenant_id = 8;
+  string tenant_uuid = 8;
   string correlation_id = 9;
 }
 

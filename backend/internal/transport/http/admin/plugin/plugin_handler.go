@@ -1,14 +1,16 @@
 package plugin
 
 import (
+	"net/http"
+	"sort"
+	"strings"
+
 	"github.com/ArtisanCloud/PowerX/config"
 	manager "github.com/ArtisanCloud/PowerX/internal/infra/plugin/manager"
 	dtoRequest "github.com/ArtisanCloud/PowerX/pkg/dto"
 	pluginDto "github.com/ArtisanCloud/PowerX/pkg/dto/plugin_mgr"
 	pluginMgr "github.com/ArtisanCloud/PowerX/pkg/plugin_mgr"
 	"github.com/gin-gonic/gin"
-	"net/http"
-	"sort"
 
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 )
@@ -92,10 +94,10 @@ func PluginEnableHandler(c *gin.Context) {
 		return
 	}
 	mgr := manager.GetPluginManager()
-	// 从已注入的 JWT 上下文读取 tenant_id 并显式写回（确保后续 PostEnable 能准确取到）
 	ctx := c.Request.Context()
-	if tid := reqctx.GetTenantID(ctx); tid > 0 {
-		ctx = reqctx.WithTenantID(ctx, tid)
+	tenantUUID := optionalTenantContext(c)
+	if tenantUUID != "" {
+		ctx = reqctx.WithTenantUUID(ctx, tenantUUID)
 	}
 	if err := mgr.Enable(ctx, id); err != nil {
 		dtoRequest.ResponseError(c, statusFromManagerErr(err), "启用插件失败", err)
@@ -117,6 +119,10 @@ func PluginDisableHandler(c *gin.Context) {
 		return
 	}
 	dtoRequest.ResponseSuccess(c, gin.H{"ok": true})
+}
+
+func optionalTenantContext(c *gin.Context) string {
+	return strings.TrimSpace(reqctx.TenantUUIDFromGin(c))
 }
 
 // GET /api/.../admin/plugins/menus

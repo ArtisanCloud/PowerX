@@ -23,7 +23,7 @@ func TestEventHotfixFlow(t *testing.T) {
 	_, err := svc.Apply(context.Background(), event_hotfix.ApplyInput{
 		EventID:    eventID,
 		EventType:  "policy-update",
-		Payload:    map[string]any{"tenant": env.TenantID().String()},
+		Payload:    map[string]any{"tenant": env.TenantUUID().String()},
 		ReceivedAt: time.Now().UTC(),
 	})
 	require.NoError(t, err)

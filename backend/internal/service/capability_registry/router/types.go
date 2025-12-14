@@ -17,10 +17,10 @@ const (
 	EventRouterFallback = "capability.router.fallback"
 )
 
-// InvokeRequest 描述 Router 调用输入。
+// InvokeRequest 描述 Router 调用输入，仅允许传入租户 UUID。
 type InvokeRequest struct {
 	CapabilityID string
-	TenantID     string
+	TenantUUID   string
 	Payload      []byte
 	Timeout      time.Duration
 	StickyKey    string
@@ -40,7 +40,7 @@ type InvokeResult struct {
 // ReportHealthInput 描述健康上报。
 type ReportHealthInput struct {
 	CapabilityID string
-	TenantID     string
+	TenantUUID   string
 	AdapterID    string
 	Status       string
 	Reason       string
@@ -50,13 +50,13 @@ type ReportHealthInput struct {
 // HealthRepository 定义健康结果持久化接口。
 type HealthRepository interface {
 	SaveProbeResult(ctx context.Context, db *gorm.DB, result HealthProbeRecord) error
-	GetLatest(ctx context.Context, db *gorm.DB, capabilityID, tenantID string) ([]HealthProbeRecord, error)
+	GetLatest(ctx context.Context, db *gorm.DB, capabilityID, tenantUUID string) ([]HealthProbeRecord, error)
 }
 
 // HealthProbeRecord 用于存储探测结果。
 type HealthProbeRecord struct {
 	CapabilityID string
-	TenantID     string
+	TenantUUID   string
 	AdapterID    string
 	Status       string
 	Reason       string

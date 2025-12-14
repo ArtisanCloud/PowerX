@@ -47,7 +47,7 @@ func TestAgentLifecycleGRPC(t *testing.T) {
 	t.Cleanup(cancel)
 
 	registerResp, err := client.RegisterAgent(ctx, &agentv1.RegisterAgentRequest{
-		TenantId:                 "tenant-001",
+		TenantUuid:                 "tenant-001",
 		Alias:                    "writer-grpc",
 		TelemetryContractVersion: "otel-agent-v1",
 		ToolGrants: []*agentv1.ToolGrant{

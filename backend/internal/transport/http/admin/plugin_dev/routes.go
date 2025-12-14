@@ -14,6 +14,7 @@ import (
 	pluginimport "github.com/ArtisanCloud/PowerX/internal/service/plugin_import"
 	"github.com/ArtisanCloud/PowerX/internal/service/plugin_release/local"
 	"github.com/ArtisanCloud/PowerX/pkg/auth/middleware"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -116,6 +117,12 @@ func (h *handler) submitImport(c *gin.Context) {
 		dto.ResponseError(c, http.StatusBadRequest, err.Error(), err)
 		return
 	}
+	tenantUUID, err := reqctx.RequireTenantUUIDFromGin(c)
+	if err != nil {
+		dto.ResponseError(c, http.StatusUnauthorized, "缺少有效租户上下文", err)
+		return
+	}
+	payload.TenantUUID = tenantUUID
 	result, err := h.importSvc.Submit(c.Request.Context(), payload)
 	if err != nil {
 		dto.ResponseError(c, http.StatusBadRequest, err.Error(), err)
@@ -139,17 +146,17 @@ func (h *handler) getImport(c *gin.Context) {
 		reportRef = run.ReportReference.String()
 	}
 	record := pluginimport.ImportRecord{
-		ID:        run.UUID.String(),
-		Status:    run.Status,
-		RiskLevel: run.RiskLevel,
-		Package:   run.PackageName,
-		Vendor:    run.Vendor,
-		TenantID:  run.TenantID,
-		Submitted: run.CreatedAt,
-		Completed: run.CompletedAt,
-		Findings:  unmarshalMap(run.Findings),
-		Notes:     run.ApprovalNote,
-		ReportRef: reportRef,
+		ID:         run.UUID.String(),
+		Status:     run.Status,
+		RiskLevel:  run.RiskLevel,
+		Package:    run.PackageName,
+		Vendor:     run.Vendor,
+		TenantUUID: run.TenantUUID,
+		Submitted:  run.CreatedAt,
+		Completed:  run.CompletedAt,
+		Findings:   unmarshalMap(run.Findings),
+		Notes:      run.ApprovalNote,
+		ReportRef:  reportRef,
 	}
 	dto.ResponseSuccess(c, record)
 }
@@ -191,13 +198,14 @@ func (h *handler) startLocalInstall(c *gin.Context) {
 		dto.ResponseError(c, http.StatusBadRequest, err.Error(), err)
 		return
 	}
-	if req.TenantID == 0 {
-		dto.ResponseError(c, http.StatusBadRequest, "tenantId is required", nil)
+	tenantUUID, err := reqctx.RequireTenantUUIDFromGin(c)
+	if err != nil {
+		dto.ResponseError(c, http.StatusUnauthorized, "缺少有效租户上下文", err)
 		return
 	}
 	start := time.Now()
 	session, err := h.local.Start(c.Request.Context(), local.StartInput{
-		TenantID:     req.TenantID,
+		TenantUUID:   tenantUUID,
 		DeveloperID:  req.DeveloperID,
 		ArtifactURI:  req.ArtifactURI,
 		FeatureFlags: req.FeatureFlags,
@@ -216,7 +224,7 @@ func (h *handler) startLocalInstall(c *gin.Context) {
 		}
 		h.host.RecordInstall(c.Request.Context(), plugindebughost.InstallEvent{
 			SessionID:   session.UUID,
-			TenantID:    req.TenantID,
+			TenantUUID:  tenantUUID,
 			DeveloperID: req.DeveloperID,
 			ArtifactURI: req.ArtifactURI,
 			Duration:    duration,
@@ -224,9 +232,9 @@ func (h *handler) startLocalInstall(c *gin.Context) {
 		})
 	}
 	dto.ResponseSuccessWithStatus(c, http.StatusCreated, localInstallSession{
-		SessionID: session.UUID.String(),
-		TenantID:  session.TenantID,
-		Status:    session.Status,
+		SessionID:  session.UUID.String(),
+		TenantUUID: strings.TrimSpace(session.TenantUUID),
+		Status:     session.Status,
 	})
 }
 
@@ -271,6 +279,12 @@ func (h *handler) createDiagnosticsReport(c *gin.Context) {
 		dto.ResponseError(c, http.StatusBadRequest, err.Error(), err)
 		return
 	}
+	tenantUUID, err := reqctx.RequireTenantUUIDFromGin(c)
+	if err != nil {
+		dto.ResponseError(c, http.StatusUnauthorized, "缺少有效租户上下文", err)
+		return
+	}
+	req.TenantUUID = tenantUUID
 	report, err := h.diagnostics.CreateReport(c.Request.Context(), req)
 	if err != nil {
 		dto.ResponseError(c, http.StatusBadRequest, err.Error(), err)
@@ -323,7 +337,6 @@ type mockHostRequest struct {
 }
 
 type localInstallRequest struct {
-	TenantID     uint64   `json:"tenantId"`
 	DeveloperID  uint64   `json:"developerId"`
 	ArtifactURI  string   `json:"artifactUri"`
 	FeatureFlags []string `json:"featureFlags"`
@@ -340,9 +353,9 @@ type localReloadRequest struct {
 }
 
 type localInstallSession struct {
-	SessionID string `json:"sessionId"`
-	TenantID  uint64 `json:"tenantId"`
-	Status    string `json:"status"`
+	SessionID  string `json:"sessionId"`
+	TenantUUID string `json:"tenant_uuid"`
+	Status     string `json:"status"`
 }
 
 type exportLogsRequest struct {

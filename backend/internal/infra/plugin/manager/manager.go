@@ -13,7 +13,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/pkg/plugin_mgr"
 )
 
-type PostEnableHook func(ctx context.Context, tenantID uint64, pluginID string) error
+type PostEnableHook func(ctx context.Context, tenantUUID, pluginID string) error
 
 // Options 注入依赖与基础配置
 type Options struct {

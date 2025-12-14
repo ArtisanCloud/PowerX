@@ -187,3 +187,15 @@ ci-all:
 	@echo "🚦 运行 CI 入口：go test + 回归套件..."
 	@cd backend && GOFLAGS="" go test ./...
 	@$(MAKE) regression-pxp
+
+.PHONY: check-tenant-id
+check-tenant-id:
+	@echo "🔎 检查 diff 中是否新增 tenant_id ..."
+	@bash scripts/ci/check-no-tenant-id.sh
+	@echo "🔎 校验是否仍在手动 uuid.Parse tenant_uuid ..."
+	@bash scripts/ci/check-tenant-uuid-canonical.sh
+
+.PHONY: check-tenant-migrations
+check-tenant-migrations:
+	@echo "🧪 校验 tenant UUID 迁移脚本..."
+	@bash scripts/ci/check-tenant-migrations.sh

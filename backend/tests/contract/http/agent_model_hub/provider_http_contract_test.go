@@ -21,17 +21,12 @@ import (
 func TestProviderHTTPContract(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	env := ammatestenv.New(t)
+	env.MustInsertTenant(5001, ammatestenv.AgentModelHubTenantUUID)
 
 	engine := gin.New()
 	public := engine.Group("/api")
 	protected := engine.Group("/api")
-	protected.Use(func(c *gin.Context) {
-		if c.GetHeader("Authorization") == "" {
-			c.AbortWithStatus(http.StatusUnauthorized)
-			return
-		}
-		c.Next()
-	})
+	protected.Use(ammatestenv.RequireAgentModelHubAuth())
 
 	deps := &shared.Deps{DB: env.DB}
 	agentmodelhubhttp.RegisterAPIRoutes(public, protected, deps)
@@ -43,18 +38,16 @@ func TestProviderHTTPContract(t *testing.T) {
 		"primary_endpoint": "https://api.openai.com/v1",
 		"regions":          []string{"us-east-1"},
 		"tenantWhitelist": []map[string]string{
-			{"tenantId": "demo", "environment": "staging"},
+			{"tenant_uuid": ammatestenv.AgentModelHubTenantUUID, "environment": "staging"},
 		},
 		"credentials": map[string]string{
 			"api_key": "sk-test-123",
 		},
 	}
 	body, _ := json.Marshal(registerPayload)
-	rr := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/api/internal/providers/register", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer token")
-	engine.ServeHTTP(rr, req)
+	rr := serveAgentModelHubRequest(t, engine, req, ammatestenv.AgentModelHubTenantUUID)
 	require.Equal(t, http.StatusAccepted, rr.Code)
 	require.NotContains(t, rr.Body.String(), "sk-test-123", "should not leak api keys")
 
@@ -90,11 +83,9 @@ func TestProviderHTTPContract(t *testing.T) {
 		},
 	}
 	body, _ = json.Marshal(failReport)
-	rr = httptest.NewRecorder()
 	req = httptest.NewRequest(http.MethodPost, "/api/internal/providers/"+providerID+"/validate?suite=full", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer token")
-	engine.ServeHTTP(rr, req)
+	rr = serveAgentModelHubRequest(t, engine, req, ammatestenv.AgentModelHubTenantUUID)
 	require.Equal(t, http.StatusAccepted, rr.Code)
 
 	// Publish should be blocked due to failed validation
@@ -102,11 +93,9 @@ func TestProviderHTTPContract(t *testing.T) {
 		"rolloutStrategy": "full",
 	}
 	pubBody, _ := json.Marshal(publishPayload)
-	rr = httptest.NewRecorder()
 	req = httptest.NewRequest(http.MethodPost, "/api/internal/providers/"+providerID+"/publish", bytes.NewReader(pubBody))
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer token")
-	engine.ServeHTTP(rr, req)
+	rr = serveAgentModelHubRequest(t, engine, req, ammatestenv.AgentModelHubTenantUUID)
 	require.Equal(t, http.StatusBadRequest, rr.Code)
 
 	// Re-run validation with passing report
@@ -126,18 +115,14 @@ func TestProviderHTTPContract(t *testing.T) {
 		},
 	}
 	body, _ = json.Marshal(passReport)
-	rr = httptest.NewRecorder()
 	req = httptest.NewRequest(http.MethodPost, "/api/internal/providers/"+providerID+"/validate?suite=full", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer token")
-	engine.ServeHTTP(rr, req)
+	rr = serveAgentModelHubRequest(t, engine, req, ammatestenv.AgentModelHubTenantUUID)
 	require.Equal(t, http.StatusAccepted, rr.Code)
 
 	// Publish succeeds after passing validation
-	rr = httptest.NewRecorder()
 	req = httptest.NewRequest(http.MethodPost, "/api/internal/providers/"+providerID+"/publish", bytes.NewReader(pubBody))
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer token")
-	engine.ServeHTTP(rr, req)
+	rr = serveAgentModelHubRequest(t, engine, req, ammatestenv.AgentModelHubTenantUUID)
 	require.Equal(t, http.StatusOK, rr.Code)
 }

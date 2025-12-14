@@ -5,12 +5,14 @@ import (
 	"encoding/json"
 	"errors"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/ArtisanCloud/PowerX/internal/service/plugin_debug/instrumentation"
 	auditpkg "github.com/ArtisanCloud/PowerX/pkg/corex/audit"
 	dbm "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/audit"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"github.com/google/uuid"
 	"gopkg.in/yaml.v3"
@@ -262,7 +264,7 @@ func (s *Service) RecordInstall(ctx context.Context, event InstallEvent) {
 		s.instruments.RecordLatency(ctx, event.Duration)
 	}
 	meta := map[string]any{
-		"tenant_id":    event.TenantID,
+		"tenant_uuid":  strings.TrimSpace(event.TenantUUID),
 		"developer_id": event.DeveloperID,
 		"artifact_uri": event.ArtifactURI,
 		"feature_flag": event.FeatureFlag,
@@ -347,8 +349,10 @@ func (s *Service) emitAudit(ctx context.Context, operation, severity, resourceID
 	if s.auditSvc == nil {
 		return
 	}
+	tenantUUID := strings.TrimSpace(reqctx.GetTenantUUID(ctx))
 	event := &dbm.AuditEvent{
 		OccurredAt:   s.now().UTC(),
+		TenantUUID:   tenantUUID,
 		Source:       "plugin_debug",
 		Operation:    operation,
 		ResourceType: "plugin_debug",
@@ -376,7 +380,7 @@ func marshalJSON(meta map[string]any) datatypes.JSON {
 // InstallEvent stores metadata for the initial install push.
 type InstallEvent struct {
 	SessionID   uuid.UUID
-	TenantID    uint64
+	TenantUUID  string
 	DeveloperID uint64
 	ArtifactURI string
 	Duration    time.Duration

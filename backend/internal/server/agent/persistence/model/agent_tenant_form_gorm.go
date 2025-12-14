@@ -17,7 +17,7 @@ const (
 type AgentTenantForm struct {
 	coremodel.PowerUUIDModel
 
-	TenantID                 string         `gorm:"column:tenant_id;type:varchar(128);not null;index:idx_agent_tenant_form_tenant,priority:1" json:"tenant_id"`
+	TenantUUID               string         `gorm:"column:tenant_uuid;type:varchar(128);not null;index:idx_agent_tenant_form_tenant,priority:1" json:"tenant_uuid"`
 	Alias                    string         `gorm:"column:alias;type:varchar(128);not null;index:idx_agent_tenant_form_tenant,priority:2" json:"alias"`
 	DisplayName              string         `gorm:"column:display_name;type:varchar(128);not null" json:"display_name"`
 	Purpose                  string         `gorm:"column:purpose;type:text" json:"purpose,omitempty"`

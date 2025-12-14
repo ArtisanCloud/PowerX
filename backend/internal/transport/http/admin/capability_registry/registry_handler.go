@@ -53,7 +53,10 @@ func (h *AdminHandler) CreateCapability(c *gin.Context) {
 
 func (h *AdminHandler) GetCapability(c *gin.Context) {
 	capabilityID := c.Param("capabilityId")
-	tenantID := c.Param("tenantId")
+	tenantUUID, ok := requireTenantUUIDParam(c, "tenant_uuid")
+	if !ok {
+		return
+	}
 	versionParam := c.Query("version")
 
 	var opts registry.GetRegistrationOptions
@@ -63,7 +66,7 @@ func (h *AdminHandler) GetCapability(c *gin.Context) {
 			opts.Version = v
 		}
 	}
-	res, err := h.svc.GetRegistration(c.Request.Context(), capabilityID, tenantID, opts)
+	res, err := h.svc.GetRegistration(c.Request.Context(), capabilityID, tenantUUID, opts)
 	if err != nil {
 		h.handleError(c, err)
 		return
@@ -79,13 +82,16 @@ func (h *AdminHandler) UpdateCapability(c *gin.Context) {
 		return
 	}
 	capabilityID := c.Param("capabilityId")
-	tenantID := c.Param("tenantId")
+	tenantUUID, ok := requireTenantUUIDParam(c, "tenant_uuid")
+	if !ok {
+		return
+	}
 
 	if req.CapabilityID == "" {
 		req.CapabilityID = capabilityID
 	}
-	if req.TenantID == "" {
-		req.TenantID = tenantID
+	if req.TenantUUID == "" {
+		req.TenantUUID = tenantUUID
 	}
 
 	ifMatch := c.GetHeader("If-Match")
@@ -117,7 +123,10 @@ func (h *AdminHandler) UpdateCapability(c *gin.Context) {
 
 func (h *AdminHandler) DisableCapability(c *gin.Context) {
 	capabilityID := c.Param("capabilityId")
-	tenantID := c.Param("tenantId")
+	tenantUUID, ok := requireTenantUUIDParam(c, "tenant_uuid")
+	if !ok {
+		return
+	}
 	var req disableRequest
 	if err := c.ShouldBindJSON(&req); err != nil && !errors.Is(err, io.EOF) {
 		dto.ResponseError(c, http.StatusBadRequest, "registry.invalid_request", err)
@@ -135,7 +144,7 @@ func (h *AdminHandler) DisableCapability(c *gin.Context) {
 	actor := c.GetHeader("X-Actor-ID")
 	res, err := h.svc.DisableRegistration(c.Request.Context(), registry.DisableRegistrationInput{
 		CapabilityID: capabilityID,
-		TenantID:     tenantID,
+		TenantUUID:   tenantUUID,
 		Reason:       req.Reason,
 		Actor:        actor,
 		Version:      version,
@@ -164,7 +173,7 @@ func (h *AdminHandler) handleError(c *gin.Context, err error) {
 func registrationSummary(reg registry.Registration) gin.H {
 	return gin.H{
 		"capability_id": reg.CapabilityID,
-		"tenant_id":     reg.TenantID,
+		"tenant_uuid":   reg.TenantUUID,
 		"version":       reg.Version,
 		"status":        reg.Status,
 	}
@@ -205,7 +214,7 @@ func registrationDetail(reg registry.Registration) gin.H {
 
 	response := gin.H{
 		"capability_id":        reg.CapabilityID,
-		"tenant_id":            reg.TenantID,
+		"tenant_uuid":          reg.TenantUUID,
 		"contract_ref":         reg.ContractRef,
 		"status":               reg.Status,
 		"version":              reg.Version,
@@ -257,7 +266,7 @@ func errorsIs(err error, target error) bool {
 
 type registrationRequest struct {
 	CapabilityID        string                              `json:"capability_id"`
-	TenantID            string                              `json:"tenant_id"`
+	TenantUUID          string                              `json:"tenant_uuid"`
 	ContractRef         string                              `json:"contract_ref"`
 	Status              string                              `json:"status"`
 	EnvironmentPolicies map[string]environmentPolicyRequest `json:"environment_policies"`
@@ -372,7 +381,7 @@ func (r registrationRequest) toPayload() registry.RegistrationPayload {
 	}
 	return registry.RegistrationPayload{
 		CapabilityID:        r.CapabilityID,
-		TenantID:            r.TenantID,
+		TenantUUID:          trimTenantUUID(r.TenantUUID),
 		ContractRef:         r.ContractRef,
 		Status:              r.Status,
 		EnvironmentPolicies: envPolicies,

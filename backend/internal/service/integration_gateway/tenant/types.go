@@ -16,12 +16,12 @@ type capabilityRouter interface {
 
 // ToolGrantChecker 负责校验租户是否持有指定 Tool Grant。
 type ToolGrantChecker interface {
-	Validate(ctx context.Context, tenantID string, grants []string) error
+	Validate(ctx context.Context, tenantUUID string, grants []string) error
 }
 
 // InvokeInput 描述租户发起调用的参数。
 type InvokeInput struct {
-	TenantID       string
+	TenantUUID     string
 	RouteSlug      string
 	Channel        string
 	Payload        map[string]any

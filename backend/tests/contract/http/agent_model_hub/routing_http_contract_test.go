@@ -19,6 +19,8 @@ import (
 	"gorm.io/gorm"
 )
 
+const routingTenantUUID = "tenant-routing-demo"
+
 func TestRoutingHTTPContract(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	db := newRoutingTestDB(t)
@@ -39,8 +41,7 @@ func TestRoutingHTTPContract(t *testing.T) {
 
 	// Create routing policy
 	policyPayload := map[string]any{
-		"env":         "default",
-		"tenantScope": "tenant-demo",
+		"env": "default",
 		"rules": []map[string]any{
 			{
 				"taskPattern": "chat",
@@ -52,38 +53,30 @@ func TestRoutingHTTPContract(t *testing.T) {
 		},
 		"fallbackChain": []string{"provider-backup"},
 	}
-	rr := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/api/internal/model-routing/policies", bytes.NewReader(mustJSON(t, policyPayload)))
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer token")
-	engine.ServeHTTP(rr, req)
+	rr := serveAgentModelHubRequest(t, engine, req, routingTenantUUID)
 	require.Equal(t, http.StatusAccepted, rr.Code)
 
 	// Promote policy via status endpoint
 	statusPayload := map[string]any{
-		"tenantScope":  "tenant-demo",
 		"targetStatus": "active",
 	}
-	rr = httptest.NewRecorder()
 	req = httptest.NewRequest(http.MethodPost, "/api/internal/model-routing/policies/status", bytes.NewReader(mustJSON(t, statusPayload)))
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer token")
-	engine.ServeHTTP(rr, req)
+	rr = serveAgentModelHubRequest(t, engine, req, routingTenantUUID)
 	require.Equal(t, http.StatusOK, rr.Code)
 
 	// Request routing decision
 	routePayload := map[string]any{
-		"env":      "default",
-		"tenantId": "tenant-demo",
+		"env": "default",
 		"taskContext": map[string]any{
 			"taskType": "chat",
 		},
 	}
-	rr = httptest.NewRecorder()
 	req = httptest.NewRequest(http.MethodPost, "/api/internal/model-routing/route", bytes.NewReader(mustJSON(t, routePayload)))
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer token")
-	engine.ServeHTTP(rr, req)
+	rr = serveAgentModelHubRequest(t, engine, req, routingTenantUUID)
 	require.Equal(t, http.StatusOK, rr.Code)
 
 	var decision struct {
@@ -97,27 +90,21 @@ func TestRoutingHTTPContract(t *testing.T) {
 	// Trigger rollback
 	rollbackPayload := map[string]any{
 		"env":           "default",
-		"tenantScope":   "tenant-demo",
 		"targetVersion": 1,
 	}
-	rr = httptest.NewRecorder()
 	req = httptest.NewRequest(http.MethodPost, "/api/internal/model-routing/rollback", bytes.NewReader(mustJSON(t, rollbackPayload)))
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer token")
-	engine.ServeHTTP(rr, req)
+	rr = serveAgentModelHubRequest(t, engine, req, routingTenantUUID)
 	require.Equal(t, http.StatusOK, rr.Code)
 
 	// Toggle safe-mode
 	safeModePayload := map[string]any{
-		"tenantScope": "tenant-demo",
-		"enabled":     true,
-		"ttlSeconds":  60,
+		"enabled":    true,
+		"ttlSeconds": 60,
 	}
-	rr = httptest.NewRecorder()
 	req = httptest.NewRequest(http.MethodPost, "/api/internal/model-routing/safe-mode", bytes.NewReader(mustJSON(t, safeModePayload)))
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer token")
-	engine.ServeHTTP(rr, req)
+	rr = serveAgentModelHubRequest(t, engine, req, routingTenantUUID)
 	require.Equal(t, http.StatusOK, rr.Code)
 }
 

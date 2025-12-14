@@ -12,7 +12,7 @@ import (
 type LocalInstallSession struct {
 	coremodel.PowerUUIDModel
 
-	TenantID     uint64         `gorm:"column:tenant_id;not null;index:idx_plugin_release_local_session_tenant,priority:1" json:"tenant_id"`
+	TenantUUID   string         `gorm:"column:tenant_uuid;type:varchar(128);index:idx_plugin_release_local_session_tenant,priority:1" json:"tenant_uuid"`
 	DeveloperID  uint64         `gorm:"column:developer_id;not null;index:idx_plugin_release_local_session_tenant,priority:2" json:"developer_id"`
 	ArtifactURI  string         `gorm:"column:artifact_uri;type:text;not null" json:"artifact_uri"`
 	Status       string         `gorm:"column:status;type:varchar(32);not null;default:'in_progress';index" json:"status"`

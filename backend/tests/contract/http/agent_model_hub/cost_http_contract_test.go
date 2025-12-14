@@ -35,7 +35,6 @@ func TestCostHTTPContract(t *testing.T) {
 	agentmodelhubhttp.RegisterAPIRoutes(public, protected, deps)
 
 	usagePayload := map[string]any{
-		"tenantId":   "tenant-contract",
 		"providerId": "provider-alpha",
 		"events": []map[string]any{
 			{
@@ -47,21 +46,16 @@ func TestCostHTTPContract(t *testing.T) {
 		},
 	}
 	usageBody, _ := json.Marshal(usagePayload)
-	rr := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/api/internal/provider-usage/report", bytes.NewReader(usageBody))
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer token")
-	engine.ServeHTTP(rr, req)
+	rr := serveAgentModelHubRequest(t, engine, req, ammatestenv.AgentModelHubTenantUUID)
 	require.Equal(t, http.StatusAccepted, rr.Code, "usage ingestion should accept payloads")
 
-	quotaReq := httptest.NewRequest(http.MethodGet, "/api/internal/provider-quotas?tenantId=tenant-contract", nil)
-	quotaReq.Header.Set("Authorization", "Bearer token")
-	rr = httptest.NewRecorder()
-	engine.ServeHTTP(rr, quotaReq)
+	quotaReq := httptest.NewRequest(http.MethodGet, "/api/internal/provider-quotas", nil)
+	rr = serveAgentModelHubRequest(t, engine, quotaReq, ammatestenv.AgentModelHubTenantUUID)
 	require.Equal(t, http.StatusOK, rr.Code, "quota snapshot should be readable")
 
 	enforcePayload := map[string]any{
-		"tenantId":   "tenant-contract",
 		"providerId": "provider-alpha",
 		"action":     "throttle",
 		"reason":     "Exceeded budget",
@@ -74,10 +68,8 @@ func TestCostHTTPContract(t *testing.T) {
 		},
 	}
 	enforceBody, _ := json.Marshal(enforcePayload)
-	rr = httptest.NewRecorder()
 	req = httptest.NewRequest(http.MethodPost, "/api/internal/provider-quotas/enforce", bytes.NewReader(enforceBody))
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer token")
-	engine.ServeHTTP(rr, req)
+	rr = serveAgentModelHubRequest(t, engine, req, ammatestenv.AgentModelHubTenantUUID)
 	require.Equal(t, http.StatusOK, rr.Code, "enforcement endpoint should acknowledge actions")
 }

@@ -23,14 +23,15 @@ func TestCapabilityRouterSandboxSimulate(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
+	tenantCtx := capabilityRegistryContext(t, ctx, "tenant-corex")
 	env := newRouterSandboxTestEnv(t)
 	t.Cleanup(env.Close)
 
-	resp, err := env.client.Simulate(ctx, &capabilityRegistryPB.SandboxInvokeRequest{
+	resp, err := env.client.Simulate(tenantCtx, &capabilityRegistryPB.SandboxInvokeRequest{
 		Request: &capabilityRegistryPB.InvokeRequest{
 			Capability: &capabilityRegistryPB.TenantScopedId{
 				CapabilityId: "capabilities.text.translate",
-				TenantId:     "tenant-corex",
+				TenantUuid:   "tenant-corex",
 			},
 		},
 	})
@@ -40,10 +41,11 @@ func TestCapabilityRouterSandboxSimulate(t *testing.T) {
 	if resp.GetResponse().GetAdapterId() != "adapter-primary" {
 		t.Fatalf("expected primary adapter, got %s", resp.GetResponse().GetAdapterId())
 	}
+	assertNoCapabilityRegistryTenantLeak(t, resp)
 
 	err = env.router.ReportHealth(ctx, routerService.ReportHealthInput{
 		CapabilityID: "capabilities.text.translate",
-		TenantID:     "tenant-corex",
+		TenantUUID:   "tenant-corex",
 		AdapterID:    "adapter-primary",
 		Status:       "unhealthy",
 	})
@@ -51,11 +53,11 @@ func TestCapabilityRouterSandboxSimulate(t *testing.T) {
 		t.Fatalf("report health failed: %v", err)
 	}
 
-	resp2, err := env.client.Simulate(ctx, &capabilityRegistryPB.SandboxInvokeRequest{
+	resp2, err := env.client.Simulate(tenantCtx, &capabilityRegistryPB.SandboxInvokeRequest{
 		Request: &capabilityRegistryPB.InvokeRequest{
 			Capability: &capabilityRegistryPB.TenantScopedId{
 				CapabilityId: "capabilities.text.translate",
-				TenantId:     "tenant-corex",
+				TenantUuid:   "tenant-corex",
 			},
 		},
 	})
@@ -65,6 +67,7 @@ func TestCapabilityRouterSandboxSimulate(t *testing.T) {
 	if resp2.GetResponse().GetAdapterId() != "adapter-backup" {
 		t.Fatalf("expected backup adapter, got %s", resp2.GetResponse().GetAdapterId())
 	}
+	assertNoCapabilityRegistryTenantLeak(t, resp2)
 }
 
 type routerSandboxTestEnv struct {
@@ -81,7 +84,7 @@ func newRouterSandboxTestEnv(t *testing.T) *routerSandboxTestEnv {
 	registryRepo := testutil.NewMockRegistryRepository([]routerService.Registration{
 		{
 			CapabilityID: "capabilities.text.translate",
-			TenantID:     "tenant-corex",
+			TenantUUID:   "tenant-corex",
 			Status:       "published",
 			Adapters: []routerService.AdapterEndpoint{
 				{

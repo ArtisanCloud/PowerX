@@ -25,18 +25,13 @@ func TestCostGuardIntegration(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	env := ammatestenv.New(t)
+	env.MustInsertTenant(4001, ammatestenv.AgentModelHubTenantUUID)
 	deps := &appshared.Deps{DB: env.DB}
 
 	engine := gin.New()
 	public := engine.Group("/api")
 	protected := engine.Group("/api")
-	protected.Use(func(c *gin.Context) {
-		if c.GetHeader("Authorization") == "" {
-			c.AbortWithStatus(http.StatusUnauthorized)
-			return
-		}
-		c.Next()
-	})
+	protected.Use(ammatestenv.RequireAgentModelHubAuth())
 	agentmodelhubhttp.RegisterAPIRoutes(public, protected, deps)
 
 	ctx := context.Background()
@@ -48,7 +43,7 @@ func TestCostGuardIntegration(t *testing.T) {
 		},
 	})
 	_, err := costSvc.EnsureLedger(ctx, "default", costquota.LedgerInput{
-		TenantID:       "demo-tenant",
+		TenantUUID:     ammatestenv.AgentModelHubTenantUUID,
 		BudgetPeriod:   "monthly",
 		QuotaLimit:     1000,
 		DashboardScope: "tenant",
@@ -71,9 +66,8 @@ func TestCostGuardIntegration(t *testing.T) {
 	require.InDelta(t, 1150, resp.Data.Quotas[0].Usage, 0.1)
 
 	// Enforce throttle action via HTTP.
-	rr := authedRequest(engine, http.MethodPost, "/api/internal/provider-quotas/enforce", mustJSONBytes(t, map[string]any{
+	rr := authedRequest(t, engine, http.MethodPost, "/api/internal/provider-quotas/enforce", mustJSONBytes(t, map[string]any{
 		"env":         "default",
-		"tenantId":    "demo-tenant",
 		"action":      "throttle",
 		"reason":      "integration-test",
 		"ticketId":    "INC-4242",
@@ -82,16 +76,15 @@ func TestCostGuardIntegration(t *testing.T) {
 	require.Equal(t, http.StatusOK, rr.Code)
 
 	var ledger model.CostQuotaLedger
-	require.NoError(t, env.DB.Where("tenant_id = ?", "demo-tenant").First(&ledger).Error)
+	require.NoError(t, env.DB.Where("tenant_uuid = ?", ammatestenv.AgentModelHubTenantUUID).First(&ledger).Error)
 	require.Equal(t, "throttle", ledger.EnforcementState["action"])
 	require.Equal(t, "integration-test", ledger.EnforcementState["reason"])
 }
 
 func reportUsage(t *testing.T, engine *gin.Engine, delta float64) {
 	t.Helper()
-	rr := authedRequest(engine, http.MethodPost, "/api/internal/provider-usage/report", mustJSONBytes(t, map[string]any{
+	rr := authedRequest(t, engine, http.MethodPost, "/api/internal/provider-usage/report", mustJSONBytes(t, map[string]any{
 		"env":          "default",
-		"tenantId":     "demo-tenant",
 		"events":       []map[string]any{{"costUsd": delta}},
 		"budgetPeriod": "monthly",
 	}))
@@ -100,7 +93,7 @@ func reportUsage(t *testing.T, engine *gin.Engine, delta float64) {
 
 func fetchQuotas(t *testing.T, engine *gin.Engine) quotaResponse {
 	t.Helper()
-	rr := authedRequest(engine, http.MethodGet, "/api/internal/provider-quotas?tenantId=demo-tenant", nil)
+	rr := authedRequest(t, engine, http.MethodGet, "/api/internal/provider-quotas", nil)
 	require.Equal(t, http.StatusOK, rr.Code)
 	var resp quotaResponse
 	require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &resp))
@@ -108,7 +101,7 @@ func fetchQuotas(t *testing.T, engine *gin.Engine) quotaResponse {
 	return resp
 }
 
-func authedRequest(engine *gin.Engine, method, path string, body []byte) *httptest.ResponseRecorder {
+func authedRequest(t *testing.T, engine *gin.Engine, method, path string, body []byte) *httptest.ResponseRecorder {
 	var reader *bytes.Reader
 	if body != nil {
 		reader = bytes.NewReader(body)
@@ -120,9 +113,7 @@ func authedRequest(engine *gin.Engine, method, path string, body []byte) *httpte
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
-	rr := httptest.NewRecorder()
-	engine.ServeHTTP(rr, req)
-	return rr
+	return serveAgentModelHubRequest(t, engine, req)
 }
 
 func mustJSONBytes(t *testing.T, payload any) []byte {
@@ -137,8 +128,8 @@ func mustJSONBytes(t *testing.T, payload any) []byte {
 type quotaResponse struct {
 	Code int `json:"code"`
 	Data struct {
-		TenantID string           `json:"tenantId"`
-		Quotas   []quotaEntryResp `json:"quotas"`
+		TenantUUID string           `json:"tenant_uuid"`
+		Quotas     []quotaEntryResp `json:"quotas"`
 	} `json:"data"`
 }
 

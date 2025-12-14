@@ -10,11 +10,11 @@ import (
 // ErrRouteNotAccessible 表示路由不存在或不可访问。
 type ErrRouteNotAccessible struct {
 	Slug     string
-	TenantID string
+	TenantUUID string
 }
 
 func (e ErrRouteNotAccessible) Error() string {
-	return fmt.Sprintf("integration gateway: route %s inaccessible for tenant %s", e.Slug, e.TenantID)
+	return fmt.Sprintf("integration gateway: route %s inaccessible for tenant %s", e.Slug, e.TenantUUID)
 }
 
 // ErrChannelDisabled 表示指定通道未启用。
@@ -30,13 +30,13 @@ func (e ErrChannelDisabled) Error() string {
 // ErrToolGrantDenied 表示 Tool Grant 校验失败。
 type ErrToolGrantDenied struct {
 	RouteID  uuid.UUID
-	TenantID string
+	TenantUUID string
 	Grants   []string
 	Reason   string
 }
 
 func (e ErrToolGrantDenied) Error() string {
-	return fmt.Sprintf("integration gateway: tool grant denied for tenant %s route %s", e.TenantID, e.RouteID)
+	return fmt.Sprintf("integration gateway: tool grant denied for tenant %s route %s", e.TenantUUID, e.RouteID)
 }
 
 // RateLimitError 封装限流失败的元信息。

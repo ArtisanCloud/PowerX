@@ -30,10 +30,8 @@ func TestTriggerIngestionHTTP(t *testing.T) {
 		}
 		payload, _ := json.Marshal(body)
 		req := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/api/admin/knowledge-spaces/%s/ingestion-jobs", space.UUID), bytes.NewReader(payload))
-		req.Header.Set("Authorization", "Bearer token")
 		req.Header.Set("Content-Type", "application/json")
-		resp := httptest.NewRecorder()
-		engine.ServeHTTP(resp, req)
+		resp := serveKnowledgeRequest(t, engine, req, env.TenantUUID().String())
 		require.Equal(t, http.StatusAccepted, resp.Code)
 
 		var apiResp struct {
@@ -56,10 +54,8 @@ func TestTriggerIngestionHTTP(t *testing.T) {
 		}
 		payload, _ := json.Marshal(body)
 		req := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/api/admin/knowledge-spaces/%s/ingestion-jobs", uuid.New()), bytes.NewReader(payload))
-		req.Header.Set("Authorization", "Bearer token")
 		req.Header.Set("Content-Type", "application/json")
-		resp := httptest.NewRecorder()
-		engine.ServeHTTP(resp, req)
+		resp := serveKnowledgeRequest(t, engine, req, env.TenantUUID().String())
 		require.Equal(t, http.StatusNotFound, resp.Code)
 	})
 }

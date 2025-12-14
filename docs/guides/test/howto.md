@@ -29,7 +29,7 @@
 1. **宿主模拟器热更新回路**  
    ```bash
    go run cmd/px/main.go host start --api http://localhost:8077/api --token "$POWERX_ADMIN_TOKEN" --plugin-id com.powerx.demo
-   px-plugin dev --watch --host-api http://localhost:8077/api --token "$POWERX_ADMIN_TOKEN" --tenant-id 101 --developer-id 2025 --artifact ./dist/plugin.zip
+  px-plugin dev --watch --host-api http://localhost:8077/api --token "$POWERX_ADMIN_TOKEN" --tenant-uuid 101 --developer-id 2025 --artifact ./dist/plugin.zip
    ```
    到 Prometheus 中确认 `debug.hot_reload.duration_ms` 等指标被写入。
 

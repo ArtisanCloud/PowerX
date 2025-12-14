@@ -18,15 +18,15 @@ func NewMemoryRepository() *MemoryRepository {
 	return &MemoryRepository{records: make(map[string]map[string]HealthProbeRecord)}
 }
 
-func memoryKey(capabilityID, tenantID string) string {
-	return tenantID + "::" + capabilityID
+func memoryKey(capabilityID, tenantUUID string) string {
+	return tenantUUID + "::" + capabilityID
 }
 
 // SaveProbeResult 存储最新健康探测结果。
 func (r *MemoryRepository) SaveProbeResult(_ context.Context, _ *gorm.DB, result HealthProbeRecord) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	key := memoryKey(result.CapabilityID, result.TenantID)
+	key := memoryKey(result.CapabilityID, result.TenantUUID)
 	adapters := r.records[key]
 	if adapters == nil {
 		adapters = make(map[string]HealthProbeRecord)
@@ -37,10 +37,10 @@ func (r *MemoryRepository) SaveProbeResult(_ context.Context, _ *gorm.DB, result
 }
 
 // GetLatest 返回指定能力的最新健康探测结果。
-func (r *MemoryRepository) GetLatest(_ context.Context, _ *gorm.DB, capabilityID, tenantID string) ([]HealthProbeRecord, error) {
+func (r *MemoryRepository) GetLatest(_ context.Context, _ *gorm.DB, capabilityID, tenantUUID string) ([]HealthProbeRecord, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	key := memoryKey(capabilityID, tenantID)
+	key := memoryKey(capabilityID, tenantUUID)
 	adapters := r.records[key]
 	if len(adapters) == 0 {
 		return nil, nil

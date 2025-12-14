@@ -3,6 +3,7 @@ package setting
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	dbsetting "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/setting"
@@ -23,11 +24,13 @@ func (r *TLSCertRefRepository) with(ctx context.Context) *gorm.DB {
 	return db
 }
 
-// 可通过 (tenant_id IS NOT DISTINCT FROM ?) 做 NULL 安全对比（系统级 vs 租户级）
-func (r *TLSCertRefRepository) FindByKindRef(ctx context.Context, tenantID *uint64, kind, ref string) (*dbsetting.TLSCertRef, error) {
+// FindByKindRef 根据租户 Scope + kind/ref 查找证书引用；空 Scope 匹配系统级证书。
+func (r *TLSCertRefRepository) FindByKindRef(ctx context.Context, scope TenantScope, kind, ref string) (*dbsetting.TLSCertRef, error) {
 	var m dbsetting.TLSCertRef
-	err := r.with(ctx).
-		Where("(tenant_id IS NOT DISTINCT FROM ?) AND kind = ? AND ref = ?", tenantID, kind, ref).
+	kind = strings.TrimSpace(kind)
+	ref = strings.TrimSpace(ref)
+	err := scope.apply(r.with(ctx)).
+		Where("kind = ? AND ref = ?", kind, ref).
 		First(&m).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -38,11 +41,26 @@ func (r *TLSCertRefRepository) FindByKindRef(ctx context.Context, tenantID *uint
 	return &m, nil
 }
 
+func (r *TLSCertRefRepository) FindByTenantUUID(ctx context.Context, tenantUUID, kind, ref string) (*dbsetting.TLSCertRef, error) {
+	var err error
+	tenantUUID, err = canonicalTenantUUIDStrict(tenantUUID)
+	if err != nil {
+		return nil, err
+	}
+	return r.FindByKindRef(ctx, TenantScope{TenantUUID: tenantUUID}, kind, ref)
+}
+
+func (r *TLSCertRefRepository) FindSystemCert(ctx context.Context, kind, ref string) (*dbsetting.TLSCertRef, error) {
+	return r.FindByKindRef(ctx, TenantScope{}, kind, ref)
+}
+
 func (r *TLSCertRefRepository) Create(ctx context.Context, m *dbsetting.TLSCertRef) error {
+	normalizeTLSCertRef(m)
 	return r.with(ctx).Create(m).Error
 }
 
 func (r *TLSCertRefRepository) Update(ctx context.Context, m *dbsetting.TLSCertRef) error {
+	normalizeTLSCertRef(m)
 	return r.with(ctx).Save(m).Error
 }
 
@@ -59,8 +77,15 @@ func (r *TLSCertRefRepository) ListExpiringWithin(ctx context.Context, within ti
 }
 
 func (r *TLSCertRefRepository) Upsert(ctx context.Context, m *dbsetting.TLSCertRef) error {
+	normalizeTLSCertRef(m)
 	return r.with(ctx).Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: "tenant_id"}, {Name: "kind"}, {Name: "ref"}},
+		Columns:   []clause.Column{{Name: "tenant_uuid"}, {Name: "kind"}, {Name: "ref"}},
 		DoUpdates: clause.AssignmentColumns([]string{"subject", "fingerprint", "not_before", "not_after", "managed_by_acme", "updated_at"}),
 	}).Create(m).Error
+}
+
+func normalizeTLSCertRef(m *dbsetting.TLSCertRef) {
+	m.TenantUUID = canonicalTenantUUIDAllowEmpty(m.TenantUUID)
+	m.Kind = strings.TrimSpace(m.Kind)
+	m.Ref = strings.TrimSpace(m.Ref)
 }

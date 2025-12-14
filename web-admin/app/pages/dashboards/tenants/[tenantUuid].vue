@@ -5,7 +5,7 @@
     >
       <div>
         <h1 class="text-lg font-semibold text-[var(--text-primary)]">
-          {{ t("dashboards.tenantCost.title", { tenant: tenantId }) }}
+          {{ t("dashboards.tenantCost.title", { tenant: tenantUuid }) }}
         </h1>
         <p class="text-sm text-[var(--text-secondary)]">
           {{ t("dashboards.tenantCost.environmentLabel", { env: envStore.currentEnvLabel }) }}
@@ -127,7 +127,7 @@ const costStore = useCostQuotaStore();
 const { quotas, loading, error, lastFetchedAt } = storeToRefs(costStore);
 const { t, locale } = useI18n({ useScope: "global" });
 
-const tenantId = computed(() => String(route.params.tenantId || ""));
+const tenantUuid = computed(() => String(route.params.tenantUuid || ""));
 
 const quotaColumns = computed(() => [
   { key: "provider", label: t("dashboards.tenantCost.columns.provider") },
@@ -186,9 +186,9 @@ const lastSynced = computed(() => {
 });
 
 const refresh = async () => {
-  if (!tenantId.value) return;
+  if (!tenantUuid.value) return;
   try {
-    await costStore.fetchQuotas(envStore.currentEnv, tenantId.value);
+    await costStore.fetchQuotas(envStore.currentEnv, tenantUuid.value);
   } catch (err: any) {
     toast.add({
       color: "red",
@@ -199,7 +199,7 @@ const refresh = async () => {
 };
 
 watch(
-  () => [envStore.currentEnv, tenantId.value],
+  () => [envStore.currentEnv, tenantUuid.value],
   () => {
     refresh();
   },

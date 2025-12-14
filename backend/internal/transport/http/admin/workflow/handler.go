@@ -28,7 +28,6 @@ func NewHandler(svc *workflow.Service) *Handler {
 
 // CreateDefinitionRequest DTO.
 type CreateDefinitionRequest struct {
-	TenantID           uint64                    `json:"tenant_id" validate:"required"`
 	Name               string                    `json:"name" validate:"required"`
 	Description        string                    `json:"description"`
 	CreatedBy          string                    `json:"created_by" validate:"omitempty,uuid4"`
@@ -41,7 +40,6 @@ type CreateDefinitionRequest struct {
 
 // PublishDefinitionRequest DTO.
 type PublishDefinitionRequest struct {
-	TenantID    uint64 `json:"tenant_id" validate:"required"`
 	Version     int32  `json:"version"`
 	PublishedBy string `json:"published_by" validate:"omitempty,uuid4"`
 	ChangeNote  string `json:"change_note"`
@@ -49,7 +47,6 @@ type PublishDefinitionRequest struct {
 
 // StartInstanceRequest DTO.
 type StartInstanceRequest struct {
-	TenantID          uint64            `json:"tenant_id" validate:"required"`
 	DefinitionID      string            `json:"definition_id" validate:"required,uuid4"`
 	DefinitionVersion int32             `json:"definition_version"`
 	Initiator         string            `json:"initiator" validate:"omitempty,uuid4"`
@@ -59,7 +56,6 @@ type StartInstanceRequest struct {
 }
 
 type ControlInstanceRequest struct {
-	TenantID     uint64         `json:"tenant_id" validate:"required"`
 	Action       string         `json:"action" validate:"required"`
 	StepID       string         `json:"step_id"`
 	AssignmentID uint64         `json:"assignment_id"`
@@ -89,8 +85,13 @@ func (h *Handler) CreateDefinition(c *gin.Context) {
 		}
 	}
 
+	tenantUUID, ok := requireTenantContext(c)
+	if !ok {
+		return
+	}
+
 	definition, err := h.svc.CreateDefinition(c.Request.Context(), workflow.CreateDefinitionInput{
-		TenantID:           req.TenantID,
+		TenantUUID:         tenantUUID,
 		Name:               strings.TrimSpace(req.Name),
 		Description:        strings.TrimSpace(req.Description),
 		CreatedBy:          createdBy,
@@ -105,7 +106,7 @@ func (h *Handler) CreateDefinition(c *gin.Context) {
 		return
 	}
 
-	dto.ResponseSuccessWithStatus(c, http.StatusCreated, mapDefinition(definition))
+	dto.ResponseSuccessWithStatus(c, http.StatusCreated, mapDefinition(definition, tenantUUID))
 }
 
 func (h *Handler) PublishDefinition(c *gin.Context) {
@@ -134,8 +135,13 @@ func (h *Handler) PublishDefinition(c *gin.Context) {
 		}
 	}
 
+	tenantUUID, ok := requireTenantContext(c)
+	if !ok {
+		return
+	}
+
 	result, err := h.svc.PublishDefinition(c.Request.Context(), workflow.PublishDefinitionInput{
-		TenantID:       req.TenantID,
+		TenantUUID:     tenantUUID,
 		DefinitionUUID: definitionUUID,
 		Version:        req.Version,
 		PublishedBy:    publisher,
@@ -146,7 +152,7 @@ func (h *Handler) PublishDefinition(c *gin.Context) {
 		return
 	}
 
-	dto.ResponseSuccess(c, mapDefinition(result))
+	dto.ResponseSuccess(c, mapDefinition(result, tenantUUID))
 }
 
 func (h *Handler) ListDefinitions(c *gin.Context) {
@@ -155,9 +161,8 @@ func (h *Handler) ListDefinitions(c *gin.Context) {
 		return
 	}
 
-	tenantID, err := strconv.ParseUint(c.Query("tenant_id"), 10, 64)
-	if err != nil || tenantID == 0 {
-		dto.RespondErrorFrom(c, dto.NewBadRequest("tenant_id is required", err))
+	tenantUUID, ok := requireTenantContext(c)
+	if !ok {
 		return
 	}
 
@@ -166,7 +171,7 @@ func (h *Handler) ListDefinitions(c *gin.Context) {
 	limit, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
 	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
 
-	definitions, total, err := h.svc.ListDefinitions(c.Request.Context(), uint64(tenantID), status, keyword, limit, offset)
+	definitions, total, err := h.svc.ListDefinitions(c.Request.Context(), tenantUUID, status, keyword, limit, offset)
 	if err != nil {
 		dto.RespondErrorFrom(c, dto.NewBadRequest("list definitions failed", err))
 		return
@@ -174,7 +179,7 @@ func (h *Handler) ListDefinitions(c *gin.Context) {
 
 	items := make([]map[string]any, 0, len(definitions))
 	for i := range definitions {
-		items = append(items, mapDefinition(&definitions[i]))
+		items = append(items, mapDefinition(&definitions[i], tenantUUID))
 	}
 
 	dto.ResponseSuccess(c, map[string]any{
@@ -189,9 +194,8 @@ func (h *Handler) GetDefinition(c *gin.Context) {
 		return
 	}
 
-	tenantID, err := strconv.ParseUint(c.Query("tenant_id"), 10, 64)
-	if err != nil || tenantID == 0 {
-		dto.RespondErrorFrom(c, dto.NewBadRequest("tenant_id is required", err))
+	tenantUUID, ok := requireTenantContext(c)
+	if !ok {
 		return
 	}
 
@@ -212,13 +216,13 @@ func (h *Handler) GetDefinition(c *gin.Context) {
 		versionPtr = &tmp
 	}
 
-	definition, err := h.svc.GetDefinition(c.Request.Context(), uint64(tenantID), definitionUUID, versionPtr)
+	definition, err := h.svc.GetDefinition(c.Request.Context(), tenantUUID, definitionUUID, versionPtr)
 	if err != nil {
 		dto.RespondErrorFrom(c, dto.NewNotFound("definition not found", err))
 		return
 	}
 
-	dto.ResponseSuccess(c, mapDefinition(definition))
+	dto.ResponseSuccess(c, mapDefinition(definition, tenantUUID))
 }
 
 func (h *Handler) StartInstance(c *gin.Context) {
@@ -239,8 +243,13 @@ func (h *Handler) StartInstance(c *gin.Context) {
 		return
 	}
 
+	tenantUUID, ok := requireTenantContext(c)
+	if !ok {
+		return
+	}
+
 	instance, err := h.svc.StartInstance(c.Request.Context(), workflow.StartInstanceInput{
-		TenantID:          req.TenantID,
+		TenantUUID:        tenantUUID,
 		DefinitionUUID:    defID,
 		DefinitionVersion: req.DefinitionVersion,
 		Input:             req.Input,
@@ -252,7 +261,7 @@ func (h *Handler) StartInstance(c *gin.Context) {
 		return
 	}
 
-	dto.ResponseSuccessWithStatus(c, http.StatusAccepted, mapInstance(instance, nil))
+	dto.ResponseSuccessWithStatus(c, http.StatusAccepted, mapInstance(instance, nil, tenantUUID))
 }
 
 func (h *Handler) GetInstance(c *gin.Context) {
@@ -261,9 +270,8 @@ func (h *Handler) GetInstance(c *gin.Context) {
 		return
 	}
 
-	tenantID, err := strconv.ParseUint(c.Query("tenant_id"), 10, 64)
-	if err != nil || tenantID == 0 {
-		dto.RespondErrorFrom(c, dto.NewBadRequest("tenant_id is required", err))
+	tenantUUID, ok := requireTenantContext(c)
+	if !ok {
 		return
 	}
 
@@ -275,13 +283,13 @@ func (h *Handler) GetInstance(c *gin.Context) {
 
 	includeSteps := c.DefaultQuery("include_steps", "false") == "true"
 
-	instance, records, err := h.svc.GetInstance(c.Request.Context(), uint64(tenantID), instanceUUID, includeSteps)
+	instance, records, err := h.svc.GetInstance(c.Request.Context(), tenantUUID, instanceUUID, includeSteps)
 	if err != nil {
 		dto.RespondErrorFrom(c, dto.NewNotFound("instance not found", err))
 		return
 	}
 
-	dto.ResponseSuccess(c, mapInstance(instance, records))
+	dto.ResponseSuccess(c, mapInstance(instance, records, tenantUUID))
 }
 
 func (h *Handler) ExportInstances(c *gin.Context) {
@@ -290,9 +298,8 @@ func (h *Handler) ExportInstances(c *gin.Context) {
 		return
 	}
 
-	tenantID, err := strconv.ParseUint(c.Query("tenant_id"), 10, 64)
-	if err != nil || tenantID == 0 {
-		dto.RespondErrorFrom(c, dto.NewBadRequest("tenant_id is required", err))
+	tenantUUID, ok := requireTenantContext(c)
+	if !ok {
 		return
 	}
 
@@ -331,7 +338,7 @@ func (h *Handler) ExportInstances(c *gin.Context) {
 
 	formatQuery := strings.ToLower(strings.TrimSpace(c.DefaultQuery("format", "csv")))
 	filter := workflow.ExportFilter{
-		TenantID:           tenantID,
+		TenantUUID:         tenantUUID,
 		DefinitionUUID:     definitionUUID,
 		State:              strings.TrimSpace(c.Query("state")),
 		CreatedFrom:        createdFromPtr,
@@ -353,7 +360,7 @@ func (h *Handler) ExportInstances(c *gin.Context) {
 			"definition_id":      row.DefinitionID,
 			"definition_version": row.DefinitionVersion,
 			"state":              row.State,
-			"tenant_id":          strconv.FormatUint(row.TenantID, 10),
+			"tenant_uuid":        row.TenantUUID,
 			"correlation_id":     row.CorrelationID,
 		}
 		if row.StartedAt != nil {
@@ -402,6 +409,11 @@ func (h *Handler) ControlInstance(c *gin.Context) {
 		return
 	}
 
+	tenantUUID, ok := requireTenantContext(c)
+	if !ok {
+		return
+	}
+
 	instanceUUID, err := uuid.Parse(c.Param("instanceId"))
 	if err != nil {
 		dto.RespondErrorFrom(c, dto.NewBadRequest("invalid instance id", err))
@@ -415,7 +427,7 @@ func (h *Handler) ControlInstance(c *gin.Context) {
 	}
 
 	updated, err := h.svc.ControlInstance(c.Request.Context(), workflow.ControlInstanceInput{
-		TenantID:     req.TenantID,
+		TenantUUID:   tenantUUID,
 		InstanceUUID: instanceUUID,
 		Action:       strings.ToLower(req.Action),
 		StepID:       req.StepID,
@@ -428,27 +440,27 @@ func (h *Handler) ControlInstance(c *gin.Context) {
 		return
 	}
 
-	inst, records, err := h.svc.GetInstance(c.Request.Context(), req.TenantID, instanceUUID, true)
+	inst, records, err := h.svc.GetInstance(c.Request.Context(), tenantUUID, instanceUUID, true)
 	if err != nil {
 		dto.RespondErrorFrom(c, dto.NewBadRequest("load instance failed", err))
 		return
 	}
 
 	if updated != nil {
-		dto.ResponseSuccess(c, mapInstance(updated, records))
+		dto.ResponseSuccess(c, mapInstance(updated, records, tenantUUID))
 		return
 	}
 
-	dto.ResponseSuccess(c, mapInstance(inst, records))
+	dto.ResponseSuccess(c, mapInstance(inst, records, tenantUUID))
 }
 
-func mapDefinition(def *modelworkflow.WorkflowDefinition) map[string]any {
+func mapDefinition(def *modelworkflow.WorkflowDefinition, tenantUUID string) map[string]any {
 	if def == nil {
 		return nil
 	}
 	return map[string]any{
 		"uuid":                   def.UUID.String(),
-		"tenant_id":              def.TenantID,
+		"tenant_uuid":            tenantUUID,
 		"name":                   def.Name,
 		"description":            def.Description,
 		"version":                def.Version,
@@ -466,14 +478,14 @@ func mapDefinition(def *modelworkflow.WorkflowDefinition) map[string]any {
 	}
 }
 
-func mapInstance(inst *modelworkflow.WorkflowInstance, steps []modelworkflow.WorkflowStepRecord) map[string]any {
+func mapInstance(inst *modelworkflow.WorkflowInstance, steps []modelworkflow.WorkflowStepRecord, tenantUUID string) map[string]any {
 	if inst == nil {
 		return nil
 	}
 
 	payload := map[string]any{
 		"uuid":               inst.UUID.String(),
-		"tenant_id":          inst.TenantID,
+		"tenant_uuid":        tenantUUID,
 		"definition_uuid":    inst.DefinitionUUID.String(),
 		"definition_version": inst.DefinitionVersion,
 		"state":              inst.State,

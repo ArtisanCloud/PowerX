@@ -3,6 +3,7 @@ package sandbox
 import (
 	"context"
 	"errors"
+	"strings"
 
 	registry "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/registry"
 	router "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/router"
@@ -39,8 +40,8 @@ func NewService(opts ServiceOptions) *Service {
 }
 
 // SimulateInvoke 使用现有注册信息模拟路由结果，不影响真实路由状态。
-func (s *Service) SimulateInvoke(ctx context.Context, capabilityID, tenantID string, req router.InvokeRequest, override *registry.Registration) (router.InvokeResult, error) {
-	if capabilityID == "" || tenantID == "" {
+func (s *Service) SimulateInvoke(ctx context.Context, capabilityID, tenantUUID string, req router.InvokeRequest, override *registry.Registration) (router.InvokeResult, error) {
+	if capabilityID == "" || tenantUUID == "" {
 		return router.InvokeResult{}, errors.New("sandbox: capability/tenant required")
 	}
 	var reg registry.Registration
@@ -50,16 +51,16 @@ func (s *Service) SimulateInvoke(ctx context.Context, capabilityID, tenantID str
 		if reg.CapabilityID == "" {
 			reg.CapabilityID = capabilityID
 		}
-		if reg.TenantID == "" {
-			reg.TenantID = tenantID
+		if strings.TrimSpace(reg.TenantUUID) == "" {
+			reg.TenantUUID = tenantUUID
 		}
 	} else {
-		reg, err = s.registryRepo.GetLatest(ctx, nil, capabilityID, tenantID)
+		reg, err = s.registryRepo.GetLatest(ctx, nil, capabilityID, tenantUUID)
 		if err != nil {
 			return router.InvokeResult{}, err
 		}
 	}
 	req.CapabilityID = capabilityID
-	req.TenantID = tenantID
+	req.TenantUUID = tenantUUID
 	return s.routerSvc.Simulate(ctx, reg, req)
 }

@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/ArtisanCloud/PowerX/internal/service/plugin_release/distribution"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/gin-gonic/gin"
 )
@@ -22,7 +23,7 @@ func newOfflineImportHandler(svc *distribution.Service) *offlineImportHandler {
 }
 
 type offlineImportRequest struct {
-	TenantID        string `json:"tenantId"`
+	TenantUUID      string `json:"tenant_uuid"`
 	PackageURI      string `json:"packageUri" binding:"required"`
 	Checksum        string `json:"checksum" binding:"required"`
 	LicenseAccepted bool   `json:"licenseAccepted" binding:"required"`
@@ -44,17 +45,26 @@ func (h *offlineImportHandler) startImport(c *gin.Context) {
 		dto.ResponseValidationError(c, err)
 		return
 	}
-	tenantID := strings.TrimSpace(req.TenantID)
-	if tenantID == "" {
-		tenantID = strings.TrimSpace(c.GetHeader("X-Tenant-ID"))
+	tenantUUID := strings.TrimSpace(req.TenantUUID)
+	if tenantUUID == "" {
+		if ctxUUID := reqctx.TenantUUIDFromGin(c); ctxUUID != "" {
+			tenantUUID = ctxUUID
+		}
 	}
-	if tenantID == "" {
-		dto.ResponseError(c, http.StatusBadRequest, "tenantId is required", nil)
+	if tenantUUID == "" {
+		tenantUUID = strings.TrimSpace(c.GetHeader("X-Tenant-UUID"))
+	}
+	// 向后兼容：若仍发送 X-Tenant-ID（旧字段），暂时允许透传
+	if tenantUUID == "" {
+		tenantUUID = strings.TrimSpace(c.GetHeader("X-Tenant-ID"))
+	}
+	if tenantUUID == "" {
+		dto.ResponseError(c, http.StatusBadRequest, "tenant_uuid is required", nil)
 		return
 	}
 
 	job, err := h.svc.StartOfflineImport(c.Request.Context(), distribution.OfflineImportInput{
-		TenantID:        tenantID,
+		TenantUUID:      tenantUUID,
 		PackageURI:      req.PackageURI,
 		Checksum:        req.Checksum,
 		DryRun:          req.DryRun,

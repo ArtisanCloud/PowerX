@@ -23,7 +23,7 @@ func TestProvisioningFlowEndToEnd(t *testing.T) {
 
 	ctx := context.Background()
 	createInput := ksvc.CreateSpaceInput{
-		TenantID:       env.TenantID(),
+		TenantUUID:     env.TenantUUID().String(),
 		SpaceName:      "integration-space",
 		DepartmentCode: "RND",
 		QuotaCPU:       8,
@@ -59,7 +59,7 @@ func TestProvisioningFlowEndToEnd(t *testing.T) {
 		go func(idx int) {
 			defer wg.Done()
 			_, err := service.CreateSpace(ctx, ksvc.CreateSpaceInput{
-				TenantID:       env.TenantID(),
+				TenantUUID:     env.TenantUUID().String(),
 				SpaceName:      parallelName,
 				DepartmentCode: "RND",
 				QuotaCPU:       4,

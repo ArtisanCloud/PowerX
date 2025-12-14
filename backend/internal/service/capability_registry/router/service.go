@@ -79,27 +79,27 @@ func (s *Service) Invoke(ctx context.Context, in InvokeRequest) (_ InvokeResult,
 	if s.registryRepo == nil {
 		return InvokeResult{}, errors.New("capability router: registry repository missing")
 	}
-	if in.CapabilityID == "" || in.TenantID == "" {
+	if in.CapabilityID == "" || in.TenantUUID == "" {
 		return InvokeResult{}, errors.New("capability router: capability/tenant required")
 	}
 
 	ctx, _ = domain.EnsureTraceContext(ctx)
 	attributes := domain.SpanAttributes(ctx, map[string]string{
 		"capability.id": in.CapabilityID,
-		"tenant.id":     in.TenantID,
+		"tenant.uuid":   in.TenantUUID,
 		"router.mode":   "invoke",
 	})
 	spanCtx, span := s.instrument.Tracer().StartSpan(ctx, "capability.router.invoke", attributes)
 	defer span.End(err)
 
-	reg, err := s.registryRepo.GetLatest(spanCtx, nil, in.CapabilityID, in.TenantID)
+	reg, err := s.registryRepo.GetLatest(spanCtx, nil, in.CapabilityID, in.TenantUUID)
 	if err != nil {
-		s.metrics.ObserveInvocation(spanCtx, "invoke", in.CapabilityID, in.TenantID, "", "", 0, false, err)
+		s.metrics.ObserveInvocation(spanCtx, "invoke", in.CapabilityID, in.TenantUUID, "", "", 0, false, err)
 		return InvokeResult{}, err
 	}
 	result, err := s.routeWithRegistration(spanCtx, reg, in, true)
 	if err != nil {
-		s.metrics.ObserveInvocation(spanCtx, "invoke", in.CapabilityID, in.TenantID, "", "", 0, false, err)
+		s.metrics.ObserveInvocation(spanCtx, "invoke", in.CapabilityID, in.TenantUUID, "", "", 0, false, err)
 	}
 	return result, err
 }
@@ -109,20 +109,20 @@ func (s *Service) Simulate(ctx context.Context, reg registry.Registration, in In
 	if in.CapabilityID == "" {
 		in.CapabilityID = reg.CapabilityID
 	}
-	if in.TenantID == "" {
-		in.TenantID = reg.TenantID
+	if in.TenantUUID == "" {
+		in.TenantUUID = tenantUUIDValue(reg)
 	}
 	ctx, _ = domain.EnsureTraceContext(ctx)
 	attributes := domain.SpanAttributes(ctx, map[string]string{
 		"capability.id": in.CapabilityID,
-		"tenant.id":     in.TenantID,
+		"tenant.uuid":   in.TenantUUID,
 		"router.mode":   "sandbox",
 	})
 	spanCtx, span := s.instrument.Tracer().StartSpan(ctx, "capability.router.simulate", attributes)
 	defer span.End(err)
 	result, err := s.routeWithRegistration(spanCtx, reg, in, false)
 	if err != nil {
-		s.metrics.ObserveInvocation(spanCtx, "sandbox", in.CapabilityID, in.TenantID, "", "", 0, false, err)
+		s.metrics.ObserveInvocation(spanCtx, "sandbox", in.CapabilityID, in.TenantUUID, "", "", 0, false, err)
 	}
 	return result, err
 }
@@ -158,7 +158,7 @@ func (s *Service) routeWithRegistration(ctx context.Context, reg registry.Regist
 	}
 
 	if mutate && in.StickyKey != "" {
-		key := stickyKeyFor(in.TenantID, in.CapabilityID, in.StickyKey)
+		key := stickyKeyFor(in.TenantUUID, in.CapabilityID, in.StickyKey)
 		s.stickyMu.Lock()
 		s.stickyMap[key] = selection.adapterID
 		s.stickyMu.Unlock()
@@ -182,11 +182,11 @@ func (s *Service) routeWithRegistration(ctx context.Context, reg registry.Regist
 
 // ReportHealth 记录健康状态。
 func (s *Service) ReportHealth(ctx context.Context, in ReportHealthInput) error {
-	if in.CapabilityID == "" || in.TenantID == "" || in.AdapterID == "" {
+	if in.CapabilityID == "" || in.TenantUUID == "" || in.AdapterID == "" {
 		return errors.New("capability router: invalid health input")
 	}
 
-	key := routingKey(in.TenantID, in.CapabilityID)
+	key := routingKey(in.TenantUUID, in.CapabilityID)
 	s.stateMu.Lock()
 	defer s.stateMu.Unlock()
 	adapterMap := s.adapterState[key]
@@ -210,14 +210,14 @@ func (s *Service) ReportHealth(ctx context.Context, in ReportHealthInput) error 
 	}
 
 	if status == "unhealthy" {
-		s.clearStickyAdapter(routingKey(in.TenantID, in.CapabilityID), in.AdapterID)
+		s.clearStickyAdapter(routingKey(in.TenantUUID, in.CapabilityID), in.AdapterID)
 	}
 
 	var repoErr error
 	if s.healthRepo != nil {
 		record := HealthProbeRecord{
 			CapabilityID: in.CapabilityID,
-			TenantID:     in.TenantID,
+			TenantUUID:   in.TenantUUID,
 			AdapterID:    in.AdapterID,
 			Status:       status,
 			Reason:       in.Reason,
@@ -227,11 +227,11 @@ func (s *Service) ReportHealth(ctx context.Context, in ReportHealthInput) error 
 		}
 		repoErr = s.healthRepo.SaveProbeResult(ctx, nil, record)
 		if repoErr != nil {
-			s.metrics.ObserveHealthReport(ctx, in.CapabilityID, in.TenantID, in.AdapterID, status, repoErr)
+			s.metrics.ObserveHealthReport(ctx, in.CapabilityID, in.TenantUUID, in.AdapterID, status, repoErr)
 			return repoErr
 		}
 	}
-	s.metrics.ObserveHealthReport(ctx, in.CapabilityID, in.TenantID, in.AdapterID, status, repoErr)
+	s.metrics.ObserveHealthReport(ctx, in.CapabilityID, in.TenantUUID, in.AdapterID, status, repoErr)
 	return nil
 }
 
@@ -254,7 +254,7 @@ type adapterSelection struct {
 }
 
 func (s *Service) selectAdapter(ctx context.Context, reg registry.Registration, in InvokeRequest) (adapterSelection, error) {
-	key := routingKey(in.TenantID, in.CapabilityID)
+	key := routingKey(in.TenantUUID, in.CapabilityID)
 	adapter := adapterSelection{}
 	adapters := orderedAdapters(reg)
 
@@ -295,7 +295,7 @@ func (s *Service) currentSticky(in InvokeRequest, key string) string {
 	if in.StickyKey == "" {
 		return ""
 	}
-	mapKey := stickyKeyFor(in.TenantID, in.CapabilityID, in.StickyKey)
+	mapKey := stickyKeyFor(in.TenantUUID, in.CapabilityID, in.StickyKey)
 	s.stickyMu.RLock()
 	stickyID = s.stickyMap[mapKey]
 	s.stickyMu.RUnlock()
@@ -319,7 +319,7 @@ func (s *Service) publishEvent(ctx context.Context, in InvokeRequest, result Inv
 	}
 	payload := map[string]any{
 		"capability_id": in.CapabilityID,
-		"tenant_id":     in.TenantID,
+		"tenant_uuid":   in.TenantUUID,
 		"adapter_id":    result.AdapterID,
 		"fallback_used": result.FallbackUsed,
 		"latency_ms":    result.Latency.Milliseconds(),
@@ -338,19 +338,24 @@ func (s *Service) observeInvocation(ctx context.Context, reg registry.Registrati
 	if !mutate {
 		mode = "sandbox"
 	}
-	s.metrics.ObserveInvocation(ctx, mode, reg.CapabilityID, reg.TenantID, result.AdapterID, result.Transport, result.Latency, result.FallbackUsed, observeErr)
+	tenantUUID := tenantUUIDValue(reg)
+	s.metrics.ObserveInvocation(ctx, mode, reg.CapabilityID, tenantUUID, result.AdapterID, result.Transport, result.Latency, result.FallbackUsed, observeErr)
 	if result.FallbackUsed || (observeErr != nil && errors.Is(observeErr, ErrNoAdapter)) {
 		reason := fallbackReasonFromSelection(selection)
-		s.metrics.ObserveFallback(ctx, reg.CapabilityID, reg.TenantID, reason)
+		s.metrics.ObserveFallback(ctx, reg.CapabilityID, tenantUUID, reason)
 	}
 }
 
-func routingKey(tenantID, capabilityID string) string {
-	return tenantID + "::" + capabilityID
+func routingKey(tenantUUID, capabilityID string) string {
+	return tenantUUID + "::" + capabilityID
 }
 
-func stickyKeyFor(tenantID, capabilityID, sticky string) string {
-	return tenantID + "::" + capabilityID + "::" + sticky
+func stickyKeyFor(tenantUUID, capabilityID, sticky string) string {
+	return tenantUUID + "::" + capabilityID + "::" + sticky
+}
+
+func tenantUUIDValue(reg registry.Registration) string {
+	return strings.TrimSpace(reg.TenantUUID)
 }
 
 func preferredEndpoint(ep registry.AdapterEndpoint) string {

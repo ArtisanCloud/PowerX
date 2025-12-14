@@ -16,6 +16,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const workflowDefinitionTenantUUID = "0c60d880-6f9a-4e48-947c-6b2af9502bd7"
+
 func TestWorkflowDefinitionHTTPFlow(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	env := testenv.New(t)
@@ -23,13 +25,7 @@ func TestWorkflowDefinitionHTTPFlow(t *testing.T) {
 	engine := gin.New()
 	public := engine.Group("/api")
 	protected := engine.Group("/api")
-	protected.Use(func(c *gin.Context) {
-		if c.GetHeader("Authorization") == "" {
-			c.AbortWithStatus(http.StatusUnauthorized)
-			return
-		}
-		c.Next()
-	})
+	protected.Use(requireWorkflowAuth(workflowDefinitionTenantUUID))
 
 	deps := &shared.Deps{
 		Workflow: &shared.WorkflowDeps{
@@ -42,7 +38,6 @@ func TestWorkflowDefinitionHTTPFlow(t *testing.T) {
 	// Unauthorized request
 	rr := httptest.NewRecorder()
 	reqBody := map[string]any{
-		"tenant_id":   1001,
 		"name":        "http-demo",
 		"description": "workflow via http",
 		"steps": []map[string]any{
@@ -57,11 +52,9 @@ func TestWorkflowDefinitionHTTPFlow(t *testing.T) {
 	require.Equal(t, http.StatusUnauthorized, rr.Code)
 
 	// Create definition
-	rr = httptest.NewRecorder()
 	req = httptest.NewRequest(http.MethodPost, "/api/admin/workflows/definitions", bytes.NewReader(buf))
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer test")
-	engine.ServeHTTP(rr, req)
+	rr = serveWorkflowRequest(t, engine, req, workflowDefinitionTenantUUID)
 	require.Equal(t, http.StatusCreated, rr.Code)
 
 	var createResp struct {
@@ -71,25 +64,26 @@ func TestWorkflowDefinitionHTTPFlow(t *testing.T) {
 	require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &createResp))
 	definitionID, _ := createResp.Data["uuid"].(string)
 	require.NotEmpty(t, definitionID)
+	require.Equal(t, workflowDefinitionTenantUUID, createResp.Data["tenant_uuid"])
 
 	// Publish definition
-	publishPayload := map[string]any{
-		"tenant_id": 1001,
-	}
+	publishPayload := map[string]any{}
 	publishBody, _ := json.Marshal(publishPayload)
-	rr = httptest.NewRecorder()
 	req = httptest.NewRequest(http.MethodPost, "/api/admin/workflows/definitions/"+definitionID+"/publish", bytes.NewReader(publishBody))
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer test")
-	engine.ServeHTTP(rr, req)
+	rr = serveWorkflowRequest(t, engine, req, workflowDefinitionTenantUUID)
 	require.Equal(t, http.StatusOK, rr.Code)
 
 	// List definitions
-	rr = httptest.NewRecorder()
-	req = httptest.NewRequest(http.MethodGet, "/api/admin/workflows/definitions?tenant_id=1001", nil)
-	req.Header.Set("Authorization", "Bearer test")
-	engine.ServeHTTP(rr, req)
+	req = httptest.NewRequest(http.MethodGet, "/api/admin/workflows/definitions", nil)
+	rr = serveWorkflowRequest(t, engine, req, workflowDefinitionTenantUUID)
 	require.Equal(t, http.StatusOK, rr.Code)
+
+	missingHeaderReq := httptest.NewRequest(http.MethodGet, "/api/admin/workflows/definitions", nil)
+	missingHeaderReq.Header.Set("Authorization", "Bearer test")
+	missingResp := httptest.NewRecorder()
+	engine.ServeHTTP(missingResp, missingHeaderReq)
+	require.Equal(t, http.StatusUnauthorized, missingResp.Code)
 
 	var listResp struct {
 		Data map[string]any `json:"data"`

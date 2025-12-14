@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './fixtures/authenticatedTest'
 
 test.describe('知识空间向导', () => {
   test.beforeEach(async ({ page }) => {
@@ -29,7 +29,7 @@ test.describe('知识空间向导', () => {
           message: 'success',
           data: {
             spaceId: 'space-e2e-001',
-            tenantId: body.tenantId,
+            tenantUuid: body.tenantUuid,
             spaceName: body.spaceName,
             departmentCode: body.departmentCode,
             status: 'pending_iam',
@@ -45,7 +45,7 @@ test.describe('知识空间向导', () => {
 
     await page.goto('/knowledge-spaces/create')
 
-    await page.getByLabel(/租户 ID/i).fill('d86c5da9-35f4-4db8-9c2e-d879ed2b9e10')
+    await page.getByLabel(/租户 UUID/i).fill('d86c5da9-35f4-4db8-9c2e-d879ed2b9e10')
     await page.getByLabel(/空间名称/i).fill('ops-handbook')
     await page.getByLabel(/部门编码/i).fill('OPS-01')
 
@@ -67,6 +67,7 @@ test.describe('知识空间向导', () => {
     await expect(page.getByText(/SLA 计时/i)).toBeVisible()
 
     expect(capturedPayload).not.toBeNull()
+    expect(capturedPayload.tenantUuid).toBe('d86c5da9-35f4-4db8-9c2e-d879ed2b9e10')
     expect(capturedPayload.spaceName).toBe('ops-handbook')
     expect(capturedPayload.quotas.cpuCores).toBe(6)
     expect(capturedPayload.featureFlags).toContain('masking.audit')

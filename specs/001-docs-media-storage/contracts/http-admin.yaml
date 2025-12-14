@@ -190,7 +190,7 @@ components:
         maximum: 100
         default: 20
     Tenant:
-      name: X-Tenant-ID
+      name: X-Tenant-UUID
       in: header
       required: true
       schema:

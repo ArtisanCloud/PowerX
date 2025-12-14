@@ -10,6 +10,7 @@ import (
 	"time"
 
 	auditpkg "github.com/ArtisanCloud/PowerX/pkg/corex/audit"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	dbm "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/audit"
 	pxlog "github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"golang.org/x/mod/semver"
@@ -231,6 +232,7 @@ func (s *Service) emitAudit(ctx context.Context, operation, outcome, resourceID 
 	}
 	event := &dbm.AuditEvent{
 		OccurredAt:   s.now().UTC(),
+		TenantUUID:   strings.TrimSpace(reqctx.GetTenantUUID(ctx)),
 		Source:       "plugin_bootstrap",
 		Operation:    operation,
 		ResourceType: "plugin_bootstrap",

@@ -2,8 +2,12 @@
 package seed
 
 import (
+	"fmt"
+
 	agentm "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/model"
 	agentr "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/repository"
+	tenantmodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/tenant"
+	tenantrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/tenant"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
@@ -13,7 +17,13 @@ func SeedSystemDefaultAgent(db *gorm.DB) error {
 	ctx := seedCtx()
 	env := envOrDefault("POWERX_ENV", "dev")
 
-	tenantID := uint64(1) // ← 系统租户
+	tenantRepo := tenantrepo.NewTenantRepository(db)
+	sysTenant, err := tenantRepo.EnsureByKey(ctx, tenantmodel.SystemTenantKey, "System", tenantmodel.TenantPlanFree, tenantmodel.TenantTypeSystem)
+	if err != nil {
+		return fmt.Errorf("ensure system tenant: %w", err)
+	}
+	tenantUUID := sysTenant.UUID.String()
+
 	agentRepo := agentr.NewAgentRepository(db)
 	settingRepo := agentr.NewAgentSettingRepository(db)
 
@@ -23,7 +33,7 @@ func SeedSystemDefaultAgent(db *gorm.DB) error {
 	)
 
 	// 已存在直接返回（幂等）
-	if _, err := agentRepo.FindByScopeKey(ctx, env, &tenantID, agentKey); err == nil {
+	if _, err := agentRepo.FindByScopeKey(ctx, env, &tenantUUID, agentKey); err == nil {
 		return nil
 	} else if err != nil && err != gorm.ErrRecordNotFound {
 		return err
@@ -31,8 +41,8 @@ func SeedSystemDefaultAgent(db *gorm.DB) error {
 
 	// 组装 Agent（挂在系统租户 tenant_id=1）
 	a := &agentm.Agent{
-		Env:      env,
-		TenantID: &tenantID,
+		Env:        env,
+		TenantUUID: &tenantUUID,
 
 		Key:         agentKey,
 		Name:        agentName,
@@ -58,18 +68,19 @@ func SeedSystemDefaultAgent(db *gorm.DB) error {
 	}
 
 	// 用仓库 Upsert（租户级唯一：env + tenant_id + key）
-	if err := agentRepo.UpsertByScopeKey(ctx, env, &tenantID, a); err != nil {
+	if err := agentRepo.UpsertByScopeKey(ctx, env, &tenantUUID, a); err != nil {
 		return err
 	}
 
 	// 重新查询拿到 ID（避免 Upsert 未回填主键）
-	dbAgent, err := agentRepo.FindByScopeKey(ctx, env, &tenantID, agentKey)
+	dbAgent, err := agentRepo.FindByScopeKey(ctx, env, &tenantUUID, agentKey)
 	if err != nil {
 		return err
 	}
 
 	// 写入一条 Setting（不强制覆盖上游设置；健康状态占位）
 	as := &agentm.AgentSetting{
+		TenantUUID:    &tenantUUID,
 		AgentID:       dbAgent.ID,
 		Provider:      "", // 留空：按租户/系统默认解析
 		Model:         "",
@@ -79,7 +90,7 @@ func SeedSystemDefaultAgent(db *gorm.DB) error {
 		HealthStatus:  "unknown",
 		HealthInfo:    datatypes.JSONMap{},
 	}
-	if err := settingRepo.UpsertByAgent(ctx, env, &tenantID, as); err != nil {
+	if err := settingRepo.UpsertByAgent(ctx, env, &tenantUUID, as); err != nil {
 		return err
 	}
 

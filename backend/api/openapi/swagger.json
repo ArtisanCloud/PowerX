@@ -59,7 +59,7 @@
           "region": {
             "type": "string"
           },
-          "tenantId": {
+          "tenant_uuid": {
             "type": "string"
           },
           "webhookSigningKeyRef": {
@@ -67,7 +67,7 @@
           }
         },
         "required": [
-          "tenantId",
+          "tenant_uuid",
           "oauthRef",
           "webhookSigningKeyRef"
         ],
@@ -89,7 +89,7 @@
           "reason": {
             "type": "string"
           },
-          "tenantId": {
+          "tenant_uuid": {
             "type": "string"
           },
           "ticketId": {
@@ -97,7 +97,7 @@
           }
         },
         "required": [
-          "tenantId",
+          "tenant_uuid",
           "action"
         ],
         "type": "object"
@@ -217,7 +217,7 @@
             },
             "type": "array"
           },
-          "tenantId": {
+          "tenant_uuid": {
             "type": "string"
           }
         },
@@ -249,12 +249,12 @@
             "additionalProperties": true,
             "type": "object"
           },
-          "tenantId": {
+          "tenant_uuid": {
             "type": "string"
           }
         },
         "required": [
-          "tenantId",
+          "tenant_uuid",
           "taskContext"
         ],
         "type": "object"
@@ -372,12 +372,12 @@
           "environment": {
             "type": "string"
           },
-          "tenantId": {
+          "tenant_uuid": {
             "type": "string"
           }
         },
         "required": [
-          "tenantId",
+          "tenant_uuid",
           "environment"
         ],
         "type": "object"
@@ -408,12 +408,12 @@
           "providerId": {
             "type": "string"
           },
-          "tenantId": {
+          "tenant_uuid": {
             "type": "string"
           }
         },
         "required": [
-          "tenantId",
+          "tenant_uuid",
           "events"
         ],
         "type": "object"
@@ -600,7 +600,7 @@
         "parameters": [
           {
             "in": "query",
-            "name": "tenantId",
+            "name": "tenant_uuid",
             "required": true,
             "schema": {
               "type": "string"

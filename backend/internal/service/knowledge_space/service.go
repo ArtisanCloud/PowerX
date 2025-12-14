@@ -95,7 +95,7 @@ func (s *Service) AttachIngestion(ingestion *IngestionService) {
 
 // CreateSpaceInput describes provisioning parameters.
 type CreateSpaceInput struct {
-	TenantID       uuid.UUID
+	TenantUUID     string
 	SpaceName      string
 	DepartmentCode string
 	QuotaCPU       int
@@ -142,12 +142,12 @@ func (s *Service) retentionDeadline(now time.Time) time.Time {
 	return now.AddDate(0, s.cfg.DefaultRetentionMonths, 0)
 }
 
-func (s *Service) lockKey(tenant uuid.UUID) string {
-	return fmt.Sprintf("%s:%s", s.cfg.LockKeyPrefix, tenant.String())
+func (s *Service) lockKey(tenantUUID string) string {
+	return fmt.Sprintf("%s:%s", s.cfg.LockKeyPrefix, tenantUUID)
 }
 
-func (s *Service) acquireLocalLock(tenant uuid.UUID) func() {
-	key := tenant.String()
+func (s *Service) acquireLocalLock(tenantUUID string) func() {
+	key := tenantUUID
 	actual, _ := s.localMu.LoadOrStore(key, &sync.Mutex{})
 	mu := actual.(*sync.Mutex)
 	mu.Lock()

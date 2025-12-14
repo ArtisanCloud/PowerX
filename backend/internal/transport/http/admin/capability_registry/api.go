@@ -13,7 +13,7 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 
 	if publicGroup != nil && deps.DiscoverySvc != nil {
 		discoveryHandler := NewDiscoveryHandler(deps.DiscoverySvc)
-		publicGroup.GET("/discovery/:tenantId/:capabilityId", discoveryHandler.GetSnapshot)
+		publicGroup.GET("/discovery/:tenant_uuid/:capabilityId", discoveryHandler.GetSnapshot)
 		publicGroup.POST("/discovery/sync", discoveryHandler.Sync)
 	}
 
@@ -27,7 +27,7 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 	{
 		capabilities.POST("", handler.CreateCapability)
 	}
-	tenantScoped := capabilities.Group("/:capabilityId/tenants/:tenantId")
+	tenantScoped := capabilities.Group("/:capabilityId/tenants/:tenant_uuid")
 	{
 		tenantScoped.GET("", handler.GetCapability)
 		tenantScoped.PUT("", handler.UpdateCapability)

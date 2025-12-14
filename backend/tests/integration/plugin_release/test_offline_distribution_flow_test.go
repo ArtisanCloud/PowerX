@@ -50,7 +50,7 @@ func TestOfflineDistributionFlow(t *testing.T) {
 
 	client := pluginreleasepb.NewPluginReleaseServiceClient(conn)
 	candidateResp, err := client.CreateReleaseCandidate(ctx, &pluginreleasepb.CreateReleaseCandidateRequest{
-		TenantId:         "tenant-integration",
+		TenantUuid:       offlineDistributionTenantUUID,
 		PluginId:         "px.integration",
 		Version:          "v4.0.0",
 		BuildArtifactUri: "s3://bucket/releases/v4.0.0.zip",
@@ -90,6 +90,7 @@ func TestOfflineDistributionFlow(t *testing.T) {
 		}
 		c.Next()
 	})
+	admin.Use(injectAdminClaimsMiddleware(offlineDistributionTenantUUID))
 	adminhandler.RegisterAPIRoutes(nil, admin, env.Deps)
 
 	openapi := router.Group("/api")
@@ -145,7 +146,7 @@ func TestOfflineDistributionFlow(t *testing.T) {
 	require.Equal(t, http.StatusOK, reviewResp.Code)
 
 	importPayload := map[string]any{
-		"tenantId":        "enterprise-tenant",
+		"tenant_uuid":     offlineImportTenantUUID,
 		"packageUri":      uploadResp.GetPackageUri(),
 		"checksum":        checksum,
 		"licenseAccepted": true,

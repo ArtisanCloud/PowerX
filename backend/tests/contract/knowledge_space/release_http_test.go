@@ -33,10 +33,8 @@ func TestReleaseHTTPFlow(t *testing.T) {
 		}
 		body, _ := json.Marshal(payload)
 		req := httptest.NewRequest(http.MethodPost, "/api/knowledge/release/policies", bytes.NewReader(body))
-		req.Header.Set("Authorization", "Bearer token")
 		req.Header.Set("Content-Type", "application/json")
-		resp := httptest.NewRecorder()
-		engine.ServeHTTP(resp, req)
+		resp := serveKnowledgeRequest(t, engine, req, env.TenantUUID().String())
 		require.Equal(t, http.StatusCreated, resp.Code)
 		var apiResp struct {
 			Data struct {
@@ -56,10 +54,8 @@ func TestReleaseHTTPFlow(t *testing.T) {
 		}
 		body, _ := json.Marshal(payload)
 		req := httptest.NewRequest(http.MethodPost, "/api/knowledge/release/publish", bytes.NewReader(body))
-		req.Header.Set("Authorization", "Bearer token")
 		req.Header.Set("Content-Type", "application/json")
-		resp := httptest.NewRecorder()
-		engine.ServeHTTP(resp, req)
+		resp := serveKnowledgeRequest(t, engine, req, env.TenantUUID().String())
 		require.Equal(t, http.StatusOK, resp.Code)
 		var apiResp struct {
 			Data struct {
@@ -84,10 +80,8 @@ func TestReleaseHTTPFlow(t *testing.T) {
 		}
 		body, _ := json.Marshal(payload)
 		req := httptest.NewRequest(http.MethodPost, "/api/knowledge/release/promote", bytes.NewReader(body))
-		req.Header.Set("Authorization", "Bearer token")
 		req.Header.Set("Content-Type", "application/json")
-		resp := httptest.NewRecorder()
-		engine.ServeHTTP(resp, req)
+		resp := serveKnowledgeRequest(t, engine, req, env.TenantUUID().String())
 		require.Equal(t, http.StatusOK, resp.Code)
 		var apiResp struct {
 			Data struct {
@@ -111,10 +105,8 @@ func TestReleaseHTTPFlow(t *testing.T) {
 		}
 		body, _ := json.Marshal(payload)
 		req := httptest.NewRequest(http.MethodPost, "/api/knowledge/release/rollback", bytes.NewReader(body))
-		req.Header.Set("Authorization", "Bearer token")
 		req.Header.Set("Content-Type", "application/json")
-		resp := httptest.NewRecorder()
-		engine.ServeHTTP(resp, req)
+		resp := serveKnowledgeRequest(t, engine, req, env.TenantUUID().String())
 		require.Equal(t, http.StatusOK, resp.Code)
 		var apiResp struct {
 			Data struct {

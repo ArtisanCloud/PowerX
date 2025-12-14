@@ -14,6 +14,7 @@ var (
 	ErrCapacityReached = errors.New("dev hotload concurrent session limit reached")
 	ErrForceRequired   = errors.New("force required to delete active sessions")
 	ErrForceConfirm    = errors.New("force delete requires confirmation")
+	ErrTenantUUIDReq   = errors.New("tenant_uuid is required")
 )
 
 // SessionConflictError surfaces information about the conflicting session.

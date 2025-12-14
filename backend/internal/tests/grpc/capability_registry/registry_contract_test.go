@@ -27,12 +27,13 @@ func TestRegistryGRPCContracts(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
+	tenantCtx := capabilityRegistryContext(t, ctx, "tenant-corex")
 	env := newRegistryGRPCTestEnv(t)
 	t.Cleanup(env.Close)
 
-	createResp, err := env.client.CreateCapability(ctx, &capabilityRegistryPB.CreateCapabilityRequest{
+	createResp, err := env.client.CreateCapability(tenantCtx, &capabilityRegistryPB.CreateCapabilityRequest{
 		Registration: &capabilityRegistryPB.CapabilityRegistration{
-			Id:           &capabilityRegistryPB.TenantScopedId{CapabilityId: "capabilities.text.translate", TenantId: "tenant-corex"},
+			Id:           &capabilityRegistryPB.TenantScopedId{CapabilityId: "capabilities.text.translate", TenantUuid: "tenant-corex"},
 			ContractRef:  "contracts.text.translate@1.0.0",
 			Status:       "published",
 			ToolGrantIds: []string{"grant-text-translate"},
@@ -46,17 +47,19 @@ func TestRegistryGRPCContracts(t *testing.T) {
 	assertNoError(t, err)
 	assertNotNil(t, createResp, "create response")
 	assertUint64(t, 1, createResp.GetRegistration().GetVersion(), "create version")
+	assertNoCapabilityRegistryTenantLeak(t, createResp)
 
-	getResp, err := env.client.GetCapability(ctx, &capabilityRegistryPB.GetCapabilityRequest{
-		Id: &capabilityRegistryPB.TenantScopedId{CapabilityId: "capabilities.text.translate", TenantId: "tenant-corex"},
+	getResp, err := env.client.GetCapability(tenantCtx, &capabilityRegistryPB.GetCapabilityRequest{
+		Id: &capabilityRegistryPB.TenantScopedId{CapabilityId: "capabilities.text.translate", TenantUuid: "tenant-corex"},
 	})
 	assertNoError(t, err)
 	assertUint64(t, 1, getResp.GetRegistration().GetVersion(), "get version")
 	assertInt(t, 2, len(getResp.GetRegistration().GetAdapters()), "adapter count")
+	assertNoCapabilityRegistryTenantLeak(t, getResp)
 
-	updateResp, err := env.client.UpdateCapability(ctx, &capabilityRegistryPB.UpdateCapabilityRequest{
+	updateResp, err := env.client.UpdateCapability(tenantCtx, &capabilityRegistryPB.UpdateCapabilityRequest{
 		Registration: &capabilityRegistryPB.CapabilityRegistration{
-			Id:          &capabilityRegistryPB.TenantScopedId{CapabilityId: "capabilities.text.translate", TenantId: "tenant-corex"},
+			Id:          &capabilityRegistryPB.TenantScopedId{CapabilityId: "capabilities.text.translate", TenantUuid: "tenant-corex"},
 			ContractRef: "contracts.text.translate@1.0.0",
 			Status:      "published",
 			Version:     1,
@@ -69,10 +72,11 @@ func TestRegistryGRPCContracts(t *testing.T) {
 	})
 	assertNoError(t, err)
 	assertUint64(t, 2, updateResp.GetRegistration().GetVersion(), "update version")
+	assertNoCapabilityRegistryTenantLeak(t, updateResp)
 
-	_, err = env.client.UpdateCapability(ctx, &capabilityRegistryPB.UpdateCapabilityRequest{
+	_, err = env.client.UpdateCapability(tenantCtx, &capabilityRegistryPB.UpdateCapabilityRequest{
 		Registration: &capabilityRegistryPB.CapabilityRegistration{
-			Id:            &capabilityRegistryPB.TenantScopedId{CapabilityId: "capabilities.text.translate", TenantId: "tenant-corex"},
+			Id:            &capabilityRegistryPB.TenantScopedId{CapabilityId: "capabilities.text.translate", TenantUuid: "tenant-corex"},
 			ContractRef:   "contracts.text.translate@1.0.0",
 			Status:        "published",
 			Version:       1,
@@ -82,16 +86,17 @@ func TestRegistryGRPCContracts(t *testing.T) {
 	})
 	assertStatusCode(t, codes.FailedPrecondition, err)
 
-	disableResp, err := env.client.DisableCapability(ctx, &capabilityRegistryPB.DisableCapabilityRequest{
-		Id:     &capabilityRegistryPB.TenantScopedId{CapabilityId: "capabilities.text.translate", TenantId: "tenant-corex"},
+	disableResp, err := env.client.DisableCapability(tenantCtx, &capabilityRegistryPB.DisableCapabilityRequest{
+		Id:     &capabilityRegistryPB.TenantScopedId{CapabilityId: "capabilities.text.translate", TenantUuid: "tenant-corex"},
 		Reason: "deprecated capability",
 	})
 	assertNoError(t, err)
 	assertUint64(t, 3, disableResp.GetRegistration().GetVersion(), "disable version")
 	assertEqual(t, "disabled", disableResp.GetRegistration().GetStatus(), "disable status")
+	assertNoCapabilityRegistryTenantLeak(t, disableResp)
 
-	_, err = env.client.GetCapability(ctx, &capabilityRegistryPB.GetCapabilityRequest{
-		Id: &capabilityRegistryPB.TenantScopedId{CapabilityId: "capabilities.text.translate", TenantId: "tenant-corex"},
+	_, err = env.client.GetCapability(tenantCtx, &capabilityRegistryPB.GetCapabilityRequest{
+		Id: &capabilityRegistryPB.TenantScopedId{CapabilityId: "capabilities.text.translate", TenantUuid: "tenant-corex"},
 	})
 	assertStatusCode(t, codes.NotFound, err)
 
@@ -258,7 +263,7 @@ func newMemoryRepository() *memoryRepository {
 func (r *memoryRepository) Create(ctx context.Context, _ *gorm.DB, reg capabilityRegistryService.Registration) (capabilityRegistryService.Registration, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	key := repoKey(reg.CapabilityID, reg.TenantID)
+	key := repoKey(reg.CapabilityID, reg.TenantUUID)
 	r.registrations[key] = append(r.registrations[key], reg)
 	return reg, nil
 }
@@ -266,7 +271,7 @@ func (r *memoryRepository) Create(ctx context.Context, _ *gorm.DB, reg capabilit
 func (r *memoryRepository) Update(ctx context.Context, _ *gorm.DB, reg capabilityRegistryService.Registration, expectedVersion uint64) (capabilityRegistryService.Registration, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	key := repoKey(reg.CapabilityID, reg.TenantID)
+	key := repoKey(reg.CapabilityID, reg.TenantUUID)
 	list := r.registrations[key]
 	if len(list) == 0 {
 		return capabilityRegistryService.Registration{}, capabilityRegistryService.ErrRegistrationNotFound
@@ -279,20 +284,20 @@ func (r *memoryRepository) Update(ctx context.Context, _ *gorm.DB, reg capabilit
 	return reg, nil
 }
 
-func (r *memoryRepository) GetLatest(ctx context.Context, _ *gorm.DB, capabilityID, tenantID string) (capabilityRegistryService.Registration, error) {
+func (r *memoryRepository) GetLatest(ctx context.Context, _ *gorm.DB, capabilityID, tenantUUID string) (capabilityRegistryService.Registration, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	list := r.registrations[repoKey(capabilityID, tenantID)]
+	list := r.registrations[repoKey(capabilityID, tenantUUID)]
 	if len(list) == 0 {
 		return capabilityRegistryService.Registration{}, capabilityRegistryService.ErrRegistrationNotFound
 	}
 	return list[len(list)-1], nil
 }
 
-func (r *memoryRepository) GetVersion(ctx context.Context, _ *gorm.DB, capabilityID, tenantID string, version uint64) (capabilityRegistryService.Registration, error) {
+func (r *memoryRepository) GetVersion(ctx context.Context, _ *gorm.DB, capabilityID, tenantUUID string, version uint64) (capabilityRegistryService.Registration, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	for _, reg := range r.registrations[repoKey(capabilityID, tenantID)] {
+	for _, reg := range r.registrations[repoKey(capabilityID, tenantUUID)] {
 		if reg.Version == version {
 			return reg, nil
 		}
@@ -300,10 +305,10 @@ func (r *memoryRepository) GetVersion(ctx context.Context, _ *gorm.DB, capabilit
 	return capabilityRegistryService.Registration{}, capabilityRegistryService.ErrRegistrationNotFound
 }
 
-func (r *memoryRepository) Disable(ctx context.Context, _ *gorm.DB, capabilityID, tenantID, reason, actor string, expectedVersion uint64, next capabilityRegistryService.Registration) (capabilityRegistryService.Registration, error) {
+func (r *memoryRepository) Disable(ctx context.Context, _ *gorm.DB, capabilityID, tenantUUID, reason, actor string, expectedVersion uint64, next capabilityRegistryService.Registration) (capabilityRegistryService.Registration, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	key := repoKey(capabilityID, tenantID)
+	key := repoKey(capabilityID, tenantUUID)
 	list := r.registrations[key]
 	if len(list) == 0 {
 		return capabilityRegistryService.Registration{}, capabilityRegistryService.ErrRegistrationNotFound
@@ -316,13 +321,13 @@ func (r *memoryRepository) Disable(ctx context.Context, _ *gorm.DB, capabilityID
 	return next, nil
 }
 
-func (r *memoryRepository) ListLatest(ctx context.Context, _ *gorm.DB, tenantID string, limit, offset int) ([]capabilityRegistryService.Registration, int64, error) {
+func (r *memoryRepository) ListLatest(ctx context.Context, _ *gorm.DB, tenantUUID string, limit, offset int) ([]capabilityRegistryService.Registration, int64, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	var all []capabilityRegistryService.Registration
 	for key, regs := range r.registrations {
 		parts := strings.Split(key, "::")
-		if len(parts) != 2 || parts[1] != tenantID {
+		if len(parts) != 2 || parts[1] != tenantUUID {
 			continue
 		}
 		if len(regs) == 0 {
@@ -345,8 +350,8 @@ func (r *memoryRepository) ListLatest(ctx context.Context, _ *gorm.DB, tenantID 
 	return all[start:end], total, nil
 }
 
-func repoKey(capabilityID, tenantID string) string {
-	return capabilityID + "::" + tenantID
+func repoKey(capabilityID, tenantUUID string) string {
+	return capabilityID + "::" + tenantUUID
 }
 
 type alwaysPassContractVerifier struct{}

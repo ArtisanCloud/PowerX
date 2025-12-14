@@ -31,26 +31,28 @@ func TestSandboxFlow(t *testing.T) {
 	})
 
 	run, err := service.Deploy(context.Background(), DeployRequest{
-		TenantID: 1001,
-		PluginID: "plugin.demo",
-		Dataset:  "checkout-smoke",
+		TenantUUID: "24f93c61-3bb4-40c4-b4a2-9ca74842c2c1",
+		PluginID:   "plugin.demo",
+		Dataset:    "checkout-smoke",
 	})
 	require.NoError(t, err)
 	require.Equal(t, "deploying", run.Status)
 
 	err = service.LoadDataset(context.Background(), DatasetRequest{
-		RunID:     run.UUID,
-		DatasetID: "checkout-smoke",
-		Version:   "2025-01",
+		RunID:      run.UUID,
+		DatasetID:  "checkout-smoke",
+		Version:    "2025-01",
+		TenantUUID: run.TenantUUID,
 	})
 	require.NoError(t, err)
 
 	final, err := service.RunTests(context.Background(), TestRequest{
-		RunID:    run.UUID,
-		Outcome:  "passed",
-		Metrics:  map[string]any{"coverage": 0.96},
-		Report:   "s3://sandbox/report",
-		Warnings: []string{},
+		RunID:      run.UUID,
+		Outcome:    "passed",
+		Metrics:    map[string]any{"coverage": 0.96},
+		Report:     "s3://sandbox/report",
+		Warnings:   []string{},
+		TenantUUID: run.TenantUUID,
 	})
 	require.NoError(t, err)
 	require.Equal(t, "passed", final.Status)

@@ -18,12 +18,13 @@ func TestRunVersionScan(t *testing.T) {
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		require.Equal(t, "/internal/version/governance/scan", r.URL.Path)
+		require.Equal(t, "acme", r.URL.Query().Get("as_tenant_uuid"))
 		body, _ := io.ReadAll(r.Body)
-		require.Contains(t, string(body), `"tenantId":"acme"`)
+		require.NotContains(t, string(body), "tenant_uuid")
 		resp := map[string]any{
 			"code": 201,
 			"data": map[string]any{
-				"tenant_id":           "acme",
+				"tenant_uuid":         "acme",
 				"plugin_id":           "plugin.alpha",
 				"current_version":     "1.0.0",
 				"recommended_version": "1.1.0",
@@ -37,7 +38,7 @@ func TestRunVersionScan(t *testing.T) {
 	t.Cleanup(server.Close)
 
 	scanOpts.api = server.URL
-	scanOpts.tenantID = "acme"
+	scanOpts.tenantUUID = "acme"
 	scanOpts.pluginID = "plugin.alpha"
 	buf := &bytes.Buffer{}
 	cmd := &cobra.Command{}
@@ -62,7 +63,7 @@ func TestRunVersionBoard(t *testing.T) {
 				},
 				"items": []map[string]any{
 					{
-						"tenant_id":           "acme",
+						"tenant_uuid":         "acme",
 						"plugin_id":           "plugin.alpha",
 						"current_version":     "1.0.0",
 						"recommended_version": "1.1.0",
@@ -109,11 +110,12 @@ func TestCompatCommands(t *testing.T) {
 				},
 			})
 		case "/internal/version/compat/exception":
+			require.Equal(t, "acme", r.URL.Query().Get("as_tenant_uuid"))
 			_ = json.NewEncoder(w).Encode(map[string]any{
 				"code": 201,
 				"data": map[string]any{
 					"uuid":            "exc-1",
-					"tenant_id":       "acme",
+					"tenant_uuid":     "acme",
 					"plugin_id":       "plugin.alpha",
 					"current_version": "1.0.0",
 					"target_version":  "2.0.0",
@@ -148,7 +150,7 @@ func TestCompatCommands(t *testing.T) {
 
 	// exception
 	compatExceptionOpts.api = server.URL
-	compatExceptionOpts.tenantID = "acme"
+	compatExceptionOpts.tenantUUID = "acme"
 	compatExceptionOpts.pluginID = "plugin.alpha"
 	compatExceptionOpts.currentVersion = "1.0.0"
 	compatExceptionOpts.targetVersion = "2.0.0"

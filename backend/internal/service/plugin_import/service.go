@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strconv"
 	"strings"
 	"time"
 
@@ -62,8 +61,12 @@ func (s *Service) Submit(ctx context.Context, req ImportRequest) (*ImportResult,
 	if strings.TrimSpace(req.PackageName) == "" {
 		return nil, errors.New("packageName is required")
 	}
+	tenantUUID := strings.TrimSpace(req.TenantUUID)
+	if tenantUUID == "" {
+		return nil, errors.New("tenant_uuid is required")
+	}
 	run := &model.PluginImportRun{
-		TenantID:    strings.TrimSpace(req.TenantID),
+		TenantUUID:  tenantUUID,
 		PackageName: strings.TrimSpace(req.PackageName),
 		Vendor:      strings.TrimSpace(req.Vendor),
 		SourceURI:   strings.TrimSpace(req.SourceURI),
@@ -92,10 +95,10 @@ func (s *Service) Submit(ctx context.Context, req ImportRequest) (*ImportResult,
 		NextActions: nextStepsForRisk(riskLevel),
 	}
 
-	s.emitAudit(ctx, run.TenantID, "PLUGIN_IMPORT_SUBMIT", strings.ToUpper(run.Status), run.UUID.String(), map[string]any{
-		"package":  run.PackageName,
-		"risk":     riskLevel,
-		"tenantId": run.TenantID,
+	s.emitAudit(ctx, run.TenantUUID, "PLUGIN_IMPORT_SUBMIT", strings.ToUpper(run.Status), run.UUID.String(), map[string]any{
+		"package":     run.PackageName,
+		"risk":        riskLevel,
+		"tenant_uuid": run.TenantUUID,
 	})
 
 	return result, nil
@@ -173,13 +176,13 @@ func marshalJSON(v any) datatypes.JSON {
 	return datatypes.JSON(data)
 }
 
-func (s *Service) emitAudit(ctx context.Context, tenantID, operation, outcome, resourceID string, meta map[string]any) {
+func (s *Service) emitAudit(ctx context.Context, tenantUUID, operation, outcome, resourceID string, meta map[string]any) {
 	if s.auditSvc == nil {
 		return
 	}
 	event := &dbm.AuditEvent{
 		OccurredAt:    s.now().UTC(),
-		TenantID:      tenantNumeric(tenantID),
+		TenantUUID:    strings.TrimSpace(tenantUUID),
 		Source:        "plugin_import",
 		Operation:     operation,
 		ResourceType:  "plugin_import",
@@ -192,18 +195,6 @@ func (s *Service) emitAudit(ctx context.Context, tenantID, operation, outcome, r
 	if err := s.auditSvc.Emit(ctx, event); err != nil {
 		pxlog.WarnF(ctx, "[plugin_import] emit audit failed: %v", err)
 	}
-}
-
-func tenantNumeric(tenantID string) uint64 {
-	id := strings.TrimSpace(tenantID)
-	if id == "" {
-		return 0
-	}
-	value, err := strconv.ParseUint(id, 10, 64)
-	if err != nil {
-		return 0
-	}
-	return value
 }
 
 func severityFromOutcome(outcome string) string {

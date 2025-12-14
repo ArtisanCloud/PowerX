@@ -18,11 +18,12 @@ import (
 
 // CreateSpace provisions a knowledge space with IAM blocking state.
 func (s *Service) CreateSpace(ctx context.Context, in CreateSpaceInput) (*models.KnowledgeSpace, error) {
-	if err := s.validateCreateInput(in); err != nil {
+	tenantUUID, err := s.validateCreateInput(in)
+	if err != nil {
 		return nil, err
 	}
 
-	release, err := s.acquireTenantLock(ctx, in.TenantID)
+	release, err := s.acquireTenantLock(ctx, tenantUUID)
 	if err != nil {
 		return nil, err
 	}
@@ -33,7 +34,7 @@ func (s *Service) CreateSpace(ctx context.Context, in CreateSpaceInput) (*models
 	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		spaces, policies, iamRepo, _ := s.repositories(tx)
 
-		existing, err := spaces.FindByTenantAndName(ctx, in.TenantID, strings.TrimSpace(in.SpaceName))
+		existing, err := spaces.FindByTenantAndName(ctx, tenantUUID, strings.TrimSpace(in.SpaceName))
 		if err != nil {
 			return err
 		}
@@ -59,7 +60,7 @@ func (s *Service) CreateSpace(ctx context.Context, in CreateSpaceInput) (*models
 		}
 
 		space := &models.KnowledgeSpace{
-			TenantID:                in.TenantID,
+			TenantUUID:              tenantUUID,
 			SpaceName:               strings.TrimSpace(in.SpaceName),
 			DepartmentCode:          strings.ToUpper(strings.TrimSpace(in.DepartmentCode)),
 			Status:                  models.KnowledgeSpaceStatusPending,
@@ -72,6 +73,7 @@ func (s *Service) CreateSpace(ctx context.Context, in CreateSpaceInput) (*models
 			UpdatedBy:               in.RequestedBy,
 		}
 
+		space.Normalize()
 		if err := tx.Create(space).Error; err != nil {
 			if isUniqueViolation(err) {
 				return ErrSpaceConflict
@@ -285,15 +287,30 @@ func (s *Service) RetireSpace(ctx context.Context, in RetireSpaceInput) (*models
 	return retired, nil
 }
 
-func (s *Service) validateCreateInput(in CreateSpaceInput) error {
-	if in.TenantID == uuid.Nil ||
-		strings.TrimSpace(in.SpaceName) == "" ||
+func (s *Service) validateCreateInput(in CreateSpaceInput) (string, error) {
+	tenantUUID, err := normalizeTenantUUID(in.TenantUUID)
+	if err != nil {
+		return "", ErrInvalidInput
+	}
+	if strings.TrimSpace(in.SpaceName) == "" ||
 		strings.TrimSpace(in.DepartmentCode) == "" ||
 		in.QuotaCPU <= 0 ||
 		in.QuotaStorageGB < 50 {
-		return ErrInvalidInput
+		return "", ErrInvalidInput
 	}
-	return nil
+	return tenantUUID, nil
+}
+
+func normalizeTenantUUID(value string) (string, error) {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return "", ErrInvalidInput
+	}
+	parsed, err := uuid.Parse(trimmed)
+	if err != nil {
+		return "", ErrInvalidInput
+	}
+	return strings.ToLower(parsed.String()), nil
 }
 
 func normalizeFeatureFlags(flags []string) []string {
@@ -337,12 +354,16 @@ func isUniqueViolation(err error) bool {
 	return strings.Contains(strings.ToLower(err.Error()), "unique")
 }
 
-func (s *Service) acquireTenantLock(ctx context.Context, tenant uuid.UUID) (func(), error) {
+func (s *Service) acquireTenantLock(ctx context.Context, tenantUUID string) (func(), error) {
+	tenantUUID = strings.TrimSpace(tenantUUID)
+	if tenantUUID == "" {
+		return nil, ErrInvalidInput
+	}
 	if s.redis == nil {
-		return s.acquireLocalLock(tenant), nil
+		return s.acquireLocalLock(tenantUUID), nil
 	}
 	token := uuid.NewString()
-	key := s.lockKey(tenant)
+	key := s.lockKey(tenantUUID)
 	ok, err := s.redis.SetNX(ctx, key, token, s.lockTTL).Result()
 	if err != nil {
 		return nil, err

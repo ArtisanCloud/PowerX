@@ -163,7 +163,7 @@ sequenceDiagram
 - **日志**
   - `delta_orchestrator.log`: 记录 source、delta_id、耗时、结果。
   - `version_store.log`: 记录版本生成、索引刷新、回滚动作。
-  - 所有日志需包含 `tenant_id`, `knowledge_space_id`, `job_id`, `approver`.
+- 所有日志需包含 `tenant_uuid`, `knowledge_space_id`, `job_id`, `approver`.
 - **告警**
   - SLA > 30m（P1）、审批 > 15m（P2）、diff 精度 < 98%（P2）、当日回滚 > 2 次（P1）。
   - 无法写入审计或版本血缘时立即触发 P0 告警。

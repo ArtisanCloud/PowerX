@@ -189,7 +189,7 @@ paths:
       tags: [Cost & Quota]
       summary: Retrieve quota configuration for a tenant
       parameters:
-        - name: tenantId
+        - name: tenant_uuid
           in: query
           required: true
           schema:
@@ -326,12 +326,12 @@ components:
     RoutingDecisionInput:
       type: object
       properties:
-        tenantId:
+        tenant_uuid:
           type: string
         taskContext:
           type: object
           additionalProperties: true
-      required: [tenantId, taskContext]
+      required: [tenant_uuid, taskContext]
     RoutingDecision:
       type: object
       properties:
@@ -348,7 +348,7 @@ components:
     ConnectorInstanceInput:
       type: object
       properties:
-        tenantId:
+        tenant_uuid:
           type: string
         region:
           type: string
@@ -360,7 +360,7 @@ components:
           type: object
         rateLimitPerMinute:
           type: integer
-      required: [tenantId, oauthRef, webhookSigningKeyRef]
+      required: [tenant_uuid, oauthRef, webhookSigningKeyRef]
     ConnectorInstance:
       allOf:
         - $ref: '#/components/schemas/ConnectorInstanceInput'
@@ -378,7 +378,7 @@ components:
     UsageReport:
       type: object
       properties:
-        tenantId:
+        tenant_uuid:
           type: string
         providerId:
           type: string
@@ -396,11 +396,11 @@ components:
               timestamp:
                 type: string
                 format: date-time
-      required: [tenantId, events]
+      required: [tenant_uuid, events]
     QuotaSnapshot:
       type: object
       properties:
-        tenantId:
+        tenant_uuid:
           type: string
         quotas:
           type: array
@@ -421,7 +421,7 @@ components:
     EnforcementRequest:
       type: object
       properties:
-        tenantId:
+        tenant_uuid:
           type: string
         providerId:
           type: string
@@ -432,15 +432,15 @@ components:
           type: string
         ticketId:
           type: string
-      required: [tenantId, action]
+      required: [tenant_uuid, action]
     TenantRef:
       type: object
       properties:
-        tenantId:
+        tenant_uuid:
           type: string
         environment:
           type: string
-      required: [tenantId, environment]
+      required: [tenant_uuid, environment]
     BudgetRef:
       type: object
       properties:

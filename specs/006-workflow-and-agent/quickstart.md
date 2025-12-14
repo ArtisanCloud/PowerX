@@ -28,7 +28,7 @@
      -H 'Authorization: Bearer <TOKEN>' \
      -H 'Content-Type: application/json' \
      -d '{
-       "tenant_id": 1001,
+       "tenant_uuid": 1001,
        "name": "demo-approval",
        "retry_policy": {"initial_delay_ms": 30000, "max_retries": 5, "backoff_factor": 2},
        "steps": [
@@ -67,27 +67,27 @@
   # 暂停实例
   curl -X POST "http://localhost:8077/api/v1/admin/workflows/instances/<INSTANCE_ID>/actions" \
     -H 'Authorization: Bearer <TOKEN>' -H 'Content-Type: application/json' \
-    -d '{"tenant_id":1001,"action":"pause","reason":"planned-maintenance"}'
+    -d '{"tenant_uuid":1001,"action":"pause","reason":"planned-maintenance"}'
 
   # 恢复实例
   curl -X POST "http://localhost:8077/api/v1/admin/workflows/instances/<INSTANCE_ID>/actions" \
     -H 'Authorization: Bearer <TOKEN>' -H 'Content-Type: application/json' \
-    -d '{"tenant_id":1001,"action":"resume"}'
+    -d '{"tenant_uuid":1001,"action":"resume"}'
 
   # 手动重试失败步骤
   curl -X POST "http://localhost:8077/api/v1/admin/workflows/instances/<INSTANCE_ID>/actions" \
     -H 'Authorization: Bearer <TOKEN>' -H 'Content-Type: application/json' \
-    -d '{"tenant_id":1001,"action":"retry_step","step_id":"agent_review"}'
+    -d '{"tenant_uuid":1001,"action":"retry_step","step_id":"agent_review"}'
   ```
 
 6. **导出审计记录**
   ```bash
   # JSON
-  curl -X GET "http://localhost:8077/api/v1/admin/workflows/instances/export?tenant_id=1001&format=json" \
+  curl -X GET "http://localhost:8077/api/v1/admin/workflows/instances/export?tenant_uuid=1001&format=json" \
     -H 'Authorization: Bearer <TOKEN>'
 
   # CSV
-  curl -X GET "http://localhost:8077/api/v1/admin/workflows/instances/export?tenant_id=1001&format=csv" \
+  curl -X GET "http://localhost:8077/api/v1/admin/workflows/instances/export?tenant_uuid=1001&format=csv" \
     -H 'Authorization: Bearer <TOKEN>' -o workflow_export.csv
   ```
 

@@ -26,19 +26,19 @@ func NewAgentRepository(db *gorm.DB) *AgentRepository {
 }
 
 // Upsert 唯一键：
-// - 全局：env + key（且 tenant_id IS NULL）
-// - 租户：env + tenant_id + key
-// 当 tenantID == nil（system 级）时，必须在 ON CONFLICT 目标上加 WHERE tenant_id IS NULL
+// - 全局：env + key（且 tenant_uuid IS NULL）
+// - 租户：env + tenant_uuid + key
+// 当 tenantUUID == nil（system 级）时，必须在 ON CONFLICT 目标上加 WHERE tenant_uuid IS NULL
 // ---------- AgentRepository.UpsertByScopeKey（精简版：仅租户级） ----------
 func (r *AgentRepository) UpsertByScopeKey(
-	ctx context.Context, env string, tenantID *uint64, in *dbmodel.Agent,
+	ctx context.Context, env string, tenantUUID *string, in *dbmodel.Agent,
 ) error {
-	if tenantID == nil {
-		return fmt.Errorf("UpsertByScopeKey: tenantID must not be nil (system tenant=1)")
+	if tenantUUID == nil {
+		return fmt.Errorf("UpsertByScopeKey: tenantUUID must not be nil (system tenant=uuid)")
 	}
 	tx := r.db.WithContext(ctx)
 	in.Env = env
-	in.TenantID = tenantID
+	in.TenantUUID = tenantUUID
 
 	assign := clause.Assignments(map[string]any{
 		"name":               in.Name,
@@ -59,7 +59,7 @@ func (r *AgentRepository) UpsertByScopeKey(
 	return tx.
 		Clauses(
 			clause.OnConflict{
-				Columns:   []clause.Column{{Name: "env"}, {Name: "tenant_id"}, {Name: "key"}},
+				Columns:   []clause.Column{{Name: "env"}, {Name: "tenant_uuid"}, {Name: "key"}},
 				DoUpdates: assign,
 			},
 			clause.Returning{Columns: []clause.Column{{Name: "id"}}},
@@ -67,10 +67,10 @@ func (r *AgentRepository) UpsertByScopeKey(
 		Create(in).Error
 }
 
-func (r *AgentRepository) FindByScopeKey(ctx context.Context, env string, tenantID *uint64, key string) (*dbmodel.Agent, error) {
+func (r *AgentRepository) FindByScopeKey(ctx context.Context, env string, tenantUUID *string, key string) (*dbmodel.Agent, error) {
 	var out dbmodel.Agent
 	err := r.db.WithContext(ctx).
-		Scopes(dbmodel.WithScope(env, tenantID)).
+		Scopes(dbmodel.WithScope(env, tenantUUID)).
 		Where(`key = ?`, key).
 		First(&out).Error
 	if err != nil {
@@ -91,11 +91,11 @@ func (r *AgentRepository) GetByID(ctx context.Context, id uint64) (*dbmodel.Agen
 func (r *AgentRepository) ListByScope(
 	ctx context.Context,
 	env string,
-	tenantID *uint64,
+	tenantUUID *string,
 	statuses []string,
 ) ([]dbmodel.Agent, error) {
 	tx := r.db.WithContext(ctx).
-		Scopes(dbmodel.WithScope(env, tenantID))
+		Scopes(dbmodel.WithScope(env, tenantUUID))
 
 	if len(statuses) > 0 {
 		tx = tx.Where("status IN ?", statuses)
@@ -130,19 +130,19 @@ func (r *AgentRepository) DeleteSoft(ctx context.Context, id uint64) error {
 }
 
 // 批量按插件来源联动状态（插件禁用/卸载时调用）
-func (r *AgentRepository) UpdateStatusByPlugin(ctx context.Context, env string, tenantID *uint64, pluginID, status string) error {
+func (r *AgentRepository) UpdateStatusByPlugin(ctx context.Context, env string, tenantUUID *string, pluginID, status string) error {
 	return r.db.WithContext(ctx).
-		Scopes(dbmodel.WithScope(env, tenantID)).
+		Scopes(dbmodel.WithScope(env, tenantUUID)).
 		Model(&dbmodel.Agent{}).
 		Where("source = ?", "plugin:"+pluginID).
 		Update("status", status).Error
 }
 
-// env + tenant_id + agent_id 唯一
+// env + tenant_uuid + agent_id 唯一
 func (r *AgentSettingRepository) UpsertByScopeAgentID(ctx context.Context, in *dbmodel.AgentSetting) error {
 	tx := r.db.WithContext(ctx)
 	var old dbmodel.AgentSetting
-	err := tx.Scopes(dbmodel.WithScope(in.Env, in.TenantID)).
+	err := tx.Scopes(dbmodel.WithScope(in.Env, in.TenantUUID)).
 		Where("agent_id = ?", in.AgentID).
 		First(&old).Error
 	switch err {
@@ -157,11 +157,11 @@ func (r *AgentSettingRepository) UpsertByScopeAgentID(ctx context.Context, in *d
 }
 
 func (r *AgentSettingRepository) FindByScopeAgentID(
-	ctx context.Context, env string, tenantID *uint64, agentID uint64,
+	ctx context.Context, env string, tenantUUID *string, agentID uint64,
 ) (*dbmodel.AgentSetting, error) {
 	var out dbmodel.AgentSetting
 	err := r.db.WithContext(ctx).
-		Scopes(dbmodel.WithScope(env, tenantID)).
+		Scopes(dbmodel.WithScope(env, tenantUUID)).
 		Where("agent_id = ?", agentID).
 		First(&out).Error
 	if err != nil {
@@ -171,10 +171,10 @@ func (r *AgentSettingRepository) FindByScopeAgentID(
 }
 
 func (r *AgentSettingRepository) DeleteByScopeAgentID(
-	ctx context.Context, env string, tenantID *uint64, agentID uint64,
+	ctx context.Context, env string, tenantUUID *string, agentID uint64,
 ) error {
 	return r.db.WithContext(ctx).
-		Scopes(dbmodel.WithScope(env, tenantID)).
+		Scopes(dbmodel.WithScope(env, tenantUUID)).
 		Where("agent_id = ?", agentID).
 		Delete(&dbmodel.AgentSetting{}).Error
 }

@@ -6,7 +6,7 @@ option go_package = "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/common/v1;co
 
 // 所有 RPC 必带
 message RequestContext {
-  int64  tenant_id   = 1;                 // 必填：RLS
+  string tenant_uuid = 1;                 // 必填：RLS
   int64  member_id   = 2;                 // 可选：调用主体（若有）
   string request_id  = 3;                 // Trace/审计
   string access_token = 4;                // JWT/Cap Token（可选，通常走头部）

@@ -19,11 +19,13 @@ func TestWorkflowControlGRPC(t *testing.T) {
 	client, cleanup := env.StartGRPCServer()
 	defer cleanup()
 
-	ctx := context.Background()
+	ctx := workflowGRPCContext(t, testenv.ContractTenantUUID)
 	reqCtx := &commonv1.RequestContext{
-		TenantId:  1001,
 		MemberId:  9001,
 		RequestId: "ctrl-grpc-001",
+		Attributes: map[string]string{
+			"tenant_uuid": testenv.ContractTenantUUID,
+		},
 	}
 
 	createResp, err := client.CreateDefinition(ctx, &workflowv1.CreateDefinitionRequest{
@@ -57,12 +59,14 @@ func TestWorkflowControlGRPC(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.NotNil(t, createResp.GetDefinition())
+	assertNoWorkflowTenantLeakProto(t, createResp)
 
-	_, err = client.PublishDefinition(ctx, &workflowv1.PublishDefinitionRequest{
+	pubResp, err := client.PublishDefinition(ctx, &workflowv1.PublishDefinitionRequest{
 		Ctx:          reqCtx,
 		DefinitionId: createResp.GetDefinition().GetDefinitionId(),
 	})
 	require.NoError(t, err)
+	assertNoWorkflowTenantLeakProto(t, pubResp)
 
 	startResp, err := client.StartInstance(ctx, &workflowv1.StartInstanceRequest{
 		Ctx:          reqCtx,
@@ -73,6 +77,7 @@ func TestWorkflowControlGRPC(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.NotNil(t, startResp.GetInstance())
+	assertNoWorkflowTenantLeakProto(t, startResp)
 
 	instanceUUID := uuid.MustParse(startResp.GetInstance().GetInstanceId())
 	var agentStep modelworkflow.WorkflowStepRecord
@@ -106,6 +111,7 @@ func TestWorkflowControlGRPC(t *testing.T) {
 		workflowv1.WorkflowInstanceState_WORKFLOW_INSTANCE_STATE_RUNNING,
 		retryResp.GetInstance().GetState(),
 	)
+	assertNoWorkflowTenantLeakProto(t, retryResp)
 
 	var stepRecords []modelworkflow.WorkflowStepRecord
 	require.NoError(t, env.DB.WithContext(ctx).
@@ -129,6 +135,7 @@ func TestWorkflowControlGRPC(t *testing.T) {
 		workflowv1.WorkflowInstanceState_WORKFLOW_INSTANCE_STATE_SUSPENDED,
 		pauseResp.GetInstance().GetState(),
 	)
+	assertNoWorkflowTenantLeakProto(t, pauseResp)
 
 	resumeResp, err := client.ControlInstance(ctx, &workflowv1.ControlInstanceRequest{
 		Ctx:        reqCtx,
@@ -140,6 +147,7 @@ func TestWorkflowControlGRPC(t *testing.T) {
 		workflowv1.WorkflowInstanceState_WORKFLOW_INSTANCE_STATE_RUNNING,
 		resumeResp.GetInstance().GetState(),
 	)
+	assertNoWorkflowTenantLeakProto(t, resumeResp)
 
 	listResp, err := client.ListInstances(ctx, &workflowv1.ListInstancesRequest{
 		Ctx:          reqCtx,
@@ -147,6 +155,7 @@ func TestWorkflowControlGRPC(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.NotEmpty(t, listResp.GetInstances())
+	assertNoWorkflowTenantLeakProto(t, listResp)
 
 	var matched *workflowv1.WorkflowInstance
 	for _, inst := range listResp.GetInstances() {

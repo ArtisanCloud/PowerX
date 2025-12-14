@@ -24,7 +24,7 @@ var (
 		token         string
 		hostVersion   string
 		pluginVersion string
-		tenantID      string
+		tenantUUID    string
 		pluginID      string
 	}{
 		api: defaultAdminAPI,
@@ -39,7 +39,7 @@ var (
 	compatExceptionOpts = struct {
 		api            string
 		token          string
-		tenantID       string
+		tenantUUID     string
 		pluginID       string
 		currentVersion string
 		targetVersion  string
@@ -74,7 +74,7 @@ type compatCheckResponse struct {
 
 type compatException struct {
 	UUID           string `json:"uuid"`
-	TenantID       string `json:"tenant_id"`
+	TenantUUID     string `json:"tenant_uuid"`
 	PluginID       string `json:"plugin_id"`
 	CurrentVersion string `json:"current_version"`
 	TargetVersion  string `json:"target_version"`
@@ -93,19 +93,19 @@ func init() {
 	compatCheckCmd.Flags().StringVar(&compatCheckOpts.token, "token", "", "Bearer token for Admin API")
 	compatCheckCmd.Flags().StringVar(&compatCheckOpts.hostVersion, "host-version", "", "Host manifest version (required)")
 	compatCheckCmd.Flags().StringVar(&compatCheckOpts.pluginVersion, "plugin-version", "", "Plugin version to check (required)")
-	compatCheckCmd.Flags().StringVar(&compatCheckOpts.tenantID, "tenant-id", "", "Optional tenant identifier for auditing")
+	compatCheckCmd.Flags().StringVar(&compatCheckOpts.tenantUUID, "tenant-uuid", "", "Optional tenant UUID for impersonation")
 	compatCheckCmd.Flags().StringVar(&compatCheckOpts.pluginID, "plugin-id", "", "Optional plugin identifier for auditing")
 	_ = compatCheckCmd.MarkFlagRequired("host-version")
 	_ = compatCheckCmd.MarkFlagRequired("plugin-version")
 
 	compatExceptionCmd.Flags().StringVar(&compatExceptionOpts.api, "api", compatExceptionOpts.api, "PowerX Admin API base URL")
 	compatExceptionCmd.Flags().StringVar(&compatExceptionOpts.token, "token", "", "Bearer token for Admin API")
-	compatExceptionCmd.Flags().StringVar(&compatExceptionOpts.tenantID, "tenant-id", "", "Tenant identifier (required)")
+	compatExceptionCmd.Flags().StringVar(&compatExceptionOpts.tenantUUID, "tenant-uuid", "", "Tenant UUID (required; uses as_tenant_uuid)")
 	compatExceptionCmd.Flags().StringVar(&compatExceptionOpts.pluginID, "plugin-id", "", "Plugin identifier (required)")
 	compatExceptionCmd.Flags().StringVar(&compatExceptionOpts.currentVersion, "current-version", "", "Current version (required)")
 	compatExceptionCmd.Flags().StringVar(&compatExceptionOpts.targetVersion, "target-version", "", "Target version requested (required)")
 	compatExceptionCmd.Flags().StringVar(&compatExceptionOpts.reason, "reason", "", "Exception reason (required)")
-	_ = compatExceptionCmd.MarkFlagRequired("tenant-id")
+	_ = compatExceptionCmd.MarkFlagRequired("tenant-uuid")
 	_ = compatExceptionCmd.MarkFlagRequired("plugin-id")
 	_ = compatExceptionCmd.MarkFlagRequired("current-version")
 	_ = compatExceptionCmd.MarkFlagRequired("target-version")
@@ -125,11 +125,11 @@ func runCompatCheck(cmd *cobra.Command, _ []string) error {
 	payload := map[string]string{
 		"hostVersion":   strings.TrimSpace(compatCheckOpts.hostVersion),
 		"pluginVersion": strings.TrimSpace(compatCheckOpts.pluginVersion),
-		"tenantId":      strings.TrimSpace(compatCheckOpts.tenantID),
 		"pluginId":      strings.TrimSpace(compatCheckOpts.pluginID),
 	}
 	var resp compatCheckResponse
-	if err := client.do("POST", "/internal/version/compat/check", payload, &resp); err != nil {
+	path := withTenantScope("/internal/version/compat/check", compatCheckOpts.tenantUUID)
+	if err := client.do("POST", path, payload, &resp); err != nil {
 		return err
 	}
 	out := cmd.OutOrStdout()
@@ -147,14 +147,14 @@ func runCompatCheck(cmd *cobra.Command, _ []string) error {
 func runCompatException(cmd *cobra.Command, _ []string) error {
 	client := newAPIClient(compatExceptionOpts.api, compatExceptionOpts.token)
 	payload := map[string]string{
-		"tenantId":       strings.TrimSpace(compatExceptionOpts.tenantID),
 		"pluginId":       strings.TrimSpace(compatExceptionOpts.pluginID),
 		"currentVersion": strings.TrimSpace(compatExceptionOpts.currentVersion),
 		"targetVersion":  strings.TrimSpace(compatExceptionOpts.targetVersion),
 		"reason":         strings.TrimSpace(compatExceptionOpts.reason),
 	}
 	var entity compatException
-	if err := client.do("POST", "/internal/version/compat/exception", payload, &entity); err != nil {
+	path := withTenantScope("/internal/version/compat/exception", compatExceptionOpts.tenantUUID)
+	if err := client.do("POST", path, payload, &entity); err != nil {
 		return err
 	}
 	out := cmd.OutOrStdout()

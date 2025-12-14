@@ -14,7 +14,7 @@ type DevHotloadSession struct {
 	coremodel.PowerUUIDModel
 
 	PluginID        string         `gorm:"column:plugin_id;type:varchar(128);not null;index:idx_dev_hotload_plugin_tenant,priority:1" json:"plugin_id"`
-	TenantID        uint64         `gorm:"column:tenant_id;not null;index:idx_dev_hotload_plugin_tenant,priority:2" json:"tenant_id"`
+	TenantUUID      string         `gorm:"column:tenant_uuid;type:varchar(128);not null;index:idx_dev_hotload_plugin_tenant,priority:2" json:"tenant_uuid"`
 	DeveloperID     uint64         `gorm:"column:developer_id;not null" json:"developer_id"`
 	BuildHash       string         `gorm:"column:build_hash;type:varchar(128)" json:"build_hash,omitempty"`
 	EntryPoints     datatypes.JSON `gorm:"column:entry_points;type:jsonb;default:'[]'" json:"entry_points,omitempty"`

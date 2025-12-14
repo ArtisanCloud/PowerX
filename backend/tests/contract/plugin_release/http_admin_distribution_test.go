@@ -14,10 +14,14 @@ import (
 
 	adminhandler "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/plugin_release"
 	models "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/plugin_release"
-	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
+)
+
+const (
+	adminDistributionTenantUUID = "c4f2a3a8-6ad4-4d1e-9f96-7fb2d0c44d54"
+	adminListingTenantUUID      = "f0b7cdd3-73e7-4a68-9345-4c3b7d12c6ed"
 )
 
 func TestAdminDistributionEndpoints(t *testing.T) {
@@ -26,7 +30,7 @@ func TestAdminDistributionEndpoints(t *testing.T) {
 	ctx := context.Background()
 
 	candidate, err := deps.PluginReleaseService.CreateCandidate(ctx, &models.PluginReleaseCandidate{
-		TenantID:         "tenant-admin-dist",
+		TenantUUID:       adminDistributionTenantUUID,
 		PluginID:         "px.demo",
 		Version:          "v3.1.0",
 		BuildArtifactURI: "s3://bucket/releases/v3.1.0.zip",
@@ -40,18 +44,7 @@ func TestAdminDistributionEndpoints(t *testing.T) {
 
 	engine := gin.New()
 	protected := engine.Group("/api/admin")
-	protected.Use(func(c *gin.Context) {
-		if c.GetHeader("Authorization") == "" {
-			c.AbortWithStatus(http.StatusUnauthorized)
-			return
-		}
-		ctxWithClaims := reqctx.WithClaims(c.Request.Context(), &reqctx.CoreXClaims{
-			IsRoot: true,
-			Roles:  []string{"system_admin"},
-		})
-		c.Request = c.Request.WithContext(ctxWithClaims)
-		c.Next()
-	})
+	protected.Use(requirePluginAdminAuth(""))
 	adminhandler.RegisterAPIRoutes(nil, protected, deps)
 
 	pkgPayload := map[string]any{
@@ -66,9 +59,7 @@ func TestAdminDistributionEndpoints(t *testing.T) {
 	}
 	body, _ := json.Marshal(pkgPayload)
 	req := httptest.NewRequest(http.MethodPost, "/api/admin/plugin-release/offline-packages", bytes.NewReader(body))
-	req.Header.Set("Authorization", "Bearer admin")
-	resp := httptest.NewRecorder()
-	engine.ServeHTTP(resp, req)
+	resp := servePluginAdminRequest(t, engine, req, adminDistributionTenantUUID)
 	require.Equal(t, http.StatusCreated, resp.Code)
 
 	var pkgResp struct {
@@ -100,9 +91,7 @@ func TestAdminDistributionEndpoints(t *testing.T) {
 	}
 	listingBody, _ := json.Marshal(listingPayload)
 	listingReq := httptest.NewRequest(http.MethodPost, "/api/admin/plugin-release/marketplace/listings", bytes.NewReader(listingBody))
-	listingReq.Header.Set("Authorization", "Bearer admin")
-	listingResp := httptest.NewRecorder()
-	engine.ServeHTTP(listingResp, listingReq)
+	listingResp := servePluginAdminRequest(t, engine, listingReq, adminDistributionTenantUUID)
 	require.Equal(t, http.StatusCreated, listingResp.Code)
 
 	var listingData struct {
@@ -121,9 +110,7 @@ func TestAdminDistributionEndpoints(t *testing.T) {
 		payload := map[string]any{"decision": decision}
 		body, _ := json.Marshal(payload)
 		req := httptest.NewRequest(http.MethodPost, "/api/admin/plugin-release/marketplace/listings/"+strconv.FormatUint(listingData.Data.ID, 10)+"/reviews", bytes.NewReader(body))
-		req.Header.Set("Authorization", "Bearer admin")
-		rec := httptest.NewRecorder()
-		engine.ServeHTTP(rec, req)
+		rec := servePluginAdminRequest(t, engine, req, adminDistributionTenantUUID)
 		return rec
 	}
 
@@ -173,7 +160,7 @@ func TestAdminDistributionListingsQuery(t *testing.T) {
 	ctx := context.Background()
 
 	candidate, err := deps.PluginReleaseService.CreateCandidate(ctx, &models.PluginReleaseCandidate{
-		TenantID:         "tenant-list",
+		TenantUUID:       adminListingTenantUUID,
 		PluginID:         "px.list",
 		Version:          "v1.0.1",
 		BuildArtifactURI: "s3://bucket/list.zip",
@@ -186,18 +173,7 @@ func TestAdminDistributionListingsQuery(t *testing.T) {
 
 	engine := gin.New()
 	protected := engine.Group("/api/admin")
-	protected.Use(func(c *gin.Context) {
-		if c.GetHeader("Authorization") == "" {
-			c.AbortWithStatus(http.StatusUnauthorized)
-			return
-		}
-		ctxWithClaims := reqctx.WithClaims(c.Request.Context(), &reqctx.CoreXClaims{
-			IsRoot: true,
-			Roles:  []string{"system_admin"},
-		})
-		c.Request = c.Request.WithContext(ctxWithClaims)
-		c.Next()
-	})
+	protected.Use(requirePluginAdminAuth(""))
 	adminhandler.RegisterAPIRoutes(nil, protected, deps)
 
 	// create listing first
@@ -207,9 +183,7 @@ func TestAdminDistributionListingsQuery(t *testing.T) {
 		"checksum":"sha256:test-checksum-list",
 		"signatureFingerprint":"fingerprint-list"
 	}`)))
-	pkgReq.Header.Set("Authorization", "Bearer admin")
-	pkgResp := httptest.NewRecorder()
-	engine.ServeHTTP(pkgResp, pkgReq)
+	pkgResp := servePluginAdminRequest(t, engine, pkgReq, adminListingTenantUUID)
 	require.Equal(t, http.StatusCreated, pkgResp.Code)
 
 	listReq := httptest.NewRequest(http.MethodPost, "/api/admin/plugin-release/marketplace/listings", bytes.NewReader([]byte(`{
@@ -218,15 +192,11 @@ func TestAdminDistributionListingsQuery(t *testing.T) {
 		"pricing":{"tier":"standard"},
 		"supportPolicy":{"sla":"8x5"}
 	}`)))
-	listReq.Header.Set("Authorization", "Bearer admin")
-	listResp := httptest.NewRecorder()
-	engine.ServeHTTP(listResp, listReq)
+	listResp := servePluginAdminRequest(t, engine, listReq, adminListingTenantUUID)
 	require.Equal(t, http.StatusCreated, listResp.Code)
 
 	getReq := httptest.NewRequest(http.MethodGet, "/api/admin/plugin-release/marketplace/listings?page=1&size=10", nil)
-	getReq.Header.Set("Authorization", "Bearer admin")
-	getResp := httptest.NewRecorder()
-	engine.ServeHTTP(getResp, getReq)
+	getResp := servePluginAdminRequest(t, engine, getReq, adminListingTenantUUID)
 	require.Equal(t, http.StatusOK, getResp.Code)
 
 	var payload struct {

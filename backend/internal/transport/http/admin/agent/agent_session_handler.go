@@ -7,7 +7,6 @@ import (
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
 	dbmodel "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/model"
 	agentSvc "github.com/ArtisanCloud/PowerX/internal/service/agent"
-	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	dto "github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/ArtisanCloud/PowerX/pkg/utils"
 	"github.com/gin-gonic/gin"
@@ -68,11 +67,12 @@ func (h *AgentSessionHandler) CreateSession(c *gin.Context) {
 		dto.ResponseValidationError(c, err)
 		return
 	}
-	tid, err := reqctx.RequireTenantIDFromGin(c)
+	tenantCtx, err := requireTenantContext(c)
 	if err != nil {
 		dto.ResponseError(c, 400, err.Error(), nil)
 		return
 	}
+	tenantRef := tenantCtx.UUIDPtr()
 
 	// 单例标志：如果没传，默认 false（可在上层读取 Agent 配置再传入）
 	singleton := false
@@ -88,7 +88,7 @@ func (h *AgentSessionHandler) CreateSession(c *gin.Context) {
 		Meta:      req.Meta,
 	}
 
-	out, err := h.his.GetOrCreateSession(c.Request.Context(), req.Env, &tid, req.AgentID, req.UserID, singleton, &def)
+	out, err := h.his.GetOrCreateSession(c.Request.Context(), req.Env, tenantRef, req.AgentID, req.UserID, singleton, &def)
 	if err != nil {
 		dto.ResponseError(c, 400, err.Error(), nil)
 		return
@@ -99,11 +99,12 @@ func (h *AgentSessionHandler) CreateSession(c *gin.Context) {
 // GET /agents/sessions?env=...&agent_id=1&status=active,archived&limit=50&offset=0
 func (h *AgentSessionHandler) ListSessions(c *gin.Context) {
 	env := c.DefaultQuery("env", "default")
-	tid, err := reqctx.RequireTenantIDFromGin(c)
+	tenantCtx, err := requireTenantContext(c)
 	if err != nil {
 		dto.ResponseError(c, 400, err.Error(), nil)
 		return
 	}
+	tenantRef := tenantCtx.UUIDPtr()
 	agentID, err := utils.ParseUintID(c.DefaultQuery("agent_id", "0"))
 	if err != nil || agentID == 0 {
 		dto.ResponseError(c, 400, "agent_id 必填", nil)
@@ -121,7 +122,7 @@ func (h *AgentSessionHandler) ListSessions(c *gin.Context) {
 	limit := utils.ParseIntDefault(c.DefaultQuery("limit", "50"), 50)
 	offset := utils.ParseIntDefault(c.DefaultQuery("offset", "0"), 0)
 
-	list, err := h.his.ListSessions(c.Request.Context(), env, &tid, agentID, statuses, limit, offset)
+	list, err := h.his.ListSessions(c.Request.Context(), env, tenantRef, agentID, statuses, limit, offset)
 	if err != nil {
 		dto.ResponseError(c, 500, "查询失败", err)
 		return
@@ -132,18 +133,19 @@ func (h *AgentSessionHandler) ListSessions(c *gin.Context) {
 // GET /agents/sessions/:id
 func (h *AgentSessionHandler) GetSession(c *gin.Context) {
 	env := c.DefaultQuery("env", "default")
-	tid, err := reqctx.RequireTenantIDFromGin(c)
+	tenantCtx, err := requireTenantContext(c)
 	if err != nil {
 		dto.ResponseError(c, 400, err.Error(), nil)
 		return
 	}
+	tenantRef := tenantCtx.UUIDPtr()
 	sid, err := utils.ParseUintID(c.Param("id"))
 	if err != nil {
 		dto.ResponseError(c, 400, "id 非法", nil)
 		return
 	}
 
-	out, err := h.his.FindSessionByID(c.Request.Context(), env, &tid, sid)
+	out, err := h.his.FindSessionByID(c.Request.Context(), env, tenantRef, sid)
 	if err != nil {
 		dto.ResponseError(c, 404, "未找到", err)
 		return
@@ -159,18 +161,19 @@ func (h *AgentSessionHandler) UpdateSession(c *gin.Context) {
 		return
 	}
 	env := c.DefaultQuery("env", "default")
-	tid, err := reqctx.RequireTenantIDFromGin(c)
+	tenantCtx, err := requireTenantContext(c)
 	if err != nil {
 		dto.ResponseError(c, 400, err.Error(), nil)
 		return
 	}
+	tenantRef := tenantCtx.UUIDPtr()
 	sid, err := utils.ParseUintID(c.Param("id"))
 	if err != nil {
 		dto.ResponseError(c, 400, "id 非法", nil)
 		return
 	}
 
-	if err := h.his.UpdateSessionPolicy(c.Request.Context(), env, &tid, sid, req.Title, req.TTLDays, req.MaxKB, req.MaxTokens); err != nil {
+	if err := h.his.UpdateSessionPolicy(c.Request.Context(), env, tenantRef, sid, req.Title, req.TTLDays, req.MaxKB, req.MaxTokens); err != nil {
 		dto.ResponseError(c, 400, err.Error(), nil)
 		return
 	}
@@ -180,18 +183,19 @@ func (h *AgentSessionHandler) UpdateSession(c *gin.Context) {
 // POST /agents/sessions/:id/archive
 func (h *AgentSessionHandler) ArchiveSession(c *gin.Context) {
 	env := c.DefaultQuery("env", "default")
-	tid, err := reqctx.RequireTenantIDFromGin(c)
+	tenantCtx, err := requireTenantContext(c)
 	if err != nil {
 		dto.ResponseError(c, 400, err.Error(), nil)
 		return
 	}
+	tenantRef := tenantCtx.UUIDPtr()
 	sid, err := utils.ParseUintID(c.Param("id"))
 	if err != nil {
 		dto.ResponseError(c, 400, "id 非法", nil)
 		return
 	}
 
-	if err := h.his.ArchiveSession(c.Request.Context(), env, &tid, sid); err != nil {
+	if err := h.his.ArchiveSession(c.Request.Context(), env, tenantRef, sid); err != nil {
 		dto.ResponseError(c, 400, err.Error(), nil)
 		return
 	}
@@ -207,12 +211,13 @@ func (h *AgentSessionHandler) DeleteSession(c *gin.Context) {
 		return
 	}
 	env := c.DefaultQuery("env", "default")
-	tid, err := reqctx.RequireTenantIDFromGin(c)
+	tenantCtx, err := requireTenantContext(c)
 	if err != nil {
 		dto.ResponseError(c, 400, err.Error(), nil)
 		return
 	}
-	if err := h.his.DeleteSession(c.Request.Context(), env, &tid, sid); err != nil {
+	tenantRef := tenantCtx.UUIDPtr()
+	if err := h.his.DeleteSession(c.Request.Context(), env, tenantRef, sid); err != nil {
 		dto.ResponseError(c, 400, err.Error(), nil)
 		return
 	}
@@ -222,11 +227,12 @@ func (h *AgentSessionHandler) DeleteSession(c *gin.Context) {
 // GET /agents/sessions/:id/messages?env=...&after_id=0&limit=200
 func (h *AgentSessionHandler) ListMessages(c *gin.Context) {
 	env := c.DefaultQuery("env", "default")
-	tid, err := reqctx.RequireTenantIDFromGin(c)
+	tenantCtx, err := requireTenantContext(c)
 	if err != nil {
 		dto.ResponseError(c, 400, err.Error(), nil)
 		return
 	}
+	tenantRef := tenantCtx.UUIDPtr()
 	sid, err := utils.ParseUintID(c.Param("id"))
 	if err != nil {
 		dto.ResponseError(c, 400, "id 非法", nil)
@@ -236,7 +242,7 @@ func (h *AgentSessionHandler) ListMessages(c *gin.Context) {
 	afterID, _ := utils.ParseUint64(c.DefaultQuery("after_id", "0"))
 	limit := utils.ParseIntDefault(c.DefaultQuery("limit", "200"), 200)
 
-	list, err := h.his.ListMessages(c.Request.Context(), env, &tid, sid, uint64(afterID), limit)
+	list, err := h.his.ListMessages(c.Request.Context(), env, tenantRef, sid, uint64(afterID), limit)
 	if err != nil {
 		dto.ResponseError(c, 500, "查询失败", err)
 		return
@@ -251,13 +257,14 @@ func (h *AgentSessionHandler) AppendMessage(c *gin.Context) {
 		dto.ResponseValidationError(c, err)
 		return
 	}
-	tid, err := reqctx.RequireTenantIDFromGin(c)
+	tenantCtx, err := requireTenantContext(c)
 	if err != nil {
 		dto.ResponseError(c, 400, err.Error(), nil)
 		return
 	}
+	tenantRef := tenantCtx.UUIDPtr()
 
-	msg, err := h.his.AppendMessage(c.Request.Context(), req.Env, &tid,
+	msg, err := h.his.AppendMessage(c.Request.Context(), req.Env, tenantRef,
 		req.SessionID, req.AgentID,
 		strings.TrimSpace(req.Role),
 		req.Content,
@@ -276,23 +283,24 @@ func (h *AgentSessionHandler) AppendMessage(c *gin.Context) {
 // （可选）触发一次“超限检查+摘要”
 func (h *AgentSessionHandler) SummarizeIfNeeded(c *gin.Context) {
 	env := c.DefaultQuery("env", "default")
-	tid, err := reqctx.RequireTenantIDFromGin(c)
+	tenantCtx, err := requireTenantContext(c)
 	if err != nil {
 		dto.ResponseError(c, 400, err.Error(), nil)
 		return
 	}
+	tenantRef := tenantCtx.UUIDPtr()
 	sid, err := utils.ParseUintID(c.Param("id"))
 	if err != nil {
 		dto.ResponseError(c, 400, "id 非法", nil)
 		return
 	}
-	sess, err := h.his.FindSessionByID(c.Request.Context(), env, &tid, sid)
+	sess, err := h.his.FindSessionByID(c.Request.Context(), env, tenantRef, sid)
 	if err != nil {
 		dto.ResponseError(c, 404, "未找到", err)
 		return
 	}
 
-	ok, err := h.his.SummarizeIfNeeded(c.Request.Context(), env, &tid, sess)
+	ok, err := h.his.SummarizeIfNeeded(c.Request.Context(), env, tenantRef, sess)
 	if err != nil {
 		dto.ResponseError(c, 400, err.Error(), nil)
 		return

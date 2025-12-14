@@ -99,7 +99,7 @@
         "inactive": "Inactive",
         "suspended": "Suspended"
       },
-      "title": "Tenant directory",
+      "title": "Tenant management",
       "rootManagement": "Root management",
       "selectTenantDesc": "Select a tenant to manage its users and roles.",
       "searchTenants": "Search tenants…",
