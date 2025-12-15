@@ -223,23 +223,23 @@ func (r *TenantRepository) FindTenants(ctx context.Context, c FindTenantsCond) (
 }
 
 // 追加：统计每个租户成员数量
-func (r *TenantRepository) CountMembersByTenant(ctx context.Context) (map[uint64]int64, error) {
+func (r *TenantRepository) CountMembersByTenant(ctx context.Context) (map[string]int64, error) {
 	type row struct {
-		TenantID uint64
-		Cnt      int64
+		TenantUUID string
+		Cnt        int64
 	}
 	var rows []row
 	if err := r.DB.WithContext(ctx).
 		Table(model.TableIAMMember).
-		Select("tenant_id AS tenant_id, COUNT(1) AS cnt").
+		Select("tenant_uuid AS tenant_uuid, COUNT(1) AS cnt").
 		Where("deleted_at IS NULL").
-		Group("tenant_id").
+		Group("tenant_uuid").
 		Scan(&rows).Error; err != nil {
 		return nil, err
 	}
-	out := make(map[uint64]int64, len(rows))
+	out := make(map[string]int64, len(rows))
 	for _, r := range rows {
-		out[r.TenantID] = r.Cnt
+		out[r.TenantUUID] = r.Cnt
 	}
 	return out, nil
 }

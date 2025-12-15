@@ -9,19 +9,19 @@ import (
 )
 
 // SeedGrantDefaultRolesForTenant：为指定租户把权限授予给内置角色（admin=全量，user=只读）
-func SeedGrantDefaultRolesForTenant(db *gorm.DB, tenantID uint64) error {
+func SeedGrantDefaultRolesForTenant(db *gorm.DB, tenantUUID string) error {
 	roleRepo := infraiam.NewRoleRepository(db)
 	rpRepo := infraiam.NewRolePermissionRepository(db)
 
 	// 1) 确保租户默认角色存在
-	if err := roleRepo.EnsureDefaultRoles(seedCtx(), tenantID); err != nil {
+	if err := roleRepo.EnsureDefaultRoles(seedCtx(), tenantUUID); err != nil {
 		return fmt.Errorf("ensure default roles: %w", err)
 	}
-	admin, err := roleRepo.FindByCode(seedCtx(), "tenant", &tenantID, "role_admin")
+	admin, err := roleRepo.FindByCode(seedCtx(), "tenant", &tenantUUID, "role_admin")
 	if err != nil {
 		return fmt.Errorf("find role_admin: %w", err)
 	}
-	user, err := roleRepo.FindByCode(seedCtx(), "tenant", &tenantID, "role_user")
+	user, err := roleRepo.FindByCode(seedCtx(), "tenant", &tenantUUID, "role_user")
 	if err != nil {
 		return fmt.Errorf("find role_user: %w", err)
 	}
@@ -51,6 +51,6 @@ func SeedGrantDefaultRolesForTenant(db *gorm.DB, tenantID uint64) error {
 		}
 	}
 
-	fmt.Printf("[seed] granted defaults for tenant=%d (admin:%d, user:%d)\n", tenantID, len(allIDs), len(readIDs))
+	fmt.Printf("[seed] granted defaults for tenant=%s (admin:%d, user:%d)\n", tenantUUID, len(allIDs), len(readIDs))
 	return nil
 }

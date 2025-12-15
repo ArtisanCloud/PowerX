@@ -35,18 +35,20 @@ func SeedRoot(db *gorm.DB) error {
 		return fmt.Errorf("ensure tenant(%s): %w", tenantKey, err)
 	}
 
+	tenantUUID := ten.UUID.String()
+
 	// 4) 为该租户完成内置角色与授权（root(system) & tenant_admin(tenant)）
-	if err := SeedBuiltInRolesAndGrants(db, ten.ID); err != nil {
+	if err := SeedBuiltInRolesAndGrants(db, tenantUUID); err != nil {
 		return fmt.Errorf("seed built-in roles and grants: %w", err)
 	}
 
 	// 5) 为该租户确保默认角色，并授予基线权限（admin=全量，user=read）
 	roleRepo := infraiam.NewRoleRepository(db)
-	if err := roleRepo.EnsureDefaultRoles(seedCtx(), ten.ID); err != nil {
+	if err := roleRepo.EnsureDefaultRoles(seedCtx(), tenantUUID); err != nil {
 		return fmt.Errorf("ensure default roles: %w", err)
 	}
-	if err := SeedGrantDefaultRolesForTenant(db, ten.ID); err != nil {
-		return fmt.Errorf("grant defaults for tenant %d: %w", ten.ID, err)
+	if err := SeedGrantDefaultRolesForTenant(db, tenantUUID); err != nil {
+		return fmt.Errorf("grant defaults for tenant %s: %w", tenantUUID, err)
 	}
 
 	// 6) 确保 root 用户与凭证
@@ -97,7 +99,7 @@ func SeedRoot(db *gorm.DB) error {
 
 	// 7) 在 system 租户确保 root 成员
 	var memberID uint64
-	mem, err := memberRepo.FindByTenantAndUser(seedCtx(), ten.ID, userID)
+	mem, err := memberRepo.FindByTenantAndUser(seedCtx(), tenantUUID, userID)
 
 	// 只有“真正的错误”才返回；ErrRecordNotFound 或 (nil,nil) 都进入创建分支
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
@@ -106,7 +108,7 @@ func SeedRoot(db *gorm.DB) error {
 
 	if mem == nil || errors.Is(err, gorm.ErrRecordNotFound) {
 		m := &model.Member{
-			TenantID:    ten.ID,
+			TenantUUID:  tenantUUID,
 			UserID:      userID,
 			Username:    rootUserName,
 			DisplayName: "root",
@@ -121,12 +123,12 @@ func SeedRoot(db *gorm.DB) error {
 	}
 
 	// 8) 绑定 tenant 的 role_admin 到该成员（subject_type=MEMBER）
-	adminRole, err := roleRepo.FindByCode(seedCtx(), "tenant", &ten.ID, "role_admin")
+	adminRole, err := roleRepo.FindByCode(seedCtx(), "tenant", &tenantUUID, "role_admin")
 	if err != nil {
 		return fmt.Errorf("find role_admin: %w", err)
 	}
 	if err := rbRepo.Create(seedCtx(), &model.RoleBinding{
-		TenantID:    ten.ID,
+		TenantUUID:  tenantUUID,
 		RoleID:      adminRole.ID,
 		SubjectType: model.SubMember, // 你模型里定义的常量
 		SubjectID:   memberID,

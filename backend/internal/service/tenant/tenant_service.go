@@ -43,7 +43,7 @@ type ListTenantsOption struct {
 	Plan           *string
 }
 
-func (s *TenantService) List(ctx context.Context, opt ListTenantsOption) (items []mdltenant.Tenant, total int64, userCount map[uint64]int64, err error) {
+func (s *TenantService) List(ctx context.Context, opt ListTenantsOption) (items []mdltenant.Tenant, total int64, userCount map[string]int64, err error) {
 	// 排序白名单，防注入
 	sortBy := sanitizeSortBy(opt.SortBy, []string{"id", "name", "domain", "created_at", "updated_at"})
 	sortOrder := strings.ToLower(opt.SortOrder)
@@ -69,7 +69,7 @@ func (s *TenantService) List(ctx context.Context, opt ListTenantsOption) (items 
 	userCount, err = s.Repo.CountMembersByTenant(ctx)
 	if err != nil {
 		// 非致命错误：置空 map
-		userCount = map[uint64]int64{}
+		userCount = map[string]int64{}
 	}
 	return
 }
