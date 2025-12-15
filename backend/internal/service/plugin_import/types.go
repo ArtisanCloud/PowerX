@@ -8,7 +8,7 @@ import (
 
 // ImportRequest represents the payload describing a third-party package import.
 type ImportRequest struct {
-	TenantID           string            `json:"tenantId"`
+	TenantUUID         string            `json:"tenant_uuid"`
 	PackageName        string            `json:"packageName"`
 	Vendor             string            `json:"vendor"`
 	SourceURI          string            `json:"sourceUri"`
@@ -37,7 +37,7 @@ type ImportRecord struct {
 	RiskLevel  string                 `json:"riskLevel"`
 	Package    string                 `json:"packageName"`
 	Vendor     string                 `json:"vendor"`
-	TenantID   string                 `json:"tenantId"`
+	TenantUUID string                 `json:"tenant_uuid"`
 	Submitted  time.Time              `json:"submittedAt"`
 	Completed  *time.Time             `json:"completedAt,omitempty"`
 	Findings   map[string]any         `json:"findings"`

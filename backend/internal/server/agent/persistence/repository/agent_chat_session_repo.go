@@ -28,7 +28,7 @@ func NewAgentChatSessionRepository(db *gorm.DB) *AgentChatSessionRepository {
 // - singleton=false：总是创建新会话
 func (r *AgentChatSessionRepository) GetOrCreate(
 	ctx context.Context,
-	env string, tenantID *uint64,
+	env string, tenantUUID *string,
 	agentID uint64, userID uint64,
 	singleton bool,
 	defaults dbmodel.AgentChatSession, // 允许传 Title/TTL/MaxKB/MaxTokens 等缺省
@@ -39,7 +39,7 @@ func (r *AgentChatSessionRepository) GetOrCreate(
 	// 单例：查找当前活动会话
 	if singleton {
 		var old dbmodel.AgentChatSession
-		err := tx.Scopes(dbmodel.WithScope(env, tenantID)).
+		err := tx.Scopes(dbmodel.WithScope(env, tenantUUID)).
 			Where("agent_id = ? AND singleton = ? AND status = 'active'", agentID, true).
 			First(&old).Error
 		if err == nil {
@@ -53,8 +53,8 @@ func (r *AgentChatSessionRepository) GetOrCreate(
 	// 创建新会话（或单例未命中时创建）
 	now := time.Now().UTC()
 	sess := &dbmodel.AgentChatSession{
-		Env:       env,
-		TenantID:  tenantID,
+		Env:        env,
+		TenantUUID: tenantUUID,
 		AgentID:   agentID,
 		UserID:    userID,
 		Title:     defaults.Title,
@@ -91,11 +91,11 @@ func (r *AgentChatSessionRepository) GetOrCreate(
 
 // FindByID（带作用域）
 func (r *AgentChatSessionRepository) FindByID(
-	ctx context.Context, env string, tenantID *uint64, id uint64,
+	ctx context.Context, env string, tenantUUID *string, id uint64,
 ) (*dbmodel.AgentChatSession, error) {
 	var out dbmodel.AgentChatSession
 	err := r.db.WithContext(ctx).
-		Scopes(dbmodel.WithScope(env, tenantID)).
+		Scopes(dbmodel.WithScope(env, tenantUUID)).
 		Where("id = ?", id).First(&out).Error
 	if err != nil {
 		return nil, err
@@ -106,13 +106,13 @@ func (r *AgentChatSessionRepository) FindByID(
 // ListByAgent：按 Agent 列表会话（可选 status 过滤）
 func (r *AgentChatSessionRepository) ListByAgent(
 	ctx context.Context,
-	env string, tenantID *uint64,
+	env string, tenantUUID *string,
 	agentID uint64,
 	statuses []string,
 	limit, offset int,
 ) ([]dbmodel.AgentChatSession, error) {
 	tx := r.db.WithContext(ctx).
-		Scopes(dbmodel.WithScope(env, tenantID)).
+		Scopes(dbmodel.WithScope(env, tenantUUID)).
 		Where("agent_id = ?", agentID)
 
 	if len(statuses) > 0 {
@@ -134,12 +134,12 @@ func (r *AgentChatSessionRepository) ListByAgent(
 
 // TouchLatest：更新最近消息时间；并按 TTLDays 续期 ExpiredAt
 func (r *AgentChatSessionRepository) TouchLatest(
-	ctx context.Context, env string, tenantID *uint64, id uint64, t time.Time,
+	ctx context.Context, env string, tenantUUID *string, id uint64, t time.Time,
 ) error {
 	// 先取 TTLDays，再更新
 	var s dbmodel.AgentChatSession
 	if err := r.db.WithContext(ctx).
-		Scopes(dbmodel.WithScope(env, tenantID)).
+		Scopes(dbmodel.WithScope(env, tenantUUID)).
 		Select("id", "ttldays").
 		Where("id = ?", id).First(&s).Error; err != nil {
 		return err
@@ -147,7 +147,7 @@ func (r *AgentChatSessionRepository) TouchLatest(
 	exp := t.AddDate(0, 0, s.TTLDays)
 	return r.db.WithContext(ctx).
 		Model(&dbmodel.AgentChatSession{}).
-		Scopes(dbmodel.WithScope(env, tenantID)).
+		Scopes(dbmodel.WithScope(env, tenantUUID)).
 		Where("id = ?", id).
 		Updates(map[string]any{
 			"latest_at":  t.UTC(),
@@ -158,12 +158,12 @@ func (r *AgentChatSessionRepository) TouchLatest(
 
 // SetSummary：更新滚动摘要
 func (r *AgentChatSessionRepository) SetSummary(
-	ctx context.Context, env string, tenantID *uint64, id uint64, summary string,
+	ctx context.Context, env string, tenantUUID *string, id uint64, summary string,
 ) error {
 	now := time.Now().UTC()
 	return r.db.WithContext(ctx).
 		Model(&dbmodel.AgentChatSession{}).
-		Scopes(dbmodel.WithScope(env, tenantID)).
+		Scopes(dbmodel.WithScope(env, tenantUUID)).
 		Where("id = ?", id).
 		Updates(map[string]any{
 			"summary":    summary,
@@ -174,7 +174,7 @@ func (r *AgentChatSessionRepository) SetSummary(
 
 // UpdatePolicy：更新会话策略（TTL/MaxKB/MaxTokens）
 func (r *AgentChatSessionRepository) UpdatePolicy(
-	ctx context.Context, env string, tenantID *uint64, id uint64,
+	ctx context.Context, env string, tenantUUID *string, id uint64,
 	ttlDays, maxKB, maxTokens int,
 ) error {
 	updates := map[string]any{}
@@ -196,18 +196,18 @@ func (r *AgentChatSessionRepository) UpdatePolicy(
 	updates["updated_at"] = time.Now().UTC()
 	return r.db.WithContext(ctx).
 		Model(&dbmodel.AgentChatSession{}).
-		Scopes(dbmodel.WithScope(env, tenantID)).
+		Scopes(dbmodel.WithScope(env, tenantUUID)).
 		Where("id = ?", id).
 		Updates(updates).Error
 }
 
 // Archive：归档
 func (r *AgentChatSessionRepository) Archive(
-	ctx context.Context, env string, tenantID *uint64, id uint64,
+	ctx context.Context, env string, tenantUUID *string, id uint64,
 ) error {
 	return r.db.WithContext(ctx).
 		Model(&dbmodel.AgentChatSession{}).
-		Scopes(dbmodel.WithScope(env, tenantID)).
+		Scopes(dbmodel.WithScope(env, tenantUUID)).
 		Where("id = ?", id).
 		Update("status", "archived").Error
 }
@@ -219,7 +219,7 @@ func (r *AgentChatSessionRepository) DeleteSoft(ctx context.Context, id uint64) 
 
 // ListExpiredIDs：列出已过期会话 ID（用于服务层清理消息+会话）
 func (r *AgentChatSessionRepository) ListExpiredIDs(
-	ctx context.Context, env string, tenantID *uint64, now time.Time, limit int,
+	ctx context.Context, env string, tenantUUID *string, now time.Time, limit int,
 ) ([]uint64, error) {
 	if limit <= 0 {
 		limit = 200
@@ -227,7 +227,7 @@ func (r *AgentChatSessionRepository) ListExpiredIDs(
 	var ids []uint64
 	err := r.db.WithContext(ctx).
 		Model(&dbmodel.AgentChatSession{}).
-		Scopes(dbmodel.WithScope(env, tenantID)).
+		Scopes(dbmodel.WithScope(env, tenantUUID)).
 		Where("expired_at IS NOT NULL AND expired_at <= ?", now.UTC()).
 		Limit(limit).
 		Pluck("id", &ids).Error
@@ -236,11 +236,11 @@ func (r *AgentChatSessionRepository) ListExpiredIDs(
 
 // 修改标题（e.g. 首条用户消息后生成主题）
 func (r *AgentChatSessionRepository) UpdateTitle(
-	ctx context.Context, env string, tenantID *uint64, id uint64, title string,
+	ctx context.Context, env string, tenantUUID *string, id uint64, title string,
 ) error {
 	return r.db.WithContext(ctx).
 		Model(&dbmodel.AgentChatSession{}).
-		Scopes(dbmodel.WithScope(env, tenantID)).
+		Scopes(dbmodel.WithScope(env, tenantUUID)).
 		Where("id = ?", id).
 		Updates(map[string]any{
 			"title":      title,
@@ -250,11 +250,11 @@ func (r *AgentChatSessionRepository) UpdateTitle(
 
 // 将会话切换到另一个 Agent（可选）
 func (r *AgentChatSessionRepository) SetAgent(
-	ctx context.Context, env string, tenantID *uint64, id uint64, agentID uint64,
+	ctx context.Context, env string, tenantUUID *string, id uint64, agentID uint64,
 ) error {
 	return r.db.WithContext(ctx).
 		Model(&dbmodel.AgentChatSession{}).
-		Scopes(dbmodel.WithScope(env, tenantID)).
+		Scopes(dbmodel.WithScope(env, tenantUUID)).
 		Where("id = ?", id).
 		Updates(map[string]any{
 			"agent_id":   agentID,
@@ -263,12 +263,12 @@ func (r *AgentChatSessionRepository) SetAgent(
 }
 
 func (r *AgentChatSessionRepository) UpdateSessionTitle(
-	ctx context.Context, env string, tenantID *uint64, sessionID uint64, title string,
+	ctx context.Context, env string, tenantUUID *string, sessionID uint64, title string,
 ) error {
 	q := r.db.WithContext(ctx).Model(&dbmodel.AgentChatSession{}).
 		Where("id = ?", sessionID)
-	if tenantID != nil && *tenantID > 0 {
-		q = q.Where("tenant_id = ?", *tenantID)
+	if tenantUUID != nil && *tenantUUID != "" {
+		q = q.Where("tenant_uuid = ?", *tenantUUID)
 	}
 	if env != "" {
 		q = q.Where("env = ?", env)

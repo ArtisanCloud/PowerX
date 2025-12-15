@@ -3,7 +3,6 @@ package acl
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"strings"
 	"time"
 
@@ -24,7 +23,7 @@ const (
 
 type Binding struct {
 	ID            string          `json:"id"`
-	TenantID      string          `json:"tenant_id"`
+	TenantUUID    string          `json:"tenant_uuid"`
 	TenantKey     string          `json:"tenant_key"`
 	TopicUUID     string          `json:"topic_uuid"`
 	PrincipalType string          `json:"principal_type"`
@@ -39,7 +38,7 @@ type Binding struct {
 }
 
 type GrantRequest struct {
-	TenantID      string
+	TenantUUID    string
 	TopicUUID     string
 	PrincipalType string
 	PrincipalID   string
@@ -51,7 +50,7 @@ type GrantRequest struct {
 }
 
 type RevokeRequest struct {
-	TenantID    string
+	TenantUUID  string
 	TopicUUID   string
 	PrincipalID string
 	Actions     []PrincipalAction
@@ -59,8 +58,8 @@ type RevokeRequest struct {
 }
 
 type ListRequest struct {
-	TenantID  string
-	TopicUUID string
+	TenantUUID string
+	TopicUUID  string
 }
 
 type AclStore interface {
@@ -113,9 +112,9 @@ func (s *ACLService) Grant(ctx context.Context, req GrantRequest) ([]*Binding, e
 	if s.store == nil || s.topics == nil {
 		return nil, fmt.Errorf("acl service not configured")
 	}
-	tenantKey := strings.TrimSpace(req.TenantID)
-	if tenantKey == "" {
-		return nil, fmt.Errorf("tenant_id is required")
+	tenantKey, err := resolveTenantKey(req.TenantUUID)
+	if err != nil {
+		return nil, err
 	}
 	topicUUID, err := uuid.Parse(strings.TrimSpace(req.TopicUUID))
 	if err != nil {
@@ -152,7 +151,6 @@ func (s *ACLService) Grant(ctx context.Context, req GrantRequest) ([]*Binding, e
 			return nil, fmt.Errorf("action cannot be empty")
 		}
 		modelBindings = append(modelBindings, &model.AclBinding{
-			TenantID:      topic.TenantID,
 			TenantKey:     topic.TenantKey,
 			TopicUUID:     topic.UUID,
 			PrincipalType: principalType,
@@ -181,9 +179,9 @@ func (s *ACLService) Revoke(ctx context.Context, req RevokeRequest) error {
 	if s.store == nil {
 		return fmt.Errorf("acl service not configured")
 	}
-	tenantKey := strings.TrimSpace(req.TenantID)
-	if tenantKey == "" {
-		return fmt.Errorf("tenant_id is required")
+	tenantKey, err := resolveTenantKey(req.TenantUUID)
+	if err != nil {
+		return err
 	}
 	topicUUID, err := uuid.Parse(strings.TrimSpace(req.TopicUUID))
 	if err != nil {
@@ -208,9 +206,9 @@ func (s *ACLService) ListBindings(ctx context.Context, req ListRequest) ([]*Bind
 	if s.store == nil {
 		return nil, fmt.Errorf("acl service not configured")
 	}
-	tenantKey := strings.TrimSpace(req.TenantID)
-	if tenantKey == "" {
-		return nil, fmt.Errorf("tenant_id is required")
+	tenantKey, err := resolveTenantKey(req.TenantUUID)
+	if err != nil {
+		return nil, err
 	}
 	topicUUID, err := uuid.Parse(strings.TrimSpace(req.TopicUUID))
 	if err != nil {
@@ -259,7 +257,7 @@ func convertBindings(records []*model.AclBinding) []*Binding {
 		}
 		result = append(result, &Binding{
 			ID:            rec.UUID.String(),
-			TenantID:      strconv.FormatUint(rec.TenantID, 10),
+			TenantUUID:    strings.TrimSpace(rec.TenantKey),
 			TenantKey:     rec.TenantKey,
 			TopicUUID:     rec.TopicUUID.String(),
 			PrincipalType: rec.PrincipalType,
@@ -274,4 +272,11 @@ func convertBindings(records []*model.AclBinding) []*Binding {
 		})
 	}
 	return result
+}
+
+func resolveTenantKey(value string) (string, error) {
+	if key := strings.TrimSpace(value); key != "" {
+		return key, nil
+	}
+	return "", fmt.Errorf("tenant_uuid is required")
 }

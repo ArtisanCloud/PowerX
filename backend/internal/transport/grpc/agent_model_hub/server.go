@@ -18,6 +18,7 @@ import (
 	providerregistry "github.com/ArtisanCloud/PowerX/internal/service/provider_registry"
 	"github.com/ArtisanCloud/PowerX/pkg/cache"
 	model "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/agent_model_hub"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/tenantkeys"
 	"github.com/google/uuid"
 	"google.golang.org/grpc/codes"
@@ -51,13 +52,21 @@ func (s *Server) RegisterProvider(ctx context.Context, req *agentmodelhubv1.Regi
 	if s.providerRegistry == nil {
 		return nil, status.Error(codes.Unavailable, "provider registry unavailable")
 	}
+	tenantUUID, err := tenantUUIDFromRequest(ctx, "")
+	if err != nil {
+		return nil, err
+	}
 	profileInput := req.GetProfile()
-	record, err := s.providerRegistry.RegisterProvider(ctx, "default", nil, providerregistry.ProviderProfileInput{
+	tenantRefs, err := protoTenantRefsToService(profileInput.GetTenantWhitelist())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	record, err := s.providerRegistry.RegisterProvider(ctx, "default", tenantUUID, providerregistry.ProviderProfileInput{
 		Name:            strings.TrimSpace(profileInput.GetName()),
 		Capabilities:    append([]string(nil), profileInput.GetCapabilities()...),
 		PrimaryEndpoint: profileInput.GetPrimaryEndpoint(),
 		Regions:         append([]string(nil), profileInput.GetRegions()...),
-		TenantWhitelist: protoTenantRefsToService(profileInput.GetTenantWhitelist()),
+		TenantWhitelist: tenantRefs,
 		Credentials:     profileInput.GetCredentials(),
 	})
 	if err != nil {
@@ -99,8 +108,12 @@ func (s *Server) PublishProvider(ctx context.Context, req *agentmodelhubv1.Publi
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid provider_id")
 	}
+	tenantRefs, err := protoTenantRefsToService(req.GetTenantWhitelist())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
 	_, err = s.providerRegistry.PublishProvider(ctx, id, providerregistry.PublishOptions{
-		TenantWhitelist:       protoTenantRefsToService(req.GetTenantWhitelist()),
+		TenantWhitelist:       tenantRefs,
 		RolloutStrategy:       rolloutStrategyToString(req.GetRolloutStrategy()),
 		RollbackTimeoutMinute: req.GetRollbackTimeoutMinutes(),
 	})
@@ -175,8 +188,12 @@ func (s *Server) UpdateRoutingPolicyStatus(ctx context.Context, req *agentmodelh
 }
 
 func (s *Server) RouteTask(ctx context.Context, req *agentmodelhubv1.RouteTaskRequest) (*agentmodelhubv1.RouteTaskResponse, error) {
-	if req == nil || strings.TrimSpace(req.GetTenantId()) == "" {
-		return nil, status.Error(codes.InvalidArgument, "tenant_id required")
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "request required")
+	}
+	tenantUUID, err := tenantUUIDFromRequest(ctx, req.GetTenantUuid())
+	if err != nil {
+		return nil, err
 	}
 	if s.routingSvc == nil {
 		return nil, status.Error(codes.Unavailable, "routing service unavailable")
@@ -185,7 +202,7 @@ func (s *Server) RouteTask(ctx context.Context, req *agentmodelhubv1.RouteTaskRe
 	for k, v := range req.GetTaskContext() {
 		taskCtx[k] = v
 	}
-	result, err := s.routingSvc.DecideRoute(ctx, "default", req.GetTenantId(), taskCtx)
+	result, err := s.routingSvc.DecideRoute(ctx, "default", tenantUUID, taskCtx)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
@@ -232,15 +249,22 @@ func (s *Server) ToggleSafeMode(ctx context.Context, req *agentmodelhubv1.Toggle
 }
 
 func (s *Server) ReportUsage(ctx context.Context, req *agentmodelhubv1.ReportUsageRequest) (*agentmodelhubv1.ReportUsageResponse, error) {
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "request required")
+	}
 	report := req.GetReport()
-	if report == nil || strings.TrimSpace(report.GetTenantId()) == "" {
-		return nil, status.Error(codes.InvalidArgument, "report.tenant_id required")
+	if report == nil {
+		return nil, status.Error(codes.InvalidArgument, "report required")
+	}
+	tenantUUID, err := tenantUUIDFromRequest(ctx, report.GetTenantUuid())
+	if err != nil {
+		return nil, err
 	}
 	if s.costSvc == nil {
 		return nil, status.Error(codes.Unavailable, "cost quota service unavailable")
 	}
 	input := costquota.UsageIngestInput{
-		TenantID: strings.TrimSpace(report.GetTenantId()),
+		TenantUUID: tenantUUID,
 	}
 	if parsed, err := uuid.Parse(strings.TrimSpace(report.GetProviderId())); err == nil {
 		input.ProviderID = &parsed
@@ -258,18 +282,22 @@ func (s *Server) ReportUsage(ctx context.Context, req *agentmodelhubv1.ReportUsa
 }
 
 func (s *Server) GetQuotaSnapshot(ctx context.Context, req *agentmodelhubv1.GetQuotaSnapshotRequest) (*agentmodelhubv1.GetQuotaSnapshotResponse, error) {
-	if req == nil || strings.TrimSpace(req.GetTenantId()) == "" {
-		return nil, status.Error(codes.InvalidArgument, "tenant_id required")
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "request required")
+	}
+	tenantUUID, err := tenantUUIDFromRequest(ctx, req.GetTenantUuid())
+	if err != nil {
+		return nil, err
 	}
 	if s.costSvc == nil {
 		return nil, status.Error(codes.Unavailable, "cost quota service unavailable")
 	}
-	ledgers, err := s.costSvc.ListLedgers(ctx, "default", req.GetTenantId())
+	ledgers, err := s.costSvc.ListLedgers(ctx, "default", tenantUUID)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 	snapshot := &agentmodelhubv1.QuotaSnapshot{
-		TenantId: req.GetTenantId(),
+		TenantUuid: tenantUUID,
 	}
 	for _, ledger := range ledgers {
 		health := quotaHealthStatus(&ledger)
@@ -284,15 +312,22 @@ func (s *Server) GetQuotaSnapshot(ctx context.Context, req *agentmodelhubv1.GetQ
 }
 
 func (s *Server) EnforceQuotaAction(ctx context.Context, req *agentmodelhubv1.EnforceQuotaActionRequest) (*agentmodelhubv1.EnforceQuotaActionResponse, error) {
-	if req == nil || req.GetRequest() == nil {
+	if req == nil {
 		return nil, status.Error(codes.InvalidArgument, "request required")
+	}
+	body := req.GetRequest()
+	if body == nil {
+		return nil, status.Error(codes.InvalidArgument, "request required")
+	}
+	tenantUUID, err := tenantUUIDFromRequest(ctx, body.GetTenantUuid())
+	if err != nil {
+		return nil, err
 	}
 	if s.costSvc == nil {
 		return nil, status.Error(codes.Unavailable, "cost quota service unavailable")
 	}
-	body := req.GetRequest()
 	input := costquota.EnforcementInput{
-		TenantID:    body.GetTenantId(),
+		TenantUUID:  tenantUUID,
 		Reason:      body.GetReason(),
 		TicketID:    body.GetTicketId(),
 		RequestedBy: "",
@@ -315,15 +350,19 @@ func (s *Server) UpsertConnectorInstance(ctx context.Context, req *agentmodelhub
 		return nil, status.Error(codes.Unavailable, "connector service unavailable")
 	}
 	payload := req.GetInstance()
-	if payload == nil || strings.TrimSpace(payload.GetTenantId()) == "" {
-		return nil, status.Error(codes.InvalidArgument, "instance.tenant_id required")
+	if payload == nil {
+		return nil, status.Error(codes.InvalidArgument, "instance required")
+	}
+	tenantUUID, err := tenantUUIDFromRequest(ctx, payload.GetTenantUuid())
+	if err != nil {
+		return nil, err
 	}
 	mapping := datatypes.JSON([]byte("{}"))
 	if trimmed := strings.TrimSpace(payload.GetMappingTemplateJson()); trimmed != "" {
 		mapping = datatypes.JSON([]byte(trimmed))
 	}
 	result, err := s.connectorSvc.UpsertInstance(ctx, "default", connectorguard.ConnectorInstanceInput{
-		TenantScope:          payload.GetTenantId(),
+		TenantScope:          tenantUUID,
 		Platform:             req.GetPlatform(),
 		Region:               payload.GetRegion(),
 		OAuthRef:             payload.GetOauthRef(),
@@ -458,18 +497,26 @@ func mapStatus(status string) agentmodelhubv1.RolloutStatus {
 	}
 }
 
-func protoTenantRefsToService(refs []*agentmodelhubv1.TenantRef) []providerregistry.TenantRef {
+func protoTenantRefsToService(refs []*agentmodelhubv1.TenantRef) ([]providerregistry.TenantRef, error) {
 	out := make([]providerregistry.TenantRef, 0, len(refs))
 	for _, ref := range refs {
 		if ref == nil {
 			continue
 		}
+		tenant := strings.TrimSpace(ref.GetTenantUuid())
+		if tenant == "" {
+			return nil, fmt.Errorf("tenant uuid required in tenant whitelist")
+		}
+		canonical, err := reqctx.CanonicalTenantUUID(tenant)
+		if err != nil {
+			return nil, fmt.Errorf("tenant uuid invalid: %w", err)
+		}
 		out = append(out, providerregistry.TenantRef{
-			TenantID:    strings.TrimSpace(ref.GetTenantId()),
+			TenantUUID:  canonical,
 			Environment: strings.TrimSpace(ref.GetEnvironment()),
 		})
 	}
-	return out
+	return out, nil
 }
 
 func serviceTenantRefsToProto(refs []providerregistry.TenantRef) []*agentmodelhubv1.TenantRef {
@@ -477,7 +524,7 @@ func serviceTenantRefsToProto(refs []providerregistry.TenantRef) []*agentmodelhu
 	for _, ref := range refs {
 		ref := ref
 		out = append(out, &agentmodelhubv1.TenantRef{
-			TenantId:    ref.TenantID,
+			TenantUuid:  ref.TenantUUID,
 			Environment: ref.Environment,
 		})
 	}
@@ -510,7 +557,7 @@ func connectorInstanceToProto(inst *model.ConnectorInstance) *agentmodelhubv1.Co
 		InstanceId: inst.UUID.String(),
 		Platform:   inst.Platform,
 		Data: &agentmodelhubv1.ConnectorInstanceInput{
-			TenantId:             inst.TenantScope,
+			TenantUuid:           inst.TenantScope,
 			Region:               inst.Region,
 			OauthRef:             inst.OAuthRef,
 			WebhookSigningKeyRef: inst.WebhookSigningKeyRef,
@@ -876,4 +923,19 @@ func buildTenantKeyService(db *gorm.DB) *tenantkeys.TenantKeyService {
 		return nil
 	}
 	return tenantkeys.NewTenantKeyService(db)
+}
+
+func tenantUUIDFromRequest(ctx context.Context, candidate string) (string, error) {
+	uuidStr := strings.TrimSpace(candidate)
+	if uuidStr == "" {
+		uuidStr = strings.TrimSpace(reqctx.GetTenantUUID(ctx))
+	}
+	if uuidStr == "" {
+		return "", status.Error(codes.InvalidArgument, "tenant uuid required")
+	}
+	canonical, err := reqctx.CanonicalTenantUUID(uuidStr)
+	if err != nil {
+		return "", status.Error(codes.InvalidArgument, "tenant uuid invalid")
+	}
+	return canonical, nil
 }

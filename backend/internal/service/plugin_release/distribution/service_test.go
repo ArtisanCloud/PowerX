@@ -15,6 +15,8 @@ import (
 	"gorm.io/gorm"
 )
 
+const distributionTenantUUID = "1a23831a-3a65-4e1c-97ad-68fde1c4e5d2"
+
 func TestDistributionServiceWorkflow(t *testing.T) {
 	prevSchema := coremodel.PowerXSchema
 	coremodel.PowerXSchema = ""
@@ -35,7 +37,7 @@ func TestDistributionServiceWorkflow(t *testing.T) {
 	distRepo := repo.NewDistributionRepository(db)
 
 	candidate, err := candidateRepo.CreateCandidate(context.Background(), &models.PluginReleaseCandidate{
-		TenantID:         "tenant-dist",
+		TenantUUID:       distributionTenantUUID,
 		PluginID:         "px.demo",
 		Version:          "v5.0.0",
 		BuildArtifactURI: "s3://bucket/demo.zip",
@@ -108,7 +110,7 @@ func TestDistributionServiceWorkflow(t *testing.T) {
 	require.Equal(t, models.MarketplaceListingStatusApproved, listing.ReviewStatus)
 
 	job, err := svc.StartOfflineImport(context.Background(), OfflineImportInput{
-		TenantID:        "88001",
+		TenantUUID:      "878f6af7-2f76-4853-8a39-29e22983b05e",
 		PackageURI:      pkg.PackageURI,
 		Checksum:        checksum,
 		DryRun:          true,

@@ -13,6 +13,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/internal/service/plugin_release"
 	"github.com/ArtisanCloud/PowerX/internal/service/plugin_release/distribution"
 	"github.com/ArtisanCloud/PowerX/internal/service/plugin_release/pipeline"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -34,7 +35,6 @@ func newPublishHandler(svc *plugin_release.Service) *publishHandler {
 }
 
 type publishCreateRequest struct {
-	TenantUUID      string            `json:"tenantUuid" binding:"required"`
 	PluginID        string            `json:"pluginId" binding:"required"`
 	Version         string            `json:"version" binding:"required"`
 	Channel         string            `json:"channel" binding:"required"`
@@ -56,7 +56,7 @@ type publishUpdateRequest struct {
 type releaseListQuery struct {
 	Page           int    `form:"page,default=1" binding:"min=1"`
 	Size           int    `form:"size,default=20" binding:"min=1,max=100"`
-	TenantID       string `form:"tenantId"`
+	TenantUUID     string `form:"tenant_uuid"`
 	PluginID       string `form:"pluginId"`
 	VersionPrefix  string `form:"version"`
 	ApprovalStatus string `form:"approvalStatus"`
@@ -89,9 +89,14 @@ func (h *publishHandler) createRelease(c *gin.Context) {
 		dto.ResponseValidationError(c, err)
 		return
 	}
-	tenant := strings.TrimSpace(req.TenantUUID)
+	tenantUUID, err := reqctx.RequireTenantUUIDFromGin(c)
+	if err != nil {
+		dto.ResponseError(c, http.StatusUnauthorized, "缺少有效租户上下文", err)
+		return
+	}
+	tenant := strings.TrimSpace(tenantUUID)
 	if tenant == "" {
-		dto.ResponseError(c, http.StatusBadRequest, "tenantUuid is required", nil)
+		dto.ResponseError(c, http.StatusUnauthorized, "缺少有效租户上下文", nil)
 		return
 	}
 	channel := strings.TrimSpace(req.Channel)
@@ -115,7 +120,7 @@ func (h *publishHandler) createRelease(c *gin.Context) {
 		}
 	}
 	candidate, err := h.pipeline.SubmitCandidate(c.Request.Context(), pipeline.SubmitCandidateInput{
-		TenantID:        tenant,
+		TenantUUID:      tenant,
 		PluginID:        strings.TrimSpace(req.PluginID),
 		Version:         strings.TrimSpace(req.Version),
 		BuildArtifact:   strings.TrimSpace(req.BuildArtifact),
@@ -146,7 +151,7 @@ func (h *publishHandler) listReleases(c *gin.Context) {
 	items, total, err := h.pipeline.ListCandidates(c.Request.Context(), pipeline.ListCandidatesInput{
 		Page:           query.Page,
 		Size:           query.Size,
-		TenantID:       strings.TrimSpace(query.TenantID),
+		TenantUUID:     strings.TrimSpace(query.TenantUUID),
 		PluginID:       strings.TrimSpace(query.PluginID),
 		VersionPrefix:  strings.TrimSpace(query.VersionPrefix),
 		ApprovalStatus: strings.TrimSpace(query.ApprovalStatus),

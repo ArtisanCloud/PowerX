@@ -3,15 +3,16 @@ package system
 
 import (
 	"errors"
-	repoi "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/iam"
-	"gorm.io/gorm"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/ArtisanCloud/PowerX/internal/app/shared"
 	systemsvc "github.com/ArtisanCloud/PowerX/internal/service/system"
 	m "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/iam"
+	repoi "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/iam"
+	tenantrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/tenant"
 	dto "github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/ArtisanCloud/PowerX/pkg/utils"
 	"github.com/gin-gonic/gin"
@@ -20,13 +21,29 @@ import (
 // ============= Handler（只依赖 Service） =============
 
 type UserHandler struct {
-	S *systemsvc.UserService
+	S          *systemsvc.UserService
+	tenantRepo *tenantrepo.TenantRepository
 }
 
-func NewUserHandler(db *gorm.DB) *UserHandler {
+func NewUserHandler(deps *shared.Deps) *UserHandler {
+	repo := tenantRepoFromDeps(deps)
 	return &UserHandler{
-		S: systemsvc.NewUserService(db),
+		S:          systemsvc.NewUserService(deps.DB),
+		tenantRepo: repo,
 	}
+}
+
+func tenantRepoFromDeps(deps *shared.Deps) *tenantrepo.TenantRepository {
+	if deps == nil {
+		return nil
+	}
+	if deps.TenantSvc != nil && deps.TenantSvc.Repo != nil {
+		return deps.TenantSvc.Repo
+	}
+	if deps.DB != nil {
+		return tenantrepo.NewTenantRepository(deps.DB)
+	}
+	return nil
 }
 
 // ============= DTO（仅包含模型没有的扩展字段） =============
@@ -46,9 +63,8 @@ type UserDTO struct {
 
 type ListUsersReq struct {
 	dto.PaginationRequest
-	TenantID uint64 `form:"tenant_id" json:"tenant_id"`
-	Keyword  string `form:"q"`
-	Status   *int16 `form:"status"`
+	Keyword string `form:"q"`
+	Status  *int16 `form:"status"`
 }
 
 // 创建用户并把该用户加入租户时需要的扩展字段（模型字段直接来自 m.User）
@@ -56,7 +72,6 @@ type CreateSystemUserReq struct {
 	m.User `json:",inline"`
 
 	UserName        string   `json:"username" validate:"required,min=3,max=64"` // 在租户内的用户名
-	TenantID        uint64   `json:"tenant_id" validate:"required,gt=0"`        // Root 选中的租户
 	InitialPassword string   `json:"initial_password" validate:"omitempty,min=6,max=64"`
 	DeptIDs         []uint64 `json:"dept_ids"` // 创建 member 时绑定的部门（可选）
 }
@@ -79,7 +94,6 @@ type ForceLogoutReq struct {
 
 // 把已存在的 User 加入某个租户为 Member
 type AddUserToTenantReq struct {
-	TenantID uint64 `json:"tenant_id" validate:"required,gt=0"`
 }
 
 // ============= Handlers（全部转发给 Service） =============
@@ -93,15 +107,20 @@ func (h *UserHandler) List(c *gin.Context) {
 	}
 	req.SetDefaultPagination()
 
+	tenantCtx, ok := requireTenantContext(c, h.tenantRepo)
+	if !ok {
+		return
+	}
+
 	ctx := c.Request.Context()
 	// Service 需要提供：ListUsers(ctx, keyword, status, page, size, orderBy) ([]m.User, total, error)
 	users, total, err := h.S.ListUsers(ctx, repoi.UserListFilter{
-		TenantID: req.TenantID,
-		Keyword:  req.Keyword,
-		Status:   req.Status,
-		Page:     req.Page,
-		Size:     req.PageSize,
-		OrderBy:  strings.TrimSpace(req.SortOrder),
+		TenantUUID: tenantCtx.UUID(),
+		Keyword:    req.Keyword,
+		Status:     req.Status,
+		Page:       req.Page,
+		Size:       req.PageSize,
+		OrderBy:    strings.TrimSpace(req.SortOrder),
 	})
 	if err != nil {
 		dto.ResponseError(c, http.StatusInternalServerError, "查询用户失败", err)
@@ -142,6 +161,10 @@ func (h *UserHandler) Create(c *gin.Context) {
 		dto.ResponseValidationError(c, err)
 		return
 	}
+	tenantCtx, ok := requireTenantContext(c, h.tenantRepo)
+	if !ok {
+		return
+	}
 	ctx := c.Request.Context()
 
 	u := &m.User{
@@ -154,7 +177,7 @@ func (h *UserHandler) Create(c *gin.Context) {
 	}
 
 	// Service：CreateSystemUser(ctx, user *m.User, tenantID uint64, username, initialPassword string, deptIDs []uint64) (userID uint64, err error)
-	id, err := h.S.CreateSystemUser(ctx, u, req.TenantID, strings.ToLower(strings.TrimSpace(req.UserName)), strings.TrimSpace(req.InitialPassword), req.DeptIDs)
+	id, err := h.S.CreateSystemUser(ctx, u, tenantCtx.UUID(), strings.ToLower(strings.TrimSpace(req.UserName)), strings.TrimSpace(req.InitialPassword), req.DeptIDs)
 	if err != nil {
 		dto.ResponseError(c, http.StatusBadRequest, "创建失败", err)
 		return
@@ -173,7 +196,12 @@ func (h *UserHandler) AddToTenant(c *gin.Context) {
 		return
 	}
 
-	memberID, err := h.S.AddUserToTenant(c.Request.Context(), userID, req.TenantID)
+	tenantCtx, ok := requireTenantContext(c, h.tenantRepo)
+	if !ok {
+		return
+	}
+
+	memberID, err := h.S.AddUserToTenant(c.Request.Context(), userID, tenantCtx.UUID())
 	if err != nil {
 		dto.ResponseError(c, http.StatusBadRequest, "加入租户失败", err)
 		return

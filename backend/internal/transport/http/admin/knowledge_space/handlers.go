@@ -11,6 +11,7 @@ import (
 
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
 	ksvc "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
 )
 
@@ -93,9 +94,8 @@ func (h *Handler) create(c *gin.Context) {
 		dto.ResponseValidationError(c, err)
 		return
 	}
-	tenantID, err := uuid.Parse(req.TenantID)
-	if err != nil {
-		dto.ResponseError(c, http.StatusBadRequest, "无效的 tenantId", err)
+	tenantUUID, ok := tenantUUIDFromContext(c)
+	if !ok {
 		return
 	}
 	policyID, err := strconv.ParseUint(strings.TrimSpace(req.PolicyTemplateVersionID), 10, 64)
@@ -105,7 +105,7 @@ func (h *Handler) create(c *gin.Context) {
 	}
 	flags := ksvc.EncodeConcurrencyFlag(req.FeatureFlags, req.Quotas.IngestionConcurrency)
 	space, err := h.svc.CreateSpace(c.Request.Context(), ksvc.CreateSpaceInput{
-		TenantID:       tenantID,
+		TenantUUID:     tenantUUID.String(),
 		SpaceName:      req.SpaceName,
 		DepartmentCode: req.DepartmentCode,
 		QuotaCPU:       req.Quotas.CPUCores,
@@ -207,4 +207,13 @@ func targetConcurrency(q *quotaPayload) int {
 		return 1
 	}
 	return q.IngestionConcurrency
+}
+
+func tenantUUIDFromContext(c *gin.Context) (uuid.UUID, bool) {
+	tenantUUID, err := reqctx.RequireTenantUUIDValueFromGin(c)
+	if err != nil {
+		dto.ResponseError(c, http.StatusUnauthorized, "缺少租户上下文", err)
+		return uuid.Nil, false
+	}
+	return tenantUUID, true
 }

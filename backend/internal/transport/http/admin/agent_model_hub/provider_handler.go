@@ -51,6 +51,10 @@ func (h *ProviderHandler) registerProvider(c *gin.Context) {
 		dtoRequest.ResponseError(c, http.StatusServiceUnavailable, "provider registry unavailable", nil)
 		return
 	}
+	tenantUUID, ok := requireTenantUUID(c)
+	if !ok {
+		return
+	}
 	var req registerProviderRequest
 	if err := dtoRequest.ValidateRequestWithContext(c, &req); err != nil {
 		dtoRequest.ResponseValidationError(c, err)
@@ -64,7 +68,7 @@ func (h *ProviderHandler) registerProvider(c *gin.Context) {
 	profile, err := h.registry.RegisterProvider(
 		c.Request.Context(),
 		env,
-		nil,
+		tenantUUID,
 		providerregistry.ProviderProfileInput{
 			Name:            req.Name,
 			Capabilities:    req.Capabilities,
@@ -244,13 +248,14 @@ type rollbackProviderRequest struct {
 }
 
 type tenantRefDTO struct {
-	TenantID    string `json:"tenantId"`
+	TenantUUID  string `json:"tenant_uuid"`
 	Environment string `json:"environment"`
 }
 
 type providerDTO struct {
 	ProviderID      string                 `json:"provider_id"`
 	Env             string                 `json:"env"`
+	TenantUUID      string                 `json:"tenant_uuid"`
 	Name            string                 `json:"name"`
 	Capabilities    []string               `json:"capabilities"`
 	PrimaryEndpoint string                 `json:"primary_endpoint"`
@@ -266,6 +271,7 @@ func buildProviderDTO(profile *model.ProviderProfile) providerDTO {
 	return providerDTO{
 		ProviderID:      profile.UUID.String(),
 		Env:             profile.Env,
+		TenantUUID:      profile.TenantUUID,
 		Name:            profile.Name,
 		Capabilities:    cloneStringSlice([]string(profile.Capabilities)),
 		PrimaryEndpoint: profile.PrimaryEndpoint,
@@ -282,7 +288,7 @@ func dtoToTenantRefs(items []tenantRefDTO) []providerregistry.TenantRef {
 	out := make([]providerregistry.TenantRef, 0, len(items))
 	for _, it := range items {
 		out = append(out, providerregistry.TenantRef{
-			TenantID:    strings.TrimSpace(it.TenantID),
+			TenantUUID:  strings.TrimSpace(it.TenantUUID),
 			Environment: strings.TrimSpace(it.Environment),
 		})
 	}
@@ -293,7 +299,7 @@ func refsToDTO(items []providerregistry.TenantRef) []tenantRefDTO {
 	out := make([]tenantRefDTO, 0, len(items))
 	for _, it := range items {
 		out = append(out, tenantRefDTO{
-			TenantID:    it.TenantID,
+			TenantUUID:  it.TenantUUID,
 			Environment: it.Environment,
 		})
 	}

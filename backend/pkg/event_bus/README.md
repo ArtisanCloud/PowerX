@@ -25,7 +25,7 @@ CoreX 事件总线模块提供了统一的事件发布订阅机制，支持本�
 │ Close()         │    │ Ctx             │
 └─────────────────┘    │ ID              │
          │              │ TraceID         │
-         │              │ TenantID        │
+         │              │ TenantUUID      │
          ▼              └─────────────────┘
 ┌─────────────────┐
 │ Implementation  │
@@ -61,7 +61,7 @@ func main() {
     defer unsubscribe()
 
     // 发布事件
-    ctx := context.WithValue(context.Background(), "tenant_id", "tenant-123")
+    ctx := context.WithValue(context.Background(), "tenant_uuid", "tenant-123")
     bus.Publish("user_login", map[string]interface{}{
         "user_id": "user-001",
         "ip":      "192.168.1.1",
@@ -166,12 +166,12 @@ type RedisConfig struct {
 
 ```go
 type Event struct {
-    Name     string          `json:"name"`      // 事件名称
-    Payload  interface{}     `json:"payload"`   // 事件数据
-    Ctx      context.Context `json:"-"`         // 上下文（不序列化）
-    ID       string          `json:"id"`        // 事件ID（用于幂等）
-    TraceID  string          `json:"trace_id"`  // 追踪ID
-    TenantID string          `json:"tenant_id"` // 租户ID
+    Name       string          `json:"name"`       // 事件名称
+    Payload    interface{}     `json:"payload"`    // 事件数据
+    Ctx        context.Context `json:"-"`          // 上下文（不序列化）
+    ID         string          `json:"id"`         // 事件ID（用于幂等）
+    TraceID    string          `json:"trace_id"`   // 追踪ID
+    TenantUUID string          `json:"tenant_uuid"`// 租户 UUID
 }
 ```
 
@@ -211,7 +211,7 @@ bus.Subscribe("risky_event", func(event Event) error {
 
 ```go
 // 发布事件时传递上下文信息
-ctx := context.WithValue(context.Background(), "tenant_id", "tenant-123")
+ctx := context.WithValue(context.Background(), "tenant_uuid", "tenant-123")
 ctx = context.WithValue(ctx, "trace_id", "trace-456")
 ctx = context.WithValue(ctx, "user_id", "user-789")
 
@@ -219,11 +219,11 @@ bus.Publish("user_action", actionData, ctx)
 
 // 在处理器中获取上下文信息
 bus.Subscribe("user_action", func(event Event) error {
-    tenantID := event.TenantID
+    tenantUUID := event.TenantUUID
     traceID := event.TraceID
     
     // 使用上下文信息
-    log.Printf("租户 %s 的用户操作，追踪ID: %s", tenantID, traceID)
+    log.Printf("租户 %s 的用户操作，追踪ID: %s", tenantUUID, traceID)
     return nil
 })
 ```

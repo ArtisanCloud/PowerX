@@ -43,7 +43,7 @@ type Options struct {
 
 // SubmitCandidateInput captures metadata submitted by CLI/API.
 type SubmitCandidateInput struct {
-	TenantID        string
+	TenantUUID      string
 	PluginID        string
 	Version         string
 	BuildArtifact   string
@@ -75,7 +75,7 @@ type RunQualityGatesInput struct {
 type ListCandidatesInput struct {
 	Page           int
 	Size           int
-	TenantID       string
+	TenantUUID     string
 	PluginID       string
 	VersionPrefix  string
 	ApprovalStatus string
@@ -153,7 +153,7 @@ func (s *Service) SubmitCandidate(ctx context.Context, input SubmitCandidateInpu
 	}
 	now := s.clock()
 	candidate := &models.PluginReleaseCandidate{
-		TenantID:         input.TenantID,
+		TenantUUID:       input.TenantUUID,
 		PluginID:         input.PluginID,
 		Version:          input.Version,
 		BuildArtifactURI: input.BuildArtifact,
@@ -346,7 +346,7 @@ func (s *Service) ListCandidates(ctx context.Context, input ListCandidatesInput)
 	filter := repo.ReleaseCandidateListFilter{
 		Page:           input.Page,
 		Size:           input.Size,
-		TenantID:       input.TenantID,
+		TenantUUID:     input.TenantUUID,
 		PluginID:       input.PluginID,
 		VersionPrefix:  input.VersionPrefix,
 		ApprovalStatus: input.ApprovalStatus,
@@ -419,7 +419,7 @@ func (s *Service) UpdateCandidate(ctx context.Context, input UpdateCandidateInpu
 
 func validateCandidateInput(input SubmitCandidateInput) error {
 	switch {
-	case strings.TrimSpace(input.TenantID) == "",
+	case strings.TrimSpace(input.TenantUUID) == "",
 		strings.TrimSpace(input.PluginID) == "",
 		strings.TrimSpace(input.Version) == "",
 		strings.TrimSpace(input.BuildArtifact) == "":

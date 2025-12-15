@@ -4,15 +4,16 @@ package middleware
 import (
 	"context"
 	"encoding/json"
-	"github.com/ArtisanCloud/PowerX/pkg/auth"
 	"net/http"
 	"strconv"
 	"strings"
 
+	"github.com/ArtisanCloud/PowerX/pkg/auth"
 	"github.com/ArtisanCloud/PowerX/pkg/cache"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/utils"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 func KUser(uid uint64) string    { return "auth:user:" + strconv.FormatUint(uid, 10) }
@@ -30,7 +31,16 @@ func JwtMiddleware(
 	audiences []string,
 	requiredScopes []string,
 	cb func(ctx context.Context, claims *reqctx.CoreXClaims) error,
+	opts ...JwtOption,
 ) gin.HandlerFunc {
+	cfg := jwtMiddlewareConfig{
+		headerPolicy: TenantHeaderPolicy{
+			RequireUUID: true,
+		},
+	}
+	for _, opt := range opts {
+		opt(&cfg)
+	}
 	return func(c *gin.Context) {
 		// 1) Authorization: Bearer <token>
 		authz := c.GetHeader("Authorization")
@@ -70,17 +80,40 @@ func JwtMiddleware(
 		}
 
 		// D. Root 代理租户（仅 is_root=true 生效）
-		tid := claims.TenantID
+		tenantUUID := strings.TrimSpace(claims.TenantUUID)
+		if tenantUUID == "" {
+			tenantUUID = strings.TrimSpace(c.GetHeader("X-Tenant-UUID"))
+		}
 		if claims.IsRoot {
-			if as := c.Query("as_tenant_id"); as != "" {
-				if v, e := strconv.ParseUint(as, 10, 64); e == nil && v > 0 {
-					tid = v
-				}
+			if asUUID := strings.TrimSpace(c.Query("as_tenant_uuid")); asUUID != "" {
+				tenantUUID = asUUID
+			}
+		}
+
+		tenantUUID = strings.TrimSpace(tenantUUID)
+		tenantID := claims.TenantID
+		var tenantUUIDValue uuid.UUID
+		if tenantUUID == "" {
+			if cfg.headerPolicy.RequireUUID {
+				incTenantHeaderReject()
+				c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "tenant uuid required"})
+				return
+			}
+		} else {
+			canonical, err := reqctx.CanonicalTenantUUID(tenantUUID)
+			if err != nil {
+				incTenantHeaderReject()
+				c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "invalid tenant uuid"})
+				return
+			}
+			tenantUUID = canonical
+			if parsed, err := uuid.Parse(canonical); err == nil {
+				tenantUUIDValue = parsed
 			}
 		}
 
 		// E. 读取缓存快照（命中才做轻量校验；未命中交给 cb 处理）
-		var userSnap, memberSnap, tenantSnap map[string]any
+		var userSnap, memberSnap map[string]any
 		if authCache != nil {
 			if b, _ := authCache.Get(reqCtx, KUser(claims.UserID)); len(b) > 0 {
 				_ = json.Unmarshal(b, &userSnap)
@@ -91,9 +124,6 @@ func JwtMiddleware(
 					_ = json.Unmarshal(b, &memberSnap)
 				}
 			}
-			if b, _ := authCache.Get(reqCtx, KTenant(tid)); len(b) > 0 {
-				_ = json.Unmarshal(b, &tenantSnap)
-			}
 		}
 
 		// F. 轻量状态校验（仅在命中缓存时执行）
@@ -103,13 +133,13 @@ func JwtMiddleware(
 				return
 			}
 		}
-		// Root 场景不校验 member（因为可能没有与 as_tenant_id 对应的 member）
+		// Root 场景不校验 member（代理租户时可能没有成员记录）
 		if !claims.IsRoot && memberSnap != nil {
 			if st, ok := utils.AsInt16(memberSnap["status"]); ok && st != 1 {
 				c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "member disabled"})
 				return
 			}
-			if mtid, ok := utils.AsUint64(memberSnap["tenant_id"]); ok && mtid != tid {
+			if mtid, ok := utils.AsUint64(memberSnap["tenant_id"]); ok && mtid != tenantID {
 				c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "tenant mismatch"})
 				return
 			}
@@ -118,17 +148,12 @@ func JwtMiddleware(
 				return
 			}
 		}
-		if tenantSnap != nil {
-			if st, ok := utils.AsInt16(tenantSnap["status"]); ok && st != 1 {
-				c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "tenant disabled"})
-				return
-			}
-		}
-
 		// G. 注入上下文（统一使用 reqctx.With*，并修正 platform 类型）
 		reqCtx = reqctx.WithClaims(reqCtx, claims)
-		reqCtx = reqctx.WithTenantID(reqCtx, tid)
-		reqCtx = reqctx.WithTenantUUID(reqCtx, claims.TenantUUID)
+		reqCtx = reqctx.WithTenantUUID(reqCtx, tenantUUID)
+		if tenantUUIDValue != uuid.Nil {
+			reqCtx = reqctx.WithTenantUUIDValue(reqCtx, tenantUUIDValue)
+		}
 
 		// 常用 id / root
 		reqCtx = reqctx.WithUserID(reqCtx, claims.UserID)
@@ -158,6 +183,8 @@ func JwtMiddleware(
 		// 写回 request，并同步到 gin.Context 的 keys
 		c.Request = c.Request.WithContext(reqCtx)
 		reqctx.CopyCtxToGin(c)
+		// 兼容历史：部分 handler 仍通过 "auth_claims" 键读取 claims
+		c.Set("auth_claims", *claims)
 
 		// H. 业务回调：缓存 miss 或需要强校验时，cb 回源 DB
 		if cb != nil {
@@ -167,6 +194,7 @@ func JwtMiddleware(
 			}
 		}
 
+		incTenantUUIDOnlyRequest()
 		c.Next()
 	}
 }

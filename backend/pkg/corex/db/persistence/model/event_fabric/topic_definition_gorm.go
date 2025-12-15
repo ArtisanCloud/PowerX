@@ -15,8 +15,7 @@ import (
 type TopicDefinition struct {
 	coremodel.PowerUUIDModel
 
-    TenantID        uint64         `gorm:"column:tenant_id;type:bigint;not null;index:idx_event_topics_tenant;index:idx_event_topics_composite,priority:1" json:"tenant_id"`
-    TenantKey       string         `gorm:"column:tenant_key;type:varchar(128);not null;index:idx_event_topics_tenant_key;index:idx_event_topics_composite,priority:2" json:"tenant_key"`
+	TenantKey       string         `gorm:"column:tenant_key;type:varchar(128);not null;index:idx_event_topics_tenant_key;index:idx_event_topics_composite,priority:1" json:"tenant_key"`
 	Namespace       string         `gorm:"column:namespace;type:varchar(128);not null;index:idx_event_topics_namespace;index:idx_event_topics_composite,priority:3" json:"namespace"`
 	Name            string         `gorm:"column:name;type:varchar(128);not null;index:idx_event_topics_name;index:idx_event_topics_composite,priority:4" json:"name"`
 	FullTopic       string         `gorm:"column:full_topic;type:varchar(256);not null;uniqueIndex:uk_event_topic_full_topic" json:"full_topic"`

@@ -25,7 +25,7 @@ func TestScheduleRollout(t *testing.T) {
 		Strategy:   "canary",
 		Percentage: 20,
 		Tenants: []TenantRef{
-			{TenantID: "demo", Environment: "staging"},
+			{TenantUUID: "demo", Environment: "staging"},
 		},
 		Note: "initial gray release",
 	})
@@ -48,7 +48,7 @@ func TestRollbackProvider(t *testing.T) {
 		Env:        "default",
 		Percentage: 10,
 		Tenants: []TenantRef{
-			{TenantID: "demo", Environment: "staging"},
+			{TenantUUID: "demo", Environment: "staging"},
 		},
 	})
 	require.NoError(t, err)
@@ -79,7 +79,7 @@ CREATE TABLE IF NOT EXISTS agent_provider_profiles (
 	updated_at DATETIME,
 	deleted_at DATETIME,
 	env TEXT,
-	tenant_id INTEGER,
+	tenant_uuid TEXT,
 	name TEXT,
 	capabilities TEXT,
 	primary_endpoint TEXT,

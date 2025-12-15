@@ -266,8 +266,12 @@ func (s *Service) RotateInstanceSecrets(ctx context.Context, env, tenantScope st
 	if instance == nil || len(instance.SealedSecrets) == 0 {
 		return nil
 	}
+	scope := strings.TrimSpace(tenantScope)
+	if scope == "" {
+		scope = strings.TrimSpace(instance.TenantScope)
+	}
 	secrets := map[string]any{}
-	if err := s.keys.UnsealSensitive(ctx, env, nil, instance.SealedSecrets, &secrets); err != nil {
+	if err := s.keys.UnsealSensitive(ctx, env, scope, instance.SealedSecrets, &secrets); err != nil {
 		return err
 	}
 	data := datatypes.JSONMap{}
@@ -276,10 +280,10 @@ func (s *Service) RotateInstanceSecrets(ctx context.Context, env, tenantScope st
 		data[k] = v
 		keys = append(keys, k)
 	}
-	if _, err := s.keys.RotateKeyPair(ctx, env, nil); err != nil {
+	if _, err := s.keys.RotateKeyPair(ctx, env, scope); err != nil {
 		return err
 	}
-	sealed, err := s.keys.SealSensitive(ctx, env, nil, data, keys...)
+	sealed, err := s.keys.SealSensitive(ctx, env, scope, data, keys...)
 	if err != nil {
 		return err
 	}
@@ -370,7 +374,8 @@ func (s *Service) sealConnectorSecrets(ctx context.Context, inst *model.Connecto
 	if len(keys) == 0 {
 		return nil, refs, nil
 	}
-	sealed, err := s.keys.SealSensitive(ctx, inst.Env, nil, raw, keys...)
+	scope := strings.TrimSpace(inst.TenantScope)
+	sealed, err := s.keys.SealSensitive(ctx, inst.Env, scope, raw, keys...)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -398,6 +403,7 @@ func (s *Service) emitAudit(ctx context.Context, op string, instModel *model.Con
 	meta["tenant_scope"] = instModel.TenantScope
 	payload, _ := json.Marshal(meta)
 	_ = s.audit.Emit(ctx, &dbmaudit.AuditEvent{
+		TenantUUID:   strings.TrimSpace(instModel.TenantScope),
 		Source:       "connector_guard.service",
 		Operation:    op,
 		ResourceType: "agent.connector_instance",
@@ -478,8 +484,9 @@ func (s *Service) loadSecrets(ctx context.Context, inst *model.ConnectorInstance
 	if s.keys == nil {
 		return nil, errors.New("tenant key service not configured")
 	}
+	scope := strings.TrimSpace(inst.TenantScope)
 	secrets := map[string]string{}
-	if err := s.keys.UnsealSensitive(ctx, inst.Env, nil, inst.SealedSecrets, &secrets); err != nil {
+	if err := s.keys.UnsealSensitive(ctx, inst.Env, scope, inst.SealedSecrets, &secrets); err != nil {
 		return nil, err
 	}
 	return secrets, nil

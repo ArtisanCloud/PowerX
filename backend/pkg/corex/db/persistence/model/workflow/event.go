@@ -14,7 +14,7 @@ import (
 type WorkflowEvent struct {
 	coremodel.PowerModel
 
-	TenantID          uint64         `gorm:"column:tenant_id;type:bigint;not null;index:idx_workflow_events_tenant" json:"tenant_id"`
+	TenantUUID        string         `gorm:"column:tenant_uuid;type:varchar(128);not null;index:idx_workflow_events_tenant_uuid" json:"tenant_uuid"`
 	WorkflowUUID      uuid.UUID      `gorm:"column:instance_uuid;type:uuid;not null;index:idx_workflow_events_instance" json:"instance_uuid"`
 	EventType         string         `gorm:"column:event_type;type:varchar(64);not null;index:idx_workflow_events_type" json:"event_type"`
 	OccurredAt        time.Time      `gorm:"column:occurred_at;type:timestamp with time zone;not null;index:idx_workflow_events_occurred" json:"occurred_at"`

@@ -2,14 +2,17 @@ package integration_gateway
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
 
 	manager "github.com/ArtisanCloud/PowerX/internal/service/integration_gateway/manager"
 	integrationTenant "github.com/ArtisanCloud/PowerX/internal/service/integration_gateway/tenant"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 type tenantHandler struct {
@@ -56,16 +59,16 @@ type invokeResponse struct {
 }
 
 func (h *tenantHandler) ListRoutes(c *gin.Context) {
-	tenantID := resolveTenantID(c)
-	if tenantID == "" {
-		dto.ResponseError(c, http.StatusUnauthorized, "missing tenant identifier", nil)
+	tenantUUID, err := tenantUUIDFromRequest(c)
+	if err != nil {
+		respondTenantIdentityError(c, err)
 		return
 	}
 
 	capabilityID := strings.TrimSpace(c.Query("capability_id"))
 	channel := strings.TrimSpace(c.Query("channel"))
 
-	routes, err := h.svc.ListRoutes(c.Request.Context(), tenantID, capabilityID, channel)
+	routes, err := h.svc.ListRoutes(c.Request.Context(), tenantUUID, capabilityID, channel)
 	if err != nil {
 		dto.ResponseError(c, http.StatusInternalServerError, "list routes failed", err)
 		return
@@ -88,14 +91,14 @@ func (h *tenantHandler) ListRoutes(c *gin.Context) {
 }
 
 func (h *tenantHandler) GetRoute(c *gin.Context) {
-	tenantID := resolveTenantID(c)
-	if tenantID == "" {
-		dto.ResponseError(c, http.StatusUnauthorized, "missing tenant identifier", nil)
+	tenantUUID, err := tenantUUIDFromRequest(c)
+	if err != nil {
+		respondTenantIdentityError(c, err)
 		return
 	}
 
 	routeSlug := c.Param("route_slug")
-	route, err := h.svc.GetRoute(c.Request.Context(), tenantID, routeSlug)
+	route, err := h.svc.GetRoute(c.Request.Context(), tenantUUID, routeSlug)
 	if err != nil {
 		respondTenantError(c, err)
 		return
@@ -120,9 +123,9 @@ func (h *tenantHandler) GetRoute(c *gin.Context) {
 }
 
 func (h *tenantHandler) InvokeRoute(c *gin.Context) {
-	tenantID := resolveTenantID(c)
-	if tenantID == "" {
-		dto.ResponseError(c, http.StatusUnauthorized, "missing tenant identifier", nil)
+	tenantUUID, err := tenantUUIDFromRequest(c)
+	if err != nil {
+		respondTenantIdentityError(c, err)
 		return
 	}
 
@@ -133,7 +136,7 @@ func (h *tenantHandler) InvokeRoute(c *gin.Context) {
 	}
 
 	input := integrationTenant.InvokeInput{
-		TenantID:       tenantID,
+		TenantUUID:     tenantUUID,
 		RouteSlug:      c.Param("route_slug"),
 		Channel:        "http",
 		Payload:        req.Payload,
@@ -196,14 +199,37 @@ func (h *tenantHandler) InvokeRoute(c *gin.Context) {
 	}
 }
 
-func resolveTenantID(c *gin.Context) string {
-	if tenant := strings.TrimSpace(c.GetHeader("X-PowerX-Tenant")); tenant != "" {
-		return tenant
+func tenantUUIDFromRequest(c *gin.Context) (string, error) {
+	if c == nil {
+		return "", reqctx.ErrTenantUUIDMissing
 	}
-	if tenant := strings.TrimSpace(c.Query("tenant_id")); tenant != "" {
-		return tenant
+	if tenantUUID := strings.TrimSpace(reqctx.TenantUUIDFromGin(c)); tenantUUID != "" {
+		return reqctx.CanonicalTenantUUID(tenantUUID)
 	}
-	return ""
+	for _, candidate := range []string{
+		c.GetHeader("X-Tenant-UUID"),
+		c.GetHeader("X-PowerX-Tenant"),
+		c.Query("tenant_uuid"),
+	} {
+		value := strings.TrimSpace(candidate)
+		if value == "" {
+			continue
+		}
+		canonical, err := reqctx.CanonicalTenantUUID(value)
+		if err != nil {
+			return "", fmt.Errorf("invalid tenant uuid: %w", err)
+		}
+		return canonical, nil
+	}
+	return "", reqctx.ErrTenantUUIDMissing
+}
+
+func respondTenantIdentityError(c *gin.Context, err error) {
+	if errors.Is(err, reqctx.ErrTenantUUIDMissing) {
+		dto.ResponseError(c, http.StatusUnauthorized, "missing tenant identifier", err)
+		return
+	}
+	dto.RespondErrorFrom(c, dto.NewBadRequest("tenant_uuid must be a valid UUID", err))
 }
 
 func respondTenantError(c *gin.Context, err error) {

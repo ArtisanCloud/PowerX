@@ -5,7 +5,7 @@
 1. 启动核心服务：`make dev`（默认端口 8077）。
 2. 确保 PostgreSQL、Redis、MinIO（或其他 S3 兼容服务）就绪，并在 `.env` 中填写驱动配置。
 3. 通过管理端登陆获取 `Bearer` Token，或使用种子脚本创建管理员账号。
-4. 所有请求应在 Header 或 Query 中携带 `tenant_id`（默认租户可为 system/demo）。
+4. 所有请求应在 Header 或 Query 中携带 `tenant_uuid`（默认租户可为 system/demo）。
 
 ## 启用 CoreX 模块
 
@@ -37,7 +37,7 @@
 
 ## 观测与调试
 
-- 查看 `logs/app.log`，确认请求链路携带 `trace_id`、`tenant_id`。
+- 查看 `logs/app.log`，确认请求链路携带 `trace_id`、`tenant_uuid`。
 - 通过 `make unit-test` 执行新增单元与契约测试。
 - 使用 `mc`（MinIO Client）或 AWS CLI 验证对象存储中的文件写入与删除。
 

@@ -42,7 +42,8 @@ func TestFusionGRPCHandlers(t *testing.T) {
 	policyID := env.SeedPolicyTemplate("grpc-fusion", "v1")
 	space := env.CreateSpaceFixture("grpc-fusion-space", policyID)
 
-	publishResp, err := client.PublishFusionStrategy(ctx, &knowledgev1.FusionStrategyRequest{
+	rpcCtx := knowledgeGRPCContext(t, env)
+	publishResp, err := client.PublishFusionStrategy(rpcCtx, &knowledgev1.FusionStrategyRequest{
 		SpaceId:         space.UUID.String(),
 		Label:           "baseline",
 		Bm25Weight:      0.3,
@@ -54,8 +55,9 @@ func TestFusionGRPCHandlers(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, knowledgev1.FusionStrategy_DEPLOYMENT_STATE_ACTIVE, publishResp.GetStrategy().GetDeploymentState())
 	firstID := publishResp.GetStrategy().GetStrategyId()
+	assertNoLegacyTenantProto(t, publishResp)
 
-	queueResp, err := client.PublishFusionStrategy(ctx, &knowledgev1.FusionStrategyRequest{
+	queueResp, err := client.PublishFusionStrategy(rpcCtx, &knowledgev1.FusionStrategyRequest{
 		SpaceId:         space.UUID.String(),
 		Label:           "queued",
 		Bm25Weight:      0.5,
@@ -66,22 +68,25 @@ func TestFusionGRPCHandlers(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.Equal(t, knowledgev1.FusionStrategy_DEPLOYMENT_STATE_DRAFT, queueResp.GetStrategy().GetDeploymentState())
+	assertNoLegacyTenantProto(t, queueResp)
 
-	listResp, err := client.ListFusionStrategies(ctx, &knowledgev1.ListFusionStrategiesRequest{
+	listResp, err := client.ListFusionStrategies(rpcCtx, &knowledgev1.ListFusionStrategiesRequest{
 		SpaceId: space.UUID.String(),
 	})
 	require.NoError(t, err)
 	require.GreaterOrEqual(t, len(listResp.GetStrategies()), 2)
+	assertNoLegacyTenantProto(t, listResp)
 
-	rollbackResp, err := client.RollbackFusionStrategy(ctx, &knowledgev1.RollbackFusionStrategyRequest{
+	rollbackResp, err := client.RollbackFusionStrategy(rpcCtx, &knowledgev1.RollbackFusionStrategyRequest{
 		SpaceId:    space.UUID.String(),
 		StrategyId: firstID,
 	})
 	require.NoError(t, err)
 	require.Equal(t, firstID, rollbackResp.GetStrategy().GetStrategyId())
 	require.Equal(t, knowledgev1.FusionStrategy_DEPLOYMENT_STATE_ACTIVE, rollbackResp.GetStrategy().GetDeploymentState())
+	assertNoLegacyTenantProto(t, rollbackResp)
 
-	_, err = client.RollbackFusionStrategy(ctx, &knowledgev1.RollbackFusionStrategyRequest{
+	_, err = client.RollbackFusionStrategy(rpcCtx, &knowledgev1.RollbackFusionStrategyRequest{
 		SpaceId:    space.UUID.String(),
 		StrategyId: 99999,
 	})

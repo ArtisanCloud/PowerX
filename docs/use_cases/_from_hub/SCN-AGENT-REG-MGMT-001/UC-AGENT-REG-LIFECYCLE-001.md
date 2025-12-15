@@ -108,7 +108,7 @@ sequenceDiagram
 # Contracts & Interfaces
 
 - **Inbound APIs / Events**
-  - `EVENT agent.metrics.emitted` — 指标 payload 包含 `agent_id`, `tenant_id`, `calls`, `errors`, `latency_ms`, `last_invoked_at`, `resource_usage`.
+  - `EVENT agent.metrics.emitted` — 指标 payload 包含 `agent_id`, `tenant_uuid`, `calls`, `errors`, `latency_ms`, `last_invoked_at`, `resource_usage`。
   - `EVENT agent.lifecycle.zombie_detected` — Policy Engine 输出，携带策略命中详情与推荐动作。
   - `POST /internal/agent/{agent_id}/freeze` — 请求体包含 `reason`, `initiator`, `force=true|false`；需要 Ops 双人 token。
   - `POST /internal/agent/{agent_id}/recover` — 解除冻结并触发沙箱验证。

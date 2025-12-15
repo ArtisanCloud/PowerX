@@ -40,12 +40,12 @@ service CapabilityRegistryService {
 message GetCapabilityRequest {
   string capability_key = 1;
   string version = 2;
-  string tenant_id = 3;
+  string tenant_uuid = 3;
 }
 
 message ListCapabilitiesRequest {
   string capability_key = 1;
-  string tenant_id = 2;
+  string tenant_uuid = 2;
   string lifecycle_state = 3;
   TransportKind transport_filter = 4;
   int32 page_size = 5;
@@ -121,7 +121,7 @@ message UpsertVersionPolicyRequest {
 message CapabilityContract {
   string capability_key = 1;
   string version = 2;
-  string tenant_id = 3;
+  string tenant_uuid = 3;
   string provider_id = 4;
   string display_name = 5;
   string description = 6;

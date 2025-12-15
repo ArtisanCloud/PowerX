@@ -30,6 +30,7 @@ func BenchmarkEventFabricDeliveryThroughput(b *testing.B) {
 			id := seq.Add(1)
 			eventID := fmt.Sprintf("bench-throughput-%d", id)
 			req := delivery.PublishRequest{
+				TenantUUID: env.tenant,
 				TenantID:   env.tenant,
 				Topic:      env.topic.FullTopic,
 				EventID:    eventID,

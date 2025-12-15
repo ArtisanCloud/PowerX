@@ -22,7 +22,7 @@ enum ActorKind {
 
 message Actor {
   ActorKind kind = 1;
-  uint64    tenant_id   = 2;  // RLS
+  string    tenant_uuid = 2;  // RLS
   uint64    user_id     = 3;  // kind=USER 时
   uint64    member_id   = 4;  // kind=CUSTOMER 时
   uint64    supplier_id = 5;  // kind=SUPPLIER 时（可先不映射到 CoreXClaims，用 attributes 承载）

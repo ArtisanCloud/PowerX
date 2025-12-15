@@ -8,12 +8,12 @@ import (
 
 // Event 事件结构
 type Event struct {
-	Name     string          `json:"name"`      // 事件名称
-	Payload  interface{}     `json:"payload"`   // 事件数据
-	Ctx      context.Context `json:"-"`         // 上下文（不序列化）
-	ID       string          `json:"id"`        // 事件ID（用于幂等）
-	TraceID  string          `json:"trace_id"`  // 追踪ID
-	TenantID string          `json:"tenant_id"` // 租户ID
+	Name       string          `json:"name"`        // 事件名称
+	Payload    interface{}     `json:"payload"`     // 事件数据
+	Ctx        context.Context `json:"-"`           // 上下文（不序列化）
+	ID         string          `json:"id"`          // 事件ID（用于幂等）
+	TraceID    string          `json:"trace_id"`    // 追踪ID
+	TenantUUID string          `json:"tenant_uuid"` // 租户 UUID
 }
 
 // Handler 事件处理器函数类型

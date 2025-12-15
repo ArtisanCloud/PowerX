@@ -30,7 +30,7 @@ func TestSubscriptionHTTP(t *testing.T) {
 	ctx := context.Background()
 
 	res, err := service.Register(ctx, agent_lifecycle.RegisterInput{
-		TenantID:                 "tenant-002",
+		TenantUUID:               "tenant-002",
 		Alias:                    "subscription-http",
 		TelemetryContractVersion: "otel-agent-v1",
 	})
@@ -44,6 +44,7 @@ func TestSubscriptionHTTP(t *testing.T) {
 		req := httptest.NewRequest(http.MethodPut, fmt.Sprintf("/api/admin/agent/lifecycle/agents/%s/subscription", agentID), bytes.NewReader(data))
 		req.Header.Set("Authorization", "Bearer token")
 		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("X-Tenant-UUID", "tenant-002")
 		rec := httptest.NewRecorder()
 		httpEngine.ServeHTTP(rec, req)
 		require.Equal(t, expectedStatusCode, rec.Code)
@@ -53,6 +54,7 @@ func TestSubscriptionHTTP(t *testing.T) {
 	fetch := func() subscriptionResponse {
 		req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/admin/agent/lifecycle/agents/%s/subscription", agentID), nil)
 		req.Header.Set("Authorization", "Bearer token")
+		req.Header.Set("X-Tenant-UUID", "tenant-002")
 		rec := httptest.NewRecorder()
 		httpEngine.ServeHTTP(rec, req)
 		require.Equal(t, http.StatusOK, rec.Code)
@@ -64,7 +66,6 @@ func TestSubscriptionHTTP(t *testing.T) {
 	}
 
 	reqBody := map[string]any{
-		"tenant_id":       "tenant-002",
 		"metrics_filter":  []string{"error_rate", "p95_latency_ms"},
 		"health_statuses": []string{"degraded", "unavailable"},
 		"requested_by":    "ops-user",
@@ -86,7 +87,6 @@ func TestSubscriptionHTTP(t *testing.T) {
 
 	// 更新为仅在不可用时告警
 	update(map[string]any{
-		"tenant_id":       "tenant-002",
 		"metrics_filter":  []string{"success_rate"},
 		"health_statuses": []string{"unavailable"},
 		"requested_by":    "ops-review",
@@ -99,7 +99,6 @@ func TestSubscriptionHTTP(t *testing.T) {
 
 	// 构造非法请求，预期触发回滚（保持旧配置）
 	badResp := update(map[string]any{
-		"tenant_id":       "tenant-002",
 		"metrics_filter":  []string{},
 		"health_statuses": []string{},
 	}, http.StatusBadRequest)

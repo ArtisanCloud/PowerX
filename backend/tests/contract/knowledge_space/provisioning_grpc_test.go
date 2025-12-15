@@ -41,8 +41,9 @@ func TestProvisioningGRPCFlow(t *testing.T) {
 
 	policyID := env.SeedPolicyTemplate("grpc-template", "v1")
 
-	createResp, err := client.CreateKnowledgeSpace(ctx, &knowledgev1.CreateKnowledgeSpaceRequest{
-		TenantId:                env.TenantID().String(),
+	rpcCtx := knowledgeGRPCContext(t, env)
+	createResp, err := client.CreateKnowledgeSpace(rpcCtx, &knowledgev1.CreateKnowledgeSpaceRequest{
+		TenantUuid:              env.TenantUUID().String(),
 		Name:                    "grpc-space",
 		DepartmentCode:          "OPS-GRPC",
 		QuotaCpu:                4,
@@ -53,10 +54,11 @@ func TestProvisioningGRPCFlow(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, createResp.GetSpace().GetSpaceId())
 	require.Equal(t, "pending_iam", createResp.GetSpace().GetStatus())
+	assertNoLegacyTenantProto(t, createResp)
 
 	spaceID := createResp.GetSpace().GetSpaceId()
 
-	updateResp, err := client.UpdateKnowledgeSpace(ctx, &knowledgev1.UpdateKnowledgeSpaceRequest{
+	updateResp, err := client.UpdateKnowledgeSpace(rpcCtx, &knowledgev1.UpdateKnowledgeSpaceRequest{
 		SpaceId:                 spaceID,
 		QuotaCpu:                6,
 		QuotaStorageGb:          240,
@@ -66,11 +68,13 @@ func TestProvisioningGRPCFlow(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "active", updateResp.GetSpace().GetStatus())
 	require.Equal(t, uint32(6), updateResp.GetSpace().GetQuotaCpu())
+	assertNoLegacyTenantProto(t, updateResp)
 
-	retireResp, err := client.RetireKnowledgeSpace(ctx, &knowledgev1.RetireKnowledgeSpaceRequest{
+	retireResp, err := client.RetireKnowledgeSpace(rpcCtx, &knowledgev1.RetireKnowledgeSpaceRequest{
 		SpaceId: spaceID,
 		Reason:  "grpc sunset",
 	})
 	require.NoError(t, err)
 	require.Equal(t, "retired", retireResp.GetSpace().GetStatus())
+	assertNoLegacyTenantProto(t, retireResp)
 }

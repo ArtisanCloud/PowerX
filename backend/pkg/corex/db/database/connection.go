@@ -3,6 +3,7 @@ package database
 import (
 	"fmt"
 	"net/url"
+	"strings"
 	"time"
 
 	corexdb "github.com/ArtisanCloud/PowerX/pkg/corex/db"
@@ -26,16 +27,26 @@ func Connect(cfg corexdb.DatabaseConfig) (*gorm.DB, error) {
 	}
 
 	// GORM 基本配置
+	logMode := gormLogger.Warn
+	switch strings.ToLower(strings.TrimSpace(cfg.LogLevel)) {
+	case "silent":
+		logMode = gormLogger.Silent
+	case "error":
+		logMode = gormLogger.Error
+	case "info":
+		logMode = gormLogger.Info
+	case "warn":
+		logMode = gormLogger.Warn
+	}
+
 	gcfg := &gorm.Config{
 		DisableForeignKeyConstraintWhenMigrating: true,
 		NamingStrategy: schema.NamingStrategy{
 			TablePrefix:   cfg.TablePrefix,
 			SingularTable: true,
 		},
-		Logger: gormLogger.Default.LogMode(gormLogger.Error),
+		Logger: gormLogger.Default.LogMode(logMode),
 		// Logger: gormLogger.Default.LogMode(gormLogger.Info),
-		// Logger: gormLogger.Default.LogMode(gormLogger.Warn), // 原来是 Info
-		// Logger: gormLogger.Default.LogMode(gormLogger.Silent), // 完全静默
 	}
 
 	// 选择 DSN

@@ -133,7 +133,7 @@ sequenceDiagram
 # Observability & Ops
 
 - **指标**：`plugin.comm.topic.acl_blocks`, `plugin.comm.topic.mask_hits`, `plugin.comm.topic.quota_usage`, `plugin.comm.topic.quota_alerts`。
-- **日志**：记录 `tenant_id`, `plugin_id`, `topic_id`, `policy_version`, `decision`。
+- **日志**：记录 `tenant_uuid`, `plugin_id`, `topic_id`, `policy_version`, `decision`。
 - **告警**：
   - 未经授权连接（P0）。
   - 脱敏失败或遗漏（P1）。

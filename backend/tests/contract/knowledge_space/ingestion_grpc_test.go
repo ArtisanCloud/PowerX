@@ -43,7 +43,8 @@ func TestTriggerIngestionGRPC(t *testing.T) {
 	policyID := env.SeedPolicyTemplate("grpc-ingestion", "v1")
 	space := env.CreateSpaceFixture("grpc-ingest", policyID)
 
-	resp, err := client.TriggerIngestion(ctx, &knowledgev1.IngestionJobRequest{
+	rpcCtx := knowledgeGRPCContext(t, env)
+	resp, err := client.TriggerIngestion(rpcCtx, &knowledgev1.IngestionJobRequest{
 		SpaceId:    space.UUID.String(),
 		SourceType: "markdown",
 		SourceUri:  "https://example.com/wiki.md",
@@ -53,8 +54,9 @@ func TestTriggerIngestionGRPC(t *testing.T) {
 	require.NotNil(t, resp.GetJob())
 	require.Equal(t, "completed", resp.GetJob().GetStatus())
 	require.Greater(t, resp.GetJob().GetChunkTotal(), uint32(0))
+	assertNoLegacyTenantProto(t, resp)
 
-	_, err = client.TriggerIngestion(ctx, &knowledgev1.IngestionJobRequest{
+	_, err = client.TriggerIngestion(rpcCtx, &knowledgev1.IngestionJobRequest{
 		SpaceId:    uuid.New().String(),
 		SourceType: "pdf",
 		SourceUri:  "s3://bucket/missing.pdf",

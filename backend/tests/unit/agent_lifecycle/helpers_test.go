@@ -59,7 +59,7 @@ func newTestResources(t *testing.T) *testResources {
 		&agentmodel.AgentHealthSnapshotRecord{},
 	))
 	require.NoError(t, db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_agent_health_window ON agent_health_snapshots(agent_uuid, window_started_at)").Error)
-	require.NoError(t, db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_agent_profile_tenant_alias_unique ON agent_profiles(tenant_id, alias)").Error)
+	require.NoError(t, db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_agent_profile_tenant_alias_unique ON agent_profiles(tenant_uuid, alias)").Error)
 
 	profileRepo := agentrepo.NewAgentProfileLifecycleRepository(db)
 	eventRepo := agentrepo.NewAgentLifecycleEventRepository(db)
@@ -118,7 +118,7 @@ func (r *testResources) advanceClock(d time.Duration) {
 func (r *testResources) seedProfile(status string) *agentmodel.AgentProfileLifecycle {
 	ctx := context.Background()
 	profile := &agentmodel.AgentProfileLifecycle{
-		TenantID:                 "tenant-" + uuid.NewString()[:8],
+		TenantUUID:               uuid.NewString(),
 		Alias:                    "agent-" + uuid.NewString()[:8],
 		DisplayName:              "agent",
 		Status:                   status,

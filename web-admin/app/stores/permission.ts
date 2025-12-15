@@ -1,6 +1,7 @@
 import { defineStore } from "pinia";
 import { ref, computed, readonly } from "vue"; // ✅ 补充 readonly
 import { useApiClient } from "~/composables/api";
+import { getStoredTenantUUID } from "~/utils/tenant-context";
 
 // 权限类型定义
 export interface Permission {
@@ -73,7 +74,7 @@ export interface PermissionListResponse {
 // 租户权限关联类型
 export interface TenantPermission {
   id: number;
-  tenant_id: string;
+  tenant_uuid: string;
   permission_id: number;
   enabled: boolean;
   created_at: string;
@@ -296,13 +297,17 @@ export const usePermissionStore = defineStore("permission", () => {
   };
 
   // 获取租户权限配置
-  const fetchTenantPermissions = async (tenantId?: string) => {
+  const fetchTenantPermissions = async (tenantUuid?: string) => {
     isLoading.value = true;
     error.value = null;
 
     try {
-      const url = tenantId
-        ? `${baseUrl}/tenant-permissions?tenant_id=${tenantId}`
+      const resolvedTenant =
+        tenantUuid?.trim() || getStoredTenantUUID() || undefined;
+      const url = resolvedTenant
+        ? `${baseUrl}/tenant-permissions?tenant_uuid=${encodeURIComponent(
+            resolvedTenant
+          )}`
         : `${baseUrl}/tenant-permissions`;
 
       const response = await get<any>(url);
@@ -318,7 +323,7 @@ export const usePermissionStore = defineStore("permission", () => {
 
   // 更新租户权限配置
   const updateTenantPermission = async (
-    tenantId: string,
+    tenantUuid: string,
     permissionId: number,
     enabled: boolean
   ) => {
@@ -326,8 +331,14 @@ export const usePermissionStore = defineStore("permission", () => {
     error.value = null;
 
     try {
+      const resolvedTenant =
+        tenantUuid?.trim() || getStoredTenantUUID() || "";
+      if (!resolvedTenant) {
+        throw new Error("请先选择租户上下文");
+      }
+
       const response = await put<any>(`${baseUrl}/tenant-permissions`, {
-        tenant_id: tenantId,
+        tenant_uuid: resolvedTenant,
         permission_id: permissionId,
         enabled,
       });
@@ -336,7 +347,8 @@ export const usePermissionStore = defineStore("permission", () => {
 
       // 更新本地状态
       const index = tenantPermissions.value.findIndex(
-        (tp) => tp.tenant_id === tenantId && tp.permission_id === permissionId
+        (tp) =>
+          tp.tenant_uuid === resolvedTenant && tp.permission_id === permissionId
       );
 
       if (index >= 0) {

@@ -14,6 +14,8 @@ import (
 	"github.com/ArtisanCloud/PowerX/internal/service/workflow"
 )
 
+const retryCompTenantUUID = "workflow-retry-comp"
+
 func TestRetryCompensationFlow(t *testing.T) {
 	env := testenv.New(t)
 	ctx := context.Background()
@@ -28,9 +30,9 @@ func TestRetryCompensationFlow(t *testing.T) {
 	})
 
 	definition, err := env.Service.CreateDefinition(ctx, workflow.CreateDefinitionInput{
-		TenantID:  5201,
-		Name:      "retry-compensation-demo",
-		CreatedBy: uuid.New(),
+		TenantUUID: retryCompTenantUUID,
+		Name:       "retry-compensation-demo",
+		CreatedBy:  uuid.New(),
 		DefaultRetryPolicy: map[string]any{
 			"max_attempts":        2,
 			"initial_interval_ms": 1000,
@@ -63,14 +65,14 @@ func TestRetryCompensationFlow(t *testing.T) {
 	require.NotNil(t, definition)
 
 	_, err = env.Service.PublishDefinition(ctx, workflow.PublishDefinitionInput{
-		TenantID:       definition.TenantID,
+		TenantUUID:     retryCompTenantUUID,
 		DefinitionUUID: definition.UUID,
 		PublishedBy:    uuid.New(),
 	})
 	require.NoError(t, err)
 
 	instance, err := env.Service.StartInstance(ctx, workflow.StartInstanceInput{
-		TenantID:       definition.TenantID,
+		TenantUUID:     retryCompTenantUUID,
 		DefinitionUUID: definition.UUID,
 		Input:          map[string]any{"ref": "retry-flow"},
 	})
@@ -82,7 +84,7 @@ func TestRetryCompensationFlow(t *testing.T) {
 		First(&stepRecord).Error)
 
 	resultOne, err := env.Service.HandleStepFailure(ctx, workflow.StepFailureInput{
-		TenantID:     instance.TenantID,
+		TenantUUID:   retryCompTenantUUID,
 		InstanceUUID: instance.UUID,
 		StepRecordID: stepRecord.ID,
 		StepID:       "agent_step",
@@ -108,7 +110,7 @@ func TestRetryCompensationFlow(t *testing.T) {
 	require.NoError(t, env.DB.Create(retryRecord).Error)
 
 	resultTwo, err := env.Service.HandleStepFailure(ctx, workflow.StepFailureInput{
-		TenantID:     instance.TenantID,
+		TenantUUID:   retryCompTenantUUID,
 		InstanceUUID: instance.UUID,
 		StepRecordID: retryRecord.ID,
 		StepID:       "agent_step",
@@ -123,7 +125,7 @@ func TestRetryCompensationFlow(t *testing.T) {
 		Where("step_record_id = ?", retryRecord.ID).
 		First(&compRecord).Error)
 
-	updatedInstance, _, err := env.Service.GetInstance(ctx, instance.TenantID, instance.UUID, false)
+	updatedInstance, _, err := env.Service.GetInstance(ctx, instance.TenantUUID, instance.UUID, false)
 	require.NoError(t, err)
 	require.Equal(t, "compensating", updatedInstance.State)
 }

@@ -3,7 +3,6 @@ package agentgrpc
 import (
 	"context"
 	"fmt"
-	"github.com/ArtisanCloud/PowerX/pkg/utils/grpc"
 	"strings"
 	"time"
 
@@ -15,6 +14,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/ArtisanCloud/PowerX/pkg/utils"
+	"github.com/ArtisanCloud/PowerX/pkg/utils/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -26,7 +26,9 @@ type AgentStreamServer struct {
 }
 
 func NewAgentStreamServer(deps *shared.Deps) *AgentStreamServer {
-	return &AgentStreamServer{his: agentSvc.NewChatHistoryService(deps.DB)}
+	return &AgentStreamServer{
+		his: agentSvc.NewChatHistoryService(deps.DB),
+	}
 }
 
 /******** Stream（真实流，对齐 StreamSSE） ********/
@@ -65,32 +67,27 @@ func (s *AgentStreamServer) Stream(req *v1.StreamRequest, srv v1.AgentStreamServ
 	}
 	agentID := req.GetAgentId()
 
-	// tenant：优先 request.ctx.tenant_id，其次 JWT/context
-	var tenantID *uint64
-	if req.GetCtx() != nil && req.GetCtx().GetTenantId() > 0 {
-		t := uint64(req.GetCtx().GetTenantId())
-		tenantID = &t
-	} else if tid := reqctx.GetTenantID(ctx); tid > 0 {
-		t := tid
-		tenantID = &t
+	tenantUUID, err := requireTenantUUIDPtr(ctx, req.GetCtx())
+	if err != nil {
+		return err
 	}
 
 	// 2) 会话：session_id 优先，否则 sticky（与 StreamSSE 等同）
 	var sess *dbmodel.AgentChatSession
 	if sid := req.GetSessionId(); sid > 0 {
-		sess, _ = s.his.FindSessionByID(ctx, env, tenantID, sid)
+		sess, _ = s.his.FindSessionByID(ctx, env, tenantUUID, sid)
 	}
 	if sess == nil {
 		uid := reqctx.GetUserID(ctx) // uint64 from JWT/context
 		var err error
-		sess, err = s.his.GetOrCreateSession(ctx, env, tenantID, agentID, uid, false, nil)
+		sess, err = s.his.GetOrCreateSession(ctx, env, tenantUUID, agentID, uid, false, nil)
 		if err != nil {
 			return status.Errorf(codes.Internal, "创建会话失败: %v", err)
 		}
 	}
 
 	// 3) 写入 user 消息
-	_, _ = s.his.AppendMessage(ctx, env, tenantID, sess.ID, agentID, "user", msg, "text", 0, 0, false, nil)
+	_, _ = s.his.AppendMessage(ctx, env, tenantUUID, sess.ID, agentID, "user", msg, "text", 0, 0, false, nil)
 
 	// 4) 首帧 meta（与 SSE 首帧的 meta 语义一致）
 	_ = srv.Send(&v1.StreamResponse{
@@ -107,7 +104,7 @@ func (s *AgentStreamServer) Stream(req *v1.StreamRequest, srv v1.AgentStreamServ
 
 	// 5) 引擎执行：事件 → gRPC（薄转发），并做 token 聚合 + final 入库（对齐 SSE 的 HistorySink）
 	sink := &grpcEventSink{srv: srv}
-	hist := newTokenHistory(s.his, ctx, env, tenantID, sess, agentID)
+	hist := newTokenHistory(s.his, ctx, env, tenantUUID, sess, agentID)
 	engineSink := eventChain(sink, hist)
 
 	cfg := &dto.ChatConfig{} // 与 HTTP 保持一致
@@ -311,17 +308,17 @@ func (g *grpcEventSink) Emit(event string, payload any) error {
 
 // 只做 token 聚合 + final 入库（与 SSE 的 HistorySink 语义对齐）
 type tokenHistory struct {
-	his      *agentSvc.ChatHistoryService
-	ctx      context.Context
-	env      string
-	tenantID *uint64
-	sess     *dbmodel.AgentChatSession
-	agentID  uint64
-	buf      strings.Builder
+	his        *agentSvc.ChatHistoryService
+	ctx        context.Context
+	env        string
+	tenantUUID *string
+	sess       *dbmodel.AgentChatSession
+	agentID    uint64
+	buf        strings.Builder
 }
 
-func newTokenHistory(h *agentSvc.ChatHistoryService, ctx context.Context, env string, tid *uint64, sess *dbmodel.AgentChatSession, agentID uint64) *tokenHistory {
-	return &tokenHistory{his: h, ctx: ctx, env: env, tenantID: tid, sess: sess, agentID: agentID}
+func newTokenHistory(h *agentSvc.ChatHistoryService, ctx context.Context, env string, tenantUUID *string, sess *dbmodel.AgentChatSession, agentID uint64) *tokenHistory {
+	return &tokenHistory{his: h, ctx: ctx, env: env, tenantUUID: tenantUUID, sess: sess, agentID: agentID}
 }
 func (h *tokenHistory) Emit(event string, payload any) error {
 	switch event {
@@ -332,8 +329,8 @@ func (h *tokenHistory) Emit(event string, payload any) error {
 	case dto.EventFinal:
 		txt := strings.TrimSpace(h.buf.String())
 		if txt != "" && h.sess != nil {
-			_, _ = h.his.AppendMessage(h.ctx, h.env, h.tenantID, h.sess.ID, h.agentID, "assistant", txt, "text", 0, 0, false, nil)
-			_, _ = h.his.SummarizeIfNeeded(h.ctx, h.env, h.tenantID, h.sess)
+			_, _ = h.his.AppendMessage(h.ctx, h.env, h.tenantUUID, h.sess.ID, h.agentID, "assistant", txt, "text", 0, 0, false, nil)
+			_, _ = h.his.SummarizeIfNeeded(h.ctx, h.env, h.tenantUUID, h.sess)
 		}
 	}
 	return nil

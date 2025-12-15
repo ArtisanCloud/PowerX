@@ -19,7 +19,6 @@ type timeWindowDTO struct {
 }
 
 type createGrantDTO struct {
-	TenantID     string              `json:"tenant_id" validate:"required,uuid4"`
 	Subject      subjectDTO          `json:"subject" validate:"required,dive"`
 	Capabilities []string            `json:"capabilities" validate:"required,min=1,dive,required"`
 	Conditions   *grantConditionsDTO `json:"conditions"`
@@ -52,7 +51,6 @@ type challengeDecisionDTO struct {
 }
 
 type invalidateCacheDTO struct {
-	TenantID     string     `json:"tenant_id" validate:"required,uuid4"`
 	Subject      subjectDTO `json:"subject" validate:"required,dive"`
 	GrantVersion *uint64    `json:"grant_version"`
 }
@@ -77,7 +75,6 @@ type createTemplateDTO struct {
 	Name         string              `json:"name" validate:"required"`
 	Description  string              `json:"description"`
 	Source       string              `json:"source"`
-	TenantID     string              `json:"tenant_id"`
 	Capabilities []string            `json:"capabilities" validate:"required,min=1,dive,required"`
 	Conditions   *grantConditionsDTO `json:"conditions"`
 	TTLSeconds   int64               `json:"ttl_seconds"`
@@ -93,7 +90,6 @@ type updateTemplateDTO struct {
 }
 
 type applyTemplateDTO struct {
-	TenantID     string              `json:"tenant_id" validate:"required,uuid4"`
 	Subject      subjectDTO          `json:"subject" validate:"required,dive"`
 	TTLSeconds   *int64              `json:"ttl_seconds"`
 	Conditions   *grantConditionsDTO `json:"conditions"`
@@ -102,7 +98,6 @@ type applyTemplateDTO struct {
 }
 
 type auditQueryDTO struct {
-	TenantID    string `form:"tenantId" validate:"required,uuid4"`
 	SubjectID   string `form:"subjectId" validate:"omitempty,uuid4"`
 	SubjectType string `form:"subjectType" validate:"omitempty,oneof=agent plugin"`
 	Decision    string `form:"decision" validate:"omitempty,oneof=allow block challenge"`

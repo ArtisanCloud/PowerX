@@ -30,8 +30,11 @@ func (h *DiscoveryHandler) GetSnapshot(ctx *gin.Context) {
 		dto.ResponseValidationError(ctx, err)
 		return
 	}
-
-	snapshot, err := h.service.GetSnapshot(ctx.Request.Context(), req.TenantID, req.CapabilityID, req.ClientID)
+	uuid, ok := requireTenantUUIDParam(ctx, "tenant_uuid")
+	if !ok {
+		return
+	}
+	snapshot, err := h.service.GetSnapshot(ctx.Request.Context(), uuid, req.CapabilityID, req.ClientID)
 	if err != nil {
 		dto.RespondErrorFrom(ctx, err)
 		return
@@ -54,7 +57,7 @@ func (h *DiscoveryHandler) Sync(ctx *gin.Context) {
 	}
 
 	snapshots, err := h.service.Sync(ctx.Request.Context(), discovery.SyncRequest{
-		TenantID:     req.TenantID,
+		TenantUUID:   trimTenantUUID(req.TenantUUID),
 		Capabilities: req.Capabilities,
 		ClientID:     req.ClientID,
 		Force:        req.Force,
@@ -72,21 +75,20 @@ func (h *DiscoveryHandler) Sync(ctx *gin.Context) {
 }
 
 type syncRequest struct {
-	TenantID     string   `json:"tenant_id" binding:"required"`
+	TenantUUID   string   `json:"tenant_uuid" binding:"required"`
 	Capabilities []string `json:"capabilities"`
 	ClientID     string   `json:"client_id"`
 	Force        bool     `json:"force"`
 }
 
 type getSnapshotRequest struct {
-	TenantID     string `uri:"tenantId" binding:"required"`
 	CapabilityID string `uri:"capabilityId" binding:"required"`
 	ClientID     string `form:"client_id"`
 }
 
 type httpDiscoverySnapshot struct {
 	CapabilityID   string      `json:"capability_id"`
-	TenantID       string      `json:"tenant_id"`
+	TenantUUID     string      `json:"tenant_uuid"`
 	Version        uint64      `json:"version"`
 	IssuedAt       time.Time   `json:"issued_at"`
 	ExpiresAt      time.Time   `json:"expires_at"`
@@ -103,7 +105,7 @@ type httpDiscoverySnapshot struct {
 func toHTTPResponse(snapshot discovery.Snapshot) httpDiscoverySnapshot {
 	return httpDiscoverySnapshot{
 		CapabilityID:   snapshot.CapabilityID,
-		TenantID:       snapshot.TenantID,
+		TenantUUID:     snapshot.TenantUUID,
 		Version:        snapshot.Version,
 		IssuedAt:       snapshot.IssuedAt,
 		ExpiresAt:      snapshot.ExpiresAt,

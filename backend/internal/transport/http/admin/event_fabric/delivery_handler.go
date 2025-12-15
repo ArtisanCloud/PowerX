@@ -8,6 +8,7 @@ import (
 
 	"github.com/ArtisanCloud/PowerX/internal/service/event_fabric/delivery"
 	sharedsvc "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/shared"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/gin-gonic/gin"
 )
@@ -25,7 +26,6 @@ func NewAdminDeliveryHandler(opts AdminDeliveryHandlerOptions) *AdminDeliveryHan
 }
 
 type publishEventRequest struct {
-	TenantID       string            `json:"tenant_id" validate:"required"`
 	Topic          string            `json:"topic" validate:"required"`
 	EventID        string            `json:"event_id" validate:"required"`
 	TraceID        string            `json:"trace_id"`
@@ -48,6 +48,12 @@ func (h *AdminDeliveryHandler) PublishEvent(c *gin.Context) {
 		return
 	}
 
+	tenantUUID, err := reqctx.RequireTenantUUIDFromGin(c)
+	if err != nil {
+		dto.RespondErrorFrom(c, dto.NewUnauthorized("tenant context missing", err))
+		return
+	}
+
 	payloadBytes, err := base64.StdEncoding.DecodeString(strings.TrimSpace(req.Payload))
 	if err != nil {
 		dto.RespondErrorFrom(c, dto.NewBadRequest("payload must be base64 encoded", err))
@@ -62,7 +68,7 @@ func (h *AdminDeliveryHandler) PublishEvent(c *gin.Context) {
 	}
 
 	if err := h.service.Publish(c.Request.Context(), delivery.PublishRequest{
-		TenantID:       strings.TrimSpace(req.TenantID),
+		TenantUUID:     strings.TrimSpace(tenantUUID),
 		Topic:          strings.TrimSpace(req.Topic),
 		EventID:        strings.TrimSpace(req.EventID),
 		TraceID:        strings.TrimSpace(req.TraceID),

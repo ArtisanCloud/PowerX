@@ -156,9 +156,9 @@ func TestContractGetMediaAsset(t *testing.T) {
 	require.True(t, ok)
 	require.NotEmpty(t, name)
 
-	tenantID, ok := response["tenantId"].(string)
+	tenantUUID, ok := response["tenant_uuid"].(string)
 	require.True(t, ok)
-	require.NotEmpty(t, tenantID)
+	require.NotEmpty(t, tenantUUID)
 }
 
 func TestContractUpdateMediaAsset(t *testing.T) {

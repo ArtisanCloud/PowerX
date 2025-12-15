@@ -23,7 +23,6 @@ func TestAutoRegisterManifestHTTP(t *testing.T) {
 		"plugin_id":                  "plugins.demo.analytics",
 		"plugin_version":             "1.2.3",
 		"manifest_version":           "2025-03-01",
-		"tenant_id":                  "tenant-auto",
 		"alias":                      "analytics-agent",
 		"display_name":               "Analytics Agent",
 		"telemetry_contract_version": "otel-agent-v1",
@@ -39,6 +38,7 @@ func TestAutoRegisterManifestHTTP(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/api/admin/agent/lifecycle/autoreg/manifests", bytes.NewReader(body))
 	req.Header.Set("Authorization", "Bearer token")
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Tenant-UUID", "tenant-auto")
 	resp := httptest.NewRecorder()
 	engine.ServeHTTP(resp, req)
 	require.Equal(t, http.StatusCreated, resp.Code)
@@ -75,6 +75,7 @@ func TestAutoRegisterManifestHTTP(t *testing.T) {
 	badReq := httptest.NewRequest(http.MethodPost, "/api/admin/agent/lifecycle/autoreg/manifests", bytes.NewReader(body))
 	badReq.Header.Set("Authorization", "Bearer token")
 	badReq.Header.Set("Content-Type", "application/json")
+	badReq.Header.Set("X-Tenant-UUID", "tenant-auto")
 	badResp := httptest.NewRecorder()
 	engine.ServeHTTP(badResp, badReq)
 	require.Equal(t, http.StatusUnauthorized, badResp.Code)

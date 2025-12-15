@@ -31,7 +31,7 @@ type Service struct {
 
 // CreateRequest contains inputs for generating a report.
 type CreateRequest struct {
-	TenantID    uint64            `json:"tenantId"`
+	TenantUUID  string            `json:"tenant_uuid"`
 	PluginID    string            `json:"pluginId"`
 	TraceID     string            `json:"traceId"`
 	Notes       string            `json:"notes"`
@@ -68,8 +68,9 @@ func (s *Service) CreateReport(ctx context.Context, req CreateRequest) (*model.D
 	if s == nil || s.repo == nil {
 		return nil, errors.New("diagnostics repository unavailable")
 	}
-	if req.TenantID == 0 {
-		return nil, errors.New("tenantId is required")
+	tenantUUID := strings.TrimSpace(req.TenantUUID)
+	if tenantUUID == "" {
+		return nil, errors.New("tenant_uuid is required")
 	}
 	if strings.TrimSpace(req.PluginID) == "" {
 		return nil, errors.New("pluginId is required")
@@ -94,7 +95,7 @@ func (s *Service) CreateReport(ctx context.Context, req CreateRequest) (*model.D
 
 	bundle := strings.Join(logPointers, ";")
 	report := &model.DiagnosticReport{
-		TenantID:      req.TenantID,
+		TenantUUID:    tenantUUID,
 		PluginID:      strings.TrimSpace(req.PluginID),
 		Status:        "processing",
 		Summary:       marshalJSON(summary),
@@ -149,13 +150,13 @@ func (s *Service) CompleteReport(ctx context.Context, id uuid.UUID, summary map[
 	if s.ticket != nil {
 		severity := extractSeverity(summary)
 		ticket, ticketErr := s.ticket.CreateDiagnosticTicket(ctx, ticketbridge.DiagnosticTicketInput{
-			TenantID:  report.TenantID,
-			PluginID:  report.PluginID,
-			ReportID:  report.UUID,
-			Severity:  severity,
-			Title:     fmt.Sprintf("Plugin %s debug report", report.PluginID),
-			Summary:   normalized,
-			LogBundle: report.LogBundleURI,
+			TenantUUID: report.TenantUUID,
+			PluginID:   report.PluginID,
+			ReportID:   report.UUID,
+			Severity:   severity,
+			Title:      fmt.Sprintf("Plugin %s debug report", report.PluginID),
+			Summary:    normalized,
+			LogBundle:  report.LogBundleURI,
 		})
 		if ticketErr != nil {
 			logger.WarnF(ctx, "[plugin_debug] create ticket failed report=%s err=%v", report.UUID, ticketErr)
@@ -170,6 +171,7 @@ func (s *Service) CompleteReport(ctx context.Context, id uuid.UUID, summary map[
 	if s.auditSvc != nil {
 		_ = s.auditSvc.Emit(ctx, &dbm.AuditEvent{
 			OccurredAt:   s.now().UTC(),
+			TenantUUID:   strings.TrimSpace(report.TenantUUID),
 			Source:       "plugin_debug",
 			Operation:    "DIAGNOSTIC_REPORT_COMPLETED",
 			ResourceType: "plugin_debug_report",

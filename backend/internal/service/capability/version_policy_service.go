@@ -12,6 +12,7 @@ import (
 	dbmaudit "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/audit"
 	capmodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/capability"
 	caprepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/capability"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/event_bus"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
@@ -51,7 +52,7 @@ func NewVersionPolicyService(db *gorm.DB, audit auditsvc.Service) *VersionPolicy
 
 // VersionPolicy 对外暴露的策略结构。
 type VersionPolicy struct {
-	TenantID            uint64                 `json:"tenant_id"`
+	TenantUUID          string                 `json:"tenant_uuid"`
 	CapabilityKey       string                 `json:"capability_key"`
 	DefaultStrategy     string                 `json:"default_strategy"`
 	AllowedVersions     []VersionRule          `json:"allowed_versions"`
@@ -70,7 +71,7 @@ type VersionRule struct {
 
 // VersionPolicyUpsertInput 版本策略写入参数。
 type VersionPolicyUpsertInput struct {
-	TenantID            uint64
+	TenantUUID          string
 	CapabilityKey       string
 	DefaultStrategy     string
 	AllowedVersions     []VersionRule
@@ -80,8 +81,8 @@ type VersionPolicyUpsertInput struct {
 }
 
 // GetVersionPolicy 查询版本策略。
-func (s *VersionPolicyService) GetVersionPolicy(ctx context.Context, tenantID uint64, capabilityKey string) (*VersionPolicy, error) {
-	entity, err := s.repo.GetByKey(ctx, tenantID, capabilityKey)
+func (s *VersionPolicyService) GetVersionPolicy(ctx context.Context, tenantUUID string, capabilityKey string) (*VersionPolicy, error) {
+	entity, err := s.repo.GetByKey(ctx, strings.TrimSpace(tenantUUID), capabilityKey)
 	if err != nil {
 		return nil, err
 	}
@@ -98,7 +99,7 @@ func (s *VersionPolicyService) UpsertVersionPolicy(ctx context.Context, in *Vers
 	}
 
 	entity := &capmodel.CapabilityVersionPolicy{
-		TenantID:            in.TenantID,
+		TenantUUID:          strings.TrimSpace(in.TenantUUID),
 		CapabilityKey:       in.CapabilityKey,
 		DefaultStrategy:     strings.ToLower(in.DefaultStrategy),
 		AllowedVersions:     marshalJSON(in.AllowedVersions),
@@ -152,7 +153,7 @@ func toServicePolicy(entity *capmodel.CapabilityVersionPolicy) (*VersionPolicy, 
 		return nil, nil
 	}
 	return &VersionPolicy{
-		TenantID:            entity.TenantID,
+		TenantUUID:          entity.TenantUUID,
 		CapabilityKey:       entity.CapabilityKey,
 		DefaultStrategy:     entity.DefaultStrategy,
 		AllowedVersions:     unmarshalVersionRules(entity.AllowedVersions),
@@ -165,6 +166,10 @@ func toServicePolicy(entity *capmodel.CapabilityVersionPolicy) (*VersionPolicy, 
 
 func (s *VersionPolicyService) emitAuditAndEvent(ctx context.Context, entity *capmodel.CapabilityVersionPolicy) error {
 	if s.audit != nil {
+		tenantUUID := strings.TrimSpace(reqctx.GetTenantUUID(ctx))
+		if tenantUUID == "" {
+			tenantUUID = strings.TrimSpace(entity.TenantUUID)
+		}
 		payload := map[string]any{
 			"capability_key":   entity.CapabilityKey,
 			"default_strategy": entity.DefaultStrategy,
@@ -172,7 +177,7 @@ func (s *VersionPolicyService) emitAuditAndEvent(ctx context.Context, entity *ca
 		data, _ := json.Marshal(payload)
 		_ = s.audit.Emit(ctx, &dbmaudit.AuditEvent{
 			OccurredAt:   time.Now(),
-			TenantID:     entity.TenantID,
+			TenantUUID:   tenantUUID,
 			Source:       "capability.version_policy",
 			Operation:    "integration.capability.version_policy.updated",
 			ResourceType: "capability.version_policy",
@@ -185,7 +190,7 @@ func (s *VersionPolicyService) emitAuditAndEvent(ctx context.Context, entity *ca
 	event_bus.Publish(event_bus.Event{
 		Name: "integration.capability.version_policy.updated",
 		Payload: map[string]any{
-			"tenant_id":        entity.TenantID,
+			"tenant_uuid":      entity.TenantUUID,
 			"capability_key":   entity.CapabilityKey,
 			"default_strategy": entity.DefaultStrategy,
 		},

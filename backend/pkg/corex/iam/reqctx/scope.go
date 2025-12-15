@@ -2,20 +2,21 @@ package reqctx
 
 import (
 	"context"
+	"strings"
 
 	"gorm.io/gorm"
 )
 
-func WithScope(env string, tenantID *uint64) func(*gorm.DB) *gorm.DB {
+func WithScope(env string, tenantUUID *string) func(*gorm.DB) *gorm.DB {
 	return func(db *gorm.DB) *gorm.DB {
 		query := db
 		if env != "" {
 			query = query.Where("env = ?", env)
 		}
-		if tenantID != nil {
-			query = query.Where("tenant_id = ?", *tenantID)
+		if tenantUUID != nil && strings.TrimSpace(*tenantUUID) != "" {
+			query = query.Where("tenant_uuid = ?", strings.TrimSpace(*tenantUUID))
 		} else {
-			query = query.Where("tenant_id IS NULL")
+			query = query.Where("(tenant_uuid = '' OR tenant_uuid IS NULL)")
 		}
 		return query
 	}
@@ -25,10 +26,10 @@ func WithScope(env string, tenantID *uint64) func(*gorm.DB) *gorm.DB {
 // - 若取不到 env/tenant，请谨慎：可返回原 db（或 panic/返回错误，看你的风格）
 func ReqDB(ctx context.Context, db *gorm.DB) *gorm.DB {
 	e := GetEnv(ctx)
-	t := GetTenantID(ctx)
-	var tp *uint64
-	if t > 0 {
-		tp = &t
+	t := strings.TrimSpace(GetTenantUUID(ctx))
+	var tenantPointer *string
+	if t != "" {
+		tenantPointer = &t
 	}
-	return db.Scopes(WithScope(e, tp))
+	return db.Scopes(WithScope(e, tenantPointer))
 }

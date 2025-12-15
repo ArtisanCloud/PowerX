@@ -29,7 +29,7 @@ service CapabilityDiscoveryService {
 
 message TenantScopedId {
   string capability_id = 1;
-  string tenant_id = 2;
+  string tenant_uuid = 2;
 }
 
 message AdapterEndpoint {
@@ -128,7 +128,7 @@ message DisableCapabilityResponse {
 }
 
 message StreamUpdatesRequest {
-  string tenant_id = 1;
+  string tenant_uuid = 1;
   repeated string capability_ids = 2;
   uint64 from_version = 3;
 }
@@ -202,7 +202,7 @@ message GetSnapshotResponse {
 }
 
 message ListSnapshotsRequest {
-  string tenant_id = 1;
+  string tenant_uuid = 1;
   repeated string capability_ids = 2;
 }
 

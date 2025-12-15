@@ -26,12 +26,12 @@ func NewAgentChatSessionService(db *gorm.DB) *AgentChatSessionService {
 // Ensure：按 singleton 策略获取或创建
 func (s *AgentChatSessionService) Ensure(
 	ctx context.Context,
-	env string, tenantID *uint64,
+	env string, tenantUUID *string,
 	agentID uint64, userID uint64,
 	singleton bool,
 	defaults dbmodel.AgentChatSession,
 ) (*dbmodel.AgentChatSession, bool, error) {
-	out, err := s.sess.GetOrCreate(ctx, env, tenantID, agentID, userID, singleton, defaults)
+	out, err := s.sess.GetOrCreate(ctx, env, tenantUUID, agentID, userID, singleton, defaults)
 	if err != nil {
 		return nil, false, err
 	}
@@ -40,18 +40,18 @@ func (s *AgentChatSessionService) Ensure(
 }
 
 // Touch：更新最近时间并续期
-func (s *AgentChatSessionService) Touch(ctx context.Context, env string, tenantID *uint64, id uint64) error {
-	return s.sess.TouchLatest(ctx, env, tenantID, id, time.Now().UTC())
+func (s *AgentChatSessionService) Touch(ctx context.Context, env string, tenantUUID *string, id uint64) error {
+	return s.sess.TouchLatest(ctx, env, tenantUUID, id, time.Now().UTC())
 }
 
 // TrimByPolicy：根据 MaxKB/MaxTokens 裁剪最旧消息（跳过 pinned）
 func (s *AgentChatSessionService) TrimByPolicy(
-	ctx context.Context, env string, tenantID *uint64, sess *dbmodel.AgentChatSession,
+	ctx context.Context, env string, tenantUUID *string, sess *dbmodel.AgentChatSession,
 ) error {
 	if sess == nil {
 		return nil
 	}
-	stats, err := s.msg.StatsBySession(ctx, env, tenantID, sess.ID)
+	stats, err := s.msg.StatsBySession(ctx, env, tenantUUID, sess.ID)
 	if err != nil {
 		return err
 	}
@@ -65,7 +65,7 @@ func (s *AgentChatSessionService) TrimByPolicy(
 	// 简易策略：按最旧开始删除非 pinned 直至低于阈值（可扩展为先摘要后删除）
 	var deleted int64
 	for i := 0; i < 10; i++ { // 最多 10 批
-		items, e := s.msg.ListOldestN(ctx, env, tenantID, sess.ID, 200, true)
+		items, e := s.msg.ListOldestN(ctx, env, tenantUUID, sess.ID, 200, true)
 		if e != nil {
 			return e
 		}
@@ -85,7 +85,7 @@ func (s *AgentChatSessionService) TrimByPolicy(
 				break
 			}
 		}
-		n, e := s.msg.DeleteByIDs(ctx, env, tenantID, ids)
+		n, e := s.msg.DeleteByIDs(ctx, env, tenantUUID, ids)
 		if e != nil {
 			return e
 		}

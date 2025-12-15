@@ -1,5 +1,9 @@
 // middleware/app.global.ts
 export default defineNuxtRouteMiddleware((to) => {
+  if (process.env.NUXT_PUBLIC_E2E_SKIP_AUTH === "true") {
+    return
+  }
+
   // 1) 根路径 -> /home（仅服务端执行一次也OK）
   if (to.path === "/") {
     return navigateTo("/home");

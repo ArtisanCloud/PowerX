@@ -102,9 +102,9 @@ sequenceDiagram
 
 - **Inbound**
   - `STREAM monitoring.cpu.sampled` — 指标代理推送 CPU 样本，包含租户、插件、实例、使用率。
-  - `GET /internal/monitoring/policy/throttle?tenant_id=&plugin_id=` — 加载限流策略、容忍阈值。
+  - `GET /internal/monitoring/policy/throttle?tenant_uuid=&plugin_id=` — 加载限流策略、容忍阈值。
 - **Outbound**
-  - `PATCH /internal/gateway/throttle` — 请求体包含 `tenant_id`, `plugin_id`, `instance_id`, `max_concurrency`, `ttl_seconds`。
+  - `PATCH /internal/gateway/throttle` — 请求体包含 `tenant_uuid`, `plugin_id`, `instance_id`, `max_concurrency`, `ttl_seconds`。
   - `EVENT monitoring.alert.updated` — 状态字段 `AUTO_THROTTLED`、`FAILED`、`RECOVERED`。
 - **配置/脚本**
   - `config/monitoring/thresholds.yaml` — 默认阈值与免限流名单。
@@ -130,7 +130,7 @@ sequenceDiagram
 # Observability & Ops
 
 - **指标**：`monitoring.throttle.trigger_total`, `monitoring.throttle.success_total`, `monitoring.throttle.failure_total`, `monitoring.throttle.mttr`.
-- **日志**：记录 `tenant_id`, `plugin_id`, `instance_id`, `max_concurrency`, `decision_reason`, `attempt`.
+- **日志**：记录 `tenant_uuid`, `plugin_id`, `instance_id`, `max_concurrency`, `decision_reason`, `attempt`.
 - **告警**：限流失败连续 2 次触发 P1；误判反馈 >3 次/日触发治理任务。
 - **仪表盘**：Grafana《Runtime Ops / Auto Throttle》、告警中心限流面板、审计查询。
 

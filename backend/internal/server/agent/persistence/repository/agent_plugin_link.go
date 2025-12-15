@@ -20,11 +20,11 @@ func NewAgentPluginLinkRepository(db *gorm.DB) *AgentPluginLinkRepository {
 	}
 }
 
-// Upsert 唯一键：env + tenant_id + plugin_id + plugin_agent_key
-func (r *AgentPluginLinkRepository) UpsertByScopePluginKey(ctx context.Context, env string, tenantID *uint64, in *dbmodel.AgentPluginLink) error {
+// Upsert 唯一键：env + tenant_uuid + plugin_id + plugin_agent_key
+func (r *AgentPluginLinkRepository) UpsertByScopePluginKey(ctx context.Context, env string, tenantUUID *string, in *dbmodel.AgentPluginLink) error {
 	tx := r.db.WithContext(ctx)
 	in.Env = env
-	in.TenantID = tenantID
+	in.TenantUUID = tenantUUID
 
 	assign := clause.Assignments(map[string]any{
 		"agent_id":       in.AgentID,
@@ -33,10 +33,10 @@ func (r *AgentPluginLinkRepository) UpsertByScopePluginKey(ctx context.Context, 
 	})
 
 	var conflict clause.OnConflict
-	if tenantID != nil {
+	if tenantUUID != nil {
 		conflict = clause.OnConflict{
 			Columns: []clause.Column{
-				{Name: "env"}, {Name: "tenant_id"},
+				{Name: "env"}, {Name: "tenant_uuid"},
 				{Name: "plugin_id"}, {Name: "plugin_agent_key"},
 			},
 			DoUpdates: assign,
@@ -53,10 +53,10 @@ func (r *AgentPluginLinkRepository) UpsertByScopePluginKey(ctx context.Context, 
 	return tx.Clauses(conflict).Create(in).Error
 }
 
-func (r *AgentPluginLinkRepository) ListByPlugin(ctx context.Context, env string, tenantID *uint64, pluginID string) ([]dbmodel.AgentPluginLink, error) {
+func (r *AgentPluginLinkRepository) ListByPlugin(ctx context.Context, env string, tenantUUID *string, pluginID string) ([]dbmodel.AgentPluginLink, error) {
 	var list []dbmodel.AgentPluginLink
 	err := r.db.WithContext(ctx).
-		Scopes(dbmodel.WithScope(env, tenantID)).
+		Scopes(dbmodel.WithScope(env, tenantUUID)).
 		Where("plugin_id = ?", pluginID).
 		Order("plugin_agent_key ASC").
 		Find(&list).Error

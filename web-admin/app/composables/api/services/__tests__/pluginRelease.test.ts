@@ -5,9 +5,32 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import pluginReleaseService from '../pluginRelease'
 
+declare global {
+  // eslint-disable-next-line no-var
+  var $fetch: typeof fetch;
+}
+
 // Mock fetch
 const mockFetch = vi.fn()
+const mockOfetch = vi.fn(async (url: string, options: any) => {
+  const response = await mockFetch(url, options)
+  if (response && typeof response.ok === 'boolean') {
+    if (response.ok) {
+      return await response.json()
+    }
+    const errorBody = typeof response.json === 'function' ? await response.json() : null
+    const error = new Error(
+      errorBody?.message || response.statusText || 'Request failed'
+    )
+    ;(error as any).data = errorBody
+    ;(error as any).response = response
+    throw error
+  }
+  return response
+})
+
 global.fetch = mockFetch
+global.$fetch = mockOfetch as any
 
 // Mock useCookie
 vi.mock('#app', () => ({
@@ -41,17 +64,20 @@ describe('PluginReleaseService', () => {
       })
 
       expect(result).toEqual(mockResponse)
-      expect(mockFetch).toHaveBeenCalledWith('/api/plugin-release/offline-packages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: 'Bearer test-token'
-        },
-        body: JSON.stringify({
-          releaseCandidateId: 'candidate-123',
-          checksum: 'abc123'
+      expect(mockFetch).toHaveBeenCalledWith(
+        '/api/plugin-release/offline-packages',
+        expect.objectContaining({
+          method: 'POST',
+          headers: expect.objectContaining({
+            'Content-Type': 'application/json',
+            'X-Tenant-UUID': 'test-token'
+          }),
+          body: JSON.stringify({
+            releaseCandidateId: 'candidate-123',
+            checksum: 'abc123'
+          })
         })
-      })
+      )
     })
 
     it('应该在API错误时抛出错误', async () => {

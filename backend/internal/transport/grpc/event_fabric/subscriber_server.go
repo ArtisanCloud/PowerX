@@ -41,9 +41,10 @@ func (s *EventSubscriberServer) Subscribe(req *eventfabricv1.SubscribeRequest, s
 		return status.Error(codes.FailedPrecondition, "event delivery service unavailable")
 	}
 
-	tenant := strings.TrimSpace(req.GetTenantId())
-	if tenant == "" {
-		return status.Error(codes.InvalidArgument, "tenant_id is required")
+	ctx := stream.Context()
+	tenant, err := tenantUUIDFromRequest(ctx, req.GetTenantUuid())
+	if err != nil {
+		return err
 	}
 	subscriber := strings.TrimSpace(req.GetSubscriberId())
 	if subscriber == "" {
@@ -55,7 +56,6 @@ func (s *EventSubscriberServer) Subscribe(req *eventfabricv1.SubscribeRequest, s
 		batch = 50
 	}
 
-	ctx := stream.Context()
 	ctx = context.WithValue(ctx, sharedsvc.ContextTenantKey, tenant)
 	ctx = context.WithValue(ctx, sharedsvc.ContextSubscriberKey, subscriber)
 

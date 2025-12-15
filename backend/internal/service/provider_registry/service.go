@@ -17,6 +17,7 @@ import (
 	model "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/agent_model_hub"
 	dbmaudit "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/audit"
 	repo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/agent_model_hub"
+	tenantrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/tenant"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/tenantkeys"
 	"github.com/ArtisanCloud/PowerX/pkg/utils"
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
@@ -32,15 +33,16 @@ const (
 
 // Service coordinates provider onboarding, secret management, and rollout governance.
 type Service struct {
-	db        *gorm.DB
-	cache     cache.ICache
-	audit     audit.Service
-	keys      *tenantkeys.TenantKeyService
-	repo      *repo.ProviderProfileRepository
-	inst      *instrumentation.Instrumentation
-	clock     func() time.Time
-	rotMgr    *secretRotationScheduler
-	artifacts *validationArtifactStore
+	db         *gorm.DB
+	cache      cache.ICache
+	audit      audit.Service
+	keys       *tenantkeys.TenantKeyService
+	tenantRepo *tenantrepo.TenantRepository
+	repo       *repo.ProviderProfileRepository
+	inst       *instrumentation.Instrumentation
+	clock      func() time.Time
+	rotMgr     *secretRotationScheduler
+	artifacts  *validationArtifactStore
 }
 
 // Options wires ProviderRegistry dependencies.
@@ -58,13 +60,14 @@ func NewService(opts Options) *Service {
 		repository = repo.NewProviderProfileRepository(opts.DB)
 	}
 	svc := &Service{
-		db:    opts.DB,
-		cache: opts.Cache,
-		audit: opts.AuditSvc,
-		keys:  opts.TenantKeySvc,
-		repo:  repository,
-		inst:  opts.Instrumentation,
-		clock: opts.Clock,
+		db:         opts.DB,
+		cache:      opts.Cache,
+		audit:      opts.AuditSvc,
+		keys:       opts.TenantKeySvc,
+		tenantRepo: opts.TenantRepo,
+		repo:       repository,
+		inst:       opts.Instrumentation,
+		clock:      opts.Clock,
 	}
 	svc.rotMgr = newSecretRotationScheduler(svc)
 	svc.artifacts = newValidationArtifactStore(opts.Artifacts, svc.clock)
@@ -85,7 +88,7 @@ type ProviderProfileInput struct {
 
 // TenantRef mirrors the spec-defined tenant scope contract.
 type TenantRef struct {
-	TenantID    string `json:"tenantId"`
+	TenantUUID  string `json:"tenant_uuid"`
 	Environment string `json:"environment"`
 }
 
@@ -102,7 +105,7 @@ var (
 )
 
 // RegisterProvider stores or updates a provider profile using Vault-style sealed secrets.
-func (s *Service) RegisterProvider(ctx context.Context, env string, tenantID *uint64, input ProviderProfileInput) (*model.ProviderProfile, error) {
+func (s *Service) RegisterProvider(ctx context.Context, env string, tenantUUID string, input ProviderProfileInput) (*model.ProviderProfile, error) {
 	ctx, _ = instrumentation.EnsureTraceContext(ctx)
 	start := s.clock()
 	if s.repo == nil {
@@ -110,6 +113,11 @@ func (s *Service) RegisterProvider(ctx context.Context, env string, tenantID *ui
 	}
 	if s.keys == nil {
 		return nil, errors.New("tenant key service is required for Vault sealing")
+	}
+	tenantUUID = strings.TrimSpace(tenantUUID)
+	tenantScope, err := s.resolveTenantScope(ctx, tenantUUID)
+	if err != nil {
+		return nil, err
 	}
 	name := strings.TrimSpace(input.Name)
 	if name == "" {
@@ -122,7 +130,7 @@ func (s *Service) RegisterProvider(ctx context.Context, env string, tenantID *ui
 
 	profile := &model.ProviderProfile{
 		Env:             strings.TrimSpace(env),
-		TenantID:        tenantID,
+		TenantUUID:      tenantUUID,
 		Name:            name,
 		PrimaryEndpoint: endpoint,
 		RolloutStatus:   statusOrDefault(input.RolloutStatus),
@@ -139,7 +147,7 @@ func (s *Service) RegisterProvider(ctx context.Context, env string, tenantID *ui
 		return nil, fmt.Errorf("tenantWhitelist marshal: %w", err)
 	}
 
-	refs, sealed, err := s.sealCredentials(ctx, profile, input.Credentials)
+	refs, sealed, err := s.sealCredentials(ctx, profile, tenantScope, input.Credentials)
 	if err != nil {
 		return nil, err
 	}
@@ -173,6 +181,10 @@ func (s *Service) ValidateProvider(ctx context.Context, providerID uuid.UUID, su
 		return nil, errors.New("validation suite required")
 	}
 	profile, err := s.mustProvider(ctx, providerID)
+	if err != nil {
+		return nil, err
+	}
+	tenantScope, err := s.resolveTenantScope(ctx, profile.TenantUUID)
 	if err != nil {
 		return nil, err
 	}
@@ -213,7 +225,7 @@ func (s *Service) ValidateProvider(ctx context.Context, providerID uuid.UUID, su
 		for k := range sealedPayload {
 			keys = append(keys, k)
 		}
-		sealedMap, err := s.keys.SealSensitive(ctx, profile.Env, profile.TenantID, sealedPayload, keys...)
+		sealedMap, err := s.keys.SealSensitive(ctx, profile.Env, tenantScope, sealedPayload, keys...)
 		if err != nil {
 			return nil, fmt.Errorf("seal validation artifact ref: %w", err)
 		}
@@ -350,11 +362,11 @@ func (s *Service) RotateEnv(ctx context.Context, env string) error {
 	}
 	scopeBuckets := map[string][]model.ProviderProfile{}
 	for _, prof := range entries {
-		scope := scopeKey(prof.Env, prof.TenantID)
+		scope := scopeKey(prof.Env, prof.TenantUUID)
 		scopeBuckets[scope] = append(scopeBuckets[scope], prof)
 	}
 	for _, providers := range scopeBuckets {
-		if err := s.rotateScope(ctx, providers[0].Env, providers[0].TenantID, providers); err != nil {
+		if err := s.rotateScope(ctx, providers[0].Env, providers[0].TenantUUID, providers); err != nil {
 			return err
 		}
 	}
@@ -362,7 +374,7 @@ func (s *Service) RotateEnv(ctx context.Context, env string) error {
 }
 
 // RotateProvider rotates sealed secrets for a single provider UUID.
-func (s *Service) RotateProvider(ctx context.Context, env string, tenantID *uint64, id uuid.UUID) error {
+func (s *Service) RotateProvider(ctx context.Context, env string, tenantUUID string, id uuid.UUID) error {
 	profile, err := s.repo.FindByUUID(ctx, id)
 	if err != nil {
 		return err
@@ -370,7 +382,11 @@ func (s *Service) RotateProvider(ctx context.Context, env string, tenantID *uint
 	if profile == nil {
 		return fmt.Errorf("provider %s not found", id)
 	}
-	return s.rotateScope(ctx, env, tenantID, []model.ProviderProfile{*profile})
+	scopeTenant := tenantUUID
+	if scopeTenant == "" {
+		scopeTenant = profile.TenantUUID
+	}
+	return s.rotateScope(ctx, env, scopeTenant, []model.ProviderProfile{*profile})
 }
 
 // StartSecretRotationJob launches a background ticker used by ops scripts / cron.
@@ -388,9 +404,13 @@ func (s *Service) LoadProvider(ctx context.Context, id uuid.UUID) (*model.Provid
 	return s.repo.FindByUUID(ctx, id)
 }
 
-func (s *Service) rotateScope(ctx context.Context, env string, tenantID *uint64, providers []model.ProviderProfile) error {
+func (s *Service) rotateScope(ctx context.Context, env string, tenantUUID string, providers []model.ProviderProfile) error {
 	if len(providers) == 0 {
 		return nil
+	}
+	scopeKey, err := s.resolveTenantScope(ctx, tenantUUID)
+	if err != nil {
+		return err
 	}
 	plainByProvider := map[uuid.UUID]map[string]any{}
 	for _, prof := range providers {
@@ -398,7 +418,7 @@ func (s *Service) rotateScope(ctx context.Context, env string, tenantID *uint64,
 			continue
 		}
 		raw := map[string]any{}
-		if err := s.keys.UnsealSensitive(ctx, env, tenantID, prof.SealedSecrets, &raw); err != nil {
+		if err := s.keys.UnsealSensitive(ctx, env, scopeKey, prof.SealedSecrets, &raw); err != nil {
 			return fmt.Errorf("unseal %s: %w", prof.UUID, err)
 		}
 		plainByProvider[prof.UUID] = raw
@@ -406,7 +426,7 @@ func (s *Service) rotateScope(ctx context.Context, env string, tenantID *uint64,
 	if len(plainByProvider) == 0 {
 		return nil
 	}
-	if _, err := s.keys.RotateKeyPair(ctx, env, tenantID); err != nil {
+	if _, err := s.keys.RotateKeyPair(ctx, env, scopeKey); err != nil {
 		return fmt.Errorf("rotate key pair: %w", err)
 	}
 	for _, prof := range providers {
@@ -420,7 +440,7 @@ func (s *Service) rotateScope(ctx context.Context, env string, tenantID *uint64,
 			data[k] = v
 			keys = append(keys, k)
 		}
-		sealed, err := s.keys.SealSensitive(ctx, env, tenantID, data, keys...)
+		sealed, err := s.keys.SealSensitive(ctx, env, scopeKey, data, keys...)
 		if err != nil {
 			return fmt.Errorf("seal secrets for %s: %w", prof.UUID, err)
 		}
@@ -437,7 +457,7 @@ func (s *Service) rotateScope(ctx context.Context, env string, tenantID *uint64,
 	return nil
 }
 
-func (s *Service) sealCredentials(ctx context.Context, profile *model.ProviderProfile, creds map[string]string) (datatypes.JSONMap, datatypes.JSONMap, error) {
+func (s *Service) sealCredentials(ctx context.Context, profile *model.ProviderProfile, tenantScope string, creds map[string]string) (datatypes.JSONMap, datatypes.JSONMap, error) {
 	if len(creds) == 0 {
 		return datatypes.JSONMap{}, nil, nil
 	}
@@ -457,7 +477,7 @@ func (s *Service) sealCredentials(ctx context.Context, profile *model.ProviderPr
 	if len(keys) == 0 {
 		return refs, nil, nil
 	}
-	sealed, err := s.keys.SealSensitive(ctx, profile.Env, profile.TenantID, raw, keys...)
+	sealed, err := s.keys.SealSensitive(ctx, profile.Env, tenantScope, raw, keys...)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -516,11 +536,12 @@ func statusOrDefault(status string) string {
 	return s
 }
 
-func scopeKey(env string, tenantID *uint64) string {
-	if tenantID == nil {
-		return env + ":global"
+func scopeKey(env string, tenantUUID string) string {
+	scope := strings.TrimSpace(env) + ":"
+	if strings.TrimSpace(tenantUUID) == "" {
+		return scope + "global"
 	}
-	return fmt.Sprintf("%s:%d", env, *tenantID)
+	return scope + strings.ToLower(strings.TrimSpace(tenantUUID))
 }
 
 func (s *Service) mustProvider(ctx context.Context, id uuid.UUID) (*model.ProviderProfile, error) {
@@ -591,4 +612,19 @@ func currentValidationStatus(meta datatypes.JSONMap) string {
 		}
 	}
 	return validationStatusUnknown
+}
+
+func (s *Service) resolveTenantScope(ctx context.Context, tenantUUID string) (string, error) {
+	scope := strings.TrimSpace(tenantUUID)
+	if scope == "" {
+		return "", nil
+	}
+	if s.tenantRepo == nil {
+		return "", errors.New("tenant repository is not configured")
+	}
+	tenant, err := s.tenantRepo.GetByUUID(ctx, scope)
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(tenant.UUID.String()), nil
 }

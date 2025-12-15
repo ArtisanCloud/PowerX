@@ -15,7 +15,7 @@ import (
 
 // StepFailureInput 描述步骤失败的上下文。
 type StepFailureInput struct {
-	TenantID     uint64
+	TenantUUID   string
 	InstanceUUID uuid.UUID
 	StepRecordID uint64
 	StepID       string
@@ -34,14 +34,15 @@ func (s *Service) ControlInstance(ctx context.Context, input ControlInstanceInpu
 	if s == nil {
 		return nil, errors.New("workflow service unavailable")
 	}
-	if input.TenantID == 0 {
-		return nil, errors.New("tenant_id is required")
+	tenantUUID, err := normalizeTenantUUID(input.TenantUUID)
+	if err != nil {
+		return nil, err
 	}
 	if input.InstanceUUID == uuid.Nil {
 		return nil, errors.New("instance uuid is required")
 	}
 
-	instance, err := s.instances.GetByUUID(ctx, input.TenantID, input.InstanceUUID)
+	instance, err := s.instances.GetByUUID(ctx, tenantUUID, input.InstanceUUID)
 	if err != nil {
 		return nil, err
 	}
@@ -51,30 +52,30 @@ func (s *Service) ControlInstance(ctx context.Context, input ControlInstanceInpu
 	switch action {
 	case "pause":
 		reason := strings.TrimSpace(input.Reason)
-		if err := s.instances.UpdateState(ctx, instance.TenantID, instance.UUID, "suspended", map[string]interface{}{"last_error": reason}); err != nil {
+		if err := s.instances.UpdateState(ctx, instance.TenantUUID, instance.UUID, "suspended", map[string]interface{}{"last_error": reason}); err != nil {
 			return nil, err
 		}
-		s.emitInstanceControlEvent(ctx, instance.TenantID, instance.UUID, prevState, "suspended", "workflow.instance.paused", fmt.Sprintf("workflow instance %s paused", instance.UUID.String()), input.Operator, map[string]any{
+		s.emitInstanceControlEvent(ctx, instance.TenantUUID, instance.UUID, prevState, "suspended", "workflow.instance.paused", fmt.Sprintf("workflow instance %s paused", instance.UUID.String()), input.Operator, map[string]any{
 			"reason": reason,
 		})
 	case "resume":
-		if err := s.instances.UpdateState(ctx, instance.TenantID, instance.UUID, "running", map[string]interface{}{"last_error": ""}); err != nil {
+		if err := s.instances.UpdateState(ctx, instance.TenantUUID, instance.UUID, "running", map[string]interface{}{"last_error": ""}); err != nil {
 			return nil, err
 		}
-		s.emitInstanceControlEvent(ctx, instance.TenantID, instance.UUID, prevState, "running", "workflow.instance.resumed", fmt.Sprintf("workflow instance %s resumed", instance.UUID.String()), input.Operator, map[string]any{})
+		s.emitInstanceControlEvent(ctx, instance.TenantUUID, instance.UUID, prevState, "running", "workflow.instance.resumed", fmt.Sprintf("workflow instance %s resumed", instance.UUID.String()), input.Operator, map[string]any{})
 	case "cancel":
 		reason := strings.TrimSpace(input.Reason)
-		if err := s.instances.UpdateState(ctx, instance.TenantID, instance.UUID, "canceled", map[string]interface{}{"last_error": reason}); err != nil {
+		if err := s.instances.UpdateState(ctx, instance.TenantUUID, instance.UUID, "canceled", map[string]interface{}{"last_error": reason}); err != nil {
 			return nil, err
 		}
-		s.emitInstanceControlEvent(ctx, instance.TenantID, instance.UUID, prevState, "canceled", "workflow.instance.canceled", fmt.Sprintf("workflow instance %s canceled", instance.UUID.String()), input.Operator, map[string]any{
+		s.emitInstanceControlEvent(ctx, instance.TenantUUID, instance.UUID, prevState, "canceled", "workflow.instance.canceled", fmt.Sprintf("workflow instance %s canceled", instance.UUID.String()), input.Operator, map[string]any{
 			"reason": reason,
 		})
 	case "retry_step":
 		if input.StepID == "" {
 			return nil, errors.New("step_id is required for retry_step")
 		}
-		if err := s.manualRetryStep(ctx, instance, input.StepID, input.AssignmentID, input.Payload, input.Operator); err != nil {
+		if err := s.manualRetryStep(ctx, tenantUUID, instance, input.StepID, input.AssignmentID, input.Payload, input.Operator); err != nil {
 			return nil, err
 		}
 	case "trigger_compensation":
@@ -88,7 +89,7 @@ func (s *Service) ControlInstance(ctx context.Context, input ControlInstanceInpu
 		return nil, fmt.Errorf("unsupported control action %s", input.Action)
 	}
 
-	updated, err := s.instances.GetByUUID(ctx, input.TenantID, input.InstanceUUID)
+	updated, err := s.instances.GetByUUID(ctx, tenantUUID, input.InstanceUUID)
 	if err != nil {
 		return nil, err
 	}
@@ -101,11 +102,15 @@ func (s *Service) HandleStepFailure(ctx context.Context, input StepFailureInput)
 	if s == nil {
 		return result, errors.New("workflow service unavailable")
 	}
-	if input.TenantID == 0 || input.InstanceUUID == uuid.Nil || input.StepRecordID == 0 || strings.TrimSpace(input.StepID) == "" {
+	tenantUUID, err := normalizeTenantUUID(input.TenantUUID)
+	if err != nil {
+		return result, err
+	}
+	if input.InstanceUUID == uuid.Nil || input.StepRecordID == 0 || strings.TrimSpace(input.StepID) == "" {
 		return result, errors.New("invalid failure input")
 	}
 
-	instance, err := s.instances.GetByUUID(ctx, input.TenantID, input.InstanceUUID)
+	instance, err := s.instances.GetByUUID(ctx, tenantUUID, input.InstanceUUID)
 	if err != nil {
 		return result, err
 	}
@@ -159,7 +164,7 @@ func (s *Service) HandleStepFailure(ctx context.Context, input StepFailureInput)
 			"attempt": strconv.Itoa(nextAttempt),
 		}
 		_, err := s.scheduler.ScheduleRetry(ctx, RetryScheduleOptions{
-			TenantKey:    tenantKey(instance.TenantID),
+			TenantKey:    tenantKey(instance.TenantUUID),
 			WorkerID:     "workflow-runtime",
 			InstanceUUID: instance.UUID,
 			StepRecordID: record.ID,
@@ -170,11 +175,11 @@ func (s *Service) HandleStepFailure(ctx context.Context, input StepFailureInput)
 		if err != nil {
 			return result, err
 		}
-		if err := s.instances.UpdateState(ctx, instance.TenantID, instance.UUID, "waiting", map[string]interface{}{"last_error": strings.TrimSpace(input.Reason)}); err != nil {
+		if err := s.instances.UpdateState(ctx, instance.TenantUUID, instance.UUID, "waiting", map[string]interface{}{"last_error": strings.TrimSpace(input.Reason)}); err != nil {
 			return result, err
 		}
 		if s.metrics != nil {
-			s.metrics.ObserveRetryScheduled(ctx, instance.TenantID, stepDef.Type)
+			s.metrics.ObserveRetryScheduled(ctx, instance.TenantUUID, stepDef.Type)
 		}
 		s.emitStepControlEvent(ctx, instance, stepDef, record.ID, "workflow.step.retry_scheduled", fmt.Sprintf("retry scheduled for step %s", stepDef.ID), uuid.Nil, map[string]any{
 			"next_attempt":    nextAttempt,
@@ -194,13 +199,17 @@ func (s *Service) HandleStepFailure(ctx context.Context, input StepFailureInput)
 		return result, err
 	}
 	if s.metrics != nil {
-		s.metrics.ObserveCompensationTriggered(ctx, instance.TenantID, stepDef.Type)
+		s.metrics.ObserveCompensationTriggered(ctx, instance.TenantUUID, stepDef.Type)
 	}
 	result.CompensationTriggered = true
 	return result, nil
 }
 
-func (s *Service) manualRetryStep(ctx context.Context, instance *modelworkflow.WorkflowInstance, stepID string, assignmentID uint64, payload map[string]any, operator uuid.UUID) error {
+func (s *Service) manualRetryStep(ctx context.Context, tenantUUID string, instance *modelworkflow.WorkflowInstance, stepID string, assignmentID uint64, payload map[string]any, operator uuid.UUID) error {
+	normalizedTenantUUID, err := normalizeTenantUUID(tenantUUID)
+	if err != nil {
+		return err
+	}
 	_, validation, err := s.loadDefinitionContext(ctx, instance)
 	if err != nil {
 		return err
@@ -246,7 +255,7 @@ func (s *Service) manualRetryStep(ctx context.Context, instance *modelworkflow.W
 		}
 		if agentID != uuid.Nil {
 			_, err := s.tracker.Dispatch(ctx, AssignmentDispatchInput{
-				TenantID:     instance.TenantID,
+				TenantUUID:   normalizedTenantUUID,
 				InstanceUUID: instance.UUID,
 				StepRecordID: step.ID,
 				StepID:       step.StepID,
@@ -259,7 +268,7 @@ func (s *Service) manualRetryStep(ctx context.Context, instance *modelworkflow.W
 		}
 	}
 
-	if err := s.instances.UpdateState(ctx, instance.TenantID, instance.UUID, "running", map[string]interface{}{"current_step_id": stepID}); err != nil {
+	if err := s.instances.UpdateState(ctx, instance.TenantUUID, instance.UUID, "running", map[string]interface{}{"current_step_id": stepID}); err != nil {
 		return err
 	}
 
@@ -298,7 +307,7 @@ func (s *Service) manualTriggerCompensation(ctx context.Context, instance *model
 	return err
 }
 
-func (s *Service) emitInstanceControlEvent(ctx context.Context, tenantID uint64, instanceUUID uuid.UUID, previousState, nextState, eventType, summary string, operator uuid.UUID, details map[string]any) {
+func (s *Service) emitInstanceControlEvent(ctx context.Context, tenantUUID string, instanceUUID uuid.UUID, previousState, nextState, eventType, summary string, operator uuid.UUID, details map[string]any) {
 	if s == nil || s.em == nil {
 		return
 	}
@@ -309,7 +318,7 @@ func (s *Service) emitInstanceControlEvent(ctx context.Context, tenantID uint64,
 	for k, v := range details {
 		payload[k] = v
 	}
-	event := newWorkflowEvent(tenantID, instanceUUID, eventType, summary, payload)
+	event := newWorkflowEvent(tenantUUID, instanceUUID, eventType, summary, payload)
 	if operator != uuid.Nil {
 		event.ActorType = "operator"
 		event.ActorID = operator.String()
@@ -330,7 +339,7 @@ func (s *Service) emitStepControlEvent(ctx context.Context, instance *modelworkf
 	for k, v := range details {
 		payload[k] = v
 	}
-	event := newWorkflowEvent(instance.TenantID, instance.UUID, eventType, summary, payload)
+	event := newWorkflowEvent(instance.TenantUUID, instance.UUID, eventType, summary, payload)
 	event.RelatedStepRecord = stepRecordID
 	if operator != uuid.Nil {
 		event.ActorType = "operator"
@@ -342,7 +351,7 @@ func (s *Service) emitStepControlEvent(ctx context.Context, instance *modelworkf
 }
 
 func (s *Service) loadDefinitionContext(ctx context.Context, instance *modelworkflow.WorkflowInstance) (*modelworkflow.WorkflowDefinition, *ValidationResult, error) {
-	definition, err := s.definitions.GetByUUID(ctx, instance.TenantID, instance.DefinitionUUID, &instance.DefinitionVersion)
+	definition, err := s.definitions.GetByUUID(ctx, instance.TenantUUID, instance.DefinitionUUID, &instance.DefinitionVersion)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -357,6 +366,10 @@ func (s *Service) loadDefinitionContext(ctx context.Context, instance *modelwork
 	return definition, validation, nil
 }
 
-func tenantKey(tenantID uint64) string {
-	return fmt.Sprintf("tenant:%d", tenantID)
+func tenantKey(tenantUUID string) string {
+	normalized := strings.ToLower(strings.TrimSpace(tenantUUID))
+	if normalized == "" {
+		return ""
+	}
+	return fmt.Sprintf("tenant:%s", normalized)
 }

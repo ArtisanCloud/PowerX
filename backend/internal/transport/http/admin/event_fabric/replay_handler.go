@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/ArtisanCloud/PowerX/internal/service/event_fabric/replay"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/gin-gonic/gin"
 )
@@ -38,7 +39,6 @@ type replayWindow struct {
 }
 
 type createReplayTaskRequest struct {
-	TenantID   string        `json:"tenant_id"`
 	Topic      string        `json:"topic"`
 	TraceID    string        `json:"trace_id"`
 	Window     *replayWindow `json:"window"`
@@ -62,6 +62,11 @@ func (h *AdminReplayHandler) CreateTask(c *gin.Context) {
 		dto.RespondErrorFrom(c, dto.NewBadRequest("invalid request payload", err))
 		return
 	}
+	tenantUUID, err := reqctx.RequireTenantUUIDFromGin(c)
+	if err != nil {
+		dto.RespondErrorFrom(c, dto.NewUnauthorized("tenant context missing", err))
+		return
+	}
 
 	start, end, err := parseReplayWindow(req.Window)
 	if err != nil {
@@ -70,7 +75,7 @@ func (h *AdminReplayHandler) CreateTask(c *gin.Context) {
 	}
 
 	task, err := h.service.CreateTask(c.Request.Context(), replay.CreateTaskInput{
-		TenantKey:   strings.TrimSpace(req.TenantID),
+		TenantKey:   strings.TrimSpace(tenantUUID),
 		Topic:       strings.TrimSpace(req.Topic),
 		TraceID:     strings.TrimSpace(req.TraceID),
 		WindowStart: start,
@@ -126,7 +131,7 @@ func (h *AdminReplayHandler) CancelTask(c *gin.Context) {
 
 type replayTaskDTO struct {
 	ID            string     `json:"id"`
-	TenantID      string     `json:"tenant_id"`
+	TenantUUID    string     `json:"tenant_uuid"`
 	Topic         string     `json:"topic"`
 	TraceID       string     `json:"trace_id"`
 	Status        string     `json:"status"`
@@ -144,7 +149,7 @@ func taskToDTO(task *replay.Task) replayTaskDTO {
 	}
 	return replayTaskDTO{
 		ID:            task.ID,
-		TenantID:      task.TenantKey,
+		TenantUUID:    task.TenantKey,
 		Topic:         task.Topic,
 		TraceID:       task.TraceID,
 		Status:        task.Status,

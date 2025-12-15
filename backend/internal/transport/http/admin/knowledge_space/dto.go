@@ -20,7 +20,6 @@ type quotaPayload struct {
 }
 
 type createSpaceRequest struct {
-	TenantID                string       `json:"tenantId" binding:"required,uuid4"`
 	SpaceName               string       `json:"spaceName" binding:"required"`
 	DepartmentCode          string       `json:"departmentCode" binding:"required"`
 	Quotas                  quotaPayload `json:"quotas" binding:"required"`
@@ -44,7 +43,7 @@ type retireSpaceRequest struct {
 
 type knowledgeSpaceResponse struct {
 	SpaceID            string       `json:"spaceId"`
-	TenantID           string       `json:"tenantId"`
+	TenantUUID         string       `json:"tenant_uuid"`
 	SpaceName          string       `json:"spaceName"`
 	DepartmentCode     string       `json:"departmentCode"`
 	Status             string       `json:"status"`
@@ -63,7 +62,7 @@ func toResponse(space *models.KnowledgeSpace) knowledgeSpaceResponse {
 	flags := ksvc.FeatureFlagsFromJSON(space.FeatureFlags)
 	return knowledgeSpaceResponse{
 		SpaceID:            space.UUID.String(),
-		TenantID:           space.TenantID.String(),
+		TenantUUID:         space.TenantUUID,
 		SpaceName:          space.SpaceName,
 		DepartmentCode:     space.DepartmentCode,
 		Status:             space.Status,

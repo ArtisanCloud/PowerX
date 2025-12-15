@@ -1,9 +1,9 @@
 package knowledge
 
 import (
+	"strings"
 	"time"
 
-	"github.com/google/uuid"
 	"gorm.io/datatypes"
 
 	coremodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
@@ -13,7 +13,7 @@ import (
 type KnowledgeSpace struct {
 	coremodel.PowerUUIDModel
 
-	TenantID                uuid.UUID      `gorm:"column:tenant_id;type:uuid;not null;index:idx_knowledge_space_tenant_name,unique" json:"tenant_id"`
+	TenantUUID              string         `gorm:"column:tenant_uuid;type:varchar(128);not null;index:idx_knowledge_space_tenant_name,unique" json:"tenant_uuid"`
 	SpaceName               string         `gorm:"column:space_name;type:varchar(128);not null;index:idx_knowledge_space_tenant_name,unique" json:"space_name"`
 	DepartmentCode          string         `gorm:"column:department_code;type:varchar(64);not null" json:"department_code"`
 	Status                  string         `gorm:"column:status;type:varchar(32);not null;default:'draft';index" json:"status"`
@@ -39,3 +39,8 @@ const (
 	KnowledgeSpaceStatusPending = "pending_iam"
 	KnowledgeSpaceStatusRetired = "retired"
 )
+
+// Normalize ensures canonical tenant UUID casing.
+func (k *KnowledgeSpace) Normalize() {
+	k.TenantUUID = strings.ToLower(strings.TrimSpace(k.TenantUUID))
+}

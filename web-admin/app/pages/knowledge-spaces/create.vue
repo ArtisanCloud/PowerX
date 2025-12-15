@@ -108,13 +108,13 @@ const submitWizard = async () => {
 
       <div v-if="store.step === 1" class="space-y-4">
         <label class="flex flex-col gap-2">
-          <span class="text-sm font-medium text-gray-800">租户 ID</span>
+          <span class="text-sm font-medium text-gray-800">租户 UUID</span>
           <input
             type="text"
             class="rounded-lg border border-gray-200 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none"
             placeholder="d86c5da9-35f4-4db8-9c2e-d879ed2b9e10"
-            :value="store.form.tenantId"
-            @input="store.form.tenantId = String(($event.target as HTMLInputElement).value)"
+            :value="store.form.tenantUuid"
+            @input="store.form.tenantUuid = String(($event.target as HTMLInputElement).value)"
           />
         </label>
         <label class="flex flex-col gap-2">

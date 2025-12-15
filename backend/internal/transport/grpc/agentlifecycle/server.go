@@ -9,6 +9,7 @@ import (
 	agentv1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/agent/v1"
 	agentmodel "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/model"
 	"github.com/ArtisanCloud/PowerX/internal/service/agent_lifecycle"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/google/uuid"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -36,8 +37,12 @@ func (s *Server) RegisterAgent(ctx context.Context, req *agentv1.RegisterAgentRe
 	if s.service == nil {
 		return nil, status.Error(codes.Unavailable, "agent lifecycle service unavailable")
 	}
+	tenantUUID, err := tenantUUIDFromContext(ctx, req.GetTenantUuid())
+	if err != nil {
+		return nil, err
+	}
 	input := agent_lifecycle.RegisterInput{
-		TenantID:                 req.GetTenantId(),
+		TenantUUID:               tenantUUID,
 		Alias:                    req.GetAlias(),
 		DisplayName:              req.GetAlias(),
 		TelemetryContractVersion: req.GetTelemetryContractVersion(),
@@ -87,9 +92,13 @@ func (s *Server) ActivateAgent(ctx context.Context, req *agentv1.LifecycleComman
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid agent_id: %v", err)
 	}
+	tenantUUID, err := tenantUUIDFromContext(ctx, "")
+	if err != nil {
+		return nil, err
+	}
 	result, err := s.service.Activate(ctx, agent_lifecycle.ActivateInput{
 		AgentID:     id,
-		TenantID:    "",
+		TenantUUID:  tenantUUID,
 		Reason:      req.GetReason(),
 		RequestedBy: req.GetRequestedBy(),
 		TraceID:     req.GetTraceId(),
@@ -108,9 +117,13 @@ func (s *Server) PauseAgent(ctx context.Context, req *agentv1.LifecycleCommandRe
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid agent_id: %v", err)
 	}
+	tenantUUID, err := tenantUUIDFromContext(ctx, "")
+	if err != nil {
+		return nil, err
+	}
 	result, err := s.service.Pause(ctx, agent_lifecycle.PauseInput{
 		AgentID:     id,
-		TenantID:    "",
+		TenantUUID:  tenantUUID,
 		Reason:      req.GetReason(),
 		RequestedBy: req.GetRequestedBy(),
 		TraceID:     req.GetTraceId(),
@@ -129,9 +142,13 @@ func (s *Server) ResumeAgent(ctx context.Context, req *agentv1.LifecycleCommandR
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid agent_id: %v", err)
 	}
+	tenantUUID, err := tenantUUIDFromContext(ctx, "")
+	if err != nil {
+		return nil, err
+	}
 	result, err := s.service.Resume(ctx, agent_lifecycle.ResumeInput{
 		AgentID:     id,
-		TenantID:    "",
+		TenantUUID:  tenantUUID,
 		Reason:      req.GetReason(),
 		RequestedBy: req.GetRequestedBy(),
 		TraceID:     req.GetTraceId(),
@@ -150,9 +167,13 @@ func (s *Server) RetireAgent(ctx context.Context, req *agentv1.LifecycleCommandR
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid agent_id: %v", err)
 	}
+	tenantUUID, err := tenantUUIDFromContext(ctx, "")
+	if err != nil {
+		return nil, err
+	}
 	result, err := s.service.Retire(ctx, agent_lifecycle.RetireInput{
 		AgentID:     id,
-		TenantID:    "",
+		TenantUUID:  tenantUUID,
 		Reason:      req.GetReason(),
 		RequestedBy: req.GetRequestedBy(),
 		TraceID:     req.GetTraceId(),
@@ -171,9 +192,13 @@ func (s *Server) ScaleAgent(ctx context.Context, req *agentv1.ScaleAgentRequest)
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid agent_id: %v", err)
 	}
+	tenantUUID, err := tenantUUIDFromContext(ctx, "")
+	if err != nil {
+		return nil, err
+	}
 	result, err := s.service.Scale(ctx, agent_lifecycle.ScaleInput{
 		AgentID:     id,
-		TenantID:    "",
+		TenantUUID:  tenantUUID,
 		Target:      req.GetTargetCapacityInstances(),
 		Reason:      req.GetReason(),
 		RequestedBy: req.GetRequestedBy(),
@@ -227,9 +252,13 @@ func (s *Server) UpdateSubscription(ctx context.Context, req *agentv1.UpdateSubs
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid agent_id: %v", err)
 	}
+	tenantUUID, err := tenantUUIDFromContext(ctx, req.GetTenantUuid())
+	if err != nil {
+		return nil, err
+	}
 	input := agent_lifecycle.SubscriptionUpdateInput{
 		AgentID:     id,
-		TenantID:    req.GetTenantId(),
+		TenantUUID:  tenantUUID,
 		RequestedBy: req.GetTraceId(),
 		TraceID:     req.GetTraceId(),
 		Config:      subscriptionConfigFromProto(req.GetConfig()),
@@ -260,11 +289,15 @@ func (s *Server) RegisterManifest(ctx context.Context, req *agentv1.RegisterMani
 	if s.service == nil {
 		return nil, status.Error(codes.Unavailable, "agent lifecycle service unavailable")
 	}
+	tenantUUID, err := tenantUUIDFromContext(ctx, req.GetTenantUuid())
+	if err != nil {
+		return nil, err
+	}
 	input := agent_lifecycle.ManifestRegistrationInput{
 		PluginID:                 req.GetPluginId(),
 		PluginVersion:            req.GetPluginVersion(),
 		ManifestVersion:          req.GetManifestVersion(),
-		TenantID:                 req.GetTenantId(),
+		TenantUUID:               tenantUUID,
 		Alias:                    req.GetAlias(),
 		DisplayName:              req.GetDisplayName(),
 		TelemetryContractVersion: req.GetTelemetryContractVersion(),
@@ -334,7 +367,7 @@ func (s *Server) ShareAgent(ctx context.Context, req *agentv1.CreateAgentShareRe
 	}
 	share, err := s.service.ShareAgent(ctx, agent_lifecycle.ShareInput{
 		AgentID:     agentID,
-		TenantID:    req.GetTenantId(),
+		TenantUUID:  req.GetTenantUuid(),
 		Quotas:      shareQuotasFromProto(req.GetQuotas()),
 		Metadata:    req.GetMetadata(),
 		RequestedBy: req.GetRequestedBy(),
@@ -373,7 +406,7 @@ func toProtoAgent(agent *agent_lifecycle.Agent) *agentv1.Agent {
 	pb := &agentv1.Agent{
 		Id:                       agent.ID.String(),
 		Alias:                    agent.Alias,
-		TenantId:                 agent.TenantID,
+		TenantUuid:               agent.TenantUUID,
 		Status:                   agentStatusToProto(agent.Status),
 		TelemetryContractVersion: agent.TelemetryContractVersion,
 		DefaultCapacityInstances: agent.DefaultCapacityInstances,
@@ -570,15 +603,30 @@ func toProtoShare(share *agent_lifecycle.AgentShare) *agentv1.AgentShareResponse
 		return nil
 	}
 	resp := &agentv1.AgentShareResponse{
-		ShareId:  share.ID.String(),
-		Status:   share.Status,
-		TenantId: share.TenantID,
-		IssuedAt: share.CreatedAt,
+		ShareId:    share.ID.String(),
+		Status:     share.Status,
+		TenantUuid: share.TenantUUID,
+		IssuedAt:   share.CreatedAt,
 	}
 	if share.RevokedAt != nil {
 		resp.RevokedAt = *share.RevokedAt
 	}
 	return resp
+}
+
+func tenantUUIDFromContext(ctx context.Context, candidate string) (string, error) {
+	uuidStr := strings.TrimSpace(candidate)
+	if uuidStr == "" {
+		uuidStr = strings.TrimSpace(reqctx.GetTenantUUID(ctx))
+	}
+	if uuidStr == "" {
+		return "", status.Error(codes.InvalidArgument, "tenant uuid is required")
+	}
+	canonical, err := reqctx.CanonicalTenantUUID(uuidStr)
+	if err != nil {
+		return "", status.Error(codes.InvalidArgument, "tenant uuid is invalid")
+	}
+	return canonical, nil
 }
 
 func shareQuotasFromProto(items []*agentv1.ShareQuota) []agent_lifecycle.ShareQuota {

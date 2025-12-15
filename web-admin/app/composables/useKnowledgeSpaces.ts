@@ -1,5 +1,5 @@
 export interface KnowledgeSpacePayload {
-  tenantId: string;
+  tenantUuid: string;
   spaceName: string;
   departmentCode: string;
   policyTemplateVersionId: string;
@@ -15,7 +15,7 @@ export interface KnowledgeSpacePayload {
 
 export interface KnowledgeSpaceRecord {
   spaceId: string;
-  tenantId?: string;
+  tenantUuid?: string;
   spaceName: string;
   departmentCode: string;
   status: string;

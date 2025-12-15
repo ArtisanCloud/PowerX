@@ -11,6 +11,7 @@ import (
 
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
 	manager "github.com/ArtisanCloud/PowerX/internal/service/integration_gateway/manager"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -41,7 +42,7 @@ type AdminHandler struct {
 }
 
 type createRouteRequest struct {
-	TenantID     string                   `json:"tenant_id" binding:"required"`
+	TenantUUID   string                   `json:"tenant_uuid" binding:"required,uuid4"`
 	RouteSlug    string                   `json:"route_slug" binding:"required"`
 	CapabilityID string                   `json:"capability_id" binding:"required"`
 	ToolGrantIDs []string                 `json:"tool_grant_ids"`
@@ -52,7 +53,7 @@ type createRouteRequest struct {
 }
 
 type updateRouteRequest struct {
-	TenantID     string                   `json:"tenant_id" binding:"required"`
+	TenantUUID   string                   `json:"tenant_uuid" binding:"required,uuid4"`
 	CapabilityID string                   `json:"capability_id"`
 	ToolGrantIDs []string                 `json:"tool_grant_ids"`
 	Channels     []string                 `json:"channels"`
@@ -63,13 +64,13 @@ type updateRouteRequest struct {
 }
 
 type lifecycleRequest struct {
-	TenantID string `json:"tenant_id" binding:"required"`
-	Reason   string `json:"reason"`
+	TenantUUID string `json:"tenant_uuid" binding:"required,uuid4"`
+	Reason     string `json:"reason"`
 }
 
 type routeResponse struct {
 	RouteID         string                  `json:"route_id"`
-	TenantID        string                  `json:"tenant_id"`
+	TenantUUID      string                  `json:"tenant_uuid"`
 	RouteSlug       string                  `json:"route_slug"`
 	CapabilityID    string                  `json:"capability_id"`
 	ToolGrantIDs    []string                `json:"tool_grant_ids"`
@@ -89,7 +90,7 @@ type routeResponse struct {
 func routeToResponse(route manager.Route) routeResponse {
 	resp := routeResponse{
 		RouteID:        route.RouteID.String(),
-		TenantID:       route.TenantID,
+		TenantUUID:     route.TenantUUID,
 		RouteSlug:      route.RouteSlug,
 		CapabilityID:   route.CapabilityID,
 		ToolGrantIDs:   route.ToolGrantIDs,
@@ -121,8 +122,15 @@ func (h *AdminHandler) CreateRoute(c *gin.Context) {
 		return
 	}
 
+	tenantUUID := strings.TrimSpace(req.TenantUUID)
+	canonical, err := reqctx.CanonicalTenantUUID(tenantUUID)
+	if err != nil {
+		dto.RespondErrorFrom(c, dto.NewBadRequest("tenant_uuid must be a valid UUID", err))
+		return
+	}
+
 	route, err := h.svc.CreateRoute(c.Request.Context(), manager.CreateRouteInput{
-		TenantID:     strings.TrimSpace(req.TenantID),
+		TenantUUID:   canonical,
 		Actor:        actorFromHeader(c),
 		RouteSlug:    req.RouteSlug,
 		CapabilityID: req.CapabilityID,
@@ -142,9 +150,14 @@ func (h *AdminHandler) CreateRoute(c *gin.Context) {
 }
 
 func (h *AdminHandler) ListRoutes(c *gin.Context) {
-	tenantID := strings.TrimSpace(c.Query("tenant_id"))
-	if tenantID == "" {
-		dto.RespondErrorFrom(c, dto.NewBadRequest("tenant_id is required", nil))
+	tenantUUID := strings.TrimSpace(c.Query("tenant_uuid"))
+	if tenantUUID == "" {
+		dto.RespondErrorFrom(c, dto.NewBadRequest("tenant_uuid is required", nil))
+		return
+	}
+	canonical, err := reqctx.CanonicalTenantUUID(tenantUUID)
+	if err != nil {
+		dto.RespondErrorFrom(c, dto.NewBadRequest("tenant_uuid must be a valid UUID", err))
 		return
 	}
 	capabilityID := strings.TrimSpace(c.Query("capability_id"))
@@ -153,7 +166,7 @@ func (h *AdminHandler) ListRoutes(c *gin.Context) {
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
 
 	routes, total, err := h.svc.ListRoutes(c.Request.Context(), manager.ListRoutesInput{
-		TenantID:       tenantID,
+		TenantUUID:     canonical,
 		CapabilityID:   capabilityID,
 		LifecycleState: lifecycle,
 		Page:           page,
@@ -215,9 +228,16 @@ func (h *AdminHandler) UpdateRoute(c *gin.Context) {
 		return
 	}
 
+	tenantUUID := strings.TrimSpace(req.TenantUUID)
+	canonical, err := reqctx.CanonicalTenantUUID(tenantUUID)
+	if err != nil {
+		dto.RespondErrorFrom(c, dto.NewBadRequest("tenant_uuid must be a valid UUID", err))
+		return
+	}
+
 	route, err := h.svc.UpdateRoute(c.Request.Context(), manager.UpdateRouteInput{
 		RouteID:      routeID,
-		TenantID:     strings.TrimSpace(req.TenantID),
+		TenantUUID:   canonical,
 		Actor:        actorFromHeader(c),
 		Version:      version,
 		CapabilityID: req.CapabilityID,
@@ -259,18 +279,24 @@ func (h *AdminHandler) lifecycle(c *gin.Context, action string) {
 		dto.ResponseValidationError(c, err)
 		return
 	}
-	if strings.TrimSpace(req.TenantID) == "" {
-		dto.RespondErrorFrom(c, dto.NewBadRequest("tenant_id is required", nil))
+	tenantUUID := strings.TrimSpace(req.TenantUUID)
+	if tenantUUID == "" {
+		dto.RespondErrorFrom(c, dto.NewBadRequest("tenant_uuid is required", nil))
+		return
+	}
+	canonical, err := reqctx.CanonicalTenantUUID(tenantUUID)
+	if err != nil {
+		dto.RespondErrorFrom(c, dto.NewBadRequest("tenant_uuid must be a valid UUID", err))
 		return
 	}
 
 	route, err := h.svc.ChangeLifecycle(c.Request.Context(), manager.ChangeLifecycleInput{
-		RouteID:  routeID,
-		TenantID: strings.TrimSpace(req.TenantID),
-		Actor:    actorFromHeader(c),
-		Action:   action,
-		Reason:   req.Reason,
-		Version:  version,
+		RouteID:    routeID,
+		TenantUUID: canonical,
+		Actor:      actorFromHeader(c),
+		Action:     action,
+		Reason:     req.Reason,
+		Version:    version,
 	})
 	if err != nil {
 		dto.RespondErrorFrom(c, mapError(err))

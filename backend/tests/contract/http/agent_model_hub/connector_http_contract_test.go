@@ -35,7 +35,6 @@ func TestConnectorHTTPContract(t *testing.T) {
 	agentmodelhubhttp.RegisterAPIRoutes(public, protected, deps)
 
 	instancePayload := map[string]any{
-		"tenantId":             "demo-tenant",
 		"region":               "us-east-1",
 		"oauthRef":             "vault://connectors/coze/demo",
 		"webhookSigningKeyRef": "vault://connectors/coze/signing",
@@ -47,9 +46,7 @@ func TestConnectorHTTPContract(t *testing.T) {
 	body, _ := json.Marshal(instancePayload)
 	req := httptest.NewRequest(http.MethodPost, "/api/internal/connector-platforms/coze/instances", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer token")
-	rr := httptest.NewRecorder()
-	engine.ServeHTTP(rr, req)
+	rr := serveAgentModelHubRequest(t, engine, req, ammatestenv.AgentModelHubTenantUUID)
 	require.Equal(t, http.StatusOK, rr.Code)
 
 	var createResp struct {
@@ -63,8 +60,13 @@ func TestConnectorHTTPContract(t *testing.T) {
 	require.NotEmpty(t, instanceID)
 
 	pauseReq := httptest.NewRequest(http.MethodPost, "/api/internal/connector-platforms/coze/instances/"+instanceID+"/pause", nil)
-	pauseReq.Header.Set("Authorization", "Bearer token")
-	pauseRR := httptest.NewRecorder()
-	engine.ServeHTTP(pauseRR, pauseReq)
+	pauseRR := serveAgentModelHubRequest(t, engine, pauseReq, ammatestenv.AgentModelHubTenantUUID)
 	require.Equal(t, http.StatusOK, pauseRR.Code)
+
+	missingReq := httptest.NewRequest(http.MethodPost, "/api/internal/connector-platforms/coze/instances", bytes.NewReader(body))
+	missingReq.Header.Set("Content-Type", "application/json")
+	missingReq.Header.Set("Authorization", "Bearer token")
+	missingResp := httptest.NewRecorder()
+	engine.ServeHTTP(missingResp, missingReq)
+	require.Equal(t, http.StatusUnauthorized, missingResp.Code)
 }

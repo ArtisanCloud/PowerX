@@ -29,19 +29,19 @@ func TestPluginReleaseGRPC_GuardrailLifecycle(t *testing.T) {
 	}()
 	t.Cleanup(server.Stop)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	baseCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	conn, err := grpc.DialContext(ctx, "bufnet", grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
+	conn, err := grpc.DialContext(baseCtx, "bufnet", grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
 		return listener.Dial()
 	}), grpc.WithTransportCredentials(insecure.NewCredentials()))
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = conn.Close() })
 
 	client := pluginreleasepb.NewPluginReleaseServiceClient(conn)
-
-	createResp, err := client.CreateReleaseCandidate(ctx, &pluginreleasepb.CreateReleaseCandidateRequest{
-		TenantId:         "tenant-test",
+	callCtx := pluginReleaseGRPCContext(t, baseCtx, guardrailContractTenantUUID)
+	createResp, err := client.CreateReleaseCandidate(callCtx, &pluginreleasepb.CreateReleaseCandidateRequest{
+		TenantUuid:       guardrailContractTenantUUID,
 		PluginId:         "px.demo",
 		Version:          "v1.0.0",
 		BuildArtifactUri: "s3://bucket/releases/v1.0.0.zip",
@@ -55,24 +55,26 @@ func TestPluginReleaseGRPC_GuardrailLifecycle(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, createResp.GetCandidateId())
 	require.Equal(t, "px.demo", createResp.GetPluginId())
+	assertNoPluginReleaseTenantLeakProto(t, createResp)
 
-	gateResp, err := client.RunQualityGates(ctx, &pluginreleasepb.RunQualityGatesRequest{
+	gateResp, err := client.RunQualityGates(callCtx, &pluginreleasepb.RunQualityGatesRequest{
 		CandidateId: createResp.GetCandidateId(),
 	})
 	require.NoError(t, err)
 	require.Equal(t, createResp.GetCandidateId(), gateResp.GetCandidateId())
 	require.Equal(t, "passed", gateResp.GetStatus())
+	assertNoPluginReleaseTenantLeakProto(t, gateResp)
 
 	windowStart := time.Now().Add(1 * time.Hour).UTC()
 	windowEnd := windowStart.Add(2 * time.Hour)
-	planResp, err := client.GenerateReleasePlan(ctx, &pluginreleasepb.GenerateReleasePlanRequest{
+	planResp, err := client.GenerateReleasePlan(callCtx, &pluginreleasepb.GenerateReleasePlanRequest{
 		CandidateId: createResp.GetCandidateId(),
 		WindowStart: windowStart.Format(time.RFC3339),
 		WindowEnd:   windowEnd.Format(time.RFC3339),
 		Batches: []*pluginreleasepb.CanaryBatch{
 			{
 				Name:        "batch-a",
-				TenantScope: []string{"tenant-a"},
+				TenantScope: []string{guardrailScopeTenantUUID},
 				MetricThresholds: map[string]float64{
 					"error_rate": 0.02,
 				},
@@ -88,4 +90,5 @@ func TestPluginReleaseGRPC_GuardrailLifecycle(t *testing.T) {
 	require.Equal(t, "draft", planResp.GetStatus())
 	require.Len(t, planResp.GetBatches(), 1)
 	require.Equal(t, "batch-a", planResp.GetBatches()[0].GetName())
+	assertNoPluginReleaseTenantLeakProto(t, planResp)
 }

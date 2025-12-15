@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strconv"
 	"strings"
 	"time"
 
@@ -21,7 +20,7 @@ const lifecycleChangedEvent = "event_fabric.topic.lifecycle.changed"
 // Topic DTO 用于对外返回主题信息。
 type Topic struct {
 	ID              string               `json:"id"`
-	TenantID        string               `json:"tenant_id"`
+	TenantUUID      string               `json:"tenant_uuid"`
 	TenantKey       string               `json:"tenant_key"`
 	Namespace       string               `json:"namespace"`
 	Name            string               `json:"name"`
@@ -39,7 +38,7 @@ type Topic struct {
 
 // CreateTopicInput 主题创建入参。
 type CreateTopicInput struct {
-	TenantID        string                 `json:"tenant_id"`
+	TenantUUID      string                 `json:"tenant_uuid,omitempty"`
 	Namespace       string                 `json:"namespace"`
 	Name            string                 `json:"name"`
 	PayloadFormat   string                 `json:"payload_format"`
@@ -113,8 +112,10 @@ func (s *DirectoryService) CreateTopic(ctx context.Context, input CreateTopicInp
 		return nil, err
 	}
 
-	tenantKey := strings.TrimSpace(input.TenantID)
-	tenantID := parseTenantID(tenantKey)
+	tenantKey, err := resolveTenantKey(input.TenantUUID)
+	if err != nil {
+		return nil, err
+	}
 	namespace := normalizeSegment(input.Namespace)
 	name := normalizeSegment(input.Name)
 
@@ -165,7 +166,6 @@ func (s *DirectoryService) CreateTopic(ctx context.Context, input CreateTopicInp
 	}
 
 	record := &model.TopicDefinition{
-		TenantID:        tenantID,
 		TenantKey:       tenantKey,
 		Namespace:       namespace,
 		Name:            name,
@@ -265,6 +265,7 @@ func (s *DirectoryService) publishLifecycleEvent(ctx context.Context, topic *mod
 	payload := map[string]interface{}{
 		"topic_id":    topic.UUID.String(),
 		"tenant_key":  topic.TenantKey,
+		"tenant_uuid": strings.TrimSpace(topic.TenantKey),
 		"namespace":   topic.Namespace,
 		"name":        topic.Name,
 		"lifecycle":   topic.Lifecycle,
@@ -281,9 +282,9 @@ func convertTopic(record *model.TopicDefinition) *Topic {
 		return nil
 	}
 
-	tenantDisplay := record.TenantKey
+	tenantDisplay := strings.TrimSpace(record.TenantKey)
 	if tenantDisplay == "" {
-		tenantDisplay = strconv.FormatUint(record.TenantID, 10)
+		tenantDisplay = "global"
 	}
 
 	retention := string(record.RetentionPolicy)
@@ -293,7 +294,7 @@ func convertTopic(record *model.TopicDefinition) *Topic {
 
 	return &Topic{
 		ID:              record.UUID.String(),
-		TenantID:        tenantDisplay,
+		TenantUUID:      tenantDisplay,
 		TenantKey:       record.TenantKey,
 		Namespace:       record.Namespace,
 		Name:            record.Name,
@@ -310,15 +311,11 @@ func convertTopic(record *model.TopicDefinition) *Topic {
 	}
 }
 
-func parseTenantID(tenant string) uint64 {
-	if tenant == "" {
-		return 0
+func resolveTenantKey(value string) (string, error) {
+	if key := strings.TrimSpace(value); key != "" {
+		return key, nil
 	}
-	id, err := strconv.ParseUint(tenant, 10, 64)
-	if err != nil {
-		return 0
-	}
-	return id
+	return "", fmt.Errorf("tenant_uuid is required")
 }
 
 func normalizeSegment(val string) string {

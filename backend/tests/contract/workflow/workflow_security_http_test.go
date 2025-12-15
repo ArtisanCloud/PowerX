@@ -34,9 +34,8 @@ func TestWorkflowHTTPRequiresAuthorization(t *testing.T) {
 	workflowhttp.RegisterAPIRoutes(public, protected, deps)
 
 	body, _ := json.Marshal(map[string]any{
-		"tenant_id": 1001,
-		"name":      "secure",
-		"steps":     []map[string]any{{"id": "start", "type": "agent"}},
+		"name":  "secure",
+		"steps": []map[string]any{{"id": "start", "type": "agent"}},
 	})
 	rr := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/api/admin/workflows/definitions", bytes.NewReader(body))

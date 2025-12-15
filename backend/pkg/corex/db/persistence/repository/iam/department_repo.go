@@ -23,21 +23,21 @@ func NewDepartmentRepository(db *gorm.DB) *DepartmentRepository {
 	}
 }
 
-// ✅ 必须带 tenantID
-func (r *DepartmentRepository) FindByID(ctx context.Context, tenantID, id uint64) (*dbm.Department, error) {
+// ✅ 必须带 tenantUUID
+func (r *DepartmentRepository) FindByID(ctx context.Context, tenantUUID string, id uint64) (*dbm.Department, error) {
 	var d dbm.Department
 	if err := r.db.WithContext(ctx).
-		Where("tenant_id = ? AND id = ?", tenantID, id).
+		Where("tenant_uuid = ? AND id = ?", tenantUUID, id).
 		First(&d).Error; err != nil {
 		return nil, err
 	}
 	return &d, nil
 }
 
-func (r *DepartmentRepository) FindByKey(ctx context.Context, tenantID uint64, key string) (*dbm.Department, error) {
+func (r *DepartmentRepository) FindByKey(ctx context.Context, tenantUUID string, key string) (*dbm.Department, error) {
 	var d dbm.Department
 	err := r.db.WithContext(ctx).
-		Where("tenant_id = ? AND key = ?", tenantID, key).
+		Where("tenant_uuid = ? AND key = ?", tenantUUID, key).
 		First(&d).Error
 	if err != nil {
 		return nil, err
@@ -45,19 +45,19 @@ func (r *DepartmentRepository) FindByKey(ctx context.Context, tenantID uint64, k
 	return &d, nil
 }
 
-func (r *DepartmentRepository) ListByTenant(ctx context.Context, tenantID uint64) ([]dbm.Department, error) {
+func (r *DepartmentRepository) ListByTenant(ctx context.Context, tenantUUID string) ([]dbm.Department, error) {
 	var list []dbm.Department
 	err := r.db.WithContext(ctx).
-		Where("tenant_id = ?", tenantID).
+		Where("tenant_uuid = ?", tenantUUID).
 		Order("path ASC, sort ASC, id ASC").
 		Find(&list).Error
 	return list, err
 }
 
-func (r *DepartmentRepository) ListChildren(ctx context.Context, tenantID, parentID uint64) ([]dbm.Department, error) {
+func (r *DepartmentRepository) ListChildren(ctx context.Context, tenantUUID string, parentID uint64) ([]dbm.Department, error) {
 	var list []dbm.Department
 	err := r.db.WithContext(ctx).
-		Where("tenant_id = ? AND parent_id = ?", tenantID, parentID).
+		Where("tenant_uuid = ? AND parent_id = ?", tenantUUID, parentID).
 		Order("sort ASC, id ASC").
 		Find(&list).Error
 	return list, err
@@ -74,7 +74,7 @@ func (r *DepartmentRepository) CreateWithPath(ctx context.Context, d *dbm.Depart
 		var depth int
 		if d.ParentID != nil {
 			// 父节点也要带 tenant 过滤
-			p, err := r.FindByID(ctx, d.TenantID, *d.ParentID)
+			p, err := r.FindByID(ctx, d.TenantUUID, *d.ParentID)
 			if err != nil {
 				return err
 			}
@@ -91,10 +91,10 @@ func (r *DepartmentRepository) CreateWithPath(ctx context.Context, d *dbm.Depart
 }
 
 // 移动部门到新父节点（同一事务内批量更新子树 path/depth）
-func (r *DepartmentRepository) Move(ctx context.Context, tenantID, deptID uint64, newParentID *uint64) error {
+func (r *DepartmentRepository) Move(ctx context.Context, tenantUUID string, deptID uint64, newParentID *uint64) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		// 取待移动节点
-		d, err := r.FindByID(ctx, tenantID, deptID)
+		d, err := r.FindByID(ctx, tenantUUID, deptID)
 		if err != nil {
 			return err
 		}
@@ -103,7 +103,7 @@ func (r *DepartmentRepository) Move(ctx context.Context, tenantID, deptID uint64
 		var newPrefix string
 		var newDepth int
 		if newParentID != nil {
-			p, err := r.FindByID(ctx, tenantID, *newParentID)
+			p, err := r.FindByID(ctx, tenantUUID, *newParentID)
 			if err != nil {
 				return err
 			}
@@ -123,11 +123,11 @@ func (r *DepartmentRepository) Move(ctx context.Context, tenantID, deptID uint64
 			UPDATE `+t+` 
 			   SET path  = regexp_replace(path, '^'||?, ?),
 			       depth = depth + ?
-			 WHERE tenant_id = ? AND path LIKE ?`,
+			 WHERE tenant_uuid = ? AND path LIKE ?`,
 			strings.TrimRight(oldPrefix, "/"),
 			strings.TrimRight(newPrefix, "/"),
 			delta,
-			tenantID,
+			tenantUUID,
 			oldPrefix+"%",
 		).Error; err != nil {
 			return err
@@ -135,7 +135,7 @@ func (r *DepartmentRepository) Move(ctx context.Context, tenantID, deptID uint64
 
 		// 单独更新 parent_id
 		return tx.Model(&dbm.Department{}).
-			Where("tenant_id = ? AND id = ?", tenantID, d.ID).
+			Where("tenant_uuid = ? AND id = ?", tenantUUID, d.ID).
 			Update("parent_id", newParentID).Error
 	})
 }

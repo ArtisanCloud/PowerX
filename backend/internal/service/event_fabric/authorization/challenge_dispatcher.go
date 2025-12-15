@@ -3,6 +3,7 @@ package authorization
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	eventfabricmodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/event_fabric"
@@ -20,7 +21,7 @@ type ChallengeDispatcher interface {
 // ChallengeDispatchPayload 补充 Challenge 的上下文信息。
 type ChallengeDispatchPayload struct {
 	GrantUUID          *uuid.UUID     `json:"grant_uuid,omitempty"`
-	TenantID           uuid.UUID      `json:"tenant_id"`
+	TenantUUID         string         `json:"tenant_uuid"`
 	RequestFingerprint uuid.UUID      `json:"request_fingerprint"`
 	SubjectType        string         `json:"subject_type"`
 	SubjectID          string         `json:"subject_id"`
@@ -81,7 +82,7 @@ func (d *challengeDispatcher) NotifyTimeout(ctx context.Context, ticket *eventfa
 		return fmt.Errorf("challenge ticket is nil")
 	}
 	event := d.buildEvent("timeout", ticket, ChallengeDispatchPayload{
-		TenantID:           ticket.TenantID,
+		TenantUUID:         ticket.TenantUUID,
 		RequestFingerprint: ticket.RequestFingerprint,
 		IssuedAt:           ticket.CreatedAt,
 		SLAExpiresAt:       ticket.SLAExpiresAt,
@@ -115,15 +116,15 @@ func (d *challengeDispatcher) buildEvent(eventType string, ticket *eventfabricmo
 	if fingerprint == uuid.Nil {
 		fingerprint = ticket.RequestFingerprint
 	}
-	tenantID := payload.TenantID
-	if tenantID == uuid.Nil {
-		tenantID = ticket.TenantID
+	tenantUUID := strings.TrimSpace(payload.TenantUUID)
+	if tenantUUID == "" {
+		tenantUUID = strings.TrimSpace(ticket.TenantUUID)
 	}
 
 	return ChallengeEvent{
 		Type:               eventType,
 		TicketID:           ticket.UUID,
-		TenantID:           tenantID,
+		TenantUUID:         tenantUUID,
 		GrantID:            ticket.GrantID,
 		RequestFingerprint: fingerprint,
 		SubjectType:        payload.SubjectType,
@@ -141,7 +142,7 @@ func (d *challengeDispatcher) buildEvent(eventType string, ticket *eventfabricmo
 type ChallengeEvent struct {
 	Type               string         `json:"type"`
 	TicketID           uuid.UUID      `json:"ticket_id"`
-	TenantID           uuid.UUID      `json:"tenant_id"`
+	TenantUUID         string         `json:"tenant_uuid,omitempty"`
 	GrantID            *uuid.UUID     `json:"grant_id,omitempty"`
 	RequestFingerprint uuid.UUID      `json:"request_fingerprint"`
 	SubjectType        string         `json:"subject_type,omitempty"`

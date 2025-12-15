@@ -132,7 +132,7 @@ sequenceDiagram
 # Observability & Ops
 
 - **指标**：`monitoring.dashboard.latency_p95`, `monitoring.dashboard.render_total`, `monitoring.export.success_total`, `monitoring.audit.denied_total`.
-- **日志**：记录 `tenant_id`, `plugin_id`, `user_id`, `role`, `resource`, `action`, `result`, `latency_ms`.
+- **日志**：记录 `tenant_uuid`, `plugin_id`, `user_id`, `role`, `resource`, `action`, `result`, `latency_ms`。
 - **告警**：仪表盘接口错误率 >2%/5 分钟触发 P1；导出失败率 >5% 触发 P2。
 - **仪表板**：Grafana《Ops Console / Monitoring Dashboard》、Datadog `ops_console.*`。
 

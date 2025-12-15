@@ -29,7 +29,7 @@ message EventTopicConfig {
 
 message IntegrationRoute {
   string route_id = 1;
-  string tenant_id = 2;
+  string tenant_uuid = 2;
   string route_slug = 3;
   string capability_id = 4;
   repeated string tool_grant_ids = 5;
@@ -53,7 +53,7 @@ enum LifecycleState {
 
 message IntegrationRouteSummary {
   string route_id = 1;
-  string tenant_id = 2;
+  string tenant_uuid = 2;
   string route_slug = 3;
   string capability_id = 4;
   IntegrationRoute.LifecycleState lifecycle_state = 5;
@@ -72,7 +72,7 @@ message IntegrationRouteVersion {
 }
 
 message CreateRouteRequest {
-  string tenant_id = 1;
+  string tenant_uuid = 1;
   string route_slug = 2;
   string capability_id = 3;
   repeated string tool_grant_ids = 4;
@@ -116,7 +116,7 @@ message UpdateRouteResponse {
 }
 
 message ListRoutesRequest {
-  string tenant_id = 1;
+  string tenant_uuid = 1;
   string capability_id = 2;
   IntegrationRoute.LifecycleState lifecycle_state = 3;
   uint32 page = 4;
@@ -152,7 +152,7 @@ message ListRouteVersionsResponse {
 }
 
 message TenantGetRouteRequest {
-  string tenant_id = 1;
+  string tenant_uuid = 1;
   string route_slug = 2;
 }
 
@@ -162,13 +162,13 @@ message TenantGetRouteResponse {
 }
 
 message TenantListRoutesRequest {
-  string tenant_id = 1;
+  string tenant_uuid = 1;
   string capability_id = 2;
   string channel = 3;
 }
 
 message TenantInvokeRequest {
-  string tenant_id = 1;
+  string tenant_uuid = 1;
   string route_slug = 2;
   string trace_id = 3;
   string idempotency_key = 4;

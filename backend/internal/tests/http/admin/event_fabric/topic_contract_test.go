@@ -1,13 +1,9 @@
 package eventfabric
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
-	"net/http/httptest"
 	"sort"
 	"strings"
 	"sync"
@@ -41,38 +37,35 @@ func TestEventFabricAdminTopics(t *testing.T) {
 	handler := admin.NewAdminDirectoryHandler(admin.AdminDirectoryHandlerOptions{Service: svc})
 	router := gin.New()
 	group := router.Group("/event-fabric")
+	attachTenantContext(group, "tenant-corex")
 	group.POST("/topics", handler.CreateTopic)
 	group.GET("/topics", handler.ListTopics)
 	group.PATCH("/topics/:topic_id/lifecycle", handler.UpdateLifecycle)
 
-	server := httptest.NewServer(router)
-	defer server.Close()
-
 	createBody := map[string]interface{}{
-		"tenant_id":      "tenant-corex",
 		"namespace":      "corex.workflow",
 		"name":           "approved",
 		"payload_format": "json",
 		"max_retry":      7,
 	}
-	resp := doRequest(t, server, http.MethodPost, "/event-fabric/topics", createBody)
+	resp := httpRequest(t, router, http.MethodPost, "/event-fabric/topics", createBody)
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("expected 200 got %d", resp.StatusCode)
 	}
 	var created map[string]interface{}
-	decodeBody(t, resp.Body, &created)
+	decodeJSON(t, resp.Body, &created)
 	topicData := created["data"].(map[string]interface{})
 	topicID := topicData["id"].(string)
 	if topicData["full_topic"].(string) != "tenant-corex.corex.workflow.approved" {
 		t.Fatalf("unexpected full topic: %s", topicData["full_topic"])
 	}
 
-	listResp := doRequest(t, server, http.MethodGet, "/event-fabric/topics", nil)
+	listResp := httpRequest(t, router, http.MethodGet, "/event-fabric/topics", nil)
 	if listResp.StatusCode != http.StatusOK {
 		t.Fatalf("list expected 200 got %d", listResp.StatusCode)
 	}
 	var list map[string]interface{}
-	decodeBody(t, listResp.Body, &list)
+	decodeJSON(t, listResp.Body, &list)
 	items := list["data"].(map[string]interface{})["items"].([]interface{})
 	if len(items) != 1 {
 		t.Fatalf("expected 1 topic got %d", len(items))
@@ -83,51 +76,18 @@ func TestEventFabricAdminTopics(t *testing.T) {
 		"change_reason": "sunset",
 	}
 	updatePath := "/event-fabric/topics/" + topicID + "/lifecycle"
-	updateResp := doRequest(t, server, http.MethodPatch, updatePath, patchBody)
+	updateResp := httpRequest(t, router, http.MethodPatch, updatePath, patchBody)
 	if updateResp.StatusCode != http.StatusOK {
 		t.Fatalf("update expected 200 got %d", updateResp.StatusCode)
 	}
 	var updated map[string]interface{}
-	decodeBody(t, updateResp.Body, &updated)
+	decodeJSON(t, updateResp.Body, &updated)
 	lifecycle := updated["data"].(map[string]interface{})["lifecycle"].(string)
 	if lifecycle != "deprecated" {
 		t.Fatalf("expected lifecycle deprecated got %s", lifecycle)
 	}
 	if len(bus.events) == 0 {
 		t.Fatalf("expected lifecycle event published")
-	}
-}
-
-func doRequest(t *testing.T, server *httptest.Server, method, path string, body interface{}) *http.Response {
-	t.Helper()
-	var reader io.Reader
-	if body != nil {
-		b, err := json.Marshal(body)
-		if err != nil {
-			t.Fatalf("marshal body error: %v", err)
-		}
-		reader = bytes.NewReader(b)
-	}
-	req, err := http.NewRequest(method, server.URL+path, reader)
-	if err != nil {
-		t.Fatalf("new request error: %v", err)
-	}
-	if body != nil {
-		req.Header.Set("Content-Type", "application/json")
-	}
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		t.Fatalf("request error: %v", err)
-	}
-	return resp
-}
-
-func decodeBody(t *testing.T, body io.ReadCloser, out interface{}) {
-	t.Helper()
-	defer body.Close()
-	decoder := json.NewDecoder(body)
-	if err := decoder.Decode(out); err != nil {
-		t.Fatalf("decode body error: %v", err)
 	}
 }
 

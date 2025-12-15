@@ -20,7 +20,7 @@
    ```bash
    npm run provider:validate -- provider-id <uuid>
    curl -X POST https://api.powerx.local/internal/providers/<uuid>/publish \
-     -d '{"tenantWhitelist":[{"tenantId":"demo","environment":"staging"}],"rolloutStrategy":"canary"}'
+     -d '{"tenantWhitelist":[{"tenant_uuid":"demo","environment":"staging"}],"rolloutStrategy":"canary"}'
    ```
    Confirm Vault secret refs exist: `vault kv get powerx/providers/<uuid>`.
 
@@ -44,7 +44,7 @@
 6. **Feed cost telemetry & confirm enforcement flow**  
    ```bash
    node scripts/qa/provider-drill.mjs \
-     --tenant-id demo-tenant \
+    --tenant-uuid demo-tenant \
      --provider-id 2b92d17c-9d35-4c22-8a8d-24ddf9a6f1d3 \
      --env staging \
      --spike 1500 \
@@ -110,7 +110,7 @@
 12. **SC-004 Cost Guard Drill（T045）**  
     ```bash
     node scripts/qa/provider-drill.mjs \
-      --tenant-id demo-tenant \
+     --tenant-uuid demo-tenant \
       --provider-id 2b92d17c-9d35-4c22-8a8d-24ddf9a6f1d3 \
       --env staging \
       --spike 1500 \

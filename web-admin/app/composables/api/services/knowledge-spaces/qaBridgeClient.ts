@@ -1,5 +1,5 @@
 export interface QARetrievalPlanRequest {
-  tenantId: string;
+  tenantUuid: string;
   intent: string;
   domainTags?: string[];
   sessionId?: string;
@@ -27,7 +27,7 @@ export interface QATelemetry {
 }
 
 export interface QARetrievalPlanResponse {
-  tenantId: string;
+  tenantUuid: string;
   intent: string;
   domainTags: string[];
   candidateSpaces: QACandidateSpace[];
@@ -39,7 +39,7 @@ export interface QARetrievalPlanResponse {
 }
 
 export interface QAMemorySnapshotRequest {
-  tenantId: string;
+  tenantUuid: string;
   sessionId: string;
   updates?: QACitationSummary[];
 }
@@ -55,7 +55,7 @@ export interface QACitationSummary {
 }
 
 export interface QAMemorySnapshotResponse {
-  tenantId: string;
+  tenantUuid: string;
   sessionId: string;
   citations: QACitationSummary[];
 }

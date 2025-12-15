@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -17,11 +18,25 @@ import (
 	coremodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
 	models "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/plugin_release"
 	repo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/plugin_release"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
+)
+
+const (
+	contractTenantUUID             = "a71a31ef-832c-4c99-8cf8-3a6ece8baaf7"
+	canaryContractTenantUUID       = "d2df2c4c-3b7e-4e60-94fa-185141e58c4d"
+	canaryScopeTenantUUID          = "e9f11823-53ce-4273-bb4e-065701e6a95c"
+	guardrailContractTenantUUID    = "5a934c35-5ccc-4d59-ae59-bf938c74fceb"
+	guardrailScopeTenantUUID       = "6ed77e58-5521-4ceb-bbdd-e3835fcb342c"
+	distributionContractTenantUUID = "8a13ad6d-4ec5-4bf5-9241-4e8c7f5da6d0"
+	distributionImportTenantUUID   = "3bf7c541-c4fb-48c9-9cec-71c8dc41b704"
+	publishCLITenantUUID           = "b4bf55f1-5acd-4f0f-b918-5f0b37690698"
+	adminGuardrailTenantUUID       = "c8f2410e-1349-4d1b-b3f0-4c3b89d3a7d2"
+	adminGuardrailScopeTenantUUID  = "e2c2f817-1bbf-4247-9f24-972f0d559c56"
 )
 
 func setupPluginReleaseDeps(t *testing.T) (*shared.Deps, *gorm.DB) {
@@ -41,7 +56,7 @@ func setupPluginReleaseDeps(t *testing.T) (*shared.Deps, *gorm.DB) {
 		&models.OfflineDistributionPackage{},
 		&models.MarketplaceListing{},
 	))
-	require.NoError(t, db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_plugin_release_candidate_tenant_plugin_version ON plugin_release_candidates(tenant_id, plugin_id, version)").Error)
+	require.NoError(t, db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_plugin_release_candidate_tenant_plugin_version ON plugin_release_candidates(tenant_uuid, plugin_id, version)").Error)
 
 	candidateRepo := repo.NewReleaseCandidateRepository(db)
 	planRepo := repo.NewReleasePlanRepository(db)
@@ -109,12 +124,17 @@ func TestTenantLocalInstallSessionLifecycle(t *testing.T) {
 			c.AbortWithStatus(http.StatusUnauthorized)
 			return
 		}
+		if tenantUUID := strings.TrimSpace(c.GetHeader("X-Tenant-UUID")); tenantUUID != "" {
+			ctx := reqctx.WithTenantUUID(c.Request.Context(), tenantUUID)
+			c.Request = c.Request.WithContext(ctx)
+			reqctx.CopyCtxToGin(c)
+		}
 		c.Next()
 	})
 	plugin_release.RegisterTenantRoutes(protected, deps)
 
 	startPayload := map[string]any{
-		"tenantId":     "101",
+		"tenant_uuid":  contractTenantUUID,
 		"developerId":  2025,
 		"artifactUri":  "s3://bucket/plugins/dev-build.zip",
 		"featureFlags": []string{"beta_ui"},
@@ -123,16 +143,14 @@ func TestTenantLocalInstallSessionLifecycle(t *testing.T) {
 	require.NoError(t, err)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/tenant/plugin-release/local/sessions", bytes.NewReader(body))
-	req.Header.Set("Authorization", "Bearer tenant-token")
-	resp := httptest.NewRecorder()
-	engine.ServeHTTP(resp, req)
+	resp := servePluginTenantRequest(t, engine, req, contractTenantUUID)
 	require.Equal(t, http.StatusCreated, resp.Code)
 
 	var createResponse struct {
 		Code int `json:"code"`
 		Data struct {
 			SessionID    string   `json:"sessionId"`
-			TenantID     string   `json:"tenantId"`
+			TenantUUID   string   `json:"tenant_uuid"`
 			DeveloperID  uint64   `json:"developerId"`
 			ArtifactURI  string   `json:"artifactUri"`
 			FeatureFlags []string `json:"featureFlags"`
@@ -144,7 +162,7 @@ func TestTenantLocalInstallSessionLifecycle(t *testing.T) {
 	require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &createResponse))
 	require.Equal(t, http.StatusCreated, createResponse.Code)
 	require.NotEmpty(t, createResponse.Data.SessionID)
-	require.Equal(t, "101", createResponse.Data.TenantID)
+	require.Equal(t, contractTenantUUID, createResponse.Data.TenantUUID)
 	require.Equal(t, uint64(2025), createResponse.Data.DeveloperID)
 	require.Equal(t, "s3://bucket/plugins/dev-build.zip", createResponse.Data.ArtifactURI)
 	require.Equal(t, []string{"beta_ui"}, createResponse.Data.FeatureFlags)
@@ -153,9 +171,7 @@ func TestTenantLocalInstallSessionLifecycle(t *testing.T) {
 	require.NotEmpty(t, createResponse.Data.ExpiresAt)
 
 	getReq := httptest.NewRequest(http.MethodGet, "/api/tenant/plugin-release/local/sessions/"+createResponse.Data.SessionID, nil)
-	getReq.Header.Set("Authorization", "Bearer tenant-token")
-	getResp := httptest.NewRecorder()
-	engine.ServeHTTP(getResp, getReq)
+	getResp := servePluginTenantRequest(t, engine, getReq, contractTenantUUID)
 	require.Equal(t, http.StatusOK, getResp.Code)
 
 	var getPayload struct {
@@ -174,9 +190,7 @@ func TestTenantLocalInstallSessionLifecycle(t *testing.T) {
 	require.NoError(t, err)
 
 	stopReq := httptest.NewRequest(http.MethodDelete, "/api/tenant/plugin-release/local/sessions/"+sessionUUID.String(), nil)
-	stopReq.Header.Set("Authorization", "Bearer tenant-token")
-	stopResp := httptest.NewRecorder()
-	engine.ServeHTTP(stopResp, stopReq)
+	stopResp := servePluginTenantRequest(t, engine, stopReq, contractTenantUUID)
 	require.Equal(t, http.StatusAccepted, stopResp.Code)
 
 	var stored struct {
@@ -193,9 +207,7 @@ func TestTenantLocalInstallSessionLifecycle(t *testing.T) {
 
 	// session should now report success
 	getAfterStop := httptest.NewRequest(http.MethodGet, "/api/tenant/plugin-release/local/sessions/"+sessionUUID.String(), nil)
-	getAfterStop.Header.Set("Authorization", "Bearer tenant-token")
-	afterStopResp := httptest.NewRecorder()
-	engine.ServeHTTP(afterStopResp, getAfterStop)
+	afterStopResp := servePluginTenantRequest(t, engine, getAfterStop, contractTenantUUID)
 	require.Equal(t, http.StatusOK, afterStopResp.Code)
 
 	var afterStopPayload struct {

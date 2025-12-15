@@ -2,6 +2,7 @@ package reqctx
 
 import (
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 // 从 gin.Context 读取 —— 统一先读 request.Context (JwtMW 已注入)，再兼容 gin.Context.Set 的副本
@@ -75,4 +76,29 @@ func CopyCtxToGin(c *gin.Context) {
 // RequireTenantIDFromGin: 直接从 gin.Context 的 request context 里取（不中则返回错误）
 func RequireTenantIDFromGin(c *gin.Context) (uint64, error) {
 	return RequireTenantID(c.Request.Context())
+}
+
+func TenantUUIDFromGin(c *gin.Context) string {
+	rc := c.Request.Context()
+	if v := GetTenantUUID(rc); v != "" {
+		return v
+	}
+	if v, ok := c.Get(string(KeyTenantUUID)); ok {
+		if s, ok2 := v.(string); ok2 && s != "" {
+			return s
+		}
+	}
+	return ""
+}
+
+func RequireTenantUUIDFromGin(c *gin.Context) (string, error) {
+	return RequireTenantUUID(c.Request.Context())
+}
+
+func TenantUUIDValueFromGin(c *gin.Context) uuid.UUID {
+	return TenantUUIDValue(c.Request.Context())
+}
+
+func RequireTenantUUIDValueFromGin(c *gin.Context) (uuid.UUID, error) {
+	return RequireTenantUUIDValue(c.Request.Context())
 }

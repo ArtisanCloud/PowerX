@@ -14,12 +14,14 @@ import (
 	"gorm.io/gorm"
 )
 
+const testTenantUUID = "f1c221cb-97fd-4f9e-9359-24da3b6f9001"
+
 type metadataResolverStub struct {
 	meta *ArtifactMetadata
 	err  error
 }
 
-func (m metadataResolverStub) Resolve(ctx context.Context, tenantID uint64, artifactURI string) (*ArtifactMetadata, error) {
+func (m metadataResolverStub) Resolve(ctx context.Context, tenantUUID string, artifactURI string) (*ArtifactMetadata, error) {
 	return m.meta, m.err
 }
 
@@ -48,7 +50,7 @@ func TestInstallServiceStartPersistsSession(t *testing.T) {
 	})
 
 	session, err := svc.Start(context.Background(), StartInput{
-		TenantID:     101,
+		TenantUUID:   testTenantUUID,
 		DeveloperID:  2025,
 		ArtifactURI:  "s3://bucket/hotload.zip",
 		FeatureFlags: []string{"beta_ui"},
@@ -62,6 +64,7 @@ func TestInstallServiceStartPersistsSession(t *testing.T) {
 	stored, err := repository.GetSessionByUUID(context.Background(), session.UUID)
 	require.NoError(t, err)
 	require.Equal(t, session.UUID, stored.UUID)
+	require.Equal(t, testTenantUUID, stored.TenantUUID)
 }
 
 func TestInstallServiceRejectsLargeArtifact(t *testing.T) {
@@ -81,7 +84,7 @@ func TestInstallServiceRejectsLargeArtifact(t *testing.T) {
 	})
 
 	_, err = svc.Start(context.Background(), StartInput{
-		TenantID:     1,
+		TenantUUID:   testTenantUUID,
 		DeveloperID:  1,
 		ArtifactURI:  "s3://bucket/huge.zip",
 		FeatureFlags: []string{},
@@ -111,15 +114,16 @@ func TestInstallServiceStopMarksSession(t *testing.T) {
 	})
 
 	session, err := svc.Start(context.Background(), StartInput{
-		TenantID:    1,
+		TenantUUID:  testTenantUUID,
 		DeveloperID: 1,
 		ArtifactURI: "file://bundle.zip",
 	})
 	require.NoError(t, err)
 
 	err = svc.Stop(context.Background(), StopInput{
-		SessionID: session.UUID,
-		Actor:     "tester",
+		SessionID:  session.UUID,
+		TenantUUID: testTenantUUID,
+		Actor:      "tester",
 	})
 	require.NoError(t, err)
 
@@ -127,4 +131,37 @@ func TestInstallServiceStopMarksSession(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, models.LocalInstallStatusSuccess, stored.Status)
 	require.NotNil(t, stored.ExpiredAt)
+}
+
+func TestInstallServiceStopRejectsCrossTenant(t *testing.T) {
+	prevSchema := coremodel.PowerXSchema
+	coremodel.PowerXSchema = ""
+	t.Cleanup(func() { coremodel.PowerXSchema = prevSchema })
+
+	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared&_loc=UTC"), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, db.Exec("ATTACH DATABASE ':memory:' AS public").Error)
+	require.NoError(t, db.AutoMigrate(&models.LocalInstallSession{}))
+
+	repository := repo.NewLocalInstallSessionRepository(db)
+	svc := NewInstallService(InstallServiceDeps{
+		Repository: repository,
+	}, Options{
+		SessionTTL:        5 * time.Minute,
+		MaxArtifactSizeMB: 5,
+		FeatureEnabled:    true,
+	})
+
+	session, err := svc.Start(context.Background(), StartInput{
+		TenantUUID:  testTenantUUID,
+		DeveloperID: 1,
+		ArtifactURI: "file://bundle.zip",
+	})
+	require.NoError(t, err)
+
+	err = svc.Stop(context.Background(), StopInput{
+		SessionID:  session.UUID,
+		TenantUUID: "11111111-2222-3333-4444-555555555555",
+	})
+	require.ErrorIs(t, err, ErrSessionNotFound)
 }

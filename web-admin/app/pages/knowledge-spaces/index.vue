@@ -64,13 +64,13 @@ const qaStatus = ref<QaDashboardStatus>({
 });
 
 const refreshQaStatus = async () => {
-  const tenantId = knowledgeStore.lastSpace?.tenantId;
-  if (!tenantId) {
+  const tenantUuid = knowledgeStore.lastSpace?.tenantUuid;
+  if (!tenantUuid) {
     return;
   }
   try {
     const plan = await qaClient.plan({
-      tenantId,
+      tenantUuid,
       intent: "dashboard-health-check",
       domainTags: ["ops"],
       sessionId: "knowledge-dashboard",

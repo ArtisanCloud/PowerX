@@ -62,7 +62,7 @@ last_reviewed_at: 2025-02-20
 
 ## 流程与时序
 
-1. 插件 A 调用 Publish Controller，携带 `tenant_id`, `trace_id`, `idempotency_key`。
+1. 插件 A 调用 Publish Controller，携带 `tenant_uuid`, `trace_id`, `idempotency_key`。
 2. EventBus 进行鉴权、幂等校验并持久化事件。
 3. Consumer Manager 将事件投递给插件 B；插件 B 处理后 ACK 或标记失败。
 4. 连续失败进入重试/死信，SRE 可使用回放脚本恢复。
@@ -83,7 +83,7 @@ sequenceDiagram
 # Contracts & Interfaces
 
 - `POST /events/publish`, `POST /events/bulk`, `POST /events/replay`。
-- Headers：`x-idempotency-key`, `x-tenant-id`, `x-trace-id`。
+- Headers：`x-idempotency-key`, `x-tenant-uuid`, `x-trace-id`。
 - Config：`event_schema_registry/`, `event_retry_policies.yaml`, `idempotent_store.yaml`。
 
 # Implementation Checklist

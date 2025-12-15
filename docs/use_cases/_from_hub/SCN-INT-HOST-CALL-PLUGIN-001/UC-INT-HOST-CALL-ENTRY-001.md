@@ -53,7 +53,7 @@ last_reviewed_at: 2025-02-20
   - Feature Flags `PX_HOST_PLUGIN_GATEWAY`, `PX_HOST_PROTOCOL_ADAPTER`, `PX_HOST_TRACE_BRIDGE` 已开启。
   - 宿主拥有统一 API Gateway / SDK，能访问 IAM、Schema Registry、Audit Ledger。
   - 插件在能力注册场景中声明协议、入参 Schema、认证方式。
-  - Trace/Logging 平台可接收 `trace_id`, `span_id`, `tenant_id`.
+- Trace/Logging 平台可接收 `trace_id`, `span_id`, `tenant_uuid`.
 - **输入/输出**
   - 输入：宿主工作流/Agent 生成的调用上下文（租户、用户、Trace、插件能力）、请求 payload。
   - 输出：经鉴权/限流/协议转换后的请求（交给 Router）、审计日志、错误响应。
@@ -92,9 +92,9 @@ sequenceDiagram
 
 # Contracts & Interfaces
 
-- `POST /host/plugins/call` — Body: `plugin_id`, `capability`, `protocol`, `payload`, `tenant_id`, `trace_id`, `user_ctx`.
+- `POST /host/plugins/call` — Body: `plugin_id`, `capability`, `protocol`, `payload`, `tenant_uuid`, `trace_id`, `user_ctx`.
 - `POST /host/plugins/call/validate` — 可选 Schema 预检。
-- Header/Context：`x-tenant-id`, `x-user-id`, `x-plugin-id`, `x-trace-id`, `x-request-id`.
+- Header/Context：`x-tenant-uuid`, `x-user-id`, `x-plugin-id`, `x-trace-id`, `x-request-id`.
 - Configs：`host_plugin_gateway.yaml`, `protocol_mapping.json`, `schema_registry`.
 - Audit Events：`host.plugin.entry.auth_failure`, `host.plugin.entry.protocol_error`.
 
@@ -121,7 +121,7 @@ sequenceDiagram
 # Observability & Ops
 
 - 指标：`host.plugin.entry.latency_ms`, `host.plugin.entry.qps`, `host.plugin.entry.auth_failures`, `host.plugin.entry.protocol_errors`.
-- 日志：需包含 `tenant_id`, `plugin_id`, `capability`, `protocol`, `trace_id`, `status`.
+- 日志：需包含 `tenant_uuid`, `plugin_id`, `capability`, `protocol`, `trace_id`, `status`.
 - 告警：鉴权失败率 >1%（P1）、协议错误 >0.5%（P2）、入口延迟 p95 >80ms（P1）、审计写入失败（P0）。
 - Dashboard：`Host→Plugin Entry`, Trace Explorer。
 

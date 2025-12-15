@@ -16,6 +16,7 @@ import (
 	dbmaudit "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/audit"
 	capmodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/capability"
 	caprepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/capability"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/event_bus"
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 )
@@ -47,7 +48,7 @@ func NewContractService(db *gorm.DB, validator *capability.Validator, audit audi
 type Contract struct {
 	ID                    uint64                           `json:"id"`
 	ContractUUID          string                           `json:"contract_uuid"`
-	TenantID              uint64                           `json:"tenant_id"`
+	TenantUUID            string                           `json:"tenant_uuid"`
 	CapabilityKey         string                           `json:"capability_key"`
 	Version               string                           `json:"version"`
 	ProviderID            string                           `json:"provider_id"`
@@ -70,7 +71,7 @@ type Contract struct {
 
 // ContractUpsertInput 描述创建或更新草稿的入参。
 type ContractUpsertInput struct {
-	TenantID             uint64
+	TenantUUID           string
 	CapabilityKey        string
 	Version              string
 	ProviderID           string
@@ -87,7 +88,7 @@ type ContractUpsertInput struct {
 
 // PublishInput 提交发布所需参数。
 type PublishInput struct {
-	TenantID      uint64
+	TenantUUID    string
 	CapabilityKey string
 	Version       string
 	EffectiveAt   time.Time
@@ -96,7 +97,7 @@ type PublishInput struct {
 
 // DeprecateInput 提交废弃所需参数。
 type DeprecateInput struct {
-	TenantID              uint64
+	TenantUUID            string
 	CapabilityKey         string
 	Version               string
 	DeprecatedAt          time.Time
@@ -116,7 +117,7 @@ func (s *ContractService) UpsertDraft(ctx context.Context, in *ContractUpsertInp
 	}
 
 	entity := &capmodel.CapabilityContract{
-		TenantID:             in.TenantID,
+		TenantUUID:           strings.TrimSpace(in.TenantUUID),
 		CapabilityKey:        in.CapabilityKey,
 		Version:              in.Version,
 		ProviderID:           in.ProviderID,
@@ -140,11 +141,11 @@ func (s *ContractService) UpsertDraft(ctx context.Context, in *ContractUpsertInp
 				return err
 			}
 
-			if err := repo.ReplaceIOSchemas(ctx, entity.ID, toModelIOSchemas(in.TenantID, entity.ID, in.IOSchemas)); err != nil {
+			if err := repo.ReplaceIOSchemas(ctx, entity.ID, toModelIOSchemas(strings.TrimSpace(in.TenantUUID), entity.ID, in.IOSchemas)); err != nil {
 				logger.ErrorF(ctx, "[capability] replace io schemas failed: %v", err)
 				return err
 			}
-			errorBindings, err := s.ensureErrorTaxonomy(ctx, tx, in.TenantID, entity.ID, in.ErrorTaxonomy)
+			errorBindings, err := s.ensureErrorTaxonomy(ctx, tx, strings.TrimSpace(in.TenantUUID), entity.ID, in.ErrorTaxonomy)
 			if err != nil {
 				logger.ErrorF(ctx, "[capability] ensure error taxonomy failed: %v", err)
 				return err
@@ -159,7 +160,7 @@ func (s *ContractService) UpsertDraft(ctx context.Context, in *ContractUpsertInp
 				return err
 			}
 			if len(in.TransportProfiles) > 0 {
-				if err := s.transportRepo.WithDB(tx).UpsertProfiles(ctx, toModelTransportProfiles(in.TenantID, entity.ID, in.CapabilityKey, in.TransportProfiles)); err != nil {
+				if err := s.transportRepo.WithDB(tx).UpsertProfiles(ctx, toModelTransportProfiles(strings.TrimSpace(in.TenantUUID), entity.ID, in.CapabilityKey, in.TransportProfiles)); err != nil {
 					logger.ErrorF(ctx, "[capability] upsert transport profiles failed: %v", err)
 					return err
 				}
@@ -178,8 +179,8 @@ func (s *ContractService) UpsertDraft(ctx context.Context, in *ContractUpsertInp
 }
 
 // GetContract 获取单个契约。
-func (s *ContractService) GetContract(ctx context.Context, tenantID uint64, capabilityKey, version string) (*Contract, error) {
-	entity, err := s.contractRepo.FindByKeyVersion(ctx, tenantID, capabilityKey, version, true)
+func (s *ContractService) GetContract(ctx context.Context, tenantUUID string, capabilityKey, version string) (*Contract, error) {
+	entity, err := s.contractRepo.FindByKeyVersion(ctx, strings.TrimSpace(tenantUUID), capabilityKey, version, true)
 	if err != nil {
 		return nil, err
 	}
@@ -187,8 +188,8 @@ func (s *ContractService) GetContract(ctx context.Context, tenantID uint64, capa
 }
 
 // ListContracts 以简单分页方式列出契约。
-func (s *ContractService) ListContracts(ctx context.Context, tenantID uint64, keyword string, limit, offset int) ([]*Contract, int64, error) {
-	entities, total, err := s.contractRepo.ListContracts(ctx, tenantID, keyword, limit, offset)
+func (s *ContractService) ListContracts(ctx context.Context, tenantUUID string, keyword string, limit, offset int) ([]*Contract, int64, error) {
+	entities, total, err := s.contractRepo.ListContracts(ctx, strings.TrimSpace(tenantUUID), keyword, limit, offset)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -205,13 +206,13 @@ func (s *ContractService) ListContracts(ctx context.Context, tenantID uint64, ke
 
 // PublishContract 校验并发布契约。
 func (s *ContractService) PublishContract(ctx context.Context, in *PublishInput) (*Contract, []capability.ValidationIssue, error) {
-	entity, err := s.contractRepo.FindByKeyVersion(ctx, in.TenantID, in.CapabilityKey, in.Version, true)
+	entity, err := s.contractRepo.FindByKeyVersion(ctx, strings.TrimSpace(in.TenantUUID), in.CapabilityKey, in.Version, true)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	upsert := &ContractUpsertInput{
-		TenantID:             entity.TenantID,
+		TenantUUID:           entity.TenantUUID,
 		CapabilityKey:        entity.CapabilityKey,
 		Version:              entity.Version,
 		ProviderID:           entity.ProviderID,
@@ -259,7 +260,7 @@ func (s *ContractService) PublishContract(ctx context.Context, in *PublishInput)
 
 // DeprecateContract 将契约标记为废弃。
 func (s *ContractService) DeprecateContract(ctx context.Context, in *DeprecateInput) (*Contract, error) {
-	entity, err := s.contractRepo.FindByKeyVersion(ctx, in.TenantID, in.CapabilityKey, in.Version, true)
+	entity, err := s.contractRepo.FindByKeyVersion(ctx, strings.TrimSpace(in.TenantUUID), in.CapabilityKey, in.Version, true)
 	if err != nil {
 		return nil, err
 	}
@@ -287,7 +288,7 @@ func (s *ContractService) validate(ctx context.Context, in *ContractUpsertInput)
 		return nil, nil
 	}
 	draft := &capability.CapabilityContractDraft{
-		TenantID:             in.TenantID,
+		TenantUUID:           strings.TrimSpace(in.TenantUUID),
 		CapabilityKey:        in.CapabilityKey,
 		Version:              in.Version,
 		ProviderID:           in.ProviderID,
@@ -329,7 +330,7 @@ func (s *ContractService) buildContract(ctx context.Context, entity *capmodel.Ca
 	return &Contract{
 		ID:                    entity.ID,
 		ContractUUID:          entity.ContractUUID.String(),
-		TenantID:              entity.TenantID,
+		TenantUUID:            entity.TenantUUID,
 		CapabilityKey:         entity.CapabilityKey,
 		Version:               entity.Version,
 		ProviderID:            entity.ProviderID,
@@ -351,12 +352,12 @@ func (s *ContractService) buildContract(ctx context.Context, entity *capmodel.Ca
 	}, nil
 }
 
-func (s *ContractService) ensureErrorTaxonomy(ctx context.Context, tx *gorm.DB, tenantID uint64, contractID uint64, items []capability.ErrorTaxonomyEntry) ([]*capmodel.CapabilityContractErrorTaxonomy, error) {
+func (s *ContractService) ensureErrorTaxonomy(ctx context.Context, tx *gorm.DB, tenantUUID string, contractID uint64, items []capability.ErrorTaxonomyEntry) ([]*capmodel.CapabilityContractErrorTaxonomy, error) {
 	result := make([]*capmodel.CapabilityContractErrorTaxonomy, 0, len(items))
 	for _, entry := range items {
 		var taxonomy capmodel.CapabilityErrorTaxonomy
 		err := tx.WithContext(ctx).
-			Where("tenant_id = ? AND namespace = ? AND category = ? AND code = ?", tenantID, entry.Namespace, entry.Category, entry.Code).
+			Where("tenant_uuid = ? AND namespace = ? AND category = ? AND code = ?", tenantUUID, entry.Namespace, entry.Category, entry.Code).
 			First(&taxonomy).Error
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			severity := strings.ToUpper(entry.Severity)
@@ -365,13 +366,13 @@ func (s *ContractService) ensureErrorTaxonomy(ctx context.Context, tx *gorm.DB, 
 			}
 			stage := strings.ToLower(entry.Stage)
 			taxonomy = capmodel.CapabilityErrorTaxonomy{
-				TenantID:  tenantID,
-				Namespace: entry.Namespace,
-				Category:  entry.Category,
-				Code:      entry.Code,
-				Severity:  severity,
-				Stage:     stage,
-				Status:    1,
+				TenantUUID: tenantUUID,
+				Namespace:  entry.Namespace,
+				Category:   entry.Category,
+				Code:       entry.Code,
+				Severity:   severity,
+				Stage:      stage,
+				Status:     1,
 			}
 			if err := tx.WithContext(ctx).Create(&taxonomy).Error; err != nil {
 				logger.ErrorF(ctx, "[capability] create error taxonomy failed: %v", err)
@@ -382,7 +383,7 @@ func (s *ContractService) ensureErrorTaxonomy(ctx context.Context, tx *gorm.DB, 
 			return nil, err
 		}
 		result = append(result, &capmodel.CapabilityContractErrorTaxonomy{
-			TenantID:        tenantID,
+			TenantUUID:      tenantUUID,
 			ContractID:      contractID,
 			ErrorTaxonomyID: taxonomy.ID,
 		})
@@ -403,7 +404,7 @@ func (s *ContractService) emitAuditAndEvent(ctx context.Context, tx *gorm.DB, en
 		data, _ := json.Marshal(meta)
 		_ = s.audit.Emit(ctx, &dbmaudit.AuditEvent{
 			OccurredAt:   time.Now(),
-			TenantID:     entity.TenantID,
+			TenantUUID:   strings.TrimSpace(reqctx.GetTenantUUID(ctx)),
 			Source:       "capability.service",
 			Operation:    eventName,
 			ResourceType: "capability.contract",
@@ -421,11 +422,11 @@ func (s *ContractService) emitAuditAndEvent(ctx context.Context, tx *gorm.DB, en
 	return nil
 }
 
-func toModelIOSchemas(tenantID, contractID uint64, items []capability.IOSchemaDescriptor) []*capmodel.CapabilityIOSchema {
+func toModelIOSchemas(tenantUUID string, contractID uint64, items []capability.IOSchemaDescriptor) []*capmodel.CapabilityIOSchema {
 	result := make([]*capmodel.CapabilityIOSchema, 0, len(items))
 	for _, schema := range items {
 		result = append(result, &capmodel.CapabilityIOSchema{
-			TenantID:        tenantID,
+			TenantUUID:      tenantUUID,
 			ContractID:      contractID,
 			Direction:       strings.ToLower(schema.Direction),
 			Format:          strings.ToLower(schema.Format),
@@ -438,11 +439,11 @@ func toModelIOSchemas(tenantID, contractID uint64, items []capability.IOSchemaDe
 	return result
 }
 
-func toModelTransportProfiles(tenantID, contractID uint64, key string, items []capability.TransportProfile) []*capmodel.CapabilityTransportProfile {
+func toModelTransportProfiles(tenantUUID string, contractID uint64, key string, items []capability.TransportProfile) []*capmodel.CapabilityTransportProfile {
 	result := make([]*capmodel.CapabilityTransportProfile, 0, len(items))
 	for _, profile := range items {
 		result = append(result, &capmodel.CapabilityTransportProfile{
-			TenantID:         tenantID,
+			TenantUUID:       tenantUUID,
 			ContractID:       contractID,
 			CapabilityKey:    key,
 			Transport:        strings.ToLower(profile.Transport),

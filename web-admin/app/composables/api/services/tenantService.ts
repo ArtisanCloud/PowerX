@@ -4,6 +4,7 @@ import type { ApiResponse } from "../types/types";
 // 租户接口定义
 export interface Tenant {
   id: number;
+  uuid: string;
   name: string;
   domain?: string;
   status: string;

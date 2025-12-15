@@ -26,7 +26,7 @@ const (
 
 // ExportFilter 描述导出的筛选条件。
 type ExportFilter struct {
-	TenantID           uint64
+	TenantUUID         string
 	DefinitionUUID     *uuid.UUID
 	State              string
 	CreatedFrom        *time.Time
@@ -57,7 +57,7 @@ type ExportRow struct {
 	State             string
 	StartedAt         *time.Time
 	CompletedAt       *time.Time
-	TenantID          uint64
+	TenantUUID        string
 	CorrelationID     string
 	Steps             []ExportStep
 }
@@ -75,9 +75,11 @@ func (s *Service) ExportInstances(ctx context.Context, filter ExportFilter) (Exp
 	if s == nil {
 		return ExportResult{}, errors.New("workflow service unavailable")
 	}
-	if filter.TenantID == 0 {
-		return ExportResult{}, errors.New("tenant_id is required")
+	tenantUUID, err := normalizeTenantUUID(filter.TenantUUID)
+	if err != nil {
+		return ExportResult{}, err
 	}
+	filter.TenantUUID = tenantUUID
 
 	format := normalizeExportFormat(filter.Format)
 	pageSize := filter.PageSize
@@ -89,9 +91,9 @@ func (s *Service) ExportInstances(ctx context.Context, filter ExportFilter) (Exp
 	}
 
 	instFilter := workflowrepo.InstanceListFilter{
-		TenantID: filter.TenantID,
-		PageSize: pageSize,
-		Page:     1,
+		TenantUUID: tenantUUID,
+		PageSize:   pageSize,
+		Page:       1,
 	}
 	if filter.DefinitionUUID != nil {
 		instFilter.DefinitionUUID = *filter.DefinitionUUID
@@ -121,7 +123,7 @@ func (s *Service) ExportInstances(ctx context.Context, filter ExportFilter) (Exp
 			DefinitionID:      inst.DefinitionUUID.String(),
 			DefinitionVersion: inst.DefinitionVersion,
 			State:             inst.State,
-			TenantID:          inst.TenantID,
+			TenantUUID:        inst.TenantUUID,
 			CorrelationID:     inst.CorrelationID,
 		}
 		if inst.StartedAt != nil {
@@ -209,7 +211,7 @@ func (s *Service) emitExportEvent(ctx context.Context, filter ExportFilter, resu
 	}
 
 	event := newWorkflowEvent(
-		filter.TenantID,
+		filter.TenantUUID,
 		uuid.Nil,
 		"workflow.reporting.export.generated",
 		fmt.Sprintf("workflow export generated (%d rows)", len(result.Rows)),

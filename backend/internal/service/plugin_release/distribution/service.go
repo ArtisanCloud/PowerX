@@ -103,7 +103,7 @@ type ReviewListingInput struct {
 
 // OfflineImportInput captures tenant import requests.
 type OfflineImportInput struct {
-	TenantID        string
+	TenantUUID      string
 	PackageURI      string
 	Checksum        string
 	DryRun          bool
@@ -114,7 +114,7 @@ type OfflineImportInput struct {
 // ImportJob tracks offline import progress for tenant APIs.
 type ImportJob struct {
 	ID          string     `json:"jobId"`
-	TenantID    string     `json:"tenantId"`
+	TenantUUID  string     `json:"tenant_uuid"`
 	PackageURI  string     `json:"packageUri"`
 	Checksum    string     `json:"checksum"`
 	Status      string     `json:"status"`
@@ -357,7 +357,7 @@ func (s *Service) StartOfflineImport(ctx context.Context, input OfflineImportInp
 	if !s.opts.FeatureEnabled {
 		return nil, ErrFeatureDisabled
 	}
-	if strings.TrimSpace(input.TenantID) == "" || strings.TrimSpace(input.PackageURI) == "" || strings.TrimSpace(input.Checksum) == "" {
+	if strings.TrimSpace(input.TenantUUID) == "" || strings.TrimSpace(input.PackageURI) == "" || strings.TrimSpace(input.Checksum) == "" {
 		return nil, ErrInvalidInput
 	}
 	if !input.LicenseAccepted {
@@ -372,7 +372,7 @@ func (s *Service) StartOfflineImport(ctx context.Context, input OfflineImportInp
 	completedAt := now
 	job := ImportJob{
 		ID:          jobID,
-		TenantID:    strings.TrimSpace(input.TenantID),
+		TenantUUID:  strings.TrimSpace(input.TenantUUID),
 		PackageURI:  strings.TrimSpace(input.PackageURI),
 		Checksum:    normalizeChecksum(input.Checksum),
 		Status:      "completed",

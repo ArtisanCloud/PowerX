@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -19,6 +20,7 @@ import (
 	agentopenapi "github.com/ArtisanCloud/PowerX/internal/transport/http/openapi/agent"
 	"github.com/ArtisanCloud/PowerX/internal/workflow"
 	coremodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/event_bus"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -68,7 +70,7 @@ func New(t testing.TB) *Env {
 	if err := db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_agent_health_window ON agent_health_snapshots(agent_uuid, window_started_at)").Error; err != nil {
 		t.Fatalf("create unique index: %v", err)
 	}
-	if err := db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_agent_profile_tenant_alias_unique ON agent_profiles(tenant_id, alias)").Error; err != nil {
+	if err := db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_agent_profile_tenant_alias_unique ON agent_profiles(tenant_uuid, alias)").Error; err != nil {
 		t.Fatalf("create alias unique index: %v", err)
 	}
 
@@ -182,6 +184,14 @@ func (e *Env) Engine() *gin.Engine {
 			c.AbortWithStatus(http.StatusUnauthorized)
 			return
 		}
+		tenantUUID := strings.TrimSpace(c.GetHeader("X-Tenant-UUID"))
+		if tenantUUID == "" {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "missing X-Tenant-UUID header"})
+			return
+		}
+		ctx := reqctx.WithTenantUUID(c.Request.Context(), tenantUUID)
+		c.Request = c.Request.WithContext(ctx)
+		reqctx.CopyCtxToGin(c)
 		c.Next()
 	})
 	adminhttp.Register(public, protected, e.Deps)
@@ -197,9 +207,9 @@ func (e *Env) GRPCServer() grpc.ServiceRegistrar {
 }
 
 // SeedAgent 快速创建一个代理档案。
-func (e *Env) SeedAgent(tenantID, alias string) uuid.UUID {
+func (e *Env) SeedAgent(tenantUUID, alias string) uuid.UUID {
 	profile := &agentmodel.AgentProfileLifecycle{
-		TenantID:    tenantID,
+		TenantUUID:  tenantUUID,
 		Alias:       alias,
 		DisplayName: alias,
 		Status:      "pending",
@@ -346,10 +356,10 @@ func (m *MockSandboxRunner) LastInput() *agent_lifecycle.SandboxRunInput {
 
 // MockShareValidator 控制共享验证。
 type ShareValidationCall struct {
-	AgentID  uuid.UUID
-	TenantID string
-	Quotas   []agent_lifecycle.ShareQuota
-	Metadata map[string]string
+	AgentID    uuid.UUID
+	TenantUUID string
+	Quotas     []agent_lifecycle.ShareQuota
+	Metadata   map[string]string
 }
 
 type MockShareValidator struct {
@@ -362,12 +372,12 @@ func NewMockShareValidator() *MockShareValidator {
 	return &MockShareValidator{}
 }
 
-func (m *MockShareValidator) Validate(_ context.Context, agent *agent_lifecycle.Agent, tenantID string, quotas []agent_lifecycle.ShareQuota, metadata map[string]string) error {
+func (m *MockShareValidator) Validate(_ context.Context, agent *agent_lifecycle.Agent, tenantUUID string, quotas []agent_lifecycle.ShareQuota, metadata map[string]string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	call := ShareValidationCall{
-		TenantID: tenantID,
-		Quotas:   append([]agent_lifecycle.ShareQuota(nil), quotas...),
+		TenantUUID: tenantUUID,
+		Quotas:     append([]agent_lifecycle.ShareQuota(nil), quotas...),
 	}
 	if agent != nil {
 		call.AgentID = agent.ID

@@ -15,7 +15,7 @@ type CapabilityRegistration struct {
 	coremodel.PowerModel
 
 	CapabilityID        string         `gorm:"column:capability_id;type:varchar(128);not null;index:idx_registry_capability_tenant_version,priority:1" json:"capability_id"`
-	TenantID            string         `gorm:"column:tenant_id;type:varchar(128);not null;index:idx_registry_capability_tenant_version,priority:2" json:"tenant_id"`
+	TenantUUID          string         `gorm:"column:tenant_uuid;type:char(36);not null;index:idx_registry_capability_tuuid_version,priority:1;index:idx_registry_capability_tuuid_status" json:"tenant_uuid"`
 	ContractRef         string         `gorm:"column:contract_ref;type:varchar(256);not null" json:"contract_ref"`
 	Status              string         `gorm:"column:status;type:varchar(32);not null;index:idx_registry_capability_tenant_status" json:"status"`
 	EnvironmentPolicies datatypes.JSON `gorm:"column:environment_policies;type:jsonb;default:'{}'" json:"environment_policies,omitempty"`
@@ -43,7 +43,7 @@ type AdapterEndpoint struct {
 
 	RegistrationID uint64         `gorm:"column:registration_id;not null;index:idx_registry_adapter_registration" json:"registration_id"`
 	CapabilityID   string         `gorm:"column:capability_id;type:varchar(128);not null;index:idx_registry_adapter_capability" json:"capability_id"`
-	TenantID       string         `gorm:"column:tenant_id;type:varchar(128);not null;index:idx_registry_adapter_tenant" json:"tenant_id"`
+	TenantUUID     string         `gorm:"column:tenant_uuid;type:char(36);not null;index:idx_registry_adapter_tuuid" json:"tenant_uuid"`
 	AdapterID      string         `gorm:"column:adapter_id;type:varchar(128);not null;index:idx_registry_adapter_unique,priority:1" json:"adapter_id"`
 	TransportType  string         `gorm:"column:transport_type;type:varchar(32);not null" json:"transport_type"`
 	Endpoint       string         `gorm:"column:endpoint;type:text" json:"endpoint,omitempty"`
@@ -115,7 +115,7 @@ func (HealthProbeResult) TableName() string {
 
 // DiscoveryCacheEntry 记录下发给客户端的快照缓存。
 type DiscoveryCacheEntry struct {
-	TenantID        string    `gorm:"column:tenant_id;type:varchar(128);not null;primaryKey"`
+	TenantUUID      string    `gorm:"column:tenant_uuid;type:char(36);not null;index:idx_registry_discovery_tuuid_capability_client,priority:1"`
 	CapabilityID    string    `gorm:"column:capability_id;type:varchar(128);not null;primaryKey"`
 	ClientID        string    `gorm:"column:client_id;type:varchar(128);not null;primaryKey"`
 	SnapshotVersion uint64    `gorm:"column:snapshot_version;not null"`

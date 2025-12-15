@@ -3,6 +3,7 @@ package testutil
 import (
 	"context"
 	"errors"
+	"strings"
 	"sync"
 
 	"gorm.io/gorm"
@@ -21,7 +22,7 @@ type MockRegistryRepository struct {
 func NewMockRegistryRepository(registrations []capabilityRegistryService.Registration) *MockRegistryRepository {
 	store := make(map[string]capabilityRegistryService.Registration, len(registrations))
 	for _, reg := range registrations {
-		store[keyFor(reg.CapabilityID, reg.TenantID)] = reg
+		store[keyFor(reg.CapabilityID, tenantKeyFromRegistration(reg))] = reg
 	}
 	return &MockRegistryRepository{
 		registrations: store,
@@ -39,14 +40,14 @@ func (m *MockRegistryRepository) SetError(err error) {
 func (m *MockRegistryRepository) UpsertRegistration(reg capabilityRegistryService.Registration) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.registrations[keyFor(reg.CapabilityID, reg.TenantID)] = reg
+	m.registrations[keyFor(reg.CapabilityID, tenantKeyFromRegistration(reg))] = reg
 }
 
 // DeleteRegistration 移除指定注册。
-func (m *MockRegistryRepository) DeleteRegistration(capabilityID, tenantID string) {
+func (m *MockRegistryRepository) DeleteRegistration(capabilityID, tenantUUID string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	delete(m.registrations, keyFor(capabilityID, tenantID))
+	delete(m.registrations, keyFor(capabilityID, canonicalTenantKey(tenantUUID)))
 }
 
 func (m *MockRegistryRepository) Create(context.Context, *gorm.DB, capabilityRegistryService.Registration) (capabilityRegistryService.Registration, error) {
@@ -61,10 +62,10 @@ func (m *MockRegistryRepository) Disable(context.Context, *gorm.DB, string, stri
 	return capabilityRegistryService.Registration{}, errors.New("mock: not implemented")
 }
 
-func (m *MockRegistryRepository) GetLatest(ctx context.Context, _ *gorm.DB, capabilityID, tenantID string) (capabilityRegistryService.Registration, error) {
+func (m *MockRegistryRepository) GetLatest(ctx context.Context, _ *gorm.DB, capabilityID, tenantUUID string) (capabilityRegistryService.Registration, error) {
 	m.mu.RLock()
 	err := m.forcedErr
-	reg, ok := m.registrations[keyFor(capabilityID, tenantID)]
+	reg, ok := m.registrations[keyFor(capabilityID, canonicalTenantKey(tenantUUID))]
 	m.mu.RUnlock()
 	if err != nil {
 		return capabilityRegistryService.Registration{}, err
@@ -75,19 +76,20 @@ func (m *MockRegistryRepository) GetLatest(ctx context.Context, _ *gorm.DB, capa
 	return reg, nil
 }
 
-func (m *MockRegistryRepository) GetVersion(ctx context.Context, db *gorm.DB, capabilityID, tenantID string, version uint64) (capabilityRegistryService.Registration, error) {
-	return m.GetLatest(ctx, db, capabilityID, tenantID)
+func (m *MockRegistryRepository) GetVersion(ctx context.Context, db *gorm.DB, capabilityID, tenantUUID string, version uint64) (capabilityRegistryService.Registration, error) {
+	return m.GetLatest(ctx, db, capabilityID, tenantUUID)
 }
 
-func (m *MockRegistryRepository) ListLatest(ctx context.Context, _ *gorm.DB, tenantID string, limit, offset int) ([]capabilityRegistryService.Registration, int64, error) {
+func (m *MockRegistryRepository) ListLatest(ctx context.Context, _ *gorm.DB, tenantUUID string, limit, offset int) ([]capabilityRegistryService.Registration, int64, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	if m.forcedErr != nil {
 		return nil, 0, m.forcedErr
 	}
 	result := make([]capabilityRegistryService.Registration, 0, len(m.registrations))
+	canonicalTenant := canonicalTenantKey(tenantUUID)
 	for _, reg := range m.registrations {
-		if reg.TenantID == tenantID {
+		if tenantKeyFromRegistration(reg) == canonicalTenant {
 			result = append(result, reg)
 		}
 	}
@@ -102,6 +104,14 @@ func (m *MockRegistryRepository) ListLatest(ctx context.Context, _ *gorm.DB, ten
 	return result[offset:end], total, nil
 }
 
-func keyFor(capabilityID, tenantID string) string {
-	return tenantID + "::" + capabilityID
+func keyFor(capabilityID, tenant string) string {
+	return tenant + "::" + capabilityID
+}
+
+func tenantKeyFromRegistration(reg capabilityRegistryService.Registration) string {
+	return canonicalTenantKey(reg.TenantUUID)
+}
+
+func canonicalTenantKey(value string) string {
+	return strings.TrimSpace(value)
 }

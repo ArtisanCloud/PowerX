@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 
 	pxlog "github.com/ArtisanCloud/PowerX/pkg/utils/logger"
@@ -33,16 +34,16 @@ type Cache interface {
 
 // GrantCacheKey 组合租户、主体构建缓存键。
 type GrantCacheKey struct {
-	TenantID    string
+	TenantUUID  string
 	SubjectType string
-	SubjectID   string
+	SubjectID   uuid.UUID
 }
 
 // String 返回统一的缓存 key（不含前缀）。
 func (k GrantCacheKey) String() string {
-	tenant := strings.TrimSpace(strings.ToLower(k.TenantID))
+	tenant := canonicalTenantKey(k.TenantUUID)
 	subjectType := strings.TrimSpace(strings.ToLower(k.SubjectType))
-	subjectID := strings.TrimSpace(strings.ToLower(k.SubjectID))
+	subjectID := strings.TrimSpace(strings.ToLower(k.SubjectID.String()))
 	return fmt.Sprintf("grant:%s:%s:%s", tenant, subjectType, subjectID)
 }
 

@@ -22,8 +22,8 @@ func NewAgentTenantFormRepository(db *gorm.DB) *AgentTenantFormRepository {
 }
 
 // ListByTenant 返回租户表单列表，可选状态过滤。
-func (r *AgentTenantFormRepository) ListByTenant(ctx context.Context, tenantID string, statuses []string) ([]dbmodel.AgentTenantForm, error) {
-	query := r.DB.WithContext(ctx).Where("tenant_id = ?", tenantID)
+func (r *AgentTenantFormRepository) ListByTenant(ctx context.Context, tenantUUID string, statuses []string) ([]dbmodel.AgentTenantForm, error) {
+	query := r.DB.WithContext(ctx).Where("tenant_uuid = ?", tenantUUID)
 	if len(statuses) > 0 {
 		query = query.Where("status IN ?", statuses)
 	}

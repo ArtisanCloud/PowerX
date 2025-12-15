@@ -20,7 +20,8 @@ func (s *Service) syncFallbackState(ctx context.Context, reg registry.Registrati
 		cooldown = 60 * time.Second
 	}
 
-	routeKey := routingKey(reg.TenantID, reg.CapabilityID)
+	tenantUUID := tenantUUIDValue(reg)
+	routeKey := routingKey(tenantUUID, reg.CapabilityID)
 	failures := s.markAdaptersUnhealthy(routeKey, reg.Adapters, reason, now)
 	nextRetry := now.Add(cooldown)
 
@@ -32,7 +33,7 @@ func (s *Service) syncFallbackState(ctx context.Context, reg registry.Registrati
 	for _, ep := range reg.Adapters {
 		record := HealthProbeRecord{
 			CapabilityID: reg.CapabilityID,
-			TenantID:     reg.TenantID,
+			TenantUUID:   tenantUUID,
 			AdapterID:    ep.AdapterID,
 			Status:       "unhealthy",
 			Reason:       reason,

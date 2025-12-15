@@ -17,7 +17,7 @@ type Options struct {
 
 // DiagnosticTicketInput captures ticket creation payload.
 type DiagnosticTicketInput struct {
-	TenantID   uint64
+	TenantUUID string
 	PluginID   string
 	ReportID   uuid.UUID
 	Severity   string

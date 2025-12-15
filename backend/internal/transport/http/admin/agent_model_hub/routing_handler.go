@@ -41,6 +41,10 @@ func (h *RoutingHandler) publishPolicy(c *gin.Context) {
 		dtoRequest.ResponseError(c, http.StatusServiceUnavailable, "routing service unavailable", nil)
 		return
 	}
+	tenantUUID, ok := requireTenantUUID(c)
+	if !ok {
+		return
+	}
 	var req applyPolicyRequest
 	if err := dtoRequest.ValidateRequestWithContext(c, &req); err != nil {
 		dtoRequest.ResponseValidationError(c, err)
@@ -61,7 +65,7 @@ func (h *RoutingHandler) publishPolicy(c *gin.Context) {
 		return
 	}
 	input := modelrouting.PolicyInput{
-		TenantScope:        req.TenantScope,
+		TenantScope:        tenantUUID,
 		Rules:              datatypes.JSON(rulesJSON),
 		FallbackChain:      datatypes.JSON(fallbackJSON),
 		SafeModeThresholds: datatypes.JSONMap(req.SafeModeThresholds),
@@ -83,6 +87,10 @@ func (h *RoutingHandler) rollbackPolicy(c *gin.Context) {
 		dtoRequest.ResponseError(c, http.StatusServiceUnavailable, "routing service unavailable", nil)
 		return
 	}
+	tenantUUID, ok := requireTenantUUID(c)
+	if !ok {
+		return
+	}
 	var req rollbackPolicyRequest
 	if err := dtoRequest.ValidateRequestWithContext(c, &req); err != nil {
 		dtoRequest.ResponseValidationError(c, err)
@@ -92,7 +100,7 @@ func (h *RoutingHandler) rollbackPolicy(c *gin.Context) {
 	if env == "" {
 		env = "default"
 	}
-	policy, err := h.svc.RollbackPolicy(c.Request.Context(), env, req.TenantScope, req.TargetVersion)
+	policy, err := h.svc.RollbackPolicy(c.Request.Context(), env, tenantUUID, req.TargetVersion)
 	if err != nil {
 		dtoRequest.ResponseError(c, http.StatusBadRequest, err.Error(), err)
 		return
@@ -107,6 +115,10 @@ func (h *RoutingHandler) routeTask(c *gin.Context) {
 		dtoRequest.ResponseError(c, http.StatusServiceUnavailable, "routing service unavailable", nil)
 		return
 	}
+	tenantUUID, ok := requireTenantUUID(c)
+	if !ok {
+		return
+	}
 	var req routeDecisionRequest
 	if err := dtoRequest.ValidateRequestWithContext(c, &req); err != nil {
 		dtoRequest.ResponseValidationError(c, err)
@@ -116,7 +128,7 @@ func (h *RoutingHandler) routeTask(c *gin.Context) {
 	if env == "" {
 		env = "default"
 	}
-	result, err := h.svc.DecideRoute(c.Request.Context(), env, req.TenantID, req.TaskContext)
+	result, err := h.svc.DecideRoute(c.Request.Context(), env, tenantUUID, req.TaskContext)
 	if err != nil {
 		dtoRequest.ResponseError(c, http.StatusBadRequest, err.Error(), err)
 		return
@@ -135,6 +147,10 @@ func (h *RoutingHandler) routeTask(c *gin.Context) {
 func (h *RoutingHandler) updatePolicyStatus(c *gin.Context) {
 	if h.svc == nil {
 		dtoRequest.ResponseError(c, http.StatusServiceUnavailable, "routing service unavailable", nil)
+		return
+	}
+	tenantUUID, ok := requireTenantUUID(c)
+	if !ok {
 		return
 	}
 	var req updatePolicyStatusRequest
@@ -162,7 +178,7 @@ func (h *RoutingHandler) updatePolicyStatus(c *gin.Context) {
 		Actor:        strings.TrimSpace(req.Actor),
 		Approval:     approvalUpdate,
 	}
-	policy, err := h.svc.UpdatePolicyStatus(c.Request.Context(), env, req.TenantScope, req.Version, input)
+	policy, err := h.svc.UpdatePolicyStatus(c.Request.Context(), env, tenantUUID, req.Version, input)
 	if err != nil {
 		dtoRequest.ResponseError(c, http.StatusBadRequest, err.Error(), err)
 		return
@@ -175,6 +191,10 @@ func (h *RoutingHandler) updatePolicyStatus(c *gin.Context) {
 func (h *RoutingHandler) toggleSafeMode(c *gin.Context) {
 	if h.svc == nil {
 		dtoRequest.ResponseError(c, http.StatusServiceUnavailable, "routing service unavailable", nil)
+		return
+	}
+	tenantUUID, ok := requireTenantUUID(c)
+	if !ok {
 		return
 	}
 	var req safeModeToggleRequest
@@ -193,7 +213,7 @@ func (h *RoutingHandler) toggleSafeMode(c *gin.Context) {
 	state, err := h.svc.ToggleSafeMode(
 		c.Request.Context(),
 		env,
-		req.TenantScope,
+		tenantUUID,
 		req.Enabled,
 		ttl,
 		req.Actor,
@@ -210,7 +230,6 @@ func (h *RoutingHandler) toggleSafeMode(c *gin.Context) {
 
 type applyPolicyRequest struct {
 	Env                string           `json:"env"`
-	TenantScope        string           `json:"tenantScope" binding:"required"`
 	Rules              []map[string]any `json:"rules" binding:"required"`
 	FallbackChain      []string         `json:"fallbackChain"`
 	SafeModeThresholds map[string]any   `json:"safeModeThresholds"`
@@ -219,19 +238,16 @@ type applyPolicyRequest struct {
 
 type rollbackPolicyRequest struct {
 	Env           string `json:"env"`
-	TenantScope   string `json:"tenantScope" binding:"required"`
 	TargetVersion uint32 `json:"targetVersion"`
 }
 
 type routeDecisionRequest struct {
 	Env         string         `json:"env"`
-	TenantID    string         `json:"tenantId" binding:"required"`
 	TaskContext map[string]any `json:"taskContext" binding:"required"`
 }
 
 type updatePolicyStatusRequest struct {
 	Env          string                 `json:"env"`
-	TenantScope  string                 `json:"tenantScope" binding:"required"`
 	Version      uint32                 `json:"version"`
 	TargetStatus string                 `json:"targetStatus" binding:"required"`
 	Reason       string                 `json:"reason"`
@@ -286,12 +302,11 @@ func (a *approvalUpdatePayload) toService(decided time.Time) *modelrouting.Appro
 }
 
 type safeModeToggleRequest struct {
-	Env         string `json:"env"`
-	TenantScope string `json:"tenantScope" binding:"required"`
-	Enabled     bool   `json:"enabled"`
-	Reason      string `json:"reason"`
-	Actor       string `json:"actor"`
-	TTLSeconds  uint32 `json:"ttlSeconds"`
+	Env        string `json:"env"`
+	Enabled    bool   `json:"enabled"`
+	Reason     string `json:"reason"`
+	Actor      string `json:"actor"`
+	TTLSeconds uint32 `json:"ttlSeconds"`
 }
 
 func jsonRaw(raw datatypes.JSON) any { return decodeJSON(raw, []any{}) }

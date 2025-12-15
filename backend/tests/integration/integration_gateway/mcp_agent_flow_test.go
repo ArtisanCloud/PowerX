@@ -25,6 +25,8 @@ import (
 	"github.com/ArtisanCloud/PowerX/internal/service/integration_gateway/instrumentation"
 )
 
+const mcpAgentTenantUUID = "573bc34b-4c10-411c-92d9-607c68aa2096"
+
 func TestMCPAgentFlow(t *testing.T) {
 	env := testenv.New(t)
 	t.Cleanup(env.Close)
@@ -69,7 +71,7 @@ func TestMCPAgentFlow(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = env.Service.CreateRoute(context.Background(), manager.CreateRouteInput{
-		TenantID:     "tenant-001",
+		TenantUUID:   mcpAgentTenantUUID,
 		Actor:        "integration-test",
 		RouteSlug:    "agent-flow",
 		CapabilityID: "cap.agent.flow",
@@ -83,8 +85,8 @@ func TestMCPAgentFlow(t *testing.T) {
 	listResult, err := listHandler(context.Background(), mcp.CallToolRequest{
 		Params: mcp.CallToolParams{
 			Name: "integration.route.list",
-			Arguments: map[string]interface{}{
-				"tenant_id": "tenant-001",
+				Arguments: map[string]interface{}{
+					"tenant_uuid": mcpAgentTenantUUID,
 			},
 		},
 	})
@@ -97,8 +99,8 @@ func TestMCPAgentFlow(t *testing.T) {
 	successResult, err := invokeHandler(context.Background(), mcp.CallToolRequest{
 		Params: mcp.CallToolParams{
 			Name: "integration.route.invoke",
-			Arguments: map[string]interface{}{
-				"tenant_id":  "tenant-001",
+				Arguments: map[string]interface{}{
+					"tenant_uuid": mcpAgentTenantUUID,
 				"route_slug": "agent-flow",
 				"payload": map[string]interface{}{
 					"job": "sync",
@@ -114,8 +116,8 @@ func TestMCPAgentFlow(t *testing.T) {
 	failResult, err := invokeHandler(context.Background(), mcp.CallToolRequest{
 		Params: mcp.CallToolParams{
 			Name: "integration.route.invoke",
-			Arguments: map[string]interface{}{
-				"tenant_id":  "tenant-001",
+				Arguments: map[string]interface{}{
+					"tenant_uuid": mcpAgentTenantUUID,
 				"route_slug": "agent-flow",
 				"payload": map[string]interface{}{
 					"job": "sync",

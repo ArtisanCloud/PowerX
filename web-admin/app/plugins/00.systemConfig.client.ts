@@ -2,26 +2,92 @@
 export default defineNuxtPlugin((nuxtApp) => {
   const { public: pub } = useRuntimeConfig();
 
-  const lang = pub.forceLanguage ?? pub.defaultLanguage ?? "zh";
-  const theme = pub.forceTheme ?? pub.defaultTheme ?? "auto"; // 'dark'|'light'|'auto'
-  // 让 i18n 不被 cookie 顶回去
-  document.cookie = "i18n_redirected=; Max-Age=0; path=/";
+  const defaultLang = pub.defaultLanguage ?? "zh";
+  const defaultTheme = pub.defaultTheme ?? "auto"; // 'dark'|'light'|'auto'
 
-  // 为避免初始化竞态，等应用挂载后再“一锤定音”
-  nuxtApp.hook("app:mounted", async () => {
+  const readCookie = (name: string) => {
+    if (typeof document === "undefined") return "";
+    const match = document.cookie.match(
+      new RegExp(`(?:^|;\\s*)${name}=([^;]+)`)
+    );
+    return match ? decodeURIComponent(match[1]) : "";
+  };
+
+  const getStoredLocale = () => {
+    if (typeof window === "undefined") return "";
     try {
-      // 使用 Nuxt 的 i18n 实例来设置语言
+      return localStorage.getItem("px_locale") || "";
+    } catch {
+      return "";
+    }
+  };
+
+  const persistLocale = (value: string) => {
+    if (typeof document !== "undefined") {
+      document.cookie = `px_lang=${encodeURIComponent(
+        value
+      )}; path=/; SameSite=Lax; Max-Age=31536000`;
+    }
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem("px_locale", value);
+      } catch {}
+    }
+  };
+
+  const persistTheme = (value: ThemePreference) => {
+    if (typeof document !== "undefined") {
+      document.cookie = `powerx-color-mode=${encodeURIComponent(
+        value
+      )}; path=/; SameSite=Lax; Max-Age=31536000`;
+    }
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem("powerx-color-mode", value);
+      } catch {}
+    }
+  };
+
+  const getStoredTheme = () => {
+    if (typeof window === "undefined") return undefined;
+    try {
+      return (
+        localStorage.getItem("powerx-color-mode") ||
+        readCookie("powerx-color-mode") ||
+        undefined
+      );
+    } catch {
+      return undefined;
+    }
+  };
+
+  const applyLocale = async () => {
+    try {
       const { $i18n } = nuxtApp as any;
+      const storedLocale =
+        (!pub.forceLanguage && getStoredLocale()) || readCookie("px_lang");
+      const desiredLocale =
+        pub.forceLanguage || storedLocale || defaultLang || "zh";
       if ($i18n && typeof $i18n.setLocale === "function") {
-        await $i18n.setLocale(lang);
+        await $i18n.setLocale(desiredLocale);
       } else if ($i18n && $i18n.locale) {
-        $i18n.locale.value = lang;
+        $i18n.locale.value = desiredLocale;
+      }
+      persistLocale(desiredLocale);
+      document.documentElement.lang = desiredLocale;
+      if (process.client) {
+        watch(
+          () => ($i18n?.locale ? $i18n.locale.value : desiredLocale),
+          (val) => persistLocale(String(val)),
+          { immediate: true }
+        );
       }
     } catch (e) {
       console.error("[init] setLocale failed:", e);
     }
-    document.documentElement.lang = lang;
+  };
 
+  const applyTheme = () => {
     type ThemePreference = "light" | "dark" | "system";
     const coerceTheme = (input?: string | null): ThemePreference | undefined => {
       const value = String(input ?? "").trim().toLowerCase();
@@ -32,27 +98,24 @@ export default defineNuxtPlugin((nuxtApp) => {
     };
 
     const colorMode = useColorMode();
+    const storedTheme = !pub.forceTheme
+      ? coerceTheme(getStoredTheme())
+      : undefined;
     const themeState = useState<ThemePreference>("theme", () =>
-      coerceTheme(colorMode.preference) ?? "system"
+      storedTheme ?? "system"
     );
 
     const applyThemePreference = (next: ThemePreference) => {
       themeState.value = next;
       colorMode.preference = next;
+      persistTheme(next);
     };
 
     const forcedTheme = coerceTheme(pub.forceTheme);
-    const storedTheme =
-      coerceTheme(themeState.value) ?? coerceTheme(colorMode.preference);
-    const defaultTheme = coerceTheme(theme);
-    const desiredTheme =
-      forcedTheme ?? storedTheme ?? defaultTheme ?? ("system" as ThemePreference);
+    const defaultPref = coerceTheme(defaultTheme) ?? "system";
+    const desiredTheme = forcedTheme ?? storedTheme ?? defaultPref;
 
-    if (pub.forceTheme) {
-      applyThemePreference(forcedTheme);
-    } else if (desiredTheme) {
-      applyThemePreference(desiredTheme);
-    }
+    applyThemePreference(desiredTheme);
 
     if (process.client) {
       watch(
@@ -60,18 +123,30 @@ export default defineNuxtPlugin((nuxtApp) => {
         (pref) => {
           if (themeState.value !== pref) {
             themeState.value = pref;
+            persistTheme(pref);
           }
         },
         { immediate: true }
       );
     }
+  };
+
+  const run = () => {
+    applyLocale();
+    applyTheme();
 
     if (pub.debugMode) {
       console.log("🎯 init applied:", {
-        lang,
-        theme,
+        lang: defaultLang,
+        theme: defaultTheme,
         htmlClass: document.documentElement.className,
       });
     }
-  });
+  };
+
+  if (process.client) {
+    run();
+  } else {
+    nuxtApp.hook("app:mounted", run);
+  }
 });

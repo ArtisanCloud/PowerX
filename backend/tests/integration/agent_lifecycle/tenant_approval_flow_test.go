@@ -16,6 +16,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const tenantApprovalTenantUUID = "0f5e41e7-21fe-4e87-9e2c-9c816ce44205"
+
 func TestTenantApprovalFlowIntegration(t *testing.T) {
 	env := testenv.New(t)
 	t.Cleanup(env.Close)
@@ -31,7 +33,7 @@ func TestTenantApprovalFlowIntegration(t *testing.T) {
 	})
 
 	body := map[string]any{
-		"tenant_id":                  "tenant-int",
+		"tenant_uuid":                tenantApprovalTenantUUID,
 		"alias":                      "tenant-int-agent",
 		"display_name":               "Tenant INT Agent",
 		"telemetry_contract_version": "otel-agent-v1",

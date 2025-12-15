@@ -15,7 +15,7 @@ func TestUpdateSubscriptionSanitizeAndPersist(t *testing.T) {
 
 	cfg, err := res.service.UpdateSubscription(ctx, agent_lifecycle.SubscriptionUpdateInput{
 		AgentID:     profile.UUID,
-		TenantID:    profile.TenantID,
+		TenantUUID:  profile.TenantUUID,
 		RequestedBy: "tester",
 		Config: agent_lifecycle.SubscriptionConfig{
 			MetricsFilter:  []string{"ERROR_RATE", "P95_LATENCY_MS", "p95_latency_ms"},
@@ -40,7 +40,7 @@ func TestUpdateSubscriptionInvalidStatus(t *testing.T) {
 
 	_, err := res.service.UpdateSubscription(ctx, agent_lifecycle.SubscriptionUpdateInput{
 		AgentID:     profile.UUID,
-		TenantID:    profile.TenantID,
+		TenantUUID:  profile.TenantUUID,
 		RequestedBy: "tester",
 		Config: agent_lifecycle.SubscriptionConfig{
 			MetricsFilter:  []string{"error_rate"},

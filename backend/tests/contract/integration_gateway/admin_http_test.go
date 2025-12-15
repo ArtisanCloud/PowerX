@@ -14,6 +14,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const integrationAdminTenantUUID = "4c0bc0d0-4c87-4c62-8a23-7f6ed0bc5d11"
+
 type successResponse struct {
 	Code    int         `json:"code"`
 	Message string      `json:"message"`
@@ -22,7 +24,7 @@ type successResponse struct {
 
 type routePayload struct {
 	RouteID        string   `json:"route_id"`
-	TenantID       string   `json:"tenant_id"`
+	TenantUUID     string   `json:"tenant_uuid"`
 	RouteSlug      string   `json:"route_slug"`
 	CapabilityID   string   `json:"capability_id"`
 	ToolGrantIDs   []string `json:"tool_grant_ids"`
@@ -57,7 +59,7 @@ func TestAdminHTTPWorkflow(t *testing.T) {
 
 	// create route
 	createBody := map[string]any{
-		"tenant_id":      "tenant-001",
+		"tenant_uuid":    integrationAdminTenantUUID,
 		"route_slug":     "crm-sync",
 		"capability_id":  "cap.crm.sync",
 		"tool_grant_ids": []string{"grant-crm"},
@@ -65,10 +67,8 @@ func TestAdminHTTPWorkflow(t *testing.T) {
 	}
 	bodyBytes, _ := json.Marshal(createBody)
 	req := httptest.NewRequest(http.MethodPost, "/api/admin/integration/routes", bytes.NewReader(bodyBytes))
-	req.Header.Set("Authorization", "Bearer token")
 	req.Header.Set("Content-Type", "application/json")
-	resp := httptest.NewRecorder()
-	engine.ServeHTTP(resp, req)
+	resp := serveIntegrationHTTPRequest(t, engine, req, "")
 	require.Equal(t, http.StatusCreated, resp.Code)
 
 	var createResp struct {
@@ -86,9 +86,7 @@ func TestAdminHTTPWorkflow(t *testing.T) {
 
 	// get route
 	getReq := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/admin/integration/routes/%s", createResp.Data.RouteID), nil)
-	getReq.Header.Set("Authorization", "Bearer token")
-	getResp := httptest.NewRecorder()
-	engine.ServeHTTP(getResp, getReq)
+	getResp := serveIntegrationHTTPRequest(t, engine, getReq, "")
 	require.Equal(t, http.StatusOK, getResp.Code)
 
 	var getData struct {
@@ -99,10 +97,8 @@ func TestAdminHTTPWorkflow(t *testing.T) {
 	require.Equal(t, createResp.Data.RouteID, getData.Data.RouteID)
 
 	// list routes
-	listReq := httptest.NewRequest(http.MethodGet, "/api/admin/integration/routes?tenant_id=tenant-001", nil)
-	listReq.Header.Set("Authorization", "Bearer token")
-	listResp := httptest.NewRecorder()
-	engine.ServeHTTP(listResp, listReq)
+	listReq := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/admin/integration/routes?tenant_uuid=%s", integrationAdminTenantUUID), nil)
+	listResp := serveIntegrationHTTPRequest(t, engine, listReq, "")
 	require.Equal(t, http.StatusOK, listResp.Code)
 
 	var listData listResponse
@@ -111,18 +107,16 @@ func TestAdminHTTPWorkflow(t *testing.T) {
 
 	// update route
 	updateBody := map[string]any{
-		"tenant_id":    "tenant-001",
+		"tenant_uuid":  integrationAdminTenantUUID,
 		"channels":     []string{"http", "mcp"},
 		"description":  "updated description",
 		"event_topics": map[string]string{"updated": "integration.gateway.route.updated"},
 	}
 	updateBytes, _ := json.Marshal(updateBody)
 	updateReq := httptest.NewRequest(http.MethodPatch, fmt.Sprintf("/api/admin/integration/routes/%s", createResp.Data.RouteID), bytes.NewReader(updateBytes))
-	updateReq.Header.Set("Authorization", "Bearer token")
 	updateReq.Header.Set("Content-Type", "application/json")
 	updateReq.Header.Set("If-Match", etag)
-	updateResp := httptest.NewRecorder()
-	engine.ServeHTTP(updateResp, updateReq)
+	updateResp := serveIntegrationHTTPRequest(t, engine, updateReq, "")
 	require.Equal(t, http.StatusOK, updateResp.Code)
 
 	var updateData struct {
@@ -135,12 +129,10 @@ func TestAdminHTTPWorkflow(t *testing.T) {
 	require.NotEmpty(t, etag)
 
 	// suspend route
-	suspendBody, _ := json.Marshal(map[string]string{"tenant_id": "tenant-001", "reason": "maintenance"})
+	suspendBody, _ := json.Marshal(map[string]string{"tenant_uuid": integrationAdminTenantUUID, "reason": "maintenance"})
 	suspendReq := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/api/admin/integration/routes/%s/suspend", createResp.Data.RouteID), bytes.NewReader(suspendBody))
-	suspendReq.Header.Set("Authorization", "Bearer token")
 	suspendReq.Header.Set("Content-Type", "application/json")
-	suspendResp := httptest.NewRecorder()
-	engine.ServeHTTP(suspendResp, suspendReq)
+	suspendResp := serveIntegrationHTTPRequest(t, engine, suspendReq, "")
 	require.Equal(t, http.StatusOK, suspendResp.Code)
 
 	var suspendData struct {
@@ -151,12 +143,10 @@ func TestAdminHTTPWorkflow(t *testing.T) {
 	require.Equal(t, "suspended", suspendData.Data.LifecycleState)
 
 	// resume route
-	resumeBody, _ := json.Marshal(map[string]string{"tenant_id": "tenant-001"})
+	resumeBody, _ := json.Marshal(map[string]string{"tenant_uuid": integrationAdminTenantUUID})
 	resumeReq := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/api/admin/integration/routes/%s/resume", createResp.Data.RouteID), bytes.NewBuffer(resumeBody))
-	resumeReq.Header.Set("Authorization", "Bearer token")
 	resumeReq.Header.Set("Content-Type", "application/json")
-	resumeResp := httptest.NewRecorder()
-	engine.ServeHTTP(resumeResp, resumeReq)
+	resumeResp := serveIntegrationHTTPRequest(t, engine, resumeReq, "")
 	require.Equal(t, http.StatusOK, resumeResp.Code)
 
 	var resumeData struct {
@@ -167,12 +157,10 @@ func TestAdminHTTPWorkflow(t *testing.T) {
 	require.Equal(t, "active", resumeData.Data.LifecycleState)
 
 	// retire route
-	retireBody, _ := json.Marshal(map[string]string{"tenant_id": "tenant-001"})
+	retireBody, _ := json.Marshal(map[string]string{"tenant_uuid": integrationAdminTenantUUID})
 	retireReq := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/api/admin/integration/routes/%s/retire", createResp.Data.RouteID), bytes.NewBuffer(retireBody))
-	retireReq.Header.Set("Authorization", "Bearer token")
 	retireReq.Header.Set("Content-Type", "application/json")
-	retireResp := httptest.NewRecorder()
-	engine.ServeHTTP(retireResp, retireReq)
+	retireResp := serveIntegrationHTTPRequest(t, engine, retireReq, "")
 	require.Equal(t, http.StatusOK, retireResp.Code)
 
 	var retireData struct {
@@ -185,9 +173,7 @@ func TestAdminHTTPWorkflow(t *testing.T) {
 
 	// list versions
 	versionReq := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/admin/integration/routes/%s/versions", createResp.Data.RouteID), nil)
-	versionReq.Header.Set("Authorization", "Bearer token")
-	versionResp := httptest.NewRecorder()
-	engine.ServeHTTP(versionResp, versionReq)
+	versionResp := serveIntegrationHTTPRequest(t, engine, versionReq, "")
 	require.Equal(t, http.StatusOK, versionResp.Code)
 
 	var versions versionsResponse

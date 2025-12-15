@@ -15,7 +15,7 @@ func CreatePluginReleaseStatusView(db *gorm.DB) error {
 	const createSQL = `
 CREATE MATERIALIZED VIEW IF NOT EXISTS plugin_release.mv_plugin_release_status AS
 SELECT
-    prc.tenant_id,
+    prc.tenant_uuid,
     prc.plugin_id,
     prc.version,
     prc.gate_status,
@@ -41,7 +41,7 @@ LEFT JOIN plugin_release_marketplace_listings ml ON ml.offline_package_id = op.i
 
 	const refreshIndex = `
 CREATE INDEX IF NOT EXISTS idx_mv_plugin_release_status_tenant_plugin
-    ON plugin_release.mv_plugin_release_status (tenant_id, plugin_id);`
+    ON plugin_release.mv_plugin_release_status (tenant_uuid, plugin_id);`
 
 	return db.Exec(refreshIndex).Error
 }

@@ -12,7 +12,6 @@ import (
 type AclBinding struct {
 	coremodel.PowerUUIDModel
 
-	TenantID      uint64    `gorm:"column:tenant_id;type:bigint;not null;index:idx_event_acl_tenant" json:"tenant_id"`
 	TenantKey     string    `gorm:"column:tenant_key;type:varchar(128);not null;index:idx_event_acl_tenant_key;uniqueIndex:uk_event_acl_binding,priority:1" json:"tenant_key"`
 	TopicUUID     uuid.UUID `gorm:"column:topic_uuid;type:uuid;not null;index:idx_event_acl_topic;uniqueIndex:uk_event_acl_binding,priority:2" json:"topic_uuid"`
 	PrincipalType string    `gorm:"column:principal_type;type:varchar(32);not null" json:"principal_type"`

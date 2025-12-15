@@ -40,9 +40,10 @@ func (r *DefinitionRepository) CreateDefinition(ctx context.Context, def *modelw
 }
 
 // NextVersion 计算指定名称的下一版本号。
-func (r *DefinitionRepository) NextVersion(ctx context.Context, tenantID uint64, name string) (int32, error) {
-	if tenantID == 0 {
-		return 0, errors.New("tenantID is required")
+func (r *DefinitionRepository) NextVersion(ctx context.Context, tenantUUID string, name string) (int32, error) {
+	tenantUUID = strings.TrimSpace(strings.ToLower(tenantUUID))
+	if tenantUUID == "" {
+		return 0, errors.New("tenant uuid is required")
 	}
 	name = strings.TrimSpace(name)
 	if name == "" {
@@ -52,7 +53,7 @@ func (r *DefinitionRepository) NextVersion(ctx context.Context, tenantID uint64,
 	var current int32
 	err := r.db.WithContext(ctx).
 		Model(&modelworkflow.WorkflowDefinition{}).
-		Where("tenant_id = ? AND name = ?", tenantID, name).
+		Where("tenant_uuid = ? AND name = ?", tenantUUID, name).
 		Select("COALESCE(MAX(version), 0)").
 		Scan(&current).Error
 	if err != nil {
@@ -62,15 +63,16 @@ func (r *DefinitionRepository) NextVersion(ctx context.Context, tenantID uint64,
 }
 
 // GetByUUID 根据 UUID（可选版本）检索定义。
-func (r *DefinitionRepository) GetByUUID(ctx context.Context, tenantID uint64, definitionUUID uuid.UUID, version *int32) (*modelworkflow.WorkflowDefinition, error) {
-	if tenantID == 0 {
-		return nil, errors.New("tenantID is required")
+func (r *DefinitionRepository) GetByUUID(ctx context.Context, tenantUUID string, definitionUUID uuid.UUID, version *int32) (*modelworkflow.WorkflowDefinition, error) {
+	tenantUUID = strings.TrimSpace(strings.ToLower(tenantUUID))
+	if tenantUUID == "" {
+		return nil, errors.New("tenant uuid is required")
 	}
 	if definitionUUID == uuid.Nil {
 		return nil, errors.New("definition UUID is required")
 	}
 
-	query := r.db.WithContext(ctx).Where("tenant_id = ? AND uuid = ?", tenantID, definitionUUID)
+	query := r.db.WithContext(ctx).Where("tenant_uuid = ? AND uuid = ?", tenantUUID, definitionUUID)
 	if version != nil && *version > 0 {
 		query = query.Where("version = ?", *version)
 	}
@@ -83,9 +85,9 @@ func (r *DefinitionRepository) GetByUUID(ctx context.Context, tenantID uint64, d
 }
 
 // GetLatestPublished 获取最新已发布的定义版本。
-func (r *DefinitionRepository) GetLatestPublished(ctx context.Context, tenantID uint64, definitionUUID uuid.UUID) (*modelworkflow.WorkflowDefinition, error) {
+func (r *DefinitionRepository) GetLatestPublished(ctx context.Context, tenantUUID string, definitionUUID uuid.UUID) (*modelworkflow.WorkflowDefinition, error) {
 	query := r.db.WithContext(ctx).
-		Where("tenant_id = ? AND uuid = ?", tenantID, definitionUUID).
+		Where("tenant_uuid = ? AND uuid = ?", strings.TrimSpace(strings.ToLower(tenantUUID)), definitionUUID).
 		Where("status = ?", "published").
 		Order("version DESC")
 
@@ -97,12 +99,13 @@ func (r *DefinitionRepository) GetLatestPublished(ctx context.Context, tenantID 
 }
 
 // ListByTenant 按条件分页查询定义。
-func (r *DefinitionRepository) ListByTenant(ctx context.Context, tenantID uint64, status []string, keyword string, limit, offset int) ([]modelworkflow.WorkflowDefinition, int64, error) {
-	if tenantID == 0 {
-		return nil, 0, errors.New("tenantID is required")
+func (r *DefinitionRepository) ListByTenant(ctx context.Context, tenantUUID string, status []string, keyword string, limit, offset int) ([]modelworkflow.WorkflowDefinition, int64, error) {
+	tenantUUID = strings.TrimSpace(strings.ToLower(tenantUUID))
+	if tenantUUID == "" {
+		return nil, 0, errors.New("tenant uuid is required")
 	}
 
-	q := r.db.WithContext(ctx).Model(&modelworkflow.WorkflowDefinition{}).Where("tenant_id = ?", tenantID)
+	q := r.db.WithContext(ctx).Model(&modelworkflow.WorkflowDefinition{}).Where("tenant_uuid = ?", tenantUUID)
 	if len(status) > 0 {
 		q = q.Where("status IN ?", status)
 	}
@@ -132,8 +135,8 @@ func (r *DefinitionRepository) ListByTenant(ctx context.Context, tenantID uint64
 }
 
 // UpdateStatus 更新状态及相关字段。
-func (r *DefinitionRepository) UpdateStatus(ctx context.Context, tenantID uint64, definitionUUID uuid.UUID, version int32, status string, updates map[string]interface{}) error {
-	if tenantID == 0 || definitionUUID == uuid.Nil || version <= 0 {
+func (r *DefinitionRepository) UpdateStatus(ctx context.Context, tenantUUID string, definitionUUID uuid.UUID, version int32, status string, updates map[string]interface{}) error {
+	if strings.TrimSpace(tenantUUID) == "" || definitionUUID == uuid.Nil || version <= 0 {
 		return errors.New("invalid parameters for updating workflow definition")
 	}
 	if updates == nil {
@@ -145,7 +148,7 @@ func (r *DefinitionRepository) UpdateStatus(ctx context.Context, tenantID uint64
 
 	return r.db.WithContext(ctx).
 		Model(&modelworkflow.WorkflowDefinition{}).
-		Where("tenant_id = ? AND uuid = ? AND version = ?", tenantID, definitionUUID, version).
+		Where("tenant_uuid = ? AND uuid = ? AND version = ?", strings.TrimSpace(strings.ToLower(tenantUUID)), definitionUUID, version).
 		Updates(updates).
 		Error
 }

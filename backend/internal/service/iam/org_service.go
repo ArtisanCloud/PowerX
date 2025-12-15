@@ -32,9 +32,22 @@ func NewOrgService(db *gorm.DB) *OrgService {
 	}
 }
 
+func normalizeTenantUUIDArg(tenantUUID string) (string, error) {
+	tenantUUID = strings.TrimSpace(tenantUUID)
+	if tenantUUID == "" {
+		return "", errors.New("tenant uuid required")
+	}
+	return tenantUUID, nil
+}
+
 // Create
 // internal/service/organization/org_service.go
 func (s *OrgService) CreateDepartment(ctx context.Context, d *m.Department, parentID *uint64) error {
+	var err error
+	d.TenantUUID, err = normalizeTenantUUIDArg(d.TenantUUID)
+	if err != nil {
+		return err
+	}
 	return s.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		// 可选：0 当作根（前端误传 0 时兜底）
 		if parentID != nil && *parentID == 0 {
@@ -43,7 +56,7 @@ func (s *OrgService) CreateDepartment(ctx context.Context, d *m.Department, pare
 
 		// ① key 生成或校验
 		if strings.TrimSpace(d.Key) == "" {
-			k, err := s.generateDeptKey(ctx, tx, d.TenantID, d.Name)
+			k, err := s.generateDeptKey(ctx, tx, d.TenantUUID, d.Name)
 			if err != nil {
 				return err
 			}
@@ -54,7 +67,7 @@ func (s *OrgService) CreateDepartment(ctx context.Context, d *m.Department, pare
 			}
 			var count int64
 			if err := tx.Model(&m.Department{}).
-				Where("tenant_id=? AND key=?", d.TenantID, d.Key).
+				Where("tenant_uuid=? AND key=?", d.TenantUUID, d.Key).
 				Count(&count).Error; err != nil {
 				return err
 			}
@@ -73,7 +86,7 @@ func (s *OrgService) CreateDepartment(ctx context.Context, d *m.Department, pare
 		var depth int
 		if parentID != nil {
 			var p m.Department
-			if err := tx.Where("tenant_id=? AND id=?", d.TenantID, *parentID).First(&p).Error; err != nil {
+			if err := tx.Where("tenant_uuid=? AND id=?", d.TenantUUID, *parentID).First(&p).Error; err != nil {
 				if errors.Is(err, gorm.ErrRecordNotFound) {
 					return fmt.Errorf("%w: id=%d", service.ErrParentNotFound, *parentID)
 				}
@@ -90,11 +103,11 @@ func (s *OrgService) CreateDepartment(ctx context.Context, d *m.Department, pare
 		}
 
 		// ④ 闭包表（任一步出错同样回滚）
-		if err := s.closRepo.EnsureSelfEdgeTx(ctx, tx, d.TenantID, d.ID); err != nil {
+		if err := s.closRepo.EnsureSelfEdgeTx(ctx, tx, d.TenantUUID, d.ID); err != nil {
 			return err
 		}
 		if parentID != nil {
-			if err := s.closRepo.InheritFromParentTx(ctx, tx, d.TenantID, *parentID, d.ID); err != nil {
+			if err := s.closRepo.InheritFromParentTx(ctx, tx, d.TenantUUID, *parentID, d.ID); err != nil {
 				return err
 			}
 		}
@@ -114,14 +127,19 @@ type UpdateDepartmentOpts struct {
 }
 
 // Update（含可选 Move）
-func (s *OrgService) UpdateDepartment(ctx context.Context, tenantID, deptID uint64, opt UpdateDepartmentOpts) error {
+func (s *OrgService) UpdateDepartment(ctx context.Context, tenantUUID string, deptID uint64, opt UpdateDepartmentOpts) error {
+	var err error
+	tenantUUID, err = normalizeTenantUUIDArg(tenantUUID)
+	if err != nil {
+		return err
+	}
 	return s.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if opt.NewParentID != nil && *opt.NewParentID == 0 {
 			opt.NewParentID = nil
 		}
 
 		var d m.Department
-		if err := tx.Where("tenant_id=? AND id=?", tenantID, deptID).First(&d).Error; err != nil {
+		if err := tx.Where("tenant_uuid=? AND id=?", tenantUUID, deptID).First(&d).Error; err != nil {
 			return err
 		}
 
@@ -138,7 +156,7 @@ func (s *OrgService) UpdateDepartment(ctx context.Context, tenantID, deptID uint
 			// 唯一性（同租户、排除自己）
 			var cnt int64
 			if err := tx.Model(&m.Department{}).
-				Where("tenant_id=? AND key=? AND id<>?", tenantID, k, deptID).
+				Where("tenant_uuid=? AND key=? AND id<>?", tenantUUID, k, deptID).
 				Count(&cnt).Error; err != nil {
 				return err
 			}
@@ -185,7 +203,7 @@ func (s *OrgService) moveDepartmentTx(ctx context.Context, tx *gorm.DB, d *m.Dep
 	// 1) 读取新父节点并做成环校验（仅当 newParentID != nil）
 	var parent m.Department
 	if newParentID != nil {
-		if err := tx.Where("tenant_id=? AND id=?", d.TenantID, *newParentID).First(&parent).Error; err != nil {
+		if err := tx.Where("tenant_uuid=? AND id=?", d.TenantUUID, *newParentID).First(&parent).Error; err != nil {
 			// 这里会被 handler 翻译成 “上级部门不存在”
 			return err
 		}
@@ -217,18 +235,18 @@ func (s *OrgService) moveDepartmentTx(ctx context.Context, tx *gorm.DB, d *m.Dep
 		UPDATE `+tDept+` AS dd
 		   SET path  = regexp_replace(dd.path, '^'||?, ?),
 		       depth = dd.depth + ?
-		 WHERE dd.tenant_id = ? AND dd.path LIKE ?`,
+		 WHERE dd.tenant_uuid = ? AND dd.path LIKE ?`,
 		strings.TrimRight(oldPrefix, "/"), // '^/old/.../<d.ID>'
 		strings.TrimRight(newPrefix, "/"), // '/new/.../<d.ID>'
 		deltaDepth,
-		d.TenantID,
+		d.TenantUUID,
 		oldPrefix+"%",
 	).Error; err != nil {
 		return err
 	}
 
 	// 4) 重建闭包表（同事务）：先删除子树所有闭包边，再按新的父子关系逐个补回
-	if err := s.closRepo.RebuildSubtreeTx(ctx, tx, d.TenantID, d.ID); err != nil {
+	if err := s.closRepo.RebuildSubtreeTx(ctx, tx, d.TenantUUID, d.ID); err != nil {
 		return err
 	}
 
@@ -241,16 +259,16 @@ func (s *OrgService) moveDepartmentTx(ctx context.Context, tx *gorm.DB, d *m.Dep
 	if err := tx.Raw(`
 		SELECT id, parent_id, depth
 		  FROM `+tDept+`
-		 WHERE tenant_id=? AND path LIKE ?
+		 WHERE tenant_uuid=? AND path LIKE ?
 		 ORDER BY depth ASC`,
-		d.TenantID, newPrefix+"%",
+		d.TenantUUID, newPrefix+"%",
 	).Scan(&subtree).Error; err != nil {
 		return err
 	}
 
 	for _, n := range subtree {
 		// self 边
-		if err := s.closRepo.EnsureSelfEdgeTx(ctx, tx, d.TenantID, n.ID); err != nil {
+		if err := s.closRepo.EnsureSelfEdgeTx(ctx, tx, d.TenantUUID, n.ID); err != nil {
 			return err
 		}
 		// 决定这个节点的“当前父亲”：
@@ -264,7 +282,7 @@ func (s *OrgService) moveDepartmentTx(ctx context.Context, tx *gorm.DB, d *m.Dep
 		}
 		if parentForThis != nil {
 			// 从父亲的所有祖先继承（父亲必须已处理过 self/继承，因我们按 depth 升序）
-			if err := s.closRepo.InheritFromParentTx(ctx, tx, d.TenantID, *parentForThis, n.ID); err != nil {
+			if err := s.closRepo.InheritFromParentTx(ctx, tx, d.TenantUUID, *parentForThis, n.ID); err != nil {
 				return err
 			}
 		}
@@ -272,7 +290,7 @@ func (s *OrgService) moveDepartmentTx(ctx context.Context, tx *gorm.DB, d *m.Dep
 
 	// 5) 更新当前节点的 parent_id 字段（根则置 NULL）
 	if err := tx.Model(&m.Department{}).
-		Where("tenant_id=? AND id=?", d.TenantID, d.ID).
+		Where("tenant_uuid=? AND id=?", d.TenantUUID, d.ID).
 		Update("parent_id", newParentID).Error; err != nil {
 		return err
 	}
@@ -286,21 +304,26 @@ func (s *OrgService) moveDepartmentTx(ctx context.Context, tx *gorm.DB, d *m.Dep
 }
 
 // Delete
-func (s *OrgService) DeleteDepartment(ctx context.Context, tenantID, deptID uint64, force bool) error {
+func (s *OrgService) DeleteDepartment(ctx context.Context, tenantUUID string, deptID uint64, force bool) error {
+	var err error
+	tenantUUID, err = normalizeTenantUUIDArg(tenantUUID)
+	if err != nil {
+		return err
+	}
 	return s.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		tDept := (&m.Department{}).GetTableName(true)
 
 		// 先取待删节点，拿到它的 path 前缀
 		var d m.Department
-		if err := tx.Where("tenant_id=? AND id=?", tenantID, deptID).First(&d).Error; err != nil {
+		if err := tx.Where("tenant_uuid=? AND id=?", tenantUUID, deptID).First(&d).Error; err != nil {
 			return err
 		}
 
 		// ✅ 正确的子节点计数：直接用 d.Path 前缀
 		var cnt int64
 		if err := tx.Raw(
-			`SELECT COUNT(1) FROM `+tDept+` WHERE tenant_id=? AND path LIKE ? AND id <> ?`,
-			tenantID, d.Path+"%", deptID,
+			`SELECT COUNT(1) FROM `+tDept+` WHERE tenant_uuid=? AND path LIKE ? AND id <> ?`,
+			tenantUUID, d.Path+"%", deptID,
 		).Scan(&cnt).Error; err != nil {
 			return err
 		}
@@ -313,25 +336,25 @@ func (s *OrgService) DeleteDepartment(ctx context.Context, tenantID, deptID uint
 
 		// 删除闭包边 + 删除部门
 		if !force {
-			// 仅删单节点
-			if err := tx.Where("tenant_id=? AND (ancestor_id=? OR descendant_id=?)",
-				tenantID, deptID, deptID).Delete(&m.DepartmentClosure{}).Error; err != nil {
+			if err := tx.Where("tenant_uuid=? AND (ancestor_id=? OR descendant_id=?)",
+				tenantUUID, deptID, deptID).Delete(&m.DepartmentClosure{}).Error; err != nil {
 				return err
 			}
-			return tx.Where("tenant_id=? AND id=?", tenantID, deptID).
+			return tx.Where("tenant_uuid=? AND id=?", tenantUUID, deptID).
 				Delete(&m.Department{}).Error
 		}
 
 		// force=true：删整棵子树
-		if err := s.closRepo.DeleteSubtreeTx(ctx, tx, tenantID, d.ID); err != nil {
+		if err := s.closRepo.DeleteSubtreeTx(ctx, tx, tenantUUID, d.ID); err != nil {
 			return err
 		}
-		return tx.Where("tenant_id=? AND path LIKE ?", tenantID, d.Path+"%").
+		return tx.Where("tenant_uuid=? AND path LIKE ?", tenantUUID, d.Path+"%").
 			Delete(&m.Department{}).Error
 	})
 }
 
-func (s *OrgService) generateDeptKey(ctx context.Context, tx *gorm.DB, tenantID uint64, name string) (string, error) {
+func (s *OrgService) generateDeptKey(ctx context.Context, tx *gorm.DB, tenantUUID string, name string) (string, error) {
+	tenantUUID = strings.TrimSpace(tenantUUID)
 	base := slug(name) // "华东 销售部" -> "sales" 或 "huadong-xiaoshou-bu"（见下）
 	if base == "" {
 		base = "dept"
@@ -347,7 +370,7 @@ func (s *OrgService) generateDeptKey(ctx context.Context, tx *gorm.DB, tenantID 
 	for i := 1; ; i++ {
 		var cnt int64
 		if err := tx.Model(&m.Department{}).
-			Where("tenant_id=? AND key=?", tenantID, key).
+			Where("tenant_uuid=? AND key=?", tenantUUID, key).
 			Count(&cnt).Error; err != nil {
 			return "", err
 		}
@@ -401,10 +424,15 @@ func slug(s string) string {
 	return res
 }
 
-func (s *OrgService) GetDepartmentTree(ctx context.Context, tenantID uint64) ([]*m.Department, error) {
+func (s *OrgService) GetDepartmentTree(ctx context.Context, tenantUUID string) ([]*m.Department, error) {
+	var err error
+	tenantUUID, err = normalizeTenantUUIDArg(tenantUUID)
+	if err != nil {
+		return nil, err
+	}
 	var ds []m.Department
 	if err := s.DB.WithContext(ctx).
-		Where("tenant_id=?", tenantID).
+		Where("tenant_uuid=?", tenantUUID).
 		Order("path ASC"). // 父在前、子在后
 		Find(&ds).Error; err != nil {
 		return nil, err

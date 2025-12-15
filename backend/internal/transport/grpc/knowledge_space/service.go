@@ -20,6 +20,7 @@ import (
 	tenant_release "github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/tenant_release"
 	"github.com/ArtisanCloud/PowerX/internal/service/knowledge_space/toolchain"
 	models "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/knowledge"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/google/uuid"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -75,9 +76,9 @@ func (s *Server) CreateKnowledgeSpace(ctx context.Context, req *knowledgev1.Crea
 	if s.svc == nil {
 		return nil, status.Error(codes.Unavailable, "service not available")
 	}
-	tenantID, err := uuid.Parse(strings.TrimSpace(req.GetTenantId()))
+	tenantID, err := tenantUUIDFromContext(ctx, req.GetTenantUuid())
 	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant id: %v", err)
+		return nil, err
 	}
 	policyID, err := parsePolicy(req.GetPolicyTemplateVersionId())
 	if err != nil {
@@ -85,7 +86,7 @@ func (s *Server) CreateKnowledgeSpace(ctx context.Context, req *knowledgev1.Crea
 	}
 
 	space, err := s.svc.CreateSpace(ctx, ksvc.CreateSpaceInput{
-		TenantID:       tenantID,
+		TenantUUID:     tenantID.String(),
 		SpaceName:      req.GetName(),
 		DepartmentCode: req.GetDepartmentCode(),
 		QuotaCPU:       int(req.GetQuotaCpu()),
@@ -233,12 +234,12 @@ func (s *Server) PlanRetrieval(ctx context.Context, req *knowledgev1.QARetrieval
 	if s.qa == nil {
 		return nil, status.Error(codes.Unavailable, "qa bridge not available")
 	}
-	tenantID, err := uuid.Parse(strings.TrimSpace(req.GetTenantId()))
+	tenantUUID, err := tenantUUIDFromContext(ctx, req.GetTenantUuid())
 	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant id: %v", err)
+		return nil, err
 	}
 	out, err := s.qa.Plan(ctx, qaBridge.PlanInput{
-		TenantID:        tenantID,
+		TenantUUID:      tenantUUID,
 		Intent:          req.GetIntent(),
 		DomainTags:      req.GetDomainTags(),
 		SessionID:       req.GetSessionId(),
@@ -255,7 +256,7 @@ func (s *Server) PlanRetrieval(ctx context.Context, req *knowledgev1.QARetrieval
 		}
 	}
 	return &knowledgev1.QARetrievalPlanResponse{
-		TenantId:        out.TenantID.String(),
+		TenantUuid:      out.TenantUUID.String(),
 		Intent:          out.Intent,
 		DomainTags:      out.DomainTags,
 		CandidateSpaces: toProtoCandidateSpaces(out.CandidateSpaces),
@@ -274,14 +275,14 @@ func (s *Server) UpsertMemorySnapshot(ctx context.Context, req *knowledgev1.QAMe
 	if s.qa == nil {
 		return nil, status.Error(codes.Unavailable, "qa bridge not available")
 	}
-	tenantID, err := uuid.Parse(strings.TrimSpace(req.GetTenantId()))
+	tenantUUID, err := tenantUUIDFromContext(ctx, req.GetTenantUuid())
 	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant id: %v", err)
+		return nil, err
 	}
 	out, err := s.qa.UpsertMemorySnapshot(ctx, qaBridge.MemoryInput{
-		TenantID:  tenantID,
-		SessionID: req.GetSessionId(),
-		Updates:   fromProtoUpdates(req.GetUpdates()),
+		TenantUUID: tenantUUID,
+		SessionID:  req.GetSessionId(),
+		Updates:    fromProtoUpdates(req.GetUpdates()),
 	})
 	if err != nil {
 		if errors.Is(err, qaBridge.ErrInvalidInput) {
@@ -290,10 +291,26 @@ func (s *Server) UpsertMemorySnapshot(ctx context.Context, req *knowledgev1.QAMe
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 	return &knowledgev1.QAMemorySnapshotResponse{
-		TenantId:  out.TenantID.String(),
-		SessionId: out.SessionID,
-		Citations: toProtoCitations(out.Citations),
+		TenantUuid: out.TenantUUID.String(),
+		SessionId:  out.SessionID,
+		Citations:  toProtoCitations(out.Citations),
 	}, nil
+}
+
+func tenantUUIDFromContext(ctx context.Context, candidate string) (uuid.UUID, error) {
+	raw := strings.TrimSpace(candidate)
+	if raw == "" {
+		raw = strings.TrimSpace(reqctx.GetTenantUUID(ctx))
+	}
+	if raw == "" {
+		return uuid.Nil, status.Error(codes.Unauthenticated, "tenant context missing")
+	}
+	canonical, err := reqctx.CanonicalTenantUUID(raw)
+	if err != nil {
+		return uuid.Nil, status.Errorf(codes.InvalidArgument, "invalid tenant uuid: %v", err)
+	}
+	parsed, _ := uuid.Parse(canonical)
+	return parsed, nil
 }
 
 func (s *Server) SubmitFeedback(ctx context.Context, req *knowledgev1.FeedbackRequest) (*knowledgev1.FeedbackResponse, error) {
@@ -360,7 +377,7 @@ func toProto(space *models.KnowledgeSpace) *knowledgev1.KnowledgeSpace {
 	}
 	return &knowledgev1.KnowledgeSpace{
 		SpaceId:                 space.UUID.String(),
-		TenantId:                space.TenantID.String(),
+		TenantUuid:              space.TenantUUID,
 		Name:                    space.SpaceName,
 		DepartmentCode:          space.DepartmentCode,
 		Status:                  space.Status,
@@ -834,8 +851,12 @@ func (s *Server) RefreshAgentWeights(ctx context.Context, req *knowledgev1.Refre
 	if s.eventHotfix == nil {
 		return nil, status.Error(codes.Unimplemented, "agent notifier not available")
 	}
+	tenantUUID, err := tenantUUIDFromContext(ctx, req.GetTenantUuid())
+	if err != nil {
+		return nil, err
+	}
 	payload := map[string]string{
-		"eventType": strings.TrimSpace(req.GetTenantId()),
+		"eventType": tenantUUID.String(),
 	}
 	res, err := s.eventHotfix.Apply(ctx, toEventInput("manual-refresh:"+uuid.NewString(), "agent.weight.refresh", payload, timestamppb.Now(), 0))
 	if err != nil && !errors.Is(err, event_hotfix.ErrDuplicateEvent) {

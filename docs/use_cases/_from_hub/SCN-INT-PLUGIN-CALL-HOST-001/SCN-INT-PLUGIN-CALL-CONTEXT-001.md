@@ -45,7 +45,7 @@ last_reviewed_at: 2025-02-20
 # End-to-End Flow
 
 1. **Context Sync**：插件部署后通过 `/context/bootstrap` 接口拉取租户/用户/Trace 配置，并在 SDK 缓存。
-2. **Invoke**：SDK 在请求 Header 中写入 `x-tenant-id`, `x-user-id`, `x-trace-id`, `x-permissions` 等字段，或在 JWT Claim 中携带。
+2. **Invoke**：SDK 在请求 Header 中写入 `x-tenant-uuid`, `x-user-id`, `x-trace-id`, `x-permissions` 等字段，或在 JWT Claim 中携带。
 3. **Policy Enforcement**：Gateway 校验上下文与租户映射，调用 Policy Engine 进行字段级授权/脱敏；若缺失或不匹配则阻断。
 4. **Audit & Refresh**：宿主返回结果并提供审计 ID；SDK 根据返回的 `context-version` 决定是否刷新缓存。
 
@@ -69,7 +69,7 @@ sequenceDiagram
 # Key Interactions & Contracts
 
 - `GET /openapi/v1/context/bootstrap`、`GET /openapi/v1/context/refresh`。
-- Header 规范：`x-tenant-id`, `x-user-id`, `x-plugin-id`, `x-trace-id`, `x-session-id`, `x-permissions`.
+- Header 规范：`x-tenant-uuid`, `x-user-id`, `x-plugin-id`, `x-trace-id`, `x-session-id`, `x-permissions`.
 - Policy Config：`context_schema.yaml`, `field_masking.yaml`.
 - Audit 事件：`plugin.host.context_missing`, `plugin.host.cross_tenant_blocked`.
 

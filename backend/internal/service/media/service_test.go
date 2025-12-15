@@ -20,6 +20,8 @@ import (
 	mediarepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/media"
 )
 
+const mediaTenantUUID = "8a21845e-d1b6-4df1-b2ce-1d3bde3b8a03"
+
 type stubAssetRepo struct {
 	mu          sync.Mutex
 	assets      map[string]*mediamodel.MediaAsset
@@ -44,14 +46,14 @@ func (s *stubAssetRepo) List(_ context.Context, filter mediarepo.AssetListFilter
 	return items, int64(len(items)), nil
 }
 
-func (s *stubAssetRepo) FindByUUID(_ context.Context, tenantID uint64, id string, includeDeleted bool) (*mediamodel.MediaAsset, error) {
+func (s *stubAssetRepo) FindByUUID(_ context.Context, tenantUUID string, id string, includeDeleted bool) (*mediamodel.MediaAsset, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	asset, ok := s.assets[id]
 	if !ok {
 		return nil, gorm.ErrRecordNotFound
 	}
-	if asset.TenantID != tenantID {
+	if tenantUUID != "" && asset.TenantUUID != tenantUUID {
 		return nil, gorm.ErrRecordNotFound
 	}
 	if !includeDeleted && asset.DeletedAt.Valid {
@@ -81,12 +83,12 @@ func (s *stubAssetRepo) UpdateAsset(_ context.Context, asset *mediamodel.MediaAs
 	return cloneAsset(clone), nil
 }
 
-func (s *stubAssetRepo) SoftDeleteByUUID(_ context.Context, tenantID uint64, id string, _ *uint64) error {
+func (s *stubAssetRepo) SoftDeleteByUUID(_ context.Context, tenantUUID string, id string, _ *uint64) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.deleteCalls++
 	asset, ok := s.assets[id]
-	if !ok || asset.TenantID != tenantID {
+	if !ok || (tenantUUID != "" && asset.TenantUUID != tenantUUID) {
 		return gorm.ErrRecordNotFound
 	}
 	asset.DeletedAt = gorm.DeletedAt{Valid: true, Time: time.Now()}
@@ -125,7 +127,7 @@ func TestUpdateAsset_InvalidTransition(t *testing.T) {
 	audit := &stubAuditService{}
 	assetID := uuid.New().String()
 	repo.assets[assetID] = &mediamodel.MediaAsset{
-		TenantID:       1,
+		TenantUUID:     mediaTenantUUID,
 		BusinessStatus: coremodel.MediaAssetStatusDraft,
 		Tags:           datatypes.JSON([]byte("[]")),
 	}
@@ -134,7 +136,7 @@ func TestUpdateAsset_InvalidTransition(t *testing.T) {
 
 	svc := NewMediaService(nil, repo, nil, audit, 12*time.Hour)
 	target := coremodel.MediaAssetStatusPublished
-	_, err := svc.UpdateAsset(context.Background(), UpdateAssetInput{TenantID: 1, UUID: assetID, BusinessStatus: &target})
+	_, err := svc.UpdateAsset(context.Background(), UpdateAssetInput{TenantUUID: mediaTenantUUID, UUID: assetID, BusinessStatus: &target})
 	require.Error(t, err)
 	assert.True(t, errors.Is(err, ErrInvalidStatusTransition))
 	assert.Equal(t, 0, repo.updateCalls)
@@ -145,9 +147,9 @@ func TestCreateAsset_TenantRequired(t *testing.T) {
 	audit := &stubAuditService{}
 	svc := NewMediaService(nil, repo, nil, audit, 12*time.Hour)
 
-	_, err := svc.CreateAsset(context.Background(), CreateAssetInput{TenantID: 0, Name: "demo", Driver: "local"})
+	_, err := svc.CreateAsset(context.Background(), CreateAssetInput{TenantUUID: "", Name: "demo", Driver: "local"})
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "tenant id")
+	assert.Contains(t, err.Error(), "tenant uuid")
 	assert.Equal(t, 0, repo.createCalls)
 }
 
@@ -155,14 +157,14 @@ func TestDeleteAsset_EmitAudit(t *testing.T) {
 	repo := newStubAssetRepo()
 	assetID := uuid.New().String()
 	repo.assets[assetID] = &mediamodel.MediaAsset{
-		TenantID: 7,
+		TenantUUID: mediaTenantUUID,
 	}
 	// 设置 UUID（在结构体字面量中不能直接设置嵌入字段）
 	repo.assets[assetID].UUID = uuid.MustParse(assetID)
 	audit := &stubAuditService{}
 	svc := NewMediaService(nil, repo, nil, audit, 12*time.Hour)
 
-	require.NoError(t, svc.DeleteAsset(context.Background(), DeleteAssetInput{TenantID: 7, UUID: assetID}))
+	require.NoError(t, svc.DeleteAsset(context.Background(), DeleteAssetInput{TenantUUID: mediaTenantUUID, UUID: assetID}))
 	assert.Equal(t, 1, repo.deleteCalls)
 	ops := audit.Operations()
 	require.Len(t, ops, 1)

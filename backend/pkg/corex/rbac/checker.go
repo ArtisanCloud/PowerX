@@ -3,11 +3,13 @@ package rbac
 import (
 	"context"
 	"fmt"
+	"strings"
+
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/gin-gonic/gin"
 )
 
-type Subject struct{ TenantID, UserID string }
+type Subject struct{ TenantUUID, UserID string }
 type Result struct {
 	Allow  bool
 	Fields []string // 允许读/写的字段白名单
@@ -26,10 +28,9 @@ func (noopChecker) Check(context.Context, Subject, string, string, map[string]an
 }
 
 func SubjectFromContext(c *gin.Context) Subject {
-	var sub Subject
-
-	sub.TenantID = fmt.Sprintf("%d", reqctx.GetTenantID(c.Request.Context()))
-	sub.UserID = fmt.Sprintf("%d", reqctx.GetUserID(c.Request.Context()))
-
-	return sub
+	ctx := c.Request.Context()
+	return Subject{
+		TenantUUID: strings.TrimSpace(reqctx.GetTenantUUID(ctx)),
+		UserID:     fmt.Sprintf("%d", reqctx.GetUserID(ctx)),
+	}
 }

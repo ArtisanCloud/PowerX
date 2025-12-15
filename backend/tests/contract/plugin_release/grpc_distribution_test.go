@@ -34,18 +34,19 @@ func TestPluginReleaseGRPC_DistributionLifecycle(t *testing.T) {
 	}()
 	t.Cleanup(server.Stop)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	baseCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	conn, err := grpc.DialContext(ctx, "bufnet", grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
+	conn, err := grpc.DialContext(baseCtx, "bufnet", grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
 		return listener.Dial()
 	}), grpc.WithTransportCredentials(insecure.NewCredentials()))
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = conn.Close() })
 
 	client := pluginreleasepb.NewPluginReleaseServiceClient(conn)
-	createResp, err := client.CreateReleaseCandidate(ctx, &pluginreleasepb.CreateReleaseCandidateRequest{
-		TenantId:         "tenant-distribution",
+	adminCtx := pluginReleaseGRPCContext(t, baseCtx, distributionContractTenantUUID)
+	createResp, err := client.CreateReleaseCandidate(adminCtx, &pluginreleasepb.CreateReleaseCandidateRequest{
+		TenantUuid:       distributionContractTenantUUID,
 		PluginId:         "px.demo",
 		Version:          "v3.0.0",
 		BuildArtifactUri: "s3://bucket/releases/v3.0.0.zip",
@@ -57,15 +58,18 @@ func TestPluginReleaseGRPC_DistributionLifecycle(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.NotEmpty(t, createResp.GetCandidateId())
+	assertNoPluginReleaseTenantLeakProto(t, createResp)
 
-	_, err = client.RunQualityGates(ctx, &pluginreleasepb.RunQualityGatesRequest{
+	gateResp, err := client.RunQualityGates(adminCtx, &pluginreleasepb.RunQualityGatesRequest{
 		CandidateId: createResp.GetCandidateId(),
 	})
 	require.NoError(t, err)
+	assertNoPluginReleaseTenantLeakProto(t, gateResp)
 
 	bundleContent := []byte("dummy offline bundle content for grpc test")
 	checksum := fmt.Sprintf("%x", sha256.Sum256(bundleContent))
-	uploadStream, err := client.UploadOfflinePackage(ctx)
+	uploadCtx := pluginReleaseGRPCContext(t, baseCtx, distributionContractTenantUUID)
+	uploadStream, err := client.UploadOfflinePackage(uploadCtx)
 	require.NoError(t, err)
 	require.NoError(t, uploadStream.Send(&pluginreleasepb.UploadOfflinePackageRequest{
 		CandidateId: createResp.GetCandidateId(),
@@ -81,6 +85,7 @@ func TestPluginReleaseGRPC_DistributionLifecycle(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, uploadResp.GetOfflinePackageId())
 	require.NotEmpty(t, uploadResp.GetPackageUri())
+	assertNoPluginReleaseTenantLeakProto(t, uploadResp)
 
 	packageID, err := strconv.ParseUint(uploadResp.GetOfflinePackageId(), 10, 64)
 	require.NoError(t, err)
@@ -92,7 +97,7 @@ func TestPluginReleaseGRPC_DistributionLifecycle(t *testing.T) {
 	require.Equal(t, checksum, strings.ToLower(stored.Checksum))
 	require.Equal(t, models.OfflinePackageStatusSubmitted, stored.Status)
 
-	listingResp, err := client.SubmitMarketplaceListing(ctx, &pluginreleasepb.SubmitMarketplaceListingRequest{
+	listingResp, err := client.SubmitMarketplaceListing(adminCtx, &pluginreleasepb.SubmitMarketplaceListingRequest{
 		OfflinePackageId: uploadResp.GetOfflinePackageId(),
 		Channel:          "online",
 		PricingJson:      `{"tier":"enterprise"}`,
@@ -103,9 +108,11 @@ func TestPluginReleaseGRPC_DistributionLifecycle(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, listingResp.GetListingId())
 	require.Equal(t, "pending", listingResp.GetReviewStatus())
+	assertNoPluginReleaseTenantLeakProto(t, listingResp)
 
-	importResp, err := client.ImportOfflinePackage(ctx, &pluginreleasepb.ImportOfflinePackageRequest{
-		TenantId:   "88001",
+	importCtx := pluginReleaseGRPCContext(t, baseCtx, distributionImportTenantUUID)
+	importResp, err := client.ImportOfflinePackage(importCtx, &pluginreleasepb.ImportOfflinePackageRequest{
+		TenantUuid: distributionImportTenantUUID,
 		PackageUri: uploadResp.GetPackageUri(),
 		Checksum:   checksum,
 		DryRun:     true,
@@ -113,4 +120,5 @@ func TestPluginReleaseGRPC_DistributionLifecycle(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, importResp.GetJobId())
 	require.Equal(t, "completed", strings.ToLower(importResp.GetStatus()))
+	assertNoPluginReleaseTenantLeakProto(t, importResp)
 }

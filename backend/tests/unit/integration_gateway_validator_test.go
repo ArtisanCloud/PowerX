@@ -17,6 +17,8 @@ import (
 	"gorm.io/gorm"
 )
 
+const validatorTenantUUID = "b784b3c2-4f5a-4c37-9d91-df9478a78d7a"
+
 func newManagerService(t *testing.T) (*manager.Service, *gorm.DB) {
 	t.Helper()
 	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{
@@ -64,7 +66,7 @@ func newManagerService(t *testing.T) (*manager.Service, *gorm.DB) {
 func TestCreateRouteSlugValidation(t *testing.T) {
 	svc, _ := newManagerService(t)
 	_, err := svc.CreateRoute(context.Background(), manager.CreateRouteInput{
-		TenantID:     "tenant-001",
+		TenantUUID:   validatorTenantUUID,
 		Actor:        "tester",
 		RouteSlug:    "INVALID", // 大写不允许
 		CapabilityID: "cap.demo",
@@ -79,7 +81,7 @@ func TestCreateRouteDefaultRateLimitApplied(t *testing.T) {
 	ctx := context.Background()
 
 	route, err := svc.CreateRoute(ctx, manager.CreateRouteInput{
-		TenantID:     "tenant-001",
+		TenantUUID:   validatorTenantUUID,
 		Actor:        "tester",
 		RouteSlug:    "demo",
 		CapabilityID: "cap.demo",
@@ -102,7 +104,7 @@ func TestChangeLifecycleCreatesVersionAndEvent(t *testing.T) {
 	ctx := context.Background()
 
 	route, err := svc.CreateRoute(ctx, manager.CreateRouteInput{
-		TenantID:     "tenant-001",
+		TenantUUID:   validatorTenantUUID,
 		Actor:        "tester",
 		RouteSlug:    "controller",
 		CapabilityID: "cap.ctrl",
@@ -112,8 +114,8 @@ func TestChangeLifecycleCreatesVersionAndEvent(t *testing.T) {
 	require.NoError(t, err)
 
 	updated, err := svc.ChangeLifecycle(ctx, manager.ChangeLifecycleInput{
-		RouteID:  route.RouteID,
-		TenantID: "tenant-001",
+		RouteID:    route.RouteID,
+		TenantUUID: validatorTenantUUID,
 		Actor:    "tester",
 		Action:   "suspend",
 	})

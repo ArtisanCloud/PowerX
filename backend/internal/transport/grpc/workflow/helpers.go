@@ -17,13 +17,6 @@ import (
 	"gorm.io/datatypes"
 )
 
-func tenantIDFromContext(ctx *commonv1.RequestContext) uint64 {
-	if ctx == nil || ctx.GetTenantId() <= 0 {
-		return 0
-	}
-	return uint64(ctx.GetTenantId())
-}
-
 func memberUUIDFromContext(ctx *commonv1.RequestContext) uuid.UUID {
 	if ctx == nil || ctx.GetMemberId() == 0 {
 		return uuid.New()
@@ -73,7 +66,7 @@ func stepTypeString(t workflowv1.StepType) string {
 	}
 }
 
-func modelDefinitionToPB(def *modelworkflow.WorkflowDefinition) *workflowv1.WorkflowDefinition {
+func modelDefinitionToPB(def *modelworkflow.WorkflowDefinition, tenantUUID string) *workflowv1.WorkflowDefinition {
 	if def == nil {
 		return nil
 	}
@@ -95,7 +88,7 @@ func modelDefinitionToPB(def *modelworkflow.WorkflowDefinition) *workflowv1.Work
 
 	return &workflowv1.WorkflowDefinition{
 		DefinitionId:       def.UUID.String(),
-		TenantId:           strconv.FormatUint(def.TenantID, 10),
+		TenantUuid:         tenantUUID,
 		Name:               def.Name,
 		Description:        def.Description,
 		Version:            def.Version,
@@ -112,14 +105,14 @@ func modelDefinitionToPB(def *modelworkflow.WorkflowDefinition) *workflowv1.Work
 	}
 }
 
-func modelInstanceToPB(instance *modelworkflow.WorkflowInstance, records []modelworkflow.WorkflowStepRecord) *workflowv1.WorkflowInstance {
+func modelInstanceToPB(instance *modelworkflow.WorkflowInstance, records []modelworkflow.WorkflowStepRecord, tenantUUID string) *workflowv1.WorkflowInstance {
 	if instance == nil {
 		return nil
 	}
 
 	pb := &workflowv1.WorkflowInstance{
 		InstanceId:        instance.UUID.String(),
-		TenantId:          strconv.FormatUint(instance.TenantID, 10),
+		TenantUuid:        tenantUUID,
 		DefinitionId:      instance.DefinitionUUID.String(),
 		DefinitionVersion: instance.DefinitionVersion,
 		State:             workflowInstanceState(instance.State),

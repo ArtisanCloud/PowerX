@@ -13,7 +13,7 @@ import (
 type SandboxValidationRun struct {
 	coremodel.PowerUUIDModel
 
-	TenantID       uint64         `gorm:"column:tenant_id;index;not null" json:"tenant_id"`
+	TenantUUID     string         `gorm:"column:tenant_uuid;type:varchar(128);index;not null" json:"tenant_uuid"`
 	PluginID       string         `gorm:"column:plugin_id;type:varchar(128);index" json:"plugin_id"`
 	Status         string         `gorm:"column:status;type:varchar(32);index" json:"status"`
 	Dataset        string         `gorm:"column:dataset;type:varchar(128)" json:"dataset"`

@@ -24,6 +24,8 @@ import (
 	"github.com/ArtisanCloud/PowerX/internal/service/integration_gateway/instrumentation"
 )
 
+const mcpToolTenantUUID = "a5c95015-5b10-4c3a-a056-64042d8d9b68"
+
 func TestIntegrationGatewayMCPTools(t *testing.T) {
 	env := testenv.New(t)
 	t.Cleanup(env.Close)
@@ -72,7 +74,7 @@ func TestIntegrationGatewayMCPTools(t *testing.T) {
 
 	// 创建包含 mcp 通道的路由
 	route, err := env.Service.CreateRoute(context.Background(), manager.CreateRouteInput{
-		TenantID:     "tenant-001",
+		TenantUUID:   mcpToolTenantUUID,
 		Actor:        "test",
 		RouteSlug:    "crm-sync",
 		CapabilityID: "cap.crm.sync",
@@ -89,7 +91,7 @@ func TestIntegrationGatewayMCPTools(t *testing.T) {
 
 	// 创建仅 HTTP 通道的路由用于过滤
 	_, err = env.Service.CreateRoute(context.Background(), manager.CreateRouteInput{
-		TenantID:     "tenant-001",
+		TenantUUID:   mcpToolTenantUUID,
 		Actor:        "test",
 		RouteSlug:    "http-only",
 		CapabilityID: "cap.http.only",
@@ -106,7 +108,7 @@ func TestIntegrationGatewayMCPTools(t *testing.T) {
 			Params: mcp.CallToolParams{
 				Name: "integration.route.list",
 				Arguments: map[string]interface{}{
-					"tenant_id": "tenant-001",
+					"tenant_uuid": mcpToolTenantUUID,
 				},
 			},
 		})
@@ -133,7 +135,7 @@ func TestIntegrationGatewayMCPTools(t *testing.T) {
 			Params: mcp.CallToolParams{
 				Name: "integration.route.invoke",
 				Arguments: map[string]interface{}{
-					"tenant_id":  "tenant-001",
+					"tenant_uuid": mcpToolTenantUUID,
 					"route_slug": route.RouteSlug,
 					"payload": map[string]interface{}{
 						"customer_id": "C123",
@@ -160,7 +162,7 @@ func TestIntegrationGatewayMCPTools(t *testing.T) {
 			Params: mcp.CallToolParams{
 				Name: "integration.route.invoke",
 				Arguments: map[string]interface{}{
-					"tenant_id":  "tenant-001",
+					"tenant_uuid": mcpToolTenantUUID,
 					"route_slug": route.RouteSlug,
 					"payload": map[string]interface{}{
 						"customer_id": "C999",

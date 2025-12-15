@@ -220,15 +220,16 @@ func (h *AgentHandler) CreateAgent(c *gin.Context) {
 		dtoRequest.ResponseValidationError(c, err)
 		return
 	}
-	tid, err := reqctx.RequireTenantIDFromGin(c)
+	tenantCtx, err := requireTenantContext(c)
 	if err != nil {
 		dtoRequest.ResponseError(c, 400, err.Error(), nil)
 		return
 	}
+	tenantRef := tenantCtx.UUIDPtr()
 
 	in := &dbmodel.Agent{
 		Env:              req.Env,
-		TenantID:         &tid,
+		TenantUUID:       tenantRef,
 		Key:              strings.TrimSpace(req.Key),
 		Name:             strings.TrimSpace(req.Name),
 		Description:      req.Description,
@@ -243,7 +244,7 @@ func (h *AgentHandler) CreateAgent(c *gin.Context) {
 		KBStrategy:       utils.FirstNonEmpty(req.KBStrategy, "union"),
 		Meta:             req.Meta,
 	}
-	out, err := h.srv.Create(c.Request.Context(), req.Env, &tid, in)
+	out, err := h.srv.Create(c.Request.Context(), req.Env, tenantRef, in)
 	if err != nil {
 		dtoRequest.ResponseError(c, 400, err.Error(), nil)
 		return
@@ -261,11 +262,12 @@ func (h *AgentHandler) ListAgents(c *gin.Context) {
 		}
 	}
 
-	tid, err := reqctx.RequireTenantIDFromGin(c)
+	tenantCtx, err := requireTenantContext(c)
 	if err != nil {
 		dtoRequest.ResponseError(c, 400, err.Error(), nil)
 		return
 	}
+	tenantRef := tenantCtx.UUIDPtr()
 
 	var statuses []string
 	if s := strings.TrimSpace(c.Query("status")); s != "" {
@@ -276,7 +278,7 @@ func (h *AgentHandler) ListAgents(c *gin.Context) {
 		}
 	}
 
-	list, err := h.srv.List(c.Request.Context(), envVal, &tid, statuses...)
+	list, err := h.srv.List(c.Request.Context(), envVal, tenantRef, statuses...)
 	if err != nil {
 		dtoRequest.ResponseError(c, 500, "查询失败", err)
 		return
@@ -286,17 +288,18 @@ func (h *AgentHandler) ListAgents(c *gin.Context) {
 
 func (h *AgentHandler) GetAgent(c *gin.Context) {
 	env := c.DefaultQuery("env", "default")
-	tid, err := reqctx.RequireTenantIDFromGin(c)
+	tenantCtx, err := requireTenantContext(c)
 	if err != nil {
 		dtoRequest.ResponseError(c, 400, err.Error(), nil)
 		return
 	}
+	tenantRef := tenantCtx.UUIDPtr()
 	agentID, err := utils.ParseUintID(c.Param("id"))
 	if err != nil {
 		dtoRequest.ResponseError(c, 400, "id 非法", nil)
 		return
 	}
-	out, err := h.srv.Get(c.Request.Context(), env, &tid, agentID)
+	out, err := h.srv.Get(c.Request.Context(), env, tenantRef, agentID)
 	if err != nil {
 		dtoRequest.ResponseError(c, 404, "未找到", err)
 		return
@@ -311,11 +314,12 @@ func (h *AgentHandler) UpdateAgent(c *gin.Context) {
 		return
 	}
 	env := c.DefaultQuery("env", "default")
-	tid, err := reqctx.RequireTenantIDFromGin(c)
+	tenantCtx, err := requireTenantContext(c)
 	if err != nil {
 		dtoRequest.ResponseError(c, 400, err.Error(), nil)
 		return
 	}
+	tenantRef := tenantCtx.UUIDPtr()
 	agentID, err := utils.ParseUintID(c.Param("id"))
 	if err != nil {
 		dtoRequest.ResponseError(c, 400, "id 非法", nil)
@@ -335,7 +339,7 @@ func (h *AgentHandler) UpdateAgent(c *gin.Context) {
 		KBStrategy:       req.KBStrategy,
 		Meta:             req.Meta,
 	}
-	out, err := h.srv.Update(c.Request.Context(), env, &tid, agentID, patch)
+	out, err := h.srv.Update(c.Request.Context(), env, tenantRef, agentID, patch)
 	if err != nil {
 		dtoRequest.ResponseError(c, 400, err.Error(), nil)
 		return
@@ -347,17 +351,18 @@ func (h *AgentHandler) EnableAgent(c *gin.Context)  { h.setAgentStatus(c, dbmode
 func (h *AgentHandler) DisableAgent(c *gin.Context) { h.setAgentStatus(c, dbmodel.AgentStatusDisabled) }
 func (h *AgentHandler) setAgentStatus(c *gin.Context, status string) {
 	env := c.DefaultQuery("env", "default")
-	tid, err := reqctx.RequireTenantIDFromGin(c)
+	tenantCtx, err := requireTenantContext(c)
 	if err != nil {
 		dtoRequest.ResponseError(c, 400, err.Error(), nil)
 		return
 	}
+	tenantRef := tenantCtx.UUIDPtr()
 	agentID, err := utils.ParseUintID(c.Param("id"))
 	if err != nil {
 		dtoRequest.ResponseError(c, 400, "id 非法", nil)
 		return
 	}
-	if err := h.srv.SetStatus(c.Request.Context(), env, &tid, agentID, status); err != nil {
+	if err := h.srv.SetStatus(c.Request.Context(), env, tenantRef, agentID, status); err != nil {
 		dtoRequest.ResponseError(c, 400, err.Error(), nil)
 		return
 	}
@@ -366,17 +371,18 @@ func (h *AgentHandler) setAgentStatus(c *gin.Context, status string) {
 
 func (h *AgentHandler) DeleteAgent(c *gin.Context) {
 	env := c.DefaultQuery("env", "default")
-	tid, err := reqctx.RequireTenantIDFromGin(c)
+	tenantCtx, err := requireTenantContext(c)
 	if err != nil {
 		dtoRequest.ResponseError(c, 400, err.Error(), nil)
 		return
 	}
+	tenantRef := tenantCtx.UUIDPtr()
 	agentID, err := utils.ParseUintID(c.Param("id"))
 	if err != nil {
 		dtoRequest.ResponseError(c, 400, "id 非法", nil)
 		return
 	}
-	if err := h.srv.Delete(c.Request.Context(), env, &tid, agentID); err != nil {
+	if err := h.srv.Delete(c.Request.Context(), env, tenantRef, agentID); err != nil {
 		dtoRequest.ResponseError(c, 400, err.Error(), nil)
 		return
 	}
@@ -396,17 +402,18 @@ type upsertAgentAISettingReq struct {
 
 func (h *AgentHandler) GetAgentAISetting(c *gin.Context) {
 	env := c.DefaultQuery("env", "default")
-	tid, err := reqctx.RequireTenantIDFromGin(c)
+	tenantCtx, err := requireTenantContext(c)
 	if err != nil {
 		dtoRequest.ResponseError(c, 400, err.Error(), nil)
 		return
 	}
+	tenantRef := tenantCtx.UUIDPtr()
 	agentID, err := utils.ParseUintID(c.Param("id"))
 	if err != nil {
 		dtoRequest.ResponseError(c, 400, "id 非法", nil)
 		return
 	}
-	setting, err := h.srv.GetAgentAISetting(c.Request.Context(), env, &tid, agentID)
+	setting, err := h.srv.GetAgentAISetting(c.Request.Context(), env, tenantRef, agentID)
 	if err != nil {
 		dtoRequest.ResponseError(c, 404, "未找到", err)
 		return
@@ -420,11 +427,12 @@ func (h *AgentHandler) UpsertAgentAISetting(c *gin.Context) {
 		dtoRequest.ResponseValidationError(c, err)
 		return
 	}
-	tid, err := reqctx.RequireTenantIDFromGin(c)
+	tenantCtx, err := requireTenantContext(c)
 	if err != nil {
 		dtoRequest.ResponseError(c, 400, err.Error(), nil)
 		return
 	}
+	tenantRef := tenantCtx.UUIDPtr()
 	agentID, err := utils.ParseUintID(c.Param("id"))
 	if err != nil {
 		dtoRequest.ResponseError(c, 400, "id 非法", nil)
@@ -442,7 +450,7 @@ func (h *AgentHandler) UpsertAgentAISetting(c *gin.Context) {
 		HealthStatus:  "unknown",
 		HealthInfo:    datatypes.JSONMap{},
 	}
-	out, err := h.srv.UpsertAgentAISetting(c.Request.Context(), req.Env, &tid, in)
+	out, err := h.srv.UpsertAgentAISetting(c.Request.Context(), req.Env, tenantRef, in)
 	if err != nil {
 		dtoRequest.ResponseError(c, 400, err.Error(), nil)
 		return
@@ -452,17 +460,18 @@ func (h *AgentHandler) UpsertAgentAISetting(c *gin.Context) {
 
 func (h *AgentHandler) DeleteAgentAISetting(c *gin.Context) {
 	env := c.DefaultQuery("env", "default")
-	tid, err := reqctx.RequireTenantIDFromGin(c)
+	tenantCtx, err := requireTenantContext(c)
 	if err != nil {
 		dtoRequest.ResponseError(c, 400, err.Error(), nil)
 		return
 	}
+	tenantRef := tenantCtx.UUIDPtr()
 	agentID, err := utils.ParseUintID(c.Param("id"))
 	if err != nil {
 		dtoRequest.ResponseError(c, 400, "id 非法", nil)
 		return
 	}
-	if err := h.srv.DeleteAgentAISetting(c.Request.Context(), env, &tid, agentID); err != nil {
+	if err := h.srv.DeleteAgentAISetting(c.Request.Context(), env, tenantRef, agentID); err != nil {
 		dtoRequest.ResponseError(c, 400, err.Error(), nil)
 		return
 	}
@@ -471,17 +480,18 @@ func (h *AgentHandler) DeleteAgentAISetting(c *gin.Context) {
 
 func (h *AgentHandler) AgentHealthCheck(c *gin.Context) {
 	env := c.DefaultQuery("env", "default")
-	tid, err := reqctx.RequireTenantIDFromGin(c)
+	tenantCtx, err := requireTenantContext(c)
 	if err != nil {
 		dtoRequest.ResponseError(c, 400, err.Error(), nil)
 		return
 	}
+	tenantRef := tenantCtx.UUIDPtr()
 	agentID, err := utils.ParseUintID(c.Param("id"))
 	if err != nil {
 		dtoRequest.ResponseError(c, 400, "id 非法", nil)
 		return
 	}
-	info, err := h.srv.HealthCheck(c.Request.Context(), env, &tid, agentID)
+	info, err := h.srv.HealthCheck(c.Request.Context(), env, tenantRef, agentID)
 	if err != nil {
 		dtoRequest.ResponseError(c, 400, "检查失败", err)
 		return

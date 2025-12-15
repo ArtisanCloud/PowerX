@@ -13,17 +13,23 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const (
+	shareSourceUUID    = "c67b02b9-3cd2-4f8e-92a8-9b65c8e7e9d7"
+	shareTargetBetaUUID = "ab29a128-6f6c-4b76-8c95-97db2d6f1f6a"
+	shareDeniedUUID     = "f8e46642-47f7-44b4-bb4a-1b6e135c8519"
+)
+
 func TestAgentShareRevocationFailureFlow(t *testing.T) {
 	env := testenv.New(t)
 	t.Cleanup(env.Close)
 
 	ctx := context.Background()
 	svc := env.Deps.AgentLifecycle.Service
-	agentID := registerTestAgent(t, svc, "tenant-share-src", "share-revoke-agent")
+	agentID := registerTestAgent(t, svc, shareSourceUUID, "share-revoke-agent")
 
 	share, err := svc.ShareAgent(ctx, agent_lifecycle.ShareInput{
 		AgentID:     agentID,
-		TenantID:    "tenant-target-beta",
+		TenantUUID:  shareTargetBetaUUID,
 		Quotas:      []agent_lifecycle.ShareQuota{{Type: "rpm", Limit: 300}},
 		Metadata:    map[string]string{"region": "eu-west"},
 		RequestedBy: "ops-share",
@@ -34,7 +40,7 @@ func TestAgentShareRevocationFailureFlow(t *testing.T) {
 	env.ShareValidator.Err = errors.New("tenant not allowed")
 	_, err = svc.ShareAgent(ctx, agent_lifecycle.ShareInput{
 		AgentID:     agentID,
-		TenantID:    "tenant-denied",
+		TenantUUID:  shareDeniedUUID,
 		RequestedBy: "ops-share",
 	})
 	require.Error(t, err)

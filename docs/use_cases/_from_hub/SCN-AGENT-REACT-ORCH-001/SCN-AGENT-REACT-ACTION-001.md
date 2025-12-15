@@ -81,7 +81,7 @@ sequenceDiagram
 - **APIs / Events**
   - `POST /internal/react/action`：Body 含 `thought_id`, `tool`, `params`, `risk_level`; 返回 Action ID、状态。
   - `POST /internal/react/action/{id}/approve`：审批接口，支持人工与策略自动通过。
-  - `POST /internal/plugins/{plugin}/invoke`：插件执行入口，头部包含 `trace_id`, `tenant_id`, `auth_token`。
+  - `POST /internal/plugins/{plugin}/invoke`：插件执行入口，头部包含 `trace_id`, `tenant_uuid`, `auth_token`。
   - `EVENT react.action.state.changed`：状态 `draft/pending/approved/running/succeeded/failed/aborted`。
 - **Configs / Schemas**
   - `config/react/action_templates.yaml`、`config/plugins/catalog.yaml`、`config/risk/agent_action_policies.yaml`。

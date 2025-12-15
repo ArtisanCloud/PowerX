@@ -11,8 +11,8 @@ import (
 type contextKey string
 
 const (
-	traceIDKey  contextKey = "agent_model_hub_trace_id"
-	tenantIDKey contextKey = "agent_model_hub_tenant_id"
+	traceIDKey    contextKey = "agent_model_hub_trace_id"
+	tenantUUIDKey contextKey = "agent_model_hub_tenant_uuid"
 )
 
 // Span represents an active tracing span.
@@ -87,7 +87,7 @@ func WithTenant(ctx context.Context, tenant string) context.Context {
 	if tenant == "" {
 		return ctx
 	}
-	return context.WithValue(ctx, tenantIDKey, tenant)
+	return context.WithValue(ctx, tenantUUIDKey, tenant)
 }
 
 // SpanAttributes merges trace metadata with custom labels.
@@ -111,8 +111,8 @@ func contextAttributes(ctx context.Context) map[string]string {
 	if id, ok := ctx.Value(traceIDKey).(string); ok && id != "" {
 		attrs["trace.id"] = id
 	}
-	if tenant, ok := ctx.Value(tenantIDKey).(string); ok && tenant != "" {
-		attrs["tenant.id"] = tenant
+	if tenant, ok := ctx.Value(tenantUUIDKey).(string); ok && tenant != "" {
+		attrs["tenant.uuid"] = tenant
 	}
 	return attrs
 }

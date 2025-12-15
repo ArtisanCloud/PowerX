@@ -19,24 +19,18 @@ func TestRoutingPolicyIntegration(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	env := ammatestenv.New(t)
+	env.MustInsertTenant(3001, ammatestenv.AgentModelHubTenantUUID)
 
 	engine := gin.New()
 	public := engine.Group("/api")
 	protected := engine.Group("/api")
-	protected.Use(func(c *gin.Context) {
-		if c.GetHeader("Authorization") == "" {
-			c.AbortWithStatus(http.StatusUnauthorized)
-			return
-		}
-		c.Next()
-	})
+	protected.Use(ammatestenv.RequireAgentModelHubAuth())
 
 	deps := &shared.Deps{DB: env.DB}
 	agentmodelhubhttp.RegisterAPIRoutes(public, protected, deps)
 
 	policyPayload := map[string]any{
-		"env":         "default",
-		"tenantScope": "tenant-routing-int",
+		"env": "default",
 		"rules": []map[string]any{
 			{
 				"taskPattern": "chat/*",
@@ -56,27 +50,21 @@ func TestRoutingPolicyIntegration(t *testing.T) {
 	// create policy draft
 	req := httptest.NewRequest(http.MethodPost, "/api/internal/model-routing/policies", bytes.NewReader(mustJSON(t, policyPayload)))
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer token")
-	rr := httptest.NewRecorder()
-	engine.ServeHTTP(rr, req)
+	rr := serveAgentModelHubRequest(t, engine, req)
 	require.Equal(t, http.StatusAccepted, rr.Code)
 
 	// promote to active
 	statusPayload := map[string]any{
-		"tenantScope":  "tenant-routing-int",
 		"targetStatus": "active",
 	}
 	req = httptest.NewRequest(http.MethodPost, "/api/internal/model-routing/policies/status", bytes.NewReader(mustJSON(t, statusPayload)))
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer token")
-	rr = httptest.NewRecorder()
-	engine.ServeHTTP(rr, req)
+	rr = serveAgentModelHubRequest(t, engine, req)
 	require.Equal(t, http.StatusOK, rr.Code)
 
 	// route decision should pick provider-alpha
 	routePayload := map[string]any{
-		"env":      "default",
-		"tenantId": "tenant-routing-int",
+		"env": "default",
 		"taskContext": map[string]any{
 			"taskType": "chat/general",
 		},
@@ -87,16 +75,13 @@ func TestRoutingPolicyIntegration(t *testing.T) {
 
 	// enable safe-mode forcing fallback
 	safeModePayload := map[string]any{
-		"tenantScope": "tenant-routing-int",
-		"enabled":     true,
-		"ttlSeconds":  60,
-		"reason":      "incident",
+		"enabled":    true,
+		"ttlSeconds": 60,
+		"reason":     "incident",
 	}
 	req = httptest.NewRequest(http.MethodPost, "/api/internal/model-routing/safe-mode", bytes.NewReader(mustJSON(t, safeModePayload)))
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer token")
-	rr = httptest.NewRecorder()
-	engine.ServeHTTP(rr, req)
+	rr = serveAgentModelHubRequest(t, engine, req)
 	require.Equal(t, http.StatusOK, rr.Code)
 
 	result = routeRequest(t, engine, routePayload)
@@ -108,9 +93,7 @@ func TestRoutingPolicyIntegration(t *testing.T) {
 	safeModePayload["enabled"] = false
 	req = httptest.NewRequest(http.MethodPost, "/api/internal/model-routing/safe-mode", bytes.NewReader(mustJSON(t, safeModePayload)))
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer token")
-	rr = httptest.NewRecorder()
-	engine.ServeHTTP(rr, req)
+	rr = serveAgentModelHubRequest(t, engine, req)
 	require.Equal(t, http.StatusOK, rr.Code)
 
 	result = routeRequest(t, engine, routePayload)
@@ -123,9 +106,7 @@ func routeRequest(t *testing.T, engine *gin.Engine, payload map[string]any) map[
 	t.Helper()
 	req := httptest.NewRequest(http.MethodPost, "/api/internal/model-routing/route", bytes.NewReader(mustJSON(t, payload)))
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer token")
-	rr := httptest.NewRecorder()
-	engine.ServeHTTP(rr, req)
+	rr := serveAgentModelHubRequest(t, engine, req)
 	require.Equal(t, http.StatusOK, rr.Code)
 
 	var resp struct {

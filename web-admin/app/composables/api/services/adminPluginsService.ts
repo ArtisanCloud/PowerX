@@ -40,12 +40,18 @@ export const useAdminPluginsService = () => {
       return []
     },
 
-    // 系统启用/停用
-    enable: (id: string) => api.post(`${base}/${encodeURIComponent(id)}/enable`),
-    disable: (id: string) => api.post(`${base}/${encodeURIComponent(id)}/disable`),
+    // 系统启用/停用（启用可能耗时，单独放宽超时时间）
+    enable: (id: string) =>
+      api.post(`${base}/${encodeURIComponent(id)}/enable`, undefined, {
+        timeout: 120000, // 120s 防止启动耗时导致超时
+      }),
+    disable: (id: string) =>
+      api.post(`${base}/${encodeURIComponent(id)}/disable`, undefined, {
+        timeout: 120000,
+      }),
 
     // 安装（从 URL）
-    installFromUrl: (payload: { url: string; sha256?: string; enable?: boolean }) =>
+    installFromUrl: (payload: { url: string; sha256?: string; enable?: boolean; metadata?: Record<string, any> }) =>
       api.post(`${base}/install/url`, payload),
 
     // 本地安装（预留）
@@ -53,7 +59,13 @@ export const useAdminPluginsService = () => {
 
     // 卸载（可扩展 purge 等参数）
     uninstall: async (id: string, payload?: Record<string, any>) =>
-      unwrap(await api.post(`${base}/${encodeURIComponent(id)}/uninstall`, payload || {})),
+      unwrap(
+        await api.post(
+          `${base}/${encodeURIComponent(id)}/uninstall`,
+          payload || {},
+          { timeout: 120000 } // 卸载可能较慢，放宽超时
+        )
+      ),
 
     // 运行状态/日志
     status: async (id: string) => unwrap(await api.get(`${base}/${encodeURIComponent(id)}/status`)),

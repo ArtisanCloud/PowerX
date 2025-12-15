@@ -1,11 +1,9 @@
 package agentmodelhubintegration
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"net/http"
-	"net/http/httptest"
 	"sync"
 	"testing"
 	"time"
@@ -24,6 +22,7 @@ func TestAuditLatencyPublishAndEnforce(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	env := testenv.New(t)
+	env.MustInsertTenant(3001, testenv.AgentModelHubTenantUUID)
 	repo := newMemoryAuditRepo()
 	audit := auditsvc.NewService(auditsvc.ServiceOptions{
 		Repository: repo,
@@ -37,14 +36,11 @@ func TestAuditLatencyPublishAndEnforce(t *testing.T) {
 	engine := gin.New()
 	public := engine.Group("/api")
 	protected := engine.Group("/api")
-	protected.Use(func(c *gin.Context) {
-		if c.GetHeader("Authorization") == "" {
-			c.AbortWithStatus(http.StatusUnauthorized)
-			return
-		}
-		c.Next()
-	})
-	deps := &appshared.Deps{DB: env.DB, AuditSvc: audit}
+	protected.Use(testenv.RequireAgentModelHubAuth())
+	deps := &appshared.Deps{
+		DB:       env.DB,
+		AuditSvc: audit,
+	}
 	agentmodelhubhttp.RegisterAPIRoutes(public, protected, deps)
 
 	registerPayload := map[string]any{
@@ -54,13 +50,13 @@ func TestAuditLatencyPublishAndEnforce(t *testing.T) {
 		"primary_endpoint": "https://example.invalid",
 		"regions":          []string{"us-east-1"},
 		"tenantWhitelist": []map[string]string{
-			{"tenantId": "demo", "environment": "staging"},
+			{"tenant_uuid": testenv.AgentModelHubTenantUUID, "environment": "staging"},
 		},
 		"credentials": map[string]string{
 			"api_key": "sk-audit-test",
 		},
 	}
-	resp := doJSONRequest(t, engine, http.MethodPost, "/api/internal/providers/register", registerPayload)
+	resp := doAgentModelHubJSONRequest(t, engine, http.MethodPost, "/api/internal/providers/register", registerPayload)
 	require.Equal(t, http.StatusAccepted, resp.Code)
 	var registerResp struct {
 		Code int                    `json:"code"`
@@ -85,11 +81,11 @@ func TestAuditLatencyPublishAndEnforce(t *testing.T) {
 			},
 		},
 	}
-	resp = doJSONRequest(t, engine, http.MethodPost, "/api/internal/providers/"+providerID+"/validate?suite=full", validatePayload)
+	resp = doAgentModelHubJSONRequest(t, engine, http.MethodPost, "/api/internal/providers/"+providerID+"/validate?suite=full", validatePayload)
 	require.Equal(t, http.StatusAccepted, resp.Code)
 
 	publishStart := time.Now()
-	resp = doJSONRequest(t, engine, http.MethodPost, "/api/internal/providers/"+providerID+"/publish", map[string]any{
+	resp = doAgentModelHubJSONRequest(t, engine, http.MethodPost, "/api/internal/providers/"+providerID+"/publish", map[string]any{
 		"rolloutStrategy": "full",
 	})
 	require.Equal(t, http.StatusOK, resp.Code)
@@ -99,9 +95,8 @@ func TestAuditLatencyPublishAndEnforce(t *testing.T) {
 	require.Less(t, time.Since(publishStart), time.Second, "audit write should complete quickly")
 
 	enforceStart := time.Now()
-	resp = doJSONRequest(t, engine, http.MethodPost, "/api/internal/provider-quotas/enforce", map[string]any{
+	resp = doAgentModelHubJSONRequest(t, engine, http.MethodPost, "/api/internal/provider-quotas/enforce", map[string]any{
 		"env":         "default",
-		"tenantId":    "demo-tenant-audit",
 		"action":      "throttle",
 		"reason":      "audit latency test",
 		"ticketId":    "AUDIT-TEST",
@@ -112,17 +107,6 @@ func TestAuditLatencyPublishAndEnforce(t *testing.T) {
 	require.True(t, ok, "expected cost_quota.enforcement audit event")
 	require.Contains(t, string(enforceEvent.Meta), "audit latency test")
 	require.Less(t, time.Since(enforceStart), time.Second, "enforcement audit should be queryable quickly")
-}
-
-func doJSONRequest(t *testing.T, engine *gin.Engine, method, path string, payload map[string]any) *httptest.ResponseRecorder {
-	t.Helper()
-	body, _ := json.Marshal(payload)
-	req := httptest.NewRequest(method, path, bytes.NewReader(body))
-	req.Header.Set("Authorization", "Bearer token")
-	req.Header.Set("Content-Type", "application/json")
-	rr := httptest.NewRecorder()
-	engine.ServeHTTP(rr, req)
-	return rr
 }
 
 type memoryAuditRepo struct {

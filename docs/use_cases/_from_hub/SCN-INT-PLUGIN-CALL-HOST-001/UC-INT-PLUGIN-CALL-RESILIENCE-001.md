@@ -106,7 +106,7 @@ sequenceDiagram
 # Contracts & Interfaces
 
 - `resilience_policies.yaml` — 定义 `timeout_ms`, `retry.max_attempts`, `retry.backoff`, `circuit.threshold`, `degrade.strategy`, `failover.queue`.
-- `POST /plugin/call/failures` — 上报失败事件：`tenant_id`, `plugin_id`, `api`, `error_code`, `retry_count`, `trace_id`.
+- `POST /plugin/call/failures` — 上报失败事件：`tenant_uuid`, `plugin_id`, `api`, `error_code`, `retry_count`, `trace_id`.
 - `POST /plugin/call/failover` — 创建降级/补偿任务。
 - `POST /plugin/call/recover` — 熔断恢复或回滚完成通知。
 - Logs/Audit：`plugin.host.retry`, `plugin.host.circuit`, `plugin.host.degrade`.
@@ -137,7 +137,7 @@ sequenceDiagram
 # Observability & Ops
 
 - **指标**：`plugin.host.retry.count`, `plugin.host.retry.success_rate`, `plugin.host.circuit.state`, `plugin.host.degrade.count`, `plugin.host.failover.queue_depth`, `plugin.host.mttr`.
-- **日志**：Resilience/Queue/Telemetry 需记录 `tenant_id`, `plugin_id`, `api`, `trace_id`, `policy_id`, `decision`.
+- **日志**：Resilience/Queue/Telemetry 需记录 `tenant_uuid`, `plugin_id`, `api`, `trace_id`, `policy_id`, `decision`。
 - **告警**：
   - 自动重试成功率 <80%（P1）
   - 熔断持续 >5 分钟（P1）

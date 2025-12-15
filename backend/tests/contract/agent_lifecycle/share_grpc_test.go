@@ -53,7 +53,7 @@ func TestShareAgentGRPC(t *testing.T) {
 
 	req := &agentv1.CreateAgentShareRequest{
 		AgentId:     agentID.String(),
-		TenantId:    "tenant-target-grpc",
+		TenantUuid:    "tenant-target-grpc",
 		RequestedBy: "ops-grpc",
 		TraceId:     "trace-grpc-1",
 		Quotas: []*agentv1.ShareQuota{
@@ -67,13 +67,13 @@ func TestShareAgentGRPC(t *testing.T) {
 	resp, err := client.ShareAgent(ctx, req)
 	require.NoError(t, err)
 	require.NotEmpty(t, resp.GetShareId())
-	require.Equal(t, "tenant-target-grpc", resp.GetTenantId())
+	require.Equal(t, "tenant-target-grpc", resp.GetTenantUuid())
 	require.Equal(t, "active", resp.GetStatus())
 
 	env.ShareValidator.Err = errors.New("tenant not allowed")
 	_, err = client.ShareAgent(ctx, &agentv1.CreateAgentShareRequest{
 		AgentId:     agentID.String(),
-		TenantId:    "tenant-denied",
+		TenantUuid:    "tenant-denied",
 		RequestedBy: "ops-grpc",
 	})
 	require.Error(t, err)

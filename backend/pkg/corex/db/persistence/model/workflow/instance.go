@@ -15,7 +15,7 @@ import (
 type WorkflowInstance struct {
 	coremodel.PowerUUIDModel
 
-	TenantID          uint64         `gorm:"column:tenant_id;type:bigint;not null;index:idx_workflow_instances_tenant;index:idx_workflow_instances_correlation,priority:1" json:"tenant_id"`
+	TenantUUID        string         `gorm:"column:tenant_uuid;type:varchar(128);not null;index:idx_workflow_instances_tenant_uuid;index:idx_workflow_instances_correlation,priority:1" json:"tenant_uuid"`
 	DefinitionUUID    uuid.UUID      `gorm:"column:definition_uuid;type:uuid;not null;index:idx_workflow_instances_definition" json:"definition_uuid"`
 	DefinitionVersion int32          `gorm:"column:definition_version;type:int;not null;default:1" json:"definition_version"`
 	State             string         `gorm:"column:state;type:varchar(32);not null;default:'draft';index:idx_workflow_instances_state" json:"state"`

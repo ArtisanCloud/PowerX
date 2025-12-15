@@ -110,7 +110,7 @@ sequenceDiagram
 
 - **Inbound APIs / Jobs**
   - `node scripts/qa/workflow-metrics.mjs --target knowledge-decay` — 定时任务，参数支持 `--tenant`, `--domains`, `--since`.
-  - `POST /knowledge/decay/tasks` — 请求体包含 `knowledge_id`, `tenant_id`, `decay_score`, `gap_reason`, `sla_hours`, `assignee`.
+- `POST /knowledge/decay/tasks` — 请求体包含 `knowledge_id`, `tenant_uuid`, `decay_score`, `gap_reason`, `sla_hours`, `assignee`。
   - `POST /knowledge/decay/restore` — 请求体包含 `task_id`, `action` (`restore`/`rollback`), `reason`, `approver`.
 - **Outbound 调用**
   - `POST /task-center/tasks` — 创建/更新任务卡片，写入 SLA、执行者、复核人。
@@ -178,7 +178,7 @@ sequenceDiagram
 |-----------|------|----------|--------|-----|
 | `decay_thresholds.yaml` 尚未按领域细化 | 容易误报或漏报，影响准确率 | 结合历史指标自动推荐阈值，并引入版本号 + 审批流 | Reliability Squad | 2025-02-23 |
 | Gap Task 看板未与审批中心打通 | 任务无法自动通过审批，延长 SLA | 在 `task_service` 中补充审批钩子，失败自动升级到治理组 | Governance Squad | 2025-02-27 |
-| Dashboard 缺乏租户维度 | 难以定位高风险租户 | 扩展报表与 Grafana 维度，增加 `tenant_id` Filter | Observability Team | 2025-03-01 |
+| Dashboard 缺乏租户维度 | 难以定位高风险租户 | 扩展报表与 Grafana 维度，增加 `tenant_uuid` Filter | Observability Team | 2025-03-01 |
 
 # References & Links
 

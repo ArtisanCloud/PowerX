@@ -7,7 +7,7 @@ import { useUserStore } from "~/stores/user";
 
 // Props
 const props = defineProps<{
-  tenantId: string;
+  tenantUuid: string;
 }>();
 
 // 权限 Store
@@ -89,18 +89,18 @@ const togglePermission = async (permission) => {
     if (permission.enabled) {
       // 禁用权限
       await permissionStore.disableTenantPermission(
-        props.tenantId,
+        props.tenantUuid,
         permission.id
       );
     } else {
       // 启用权限
       await permissionStore.enableTenantPermission(
-        props.tenantId,
+        props.tenantUuid,
         permission.id
       );
     }
     // 重新加载租户权限
-    await permissionStore.fetchTenantPermissions(props.tenantId);
+    await permissionStore.fetchTenantPermissions(props.tenantUuid);
   } catch (error) {
     console.error("切换权限状态失败:", error);
   }
@@ -121,10 +121,10 @@ const isSelectAll = computed({
 const batchEnable = async () => {
   try {
     await permissionStore.batchEnableTenantPermissions(
-      props.tenantId,
+      props.tenantUuid,
       selectedPermissions.value
     );
-    await permissionStore.fetchTenantPermissions(props.tenantId);
+    await permissionStore.fetchTenantPermissions(props.tenantUuid);
     selectedPermissions.value = [];
   } catch (error) {
     console.error("批量启用权限失败:", error);
@@ -134,10 +134,10 @@ const batchEnable = async () => {
 const batchDisable = async () => {
   try {
     await permissionStore.batchDisableTenantPermissions(
-      props.tenantId,
+      props.tenantUuid,
       selectedPermissions.value
     );
-    await permissionStore.fetchTenantPermissions(props.tenantId);
+    await permissionStore.fetchTenantPermissions(props.tenantUuid);
     selectedPermissions.value = [];
   } catch (error) {
     console.error("批量禁用权限失败:", error);
@@ -148,7 +148,7 @@ const batchDisable = async () => {
 onMounted(async () => {
   await Promise.all([
     permissionStore.fetchList(),
-    permissionStore.fetchTenantPermissions(props.tenantId),
+    permissionStore.fetchTenantPermissions(props.tenantUuid),
   ]);
 });
 </script>

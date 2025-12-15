@@ -50,7 +50,7 @@ func TestValidatePayloadAuditsToolGrantsSuccess(t *testing.T) {
 
 	payload := RegistrationPayload{
 		CapabilityID: "capabilities.text.translate",
-		TenantID:     "tenant-corex",
+		TenantUUID:   "tenant-corex",
 		ContractRef:  "contracts/text#1.0.0",
 		Adapters: []AdapterEndpoint{
 			{
@@ -96,7 +96,7 @@ func TestValidatePayloadAuditsToolGrantsFailure(t *testing.T) {
 
 	payload := RegistrationPayload{
 		CapabilityID: "capabilities.text.translate",
-		TenantID:     "tenant-corex",
+		TenantUUID:   "tenant-corex",
 		ContractRef:  "contracts/text#1.0.0",
 		Adapters: []AdapterEndpoint{
 			{

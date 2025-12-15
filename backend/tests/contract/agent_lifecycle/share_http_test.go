@@ -17,14 +17,21 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const (
+	shareOwnerTenantUUID = "d6a60fe9-1c3a-4bb2-96fc-4c4dee3b1172"
+	shareTenantUUIDA     = "fa79c189-4b2f-4a4d-8dc0-2bc3844c2f3a"
+	shareTenantUUIDB     = "6c481313-4fab-467d-8a76-7d4b2c4fce04"
+	shareTenantUUIDC     = "fbc65c18-caa3-4a3c-8bd4-815bcea90b83"
+)
+
 type shareHTTPResponse struct {
 	Code int `json:"code"`
 	Data struct {
-		ID       string `json:"id"`
-		AgentID  string `json:"agent_id"`
-		TenantID string `json:"tenant_id"`
-		Status   string `json:"status"`
-		Quotas   []struct {
+		ID         string `json:"id"`
+		AgentID    string `json:"agent_id"`
+		TenantUUID string `json:"tenant_uuid"`
+		Status     string `json:"status"`
+		Quotas     []struct {
 			Type  string `json:"type"`
 			Limit int32  `json:"limit"`
 		} `json:"quotas"`
@@ -37,10 +44,10 @@ func TestShareAgentHTTP(t *testing.T) {
 	t.Cleanup(env.Close)
 
 	engine := env.Engine()
-	agentID := env.SeedAgent("tenant-http-share", "http-share-agent")
+	agentID := env.SeedAgent(shareOwnerTenantUUID, "http-share-agent")
 
 	reqBody := map[string]any{
-		"tenant_id":    "tenant-target-a",
+		"tenant_uuid":  shareTenantUUIDA,
 		"requested_by": "ops-admin",
 		"trace_id":     "trace-http-1",
 		"quotas": []map[string]any{
@@ -53,8 +60,8 @@ func TestShareAgentHTTP(t *testing.T) {
 	body, _ := json.Marshal(reqBody)
 	url := fmt.Sprintf("/api/admin/agents/%s/shares", agentID)
 	req := httptest.NewRequest(http.MethodPost, url, bytes.NewReader(body))
-	req.Header.Set("Authorization", "Bearer token")
 	req.Header.Set("Content-Type", "application/json")
+	applyTenantHeaders(req, shareOwnerTenantUUID)
 	resp := httptest.NewRecorder()
 	engine.ServeHTTP(resp, req)
 
@@ -63,7 +70,7 @@ func TestShareAgentHTTP(t *testing.T) {
 	var success shareHTTPResponse
 	require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &success))
 	require.Equal(t, http.StatusCreated, success.Code)
-	require.Equal(t, "tenant-target-a", success.Data.TenantID)
+	require.Equal(t, shareTenantUUIDA, success.Data.TenantUUID)
 	require.Equal(t, agentID.String(), success.Data.AgentID)
 	require.Equal(t, "active", success.Data.Status)
 	require.Len(t, success.Data.Quotas, 1)
@@ -73,8 +80,8 @@ func TestShareAgentHTTP(t *testing.T) {
 
 	// duplicate share should be rejected with conflict
 	dupReq := httptest.NewRequest(http.MethodPost, url, bytes.NewReader(body))
-	dupReq.Header.Set("Authorization", "Bearer token")
 	dupReq.Header.Set("Content-Type", "application/json")
+	applyTenantHeaders(dupReq, shareOwnerTenantUUID)
 	dupResp := httptest.NewRecorder()
 	engine.ServeHTTP(dupResp, dupReq)
 	require.Equal(t, http.StatusConflict, dupResp.Code)
@@ -82,14 +89,14 @@ func TestShareAgentHTTP(t *testing.T) {
 	// share validator failure should surface as bad request
 	env.ShareValidator.Err = fmt.Errorf("tenant not on whitelist")
 	validatorBody := map[string]any{
-		"tenant_id":    "tenant-target-b",
+		"tenant_uuid":  shareTenantUUIDB,
 		"requested_by": "ops-admin",
 		"trace_id":     "trace-http-2",
 	}
 	raw, _ := json.Marshal(validatorBody)
 	reqInvalid := httptest.NewRequest(http.MethodPost, url, bytes.NewReader(raw))
-	reqInvalid.Header.Set("Authorization", "Bearer token")
 	reqInvalid.Header.Set("Content-Type", "application/json")
+	applyTenantHeaders(reqInvalid, shareOwnerTenantUUID)
 	invalidResp := httptest.NewRecorder()
 	engine.ServeHTTP(invalidResp, reqInvalid)
 	require.Equal(t, http.StatusBadRequest, invalidResp.Code)
@@ -100,12 +107,12 @@ func TestRevokeAgentShareHTTP(t *testing.T) {
 	t.Cleanup(env.Close)
 
 	engine := env.Engine()
-	agentID := env.SeedAgent("tenant-http-share", "http-share-2")
+	agentID := env.SeedAgent(shareOwnerTenantUUID, "http-share-2")
 	share, err := env.Deps.AgentLifecycle.Service.ShareAgent(
 		context.Background(),
 		agent_lifecycle.ShareInput{
 			AgentID:     agentID,
-			TenantID:    "tenant-target-c",
+			TenantUUID:  shareTenantUUIDC,
 			RequestedBy: "ops-admin",
 		},
 	)
@@ -118,8 +125,8 @@ func TestRevokeAgentShareHTTP(t *testing.T) {
 	raw, _ := json.Marshal(body)
 	url := fmt.Sprintf("/api/admin/agents/shares/%s/revoke", share.ID.String())
 	req := httptest.NewRequest(http.MethodPost, url, bytes.NewReader(raw))
-	req.Header.Set("Authorization", "Bearer token")
 	req.Header.Set("Content-Type", "application/json")
+	applyTenantHeaders(req, shareOwnerTenantUUID)
 	resp := httptest.NewRecorder()
 	engine.ServeHTTP(resp, req)
 	require.Equal(t, http.StatusOK, resp.Code)
@@ -131,8 +138,8 @@ func TestRevokeAgentShareHTTP(t *testing.T) {
 
 	// revoking non-existing share should yield 404
 	missingReq := httptest.NewRequest(http.MethodPost, "/api/admin/agents/shares/"+uuid.NewString()+"/revoke", bytes.NewReader(raw))
-	missingReq.Header.Set("Authorization", "Bearer token")
 	missingReq.Header.Set("Content-Type", "application/json")
+	applyTenantHeaders(missingReq, shareOwnerTenantUUID)
 	missingResp := httptest.NewRecorder()
 	engine.ServeHTTP(missingResp, missingReq)
 	require.Equal(t, http.StatusNotFound, missingResp.Code)

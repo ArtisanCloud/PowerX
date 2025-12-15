@@ -30,7 +30,7 @@
         </div>
         <div class="space-y-1">
           <div class="text-gray-500">{{ t('pluginRelease.tenant', '租户') }}</div>
-          <div class="font-medium">{{ detail.tenantId || '-' }}</div>
+          <div class="font-medium">{{ detail.tenant_uuid || '-' }}</div>
         </div>
         <div class="space-y-1">
           <div class="text-gray-500">{{ t('pluginRelease.commitHash', '提交哈希') }}</div>
@@ -43,6 +43,14 @@
         <div class="space-y-1">
           <div class="text-gray-500">{{ t('pluginRelease.submittedAt', '提交时间') }}</div>
           <div class="font-medium">{{ detail.submittedAt || detail.createdAt || '-' }}</div>
+        </div>
+        <div class="space-y-1">
+          <div class="text-gray-500">{{ t('pluginRelease.createdAt', '创建时间') }}</div>
+          <div class="font-medium">{{ detail.createdAt || '-' }}</div>
+        </div>
+        <div class="space-y-1">
+          <div class="text-gray-500">{{ t('pluginRelease.updatedAt', '更新时间') }}</div>
+          <div class="font-medium">{{ detail.updatedAt || '-' }}</div>
         </div>
       <div class="space-y-1">
         <div class="text-gray-500">{{ t('pluginRelease.createdBy', '提交人') }}</div>
@@ -82,7 +90,7 @@ const loading = ref(false)
 const detail = reactive<any>({
   pluginId: '',
   version: '',
-  tenantId: '',
+  tenant_uuid: '',
   releaseNotes: '',
   buildArtifactUri: '',
   commitHash: '',
@@ -92,6 +100,7 @@ const detail = reactive<any>({
   createdByDisplay: '',
   submittedAt: '',
   createdAt: '',
+  updatedAt: '',
   labels: {}
 })
 

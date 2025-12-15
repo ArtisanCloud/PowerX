@@ -85,8 +85,8 @@ func (leb *localEventBus) Publish(eventType string, payload interface{}, ctx con
 		if traceID, ok := ctx.Value("trace_id").(string); ok {
 			event.TraceID = traceID
 		}
-		if tenantID, ok := ctx.Value("tenant_id").(string); ok {
-			event.TenantID = tenantID
+		if tenant := tenantUUIDFromContext(ctx); tenant != "" {
+			event.TenantUUID = tenant
 		}
 	}
 

@@ -31,19 +31,19 @@ func TestPluginReleaseGRPC_CanaryRolloutLifecycle(t *testing.T) {
 	}()
 	t.Cleanup(server.Stop)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	baseCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	conn, err := grpc.DialContext(ctx, "bufnet", grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
+	conn, err := grpc.DialContext(baseCtx, "bufnet", grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
 		return listener.Dial()
 	}), grpc.WithTransportCredentials(insecure.NewCredentials()))
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = conn.Close() })
 
 	client := pluginreleasepb.NewPluginReleaseServiceClient(conn)
-
-	createResp, err := client.CreateReleaseCandidate(ctx, &pluginreleasepb.CreateReleaseCandidateRequest{
-		TenantId:         "tenant-canary",
+	callCtx := pluginReleaseGRPCContext(t, baseCtx, canaryContractTenantUUID)
+	createResp, err := client.CreateReleaseCandidate(callCtx, &pluginreleasepb.CreateReleaseCandidateRequest{
+		TenantUuid:       canaryContractTenantUUID,
 		PluginId:         "px.demo",
 		Version:          "v2.1.0",
 		BuildArtifactUri: "s3://bucket/releases/v2.1.0.zip",
@@ -54,22 +54,24 @@ func TestPluginReleaseGRPC_CanaryRolloutLifecycle(t *testing.T) {
 		},
 	})
 	require.NoError(t, err)
+	assertNoPluginReleaseTenantLeakProto(t, createResp)
 
-	_, err = client.RunQualityGates(ctx, &pluginreleasepb.RunQualityGatesRequest{
+	gateResp, err := client.RunQualityGates(callCtx, &pluginreleasepb.RunQualityGatesRequest{
 		CandidateId: createResp.GetCandidateId(),
 	})
 	require.NoError(t, err)
+	assertNoPluginReleaseTenantLeakProto(t, gateResp)
 
 	windowStart := time.Now().Add(30 * time.Minute).UTC()
 	windowEnd := windowStart.Add(time.Hour)
-	planResp, err := client.GenerateReleasePlan(ctx, &pluginreleasepb.GenerateReleasePlanRequest{
+	planResp, err := client.GenerateReleasePlan(callCtx, &pluginreleasepb.GenerateReleasePlanRequest{
 		CandidateId: createResp.GetCandidateId(),
 		WindowStart: windowStart.Format(time.RFC3339),
 		WindowEnd:   windowEnd.Format(time.RFC3339),
 		Batches: []*pluginreleasepb.CanaryBatch{
 			{
 				Name:        "batch-safe",
-				TenantScope: []string{"tenant-east"},
+				TenantScope: []string{canaryScopeTenantUUID},
 				MetricThresholds: map[string]float64{
 					"error_rate": 0.05,
 				},
@@ -80,8 +82,9 @@ func TestPluginReleaseGRPC_CanaryRolloutLifecycle(t *testing.T) {
 		NotificationTargets: []string{"release@powerx.dev"},
 	})
 	require.NoError(t, err)
+	assertNoPluginReleaseTenantLeakProto(t, planResp)
 
-	stream, err := client.TriggerCanary(ctx, &pluginreleasepb.TriggerCanaryRequest{
+	stream, err := client.TriggerCanary(callCtx, &pluginreleasepb.TriggerCanaryRequest{
 		PlanId:    planResp.GetPlanId(),
 		BatchName: "batch-safe",
 	})
@@ -96,14 +99,16 @@ func TestPluginReleaseGRPC_CanaryRolloutLifecycle(t *testing.T) {
 		require.NoError(t, recvErr)
 		progressCount++
 		require.Equal(t, "batch-safe", progress.GetBatchName())
+		assertNoPluginReleaseTenantLeakProto(t, progress)
 	}
 	require.GreaterOrEqual(t, progressCount, 2)
 
-	finalResp, err := client.FinalizeDeployment(ctx, &pluginreleasepb.FinalizeDeploymentRequest{
+	finalResp, err := client.FinalizeDeployment(callCtx, &pluginreleasepb.FinalizeDeploymentRequest{
 		PlanId: planResp.GetPlanId(),
 		Action: "promote",
 	})
 	require.NoError(t, err)
 	require.Equal(t, planResp.GetPlanId(), finalResp.GetPlanId())
 	require.Equal(t, "completed", strings.ToLower(finalResp.GetFinalState()))
+	assertNoPluginReleaseTenantLeakProto(t, finalResp)
 }

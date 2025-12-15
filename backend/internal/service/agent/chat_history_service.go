@@ -64,7 +64,7 @@ func (s *ChatHistoryService) ensureDefaults(in *dbmodel.AgentChatSession) {
 
 // GetOrCreateSession：按 (env/tenant/agentID/userID) 获取或创建；支持 singleton
 func (s *ChatHistoryService) GetOrCreateSession(
-	ctx context.Context, env string, tenantID *uint64,
+	ctx context.Context, env string, tenantUUID *string,
 	agentID uint64, userID uint64, singleton bool,
 	defaults *dbmodel.AgentChatSession,
 ) (*dbmodel.AgentChatSession, error) {
@@ -76,43 +76,43 @@ func (s *ChatHistoryService) GetOrCreateSession(
 		s.ensureDefaults(&def)
 	}
 
-	out, err := s.sess.GetOrCreate(ctx, env, tenantID, agentID, userID, singleton, def)
+	out, err := s.sess.GetOrCreate(ctx, env, tenantUUID, agentID, userID, singleton, def)
 	if err != nil {
 		return nil, err
 	}
 
 	// 触发一次最近活跃续期
-	_ = s.sess.TouchLatest(ctx, env, tenantID, out.ID, time.Now().UTC())
+	_ = s.sess.TouchLatest(ctx, env, tenantUUID, out.ID, time.Now().UTC())
 	return out, nil
 }
 
 // FindSessionByID：带作用域读取
 func (s *ChatHistoryService) FindSessionByID(
-	ctx context.Context, env string, tenantID *uint64, id uint64,
+	ctx context.Context, env string, tenantUUID *string, id uint64,
 ) (*dbmodel.AgentChatSession, error) {
-	return s.sess.FindByID(ctx, env, tenantID, id)
+	return s.sess.FindByID(ctx, env, tenantUUID, id)
 }
 
 // ListSessions：按 Agent 维度分页查询（statuses 可为空）
 func (s *ChatHistoryService) ListSessions(
-	ctx context.Context, env string, tenantID *uint64,
+	ctx context.Context, env string, tenantUUID *string,
 	agentID uint64, statuses []string,
 	limit, offset int,
 ) ([]dbmodel.AgentChatSession, error) {
-	return s.sess.ListByAgent(ctx, env, tenantID, agentID, statuses, limit, offset)
+	return s.sess.ListByAgent(ctx, env, tenantUUID, agentID, statuses, limit, offset)
 }
 
 // UpdateSessionPolicy：可选更新 title / TTL / MaxKB / MaxTokens（部分字段更新）
 // 注意：repo 里没有改 title 的方法，这里用 gorm 直接更新 title
 func (s *ChatHistoryService) UpdateSessionPolicy(
-	ctx context.Context, env string, tenantID *uint64, id uint64,
+	ctx context.Context, env string, tenantUUID *string, id uint64,
 	title *string, ttlDays, maxKB, maxTokens *int,
 ) error {
 	// 1) title
 	if title != nil {
 		err := s.db.WithContext(ctx).
 			Model(&dbmodel.AgentChatSession{}).
-			Scopes(dbmodel.WithScope(env, tenantID)).
+			Scopes(dbmodel.WithScope(env, tenantUUID)).
 			Where("id = ?", id).
 			Updates(map[string]any{
 				"title":      strings.TrimSpace(*title),
@@ -134,27 +134,27 @@ func (s *ChatHistoryService) UpdateSessionPolicy(
 		tk = *maxTokens
 	}
 	if ttlDays != nil || maxKB != nil || maxTokens != nil {
-		if err := s.sess.UpdatePolicy(ctx, env, tenantID, id, t, kb, tk); err != nil {
+		if err := s.sess.UpdatePolicy(ctx, env, tenantUUID, id, t, kb, tk); err != nil {
 			return err
 		}
 		// 更新策略后，顺带续期
-		_ = s.sess.TouchLatest(ctx, env, tenantID, id, time.Now().UTC())
+		_ = s.sess.TouchLatest(ctx, env, tenantUUID, id, time.Now().UTC())
 	}
 	return nil
 }
 
 // ArchiveSession：归档（软删除前常用）
 func (s *ChatHistoryService) ArchiveSession(
-	ctx context.Context, env string, tenantID *uint64, id uint64,
+	ctx context.Context, env string, tenantUUID *string, id uint64,
 ) error {
-	return s.sess.Archive(ctx, env, tenantID, id)
+	return s.sess.Archive(ctx, env, tenantUUID, id)
 }
 
 // DeleteSession：先删消息再软删会话
 func (s *ChatHistoryService) DeleteSession(
-	ctx context.Context, env string, tenantID *uint64, id uint64,
+	ctx context.Context, env string, tenantUUID *string, id uint64,
 ) error {
-	if err := s.msg.DeleteBySession(ctx, env, tenantID, id); err != nil {
+	if err := s.msg.DeleteBySession(ctx, env, tenantUUID, id); err != nil {
 		return err
 	}
 	return s.sess.DeleteSoft(ctx, id)
@@ -162,15 +162,15 @@ func (s *ChatHistoryService) DeleteSession(
 
 // ListMessages：会话内分页拉取消息（支持 afterID 游标）
 func (s *ChatHistoryService) ListMessages(
-	ctx context.Context, env string, tenantID *uint64,
+	ctx context.Context, env string, tenantUUID *string,
 	sessionID uint64, afterID uint64, limit int,
 ) ([]dbmodel.AgentChatMessage, error) {
-	return s.msg.ListBySession(ctx, env, tenantID, sessionID, afterID, limit)
+	return s.msg.ListBySession(ctx, env, tenantUUID, sessionID, afterID, limit)
 }
 
 // AppendMessage：追加一条消息，并刷新会话“最近活跃/过期时间”
 func (s *ChatHistoryService) AppendMessage(
-	ctx context.Context, env string, tenantID *uint64,
+	ctx context.Context, env string, tenantUUID *string,
 	sessionID, agentID uint64,
 	role, content, contentType string,
 	tokensIn, tokensOut int,
@@ -185,7 +185,7 @@ func (s *ChatHistoryService) AppendMessage(
 	tokens := tokensIn + tokensOut
 	m := &dbmodel.AgentChatMessage{
 		Env:         env,
-		TenantID:    tenantID,
+		TenantUUID:    tenantUUID,
 		SessionID:   sessionID,
 		AgentID:     agentID,
 		Role:        role,
@@ -200,14 +200,14 @@ func (s *ChatHistoryService) AppendMessage(
 		return nil, err
 	}
 	// 续期 latest/expired_at
-	_ = s.sess.TouchLatest(ctx, env, tenantID, sessionID, time.Now().UTC())
+	_ = s.sess.TouchLatest(ctx, env, tenantUUID, sessionID, time.Now().UTC())
 	return m, nil
 }
 
 // SummarizeIfNeeded：当消息/体量超过阈值或会话过期时，生成滚动摘要并续期
 // 这里给一个“轻量无 LLM”的实现：拼接最近 N 条做简要摘要；后续你可替换为真实 LLM 总结。
 func (s *ChatHistoryService) SummarizeIfNeeded(
-	ctx context.Context, env string, tenantID *uint64, session *dbmodel.AgentChatSession,
+	ctx context.Context, env string, tenantUUID *string, session *dbmodel.AgentChatSession,
 ) (bool, error) {
 	if session == nil {
 		return false, errors.New("nil session")
@@ -215,7 +215,7 @@ func (s *ChatHistoryService) SummarizeIfNeeded(
 	// 确保策略默认值
 	s.ensureDefaults(session)
 
-	stats, err := s.msg.StatsBySession(ctx, env, tenantID, session.ID)
+	stats, err := s.msg.StatsBySession(ctx, env, tenantUUID, session.ID)
 	if err != nil {
 		return false, err
 	}
@@ -230,7 +230,7 @@ func (s *ChatHistoryService) SummarizeIfNeeded(
 
 	// 取最近 N 条做一个“轻量摘要”（占位）
 	const N = 8
-	latest, _ := s.msg.ListLatestN(ctx, env, tenantID, session.ID, N)
+	latest, _ := s.msg.ListLatestN(ctx, env, tenantUUID, session.ID, N)
 	var b strings.Builder
 	for i := range latest {
 		r := latest[i].Role
@@ -252,20 +252,20 @@ func (s *ChatHistoryService) SummarizeIfNeeded(
 		sum = "（自动摘要占位）"
 	}
 
-	if err := s.sess.SetSummary(ctx, env, tenantID, session.ID, sum); err != nil {
+	if err := s.sess.SetSummary(ctx, env, tenantUUID, session.ID, sum); err != nil {
 		return false, err
 	}
 	// 摘要后，从现在起续期
-	_ = s.sess.TouchLatest(ctx, env, tenantID, session.ID, time.Now().UTC())
+	_ = s.sess.TouchLatest(ctx, env, tenantUUID, session.ID, time.Now().UTC())
 	return true, nil
 }
 
 func (s *ChatHistoryService) RenameSession(
-	ctx context.Context, env string, tenantID *uint64, sessionID uint64, title string,
+	ctx context.Context, env string, tenantUUID *string, sessionID uint64, title string,
 ) error {
 	title = strings.TrimSpace(title)
 	if title == "" {
 		return nil
 	}
-	return s.sess.UpdateSessionTitle(ctx, env, tenantID, sessionID, title)
+	return s.sess.UpdateSessionTitle(ctx, env, tenantUUID, sessionID, title)
 }

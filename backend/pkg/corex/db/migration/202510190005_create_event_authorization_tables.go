@@ -36,7 +36,7 @@ func CreateEventAuthorizationTables(db *gorm.DB) error {
 	if err := db.Exec(
 		"CREATE UNIQUE INDEX IF NOT EXISTS uk_event_auth_grant_subject_status_active ON " +
 			(&eventfabricmodel.AuthorizationGrant{}).TableName() +
-			" (tenant_id, subject_type, subject_id) " +
+			" (tenant_uuid, subject_type, subject_id) " +
 			"WHERE status IN ('pending','active');",
 	).Error; err != nil {
 		return err
@@ -69,7 +69,7 @@ func CreateEventAuthorizationTables(db *gorm.DB) error {
 	if err := db.Exec(
 		"CREATE UNIQUE INDEX IF NOT EXISTS uk_event_auth_template_name ON " +
 			(&eventfabricmodel.AuthorizationGrantTemplate{}).TableName() +
-			" (COALESCE(tenant_id::text, '00000000-0000-0000-0000-000000000000'), name);",
+			" (COALESCE(NULLIF(tenant_uuid, ''), '00000000-0000-0000-0000-000000000000'), name);",
 	).Error; err != nil {
 		return err
 	}

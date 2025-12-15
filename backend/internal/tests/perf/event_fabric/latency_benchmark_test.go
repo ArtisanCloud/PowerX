@@ -25,6 +25,7 @@ func BenchmarkEventFabricDeliveryLatency(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		eventID := fmt.Sprintf("bench-latency-%d", i)
 		req := delivery.PublishRequest{
+			TenantUUID: env.tenant,
 			TenantID:   env.tenant,
 			Topic:      env.topic.FullTopic,
 			EventID:    eventID,

@@ -19,14 +19,14 @@ type AIProviderCredential struct {
 	coremodel.PowerModel
 
 	// 作用域字段（注意：不要给单列 unique！）
-	Env string `gorm:"size:32;index:ai_cred_uniq_global,unique,priority:1,where:tenant_id IS NULL;index:ai_cred_uniq_tenant,unique,priority:1" json:"-"`
+	Env string `gorm:"size:32;index:ai_cred_uniq_global,unique,priority:1,where:tenant_uuid IS NULL;index:ai_cred_uniq_tenant,unique,priority:1" json:"-"`
 
-	TenantID *uint64 `gorm:"index:ai_cred_uniq_tenant,unique,priority:2" json:"-"`
+	TenantUUID *string `gorm:"column:tenant_uuid;index:ai_cred_uniq_tenant,unique,priority:2" json:"-"`
 
 	// 逻辑键
-	Name string `gorm:"type:varchar(128);index:ai_cred_uniq_global,unique,priority:2,where:tenant_id IS NULL;index:ai_cred_uniq_tenant,unique,priority:3" json:"name"`
+	Name string `gorm:"type:varchar(128);index:ai_cred_uniq_global,unique,priority:2,where:tenant_uuid IS NULL;index:ai_cred_uniq_tenant,unique,priority:3" json:"name"`
 
-	Provider string `gorm:"type:varchar(64);index:ai_cred_uniq_global,unique,priority:3,where:tenant_id IS NULL;index:ai_cred_uniq_tenant,unique,priority:4" json:"provider"`
+	Provider string `gorm:"type:varchar(64);index:ai_cred_uniq_global,unique,priority:3,where:tenant_uuid IS NULL;index:ai_cred_uniq_tenant,unique,priority:4" json:"provider"`
 
 	// 鉴权方案及数据（建议只存 secret 引用）
 	AuthScheme string            `gorm:"size:32"                         json:"authScheme"` // bearer|aksk|oauth|query_token|custom_sig
@@ -48,15 +48,15 @@ func (mdl *AIProviderCredential) GetTableName(needFull bool) string {
 type AIModelProfile struct {
 	coremodel.PowerModel
 
-	Env string `gorm:"size:32;index:ai_model_uniq_global,unique,priority:1,where:tenant_id IS NULL;index:ai_model_uniq_tenant,unique,priority:1" json:"-"`
+	Env string `gorm:"size:32;index:ai_model_uniq_global,unique,priority:1,where:tenant_uuid IS NULL;index:ai_model_uniq_tenant,unique,priority:1" json:"-"`
 
-	TenantID *uint64 `gorm:"index:ai_model_uniq_tenant,unique,priority:2" json:"-"`
+	TenantUUID *string `gorm:"column:tenant_uuid;index:ai_model_uniq_tenant,unique,priority:2" json:"-"`
 
-	Modality string `gorm:"size:32;index:ai_model_uniq_global,unique,priority:2,where:tenant_id IS NULL;index:ai_model_uniq_tenant,unique,priority:3" json:"modality"`
+	Modality string `gorm:"size:32;index:ai_model_uniq_global,unique,priority:2,where:tenant_uuid IS NULL;index:ai_model_uniq_tenant,unique,priority:3" json:"modality"`
 
-	Provider string `gorm:"size:64;index:ai_model_uniq_global,unique,priority:3,where:tenant_id IS NULL;index:ai_model_uniq_tenant,unique,priority:4" json:"provider"`
+	Provider string `gorm:"size:64;index:ai_model_uniq_global,unique,priority:3,where:tenant_uuid IS NULL;index:ai_model_uniq_tenant,unique,priority:4" json:"provider"`
 
-	Model string `gorm:"size:128;index:ai_model_uniq_global,unique,priority:4,where:tenant_id IS NULL;index:ai_model_uniq_tenant,unique,priority:5" json:"model"`
+	Model string `gorm:"size:128;index:ai_model_uniq_global,unique,priority:4,where:tenant_uuid IS NULL;index:ai_model_uniq_tenant,unique,priority:5" json:"model"`
 
 	// 画像名（可选），便于人类识别
 	Label string `gorm:"size:128" json:"label"`
@@ -84,7 +84,9 @@ func (mdl *AIModelProfile) GetTableName(needFull bool) string {
 // 3) 路由策略
 type AIRoutePolicy struct {
 	coremodel.PowerModel
-	coremodel.ScopeRef
+
+	Env        string  `gorm:"size:32;index" json:"-"`
+	TenantUUID *string `gorm:"column:tenant_uuid;index" json:"-"`
 
 	Modality string `gorm:"size:32;index" json:"modality"` // llm|image|...
 
@@ -118,7 +120,9 @@ func (mdl *AIRoutePolicy) GetTableName(needFull bool) string {
 // 4) 用量日志（推荐）
 type AIUsageLog struct {
 	coremodel.PowerModel `json:"-"`
-	coremodel.ScopeRef   `json:"-"`
+
+	Env        string  `gorm:"size:32;index" json:"-"`
+	TenantUUID *string `gorm:"column:tenant_uuid;index" json:"-"`
 
 	Modality string `gorm:"size:32;index"  json:"modality"`
 	Provider string `gorm:"size:64;index"  json:"provider"`
@@ -146,8 +150,8 @@ func (mdl *AIUsageLog) GetTableName(needFull bool) string {
 }
 
 // 作用域查询（PostgreSQL 建议使用 IS NOT DISTINCT FROM 处理 NULL 比较）
-func WithScope(env string, tenantID *uint64) func(db *gorm.DB) *gorm.DB {
+func WithScope(env string, tenantUUID *string) func(db *gorm.DB) *gorm.DB {
 	return func(db *gorm.DB) *gorm.DB {
-		return db.Where("env = ? AND tenant_id IS NOT DISTINCT FROM ?", env, tenantID)
+		return db.Where("env = ? AND tenant_uuid IS NOT DISTINCT FROM ?", env, tenantUUID)
 	}
 }

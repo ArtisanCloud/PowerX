@@ -18,7 +18,7 @@ func BenchmarkRouterInvokePrimary(b *testing.B) {
 	registryRepo := testutil.NewMockRegistryRepository([]router.Registration{
 		{
 			CapabilityID: "capabilities.text.translate",
-			TenantID:     "tenant-corex",
+			TenantUUID:   "tenant-corex",
 			Status:       "published",
 			Adapters: []router.AdapterEndpoint{
 				{
@@ -56,7 +56,7 @@ func BenchmarkRouterInvokePrimary(b *testing.B) {
 	})
 	req := router.InvokeRequest{
 		CapabilityID: "capabilities.text.translate",
-		TenantID:     "tenant-corex",
+		TenantUUID:   "tenant-corex",
 	}
 
 	if _, err := routerSvc.Invoke(ctx, req); err != nil {
@@ -76,7 +76,7 @@ func BenchmarkRouterFallback(b *testing.B) {
 	registryRepo := testutil.NewMockRegistryRepository([]router.Registration{
 		{
 			CapabilityID: "capabilities.text.translate",
-			TenantID:     "tenant-corex",
+			TenantUUID:   "tenant-corex",
 			Status:       "published",
 			Adapters: []router.AdapterEndpoint{
 				{
@@ -107,13 +107,13 @@ func BenchmarkRouterFallback(b *testing.B) {
 	})
 	req := router.InvokeRequest{
 		CapabilityID: "capabilities.text.translate",
-		TenantID:     "tenant-corex",
+		TenantUUID:   "tenant-corex",
 	}
 
 	// 标记适配器为不可用以触发 fallback。
 	if err := routerSvc.ReportHealth(ctx, router.ReportHealthInput{
 		CapabilityID: "capabilities.text.translate",
-		TenantID:     "tenant-corex",
+		TenantUUID:   "tenant-corex",
 		AdapterID:    "adapter-primary",
 		Status:       "unhealthy",
 		Reason:       "benchmark",
@@ -137,7 +137,7 @@ func BenchmarkRegistryGetLatest(b *testing.B) {
 	ctx := context.Background()
 	registration := router.Registration{
 		CapabilityID: "capabilities.text.translate",
-		TenantID:     "tenant-corex",
+		TenantUUID:   "tenant-corex",
 		Status:       "published",
 		Version:      5,
 		Adapters: []router.AdapterEndpoint{
@@ -164,13 +164,13 @@ func BenchmarkRegistryGetLatest(b *testing.B) {
 	})
 
 	opts := capabilityRegistryRegistry.GetRegistrationOptions{VersionSelector: "latest"}
-	if _, err := registrySvc.GetRegistration(ctx, registration.CapabilityID, registration.TenantID, opts); err != nil {
+	if _, err := registrySvc.GetRegistration(ctx, registration.CapabilityID, registration.TenantUUID, opts); err != nil {
 		b.Fatalf("initial get failed: %v", err)
 	}
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		if _, err := registrySvc.GetRegistration(ctx, registration.CapabilityID, registration.TenantID, opts); err != nil {
+		if _, err := registrySvc.GetRegistration(ctx, registration.CapabilityID, registration.TenantUUID, opts); err != nil {
 			b.Fatalf("get registration failed: %v", err)
 		}
 	}

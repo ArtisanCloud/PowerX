@@ -25,10 +25,10 @@ func (r *TenantSettingRepository) with(ctx context.Context) *gorm.DB {
 	return db
 }
 
-func (r *TenantSettingRepository) GetByTenantAndKey(ctx context.Context, tenantID uint64, key string) (*dbsetting.TenantSetting, error) {
+func (r *TenantSettingRepository) GetByTenantAndKey(ctx context.Context, tenantUUID, key string) (*dbsetting.TenantSetting, error) {
 	var s dbsetting.TenantSetting
 	err := r.with(ctx).
-		Where("tenant_id = ? AND key = ?", tenantID, key).
+		Where("tenant_uuid = ? AND key = ?", tenantUUID, key).
 		First(&s).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -39,23 +39,23 @@ func (r *TenantSettingRepository) GetByTenantAndKey(ctx context.Context, tenantI
 	return &s, nil
 }
 
-func (r *TenantSettingRepository) ListByTenantAndPrefix(ctx context.Context, tenantID uint64, prefix string) ([]*dbsetting.TenantSetting, error) {
+func (r *TenantSettingRepository) ListByTenantAndPrefix(ctx context.Context, tenantUUID, prefix string) ([]*dbsetting.TenantSetting, error) {
 	var list []*dbsetting.TenantSetting
 	err := r.with(ctx).
-		Where("tenant_id = ? AND key LIKE ?", tenantID, prefix+"%").
+		Where("tenant_uuid = ? AND key LIKE ?", tenantUUID, prefix+"%").
 		Find(&list).Error
 	return list, err
 }
 
 func (r *TenantSettingRepository) Upsert(ctx context.Context, s *dbsetting.TenantSetting) error {
 	return r.with(ctx).Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: "tenant_id"}, {Name: "key"}},
+		Columns:   []clause.Column{{Name: "tenant_uuid"}, {Name: "key"}},
 		DoUpdates: clause.AssignmentColumns([]string{"value_json", "group", "description", "editable", "updated_at"}),
 	}).Create(s).Error
 }
 
-func (r *TenantSettingRepository) Delete(ctx context.Context, tenantID uint64, key string, soft bool) error {
-	db := r.with(ctx).Where("tenant_id = ? AND key = ?", tenantID, key)
+func (r *TenantSettingRepository) Delete(ctx context.Context, tenantUUID, key string, soft bool) error {
+	db := r.with(ctx).Where("tenant_uuid = ? AND key = ?", tenantUUID, key)
 	if !soft {
 		db = db.Unscoped()
 	}
@@ -64,10 +64,10 @@ func (r *TenantSettingRepository) Delete(ctx context.Context, tenantID uint64, k
 
 // GetEffective 返回 DB 侧“生效值”：tenant 覆盖优先；若无，则回退到 system。
 // 关于与 文件/ENV 合并：建议放到上层 Service 完成，这里只管 DB 两层。
-func (r *TenantSettingRepository) GetEffective(ctx context.Context, tenantID *uint64, key string, sysRepo *SystemSettingRepository) (value json.RawMessage, source string, err error) {
+func (r *TenantSettingRepository) GetEffective(ctx context.Context, tenantUUID *string, key string, sysRepo *SystemSettingRepository) (value json.RawMessage, source string, err error) {
 	// 优先租户
-	if tenantID != nil {
-		if ts, e := r.GetByTenantAndKey(ctx, *tenantID, key); e != nil {
+	if tenantUUID != nil {
+		if ts, e := r.GetByTenantAndKey(ctx, *tenantUUID, key); e != nil {
 			return nil, "", e
 		} else if ts != nil {
 			return json.RawMessage(ts.ValueJSON), "tenant", nil

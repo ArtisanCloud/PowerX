@@ -32,7 +32,7 @@ func TestRegistryAdminRESTContracts(t *testing.T) {
 
 	createResp, etag := env.createCapability(t)
 	assertEqual(t, "capabilities.text.translate", createResp.CapabilityID, "capability id")
-	assertEqual(t, "tenant-corex", createResp.TenantID, "tenant id")
+	assertEqual(t, "tenant-corex", createResp.TenantUUID, "tenant uuid")
 	assertUint64(t, 1, createResp.Version, "version")
 	assertInt(t, http.StatusCreated, createResp.StatusCode, "status code")
 	if etag == "" {
@@ -48,7 +48,7 @@ func TestRegistryAdminRESTContracts(t *testing.T) {
 	updateResp, newETag := env.updateCapability(t, etag)
 	assertUint64(t, 2, updateResp.Version, "updated version")
 	assertEqual(t, "capabilities.text.translate", updateResp.CapabilityID, "updated capability id")
-	assertEqual(t, "tenant-corex", updateResp.TenantID, "updated tenant id")
+	assertEqual(t, "tenant-corex", updateResp.TenantUUID, "updated tenant uuid")
 	if etag == newETag {
 		t.Fatal("etag should change after update")
 	}
@@ -87,7 +87,7 @@ func newRegistryHTTPTestEnv(t *testing.T) *registryHTTPTestEnv {
 	router := gin.New()
 	group := router.Group("/admin")
 	group.POST("/capabilities", handler.CreateCapability)
-	tenantScoped := group.Group("/capabilities/:capabilityId/tenants/:tenantId")
+	tenantScoped := group.Group("/capabilities/:capabilityId/tenants/:tenant_uuid")
 	tenantScoped.GET("", handler.GetCapability)
 	tenantScoped.PUT("", handler.UpdateCapability)
 	tenantScoped.DELETE("", handler.DisableCapability)
@@ -110,7 +110,7 @@ func (env *registryHTTPTestEnv) Close() {
 func (env *registryHTTPTestEnv) createCapability(t *testing.T) (registryCreateResponse, string) {
 	reqBody := map[string]interface{}{
 		"capability_id":  "capabilities.text.translate",
-		"tenant_id":      "tenant-corex",
+		"tenant_uuid":    "tenant-corex",
 		"contract_ref":   "contracts.text.translate@1.0.0",
 		"status":         "published",
 		"tool_grant_ids": []string{"grant-text-translate"},
@@ -168,7 +168,7 @@ func (env *registryHTTPTestEnv) getCapability(t *testing.T, version string) capa
 func (env *registryHTTPTestEnv) updateCapability(t *testing.T, etag string) (registryCreateResponse, string) {
 	reqBody := map[string]interface{}{
 		"capability_id":  "capabilities.text.translate",
-		"tenant_id":      "tenant-corex",
+		"tenant_uuid":    "tenant-corex",
 		"contract_ref":   "contracts.text.translate@1.0.0",
 		"status":         "published",
 		"tool_grant_ids": []string{"grant-text-translate"},
@@ -210,7 +210,7 @@ func (env *registryHTTPTestEnv) updateCapability(t *testing.T, etag string) (reg
 func (env *registryHTTPTestEnv) expectConflictOnStaleUpdate(t *testing.T, staleETag string) {
 	reqBody := map[string]interface{}{
 		"capability_id": "capabilities.text.translate",
-		"tenant_id":     "tenant-corex",
+		"tenant_uuid":   "tenant-corex",
 		"contract_ref":  "contracts.text.translate@1.0.0",
 		"status":        "published",
 		"version":       1,
@@ -326,14 +326,14 @@ func decodeJSON(t *testing.T, reader io.Reader, dest interface{}) {
 type registryCreateResponse struct {
 	StatusCode   int    `json:"-"`
 	CapabilityID string `json:"capability_id"`
-	TenantID     string `json:"tenant_id"`
+	TenantUUID   string `json:"tenant_uuid"`
 	Version      uint64 `json:"version"`
 	Status       string `json:"status"`
 }
 
 type capabilitySnapshot struct {
 	CapabilityID  string                `json:"capability_id"`
-	TenantID      string                `json:"tenant_id"`
+	TenantUUID    string                `json:"tenant_uuid"`
 	ContractRef   string                `json:"contract_ref"`
 	Status        string                `json:"status"`
 	Version       uint64                `json:"version"`
@@ -411,7 +411,7 @@ func newMemoryRepository() *memoryRepository {
 func (r *memoryRepository) Create(ctx context.Context, _ *gorm.DB, reg capabilityRegistryService.Registration) (capabilityRegistryService.Registration, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	key := repoKey(reg.CapabilityID, reg.TenantID)
+	key := repoKey(reg.CapabilityID, reg.TenantUUID)
 	r.registrations[key] = append(r.registrations[key], reg)
 	return reg, nil
 }
@@ -419,7 +419,7 @@ func (r *memoryRepository) Create(ctx context.Context, _ *gorm.DB, reg capabilit
 func (r *memoryRepository) Update(ctx context.Context, _ *gorm.DB, reg capabilityRegistryService.Registration, expectedVersion uint64) (capabilityRegistryService.Registration, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	key := repoKey(reg.CapabilityID, reg.TenantID)
+	key := repoKey(reg.CapabilityID, reg.TenantUUID)
 	list := r.registrations[key]
 	if len(list) == 0 {
 		return capabilityRegistryService.Registration{}, capabilityRegistryService.ErrRegistrationNotFound
@@ -432,20 +432,20 @@ func (r *memoryRepository) Update(ctx context.Context, _ *gorm.DB, reg capabilit
 	return reg, nil
 }
 
-func (r *memoryRepository) GetLatest(ctx context.Context, _ *gorm.DB, capabilityID, tenantID string) (capabilityRegistryService.Registration, error) {
+func (r *memoryRepository) GetLatest(ctx context.Context, _ *gorm.DB, capabilityID, tenantUUID string) (capabilityRegistryService.Registration, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	list := r.registrations[repoKey(capabilityID, tenantID)]
+	list := r.registrations[repoKey(capabilityID, tenantUUID)]
 	if len(list) == 0 {
 		return capabilityRegistryService.Registration{}, capabilityRegistryService.ErrRegistrationNotFound
 	}
 	return list[len(list)-1], nil
 }
 
-func (r *memoryRepository) GetVersion(ctx context.Context, _ *gorm.DB, capabilityID, tenantID string, version uint64) (capabilityRegistryService.Registration, error) {
+func (r *memoryRepository) GetVersion(ctx context.Context, _ *gorm.DB, capabilityID, tenantUUID string, version uint64) (capabilityRegistryService.Registration, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	for _, reg := range r.registrations[repoKey(capabilityID, tenantID)] {
+	for _, reg := range r.registrations[repoKey(capabilityID, tenantUUID)] {
 		if reg.Version == version {
 			return reg, nil
 		}
@@ -453,10 +453,10 @@ func (r *memoryRepository) GetVersion(ctx context.Context, _ *gorm.DB, capabilit
 	return capabilityRegistryService.Registration{}, capabilityRegistryService.ErrRegistrationNotFound
 }
 
-func (r *memoryRepository) Disable(ctx context.Context, _ *gorm.DB, capabilityID, tenantID, reason, actor string, expectedVersion uint64, next capabilityRegistryService.Registration) (capabilityRegistryService.Registration, error) {
+func (r *memoryRepository) Disable(ctx context.Context, _ *gorm.DB, capabilityID, tenantUUID, reason, actor string, expectedVersion uint64, next capabilityRegistryService.Registration) (capabilityRegistryService.Registration, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	key := repoKey(capabilityID, tenantID)
+	key := repoKey(capabilityID, tenantUUID)
 	list := r.registrations[key]
 	if len(list) == 0 {
 		return capabilityRegistryService.Registration{}, capabilityRegistryService.ErrRegistrationNotFound
@@ -469,15 +469,15 @@ func (r *memoryRepository) Disable(ctx context.Context, _ *gorm.DB, capabilityID
 	return next, nil
 }
 
-func repoKey(capabilityID, tenantID string) string { return capabilityID + "::" + tenantID }
+func repoKey(capabilityID, tenantUUID string) string { return capabilityID + "::" + tenantUUID }
 
-func (r *memoryRepository) ListLatest(ctx context.Context, _ *gorm.DB, tenantID string, limit, offset int) ([]capabilityRegistryService.Registration, int64, error) {
+func (r *memoryRepository) ListLatest(ctx context.Context, _ *gorm.DB, tenantUUID string, limit, offset int) ([]capabilityRegistryService.Registration, int64, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	var all []capabilityRegistryService.Registration
 	for key, regs := range r.registrations {
 		parts := strings.Split(key, "::")
-		if len(parts) != 2 || parts[1] != tenantID {
+		if len(parts) != 2 || parts[1] != tenantUUID {
 			continue
 		}
 		if len(regs) == 0 {

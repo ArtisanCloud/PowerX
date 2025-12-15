@@ -43,12 +43,23 @@ func (s *RouterSandboxServer) Simulate(ctx context.Context, req *capabilityRegis
 	}
 	invoke := req.GetRequest()
 	capability := invoke.GetCapability()
+	tenantUUID, err := tenantUUIDFromScopedID(capability)
+	if err != nil {
+		return nil, err
+	}
 	var override *router.Registration
 	if req.GetRegistrationOverride() != nil {
 		regOverride := req.GetRegistrationOverride()
+		if regOverride.GetId() == nil {
+			return nil, status.Error(codes.InvalidArgument, "registration override id required")
+		}
+		overrideTenantUUID, err := tenantUUIDFromScopedID(regOverride.GetId())
+		if err != nil {
+			return nil, err
+		}
 		override = &router.Registration{
 			CapabilityID:        regOverride.GetId().GetCapabilityId(),
-			TenantID:            regOverride.GetId().GetTenantId(),
+			TenantUUID:          overrideTenantUUID,
 			ContractRef:         regOverride.GetContractRef(),
 			Status:              regOverride.GetStatus(),
 			EnvironmentPolicies: convertEnvironmentPolicies(regOverride.GetEnvironmentPolicies()),
@@ -61,10 +72,11 @@ func (s *RouterSandboxServer) Simulate(ctx context.Context, req *capabilityRegis
 			UpdatedBy:           regOverride.GetUpdatedBy(),
 		}
 	}
-	result, err := s.service.SimulateInvoke(ctx, capability.GetCapabilityId(), capability.GetTenantId(), router.InvokeRequest{
-		Payload:   invoke.GetPayload(),
-		Timeout:   timeDurationFromProto(invoke.GetTimeoutMs()),
-		StickyKey: invoke.GetStickyKey(),
+	result, err := s.service.SimulateInvoke(ctx, capability.GetCapabilityId(), tenantUUID, router.InvokeRequest{
+		TenantUUID: tenantUUID,
+		Payload:    invoke.GetPayload(),
+		Timeout:    timeDurationFromProto(invoke.GetTimeoutMs()),
+		StickyKey:  invoke.GetStickyKey(),
 	}, override)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())

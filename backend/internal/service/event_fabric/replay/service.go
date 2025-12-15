@@ -143,7 +143,6 @@ func (s *Service) CreateTask(ctx context.Context, input CreateTaskInput) (*Task,
 	}
 
 	record := &eventfabricmodel.ReplayRequest{
-		TenantID:       topicDef.TenantID,
 		TenantKey:      tenantKey,
 		TopicUUID:      topicDef.UUID,
 		TraceID:        strings.TrimSpace(input.TraceID),
@@ -272,7 +271,7 @@ func (s *Service) executeReplay(ctx context.Context, request *eventfabricmodel.R
 
 		newEventID := fmt.Sprintf("%s-replay-%d", envelope.EventID, idx)
 		if err := s.delivery.Publish(ctx, delivery.PublishRequest{
-			TenantID:       request.TenantKey,
+			TenantUUID:     request.TenantKey,
 			Topic:          fullTopic,
 			EventID:        newEventID,
 			TraceID:        envelope.TraceID,

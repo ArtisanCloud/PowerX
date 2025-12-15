@@ -11,7 +11,7 @@
       "regions": ["us-east-1"],
       "tenantWhitelist": [
         {
-          "tenantId": "demo",
+          "tenant_uuid": "demo",
           "environment": "staging"
         }
       ],

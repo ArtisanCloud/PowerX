@@ -74,7 +74,7 @@ callCoreX(req):
 
 ## 配置约定（建议）
 - `COREX_GRPC_ADDR`：PowerX gRPC 地址（例如 `127.0.0.1:9001`）
-- `COREX_PLUGIN_CLIENT_ID`：形如 `<pluginID>.<tenantID>`（例如 `com.powerx.demo.hello_world.123`）
+- `COREX_PLUGIN_CLIENT_ID`：形如 `<pluginID>.<tenantUUID>`（例如 `com.powerx.demo.hello_world.7423fd59-6bfb-4873-b0da-c9ff6a8930db`）
 - `COREX_PLUGIN_CLIENT_SECRET`：明文 secret（从宿主启用/轮换接口安全获取）
 - `STS_AUDIENCE`（可选，默认 `powerx:api`）
 - `STS_SCOPE`（可选，默认 `access`）
@@ -84,7 +84,7 @@ callCoreX(req):
 - Token 仅存内存；TTL 建议 2–10 分钟；预留 60s 余量做预刷新。
 - `client_secret` 需安全存储；轮换后旧 secret 立即失效。
 - 校验 audience/scope 限定用途；记录 Exchange 与业务调用审计日志。
-- 启动自恢复避免生成 `tenant_id=0` 的凭证（仅在上下文含有效租户时创建）。
+- 启动自恢复避免生成缺失 `tenant_uuid` 的凭证（仅在上下文含有效租户时创建）。
 
 ---
 参考实现：
@@ -93,4 +93,3 @@ callCoreX(req):
 - gRPC 拦截器：`internal/transport/grpc/auth/middleware/auth_interceptor.go`
 - 插件凭证服务：`internal/service/setting/plugin_instance_config_service.go`
 - 启用流程（PostEnable）：`internal/infra/plugin/manager/lifecycle.go`
-

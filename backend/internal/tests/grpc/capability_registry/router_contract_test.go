@@ -26,25 +26,27 @@ func TestCapabilityRouterGRPCContracts(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
+	tenantCtx := capabilityRegistryContext(t, ctx, "tenant-corex")
 	env := newRouterGRPCTestEnv(t)
 	t.Cleanup(env.Close)
 
 	// happy path should route to primary adapter
-	invokeResp, err := env.client.Invoke(ctx, &capabilityRegistryPB.InvokeRequest{
+	invokeResp, err := env.client.Invoke(tenantCtx, &capabilityRegistryPB.InvokeRequest{
 		Capability: &capabilityRegistryPB.TenantScopedId{
 			CapabilityId: "capabilities.text.translate",
-			TenantId:     "tenant-corex",
+			TenantUuid:   "tenant-corex",
 		},
 	})
 	assertNoError(t, err)
 	assertEqual(t, "adapter-primary", invokeResp.GetAdapterId(), "primary adapter selection")
 	assertBoolFalseRouter(t, invokeResp.GetFallbackUsed(), "primary fallback flag")
+	assertNoCapabilityRegistryTenantLeak(t, invokeResp)
 
 	// mark primary unhealthy, expect backup
-	_, err = env.client.ReportHealth(ctx, &capabilityRegistryPB.ReportHealthRequest{
+	reportResp, err := env.client.ReportHealth(tenantCtx, &capabilityRegistryPB.ReportHealthRequest{
 		Id: &capabilityRegistryPB.TenantScopedId{
 			CapabilityId: "capabilities.text.translate",
-			TenantId:     "tenant-corex",
+			TenantUuid:   "tenant-corex",
 		},
 		AdapterId: "adapter-primary",
 		Status:    "unhealthy",
@@ -52,21 +54,23 @@ func TestCapabilityRouterGRPCContracts(t *testing.T) {
 		Failures:  3,
 	})
 	assertNoError(t, err)
+	assertNoCapabilityRegistryTenantLeak(t, reportResp)
 
-	invokeResp2, err := env.client.Invoke(ctx, &capabilityRegistryPB.InvokeRequest{
+	invokeResp2, err := env.client.Invoke(tenantCtx, &capabilityRegistryPB.InvokeRequest{
 		Capability: &capabilityRegistryPB.TenantScopedId{
 			CapabilityId: "capabilities.text.translate",
-			TenantId:     "tenant-corex",
+			TenantUuid:   "tenant-corex",
 		},
 	})
 	assertNoError(t, err)
 	assertEqual(t, "adapter-backup", invokeResp2.GetAdapterId(), "backup adapter selection")
+	assertNoCapabilityRegistryTenantLeak(t, invokeResp2)
 
 	// mark backup unhealthy -> expect fallback static response
-	_, err = env.client.ReportHealth(ctx, &capabilityRegistryPB.ReportHealthRequest{
+	reportResp2, err := env.client.ReportHealth(tenantCtx, &capabilityRegistryPB.ReportHealthRequest{
 		Id: &capabilityRegistryPB.TenantScopedId{
 			CapabilityId: "capabilities.text.translate",
-			TenantId:     "tenant-corex",
+			TenantUuid:   "tenant-corex",
 		},
 		AdapterId: "adapter-backup",
 		Status:    "unhealthy",
@@ -74,23 +78,25 @@ func TestCapabilityRouterGRPCContracts(t *testing.T) {
 		Failures:  2,
 	})
 	assertNoError(t, err)
+	assertNoCapabilityRegistryTenantLeak(t, reportResp2)
 
-	invokeResp3, err := env.client.Invoke(ctx, &capabilityRegistryPB.InvokeRequest{
+	invokeResp3, err := env.client.Invoke(tenantCtx, &capabilityRegistryPB.InvokeRequest{
 		Capability: &capabilityRegistryPB.TenantScopedId{
 			CapabilityId: "capabilities.text.translate",
-			TenantId:     "tenant-corex",
+			TenantUuid:   "tenant-corex",
 		},
 	})
 	assertNoError(t, err)
 	assertBoolTrueRouter(t, invokeResp3.GetFallbackUsed(), "fallback flag")
 	assertEqual(t, "", invokeResp3.GetAdapterId(), "no adapter when fallback triggered")
 	assertContainsStringRouter(t, string(invokeResp3.GetPayload()), "fallback", "static fallback payload")
+	assertNoCapabilityRegistryTenantLeak(t, invokeResp3)
 
 	// report unknown capability should return error
-	_, err = env.client.Invoke(ctx, &capabilityRegistryPB.InvokeRequest{
+	_, err = env.client.Invoke(tenantCtx, &capabilityRegistryPB.InvokeRequest{
 		Capability: &capabilityRegistryPB.TenantScopedId{
 			CapabilityId: "capabilities.unknown",
-			TenantId:     "tenant-corex",
+			TenantUuid:   "tenant-corex",
 		},
 	})
 	assertStatusCode(t, codes.NotFound, err)
@@ -111,7 +117,7 @@ func newRouterGRPCTestEnv(t *testing.T) *routerGRPCTestEnv {
 	registryRepo := testutil.NewMockRegistryRepository([]router.Registration{
 		{
 			CapabilityID: "capabilities.text.translate",
-			TenantID:     "tenant-corex",
+			TenantUUID:   "tenant-corex",
 			Status:       "published",
 			Adapters: []router.AdapterEndpoint{
 				{

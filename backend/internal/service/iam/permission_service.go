@@ -18,8 +18,8 @@ type PermissionRegisterItem struct {
 }
 
 type ActorContext struct {
-	IsRoot   bool
-	TenantID uint64
+	IsRoot     bool
+	TenantUUID string
 }
 
 type SetIDsResult struct {

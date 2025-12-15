@@ -6,12 +6,12 @@ import (
 
 // ShareValidator 校验共享申请（白名单、权限等）。
 type ShareValidator interface {
-	Validate(ctx context.Context, agent *Agent, tenantID string, quotas []ShareQuota, metadata map[string]string) error
+	Validate(ctx context.Context, agent *Agent, tenantUUID string, quotas []ShareQuota, metadata map[string]string) error
 }
 
 // QuotaProvisioner 负责复制/回收配额与凭证。
 type QuotaProvisioner interface {
-	Provision(ctx context.Context, agent *Agent, tenantID string, quotas []ShareQuota, metadata map[string]string) error
+	Provision(ctx context.Context, agent *Agent, tenantUUID string, quotas []ShareQuota, metadata map[string]string) error
 	Release(ctx context.Context, share *AgentShare) error
 }
 

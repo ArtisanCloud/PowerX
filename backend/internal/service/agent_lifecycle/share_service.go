@@ -17,8 +17,8 @@ func (s *Service) ShareAgent(ctx context.Context, in ShareInput) (*AgentShare, e
 	if s.shares == nil {
 		return nil, fmt.Errorf("share repository not configured")
 	}
-	if in.AgentID == uuid.Nil || strings.TrimSpace(in.TenantID) == "" {
-		return nil, fmt.Errorf("agent_id and tenant_id are required")
+	if in.AgentID == uuid.Nil || strings.TrimSpace(in.TenantUUID) == "" {
+		return nil, fmt.Errorf("agent_id and tenant_uuid are required")
 	}
 
 	ctx, traceID := agentinstr.EnsureTraceContext(ctx)
@@ -26,28 +26,28 @@ func (s *Service) ShareAgent(ctx context.Context, in ShareInput) (*AgentShare, e
 	if err != nil {
 		return nil, err
 	}
-	ctx = agentinstr.WithTenant(ctx, agentModel.TenantID)
+	ctx = agentinstr.WithTenant(ctx, agentModel.TenantUUID)
 	agent := toAgent(agentModel, decodeToolGrantsJSON(agentModel.ToolGrants), decodeStringMap(agentModel.Metadata))
 
-	if _, err := s.shares.FindActiveByAgentTenant(ctx, in.AgentID, in.TenantID); err == nil {
+	if _, err := s.shares.FindActiveByAgentTenant(ctx, in.AgentID, in.TenantUUID); err == nil {
 		return nil, ErrAgentShareExists
 	}
 
-	if err := s.shareValidator.Validate(ctx, agent, in.TenantID, in.Quotas, in.Metadata); err != nil {
+	if err := s.shareValidator.Validate(ctx, agent, in.TenantUUID, in.Quotas, in.Metadata); err != nil {
 		s.emitShareValidationFailure(ctx, nil, in.TraceID, err)
 		return nil, fmt.Errorf("%w: %s", ErrShareValidationFailed, err.Error())
 	}
 
 	now := s.clock()
 	record := &agentmodel.AgentShareRecord{
-		AgentUUID:      in.AgentID,
-		TargetTenantID: in.TenantID,
-		Status:         ShareStatusPending,
-		Quotas:         encodeShareQuotas(in.Quotas),
-		Metadata:       encodeStringMap(in.Metadata),
-		IssuedBy:       in.RequestedBy,
-		ValidatedAt:    &now,
-		NextReviewAt:   s.nextShareReviewAt(now),
+		AgentUUID:        in.AgentID,
+		TargetTenantUUID: in.TenantUUID,
+		Status:           ShareStatusPending,
+		Quotas:           encodeShareQuotas(in.Quotas),
+		Metadata:         encodeStringMap(in.Metadata),
+		IssuedBy:         in.RequestedBy,
+		ValidatedAt:      &now,
+		NextReviewAt:     s.nextShareReviewAt(now),
 	}
 
 	created, err := s.shares.Create(ctx, record)
@@ -58,7 +58,7 @@ func (s *Service) ShareAgent(ctx context.Context, in ShareInput) (*AgentShare, e
 		return nil, err
 	}
 
-	if err := s.quotaProvisioner.Provision(ctx, agent, in.TenantID, in.Quotas, in.Metadata); err != nil {
+	if err := s.quotaProvisioner.Provision(ctx, agent, in.TenantUUID, in.Quotas, in.Metadata); err != nil {
 		s.failShareProvision(ctx, created, err)
 		s.notifyShareFailure(ctx, toAgentShare(created), traceID, err)
 		return nil, err
@@ -78,7 +78,7 @@ func (s *Service) ShareAgent(ctx context.Context, in ShareInput) (*AgentShare, e
 	share := toAgentShare(saved)
 
 	s.emitShareEvent(ctx, "agent.share.issued", share, traceID)
-	s.auditShareOperation(ctx, share, agent.TenantID, "SHARE_AGENT", "SUCCESS")
+	s.auditShareOperation(ctx, share, agent.TenantUUID, "SHARE_AGENT", "SUCCESS")
 	s.notifyShareIssued(ctx, share, traceID)
 	return share, nil
 }
@@ -103,7 +103,7 @@ func (s *Service) RevokeAgentShare(ctx context.Context, in RevokeShareInput) (*A
 
 	agentModel, ownerErr := s.profiles.GetByUUID(ctx, record.AgentUUID)
 	if ownerErr == nil {
-		ctx = agentinstr.WithTenant(ctx, agentModel.TenantID)
+		ctx = agentinstr.WithTenant(ctx, agentModel.TenantUUID)
 	}
 
 	share := toAgentShare(record)
@@ -125,7 +125,7 @@ func (s *Service) RevokeAgentShare(ctx context.Context, in RevokeShareInput) (*A
 	s.emitShareEvent(ctx, "agent.share.revoked", share, traceID)
 	ownerTenant := ""
 	if ownerErr == nil {
-		ownerTenant = agentModel.TenantID
+		ownerTenant = agentModel.TenantUUID
 	}
 	s.auditShareOperation(ctx, share, ownerTenant, "REVOKE_AGENT_SHARE", "SUCCESS")
 	s.notifyShareRevoked(ctx, share, traceID)
@@ -147,12 +147,12 @@ func (s *Service) emitShareEvent(ctx context.Context, topic string, share *Agent
 		return
 	}
 	payload := map[string]any{
-		"share_id":   share.ID.String(),
-		"agent_id":   share.AgentID.String(),
-		"tenant_id":  share.TenantID,
-		"status":     share.Status,
-		"trace_id":   traceID,
-		"revoked_by": share.RevokedBy,
+		"share_id":    share.ID.String(),
+		"agent_id":    share.AgentID.String(),
+		"tenant_uuid": share.TenantUUID,
+		"status":      share.Status,
+		"trace_id":    traceID,
+		"revoked_by":  share.RevokedBy,
 	}
 	s.bus.Publish(topic, payload, ctx)
 }
@@ -178,7 +178,7 @@ func (s *Service) notifyShareIssued(ctx context.Context, share *AgentShare, trac
 	}
 	msg := imnotify.Message{
 		Title:    "Agent share issued",
-		Content:  fmt.Sprintf("Agent %s shared to tenant %s", share.AgentID, share.TenantID),
+		Content:  fmt.Sprintf("Agent %s shared to tenant %s", share.AgentID, share.TenantUUID),
 		Severity: "info",
 		TraceID:  traceID,
 		Metadata: map[string]any{
@@ -222,16 +222,16 @@ func (s *Service) notifyShareFailure(ctx context.Context, share *AgentShare, tra
 	_ = s.notifier.Send(ctx, msg)
 }
 
-func (s *Service) auditShareOperation(ctx context.Context, share *AgentShare, tenantID, operation, outcome string) {
+func (s *Service) auditShareOperation(ctx context.Context, share *AgentShare, tenantUUID, operation, outcome string) {
 	if s.instr == nil || share == nil {
 		return
 	}
 	meta := map[string]any{
-		"target_tenant_id": share.TenantID,
-		"share_id":         share.ID.String(),
-		"status":           share.Status,
+		"target_tenant_uuid": share.TenantUUID,
+		"share_id":           share.ID.String(),
+		"status":             share.Status,
 	}
-	s.instr.AuditLifecycleEvent(ctx, tenantID, share.AgentID.String(), operation, outcome, meta)
+	s.instr.AuditLifecycleEvent(ctx, tenantUUID, share.AgentID.String(), operation, outcome, meta)
 }
 
 func (s *Service) nextShareReviewAt(now time.Time) *time.Time {

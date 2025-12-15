@@ -36,7 +36,7 @@ last_reviewed_at: 2025-02-20
 
 # End-to-End Flow
 
-1. 调用上下文携带 `tenant_id`, `user_roles`, `business_tag`。
+1. 调用上下文携带 `tenant_uuid`, `user_roles`, `business_tag`。
 2. 策略引擎校验租户授权与限流、地域策略，返回实例池与配额。
 3. 路由层根据策略选择 Plugin 实例（同城/跨区/生产/测试），注入租户隔离 Header。
 4. 调用完成后写入租户级指标、限流计数与审计。
@@ -48,7 +48,7 @@ sequenceDiagram
   participant Router
   participant Plugin
 
-  Gateway->>PolicyEngine: tenant_id + capability
+  Gateway->>PolicyEngine: tenant_uuid + capability
   PolicyEngine-->>Gateway: authorization + limits + routing policy
   Gateway->>Router: route request with policy
   Router->>Plugin: 调用目标实例
@@ -57,7 +57,7 @@ sequenceDiagram
 
 # Key Interactions & Contracts
 
-- `POST /tenant-policy/authorize` — 输入：`tenant_id`, `capability`, `region`, `context`; 输出：`allowed`, `limits`, `route_selector`.
+- `POST /tenant-policy/authorize` — 输入：`tenant_uuid`, `capability`, `region`, `context`; 输出：`allowed`, `limits`, `route_selector`.
 - `POST /tenant-policy/limits/report` — 记录使用量/限流命中。
 - Configs：`tenant_route_policy.yaml`, `tenant_limit_matrix.yaml`.
 - Header：`x-tenant-token`, `x-route-policy`, `x-data-domain`.

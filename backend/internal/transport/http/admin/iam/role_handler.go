@@ -1,42 +1,72 @@
 package iam
 
 import (
-	"github.com/ArtisanCloud/PowerX/internal/app/shared"
-	"github.com/ArtisanCloud/PowerX/pkg/corex/iam"
-	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
-	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"net/http"
 	"strconv"
 	"strings"
 
-	"github.com/gin-gonic/gin"
-
+	"github.com/ArtisanCloud/PowerX/internal/app/shared"
 	iamsvc "github.com/ArtisanCloud/PowerX/internal/service/iam"
 	dbm "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/iam"
-	// 统一响应/校验
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
+	"github.com/ArtisanCloud/PowerX/pkg/dto"
+	"github.com/gin-gonic/gin"
 )
 
 // 列表查询参数（仅查询用，不重复定义实体）
 type RolelistQuery struct {
-	Scope    string  `form:"scope"`           // system|tenant（为空则按 as_tenant_id 推断）
-	TenantID *uint64 `form:"tenant_id"`       // 可被 as_tenant_id 覆盖
-	Keyword  string  `form:"keyword"`         // code/name 模糊
-	Builtin  *bool   `form:"builtin"`         // true/false
-	Page     int     `form:"page,default=1"`  // 页码
-	Size     int     `form:"size,default=20"` // 每页
-	Sort     string  `form:"sort"`            // 如 "name asc" / "created_at desc"
+	Scope      string `form:"scope"`           // system|tenant（为空则按上下文推断）
+	TenantUUID string `form:"tenant_uuid"`     // Root 可显式指定租户 UUID
+	Keyword    string `form:"keyword"`         // code/name 模糊
+	Builtin    *bool  `form:"builtin"`         // true/false
+	Page       int    `form:"page,default=1"`  // 页码
+	Size       int    `form:"size,default=20"` // 每页
+	Sort       string `form:"sort"`            // 如 "name asc" / "created_at desc"
 }
 
-type RoleHandler struct{ svc *iamsvc.RoleService }
+type RoleHandler struct {
+	svc *iamsvc.RoleService
+}
 
 func NewRoleHandler(deps *shared.Deps) *RoleHandler {
-	return &RoleHandler{svc: iamsvc.NewRoleService(deps.DB)}
+	return &RoleHandler{
+		svc: iamsvc.NewRoleService(deps.DB),
+	}
+}
+
+func (h *RoleHandler) roleContextFromGin(c *gin.Context) (iamsvc.RoleContext, bool) {
+	tuuid, ok := h.tenantUUIDFromContext(c)
+	if !ok {
+		return iamsvc.RoleContext{}, false
+	}
+	return iamsvc.RoleContext{
+		IsRoot:     reqctx.IsRoot(c.Request.Context()),
+		TenantUUID: tuuid,
+	}, true
+}
+
+func (h *RoleHandler) tenantUUIDFromContext(c *gin.Context) (string, bool) {
+	ctx := c.Request.Context()
+	if reqctx.IsRoot(ctx) {
+		raw := strings.TrimSpace(reqctx.TenantUUIDFromGin(c))
+		if raw == "" {
+			return raw, true
+		}
+		canonical, err := reqctx.CanonicalTenantUUID(raw)
+		if err != nil {
+			dto.ResponseError(c, http.StatusBadRequest, "tenant_uuid must be valid", err)
+			return "", false
+		}
+		return canonical, true
+	}
+	return requireTenantUUIDFromContext(c)
 }
 
 // POST /api/admin/iam/roles
 type roleCreateReq struct {
 	Scope       string       `json:"scope"        binding:"required,oneof=system tenant"`
-	TenantID    uint64       `json:"tenant_id"`
+	TenantUUID  string       `json:"tenant_uuid"` // Root 可以指定目标租户；普通租户默认取上下文
 	Code        iam.RoleCode `json:"code"         binding:"required"`
 	Name        string       `json:"name"         binding:"required"`
 	Description string       `json:"description"`
@@ -50,17 +80,34 @@ func (h *RoleHandler) Create(c *gin.Context) {
 		dto.ResponseError(c, http.StatusBadRequest, "参数绑定失败", err)
 		return
 	}
+	roleCtx, ok := h.roleContextFromGin(c)
+	if !ok {
+		return
+	}
+
+	scope := strings.TrimSpace(req.Scope)
+	if scope == "" {
+		scope = string(iam.RoleScopeTenant)
+	}
+
+	tenantUUID := ""
+	if strings.EqualFold(scope, string(iam.RoleScopeTenant)) {
+		tenantUUID = strings.TrimSpace(req.TenantUUID)
+		if tenantUUID == "" {
+			tenantUUID = strings.TrimSpace(roleCtx.TenantUUID)
+		}
+	}
 
 	role := &dbm.Role{
-		Scope:       string(iam.RoleScopeTenant),
-		TenantID:    req.TenantID,
+		Scope:       scope,
+		TenantUUID:  tenantUUID,
 		Code:        req.Code,
 		Name:        req.Name,
 		Description: req.Description,
 		Builtin:     req.Builtin,
 	}
 
-	out, bindRes, err := h.svc.CreateWithPerms(c.Request.Context(), role, req.PermIDs)
+	out, bindRes, err := h.svc.CreateWithPerms(c.Request.Context(), roleCtx, role, req.PermIDs)
 	if err != nil {
 		// Service 内已区分 forbidden/invalid 等错误，这里直接 400/403 的细分可按需再加
 		dto.ResponseError(c, http.StatusBadRequest, "创建角色失败", err)
@@ -87,14 +134,17 @@ func (h *RoleHandler) Update(c *gin.Context) {
 	}
 
 	roleID, _ := strconv.ParseUint(c.Param("id"), 10, 64)
-	tid := reqctx.GetTenantID(c)
+	roleCtx, ok := h.roleContextFromGin(c)
+	if !ok {
+		return
+	}
 
 	patch := &dbm.Role{
 		Name:        strings.TrimSpace(in.Name),
 		Description: strings.TrimSpace(in.Description),
 	}
 
-	if err := h.svc.Update(c.Request.Context(), roleID, &tid, patch); err != nil {
+	if err := h.svc.Update(c.Request.Context(), roleCtx, roleID, patch); err != nil {
 		dto.ResponseError(c, http.StatusBadRequest, "更新角色失败", err)
 		return
 	}
@@ -103,8 +153,11 @@ func (h *RoleHandler) Update(c *gin.Context) {
 
 func (h *RoleHandler) Delete(c *gin.Context) {
 	roleID, _ := strconv.ParseUint(c.Param("id"), 10, 64)
-	tid := reqctx.GetTenantID(c)
-	if err := h.svc.Delete(c.Request.Context(), roleID, &tid); err != nil {
+	roleCtx, ok := h.roleContextFromGin(c)
+	if !ok {
+		return
+	}
+	if err := h.svc.Delete(c.Request.Context(), roleCtx, roleID); err != nil {
 		status := http.StatusBadRequest
 		if strings.Contains(strings.ToLower(err.Error()), "not found") {
 			status = http.StatusNotFound
@@ -117,8 +170,11 @@ func (h *RoleHandler) Delete(c *gin.Context) {
 
 func (h *RoleHandler) Get(c *gin.Context) {
 	roleID, _ := strconv.ParseUint(c.Param("id"), 10, 64)
-	tid := reqctx.GetTenantID(c)
-	m, err := h.svc.Get(c.Request.Context(), roleID, tid)
+	roleCtx, ok := h.roleContextFromGin(c)
+	if !ok {
+		return
+	}
+	m, err := h.svc.Get(c.Request.Context(), roleCtx, roleID)
 	if err != nil {
 		dto.ResponseError(c, http.StatusBadRequest, "查询角色失败", err)
 		return
@@ -137,19 +193,28 @@ func (h *RoleHandler) List(c *gin.Context) {
 		dto.ResponseError(c, http.StatusBadRequest, "参数绑定失败", err)
 		return
 	}
-	// as_tenant_id 优先
-	if tid := reqctx.GetTenantID(c); tid > 0 {
-		q.TenantID = &tid
+
+	roleCtx, ok := h.roleContextFromGin(c)
+	if !ok {
+		return
 	}
 
-	page, err := h.svc.List(c.Request.Context(), iamsvc.ListOpt{
-		TenantID: q.TenantID,
-		Scope:    q.Scope,
-		Keyword:  q.Keyword,
-		Builtin:  q.Builtin,
-		Page:     q.Page,
-		Size:     q.Size,
-		Sort:     q.Sort,
+	var tenantFilter *string
+	if uuid := strings.TrimSpace(q.TenantUUID); uuid != "" {
+		tenantFilter = &uuid
+	} else if strings.TrimSpace(roleCtx.TenantUUID) != "" {
+		tenantUUID := strings.TrimSpace(roleCtx.TenantUUID)
+		tenantFilter = &tenantUUID
+	}
+
+	page, err := h.svc.List(c.Request.Context(), roleCtx, iamsvc.ListOpt{
+		TenantUUID: tenantFilter,
+		Scope:      q.Scope,
+		Keyword:    q.Keyword,
+		Builtin:    q.Builtin,
+		Page:       q.Page,
+		Size:       q.Size,
+		Sort:       q.Sort,
 	})
 	if err != nil {
 		dto.ResponseError(c, http.StatusBadRequest, "查询角色列表失败", err)

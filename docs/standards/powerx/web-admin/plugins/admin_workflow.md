@@ -29,11 +29,11 @@
   - POST `/:id/credentials/rotate`：轮换密钥并一次性返回新明文 secret
   - DELETE `/:id/tenant_config`：删除本租户该插件的凭证配置（硬删）
 
-说明：系统启用时若上下文携带了 `tenant_id`，会触发一次租户维度的 PostEnable 钩子（见 `internal/bootstrap/plugin.go`）。
+说明：系统启用时若上下文携带了 `tenant_uuid`，会触发一次租户维度的 PostEnable 钩子（见 `internal/bootstrap/plugin.go`）。
 
 ## 宿主 → 插件 gRPC 推送（可选）
 - Proto：`api/grpc/contracts/powerx/plugin/control/v1/control.proto`
-- 方法：`UpsertTenantCredentials(tenant_id, plugin_id, client_id, client_secret)`
+- 方法：`UpsertTenantCredentials(tenant_uuid, plugin_id, client_id, client_secret)`
 - 触发时机：
   - 租户首次启用成功（有一次性明文 secret）；
   - 租户轮换密钥成功。

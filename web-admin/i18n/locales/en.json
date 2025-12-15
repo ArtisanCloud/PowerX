@@ -3,9 +3,32 @@
     "openMarket": "Open Market",
     "pluginMarketplace": "Plugin Marketplace",
     "pluginReleaseCandidates": "Release Candidates",
-    "untitled": "Untitled",
+    "agent": "Agent",
+    "aiSettings": "AI Settings",
+    "aiSettingsModel": "Model Settings",
+    "aiSettingsCost": "Cost Settings",
+    "badge": "Badge",
+    "customers": "Customers",
+    "customerList": "Customer List",
+    "customerGroups": "Customer Groups",
+    "products": "Products",
+    "productList": "Product List",
+    "productCategories": "Product Categories",
+    "orders": "Orders",
+    "knowledgeSpace": "Knowledge Space",
+    "workflow": "Workflow",
+    "dashboard": "Dashboard",
+    "settings": "Settings",
+    "userManagement": "User Management",
+    "roleManagement": "Role Management",
+    "systemConfig": "System Config",
     "pluginsMarket": "Plugins Market",
     "pluginsInstalled": "Installed Plugins",
+    "loadFailed": "Menu failed to load",
+    "loadFailedDesc": "Unable to load menu data. Please check your network connection.",
+    "noItemsWarning": "No menu items found",
+    "itemCount": "{count} items",
+    "untitled": "Untitled",
     "section": {
       "untitled": "Untitled Section"
     }
@@ -17,7 +40,146 @@
     "settings": "Settings",
     "trash": "Trash",
     "cancel": "Cancel",
-    "save": "Save"
+    "save": "Save",
+    "reload": "Reload",
+    "reset": "Reset"
+  },
+  "organization": {
+    "description": "Manage your organization, members and permissions.",
+    "common": {
+      "cancel": "Cancel",
+      "save": "Save",
+      "reset": "Reset",
+      "up": "Up",
+      "down": "Down",
+      "edit": "Edit",
+      "delete": "Delete",
+      "none": "None",
+      "enabled": "Enabled",
+      "disabled": "Disabled"
+    },
+    "tabs": {
+      "departments": "Departments",
+      "users": "Users",
+      "permissions": "Permissions"
+    },
+    "department": {
+      "title": "Departments",
+      "description": "Organize teams and hierarchy.",
+      "search": "Search departments…",
+      "add": "Add department",
+      "edit": "Edit department",
+      "empty": {
+        "title": "No departments yet",
+        "noResults": "No departments found"
+      },
+      "table": {
+        "name": "Name",
+        "actions": "Actions"
+      },
+      "form": {
+        "name": "Name",
+        "parent": "Parent",
+        "noParent": "No parent",
+        "moveParent": "Move to parent",
+        "key": "Key",
+        "sort": "Sort order",
+        "leader": "Leader",
+        "status": "Status",
+        "meta": "Meta (JSON)"
+      },
+      "confirmDelete": "Delete this department?",
+      "pagination": {
+        "showing": "Showing {start}-{end} of {total}"
+      }
+    },
+    "user": {
+      "status": {
+        "active": "Active",
+        "inactive": "Inactive",
+        "suspended": "Suspended"
+      },
+      "title": "Tenant management",
+      "rootManagement": "Root management",
+      "selectTenantDesc": "Select a tenant to manage its users and roles.",
+      "searchTenants": "Search tenants…",
+      "filter": {
+        "status": "Status",
+        "plan": "Plan",
+        "allStatus": "All status",
+        "allPlans": "All plans"
+      },
+      "plan": {
+        "free": "Free",
+        "pro": "Pro",
+        "enterprise": "Enterprise"
+      },
+      "noTenantsFound": "No tenants found",
+      "noDomain": "No domain",
+      "userCount": "Users",
+      "createdAt": "Created at",
+      "loadFailed": "Failed to load tenants"
+    }
+  },
+  "tenant": {
+    "add": "Add tenant",
+    "tooltips": {
+      "saasSupport": "SaaS onboarding is coming soon"
+    }
+  },
+  "settings": {
+    "ai": {
+      "title": "AI Settings",
+      "description": "Configure providers, models and parameters.",
+      "environment": "Environment",
+      "modalityTabsLabel": "Modalities",
+      "modalityTabs": {
+        "llm": "LLM",
+        "embedding": "Embedding",
+        "speech": "Speech",
+        "vision": "Vision"
+      },
+      "sections": {
+        "general": "General",
+        "parameters": "Parameters"
+      },
+      "actions": {
+        "openCostGuard": "Open Cost Guard",
+        "backToModels": "Back to models"
+      },
+      "costGuardPageTitle": "Cost Guard",
+      "costGuardPageDesc": "Manage quota and throttling for AI usage.",
+      "costGuard": {
+        "panelTitle": "Cost guard policies",
+        "panelDesc": "Configure quotas, throttles and fallbacks.",
+        "tenantLabel": "Tenant",
+        "tenantPlaceholder": "Select tenant",
+        "refresh": "Refresh",
+        "openDashboard": "Open dashboard",
+        "lastUpdated": "Last updated",
+        "emptyTitle": "No quota data",
+        "emptyDesc": "Add quota rules to start tracking usage.",
+        "playbookTitle": "Playbooks",
+        "playbooks": {
+          "throttle": {
+            "title": "Throttle",
+            "desc": "Rate limit requests when budget is tight."
+          },
+          "degrade": {
+            "title": "Degrade",
+            "desc": "Fallback to cheaper models automatically."
+          },
+          "disable": {
+            "title": "Disable",
+            "desc": "Turn off the service when budget is exceeded."
+          }
+        },
+        "defaultTenants": {
+          "demo": "Demo",
+          "ops": "Ops"
+        }
+      }
+    }
   },
   "connection": {
     "chatSignal": "Chat Signal",
@@ -30,9 +192,6 @@
     }
   },
   "privacyPolicy": "Privacy Policy",
-  "dashboard": {
-    "title": "Dashboard"
-  },
   "header": {
     "searchPlaceholder": "Search…",
     "profile": "Profile",
@@ -47,8 +206,127 @@
   },
   "welcome": "Welcome",
   "login": "Login",
-  "register": "Register"
-  ,
+  "register": "Register",
+  "auth": {
+    "backToHome": "Back to home",
+    "welcomeBack": "Welcome back",
+    "loginSubtitle": "Sign in with your account to continue.",
+    "identifier": "Email or phone",
+    "password": "Password",
+    "remember": "Remember me",
+    "signUpNow": "Sign up now",
+    "login": {
+      "noAccount": "Don’t have an account?",
+      "forgotPassword": "Forgot password?"
+    }
+  },
+  "knowledgeSpaces": {
+    "head": {
+      "title": "Knowledge Spaces",
+      "description": "Manage knowledge spaces and ingestion"
+    },
+    "hero": {
+      "badge": "Knowledge",
+      "title": "Knowledge Space Overview",
+      "description": "Create and manage knowledge spaces",
+      "actions": {
+        "create": "Create Space",
+        "createDesc": "Start a new knowledge space",
+        "docs": "Docs",
+        "docsDesc": "Read the guide"
+      }
+    },
+    "governance": {
+      "title": "Governance",
+      "description": "Policies and permissions"
+    },
+    "qaCard": {
+      "badge": "QA",
+      "title": "QA Bridge",
+      "refresh": "Refresh",
+      "metrics": {
+        "latency": "Latency",
+        "coverage": "Coverage",
+        "toolSuccess": "Tool success"
+      }
+    },
+    "ingestion": {
+      "title": "Ingestion",
+      "subtitle": "Import content into spaces",
+      "spaceId": "Space ID",
+      "sourceType": "Source Type",
+      "sourceOptions": {
+        "pdf": "PDF",
+        "markdown": "Markdown",
+        "table": "Table",
+        "api": "API"
+      },
+      "mode": "Mode",
+      "modeDocument": "Document",
+      "modeApi": "API",
+      "uploadFile": "Upload file",
+      "uploadHint": "Support PDF/Markdown/Table",
+      "priority": "Priority",
+      "priorityOptions": {
+        "normal": "Normal",
+        "high": "High"
+      },
+      "actions": {
+        "ingestNow": "Ingest now"
+      }
+    },
+    "timeline": {
+      "title": "Timeline",
+      "description": "Recent activities",
+      "badge": "Log"
+    },
+    "placeholders": {
+      "spaces": {
+        "title": "No spaces yet",
+        "description": "Create your first knowledge space"
+      },
+      "fusion": {
+        "title": "Fusion not configured",
+        "description": "Connect data sources to start"
+      },
+      "feedback": {
+        "title": "No feedback",
+        "description": "Collect feedback to improve"
+      }
+    }
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "description": "Overview of key metrics",
+    "stats": {
+      "totalUsers": "Total Users",
+      "todayVisits": "Today Visits",
+      "totalRevenue": "Total Revenue",
+      "activeUsers": "Active Users",
+      "vsLastMonth": "vs last month"
+    },
+    "activities": {
+      "title": "Recent Activities",
+      "viewAll": "View all",
+      "users": {
+        "zhangsan": "Zhangsan",
+        "lisi": "Lisi",
+        "wangwu": "Wangwu"
+      },
+      "actions": {
+        "createArticle": "created an article",
+        "updateProfile": "updated profile",
+        "deleteComment": "deleted a comment"
+      },
+      "targets": {
+        "vueBestPractices": "Vue best practices",
+        "onTechShare": "Tech share"
+      },
+      "times": {
+        "minutesAgo": "{n} minutes ago"
+      }
+    }
+  },
   "agent": {
     "selector": {
       "pickAgent": "Pick an agent",
@@ -83,11 +361,14 @@
         "analystPrompt": "Analyst prompt"
       },
       "title": "Title",
-      "description": "Description"
+      "description": "Description",
+      "selectProvider": "Select provider",
+      "selectModel": "Select model"
     },
     "chat": {
       "defaultAgent": "Default agent",
       "connected": "Connected",
+      "disconnected": "Connection lost",
       "welcomeTitle": "Welcome",
       "welcomeMessage": "Ask me anything to get started",
       "disconnectedPlaceholder": "Disconnected",
@@ -105,6 +386,8 @@
     "gate": "Gate",
     "tenant": "Tenant",
     "createdBy": "Submitted By",
+    "createdAt": "Created At",
+    "updatedAt": "Updated At",
     "artifact": "Build Artifact",
     "submittedAt": "Submitted At",
     "releaseNotes": "Release Notes",

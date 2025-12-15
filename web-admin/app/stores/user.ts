@@ -5,6 +5,10 @@ import type {
   ContextMember,
 } from "~/composables/api/services/meService";
 import { useMe } from "~/composables/useMe";
+import {
+  persistTenantUUID,
+  getStoredTenantUUID,
+} from "~/utils/tenant-context";
 
 export const useUserStore = defineStore("user", {
   state: () => ({
@@ -26,9 +30,9 @@ export const useUserStore = defineStore("user", {
     // 是否为Root用户
     isRoot: (state): boolean => state.context?.is_root || false,
 
-    // 当前租户ID
-    currentTenantId: (state): number | null =>
-      state.context?.current_tenant_id || null,
+    // 当前租户 UUID
+    currentTenantUuid: (state): string | null =>
+      state.context?.current_tenant_uuid || getStoredTenantUUID() || null,
 
     // 当前成员ID
     currentMemberId: (state): number | null =>
@@ -39,11 +43,12 @@ export const useUserStore = defineStore("user", {
 
     // 当前租户信息
     currentTenant: (state): ContextMember | null => {
-      if (!state.context?.current_tenant_id || !state.context?.members)
+      if (!state.context?.current_tenant_uuid || !state.context?.members)
         return null;
       return (
         state.context.members.find(
-          (m: ContextMember) => m.tenant_id === state.context!.current_tenant_id
+          (m: ContextMember) =>
+            m.tenant_uuid === state.context!.current_tenant_uuid
         ) || null
       );
     },
@@ -51,9 +56,11 @@ export const useUserStore = defineStore("user", {
     // 是否为当前租户的管理员
     isCurrentTenantAdmin: (state): boolean => {
       if (state.context?.is_root) return true;
-      const currentTenant = state.context?.members?.find(
-        (m: ContextMember) => m.tenant_id === state.context!.current_tenant_id
-      );
+      const currentTenant =
+        state.context?.members?.find(
+          (m: ContextMember) =>
+            m.tenant_uuid === state.context!.current_tenant_uuid
+        ) || null;
       return currentTenant?.is_admin || false;
     },
 
@@ -80,17 +87,6 @@ export const useUserStore = defineStore("user", {
     isLoggedIn: (state): boolean => {
       return !!state.context?.user;
     },
-
-    // 获取用户在指定租户中的角色
-    getTenantRole:
-      (state) =>
-      (tenantId: number): ContextMember | null => {
-        return (
-          state.context?.members?.find(
-            (m: ContextMember) => m.tenant_id === tenantId
-          ) || null
-        );
-      },
   },
 
   actions: {
@@ -117,6 +113,7 @@ export const useUserStore = defineStore("user", {
 
         this.context = response;
         this.lastFetchedAt = Date.now();
+        this.persistCurrentTenantUUID();
       } catch (error: any) {
         this.error = error?.message || "网络请求失败";
         console.error("获取用户上下文失败:", error);
@@ -127,10 +124,10 @@ export const useUserStore = defineStore("user", {
     },
 
     // 切换当前租户
-    async switchTenant(tenantId: number) {
+    async switchTenant(tenantUuid: string) {
       // 检查用户是否有权限访问该租户
       const targetTenant = this.memberTenants.find(
-        (m: ContextMember) => m.tenant_id === tenantId
+        (m: ContextMember) => m.tenant_uuid === tenantUuid
       );
       if (!targetTenant && !this.isRoot) {
         throw new Error("您没有权限访问该租户");
@@ -138,11 +135,12 @@ export const useUserStore = defineStore("user", {
 
       try {
         const { switchTenant } = useMe();
-        const response = await switchTenant(tenantId);
+        const response = await switchTenant(tenantUuid);
 
         // 直接更新上下文，无需再次请求
         this.context = response;
         this.lastFetchedAt = Date.now();
+        this.persistCurrentTenantUUID();
       } catch (error: any) {
         console.error("切换租户失败:", error);
         throw new Error(error?.message || "切换租户失败");
@@ -162,11 +160,21 @@ export const useUserStore = defineStore("user", {
       this.error = null;
       this.lastFetchedAt = null;
       this.isLoading = false;
+      this.persistCurrentTenantUUID();
     },
 
     // 刷新用户上下文
     async refreshUserContext() {
       await this.fetchUserContext({ force: true });
+    },
+
+    persistCurrentTenantUUID() {
+      const uuid = this.context?.current_tenant_uuid?.trim();
+      if (uuid) {
+        persistTenantUUID(uuid);
+      } else {
+        persistTenantUUID(null);
+      }
     },
   },
 });

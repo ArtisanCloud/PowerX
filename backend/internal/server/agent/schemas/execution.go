@@ -12,7 +12,7 @@ type ExecutionMeta struct {
 	RequestID   string                 `json:"request_id" description:"请求ID"`
 	UserID      uint64                 `json:"user_id" description:"用户ID"`
 	CustomerID  uint64                 `json:"customer_id" description:"客户ID"`
-	TenantID    uint64                 `json:"tenant_id" description:"租户ID"`
+	TenantUUID  string                 `json:"tenant_uuid" description:"租户UUID"`
 	Timeout     time.Duration          `json:"timeout" description:"超时时间"`
 	Priority    int                    `json:"priority" description:"优先级"`
 	Metadata    map[string]interface{} `json:"metadata" description:"扩展元数据"`

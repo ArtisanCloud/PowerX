@@ -65,7 +65,7 @@ export interface ReviewResponse {
 
 export interface ReleaseCandidateSummary {
   candidateId: string
-  tenantId: string
+  tenantUuid: string
   pluginId: string
   version: string
   buildArtifactUri: string
@@ -136,14 +136,21 @@ class PluginReleaseService {
   async listReleaseCandidates(params?: {
     page?: number
     size?: number
-    tenantId?: string
+    tenantUuid?: string
     pluginId?: string
     version?: string
     approvalStatus?: string
     gateStatus?: string
     createdBy?: string
   }) {
-    const resp = await this.api.get(`${this.internalBase}/releases`, { params })
+    const { tenantUuid, ...rest } = params || {}
+    const query =
+      typeof tenantUuid === 'string'
+        ? { ...rest, tenant_uuid: tenantUuid }
+        : rest
+    const resp = await this.api.get(`${this.internalBase}/releases`, {
+      params: query,
+    })
     const data: any = resp && typeof resp === "object" && "data" in resp ? (resp as any).data : resp
     const items = Array.isArray(data?.items) ? (data.items as ReleaseCandidateSummary[]) : []
     const pagination = data?.pagination || {}

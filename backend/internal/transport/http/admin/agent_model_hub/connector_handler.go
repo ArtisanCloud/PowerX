@@ -38,7 +38,6 @@ func NewConnectorHandler(deps *appshared.Deps) *ConnectorHandler {
 
 type connectorInstanceRequest struct {
 	Env                  string            `json:"env"`
-	TenantID             string            `json:"tenantId" binding:"required"`
 	Region               string            `json:"region"`
 	OAuthRef             string            `json:"oauthRef"`
 	WebhookSigningKeyRef string            `json:"webhookSigningKeyRef"`
@@ -52,6 +51,10 @@ type connectorInstanceRequest struct {
 func (h *ConnectorHandler) upsertInstance(c *gin.Context) {
 	if h.svc == nil {
 		dtoRequest.ResponseError(c, http.StatusServiceUnavailable, "connector guard service unavailable", nil)
+		return
+	}
+	tenantUUID, ok := requireTenantUUID(c)
+	if !ok {
 		return
 	}
 	var req connectorInstanceRequest
@@ -80,7 +83,7 @@ func (h *ConnectorHandler) upsertInstance(c *gin.Context) {
 	}
 
 	input := connectorguard.ConnectorInstanceInput{
-		TenantScope:          req.TenantID,
+		TenantScope:          tenantUUID,
 		Platform:             platform,
 		Region:               req.Region,
 		OAuthRef:             req.OAuthRef,
@@ -105,7 +108,7 @@ func (h *ConnectorHandler) upsertInstance(c *gin.Context) {
 		"instance": gin.H{
 			"instance_id":        instance.UUID.String(),
 			"platform":           instance.Platform,
-			"tenantScope":        instance.TenantScope,
+			"tenant_uuid":        instance.TenantScope,
 			"status":             instance.Status,
 			"rateLimitPerMinute": instance.RateLimitPerMinute,
 			"mappingTemplate":    mapping,

@@ -15,7 +15,7 @@ type CostQuotaLedger struct {
 	coremodel.PowerUUIDModel
 
 	Env          string `gorm:"column:env;type:varchar(32);not null;index:idx_cost_quota_scope,priority:1" json:"env"`
-	TenantID     string `gorm:"column:tenant_id;type:varchar(128);not null;index:idx_cost_quota_scope,priority:2" json:"tenant_id"`
+	TenantUUID   string `gorm:"column:tenant_uuid;type:varchar(128);not null;index:idx_cost_quota_scope,priority:2" json:"tenant_uuid"`
 	BudgetPeriod string `gorm:"column:budget_period;type:varchar(32);not null" json:"budget_period"`
 
 	ProviderProfileID *uuid.UUID `gorm:"column:provider_profile_id;type:uuid" json:"provider_profile_id,omitempty"`

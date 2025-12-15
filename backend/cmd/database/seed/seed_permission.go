@@ -53,42 +53,42 @@ func SeedSystemPermissions(db *gorm.DB) error {
 	return nil
 }
 
-func SeedBuiltInRolesAndGrants(db *gorm.DB, tenantID uint64) error {
+func SeedBuiltInRolesAndGrants(db *gorm.DB, tenantUUID string) error {
 	rr := infraiam.NewRoleRepository(db)
 	rpr := infraiam.NewRolePermissionRepository(db)
 	ctx := context.Background()
 
 	// 1) upsert 系统级角色：root、system_monitor（tenant_id=0）
 	rootOut, err := rr.Upsert(ctx, &dbm.Role{
-		Scope:    "system",
-		TenantID: 0,
-		Code:     "root",
-		Name:     "Super Admin",
-		Builtin:  true,
-	}, []clause.Column{{Name: "scope"}, {Name: "tenant_id"}, {Name: "code"}})
+		Scope:      "system",
+		TenantUUID: "",
+		Code:       "root",
+		Name:       "Super Admin",
+		Builtin:    true,
+	}, []clause.Column{{Name: "scope"}, {Name: "tenant_uuid"}, {Name: "code"}})
 	if err != nil {
 		return fmt.Errorf("upsert root: %w", err)
 	}
 	monitorOut, err := rr.Upsert(ctx, &dbm.Role{
-		Scope:    "system",
-		TenantID: 0,
-		Code:     "system_monitor",
-		Name:     "System Monitor",
-		Builtin:  true,
-	}, []clause.Column{{Name: "scope"}, {Name: "tenant_id"}, {Name: "code"}})
+		Scope:      "system",
+		TenantUUID: "",
+		Code:       "system_monitor",
+		Name:       "System Monitor",
+		Builtin:    true,
+	}, []clause.Column{{Name: "scope"}, {Name: "tenant_uuid"}, {Name: "code"}})
 	if err != nil {
 		return fmt.Errorf("upsert system_monitor: %w", err)
 	}
 
 	// 2) 确保租户默认角色（role_admin / role_user）
-	if err := rr.EnsureDefaultRoles(ctx, tenantID); err != nil {
+	if err := rr.EnsureDefaultRoles(ctx, tenantUUID); err != nil {
 		return fmt.Errorf("ensure default roles: %w", err)
 	}
-	roleAdmin, err := rr.FindByCode(ctx, "tenant", &tenantID, "role_admin")
+	roleAdmin, err := rr.FindByCode(ctx, "tenant", &tenantUUID, "role_admin")
 	if err != nil {
 		return fmt.Errorf("find role_admin: %w", err)
 	}
-	roleUser, err := rr.FindByCode(ctx, "tenant", &tenantID, "role_user")
+	roleUser, err := rr.FindByCode(ctx, "tenant", &tenantUUID, "role_user")
 	if err != nil {
 		return fmt.Errorf("find role_user: %w", err)
 	}

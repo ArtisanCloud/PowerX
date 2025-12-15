@@ -28,7 +28,7 @@ func TestRouterSandboxHTTPInvoke(t *testing.T) {
 	registryRepo := testutil.NewMockRegistryRepository([]routerService.Registration{
 		{
 			CapabilityID: "capabilities.text.translate",
-			TenantID:     "tenant-corex",
+			TenantUUID:   "tenant-corex",
 			Status:       "published",
 			Adapters: []routerService.AdapterEndpoint{
 				{

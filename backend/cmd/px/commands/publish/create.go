@@ -18,7 +18,7 @@ const defaultPipelineGRPCAddr = "localhost:9090"
 
 var createOpts = struct {
 	grpcAddr         string
-	tenantID         string
+	tenantUUID       string
 	pluginID         string
 	version          string
 	artifactURI      string
@@ -43,7 +43,7 @@ func init() {
 	Command.AddCommand(createCmd)
 
 	createCmd.Flags().StringVar(&createOpts.grpcAddr, "grpc-addr", createOpts.grpcAddr, "Plugin release gRPC endpoint")
-	createCmd.Flags().StringVar(&createOpts.tenantID, "tenant-id", "", "Target tenant identifier (required)")
+	createCmd.Flags().StringVar(&createOpts.tenantUUID, "tenant-uuid", "", "Target tenant UUID (required)")
 	createCmd.Flags().StringVar(&createOpts.pluginID, "plugin-id", "", "Plugin identifier (required)")
 	createCmd.Flags().StringVar(&createOpts.version, "version", "", "Semantic version submitted for approval (required)")
 	createCmd.Flags().StringVar(&createOpts.artifactURI, "artifact-uri", "", "Build artifact URI (required)")
@@ -53,7 +53,7 @@ func init() {
 	createCmd.Flags().StringSliceVar(&createOpts.labels, "label", nil, "Optional labels (key=value)")
 	createCmd.Flags().DurationVar(&createOpts.timeout, "timeout", createOpts.timeout, "RPC timeout")
 
-	_ = createCmd.MarkFlagRequired("tenant-id")
+	_ = createCmd.MarkFlagRequired("tenant-uuid")
 	_ = createCmd.MarkFlagRequired("plugin-id")
 	_ = createCmd.MarkFlagRequired("version")
 	_ = createCmd.MarkFlagRequired("artifact-uri")
@@ -76,7 +76,7 @@ func runPublishCreate(cmd *cobra.Command, _ []string) error {
 
 	client := pluginreleasepb.NewPluginReleaseServiceClient(conn)
 	req := &pluginreleasepb.CreateReleaseCandidateRequest{
-		TenantId:         strings.TrimSpace(createOpts.tenantID),
+		TenantUuid:       strings.TrimSpace(createOpts.tenantUUID),
 		PluginId:         strings.TrimSpace(createOpts.pluginID),
 		Version:          strings.TrimSpace(createOpts.version),
 		BuildArtifactUri: strings.TrimSpace(createOpts.artifactURI),

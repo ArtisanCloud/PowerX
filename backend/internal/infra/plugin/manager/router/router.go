@@ -46,7 +46,7 @@ type DynamicRouter struct {
 
 // ===== 构造 & 路由注册 =====
 
-func NewDynamicRouter(basePrefix string, engine *gin.Engine) *DynamicRouter {
+func NewDynamicRouter(basePrefix string, engine *gin.Engine, apiMiddleware ...gin.HandlerFunc) *DynamicRouter {
 	dr := &DynamicRouter{
 		basePrefix: basePrefix,
 		engine:     engine,
@@ -108,10 +108,13 @@ func NewDynamicRouter(basePrefix string, engine *gin.Engine) *DynamicRouter {
 	{
 		grp.GET("/:id/admin/*filepath", dr.serveAdmin)
 		grp.HEAD("/:id/admin/*filepath", dr.serveAdmin)
-
-		// API 建议用 Any 覆盖所有方法
-		grp.Any("/:id/api/*filepath", dr.serveAPIProxy)
 	}
+
+	apiGrp := grp.Group("/:id/api")
+	if len(apiMiddleware) > 0 {
+		apiGrp.Use(apiMiddleware...)
+	}
+	apiGrp.Any("/*filepath", dr.serveAPIProxy)
 
 	// ---------- 调试端点 ----------
 	engine.GET("/__debug/plugins", func(c *gin.Context) {
@@ -417,6 +420,16 @@ func (r *DynamicRouter) serveAPIProxy(c *gin.Context) {
 		if pluginToken != "" {
 			log.Printf("[GATE-TOKEN] plugin=%s token.head=%s...", pluginID, pluginToken[:40])
 			req.Header.Set("Authorization", "Bearer "+pluginToken)
+		}
+		tenantUUID := strings.TrimSpace(reqctx.GetTenantUUID(c.Request.Context()))
+		if tenantUUID == "" {
+			tenantUUID = strings.TrimSpace(claims.TenantUUID)
+		}
+		if tenantUUID != "" {
+			req.Header.Set("X-Tenant-UUID", tenantUUID)
+			log.Printf("[PROXY-CTX] plugin=%s tenantUUID=%s", pluginID, tenantUUID)
+		} else {
+			log.Printf("[PROXY-CTX] plugin=%s tenantUUID missing", pluginID)
 		}
 
 		// 透传签名上下文

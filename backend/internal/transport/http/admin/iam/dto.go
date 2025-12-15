@@ -26,7 +26,7 @@ type UpdateDepartmentReq struct {
 
 type DepartmentDTO struct {
 	ID             uint64         `json:"id"`
-	TenantID       uint64         `json:"tenant_id"`
+	TenantUUID     string         `json:"tenant_uuid"`
 	Name           string         `json:"name"`
 	Key            string         `json:"key"`
 	ParentID       *uint64        `json:"parent_id,omitempty"`

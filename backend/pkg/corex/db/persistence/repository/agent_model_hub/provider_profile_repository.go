@@ -32,7 +32,7 @@ func (r *ProviderProfileRepository) WithDB(db *gorm.DB) *ProviderProfileReposito
 	return NewProviderProfileRepository(db)
 }
 
-// UpsertByScopeName enforces uniqueness on (env, tenant_id, name) while updating mutable fields.
+// UpsertByScopeName enforces uniqueness on (env, tenant_uuid, name) while updating mutable fields.
 func (r *ProviderProfileRepository) UpsertByScopeName(ctx context.Context, profile *model.ProviderProfile) (*model.ProviderProfile, error) {
 	if profile == nil {
 		return nil, errors.New("profile is nil")
@@ -40,7 +40,7 @@ func (r *ProviderProfileRepository) UpsertByScopeName(ctx context.Context, profi
 	err := r.db.WithContext(ctx).Clauses(clause.OnConflict{
 		Columns: []clause.Column{
 			{Name: "env"},
-			{Name: "tenant_id"},
+			{Name: "tenant_uuid"},
 			{Name: "name"},
 		},
 		DoUpdates: clause.AssignmentColumns([]string{
@@ -76,10 +76,10 @@ func (r *ProviderProfileRepository) FindByUUID(ctx context.Context, id uuid.UUID
 }
 
 // FindByName looks up a provider within a scope using its human readable name.
-func (r *ProviderProfileRepository) FindByName(ctx context.Context, env string, tenantID *uint64, name string) (*model.ProviderProfile, error) {
+func (r *ProviderProfileRepository) FindByName(ctx context.Context, env string, tenantUUID string, name string) (*model.ProviderProfile, error) {
 	var record model.ProviderProfile
 	query := r.db.WithContext(ctx).
-		Where("env = ? AND tenant_id IS NOT DISTINCT FROM ? AND name = ?", env, tenantID, name)
+		Where("env = ? AND tenant_uuid = ? AND name = ?", env, tenantUUID, name)
 	err := query.First(&record).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil

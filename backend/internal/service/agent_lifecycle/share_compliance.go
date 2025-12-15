@@ -38,7 +38,7 @@ func (s *Service) revalidateShare(ctx context.Context, record *agentmodel.AgentS
 	}
 	agent := toAgent(agentModel, decodeToolGrantsJSON(agentModel.ToolGrants), decodeStringMap(agentModel.Metadata))
 	share := toAgentShare(record)
-	if err := s.shareValidator.Validate(ctx, agent, share.TenantID, share.Quotas, share.Metadata); err != nil {
+	if err := s.shareValidator.Validate(ctx, agent, share.TenantUUID, share.Quotas, share.Metadata); err != nil {
 		s.handleShareValidationFailure(ctx, share, err, "share-compliance")
 		return nil
 	}

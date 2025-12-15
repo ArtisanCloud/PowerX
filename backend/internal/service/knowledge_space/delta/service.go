@@ -294,7 +294,7 @@ func (s *Service) partialAllowed(ctx context.Context, spaceID uuid.UUID) (bool, 
 	if space == nil {
 		return false, ErrSpaceNotFound
 	}
-	tenant := strings.ToLower(space.TenantID.String())
+	tenant := strings.ToLower(space.TenantUUID)
 	name := strings.ToLower(space.SpaceName)
 	for _, rule := range s.partials {
 		if matches(rule.Tenants, tenant) && matches(rule.Spaces, name) {

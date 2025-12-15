@@ -32,10 +32,8 @@ func TestFusionHTTPHandlers(t *testing.T) {
 	postStrategy := func(payload map[string]any, expectedCode int) fusionStrategyPayload {
 		body, _ := json.Marshal(payload)
 		req := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/api/admin/knowledge-spaces/%s/fusion-strategies", space.UUID), bytes.NewReader(body))
-		req.Header.Set("Authorization", "Bearer token")
 		req.Header.Set("Content-Type", "application/json")
-		resp := httptest.NewRecorder()
-		engine.ServeHTTP(resp, req)
+		resp := serveKnowledgeRequest(t, engine, req, env.TenantUUID().String())
 		require.Equal(t, expectedCode, resp.Code)
 
 		var apiResp struct {
@@ -73,9 +71,7 @@ func TestFusionHTTPHandlers(t *testing.T) {
 	var strategyList []fusionStrategyPayload
 	{
 		req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/admin/knowledge-spaces/%s/fusion-strategies", space.UUID), nil)
-		req.Header.Set("Authorization", "Bearer token")
-		resp := httptest.NewRecorder()
-		engine.ServeHTTP(resp, req)
+		resp := serveKnowledgeRequest(t, engine, req, env.TenantUUID().String())
 		require.Equal(t, http.StatusOK, resp.Code)
 		var apiResp struct {
 			Data []fusionStrategyPayload `json:"data"`
@@ -89,9 +85,7 @@ func TestFusionHTTPHandlers(t *testing.T) {
 		target := strategyList[len(strategyList)-1]
 		url := fmt.Sprintf("/api/admin/knowledge-spaces/%s/fusion-strategies/%s/rollback", space.UUID, target.StrategyID)
 		req := httptest.NewRequest(http.MethodPost, url, nil)
-		req.Header.Set("Authorization", "Bearer token")
-		resp := httptest.NewRecorder()
-		engine.ServeHTTP(resp, req)
+		resp := serveKnowledgeRequest(t, engine, req, env.TenantUUID().String())
 		require.Equal(t, http.StatusOK, resp.Code)
 		var apiResp struct {
 			Data fusionStrategyPayload `json:"data"`

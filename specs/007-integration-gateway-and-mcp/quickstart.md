@@ -30,7 +30,7 @@
      -H "Authorization: Bearer $ADMIN_TOKEN" \
      -H "Content-Type: application/json" \
      -d '{
-       "tenant_id":"tenant-001",
+       "tenant_uuid":"tenant-001",
        "route_slug":"crm-sync",
        "capability_id":"capabilities.crm.sync.v1",
        "tool_grant_ids":["grant-crm-sync"],
@@ -70,14 +70,14 @@
 4. 可在事件总线订阅 `integration.gateway.invocation.*` 主题获取执行结果。
 
 ### 步骤 4：使用 MCP 工具
-1. MCP 客户端握手后执行 `mcp call integration.route.list`，可选参数 `tenant_id`。
+1. MCP 客户端握手后执行 `mcp call integration.route.list`，可选参数 `tenant_uuid`。
 2. 返回的工具 schema 包含可调用的 `route_slug`、`capability_id`、输入/输出说明。
 3. 调用工具：
    ```json
    {
      "tool":"integration.route.invoke",
      "arguments":{
-       "tenant_id":"tenant-001",
+       "tenant_uuid":"tenant-001",
        "route_slug":"crm-sync",
        "payload":{"customer_id":"C123","operation":"sync"}
      }

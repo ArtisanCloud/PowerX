@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/ArtisanCloud/PowerX/internal/service/event_fabric/dlq"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/gin-gonic/gin"
 )
@@ -28,9 +29,9 @@ func (h *AdminDLQHandler) ListMessages(c *gin.Context) {
 		return
 	}
 
-	tenantID := strings.TrimSpace(c.Query("tenant_id"))
-	if tenantID == "" {
-		dto.RespondErrorFrom(c, dto.NewBadRequest("tenant_id is required", nil))
+	tenantUUID, err := reqctx.RequireTenantUUIDFromGin(c)
+	if err != nil {
+		dto.RespondErrorFrom(c, dto.NewUnauthorized("tenant context missing", err))
 		return
 	}
 	topic := strings.TrimSpace(c.Query("topic"))
@@ -46,11 +47,11 @@ func (h *AdminDLQHandler) ListMessages(c *gin.Context) {
 	}
 
 	messages, total, err := h.service.List(c.Request.Context(), dlq.ListRequest{
-		TenantID: tenantID,
-		TopicID:  topic,
-		Status:   status,
-		Page:     page,
-		PageSize: pageSize,
+		TenantUUID: tenantUUID,
+		TopicID:    topic,
+		Status:     status,
+		Page:       page,
+		PageSize:   pageSize,
 	})
 	if err != nil {
 		dto.RespondErrorFrom(c, dto.NewInternal("list dlq messages failed", err))
@@ -61,7 +62,7 @@ func (h *AdminDLQHandler) ListMessages(c *gin.Context) {
 	for _, msg := range messages {
 		items = append(items, gin.H{
 			"id":          msg.ID,
-			"tenant_id":   msg.TenantID,
+			"tenant_uuid": msg.TenantUUID,
 			"topic":       msg.Topic,
 			"event_id":    msg.EventID,
 			"retry_count": msg.RetryCount,
@@ -117,14 +118,14 @@ func (h *AdminDLQHandler) PurgeMessages(c *gin.Context) {
 		return
 	}
 
-	tenantID := strings.TrimSpace(c.Query("tenant_id"))
-	if tenantID == "" {
-		dto.RespondErrorFrom(c, dto.NewBadRequest("tenant_id is required", nil))
+	tenantUUID, err := reqctx.RequireTenantUUIDFromGin(c)
+	if err != nil {
+		dto.RespondErrorFrom(c, dto.NewUnauthorized("tenant context missing", err))
 		return
 	}
 
 	topic := strings.TrimSpace(c.Query("topic"))
-	removed, err := h.service.Purge(c.Request.Context(), tenantID, topic)
+	removed, err := h.service.Purge(c.Request.Context(), tenantUUID, topic)
 	if err != nil {
 		dto.RespondErrorFrom(c, dto.NewInternal("purge dlq messages failed", err))
 		return

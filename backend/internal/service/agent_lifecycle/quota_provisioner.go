@@ -10,8 +10,8 @@ import (
 // ProvisioningStep 定义单个配额复制步骤。
 type ProvisioningStep interface {
 	Name() string
-	Provision(ctx context.Context, agent *Agent, tenantID string, quotas []ShareQuota, metadata map[string]string) error
-	Rollback(ctx context.Context, agent *Agent, tenantID string, metadata map[string]string) error
+	Provision(ctx context.Context, agent *Agent, tenantUUID string, quotas []ShareQuota, metadata map[string]string) error
+	Rollback(ctx context.Context, agent *Agent, tenantUUID string, metadata map[string]string) error
 	Release(ctx context.Context, share *AgentShare) error
 }
 
@@ -37,14 +37,14 @@ func NewDefaultQuotaProvisioner(steps ...ProvisioningStep) QuotaProvisioner {
 }
 
 // Provision 执行配额复制流程。
-func (p *DefaultQuotaProvisioner) Provision(ctx context.Context, agent *Agent, tenantID string, quotas []ShareQuota, metadata map[string]string) error {
+func (p *DefaultQuotaProvisioner) Provision(ctx context.Context, agent *Agent, tenantUUID string, quotas []ShareQuota, metadata map[string]string) error {
 	if len(p.steps) == 0 {
 		return nil
 	}
 	executed := make([]ProvisioningStep, 0, len(p.steps))
 	for _, step := range p.steps {
-		if err := step.Provision(ctx, agent, tenantID, quotas, metadata); err != nil {
-			p.rollback(ctx, executed, agent, tenantID, metadata)
+		if err := step.Provision(ctx, agent, tenantUUID, quotas, metadata); err != nil {
+			p.rollback(ctx, executed, agent, tenantUUID, metadata)
 			return fmt.Errorf("quota provision step %s failed: %w", step.Name(), err)
 		}
 		executed = append(executed, step)
@@ -66,9 +66,9 @@ func (p *DefaultQuotaProvisioner) Release(ctx context.Context, share *AgentShare
 	return releaseErr
 }
 
-func (p *DefaultQuotaProvisioner) rollback(ctx context.Context, steps []ProvisioningStep, agent *Agent, tenantID string, metadata map[string]string) {
+func (p *DefaultQuotaProvisioner) rollback(ctx context.Context, steps []ProvisioningStep, agent *Agent, tenantUUID string, metadata map[string]string) {
 	for i := len(steps) - 1; i >= 0; i-- {
-		if err := steps[i].Rollback(ctx, agent, tenantID, metadata); err != nil && p.log != nil {
+		if err := steps[i].Rollback(ctx, agent, tenantUUID, metadata); err != nil && p.log != nil {
 			p.log.Warn(ctx, fmt.Sprintf("quota rollback failed for step %s: %v", steps[i].Name(), err))
 		}
 	}
@@ -81,18 +81,18 @@ type IAMProvisionStep struct {
 
 func (s IAMProvisionStep) Name() string { return "iam" }
 
-func (s IAMProvisionStep) Provision(ctx context.Context, agent *Agent, tenantID string, _ []ShareQuota, metadata map[string]string) error {
+func (s IAMProvisionStep) Provision(ctx context.Context, agent *Agent, tenantUUID string, _ []ShareQuota, metadata map[string]string) error {
 	if s.Binder == nil {
 		return nil
 	}
-	return s.Binder.BindTenant(ctx, agent, tenantID, metadata)
+	return s.Binder.BindTenant(ctx, agent, tenantUUID, metadata)
 }
 
-func (s IAMProvisionStep) Rollback(ctx context.Context, agent *Agent, tenantID string, metadata map[string]string) error {
+func (s IAMProvisionStep) Rollback(ctx context.Context, agent *Agent, tenantUUID string, metadata map[string]string) error {
 	if s.Binder == nil {
 		return nil
 	}
-	return s.Binder.UnbindTenant(ctx, agent, tenantID, metadata)
+	return s.Binder.UnbindTenant(ctx, agent, tenantUUID, metadata)
 }
 
 func (s IAMProvisionStep) Release(ctx context.Context, share *AgentShare) error {
@@ -100,7 +100,7 @@ func (s IAMProvisionStep) Release(ctx context.Context, share *AgentShare) error 
 		return nil
 	}
 	agent := &Agent{ID: share.AgentID}
-	return s.Binder.UnbindTenant(ctx, agent, share.TenantID, share.Metadata)
+	return s.Binder.UnbindTenant(ctx, agent, share.TenantUUID, share.Metadata)
 }
 
 // SecretReplicationStep 复制敏感凭证。
@@ -110,18 +110,18 @@ type SecretReplicationStep struct {
 
 func (s SecretReplicationStep) Name() string { return "secret" }
 
-func (s SecretReplicationStep) Provision(ctx context.Context, agent *Agent, tenantID string, _ []ShareQuota, metadata map[string]string) error {
+func (s SecretReplicationStep) Provision(ctx context.Context, agent *Agent, tenantUUID string, _ []ShareQuota, metadata map[string]string) error {
 	if s.Replicator == nil {
 		return nil
 	}
-	return s.Replicator.Replicate(ctx, agent, tenantID, metadata)
+	return s.Replicator.Replicate(ctx, agent, tenantUUID, metadata)
 }
 
-func (s SecretReplicationStep) Rollback(ctx context.Context, agent *Agent, tenantID string, metadata map[string]string) error {
+func (s SecretReplicationStep) Rollback(ctx context.Context, agent *Agent, tenantUUID string, metadata map[string]string) error {
 	if s.Replicator == nil {
 		return nil
 	}
-	return s.Replicator.Revoke(ctx, agent, tenantID, metadata)
+	return s.Replicator.Revoke(ctx, agent, tenantUUID, metadata)
 }
 
 func (s SecretReplicationStep) Release(ctx context.Context, share *AgentShare) error {
@@ -129,7 +129,7 @@ func (s SecretReplicationStep) Release(ctx context.Context, share *AgentShare) e
 		return nil
 	}
 	agent := &Agent{ID: share.AgentID}
-	return s.Replicator.Revoke(ctx, agent, share.TenantID, share.Metadata)
+	return s.Replicator.Revoke(ctx, agent, share.TenantUUID, share.Metadata)
 }
 
 // RateLimitProvisionStep 配置共享配额/限流。
@@ -139,18 +139,18 @@ type RateLimitProvisionStep struct {
 
 func (s RateLimitProvisionStep) Name() string { return "rate_limit" }
 
-func (s RateLimitProvisionStep) Provision(ctx context.Context, agent *Agent, tenantID string, quotas []ShareQuota, metadata map[string]string) error {
+func (s RateLimitProvisionStep) Provision(ctx context.Context, agent *Agent, tenantUUID string, quotas []ShareQuota, metadata map[string]string) error {
 	if s.Allocator == nil {
 		return nil
 	}
-	return s.Allocator.Allocate(ctx, agent, tenantID, quotas, metadata)
+	return s.Allocator.Allocate(ctx, agent, tenantUUID, quotas, metadata)
 }
 
-func (s RateLimitProvisionStep) Rollback(ctx context.Context, agent *Agent, tenantID string, metadata map[string]string) error {
+func (s RateLimitProvisionStep) Rollback(ctx context.Context, agent *Agent, tenantUUID string, metadata map[string]string) error {
 	if s.Allocator == nil {
 		return nil
 	}
-	return s.Allocator.Release(ctx, agent, tenantID, metadata)
+	return s.Allocator.Release(ctx, agent, tenantUUID, metadata)
 }
 
 func (s RateLimitProvisionStep) Release(ctx context.Context, share *AgentShare) error {
@@ -158,23 +158,23 @@ func (s RateLimitProvisionStep) Release(ctx context.Context, share *AgentShare) 
 		return nil
 	}
 	agent := &Agent{ID: share.AgentID}
-	return s.Allocator.Release(ctx, agent, share.TenantID, share.Metadata)
+	return s.Allocator.Release(ctx, agent, share.TenantUUID, share.Metadata)
 }
 
 // IAMBinder 定义 IAM 策略绑定行为。
 type IAMBinder interface {
-	BindTenant(ctx context.Context, agent *Agent, tenantID string, metadata map[string]string) error
-	UnbindTenant(ctx context.Context, agent *Agent, tenantID string, metadata map[string]string) error
+	BindTenant(ctx context.Context, agent *Agent, tenantUUID string, metadata map[string]string) error
+	UnbindTenant(ctx context.Context, agent *Agent, tenantUUID string, metadata map[string]string) error
 }
 
 // SecretReplicator 复制密钥/凭证。
 type SecretReplicator interface {
-	Replicate(ctx context.Context, agent *Agent, tenantID string, metadata map[string]string) error
-	Revoke(ctx context.Context, agent *Agent, tenantID string, metadata map[string]string) error
+	Replicate(ctx context.Context, agent *Agent, tenantUUID string, metadata map[string]string) error
+	Revoke(ctx context.Context, agent *Agent, tenantUUID string, metadata map[string]string) error
 }
 
 // RateLimitAllocator 负责限流/配额分配。
 type RateLimitAllocator interface {
-	Allocate(ctx context.Context, agent *Agent, tenantID string, quotas []ShareQuota, metadata map[string]string) error
-	Release(ctx context.Context, agent *Agent, tenantID string, metadata map[string]string) error
+	Allocate(ctx context.Context, agent *Agent, tenantUUID string, quotas []ShareQuota, metadata map[string]string) error
+	Release(ctx context.Context, agent *Agent, tenantUUID string, metadata map[string]string) error
 }

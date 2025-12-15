@@ -15,10 +15,10 @@ import (
 type WorkflowDefinition struct {
 	coremodel.PowerUUIDModel
 
-	TenantID             uint64         `gorm:"column:tenant_id;type:bigint;not null;index:idx_workflow_definitions_tenant;index:idx_workflow_definitions_alias_tenant,priority:1" json:"tenant_id"`
-	Name                 string         `gorm:"column:name;type:varchar(128);not null;index:idx_workflow_definitions_tenant_name_version,priority:2" json:"name"`
+	TenantUUID           string         `gorm:"column:tenant_uuid;type:varchar(128);not null;index:idx_workflow_definitions_tenant_uuid;index:idx_workflow_definitions_alias_tenant_uuid,priority:1" json:"tenant_uuid"`
+	Name                 string         `gorm:"column:name;type:varchar(128);not null;index:idx_workflow_definitions_tenant_uuid_name_version,priority:2" json:"name"`
 	Description          string         `gorm:"column:description;type:text" json:"description,omitempty"`
-	Version              int32          `gorm:"column:version;type:int;not null;default:1;index:idx_workflow_definitions_tenant_name_version,priority:3" json:"version"`
+	Version              int32          `gorm:"column:version;type:int;not null;default:1;index:idx_workflow_definitions_tenant_uuid_name_version,priority:3" json:"version"`
 	Status               string         `gorm:"column:status;type:varchar(32);not null;default:'draft';index:idx_workflow_definitions_status" json:"status"`
 	StepGraph            datatypes.JSON `gorm:"column:step_graph;type:jsonb;not null" json:"step_graph"`
 	DefaultRetryPolicy   datatypes.JSON `gorm:"column:default_retry_policy;type:jsonb;not null;default:'{}'::jsonb" json:"default_retry_policy,omitempty"`
@@ -30,7 +30,7 @@ type WorkflowDefinition struct {
 	ArchivedAt           *time.Time     `gorm:"column:archived_at;type:timestamp with time zone" json:"archived_at,omitempty"`
 	LastPublishedBy      uuid.UUID      `gorm:"column:last_published_by;type:uuid" json:"last_published_by,omitempty"`
 	LastChangeNote       string         `gorm:"column:last_change_note;type:varchar(256)" json:"last_change_note,omitempty"`
-	VersionAlias         string         `gorm:"column:version_alias;type:varchar(64);index:idx_workflow_definitions_alias_tenant,priority:2" json:"version_alias,omitempty"`
+	VersionAlias         string         `gorm:"column:version_alias;type:varchar(64);index:idx_workflow_definitions_alias_tenant_uuid,priority:2" json:"version_alias,omitempty"`
 	InitialContextSchema datatypes.JSON `gorm:"column:initial_context_schema;type:jsonb;not null;default:'{}'::jsonb" json:"initial_context_schema,omitempty"`
 }
 

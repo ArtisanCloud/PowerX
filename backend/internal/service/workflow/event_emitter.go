@@ -3,6 +3,7 @@ package workflow
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -48,9 +49,9 @@ func toJSONPayload(payload map[string]any) datatypes.JSON {
 	return datatypes.JSON(bytes)
 }
 
-func newWorkflowEvent(tenantID uint64, instanceUUID uuid.UUID, eventType string, summary string, payload map[string]any) *modelworkflow.WorkflowEvent {
+func newWorkflowEvent(tenantUUID string, instanceUUID uuid.UUID, eventType string, summary string, payload map[string]any) *modelworkflow.WorkflowEvent {
 	return &modelworkflow.WorkflowEvent{
-		TenantID:     tenantID,
+		TenantUUID:   strings.ToLower(strings.TrimSpace(tenantUUID)),
 		WorkflowUUID: instanceUUID,
 		EventType:    eventType,
 		Summary:      summary,

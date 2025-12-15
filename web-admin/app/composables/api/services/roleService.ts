@@ -8,7 +8,7 @@ export interface Role {
   updatedAt: string;
   DeletedAt?: string | null;
   scope: "system" | "tenant";
-  tenant_id: number;
+  tenant_uuid?: string;
   code: string;
   name: string;
   description?: string;
@@ -18,7 +18,7 @@ export interface Role {
 // 角色列表查询参数
 export interface RoleListParams {
   scope?: string;
-  tenant_id?: number;
+  tenant_uuid?: string;
   keyword?: string;
   builtin?: boolean;
   page?: number;
@@ -30,7 +30,7 @@ export interface RoleListParams {
 // 角色创建参数
 export interface RoleCreateParams {
   scope: "system" | "tenant";
-  tenant_id?: number; // 可选，系统角色不需要
+  tenant_uuid?: string; // 可选，系统角色不需要
   code: string;
   name: string;
   description?: string;
@@ -85,8 +85,8 @@ export const useRoleService = () => {
       const queryParams = new URLSearchParams();
 
       if (params?.scope) queryParams.append("scope", params.scope);
-      if (params?.tenant_id)
-        queryParams.append("tenant_id", params.tenant_id.toString());
+      if (params?.tenant_uuid)
+        queryParams.append("tenant_uuid", params.tenant_uuid);
       if (params?.keyword) queryParams.append("keyword", params.keyword);
       if (params?.builtin !== undefined)
         queryParams.append("builtin", params.builtin.toString());

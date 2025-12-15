@@ -29,8 +29,12 @@ func (s *RegistryServer) CreateCapability(ctx context.Context, req *capabilityRe
 	if req.GetRegistration() == nil {
 		return nil, status.Error(codes.InvalidArgument, "registration required")
 	}
+	payload, err := pbToPayload(req.GetRegistration())
+	if err != nil {
+		return nil, err
+	}
 	reg, err := s.svc.CreateRegistration(ctx, capabilityRegistryService.CreateRegistrationInput{
-		Registration: pbToPayload(req.GetRegistration()),
+		Registration: payload,
 	})
 	if err != nil {
 		return nil, toStatusError(err)
@@ -42,7 +46,10 @@ func (s *RegistryServer) UpdateCapability(ctx context.Context, req *capabilityRe
 	if req.GetRegistration() == nil {
 		return nil, status.Error(codes.InvalidArgument, "registration required")
 	}
-	payload := pbToPayload(req.GetRegistration())
+	payload, err := pbToPayload(req.GetRegistration())
+	if err != nil {
+		return nil, err
+	}
 	payload.Version = req.GetRegistration().GetVersion()
 	reg, err := s.svc.UpdateRegistration(ctx, capabilityRegistryService.UpdateRegistrationInput{Registration: payload})
 	if err != nil {
@@ -55,11 +62,15 @@ func (s *RegistryServer) GetCapability(ctx context.Context, req *capabilityRegis
 	if req.GetId() == nil {
 		return nil, status.Error(codes.InvalidArgument, "id required")
 	}
+	tenantUUID, err := tenantUUIDFromScopedID(req.GetId())
+	if err != nil {
+		return nil, err
+	}
 	options := capabilityRegistryService.GetRegistrationOptions{VersionSelector: req.GetVersion()}
-	if v, err := parseUint(req.GetVersion()); err == nil {
+	if v, convErr := parseUint(req.GetVersion()); convErr == nil {
 		options.Version = v
 	}
-	reg, err := s.svc.GetRegistration(ctx, req.GetId().GetCapabilityId(), req.GetId().GetTenantId(), options)
+	reg, err := s.svc.GetRegistration(ctx, req.GetId().GetCapabilityId(), tenantUUID, options)
 	if err != nil {
 		return nil, toStatusError(err)
 	}
@@ -70,9 +81,13 @@ func (s *RegistryServer) DisableCapability(ctx context.Context, req *capabilityR
 	if req.GetId() == nil {
 		return nil, status.Error(codes.InvalidArgument, "id required")
 	}
+	tenantUUID, err := tenantUUIDFromScopedID(req.GetId())
+	if err != nil {
+		return nil, err
+	}
 	reg, err := s.svc.DisableRegistration(ctx, capabilityRegistryService.DisableRegistrationInput{
 		CapabilityID: req.GetId().GetCapabilityId(),
-		TenantID:     req.GetId().GetTenantId(),
+		TenantUUID:   tenantUUID,
 		Reason:       req.GetReason(),
 	})
 	if err != nil {
@@ -85,7 +100,14 @@ func (s *RegistryServer) StreamUpdates(*capabilityRegistryPB.StreamUpdatesReques
 	return status.Error(codes.Unimplemented, "stream updates not implemented")
 }
 
-func pbToPayload(pbReg *capabilityRegistryPB.CapabilityRegistration) capabilityRegistryService.RegistrationPayload {
+func pbToPayload(pbReg *capabilityRegistryPB.CapabilityRegistration) (capabilityRegistryService.RegistrationPayload, error) {
+	if pbReg == nil || pbReg.GetId() == nil {
+		return capabilityRegistryService.RegistrationPayload{}, status.Error(codes.InvalidArgument, "registration id required")
+	}
+	tenantUUID, err := tenantUUIDFromScopedID(pbReg.GetId())
+	if err != nil {
+		return capabilityRegistryService.RegistrationPayload{}, err
+	}
 	environmentPolicies := make(map[string]capabilityRegistryService.EnvironmentPolicy, len(pbReg.GetEnvironmentPolicies()))
 	for key, value := range pbReg.GetEnvironmentPolicies() {
 		environmentPolicies[key] = capabilityRegistryService.EnvironmentPolicy{
@@ -153,7 +175,7 @@ func pbToPayload(pbReg *capabilityRegistryPB.CapabilityRegistration) capabilityR
 
 	return capabilityRegistryService.RegistrationPayload{
 		CapabilityID:        pbReg.GetId().GetCapabilityId(),
-		TenantID:            pbReg.GetId().GetTenantId(),
+		TenantUUID:          tenantUUID,
 		ContractRef:         pbReg.GetContractRef(),
 		Status:              pbReg.GetStatus(),
 		EnvironmentPolicies: environmentPolicies,
@@ -162,14 +184,14 @@ func pbToPayload(pbReg *capabilityRegistryPB.CapabilityRegistration) capabilityR
 		FallbackPlan:        fallbackPlan,
 		ToolGrantIDs:        pbReg.GetToolGrantIds(),
 		Version:             pbReg.GetVersion(),
-	}
+	}, nil
 }
 
 func registrationToPB(reg capabilityRegistryService.Registration) *capabilityRegistryPB.CapabilityRegistration {
 	response := &capabilityRegistryPB.CapabilityRegistration{
 		Id: &capabilityRegistryPB.TenantScopedId{
 			CapabilityId: reg.CapabilityID,
-			TenantId:     reg.TenantID,
+			TenantUuid:   reg.TenantUUID,
 		},
 		ContractRef: reg.ContractRef,
 		Status:      reg.Status,

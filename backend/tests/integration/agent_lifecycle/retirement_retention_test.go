@@ -23,8 +23,8 @@ func TestRetirementRetention(t *testing.T) {
 
 	engine := env.Engine()
 
+	tenantUUID := "tenant-001"
 	registerBody := map[string]any{
-		"tenant_id":                  "tenant-001",
 		"alias":                      "retire-agent",
 		"telemetry_contract_version": "otel-agent-v1",
 	}
@@ -32,6 +32,7 @@ func TestRetirementRetention(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/api/admin/agent/lifecycle/agents", bytes.NewReader(registerBytes))
 	req.Header.Set("Authorization", "Bearer token")
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Tenant-UUID", tenantUUID)
 	resp := httptest.NewRecorder()
 	engine.ServeHTTP(resp, req)
 	require.Equal(t, http.StatusCreated, resp.Code)
@@ -44,11 +45,11 @@ func TestRetirementRetention(t *testing.T) {
 	require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &registerResp))
 	agentID := registerResp.Data.ID
 
-	retireBody := map[string]any{"tenant_id": "tenant-001"}
-	retireBytes, _ := json.Marshal(retireBody)
+	retireBytes, _ := json.Marshal(map[string]any{})
 	retireReq := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/api/admin/agent/lifecycle/agents/%s/retire", agentID), bytes.NewReader(retireBytes))
 	retireReq.Header.Set("Authorization", "Bearer token")
 	retireReq.Header.Set("Content-Type", "application/json")
+	retireReq.Header.Set("X-Tenant-UUID", tenantUUID)
 	retireResp := httptest.NewRecorder()
 	engine.ServeHTTP(retireResp, retireReq)
 	require.Equal(t, http.StatusOK, retireResp.Code)

@@ -8,7 +8,6 @@ import (
 type TenantKeyPair struct {
 	model.PowerModel
 
-	// 作用域（建议直接写字段，便于在本实体上声明索引）
 	model.ScopeRef
 
 	// 密钥标识与算法

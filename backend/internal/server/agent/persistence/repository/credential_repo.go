@@ -20,15 +20,15 @@ func NewAIProviderCredentialRepository(db *gorm.DB) *AIProviderCredentialReposit
 	}
 }
 
-// Upsert 唯一键：env + tenant_id + name + provider
+// Upsert 唯一键：env + tenant_uuid + name + provider
 func (r *AIProviderCredentialRepository) UpsertByScopeNameProvider(
-	ctx context.Context, env string, tenantID *uint64, in *dbmodel.AIProviderCredential,
+	ctx context.Context, env string, tenantUUID *string, in *dbmodel.AIProviderCredential,
 ) error {
 	tx := r.db.WithContext(ctx)
 
 	// 强制回写作用域（Create/Update 都会用到）
 	in.Env = env
-	in.TenantID = tenantID
+	in.TenantUUID = tenantUUID
 
 	assign := clause.Assignments(map[string]any{
 		"auth_scheme": in.AuthScheme,
@@ -37,11 +37,11 @@ func (r *AIProviderCredentialRepository) UpsertByScopeNameProvider(
 	})
 
 	var conflict clause.OnConflict
-	if tenantID != nil {
+	if tenantUUID != nil {
 		// 租户内：匹配 ai_cred_uniq_tenant
 		conflict = clause.OnConflict{
 			Columns: []clause.Column{
-				{Name: "env"}, {Name: "tenant_id"},
+				{Name: "env"}, {Name: "tenant_uuid"},
 				{Name: "name"}, {Name: "provider"},
 			},
 			DoUpdates: assign,
@@ -60,10 +60,10 @@ func (r *AIProviderCredentialRepository) UpsertByScopeNameProvider(
 	return tx.Clauses(conflict).Create(in).Error
 }
 
-func (r *AIProviderCredentialRepository) FindByScopeNameProvider(ctx context.Context, env string, tenantID *uint64, name, provider string) (*dbmodel.AIProviderCredential, error) {
+func (r *AIProviderCredentialRepository) FindByScopeNameProvider(ctx context.Context, env string, tenantUUID *string, name, provider string) (*dbmodel.AIProviderCredential, error) {
 	var out dbmodel.AIProviderCredential
 	err := r.db.WithContext(ctx).
-		Scopes(dbmodel.WithScope(env, tenantID)).
+		Scopes(dbmodel.WithScope(env, tenantUUID)).
 		Where("name = ? AND provider = ?", name, provider).
 		First(&out).Error
 	if err != nil {
@@ -73,11 +73,11 @@ func (r *AIProviderCredentialRepository) FindByScopeNameProvider(ctx context.Con
 }
 
 func (r *AIProviderCredentialRepository) ListByScope(
-	ctx context.Context, env string, tenantID *uint64,
+	ctx context.Context, env string, tenantUUID *string,
 ) ([]dbmodel.AIProviderCredential, error) {
 	var out []dbmodel.AIProviderCredential
 	err := r.db.WithContext(ctx).
-		Scopes(dbmodel.WithScope(env, tenantID)).
+		Scopes(dbmodel.WithScope(env, tenantUUID)).
 		Model(&dbmodel.AIProviderCredential{}).
 		Order("provider, name").
 		Find(&out).Error

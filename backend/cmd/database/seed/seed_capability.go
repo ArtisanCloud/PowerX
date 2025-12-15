@@ -2,6 +2,7 @@ package seed
 
 import (
 	"errors"
+	"fmt"
 
 	capmodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/capability"
 	"gorm.io/gorm"
@@ -9,7 +10,6 @@ import (
 
 var capabilityErrorTaxonomySeeds = []capmodel.CapabilityErrorTaxonomy{
 	{
-		TenantID:  0,
 		Namespace: "validation",
 		Category:  "bad_request",
 		Code:      "INVALID_ARGUMENT",
@@ -18,7 +18,6 @@ var capabilityErrorTaxonomySeeds = []capmodel.CapabilityErrorTaxonomy{
 		Status:    1,
 	},
 	{
-		TenantID:  0,
 		Namespace: "transport",
 		Category:  "upstream",
 		Code:      "UPSTREAM_TIMEOUT",
@@ -27,7 +26,6 @@ var capabilityErrorTaxonomySeeds = []capmodel.CapabilityErrorTaxonomy{
 		Status:    1,
 	},
 	{
-		TenantID:  0,
 		Namespace: "permission",
 		Category:  "authorization",
 		Code:      "PERMISSION_DENIED",
@@ -36,7 +34,6 @@ var capabilityErrorTaxonomySeeds = []capmodel.CapabilityErrorTaxonomy{
 		Status:    1,
 	},
 	{
-		TenantID:  0,
 		Namespace: "system",
 		Category:  "internal",
 		Code:      "INTERNAL_ERROR",
@@ -48,11 +45,19 @@ var capabilityErrorTaxonomySeeds = []capmodel.CapabilityErrorTaxonomy{
 
 // SeedCapabilityErrorTaxonomies 预置常用的能力错误枚举，避免契约首次写入时重复创建。
 func SeedCapabilityErrorTaxonomies(db *gorm.DB) error {
+	sysTenant, err := ensureSystemTenant(db)
+	if err != nil {
+		return fmt.Errorf("ensure system tenant: %w", err)
+	}
+	tenantUUID := sysTenant.UUID.String()
+
 	for i := range capabilityErrorTaxonomySeeds {
 		seed := capabilityErrorTaxonomySeeds[i]
+		seed.TenantUUID = tenantUUID
+
 		var existing capmodel.CapabilityErrorTaxonomy
-		if err := db.Where("tenant_id = ? AND namespace = ? AND category = ? AND code = ?",
-			seed.TenantID, seed.Namespace, seed.Category, seed.Code).
+		if err := db.Where("tenant_uuid = ? AND namespace = ? AND category = ? AND code = ?",
+			seed.TenantUUID, seed.Namespace, seed.Category, seed.Code).
 			First(&existing).Error; err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				if err := db.Create(&seed).Error; err != nil {

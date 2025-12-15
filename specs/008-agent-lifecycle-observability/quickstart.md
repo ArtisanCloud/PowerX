@@ -19,7 +19,7 @@ curl -X POST http://localhost:8077/admin/agents \
   -H "Content-Type: application/json" \
   -d '{
     "alias": "content-writer",
-    "tenantId": "tenant-001",
+    "tenant_uuid": "tenant-001",
     "toolGrants": [{"name": "summarize", "version": "v1"}],
     "telemetryContractVersion": "otel-agent-v1",
     "defaultCapacityInstances": 3,
@@ -72,7 +72,7 @@ curl -X PUT http://localhost:8077/api/admin/agent/lifecycle/agents/{agentId}/sub
   -H "Authorization: Bearer $ADMIN_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
-        "tenant_id": "tenant-001",
+        "tenant_uuid": "tenant-001",
         "metrics_filter": ["error_rate", "p95_latency_ms"],
         "health_statuses": ["degraded", "unavailable"],
         "requested_by": "sre.oncall"
@@ -87,7 +87,7 @@ curl -X GET http://localhost:8077/api/admin/agent/lifecycle/agents/{agentId}/sub
 ```bash
 grpcurl -plaintext -d '{
   "agentId":"{agentId}",
-  "tenantId":"tenant-001",
+  "tenant_uuid":"tenant-001",
   "config":{
     "metricsFilter":["error_rate","p95_latency_ms"],
     "healthStatuses":["degraded","unavailable"]
@@ -107,7 +107,7 @@ curl -X POST http://localhost:8077/api/admin/agents/{agentId}/shares \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
-        "tenant_id": "tenant-beta",
+        "tenant_uuid": "tenant-beta",
         "requested_by": "ops.admin",
         "trace_id": "share-001",
         "quotas": [{"type":"rpm","limit":500}],
@@ -139,7 +139,7 @@ curl -X POST http://localhost:8077/api/admin/agents/shares/{shareId}/revoke \
 ```bash
 grpcurl -plaintext -d '{
   "agentId":"{agentId}",
-  "tenantId":"tenant-beta",
+  "tenant_uuid":"tenant-beta",
   "requestedBy":"ops.admin",
   "quotas":[{"type":"rpm","limit":500}]
 }' localhost:9090 powerx.agent.v1.AgentLifecycleService.ShareAgent
@@ -169,18 +169,18 @@ curl -X GET http://localhost:8077/api/openapi/agents/{agentId}/bridge/state \
 curl -X POST http://localhost:8077/api/openapi/agents/{agentId}/bridge/freeze \
   -H "Authorization: Bearer $OPS_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"tenant_id":"tenant-001","reason":"planner freeze","requested_by":"react-coordinator"}'
+  -d '{"tenant_uuid":"tenant-001","reason":"planner freeze","requested_by":"react-coordinator"}'
 
 curl -X POST http://localhost:8077/api/openapi/agents/{agentId}/bridge/recover \
   -H "Authorization: Bearer $OPS_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"tenant_id":"tenant-001","reason":"resume for recovery"}'
+  -d '{"tenant_uuid":"tenant-001","reason":"resume for recovery"}'
 
 # 动态扩缩容
 curl -X POST http://localhost:8077/api/openapi/agents/{agentId}/bridge/rebalance \
   -H "Authorization: Bearer $OPS_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"tenant_id":"tenant-001","target_capacity_instances":6,"reason":"dag coordinator"}'
+  -d '{"tenant_uuid":"tenant-001","target_capacity_instances":6,"reason":"dag coordinator"}'
 ```
 
 冻结/恢复/扩缩容均会触发 `statebus.agent.lifecycle` 事件，并在 `bridge/state` 的 `events` 时间线中留下审计引用，供闭环/回放使用。

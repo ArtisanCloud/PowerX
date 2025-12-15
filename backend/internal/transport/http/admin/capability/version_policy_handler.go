@@ -31,8 +31,11 @@ func (h *VersionPolicyHandler) GetVersionPolicy(c *gin.Context) {
 		writeBadRequest(c, "missing_path", "capability key 缺失")
 		return
 	}
-	tenantID := tenantIDFromQuery(c.Query("tenant_id"))
-	policy, err := h.svc.GetVersionPolicy(c.Request.Context(), tenantID, capabilityKey)
+	tenantUUID, ok := requireTenantUUID(c)
+	if !ok {
+		return
+	}
+	policy, err := h.svc.GetVersionPolicy(c.Request.Context(), tenantUUID, capabilityKey)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			dto.ResponseSuccess(c, gin.H{"policy": nil})
@@ -56,9 +59,12 @@ func (h *VersionPolicyHandler) UpsertVersionPolicy(c *gin.Context) {
 		writeBadRequest(c, "invalid_payload", err.Error())
 		return
 	}
-	tenantID := tenantIDFromRequest(c, req.TenantID)
+	tenantUUID, ok := requireTenantUUID(c)
+	if !ok {
+		return
+	}
 	input := &svc.VersionPolicyUpsertInput{
-		TenantID:            tenantID,
+		TenantUUID:          tenantUUID,
 		CapabilityKey:       capabilityKey,
 		DefaultStrategy:     req.DefaultStrategy,
 		AllowedVersions:     toServiceVersionRules(req.AllowedVersions),
@@ -81,7 +87,6 @@ func (h *VersionPolicyHandler) UpsertVersionPolicy(c *gin.Context) {
 // ---------- 请求/响应模型 ----------
 
 type versionPolicyPayload struct {
-	TenantID            *uint64                `json:"tenant_id"`
 	DefaultStrategy     string                 `json:"default_strategy"`
 	AllowedVersions     []versionRulePayload   `json:"allowed_versions"`
 	CompatibilityMatrix map[string]interface{} `json:"compatibility_matrix"`

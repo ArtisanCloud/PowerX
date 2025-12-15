@@ -18,8 +18,8 @@ import {
 } from "~/composables/api/services/userService";
 import type { Department } from "~/composables/api/services/departmentService";
 
-// ==== 输入属性（Root 复用时传入 tenantId） ====
-const props = defineProps<{ tenantId: number }>();
+// ==== 输入属性（Root 复用时传入 tenantUuid） ====
+const props = defineProps<{ tenantUuid: string }>();
 const { t, locale } = useI18n();
 
 // ==== 部门store ====
@@ -257,7 +257,6 @@ async function saveUser() {
         status: userForm.status === "active" ? 1 : 0,
         meta: userForm.meta ?? {},
         username: userForm.username || userForm.email.split("@")[0],
-        tenant_id: props.tenantId,
         initial_password: userForm.password,
         dept_ids: userForm.departmentId ? [userForm.departmentId] : [],
       };
@@ -336,6 +335,14 @@ watch(
     () => filters.role,
     () => filters.status,
   ],
+  () => {
+    pagination.page = 1;
+    loadUsers();
+  }
+);
+
+watch(
+  () => props.tenantUuid,
   () => {
     pagination.page = 1;
     loadUsers();
@@ -483,12 +490,14 @@ function transformUserData(memberWithProfile: MemberWithProfile): RowUser {
 
 // 加载用户数据
 async function loadUsers() {
+  if (!props.tenantUuid) {
+    return;
+  }
   try {
     loading.value = true;
     const params: any = {
       page: pagination.page,
       page_size: pagination.pageSize,
-      tenant_id: props.tenantId,
       status: filters.status
         ? filters.status === "active"
           ? 1

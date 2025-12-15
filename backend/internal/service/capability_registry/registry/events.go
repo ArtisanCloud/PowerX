@@ -2,6 +2,7 @@ package registry
 
 import (
 	"context"
+	"strings"
 	"time"
 )
 
@@ -9,7 +10,7 @@ const registryUpdatedTopic = "capability.registry.updated"
 
 type registryUpdatedEvent struct {
 	CapabilityID  string    `json:"capability_id"`
-	TenantID      string    `json:"tenant_id"`
+	TenantUUID    string    `json:"tenant_uuid"`
 	Version       uint64    `json:"version"`
 	Status        string    `json:"status"`
 	ChangeKind    string    `json:"change_kind"`
@@ -22,9 +23,10 @@ func (s *Service) publishUpdateEvent(ctx context.Context, kind string, reg Regis
 	if s.bus == nil {
 		return
 	}
+	tenantUUID := strings.TrimSpace(reg.TenantUUID)
 	event := registryUpdatedEvent{
 		CapabilityID:  reg.CapabilityID,
-		TenantID:      reg.TenantID,
+		TenantUUID:    tenantUUID,
 		Version:       reg.Version,
 		Status:        reg.Status,
 		ChangeKind:    kind,

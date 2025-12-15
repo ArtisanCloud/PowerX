@@ -16,7 +16,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/test/bufconn"
 )
 
@@ -39,11 +38,11 @@ func TestPluginReleaseGRPC_LocalInstallLifecycle(t *testing.T) {
 	}()
 	t.Cleanup(server.Stop)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	baseCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	conn, err := grpc.DialContext(
-		ctx,
+		baseCtx,
 		"bufnet",
 		grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
 			return listener.Dial()
@@ -55,28 +54,30 @@ func TestPluginReleaseGRPC_LocalInstallLifecycle(t *testing.T) {
 
 	client := pb.NewPluginReleaseServiceClient(conn)
 
-	callCtx := metadata.AppendToOutgoingContext(ctx, "authorization", "Bearer test-token")
-	startResp, err := client.StartLocalInstall(callCtx, &pb.StartLocalInstallRequest{
-		TenantId:     "101",
+	tenantCtx := pluginReleaseGRPCContext(t, baseCtx, contractTenantUUID)
+	startResp, err := client.StartLocalInstall(tenantCtx, &pb.StartLocalInstallRequest{
+		TenantUuid:   contractTenantUUID,
 		DeveloperId:  2025,
 		ArtifactUri:  "s3://bucket/artifact.zip",
 		FeatureFlags: []string{"beta_ui"},
 		ResetCache:   true,
 	})
 	require.NoError(t, err)
-	require.Equal(t, "101", startResp.GetTenantId())
+	require.Equal(t, contractTenantUUID, startResp.GetTenantUuid())
 	require.Equal(t, uint64(2025), startResp.GetDeveloperId())
 	require.Equal(t, models.LocalInstallStatusInProgress, startResp.GetStatus())
+	assertNoPluginReleaseTenantLeakProto(t, startResp)
 
-	getResp, err := client.GetLocalInstallSession(callCtx, &pb.GetLocalInstallSessionRequest{
-		SessionId: startResp.GetSessionId(),
-		TenantId:  "101",
+	getResp, err := client.GetLocalInstallSession(tenantCtx, &pb.GetLocalInstallSessionRequest{
+		SessionId:  startResp.GetSessionId(),
+		TenantUuid: contractTenantUUID,
 	})
 	require.NoError(t, err)
 	require.Equal(t, startResp.GetSessionId(), getResp.GetSessionId())
 	require.Equal(t, models.LocalInstallStatusInProgress, getResp.GetStatus())
+	assertNoPluginReleaseTenantLeakProto(t, getResp)
 
-	stream, err := client.PushHotReload(callCtx)
+	stream, err := client.PushHotReload(tenantCtx)
 	require.NoError(t, err)
 	require.NoError(t, stream.Send(&pb.HotReloadChunk{
 		SessionId: startResp.GetSessionId(),
@@ -94,17 +95,20 @@ func TestPluginReleaseGRPC_LocalInstallLifecycle(t *testing.T) {
 	require.Equal(t, startResp.GetSessionId(), ack.GetSessionId())
 	require.Equal(t, int64(2), ack.GetAppliedSequence())
 	require.Equal(t, "completed", ack.GetStatus())
+	assertNoPluginReleaseTenantLeakProto(t, ack)
 
-	stopResp, err := client.StopLocalInstall(callCtx, &pb.StopLocalInstallRequest{
+	stopResp, err := client.StopLocalInstall(tenantCtx, &pb.StopLocalInstallRequest{
 		SessionId: startResp.GetSessionId(),
 		Force:     false,
 	})
 	require.NoError(t, err)
 	require.Equal(t, models.LocalInstallStatusSuccess, stopResp.GetStatus())
+	assertNoPluginReleaseTenantLeakProto(t, stopResp)
 
-	finalResp, err := client.GetLocalInstallSession(callCtx, &pb.GetLocalInstallSessionRequest{
+	finalResp, err := client.GetLocalInstallSession(tenantCtx, &pb.GetLocalInstallSessionRequest{
 		SessionId: startResp.GetSessionId(),
 	})
 	require.NoError(t, err)
 	require.Equal(t, models.LocalInstallStatusSuccess, finalResp.GetStatus())
+	assertNoPluginReleaseTenantLeakProto(t, finalResp)
 }

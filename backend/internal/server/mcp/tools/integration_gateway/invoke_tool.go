@@ -18,7 +18,7 @@ func invokeRouteTool(ctx context.Context, request mcp.CallToolRequest) (*mcp.Cal
 	}
 
 	args := request.GetArguments()
-	ctx, tenantID, actor, traceID, err := deps.Adapter.PrepareContext(ctx, args)
+	ctx, tenantUUID, actor, traceID, err := deps.Adapter.PrepareContext(ctx, args)
 	if err != nil {
 		return toolErrorResult(err.Error()), nil
 	}
@@ -35,7 +35,7 @@ func invokeRouteTool(ctx context.Context, request mcp.CallToolRequest) (*mcp.Cal
 
 	contextArgs, _ := args["context"].(map[string]interface{})
 	input := tenantservice.InvokeInput{
-		TenantID:       tenantID,
+		TenantUUID:     tenantUUID,
 		RouteSlug:      routeSlug,
 		Channel:        "mcp",
 		Payload:        payload,

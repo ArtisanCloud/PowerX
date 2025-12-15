@@ -12,7 +12,7 @@ type IntegrationInvocationLog struct {
 	coremodel.PowerUUIDModel
 
 	RouteUUID          uuid.UUID      `gorm:"column:route_uuid;type:uuid;not null;index:idx_integration_invocation_route" json:"route_uuid"`
-	TenantID           string         `gorm:"column:tenant_id;type:varchar(128);not null;index:idx_integration_invocation_tenant" json:"tenant_id"`
+	TenantUUID         string         `gorm:"column:tenant_uuid;type:char(36);not null;index:idx_integration_invocation_tenant" json:"tenant_uuid"`
 	TraceID            string         `gorm:"column:trace_id;type:varchar(128);not null;index:idx_integration_invocation_trace" json:"trace_id"`
 	Status             string         `gorm:"column:status;type:varchar(32);not null;index:idx_integration_invocation_status" json:"status"`
 	DurationMS         int            `gorm:"column:duration_ms;not null" json:"duration_ms"`

@@ -47,7 +47,7 @@ func TestSubscriptionGRPC(t *testing.T) {
 	t.Cleanup(cancel)
 
 	registerResp, err := client.RegisterAgent(ctx, &agentv1.RegisterAgentRequest{
-		TenantId:                 "tenant-003",
+		TenantUuid:                 "tenant-003",
 		Alias:                    "subscription-grpc",
 		TelemetryContractVersion: "otel-agent-v1",
 	})
@@ -56,7 +56,7 @@ func TestSubscriptionGRPC(t *testing.T) {
 
 	resp, err := client.UpdateSubscription(ctx, &agentv1.UpdateSubscriptionRequest{
 		AgentId:  agentID,
-		TenantId: "tenant-003",
+		TenantUuid: "tenant-003",
 		Config: &agentv1.SubscriptionConfig{
 			MetricsFilter:  []string{"error_rate", "p95_latency_ms"},
 			HealthStatuses: []string{"degraded", "unavailable"},
@@ -75,7 +75,7 @@ func TestSubscriptionGRPC(t *testing.T) {
 	// 调整为仅在不可用状态告警
 	updateResp, err := client.UpdateSubscription(ctx, &agentv1.UpdateSubscriptionRequest{
 		AgentId:  agentID,
-		TenantId: "tenant-003",
+		TenantUuid: "tenant-003",
 		Config: &agentv1.SubscriptionConfig{
 			MetricsFilter:  []string{"success_rate"},
 			HealthStatuses: []string{"unavailable"},
@@ -89,7 +89,7 @@ func TestSubscriptionGRPC(t *testing.T) {
 	// 非法配置应返回错误且保留原设置
 	_, err = client.UpdateSubscription(ctx, &agentv1.UpdateSubscriptionRequest{
 		AgentId:  agentID,
-		TenantId: "tenant-003",
+		TenantUuid: "tenant-003",
 		Config:   &agentv1.SubscriptionConfig{},
 	})
 	require.Error(t, err)

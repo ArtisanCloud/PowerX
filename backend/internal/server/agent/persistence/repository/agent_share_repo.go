@@ -52,10 +52,10 @@ func (r *AgentShareRepository) GetByUUID(ctx context.Context, id uuid.UUID) (*db
 }
 
 // FindActiveByAgentTenant 查找 active 状态共享。
-func (r *AgentShareRepository) FindActiveByAgentTenant(ctx context.Context, agentID uuid.UUID, tenantID string) (*dbmodel.AgentShareRecord, error) {
+func (r *AgentShareRepository) FindActiveByAgentTenant(ctx context.Context, agentID uuid.UUID, tenantUUID string) (*dbmodel.AgentShareRecord, error) {
 	var record dbmodel.AgentShareRecord
 	if err := r.DB.WithContext(ctx).
-		Where("agent_uuid = ? AND target_tenant_id = ? AND status = ?", agentID, tenantID, "active").
+		Where("agent_uuid = ? AND target_tenant_uuid = ? AND status = ?", agentID, tenantUUID, shareStatusActive).
 		First(&record).Error; err != nil {
 		return nil, err
 	}

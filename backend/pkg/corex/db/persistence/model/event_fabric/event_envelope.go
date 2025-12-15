@@ -13,7 +13,6 @@ import (
 type EventEnvelope struct {
 	coremodel.PowerUUIDModel
 
-	TenantID       uint64         `gorm:"column:tenant_id;type:bigint;not null;index:idx_event_envelopes_tenant" json:"tenant_id"`
 	TenantKey      string         `gorm:"column:tenant_key;type:varchar(128);not null;index:idx_event_envelopes_tenant_key" json:"tenant_key"`
 	TopicUUID      uuid.UUID      `gorm:"column:topic_uuid;type:uuid;not null;index:idx_event_envelopes_topic" json:"topic_uuid"`
 	EventID        string         `gorm:"column:event_id;type:varchar(128);not null;uniqueIndex:uk_event_envelopes_event_id" json:"event_id"`

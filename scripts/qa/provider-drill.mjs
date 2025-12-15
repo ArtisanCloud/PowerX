@@ -8,7 +8,7 @@
  *
  * Example:
  *   node scripts/qa/provider-drill.mjs \
- *     --tenant-id demo-tenant \
+ *     --tenant-uuid demo-tenant \
  *     --provider-id 2b92d17c-9d35-4c22-8a8d-24ddf9a6f1d3 \
  *     --env staging \
  *     --spike 1200 \
@@ -30,8 +30,8 @@ const DEFAULT_ALERT_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
-  if (!args.tenantId) {
-    console.error("Missing --tenant-id");
+  if (!args.tenant_uuid) {
+    console.error("Missing --tenant-uuid");
     process.exit(1);
   }
   const startedAt = Date.now();
@@ -42,13 +42,13 @@ async function main() {
   };
 
   console.log(
-    `[DRILL] tenant=${args.tenantId} provider=${
+    `[DRILL] tenant=${args.tenant_uuid} provider=${
       args.providerId || "tenant"
     } env=${args.env}`
   );
 
   const initial = await fetchSnapshot(context, {
-    tenantId: args.tenantId,
+    tenant_uuid: args.tenant_uuid,
     env: args.env,
   });
   const baselineUsage = initial?.totals?.usage || 0;
@@ -56,7 +56,7 @@ async function main() {
   const spikeAmount = args.spike ?? 800;
   const events = buildUsageEvents(spikeAmount, args.events || 3);
   await reportUsage(context, {
-    tenantId: args.tenantId,
+    tenant_uuid: args.tenant_uuid,
     providerId: args.providerId,
     env: args.env,
     events,
@@ -68,7 +68,7 @@ async function main() {
   );
 
   const poll = await pollSnapshot(context, {
-    tenantId: args.tenantId,
+    tenant_uuid: args.tenant_uuid,
     env: args.env,
     targetIncrease: spikeAmount * 0.8,
     maxAttempts: args.pollAttempts || 6,
@@ -92,7 +92,7 @@ async function main() {
 
   if (args.action) {
     await enforceAction(context, {
-      tenantId: args.tenantId,
+      tenant_uuid: args.tenant_uuid,
       providerId: args.providerId,
       env: args.env,
       action: args.action,
@@ -106,7 +106,7 @@ async function main() {
     await pingGrafana(args.grafanaUrl);
   }
   const alertResult = await waitForAlert(context, {
-    tenantId: args.tenantId,
+    tenant_uuid: args.tenant_uuid,
     env: args.env,
     targetStates: args.alertTargets || ["anomaly", "enforcement_required"],
     timeoutMs: args.alertTimeoutMs || DEFAULT_ALERT_TIMEOUT_MS,
@@ -115,7 +115,7 @@ async function main() {
 
   if (args.pagerdutyUrl) {
     await notifyPagerDuty(args.pagerdutyUrl, {
-      tenantId: args.tenantId,
+      tenant_uuid: args.tenant_uuid,
       providerId: args.providerId,
       delta: poll.delta,
       status: poll.statusFlags,
@@ -127,7 +127,7 @@ async function main() {
 
   const finishedAt = Date.now();
   const summary = {
-    tenantId: args.tenantId,
+    tenant_uuid: args.tenant_uuid,
     providerId: args.providerId || null,
     env: args.env || "default",
     startedAt: new Date(startedAt).toISOString(),
@@ -163,10 +163,13 @@ function parseArgs(argv) {
       ? raw.slice(2).split(/=(.*)/, 2)
       : [raw.slice(2), argv[i + 1]];
     switch (flag) {
-      case "tenant-id":
-        args.tenantId = value;
+      case "tenant-uuid":
+        args.tenant_uuid = value;
         if (!raw.includes("=")) i++;
         break;
+      case "tenant-id":
+        console.error("[ERROR] --tenant-id 已移除，请改用 --tenant-uuid");
+        process.exit(1);
       case "provider-id":
         args.providerId = value;
         if (!raw.includes("=")) i++;
@@ -249,12 +252,12 @@ function parseArgs(argv) {
   return args;
 }
 
-async function fetchSnapshot(context, { tenantId, env }) {
+async function fetchSnapshot(context, { tenant_uuid, env }) {
   const url = withBase(context.apiBase, "/provider-quotas");
   const snapshot = await request(url, {
     method: "GET",
     token: context.token,
-    params: { tenantId, env },
+    params: { tenant_uuid, env },
   });
   const totals = (snapshot?.quotas || []).reduce(
     (acc, quota) => {
@@ -274,7 +277,7 @@ async function reportUsage(context, payload) {
     token: context.token,
     body: {
       env: payload.env,
-      tenantId: payload.tenantId,
+      tenant_uuid: payload.tenant_uuid,
       providerId: payload.providerId,
       events: payload.events.map((evt) => ({
         traceId: evt.traceId,
@@ -293,7 +296,7 @@ async function enforceAction(context, payload) {
     token: context.token,
     body: {
       env: payload.env,
-      tenantId: payload.tenantId,
+      tenant_uuid: payload.tenant_uuid,
       providerId: payload.providerId,
       action: payload.action,
       reason: payload.reason,
@@ -356,7 +359,7 @@ async function notifyPagerDuty(url, payload) {
     routing_key: payload.routingKey || "provider-drill",
     event_action: "trigger",
     payload: {
-      summary: `Provider drill for tenant ${payload.tenantId}`,
+      summary: `Provider drill for tenant ${payload.tenant_uuid}`,
       source: "provider-drill",
       severity: "warning",
       custom_details: payload,
@@ -406,7 +409,7 @@ function withBase(base, path) {
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-async function waitForAlert(context, { tenantId, env = "default", targetStates, timeoutMs, pollInterval }) {
+async function waitForAlert(context, { tenant_uuid, env = "default", targetStates, timeoutMs, pollInterval }) {
   if (!targetStates || targetStates.length === 0) {
     return { awaited: false };
   }
@@ -414,7 +417,7 @@ async function waitForAlert(context, { tenantId, env = "default", targetStates, 
   let attempts = 0;
   while (Date.now() - started < timeoutMs) {
     attempts++;
-    const snapshot = await fetchSnapshot(context, { tenantId, env });
+    const snapshot = await fetchSnapshot(context, { tenant_uuid, env });
     const states =
       snapshot?.quotas
         ?.map((quota) => quota.status)

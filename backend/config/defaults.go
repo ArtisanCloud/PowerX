@@ -16,6 +16,9 @@ func GetDefaults() *Config {
 			Mode:                "debug",
 			APIPrefix:           "/api", // 如需
 		},
+		Tenants: TenantConfig{
+			RequireUUID: true,
+		},
 		Plugin: DefaultPluginConfig(),
 		LogConfig: logCfg.LogConfig{
 			Level:         "debug",

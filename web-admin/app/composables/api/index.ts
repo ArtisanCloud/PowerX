@@ -11,6 +11,7 @@ import {
   useGL_AutoVisible,
   useGL_ReqPending,
 } from "~/composables/useGlobalLoading";
+import { resolveTenantUUIDForRequest } from "~/utils/tenant-context";
 
 /** =========================
  * API 客户端配置
@@ -51,6 +52,27 @@ let globalConfig: ApiClientConfig = {
             config.headers = {
               ...config.headers,
               Authorization: `${tokenType} ${token}`,
+            };
+          }
+        }
+        return config;
+      },
+    },
+    // --- 注入租户 UUID 头 ---
+    {
+      onRequest: async (config) => {
+        if (!config.headers) {
+          config.headers = {};
+        }
+        const hasTenantHeader =
+          config.headers["X-Tenant-UUID"] ||
+          (config.headers as Record<string, string>)["x-tenant-uuid"];
+        if (!hasTenantHeader) {
+          const tenantUUID = resolveTenantUUIDForRequest();
+          if (tenantUUID) {
+            config.headers = {
+              ...config.headers,
+              "X-Tenant-UUID": tenantUUID,
             };
           }
         }
@@ -212,6 +234,9 @@ const applyErrorInterceptors = async (error: any): Promise<any> => {
         result = e;
       }
     }
+  }
+  if (!result || !result.response) {
+    throw new Error("网络错误，请检查网络连接");
   }
   throw result;
 };

@@ -1,12 +1,12 @@
 # Data Model: EventBus & Message Fabric
 
-> 所有表默认带 `tenant_id` + `created_at` + `updated_at` + `trace_id`（审计字段），并继承 CoreX 基础模型约束（软删除禁用）。
+> 所有表默认带 `tenant_uuid` + `created_at` + `updated_at` + `trace_id`（审计字段），并继承 CoreX 基础模型约束（软删除禁用）。
 
 ## TopicDefinition (`event_topics`)
 - **Primary Key**: `id` (ULID)
-- **Unique**: (`tenant_id`, `namespace`, `name`)
+- **Unique**: (`tenant_uuid`, `namespace`, `name`)
 - **Fields**
-  - `tenant_id` (string) — 所属租户或 `global`
+  - `tenant_uuid` (string) — 所属租户或 `global`
   - `namespace` (string) — 领域前缀，如 `corex.workflow`
   - `name` (string) — 事件名，如 `approved`
   - `full_topic` (string) — 拼接字段，`<tenant>.<namespace>.<name>`
@@ -26,7 +26,7 @@
 
 ## AclBinding (`event_acl_bindings`)
 - **Primary Key**: `id` (ULID)
-- **Unique**: (`tenant_id`, `topic_id`, `principal_id`, `action`)
+- **Unique**: (`tenant_uuid`, `topic_id`, `principal_id`, `action`)
 - **Fields**
   - `topic_id` (foreign key → `event_topics.id`)
   - `principal_type` (enum) — `service`, `role`, `user`
@@ -39,7 +39,7 @@
 
 ## EventEnvelope Record (`event_envelopes`)
 - **Primary Key**: `id` (ULID)
-- **Indexes**: (`tenant_id`, `topic_id`, `event_id`), (`trace_id`)
+- **Indexes**: (`tenant_uuid`, `topic_id`, `event_id`), (`trace_id`)
 - **Fields**
   - `event_id` (string) — 全局唯一 ID（提供幂等键）
   - `topic_id` (foreign key) — 对应 TopicDefinition
@@ -55,7 +55,7 @@
 
 ## DeliveryAttempt (`event_delivery_attempts`)
 - **Primary Key**: `id` (ULID)
-- **Indexes**: (`tenant_id`, `event_id`, `subscriber_id`), (`status`)
+- **Indexes**: (`tenant_uuid`, `event_id`, `subscriber_id`), (`status`)
 - **Fields**
   - `event_id` (foreign key → `event_envelopes.event_id`)
   - `subscriber_id` (string) — 逻辑消费者 ID
@@ -68,7 +68,7 @@
 
 ## DlqMessage (`event_dlq_messages`)
 - **Primary Key**: `id` (ULID)
-- **Indexes**: (`tenant_id`, `topic_id`, `status`), (`created_at`)
+- **Indexes**: (`tenant_uuid`, `topic_id`, `status`), (`created_at`)
 - **Fields**
   - `event_id` (string) — 原事件 ID
   - `topic_id` (foreign key) — 对应主题
@@ -83,7 +83,7 @@
 
 ## ReplayRequest (`event_replay_requests`)
 - **Primary Key**: `id` (ULID)
-- **Indexes**: (`tenant_id`, `topic_id`, `status`)
+- **Indexes**: (`tenant_uuid`, `topic_id`, `status`)
 - **Fields**
   - `topic_id` (foreign key)
   - `time_range_start` / `time_range_end` (timestamp) — 回放窗口
@@ -95,7 +95,7 @@
   - `failure_reason` (text, nullable)
 
 ## SubscriptionOffset (`event_subscription_offsets`)
-- **Primary Key**: (`tenant_id`, `topic_id`, `subscriber_id`)
+- **Primary Key**: (`tenant_uuid`, `topic_id`, `subscriber_id`)
 - **Fields**
   - `last_event_id` (string) — 最近确认事件
   - `last_ack_at` (timestamp)

@@ -13,13 +13,18 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const (
+	shareFlowSourceUUID = "33a3fbb0-86c4-4ec8-bc3c-765b8e3228be"
+	shareFlowTargetUUID = "b61fa815-32bd-4cb5-86b8-998b4da4c5e2"
+)
+
 func TestAgentShareValidationFlow(t *testing.T) {
 	env := testenv.New(t)
 	t.Cleanup(env.Close)
 
 	ctx := context.Background()
 	svc := env.Deps.AgentLifecycle.Service
-	agentID := registerTestAgent(t, svc, "tenant-share-src", "share-flow-agent")
+	agentID := registerTestAgent(t, svc, shareFlowSourceUUID, "share-flow-agent")
 
 	issuedCh := make(chan map[string]any, 1)
 	revokedCh := make(chan map[string]any, 1)
@@ -31,7 +36,7 @@ func TestAgentShareValidationFlow(t *testing.T) {
 
 	input := agent_lifecycle.ShareInput{
 		AgentID:     agentID,
-		TenantID:    "tenant-target-alpha",
+		TenantUUID:  shareFlowTargetUUID,
 		Quotas:      []agent_lifecycle.ShareQuota{{Type: "rpm", Limit: 500}},
 		Metadata:    map[string]string{"region": "ap-sg"},
 		RequestedBy: "ops-share",
@@ -39,13 +44,13 @@ func TestAgentShareValidationFlow(t *testing.T) {
 	}
 	share, err := svc.ShareAgent(ctx, input)
 	require.NoError(t, err)
-	require.Equal(t, "tenant-target-alpha", share.TenantID)
+	require.Equal(t, shareFlowTargetUUID, share.TenantUUID)
 	require.Equal(t, "active", share.Status)
 	require.Equal(t, 1, env.QuotaProvisioner.ProvisionCalls)
 	require.Len(t, env.ShareValidator.Calls, 1)
 
 	call := env.ShareValidator.Calls[0]
-	require.Equal(t, input.TenantID, call.TenantID)
+	require.Equal(t, input.TenantUUID, call.TenantUUID)
 	require.Equal(t, agentID, call.AgentID)
 	require.Equal(t, input.Metadata["region"], call.Metadata["region"])
 	require.Len(t, call.Quotas, 1)

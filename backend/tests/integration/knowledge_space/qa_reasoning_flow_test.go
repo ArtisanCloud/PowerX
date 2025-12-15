@@ -44,7 +44,6 @@ func TestQAReasoningFlow(t *testing.T) {
 
 	engine := env.Engine()
 	body := map[string]any{
-		"tenantId":        env.TenantID().String(),
 		"intent":          "供应商是否超限",
 		"domainTags":      []string{"finance", "policy"},
 		"latencyBudgetMs": 1600,
@@ -54,6 +53,7 @@ func TestQAReasoningFlow(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/api/openapi/knowledge-spaces/qa/retrieval-plan", bytes.NewReader(payload))
 	req.Header.Set("Authorization", "Bearer token")
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Tenant-UUID", env.TenantUUID().String())
 	resp := httptest.NewRecorder()
 	engine.ServeHTTP(resp, req)
 	require.Equal(t, http.StatusOK, resp.Code)
@@ -80,7 +80,7 @@ func TestQAReasoningFlow(t *testing.T) {
 	client := knowledgev1.NewKnowledgeSpaceQABridgeServiceClient(conn)
 
 	planResp, err := client.PlanRetrieval(ctx, &knowledgev1.QARetrievalPlanRequest{
-		TenantId:        env.TenantID().String(),
+		TenantUuid:      env.TenantUUID().String(),
 		Intent:          "供应商是否超限",
 		DomainTags:      []string{"finance"},
 		SessionId:       "integration-session",
@@ -90,7 +90,7 @@ func TestQAReasoningFlow(t *testing.T) {
 	require.Len(t, planResp.GetCandidateSpaces(), 2)
 
 	_, err = client.UpsertMemorySnapshot(ctx, &knowledgev1.QAMemorySnapshotRequest{
-		TenantId:  env.TenantID().String(),
+		TenantUuid: env.TenantUUID().String(),
 		SessionId: "integration-session",
 		Updates: []*knowledgev1.QAMemoryUpdate{
 			{
@@ -107,13 +107,13 @@ func TestQAReasoningFlow(t *testing.T) {
 
 	// Fetch through HTTP to ensure shared store.
 	body = map[string]any{
-		"tenantId":  env.TenantID().String(),
 		"sessionId": "integration-session",
 	}
 	payload, _ = json.Marshal(body)
 	req = httptest.NewRequest(http.MethodPost, "/api/openapi/knowledge-spaces/qa/memory-snapshot", bytes.NewReader(payload))
 	req.Header.Set("Authorization", "Bearer token")
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Tenant-UUID", env.TenantUUID().String())
 	resp = httptest.NewRecorder()
 	engine.ServeHTTP(resp, req)
 	require.Equal(t, http.StatusOK, resp.Code)

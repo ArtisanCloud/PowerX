@@ -100,7 +100,7 @@ message RateLimit {
 }
 
 message TenantContext {
-  string tenant_id = 1;
+  string tenant_uuid = 1;
   string environment = 2;
 }
 

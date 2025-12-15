@@ -19,7 +19,7 @@ type fakeGrantValidator struct {
 	version int64
 }
 
-func (f *fakeGrantValidator) ValidateAgentGrant(ctx context.Context, tenantID uint64, agentID uuid.UUID, capability string) (workflow.GrantValidationResult, error) {
+func (f *fakeGrantValidator) ValidateAgentGrant(ctx context.Context, tenantUUID string, agentID uuid.UUID, capability string) (workflow.GrantValidationResult, error) {
 	if f.err != nil {
 		return workflow.GrantValidationResult{}, f.err
 	}
@@ -168,7 +168,7 @@ func (s *stubAssignmentStore) UpdateStatus(ctx context.Context, id uint64, statu
 	return nil
 }
 
-func (s *stubAssignmentStore) FindTimedOutAssignments(ctx context.Context, tenantID uint64, before time.Time, limit int) ([]modelworkflow.AgentAssignment, error) {
+func (s *stubAssignmentStore) FindTimedOutAssignments(ctx context.Context, tenantUUID string, before time.Time, limit int) ([]modelworkflow.AgentAssignment, error) {
 	results := make([]modelworkflow.AgentAssignment, 0, len(s.assignments))
 	for _, item := range s.assignments {
 		results = append(results, *item)
@@ -207,7 +207,7 @@ func TestAssignmentTrackerValidatesGrantAndTimeout(t *testing.T) {
 	})
 
 	dispatchInput := workflow.AssignmentDispatchInput{
-		TenantID:     3003,
+		TenantUUID:   "tenant-3003",
 		InstanceUUID: instanceUUID,
 		StepRecordID: stepRecord.ID,
 		StepID:       stepRecord.StepID,
@@ -241,8 +241,8 @@ func TestAssignmentTrackerValidatesGrantAndTimeout(t *testing.T) {
 	}
 
 	result, err := tracker.ProcessTimeouts(ctx, workflow.TimeoutProcessOptions{
-		TenantID: 3003,
-		Limit:    10,
+		TenantUUID: "tenant-3003",
+		Limit:      10,
 	})
 	require.NoError(t, err)
 	require.Len(t, result.TimedOutAssignments, 1)

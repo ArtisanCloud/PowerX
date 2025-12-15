@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"sort"
+	"strings"
 	"time"
 
 	domain "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/domain"
@@ -72,7 +73,7 @@ func (s *Service) Now() time.Time {
 
 // Sync 根据请求从 Registry 同步快照并写入缓存。
 func (s *Service) Sync(ctx context.Context, req SyncRequest) ([]Snapshot, error) {
-	if req.TenantID == "" {
+	if req.TenantUUID == "" {
 		return nil, ErrInvalidRequest
 	}
 	clientID := normalizeClientID(req.ClientID)
@@ -83,12 +84,13 @@ func (s *Service) Sync(ctx context.Context, req SyncRequest) ([]Snapshot, error)
 	now := s.now()
 	snapshots := make([]Snapshot, 0, len(registrations))
 	for _, reg := range registrations {
+		tenantUUID := tenantUUIDFromRegistration(reg)
 		snapshot := s.buildSnapshot(reg, clientID, now, SnapshotSourceRegistry)
 		if err := s.storeSnapshot(ctx, snapshot); err != nil {
-			s.metrics.ObserveSync(ctx, reg.TenantID, reg.CapabilityID, snapshot.Source, snapshot.ExpiresAt.Sub(snapshot.IssuedAt), err)
+			s.metrics.ObserveSync(ctx, tenantUUID, reg.CapabilityID, snapshot.Source, snapshot.ExpiresAt.Sub(snapshot.IssuedAt), err)
 			return nil, err
 		}
-		s.metrics.ObserveSync(ctx, reg.TenantID, reg.CapabilityID, snapshot.Source, snapshot.ExpiresAt.Sub(snapshot.IssuedAt), nil)
+		s.metrics.ObserveSync(ctx, tenantUUID, reg.CapabilityID, snapshot.Source, snapshot.ExpiresAt.Sub(snapshot.IssuedAt), nil)
 		snapshots = append(snapshots, snapshot)
 	}
 	if s.replicator != nil && len(snapshots) > 0 {
@@ -100,12 +102,12 @@ func (s *Service) Sync(ctx context.Context, req SyncRequest) ([]Snapshot, error)
 }
 
 // GetSnapshot 返回缓存中的快照；若过期则尝试刷新，失败时返回陈旧数据。
-func (s *Service) GetSnapshot(ctx context.Context, tenantID, capabilityID, clientID string) (Snapshot, error) {
-	if tenantID == "" || capabilityID == "" {
+func (s *Service) GetSnapshot(ctx context.Context, tenantUUID, capabilityID, clientID string) (Snapshot, error) {
+	if tenantUUID == "" || capabilityID == "" {
 		return Snapshot{}, ErrInvalidRequest
 	}
 	key := CacheKey{
-		TenantID:     tenantID,
+		TenantUUID:   tenantUUID,
 		CapabilityID: capabilityID,
 		ClientID:     normalizeClientID(clientID),
 	}
@@ -124,32 +126,32 @@ func (s *Service) GetSnapshot(ctx context.Context, tenantID, capabilityID, clien
 			refreshed, refreshErr := s.refreshSnapshot(ctx, key)
 			if refreshErr != nil {
 				snapshot.Stale = true
-				s.metrics.ObserveCacheLookup(ctx, tenantID, capabilityID, "stale")
+				s.metrics.ObserveCacheLookup(ctx, tenantUUID, capabilityID, "stale")
 				return snapshot, nil
 			}
-			s.metrics.ObserveCacheLookup(ctx, tenantID, capabilityID, "refresh")
+			s.metrics.ObserveCacheLookup(ctx, tenantUUID, capabilityID, "refresh")
 			return refreshed, nil
 		}
-		s.metrics.ObserveCacheLookup(ctx, tenantID, capabilityID, "hit")
+		s.metrics.ObserveCacheLookup(ctx, tenantUUID, capabilityID, "hit")
 		return snapshot, nil
 	}
 
 	// 缓存未命中，尝试直接刷新
 	refreshed, refreshErr := s.refreshSnapshot(ctx, key)
 	if refreshErr == nil {
-		s.metrics.ObserveCacheLookup(ctx, tenantID, capabilityID, "miss-refresh")
+		s.metrics.ObserveCacheLookup(ctx, tenantUUID, capabilityID, "miss-refresh")
 		return refreshed, nil
 	}
 
 	// 若持久化层存在历史快照则回退到陈旧数据
 	if s.repo != nil {
-		history, histErr := s.repo.ListSnapshots(ctx, tenantID, []string{capabilityID}, key.ClientID)
+		history, histErr := s.repo.ListSnapshots(ctx, tenantUUID, []string{capabilityID}, key.ClientID)
 		if histErr == nil && len(history) > 0 {
 			stale := history[0]
 			stale.Source = SnapshotSourceCache
 			stale.Stale = true
 			_ = s.cache.Set(ctx, stale, stale.ExpiresAt.Sub(now))
-			s.metrics.ObserveCacheLookup(ctx, tenantID, capabilityID, "stale-history")
+			s.metrics.ObserveCacheLookup(ctx, tenantUUID, capabilityID, "stale-history")
 			return stale, nil
 		}
 	}
@@ -174,7 +176,7 @@ func (s *Service) ApplyReplica(ctx context.Context, snapshot Snapshot) error {
 
 func (s *Service) resolveRegistrations(ctx context.Context, req SyncRequest) ([]registry.Registration, error) {
 	if len(req.Capabilities) == 0 {
-		registrations, _, err := s.registryRepo.ListLatest(ctx, nil, req.TenantID, 0, 0)
+		registrations, _, err := s.registryRepo.ListLatest(ctx, nil, req.TenantUUID, 0, 0)
 		if err != nil {
 			return nil, err
 		}
@@ -183,7 +185,7 @@ func (s *Service) resolveRegistrations(ctx context.Context, req SyncRequest) ([]
 	caps := deduplicate(req.Capabilities)
 	result := make([]registry.Registration, 0, len(caps))
 	for _, capabilityID := range caps {
-		reg, err := s.registryRepo.GetLatest(ctx, nil, capabilityID, req.TenantID)
+		reg, err := s.registryRepo.GetLatest(ctx, nil, capabilityID, req.TenantUUID)
 		if err != nil {
 			return nil, err
 		}
@@ -193,7 +195,7 @@ func (s *Service) resolveRegistrations(ctx context.Context, req SyncRequest) ([]
 }
 
 func (s *Service) refreshSnapshot(ctx context.Context, key CacheKey) (Snapshot, error) {
-	reg, err := s.registryRepo.GetLatest(ctx, nil, key.CapabilityID, key.TenantID)
+	reg, err := s.registryRepo.GetLatest(ctx, nil, key.CapabilityID, key.TenantUUID)
 	if err != nil {
 		return Snapshot{}, err
 	}
@@ -202,7 +204,7 @@ func (s *Service) refreshSnapshot(ctx context.Context, key CacheKey) (Snapshot, 
 	if err := s.storeSnapshot(ctx, snapshot); err != nil {
 		return Snapshot{}, err
 	}
-	s.metrics.ObserveSync(ctx, key.TenantID, key.CapabilityID, snapshot.Source, snapshot.ExpiresAt.Sub(snapshot.IssuedAt), nil)
+	s.metrics.ObserveSync(ctx, key.TenantUUID, key.CapabilityID, snapshot.Source, snapshot.ExpiresAt.Sub(snapshot.IssuedAt), nil)
 	return snapshot, nil
 }
 
@@ -219,9 +221,10 @@ func (s *Service) buildSnapshot(reg registry.Registration, clientID string, now 
 		return normalizedAdapters[i].AdapterID < normalizedAdapters[j].AdapterID
 	})
 
+	tenantUUID := tenantUUIDFromRegistration(reg)
 	snapshot := Snapshot{
 		CapabilityID:   reg.CapabilityID,
-		TenantID:       reg.TenantID,
+		TenantUUID:     tenantUUID,
 		Version:        reg.Version,
 		IssuedAt:       now,
 		ExpiresAt:      expiresAt,
@@ -266,10 +269,15 @@ func deduplicate(values []string) []string {
 	return result
 }
 
+func tenantUUIDFromRegistration(reg registry.Registration) string {
+	return strings.TrimSpace(reg.TenantUUID)
+}
+
 func computeMetadataDigest(reg registry.Registration, adapters []registry.AdapterEndpoint) string {
+	tenantUUID := tenantUUIDFromRegistration(reg)
 	payload := map[string]interface{}{
 		"capability_id": reg.CapabilityID,
-		"tenant_id":     reg.TenantID,
+		"tenant_uuid":   tenantUUID,
 		"version":       reg.Version,
 		"adapters":      adapters,
 		"routing":       reg.RoutingPolicy,

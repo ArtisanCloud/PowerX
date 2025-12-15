@@ -18,7 +18,7 @@ type AgentShareRecord struct {
 	coremodel.PowerUUIDModel
 
 	AgentUUID       uuid.UUID      `gorm:"column:agent_uuid;type:uuid;not null;index:idx_agent_share_agent,priority:1;uniqueIndex:idx_agent_share_unique,priority:1" json:"agent_uuid"`
-	TargetTenantID  string         `gorm:"column:target_tenant_id;type:varchar(128);not null;index:idx_agent_share_agent,priority:2;index:idx_agent_share_tenant;uniqueIndex:idx_agent_share_unique,priority:2" json:"target_tenant_id"`
+	TargetTenantUUID string         `gorm:"column:target_tenant_uuid;type:varchar(128);not null;index:idx_agent_share_agent,priority:2;index:idx_agent_share_tenant;uniqueIndex:idx_agent_share_unique,priority:2" json:"target_tenant_uuid"`
 	Status          string         `gorm:"column:status;type:varchar(32);not null;index:idx_agent_share_status" json:"status"`
 	Quotas          datatypes.JSON `gorm:"column:quotas;type:jsonb;default:'[]'" json:"quotas"`
 	Metadata        datatypes.JSON `gorm:"column:metadata;type:jsonb;default:'{}'" json:"metadata"`

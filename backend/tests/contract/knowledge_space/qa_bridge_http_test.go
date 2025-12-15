@@ -25,14 +25,13 @@ func TestQABridgeRetrievalPlanHTTP(t *testing.T) {
 	engine := env.Engine()
 
 	body := map[string]any{
-		"tenantId":        env.TenantID().String(),
 		"intent":          "供应商是否超限",
 		"domainTags":      []string{"finance", "policy"},
 		"latencyBudgetMs": 1500,
 		"sessionId":       "session-alpha",
 	}
 
-	req := newJSONRequest(http.MethodPost, "/api/openapi/knowledge-spaces/qa/retrieval-plan", body)
+	req := newJSONRequest(http.MethodPost, "/api/openapi/knowledge-spaces/qa/retrieval-plan", body, env.TenantUUID().String())
 	resp := httptest.NewRecorder()
 	engine.ServeHTTP(resp, req)
 	require.Equal(t, http.StatusOK, resp.Code)
@@ -51,7 +50,7 @@ func TestQABridgeRetrievalPlanHTTP(t *testing.T) {
 
 	// Trigger degrade path by retiring spaceB.
 	require.NoError(t, env.SetSpaceStatus(spaceB.UUID, "retired"))
-	req = newJSONRequest(http.MethodPost, "/api/openapi/knowledge-spaces/qa/retrieval-plan", body)
+	req = newJSONRequest(http.MethodPost, "/api/openapi/knowledge-spaces/qa/retrieval-plan", body, env.TenantUUID().String())
 	resp = httptest.NewRecorder()
 	engine.ServeHTTP(resp, req)
 	require.Equal(t, http.StatusOK, resp.Code)
@@ -99,12 +98,11 @@ func TestQABridgeMemorySnapshotHTTP(t *testing.T) {
 		},
 	}
 	payload := map[string]any{
-		"tenantId":  env.TenantID().String(),
 		"sessionId": sessionID,
 		"updates":   updates,
 	}
 
-	req := newJSONRequest(http.MethodPost, "/api/openapi/knowledge-spaces/qa/memory-snapshot", payload)
+	req := newJSONRequest(http.MethodPost, "/api/openapi/knowledge-spaces/qa/memory-snapshot", payload, env.TenantUUID().String())
 	resp := httptest.NewRecorder()
 	engine.ServeHTTP(resp, req)
 	require.Equal(t, http.StatusOK, resp.Code)
@@ -120,10 +118,9 @@ func TestQABridgeMemorySnapshotHTTP(t *testing.T) {
 
 	// Fetch again without updates to validate cached snapshot.
 	payload = map[string]any{
-		"tenantId":  env.TenantID().String(),
 		"sessionId": sessionID,
 	}
-	req = newJSONRequest(http.MethodPost, "/api/openapi/knowledge-spaces/qa/memory-snapshot", payload)
+	req = newJSONRequest(http.MethodPost, "/api/openapi/knowledge-spaces/qa/memory-snapshot", payload, env.TenantUUID().String())
 	resp = httptest.NewRecorder()
 	engine.ServeHTTP(resp, req)
 	require.Equal(t, http.StatusOK, resp.Code)
@@ -134,7 +131,7 @@ func TestQABridgeMemorySnapshotHTTP(t *testing.T) {
 }
 
 type qaPlanHTTPPayload struct {
-	TenantID        string                 `json:"tenantId"`
+	TenantUUID      string                 `json:"tenant_uuid"`
 	Intent          string                 `json:"intent"`
 	DomainTags      []string               `json:"domainTags"`
 	CandidateSpaces []qaCandidateSpace     `json:"candidateSpaces"`
@@ -167,9 +164,9 @@ type qaToolMetadataView struct {
 }
 
 type qaMemoryHTTPResponse struct {
-	TenantID  string              `json:"tenantId"`
-	SessionID string              `json:"sessionId"`
-	Citations []qaCitationSummary `json:"citations"`
+	TenantUUID string              `json:"tenant_uuid"`
+	SessionID  string              `json:"sessionId"`
+	Citations  []qaCitationSummary `json:"citations"`
 }
 
 type qaCitationSummary struct {

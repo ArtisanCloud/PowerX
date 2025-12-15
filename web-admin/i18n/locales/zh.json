@@ -3,9 +3,32 @@
     "openMarket": "开放市场",
     "pluginMarketplace": "插件市场",
     "pluginReleaseCandidates": "发布候选",
-    "untitled": "未命名菜单",
+    "agent": "智能体",
+    "aiSettings": "AI 设置",
+    "aiSettingsModel": "模型配置",
+    "aiSettingsCost": "成本配置",
+    "badge": "徽章",
+    "customers": "客户管理",
+    "customerList": "客户列表",
+    "customerGroups": "客户分组",
+    "products": "产品管理",
+    "productList": "产品列表",
+    "productCategories": "产品分类",
+    "orders": "订单管理",
+    "knowledgeSpace": "知识空间",
+    "workflow": "流程",
+    "dashboard": "仪表盘",
+    "settings": "设置",
+    "userManagement": "用户管理",
+    "roleManagement": "角色管理",
+    "systemConfig": "系统配置",
     "pluginsMarket": "应用市场",
     "pluginsInstalled": "已安装",
+    "loadFailed": "菜单加载失败",
+    "loadFailedDesc": "无法加载菜单数据，请检查网络连接。",
+    "noItemsWarning": "未找到菜单项",
+    "itemCount": "共 {count} 项",
+    "untitled": "未命名菜单",
     "section": {
       "untitled": "未命名分类"
     }
@@ -17,7 +40,146 @@
     "settings": "设置",
     "trash": "回收站",
     "cancel": "取消",
-    "save": "保存"
+    "save": "保存",
+    "reload": "重新加载",
+    "reset": "重置"
+  },
+  "organization": {
+    "description": "管理组织、成员与权限。",
+    "common": {
+      "cancel": "取消",
+      "save": "保存",
+      "reset": "重置",
+      "up": "上移",
+      "down": "下移",
+      "edit": "编辑",
+      "delete": "删除",
+      "none": "无",
+      "enabled": "启用",
+      "disabled": "停用"
+    },
+    "tabs": {
+      "departments": "部门",
+      "users": "用户",
+      "permissions": "权限"
+    },
+    "department": {
+      "title": "部门管理",
+      "description": "维护组织层级与负责人。",
+      "search": "搜索部门…",
+      "add": "新增部门",
+      "edit": "编辑部门",
+      "empty": {
+        "title": "暂无部门",
+        "noResults": "未找到相关部门"
+      },
+      "table": {
+        "name": "名称",
+        "actions": "操作"
+      },
+      "form": {
+        "name": "名称",
+        "parent": "上级部门",
+        "noParent": "无上级",
+        "moveParent": "移动到",
+        "key": "唯一键 Key",
+        "sort": "排序",
+        "leader": "负责人",
+        "status": "状态",
+        "meta": "扩展 Meta(JSON)"
+      },
+      "confirmDelete": "确认删除该部门？",
+      "pagination": {
+        "showing": "显示 {start}-{end} / 共 {total} 条"
+      }
+    },
+    "user": {
+      "status": {
+        "active": "启用",
+        "inactive": "停用",
+        "suspended": "已冻结"
+      },
+      "title": "租户目录",
+      "rootManagement": "超级管理员视图",
+      "selectTenantDesc": "选择租户以管理其用户和角色。",
+      "searchTenants": "搜索租户…",
+      "filter": {
+        "status": "状态",
+        "plan": "套餐",
+        "allStatus": "全部状态",
+        "allPlans": "全部套餐"
+      },
+      "plan": {
+        "free": "基础版",
+        "pro": "专业版",
+        "enterprise": "企业版"
+      },
+      "noTenantsFound": "未找到租户",
+      "noDomain": "未配置域名",
+      "userCount": "用户数",
+      "createdAt": "创建时间",
+      "loadFailed": "租户加载失败"
+    }
+  },
+  "tenant": {
+    "add": "新增租户",
+    "tooltips": {
+      "saasSupport": "SaaS 开通即将上线"
+    }
+  },
+  "settings": {
+    "ai": {
+      "title": "AI 设置",
+      "description": "配置模型提供商与参数。",
+      "environment": "环境",
+      "modalityTabsLabel": "模态",
+      "modalityTabs": {
+        "llm": "对话模型",
+        "embedding": "向量",
+        "speech": "语音",
+        "vision": "视觉"
+      },
+      "sections": {
+        "general": "通用",
+        "parameters": "参数"
+      },
+      "actions": {
+        "openCostGuard": "进入成本防护",
+        "backToModels": "返回模型列表"
+      },
+      "costGuardPageTitle": "成本防护",
+      "costGuardPageDesc": "管理 AI 配额、限流与降级策略。",
+      "costGuard": {
+        "panelTitle": "防护策略",
+        "panelDesc": "配置配额、限流与降级方案。",
+        "tenantLabel": "租户",
+        "tenantPlaceholder": "选择租户",
+        "refresh": "刷新",
+        "openDashboard": "打开看板",
+        "lastUpdated": "最后更新时间",
+        "emptyTitle": "暂无配额数据",
+        "emptyDesc": "添加配额策略以开始统计。",
+        "playbookTitle": "应急策略",
+        "playbooks": {
+          "throttle": {
+            "title": "限流",
+            "desc": "预算紧张时限速请求。"
+          },
+          "degrade": {
+            "title": "降级",
+            "desc": "自动切换到更低成本模型。"
+          },
+          "disable": {
+            "title": "停用",
+            "desc": "超出预算时关闭服务。"
+          }
+        },
+        "defaultTenants": {
+          "demo": "演示",
+          "ops": "运营"
+        }
+      }
+    }
   },
   "connection": {
     "chatSignal": "聊天信令",
@@ -30,9 +192,6 @@
     }
   },
   "privacyPolicy": "隐私政策",
-  "dashboard": {
-    "title": "仪表盘"
-  },
   "header": {
     "searchPlaceholder": "搜索…",
     "profile": "个人中心",
@@ -49,6 +208,113 @@
   "login": "登录",
   "register": "注册"
   ,
+  "knowledgeSpaces": {
+    "head": {
+      "title": "知识空间",
+      "description": "管理知识空间与入库"
+    },
+    "hero": {
+      "badge": "知识",
+      "title": "知识空间总览",
+      "description": "创建并管理知识空间",
+      "actions": {
+        "create": "新建空间",
+        "createDesc": "创建一个新的知识空间",
+        "docs": "文档",
+        "docsDesc": "查看使用指南"
+      }
+    },
+    "governance": {
+      "title": "治理",
+      "description": "策略与权限"
+    },
+    "qaCard": {
+      "badge": "问答",
+      "title": "QA 桥接",
+      "refresh": "刷新",
+      "metrics": {
+        "latency": "延迟",
+        "coverage": "覆盖率",
+        "toolSuccess": "工具成功率"
+      }
+    },
+    "ingestion": {
+      "title": "入库",
+      "subtitle": "导入内容到空间",
+      "spaceId": "空间 ID",
+      "sourceType": "来源类型",
+      "sourceOptions": {
+        "pdf": "PDF",
+        "markdown": "Markdown",
+        "table": "表格",
+        "api": "API"
+      },
+      "mode": "模式",
+      "modeDocument": "文档模式",
+      "modeApi": "API 模式",
+      "uploadFile": "上传文件",
+      "uploadHint": "支持 PDF/Markdown/表格",
+      "priority": "优先级",
+      "priorityOptions": {
+        "normal": "普通",
+        "high": "高"
+      },
+      "actions": {
+        "ingestNow": "立即入库"
+      }
+    },
+    "timeline": {
+      "title": "时间线",
+      "description": "最近活动",
+      "badge": "日志"
+    },
+    "placeholders": {
+      "spaces": {
+        "title": "暂无空间",
+        "description": "创建你的第一个知识空间"
+      },
+      "fusion": {
+        "title": "融合未配置",
+        "description": "连接数据源后开始使用"
+      },
+      "feedback": {
+        "title": "暂无反馈",
+        "description": "收集反馈以便改进"
+      }
+    }
+  },
+  "dashboard": {
+    "title": "仪表盘",
+    "description": "关键指标概览",
+    "stats": {
+      "totalUsers": "用户总数",
+      "todayVisits": "今日访问",
+      "totalRevenue": "总收入",
+      "activeUsers": "活跃用户",
+      "vsLastMonth": "较上月"
+    },
+    "activities": {
+      "title": "最近活动",
+      "viewAll": "查看全部",
+      "users": {
+        "zhangsan": "张三",
+        "lisi": "李四",
+        "wangwu": "王五"
+      },
+      "actions": {
+        "createArticle": "创建了文章",
+        "updateProfile": "更新了资料",
+        "deleteComment": "删除了评论"
+      },
+      "targets": {
+        "vueBestPractices": "Vue 最佳实践",
+        "onTechShare": "技术分享"
+      },
+      "times": {
+        "minutesAgo": "{n} 分钟前"
+      }
+    }
+  },
   "agent": {
     "selector": {
       "pickAgent": "选择一个智能体",
@@ -83,11 +349,14 @@
         "analystPrompt": "分析助手提示词"
       },
       "title": "标题",
-      "description": "描述"
+      "description": "描述",
+      "selectProvider": "选择提供商",
+      "selectModel": "选择模型"
     },
     "chat": {
       "defaultAgent": "默认智能体",
       "connected": "已连接",
+      "disconnected": "连接已断开",
       "welcomeTitle": "欢迎",
       "welcomeMessage": "随便问我任何问题开始对话吧",
       "disconnectedPlaceholder": "已断开",
@@ -105,6 +374,8 @@
     "gate": "门禁",
     "tenant": "租户",
     "createdBy": "提交人",
+    "createdAt": "创建时间",
+    "updatedAt": "更新时间",
     "artifact": "构建产物",
     "submittedAt": "提交时间",
     "releaseNotes": "发布说明",

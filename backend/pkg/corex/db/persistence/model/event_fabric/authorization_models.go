@@ -1,6 +1,7 @@
 package eventfabric
 
 import (
+	"strings"
 	"time"
 
 	coremodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
@@ -70,7 +71,7 @@ func (m *AuthorizationCapability) BeforeCreate(tx *gorm.DB) error {
 type AuthorizationGrant struct {
 	coremodel.PowerUUIDModel
 
-	TenantID        uuid.UUID      `gorm:"column:tenant_id;type:uuid;not null;index:idx_event_auth_grants_tenant" json:"tenant_id"`
+	TenantUUID      string         `gorm:"column:tenant_uuid;type:char(36);not null;default:'';index:idx_event_auth_grants_tenant_uuid" json:"tenant_uuid"`
 	SubjectType     string         `gorm:"column:subject_type;type:varchar(32);not null;index:idx_event_auth_grants_subject,priority:1" json:"subject_type"`
 	SubjectID       uuid.UUID      `gorm:"column:subject_id;type:uuid;not null;index:idx_event_auth_grants_subject,priority:2" json:"subject_id"`
 	Status          string         `gorm:"column:status;type:varchar(32);not null;default:'pending';index:idx_event_auth_grants_status" json:"status"`
@@ -94,6 +95,7 @@ func (m *AuthorizationGrant) BeforeCreate(tx *gorm.DB) error {
 	if m.UUID == uuid.Nil {
 		m.UUID = uuid.New()
 	}
+	m.TenantUUID = strings.TrimSpace(m.TenantUUID)
 	if m.Status == "" {
 		m.Status = GrantStatusPending
 	}
@@ -150,7 +152,7 @@ func (m *AuthorizationGrantCondition) BeforeCreate(tx *gorm.DB) error {
 type AuthorizationApprovalTicket struct {
 	coremodel.PowerUUIDModel
 
-	TenantID           uuid.UUID      `gorm:"column:tenant_id;type:uuid;not null;index:idx_event_auth_tickets_tenant" json:"tenant_id"`
+	TenantUUID         string         `gorm:"column:tenant_uuid;type:char(36);not null;default:'';index:idx_event_auth_tickets_tuuid" json:"tenant_uuid"`
 	GrantID            *uuid.UUID     `gorm:"column:grant_id;type:uuid" json:"grant_id,omitempty"`
 	RequestFingerprint uuid.UUID      `gorm:"column:request_fingerprint;type:uuid;not null;uniqueIndex:uk_event_auth_ticket_request" json:"request_fingerprint"`
 	Status             string         `gorm:"column:status;type:varchar(32);not null;default:'pending';index:idx_event_auth_tickets_status" json:"status"`
@@ -170,6 +172,7 @@ func (m *AuthorizationApprovalTicket) BeforeCreate(tx *gorm.DB) error {
 	if m.UUID == uuid.Nil {
 		m.UUID = uuid.New()
 	}
+	m.TenantUUID = strings.TrimSpace(m.TenantUUID)
 	if m.Status == "" {
 		m.Status = ApprovalStatusPending
 	}
@@ -185,7 +188,7 @@ type AuthorizationGrantTemplate struct {
 
 	Name         string         `gorm:"column:name;type:varchar(128);not null;uniqueIndex:uk_event_auth_template_name,priority:1" json:"name"`
 	Source       string         `gorm:"column:source;type:varchar(32);not null;default:'system_template';index:idx_event_auth_template_source" json:"source"`
-	TenantID     *uuid.UUID     `gorm:"column:tenant_id;type:uuid;uniqueIndex:uk_event_auth_template_name,priority:2" json:"tenant_id,omitempty"`
+	TenantUUID   *string        `gorm:"column:tenant_uuid;type:char(36);index:idx_event_auth_template_tuuid" json:"tenant_uuid,omitempty"`
 	Description  string         `gorm:"column:description;type:text" json:"description,omitempty"`
 	Capabilities datatypes.JSON `gorm:"column:capabilities;type:jsonb;not null" json:"capabilities"`
 	Conditions   datatypes.JSON `gorm:"column:conditions;type:jsonb;default:'{}'" json:"conditions,omitempty"`

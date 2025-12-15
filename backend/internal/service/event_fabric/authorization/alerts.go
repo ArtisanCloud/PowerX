@@ -19,7 +19,7 @@ type AlertEmitter interface {
 type AlertEvent struct {
 	Type        string
 	Severity    string
-	TenantID    string
+	TenantUUID  string
 	SubjectType string
 	SubjectID   string
 	Capability  string
@@ -81,10 +81,12 @@ func (e *alertEmitter) Emit(ctx context.Context, alert AlertEvent) {
 		ts = e.clock().UTC()
 	}
 
+	tenantUUID := strings.TrimSpace(alert.TenantUUID)
+
 	payload := map[string]any{
 		"type":         alert.Type,
 		"severity":     normalizeSeverity(alert.Severity),
-		"tenant_id":    alert.TenantID,
+		"tenant_uuid":  tenantUUID,
 		"subject_type": alert.SubjectType,
 		"subject_id":   alert.SubjectID,
 		"capability":   alert.Capability,
@@ -97,7 +99,7 @@ func (e *alertEmitter) Emit(ctx context.Context, alert AlertEvent) {
 
 	e.bus.Publish(e.topic, payload, ctx)
 	e.logger.WarnF(ctx, "[authorization.alert] type=%s tenant=%s subject=%s capability=%s reason=%s",
-		payload["type"], payload["tenant_id"], payload["subject_id"], payload["capability"], payload["reason"])
+		payload["type"], payload["tenant_uuid"], payload["subject_id"], payload["capability"], payload["reason"])
 }
 
 func normalizeSeverity(severity string) string {

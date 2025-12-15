@@ -16,7 +16,7 @@ type tenantGrantDTO struct {
 }
 
 type tenantFormRequest struct {
-	TenantID                 string            `json:"tenant_id" binding:"required"`
+	TenantUUID               string            `json:"tenant_uuid" binding:"required,uuid4"`
 	Alias                    string            `json:"alias" binding:"required"`
 	DisplayName              string            `json:"display_name"`
 	Purpose                  string            `json:"purpose"`
@@ -33,7 +33,7 @@ type tenantFormRequest struct {
 
 type tenantFormResponse struct {
 	ID                       string                           `json:"id"`
-	TenantID                 string                           `json:"tenant_id"`
+	TenantUUID               string                           `json:"tenant_uuid"`
 	Alias                    string                           `json:"alias"`
 	DisplayName              string                           `json:"display_name"`
 	Purpose                  string                           `json:"purpose"`
@@ -71,7 +71,7 @@ func toTenantFormInput(req tenantFormRequest) agent_lifecycle.TenantFormInput {
 		})
 	}
 	return agent_lifecycle.TenantFormInput{
-		TenantID:                 req.TenantID,
+		TenantUUID:               req.TenantUUID,
 		Alias:                    req.Alias,
 		DisplayName:              req.DisplayName,
 		Purpose:                  req.Purpose,
@@ -101,7 +101,7 @@ func fromTenantFormView(form *agent_lifecycle.TenantForm) tenantFormResponse {
 	}
 	resp := tenantFormResponse{
 		ID:                       form.ID.String(),
-		TenantID:                 form.TenantID,
+		TenantUUID:               form.TenantUUID,
 		Alias:                    form.Alias,
 		DisplayName:              form.DisplayName,
 		Purpose:                  form.Purpose,

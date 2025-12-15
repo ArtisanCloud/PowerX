@@ -30,34 +30,39 @@ func TestDeltaGRPCFlow(t *testing.T) {
 	tpl := env.SeedPolicyTemplate("delta-grpc", "v1")
 	space := env.CreateSpaceFixture("delta-grpc-space", tpl)
 
-	startResp, err := client.StartDeltaJob(context.Background(), &knowledgev1.StartDeltaJobRequest{
+	ctx := knowledgeGRPCContext(t, env)
+	startResp, err := client.StartDeltaJob(ctx, &knowledgev1.StartDeltaJobRequest{
 		SpaceId:    space.UUID.String(),
 		Source:     "handbook",
 		PackageUri: "s3://delta/grpc.tgz",
 	})
 	require.NoError(t, err)
 	require.NotNil(t, startResp.GetJob())
+	assertNoLegacyTenantProto(t, startResp)
 	jobID := startResp.GetJob().GetJobId()
 	require.NotEmpty(t, jobID)
 
-	_, err = client.GetDeltaReport(context.Background(), &knowledgev1.GetDeltaReportRequest{JobId: jobID})
+	reportResp, err := client.GetDeltaReport(ctx, &knowledgev1.GetDeltaReportRequest{JobId: jobID})
 	require.NoError(t, err)
+	assertNoLegacyTenantProto(t, reportResp)
 
-	publishResp, err := client.PublishDeltaJob(context.Background(), &knowledgev1.PublishDeltaJobRequest{
+	publishResp, err := client.PublishDeltaJob(ctx, &knowledgev1.PublishDeltaJobRequest{
 		JobId:        jobID,
 		Decision:     "publish",
 		DiffAccuracy: 97.5,
 	})
 	require.NoError(t, err)
 	require.Equal(t, "published", publishResp.GetJob().GetStatus())
+	assertNoLegacyTenantProto(t, publishResp)
 
-	_, err = client.RollbackDelta(context.Background(), &knowledgev1.RollbackDeltaRequest{
+	rollbackResp, err := client.RollbackDelta(ctx, &knowledgev1.RollbackDeltaRequest{
 		JobId:  jobID,
 		Reason: "regression",
 	})
 	require.NoError(t, err)
+	assertNoLegacyTenantProto(t, rollbackResp)
 
-	_, err = client.PublishDeltaJob(context.Background(), &knowledgev1.PublishDeltaJobRequest{
+	_, err = client.PublishDeltaJob(ctx, &knowledgev1.PublishDeltaJobRequest{
 		JobId:    uuid.New().String(),
 		Decision: "publish",
 	})

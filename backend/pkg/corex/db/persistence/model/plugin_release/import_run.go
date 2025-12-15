@@ -13,7 +13,7 @@ import (
 type PluginImportRun struct {
 	coremodel.PowerUUIDModel
 
-	TenantID        string         `gorm:"column:tenant_id;type:varchar(128);index" json:"tenant_id"`
+	TenantUUID      string         `gorm:"column:tenant_uuid;type:varchar(128);index" json:"tenant_uuid"`
 	PackageName     string         `gorm:"column:package_name;type:varchar(255);not null" json:"package_name"`
 	Vendor          string         `gorm:"column:vendor;type:varchar(255)" json:"vendor"`
 	SourceURI       string         `gorm:"column:source_uri;type:text" json:"source_uri"`

@@ -24,7 +24,7 @@ func TestHealthHTTP(t *testing.T) {
 	ctx := context.Background()
 
 	result, err := svc.Register(ctx, agent_lifecycle.RegisterInput{
-		TenantID:                 "tenant-001",
+		TenantUUID:               "tenant-001",
 		Alias:                    "health-http",
 		TelemetryContractVersion: "otel-agent-v1",
 	})
@@ -36,7 +36,7 @@ func TestHealthHTTP(t *testing.T) {
 	record := func(offset time.Duration, status string, metrics agent_lifecycle.HealthMetricsInput) {
 		err := svc.RecordHealthSnapshot(ctx, agent_lifecycle.HealthInput{
 			AgentID:         agentID,
-			TenantID:        "tenant-001",
+			TenantUUID:      "tenant-001",
 			WindowStartedAt: base.Add(offset),
 			WindowDuration:  time.Minute,
 			Status:          status,
@@ -75,7 +75,7 @@ func TestHealthHTTP(t *testing.T) {
 
 	// 拉取健康摘要
 	summaryReq := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/openapi/agents/%s/health/summary", agentID.String()), nil)
-	summaryReq.Header.Set("Authorization", "Bearer token")
+	applyTenantHeaders(summaryReq, "tenant-001")
 	summaryResp := httptest.NewRecorder()
 	engine.ServeHTTP(summaryResp, summaryReq)
 	require.Equal(t, http.StatusOK, summaryResp.Code)
@@ -100,7 +100,7 @@ func TestHealthHTTP(t *testing.T) {
 
 	// 拉取健康历史
 	historyReq := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/openapi/agents/%s/health/history?range_hours=3&limit=5", agentID.String()), nil)
-	historyReq.Header.Set("Authorization", "Bearer token")
+	applyTenantHeaders(historyReq, "tenant-001")
 	historyResp := httptest.NewRecorder()
 	engine.ServeHTTP(historyResp, historyReq)
 	require.Equal(t, http.StatusOK, historyResp.Code)

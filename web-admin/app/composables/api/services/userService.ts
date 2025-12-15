@@ -26,7 +26,7 @@ export interface Member {
   createdAt: string;
   updatedAt: string;
   DeletedAt?: string | null;
-  tenant_id: number;
+  tenant_uuid: string;
   user_id: number;
   username: string;
   display_name: string;
@@ -43,7 +43,7 @@ export interface MemberWithProfile {
 
 export interface UserListParams extends PaginationParams {
   q?: string; // 关键词搜索
-  tenant_id?: number; // 租户筛选
+  tenant_uuid?: string; // 租户筛选
   status?: number; // 状态筛选
   sort_by?: string;
   sort_order?: string;
@@ -60,7 +60,6 @@ export interface CreateSystemUserParams {
 
   // 扩展字段
   username: string;
-  tenant_id: number;
   initial_password?: string;
   dept_ids?: number[];
 }
@@ -82,7 +81,6 @@ export interface ForceLogoutParams {
 }
 
 export interface AddUserToTenantParams {
-  tenant_id: number;
 }
 
 export interface UserLoginParams {

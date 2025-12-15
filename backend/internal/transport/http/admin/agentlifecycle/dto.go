@@ -8,7 +8,6 @@ import (
 )
 
 type registerAgentRequest struct {
-	TenantID                 string            `json:"tenant_id" binding:"required"`
 	Alias                    string            `json:"alias" binding:"required"`
 	DisplayName              string            `json:"display_name"`
 	ToolGrants               []agentGrantDTO   `json:"tool_grants"`
@@ -22,35 +21,30 @@ type registerAgentRequest struct {
 }
 
 type activateAgentRequest struct {
-	TenantID    string `json:"tenant_id" binding:"required"`
 	Reason      string `json:"reason"`
 	RequestedBy string `json:"requested_by"`
 	TraceID     string `json:"trace_id"`
 }
 
 type pauseAgentRequest struct {
-	TenantID    string `json:"tenant_id" binding:"required"`
 	Reason      string `json:"reason"`
 	RequestedBy string `json:"requested_by"`
 	TraceID     string `json:"trace_id"`
 }
 
 type resumeAgentRequest struct {
-	TenantID    string `json:"tenant_id" binding:"required"`
 	Reason      string `json:"reason"`
 	RequestedBy string `json:"requested_by"`
 	TraceID     string `json:"trace_id"`
 }
 
 type retireAgentRequest struct {
-	TenantID    string `json:"tenant_id" binding:"required"`
 	Reason      string `json:"reason"`
 	RequestedBy string `json:"requested_by"`
 	TraceID     string `json:"trace_id"`
 }
 
 type scaleAgentRequest struct {
-	TenantID                string `json:"tenant_id" binding:"required"`
 	TargetCapacityInstances int32  `json:"target_capacity_instances" binding:"required"`
 	Reason                  string `json:"reason"`
 	RequestedBy             string `json:"requested_by"`
@@ -67,7 +61,6 @@ type autoRegisterManifestRequest struct {
 	PluginID                 string            `json:"plugin_id" binding:"required"`
 	PluginVersion            string            `json:"plugin_version" binding:"required"`
 	ManifestVersion          string            `json:"manifest_version" binding:"required"`
-	TenantID                 string            `json:"tenant_id" binding:"required"`
 	Alias                    string            `json:"alias" binding:"required"`
 	DisplayName              string            `json:"display_name"`
 	TelemetryContractVersion string            `json:"telemetry_contract_version" binding:"required"`
@@ -94,7 +87,7 @@ type sandboxRunRequest struct {
 
 type agentResponse struct {
 	ID                       string            `json:"id"`
-	TenantID                 string            `json:"tenant_id"`
+	TenantUUID               string            `json:"tenant_uuid"`
 	Alias                    string            `json:"alias"`
 	DisplayName              string            `json:"display_name"`
 	Status                   string            `json:"status"`
@@ -124,7 +117,7 @@ type sandboxResponse struct {
 	Metrics    map[string]float64 `json:"metrics,omitempty"`
 }
 
-func toRegisterInput(req registerAgentRequest) agent_lifecycle.RegisterInput {
+func toRegisterInput(req registerAgentRequest, tenantUUID string) agent_lifecycle.RegisterInput {
 	var grants []agent_lifecycle.ToolGrant
 	for _, item := range req.ToolGrants {
 		grants = append(grants, agent_lifecycle.ToolGrant{
@@ -138,7 +131,7 @@ func toRegisterInput(req registerAgentRequest) agent_lifecycle.RegisterInput {
 		capacity = *req.DefaultCapacityInstances
 	}
 	return agent_lifecycle.RegisterInput{
-		TenantID:                 req.TenantID,
+		TenantUUID:               tenantUUID,
 		Alias:                    req.Alias,
 		DisplayName:              req.DisplayName,
 		ToolGrants:               grants,
@@ -166,7 +159,7 @@ func fromAgent(agent *agent_lifecycle.Agent) agentResponse {
 	}
 	return agentResponse{
 		ID:                       agent.ID.String(),
-		TenantID:                 agent.TenantID,
+		TenantUUID:               agent.TenantUUID,
 		Alias:                    agent.Alias,
 		DisplayName:              agent.DisplayName,
 		Status:                   agent.Status,
@@ -183,7 +176,7 @@ func fromAgent(agent *agent_lifecycle.Agent) agentResponse {
 	}
 }
 
-func toManifestInput(req autoRegisterManifestRequest) agent_lifecycle.ManifestRegistrationInput {
+func toManifestInput(req autoRegisterManifestRequest, tenantUUID string) agent_lifecycle.ManifestRegistrationInput {
 	var grants []agent_lifecycle.ToolGrant
 	for _, item := range req.ToolGrants {
 		grants = append(grants, agent_lifecycle.ToolGrant{
@@ -200,7 +193,7 @@ func toManifestInput(req autoRegisterManifestRequest) agent_lifecycle.ManifestRe
 		PluginID:                 req.PluginID,
 		PluginVersion:            req.PluginVersion,
 		ManifestVersion:          req.ManifestVersion,
-		TenantID:                 req.TenantID,
+		TenantUUID:               tenantUUID,
 		Alias:                    req.Alias,
 		DisplayName:              req.DisplayName,
 		ToolGrants:               grants,
@@ -267,7 +260,6 @@ type healthHistoryResponse struct {
 }
 
 type subscriptionRequest struct {
-	TenantID       string   `json:"tenant_id" binding:"required"`
 	MetricsFilter  []string `json:"metrics_filter"`
 	HealthStatuses []string `json:"health_statuses"`
 	RequestedBy    string   `json:"requested_by"`
@@ -293,10 +285,10 @@ func fromHealthSummary(summary *agent_lifecycle.HealthSummary) healthSummaryResp
 	}
 }
 
-func toSubscriptionInput(agentID uuid.UUID, req subscriptionRequest) agent_lifecycle.SubscriptionUpdateInput {
+func toSubscriptionInput(agentID uuid.UUID, tenantUUID string, req subscriptionRequest) agent_lifecycle.SubscriptionUpdateInput {
 	return agent_lifecycle.SubscriptionUpdateInput{
 		AgentID:     agentID,
-		TenantID:    req.TenantID,
+		TenantUUID:  tenantUUID,
 		RequestedBy: req.RequestedBy,
 		TraceID:     req.TraceID,
 		Config: agent_lifecycle.SubscriptionConfig{

@@ -118,7 +118,7 @@ sequenceDiagram
   - `POST /internal/risk/login/incidents/{id}/rollback` — 执行会话恢复、账号解冻或阈值调整。
   - `POST /internal/sessions/force-logout`，`POST /internal/users/{id}/freeze` / `unfreeze` — 会话与账号处置接口。
 - **Events 输出**
-  - `security.login.blocked`、`security.login.rollback`、`risk.login.incident` — 包含 `incident_id`, `tenant_id`, `user_id`, `rule_id`, `action`, `trace_id`, `latency_ms`。
+  - `security.login.blocked`、`security.login.rollback`、`risk.login.incident` — 包含 `incident_id`, `tenant_uuid`, `user_id`, `rule_id`, `action`, `trace_id`, `latency_ms`。
 - **配置与脚本**
   - `config/risk/login_rules.yaml` — 风险规则、阈值、权重。
   - `config/risk/blacklist.yaml` — 黑名单/地理风险源。
@@ -144,7 +144,7 @@ sequenceDiagram
 # Observability & Ops
 
 - **指标**：`risk.login.high_risk_total`, `risk.login.false_positive_total`, `risk.login.response_latency_p95`, `risk.login.forced_logout_total`, `risk.login.rollback_total`。
-- **日志**：记录 `incident_id`, `tenant_id`, `user_id`, `rule_id`, `score`, `action`, `trace_id`，敏感字段脱敏。
+- **日志**：记录 `incident_id`, `tenant_uuid`, `user_id`, `rule_id`, `score`, `action`, `trace_id`，敏感字段脱敏。
 - **告警**：风险事件积压 >100 或处置耗时 >60 秒触发 PagerDuty；误报率 >5% 触发安全评审；冻结失败率 >1% 推送 Slack。
 - **仪表板**：Grafana `IAM / Risk Login`、Datadog `risk-login-*`、`reports/iam/auth-security-dashboard`。
 

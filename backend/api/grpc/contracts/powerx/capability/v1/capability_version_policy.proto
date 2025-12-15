@@ -14,6 +14,7 @@ message CapabilityVersionPolicy {
   google.protobuf.Struct compatibility_matrix = 4;
   DeprecationPolicy deprecation_policy = 5;
   google.protobuf.Timestamp updated_at = 6;
+  string tenant_uuid = 7;
 }
 
 message VersionRule {

@@ -67,7 +67,7 @@ func NewRegistry(store *store.Store, redis redis.Cmdable, opts RegistryOptions) 
 
 type RegisterRequest struct {
 	PluginID        string
-	TenantID        uint64
+	TenantUUID      string
 	DeveloperID     uint64
 	BuildHash       string
 	EntryPoints     []string
@@ -82,8 +82,11 @@ func (r *Registry) Register(ctx context.Context, req RegisterRequest) (*model.De
 	if r.store == nil {
 		return nil, errors.New("dev hotload store missing")
 	}
-	if strings.TrimSpace(req.PluginID) == "" || req.TenantID == 0 || req.DeveloperID == 0 {
+	if strings.TrimSpace(req.PluginID) == "" || req.DeveloperID == 0 {
 		return nil, fmt.Errorf("invalid register request")
+	}
+	if strings.TrimSpace(req.TenantUUID) == "" {
+		return nil, ErrTenantUUIDReq
 	}
 
 	if r.maxConcurrent > 0 {
@@ -96,10 +99,10 @@ func (r *Registry) Register(ctx context.Context, req RegisterRequest) (*model.De
 		}
 	}
 
-	lockKey := sessionLockKey(r.keyPrefix, req.PluginID, req.TenantID)
+	lockKey := sessionLockKey(r.keyPrefix, req.PluginID, req.TenantUUID)
 	if err := r.acquireLock(ctx, lockKey); err != nil {
 		if errors.Is(err, ErrSessionConflict) {
-			if active, findErr := r.store.FindActiveByPlugin(ctx, req.PluginID, req.TenantID); findErr == nil {
+			if active, findErr := r.store.FindActiveByPlugin(ctx, req.PluginID, req.TenantUUID); findErr == nil {
 				return nil, newSessionConflictError(active)
 			}
 		}
@@ -113,7 +116,7 @@ func (r *Registry) Register(ctx context.Context, req RegisterRequest) (*model.De
 		}
 	}()
 
-	if active, err := r.store.FindActiveByPlugin(ctx, req.PluginID, req.TenantID); err == nil {
+	if active, err := r.store.FindActiveByPlugin(ctx, req.PluginID, req.TenantUUID); err == nil {
 		_ = r.releaseLock(ctx, lockKey)
 		return nil, newSessionConflictError(active)
 	} else if !errors.Is(err, store.ErrNotFound) {
@@ -123,7 +126,7 @@ func (r *Registry) Register(ctx context.Context, req RegisterRequest) (*model.De
 
 	session := &model.DevHotloadSession{
 		PluginID:        strings.TrimSpace(req.PluginID),
-		TenantID:        req.TenantID,
+		TenantUUID:      strings.TrimSpace(req.TenantUUID),
 		DeveloperID:     req.DeveloperID,
 		BuildHash:       strings.TrimSpace(req.BuildHash),
 		ReloadToken:     randomReloadToken(),
@@ -154,7 +157,7 @@ func (r *Registry) Register(ctx context.Context, req RegisterRequest) (*model.De
 	}
 	if err := r.store.AppendEvent(ctx, session.UUID, "session.started", map[string]any{
 		"pluginId":    session.PluginID,
-		"tenantId":    session.TenantID,
+		"tenant_uuid": session.TenantUUID,
 		"developerId": session.DeveloperID,
 	}); err != nil {
 		return nil, err
@@ -224,7 +227,7 @@ func (r *Registry) Terminate(ctx context.Context, id uuid.UUID, note string) err
 		return err
 	}
 	cacheKey := sessionCacheKey(r.keyPrefix, session.UUID)
-	lockKey := sessionLockKey(r.keyPrefix, session.PluginID, session.TenantID)
+	lockKey := sessionLockKey(r.keyPrefix, session.PluginID, session.TenantUUID)
 	_ = r.releaseLock(ctx, lockKey)
 	if r.redis != nil {
 		_ = r.redis.Del(ctx, cacheKey).Err()
@@ -270,8 +273,8 @@ func (r *Registry) releaseLock(ctx context.Context, key string) error {
 	return r.redis.Del(ctx, key).Err()
 }
 
-func sessionLockKey(prefix, pluginID string, tenantID uint64) string {
-	return fmt.Sprintf("%s:lock:%s:%d", prefix, pluginID, tenantID)
+func sessionLockKey(prefix, pluginID string, tenantUUID string) string {
+	return fmt.Sprintf("%s:lock:%s:%s", prefix, pluginID, tenantUUID)
 }
 
 func sessionCacheKey(prefix string, sessionID uuid.UUID) string {
@@ -313,7 +316,7 @@ func (r *Registry) buildReloadToken(ctx context.Context, session *model.DevHotlo
 		ttl = r.ttl
 	}
 	claims := reqctx.CoreXClaims{
-		TenantID:   session.TenantID,
+		TenantUUID: session.TenantUUID,
 		MemberID:   session.DeveloperID,
 		MemberUUID: fmt.Sprintf("devhotload:%s", session.UUID.String()),
 		Scope:      "access",

@@ -14,6 +14,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const tenantFormContractUUID = "3b7c789c-1c74-4f89-9b47-ec5eac5ef85e"
+
 func TestTenantAgentFormHTTP(t *testing.T) {
 	env := testenv.New(t)
 	t.Cleanup(env.Close)
@@ -21,7 +23,7 @@ func TestTenantAgentFormHTTP(t *testing.T) {
 	engine := env.Engine()
 
 	formBody := map[string]any{
-		"tenant_id":                  "tenant-form",
+		"tenant_uuid":                tenantFormContractUUID,
 		"alias":                      "marketing-agent",
 		"display_name":               "Marketing Agent",
 		"telemetry_contract_version": "otel-agent-v1",
@@ -34,11 +36,12 @@ func TestTenantAgentFormHTTP(t *testing.T) {
 	}
 	payload, _ := json.Marshal(formBody)
 	req := httptest.NewRequest(http.MethodPost, "/api/admin/agents/tenant/forms", bytes.NewReader(payload))
-	req.Header.Set("Authorization", "Bearer token")
 	req.Header.Set("Content-Type", "application/json")
+	applyTenantHeaders(req, tenantFormContractUUID)
 	resp := httptest.NewRecorder()
 	engine.ServeHTTP(resp, req)
 	require.Equal(t, http.StatusCreated, resp.Code)
+	require.NotContains(t, resp.Body.String(), "\"tenant_id\"")
 
 	var submitResp struct {
 		Code int `json:"code"`
@@ -56,11 +59,12 @@ func TestTenantAgentFormHTTP(t *testing.T) {
 	approveBody := map[string]string{"operator": "ops-user"}
 	approveBytes, _ := json.Marshal(approveBody)
 	approveReq := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/api/admin/agents/tenant/forms/%s/approve", formID), bytes.NewReader(approveBytes))
-	approveReq.Header.Set("Authorization", "Bearer token")
 	approveReq.Header.Set("Content-Type", "application/json")
+	applyTenantHeaders(approveReq, tenantFormContractUUID)
 	approveResp := httptest.NewRecorder()
 	engine.ServeHTTP(approveResp, approveReq)
 	require.Equal(t, http.StatusOK, approveResp.Code)
+	require.NotContains(t, approveResp.Body.String(), "\"tenant_id\"")
 
 	var approveData struct {
 		Code int `json:"code"`
@@ -78,9 +82,18 @@ func TestTenantAgentFormHTTP(t *testing.T) {
 	conflictBody["alias"] = "root-admin"
 	conflictBytes, _ := json.Marshal(conflictBody)
 	conflictReq := httptest.NewRequest(http.MethodPost, "/api/admin/agents/tenant/forms", bytes.NewReader(conflictBytes))
-	conflictReq.Header.Set("Authorization", "Bearer token")
 	conflictReq.Header.Set("Content-Type", "application/json")
+	applyTenantHeaders(conflictReq, tenantFormContractUUID)
 	conflictResp := httptest.NewRecorder()
 	engine.ServeHTTP(conflictResp, conflictReq)
 	require.Equal(t, http.StatusBadRequest, conflictResp.Code)
+
+	t.Run("missing tenant header rejected", func(t *testing.T) {
+		missingReq := httptest.NewRequest(http.MethodPost, "/api/admin/agents/tenant/forms", bytes.NewReader(payload))
+		missingReq.Header.Set("Content-Type", "application/json")
+		missingReq.Header.Set("Authorization", "Bearer token")
+		missingResp := httptest.NewRecorder()
+		engine.ServeHTTP(missingResp, missingReq)
+		require.Equal(t, http.StatusUnauthorized, missingResp.Code)
+	})
 }

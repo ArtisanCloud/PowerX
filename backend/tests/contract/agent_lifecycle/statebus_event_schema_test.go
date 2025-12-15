@@ -14,6 +14,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const statebusTenantUUID = "5d9c08aa-81d7-49a1-9ef8-4d96f48f8992"
+
 func TestStateBusEventSchema(t *testing.T) {
 	env := testenv.New(t)
 	t.Cleanup(env.Close)
@@ -28,7 +30,7 @@ func TestStateBusEventSchema(t *testing.T) {
 	svc := env.Deps.AgentLifecycle.Service
 
 	reg, err := svc.Register(ctx, agent_lifecycle.RegisterInput{
-		TenantID:                 "tenant-statebus",
+		TenantUUID:               statebusTenantUUID,
 		Alias:                    "statebus-agent",
 		TelemetryContractVersion: "otel-agent-v1",
 	})
@@ -36,7 +38,7 @@ func TestStateBusEventSchema(t *testing.T) {
 
 	_, err = svc.Activate(ctx, agent_lifecycle.ActivateInput{
 		AgentID:     reg.Agent.ID,
-		TenantID:    "tenant-statebus",
+		TenantUUID:  statebusTenantUUID,
 		RequestedBy: "ops",
 	})
 	require.NoError(t, err)
@@ -48,7 +50,7 @@ func TestStateBusEventSchema(t *testing.T) {
 
 	err = svc.RecordHealthSnapshot(ctx, agent_lifecycle.HealthInput{
 		AgentID:        reg.Agent.ID,
-		TenantID:       "tenant-statebus",
+		TenantUUID:     statebusTenantUUID,
 		WindowDuration: time.Minute,
 		Status:         "degraded",
 		Metrics: agent_lifecycle.HealthMetricsInput{
@@ -63,7 +65,7 @@ func TestStateBusEventSchema(t *testing.T) {
 
 	healthEvent := awaitStateBusEvent(t, healthEvents, "agent.health.degraded")
 	payload = decodePayload(t, healthEvent["payload"])
-	require.Equal(t, "tenant-statebus", payload["tenant_id"])
+	require.Equal(t, statebusTenantUUID, payload["tenant_uuid"])
 	require.Equal(t, "degraded", payload["status"])
 }
 

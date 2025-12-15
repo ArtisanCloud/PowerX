@@ -48,10 +48,9 @@ const current = computed(() => {
 async function select(code: string) {
   // 优先使用 i18n 路由切换
   const path = switchLocalePath(code)
+  await setLocale(code)
   if (path && path !== route.fullPath) {
     await navigateTo(path)
-  } else {
-    await setLocale(code)
   }
   // 只广播字符串 code
   broadcast({ source: 'powerx', type: 'locale', locale: code })

@@ -10,7 +10,7 @@ import (
 type CapabilityVersionPolicy struct {
 	coremodel.PowerUUIDModel
 
-	TenantID            uint64         `gorm:"column:tenant_id;not null;index:idx_capability_version_policy_tenant_key,priority:1;uniqueIndex:uk_capability_version_policy_tenant_key,priority:1" json:"tenant_id"`
+	TenantUUID          string         `gorm:"column:tenant_uuid;type:varchar(128);not null;index:idx_capability_version_policy_tenant_key,priority:1;uniqueIndex:uk_capability_version_policy_tenant_key,priority:1" json:"tenant_uuid"`
 	CapabilityKey       string         `gorm:"column:capability_key;type:varchar(128);not null;index:idx_capability_version_policy_tenant_key,priority:2;uniqueIndex:uk_capability_version_policy_tenant_key,priority:2" json:"capability_key"`
 	DefaultStrategy     string         `gorm:"column:default_strategy;type:varchar(32);not null" json:"default_strategy"`
 	AllowedVersions     datatypes.JSON `gorm:"column:allowed_versions;type:jsonb;default:'{}'" json:"allowed_versions,omitempty"`

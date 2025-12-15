@@ -97,13 +97,14 @@ func (s *Service) CreateRegistration(ctx context.Context, in CreateRegistrationI
 	if actor == "" {
 		actor = s.systemActorLookup(ctx)
 	}
+	tenantUUID := in.Registration.canonicalTenantUUID()
 
 	if err := s.validatePayload(ctx, in.Registration, false, actor); err != nil {
 		return Registration{}, err
 	}
 
 	// 确保不存在旧快照
-	current, err := s.repo.GetLatest(ctx, nil, in.Registration.CapabilityID, in.Registration.TenantID)
+	current, err := s.repo.GetLatest(ctx, nil, in.Registration.CapabilityID, tenantUUID)
 	if err != nil && err != ErrRegistrationNotFound {
 		return Registration{}, err
 	}
@@ -115,7 +116,7 @@ func (s *Service) CreateRegistration(ctx context.Context, in CreateRegistrationI
 		}
 	}
 
-	nextVersion, err := s.versionGenerator(ctx, in.Registration.CapabilityID, in.Registration.TenantID, latestVersion)
+	nextVersion, err := s.versionGenerator(ctx, in.Registration.CapabilityID, tenantUUID, latestVersion)
 	if err != nil {
 		return Registration{}, err
 	}
@@ -142,6 +143,7 @@ func (s *Service) UpdateRegistration(ctx context.Context, in UpdateRegistrationI
 	if actor == "" {
 		actor = s.systemActorLookup(ctx)
 	}
+	tenantUUID := in.Registration.canonicalTenantUUID()
 
 	if in.Registration.Version == 0 {
 		return Registration{}, fmt.Errorf("missing version: %w", ErrVersionConflict)
@@ -151,7 +153,7 @@ func (s *Service) UpdateRegistration(ctx context.Context, in UpdateRegistrationI
 		return Registration{}, err
 	}
 
-	latest, err := s.repo.GetLatest(ctx, nil, in.Registration.CapabilityID, in.Registration.TenantID)
+	latest, err := s.repo.GetLatest(ctx, nil, in.Registration.CapabilityID, tenantUUID)
 	if err != nil {
 		return Registration{}, err
 	}
@@ -159,7 +161,7 @@ func (s *Service) UpdateRegistration(ctx context.Context, in UpdateRegistrationI
 		return Registration{}, ErrVersionConflict
 	}
 
-	nextVersion, err := s.versionGenerator(ctx, in.Registration.CapabilityID, in.Registration.TenantID, latest.Version)
+	nextVersion, err := s.versionGenerator(ctx, in.Registration.CapabilityID, tenantUUID, latest.Version)
 	if err != nil {
 		return Registration{}, err
 	}
@@ -186,8 +188,9 @@ func (s *Service) DisableRegistration(ctx context.Context, in DisableRegistratio
 	if actor == "" {
 		actor = s.systemActorLookup(ctx)
 	}
+	tenantUUID := in.canonicalTenantUUID()
 
-	latest, err := s.repo.GetLatest(ctx, nil, in.CapabilityID, in.TenantID)
+	latest, err := s.repo.GetLatest(ctx, nil, in.CapabilityID, tenantUUID)
 	if err != nil {
 		return Registration{}, err
 	}
@@ -197,14 +200,14 @@ func (s *Service) DisableRegistration(ctx context.Context, in DisableRegistratio
 		return Registration{}, ErrVersionConflict
 	}
 
-	nextVersion, err := s.versionGenerator(ctx, in.CapabilityID, in.TenantID, latest.Version)
+	nextVersion, err := s.versionGenerator(ctx, in.CapabilityID, tenantUUID, latest.Version)
 	if err != nil {
 		return Registration{}, err
 	}
 
 	payload := RegistrationPayload{
 		CapabilityID:        latest.CapabilityID,
-		TenantID:            latest.TenantID,
+		TenantUUID:          latest.TenantUUID,
 		ContractRef:         latest.ContractRef,
 		Status:              string(domain.RegistrationStatusDisabled),
 		EnvironmentPolicies: latest.EnvironmentPolicies,
@@ -220,7 +223,7 @@ func (s *Service) DisableRegistration(ctx context.Context, in DisableRegistratio
 	reg.PublishedAt = latest.PublishedAt
 	reg.DisableReason = in.Reason
 
-	result, err := s.repo.Disable(ctx, nil, in.CapabilityID, in.TenantID, in.Reason, actor, expectedVersion, reg)
+	result, err := s.repo.Disable(ctx, nil, in.CapabilityID, tenantUUID, in.Reason, actor, expectedVersion, reg)
 	if err != nil {
 		return Registration{}, err
 	}
@@ -231,7 +234,7 @@ func (s *Service) DisableRegistration(ctx context.Context, in DisableRegistratio
 }
 
 // GetRegistration 查询能力注册。
-func (s *Service) GetRegistration(ctx context.Context, capabilityID, tenantID string, opts GetRegistrationOptions) (Registration, error) {
+func (s *Service) GetRegistration(ctx context.Context, capabilityID, tenantUUID string, opts GetRegistrationOptions) (Registration, error) {
 	var (
 		reg Registration
 		err error
@@ -239,13 +242,13 @@ func (s *Service) GetRegistration(ctx context.Context, capabilityID, tenantID st
 	selector := strings.ToLower(opts.VersionSelector)
 	switch {
 	case selector == "" || selector == "latest" || selector == "draft":
-		reg, err = s.repo.GetLatest(ctx, nil, capabilityID, tenantID)
+		reg, err = s.repo.GetLatest(ctx, nil, capabilityID, tenantUUID)
 	case opts.Version > 0:
-		reg, err = s.repo.GetVersion(ctx, nil, capabilityID, tenantID, opts.Version)
+		reg, err = s.repo.GetVersion(ctx, nil, capabilityID, tenantUUID, opts.Version)
 	default:
 		if selector != "" {
 			if v, parseErr := strconv.ParseUint(selector, 10, 64); parseErr == nil {
-				reg, err = s.repo.GetVersion(ctx, nil, capabilityID, tenantID, v)
+				reg, err = s.repo.GetVersion(ctx, nil, capabilityID, tenantUUID, v)
 			} else {
 				err = ErrRegistrationNotFound
 			}
@@ -264,12 +267,13 @@ func (s *Service) GetRegistration(ctx context.Context, capabilityID, tenantID st
 }
 
 // ListLatest 列出租户最新快照。
-func (s *Service) ListLatest(ctx context.Context, tenantID string, limit, offset int) ([]Registration, int64, error) {
-	return s.repo.ListLatest(ctx, nil, tenantID, limit, offset)
+func (s *Service) ListLatest(ctx context.Context, tenantUUID string, limit, offset int) ([]Registration, int64, error) {
+	return s.repo.ListLatest(ctx, nil, tenantUUID, limit, offset)
 }
 
 func (s *Service) validatePayload(ctx context.Context, payload RegistrationPayload, allowVersion bool, actor string) error {
-	if payload.CapabilityID == "" || payload.TenantID == "" {
+	tenantUUID := payload.canonicalTenantUUID()
+	if payload.CapabilityID == "" || tenantUUID == "" {
 		return fmt.Errorf("missing identifiers: %w", ErrInvalidPayload)
 	}
 	if payload.ContractRef == "" {
@@ -318,13 +322,13 @@ func (s *Service) validatePayload(ctx context.Context, payload RegistrationPaylo
 	}
 
 	if s.contracts != nil {
-		if err := s.contracts.VerifyContract(ctx, payload.TenantID, payload.ContractRef); err != nil {
+		if err := s.contracts.VerifyContract(ctx, tenantUUID, payload.ContractRef); err != nil {
 			return err
 		}
 	}
 	if s.toolGrants != nil && len(payload.ToolGrantIDs) > 0 {
-		err := s.toolGrants.VerifyToolGrants(ctx, payload.TenantID, payload.ToolGrantIDs)
-		s.auditToolGrantCheck(ctx, actor, payload.TenantID, payload.ToolGrantIDs, err)
+		err := s.toolGrants.VerifyToolGrants(ctx, tenantUUID, payload.ToolGrantIDs)
+		s.auditToolGrantCheck(ctx, actor, tenantUUID, payload.ToolGrantIDs, err)
 		if err != nil {
 			return err
 		}
@@ -349,9 +353,10 @@ func (s *Service) toDomainRegistration(payload RegistrationPayload) Registration
 	if policy.CooldownSeconds == 0 {
 		policy.CooldownSeconds = 60
 	}
+	tenantUUID := payload.canonicalTenantUUID()
 	return Registration{
 		CapabilityID:        payload.CapabilityID,
-		TenantID:            payload.TenantID,
+		TenantUUID:          tenantUUID,
 		ContractRef:         payload.ContractRef,
 		Status:              status,
 		EnvironmentPolicies: envPolicies,

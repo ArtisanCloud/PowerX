@@ -11,10 +11,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func registerTestAgent(t *testing.T, svc *agent_lifecycle.Service, tenantID, alias string) uuid.UUID {
+func registerTestAgent(t *testing.T, svc *agent_lifecycle.Service, tenantUUID, alias string) uuid.UUID {
 	t.Helper()
 	res, err := svc.Register(context.Background(), agent_lifecycle.RegisterInput{
-		TenantID:                 tenantID,
+		TenantUUID:               tenantUUID,
 		Alias:                    alias,
 		TelemetryContractVersion: "otel-agent-v1",
 	})

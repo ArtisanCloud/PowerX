@@ -3,6 +3,7 @@ package devhotload
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/ArtisanCloud/PowerX/internal/service/dev_hotload/instrumentation"
@@ -52,7 +53,7 @@ func NewService(deps ServiceDeps) *Service {
 // RegisterInput contains metadata to start a dev session.
 type RegisterInput struct {
 	PluginID        string
-	TenantID        uint64
+	TenantUUID      string
 	DeveloperID     uint64
 	BuildHash       string
 	EntryPoints     []string
@@ -90,10 +91,14 @@ func (s *Service) Register(ctx context.Context, input RegisterInput) (*RegisterR
 	if !s.options.FeatureFlags.Enabled {
 		return nil, ErrFeatureDisabled
 	}
+	tenantUUID := strings.TrimSpace(input.TenantUUID)
+	if tenantUUID == "" {
+		return nil, ErrTenantUUIDReq
+	}
 	start := time.Now()
 	session, err := s.registry.Register(ctx, RegisterRequest{
 		PluginID:        input.PluginID,
-		TenantID:        input.TenantID,
+		TenantUUID:      tenantUUID,
 		DeveloperID:     input.DeveloperID,
 		BuildHash:       input.BuildHash,
 		EntryPoints:     input.EntryPoints,
@@ -115,7 +120,7 @@ func (s *Service) Register(ctx context.Context, input RegisterInput) (*RegisterR
 		Type:      "SessionStarted",
 		SessionID: session.UUID.String(),
 		Payload: map[string]any{
-			"tenantId":    session.TenantID,
+			"tenant_uuid": tenantUUID,
 			"pluginId":    session.PluginID,
 			"developerId": session.DeveloperID,
 		},
@@ -181,12 +186,13 @@ func (s *Service) GetSession(ctx context.Context, sessionID uuid.UUID) (*model.D
 }
 
 // ListSessions queries sessions with optional filters.
-func (s *Service) ListSessions(ctx context.Context, pluginID string, tenantID *uint64, statuses []string, limit, offset int) ([]model.DevHotloadSession, error) {
-	return s.store.ListSessions(ctx, pluginID, tenantID, statuses, limit, offset)
+func (s *Service) ListSessions(ctx context.Context, pluginID string, tenantUUID *string, statuses []string, limit, offset int) ([]model.DevHotloadSession, error) {
+	filter := normalizeTenantUUIDPtr(tenantUUID)
+	return s.store.ListSessions(ctx, pluginID, filter, statuses, limit, offset)
 }
 
 // DeleteSessions purges sessions by filter, optionally forcing active deletions with confirmation.
-func (s *Service) DeleteSessions(ctx context.Context, pluginID string, tenantID *uint64, statuses []string, force, confirm bool) ([]uuid.UUID, error) {
+func (s *Service) DeleteSessions(ctx context.Context, pluginID string, tenantUUID *string, statuses []string, force, confirm bool) ([]uuid.UUID, error) {
 	if len(statuses) == 0 {
 		statuses = []string{model.DevHotloadSessionStatusTerminated}
 	}
@@ -200,7 +206,8 @@ func (s *Service) DeleteSessions(ctx context.Context, pluginID string, tenantID 
 		return nil, ErrForceConfirm
 	}
 
-	sessions, err := s.store.DeleteSessions(ctx, pluginID, tenantID, statuses)
+	filter := normalizeTenantUUIDPtr(tenantUUID)
+	sessions, err := s.store.DeleteSessions(ctx, pluginID, filter, statuses)
 	if err != nil {
 		return nil, err
 	}
@@ -249,4 +256,14 @@ func classifyError(err error) string {
 	default:
 		return "unknown"
 	}
+}
+
+func normalizeTenantUUIDPtr(value *string) *string {
+	if value == nil {
+		return nil
+	}
+	if trimmed := strings.TrimSpace(*value); trimmed != "" {
+		return &trimmed
+	}
+	return nil
 }

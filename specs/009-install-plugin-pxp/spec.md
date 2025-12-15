@@ -140,6 +140,23 @@ Marketplace 运营与企业租户管理员需要在 2 个工作日内分别完�
 - **FR-022**: 多租户版本治理需提供 `px version board --tenant <org>` 或 Web Admin 面板，展示版本偏差、批量对齐/灰度策略与执行状态，并将决策写入 365 天可追溯的审计记录。
 - **FR-023**: Registry 必须暴露 `/internal/plugins/releases` REST API（`POST` 创建、`GET /:id` 查询、`PATCH /:id` 审核状态、`POST /:id/artifacts` 追加制品），供 `px-plugin publish` 及 Web Admin 发布入口统一接入；接口需校验插件/租户可见性、版本号唯一性、artifact 签名与 manifest 元数据，成功后返回 release candidate ID、审计引用与下一步处理指引（如审批/灰度计划）。API 应复用 AdminOnly/Token 校验，失败时提供机器可读错误码，便于 CLI 重试与补件。
 
+### API 扩展：安装元数据（新增）
+
+为支撑未来 SaaS 化部署与 Marketplace 审批，`POST /api/v1/admin/plugins/install/url` 与 `POST /api/v1/admin/plugins/install/local` 新增可选字段 `metadata`（JSON 对象，或在 multipart/form-data 中通过 `metadata` 字段传入 JSON 字符串）。字段定义如下，短期内仅做预留，后续版本会将其写入 Registry/Audit：
+
+| 字段 | 类型 | 默认值 | 说明 |
+| --- | --- | --- | --- |
+| `scope` | `user/org/system` | `system` | 预期安装范围，区分用户级/组织级/系统级插件。 |
+| `namespace` | string | 空 | 逻辑命名空间或产品线标识，供多租户隔离。 |
+| `environment` | `default/staging/production` | `default` | 安装目标环境或渠道标签。 |
+| `auto_update` | bool | `false` | 是否允许宿主在有新版本时自动升级。 |
+| `permissions.network` | bool | `false` | 插件声明的最小权限——外部网络访问。 |
+| `permissions.storage` | bool | `false` | 插件声明的最小权限——本地存储。 |
+| `permissions.files` | bool | `false` | 插件声明的最小权限——文件读写。 |
+| `notes` | string | 空 | 管理员填写的备注或审批链接。 |
+
+Web Admin 安装弹窗会将上述字段写入请求；未提供时后端会按默认值归一化，并随响应返回 `metadata` 对象供后续审计。
+
 ## Future Work – Dev API Hotload Gateway *(Planned in follow-up milestone)*
 
 - **目标差异**：目前 FR-001/Phase 3 已交付 `POST /api/internal/plugins/local/{install,reload}` + gRPC `StartLocalInstall/PushHotReload` 闭环，为 release 流程和 `--host-api` 模式服务；但 `SCN-PUBLISH-HUB-001` / `PLG-DEV-HOTLOAD-001` 额外要求的 Dev API 网关（`/internal/dev/plugins/{register,reload,delete}`）尚未在 PowerX Core 中实现。

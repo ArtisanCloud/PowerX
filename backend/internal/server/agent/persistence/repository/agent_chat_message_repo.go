@@ -38,7 +38,7 @@ func (r *AgentChatMessageRepository) BatchAppend(ctx context.Context, list []dbm
 // - afterID > 0 时，返回 id > afterID 的新消息
 func (r *AgentChatMessageRepository) ListBySession(
 	ctx context.Context,
-	env string, tenantID *uint64,
+	env string, tenantUUID *string,
 	sessionID uint64,
 	afterID uint64,
 	limit int,
@@ -47,7 +47,7 @@ func (r *AgentChatMessageRepository) ListBySession(
 		limit = 200
 	}
 	tx := r.db.WithContext(ctx).
-		Scopes(dbmodel.WithScope(env, tenantID)).
+		Scopes(dbmodel.WithScope(env, tenantUUID)).
 		Where("session_id = ?", sessionID)
 
 	if afterID > 0 {
@@ -64,7 +64,7 @@ func (r *AgentChatMessageRepository) ListBySession(
 // ListLatestN：取最近 N 条（用于构造上下文）
 func (r *AgentChatMessageRepository) ListLatestN(
 	ctx context.Context,
-	env string, tenantID *uint64,
+	env string, tenantUUID *string,
 	sessionID uint64,
 	n int,
 ) ([]dbmodel.AgentChatMessage, error) {
@@ -73,7 +73,7 @@ func (r *AgentChatMessageRepository) ListLatestN(
 	}
 	var items []dbmodel.AgentChatMessage
 	err := r.db.WithContext(ctx).
-		Scopes(dbmodel.WithScope(env, tenantID)).
+		Scopes(dbmodel.WithScope(env, tenantUUID)).
 		Where("session_id = ?", sessionID).
 		Order("id DESC").Limit(n).
 		Find(&items).Error
@@ -90,22 +90,22 @@ func (r *AgentChatMessageRepository) ListLatestN(
 // MarkPinned：标记/取消置顶
 func (r *AgentChatMessageRepository) MarkPinned(
 	ctx context.Context,
-	env string, tenantID *uint64,
+	env string, tenantUUID *string,
 	msgID uint64, pinned bool,
 ) error {
 	return r.db.WithContext(ctx).
 		Model(&dbmodel.AgentChatMessage{}).
-		Scopes(dbmodel.WithScope(env, tenantID)).
+		Scopes(dbmodel.WithScope(env, tenantUUID)).
 		Where("id = ?", msgID).
 		Update("pinned", pinned).Error
 }
 
 // DeleteBySession：按会话批量删除消息（用于过期/归档清理）
 func (r *AgentChatMessageRepository) DeleteBySession(
-	ctx context.Context, env string, tenantID *uint64, sessionID uint64,
+	ctx context.Context, env string, tenantUUID *string, sessionID uint64,
 ) error {
 	return r.db.WithContext(ctx).
-		Scopes(dbmodel.WithScope(env, tenantID)).
+		Scopes(dbmodel.WithScope(env, tenantUUID)).
 		Where("session_id = ?", sessionID).
 		Delete(&dbmodel.AgentChatMessage{}).Error
 }
@@ -118,12 +118,12 @@ type SessionMsgStats struct {
 }
 
 func (r *AgentChatMessageRepository) StatsBySession(
-	ctx context.Context, env string, tenantID *uint64, sessionID uint64,
+	ctx context.Context, env string, tenantUUID *string, sessionID uint64,
 ) (*SessionMsgStats, error) {
 	var s SessionMsgStats
 	err := r.db.WithContext(ctx).
 		Model(&dbmodel.AgentChatMessage{}).
-		Scopes(dbmodel.WithScope(env, tenantID)).
+		Scopes(dbmodel.WithScope(env, tenantUUID)).
 		Where("session_id = ?", sessionID).
 		Select("COUNT(*) AS count, COALESCE(SUM(tokens),0) AS total_tokens, COALESCE(SUM(size_bytes),0) AS total_size").
 		Scan(&s).Error
@@ -136,12 +136,12 @@ func (r *AgentChatMessageRepository) StatsBySession(
 // 更新消息的 tokens / size_bytes（例如异步补写统计）
 func (r *AgentChatMessageRepository) UpdateSizing(
 	ctx context.Context,
-	env string, tenantID *uint64,
+	env string, tenantUUID *string,
 	id uint64, tokens, sizeBytes int64,
 ) error {
 	return r.db.WithContext(ctx).
 		Model(&dbmodel.AgentChatMessage{}).
-		Scopes(dbmodel.WithScope(env, tenantID)).
+		Scopes(dbmodel.WithScope(env, tenantUUID)).
 		Where("id = ?", id).
 		Updates(map[string]any{
 			"tokens":     tokens,
@@ -152,7 +152,7 @@ func (r *AgentChatMessageRepository) UpdateSizing(
 // 按角色过滤拉取（e.g. 仅 user/assistant 参与上下文）
 func (r *AgentChatMessageRepository) ListBySessionRoles(
 	ctx context.Context,
-	env string, tenantID *uint64,
+	env string, tenantUUID *string,
 	sessionID uint64,
 	roles []string,
 	limit int,
@@ -161,7 +161,7 @@ func (r *AgentChatMessageRepository) ListBySessionRoles(
 		limit = 200
 	}
 	tx := r.db.WithContext(ctx).
-		Scopes(dbmodel.WithScope(env, tenantID)).
+		Scopes(dbmodel.WithScope(env, tenantUUID)).
 		Where("session_id = ?", sessionID)
 	if len(roles) > 0 {
 		tx = tx.Where("role IN ?", roles)
@@ -176,7 +176,7 @@ func (r *AgentChatMessageRepository) ListBySessionRoles(
 // 取最旧的 N 条（可选择跳过 pinned），用于清理策略
 func (r *AgentChatMessageRepository) ListOldestN(
 	ctx context.Context,
-	env string, tenantID *uint64,
+	env string, tenantUUID *string,
 	sessionID uint64,
 	n int,
 	skipPinned bool,
@@ -185,7 +185,7 @@ func (r *AgentChatMessageRepository) ListOldestN(
 		n = 100
 	}
 	tx := r.db.WithContext(ctx).
-		Scopes(dbmodel.WithScope(env, tenantID)).
+		Scopes(dbmodel.WithScope(env, tenantUUID)).
 		Where("session_id = ?", sessionID)
 	if skipPinned {
 		tx = tx.Where("pinned = ?", false)
@@ -199,13 +199,13 @@ func (r *AgentChatMessageRepository) ListOldestN(
 
 // 批量按 ID 删除（用于按策略裁剪）
 func (r *AgentChatMessageRepository) DeleteByIDs(
-	ctx context.Context, env string, tenantID *uint64, ids []uint64,
+	ctx context.Context, env string, tenantUUID *string, ids []uint64,
 ) (int64, error) {
 	if len(ids) == 0 {
 		return 0, nil
 	}
 	res := r.db.WithContext(ctx).
-		Scopes(dbmodel.WithScope(env, tenantID)).
+		Scopes(dbmodel.WithScope(env, tenantUUID)).
 		Where("id IN ?", ids).
 		Delete(&dbmodel.AgentChatMessage{})
 	return res.RowsAffected, res.Error

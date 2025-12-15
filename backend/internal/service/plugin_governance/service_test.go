@@ -15,6 +15,8 @@ import (
 	"gorm.io/gorm"
 )
 
+const governanceTenantUUID = "d52bcd75-87c7-4ba4-95b3-7e0f588f956f"
+
 func TestScanCreatesReport(t *testing.T) {
 	db := openGovernanceDB(t)
 	govRepository := govrepo.NewReportRepository(db)
@@ -22,7 +24,7 @@ func TestScanCreatesReport(t *testing.T) {
 	service := NewService(govRepository, releaseRepo, func() time.Time { return time.Unix(0, 0) })
 
 	candidate := &pluginrelease.PluginReleaseCandidate{
-		TenantID:         "tenant-1",
+		TenantUUID:       governanceTenantUUID,
 		PluginID:         "plugin.demo",
 		Version:          "2.0.0",
 		BuildArtifactURI: "s3://demo",
@@ -33,14 +35,14 @@ func TestScanCreatesReport(t *testing.T) {
 	require.NoError(t, db.Create(candidate).Error)
 
 	report, err := service.Scan(context.Background(), ScanInput{
-		TenantID:      "tenant-1",
+		TenantUUID:    governanceTenantUUID,
 		PluginID:      "plugin.demo",
 		TargetVersion: "2.0.0",
 	})
 	require.NoError(t, err)
 	require.Equal(t, "pass", report.RiskLevel)
 
-	board, err := service.Board(context.Background(), BoardFilter{TenantID: "tenant-1", Limit: 5})
+	board, err := service.Board(context.Background(), BoardFilter{TenantUUID: governanceTenantUUID, Limit: 5})
 	require.NoError(t, err)
 	require.Equal(t, int64(1), board.Total)
 }

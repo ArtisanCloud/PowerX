@@ -14,11 +14,14 @@ import (
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
 	workflowhttp "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/workflow"
 	modelworkflow "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/workflow"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/tests/workflow/testenv"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 )
+
+const workflowControlTenantUUID = "6a3f8402-896d-4e2a-9f04-55ac3e59f849"
 
 func TestWorkflowControlHTTP(t *testing.T) {
 	gin.SetMode(gin.TestMode)
@@ -32,6 +35,9 @@ func TestWorkflowControlHTTP(t *testing.T) {
 			c.AbortWithStatus(http.StatusUnauthorized)
 			return
 		}
+		ctx := reqctx.WithTenantUUID(c.Request.Context(), workflowControlTenantUUID)
+		c.Request = c.Request.WithContext(ctx)
+		reqctx.CopyCtxToGin(c)
 		c.Next()
 	})
 
@@ -43,7 +49,6 @@ func TestWorkflowControlHTTP(t *testing.T) {
 	workflowhttp.RegisterAPIRoutes(public, protected, deps)
 
 	defPayload := map[string]any{
-		"tenant_id":   2002,
 		"name":        "runtime-http-demo",
 		"description": "http control contract",
 		"steps": []map[string]any{
@@ -70,11 +75,9 @@ func TestWorkflowControlHTTP(t *testing.T) {
 	}
 
 	body, _ := json.Marshal(defPayload)
-	rr := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/api/admin/workflows/definitions", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer token")
-	engine.ServeHTTP(rr, req)
+	rr := serveWorkflowRequest(t, engine, req, workflowControlTenantUUID)
 	require.Equal(t, http.StatusCreated, rr.Code)
 
 	var createResp struct {
@@ -85,29 +88,22 @@ func TestWorkflowControlHTTP(t *testing.T) {
 	defID, _ := createResp.Data["uuid"].(string)
 	require.NotEmpty(t, defID)
 
-	publishPayload := map[string]any{
-		"tenant_id": 2002,
-	}
+	publishPayload := map[string]any{}
 	pubBody, _ := json.Marshal(publishPayload)
-	rr = httptest.NewRecorder()
 	req = httptest.NewRequest(http.MethodPost, "/api/admin/workflows/definitions/"+defID+"/publish", bytes.NewReader(pubBody))
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer token")
-	engine.ServeHTTP(rr, req)
+	rr = serveWorkflowRequest(t, engine, req, workflowControlTenantUUID)
 	require.Equal(t, http.StatusOK, rr.Code)
 
 	startPayload := map[string]any{
-		"tenant_id":      2002,
 		"definition_id":  defID,
 		"input":          map[string]any{"ref": "HTTP-RUNTIME-1"},
 		"correlation_id": "http-control",
 	}
 	startBody, _ := json.Marshal(startPayload)
-	rr = httptest.NewRecorder()
 	req = httptest.NewRequest(http.MethodPost, "/api/admin/workflows/instances", bytes.NewReader(startBody))
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer token")
-	engine.ServeHTTP(rr, req)
+	rr = serveWorkflowRequest(t, engine, req, workflowControlTenantUUID)
 	require.Equal(t, http.StatusAccepted, rr.Code)
 
 	var startResp struct {
@@ -117,6 +113,7 @@ func TestWorkflowControlHTTP(t *testing.T) {
 	require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &startResp))
 	instanceID, _ := startResp.Data["uuid"].(string)
 	require.NotEmpty(t, instanceID)
+	require.Equal(t, workflowControlTenantUUID, startResp.Data["tenant_uuid"])
 
 	instanceUUID := uuid.MustParse(instanceID)
 
@@ -145,16 +142,13 @@ func TestWorkflowControlHTTP(t *testing.T) {
 		Update("state", "waiting").Error)
 
 	actionPayload := map[string]any{
-		"tenant_id": 2002,
-		"action":    "retry_step",
-		"step_id":   "agent_step",
+		"action":  "retry_step",
+		"step_id": "agent_step",
 	}
 	actionBody, _ := json.Marshal(actionPayload)
-	rr = httptest.NewRecorder()
 	req = httptest.NewRequest(http.MethodPost, fmt.Sprintf("/api/admin/workflows/instances/%s/actions", instanceID), bytes.NewReader(actionBody))
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer token")
-	engine.ServeHTTP(rr, req)
+	rr = serveWorkflowRequest(t, engine, req, workflowControlTenantUUID)
 	require.Equal(t, http.StatusOK, rr.Code)
 
 	var actionResp struct {
@@ -164,18 +158,16 @@ func TestWorkflowControlHTTP(t *testing.T) {
 	require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &actionResp))
 	require.Equal(t, 200, actionResp.Code)
 	require.Equal(t, "running", actionResp.Data["state"])
+	require.Equal(t, workflowControlTenantUUID, actionResp.Data["tenant_uuid"])
 
 	pausePayload := map[string]any{
-		"tenant_id": 2002,
-		"action":    "pause",
-		"reason":    "manual check",
+		"action": "pause",
+		"reason": "manual check",
 	}
 	pauseBody, _ := json.Marshal(pausePayload)
-	rr = httptest.NewRecorder()
 	req = httptest.NewRequest(http.MethodPost, fmt.Sprintf("/api/admin/workflows/instances/%s/actions", instanceID), bytes.NewReader(pauseBody))
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer token")
-	engine.ServeHTTP(rr, req)
+	rr = serveWorkflowRequest(t, engine, req, workflowControlTenantUUID)
 	require.Equal(t, http.StatusOK, rr.Code)
 
 	var pauseResp struct {
@@ -183,17 +175,15 @@ func TestWorkflowControlHTTP(t *testing.T) {
 	}
 	require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &pauseResp))
 	require.Equal(t, "suspended", pauseResp.Data["state"])
+	require.Equal(t, workflowControlTenantUUID, pauseResp.Data["tenant_uuid"])
 
 	resumePayload := map[string]any{
-		"tenant_id": 2002,
-		"action":    "resume",
+		"action": "resume",
 	}
 	resumeBody, _ := json.Marshal(resumePayload)
-	rr = httptest.NewRecorder()
 	req = httptest.NewRequest(http.MethodPost, fmt.Sprintf("/api/admin/workflows/instances/%s/actions", instanceID), bytes.NewReader(resumeBody))
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer token")
-	engine.ServeHTTP(rr, req)
+	rr = serveWorkflowRequest(t, engine, req, workflowControlTenantUUID)
 	require.Equal(t, http.StatusOK, rr.Code)
 
 	var resumeResp struct {
@@ -201,4 +191,5 @@ func TestWorkflowControlHTTP(t *testing.T) {
 	}
 	require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &resumeResp))
 	require.Equal(t, "running", resumeResp.Data["state"])
+	require.Equal(t, workflowControlTenantUUID, resumeResp.Data["tenant_uuid"])
 }

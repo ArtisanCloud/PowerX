@@ -1,12 +1,8 @@
 package eventfabric
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
-	"io"
 	"net/http"
-	"net/http/httptest"
 	"strings"
 	"sync"
 	"testing"
@@ -61,14 +57,11 @@ func TestACLAdminRESTContracts(t *testing.T) {
 
 	router := gin.New()
 	group := router.Group("/event-fabric")
+	attachTenantContext(group, "tenant-corex")
 	group.POST("/acl", handler.UpsertBindings)
 	group.GET("/acl", handler.ListBindings)
 
-	server := httptest.NewServer(router)
-	defer server.Close()
-
 	grantReq := map[string]interface{}{
-		"tenant_id":       "tenant-corex",
 		"topic_full_name": "tenant-corex.corex.workflow.approved",
 		"grants": []map[string]interface{}{
 			{
@@ -79,12 +72,12 @@ func TestACLAdminRESTContracts(t *testing.T) {
 		},
 	}
 
-	resp := httpRequest(t, server, http.MethodPost, "/event-fabric/acl", grantReq)
+	resp := httpRequest(t, router, http.MethodPost, "/event-fabric/acl", grantReq)
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("expected 200 got %d", resp.StatusCode)
 	}
 
-	listResp := httpRequest(t, server, http.MethodGet, "/event-fabric/acl?tenant_id=tenant-corex&topic_uuid="+topic.UUID.String(), nil)
+	listResp := httpRequest(t, router, http.MethodGet, "/event-fabric/acl?topic_uuid="+topic.UUID.String(), nil)
 	if listResp.StatusCode != http.StatusOK {
 		t.Fatalf("list expected 200 got %d", listResp.StatusCode)
 	}
@@ -96,7 +89,6 @@ func TestACLAdminRESTContracts(t *testing.T) {
 	}
 
 	revokeReq := map[string]interface{}{
-		"tenant_id":       "tenant-corex",
 		"topic_full_name": "tenant-corex.corex.workflow.approved",
 		"revokes": []map[string]interface{}{
 			{
@@ -106,12 +98,12 @@ func TestACLAdminRESTContracts(t *testing.T) {
 			},
 		},
 	}
-	revokeResp := httpRequest(t, server, http.MethodPost, "/event-fabric/acl", revokeReq)
+	revokeResp := httpRequest(t, router, http.MethodPost, "/event-fabric/acl", revokeReq)
 	if revokeResp.StatusCode != http.StatusOK {
 		t.Fatalf("revoke expected 200 got %d", revokeResp.StatusCode)
 	}
 
-	listResp = httpRequest(t, server, http.MethodGet, "/event-fabric/acl?tenant_id=tenant-corex&topic_uuid="+topic.UUID.String(), nil)
+	listResp = httpRequest(t, router, http.MethodGet, "/event-fabric/acl?topic_uuid="+topic.UUID.String(), nil)
 	if listResp.StatusCode != http.StatusOK {
 		t.Fatalf("list expected 200 got %d", listResp.StatusCode)
 	}
@@ -119,39 +111,6 @@ func TestACLAdminRESTContracts(t *testing.T) {
 	items = listPayload["data"].(map[string]interface{})["items"].([]interface{})
 	if len(items) != 0 {
 		t.Fatalf("expected 0 bindings after revoke, got %d", len(items))
-	}
-}
-
-func httpRequest(t *testing.T, server *httptest.Server, method, path string, body interface{}) *http.Response {
-	t.Helper()
-	var reader io.Reader
-	if body != nil {
-		b, err := json.Marshal(body)
-		if err != nil {
-			t.Fatalf("marshal error: %v", err)
-		}
-		reader = bytes.NewReader(b)
-	}
-	req, err := http.NewRequest(method, server.URL+path, reader)
-	if err != nil {
-		t.Fatalf("new request error: %v", err)
-	}
-	if body != nil {
-		req.Header.Set("Content-Type", "application/json")
-	}
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		t.Fatalf("request error: %v", err)
-	}
-	return resp
-}
-
-func decodeJSON(t *testing.T, body io.ReadCloser, out interface{}) {
-	t.Helper()
-	defer body.Close()
-	decoder := json.NewDecoder(body)
-	if err := decoder.Decode(out); err != nil {
-		t.Fatalf("decode body error: %v", err)
 	}
 }
 

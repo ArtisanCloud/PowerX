@@ -22,7 +22,7 @@ func TestCrossRegionSnapshotReplication(t *testing.T) {
 
 	registration := capabilityRegistryRouter.Registration{
 		CapabilityID: "capabilities.chat.summarize",
-		TenantID:     "tenant-enterprise",
+		TenantUUID:   "tenant-enterprise",
 		Status:       "published",
 		Version:      12,
 		Adapters: []capabilityRegistryRouter.AdapterEndpoint{
@@ -67,7 +67,7 @@ func TestCrossRegionSnapshotReplication(t *testing.T) {
 	})
 
 	_, err := primaryService.Sync(ctx, discoveryService.SyncRequest{
-		TenantID:     "tenant-enterprise",
+		TenantUUID:   "tenant-enterprise",
 		Capabilities: []string{"capabilities.chat.summarize"},
 		ClientID:     "edge-client",
 		Force:        true,

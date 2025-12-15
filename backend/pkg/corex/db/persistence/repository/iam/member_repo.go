@@ -29,10 +29,10 @@ func (r *MemberRepository) FindByID(ctx context.Context, id uint64) (*dbm.Member
 	return &u, nil
 }
 
-func (r *MemberRepository) FindByUserName(ctx context.Context, tenantID uint64, username string) (*dbm.Member, error) {
+func (r *MemberRepository) FindByUserName(ctx context.Context, tenantUUID string, username string) (*dbm.Member, error) {
 	var u dbm.Member
 	err := r.db.WithContext(ctx).
-		Where("tenant_id = ? AND username = ?", tenantID, username).
+		Where("tenant_uuid = ? AND username = ?", tenantUUID, username).
 		First(&u).Error
 	if err != nil {
 		return nil, err
@@ -40,10 +40,10 @@ func (r *MemberRepository) FindByUserName(ctx context.Context, tenantID uint64, 
 	return &u, nil
 }
 
-func (r *MemberRepository) FindByEmail(ctx context.Context, tenantID uint64, email string) (*dbm.Member, error) {
+func (r *MemberRepository) FindByEmail(ctx context.Context, tenantUUID string, email string) (*dbm.Member, error) {
 	var u dbm.Member
 	err := r.db.WithContext(ctx).
-		Where("tenant_id = ? AND email = ?", tenantID, email).
+		Where("tenant_uuid = ? AND email = ?", tenantUUID, email).
 		First(&u).Error
 	if err != nil {
 		return nil, err
@@ -51,10 +51,10 @@ func (r *MemberRepository) FindByEmail(ctx context.Context, tenantID uint64, ema
 	return &u, nil
 }
 
-func (r *MemberRepository) FindByPhone(ctx context.Context, tenantID uint64, phone string) (*dbm.Member, error) {
+func (r *MemberRepository) FindByPhone(ctx context.Context, tenantUUID string, phone string) (*dbm.Member, error) {
 	var u dbm.Member
 	err := r.db.WithContext(ctx).
-		Where("tenant_id = ? AND phone = ?", tenantID, phone).
+		Where("tenant_uuid = ? AND phone = ?", tenantUUID, phone).
 		First(&u).Error
 	if err != nil {
 		return nil, err
@@ -63,10 +63,10 @@ func (r *MemberRepository) FindByPhone(ctx context.Context, tenantID uint64, pho
 }
 
 // 已有：按租户+用户名查
-func (r *MemberRepository) FindByTenantAndUserName(ctx context.Context, tenantID uint64, username string) (*dbm.Member, error) {
+func (r *MemberRepository) FindByTenantAndUserName(ctx context.Context, tenantUUID string, username string) (*dbm.Member, error) {
 	var m dbm.Member
 	if err := r.db.WithContext(ctx).
-		Where("tenant_id = ? AND username = ?", tenantID, username).
+		Where("tenant_uuid = ? AND username = ?", tenantUUID, username).
 		First(&m).Error; err != nil {
 		return nil, err
 	}
@@ -74,10 +74,10 @@ func (r *MemberRepository) FindByTenantAndUserName(ctx context.Context, tenantID
 }
 
 // 已有：按租户+User 查
-func (r *MemberRepository) FindByTenantAndUser(ctx context.Context, tenantID uint64, userID uint64) (*dbm.Member, error) {
+func (r *MemberRepository) FindByTenantAndUser(ctx context.Context, tenantUUID string, userID uint64) (*dbm.Member, error) {
 	var m dbm.Member
 	if err := r.db.WithContext(ctx).
-		Where("tenant_id = ? AND user_id = ?", tenantID, userID).
+		Where("tenant_uuid = ? AND user_id = ?", tenantUUID, userID).
 		First(&m).Error; err != nil {
 		return nil, err
 	}
@@ -113,9 +113,9 @@ func (r *MemberRepository) ListByUserIDAndStatus(ctx context.Context, userID uin
 // List 支持 keyword/status/部门过滤（部门可选：通过 user->dept 关系表或 user.meta 里的 dept_id）
 // 这里给出通用 keyword/status，部门过滤你按自己的关联表补充
 type MemberListFilter struct {
-	TenantID uint64
-	Keyword  string
-	Status   *int16
-	Page     int
-	Size     int
+	TenantUUID string
+	Keyword    string
+	Status     *int16
+	Page       int
+	Size       int
 }

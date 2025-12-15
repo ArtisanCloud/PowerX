@@ -12,6 +12,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const adminFlowTenantUUID = "7f8791a7-84de-4613-92d5-46e0f607ddb9"
+
 func TestAdminManagementFlow(t *testing.T) {
 	env := testenv.New(t)
 	t.Cleanup(env.Close)
@@ -19,7 +21,7 @@ func TestAdminManagementFlow(t *testing.T) {
 	ctx := context.Background()
 
 	route, err := env.Service.CreateRoute(ctx, manager.CreateRouteInput{
-		TenantID:     "tenant-001",
+		TenantUUID:   adminFlowTenantUUID,
 		Actor:        "integration-test",
 		RouteSlug:    "integration-route",
 		CapabilityID: "cap.integration",
@@ -31,7 +33,7 @@ func TestAdminManagementFlow(t *testing.T) {
 
 	updated, err := env.Service.UpdateRoute(ctx, manager.UpdateRouteInput{
 		RouteID:     route.RouteID,
-		TenantID:    "tenant-001",
+		TenantUUID:  adminFlowTenantUUID,
 		Actor:       "integration-test",
 		Version:     route.CurrentVersion,
 		Channels:    []string{"http", "mcp"},
@@ -42,8 +44,8 @@ func TestAdminManagementFlow(t *testing.T) {
 	require.ElementsMatch(t, []string{"http", "mcp"}, updated.Channels)
 
 	resumed, err := env.Service.ChangeLifecycle(ctx, manager.ChangeLifecycleInput{
-		RouteID:  route.RouteID,
-		TenantID: "tenant-001",
+		RouteID:    route.RouteID,
+		TenantUUID: adminFlowTenantUUID,
 		Actor:    "integration-test",
 		Action:   "suspend",
 	})
@@ -51,8 +53,8 @@ func TestAdminManagementFlow(t *testing.T) {
 	require.Equal(t, manager.LifecycleSuspended, resumed.LifecycleState)
 
 	_, err = env.Service.ChangeLifecycle(ctx, manager.ChangeLifecycleInput{
-		RouteID:  route.RouteID,
-		TenantID: "tenant-001",
+		RouteID:    route.RouteID,
+		TenantUUID: adminFlowTenantUUID,
 		Actor:    "integration-test",
 		Action:   "resume",
 	})

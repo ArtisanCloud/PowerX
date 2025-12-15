@@ -51,9 +51,9 @@ func buildListToolSpec() *schemas.ToolSpec {
 		InputSchema: &schemas.JSONSchema{
 			Type: "object",
 			Properties: map[string]*schemas.JSONSchema{
-				"tenant_id": {
+				"tenant_uuid": {
 					Type:        "string",
-					Description: "租户 ID，用于过滤租户可见的路由",
+					Description: "租户 UUID，用于过滤租户可见的路由",
 				},
 				"capability_id": {
 					Type:        "string",
@@ -65,7 +65,7 @@ func buildListToolSpec() *schemas.ToolSpec {
 					Enum:        []interface{}{"http", "mcp"},
 				},
 			},
-			Required: []string{"tenant_id"},
+			Required: []string{"tenant_uuid"},
 		},
 		OutputSchema: &schemas.JSONSchema{
 			Type: "object",
@@ -104,9 +104,9 @@ func buildInvokeToolSpec() *schemas.ToolSpec {
 		InputSchema: &schemas.JSONSchema{
 			Type: "object",
 			Properties: map[string]*schemas.JSONSchema{
-				"tenant_id": {
+				"tenant_uuid": {
 					Type:        "string",
-					Description: "租户 ID",
+					Description: "租户 UUID",
 				},
 				"route_slug": {
 					Type:        "string",
@@ -125,7 +125,7 @@ func buildInvokeToolSpec() *schemas.ToolSpec {
 					Description: "附加上下文信息（可选）",
 				},
 			},
-			Required: []string{"tenant_id", "route_slug"},
+			Required: []string{"tenant_uuid", "route_slug"},
 		},
 		OutputSchema: &schemas.JSONSchema{
 			Type: "object",

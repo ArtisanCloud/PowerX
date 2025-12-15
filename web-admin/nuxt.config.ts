@@ -48,6 +48,9 @@ export default defineNuxtConfig({
       // 功能开关
       enableUserPreferences:
         process.env.NUXT_ENABLE_USER_PREFERENCES !== "false",
+
+      // 测试专用：允许 Playwright 跳过 Auth 中间件
+      e2eSkipAuth: process.env.NUXT_PUBLIC_E2E_SKIP_AUTH === "true",
     },
   },
 
@@ -93,11 +96,9 @@ export default defineNuxtConfig({
     ],
     langDir: "locales",
     detectBrowserLanguage: {
-      useCookie: true,
-      cookieKey: "px_lang",
-      redirectOn: "no prefix",
+      enabled: false,
+      useCookie: false,
       alwaysRedirect: false,
-      fallbackLocale: process.env.NUXT_DEFAULT_LANGUAGE || "zh",
     },
   },
 

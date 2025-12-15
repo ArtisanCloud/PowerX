@@ -57,12 +57,12 @@ type bridgeStateResponse struct {
 }
 
 type bridgeAgentResponse struct {
-	ID        string                 `json:"id"`
-	TenantID  string                 `json:"tenant_id"`
-	Alias     string                 `json:"alias"`
-	Status    string                 `json:"status"`
-	Capacity  bridgeCapacityResponse `json:"capacity"`
-	UpdatedAt string                 `json:"updated_at"`
+	ID         string                 `json:"id"`
+	TenantUUID string                 `json:"tenant_uuid"`
+	Alias      string                 `json:"alias"`
+	Status     string                 `json:"status"`
+	Capacity   bridgeCapacityResponse `json:"capacity"`
+	UpdatedAt  string                 `json:"updated_at"`
 }
 
 type bridgeCapacityResponse struct {
@@ -88,14 +88,14 @@ type bridgeLifecycleResponse struct {
 }
 
 type bridgeControlRequest struct {
-	TenantID    string `json:"tenant_id" binding:"required"`
+	TenantUUID  string `json:"tenant_uuid" binding:"required"`
 	Reason      string `json:"reason"`
 	RequestedBy string `json:"requested_by"`
 	TraceID     string `json:"trace_id"`
 }
 
 type bridgeRebalanceRequest struct {
-	TenantID                string `json:"tenant_id" binding:"required"`
+	TenantUUID              string `json:"tenant_uuid" binding:"required"`
 	TargetCapacityInstances int32  `json:"target_capacity_instances" binding:"required"`
 	Reason                  string `json:"reason"`
 	RequestedBy             string `json:"requested_by"`
@@ -123,10 +123,10 @@ func fromBridgeAgent(agent *agent_lifecycle.Agent) bridgeAgentResponse {
 		return bridgeAgentResponse{}
 	}
 	return bridgeAgentResponse{
-		ID:       agent.ID.String(),
-		TenantID: agent.TenantID,
-		Alias:    agent.Alias,
-		Status:   agent.Status,
+		ID:         agent.ID.String(),
+		TenantUUID: agent.TenantUUID,
+		Alias:      agent.Alias,
+		Status:     agent.Status,
 		Capacity: bridgeCapacityResponse{
 			Default: agent.DefaultCapacityInstances,
 			Current: agent.CurrentCapacityInstances,

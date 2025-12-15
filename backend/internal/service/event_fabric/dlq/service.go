@@ -20,7 +20,7 @@ import (
 // Message 描述进入死信队列的事件摘要。
 type Message struct {
 	ID             string
-	TenantID       string
+	TenantUUID     string
 	Topic          string
 	EventID        string
 	RetryCount     int32
@@ -34,11 +34,11 @@ type Message struct {
 
 // ListRequest 用于分页查询死信消息。
 type ListRequest struct {
-	TenantID string
-	TopicID  string
-	Status   string
-	Page     int
-	PageSize int
+	TenantUUID string
+	TopicID    string
+	Status     string
+	Page       int
+	PageSize   int
 }
 
 // ReplayRequest 描述批量重放参数。
@@ -141,9 +141,12 @@ func (s *serviceImpl) List(ctx context.Context, req ListRequest) ([]*Message, in
 	if s.repo == nil {
 		return nil, 0, fmt.Errorf("dlq repository not configured")
 	}
+	tenantKey, err := resolveTenantKey(req.TenantUUID)
+	if err != nil {
+		return nil, 0, err
+	}
 
 	var topicUUID uuid.UUID
-	var err error
 	if strings.TrimSpace(req.TopicID) != "" {
 		topicUUID, err = uuid.Parse(req.TopicID)
 		if err != nil {
@@ -156,7 +159,7 @@ func (s *serviceImpl) List(ctx context.Context, req ListRequest) ([]*Message, in
 		statuses = []string{strings.ToLower(req.Status)}
 	}
 
-	rows, total, err := s.repo.List(ctx, req.TenantID, topicUUID, statuses, req.Page, req.PageSize)
+	rows, total, err := s.repo.List(ctx, tenantKey, topicUUID, statuses, req.Page, req.PageSize)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -172,7 +175,7 @@ func (s *serviceImpl) List(ctx context.Context, req ListRequest) ([]*Message, in
 
 		messages = append(messages, &Message{
 			ID:             row.UUID.String(),
-			TenantID:       row.TenantKey,
+			TenantUUID:     row.TenantKey,
 			Topic:          row.TopicUUID.String(),
 			EventID:        row.EventID,
 			RetryCount:     retryCount,
@@ -230,7 +233,7 @@ func (s *serviceImpl) Replay(ctx context.Context, req ReplayRequest) (int, error
 
 		newEventID := fmt.Sprintf("%s-replay-%d", msg.EventID, s.clock().UnixNano())
 		pubReq := eventdelivery.PublishRequest{
-			TenantID:       envelope.TenantKey,
+			TenantUUID:     envelope.TenantKey,
 			Topic:          topic.FullTopic,
 			EventID:        newEventID,
 			TraceID:        envelope.TraceID,
@@ -264,6 +267,14 @@ func (s *serviceImpl) Replay(ctx context.Context, req ReplayRequest) (int, error
 		s.metrics.ObserveDLQChange(ctx, -1)
 
 		if s.audit != nil {
+			meta := make(map[string]string, len(pubReq.Attributes)+2)
+			for k, v := range pubReq.Attributes {
+				meta[k] = v
+			}
+			tenantKey := strings.TrimSpace(envelope.TenantKey)
+			if tenantKey != "" {
+				meta["tenant_uuid"] = tenantKey
+			}
 			_ = s.audit.Write(ctx, eventaudit.Record{
 				ID:           msg.EventID,
 				TenantID:     envelope.TenantKey,
@@ -273,7 +284,7 @@ func (s *serviceImpl) Replay(ctx context.Context, req ReplayRequest) (int, error
 				Status:       "SUCCESS",
 				LatencyMs:    0,
 				TraceID:      envelope.TraceID,
-				Metadata:     pubReq.Attributes,
+				Metadata:     meta,
 				HappenedAt:   s.clock(),
 				ErrorMessage: "",
 			})
@@ -286,15 +297,18 @@ func (s *serviceImpl) Purge(ctx context.Context, tenantID string, topicID string
 	if s.repo == nil {
 		return 0, fmt.Errorf("dlq repository not configured")
 	}
+	tenantKey, err := resolveTenantKey(tenantID)
+	if err != nil {
+		return 0, err
+	}
 	var topicUUID uuid.UUID
-	var err error
 	if strings.TrimSpace(topicID) != "" {
 		topicUUID, err = uuid.Parse(topicID)
 		if err != nil {
 			return 0, fmt.Errorf("invalid topic id: %w", err)
 		}
 	}
-	rows, err := s.repo.PurgeByTopic(ctx, tenantID, topicUUID)
+	rows, err := s.repo.PurgeByTopic(ctx, tenantKey, topicUUID)
 	if err == nil && rows > 0 {
 		s.metrics.ObserveDLQChange(ctx, -int64(rows))
 	}
@@ -325,4 +339,11 @@ func copyJSON(data datatypes.JSON) []byte {
 	buf := make([]byte, len(data))
 	copy(buf, data)
 	return buf
+}
+
+func resolveTenantKey(value string) (string, error) {
+	if key := strings.TrimSpace(value); key != "" {
+		return key, nil
+	}
+	return "", fmt.Errorf("tenant_uuid is required")
 }

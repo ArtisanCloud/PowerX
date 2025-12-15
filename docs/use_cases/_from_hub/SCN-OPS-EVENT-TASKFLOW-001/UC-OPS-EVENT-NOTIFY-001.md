@@ -108,7 +108,7 @@ sequenceDiagram
   - `POST /internal/events/publish` — 用于回放/补偿场景，需签名、幂等键。
 - **Outbound 调用**
   - Webhook：`POST https: "//<subscriber>/powerx/events`，带 HMAC 签名头 `X-PowerX-Signature`、重试 3 次指数退避。"
-  - Queue：向租户指定的 Kafka Topic/AMQP 交换机投递，携带 `tenant_id`、`event_id`、`attempt`.
+  - Queue：向租户指定的 Kafka Topic/AMQP 交换机投递，携带 `tenant_uuid`、`event_id`、`attempt`。
 - **配置与脚本**
   - `config/events/subscriptions.yaml` — 默认订阅策略模板。
   - `scripts/ops/replay-event.mjs` — 事件重放脚本。
@@ -134,7 +134,7 @@ sequenceDiagram
 # Observability & Ops
 
 - **指标**：`event.delivery.success_total`、`event.delivery.retry_total`、`event.delivery.latency_p95`、`event.delivery.duplicate_total`。
-- **日志**：记录 `event_id`, `tenant_id`, `subscriber_id`, `attempt`, `status`, `latency_ms`, `signature_id`；敏感数据脱敏。
+- **日志**：记录 `event_id`, `tenant_uuid`, `subscriber_id`, `attempt`, `status`, `latency_ms`, `signature_id`；敏感数据脱敏。
 - **告警**：连续失败 >3 次或失败率 >5%/5 分钟触发 PagerDuty，签名验证失败立即通知安全群。
 - **Dashboards**：Grafana `Runtime Ops / Event Delivery`、Datadog `event.delivery.*`、Ops 控制台事件中心。
 

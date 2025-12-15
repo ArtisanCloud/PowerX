@@ -21,7 +21,7 @@ func TestFeedbackMetricsWriterRefresh(t *testing.T) {
 	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{})
 	require.NoError(t, err)
 	prevSchema := coremodel.PowerXSchema
-	coremodel.PowerXSchema = ""
+	coremodel.PowerXSchema = "main"
 	t.Cleanup(func() {
 		coremodel.PowerXSchema = prevSchema
 	})

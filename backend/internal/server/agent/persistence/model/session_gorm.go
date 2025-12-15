@@ -10,8 +10,8 @@ type AgentChatSession struct {
 	coremodel.PowerModel
 
 	// 作用域（与现有 Agent 表一致）
-	Env      string  `gorm:"size:32;index:agent_sess_scope" json:"-"`
-	TenantID *uint64 `gorm:"index:agent_sess_scope" json:"-"`
+	Env        string  `gorm:"size:32;index:agent_sess_scope" json:"-"`
+	TenantUUID *string `gorm:"column:tenant_uuid;index:agent_sess_scope" json:"-"`
 
 	// 归属
 	AgentID uint64 `gorm:"index;not null" json:"agentId"`

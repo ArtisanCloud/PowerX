@@ -8,7 +8,7 @@ import "google/protobuf/timestamp.proto";
 
 message KnowledgeSpace {
   string space_id = 1;
-  string tenant_id = 2;
+  string tenant_uuid = 2;
   string name = 3;
   string department_code = 4;
   string status = 5;
@@ -21,7 +21,7 @@ message KnowledgeSpace {
 }
 
 message CreateKnowledgeSpaceRequest {
-  string tenant_id = 1;
+  string tenant_uuid = 1;
   string name = 2;
   string department_code = 3;
   uint32 quota_cpu = 4;
@@ -260,7 +260,7 @@ message HotUpdateResponse {
 }
 
 message RefreshAgentRequest {
-  string tenant_id = 1;
+  string tenant_uuid = 1;
 }
 
 message RefreshAgentResponse {
@@ -393,7 +393,7 @@ service KnowledgeSpaceAdminService {
 }
 
 message QARetrievalPlanRequest {
-  string tenant_id = 1;
+  string tenant_uuid = 1;
   string intent = 2;
   repeated string domain_tags = 3;
   string session_id = 4;
@@ -421,7 +421,7 @@ message QATelemetry {
 }
 
 message QARetrievalPlanResponse {
-  string tenant_id = 1;
+  string tenant_uuid = 1;
   string intent = 2;
   repeated string domain_tags = 3;
   repeated QACandidateSpace candidate_spaces = 4;
@@ -443,7 +443,7 @@ message QAMemoryUpdate {
 }
 
 message QAMemorySnapshotRequest {
-  string tenant_id = 1;
+  string tenant_uuid = 1;
   string session_id = 2;
   repeated QAMemoryUpdate updates = 3;
 }
@@ -459,7 +459,7 @@ message QACitationSummary {
 }
 
 message QAMemorySnapshotResponse {
-  string tenant_id = 1;
+  string tenant_uuid = 1;
   string session_id = 2;
   repeated QACitationSummary citations = 3;
 }

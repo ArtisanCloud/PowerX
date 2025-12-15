@@ -42,7 +42,7 @@ func (r *AgentPlanRunRepository) UpsertStart(ctx context.Context, rec *models.Ag
 		DoUpdates: clause.Assignments(map[string]any{
 			"request_id":  rec.RequestID,
 			"trace_id":    rec.TraceID,
-			"tenant_id":   rec.TenantID,
+			"tenant_uuid": rec.TenantUUID,
 			"user_id":     rec.UserID,
 			"customer_id": rec.CustomerID,
 			"status":      rec.Status,
