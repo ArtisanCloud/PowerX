@@ -1,143 +1,117 @@
-# Tasks: Integration Gateway & MCP Server
+# Tasks: Integration Gateway & MCP Server（多插件能力对齐）
 
 **Input**: Design documents from `/specs/007-integration-gateway-and-mcp/`
+**Prerequisites**: spec.md, plan.md, research.md, data-model.md, contracts/, quickstart.md
 
 ## Phase 1: Setup（共享基础）
 
-- [x] T001 在 `internal/service/integration_gateway/`、`internal/transport/http/{admin,openapi}/integration_gateway/`、`internal/transport/grpc/integration_gateway/`、`internal/server/mcp/tools/integration_gateway/` 建立包结构与占位 README，确保遵循 CoreX 模块约定（无空包）。
-- [x] T002 更新 `go.mod` / `go.sum` 依赖，确认 `github.com/mark3labs/mcp-go`、buf 工具链、Gin 等版本满足新特性需求，并在 `Makefile` 中添加 `proto-gen` 目标的目录覆盖范围。
-- [x] T003 [P] 在 `api/grpc/contracts/powerx/integration_gateway/v1/` 初始化 buf 配置与占位 proto（与 plan.md 一致），并在 `api/grpc/contract/buf.yaml`、`api/grpc/contract/buf.gen.yaml` 注册新包路径。
+- [ ] **T001** Configure capability registry defaults in `backend/config/config.yaml`, `.env.example`, and `backend/internal/config/app_config.go`（新增 `capability_registry` redis prefix、event topics、默认限流参数）。
+- [ ] **T002 [P]** Extend build tooling：更新 `backend/Makefile` 与 `backend/make_files/proto.mk`，确保 `proto-gen`, `proto-lint`, `proto-clean` 处理 `api/grpc/contracts/powerx/integration_gateway/v1`，并在 `buf.yaml/buf.gen.yaml` 注册新包。
+- [ ] **T003 [P]** 创建代码骨架目录：`backend/internal/service/capability_registry/`, `backend/internal/transport/http/{admin,openapi}/capability_registry/`, `backend/internal/transport/grpc/capability_registry/`, `backend/pkg/corex/db/persistence/{model,repository}/capability_registry/`, `backend/tests/{contract,integration}/capability_registry/`。
 
----
+## Phase 2: Foundational（阻塞任务）
 
-## Phase 2: Foundational（阻断性前置）
+- [ ] **T004 [P]** 数据模型：在 `backend/pkg/corex/db/persistence/model/capability_registry/capability_record.go` 定义 `CapabilityRecord` 与嵌入 `ProtocolBinding`，包含 JSONB 字段、状态、索引与 GORM tag。
+- [ ] **T005 [P]** 数据模型：在 `backend/pkg/corex/db/persistence/model/capability_registry/workflow_template_ref.go` 定义 `WorkflowTemplateRef`（含 `requires_manual_upgrade`、hash 快照、steps JSON）。
+- [ ] **T006 [P]** 数据模型：在 `backend/pkg/corex/db/persistence/model/capability_registry/capability_sync_job.go` 定义 `CapabilitySyncJob`（状态、hash_before/after、error_summary）。
+- [ ] **T007 [P]** 数据模型：实现 `SelectorPolicySnapshot` Redis DTO 与序列化助手，放在 `backend/internal/agent/toolstore/policy_snapshot.go`。
+- [ ] **T008 [P]** 数据模型：实现 `InvocationTrace`（及可复用的 `EventPublication`）于 `backend/pkg/corex/db/persistence/model/capability_registry/invocation_trace.go`，方便审计与追踪。
+- [ ] **T009** 迁移与仓储：在 `backend/pkg/corex/db/database/migration.go` 注册上述模型，并在 `pkg/corex/db/persistence/repository/capability_registry/` 创建对应仓储（含 Redis/DB 访问、BaseRepository 嵌入）。
+- [ ] **T010** 事件 & 观测：在 `backend/internal/eventbus/topics.go`、`backend/internal/observability/metrics/capability_registry.go` 定义 `integration.gateway.*` 事件与 `powerx_capability_invoke_*` 指标，确保 Trace tag 包含 `capability_id/plugin_id/protocol`。
+- [ ] **T011** CLI 与 cron：在 `backend/cmd/capability_sync/main.go`（或现有 cmd）新增 worker 入口与 `Makefile` target `capability-sync`，并接入日志/配置。
 
-- [x] T004 [P][Foundation] 为 `IntegrationRoute` 实体创建 GORM 模型 `pkg/corex/db/persistence/model/integration_gateway/route.go`，含租户内唯一别名、速率策略 JSON 和审计字段。
-- [x] T005 [P][Foundation] 为 `IntegrationRouteVersion` 创建模型 `pkg/corex/db/persistence/model/integration_gateway/route_version.go`，保存快照、版本、trace_id。
-- [x] T006 [P][Foundation] 为 `IntegrationInvocationLog` 创建模型 `pkg/corex/db/persistence/model/integration_gateway/invocation_log.go`，记录路由、追踪、状态与响应摘要。
-- [x] T007 [P][Foundation] 为 `EventPublication` 创建模型 `pkg/corex/db/persistence/model/integration_gateway/event_publication.go`，包含主题、状态、补偿信息。
-- [x] T008 在 `pkg/corex/db/persistence/repository/integration_gateway/` 实现仓储（路由、版本、调用日志、事件发布）并嵌入 `BaseRepository`，提供查询与乐观锁写入。
-- [x] T009 扩展 `cmd/database/migrate.go` 与 `pkg/corex/db/database/migration.go`，注册新的 AutoMigrate 钩子，确保迁移顺序与现有模块一致。
-- [x] T010 更新 `config/defaults.go` 和 `etc/config.yaml`，新增 `integration_gateway` 节点（限流前缀、事件主题默认值），并在 `config/config.go` 加载校验。
-- [x] T011 在 `internal/app/shared/deps.go` 中注入 `IntegrationGateway` Service 所需依赖（RouterSvc、CapabilityRegistrySvc、EventBus、RateLimiter），并注册 Redis 限流前缀 `integration_gateway:rl`。
-- [x] T012 搭建 `internal/service/integration_gateway/instrumentation` 目录，封装指标注册、追踪 ID 透传及审计钩子，支持 HTTP/gRPC/MCP 统一使用。
-- [x] T013 在 `internal/server/grpc/server.go`、`internal/http/router.go`、`internal/server/mcp/register/factory` 等处预留路由/服务注册入口，确保之后实现可被装配。
+*Checkpoint：模型、仓储、事件、工具齐备，可进入用户故事。*
 
----
-
-## Phase 3: 用户故事 1 - 管理端创建与治理统一入口 (Priority: P1)
-
-**Goal**: 管理员可通过 Admin API/gRPC 创建、更新、暂停、退役集成入口，并发布事件。
-
-**Independent Test**: 仅部署管理面 + EventBus，通过 API/GRPC 完成 CRUD、查看版本与事件，验证限流默认值写入。
-
-### Tests（先于实现）
-
-- [x] T014 [P][US1] 在 `tests/contract/integration_gateway/admin_routes_http_test.go` 编写 Admin HTTP 合同测试，覆盖创建、查询、更新、生命周期动作、冲突与校验错误（依据 `contracts/http-openapi.yaml`）。
-- [x] T015 [P][US1] 在 `tests/contract/integration_gateway/admin_grpc_test.go` 编写 gRPC Admin Service 合同测试，使用 buf 生成桩调用 CreateRoute/ListRoutes/ChangeLifecycle。
-- [x] T016 [US1] 在 `tests/integration/integration_gateway/admin_management_flow_test.go` 编写集成测试：模拟管理员创建 -> 更新 -> 暂停 -> 恢复 -> 退役，并断言事件发布、版本记录与审计日志写入。
-
-### Implementation
-
-- [x] T017 [US1] 在 `internal/service/integration_gateway/manager/service.go` 实现路由管理 Service：创建/更新入口、维护版本快照、发布 `integration.gateway.route.*` 事件，并结合仓储层乐观锁写入，同时记录配置变更审计日志（成功与失败场景）。
-- [x] T018 [US1] 在 `internal/service/integration_gateway/manager/validator.go` 实现参数校验（Tool Grant 校验、rate_limit 默认兜底、生命周期状态机约束）。
-- [x] T019 [US1] 在 `internal/transport/http/admin/integration_gateway/handlers.go` 实现 Admin HTTP Handler（Gin DTO、鉴权、响应包装、ETag 处理、事件 trace）。
-- [x] T020 [US1] 在 `internal/transport/grpc/integration_gateway/admin_server.go` 实现 gRPC Admin Service，映射 proto 请求到 manager service。
-- [x] T021 [US1] 更新 `internal/transport/http/admin/routes.go` & `api/docs` 相关聚合，注册新的 `/admin/integration/routes` 路由与 Swagger 组件。
-- [x] T022 [US1] 在 `internal/service/integration_gateway/manager/events.go` 编写事件发布与失败补偿逻辑，确保写入 `EventPublication` 并触发补偿队列。
-
-**Checkpoint**: 管理员端 API/gRPC 可独立部署、通过测试，并记录事件。
-
----
-
-## Phase 4: 用户故事 2 - 租户通过统一 API 触发能力 (Priority: P1)
-
-**Goal**: 租户可调用统一 API 触发已授权能力，得到标准响应、追踪 ID 与限流治理。
-
-**Independent Test**: 租户调用 API 时通过 Router 获取能力，验证限流、异常与事件告警；可独立运行。
+## Phase 3: User Story 1 – 3 分钟能力目录同步与治理 (Priority: P1)
+**目标**：插件提交后 3 分钟内完成 Capability Sync，Admin/Tenant API、MCP `/tools/list` 均可读取统一 schema。
+**独立测试**：运行 quickstart 步骤 1-2，验证 Admin/Tenant API 列表与 Redis 缓存一致。
 
 ### Tests
-
-- [x] T023 [P][US2] 在 `tests/contract/integration_gateway/tenant_routes_http_test.go` 编写租户 HTTP 合同测试，覆盖列表、查询、invoke 与限流超限响应。
-- [x] T024 [P][US2] 在 `tests/contract/integration_gateway/tenant_grpc_test.go` 编写 gRPC Tenant Service 合同测试，验证 ListRoutes/GetRoute/InvokeRoute。
-- [x] T025 [US2] 在 `tests/integration/integration_gateway/tenant_invocation_flow_test.go` 编写集成测试：租户调用 -> Router 调度 -> 成功事件与失败事件发布 -> 限流路径，并验证成功/失败调用均生成对应审计记录。
+- [ ] **T012 [P][US1]** HTTP 合同测试：使用 Dredd/Prism 在 `backend/tests/contract/integration_gateway/http_contract_test.go` 校验 `contracts/http-openapi.yaml` 中 `/admin/capabilities*`、`/tenant/capabilities`、`/tenant/invocations*`。
+- [ ] **T013 [P][US1]** gRPC 合同测试：使用 Buf breaking + gRPC 客户端在 `backend/tests/contract/integration_gateway/grpc_contract_test.go` 覆盖 `integration-gateway.proto` 所有 RPC。
+- [ ] **T014 [US1]** 集成测试：在 `backend/tests/integration/capability_registry/sync_flow_test.go` 模拟 `.pxp` 提交 → Worker → Admin/Tenant API 查询的完整链路。
+- [ ] **T043 [P][US1]** Worker 失败场景测试：在 `backend/tests/contract/integration_gateway/worker_asset_validation_test.go` 模拟缺失 `contracts/exposure/*` 或 schema 无法解析的 `.pxp`，断言触发 `capability.catalog.sync_failed`、通知记录与能力下架。
+- [ ] **T044 [P][US1]** 统一错误合同测试：在 `backend/tests/contract/integration_gateway/error_contract_test.go` 针对 Admin/Tenant HTTP 与 gRPC Invoke，验证错误响应与手动升级提示均遵循 `pkg/dto` 统一结构。
 
 ### Implementation
+- [ ] **T015 [US1]** Capability Sync Worker：在 `backend/internal/service/capability_registry/sync_worker.go` 实现 `.pxp` 解析、lint、hash 计算、DB+Redis 写入与 `capability.catalog.sync_*` 事件。
+- [ ] **T016 [US1]** Registry Service：在 `backend/internal/service/capability_registry/registry_service.go` 暴露 `ListCapabilities`, `GetCapability`, `ListJobs`，支持租户/协议过滤与缓存回源。
+- [ ] **T017 [US1]** Admin HTTP API：实现 `GET/POST/PATCH /admin/capabilities*` + `/admin/capability-sync/jobs` Handler、DTO、绑定逻辑，文件位于 `backend/internal/transport/http/admin/capability_registry/` 并在 `internal/http/router.go` 装配。
+- [ ] **T018 [US1]** Tenant HTTP API：实现 `GET /tenant/capabilities`、`GET/POST /tenant/invocations*` 读取授权、封装 `CapabilityInvokeRequest`，位于 `backend/internal/transport/http/openapi/capability_registry/`。
+- [ ] **T019 [US1]** gRPC 服务：在 `backend/internal/transport/grpc/capability_registry/server.go` 实现 `IntegrationGatewayService` RPC，并添加至 `internal/server/grpc/server.go`。
+- [ ] **T020 [US1]** MCP Tool Registry：在 `backend/internal/agent/toolstore/mcp_registry.go` 生成 `integration.route.list`/`integration.route.invoke` 工具，直接消费 Registry 缓存。
+- [ ] **T021 [US1]** 缓存刷新 & Redis Key 设计：实现 `capability_registry:cache:{capability_id}`、`toolstore:policy:{hash}` TTL 策略及广播通道，位置 `backend/internal/service/capability_registry/cache.go`。
+- [ ] **T022 [US1]** 事件/日志：在 `backend/internal/service/capability_registry/audit.go` 写入 `CapabilitySyncJob`、`EventPublication`、Trace 传播逻辑，确保 quickstart 指标可用。
+- [ ] **T045 [US1]** 缺失资产告警与阻断：扩展 `backend/internal/service/capability_registry/sync_worker.go` 与新增 `alerting.go`，当 `contracts/exposure` 缺失或 schema 解析失败时，向插件开发者/运营者发出通知、落库告警记录，并阻止能力写入 Registry。
+- [ ] **T046 [US1]** 统一错误 DTO：在 `backend/internal/dto/capability_registry/error.go` 定义统一错误响应，更新 Admin/Tenant HTTP 与 gRPC Handler 共用 `pkg/dto` 回包及手动升级提示。
 
-- [x] T026 [US2] 在 `internal/service/integration_gateway/tenant/service.go` 实现租户调用 Service：校验 Tool Grant、拉取路由快照、调用 Router、记录 `IntegrationInvocationLog`、发布成功/失败事件，并在限流、权限或执行失败时写入审计日志。
-- [x] T027 [US2] 在 `internal/service/integration_gateway/tenant/ratelimit.go` 集成 Redis 令牌桶，支持 per_route 与 per_route_per_tenant，返回剩余额度与 retry 提示。
-- [x] T028 [US2] 在 `internal/transport/http/openapi/integration_gateway/handlers.go` 实现租户 HTTP Handler：身份解析、请求标准化、统一响应结构。
-- [x] T029 [US2] 在 `internal/transport/grpc/integration_gateway/tenant_server.go` 实现 gRPC Tenant Service，对接 Service。
-- [x] T030 [US2] 在 `internal/service/integration_gateway/tenant/telemetry.go` 记录指标（invocations_total、rate_limit_hits_total）、trace span，并针对成功与失败调用统一封装审计写入辅助。
-- [x] T031 [US2] 更新 `internal/app/shared/deps.go`，注入租户 Service 所需依赖（RouterSvc、EventBus、RateLimiter、Instrumentation），并在 HTTP/Gin 中间件链路注入 `trace_id`。
+*Checkpoint：Admin/Tenant API + gRPC + MCP 均可从 Registry 获取能力并可追踪。*
 
-**Checkpoint**: 租户接口可独立运行，具备限流、事件、日志、追踪能力。
-
----
-
-## Phase 5: 用户故事 3 - MCP Server 暴露智能体能力 (Priority: P2)
-
-**Goal**: MCP 客户端可列举已授权能力并以统一 schema 调用，沿用事件与追踪。
-
-**Independent Test**: 仅启用 MCP Server，与 register 工厂集成，完成 handshake、list、invoke，并触发事件与限流。
+## Phase 4: User Story 2 – Agent Hub 多协议 Selector 自动路由 (Priority: P1)
+**目标**：Agent Hub 根据 `policy.prefer` 自动选择 MCP/gRPC/Workflow，并在协议失败时 fallback 与打点。
+**独立测试**：运行 quickstart 步骤 3，模拟 MCP 断链并观察 fallback。
 
 ### Tests
-
-- [x] T032 [P][US3] 在 `tests/contract/integration_gateway/mcp_tools_test.go` 编写 MCP 工具测试，使用示例客户端调用 `integration.route.list` 与 `integration.route.invoke`，验证 schema、授权过滤、错误返回。
-- [x] T033 [US3] 在 `tests/integration/integration_gateway/mcp_agent_flow_test.go` 编写端到端测试：模拟代理列举能力、执行调用、记录追踪与事件。
+- [ ] **T023 [P][US2]** Integration Test：`backend/tests/integration/capability_registry/selector_fallback_test.go` 模拟 MCP 失败 → gRPC fallback，验证事件 `integration.gateway.invocation.fallback` 与 `InvocationTrace` 记录。
+- [ ] **T024 [P][US2]** Load/RateLimit Test：在 `backend/tests/integration/capability_registry/rate_limit_test.go` 验证租户/入口限流策略（令牌桶默认 + 自定义）。
+- [ ] **T041 [P][US2]** Trace Completeness Test：在 `backend/tests/integration/capability_registry/trace_completeness_test.go` 构建批量调用，验证 95% 请求在 1 分钟内写入 Trace/Audit（SC-003）。
+- [ ] **T042 [P][US2]** Event Latency Probe：实现 `backend/tests/integration/capability_registry/event_latency_test.go` 或脚本，测量 `integration.gateway.invocation.*` 事件 95% 在 60s 内送达（SC-002/SC-003 支撑）。
+- [ ] **T047 [P][US2]** 版本锁定集成测试：`backend/tests/integration/capability_registry/version_lock_test.go` 模拟插件发布新 `capabilities_hash`，验证 Agent Hub/Selector 在管理员确认前继续使用旧版本并拒绝新 hash。
 
 ### Implementation
+- [ ] **T025 [US2]** SelectorPolicySnapshot 生成器：在 `backend/internal/service/capability_registry/policy_generator.go` 根据 Registry 数据写入 Redis 并附带 `capabilities_hash`。
+- [ ] **T026 [US2]** Agent ToolStore 刷新：扩展 `backend/internal/agent/toolstore/store.go` 监听 `capability.catalog.sync_*` 事件并刷新内存缓存。
+- [ ] **T027 [US2]** Selector Adapter：在 `backend/internal/service/capability_registry/selector.go` 实现 `CapabilityInvokeRequest` -> MCP/REST 并发 + gRPC fallback + Workflow 调度，注入幂等键与可观测性。
+- [ ] **T028 [US2]** Tenant Invocation Handler：在 `backend/internal/transport/http/openapi/capability_registry/invoke_handler.go` & gRPC Invoke RPC 调用 Selector，统一错误结构/Trace。
+- [ ] **T029 [US2]** EventBus/Metric Hook：在 Selector 中发出 `integration.gateway.invocation.*` 事件、更新 Prometheus 指标，文件 `backend/internal/service/capability_registry/metrics.go`。
+- [ ] **T030 [US2]** Safe-mode/Tool Grant Enforcement：在 Selector/Tenant Handler 中校验租户 Feature Flag、Tool Grant、Safe Mode，扩展 `backend/internal/service/capability_registry/authz.go`。
+- [ ] **T048 [US2]** Agent 版本锁执行器：在 `backend/internal/agent/toolstore/version_lock.go`（新增）及 `selector.go` 中持久化租户绑定的 `capabilities_hash`，收到新 hash 时返回“需升级”错误并记录 `capability.policy.degraded` 事件，直至管理员确认。
 
-- [x] T034 [US3] 在 `internal/server/mcp/tools/integration_gateway/list_tool.go` 注册 `integration.route.list` 工具：过滤租户权限、输出 schema、缓存策略。
-- [x] T035 [US3] 在 `internal/server/mcp/tools/integration_gateway/invoke_tool.go` 注册 `integration.route.invoke` 工具：调用租户 Service，映射错误码与 trace。
-- [x] T036 [US3] 更新 `internal/server/mcp/register/registry.go`，将新工具挂载到注册表并加入监控指标。
-- [x] T037 [US3] 在 `internal/service/integration_gateway/mcp/context_adapter.go` 封装 MCP 上下文与租户 Service 对接逻辑，确保 trace 统一。
+*Checkpoint：意图路由具备协议优先级、fallback、限流治理，可独立运行。*
 
-**Checkpoint**: MCP 工具可与 HTTP/gRPC 共用逻辑，满足事件与追踪要求。
+## Phase 5: User Story 3 – Workflow Builder 引入插件模板并手动升级 (Priority: P2)
+**目标**：Workflow Builder Catalog 导入插件模板，执行时遵循 Selector 策略，模板升级需管理员显式确认。
+**独立测试**：运行 quickstart 步骤 4，验证模板导入、执行与手动升级提示。
 
----
+### Tests
+- [ ] **T031 [P][US3]** Workflow Catalog Integration Test：`backend/tests/integration/capability_registry/workflow_catalog_test.go` 验证模板导入、执行节点协议、Selector 调用一致。
+- [ ] **T032 [P][US3]** Template Upgrade Test：`backend/tests/integration/capability_registry/template_upgrade_test.go` 模拟插件 hash 变更，确认未升级前拒绝调用，执行 `/admin/workflow-templates/{id}/upgrade` 后恢复。
+- [ ] **T049 [P][US3]** Workflow 采纳度遥测测试：在 `backend/tests/integration/capability_registry/workflow_telemetry_test.go` 验证模板导入/执行会写入 adoption metrics、成功率与手动升级提示。
+
+### Implementation
+- [ ] **T033 [US3]** Workflow Catalog Sync：在 `backend/internal/service/capability_registry/workflow_catalog.go` 从 Registry 推送模板至 Workflow Builder Catalog（含 hash 校验、requires_manual_upgrade）。
+- [ ] **T034 [US3]** Admin Upgrade Endpoint：实现 `POST /admin/workflow-templates/{templateId}/upgrade` Handler，调用新服务以更新绑定模板 hash/版本。
+- [ ] **T035 [US3]** Workflow Engine Adapter：扩展 `backend/internal/workflow/engine/plugins.go`（或相关）以在执行节点时注入 `CapabilityInvokeRequest` 并复用 Selector。
+- [ ] **T036 [US3]** Builder UI 数据管道：更新 `backend/internal/transport/http/admin/capability_registry/workflow_handler.go`（新增）提供模板列表、升级状态给 Web Admin。
+- [ ] **T050 [US3]** Workflow 遥测管线：在 `backend/internal/workflow/engine/telemetry.go`（新增）与 `workflow_catalog.go` 中注入 adoption metrics/Trace 记录，并将数据暴露给 Prometheus + quickstart。
+
+*Checkpoint：Workflow Builder 能导入/运行插件模板并受控升级。*
 
 ## Phase 6: Polish & Cross-Cutting
 
-- [ ] T038 [P] 在 `docs/runbooks/` 补充运行手册：新增 `integration_gateway.md`，说明限流策略、事件主题、MCP 使用示例。
-- [ ] T039 在 `deploy/observability/workflow_dashboard.json` 或新增仪表盘中加入 `integration_gateway_*` 指标、EventBus 告警。
-- [ ] T040 [P] 根据 `quickstart.md` 编写脚本或文档验证流程（创建 -> 调用 -> MCP），确保 README/Quickstart 同步。
-- [ ] T041 在 `tests/unit/` 补充关键单元测试（validator、rate limiter 适配、事件补偿），提升覆盖率。
-- [ ] T042 运行 `make format vet unit-test proto-gen` 并整理提交说明，确保所有 gate 通过。
+- [ ] **T037 [P]** 文档：更新 `docs/plan/AI_engineering/multi_plugin_capability_guide.md` 与 `specs/007.../quickstart.md` 的 CLI 例子，新增“缓存刷新”“模板升级”章节。
+- [ ] **T038 [P]** CI & Scripts：实现 `scripts/capability_registry/verify.sh`，串联 quickstart 步骤 1-4 并在 CI 执行。
+- [ ] **T039** 性能与容错：编写负载测试脚本（`tests/integration/capability_registry/load/`) 验证 5k+ 调用、Redis 缓存击穿保护，并对 Selector fallback 做 chaos 测试。
+- [ ] **T040** 最终 QA：运行 prometheus/otel 验证、检查事件补偿逻辑、审阅日志格式，更新 `AGENTS.md` 及 README 片段。
 
----
+## Dependencies & Parallel Execution
 
-## Parallel Execution 示例
+1. **Phase 1 → Phase 2**：完成配置与目录后方可定义模型与仓储。
+2. **Phase 2 → User Stories**：模型、仓储、事件、CLI 均为三大用户故事共享依赖，必须先完成。
+3. **User Stories**：US1、US2（同为 P1）可在 Phase 2 完成后并行，US3（P2）建议等待 US1 稳定的 Registry 接口。
+4. **Tests vs Implementation**：每个用户故事的测试任务（T012/T013/T014、T023/T024、T031/T032）需先于同故事实现启动，以保持 TDD。
+5. **Polish**：所有核心功能完成后再执行。
 
+### 平行执行示例
 ```bash
-# 并行运行管理端合同测试
-Task "T014 [P][US1] Admin HTTP 合同测试"
-Task "T015 [P][US1] Admin gRPC 合同测试"
+# 并行启动两项合同测试生成
+/specs/007-integration-gateway-and-mcp/tasks run "T012"  # HTTP contract test scaffolding
+/specs/007-integration-gateway-and-mcp/tasks run "T013"  # gRPC contract test scaffolding
 
-# 并行编写核心实体模型
-Task "T004 [P] IntegrationRoute 模型"
-Task "T005 [P] IntegrationRouteVersion 模型"
-Task "T006 [P] IntegrationInvocationLog 模型"
-Task "T007 [P] EventPublication 模型"
-
-# 并行实施 MCP 工具
-Task "T034 [P][US3] 注册 list 工具"
-Task "T035 [P][US3] 注册 invoke 工具"
+# Phase 2 模型任务可同时执行
+/specs/007-integration-gateway-and-mcp/tasks run "T004"
+/specs/007-integration-gateway-and-mcp/tasks run "T005"
+/specs/007-integration-gateway-and-mcp/tasks run "T006"
 ```
 
----
-
-## Phase 依赖关系
-
-- **Phase 1 → Phase 2**：结构与依赖准备完成后才能添加模型与配置。
-- **Phase 2 完成后** 才能启动各用户故事开发；此阶段为所有故事的阻断前置。
-- **Phase 3/4/5** 可在 Phase 2 完成后按优先级或团队能力并行推进，但各故事内需遵循“测试先行 → 服务 → 接口”的顺序。
-- **Phase 6** 在核心故事完成后执行，用于完善文档、指标与质量收尾。
-
----
-
-## MVP 策略
-
-1. 完成 Phase 1 与 Phase 2，确保数据库、配置、依赖齐备。
-2. 实现 Phase 3（管理端故事），可作为最小可演示版本：管理员创建路由 + 事件发布。
-3. 按优先级扩展至租户调用（Phase 4）与 MCP 能力（Phase 5），每个故事均可独立测试与交付。
+> 按上述依赖执行，可确保多插件能力目录在 3 分钟内同步、Selector 自动路由、Workflow 模板受控升级，满足 spec 中的成功标准。

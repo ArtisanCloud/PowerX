@@ -1,210 +1,145 @@
 syntax = "proto3";
 
-package powerx.integration.gateway.v1;
+package powerx.integration_gateway.v1;
 
-option go_package = "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/integration_gateway/v1;integrationgatewayv1";
-option java_package = "com.artisancloud.powerx.integration.gateway.v1";
+option go_package = "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/integration_gateway/v1;integration_gatewayv1";
 
+import "google/protobuf/struct.proto";
 import "google/protobuf/timestamp.proto";
 
-message RateLimitPolicy {
-  uint64 limit = 1;
-  uint64 burst = 2;
-  uint32 window_seconds = 3;
-  enum Scope {
-    SCOPE_UNSPECIFIED = 0;
-    PER_ROUTE = 1;
-    PER_TENANT = 2;
-    PER_ROUTE_PER_TENANT = 3;
-  }
-  Scope scope = 4;
+message ListCapabilitiesRequest {
+  string plugin_id = 1;
+  string intent = 2;
+  repeated string protocols = 3;
+  int32 page = 4;
+  int32 page_size = 5;
+  bool include_disabled = 6;
 }
 
-message EventTopicConfig {
-  string created = 1;
-  string updated = 2;
-  string invocation_succeeded = 3;
-  string invocation_failed = 4;
+message Capability {
+  string capability_id = 1;
+  string plugin_id = 2;
+  string title = 3;
+  string description = 4;
+  repeated string intents = 5;
+  repeated string tool_scope = 6;
+  Policy policy = 7;
+  repeated ProtocolBinding protocols = 8;
+  repeated WorkflowTemplate workflow_templates = 9;
+  string capabilities_hash = 10;
+  string protocol_hash = 11;
+  string status = 12;
 }
 
-message IntegrationRoute {
-  string route_id = 1;
-  string tenant_id = 2;
-  string route_slug = 3;
-  string capability_id = 4;
-  repeated string tool_grant_ids = 5;
-  repeated string channels = 6;
-  RateLimitPolicy rate_limit = 7;
-  EventTopicConfig event_topics = 8;
-  enum LifecycleState {
-    LIFECYCLE_STATE_UNSPECIFIED = 0;
-    PENDING = 1;
-    ACTIVE = 2;
-    SUSPENDED = 3;
-    RETIRED = 4;
-  }
-  LifecycleState lifecycle_state = 9;
-  bool enabled = 10;
-  uint32 current_version = 11;
-  google.protobuf.Timestamp created_at = 12;
-  google.protobuf.Timestamp updated_at = 13;
-  string description = 14;
+message Policy {
+  string prefer = 1;
+  repeated string fallback = 2;
+  string rollback_capability_id = 3;
 }
 
-message IntegrationRouteSummary {
-  string route_id = 1;
-  string tenant_id = 2;
-  string route_slug = 3;
-  string capability_id = 4;
-  IntegrationRoute.LifecycleState lifecycle_state = 5;
-  repeated string channels = 6;
-  google.protobuf.Timestamp updated_at = 7;
+message ProtocolBinding {
+  string channel = 1;       // rest/grpc/mcp/workflow/composite
+  string endpoint = 2;      // URL, RPC 全名或 MCP tool 名
+  string schema_ref = 3;    // OpenAPI/Proto/MCP schema 路径
+  string method = 4;        // REST method
+  string rpc = 5;           // gRPC RPC 名称
+  string tool_ref = 6;      // MCP tool 名
+  string auth_type = 7;     // tenant_jwt/plugin_token/sse
+  string health_state = 8;  // healthy/degraded/offline
+  google.protobuf.Timestamp last_checked_at = 9;
 }
 
-message IntegrationRouteVersion {
-  uint32 version = 1;
-  string change_type = 2;
-  string change_summary = 3;
-  string changed_by = 4;
-  google.protobuf.Timestamp changed_at = 5;
-  string trace_id = 6;
-  IntegrationRoute snapshot = 7;
+message WorkflowTemplate {
+  string template_id = 1;
+  string name = 2;
+  string description = 3;
+  google.protobuf.Struct params_schema = 4;
+  bool requires_manual_upgrade = 5;
+  string capabilities_hash_snapshot = 6;
+  repeated WorkflowStep steps = 7;
 }
 
-message CreateRouteRequest {
-  string tenant_id = 1;
-  string route_slug = 2;
-  string capability_id = 3;
-  repeated string tool_grant_ids = 4;
-  repeated string channels = 5;
-  RateLimitPolicy rate_limit = 6;
-  EventTopicConfig event_topics = 7;
-  string description = 8;
+message WorkflowStep {
+  string capability_id = 1;
+  string protocol = 2;
+  google.protobuf.Struct params = 3;
 }
 
-message CreateRouteResponse {
-  IntegrationRoute route = 1;
-  string trace_id = 2;
+message ListCapabilitiesResponse {
+  repeated Capability items = 1;
+  int32 page = 2;
+  int32 page_size = 3;
+  int32 total = 4;
 }
 
-message GetRouteRequest {
-  string route_id = 1;
-  string version_selector = 2; // "latest" or "draft"
+message GetCapabilityRequest {
+  string capability_id = 1;
+  bool include_workflows = 2;
 }
 
-message GetRouteResponse {
-  IntegrationRoute route = 1;
-  uint32 version = 2;
-  string trace_id = 3;
-}
-
-message UpdateRouteRequest {
-  string route_id = 1;
-  uint32 expect_version = 2;
-  repeated string tool_grant_ids = 3;
-  repeated string channels = 4;
-  RateLimitPolicy rate_limit = 5;
-  EventTopicConfig event_topics = 6;
-  string description = 7;
-  IntegrationRoute.LifecycleState lifecycle_state = 8;
-}
-
-message UpdateRouteResponse {
-  IntegrationRoute route = 1;
-  uint32 version = 2;
-  string trace_id = 3;
-}
-
-message ListRoutesRequest {
-  string tenant_id = 1;
-  string capability_id = 2;
-  IntegrationRoute.LifecycleState lifecycle_state = 3;
-  uint32 page = 4;
-  uint32 page_size = 5;
-}
-
-message ListRoutesResponse {
-  repeated IntegrationRouteSummary items = 1;
-  uint32 page = 2;
-  uint32 page_size = 3;
-  uint64 total = 4;
+message InvokeCapabilityRequest {
+  string capability_id = 1;
+  string tenant_uuid = 2;
+  string idempotency_key = 3;
+  string preferred_protocol = 4; // mcp/grpc/rest/workflow
   string trace_id = 5;
+  google.protobuf.Struct payload = 6;
+  map<string, string> context = 7; // workflow instance, tool scope 等
 }
 
-message ChangeLifecycleRequest {
-  string route_id = 1;
-  IntegrationRoute.LifecycleState target_state = 2;
-  string reason = 3;
+message InvokeCapabilityResponse {
+  string trace_id = 1;
+  string status = 2; // accepted/completed/failed/queued
+  string protocol_used = 3;
+  bool fallback_used = 4;
+  google.protobuf.Struct result = 5;
 }
 
-message ChangeLifecycleResponse {
-  IntegrationRoute route = 1;
-  string trace_id = 2;
+message ListWorkflowTemplatesRequest {
+  string capability_id = 1;
+  string tenant_uuid = 2;
 }
 
-message ListRouteVersionsRequest {
-  string route_id = 1;
+message ListWorkflowTemplatesResponse {
+  repeated WorkflowTemplate items = 1;
 }
 
-message ListRouteVersionsResponse {
-  repeated IntegrationRouteVersion versions = 1;
-  string trace_id = 2;
+message StreamInvocationRequest {
+  string trace_id = 1;
 }
 
-message TenantGetRouteRequest {
-  string tenant_id = 1;
-  string route_slug = 2;
+message StreamInvocationResponse {
+  string trace_id = 1;
+  string status = 2;
+  google.protobuf.Struct event = 3;
 }
 
-message TenantGetRouteResponse {
-  IntegrationRoute route = 1;
-  string trace_id = 2;
+message ListCapabilitySyncJobsRequest {
+  string plugin_id = 1;
+  string status = 2;
 }
 
-message TenantListRoutesRequest {
-  string tenant_id = 1;
-  string capability_id = 2;
-  string channel = 3;
+message CapabilitySyncJob {
+  string job_id = 1;
+  string plugin_id = 2;
+  string plugin_version = 3;
+  string status = 4;
+  string hash_before = 5;
+  string hash_after = 6;
+  google.protobuf.Timestamp started_at = 7;
+  google.protobuf.Timestamp finished_at = 8;
+  string error_summary = 9;
 }
 
-message TenantInvokeRequest {
-  string tenant_id = 1;
-  string route_slug = 2;
-  string trace_id = 3;
-  string idempotency_key = 4;
-  bytes payload_json = 5;
+message ListCapabilitySyncJobsResponse {
+  repeated CapabilitySyncJob items = 1;
 }
 
-message TenantInvokeResponse {
-  enum Status {
-    STATUS_UNSPECIFIED = 0;
-    OK = 1;
-    ACCEPTED = 2;
-    RATE_LIMITED = 3;
-    DENIED = 4;
-    FAILED = 5;
-  }
-  Status status = 1;
-  bytes result_json = 2;
-  string routed_capability_id = 3;
-  string routed_adapter = 4;
-  string trace_id = 5;
-  google.protobuf.Timestamp dispatched_at = 6;
-  string error_code = 7;
-  string error_message = 8;
-}
-
-service IntegrationGatewayAdminService {
-  rpc CreateRoute(CreateRouteRequest) returns (CreateRouteResponse);
-  rpc GetRoute(GetRouteRequest) returns (GetRouteResponse);
-  rpc UpdateRoute(UpdateRouteRequest) returns (UpdateRouteResponse);
-  rpc ListRoutes(ListRoutesRequest) returns (ListRoutesResponse);
-  rpc ChangeLifecycle(ChangeLifecycleRequest) returns (ChangeLifecycleResponse);
-  rpc ListRouteVersions(ListRouteVersionsRequest) returns (ListRouteVersionsResponse);
-}
-
-service IntegrationGatewayTenantService {
-  rpc ListRoutes(TenantListRoutesRequest) returns (ListRoutesResponse);
-  rpc GetRoute(TenantGetRouteRequest) returns (TenantGetRouteResponse);
-  rpc InvokeRoute(TenantInvokeRequest) returns (TenantInvokeResponse);
+service IntegrationGatewayService {
+  rpc ListCapabilities(ListCapabilitiesRequest) returns (ListCapabilitiesResponse);
+  rpc GetCapability(GetCapabilityRequest) returns (Capability);
+  rpc InvokeCapability(InvokeCapabilityRequest) returns (InvokeCapabilityResponse);
+  rpc ListWorkflowTemplates(ListWorkflowTemplatesRequest) returns (ListWorkflowTemplatesResponse);
+  rpc StreamInvocation(StreamInvocationRequest) returns (stream StreamInvocationResponse);
+  rpc ListCapabilitySyncJobs(ListCapabilitySyncJobsRequest) returns (ListCapabilitySyncJobsResponse);
 }

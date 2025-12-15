@@ -1,93 +1,83 @@
-## Quickstart: Integration Gateway & MCP Server
+## Quickstart: Capability Registry + Integration Gateway（多插件能力）
 
 ### 前置条件
-- 已完成 Capability Registry、Router、Tool Grants 与 EventBus 部署（参考相关特性 Quickstart）。
-- Postgres/Redis 配置在 `config/config.yaml` 中补充 `integration_gateway` 节点：
+- 已安装 Go 1.24、Buf CLI、px-plugin CLI，并在 `backend/` 下完成依赖下载（`make deps`）。
+- Postgres、Redis、EventBus、OpenTelemetry Collector 已根据 `config/config.yaml` 配置，尤其是：
   ```yaml
-  integration_gateway:
-    rate_limit_prefix: "integration_gateway:rl"
-    event_topics:
-      created: "integration.gateway.route.created"
-      updated: "integration.gateway.route.updated"
-      invocation_succeeded: "integration.gateway.invocation.succeeded"
-      invocation_failed: "integration.gateway.invocation.failed"
+  capability_registry:
+    redis_prefix: "capability_registry:cache"
+    event_topic_prefix: "integration.gateway"
+    default_rate_limit:
+      limit: 60
+      burst: 120
+      window_seconds: 60
   ```
-- 管理员具备对应 RBAC 权限（`integration_gateway.admin.*`），租户调用方具备 Tool Grant。
-- MCP Server 已启用（`make dev` 默认会启动），确保 `internal/server/mcp` 配置加载成功。
+- Agent Hub MCP Server 与 Workflow Builder 进程已通过 `make dev` 启动。
+- 至少存在一个示例插件（可使用 `projects/demo-multi-plugin`）并成功执行 `px-plugin capabilities submit`。
 
-### 步骤 1：启动服务并确认健康
-1. 运行 `make dev` 或相应二进制，确认 HTTP Admin、Tenant API 以及 MCP Server 均启动。
-2. 调用 `GET /api/health`，响应示例：
-   ```json
-   {"code":0,"message":"ok","data":{"services":["integration_gateway"]},"trace_id":"trc-123"}
-   ```
-3. gRPC 使用 `grpcurl -authority powerx localhost:8443 list powerx.integration.gateway.v1.IntegrationGatewayAdminService` 验证服务注册。
-
-### 步骤 2：创建集成入口（管理员）
-1. 管理端调用：
+### 步骤 1：触发并验证 Capability Sync
+1. 将 `.pxp` 包上传到 `tmp/plugins/`，执行 `make capability-sync`（包装 `cmd/capability_sync`）。
+2. 通过 Admin API 查询最新目录：
    ```bash
-   curl -X POST "$POWERX_BASE_URL/admin/integration/routes" \
-     -H "Authorization: Bearer $ADMIN_TOKEN" \
-     -H "Content-Type: application/json" \
-     -d '{
-       "tenant_uuid":"tenant-001",
-       "route_slug":"crm-sync",
-       "capability_id":"capabilities.crm.sync.v1",
-       "tool_grant_ids":["grant-crm-sync"],
-       "channels":["http","mcp"],
-       "rate_limit":{"limit":120,"burst":120,"window_seconds":60},
-       "event_topics":{
-         "invocation_succeeded":"integration.gateway.invocation.succeeded",
-         "invocation_failed":"integration.gateway.invocation.failed"
-       }
-     }'
+   curl -H "Authorization: Bearer $ADMIN_TOKEN" \
+        "$POWERX_BASE_URL/admin/capabilities?plugin_id=com.demo.multiplugin"
    ```
-2. 响应体包含 `route_id`、`current_version` 与 `trace_id`，后续更新需携带 `If-Match: W/"<version>"` Header。
-3. 若未提供 `rate_limit` 字段，系统会使用默认策略：每分钟基准速率 + 2 倍突发。
+   响应应包含 `capability_id`、`protocols`、`capabilities_hash` 与 `policy`。
+3. 检查 Redis 中的缓存键：`redis-cli keys 'capability_registry:cache:*'`，确认 TTL < 180s。
+4. 失败时查看 `backend/logs/capability_sync.log`，并关注 `capability.catalog.sync_failed` 事件。
 
-### 步骤 3：租户调用统一 API
-1. 发起调用：
+### 步骤 2：验证管理端/租户 API 一致性
+1. 管理员查看单个能力：
    ```bash
-   curl -X POST "$POWERX_BASE_URL/tenant/integration/routes/crm-sync/invoke" \
-     -H "Authorization: Bearer $TENANT_TOKEN" \
-     -H "X-PowerX-Tenant: tenant-001" \
-     -H "Content-Type: application/json" \
-     -d '{"payload":{"customer_id":"C123","operation":"sync"}}'
+   curl -H "Authorization: Bearer $ADMIN_TOKEN" \
+        "$POWERX_BASE_URL/admin/capabilities/com.demo.template.generate"
    ```
-2. 成功响应：
-   ```json
-   {"code":0,"message":"ok","data":{"result":"queued"},"trace_id":"trc-456"}
+2. 租户查询授权能力：
+   ```bash
+   curl -H "Authorization: Bearer $TENANT_TOKEN" \
+        -H "X-PowerX-Tenant: tenant-001" \
+        "$POWERX_BASE_URL/tenant/capabilities?channel=agent"
    ```
-3. 超限时返回：
+   确认返回的 `capability_id` 与 Admin 结果一致，同时多了 `grants`、`channels` 的裁剪字段。
+3. 通过 `POST /tenant/invocations` 发起一次示例调用，并记录响应中的 `trace_id`：
+   ```bash
+   curl -X POST "$POWERX_BASE_URL/tenant/invocations" \
+        -H "Authorization: Bearer $TENANT_TOKEN" \
+        -H "X-PowerX-Tenant: tenant-001" \
+        -H "Content-Type: application/json" \
+        -d '{
+              "capability_id":"com.demo.template.generate",
+              "idempotency_key":"demo-001",
+              "preferred_protocol":"mcp",
+              "payload":{"prompt":"hello"}
+            }'
+   ```
+4. 使用 `GET /tenant/invocations/{trace_id}` 查看最终状态，确保 `protocol_used` 与 Selector 策略一致。
+
+### 步骤 3：MCP 工具端到端
+1. 在 MCP Client 中运行 `tools/list`，可见 `com.demo.template.generate` 的 schema 与 `tool_scope`。
+2. 执行：
    ```json
    {
-     "code":42901,
-     "message":"rate limit exceeded",
-     "data":{"retry_after":"15s","quota_scope":"tenant"},
-     "trace_id":"trc-789"
-   }
-   ```
-4. 可在事件总线订阅 `integration.gateway.invocation.*` 主题获取执行结果。
-
-### 步骤 4：使用 MCP 工具
-1. MCP 客户端握手后执行 `mcp call integration.route.list`，可选参数 `tenant_uuid`。
-2. 返回的工具 schema 包含可调用的 `route_slug`、`capability_id`、输入/输出说明。
-3. 调用工具：
-   ```json
-   {
-     "tool":"integration.route.invoke",
-     "arguments":{
-       "tenant_uuid":"tenant-001",
-       "route_slug":"crm-sync",
-       "payload":{"customer_id":"C123","operation":"sync"}
+     "tool": "com.demo.template.generate",
+     "arguments": {
+       "tenant_uuid": "tenant-001",
+       "payload": {"prompt": "hello"}
      }
    }
    ```
-4. 调用失败会在结果中附带 `trace_id` 与错误码，同时事件总线上发布 `invocation_failed`。
+3. 断开 MCP 连接或模拟故障（停止插件进程），在下一次调用中观察 Selector fallback：HTTP 响应 `protocol_used=gRPC`、`fallback_used=true`，并在日志中看到 `integration.gateway.invocation.fallback`。
 
-> 想一次性完成「创建 -> HTTP 调用 -> MCP 调用」验证，可运行 `scripts/integration_gateway/verify_flow.sh`，脚本会自动串联上述过程并打印关键 trace id。
+### 步骤 4：Workflow 模板导入与手动升级
+1. 登录 Workflow Builder，触发 Catalog 刷新（或调用 `POST /admin/workflow/catalog:refresh`）。
+2. 在 UI 中拖拽 `com.demo.workflow.quality_review` 模板，完成一个简单编排并发布。
+3. 更新插件 Workflow 模板（例如修改某节点参数），再次执行 Capability Sync。此时 Builder 会提示“检测到新的 `capabilities_hash`，需确认升级”。
+4. 在 Admin UI 或 CLI 执行“升级模板”动作，确认 Workflow 才切换到新版本，符合 Clarification。
 
-### 步骤 5：监控与排障
-- Prometheus 指标路径：`/metrics` 中新增 `integration_gateway_invocations_total`, `integration_gateway_rate_limit_hits_total` 等。
-- 追踪：在日志中检索 `trace_id`（通过 HTTP header `X-Trace-Id` 或响应取得）。
-- 补偿：如事件发布失败，可调用 `POST /admin/integration/routes/{route_id}/events:replay` 触发重试（后续阶段实现）。
+### 步骤 5：观测与排障
+- 在 Prometheus 中关注 `powerx_capability_invoke_total`、`powerx_capability_invoke_latency_ms{protocol="mcp"}`、`integration_gateway_invocation_fallback_total`。
+- 通过 `trace_id` 在 Loki / Elasticsearch 检索日志，确认 HTTP、gRPC、MCP、Workflow 节点均串联。
+- 订阅 `integration.gateway.invocation.failed`、`integration.gateway.catalog.sync_failed` Topic，核对 InvocationTrace/Audit 表内容。
+- 若缓存与数据库版本不一致，可执行 `POST /admin/capabilities/cache:flush`（后续 task 实现）强制回源，再次校验 Redis 键与事件刷新。
+
+> 以上流程建议写入 CI 脚本 `scripts/capability_registry/verify.sh`，用于 PR 验证 3 分钟同步与协议 fallback 路径。
