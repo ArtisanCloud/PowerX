@@ -76,6 +76,15 @@ func GetDefaults() *Config {
 			RedisPassword: "",
 			RedisDB:       2,
 		},
+		CapabilityRegistry: CapabilityRegistryConfig{
+			RedisPrefix:      "capability_registry:cache",
+			EventTopicPrefix: "capability.catalog",
+			DefaultRateLimit: CapabilityRegistryRateLimitConfig{
+				Limit:         60,
+				Burst:         120,
+				WindowSeconds: 60,
+			},
+		},
 		AgentLifecycle: AgentLifecycleConfig{
 			RedisAddr:                "localhost:6379",
 			RedisPassword:            "",

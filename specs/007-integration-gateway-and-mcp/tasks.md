@@ -5,9 +5,9 @@
 
 ## Phase 1: Setup（共享基础）
 
-- [ ] **T001** Configure capability registry defaults in `backend/config/config.yaml`, `.env.example`, and `backend/internal/config/app_config.go`（新增 `capability_registry` redis prefix、event topics、默认限流参数）。
-- [ ] **T002 [P]** Extend build tooling：更新 `backend/Makefile` 与 `backend/make_files/proto.mk`，确保 `proto-gen`, `proto-lint`, `proto-clean` 处理 `api/grpc/contracts/powerx/integration_gateway/v1`，并在 `buf.yaml/buf.gen.yaml` 注册新包。
-- [ ] **T003 [P]** 创建代码骨架目录：`backend/internal/service/capability_registry/`, `backend/internal/transport/http/{admin,openapi}/capability_registry/`, `backend/internal/transport/grpc/capability_registry/`, `backend/pkg/corex/db/persistence/{model,repository}/capability_registry/`, `backend/tests/{contract,integration}/capability_registry/`。
+- [x] **T001** Configure capability registry defaults in `backend/config/config.yaml`, `.env.example`, and `backend/internal/config/app_config.go`（新增 `capability_registry` redis prefix、event topics、默认限流参数；同步 `.env` 可覆盖变量，补齐 `AppConfig` 结构体与加载逻辑）。
+- [x] **T002 [P]** Extend build tooling：更新 `backend/Makefile` 与 `backend/make_files/proto.mk`，确保 `proto-gen`, `proto-lint`, `proto-clean` 处理 `api/grpc/contracts/powerx/integration_gateway/v1`，并在 `buf.yaml/buf.gen.yaml` 注册新包（含 go_package_prefix/managed 模块配置）。
+- [x] **T003 [P]** 创建代码骨架目录：`backend/internal/service/capability_registry/`, `backend/internal/transport/http/{admin,openapi}/capability_registry/`, `backend/internal/transport/grpc/capability_registry/`, `backend/pkg/corex/db/persistence/{model,repository}/capability_registry/`, `backend/tests/{contract,integration}/capability_registry/`（每个目录提供最小 `doc.go`/README，避免空包）。
 
 ## Phase 2: Foundational（阻塞任务）
 

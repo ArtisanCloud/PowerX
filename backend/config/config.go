@@ -63,6 +63,7 @@ type Config struct {
 	EventBus           EventBusConfig           `yaml:"event_bus"`           // 事件总线（local/redis）
 	EventFabric        EventFabricConfig        `yaml:"event_fabric"`        // 事件骨干调度配置
 	IntegrationGateway IntegrationGatewayConfig `yaml:"integration_gateway"` // 集成网关
+	CapabilityRegistry CapabilityRegistryConfig `yaml:"capability_registry"` // Capability Registry 配置
 	AgentLifecycle     AgentLifecycleConfig     `yaml:"agent_lifecycle"`     // Agent 生命周期治理
 	KnowledgeSpace     KnowledgeSpaceConfig     `yaml:"knowledge_space"`     // 知识空间治理
 	LowCode            LowCodeConfig            `yaml:"dynamic_form"`        // flow 执行相关
@@ -201,6 +202,20 @@ type IntegrationGatewayEventTopics struct {
 	Updated             string `yaml:"updated"`
 	InvocationSucceeded string `yaml:"invocation_succeeded"`
 	InvocationFailed    string `yaml:"invocation_failed"`
+}
+
+// CapabilityRegistryConfig 配置能力目录缓存与事件主题。
+type CapabilityRegistryConfig struct {
+	RedisPrefix      string                            `yaml:"redis_prefix"`
+	EventTopicPrefix string                            `yaml:"event_topic_prefix"`
+	DefaultRateLimit CapabilityRegistryRateLimitConfig `yaml:"default_rate_limit"`
+}
+
+// CapabilityRegistryRateLimitConfig 描述同步/Worker 默认限流。
+type CapabilityRegistryRateLimitConfig struct {
+	Limit         uint64 `yaml:"limit"`
+	Burst         uint64 `yaml:"burst"`
+	WindowSeconds int    `yaml:"window_seconds"`
 }
 
 // AgentLifecycleConfig 描述代理生命周期模块运行参数。
@@ -434,6 +449,29 @@ func loadFromEnv(cfg *Config) {
 	if ttl := os.Getenv("CORE_X_EVENT_BUS_DEDUPE_TTL_SEC"); ttl != "" {
 		if t, err := strconv.Atoi(ttl); err == nil {
 			cfg.EventBus.DedupeTTLSec = t
+		}
+	}
+
+	// Capability Registry 配置
+	if v := os.Getenv("CORE_X_CAPABILITY_REGISTRY_REDIS_PREFIX"); v != "" {
+		cfg.CapabilityRegistry.RedisPrefix = v
+	}
+	if v := os.Getenv("CORE_X_CAPABILITY_REGISTRY_EVENT_TOPIC_PREFIX"); v != "" {
+		cfg.CapabilityRegistry.EventTopicPrefix = v
+	}
+	if v := os.Getenv("CORE_X_CAPABILITY_REGISTRY_RATE_LIMIT_LIMIT"); v != "" {
+		if limit, err := strconv.ParseUint(v, 10, 64); err == nil && limit > 0 {
+			cfg.CapabilityRegistry.DefaultRateLimit.Limit = limit
+		}
+	}
+	if v := os.Getenv("CORE_X_CAPABILITY_REGISTRY_RATE_LIMIT_BURST"); v != "" {
+		if burst, err := strconv.ParseUint(v, 10, 64); err == nil && burst > 0 {
+			cfg.CapabilityRegistry.DefaultRateLimit.Burst = burst
+		}
+	}
+	if v := os.Getenv("CORE_X_CAPABILITY_REGISTRY_RATE_LIMIT_WINDOW"); v != "" {
+		if window, err := strconv.Atoi(v); err == nil && window > 0 {
+			cfg.CapabilityRegistry.DefaultRateLimit.WindowSeconds = window
 		}
 	}
 

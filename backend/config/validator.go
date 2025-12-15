@@ -121,6 +121,23 @@ func (c *Config) Validate() error {
 		errors = append(errors, "event_fabric.authorization.secrets.rotation_interval_seconds 不能为负数")
 	}
 
+	// --- Capability Registry ---
+	if strings.TrimSpace(c.CapabilityRegistry.RedisPrefix) == "" {
+		errors = append(errors, "capability_registry.redis_prefix 不能为空")
+	}
+	if strings.TrimSpace(c.CapabilityRegistry.EventTopicPrefix) == "" {
+		errors = append(errors, "capability_registry.event_topic_prefix 不能为空")
+	}
+	if c.CapabilityRegistry.DefaultRateLimit.Limit == 0 {
+		errors = append(errors, "capability_registry.default_rate_limit.limit 必须大于0")
+	}
+	if c.CapabilityRegistry.DefaultRateLimit.Burst == 0 {
+		errors = append(errors, "capability_registry.default_rate_limit.burst 必须大于0")
+	}
+	if c.CapabilityRegistry.DefaultRateLimit.WindowSeconds <= 0 {
+		errors = append(errors, "capability_registry.default_rate_limit.window_seconds 必须大于0")
+	}
+
 	// --- LowCode ---
 	if c.LowCode.MaxConcurrentFlows <= 0 {
 		errors = append(errors, "dynamic_form.max_concurrent_flows 必须大于0")
