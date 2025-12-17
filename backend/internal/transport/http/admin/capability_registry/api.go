@@ -11,6 +11,15 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 		return
 	}
 
+	if protectedGroup != nil && deps.CapabilityCatalogSvc != nil {
+		if handler := newCatalogHandler(deps.CapabilityCatalogSvc); handler != nil {
+			adminCapabilities := protectedGroup.Group("/admin/capabilities")
+			adminCapabilities.GET("", handler.ListCapabilities)
+			adminCapabilities.GET("/:capabilityId", handler.GetCapability)
+			protectedGroup.GET("/admin/capability-sync/jobs", handler.ListSyncJobs)
+		}
+	}
+
 	if publicGroup != nil && deps.DiscoverySvc != nil {
 		discoveryHandler := NewDiscoveryHandler(deps.DiscoverySvc)
 		publicGroup.GET("/discovery/:tenant_uuid/:capabilityId", discoveryHandler.GetSnapshot)

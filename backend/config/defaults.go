@@ -84,6 +84,12 @@ func GetDefaults() *Config {
 				Burst:         120,
 				WindowSeconds: 60,
 			},
+			Notifications: CapabilityRegistryNotificationConfig{
+				IMWebhook:        "",
+				RetryIntervalSec: 30,
+				RetryMaxAttempts: 3,
+				HTTPTimeoutSec:   5,
+			},
 		},
 		AgentLifecycle: AgentLifecycleConfig{
 			RedisAddr:                "localhost:6379",

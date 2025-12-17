@@ -73,6 +73,51 @@ Invocation Runtime (Agent Hub / Workflow Engine / Integration Gateway Tenant API
 - Registry 把 `tool_scope/intent/workflow_step` 等字段写入缓存，Agent Hub/Workflow Builder/Integration Gateway 通过统一接口加载。
 - Selector 根据 `capability.policy.prefer` 字段决定 MCP/gRPC/Agent/Workflow 的优先级。
 
+### 4.1 泳道图：PowerX 底座插件能力管理与使用
+
+```mermaid
+flowchart LR
+  subgraph 插件侧
+    P1["插件开发者\n构建/测试插件能力与协议资产"]
+    P2["px-plugin submit / pxp 包安装\n生成 capabilities.imports"]
+    P1 --> P2
+  end
+
+  subgraph PowerX_同步
+    S1["Capability Sync Worker\n解析 .pxp · 计算 capabilities/protocol hash"]
+    S2["Capability Registry\nPostgres + Redis 缓存"]
+    S3["capability.catalog.sync_* 事件\ncapabilities_hash · protocol_hash"]
+    P2 --> S1 --> S2 --> S3
+  end
+
+  subgraph PowerX_消费
+    C1["Integration Gateway & MCP Server\n(Admin/Tenant API · /tools/list)"]
+    C2["Agent Hub ToolStore + Selector\n(意图→能力→协议策略)"]
+    C3["Workflow Builder / Engine\n(节点模板 · 复合 Workflow)"]
+    S2 --> C1
+    S2 --> C2
+    S2 --> C3
+    S3 --> C1
+    S3 --> C2
+    S3 --> C3
+  end
+
+  subgraph 运行期
+    R1["Protocol Adapter\nMCP / gRPC / Workflow Runner"]
+    R2["插件 Runtime\n(Handler · Workflow · Composite)"]
+    R3["EventBus + Observability\nTrace · Metrics · Audit"]
+    C1 -->|"租户/管理员请求 · MCP 工具"| R1
+    C2 -->|"Agent/Selector 调用"| R1
+    C3 -->|"Workflow 执行节点"| R1
+    R1 --> R2 --> R3
+    R3 -->|"integration.gateway.invocation.* · capability.invoke.*"| C1
+    R3 --> C2
+    R3 --> C3
+  end
+```
+
+> 读链路默认优先走 MCP，写链路强制走 gRPC；Workflow/Composite 场景通过 `workflow_template_ref` 描述节点→协议映射。Registry + 事件是唯一事实来源，所有调用端都在订阅事件后刷新缓存，确保 ≤3 分钟 SLA。
+
 ---
 
 ## 5. 能力目录统一接入

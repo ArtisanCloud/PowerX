@@ -206,9 +206,10 @@ type IntegrationGatewayEventTopics struct {
 
 // CapabilityRegistryConfig 配置能力目录缓存与事件主题。
 type CapabilityRegistryConfig struct {
-	RedisPrefix      string                            `yaml:"redis_prefix"`
-	EventTopicPrefix string                            `yaml:"event_topic_prefix"`
-	DefaultRateLimit CapabilityRegistryRateLimitConfig `yaml:"default_rate_limit"`
+	RedisPrefix      string                               `yaml:"redis_prefix"`
+	EventTopicPrefix string                               `yaml:"event_topic_prefix"`
+	DefaultRateLimit CapabilityRegistryRateLimitConfig    `yaml:"default_rate_limit"`
+	Notifications    CapabilityRegistryNotificationConfig `yaml:"notifications"`
 }
 
 // CapabilityRegistryRateLimitConfig 描述同步/Worker 默认限流。
@@ -216,6 +217,14 @@ type CapabilityRegistryRateLimitConfig struct {
 	Limit         uint64 `yaml:"limit"`
 	Burst         uint64 `yaml:"burst"`
 	WindowSeconds int    `yaml:"window_seconds"`
+}
+
+// CapabilityRegistryNotificationConfig 定义能力目录告警通知。
+type CapabilityRegistryNotificationConfig struct {
+	IMWebhook        string `yaml:"im_webhook"`
+	RetryIntervalSec int    `yaml:"retry_interval_seconds"`
+	RetryMaxAttempts int    `yaml:"retry_max_attempts"`
+	HTTPTimeoutSec   int    `yaml:"http_timeout_seconds"`
 }
 
 // AgentLifecycleConfig 描述代理生命周期模块运行参数。

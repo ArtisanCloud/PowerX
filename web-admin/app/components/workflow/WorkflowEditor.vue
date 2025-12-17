@@ -188,6 +188,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, reactive } from "vue";
+import { useColorMode } from "#imports";
 import { VueFlow, useVueFlow } from "@vue-flow/core";
 import { Background } from "@vue-flow/background";
 import { Controls } from "@vue-flow/controls";

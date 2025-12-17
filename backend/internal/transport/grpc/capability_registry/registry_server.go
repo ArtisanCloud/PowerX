@@ -6,12 +6,12 @@ import (
 	"errors"
 	"strconv"
 
+	capabilityRegistryPB "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/capability/registry/v1"
+	caperrdto "github.com/ArtisanCloud/PowerX/internal/dto/capability_registry"
+	capabilityRegistryService "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/registry"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-
-	capabilityRegistryPB "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/capability/registry/v1"
-	capabilityRegistryService "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/registry"
 )
 
 // RegistryServer 实现 CapabilityRegistryService。
@@ -27,7 +27,7 @@ func RegisterCapabilityRegistryServer(server *grpc.Server, svc *capabilityRegist
 
 func (s *RegistryServer) CreateCapability(ctx context.Context, req *capabilityRegistryPB.CreateCapabilityRequest) (*capabilityRegistryPB.CreateCapabilityResponse, error) {
 	if req.GetRegistration() == nil {
-		return nil, status.Error(codes.InvalidArgument, "registration required")
+		return nil, caperrdto.ToGRPCError(caperrdto.ErrInvalidRequest.WithHint("registration required"), nil)
 	}
 	payload, err := pbToPayload(req.GetRegistration())
 	if err != nil {
@@ -44,7 +44,7 @@ func (s *RegistryServer) CreateCapability(ctx context.Context, req *capabilityRe
 
 func (s *RegistryServer) UpdateCapability(ctx context.Context, req *capabilityRegistryPB.UpdateCapabilityRequest) (*capabilityRegistryPB.UpdateCapabilityResponse, error) {
 	if req.GetRegistration() == nil {
-		return nil, status.Error(codes.InvalidArgument, "registration required")
+		return nil, caperrdto.ToGRPCError(caperrdto.ErrInvalidRequest.WithHint("registration required"), nil)
 	}
 	payload, err := pbToPayload(req.GetRegistration())
 	if err != nil {
@@ -60,7 +60,7 @@ func (s *RegistryServer) UpdateCapability(ctx context.Context, req *capabilityRe
 
 func (s *RegistryServer) GetCapability(ctx context.Context, req *capabilityRegistryPB.GetCapabilityRequest) (*capabilityRegistryPB.GetCapabilityResponse, error) {
 	if req.GetId() == nil {
-		return nil, status.Error(codes.InvalidArgument, "id required")
+		return nil, caperrdto.ToGRPCError(caperrdto.ErrInvalidRequest.WithHint("id required"), nil)
 	}
 	tenantUUID, err := tenantUUIDFromScopedID(req.GetId())
 	if err != nil {
@@ -79,7 +79,7 @@ func (s *RegistryServer) GetCapability(ctx context.Context, req *capabilityRegis
 
 func (s *RegistryServer) DisableCapability(ctx context.Context, req *capabilityRegistryPB.DisableCapabilityRequest) (*capabilityRegistryPB.DisableCapabilityResponse, error) {
 	if req.GetId() == nil {
-		return nil, status.Error(codes.InvalidArgument, "id required")
+		return nil, caperrdto.ToGRPCError(caperrdto.ErrInvalidRequest.WithHint("id required"), nil)
 	}
 	tenantUUID, err := tenantUUIDFromScopedID(req.GetId())
 	if err != nil {
@@ -102,7 +102,7 @@ func (s *RegistryServer) StreamUpdates(*capabilityRegistryPB.StreamUpdatesReques
 
 func pbToPayload(pbReg *capabilityRegistryPB.CapabilityRegistration) (capabilityRegistryService.RegistrationPayload, error) {
 	if pbReg == nil || pbReg.GetId() == nil {
-		return capabilityRegistryService.RegistrationPayload{}, status.Error(codes.InvalidArgument, "registration id required")
+		return capabilityRegistryService.RegistrationPayload{}, caperrdto.ToGRPCError(caperrdto.ErrInvalidRequest.WithHint("registration id required"), nil)
 	}
 	tenantUUID, err := tenantUUIDFromScopedID(pbReg.GetId())
 	if err != nil {
@@ -271,13 +271,13 @@ func registrationToPB(reg capabilityRegistryService.Registration) *capabilityReg
 func toStatusError(err error) error {
 	switch {
 	case errors.Is(err, capabilityRegistryService.ErrRegistrationNotFound):
-		return status.Error(codes.NotFound, err.Error())
+		return caperrdto.ToGRPCError(caperrdto.ErrNotFound, err)
 	case errors.Is(err, capabilityRegistryService.ErrVersionConflict):
-		return status.Error(codes.FailedPrecondition, err.Error())
+		return caperrdto.ToGRPCError(caperrdto.ErrVersionConflict, err)
 	case errors.Is(err, capabilityRegistryService.ErrInvalidPayload):
-		return status.Error(codes.InvalidArgument, err.Error())
+		return caperrdto.ToGRPCError(caperrdto.ErrInvalidPayload, err)
 	default:
-		return status.Error(codes.Internal, err.Error())
+		return caperrdto.ToGRPCError(caperrdto.ErrInternal, err)
 	}
 }
 

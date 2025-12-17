@@ -8,10 +8,9 @@ import (
 	"strings"
 
 	"github.com/ArtisanCloud/PowerX/config"
+	toolstore "github.com/ArtisanCloud/PowerX/internal/agent/toolstore"
 	"github.com/ArtisanCloud/PowerX/internal/server/mcp/http"
 	"github.com/ArtisanCloud/PowerX/internal/server/mcp/register"
-	integrationtools "github.com/ArtisanCloud/PowerX/internal/server/mcp/tools/integration_gateway"
-	igdeps "github.com/ArtisanCloud/PowerX/internal/server/mcp/tools/integration_gateway/deps"
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"github.com/mark3labs/mcp-go/server"
 )
@@ -44,11 +43,17 @@ func NewServer(cfg *config.Config) *Server {
 	logger.InfoF(ctx, "🚀 创建 MCP 服务器实例...")
 	mcpServer := server.NewMCPServer("CoreX", "v0.1.0")
 
-	// 注册集成网关工具（如果依赖已就绪）
-	if dep, err := igdeps.Get(); err == nil {
-		if err := integrationtools.RegisterToolsWithRegistry(register.GetGlobalRegistry(), dep.ToolDependencies); err != nil {
-			logger.InfoF(ctx, "⚠️ 注册集成网关工具失败: %v", err)
+	// 注册 Registry 驱动的 MCP 工具
+	if mcpRegistry, err := toolstore.GetGlobalMCPRegistry(); err == nil {
+		registry := register.GetGlobalRegistry()
+		if err := registry.RegisterToolWithSpec(mcpRegistry.ListToolSpec(), mcpRegistry.ListToolHandler()); err != nil {
+			logger.InfoF(ctx, "⚠️ 注册 capability 列表工具失败: %v", err)
 		}
+		if err := registry.RegisterToolWithSpec(mcpRegistry.InvokeToolSpec(), mcpRegistry.InvokeToolHandler()); err != nil {
+			logger.InfoF(ctx, "⚠️ 注册 capability 调用工具失败: %v", err)
+		}
+	} else {
+		logger.InfoF(ctx, "⚠️ MCP 工具未配置：%v", err)
 	}
 
 	// 使用统一的注册表注册所有工具

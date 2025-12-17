@@ -9,6 +9,7 @@ import {
 import { cloneWithFilteredChildren } from "~/composables/useCopy";
 import { useUserStore } from "~/stores/user";
 import SidebarMenuItem from "~/components/layout/SidebarMenuItem.vue";
+import { LOGO_M_URL } from "~/utils/assets";
 
 /* ---------- stores / utils ---------- */
 const route = useRoute();
@@ -383,7 +384,7 @@ function onTreeKeydown(e: KeyboardEvent) {
       class="flex items-center justify-between h-16 border-b border-gray-200/60 dark:border-gray-700/60 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/30 dark:to-purple-900/30 px-2"
     >
       <NuxtLink :to="$localePath('/')" class="flex items-center space-x-2 px-2">
-        <img src="/images/logo-m.png" alt="Logo" class="w-8 h-8 rounded-lg" />
+        <img :src="LOGO_M_URL" alt="Logo" class="w-8 h-8 rounded-lg" />
         <span
           v-if="!collapsed"
           class="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent"

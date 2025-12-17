@@ -10,15 +10,18 @@ import (
 	"strings"
 	"time"
 
+	toolstore "github.com/ArtisanCloud/PowerX/internal/agent/toolstore"
 	workers "github.com/ArtisanCloud/PowerX/internal/app/shared/workers"
 	discoverycache "github.com/ArtisanCloud/PowerX/internal/infra/cache/discovery"
 	mediamgr "github.com/ArtisanCloud/PowerX/internal/infra/media/manager"
 	imnotify "github.com/ArtisanCloud/PowerX/internal/notifications/im"
+	capmetrics "github.com/ArtisanCloud/PowerX/internal/observability/metrics"
 	agentrepo "github.com/ArtisanCloud/PowerX/internal/server/agent/persistence/repository"
 	igdeps "github.com/ArtisanCloud/PowerX/internal/server/mcp/tools/integration_gateway/deps"
 	agentlifecycle "github.com/ArtisanCloud/PowerX/internal/service/agent_lifecycle"
 	agentinstr "github.com/ArtisanCloud/PowerX/internal/service/agent_lifecycle/instrumentation"
 	authsvc "github.com/ArtisanCloud/PowerX/internal/service/auth"
+	capabilitycatalog "github.com/ArtisanCloud/PowerX/internal/service/capability_registry"
 	discoveryService "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/discovery"
 	capabilityRegistryDomain "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/domain"
 	capabilityRegistry "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/registry"
@@ -66,6 +69,7 @@ import (
 	"github.com/ArtisanCloud/PowerX/pkg/cache"
 	auditsvc "github.com/ArtisanCloud/PowerX/pkg/corex/audit"
 	dbm "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/audit"
+	caprepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/capability_registry"
 	eventfabricrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/event_fabric"
 	integrationRepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/integration_gateway"
 	compatrepo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/plugin_compat"
@@ -127,24 +131,32 @@ type Deps struct {
 	MediaMgr  *mediamgr.MediaManager
 	MediaSvc  *mediasvc.MediaService
 
-	EventBus               event_bus.EventBus
-	CapabilityRegistrySvc  *capabilityRegistry.Service
-	RouterSvc              *capabilityRouter.Service
-	RouterSandboxSvc       *capabilitySandbox.Service
-	DiscoverySvc           *discoveryService.Service
-	IntegrationGateway     *IntegrationGatewayDeps
-	AgentLifecycle         *AgentLifecycleDeps
-	DevHotloadOptions      DevHotloadOptions
-	PluginReleaseOptions   PluginReleaseOptions
-	PluginReleaseService   *pluginReleaseService.Service
-	DevHotloadService      *devhotloadservice.Service
-	PluginBootstrapService *pluginbootstrap.Service
-	PluginImportService    *pluginimport.Service
-	PluginDebugHost        *plugindebughost.Service
-	PluginDiagnostics      *plugindiag.Service
-	PluginSandbox          *pluginsandbox.Service
-	PluginGovernance       *plugingovernance.Service
-	PluginCompat           *plugincompat.Service
+	EventBus                 event_bus.EventBus
+	CapabilityRegistrySvc    *capabilityRegistry.Service
+	CapabilityCatalogSvc     *capabilitycatalog.RegistryService
+	CapabilityRegistryAudit  *capabilitycatalog.AuditService
+	CapabilityRegistryAlerts capabilitycatalog.CapabilityAlerting
+	CapabilityInvocationSvc  *capabilitycatalog.InvocationService
+	CapabilityAuthorizer     *capabilitycatalog.AuthorizationService
+	CapabilitySelector       *capabilitycatalog.Selector
+	ToolStore                *toolstore.Store
+	VersionLockStore         capabilitycatalog.VersionLock
+	RouterSvc                *capabilityRouter.Service
+	RouterSandboxSvc         *capabilitySandbox.Service
+	DiscoverySvc             *discoveryService.Service
+	IntegrationGateway       *IntegrationGatewayDeps
+	AgentLifecycle           *AgentLifecycleDeps
+	DevHotloadOptions        DevHotloadOptions
+	PluginReleaseOptions     PluginReleaseOptions
+	PluginReleaseService     *pluginReleaseService.Service
+	DevHotloadService        *devhotloadservice.Service
+	PluginBootstrapService   *pluginbootstrap.Service
+	PluginImportService      *pluginimport.Service
+	PluginDebugHost          *plugindebughost.Service
+	PluginDiagnostics        *plugindiag.Service
+	PluginSandbox            *pluginsandbox.Service
+	PluginGovernance         *plugingovernance.Service
+	PluginCompat             *plugincompat.Service
 
 	EventFabric    *EventFabricDeps
 	Workflow       *WorkflowDeps
@@ -200,6 +212,43 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 		Auditor:         aud,
 	})
 
+	var capJobRepo *caprepo.CapabilitySyncJobRepository
+	var capEventRepo *caprepo.CapabilityEventPublicationRepository
+	var capTraceRepo *caprepo.InvocationTraceRepository
+	if db != nil {
+		capJobRepo = caprepo.NewCapabilitySyncJobRepository(db)
+		capEventRepo = caprepo.NewCapabilityEventPublicationRepository(db)
+		capTraceRepo = caprepo.NewInvocationTraceRepository(db)
+	}
+
+	capMetrics := capmetrics.NewCapabilityRegistryMetrics(nil)
+
+	capAuditSvc := capabilitycatalog.NewAuditService(capabilitycatalog.AuditServiceOptions{
+		JobRepo:   capJobRepo,
+		EventRepo: capEventRepo,
+		TraceRepo: capTraceRepo,
+		EventBus:  bus,
+		Auditor:   aud,
+		Metrics:   capMetrics,
+		Clock:     time.Now,
+	})
+
+	var capNotifier capabilitycatalog.NotificationSender
+	if strings.TrimSpace(opts.CapabilityRegistry.Notifications.IMWebhook) != "" {
+		capNotifier = imnotify.NewSender(imnotify.Config{
+			WebhookURL:    opts.CapabilityRegistry.Notifications.IMWebhook,
+			RetryInterval: opts.CapabilityRegistry.Notifications.RetryInterval,
+			MaxRetry:      opts.CapabilityRegistry.Notifications.RetryMaxAttempts,
+			HTTPTimeout:   opts.CapabilityRegistry.Notifications.HTTPTimeout,
+		})
+	}
+	capAlerting := capabilitycatalog.NewAlertingService(capabilitycatalog.AlertingOptions{
+		Audit:    svc,
+		Notifier: capNotifier,
+		Logger:   pxlog.GetGlobalLogger(),
+		Clock:    time.Now,
+	})
+
 	discoveryCacheStore := discoverycache.NewStore(cache.NewMemoryCache(), "")
 	discoverySvc := discoveryService.NewService(discoveryService.ServiceOptions{
 		DB:              db,
@@ -236,6 +285,94 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 	})
 
 	integrationGatewayDeps := newIntegrationGatewayDeps(db, opts.IntegrationGateway, bus, aud)
+
+	var versionLockRedis redis.UniversalClient
+	if integrationGatewayDeps != nil {
+		versionLockRedis = integrationGatewayDeps.RedisClient
+	}
+	versionLockStore := toolstore.NewVersionLockStore(toolstore.VersionLockStoreOptions{
+		Redis:    versionLockRedis,
+		EventBus: bus,
+		Clock:    time.Now,
+	})
+
+	var capabilityCatalogSvc *capabilitycatalog.RegistryService
+	var capabilityInvocationSvc *capabilitycatalog.InvocationService
+	var capabilityAuthorizer *capabilitycatalog.AuthorizationService
+	var capabilitySelector *capabilitycatalog.Selector
+	var toolStore *toolstore.Store
+	if db != nil {
+		var redisClient redis.UniversalClient
+		if integrationGatewayDeps != nil {
+			redisClient = integrationGatewayDeps.RedisClient
+		}
+		capabilityCatalogSvc = capabilitycatalog.NewRegistryService(capabilitycatalog.RegistryServiceOptions{
+			DB:    db,
+			Redis: redisClient,
+		})
+
+		policyGenerator := capabilitycatalog.NewPolicyGenerator(capabilitycatalog.PolicyGeneratorOptions{
+			RecordRepo: caprepo.NewCapabilityRecordRepository(db, redisClient),
+			Cache: capabilitycatalog.NewCacheManager(capabilitycatalog.CacheManagerOptions{
+				Redis: redisClient,
+			}),
+			Clock: time.Now,
+		})
+		toolStore = toolstore.NewStore(toolstore.StoreOptions{
+			Generator: policyGenerator,
+			EventBus:  bus,
+			Logger:    pxlog.GetGlobalLogger(),
+			Clock:     time.Now,
+		})
+		toolstore.SetGlobalStore(toolStore)
+
+		capabilityInvocationSvc = capabilitycatalog.NewInvocationService(capabilitycatalog.InvocationServiceOptions{
+			Catalog:     capabilityCatalogSvc,
+			Router:      routerSvc,
+			Audit:       capAuditSvc,
+			Clock:       time.Now,
+			VersionLock: versionLockStore,
+		})
+		var snapshotProvider capabilitycatalog.SnapshotProviderFunc
+		if toolStore != nil {
+			snapshotProvider = capabilitycatalog.SnapshotProviderFunc(func(ctx context.Context, tenant string, grants []string) (capabilitycatalog.SelectorPolicySnapshot, error) {
+				snap, err := toolStore.GetSnapshot(ctx, tenant, grants)
+				if err != nil {
+					return capabilitycatalog.SelectorPolicySnapshot{}, err
+				}
+				return snap.ToRegistrySnapshot(), nil
+			})
+		}
+		var safeModeStore capabilitycatalog.SafeModeStore
+		if redisClient != nil {
+			safeModeStore = capabilitycatalog.NewRedisSafeModeStore(capabilitycatalog.SafeModeStoreOptions{
+				Redis: redisClient,
+			})
+		}
+		capabilityAuthorizer = capabilitycatalog.NewAuthorizationService(capabilitycatalog.AuthorizationOptions{
+			Catalog:  capabilityCatalogSvc,
+			SafeMode: safeModeStore,
+		})
+		capabilitySelector = capabilitycatalog.NewSelector(capabilitycatalog.SelectorOptions{
+			Store:      snapshotProvider,
+			Invoker:    capabilityInvocationSvc,
+			EventBus:   bus,
+			Metrics:    capMetrics,
+			Authorizer: capabilityAuthorizer,
+		})
+
+		if registry, err := toolstore.NewMCPRegistry(toolstore.MCPRegistryOptions{
+			Catalog:     capabilityCatalogSvc,
+			Invoker:     capabilityInvocationSvc,
+			Clock:       time.Now,
+			VersionLock: versionLockStore,
+		}); err != nil {
+			pxlog.WarnF(ctx, "[mcp] initialize registry failed: %v", err)
+		} else {
+			toolstore.SetGlobalMCPRegistry(registry)
+		}
+	}
+
 	agentLifecycleDeps := newAgentLifecycleDeps(db, opts.AgentLifecycle, bus, svc)
 	knowledgeDeps := newKnowledgeSpaceDeps(db, opts.KnowledgeSpace, bus, svc)
 
@@ -414,35 +551,43 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 	}
 
 	return &Deps{
-		DB:                     db,
-		TenantSvc:              tenantSvc,
-		AuthUser:               authUser,
-		AuthCustomer:           authCustomer,
-		MeService:              meSvc,
-		AuditSvc:               svc,
-		Auditor:                aud,
-		MediaMgr:               mediaManager,
-		MediaSvc:               mediaSvc,
-		EventBus:               bus,
-		CapabilityRegistrySvc:  capRegistrySvc,
-		RouterSvc:              routerSvc,
-		RouterSandboxSvc:       sandboxSvc,
-		DiscoverySvc:           discoverySvc,
-		IntegrationGateway:     integrationGatewayDeps,
-		AgentLifecycle:         agentLifecycleDeps,
-		KnowledgeSpace:         knowledgeDeps,
-		DevHotloadOptions:      opts.DevHotload,
-		PluginReleaseOptions:   opts.PluginRelease,
-		PluginReleaseService:   pluginReleaseSvc,
-		DevHotloadService:      devHotloadSvc,
-		PluginBootstrapService: pluginBootstrapSvc,
-		PluginImportService:    pluginImportSvc,
-		PluginDebugHost:        pluginDebugHostSvc,
-		PluginDiagnostics:      pluginDiagnosticsSvc,
-		PluginSandbox:          pluginSandboxSvc,
-		PluginGovernance:       pluginGovernanceSvc,
-		PluginCompat:           pluginCompatSvc,
-		EventFabric:            eventFabricDeps,
+		DB:                       db,
+		TenantSvc:                tenantSvc,
+		AuthUser:                 authUser,
+		AuthCustomer:             authCustomer,
+		MeService:                meSvc,
+		AuditSvc:                 svc,
+		Auditor:                  aud,
+		MediaMgr:                 mediaManager,
+		MediaSvc:                 mediaSvc,
+		EventBus:                 bus,
+		CapabilityRegistrySvc:    capRegistrySvc,
+		CapabilityCatalogSvc:     capabilityCatalogSvc,
+		CapabilityRegistryAudit:  capAuditSvc,
+		CapabilityRegistryAlerts: capAlerting,
+		CapabilityInvocationSvc:  capabilityInvocationSvc,
+		CapabilityAuthorizer:     capabilityAuthorizer,
+		CapabilitySelector:       capabilitySelector,
+		ToolStore:                toolStore,
+		VersionLockStore:         versionLockStore,
+		RouterSvc:                routerSvc,
+		RouterSandboxSvc:         sandboxSvc,
+		DiscoverySvc:             discoverySvc,
+		IntegrationGateway:       integrationGatewayDeps,
+		AgentLifecycle:           agentLifecycleDeps,
+		KnowledgeSpace:           knowledgeDeps,
+		DevHotloadOptions:        opts.DevHotload,
+		PluginReleaseOptions:     opts.PluginRelease,
+		PluginReleaseService:     pluginReleaseSvc,
+		DevHotloadService:        devHotloadSvc,
+		PluginBootstrapService:   pluginBootstrapSvc,
+		PluginImportService:      pluginImportSvc,
+		PluginDebugHost:          pluginDebugHostSvc,
+		PluginDiagnostics:        pluginDiagnosticsSvc,
+		PluginSandbox:            pluginSandboxSvc,
+		PluginGovernance:         pluginGovernanceSvc,
+		PluginCompat:             pluginCompatSvc,
+		EventFabric:              eventFabricDeps,
 		Workflow: &WorkflowDeps{
 			Service:       workflowSvc,
 			Scheduler:     workflowScheduler,

@@ -2,6 +2,7 @@
 import FooterBar from "~/components/layout/FooterBar.vue";
 import { useUserStore } from "~/stores/user";
 import { useAuth } from "~/composables/useAuth";
+import { LOGO_M_URL } from "~/utils/assets";
 
 definePageMeta({
   layout: false, // 禁用layout
@@ -270,7 +271,7 @@ onUnmounted(() => {
                 <NuxtLink :to="$localePath('/')">
                   <div class="flex items-center space-x-3">
                     <img
-                      src="/images/logo-m.png"
+                      :src="LOGO_M_URL"
                       alt="PowerX Logo"
                       class="w-10 h-10"
                     />

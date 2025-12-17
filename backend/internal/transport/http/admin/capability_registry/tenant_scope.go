@@ -1,23 +1,22 @@
 package capability_registry
 
 import (
-	"net/http"
 	"strings"
 
+	caperrdto "github.com/ArtisanCloud/PowerX/internal/dto/capability_registry"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
-	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/gin-gonic/gin"
 )
 
 func requireTenantUUIDParam(c *gin.Context, param string) (string, bool) {
 	uuid := strings.TrimSpace(c.Param(param))
 	if uuid == "" {
-		dto.ResponseError(c, http.StatusBadRequest, "tenant_uuid missing", nil)
+		caperrdto.RespondError(c, caperrdto.ErrTenantUUIDMissing, nil)
 		return "", false
 	}
 	canonical, err := reqctx.CanonicalTenantUUID(uuid)
 	if err != nil {
-		dto.ResponseError(c, http.StatusBadRequest, "tenant_uuid invalid", err)
+		caperrdto.RespondError(c, caperrdto.ErrTenantUUIDInvalid, err)
 		return "", false
 	}
 	return canonical, true

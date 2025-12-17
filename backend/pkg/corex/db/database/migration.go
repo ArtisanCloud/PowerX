@@ -5,6 +5,7 @@ import (
 	modelAgentHub "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/agent_model_hub"
 	modelAudit "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/audit"
 	modelCapability "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/capability"
+	modelCapabilityRegistry "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/capability_registry"
 	modelDevHotload "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/dev_hotload"
 	modelEventFabric "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/event_fabric"
 	modelFlow "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/flow"
@@ -90,6 +91,10 @@ func MigrateCoreModels(db *gorm.DB) (err error) {
 		return err
 	}
 
+	if err = migrateCapabilityRegistryModels(db); err != nil {
+		return err
+	}
+
 	if err = migrateIntegrationGatewayModels(db); err != nil {
 		return err
 	}
@@ -170,6 +175,16 @@ func migrateCapabilityModels(db *gorm.DB) error {
 		&modelCapability.CapabilityTransportProfile{},
 		&modelCapability.CapabilityErrorTaxonomy{},
 		&modelCapability.CapabilityContractErrorTaxonomy{},
+	)
+}
+
+func migrateCapabilityRegistryModels(db *gorm.DB) error {
+	return db.AutoMigrate(
+		&modelCapabilityRegistry.CapabilityRecord{},
+		&modelCapabilityRegistry.WorkflowTemplateRef{},
+		&modelCapabilityRegistry.CapabilitySyncJob{},
+		&modelCapabilityRegistry.InvocationTrace{},
+		&modelCapabilityRegistry.CapabilityEventPublication{},
 	)
 }
 

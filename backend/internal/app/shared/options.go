@@ -23,6 +23,7 @@ type DepsOptions struct {
 	EventFabric        EventFabricOptions
 	Workflow           WorkflowOptions
 	IntegrationGateway IntegrationGatewayOptions
+	CapabilityRegistry CapabilityRegistryOptions
 	AgentLifecycle     AgentLifecycleOptions
 	KnowledgeSpace     KnowledgeSpaceOptions
 	DevHotload         DevHotloadOptions
@@ -166,6 +167,19 @@ type KnowledgeSpaceEventTopicsOptions struct {
 }
 
 type KnowledgeSpaceNotificationOptions struct {
+	IMWebhook        string
+	RetryInterval    time.Duration
+	RetryMaxAttempts int
+	HTTPTimeout      time.Duration
+}
+
+// CapabilityRegistryOptions 描述能力目录相关配置。
+type CapabilityRegistryOptions struct {
+	Notifications CapabilityRegistryNotificationOptions
+}
+
+// CapabilityRegistryNotificationOptions 定义告警通知。
+type CapabilityRegistryNotificationOptions struct {
 	IMWebhook        string
 	RetryInterval    time.Duration
 	RetryMaxAttempts int

@@ -199,6 +199,14 @@ func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error)
 				InvocationFailed:    cfg.IntegrationGateway.EventTopics.InvocationFailed,
 			},
 		},
+		CapabilityRegistry: shared.CapabilityRegistryOptions{
+			Notifications: shared.CapabilityRegistryNotificationOptions{
+				IMWebhook:        cfg.CapabilityRegistry.Notifications.IMWebhook,
+				RetryInterval:    time.Duration(cfg.CapabilityRegistry.Notifications.RetryIntervalSec) * time.Second,
+				RetryMaxAttempts: cfg.CapabilityRegistry.Notifications.RetryMaxAttempts,
+				HTTPTimeout:      time.Duration(cfg.CapabilityRegistry.Notifications.HTTPTimeoutSec) * time.Second,
+			},
+		},
 		AgentLifecycle: shared.AgentLifecycleOptions{
 			RedisAddr:                cfg.AgentLifecycle.RedisAddr,
 			RedisPassword:            cfg.AgentLifecycle.RedisPassword,

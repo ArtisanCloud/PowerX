@@ -23,7 +23,10 @@ import (
 	"gorm.io/gorm"
 )
 
-const capabilityAdminTenantUUID = "5f85643a-4509-4a61-a0dd-f325c6a2a92a"
+const (
+	capabilityAdminTenantUUID = "5f85643a-4509-4a61-a0dd-f325c6a2a92a"
+	capabilityContractAPIPath = "/api/admin/capability-contracts"
+)
 
 func TestCapabilityAdminHTTPContractFlow(t *testing.T) {
 	gin.SetMode(gin.TestMode)
@@ -31,7 +34,7 @@ func TestCapabilityAdminHTTPContractFlow(t *testing.T) {
 	deps := setupCapabilityDeps(t)
 
 	engine := gin.New()
-	group := engine.Group("/api/admin/capabilities")
+	group := engine.Group(capabilityContractAPIPath)
 	group.Use(requireCapabilityAuth(capabilityAdminTenantUUID))
 
 	contractHandler := capabilityhttp.NewContractHandler(deps)
@@ -91,13 +94,13 @@ func TestCapabilityAdminHTTPContractFlow(t *testing.T) {
 	body, err := json.Marshal(payload)
 	require.NoError(t, err)
 
-	unauthorizedReq := httptest.NewRequest(http.MethodPost, "/api/admin/capabilities", bytes.NewReader(body))
+	unauthorizedReq := httptest.NewRequest(http.MethodPost, capabilityContractAPIPath, bytes.NewReader(body))
 	unauthorizedReq.Header.Set("Content-Type", "application/json")
 	unauthorizedResp := httptest.NewRecorder()
 	engine.ServeHTTP(unauthorizedResp, unauthorizedReq)
 	require.Equal(t, http.StatusUnauthorized, unauthorizedResp.Code)
 
-	createReq := httptest.NewRequest(http.MethodPost, "/api/admin/capabilities", bytes.NewReader(body))
+	createReq := httptest.NewRequest(http.MethodPost, capabilityContractAPIPath, bytes.NewReader(body))
 	createReq.Header.Set("Content-Type", "application/json")
 	createResp := serveCapabilityAdminRequest(t, engine, createReq, capabilityAdminTenantUUID)
 	require.Equal(t, http.StatusOK, createResp.Code)
@@ -115,17 +118,17 @@ func TestCapabilityAdminHTTPContractFlow(t *testing.T) {
 	require.Equal(t, version, createBody.Data.Version)
 	require.Equal(t, capabilityAdminTenantUUID, createBody.Data.TenantUUID)
 
-	listReq := httptest.NewRequest(http.MethodGet, "/api/admin/capabilities?capability_key="+capKey, nil)
+	listReq := httptest.NewRequest(http.MethodGet, capabilityContractAPIPath+"?capability_key="+capKey, nil)
 	listResp := serveCapabilityAdminRequest(t, engine, listReq, capabilityAdminTenantUUID)
 	require.Equal(t, http.StatusOK, listResp.Code)
 
-	missingReq := httptest.NewRequest(http.MethodGet, "/api/admin/capabilities", nil)
+	missingReq := httptest.NewRequest(http.MethodGet, capabilityContractAPIPath, nil)
 	missingReq.Header.Set("Authorization", "Bearer admin")
 	missingResp := httptest.NewRecorder()
 	engine.ServeHTTP(missingResp, missingReq)
 	require.Equal(t, http.StatusUnauthorized, missingResp.Code)
 
-	getReq := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/admin/capabilities/%s/versions/%s", capKey, version), nil)
+	getReq := httptest.NewRequest(http.MethodGet, fmt.Sprintf("%s/%s/versions/%s", capabilityContractAPIPath, capKey, version), nil)
 	getResp := serveCapabilityAdminRequest(t, engine, getReq, capabilityAdminTenantUUID)
 	require.Equal(t, http.StatusOK, getResp.Code)
 }

@@ -6,6 +6,7 @@
 
 <script setup lang="ts">
 import { onMounted, computed } from 'vue'
+import { useColorMode } from '#imports'
 import { useRoute } from 'vue-router'
 import { useWorkflowManager } from '~/composables/workflow/useWorkflowManager'
 import WorkflowEditor from '~/components/workflow/WorkflowEditor.vue'

@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	caperrdto "github.com/ArtisanCloud/PowerX/internal/dto/capability_registry"
 	registry "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/registry"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/gin-gonic/gin"
@@ -34,7 +35,7 @@ func NewAdminHandler(opts AdminHandlerOptions) *AdminHandler {
 func (h *AdminHandler) CreateCapability(c *gin.Context) {
 	var req registrationRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		dto.ResponseError(c, http.StatusBadRequest, "registry.invalid_request", err)
+		caperrdto.RespondError(c, caperrdto.ErrInvalidRequest, err)
 		return
 	}
 	actor := c.GetHeader("X-Actor-ID")
@@ -78,7 +79,7 @@ func (h *AdminHandler) GetCapability(c *gin.Context) {
 func (h *AdminHandler) UpdateCapability(c *gin.Context) {
 	var req registrationRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		dto.ResponseError(c, http.StatusBadRequest, "registry.invalid_request", err)
+		caperrdto.RespondError(c, caperrdto.ErrInvalidRequest, err)
 		return
 	}
 	capabilityID := c.Param("capabilityId")
@@ -101,7 +102,7 @@ func (h *AdminHandler) UpdateCapability(c *gin.Context) {
 		}
 	}
 	if req.Version == nil {
-		dto.ResponseError(c, http.StatusPreconditionFailed, "registry.version_required", nil)
+		caperrdto.RespondError(c, caperrdto.ErrVersionRequired, nil)
 		return
 	}
 
@@ -129,7 +130,7 @@ func (h *AdminHandler) DisableCapability(c *gin.Context) {
 	}
 	var req disableRequest
 	if err := c.ShouldBindJSON(&req); err != nil && !errors.Is(err, io.EOF) {
-		dto.ResponseError(c, http.StatusBadRequest, "registry.invalid_request", err)
+		caperrdto.RespondError(c, caperrdto.ErrInvalidRequest, err)
 		return
 	}
 	ifMatch := c.GetHeader("If-Match")
@@ -160,13 +161,13 @@ func (h *AdminHandler) DisableCapability(c *gin.Context) {
 func (h *AdminHandler) handleError(c *gin.Context, err error) {
 	switch {
 	case errorsIs(err, registry.ErrRegistrationNotFound):
-		respondRegistryError(c, http.StatusNotFound, "registry.not_found", err)
+		caperrdto.RespondError(c, caperrdto.ErrNotFound, err)
 	case errorsIs(err, registry.ErrVersionConflict):
-		respondRegistryError(c, http.StatusPreconditionFailed, "registry.version_conflict", err)
+		caperrdto.RespondError(c, caperrdto.ErrVersionConflict, err)
 	case errorsIs(err, registry.ErrInvalidPayload):
-		respondRegistryError(c, http.StatusUnprocessableEntity, "registry.invalid_payload", err)
+		caperrdto.RespondError(c, caperrdto.ErrInvalidPayload, err)
 	default:
-		respondRegistryError(c, http.StatusInternalServerError, "registry.internal_error", err)
+		caperrdto.RespondError(c, caperrdto.ErrInternal, err)
 	}
 }
 
@@ -243,10 +244,6 @@ func registrationDetail(reg registry.Registration) gin.H {
 		response["created_at"] = reg.CreatedAt.Format(time.RFC3339)
 	}
 	return response
-}
-
-func respondRegistryError(c *gin.Context, status int, code string, err error) {
-	dto.ResponseErrorWithDetails(c, status, code, err, map[string]interface{}{"code": code})
 }
 
 func setETag(c *gin.Context, version uint64) {
