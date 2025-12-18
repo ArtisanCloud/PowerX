@@ -24,6 +24,13 @@ tests/
 
 # Add commands for Go 1.24（backend），Node 20（Web Admin 热更新面板），Go 1.21（px-plugin CLI）
 
+## QA & Observability Checklist
+
+- 运行 `scripts/capability_registry/verify.sh`（需要 `POWERX_BASE_URL/ADMIN_TOKEN/TENANT_TOKEN` 等环境变量），串联 capability-sync → Admin/Tenant API 巡检 → `/tenant/invocations` 调用，输出 trace_id 供后续链路排查。
+- `cd backend && go test ./tests/integration/capability_registry/load`：覆盖 5k+ Selector 调用、Redis 缓存击穿保护与 fallback chaos 测试，上线前必须通过。
+- Prometheus/Otel：启动 backend（`LOG_LEVEL=info make dev` 或目标环境），在脚本执行期间 `curl http://localhost:2112/metrics | grep powerx_capability_invoke_total`，确认 `powerx_capability_invoke_total`/`powerx_capability_invoke_error_total` 呈现递增；同时设置 `OTEL_EXPORTER_OTLP_ENDPOINT`（或接入现有 collector）确认 Trace 透传。
+- 事件补偿与日志：关注 `integration.gateway.invocation.failed`/`capability.catalog.sync_*` 事件，`LOG_LEVEL=debug` 跑一次 `scripts/capability_registry/verify.sh`，确认 stdout/采集日志都包含 `capability_id/plugin_id/protocol` 字段，异常重试应在日志与事件中一致可见。
+
 ## Code Style
 
 Go 1.24（backend），Node 20（Web Admin 热更新面板），Go 1.21（px-plugin CLI）: Follow standard conventions
