@@ -128,7 +128,7 @@ const products = computed(() => [
   {
     name: "PowerX Admin",
     description: t("intro.products.admin.description"),
-    image: "/api/placeholder/300/200",
+    image: LOGO_M_URL,
     features: [
       t("intro.products.admin.features.userManagement"),
       t("intro.products.admin.features.permissionControl"),
@@ -139,7 +139,7 @@ const products = computed(() => [
   {
     name: "PowerX Analytics",
     description: t("intro.products.analytics.description"),
-    image: "/api/placeholder/300/200",
+    image: LOGO_M_URL,
     features: [
       t("intro.products.analytics.features.realTimeAnalysis"),
       t("intro.products.analytics.features.visualReports"),
@@ -150,7 +150,7 @@ const products = computed(() => [
   {
     name: "PowerX Cloud",
     description: t("intro.products.cloud.description"),
-    image: "/api/placeholder/300/200",
+    image: LOGO_M_URL,
     features: [
       t("intro.products.cloud.features.cloudStorage"),
       t("intro.products.cloud.features.multiDeviceSync"),
@@ -410,7 +410,7 @@ onUnmounted(() => {
                           d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
                         />
                       </svg>
-                      {{ $t("settings") }}
+                      {{ $t("menu.settings") }}
                     </NuxtLink>
                     <hr class="border-gray-200 dark:border-gray-700 my-1" />
                     <button

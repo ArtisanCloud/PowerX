@@ -85,6 +85,9 @@
       "new": "新着"
     },
     "aiSettings": "モデル設定",
+    "aiSettingsModel": "モデル構成",
+    "aiSettingsCost": "コスト設定",
+    "aiSettingsRegistry": "能力レジストリ",
     "workflow": "ワークフロー",
     "knowledgeSpace": "ナレッジスペース",
     "pluginMarketplace": "マーケット",
@@ -625,6 +628,88 @@
       }
     },
     "confirmDelete": "このエージェントを削除してもよろしいですか？この操作は元に戻せません。"
+  },
+  "settings": {
+    "ai": {
+      "title": "AI 設定",
+      "description": "プロバイダーとモデル、パラメーターを構成します。",
+      "environment": "環境",
+      "modalityTabsLabel": "モダリティ",
+      "sections": {
+        "general": "基本設定",
+        "parameters": "パラメーター"
+      },
+      "actions": {
+        "openCostGuard": "コスト防御",
+        "backToModels": "モデル一覧へ戻る",
+        "openCapabilityRegistry": "能力レジストリ"
+      },
+      "costGuardPageTitle": "コスト防御",
+      "costGuardPageDesc": "AI 利用のクォータやスロットルを設定します。",
+      "costGuard": {
+        "panelTitle": "防御ポリシー",
+        "panelDesc": "クォータ・制限・フォールバックを設定します。",
+        "tenantLabel": "テナント",
+        "tenantPlaceholder": "テナントを選択",
+        "refresh": "更新",
+        "openDashboard": "ダッシュボード",
+        "lastUpdated": "最終更新",
+        "emptyTitle": "データなし",
+        "emptyDesc": "ポリシーを追加してください。",
+        "playbookTitle": "プレイブック",
+        "playbooks": {
+          "throttle": { "title": "スロットル", "desc": "予算逼迫時にリクエストを制限。" },
+          "degrade": { "title": "段階的縮小", "desc": "低コストモデルへ切替。" },
+          "disable": { "title": "停止", "desc": "予算超過時に停止。" }
+        },
+        "defaultTenants": {
+          "demo": "デモ",
+          "ops": "運用"
+        }
+      },
+      "registryPageTitle": "能力レジストリ",
+      "registryPageDesc": "プラグイン能力のハッシュと同期状況を確認します（root のみ）。",
+      "registry": {
+        "filters": {
+          "searchPlaceholder": "能力 ID / タイトル / Intent を検索",
+          "pluginPlaceholder": "プラグイン ID",
+          "statusAll": "すべての状態",
+          "protocolAll": "すべてのプロトコル",
+          "apply": "フィルター適用",
+          "reset": "リセット"
+        },
+        "columns": {
+          "capability": "能力",
+          "plugin": "プラグイン",
+          "policy": "ポリシー",
+          "protocols": "チャネル",
+          "hash": "ハッシュ",
+          "publishedAt": "公開 / 同期"
+        },
+        "summary": "合計 {total} 件",
+        "manualUpgrade": "手動アップグレードが必要",
+        "empty": "能力レコードがありません",
+        "noAccess": {
+          "title": "Root 専用",
+          "description": "能力レジストリは root アカウントのみ閲覧できます。"
+        },
+        "syncJobs": {
+          "title": "最新の同期ジョブ",
+          "empty": "同期ジョブがありません",
+          "more": "直近 {count} 件のみ表示",
+          "status": {
+            "pending": "保留",
+            "running": "実行中",
+            "succeeded": "成功",
+            "failed": "失敗"
+          }
+        },
+        "toast": {
+          "loadFailed": "レジストリの読み込みに失敗しました",
+          "jobsFailed": "同期ジョブの取得に失敗しました"
+        }
+      }
+    }
   },
   "env": {
     "title": "環境設定",

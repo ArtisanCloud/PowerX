@@ -16,4 +16,10 @@ pages:
       params:
         title: "Template Detail"
 
+theme:
+  description: |
+    Light theme uses light panels with dark foreground (text/icon <= gray-900). Avoid white text or glyphs on light panels.
+    Dark theme mirrors template components: panels use deep navy (#0f192a~#111a2b) with subtle borders, and text/icons use light tones (#e2e8f0~#f8fafc). Never render dark glyphs/text on dark panels.
+    When building new pages, reference template CRUD components for tone pairings (panel, button, table states) to ensure consistent contrast in both light/dark modes.
+
 gates.require: [PG-FE-UI-001, PG-FE-RBAC-001]

@@ -93,6 +93,7 @@
 - [x] **T038 [P]** CI & Scripts：实现 `scripts/capability_registry/verify.sh`，串联 quickstart 步骤 1-4 并在 CI 执行。
 - [x] **T039** 性能与容错：编写负载测试脚本（`tests/integration/capability_registry/load/`) 验证 5k+ 调用、Redis 缓存击穿保护，并对 Selector fallback 做 chaos 测试。
 - [x] **T040** 最终 QA：运行 prometheus/otel 验证、检查事件补偿逻辑、审阅日志格式，更新 `AGENTS.md` 及 README 片段。
+- [x] **T051 [US1/UI]** Admin UI（Root 专用）能力注册表：在 Web Admin「AI 设置」菜单下新增子菜单“能力注册表”，需仅限 root 角色可见；通过 `GET /admin/capabilities` + `/admin/capability-sync/jobs` 渲染插件能力清单（字段包含 PluginID、CapabilityID、协议、状态、capabilities_hash、requires_manual_upgrade、最近同步时间等），提供基础表格/分页展示即可，无需调试器功能。
 
 ## Dependencies & Parallel Execution
 

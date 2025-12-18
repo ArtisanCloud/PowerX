@@ -7,6 +7,7 @@
     "aiSettings": "AI Settings",
     "aiSettingsModel": "Model Settings",
     "aiSettingsCost": "Cost Settings",
+    "aiSettingsRegistry": "Capability Registry",
     "badge": "Badge",
     "customers": "Customers",
     "customerList": "Customer List",
@@ -145,10 +146,13 @@
       },
       "actions": {
         "openCostGuard": "Open Cost Guard",
-        "backToModels": "Back to models"
+        "backToModels": "Back to models",
+        "openCapabilityRegistry": "Capability Registry"
       },
       "costGuardPageTitle": "Cost Guard",
       "costGuardPageDesc": "Manage quota and throttling for AI usage.",
+      "registryPageTitle": "Capability Registry",
+      "registryPageDesc": "Review plugin capabilities, hashes and sync jobs (root only).",
       "costGuard": {
         "panelTitle": "Cost guard policies",
         "panelDesc": "Configure quotas, throttles and fallbacks.",
@@ -177,6 +181,46 @@
         "defaultTenants": {
           "demo": "Demo",
           "ops": "Ops"
+        }
+      },
+      "registry": {
+        "filters": {
+          "searchPlaceholder": "Search capability ID, title or intent",
+          "pluginPlaceholder": "Plugin ID",
+          "statusAll": "All statuses",
+          "protocolAll": "All protocols",
+          "apply": "Apply filters",
+          "reset": "Reset"
+        },
+        "columns": {
+          "capability": "Capability",
+          "plugin": "Plugin",
+          "policy": "Policy",
+          "protocols": "Channels",
+          "hash": "Hashes",
+          "publishedAt": "Published / synced"
+        },
+        "summary": "{total} records",
+        "manualUpgrade": "Manual upgrade required",
+        "empty": "No capability records yet",
+        "noAccess": {
+          "title": "Root access required",
+          "description": "Only root users can view the capability registry. Please sign in with a root account."
+        },
+        "syncJobs": {
+          "title": "Recent sync jobs",
+          "empty": "No sync jobs recorded",
+          "more": "Showing latest {count} jobs",
+          "status": {
+            "pending": "Pending",
+            "running": "Running",
+            "succeeded": "Succeeded",
+            "failed": "Failed"
+          }
+        },
+        "toast": {
+          "loadFailed": "Failed to load registry",
+          "jobsFailed": "Failed to load sync jobs"
         }
       }
     }

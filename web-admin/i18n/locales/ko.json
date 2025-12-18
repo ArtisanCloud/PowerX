@@ -85,6 +85,9 @@
       "new": "신규"
     },
     "aiSettings": "모델 설정",
+    "aiSettingsModel": "모델 구성",
+    "aiSettingsCost": "코스트 설정",
+    "aiSettingsRegistry": "능력 레지스트리",
     "workflow": "워크플로우",
     "knowledgeSpace": "지식 공간",
     "pluginMarketplace": "마켓",
@@ -432,6 +435,88 @@
       }
     },
     "confirmDelete": "이 에이전트를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다."
+  },
+  "settings": {
+    "ai": {
+      "title": "AI 설정",
+      "description": "프로바이더와 모델, 파라미터를 구성합니다.",
+      "environment": "환경",
+      "modalityTabsLabel": "모달리티",
+      "sections": {
+        "general": "일반",
+        "parameters": "파라미터"
+      },
+      "actions": {
+        "openCostGuard": "코스트 가드",
+        "backToModels": "모델 목록으로",
+        "openCapabilityRegistry": "능력 레지스트리"
+      },
+      "costGuardPageTitle": "코스트 가드",
+      "costGuardPageDesc": "AI 사용량에 대한 한도와 스로틀을 관리합니다.",
+      "costGuard": {
+        "panelTitle": "방어 전략",
+        "panelDesc": "쿼터·제한·폴백 전략을 설정합니다.",
+        "tenantLabel": "테넌트",
+        "tenantPlaceholder": "테넌트 선택",
+        "refresh": "새로고침",
+        "openDashboard": "대시보드 열기",
+        "lastUpdated": "마지막 업데이트",
+        "emptyTitle": "데이터 없음",
+        "emptyDesc": "정책을 추가해 주세요.",
+        "playbookTitle": "플레이북",
+        "playbooks": {
+          "throttle": { "title": "스로틀", "desc": "예산이 부족할 때 요청을 제한합니다." },
+          "degrade": { "title": "디그레이드", "desc": "저비용 모델로 전환합니다." },
+          "disable": { "title": "비활성화", "desc": "예산 초과 시 서비스를 중지합니다." }
+        },
+        "defaultTenants": {
+          "demo": "데모",
+          "ops": "운영"
+        }
+      },
+      "registryPageTitle": "능력 레지스트리",
+      "registryPageDesc": "플러그인 능력 목록과 동기화 상태를 확인합니다 (root 전용).",
+      "registry": {
+        "filters": {
+          "searchPlaceholder": "능력 ID/제목/의도를 검색",
+          "pluginPlaceholder": "플러그인 ID",
+          "statusAll": "모든 상태",
+          "protocolAll": "모든 프로토콜",
+          "apply": "필터 적용",
+          "reset": "초기화"
+        },
+        "columns": {
+          "capability": "능력",
+          "plugin": "플러그인",
+          "policy": "정책",
+          "protocols": "채널",
+          "hash": "해시",
+          "publishedAt": "게시 / 동기화"
+        },
+        "summary": "총 {total}건",
+        "manualUpgrade": "수동 업그레이드 필요",
+        "empty": "능력 레코드가 없습니다",
+        "noAccess": {
+          "title": "Root 전용",
+          "description": "능력 레지스트리는 root 계정만 접근할 수 있습니다."
+        },
+        "syncJobs": {
+          "title": "최근 동기화 작업",
+          "empty": "동기화 작업이 없습니다",
+          "more": "최근 {count}건만 표시",
+          "status": {
+            "pending": "대기중",
+            "running": "진행중",
+            "succeeded": "성공",
+            "failed": "실패"
+          }
+        },
+        "toast": {
+          "loadFailed": "레지스트리 로딩 실패",
+          "jobsFailed": "동기화 작업 로딩 실패"
+        }
+      }
+    }
   },
   "env": {
     "title": "환경 설정",
