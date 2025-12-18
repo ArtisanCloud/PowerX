@@ -74,16 +74,16 @@
 **独立测试**：运行 quickstart 步骤 4，验证模板导入、执行与手动升级提示。
 
 ### Tests
-- [ ] **T031 [P][US3]** Workflow Catalog Integration Test：`backend/tests/integration/capability_registry/workflow_catalog_test.go` 验证模板导入、执行节点协议、Selector 调用一致。
-- [ ] **T032 [P][US3]** Template Upgrade Test：`backend/tests/integration/capability_registry/template_upgrade_test.go` 模拟插件 hash 变更，确认未升级前拒绝调用，执行 `/admin/workflow-templates/{id}/upgrade` 后恢复。
-- [ ] **T049 [P][US3]** Workflow 采纳度遥测测试：在 `backend/tests/integration/capability_registry/workflow_telemetry_test.go` 验证模板导入/执行会写入 adoption metrics、成功率与手动升级提示。
+- [x] **T031 [P][US3]** Workflow Catalog Integration Test：`backend/tests/integration/capability_registry/workflow_catalog_test.go` 验证模板导入、执行节点协议、Selector 调用一致。
+- [x] **T032 [P][US3]** Template Upgrade Test：`backend/tests/integration/capability_registry/template_upgrade_test.go` 模拟插件 hash 变更，确认未升级前拒绝调用，执行 `/admin/workflow-templates/{id}/upgrade` 后恢复。
+ - [x] **T049 [P][US3]** Workflow 采纳度遥测测试：在 `backend/tests/integration/capability_registry/workflow_telemetry_test.go` 验证模板导入/执行会写入 adoption metrics、成功率与手动升级提示。
 
 ### Implementation
-- [ ] **T033 [US3]** Workflow Catalog Sync：在 `backend/internal/service/capability_registry/workflow_catalog.go` 从 Registry 推送模板至 Workflow Builder Catalog（含 hash 校验、requires_manual_upgrade）。
-- [ ] **T034 [US3]** Admin Upgrade Endpoint：实现 `POST /admin/workflow-templates/{templateId}/upgrade` Handler，调用新服务以更新绑定模板 hash/版本。
-- [ ] **T035 [US3]** Workflow Engine Adapter：扩展 `backend/internal/workflow/engine/plugins.go`（或相关）以在执行节点时注入 `CapabilityInvokeRequest` 并复用 Selector。
-- [ ] **T036 [US3]** Builder UI 数据管道：更新 `backend/internal/transport/http/admin/capability_registry/workflow_handler.go`（新增）提供模板列表、升级状态给 Web Admin。
-- [ ] **T050 [US3]** Workflow 遥测管线：在 `backend/internal/workflow/engine/telemetry.go`（新增）与 `workflow_catalog.go` 中注入 adoption metrics/Trace 记录，并将数据暴露给 Prometheus + quickstart。
+- [x] **T033 [US3]** Workflow Catalog Sync：在 `backend/internal/service/capability_registry/workflow_catalog.go` 从 Registry 推送模板至 Workflow Builder Catalog（含 hash 校验、requires_manual_upgrade）。
+- [x] **T034 [US3]** Admin Upgrade Endpoint：实现 `POST /admin/workflow-templates/{templateId}/upgrade` Handler，调用新服务以更新绑定模板 hash/版本。
+- [x] **T035 [US3]** Workflow Engine Adapter：扩展 `backend/internal/workflow/engine/plugins.go`（或相关）以在执行节点时注入 `CapabilityInvokeRequest` 并复用 Selector。
+- [x] **T036 [US3]** Builder UI 数据管道：更新 `backend/internal/transport/http/admin/capability_registry/workflow_handler.go`（新增）提供模板列表、升级状态给 Web Admin。
+ - [x] **T050 [US3]** Workflow 遥测管线：在 `backend/internal/workflow/engine/telemetry.go`（新增）与 `workflow_catalog.go` 中注入 adoption metrics/Trace 记录，并将数据暴露给 Prometheus + quickstart。
 
 *Checkpoint：Workflow Builder 能导入/运行插件模板并受控升级。*
 

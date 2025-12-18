@@ -88,3 +88,12 @@ func (r *WorkflowTemplateRepository) DeleteByCapabilityID(ctx context.Context, c
 		Where("capability_id = ?", capabilityID).
 		Delete(&models.WorkflowTemplateRef{}).Error
 }
+
+// ListAll 返回所有模板，供 Workflow Catalog 等组件生成全量快照。
+func (r *WorkflowTemplateRepository) ListAll(ctx context.Context) ([]models.WorkflowTemplateRef, error) {
+	var templates []models.WorkflowTemplateRef
+	err := r.db.WithContext(ctx).
+		Order("capability_id ASC, template_id ASC").
+		Find(&templates).Error
+	return templates, err
+}

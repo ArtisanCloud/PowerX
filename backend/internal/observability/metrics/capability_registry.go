@@ -14,6 +14,11 @@ const (
 	// MetricCapabilityInvokeErrorTotal counts failed invocations.
 	MetricCapabilityInvokeErrorTotal = "powerx_capability_invoke_error_total"
 
+	// Workflow-specific metrics.
+	MetricWorkflowTemplateSnapshotTotal = "powerx_workflow_template_snapshot_total"
+	MetricWorkflowInvocationTotal       = "powerx_workflow_invocation_total"
+	MetricWorkflowInvocationErrorTotal  = "powerx_workflow_invocation_error_total"
+
 	// Common metric attribute keys. 观测标签需至少包含能力、插件与协议，方便 Trace/事件串联。
 	LabelCapabilityID = "capability_id"
 	LabelPluginID     = "plugin_id"
@@ -22,6 +27,8 @@ const (
 	LabelTraceID      = "trace_id"
 	LabelResult       = "result"
 	LabelFallback     = "fallback"
+	LabelTemplateID   = "template_id"
+	LabelNeedsUpgrade = "needs_upgrade"
 )
 
 const (
@@ -55,6 +62,26 @@ type CapabilityInvocationSample struct {
 	Labels  CapabilityInvocationLabels
 	Latency time.Duration
 	Err     error
+}
+
+// WorkflowCatalogSample 描述 Workflow Catalog 快照中的单个模板指标。
+type WorkflowCatalogSample struct {
+	TemplateID   string
+	CapabilityID string
+	PluginID     string
+	NeedsUpgrade bool
+}
+
+// WorkflowExecutionSample 描述 Workflow Engine 对模板执行的指标。
+type WorkflowExecutionSample struct {
+	TemplateID   string
+	CapabilityID string
+	PluginID     string
+	TenantUUID   string
+	Protocol     string
+	Status       string
+	NeedsUpgrade bool
+	Err          error
 }
 
 // CapabilityRegistryMetrics 提供统一的能力调用指标上报。
@@ -107,6 +134,58 @@ func (m *CapabilityRegistryMetrics) ObserveInvocation(ctx context.Context, sampl
 	}
 }
 
+// ObserveWorkflowCatalog 记录 Workflow Catalog 快照中的模板 adoption 状态。
+func (m *CapabilityRegistryMetrics) ObserveWorkflowCatalog(ctx context.Context, samples []WorkflowCatalogSample) {
+	if m == nil || len(samples) == 0 {
+		return
+	}
+	for _, sample := range samples {
+		attrs := map[string]string{
+			LabelCapabilityID: sample.CapabilityID,
+			LabelPluginID:     sample.PluginID,
+		}
+		if sample.TemplateID != "" {
+			attrs[LabelTemplateID] = sample.TemplateID
+		}
+		if sample.NeedsUpgrade {
+			attrs[LabelNeedsUpgrade] = "true"
+		} else {
+			attrs[LabelNeedsUpgrade] = "false"
+		}
+		m.emitter.Counter(ctx, MetricWorkflowTemplateSnapshotTotal, 1, attrs)
+	}
+}
+
+// ObserveWorkflowExecution 记录 Workflow Engine 对模板执行时的成功率。
+func (m *CapabilityRegistryMetrics) ObserveWorkflowExecution(ctx context.Context, sample WorkflowExecutionSample) {
+	if m == nil {
+		return
+	}
+	attrs := map[string]string{
+		LabelCapabilityID: sample.CapabilityID,
+		LabelProtocol:     sample.Protocol,
+		LabelResult:       normalizeWorkflowExecutionResult(sample),
+	}
+	if sample.TemplateID != "" {
+		attrs[LabelTemplateID] = sample.TemplateID
+	}
+	if sample.PluginID != "" {
+		attrs[LabelPluginID] = sample.PluginID
+	}
+	if sample.TenantUUID != "" {
+		attrs[LabelTenantUUID] = sample.TenantUUID
+	}
+	if sample.NeedsUpgrade {
+		attrs[LabelNeedsUpgrade] = "true"
+	}
+	m.emitter.Counter(ctx, MetricWorkflowInvocationTotal, 1, attrs)
+	if sample.Err != nil {
+		errAttrs := cloneMap(attrs)
+		errAttrs["error"] = sample.Err.Error()
+		m.emitter.Counter(ctx, MetricWorkflowInvocationErrorTotal, 1, errAttrs)
+	}
+}
+
 func normalizeResult(sample CapabilityInvocationSample) string {
 	if sample.Labels.Result != "" {
 		return sample.Labels.Result
@@ -135,3 +214,13 @@ type noopEmitter struct{}
 
 func (noopEmitter) Counter(context.Context, string, float64, map[string]string)   {}
 func (noopEmitter) Histogram(context.Context, string, float64, map[string]string) {}
+
+func normalizeWorkflowExecutionResult(sample WorkflowExecutionSample) string {
+	if sample.Status != "" {
+		return sample.Status
+	}
+	if sample.Err != nil {
+		return ResultFailed
+	}
+	return ResultSuccess
+}

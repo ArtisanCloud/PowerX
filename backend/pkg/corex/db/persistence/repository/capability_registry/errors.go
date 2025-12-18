@@ -18,6 +18,9 @@ var (
 	// ErrWorkflowTemplateNotFound 表示不存在指定的 WorkflowTemplateRef。
 	ErrWorkflowTemplateNotFound = errors.New("capability registry: workflow template not found")
 
+	// ErrWorkflowTemplateApprovalNotFound 表示不存在模板审批记录。
+	ErrWorkflowTemplateApprovalNotFound = errors.New("capability registry: workflow template approval not found")
+
 	// ErrSyncJobNotFound 表示不存在指定的同步任务。
 	ErrSyncJobNotFound = errors.New("capability registry: capability sync job not found")
 

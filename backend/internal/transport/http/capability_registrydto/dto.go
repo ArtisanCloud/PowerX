@@ -65,6 +65,25 @@ type WorkflowTemplateDTO struct {
 	LastSyncedAt             *string     `json:"last_synced_at,omitempty"`
 }
 
+// WorkflowCatalogTemplateDTO 为 Builder UI 提供模板列表。
+type WorkflowCatalogTemplateDTO struct {
+	TemplateID            string                       `json:"template_id"`
+	CapabilityID          string                       `json:"capability_id"`
+	CapabilityTitle       string                       `json:"capability_title,omitempty"`
+	PluginID              string                       `json:"plugin_id,omitempty"`
+	Name                  string                       `json:"name"`
+	Description           string                       `json:"description,omitempty"`
+	Steps                 interface{}                  `json:"steps,omitempty"`
+	ParamsSchema          interface{}                  `json:"params_schema,omitempty"`
+	ProtocolRequirements  interface{}                  `json:"protocol_requirements,omitempty"`
+	CapabilitiesHash      string                       `json:"capabilities_hash"`
+	TemplateHash          string                       `json:"template_hash"`
+	RequiresManualUpgrade bool                         `json:"requires_manual_upgrade"`
+	Approved              *WorkflowTemplateApprovalDTO `json:"approved,omitempty"`
+	NeedsUpgrade          bool                         `json:"needs_upgrade"`
+	LastSyncedAt          *string                      `json:"last_synced_at,omitempty"`
+}
+
 // CapabilitySyncJobDTO mirrors capability sync job responses.
 type CapabilitySyncJobDTO struct {
 	JobID         string  `json:"job_id"`
@@ -109,6 +128,31 @@ func CapabilityViewToDTO(view capabilitycatalog.CapabilityRecordView, includeWor
 	return dto
 }
 
+// WorkflowTemplateApprovalDTO 描述模板审批记录。
+type WorkflowTemplateApprovalDTO struct {
+	TemplateID       string  `json:"template_id"`
+	CapabilityID     string  `json:"capability_id"`
+	CapabilitiesHash string  `json:"capabilities_hash"`
+	Reason           string  `json:"reason,omitempty"`
+	ApprovedBy       string  `json:"approved_by,omitempty"`
+	ApprovedAt       *string `json:"approved_at,omitempty"`
+}
+
+// WorkflowTemplateApprovalToDTO converts approval model to DTO.
+func WorkflowTemplateApprovalToDTO(model *modelregistry.WorkflowTemplateApproval) WorkflowTemplateApprovalDTO {
+	if model == nil {
+		return WorkflowTemplateApprovalDTO{}
+	}
+	return WorkflowTemplateApprovalDTO{
+		TemplateID:       model.TemplateID,
+		CapabilityID:     model.CapabilityID,
+		CapabilitiesHash: model.CapabilitiesHash,
+		Reason:           model.Reason,
+		ApprovedBy:       model.ApprovedBy,
+		ApprovedAt:       formatTime(&model.ApprovedAt),
+	}
+}
+
 // WorkflowTemplateToDTO converts a workflow template record to DTO.
 func WorkflowTemplateToDTO(model modelregistry.WorkflowTemplateRef) WorkflowTemplateDTO {
 	return WorkflowTemplateDTO{
@@ -123,6 +167,47 @@ func WorkflowTemplateToDTO(model modelregistry.WorkflowTemplateRef) WorkflowTemp
 		TemplateHash:             model.TemplateHash,
 		LastSyncedAt:             formatTime(model.LastSyncedAt),
 	}
+}
+
+// WorkflowCatalogTemplateToDTO converts catalog snapshot items to DTO.
+func WorkflowCatalogTemplateToDTO(model capabilitycatalog.WorkflowCatalogTemplate, approval *modelregistry.WorkflowTemplateApproval) WorkflowCatalogTemplateDTO {
+	dto := WorkflowCatalogTemplateDTO{
+		TemplateID:            model.TemplateID,
+		CapabilityID:          model.CapabilityID,
+		CapabilityTitle:       model.CapabilityTitle,
+		PluginID:              model.PluginID,
+		Name:                  model.Name,
+		Description:           model.Description,
+		Steps:                 decodeRawMessage(model.Steps),
+		ParamsSchema:          decodeRawMessage(model.ParamsSchema),
+		ProtocolRequirements:  decodeRawMessage(model.ProtocolRequirements),
+		CapabilitiesHash:      model.CapabilitiesHash,
+		TemplateHash:          model.TemplateHash,
+		RequiresManualUpgrade: model.RequiresManualUpgrade,
+		LastSyncedAt:          formatTime(model.LastSyncedAt),
+	}
+	if model.RequiresManualUpgrade {
+		dto.NeedsUpgrade = true
+	}
+	if approval != nil {
+		approvalDTO := WorkflowTemplateApprovalToDTO(approval)
+		dto.Approved = &approvalDTO
+		if strings.EqualFold(strings.TrimSpace(approval.CapabilitiesHash), strings.TrimSpace(model.CapabilitiesHash)) {
+			dto.NeedsUpgrade = false
+		}
+	}
+	return dto
+}
+
+func decodeRawMessage(raw json.RawMessage) interface{} {
+	if len(raw) == 0 {
+		return nil
+	}
+	var out interface{}
+	if err := json.Unmarshal(raw, &out); err != nil {
+		return json.RawMessage(raw)
+	}
+	return out
 }
 
 // SyncJobToDTO converts a sync job model to DTO.

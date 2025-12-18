@@ -19,6 +19,12 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 			protectedGroup.GET("/admin/capability-sync/jobs", handler.ListSyncJobs)
 		}
 	}
+	if protectedGroup != nil {
+		if workflowHandler := newWorkflowHandler(deps); workflowHandler != nil {
+			protectedGroup.GET("/admin/workflow-templates", workflowHandler.ListTemplates)
+			protectedGroup.POST("/admin/workflow-templates/:templateId/upgrade", workflowHandler.ApproveTemplateUpgrade)
+		}
+	}
 
 	if publicGroup != nil && deps.DiscoverySvc != nil {
 		discoveryHandler := NewDiscoveryHandler(deps.DiscoverySvc)

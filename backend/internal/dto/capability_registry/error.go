@@ -15,22 +15,23 @@ import (
 type ErrorCode string
 
 const (
-	ErrorInvalidRequest      ErrorCode = "registry.invalid_request"
-	ErrorInvalidPayload      ErrorCode = "registry.invalid_payload"
-	ErrorNotFound            ErrorCode = "registry.not_found"
-	ErrorVersionConflict     ErrorCode = "registry.version_conflict"
-	ErrorVersionRequired     ErrorCode = "registry.version_required"
-	ErrorVersionLocked       ErrorCode = "registry.version_locked"
-	ErrorInternal            ErrorCode = "registry.internal_error"
-	ErrorUnavailable         ErrorCode = "registry.unavailable"
-	ErrorTenantUUIDMissing   ErrorCode = "tenant.uuid_missing"
-	ErrorTenantUUIDInvalid   ErrorCode = "tenant.uuid_invalid"
-	ErrorTenantMismatch      ErrorCode = "tenant.mismatch"
-	ErrorInvokeFailed        ErrorCode = "integration.invoke_failed"
-	ErrorCapabilityForbidden ErrorCode = "registry.capability_forbidden"
-	ErrorSafeModeActive      ErrorCode = "tenant.safe_mode_active"
-	ErrorFeatureFlagMissing  ErrorCode = "registry.feature_flag_required"
-	ErrorToolGrantMissing    ErrorCode = "registry.tool_grant_required"
+	ErrorInvalidRequest           ErrorCode = "registry.invalid_request"
+	ErrorInvalidPayload           ErrorCode = "registry.invalid_payload"
+	ErrorNotFound                 ErrorCode = "registry.not_found"
+	ErrorVersionConflict          ErrorCode = "registry.version_conflict"
+	ErrorVersionRequired          ErrorCode = "registry.version_required"
+	ErrorVersionLocked            ErrorCode = "registry.version_locked"
+	ErrorInternal                 ErrorCode = "registry.internal_error"
+	ErrorUnavailable              ErrorCode = "registry.unavailable"
+	ErrorTenantUUIDMissing        ErrorCode = "tenant.uuid_missing"
+	ErrorTenantUUIDInvalid        ErrorCode = "tenant.uuid_invalid"
+	ErrorTenantMismatch           ErrorCode = "tenant.mismatch"
+	ErrorInvokeFailed             ErrorCode = "integration.invoke_failed"
+	ErrorCapabilityForbidden      ErrorCode = "registry.capability_forbidden"
+	ErrorSafeModeActive           ErrorCode = "tenant.safe_mode_active"
+	ErrorFeatureFlagMissing       ErrorCode = "registry.feature_flag_required"
+	ErrorToolGrantMissing         ErrorCode = "registry.tool_grant_required"
+	ErrorWorkflowTemplateMismatch ErrorCode = "workflow.template_hash_mismatch"
 )
 
 // ErrorTemplate 描述一次标准化错误响应。
@@ -224,6 +225,12 @@ var (
 		GRPCStatus: codes.PermissionDenied,
 		Code:       ErrorToolGrantMissing,
 		Hint:       "缺少调用该能力所需的 Tool Grant",
+	}
+	ErrWorkflowTemplateHashConflict = ErrorTemplate{
+		HTTPStatus: http.StatusConflict,
+		GRPCStatus: codes.FailedPrecondition,
+		Code:       ErrorWorkflowTemplateMismatch,
+		Hint:       "模板仍引用旧版本，请刷新最新快照后再确认升级",
 	}
 	ErrInvokeFailed = ErrorTemplate{
 		HTTPStatus: http.StatusBadGateway,

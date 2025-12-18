@@ -85,6 +85,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/ArtisanCloud/PowerX/internal/workflow"
+	workflowengine "github.com/ArtisanCloud/PowerX/internal/workflow/engine"
 )
 
 type auditViolationReporter struct {
@@ -139,6 +140,7 @@ type Deps struct {
 	CapabilityInvocationSvc  *capabilitycatalog.InvocationService
 	CapabilityAuthorizer     *capabilitycatalog.AuthorizationService
 	CapabilitySelector       *capabilitycatalog.Selector
+	WorkflowCatalog          *capabilitycatalog.WorkflowCatalog
 	ToolStore                *toolstore.Store
 	VersionLockStore         capabilitycatalog.VersionLock
 	RouterSvc                *capabilityRouter.Service
@@ -157,6 +159,8 @@ type Deps struct {
 	PluginSandbox            *pluginsandbox.Service
 	PluginGovernance         *plugingovernance.Service
 	PluginCompat             *plugincompat.Service
+	WorkflowTemplateSvc      *capabilitycatalog.WorkflowTemplateService
+	WorkflowStepAdapter      *workflowengine.CapabilityStepAdapter
 
 	EventFabric    *EventFabricDeps
 	Workflow       *WorkflowDeps
@@ -300,15 +304,21 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 	var capabilityInvocationSvc *capabilitycatalog.InvocationService
 	var capabilityAuthorizer *capabilitycatalog.AuthorizationService
 	var capabilitySelector *capabilitycatalog.Selector
+	var workflowCatalog *capabilitycatalog.WorkflowCatalog
+	var workflowTemplateSvc *capabilitycatalog.WorkflowTemplateService
+	var workflowStepAdapter *workflowengine.CapabilityStepAdapter
+	var workflowTelemetry *workflowengine.WorkflowTelemetry
 	var toolStore *toolstore.Store
 	if db != nil {
 		var redisClient redis.UniversalClient
 		if integrationGatewayDeps != nil {
 			redisClient = integrationGatewayDeps.RedisClient
 		}
+		workflowTemplateRepo := caprepo.NewWorkflowTemplateRepository(db)
 		capabilityCatalogSvc = capabilitycatalog.NewRegistryService(capabilitycatalog.RegistryServiceOptions{
-			DB:    db,
-			Redis: redisClient,
+			DB:           db,
+			Redis:        redisClient,
+			TemplateRepo: workflowTemplateRepo,
 		})
 
 		policyGenerator := capabilitycatalog.NewPolicyGenerator(capabilitycatalog.PolicyGeneratorOptions{
@@ -353,6 +363,8 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 			Catalog:  capabilityCatalogSvc,
 			SafeMode: safeModeStore,
 		})
+		workflowTelemetry = workflowengine.NewWorkflowTelemetry(capMetrics)
+
 		capabilitySelector = capabilitycatalog.NewSelector(capabilitycatalog.SelectorOptions{
 			Store:      snapshotProvider,
 			Invoker:    capabilityInvocationSvc,
@@ -360,6 +372,10 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 			Metrics:    capMetrics,
 			Authorizer: capabilityAuthorizer,
 		})
+
+		if capabilitySelector != nil {
+			workflowStepAdapter = workflowengine.NewCapabilityStepAdapter(capabilitySelector, workflowTelemetry)
+		}
 
 		if registry, err := toolstore.NewMCPRegistry(toolstore.MCPRegistryOptions{
 			Catalog:     capabilityCatalogSvc,
@@ -371,6 +387,20 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 		} else {
 			toolstore.SetGlobalMCPRegistry(registry)
 		}
+
+		workflowCatalog = capabilitycatalog.NewWorkflowCatalog(capabilitycatalog.WorkflowCatalogOptions{
+			TemplateRepo: workflowTemplateRepo,
+			RecordRepo:   caprepo.NewCapabilityRecordRepository(db, redisClient),
+			Redis:        redisClient,
+			Clock:        time.Now,
+			Telemetry:    workflowTelemetry,
+		})
+
+		workflowTemplateSvc = capabilitycatalog.NewWorkflowTemplateService(capabilitycatalog.WorkflowTemplateServiceOptions{
+			TemplateRepo: workflowTemplateRepo,
+			ApprovalRepo: caprepo.NewWorkflowTemplateApprovalRepository(db),
+			Clock:        time.Now,
+		})
 	}
 
 	agentLifecycleDeps := newAgentLifecycleDeps(db, opts.AgentLifecycle, bus, svc)
@@ -568,6 +598,8 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 		CapabilityInvocationSvc:  capabilityInvocationSvc,
 		CapabilityAuthorizer:     capabilityAuthorizer,
 		CapabilitySelector:       capabilitySelector,
+		WorkflowCatalog:          workflowCatalog,
+		WorkflowTemplateSvc:      workflowTemplateSvc,
 		ToolStore:                toolStore,
 		VersionLockStore:         versionLockStore,
 		RouterSvc:                routerSvc,
@@ -587,6 +619,7 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 		PluginSandbox:            pluginSandboxSvc,
 		PluginGovernance:         pluginGovernanceSvc,
 		PluginCompat:             pluginCompatSvc,
+		WorkflowStepAdapter:      workflowStepAdapter,
 		EventFabric:              eventFabricDeps,
 		Workflow: &WorkflowDeps{
 			Service:       workflowSvc,

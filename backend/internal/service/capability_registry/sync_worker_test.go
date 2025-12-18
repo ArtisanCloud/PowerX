@@ -67,7 +67,7 @@ func TestSyncWorkerProcessArtifact(t *testing.T) {
 		payload, ok := evt.Payload.(CatalogSyncEvent)
 		require.True(t, ok)
 		require.Equal(t, "demo.capability", payload.CapabilityID)
-	default:
+	case <-time.After(500 * time.Millisecond):
 		t.Fatalf("expected capability.catalog.sync_succeeded event")
 	}
 }

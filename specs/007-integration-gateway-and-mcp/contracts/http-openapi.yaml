@@ -89,6 +89,36 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/CapabilitySyncJobDTO'
+  /admin/workflow-templates:
+    get:
+      summary: List workflow templates from catalog
+      tags: [CapabilityRegistryAdmin]
+      parameters:
+        - in: query
+          name: plugin_id
+          schema:
+            type: string
+        - in: query
+          name: capability_id
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Workflow templates snapshot
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  version:
+                    type: string
+                  generated_at:
+                    type: string
+                    format: date-time
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/WorkflowCatalogTemplateDTO'
   /admin/workflow-templates/{templateId}/upgrade:
     post:
       summary: Promote workflow template to latest capability hash
@@ -389,6 +419,56 @@ components:
           type: string
           format: date-time
         finished_at:
+          type: string
+          format: date-time
+    WorkflowTemplateApprovalDTO:
+      type: object
+      properties:
+        template_id:
+          type: string
+        capability_id:
+          type: string
+        capabilities_hash:
+          type: string
+        reason:
+          type: string
+        approved_by:
+          type: string
+        approved_at:
+          type: string
+          format: date-time
+    WorkflowCatalogTemplateDTO:
+      type: object
+      properties:
+        template_id:
+          type: string
+        capability_id:
+          type: string
+        capability_title:
+          type: string
+        plugin_id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        steps:
+          type: object
+        params_schema:
+          type: object
+        protocol_requirements:
+          type: object
+        capabilities_hash:
+          type: string
+        template_hash:
+          type: string
+        requires_manual_upgrade:
+          type: boolean
+        approved:
+          $ref: '#/components/schemas/WorkflowTemplateApprovalDTO'
+        needs_upgrade:
+          type: boolean
+        last_synced_at:
           type: string
           format: date-time
         error_summary:

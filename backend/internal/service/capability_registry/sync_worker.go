@@ -32,25 +32,27 @@ type RedisClient interface {
 
 // SyncWorkerConfig captures dependencies required by the Capability Sync Worker.
 type SyncWorkerConfig struct {
-	DB       *gorm.DB
-	Redis    RedisClient
-	EventBus event_bus.EventBus
-	Logger   *pxlog.Logger
-	Clock    func() time.Time
-	Audit    *AuditService
-	Alerting CapabilityAlerting
+	DB              *gorm.DB
+	Redis           RedisClient
+	EventBus        event_bus.EventBus
+	Logger          *pxlog.Logger
+	Clock           func() time.Time
+	Audit           *AuditService
+	Alerting        CapabilityAlerting
+	WorkflowCatalog *WorkflowCatalog
 }
 
 // SyncWorker ingests plugin artifacts and persists CapabilityRecords.
 type SyncWorker struct {
-	recordRepo   *repo.CapabilityRecordRepository
-	templateRepo *repo.WorkflowTemplateRepository
-	jobRepo      *repo.CapabilitySyncJobRepository
-	eventBus     event_bus.EventBus
-	logger       *pxlog.Logger
-	now          func() time.Time
-	audit        *AuditService
-	alerting     CapabilityAlerting
+	recordRepo      *repo.CapabilityRecordRepository
+	templateRepo    *repo.WorkflowTemplateRepository
+	jobRepo         *repo.CapabilitySyncJobRepository
+	eventBus        event_bus.EventBus
+	logger          *pxlog.Logger
+	now             func() time.Time
+	audit           *AuditService
+	alerting        CapabilityAlerting
+	workflowCatalog *WorkflowCatalog
 }
 
 // NewSyncWorker constructs a new worker instance.
@@ -81,14 +83,15 @@ func NewSyncWorker(cfg SyncWorkerConfig) *SyncWorker {
 	}
 
 	return &SyncWorker{
-		recordRepo:   recordRepo,
-		templateRepo: templateRepo,
-		jobRepo:      jobRepo,
-		eventBus:     cfg.EventBus,
-		logger:       logger,
-		now:          clock,
-		audit:        audit,
-		alerting:     cfg.Alerting,
+		recordRepo:      recordRepo,
+		templateRepo:    templateRepo,
+		jobRepo:         jobRepo,
+		eventBus:        cfg.EventBus,
+		logger:          logger,
+		now:             clock,
+		audit:           audit,
+		alerting:        cfg.Alerting,
+		workflowCatalog: cfg.WorkflowCatalog,
 	}
 }
 
@@ -158,6 +161,12 @@ func (w *SyncWorker) ProcessArtifact(ctx context.Context, path string) error {
 
 	if len(errs) > 0 {
 		return errors.Join(errs...)
+	}
+
+	if w.workflowCatalog != nil {
+		if _, err := w.workflowCatalog.Refresh(ctx); err != nil {
+			w.logger.WarnF(ctx, "[capability_sync] refresh workflow catalog failed: %v", err)
+		}
 	}
 	return nil
 }

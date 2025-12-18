@@ -182,6 +182,7 @@ func migrateCapabilityRegistryModels(db *gorm.DB) error {
 	return db.AutoMigrate(
 		&modelCapabilityRegistry.CapabilityRecord{},
 		&modelCapabilityRegistry.WorkflowTemplateRef{},
+		&modelCapabilityRegistry.WorkflowTemplateApproval{},
 		&modelCapabilityRegistry.CapabilitySyncJob{},
 		&modelCapabilityRegistry.InvocationTrace{},
 		&modelCapabilityRegistry.CapabilityEventPublication{},

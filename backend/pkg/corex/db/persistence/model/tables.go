@@ -48,6 +48,7 @@ const TableCapabilityRegistryHealthProbeResult = "capability_registry_health_pro
 const TableCapabilityRegistryDiscoveryCache = "capability_registry_discovery_cache"
 const TableCapabilityRegistryCapabilityRecord = "capability_registry_records"
 const TableCapabilityRegistryWorkflowTemplateRef = "capability_registry_workflow_template_refs"
+const TableCapabilityRegistryWorkflowTemplateApproval = "capability_registry_workflow_template_approvals"
 const TableCapabilityRegistrySyncJob = "capability_registry_sync_jobs"
 const TableCapabilityRegistryInvocationTrace = "capability_registry_invocation_traces"
 const TableCapabilityRegistryEventPublication = "capability_registry_event_publications"
