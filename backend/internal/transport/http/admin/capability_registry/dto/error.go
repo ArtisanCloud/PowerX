@@ -1,4 +1,4 @@
-package capabilityregistrydto
+package capability_registrydto
 
 import (
 	"fmt"

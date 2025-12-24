@@ -88,6 +88,7 @@
     "aiSettingsModel": "モデル構成",
     "aiSettingsCost": "コスト設定",
     "aiSettingsRegistry": "能力レジストリ",
+    "openCapabilities": "プラットフォーム能力",
     "workflow": "ワークフロー",
     "knowledgeSpace": "ナレッジスペース",
     "pluginMarketplace": "マーケット",
@@ -675,6 +676,9 @@
           "pluginPlaceholder": "プラグイン ID",
           "statusAll": "すべての状態",
           "protocolAll": "すべてのプロトコル",
+          "sourcePlugin": "プラグイン能力",
+          "sourcePlatform": "プラットフォーム能力",
+          "sourceAll": "すべてのソース",
           "apply": "フィルター適用",
           "reset": "リセット"
         },
@@ -708,6 +712,57 @@
           "loadFailed": "レジストリの読み込みに失敗しました",
           "jobsFailed": "同期ジョブの取得に失敗しました"
         }
+      }
+    },
+    "openCapabilities": {
+      "title": "プラットフォーム能力",
+      "description": "CoreX プラットフォームのモジュール・プロトコル・デバッグ入口を確認します。",
+      "actions": {
+        "refresh": "データを更新",
+        "syncNow": "今すぐ同期",
+        "copyCurl": "cURL をコピー",
+        "copyInsomnia": "Insomnia をコピー",
+        "openDoc": "ドキュメントを開く",
+        "openMediaEntry": "Media API へ"
+      },
+      "noAccess": {
+        "title": "Root 権限が必要です",
+        "description": "Root 管理者のみがプラットフォーム能力の詳細を閲覧できます。"
+      },
+      "summary": {
+        "modules": "モジュール: {count}",
+        "capabilities": "能力: {count}",
+        "generatedAt": "スナップショット: {time}",
+        "lastLoadedAt": "最終更新: {time}"
+      },
+      "filters": {
+        "searchPlaceholder": "能力 ID・タイトル・説明で検索",
+        "reset": "フィルターをクリア",
+        "moduleAll": "すべてのモジュール",
+        "protocolAll": "すべてのプロトコル"
+      },
+      "empty": {
+        "title": "プラットフォーム能力がありません",
+        "description": "CoreX プラットフォーム能力がまだ登録されていないか、同期中です。",
+        "filtered": "条件に一致する能力がありません"
+      },
+      "loading": "プラットフォーム能力を読み込んでいます...",
+      "defaultModuleDescription": "ホスト / スケルトン プラグインが共有する CoreX 標準能力です。",
+      "status": {
+        "active": "稼働中",
+        "degraded": "劣化",
+        "offline": "停止"
+      },
+      "labels": {
+        "preferred": "推奨プロトコル",
+        "hash": "ハッシュ",
+        "plugin": "提供プラグイン",
+        "payloadSample": "ペイロード例"
+      },
+      "toast": {
+        "loadFailed": "プラットフォーム能力を読み込めませんでした",
+        "copySuccess": "クリップボードにコピーしました",
+        "copyFailed": "コピーに失敗しました"
       }
     }
   },

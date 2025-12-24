@@ -34,6 +34,7 @@ export interface CapabilityRecord {
   pluginVersion: string;
   title: string;
   description?: string;
+  source?: string;
   categories: string[];
   intents: string[];
   toolScope: string[];
@@ -85,6 +86,7 @@ export interface CapabilityListParams {
   search?: string;
   status?: string[];
   protocol?: string;
+  source?: string;
   includeWorkflows?: boolean;
 }
 
@@ -102,6 +104,7 @@ type CapabilityRecordAPI = {
   plugin_version: string;
   title: string;
   description?: string;
+  source?: string;
   categories?: string[];
   intents?: string[];
   tool_scope?: string[];
@@ -169,6 +172,7 @@ const mapRecord = (record: CapabilityRecordAPI): CapabilityRecord => ({
   pluginVersion: record.plugin_version,
   title: record.title,
   description: record.description,
+  source: record.source,
   categories: record.categories ?? [],
   intents: record.intents ?? [],
   toolScope: record.tool_scope ?? [],
@@ -248,6 +252,7 @@ export class CapabilityRegistryService {
         params.status && params.status.length > 0
           ? params.status.join(",")
           : undefined,
+      source: params.source,
       include_workflows: params.includeWorkflows ? "true" : undefined,
     });
     const response = await client.get<ListResponse<CapabilityRecordAPI>>(

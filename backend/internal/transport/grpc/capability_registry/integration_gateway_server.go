@@ -9,9 +9,8 @@ import (
 
 	gatewayv1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/integration_gateway/v1"
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
-	caperrdto "github.com/ArtisanCloud/PowerX/internal/dto/capability_registry"
 	capservice "github.com/ArtisanCloud/PowerX/internal/service/capability_registry"
-	"github.com/ArtisanCloud/PowerX/internal/transport/http/capability_registrydto"
+	capability_registrydto "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/capability_registry/dto"
 	repo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/capability_registry"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -79,7 +78,7 @@ func RegisterIntegrationGatewayServer(server *grpc.Server, deps *shared.Deps) {
 
 func (s *IntegrationGatewayServer) ListCapabilities(ctx context.Context, req *gatewayv1.ListCapabilitiesRequest) (*gatewayv1.ListCapabilitiesResponse, error) {
 	if s.catalog == nil {
-		return nil, caperrdto.ToGRPCError(caperrdto.ErrUnavailable, nil)
+		return nil, capability_registrydto.ToGRPCError(capability_registrydto.ErrUnavailable, nil)
 	}
 	page := int(req.GetPage())
 	if page <= 0 {
@@ -102,10 +101,17 @@ func (s *IntegrationGatewayServer) ListCapabilities(ctx context.Context, req *ga
 	if req.GetIncludeDisabled() {
 		opts.Status = nil
 	}
+	if source := strings.TrimSpace(req.GetSource()); source != "" {
+		normalized, err := capservice.NormalizeCapabilitySource(source)
+		if err != nil {
+			return nil, capability_registrydto.ToGRPCError(capability_registrydto.ErrInvalidRequest.WithHint("source must be corex or plugin"), err)
+		}
+		opts.Source = normalized
+	}
 
 	views, total, err := s.catalog.ListCapabilities(ctx, opts)
 	if err != nil {
-		return nil, caperrdto.ToGRPCError(caperrdto.ErrInternal, err)
+		return nil, capability_registrydto.ToGRPCError(capability_registrydto.ErrInternal, err)
 	}
 
 	items := make([]*gatewayv1.Capability, 0, len(views))
@@ -127,18 +133,18 @@ func (s *IntegrationGatewayServer) ListCapabilities(ctx context.Context, req *ga
 
 func (s *IntegrationGatewayServer) GetCapability(ctx context.Context, req *gatewayv1.GetCapabilityRequest) (*gatewayv1.Capability, error) {
 	if s.catalog == nil {
-		return nil, caperrdto.ToGRPCError(caperrdto.ErrUnavailable, nil)
+		return nil, capability_registrydto.ToGRPCError(capability_registrydto.ErrUnavailable, nil)
 	}
 	if strings.TrimSpace(req.GetCapabilityId()) == "" {
-		return nil, caperrdto.ToGRPCError(caperrdto.ErrInvalidRequest.WithHint("capability_id is required"), nil)
+		return nil, capability_registrydto.ToGRPCError(capability_registrydto.ErrInvalidRequest.WithHint("capability_id is required"), nil)
 	}
 	view, err := s.catalog.GetCapability(ctx, strings.TrimSpace(req.GetCapabilityId()), req.GetIncludeWorkflows())
 	if err != nil {
-		template := caperrdto.ErrInternal
+		template := capability_registrydto.ErrInternal
 		if errors.Is(err, repo.ErrCapabilityRecordNotFound) {
-			template = caperrdto.ErrNotFound
+			template = capability_registrydto.ErrNotFound
 		}
-		return nil, caperrdto.ToGRPCError(template, err)
+		return nil, capability_registrydto.ToGRPCError(template, err)
 	}
 	capProto, err := capabilityViewToProto(view, req.GetIncludeWorkflows())
 	if err != nil {
@@ -149,10 +155,10 @@ func (s *IntegrationGatewayServer) GetCapability(ctx context.Context, req *gatew
 
 func (s *IntegrationGatewayServer) InvokeCapability(ctx context.Context, req *gatewayv1.InvokeCapabilityRequest) (*gatewayv1.InvokeCapabilityResponse, error) {
 	if s.selector == nil {
-		return nil, caperrdto.ToGRPCError(caperrdto.ErrUnavailable, nil)
+		return nil, capability_registrydto.ToGRPCError(capability_registrydto.ErrUnavailable, nil)
 	}
 	if strings.TrimSpace(req.GetCapabilityId()) == "" || strings.TrimSpace(req.GetTenantUuid()) == "" {
-		return nil, caperrdto.ToGRPCError(caperrdto.ErrInvalidRequest.WithHint("capability_id and tenant_uuid are required"), nil)
+		return nil, capability_registrydto.ToGRPCError(capability_registrydto.ErrInvalidRequest.WithHint("capability_id and tenant_uuid are required"), nil)
 	}
 
 	payload := map[string]interface{}{}
@@ -172,7 +178,7 @@ func (s *IntegrationGatewayServer) InvokeCapability(ctx context.Context, req *ga
 	})
 	if err != nil {
 		template := selectInvokeErrorTemplate(err)
-		return nil, caperrdto.ToGRPCError(template, err)
+		return nil, capability_registrydto.ToGRPCError(template, err)
 	}
 
 	resp := &gatewayv1.InvokeCapabilityResponse{
@@ -191,18 +197,18 @@ func (s *IntegrationGatewayServer) InvokeCapability(ctx context.Context, req *ga
 
 func (s *IntegrationGatewayServer) ListWorkflowTemplates(ctx context.Context, req *gatewayv1.ListWorkflowTemplatesRequest) (*gatewayv1.ListWorkflowTemplatesResponse, error) {
 	if s.catalog == nil {
-		return nil, caperrdto.ToGRPCError(caperrdto.ErrUnavailable, nil)
+		return nil, capability_registrydto.ToGRPCError(capability_registrydto.ErrUnavailable, nil)
 	}
 	if strings.TrimSpace(req.GetCapabilityId()) == "" {
-		return nil, caperrdto.ToGRPCError(caperrdto.ErrInvalidRequest.WithHint("capability_id is required"), nil)
+		return nil, capability_registrydto.ToGRPCError(capability_registrydto.ErrInvalidRequest.WithHint("capability_id is required"), nil)
 	}
 	view, err := s.catalog.GetCapability(ctx, strings.TrimSpace(req.GetCapabilityId()), true)
 	if err != nil {
-		template := caperrdto.ErrInternal
+		template := capability_registrydto.ErrInternal
 		if errors.Is(err, repo.ErrCapabilityRecordNotFound) {
-			template = caperrdto.ErrNotFound
+			template = capability_registrydto.ErrNotFound
 		}
-		return nil, caperrdto.ToGRPCError(template, err)
+		return nil, capability_registrydto.ToGRPCError(template, err)
 	}
 	dto := capability_registrydto.CapabilityViewToDTO(view, true)
 	items := make([]*gatewayv1.WorkflowTemplate, 0, len(dto.WorkflowTemplates))
@@ -218,7 +224,7 @@ func (s *IntegrationGatewayServer) StreamInvocation(*gatewayv1.StreamInvocationR
 
 func (s *IntegrationGatewayServer) ListCapabilitySyncJobs(ctx context.Context, req *gatewayv1.ListCapabilitySyncJobsRequest) (*gatewayv1.ListCapabilitySyncJobsResponse, error) {
 	if s.catalog == nil {
-		return nil, caperrdto.ToGRPCError(caperrdto.ErrUnavailable, nil)
+		return nil, capability_registrydto.ToGRPCError(capability_registrydto.ErrUnavailable, nil)
 	}
 	filter := capservice.CapabilitySyncJobListOptions{
 		PluginID: strings.TrimSpace(req.GetPluginId()),
@@ -228,7 +234,7 @@ func (s *IntegrationGatewayServer) ListCapabilitySyncJobs(ctx context.Context, r
 	}
 	jobs, err := s.catalog.ListSyncJobs(ctx, filter)
 	if err != nil {
-		return nil, caperrdto.ToGRPCError(caperrdto.ErrInternal, err)
+		return nil, capability_registrydto.ToGRPCError(capability_registrydto.ErrInternal, err)
 	}
 	items := make([]*gatewayv1.CapabilitySyncJob, 0, len(jobs))
 	for _, job := range jobs {
@@ -242,6 +248,7 @@ func capabilityViewToProto(view capservice.CapabilityRecordView, includeWorkflow
 	protoCap := &gatewayv1.Capability{
 		CapabilityId:     dto.CapabilityID,
 		PluginId:         dto.PluginID,
+		Source:           dto.Source,
 		Title:            dto.Title,
 		Description:      dto.Description,
 		Intents:          dto.Intents,
@@ -379,26 +386,26 @@ func toStruct(value interface{}) (*structpb.Struct, error) {
 	}
 }
 
-func selectInvokeErrorTemplate(err error) caperrdto.ErrorTemplate {
+func selectInvokeErrorTemplate(err error) capability_registrydto.ErrorTemplate {
 	switch {
 	case errors.Is(err, capservice.ErrManualUpgradeRequired):
-		return caperrdto.ErrVersionLocked
+		return capability_registrydto.ErrVersionLocked
 	case errors.Is(err, capservice.ErrSelectorCapabilityRequired):
-		return caperrdto.ErrNotFound.WithHint("capability not found or not published for tenant")
+		return capability_registrydto.ErrNotFound.WithHint("capability not found or not published for tenant")
 	case errors.Is(err, capservice.ErrSelectorCapabilityForbidden):
-		return caperrdto.ErrCapabilityForbidden
+		return capability_registrydto.ErrCapabilityForbidden
 	case errors.Is(err, capservice.ErrSelectorTenantRequired):
-		return caperrdto.ErrTenantUUIDMissing
+		return capability_registrydto.ErrTenantUUIDMissing
 	case errors.Is(err, capservice.ErrSelectorSafeModeActive):
-		return caperrdto.ErrSafeModeActive
+		return capability_registrydto.ErrSafeModeActive
 	case errors.Is(err, capservice.ErrSelectorToolGrantRequired):
-		return caperrdto.ErrToolGrantMissing
+		return capability_registrydto.ErrToolGrantMissing
 	case errors.Is(err, capservice.ErrSelectorFeatureFlagMissing):
-		return caperrdto.ErrFeatureFlagMissing
+		return capability_registrydto.ErrFeatureFlagMissing
 	case errors.Is(err, capservice.ErrSelectorUnavailable):
-		return caperrdto.ErrUnavailable
+		return capability_registrydto.ErrUnavailable
 	default:
-		return caperrdto.ErrInvokeFailed
+		return capability_registrydto.ErrInvokeFailed
 	}
 }
 

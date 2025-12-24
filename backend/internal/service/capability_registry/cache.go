@@ -54,7 +54,7 @@ type CacheBroadcastMessage struct {
 
 // NewCacheManager 构造缓存管理器。若 Redis 为空则返回 nil（表示禁用）。
 func NewCacheManager(opts CacheManagerOptions) *CacheManager {
-	if opts.Redis == nil {
+	if isNilRedisClientValue(opts.Redis) {
 		return nil
 	}
 	capTTL := opts.CapabilityTTL

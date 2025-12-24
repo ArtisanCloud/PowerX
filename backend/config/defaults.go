@@ -266,11 +266,10 @@ func GetDefaults() *Config {
 			DefaultDriver: "local",
 			TTLSeconds:    43200,
 			Local: LocalStorageConfig{
-				BasePath:             "./storage/media",
-				PublicBaseURL:        "http://localhost:8077/media",
-				EnableUploadEndpoint: false,
-				UploadTokenSecret:    "",
-				MaxUploadSizeBytes:   100 << 20, // 100MB
+				BasePath:           "./storage/media",
+				PublicBaseURL:      "http://localhost:8077/media",
+				UploadTokenSecret:  "",
+				MaxUploadSizeBytes: 100 << 20, // 100MB
 			},
 			S3: S3StorageConfig{
 				Endpoint:       "http://127.0.0.1:9000",

@@ -239,6 +239,18 @@ func (m *memoryAssetRepo) FindByUUID(_ context.Context, tenantUUID string, uuid 
 	return cloneAsset(asset), nil
 }
 
+func (m *memoryAssetRepo) ListByDriverAndStorageKey(_ context.Context, driver, storageKey string) ([]mediamodel.MediaAsset, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	var matches []mediamodel.MediaAsset
+	for _, asset := range m.assets {
+		if asset.Driver == driver && asset.StorageKey == storageKey {
+			matches = append(matches, *cloneAsset(asset))
+		}
+	}
+	return matches, nil
+}
+
 func (m *memoryAssetRepo) CreateAsset(_ context.Context, asset *mediamodel.MediaAsset) (*mediamodel.MediaAsset, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -283,6 +295,19 @@ func (m *memoryAssetRepo) SoftDeleteByUUID(_ context.Context, tenantUUID string,
 		asset.DeletedBy = deletedBy
 	}
 	return nil
+}
+
+func (m *memoryAssetRepo) FindByUUIDGlobal(_ context.Context, id string, includeDeleted bool) (*mediamodel.MediaAsset, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	asset, ok := m.assets[id]
+	if !ok {
+		return nil, gorm.ErrRecordNotFound
+	}
+	if !includeDeleted && asset.DeletedAt.Valid {
+		return nil, gorm.ErrRecordNotFound
+	}
+	return cloneAsset(asset), nil
 }
 
 func cloneAsset(asset *mediamodel.MediaAsset) *mediamodel.MediaAsset {

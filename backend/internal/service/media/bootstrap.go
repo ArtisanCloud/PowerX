@@ -25,7 +25,7 @@ func BuildMediaStack(ctx context.Context, db *gorm.DB, audit auditsvc.Service, o
 		Name:          "local",
 		BasePath:      opts.Local.BasePath,
 		PublicBaseURL: opts.Local.PublicBaseURL,
-		EnableUpload:  opts.Local.EnableUploadEndpoint,
+		EnableUpload:  true,
 		UploadToken:   opts.Local.UploadTokenSecret,
 		MaxUploadSize: opts.Local.MaxUploadSizeBytes,
 	}); err != nil {

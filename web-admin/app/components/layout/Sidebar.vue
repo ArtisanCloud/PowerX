@@ -232,6 +232,95 @@ const viewGroups = computed<MenuGroup[]>(() => {
   ].filter((group) => group.items.length > 0);
 });
 
+const OPEN_CAPABILITY_PATH = "/settings/open-capabilities";
+const SETTINGS_ROOT_PATH = "/settings";
+
+const attachToSettingsMenu = (groups: MenuGroup[], item: MenuItem): boolean => {
+  const normalizedTarget = normalizeMenuPath(SETTINGS_ROOT_PATH);
+  const normalizedExtra = normalizeMenuPath(item.path);
+  if (!normalizedExtra) return false;
+
+  const isSettingsItem = (menuItem: MenuItem) => {
+    const normalized = normalizeMenuPath(menuItem.path);
+    if (normalized && normalized === normalizedTarget) return true;
+    if (
+      typeof menuItem.id === "string" &&
+      menuItem.id.trim().toLowerCase() === "settings"
+    ) {
+      return true;
+    }
+    return false;
+  };
+
+  const queue: MenuItem[] = [];
+  for (const group of groups) {
+    queue.push(...group.items);
+  }
+
+  while (queue.length > 0) {
+    const current = queue.shift();
+    if (!current) continue;
+    if (isSettingsItem(current)) {
+      const children = current.children ? [...current.children] : [];
+      const exists = children.some(
+        (child) => normalizeMenuPath(child.path) === normalizedExtra
+      );
+      if (!exists) {
+        current.children = [...children, item];
+      }
+      return true;
+    }
+    if (current.children?.length) {
+      queue.push(...current.children);
+    }
+  }
+
+  return false;
+};
+
+const manualOpenCapabilityMenu = computed<MenuItem | null>(() => {
+  if (!userStore.isRoot) return null;
+  const label = t("menu.openCapabilities", "开放能力");
+  return {
+    id: "open-capabilities",
+    title: label,
+    icon: "i-heroicons-bolt",
+    path: OPEN_CAPABILITY_PATH,
+    order: 120,
+    visible: true,
+    origin: "system",
+  };
+});
+
+const renderedGroups = computed<MenuGroup[]>(() => {
+  const base = viewGroups.value.map((group) => ({
+    ...group,
+    items: [...group.items],
+  }));
+  const extra = manualOpenCapabilityMenu.value;
+  if (!extra) return base;
+  const normalized = normalizeMenuPath(extra.path);
+  const exists = base.some((group) =>
+    group.items.some((item) => normalizeMenuPath(item.path) === normalized)
+  );
+  if (exists) return base;
+
+  const attached = attachToSettingsMenu(base, extra);
+  if (attached) return base;
+
+  const systemGroup = base.find((group) => group.id === "system");
+  if (systemGroup) {
+    systemGroup.items = [...systemGroup.items, extra].sort(sortChildren);
+  } else {
+    base.push({
+      id: "system",
+      title: t("menu.settings"),
+      items: [extra],
+    });
+  }
+  return base;
+});
+
 type MenuPathEntry = { normalized: string; segments: string[] };
 const menuPathEntries = computed<MenuPathEntry[]>(() => {
   const entries: MenuPathEntry[] = [];
@@ -249,7 +338,7 @@ const menuPathEntries = computed<MenuPathEntry[]>(() => {
     }
   };
 
-  for (const group of viewGroups.value) {
+  for (const group of renderedGroups.value) {
     addItems(group.items);
   }
 
@@ -326,7 +415,7 @@ const expandByRoute = () => {
     }
   };
 
-  for (const group of viewGroups.value) {
+  for (const group of renderedGroups.value) {
     markExpanded(group.items);
   }
 
@@ -350,6 +439,12 @@ watch(
 
 watch(
   () => menuResponse.value,
+  () => expandByRoute(),
+  { deep: true }
+);
+
+watch(
+  () => renderedGroups.value,
   () => expandByRoute(),
   { deep: true }
 );
@@ -450,7 +545,7 @@ function onTreeKeydown(e: KeyboardEvent) {
       <!-- 列表（分组渲染） -->
       <ul v-else class="space-y-1 px-3" role="tree" aria-label="主菜单">
         <li
-          v-if="viewGroups.length === 0"
+          v-if="renderedGroups.length === 0"
           class="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 p-4 rounded-lg text-center"
         >
           <div class="text-gray-500 dark:text-gray-400 text-sm">
@@ -458,7 +553,7 @@ function onTreeKeydown(e: KeyboardEvent) {
           </div>
         </li>
 
-        <template v-for="group in viewGroups" :key="group.id">
+        <template v-for="group in renderedGroups" :key="group.id">
           <!-- Sticky 分组 Header -->
           <li
             class="mt-4 first:mt-2 mb-1 px-2 sticky top-0 z-10 bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm"

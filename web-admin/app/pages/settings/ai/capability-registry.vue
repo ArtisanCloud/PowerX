@@ -42,7 +42,7 @@
       <div
         class="rounded-lg border border-[var(--border-color)] bg-[var(--card-bg)] p-4 space-y-3"
       >
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
           <UInput
             v-model="filters.search"
             icon="i-heroicons-magnifying-glass"
@@ -62,6 +62,11 @@
             v-model="filters.protocol"
             :items="protocolOptions"
             :placeholder="$t('settings.ai.registry.filters.protocolAll')"
+          />
+          <USelect
+            v-model="filters.source"
+            :items="sourceOptions"
+            :placeholder="$t('settings.ai.registry.filters.sourcePlugin')"
           />
         </div>
         <div class="flex gap-2">
@@ -245,6 +250,7 @@ const filters = reactive({
   pluginId: "",
   status: "all",
   protocol: "all",
+  source: "plugin",
 });
 
 const statusOptions = computed(() => [
@@ -267,6 +273,21 @@ const protocolOptions = computed(() => [
   { label: "rest", value: "rest" },
   { label: "workflow", value: "workflow" },
   { label: "composite", value: "composite" },
+]);
+
+const sourceOptions = computed(() => [
+  {
+    label: t("settings.ai.registry.filters.sourcePlugin"),
+    value: "plugin",
+  },
+  {
+    label: t("settings.ai.registry.filters.sourcePlatform"),
+    value: "corex",
+  },
+  {
+    label: t("settings.ai.registry.filters.sourceAll"),
+    value: "all",
+  },
 ]);
 
 const UBadge = resolveComponent("UBadge");
@@ -466,6 +487,7 @@ const resetFilters = () => {
   filters.pluginId = "";
   filters.protocol = "all";
   filters.status = "all";
+  filters.source = "plugin";
   applyFilters();
 };
 
@@ -480,6 +502,7 @@ const listParams = computed(() => ({
   pluginId: filters.pluginId?.trim() || undefined,
   search: filters.search?.trim() || undefined,
   protocol: filters.protocol !== "all" ? filters.protocol : undefined,
+  source: filters.source !== "all" ? filters.source : undefined,
   status:
     filters.status !== "all" && filters.status
       ? [filters.status]

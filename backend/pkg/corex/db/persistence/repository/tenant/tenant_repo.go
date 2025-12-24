@@ -171,6 +171,22 @@ func (r *TenantRepository) MapBasicByUUIDs(ctx context.Context, uuids []string) 
 	return out, nil
 }
 
+// ListActiveUUIDs returns all tenant UUIDs with active status.
+func (r *TenantRepository) ListActiveUUIDs(ctx context.Context) ([]string, error) {
+	uuids := make([]string, 0, 32)
+	if r.DB == nil {
+		return uuids, nil
+	}
+	if err := r.DB.WithContext(ctx).
+		Table(model.TableIAMTenant).
+		Where("status = ?", dbm.TenantStatusActive).
+		Where("deleted_at IS NULL").
+		Pluck("uuid", &uuids).Error; err != nil {
+		return nil, err
+	}
+	return uuids, nil
+}
+
 // 追加：列表查询条件
 type FindTenantsCond struct {
 	Page, PageSize int

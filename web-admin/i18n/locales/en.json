@@ -1,6 +1,7 @@
 {
   "menu": {
     "openMarket": "Open Market",
+    "openCapabilities": "Platform Capabilities",
     "pluginMarketplace": "Plugin Marketplace",
     "pluginReleaseCandidates": "Release Candidates",
     "agent": "Agent",
@@ -189,6 +190,9 @@
           "pluginPlaceholder": "Plugin ID",
           "statusAll": "All statuses",
           "protocolAll": "All protocols",
+          "sourcePlugin": "Plugin capabilities",
+          "sourcePlatform": "Platform capabilities",
+          "sourceAll": "All sources",
           "apply": "Apply filters",
           "reset": "Reset"
         },
@@ -222,6 +226,57 @@
           "loadFailed": "Failed to load registry",
           "jobsFailed": "Failed to load sync jobs"
         }
+      }
+    },
+    "openCapabilities": {
+      "title": "Platform Capabilities",
+      "description": "Inspect CoreX platform modules, protocols, and debugging entry points.",
+      "actions": {
+        "refresh": "Refresh data",
+        "syncNow": "Sync now",
+        "copyCurl": "Copy cURL",
+        "copyInsomnia": "Copy Insomnia",
+        "openDoc": "Open docs",
+        "openMediaEntry": "Open Media API"
+      },
+      "noAccess": {
+        "title": "Root access required",
+        "description": "Only root administrators can view platform capability details."
+      },
+      "summary": {
+        "modules": "Modules: {count}",
+        "capabilities": "Capabilities: {count}",
+        "generatedAt": "Snapshot: {time}",
+        "lastLoadedAt": "Last refresh: {time}"
+      },
+      "filters": {
+        "searchPlaceholder": "Search capability ID, title, or description",
+        "reset": "Clear filters",
+        "moduleAll": "All modules",
+        "protocolAll": "All protocols"
+      },
+      "empty": {
+        "title": "No platform capabilities yet",
+        "description": "CoreX platform capabilities are not available yet or the registry snapshot is still syncing.",
+        "filtered": "No capability matches the current filters"
+      },
+      "loading": "Loading platform capabilities...",
+      "defaultModuleDescription": "CoreX built-in capabilities shared with host and skeleton plugins.",
+      "status": {
+        "active": "Active",
+        "degraded": "Degraded",
+        "offline": "Offline"
+      },
+      "labels": {
+        "preferred": "Preferred protocol",
+        "hash": "Capability hash",
+        "plugin": "Source plugin",
+        "payloadSample": "Sample payload"
+      },
+      "toast": {
+        "loadFailed": "Failed to load platform capabilities",
+        "copySuccess": "Snippet copied to clipboard",
+        "copyFailed": "Copy failed"
       }
     }
   },

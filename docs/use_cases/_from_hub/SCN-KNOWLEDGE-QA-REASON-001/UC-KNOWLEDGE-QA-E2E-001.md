@@ -65,7 +65,7 @@ last_generated_at: "2025-02-14"
 3. **填充 Frontmatter 区域**
 
    - `owners` 至少包含 Product（Michael Hu）、Agent Experience、Security & Compliance 代表；`contributors` 可列出 Tool Runtime / Knowledge Ops。
-   - `feature_flags` 建议列出上文 Flag，并指向 `configs/feature_flags.yaml` 的落盘位置。
+   - `feature_flags` 建议列出上文 Flag，并指向 `backend/config/feature_flags.yaml` 的落盘位置。
    - `code_refs`：如 `services/qa/orchestrator/service.go`, `services/agent/dialogue/context_store.go`, `services/security/compliance/audit_logger.go`, `services/feedback/processor.go`。
 
 4. **完善正文章节**

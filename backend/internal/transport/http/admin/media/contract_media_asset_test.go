@@ -82,7 +82,7 @@ func TestContractCreateMediaAsset(t *testing.T) {
 		"uploadMethod":     "direct_upload",
 	}
 
-	rr := performJSONRequest(t, handler, http.MethodPost, "/api/admin/v1/admin/media/assets", nil, payload)
+	rr := performJSONRequest(t, handler, http.MethodPost, "{APIPrefix}/admin/media/assets", nil, payload)
 
 	require.Equal(t, http.StatusCreated, rr.Code)
 
@@ -111,7 +111,7 @@ func TestContractListMediaAssets(t *testing.T) {
 	query.Set("pageSize", "20")
 	query.Add("tags", "homepage")
 
-	rr := performJSONRequest(t, handler, http.MethodGet, "/api/admin/v1/admin/media/assets", query, nil)
+	rr := performJSONRequest(t, handler, http.MethodGet, "{APIPrefix}/admin/media/assets", query, nil)
 
 	require.Equal(t, http.StatusOK, rr.Code)
 
@@ -138,7 +138,7 @@ func TestContractGetMediaAsset(t *testing.T) {
 
 	handler := newAdminMediaHandler(t)
 
-	path := applyPathParams("/api/admin/v1/admin/media/assets/{uuid}", map[string]string{
+	path := applyPathParams("{APIPrefix}/admin/media/assets/{uuid}", map[string]string{
 		"uuid": "mas_123",
 	})
 
@@ -173,7 +173,7 @@ func TestContractUpdateMediaAsset(t *testing.T) {
 		"tags":           []string{"banner", "homepage", "2025"},
 	}
 
-	path := applyPathParams("/api/admin/v1/admin/media/assets/{uuid}", map[string]string{
+	path := applyPathParams("{APIPrefix}/admin/media/assets/{uuid}", map[string]string{
 		"uuid": "mas_123",
 	})
 
@@ -201,7 +201,7 @@ func TestContractDeleteMediaAsset(t *testing.T) {
 
 	handler := newAdminMediaHandler(t)
 
-	path := applyPathParams("/api/admin/v1/admin/media/assets/{uuid}", map[string]string{
+	path := applyPathParams("{APIPrefix}/admin/media/assets/{uuid}", map[string]string{
 		"uuid": "mas_123",
 	})
 
@@ -216,7 +216,7 @@ func TestContractPresignMediaAsset(t *testing.T) {
 
 	handler := newAdminMediaHandler(t)
 
-	path := applyPathParams("/api/admin/v1/admin/media/assets/{uuid}/presign", map[string]string{
+	path := applyPathParams("{APIPrefix}/admin/media/assets/{uuid}/presign", map[string]string{
 		"uuid": "mas_123",
 	})
 

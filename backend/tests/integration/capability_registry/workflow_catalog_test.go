@@ -15,7 +15,7 @@ import (
 	capmetrics "github.com/ArtisanCloud/PowerX/internal/observability/metrics"
 	capservice "github.com/ArtisanCloud/PowerX/internal/service/capability_registry"
 	"github.com/ArtisanCloud/PowerX/internal/transport/http/admin/capability_registry"
-	"github.com/ArtisanCloud/PowerX/internal/transport/http/capability_registrydto"
+	capability_registrydto "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/capability_registry/dto"
 	workflowengine "github.com/ArtisanCloud/PowerX/internal/workflow/engine"
 	coremodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
 	modelregistry "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/capability_registry"

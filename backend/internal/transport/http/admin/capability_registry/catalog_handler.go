@@ -5,9 +5,8 @@ import (
 	"strconv"
 	"strings"
 
-	caperrdto "github.com/ArtisanCloud/PowerX/internal/dto/capability_registry"
 	capabilitycatalog "github.com/ArtisanCloud/PowerX/internal/service/capability_registry"
-	capdto "github.com/ArtisanCloud/PowerX/internal/transport/http/capability_registrydto"
+	capability_registrydto "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/capability_registry/dto"
 	repo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/capability_registry"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/gin-gonic/gin"
@@ -28,23 +27,32 @@ func newCatalogHandler(svc *capabilitycatalog.RegistryService) *catalogHandler {
 // ListCapabilities handles GET /admin/capabilities.
 func (h *catalogHandler) ListCapabilities(c *gin.Context) {
 	if h == nil || h.svc == nil {
-		caperrdto.RespondError(c, caperrdto.ErrUnavailable, nil)
+		capability_registrydto.RespondError(c, capability_registrydto.ErrUnavailable, nil)
 		return
 	}
 
 	page := parsePositiveInt(c.DefaultQuery("page", "1"), 1)
 	pageSize := parsePositiveInt(c.DefaultQuery("page_size", "50"), 50)
 	if page <= 0 {
-		caperrdto.RespondError(c, caperrdto.ErrInvalidRequest.WithHint("page must be positive"), nil)
+		capability_registrydto.RespondError(c, capability_registrydto.ErrInvalidRequest.WithHint("page must be positive"), nil)
 		return
 	}
 	if pageSize <= 0 {
-		caperrdto.RespondError(c, caperrdto.ErrInvalidRequest.WithHint("page_size must be positive"), nil)
+		capability_registrydto.RespondError(c, capability_registrydto.ErrInvalidRequest.WithHint("page_size must be positive"), nil)
 		return
 	}
 
 	includeWorkflows := parseBool(c.Query("include_workflows"))
 	statusFilter := parseCSV(c.Query("status"))
+	var sourceFilter string
+	if sourceParam := strings.TrimSpace(c.Query("source")); sourceParam != "" {
+		source, err := capabilitycatalog.NormalizeCapabilitySource(sourceParam)
+		if err != nil {
+			capability_registrydto.RespondError(c, capability_registrydto.ErrInvalidRequest.WithHint("source must be corex or plugin"), err)
+			return
+		}
+		sourceFilter = source
+	}
 
 	opts := capabilitycatalog.CapabilityListOptions{
 		PluginID:                 strings.TrimSpace(c.Query("plugin_id")),
@@ -52,6 +60,7 @@ func (h *catalogHandler) ListCapabilities(c *gin.Context) {
 		Protocol:                 strings.TrimSpace(c.Query("protocol")),
 		ToolScope:                strings.TrimSpace(c.Query("tool_scope")),
 		Search:                   strings.TrimSpace(c.Query("search")),
+		Source:                   sourceFilter,
 		Limit:                    pageSize,
 		Offset:                   (page - 1) * pageSize,
 		IncludeWorkflowTemplates: includeWorkflows,
@@ -64,13 +73,13 @@ func (h *catalogHandler) ListCapabilities(c *gin.Context) {
 
 	views, total, err := h.svc.ListCapabilities(c.Request.Context(), opts)
 	if err != nil {
-		caperrdto.RespondError(c, caperrdto.ErrInternal, err)
+		capability_registrydto.RespondError(c, capability_registrydto.ErrInternal, err)
 		return
 	}
 
-	items := make([]capdto.CapabilityRecordDTO, 0, len(views))
+	items := make([]capability_registrydto.CapabilityRecordDTO, 0, len(views))
 	for _, view := range views {
-		items = append(items, capdto.CapabilityViewToDTO(view, includeWorkflows))
+		items = append(items, capability_registrydto.CapabilityViewToDTO(view, includeWorkflows))
 	}
 
 	dto.ResponseList(c, items, &dto.PaginationResponse{
@@ -83,37 +92,37 @@ func (h *catalogHandler) ListCapabilities(c *gin.Context) {
 // GetCapability handles GET /admin/capabilities/{capabilityId}.
 func (h *catalogHandler) GetCapability(c *gin.Context) {
 	if h == nil || h.svc == nil {
-		caperrdto.RespondError(c, caperrdto.ErrUnavailable, nil)
+		capability_registrydto.RespondError(c, capability_registrydto.ErrUnavailable, nil)
 		return
 	}
 	capabilityID := strings.TrimSpace(c.Param("capabilityId"))
 	if capabilityID == "" {
-		caperrdto.RespondError(c, caperrdto.ErrInvalidRequest.WithHint("capability_id is required"), nil)
+		capability_registrydto.RespondError(c, capability_registrydto.ErrInvalidRequest.WithHint("capability_id is required"), nil)
 		return
 	}
 	includeWorkflows := parseBool(c.Query("include_workflows"))
 	view, err := h.svc.GetCapability(c.Request.Context(), capabilityID, includeWorkflows)
 	if err != nil {
-		template := caperrdto.ErrInternal
+		template := capability_registrydto.ErrInternal
 		if errors.Is(err, repo.ErrCapabilityRecordNotFound) {
-			template = caperrdto.ErrNotFound
+			template = capability_registrydto.ErrNotFound
 		}
-		caperrdto.RespondError(c, template, err)
+		capability_registrydto.RespondError(c, template, err)
 		return
 	}
-	dto.ResponseSuccess(c, capdto.CapabilityViewToDTO(view, includeWorkflows))
+	dto.ResponseSuccess(c, capability_registrydto.CapabilityViewToDTO(view, includeWorkflows))
 }
 
 // ListSyncJobs handles GET /admin/capability-sync/jobs.
 func (h *catalogHandler) ListSyncJobs(c *gin.Context) {
 	if h == nil || h.svc == nil {
-		caperrdto.RespondError(c, caperrdto.ErrUnavailable, nil)
+		capability_registrydto.RespondError(c, capability_registrydto.ErrUnavailable, nil)
 		return
 	}
 	page := parsePositiveInt(c.DefaultQuery("page", "1"), 1)
 	pageSize := parsePositiveInt(c.DefaultQuery("page_size", "50"), 50)
 	if page <= 0 || pageSize <= 0 {
-		caperrdto.RespondError(c, caperrdto.ErrInvalidRequest.WithHint("page and page_size must be positive"), nil)
+		capability_registrydto.RespondError(c, capability_registrydto.ErrInvalidRequest.WithHint("page and page_size must be positive"), nil)
 		return
 	}
 	statuses := parseCSV(c.Query("status"))
@@ -125,13 +134,13 @@ func (h *catalogHandler) ListSyncJobs(c *gin.Context) {
 		Offset:       (page - 1) * pageSize,
 	})
 	if err != nil {
-		caperrdto.RespondError(c, caperrdto.ErrInternal, err)
+		capability_registrydto.RespondError(c, capability_registrydto.ErrInternal, err)
 		return
 	}
 
-	items := make([]capdto.CapabilitySyncJobDTO, 0, len(jobs))
+	items := make([]capability_registrydto.CapabilitySyncJobDTO, 0, len(jobs))
 	for _, job := range jobs {
-		items = append(items, capdto.SyncJobToDTO(job))
+		items = append(items, capability_registrydto.SyncJobToDTO(job))
 	}
 
 	dto.ResponseList(c, items, &dto.PaginationResponse{

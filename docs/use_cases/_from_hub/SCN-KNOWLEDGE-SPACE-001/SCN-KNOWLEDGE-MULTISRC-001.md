@@ -91,4 +91,4 @@ sequenceDiagram
 # Appendix
 
 - 示例 API：`/api/realtime/expense-limit`
-- 配置样例：`configs/fusion/policy-expense.yaml`
+- 配置样例：`backend/config/fusion/policy-expense.yaml`

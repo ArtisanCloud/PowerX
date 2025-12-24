@@ -86,6 +86,7 @@ func NewRegistryService(opts RegistryServiceOptions) *RegistryService {
 type CapabilityListOptions struct {
 	PluginID                 string
 	Intent                   string
+	Source                   string
 	Protocol                 string
 	Protocols                []string
 	ToolScope                string
@@ -199,6 +200,9 @@ func (s *RegistryService) normalizeLimit(value int) int {
 }
 
 func recordMatchesFilters(record models.CapabilityRecord, opts CapabilityListOptions) bool {
+	if source := strings.TrimSpace(opts.Source); source != "" && !strings.EqualFold(source, CapabilitySource(&record)) {
+		return false
+	}
 	if opts.Intent != "" && !jsonArrayContains(record.Intents, opts.Intent) {
 		return false
 	}
@@ -245,6 +249,7 @@ func recordMatchesFilters(record models.CapabilityRecord, opts CapabilityListOpt
 func requiresPostFilter(opts CapabilityListOptions) bool {
 	if opts.Intent != "" || opts.ToolScope != "" || opts.Protocol != "" ||
 		len(opts.Protocols) > 0 || strings.TrimSpace(opts.Search) != "" ||
+		strings.TrimSpace(opts.Source) != "" ||
 		opts.TenantUUID != "" || len(opts.ToolGrantIDs) > 0 {
 		return true
 	}

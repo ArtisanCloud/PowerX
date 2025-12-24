@@ -168,7 +168,7 @@ All clarifications from the spec are now grounded in explicit decisions—no out
 
 ### Delta Sync & Version Governance (`SCN-KNOWLEDGE-UPDATE-SYNC-001.md`)
 - Stand up `backend/internal/service/knowledge_space/delta` with orchestrators for `run_delta_job` inputs, diff computation, approval adapters, and version-store wiring; expose HTTP (`internal/transport/http/admin/knowledge_space/delta_handlers.go`) + gRPC transports + CLI (`scripts/ops/knowledge-delta-job.mjs`, `scripts/ops/knowledge-diff-report.mjs`).
-- Persist configs at `configs/knowledge/delta_sources.yaml`, `configs/knowledge/partial_release.yaml`, and embed partial-release + rollback logic inside `pkg/corex/db/persistence/model/knowledge/artifact_bundle.go` relationships.
+- Persist configs at `backend/config/knowledge/delta_sources.yaml`, `backend/config/knowledge/partial_release.yaml`, and embed partial-release + rollback logic inside `pkg/corex/db/persistence/model/knowledge/artifact_bundle.go` relationships.
 - Reuse the existing multi-driver vectorstore registry (`backend/pkg/corex/db/persistence/vectorstore`) when computing embeddings/diffs so pgvector/milvus/pinecone drivers stay pluggable; only extend driver metadata if `SCN-KNOWLEDGE-UPDATE-SYNC-001` introduces new knobs, never duplicate embedding clients under the delta service tree.
 - Emit `knowledge.delta.{sla,approval_time,diff_accuracy,rollback_count,partial_release}` via `backend/internal/service/knowledge_space/instrumentation/delta_metrics.go`, surface Grafana + `backend/reports/_state/knowledge-delta.json`, and enforce ≤30m SLA & ≥98% diff accuracy across contract/integration tests plus audit-ledger lineage demands.
 
@@ -178,16 +178,16 @@ All clarifications from the spec are now grounded in explicit decisions—no out
 
 ### Event-driven Hot Refresh (`SCN-KNOWLEDGE-UPDATE-EVENT-001.md`)
 - Create `backend/internal/service/knowledge_space/event_hotfix` (intake, planner, hot index updater, agent notifier) with HTTP + gRPC transports and event-bus subscribers that honor ≤5m latency and idempotent skips per scenario guardrails.
-- Manage playbooks/config at `configs/knowledge/event_hotfix_policies.yaml` + `configs/knowledge/agent_weight_matrix.yaml`, wire feature flags `PX_KNOWLEDGE_EVENT_HOTFIX`, `PX_KNOWLEDGE_EVENT_IDEMPOTENT`, `PX_AGENT_WEIGHT_REFRESH`, and add operational CLI `scripts/ops/knowledge-event-replay.mjs` for replay/rollback drills.
+- Manage playbooks/config at `backend/config/knowledge/event_hotfix_policies.yaml` + `backend/config/knowledge/agent_weight_matrix.yaml`, wire feature flags `PX_KNOWLEDGE_EVENT_HOTFIX`, `PX_KNOWLEDGE_EVENT_IDEMPOTENT`, `PX_AGENT_WEIGHT_REFRESH`, and add operational CLI `scripts/ops/knowledge-event-replay.mjs` for replay/rollback drills.
 - Emit `knowledge.event.{latency,retry_count,idempotent_skips}` + `agent.refresh.success_rate` alongside `backend/reports/_state/knowledge-event.json`, and ensure audit writes capture event IDs, signatures, tenant scope, and Agent refresh outputs to satisfy `SCN-KNOWLEDGE-UPDATE-EVENT-001` traceability.
 
 ### Decay & Gap Guardrail (`SCN-KNOWLEDGE-UPDATE-DECAY-001.md`)
-- Introduce `backend/internal/service/knowledge_space/decay_guard` with schedulable scans (cron + manual) referencing `configs/knowledge/decay_thresholds.yaml`, `gap_task_template.md`, and tasks for restore/false-positive handling via HTTP/gRPC endpoints, plus hooks into `task-center` for SLA tracking.
+- Introduce `backend/internal/service/knowledge_space/decay_guard` with schedulable scans (cron + manual) referencing `backend/config/knowledge/decay_thresholds.yaml`, `gap_task_template.md`, and tasks for restore/false-positive handling via HTTP/gRPC endpoints, plus hooks into `task-center` for SLA tracking.
 - Ship automation in `scripts/ops/knowledge-decay-scan.mjs`, create `backend/reports/_state/knowledge-decay.json`, and uphold 100% coverage, ≥90% detection accuracy, ≤10m restore SLA, ≤10% false-positive ceilings with alerting to Governance as outlined by `SCN-KNOWLEDGE-UPDATE-DECAY-001.md`, updating the aggregate `reports/_state/knowledge-update.json` snapshot.
 
 ### Tenant-aware Release Governance (`SCN-KNOWLEDGE-UPDATE-TENANT-001.md`)
 - Build `backend/internal/service/knowledge_space/tenant_release` orchestrating release policies, pilot tenants, expansion, rollback, and audit writes; expose HTTP/gRPC endpoints plus `cmd/knowledge/release.go` CLI + `web-admin/app/pages/knowledge-spaces/release.vue` dashboard.
-- Manage `configs/knowledge/tenant_release_matrix.yaml`, `release_guardrails.md`, and scripts (`scripts/ops/knowledge-release-matrix.mjs`) so ops can lint policies and simulate gray waves. Telemetry from the release service must write `backend/reports/_state/knowledge-release.json` and update the aggregate `knowledge-update.json`, emitting `knowledge.release.{gray_state,rollback_count,tenant_coverage,alerts}` for the Grafana “Tenant Release Control” board.
+- Manage `backend/config/knowledge/tenant_release_matrix.yaml`, `release_guardrails.md`, and scripts (`scripts/ops/knowledge-release-matrix.mjs`) so ops can lint policies and simulate gray waves. Telemetry from the release service must write `backend/reports/_state/knowledge-release.json` and update the aggregate `knowledge-update.json`, emitting `knowledge.release.{gray_state,rollback_count,tenant_coverage,alerts}` for the Grafana “Tenant Release Control” board.
 - Enforce feature flags `PX_KNOWLEDGE_GRAY_RELEASE`, `PX_TENANT_RELEASE_MATRIX`, `PX_KNOWLEDGE_RELEASE_GUARD`; approvals/rollbacks must flow through `audit-ledger` with tenant/space/version metadata and notify governance IM webhooks when guardrails fail.
 
 ### Telemetry & Ops Alignment

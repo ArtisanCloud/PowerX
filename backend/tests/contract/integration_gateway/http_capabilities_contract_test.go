@@ -30,6 +30,8 @@ func TestCapabilityRegistryHTTPContract(t *testing.T) {
 	assertOperation(t, doc, "/admin/capabilities", http.MethodGet, []string{"200"})
 	assertOperation(t, doc, "/admin/capabilities/{capabilityId}", http.MethodGet, []string{"200", "404"})
 	assertOperation(t, doc, "/admin/capability-sync/jobs", http.MethodGet, []string{"200"})
+	assertOperation(t, doc, "/admin/platform-capabilities", http.MethodGet, []string{"200"})
+	assertOperation(t, doc, "/admin/platform-capabilities/{moduleKey}", http.MethodGet, []string{"200", "404"})
 	assertOperation(t, doc, "/tenant/capabilities", http.MethodGet, []string{"200"})
 	assertOperation(t, doc, "/tenant/invocations", http.MethodPost, []string{"200", "202", "409", "429"})
 	assertOperation(t, doc, "/tenant/invocations/{traceId}", http.MethodGet, []string{"200", "404"})

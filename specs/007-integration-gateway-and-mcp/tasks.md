@@ -43,7 +43,7 @@
 - [x] **T021 [US1]** 缓存刷新 & Redis Key 设计：实现 `capability_registry:cache:{capability_id}`、`toolstore:policy:{hash}` TTL 策略及广播通道，位置 `backend/internal/service/capability_registry/cache.go`。
 - [x] **T022 [US1]** 事件/日志：在 `backend/internal/service/capability_registry/audit.go` 写入 `CapabilitySyncJob`、`EventPublication`、Trace 传播逻辑，确保 quickstart 指标可用。
 - [x] **T045 [US1]** 缺失资产告警与阻断：扩展 `backend/internal/service/capability_registry/sync_worker.go` 与新增 `alerting.go`，当 `contracts/exposure` 缺失或 schema 解析失败时，向插件开发者/运营者发出通知、落库告警记录，并阻止能力写入 Registry。
-- [x] **T046 [US1]** 统一错误 DTO：在 `backend/internal/dto/capability_registry/error.go` 定义统一错误响应，更新 Admin/Tenant HTTP 与 gRPC Handler 共用 `pkg/dto` 回包及手动升级提示。
+- [x] **T046 [US1]** 统一错误 DTO：在 `backend/internal/transport/http/admin/capability_registry/dto/error.go` 定义统一错误响应，更新 Admin/Tenant HTTP 与 gRPC Handler 共用 `pkg/dto` 回包及手动升级提示。
 
 *Checkpoint：Admin/Tenant API + gRPC + MCP 均可从 Registry 获取能力并可追踪。*
 
@@ -93,7 +93,17 @@
 - [x] **T038 [P]** CI & Scripts：实现 `scripts/capability_registry/verify.sh`，串联 quickstart 步骤 1-4 并在 CI 执行。
 - [x] **T039** 性能与容错：编写负载测试脚本（`tests/integration/capability_registry/load/`) 验证 5k+ 调用、Redis 缓存击穿保护，并对 Selector fallback 做 chaos 测试。
 - [x] **T040** 最终 QA：运行 prometheus/otel 验证、检查事件补偿逻辑、审阅日志格式，更新 `AGENTS.md` 及 README 片段。
-- [x] **T051 [US1/UI]** Admin UI（Root 专用）能力注册表：在 Web Admin「AI 设置」菜单下新增子菜单“能力注册表”，需仅限 root 角色可见；通过 `GET /admin/capabilities` + `/admin/capability-sync/jobs` 渲染插件能力清单（字段包含 PluginID、CapabilityID、协议、状态、capabilities_hash、requires_manual_upgrade、最近同步时间等），提供基础表格/分页展示即可，无需调试器功能。
+
+## Phase 7: Base Capability Exposure（宿主/Skeleton 统一接口）
+
+- [x] **T051 [P]** Media OpenAPI 合同：在 `specs/001-docs-media-storage/contracts/http-openapi.yaml` 定义公开版 Media API（对象上传、列表、预签名、软删），与 Admin 契约保持同步，并在 `docs/plan/integration/powerx_capability.md` 说明插件调用入口。
+- [x] **T052 [P]** OpenAPI 传输层：实现 `backend/internal/transport/http/openapi/media/router.go` 与 Handler，挂载至 `internal/http/router.go`（`{APIPrefix}/media/assets`），复用 `shared.Deps.MediaSvc`，仅保留租户鉴权中间件。
+- [x] **T053 [P]** Registry 平台能力植入：通过 `backend/config/platform_capabilities/*.yaml` 声明 `media.assets.*`、事件广播、Scheduler、Knowledge、Workflow 等 CoreX 能力（`source=corex`），由 `internal/service/integration_gateway/base_capabilities.go` 读取配置并在 `internal/bootstrap/app.go` 启动时写入 Capability Registry，默认关闭租户授权。
+- [x] **T054** Tenant API 接入：扩展 `/tenant/capabilities`、`/tenant/invocations`（HTTP/gRPC）以识别 `source=corex` 能力，允许插件在宿主/ Skeleton 模式下获取 Media/Ev ent 等平台能力（含 Tool Grant 校验与限流）。
+- [x] **T055** 契约/集成测试：新增 `specs/001-docs-media-storage/contracts/tests/http_openapi_test.md` + `backend/tests/contract/media/openapi_contract_test.go` 验证公开 Media API；在 `backend/tests/integration/capability_registry/corex_capability_test.go` 端到端验证插件通过 `/tenant/invocations` 调用 Media 能力。
+- [x] **T056** 文档与 Quickstart：更新 `specs/007.../quickstart.md`、`docs/plan/integration/powerx_capability.md`，新增“宿主 vs Skeleton 调用底座能力”章节，包含 Insomnia/cURL 示例与权限要求。
+- [x] **T057A** Admin API（CoreX）：在 `backend/internal/transport/http/admin/capability_registry/` 新增只读接口 `/admin/platform-capabilities`（REST）与 `/admin/platform-capabilities/:module`，由 `CapabilityRegistry` Service 读取 `source=corex` 记录，按模块聚合协议/调试信息；更新 OpenAPI/contract tests 并确保仅 `IsRoot` 可访问。
+- [x] **T057B** Web Admin UI：在前端 “设置 > 开放能力” 新增页面与侧边栏菜单（仅 `isRoot` 渲染），调用 T057A 接口展示模块卡片、能力数量、协议徽章、调试入口（复制 cURL/Insomnia/MCP Tool/OpenAPI 链接），支持刷新同步与空态提示。
 
 ## Dependencies & Parallel Execution
 
@@ -102,6 +112,7 @@
 3. **User Stories**：US1、US2（同为 P1）可在 Phase 2 完成后并行，US3（P2）建议等待 US1 稳定的 Registry 接口。
 4. **Tests vs Implementation**：每个用户故事的测试任务（T012/T013/T014、T023/T024、T031/T032）需先于同故事实现启动，以保持 TDD。
 5. **Polish**：所有核心功能完成后再执行。
+6. **Base Capability Exposure**：依赖 Phase 2~6 的 Registry/Gateway 基础能力，T051~T055 可在核心链路稳定后并行推进；T056 收尾文档。
 
 ### 平行执行示例
 ```bash

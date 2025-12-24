@@ -2,6 +2,7 @@ package capability_registrydto
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 	"time"
 
@@ -17,6 +18,7 @@ type CapabilityRecordDTO struct {
 	PluginVersion     string                `json:"plugin_version"`
 	Title             string                `json:"title"`
 	Description       string                `json:"description,omitempty"`
+	Source            string                `json:"source"`
 	Categories        []string              `json:"categories,omitempty"`
 	Intents           []string              `json:"intents,omitempty"`
 	ToolScope         []string              `json:"tool_scope,omitempty"`
@@ -107,6 +109,7 @@ func CapabilityViewToDTO(view capabilitycatalog.CapabilityRecordView, includeWor
 		PluginVersion:    record.PluginVersion,
 		Title:            record.Title,
 		Description:      record.Description,
+		Source:           capabilitycatalog.CapabilitySource(record),
 		Categories:       decodeStringArray(record.Categories),
 		Intents:          decodeStringArray(record.Intents),
 		ToolScope:        decodeStringArray(record.ToolScope),
@@ -305,4 +308,194 @@ func stringPtr(value string) *string {
 	}
 	v := value
 	return &v
+}
+
+// PlatformCapabilityModuleDTO describes grouped CoreX platform capabilities for Admin UI.
+type PlatformCapabilityModuleDTO struct {
+	Module           string                  `json:"module"`
+	DisplayName      string                  `json:"display_name,omitempty"`
+	Description      string                  `json:"description,omitempty"`
+	CapabilityCount  int                     `json:"capability_count"`
+	ProtocolChannels []string                `json:"protocol_channels,omitempty"`
+	Capabilities     []PlatformCapabilityDTO `json:"capabilities"`
+}
+
+// PlatformCapabilityDTO exposes a single CoreX platform capability entry.
+type PlatformCapabilityDTO struct {
+	CapabilityID      string                          `json:"capability_id"`
+	Title             string                          `json:"title"`
+	Description       string                          `json:"description,omitempty"`
+	Module            string                          `json:"module"`
+	Source            string                          `json:"source"`
+	PluginID          string                          `json:"plugin_id"`
+	PluginVersion     string                          `json:"plugin_version"`
+	Docs              []string                        `json:"docs,omitempty"`
+	CapabilitiesHash  string                          `json:"capabilities_hash"`
+	PreferredProtocol string                          `json:"preferred_protocol,omitempty"`
+	Protocols         []ProtocolBindingDTO            `json:"protocols"`
+	DebugExamples     PlatformCapabilityDebugExamples `json:"debug_examples"`
+}
+
+// PlatformCapabilityDebugExamples contains helper snippets for host/skeleton plugins.
+type PlatformCapabilityDebugExamples struct {
+	TenantInvocationCurl    string                 `json:"tenant_invocation_curl"`
+	TenantInvocationPayload map[string]interface{} `json:"tenant_invocation_payload,omitempty"`
+}
+
+// PlatformCapabilityToDTO converts a registry record into platform DTO.
+func PlatformCapabilityToDTO(record *modelregistry.CapabilityRecord) PlatformCapabilityDTO {
+	if record == nil {
+		return PlatformCapabilityDTO{}
+	}
+	moduleMetadata := parsePlatformAnnotations(record)
+	protocols := decodeProtocols(record.Protocols)
+	preferred := ""
+	if policy := decodePolicy(record.Policy); policy != nil {
+		preferred = strings.TrimSpace(policy.Prefer)
+	}
+	if preferred == "" && len(protocols) > 0 {
+		preferred = strings.TrimSpace(protocols[0].Channel)
+	}
+	payload := buildTenantInvocationPayload(record.CapabilityID, preferred)
+	debug := PlatformCapabilityDebugExamples{
+		TenantInvocationCurl:    buildTenantInvocationCurl(payload),
+		TenantInvocationPayload: payload,
+	}
+	return PlatformCapabilityDTO{
+		CapabilityID:      record.CapabilityID,
+		Title:             record.Title,
+		Description:       record.Description,
+		Module:            moduleMetadata.Module,
+		Source:            capabilitycatalog.CapabilitySource(record),
+		PluginID:          record.PluginID,
+		PluginVersion:     record.PluginVersion,
+		Docs:              moduleMetadata.Docs,
+		CapabilitiesHash:  record.CapabilitiesHash,
+		PreferredProtocol: preferred,
+		Protocols:         protocols,
+		DebugExamples:     debug,
+	}
+}
+
+// NewPlatformCapabilityModuleDTO seeds a module DTO with defaults.
+func NewPlatformCapabilityModuleDTO(key string) PlatformCapabilityModuleDTO {
+	display, desc := resolveModulePresentation(key)
+	return PlatformCapabilityModuleDTO{
+		Module:       key,
+		DisplayName:  display,
+		Description:  desc,
+		Capabilities: []PlatformCapabilityDTO{},
+	}
+}
+
+// NormalizePlatformModuleKey normalizes incoming module identifiers for lookups.
+func NormalizePlatformModuleKey(value string) string {
+	return normalizeModuleKey(value)
+}
+
+type platformAnnotationPayload struct {
+	Source      string   `json:"source"`
+	Module      string   `json:"module"`
+	Docs        []string `json:"docs"`
+	DisplayName string   `json:"display_name"`
+	Description string   `json:"description"`
+}
+
+func parsePlatformAnnotations(record *modelregistry.CapabilityRecord) platformAnnotationPayload {
+	payload := platformAnnotationPayload{}
+	if record == nil {
+		return payload
+	}
+	if len(record.Annotations) > 0 {
+		_ = json.Unmarshal(record.Annotations, &payload)
+	}
+	payload.Module = normalizeModuleKey(payload.Module)
+	if payload.Module == "" {
+		payload.Module = deriveModuleFromCapability(record.CapabilityID)
+	}
+	return payload
+}
+
+func deriveModuleFromCapability(capabilityID string) string {
+	parts := strings.Split(capabilityID, ".")
+	for _, part := range parts {
+		part = strings.TrimSpace(strings.ToLower(part))
+		if part == "" {
+			continue
+		}
+		if part == "com" || part == "corex" {
+			continue
+		}
+		return normalizeModuleKey(part)
+	}
+	return "corex"
+}
+
+func normalizeModuleKey(value string) string {
+	value = strings.TrimSpace(strings.ToLower(value))
+	value = strings.ReplaceAll(value, " ", "_")
+	value = strings.ReplaceAll(value, "-", "_")
+	return value
+}
+
+func resolveModulePresentation(key string) (string, string) {
+	switch key {
+	case "media":
+		return "Media Assets Management", "PowerX 底座媒资/存储能力"
+	case "event_fabric":
+		return "Event Fabric", "事件发布与订阅能力"
+	case "scheduler":
+		return "Scheduler", "Workflow/Scheduler 调度器"
+	case "knowledge":
+		return "Knowledge Space", "知识库能力"
+	case "workflow":
+		return "Workflow", "Workflow Builder & Engine 能力"
+	default:
+		if key == "" {
+			return "CoreX", ""
+		}
+		return capitalizeFirst(key), ""
+	}
+}
+
+func capitalizeFirst(value string) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return ""
+	}
+	runes := []rune(value)
+	runes[0] = []rune(strings.ToUpper(string(runes[0])))[0]
+	return string(runes)
+}
+
+func buildTenantInvocationPayload(capabilityID, preferred string) map[string]interface{} {
+	idempotency := fmt.Sprintf("demo-%s", sanitizeCapabilityID(capabilityID))
+	body := map[string]interface{}{
+		"capability_id":   capabilityID,
+		"idempotency_key": idempotency,
+		"payload":         map[string]interface{}{},
+	}
+	if preferred != "" {
+		body["preferred_protocol"] = preferred
+	}
+	return body
+}
+
+func sanitizeCapabilityID(value string) string {
+	value = strings.TrimSpace(strings.ToLower(value))
+	value = strings.ReplaceAll(value, ".", "-")
+	value = strings.ReplaceAll(value, "_", "-")
+	value = strings.ReplaceAll(value, " ", "-")
+	return value
+}
+
+func buildTenantInvocationCurl(body map[string]interface{}) string {
+	if len(body) == 0 {
+		return ""
+	}
+	raw, err := json.MarshalIndent(body, "", "  ")
+	if err != nil {
+		return ""
+	}
+	return fmt.Sprintf("curl -X POST \"$POWERX_BASE_URL/tenant/invocations\" \\\n  -H \"Authorization: Bearer $TENANT_TOKEN\" \\\n  -H \"X-PowerX-Tenant: $TENANT_UUID\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '%s'", string(raw))
 }

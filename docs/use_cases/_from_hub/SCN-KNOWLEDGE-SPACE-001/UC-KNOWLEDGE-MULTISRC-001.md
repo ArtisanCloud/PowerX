@@ -29,7 +29,7 @@ last_generated_at: "2025-11-12"
 - repos：`docs/_data/repos.yaml` 中 `key: powerx` 的 `usecase_seed_root = docs/use_cases/_from_hub`、`usecase_seed_legacy_root = docs/usecases-seeds`。
 - 依赖：`fusion.pipeline`, `graph.constraint`, `reranker-hotfix`, `reweighting.controls` Feature Flags；外部 API 凭证（KMS 管理）、Grafana `fusion-pipeline` dashboard、`reports/_state/fusion.json` 数据脚本。
 
-> **额外依赖**：SRE 维护 `configs/fusion/*.yaml` 模板；AI Infra 负责 `strategy_engine` 重排序模型（cross-encoder）；Graph 团队提供 `services/graph/linker.go` 链路写入。
+> **额外依赖**：SRE 维护 `backend/config/fusion/*.yaml` 模板；AI Infra 负责 `strategy_engine` 重排序模型（cross-encoder）；Graph 团队提供 `services/graph/linker.go` 链路写入。
 
 ## 生成流程
 
@@ -74,12 +74,12 @@ last_generated_at: "2025-11-12"
    - `Usecase Overview`：强调 1h 同步 SLA、准确率提升≥15%、回滚<5m、API 故障自动重试与降级。
    - `Context & Assumptions`：说明源类型、鉴权、限流、幂等键、图谱敏感字段校验范围。
    - `Solution Blueprint`：按 Orchestrator→Source→Strategy→Graph→Audit 的流程列出步骤，并可重用场景 mermaid（Orchestrator→SourcePDF/Excel/API→Strategy）。
-   - `Contracts & Interfaces`：列 `POST /fusion/pipelines`, `POST /fusion/pipelines/{id}/run`, `PATCH /fusion/weights`, Events `fusion.source.failed`, `fusion.strategy.published`，以及配置 `configs/fusion/policy-expense.yaml`。
+   - `Contracts & Interfaces`：列 `POST /fusion/pipelines`, `POST /fusion/pipelines/{id}/run`, `PATCH /fusion/weights`, Events `fusion.source.failed`, `fusion.strategy.published`，以及配置 `backend/config/fusion/policy-expense.yaml`。
    - `Implementation Checklist`～`Follow-ups & Risks`：结合策略版本化、API 重试、告警、审计。
 
 5. **互链场景文档**
 
-   - 在 Seed `References` 指向 `docs/scenarios/knowledge/SCN-KNOWLEDGE-MULTISRC-001.md`、`configs/fusion/policy-expense.yaml`、`reports/_state/fusion.json`。
+   - 在 Seed `References` 指向 `docs/scenarios/knowledge/SCN-KNOWLEDGE-MULTISRC-001.md`、`backend/config/fusion/policy-expense.yaml`、`reports/_state/fusion.json`。
    - 在场景文档 “Usecase Links” 中引用本 Seed（已存在但可加 Markdown 链接）。
 
 ## 自检清单

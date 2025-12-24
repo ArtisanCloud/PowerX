@@ -6,9 +6,8 @@ import (
 	"strings"
 
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
-	caperrdto "github.com/ArtisanCloud/PowerX/internal/dto/capability_registry"
 	capservice "github.com/ArtisanCloud/PowerX/internal/service/capability_registry"
-	"github.com/ArtisanCloud/PowerX/internal/transport/http/capability_registrydto"
+	capability_registrydto "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/capability_registry/dto"
 	modelregistry "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/capability_registry"
 	repo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/capability_registry"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
@@ -39,17 +38,17 @@ type templateUpgradeRequest struct {
 // ApproveTemplateUpgrade 处理模板升级确认。
 func (h *workflowHandler) ApproveTemplateUpgrade(c *gin.Context) {
 	if h == nil || h.service == nil {
-		caperrdto.RespondError(c, caperrdto.ErrUnavailable, nil)
+		capability_registrydto.RespondError(c, capability_registrydto.ErrUnavailable, nil)
 		return
 	}
 	var req templateUpgradeRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		caperrdto.RespondError(c, caperrdto.ErrInvalidRequest, err)
+		capability_registrydto.RespondError(c, capability_registrydto.ErrInvalidRequest, err)
 		return
 	}
 	templateID := strings.TrimSpace(c.Param("templateId"))
 	if templateID == "" {
-		caperrdto.RespondError(c, caperrdto.ErrInvalidRequest.WithHint("templateId is required"), nil)
+		capability_registrydto.RespondError(c, capability_registrydto.ErrInvalidRequest.WithHint("templateId is required"), nil)
 		return
 	}
 	operator := reqctx.GetSubject(c.Request.Context())
@@ -68,11 +67,11 @@ func (h *workflowHandler) ApproveTemplateUpgrade(c *gin.Context) {
 	if err != nil {
 		switch {
 		case errors.Is(err, capservice.ErrWorkflowTemplateHashMismatch):
-			caperrdto.RespondError(c, caperrdto.ErrWorkflowTemplateHashConflict, err)
+			capability_registrydto.RespondError(c, capability_registrydto.ErrWorkflowTemplateHashConflict, err)
 		case errors.Is(err, repo.ErrWorkflowTemplateNotFound):
-			caperrdto.RespondError(c, caperrdto.ErrNotFound, err)
+			capability_registrydto.RespondError(c, capability_registrydto.ErrNotFound, err)
 		default:
-			caperrdto.RespondError(c, caperrdto.ErrInternal, err)
+			capability_registrydto.RespondError(c, capability_registrydto.ErrInternal, err)
 		}
 		return
 	}
@@ -82,12 +81,12 @@ func (h *workflowHandler) ApproveTemplateUpgrade(c *gin.Context) {
 // ListTemplates 返回 Workflow Catalog 模板及审批状态。
 func (h *workflowHandler) ListTemplates(c *gin.Context) {
 	if h == nil || h.catalog == nil {
-		caperrdto.RespondError(c, caperrdto.ErrUnavailable, nil)
+		capability_registrydto.RespondError(c, capability_registrydto.ErrUnavailable, nil)
 		return
 	}
 	snapshot, err := h.catalog.Snapshot(c.Request.Context())
 	if err != nil {
-		caperrdto.RespondError(c, caperrdto.ErrInternal, err)
+		capability_registrydto.RespondError(c, capability_registrydto.ErrInternal, err)
 		return
 	}
 	approvals := map[string]*modelregistry.WorkflowTemplateApproval{}

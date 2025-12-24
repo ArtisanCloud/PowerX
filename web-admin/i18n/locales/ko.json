@@ -88,6 +88,7 @@
     "aiSettingsModel": "모델 구성",
     "aiSettingsCost": "코스트 설정",
     "aiSettingsRegistry": "능력 레지스트리",
+    "openCapabilities": "플랫폼 능력",
     "workflow": "워크플로우",
     "knowledgeSpace": "지식 공간",
     "pluginMarketplace": "마켓",
@@ -482,6 +483,9 @@
           "pluginPlaceholder": "플러그인 ID",
           "statusAll": "모든 상태",
           "protocolAll": "모든 프로토콜",
+          "sourcePlugin": "플러그인 능력",
+          "sourcePlatform": "플랫폼 능력",
+          "sourceAll": "모든 소스",
           "apply": "필터 적용",
           "reset": "초기화"
         },
@@ -515,6 +519,57 @@
           "loadFailed": "레지스트리 로딩 실패",
           "jobsFailed": "동기화 작업 로딩 실패"
         }
+      }
+    },
+    "openCapabilities": {
+      "title": "플랫폼 능력",
+      "description": "CoreX 플랫폼 모듈과 프로토콜, 디버깅 엔드포인트를 확인합니다.",
+      "actions": {
+        "refresh": "데이터 새로고침",
+        "syncNow": "지금 동기화",
+        "copyCurl": "cURL 복사",
+        "copyInsomnia": "Insomnia 복사",
+        "openDoc": "문서 열기",
+        "openMediaEntry": "Media API 이동"
+      },
+      "noAccess": {
+        "title": "Root 권한 필요",
+        "description": "Root 관리자만 플랫폼 능력 상세를 볼 수 있습니다."
+      },
+      "summary": {
+        "modules": "모듈: {count}",
+        "capabilities": "능력: {count}",
+        "generatedAt": "스냅샷: {time}",
+        "lastLoadedAt": "마지막 새로고침: {time}"
+      },
+      "filters": {
+        "searchPlaceholder": "능력 ID/제목/설명 검색",
+        "reset": "필터 초기화",
+        "moduleAll": "전체 모듈",
+        "protocolAll": "전체 프로토콜"
+      },
+      "empty": {
+        "title": "플랫폼 능력이 없습니다",
+        "description": "아직 CoreX 플랫폼 능력이 등록되지 않았거나 동기화 중입니다.",
+        "filtered": "현재 필터에 맞는 능력이 없습니다"
+      },
+      "loading": "플랫폼 능력을 불러오는 중...",
+      "defaultModuleDescription": "호스트·스켈레톤 플러그인이 공유하는 CoreX 기본 능력입니다.",
+      "status": {
+        "active": "정상",
+        "degraded": "성능 저하",
+        "offline": "오프라인"
+      },
+      "labels": {
+        "preferred": "선호 프로토콜",
+        "hash": "버전 해시",
+        "plugin": "소스 플러그인",
+        "payloadSample": "페이로드 예시"
+      },
+      "toast": {
+        "loadFailed": "플랫폼 능력을 불러오지 못했습니다",
+        "copySuccess": "클립보드에 복사되었습니다",
+        "copyFailed": "복사에 실패했습니다"
       }
     }
   },

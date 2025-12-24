@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"reflect"
 	"strings"
 	"time"
 
@@ -196,7 +197,13 @@ func (r *CapabilityRecordRepository) InvalidateCache(ctx context.Context, capabi
 }
 
 func (r *CapabilityRecordRepository) cacheEnabled() bool {
-	return r.redis != nil && r.cachePrefix != ""
+	if r.redis == nil || r.cachePrefix == "" {
+		return false
+	}
+	// redis.UniversalClient 可能是 *redis.Client/*redis.ClusterClient 等指针类型，即使为 nil
+	// 也会因为接口类型信息导致 r.redis != nil，需要额外检测。
+	value := reflect.ValueOf(r.redis)
+	return value.Kind() != reflect.Ptr || !value.IsNil()
 }
 
 func (r *CapabilityRecordRepository) cacheKey(capabilityID string) string {

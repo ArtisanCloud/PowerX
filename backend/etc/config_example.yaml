@@ -342,8 +342,7 @@ storage:
   local:
     base_path: ./storage/media
     public_base_url: http://localhost:8077/media
-    enable_upload_endpoint: false
-    upload_token_secret: ""  # 启用上传端点时必须显式配置强随机密钥
+    upload_token_secret: ""  # 建议配置强随机密钥，用于校验 PUT 上传请求
     max_upload_size_bytes: 104857600
   s3:
     endpoint: http://127.0.0.1:9000

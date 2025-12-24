@@ -81,8 +81,8 @@ func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error)
 	accessTTL, _ := time.ParseDuration(cfg.Auth.AccessTTLStr)
 	refreshTTL, _ := time.ParseDuration(cfg.Auth.RefreshTTLStr)
 	localTokenSecret := strings.TrimSpace(cfg.Storage.Local.UploadTokenSecret)
-	if cfg.Storage.Local.EnableUploadEndpoint && localTokenSecret == "" {
-		logger.WarnF(ctx, "storage.local.enable_upload_endpoint 已启用，但未配置 upload_token_secret，上传端点将在路由层被禁用")
+	if localTokenSecret == "" {
+		logger.WarnF(ctx, "storage.local.upload_token_secret 未配置，本地上传端点将跳过 Token 校验，不建议在生产环境使用")
 	}
 	maxUploadSize := cfg.Storage.Local.MaxUploadSizeBytes
 	if maxUploadSize < 0 {
@@ -113,11 +113,10 @@ func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error)
 			DefaultDriver: cfg.Storage.DefaultDriver,
 			TTLSeconds:    cfg.Storage.TTLSeconds,
 			Local: mediasvc.StorageLocalOptions{
-				BasePath:             cfg.Storage.Local.BasePath,
-				PublicBaseURL:        cfg.Storage.Local.PublicBaseURL,
-				EnableUploadEndpoint: cfg.Storage.Local.EnableUploadEndpoint,
-				UploadTokenSecret:    localTokenSecret,
-				MaxUploadSizeBytes:   maxUploadSize,
+				BasePath:           cfg.Storage.Local.BasePath,
+				PublicBaseURL:      cfg.Storage.Local.PublicBaseURL,
+				UploadTokenSecret:  localTokenSecret,
+				MaxUploadSizeBytes: maxUploadSize,
 			},
 			S3: mediasvc.StorageS3Options{
 				Endpoint:        cfg.Storage.S3.Endpoint,

@@ -2,7 +2,9 @@ package media
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
+	"path"
 	"strconv"
 	"strings"
 	"time"
@@ -248,6 +250,48 @@ func (h *Handler) PresignAsset(c *gin.Context) {
 	})
 }
 
+func (h *Handler) Resource(c *gin.Context) {
+	tenantUUID, err := reqctx.RequireTenantUUIDFromGin(c)
+	if err != nil {
+		dto.ResponseError(c, http.StatusUnauthorized, "缺少有效租户上下文", err)
+		return
+	}
+	uuid := c.Param("uuid")
+	asset, object, err := h.svc.OpenAssetResource(c.Request.Context(), tenantUUID, uuid)
+	if err != nil {
+		status := http.StatusInternalServerError
+		if errors.Is(err, mediasvc.ErrAssetNotFound) {
+			status = http.StatusNotFound
+		}
+		dto.ResponseError(c, status, "打开资源失败", err)
+		return
+	}
+	if asset == nil {
+		dto.ResponseError(c, http.StatusNotFound, "媒体资产不存在", nil)
+		return
+	}
+	if asset.ExternalURL != "" {
+		c.Redirect(http.StatusTemporaryRedirect, asset.ExternalURL)
+		return
+	}
+	if object == nil || object.Body == nil {
+		dto.ResponseError(c, http.StatusNotFound, "媒资内容不存在", nil)
+		return
+	}
+	defer object.Body.Close()
+
+	mimeType := deriveAdminMime(asset, object.ContentType)
+	fileName := deriveAdminFileName(asset)
+	disposition := sanitizeDisposition(c.DefaultQuery("disposition", "inline"))
+
+	headers := map[string]string{
+		"Content-Disposition":    fmt.Sprintf("%s; filename=%q", disposition, fileName),
+		"X-Content-Type-Options": "nosniff",
+	}
+	length := object.Size
+	c.DataFromReader(http.StatusOK, length, mimeType, object.Body, headers)
+}
+
 func operatorIDFromRequest(c *gin.Context) *uint64 {
 	value := strings.TrimSpace(c.GetHeader("X-Operator-ID"))
 	if value == "" {
@@ -341,4 +385,43 @@ func flattenHeaders(headers http.Header) map[string]string {
 		return nil
 	}
 	return result
+}
+
+func deriveAdminMime(asset *mediasvc.Asset, fallback string) string {
+	if asset != nil {
+		if mt := strings.TrimSpace(asset.MimeType); mt != "" {
+			return mt
+		}
+	}
+	if trimmed := strings.TrimSpace(fallback); trimmed != "" {
+		return trimmed
+	}
+	return "application/octet-stream"
+}
+
+func deriveAdminFileName(asset *mediasvc.Asset) string {
+	if asset == nil {
+		return "media.bin"
+	}
+	if key := strings.TrimSpace(asset.StorageKey); key != "" {
+		if base := path.Base(key); base != "" && base != "." && base != "/" {
+			return base
+		}
+	}
+	if name := strings.TrimSpace(asset.Name); name != "" {
+		return name
+	}
+	if asset.UUID != "" {
+		return asset.UUID
+	}
+	return "media.bin"
+}
+
+func sanitizeDisposition(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "attachment":
+		return "attachment"
+	default:
+		return "inline"
+	}
 }

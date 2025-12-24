@@ -18,6 +18,10 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 			adminCapabilities.GET("/:capabilityId", handler.GetCapability)
 			protectedGroup.GET("/admin/capability-sync/jobs", handler.ListSyncJobs)
 		}
+		if platformHandler := newPlatformHandler(deps.CapabilityCatalogSvc); platformHandler != nil {
+			protectedGroup.GET("/admin/platform-capabilities", platformHandler.ListModules)
+			protectedGroup.GET("/admin/platform-capabilities/:moduleKey", platformHandler.GetModule)
+		}
 	}
 	if protectedGroup != nil {
 		if workflowHandler := newWorkflowHandler(deps); workflowHandler != nil {

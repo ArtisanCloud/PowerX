@@ -146,6 +146,43 @@ paths:
           description: Template upgraded
         '409':
           description: Provided hash does not match latest snapshot
+  /admin/platform-capabilities:
+    get:
+      summary: List CoreX platform capabilities grouped by module
+      tags: [CapabilityRegistryAdmin]
+      parameters:
+        - in: query
+          name: module
+          schema:
+            type: string
+          description: Filter by module key（如 media、event_fabric、workflow）
+      responses:
+        '200':
+          description: Platform capability modules
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlatformCapabilityModuleListResponse'
+  /admin/platform-capabilities/{moduleKey}:
+    get:
+      summary: Get a single platform capability module
+      tags: [CapabilityRegistryAdmin]
+      parameters:
+        - name: moduleKey
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Module key（如 media、event_fabric、workflow）
+      responses:
+        '200':
+          description: Module found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlatformCapabilityModuleResponse'
+        '404':
+          description: Module not found
   /tenant/capabilities:
     get:
       summary: List capabilities granted to tenant (Tenant API)
@@ -157,6 +194,12 @@ paths:
             type: string
             enum: [agent, workflow, api]
           description: Filter by exposure channel
+        - in: query
+          name: source
+          schema:
+            type: string
+            enum: [corex, plugin]
+          description: Filter by capability source (`corex` for platform, `plugin` otherwise)
       responses:
         '200':
           description: Authorized capabilities
@@ -257,6 +300,9 @@ components:
           type: string
         plugin_id:
           type: string
+        source:
+          type: string
+          enum: [corex, plugin]
         title:
           type: string
         description:
@@ -473,3 +519,89 @@ components:
           format: date-time
         error_summary:
           type: string
+
+    PlatformCapabilityModuleListResponse:
+      type: object
+      properties:
+        generated_at:
+          type: string
+          format: date-time
+        total_modules:
+          type: integer
+        total_capabilities:
+          type: integer
+        modules:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlatformCapabilityModuleDTO'
+
+    PlatformCapabilityModuleResponse:
+      type: object
+      properties:
+        generated_at:
+          type: string
+          format: date-time
+        module:
+          $ref: '#/components/schemas/PlatformCapabilityModuleDTO'
+
+    PlatformCapabilityModuleDTO:
+      type: object
+      properties:
+        module:
+          type: string
+        display_name:
+          type: string
+        description:
+          type: string
+        capability_count:
+          type: integer
+        protocol_channels:
+          type: array
+          items:
+            type: string
+        capabilities:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlatformCapabilityDTO'
+
+    PlatformCapabilityDTO:
+      type: object
+      properties:
+        capability_id:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        module:
+          type: string
+        source:
+          type: string
+          enum: [corex]
+        plugin_id:
+          type: string
+        plugin_version:
+          type: string
+        docs:
+          type: array
+          items:
+            type: string
+        capabilities_hash:
+          type: string
+        preferred_protocol:
+          type: string
+        protocols:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProtocolBindingDTO'
+        debug_examples:
+          $ref: '#/components/schemas/PlatformCapabilityDebugExamples'
+
+    PlatformCapabilityDebugExamples:
+      type: object
+      properties:
+        tenant_invocation_curl:
+          type: string
+        tenant_invocation_payload:
+          type: object
+          additionalProperties: true

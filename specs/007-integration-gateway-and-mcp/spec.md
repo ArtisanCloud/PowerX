@@ -75,6 +75,21 @@
 - Workflow 节点依赖的插件版本回滚 → Builder/Engine 需检测 hash 变化并提示租户重新发布或选择 fallback 节点。
 - 事件总线不可用 → 调用结果仍需返回，但事件需写入补偿队列，在恢复后补发并对失败次数打点。
 
+### User Story 4 - Admin 开放能力总览（Priority: P2）
+
+作为平台超级管理员（`IsRoot`），我希望通过 Web Admin “设置 > 开放能力” 页面实时查看 PowerX 底座开放的所有模块能力，包括协议类型、调用入口与调试示例，以便将宿主/Skeleton 插件引导到正确的统一接口。
+
+**Why this priority**：Base Capability Exposure 已在 Registry 中管理 `source=corex` 能力，但没有一个面向管理员的可视化总览，难以及时告知插件开发者有哪些官方能力、对应协议与调试方法。
+
+**Independent Test**：仅启动 Web Admin + Capability Registry，手动或通过 Mock 数据写入 `source=corex` 能力。使用 `IsRoot` 账号访问“设置 > 开放能力”，验证页面按模块聚合能力数量，并能展开查看协议标签、OpenAPI/gRPC/MCP 调试入口；使用非 Root 账号则看不到菜单。
+
+**Acceptance Scenarios**：
+
+1. **Given** Registry 中存在多条 `source=corex` 能力记录，`module` 字段分别为 `Media`、`EventFabric`、`Workflow`，**When** `IsRoot` 管理员进入“设置 > 开放能力”，**Then** 列表按模块归类展示“能力数量”“支持协议（REST/gRPC/MCP/Workflow）”“最新 `capabilities_hash`”，并提供复制 cURL/Insomnia/MCP Tool 名称的调试按钮。
+2. **Given** 普通租户管理员（非 Root）访问“设置”菜单，**When** 渲染侧边栏，**Then** “开放能力”入口不会出现，避免无授权用户访问底座能力说明。
+3. **Given** Registry 新增/下架某平台能力，**When** Admin 页面刷新或触发“立即同步”，**Then** 列表 1 秒内更新数据，并通过 Badge 标记“新”或“已下线”状态；点击“查看契约”可打开对应 OpenAPI/gRPC 文档链接。
+4. **Given** 管理员点击“复制 `tenant/invocations` Snippet”，**When** 页面调用 Selector 提供的模板，**Then** 复制的内容包含 `capability_id`, `preferred_protocol`, `X-PowerX-Tenant` Header 等必要字段，方便宿主/Skeleton 插件直接调用。
+
 ## Requirements *(mandatory)*
 
 ### Functional Requirements
@@ -94,6 +109,19 @@
 - **FR-013**: Registry 与下游组件必须实现健康探测与缓存刷新：若 Redis 缓存失效或版本漂移，组件需回源 Postgres 并在恢复后重新构建缓存，过程中不得返回陈旧的协议映射。
 - **FR-014**: CLI 或后台批任务在发现插件缺失 `contracts/exposure` 或 schema 无法解析时，需要向插件开发者与平台运营者发送告警，并阻止该能力出现在任何对外目录中。
 - **FR-015**: 当插件发布新的 `capabilities_hash` 时，已上线的 Workflow 与 Agent 配置默认继续绑定旧版本，需由管理员或 Workflow Builder 在 Admin API/Builder 界面显式确认升级后才切换至新模板，以避免未验证的 schema 变更自动生效。
+- **FR-016**: 管理端必须在“设置”侧边栏下提供“开放能力”页面，仅 `IsRoot` 管理员可见。页面需按模块（Media、Event、Scheduler、Knowledge、Workflow 等）分组展示：每个模块的能力数量、支持的协议类型（REST/gRPC/MCP/Workflow）、调试入口（例如 `/tenant/invocations` cURL、MCP Tool 名称、公开 OpenAPI 链接），并实时读取 Capability Registry（`source=corex`）数据，确保宿主与 Skeleton 插件都能在文档内找到对外调用方式。
+- **FR-017**: “设置 > AI > 能力注册表” 页面同样仅向 `IsRoot` 展示，但该页面默认视图必须聚焦 `source=plugin` 的 Registry 记录（即插件/租户自定义的能力），并通过 `source` 筛选在 “插件 / 平台 / 全部” 之间切换；后端 `/admin/capabilities` 需要暴露 `source` 查询参数以区分 corex 底座与插件能力，避免两个页面出现相同数据。
+
+### Base Capability Exposure Roadmap
+
+为实现“宿主模式与 Skeleton 模式使用同一接口”的目标，底座内建模块需要逐步纳入本特性管辖范围。自 2026Q1 起新增以下交付项：
+
+1. **Media Assets Management 能力开放**：基于 `specs/001-docs-media-storage/contracts/http-admin.yaml` 的实体再输出一份对外 OpenAPI（对外开放路径定义在 `specs/001-docs-media-storage/contracts/http-openapi.yaml`），并由 Integration Gateway 提供 `media.assets.*` 预置能力记录，使插件以 `/tenant/invocations` 即可消费媒资存储、预签名等能力。
+2. **事件/任务接口统一**：事件总线（Event Fabric）、定时任务、AI 知识库与 Workflow Builder 的底座功能都需要在 Registry 中登记“平台级能力”，通过 Admin API 暴露配置入口，通过 Tenant API/gRPC 暴露调用入口，确保宿主与 Skeleton 走同一认证/限流/审计链路。
+3. **对外契约集中维护**：所有底座能力的 HTTP 契约统一放在 `specs/<module>/contracts/http-openapi.yaml`，gRPC 契约统一放在 `backend/api/grpc/contracts/...`，并在本 spec 的 `FR` 条目下跟踪落地。Integration Gateway 负责汇总这些契约并生成供插件调用的 SDK/文档。
+4. **Registry 标签**：为区分“插件能力”与“平台能力”，Registry 数据模型新增 `source=corex|plugin` 字段；Platform 能力默认内置 Tool Grant，可按租户启用/限流，插件调用时无需关心来源差异。
+
+该路线确保未来添加任意核心模块（Media、事件广播、定时任务、AI 知识库、Workflow 等）时，都能通过 Integration Gateway 暴露统一接口，避免重复设计私有 Admin API。
 
 ### Key Entities *(include if feature involves data)*
 

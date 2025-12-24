@@ -10,11 +10,10 @@ type StorageOptions struct {
 
 // StorageLocalOptions 为本地文件系统驱动的配置。
 type StorageLocalOptions struct {
-	BasePath             string
-	PublicBaseURL        string
-	EnableUploadEndpoint bool
-	UploadTokenSecret    string
-	MaxUploadSizeBytes   int64
+	BasePath           string
+	PublicBaseURL      string
+	UploadTokenSecret  string
+	MaxUploadSizeBytes int64
 }
 
 // StorageS3Options 为 S3 兼容驱动的配置。

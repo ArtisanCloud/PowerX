@@ -186,11 +186,6 @@ func (c *Config) Validate() error {
 			errors = append(errors, "storage.local.base_path 不能为空")
 		}
 	}
-	if c.Storage.Local.EnableUploadEndpoint {
-		if strings.TrimSpace(c.Storage.Local.UploadTokenSecret) == "" {
-			errors = append(errors, "storage.local.upload_token_secret 不能为空（启用 enable_upload_endpoint 时）")
-		}
-	}
 	if strings.EqualFold(c.Storage.DefaultDriver, "s3") {
 		if strings.TrimSpace(c.Storage.S3.Endpoint) == "" {
 			errors = append(errors, "storage.s3.endpoint 不能为空")

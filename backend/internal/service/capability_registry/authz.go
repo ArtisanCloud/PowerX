@@ -204,7 +204,7 @@ type SafeModeStoreOptions struct {
 
 // NewRedisSafeModeStore builds a store backed by redis.
 func NewRedisSafeModeStore(opts SafeModeStoreOptions) *RedisSafeModeStore {
-	if opts.Redis == nil {
+	if isNilUniversalClient(opts.Redis) {
 		return nil
 	}
 	prefix := strings.TrimSpace(opts.KeyPrefix)

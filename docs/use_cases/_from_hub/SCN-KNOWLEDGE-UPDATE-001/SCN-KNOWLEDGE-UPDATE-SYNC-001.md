@@ -72,7 +72,7 @@ sequenceDiagram
 # Key Interactions & Contracts
 
 - **APIs / Jobs**：`POST /knowledge/delta/jobs`, `GET /knowledge/delta/reports/:job_id`, `POST /knowledge/delta/publish`, `POST /knowledge/version/rollback`, `POST /audit/logs`.
-- **Configs / Schemas**：`configs/knowledge/delta_sources.yaml`, `delta_diff_schema.json`, `approval_playbook.md`, `version_store_policies.yaml`。
+- **Configs / Schemas**：`backend/config/knowledge/delta_sources.yaml`, `delta_diff_schema.json`, `approval_playbook.md`, `version_store_policies.yaml`。
 - **Security / Compliance**：审批动作必须记录操作者与理由；敏感字段开启双人审批；所有版本号需与租户/空间维度绑定以满足合规追踪。
 
 # Usecase Links

@@ -112,6 +112,12 @@ func TestCacheManagerBroadcast(t *testing.T) {
 	}
 }
 
+func TestNewCacheManagerNilRedis(t *testing.T) {
+	var nilClient *redis.Client
+	manager := NewCacheManager(CacheManagerOptions{Redis: nilClient})
+	require.Nil(t, manager)
+}
+
 func newTestRedis(t *testing.T) (*miniredis.Miniredis, redis.UniversalClient) {
 	t.Helper()
 	srv, err := miniredis.Run()

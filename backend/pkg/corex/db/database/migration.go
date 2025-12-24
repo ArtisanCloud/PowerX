@@ -180,6 +180,12 @@ func migrateCapabilityModels(db *gorm.DB) error {
 
 func migrateCapabilityRegistryModels(db *gorm.DB) error {
 	return db.AutoMigrate(
+		&modelCapabilityRegistry.CapabilityRegistration{},
+		&modelCapabilityRegistry.AdapterEndpoint{},
+		&modelCapabilityRegistry.RoutingPolicy{},
+		&modelCapabilityRegistry.FallbackPlan{},
+		&modelCapabilityRegistry.HealthProbeResult{},
+		&modelCapabilityRegistry.DiscoveryCacheEntry{},
 		&modelCapabilityRegistry.CapabilityRecord{},
 		&modelCapabilityRegistry.WorkflowTemplateRef{},
 		&modelCapabilityRegistry.WorkflowTemplateApproval{},

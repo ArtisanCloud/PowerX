@@ -1,0 +1,62 @@
+version: 1
+capabilities:
+  - capability_id: com.corex.scheduler.jobs
+    module: workflow
+    title: Workflow Scheduler
+    description: 触发或控制 Workflow/Scheduler 实例，支持重试、暂停与继续。
+    categories: [workflow, scheduler]
+    intents: [workflow.scheduler.invoke]
+    tool_scopes: [workflow.scheduler]
+    policy:
+      prefer: grpc
+    docs:
+      - backend/api/grpc/contracts/powerx/workflow/v1/workflow.proto
+    protocols:
+      - channel: grpc
+        endpoint: powerx.workflow.v1.WorkflowService
+        rpc: StartInstance
+        schema_ref: backend/api/grpc/contracts/powerx/workflow/v1/workflow.proto#WorkflowService
+        auth_type: tenant_jwt
+        tool_scope: workflow.scheduler
+      - channel: grpc
+        endpoint: powerx.workflow.v1.WorkflowService
+        rpc: ControlInstance
+        schema_ref: backend/api/grpc/contracts/powerx/workflow/v1/workflow.proto#WorkflowService
+        auth_type: tenant_jwt
+        tool_scope: workflow.scheduler
+      - channel: grpc
+        endpoint: powerx.workflow.v1.WorkflowService
+        rpc: ListInstances
+        schema_ref: backend/api/grpc/contracts/powerx/workflow/v1/workflow.proto#WorkflowService
+        auth_type: tenant_jwt
+        tool_scope: workflow.scheduler
+  - capability_id: com.corex.workflow.builder
+    module: workflow
+    title: Workflow Definition Builder
+    description: 在 CoreX Workflow Builder 中创建、发布与管理模板。
+    categories: [workflow]
+    intents: [workflow.builder.manage]
+    tool_scopes: [workflow.builder]
+    policy:
+      prefer: grpc
+    docs:
+      - backend/api/grpc/contracts/powerx/workflow/v1/workflow.proto
+    protocols:
+      - channel: grpc
+        endpoint: powerx.workflow.v1.WorkflowService
+        rpc: CreateDefinition
+        schema_ref: backend/api/grpc/contracts/powerx/workflow/v1/workflow.proto#WorkflowService
+        auth_type: tenant_jwt
+        tool_scope: workflow.builder
+      - channel: grpc
+        endpoint: powerx.workflow.v1.WorkflowService
+        rpc: PublishDefinition
+        schema_ref: backend/api/grpc/contracts/powerx/workflow/v1/workflow.proto#WorkflowService
+        auth_type: tenant_jwt
+        tool_scope: workflow.builder
+      - channel: grpc
+        endpoint: powerx.workflow.v1.WorkflowService
+        rpc: ListDefinitions
+        schema_ref: backend/api/grpc/contracts/powerx/workflow/v1/workflow.proto#WorkflowService
+        auth_type: tenant_jwt
+        tool_scope: workflow.builder

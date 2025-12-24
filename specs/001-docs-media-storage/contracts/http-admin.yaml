@@ -5,8 +5,12 @@ info:
   description: >-
     媒体资产管理后台接口，覆盖上传、查询、更新、软删除与预签名链接生成。
 servers:
-  - url: /api/admin/v1
-    description: CoreX 后台统一入口（通过 API Gateway 反向代理）
+  - url: '{apiPrefix}'
+    description: CoreX 后台统一入口（对应 backend server.api_prefix 配置）
+    variables:
+      apiPrefix:
+        default: /api/v1
+        description: 与 `server.api_prefix` 配置保持一致，可按需改为 /api/v2 等自定义前缀
 security:
   - bearerAuth: []
 tags:
@@ -158,6 +162,31 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PresignResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /admin/media/assets/{uuid}/resource:
+    get:
+      summary: 下载或预览媒体资产内容
+      tags: [MediaAssets]
+      operationId: adminDownloadMediaAsset
+      parameters:
+        - $ref: '#/components/parameters/UUID'
+        - name: disposition
+          in: query
+          schema:
+            type: string
+            enum: [inline, attachment]
+          description: 控制是否强制下载文件，默认 inline
+      responses:
+        '200':
+          description: 返回二进制内容
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '302':
+          description: 若该资产为外链，将重定向到目标 URL
         '404':
           $ref: '#/components/responses/NotFound'
 components:

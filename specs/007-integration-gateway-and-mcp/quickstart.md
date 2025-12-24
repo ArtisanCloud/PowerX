@@ -54,6 +54,66 @@
    ```
 4. 使用 `GET /tenant/invocations/{trace_id}` 查看最终状态，确保 `protocol_used` 与 Selector 策略一致。
 
+### 步骤 2.5：宿主 vs Skeleton —— 调用底座能力
+无论插件运行在 **宿主模式（嵌入 Web Admin）** 或 **Skeleton 模式（独立进程）**，都需要先通过 `/tenant/capabilities` 发现 `source=corex` 的平台能力，再由 `/tenant/invocations` 或公开 OpenAPI/gRPC 入口完成调用。
+
+1. **能力发现（Host/Skeleton 通用）**
+   ```bash
+   curl -H "Authorization: Bearer $TENANT_TOKEN" \
+        -H "X-PowerX-Tenant: tenant-001" \
+        "$POWERX_BASE_URL/tenant/capabilities?source=corex&channel=media"
+   ```
+   响应中可见 `com.corex.media.assets.read/manage` 等平台能力；若租户尚未授权，会返回 403 并提示所缺少的 Tool Grant。
+
+2. **Insomnia 配置示例**
+   - **Request**: `POST {{POWERX_BASE_URL}}/tenant/invocations`
+   - **Headers**:
+     - `Authorization: Bearer {{TENANT_TOKEN}}`
+     - `X-PowerX-Tenant: {{TENANT_UUID}}`
+     - `Content-Type: application/json`
+   - **Body**:
+     ```json
+     {
+       "capability_id": "com.corex.media.assets.manage",
+       "idempotency_key": "demo-upload-001",
+       "preferred_protocol": "rest",
+       "payload": {
+         "action": "upload",
+         "filename": "hero.png",
+         "mime_type": "image/png"
+       }
+     }
+     ```
+   - **Workspace Variables**: `POWERX_BASE_URL`, `TENANT_TOKEN`, `TENANT_UUID`，可通过 STS/ServiceAccount 获取，宿主与 Skeleton 场景仅 token 来源不同。
+
+3. **直接访问公开 Media OpenAPI（`{APIPrefix}/media/assets`）**
+   - `APIPrefix` 默认 `/api/v1`，实际以 `cfg.Server.APIPrefix` 为准，可重写为 `/api/admin/v1`、`/api/v2` 等。
+   - cURL 上传示例：
+     ```bash
+     curl -X POST "$POWERX_BASE_URL/media/assets" \
+          -H "Authorization: Bearer $TENANT_TOKEN" \
+          -H "X-PowerX-Tenant: tenant-001" \
+          -F "file=@samples/logo.png" \
+          -F 'metadata={"title":"demo"}'
+     ```
+   - 预签名示例：
+     ```bash
+     curl -X POST "$POWERX_BASE_URL/media/assets/{asset_uuid}/presign" \
+          -H "Authorization: Bearer $TENANT_TOKEN" \
+          -H "X-PowerX-Tenant: tenant-001"
+     ```
+   该路径由 `backend/internal/transport/http/openapi/media` 提供，仅校验租户身份，不再依赖 Admin Router，因此插件（宿主或 Skeleton）均可复用。
+
+### 步骤 2.6：管理端开放能力页面（IsRoot 专用）
+- 使用 `IsRoot` 管理员登录 Web Admin，打开 **设置 > 开放能力**（非 Root 账号不会看到该入口）。
+- 页面按模块（Media、Event、Scheduler、Knowledge、Workflow 等）展示：
+  - 能力数量（来自 Capability Registry，`source=corex`）
+  - 支持的协议标签（REST/gRPC/MCP/Workflow）
+  - 最新 `capabilities_hash` 与状态 Badge（active/disabled）
+  - 调试入口（`/tenant/invocations` 样例、OpenAPI 链接、MCP Tool 名称）
+- 点击模块卡片可展开“复制 cURL/Insomnia snippet”“跳转到 OpenAPI / `/media/assets`”等操作，使宿主与 Skeleton 插件在上线前即可验证平台能力。
+- 如需刷新数据，可点击“立即同步”按钮重新从 Capability Registry 读取。
+
 ### 步骤 3：MCP 工具端到端
 1. 在 MCP Client 中运行 `tools/list`，可见 `com.demo.template.generate` 的 schema 与 `tool_scope`。
 2. 执行：

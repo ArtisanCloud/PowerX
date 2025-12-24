@@ -7,9 +7,8 @@ import (
 	"strings"
 
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
-	caperrdto "github.com/ArtisanCloud/PowerX/internal/dto/capability_registry"
 	capservice "github.com/ArtisanCloud/PowerX/internal/service/capability_registry"
-	"github.com/ArtisanCloud/PowerX/internal/transport/http/capability_registrydto"
+	capability_registrydto "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/capability_registry/dto"
 	repo "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/repository/capability_registry"
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
@@ -60,7 +59,7 @@ func newTenantHandler(deps *shared.Deps) *tenantHandler {
 
 func (h *tenantHandler) ListCapabilities(c *gin.Context) {
 	if h == nil || h.catalog == nil {
-		caperrdto.RespondError(c, caperrdto.ErrUnavailable, nil)
+		capability_registrydto.RespondError(c, capability_registrydto.ErrUnavailable, nil)
 		return
 	}
 	tenantUUID, err := tenantUUIDFromRequest(c)
@@ -72,7 +71,7 @@ func (h *tenantHandler) ListCapabilities(c *gin.Context) {
 	page := parsePositiveInt(c.DefaultQuery("page", "1"), 1)
 	pageSize := parsePositiveInt(c.DefaultQuery("page_size", "50"), 50)
 	if page <= 0 || pageSize <= 0 {
-		caperrdto.RespondError(c, caperrdto.ErrInvalidRequest.WithHint("page and page_size must be positive"), nil)
+		capability_registrydto.RespondError(c, capability_registrydto.ErrInvalidRequest.WithHint("page and page_size must be positive"), nil)
 		return
 	}
 
@@ -90,10 +89,18 @@ func (h *tenantHandler) ListCapabilities(c *gin.Context) {
 	if protocol := strings.TrimSpace(c.Query("protocol")); protocol != "" {
 		opts.Protocol = protocol
 	}
+	if sourceParam := strings.TrimSpace(c.Query("source")); sourceParam != "" {
+		source, err := capservice.NormalizeCapabilitySource(sourceParam)
+		if err != nil {
+			capability_registrydto.RespondError(c, capability_registrydto.ErrInvalidRequest.WithHint("source must be corex or plugin"), err)
+			return
+		}
+		opts.Source = source
+	}
 
 	records, total, err := h.catalog.ListCapabilities(c.Request.Context(), opts)
 	if err != nil {
-		caperrdto.RespondError(c, caperrdto.ErrInternal, err)
+		capability_registrydto.RespondError(c, capability_registrydto.ErrInternal, err)
 		return
 	}
 
@@ -111,12 +118,12 @@ func (h *tenantHandler) ListCapabilities(c *gin.Context) {
 
 func (h *tenantHandler) InvokeCapability(c *gin.Context) {
 	if h == nil || h.selector == nil {
-		caperrdto.RespondError(c, caperrdto.ErrUnavailable, nil)
+		capability_registrydto.RespondError(c, capability_registrydto.ErrUnavailable, nil)
 		return
 	}
 	var req capabilityInvokeRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		caperrdto.RespondError(c, caperrdto.ErrInvalidRequest, err)
+		capability_registrydto.RespondError(c, capability_registrydto.ErrInvalidRequest, err)
 		return
 	}
 	tenantUUID, err := tenantUUIDFromRequest(c)
@@ -132,12 +139,12 @@ func (h *tenantHandler) InvokeCapability(c *gin.Context) {
 			return
 		}
 		if canonical != tenantUUID {
-			caperrdto.RespondError(c, caperrdto.ErrTenantMismatch, nil)
+			capability_registrydto.RespondError(c, capability_registrydto.ErrTenantMismatch, nil)
 			return
 		}
 	}
 	if strings.TrimSpace(req.CapabilityID) == "" && strings.TrimSpace(req.Intent) == "" {
-		caperrdto.RespondError(c, caperrdto.ErrInvalidRequest.WithHint("capability_id or intent is required"), nil)
+		capability_registrydto.RespondError(c, capability_registrydto.ErrInvalidRequest.WithHint("capability_id or intent is required"), nil)
 		return
 	}
 
@@ -161,7 +168,7 @@ func (h *tenantHandler) InvokeCapability(c *gin.Context) {
 	})
 	if err != nil {
 		template := selectInvokeErrorTemplate(err)
-		caperrdto.RespondError(c, template, err)
+		capability_registrydto.RespondError(c, template, err)
 		return
 	}
 
@@ -177,12 +184,12 @@ func (h *tenantHandler) InvokeCapability(c *gin.Context) {
 
 func (h *tenantHandler) GetInvocation(c *gin.Context) {
 	if h == nil || h.invoker == nil {
-		caperrdto.RespondError(c, caperrdto.ErrUnavailable, nil)
+		capability_registrydto.RespondError(c, capability_registrydto.ErrUnavailable, nil)
 		return
 	}
 	traceID := strings.TrimSpace(c.Param("traceId"))
 	if traceID == "" {
-		caperrdto.RespondError(c, caperrdto.ErrInvalidRequest.WithHint("trace_id is required"), nil)
+		capability_registrydto.RespondError(c, capability_registrydto.ErrInvalidRequest.WithHint("trace_id is required"), nil)
 		return
 	}
 	tenantUUID, err := tenantUUIDFromRequest(c)
@@ -192,15 +199,15 @@ func (h *tenantHandler) GetInvocation(c *gin.Context) {
 	}
 	record, err := h.invoker.GetTrace(c.Request.Context(), traceID)
 	if err != nil {
-		template := caperrdto.ErrInternal
+		template := capability_registrydto.ErrInternal
 		if errors.Is(err, repo.ErrInvocationTraceNotFound) || errors.Is(err, repo.ErrCapabilityRecordNotFound) {
-			template = caperrdto.ErrNotFound
+			template = capability_registrydto.ErrNotFound
 		}
-		caperrdto.RespondError(c, template, err)
+		capability_registrydto.RespondError(c, template, err)
 		return
 	}
 	if !strings.EqualFold(record.TenantUUID, tenantUUID) {
-		caperrdto.RespondError(c, caperrdto.ErrNotFound, nil)
+		capability_registrydto.RespondError(c, capability_registrydto.ErrNotFound, nil)
 		return
 	}
 
@@ -274,10 +281,10 @@ func tenantUUIDFromRequest(c *gin.Context) (string, error) {
 
 func respondTenantIdentityError(c *gin.Context, err error) {
 	if errors.Is(err, reqctx.ErrTenantUUIDMissing) {
-		caperrdto.RespondError(c, caperrdto.ErrTenantUUIDMissing, err)
+		capability_registrydto.RespondError(c, capability_registrydto.ErrTenantUUIDMissing, err)
 		return
 	}
-	caperrdto.RespondError(c, caperrdto.ErrTenantUUIDInvalid, err)
+	capability_registrydto.RespondError(c, capability_registrydto.ErrTenantUUIDInvalid, err)
 }
 
 func parsePositiveInt(value string, fallback int) int {
@@ -298,26 +305,26 @@ func buildErrorObject(summary string) map[string]string {
 	}
 }
 
-func selectInvokeErrorTemplate(err error) caperrdto.ErrorTemplate {
+func selectInvokeErrorTemplate(err error) capability_registrydto.ErrorTemplate {
 	switch {
 	case errors.Is(err, capservice.ErrManualUpgradeRequired):
-		return caperrdto.ErrVersionLocked
+		return capability_registrydto.ErrVersionLocked
 	case errors.Is(err, capservice.ErrSelectorCapabilityRequired):
-		return caperrdto.ErrNotFound.WithHint("capability not found or not published for tenant")
+		return capability_registrydto.ErrNotFound.WithHint("capability not found or not published for tenant")
 	case errors.Is(err, capservice.ErrSelectorCapabilityForbidden):
-		return caperrdto.ErrCapabilityForbidden
+		return capability_registrydto.ErrCapabilityForbidden
 	case errors.Is(err, capservice.ErrSelectorTenantRequired):
-		return caperrdto.ErrTenantUUIDMissing
+		return capability_registrydto.ErrTenantUUIDMissing
 	case errors.Is(err, capservice.ErrSelectorSafeModeActive):
-		return caperrdto.ErrSafeModeActive
+		return capability_registrydto.ErrSafeModeActive
 	case errors.Is(err, capservice.ErrSelectorToolGrantRequired):
-		return caperrdto.ErrToolGrantMissing
+		return capability_registrydto.ErrToolGrantMissing
 	case errors.Is(err, capservice.ErrSelectorFeatureFlagMissing):
-		return caperrdto.ErrFeatureFlagMissing
+		return capability_registrydto.ErrFeatureFlagMissing
 	case errors.Is(err, capservice.ErrSelectorUnavailable):
-		return caperrdto.ErrUnavailable
+		return capability_registrydto.ErrUnavailable
 	default:
-		return caperrdto.ErrInvokeFailed
+		return capability_registrydto.ErrInvokeFailed
 	}
 }
 

@@ -49,8 +49,13 @@ func NewVersionLockStore(opts VersionLockStoreOptions) *VersionLockStore {
 	if clock == nil {
 		clock = time.Now
 	}
+	var redisClient redis.UniversalClient
+	if !isNilUniversalClient(opts.Redis) {
+		redisClient = opts.Redis
+	}
+
 	return &VersionLockStore{
-		redis:    opts.Redis,
+		redis:    redisClient,
 		prefix:   prefix,
 		eventBus: opts.EventBus,
 		now:      clock,

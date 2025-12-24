@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	caperrdto "github.com/ArtisanCloud/PowerX/internal/dto/capability_registry"
 	registry "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/registry"
+	capability_registrydto "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/capability_registry/dto"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/gin-gonic/gin"
 )
@@ -35,7 +35,7 @@ func NewAdminHandler(opts AdminHandlerOptions) *AdminHandler {
 func (h *AdminHandler) CreateCapability(c *gin.Context) {
 	var req registrationRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		caperrdto.RespondError(c, caperrdto.ErrInvalidRequest, err)
+		capability_registrydto.RespondError(c, capability_registrydto.ErrInvalidRequest, err)
 		return
 	}
 	actor := c.GetHeader("X-Actor-ID")
@@ -79,7 +79,7 @@ func (h *AdminHandler) GetCapability(c *gin.Context) {
 func (h *AdminHandler) UpdateCapability(c *gin.Context) {
 	var req registrationRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		caperrdto.RespondError(c, caperrdto.ErrInvalidRequest, err)
+		capability_registrydto.RespondError(c, capability_registrydto.ErrInvalidRequest, err)
 		return
 	}
 	capabilityID := c.Param("capabilityId")
@@ -102,7 +102,7 @@ func (h *AdminHandler) UpdateCapability(c *gin.Context) {
 		}
 	}
 	if req.Version == nil {
-		caperrdto.RespondError(c, caperrdto.ErrVersionRequired, nil)
+		capability_registrydto.RespondError(c, capability_registrydto.ErrVersionRequired, nil)
 		return
 	}
 
@@ -130,7 +130,7 @@ func (h *AdminHandler) DisableCapability(c *gin.Context) {
 	}
 	var req disableRequest
 	if err := c.ShouldBindJSON(&req); err != nil && !errors.Is(err, io.EOF) {
-		caperrdto.RespondError(c, caperrdto.ErrInvalidRequest, err)
+		capability_registrydto.RespondError(c, capability_registrydto.ErrInvalidRequest, err)
 		return
 	}
 	ifMatch := c.GetHeader("If-Match")
@@ -161,13 +161,13 @@ func (h *AdminHandler) DisableCapability(c *gin.Context) {
 func (h *AdminHandler) handleError(c *gin.Context, err error) {
 	switch {
 	case errorsIs(err, registry.ErrRegistrationNotFound):
-		caperrdto.RespondError(c, caperrdto.ErrNotFound, err)
+		capability_registrydto.RespondError(c, capability_registrydto.ErrNotFound, err)
 	case errorsIs(err, registry.ErrVersionConflict):
-		caperrdto.RespondError(c, caperrdto.ErrVersionConflict, err)
+		capability_registrydto.RespondError(c, capability_registrydto.ErrVersionConflict, err)
 	case errorsIs(err, registry.ErrInvalidPayload):
-		caperrdto.RespondError(c, caperrdto.ErrInvalidPayload, err)
+		capability_registrydto.RespondError(c, capability_registrydto.ErrInvalidPayload, err)
 	default:
-		caperrdto.RespondError(c, caperrdto.ErrInternal, err)
+		capability_registrydto.RespondError(c, capability_registrydto.ErrInternal, err)
 	}
 }
 

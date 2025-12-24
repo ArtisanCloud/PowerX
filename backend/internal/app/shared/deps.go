@@ -41,6 +41,7 @@ import (
 	security "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/security"
 	iamsvc "github.com/ArtisanCloud/PowerX/internal/service/iam"
 	ticketbridge "github.com/ArtisanCloud/PowerX/internal/service/integration/ticketbridge"
+	integrationgateway "github.com/ArtisanCloud/PowerX/internal/service/integration_gateway"
 	integrationInstrumentation "github.com/ArtisanCloud/PowerX/internal/service/integration_gateway/instrumentation"
 	integrationManager "github.com/ArtisanCloud/PowerX/internal/service/integration_gateway/manager"
 	integrationTenant "github.com/ArtisanCloud/PowerX/internal/service/integration_gateway/tenant"
@@ -254,6 +255,11 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 	})
 
 	discoveryCacheStore := discoverycache.NewStore(cache.NewMemoryCache(), "")
+	var registryRepo *caprepo.CapabilityRegistryRepository
+	if db != nil {
+		registryRepo = caprepo.NewCapabilityRegistryRepository(db)
+	}
+
 	discoverySvc := discoveryService.NewService(discoveryService.ServiceOptions{
 		DB:              db,
 		CacheStore:      discoveryCacheStore,
@@ -262,9 +268,10 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 	})
 
 	routerSvc := capabilityRouter.NewService(capabilityRouter.ServiceOptions{
-		DB:              db,
-		EventBus:        bus,
-		Instrumentation: capabilityRegistryDomain.NewInstrumentation(nil),
+		DB:                 db,
+		RegistryRepository: registryRepo,
+		EventBus:           bus,
+		Instrumentation:    capabilityRegistryDomain.NewInstrumentation(nil),
 	})
 	sandboxSvc := capabilitySandbox.NewService(capabilitySandbox.ServiceOptions{
 		DB:            db,
@@ -315,14 +322,26 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 			redisClient = integrationGatewayDeps.RedisClient
 		}
 		workflowTemplateRepo := caprepo.NewWorkflowTemplateRepository(db)
+		recordRepo := caprepo.NewCapabilityRecordRepository(db, redisClient)
 		capabilityCatalogSvc = capabilitycatalog.NewRegistryService(capabilitycatalog.RegistryServiceOptions{
 			DB:           db,
 			Redis:        redisClient,
 			TemplateRepo: workflowTemplateRepo,
 		})
 
+		baseCapabilitySeeder := integrationgateway.NewBaseCapabilitySeeder(integrationgateway.BaseCapabilitySeederOptions{
+			RecordRepo:   recordRepo,
+			RegistryRepo: registryRepo,
+			TenantRepo:   tenantSvc.Repo,
+			Logger:       pxlog.GetGlobalLogger(),
+			Clock:        time.Now,
+		})
+		if err := baseCapabilitySeeder.Ensure(ctx); err != nil {
+			pxlog.WarnF(ctx, "[integration_gateway] seed platform capabilities failed: %v", err)
+		}
+
 		policyGenerator := capabilitycatalog.NewPolicyGenerator(capabilitycatalog.PolicyGeneratorOptions{
-			RecordRepo: caprepo.NewCapabilityRecordRepository(db, redisClient),
+			RecordRepo: recordRepo,
 			Cache: capabilitycatalog.NewCacheManager(capabilitycatalog.CacheManagerOptions{
 				Redis: redisClient,
 			}),
@@ -390,7 +409,7 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 
 		workflowCatalog = capabilitycatalog.NewWorkflowCatalog(capabilitycatalog.WorkflowCatalogOptions{
 			TemplateRepo: workflowTemplateRepo,
-			RecordRepo:   caprepo.NewCapabilityRecordRepository(db, redisClient),
+			RecordRepo:   recordRepo,
 			Redis:        redisClient,
 			Clock:        time.Now,
 			Telemetry:    workflowTelemetry,

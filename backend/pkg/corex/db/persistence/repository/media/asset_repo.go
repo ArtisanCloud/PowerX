@@ -204,6 +204,23 @@ func (r *AssetRepository) FindByUUID(ctx context.Context, tenantUUID string, uui
 	return &asset, nil
 }
 
+// FindByUUIDGlobal 不区分租户地读取资产，适合公开只读场景。
+func (r *AssetRepository) FindByUUIDGlobal(ctx context.Context, uuid string, includeDeleted bool) (*mediamodel.MediaAsset, error) {
+	if uuid == "" {
+		return nil, errors.New("uuid 不能为空")
+	}
+	query := r.db.WithContext(ctx)
+	if includeDeleted {
+		query = query.Unscoped()
+	}
+	var asset mediamodel.MediaAsset
+	err := query.Where("uuid = ?", strings.TrimSpace(uuid)).First(&asset).Error
+	if err != nil {
+		return nil, err
+	}
+	return &asset, nil
+}
+
 // FindByStorageKey 根据驱动与存储键定位资产。
 func (r *AssetRepository) FindByStorageKey(ctx context.Context, tenantUUID string, driver, storageKey string) (*mediamodel.MediaAsset, error) {
 	if driver == "" || storageKey == "" {
@@ -217,6 +234,21 @@ func (r *AssetRepository) FindByStorageKey(ctx context.Context, tenantUUID strin
 		return nil, err
 	}
 	return &asset, nil
+}
+
+// ListByDriverAndStorageKey 返回同一驱动下共享 storage key 的所有资产（跨租户）。
+func (r *AssetRepository) ListByDriverAndStorageKey(ctx context.Context, driver, storageKey string) ([]mediamodel.MediaAsset, error) {
+	if driver == "" || storageKey == "" {
+		return nil, errors.New("driver 与 storageKey 不能为空")
+	}
+	var assets []mediamodel.MediaAsset
+	err := r.db.WithContext(ctx).
+		Where("driver = ? AND storage_key = ?", strings.TrimSpace(driver), strings.TrimSpace(storageKey)).
+		Find(&assets).Error
+	if err != nil {
+		return nil, err
+	}
+	return assets, nil
 }
 
 // CreateAsset 创建新的媒体资产。

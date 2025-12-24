@@ -1,0 +1,96 @@
+version: 1
+capabilities:
+  - capability_id: com.corex.media.assets.read
+    module: media
+    title: Media Assets Catalog
+    description: 列出与查询媒资资产，支持多存储驱动筛选。
+    categories: [media, storage]
+    intents: [media.assets.read]
+    tool_scopes: [media.assets]
+    policy:
+      prefer: rest
+      fallback: [grpc]
+    docs:
+      - specs/001-docs-media-storage/contracts/http-openapi.yaml
+      - backend/api/grpc/contracts/powerx/media/v1/media_asset.proto
+    protocols:
+      - channel: rest
+        endpoint: /api/v1/media/assets
+        method: GET
+        schema_ref: specs/001-docs-media-storage/contracts/http-openapi.yaml#/paths/~1media~1assets/get
+        auth_type: tenant_jwt
+        tool_scope: media.assets
+      - channel: rest
+        endpoint: /api/v1/media/assets/{uuid}
+        method: GET
+        schema_ref: specs/001-docs-media-storage/contracts/http-openapi.yaml#/paths/~1media~1assets~1{uuid}/get
+        auth_type: tenant_jwt
+        tool_scope: media.assets
+      - channel: rest
+        endpoint: /api/v1/media/assets/{uuid}
+        method: PATCH
+        schema_ref: specs/001-docs-media-storage/contracts/http-openapi.yaml#/paths/~1media~1assets~1{uuid}/patch
+        auth_type: tenant_jwt
+        tool_scope: media.assets
+      - channel: grpc
+        endpoint: powerx.media.v1.MediaAssetAdminService
+        rpc: ListMediaAssets
+        schema_ref: backend/api/grpc/contracts/powerx/media/v1/media_asset.proto#MediaAssetAdminService
+        auth_type: tenant_jwt
+        tool_scope: media.assets
+      - channel: grpc
+        endpoint: powerx.media.v1.MediaAssetAdminService
+        rpc: GetMediaAsset
+        schema_ref: backend/api/grpc/contracts/powerx/media/v1/media_asset.proto#MediaAssetAdminService
+        auth_type: tenant_jwt
+        tool_scope: media.assets
+  - capability_id: com.corex.media.assets.manage
+    module: media
+    title: Media Assets Management
+    description: 创建、删除媒资，以及生成上传/下载预签名链接。
+    categories: [media, storage]
+    intents: [media.assets.write]
+    tool_scopes: [media.assets]
+    policy:
+      prefer: grpc
+      fallback: [rest]
+    docs:
+      - specs/001-docs-media-storage/contracts/http-openapi.yaml
+      - backend/api/grpc/contracts/powerx/media/v1/media_asset.proto
+    protocols:
+      - channel: rest
+        endpoint: /api/v1/media/assets
+        method: POST
+        schema_ref: specs/001-docs-media-storage/contracts/http-openapi.yaml#/paths/~1media~1assets/post
+        auth_type: tenant_jwt
+        tool_scope: media.assets
+      - channel: rest
+        endpoint: /api/v1/media/assets/{uuid}
+        method: DELETE
+        schema_ref: specs/001-docs-media-storage/contracts/http-openapi.yaml#/paths/~1media~1assets~1{uuid}/delete
+        auth_type: tenant_jwt
+        tool_scope: media.assets
+      - channel: rest
+        endpoint: /api/v1/media/assets/{uuid}/presign
+        method: POST
+        schema_ref: specs/001-docs-media-storage/contracts/http-openapi.yaml#/paths/~1media~1assets~1{uuid}~1presign/post
+        auth_type: tenant_jwt
+        tool_scope: media.assets
+      - channel: grpc
+        endpoint: powerx.media.v1.MediaAssetAdminService
+        rpc: CreateMediaAsset
+        schema_ref: backend/api/grpc/contracts/powerx/media/v1/media_asset.proto#MediaAssetAdminService
+        auth_type: tenant_jwt
+        tool_scope: media.assets
+      - channel: grpc
+        endpoint: powerx.media.v1.MediaAssetAdminService
+        rpc: DeleteMediaAsset
+        schema_ref: backend/api/grpc/contracts/powerx/media/v1/media_asset.proto#MediaAssetAdminService
+        auth_type: tenant_jwt
+        tool_scope: media.assets
+      - channel: grpc
+        endpoint: powerx.media.v1.MediaAssetAdminService
+        rpc: PresignMediaAsset
+        schema_ref: backend/api/grpc/contracts/powerx/media/v1/media_asset.proto#MediaAssetAdminService
+        auth_type: tenant_jwt
+        tool_scope: media.assets
