@@ -5,6 +5,7 @@ package shared
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -87,6 +88,8 @@ import (
 
 	"github.com/ArtisanCloud/PowerX/internal/workflow"
 	workflowengine "github.com/ArtisanCloud/PowerX/internal/workflow/engine"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 type auditViolationReporter struct {
@@ -355,12 +358,44 @@ func NewDeps(db *gorm.DB, opts *DepsOptions) *Deps {
 		})
 		toolstore.SetGlobalStore(toolStore)
 
+		httpBaseURL := strings.TrimSpace(os.Getenv("POWERX_HTTP_PROXY_BASE"))
+		if httpBaseURL == "" {
+			httpBaseURL = "http://127.0.0.1:8077"
+		}
+		httpProxyClient := &http.Client{
+			Timeout: 45 * time.Second,
+		}
+		var invocationGRPCConn *grpc.ClientConn
+		grpcTarget := strings.TrimSpace(os.Getenv("POWERX_GRPC_PROXY_ADDR"))
+		if grpcTarget == "" {
+			grpcHost := strings.TrimSpace(opts.Server.GRPC.Host)
+			if grpcHost == "" || grpcHost == "0.0.0.0" || grpcHost == "::" {
+				grpcHost = "127.0.0.1"
+			}
+			grpcPort := opts.Server.GRPC.Port
+			if grpcPort == 0 {
+				grpcPort = 9001
+			}
+			grpcTarget = fmt.Sprintf("%s:%d", grpcHost, grpcPort)
+		}
+		if grpcTarget != "" {
+			conn, err := grpc.DialContext(ctx, grpcTarget, grpc.WithTransportCredentials(insecure.NewCredentials()))
+			if err != nil {
+				pxlog.WarnF(ctx, "[capability_invocation] dial grpc proxy failed: %v", err)
+			} else {
+				invocationGRPCConn = conn
+			}
+		}
+
 		capabilityInvocationSvc = capabilitycatalog.NewInvocationService(capabilitycatalog.InvocationServiceOptions{
 			Catalog:     capabilityCatalogSvc,
 			Router:      routerSvc,
 			Audit:       capAuditSvc,
 			Clock:       time.Now,
 			VersionLock: versionLockStore,
+			HTTPClient:  httpProxyClient,
+			HTTPBaseURL: httpBaseURL,
+			GRPCConn:    invocationGRPCConn,
 		})
 		var snapshotProvider capabilitycatalog.SnapshotProviderFunc
 		if toolStore != nil {

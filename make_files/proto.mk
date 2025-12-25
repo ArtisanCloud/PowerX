@@ -29,7 +29,7 @@ proto-event-fabric:
 		echo "❌ 未找到 buf CLI，请先安装: https://buf.build/docs/installation"; \
 		exit 1; \
 	fi
-	@cd $(BUF_WORKDIR) && buf generate --template buf.gen.yaml --path corex/event_fabric/v1 --path powerx/event_fabric/v1
+	@cd $(BUF_WORKDIR) && buf generate --template buf.gen.yaml --path powerx/event_fabric/v1
 	@echo "✅ Event Fabric Protobuf 代码生成完成"
 
 proto-lint:

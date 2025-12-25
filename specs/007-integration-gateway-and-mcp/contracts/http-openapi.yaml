@@ -407,6 +407,10 @@ components:
     CapabilityInvokeResponse:
       type: object
       properties:
+        payload:
+          type: object
+          additionalProperties: true
+          description: Real business payload proxied from REST/gRPC/MCP responses.
         trace_id:
           type: string
         status:
@@ -417,6 +421,8 @@ components:
         result:
           type: object
           additionalProperties: true
+          description: Deprecated alias of payload kept for backward compatibility.
+          deprecated: true
         fallback_used:
           type: boolean
     InvocationStatusResponse:

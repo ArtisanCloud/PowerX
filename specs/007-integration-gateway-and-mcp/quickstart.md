@@ -52,6 +52,24 @@
               "payload":{"prompt":"hello"}
             }'
    ```
+   响应示例：
+   ```json
+   {
+     "code": 200,
+     "message": "success",
+     "data": {
+       "payload": {
+         "choices": [{"content": "hello world"}],
+         "usage": {"prompt_tokens": 12, "completion_tokens": 24}
+       },
+       "trace_id": "f76d5e1a-72d4-46cf-b3b7-0190c54d3ac3",
+       "protocol_used": "http",
+       "fallback_used": false
+     },
+     "timestamp": 1766559302
+   }
+   ```
+   `data.payload` 固定承载真实业务响应体，而 `protocol_used/fallback_used` 有助于排查 Selector 是否进行了降级。
 4. 使用 `GET /tenant/invocations/{trace_id}` 查看最终状态，确保 `protocol_used` 与 Selector 策略一致。
 
 ### 步骤 2.5：宿主 vs Skeleton —— 调用底座能力
@@ -143,7 +161,7 @@
 
 ### 步骤 5：观测与排障
 - 在 Prometheus 中关注：
-  - `powerx_capability_invoke_total`、`powerx_capability_invoke_latency_ms{protocol="mcp"}`、`integration_gateway_invocation_fallback_total`
+  - `powerx_capability_invoke_total{protocol="http"}`、`powerx_capability_invoke_total{protocol="grpc"}`、`powerx_capability_invoke_latency_ms{protocol="mcp"}`、`integration_gateway_invocation_fallback_total`
   - `powerx_workflow_template_snapshot_total{needs_upgrade="true"}` 追踪模板升级待办
   - `powerx_workflow_invocation_total{template_id="tpl.demo.workflow"}` 验证 Workflow Telemetry
 - 通过 `trace_id` 在 Loki / Elasticsearch 检索日志，确认 HTTP、gRPC、MCP、Workflow 节点均串联。

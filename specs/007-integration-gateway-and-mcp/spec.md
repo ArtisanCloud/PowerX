@@ -111,6 +111,40 @@
 - **FR-015**: 当插件发布新的 `capabilities_hash` 时，已上线的 Workflow 与 Agent 配置默认继续绑定旧版本，需由管理员或 Workflow Builder 在 Admin API/Builder 界面显式确认升级后才切换至新模板，以避免未验证的 schema 变更自动生效。
 - **FR-016**: 管理端必须在“设置”侧边栏下提供“开放能力”页面，仅 `IsRoot` 管理员可见。页面需按模块（Media、Event、Scheduler、Knowledge、Workflow 等）分组展示：每个模块的能力数量、支持的协议类型（REST/gRPC/MCP/Workflow）、调试入口（例如 `/tenant/invocations` cURL、MCP Tool 名称、公开 OpenAPI 链接），并实时读取 Capability Registry（`source=corex`）数据，确保宿主与 Skeleton 插件都能在文档内找到对外调用方式。
 - **FR-017**: “设置 > AI > 能力注册表” 页面同样仅向 `IsRoot` 展示，但该页面默认视图必须聚焦 `source=plugin` 的 Registry 记录（即插件/租户自定义的能力），并通过 `source` 筛选在 “插件 / 平台 / 全部” 之间切换；后端 `/admin/capabilities` 需要暴露 `source` 查询参数以区分 corex 底座与插件能力，避免两个页面出现相同数据。
+- **FR-018**: `/api/v1/tenant/invocations` 作为统一调度入口时，必须根据 `preferred_protocol` 将传入 payload 转换为 REST/gRPC/MCP 调用并代理真实响应，返回结构包含两部分：①原始业务响应体（REST JSON、gRPC JSON 映射、MCP payload 等）原样输出；②在响应 JSON 包装层附带 `trace_id/protocol_used/fallback_used` 等元信息，便于审计。换言之，无论调用何种协议，插件在 HTTP 层都能拿到一致的“业务结果 + trace”结果，避免只能看到 trace 的空壳响应。
+
+#### Gateway Proxy Envelope（请求/响应）
+
+为落实 FR-018，`CapabilityInvokeRequest` 与响应 Envelope 需遵循以下约定：
+
+- **请求字段**
+  - `capability_id`：Registry 中的唯一 ID，用于 Selector 查表与授权。
+  - `preferred_protocol`：可选 `rest`/`grpc`/`mcp`/`workflow`，若为空则按 `policy.prefer`。
+  - `payload`：
+    - REST：`{ "method": "GET", "endpoint": "/api/v1/media/assets", "headers": { ... }, "query": { ... }, "body": { ... } }`
+    - gRPC：`{ "endpoint": "powerx.media.v1.MediaAssetAdminService", "rpc": "ListMediaAssets", "body": { "page": 1 } }`
+    - MCP：沿用 `mcp/toolcall` JSON。
+  - 允许缺省 `endpoint`/`headers` 等字段，由 Selector 从 Registry 协议定义补齐后再发起真实调用。
+- **响应字段**
+  - HTTP 200：
+    ```json
+    {
+      "code": 200,
+      "message": "success",
+      "data": {
+        "payload": { /* 与底层 REST/gRPC 相同的业务结果 */ },
+        "trace_id": "xxx",
+        "protocol_used": "http",
+        "fallback_used": false,
+        "latency_ms": 12
+      },
+      "timestamp": 1766566902
+    }
+    ```
+  - HTTP 错误：Envelope 结构一致，`code` 与 HTTP status 对齐，`data.payload` 写入底层错误详情（如 gRPC Status、REST 错误 JSON）。
+  - 所有协议都需写入 `traceparent` header，并将同一个 `trace_id` 记录到 `InvocationTrace` 表、事件 `integration.gateway.invocation.*` 及响应 Envelope。
+
+上述 Envelope 必须写进文档（docs/guides/*、quickstart）与契约（OpenAPI/Protobuf 注释），并在测试中验证。
 
 ### Base Capability Exposure Roadmap
 

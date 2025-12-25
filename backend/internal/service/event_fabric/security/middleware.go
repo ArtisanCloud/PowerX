@@ -133,7 +133,7 @@ func NewVerifier(cfg Config) *Verifier {
 		cfg.AllowedClockSkew = 5 * time.Minute
 	}
 	if cfg.ProtectedGRPCService == "" {
-		cfg.ProtectedGRPCService = "/corex.event_fabric.v1."
+		cfg.ProtectedGRPCService = "/powerx.event_fabric.v1."
 	}
 	sandbox := normalizeSandbox(cfg.Sandbox)
 	return &Verifier{

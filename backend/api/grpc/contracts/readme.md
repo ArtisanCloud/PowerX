@@ -13,5 +13,5 @@ api/grpc/gen/go/
 
 ## Buf 配置说明
 
-- `buf.gen.yaml` 通过 `managed.go_package_prefix.overrides` 为 `corex/event_fabric/v1` 指定生成路径 `github.com/ArtisanCloud/PowerX/api/grpc/gen/go/corex/event_fabric/v1`，保持与目录和 import 规范一致。
+- Event Fabric 契约已统一迁移至 `powerx/event_fabric/v1`，`buf.gen.yaml` 默认前缀即可生成到 `github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/event_fabric/v1`。
 - `buf.yaml` 使用 `ignore_only` 精准豁免 `powerx/capability/registry/v1/registry.proto` 的 `RPC_REQUEST_STANDARD_NAME` 规则；新契约必须遵守默认 lint 规范，避免增加忽略范围。

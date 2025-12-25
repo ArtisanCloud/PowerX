@@ -30,6 +30,16 @@ type DepsOptions struct {
 	PluginRelease      PluginReleaseOptions
 	PluginBootstrap    PluginBootstrapOptions
 	PluginDebug        PluginDebugOptions
+	Server             ServerOptions
+}
+
+type ServerOptions struct {
+	GRPC GRPCServerOptions
+}
+
+type GRPCServerOptions struct {
+	Host string
+	Port int
 }
 
 // EventFabricOptions 描述事件骨干依赖的运行配置。

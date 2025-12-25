@@ -152,6 +152,7 @@ func (h *tenantHandler) InvokeCapability(c *gin.Context) {
 	if payload == nil {
 		payload = map[string]interface{}{}
 	}
+	injectDefaultHeaders(payload, c)
 	contextMap := cloneContext(req.Context)
 
 	result, err := h.selector.Invoke(c.Request.Context(), capservice.CapabilityInvokeRequest{
@@ -173,6 +174,7 @@ func (h *tenantHandler) InvokeCapability(c *gin.Context) {
 	}
 
 	resp := capabilityInvokeResponse{
+		Payload:      result.Result,
 		TraceID:      result.TraceID,
 		Status:       result.Status,
 		ProtocolUsed: result.ProtocolUsed,
@@ -239,6 +241,7 @@ type capabilityInvokeRequest struct {
 }
 
 type capabilityInvokeResponse struct {
+	Payload      map[string]interface{} `json:"payload,omitempty"`
 	TraceID      string                 `json:"trace_id"`
 	Status       string                 `json:"status"`
 	ProtocolUsed string                 `json:"protocol_used"`
@@ -362,4 +365,34 @@ func cloneContext(src map[string]interface{}) map[string]interface{} {
 		dst[k] = v
 	}
 	return dst
+}
+func injectDefaultHeaders(payload map[string]interface{}, c *gin.Context) {
+	if payload == nil || c == nil {
+		return
+	}
+	headers, ok := payload["headers"].(map[string]interface{})
+	if !ok || headers == nil {
+		headers = make(map[string]interface{})
+	}
+	if auth := strings.TrimSpace(c.GetHeader("Authorization")); auth != "" {
+		if _, exists := headers["Authorization"]; !exists {
+			headers["Authorization"] = auth
+		}
+	}
+	if tenant := strings.TrimSpace(c.GetHeader("X-Tenant-UUID")); tenant != "" {
+		if _, exists := headers["X-Tenant-UUID"]; !exists {
+			headers["X-Tenant-UUID"] = tenant
+		}
+	}
+	if powerxTenant := strings.TrimSpace(c.GetHeader("X-PowerX-Tenant")); powerxTenant != "" {
+		if _, exists := headers["X-PowerX-Tenant"]; !exists {
+			headers["X-PowerX-Tenant"] = powerxTenant
+		}
+	}
+	if traceID := strings.TrimSpace(c.GetHeader("X-Trace-Id")); traceID != "" {
+		if _, exists := headers["X-Trace-Id"]; !exists {
+			headers["X-Trace-Id"] = traceID
+		}
+	}
+	payload["headers"] = headers
 }

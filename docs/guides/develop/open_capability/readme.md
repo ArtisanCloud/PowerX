@@ -81,6 +81,55 @@ curl -sS -H "Authorization: Bearer $TENANT_TOKEN" \
 
 更多细节请参考各模块文档，确保在调用前已为目标租户授予对应 Tool Grant/Feature Flag。这样即可在插件或宿主场景中直接复用 PowerX 底座提供的开放能力。
 
+### 关于 `/api/v1/tenant/invocations`
+
+这是 PowerX 的“能力调度”入口，插件可以通过它调用 REST/gRPC/MCP 等不同协议的开放能力，而无需自己维护多套协议栈。使用方式如下：
+
+```bash
+curl -sS -X POST "$API_ORIGIN/api/v1/tenant/invocations" \
+  -H "Authorization: Bearer $TENANT_TOKEN" \
+  -H "X-Tenant-UUID: $TENANT_UUID" \
+  -H "Content-Type: application/json" \
+  -d '{
+        "capability_id": "com.corex.media.assets.read",
+        "preferred_protocol": "rest",
+        "payload": {
+          "method": "GET",
+          "endpoint": "/api/v1/media/assets",
+          "query": { "page": 1, "page_size": 20 }
+        }
+      }'
+```
+
+- `capability_id`：要调用的能力 ID，来自 Registry（如 `com.corex.media.assets.read`）。
+- `preferred_protocol`：可选 `rest`、`grpc`、`mcp` 等，Selector 会按 Registry 的协议优先级路由。
+- `payload`：描述具体调用。  
+  - REST：提供 `method`、`endpoint`、可选 `headers`、`query`、`body`。  
+  - gRPC：提供 `endpoint`（Service 名）+ `rpc`（方法），以及 `body`（JSON 序列化后的请求）。
+- 返回结果：Gateway 会在统一的 Envelope 中附带真实业务响应与元信息。例如：
+
+  ```json
+  {
+    "code": 200,
+    "message": "success",
+    "data": {
+      "payload": {
+        "items": [/* 这里就是 GET /media/assets 的 JSON */],
+        "pagination": { "page": 1, "page_size": 20, "total": 1 }
+      },
+      "trace_id": "b28a79b9-a653-4ed3-b7aa-ea063432df6d",
+      "protocol_used": "http",
+      "fallback_used": false
+    }
+  }
+  ```
+
+  - `data.payload`：直接复用底层 REST/gRPC/MCP 响应体，插件无需关心协议差异。
+  - `data.trace_id` / `protocol_used` / `fallback_used`：用于调试与观测；当发生 gRPC fallback 或 Workflow 补偿时，这些字段会反映最终采用的协议。
+  - 错误场景下同样会在 `data.payload` 中返回底层错误内容，同时 HTTP 状态码与 `code` 字段会指示失败原因。
+
+因此，当你希望“统一入口 + 自动协议适配”时就用 `/tenant/invocations`；若只是简单的 REST 调试，也可以直接调用文档中的业务接口。两者可以并行使用。
+
 ## 4. 追溯能力定义位置
 
 若需要从代码或文档层面追踪底座能力的来源，可按以下路径查找（所有文件都在仓库内）：

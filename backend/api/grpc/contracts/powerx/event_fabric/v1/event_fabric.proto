@@ -1,8 +1,8 @@
 syntax = "proto3";
 
-package corex.event_fabric.v1;
+package powerx.event_fabric.v1;
 
-option go_package = "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/corex/event_fabric/v1;eventfabricv1";
+option go_package = "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/event_fabric/v1;eventfabricv1";
 
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";

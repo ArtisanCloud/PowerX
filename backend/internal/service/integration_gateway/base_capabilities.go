@@ -354,22 +354,22 @@ func builtinPlatformCapabilityDefinitions() []platformCapabilityDefinition {
 				Fallback: []string{},
 			},
 			Docs: []string{
-				"backend/api/grpc/contracts/corex/event_fabric/v1/event_fabric.proto",
+				"backend/api/grpc/contracts/powerx/event_fabric/v1/event_fabric.proto",
 			},
 			Protocols: []models.ProtocolBinding{
 				{
 					Channel:   "grpc",
-					Endpoint:  "corex.event_fabric.v1.EventDeliveryService",
+					Endpoint:  "powerx.event_fabric.v1.EventDeliveryService",
 					RPC:       "PublishEvent",
-					SchemaRef: "backend/api/grpc/contracts/corex/event_fabric/v1/event_fabric.proto#EventDeliveryService",
+					SchemaRef: "backend/api/grpc/contracts/powerx/event_fabric/v1/event_fabric.proto#EventDeliveryService",
 					AuthType:  "tenant_jwt",
 					ToolScope: "event.fabric",
 				},
 				{
 					Channel:   "grpc",
-					Endpoint:  "corex.event_fabric.v1.EventSubscriberService",
+					Endpoint:  "powerx.event_fabric.v1.EventSubscriberService",
 					RPC:       "Subscribe",
-					SchemaRef: "backend/api/grpc/contracts/corex/event_fabric/v1/event_fabric.proto#EventSubscriberService",
+					SchemaRef: "backend/api/grpc/contracts/powerx/event_fabric/v1/event_fabric.proto#EventSubscriberService",
 					AuthType:  "tenant_jwt",
 					ToolScope: "event.fabric",
 				},

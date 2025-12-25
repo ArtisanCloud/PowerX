@@ -147,7 +147,7 @@ func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error)
 				TimestampHeader:      cfg.EventFabric.Security.TimestampHeader,
 				SignatureKeyID:       cfg.EventFabric.Security.SignatureKeyID,
 				AllowedClockSkew:     time.Duration(cfg.EventFabric.Security.AllowedClockSkewSeconds) * time.Second,
-				ProtectedGRPCService: "/corex.event_fabric.v1.",
+				ProtectedGRPCService: "/powerx.event_fabric.v1.",
 				Sandbox: security.SandboxConfig{
 					Enforce:              cfg.EventFabric.Security.Sandbox.Enforce,
 					AllowedOutboundHosts: cfg.EventFabric.Security.Sandbox.AllowedOutboundHosts,
@@ -368,6 +368,12 @@ func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error)
 				Enabled:       cfg.PluginDebug.Sandbox.Enabled,
 				FeatureFlag:   cfg.PluginDebug.Sandbox.FeatureFlag,
 				DataSuitePath: cfg.PluginDebug.Sandbox.DataSuitePath,
+			},
+		},
+		Server: shared.ServerOptions{
+			GRPC: shared.GRPCServerOptions{
+				Host: cfg.Server.GRPC.Host,
+				Port: cfg.Server.GRPC.Port,
 			},
 		},
 		DevHotload: shared.DevHotloadOptions{

@@ -27,7 +27,10 @@ lint: {
       "powerx/agent/v1/agent_lifecycle.proto",
       "powerx/integration_gateway/v1/integration_gateway.proto",
       "powerx/knowledge/v1/knowledge_space.proto",
-      "powerx/plugin_release/v1/plugin_release.proto"
+      "powerx/plugin_release/v1/plugin_release.proto",
+      "powerx/capability/v1/capability_contract.proto",
+      "powerx/event_fabric/v1/event_fabric.proto",
+      "powerx/media/v1/media_asset.proto"
     ],
     ENUM_ZERO_VALUE_SUFFIX: [
       "powerx/agent_model_hub/v1/agent_model_hub.proto"

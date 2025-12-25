@@ -18,7 +18,7 @@
 | --- | --- | --- | --- |
 | `com.corex.media.assets.read` | Media | 媒资列表、详情查询 | REST：`GET {APIPrefix}/media/assets`、`GET {APIPrefix}/media/assets/{uuid}`；gRPC：`powerx.media.v1.MediaAssetAdminService/List|Get` |
 | `com.corex.media.assets.manage` | Media | 上传、删除、预签名 | REST：`POST/DELETE {APIPrefix}/media/assets`、`POST {APIPrefix}/media/assets/{uuid}/presign`；gRPC：`Create/Delete/PresignMediaAsset` |
-| `com.corex.eventfabric.publish` | Event Fabric | 事件发布 & 订阅 | gRPC：`corex.event_fabric.v1.EventDeliveryService/PublishEvent`、`EventSubscriberService/Subscribe` |
+| `com.corex.eventfabric.publish` | Event Fabric | 事件发布 & 订阅 | gRPC：`powerx.event_fabric.v1.EventDeliveryService/PublishEvent`、`EventSubscriberService/Subscribe` |
 | `com.corex.scheduler.jobs` | Workflow Scheduler | Workflow/Scheduler 实例触发、暂停、继续 | gRPC：`powerx.workflow.v1.WorkflowService/StartInstance`、`ControlInstance`、`ListInstances` |
 | `com.corex.workflow.builder` | Workflow Builder | 模板创建、发布、查询 | gRPC：`powerx.workflow.v1.WorkflowService/CreateDefinition`、`PublishDefinition`、`ListDefinitions` |
 | `com.corex.knowledge.space` | Knowledge Space | 空间/策略/增量管理 | gRPC：`powerx.knowledge.v1.KnowledgeSpaceAdminService/Create|Update|TriggerIngestion` |

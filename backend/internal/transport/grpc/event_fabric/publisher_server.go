@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	eventfabricv1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/corex/event_fabric/v1"
+eventfabricv1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/event_fabric/v1"
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
 	"github.com/ArtisanCloud/PowerX/internal/service/event_fabric/delivery"
 	sharedsvc "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/shared"

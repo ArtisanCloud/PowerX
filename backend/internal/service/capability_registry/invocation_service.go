@@ -1,14 +1,24 @@
 package capability_registry
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/reflect/protoregistry"
+	"google.golang.org/protobuf/types/dynamicpb"
 
 	capmetrics "github.com/ArtisanCloud/PowerX/internal/observability/metrics"
 	router "github.com/ArtisanCloud/PowerX/internal/service/capability_registry/router"
@@ -30,6 +40,9 @@ type InvocationServiceOptions struct {
 	Audit       *AuditService
 	Clock       func() time.Time
 	VersionLock VersionLock
+	HTTPClient  *http.Client
+	HTTPBaseURL string
+	GRPCConn    *grpc.ClientConn
 }
 
 // InvocationService 负责触发能力调用并记录追踪。
@@ -40,6 +53,9 @@ type InvocationService struct {
 	audit       *AuditService
 	versionLock VersionLock
 	now         func() time.Time
+	httpClient  *http.Client
+	httpBaseURL string
+	grpcConn    *grpc.ClientConn
 }
 
 // InvocationInput 描述调用��求。
@@ -82,6 +98,10 @@ func NewInvocationService(opts InvocationServiceOptions) *InvocationService {
 			Clock:     clock,
 		})
 	}
+	httpClient := opts.HTTPClient
+	if httpClient == nil {
+		httpClient = &http.Client{Timeout: 30 * time.Second}
+	}
 	return &InvocationService{
 		catalog:     opts.Catalog,
 		router:      opts.Router,
@@ -89,6 +109,9 @@ func NewInvocationService(opts InvocationServiceOptions) *InvocationService {
 		audit:       audit,
 		versionLock: opts.VersionLock,
 		now:         clock,
+		httpClient:  httpClient,
+		httpBaseURL: strings.TrimSuffix(strings.TrimSpace(opts.HTTPBaseURL), "/"),
+		grpcConn:    opts.GRPCConn,
 	}
 }
 
@@ -151,10 +174,11 @@ func (s *InvocationService) Invoke(ctx context.Context, in InvocationInput) (Inv
 
 	start := s.now()
 	routerResult, invokeErr := s.router.Invoke(ctx, router.InvokeRequest{
-		CapabilityID: capabilityID,
-		TenantUUID:   tenantUUID,
-		Payload:      payloadBytes,
-		StickyKey:    stickyKey,
+		CapabilityID:      capabilityID,
+		TenantUUID:        tenantUUID,
+		Payload:           payloadBytes,
+		StickyKey:         stickyKey,
+		PreferredProtocol: strings.TrimSpace(in.PreferredProtocol),
 	})
 	latency := s.now().Sub(start)
 
@@ -186,6 +210,34 @@ func (s *InvocationService) Invoke(ctx context.Context, in InvocationInput) (Inv
 	result.Status = "completed"
 	result.ProtocolUsed = routerResult.Transport
 	result.FallbackUsed = routerResult.FallbackUsed
+
+	if !routerResult.FallbackUsed {
+		if payload, err := s.executeAdapterCall(ctx, routerResult, in, traceID); err != nil {
+			result.Status = "failed"
+			result.Result = responseMap
+			if s.audit != nil {
+				s.audit.RecordInvocation(ctx, InvocationAuditInput{
+					TraceID:           traceID,
+					TenantUUID:        tenantUUID,
+					PluginID:          record.PluginID,
+					CapabilityID:      capabilityID,
+					PreferredProtocol: in.PreferredProtocol,
+					ProtocolUsed:      routerResult.Transport,
+					FallbackUsed:      routerResult.FallbackUsed,
+					Status:            result.Status,
+					IdempotencyKey:    strings.TrimSpace(in.IdempotencyKey),
+					RequestPayload:    in.Payload,
+					ResponsePayload:   responseMap,
+					ErrorSummary:      err.Error(),
+					Latency:           latency,
+				})
+			}
+			return result, err
+		} else if payload != nil {
+			responseMap = payload
+		}
+	}
+
 	result.Result = responseMap
 
 	if s.audit != nil {
@@ -214,6 +266,286 @@ func (s *InvocationService) GetTrace(ctx context.Context, traceID string) (*mode
 		return nil, errors.New("invocation trace repository unavailable")
 	}
 	return s.traces.GetByTraceID(ctx, traceID)
+}
+
+func (s *InvocationService) executeAdapterCall(ctx context.Context, routerResult router.InvokeResult, in InvocationInput, traceID string) (map[string]interface{}, error) {
+	transport := strings.ToLower(strings.TrimSpace(routerResult.Transport))
+	if transport == "" {
+		transport = strings.ToLower(strings.TrimSpace(in.PreferredProtocol))
+	}
+
+	switch transport {
+	case "http", "rest":
+		if s.httpClient == nil || s.httpBaseURL == "" {
+			return nil, nil
+		}
+		restPayload, err := buildRESTInvokePayload(in.Payload)
+		if err != nil {
+			return nil, err
+		}
+		return s.invokeREST(ctx, restPayload, traceID)
+	case "grpc":
+		if s.grpcConn == nil {
+			return nil, nil
+		}
+		grpcPayload, err := buildGRPCInvokePayload(in.Payload)
+		if err != nil {
+			return nil, err
+		}
+		return s.invokeGRPC(ctx, grpcPayload)
+	default:
+		return nil, nil
+	}
+}
+
+type restInvokePayload struct {
+	Method   string
+	Endpoint string
+	Headers  map[string]string
+	Query    map[string]string
+	Body     interface{}
+}
+
+type grpcInvokePayload struct {
+	Service string
+	Method  string
+	Headers map[string]string
+	Body    map[string]interface{}
+}
+
+func buildRESTInvokePayload(raw map[string]interface{}) (restInvokePayload, error) {
+	if len(raw) == 0 {
+		return restInvokePayload{}, errors.New("payload required for REST invocation")
+	}
+	method := strings.ToUpper(strings.TrimSpace(getString(raw["method"])))
+	if method == "" {
+		method = http.MethodGet
+	}
+	endpoint := strings.TrimSpace(getString(raw["endpoint"]))
+	if endpoint == "" {
+		return restInvokePayload{}, errors.New("payload.endpoint required for REST invocation")
+	}
+	headers := mapStringString(raw["headers"])
+	query := mapStringString(raw["query"])
+
+	var body interface{}
+	if b, ok := raw["body"]; ok {
+		body = b
+	}
+
+	return restInvokePayload{
+		Method:   method,
+		Endpoint: endpoint,
+		Headers:  headers,
+		Query:    query,
+		Body:     body,
+	}, nil
+}
+
+func buildGRPCInvokePayload(raw map[string]interface{}) (grpcInvokePayload, error) {
+	if len(raw) == 0 {
+		return grpcInvokePayload{}, errors.New("payload required for gRPC invocation")
+	}
+	service := strings.TrimSpace(getString(raw["endpoint"]))
+	if service == "" {
+		return grpcInvokePayload{}, errors.New("payload.endpoint required for gRPC invocation")
+	}
+	method := strings.TrimSpace(getString(raw["rpc"]))
+	if method == "" {
+		return grpcInvokePayload{}, errors.New("payload.rpc required for gRPC invocation")
+	}
+
+	body := map[string]interface{}{}
+	switch val := raw["body"].(type) {
+	case map[string]interface{}:
+		body = val
+	case map[string]string:
+		body = make(map[string]interface{}, len(val))
+		for k, v := range val {
+			body[k] = v
+		}
+	case nil:
+		// leave empty
+	default:
+		return grpcInvokePayload{}, errors.New("payload.body for gRPC invocation must be an object")
+	}
+
+	return grpcInvokePayload{
+		Service: service,
+		Method:  method,
+		Headers: mapStringString(raw["headers"]),
+		Body:    body,
+	}, nil
+}
+
+func (s *InvocationService) invokeREST(ctx context.Context, payload restInvokePayload, traceID string) (map[string]interface{}, error) {
+	target := payload.Endpoint
+	if !strings.HasPrefix(strings.ToLower(target), "http://") && !strings.HasPrefix(strings.ToLower(target), "https://") {
+		target = strings.TrimRight(s.httpBaseURL, "/") + "/" + strings.TrimLeft(target, "/")
+	}
+	parsed, err := url.Parse(target)
+	if err != nil {
+		return nil, fmt.Errorf("invalid endpoint %s: %w", payload.Endpoint, err)
+	}
+	values := parsed.Query()
+	for k, v := range payload.Query {
+		values.Set(k, v)
+	}
+	parsed.RawQuery = values.Encode()
+
+	var bodyReader io.Reader
+	if payload.Body != nil && payload.Method != http.MethodGet && payload.Method != http.MethodHead {
+		raw, err := json.Marshal(payload.Body)
+		if err != nil {
+			return nil, fmt.Errorf("encode REST body failed: %w", err)
+		}
+		bodyReader = bytes.NewReader(raw)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, payload.Method, parsed.String(), bodyReader)
+	if err != nil {
+		return nil, fmt.Errorf("build REST request failed: %w", err)
+	}
+	hasContentType := false
+	for k, v := range payload.Headers {
+		if strings.TrimSpace(v) == "" {
+			continue
+		}
+		req.Header.Set(k, v)
+		if strings.EqualFold(k, "Content-Type") {
+			hasContentType = true
+		}
+	}
+	if payload.Body != nil && !hasContentType {
+		req.Header.Set("Content-Type", "application/json; charset=utf-8")
+	}
+	if req.Header.Get("Accept") == "" {
+		req.Header.Set("Accept", "application/json")
+	}
+	if traceID != "" && req.Header.Get("X-Trace-Id") == "" {
+		req.Header.Set("X-Trace-Id", traceID)
+	}
+
+	resp, err := s.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("proxy REST request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("read REST response failed: %w", err)
+	}
+	if resp.StatusCode >= 400 {
+		snippet := string(respBytes)
+		if len(snippet) > 512 {
+			snippet = snippet[:512]
+		}
+		return nil, fmt.Errorf("proxy REST %s %s failed: status=%d body=%s", payload.Method, parsed.Path, resp.StatusCode, snippet)
+	}
+	if len(respBytes) == 0 {
+		return map[string]interface{}{
+			"status": resp.Status,
+		}, nil
+	}
+	var out interface{}
+	if err := json.Unmarshal(respBytes, &out); err != nil {
+		return map[string]interface{}{
+			"raw":    string(respBytes),
+			"status": resp.Status,
+		}, nil
+	}
+	if m, ok := out.(map[string]interface{}); ok {
+		return m, nil
+	}
+	return map[string]interface{}{
+		"value":  out,
+		"status": resp.Status,
+	}, nil
+}
+
+func (s *InvocationService) invokeGRPC(ctx context.Context, payload grpcInvokePayload) (map[string]interface{}, error) {
+	if s.grpcConn == nil {
+		return nil, errors.New("grpc proxy unavailable")
+	}
+	serviceName := protoreflect.FullName(payload.Service)
+	desc, err := protoregistry.GlobalFiles.FindDescriptorByName(serviceName)
+	if err != nil {
+		return nil, fmt.Errorf("grpc service %s not registered: %w", payload.Service, err)
+	}
+	serviceDesc, ok := desc.(protoreflect.ServiceDescriptor)
+	if !ok {
+		return nil, fmt.Errorf("%s is not a gRPC service", payload.Service)
+	}
+	methodDesc := serviceDesc.Methods().ByName(protoreflect.Name(payload.Method))
+	if methodDesc == nil {
+		return nil, fmt.Errorf("grpc method %s not found in %s", payload.Method, payload.Service)
+	}
+
+	reqMsg := dynamicpb.NewMessage(methodDesc.Input())
+	requestBytes, err := json.Marshal(payload.Body)
+	if err != nil {
+		return nil, fmt.Errorf("encode gRPC body failed: %w", err)
+	}
+	if err := protojson.Unmarshal(requestBytes, reqMsg); err != nil {
+		return nil, fmt.Errorf("decode gRPC body failed: %w", err)
+	}
+
+	respMsg := dynamicpb.NewMessage(methodDesc.Output())
+	md := metadata.New(nil)
+	for k, v := range payload.Headers {
+		if strings.TrimSpace(v) == "" {
+			continue
+		}
+		md.Append(k, v)
+	}
+	ctx = metadata.NewOutgoingContext(ctx, md)
+
+	fullMethod := fmt.Sprintf("/%s/%s", payload.Service, payload.Method)
+	if err := s.grpcConn.Invoke(ctx, fullMethod, reqMsg, respMsg); err != nil {
+		return nil, fmt.Errorf("grpc invoke %s failed: %w", fullMethod, err)
+	}
+
+	respBytes, err := protojson.MarshalOptions{EmitUnpopulated: true}.Marshal(respMsg)
+	if err != nil {
+		return nil, fmt.Errorf("encode gRPC response failed: %w", err)
+	}
+	var out map[string]interface{}
+	if err := json.Unmarshal(respBytes, &out); err != nil {
+		return nil, fmt.Errorf("decode gRPC response failed: %w", err)
+	}
+	return out, nil
+}
+
+func mapStringString(v interface{}) map[string]string {
+	result := make(map[string]string)
+	switch typed := v.(type) {
+	case map[string]interface{}:
+		for key, value := range typed {
+			result[key] = fmt.Sprint(value)
+		}
+	case map[string]string:
+		for key, value := range typed {
+			result[key] = value
+		}
+	}
+	return result
+}
+
+func getString(v interface{}) string {
+	switch typed := v.(type) {
+	case string:
+		return typed
+	case fmt.Stringer:
+		return typed.String()
+	case json.Number:
+		return typed.String()
+	default:
+		if typed == nil {
+			return ""
+		}
+		return fmt.Sprint(typed)
+	}
 }
 
 func extractStickyKey(ctx map[string]interface{}) string {

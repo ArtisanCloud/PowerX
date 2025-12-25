@@ -4,7 +4,7 @@ PowerX Event Fabric 对外暴露一条平台能力 `com.corex.eventfabric.publis
 
 | Capability ID | Intent | Prefer/Fallback | Channels |
 | --- | --- | --- | --- |
-| `com.corex.eventfabric.publish` | `event.fabric.publish` | Prefer `grpc` | gRPC `corex.event_fabric.v1.EventDeliveryService/PublishEvent`、`EventSubscriberService/Subscribe` |
+| `com.corex.eventfabric.publish` | `event.fabric.publish` | Prefer `grpc` | gRPC `powerx.event_fabric.v1.EventDeliveryService/PublishEvent`、`EventSubscriberService/Subscribe` |
 
 > **认证要求**
 >
@@ -14,7 +14,7 @@ PowerX Event Fabric 对外暴露一条平台能力 `com.corex.eventfabric.publis
 
 ## gRPC 合同
 
-- Proto：`backend/api/grpc/contracts/corex/event_fabric/v1/event_fabric.proto`
+- Proto：`backend/api/grpc/contracts/powerx/event_fabric/v1/event_fabric.proto`
 - 默认地址：`127.0.0.1:9001`
 
 ```bash
@@ -40,7 +40,7 @@ grpcurl -plaintext \
       "source": "plugin.demo"
     }
   }' \
-  $GRPC_ADDR corex.event_fabric.v1.EventDeliveryService/PublishEvent
+  $GRPC_ADDR powerx.event_fabric.v1.EventDeliveryService/PublishEvent
 ```
 
 响应中包含 `event_id` 与 `trace_id`，可用于后续追踪。
@@ -58,7 +58,7 @@ grpcurl -plaintext \
     "group": "demo-plugin",
     "cursor": "LATEST"
   }' \
-  $GRPC_ADDR corex.event_fabric.v1.EventSubscriberService/Subscribe
+  $GRPC_ADDR powerx.event_fabric.v1.EventSubscriberService/Subscribe
 ```
 
 > 提示：开发阶段通常在另一个终端运行 `PublishEvent`，即可观察 Subscribe 流里实时输出的事件。生产场景应使用 SDK 或长连容器来维护订阅。
@@ -73,9 +73,10 @@ curl -sS -X POST "http://127.0.0.1:8077/api/v1/tenant/invocations" \
   -H "X-Tenant-UUID: $TENANT_UUID" \
   -H "Content-Type: application/json" \
   -d '{
-    "capabilityId": "com.corex.eventfabric.publish",
-    "protocol": "grpc",
+    "capability_id": "com.corex.eventfabric.publish",
+    "preferred_protocol": "grpc",
     "payload": {
+      "endpoint": "powerx.event_fabric.v1.EventDeliveryService",
       "rpc": "PublishEvent",
       "body": {
         "channel": "orders.created",
@@ -88,4 +89,24 @@ curl -sS -X POST "http://127.0.0.1:8077/api/v1/tenant/invocations" \
   }'
 ```
 
-Selector 会读取 Registry 中的协议矩阵，自动拼装 RPC 调用，无需插件手动指定 gRPC 地址。
+- `payload.endpoint`：可选，若缺省则由 Registry 协议元数据自动填写；显式传入可覆盖默认 Service。
+- `payload.body`：与 gRPC JSON 映射一致，Gateway 会负责将其转换为 protobuf 请求。
+- 若切换为 REST 通道，只需把 `preferred_protocol` 改为 `rest`，并在 payload 中提供 `method` + `endpoint` + `headers/body`（具体路由参见文档）。
+
+响应示例（只截取 Data 部分）：
+
+```json
+{
+  "data": {
+    "payload": {
+      "event_id": "evt_123",
+      "trace_id": "7ecb9a7c-1b9e-4e88-a4e9-5a7a31f7050a"
+    },
+    "trace_id": "fd7fb6ce-d0e9-4367-9b3f-0c73c0b71626",
+    "protocol_used": "grpc",
+    "fallback_used": false
+  }
+}
+```
+
+`data.payload` 中的结构与 gRPC `PublishEvent` 响应一模一样，因此插件只要解析这一层即可获取业务数据；`data.trace_id` 则用于继续串联日志/观测。

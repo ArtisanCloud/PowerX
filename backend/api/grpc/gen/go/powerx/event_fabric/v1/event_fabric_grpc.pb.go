@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.5.1
 // - protoc             (unknown)
-// source: corex/event_fabric/v1/event_fabric.proto
+// source: powerx/event_fabric/v1/event_fabric.proto
 
 package event_fabricv1
 
@@ -20,9 +20,9 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	TopicDirectoryService_CreateTopic_FullMethodName     = "/corex.event_fabric.v1.TopicDirectoryService/CreateTopic"
-	TopicDirectoryService_UpdateLifecycle_FullMethodName = "/corex.event_fabric.v1.TopicDirectoryService/UpdateLifecycle"
-	TopicDirectoryService_ListTopics_FullMethodName      = "/corex.event_fabric.v1.TopicDirectoryService/ListTopics"
+	TopicDirectoryService_CreateTopic_FullMethodName     = "/powerx.event_fabric.v1.TopicDirectoryService/CreateTopic"
+	TopicDirectoryService_UpdateLifecycle_FullMethodName = "/powerx.event_fabric.v1.TopicDirectoryService/UpdateLifecycle"
+	TopicDirectoryService_ListTopics_FullMethodName      = "/powerx.event_fabric.v1.TopicDirectoryService/ListTopics"
 )
 
 // TopicDirectoryServiceClient is the client API for TopicDirectoryService service.
@@ -177,7 +177,7 @@ func _TopicDirectoryService_ListTopics_Handler(srv interface{}, ctx context.Cont
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var TopicDirectoryService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "corex.event_fabric.v1.TopicDirectoryService",
+	ServiceName: "powerx.event_fabric.v1.TopicDirectoryService",
 	HandlerType: (*TopicDirectoryServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -194,14 +194,14 @@ var TopicDirectoryService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "corex/event_fabric/v1/event_fabric.proto",
+	Metadata: "powerx/event_fabric/v1/event_fabric.proto",
 }
 
 const (
-	TopicAclService_GrantBindings_FullMethodName  = "/corex.event_fabric.v1.TopicAclService/GrantBindings"
-	TopicAclService_RevokeBindings_FullMethodName = "/corex.event_fabric.v1.TopicAclService/RevokeBindings"
-	TopicAclService_ListBindings_FullMethodName   = "/corex.event_fabric.v1.TopicAclService/ListBindings"
-	TopicAclService_CanAccess_FullMethodName      = "/corex.event_fabric.v1.TopicAclService/CanAccess"
+	TopicAclService_GrantBindings_FullMethodName  = "/powerx.event_fabric.v1.TopicAclService/GrantBindings"
+	TopicAclService_RevokeBindings_FullMethodName = "/powerx.event_fabric.v1.TopicAclService/RevokeBindings"
+	TopicAclService_ListBindings_FullMethodName   = "/powerx.event_fabric.v1.TopicAclService/ListBindings"
+	TopicAclService_CanAccess_FullMethodName      = "/powerx.event_fabric.v1.TopicAclService/CanAccess"
 )
 
 // TopicAclServiceClient is the client API for TopicAclService service.
@@ -389,7 +389,7 @@ func _TopicAclService_CanAccess_Handler(srv interface{}, ctx context.Context, de
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var TopicAclService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "corex.event_fabric.v1.TopicAclService",
+	ServiceName: "powerx.event_fabric.v1.TopicAclService",
 	HandlerType: (*TopicAclServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -410,13 +410,13 @@ var TopicAclService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "corex/event_fabric/v1/event_fabric.proto",
+	Metadata: "powerx/event_fabric/v1/event_fabric.proto",
 }
 
 const (
-	EventDeliveryService_PublishEvent_FullMethodName = "/corex.event_fabric.v1.EventDeliveryService/PublishEvent"
-	EventDeliveryService_AckDelivery_FullMethodName  = "/corex.event_fabric.v1.EventDeliveryService/AckDelivery"
-	EventDeliveryService_NackDelivery_FullMethodName = "/corex.event_fabric.v1.EventDeliveryService/NackDelivery"
+	EventDeliveryService_PublishEvent_FullMethodName = "/powerx.event_fabric.v1.EventDeliveryService/PublishEvent"
+	EventDeliveryService_AckDelivery_FullMethodName  = "/powerx.event_fabric.v1.EventDeliveryService/AckDelivery"
+	EventDeliveryService_NackDelivery_FullMethodName = "/powerx.event_fabric.v1.EventDeliveryService/NackDelivery"
 )
 
 // EventDeliveryServiceClient is the client API for EventDeliveryService service.
@@ -571,7 +571,7 @@ func _EventDeliveryService_NackDelivery_Handler(srv interface{}, ctx context.Con
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var EventDeliveryService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "corex.event_fabric.v1.EventDeliveryService",
+	ServiceName: "powerx.event_fabric.v1.EventDeliveryService",
 	HandlerType: (*EventDeliveryServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -588,11 +588,11 @@ var EventDeliveryService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "corex/event_fabric/v1/event_fabric.proto",
+	Metadata: "powerx/event_fabric/v1/event_fabric.proto",
 }
 
 const (
-	EventSubscriberService_Subscribe_FullMethodName = "/corex.event_fabric.v1.EventSubscriberService/Subscribe"
+	EventSubscriberService_Subscribe_FullMethodName = "/powerx.event_fabric.v1.EventSubscriberService/Subscribe"
 )
 
 // EventSubscriberServiceClient is the client API for EventSubscriberService service.
@@ -684,7 +684,7 @@ type EventSubscriberService_SubscribeServer = grpc.ServerStreamingServer[Deliver
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var EventSubscriberService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "corex.event_fabric.v1.EventSubscriberService",
+	ServiceName: "powerx.event_fabric.v1.EventSubscriberService",
 	HandlerType: (*EventSubscriberServiceServer)(nil),
 	Methods:     []grpc.MethodDesc{},
 	Streams: []grpc.StreamDesc{
@@ -694,13 +694,13 @@ var EventSubscriberService_ServiceDesc = grpc.ServiceDesc{
 			ServerStreams: true,
 		},
 	},
-	Metadata: "corex/event_fabric/v1/event_fabric.proto",
+	Metadata: "powerx/event_fabric/v1/event_fabric.proto",
 }
 
 const (
-	EventDlqService_ListMessages_FullMethodName   = "/corex.event_fabric.v1.EventDlqService/ListMessages"
-	EventDlqService_ReplayMessages_FullMethodName = "/corex.event_fabric.v1.EventDlqService/ReplayMessages"
-	EventDlqService_PurgeMessages_FullMethodName  = "/corex.event_fabric.v1.EventDlqService/PurgeMessages"
+	EventDlqService_ListMessages_FullMethodName   = "/powerx.event_fabric.v1.EventDlqService/ListMessages"
+	EventDlqService_ReplayMessages_FullMethodName = "/powerx.event_fabric.v1.EventDlqService/ReplayMessages"
+	EventDlqService_PurgeMessages_FullMethodName  = "/powerx.event_fabric.v1.EventDlqService/PurgeMessages"
 )
 
 // EventDlqServiceClient is the client API for EventDlqService service.
@@ -855,7 +855,7 @@ func _EventDlqService_PurgeMessages_Handler(srv interface{}, ctx context.Context
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var EventDlqService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "corex.event_fabric.v1.EventDlqService",
+	ServiceName: "powerx.event_fabric.v1.EventDlqService",
 	HandlerType: (*EventDlqServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -872,13 +872,13 @@ var EventDlqService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "corex/event_fabric/v1/event_fabric.proto",
+	Metadata: "powerx/event_fabric/v1/event_fabric.proto",
 }
 
 const (
-	EventReplayService_CreateReplayTask_FullMethodName = "/corex.event_fabric.v1.EventReplayService/CreateReplayTask"
-	EventReplayService_GetReplayTask_FullMethodName    = "/corex.event_fabric.v1.EventReplayService/GetReplayTask"
-	EventReplayService_CancelReplayTask_FullMethodName = "/corex.event_fabric.v1.EventReplayService/CancelReplayTask"
+	EventReplayService_CreateReplayTask_FullMethodName = "/powerx.event_fabric.v1.EventReplayService/CreateReplayTask"
+	EventReplayService_GetReplayTask_FullMethodName    = "/powerx.event_fabric.v1.EventReplayService/GetReplayTask"
+	EventReplayService_CancelReplayTask_FullMethodName = "/powerx.event_fabric.v1.EventReplayService/CancelReplayTask"
 )
 
 // EventReplayServiceClient is the client API for EventReplayService service.
@@ -1033,7 +1033,7 @@ func _EventReplayService_CancelReplayTask_Handler(srv interface{}, ctx context.C
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var EventReplayService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "corex.event_fabric.v1.EventReplayService",
+	ServiceName: "powerx.event_fabric.v1.EventReplayService",
 	HandlerType: (*EventReplayServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -1050,5 +1050,5 @@ var EventReplayService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "corex/event_fabric/v1/event_fabric.proto",
+	Metadata: "powerx/event_fabric/v1/event_fabric.proto",
 }

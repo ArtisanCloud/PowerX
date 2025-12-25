@@ -160,6 +160,55 @@ REST 通道足以完成完整 CRUD；**请记住：创建 (`POST /media/assets`)
 - **本地/预签名上传**：当你使用 `PUT /media/<objectKey>` 或 S3 直传写入实体文件后，服务会读取实际文件的大小与 MIME，更新 `media_assets.size_bytes/mime_type`，防止有人伪造元数据信息。
 - **调用方无需额外同步**：`CreateAsset` 阶段不需要传 `sizeBytes`/`mimeType`，即使传了也会被后台解析结果覆盖，最终以真实文件为准。
 
+### 通过 `/tenant/invocations` 统一调度
+
+当插件处于“宿主模式”或接入 Integration Gateway 时，可以把同样的调试动作交给 `/api/v1/tenant/invocations`，无需自己维护 REST/gRPC SDK。以下示例调用 `com.corex.media.assets.read` 能力并返回与 `GET /api/v1/media/assets` 相同的结果：
+
+```bash
+curl -sS -X POST "$API_PREFIX/tenant/invocations" \
+  -H "Authorization: Bearer $TENANT_TOKEN" \
+  -H "X-Tenant-UUID: $TENANT_UUID" \
+  -H "Content-Type: application/json" \
+  -d '{
+        "capability_id": "com.corex.media.assets.read",
+        "preferred_protocol": "rest",
+        "payload": {
+          "method": "GET",
+          "endpoint": "/api/v1/media/assets",
+          "query": { "page": 1, "page_size": 20 }
+        }
+      }'
+```
+
+响应结构示例：
+
+```json
+{
+  "code": 200,
+  "message": "success",
+  "data": {
+    "payload": {
+      "items": [
+        {
+          "uuid": "704ba6f0-d37d-4d74-b796-49768f3dbc1d",
+          "name": "demo-image",
+          "tags": ["doc", "reviewed"],
+          "downloadUrl": "/media/704ba6f0-d37d-4d74-b796-49768f3dbc1d/resource"
+        }
+      ],
+      "pagination": { "page": 1, "page_size": 20, "total": 1 }
+    },
+    "trace_id": "dae1ab4a-ddc0-4c21-a781-19d94a9801a2",
+    "protocol_used": "http",
+    "fallback_used": false
+  }
+}
+```
+
+- `data.payload` 就是底层 REST 接口返回的 JSON，不需要插件再额外请求一次。
+- 若将 `preferred_protocol` 切换为 `grpc`，`payload` 中只需提供 `{ "endpoint": "powerx.media.v1.MediaAssetAdminService", "rpc": "ListMediaAssets", "body": { "page": 1, "page_size": 20 } }`，返回结构同样把 gRPC 结果置于 `data.payload` 中。
+- 其它字段与 `/tenant/invocations` 通用规范一致，可在 Trace/Audit 中定位链路。
+
 ## gRPC（开放接口）
 
 契约：`backend/api/grpc/contracts/powerx/media/v1/media_asset.proto`，服务 `powerx.media.v1.MediaAssetAdminService`，默认地址 `127.0.0.1:9001`。

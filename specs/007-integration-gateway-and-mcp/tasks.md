@@ -105,6 +105,19 @@
 - [x] **T057A** Admin API（CoreX）：在 `backend/internal/transport/http/admin/capability_registry/` 新增只读接口 `/admin/platform-capabilities`（REST）与 `/admin/platform-capabilities/:module`，由 `CapabilityRegistry` Service 读取 `source=corex` 记录，按模块聚合协议/调试信息；更新 OpenAPI/contract tests 并确保仅 `IsRoot` 可访问。
 - [x] **T057B** Web Admin UI：在前端 “设置 > 开放能力” 新增页面与侧边栏菜单（仅 `isRoot` 渲染），调用 T057A 接口展示模块卡片、能力数量、协议徽章、调试入口（复制 cURL/Insomnia/MCP Tool/OpenAPI 链接），支持刷新同步与空态提示。
 
+## Phase 8: Gateway Proxy 模式（FR-018）
+
+**目标**：`/api/v1/tenant/invocations` 返回“业务结果 + Trace”对称结构，Selector 自动代理底层 REST/gRPC/MCP 响应，便于插件与 Gateway 统一调试。
+
+### Tests
+
+- [x] **T058 [P][FR-018]** Proxy 契约测试：扩展 `backend/tests/contract/capability_registry/tenant_invoke_proxy_test.go`（新文件）或现有 HTTP/gRPC 合同测试，验证 `/tenant/invocations` 在 REST 与 gRPC 两种协议下都返回 `data.payload + trace_id + protocol_used + fallback_used`，并覆盖错误场景（如 gRPC fallback、REST 404）。
+
+### Implementation
+
+- [x] **T059 [P][FR-018]** Handler/Selector 改造：在 `backend/internal/transport/http/openapi/capability_registry/tenant_handler.go`、`internal/service/capability_registry/selector.go` 与 `invocation_service.go` 中实现 Proxy 模式——解析 `payload.method/endpoint` & `payload.rpc/endpoint`，将底层响应写入统一 Envelope，传播 `trace_id`，并保持向后兼容（旧客户端缺失字段时由 Registry 补齐）。
+- [x] **T060 [FR-018]** 观测与文档：更新 `docs/guides/develop/open_capability/*`, `specs/007-.../quickstart.md`、OpenAPI/Protobuf 注释，确保响应模型包含 `payload/trace_id`；同时在 `observability/metrics` 与 `InvocationTrace` 中记录 `protocol_used`、`fallback_used`，配套新增 QA 脚本验证。
+
 ## Dependencies & Parallel Execution
 
 1. **Phase 1 → Phase 2**：完成配置与目录后方可定义模型与仓储。

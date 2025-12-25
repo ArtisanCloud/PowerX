@@ -20,6 +20,30 @@
 - **刷新策略**：进入页面自动加载，提供“立即同步”按钮重新请求；后续可监听 `capability.catalog.sync_*` 事件或轮询以保持实时。
 - **安全 & 审计**：所有请求写入 Audit（记录 `admin_id`, `action=open_capability_view`），并遵守现有 RBAC/Feature Flag，确保非 Root 用户无法访问平台能力细节。
 
+## Gateway Proxy 模式（FR-018）
+
+为弥合“统一能力调度”与“获取真实业务结果”之间的落差，需要在 Integration Gateway 中新增 Proxy 模式：
+
+1. **Selector/Invoker 扩展**：在完成能力选择后，由 Gateway 代理执行 REST/gRPC/MCP 调用，并将返回的 payload 直接写回 HTTP 响应体；无论底层协议为何，调用方都能拿到真实业务数据。
+2. **统一请求描述**：`CapabilityInvokeRequest` 中新增标准化 payload 约束——REST 需包含 `method`、`endpoint`、`headers?`、`query?`、`body?`；gRPC 需包含 `endpoint`（Service）、`rpc`（方法）、`body`（JSON 映射）；MCP/workflow 同理，Selector 会洞察 Registry 协议信息补齐缺失字段。
+3. **统一响应 Envelope**：在代理结果外侧附加 `trace_id`、`protocol_used`、`fallback_used`、`latency_ms` 等元信息，并将底层业务响应原样写入 `payload` 字段，形如：
+   ```json
+   {
+     "code": 200,
+     "message": "success",
+     "data": {
+       "payload": { ...真实业务响应... },
+       "trace_id": "xxx",
+       "protocol_used": "http",
+       "fallback_used": false
+     }
+   }
+   ```
+   错误场景沿用相同 Envelope，仅 `payload` 替换为底层错误结构。
+4. **调试体验**：文档与契约需明确 Proxy 模式的请求/响应范式，给出 REST（ListMediaAssets）与 gRPC（PublishEvent）示例，在 Quickstart/指南中强调“调用一次即可拿到业务数据 + Trace”。
+
+本阶段将新增 Implementation 任务（T058-T060），覆盖 Handler/Selector 改造、观测补充与文档更新。
+
 ## Technical Context
 
 **Language/Version**: Go 1.24（backend）、Node 20（脚本+CLI）  

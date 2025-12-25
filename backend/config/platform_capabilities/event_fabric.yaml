@@ -10,17 +10,17 @@ capabilities:
     policy:
       prefer: grpc
     docs:
-      - backend/api/grpc/contracts/corex/event_fabric/v1/event_fabric.proto
+      - backend/api/grpc/contracts/powerx/event_fabric/v1/event_fabric.proto
     protocols:
       - channel: grpc
-        endpoint: corex.event_fabric.v1.EventDeliveryService
+        endpoint: powerx.event_fabric.v1.EventDeliveryService
         rpc: PublishEvent
-        schema_ref: backend/api/grpc/contracts/corex/event_fabric/v1/event_fabric.proto#EventDeliveryService
+        schema_ref: backend/api/grpc/contracts/powerx/event_fabric/v1/event_fabric.proto#EventDeliveryService
         auth_type: tenant_jwt
         tool_scope: event.fabric
       - channel: grpc
-        endpoint: corex.event_fabric.v1.EventSubscriberService
+        endpoint: powerx.event_fabric.v1.EventSubscriberService
         rpc: Subscribe
-        schema_ref: backend/api/grpc/contracts/corex/event_fabric/v1/event_fabric.proto#EventSubscriberService
+        schema_ref: backend/api/grpc/contracts/powerx/event_fabric/v1/event_fabric.proto#EventSubscriberService
         auth_type: tenant_jwt
         tool_scope: event.fabric

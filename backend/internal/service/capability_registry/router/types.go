@@ -19,11 +19,12 @@ const (
 
 // InvokeRequest 描述 Router 调用输入，仅允许传入租户 UUID。
 type InvokeRequest struct {
-	CapabilityID string
-	TenantUUID   string
-	Payload      []byte
-	Timeout      time.Duration
-	StickyKey    string
+	CapabilityID      string
+	TenantUUID        string
+	Payload           []byte
+	Timeout           time.Duration
+	StickyKey         string
+	PreferredProtocol string
 }
 
 // InvokeResult 描述 Router 调用结果。

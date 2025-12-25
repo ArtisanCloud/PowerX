@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	eventfabricv1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/corex/event_fabric/v1"
+	eventfabricv1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/event_fabric/v1"
 	"github.com/ArtisanCloud/PowerX/internal/service/event_fabric/delivery"
 	sharedsvc "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/shared"
 	eventfabricgrpc "github.com/ArtisanCloud/PowerX/internal/transport/grpc/event_fabric"
@@ -18,17 +18,20 @@ import (
 	"google.golang.org/grpc/test/bufconn"
 )
 
-const grpcBufSize = 1024 * 1024
+const (
+	grpcBufSize      = 1024 * 1024
+	sampleTenantUUID = "00000000-0000-0000-0000-000000000001"
+)
 
 func TestEventDeliveryGRPCContracts(t *testing.T) {
 	env := newEventDeliveryGRPCTestEnv(t)
 	t.Cleanup(env.Close)
 
 	baseCtx := context.Background()
-	tenantCtx := eventFabricGRPCContext(t, baseCtx, "tenant-corex")
+	tenantCtx := eventFabricGRPCContext(t, baseCtx, sampleTenantUUID)
 
 	pubResp, err := env.deliveryClient.PublishEvent(tenantCtx, &eventfabricv1.PublishEventRequest{
-		TenantUuid:    "tenant-corex",
+		TenantUuid:    sampleTenantUUID,
 		Topic:         "tenant-corex.corex.workflow.approved",
 		EventId:       "evt-001",
 		TraceId:       "trace-abc",
@@ -74,7 +77,7 @@ func TestEventDeliveryErrorMapping(t *testing.T) {
 	t.Cleanup(env.Close)
 
 	env.stub.ackErr = sharedsvc.ErrUnauthorized
-	_, err := env.deliveryClient.AckDelivery(eventFabricGRPCContext(t, context.Background(), "tenant-corex"), &eventfabricv1.AckDeliveryRequest{
+	_, err := env.deliveryClient.AckDelivery(eventFabricGRPCContext(t, context.Background(), sampleTenantUUID), &eventfabricv1.AckDeliveryRequest{
 		DeliveryId:   "delivery-err",
 		SubscriberId: "svc-sub",
 	})
@@ -83,7 +86,7 @@ func TestEventDeliveryErrorMapping(t *testing.T) {
 	}
 
 	env.stub.nackErr = sharedsvc.ErrRetryExhausted
-	_, err = env.deliveryClient.NackDelivery(eventFabricGRPCContext(t, context.Background(), "tenant-corex"), &eventfabricv1.NackDeliveryRequest{
+	_, err = env.deliveryClient.NackDelivery(eventFabricGRPCContext(t, context.Background(), sampleTenantUUID), &eventfabricv1.NackDeliveryRequest{
 		DeliveryId:   "delivery-err",
 		SubscriberId: "svc-sub",
 		Reason:       "exhausted",
@@ -116,10 +119,10 @@ func TestEventSubscriberStream(t *testing.T) {
 		message.EventID: {message},
 	})
 
-	ctx, cancel := context.WithCancel(eventFabricGRPCContext(t, context.Background(), "tenant-corex"))
+	ctx, cancel := context.WithCancel(eventFabricGRPCContext(t, context.Background(), sampleTenantUUID))
 	defer cancel()
 	stream, err := env.subscriberClient.Subscribe(ctx, &eventfabricv1.SubscribeRequest{
-		TenantUuid:        "tenant-corex",
+		TenantUuid:        sampleTenantUUID,
 		SubscriberId:      "svc-sub",
 		BatchSize:         10,
 		CompatibilityMode: eventfabricv1.VersionCompatibilityMode_VERSION_COMPATIBILITY_MODE_BACKWARD,
