@@ -1,8 +1,10 @@
 package config
 
 import (
-	"github.com/ArtisanCloud/PowerX/internal/server/agent/drivers/eino/config"
 	"time"
+
+	einoCfg "github.com/ArtisanCloud/PowerX/internal/server/agent/drivers/eino/config"
+	mcpconfig "github.com/ArtisanCloud/PowerX/internal/server/mcp/config"
 )
 
 const DefaultDriver = "eino"
@@ -30,10 +32,13 @@ type AgentConfig struct {
 	// 选用的驱动名称，空则默认 "eino"
 	Driver string `yaml:"driver" json:"driver"`
 
+	// MCP 配置（可选）。若为空则使用顶层 mcp 块。
+	MCP *mcpconfig.MCPConfig `yaml:"mcp" json:"mcp"`
+
 	// Intent 解析 / prompt 转 plan 所需的上下文（按各驱动解释）
 	IntentRecognizer IntentRecognizer `yaml:"intent_recognizer" json:"intent_recognizer"`
 
-	LLMConfig *config.ModelConfig `yaml:"llm" json:"llm"`
+	LLMConfig *einoCfg.ModelConfig `yaml:"llm" json:"llm"`
 
 	// 额外上下文 metadata（例如 tenant_id, user_id 等）
 	ContextMetadata map[string]interface{} `yaml:"context_metadata" json:"context_metadata"`

@@ -3,6 +3,10 @@ package media
 import (
 	"context"
 	"errors"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -13,6 +17,8 @@ import (
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 
+	"github.com/ArtisanCloud/PowerX/internal/infra/media/driver"
+	mediamgr "github.com/ArtisanCloud/PowerX/internal/infra/media/manager"
 	auditsvc "github.com/ArtisanCloud/PowerX/pkg/corex/audit"
 	coremodel "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model"
 	dbmaudit "github.com/ArtisanCloud/PowerX/pkg/corex/db/persistence/model/audit"
@@ -62,6 +68,18 @@ func (s *stubAssetRepo) FindByUUID(_ context.Context, tenantUUID string, id stri
 	return cloneAsset(asset), nil
 }
 
+func (s *stubAssetRepo) ListByDriverAndStorageKey(_ context.Context, driver, storageKey string) ([]mediamodel.MediaAsset, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	var matches []mediamodel.MediaAsset
+	for _, asset := range s.assets {
+		if asset.Driver == driver && asset.StorageKey == storageKey {
+			matches = append(matches, *cloneAsset(asset))
+		}
+	}
+	return matches, nil
+}
+
 func (s *stubAssetRepo) CreateAsset(_ context.Context, asset *mediamodel.MediaAsset) (*mediamodel.MediaAsset, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -93,6 +111,19 @@ func (s *stubAssetRepo) SoftDeleteByUUID(_ context.Context, tenantUUID string, i
 	}
 	asset.DeletedAt = gorm.DeletedAt{Valid: true, Time: time.Now()}
 	return nil
+}
+
+func (s *stubAssetRepo) FindByUUIDGlobal(_ context.Context, id string, includeDeleted bool) (*mediamodel.MediaAsset, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	asset, ok := s.assets[id]
+	if !ok {
+		return nil, gorm.ErrRecordNotFound
+	}
+	if !includeDeleted && asset.DeletedAt.Valid {
+		return nil, gorm.ErrRecordNotFound
+	}
+	return cloneAsset(asset), nil
 }
 
 type stubAuditService struct {
@@ -153,6 +184,21 @@ func TestCreateAsset_TenantRequired(t *testing.T) {
 	assert.Equal(t, 0, repo.createCalls)
 }
 
+func TestCreateAsset_ObjectKeyMustBeUUID(t *testing.T) {
+	repo := newStubAssetRepo()
+	audit := &stubAuditService{}
+	svc := NewMediaService(nil, repo, nil, audit, 12*time.Hour)
+
+	_, err := svc.CreateAsset(context.Background(), CreateAssetInput{
+		TenantUUID: mediaTenantUUID,
+		Name:       "demo",
+		Driver:     "local",
+		StorageKey: "not-a-uuid",
+	})
+	require.ErrorIs(t, err, ErrObjectKeyMustBeUUID)
+	assert.Equal(t, 0, repo.createCalls)
+}
+
 func TestDeleteAsset_EmitAudit(t *testing.T) {
 	repo := newStubAssetRepo()
 	assetID := uuid.New().String()
@@ -171,6 +217,103 @@ func TestDeleteAsset_EmitAudit(t *testing.T) {
 	assert.Equal(t, "media.asset.delete", ops[0])
 }
 
+func TestMediaService_SyncUploadedFileMetadata(t *testing.T) {
+	repo := newStubAssetRepo()
+	assetID := uuid.New().String()
+	repo.assets[assetID] = &mediamodel.MediaAsset{
+		PowerUUIDModel: coremodel.PowerUUIDModel{UUID: uuid.MustParse(assetID)},
+		TenantUUID:     mediaTenantUUID,
+		Driver:         "local",
+		StorageKey:     "uploads/demo.png",
+	}
+	svc := NewMediaService(nil, repo, nil, &stubAuditService{}, 12*time.Hour)
+
+	err := svc.SyncUploadedFileMetadata(context.Background(), "local", "uploads/demo.png", 4096, "image/png")
+	require.NoError(t, err)
+
+	asset := repo.assets[assetID]
+	assert.Equal(t, int64(4096), asset.SizeBytes)
+	assert.Equal(t, "image/png", asset.MimeType)
+}
+
+func TestMediaService_PopulateExternalLinkMetadata(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodHead:
+			w.Header().Set("Content-Length", "2048")
+			w.Header().Set("Content-Type", "image/png; charset=utf-8")
+			w.WriteHeader(http.StatusOK)
+		case http.MethodGet:
+			w.Header().Set("Content-Length", "2048")
+			w.Header().Set("Content-Type", "image/png")
+			w.Write([]byte{0x89, 'P', 'N', 'G'})
+		default:
+			w.WriteHeader(http.StatusMethodNotAllowed)
+		}
+	}))
+	defer server.Close()
+
+	repo := newStubAssetRepo()
+	svc := NewMediaService(nil, repo, nil, &stubAuditService{}, 12*time.Hour)
+	input := CreateAssetInput{
+		ExternalURL: server.URL + "/banner.png",
+	}
+
+	err := svc.populateExternalLinkMetadata(context.Background(), &input)
+	require.NoError(t, err)
+	assert.Equal(t, int64(2048), input.SizeBytes)
+	assert.Equal(t, "image/png", input.MimeType)
+}
+
+func TestMediaService_OpenAssetResource_LocalObject(t *testing.T) {
+	repo := newStubAssetRepo()
+	assetID := uuid.New().String()
+	repo.assets[assetID] = &mediamodel.MediaAsset{
+		PowerUUIDModel: coremodel.PowerUUIDModel{UUID: uuid.MustParse(assetID)},
+		TenantUUID:     mediaTenantUUID,
+		Driver:         "local",
+		StorageKey:     "demo/file.png",
+	}
+	manager := mediamgr.New("local")
+	manager.RegisterDriver(&stubStorageDriver{
+		name: "local",
+		getResult: &driver.GetObjectResult{
+			ContentType: "image/png",
+			Size:        4,
+			Body:        io.NopCloser(strings.NewReader("data")),
+		},
+	})
+	svc := NewMediaService(nil, repo, manager, &stubAuditService{}, 12*time.Hour)
+
+	asset, object, err := svc.OpenAssetResource(context.Background(), mediaTenantUUID, assetID)
+	require.NoError(t, err)
+	require.NotNil(t, asset)
+	require.NotNil(t, object)
+	assert.Equal(t, "demo/file.png", asset.StorageKey)
+	assert.Equal(t, int64(4), object.Size)
+}
+
+func TestMediaService_OpenAssetResource_ExternalLink(t *testing.T) {
+	repo := newStubAssetRepo()
+	assetID := uuid.New().String()
+	repo.assets[assetID] = &mediamodel.MediaAsset{
+		PowerUUIDModel: coremodel.PowerUUIDModel{UUID: uuid.MustParse(assetID)},
+		TenantUUID:     mediaTenantUUID,
+		Driver:         "local",
+		StorageKey:     "",
+		Meta:           datatypes.JSON([]byte(`{"external_url":"https://example.com/file.png"}`)),
+	}
+	manager := mediamgr.New("local")
+	manager.RegisterDriver(&stubStorageDriver{name: "local"})
+	svc := NewMediaService(nil, repo, manager, &stubAuditService{}, 12*time.Hour)
+
+	asset, object, err := svc.OpenAssetResource(context.Background(), mediaTenantUUID, assetID)
+	require.NoError(t, err)
+	require.NotNil(t, asset)
+	assert.Equal(t, "https://example.com/file.png", asset.ExternalURL)
+	assert.Nil(t, object)
+}
+
 func cloneAsset(src *mediamodel.MediaAsset) *mediamodel.MediaAsset {
 	if src == nil {
 		return nil
@@ -183,3 +326,39 @@ func cloneAsset(src *mediamodel.MediaAsset) *mediamodel.MediaAsset {
 
 var _ assetRepository = (*stubAssetRepo)(nil)
 var _ auditsvc.Service = (*stubAuditService)(nil)
+
+type stubStorageDriver struct {
+	name      string
+	getResult *driver.GetObjectResult
+	getErr    error
+}
+
+func (s *stubStorageDriver) Name() string {
+	if strings.TrimSpace(s.name) == "" {
+		return "local"
+	}
+	return s.name
+}
+
+func (s *stubStorageDriver) Put(ctx context.Context, in driver.PutObjectInput) (*driver.PutObjectResult, error) {
+	return nil, driver.ErrUnsupported
+}
+
+func (s *stubStorageDriver) Get(ctx context.Context, in driver.GetObjectInput) (*driver.GetObjectResult, error) {
+	if s.getResult == nil {
+		return nil, s.getErr
+	}
+	return s.getResult, s.getErr
+}
+
+func (s *stubStorageDriver) Delete(ctx context.Context, in driver.DeleteObjectInput) error {
+	return driver.ErrUnsupported
+}
+
+func (s *stubStorageDriver) GenerateURL(ctx context.Context, in driver.GenerateURLInput) (*driver.GenerateURLOutput, error) {
+	return nil, driver.ErrUnsupported
+}
+
+func (s *stubStorageDriver) HealthCheck(ctx context.Context) error {
+	return nil
+}

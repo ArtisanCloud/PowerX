@@ -41,6 +41,9 @@
 </template>
 
 <script setup lang="ts">
+import { computed, watch } from "vue";
+import { useColorMode } from "#imports";
+
 const colorMode = useColorMode();
 const isDark = computed(() => colorMode.value === "dark");
 

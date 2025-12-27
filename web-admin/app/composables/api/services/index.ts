@@ -23,3 +23,15 @@ export type {
   ChatRequest,
   ChatResponse,
 } from "./agentService";
+
+export {
+  CapabilityRegistryService,
+} from "./capabilityRegistryService";
+export type {
+  CapabilityRecord,
+  CapabilityListParams,
+  CapabilityListResult,
+  CapabilitySyncJob,
+  CapabilitySyncJobParams,
+  CapabilitySyncJobResult,
+} from "./capabilityRegistryService";

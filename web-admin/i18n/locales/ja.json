@@ -85,6 +85,10 @@
       "new": "新着"
     },
     "aiSettings": "モデル設定",
+    "aiSettingsModel": "モデル構成",
+    "aiSettingsCost": "コスト設定",
+    "aiSettingsRegistry": "能力レジストリ",
+    "openCapabilities": "プラットフォーム能力",
     "workflow": "ワークフロー",
     "knowledgeSpace": "ナレッジスペース",
     "pluginMarketplace": "マーケット",
@@ -625,6 +629,142 @@
       }
     },
     "confirmDelete": "このエージェントを削除してもよろしいですか？この操作は元に戻せません。"
+  },
+  "settings": {
+    "ai": {
+      "title": "AI 設定",
+      "description": "プロバイダーとモデル、パラメーターを構成します。",
+      "environment": "環境",
+      "modalityTabsLabel": "モダリティ",
+      "sections": {
+        "general": "基本設定",
+        "parameters": "パラメーター"
+      },
+      "actions": {
+        "openCostGuard": "コスト防御",
+        "backToModels": "モデル一覧へ戻る",
+        "openCapabilityRegistry": "能力レジストリ"
+      },
+      "costGuardPageTitle": "コスト防御",
+      "costGuardPageDesc": "AI 利用のクォータやスロットルを設定します。",
+      "costGuard": {
+        "panelTitle": "防御ポリシー",
+        "panelDesc": "クォータ・制限・フォールバックを設定します。",
+        "tenantLabel": "テナント",
+        "tenantPlaceholder": "テナントを選択",
+        "refresh": "更新",
+        "openDashboard": "ダッシュボード",
+        "lastUpdated": "最終更新",
+        "emptyTitle": "データなし",
+        "emptyDesc": "ポリシーを追加してください。",
+        "playbookTitle": "プレイブック",
+        "playbooks": {
+          "throttle": { "title": "スロットル", "desc": "予算逼迫時にリクエストを制限。" },
+          "degrade": { "title": "段階的縮小", "desc": "低コストモデルへ切替。" },
+          "disable": { "title": "停止", "desc": "予算超過時に停止。" }
+        },
+        "defaultTenants": {
+          "demo": "デモ",
+          "ops": "運用"
+        }
+      },
+      "registryPageTitle": "能力レジストリ",
+      "registryPageDesc": "プラグイン能力のハッシュと同期状況を確認します（root のみ）。",
+      "registry": {
+        "filters": {
+          "searchPlaceholder": "能力 ID / タイトル / Intent を検索",
+          "pluginPlaceholder": "プラグイン ID",
+          "statusAll": "すべての状態",
+          "protocolAll": "すべてのプロトコル",
+          "sourcePlugin": "プラグイン能力",
+          "sourcePlatform": "プラットフォーム能力",
+          "sourceAll": "すべてのソース",
+          "apply": "フィルター適用",
+          "reset": "リセット"
+        },
+        "columns": {
+          "capability": "能力",
+          "plugin": "プラグイン",
+          "policy": "ポリシー",
+          "protocols": "チャネル",
+          "hash": "ハッシュ",
+          "publishedAt": "公開 / 同期"
+        },
+        "summary": "合計 {total} 件",
+        "manualUpgrade": "手動アップグレードが必要",
+        "empty": "能力レコードがありません",
+        "noAccess": {
+          "title": "Root 専用",
+          "description": "能力レジストリは root アカウントのみ閲覧できます。"
+        },
+        "syncJobs": {
+          "title": "最新の同期ジョブ",
+          "empty": "同期ジョブがありません",
+          "more": "直近 {count} 件のみ表示",
+          "status": {
+            "pending": "保留",
+            "running": "実行中",
+            "succeeded": "成功",
+            "failed": "失敗"
+          }
+        },
+        "toast": {
+          "loadFailed": "レジストリの読み込みに失敗しました",
+          "jobsFailed": "同期ジョブの取得に失敗しました"
+        }
+      }
+    },
+    "openCapabilities": {
+      "title": "プラットフォーム能力",
+      "description": "CoreX プラットフォームのモジュール・プロトコル・デバッグ入口を確認します。",
+      "actions": {
+        "refresh": "データを更新",
+        "syncNow": "今すぐ同期",
+        "copyCurl": "cURL をコピー",
+        "copyInsomnia": "Insomnia をコピー",
+        "openDoc": "ドキュメントを開く",
+        "openMediaEntry": "Media API へ"
+      },
+      "noAccess": {
+        "title": "Root 権限が必要です",
+        "description": "Root 管理者のみがプラットフォーム能力の詳細を閲覧できます。"
+      },
+      "summary": {
+        "modules": "モジュール: {count}",
+        "capabilities": "能力: {count}",
+        "generatedAt": "スナップショット: {time}",
+        "lastLoadedAt": "最終更新: {time}"
+      },
+      "filters": {
+        "searchPlaceholder": "能力 ID・タイトル・説明で検索",
+        "reset": "フィルターをクリア",
+        "moduleAll": "すべてのモジュール",
+        "protocolAll": "すべてのプロトコル"
+      },
+      "empty": {
+        "title": "プラットフォーム能力がありません",
+        "description": "CoreX プラットフォーム能力がまだ登録されていないか、同期中です。",
+        "filtered": "条件に一致する能力がありません"
+      },
+      "loading": "プラットフォーム能力を読み込んでいます...",
+      "defaultModuleDescription": "ホスト / スケルトン プラグインが共有する CoreX 標準能力です。",
+      "status": {
+        "active": "稼働中",
+        "degraded": "劣化",
+        "offline": "停止"
+      },
+      "labels": {
+        "preferred": "推奨プロトコル",
+        "hash": "ハッシュ",
+        "plugin": "提供プラグイン",
+        "payloadSample": "ペイロード例"
+      },
+      "toast": {
+        "loadFailed": "プラットフォーム能力を読み込めませんでした",
+        "copySuccess": "クリップボードにコピーしました",
+        "copyFailed": "コピーに失敗しました"
+      }
+    }
   },
   "env": {
     "title": "環境設定",

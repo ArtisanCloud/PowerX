@@ -1,12 +1,14 @@
 {
   "menu": {
     "openMarket": "Open Market",
+    "openCapabilities": "Platform Capabilities",
     "pluginMarketplace": "Plugin Marketplace",
     "pluginReleaseCandidates": "Release Candidates",
     "agent": "Agent",
     "aiSettings": "AI Settings",
     "aiSettingsModel": "Model Settings",
     "aiSettingsCost": "Cost Settings",
+    "aiSettingsRegistry": "Capability Registry",
     "badge": "Badge",
     "customers": "Customers",
     "customerList": "Customer List",
@@ -145,10 +147,13 @@
       },
       "actions": {
         "openCostGuard": "Open Cost Guard",
-        "backToModels": "Back to models"
+        "backToModels": "Back to models",
+        "openCapabilityRegistry": "Capability Registry"
       },
       "costGuardPageTitle": "Cost Guard",
       "costGuardPageDesc": "Manage quota and throttling for AI usage.",
+      "registryPageTitle": "Capability Registry",
+      "registryPageDesc": "Review plugin capabilities, hashes and sync jobs (root only).",
       "costGuard": {
         "panelTitle": "Cost guard policies",
         "panelDesc": "Configure quotas, throttles and fallbacks.",
@@ -178,6 +183,100 @@
           "demo": "Demo",
           "ops": "Ops"
         }
+      },
+      "registry": {
+        "filters": {
+          "searchPlaceholder": "Search capability ID, title or intent",
+          "pluginPlaceholder": "Plugin ID",
+          "statusAll": "All statuses",
+          "protocolAll": "All protocols",
+          "sourcePlugin": "Plugin capabilities",
+          "sourcePlatform": "Platform capabilities",
+          "sourceAll": "All sources",
+          "apply": "Apply filters",
+          "reset": "Reset"
+        },
+        "columns": {
+          "capability": "Capability",
+          "plugin": "Plugin",
+          "policy": "Policy",
+          "protocols": "Channels",
+          "hash": "Hashes",
+          "publishedAt": "Published / synced"
+        },
+        "summary": "{total} records",
+        "manualUpgrade": "Manual upgrade required",
+        "empty": "No capability records yet",
+        "noAccess": {
+          "title": "Root access required",
+          "description": "Only root users can view the capability registry. Please sign in with a root account."
+        },
+        "syncJobs": {
+          "title": "Recent sync jobs",
+          "empty": "No sync jobs recorded",
+          "more": "Showing latest {count} jobs",
+          "status": {
+            "pending": "Pending",
+            "running": "Running",
+            "succeeded": "Succeeded",
+            "failed": "Failed"
+          }
+        },
+        "toast": {
+          "loadFailed": "Failed to load registry",
+          "jobsFailed": "Failed to load sync jobs"
+        }
+      }
+    },
+    "openCapabilities": {
+      "title": "Platform Capabilities",
+      "description": "Inspect CoreX platform modules, protocols, and debugging entry points.",
+      "actions": {
+        "refresh": "Refresh data",
+        "syncNow": "Sync now",
+        "copyCurl": "Copy cURL",
+        "copyInsomnia": "Copy Insomnia",
+        "openDoc": "Open docs",
+        "openMediaEntry": "Open Media API"
+      },
+      "noAccess": {
+        "title": "Root access required",
+        "description": "Only root administrators can view platform capability details."
+      },
+      "summary": {
+        "modules": "Modules: {count}",
+        "capabilities": "Capabilities: {count}",
+        "generatedAt": "Snapshot: {time}",
+        "lastLoadedAt": "Last refresh: {time}"
+      },
+      "filters": {
+        "searchPlaceholder": "Search capability ID, title, or description",
+        "reset": "Clear filters",
+        "moduleAll": "All modules",
+        "protocolAll": "All protocols"
+      },
+      "empty": {
+        "title": "No platform capabilities yet",
+        "description": "CoreX platform capabilities are not available yet or the registry snapshot is still syncing.",
+        "filtered": "No capability matches the current filters"
+      },
+      "loading": "Loading platform capabilities...",
+      "defaultModuleDescription": "CoreX built-in capabilities shared with host and skeleton plugins.",
+      "status": {
+        "active": "Active",
+        "degraded": "Degraded",
+        "offline": "Offline"
+      },
+      "labels": {
+        "preferred": "Preferred protocol",
+        "hash": "Capability hash",
+        "plugin": "Source plugin",
+        "payloadSample": "Sample payload"
+      },
+      "toast": {
+        "loadFailed": "Failed to load platform capabilities",
+        "copySuccess": "Snippet copied to clipboard",
+        "copyFailed": "Copy failed"
       }
     }
   },

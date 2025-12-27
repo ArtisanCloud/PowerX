@@ -3,6 +3,7 @@ package bootstrap
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"strings"
 	"time"
@@ -57,6 +58,21 @@ func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error)
 		return nil, err
 	}
 
+	queueRedisAddr := strings.TrimSpace(cfg.Queue.Redis.Addr)
+	if queueRedisAddr == "" {
+		queueRedisAddr = fmt.Sprintf("%s:%d", strings.TrimSpace(cfg.Cache.Host), cfg.Cache.Port)
+	}
+	queueRedisPassword := strings.TrimSpace(cfg.Queue.Redis.Password)
+	if queueRedisPassword == "" {
+		queueRedisPassword = cfg.Cache.Password
+	}
+	queueRedisDB := cfg.Queue.Redis.DB
+
+	globalSchedulerInterval := cfg.Scheduler.IntervalSeconds
+	if globalSchedulerInterval <= 0 {
+		globalSchedulerInterval = 5
+	}
+
 	// 加载 AI Catalog 配置
 	if err := catalog.InitFromAppConfig(cfg.AI.Catalog, nil); err != nil {
 		return nil, err
@@ -72,7 +88,8 @@ func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error)
 	}
 
 	// 初始化事件总线（EventBus）
-	err = event_bus.InitEventBus()
+	eventBusCfg := buildEventBusConfig(cfg, queueRedisAddr, queueRedisPassword, queueRedisDB)
+	err = event_bus.InitEventBus(eventBusCfg)
 	if err != nil {
 		logger.ErrorF(ctx, "初始化事件总线失败: %s", err.Error())
 	}
@@ -81,12 +98,54 @@ func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error)
 	accessTTL, _ := time.ParseDuration(cfg.Auth.AccessTTLStr)
 	refreshTTL, _ := time.ParseDuration(cfg.Auth.RefreshTTLStr)
 	localTokenSecret := strings.TrimSpace(cfg.Storage.Local.UploadTokenSecret)
-	if cfg.Storage.Local.EnableUploadEndpoint && localTokenSecret == "" {
-		logger.WarnF(ctx, "storage.local.enable_upload_endpoint 已启用，但未配置 upload_token_secret，上传端点将在路由层被禁用")
+	if localTokenSecret == "" {
+		logger.WarnF(ctx, "storage.local.upload_token_secret 未配置，本地上传端点将跳过 Token 校验，不建议在生产环境使用")
 	}
 	maxUploadSize := cfg.Storage.Local.MaxUploadSizeBytes
 	if maxUploadSize < 0 {
 		maxUploadSize = 0
+	}
+
+	eventRedisAddr := strings.TrimSpace(cfg.Event.Fabric.RedisAddr)
+	if eventRedisAddr == "" {
+		eventRedisAddr = queueRedisAddr
+	}
+	eventRedisPassword := strings.TrimSpace(cfg.Event.Fabric.RedisPassword)
+	if eventRedisPassword == "" {
+		eventRedisPassword = queueRedisPassword
+	}
+	eventRedisDB := cfg.Event.Fabric.RedisDB
+	if eventRedisDB == 0 {
+		eventRedisDB = queueRedisDB
+	}
+	schedulerInterval := cfg.Event.Fabric.SchedulerInterval
+	if schedulerInterval <= 0 {
+		schedulerInterval = globalSchedulerInterval
+	}
+	authRedisAddr := strings.TrimSpace(cfg.Event.Fabric.Authorization.RedisAddr)
+	if authRedisAddr == "" {
+		authRedisAddr = eventRedisAddr
+	}
+	authRedisPassword := strings.TrimSpace(cfg.Event.Fabric.Authorization.RedisPassword)
+	if authRedisPassword == "" {
+		authRedisPassword = eventRedisPassword
+	}
+	authRedisDB := cfg.Event.Fabric.Authorization.RedisDB
+	if authRedisDB == 0 {
+		authRedisDB = eventRedisDB
+	}
+
+	knowledgeRedisAddr := strings.TrimSpace(cfg.KnowledgeSpace.RedisAddr)
+	if knowledgeRedisAddr == "" {
+		knowledgeRedisAddr = queueRedisAddr
+	}
+	knowledgeRedisPassword := strings.TrimSpace(cfg.KnowledgeSpace.RedisPassword)
+	if knowledgeRedisPassword == "" {
+		knowledgeRedisPassword = queueRedisPassword
+	}
+	knowledgeRedisDB := cfg.KnowledgeSpace.RedisDB
+	if knowledgeRedisDB == 0 {
+		knowledgeRedisDB = queueRedisDB
 	}
 
 	opts := &shared.DepsOptions{
@@ -113,11 +172,10 @@ func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error)
 			DefaultDriver: cfg.Storage.DefaultDriver,
 			TTLSeconds:    cfg.Storage.TTLSeconds,
 			Local: mediasvc.StorageLocalOptions{
-				BasePath:             cfg.Storage.Local.BasePath,
-				PublicBaseURL:        cfg.Storage.Local.PublicBaseURL,
-				EnableUploadEndpoint: cfg.Storage.Local.EnableUploadEndpoint,
-				UploadTokenSecret:    localTokenSecret,
-				MaxUploadSizeBytes:   maxUploadSize,
+				BasePath:           cfg.Storage.Local.BasePath,
+				PublicBaseURL:      cfg.Storage.Local.PublicBaseURL,
+				UploadTokenSecret:  localTokenSecret,
+				MaxUploadSizeBytes: maxUploadSize,
 			},
 			S3: mediasvc.StorageS3Options{
 				Endpoint:        cfg.Storage.S3.Endpoint,
@@ -133,51 +191,51 @@ func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error)
 			},
 		},
 		EventFabric: shared.EventFabricOptions{
-			AckTimeoutSeconds: cfg.EventFabric.AckTimeoutSeconds,
-			DefaultMaxRetry:   cfg.EventFabric.DefaultMaxRetry,
-			RedisAddr:         cfg.EventFabric.RedisAddr,
-			RedisPassword:     cfg.EventFabric.RedisPassword,
-			RedisDB:           cfg.EventFabric.RedisDB,
-			RetryKeyPrefix:    cfg.EventFabric.RetryKeyPrefix,
-			ReplayKeyPrefix:   cfg.EventFabric.ReplayKeyPrefix,
-			SchedulerInterval: cfg.EventFabric.SchedulerInterval,
+			AckTimeoutSeconds: cfg.Event.Fabric.AckTimeoutSeconds,
+			DefaultMaxRetry:   cfg.Event.Fabric.DefaultMaxRetry,
+			RedisAddr:         eventRedisAddr,
+			RedisPassword:     eventRedisPassword,
+			RedisDB:           eventRedisDB,
+			RetryKeyPrefix:    cfg.Event.Fabric.RetryKeyPrefix,
+			ReplayKeyPrefix:   cfg.Event.Fabric.ReplayKeyPrefix,
+			SchedulerInterval: schedulerInterval,
 			Security: security.Config{
-				RequireTLS:           cfg.EventFabric.Security.RequireTLS,
-				SignatureSecret:      cfg.EventFabric.Security.SignatureSecret,
-				SignatureHeader:      cfg.EventFabric.Security.SignatureHeader,
-				TimestampHeader:      cfg.EventFabric.Security.TimestampHeader,
-				SignatureKeyID:       cfg.EventFabric.Security.SignatureKeyID,
-				AllowedClockSkew:     time.Duration(cfg.EventFabric.Security.AllowedClockSkewSeconds) * time.Second,
-				ProtectedGRPCService: "/corex.event_fabric.v1.",
+				RequireTLS:           cfg.Event.Fabric.Security.RequireTLS,
+				SignatureSecret:      cfg.Event.Fabric.Security.SignatureSecret,
+				SignatureHeader:      cfg.Event.Fabric.Security.SignatureHeader,
+				TimestampHeader:      cfg.Event.Fabric.Security.TimestampHeader,
+				SignatureKeyID:       cfg.Event.Fabric.Security.SignatureKeyID,
+				AllowedClockSkew:     time.Duration(cfg.Event.Fabric.Security.AllowedClockSkewSeconds) * time.Second,
+				ProtectedGRPCService: "/powerx.event_fabric.v1.",
 				Sandbox: security.SandboxConfig{
-					Enforce:              cfg.EventFabric.Security.Sandbox.Enforce,
-					AllowedOutboundHosts: cfg.EventFabric.Security.Sandbox.AllowedOutboundHosts,
-					BlockedHTTPPaths:     cfg.EventFabric.Security.Sandbox.BlockedHTTPPaths,
-					BlockedGRPCMethods:   cfg.EventFabric.Security.Sandbox.BlockedGRPCMethods,
-					ForbiddenHeaders:     cfg.EventFabric.Security.Sandbox.ForbiddenHeaders,
+					Enforce:              cfg.Event.Fabric.Security.Sandbox.Enforce,
+					AllowedOutboundHosts: cfg.Event.Fabric.Security.Sandbox.AllowedOutboundHosts,
+					BlockedHTTPPaths:     cfg.Event.Fabric.Security.Sandbox.BlockedHTTPPaths,
+					BlockedGRPCMethods:   cfg.Event.Fabric.Security.Sandbox.BlockedGRPCMethods,
+					ForbiddenHeaders:     cfg.Event.Fabric.Security.Sandbox.ForbiddenHeaders,
 				},
 			},
 			Authorization: shared.EventFabricAuthorizationOptions{
-				CacheTTLSeconds:             cfg.EventFabric.Authorization.CacheTTLSeconds,
-				LocalCacheTTLSeconds:        cfg.EventFabric.Authorization.LocalCacheTTLSeconds,
-				RedisAddr:                   cfg.EventFabric.Authorization.RedisAddr,
-				RedisPassword:               cfg.EventFabric.Authorization.RedisPassword,
-				RedisDB:                     cfg.EventFabric.Authorization.RedisDB,
-				CacheInvalidateChannel:      cfg.EventFabric.Authorization.CacheInvalidateChannel,
-				ChallengeSLASeconds:         cfg.EventFabric.Authorization.ChallengeSLASeconds,
-				ChallengeTopic:              cfg.EventFabric.Authorization.ChallengeTopic,
-				ChallengeConsumerGroup:      cfg.EventFabric.Authorization.ChallengeConsumerGroup,
-				AlertTopic:                  cfg.EventFabric.Authorization.AlertTopic,
-				RateLimitPrefix:             cfg.EventFabric.Authorization.RateLimitPrefix,
-				TimeoutSweepIntervalSeconds: cfg.EventFabric.Authorization.TimeoutSweepIntervalSeconds,
-				AuditRetentionDays:          cfg.EventFabric.Authorization.AuditRetentionDays,
-				AuditArchiveBucket:          cfg.EventFabric.Authorization.AuditArchiveBucket,
-				AuditArchivePrefix:          cfg.EventFabric.Authorization.AuditArchivePrefix,
+				CacheTTLSeconds:             cfg.Event.Fabric.Authorization.CacheTTLSeconds,
+				LocalCacheTTLSeconds:        cfg.Event.Fabric.Authorization.LocalCacheTTLSeconds,
+				RedisAddr:                   authRedisAddr,
+				RedisPassword:               authRedisPassword,
+				RedisDB:                     authRedisDB,
+				CacheInvalidateChannel:      cfg.Event.Fabric.Authorization.CacheInvalidateChannel,
+				ChallengeSLASeconds:         cfg.Event.Fabric.Authorization.ChallengeSLASeconds,
+				ChallengeTopic:              cfg.Event.Fabric.Authorization.ChallengeTopic,
+				ChallengeConsumerGroup:      cfg.Event.Fabric.Authorization.ChallengeConsumerGroup,
+				AlertTopic:                  cfg.Event.Fabric.Authorization.AlertTopic,
+				RateLimitPrefix:             cfg.Event.Fabric.Authorization.RateLimitPrefix,
+				TimeoutSweepIntervalSeconds: cfg.Event.Fabric.Authorization.TimeoutSweepIntervalSeconds,
+				AuditRetentionDays:          cfg.Event.Fabric.Authorization.AuditRetentionDays,
+				AuditArchiveBucket:          cfg.Event.Fabric.Authorization.AuditArchiveBucket,
+				AuditArchivePrefix:          cfg.Event.Fabric.Authorization.AuditArchivePrefix,
 				Secrets: shared.EventFabricAuthorizationSecretsOptions{
-					Provider:                cfg.EventFabric.Authorization.Secrets.Provider,
-					KeyID:                   cfg.EventFabric.Authorization.Secrets.KeyID,
-					RotationIntervalSeconds: cfg.EventFabric.Authorization.Secrets.RotationIntervalSeconds,
-					CacheTTLSeconds:         cfg.EventFabric.Authorization.Secrets.CacheTTLSeconds,
+					Provider:                cfg.Event.Fabric.Authorization.Secrets.Provider,
+					KeyID:                   cfg.Event.Fabric.Authorization.Secrets.KeyID,
+					RotationIntervalSeconds: cfg.Event.Fabric.Authorization.Secrets.RotationIntervalSeconds,
+					CacheTTLSeconds:         cfg.Event.Fabric.Authorization.Secrets.CacheTTLSeconds,
 				},
 			},
 		},
@@ -197,6 +255,14 @@ func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error)
 				Updated:             cfg.IntegrationGateway.EventTopics.Updated,
 				InvocationSucceeded: cfg.IntegrationGateway.EventTopics.InvocationSucceeded,
 				InvocationFailed:    cfg.IntegrationGateway.EventTopics.InvocationFailed,
+			},
+		},
+		CapabilityRegistry: shared.CapabilityRegistryOptions{
+			Notifications: shared.CapabilityRegistryNotificationOptions{
+				IMWebhook:        cfg.CapabilityRegistry.Notifications.IMWebhook,
+				RetryInterval:    time.Duration(cfg.CapabilityRegistry.Notifications.RetryIntervalSec) * time.Second,
+				RetryMaxAttempts: cfg.CapabilityRegistry.Notifications.RetryMaxAttempts,
+				HTTPTimeout:      time.Duration(cfg.CapabilityRegistry.Notifications.HTTPTimeoutSec) * time.Second,
 			},
 		},
 		AgentLifecycle: shared.AgentLifecycleOptions{
@@ -223,9 +289,9 @@ func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error)
 			},
 		},
 		KnowledgeSpace: shared.KnowledgeSpaceOptions{
-			RedisAddr:              cfg.KnowledgeSpace.RedisAddr,
-			RedisPassword:          cfg.KnowledgeSpace.RedisPassword,
-			RedisDB:                cfg.KnowledgeSpace.RedisDB,
+			RedisAddr:              knowledgeRedisAddr,
+			RedisPassword:          knowledgeRedisPassword,
+			RedisDB:                knowledgeRedisDB,
 			LockKeyPrefix:          cfg.KnowledgeSpace.LockKeyPrefix,
 			MetricsKeyPrefix:       cfg.KnowledgeSpace.MetricsKeyPrefix,
 			DefaultRetentionMonths: cfg.KnowledgeSpace.DefaultRetentionMonths,
@@ -302,89 +368,95 @@ func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error)
 		},
 		PluginRelease: shared.PluginReleaseOptions{
 			FeatureFlags: shared.PluginReleaseFeatureFlagsOptions{
-				EnableLocalInstall:        cfg.PluginRelease.FeatureFlags.EnableLocalInstall,
-				EnablePipelineDeployment:  cfg.PluginRelease.FeatureFlags.EnablePipelineDeployment,
-				EnableOfflineDistribution: cfg.PluginRelease.FeatureFlags.EnableOfflineDistribution,
+				EnableLocalInstall:        cfg.Plugin.Release.FeatureFlags.EnableLocalInstall,
+				EnablePipelineDeployment:  cfg.Plugin.Release.FeatureFlags.EnablePipelineDeployment,
+				EnableOfflineDistribution: cfg.Plugin.Release.FeatureFlags.EnableOfflineDistribution,
 			},
 			LocalInstall: shared.PluginReleaseLocalInstallOptions{
-				SessionTTL:        time.Duration(cfg.PluginRelease.LocalInstall.SessionTTLMinutes) * time.Minute,
-				MaxArtifactSizeMB: cfg.PluginRelease.LocalInstall.MaxArtifactSizeMB,
+				SessionTTL:        time.Duration(cfg.Plugin.Release.LocalInstall.SessionTTLMinutes) * time.Minute,
+				MaxArtifactSizeMB: cfg.Plugin.Release.LocalInstall.MaxArtifactSizeMB,
 			},
 			Pipeline: shared.PluginReleasePipelineOptions{
-				ApprovalSLA:           time.Duration(cfg.PluginRelease.Pipeline.ApprovalSLAHours) * time.Hour,
-				MaxParallelReleases:   cfg.PluginRelease.Pipeline.MaxParallelReleases,
-				DefaultRollbackNotice: time.Duration(cfg.PluginRelease.Pipeline.DefaultRollbackNotice) * time.Minute,
+				ApprovalSLA:           time.Duration(cfg.Plugin.Release.Pipeline.ApprovalSLAHours) * time.Hour,
+				MaxParallelReleases:   cfg.Plugin.Release.Pipeline.MaxParallelReleases,
+				DefaultRollbackNotice: time.Duration(cfg.Plugin.Release.Pipeline.DefaultRollbackNotice) * time.Minute,
 			},
 			Canary: shared.PluginReleaseCanaryOptions{
-				RollbackTimeout:  time.Duration(cfg.PluginRelease.Canary.RollbackTimeoutSeconds) * time.Second,
-				DefaultBatchSize: cfg.PluginRelease.Canary.DefaultBatchSize,
-				MaxBatches:       cfg.PluginRelease.Canary.MaxBatches,
+				RollbackTimeout:  time.Duration(cfg.Plugin.Release.Canary.RollbackTimeoutSeconds) * time.Second,
+				DefaultBatchSize: cfg.Plugin.Release.Canary.DefaultBatchSize,
+				MaxBatches:       cfg.Plugin.Release.Canary.MaxBatches,
 			},
 			Distribution: shared.PluginReleaseDistributionOptions{
-				OfflineBucket:       cfg.PluginRelease.Distribution.OfflineBucket,
-				OfflinePrefix:       cfg.PluginRelease.Distribution.OfflinePrefix,
-				EscalationThreshold: cfg.PluginRelease.Distribution.EscalationThreshold,
-				ArtifactRetention:   time.Duration(cfg.PluginRelease.Distribution.ArtifactRetentionDays) * 24 * time.Hour,
+				OfflineBucket:       cfg.Plugin.Release.Distribution.OfflineBucket,
+				OfflinePrefix:       cfg.Plugin.Release.Distribution.OfflinePrefix,
+				EscalationThreshold: cfg.Plugin.Release.Distribution.EscalationThreshold,
+				ArtifactRetention:   time.Duration(cfg.Plugin.Release.Distribution.ArtifactRetentionDays) * 24 * time.Hour,
 			},
 			Observability: shared.PluginReleaseObservabilityOptions{
-				DashboardUID:    cfg.PluginRelease.Observability.DashboardUID,
-				AlertRulePrefix: cfg.PluginRelease.Observability.AlertRulePrefix,
+				DashboardUID:    cfg.Plugin.Release.Observability.DashboardUID,
+				AlertRulePrefix: cfg.Plugin.Release.Observability.AlertRulePrefix,
 				KPITargets: shared.PluginReleaseKPITargetsOptions{
-					CanRollbackWithin: time.Duration(cfg.PluginRelease.Observability.KPITargets.CanRollbackWithinSeconds) * time.Second,
-					HotloadLatencyP95: time.Duration(cfg.PluginRelease.Observability.KPITargets.HotloadLatencyP95Ms) * time.Millisecond,
+					CanRollbackWithin: time.Duration(cfg.Plugin.Release.Observability.KPITargets.CanRollbackWithinSeconds) * time.Second,
+					HotloadLatencyP95: time.Duration(cfg.Plugin.Release.Observability.KPITargets.HotloadLatencyP95Ms) * time.Millisecond,
 				},
 			},
 		},
 		PluginBootstrap: shared.PluginBootstrapOptions{
-			TemplatesPath:   cfg.PluginBootstrap.TemplatesIndex,
-			DefaultTemplate: cfg.PluginBootstrap.DefaultTemplate,
-			AllowHosts:      cfg.PluginBootstrap.AllowlistedHosts,
+			TemplatesPath:   cfg.Plugin.Bootstrap.TemplatesIndex,
+			DefaultTemplate: cfg.Plugin.Bootstrap.DefaultTemplate,
+			AllowHosts:      cfg.Plugin.Bootstrap.AllowlistedHosts,
 		},
 		PluginDebug: shared.PluginDebugOptions{
-			Component: strings.TrimSpace(cfg.PluginDebug.Component),
+			Component: strings.TrimSpace(cfg.Plugin.Debug.Component),
 			HostSimulator: shared.PluginDebugHostOptions{
-				Enabled:     cfg.PluginDebug.HostSimulator.Enabled,
-				FeatureFlag: cfg.PluginDebug.HostSimulator.FeatureFlag,
-				ConfigPath:  cfg.PluginDebug.HostSimulator.ConfigPath,
+				Enabled:     cfg.Plugin.Debug.HostSimulator.Enabled,
+				FeatureFlag: cfg.Plugin.Debug.HostSimulator.FeatureFlag,
+				ConfigPath:  cfg.Plugin.Debug.HostSimulator.ConfigPath,
 			},
 			Reports: shared.PluginDebugReportOptions{
-				TemplatePath:     cfg.PluginDebug.Reports.TemplatePath,
-				MaskingRulesPath: cfg.PluginDebug.Reports.MaskingRules,
-				FallbackLogBase:  cfg.PluginDebug.Reports.FallbackLogBase,
+				TemplatePath:     cfg.Plugin.Debug.Reports.TemplatePath,
+				MaskingRulesPath: cfg.Plugin.Debug.Reports.MaskingRules,
+				FallbackLogBase:  cfg.Plugin.Debug.Reports.FallbackLogBase,
 			},
 			TicketBridge: shared.PluginDebugTicketBridgeOptions{
-				Provider: cfg.PluginDebug.TicketBridge.Provider,
-				Endpoint: cfg.PluginDebug.TicketBridge.Endpoint,
-				Project:  cfg.PluginDebug.TicketBridge.Project,
+				Provider: cfg.Plugin.Debug.TicketBridge.Provider,
+				Endpoint: cfg.Plugin.Debug.TicketBridge.Endpoint,
+				Project:  cfg.Plugin.Debug.TicketBridge.Project,
 			},
 			Sandbox: shared.PluginDebugSandboxOptions{
-				Enabled:       cfg.PluginDebug.Sandbox.Enabled,
-				FeatureFlag:   cfg.PluginDebug.Sandbox.FeatureFlag,
-				DataSuitePath: cfg.PluginDebug.Sandbox.DataSuitePath,
+				Enabled:       cfg.Plugin.Debug.Sandbox.Enabled,
+				FeatureFlag:   cfg.Plugin.Debug.Sandbox.FeatureFlag,
+				DataSuitePath: cfg.Plugin.Debug.Sandbox.DataSuitePath,
+			},
+		},
+		Server: shared.ServerOptions{
+			GRPC: shared.GRPCServerOptions{
+				Host: cfg.Server.GRPC.Host,
+				Port: cfg.Server.GRPC.Port,
 			},
 		},
 		DevHotload: shared.DevHotloadOptions{
 			FeatureFlags: shared.DevHotloadFeatureFlagsOptions{
-				Enabled:          cfg.DevHotload.FeatureFlags.Enabled,
-				GatewayFlag:      cfg.DevHotload.FeatureFlags.GatewayFlag,
-				SessionAuditFlag: cfg.DevHotload.FeatureFlags.SessionAuditFlag,
+				Enabled:          cfg.Plugin.DevHotload.FeatureFlags.Enabled,
+				GatewayFlag:      cfg.Plugin.DevHotload.FeatureFlags.GatewayFlag,
+				SessionAuditFlag: cfg.Plugin.DevHotload.FeatureFlags.SessionAuditFlag,
 			},
 			Sessions: shared.DevHotloadSessionOptions{
-				TTL:             time.Duration(cfg.DevHotload.Sessions.TTLMinutes) * time.Minute,
-				MaxConcurrent:   cfg.DevHotload.Sessions.MaxConcurrentSessions,
-				CleanupInterval: time.Duration(cfg.DevHotload.Sessions.CleanupIntervalSeconds) * time.Second,
+				TTL:             time.Duration(cfg.Plugin.DevHotload.Sessions.TTLMinutes) * time.Minute,
+				MaxConcurrent:   cfg.Plugin.DevHotload.Sessions.MaxConcurrentSessions,
+				CleanupInterval: time.Duration(cfg.Plugin.DevHotload.Sessions.CleanupIntervalSeconds) * time.Second,
 			},
 			Sandbox: shared.DevHotloadSandboxOptions{
-				Image:          cfg.DevHotload.Sandbox.Image,
-				MaxCPUPercent:  cfg.DevHotload.Sandbox.MaxCPUPercent,
-				MaxMemoryMB:    cfg.DevHotload.Sandbox.MaxMemoryMB,
-				WatchFileLimit: cfg.DevHotload.Sandbox.WatchFileLimit,
+				Image:          cfg.Plugin.DevHotload.Sandbox.Image,
+				MaxCPUPercent:  cfg.Plugin.DevHotload.Sandbox.MaxCPUPercent,
+				MaxMemoryMB:    cfg.Plugin.DevHotload.Sandbox.MaxMemoryMB,
+				WatchFileLimit: cfg.Plugin.DevHotload.Sandbox.WatchFileLimit,
 			},
 			Security: shared.DevHotloadSecurityOptions{
-				RequireMTLS:     cfg.DevHotload.Security.RequireMTLS,
-				AllowedSubjects: cfg.DevHotload.Security.AllowedSubjects,
-				PATHeader:       cfg.DevHotload.Security.PATHeader,
-				TokenTTL:        time.Duration(cfg.DevHotload.Security.TokenTTLSeconds) * time.Second,
+				RequireMTLS:     cfg.Plugin.DevHotload.Security.RequireMTLS,
+				AllowedSubjects: cfg.Plugin.DevHotload.Security.AllowedSubjects,
+				PATHeader:       cfg.Plugin.DevHotload.Security.PATHeader,
+				TokenTTL:        time.Duration(cfg.Plugin.DevHotload.Security.TokenTTLSeconds) * time.Second,
 				TokenSecret:     []byte(cfg.Auth.JWTSecret),
 				TokenIssuer:     cfg.Auth.Issuer,
 				TokenAudience:   cfg.Auth.AudienceUser,
@@ -393,9 +465,9 @@ func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error)
 				ImpersonateRoot: true,
 			},
 			Observability: shared.DevHotloadObservabilityOptions{
-				MetricsNamespace: cfg.DevHotload.Observability.MetricsNamespace,
-				SSEBufferSize:    cfg.DevHotload.Observability.SSEBufferSize,
-				AuditTopic:       cfg.DevHotload.Observability.AuditTopic,
+				MetricsNamespace: cfg.Plugin.DevHotload.Observability.MetricsNamespace,
+				SSEBufferSize:    cfg.Plugin.DevHotload.Observability.SSEBufferSize,
+				AuditTopic:       cfg.Plugin.DevHotload.Observability.AuditTopic,
 			},
 		},
 	}
@@ -403,4 +475,31 @@ func BootstrapApp(ctx context.Context, cfg *config.Config) (*shared.Deps, error)
 	deps := shared.NewDeps(db, opts)
 
 	return deps, nil
+}
+
+func buildEventBusConfig(cfg *config.Config, defaultAddr, defaultPassword string, defaultDB int) *event_bus.Config {
+	busCfg := &event_bus.Config{Type: strings.TrimSpace(cfg.Event.Bus.Type)}
+	if busCfg.Type == "" {
+		busCfg.Type = "local"
+	}
+	if strings.EqualFold(busCfg.Type, "redis") {
+		addr := strings.TrimSpace(cfg.Event.Bus.RedisAddr)
+		if addr == "" {
+			addr = defaultAddr
+		}
+		password := strings.TrimSpace(cfg.Event.Bus.RedisPassword)
+		if password == "" {
+			password = defaultPassword
+		}
+		db := cfg.Event.Bus.RedisDB
+		if db == 0 {
+			db = defaultDB
+		}
+		busCfg.Redis = &event_bus.RedisConfig{
+			Addr:     addr,
+			Password: password,
+			DB:       db,
+		}
+	}
+	return busCfg
 }

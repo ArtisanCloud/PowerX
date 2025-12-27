@@ -115,8 +115,16 @@ If a runner does not natively support `manifest.yaml`, it must treat this sectio
 - **T-COREX-004**：实现 `internal/transport/http/(admin|web|openapi)/<domain>` 与路由装配；合同以 `specs/<feature>/contracts/http-openapi.yaml` 为 SoT。  
 - **T-COREX-005**：在 `internal/bootstrap/app.go`、`internal/http/router.go`（以及 `<domain>/api.go`）挂载 HTTP/gRPC。  
 - **T-COREX-006**：为 `<domain>` 的数据表接入现有 DB 流（模型在 `pkg/corex/db/persistence/model/...`，迁移在 `pkg/corex/db/database/migration.go` 的 `migrate<Domain>Models` 中挂载），并补充回滚策略。  
-- **T-COREX-007**：Make 目标：`proto-gen`、`proto-lint`、`proto-clean`、`migrate`、`migrate-down`；CI 校验输出路径/包前缀一致性。  
+- **T-COREX-007**：Make 目标：`proto-gen`、`proto-lint`、`proto-clean`、`migrate`、`migrate-down`；CI 校验输出路径/包前缀一致性。
 - **T-COREX-008**：契约测试（REST + gRPC）落到 `specs/<feature>/contracts/tests/*.md` → 对应实现下 `_test.go`，严格 TDD。
+
+- ### 0.7 Configuration Assets（新增）
+
+  - **目录分工**：
+    - `config/`（仓库根）仅存放跨平台、发布所需的静态资产，如 `config/plugins/`, `config/security/`, `config/version/` 等；这些文件不会被运行时加载。
+    - `backend/config/<domain>/...` 是后端运行时配置中心，包含 `platform_capabilities`, `knowledge`, `statebus` 等 YAML。所有 CoreX 运行时配置必须放在该目录或其子目录，禁止在仓库根新建独立 `configs/`.
+  - **覆写机制**：各模块可通过环境变量覆写默认路径（如 `PLATFORM_CAPABILITIES_DIR`、`KNOWLEDGE_CONFIG_DIR` 等），但若未配置则均从 `backend/config` 读取。
+  - **文档引用**：所有文档/spec/任务在引用运行时配置时必须以 `backend/config/...` 为准，并在需要区分根层 `config/` 资产时明确说明用途。
 
 ## Core Principles
 

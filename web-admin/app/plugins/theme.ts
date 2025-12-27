@@ -1,4 +1,5 @@
 import { watch } from "vue";
+import { useColorMode } from "#imports";
 
 type ThemePreference = "light" | "dark" | "system";
 

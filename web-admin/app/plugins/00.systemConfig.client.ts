@@ -1,3 +1,6 @@
+import { watch } from "vue";
+import { useColorMode } from "#imports";
+
 // app/plugins/app-init.client.ts
 export default defineNuxtPlugin((nuxtApp) => {
   const { public: pub } = useRuntimeConfig();

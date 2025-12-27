@@ -46,6 +46,12 @@ const TableCapabilityRegistryRoutingPolicy = "capability_registry_routing_polici
 const TableCapabilityRegistryFallbackPlan = "capability_registry_fallback_plans"
 const TableCapabilityRegistryHealthProbeResult = "capability_registry_health_probe_results"
 const TableCapabilityRegistryDiscoveryCache = "capability_registry_discovery_cache"
+const TableCapabilityRegistryCapabilityRecord = "capability_registry_records"
+const TableCapabilityRegistryWorkflowTemplateRef = "capability_registry_workflow_template_refs"
+const TableCapabilityRegistryWorkflowTemplateApproval = "capability_registry_workflow_template_approvals"
+const TableCapabilityRegistrySyncJob = "capability_registry_sync_jobs"
+const TableCapabilityRegistryInvocationTrace = "capability_registry_invocation_traces"
+const TableCapabilityRegistryEventPublication = "capability_registry_event_publications"
 
 const TableIntegrationGatewayRoute = "integration_gateway_routes"
 const TableIntegrationGatewayRouteVersion = "integration_gateway_route_versions"
@@ -54,6 +60,8 @@ const TableIntegrationGatewayEventPublication = "integration_gateway_event_publi
 
 const TableEventTopics = "event_topics"
 const TableEventAclBindings = "event_acl_bindings"
+const TableEventTopicBindings = "event_topic_bindings"
+const TableEventAclManifestBindings = "event_acl_manifest_bindings"
 const TableEventEnvelopes = "event_envelopes"
 const TableEventDeliveryAttempts = "event_delivery_attempts"
 const TableEventDlqMessages = "event_dlq_messages"

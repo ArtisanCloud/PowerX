@@ -70,6 +70,16 @@ func (s *PluginInstanceConfigService) ListEnabledPluginsByTenant(ctx context.Con
 	return s.PluginInstanceRepo.ListEnabledPluginsByTenant(ctx, strings.TrimSpace(tenantUUID))
 }
 
+func (s *PluginInstanceConfigService) ListTenantPluginBindings(ctx context.Context, opts reposetting.ListTenantPluginOptions) ([]reposetting.TenantPluginBinding, error) {
+	if strings.TrimSpace(opts.Key) == "" {
+		opts.Key = KeyClientCredentials
+	}
+	if !opts.OnlyEnabled {
+		opts.OnlyEnabled = true
+	}
+	return s.PluginInstanceRepo.ListTenantPluginBindings(ctx, opts)
+}
+
 /* ============== client_id / client_secret 生命周期 ============== */
 
 // EnsureCredentials：若不存在则创建并返回“明文 secret”（只此一次）；若已存在仅返回 client_id，secret 置空

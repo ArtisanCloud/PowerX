@@ -21,8 +21,15 @@ func LoadBlueprintTool(ctx context.Context, request mcp.CallToolRequest) (*mcp.C
 		return nil, fmt.Errorf("缺少 %s 参数", types.ParamFlowID)
 	}
 
-	// 获取配置
-	cfg := config.GetGlobalConfig().MCP
+	// 获取配置（agent.mcp 优先，兼容旧顶层）
+	rootCfg := config.GetGlobalConfig()
+	if rootCfg == nil {
+		return nil, fmt.Errorf("global config not initialized")
+	}
+	cfg := rootCfg.EffectiveMCPConfig()
+	if cfg == nil {
+		return nil, fmt.Errorf("mcp config missing")
+	}
 
 	// 构建蓝图文件路径，支持子目录
 	// 首先尝试直接路径

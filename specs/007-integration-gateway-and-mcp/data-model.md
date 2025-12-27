@@ -1,90 +1,99 @@
 ## Data Model
 
-### IntegrationRoute
-- **Identifiers**: `route_id` (UUID, 主键)、`tenant_id` + `route_slug`（租户内唯一复合索引）
+### CapabilityRecord
+- **Identifiers**: `capability_id` (string, 全局唯一)、`plugin_id` + `version` (hash) 组合追踪插件版本。
 - **Attributes**:
-  - `route_slug` (string; 小写短划线别名，由租户提供)
-  - `capability_id` (string; 对应 Capability Registry 里声明的能力)
-  - `tool_grant_ids` (string array; Tool Grant 引用列表)
-  - `channels` (enum set: http, mcp; 控制暴露通道)
-  - `rate_limit` (JSON; `limit`, `burst`, `window_seconds`)
-  - `event_topics` (JSON; success/failure/alert topic & subscriber info)
-  - `lifecycle_state` (enum: pending/active/suspended/retired)
-  - `status` (enum: enabled/disabled; 与 lifecycle 联动，用于快速开关)
-  - `current_version` (int; 最新快照版本)
-  - `created_at`, `updated_at`, `created_by`, `updated_by` (审计字段)
+  - `plugin_id`、`plugin_version`
+  - `title`, `description`, `categories`（数组）
+  - `intents` / `tool_scope`（数组，用于 Agent Hub 匹配）
+  - `protocols`（JSONB，参照 ProtocolBinding 嵌套结构）
+  - `workflow_template_refs`（JSONB 数组，引用插件提供的模板元信息）
+  - `composite_graphs`（JSONB 数组，复合任务 DAG）
+  - `policy`（JSONB；`prefer`, `fallback`, `rollback_capability_id` 等）
+  - `capabilities_hash`（Worker 计算的整体 hash）
+  - `protocol_hash`（协议资产 hash）
+  - `status`（enum: active/disabled/deprecated）
+  - `created_at`, `updated_at`, `created_by`, `updated_by`
 - **Relationships**:
-  - 1:N ← `IntegrationRouteVersion`（历史版本）
-  - 1:N ← `IntegrationInvocationLog`（调用记录）
+  - 1:N ← `CapabilitySyncJob`（每次同步记录 job）
+  - 多个 Registry 消费者（Agent Hub、Workflow Builder、Integration Gateway）通过 Redis cache 引用
 - **Validation**:
-  - `route_slug` 在同一 `tenant_id` 下唯一；存储前小写化并校验长度 3~63。
-  - `tool_grant_ids` 必须全部存在且在 active 状态。
-  - `rate_limit.limit` ≥ `burst` 且 >0；缺省使用研究结论中的默认值。
-  - 非 `active` 状态禁止标记为 `enabled`。
+  - `capability_id` 必须匹配 `com.{vendor}.{product}.{action}` 规范。
+  - `policy.prefer` ∈ {mcp, grpc, rest, workflow, composite}；若缺省，读= mcp, 写= grpc。
+  - `workflow_template_refs` 中引用的 `template_id` 必须唯一。
 
-### IntegrationRouteVersion
-- **Identifiers**: `route_id` + `version` (int, 递增)
+### ProtocolBinding（嵌入结构）
 - **Attributes**:
-  - `snapshot` (JSONB; 完整配置快照)
-  - `change_type` (enum: create/update/suspend/resume/retire)
-  - `change_summary` (string; diff 摘要，用于审计)
-  - `changed_by` (string; 操作者 ID)
-  - `changed_at` (timestamp)
-  - `trace_id` (string; 关联操作链路)
+  - `channel` (enum: rest/grpc/mcp/workflow/composite/agent_stream)
+  - `endpoint` / `tool_ref`（字符串，REST URL、gRPC service、MCP tool 名等）
+  - `schema_ref`（指向 OpenAPI/Proto/MCP schema 文件）
+  - `auth_type`（enum: tenant_jwt/plugin_token/sse）
+  - `health_state`（enum: healthy/degraded/offline）
+  - `latency_p95_ms`, `error_rate`
+  - `last_checked_at`
 - **Relationships**:
-  - N:1 → `IntegrationRoute`
+  - 嵌入 `CapabilityRecord.protocols[*]`
 - **Validation**:
-  - `version` 必须严格递增，写入时需带上上一版本号进行乐观校验。
-  - `snapshot.route_slug` 与主表一致，否则拒绝写入。
+  - REST 通道需声明 `method`，gRPC 通道需声明 `rpc` 名称，MCP 通道需包含 `tool_scope`。
+  - `health_state=offline` 时必须附加 `reason`。
 
-### IntegrationInvocationLog
-- **Identifiers**: `invocation_id` (UUID)
+### WorkflowTemplateRef
+- **Identifiers**: `template_id`（插件内唯一）、`capability_id`
 - **Attributes**:
-  - `route_id` (UUID)、`tenant_id` (string)
-  - `trace_id` (string; 从请求透传)
-  - `request_payload` (JSON; 裁剪/脱敏后参数)
-  - `response_payload` (JSON; 成功 or 错误摘要)
-  - `status` (enum: success/failed/rate_limited/denied)
-  - `duration_ms` (int; 从接收到完成的耗时)
-  - `routed_capability_id` (string; 实际调用的能力 ID)
-  - `routed_adapter` (string; Router 返回的适配器标识)
-  - `event_published` (bool; 是否成功投递事件)
-  - `created_at` (timestamp)
+  - `name`, `description`, `steps`（JSON DAG）
+  - `params_schema`（JSON Schema）
+  - `protocol_requirements`（每节点的通道声明）
+  - `capabilities_hash_snapshot`
+  - `requires_manual_upgrade`（bool，默认 true）
 - **Relationships**:
-  - N:1 → `IntegrationRoute`
-  - 可选关联：`EventPublication`（通过 `trace_id`/`invocation_id`）
+  - N:1 → `CapabilityRecord`
+  - 被 Workflow Builder/Engine TPL Catalog 引用
 - **Validation**:
-  - 仅持久化必要字段，敏感数据需掩码；失败原因需分类（限流/授权/执行错误）。
-  - 保留期默认 30 天，归档任务由后续运维脚本执行。
+  - 每个 `steps[*].capability_id` 必须存在于当前 Registry 快照。
+  - `requires_manual_upgrade` 为 true 时，Workflow Builder 保存编排时写入 `template_version` 以供升级提示。
 
-### EventPublication
-- **Identifiers**: `event_id` (string; 由事件骨干生成)
+### CapabilitySyncJob
+- **Identifiers**: `job_id` (UUID)
 - **Attributes**:
-  - `route_id`、`tenant_id`
-  - `topic` (string; `integration.gateway.*`)
-  - `payload` (JSON; 与 EventBus 发送内容一致)
-  - `status` (enum: pending/sent/failed/retry_scheduled)
-  - `attempts` (int)
-  - `last_error` (string; 最近一次失败原因)
-  - `trace_id`, `created_at`, `updated_at`
+  - `plugin_id`, `plugin_version`
+  - `status` (enum: pending/running/succeeded/failed)
+  - `started_at`, `finished_at`
+  - `hash_before`, `hash_after`
+  - `error_summary`（失败时必填）
 - **Relationships**:
-  - N:1 → `IntegrationInvocationLog`（可通过 `trace_id` 对齐）
+  - N:1 → `CapabilityRecord`（一对多，对应 job 产出）
 - **Validation**:
-  - 发布失败必须写入 `failed` 并安排补偿；超过阈值触发告警。
-  - `topic` 必须在配置的 allowlist 内。
+  - 同一插件若存在 `status=running` 的 job，需要幂等去重。
+  - 失败 job 需触发 `capability.catalog.sync_failed` 并记录错误快照。
 
-### RateLimitPolicy (嵌入结构)
-- **Identifiers**: 不独立建表，作为 JSON 嵌入
+### SelectorPolicySnapshot
+- **Identifiers**: `hash`（Registry 版本） + `tenant_id`
 - **Attributes**:
-  - `limit` (uint64; 每窗口允许的请求数)
-  - `burst` (uint64; 允许的额外突发)
-  - `window_seconds` (int; 默认 60)
-  - `scope` (enum: per_route/per_tenant/per_route_per_tenant)
+  - `intent_mappings`（JSON：intent → tool_scope → capability_id）
+  - `prefer_matrix`（JSON：capability_id → prefer/fallback）
+  - `rate_limit_overrides`
+  - `generated_at`
 - **Relationships**:
-  - 嵌入 `IntegrationRoute.rate_limit`
+  - 缓存在 Redis，Agent Hub/Workflow Engine 启动时拉取。
 - **Validation**:
-  - `window_seconds` ∈ [10, 3600]。
-  - `limit` >0；`burst` 可为 0，若缺省使用 `limit` 的 100%。
-  - `scope` 必须与限流键生成逻辑保持一致（计划在 service 层封装）。
+  - `hash` 必须与 Registry 提供的 `capabilities_hash` 一致，否则 Selector 拒绝服务。
 
-> 所有表默认继承 CoreX 模型字段：`id`（若有）、`tenant_id`、`created_at`、`updated_at`、`created_by`、`updated_by`，并遵循软删除关闭策略；迁移由 `cmd/database/migrate.go` 注册。
+### InvocationTrace
+- **Identifiers**: `trace_id`（W3C trace context）
+- **Attributes**:
+  - `tenant_uuid`, `route_id`（可选）、`capability_id`, `plugin_id`
+  - `protocol_used`, `fallback_used`（bool）
+  - `request_metadata`（JSON，脱敏）
+  - `response_metadata`（JSON，脱敏）
+  - `status`（success/fallback_success/failure/denied/rate_limited）
+  - `latency_ms`
+  - `event_published`（bool）
+  - `created_at`
+- **Relationships**:
+  - 关联 `EventPublication`（通过 `trace_id`）
+  - 供 Audit/监控查询
+- **Validation**:
+  - 所有写入必须包含 `tenant_uuid` 与 `protocol_used`。
+  - `fallback_used=true` 时必须记录 `fallback_reason`。
+
+> 所有实体复用 CoreX GORM 基础字段；迁移通过 `pkg/corex/db/database/migration.go` → `MigrateCoreModels` 注册，并提供回滚脚本防止 hash 冲突。

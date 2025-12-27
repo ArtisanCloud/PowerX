@@ -85,6 +85,10 @@
       "new": "신규"
     },
     "aiSettings": "모델 설정",
+    "aiSettingsModel": "모델 구성",
+    "aiSettingsCost": "코스트 설정",
+    "aiSettingsRegistry": "능력 레지스트리",
+    "openCapabilities": "플랫폼 능력",
     "workflow": "워크플로우",
     "knowledgeSpace": "지식 공간",
     "pluginMarketplace": "마켓",
@@ -432,6 +436,142 @@
       }
     },
     "confirmDelete": "이 에이전트를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다."
+  },
+  "settings": {
+    "ai": {
+      "title": "AI 설정",
+      "description": "프로바이더와 모델, 파라미터를 구성합니다.",
+      "environment": "환경",
+      "modalityTabsLabel": "모달리티",
+      "sections": {
+        "general": "일반",
+        "parameters": "파라미터"
+      },
+      "actions": {
+        "openCostGuard": "코스트 가드",
+        "backToModels": "모델 목록으로",
+        "openCapabilityRegistry": "능력 레지스트리"
+      },
+      "costGuardPageTitle": "코스트 가드",
+      "costGuardPageDesc": "AI 사용량에 대한 한도와 스로틀을 관리합니다.",
+      "costGuard": {
+        "panelTitle": "방어 전략",
+        "panelDesc": "쿼터·제한·폴백 전략을 설정합니다.",
+        "tenantLabel": "테넌트",
+        "tenantPlaceholder": "테넌트 선택",
+        "refresh": "새로고침",
+        "openDashboard": "대시보드 열기",
+        "lastUpdated": "마지막 업데이트",
+        "emptyTitle": "데이터 없음",
+        "emptyDesc": "정책을 추가해 주세요.",
+        "playbookTitle": "플레이북",
+        "playbooks": {
+          "throttle": { "title": "스로틀", "desc": "예산이 부족할 때 요청을 제한합니다." },
+          "degrade": { "title": "디그레이드", "desc": "저비용 모델로 전환합니다." },
+          "disable": { "title": "비활성화", "desc": "예산 초과 시 서비스를 중지합니다." }
+        },
+        "defaultTenants": {
+          "demo": "데모",
+          "ops": "운영"
+        }
+      },
+      "registryPageTitle": "능력 레지스트리",
+      "registryPageDesc": "플러그인 능력 목록과 동기화 상태를 확인합니다 (root 전용).",
+      "registry": {
+        "filters": {
+          "searchPlaceholder": "능력 ID/제목/의도를 검색",
+          "pluginPlaceholder": "플러그인 ID",
+          "statusAll": "모든 상태",
+          "protocolAll": "모든 프로토콜",
+          "sourcePlugin": "플러그인 능력",
+          "sourcePlatform": "플랫폼 능력",
+          "sourceAll": "모든 소스",
+          "apply": "필터 적용",
+          "reset": "초기화"
+        },
+        "columns": {
+          "capability": "능력",
+          "plugin": "플러그인",
+          "policy": "정책",
+          "protocols": "채널",
+          "hash": "해시",
+          "publishedAt": "게시 / 동기화"
+        },
+        "summary": "총 {total}건",
+        "manualUpgrade": "수동 업그레이드 필요",
+        "empty": "능력 레코드가 없습니다",
+        "noAccess": {
+          "title": "Root 전용",
+          "description": "능력 레지스트리는 root 계정만 접근할 수 있습니다."
+        },
+        "syncJobs": {
+          "title": "최근 동기화 작업",
+          "empty": "동기화 작업이 없습니다",
+          "more": "최근 {count}건만 표시",
+          "status": {
+            "pending": "대기중",
+            "running": "진행중",
+            "succeeded": "성공",
+            "failed": "실패"
+          }
+        },
+        "toast": {
+          "loadFailed": "레지스트리 로딩 실패",
+          "jobsFailed": "동기화 작업 로딩 실패"
+        }
+      }
+    },
+    "openCapabilities": {
+      "title": "플랫폼 능력",
+      "description": "CoreX 플랫폼 모듈과 프로토콜, 디버깅 엔드포인트를 확인합니다.",
+      "actions": {
+        "refresh": "데이터 새로고침",
+        "syncNow": "지금 동기화",
+        "copyCurl": "cURL 복사",
+        "copyInsomnia": "Insomnia 복사",
+        "openDoc": "문서 열기",
+        "openMediaEntry": "Media API 이동"
+      },
+      "noAccess": {
+        "title": "Root 권한 필요",
+        "description": "Root 관리자만 플랫폼 능력 상세를 볼 수 있습니다."
+      },
+      "summary": {
+        "modules": "모듈: {count}",
+        "capabilities": "능력: {count}",
+        "generatedAt": "스냅샷: {time}",
+        "lastLoadedAt": "마지막 새로고침: {time}"
+      },
+      "filters": {
+        "searchPlaceholder": "능력 ID/제목/설명 검색",
+        "reset": "필터 초기화",
+        "moduleAll": "전체 모듈",
+        "protocolAll": "전체 프로토콜"
+      },
+      "empty": {
+        "title": "플랫폼 능력이 없습니다",
+        "description": "아직 CoreX 플랫폼 능력이 등록되지 않았거나 동기화 중입니다.",
+        "filtered": "현재 필터에 맞는 능력이 없습니다"
+      },
+      "loading": "플랫폼 능력을 불러오는 중...",
+      "defaultModuleDescription": "호스트·스켈레톤 플러그인이 공유하는 CoreX 기본 능력입니다.",
+      "status": {
+        "active": "정상",
+        "degraded": "성능 저하",
+        "offline": "오프라인"
+      },
+      "labels": {
+        "preferred": "선호 프로토콜",
+        "hash": "버전 해시",
+        "plugin": "소스 플러그인",
+        "payloadSample": "페이로드 예시"
+      },
+      "toast": {
+        "loadFailed": "플랫폼 능력을 불러오지 못했습니다",
+        "copySuccess": "클립보드에 복사되었습니다",
+        "copyFailed": "복사에 실패했습니다"
+      }
+    }
   },
   "env": {
     "title": "환경 설정",

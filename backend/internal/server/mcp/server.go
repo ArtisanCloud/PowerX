@@ -8,10 +8,10 @@ import (
 	"strings"
 
 	"github.com/ArtisanCloud/PowerX/config"
+	toolstore "github.com/ArtisanCloud/PowerX/internal/agent/toolstore"
+	mcpconfig "github.com/ArtisanCloud/PowerX/internal/server/mcp/config"
 	"github.com/ArtisanCloud/PowerX/internal/server/mcp/http"
 	"github.com/ArtisanCloud/PowerX/internal/server/mcp/register"
-	integrationtools "github.com/ArtisanCloud/PowerX/internal/server/mcp/tools/integration_gateway"
-	igdeps "github.com/ArtisanCloud/PowerX/internal/server/mcp/tools/integration_gateway/deps"
 	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"github.com/mark3labs/mcp-go/server"
 )
@@ -21,6 +21,7 @@ import (
 // Server CoreX MCP服务器
 type Server struct {
 	config    *config.Config
+	activeMCP *mcpconfig.MCPConfig
 	mcpServer *server.MCPServer
 }
 
@@ -29,12 +30,18 @@ func NewServer(cfg *config.Config) *Server {
 	ctx := context.Background()
 	logger.Info(ctx, "🔧 正在初始化 CoreX MCP 服务器...")
 
+	activeCfg := cfg.EffectiveMCPConfig()
+	if activeCfg == nil {
+		logger.Error(ctx, "未找到 agent.mcp 配置，无法启动 MCP 服务器")
+		panic("agent.mcp config missing")
+	}
+
 	// 初始化工具注册器
 	_ = register.NewToolRegistry(nil)
 
 	// 从配置文件加载工具规范
 	logger.Info(ctx, "📋 加载工具规范配置...")
-	if err := register.LoadToolSpecsFromConfig(&cfg.MCP); err != nil {
+	if err := register.LoadToolSpecsFromConfig(activeCfg); err != nil {
 		logger.InfoF(ctx, "⚠️  加载工具规范失败: %v", err)
 	} else {
 		logger.Info(ctx, "✅ 工具规范加载成功")
@@ -44,11 +51,17 @@ func NewServer(cfg *config.Config) *Server {
 	logger.InfoF(ctx, "🚀 创建 MCP 服务器实例...")
 	mcpServer := server.NewMCPServer("CoreX", "v0.1.0")
 
-	// 注册集成网关工具（如果依赖已就绪）
-	if dep, err := igdeps.Get(); err == nil {
-		if err := integrationtools.RegisterToolsWithRegistry(register.GetGlobalRegistry(), dep.ToolDependencies); err != nil {
-			logger.InfoF(ctx, "⚠️ 注册集成网关工具失败: %v", err)
+	// 注册 Registry 驱动的 MCP 工具
+	if mcpRegistry, err := toolstore.GetGlobalMCPRegistry(); err == nil {
+		registry := register.GetGlobalRegistry()
+		if err := registry.RegisterToolWithSpec(mcpRegistry.ListToolSpec(), mcpRegistry.ListToolHandler()); err != nil {
+			logger.InfoF(ctx, "⚠️ 注册 capability 列表工具失败: %v", err)
 		}
+		if err := registry.RegisterToolWithSpec(mcpRegistry.InvokeToolSpec(), mcpRegistry.InvokeToolHandler()); err != nil {
+			logger.InfoF(ctx, "⚠️ 注册 capability 调用工具失败: %v", err)
+		}
+	} else {
+		logger.InfoF(ctx, "⚠️ MCP 工具未配置：%v", err)
 	}
 
 	// 使用统一的注册表注册所有工具
@@ -65,6 +78,7 @@ func NewServer(cfg *config.Config) *Server {
 
 	return &Server{
 		config:    cfg,
+		activeMCP: activeCfg,
 		mcpServer: mcpServer,
 	}
 }
@@ -103,13 +117,17 @@ func (s *Server) Start(ctx context.Context) error {
 	logger.InfoF(ctx, "%s", strings.Repeat("-", 60))
 
 	// 3. 启动 Streamable HTTP Server（默认 endpoint 是 /mcp）
-	if s.config.MCP.Server.LaunchMode == "http" { // HTTP 模式
+	activeCfg := s.activeMCP
+	if activeCfg == nil {
+		return fmt.Errorf("mcp config missing")
+	}
+	if activeCfg.Server.LaunchMode == "http" { // HTTP 模式
 		// 查找可用端口
-		availablePort := http.FindAvailablePort(&s.config.MCP, s.config.MCP.Server.Port)
-		if availablePort != s.config.MCP.Server.Port {
-			log.Printf("⚠️ 配置端口 %d 已被占用，自动切换到端口 %d", s.config.MCP.Server.Port, availablePort)
+		availablePort := http.FindAvailablePort(activeCfg, activeCfg.Server.Port)
+		if availablePort != activeCfg.Server.Port {
+			log.Printf("⚠️ 配置端口 %d 已被占用，自动切换到端口 %d", activeCfg.Server.Port, availablePort)
 		}
-		addr := fmt.Sprintf("%s:%d", s.config.MCP.Server.Host, availablePort)
+		addr := fmt.Sprintf("%s:%d", activeCfg.Server.Host, availablePort)
 		httpSrv := server.NewStreamableHTTPServer(s.mcpServer)
 		logger.InfoF(ctx, "🚀 HTTP MCP server listening on %s/mcp", addr)
 		return httpSrv.Start(addr)

@@ -1,5 +1,5 @@
 import { computed, watch } from "vue";
-import { useI18n } from "#imports";
+import { useI18n, useColorMode } from "#imports";
 import { storeToRefs } from "pinia";
 import { useApiClient } from "~/composables/api";
 import { useUserStore } from "~/stores/user";

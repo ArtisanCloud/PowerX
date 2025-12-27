@@ -346,7 +346,7 @@ func (m *managerImpl) collectSystemEnv() map[string]string {
 			env["POWERX_REDIS_PASSWORD"] = cacheCfg.Password
 		}
 
-		bus := cfg.EventBus
+		bus := cfg.Event.Bus
 		if bus.Type != "" {
 			env["POWERX_EVENT_BUS_TYPE"] = bus.Type
 		}

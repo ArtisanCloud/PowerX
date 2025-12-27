@@ -115,6 +115,13 @@ PowerX 内置四类前端壳，共享 **统一契约**，SDK 自动生成，支�
 - **📊 [Perf & Resiliency Validation](docs/guides/knowledge_space/perf_validation.md)** - 压测/降级/反馈风暴验证
 - **✅ [Smoke Checklist](docs/guides/knowledge_space/smoke_checklist.md)** - 发布前的冒烟检查表
 
+## ✅ 能力目录 QA Checklist
+
+1. **能力链路巡检**：执行 `scripts/capability_registry/verify.sh`（需要 `POWERX_BASE_URL`、`ADMIN_TOKEN`、`TENANT_TOKEN`、`TENANT_UUID`、`PLUGIN_ID`、`CAPABILITY_ID`），自动完成 capability-sync、Admin/Tenant API 校验与 `/tenant/invocations` 调用，并输出可追踪的 `trace_id`。
+2. **负载与容错**：在 `backend` 目录运行 `go test ./tests/integration/capability_registry/load`，覆盖 5k+ Selector 调用、Redis 缓存击穿保护与 fallback chaos case，确保 `integration.gateway.invocation.failed` 事件与指标一致。
+3. **Prometheus / OTEL**：以目标配置启动 backend（例如 `LOG_LEVEL=info make dev` 或自定义部署），在执行脚本期间 `curl http://localhost:2112/metrics | grep powerx_capability_invoke_total`，验证 `powerx_capability_invoke_total`、`powerx_capability_invoke_error_total` 等指标；若接入 OTLP，设置 `OTEL_EXPORTER_OTLP_ENDPOINT` 并确认 Trace 可在链路平台检索到步骤 1 的 `trace_id`。
+4. **事件补偿与日志**：订阅或 tail `integration.gateway.invocation.failed`、`capability.catalog.sync_*` 事件，`LOG_LEVEL=debug` 跑巡检脚本，检查 stdout/采集日志均包含 `capability_id`、`plugin_id`、`protocol` 字段，确保异常重试过程与事件内容一致。
+
 ---
 
 ## 📬 联系我们

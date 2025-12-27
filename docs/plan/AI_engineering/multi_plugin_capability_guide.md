@@ -73,6 +73,51 @@ Invocation Runtime (Agent Hub / Workflow Engine / Integration Gateway Tenant API
 - Registry 把 `tool_scope/intent/workflow_step` 等字段写入缓存，Agent Hub/Workflow Builder/Integration Gateway 通过统一接口加载。
 - Selector 根据 `capability.policy.prefer` 字段决定 MCP/gRPC/Agent/Workflow 的优先级。
 
+### 4.1 泳道图：PowerX 底座插件能力管理与使用
+
+```mermaid
+flowchart LR
+  subgraph 插件侧
+    P1["插件开发者\n构建/测试插件能力与协议资产"]
+    P2["px-plugin submit / pxp 包安装\n生成 capabilities.imports"]
+    P1 --> P2
+  end
+
+  subgraph PowerX_同步
+    S1["Capability Sync Worker\n解析 .pxp · 计算 capabilities/protocol hash"]
+    S2["Capability Registry\nPostgres + Redis 缓存"]
+    S3["capability.catalog.sync_* 事件\ncapabilities_hash · protocol_hash"]
+    P2 --> S1 --> S2 --> S3
+  end
+
+  subgraph PowerX_消费
+    C1["Integration Gateway & MCP Server\n(Admin/Tenant API · /tools/list)"]
+    C2["Agent Hub ToolStore + Selector\n(意图→能力→协议策略)"]
+    C3["Workflow Builder / Engine\n(节点模板 · 复合 Workflow)"]
+    S2 --> C1
+    S2 --> C2
+    S2 --> C3
+    S3 --> C1
+    S3 --> C2
+    S3 --> C3
+  end
+
+  subgraph 运行期
+    R1["Protocol Adapter\nMCP / gRPC / Workflow Runner"]
+    R2["插件 Runtime\n(Handler · Workflow · Composite)"]
+    R3["EventBus + Observability\nTrace · Metrics · Audit"]
+    C1 -->|"租户/管理员请求 · MCP 工具"| R1
+    C2 -->|"Agent/Selector 调用"| R1
+    C3 -->|"Workflow 执行节点"| R1
+    R1 --> R2 --> R3
+    R3 -->|"integration.gateway.invocation.* · capability.invoke.*"| C1
+    R3 --> C2
+    R3 --> C3
+  end
+```
+
+> 读链路默认优先走 MCP，写链路强制走 gRPC；Workflow/Composite 场景通过 `workflow_template_ref` 描述节点→协议映射。Registry + 事件是唯一事实来源，所有调用端都在订阅事件后刷新缓存，确保 ≤3 分钟 SLA。
+
 ---
 
 ## 5. 能力目录统一接入
@@ -210,7 +255,44 @@ Selector 默认策略：
 
 ---
 
-## 11. 参考资料
+## 11. 缓存刷新与模板升级
+
+### 11.1 Registry 缓存
+- **Key 命名**：`capability_registry:cache:{capability_id}`（能力详情）、`toolstore:policy:{tenant_uuid}:{hash}`（SelectorPolicySnapshot）、`capability_registry:workflow_catalog`（Workflow Catalog 全量）。所有键 TTL 180s，携带 `capabilities_hash` 以便对齐事件版本。
+- **刷新流程**：
+  1. 触发 `make capability-sync` 或 `scripts/capability_registry/verify.sh --sync-artifact tmp/plugins/latest.pxp`，写入最新能力。
+  2. 监听 `capability.catalog.sync_*`，Agent Hub/Workflow Catalog 收到后立即调用 Registry API 回源。
+  3. 如果缓存疑似脏数据，执行 `POST /admin/capabilities/cache:flush`，或手动 `redis-cli KEYS 'capability_registry:cache:*' | xargs redis-cli DEL` 再通过脚本拉起。
+- **脚本支持**：`scripts/capability_registry/verify.sh` 会依次执行
+  - `make capability-sync`
+  - `curl /admin/capabilities`、`curl /tenant/capabilities`
+  - `curl /tenant/invocations`（发起一次示例调用并打印 `trace_id`）
+  - `curl /admin/workflow-templates`，比对 `needs_upgrade` 字段
+  脚本通过 `POWERX_BASE_URL/ADMIN_TOKEN/TENANT_TOKEN/PLUGIN_ID/CAPABILITY_ID/TENANT_UUID` 环境变量驱动，可在 CI 与本地快速复现 Quickstart 步骤 1-4。
+
+### 11.2 模板手动升级
+- Worker 将插件 Workflow 模板写入 `capability_registry_workflow_template_refs`，并以 `requires_manual_upgrade=true` 为默认值。Workflow Builder 读取 Catalog 时，若 `needs_upgrade=true`，UI/CLI 会阻止直接切换。
+- 管理员需调用 `POST /admin/workflow-templates/{templateId}/upgrade`，传入最新 `capabilities_hash` 与备注。成功后 `WorkflowTemplateApproval` 记录审批信息，Workflow Engine/Agent Hub 才允许租户引用最新模板。
+- 版本锁：Selector + Workflow Engine 会在调用前校验 `capabilities_hash`。若检测到租户版本滞后，将返回“需手动升级”错误，并在事件总线写入 `capability.policy.degraded`。
+
+## 12. 遥测与 QA
+
+### 12.1 指标
+- Registry/Selector：沿用 `powerx_capability_invoke_total`、`powerx_capability_invoke_latency_ms`、`powerx_capability_invoke_error_total`。
+- Workflow Catalog：新增 `powerx_workflow_template_snapshot_total{template_id,needs_upgrade}`，每次刷新 Catalog 后记录样本数，帮助运营追踪升级进度。
+- Workflow 执行：`powerx_workflow_invocation_total{template_id,protocol,result,needs_upgrade}` 与 `_error_total`；Step Adapter 执行后调用 `WorkflowTelemetry.ObserveWorkflowExecution` 打点。
+
+### 12.2 Trace/Audit
+- Trace：所有 Admin/Tenant/MCP/Workflow 调用共享 `trace_id`，标签至少包含 `capability_id/plugin_id/tenant_uuid/protocol`，便于从 Agent Hub/Gateway/Workflow 日志串联。
+- Audit：`CapabilitySyncJob`、`WorkflowTemplateApproval`、`InvocationTrace` 均写入 `audit.capability_registry`，失败时附带 `error_summary`。
+
+### 12.3 QA Checklist
+1. `scripts/capability_registry/verify.sh` 完整跑通且退出码 0。
+2. `go test ./tests/integration/capability_registry -run 'WorkflowCatalog|TemplateUpgrade|WorkflowTelemetry'` 通过。
+3. Prometheus 中 `needs_upgrade=true` 的模板占比 < 5%，否则触发运营告警。
+4. 任意一次 Workflow 执行的 `trace_id` 可在日志中查到 Selector→Adapter→Workflow Engine 的链路，并匹配 `powerx_workflow_invocation_total`。
+
+## 13. 参考资料
 
 - 插件能力目录：`PowerXPlugin/docs/plan/006-plugin-capability.md`
 - MCP 联调：`PowerXPlugin/docs/guides/publish/capabilities/mcp-guide.md`

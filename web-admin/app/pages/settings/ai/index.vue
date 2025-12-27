@@ -36,6 +36,15 @@
         >
           {{ $t("settings.ai.actions.openCostGuard") }}
         </UButton>
+        <UButton
+          v-if="isRoot"
+          variant="soft"
+          icon="i-heroicons-table-cells"
+          class="whitespace-nowrap"
+          :to="registryLink"
+        >
+          {{ $t("settings.ai.actions.openCapabilityRegistry") }}
+        </UButton>
       </div>
     </div>
 
@@ -148,11 +157,13 @@
 </template>
 
 <script setup lang="ts">
+import { storeToRefs } from "pinia";
 import ProviderModelForm from "~/components/settings/ai/ProviderModelForm.vue";
 import ModalityParamsForm from "~/components/settings/ai/ModalityParamsForm.vue";
 import TestPanel from "~/components/settings/ai/TestPanel.vue";
 import { useAISettingsStore } from "~/stores/aiSettings";
 import { useEnvStore, ENV_OPTIONS } from "~/stores/envStore";
+import { useUserStore } from "~/stores/user";
 import type {
   Provider,
   SaveSettingsPayload,
@@ -173,6 +184,22 @@ const aiSettingsStore = useAISettingsStore();
 const toast = useToast();
 const localePath = useLocalePath();
 const costGuardLink = computed(() => localePath("/settings/ai/cost"));
+const registryLink = computed(() =>
+  localePath("/settings/ai/capability-registry")
+);
+
+const userStore = useUserStore();
+const { isRoot } = storeToRefs(userStore);
+
+onMounted(async () => {
+  try {
+    if (!userStore.context) {
+      await userStore.fetchUserContext();
+    }
+  } catch (error) {
+    console.error("加载用户上下文失败:", error);
+  }
+});
 
 /**
  * Tab & 环境

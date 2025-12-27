@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	eventfabricv1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/corex/event_fabric/v1"
+	eventfabricv1 "github.com/ArtisanCloud/PowerX/api/grpc/gen/go/powerx/event_fabric/v1"
 	replay "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/replay"
 	eventfabricgrpc "github.com/ArtisanCloud/PowerX/internal/transport/grpc/event_fabric"
 	"google.golang.org/grpc"
@@ -25,14 +25,14 @@ func TestEventReplayGRPCContracts(t *testing.T) {
 	t.Cleanup(env.Close)
 
 	baseCtx := context.Background()
-	tenantCtx := eventFabricGRPCContext(t, baseCtx, "tenant-corex")
+	tenantCtx := eventFabricGRPCContext(t, baseCtx, sampleTenantUUID)
 	window := &eventfabricv1.ReplayWindow{
 		Start: timestamppb.New(time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)),
 		End:   timestamppb.New(time.Date(2025, 1, 2, 0, 0, 0, 0, time.UTC)),
 	}
 
 	createResp, err := env.client.CreateReplayTask(tenantCtx, &eventfabricv1.CreateReplayTaskRequest{
-		TenantUuid: "tenant-corex",
+		TenantUuid: sampleTenantUUID,
 		Topic:      "tenant-corex.corex.workflow.approved",
 		TraceId:    "trace-abc",
 		Window:     window,
@@ -69,7 +69,7 @@ func TestEventReplayGRPCErrors(t *testing.T) {
 	t.Cleanup(env.Close)
 
 	env.stub.shouldFail = true
-	_, err := env.client.CreateReplayTask(eventFabricGRPCContext(t, context.Background(), "tenant-corex"), &eventfabricv1.CreateReplayTaskRequest{TenantUuid: "tenant-corex", Topic: "topic"})
+	_, err := env.client.CreateReplayTask(eventFabricGRPCContext(t, context.Background(), sampleTenantUUID), &eventfabricv1.CreateReplayTaskRequest{TenantUuid: sampleTenantUUID, Topic: "topic"})
 	if status.Code(err) != codes.Internal {
 		t.Fatalf("expected internal error got %v", status.Code(err))
 	}

@@ -109,7 +109,7 @@ func (m *MediaAsset) TableName() string {
 
 ## 迁移策略
 
-* **CoreX（内核，含 MediaX）**：纳入 `pkg/corex/db/migration.go` 的 `MigrateCoreModels(db *gorm.DB)`，仅通过 `db.AutoMigrate(&media.MediaAsset{}` …)` 注册模型。
+* **CoreX（内核，含 Media Assets Management）**：纳入 `pkg/corex/db/migration.go` 的 `MigrateCoreModels(db *gorm.DB)`，仅通过 `db.AutoMigrate(&media.MediaAsset{}` …)` 注册模型。
 * **禁止**提交或在迁移中生成任何 `.sql` 文件，**禁止**在迁移中执行 `db.Exec(...)`。
 * 可选运行期校验可使用 `db.Migrator().HasIndex/HasConstraint`，但不得引入原生 SQL。
 
@@ -132,7 +132,7 @@ func MigrateCoreModels(db *gorm.DB) error {
 }
 ```
 
-> 独立 Server 模块（例如 Agent）在 `cmd/database/migrate.go` 中实现并调用自己的 `MigrateAgentModels`；**MediaX 属于 CoreX 内核**，因此不单独提供 `MigrateMediaModels`。
+> 独立 Server 模块（例如 Agent）在 `cmd/database/migrate.go` 中实现并调用自己的 `MigrateAgentModels`；**Media Assets Management 属于 CoreX 内核**，因此不单独提供 `MigrateMediaModels`。
 
 ---
 

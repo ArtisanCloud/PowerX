@@ -3,7 +3,7 @@
 BUF_CMD ?= $(shell command -v buf)
 BUF_WORKDIR ?= backend/api/grpc/contracts
 
-.PHONY: proto-gen proto-event-fabric proto-lint proto-clean contracts-test ci-proto
+.PHONY: proto-gen proto-event-fabric proto-lint proto-clean contracts-test ci-proto proto-integration-gateway
 
 proto-gen:
 	@echo "🛠️  生成 Protobuf 代码..."
@@ -14,13 +14,22 @@ proto-gen:
 	@cd $(BUF_WORKDIR) && buf generate --template buf.gen.yaml
 	@echo "✅ Protobuf 代码生成完成"
 
+proto-integration-gateway:
+	@echo "🛠️  仅生成 Integration Gateway Protobuf 代码..."
+	@if [ -z "$(BUF_CMD)" ]; then \
+		echo "❌ 未找到 buf CLI，请先安装: https://buf.build/docs/installation"; \
+		exit 1; \
+	fi
+	@cd $(BUF_WORKDIR) && buf generate --template buf.gen.yaml --path powerx/integration_gateway/v1
+	@echo "✅ Integration Gateway 生成完成"
+
 proto-event-fabric:
 	@echo "🛠️  生成 Event Fabric Protobuf 代码..."
 	@if [ -z "$(BUF_CMD)" ]; then \
 		echo "❌ 未找到 buf CLI，请先安装: https://buf.build/docs/installation"; \
 		exit 1; \
 	fi
-	@cd $(BUF_WORKDIR) && buf generate --template buf.gen.yaml --path corex/event_fabric/v1 --path powerx/event_fabric/v1
+	@cd $(BUF_WORKDIR) && buf generate --template buf.gen.yaml --path powerx/event_fabric/v1
 	@echo "✅ Event Fabric Protobuf 代码生成完成"
 
 proto-lint:
@@ -37,6 +46,7 @@ proto-clean:
 	@rm -rf backend/api/grpc/gen/go/powerx/corex
 	@rm -rf backend/api/grpc/gen/go/powerx/capability
 	@rm -rf backend/api/grpc/gen/go/powerx/integration
+	@rm -rf backend/api/grpc/gen/go/powerx/integration_gateway
 	@rm -rf backend/api/grpc/gen/go/powerx/agent
 	@rm -rf backend/api/grpc/gen/go/powerx/knowledge
 	@rm -rf backend/api/grpc/gen/go/powerx/workflow

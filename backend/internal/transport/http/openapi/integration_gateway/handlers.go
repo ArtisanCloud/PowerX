@@ -12,7 +12,6 @@ import (
 	"github.com/ArtisanCloud/PowerX/pkg/corex/iam/reqctx"
 	"github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 )
 
 type tenantHandler struct {

@@ -18,7 +18,7 @@ func BuildFrameAncestorsCSP() string {
 	lst := []string{"'self'"}
 	seen := map[string]struct{}{"'self'": {}}
 
-	for _, raw := range cfg.Security.FrameAncestors {
+	for _, raw := range cfg.HTTPSecurity.FrameAncestors {
 		s := strings.TrimSpace(raw)
 		if s == "" {
 			continue

@@ -258,6 +258,22 @@ func (s *Service) selectAdapter(ctx context.Context, reg registry.Registration, 
 	adapter := adapterSelection{}
 	adapters := orderedAdapters(reg)
 
+	preferredTransport := normalizeTransport(in.PreferredProtocol)
+	if preferredTransport != "" {
+		var prioritized []registry.AdapterEndpoint
+		var rest []registry.AdapterEndpoint
+		for _, ep := range adapters {
+			if normalizeTransport(ep.TransportType) == preferredTransport {
+				prioritized = append(prioritized, ep)
+			} else {
+				rest = append(rest, ep)
+			}
+		}
+		if len(prioritized) > 0 {
+			adapters = append(prioritized, rest...)
+		}
+	}
+
 	if in.StickyKey != "" {
 		stickyID := s.currentSticky(in, key)
 		if stickyID != "" {
@@ -363,6 +379,10 @@ func preferredEndpoint(ep registry.AdapterEndpoint) string {
 		return ep.ServiceRef
 	}
 	return ep.Endpoint
+}
+
+func normalizeTransport(name string) string {
+	return strings.ToLower(strings.TrimSpace(name))
 }
 
 func orderedAdapters(reg registry.Registration) []registry.AdapterEndpoint {

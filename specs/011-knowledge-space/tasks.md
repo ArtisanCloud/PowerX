@@ -137,7 +137,7 @@
 - [X] **T054 [US4]** 在 `web-admin/app/pages/knowledge-spaces/feedback.vue` 及相关组件实现反馈看板、SLA 徽章、升级弹窗。
 - [X] **T055 [US4]** 将反馈与再加工指标写入 Grafana 与 `backend/reports/_state/knowledge-spaces.json`。
 - [X] **T055A [US4]** 在 `backend/internal/service/knowledge_space/feedback_metrics.go` 扩展 `knowledge.feedback.{loop_time,fix_accuracy,auto_rate,backlog}` 指标，落盘至 `backend/reports/_state/knowledge-feedback.json`，并将 `reports/_state/knowledge-update.json` 聚合更新纳入 `Makefile report-update` 目标。
-- [X] **T055B [US4]** 在 `configs/knowledge/feedback_playbook.yaml`、`scripts/ops/knowledge-feedback-loop.mjs` 定义严重等级→SLA→处理路线映射与回归脚本，确保 +25% 准确率提升与 24 小时闭环可被自动验证并写入 `audit-ledger`。
+- [X] **T055B [US4]** 在 `backend/config/knowledge/feedback_playbook.yaml`、`scripts/ops/knowledge-feedback-loop.mjs` 定义严重等级→SLA→处理路线映射与回归脚本，确保 +25% 准确率提升与 24 小时闭环可被自动验证并写入 `audit-ledger`。
 
 ---
 
@@ -182,7 +182,7 @@
 - [X] **T073 [US6]** 在 `backend/internal/transport/http/admin/knowledge_space/delta_handlers.go` 实现 HTTP Handler，支持审批签名、payload hash 校验。
 - [X] **T074 [US6]** 在 `backend/internal/transport/grpc/knowledge_space/delta_service.go` 实现 gRPC Handler 与 Stream 报告输出。
 - [X] **T075 [US6]** 创建 `scripts/ops/knowledge-delta-job.mjs`、`scripts/ops/knowledge-diff-report.mjs`，支持 dry-run、拆包、回滚 CLI，并补充 quickstart/Runbook。
-- [X] **T076 [US6]** 新增 `configs/knowledge/delta_sources.yaml`、`configs/knowledge/partial_release.yaml`，更新 `backend/etc/config.yaml`、`backend/config/config.go` 校验逻辑与 feature flag 依赖。
+- [X] **T076 [US6]** 新增 `backend/config/knowledge/delta_sources.yaml`、`backend/config/knowledge/partial_release.yaml`，更新 `backend/etc/config.yaml`、`backend/config/config.go` 校验逻辑与 feature flag 依赖。
 - [X] **T077 [US6]** 在 `backend/internal/service/knowledge_space/instrumentation/delta_metrics.go` 输出 `knowledge.delta.{sla,approval_time,diff_accuracy,rollback_count,partial_release}`，生成 `backend/reports/_state/knowledge-delta.json` 并更新 Grafana《Knowledge Delta Sync》。
 
 ---
@@ -205,7 +205,7 @@
 - [X] **T082 [US7]** 在 `backend/internal/transport/http/admin/knowledge_space/event_handlers.go` 实现 HTTP Handler，校验事件签名与 payload schema。
 - [X] **T083 [US7]** 在 `backend/internal/transport/grpc/knowledge_space/event_service.go` 实现 gRPC Handler + 订阅注册，注入事件总线。
 - [X] **T084 [US7]** 在 `backend/internal/service/knowledge_space/event_hotfix/agent_notifier.go` 刷新 Agent 检索权重/模板，写入 `agent.refresh.success_rate`。
-- [X] **T085 [US7]** 新增 `configs/knowledge/event_hotfix_policies.yaml`、`configs/knowledge/agent_weight_matrix.yaml`、`scripts/ops/knowledge-event-replay.mjs`，输出 `backend/reports/_state/knowledge-event.json` 并更新 Grafana《Event Hotfix》。
+- [X] **T085 [US7]** 新增 `backend/config/knowledge/event_hotfix_policies.yaml`、`backend/config/knowledge/agent_weight_matrix.yaml`、`scripts/ops/knowledge-event-replay.mjs`，输出 `backend/reports/_state/knowledge-event.json` 并更新 Grafana《Event Hotfix》。
 
 ---
 
@@ -213,7 +213,7 @@
 
 **目标**：根据 `SCN-KNOWLEDGE-UPDATE-DECAY-001.md` 建立 100% 覆盖的巡检、空白识别、任务派发、误判恢复（≤10 分钟）与 7 天 SLA 的补齐流程。  
 **独立验证**：运行 `scripts/ops/knowledge-decay-scan.mjs`，确认 `knowledge.decay.*` 指标、任务、恢复、`backend/reports/_state/knowledge-decay.json` 与 `reports/_state/knowledge-update.json` 更新。
-**约束**：Flag `PX_KNOWLEDGE_DECAY_GUARD`、`PX_KNOWLEDGE_GAP_ALERT`、`PX_KNOWLEDGE_RESTORE_FLOW` 必须在 CI/ops 场景可控；巡检阈值读取 `configs/knowledge/decay_thresholds.yaml`，任务派发复用 `task-center` / 审批流程，恢复路径必须记录审批人、误判理由并写入审计。
+**约束**：Flag `PX_KNOWLEDGE_DECAY_GUARD`、`PX_KNOWLEDGE_GAP_ALERT`、`PX_KNOWLEDGE_RESTORE_FLOW` 必须在 CI/ops 场景可控；巡检阈值读取 `backend/config/knowledge/decay_thresholds.yaml`，任务派发复用 `task-center` / 审批流程，恢复路径必须记录审批人、误判理由并写入审计。
 
 ### 测试
 
@@ -226,14 +226,14 @@
 - [X] **T089 [US8]** 在 `backend/internal/transport/http/admin/knowledge_space/decay_handlers.go` 实现 HTTP API（含严重度/租户过滤、批量导出、flag 校验），返回任务 ID、SLA 倒计时与 `knowledge.decay` 指标片段。
 - [X] **T090 [US8]** 在 `backend/internal/transport/grpc/knowledge_space/decay_service.go` 实现 gRPC API，供任务中心与 Workflow 调用，包括 Run/List/Restore 方法及租户隔离校验。
 - [X] **T091 [US8]** 创建 `scripts/ops/knowledge-decay-scan.mjs`，并在 `docs/ops/gap_task_template.md` 记录任务模板、审批字段、恢复/误判剧本，提供 dry-run 与报告导出。
-- [X] **T092 [US8]** 新增 `configs/knowledge/decay_thresholds.yaml`、`backend/reports/_state/knowledge-decay.json`，输出 `knowledge.decay.{detected,false_positive,gap_backlog,fill_time}` 指标，更新 Grafana《Knowledge Decay Monitor》与 `knowledge-update.json` 聚合。
+- [X] **T092 [US8]** 新增 `backend/config/knowledge/decay_thresholds.yaml`、`backend/reports/_state/knowledge-decay.json`，输出 `knowledge.decay.{detected,false_positive,gap_backlog,fill_time}` 指标，更新 Grafana《Knowledge Decay Monitor》与 `knowledge-update.json` 聚合。
 
 ---
 
 ## 阶段 11：用户故事 US9（P1）— 租户灰度发布与治理
 
 **目标**：落实 `SCN-KNOWLEDGE-UPDATE-TENANT-001.md` 的租户策略、灰度排期、指标监控、自动扩散/回滚、审计追踪，保障跨租户隔离。  
-**独立验证**：配置 `configs/knowledge/tenant_release_matrix.yaml`，通过 Web Admin + CLI 完成试点→扩散→指标异常→回滚流程，并核对 `backend/reports/_state/knowledge-release.json` 与聚合 `reports/_state/knowledge-update.json` 的版本轨迹。
+**独立验证**：配置 `backend/config/knowledge/tenant_release_matrix.yaml`，通过 Web Admin + CLI 完成试点→扩散→指标异常→回滚流程，并核对 `backend/reports/_state/knowledge-release.json` 与聚合 `reports/_state/knowledge-update.json` 的版本轨迹。
 **约束**：`PX_KNOWLEDGE_GRAY_RELEASE`、`PX_TENANT_RELEASE_MATRIX`、`PX_KNOWLEDGE_RELEASE_GUARD` flag 必须可控；发布策略需写入/导出 `release_guardrails.md`，所有扩散/暂停/回滚动作写 `audit-ledger` 并推送 IM 通知；指标与 CLI/脚本复用共享依赖（version-store、notifications、metrics-gateway），不得重复实现监控或嵌套版本存储逻辑。
 
 ### 测试
@@ -248,7 +248,7 @@
 - [X] **T097 [US9]** 在 `backend/internal/transport/http/admin/knowledge_space/tenant_release_handlers.go` 实现 HTTP Handler，并在 `web-admin/app/pages/knowledge-spaces/release.vue` 展示策略、指标、回滚按钮与 guardrail 告警。
 - [X] **T098 [US9]** 在 `backend/internal/transport/grpc/knowledge_space/tenant_release_service.go` 实现 gRPC API，供 CLI/Workflow 调用，返回批次 token、版本号、租户覆盖率。
 - [X] **T099 [US9]** 创建 `cmd/knowledge/release.go`（PowerX CLI）与 `scripts/ops/knowledge-release-matrix.mjs`，支持策略校验、批次推进、报告导出，并引用同一配置/Flag 管理。
-- [X] **T100 [US9]** 新增 `configs/knowledge/tenant_release_matrix.yaml`、`release_guardrails.md`、`backend/reports/_state/knowledge-release.json`，输出 `knowledge.release.{gray_state,rollback_count,tenant_coverage,alerts}` 并写入 `reports/_state/knowledge-update.json`，同时记录版本 drift 报表供审计。
+- [X] **T100 [US9]** 新增 `backend/config/knowledge/tenant_release_matrix.yaml`、`release_guardrails.md`、`backend/reports/_state/knowledge-release.json`，输出 `knowledge.release.{gray_state,rollback_count,tenant_coverage,alerts}` 并写入 `reports/_state/knowledge-update.json`，同时记录版本 drift 报表供审计。
 
 ---
 

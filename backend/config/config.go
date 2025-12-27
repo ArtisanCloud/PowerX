@@ -45,7 +45,7 @@ func GetGlobalConfig() *Config {
 	return GlobalConfig
 }
 
-type SecurityConfig struct {
+type HTTPSecurityConfig struct {
 	// 允许作为父页面的来源（CSP frame-ancestors 白名单）
 	// 取值示例： "https://admin.powerx.io", "http://localhost:3030", "https://*.powerx.io", "'self'"
 	FrameAncestors []string `yaml:"frame_ancestors"`
@@ -60,27 +60,37 @@ type TenantConfig struct {
 type Config struct {
 	Server             ServerConfig             `yaml:"server"`              // HTTP/gRPC 监听与行为
 	Auth               AuthConfig               `yaml:"auth"`                // JWT / 认证相关
-	EventBus           EventBusConfig           `yaml:"event_bus"`           // 事件总线（local/redis）
-	EventFabric        EventFabricConfig        `yaml:"event_fabric"`        // 事件骨干调度配置
+	Event              EventConfig              `yaml:"event"`               // 事件配置（系统总线 + Event Fabric）
+	Queue              QueueConfig              `yaml:"queue"`               // 全局队列驱动
+	Scheduler          SchedulerConfig          `yaml:"scheduler"`           // 全局调度器
 	IntegrationGateway IntegrationGatewayConfig `yaml:"integration_gateway"` // 集成网关
+	CapabilityRegistry CapabilityRegistryConfig `yaml:"capability_registry"` // Capability Registry 配置
 	AgentLifecycle     AgentLifecycleConfig     `yaml:"agent_lifecycle"`     // Agent 生命周期治理
 	KnowledgeSpace     KnowledgeSpaceConfig     `yaml:"knowledge_space"`     // 知识空间治理
-	LowCode            LowCodeConfig            `yaml:"dynamic_form"`        // flow 执行相关
+	LowCode            LowCodeConfig            `yaml:"low_code"`            // flow 执行相关
 	FeatureGate        FeatureGateConfig        `yaml:"feature_gate"`        // 细粒度开关、license
-	DevHotload         DevHotloadConfig         `yaml:"dev_hotload"`
-	PluginRelease      PluginReleaseConfig      `yaml:"plugin_release"`
-	PluginBootstrap    PluginBootstrapConfig    `yaml:"plugin_bootstrap"`
-	PluginDebug        PluginDebugConfig        `yaml:"plugin_debug"`
 	Database           dbCfg.DatabaseConfig     `yaml:"database"` // 数据库配置
 	Cache              cacheCfg.CacheConfig     `yaml:"cache"`    // 缓存配置
 	LogConfig          logCfg.LogConfig         `yaml:"log"`      // 输出配置
 	AI                 agentCfg.AIConfig        `yaml:"ai"`
 	Agent              agentCfg.AgentConfig     `yaml:"agent"` // 智能体工具注册/限流等
-	MCP                mcpCfg.MCPConfig         `yaml:"mcp"`   // MCP 服务器配置
-	Plugin             PluginConfig             `yaml:"plugin"`
-	Security           SecurityConfig           `yaml:"security"`
+	Plugin             PluginAggregateConfig    `yaml:"plugin"`
+	HTTPSecurity       HTTPSecurityConfig       `yaml:"http_security"`
 	Storage            StorageConfig            `yaml:"storage"`
 	Tenants            TenantConfig             `yaml:"tenants"`
+}
+
+// EffectiveMCPConfig 返回当前应使用的 MCP 配置。
+func (c *Config) EffectiveMCPConfig() *mcpCfg.MCPConfig {
+	if c == nil {
+		return nil
+	}
+	return c.Agent.MCP
+}
+
+type EventConfig struct {
+	Bus    EventBusConfig    `yaml:"bus"`
+	Fabric EventFabricConfig `yaml:"fabric"`
 }
 
 // HTTP服务器配置
@@ -112,7 +122,27 @@ type EventBusConfig struct {
 	Type          string `yaml:"type"`           // local / redis
 	RedisAddr     string `yaml:"redis_addr"`     // redis 地址
 	RedisPassword string `yaml:"redis_password"` // redis 密码
+	RedisDB       int    `yaml:"redis_db"`       // redis 数据库
 	DedupeTTLSec  int    `yaml:"dedupe_ttl_sec"` // 幂等缓存过期
+}
+
+// QueueConfig 统一队列配置（允许被多个模块引用）
+type QueueConfig struct {
+	Driver string           `yaml:"driver"` // redis/local
+	Redis  QueueRedisConfig `yaml:"redis"`
+}
+
+// QueueRedisConfig 描述 Redis 连接信息
+type QueueRedisConfig struct {
+	Addr     string `yaml:"addr"`
+	Password string `yaml:"password"`
+	DB       int    `yaml:"db"`
+}
+
+// SchedulerConfig 统一的任务调度配置
+type SchedulerConfig struct {
+	Driver          string `yaml:"driver"`           // builtin/cron
+	IntervalSeconds int    `yaml:"interval_seconds"` // 默认 tick
 }
 
 // EventFabricConfig 管理事件骨干的可靠性与调度参数。
@@ -201,6 +231,29 @@ type IntegrationGatewayEventTopics struct {
 	Updated             string `yaml:"updated"`
 	InvocationSucceeded string `yaml:"invocation_succeeded"`
 	InvocationFailed    string `yaml:"invocation_failed"`
+}
+
+// CapabilityRegistryConfig 配置能力目录缓存与事件主题。
+type CapabilityRegistryConfig struct {
+	RedisPrefix      string                               `yaml:"redis_prefix"`
+	EventTopicPrefix string                               `yaml:"event_topic_prefix"`
+	DefaultRateLimit CapabilityRegistryRateLimitConfig    `yaml:"default_rate_limit"`
+	Notifications    CapabilityRegistryNotificationConfig `yaml:"notifications"`
+}
+
+// CapabilityRegistryRateLimitConfig 描述同步/Worker 默认限流。
+type CapabilityRegistryRateLimitConfig struct {
+	Limit         uint64 `yaml:"limit"`
+	Burst         uint64 `yaml:"burst"`
+	WindowSeconds int    `yaml:"window_seconds"`
+}
+
+// CapabilityRegistryNotificationConfig 定义能力目录告警通知。
+type CapabilityRegistryNotificationConfig struct {
+	IMWebhook        string `yaml:"im_webhook"`
+	RetryIntervalSec int    `yaml:"retry_interval_seconds"`
+	RetryMaxAttempts int    `yaml:"retry_max_attempts"`
+	HTTPTimeoutSec   int    `yaml:"http_timeout_seconds"`
 }
 
 // AgentLifecycleConfig 描述代理生命周期模块运行参数。
@@ -350,7 +403,12 @@ type LowCodeConfig struct {
 
 // 功能开关配置
 type FeatureGateConfig struct {
-	LicenseKey string `yaml:"license_key"` // license 或灰度控制 token
+	LicenseKey                 string `yaml:"license_key"`                  // license 或灰度控制 token
+	EnableEventFabric          bool   `yaml:"enable_event_fabric"`          // 是否启用事件骨干
+	EnableWorkflow             bool   `yaml:"enable_workflow"`              // 是否启用 Workflow 能力
+	EnableKnowledgeSpace       bool   `yaml:"enable_knowledge_space"`       // 是否启用知识空间
+	EnableMediaPlatform        bool   `yaml:"enable_media_platform"`        // 是否启用平台 Media 能力
+	EnableExperimentalFeatures bool   `yaml:"enable_experimental_features"` // 是否开启实验特性
 }
 
 // Load 加载配置文件并合并环境变量
@@ -423,118 +481,146 @@ func loadFromEnv(cfg *Config) {
 
 	// EventBus配置
 	if busType := os.Getenv("CORE_X_EVENT_BUS_TYPE"); busType != "" {
-		cfg.EventBus.Type = busType
+		cfg.Event.Bus.Type = busType
 	}
 	if redisAddr := os.Getenv("CORE_X_EVENT_BUS_REDIS_ADDR"); redisAddr != "" {
-		cfg.EventBus.RedisAddr = redisAddr
+		cfg.Event.Bus.RedisAddr = redisAddr
 	}
 	if redisPassword := os.Getenv("CORE_X_EVENT_BUS_REDIS_PASSWORD"); redisPassword != "" {
-		cfg.EventBus.RedisPassword = redisPassword
+		cfg.Event.Bus.RedisPassword = redisPassword
+	}
+	if redisDB := os.Getenv("CORE_X_EVENT_BUS_REDIS_DB"); redisDB != "" {
+		if v, err := strconv.Atoi(redisDB); err == nil {
+			cfg.Event.Bus.RedisDB = v
+		}
 	}
 	if ttl := os.Getenv("CORE_X_EVENT_BUS_DEDUPE_TTL_SEC"); ttl != "" {
 		if t, err := strconv.Atoi(ttl); err == nil {
-			cfg.EventBus.DedupeTTLSec = t
+			cfg.Event.Bus.DedupeTTLSec = t
+		}
+	}
+
+	// Capability Registry 配置
+	if v := os.Getenv("CORE_X_CAPABILITY_REGISTRY_REDIS_PREFIX"); v != "" {
+		cfg.CapabilityRegistry.RedisPrefix = v
+	}
+	if v := os.Getenv("CORE_X_CAPABILITY_REGISTRY_EVENT_TOPIC_PREFIX"); v != "" {
+		cfg.CapabilityRegistry.EventTopicPrefix = v
+	}
+	if v := os.Getenv("CORE_X_CAPABILITY_REGISTRY_RATE_LIMIT_LIMIT"); v != "" {
+		if limit, err := strconv.ParseUint(v, 10, 64); err == nil && limit > 0 {
+			cfg.CapabilityRegistry.DefaultRateLimit.Limit = limit
+		}
+	}
+	if v := os.Getenv("CORE_X_CAPABILITY_REGISTRY_RATE_LIMIT_BURST"); v != "" {
+		if burst, err := strconv.ParseUint(v, 10, 64); err == nil && burst > 0 {
+			cfg.CapabilityRegistry.DefaultRateLimit.Burst = burst
+		}
+	}
+	if v := os.Getenv("CORE_X_CAPABILITY_REGISTRY_RATE_LIMIT_WINDOW"); v != "" {
+		if window, err := strconv.Atoi(v); err == nil && window > 0 {
+			cfg.CapabilityRegistry.DefaultRateLimit.WindowSeconds = window
 		}
 	}
 
 	// EventFabric 配置
 	if v := os.Getenv("CORE_X_EVENT_FABRIC_ACK_TIMEOUT_SEC"); v != "" {
 		if t, err := strconv.Atoi(v); err == nil {
-			cfg.EventFabric.AckTimeoutSeconds = t
+			cfg.Event.Fabric.AckTimeoutSeconds = t
 		}
 	}
 	if v := os.Getenv("CORE_X_EVENT_FABRIC_DEFAULT_MAX_RETRY"); v != "" {
 		if t, err := strconv.Atoi(v); err == nil {
-			cfg.EventFabric.DefaultMaxRetry = t
+			cfg.Event.Fabric.DefaultMaxRetry = t
 		}
 	}
 	if v := os.Getenv("CORE_X_EVENT_FABRIC_REDIS_ADDR"); v != "" {
-		cfg.EventFabric.RedisAddr = v
+		cfg.Event.Fabric.RedisAddr = v
 	}
 	if v := os.Getenv("CORE_X_EVENT_FABRIC_REDIS_PASSWORD"); v != "" {
-		cfg.EventFabric.RedisPassword = v
+		cfg.Event.Fabric.RedisPassword = v
 	}
 	if v := os.Getenv("CORE_X_EVENT_FABRIC_REDIS_DB"); v != "" {
 		if dbIdx, err := strconv.Atoi(v); err == nil {
-			cfg.EventFabric.RedisDB = dbIdx
+			cfg.Event.Fabric.RedisDB = dbIdx
 		}
 	}
 	if v := os.Getenv("CORE_X_EVENT_FABRIC_RETRY_KEY_PREFIX"); v != "" {
-		cfg.EventFabric.RetryKeyPrefix = v
+		cfg.Event.Fabric.RetryKeyPrefix = v
 	}
 	if v := os.Getenv("CORE_X_EVENT_FABRIC_REPLAY_KEY_PREFIX"); v != "" {
-		cfg.EventFabric.ReplayKeyPrefix = v
+		cfg.Event.Fabric.ReplayKeyPrefix = v
 	}
 	if v := os.Getenv("CORE_X_EVENT_FABRIC_SCHEDULER_INTERVAL"); v != "" {
 		if t, err := strconv.Atoi(v); err == nil {
-			cfg.EventFabric.SchedulerInterval = t
+			cfg.Event.Fabric.SchedulerInterval = t
 		}
 	}
 	if v := os.Getenv("CORE_X_EVENT_FABRIC_REQUIRE_TLS"); v != "" {
-		cfg.EventFabric.Security.RequireTLS = strings.EqualFold(v, "true") || v == "1"
+		cfg.Event.Fabric.Security.RequireTLS = strings.EqualFold(v, "true") || v == "1"
 	}
 	if v := os.Getenv("CORE_X_EVENT_FABRIC_SIGNATURE_SECRET"); v != "" {
-		cfg.EventFabric.Security.SignatureSecret = v
+		cfg.Event.Fabric.Security.SignatureSecret = v
 	}
 	if v := os.Getenv("CORE_X_EVENT_FABRIC_SIGNATURE_HEADER"); v != "" {
-		cfg.EventFabric.Security.SignatureHeader = v
+		cfg.Event.Fabric.Security.SignatureHeader = v
 	}
 	if v := os.Getenv("CORE_X_EVENT_FABRIC_TIMESTAMP_HEADER"); v != "" {
-		cfg.EventFabric.Security.TimestampHeader = v
+		cfg.Event.Fabric.Security.TimestampHeader = v
 	}
 	if v := os.Getenv("CORE_X_EVENT_FABRIC_SIGNATURE_KEY_ID"); v != "" {
-		cfg.EventFabric.Security.SignatureKeyID = v
+		cfg.Event.Fabric.Security.SignatureKeyID = v
 	}
 	if v := os.Getenv("CORE_X_EVENT_FABRIC_ALLOWED_SKEW_SEC"); v != "" {
 		if skew, err := strconv.Atoi(v); err == nil {
-			cfg.EventFabric.Security.AllowedClockSkewSeconds = skew
+			cfg.Event.Fabric.Security.AllowedClockSkewSeconds = skew
 		}
 	}
 	if v := os.Getenv("CORE_X_EVENT_FABRIC_AUTHZ_CACHE_TTL"); v != "" {
 		if ttl, err := strconv.Atoi(v); err == nil && ttl > 0 {
-			cfg.EventFabric.Authorization.CacheTTLSeconds = ttl
+			cfg.Event.Fabric.Authorization.CacheTTLSeconds = ttl
 		}
 	}
 	if v := os.Getenv("CORE_X_EVENT_FABRIC_AUTHZ_LOCAL_CACHE_TTL"); v != "" {
 		if ttl, err := strconv.Atoi(v); err == nil && ttl > 0 {
-			cfg.EventFabric.Authorization.LocalCacheTTLSeconds = ttl
+			cfg.Event.Fabric.Authorization.LocalCacheTTLSeconds = ttl
 		}
 	}
 	if v := os.Getenv("CORE_X_EVENT_FABRIC_AUTHZ_REDIS_ADDR"); v != "" {
-		cfg.EventFabric.Authorization.RedisAddr = v
+		cfg.Event.Fabric.Authorization.RedisAddr = v
 	}
 	if v := os.Getenv("CORE_X_EVENT_FABRIC_AUTHZ_REDIS_PASSWORD"); v != "" {
-		cfg.EventFabric.Authorization.RedisPassword = v
+		cfg.Event.Fabric.Authorization.RedisPassword = v
 	}
 	if v := os.Getenv("CORE_X_EVENT_FABRIC_AUTHZ_REDIS_DB"); v != "" {
 		if dbIdx, err := strconv.Atoi(v); err == nil && dbIdx >= 0 {
-			cfg.EventFabric.Authorization.RedisDB = dbIdx
+			cfg.Event.Fabric.Authorization.RedisDB = dbIdx
 		}
 	}
 	if v := os.Getenv("CORE_X_EVENT_FABRIC_AUTHZ_CACHE_INVALIDATE_CHANNEL"); v != "" {
-		cfg.EventFabric.Authorization.CacheInvalidateChannel = v
+		cfg.Event.Fabric.Authorization.CacheInvalidateChannel = v
 	}
 	if v := os.Getenv("CORE_X_EVENT_FABRIC_AUTHZ_CHALLENGE_SLA"); v != "" {
 		if sla, err := strconv.Atoi(v); err == nil && sla > 0 {
-			cfg.EventFabric.Authorization.ChallengeSLASeconds = sla
+			cfg.Event.Fabric.Authorization.ChallengeSLASeconds = sla
 		}
 	}
 	if v := os.Getenv("CORE_X_EVENT_FABRIC_AUTHZ_CHALLENGE_TOPIC"); v != "" {
-		cfg.EventFabric.Authorization.ChallengeTopic = v
+		cfg.Event.Fabric.Authorization.ChallengeTopic = v
 	}
 	if v := os.Getenv("CORE_X_EVENT_FABRIC_AUTHZ_CHALLENGE_CONSUMER_GROUP"); v != "" {
-		cfg.EventFabric.Authorization.ChallengeConsumerGroup = v
+		cfg.Event.Fabric.Authorization.ChallengeConsumerGroup = v
 	}
 	if v := os.Getenv("CORE_X_EVENT_FABRIC_AUTHZ_AUDIT_RETENTION_DAYS"); v != "" {
 		if days, err := strconv.Atoi(v); err == nil && days > 0 {
-			cfg.EventFabric.Authorization.AuditRetentionDays = days
+			cfg.Event.Fabric.Authorization.AuditRetentionDays = days
 		}
 	}
 	if v := os.Getenv("CORE_X_EVENT_FABRIC_AUTHZ_AUDIT_ARCHIVE_BUCKET"); v != "" {
-		cfg.EventFabric.Authorization.AuditArchiveBucket = v
+		cfg.Event.Fabric.Authorization.AuditArchiveBucket = v
 	}
 	if v := os.Getenv("CORE_X_EVENT_FABRIC_AUTHZ_AUDIT_ARCHIVE_PREFIX"); v != "" {
-		cfg.EventFabric.Authorization.AuditArchivePrefix = v
+		cfg.Event.Fabric.Authorization.AuditArchivePrefix = v
 	}
 
 	// LowCode配置
@@ -565,84 +651,84 @@ func loadFromEnv(cfg *Config) {
 
 	// Plugin Release 配置
 	if v := os.Getenv("CORE_X_PLUGIN_RELEASE_ENABLE_LOCAL_INSTALL"); v != "" {
-		cfg.PluginRelease.FeatureFlags.EnableLocalInstall = strings.EqualFold(v, "true") || v == "1"
+		cfg.Plugin.Release.FeatureFlags.EnableLocalInstall = strings.EqualFold(v, "true") || v == "1"
 	}
 	if v := os.Getenv("CORE_X_PLUGIN_RELEASE_ENABLE_PIPELINE_DEPLOYMENT"); v != "" {
-		cfg.PluginRelease.FeatureFlags.EnablePipelineDeployment = strings.EqualFold(v, "true") || v == "1"
+		cfg.Plugin.Release.FeatureFlags.EnablePipelineDeployment = strings.EqualFold(v, "true") || v == "1"
 	}
 	if v := os.Getenv("CORE_X_PLUGIN_RELEASE_ENABLE_OFFLINE_DISTRIBUTION"); v != "" {
-		cfg.PluginRelease.FeatureFlags.EnableOfflineDistribution = strings.EqualFold(v, "true") || v == "1"
+		cfg.Plugin.Release.FeatureFlags.EnableOfflineDistribution = strings.EqualFold(v, "true") || v == "1"
 	}
 	if v := os.Getenv("CORE_X_PLUGIN_RELEASE_SESSION_TTL_MINUTES"); v != "" {
 		if ttl, err := strconv.Atoi(v); err == nil && ttl > 0 {
-			cfg.PluginRelease.LocalInstall.SessionTTLMinutes = ttl
+			cfg.Plugin.Release.LocalInstall.SessionTTLMinutes = ttl
 		}
 	}
 	if v := os.Getenv("CORE_X_PLUGIN_RELEASE_MAX_ARTIFACT_SIZE_MB"); v != "" {
 		if size, err := strconv.Atoi(v); err == nil && size > 0 {
-			cfg.PluginRelease.LocalInstall.MaxArtifactSizeMB = size
+			cfg.Plugin.Release.LocalInstall.MaxArtifactSizeMB = size
 		}
 	}
 	if v := os.Getenv("CORE_X_PLUGIN_RELEASE_APPROVAL_SLA_HOURS"); v != "" {
 		if sla, err := strconv.Atoi(v); err == nil && sla > 0 {
-			cfg.PluginRelease.Pipeline.ApprovalSLAHours = sla
+			cfg.Plugin.Release.Pipeline.ApprovalSLAHours = sla
 		}
 	}
 	if v := os.Getenv("CORE_X_PLUGIN_RELEASE_MAX_PARALLEL_RELEASES"); v != "" {
 		if maxR, err := strconv.Atoi(v); err == nil && maxR > 0 {
-			cfg.PluginRelease.Pipeline.MaxParallelReleases = maxR
+			cfg.Plugin.Release.Pipeline.MaxParallelReleases = maxR
 		}
 	}
 	if v := os.Getenv("CORE_X_PLUGIN_RELEASE_DEFAULT_ROLLBACK_NOTICE_MINUTES"); v != "" {
 		if minutes, err := strconv.Atoi(v); err == nil && minutes > 0 {
-			cfg.PluginRelease.Pipeline.DefaultRollbackNotice = minutes
+			cfg.Plugin.Release.Pipeline.DefaultRollbackNotice = minutes
 		}
 	}
 	if v := os.Getenv("CORE_X_PLUGIN_RELEASE_CANARY_ROLLBACK_TIMEOUT_SECONDS"); v != "" {
 		if seconds, err := strconv.Atoi(v); err == nil && seconds > 0 {
-			cfg.PluginRelease.Canary.RollbackTimeoutSeconds = seconds
+			cfg.Plugin.Release.Canary.RollbackTimeoutSeconds = seconds
 		}
 	}
 	if v := os.Getenv("CORE_X_PLUGIN_RELEASE_CANARY_DEFAULT_BATCH_SIZE"); v != "" {
 		if size, err := strconv.Atoi(v); err == nil && size > 0 {
-			cfg.PluginRelease.Canary.DefaultBatchSize = size
+			cfg.Plugin.Release.Canary.DefaultBatchSize = size
 		}
 	}
 	if v := os.Getenv("CORE_X_PLUGIN_RELEASE_CANARY_MAX_BATCHES"); v != "" {
 		if count, err := strconv.Atoi(v); err == nil && count > 0 {
-			cfg.PluginRelease.Canary.MaxBatches = count
+			cfg.Plugin.Release.Canary.MaxBatches = count
 		}
 	}
 	if v := os.Getenv("CORE_X_PLUGIN_RELEASE_OFFLINE_BUCKET"); v != "" {
-		cfg.PluginRelease.Distribution.OfflineBucket = v
+		cfg.Plugin.Release.Distribution.OfflineBucket = v
 	}
 	if v := os.Getenv("CORE_X_PLUGIN_RELEASE_OFFLINE_PREFIX"); v != "" {
-		cfg.PluginRelease.Distribution.OfflinePrefix = v
+		cfg.Plugin.Release.Distribution.OfflinePrefix = v
 	}
 	if v := os.Getenv("CORE_X_PLUGIN_RELEASE_ESCALATION_THRESHOLD"); v != "" {
 		if threshold, err := strconv.Atoi(v); err == nil && threshold > 0 {
-			cfg.PluginRelease.Distribution.EscalationThreshold = threshold
+			cfg.Plugin.Release.Distribution.EscalationThreshold = threshold
 		}
 	}
 	if v := os.Getenv("CORE_X_PLUGIN_RELEASE_ARTIFACT_RETENTION_DAYS"); v != "" {
 		if days, err := strconv.Atoi(v); err == nil && days > 0 {
-			cfg.PluginRelease.Distribution.ArtifactRetentionDays = days
+			cfg.Plugin.Release.Distribution.ArtifactRetentionDays = days
 		}
 	}
 	if v := os.Getenv("CORE_X_PLUGIN_RELEASE_DASHBOARD_UID"); v != "" {
-		cfg.PluginRelease.Observability.DashboardUID = v
+		cfg.Plugin.Release.Observability.DashboardUID = v
 	}
 	if v := os.Getenv("CORE_X_PLUGIN_RELEASE_ALERT_RULE_PREFIX"); v != "" {
-		cfg.PluginRelease.Observability.AlertRulePrefix = v
+		cfg.Plugin.Release.Observability.AlertRulePrefix = v
 	}
 	if v := os.Getenv("CORE_X_PLUGIN_RELEASE_KPI_ROLLBACK_SECONDS"); v != "" {
 		if seconds, err := strconv.Atoi(v); err == nil && seconds > 0 {
-			cfg.PluginRelease.Observability.KPITargets.CanRollbackWithinSeconds = seconds
+			cfg.Plugin.Release.Observability.KPITargets.CanRollbackWithinSeconds = seconds
 		}
 	}
 	if v := os.Getenv("CORE_X_PLUGIN_RELEASE_KPI_HOTLOAD_P95_MS"); v != "" {
 		if ms, err := strconv.Atoi(v); err == nil && ms > 0 {
-			cfg.PluginRelease.Observability.KPITargets.HotloadLatencyP95Ms = ms
+			cfg.Plugin.Release.Observability.KPITargets.HotloadLatencyP95Ms = ms
 		}
 	}
 
@@ -754,7 +840,7 @@ func loadFromEnv(cfg *Config) {
 	if mode := os.Getenv("GIN_MODE"); mode != "" && cfg.Server.Mode == "debug" {
 		cfg.Server.Mode = mode
 	}
-	if busType := os.Getenv("EVENT_BUS_TYPE"); busType != "" && cfg.EventBus.Type == "local" {
-		cfg.EventBus.Type = busType
+	if busType := os.Getenv("EVENT_BUS_TYPE"); busType != "" && cfg.Event.Bus.Type == "local" {
+		cfg.Event.Bus.Type = busType
 	}
 }

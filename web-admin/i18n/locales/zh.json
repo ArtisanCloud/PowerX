@@ -1,12 +1,14 @@
 {
   "menu": {
     "openMarket": "开放市场",
+    "openCapabilities": "开放能力",
     "pluginMarketplace": "插件市场",
     "pluginReleaseCandidates": "发布候选",
     "agent": "智能体",
     "aiSettings": "AI 设置",
     "aiSettingsModel": "模型配置",
     "aiSettingsCost": "成本配置",
+    "aiSettingsRegistry": "能力注册表",
     "badge": "徽章",
     "customers": "客户管理",
     "customerList": "客户列表",
@@ -145,10 +147,13 @@
       },
       "actions": {
         "openCostGuard": "进入成本防护",
-        "backToModels": "返回模型列表"
+        "backToModels": "返回模型列表",
+        "openCapabilityRegistry": "能力注册表"
       },
       "costGuardPageTitle": "成本防护",
       "costGuardPageDesc": "管理 AI 配额、限流与降级策略。",
+      "registryPageTitle": "能力注册表",
+      "registryPageDesc": "查看插件能力目录、哈希与同步任务，仅 root 用户可访问。",
       "costGuard": {
         "panelTitle": "防护策略",
         "panelDesc": "配置配额、限流与降级方案。",
@@ -178,6 +183,100 @@
           "demo": "演示",
           "ops": "运营"
         }
+      },
+      "registry": {
+        "filters": {
+          "searchPlaceholder": "搜索能力 ID、标题或意图",
+          "pluginPlaceholder": "插件 ID",
+          "statusAll": "全部状态",
+          "protocolAll": "全部协议",
+          "sourcePlugin": "插件能力",
+          "sourcePlatform": "平台能力",
+          "sourceAll": "全部来源",
+          "apply": "应用筛选",
+          "reset": "重置"
+        },
+        "columns": {
+          "capability": "能力",
+          "plugin": "插件",
+          "policy": "协议策略",
+          "protocols": "接入通道",
+          "hash": "版本哈希",
+          "publishedAt": "发布/同步"
+        },
+        "summary": "共 {total} 条记录",
+        "manualUpgrade": "需手动升级",
+        "empty": "暂无能力注册记录",
+        "noAccess": {
+          "title": "仅限 Root 用户",
+          "description": "能力注册表仅对 root 账号开放，请使用具备 root 权限的账户登录。"
+        },
+        "syncJobs": {
+          "title": "最近同步任务",
+          "empty": "暂无同步任务记录",
+          "more": "仅展示最近 {count} 条任务",
+          "status": {
+            "pending": "排队中",
+            "running": "同步中",
+            "succeeded": "成功",
+            "failed": "失败"
+          }
+        },
+        "toast": {
+          "loadFailed": "加载能力注册表失败",
+          "jobsFailed": "加载同步任务失败"
+        }
+      }
+    },
+    "openCapabilities": {
+      "title": "开放能力",
+      "description": "查看 CoreX 平台能力模块、协议和调试入口。",
+      "actions": {
+        "refresh": "刷新数据",
+        "syncNow": "立即同步",
+        "copyCurl": "复制 cURL",
+        "copyInsomnia": "复制 Insomnia",
+        "openDoc": "打开文档",
+        "openMediaEntry": "跳转 Media API"
+      },
+      "noAccess": {
+        "title": "仅 Root 管理员可见",
+        "description": "当前账号不是 Root，无法查看平台开放能力明细。"
+      },
+      "summary": {
+        "modules": "模块：{count}",
+        "capabilities": "能力：{count}",
+        "generatedAt": "最近快照：{time}",
+        "lastLoadedAt": "上次刷新：{time}"
+      },
+      "filters": {
+        "searchPlaceholder": "搜索能力 ID、标题或描述",
+        "reset": "清空筛选",
+        "moduleAll": "全部模块",
+        "protocolAll": "全部协议"
+      },
+      "empty": {
+        "title": "暂无平台能力",
+        "description": "还没有任何 CoreX 平台能力被注册，或数据尚未同步。",
+        "filtered": "没有符合当前筛选条件的能力"
+      },
+      "loading": "正在加载平台能力…",
+      "defaultModuleDescription": "该模块聚合 CoreX 内置能力，确保宿主与 Skeleton 插件共享。",
+      "status": {
+        "active": "可用",
+        "degraded": "降级",
+        "offline": "离线"
+      },
+      "labels": {
+        "preferred": "首选协议",
+        "hash": "版本哈希",
+        "plugin": "插件来源",
+        "payloadSample": "调用示例"
+      },
+      "toast": {
+        "loadFailed": "加载平台能力失败",
+        "copySuccess": "已复制到剪贴板",
+        "copyFailed": "复制失败"
       }
     }
   },
@@ -186,6 +285,107 @@
     "commandChannel": "控制通道"
   },
   "intro": {
+    "nav": {
+      "features": "核心能力",
+      "products": "产品矩阵",
+      "about": "关于 PowerX"
+    },
+    "hero": {
+      "welcomeTo": "欢迎来到 PowerX",
+      "dashboardPreview": "现代化的企业级 AgentOS 工作台"
+    },
+    "features": {
+      "title": "核心能力",
+      "subtitle": "围绕智能体、插件与工作流构建统一运营平台",
+      "performance": {
+        "title": "极速响应",
+        "description": "Nuxt 4 前端 + Go 后端，页面秒开、接口毫秒级。"
+      },
+      "design": {
+        "title": "现代设计",
+        "description": "渐变视觉、暗色模式与响应式布局，增强运营体验。"
+      },
+      "usability": {
+        "title": "易用可控",
+        "description": "低代码配置、可视化编排，管理员即可完成治理。"
+      },
+      "security": {
+        "title": "企业级安全",
+        "description": "统一身份、审计与合规策略，覆盖多租户全链路。"
+      }
+    },
+    "products": {
+      "title": "产品家族",
+      "subtitle": "覆盖管理后台、分析与云基座的企业级套件",
+      "admin": {
+        "description": "PowerX Admin 提供多插件运营面板与权限治理。",
+        "features": {
+          "userManagement": "用户/租户管理",
+          "permissionControl": "权限与角色治理",
+          "dataAnalysis": "业务与能力指标",
+          "systemMonitoring": "系统状态监控"
+        }
+      },
+      "analytics": {
+        "description": "PowerX Analytics 用于洞察调用链路、配额与成本。",
+        "features": {
+          "realTimeAnalysis": "实时分析",
+          "visualReports": "可视化报表",
+          "predictiveModels": "预测模型",
+          "customDashboard": "自定义看板"
+        }
+      },
+      "cloud": {
+        "description": "PowerX Cloud 提供插件运行与资产存储的统一基座。",
+        "features": {
+          "cloudStorage": "安全存储",
+          "multiDeviceSync": "多端同步",
+          "elasticScaling": "弹性伸缩",
+          "support247": "7x24 运维支持"
+        }
+      },
+      "learnMore": "了解更多"
+    },
+    "about": {
+      "title": "关于我们",
+      "subtitle": "让每个业务都拥有可编排、可治理的智能体",
+      "mission": {
+        "title": "使命",
+        "paragraph1": "把复杂的企业系统抽象为可复用的插件能力。",
+        "paragraph2": "用统一协议与工作流引擎连接多种 AI 模型与系统。",
+        "paragraph3": "帮助团队以小时级别上线、治理与升级智能体。"
+      },
+      "stats": {
+        "companies": "服务 120+ 企业",
+        "users": "10K+ 管理员",
+        "uptime": "99.95% 可用性"
+      },
+      "enterprise": {
+        "title": "企业级实践",
+        "description": "覆盖安全、合规、审计、配额、升级等全维治理能力。"
+      },
+      "values": {
+        "title": "价值观",
+        "innovation": {
+          "title": "持续创新",
+          "description": "保持快速迭代，将最佳实践沉淀进平台。"
+        },
+        "userFirst": {
+          "title": "以用户为先",
+          "description": "围绕运营者和开发者的真实场景打磨体验。"
+        },
+        "excellence": {
+          "title": "追求卓越",
+          "description": "对可靠性、性能与可维护性提出更高标准。"
+        }
+      }
+    },
+    "cta": {
+      "title": "立即体验 PowerX",
+      "subtitle": "3 分钟即可搭建多插件能力目录，统一管理智能体。",
+      "getStarted": "开始使用",
+      "signIn": "已有账号？登录"
+    },
     "footer": {
       "contactUs": "联系我们",
       "aboutUs": "关于我们"

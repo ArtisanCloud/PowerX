@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from "vue";
+import { useColorMode } from "#imports";
 import { usePluginBridge } from "~/composables/usePluginBridge";
 
 type ThemeKey = "system" | "light" | "dark";

@@ -8,6 +8,8 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+const capabilityContractRoute = "/admin/capability-contracts"
+
 // RegisterAPIRoutes 挂载能力契约管理相关的 HTTP 路由。
 func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterGroup, deps *shared.Deps) {
 	cfg := config.GetGlobalConfig()
@@ -16,7 +18,7 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 	policyHandler := NewVersionPolicyHandler(deps)
 	adapterHandler := NewAdapterHandler(deps)
 
-	grp := protectedGroup.Group("/admin/capabilities")
+	grp := protectedGroup.Group(capabilityContractRoute)
 	grp.Use(middleware.JwtMiddleware(
 		[]byte(cfg.Auth.JWTSecret),
 		cfg.Auth.Issuer,
@@ -28,7 +30,6 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 		}),
 	))
 	{
-		grp.GET("", contractHandler.ListContracts)
 		grp.POST("", contractHandler.CreateContract)
 
 		grp.GET("/:capabilityKey/versions/:version", contractHandler.GetContract)

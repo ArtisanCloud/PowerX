@@ -44,7 +44,14 @@ func RenderPlanTool(ctx context.Context, request mcp.CallToolRequest) (*mcp.Call
 	}
 
 	// 读蓝图 YAML（顶级或 usecases 子目录）
-	cfg := config.GetGlobalConfig().MCP
+	rootCfg := config.GetGlobalConfig()
+	if rootCfg == nil {
+		return nil, fmt.Errorf("global config not initialized")
+	}
+	cfg := rootCfg.EffectiveMCPConfig()
+	if cfg == nil {
+		return nil, fmt.Errorf("mcp config missing")
+	}
 	base := cfg.FlowSpecsConfig.Blueprints
 	paths := []string{
 		filepath.Join(base, flowID+".yaml"),

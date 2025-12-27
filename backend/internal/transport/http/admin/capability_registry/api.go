@@ -11,6 +11,25 @@ func RegisterAPIRoutes(publicGroup *gin.RouterGroup, protectedGroup *gin.RouterG
 		return
 	}
 
+	if protectedGroup != nil && deps.CapabilityCatalogSvc != nil {
+		if handler := newCatalogHandler(deps.CapabilityCatalogSvc); handler != nil {
+			adminCapabilities := protectedGroup.Group("/admin/capabilities")
+			adminCapabilities.GET("", handler.ListCapabilities)
+			adminCapabilities.GET("/:capabilityId", handler.GetCapability)
+			protectedGroup.GET("/admin/capability-sync/jobs", handler.ListSyncJobs)
+		}
+		if platformHandler := newPlatformHandler(deps.CapabilityCatalogSvc); platformHandler != nil {
+			protectedGroup.GET("/admin/platform-capabilities", platformHandler.ListModules)
+			protectedGroup.GET("/admin/platform-capabilities/:moduleKey", platformHandler.GetModule)
+		}
+	}
+	if protectedGroup != nil {
+		if workflowHandler := newWorkflowHandler(deps); workflowHandler != nil {
+			protectedGroup.GET("/admin/workflow-templates", workflowHandler.ListTemplates)
+			protectedGroup.POST("/admin/workflow-templates/:templateId/upgrade", workflowHandler.ApproveTemplateUpgrade)
+		}
+	}
+
 	if publicGroup != nil && deps.DiscoverySvc != nil {
 		discoveryHandler := NewDiscoveryHandler(deps.DiscoverySvc)
 		publicGroup.GET("/discovery/:tenant_uuid/:capabilityId", discoveryHandler.GetSnapshot)

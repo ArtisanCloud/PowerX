@@ -164,7 +164,7 @@ Makefile                              # proto-gen / contracts-test / etc.
 - 鉴权：`bearerAuth: JWT`（内部管理端）  
 - 端点：创建、列表、详情、更新、软删、预签名
 - 移除任何对外字段/鉴权描述
-  - 统一上传流程：预签名返回 `method/url/headers`，本地驱动通过 `GET/PUT /media/*objectKey` 提供下载与直传能力（开发环境启用、HMAC Token 防伪，`public_base_url` 与该路由保持一致）
+- 统一上传流程：预签名返回 `method/url/headers`；本地驱动仅保留 `PUT /media/*objectKey`（调试/直传，HMAC Token 防伪），下载统一走 `GET /api/v1/media/assets/{uuid}/resource`（及 Admin 对应端点，可控制 `Content-Disposition`），`public_base_url` 仅用于调试拼接直传地址；所有新建资产的 `objectKey` 强制使用 UUID，客户端不可自定义路径
 
 3) **gRPC 契约**（`contracts/grpc-media-asset.proto`）  
 - Service：`media.v1.MediaAssetAdminService`  

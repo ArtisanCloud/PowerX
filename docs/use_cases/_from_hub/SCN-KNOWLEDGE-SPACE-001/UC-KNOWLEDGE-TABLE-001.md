@@ -26,7 +26,7 @@ last_generated_at: "2025-11-12"
 - docmap：`scope: powerx`, `layer: data`, `domain: knowledge`, `path: docs/usecases-seeds/SCN-KNOWLEDGE-SPACE-001/UC-KNOWLEDGE-TABLE-001.md`。
 - repos：`docs/_data/repos.yaml` 中 `key: powerx`，`usecase_seed_root = docs/use_cases/_from_hub`，`usecase_seed_legacy_root = docs/usecases-seeds`。
 - Feature Flags：`structured-ingestion`, `masking-enforced`, `graph-sync`, `search.hybrid-index`。
-- 外部依赖：字段模板库 `docs/knowledge/templates/structured-fields.md`、配置目录 `configs/structured/templates/*.yaml`、指标脚本 `reports/_state/ingestion-structured.json`、对象存储凭证、KMS 脱敏策略。
+- 外部依赖：字段模板库 `docs/knowledge/templates/structured-fields.md`、配置目录 `backend/config/structured/templates/*.yaml`、指标脚本 `reports/_state/ingestion-structured.json`、对象存储凭证、KMS 脱敏策略。
 
 > **注意**：上传样例 `expense-2024.xlsx`（正向）与 `expense-sensitive.xlsx`（脱敏阻断）必须在 QA 环境可读。
 

@@ -489,3 +489,300 @@ var IntegrationGatewayTenantService_ServiceDesc = grpc.ServiceDesc{
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "powerx/integration_gateway/v1/integration_gateway.proto",
 }
+
+const (
+	IntegrationGatewayService_ListCapabilities_FullMethodName       = "/powerx.integration.gateway.v1.IntegrationGatewayService/ListCapabilities"
+	IntegrationGatewayService_GetCapability_FullMethodName          = "/powerx.integration.gateway.v1.IntegrationGatewayService/GetCapability"
+	IntegrationGatewayService_InvokeCapability_FullMethodName       = "/powerx.integration.gateway.v1.IntegrationGatewayService/InvokeCapability"
+	IntegrationGatewayService_ListWorkflowTemplates_FullMethodName  = "/powerx.integration.gateway.v1.IntegrationGatewayService/ListWorkflowTemplates"
+	IntegrationGatewayService_StreamInvocation_FullMethodName       = "/powerx.integration.gateway.v1.IntegrationGatewayService/StreamInvocation"
+	IntegrationGatewayService_ListCapabilitySyncJobs_FullMethodName = "/powerx.integration.gateway.v1.IntegrationGatewayService/ListCapabilitySyncJobs"
+)
+
+// IntegrationGatewayServiceClient is the client API for IntegrationGatewayService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type IntegrationGatewayServiceClient interface {
+	ListCapabilities(ctx context.Context, in *ListCapabilitiesRequest, opts ...grpc.CallOption) (*ListCapabilitiesResponse, error)
+	GetCapability(ctx context.Context, in *GetCapabilityRequest, opts ...grpc.CallOption) (*Capability, error)
+	InvokeCapability(ctx context.Context, in *InvokeCapabilityRequest, opts ...grpc.CallOption) (*InvokeCapabilityResponse, error)
+	ListWorkflowTemplates(ctx context.Context, in *ListWorkflowTemplatesRequest, opts ...grpc.CallOption) (*ListWorkflowTemplatesResponse, error)
+	StreamInvocation(ctx context.Context, in *StreamInvocationRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[StreamInvocationResponse], error)
+	ListCapabilitySyncJobs(ctx context.Context, in *ListCapabilitySyncJobsRequest, opts ...grpc.CallOption) (*ListCapabilitySyncJobsResponse, error)
+}
+
+type integrationGatewayServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewIntegrationGatewayServiceClient(cc grpc.ClientConnInterface) IntegrationGatewayServiceClient {
+	return &integrationGatewayServiceClient{cc}
+}
+
+func (c *integrationGatewayServiceClient) ListCapabilities(ctx context.Context, in *ListCapabilitiesRequest, opts ...grpc.CallOption) (*ListCapabilitiesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListCapabilitiesResponse)
+	err := c.cc.Invoke(ctx, IntegrationGatewayService_ListCapabilities_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *integrationGatewayServiceClient) GetCapability(ctx context.Context, in *GetCapabilityRequest, opts ...grpc.CallOption) (*Capability, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Capability)
+	err := c.cc.Invoke(ctx, IntegrationGatewayService_GetCapability_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *integrationGatewayServiceClient) InvokeCapability(ctx context.Context, in *InvokeCapabilityRequest, opts ...grpc.CallOption) (*InvokeCapabilityResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(InvokeCapabilityResponse)
+	err := c.cc.Invoke(ctx, IntegrationGatewayService_InvokeCapability_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *integrationGatewayServiceClient) ListWorkflowTemplates(ctx context.Context, in *ListWorkflowTemplatesRequest, opts ...grpc.CallOption) (*ListWorkflowTemplatesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListWorkflowTemplatesResponse)
+	err := c.cc.Invoke(ctx, IntegrationGatewayService_ListWorkflowTemplates_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *integrationGatewayServiceClient) StreamInvocation(ctx context.Context, in *StreamInvocationRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[StreamInvocationResponse], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &IntegrationGatewayService_ServiceDesc.Streams[0], IntegrationGatewayService_StreamInvocation_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[StreamInvocationRequest, StreamInvocationResponse]{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type IntegrationGatewayService_StreamInvocationClient = grpc.ServerStreamingClient[StreamInvocationResponse]
+
+func (c *integrationGatewayServiceClient) ListCapabilitySyncJobs(ctx context.Context, in *ListCapabilitySyncJobsRequest, opts ...grpc.CallOption) (*ListCapabilitySyncJobsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListCapabilitySyncJobsResponse)
+	err := c.cc.Invoke(ctx, IntegrationGatewayService_ListCapabilitySyncJobs_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// IntegrationGatewayServiceServer is the server API for IntegrationGatewayService service.
+// All implementations must embed UnimplementedIntegrationGatewayServiceServer
+// for forward compatibility.
+type IntegrationGatewayServiceServer interface {
+	ListCapabilities(context.Context, *ListCapabilitiesRequest) (*ListCapabilitiesResponse, error)
+	GetCapability(context.Context, *GetCapabilityRequest) (*Capability, error)
+	InvokeCapability(context.Context, *InvokeCapabilityRequest) (*InvokeCapabilityResponse, error)
+	ListWorkflowTemplates(context.Context, *ListWorkflowTemplatesRequest) (*ListWorkflowTemplatesResponse, error)
+	StreamInvocation(*StreamInvocationRequest, grpc.ServerStreamingServer[StreamInvocationResponse]) error
+	ListCapabilitySyncJobs(context.Context, *ListCapabilitySyncJobsRequest) (*ListCapabilitySyncJobsResponse, error)
+	mustEmbedUnimplementedIntegrationGatewayServiceServer()
+}
+
+// UnimplementedIntegrationGatewayServiceServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedIntegrationGatewayServiceServer struct{}
+
+func (UnimplementedIntegrationGatewayServiceServer) ListCapabilities(context.Context, *ListCapabilitiesRequest) (*ListCapabilitiesResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListCapabilities not implemented")
+}
+func (UnimplementedIntegrationGatewayServiceServer) GetCapability(context.Context, *GetCapabilityRequest) (*Capability, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetCapability not implemented")
+}
+func (UnimplementedIntegrationGatewayServiceServer) InvokeCapability(context.Context, *InvokeCapabilityRequest) (*InvokeCapabilityResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method InvokeCapability not implemented")
+}
+func (UnimplementedIntegrationGatewayServiceServer) ListWorkflowTemplates(context.Context, *ListWorkflowTemplatesRequest) (*ListWorkflowTemplatesResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListWorkflowTemplates not implemented")
+}
+func (UnimplementedIntegrationGatewayServiceServer) StreamInvocation(*StreamInvocationRequest, grpc.ServerStreamingServer[StreamInvocationResponse]) error {
+	return status.Errorf(codes.Unimplemented, "method StreamInvocation not implemented")
+}
+func (UnimplementedIntegrationGatewayServiceServer) ListCapabilitySyncJobs(context.Context, *ListCapabilitySyncJobsRequest) (*ListCapabilitySyncJobsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListCapabilitySyncJobs not implemented")
+}
+func (UnimplementedIntegrationGatewayServiceServer) mustEmbedUnimplementedIntegrationGatewayServiceServer() {
+}
+func (UnimplementedIntegrationGatewayServiceServer) testEmbeddedByValue() {}
+
+// UnsafeIntegrationGatewayServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to IntegrationGatewayServiceServer will
+// result in compilation errors.
+type UnsafeIntegrationGatewayServiceServer interface {
+	mustEmbedUnimplementedIntegrationGatewayServiceServer()
+}
+
+func RegisterIntegrationGatewayServiceServer(s grpc.ServiceRegistrar, srv IntegrationGatewayServiceServer) {
+	// If the following call pancis, it indicates UnimplementedIntegrationGatewayServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&IntegrationGatewayService_ServiceDesc, srv)
+}
+
+func _IntegrationGatewayService_ListCapabilities_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListCapabilitiesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(IntegrationGatewayServiceServer).ListCapabilities(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: IntegrationGatewayService_ListCapabilities_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(IntegrationGatewayServiceServer).ListCapabilities(ctx, req.(*ListCapabilitiesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _IntegrationGatewayService_GetCapability_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetCapabilityRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(IntegrationGatewayServiceServer).GetCapability(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: IntegrationGatewayService_GetCapability_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(IntegrationGatewayServiceServer).GetCapability(ctx, req.(*GetCapabilityRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _IntegrationGatewayService_InvokeCapability_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(InvokeCapabilityRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(IntegrationGatewayServiceServer).InvokeCapability(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: IntegrationGatewayService_InvokeCapability_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(IntegrationGatewayServiceServer).InvokeCapability(ctx, req.(*InvokeCapabilityRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _IntegrationGatewayService_ListWorkflowTemplates_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListWorkflowTemplatesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(IntegrationGatewayServiceServer).ListWorkflowTemplates(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: IntegrationGatewayService_ListWorkflowTemplates_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(IntegrationGatewayServiceServer).ListWorkflowTemplates(ctx, req.(*ListWorkflowTemplatesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _IntegrationGatewayService_StreamInvocation_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(StreamInvocationRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(IntegrationGatewayServiceServer).StreamInvocation(m, &grpc.GenericServerStream[StreamInvocationRequest, StreamInvocationResponse]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type IntegrationGatewayService_StreamInvocationServer = grpc.ServerStreamingServer[StreamInvocationResponse]
+
+func _IntegrationGatewayService_ListCapabilitySyncJobs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListCapabilitySyncJobsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(IntegrationGatewayServiceServer).ListCapabilitySyncJobs(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: IntegrationGatewayService_ListCapabilitySyncJobs_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(IntegrationGatewayServiceServer).ListCapabilitySyncJobs(ctx, req.(*ListCapabilitySyncJobsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// IntegrationGatewayService_ServiceDesc is the grpc.ServiceDesc for IntegrationGatewayService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var IntegrationGatewayService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "powerx.integration.gateway.v1.IntegrationGatewayService",
+	HandlerType: (*IntegrationGatewayServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "ListCapabilities",
+			Handler:    _IntegrationGatewayService_ListCapabilities_Handler,
+		},
+		{
+			MethodName: "GetCapability",
+			Handler:    _IntegrationGatewayService_GetCapability_Handler,
+		},
+		{
+			MethodName: "InvokeCapability",
+			Handler:    _IntegrationGatewayService_InvokeCapability_Handler,
+		},
+		{
+			MethodName: "ListWorkflowTemplates",
+			Handler:    _IntegrationGatewayService_ListWorkflowTemplates_Handler,
+		},
+		{
+			MethodName: "ListCapabilitySyncJobs",
+			Handler:    _IntegrationGatewayService_ListCapabilitySyncJobs_Handler,
+		},
+	},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "StreamInvocation",
+			Handler:       _IntegrationGatewayService_StreamInvocation_Handler,
+			ServerStreams: true,
+		},
+	},
+	Metadata: "powerx/integration_gateway/v1/integration_gateway.proto",
+}

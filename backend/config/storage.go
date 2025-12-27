@@ -10,11 +10,10 @@ type StorageConfig struct {
 
 // LocalStorageConfig 为本地驱动提供路径配置。
 type LocalStorageConfig struct {
-        BasePath      string `yaml:"base_path"`
-        PublicBaseURL string `yaml:"public_base_url"`
-        EnableUploadEndpoint bool   `yaml:"enable_upload_endpoint"`
-        UploadTokenSecret    string `yaml:"upload_token_secret"`
-        MaxUploadSizeBytes   int64  `yaml:"max_upload_size_bytes"`
+	BasePath           string `yaml:"base_path"`
+	PublicBaseURL      string `yaml:"public_base_url"`
+	UploadTokenSecret  string `yaml:"upload_token_secret"`
+	MaxUploadSizeBytes int64  `yaml:"max_upload_size_bytes"`
 }
 
 // S3StorageConfig 兼容 AWS S3 与 MinIO。

@@ -1,5 +1,6 @@
 package http
 
+
 import (
 	"github.com/ArtisanCloud/PowerX/config"
 	"github.com/ArtisanCloud/PowerX/internal/app/shared"
@@ -25,7 +26,6 @@ import (
 	"github.com/ArtisanCloud/PowerX/internal/transport/http/admin/tenants"
 	versionHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/version"
 	workflowHTTP "github.com/ArtisanCloud/PowerX/internal/transport/http/admin/workflow"
-	knowledgeSpaceOpenAPI "github.com/ArtisanCloud/PowerX/internal/transport/http/openapi/knowledge_space"
 	"github.com/gin-gonic/gin"
 )
 
@@ -34,7 +34,6 @@ func RegisterAPIRoutes(
 	r *gin.Engine, authMiddleware gin.HandlerFunc,
 	cfg *config.Config, deps *shared.Deps,
 ) {
-	httpmiddleware.RegisterLocalUploadEndpoint(r, cfg)
 	prefix := cfg.Server.APIPrefix
 	if prefix == "" {
 		prefix = "/api"
@@ -46,6 +45,10 @@ func RegisterAPIRoutes(
 	// 受保护的API组
 	protectedGroup := r.Group(prefix)
 	protectedGroup.Use(authMiddleware)
+
+	// Admin 体系在 /api/{prefix}/admin/... 下提供上传端点
+	adminUploadGroup := protectedGroup.Group("/admin")
+	httpmiddleware.RegisterLocalUploadEndpoint(adminUploadGroup, cfg, deps.MediaSvc)
 
 	system.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	tenants.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
@@ -69,6 +72,4 @@ func RegisterAPIRoutes(
 	eventFabricHTTP.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	workflowHTTP.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
 	knowledgeSpaceHTTP.RegisterAPIRoutes(publicGroup, protectedGroup, deps)
-	knowledgeSpaceOpenAPI.Register(publicGroup, protectedGroup, deps)
-
 }

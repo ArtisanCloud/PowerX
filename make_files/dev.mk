@@ -5,9 +5,12 @@
 DEV_PORT ?= 8077
 DEV_HOST ?= localhost
 LOG_LEVEL ?= debug
+CAPABILITY_SYNC_CONFIG ?= ./etc/config.yaml
+CAPABILITY_SYNC_ARTIFACTS ?= ./tmp/plugins
+CAPABILITY_SYNC_FLAGS ?=
 
 # 启动开发服务器
-.PHONY: dev dev-agent dev-demo dev-watch
+.PHONY: dev dev-agent dev-demo dev-watch capability-sync
 dev: dev-demo
 
 # 启动 Agent 服务
@@ -36,6 +39,11 @@ dev-watch:
 		echo "go install github.com/cosmtrek/air@latest"; \
 		echo "或使用: make dev"; \
 	fi
+
+# Capability Sync Worker
+capability-sync:
+	@echo "⚙️  启动 Capability Sync Worker..."
+	@cd backend && go run ./cmd/capability_sync -config $(CAPABILITY_SYNC_CONFIG) -artifacts $(CAPABILITY_SYNC_ARTIFACTS) $(CAPABILITY_SYNC_FLAGS)
 
 # 代码质量检查
 .PHONY: lint format vet check-all
