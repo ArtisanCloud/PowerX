@@ -187,7 +187,13 @@ func New(cfg *GRPCConfig, deps *shared.Deps) (*grpc.Server, net.Listener, error)
 	}
 
 	if deps.EventFabric != nil {
-		eventfabricgrpc.RegisterAuthorizationServer(deps)(s)
+		eventfabricgrpc.RegisterServices(
+			s,
+			eventfabricgrpc.RegisterAuthorizationServer(deps),
+			eventfabricgrpc.RegisterEventDeliveryServer(deps),
+			eventfabricgrpc.RegisterEventSubscriberServer(deps),
+			eventfabricgrpc.RegisterEventReplayServer(deps),
+		)
 	}
 
 	// ===== 反射 =====

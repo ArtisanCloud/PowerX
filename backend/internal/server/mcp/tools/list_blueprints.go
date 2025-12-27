@@ -27,8 +27,15 @@ type BlueprintInfo struct {
 
 // ListBlueprintsTool 列出所有可用蓝图
 func ListBlueprintsTool(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	// 获取配置
-	cfg := config.GetGlobalConfig().MCP
+	// 获取配置（agent.mcp 优先，兼容旧顶层）
+	cfgRoot := config.GetGlobalConfig()
+	if cfgRoot == nil {
+		return nil, fmt.Errorf("global config not initialized")
+	}
+	cfg := cfgRoot.EffectiveMCPConfig()
+	if cfg == nil {
+		return nil, fmt.Errorf("mcp config missing")
+	}
 
 	// 构建蓝图目录路径
 	usecasesPath := filepath.Join(cfg.FlowSpecsConfig.Blueprints, "usecases")

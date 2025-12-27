@@ -60,6 +60,8 @@ const TableIntegrationGatewayEventPublication = "integration_gateway_event_publi
 
 const TableEventTopics = "event_topics"
 const TableEventAclBindings = "event_acl_bindings"
+const TableEventTopicBindings = "event_topic_bindings"
+const TableEventAclManifestBindings = "event_acl_manifest_bindings"
 const TableEventEnvelopes = "event_envelopes"
 const TableEventDeliveryAttempts = "event_delivery_attempts"
 const TableEventDlqMessages = "event_dlq_messages"

@@ -2,23 +2,25 @@ package bootstrap
 
 import (
 	"context"
-	"github.com/ArtisanCloud/PowerX/internal/app/shared"
-	"github.com/ArtisanCloud/PowerX/internal/service/setting"
-	"github.com/ArtisanCloud/PowerX/pkg/auth/middleware"
-	"github.com/ArtisanCloud/PowerX/pkg/corex/iam"
+	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
+	"github.com/ArtisanCloud/PowerX/config"
+	"github.com/ArtisanCloud/PowerX/internal/app/shared"
+	pmimpl "github.com/ArtisanCloud/PowerX/internal/infra/plugin/manager"
 	pmimplnotify "github.com/ArtisanCloud/PowerX/internal/infra/plugin/manager/notify"
 	"github.com/ArtisanCloud/PowerX/internal/infra/plugin/manager/router"
-	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
-	"os"
-	"path/filepath"
-
-	"github.com/ArtisanCloud/PowerX/config"
-	pmimpl "github.com/ArtisanCloud/PowerX/internal/infra/plugin/manager"
 	"github.com/ArtisanCloud/PowerX/internal/infra/plugin/manager/supervisor"
+	"github.com/ArtisanCloud/PowerX/internal/service/event_fabric/autoseed"
+	"github.com/ArtisanCloud/PowerX/internal/service/event_fabric/manifest"
+	"github.com/ArtisanCloud/PowerX/internal/service/setting"
+	"github.com/ArtisanCloud/PowerX/pkg/auth/middleware"
+	"github.com/ArtisanCloud/PowerX/pkg/corex/iam"
 	pm "github.com/ArtisanCloud/PowerX/pkg/plugin_mgr"
+	"github.com/ArtisanCloud/PowerX/pkg/utils/logger"
 	"github.com/gin-gonic/gin"
 )
 
@@ -99,6 +101,10 @@ func BootstrapPlugin(ctx context.Context, deps *shared.Deps, cfg *config.Config,
 				}
 			}
 
+			if err := seedPluginEventFabric(ctx, deps, tenantUUID, pluginID); err != nil {
+				return err
+			}
+
 			return nil
 		},
 	})
@@ -144,4 +150,50 @@ func BootstrapPlugin(ctx context.Context, deps *shared.Deps, cfg *config.Config,
 	}
 
 	return mgr, nil
+}
+
+func seedPluginEventFabric(ctx context.Context, deps *shared.Deps, tenantUUID, pluginID string) error {
+	if deps == nil || deps.EventFabric == nil || deps.EventFabric.Seeder == nil {
+		return nil
+	}
+	manager := pmimpl.GetPluginManager()
+	if manager == nil {
+		return fmt.Errorf("plugin manager is not initialized")
+	}
+	plugin, err := manager.Get(ctx, pluginID)
+	if err != nil {
+		return fmt.Errorf("load plugin %s: %w", pluginID, err)
+	}
+	manifestPath, err := autoseed.ResolveManifestPath(plugin)
+	if err != nil {
+		return fmt.Errorf("resolve event manifest: %w", err)
+	}
+	if manifestPath == "" {
+		logger.DebugF(ctx, "[plugin-bootstrap] no event_fabric manifest found for plugin=%s", pluginID)
+		return nil
+	}
+
+	file, err := os.Open(manifestPath)
+	if err != nil {
+		return fmt.Errorf("open %s: %w", manifestPath, err)
+	}
+	defer file.Close()
+
+	doc, err := manifest.Parse(file)
+	if err != nil {
+		return fmt.Errorf("parse %s: %w", manifestPath, err)
+	}
+
+	seedCtx := manifest.SeedContext{
+		TenantUUID:    tenantUUID,
+		PluginID:      plugin.ID,
+		PluginVersion: plugin.Version,
+		Operator:      "plugin-bootstrap",
+		Variables:     autoseed.BuildSeedVariables(plugin),
+	}
+	if _, err := deps.EventFabric.Seeder.ApplyManifest(ctx, doc, seedCtx); err != nil {
+		return err
+	}
+	logger.InfoF(ctx, "[plugin-bootstrap] event_fabric seeded plugin=%s tenant=%s manifest=%s", pluginID, tenantUUID, manifestPath)
+	return nil
 }

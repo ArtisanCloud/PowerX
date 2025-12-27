@@ -17,6 +17,18 @@ func NewPluginInstanceConfigRepository(db *gorm.DB) *PluginInstanceConfigReposit
 	return &PluginInstanceConfigRepository{db: db}
 }
 
+type TenantPluginBinding struct {
+	TenantUUID string
+	PluginID   string
+}
+
+type ListTenantPluginOptions struct {
+	TenantUUIDs []string
+	PluginIDs   []string
+	Key         string
+	OnlyEnabled bool
+}
+
 func (r *PluginInstanceConfigRepository) with(ctx context.Context) *gorm.DB {
 	db := r.db.WithContext(ctx)
 	if debug, ok := ctx.Value(utils.DebugKey).(bool); ok && debug {
@@ -108,6 +120,53 @@ func (r *PluginInstanceConfigRepository) ListEnabledPluginsByTenant(ctx context.
 		ids = append(ids, r.PluginID)
 	}
 	return ids, nil
+}
+
+func (r *PluginInstanceConfigRepository) ListTenantPluginBindings(ctx context.Context, opts ListTenantPluginOptions) ([]TenantPluginBinding, error) {
+	db := r.with(ctx).Model(&dbsetting.PluginInstanceConfig{})
+
+	if opts.Key != "" {
+		db = db.Where("key = ?", strings.TrimSpace(opts.Key))
+	}
+	if opts.OnlyEnabled {
+		if r.db != nil && r.db.Dialector != nil && strings.EqualFold(r.db.Dialector.Name(), "sqlite") {
+			db = db.Where("enabled = 1")
+		} else {
+			db = db.Where("enabled = ?", true)
+		}
+	}
+	if len(opts.TenantUUIDs) > 0 {
+		tenantIDs := make([]string, 0, len(opts.TenantUUIDs))
+		for _, tenant := range opts.TenantUUIDs {
+			canonical, err := canonicalTenantUUIDStrict(tenant)
+			if err != nil {
+				return nil, err
+			}
+			tenantIDs = append(tenantIDs, canonical)
+		}
+		db = db.Where("tenant_uuid IN ?", tenantIDs)
+	}
+	if len(opts.PluginIDs) > 0 {
+		normalized := make([]string, 0, len(opts.PluginIDs))
+		for _, plugin := range opts.PluginIDs {
+			if trimmed := strings.TrimSpace(plugin); trimmed != "" {
+				normalized = append(normalized, trimmed)
+			}
+		}
+		if len(normalized) > 0 {
+			db = db.Where("plugin_id IN ?", normalized)
+		}
+	}
+
+	var rows []TenantPluginBinding
+	err := db.Select("tenant_uuid", "plugin_id").
+		Distinct("tenant_uuid", "plugin_id").
+		Order("tenant_uuid, plugin_id").
+		Scan(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	return rows, nil
 }
 
 // Delete 租户-插件-键 的配置

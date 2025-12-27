@@ -15,6 +15,20 @@
 - Agent Hub MCP Server 与 Workflow Builder 进程已通过 `make dev` 启动。
 - 至少存在一个示例插件（可使用 `projects/demo-multi-plugin`）并成功执行 `px-plugin capabilities submit`。
 
+### 步骤 0：自动播种 Event Fabric Topic/ACL
+1. 在插件仓库提供 `event_fabric.yaml`（支持放在 `config/`、`platform_capabilities/` 或包根目录），并声明 Topic/ACL 模板。Manifest 可引用 `{{ tenant_uuid }}`、`{{ plugin_id }}`、`{{ variables.cluster }}` 等变量。
+2. 插件启用/升级后，安装 orchestrator 会自动调用 `event_fabric.SeedService` 播种 Topic 与 ACL；若记录已存在，则根据 binding 表跳过重复授权，无需手动访问 Admin Topic/ACL API。
+3. 如需在本地或 CI 预览，运行：
+   ```bash
+   cd backend
+   go run ./cmd/event_fabric_seed \
+     --tenant "$TENANT_UUID" \
+     --plugin "$PLUGIN_ID" \
+     --dry-run
+   ```
+   不带 `--dry-run` 将实际写入（用于补齐权限）。
+4. `scripts/capability_registry/verify.sh` 默认会在执行 capability sync 后自动跑一遍上述 dry-run，可通过 `--skip-event-seed` 跳过或用 `--event-seed-manifest` 指定自定义路径，使 CI 也能及时发现 manifest 模板错误。
+
 ### 步骤 1：触发并验证 Capability Sync（含缓存刷新）
 1. 将 `.pxp` 包上传到 `tmp/plugins/`，执行 `make capability-sync`（包装 `cmd/capability_sync`）。
 2. 通过 Admin API 查询最新目录：
@@ -71,6 +85,59 @@
    ```
    `data.payload` 固定承载真实业务响应体，而 `protocol_used/fallback_used` 有助于排查 Selector 是否进行了降级。
 4. 使用 `GET /tenant/invocations/{trace_id}` 查看最终状态，确保 `protocol_used` 与 Selector 策略一致。
+
+### 步骤 2.4：Gateway 代理 gRPC（Event Fabric 示例）
+当能力声明 `preferred_protocol=gRPC` 时，`/tenant/invocations` 也会直接代理 gRPC 请求与响应。以平台能力 `com.corex.eventfabric.publish` 为例：
+
+```bash
+PAYLOAD=$(printf '{"orderId":"ord_123","amount":99.9}' | base64)
+
+curl -sS -X POST "$POWERX_BASE_URL/tenant/invocations" \
+     -H "Authorization: Bearer $TENANT_TOKEN" \
+     -H "X-PowerX-Tenant: $TENANT_UUID" \
+     -H "Content-Type: application/json" \
+     -d '{
+           "capability_id": "com.corex.eventfabric.publish",
+           "preferred_protocol": "grpc",
+           "payload": {
+             "endpoint": "powerx.event_fabric.v1.EventDeliveryService",
+             "rpc": "PublishEvent",
+             "body": {
+               "tenant_uuid": "'$TENANT_UUID'",
+               "topic": "tenant-demo.orders.created",
+               "event_id": "evt-demo-001",
+               "trace_id": "trace-demo",
+               "version": "v1",
+               "payload_format": "json",
+               "payload": "'$PAYLOAD'",
+               "attributes": {
+                 "source": "plugin.demo"
+               }
+             }
+           }
+         }'
+```
+
+- `payload.endpoint` / `payload.rpc`：覆盖 Registry 中声明的默认 Service/方法，便于临时调试或自定义。
+- `body` 字段完全遵循 gRPC Proto（`PublishEventRequest`），其中 `payload` 是 **Base64** 字节串。
+- 响应的 `data.payload` 会回放 gRPC `PublishEventResponse` JSON，例：
+
+```json
+{
+  "code": 200,
+  "message": "success",
+  "data": {
+    "payload": {
+      "@type": "google.protobuf.Empty"
+    },
+    "trace_id": "fd7fb6ce-d0e9-4367-9b3f-0c73c0b71626",
+    "protocol_used": "grpc",
+    "fallback_used": false
+  }
+}
+```
+
+若请求体或 Service 名填写错误，`code` 会是 `integration.invoke_failed`，`data.payload` 保留底层 gRPC Status，便于直接排查。
 
 ### 步骤 2.5：宿主 vs Skeleton —— 调用底座能力
 无论插件运行在 **宿主模式（嵌入 Web Admin）** 或 **Skeleton 模式（独立进程）**，都需要先通过 `/tenant/capabilities` 发现 `source=corex` 的平台能力，再由 `/tenant/invocations` 或公开 OpenAPI/gRPC 入口完成调用。

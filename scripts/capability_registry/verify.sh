@@ -11,6 +11,8 @@ Options:
   --capability-id <id>       能力 ID，POST /tenant/invocations 使用（可使用 CAPABILITY_ID）
   --tenant-uuid <uuid>       租户 UUID（可使用 TENANT_UUID）
   --preferred-protocol <p>   Preferred protocol，默认 mcp
+  --skip-event-seed          跳过 Event Fabric manifest dry-run
+  --event-seed-manifest <p>  覆盖默认 manifest 路径（传给 event_fabric_seed）
   -h, --help                 显示帮助
 
 必须的环境变量：
@@ -43,6 +45,8 @@ PLUGIN_ID="${PLUGIN_ID:-}"
 CAPABILITY_ID="${CAPABILITY_ID:-}"
 TENANT_UUID="${TENANT_UUID:-}"
 PREFERRED_PROTOCOL="mcp"
+RUN_EVENT_SEED=1
+EVENT_SEED_MANIFEST="${EVENT_SEED_MANIFEST:-}"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -56,6 +60,10 @@ while [[ $# -gt 0 ]]; do
       TENANT_UUID="$2"; shift 2 ;;
     --preferred-protocol)
       PREFERRED_PROTOCOL="$2"; shift 2 ;;
+    --skip-event-seed)
+      RUN_EVENT_SEED=0; shift ;;
+    --event-seed-manifest)
+      EVENT_SEED_MANIFEST="$2"; shift 2 ;;
     -h|--help)
       usage; exit 0 ;;
     *)
@@ -78,6 +86,20 @@ if [[ -n "$ARTIFACT_DIR" ]]; then
   CAPABILITY_SYNC_ARTIFACTS="$ARTIFACT_DIR" make capability-sync
 else
   make capability-sync
+fi
+
+if [[ "$RUN_EVENT_SEED" -eq 1 ]]; then
+  log "Dry-run Event Fabric seed for plugin=$PLUGIN_ID tenant=$TENANT_UUID"
+  pushd backend >/dev/null
+  SEED_CMD=(go run ./cmd/event_fabric_seed --tenant "$TENANT_UUID" --plugin "$PLUGIN_ID" --dry-run)
+  if [[ -n "$EVENT_SEED_MANIFEST" ]]; then
+    SEED_CMD+=(--manifest "$EVENT_SEED_MANIFEST")
+  fi
+  if ! "${SEED_CMD[@]}"; then
+    echo "[ERROR] Event Fabric dry-run failed" >&2
+    exit 1
+  fi
+  popd >/dev/null
 fi
 
 API_BASE="$POWERX_BASE_URL"

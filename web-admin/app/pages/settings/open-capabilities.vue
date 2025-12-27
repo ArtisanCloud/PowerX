@@ -251,7 +251,7 @@
                   {{ $t('settings.openCapabilities.actions.copyInsomnia') }}
                 </UButton>
                 <UButton
-                  v-for="doc in capability.docs"
+                  v-for="doc in uniqueDocs(capability.docs)"
                   :key="doc"
                   size="xs"
                   variant="ghost"
@@ -502,6 +502,11 @@ const truncateHash = (value?: string) => {
   if (!value) return '-';
   if (value.length <= 12) return value;
   return `${value.slice(0, 6)}…${value.slice(-4)}`;
+};
+
+const uniqueDocs = (docs?: string[]) => {
+  if (!Array.isArray(docs)) return [];
+  return Array.from(new Set(docs.filter((doc) => typeof doc === 'string' && doc.trim().length > 0)));
 };
 
 const buildCurlSnippet = (capability: PlatformCapability) => {

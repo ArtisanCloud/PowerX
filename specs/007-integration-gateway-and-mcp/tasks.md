@@ -118,6 +118,14 @@
 - [x] **T059 [P][FR-018]** Handler/Selector 改造：在 `backend/internal/transport/http/openapi/capability_registry/tenant_handler.go`、`internal/service/capability_registry/selector.go` 与 `invocation_service.go` 中实现 Proxy 模式——解析 `payload.method/endpoint` & `payload.rpc/endpoint`，将底层响应写入统一 Envelope，传播 `trace_id`，并保持向后兼容（旧客户端缺失字段时由 Registry 补齐）。
 - [x] **T060 [FR-018]** 观测与文档：更新 `docs/guides/develop/open_capability/*`, `specs/007-.../quickstart.md`、OpenAPI/Protobuf 注释，确保响应模型包含 `payload/trace_id`；同时在 `observability/metrics` 与 `InvocationTrace` 中记录 `protocol_used`、`fallback_used`，配套新增 QA 脚本验证。
 
+## Phase 9: Event Fabric Topic/ACL 自动化
+
+- [x] **T061 [P]** Topic/ACL Manifest 契约：定义 `event_fabric.yaml`（或 `platform_capabilities/event_fabric.yaml`） schema，包含 Topic（tenant namespace/name、重试、版本策略）与 ACL（principal 类型、ID 模板、action）。编写 DTO + 校验 `backend/internal/service/event_fabric/manifest_parser.go`，并给出 JSON Schema/示例，配套 `backend/tests/contract/event_fabric/topic_manifest_test.go`。
+- [x] **T062 [P]** 安装 Hook + Seed Service：在插件启用流程（`backend/internal/service/plugin_release/runtime/service.go` 或安装 orchestrator）接入 manifest 解析，调用新建的 `event_fabric.SeedService` 自动创建/更新 Topic 与 ACL，支持多租户输入、幂等键、失败重试，并在审计中记录操作。
+- [x] **T063 [P]** Root Resync CLI/API：新增 CLI/脚本（`backend/cmd/event_fabric_seed`）以及可选 `POST /api/v1/admin/event-fabric/seed`，读取 manifest 并对指定租户/插件/dry-run 批量应用，输出 diff/日志，方便运维批量修复。
+- [x] **T064** 多租户映射存储：在数据库或 Redis 新增 `event_fabric_topic_bindings`/`acl_bindings` 记录 manifest 应用结果（租户+插件+topic+principal），提供查询/幂等校验，避免重复创建。（已落地 `backend/pkg/corex/db/persistence/model/event_fabric/manifest_binding.go` + `repository/event_fabric/manifest_binding_repository.go` + `internal/service/event_fabric/manifest/binding_store.go` 并写入 `binding_store_test.go` / `backend/tests/contract/event_fabric/seed_service_test.go` 验证）
+- [x] **T065** CI/文档：更新 `specs/007.../quickstart.md`、`docs/guides/develop/open_capability/event_fabric.md`，说明“插件安装自动生成 Topic/ACL”流程与脚本调用方式；在 CI（`scripts/capability_registry/verify.sh` 或新脚本）中加入 `event_fabric apply --dry-run` 步骤。（已补充 manifest 自动播种章节、Quickstart 步骤 0，并在 `scripts/capability_registry/verify.sh` 中默认执行 `event_fabric_seed --dry-run`，支持 `--skip-event-seed`/`--event-seed-manifest`）
+
 ## Dependencies & Parallel Execution
 
 1. **Phase 1 → Phase 2**：完成配置与目录后方可定义模型与仓储。

@@ -208,6 +208,8 @@ func migrateEventFabricModels(db *gorm.DB) error {
 	if err := db.AutoMigrate(
 		&modelEventFabric.TopicDefinition{},
 		&modelEventFabric.AclBinding{},
+		&modelEventFabric.TopicManifestBinding{},
+		&modelEventFabric.AclManifestBinding{},
 		&modelEventFabric.AuthorizationCapability{},
 		&modelEventFabric.AuthorizationGrantTemplate{},
 		&modelEventFabric.AuthorizationGrant{},

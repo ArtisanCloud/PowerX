@@ -3,9 +3,15 @@ package event_bus
 import "fmt"
 
 // InitEventBus 订阅全局事件（示例 plugin 行为）
-func InitEventBus() error {
+func InitEventBus(cfg *Config) error {
 	// 初始化默认事件总线
-	err := InitDefaultEventBus(&Config{Type: "local"})
+	if cfg == nil {
+		cfg = &Config{Type: "local"}
+	}
+	if cfg.Type == "" {
+		cfg.Type = "local"
+	}
+	err := InitDefaultEventBus(cfg)
 	if err != nil {
 		return err
 	}

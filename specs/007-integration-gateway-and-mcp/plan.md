@@ -44,6 +44,17 @@
 
 本阶段将新增 Implementation 任务（T058-T060），覆盖 Handler/Selector 改造、观测补充与文档更新。
 
+## Event Fabric Topic/ACL 自动化（新增）
+
+插件在租户环境启用时，需要自动铺设 Event Fabric Topic 与 ACL，否则能力无法调用。为降低人工操作成本，需新增 manifest + 安装 Hook：
+
+1. **Manifest**：在插件包或 `platform_capabilities` 配置中声明 Event Topic/ACL 需求（命名、namespace、principal 模板、幂等策略），CI/脚本可复用同一份 YAML。
+2. **Installer Hook**：插件启用/禁用时，CoreX 自动解析 manifest 并调用 Event Fabric Service 创建/更新 Topic 和 ACL；支持多租户、多 principal、重试与审计。
+3. **Resync 脚本**：root 管理员或 CI 可执行脚本（或 API）对所有租户/插件重新 apply manifest，支持 dry-run/diff。
+4. **文档 & Quickstart**：在 Event Fabric 调试指南与 quickstart 中添加“自动化配置”章节，说明 manifest 结构、脚本用法。
+
+对应新增任务 T061-T065。
+
 ## Technical Context
 
 **Language/Version**: Go 1.24（backend）、Node 20（脚本+CLI）  

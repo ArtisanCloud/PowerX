@@ -37,6 +37,7 @@ import (
 	deliveryService "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/delivery"
 	directoryService "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/directory"
 	dlqService "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/dlq"
+	manifestService "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/manifest"
 	eventmetrics "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/metrics"
 	replayService "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/replay"
 	security "github.com/ArtisanCloud/PowerX/internal/service/event_fabric/security"
@@ -742,6 +743,8 @@ type EventFabricDeps struct {
 	Directory     *directoryService.DirectoryService
 	ACL           *aclService.ACLService
 	Enforcer      *aclService.ACLEnforcer
+	Seeder        *manifestService.SeedService
+	BindingStore  manifestService.BindingStore
 	Reliable      event_bus.ReliableQueue
 	Scheduler     *deliveryService.BackoffScheduler
 	Delivery      deliveryService.Service
@@ -924,6 +927,7 @@ func newEventFabricDeps(db *gorm.DB, opts EventFabricOptions, bus event_bus.Even
 		Clock: time.Now,
 	})
 	aclEnforcer := aclService.NewACLEnforcer(aclSvc)
+	bindingRepo := eventfabricrepo.NewManifestBindingRepository(db)
 
 	auditSvcEF := auditService.NewService(auditService.Options{
 		AuditService: auditSvc,
@@ -934,6 +938,23 @@ func newEventFabricDeps(db *gorm.DB, opts EventFabricOptions, bus event_bus.Even
 
 	if securityVerifier != nil {
 		securityVerifier.SetViolationReporter(auditViolationReporter{audit: auditSvcEF})
+	}
+
+	var seedSvc *manifestService.SeedService
+	var bindingStore manifestService.BindingStore
+	if bindingRepo != nil {
+		bindingStore = manifestService.NewBindingStore(bindingRepo)
+	}
+
+	if directorySvc != nil && aclSvc != nil {
+		seedSvc = manifestService.NewSeedService(manifestService.SeedServiceOptions{
+			Directory: directorySvc,
+			ACL:       aclSvc,
+			Audit:     auditSvcEF,
+			Logger:    pxlog.GetGlobalLogger(),
+			Clock:     time.Now,
+			Bindings: bindingStore,
+		})
 	}
 
 	var deliverySvc deliveryService.Service
@@ -1138,6 +1159,8 @@ func newEventFabricDeps(db *gorm.DB, opts EventFabricOptions, bus event_bus.Even
 		Directory:     directorySvc,
 		ACL:           aclSvc,
 		Enforcer:      aclEnforcer,
+		Seeder:        seedSvc,
+		BindingStore:  bindingStore,
 		Reliable:      reliableQueue,
 		Scheduler:     scheduler,
 		Delivery:      deliverySvc,
