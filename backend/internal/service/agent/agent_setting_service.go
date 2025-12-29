@@ -330,6 +330,7 @@ func (s *AgentSettingService) PingLLM(ctx context.Context, env string, tenantUUI
 		Temperature:  0.0,
 		MaxTokens:    8,
 		AccessToken:  apiKey,
+		Extra:        s.buildModelExtras(contract.ModLLM, provider, model),
 	}
 	cli, err := agentllm.NewClient(provider)
 	if err != nil {
@@ -383,6 +384,7 @@ func (s *AgentSettingService) QuickCallLLM(
 		Temperature:  temperature,
 		MaxTokens:    utils.MaxInt(maxTokens, 64),
 		AccessToken:  apiKey,
+		Extra:        s.buildModelExtras(contract.ModLLM, provider, model),
 	}
 	cli, err := agentllm.NewClient(provider)
 	if err != nil {
@@ -463,6 +465,19 @@ func ensureModelExists(modality, provider, model string) error {
 	}
 	if manifest := findModelManifest(modality, provider, model); manifest == nil {
 		return fmt.Errorf("provider %s 不包含模型 %s (%s)", provider, model, modality)
+	}
+	return nil
+}
+
+func (s *AgentSettingService) buildModelExtras(modality contract.Modality, provider, model string) map[string]any {
+	manifest := findModelManifest(string(modality), provider, model)
+	if manifest == nil || manifest.Defaults == nil {
+		return nil
+	}
+	if raw, ok := manifest.Defaults["api_path"]; ok {
+		if path, ok2 := raw.(string); ok2 && strings.TrimSpace(path) != "" {
+			return map[string]any{"api_path": path}
+		}
 	}
 	return nil
 }

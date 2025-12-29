@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -17,6 +18,7 @@ import (
 	dtoRequest "github.com/ArtisanCloud/PowerX/pkg/dto"
 	"github.com/gin-gonic/gin"
 	"gorm.io/datatypes"
+	"gorm.io/gorm"
 )
 
 // 依赖注入
@@ -778,14 +780,25 @@ func (h *AgentSettingHandler) getActiveProfile(c *gin.Context) {
 	}
 	tenantRef := tenantCtx.UUIDPtr()
 	prof, err := h.svc.GetActiveProfile(c.Request.Context(), env, tenantRef, mod)
-	if err != nil || prof == nil {
-		dtoRequest.ResponseError(c, http.StatusBadRequest, "未找到激活画像", err)
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		dtoRequest.ResponseError(c, http.StatusInternalServerError, "查询激活配置失败", err)
+		return
+	}
+	if prof == nil {
+		dtoRequest.ResponseSuccess(c, gin.H{
+			"env":        env,
+			"modality":   mod,
+			"profile":    nil,
+			"configured": false,
+			"message":    "当前模态尚未配置模型，请先在 AI 设置中保存。",
+		})
 		return
 	}
 	dtoRequest.ResponseSuccess(c, gin.H{
-		"env":      env,
-		"modality": mod,
-		"profile":  prof, // ✅ 只有一条
+		"env":        env,
+		"modality":   mod,
+		"profile":    prof, // ✅ 只有一条
+		"configured": true,
 	})
 }
 

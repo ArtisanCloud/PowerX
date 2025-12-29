@@ -84,8 +84,9 @@ type AIRouting struct {
 
 func (c *AIConfig) SetDefaults() {
 	// Catalog
-	if c.Catalog.FailIfEmpty == false && len(c.Catalog.Dirs) == 0 {
-		// 不强行设默认目录；由你的主配置完全控制
+	if len(c.Catalog.Dirs) == 0 {
+		// 默认使用仓库内置的 provider 目录，避免忘记配置时 registry 为空
+		c.Catalog.Dirs = []string{"./config/agents/providers.d"}
 	}
 	// Defaults.LLM
 	if c.Defaults.LLM.Temperature == 0 {

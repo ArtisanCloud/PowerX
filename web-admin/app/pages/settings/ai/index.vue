@@ -510,6 +510,7 @@ async function onProviderChanged(nextProvider?: string) {
 
   // 关键：参数不全就短路，但不清空 models
   if (!rawProvider || !currentModality) {
+    syncCredentialFieldsForProvider(rawProvider);
     return;
   }
 
@@ -523,6 +524,55 @@ async function onProviderChanged(nextProvider?: string) {
   } catch (error) {
     console.error("获取模型列表失败:", error);
     // 这里不清空，保持上一次成功值
+  }
+
+  syncCredentialFieldsForProvider(rawProvider);
+}
+
+function syncCredentialFieldsForProvider(provider?: string | null) {
+  const targetProvider = (provider ?? "").trim();
+  const state = currentState.value as BaseConn & Record<string, any>;
+  const getter =
+    typeof aiSettingsStore.getCredentialByProvider === "function"
+      ? aiSettingsStore.getCredentialByProvider
+      : null;
+  const data = (getter ? getter(targetProvider)?.data ?? {} : {}) as Record<
+    string,
+    any
+  >;
+  const assign = (field: string, value: string) => {
+    state[field] = value;
+  };
+
+  const clearConnectionFields = () => {
+    assign("baseURL", "");
+    assign("organization", "");
+    assign("region", "");
+    if ("azureDeployment" in state) {
+      assign("azureDeployment", "");
+    }
+  };
+
+  if (!targetProvider) {
+    clearConnectionFields();
+    return;
+  }
+
+  const getString = (key: string) => {
+    const val = data[key];
+    return typeof val === "string" ? val : "";
+  };
+
+  const baseURL = getString("base_url");
+  const organization = getString("organization");
+  const region = getString("region");
+  const azureDeployment = getString("azure_deployment");
+
+  assign("baseURL", baseURL);
+  assign("organization", organization);
+  assign("region", region);
+  if ("azureDeployment" in state) {
+    assign("azureDeployment", azureDeployment);
   }
 }
 

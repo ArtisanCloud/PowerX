@@ -205,7 +205,8 @@ low_code:
 
 ai:
   catalog:
-    dirs: []
+    dirs:
+      - "./config/agents/providers.d"
     include_embedded: true
     fail_if_empty: false
     hot_reload: false

@@ -22,31 +22,52 @@ modalities:
       - id: gpt-4o
         label: "GPT-4o"
         tags: ["omni","multimodal","flagship"]
-        defaults: { temperature: 0.7, max_tokens: 1024 }
+        defaults:
+          temperature: 0.7
+          max_tokens: 1024
+          api_path: "/v1/chat/completions"
       - id: gpt-4o-mini
         label: "GPT-4o mini"
         tags: ["fast","cheap"]
-        defaults: { temperature: 0.7, max_tokens: 1024 }
+        defaults:
+          temperature: 0.7
+          max_tokens: 1024
+          api_path: "/v1/chat/completions"
       - id: gpt-4.1-mini
         label: "GPT-4.1 mini"
         tags: ["json"]
-        defaults: { temperature: 0.3, max_tokens: 1024 }
+        defaults:
+          temperature: 0.3
+          max_tokens: 1024
+          api_path: "/v1/chat/completions"
       - id: o3
         label: "OpenAI o3"
         tags: ["reasoning","deep"]
-        defaults: { temperature: 0.2, max_tokens: 1024 }
+        defaults:
+          temperature: 0.2
+          max_tokens: 1024
+          api_path: "/v1/chat/completions"
       - id: o4-mini
         label: "OpenAI o4-mini"
         tags: ["reasoning","cost-effective"]
-        defaults: { temperature: 0.3, max_tokens: 1024 }
+        defaults:
+          temperature: 0.3
+          max_tokens: 1024
+          api_path: "/v1/chat/completions"
       - id: o4-mini-high
         label: "OpenAI o4-mini-high"
         tags: ["reasoning","high-effort","accuracy"]
-        defaults: { temperature: 0.2, max_tokens: 1024 }
+        defaults:
+          temperature: 0.2
+          max_tokens: 1024
+          api_path: "/v1/chat/completions"
       - id: gpt-3.5-turbo
         label: "GPT-3.5 Turbo"
         tags: ["fast","cheap"]
-        defaults: { temperature: 0.7, max_tokens: 1024 }
+        defaults:
+          temperature: 0.7
+          max_tokens: 1024
+          api_path: "/v1/chat/completions"
 
   embedding:
     models:
