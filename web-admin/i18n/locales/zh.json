@@ -35,6 +35,20 @@
       "untitled": "未命名分类"
     }
   },
+  "auth": {
+    "backToHome": "返回首页",
+    "welcomeBack": "欢迎回来",
+    "loginSubtitle": "请登录以继续。",
+    "identifier": "邮箱或手机号",
+    "password": "密码",
+    "remember": "记住我",
+    "signUpNow": "立即注册",
+    "login": {
+      "noAccount": "还没有账号？",
+      "forgotPassword": "忘记密码？"
+    },
+    "signingIn": "正在登录…"
+  },
   "common": {
     "collapse": "收起",
     "backToList": "返回列表",

@@ -37,6 +37,40 @@ modalities:
         label: "ERNIE Bot (base)"
         tags: ["general"]
         defaults: { temperature: 0.7, max_tokens: 1024 }
+      - id: ERNIE-Lite-8K
+        label: "ERNIE Lite 8K (Free)"
+        tags: ["lite","free","cost-optimized"]
+        defaults: { temperature: 0.7, max_tokens: 1024 }
+        limits: { context_window: 8192 }
+      - id: ERNIE-Tiny-8K
+        label: "ERNIE Tiny 8K"
+        tags: ["lite","cheap","latency"]
+        defaults: { temperature: 0.7, max_tokens: 1024 }
+        limits: { context_window: 8192 }
+      - id: ernie-4.0-8k
+        label: "ERNIE 4.0 8K"
+        tags: ["flagship","multimodal","v2"]
+        defaults: { temperature: 0.7, max_tokens: 1024 }
+      - id: ernie-4.0-128k
+        label: "ERNIE 4.0 128K"
+        tags: ["flagship","long-context","v2"]
+        defaults: { temperature: 0.7, max_tokens: 1024 }
+      - id: ernie-3.5-8k
+        label: "ERNIE 3.5 8K"
+        tags: ["general","balanced","v2"]
+        defaults: { temperature: 0.7, max_tokens: 1024 }
+      - id: ernie-speed-8k
+        label: "ERNIE Speed 8K (v2)"
+        tags: ["fast","cheap","v2"]
+        defaults: { temperature: 0.7, max_tokens: 1024 }
+      - id: ernie-speed-128k
+        label: "ERNIE Speed 128K (v2)"
+        tags: ["fast","long-context","v2"]
+        defaults: { temperature: 0.7, max_tokens: 1024 }
+      - id: ernie-lite-8k
+        label: "ERNIE Lite 8K (v2)"
+        tags: ["free","lite","v2"]
+        defaults: { temperature: 0.7, max_tokens: 1024 }
   embedding:
     models:
       - id: embedding-v1

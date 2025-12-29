@@ -14,6 +14,10 @@ export default defineNuxtPlugin((nuxtApp) => {
     if (!token || route.meta.auth === false) return; // 登录就绪 + 受保护页才初始化
 
     try {
+      const userStore = useUserStore();
+      if (!userStore.context) {
+        await userStore.fetchUserContext();
+      }
       const store = useAISettingsStore();
       await store.initialize();
       initialized.value = true;
